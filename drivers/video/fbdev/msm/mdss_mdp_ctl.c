@@ -4227,9 +4227,11 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 		return 0;
 	}
 
-	ret = mdss_mdp_ctl_setup(ctl);
-	if (ret)
-		return ret;
+	if (mdss_mdp_ctl_is_power_off(ctl)) {
+		ret = mdss_mdp_ctl_setup(ctl);
+		if (ret)
+			return ret;
+	}
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
 

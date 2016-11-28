@@ -167,6 +167,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (!hcd)
 		return -ENOMEM;
 
+	hcd_to_bus(hcd)->skip_resume = true;
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	hcd->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(hcd->regs)) {
@@ -220,6 +222,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto disable_clk;
 	}
+
+	hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
 
 	if ((node && of_property_read_bool(node, "usb3-lpm-capable")) ||
 			(pdata && pdata->usb3_lpm_capable))
@@ -332,7 +336,7 @@ static int xhci_plat_runtime_suspend(struct device *dev)
 
 	dev_dbg(dev, "xhci-plat runtime suspend\n");
 
-	return xhci_suspend(xhci, true);
+	return 0;
 }
 
 static int xhci_plat_runtime_resume(struct device *dev)
@@ -346,7 +350,7 @@ static int xhci_plat_runtime_resume(struct device *dev)
 
 	dev_dbg(dev, "xhci-plat runtime resume\n");
 
-	ret = xhci_resume(xhci, false);
+	ret = 0;
 	pm_runtime_mark_last_busy(dev);
 
 	return ret;

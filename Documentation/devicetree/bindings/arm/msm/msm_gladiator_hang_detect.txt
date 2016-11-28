@@ -31,7 +31,7 @@ Required properties:
 Optional properties:
 
 Example:
-	For msmcobalt:
+	For msm8998:
 		qcom,ghd {
 				compatible = "qcom,gladiator-hang-detect";
 				qcom,threshold-arr = <0x179d141c 0x179d1420

@@ -11,6 +11,8 @@ Main node:
 Required properties:
 - compatible		: Should be "qcom,qpnp-flash-led-v2"
 - reg			: Base address and size for flash LED modules
+- qcom,pmic-revid	: phandle of PMIC revid module. This is used to
+			  identify the PMIC subtype.
 
 Optional properties:
 - interrupts		: Specifies the interrupts associated with flash-led.
@@ -32,6 +34,18 @@ Optional properties:
 - qcom,vph-droop-debounce-us	: Integer property to specify VPH droop debounce time. It is only used
 				  if qcom,vph-droop-det is specified. Valid values are 0, 8, 16 and 26.
 				  Unit is uS.
+- qcom,led1n2-iclamp-low-ma	: Integer property to specify current clamp low
+				  level for mitigation. Unit is mA. Allowed
+				  values are same as under qcom,max-current.
+- qcom,led1n2-iclamp-mid-ma	: Integer property to specify current clamp mid
+				  level for mitigation. Unit is mA. Allowed
+				  values are same as under qcom,max-current.
+- qcom,led3-iclamp-low-ma	: Integer property to specify current clamp low
+				  level for mitigation. Unit is mA. Allowed
+				  values are same as under qcom,max-current.
+- qcom,led3-iclamp-mid-ma	: Integer property to specify current clamp mid
+				  level for mitigation. Unit is mA. Allowed
+				  values are same as under qcom,max-current.
 - qcom,vled-max-uv		: Integer property for flash current predictive mitigation.
 				  Default value is 3500000 uV.
 - qcom,ibatt-ocp-threshold-ua	: Integer property for flash current predictive mitigation.
@@ -64,12 +78,47 @@ Optional properties:
 - qcom,thermal-derate-current	: Array of currrent limits for thermal mitigation. Required if
 				  qcom,thermal-derate-en is specified. Unit is mA. Format is
 				  qcom,thermal-derate-current = <OTST1_LIMIT, OTST2_LIMIT, OTST3_LIMIT>.
+- qcom,otst-ramp-back-up-dis	: Boolean property to disable current ramp
+				  backup after thermal derate trigger is
+				  deasserted.
+- qcom,thermal-derate-slow	: Integer property to specify slow ramping
+				  down thermal rate. Unit is in uS. Allowed
+				  values are: 128, 256, 512, 1024, 2048, 4096,
+				  8192 and 314592.
+- qcom,thermal-derate-fast	: Integer property to specify fast ramping
+				  down thermal rate. Unit is in uS. Allowed
+				  values are: 32, 64, 96, 128, 256, 384 and
+				  512.
+- qcom,thermal-debounce		: Integer property to specify thermal debounce
+				  time. It is only used if qcom,thermal-derate-en
+				  is specified. Unit is in uS. Allowed values
+				  are: 0, 16, 32, 64.
+- qcom,thermal-hysteresis	: Integer property to specify thermal derating
+				  hysteresis. Unit is in deciDegC. It is only
+				  used if qcom,thermal-derate-en is specified.
+				  Allowed values are:
+				  0, 15, 30, 45 for pmi8998.
+				  0, 20, 40, 60 for pm2falcon.
+- qcom,thermal-thrsh1		: Integer property to specify OTST1 threshold
+				  for thermal mitigation. Unit is in Celsius.
+				  Accepted values are:
+				  85, 79, 73, 67, 109, 103, 97, 91.
+- qcom,thermal-thrsh2		: Integer property to specify OTST2 threshold
+				  for thermal mitigation. Unit is in Celsius.
+				  Accepted values are:
+				  110, 104, 98, 92, 134, 128, 122, 116.
+- qcom,thermal-thrsh3		: Integer property to specify OTST3 threshold
+				  for thermal mitigation. Unit is in Celsius.
+				  Accepted values are:
+				  125, 119, 113, 107, 149, 143, 137, 131.
 - qcom,hw-strobe-option	: Integer type to specify hardware strobe option. Based on the specified
 			  value, additional GPIO configuration may be required to provide strobing
 			  support. Supported values are:
 			  0: Flash strobe is used for LED1, LED2, LED3
 			  1: Flash strobe is used for LED1, LED2 and GPIO10 is used for LED3
 			  2: Flash strobe is used for LED1; GPIO9 is used for LED2; GPIO10 is used for LED3
+- switchX-supply		: phandle of the regulator that needs to be used
+				  as a supply for flash switch_X device.
 
 Child node: Contains settings for each individual LED. Each LED channel needs a flash node and
 torch node for itself, and an individual switch node to serve as an overall switch.
@@ -126,15 +175,6 @@ Optional properties:
 				  be edge triggered. Otherwise, it is level triggered.
 - qcom,hw-strobe-active-low	: Boolean property to select strobe signal polarity. If defined, hw-strobe
 				  signal polarity is set to active-low, else it is active-high.
-- reg<n>		: reg<n> (<n> represents number. e.g. 0,1,2,..) subnode is to add support for
-			  multiple power sources. This subnode should only be specified for switch nodes.
-			  Required property inside regulator node:
-			  - regulator-name	: Name of the regulator which has to be used for this
-						  switch node.
-			  Optional property inside regulator node:
-			  - max-voltage-uv	: This specifies max voltage of regulator. Some switch
-						  or boost regulator does not need this property.
-
 Example:
 	qcom,leds@d300 {
 		compatible = "qcom,qpnp-flash-led-v2";
@@ -160,6 +200,7 @@ Example:
 
 		qcom,hdrm-auto-mode;
 		qcom,isc-delay = <192>;
+		switch0-supply = <&pmi8998_bob>;
 
 		pmi8998_flash0: qcom,flash_0 {
 			label = "flash";
@@ -254,10 +295,6 @@ Example:
 			qcom,led-mask = <3>;
 			qcom,default-led-trigger =
 						"switch0_trigger";
-			reg0 {
-				regulator-name = "pmicobalt_bob";
-				max-voltage-uv = <3600000>;
-			};
 		};
 
 		pmi8998_switch1: qcom,led_switch_1 {
@@ -266,10 +303,6 @@ Example:
 			qcom,led-mask = <4>;
 			qcom,default-led-trigger =
 						"switch1_trigger";
-			reg0 {
-				regulator-name = "pmicobalt_bob";
-				max-voltage-uv = <3600000>;
-			};
 		};
 	};
 

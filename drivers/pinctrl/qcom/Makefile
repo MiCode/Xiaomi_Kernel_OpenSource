@@ -13,6 +13,6 @@ obj-$(CONFIG_PINCTRL_QCOM_SPMI_PMIC) += pinctrl-spmi-mpp.o
 obj-$(CONFIG_PINCTRL_QCOM_SSBI_PMIC) += pinctrl-ssbi-gpio.o
 obj-$(CONFIG_PINCTRL_QCOM_SSBI_PMIC) += pinctrl-ssbi-mpp.o
 obj-$(CONFIG_PINCTRL_MSM8996)	+= pinctrl-msm8996.o
-obj-$(CONFIG_PINCTRL_MSMCOBALT)	+= pinctrl-msmcobalt.o
+obj-$(CONFIG_PINCTRL_MSM8998)	+= pinctrl-msm8998.o
 obj-$(CONFIG_PINCTRL_MSMFALCON)	+= pinctrl-msmfalcon.o
 obj-$(CONFIG_PINCTRL_WCD)	+= pinctrl-wcd.o

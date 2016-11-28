@@ -255,6 +255,15 @@ struct __attribute__ ((__packed__)) hdcp_version_rsp {
 	uint32_t appversion;
 };
 
+struct __attribute__ ((__packed__)) hdcp_verify_key_req {
+	uint32_t commandid;
+};
+
+struct __attribute__ ((__packed__)) hdcp_verify_key_rsp {
+	uint32_t status;
+	uint32_t commandId;
+};
+
 struct __attribute__ ((__packed__)) hdcp_lib_init_req_v1 {
 	uint32_t commandid;
 };
@@ -793,6 +802,48 @@ static int hdcp_lib_get_version(struct hdcp_lib_handle *handle)
 exit:
 	return rc;
 }
+
+static int hdcp_lib_verify_keys(struct hdcp_lib_handle *handle)
+{
+	int rc = -EINVAL;
+	struct hdcp_verify_key_req *req_buf;
+	struct hdcp_verify_key_rsp *rsp_buf;
+
+	if (!handle) {
+		pr_err("invalid input\n");
+		goto exit;
+	}
+
+	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
+		pr_err("app not loaded\n");
+		goto exit;
+	}
+
+	req_buf = (struct hdcp_verify_key_req *)handle->qseecom_handle->sbuf;
+	req_buf->commandid = HDCP_TXMTR_VERIFY_KEY;
+
+	rsp_buf = (struct hdcp_verify_key_rsp *)
+	    (handle->qseecom_handle->sbuf +
+	     QSEECOM_ALIGN(sizeof(struct hdcp_verify_key_req)));
+
+	rc = qseecom_send_command(handle->qseecom_handle,
+				  req_buf,
+				  QSEECOM_ALIGN(sizeof
+						(struct hdcp_verify_key_req)),
+				  rsp_buf,
+				  QSEECOM_ALIGN(sizeof
+						(struct hdcp_verify_key_rsp)));
+
+	if (rc < 0) {
+		pr_err("qseecom cmd failed err = %d\n", rc);
+		goto exit;
+	}
+
+	return rsp_buf->status;
+exit:
+	return rc;
+}
+
 
 static int hdcp_app_init_legacy(struct hdcp_lib_handle *handle)
 {
@@ -1456,10 +1507,12 @@ static bool hdcp_lib_client_feature_supported(void *phdcpcontext)
 
 	rc = hdcp_lib_library_load(handle);
 	if (!rc) {
-		pr_debug("HDCP2p2 supported\n");
-		handle->feature_supported = true;
+		if (!hdcp_lib_verify_keys(handle)) {
+			pr_debug("HDCP2p2 supported\n");
+			handle->feature_supported = true;
+			supported = true;
+		}
 		hdcp_lib_library_unload(handle);
-		supported = true;
 	}
 exit:
 	return supported;

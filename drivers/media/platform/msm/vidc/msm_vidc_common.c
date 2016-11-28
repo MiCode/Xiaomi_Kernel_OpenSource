@@ -298,6 +298,11 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 	rc = msm_comm_g_ctrl(inst, &ctrl);
 	if (!rc && ctrl.value) {
 		fps = (ctrl.value >> 16) ? ctrl.value >> 16 : 1;
+		/*
+		 * Check if operating rate is less than fps.
+		 * If Yes, then use fps to scale clocks
+		*/
+		fps = fps > inst->prop.fps ? fps : inst->prop.fps;
 		return max(output_port_mbs, capture_port_mbs) * fps;
 	} else
 		return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
@@ -1666,7 +1671,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	 */
 
 	mutex_lock(&core->lock);
-	inst = list_first_entry(&core->instances,
+	inst = list_first_entry_or_null(&core->instances,
 		struct msm_vidc_inst, list);
 	mutex_unlock(&core->lock);
 
@@ -5359,10 +5364,10 @@ static void msm_comm_print_debug_info(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_ERR, "Venus core frequency = %lu",
 		msm_comm_get_clock_rate(core));
+	mutex_lock(&core->lock);
 	dprintk(VIDC_ERR, "Printing instance info that caused Error\n");
 	msm_comm_print_inst_info(inst);
 	dprintk(VIDC_ERR, "Printing remaining instances info\n");
-	mutex_lock(&core->lock);
 	list_for_each_entry(temp, &core->instances, list) {
 		/* inst already printed above. Hence don't repeat.*/
 		if (temp == inst)

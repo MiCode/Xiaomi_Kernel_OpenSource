@@ -1118,7 +1118,7 @@ static void tx_prune_dtd_list(struct edid_3d_data_t *mhl_edid_3d_data,
 			if ((0 != p_desc->dtd.pixel_clock_low) ||
 				(0 != p_desc->dtd.pixel_clock_high)) {
 				MHL_TX_EDID_INFO(
-					"pix clock non-zero p_desc:%p", p_desc)
+					"pix clock non-zero p_desc:%pK", p_desc)
 				if ((0 == p_desc->dtd.horz_active_7_0) &&
 				    (0 == p_desc->dtd.horz_active_blanking_high.
 					horz_active_11_8)) {
@@ -1722,9 +1722,10 @@ static void prune_svd_list(
 					   ("\n\nInvalid extension size\n\n"));
 				while (pb_src < pb_limit) {
 					MHL_TX_EDID_INFO(
-					    "moving data up %p(0x%02X) "
-					    "<- %p(0x%02X)\n",
-					    pb_dest, (uint16_t)*pb_dest,
+					    "moving data up %pK(0x%02X) ",
+					    pb_dest, (uint16_t)*pb_dest);
+					MHL_TX_EDID_INFO(
+						"<- %pK(0x%02X)\n",
 					    pb_src, (uint16_t)*pb_src);
 					*pb_dest++ = *pb_src++;
 				}

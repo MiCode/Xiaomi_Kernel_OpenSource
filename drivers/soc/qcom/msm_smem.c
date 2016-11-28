@@ -84,6 +84,7 @@ static int smem_module_inited;
 static RAW_NOTIFIER_HEAD(smem_module_init_notifier_list);
 static DEFINE_MUTEX(smem_module_init_notifier_lock);
 static bool probe_done;
+uint32_t smem_max_items;
 
 /* smem security feature components */
 #define SMEM_TOC_IDENTIFIER 0x434f5424 /* "$TOC" */
@@ -139,6 +140,11 @@ struct smem_partition_info {
 };
 
 static struct smem_partition_info partitions[NUM_SMEM_SUBSYSTEMS];
+
+#define SMEM_COMM_PART_VERSION 0x000C
+#define SMEM_COMM_HOST 0xFFFE
+static bool use_comm_partition;
+static struct smem_partition_info comm_partition;
 /* end smem security feature components */
 
 /* Identifier for the SMEM target info struct. */
@@ -149,6 +155,7 @@ struct smem_targ_info_type {
 	uint32_t identifier;
 	uint32_t size;
 	phys_addr_t phys_base_addr;
+	uint32_t  max_items;
 };
 
 struct restart_notifier_block {
@@ -312,7 +319,7 @@ static void *__smem_get_entry_nonsecure(unsigned id, unsigned *size,
 	if (!skip_init_check && !smem_initialized_check())
 		return ret;
 
-	if (id >= SMEM_NUM_ITEMS)
+	if (id >= smem_max_items)
 		return ret;
 
 	if (use_spinlocks) {
@@ -374,7 +381,7 @@ static void *__smem_get_entry_secure(unsigned id,
 	if (!skip_init_check && !smem_initialized_check())
 		return NULL;
 
-	if (id >= SMEM_NUM_ITEMS) {
+	if (id >= smem_max_items) {
 		SMEM_INFO("%s: invalid id %d\n", __func__, id);
 		return NULL;
 	}
@@ -385,12 +392,18 @@ static void *__smem_get_entry_secure(unsigned id,
 		return NULL;
 	}
 
-	if (flags & SMEM_ANY_HOST_FLAG || !partitions[to_proc].offset)
-		return __smem_get_entry_nonsecure(id, size, skip_init_check,
-								use_rspinlock);
-
-	partition_num = partitions[to_proc].partition_num;
-	hdr = smem_areas[0].virt_addr + partitions[to_proc].offset;
+	if (flags & SMEM_ANY_HOST_FLAG || !partitions[to_proc].offset) {
+		if (use_comm_partition) {
+			partition_num = comm_partition.partition_num;
+			hdr = smem_areas[0].virt_addr + comm_partition.offset;
+		} else {
+			return __smem_get_entry_nonsecure(id, size,
+					skip_init_check, use_rspinlock);
+		}
+	} else {
+		partition_num = partitions[to_proc].partition_num;
+		hdr = smem_areas[0].virt_addr + partitions[to_proc].offset;
+	}
 	if (unlikely(!spinlocks_initialized)) {
 		rc = init_smem_remote_spinlock();
 		if (unlikely(rc)) {
@@ -613,8 +626,19 @@ static void *alloc_item_secure(unsigned id, unsigned size_in, unsigned to_proc,
 	uint32_t partition_num;
 	void *ret = NULL;
 
-	hdr = smem_base + partitions[to_proc].offset;
-	partition_num = partitions[to_proc].partition_num;
+	if (to_proc == SMEM_COMM_HOST) {
+		hdr = smem_base + comm_partition.offset;
+		partition_num = comm_partition.partition_num;
+		size_cacheline = comm_partition.size_cacheline;
+	} else if (to_proc < NUM_SMEM_SUBSYSTEMS) {
+		hdr = smem_base + partitions[to_proc].offset;
+		partition_num = partitions[to_proc].partition_num;
+		size_cacheline = partitions[to_proc].size_cacheline;
+	} else {
+		SMEM_INFO("%s: invalid to_proc %u for id %u\n", __func__,
+								to_proc, id);
+		return NULL;
+	}
 
 	if (hdr->identifier != SMEM_PART_HDR_IDENTIFIER) {
 		LOG_ERR(
@@ -626,7 +650,6 @@ static void *alloc_item_secure(unsigned id, unsigned size_in, unsigned to_proc,
 		BUG();
 	}
 
-	size_cacheline = partitions[to_proc].size_cacheline;
 	free_space = hdr->offset_free_cached -
 					hdr->offset_free_uncached;
 
@@ -718,7 +741,7 @@ void *smem_alloc(unsigned id, unsigned size_in, unsigned to_proc,
 	if (!smem_initialized_check())
 		return NULL;
 
-	if (id >= SMEM_NUM_ITEMS) {
+	if (id >= smem_max_items) {
 		SMEM_INFO("%s: invalid id %u\n", __func__, id);
 		return NULL;
 	}
@@ -761,11 +784,16 @@ void *smem_alloc(unsigned id, unsigned size_in, unsigned to_proc,
 	if (id > SMEM_FIXED_ITEM_LAST) {
 		SMEM_INFO("%s: allocating %u size %u to_proc %u flags %u\n",
 					__func__, id, size_in, to_proc, flags);
-		if (flags & SMEM_ANY_HOST_FLAG || !partitions[to_proc].offset)
-			ret = alloc_item_nonsecure(id, a_size_in);
-		else
+		if (flags & SMEM_ANY_HOST_FLAG
+			|| !partitions[to_proc].offset) {
+			if (use_comm_partition)
+				ret = alloc_item_secure(id, size_in,
+							SMEM_COMM_HOST, flags);
+			else
+				ret = alloc_item_nonsecure(id, a_size_in);
+		} else {
 			ret = alloc_item_secure(id, size_in, to_proc, flags);
-
+		}
 	} else {
 		SMEM_INFO("%s: attempted to allocate non-dynamic item %u\n",
 								__func__, id);
@@ -893,14 +921,18 @@ EXPORT_SYMBOL(smem_get_free_space);
 unsigned smem_get_version(unsigned idx)
 {
 	int *version_array;
+	struct smem_shared *smem = smem_ram_base;
 
 	if (idx > 32) {
 		pr_err("%s: invalid idx:%d\n", __func__, idx);
 		return 0;
 	}
 
-	version_array = __smem_find(SMEM_VERSION_INFO, SMEM_VERSION_INFO_SIZE,
-							true);
+	if (use_comm_partition)
+		version_array = smem->version;
+	else
+		version_array = __smem_find(SMEM_VERSION_INFO,
+					SMEM_VERSION_INFO_SIZE, true);
 	if (version_array == NULL)
 		return 0;
 
@@ -948,6 +980,7 @@ bool smem_initialized_check(void)
 	static int is_inited;
 	unsigned long flags;
 	struct smem_shared *smem;
+	unsigned ver;
 
 	if (likely(checked)) {
 		if (unlikely(!is_inited))
@@ -976,8 +1009,12 @@ bool smem_initialized_check(void)
 	 * structures.  Without the extra configuration data, the SMEM driver
 	 * cannot be properly initialized.
 	 */
-	if (smem_get_version(MODEM_SBL_VERSION_INDEX) != SMEM_VERSION << 16) {
-		pr_err("%s: SBL version not correct\n", __func__);
+	ver = smem->version[MODEM_SBL_VERSION_INDEX];
+	if (ver == SMEM_COMM_PART_VERSION << 16) {
+		use_comm_partition = true;
+	} else if (ver != SMEM_VERSION << 16) {
+		pr_err("%s: SBL version not correct 0x%x\n",
+				__func__, smem->version[7]);
 		goto failed;
 	}
 
@@ -1122,6 +1159,7 @@ static void smem_init_security_partition(struct smem_toc_entry *entry,
 {
 	uint16_t remote_host;
 	struct smem_partition_header *hdr;
+	bool is_comm_partition = false;
 
 	if (!entry->offset) {
 		SMEM_INFO("Skipping smem partition %d - bad offset\n", num);
@@ -1136,30 +1174,37 @@ static void smem_init_security_partition(struct smem_toc_entry *entry,
 		return;
 	}
 
-	if (entry->host0 == SMEM_APPS)
-		remote_host = entry->host1;
-	else
-		remote_host = entry->host0;
+	if (entry->host0 == SMEM_COMM_HOST && entry->host1 == SMEM_COMM_HOST)
+		is_comm_partition = true;
 
-	if (remote_host >= NUM_SMEM_SUBSYSTEMS) {
-		SMEM_INFO("Skipping smem partition %d - bad remote:%d\n", num,
-								remote_host);
-		return;
-	}
-	if (partitions[remote_host].offset) {
-		SMEM_INFO("Skipping smem partition %d - duplicate of %d\n", num,
-					partitions[remote_host].partition_num);
-		return;
+	if (!is_comm_partition) {
+		if (entry->host0 == SMEM_APPS)
+			remote_host = entry->host1;
+		else
+			remote_host = entry->host0;
+
+		if (remote_host >= NUM_SMEM_SUBSYSTEMS) {
+			SMEM_INFO(
+				"Skipping smem partition %d - bad remote:%d\n",
+				num, remote_host);
+			return;
+		}
+		if (partitions[remote_host].offset) {
+			SMEM_INFO(
+				"Skipping smem partition %d - duplicate of %d\n",
+				num, partitions[remote_host].partition_num);
+			return;
+		}
+
+		if (entry->host0 != SMEM_APPS && entry->host1 != SMEM_APPS) {
+			SMEM_INFO(
+				"Non-APSS Partition %d offset:%x host0:%d host1:%d\n",
+				num, entry->offset, entry->host0, entry->host1);
+			return;
+		}
 	}
 
 	hdr = smem_areas[0].virt_addr + entry->offset;
-
-	if (entry->host0 != SMEM_APPS && entry->host1 != SMEM_APPS) {
-		SMEM_INFO(
-			"Non-APSS Partition %d offset:%x host0:%d host1:%d\n",
-			num, entry->offset, entry->host0, entry->host1);
-		return;
-	}
 
 	if (hdr->identifier != SMEM_PART_HDR_IDENTIFIER) {
 		LOG_ERR("Smem partition %d hdr magic is bad\n", num);
@@ -1176,6 +1221,14 @@ static void smem_init_security_partition(struct smem_toc_entry *entry,
 	if (hdr->offset_free_cached > hdr->size) {
 		LOG_ERR("Smem partition %d cached heap exceeds size\n", num);
 		BUG();
+	}
+	if (hdr->host0 == SMEM_COMM_HOST && hdr->host1 == SMEM_COMM_HOST) {
+		comm_partition.partition_num = num;
+		comm_partition.offset = entry->offset;
+		comm_partition.size_cacheline = entry->size_cacheline;
+		SMEM_INFO("Common Partition %d offset:%x\n", num,
+						entry->offset);
+		return;
 	}
 	if (hdr->host0 != SMEM_APPS && hdr->host1 != SMEM_APPS) {
 		LOG_ERR("Smem partition %d hosts don't match TOC\n", num);
@@ -1253,6 +1306,8 @@ static int smem_init_target_info(phys_addr_t info_addr, resource_size_t size)
 	}
 	smem_ram_phys = smem_targ_info->phys_base_addr;
 	smem_ram_size = smem_targ_info->size;
+	if (smem_targ_info->max_items)
+		smem_max_items = smem_targ_info->max_items;
 	iounmap(smem_targ_info_addr);
 	return 0;
 }
@@ -1488,7 +1543,7 @@ int __init msm_smem_init(void)
 		return 0;
 
 	registered = true;
-
+	smem_max_items = SMEM_NUM_ITEMS;
 	smem_ipc_log_ctx = ipc_log_context_create(NUM_LOG_PAGES, "smem", 0);
 	if (!smem_ipc_log_ctx) {
 		pr_err("%s: unable to create logging context\n", __func__);

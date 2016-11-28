@@ -913,7 +913,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_PRS_SNK_SRC_TRANSITION_TO_OFF:
 		val.intval = pd->requested_current = 0; /* suspend charging */
 		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_CURRENT_MAX, &val);
+				POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
 
 		pd->in_explicit_contract = false;
 
@@ -1039,23 +1039,23 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 		return;
 	}
 
-	if (handler && handler->svdm_received)
-		handler->svdm_received(handler, cmd, cmd_type, vdos, num_vdos);
+	/* if this interrupts a previous exchange, abort queued response */
+	if (cmd_type == SVDM_CMD_TYPE_INITIATOR && pd->vdm_tx) {
+		usbpd_dbg(&pd->dev, "Discarding previously queued SVDM tx (SVID:0x%04x)\n",
+				VDM_HDR_SVID(pd->vdm_tx->data[0]));
 
+		kfree(pd->vdm_tx);
+		pd->vdm_tx = NULL;
+	}
+
+	if (handler && handler->svdm_received) {
+		handler->svdm_received(handler, cmd, cmd_type, vdos, num_vdos);
+		return;
+	}
+
+	/* Standard Discovery or unhandled messages go here */
 	switch (cmd_type) {
 	case SVDM_CMD_TYPE_INITIATOR:
-		/*
-		 * if this interrupts a previous exchange, abort the previous
-		 * outgoing response
-		 */
-		if (pd->vdm_tx) {
-			usbpd_dbg(&pd->dev, "Discarding previously queued SVDM tx (SVID:0x%04x)\n",
-					VDM_HDR_SVID(pd->vdm_tx->data[0]));
-
-			kfree(pd->vdm_tx);
-			pd->vdm_tx = NULL;
-		}
-
 		if (svid == USBPD_SID && cmd == USBPD_SVDM_DISCOVER_IDENTITY) {
 			u32 tx_vdos[3] = {
 				ID_HDR_USB_HOST | ID_HDR_USB_DEVICE |
@@ -1074,13 +1074,14 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 		break;
 
 	case SVDM_CMD_TYPE_RESP_ACK:
+		if (svid != USBPD_SID) {
+			usbpd_err(&pd->dev, "unhandled ACK for SVID:0x%x\n",
+					svid);
+			break;
+		}
+
 		switch (cmd) {
 		case USBPD_SVDM_DISCOVER_IDENTITY:
-			if (svid != USBPD_SID) {
-				usbpd_err(&pd->dev, "invalid VID:0x%x\n", svid);
-				break;
-			}
-
 			kfree(pd->vdm_tx_retry);
 			pd->vdm_tx_retry = NULL;
 
@@ -1091,11 +1092,6 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 			break;
 
 		case USBPD_SVDM_DISCOVER_SVIDS:
-			if (svid != USBPD_SID) {
-				usbpd_err(&pd->dev, "invalid VID:0x%x\n", svid);
-				break;
-			}
-
 			pd->vdm_state = DISCOVERED_SVIDS;
 
 			kfree(pd->vdm_tx_retry);
@@ -1181,33 +1177,15 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 
 			break;
 
-		case USBPD_SVDM_DISCOVER_MODES:
-			usbpd_info(&pd->dev, "SVID:0x%04x VDM Modes discovered\n",
-					svid);
-			pd->vdm_state = DISCOVERED_MODES;
-			break;
-
-		case USBPD_SVDM_ENTER_MODE:
-			usbpd_info(&pd->dev, "SVID:0x%04x VDM Mode entered\n",
-					svid);
-			pd->vdm_state = MODE_ENTERED;
-			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
-			break;
-
-		case USBPD_SVDM_EXIT_MODE:
-			usbpd_info(&pd->dev, "SVID:0x%04x VDM Mode exited\n",
-					svid);
-			pd->vdm_state = MODE_EXITED;
-			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
-			break;
-
 		default:
+			usbpd_dbg(&pd->dev, "unhandled ACK for command:0x%x\n",
+					cmd);
 			break;
 		}
 		break;
 
 	case SVDM_CMD_TYPE_RESP_NAK:
-		usbpd_info(&pd->dev, "VDM NAK received for SVID:0x%04x command:%d\n",
+		usbpd_info(&pd->dev, "VDM NAK received for SVID:0x%04x command:0x%x\n",
 				svid, cmd);
 		break;
 
@@ -1731,6 +1709,8 @@ static void usbpd_sm(struct work_struct *w)
 
 	case PE_SNK_SELECT_CAPABILITY:
 		if (IS_CTRL(rx_msg, MSG_ACCEPT)) {
+			usbpd_set_state(pd, PE_SNK_TRANSITION_SINK);
+
 			/* prepare for voltage increase/decrease */
 			val.intval = pd->requested_voltage;
 			power_supply_set_property(pd->usb_psy,
@@ -1740,16 +1720,31 @@ static void usbpd_sm(struct work_struct *w)
 					&val);
 
 			/*
-			 * disable charging; technically we are allowed to
-			 * charge up to pSnkStdby (2.5 W) during this
-			 * transition, but disable it just for simplicity.
+			 * if we are changing voltages, we must lower input
+			 * current to pSnkStdby (2.5W). Calculate it and set
+			 * PD_CURRENT_MAX accordingly.
 			 */
-			val.intval = 0;
-			power_supply_set_property(pd->usb_psy,
+			if (pd->requested_voltage != pd->current_voltage) {
+				int mv = max(pd->requested_voltage,
+						pd->current_voltage) / 1000;
+				val.intval = (2500000 / mv) * 1000;
+				power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
+			} else {
+				/* decreasing current? */
+				ret = power_supply_get_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
+				if (!ret &&
+					pd->requested_current < val.intval) {
+					val.intval =
+						pd->requested_current * 1000;
+					power_supply_set_property(pd->usb_psy,
+					     POWER_SUPPLY_PROP_PD_CURRENT_MAX,
+					     &val);
+				}
+			}
 
 			pd->selected_pdo = pd->requested_pdo;
-			usbpd_set_state(pd, PE_SNK_TRANSITION_SINK);
 		} else if (IS_CTRL(rx_msg, MSG_REJECT) ||
 				IS_CTRL(rx_msg, MSG_WAIT)) {
 			if (pd->in_explicit_contract)

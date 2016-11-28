@@ -31,11 +31,11 @@ KBSS specific properties:
 	Usage:      required
 	Value type: <string>
 	Definition: should be one of the following:
-		    "qcom,cprh-msmcobalt-v1-kbss-regulator",
-		    "qcom,cprh-msmcobalt-v2-kbss-regulator",
-		    "qcom,cprh-msmcobalt-kbss-regulator".
+		    "qcom,cprh-msm8998-v1-kbss-regulator",
+		    "qcom,cprh-msm8998-v2-kbss-regulator",
+		    "qcom,cprh-msm8998-kbss-regulator".
 		    If the SoC revision is not specified, then it is assumed to
-		    be the most recent revision of MSMCOBALT, i.e. v2.
+		    be the most recent revision of MSM8998, i.e. v2.
 
 - qcom,cpr-controller-id
 	Usage:      required
@@ -335,7 +335,7 @@ Example
 =======
 
 apc0_cpr: cprh-ctrl@179c8000 {
-	compatible = "qcom,cprh-msmcobalt-kbss-regulator";
+	compatible = "qcom,cprh-msm8998-kbss-regulator";
 	reg = <0x179c8000 0x4000>, <0x00784000 0x1000>;
 	reg-names = "cpr_ctrl", "fuse_base";
 	clocks = <&clock_gcc clk_gcc_hmss_rbcpr_clk>;

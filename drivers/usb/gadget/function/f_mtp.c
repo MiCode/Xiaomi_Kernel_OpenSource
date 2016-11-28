@@ -43,6 +43,7 @@
 #include "configfs.h"
 
 #define MTP_RX_BUFFER_INIT_SIZE    1048576
+#define MTP_TX_BUFFER_INIT_SIZE    1048576
 #define MTP_BULK_BUFFER_SIZE       16384
 #define INTR_BUFFER_SIZE           28
 #define MAX_INST_NAME_LEN          40
@@ -81,7 +82,7 @@
 unsigned int mtp_rx_req_len = MTP_RX_BUFFER_INIT_SIZE;
 module_param(mtp_rx_req_len, uint, S_IRUGO | S_IWUSR);
 
-unsigned int mtp_tx_req_len = MTP_BULK_BUFFER_SIZE;
+unsigned int mtp_tx_req_len = MTP_TX_BUFFER_INIT_SIZE;
 module_param(mtp_tx_req_len, uint, S_IRUGO | S_IWUSR);
 
 unsigned int mtp_tx_reqs = MTP_TX_REQ_MAX;
@@ -551,9 +552,6 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 	dev->ep_intr = ep;
 
 retry_tx_alloc:
-	if (mtp_tx_req_len > MTP_BULK_BUFFER_SIZE)
-		mtp_tx_reqs = 4;
-
 	/* now allocate requests for our endpoints */
 	for (i = 0; i < mtp_tx_reqs; i++) {
 		req = mtp_request_new(dev->ep_in, mtp_tx_req_len);

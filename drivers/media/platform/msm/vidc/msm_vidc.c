@@ -652,10 +652,6 @@ int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
 		return -EINVAL;
 	}
 
-	if (binfo->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-		return 0;
-
-
 	for (i = 0; i < binfo->num_planes; i++) {
 		if (binfo->handle[i]) {
 			rc = msm_comm_smem_cache_operations(inst,
@@ -1324,11 +1320,6 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 
 	msm_comm_ctrl_deinit(inst);
 
-	mutex_destroy(&inst->sync_lock);
-	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);
-	mutex_destroy(&inst->bufq[OUTPUT_PORT].lock);
-	mutex_destroy(&inst->lock);
-
 	DEINIT_MSM_VIDC_LIST(&inst->pendingq);
 	DEINIT_MSM_VIDC_LIST(&inst->scratchbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->persistbufs);
@@ -1341,6 +1332,11 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 
 	for (i = 0; i < MAX_PORT_NUM; i++)
 		vb2_queue_release(&inst->bufq[i].vb2_bufq);
+
+	mutex_destroy(&inst->sync_lock);
+	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);
+	mutex_destroy(&inst->bufq[OUTPUT_PORT].lock);
+	mutex_destroy(&inst->lock);
 
 	pr_info(VIDC_DBG_TAG "Closed video instance: %pK\n",
 			VIDC_MSG_PRIO2STRING(VIDC_INFO), inst);

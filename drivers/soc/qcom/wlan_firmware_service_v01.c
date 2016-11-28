@@ -766,6 +766,24 @@ struct elem_info wlfw_cap_resp_msg_v01_ei[] = {
 		.ei_array      = wlfw_fw_version_info_s_v01_ei,
 	},
 	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint8_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x14,
+		.offset         = offsetof(struct wlfw_cap_resp_msg_v01,
+					   fw_build_id_valid),
+	},
+	{
+		.data_type      = QMI_STRING,
+		.elem_len       = QMI_WLFW_MAX_BUILD_ID_LEN_V01 + 1,
+		.elem_size      = sizeof(char),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x14,
+		.offset         = offsetof(struct wlfw_cap_resp_msg_v01,
+					   fw_build_id),
+	},
+	{
 		.data_type      = QMI_EOTI,
 		.is_array       = NO_ARRAY,
 		.is_array       = QMI_COMMON_TLV_TYPE,
@@ -1579,6 +1597,50 @@ struct elem_info wlfw_vbatt_resp_msg_v01_ei[] = {
 		.is_array       = NO_ARRAY,
 		.tlv_type       = 0x02,
 		.offset         = offsetof(struct wlfw_vbatt_resp_msg_v01,
+					   resp),
+		.ei_array      = get_qmi_response_type_v01_ei(),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.is_array       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct elem_info wlfw_mac_addr_req_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint8_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct wlfw_mac_addr_req_msg_v01,
+					   mac_addr_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_1_BYTE,
+		.elem_len       = QMI_WLFW_MAC_ADDR_SIZE_V01,
+		.elem_size      = sizeof(uint8_t),
+		.is_array       = STATIC_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct wlfw_mac_addr_req_msg_v01,
+					   mac_addr),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.is_array       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct elem_info wlfw_mac_addr_resp_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_STRUCT,
+		.elem_len       = 1,
+		.elem_size      = sizeof(struct qmi_response_type_v01),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x02,
+		.offset         = offsetof(struct wlfw_mac_addr_resp_msg_v01,
 					   resp),
 		.ei_array      = get_qmi_response_type_v01_ei(),
 	},

@@ -455,6 +455,8 @@ static void diag_glink_transport_notify_state(void *handle, const void *priv,
 			"%s received channel remote disconnect for periph:%d\n",
 			 glink_info->name, glink_info->peripheral);
 		atomic_set(&glink_info->opened, 0);
+		diagfwd_channel_close(glink_info->fwd_ctxt);
+		atomic_set(&glink_info->tx_intent_ready, 0);
 		break;
 	default:
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
@@ -501,6 +503,7 @@ static void diag_glink_close_work_fn(struct work_struct *work)
 
 	glink_close(glink_info->hdl);
 	atomic_set(&glink_info->opened, 0);
+	atomic_set(&glink_info->tx_intent_ready, 0);
 	glink_info->hdl = NULL;
 	diagfwd_channel_close(glink_info->fwd_ctxt);
 }

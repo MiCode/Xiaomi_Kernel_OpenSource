@@ -92,7 +92,7 @@ struct kgsl_mmu_pt_ops {
 	u64 (*get_ttbr0)(struct kgsl_pagetable *);
 	u32 (*get_contextidr)(struct kgsl_pagetable *);
 	int (*get_gpuaddr)(struct kgsl_pagetable *, struct kgsl_memdesc *);
-	void (*put_gpuaddr)(struct kgsl_pagetable *, struct kgsl_memdesc *);
+	void (*put_gpuaddr)(struct kgsl_memdesc *);
 	uint64_t (*find_svm_region)(struct kgsl_pagetable *, uint64_t, uint64_t,
 		uint64_t, uint64_t);
 	int (*set_svm_region)(struct kgsl_pagetable *, uint64_t, uint64_t);
@@ -181,8 +181,7 @@ int kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		 struct kgsl_memdesc *memdesc);
 int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		    struct kgsl_memdesc *memdesc);
-void kgsl_mmu_put_gpuaddr(struct kgsl_pagetable *pagetable,
-		 struct kgsl_memdesc *memdesc);
+void kgsl_mmu_put_gpuaddr(struct kgsl_memdesc *memdesc);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
 unsigned int kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu,
 		u64 ttbr0, uint64_t addr);

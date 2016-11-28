@@ -234,7 +234,7 @@
 			linux,name = "wled";
 			linux,default-trigger = "bkl-trigger";
 			qcom,fdbk-output = "auto";
-			qcom,vref-mv = <350>;
+			qcom,vref-uv = <127500>;
 			qcom,switch-freq-khz = <800>;
 			qcom,ovp-mv = <29600>;
 			qcom,ilim-ma = <970>;
@@ -269,6 +269,7 @@
 			qcom,thermal-derate-en;
 			qcom,thermal-derate-current = <200 500 1000>;
 			qcom,isc-delay = <192>;
+			qcom,pmic-revid = <&pm2falcon_revid>;
 			status = "disabled";
 
 			pm2falcon_flash0: qcom,flash_0 {
@@ -357,10 +358,6 @@
 				qcom,led-name = "led:switch_0";
 				qcom,led-mask = <3>;
 				qcom,default-led-trigger = "switch0_trigger";
-				reg0 {
-					regulator-name = "pmfalcon_bob";
-					max-voltage-uv = <3600000>;
-				};
 			};
 
 			pm2falcon_switch1: qcom,led_switch_1 {
@@ -368,10 +365,6 @@
 				qcom,led-name = "led:switch_1";
 				qcom,led-mask = <4>;
 				qcom,default-led-trigger = "switch1_trigger";
-				reg0 {
-					regulator-name = "pmfalcon_bob";
-					max-voltage-uv = <3600000>;
-				};
 			};
 		};
 	};

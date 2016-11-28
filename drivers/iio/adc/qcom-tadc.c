@@ -398,7 +398,7 @@ static int tadc_do_conversion(struct tadc_chip *chip, u8 channels, s16 *adc)
 	}
 
 	for (i = 0; i < TADC_NUM_CH; i++)
-		adc[i] = val[i * 2] | val[i * 2 + 1] << BITS_PER_BYTE;
+		adc[i] = (s16)(val[i * 2] | (u16)val[i * 2 + 1] << 8);
 
 	return jiffies_to_msecs(timeout - timeleft);
 }

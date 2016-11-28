@@ -514,7 +514,7 @@ char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt)
 {
 	const u32 encoding_factx10 = 8;
 	const u32 ln_to_link_ratio = 10;
-	u32 min_link_rate;
+	u32 min_link_rate, reminder = 0;
 	char calc_link_rate = 0;
 
 	pr_debug("clk_rate=%llu, bpp= %d, lane_cnt=%d\n",
@@ -531,9 +531,15 @@ char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt)
 				(lane_cnt * encoding_factx10));
 	min_link_rate /= ln_to_link_ratio;
 	min_link_rate = (min_link_rate * pinfo->bpp);
-	min_link_rate = (u32)div_u64(min_link_rate * 10,
-					DP_LINK_RATE_MULTIPLIER);
+	min_link_rate = (u32)div_u64_rem(min_link_rate * 10,
+				DP_LINK_RATE_MULTIPLIER, &reminder);
 
+	/*
+	 * To avoid any fractional values,
+	 * increment the min_link_rate
+	 */
+	if (reminder)
+		min_link_rate += 1;
 	pr_debug("min_link_rate = %d\n", min_link_rate);
 
 	if (min_link_rate <= DP_LINK_RATE_162)
@@ -1647,6 +1653,8 @@ int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 clear:
 	dp_clear_training_pattern(dp);
 	if (ret != -EINVAL) {
+		mdss_dp_config_misc_settings(&dp->ctrl_io,
+				&dp->panel_data.panel_info);
 		mdss_dp_setup_tr_unit(&dp->ctrl_io, dp->link_rate,
 					dp->lane_cnt, dp->vic);
 		mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);

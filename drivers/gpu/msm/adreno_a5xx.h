@@ -228,6 +228,7 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on);
 #define LM_SEQUENCE_ID			1
 #define MAX_SEQUENCE_ID			3
 
+#define GPMU_ISENSE_SAVE	(A5XX_GPMU_DATA_RAM_BASE + 200/4)
 /* LM defaults */
 #define LM_DEFAULT_LIMIT		6000
 #define A530_DEFAULT_LEAKAGE		0x004E001A

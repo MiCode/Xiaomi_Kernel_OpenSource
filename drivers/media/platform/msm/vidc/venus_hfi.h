@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -247,6 +247,7 @@ struct venus_hfi_device {
 	struct hfi_packetization_ops *pkt_ops;
 	enum hfi_packetization_type packetization_type;
 	struct msm_vidc_cb_info *response_pkt;
+	u8 *raw_packet;
 	struct pm_qos_request qos;
 	unsigned int skip_pc_count;
 	struct msm_vidc_capability *sys_init_capabilities;

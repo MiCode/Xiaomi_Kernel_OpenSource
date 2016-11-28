@@ -585,7 +585,9 @@ send_cmd:
 
 	if (ipa3_ctx->uc_ctx.uc_status != expected_status) {
 		if (ipa3_ctx->uc_ctx.uc_status ==
-			IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE) {
+		    IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE ||
+		    ipa3_ctx->uc_ctx.uc_status ==
+		    IPA_HW_CONS_DISABLE_CMD_GSI_STOP_FAILURE) {
 			retries++;
 			if (retries == IPA_GSI_CHANNEL_STOP_MAX_RETRY) {
 				IPAERR("Failed after %d tries\n", retries);
@@ -594,7 +596,9 @@ send_cmd:
 				return -EFAULT;
 			}
 			IPA3_UC_UNLOCK(flags);
-			ipa3_inject_dma_task_for_gsi();
+			if (ipa3_ctx->uc_ctx.uc_status ==
+			    IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE)
+				ipa3_inject_dma_task_for_gsi();
 			/* sleep for short period to flush IPA */
 			usleep_range(IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC,
 				IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);

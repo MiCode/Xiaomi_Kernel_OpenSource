@@ -852,7 +852,7 @@ static int __validate_layer_reconfig(struct mdp_input_layer *layer,
 	 */
 	if (pipe->csc_coeff_set != layer->color_space) {
 		src_fmt = mdss_mdp_get_format_params(layer->buffer.format);
-		if (pipe->src_fmt->is_yuv && src_fmt->is_yuv) {
+		if (pipe->src_fmt->is_yuv && src_fmt && src_fmt->is_yuv) {
 			status = -EPERM;
 			pr_err("csc change is not permitted on used pipe\n");
 		}
@@ -2470,16 +2470,20 @@ validate_exit:
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
 		if (IS_ERR_VALUE(ret)) {
-			if ((pipe->ndx & rec_release_ndx[0]) ||
-			    (pipe->ndx & rec_release_ndx[1])) {
+			if (((pipe->ndx & rec_release_ndx[0]) &&
+					(pipe->multirect.num == 0)) ||
+				((pipe->ndx & rec_release_ndx[1]) &&
+					(pipe->multirect.num == 1))) {
 				mdss_mdp_smp_unreserve(pipe);
 				pipe->params_changed = 0;
 				pipe->dirty = true;
 				if (!list_empty(&pipe->list))
 					list_del_init(&pipe->list);
 				mdss_mdp_pipe_destroy(pipe);
-			} else if ((pipe->ndx & rec_destroy_ndx[0]) ||
-				   (pipe->ndx & rec_destroy_ndx[1])) {
+			} else if (((pipe->ndx & rec_destroy_ndx[0]) &&
+						(pipe->multirect.num == 0)) ||
+					((pipe->ndx & rec_destroy_ndx[1]) &&
+						(pipe->multirect.num == 1))) {
 				/*
 				 * cleanup/destroy list pipes should move back
 				 * to destroy list. Next/current kickoff cycle
