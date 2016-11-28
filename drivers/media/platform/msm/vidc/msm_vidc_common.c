@@ -1636,6 +1636,17 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 		return;
 	}
 
+	mutex_lock(&core->lock);
+	if (core->state == VIDC_CORE_INVALID ||
+		core->state == VIDC_CORE_UNINIT) {
+		dprintk(VIDC_ERR,
+			"%s: Core already moved to state %d\n",
+			 __func__, core->state);
+		mutex_unlock(&core->lock);
+		return;
+	}
+	mutex_unlock(&core->lock);
+
 	dprintk(VIDC_WARN, "SYS_ERROR %d received for core %pK\n", cmd, core);
 	msm_comm_clean_notify_client(core);
 
