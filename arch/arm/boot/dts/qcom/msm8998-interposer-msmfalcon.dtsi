@@ -1853,7 +1853,7 @@
 					<61 512 240000 800000>;
 
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
-		extcon = <&pmi8998_pdphy>;
+		extcon = <&pmfalcon_pdphy>;
 
 		clocks = <&clock_gcc clk_gcc_usb30_master_clk>,
 			<&clock_gcc clk_gcc_cfg_noc_usb3_axi_clk>,
@@ -1921,9 +1921,9 @@
 		      <0x01fcb24c 0x4>;
 		reg-names = "qusb_phy_base",
 				"tcsr_clamp_dig_n_1p8";
-		vdd-supply = <&pm8998_l1>;
-		vdda18-supply = <&pm8998_l12>;
-		vdda33-supply = <&pm8998_l24>;
+		vdd-supply = <&pm2falcon_l1>;
+		vdda18-supply = <&pm2falcon_l10>;
+		vdda33-supply = <&pm2falcon_l7>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		qcom,qusb-phy-init-seq =
 				/* <value reg_offset> */
@@ -1951,8 +1951,8 @@
 		reg-names = "qmp_phy_base",
 			    "vls_clamp_reg",
 			    "tcsr_usb3_dp_phymode";
-		vdd-supply = <&pm8998_l1>;
-		core-supply = <&pm8998_l2>;
+		vdd-supply = <&pm2falcon_l1>;
+		core-supply = <&pmfalcon_l1>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		qcom,vbus-valid-override;
 		qcom,qmp-phy-init-seq =
@@ -3083,12 +3083,11 @@
 #include "msm8998-bus.dtsi"
 #include "msm8998-gpu.dtsi"
 #include "msm8998-pinctrl.dtsi"
-#include "msm-audio-lpass.dtsi"
 #include "msm8998-mdss.dtsi"
 #include "msm8998-mdss-pll.dtsi"
 #include "msm8998-blsp.dtsi"
-#include "msm8998-audio.dtsi"
-
+#include "msm-audio.dtsi"
+#include "msmfalcon-audio.dtsi"
 
 /* GPU overrides */
 &msm_gpu {

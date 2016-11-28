@@ -107,3 +107,7 @@
 	compatible = "qcom,dummycc";
 	clock-output-names = "gfx_clocks";
 };
+
+&pmfalcon_pdphy {
+	status = "disabled";
+};
