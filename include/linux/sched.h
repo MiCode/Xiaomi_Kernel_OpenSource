@@ -2584,6 +2584,8 @@ struct cpu_cycle_counter_cb {
 	u64 (*get_cpu_cycle_counter)(int cpu);
 };
 
+#define MAX_NUM_CGROUP_COLOC_ID	20
+
 #ifdef CONFIG_SCHED_HMP
 extern void free_task_load_ptrs(struct task_struct *p);
 extern int sched_set_window(u64 window_start, unsigned int window_size);

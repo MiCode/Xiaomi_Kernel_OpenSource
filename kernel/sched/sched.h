@@ -1502,6 +1502,8 @@ static inline void update_cgroup_boost_settings(void) { }
 static inline void restore_cgroup_boost_settings(void) { }
 #endif
 
+extern int alloc_related_thread_groups(void);
+
 #else	/* CONFIG_SCHED_HMP */
 
 struct hmp_sched_stats;
@@ -1679,6 +1681,7 @@ static inline void set_hmp_defaults(void) { }
 
 static inline void clear_reserved(int cpu) { }
 static inline void sched_boost_parse_dt(void) {}
+static inline int alloc_related_thread_groups(void) { return 0; }
 
 #define trace_sched_cpu_load(...)
 #define trace_sched_cpu_load_lb(...)
