@@ -906,8 +906,7 @@ struct ufs_qcom_dev_params {
 	u32 desired_working_mode;
 };
 
-static int ufs_qcom_get_pwr_dev_param(struct ufs_hba *hba,
-				      struct ufs_qcom_dev_params *qcom_param,
+static int ufs_qcom_get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
 				      struct ufs_pa_layer_attr *dev_max,
 				      struct ufs_pa_layer_attr *agreed_pwr)
 {
@@ -963,13 +962,8 @@ static int ufs_qcom_get_pwr_dev_param(struct ufs_hba *hba,
 	 */
 	agreed_pwr->lane_tx = min_t(u32, dev_max->lane_tx,
 						qcom_param->tx_lanes);
-	if (agreed_pwr->lane_tx != hba->lanes_per_direction)
-		agreed_pwr->lane_tx = hba->lanes_per_direction;
-
 	agreed_pwr->lane_rx = min_t(u32, dev_max->lane_rx,
 						qcom_param->rx_lanes);
-	if (agreed_pwr->lane_rx != hba->lanes_per_direction)
-		agreed_pwr->lane_rx = hba->lanes_per_direction;
 
 	/* device maximum gear is the minimum between device rx and tx gears */
 	min_dev_gear = min_t(u32, dev_max->gear_rx, dev_max->gear_tx);
@@ -1307,7 +1301,7 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 			ufs_qcom_cap.desired_working_mode = SLOW;
 		}
 
-		ret = ufs_qcom_get_pwr_dev_param(hba, &ufs_qcom_cap,
+		ret = ufs_qcom_get_pwr_dev_param(&ufs_qcom_cap,
 						 dev_max_params,
 						 dev_req_params);
 		if (ret) {
