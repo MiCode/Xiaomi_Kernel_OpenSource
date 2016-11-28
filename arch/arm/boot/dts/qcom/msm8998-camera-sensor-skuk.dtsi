@@ -184,6 +184,8 @@
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <270>;
+		qcom,led-flash-src = <&led_flash0>;
+		qcom,actuator-src = <&actuator0>;
 		qcom,eeprom-src = <&eeprom0>;
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pmi8998_bob>;
