@@ -628,14 +628,18 @@ void clear_hmp_request(int cpu)
 	clear_boost_kick(cpu);
 	clear_reserved(cpu);
 	if (rq->push_task) {
+		struct task_struct *push_task = NULL;
+
 		raw_spin_lock_irqsave(&rq->lock, flags);
 		if (rq->push_task) {
 			clear_reserved(rq->push_cpu);
-			put_task_struct(rq->push_task);
+			push_task = rq->push_task;
 			rq->push_task = NULL;
 		}
 		rq->active_balance = 0;
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
+		if (push_task)
+			put_task_struct(push_task);
 	}
 }
 
