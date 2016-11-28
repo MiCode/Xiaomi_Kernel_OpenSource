@@ -1745,20 +1745,20 @@ static int send_notification(struct rq *rq, int check_pred, int check_groups)
 		if (freq_required < cur_freq + sysctl_sched_pred_alert_freq)
 			return 0;
 	} else {
-		read_lock(&related_thread_group_lock);
+		read_lock_irqsave(&related_thread_group_lock, flags);
 		/*
 		 * Protect from concurrent update of rq->prev_runnable_sum and
 		 * group cpu load
 		 */
-		raw_spin_lock_irqsave(&rq->lock, flags);
+		raw_spin_lock(&rq->lock);
 		if (check_groups)
 			_group_load_in_cpu(cpu_of(rq), &group_load, NULL);
 
 		new_load = rq->prev_runnable_sum + group_load;
 		new_load = freq_policy_load(rq, new_load);
 
-		raw_spin_unlock_irqrestore(&rq->lock, flags);
-		read_unlock(&related_thread_group_lock);
+		raw_spin_unlock(&rq->lock);
+		read_unlock_irqrestore(&related_thread_group_lock, flags);
 
 		cur_freq = load_to_freq(rq, rq->old_busy_time);
 		freq_required = load_to_freq(rq, new_load);
@@ -3180,14 +3180,16 @@ void sched_get_cpus_busy(struct sched_load *busy,
 	if (unlikely(cpus == 0))
 		return;
 
+	local_irq_save(flags);
+
+	read_lock(&related_thread_group_lock);
+
 	/*
 	 * This function could be called in timer context, and the
 	 * current task may have been executing for a long time. Ensure
 	 * that the window stats are current by doing an update.
 	 */
-	read_lock(&related_thread_group_lock);
 
-	local_irq_save(flags);
 	for_each_cpu(cpu, query_cpus)
 		raw_spin_lock(&cpu_rq(cpu)->lock);
 
@@ -3287,9 +3289,10 @@ skip_early:
 
 	for_each_cpu(cpu, query_cpus)
 		raw_spin_unlock(&(cpu_rq(cpu))->lock);
-	local_irq_restore(flags);
 
 	read_unlock(&related_thread_group_lock);
+
+	local_irq_restore(flags);
 
 	i = 0;
 	for_each_cpu(cpu, query_cpus) {
