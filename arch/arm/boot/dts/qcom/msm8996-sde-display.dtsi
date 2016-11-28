@@ -222,7 +222,8 @@
 		label = "dsi_dual_nt35597_cmd";
 		qcom,display-type = "primary";
 
-		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
+		/* dsi1/dsi0 swapped due to IMGSWAP */
+		qcom,dsi-ctrl = <&mdss_dsi1 &mdss_dsi0>;
 		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
 		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
 			 <&clock_mmss clk_ext_pclk0_clk_src>;
