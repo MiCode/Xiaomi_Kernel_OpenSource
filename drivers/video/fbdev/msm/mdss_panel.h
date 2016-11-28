@@ -255,6 +255,8 @@ struct mdss_intf_recovery {
  *				Argument provided is new panel timing.
  * @MDSS_EVENT_DEEP_COLOR: Set deep color.
  *				Argument provided is bits per pixel (8/10/12)
+ * @MDSS_EVENT_UPDATE_PANEL_PPM: update pixel clock by input PPM.
+ *				Argument provided is parts per million.
  */
 enum mdss_intf_events {
 	MDSS_EVENT_RESET = 1,
@@ -287,6 +289,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_PANEL_TIMING_SWITCH,
 	MDSS_EVENT_DEEP_COLOR,
 	MDSS_EVENT_DISABLE_PANEL,
+	MDSS_EVENT_UPDATE_PANEL_PPM,
 	MDSS_EVENT_MAX,
 };
 

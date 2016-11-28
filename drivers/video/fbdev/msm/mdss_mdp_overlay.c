@@ -4614,6 +4614,20 @@ static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
+static int mdss_fb_set_panel_ppm(struct msm_fb_data_type *mfd, s32 ppm)
+{
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	int ret = 0;
+
+	if (!ctl)
+		return -EPERM;
+
+	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UPDATE_PANEL_PPM,
+			(void *) (unsigned long) ppm,
+			CTL_INTF_EVENT_FLAG_DEFAULT);
+	return ret;
+}
+
 static int mdss_fb_get_hw_caps(struct msm_fb_data_type *mfd,
 		struct mdss_hw_caps *caps)
 {
@@ -5159,6 +5173,16 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 			break;
 		}
 		ret = mdss_mdp_set_cfg(mfd, &cfg);
+		break;
+	case MSMFB_MDP_SET_PANEL_PPM:
+		ret = copy_from_user(&val, argp, sizeof(val));
+		if (ret) {
+			pr_err("copy failed MSMFB_MDP_SET_PANEL_PPM ret %d\n",
+					ret);
+			ret = -EFAULT;
+			break;
+		}
+		ret = mdss_fb_set_panel_ppm(mfd, val);
 		break;
 
 	default:
