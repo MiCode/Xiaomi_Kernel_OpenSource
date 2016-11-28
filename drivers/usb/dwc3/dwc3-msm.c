@@ -1465,11 +1465,10 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 		pm_runtime_suspend(mdwc->dev);
 	}
 
+	mdwc->in_restart = false;
 	/* Force reconnect only if cable is still connected */
-	if (mdwc->vbus_active) {
-		mdwc->in_restart = false;
+	if (mdwc->vbus_active)
 		dwc3_resume_work(&mdwc->resume_work);
-	}
 
 	dwc->err_evt_seen = false;
 	flush_delayed_work(&mdwc->sm_work);
