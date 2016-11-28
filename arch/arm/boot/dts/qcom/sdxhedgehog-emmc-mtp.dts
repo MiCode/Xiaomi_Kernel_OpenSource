@@ -27,3 +27,7 @@
 		qcom,client-id = <0x00000001>;
 	};
 };
+
+&qnand_1 {
+	status = "disabled";
+};
