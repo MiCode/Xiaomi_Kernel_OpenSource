@@ -71,6 +71,7 @@ static void mdss_mdp_disable_destination_scaler_setup(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_data_type *mdata = ctl->mdata;
 	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
+	struct mdss_mdp_ctl *split_ctl;
 
 	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map)) {
 		if (ctl->mixer_left && ctl->mixer_right &&
@@ -80,9 +81,11 @@ static void mdss_mdp_disable_destination_scaler_setup(struct mdss_mdp_ctl *ctl)
 			/*
 			 * DUAL mode disable
 			 */
+			split_ctl = mdss_mdp_get_split_ctl(ctl);
 			ctl->mixer_left->width = get_panel_width(ctl);
 			ctl->mixer_left->height = get_panel_yres(pinfo);
-			ctl->mixer_left->width /= 2;
+			if (!split_ctl)
+				ctl->mixer_left->width /= 2;
 			ctl->mixer_right->width = ctl->mixer_left->width;
 			ctl->mixer_right->height = ctl->mixer_left->height;
 			ctl->mixer_left->roi = (struct mdss_rect) { 0, 0,
