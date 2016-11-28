@@ -74,6 +74,10 @@ struct nand_flash_dev nand_flash_ids[] = {
 		{ .id = {0x98, 0xaa, 0x90, 0x15, 0x00, 0x00, 0x00, 0x00} },
 		SZ_2K, SZ_256, SZ_128K, 0, 4, 128, NAND_ECC_INFO(8, SZ_512)},
 
+	{"MX63U1GC12HAXMI01 1G 1.8V 4-bit",
+		{ .id = {0xc2, 0xa1, 0x80, 0x15, 0x00, 0x00, 0x00, 0x00} },
+		SZ_2K, SZ_128, SZ_128K, 0, 4, 64, NAND_ECC_INFO(4, SZ_512)},
+
 	LEGACY_ID_NAND("NAND 4MiB 5V 8-bit",   0x6B, 4, SZ_8K, SP_OPTIONS),
 	LEGACY_ID_NAND("NAND 4MiB 3,3V 8-bit", 0xE3, 4, SZ_8K, SP_OPTIONS),
 	LEGACY_ID_NAND("NAND 4MiB 3,3V 8-bit", 0xE5, 4, SZ_8K, SP_OPTIONS),
