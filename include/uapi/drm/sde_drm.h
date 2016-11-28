@@ -6,6 +6,30 @@
 
 /* Total number of parameterized detail enhancer mapping curves */
 #define SDE_MAX_DE_CURVES 3
+
+ /* Y/RGB and UV filter configuration */
+#define FILTER_EDGE_DIRECTED_2D		0x0
+#define FILTER_CIRCULAR_2D		0x1
+#define FILTER_SEPARABLE_1D		0x2
+#define FILTER_BILINEAR			0x3
+
+/* Alpha filters */
+#define FILTER_ALPHA_DROP_REPEAT	0x0
+#define FILTER_ALPHA_BILINEAR		0x1
+#define FILTER_ALPHA_2D			0x3
+
+/* Blend filters */
+#define FILTER_BLEND_CIRCULAR_2D	0x0
+#define FILTER_BLEND_SEPARABLE_1D	0x1
+
+/* LUT configuration flags */
+#define SCALER_LUT_SWAP			0x1
+#define SCALER_LUT_DIR_WR		0x2
+#define SCALER_LUT_Y_CIR_WR		0x4
+#define SCALER_LUT_UV_CIR_WR		0x8
+#define SCALER_LUT_Y_SEP_WR		0x10
+#define SCALER_LUT_UV_SEP_WR		0x20
+
 /**
  * Blend operations for "blend_op" property
  *
@@ -42,38 +66,42 @@
 
 /**
  * struct sde_drm_pix_ext_v1 - version 1 of pixel ext structure
- * @num_pxls_start: Number of start pixels
- * @num_pxls_end:   Number of end pixels
- * @ftch_start:     Number of overfetch start pixels
- * @ftch_end:       Number of overfetch end pixels
- * @rpt_start:      Number of repeat start pixels
- * @rpt_end:        Number of repeat end pixels
- * @roi:            Input ROI settings
+ * @num_ext_pxls_lr: Number of total horizontal pixels
+ * @num_ext_pxls_tb: Number of total vertical lines
+ * @left_ftch:       Number of extra pixels to overfetch from left
+ * @right_ftch:      Number of extra pixels to overfetch from right
+ * @top_ftch:        Number of extra lines to overfetch from top
+ * @btm_ftch:        Number of extra lines to overfetch from bottom
+ * @left_rpt:        Number of extra pixels to repeat from left
+ * @right_rpt:       Number of extra pixels to repeat from right
+ * @top_rpt:         Number of extra lines to repeat from top
+ * @btm_rpt:         Number of extra lines to repeat from bottom
  */
 struct sde_drm_pix_ext_v1 {
 	/*
 	 * Number of pixels ext in left, right, top and bottom direction
-	 * for all color components. This pixel value for each color
-	 * component should be sum of fetch + repeat pixels.
+	 * for all color components.
 	 */
-	int32_t num_pxls_start[SDE_MAX_PLANES];
-	int32_t num_pxls_end[SDE_MAX_PLANES];
+	int32_t num_ext_pxls_lr[SDE_MAX_PLANES];
+	int32_t num_ext_pxls_tb[SDE_MAX_PLANES];
 
 	/*
 	 * Number of pixels needs to be overfetched in left, right, top
 	 * and bottom directions from source image for scaling.
 	 */
-	int32_t ftch_start[SDE_MAX_PLANES];
-	int32_t ftch_end[SDE_MAX_PLANES];
-
+	int32_t left_ftch[SDE_MAX_PLANES];
+	int32_t right_ftch[SDE_MAX_PLANES];
+	int32_t top_ftch[SDE_MAX_PLANES];
+	int32_t btm_ftch[SDE_MAX_PLANES];
 	/*
 	 * Number of pixels needs to be repeated in left, right, top and
 	 * bottom directions for scaling.
 	 */
-	int32_t rpt_start[SDE_MAX_PLANES];
-	int32_t rpt_end[SDE_MAX_PLANES];
+	int32_t left_rpt[SDE_MAX_PLANES];
+	int32_t right_rpt[SDE_MAX_PLANES];
+	int32_t top_rpt[SDE_MAX_PLANES];
+	int32_t btm_rpt[SDE_MAX_PLANES];
 
-	uint32_t roi[SDE_MAX_PLANES];
 };
 
 /**
@@ -91,9 +119,7 @@ struct sde_drm_scaler_v1 {
 	/*
 	 * Pix ext settings
 	 */
-	struct sde_drm_pix_ext_v1 lr;
-	struct sde_drm_pix_ext_v1 tb;
-
+	struct sde_drm_pix_ext_v1 pe;
 	/*
 	 * Phase settings
 	 */
@@ -144,17 +170,32 @@ struct sde_drm_de_v1 {
 
 /**
  * struct sde_drm_scaler_v2 - version 2 of struct sde_drm_scaler
- * @enable:        Mask of SDE_DRM_SCALER_ bits
- * @lr:            Pixel extension settings for left/right
- * @tb:            Pixel extension settings for top/botton
- * @horz_decimate: Horizontal decimation factor
- * @vert_decimate: Vertical decimation factor
- * @init_phase_x:  Initial scaler phase values for x
- * @phase_step_x:  Phase step values for x
- * @init_phase_y:  Initial scaler phase values for y
- * @phase_step_y:  Phase step values for y
- * @horz_filter:   Horizontal filter array
- * @vert_filter:   Vertical filter array
+ * @enable:            Scaler enable
+ * @dir_en:            Detail enhancer enable
+ * @pe:                Pixel extension settings
+ * @horz_decimate:     Horizontal decimation factor
+ * @vert_decimate:     Vertical decimation factor
+ * @init_phase_x:      Initial scaler phase values for x
+ * @phase_step_x:      Phase step values for x
+ * @init_phase_y:      Initial scaler phase values for y
+ * @phase_step_y:      Phase step values for y
+ * @preload_x:         Horizontal preload value
+ * @preload_y:         Vertical preload value
+ * @src_width:         Source width
+ * @src_height:        Source height
+ * @dst_width:         Destination width
+ * @dst_height:        Destination height
+ * @y_rgb_filter_cfg:  Y/RGB plane filter configuration
+ * @uv_filter_cfg:     UV plane filter configuration
+ * @alpha_filter_cfg:  Alpha filter configuration
+ * @blend_cfg:         Selection of blend coefficients
+ * @lut_flag:          LUT configuration flags
+ * @dir_lut_idx:       2d 4x4 LUT index
+ * @y_rgb_cir_lut_idx: Y/RGB circular LUT index
+ * @uv_cir_lut_idx:    UV circular LUT index
+ * @y_rgb_sep_lut_idx: Y/RGB separable LUT index
+ * @uv_sep_lut_idx:    UV separable LUT index
+ * @de:                Detail enhancer settings
  */
 struct sde_drm_scaler_v2 {
 	/*
@@ -166,8 +207,7 @@ struct sde_drm_scaler_v2 {
 	/*
 	 * Pix ext settings
 	 */
-	struct sde_drm_pix_ext_v1 lr;
-	struct sde_drm_pix_ext_v1 tb;
+	struct sde_drm_pix_ext_v1 pe;
 
 	/*
 	 * Decimation settings
@@ -183,9 +223,6 @@ struct sde_drm_scaler_v2 {
 	int32_t init_phase_y[SDE_MAX_PLANES];
 	int32_t phase_step_y[SDE_MAX_PLANES];
 
-	/* alpha plane can only be scaled using bilinear or pixel
-	 * repeat/drop, specify these for Y and UV planes only
-	 */
 	uint32_t preload_x[SDE_MAX_PLANES];
 	uint32_t preload_y[SDE_MAX_PLANES];
 	uint32_t src_width[SDE_MAX_PLANES];

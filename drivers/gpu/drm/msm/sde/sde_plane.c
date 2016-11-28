@@ -1721,22 +1721,19 @@ static inline void _sde_plane_set_scaler_v1(struct sde_plane *psde, void *usr)
 		pe->vert_filter[i] = scale_v1.vert_filter[i];
 	}
 	for (i = 0; i < SDE_MAX_PLANES; i++) {
-		pe->num_ext_pxls_left[i] = scale_v1.lr.num_pxls_start[i];
-		pe->num_ext_pxls_right[i] = scale_v1.lr.num_pxls_end[i];
-		pe->left_ftch[i] = scale_v1.lr.ftch_start[i];
-		pe->right_ftch[i] = scale_v1.lr.ftch_end[i];
-		pe->left_rpt[i] = scale_v1.lr.rpt_start[i];
-		pe->right_rpt[i] = scale_v1.lr.rpt_end[i];
-		pe->roi_w[i] = scale_v1.lr.roi[i];
+		pe->left_ftch[i] = scale_v1.pe.left_ftch[i];
+		pe->right_ftch[i] = scale_v1.pe.right_ftch[i];
+		pe->left_rpt[i] = scale_v1.pe.left_rpt[i];
+		pe->right_rpt[i] = scale_v1.pe.right_rpt[i];
+		pe->roi_w[i] = scale_v1.pe.num_ext_pxls_lr[i];
 
-		pe->num_ext_pxls_top[i] = scale_v1.tb.num_pxls_start[i];
-		pe->num_ext_pxls_btm[i] = scale_v1.tb.num_pxls_end[i];
-		pe->top_ftch[i] = scale_v1.tb.ftch_start[i];
-		pe->btm_ftch[i] = scale_v1.tb.ftch_end[i];
-		pe->top_rpt[i] = scale_v1.tb.rpt_start[i];
-		pe->btm_rpt[i] = scale_v1.tb.rpt_end[i];
-		pe->roi_h[i] = scale_v1.tb.roi[i];
+		pe->top_ftch[i] = scale_v1.pe.top_ftch[i];
+		pe->btm_ftch[i] = scale_v1.pe.btm_ftch[i];
+		pe->top_rpt[i] = scale_v1.pe.top_rpt[i];
+		pe->btm_rpt[i] = scale_v1.pe.btm_rpt[i];
+		pe->roi_h[i] = scale_v1.pe.num_ext_pxls_tb[i];
 	}
+
 	psde->pixel_ext_usr = true;
 
 	SDE_DEBUG_PLANE(psde, "user property data copied\n");
@@ -1814,21 +1811,17 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 		cfg->de.adjust_c[i] = scale_v2.de.adjust_c[i];
 	}
 	for (i = 0; i < SDE_MAX_PLANES; i++) {
-		pe->num_ext_pxls_left[i] = scale_v2.lr.num_pxls_start[i];
-		pe->num_ext_pxls_right[i] = scale_v2.lr.num_pxls_end[i];
-		pe->left_ftch[i] = scale_v2.lr.ftch_start[i];
-		pe->right_ftch[i] = scale_v2.lr.ftch_end[i];
-		pe->left_rpt[i] = scale_v2.lr.rpt_start[i];
-		pe->right_rpt[i] = scale_v2.lr.rpt_end[i];
-		pe->roi_w[i] = scale_v2.lr.roi[i];
+		pe->left_ftch[i] = scale_v2.pe.left_ftch[i];
+		pe->right_ftch[i] = scale_v2.pe.right_ftch[i];
+		pe->left_rpt[i] = scale_v2.pe.left_rpt[i];
+		pe->right_rpt[i] = scale_v2.pe.right_rpt[i];
+		pe->roi_w[i] = scale_v2.pe.num_ext_pxls_lr[i];
 
-		pe->num_ext_pxls_top[i] = scale_v2.tb.num_pxls_start[i];
-		pe->num_ext_pxls_btm[i] = scale_v2.tb.num_pxls_end[i];
-		pe->top_ftch[i] = scale_v2.tb.ftch_start[i];
-		pe->btm_ftch[i] = scale_v2.tb.ftch_end[i];
-		pe->top_rpt[i] = scale_v2.tb.rpt_start[i];
-		pe->btm_rpt[i] = scale_v2.tb.rpt_end[i];
-		pe->roi_h[i] = scale_v2.tb.roi[i];
+		pe->top_ftch[i] = scale_v2.pe.top_ftch[i];
+		pe->btm_ftch[i] = scale_v2.pe.btm_ftch[i];
+		pe->top_rpt[i] = scale_v2.pe.top_rpt[i];
+		pe->btm_rpt[i] = scale_v2.pe.btm_rpt[i];
+		pe->roi_h[i] = scale_v2.pe.num_ext_pxls_tb[i];
 	}
 	psde->pixel_ext_usr = true;
 
