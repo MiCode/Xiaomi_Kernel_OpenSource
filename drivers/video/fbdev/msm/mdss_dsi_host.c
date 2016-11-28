@@ -2277,7 +2277,7 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	u32 *lp, *temp, data;
 	int i, j = 0, off, cnt;
 	bool ack_error = false;
-	char reg[16];
+	char reg[16] = {0x0};
 	int repeated_bytes = 0;
 	struct mdss_dsi_ctrl_pdata *mctrl = mdss_dsi_get_other_ctrl(ctrl);
 
