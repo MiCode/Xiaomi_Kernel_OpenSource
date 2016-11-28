@@ -1628,6 +1628,9 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 			mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 			return -EINVAL;
 		}
+		if ((mdp3_session->dma->roi.x || mdp3_session->dma->roi.y) &&
+			panel_info->partial_update_enabled)
+			mdp3_session->dma->update_src_cfg = true;
 	}
 	mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 
