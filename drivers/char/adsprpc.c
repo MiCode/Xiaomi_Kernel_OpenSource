@@ -58,7 +58,7 @@
 
 #define RPC_TIMEOUT	(5 * HZ)
 #define BALIGN		128
-#define NUM_CHANNELS	3		/*1 adsp, 1 mdsp*/
+#define NUM_CHANNELS	4		/* adsp,sdsp,mdsp,cdsp */
 #define NUM_SESSIONS	9		/*8 compute, 1 cpz*/
 
 #define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
@@ -264,12 +264,25 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.link.link_info.transport = "smem",
 	},
 	{
+		.name = "mdsprpc-smd",
+		.subsys = "modem",
+		.channel = SMD_APPS_MODEM,
+		.link.link_info.edge = "mpss",
+		.link.link_info.transport = "smem",
+	},
+	{
 		.name = "sdsprpc-smd",
 		.subsys = "dsps",
 		.channel = SMD_APPS_DSPS,
 		.link.link_info.edge = "dsps",
 		.link.link_info.transport = "smem",
 		.vmid = VMID_SSC_Q6,
+	},
+	{
+		.name = "cdsprpc-smd",
+		.subsys = "cdsp",
+		.link.link_info.edge = "cdsp",
+		.link.link_info.transport = "smem",
 	},
 };
 
