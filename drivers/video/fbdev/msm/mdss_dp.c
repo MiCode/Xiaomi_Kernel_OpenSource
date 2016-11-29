@@ -45,6 +45,8 @@
 #define VDDA_UA_ON_LOAD		100000	/* uA units */
 #define VDDA_UA_OFF_LOAD	100		/* uA units */
 
+#define DP_CRYPTO_CLK_RATE_KHZ 337500
+
 struct mdss_dp_attention_node {
 	u32 vdo;
 	struct list_head list;
@@ -208,9 +210,9 @@ static int mdss_dp_get_dt_clk_data(struct device *dev,
 				&ctrl_power_data->clk_config[ctrl_clk_index];
 			strlcpy(clk->clk_name, clk_name, sizeof(clk->clk_name));
 			ctrl_clk_index++;
-			if (!strcmp(clk_name, "ctrl_link_clk"))
-				clk->type = DSS_CLK_PCLK;
-			else if (!strcmp(clk_name, "ctrl_pixel_clk"))
+			if (!strcmp(clk_name, "ctrl_link_clk") ||
+			    !strcmp(clk_name, "ctrl_pixel_clk") ||
+			    !strcmp(clk_name, "ctrl_crypto_clk"))
 				clk->type = DSS_CLK_PCLK;
 			else
 				clk->type = DSS_CLK_AHB;
@@ -1089,6 +1091,23 @@ exit:
 	return ret;
 }
 
+static void mdss_dp_set_clock_rate(struct mdss_dp_drv_pdata *dp,
+		char *name, u32 rate)
+{
+	u32 num = dp->power_data[DP_CTRL_PM].num_clk;
+	struct dss_clk *cfg = dp->power_data[DP_CTRL_PM].clk_config;
+
+	while (num && strcmp(cfg->clk_name, name)) {
+		num--;
+		cfg++;
+	}
+
+	if (num)
+		cfg->rate = rate;
+	else
+		pr_err("%s clock could not be set with rate %d\n", name, rate);
+}
+
 /**
  * mdss_dp_enable_mainlink_clocks() - enables Display Port main link clocks
  * @dp: Display Port Driver data
@@ -1099,12 +1118,14 @@ static int mdss_dp_enable_mainlink_clocks(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
 
-	dp->power_data[DP_CTRL_PM].clk_config[0].rate =
-		((dp->link_rate * DP_LINK_RATE_MULTIPLIER) / 1000);/* KHz */
+	mdss_dp_set_clock_rate(dp, "ctrl_link_clk",
+		(dp->link_rate * DP_LINK_RATE_MULTIPLIER) / DP_KHZ_TO_HZ);
+
+	mdss_dp_set_clock_rate(dp, "ctrl_crypto_clk", DP_CRYPTO_CLK_RATE_KHZ);
 
 	dp->pixel_rate = dp->panel_data.panel_info.clk_rate;
-	dp->power_data[DP_CTRL_PM].clk_config[3].rate =
-		(dp->pixel_rate / 1000);/* KHz */
+	mdss_dp_set_clock_rate(dp, "ctrl_pixel_clk",
+		(dp->pixel_rate / DP_KHZ_TO_HZ));
 
 	ret = mdss_dp_clk_ctrl(dp, DP_CTRL_PM, true);
 	if (ret) {
