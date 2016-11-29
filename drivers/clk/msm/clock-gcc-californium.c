@@ -187,6 +187,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig_ao, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define PCIE_AUX_CBCR						(0x5D024)
 #define PCIE_AUX_PHY_CMD_RCGR		(0x5D030)
 #define PCIE_BCR					(0x5D004)
+#define PCIE_AUX_CLK_SEL			(0x5D028)
 
 DEFINE_CLK_RPM_SMD_BRANCH(xo, xo_a_clk, RPM_MISC_CLK_TYPE,
 			  XO_ID, 19200000);
@@ -1333,6 +1334,7 @@ static struct branch_clk gcc_mss_cfg_ahb_clk = {
 static struct mux_clk gcc_debug_mux;
 static struct clk_ops clk_ops_debug_mux;
 static struct clk_mux_ops gcc_debug_mux_ops;
+static struct branch_clk gcc_pcie_aux_clk;
 
 static struct measure_clk_data debug_mux_priv = {
 	.cxo = &xo.c,
@@ -1397,6 +1399,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_pcie_sleep_clk.c, 0x023b },
 		{ &gcc_pcie_axi_mstr_clk.c, 0x023c },
 		{ &gcc_dcc_clk.c, 0x0278 },
+		{&gcc_pcie_aux_clk.c, 0x023d },
 	),
 	.c = {
 		.dbg_name = "gcc_debug_mux",
@@ -1538,6 +1541,10 @@ static struct clk_lookup msm_clocks_gcc_californium[] = {
 };
 
 /* sdxhedgehog */
+
+static int set_pcie_aux_mux_sel(struct mux_clk *clk, int sel);
+static int get_pcie_aux_mux_sel(struct mux_clk *clk);
+
 static struct alpha_pll_masks fabia_pll_masks_p = {
 	.lock_mask = BIT(31),
 	.active_mask = BIT(30),
@@ -1576,18 +1583,39 @@ static struct clk_freq_tbl ftbl_usb30_mock_utmi_clk_src_sdxhedgehog[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_pdm2_clk_src_sdxhedgehog[] = {
-	F(   9600000,         xo,    2,    0,     0),
-	F(  19200000,         xo,    1,    0,     0),
-	F(  60000000, gpll0_out_main_cgc,   10,    0,     0),
-	F_END
+DEFINE_CLK_DUMMY(pcie20_phy_aux_clk, 16600000);
+
+static struct clk_mux_ops pcie_aux_mux_ops = {
+	.set_mux_sel = set_pcie_aux_mux_sel,
+	.get_mux_sel = get_pcie_aux_mux_sel
 };
+
+static struct mux_clk pcie_aux_mux_clk  = {
+	.num_parents = 2,
+	.offset = PCIE_AUX_CLK_SEL,
+	.parents = (struct clk_src[]) {
+		{&pcie20_phy_aux_clk.c, 0},
+		{&xo.c, 2},
+	},
+	.ops = &pcie_aux_mux_ops,
+	.mask = 0x3,
+	.shift = 0,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "pcie_aux_mux_clk",
+		.ops = &clk_ops_gen_mux,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(pcie_aux_mux_clk.c),
+	}
+};
+
 static struct branch_clk gcc_pcie_aux_clk = {
 	.cbcr_reg = PCIE_AUX_CBCR,
 	.bcr_reg = PCIE_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
+		.parent = &pcie_aux_mux_clk.c,
 		.dbg_name = "gcc_pcie_aux_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_pcie_aux_clk.c),
@@ -1597,7 +1625,29 @@ static struct branch_clk gcc_pcie_aux_clk = {
 static struct clk_lookup msm_clocks_gcc_sdxhedgehog[] = {
 	CLK_LIST(gcc_pcie_aux_clk),
 	CLK_LIST(pcie_aux_phy_clk_src),
+	CLK_LIST(pcie20_phy_aux_clk),
+	CLK_LIST(pcie_aux_mux_clk),
 };
+
+static int set_pcie_aux_mux_sel(struct mux_clk *clk, int sel)
+{
+	u32 regval;
+
+	regval = readl_relaxed(*clk->base + clk->offset);
+	regval &= ~(clk->mask << clk->shift);
+	regval |= (sel & clk->mask) << clk->shift;
+	writel_relaxed(regval, *clk->base + clk->offset);
+
+	return 0;
+}
+
+static int get_pcie_aux_mux_sel(struct mux_clk *clk)
+{
+	u32 regval;
+
+	regval = readl_relaxed(*clk->base + clk->offset);
+	return (regval >> clk->shift) & clk->mask;
+}
 
 static void msm_clocks_gcc_sdxhedgehog_fixup(void)
 {
@@ -1610,7 +1660,6 @@ static void msm_clocks_gcc_sdxhedgehog_fixup(void)
 	apss_ahb_clk_src.freq_tbl = ftbl_apss_ahb_clk_src_sdxhedgehog;
 	usb30_mock_utmi_clk_src.freq_tbl =
 		ftbl_usb30_mock_utmi_clk_src_sdxhedgehog;
-	pdm2_clk_src.freq_tbl = ftbl_pdm2_clk_src_sdxhedgehog;
 
 	sdcc1_apps_clk_src.c.fmax[VDD_DIG_MIN] = 25000000;
 	sdcc1_apps_clk_src.c.fmax[VDD_DIG_LOWER] = 50000000;
@@ -1624,7 +1673,7 @@ static void msm_clocks_gcc_sdxhedgehog_fixup(void)
 	blsp1_qup3_i2c_apps_clk_src.c.fmax[VDD_DIG_MIN] = 9600000;
 	blsp1_qup3_spi_apps_clk_src.c.fmax[VDD_DIG_MIN] = 6250000;
 
-	gcc_pcie_pipe_clk.bcr_reg = PCIE_BCR;
+	pcie_aux_clk_src.c.ops = &clk_ops_dummy;
 }
 
 static int msm_gcc_californium_probe(struct platform_device *pdev)

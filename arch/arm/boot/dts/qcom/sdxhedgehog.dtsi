@@ -35,6 +35,29 @@
 		qcom,ipa-hw-ver = <12>; /* IPA core version = IPAv3.5 */
 		/delete-property/qcom,use-rg10-limitation-mitigation;
 	};
+
+	qcom,msm-cpufreq {
+		qcom,cpufreq-table =
+			<  307200 >,
+			<  614400 >,
+			< 1017600 >,
+			< 1401600 >;
+	};
+};
+
+&clock_gcc {
+	compatible = "qcom,gcc-sdxhedgehog";
+};
+
+&clock_cpu  {
+	compatible = "qcom,clock-a7-sdxhedgehog";
+
+	qcom,speed0-bin-v0 =
+		<         0 RPM_SMD_REGULATOR_LEVEL_NONE >,
+		< 307200000 RPM_SMD_REGULATOR_LEVEL_LOW_SVS >,
+		< 614400000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 1017600000 RPM_SMD_REGULATOR_LEVEL_NOM >,
+		< 1401600000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
 };
 
 #include "sdxhedgehog-bus.dtsi"
