@@ -55,6 +55,10 @@ Optional properties:
 - lanes-per-direction:	number of lanes available per direction - either 1 or 2.
 			Note that it is assume same number of lanes is used both directions at once.
 			If not specified, default is 2 lanes per direction.
+- pinctrl-names, pinctrl-0, pinctrl-1,.. pinctrl-n: Refer to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+			for these optional properties
+
+
 
 Note: If above properties are not defined it can be assumed that the supply
 regulators or clocks are always on.

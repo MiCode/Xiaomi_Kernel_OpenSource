@@ -71,6 +71,7 @@ static void mdss_mdp_disable_destination_scaler_setup(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_data_type *mdata = ctl->mdata;
 	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
+	struct mdss_mdp_ctl *split_ctl;
 
 	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map)) {
 		if (ctl->mixer_left && ctl->mixer_right &&
@@ -80,9 +81,11 @@ static void mdss_mdp_disable_destination_scaler_setup(struct mdss_mdp_ctl *ctl)
 			/*
 			 * DUAL mode disable
 			 */
+			split_ctl = mdss_mdp_get_split_ctl(ctl);
 			ctl->mixer_left->width = get_panel_width(ctl);
 			ctl->mixer_left->height = get_panel_yres(pinfo);
-			ctl->mixer_left->width /= 2;
+			if (!split_ctl)
+				ctl->mixer_left->width /= 2;
 			ctl->mixer_right->width = ctl->mixer_left->width;
 			ctl->mixer_right->height = ctl->mixer_left->height;
 			ctl->mixer_left->roi = (struct mdss_rect) { 0, 0,
@@ -2136,7 +2139,7 @@ static int __validate_multirect(struct msm_fb_data_type *mfd,
 static int __validate_layers(struct msm_fb_data_type *mfd,
 	struct file *file, struct mdp_layer_commit_v1 *commit)
 {
-	int ret, i;
+	int ret, i = 0;
 	int rec_ndx[MDSS_MDP_PIPE_MAX_RECTS] = { 0 };
 	int rec_release_ndx[MDSS_MDP_PIPE_MAX_RECTS] = { 0 };
 	int rec_destroy_ndx[MDSS_MDP_PIPE_MAX_RECTS] = { 0 };
@@ -2660,13 +2663,22 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 	if (mdp5_data->cwb.valid) {
 		struct sync_fence *retire_fence = NULL;
 
+		if (!commit->output_layer) {
+			pr_err("cwb request without setting output layer\n");
+			goto map_err;
+		}
+
 		retire_fence = __create_fence(mfd,
 				&mdp5_data->cwb.cwb_sync_pt_data,
 				MDSS_MDP_CWB_RETIRE_FENCE,
 				&commit->output_layer->buffer.fence, 0);
 		if (IS_ERR_OR_NULL(retire_fence)) {
 			pr_err("failed to handle cwb fence");
+			goto map_err;
 		}
+
+		sync_fence_install(retire_fence,
+				commit->output_layer->buffer.fence);
 	}
 
 map_err:

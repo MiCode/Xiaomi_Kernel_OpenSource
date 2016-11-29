@@ -1404,14 +1404,6 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 		mdss_iommu_ctrl(0);
 	}
 
-	/* Restore any previously configured PP features by resetting the dirty
-	 * bits for enabled features. The dirty bits will be consumed during the
-	 * first display commit when the PP hardware blocks are updated
-	 */
-	rc = mdss_mdp_pp_resume(mfd);
-	if (rc && (rc != -EPERM) && (rc != -ENODEV))
-		pr_err("PP resume err %d\n", rc);
-
 	/*
 	 * Increment the overlay active count prior to calling ctl_start.
 	 * This is needed to ensure that if idle power collapse kicks in
@@ -1426,6 +1418,14 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 		pr_err("mdp ctl start failed.\n");
 		goto ctl_error;
 	}
+
+	/* Restore any previously configured PP features by resetting the dirty
+	 * bits for enabled features. The dirty bits will be consumed during the
+	 * first display commit when the PP hardware blocks are updated
+	 */
+	rc = mdss_mdp_pp_resume(mfd);
+	if (rc && (rc != -EPERM) && (rc != -ENODEV))
+		pr_err("PP resume err %d\n", rc);
 
 	rc = mdss_mdp_splash_cleanup(mfd, true);
 	if (!rc)
@@ -3765,6 +3765,9 @@ static ssize_t mdss_mdp_misr_store(struct device *dev,
 		return rc;
 	}
 
+	req.block_id = DISPLAY_MISR_MAX;
+	sreq.block_id = DISPLAY_MISR_MAX;
+
 	pr_debug("intf_type:%d enable:%d\n", ctl->intf_type, enable_misr);
 	if (ctl->intf_type == MDSS_INTF_DSI) {
 
@@ -4402,9 +4405,7 @@ static int mdss_bl_scale_config(struct msm_fb_data_type *mfd,
 	mutex_lock(&mfd->bl_lock);
 	curr_bl = mfd->bl_level;
 	mfd->bl_scale = data->scale;
-	mfd->bl_min_lvl = data->min_lvl;
-	pr_debug("update scale = %d, min_lvl = %d\n", mfd->bl_scale,
-							mfd->bl_min_lvl);
+	pr_debug("update scale = %d\n", mfd->bl_scale);
 
 	/* update current backlight to use new scaling*/
 	mdss_fb_set_backlight(mfd, curr_bl);
@@ -4611,6 +4612,20 @@ static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
 		ret = -EINVAL;
 		break;
 	}
+	return ret;
+}
+
+static int mdss_fb_set_panel_ppm(struct msm_fb_data_type *mfd, s32 ppm)
+{
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	int ret = 0;
+
+	if (!ctl)
+		return -EPERM;
+
+	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UPDATE_PANEL_PPM,
+			(void *) (unsigned long) ppm,
+			CTL_INTF_EVENT_FLAG_DEFAULT);
 	return ret;
 }
 
@@ -5159,6 +5174,16 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 			break;
 		}
 		ret = mdss_mdp_set_cfg(mfd, &cfg);
+		break;
+	case MSMFB_MDP_SET_PANEL_PPM:
+		ret = copy_from_user(&val, argp, sizeof(val));
+		if (ret) {
+			pr_err("copy failed MSMFB_MDP_SET_PANEL_PPM ret %d\n",
+					ret);
+			ret = -EFAULT;
+			break;
+		}
+		ret = mdss_fb_set_panel_ppm(mfd, val);
 		break;
 
 	default:
@@ -6148,8 +6173,8 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 
 	/* Adding event timer only for primary panel */
 	if ((mfd->index == 0) && (mfd->panel_info->type != WRITEBACK_PANEL)) {
-		mdp5_data->cpu_pm_hdl = add_event_timer(mdss_irq->irq, NULL,
-							(void *)mdp5_data);
+		mdp5_data->cpu_pm_hdl = add_event_timer(mdss_irq->irq,
+				mdss_mdp_ctl_event_timer, (void *)mdp5_data);
 		if (!mdp5_data->cpu_pm_hdl)
 			pr_warn("%s: unable to add event timer\n", __func__);
 	}

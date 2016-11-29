@@ -237,7 +237,7 @@ static void sde_rotator_set_clk_rate(struct sde_rot_mgr *mgr,
 		clk_rate = clk_round_rate(clk, rate);
 		if (IS_ERR_VALUE(clk_rate)) {
 			SDEROT_ERR("unable to round rate err=%ld\n", clk_rate);
-		} else if (clk_rate != clk_get_rate(clk)) {
+		} else {
 			ret = clk_set_rate(clk, clk_rate);
 			if (IS_ERR_VALUE(ret))
 				SDEROT_ERR("clk_set_rate failed, err:%d\n",
