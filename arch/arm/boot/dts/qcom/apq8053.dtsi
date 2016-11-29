@@ -37,3 +37,7 @@
 &ipa_hw {
 	status = "disabled";
 };
+
+&secure_mem {
+	status = "disabled";
+};
