@@ -13,9 +13,6 @@
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
-
-#include <linux/jiffies.h>
-
 #include "sde_encoder_phys.h"
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
@@ -33,8 +30,6 @@
 
 #define to_sde_encoder_phys_cmd(x) \
 	container_of(x, struct sde_encoder_phys_cmd, base)
-
-#define WAIT_TIMEOUT_MSEC			100
 
 /*
  * Tearcheck sync start and continue thresholds are empirically found
@@ -102,23 +97,19 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 {
 	struct sde_encoder_phys_cmd *cmd_enc = arg;
 	struct sde_encoder_phys *phys_enc;
-	int new_pending_cnt;
+	int new_cnt;
 
 	if (!cmd_enc)
 		return;
 
 	phys_enc = &cmd_enc->base;
-	new_pending_cnt = atomic_dec_return(&cmd_enc->pending_cnt);
-	SDE_EVT32_IRQ(DRMID(phys_enc->parent), phys_enc->hw_pp->idx,
-		new_pending_cnt);
+
+	new_cnt = atomic_add_unless(&cmd_enc->pending_cnt, -1, 0);
+	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
+			phys_enc->hw_pp->idx - PINGPONG_0, new_cnt);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&cmd_enc->pp_tx_done_wq);
-
-	/* Trigger a pending flush */
-	if (phys_enc->parent_ops.handle_ready_for_kickoff)
-		phys_enc->parent_ops.handle_ready_for_kickoff(phys_enc->parent,
-			phys_enc);
 }
 
 static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
@@ -132,6 +123,54 @@ static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
 	if (phys_enc->parent_ops.handle_vblank_virt)
 		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
 			phys_enc);
+}
+
+static int _sde_encoder_phys_cmd_wait_for_idle(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_cmd *cmd_enc =
+			to_sde_encoder_phys_cmd(phys_enc);
+	u32 irq_status;
+	int ret;
+
+	/* return EWOULDBLOCK since we know the wait isn't necessary */
+	if (phys_enc->enable_state != SDE_ENC_ENABLED) {
+		SDE_ERROR_CMDENC(cmd_enc, "encoder not enabled, state: %d\n",
+				phys_enc->enable_state);
+		return -EWOULDBLOCK;
+	}
+
+	/* wait for previous kickoff to complete */
+	ret = sde_encoder_helper_wait_event_timeout(
+			DRMID(phys_enc->parent),
+			phys_enc->hw_pp->idx - PINGPONG_0,
+			&cmd_enc->pp_tx_done_wq,
+			&cmd_enc->pending_cnt,
+			KICKOFF_TIMEOUT_MS);
+	if (ret <= 0) {
+		irq_status = sde_core_irq_read(phys_enc->sde_kms,
+				INTR_IDX_PINGPONG, true);
+		if (irq_status) {
+			SDE_EVT32(DRMID(phys_enc->parent),
+					phys_enc->hw_pp->idx - PINGPONG_0);
+			SDE_DEBUG_CMDENC(cmd_enc,
+					"pp:%d done but irq not triggered\n",
+					phys_enc->hw_pp->idx - PINGPONG_0);
+			sde_encoder_phys_cmd_pp_tx_done_irq(cmd_enc,
+					INTR_IDX_PINGPONG);
+			ret = 0;
+		} else {
+			SDE_EVT32(DRMID(phys_enc->parent),
+					phys_enc->hw_pp->idx - PINGPONG_0);
+			SDE_ERROR_CMDENC(cmd_enc, "pp:%d kickoff timed out\n",
+					phys_enc->hw_pp->idx - PINGPONG_0);
+			ret = -ETIMEDOUT;
+		}
+	} else {
+		ret = 0;
+	}
+
+	return ret;
 }
 
 static void sde_encoder_phys_cmd_underrun_irq(void *arg, int irq_idx)
@@ -383,8 +422,8 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 			__builtin_return_address(0),
 			enable, atomic_read(&phys_enc->vblank_refcount));
 
-	SDE_EVT32(DRMID(phys_enc->parent), enable,
-			atomic_read(&phys_enc->vblank_refcount));
+	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
+			enable, atomic_read(&phys_enc->vblank_refcount));
 
 	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
 		ret = sde_encoder_phys_cmd_register_irq(phys_enc,
@@ -474,6 +513,7 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
+	int ret;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -484,12 +524,19 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 	if (WARN_ON(phys_enc->enable_state == SDE_ENC_DISABLED))
 		return;
 
+	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0);
+
+	ret = _sde_encoder_phys_cmd_wait_for_idle(phys_enc);
+	if (ret) {
+		atomic_set(&cmd_enc->pending_cnt, 0);
+		SDE_ERROR("failure waiting for idle before disable: %d\n", ret);
+		SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx, ret);
+	}
+
 	sde_encoder_phys_cmd_unregister_irq(phys_enc, INTR_IDX_UNDERRUN);
 	sde_encoder_phys_cmd_control_vblank_irq(phys_enc, false);
 	sde_encoder_phys_cmd_unregister_irq(phys_enc, INTR_IDX_PINGPONG);
 
-	atomic_set(&cmd_enc->pending_cnt, 0);
-	wake_up_all(&cmd_enc->pp_tx_done_wq);
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 
 	if (atomic_read(&phys_enc->vblank_refcount))
@@ -540,31 +587,34 @@ static int sde_encoder_phys_cmd_wait_for_commit_done(
 }
 
 static void sde_encoder_phys_cmd_prepare_for_kickoff(
-		struct sde_encoder_phys *phys_enc,
-		bool *need_to_wait)
+		struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
 	int new_pending_cnt;
+	int ret;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
+	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0);
 
 	/*
 	 * Mark kickoff request as outstanding. If there are more than one,
 	 * outstanding, then we have to wait for the previous one to complete
 	 */
-	new_pending_cnt = atomic_inc_return(&cmd_enc->pending_cnt);
-	*need_to_wait = new_pending_cnt != 1;
+	ret = _sde_encoder_phys_cmd_wait_for_idle(phys_enc);
+	if (ret) {
+		/* force pending_cnt 0 to discard failed kickoff */
+		atomic_set(&cmd_enc->pending_cnt, 0);
+		SDE_EVT32(DRMID(phys_enc->parent),
+				phys_enc->hw_pp->idx - PINGPONG_0);
+		SDE_ERROR("failed wait_for_idle: %d\n", ret);
+	}
 
-	if (*need_to_wait)
-		SDE_DEBUG_CMDENC(cmd_enc,
-				"pp %d needs to wait, new_pending_cnt %d",
-				phys_enc->hw_pp->idx - PINGPONG_0,
-				new_pending_cnt);
+	new_pending_cnt = atomic_inc_return(&cmd_enc->pending_cnt);
 	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx,
 			new_pending_cnt);
 }
