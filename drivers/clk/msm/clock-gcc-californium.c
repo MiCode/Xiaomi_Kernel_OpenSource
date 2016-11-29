@@ -183,6 +183,11 @@ static DEFINE_VDD_REGULATORS(vdd_dig_ao, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define DCC_CBCR                                         (0x77004)
 #define MSS_CFG_AHB_CBCR				 (0x49000)
 
+/* sdxhedgehog */
+#define PCIE_AUX_CBCR						(0x5D024)
+#define PCIE_AUX_PHY_CMD_RCGR		(0x5D030)
+#define PCIE_BCR					(0x5D004)
+
 DEFINE_CLK_RPM_SMD_BRANCH(xo, xo_a_clk, RPM_MISC_CLK_TYPE,
 			  XO_ID, 19200000);
 
@@ -1532,10 +1537,101 @@ static struct clk_lookup msm_clocks_gcc_californium[] = {
 	CLK_LIST(gcc_mss_cfg_ahb_clk),
 };
 
+/* sdxhedgehog */
+static struct alpha_pll_masks fabia_pll_masks_p = {
+	.lock_mask = BIT(31),
+	.active_mask = BIT(30),
+	.update_mask = BIT(22),
+	.output_mask = 0xf,
+};
+
+static struct alpha_pll_vco_tbl fabia_pll_vco_p[] = {
+	VCO(0,  250000000,  2000000000),
+	VCO(1,  125000000,  1000000000),
+};
+
+static struct rcg_clk pcie_aux_phy_clk_src = {
+	.cmd_rcgr_reg = PCIE_AUX_PHY_CMD_RCGR,
+	.set_rate = set_rate_mnd,
+	.freq_tbl = ftbl_pcie_aux_clk_src,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "pcie_aux_phy_clk_src",
+		.ops = &clk_ops_rcg_mnd,
+		VDD_DIG_FMAX_MAP1(LOWER, 19200000),
+		CLK_INIT(pcie_aux_phy_clk_src.c),
+	},
+};
+
+static struct clk_freq_tbl ftbl_apss_ahb_clk_src_sdxhedgehog[] = {
+	F(  50000000, gpll0_ao_out_main_cgc,   12,    0,     0),
+	F( 100000000, gpll0_ao_out_main_cgc,    6,    0,     0),
+	F( 133333333, gpll0_ao_out_main_cgc,  4.5,    0,     0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_usb30_mock_utmi_clk_src_sdxhedgehog[] = {
+	F(  19200000,         xo,    1,    0,     0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_pdm2_clk_src_sdxhedgehog[] = {
+	F(   9600000,         xo,    2,    0,     0),
+	F(  19200000,         xo,    1,    0,     0),
+	F(  60000000, gpll0_out_main_cgc,   10,    0,     0),
+	F_END
+};
+static struct branch_clk gcc_pcie_aux_clk = {
+	.cbcr_reg = PCIE_AUX_CBCR,
+	.bcr_reg = PCIE_BCR,
+	.has_sibling = 0,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_pcie_aux_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_pcie_aux_clk.c),
+	},
+};
+
+static struct clk_lookup msm_clocks_gcc_sdxhedgehog[] = {
+	CLK_LIST(gcc_pcie_aux_clk),
+	CLK_LIST(pcie_aux_phy_clk_src),
+};
+
+static void msm_clocks_gcc_sdxhedgehog_fixup(void)
+{
+	gcc_pcie_sleep_clk.c.parent =  &pcie_aux_phy_clk_src.c;
+	a7pll_clk.masks = &fabia_pll_masks_p;
+	a7pll_clk.vco_tbl =  fabia_pll_vco_p;
+	a7pll_clk.num_vco =  ARRAY_SIZE(fabia_pll_vco_p);
+	a7pll_clk.c.ops = &clk_ops_fabia_alpha_pll;
+
+	apss_ahb_clk_src.freq_tbl = ftbl_apss_ahb_clk_src_sdxhedgehog;
+	usb30_mock_utmi_clk_src.freq_tbl =
+		ftbl_usb30_mock_utmi_clk_src_sdxhedgehog;
+	pdm2_clk_src.freq_tbl = ftbl_pdm2_clk_src_sdxhedgehog;
+
+	sdcc1_apps_clk_src.c.fmax[VDD_DIG_MIN] = 25000000;
+	sdcc1_apps_clk_src.c.fmax[VDD_DIG_LOWER] = 50000000;
+	sdcc1_apps_clk_src.c.fmax[VDD_DIG_LOW] = 1000000000;
+	sdcc1_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 2000000000;
+
+	blsp1_qup1_spi_apps_clk_src.c.fmax[VDD_DIG_MIN] = 6250000;
+	blsp1_qup1_spi_apps_clk_src.c.fmax[VDD_DIG_MIN] = 6250000;
+	blsp1_qup2_i2c_apps_clk_src.c.fmax[VDD_DIG_MIN] = 9600000;
+	blsp1_qup2_spi_apps_clk_src.c.fmax[VDD_DIG_MIN] = 6250000;
+	blsp1_qup3_i2c_apps_clk_src.c.fmax[VDD_DIG_MIN] = 9600000;
+	blsp1_qup3_spi_apps_clk_src.c.fmax[VDD_DIG_MIN] = 6250000;
+
+	gcc_pcie_pipe_clk.bcr_reg = PCIE_BCR;
+}
+
 static int msm_gcc_californium_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	int ret;
+	bool for_sdxhedgehog = false;
 
 	ret = vote_bimc(&bimc_clk, INT_MAX);
 	if (ret < 0)
@@ -1584,15 +1680,34 @@ static int msm_gcc_californium_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	for_sdxhedgehog = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gcc-sdxhedgehog");
+
 	ret = enable_rpm_scaling();
 	if (ret < 0)
 		return ret;
 
 	dev_info(&pdev->dev, "Registered RPM clocks.\n");
 
+	/*
+	 * Update for sdxhedgehog clocks.
+	 */
+	if (for_sdxhedgehog)
+		msm_clocks_gcc_sdxhedgehog_fixup();
+
 	ret = of_msm_clock_register(pdev->dev.of_node,
 				    msm_clocks_gcc_californium,
 				    ARRAY_SIZE(msm_clocks_gcc_californium));
+	if (ret)
+		return ret;
+
+	/*
+	 * Register sdxhedgehog clocks.
+	 */
+	if (for_sdxhedgehog)
+		ret = of_msm_clock_register(pdev->dev.of_node,
+				    msm_clocks_gcc_sdxhedgehog,
+				    ARRAY_SIZE(msm_clocks_gcc_sdxhedgehog));
 	if (ret)
 		return ret;
 
@@ -1612,6 +1727,7 @@ static int msm_gcc_californium_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-californium" },
+	{ .compatible = "qcom,gcc-sdxhedgehog" },
 	{}
 };
 
