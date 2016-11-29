@@ -32,11 +32,5 @@
 			memory-region = <&qseecom_mem>;
 			qcom,ion-heap-type = "DMA";
 		};
-
-		qcom,ion-heap@22 { /* MODEM HEAP */
-			reg = <22>;
-			memory-region = <&mdsp_mem>;
-			qcom,ion-heap-type = "DMA";
-		};
 	};
 };
