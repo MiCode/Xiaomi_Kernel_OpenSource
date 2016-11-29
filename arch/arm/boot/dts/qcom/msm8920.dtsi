@@ -150,6 +150,41 @@
 			qcom,scaling-factor = <1000>;
 		};
 	};
+
+	cpubw: qcom,cpubw {
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2270 /*  297.6 MHz */ >,	/*SVS */
+			<  2929 /*  384   MHz */ >,
+			<  4248 /*  556.8 MHz */ >,	/*SVS+*/
+			<  4541 /*  595.2 MHz */ >,	/*NOM*/
+			<  5126 /*  672   MHz */ >,	/*NOM+*/
+			<  5645 /*  740   MHz */ >;	/*TURBO*/
+	};
+
+	mincpubw: qcom,mincpubw {
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2270 /*  297.6 MHz */ >,
+			<  2929 /*  384   MHz */ >,
+			<  4248 /*  556.8 MHz */ >,
+			<  4541 /*  595.2 MHz */ >,
+			<  5126 /*  672   MHz */ >,
+			<  5645 /*  740   MHz */ >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		cpu-to-dev-map =
+			<  998400  4248 >,
+			< 1094400  4541 >,
+			< 1497600  5645 >;
+		};
+
+	};
+
 };
 
 &bam_dmux {
