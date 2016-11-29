@@ -1358,6 +1358,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	u32 prod_hdl;
 	int i;
+	u32 rx_door_bell_value;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -1368,28 +1369,6 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 	result = ipa3_uc_state_check();
 	if (result)
 		return result;
-
-	/* checking rdy_ring_rp_pa matches the rdy_comp_ring_wp_pa on WDI2.0 */
-	if (ipa3_ctx->ipa_wdi2) {
-		for (i = 0; i < IPA_UC_FINISH_MAX; i++) {
-			IPADBG("(%d) rp_value(%u), comp_wp_value(%u)\n",
-					i,
-					*ipa3_ctx->uc_ctx.rdy_ring_rp_va,
-					*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va);
-			if (*ipa3_ctx->uc_ctx.rdy_ring_rp_va !=
-				*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va) {
-				usleep_range(IPA_UC_WAIT_MIN_SLEEP,
-					IPA_UC_WAII_MAX_SLEEP);
-			} else {
-				break;
-			}
-		}
-		/* In case ipa_uc still haven't processed all
-		 * pending descriptors, we have to assert
-		 */
-		if (i == IPA_UC_FINISH_MAX)
-			WARN_ON(1);
-	}
 
 	IPADBG("ep=%d\n", clnt_hdl);
 
@@ -1431,10 +1410,40 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		}
 		usleep_range(IPA_UC_POLL_SLEEP_USEC * IPA_UC_POLL_SLEEP_USEC,
 			IPA_UC_POLL_SLEEP_USEC * IPA_UC_POLL_SLEEP_USEC);
+
+		/*
+		 * checking rdy_ring_rp_pa matches the
+		 * rdy_comp_ring_wp_pa on WDI2.0
+		 */
+		if (ipa3_ctx->ipa_wdi2) {
+			for (i = 0; i < IPA_UC_FINISH_MAX; i++) {
+				rx_door_bell_value = ipahal_read_reg_mn(
+					IPA_UC_MAILBOX_m_n,
+					IPA_HW_WDI_RX_MBOX_START_INDEX/32,
+					IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
+				IPADBG("(%d)rx_DB(%u)rp(%u),comp_wp(%u)\n",
+					i,
+					rx_door_bell_value,
+					*ipa3_ctx->uc_ctx.rdy_ring_rp_va,
+					*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va);
+				if (rx_door_bell_value !=
+					*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va) {
+					usleep_range(IPA_UC_WAIT_MIN_SLEEP,
+						IPA_UC_WAII_MAX_SLEEP);
+				} else {
+					break;
+				}
+			}
+			/*
+			 * In case ipa_uc still haven't processed all
+			 * pending descriptors, we have to assert
+			 */
+			if (i == IPA_UC_FINISH_MAX)
+				ipa_assert();
+		}
 	}
 
 	disable.params.ipa_pipe_number = clnt_hdl;
-
 	result = ipa3_uc_send_cmd(disable.raw32b,
 		IPA_CPU_2_HW_CMD_WDI_CH_DISABLE,
 		IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS,

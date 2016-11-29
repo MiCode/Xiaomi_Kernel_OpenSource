@@ -1308,6 +1308,38 @@ u32 ipahal_read_reg_n(enum ipahal_reg_name reg, u32 n)
 }
 
 /*
+ * ipahal_read_reg_mn() - Get mn parameterized reg value
+ */
+u32 ipahal_read_reg_mn(enum ipahal_reg_name reg, u32 m, u32 n)
+{
+	u32 offset;
+
+	if (reg >= IPA_REG_MAX) {
+		IPAHAL_ERR("Invalid register reg=%u\n", reg);
+		return -EFAULT;
+	}
+
+	IPAHAL_DBG_LOW("read %s m=%u n=%u\n",
+		ipahal_reg_name_str(reg), m, n);
+	offset = ipahal_reg_objs[ipahal_ctx->hw_type][reg].offset;
+	if (offset == -1) {
+		IPAHAL_ERR("Read access to obsolete reg=%s\n",
+			ipahal_reg_name_str(reg));
+		WARN_ON_ONCE(1);
+		return -EFAULT;
+	}
+	/*
+	 * Currently there is one register with m and n parameters
+	 *	IPA_UC_MAILBOX_m_n. The m value of it is 0x80.
+	 * If more such registers will be added in the future,
+	 *	we can move the m parameter to the table above.
+	 */
+	offset += 0x80 * m;
+	offset += ipahal_reg_objs[ipahal_ctx->hw_type][reg].n_ofst * n;
+	return ioread32(ipahal_ctx->base + offset);
+}
+
+/*
  * ipahal_write_reg_mn() - Write to m/n parameterized reg a raw value
  */
 void ipahal_write_reg_mn(enum ipahal_reg_name reg, u32 m, u32 n, u32 val)
