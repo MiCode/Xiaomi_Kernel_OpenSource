@@ -2519,7 +2519,9 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 					DSPP);
 	}
 
-	pp_dspp_opmode_config(ctl, dspp_num, pp_sts, mdata->mdp_rev, &opmode);
+	if (pp_sts != NULL)
+		pp_dspp_opmode_config(ctl, dspp_num, pp_sts, mdata->mdp_rev,
+					&opmode);
 
 	if (ad_hw) {
 		mutex_lock(&ad->lock);

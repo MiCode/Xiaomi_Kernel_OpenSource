@@ -57,6 +57,7 @@ struct mdss_mdp_writeback_ctx {
 	u16 width;
 	u16 height;
 	u16 frame_rate;
+	enum mdss_mdp_csc_type csc_type;
 	struct mdss_rect dst_rect;
 
 	u32 dnsc_factor_w;
@@ -202,16 +203,9 @@ static int mdss_mdp_writeback_addr_setup(struct mdss_mdp_writeback_ctx *ctx,
 }
 
 static int mdss_mdp_writeback_cdm_setup(struct mdss_mdp_writeback_ctx *ctx,
-					struct mdss_mdp_cdm *cdm, u32 format)
+	struct mdss_mdp_cdm *cdm, struct mdss_mdp_format_params *fmt)
 {
-	struct mdss_mdp_format_params *fmt;
 	struct mdp_cdm_cfg setup;
-
-	fmt = mdss_mdp_get_format_params(format);
-	if (!fmt) {
-		pr_err("%s: format %d not supported\n", __func__, format);
-		return -EINVAL;
-	}
 
 	if (fmt->is_yuv)
 		setup.csc_type = MDSS_MDP_CSC_RGB2YUV_601L;
@@ -237,10 +231,11 @@ static int mdss_mdp_writeback_cdm_setup(struct mdss_mdp_writeback_ctx *ctx,
 		return -EINVAL;
 	}
 
-	setup.out_format = format;
+	setup.out_format = fmt->format;
 	setup.mdp_csc_bit_depth = MDP_CDM_CSC_8BIT;
 	setup.output_width = ctx->width;
 	setup.output_height = ctx->height;
+	setup.csc_type = ctx->csc_type;
 	return mdss_mdp_cdm_setup(cdm, &setup);
 }
 
@@ -353,10 +348,9 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	chroma_samp = fmt->chroma_sample;
 
 	if (ctl->cdm) {
-
-		rc = mdss_mdp_writeback_cdm_setup(ctx, ctl->cdm, format);
+		rc = mdss_mdp_writeback_cdm_setup(ctx, ctl->cdm, fmt);
 		if (rc) {
-			pr_err("%s: CDM configuration failed with error %d\n",
+			pr_err("%s: CDM config failed with error %d\n",
 				__func__, rc);
 			return rc;
 		}
@@ -544,6 +538,7 @@ static int mdss_mdp_writeback_prepare_wfd(struct mdss_mdp_ctl *ctl, void *arg)
 	ctx->width = ctl->width;
 	ctx->height = ctl->height;
 	ctx->frame_rate = ctl->frame_rate;
+	ctx->csc_type = ctl->csc_type;
 	ctx->dst_rect.x = 0;
 	ctx->dst_rect.y = 0;
 	ctx->dst_rect.w = ctx->width;
@@ -1014,6 +1009,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_writeback_ctx *ctx;
 	struct mdss_mdp_writeback *wb;
 	u32 mixer_type = MDSS_MDP_MIXER_TYPE_UNUSED;
+	struct mdss_mdp_format_params *fmt = NULL;
 	bool is_rot;
 
 	pr_debug("start ctl=%d\n", ctl->num);
@@ -1037,6 +1033,10 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 		return -EINVAL;
 	}
 
+	fmt = mdss_mdp_get_format_params(ctl->dst_format);
+	if (!fmt)
+		return -EINVAL;
+
 	is_rot = (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR) ? true : false;
 
 	if (ctl->mixer_left) {
@@ -1050,15 +1050,13 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	}
 
 	if (mdss_mdp_is_cdm_supported(ctl->mdata, ctl->intf_type,
-				mixer_type)) {
+		mixer_type) && fmt->is_yuv) {
 		ctl->cdm = mdss_mdp_cdm_init(ctl, MDP_CDM_CDWN_OUTPUT_WB);
 		if (IS_ERR_OR_NULL(ctl->cdm)) {
-			pr_err("%s failed to init cdm\n", __func__);
+			pr_err("cdm block already in use\n");
+			ctl->cdm = NULL;
 			return -EBUSY;
 		}
-	} else {
-		ctl->cdm = NULL;
-		pr_debug("%s: cdm not supported\n", __func__);
 	}
 	ctl->priv_data = ctx;
 	ctx->wb_num = wb->num;

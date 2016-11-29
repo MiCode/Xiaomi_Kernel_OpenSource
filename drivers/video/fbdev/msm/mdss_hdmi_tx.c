@@ -425,7 +425,8 @@ static inline void hdmi_tx_send_cable_notification(
 static inline void hdmi_tx_set_audio_switch_node(
 	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
 {
-	if (hdmi_ctrl && hdmi_ctrl->ext_audio_data.intf_ops.notify)
+	if (hdmi_ctrl && hdmi_ctrl->ext_audio_data.intf_ops.notify &&
+			!hdmi_tx_is_dvi_mode(hdmi_ctrl))
 		hdmi_ctrl->ext_audio_data.intf_ops.notify(hdmi_ctrl->ext_pdev,
 				val);
 }
@@ -1254,6 +1255,12 @@ static ssize_t hdmi_tx_sysfs_wta_5v(struct device *dev,
 	}
 
 	mutex_lock(&hdmi_ctrl->tx_lock);
+	pd = &hdmi_ctrl->pdata.power_data[HDMI_TX_HPD_PM];
+	if (!pd || !pd->gpio_config) {
+		DEV_ERR("%s: Error: invalid power data\n", __func__);
+		ret = -EINVAL;
+		goto end;
+	}
 
 	ret = kstrtoint(buf, 10, &read);
 	if (ret) {
@@ -2169,6 +2176,7 @@ static int hdmi_tx_init_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 	pinfo->type = DTV_PANEL;
 	pinfo->pdest = DISPLAY_3;
 	pinfo->wait_cycle = 0;
+	pinfo->out_format = MDP_RGB_888;
 	pinfo->bpp = 24;
 	pinfo->fb_num = 1;
 
@@ -3083,10 +3091,16 @@ static inline void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 static int hdmi_tx_power_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	struct dss_io_data *io = NULL;
-	void *pdata = hdmi_tx_get_fd(HDMI_TX_FEAT_PANEL);
+	void *pdata = NULL;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	pdata = hdmi_tx_get_fd(HDMI_TX_FEAT_PANEL);
+	if (!pdata) {
+		DEV_ERR("%s: invalid panel data\n", __func__);
 		return -EINVAL;
 	}
 
@@ -3227,7 +3241,7 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdmi_ctrl->mdss_util->disable_irq(&hdmi_tx_hw);
 		hdmi_tx_set_mode(hdmi_ctrl, false);
 	}
-
+	hdmi_tx_config_5v(hdmi_ctrl, false);
 	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_HPD_PM, 0);
 	if (rc)
 		DEV_INFO("%s: Failed to disable hpd power. Error=%d\n",
@@ -3590,8 +3604,13 @@ static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	pdata = hdmi_tx_get_fd(HDMI_TX_FEAT_PANEL);
 
-	pinfo = &hdmi_ctrl->panel_data.panel_info;
+	pdata = hdmi_tx_get_fd(HDMI_TX_FEAT_PANEL);
+	if (!pdata) {
+		DEV_ERR("%s: invalid panel data\n", __func__);
+		return;
+	}
 
+	pinfo = &hdmi_ctrl->panel_data.panel_info;
 	if (!pinfo->dynamic_fps) {
 		DEV_DBG("%s: Dynamic fps not enabled\n", __func__);
 		return;
