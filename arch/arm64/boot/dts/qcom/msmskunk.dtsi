@@ -577,6 +577,8 @@
 
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
+			interrupt-names = "ecc_irq";
+			interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		qcom,llcc-amon {

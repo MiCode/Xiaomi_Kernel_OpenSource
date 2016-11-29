@@ -18,6 +18,7 @@
 #include <linux/spinlock.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
+#include <linux/interrupt.h>
 #include "edac_core.h"
 
 #ifdef CONFIG_EDAC_QCOM_LLCC_PANIC_ON_CE
@@ -76,6 +77,11 @@
 static int poll_msec = 5000;
 module_param(poll_msec, int, 0444);
 
+static int interrupt_mode;
+module_param(interrupt_mode, int, 0444);
+MODULE_PARM_DESC(interrupt_mode,
+		 "Controls whether to use interrupt or poll mode");
+
 enum {
 	LLCC_DRAM_CE = 0,
 	LLCC_DRAM_UE,
@@ -91,6 +97,7 @@ struct errors_edac {
 
 struct erp_drvdata {
 	struct regmap *llcc_map;
+	u32 ecc_irq;
 };
 
 static const struct errors_edac errors[] = {
@@ -262,7 +269,7 @@ static void dump_syn_reg(struct edac_device_ctl_info *edev_ctl,
 	errors[err_type].func(edev_ctl, 0, 0, errors[err_type].msg);
 }
 
-static void qcom_llcc_poll_cache_errors
+static void qcom_llcc_check_cache_errors
 		(struct edac_device_ctl_info *edev_ctl)
 {
 	u32 drp_error;
@@ -295,6 +302,18 @@ static void qcom_llcc_poll_cache_errors
 	}
 }
 
+static void qcom_llcc_poll_cache_errors(struct edac_device_ctl_info *edev_ctl)
+{
+	qcom_llcc_check_cache_errors(edev_ctl);
+}
+
+static irqreturn_t llcc_ecc_irq_handler
+			(int irq, void *edev_ctl)
+{
+	qcom_llcc_check_cache_errors(edev_ctl);
+	return IRQ_HANDLED;
+}
+
 static int qcom_llcc_erp_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -321,12 +340,29 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 	drv->llcc_map = syscon_node_to_regmap(dev->parent->of_node);
 	if (IS_ERR(drv->llcc_map)) {
 		dev_err(dev, "no regmap for syscon llcc parent\n");
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto out;
+	}
+
+	if (interrupt_mode) {
+		drv->ecc_irq = platform_get_irq_byname(pdev, "ecc_irq");
+		if (!drv->ecc_irq) {
+			rc = -ENODEV;
+			goto out;
+		}
+
+		rc = devm_request_irq(dev, drv->ecc_irq, llcc_ecc_irq_handler,
+				IRQF_TRIGGER_RISING, "llcc_ecc", edev_ctl);
+		if (rc) {
+			dev_err(dev, "failed to request ecc irq\n");
+			goto out;
+		}
 	}
 
 	platform_set_drvdata(pdev, edev_ctl);
 
 	rc = edac_device_add_device(edev_ctl);
+out:
 	if (rc)
 		edac_device_free_ctl_info(edev_ctl);
 
