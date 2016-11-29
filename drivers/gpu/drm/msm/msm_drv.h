@@ -352,7 +352,7 @@ int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool async);
 
 int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu);
-void msm_unregister_all_mmu(struct drm_device *dev);
+void msm_unregister_mmu(struct drm_device *dev, struct msm_mmu *mmu);
 
 int msm_wait_fence(struct drm_device *dev, uint32_t fence,
 		ktime_t *timeout, bool interruptible);
