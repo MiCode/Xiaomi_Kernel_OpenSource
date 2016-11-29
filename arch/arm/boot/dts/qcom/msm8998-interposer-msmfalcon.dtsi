@@ -2587,10 +2587,9 @@
 		reg = <0x5c00000 0x4000>;
 		interrupts = <0 390 1>;
 
-		vdd_cx-supply = <&pm8998_l27_level>;
-		vdd_px-supply = <&pm8998_lvs2>;
+		vdd_cx-supply = <&pm2falcon_l9_level>;
 		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 0>;
-		qcom,proxy-reg-names = "vdd_cx", "vdd_px";
+		qcom,proxy-reg-names = "vdd_cx";
 		qcom,keep-proxy-regs-on;
 
 		clocks = <&clock_gcc clk_cxo_pil_ssc_clk>,
