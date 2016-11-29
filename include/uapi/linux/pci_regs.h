@@ -623,7 +623,8 @@
 #define PCI_EXT_CAP_ID_SECPCI	0x19	/* Secondary PCIe Capability */
 #define PCI_EXT_CAP_ID_PMUX	0x1A	/* Protocol Multiplexing */
 #define PCI_EXT_CAP_ID_PASID	0x1B	/* Process Address Space ID */
-#define PCI_EXT_CAP_ID_MAX	PCI_EXT_CAP_ID_PASID
+#define PCI_EXT_CAP_ID_LNKSUB	0x1E	/* L1 Link Sub-States */
+#define PCI_EXT_CAP_ID_MAX	PCI_EXT_CAP_ID_LNKSUB
 
 #define PCI_EXT_CAP_DSN_SIZEOF	12
 #define PCI_EXT_CAP_MCAST_ENDPOINT_SIZEOF 40
@@ -898,5 +899,29 @@
 #define PCI_TPH_CAP_ST_MASK	0x07FF0000	/* st table mask */
 #define PCI_TPH_CAP_ST_SHIFT	16	/* st table shift */
 #define PCI_TPH_BASE_SIZEOF	12	/* size with no st table */
+
+/* Link Sub-States */
+#define	PCI_LNKSUB_CAP			4	/* capability register */
+#define PCI_LNKSUB_CAP_PCI_PM_L12	0x01	/* PCI-PM L1.2 Supported */
+#define PCI_LNKSUB_CAP_PCI_PM_L11	0x02	/* PCI-PM L1.1 Supported */
+#define PCI_LNKSUB_CAP_ASPM_L12		0x04	/* ASPM L1.2 Supported */
+#define PCI_LNKSUB_CAP_ASPM_L11		0x08	/* ASPM L1.1 Supported */
+#define PCI_LNKSUB_CAP_L1_PM_SS		0x10	/* L1 PM Substates Supported */
+
+#define PCI_LNKSUB_CTRL1		8	/* contrl 1 register */
+#define PCI_LNKSUB_PCI_PM_L12_EN	0x01	/* PCI-PM L1.2 enable */
+#define PCI_LNKSUB_PCI_PM_L11_EN	0x02	/* PCI-PM L1.1 enable */
+#define PCI_LNKSUB_ASPM_L12_EN		0x04	/* ASPM L1.2 enable */
+#define PCI_LNKSUB_ASPM_L11_EN		0x08	/* ASPM L1.1 enable */
+#define PCI_LINKSUB_EN_MASK			0xF		/* PCI Link Substatus enable mask */
+#define PCI_LNKSUB_RESTORE_TIME		0xFF00	/* common mode restore time */
+#define PCI_LNKSUB_RESTORE_TIME_SHIFT	8
+#define PCI_LNKSUB_L12_THRE_VAL		0x3FF0000	/* LTR L1.2 value */
+#define PCI_LNKSUB_L12_THRE_SCAL	0xE0000000	/* LTR L1.2 scale */
+
+#define PCI_LNKSUB_CTRL2		12	/* contrl 2 register */
+#define PCI_LNKSUB_PWR_ON_SCAL		0x3	/* L1SS power on scale */
+#define PCI_LNKSUB_PWR_ON_VAL		0xF8	/* L1SS power on value */
+#define PCI_LNKSUB_PWR_ON_VAL_SHIFT	3
 
 #endif /* LINUX_PCI_REGS_H */

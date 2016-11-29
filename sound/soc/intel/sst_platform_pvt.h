@@ -2,6 +2,7 @@
  *  sst_platform_pvt.h - Intel MID Platform driver header file
  *
  *  Copyright (C) 2010 Intel Corp
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *  Author: Vinod Koul <vinod.koul@intel.com>
  *  Author: Harsha Priya <priya.harsha@intel.com>
  *  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -135,5 +136,8 @@ struct sst_data {
 	bool vtsv_enroll;
 	char *vtsv_path;
 	struct sst_vtsv_result vtsv_result;
+
+	/* keep firmware and release it when remove module */
+	const struct firmware *fw;
 };
 #endif

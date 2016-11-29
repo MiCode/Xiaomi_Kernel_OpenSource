@@ -1,6 +1,7 @@
 /*
  * HID Sensors Driver
  * Copyright (c) 2012, Intel Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -674,14 +675,16 @@ static int     hid_set_sens_property(struct sensor_def *sensor,
 	return	rv;
 }
 
-static int     hid_get_sample(struct sensor_def *sensor, void *sample_buf,
-	size_t sample_buf_size)
+static int     hid_get_sample(struct sensor_def *sensor)
 {
 	unsigned	idx;
 	struct sensor_hub_data	*sd;
 	unsigned	report_id;
-	struct data_field *data_field;
-	int32_t	val;
+	struct	hid_report *report;
+	int	ret = 0;
+
+	if (!sensor)
+		return -EINVAL;
 
 	/* sensor hub device */
 	idx = sensor->id >> 16 & 0xFFFF;
@@ -692,24 +695,22 @@ static int     hid_get_sample(struct sensor_def *sensor, void *sample_buf,
 	/* Report ID */
 	report_id = sensor->id & 0xFFFF;
 
-	/*
-	 * Request an input report with the first data field,
-	 * regardless of what it is
-	 */
-	data_field = &sensor->data_fields[0];
-	val = sensor_hub_input_attr_get_raw_value(sd->hsdev, sensor->usage_id,
-		data_field->usage_id, HID_INPUT_REPORT);
-	if (!sd->pending.status)
-		return	-EIO;
+	mutex_lock(&sd->mutex);
+	report = sensor_hub_report(report_id, sd->hsdev->hdev,
+		HID_INPUT_REPORT);
+	if (!report) {
+		ret = -EINVAL;
+		goto done_proc;
+	}
+	hid_hw_request(sd->hsdev->hdev, report, HID_REQ_GET_REPORT);
 
-	/*
-	 * Actual sample will be pushed by sensor_hub_raw_event().
-	 * Invoke a short sleep in order to remove threads race condition and
-	 * ensure that the sample is in senscol buffer
-	 */
-	schedule_timeout(2);
+	/*The sample will arrive to "raw event" func,
+	and will be pushed to user via "push_sample" method*/
 
-	return	0;
+done_proc:
+	mutex_unlock(&sd->mutex);
+
+	return	ret;
 }
 
 /* Check sensor is activated and in batch mode                  *
@@ -1246,27 +1247,26 @@ static int sensor_hub_probe(struct hid_device *hdev,
 					prop_field.usage_id & 0xF000;
 				uint32_t data_hid =
 					prop_field.usage_id & 0x0FFF;
+				const char *modif_name =
+					senscol_get_modifier(modifier);
 				usage_name = senscol_usage_to_name(
 					data_hid);
-				dev_dbg(&hdev->dev,
-					"%s(): DATANAME %s\n",
-					__func__, usage_name);
-				if (!usage_name)
+
+				if (!strcmp(modif_name, "custom")) {
+					prop_field.name =
+						kasprintf(GFP_KERNEL,
+						"custom-%X",
+						prop_field.usage_id & 0xFFFF);
+				} else if (!usage_name)
 					prop_field.name =
 						kasprintf(GFP_KERNEL,
 						"unknown-%X",
 						prop_field.usage_id & 0xFFFF);
-				else {
-					const char *modif_name =
-						senscol_get_modifier(modifier);
-					dev_dbg(&hdev->dev,
-						"%s(): MODIFNAME %s\n",
-						__func__, modif_name);
+				else
 					prop_field.name =
 						kasprintf(GFP_KERNEL,
 						"%s_%s", usage_name,
 						modif_name);
-				}
 			}
 			prop_field.is_numeric =
 				(freport->field[i]->flags &

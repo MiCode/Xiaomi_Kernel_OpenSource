@@ -1,0 +1,32 @@
+config VIDEO_S5K4H8
+	tristate "Samsung S5K4H8 sensor support"
+	depends on I2C && VIDEO_V4L2
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the Samsung
+	  S5K4H8 8 Mpixel camera.
+
+	  S5K4H8 is video camera sensor.
+
+	  It currently only works with the atomisp driver.
+
+config VIDEO_T4KA3
+	tristate "TOSHIBA T4KA3 sensor support"
+	depends on I2C && VIDEO_V4L2
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the TOSHIBA
+	  T4KA3 8 Mpixel camera.
+
+	  T4KA3 is video camera sensor.
+
+	  It currently only works with the atomisp driver.
+
+config VIDEO_OV5693
+	tristate "Omnivision OV5693 sensor support"
+	depends on I2C && VIDEO_V4L2
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the Omnivision
+	  OV5693 5 Mpixel camera.
+
+	  OV5693 is video camera sensor.
+
+	  It currently only works with the atomisp driver.

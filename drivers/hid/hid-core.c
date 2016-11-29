@@ -5,6 +5,7 @@
  *  Copyright (c) 2000-2005 Vojtech Pavlik <vojtech@suse.cz>
  *  Copyright (c) 2005 Michael Haboustak <mike-@cinci.rr.com> for Concept2, Inc
  *  Copyright (c) 2006-2012 Jiri Kosina
+ *  Copyright (C) 2016 XiaoMi, Inc.
  */
 
 /*
@@ -1010,6 +1011,8 @@ EXPORT_SYMBOL_GPL(hid_snto32);
 static u32 s32ton(__s32 value, unsigned n)
 {
 	s32 a = value >> (n - 1);
+	if (n == 32)
+		return value;
 	if (a && a != -1)
 		return value < 0 ? 1 << (n - 1) : (1 << (n - 1)) - 1;
 	return value & ((1 << n) - 1);

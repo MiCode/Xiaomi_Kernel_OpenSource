@@ -65,3 +65,5 @@ obj-$(CONFIG_MONZA_X)           += monza_x.o
 obj-$(CONFIG_PI3USB30532_MUX)	+= pi3usb30532_mux.o
 obj-$(CONFIG_INTEL_WCOVE_GPIO) 	+= intel_wcove_gpio.o
 obj-$(CONFIG_BCM_BT_LPM)        += bcm-lpm/
+obj-y				+= tspdrv/
+obj-$(CONFIG_TYPEC_DRIVER)	+= type-c/

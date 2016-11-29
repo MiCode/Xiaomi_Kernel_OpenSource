@@ -1,6 +1,7 @@
 /*
  * Broadcom Dongle Host Driver (DHD), Flow ring specific code at top level
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -42,9 +43,6 @@
 #include <pcie_core.h>
 #include <bcmmsgbuf.h>
 #include <dhd_pcie.h>
-
-static INLINE uint16 dhd_flowid_find(dhd_pub_t *dhdp, uint8 ifindex,
-                                     uint8 prio, char *sa, char *da);
 
 static INLINE uint16 dhd_flowid_alloc(dhd_pub_t *dhdp, uint8 ifindex,
                                       uint8 prio, char *sa, char *da);
@@ -162,10 +160,13 @@ dhd_flow_rings_init(dhd_pub_t *dhdp, uint32 num_flow_rings)
 {
 	uint32 idx;
 	uint32 flow_ring_table_sz;
-	uint32 if_flow_lkup_sz;
+	uint32 if_flow_lkup_sz = 0;
 	void * flowid_allocator;
 	flow_ring_table_t *flow_ring_table;
 	if_flow_lkup_t *if_flow_lkup = NULL;
+#ifdef PCIE_TX_DEFERRAL
+	uint32 count;
+#endif
 	void *lock = NULL;
 	unsigned long flags;
 
@@ -225,6 +226,15 @@ dhd_flow_rings_init(dhd_pub_t *dhdp, uint32 num_flow_rings)
 			if_flow_lkup[idx].fl_hash[hash_ix] = NULL;
 	}
 
+#ifdef PCIE_TX_DEFERRAL
+	count = BITS_TO_LONGS(num_flow_rings);
+	dhdp->bus->delete_flow_map = kzalloc(count, GFP_ATOMIC);
+	if  (!dhdp->bus->delete_flow_map) {
+		DHD_ERROR(("%s: delete_flow_map alloc failure\n", __FUNCTION__));
+		goto fail;
+	}
+#endif
+
 	lock = dhd_os_spin_lock_init(dhdp->osh);
 	if (lock == NULL)
 		goto fail;
@@ -245,11 +255,13 @@ dhd_flow_rings_init(dhd_pub_t *dhdp, uint32 num_flow_rings)
 	return BCME_OK;
 
 fail:
-	if (lock != NULL)
-		dhd_os_spin_lock_deinit(dhdp->osh, lock);
 
+#ifdef PCIE_TX_DEFERRAL
+	if (dhdp->bus->delete_flow_map)
+		kfree(dhdp->bus->delete_flow_map);
+#endif
 	/* Destruct the per interface flow lkup table */
-	if (dhdp->if_flow_lkup != NULL) {
+	if (if_flow_lkup != NULL) {
 		DHD_OS_PREFREE(dhdp, if_flow_lkup, if_flow_lkup_sz);
 	}
 	if (flow_ring_table != NULL) {
@@ -305,10 +317,15 @@ void dhd_flow_rings_deinit(dhd_pub_t *dhdp)
 	/* Destruct the per interface flow lkup table */
 	if (dhdp->if_flow_lkup != NULL) {
 		if_flow_lkup_sz = sizeof(if_flow_lkup_t) * DHD_MAX_IFS;
-		memset(dhdp->if_flow_lkup, 0, sizeof(if_flow_lkup_sz));
+		bzero(dhdp->if_flow_lkup, sizeof(if_flow_lkup_sz));
 		DHD_OS_PREFREE(dhdp, dhdp->if_flow_lkup, if_flow_lkup_sz);
 		dhdp->if_flow_lkup = NULL;
 	}
+
+#ifdef PCIE_TX_DEFERRAL
+	if (dhdp->bus->delete_flow_map)
+		kfree(dhdp->bus->delete_flow_map);
+#endif
 
 	/* Destruct the flowid allocator */
 	if (dhdp->flowid_allocator != NULL)
@@ -345,7 +362,7 @@ bool is_tdls_destination(dhd_pub_t *dhdp, uint8 *da)
 #endif /* WLTDLS */
 
 /* For a given interface, search the hash table for a matching flow */
-static INLINE uint16
+uint16
 dhd_flowid_find(dhd_pub_t *dhdp, uint8 ifindex, uint8 prio, char *sa, char *da)
 {
 	int hash;
@@ -417,10 +434,6 @@ dhd_flowid_alloc(dhd_pub_t *dhdp, uint8 ifindex, uint8 prio, char *sa, char *da)
 	unsigned long flags;
 
 	fl_hash_node = (flow_hash_info_t *) MALLOC(dhdp->osh, sizeof(flow_hash_info_t));
-	if (fl_hash_node == NULL) {
-		DHD_ERROR(("%s: fl_hash_node alloc failed  \n", __FUNCTION__));
-		return FLOWID_INVALID;
-	}
 	memcpy(fl_hash_node->flow_info.da, da, sizeof(fl_hash_node->flow_info.da));
 
 	DHD_FLOWID_LOCK(dhdp->flowid_lock, flags);

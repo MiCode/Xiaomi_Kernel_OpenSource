@@ -185,7 +185,7 @@ static void dw_dma_tx_done(void *arg)
 	struct hsu_dma_buffer *dbuf = &up->txbuf;
 	unsigned long flags;
 
-	dma_sync_single_for_cpu(dw_dma->txchan->device->dev, dbuf->dma_addr,
+	dma_sync_single_for_cpu(dw_dma->txchan->device->dev, dbuf->dma_addr + xmit->tail,
 				dbuf->dma_size, DMA_TO_DEVICE);
 
 	xmit->tail += dbuf->dma_size;
@@ -234,8 +234,8 @@ static void dw_dma_start_tx(struct uart_hsu_port *up)
 
 	dw_dma->tx_cookie = dmaengine_submit(desc);
 
-	dma_sync_single_for_device(dw_dma->txchan->device->dev, dbuf->dma_addr,
-				   dbuf->dma_size, DMA_TO_DEVICE);
+	dma_sync_single_for_device(dw_dma->txchan->device->dev, dbuf->dma_addr + xmit->tail,
+				dbuf->dma_size, DMA_TO_DEVICE);
 
 	dma_async_issue_pending(dw_dma->txchan);
 }

@@ -3,6 +3,7 @@
 /*
  *
  * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -183,6 +184,13 @@ enum hpd_pin {
 	HPD_PORT_C,
 	HPD_PORT_D,
 	HPD_NUM_PINS
+};
+
+enum chv_planes {
+	PRIMARY_PLANE = 0,
+	SPRITE_A_PLANE,
+	SPRITE_B_PLANE,
+	CHV_MAX_PLANES
 };
 
 #define I915_GEM_GPU_DOMAINS \
@@ -732,16 +740,6 @@ struct i915_fbc {
 	} no_fbc_reason;
 
 	bool disable;
-};
-
-struct i915_drrs {
-	struct intel_connector *connector;
-	bool is_clone;
-	struct intel_drrs_work {
-		struct delayed_work work;
-		struct drm_crtc *crtc;
-		int interval;
-	} *drrs_work;
 };
 
 struct i915_psr {
@@ -1364,6 +1362,7 @@ struct i915_gpu_error {
 	u32 stop_rings;
 #define I915_STOP_RING_ALLOW_BAN       (1 << 31)
 #define I915_STOP_RING_ALLOW_WARN      (1 << 30)
+	u32 faked_lost_ctx_event_irq;
 
 	unsigned long total_resets;
 
@@ -1664,7 +1663,6 @@ struct drm_i915_private {
 	u32 hotplug_status;
 
 	struct i915_fbc fbc;
-	struct i915_drrs drrs;
 	struct intel_opregion opregion;
 	struct intel_vbt_data vbt;
 	bool scaling_reqd;
@@ -1734,18 +1732,19 @@ struct drm_i915_private {
 	/* Atomicity fixes */
 	u32 pfit_pipe;
 	bool pfit_changed;
-	bool atomic_update;
 	bool pri_update;
 	u32 dspcntr;
 	bool wait_vbl;
 	u32 vblcount;
 
 	bool is_first_modeset;
+	bool quick_modeset;
 	bool maxfifo_enabled;
 	bool gamma_enabled[I915_MAX_PIPES];
 	bool csc_enabled[I915_MAX_PIPES];
 	bool is_resuming;
 	bool is_video_playing;  /* Indicates enabling only in videomode */
+	bool force_low_ddr_freq;
 
 	/* Track the media promotion timer update */
 	bool last_media_active_state;
@@ -1753,6 +1752,8 @@ struct drm_i915_private {
 	/* Indicates currently enabled planes */
 	unsigned int pipe_plane_stat;
 	unsigned int prev_pipe_plane_stat;
+	/* delay in us */
+	unsigned int evade_delay;
 
 	/* PCH chipset type */
 	enum intel_pch pch_type;
@@ -1879,6 +1880,7 @@ struct drm_i915_private {
 	struct drm_property *force_audio_property;
 	struct drm_property *force_pfit_property;
 	struct drm_property *scaling_src_size_property;
+	struct drm_property *force_ddr_low_freq_property;
 
 	uint32_t hw_context_size;
 	struct list_head context_list;
@@ -1934,6 +1936,7 @@ struct drm_i915_private {
 	bool video_disabled;
 	uint32_t request_uniq;
 
+	bool shutdown_in_progress;
 	/*
 	 * NOTE: This is the dri1/ums dungeon, don't add stuff here. Your patch
 	 * will be rejected. Instead look for a better place.
@@ -2493,6 +2496,7 @@ struct i915_params {
 	unsigned int gpu_reset_min_alive_period;
 	/* leave bools at the end to not create holes */
 	bool enable_hangcheck;
+	bool enable_inconsistency_reset;
 	bool fastboot;
 	bool prefault_disable;
 	bool reset;
@@ -2636,6 +2640,8 @@ int i915_gem_fallocate_ioctl(struct drm_device *dev, void *data,
 				struct drm_file *file);
 int i915_gem_get_aperture_ioctl(struct drm_device *dev, void *data,
 				struct drm_file *file_priv);
+int i915_gem_get_aperture_ioctl2(struct drm_device *dev, void *data,
+				 struct drm_file *file);
 int i915_gem_wait_ioctl(struct drm_device *dev, void *data,
 			struct drm_file *file_priv);
 void i915_gem_load(struct drm_device *dev);
@@ -2707,7 +2713,7 @@ static inline void i915_gem_object_unpin_pages(struct drm_i915_gem_object *obj)
 
 int __must_check i915_mutex_lock_interruptible(struct drm_device *dev);
 int i915_gem_object_sync(struct drm_i915_gem_object *obj,
-			 struct intel_engine_cs *to, bool add_request);
+			 struct intel_engine_cs *to, bool to_batch);
 void i915_vma_move_to_active(struct i915_vma *vma,
 			     struct intel_engine_cs *ring);
 int i915_gem_dumb_create(struct drm_file *file_priv,
@@ -3171,6 +3177,8 @@ extern void intel_detect_pch(struct drm_device *dev);
 extern int intel_trans_dp_port_sel(struct drm_crtc *crtc);
 extern int intel_enable_rc6(const struct drm_device *dev);
 extern void valleyview_update_wm_pm5(struct intel_crtc *crtc);
+void vlv_force_ddr_low_frequency(struct drm_i915_private *dev_priv,
+				 bool enabled);
 extern void vlv_update_dsparb(struct intel_crtc *crtc);
 void vlv_update_watermarks(struct drm_i915_private *dev_priv);
 

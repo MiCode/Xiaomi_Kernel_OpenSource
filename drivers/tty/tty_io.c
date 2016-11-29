@@ -1,5 +1,6 @@
 /*
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2016 XiaoMi, Inc.
  */
 
 /*
@@ -608,7 +609,7 @@ static int tty_signal_session_leader(struct tty_struct *tty, int exit_session)
  *		  tasklist_lock to walk task list for hangup event
  *		    ->siglock to protect ->signal/->sighand
  */
-static void __tty_hangup(struct tty_struct *tty, int exit_session)
+static void __tty_hangup(struct tty_struct *tty, int exit_session, int put_tty)
 {
 	struct file *cons_filp = NULL;
 	struct file *filp, *f = NULL;
@@ -631,6 +632,8 @@ static void __tty_hangup(struct tty_struct *tty, int exit_session)
 
 	if (test_bit(TTY_HUPPED, &tty->flags)) {
 		tty_unlock(tty);
+		if (put_tty)
+			tty_kref_put(tty);
 		return;
 	}
 
@@ -702,6 +705,8 @@ static void __tty_hangup(struct tty_struct *tty, int exit_session)
 
 	if (f)
 		fput(f);
+	if (put_tty)
+		tty_kref_put(tty);
 }
 
 static void do_tty_hangup(struct work_struct *work)
@@ -709,7 +714,7 @@ static void do_tty_hangup(struct work_struct *work)
 	struct tty_struct *tty =
 		container_of(work, struct tty_struct, hangup_work);
 
-	__tty_hangup(tty, 0);
+	__tty_hangup(tty, 0, 1);
 }
 
 /**
@@ -726,6 +731,7 @@ void tty_hangup(struct tty_struct *tty)
 	char	buf[64];
 	printk(KERN_DEBUG "%s hangup...\n", tty_name(tty, buf));
 #endif
+	tty_kref_get(tty);
 	schedule_work(&tty->hangup_work);
 }
 
@@ -747,7 +753,7 @@ void tty_vhangup(struct tty_struct *tty)
 
 	printk(KERN_DEBUG "%s vhangup...\n", tty_name(tty, buf));
 #endif
-	__tty_hangup(tty, 0);
+	__tty_hangup(tty, 0, 0);
 }
 
 EXPORT_SYMBOL(tty_vhangup);
@@ -788,7 +794,7 @@ static void tty_vhangup_session(struct tty_struct *tty)
 
 	printk(KERN_DEBUG "%s vhangup session...\n", tty_name(tty, buf));
 #endif
-	__tty_hangup(tty, 1);
+	__tty_hangup(tty, 1, 0);
 }
 
 /**

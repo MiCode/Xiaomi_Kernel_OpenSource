@@ -4,6 +4,7 @@
  * Refer pxa.c, 8250.c and some other drivers in drivers/serial/
  *
  * (C) Copyright 2010-2014 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -834,8 +835,13 @@ static unsigned int serial_hsu_get_mctrl(struct uart_port *port)
 {
 	struct uart_hsu_port *up =
 		container_of(port, struct uart_hsu_port, port);
-	unsigned char status = up->msr;
+	unsigned char status;
 	unsigned int ret = 0;
+
+	if (likely(!test_bit(flag_suspend, &up->flags)))
+		up->msr = serial_in(up, UART_MSR);
+
+	status = up->msr;
 
 	if (status & UART_MSR_DCD)
 		ret |= TIOCM_CAR;
@@ -1502,9 +1508,19 @@ static struct uart_driver serial_hsu_reg = {
 static void hsu_regs_context(struct uart_hsu_port *up, int op)
 {
 	struct hsu_port_cfg *cfg = up->port_cfg;
+	int retry = 10;
 
 	if (op == context_load) {
-		usleep_range(10, 100);
+		do {
+			if (cfg->hw_reset)
+				cfg->hw_reset(up->port.membase);
+
+			if (serial_in(up, UART_IIR))
+				break;
+		} while (--retry);
+
+		if (unlikely(retry == 0))
+			pr_err("HSU resume failed\n");
 
 		serial_out(up, UART_LCR, up->lcr);
 		serial_out(up, UART_LCR, up->lcr | UART_LCR_DLAB);
@@ -1540,10 +1556,12 @@ int serial_hsu_do_suspend(struct uart_hsu_port *up)
 	struct circ_buf *xmit = &up->port.state->xmit;
 	char cmd;
 	unsigned long flags;
+	char *hsu_rpm_uevent[4];
 
 	/* Should check the RX FIFO is not empty */
 	if (test_bit(flag_startup, &up->flags) && (up->hw_type == hsu_dw)
-			&& serial_in(up, UART_DW_USR) & UART_DW_USR_RFNE)
+			&& ((serial_in(up, UART_DW_USR) & UART_DW_USR_RFNE)
+			|| test_bit(flag_rx_on, &up->flags)))
 			goto busy;
 
 	if (cfg->hw_set_rts)
@@ -1594,6 +1612,18 @@ int serial_hsu_do_suspend(struct uart_hsu_port *up)
 	if (up->hw_type == hsu_dw)
 		enable_irq(up->port.irq);
 
+	hsu_rpm_uevent[0] = kasprintf(GFP_KERNEL, "MAJOR=%d",
+		serial_hsu_reg.major);
+	hsu_rpm_uevent[1] = kasprintf(GFP_KERNEL, "MINOR=%d",
+		(serial_hsu_reg.minor + up->port.line));
+	hsu_rpm_uevent[2] = kasprintf(GFP_KERNEL, "%s",
+		"UART_STATE=SUSPENDED");
+	hsu_rpm_uevent[3] = NULL;
+	kobject_uevent_env(&up->dev->kobj, KOBJ_CHANGE, hsu_rpm_uevent);
+	kfree(hsu_rpm_uevent[0]);
+	kfree(hsu_rpm_uevent[1]);
+	kfree(hsu_rpm_uevent[2]);
+
 	return 0;
 err:
 	if (cfg->hw_set_rts)
@@ -1616,6 +1646,7 @@ int serial_hsu_do_resume(struct uart_hsu_port *up)
 {
 	struct hsu_port_cfg *cfg = up->port_cfg;
 	unsigned long flags;
+	char *hsu_rpm_uevent[4];
 
 	if (!test_and_clear_bit(flag_suspend, &up->flags))
 		return 0;
@@ -1639,6 +1670,18 @@ int serial_hsu_do_resume(struct uart_hsu_port *up)
 	serial_sched_cmd(up, qcmd_get_msr);
 	spin_unlock_irqrestore(&up->port.lock, flags);
 	serial_sched_sync(up);
+
+	hsu_rpm_uevent[0] = kasprintf(GFP_KERNEL, "MAJOR=%d",
+		serial_hsu_reg.major);
+	hsu_rpm_uevent[1] = kasprintf(GFP_KERNEL, "MINOR=%d",
+		(serial_hsu_reg.minor + up->port.line));
+	hsu_rpm_uevent[2] = kasprintf(GFP_KERNEL, "%s",
+		"UART_STATE=RESUMED");
+	hsu_rpm_uevent[3] = NULL;
+	kobject_uevent_env(&up->dev->kobj, KOBJ_CHANGE, hsu_rpm_uevent);
+	kfree(hsu_rpm_uevent[0]);
+	kfree(hsu_rpm_uevent[1]);
+	kfree(hsu_rpm_uevent[2]);
 	return 0;
 }
 EXPORT_SYMBOL(serial_hsu_do_resume);

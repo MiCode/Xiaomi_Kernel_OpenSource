@@ -2,6 +2,7 @@
  * PCI glue for HECI provider device (ISS) driver
  *
  * Copyright (c) 2014-2015, Intel Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -179,10 +180,12 @@ static ssize_t ishdbg_write(struct file *file, const char __user *ubuf,
 		for (i = 0; i < count; i++) {
 			reg_data = (uint32_t __iomem *)
 				((char *)hw_dbg->mem_addr + addr + i*4);
-			cur_index += sprintf(dbg_resp_buf + cur_index, "%08X ",
+			cur_index += scnprintf(dbg_resp_buf + cur_index,
+				sizeof(dbg_resp_buf) - cur_index, "%08X ",
 				readl(reg_data));
 		}
-		cur_index += sprintf(dbg_resp_buf + cur_index, "\n");
+		cur_index += scnprintf(dbg_resp_buf + cur_index,
+			sizeof(dbg_resp_buf) - cur_index, "\n");
 		resp_buf_read = 0;
 	} else if (!strcmp(cmd, "e")) {
 		/* Enter values e <addr> <value> */
@@ -198,7 +201,7 @@ static ssize_t ishdbg_write(struct file *file, const char __user *ubuf,
 		reg_data = (uint32_t __iomem *)((char *)hw_dbg->mem_addr
 			+ addr);
 		writel(count, reg_data);
-		sprintf(dbg_resp_buf, "OK\n");
+		scnprintf(dbg_resp_buf, sizeof(dbg_resp_buf), "OK\n");
 		resp_buf_read = 0;
 	}
 
@@ -263,7 +266,8 @@ static void ish_print_log(struct heci_device *dev, char *format, ...)
 		return;
 
 	do_gettimeofday(&tv);
-	i = sprintf(tmp_buf, "[%ld.%06ld] ", tv.tv_sec, tv.tv_usec);
+	i = scnprintf(tmp_buf, sizeof(tmp_buf), "[%ld.%06ld] ",
+		tv.tv_sec, tv.tv_usec);
 
 	va_start(args, format);
 	length = vsnprintf(tmp_buf + i, sizeof(tmp_buf)-i, format, args);
@@ -331,6 +335,9 @@ void	g_ish_print_log(char *fmt, ...)
 		return;
 
 	dev = pci_get_drvdata(heci_pci_device);
+	if (!dev)
+		return;
+
 	va_start(args, fmt);
 	vsnprintf(tmp_buf, sizeof(tmp_buf), fmt, args);
 	va_end(args);
@@ -381,7 +388,6 @@ static ssize_t ish_read_flush_log(struct heci_device *dev, char *buf,
 	size_t size)
 {
 	int ret;
-	unsigned long	flags;
 
 	ret = ish_read_log(dev, buf, size);
 	delete_from_log(dev, ret);
@@ -525,7 +531,8 @@ ssize_t show_heci_dev_props(struct device *dev,
 				"------------\n");
 		spin_lock_irqsave(&heci_dev->device_lock, flags);
 		list_for_each_entry_safe(cl, next, &heci_dev->cl_list, link) {
-			sprintf(buf + strlen(buf), "id: %d\n",
+			scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
+				"id: %d\n",
 				cl->host_client_id);
 			scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
 				"state: %s\n", cl->state < 0 || cl->state >
@@ -677,7 +684,7 @@ static unsigned	num_force_hid_fc;
 ssize_t show_force_hid_fc(struct device *dev, struct device_attribute *dev_attr,
 	char *buf)
 {
-	sprintf(buf, "%u\n", num_force_hid_fc);
+	scnprintf(buf, PAGE_SIZE, "%u\n", num_force_hid_fc);
 	return	 strlen(buf);
 }
 
@@ -785,6 +792,8 @@ struct my_work_t {
 	struct heci_device *dev;
 };
 
+struct my_work_t *work;
+
 void workqueue_init_function(struct work_struct *work)
 {
 	struct heci_device *dev = ((struct my_work_t *)work)->dev;
@@ -794,7 +803,6 @@ void workqueue_init_function(struct work_struct *work)
 		"[pci driver] %s() in workqueue func, continue initialization process\n",
 		__func__);
 
-	pci_set_drvdata(dev->pdev, dev);
 /*	dev_dbg(&dev->pdev->dev, "heci: after pci_set_drvdata\n");*/
 
 	device_create_file(&dev->pdev->dev, &heci_dev_state_attr);
@@ -834,6 +842,8 @@ void workqueue_init_function(struct work_struct *work)
 
 	init_waitqueue_head(&suspend_wait);
 
+	pci_set_drvdata(dev->pdev, dev);
+
 	mutex_lock(&heci_mutex);
 	if (heci_start(dev)) {
 		dev_err(&dev->pdev->dev, "heci: Init hw failure.\n");
@@ -864,7 +874,7 @@ out_err:
 /**********************************/
 
 /**
- * heci_probe - Device Initialization Routine
+ * ish_probe - Device Initialization Routine
  *
  * @pdev: PCI device structure
  * @ent: entry in ish_pci_tbl
@@ -877,7 +887,6 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct ish_hw *hw;
 	int err;
 	int	rv;
-	struct my_work_t *work;
 
 	ISH_INFO_PRINT(KERN_ERR "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n",
 		__func__);
@@ -890,7 +899,9 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		(pdev->revision & REVISION_ID_SI_MASK) ==
 			REVISION_ID_CHT_Bx_SI ? "CHT B0" :
 		(pdev->revision & REVISION_ID_SI_MASK) ==
-			REVISION_ID_CHT_Kx_SI ? "CHT Kx/Cx" : "Unknown",
+			REVISION_ID_CHT_Kx_SI ? "CHT Kx/Cx" :
+		(pdev->revision & REVISION_ID_SI_MASK) ==
+			REVISION_ID_CHT_Dx_SI ? "CHT Dx" : "Unknown",
 		pdev->revision);
 #if defined(SUPPORT_Ax_ONLY)
 	pdev->revision = REVISION_ID_CHT_A0;
@@ -951,7 +962,7 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	/* request and enable interrupt   */
 #ifndef TIMER_POLLING
-	err = request_irq(pdev->irq, ish_irq_handler, IRQF_SHARED,
+	err = request_irq(pdev->irq, ish_irq_handler, IRQF_NO_SUSPEND,
 		KBUILD_MODNAME, dev);
 	if (err) {
 		dev_err(&pdev->dev, "heci: request_irq failure. irq = %d\n",
@@ -1045,10 +1056,9 @@ static void ish_remove(struct pci_dev *pdev)
 	struct ish_hw *hw;
 
 	/*
-	 *** If this case of removal is viable,
-	 * also go through HECI clients removal ***
+	 * This happens during power-off/reboot and may be at the same time as
+	 * a lot of bi-directional communication happens
 	 */
-
 	if (heci_pci_device != pdev) {
 		dev_err(&pdev->dev, "heci: heci_pci_device != pdev\n");
 		return;
@@ -1062,8 +1072,12 @@ static void ish_remove(struct pci_dev *pdev)
 
 	hw = to_ish_hw(dev);
 
-	/* disable interrupts */
-	ish_intr_disable(dev);
+	/*
+	 * Set HECI device state to disabled.
+	 * Invalidate all other possible communication in both directions
+	 */
+	heci_device_disable(dev);
+
 	free_irq(pdev->irq, dev);
 	pci_disable_msi(pdev);
 	pci_iounmap(pdev, hw->mem_addr);
@@ -1080,10 +1094,43 @@ static void ish_remove(struct pci_dev *pdev)
 	pci_disable_device(pdev);
 }
 
+/**
+ * ish_shutdown - Device shutdown Routine
+ *
+ * @pdev: PCI device structure
+ *
+ */
+static void ish_shutdown(struct pci_dev *pdev)
+{
+	struct heci_device *dev;
+
+	/*
+	 * This happens during power-off/reboot and may be at the same time as
+	 * a lot of bi-directional communication happens
+	 */
+	if (heci_pci_device != pdev) {
+		dev_err(&pdev->dev, "heci: heci_pci_device != pdev\n");
+		return;
+	}
+
+	dev = pci_get_drvdata(pdev);
+	if (!dev) {
+		dev_err(&pdev->dev, "heci: dev =NULL\n");
+		return;
+	}
+
+	heci_stop(dev);
+
+	pci_disable_msi(pdev);
+	free_irq(pdev->irq, dev);
+}
+
 int ish_suspend(struct device *device)
 {
 	struct pci_dev *pdev = to_pci_dev(device);
 	struct heci_device *dev = pci_get_drvdata(pdev);
+
+	enable_irq_wake(pdev->irq);
 
 	/* If previous suspend hasn't been asnwered then ISH is likely dead,
 	don't attempt nested notification */
@@ -1103,6 +1150,8 @@ int ish_resume(struct device *device)
 {
 	struct pci_dev *pdev = to_pci_dev(device);
 	struct heci_device *dev = pci_get_drvdata(pdev);
+
+	disable_irq_wake(pdev->irq);
 	send_resume(dev);
 	return 0;
 }
@@ -1127,7 +1176,7 @@ static struct pci_driver ish_driver = {
 	.id_table = ish_pci_tbl,
 	.probe = ish_probe,
 	.remove = ish_remove,
-	.shutdown = ish_remove,
+	.shutdown = ish_shutdown,
 	.driver.pm = HECI_ISH_PM_OPS,
 };
 

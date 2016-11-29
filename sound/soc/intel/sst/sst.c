@@ -3,6 +3,7 @@
  *  sst.c - Intel SST Driver for audio engine
  *
  *  Copyright (C) 2008-10	Intel Corp
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *  Authors:	Vinod Koul <vinod.koul@intel.com>
  *		Harsha Priya <priya.harsha@intel.com>
  *		Dharageswari R <dharageswari.r@intel.com>
@@ -132,9 +133,10 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 	irqreturn_t retval = IRQ_HANDLED;
 	unsigned long irq_flags;
 
+	header.full = sst_shim_read64(drv->shim, drv->ipc_reg.ipcx);
 	/* Interrupt arrived, check src */
 	isr.full = sst_shim_read64(drv->shim, SST_ISRX);
-	if (isr.part.done_interrupt) {
+	if (isr.part.done_interrupt || header.p.header_high.part.done) {
 		/* Clear done bit */
 		spin_lock_irqsave(&drv->ipc_spin_lock, irq_flags);
 		header.full = sst_shim_read64(drv->shim,
@@ -151,7 +153,8 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 		queue_work(drv->post_msg_wq, &drv->ipc_post_msg.wq);
 		retval = IRQ_HANDLED;
 	}
-	if (isr.part.busy_interrupt) {
+	header.full = sst_shim_read64(drv->shim, drv->ipc_reg.ipcd);
+	if (isr.part.busy_interrupt || header.p.header_high.part.busy) {
 		spin_lock_irqsave(&drv->ipc_spin_lock, irq_flags);
 		imr.full = sst_shim_read64(drv->shim, SST_IMRX);
 		imr.part.busy_interrupt = 1;
@@ -614,7 +617,7 @@ static const struct dmi_system_id dmi_machine_table[] = {
 };
 
 static struct platform_device cht_t_mach_dev = {
-	.name           = "cht_rt5672",
+	.name           = "cht_rt5659",
 	.id             = -1,
 	.num_resources  = 0,
 };
@@ -680,6 +683,7 @@ int sst_request_firmware_async(struct intel_sst_drv *ctx)
 				return -ENOENT;
 			}
 		} else if ((strcmp(board_name, "Cherry Trail Tablet") == 0) ||
+				(strcmp(board_name, "Mipad") == 0) ||
 				(strcmp(board_name, "Cherry Trail FFD") == 0)) {
 			pr_info("Registering machine device %s\n",
 						cht_t_mach_dev.name);
@@ -1302,9 +1306,6 @@ static int intel_sst_suspend(struct device *dev)
 	struct sst_platform_cb_params cb_params;
 
 	pr_debug("Enter: %s\n", __func__);
-	mutex_lock(&ctx->sst_lock);
-	sst_drv_ctx->sst_suspend_state = true;
-	mutex_unlock(&ctx->sst_lock);
 
 	if (ctx->sst_state == SST_RESET) {
 		pr_debug("LPE is already in RESET state, No action");
@@ -1313,8 +1314,13 @@ static int intel_sst_suspend(struct device *dev)
 
 	usage_count = atomic_read(&ctx->pm_usage_count);
 	if (usage_count) {
-		pr_warn("sst usage count is: %d; But go ahead suspending\n", usage_count);
+		pr_warn("sst usage count is: %d; Ret error for suspend\n", usage_count);
+		return -EBUSY;
 	}
+
+	mutex_lock(&ctx->sst_lock);
+	sst_drv_ctx->sst_suspend_state = true;
+	mutex_unlock(&ctx->sst_lock);
 
 	if (ctx->pdata->start_recovery_timer)
 		sst_set_timer(&ctx->monitor_lpe, false);

@@ -12,6 +12,7 @@
  *
  * Copyright 1999 Precision Insight, Inc., Cedar Park, Texas.
  * Copyright 2000 VA Linux Systems, Inc., Sunnyvale, California.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -48,6 +49,9 @@ static int drm_open_helper(struct file *filp, struct drm_minor *minor);
 static int drm_setup(struct drm_device * dev)
 {
 	int ret;
+
+	atomic_set(&dev->ioctl_count, 0);
+	atomic_set(&dev->halt_count, 0);
 
 	if (dev->driver->firstopen &&
 	    !drm_core_check_feature(dev, DRIVER_MODESET)) {
@@ -434,6 +438,10 @@ int drm_release(struct inode *inode, struct file *filp)
 
 	DRM_DEBUG("open_count = %d\n", dev->open_count);
 
+	mutex_lock(&dev->struct_mutex);
+	list_del(&file_priv->lhead);
+	mutex_unlock(&dev->struct_mutex);
+
 	if (dev->driver->preclose)
 		dev->driver->preclose(dev, file_priv);
 
@@ -526,10 +534,6 @@ int drm_release(struct inode *inode, struct file *filp)
 		drm_master_put(&file_priv->master);
 	file_priv->is_master = 0;
 	mutex_unlock(&dev->master_mutex);
-
-	mutex_lock(&dev->struct_mutex);
-	list_del(&file_priv->lhead);
-	mutex_unlock(&dev->struct_mutex);
 
 	if (dev->driver->postclose)
 		dev->driver->postclose(dev, file_priv);

@@ -1,8 +1,9 @@
 /*
  * Common function shared by Linux WEXT, cfg80211 and p2p drivers
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -21,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wldev_common.h 467328 2014-04-03 01:23:40Z $
+ * $Id: wldev_common.h 545268 2015-03-31 06:57:29Z $
  */
 #ifndef __WLDEV_COMMON_H__
 #define __WLDEV_COMMON_H__
@@ -91,7 +92,6 @@ extern int dhd_net_wifi_platform_set_power(struct net_device *dev, bool on,
 extern void dhd_get_customized_country_code(struct net_device *dev, char *country_iso_code,
 	wl_country_t *cspec);
 extern void dhd_bus_country_set(struct net_device *dev, wl_country_t *cspec, bool notify);
-extern bool dhd_force_country_change(struct net_device *dev);
 extern void dhd_bus_band_set(struct net_device *dev, uint band);
 extern int wldev_set_country(struct net_device *dev, char *country_code, bool notify,
 	bool user_enforced);
@@ -108,12 +108,14 @@ extern int wl_iw_parse_ssid_list_tlv(char** list_str, wlc_ssid_ext_t* ssid,
 /* Get the link speed from dongle, speed is in kpbs */
 int wldev_get_link_speed(struct net_device *dev, int *plink_speed);
 
-int wldev_get_rssi(struct net_device *dev, int *prssi);
+int wldev_get_rssi(struct net_device *dev, scb_val_t *prssi);
 
 int wldev_get_ssid(struct net_device *dev, wlc_ssid_t *pssid);
 
 int wldev_get_band(struct net_device *dev, uint *pband);
 
+int wldev_get_mode(struct net_device *dev, uint8 *pband);
+int wldev_get_datarate(struct net_device *dev, int *datarate);
 int wldev_set_band(struct net_device *dev, uint band);
 
 #endif /* __WLDEV_COMMON_H__ */

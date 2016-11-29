@@ -73,6 +73,18 @@ config LEDS_LM3642
 	  converter plus 1.5A constant current driver for a high-current
 	  white LED.
 
+config LEDS_KTD2026
+	tristate "LED support for KTD2026 Chip"
+	depends on LEDS_CLASS && I2C
+	help
+	  This option enables support for LEDS connected to KTD2026
+
+config LEDS_TPS61158
+	tristate "LED Support for TPS61158 keypad light"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for keypad light connected to TPS61158,
+	  which is controlled by PWM output.
 
 config LEDS_LOCOMO
 	tristate "LED Support for Locomo device"

@@ -7,6 +7,7 @@
  *  Copyright (C) 2004  Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
  *  			- Added processor hotplug support
  *  Copyright (C) 2013, Intel Corporation
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *                      Rafael J. Wysocki <rafael.j.wysocki@intel.com>
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -122,6 +123,14 @@ static int acpi_cpu_soft_notify(struct notifier_block *nfb,
 	unsigned int cpu = (unsigned long)hcpu;
 	struct acpi_processor *pr = per_cpu(processors, cpu);
 	struct acpi_device *device;
+	action &= ~CPU_TASKS_FROZEN;
+
+	/*
+	 * CPU_STARTING and CPU_DYING must not sleep. Return here since
+	 * acpi_bus_get_device() may sleep.
+	 */
+	if (action == CPU_STARTING || action == CPU_DYING)
+		return NOTIFY_DONE;
 
 	if (!pr || acpi_bus_get_device(pr->handle, &device))
 		return NOTIFY_DONE;

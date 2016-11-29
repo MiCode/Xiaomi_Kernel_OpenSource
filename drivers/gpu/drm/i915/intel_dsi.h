@@ -1,5 +1,6 @@
 /*
  * Copyright © 2013 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -540,6 +541,7 @@ static inline bool is_cmd_mode(struct intel_dsi *intel_dsi)
 extern void vlv_enable_dsi_pll(struct intel_encoder *encoder);
 extern void vlv_disable_dsi_pll(struct intel_encoder *encoder);
 extern void wait_for_dsi_fifo_empty(struct intel_dsi *intel_dsi);
+extern void wait_for_dpi_dbi_fifo_empty(struct intel_dsi *intel_dsi);
 extern u32 vlv_get_dsi_pclk(struct intel_encoder *encoder, int pipe_bpp);
 extern struct intel_dsi_dev_ops vbt_generic_dsi_display_ops;
 extern struct intel_dsi *intel_attached_dsi(struct drm_connector *connector);

@@ -1,5 +1,6 @@
 /*
  * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -314,11 +315,14 @@ struct i915_ext_ioctl_data {
 /* Extended ioctl definitions */
 #define DRM_I915_EXT_USERDATA		0x0
 #define DRM_I915_GEM_FALLOCATE		0x1
+#define DRM_I915_GEM_GET_APERTURE2	0x2
 
 #define DRM_IOCTL_I915_EXT_USERDATA \
 	DRM_IOWR(DRM_I915_EXT_USERDATA, struct drm_i915_gem_userdata_blk)
 #define DRM_IOCTL_I915_GEM_FALLOCATE \
 	DRM_IOW(DRM_I915_GEM_FALLOCATE,	struct drm_i915_gem_fallocate)
+#define DRM_IOCTL_I915_GEM_GET_APERTURE2 \
+	DRM_IOR(DRM_I915_GEM_GET_APERTURE2, struct drm_i915_gem_get_aperture2)
 
 
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
@@ -476,6 +480,7 @@ typedef struct drm_i915_irq_wait {
 #define I915_PARAM_EU_COUNT              0x801
 #define I915_PARAM_HAS_RS		 0x802
 #define I915_PARAM_HAS_GEM_FALLOCATE     0x803
+#define I915_PARAM_HAS_GET_APERTURE2     0x804
 
 typedef struct drm_i915_getparam {
 	int param;
@@ -1143,6 +1148,32 @@ struct drm_i915_gem_get_aperture {
 	 * bytes
 	 */
 	__u64 aper_available_size;
+};
+
+struct drm_i915_gem_get_aperture2 {
+	/** Total size of the aperture used by i915_gem_execbuffer, in bytes */
+	__u64 aper_size;
+
+	/**
+	 * Available space in the aperture used by i915_gem_execbuffer, in
+	 * bytes
+	 */
+	__u64 aper_available_size;
+
+	/**
+	 * Total space in the mappable region of the aperture, in bytes
+	 */
+	__u64 map_total_size;
+
+	/**
+	 * Available space in the mappable region of the aperture, in bytes
+	 */
+	__u64 map_available_size;
+
+	/**
+	 * Single largest available region inside the mappable region, in bytes.
+	 */
+	__u64 map_largest_size;
 };
 
 struct drm_i915_get_pipe_from_crtc_id {

@@ -197,7 +197,7 @@ void heci_reset(struct heci_device *dev, int interrupts_enabled)
 			dev->dev_state != HECI_DEV_POWER_DOWN &&
 			dev->dev_state != HECI_DEV_POWER_UP);
 
-	ret = heci_hw_reset(dev, interrupts_enabled);
+	ret = heci_hw_reset(dev);
 	if (ret) {
 		dev_err(&dev->pdev->dev, "hw reset failed disabling the device\n");
 		interrupts_enabled = false;

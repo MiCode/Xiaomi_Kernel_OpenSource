@@ -1,6 +1,7 @@
 /*
  * Copyright © 2010 Daniel Vetter
  * Copyright © 2011-2014 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -66,7 +67,6 @@ static int sanitize_enable_ppgtt(struct drm_device *dev, int enable_ppgtt)
 
 	return has_full_ppgtt ? 2 : has_aliasing_ppgtt ? 1 : 0;
 }
-
 
 static void ppgtt_bind_vma(struct i915_vma *vma,
 			   enum i915_cache_level cache_level,
@@ -207,9 +207,194 @@ static gen6_gtt_pte_t iris_pte_encode(dma_addr_t addr,
 	return pte;
 }
 
+#define i915_dma_unmap_single(px, dev) \
+	__i915_dma_unmap_single((px)->daddr, dev)
+
+static inline void __i915_dma_unmap_single(dma_addr_t daddr,
+					struct drm_device *dev)
+{
+	struct device *device = &dev->pdev->dev;
+
+	dma_unmap_page(device, daddr, 4096, PCI_DMA_BIDIRECTIONAL);
+}
+
+/**
+ * i915_dma_map_px_single() - Create a dma mapping for a page table/dir/etc.
+ * @px:		Page table/dir/etc to get a DMA map for
+ * @dev:	drm device
+ *
+ * Page table allocations are unified across all gens. They always require a
+ * single 4k allocation, as well as a DMA mapping. If we keep the structs
+ * symmetric here, the simple macro covers us for every page table type.
+ *
+ * Return: 0 if success.
+ */
+#define i915_dma_map_px_single(px, dev) \
+	i915_dma_map_page_single((px)->page, (dev), &(px)->daddr)
+
+static inline int i915_dma_map_page_single(struct page *page,
+					   struct drm_device *dev,
+					   dma_addr_t *daddr)
+{
+	struct device *device = &dev->pdev->dev;
+
+	*daddr = dma_map_page(device, page, 0, 4096, PCI_DMA_BIDIRECTIONAL);
+	return dma_mapping_error(device, *daddr);
+}
+
+static void unmap_and_free_pt(struct i915_page_table_entry *pt,
+			       struct drm_device *dev)
+{
+	if (WARN_ON(!pt->page))
+		return;
+
+	i915_dma_unmap_single(pt, dev);
+	__free_page(pt->page);
+	kfree(pt->used_ptes);
+	kfree(pt);
+}
+
+static struct i915_page_table_entry *alloc_pt_single(struct drm_device *dev)
+{
+	struct i915_page_table_entry *pt;
+	const size_t count = INTEL_INFO(dev)->gen >= 8 ?
+		GEN8_PTES_PER_PAGE : I915_PPGTT_PT_ENTRIES;
+	int ret = -ENOMEM;
+
+	pt = kzalloc(sizeof(*pt), GFP_KERNEL);
+	if (!pt)
+		return ERR_PTR(-ENOMEM);
+
+	pt->used_ptes = kcalloc(BITS_TO_LONGS(count), sizeof(*pt->used_ptes),
+				GFP_KERNEL);
+
+	if (!pt->used_ptes)
+		goto fail_bitmap;
+
+	pt->page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+	if (!pt->page)
+		goto fail_page;
+
+	ret = i915_dma_map_px_single(pt, dev);
+	if (ret)
+		goto fail_dma;
+
+	return pt;
+
+fail_dma:
+	__free_page(pt->page);
+fail_page:
+	kfree(pt->used_ptes);
+fail_bitmap:
+	kfree(pt);
+
+	return ERR_PTR(ret);
+}
+
+static inline struct i915_page_table_entry *alloc_pt_scratch(struct drm_device *dev)
+{
+	struct i915_page_table_entry *pt = alloc_pt_single(dev);
+
+	if (!IS_ERR(pt))
+		pt->scratch = 1;
+
+	return pt;
+}
+
+/**
+ * alloc_pt_range() - Allocate a multiple page tables
+ * @pd:		The page directory which will have at least @count entries
+ *		available to point to the allocated page tables.
+ * @pde:	First page directory entry for which we are allocating.
+ * @count:	Number of pages to allocate.
+ *
+ * Allocates multiple page table pages and sets the appropriate entries in the
+ * page table structure within the page directory. Function cleans up after
+ * itself on any failures.
+ *
+ * Return: 0 if allocation succeeded.
+ */
+static int alloc_pt_range(struct i915_page_directory_entry *pd, uint16_t pde, size_t count,
+		  struct drm_device *dev)
+
+{
+	int i, ret;
+
+	/* 512 is the max page tables per page_directory on any platform.
+	 * TODO: make WARN after patch series is done
+	 */
+	BUG_ON(pde + count > GEN6_PPGTT_PD_ENTRIES);
+
+	for (i = pde; i < pde + count; i++) {
+		struct i915_page_table_entry *pt = alloc_pt_single(dev);
+
+		if (IS_ERR(pt)) {
+			ret = PTR_ERR(pt);
+			goto err_out;
+		}
+		WARN(pd->page_tables[i],
+		     "Leaking page directory entry %d (%pa)\n",
+		     i, pd->page_tables[i]);
+		pd->page_tables[i] = pt;
+	}
+
+	return 0;
+
+err_out:
+	while (i--)
+		unmap_and_free_pt(pd->page_tables[i], dev);
+	return ret;
+}
+
+static void unmap_and_free_pd(struct i915_page_directory_entry *pd,
+			 struct drm_device *dev)
+{
+	if (pd->page) {
+		i915_dma_unmap_single(pd, dev);
+		__free_page(pd->page);
+		kfree(pd->used_pdes);
+		kfree(pd);
+	}
+}
+
+static struct i915_page_directory_entry *alloc_pd_single(struct drm_device *dev)
+{
+	struct i915_page_directory_entry *pd;
+	int ret = -ENOMEM;
+
+	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
+	if (!pd)
+		return ERR_PTR(-ENOMEM);
+
+	pd->used_pdes = kcalloc(BITS_TO_LONGS(GEN8_PDES_PER_PAGE),
+				sizeof(*pd->used_pdes), GFP_KERNEL);
+	if (!pd->used_pdes)
+		goto free_pd;
+
+	pd->page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+	if (!pd->page)
+		goto free_bitmap;
+
+	ret = i915_dma_map_px_single(pd, dev);
+	if (ret)
+		goto free_page;
+
+	return pd;
+
+free_page:
+	__free_page(pd->page);
+free_bitmap:
+	kfree(pd->used_pdes);
+free_pd:
+	kfree(pd);
+
+	return ERR_PTR(ret);
+}
+
 /* Broadwell Page Directory Pointer Descriptors */
-static int gen8_write_pdp(struct intel_engine_cs *ring, unsigned entry,
-			   uint64_t val, bool synchronous)
+static int gen8_write_pdp(struct intel_engine_cs *ring,
+			unsigned entry, dma_addr_t addr,
+			bool synchronous)
 {
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	int ret;
@@ -217,8 +402,8 @@ static int gen8_write_pdp(struct intel_engine_cs *ring, unsigned entry,
 	BUG_ON(entry >= 4);
 
 	if (synchronous) {
-		I915_WRITE(GEN8_RING_PDP_UDW(ring, entry), val >> 32);
-		I915_WRITE(GEN8_RING_PDP_LDW(ring, entry), (u32)val);
+		I915_WRITE(GEN8_RING_PDP_UDW(ring, entry), upper_32_bits(addr));
+		I915_WRITE(GEN8_RING_PDP_LDW(ring, entry), lower_32_bits(addr));
 		return 0;
 	}
 
@@ -228,10 +413,10 @@ static int gen8_write_pdp(struct intel_engine_cs *ring, unsigned entry,
 
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
 	intel_ring_emit(ring, GEN8_RING_PDP_UDW(ring, entry));
-	intel_ring_emit(ring, (u32)(val >> 32));
+	intel_ring_emit(ring, upper_32_bits(addr));
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
 	intel_ring_emit(ring, GEN8_RING_PDP_LDW(ring, entry));
-	intel_ring_emit(ring, (u32)(val));
+	intel_ring_emit(ring, lower_32_bits(addr));
 	intel_ring_advance(ring);
 
 	return 0;
@@ -243,12 +428,12 @@ static int gen8_mm_switch(struct i915_hw_ppgtt *ppgtt,
 {
 	int i, ret;
 
-	/* bit of a hack to find the actual last used pd */
-	int used_pd = ppgtt->num_pd_entries / GEN8_PDES_PER_PAGE;
-
-	for (i = used_pd - 1; i >= 0; i--) {
-		dma_addr_t addr = ppgtt->pd_dma_addr[i];
-		ret = gen8_write_pdp(ring, i, addr, synchronous);
+	for (i = GEN8_LEGACY_PDPES - 1; i >= 0; i--) {
+		struct i915_page_directory_entry *pd = ppgtt->pdp.page_directory[i];
+		dma_addr_t pd_daddr = pd ? pd->daddr : ppgtt->scratch_pd->daddr;
+		/* The page directory might be NULL, but we need to clear out
+		 * whatever the previous context might have used. */
+		ret = gen8_write_pdp(ring, i, pd_daddr, synchronous);
 		if (ret)
 			return ret;
 	}
@@ -274,7 +459,24 @@ static void gen8_ppgtt_clear_range(struct i915_address_space *vm,
 				      I915_CACHE_LLC, use_scratch);
 
 	while (num_entries) {
-		struct page *page_table = ppgtt->gen8_pt_pages[pdpe][pde];
+		struct i915_page_directory_entry *pd;
+		struct i915_page_table_entry *pt;
+		struct page *page_table;
+
+		if (WARN_ON(!ppgtt->pdp.page_directory[pdpe]))
+			continue;
+
+		pd = ppgtt->pdp.page_directory[pdpe];
+
+		if (WARN_ON(!pd->page_tables[pde]))
+			continue;
+
+		pt = pd->page_tables[pde];
+
+		if (WARN_ON(!pt->page))
+			continue;
+
+		page_table = pt->page;
 
 		last_pte = pte + num_entries;
 		if (last_pte > GEN8_PTES_PER_PAGE)
@@ -316,11 +518,16 @@ static void gen8_ppgtt_insert_entries(struct i915_address_space *vm,
 	pt_vaddr = NULL;
 
 	for_each_sg_page(pages->sgl, &sg_iter, pages->nents, 0) {
-		if (WARN_ON(pdpe >= GEN8_LEGACY_PDPS))
+		if (WARN_ON(pdpe >= GEN8_LEGACY_PDPES))
 			break;
 
-		if (pt_vaddr == NULL)
-			pt_vaddr = kmap_atomic(ppgtt->gen8_pt_pages[pdpe][pde]);
+		if (pt_vaddr == NULL) {
+			struct i915_page_directory_entry *pd = ppgtt->pdp.page_directory[pdpe];
+			struct i915_page_table_entry *pt = pd->page_tables[pde];
+			struct page *page_table = pt->page;
+
+			pt_vaddr = kmap_atomic(page_table);
+		}
 
 		pt_vaddr[pte] =
 			gen8_pte_encode(sg_page_iter_dma_address(&sg_iter),
@@ -344,35 +551,50 @@ static void gen8_ppgtt_insert_entries(struct i915_address_space *vm,
 	}
 }
 
-static void gen8_free_page_tables(struct page **pt_pages)
+static void __gen8_do_map_pt(gen8_ppgtt_pde_t * const pde,
+			     struct i915_page_table_entry *pt,
+			     struct drm_device *dev)
 {
-	int i;
-
-	if (pt_pages == NULL)
-		return;
-
-	for (i = 0; i < GEN8_PDES_PER_PAGE; i++)
-		if (pt_pages[i])
-			__free_pages(pt_pages[i], 0);
+	gen8_ppgtt_pde_t entry =
+		gen8_pde_encode(dev, pt->daddr, I915_CACHE_LLC);
+	*pde = entry;
 }
 
-static void gen8_ppgtt_free(const struct i915_hw_ppgtt *ppgtt)
+/* It's likely we'll map more than one pagetable at a time. This function will
+ * save us unnecessary kmap calls, but do no more functionally than multiple
+ * calls to map_pt. */
+static void gen8_map_pagetable_range(struct i915_page_directory_entry *pd,
+				uint64_t start,
+				uint64_t length,
+				struct drm_device *dev)
+{
+	gen8_ppgtt_pde_t * const page_directory = kmap_atomic(pd->page);
+	struct i915_page_table_entry *pt;
+	uint64_t temp, pde;
+
+	gen8_for_each_pde(pt, pd, start, length, temp, pde)
+		__gen8_do_map_pt(page_directory + pde, pt, dev);
+
+	if (!HAS_LLC(dev))
+		drm_clflush_virt_range(page_directory, PAGE_SIZE);
+
+	kunmap_atomic(page_directory);
+}
+
+static void gen8_free_page_tables(struct i915_page_directory_entry *pd, struct drm_device *dev)
 {
 	int i;
 
-	for (i = 0; i < ppgtt->num_pd_pages; i++) {
-		gen8_free_page_tables(ppgtt->gen8_pt_pages[i]);
-		kfree(ppgtt->gen8_pt_pages[i]);
-		kfree(ppgtt->gen8_pt_dma_addr[i]);
+	if (!pd->page)
+		return;
+
+	for_each_set_bit(i, pd->used_pdes, GEN8_PDES_PER_PAGE) {
+		if (WARN_ON(!pd->page_tables[i]))
+			continue;
+
+		unmap_and_free_pt(pd->page_tables[i], dev);
+		pd->page_tables[i] = NULL;
 	}
-
-	/* Unused PDPs are always assigned to scratch page */
-	for (i = ppgtt->num_pd_pages; i < GEN8_LEGACY_PDPS; i++)
-		kfree(ppgtt->gen8_pt_dma_addr[i]);
-
-	__free_page(ppgtt->scratch_page);
-
-	__free_pages(ppgtt->pd_pages, get_order(ppgtt->num_pd_pages << PAGE_SHIFT));
 }
 
 static void gen8_ppgtt_unmap_pages(struct i915_hw_ppgtt *ppgtt)
@@ -380,29 +602,48 @@ static void gen8_ppgtt_unmap_pages(struct i915_hw_ppgtt *ppgtt)
 	struct pci_dev *hwdev = ppgtt->base.dev->pdev;
 	int i, j;
 
-	for (i = 0; i < ppgtt->num_pd_pages; i++) {
-		/* TODO: In the future we'll support sparse mappings, so this
-		 * will have to change. */
-		if (!ppgtt->pd_dma_addr[i])
+	for_each_set_bit(i, ppgtt->pdp.used_pdpes, GEN8_LEGACY_PDPES) {
+		struct i915_page_directory_entry *pd;
+
+		if (WARN_ON(!ppgtt->pdp.page_directory[i]))
 			continue;
 
-		pci_unmap_page(hwdev, ppgtt->pd_dma_addr[i], PAGE_SIZE,
-			       PCI_DMA_BIDIRECTIONAL);
+		pd = ppgtt->pdp.page_directory[i];
+		if (!pd->daddr)
+			pci_unmap_page(hwdev, pd->daddr, PAGE_SIZE,
+					PCI_DMA_BIDIRECTIONAL);
 
-		for (j = 0; j < GEN8_PDES_PER_PAGE; j++) {
-			dma_addr_t addr = ppgtt->gen8_pt_dma_addr[i][j];
+		for_each_set_bit(j, pd->used_pdes, GEN8_PDES_PER_PAGE) {
+			struct i915_page_table_entry *pt;
+			dma_addr_t addr;
+
+			if (WARN_ON(!pd->page_tables[j]))
+				continue;
+
+			pt = pd->page_tables[j];
+			addr = pt->daddr;
+
 			if (addr)
 				pci_unmap_page(hwdev, addr, PAGE_SIZE,
 					       PCI_DMA_BIDIRECTIONAL);
 		}
 	}
+}
 
-	/* Unused PDPs are always assigned to scratch page */
-	for (i = ppgtt->num_pd_pages; i < GEN8_LEGACY_PDPS; i++) {
-		if (ppgtt->pd_dma_addr[i])
-			pci_unmap_page(hwdev, ppgtt->pd_dma_addr[i],
-				       PAGE_SIZE, PCI_DMA_BIDIRECTIONAL);
+static void gen8_ppgtt_free(struct i915_hw_ppgtt *ppgtt)
+{
+	int i;
+
+	for_each_set_bit(i, ppgtt->pdp.used_pdpes, GEN8_LEGACY_PDPES) {
+		if (WARN_ON(!ppgtt->pdp.page_directory[i]))
+			continue;
+
+		gen8_free_page_tables(ppgtt->pdp.page_directory[i], ppgtt->base.dev);
+		unmap_and_free_pd(ppgtt->pdp.page_directory[i], ppgtt->base.dev);
 	}
+
+	unmap_and_free_pt(ppgtt->scratch_pd, ppgtt->base.dev);
+	unmap_and_free_pt(ppgtt->scratch_pt, ppgtt->base.dev);
 }
 
 static void gen8_ppgtt_cleanup(struct i915_address_space *vm)
@@ -414,172 +655,309 @@ static void gen8_ppgtt_cleanup(struct i915_address_space *vm)
 	gen8_ppgtt_free(ppgtt);
 }
 
-static struct page **__gen8_alloc_page_tables(void)
+static void gen8_initialize_pt(struct i915_hw_ppgtt *ppgtt,
+			struct i915_page_table_entry *pt)
 {
-	struct page **pt_pages;
+	gen8_gtt_pte_t *pt_vaddr, scratch_pte;
 	int i;
 
-	pt_pages = kcalloc(GEN8_PDES_PER_PAGE, sizeof(struct page *), GFP_KERNEL);
-	if (!pt_pages)
-		return ERR_PTR(-ENOMEM);
+	pt_vaddr = kmap_atomic(pt->page);
+	scratch_pte = gen8_pte_encode(ppgtt->base.scratch.addr,
+			I915_CACHE_LLC, true);
 
-	for (i = 0; i < GEN8_PDES_PER_PAGE; i++) {
-		pt_pages[i] = alloc_page(GFP_KERNEL);
-		if (!pt_pages[i])
-			goto bail;
-	}
+	for (i = 0; i < GEN8_PTES_PER_PAGE; i++)
+		pt_vaddr[i] = scratch_pte;
 
-	return pt_pages;
-
-bail:
-	gen8_free_page_tables(pt_pages);
-	kfree(pt_pages);
-	return ERR_PTR(-ENOMEM);
+	if (!HAS_LLC(ppgtt->base.dev))
+		drm_clflush_virt_range(pt_vaddr, PAGE_SIZE);
+	kunmap_atomic(pt_vaddr);
 }
 
-static int gen8_ppgtt_allocate_page_tables(struct i915_hw_ppgtt *ppgtt,
-					   const int max_pdp)
+static void gen8_initialize_pd(struct i915_hw_ppgtt *ppgtt,
+			struct i915_page_directory_entry *pd)
 {
-	struct page **pt_pages[GEN8_LEGACY_PDPS];
-	int i, ret;
+	gen8_ppgtt_pde_t *page_directory;
+	struct i915_page_table_entry *pt;
+	int i;
 
-	for (i = 0; i < max_pdp; i++) {
-		pt_pages[i] = __gen8_alloc_page_tables();
-		if (IS_ERR(pt_pages[i])) {
-			ret = PTR_ERR(pt_pages[i]);
-			goto unwind_out;
+	page_directory = kmap_atomic(pd->page);
+	pt = ppgtt->scratch_pt;
+	for (i = 0; i < GEN8_PDES_PER_PAGE; i++)
+		/* Map the PDE to the page table */
+		__gen8_do_map_pt(page_directory + i, pt, ppgtt->base.dev);
+
+	if (!HAS_LLC(ppgtt->base.dev))
+		drm_clflush_virt_range(page_directory, PAGE_SIZE);
+	kunmap_atomic(page_directory);
+}
+
+/**
+ * gen8_ppgtt_alloc_pagetabs() - Allocate page tables for VA range.
+ * @ppgtt:	Master ppgtt structure.
+ * @pd:		Page directory for this address range.
+ * @start:	Starting virtual address to begin allocations.
+ * @length	Size of the allocations.
+ * @new_pts:	Bitmap set by function with new allocations. Likely used by the
+ *		caller to free on error.
+ *
+ * Allocate the required number of page tables. Extremely similar to
+ * gen8_ppgtt_alloc_page_directories(). The main difference is here we are limited by
+ * the page directory boundary (instead of the page directory pointer). That
+ * boundary is 1GB virtual. Therefore, unlike gen8_ppgtt_alloc_page_directories(), it is
+ * possible, and likely that the caller will need to use multiple calls of this
+ * function to achieve the appropriate allocation.
+ *
+ * Return: 0 if success; negative error code otherwise.
+ */
+static int gen8_ppgtt_alloc_pagetabs(struct i915_hw_ppgtt *ppgtt,
+				     struct i915_page_directory_entry *pd,
+				     uint64_t start,
+				     uint64_t length,
+				     unsigned long *new_pts)
+{
+	struct i915_page_table_entry *pt;
+	uint64_t temp;
+	uint32_t pde;
+
+	gen8_for_each_pde(pt, pd, start, length, temp, pde) {
+		/* Don't reallocate page tables */
+		if (pt) {
+			/* Scratch is never allocated this way */
+			WARN_ON(pt->scratch);
+			continue;
 		}
-	}
 
-	/* NB: Avoid touching gen8_pt_pages until last to keep the allocation,
-	 * "atomic" - for cleanup purposes.
-	 */
-	for (i = 0; i < max_pdp; i++)
-		ppgtt->gen8_pt_pages[i] = pt_pages[i];
+		pt = alloc_pt_single(ppgtt->base.dev);
+		if (IS_ERR(pt))
+			goto unwind_out;
+
+		gen8_initialize_pt(ppgtt, pt);
+		pd->page_tables[pde] = pt;
+		set_bit(pde, new_pts);
+	}
 
 	return 0;
 
 unwind_out:
-	while (i--) {
-		gen8_free_page_tables(pt_pages[i]);
-		kfree(pt_pages[i]);
-	}
+	for_each_set_bit(pde, new_pts, GEN8_PDES_PER_PAGE)
+		unmap_and_free_pt(pd->page_tables[pde], ppgtt->base.dev);
 
-	return ret;
+	return -ENOMEM;
 }
 
-static int gen8_ppgtt_allocate_dma(struct i915_hw_ppgtt *ppgtt)
+/**
+ * gen8_ppgtt_alloc_page_directories() - Allocate page directories for VA range.
+ * @ppgtt:	Master ppgtt structure.
+ * @pdp:	Page directory pointer for this address range.
+ * @start:	Starting virtual address to begin allocations.
+ * @length	Size of the allocations.
+ * @new_pds	Bitmap set by function with new allocations. Likely used by the
+ *		caller to free on error.
+ *
+ * Allocate the required number of page directories starting at the pde index of
+ * @start, and ending at the pde index @start + @length. This function will skip
+ * over already allocated page directories within the range, and only allocate
+ * new ones, setting the appropriate pointer within the pdp as well as the
+ * correct position in the bitmap @new_pds.
+ *
+ * The function will only allocate the pages within the range for a give page
+ * directory pointer. In other words, if @start + @length straddles a virtually
+ * addressed PDP boundary (512GB for 4k pages), there will be more allocations
+ * required by the caller, This is not currently possible, and the BUG in the
+ * code will prevent it.
+ *
+ * Return: 0 if success; negative error code otherwise.
+ */
+static int gen8_ppgtt_alloc_page_directories(struct i915_hw_ppgtt *ppgtt,
+				 struct i915_page_directory_pointer_entry *pdp,
+				 uint64_t start,
+				 uint64_t length,
+				 unsigned long *new_pds)
+{
+	struct i915_page_directory_entry *pd;
+	uint64_t temp;
+	uint32_t pdpe;
+
+	BUG_ON(!bitmap_empty(new_pds, GEN8_LEGACY_PDPES));
+
+	/* FIXME: PPGTT container_of won't work for 64b */
+	BUG_ON((start + length) > 0x800000000ULL);
+
+	gen8_for_each_pdpe(pd, pdp, start, length, temp, pdpe) {
+		if (pd)
+			continue;
+
+		pd = alloc_pd_single(ppgtt->base.dev);
+		if (IS_ERR(pd))
+			goto unwind_out;
+
+		gen8_initialize_pd(ppgtt, pd);
+		pdp->page_directory[pdpe] = pd;
+		set_bit(pdpe, new_pds);
+	}
+
+	return 0;
+
+unwind_out:
+	for_each_set_bit(pdpe, new_pds, GEN8_LEGACY_PDPES)
+		unmap_and_free_pd(pdp->page_directory[pdpe], ppgtt->base.dev);
+
+	return -ENOMEM;
+}
+
+static inline void
+free_gen8_temp_bitmaps(unsigned long *new_pds, unsigned long **new_pts)
 {
 	int i;
 
-	for (i = 0; i < ppgtt->num_pd_pages; i++) {
-		ppgtt->gen8_pt_dma_addr[i] = kcalloc(GEN8_PDES_PER_PAGE,
-						     sizeof(dma_addr_t),
-						     GFP_KERNEL);
-		if (!ppgtt->gen8_pt_dma_addr[i])
-			return -ENOMEM;
-	}
-
-	return 0;
+	for (i = 0; i < GEN8_LEGACY_PDPES; i++)
+		kfree(new_pts[i]);
+	kfree(new_pts);
+	kfree(new_pds);
 }
 
-static int gen8_ppgtt_allocate_page_directories(struct i915_hw_ppgtt *ppgtt,
-						const int max_pdp)
+/* Fills in the page directory bitmap, ant the array of page tables bitmap. Both
+ * of these are based on the number of PDPEs in the system.
+ */
+int __must_check alloc_gen8_temp_bitmaps(unsigned long **new_pds,
+					 unsigned long ***new_pts)
 {
-	/* Scratch page for unmapped PDP's */
-	ppgtt->scratch_page = alloc_page(GFP_KERNEL);
-	if (!ppgtt->scratch_page)
+	int i;
+	unsigned long *pds;
+	unsigned long **pts;
+
+	pds = kcalloc(BITS_TO_LONGS(GEN8_LEGACY_PDPES), sizeof(unsigned long), GFP_KERNEL);
+	if (!pds)
 		return -ENOMEM;
 
-	/*
-	* Must allocate space for all 4 PDPs. HW has implemented cache which
-	* pre-fetches entries; that pre-fetch can attempt access for entries
-	* even if no resources are located in that range.
-	*/
-	ppgtt->pd_pages = alloc_pages(GFP_KERNEL,
-				get_order(GEN8_LEGACY_PDPS << PAGE_SHIFT));
-	if (!ppgtt->pd_pages) {
-		__free_page(ppgtt->scratch_page);
-
+	pts = kcalloc(GEN8_PDES_PER_PAGE, sizeof(unsigned long *), GFP_KERNEL);
+	if (!pts) {
+		kfree(pds);
 		return -ENOMEM;
 	}
 
-	ppgtt->num_pd_pages = 1 << get_order(max_pdp << PAGE_SHIFT);
-	BUG_ON(ppgtt->num_pd_pages > GEN8_LEGACY_PDPS);
-
-	return 0;
-}
-
-static int gen8_ppgtt_alloc(struct i915_hw_ppgtt *ppgtt,
-			    const int max_pdp)
-{
-	int ret;
-
-	ret = gen8_ppgtt_allocate_page_directories(ppgtt, max_pdp);
-	if (ret)
-		return ret;
-
-	ret = gen8_ppgtt_allocate_page_tables(ppgtt, max_pdp);
-	if (ret) {
-		__free_page(ppgtt->scratch_page);
-		__free_pages(ppgtt->pd_pages, get_order(max_pdp << PAGE_SHIFT));
-		return ret;
+	for (i = 0; i < GEN8_LEGACY_PDPES; i++) {
+		pts[i] = kcalloc(BITS_TO_LONGS(GEN8_PDES_PER_PAGE),
+				 sizeof(unsigned long), GFP_KERNEL);
+		if (!pts[i])
+			goto err_out;
 	}
 
-	ppgtt->num_pd_entries = max_pdp * GEN8_PDES_PER_PAGE;
-
-	ret = gen8_ppgtt_allocate_dma(ppgtt);
-	if (ret)
-		gen8_ppgtt_free(ppgtt);
-
-	return ret;
-}
-
-static int gen8_ppgtt_setup_page_directories(struct i915_hw_ppgtt *ppgtt,
-					     const int pd)
-{
-	dma_addr_t pd_addr;
-	int ret;
-
-	pd_addr = pci_map_page(ppgtt->base.dev->pdev,
-			       &ppgtt->pd_pages[pd], 0,
-			       PAGE_SIZE, PCI_DMA_BIDIRECTIONAL);
-
-	ret = pci_dma_mapping_error(ppgtt->base.dev->pdev, pd_addr);
-	if (ret)
-		return ret;
-
-	ppgtt->pd_dma_addr[pd] = pd_addr;
+	*new_pds = pds;
+	*new_pts = (unsigned long **)pts;
 
 	return 0;
+
+err_out:
+	free_gen8_temp_bitmaps(pds, pts);
+	return -ENOMEM;
 }
 
-static int gen8_ppgtt_setup_page_tables(struct i915_hw_ppgtt *ppgtt,
-					const int pd,
-					const int pt,
-					const int max_pdp)
+static int gen8_alloc_va_range(struct i915_address_space *vm,
+			       uint64_t start,
+			       uint64_t length)
 {
-	dma_addr_t pt_addr;
-	struct page *p;
+	struct i915_hw_ppgtt *ppgtt =
+		container_of(vm, struct i915_hw_ppgtt, base);
+	unsigned long *new_page_dirs, **new_page_tables;
+	struct i915_page_directory_entry *pd;
+	const uint64_t orig_start = start;
+	const uint64_t orig_length = length;
+	uint64_t temp;
+	uint32_t pdpe;
 	int ret;
 
-	/*
-	 * Unused PDPs need to have their ptes pointing to the
-	 * existing scratch page.
+#ifndef CONFIG_64BIT
+	/* Disallow 64b address on 32b platforms. Nothing is wrong with doing
+	 * this in hardware, but a lot of the drm code is not prepared to handle
+	 * 64b offset on 32b platforms.
+	 * This will be addressed when 48b PPGTT is added */
+	if (start + length > 0x100000000ULL)
+		return -E2BIG;
+#endif
+
+	/* Wrap is never okay since we can only represent 48b, and we don't
+	 * actually use the other side of the canonical address space.
 	 */
-	if (pd < max_pdp) {
-		p = ppgtt->gen8_pt_pages[pd][pt];
-		pt_addr = pci_map_page(ppgtt->base.dev->pdev,
-				       p, 0, PAGE_SIZE, PCI_DMA_BIDIRECTIONAL);
-		ret = pci_dma_mapping_error(ppgtt->base.dev->pdev, pt_addr);
+	if (WARN_ON(start + length < start))
+		return -ERANGE;
+
+	ret = alloc_gen8_temp_bitmaps(&new_page_dirs, &new_page_tables);
+	if (ret)
+		return ret;
+
+	/* Do the allocations first so we can easily bail out */
+	ret = gen8_ppgtt_alloc_page_directories(ppgtt, &ppgtt->pdp, start, length,
+					new_page_dirs);
+	if (ret) {
+		free_gen8_temp_bitmaps(new_page_dirs, new_page_tables);
+		return ret;
+	}
+
+	/* For every page directory referenced, allocate page tables */
+	gen8_for_each_pdpe(pd, &ppgtt->pdp, start, length, temp, pdpe) {
+		bitmap_zero(new_page_tables[pdpe], GEN8_PDES_PER_PAGE);
+		ret = gen8_ppgtt_alloc_pagetabs(ppgtt, pd, start, length,
+						new_page_tables[pdpe]);
 		if (ret)
-			return ret;
-	} else
-		pt_addr = ppgtt->scratch_dma_addr;
+			goto err_out;
+	}
 
-	ppgtt->gen8_pt_dma_addr[pd][pt] = pt_addr;
+	start = orig_start;
+	length = orig_length;
 
+	/* Allocations have completed successfully, so set the bitmaps, and do
+	 * the mappings. */
+	gen8_for_each_pdpe(pd, &ppgtt->pdp, start, length, temp, pdpe) {
+		gen8_ppgtt_pde_t *const page_directory = kmap_atomic(pd->page);
+		struct i915_page_table_entry *pt;
+		uint64_t pd_len = gen8_clamp_pd(start, length);
+		uint64_t pd_start = start;
+		uint32_t pde;
+
+		/* Every pd should be allocated, we just did that above. */
+		BUG_ON(!pd);
+
+		gen8_for_each_pde(pt, pd, pd_start, pd_len, temp, pde) {
+			/* Same reasoning as pd */
+			BUG_ON(!pt);
+			BUG_ON(!pd_len);
+			BUG_ON(!gen8_pte_count(pd_start, pd_len));
+
+			/* Set our used ptes within the page table */
+			bitmap_set(pt->used_ptes,
+				   gen8_pte_index(pd_start),
+				   gen8_pte_count(pd_start, pd_len));
+
+			/* Our pde is now pointing to the pagetable, pt */
+			set_bit(pde, pd->used_pdes);
+
+			/* Map the PDE to the page table */
+			__gen8_do_map_pt(page_directory + pde, pt, vm->dev);
+
+			/* NB: We haven't yet mapped ptes to pages. At this
+			 * point we're still relying on insert_entries() */
+		}
+
+		if (!HAS_LLC(vm->dev))
+			drm_clflush_virt_range(page_directory, PAGE_SIZE);
+
+		kunmap_atomic(page_directory);
+
+		set_bit(pdpe, ppgtt->pdp.used_pdpes);
+	}
+
+	free_gen8_temp_bitmaps(new_page_dirs, new_page_tables);
 	return 0;
+
+err_out:
+	gen8_ppgtt_free(ppgtt);
+
+	for_each_set_bit(pdpe, new_page_dirs, GEN8_LEGACY_PDPES)
+		unmap_and_free_pd(ppgtt->pdp.page_directory[pdpe], vm->dev);
+
+	free_gen8_temp_bitmaps(new_page_dirs, new_page_tables);
+	return ret;
 }
 
 /**
@@ -588,121 +966,93 @@ static int gen8_ppgtt_setup_page_tables(struct i915_hw_ppgtt *ppgtt,
  * PDP represents 1GB of memory 4 * 512 * 512 * 4096 = 4GB legacy 32b address
  * space.
  *
- * FIXME: split allocation into smaller pieces. For now we only ever do this
- * once, but with full PPGTT, the multiple contiguous allocations will be bad.
- * TODO: Do something with the size parameter
  */
-static int gen8_ppgtt_init(struct i915_hw_ppgtt *ppgtt, uint64_t size)
+static int gen8_ppgtt_init_common(struct i915_hw_ppgtt *ppgtt, uint64_t size)
 {
-	const int max_pdp = DIV_ROUND_UP(size, 1 << 30);
-	const int min_pt_pages = GEN8_PDES_PER_PAGE * max_pdp;
-	int i, j, ret;
-	gen8_gtt_pte_t *pt_vaddr, scratch_pte;
+	ppgtt->scratch_pd = alloc_pt_scratch(ppgtt->base.dev);
+	if (IS_ERR(ppgtt->scratch_pd))
+		return PTR_ERR(ppgtt->scratch_pd);
 
-	if (size % (1<<30))
-		DRM_INFO("Pages will be wasted unless GTT size (%llu) is divisible by 1GB\n", size);
+	ppgtt->scratch_pt = alloc_pt_scratch(ppgtt->base.dev);
+	if (IS_ERR(ppgtt->scratch_pt))
+		return PTR_ERR(ppgtt->scratch_pt);
 
-	/* 1. Do all our allocations for page directories and page tables. */
-	ret = gen8_ppgtt_alloc(ppgtt, GEN8_LEGACY_PDPS);
+	gen8_initialize_pt(ppgtt, ppgtt->scratch_pt);
+	gen8_initialize_pd(ppgtt,
+		(struct i915_page_directory_entry *)ppgtt->scratch_pd);
+
+	ppgtt->base.start = 0;
+	ppgtt->base.total = size;
+	ppgtt->base.cleanup = gen8_ppgtt_cleanup;
+	ppgtt->base.insert_entries = gen8_ppgtt_insert_entries;
+
+	ppgtt->switch_mm = gen8_mm_switch;
+
+	return 0;
+}
+
+static int gen8_aliasing_ppgtt_init(struct i915_hw_ppgtt *ppgtt)
+{
+	struct drm_device *dev = ppgtt->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct i915_page_directory_entry *pd;
+	uint64_t temp, start = 0, size = dev_priv->gtt.base.total;
+	uint32_t pdpe;
+	int ret;
+
+	ret = gen8_ppgtt_init_common(ppgtt, dev_priv->gtt.base.total);
 	if (ret)
 		return ret;
 
-	/* 2. Map the scratch page */
-	ppgtt->scratch_dma_addr =
-		pci_map_page(ppgtt->base.dev->pdev,
-			     ppgtt->scratch_page, 0, PAGE_SIZE,
-			     PCI_DMA_BIDIRECTIONAL);
-
-	ret = pci_dma_mapping_error(ppgtt->base.dev->pdev, ppgtt->scratch_dma_addr);
-	if (ret)
-		goto bail;
-
-	/*
-	 * 3. Create DMA mappings for the page directories and page tables.
-	 */
-	for (i = 0; i < GEN8_LEGACY_PDPS; i++) {
-		ret = gen8_ppgtt_setup_page_directories(ppgtt, i);
-		if (ret)
-			goto bail;
-
-		for (j = 0; j < GEN8_PDES_PER_PAGE; j++) {
-			ret = gen8_ppgtt_setup_page_tables(ppgtt, i, j, max_pdp);
-			if (ret)
-				goto bail;
-		}
+	/* Aliasing PPGTT has to always work and be mapped because of the way we
+	 * use RESTORE_INHIBIT in the context switch. This will be fixed
+	 * eventually. */
+	ret = gen8_alloc_va_range(&ppgtt->base, start, size);
+	if (ret) {
+		unmap_and_free_pt(ppgtt->scratch_pd, ppgtt->base.dev);
+		return ret;
 	}
 
-	/*
-	 * 4. Map all the page directory entires to point to the page tables
-	 * we've allocated.
-	 *
-	 * For now, the PPGTT helper functions all require that the PDEs are
-	 * plugged in correctly. So we do that now/here. For aliasing PPGTT, we
-	 * will never need to touch the PDEs again.
-	 */
-	for (i = 0; i < GEN8_LEGACY_PDPS; i++) {
-		gen8_ppgtt_pde_t *pd_vaddr;
-		pd_vaddr = kmap_atomic(&ppgtt->pd_pages[i]);
-		for (j = 0; j < GEN8_PDES_PER_PAGE; j++) {
-			dma_addr_t addr = ppgtt->gen8_pt_dma_addr[i][j];
-			pd_vaddr[j] = gen8_pde_encode(ppgtt->base.dev, addr,
-						      I915_CACHE_LLC);
-		}
-		if (!HAS_LLC(ppgtt->base.dev))
-			drm_clflush_virt_range(pd_vaddr, PAGE_SIZE);
-		kunmap_atomic(pd_vaddr);
-	}
+	gen8_for_each_pdpe(pd, &ppgtt->pdp, start, size, temp, pdpe)
+		gen8_map_pagetable_range(pd, start, size, ppgtt->base.dev);
 
-	ppgtt->switch_mm = gen8_mm_switch;
+	ppgtt->base.allocate_va_range = NULL;
 	ppgtt->base.clear_range = gen8_ppgtt_clear_range;
-	ppgtt->base.insert_entries = gen8_ppgtt_insert_entries;
-	ppgtt->base.cleanup = gen8_ppgtt_cleanup;
-	ppgtt->base.start = 0;
-	ppgtt->base.total = ppgtt->num_pd_entries * GEN8_PTES_PER_PAGE * PAGE_SIZE;
-
 	ppgtt->base.clear_range(&ppgtt->base, 0, ppgtt->base.total, true);
 
-	scratch_pte = gen8_pte_encode(ppgtt->base.scratch.addr,
-				      I915_CACHE_LLC, true);
-	pt_vaddr = kmap_atomic(ppgtt->scratch_page);
-	for (i = 0; i < GEN8_PTES_PER_PAGE; i++)
-		pt_vaddr[i] = scratch_pte;
-	kunmap_atomic(pt_vaddr);
-
-	DRM_DEBUG_DRIVER("Allocated %d pages for page directories (%d wasted)\n",
-			 ppgtt->num_pd_pages, ppgtt->num_pd_pages - max_pdp);
-	DRM_DEBUG_DRIVER("Allocated %d pages for page tables (%lld wasted)\n",
-			 ppgtt->num_pd_entries,
-			 (ppgtt->num_pd_entries - min_pt_pages) + size % (1<<30));
 	return 0;
+}
 
-bail:
-	gen8_ppgtt_unmap_pages(ppgtt);
-	gen8_ppgtt_free(ppgtt);
-	return ret;
+static int gen8_ppgtt_init(struct i915_hw_ppgtt *ppgtt)
+{
+	int ret;
+
+	ret = gen8_ppgtt_init_common(ppgtt, (1ULL << 32));
+	if (ret)
+		return ret;
+
+	ppgtt->base.allocate_va_range = gen8_alloc_va_range;
+	ppgtt->base.clear_range = gen8_ppgtt_clear_range;
+
+	return 0;
 }
 
 static void gen6_dump_ppgtt(struct i915_hw_ppgtt *ppgtt, struct seq_file *m)
 {
-	struct drm_i915_private *dev_priv = ppgtt->base.dev->dev_private;
 	struct i915_address_space *vm = &ppgtt->base;
-	gen6_gtt_pte_t __iomem *pd_addr;
+	struct i915_page_table_entry *unused;
 	gen6_gtt_pte_t scratch_pte;
 	uint32_t pd_entry;
-	int pte, pde;
+	uint32_t  pte, pde, temp;
+	uint32_t start = ppgtt->base.start, length = ppgtt->base.total;
 
 	scratch_pte = vm->pte_encode(vm->scratch.addr, I915_CACHE_LLC, true, 0);
 
-	pd_addr = (gen6_gtt_pte_t __iomem *)dev_priv->gtt.gsm +
-		ppgtt->pd_offset / sizeof(gen6_gtt_pte_t);
-
-	seq_printf(m, "  VM %p (pd_offset %x-%x):\n", vm,
-		   ppgtt->pd_offset, ppgtt->pd_offset + ppgtt->num_pd_entries);
-	for (pde = 0; pde < ppgtt->num_pd_entries; pde++) {
+	gen6_for_each_pde(unused, &ppgtt->pd, start, length, temp, pde) {
 		u32 expected;
 		gen6_gtt_pte_t *pt_vaddr;
-		dma_addr_t pt_addr = ppgtt->pt_dma_addr[pde];
-		pd_entry = readl(pd_addr + pde);
+		dma_addr_t pt_addr = ppgtt->pd.page_tables[pde]->daddr;
+		pd_entry = readl(ppgtt->pd_addr + pde);
 		expected = (GEN6_PDE_ADDR_ENCODE(pt_addr) | GEN6_PDE_VALID);
 
 		if (pd_entry != expected)
@@ -712,7 +1062,7 @@ static void gen6_dump_ppgtt(struct i915_hw_ppgtt *ppgtt, struct seq_file *m)
 				   expected);
 		seq_printf(m, "\tPDE: %x\n", pd_entry);
 
-		pt_vaddr = kmap_atomic(ppgtt->pt_pages[pde]);
+		pt_vaddr = kmap_atomic(ppgtt->pd.page_tables[pde]->page);
 		for (pte = 0; pte < I915_PPGTT_PT_ENTRIES; pte+=4) {
 			unsigned long va =
 				(pde * PAGE_SIZE * I915_PPGTT_PT_ENTRIES) +
@@ -738,33 +1088,43 @@ static void gen6_dump_ppgtt(struct i915_hw_ppgtt *ppgtt, struct seq_file *m)
 	}
 }
 
-static void gen6_write_pdes(struct i915_hw_ppgtt *ppgtt)
+/* Write pde (index) from the page directory @pd to the page table @pt */
+static void gen6_write_pdes(struct i915_page_directory_entry *pd,
+			    const int pde, struct i915_page_table_entry *pt)
 {
-	struct drm_i915_private *dev_priv = ppgtt->base.dev->dev_private;
-	gen6_gtt_pte_t __iomem *pd_addr;
-	uint32_t pd_entry;
-	int i;
+	struct i915_hw_ppgtt *ppgtt =
+		container_of(pd, struct i915_hw_ppgtt, pd);
+	u32 pd_entry;
 
-	WARN_ON(ppgtt->pd_offset & 0x3f);
-	pd_addr = (gen6_gtt_pte_t __iomem*)dev_priv->gtt.gsm +
-		ppgtt->pd_offset / sizeof(gen6_gtt_pte_t);
-	for (i = 0; i < ppgtt->num_pd_entries; i++) {
-		dma_addr_t pt_addr;
+	pd_entry = GEN6_PDE_ADDR_ENCODE(pt->daddr);
+	pd_entry |= GEN6_PDE_VALID;
 
-		pt_addr = ppgtt->pt_dma_addr[i];
-		pd_entry = GEN6_PDE_ADDR_ENCODE(pt_addr);
-		pd_entry |= GEN6_PDE_VALID;
+	writel(pd_entry, ppgtt->pd_addr + pde);
 
-		writel(pd_entry, pd_addr + i);
-	}
-	readl(pd_addr);
+	/* XXX: Caller needs to make sure the write completes if necessary */
+}
+
+/* Write all the page tables found in the ppgtt structure to incrementing page
+ * directories. */
+static void gen6_write_page_range(struct drm_i915_private *dev_priv,
+				struct i915_page_directory_entry *pd, uint32_t start, uint32_t length)
+{
+	struct i915_page_table_entry *pt;
+	uint32_t pde, temp;
+
+	gen6_for_each_pde(pt, pd, start, length, temp, pde)
+		gen6_write_pdes(pd, pde, pt);
+
+	/* Make sure write is complete before other code can use this page
+	 * table. Also require for WC mapped PTEs */
+	readl(dev_priv->gtt.gsm);
 }
 
 static uint32_t get_pd_offset(struct i915_hw_ppgtt *ppgtt)
 {
-	BUG_ON(ppgtt->pd_offset & 0x3f);
+	BUG_ON(ppgtt->pd.pd_offset & 0x3f);
 
-	return (ppgtt->pd_offset / 64) << 16;
+	return (ppgtt->pd.pd_offset / 64) << 16;
 }
 
 static int hsw_mm_switch(struct i915_hw_ppgtt *ppgtt,
@@ -958,7 +1318,7 @@ static void gen6_ppgtt_clear_range(struct i915_address_space *vm,
 		if (last_pte > I915_PPGTT_PT_ENTRIES)
 			last_pte = I915_PPGTT_PT_ENTRIES;
 
-		pt_vaddr = kmap_atomic(ppgtt->pt_pages[act_pt]);
+		pt_vaddr = kmap_atomic(ppgtt->pd.page_tables[act_pt]->page);
 
 		for (i = first_pte; i < last_pte; i++)
 			pt_vaddr[i] = scratch_pte;
@@ -988,7 +1348,7 @@ static void gen6_ppgtt_insert_entries(struct i915_address_space *vm,
 	pt_vaddr = NULL;
 	for_each_sg_page(pages->sgl, &sg_iter, pages->nents, 0) {
 		if (pt_vaddr == NULL)
-			pt_vaddr = kmap_atomic(ppgtt->pt_pages[act_pt]);
+			pt_vaddr = kmap_atomic(ppgtt->pd.page_tables[act_pt]->page);
 
 		pt_vaddr[act_pte] =
 			vm->pte_encode(sg_page_iter_dma_address(&sg_iter),
@@ -1007,24 +1367,123 @@ static void gen6_ppgtt_insert_entries(struct i915_address_space *vm,
 
 static void gen6_ppgtt_unmap_pages(struct i915_hw_ppgtt *ppgtt)
 {
-	int i;
+	struct i915_page_table_entry *pt;
+	uint32_t pde;
 
-	if (ppgtt->pt_dma_addr) {
-		for (i = 0; i < ppgtt->num_pd_entries; i++)
+	gen6_for_all_pdes(pt, ppgtt, pde) {
+		if (pt != ppgtt->scratch_pt)
 			pci_unmap_page(ppgtt->base.dev->pdev,
-				       ppgtt->pt_dma_addr[i],
-				       4096, PCI_DMA_BIDIRECTIONAL);
+				pt->daddr,
+				4096, PCI_DMA_BIDIRECTIONAL);
 	}
+}
+
+/* PDE TLBs are a pain invalidate pre GEN8. It requires a context reload. If we
+ * are switching between contexts with the same LRCA, we also must do a force
+ * restore.
+ */
+static inline void mark_tlbs_dirty(struct i915_hw_ppgtt *ppgtt)
+{
+	/* If current vm != vm, */
+	ppgtt->pd_dirty_rings = INTEL_INFO(ppgtt->base.dev)->ring_mask;
+}
+
+static int gen6_alloc_va_range(struct i915_address_space *vm,
+			       uint64_t start, uint64_t length)
+{
+	DECLARE_BITMAP(new_page_tables, GEN6_PPGTT_PD_ENTRIES);
+	struct drm_device *dev = vm->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct i915_hw_ppgtt *ppgtt =
+				container_of(vm, struct i915_hw_ppgtt, base);
+	struct i915_page_table_entry *pt;
+	const uint32_t start_save = start, length_save = length;
+	uint32_t pde, temp;
+	int ret;
+
+	BUG_ON(upper_32_bits(start));
+
+	bitmap_zero(new_page_tables, GEN6_PPGTT_PD_ENTRIES);
+
+	/* The allocation is done in two stages so that we can bail out with
+	 * minimal amount of pain. The first stage finds new page tables that
+	 * need allocation. The second stage marks use ptes within the page
+	 * tables.
+	 */
+	gen6_for_each_pde(pt, &ppgtt->pd, start, length, temp, pde) {
+		if (pt != ppgtt->scratch_pt) {
+			WARN_ON(bitmap_empty(pt->used_ptes, I915_PPGTT_PT_ENTRIES));
+			continue;
+		}
+
+		/* We've already allocated a page table */
+		WARN_ON(!bitmap_empty(pt->used_ptes, I915_PPGTT_PT_ENTRIES));
+
+		pt = alloc_pt_single(dev);
+		if (IS_ERR(pt)) {
+			ret = PTR_ERR(pt);
+			goto unwind_out;
+		}
+
+		ppgtt->pd.page_tables[pde] = pt;
+		set_bit(pde, new_page_tables);
+		trace_i915_page_table_entry_alloc(vm, pde, start, GEN6_PDE_SHIFT);
+	}
+
+	start = start_save;
+	length = length_save;
+
+	gen6_for_each_pde(pt, &ppgtt->pd, start, length, temp, pde) {
+		DECLARE_BITMAP(tmp_bitmap, I915_PPGTT_PT_ENTRIES);
+
+		bitmap_zero(tmp_bitmap, I915_PPGTT_PT_ENTRIES);
+		bitmap_set(tmp_bitmap, gen6_pte_index(start),
+			   gen6_pte_count(start, length));
+
+		if (test_and_clear_bit(pde, new_page_tables))
+			gen6_write_pdes(&ppgtt->pd, pde, pt);
+
+		trace_i915_page_table_entry_map(vm, pde, pt,
+					 gen6_pte_index(start),
+					 gen6_pte_count(start, length),
+					 I915_PPGTT_PT_ENTRIES);
+		bitmap_or(pt->used_ptes, tmp_bitmap, pt->used_ptes,
+				I915_PPGTT_PT_ENTRIES);
+	}
+
+	WARN_ON(!bitmap_empty(new_page_tables, GEN6_PPGTT_PD_ENTRIES));
+
+	/* Make sure write is complete before other code can use this page
+	 * table. Also require for WC mapped PTEs */
+	readl(dev_priv->gtt.gsm);
+
+	mark_tlbs_dirty(ppgtt);
+	return 0;
+
+unwind_out:
+	for_each_set_bit(pde, new_page_tables, GEN6_PPGTT_PD_ENTRIES) {
+		struct i915_page_table_entry *pt = ppgtt->pd.page_tables[pde];
+
+		ppgtt->pd.page_tables[pde] = NULL;
+		unmap_and_free_pt(pt, vm->dev);
+	}
+
+	mark_tlbs_dirty(ppgtt);
+	return ret;
 }
 
 static void gen6_ppgtt_free(struct i915_hw_ppgtt *ppgtt)
 {
-	int i;
+	struct i915_page_table_entry *pt;
+	uint32_t pde;
 
-	kfree(ppgtt->pt_dma_addr);
-	for (i = 0; i < ppgtt->num_pd_entries; i++)
-		__free_page(ppgtt->pt_pages[i]);
-	kfree(ppgtt->pt_pages);
+	gen6_for_all_pdes(pt, ppgtt, pde) {
+		if (pt != ppgtt->scratch_pt)
+			unmap_and_free_pt(pt, ppgtt->base.dev);
+	}
+
+	unmap_and_free_pt(ppgtt->scratch_pt, ppgtt->base.dev);
+	unmap_and_free_pd(&ppgtt->pd, ppgtt->base.dev);
 }
 
 static void gen6_ppgtt_cleanup(struct i915_address_space *vm)
@@ -1050,6 +1509,9 @@ static int gen6_ppgtt_allocate_page_directories(struct i915_hw_ppgtt *ppgtt)
 	 * size. We allocate at the top of the GTT to avoid fragmentation.
 	 */
 	BUG_ON(!drm_mm_initialized(&dev_priv->gtt.base.mm));
+	ppgtt->scratch_pt = alloc_pt_scratch(ppgtt->base.dev);
+	if (IS_ERR(ppgtt->scratch_pt))
+		return PTR_ERR(ppgtt->scratch_pt);
 alloc:
 	ret = drm_mm_insert_node_in_range_generic(&dev_priv->gtt.base.mm,
 						  &ppgtt->node, GEN6_PD_SIZE,
@@ -1063,38 +1525,24 @@ alloc:
 					       0, dev_priv->gtt.base.total,
 					       0);
 		if (ret)
-			return ret;
+			goto err_out;
 
 		retried = true;
 		goto alloc;
 	}
 
+	if (ret)
+		goto err_out;
+
+
 	if (ppgtt->node.start < dev_priv->gtt.mappable_end)
 		DRM_DEBUG("Forced to use aperture for PDEs\n");
 
-	ppgtt->num_pd_entries = GEN6_PPGTT_PD_ENTRIES;
-	return ret;
-}
-
-static int gen6_ppgtt_allocate_page_tables(struct i915_hw_ppgtt *ppgtt)
-{
-	int i;
-
-	ppgtt->pt_pages = kcalloc(ppgtt->num_pd_entries, sizeof(struct page *),
-				  GFP_KERNEL);
-
-	if (!ppgtt->pt_pages)
-		return -ENOMEM;
-
-	for (i = 0; i < ppgtt->num_pd_entries; i++) {
-		ppgtt->pt_pages[i] = alloc_page(GFP_KERNEL);
-		if (!ppgtt->pt_pages[i]) {
-			gen6_ppgtt_free(ppgtt);
-			return -ENOMEM;
-		}
-	}
-
 	return 0;
+
+err_out:
+	unmap_and_free_pt(ppgtt->scratch_pt, ppgtt->base.dev);
+	return ret;
 }
 
 static int gen6_ppgtt_alloc(struct i915_hw_ppgtt *ppgtt)
@@ -1105,46 +1553,20 @@ static int gen6_ppgtt_alloc(struct i915_hw_ppgtt *ppgtt)
 	if (ret)
 		return ret;
 
-	ret = gen6_ppgtt_allocate_page_tables(ppgtt);
-	if (ret) {
-		drm_mm_remove_node(&ppgtt->node);
-		return ret;
-	}
-
-	ppgtt->pt_dma_addr = kcalloc(ppgtt->num_pd_entries, sizeof(dma_addr_t),
-				     GFP_KERNEL);
-	if (!ppgtt->pt_dma_addr) {
-		drm_mm_remove_node(&ppgtt->node);
-		gen6_ppgtt_free(ppgtt);
-		return -ENOMEM;
-	}
-
 	return 0;
 }
 
-static int gen6_ppgtt_setup_page_tables(struct i915_hw_ppgtt *ppgtt)
+static void gen6_scratch_va_range(struct i915_hw_ppgtt *ppgtt,
+				  uint64_t start, uint64_t length)
 {
-	struct drm_device *dev = ppgtt->base.dev;
-	int i;
+	struct i915_page_table_entry *unused;
+	uint32_t pde, temp;
 
-	for (i = 0; i < ppgtt->num_pd_entries; i++) {
-		dma_addr_t pt_addr;
-
-		pt_addr = pci_map_page(dev->pdev, ppgtt->pt_pages[i], 0, 4096,
-				       PCI_DMA_BIDIRECTIONAL);
-
-		if (pci_dma_mapping_error(dev->pdev, pt_addr)) {
-			gen6_ppgtt_unmap_pages(ppgtt);
-			return -EIO;
-		}
-
-		ppgtt->pt_dma_addr[i] = pt_addr;
-	}
-
-	return 0;
+	gen6_for_each_pde(unused, &ppgtt->pd, start, length, temp, pde)
+		ppgtt->pd.page_tables[pde] = ppgtt->scratch_pt;
 }
 
-static int gen6_ppgtt_init(struct i915_hw_ppgtt *ppgtt)
+static int gen6_ppgtt_init(struct i915_hw_ppgtt *ppgtt, bool aliasing)
 {
 	struct drm_device *dev = ppgtt->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -1164,36 +1586,51 @@ static int gen6_ppgtt_init(struct i915_hw_ppgtt *ppgtt)
 	if (ret)
 		return ret;
 
-	ret = gen6_ppgtt_setup_page_tables(ppgtt);
-	if (ret) {
-		gen6_ppgtt_free(ppgtt);
-		return ret;
+	if (aliasing) {
+		/* preallocate all pts */
+		ret = alloc_pt_range(&ppgtt->pd, 0, GEN6_PPGTT_PD_ENTRIES,
+				ppgtt->base.dev);
+
+		if (ret) {
+			unmap_and_free_pt(ppgtt->scratch_pt, ppgtt->base.dev);
+			drm_mm_remove_node(&ppgtt->node);
+			return ret;
+		}
 	}
 
+	ppgtt->base.allocate_va_range = aliasing ? NULL : gen6_alloc_va_range;
 	ppgtt->base.clear_range = gen6_ppgtt_clear_range;
 	ppgtt->base.insert_entries = gen6_ppgtt_insert_entries;
 	ppgtt->base.cleanup = gen6_ppgtt_cleanup;
 	ppgtt->base.start = 0;
-	ppgtt->base.total =  ppgtt->num_pd_entries * I915_PPGTT_PT_ENTRIES * PAGE_SIZE;
+	ppgtt->base.total = GEN6_PPGTT_PD_ENTRIES * I915_PPGTT_PT_ENTRIES * PAGE_SIZE;
 	ppgtt->debug_dump = gen6_dump_ppgtt;
 
-	ppgtt->pd_offset =
+	ppgtt->pd.pd_offset =
 		ppgtt->node.start / PAGE_SIZE * sizeof(gen6_gtt_pte_t);
 
-	ppgtt->base.clear_range(&ppgtt->base, 0, ppgtt->base.total, true);
+	ppgtt->pd_addr = (gen6_gtt_pte_t __iomem *)dev_priv->gtt.gsm +
+		ppgtt->pd.pd_offset / sizeof(gen6_gtt_pte_t);
+
+	if (aliasing)
+		ppgtt->base.clear_range(&ppgtt->base, 0, ppgtt->base.total, true);
+	else
+		gen6_scratch_va_range(ppgtt, 0, ppgtt->base.total);
+
+	gen6_write_page_range(dev_priv, &ppgtt->pd, 0, ppgtt->base.total);
 
 	DRM_DEBUG_DRIVER("Allocated pde space (%ldM) at GTT entry: %lx\n",
 			 ppgtt->node.size >> 20,
 			 ppgtt->node.start / PAGE_SIZE);
 
-	gen6_write_pdes(ppgtt);
 	DRM_DEBUG("Adding PPGTT at offset %x\n",
-		  ppgtt->pd_offset << 10);
+		  ppgtt->pd.pd_offset << 10);
 
 	return 0;
 }
 
-static int __hw_ppgtt_init(struct drm_device *dev, struct i915_hw_ppgtt *ppgtt)
+static int __hw_ppgtt_init(struct drm_device *dev, struct i915_hw_ppgtt *ppgtt,
+		bool aliasing)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
@@ -1201,11 +1638,11 @@ static int __hw_ppgtt_init(struct drm_device *dev, struct i915_hw_ppgtt *ppgtt)
 	ppgtt->base.scratch = dev_priv->gtt.base.scratch;
 
 	if (INTEL_INFO(dev)->gen < 8)
-		return gen6_ppgtt_init(ppgtt);
-	else if (IS_GEN8(dev))
-		return gen8_ppgtt_init(ppgtt, dev_priv->gtt.base.total);
+		return gen6_ppgtt_init(ppgtt, aliasing);
+	else if (aliasing)
+		return gen8_aliasing_ppgtt_init(ppgtt);
 	else
-		BUG();
+		return gen8_ppgtt_init(ppgtt);
 }
 
 int i915_ppgtt_init(struct drm_device *dev, struct i915_hw_ppgtt *ppgtt)
@@ -1213,7 +1650,7 @@ int i915_ppgtt_init(struct drm_device *dev, struct i915_hw_ppgtt *ppgtt)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret = 0;
 
-	ret = __hw_ppgtt_init(dev, ppgtt);
+	ret = __hw_ppgtt_init(dev, ppgtt, false);
 	if (ret == 0) {
 		kref_init(&ppgtt->ref);
 		drm_mm_init(&ppgtt->base.mm, ppgtt->base.start,
@@ -1432,6 +1869,16 @@ void i915_check_and_clear_faults(struct drm_device *dev)
 	POSTING_READ(RING_FAULT_REG(&dev_priv->ring[RCS]));
 }
 
+static void i915_ggtt_flush(struct drm_i915_private *dev_priv)
+{
+	if (INTEL_INFO(dev_priv->dev)->gen < 6) {
+		intel_gtt_chipset_flush();
+	} else {
+		I915_WRITE(GFX_FLSH_CNTL_GEN6, GFX_FLSH_CNTL_EN);
+		POSTING_READ(GFX_FLSH_CNTL_GEN6);
+	}
+}
+
 void i915_gem_suspend_gtt_mappings(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -1448,6 +1895,8 @@ void i915_gem_suspend_gtt_mappings(struct drm_device *dev)
 				       dev_priv->gtt.base.start,
 				       dev_priv->gtt.base.total,
 				       true);
+
+	i915_ggtt_flush(dev_priv);
 }
 
 void i915_gem_restore_gtt_mappings(struct drm_device *dev)
@@ -1489,18 +1938,21 @@ void i915_gem_restore_gtt_mappings(struct drm_device *dev)
 		return;
 	}
 
-	list_for_each_entry(vm, &dev_priv->vm_list, global_link) {
+	if (USES_PPGTT(dev)) {
+		list_for_each_entry(vm, &dev_priv->vm_list, global_link) {
 		/* TODO: Perhaps it shouldn't be gen6 specific */
-		if (i915_is_ggtt(vm)) {
-			if (dev_priv->mm.aliasing_ppgtt)
-				gen6_write_pdes(dev_priv->mm.aliasing_ppgtt);
-			continue;
-		}
 
-		gen6_write_pdes(container_of(vm, struct i915_hw_ppgtt, base));
+			struct i915_hw_ppgtt *ppgtt =
+				container_of(vm, struct i915_hw_ppgtt, base);
+
+			if (i915_is_ggtt(vm))
+				ppgtt = dev_priv->mm.aliasing_ppgtt;
+
+			gen6_write_page_range(dev_priv, &ppgtt->pd, 0, GEN6_PPGTT_PD_ENTRIES);
+		}
 	}
 
-	i915_gem_chipset_flush(dev);
+	i915_ggtt_flush(dev_priv);
 }
 
 int i915_gem_gtt_prepare_object(struct drm_i915_gem_object *obj)
@@ -1863,7 +2315,7 @@ int i915_gem_setup_global_gtt(struct drm_device *dev,
 		if (!ppgtt)
 			return -ENOMEM;
 
-		ret = __hw_ppgtt_init(dev, ppgtt);
+		ret = __hw_ppgtt_init(dev, ppgtt, true);
 		if (ret != 0)
 			return ret;
 
@@ -2017,7 +2469,10 @@ static int ggtt_probe_common(struct drm_device *dev,
 	gtt_phys_addr = pci_resource_start(dev->pdev, 0) +
 		(pci_resource_len(dev->pdev, 0) / 2);
 
-	dev_priv->gtt.gsm = ioremap_wc(gtt_phys_addr, gtt_size);
+	if (IS_CHERRYVIEW(dev))
+		dev_priv->gtt.gsm = ioremap_nocache(gtt_phys_addr, gtt_size);
+	else
+		dev_priv->gtt.gsm = ioremap_wc(gtt_phys_addr, gtt_size);
 	if (!dev_priv->gtt.gsm) {
 		DRM_ERROR("Failed to map the gtt page table\n");
 		return -ENOMEM;

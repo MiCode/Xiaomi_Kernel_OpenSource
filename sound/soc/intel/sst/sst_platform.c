@@ -2,6 +2,7 @@
  * sst_platform.c: SST platform  data initilization file
  *
  * Copyright (C) 2012 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Author: Jeeja KP <jeeja.kp@intel.com>
  *
  * This program is free software; you can redistribute it and/or
@@ -168,11 +169,11 @@ sst_ssp_configs_mrfld[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
 				.bits_per_slot = 16,
 				.slots = 2,
 				.ssp_mode = SSP_MODE_MASTER,
-				.pcm_mode = SSP_PCM_MODE_NETWORK,
-				.data_polarity = 1,
+				.pcm_mode = SSP_PCM_MODE_NORMAL,
+				.data_polarity = 0,
 				.duplex = SSP_RX,
-				.ssp_protocol = SSP_MODE_PCM,
-				.fs_width = 1,
+				.ssp_protocol = SSP_MODE_I2S,
+				.fs_width = 32,
 				.fs_frequency = SSP_FS_48_KHZ,
 				.active_slot_map = 0x3,
 				.start_delay = 1,

@@ -1,8 +1,9 @@
 /*
  * BCM43XX PCIE core hardware definitions.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -21,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: pcie_core.h 468449 2014-04-07 21:50:10Z $
+ * $Id: pcie_core.h 530336 2015-01-29 22:52:35Z $
  */
 #ifndef	_PCIE_CORE_H
 #define	_PCIE_CORE_H
@@ -328,6 +329,12 @@ typedef struct sbpcieregs {
 #define PCIE_TLP_TGTDEBUG2		0x078 /* Target Debug Reg2 */
 #define PCIE_TLP_TGTDEBUG3		0x07C /* Target Debug Reg3 */
 #define PCIE_TLP_TGTDEBUG4		0x080 /* Target Debug Reg4 */
+
+/* PCIE2 MDIO register offsets */
+#define PCIE2_MDIO_CONTROL    0x128
+#define PCIE2_MDIO_WR_DATA    0x12C
+#define PCIE2_MDIO_RD_DATA    0x130
+
 
 /* MDIO control */
 #define MDIOCTL_DIVISOR_MASK		0x7f	/* clock to be used on MDIO */

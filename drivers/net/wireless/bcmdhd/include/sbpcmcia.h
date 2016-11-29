@@ -1,8 +1,9 @@
 /*
  * BCM43XX Sonics SiliconBackplane PCMCIA core hardware definitions.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -21,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: sbpcmcia.h 446298 2014-01-03 11:30:17Z $
+ * $Id: sbpcmcia.h 516206 2014-11-19 05:21:45Z $
  */
 
 #ifndef	_SBPCMCIA_H
@@ -101,6 +102,24 @@
 #define	SRI_SZ_MASK		0x03
 #define	SRI_BLANK		0x04
 #define	SRI_OTP			0x80
+
+
+/* Standard tuples we know about */
+
+#define CISTPL_NULL		0x00
+#define	CISTPL_END		0xff		/* End of the CIS tuple chain */
+
+
+#define	CISTPL_BRCM_HNBU	0x80
+
+
+#define HNBU_BOARDREV		0x02	/* One byte board revision */
+
+
+#define HNBU_BOARDTYPE		0x1b	/* 2 bytes; boardtype */
+
+
+#define HNBU_HNBUCIS		0x1d	/* what follows is proprietary HNBU CIS format */
 
 
 /* sbtmstatelow */

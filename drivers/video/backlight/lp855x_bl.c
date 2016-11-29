@@ -17,14 +17,37 @@
 #include <linux/of.h>
 #include <linux/platform_data/lp855x.h>
 #include <linux/pwm.h>
+#include <linux/mutex.h>
+#include <linux/acpi.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/timer.h>
+
+#ifndef CONFIG_ACPI
+#define CONFIG_ACPI
+#endif
+
+#ifdef CONFIG_ACPI
+/*
+ * ACPI driver will get the i2c client and gpio pin no(if needed) from ASL code set in bios.
+ *  the names should be identical in bios set, consult with bios engineer.
+ */
+#define LP_ACPI_NAME "LP855600"
+#define LP_BLEN_NAME "LP8556_EN"
+#endif
 
 /* LP8550/1/2/3/6 Registers */
 #define LP855X_BRIGHTNESS_CTRL		0x00
 #define LP855X_DEVICE_CTRL		0x01
+#define LP855X_LED_EN			0x16
 #define LP855X_EEPROM_START		0xA0
 #define LP855X_EEPROM_END		0xA7
 #define LP8556_EPROM_START		0xA0
 #define LP8556_EPROM_END		0xAF
+#define LP8556_BL_MASK			0x01
+#define LP8556_BL_ON			0x01
+#define LP8556_BL_OFF			0x00
+#define LP8556_FAST_MASK		0x80
 
 /* LP8555/7 Registers */
 #define LP8557_BL_CMD			0x00
@@ -40,6 +63,7 @@
 
 #define DEFAULT_BL_NAME		"lcd-backlight"
 #define MAX_BRIGHTNESS		255
+#define INIT_BRIGHTNESS		35
 
 enum lp855x_brightness_ctrl_mode {
 	PWM_BASED = 1,
@@ -47,6 +71,7 @@ enum lp855x_brightness_ctrl_mode {
 };
 
 struct lp855x;
+static struct lp855x *glp;
 
 /*
  * struct lp855x_device_config
@@ -59,6 +84,7 @@ struct lp855x_device_config {
 	int (*pre_init_device)(struct lp855x *);
 	u8 reg_brightness;
 	u8 reg_devicectrl;
+	u8 reg_led;
 	int (*post_init_device)(struct lp855x *);
 };
 
@@ -78,6 +104,21 @@ static int lp855x_write_byte(struct lp855x *lp, u8 reg, u8 data)
 {
 	return i2c_smbus_write_byte_data(lp->client, reg, data);
 }
+
+static int lp855x_read_byte(struct lp855x *lp, u8 reg)
+{
+	int ret;
+
+	ret = i2c_smbus_read_byte_data(lp->client, reg);
+
+	if (ret < 0) {
+		dev_err(lp->dev, "failed to read register 0x%.2x\n", reg);
+		return ret;
+	}
+	dev_info(lp->dev, "lcd backlight read brightness +++ %d +++\n", ret);
+	return ret;
+}
+
 
 static int lp855x_update_bit(struct lp855x *lp, u8 reg, u8 mask, u8 data)
 {
@@ -125,7 +166,7 @@ static bool lp855x_is_valid_rom_area(struct lp855x *lp, u8 addr)
 		return false;
 	}
 
-	return addr >= start && addr <= end;
+	return (addr >= start && addr <= end);
 }
 
 static int lp8557_bl_off(struct lp855x *lp)
@@ -145,6 +186,7 @@ static int lp8557_bl_on(struct lp855x *lp)
 static struct lp855x_device_config lp855x_dev_cfg = {
 	.reg_brightness = LP855X_BRIGHTNESS_CTRL,
 	.reg_devicectrl = LP855X_DEVICE_CTRL,
+	.reg_led = LP855X_LED_EN,
 };
 
 static struct lp855x_device_config lp8557_dev_cfg = {
@@ -167,7 +209,7 @@ static struct lp855x_device_config lp8557_dev_cfg = {
 static int lp855x_configure(struct lp855x *lp)
 {
 	u8 val, addr;
-	int i, ret;
+	int i, ret = 0;
 	struct lp855x_platform_data *pd = lp->pdata;
 
 	switch (lp->chip_id) {
@@ -184,45 +226,6 @@ static int lp855x_configure(struct lp855x *lp)
 		break;
 	default:
 		return -EINVAL;
-	}
-
-	if (lp->cfg->pre_init_device) {
-		ret = lp->cfg->pre_init_device(lp);
-		if (ret) {
-			dev_err(lp->dev, "pre init device err: %d\n", ret);
-			goto err;
-		}
-	}
-
-	val = pd->initial_brightness;
-	ret = lp855x_write_byte(lp, lp->cfg->reg_brightness, val);
-	if (ret)
-		goto err;
-
-	val = pd->device_control;
-	ret = lp855x_write_byte(lp, lp->cfg->reg_devicectrl, val);
-	if (ret)
-		goto err;
-
-	if (pd->size_program > 0) {
-		for (i = 0; i < pd->size_program; i++) {
-			addr = pd->rom_data[i].addr;
-			val = pd->rom_data[i].val;
-			if (!lp855x_is_valid_rom_area(lp, addr))
-				continue;
-
-			ret = lp855x_write_byte(lp, addr, val);
-			if (ret)
-				goto err;
-		}
-	}
-
-	if (lp->cfg->post_init_device) {
-		ret = lp->cfg->post_init_device(lp);
-		if (ret) {
-			dev_err(lp->dev, "post init device err: %d\n", ret);
-			goto err;
-		}
 	}
 
 	return 0;
@@ -255,6 +258,8 @@ static void lp855x_pwm_ctrl(struct lp855x *lp, int br, int max_br)
 
 static int lp855x_bl_update_status(struct backlight_device *bl)
 {
+	int ret = 0;
+	/*static u8 last_val = 0x1f;*/
 	struct lp855x *lp = bl_get_data(bl);
 
 	if (bl->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK))
@@ -263,20 +268,30 @@ static int lp855x_bl_update_status(struct backlight_device *bl)
 	if (lp->mode == PWM_BASED) {
 		int br = bl->props.brightness;
 		int max_br = bl->props.max_brightness;
-
 		lp855x_pwm_ctrl(lp, br, max_br);
-
 	} else if (lp->mode == REGISTER_BASED) {
 		u8 val = bl->props.brightness;
-		lp855x_write_byte(lp, lp->cfg->reg_brightness, val);
+		ret = lp855x_write_byte(lp, lp->cfg->reg_brightness, val);
+		if (ret != 0) {
+			dev_err(lp->dev, "failed to write %u to reg_brightness\n", val);
+			return ret;
+		}
 	}
-
-	return 0;
+	return ret;
 }
 
 static int lp855x_bl_get_brightness(struct backlight_device *bl)
 {
-	return bl->props.brightness;
+	int ret;
+	struct lp855x *lp = bl_get_data(bl);
+
+	ret = lp855x_read_byte(lp, lp->cfg->reg_brightness);
+	if (ret < 0) {
+		dev_err(lp->dev, "failed to read brightness register in lp855x\n");
+		return ret;
+	}
+
+	return ret;
 }
 
 static const struct backlight_ops lp855x_bl_ops = {
@@ -292,7 +307,8 @@ static int lp855x_backlight_register(struct lp855x *lp)
 	struct lp855x_platform_data *pdata = lp->pdata;
 	const char *name = pdata->name ? : DEFAULT_BL_NAME;
 
-	props.type = BACKLIGHT_PLATFORM;
+	memset((void *)&props, 0 , sizeof(struct backlight_properties));
+	props.type = BACKLIGHT_RAW;
 	props.max_brightness = MAX_BRIGHTNESS;
 
 	if (pdata->initial_brightness > props.max_brightness)
@@ -308,6 +324,12 @@ static int lp855x_backlight_register(struct lp855x *lp)
 	lp->bl = bl;
 
 	return 0;
+}
+
+static void lp855x_backlight_unregister(struct lp855x *lp)
+{
+	if (lp->bl)
+		backlight_device_unregister(lp->bl);
 }
 
 static ssize_t lp855x_get_chip_id(struct device *dev,
@@ -389,6 +411,47 @@ static int lp855x_parse_dt(struct device *dev, struct device_node *node)
 
 	return 0;
 }
+#elif CONFIG_ACPI
+
+static struct lp855x_platform_data lp_board_data = {
+	.name = DEFAULT_BL_NAME,
+	.device_control = 3,
+	.initial_brightness = INIT_BRIGHTNESS,
+	.led_string = 0x0F,
+	.period_ns = 0,
+	.size_program = 0,
+};
+
+/*
+ *  lp855x_parse_acpi :
+ *		Desc : to parse info in acpi table to get gpio pin no, if needed.
+ *             some other infos are already defined in lp_board_data param.
+ */
+static int lp855x_parse_acpi(struct device *dev)
+{
+	struct gpio_desc *gpio;
+	struct lp855x_platform_data *pdata = dev->platform_data;
+
+	/*
+	   to get backlight enable gpio pin from acpi table,
+		now this pin is default pull high in bios,
+		so no need here in driver currently.
+	*/
+	gpio = devm_gpiod_get_index(dev, LP_BLEN_NAME, 0);
+
+	if (IS_ERR(gpio)) {
+		dev_err(dev, "acpi gpio get bl gpio failed\n");
+		return PTR_ERR(gpio);
+	}
+	printk("backlight enable gpio pin: %d - \n", desc_to_gpio(gpio));
+
+	gpiod_direction_output(gpio, 1);
+	msleep(20);
+	pdata->gpio_bl_en = gpio;
+	return 0;
+}
+
+
 #else
 static int lp855x_parse_dt(struct device *dev, struct device_node *node)
 {
@@ -399,10 +462,22 @@ static int lp855x_parse_dt(struct device *dev, struct device_node *node)
 static int lp855x_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 {
 	struct lp855x *lp;
+	int ret;
+#ifdef CONFIG_ACPI
+	struct lp855x_platform_data *pdata = &lp_board_data;
+	struct acpi_device_id *aid;
+
+	aid = acpi_match_device(cl->dev.driver->acpi_match_table, &cl->dev);
+	if (!aid)
+		return -ENODEV;
+
+	cl->dev.platform_data = pdata;
+	ret = lp855x_parse_acpi(&cl->dev);
+	if (ret < 0)
+		return ret;
+#else
 	struct lp855x_platform_data *pdata = dev_get_platdata(&cl->dev);
 	struct device_node *node = cl->dev.of_node;
-	int ret;
-
 	if (!pdata) {
 		ret = lp855x_parse_dt(&cl->dev, node);
 		if (ret < 0)
@@ -410,6 +485,7 @@ static int lp855x_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 
 		pdata = dev_get_platdata(&cl->dev);
 	}
+#endif
 
 	if (!i2c_check_functionality(cl->adapter, I2C_FUNC_SMBUS_I2C_BLOCK))
 		return -EIO;
@@ -426,8 +502,8 @@ static int lp855x_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 	lp->client = cl;
 	lp->dev = &cl->dev;
 	lp->pdata = pdata;
-	lp->chipname = id->name;
-	lp->chip_id = id->driver_data;
+	lp->chipname = "lp8556";
+	lp->chip_id = LP8556;
 	i2c_set_clientdata(cl, lp);
 
 	ret = lp855x_configure(lp);
@@ -450,6 +526,8 @@ static int lp855x_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 	}
 
 	backlight_update_status(lp->bl);
+	glp = lp;
+
 	return 0;
 }
 
@@ -460,10 +538,81 @@ static int lp855x_remove(struct i2c_client *cl)
 	lp->bl->props.brightness = 0;
 	backlight_update_status(lp->bl);
 	sysfs_remove_group(&lp->dev->kobj, &lp855x_attr_group);
+	lp855x_backlight_unregister(lp);
 
 	return 0;
 }
 
+static int lp855x_shutdown(struct i2c_client *cl)
+{
+	struct lp855x *lp = i2c_get_clientdata(cl);
+	struct lp855x_platform_data *pdata = lp->pdata;
+
+	lp->bl->props.brightness = 0;
+	backlight_update_status(lp->bl);
+	if (pdata) {
+		gpiod_direction_output(pdata->gpio_bl_en, 0);
+		dev_info(lp->dev, " %s - \n", __func__);
+	}
+	lp = NULL;
+
+	return 0;
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int lp8556_suspend(struct device *dev)
+{
+	struct lp855x *lp = dev_get_drvdata(dev);
+	struct lp855x_platform_data *pdata = lp->pdata;
+	if (pdata) {
+		gpiod_direction_output(pdata->gpio_bl_en, 0);
+		dev_info(lp->dev, " %s - \n", __func__);
+	}
+
+	return 0;
+}
+
+static int lp8556_resume(struct device *dev)
+{
+	u8 val;
+	int ret;
+	struct lp855x *lp = dev_get_drvdata(dev);
+	struct lp855x_platform_data *pdata = lp->pdata;
+	if (pdata) {
+		gpiod_direction_output(pdata->gpio_bl_en, 1);
+		dev_dbg(lp->dev, " %s - \n", __func__);
+		usleep_range(1000, 3000);
+
+		ret  = lp855x_write_byte(lp, 0x16, 0x0f);
+		ret |= lp855x_write_byte(lp, 0x00, 0x00);
+		ret |= lp855x_write_byte(lp, 0x98, 0x80);
+		ret |= lp855x_write_byte(lp, 0x9e, 0x22);
+		ret |= lp855x_write_byte(lp, 0xa1, 0x3f);
+		ret |= lp855x_write_byte(lp, 0xa3, 0x38);
+		ret |= lp855x_write_byte(lp, 0xa5, 0x24);
+		ret |= lp855x_write_byte(lp, 0xa7, 0xf5);
+		ret |= lp855x_write_byte(lp, 0xa9, 0xb2);
+		ret |= lp855x_write_byte(lp, 0xaa, 0x8f);
+		ret |= lp855x_write_byte(lp, 0x01, 0x83);
+		if (ret != 0) {
+			dev_err(lp->dev, "failed to re-program eeprom in LP855X during resume\n");
+			return -EPERM;
+		}
+
+		backlight_update_status(lp->bl);
+	}
+	return 0;
+}
+static SIMPLE_DEV_PM_OPS(lp8556_pm_ops, lp8556_suspend, lp8556_resume);
+#endif
+
+#ifdef CONFIG_ACPI
+static const struct acpi_device_id lp855x_acpi_match[] = {
+	{ LP_ACPI_NAME, 0 },
+	{}
+};
+MODULE_DEVICE_TABLE(acpi, lp855x_acpi_match);
+#else
 static const struct of_device_id lp855x_dt_ids[] = {
 	{ .compatible = "ti,lp8550", },
 	{ .compatible = "ti,lp8551", },
@@ -475,6 +624,7 @@ static const struct of_device_id lp855x_dt_ids[] = {
 	{ }
 };
 MODULE_DEVICE_TABLE(of, lp855x_dt_ids);
+#endif
 
 static const struct i2c_device_id lp855x_ids[] = {
 	{"lp8550", LP8550},
@@ -491,14 +641,45 @@ MODULE_DEVICE_TABLE(i2c, lp855x_ids);
 static struct i2c_driver lp855x_driver = {
 	.driver = {
 		   .name = "lp855x",
+#ifdef CONFIG_ACPI
+		   .acpi_match_table = ACPI_PTR(lp855x_acpi_match),
+#else
 		   .of_match_table = of_match_ptr(lp855x_dt_ids),
+#endif
+#ifdef CONFIG_PM_SLEEP
+		   .pm	= &lp8556_pm_ops,
+#endif
+
 		   },
 	.probe = lp855x_probe,
 	.remove = lp855x_remove,
+	.shutdown = lp855x_shutdown,
 	.id_table = lp855x_ids,
 };
 
-module_i2c_driver(lp855x_driver);
+static int __init lp855x_init(void)
+{
+	int err;
+	printk("Enter:%s\n", __func__);
+	err = i2c_add_driver(&lp855x_driver);
+	if (err) {
+		printk(KERN_ERR "lp855x driver failed "
+				"(errno = %d)\n", err);
+	} else {
+		printk("Successfully added driver %s\n",
+				lp855x_driver.driver.name);
+	}
+	return err;
+}
+
+static void __exit lp855x_exit(void)
+{
+	printk("%s\n", __func__);
+	i2c_del_driver(&lp855x_driver);
+}
+
+late_initcall(lp855x_init);
+module_exit(lp855x_exit);
 
 MODULE_DESCRIPTION("Texas Instruments LP855x Backlight driver");
 MODULE_AUTHOR("Milo Kim <milo.kim@ti.com>");

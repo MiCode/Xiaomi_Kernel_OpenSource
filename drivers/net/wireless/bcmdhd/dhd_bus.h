@@ -4,7 +4,8 @@
  * Provides type definitions and function prototypes used to link the
  * DHD OS, bus, and protocol modules.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -24,7 +25,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_bus.h 469959 2014-04-11 23:07:39Z $
+ * $Id: dhd_bus.h 513049 2014-11-05 09:36:42Z $
  */
 
 #ifndef _dhd_bus_h_
@@ -80,6 +81,7 @@ extern bool dhd_bus_dev_pm_enabled(dhd_pub_t *dhdpub);
 #if defined(DHD_DEBUG)
 /* Device console input function */
 extern int dhd_bus_console_in(dhd_pub_t *dhd, uchar *msg, uint msglen);
+extern int dhd_bus_mem_dump(dhd_pub_t *dhd);
 #endif /* defined(DHD_DEBUG) */
 
 /* Deferred processing for the bus, return TRUE requests reschedule */

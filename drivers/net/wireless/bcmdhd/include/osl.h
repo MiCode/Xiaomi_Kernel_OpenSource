@@ -1,8 +1,9 @@
 /*
  * OS Abstraction Layer
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -21,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: osl.h 474639 2014-05-01 23:52:31Z $
+ * $Id: osl.h 503131 2014-09-17 12:16:08Z $
  */
 
 #ifndef _osl_h_
@@ -145,5 +146,17 @@ do { \
 #define PKTFRAGISCHAINED(osh, i)	(0)
 /* TRIM Tail bytes from lfrag */
 #define PKTFRAG_TRIM_TAILBYTES(osh, p, len)	PKTSETLEN(osh, p, PKTLEN(osh, p) - len)
+#ifdef BCM_SECURE_DMA
+#define SECURE_DMA_ENAB(osh) (1)
+#else
+
+#define SECURE_DMA_ENAB(osh) (0)
+#define SECURE_DMA_MAP(osh, va, size, direction, p, dmah, pcma, offset) ((dmaaddr_t) {(0)})
+#define SECURE_DMA_DD_MAP(osh, va, size, direction, p, dmah) 0
+#define SECURE_DMA_MAP_TXMETA(osh, va, size, direction, p, dmah, pcma) ((dmaaddr_t) {(0)})
+#define SECURE_DMA_UNMAP(osh, pa, size, direction, p, dmah, pcma, offset)
+#define SECURE_DMA_UNMAP_ALL(osh, pcma)
+
+#endif
 
 #endif	/* _osl_h_ */

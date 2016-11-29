@@ -1,6 +1,7 @@
 /*
  * Intel Atom SOC Power Management Controller Driver
  * Copyright (c) 2014, Intel Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,6 +26,7 @@
 #include <linux/uaccess.h>
 #include <linux/suspend.h>
 
+#include <linux/syscore_ops.h>
 #include <asm/pmc_atom.h>
 
 #define	DRIVER_NAME	KBUILD_MODNAME
@@ -278,7 +280,7 @@ static int pm_suspend_exit_event(void)
 			pr_err("Post Suspend: PMC_S0I3_TMR register read returned negative value\n");
 		} else {
 			legacy_suspend.tmr_after_susp = tmr;
-			pr_info("Sleep residency in the last suspend cycle = %llu ms",
+			pr_debug("Sleep residency in the last suspend cycle = %llu ms",
 			legacy_suspend.tmr_after_susp -
 			legacy_suspend.tmr_before_susp);
 			/* Compute the time spent in suspend */
@@ -600,6 +602,28 @@ err:
 }
 #endif /* CONFIG_DEBUG_FS */
 
+#define	PMC_RTC_STS	(1 << 10)
+static void pmc_resume(void)
+{
+	u32 value;
+
+	if (!acpi_base_addr)
+		return;
+
+	value = inl(acpi_base_addr + 0);
+
+	value &= 0xFFFF;
+	pr_info("pmc: wakeup status[%x]\n", value);
+	if (value & PMC_RTC_STS)
+		pr_info("pmc: rtc might wake up system!\n");
+
+	return;
+}
+
+static struct syscore_ops pmc_syscore_ops = {
+	.resume = pmc_resume,
+};
+
 static int pmc_setup_dev(struct pci_dev *pdev)
 {
 	struct pmc_dev *pmc = &pmc_device;
@@ -672,6 +696,8 @@ static int __init pmc_atom_init(void)
 	int err = -ENODEV;
 	struct pci_dev *pdev = NULL;
 	const struct pci_device_id *ent;
+
+	register_syscore_ops(&pmc_syscore_ops);
 
 	/* We look for our device - PCU PMC
 	 * we assume that there is max. one device.

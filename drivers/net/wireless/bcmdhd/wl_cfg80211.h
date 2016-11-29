@@ -1,7 +1,8 @@
 /*
  * Linux cfg80211 driver
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_cfg80211.h 472818 2014-04-25 08:07:56Z $
+ * $Id: wl_cfg80211.h 541691 2015-03-17 15:09:12Z $
  */
 
 /**
@@ -50,6 +51,7 @@ struct wl_ibss;
 
 #define htod32(i) (i)
 #define htod16(i) (i)
+#define dtoh64(i) (i)
 #define dtoh32(i) (i)
 #define dtoh16(i) (i)
 #define htodchanspec(i) (i)
@@ -67,6 +69,12 @@ struct wl_ibss;
 #define WL_DBG_LEVEL 0xFF
 
 #define CFG80211_ERROR_TEXT		"CFG80211-ERROR) "
+
+#define MAX_WAIT_TIME 1500
+#define DNGL_FUNC(func, parameters) func parameters;
+
+#define PM_BLOCK 1
+#define PM_ENABLE 0
 
 #if defined(DHD_DEBUG)
 #define	WL_ERR(args)									\
@@ -406,6 +414,15 @@ struct escan_info {
 	struct net_device *ndev;
 };
 
+#ifdef ESCAN_BUF_OVERFLOW_MGMT
+#define BUF_OVERFLOW_MGMT_COUNT 3
+typedef struct {
+	int RSSI;
+	int length;
+	struct ether_addr BSSID;
+} removal_element_t;
+#endif /* ESCAN_BUF_OVERFLOW_MGMT */
+
 struct ap_info {
 /* Structure to hold WPS, WPA IEs for a AP */
 	u8   probe_res_ie[VNDR_IES_MAX_BUF_LEN];
@@ -550,7 +567,6 @@ struct bcm_cfg80211 {
 	u64 send_action_id;
 	u64 last_roc_id;
 	wait_queue_head_t netif_change_event;
-	wait_queue_head_t event_sync_wq;
 	wl_if_event_info if_event_info;
 	struct completion send_af_done;
 	struct afx_hdl *afx_hdl;
@@ -560,14 +576,15 @@ struct bcm_cfg80211 {
 	bool p2p_supported;
 	void *btcoex_info;
 	struct timer_list scan_timeout;   /* Timer for catch scan event timeout */
+#if defined(P2P_IE_MISSING_FIX)
+	bool p2p_prb_noti;
+#endif
 	s32(*state_notifier) (struct bcm_cfg80211 *cfg,
 		struct net_info *_net_info, enum wl_status state, bool set);
 	unsigned long interrested_state;
 	wlc_ssid_t hostapd_ssid;
 #ifdef WL11U
 	bool wl11u;
-	u8 iw_ie[IW_IES_MAX_BUF_LEN];
-	u32 iw_ie_len;
 #endif /* WL11U */
 	bool sched_scan_running;	/* scheduled scan req status */
 #ifdef WL_SCHED_SCAN
@@ -582,12 +599,29 @@ struct bcm_cfg80211 {
 	struct delayed_work pm_enable_work;
 	vndr_ie_setbuf_t *ibss_vsie;	/* keep the VSIE for IBSS */
 	int ibss_vsie_len;
-	struct ether_addr ibss_if_addr;
-	bcm_struct_cfgdev *ibss_cfgdev; /* For AIBSS */
+	u32 rmc_event_pid;
+	u32 rmc_event_seq;
 	bcm_struct_cfgdev *bss_cfgdev;  /* For DUAL STA/STA+AP */
 	s32 cfgdev_bssidx;
 	bool bss_pending_op;		/* indicate where there is a pending IF operation */
-	bool roam_offload;
+	int roam_offload;
+#ifdef WL_NAN
+	bool nan_enable;
+	bool nan_running;
+#endif /* WL_NAN */
+#ifdef P2PLISTEN_AP_SAMECHN
+	bool p2p_resp_apchn_status;
+#endif /* P2PLISTEN_AP_SAMECHN */
+#ifdef WLTDLS
+	u8 *tdls_mgmt_frame;
+	u32 tdls_mgmt_frame_len;
+	s32 tdls_mgmt_freq;
+#endif /* WLTDLS */
+	bool need_wait_afrx;
+#ifdef QOS_MAP_SET
+	uint8	 *up_table;	/* user priority table, size is UP_TABLE_MAX */
+#endif /* QOS_MAP_SET */
+	struct ether_addr last_roamed_addr;
 };
 
 
@@ -803,7 +837,7 @@ wl_get_netinfo_by_netdev(struct bcm_cfg80211 *cfg, struct net_device *ndev)
 
 #if defined(WL_CFG80211_P2P_DEV_IF)
 #define ndev_to_cfgdev(ndev)	ndev_to_wdev(ndev)
-#define cfgdev_to_ndev(cfgdev)	(cfgdev->netdev)
+#define cfgdev_to_ndev(cfgdev)  (cfgdev ? (cfgdev->netdev) : NULL)
 #define discover_cfgdev(cfgdev, cfg) (cfgdev->iftype == NL80211_IFTYPE_P2P_DEVICE)
 #else
 #define ndev_to_cfgdev(ndev)	(ndev)
@@ -887,6 +921,9 @@ extern s32 wl_cfg80211_get_p2p_noa(struct net_device *net, char* buf, int len);
 extern s32 wl_cfg80211_set_wps_p2p_ie(struct net_device *net, char *buf, int len,
 	enum wl_management_type type);
 extern s32 wl_cfg80211_set_p2p_ps(struct net_device *net, char* buf, int len);
+#ifdef P2PLISTEN_AP_SAMECHN
+extern s32 wl_cfg80211_set_p2p_resp_ap_chn(struct net_device *net, s32 enable);
+#endif /* P2PLISTEN_AP_SAMECHN */
 
 /* btcoex functions */
 void* wl_cfg80211_btcoex_init(struct net_device *ndev);
@@ -905,12 +942,16 @@ void wl_cfg80211_btcoex_deinit(void);
 extern s32 wl_cfg80211_get_best_channels(struct net_device *dev, char* command,
 	int total_len);
 #endif /* WL_SUPPORT_AUTO_CHANNEL */
+
+extern int wl_cfg80211_ether_atoe(const char *a, struct ether_addr *n);
+extern int wl_cfg80211_hex_str_to_bin(unsigned char *data, int dlen, char *str);
 extern int wl_cfg80211_hang(struct net_device *dev, u16 reason);
 extern s32 wl_mode_to_nl80211_iftype(s32 mode);
 int wl_cfg80211_do_driver_init(struct net_device *net);
 void wl_cfg80211_enable_trace(bool set, u32 level);
 extern s32 wl_update_wiphybands(struct bcm_cfg80211 *cfg, bool notify);
 extern s32 wl_cfg80211_if_is_group_owner(void);
+extern  chanspec_t wl_chspec_host_to_driver(chanspec_t chanspec);
 extern chanspec_t wl_ch_host_to_driver(u16 channel);
 extern s32 wl_set_tx_power(struct net_device *dev,
 	enum nl80211_tx_power_setting type, s32 dbm);
@@ -935,6 +976,8 @@ extern void wl_cfg80211_update_power_mode(struct net_device *dev);
 #define wl_escan_init_sync_id(a)
 extern void wl_cfg80211_ibss_vsie_set_buffer(vndr_ie_setbuf_t *ibss_vsie, int ibss_vsie_len);
 extern s32 wl_cfg80211_ibss_vsie_delete(struct net_device *dev);
+extern void wl_cfg80211_set_rmc_pid(int pid);
+
 
 /* Action frame specific functions */
 extern u8 wl_get_action_category(void *frame, u32 frame_len);
@@ -957,5 +1000,19 @@ struct net_device *wl_cfg80211_get_remain_on_channel_ndev(struct bcm_cfg80211 *c
 #endif /* WL_SUPPORT_ACS */
 
 extern int wl_cfg80211_get_ioctl_version(void);
-extern int wl_cfg80211_enable_roam_offload(struct net_device *dev, bool enable);
-#endif				/* _wl_cfg80211_h_ */
+extern int wl_cfg80211_enable_roam_offload(struct net_device *dev, int enable);
+
+#ifdef WL_NAN
+extern int wl_cfg80211_nan_cmd_handler(struct net_device *ndev, char *cmd,
+	int cmd_len);
+#endif /* WL_NAN */
+
+#ifdef WL_CFG80211_P2P_DEV_IF
+extern void wl_cfg80211_del_p2p_wdev(void);
+#endif /* WL_CFG80211_P2P_DEV_IF */
+
+#ifdef QOS_MAP_SET
+extern uint8 *wl_get_up_table(void);
+#endif /* QOS_MAP_SET */
+
+#endif /* _wl_cfg80211_h_ */

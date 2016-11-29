@@ -3,8 +3,9 @@
  * Contains PCIe related functions that are shared between different driver models (e.g. firmware
  * builds, DHD builds, BMAC builds), in order to avoid code duplication.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -54,7 +55,13 @@ void pcie_watchdog_reset(osl_t *osh, si_t *sih, sbpcieregs_t *sbpcieregs)
 		PCIECFGREG_LINK_STATUS_CTRL2, PCIECFGREG_RBAR_CTRL,
 		PCIECFGREG_PML1_SUB_CTRL1, PCIECFGREG_REG_BAR2_CONFIG,
 		PCIECFGREG_REG_BAR3_CONFIG};
+	sbpcieregs_t *pcie = NULL;
 	uint32 origidx = si_coreidx(sih);
+
+	/* Switch to PCIE2 core */
+	pcie = (sbpcieregs_t *)si_setcore(sih, PCIE2_CORE_ID, 0);
+	BCM_REFERENCE(pcie);
+	ASSERT(pcie != NULL);
 
 	/* Disable/restore ASPM Control to protect the watchdog reset */
 	W_REG(osh, &sbpcieregs->configaddr, PCIECFGREG_LINK_STATUS_CTRL);
@@ -62,7 +69,6 @@ void pcie_watchdog_reset(osl_t *osh, si_t *sih, sbpcieregs_t *sbpcieregs)
 	val = lsc & (~PCIE_ASPM_ENAB);
 	W_REG(osh, &sbpcieregs->configdata, val);
 
-	si_setcore(sih, PCIE2_CORE_ID, 0);
 	si_corereg(sih, SI_CC_IDX, OFFSETOF(chipcregs_t, watchdog), ~0, 4);
 	OSL_DELAY(100000);
 

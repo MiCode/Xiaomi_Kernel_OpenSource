@@ -147,8 +147,7 @@ struct senscol_impl {
 		const struct sens_property *prop, const char *value);
 
 	/* Get sample */
-	int	(*get_sample)(struct sensor_def *sensor, void *sample_buf,
-		size_t sample_buf_size);
+	int	(*get_sample)(struct sensor_def *sensor);
 
 	/* Check if sensor is activated in batch mode */
 	int	(*batch_check)(struct sensor_def *sensor);

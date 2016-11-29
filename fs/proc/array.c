@@ -2,6 +2,7 @@
  *  linux/fs/proc/array.c
  *
  *  Copyright (C) 1992  by Linus Torvalds
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *  based on ideas by Darren Senn
  *
  * Fixes:
@@ -174,15 +175,14 @@ static inline void task_state(struct seq_file *m, struct pid_namespace *ns,
 	seq_printf(m,
 		"State:\t%s\n"
 		"Tgid:\t%d\n"
-		"Ngid:\t%d\n"
 		"Pid:\t%d\n"
 		"PPid:\t%d\n"
 		"TracerPid:\t%d\n"
 		"Uid:\t%d\t%d\t%d\t%d\n"
-		"Gid:\t%d\t%d\t%d\t%d\n",
+		"Gid:\t%d\t%d\t%d\t%d\n"
+		"Ngid:\t%d\n",
 		get_task_state(p),
 		task_tgid_nr_ns(p, ns),
-		task_numa_group_id(p),
 		pid_nr_ns(pid, ns),
 		ppid, tpid,
 		from_kuid_munged(user_ns, cred->uid),
@@ -192,7 +192,8 @@ static inline void task_state(struct seq_file *m, struct pid_namespace *ns,
 		from_kgid_munged(user_ns, cred->gid),
 		from_kgid_munged(user_ns, cred->egid),
 		from_kgid_munged(user_ns, cred->sgid),
-		from_kgid_munged(user_ns, cred->fsgid));
+		from_kgid_munged(user_ns, cred->fsgid),
+		task_numa_group_id(p));
 
 	task_lock(p);
 	if (p->files)

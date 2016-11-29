@@ -2,6 +2,7 @@
  * pmic_ccsm.c - Intel MID PMIC Charger Driver
  *
  * Copyright (C) 2011 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -41,6 +42,7 @@
 #include <linux/mfd/intel_soc_pmic.h>
 #include <linux/extcon.h>
 #include "intel_pmic_ccsm.h"
+#include <linux/usb/otg.h>
 
 /* Macros */
 #define DRIVER_NAME "pmic_ccsm"
@@ -422,12 +424,6 @@ static int pmic_ccsm_suspend(struct device *dev)
 {
 	int ret;
 
-	/* Disable CHGDIS pin */
-	ret = intel_soc_pmic_update(chc.reg_map->pmic_chgdisctrl,
-			CHGDISFN_DIS_CCSM_VAL, CHGDISFN_CCSM_MASK);
-	if (ret)
-		dev_warn(chc.dev, "Error writing to register: %x\n",
-			chc.reg_map->pmic_chgdisctrl);
 
 	return ret;
 }
@@ -436,12 +432,7 @@ static int pmic_ccsm_resume(struct device *dev)
 {
 	int ret;
 
-	/* Enable CHGDIS pin */
-	ret = intel_soc_pmic_update(chc.reg_map->pmic_chgdisctrl,
-			CHGDISFN_EN_CCSM_VAL, CHGDISFN_CCSM_MASK);
-	if (ret)
-		dev_warn(chc.dev, "Error writing to register: %x\n",
-			chc.reg_map->pmic_chgdisctrl);
+
 
 	return ret;
 }
@@ -1010,6 +1001,7 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 {
 	int mask;
 	u16 id_mask;
+	struct power_supply_cable_props cap;
 
 	id_mask = BIT_POS(PMIC_INT_USBIDFLTDET) |
 				 BIT_POS(PMIC_INT_USBIDGNDDET);
@@ -1023,6 +1015,7 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 		if (mask) {
 			pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x1);
 			if (chc.vbus_state == VBUS_ENABLE) {
+				chc.otg_mode_enabled = true;
 				if (chc.otg->set_vbus)
 					chc.otg->set_vbus(chc.otg, true);
 				atomic_notifier_call_chain(&chc.otg->notifier,
@@ -1041,6 +1034,7 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 					chc.otg->set_vbus(chc.otg, false);
 				atomic_notifier_call_chain(&chc.otg->notifier,
 						USB_EVENT_NONE, NULL);
+				chc.otg_mode_enabled = false;
 			}
 			pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x0);
 
@@ -1057,40 +1051,30 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 	}
 	mutex_unlock(&pmic_lock);
 
+	/* According to the PMIC SPEC, we can detect the VBUS interrupt,
+	 * when insert/remove usb */
 	if (int_reg & BIT_POS(PMIC_INT_VBUS)) {
 		int ret;
 		mask = !!(stat_reg & BIT_POS(PMIC_INT_VBUS));
-		if (mask) {
-			dev_info(chc.dev,
-				"USB VBUS Detected. Notifying OTG driver\n");
-			mutex_lock(&pmic_lock);
-			chc.otg_mode_enabled =
-				(stat_reg & id_mask) == SHRT_GND_DET;
-			mutex_unlock(&pmic_lock);
-		} else {
-			dev_info(chc.dev,
-				"USB VBUS Removed. Notifying OTG driver\n");
-		}
-		ret = intel_soc_pmic_readb(chc.reg_map->pmic_chgrctrl1);
-		dev_dbg(chc.dev, "chgrctrl = %x", ret);
-		if (ret & CHGRCTRL1_OTGMODE_MASK) {
-			mutex_lock(&pmic_lock);
-			chc.otg_mode_enabled = true;
-			mutex_unlock(&pmic_lock);
-		}
 
-		/* Avoid charger-detection flow in case of host-mode */
-		if (chc.is_internal_usb_phy && !chc.otg_mode_enabled)
-			handle_internal_usbphy_notifications(mask);
-		else if (!mask) {
-			mutex_lock(&pmic_lock);
-			chc.otg_mode_enabled =
-					(stat_reg & id_mask) == SHRT_GND_DET;
-			mutex_unlock(&pmic_lock);
+		if (mask) {
+			if (!chc.is_internal_usb_phy && !chc.otg_mode_enabled)
+				dev_err(chc.dev, "USB VBUS Detected. \n");
+		} else {
+			if (!chc.is_internal_usb_phy && !chc.otg_mode_enabled) {
+				cap.ma = 0;
+				cap.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_DCP;
+				cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
+				atomic_notifier_call_chain(&chc.otg->notifier,
+				USB_EVENT_CHARGER, &cap);
+				cap.ma = 0;
+				cap.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
+				cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
+				atomic_notifier_call_chain(&chc.otg->notifier,
+				USB_EVENT_CHARGER, &cap);
+				dev_err(chc.dev, "USB VBUS Removed. \n");
+			}
 		}
-		mutex_lock(&pmic_lock);
-		intel_pmic_handle_otgmode(chc.otg_mode_enabled);
-		mutex_unlock(&pmic_lock);
 	}
 }
 

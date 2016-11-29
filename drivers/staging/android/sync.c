@@ -2,6 +2,7 @@
  * drivers/base/sync.c
  *
  * Copyright (C) 2012 Google, Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -618,6 +619,12 @@ int sync_fence_wait(struct sync_fence *fence, long timeout)
 	}
 
 	if (fence->status == 0) {
+		/* last attempt to get the fence status */
+		if (sync_fence_get_status(fence) > 0) {
+			pr_info("fence [%p] got signaled just in time\n", fence);
+			return 0;
+		}
+
 		if (timeout > 0) {
 			pr_info("fence timeout on [%p] after %dms\n", fence,
 				jiffies_to_msecs(timeout));

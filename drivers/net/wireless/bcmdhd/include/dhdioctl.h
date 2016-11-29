@@ -5,8 +5,9 @@
  *
  * Definitions subject to change without notice.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -25,7 +26,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhdioctl.h 438755 2013-11-22 23:20:40Z $
+ * $Id: dhdioctl.h 544311 2015-03-26 17:53:55Z $
  */
 
 #ifndef _dhdioctl_h_
@@ -93,7 +94,8 @@ enum {
 #define DHD_NOCHECKDIED_VAL		0x20000 /* UTF WAR */
 #define DHD_WL_VAL2		0x40000
 #define DHD_PNO_VAL		0x80000
-#define DHD_RTT_VAL		0x100000
+#define DHD_FWLOG_VAL	0x100000
+#define DHD_RTT_VAL		0x200000
 
 #ifdef SDTEST
 /* For pktgen iovar */
@@ -132,5 +134,14 @@ typedef struct dhd_pktgen {
 
 /* require default structure packing */
 #include <packed_section_end.h>
+
+#ifdef BCM_SECURE_DMA
+/* cma mem details */
+typedef struct cma_meminfo {
+	dma_addr_t	mem_base; /* support both 32/64 bit platform */
+	uint32		mem_size; /* reserved cma memory size */
+}
+cma_meminfo_t;
+#endif /* BCM_SECURE_DMA */
 
 #endif /* _dhdioctl_h_ */

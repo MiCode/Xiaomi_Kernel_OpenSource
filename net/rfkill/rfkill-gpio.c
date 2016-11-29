@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2011, NVIDIA Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -350,7 +351,7 @@ static const struct acpi_device_id rfkill_acpi_match[] = {
 	{ "BCM4752", (kernel_ulong_t)&acpi_default_gps },
 	{ "LNV4752", (kernel_ulong_t)&acpi_default_gps },
 	{ "BCM4752E", (kernel_ulong_t)&acpi_default_gps },
-	{ "BCM47521", (kernel_ulong_t)&acpi_gps_wake },
+	{ "BCM47521", (kernel_ulong_t)&acpi_default_gps },
 	{ "INT33A2", (kernel_ulong_t)&acpi_gps_wake_falling },
 	{ },
 };

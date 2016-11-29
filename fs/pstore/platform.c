@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2007-2008 Google, Inc.
  * Copyright (C) 2010 Intel Corporation <tony.luck@intel.com>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 as
@@ -34,7 +35,9 @@
 #include <linux/hardirq.h>
 #include <linux/jiffies.h>
 #include <linux/workqueue.h>
-
+#ifdef CONFIG_PSTORE_LAST_KMSG
+#include <linux/proc_fs.h>
+#endif
 #include "internal.h"
 
 /*
@@ -564,6 +567,33 @@ int pstore_unregister_extra_dumper(struct pstore_extra_dumper *extra_dumper)
 }
 EXPORT_SYMBOL_GPL(pstore_unregister_extra_dumper);
 
+#ifdef CONFIG_PSTORE_LAST_KMSG
+static char *pstore_console_buf;
+static struct proc_dir_entry *last_kmsg_entry;
+static ssize_t proc_file_read(struct file *file, char __user *buf,
+			  size_t len, loff_t *offset)
+{
+	loff_t pos = *offset;
+	ssize_t count;
+	ssize_t size = (ssize_t)PDE_DATA(file_inode(file));
+
+	if (pos >= size)
+		return 0;
+
+	count = min(len, (size_t)(size - pos));
+	if (copy_to_user(buf, pstore_console_buf + pos, count))
+		return -EFAULT;
+
+	*offset += count;
+	return count;
+}
+
+static const struct file_operations proc_file_fops = {
+	.owner		= THIS_MODULE,
+	.read		= proc_file_read,
+	.llseek		= default_llseek,
+};
+#endif
 
 /*
  * Read all the records from the persistent store. Create
@@ -610,6 +640,18 @@ void pstore_get_records(int quiet)
 				compressed = true;
 			}
 		}
+
+#ifdef CONFIG_PSTORE_LAST_KMSG
+		if (type == PSTORE_TYPE_CONSOLE) {
+			if (!last_kmsg_entry) {
+				pstore_console_buf = buf;
+				last_kmsg_entry = proc_create_data("last_kmsg", S_IFREG | S_IRUGO, NULL, &proc_file_fops, (void *)size);
+				proc_set_size(last_kmsg_entry, size);
+			}
+			continue;
+		}
+#endif
+
 		rc = pstore_mkfile(type, psi->name, id, count, buf,
 				  compressed, (size_t)size, time, psi);
 		if (unzipped_len < 0) {

@@ -2,6 +2,7 @@
  *	intel TCO Watchdog Driver
  *
  *	(c) Copyright 2006-2011 Wim Van Sebroeck <wim@iguana.be>.
+ *	Copyright (C) 2016 XiaoMi, Inc.
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -589,6 +590,17 @@ static int iTCO_wdt_suspend(struct device *dev)
 	/* Reload the watchdog first, as advised from the AN */
 	iTCO_wdt_ping(&iTCO_wdt_watchdog_dev);
 
+	return 0;
+}
+
+int iTCO_wdt_suspend_afternoirq(void)
+{
+	if (!iTCO_wdt_private.started)
+		return 0;
+
+	/* Reload the watchdog first, as advised from the AN */
+	iTCO_wdt_ping(&iTCO_wdt_watchdog_dev);
+
 	/* Halt the watchdog */
 	iTCO_wdt_stop(&iTCO_wdt_watchdog_dev);
 
@@ -614,6 +626,13 @@ static int iTCO_wdt_resume(struct device *dev)
 	return iTCO_wdt_set_timeout(&iTCO_wdt_watchdog_dev,
 				    iTCO_wdt_watchdog_dev.timeout);
 }
+
+int iTCO_wdt_resume_early(void)
+{
+	printk("System debug in function %s \n", __func__);
+	return iTCO_wdt_resume(NULL);
+}
+
 #endif /* CONFIG_PM_SLEEP */
 
 static SIMPLE_DEV_PM_OPS(iTCO_wdt_pm_ops, iTCO_wdt_suspend, iTCO_wdt_resume);

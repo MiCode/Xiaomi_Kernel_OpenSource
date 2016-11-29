@@ -2,6 +2,7 @@
  * ACPI support for platform bus type.
  *
  * Copyright (C) 2012, Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Authors: Mika Westerberg <mika.westerberg@linux.intel.com>
  *          Mathias Nyman <mathias.nyman@linux.intel.com>
  *          Rafael J. Wysocki <rafael.j.wysocki@intel.com>
@@ -67,6 +68,7 @@ static const struct acpi_device_id acpi_platform_device_ids[] = {
 	{ "HSP0001", 0 },
 
 	{ "INT33A2" },
+	{ "TPS61158" },
 
 	{ }
 };

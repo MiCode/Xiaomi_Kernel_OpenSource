@@ -1,5 +1,6 @@
 /**************************************************************************
  * Copyright © 2013 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -292,9 +293,31 @@ void i915_sync_timeline_advance(struct intel_context *ctx,
 		i915_sync_timeline_signal(timeline, value);
 }
 
-void i915_sync_hung_ring(struct intel_engine_cs *ring)
+void i915_sync_hung_request(struct drm_i915_gem_request *req)
 {
 	struct i915_sync_timeline *timeline;
+
+	if (WARN_ON(!req))
+		return;
+
+	if (i915.enable_execlists)
+		timeline = req->ctx->engine[req->ring->id].sync_timeline;
+	else
+		timeline = req->ctx->legacy_hw_ctx.sync_timeline;
+
+
+	/* Signal the timeline. This will cause it to query the
+	 * signaled state of any waiting sync points.
+	 * If any match with ring->active_seqno then they
+	 * will be marked with an error state.
+	 */
+	timeline->pvt.killed_at = req->sync_value;
+	i915_sync_timeline_advance(req->ctx, req->ring, req->sync_value);
+	timeline->pvt.killed_at = 0;
+}
+
+void i915_sync_hung_ring(struct intel_engine_cs *ring)
+{
 	struct drm_i915_gem_request *req;
 	uint32_t active_seqno;
 
@@ -316,18 +339,5 @@ void i915_sync_hung_ring(struct intel_engine_cs *ring)
 		DRM_DEBUG_DRIVER("Request not found for hung seqno!\n");
 		return;
 	}
-
-	if (i915.enable_execlists)
-		timeline = req->ctx->engine[req->ring->id].sync_timeline;
-	else
-		timeline = req->ctx->legacy_hw_ctx.sync_timeline;
-
-	/* Signal the timeline. This will cause it to query the
-	 * signaled state of any waiting sync points.
-	 * If any match with ring->active_seqno then they
-	 * will be marked with an error state.
-	 */
-	timeline->pvt.killed_at = req->sync_value;
-	i915_sync_timeline_advance(req->ctx, req->ring, req->sync_value);
-	timeline->pvt.killed_at = 0;
+	i915_sync_hung_request(req);
 }

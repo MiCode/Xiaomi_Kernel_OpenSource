@@ -2,6 +2,7 @@
  * intel_soc_pmic_i2c.c - Intel SoC PMIC MFD Driver
  *
  * Copyright (C) 2013, 2014 Intel Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version

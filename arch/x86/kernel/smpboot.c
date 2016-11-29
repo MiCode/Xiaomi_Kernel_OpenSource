@@ -655,7 +655,7 @@ static void announce_cpu(int cpu, int apicid)
 		node_width = num_digits(num_possible_nodes()) + 1; /* + '#' */
 
 	if (cpu == 1)
-		printk(KERN_INFO "x86: Booting SMP configuration:\n");
+		pr_debug("x86: Booting SMP configuration:\n");
 
 	if (system_state == SYSTEM_BOOTING) {
 		if (node != current_node) {
@@ -674,7 +674,7 @@ static void announce_cpu(int cpu, int apicid)
 		pr_cont("%*s#%d", width - num_digits(cpu), " ", cpu);
 
 	} else
-		pr_info("Booting Node %d Processor %d APIC 0x%x\n",
+		pr_debug("Booting Node %d Processor %d APIC 0x%x\n",
 			node, cpu, apicid);
 }
 
@@ -708,11 +708,15 @@ wakeup_cpu_via_init_nmi(int cpu, unsigned long start_ip, int apicid,
 	int id;
 	int boot_error;
 
+	preempt_disable();
+
 	/*
 	 * Wake up AP by INIT, INIT, STARTUP sequence.
 	 */
-	if (cpu)
-		return wakeup_secondary_cpu_via_init(apicid, start_ip);
+	if (cpu) {
+		boot_error = wakeup_secondary_cpu_via_init(apicid, start_ip);
+		goto out;
+	}
 
 	/*
 	 * Wake up BSP by nmi.
@@ -731,6 +735,9 @@ wakeup_cpu_via_init_nmi(int cpu, unsigned long start_ip, int apicid,
 			id = apicid;
 		boot_error = wakeup_secondary_cpu_via_nmi(id, start_ip);
 	}
+
+out:
+	preempt_enable();
 
 	return boot_error;
 }

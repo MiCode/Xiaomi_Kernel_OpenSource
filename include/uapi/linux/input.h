@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -415,6 +416,8 @@ struct input_keymap_entry {
 #define KEY_F22			192
 #define KEY_F23			193
 #define KEY_F24			194
+
+#define KEY_GUARD		195
 
 #define KEY_PLAYCD		200
 #define KEY_PAUSECD		201

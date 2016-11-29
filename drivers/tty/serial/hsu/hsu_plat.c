@@ -2,6 +2,7 @@
  * hsu_plat.c: driver for Intel High Speed UART device
  *
  * (C) Copyright 2013 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -49,29 +50,25 @@ static irqreturn_t wakeup_irq(int irq, void *data)
 static int cht_hw_set_rts(struct uart_hsu_port *up, int value)
 {
 	struct hsu_port_pin_cfg *pin_cfg = &up->port_cfg->pin_cfg;
-	struct gpio_desc *gpio;
-
-	if (!pin_cfg || pin_cfg->wake_src == no_wake)
-		return 0;
 
 	if (value) {
 		if (!pin_cfg->rts_gpio) {
-			gpio = devm_gpiod_get_index(up->dev, "hsu_rts",
+			pin_cfg->rts_gpio = gpiod_get_index(up->dev, "hsu_rts",
 					hsu_rts_idx);
-			if (!IS_ERR(gpio))
-				pin_cfg->rts_gpio = desc_to_gpio(gpio);
+			if (IS_ERR(pin_cfg->rts_gpio))
+				pin_cfg->rts_gpio = NULL;
 		}
 
 		if (pin_cfg->rts_gpio) {
-			gpio_direction_output(pin_cfg->rts_gpio, 1);
+			gpiod_direction_output(pin_cfg->rts_gpio, 1);
 			if (!in_interrupt())
 				usleep_range(up->byte_delay,
 						up->byte_delay + 1);
 		}
 	} else
 		if (pin_cfg->rts_gpio) {
-			gpio_free(pin_cfg->rts_gpio);
-			pin_cfg->rts_gpio = 0;
+			gpiod_put(pin_cfg->rts_gpio);
+			pin_cfg->rts_gpio = NULL;
 		}
 
 	return 0;
@@ -80,47 +77,48 @@ static int cht_hw_set_rts(struct uart_hsu_port *up, int value)
 static int cht_hsu_hw_suspend(struct uart_hsu_port *up)
 {
 	struct hsu_port_pin_cfg *pin_cfg = &up->port_cfg->pin_cfg;
-	struct gpio_desc *gpio;
 	int ret;
 
-	if (!pin_cfg || pin_cfg->wake_src == no_wake)
+	if (pin_cfg->wake_src == no_wake)
 		return 0;
 
 	switch (pin_cfg->wake_src) {
 	case rxd_wake:
 		if (!pin_cfg->rx_gpio) {
-			gpio = devm_gpiod_get_index(up->dev, "hsu_rxd",
+			pin_cfg->rx_gpio = gpiod_get_index(up->dev, "hsu_rxd",
 					hsu_rxd_idx);
-			if (!IS_ERR(gpio))
-				pin_cfg->rx_gpio = desc_to_gpio(gpio);
+			if (IS_ERR(pin_cfg->rx_gpio))
+				pin_cfg->rx_gpio = NULL;
 		}
 		pin_cfg->wake_gpio = pin_cfg->rx_gpio;
 		break;
 	case cts_wake:
 		if (!pin_cfg->cts_gpio) {
-			gpio = devm_gpiod_get_index(up->dev, "hsu_cts",
+			pin_cfg->cts_gpio = gpiod_get_index(up->dev, "hsu_cts",
 					hsu_cts_idx);
-			if (!IS_ERR(gpio))
-				pin_cfg->cts_gpio = desc_to_gpio(gpio);
+			if (IS_ERR(pin_cfg->cts_gpio))
+				pin_cfg->cts_gpio = NULL;
 		}
 		pin_cfg->wake_gpio = pin_cfg->cts_gpio;
 		break;
+	case no_wake:
 	default:
-		pin_cfg->wake_gpio = -1;
+		pin_cfg->wake_gpio = NULL;
 		break;
 	}
-	dev_dbg(up->dev, "wake_gpio=%d\n", pin_cfg->wake_gpio);
+	dev_dbg(up->dev, "wake_gpio=%d\n",
+			pin_cfg->wake_gpio ? desc_to_gpio(pin_cfg->wake_gpio) : -1);
 
-	if (pin_cfg->wake_gpio != -1) {
-		gpio_direction_input(pin_cfg->wake_gpio);
-		ret = request_irq(gpio_to_irq(pin_cfg->wake_gpio), wakeup_irq,
+	if (pin_cfg->wake_gpio) {
+		gpiod_direction_input(pin_cfg->wake_gpio);
+		ret = request_irq(gpiod_to_irq(pin_cfg->wake_gpio), wakeup_irq,
 				IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING,
 				"hsu_wake_irq", up);
 		if (ret)
 			dev_err(up->dev, "failed to register 'hsu_wake_irq'\n");
 
 		if (pin_cfg->rts_gpio && pin_cfg->wake_src == rxd_wake)
-			gpio_direction_output(pin_cfg->rts_gpio, 0);
+			gpiod_direction_output(pin_cfg->rts_gpio, 0);
 	}
 
 	return 0;
@@ -133,23 +131,26 @@ static int cht_hsu_hw_resume(struct uart_hsu_port *up)
 	if (!pin_cfg || pin_cfg->wake_src == no_wake)
 		return 0;
 
-	if (pin_cfg->wake_gpio != -1) {
-		free_irq(gpio_to_irq(pin_cfg->wake_gpio), up);
-		pin_cfg->wake_gpio = -1;
+	if (pin_cfg->wake_gpio) {
+		free_irq(gpiod_to_irq(pin_cfg->wake_gpio), up);
+		pin_cfg->wake_gpio = NULL;
 	}
 
 	switch (pin_cfg->wake_src) {
 	case rxd_wake:
 		if (pin_cfg->rx_gpio) {
-			gpio_free(pin_cfg->rx_gpio);
-			pin_cfg->rx_gpio = 0;
+			gpiod_put(pin_cfg->rx_gpio);
+			pin_cfg->rx_gpio = NULL;
 		}
 		break;
 	case cts_wake:
 		if (pin_cfg->cts_gpio) {
-			gpio_free(pin_cfg->cts_gpio);
-			pin_cfg->cts_gpio = 0;
+			gpiod_put(pin_cfg->cts_gpio);
+			pin_cfg->cts_gpio = NULL;
 		}
+		break;
+	case no_wake:
+	default:
 		break;
 	}
 
@@ -159,7 +160,9 @@ static int cht_hsu_hw_resume(struct uart_hsu_port *up)
 static void cht_hsu_reset(void __iomem *addr)
 {
 	writel(0, addr + CHT_HSU_RESET);
+	usleep_range(10, 100);
 	writel(3, addr + CHT_HSU_RESET);
+	usleep_range(10, 100);
 
 	/* Disable the tx overflow IRQ */
 	writel(2, addr + CHT_HSU_OVF_IRQ);
@@ -181,6 +184,7 @@ static void cht_hsu_set_clk(unsigned int m, unsigned int n,
 static void hsu_set_termios(struct uart_port *p, struct ktermios *termios,
 				struct ktermios *old)
 {
+	struct tty_port *tport = &p->state->port;
 	u32 reg;
 
 	/*
@@ -192,6 +196,12 @@ static void hsu_set_termios(struct uart_port *p, struct ktermios *termios,
 	if (!(termios->c_cflag & CRTSCTS))
 		reg |= CHT_GENERAL_DIS_RTS_N_OVERRIDE;
 	writel(reg, p->membase + CHT_GENERAL_REG);
+
+	/* DesignWare UART CTS is auto controlled by HW IP,
+	 * ignore sw-assisted CTS flow control
+	 */
+	if (termios->c_cflag & CRTSCTS)
+		clear_bit(ASYNCB_CTS_FLOW, &tport->flags);
 
 	serial_hsu_do_set_termios(p, termios, old);
 }

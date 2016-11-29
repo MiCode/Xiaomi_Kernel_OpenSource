@@ -2,6 +2,7 @@
  * gadget.c - DesignWare USB3 DRD Controller Gadget Framework Link
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -1581,11 +1582,29 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
 	unsigned long		flags;
+	int			irq;
 	int			ret;
 
 	is_on = !!is_on;
 
 	pm_runtime_get_sync(dwc->dev);
+
+	/**
+	 * WORKAROUND: The dwc3 controller doesn't issue disconnect.
+	 * Thus gadget dissconnect callback is not invoked when do
+	 * soft dissconnect. Call dissconnect here to workaround
+	 * this issue.
+	 */
+	if (!is_on && dwc->gadget_driver && dwc->gadget_driver->disconnect) {
+		if (dwc->gadget.speed != USB_SPEED_UNKNOWN) {
+			dev_dbg(dwc->dev, "fake dissconnect event\n");
+			irq = platform_get_irq(to_platform_device(dwc->dev), 0);
+			disable_irq(irq);
+			dwc->gadget_driver->disconnect(&dwc->gadget);
+			dwc->gadget.speed = USB_SPEED_UNKNOWN;
+			enable_irq(irq);
+		}
+	}
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	ret = dwc3_gadget_run_stop(dwc, is_on);
@@ -2285,7 +2304,8 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 	reg &= ~DWC3_DCTL_INITU2ENA;
 	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 
-	dwc3_disconnect_gadget(dwc);
+	if (dwc->gadget.speed != USB_SPEED_UNKNOWN)
+		dwc3_disconnect_gadget(dwc);
 	dwc->start_config_issued = false;
 
 	dwc->gadget.speed = USB_SPEED_UNKNOWN;

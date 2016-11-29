@@ -1,8 +1,9 @@
 /*
  * Misc system wide definitions
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -76,13 +77,8 @@
 #undef BCM47XX_CA9
 
 #ifndef BCMFASTPATH
-#if defined(BCM47XX_CA9)
-#define BCMFASTPATH		__attribute__ ((__section__ (".text.fastpath")))
-#define BCMFASTPATH_HOST	__attribute__ ((__section__ (".text.fastpath_host")))
-#else
 #define BCMFASTPATH
 #define BCMFASTPATH_HOST
-#endif
 #endif /* BCMFASTPATH */
 
 
@@ -170,13 +166,55 @@ typedef struct {
 		(_pa).loaddr = (_val);		\
 	} while (0)
 
+#define PHYSADDR64ADD(_pa, _hi0, _lo0, _hi1, _lo1) \
+	do { \
+		uint32 _lo = (uint32)(_lo0); \
+		(_pa).loaddr = _lo + (uint32)(_lo1); \
+		(_pa).hiaddr = (uint32)(_hi0) + (uint32)(_hi1) + \
+			(((_pa).loaddr < _lo) ? 1 : 0); \
+	} while (0)
+#define PHYSADDR64ADD64BITDATA(_pa, _paorg, _hi, _lo) \
+	PHYSADDR64ADD((_pa), (_paorg).hiaddr, (_paorg).loaddr, (_hi), (_lo))
+#define PHYSADDR64ADDOFFSET(_pa, _paorg, _offset) \
+	PHYSADDR64ADD((_pa), (_paorg).hiaddr, (_paorg).loaddr, 0, (_offset))
+#define PHYSADDR64ROUNDUP(_pa, _paorg, _align) \
+	do { \
+		PHYSADDR64ADDOFFSET(_pa, _paorg, (uint32)((_align) - 1)); \
+		(_pa).loaddr = ((_pa).loaddr / (_align)) * (_align); \
+	} while (0)
+
+#define PHYSADDR64SUB(_pa, _hi0, _lo0, _hi1, _lo1) \
+	do { \
+		uint32 _lo = (uint32)(_lo0); \
+		(_pa).loaddr = _lo - (uint32)(_lo1); \
+		(_pa).hiaddr = (uint32)(_hi0) - (uint32)(_hi1) - \
+			(((_pa).loaddr > _lo) ? 1 : 0); \
+	} while (0)
+#define PHYSADDR64SUB64BITDATA(_pa, _paorg, _hi, _lo) \
+	PHYSADDR64SUB((_pa), (_paorg).hiaddr, (_paorg).loaddr, (_hi), (_lo))
+#define PHYSADDR64SUBOFFSET(_pa, _paorg, _offset) \
+	PHYSADDR64SUB((_pa), (_paorg).hiaddr, (_paorg).loaddr, 0, (_offset))
+
 #ifdef BCMDMA64OSL
 typedef dma64addr_t dmaaddr_t;
 #define PHYSADDRHI(_pa) PHYSADDR64HI(_pa)
 #define PHYSADDRHISET(_pa, _val) PHYSADDR64HISET(_pa, _val)
 #define PHYSADDRLO(_pa)  PHYSADDR64LO(_pa)
 #define PHYSADDRLOSET(_pa, _val) PHYSADDR64LOSET(_pa, _val)
-
+#define PHYSADDRADD(_pa, _hi0, _lo0, _hi1, _lo1) \
+	PHYSADDR64ADD(_pa, _hi0, _lo0, _hi1, _lo1)
+#define PHYSADDRADD64BITDATA(_pa, _paorg, _hi, _lo) \
+	PHYSADDR64ADD64BITDATA(_pa, _paorg, _hi, _lo)
+#define PHYSADDRADDOFFSET(_pa, _paorg, _offset) \
+	PHYSADDR64ADDOFFSET(_pa, _paorg, _offset)
+#define PHYSADDRROUNDUP(_pa, _paorg, _align) \
+	PHYSADDR64ROUNDUP(_pa, _paorg, _align)
+#define PHYSADDRSUB(_pa, _hi0, _lo0, _hi1, _lo1) \
+	PHYSADDR64SUB(_pa, _hi0, _lo0, _hi1, _lo1)
+#define PHYSADDRSUB64BITDATA(_pa, _paorg, _hi, _lo) \
+	PHYSADDR64SUB64BITDATA(_pa, _paorg, _hi, _lo)
+#define PHYSADDRSUBOFFSET(_pa, _paorg, _offset) \
+	PHYSADDR64SUBOFFSET(_pa, _paorg, _offset)
 #else
 typedef unsigned long dmaaddr_t;
 #define PHYSADDRHI(_pa) (0)
@@ -185,6 +223,34 @@ typedef unsigned long dmaaddr_t;
 #define PHYSADDRLOSET(_pa, _val) \
 	do { \
 		(_pa) = (_val);			\
+	} while (0)
+#define PHYSADDRADD(_pa, _hi0, _lo0, _hi1, _lo1) \
+	do { \
+		(_pa) = (uint32)(_lo0) + (uint32)(_lo1); \
+	} while (0)
+#define PHYSADDRADDOFFSET(_pa, _paorg, _offset) \
+	do { \
+		(_pa) = (uint32)(_paorg) + (uint32)(_offset); \
+	} while (0)
+#define PHYSADDRADD64BITDATA(_pa, _paorg, _hi, _lo) \
+	do { \
+		(_pa) = (uint32)(_paorg) + (uint32)(_lo); \
+	} while (0)
+#define PHYSADDRROUNDUP(_pa, _paorg, _align) \
+	do { \
+		(_pa) = (((_paorg) + ((_align) - 1)) / (_align)) * (_align); \
+	} while (0)
+#define PHYSADDRSUB(_pa, _hi0, _lo0, _hi1, _lo1) \
+	do { \
+		(_pa) = (uint32)(_lo0) - (uint32)(_lo1); \
+	} while (0)
+#define PHYSADDRSUB64BITDATA(_pa, _paorg, _hi, _lo) \
+	do { \
+		(_pa) = (uint32)(_paorg) - (uint32)(_lo); \
+	} while (0)
+#define PHYSADDRSUBOFFSET(_pa, _paorg, _offset) \
+	do { \
+		(_pa) = (uint32)(_paorg) - (uint32)(_offset); \
 	} while (0)
 #endif /* BCMDMA64OSL */
 #define PHYSADDRISZERO(_pa) (PHYSADDRLO(_pa) == 0 && PHYSADDRHI(_pa) == 0)
@@ -216,11 +282,7 @@ typedef struct {
 /* add 40 bytes to allow for extra RPC header and info  */
 #define BCMEXTRAHDROOM 260
 #else /* BCM_RPC_NOCOPY || BCM_RPC_TXNOCOPY */
-#if defined(BCM47XX_CA9)
-#define BCMEXTRAHDROOM 224
-#else
 #define BCMEXTRAHDROOM 204
-#endif /* linux && BCM47XX_CA9 */
 #endif /* BCM_RPC_NOCOPY || BCM_RPC_TXNOCOPY */
 
 /* Packet alignment for most efficient SDIO (can change based on platform) */
@@ -248,7 +310,7 @@ typedef struct {
 
 #if defined(BCMASSERT_LOG)
 #define BCMASSERT_SUPPORT
-#endif 
+#endif
 
 /* Macros for doing definition and get/set of bitfields
  * Usage example, e.g. a three-bit field (bits 4-6):

@@ -21,6 +21,15 @@ config PSTORE_CONSOLE
 	  When the option is enabled, pstore will log all kernel
 	  messages, even if no oops or panic happened.
 
+config PSTORE_LAST_KMSG
+	bool "make the proc interface /proc/last_kmsg"
+	depends on PSTORE_CONSOLE
+	default n
+	help
+	  When the option is enabled, pstore will produce a proc
+	  interface /proc/last_kmsg, from which we can read the last
+	  kernel log.
+
 config PSTORE_PMSG
 	bool "Log user space messages"
 	depends on PSTORE

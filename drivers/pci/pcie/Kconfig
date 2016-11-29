@@ -44,6 +44,20 @@ config PCIEASPM
 	  /sys/module/pcie_aspm/parameters/policy
 
 	  When in doubt, say Y.
+config PCIE_ASPM_LNKSUB
+	bool "PCI Express ASPM L1 Sub-States"
+	depends on PCIEASPM
+	default n
+	help
+	  This enables the OS control over PCI Express ASPM L1 Sub-states.
+
+	  This feature is initially set up by the firmware. Generally, No
+	  need OS support on it. For some special PCIe devices, the power
+	  supply may be cut off for power saving which may cause the ASPM
+	  L1 Sub-States settings get lost. By enabling this, the OS can
+	  save and restore the related settings.
+
+	  when in doubt, say N.
 config PCIEASPM_DEBUG
 	bool "Debug PCI Express ASPM"
 	depends on PCIEASPM

@@ -1,6 +1,7 @@
 /*
  * Copyright 2006 Dave Airlie <airlied@linux.ie>
  * Copyright © 2006-2009 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -1470,6 +1471,12 @@ intel_hdmi_set_property(struct drm_connector *connector,
 			intel_crtc->scaling_src_size);
 		return 0;
 	}
+
+	if (property == dev_priv->force_ddr_low_freq_property) {
+		vlv_force_ddr_low_frequency(dev_priv, val);
+		return 0;
+	}
+
 	return -EINVAL;
 
 done:
@@ -1702,7 +1709,7 @@ static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 		&intel_crtc->config.adjusted_mode;
 	enum dpio_channel ch = vlv_dport_to_channel(dport);
 	int pipe = intel_crtc->pipe;
-	int data, i;
+	int data, i, stagger;
 	u32 val;
 
 	mutex_lock(&dev_priv->dpio_lock);
@@ -1735,11 +1742,6 @@ static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 
 	/* Program Tx latency optimal setting */
 	for (i = 0; i < 4; i++) {
-		/* Set the latency optimal bit */
-		data = (i == 1) ? 0x0 : 0x6;
-		vlv_dpio_write(dev_priv, pipe, CHV_TX_DW11(ch, i),
-				data << DPIO_FRC_LATENCY_SHFIT);
-
 		/* Set the upar bit */
 		data = (i == 1) ? 0x0 : 0x1;
 		vlv_dpio_write(dev_priv, pipe, CHV_TX_DW14(ch, i),
@@ -1747,8 +1749,39 @@ static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 	}
 
 	/* Data lane stagger programming */
-	/* FIXME: Fix up value only after power analysis */
+	if (intel_crtc->config.port_clock > 270000)
+		stagger = 0x18;
+	else if (intel_crtc->config.port_clock > 135000)
+		stagger = 0xd;
+	else if (intel_crtc->config.port_clock > 67500)
+		stagger = 0x7;
+	else if (intel_crtc->config.port_clock > 33750)
+		stagger = 0x4;
+	else
+		stagger = 0x2;
 
+	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW11(ch));
+	val |= DPIO_TX2_STAGGER_MASK(0x1f);
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW11(ch), val);
+
+	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS23_DW11(ch));
+	val |= DPIO_TX2_STAGGER_MASK(0x1f);
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW11(ch), val);
+
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW12(ch),
+		DPIO_LANESTAGGER_STRAP(stagger) |
+		DPIO_LANESTAGGER_STRAP_OVRD |
+		DPIO_TX1_STAGGER_MASK(0x1f) |
+		DPIO_TX1_STAGGER_MULT(6) |
+		DPIO_TX2_STAGGER_MULT(0));
+
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW12(ch),
+		DPIO_LANESTAGGER_STRAP(stagger) |
+		DPIO_LANESTAGGER_STRAP_OVRD |
+		DPIO_TX1_STAGGER_MASK(0x1f) |
+		DPIO_TX1_STAGGER_MULT(7) |
+		DPIO_TX2_STAGGER_MULT(5));
+/* FIXME: Fix up value only after power analysis */
 	/* Clear calc init */
 	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW10(ch));
 	val &= ~(DPIO_PCS_SWING_CALC_TX0_TX2 | DPIO_PCS_SWING_CALC_TX1_TX3);
@@ -1772,50 +1805,105 @@ static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 	val |= DPIO_PCS_TX1MARGIN_000 | DPIO_PCS_TX2MARGIN_000;
 	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW9(ch), val);
 
-	/* FIXME: Program the support xxx V-dB */
-	/* Use 800mV-0dB */
-	for (i = 0; i < 4; i++) {
-		val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW4(ch, i));
-		val &= ~DPIO_SWING_DEEMPH9P5_MASK;
-		val |= 128 << DPIO_SWING_DEEMPH9P5_SHIFT;
-		vlv_dpio_write(dev_priv, pipe, CHV_TX_DW4(ch, i), val);
+	/* Program 4k and non-4k modes based on clock value */
+	if (adjusted_mode->clock <= 162000) {
+		/* Programs non-4k modes here */
+		/* FIXME: Program the support xxx V-dB */
+		/* Use 800 mV-0dB */
+		for (i = 0; i < 4; i++) {
+			val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW4(ch, i));
+			val &= ~DPIO_SWING_DEEMPH9P5_MASK;
+			val &= ~DPIO_SWING_DEEMPH6P0_MASK;
+			val |= 0x80 << DPIO_SWING_DEEMPH9P5_SHIFT;
+			val |= 0x80 << DPIO_SWING_DEEMPH6P0_SHIFT;
+			vlv_dpio_write(dev_priv, pipe, CHV_TX_DW4(ch, i), val);
+		}
+
+		for (i = 0; i < 4; i++) {
+			val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW2(ch, i));
+			val &= ~DPIO_SWING_MARGIN000_MASK;
+			val &= ~DPIO_UNIQ_TRANS_SCALE_MASK;
+			val |= 0x80 << DPIO_SWING_MARGIN000_SHIFT;
+			val |= 0x98 << DPIO_UNIQ_TRANS_SCALE_SHIFT;
+			vlv_dpio_write(dev_priv, pipe, CHV_TX_DW2(ch, i), val);
+		}
+
+		/* Disable unique transition scale */
+		for (i = 0; i < 4; i++) {
+			val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW3(ch, i));
+			val &= ~DPIO_TX_UNIQ_TRANS_SCALE_EN;
+			val |= 0x80 << DPIO_SWING_MARGIN101_SHIFT;
+			val |= 0x4 << DPIO_DOWN_SCALE_AMP_METHOD_SHIFT;
+			vlv_dpio_write(dev_priv, pipe, CHV_TX_DW3(ch, i), val);
+		}
+		/* Start swing calculation */
+			val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW10(ch));
+			val &= ~DPIO_PCS_SWING_DEEMPH_CALC_MASK;
+			val |= DPIO_PCS_DEEMPH_CALC_TX0_TX2 |
+				DPIO_PCS_DEEMPH_CALC_TX1_TX3;
+			vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW10(ch), val);
+
+			val = vlv_dpio_read(dev_priv, pipe, VLV_PCS23_DW10(ch));
+			val &= ~DPIO_PCS_SWING_DEEMPH_CALC_MASK;
+			val |= DPIO_PCS_DEEMPH_CALC_TX0_TX2 |
+				DPIO_PCS_DEEMPH_CALC_TX1_TX3;
+			vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW10(ch), val);
+	} else {
+		/* Programs 4k-modes here */
+		/* Use 800 mV-0dB */
+		for (i = 0; i < 4; i++) {
+			if (i == 3) {
+				val = vlv_dpio_read(dev_priv, pipe,
+					CHV_TX_DW4(ch, i));
+				val &= ~DPIO_SWING_DEEMPH9P5_MASK;
+				val &= ~DPIO_SWING_DEEMPH6P0_MASK;
+				val |= 0x80 << DPIO_SWING_DEEMPH9P5_SHIFT;
+				val |= 0x80 << DPIO_SWING_DEEMPH6P0_SHIFT;
+				vlv_dpio_write(dev_priv, pipe,
+					CHV_TX_DW4(ch, i), val);
+			} else {
+				val = vlv_dpio_read(dev_priv, pipe,
+					CHV_TX_DW4(ch, i));
+				val &= ~DPIO_SWING_DEEMPH9P5_MASK;
+				val &= ~DPIO_SWING_DEEMPH6P0_MASK;
+				val |= 0x60 << DPIO_SWING_DEEMPH9P5_SHIFT;
+				val |= 0x60 << DPIO_SWING_DEEMPH6P0_SHIFT;
+				vlv_dpio_write(dev_priv, pipe,
+					CHV_TX_DW4(ch, i), val);
+			}
+		}
+
+		for (i = 0; i < 4; i++) {
+			val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW2(ch, i));
+			val &= ~DPIO_SWING_MARGIN000_MASK;
+			val &= ~DPIO_UNIQ_TRANS_SCALE_MASK;
+			val |= 0xa0 << DPIO_SWING_MARGIN000_SHIFT;
+			val |= 0x98 << DPIO_UNIQ_TRANS_SCALE_SHIFT;
+			vlv_dpio_write(dev_priv, pipe, CHV_TX_DW2(ch, i), val);
+		}
+
+		/* Disable unique transition scale */
+		for (i = 0; i < 4; i++) {
+			val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW3(ch, i));
+			val &= ~DPIO_TX_UNIQ_TRANS_SCALE_EN;
+			val |= 0xa0 << DPIO_SWING_MARGIN101_SHIFT;
+			val |= 0x4 << DPIO_DOWN_SCALE_AMP_METHOD_SHIFT;
+			vlv_dpio_write(dev_priv, pipe, CHV_TX_DW3(ch, i), val);
+		}
+
+		/* Start swing calculation */
+			val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW10(ch));
+			val &= ~DPIO_PCS_SWING_DEEMPH_CALC_MASK;
+			val |= DPIO_PCS_DEEMPH_CALC_TX0_TX2 |
+				DPIO_PCS_DEEMPH_CALC_TX1_TX3;
+			vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW10(ch), val);
+
+			val = vlv_dpio_read(dev_priv, pipe, VLV_PCS23_DW10(ch));
+			val &= ~DPIO_PCS_SWING_DEEMPH_CALC_MASK;
+			val |= DPIO_PCS_DEEMPH_CALC_TX0_TX2 |
+				DPIO_PCS_DEEMPH_CALC_TX1_TX3;
+			vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW10(ch), val);
 	}
-
-	for (i = 0; i < 4; i++) {
-		val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW2(ch, i));
-		val &= ~DPIO_SWING_MARGIN000_MASK;
-		val |= 102 << DPIO_SWING_MARGIN000_SHIFT;
-		vlv_dpio_write(dev_priv, pipe, CHV_TX_DW2(ch, i), val);
-	}
-
-	/* Disable unique transition scale */
-	for (i = 0; i < 4; i++) {
-		val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW3(ch, i));
-		val &= ~DPIO_TX_UNIQ_TRANS_SCALE_EN;
-		vlv_dpio_write(dev_priv, pipe, CHV_TX_DW3(ch, i), val);
-	}
-
-	/* Additional steps for 1200mV-0dB */
-#if 0
-	val = vlv_dpio_read(dev_priv, pipe, VLV_TX_DW3(ch));
-	if (ch)
-		val |= DPIO_TX_UNIQ_TRANS_SCALE_CH1;
-	else
-		val |= DPIO_TX_UNIQ_TRANS_SCALE_CH0;
-	vlv_dpio_write(dev_priv, pipe, VLV_TX_DW3(ch), val);
-
-	vlv_dpio_write(dev_priv, pipe, VLV_TX_DW2(ch),
-			vlv_dpio_read(dev_priv, pipe, VLV_TX_DW2(ch)) |
-				(0x9a << DPIO_UNIQ_TRANS_SCALE_SHIFT));
-#endif
-	/* Start swing calculation */
-	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW10(ch));
-	val |= DPIO_PCS_SWING_CALC_TX0_TX2 | DPIO_PCS_SWING_CALC_TX1_TX3;
-	vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW10(ch), val);
-
-	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS23_DW10(ch));
-	val |= DPIO_PCS_SWING_CALC_TX0_TX2 | DPIO_PCS_SWING_CALC_TX1_TX3;
-	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW10(ch), val);
 
 	/* LRC Bypass */
 	val = vlv_dpio_read(dev_priv, pipe, CHV_CMN_DW30);
@@ -1870,6 +1958,7 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *c
 	intel_attach_broadcast_rgb_property(connector);
 	intel_attach_force_pfit_property(connector);
 	intel_attach_scaling_src_size_property(connector);
+	intel_attach_force_ddr_low_freq_property(connector);
 	intel_hdmi->color_range_auto = true;
 }
 

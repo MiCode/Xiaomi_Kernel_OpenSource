@@ -1,8 +1,9 @@
 /*
  * Broadcom AMBA Interconnect definitions.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -58,6 +59,7 @@
 #define	ER_ADD			4
 #define	ER_END			0xe
 #define	ER_BAD			0xffffffff
+#define	ER_SZ_MAX		4096 /* 4KB */
 
 /* EROM CompIdentA */
 #define	CIA_MFG_MASK		0xfff00000

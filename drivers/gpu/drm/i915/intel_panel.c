@@ -1,6 +1,7 @@
 /*
  * Copyright © 2006-2010 Intel Corporation
  * Copyright (c) 2006 Dave Airlie <airlied@linux.ie>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -447,6 +448,8 @@ static u32 intel_panel_compute_brightness(struct intel_connector *connector,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_panel *panel = &connector->panel;
 
+	if (!panel->backlight.present)
+		return 0;
 	WARN_ON(panel->backlight.max == 0);
 
 	if (i915.invert_brightness < 0)
@@ -1199,7 +1202,7 @@ static int intel_backlight_device_register(struct intel_connector *connector)
 	 * registration of multiple backlight devices in the driver.
 	 */
 	panel->backlight.device =
-		backlight_device_register("intel_backlight",
+		backlight_device_register("intel_backlight_useless",
 					  connector->base.kdev,
 					  connector,
 					  &intel_backlight_device_ops, &props);

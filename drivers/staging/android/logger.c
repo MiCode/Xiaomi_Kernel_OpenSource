@@ -4,6 +4,7 @@
  * A Logging Subsystem
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Robert Love <rlove@google.com>
  *
@@ -33,6 +34,15 @@
 
 #include <asm/ioctls.h>
 #include <linux/pstore.h>
+
+#ifndef CONFIG_LOGCAT_SIZE
+#define CONFIG_LOGCAT_SIZE 256
+#endif
+
+#ifndef CONFIG_LARGE_LOGCAT_SIZE
+#define CONFIG_LARGE_LOGCAT_SIZE CONFIG_LOGCAT_SIZE
+#endif
+
 
 /**
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
@@ -915,19 +925,19 @@ static int __init logger_init(void)
 {
 	int ret;
 
-	ret = create_log(LOGGER_LOG_MAIN, 256*1024);
+	ret = create_log(LOGGER_LOG_MAIN, CONFIG_LARGE_LOGCAT_SIZE*1024);
 	if (unlikely(ret))
 		goto out;
 
-	ret = create_log(LOGGER_LOG_EVENTS, 256*1024);
+	ret = create_log(LOGGER_LOG_EVENTS, CONFIG_LOGCAT_SIZE*1024);
 	if (unlikely(ret))
 		goto out;
 
-	ret = create_log(LOGGER_LOG_RADIO, 256*1024);
+	ret = create_log(LOGGER_LOG_RADIO, CONFIG_LOGCAT_SIZE*1024);
 	if (unlikely(ret))
 		goto out;
 
-	ret = create_log(LOGGER_LOG_SYSTEM, 256*1024);
+	ret = create_log(LOGGER_LOG_SYSTEM, CONFIG_LOGCAT_SIZE*1024);
 	if (unlikely(ret))
 		goto out;
 

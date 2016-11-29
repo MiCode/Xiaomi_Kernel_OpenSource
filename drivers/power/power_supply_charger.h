@@ -52,7 +52,7 @@ struct charging_algo {
 	struct list_head node;
 	unsigned int chrg_prof_type;
 	char *name;
-	enum psy_algo_stat (*get_next_cc_cv)(struct batt_props,
+	int (*get_next_cc_cv)(struct batt_props,
 			struct ps_batt_chg_prof, unsigned long *cc,
 			unsigned long *cv);
 	int (*get_batt_thresholds)(struct ps_batt_chg_prof,
@@ -97,21 +97,12 @@ static inline int get_ps_int_property(struct power_supply *psy,
 */
 #define PROP_TTL (HZ*10)
 #define enable_charging(psy) \
-		({if ((CABLE_TYPE(psy) != POWER_SUPPLY_CHARGER_TYPE_NONE) &&\
-			!IS_CHARGING_ENABLED(psy)) { \
-		enable_charger(psy); \
-		set_ps_int_property(psy, POWER_SUPPLY_PROP_ENABLE_CHARGING,\
-					true); } })
+		set_ps_int_property(psy,\
+				POWER_SUPPLY_PROP_ENABLE_CHARGING, true);
+
 #define disable_charging(psy) \
 		set_ps_int_property(psy,\
 				POWER_SUPPLY_PROP_ENABLE_CHARGING, false);
-
-#define enable_charger(psy) \
-		set_ps_int_property(psy, POWER_SUPPLY_PROP_ENABLE_CHARGER, true)
-#define disable_charger(psy) \
-		({  disable_charging(psy); \
-			set_ps_int_property(psy,\
-				POWER_SUPPLY_PROP_ENABLE_CHARGER, false); })
 
 #define set_cc(psy, cc) \
 		set_ps_int_property(psy, POWER_SUPPLY_PROP_CHARGE_CURRENT, cc)
@@ -124,6 +115,9 @@ static inline int get_ps_int_property(struct power_supply *psy,
 
 #define set_present(psy, present) \
 		set_ps_int_property(psy, POWER_SUPPLY_PROP_PRESENT, present)
+
+#define enable_hvdcp(psy, enable) \
+		set_ps_int_property(psy, POWER_SUPPLY_PROP_ENABLE_HVDCP, enable)
 
 #define SET_MAX_CC(psy, max_cc) \
 		set_ps_int_property(psy,\

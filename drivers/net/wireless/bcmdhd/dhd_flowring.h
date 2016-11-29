@@ -5,8 +5,9 @@
  *
  * flow rings at high level
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -150,6 +151,8 @@ extern void dhd_flow_queue_reinsert(dhd_pub_t *dhdp, flow_queue_t *queue, void *
 extern int  dhd_flow_rings_init(dhd_pub_t *dhdp, uint32 num_flow_rings);
 
 extern void dhd_flow_rings_deinit(dhd_pub_t *dhdp);
+
+extern uint16 dhd_flowid_find(dhd_pub_t *dhdp, uint8 ifindex, uint8 prio, char *sa, char *da);
 
 extern int dhd_flowid_update(dhd_pub_t *dhdp, uint8 ifindex, uint8 prio,
                 void *pktbuf);

@@ -1,7 +1,8 @@
 /*
  * DHD Linux header file (dhd_linux exports for cfg80211 and other components)
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -50,16 +51,21 @@
 #if defined(CONFIG_WIFI_CONTROL_FUNC)
 #include <linux/wlan_plat.h>
 #endif
-
-#if !defined(CONFIG_WIFI_CONTROL_FUNC)
+#ifdef CUSTOM_FORCE_NODFS_FLAG
 #define WLAN_PLAT_NODFS_FLAG	0x01
+#endif /* CUSTOM_FORCE_NODFS_FLAG */
+#if !defined(CONFIG_WIFI_CONTROL_FUNC)
 struct wifi_platform_data {
 	int (*set_power)(int val);
 	int (*set_reset)(int val);
 	int (*set_carddetect)(int val);
 	void *(*mem_prealloc)(int section, unsigned long size);
 	int (*get_mac_addr)(unsigned char *buf);
+#ifdef CUSTOM_FORCE_NODFS_FLAG
 	void *(*get_country_code)(char *ccode, u32 flags);
+#else
+	void *(*get_country_code)(char *ccode);
+#endif /* CUSTOM_FORCE_NODFS_FLAG */
 };
 #endif /* CONFIG_WIFI_CONTROL_FUNC */
 
@@ -75,7 +81,13 @@ typedef struct wifi_adapter_info {
 	uint		bus_type;
 	uint		bus_num;
 	uint		slot_num;
-	void		*sdio_func;
+#if defined(BCMSDIO)
+	struct sdio_func *sdio_func;
+#endif /* BCMSDIO */
+#if defined(BCMPCIE)
+	struct pci_dev *pci_dev;
+	struct pci_saved_state *pci_saved_state;
+#endif /* BCMPCIE */
 } wifi_adapter_info_t;
 
 typedef struct bcmdhd_wifi_platdata {
@@ -102,8 +114,12 @@ int wifi_platform_set_power(wifi_adapter_info_t *adapter, bool on, unsigned long
 int wifi_platform_bus_enumerate(wifi_adapter_info_t *adapter, bool device_present);
 int wifi_platform_get_irq_number(wifi_adapter_info_t *adapter, unsigned long *irq_flags_ptr);
 int wifi_platform_get_mac_addr(wifi_adapter_info_t *adapter, unsigned char *buf);
+#ifdef CUSTOM_FORCE_NODFS_FLAG
 void *wifi_platform_get_country_code(wifi_adapter_info_t *adapter, char *ccode,
 	u32 flags);
+#else
+void *wifi_platform_get_country_code(wifi_adapter_info_t *adapter, char *ccode);
+#endif /* CUSTOM_FORCE_NODFS_FLAG */
 void* wifi_platform_prealloc(wifi_adapter_info_t *adapter, int section, unsigned long size);
 void* wifi_platform_get_prealloc_func_ptr(wifi_adapter_info_t *adapter);
 

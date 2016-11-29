@@ -114,7 +114,7 @@ struct intel_ctx_submit_request {
 	int elsp_submitted;
 };
 
-void intel_execlists_handle_ctx_events(struct intel_engine_cs *ring);
+int intel_execlists_handle_ctx_events(struct intel_engine_cs *ring, bool do_lock);
 void intel_execlists_retire_requests(struct intel_engine_cs *ring);
 
 int intel_execlists_write_buffer_ctl(struct intel_engine_cs *ring,

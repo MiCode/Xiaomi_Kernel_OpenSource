@@ -6,6 +6,7 @@ source "drivers/external_drivers/camera/drivers/media/i2c/mt9e013/Kconfig"
 source "drivers/external_drivers/camera/drivers/media/i2c/ov5693/Kconfig"
 source "drivers/external_drivers/camera/drivers/media/i2c/imx/Kconfig"
 source "drivers/external_drivers/camera/drivers/media/i2c/imx135VB/Kconfig"
+source "drivers/external_drivers/camera/drivers/media/i2c/micam/Kconfig"
 
 config VIDEO_OV9724
        tristate "OVT ov9724 sensor support"

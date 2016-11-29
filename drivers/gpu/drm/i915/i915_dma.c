@@ -2,6 +2,7 @@
  */
 /*
  * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -1050,6 +1051,9 @@ static int i915_getparam(struct drm_device *dev, void *data,
 	case I915_PARAM_HAS_GEM_FALLOCATE:
 		value = 1;
 		break;
+	case I915_PARAM_HAS_GET_APERTURE2:
+		value = 1;
+		break;
 	default:
 		DRM_DEBUG("Unknown parameter %d\n", param->param);
 		return -EINVAL;
@@ -1626,15 +1630,17 @@ i915_hangcheck_init(struct drm_device *dev)
 	int ret = 0;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
+	dev_priv->gpu_error.faked_lost_ctx_event_irq = 0;
+
 	for (i = 0; i < I915_NUM_RINGS; i++) {
 		dev_priv->ring[i].hangcheck.count = 0;
 		dev_priv->ring[i].hangcheck.tdr_count = 0;
 		dev_priv->ring[i].hangcheck.watchdog_count = 0;
 		dev_priv->ring[i].hangcheck.total = 0;
 		dev_priv->ring[i].hangcheck.last_acthd = 0;
+		dev_priv->ring[i].hangcheck.last_seqno = 0;
 		dev_priv->ring[i].hangcheck.ringid = i;
 		dev_priv->ring[i].hangcheck.dev = dev;
-		dev_priv->ring[i].hangcheck.forced_resubmission_cnt = 0;
 
 		INIT_DELAYED_WORK(&dev_priv->ring[i].hangcheck.work,
 			i915_hangcheck_sample);
@@ -1706,6 +1712,9 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 
 	dev->dev_private = (void *)dev_priv;
 	dev_priv->dev = dev;
+	dev_priv->shutdown_in_progress = false;
+
+	dev_priv->quick_modeset = true;
 
 	/* copy initial configuration to dev_priv->info */
 	device_info = (struct intel_device_info *)&dev_priv->info;

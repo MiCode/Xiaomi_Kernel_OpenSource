@@ -1,8 +1,9 @@
 /*
  * Debug/trace/assert driver definitions for Dongle Host Driver.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -48,9 +49,11 @@
 #define DHD_ARPOE(args)		do {if (dhd_msg_level & DHD_ARPOE_VAL) printf args;} while (0)
 #define DHD_REORDER(args)	do {if (dhd_msg_level & DHD_REORDER_VAL) printf args;} while (0)
 #define DHD_PNO(args)		do {if (dhd_msg_level & DHD_PNO_VAL) printf args;} while (0)
+#define DHD_FWLOG(args)		do {if (dhd_msg_level & DHD_FWLOG_VAL) printf args;} while (0)
 #define DHD_RTT(args)		do {if (dhd_msg_level & DHD_RTT_VAL) printf args;} while (0)
 
 #define DHD_TRACE_HW4	DHD_TRACE
+#define DHD_INFO_HW4	DHD_INFO
 
 #define DHD_ERROR_ON()		(dhd_msg_level & DHD_ERROR_VAL)
 #define DHD_TRACE_ON()		(dhd_msg_level & DHD_TRACE_VAL)
@@ -69,6 +72,7 @@
 #define DHD_REORDER_ON()	(dhd_msg_level & DHD_REORDER_VAL)
 #define DHD_NOCHECKDIED_ON()	(dhd_msg_level & DHD_NOCHECKDIED_VAL)
 #define DHD_PNO_ON()		(dhd_msg_level & DHD_PNO_VAL)
+#define DHD_FWLOG_ON()		(dhd_msg_level & DHD_FWLOG_VAL)
 #define DHD_RTT_ON()		(dhd_msg_level & DHD_RTT_VAL)
 
 #else /* defined(BCMDBG) || defined(DHD_DEBUG) */
@@ -89,8 +93,10 @@
 #define DHD_ARPOE(args)
 #define DHD_REORDER(args)
 #define DHD_PNO(args)
+#define DHD_FWLOG(args)
 
 #define DHD_TRACE_HW4	DHD_TRACE
+#define DHD_INFO_HW4	DHD_INFO
 
 #define DHD_ERROR_ON()		0
 #define DHD_TRACE_ON()		0
@@ -109,7 +115,7 @@
 #define DHD_REORDER_ON()	0
 #define DHD_NOCHECKDIED_ON()	0
 #define DHD_PNO_ON()		0
-#define DHD_RTT_ON()		0
+#define DHD_FWLOG_ON()		0
 #endif 
 
 #define DHD_LOG(args)

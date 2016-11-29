@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -523,8 +524,17 @@ void i915_scheduler_kill_all(struct drm_device *dev)
 				/* Wot no state?! */
 				BUG();
 			}
+
+			/*
+			 * Signal the fences of all pending work (it is
+			 * harmless to signal work that has already been
+			 * signalled)
+			 */
+			i915_sync_hung_request(node->params.request);
 		}
 	}
+
+	memset(scheduler->last_irq_seqno, 0, sizeof(scheduler->last_irq_seqno));
 
 	spin_unlock_irqrestore(&scheduler->lock, flags);
 
@@ -559,21 +569,25 @@ static void i915_scheduler_seqno_complete(struct intel_engine_cs *ring, uint32_t
 			return;
 		}
 
-		if (seqno == node->params.request->seqno)
+		if ((node->params.request->seqno != 0) &&
+		    (i915_seqno_passed(seqno, node->params.request->seqno))) {
 			break;
+		}
 	}
-
-	trace_i915_scheduler_landing(ring, seqno, node);
 
 	/*
 	 * NB: Lots of extra seqnos get added to the ring to track things
 	 * like cache flushes and page flips. So don't complain about if
 	 * no node was found.
 	 */
-	if (&node->link == &scheduler->node_queue[ring->id])
+	if (&node->link == &scheduler->node_queue[ring->id]) {
+		trace_i915_scheduler_landing(ring, seqno, NULL);
 		return;
+	}
 
-	BUG_ON(!I915_SQS_IS_FLYING(node));
+	trace_i915_scheduler_landing(ring, seqno, node);
+
+	WARN_ON(!I915_SQS_IS_FLYING(node));
 
 	/* Everything from here can be marked as done: */
 	list_for_each_entry_from(node, &scheduler->node_queue[ring->id], link) {
@@ -605,21 +619,23 @@ int i915_scheduler_handle_irq(struct intel_engine_cs *ring)
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	struct i915_scheduler   *scheduler = dev_priv->scheduler;
 	unsigned long       flags;
-	static uint32_t     last_seqno;
 	uint32_t            seqno;
 
 	seqno = ring->get_seqno(ring, false);
 
 	trace_i915_scheduler_irq(ring, seqno);
 
-	if (i915.scheduler_override & i915_so_direct_submit)
-		return 0;
-
-	if (seqno == last_seqno) {
-		/* Why are there sometimes multiple interrupts per seqno? */
+	if (i915.scheduler_override & i915_so_direct_submit) {
+		trace_printk("i915_so_direct_submit, return \n");
 		return 0;
 	}
-	last_seqno = seqno;
+
+	if (seqno == scheduler->last_irq_seqno[ring->id]) {
+		/* Why are there sometimes multiple interrupts per seqno? */
+		trace_printk("irq with same seqno = %u, return \n", seqno);
+		return 0;
+	}
+	scheduler->last_irq_seqno[ring->id] = seqno;
 
 	spin_lock_irqsave(&scheduler->lock, flags);
 	i915_scheduler_seqno_complete(ring, seqno);
@@ -1197,6 +1213,7 @@ int i915_scheduler_submit_max_priority(struct intel_engine_cs *ring,
 struct i915_sync_fence_waiter {
 	struct sync_fence_waiter sfw;
 	struct drm_device	 *dev;
+	struct i915_scheduler_queue_entry *node;
 };
 
 static void i915_scheduler_wait_fence_signaled(struct sync_fence *fence,
@@ -1213,18 +1230,34 @@ static void i915_scheduler_wait_fence_signaled(struct sync_fence *fence,
 	 * NB: The callback is executed at interrupt time, thus it can not
 	 * call _submit() directly. It must go via the delayed work handler.
 	 */
-	if (dev_priv)
+	if (dev_priv) {
+		struct i915_scheduler   *scheduler;
+		unsigned long           flags;
+
+		scheduler = dev_priv->scheduler;
+
+		spin_lock_irqsave(&scheduler->lock, flags);
+		i915_waiter->node->flags &= ~i915_qef_fence_waiting;
+		spin_unlock_irqrestore(&scheduler->lock, flags);
+
 		queue_work(dev_priv->wq, &dev_priv->mm.scheduler_work);
+	}
 
 	kfree(waiter);
 }
 
 static bool i915_scheduler_async_fence_wait(struct drm_device *dev,
-					    struct sync_fence *fence)
+					    struct i915_scheduler_queue_entry *node)
 {
 	struct i915_sync_fence_waiter	*fence_waiter;
+	struct sync_fence		*fence = node->params.fence_wait;
 	int				signaled;
 	bool				success = true;
+
+	if ((node->flags & i915_qef_fence_waiting) == 0)
+		node->flags |= i915_qef_fence_waiting;
+	else
+		return true;
 
 	if (fence == NULL)
 		return false;
@@ -1239,6 +1272,7 @@ static bool i915_scheduler_async_fence_wait(struct drm_device *dev,
 
 		INIT_LIST_HEAD(&fence_waiter->sfw.waiter_list);
 		fence_waiter->sfw.callback = i915_scheduler_wait_fence_signaled;
+		fence_waiter->node = node;
 		fence_waiter->dev = dev;
 
 		if (sync_fence_wait_async(fence, &fence_waiter->sfw)) {
@@ -1262,10 +1296,9 @@ static int i915_scheduler_pop_from_queue_locked(struct intel_engine_cs *ring,
 {
 	struct drm_i915_private            *dev_priv = ring->dev->dev_private;
 	struct i915_scheduler              *scheduler = dev_priv->scheduler;
-	struct i915_scheduler_queue_entry  *best_wait;
+	struct i915_scheduler_queue_entry  *best_wait, *fence_wait = NULL;
 	struct i915_scheduler_queue_entry  *best;
 	struct i915_scheduler_queue_entry  *node;
-	struct sync_fence  *fence_wait = NULL;
 	int     ret;
 	int     i;
 	bool	signalled, any_queued;
@@ -1362,7 +1395,7 @@ static int i915_scheduler_pop_from_queue_locked(struct intel_engine_cs *ring,
 			 * spinlock is still held and the wait requires doing
 			 * a memory allocation.
 			 */
-			fence_wait = best_wait->params.fence_wait;
+			fence_wait = best_wait;
 			ret = -EAGAIN;
 		} else if (only_remote) {
 			/* The only dependent buffers are on another ring. */

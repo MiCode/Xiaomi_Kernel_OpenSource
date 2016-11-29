@@ -2,6 +2,7 @@
  *
  * Intel Management Engine Interface (Intel MEI) Linux driver
  * Copyright (c) 2013-2014, Intel Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,6 +17,7 @@
 
 #include <linux/pci.h>
 #include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/delay.h>
 #include <linux/kthread.h>
 #include <linux/irqreturn.h>
@@ -196,6 +198,9 @@ static u32 mei_txe_aliveness_get(struct mei_device *dev)
 	return reg & HICR_HOST_ALIVENESS_RESP_ACK;
 }
 
+
+#define SEC_AVLIVENESS_WAIT_TIMEOUT (1*MSEC_PER_SEC)
+
 /**
  * mei_txe_aliveness_poll - waits for aliveness to settle
  *
@@ -203,26 +208,26 @@ static u32 mei_txe_aliveness_get(struct mei_device *dev)
  * @expected: expected aliveness value
  *
  * Polls for HICR_HOST_ALIVENESS_RESP.ALIVENESS_RESP to be set
- * returns > 0 if the expected value was received, -ETIME otherwise
+ * returns: 0 if the expected value was received, -ETIME otherwise
  */
 static int mei_txe_aliveness_poll(struct mei_device *dev, u32 expected)
 {
 	struct mei_txe_hw *hw = to_txe_hw(dev);
-	int t = 0;
+	ktime_t stop, start;
 
+	start = ktime_get();
+	stop = ktime_add(start, ms_to_ktime(SEC_AVLIVENESS_WAIT_TIMEOUT));
 	do {
 		hw->aliveness = mei_txe_aliveness_get(dev);
 		if (hw->aliveness == expected) {
 			dev->pg_event = MEI_PG_EVENT_IDLE;
 			dev_dbg(&dev->pdev->dev,
-				"aliveness settled after %d msecs\n", t);
-			return t;
+				"aliveness settled after %lld usecs\n",
+			ktime_to_us(ktime_sub(ktime_get(), start)));
+			return 0;
 		}
-		mutex_unlock(&dev->device_lock);
-		msleep(MSEC_PER_SEC / 5);
-		mutex_lock(&dev->device_lock);
-		t += MSEC_PER_SEC / 5;
-	} while (t < SEC_ALIVENESS_WAIT_TIMEOUT);
+		usleep_range(20, 50);
+	} while (ktime_compare(ktime_get(), stop) < 0);
 
 	dev->pg_event = MEI_PG_EVENT_IDLE;
 	dev_err(&dev->pdev->dev, "aliveness timed out\n");

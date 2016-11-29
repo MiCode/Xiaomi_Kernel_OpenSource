@@ -96,6 +96,7 @@ struct pmic_gpio {
 	int			trigger_type;
 	int			irq_mask;
 	struct pmic_gpio_data	*gpio_data;
+	int			print_wakeup;
 };
 
 int intel_soc_pmic_readb(int reg);

@@ -4,7 +4,7 @@
  *
  * Definitions subject to change without notice.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2015, Broadcom Corporation
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -46,10 +46,10 @@
 
 #define H2DRING_TXPOST_MAX_ITEM			512
 #define H2DRING_RXPOST_MAX_ITEM			256
-#define H2DRING_CTRL_SUB_MAX_ITEM		20
+#define H2DRING_CTRL_SUB_MAX_ITEM		64
 #define D2HRING_TXCMPLT_MAX_ITEM		1024
 #define D2HRING_RXCMPLT_MAX_ITEM		256
-#define D2HRING_CTRL_CMPLT_MAX_ITEM		20
+#define D2HRING_CTRL_CMPLT_MAX_ITEM		64
 enum {
 	DNGL_TO_HOST_MSGBUF,
 	HOST_TO_DNGL_MSGBUF
@@ -306,7 +306,7 @@ typedef uint32 dma_done_t;
 typedef struct ioctl_compl_resp_msg {
 	/* common message header */
 	cmn_msg_hdr_t		cmn_hdr;
-	/* completeion message header */
+	/* completion message header */
 	compl_msg_hdr_t		compl_hdr;
 	/* response buffer len where a host buffer is involved */
 	uint16			resp_len;
@@ -335,7 +335,7 @@ typedef struct ioctl_req_ack_msg {
 typedef struct wlevent_req_msg {
 	/* common message header */
 	cmn_msg_hdr_t		cmn_hdr;
-	/* completeion message header */
+	/* completion message header */
 	compl_msg_hdr_t		compl_hdr;
 	/* event data len valid with the event buffer */
 	uint16			event_data_len;
@@ -362,7 +362,7 @@ typedef struct pcie_dmaxfer_cmplt {
 typedef struct pcie_gen_status {
 	/* common message header */
 	cmn_msg_hdr_t		cmn_hdr;
-	/* completeion message header */
+	/* completion message header */
 	compl_msg_hdr_t		compl_hdr;
 	uint32			rsvd[2];
 	/* XOR checksum or a magic number to audit DMA done */
@@ -456,7 +456,7 @@ typedef union rxbuf_submit_item {
 typedef struct host_rxbuf_cmpl {
 	/* common message header */
 	cmn_msg_hdr_t	cmn_hdr;
-	/* completeion message header */
+	/* completion message header */
 	compl_msg_hdr_t	compl_hdr;
 	/*  filled up meta data len */
 	uint16		metadata_len;

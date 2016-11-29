@@ -1,7 +1,8 @@
 /*
  * Driver O/S-independent utility routines
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -20,7 +21,7 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmutils.c 473326 2014-04-29 00:37:35Z $
+ * $Id: bcmutils.c 530650 2015-01-30 13:06:35Z $
  */
 
 #include <bcm_cfg.h>
@@ -31,10 +32,6 @@
 
 #include <osl.h>
 #include <bcmutils.h>
-#if defined(BCMNVRAM)
-#include <siutils.h>
-#include <bcmnvram.h>
-#endif
 
 #else /* !BCMDRIVER */
 
@@ -833,6 +830,49 @@ pktsetprio(void *pkt, bool update_vtag)
 	return (rc | priority);
 }
 
+/* lookup user priority for specified DSCP */
+static uint8
+dscp2up(uint8 *up_table, uint8 dscp)
+{
+	uint8 up = 255;
+
+	/* lookup up from table if parameters valid */
+	if (up_table != NULL && dscp < UP_TABLE_MAX)
+		up = up_table[dscp];
+
+	/* 255 is unused value so return up from dscp */
+	if (up == 255)
+		up = dscp >> (IPV4_TOS_PREC_SHIFT - IPV4_TOS_DSCP_SHIFT);
+
+	return up;
+}
+
+/* set user priority by QoS Map Set table (UP table), table size is UP_TABLE_MAX */
+uint BCMFASTPATH
+pktsetprio_qms(void *pkt, uint8 *up_table, bool update_vtag)
+{
+	if (up_table) {
+		uint8 *pktdata;
+		uint pktlen;
+		uint8 dscp;
+		uint up = 0;
+		uint rc = 0;
+
+		pktdata = (uint8 *)PKTDATA(OSH_NULL, pkt);
+		pktlen = PKTLEN(OSH_NULL, pkt);
+
+		if (pktgetdscp(pktdata, pktlen, &dscp)) {
+			rc = PKTPRIO_DSCP;
+			up = dscp2up(up_table, dscp);
+			PKTSETPRIO(pkt, up);
+			printf("dscp=%d, up=%d\n", dscp, up);
+		}
+
+		return (rc | up);
+	} else
+		return pktsetprio(pkt, update_vtag);
+}
+
 /* Returns TRUE and DSCP if IP header found, FALSE otherwise.
  */
 bool BCMFASTPATH
@@ -1376,7 +1416,9 @@ bcm_parse_tlvs(void *buf, int buflen, uint key)
 	bcm_tlv_t *elt;
 	int totlen;
 
-	elt = (bcm_tlv_t*)buf;
+	if ((elt = (bcm_tlv_t *)buf) == NULL)
+		return NULL;
+
 	totlen = buflen;
 
 	/* find tagged parameter */
@@ -1520,13 +1562,12 @@ bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 
 	/* indicate the str was too short */
 	if (flags != 0) {
-		if (len < 2)
-			p -= 2 - len;	/* overwrite last char */
 		p += snprintf(p, 2, ">");
 	}
 
 	return (int)(p - buf);
 }
+#endif
 
 /* print bytes formatted as hex to a string. return the resulting string length */
 int
@@ -1542,7 +1583,6 @@ bcm_format_hex(char *str, const void *bytes, int len)
 	}
 	return (int)(p - str);
 }
-#endif
 
 /* pretty hex print a contiguous buffer */
 void

@@ -262,8 +262,11 @@ static void i8259A_shutdown(void)
 	 * the kernel initialization code can get it
 	 * out of.
 	 */
+	unsigned long flags;
+	raw_spin_lock_irqsave(&i8259A_lock, flags);
 	outb(0xff, PIC_MASTER_IMR);	/* mask all of 8259A-1 */
 	outb(0xff, PIC_SLAVE_IMR);	/* mask all of 8259A-2 */
+	raw_spin_unlock_irqrestore(&i8259A_lock, flags);
 }
 
 static struct syscore_ops i8259_syscore_ops = {

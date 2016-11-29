@@ -1,5 +1,6 @@
 /*
  * Copyright © 2012 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -77,6 +78,9 @@ static const struct file_operations rpm_file_ops = {
 #define PRI_SA	0x3
 #define PRI_SB	0x5
 #define SA_SB	0x6
+
+/* ddr wakeup latency in us */
+#define DDR_WAKEUP_LATENCY 33000
 
 /* FBC, or Frame Buffer Compression, is a technique employed to compress the
  * framebuffer contents in-memory, aiming at reducing the required bandwidth
@@ -651,154 +655,6 @@ out_disable:
 	i915_gem_stolen_cleanup_compression(dev);
 }
 
-static void intel_drrs_work_fn(struct work_struct *__work)
-{
-	struct intel_drrs_work *work =
-		container_of(to_delayed_work(__work),
-			     struct intel_drrs_work, work);
-	struct drm_device *dev = work->crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
-	/* Double check if the dual-display mode is active. */
-	if (dev_priv->drrs.is_clone)
-		return;
-
-	intel_dp_set_drrs_state(work->crtc->dev,
-		dev_priv->drrs.connector->panel.downclock_mode->vrefresh);
-}
-
-static void intel_cancel_drrs_work(struct drm_i915_private *dev_priv)
-{
-	if (dev_priv->drrs.drrs_work == NULL)
-		return;
-
-	cancel_delayed_work_sync(&dev_priv->drrs.drrs_work->work);
-}
-
-static void intel_enable_drrs(struct drm_crtc *crtc)
-{
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_dp *intel_dp = NULL;
-
-	intel_dp = enc_to_intel_dp(&dev_priv->drrs.connector->encoder->base);
-
-	if (intel_dp == NULL)
-		return;
-
-	intel_cancel_drrs_work(dev_priv);
-
-	if (intel_dp->drrs_state.refresh_rate_type != DRRS_LOW_RR) {
-		dev_priv->drrs.drrs_work->crtc = crtc;
-
-		/* Delay the actual enabling to let pageflipping cease and the
-		 * display to settle before starting DRRS
-		 */
-		schedule_delayed_work(&dev_priv->drrs.drrs_work->work,
-			msecs_to_jiffies(dev_priv->drrs.drrs_work->interval));
-	}
-}
-
-void intel_disable_drrs(struct drm_device *dev)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_dp *intel_dp = NULL;
-	struct drm_crtc *crtc;
-
-	if (dev_priv->drrs.connector == NULL)
-		return;
-
-	intel_dp = enc_to_intel_dp(&dev_priv->drrs.connector->encoder->base);
-
-	if (intel_dp == NULL)
-		return;
-
-	/* as part of disable DRRS, reset refresh rate to HIGH_RR */
-	if (intel_dp->drrs_state.refresh_rate_type == DRRS_LOW_RR) {
-		intel_cancel_drrs_work(dev_priv);
-		intel_dp_set_drrs_state(dev,
-			dev_priv->drrs.connector->panel.fixed_mode->vrefresh);
-	}
-
-	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-		if (crtc) {
-			if (intel_pipe_has_type(crtc, INTEL_OUTPUT_EDP)) {
-				if (!dev_priv->atomic_update)
-					intel_update_watermarks(crtc);
-			}
-		}
-	}
-}
-
-/**
- * intel_update_drrs - enable/disable DRRS as needed
- * @dev: the drm_device
-*/
-void intel_update_drrs(struct drm_device *dev)
-{
-	struct drm_crtc *crtc = NULL, *tmp_crtc;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
-	/* if drrs.connector is NULL, then drrs_init did not get called.
-	 * which means DRRS is not supported.
-	 */
-	if (dev_priv->drrs.connector == NULL)
-		return;
-
-	if (dev_priv->drrs.connector->panel.downclock_mode == NULL)
-		return;
-
-	list_for_each_entry(tmp_crtc, &dev->mode_config.crtc_list, head) {
-		if (intel_crtc_active(tmp_crtc)) {
-			if (crtc) {
-				DRM_DEBUG_KMS(
-				"more than one pipe active, disabling DRRS\n");
-				dev_priv->drrs.is_clone = true;
-				intel_disable_drrs(dev);
-				return;
-			}
-			crtc = tmp_crtc;
-		}
-	}
-
-	if (crtc == NULL) {
-		DRM_DEBUG_KMS("DRRS: crtc not initialized\n");
-		return;
-	}
-
-	dev_priv->drrs.is_clone = false;
-	intel_disable_drrs(dev);
-
-	/* re-enable idleness detection */
-	intel_enable_drrs(crtc);
-}
-
-void intel_init_drrs_idleness_detection(struct drm_device *dev,
-					struct intel_connector *connector)
-{
-	struct intel_drrs_work *work;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
-	if (i915.drrs_interval == 0) {
-		DRM_INFO("DRRS disable by flag\n");
-		return;
-	}
-
-	work = kzalloc(sizeof(struct intel_drrs_work), GFP_KERNEL);
-	if (!work) {
-		DRM_ERROR("Failed to allocate DRRS work structure\n");
-		return;
-	}
-
-	dev_priv->drrs.connector = connector;
-	dev_priv->drrs.is_clone = false;
-
-	work->interval = i915.drrs_interval;
-	INIT_DELAYED_WORK(&work->work, intel_drrs_work_fn);
-
-	dev_priv->drrs.drrs_work = work;
-}
-
 /* Check for current runtime state */
 bool i915_is_device_active(struct drm_device *drm_dev)
 {
@@ -875,6 +731,27 @@ EXPORT_SYMBOL(ospm_power_using_hw_begin);
 
 void ospm_power_using_hw_end(int hw_island)
 {
+	struct drm_connector *connector;
+	struct drm_device *dev = gdev;
+
+	if (!dev)
+		return;
+
+	/*
+	 * For DP and HDMI, we ignore the DPMS off if Audio is
+	 * running. Once Audio playback is done, Audio driver comes
+	 * here to drop the rpm reference that it had taken for
+	 * playback. Now, execute our (once ignored) DPMS OFF
+	 * so that Display can enter D0i3.
+	 */
+	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+		if (connector &&
+			to_intel_connector(connector)->dpms_off_pending) {
+			DRM_DEBUG_KMS("Running the pending DPMS OFF\n");
+			intel_connector_dpms(connector, DRM_MODE_DPMS_OFF);
+		}
+	}
+
 	intel_runtime_pm_put(gdev->dev_private);
 }
 EXPORT_SYMBOL(ospm_power_using_hw_end);
@@ -1544,12 +1421,7 @@ bool vlv_calculate_ddl(struct drm_crtc *crtc,
 
 u32 vlv_calculate_wm(struct intel_crtc *crtc, int pixel_size)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
 	const struct drm_display_mode *adjusted_mode;
-	int pipe = crtc->pipe;
-	int plane_stat = VLV_PLANE_STATS(dev_priv->pipe_plane_stat, pipe);
-	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
 	u32 line_time = 0, buffer_wm = 0;
 	int latency;
 	int hdisplay, htotal, clock;
@@ -1559,11 +1431,8 @@ u32 vlv_calculate_wm(struct intel_crtc *crtc, int pixel_size)
 	hdisplay = crtc->config.pipe_src_w;
 	clock = crtc->config.adjusted_mode.crtc_clock;
 
-	if (single_plane_enabled(plane_stat)
-			&& !(pipe_stat & PIPE_ENABLE(PIPE_C)))
-		latency = 33000;
-	else
-		latency = 20000;
+	/* for now keping max latency*/
+	latency = DDR_WAKEUP_LATENCY;
 
 	if (clock)
 		line_time = (htotal * 1000) / clock;
@@ -1599,6 +1468,7 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 	u32 dsparb2 = DSPARB2_50_25_25;
 	u32 pa = 0, sa = 0, sb = 0, sr = 0;
 	int fifo_size = 0;
+	u32 dsphowm = 0;
 
 	if (hweight32(plane_stat) == 1) {
 		/* Allocate the entire fifo to the plane that is enabled */
@@ -1625,7 +1495,7 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 					intel_crtc->vlv_wm.sr);
 		}
 	} else {
-		/* all 3 planes enabled, fifo allocation 50:25:25 */
+		/* multiplane mode, fifo allocation 50:25:25 */
 		dsparb |= DSPARB_50_25_25;
 		dsparb_h |= DSPARB2_50_25_25;
 
@@ -1648,123 +1518,196 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 		sr = 0;
 	}
 
-	if (sr) {
+	if ((I915_READ(DSPFW1) & VLV_FW_SR_MASK) != (sr << 23))
 		I915_WRITE_BITS(DSPFW1, (sr << 23), VLV_FW_SR_MASK);
-		I915_WRITE_BITS(DSPFW6, 0, VLV_FW_SR_WM1_MASK);
+
+	if ((I915_READ(DSPHOWM) & VLV_DSPHOWM_SR_MASK) != ((sr >> 9) << 24))
 		I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
 						~(VLV_DSPHOWM_SR_MASK)) |
 					((sr >> 9) << 24));
-	}
 
 	switch (pipe) {
 	case PIPE_A:
-		I915_WRITE_BITS(DSPARB, dsparb, DSPARB_PIPEA_MASK);
-		I915_WRITE_BITS(DSPARB2, dsparb_h, DSPARB2_PIPEA_MASK);
+		if ((I915_READ(DSPARB) & DSPARB_PIPEA_MASK) != dsparb)
+			I915_WRITE_BITS(DSPARB, dsparb, DSPARB_PIPEA_MASK);
+		if ((I915_READ(DSPARB2) & DSPARB2_PIPEA_MASK) != dsparb_h)
+			I915_WRITE_BITS(DSPARB2, dsparb_h, DSPARB2_PIPEA_MASK);
 
 		/* update wm */
-		I915_WRITE_BITS(DSPFW1, pa, VLV_FW_PIPEA_PA_MASK);
-		I915_WRITE_BITS(DSPFW2, sa, VLV_FW_PIPEA_SA_MASK);
-		I915_WRITE_BITS(DSPFW2, (sb << VLV_FW_PIPEA_SB_SHIFT),
+		if ((I915_READ(DSPFW1) & VLV_FW_PIPEA_PA_MASK) != pa)
+			I915_WRITE_BITS(DSPFW1, pa, VLV_FW_PIPEA_PA_MASK);
+
+		if ((I915_READ(DSPFW2) & VLV_FW_PIPEA_SA_MASK) != sa)
+			I915_WRITE_BITS(DSPFW2, sa, VLV_FW_PIPEA_SA_MASK);
+
+		if ((I915_READ(DSPFW2) & VLV_FW_PIPEA_SB_MASK) !=
+					(sb << VLV_FW_PIPEA_SB_SHIFT))
+			I915_WRITE_BITS(DSPFW2, (sb << VLV_FW_PIPEA_SB_SHIFT),
 							VLV_FW_PIPEA_SB_MASK);
-		I915_WRITE_BITS(DSPFW5, 0, VLV_FW_PIPEA_PA_WM1_MASK);
-		I915_WRITE_BITS(DSPFW4, 0, VLV_FW_PIPEA_SA_WM1_MASK);
-		I915_WRITE_BITS(DSPFW4, 0, VLV_FW_PIPEA_SB_WM1_MASK);
-		I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
-						~(VLV_DSPHOWM_PIPEA_MASK)) |
-						(((pa >> 8) | ((sa >> 8) <<
-						VLV_DSPHOWM_PIPEA_SA_SHIFT) |
-						((sb >> 8) <<
-						VLV_DSPHOWM_PIPEA_SB_SHIFT))));
+
+
+		dsphowm = (pa >> 8) | ((sa >> 8) << VLV_DSPHOWM_PIPEA_SA_SHIFT)
+				| ((sb >> 8) << VLV_DSPHOWM_PIPEA_SB_SHIFT);
+
+		if ((I915_READ(DSPHOWM) & VLV_DSPHOWM_PIPEA_MASK) !=  dsphowm)
+			I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
+					~VLV_DSPHOWM_PIPEA_MASK) | dsphowm);
 		break;
 	case PIPE_B:
-		I915_WRITE_BITS(DSPARB, (dsparb << DSPARB_PIPEB_SHIFT),
+		if ((I915_READ(DSPARB) & DSPARB_PIPEB_MASK) !=
+					(dsparb << DSPARB_PIPEB_SHIFT))
+			I915_WRITE_BITS(DSPARB, (dsparb << DSPARB_PIPEB_SHIFT),
 						DSPARB_PIPEB_MASK);
-		I915_WRITE_BITS(DSPARB2, (dsparb_h << DSPARB2_PIPEB_SHIFT),
+		if ((I915_READ(DSPARB2) & DSPARB2_PIPEB_MASK) !=
+					(dsparb_h << DSPARB2_PIPEB_SHIFT))
+			I915_WRITE_BITS(DSPARB2,
+					(dsparb_h << DSPARB2_PIPEB_SHIFT),
 						DSPARB2_PIPEB_MASK);
 		/* update wm */
-		I915_WRITE_BITS(DSPFW1, (pa << VLV_FW_PIPEB_PB_SHIFT),
+		if ((I915_READ(DSPFW1) & VLV_FW_PIPEB_PB_MASK) !=
+						(pa << VLV_FW_PIPEB_PB_SHIFT))
+			I915_WRITE_BITS(DSPFW1, (pa << VLV_FW_PIPEB_PB_SHIFT),
 							VLV_FW_PIPEB_PB_MASK);
-		I915_WRITE_BITS(DSPFW5, 0, VLV_FW_PIPEB_PB_WM1_MASK);
-		I915_WRITE_BITS(DSPFW7, sa, VLV_FW_PIPEB_SC_MASK);
-		I915_WRITE_BITS(DSPFW7, 0, VLV_FW_PIPEB_SC_WM1_MASK);
-		I915_WRITE_BITS(DSPFW7, (sb << VLV_FW_PIPEB_SD_SHIFT),
+
+		if ((I915_READ(DSPFW7) & VLV_FW_PIPEB_SC_MASK) != sa)
+			I915_WRITE_BITS(DSPFW7, sa, VLV_FW_PIPEB_SC_MASK);
+
+		if ((I915_READ(DSPFW7) & VLV_FW_PIPEB_SD_MASK) !=
+						(sb << VLV_FW_PIPEB_SD_SHIFT))
+			I915_WRITE_BITS(DSPFW7, (sb << VLV_FW_PIPEB_SD_SHIFT),
 							VLV_FW_PIPEB_SD_MASK);
-		I915_WRITE_BITS(DSPFW7, 0, VLV_FW_PIPEB_SD_WM1_MASK);
-		I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
-					~(VLV_DSPHOWM_PIPEB_MASK)) |
-				((((pa >> 8) << VLV_DSPHOWM_PIPEB_PB_SHIFT) |
+
+		dsphowm = ((pa >> 8) << VLV_DSPHOWM_PIPEB_PB_SHIFT) |
 				((sa >> 8) << VLV_DSPHOWM_PIPEB_SC_SHIFT) |
-				((sb >> 8) << VLV_DSPHOWM_PIPEB_SD_SHIFT))));
+				((sb >> 8) << VLV_DSPHOWM_PIPEB_SD_SHIFT);
+
+		if ((I915_READ(DSPHOWM) & VLV_DSPHOWM_PIPEB_MASK) !=  dsphowm)
+			I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
+					~(VLV_DSPHOWM_PIPEB_MASK)) | dsphowm);
 
 		break;
 	case PIPE_C:
-		I915_WRITE_BITS(DSPARB3, dsparb3, DSPARB3_PIPEC_MASK);
-		I915_WRITE_BITS(DSPARB2, (dsparb2 << DSPARB2_PIPEC_SHIFT),
-						DSPARB2_PIPEC_MASK);
+		if ((I915_READ(DSPARB3) & DSPARB3_PIPEC_MASK) != dsparb3)
+			I915_WRITE_BITS(DSPARB3, dsparb3, DSPARB3_PIPEC_MASK);
+		if ((I915_READ(DSPARB2) & DSPARB2_PIPEC_MASK) !=
+					(dsparb2 << DSPARB2_PIPEC_SHIFT))
+			I915_WRITE_BITS(DSPARB2,
+					(dsparb2 << DSPARB2_PIPEC_SHIFT),
+							DSPARB2_PIPEC_MASK);
 		/* update wm */
-		I915_WRITE_BITS(DSPFW9, (pa << VLV_FW_PIPEC_PC_SHIFT),
+		if ((I915_READ(DSPFW9) & VLV_FW_PIPEC_PC_MASK) !=
+						(pa << VLV_FW_PIPEC_PC_SHIFT))
+			I915_WRITE_BITS(DSPFW9, (pa << VLV_FW_PIPEC_PC_SHIFT),
 							VLV_FW_PIPEC_PC_MASK);
-		I915_WRITE_BITS(DSPFW9, 0, VLV_FW_PIPEC_PC_WM1_MASK);
-		I915_WRITE_BITS(DSPFW8, sa, VLV_FW_PIPEC_SE_MASK);
-		I915_WRITE_BITS(DSPFW8, 0, VLV_FW_PIPEC_SE_WM1_MASK);
-		I915_WRITE_BITS(DSPFW8, (sb << VLV_FW_PIPEC_SF_SHIFT),
+		if ((I915_READ(DSPFW8) & VLV_FW_PIPEC_SE_MASK) != sa)
+			I915_WRITE_BITS(DSPFW8, sa, VLV_FW_PIPEC_SE_MASK);
+		if ((I915_READ(DSPFW8) & VLV_FW_PIPEC_SF_MASK) !=
+						(sb << VLV_FW_PIPEC_SF_SHIFT))
+			I915_WRITE_BITS(DSPFW8, (sb << VLV_FW_PIPEC_SF_SHIFT),
 							VLV_FW_PIPEC_SF_MASK);
-		I915_WRITE_BITS(DSPFW8, 0, VLV_FW_PIPEC_SE_WM1_MASK);
-		I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
-						~(VLV_DSPHOWM_PIPEC_MASK)) |
-				((((pa >> 8) << VLV_DSPHOWM_PIPEC_PC_SHIFT) |
-				((sa >> 8) << VLV_DSPHOWM_PIPEC_SE_SHIFT) |
-				((sb >> 8) << VLV_DSPHOWM_PIPEC_SF_SHIFT))));
+
+		dsphowm = ((pa >> 8) << VLV_DSPHOWM_PIPEC_PC_SHIFT) |
+			((sa >> 8) << VLV_DSPHOWM_PIPEC_SE_SHIFT) |
+			((sb >> 8) << VLV_DSPHOWM_PIPEC_SF_SHIFT);
+		if ((I915_READ(DSPHOWM) & VLV_DSPHOWM_PIPEC_MASK) != dsphowm)
+			I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
+					~(VLV_DSPHOWM_PIPEC_MASK)) | dsphowm);
 		break;
 	}
+}
+
+void vlv_set_ddr_dvfs(struct drm_i915_private *dev_priv,
+		bool enable_ddr_dvfs)
+{
+	unsigned int val = 0x0;
+	unsigned int freq_mask = CHV_FORCE_DDR_LOW_FREQ |
+						CHV_FORCE_DDR_HIGH_FREQ;
+	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
+	struct drm_crtc *crtc;
+	struct intel_crtc_config *config;
+	unsigned int cur_dvfs_mode;
+
+	/* Set higher DDR frequency if DDR DVFS is being disabled */
+	if (!enable_ddr_dvfs)
+		val = CHV_FORCE_DDR_HIGH_FREQ;
+
+	/* Force DDR freq to low if userspace is requesting for it */
+	if (dev_priv->force_low_ddr_freq)
+		val = CHV_FORCE_DDR_LOW_FREQ;
+
+	crtc = single_enabled_crtc(dev_priv->dev);
+	/* DDR freq should be high if more than one pipe is active */
+	if (!single_pipe_enabled(pipe_stat) || crtc == NULL)
+		val = CHV_FORCE_DDR_HIGH_FREQ;
+	else {
+		config = &((to_intel_crtc(crtc))->config);
+
+		/* DDR freq should be high for resolution greater than 19x12 */
+		if ((config->pipe_src_w * config->pipe_src_h) > (1536 * 2048))
+			val = CHV_FORCE_DDR_HIGH_FREQ;
+	}
+
+	mutex_lock(&dev_priv->rps.hw_lock);
+
+	/* Return if required mode is already set */
+	cur_dvfs_mode = vlv_punit_read(dev_priv, CHV_DDR_DVFS);
+	if ((cur_dvfs_mode & freq_mask) == val)
+		goto out;
+
+	/* First set the DDR DVFS frequency to auto */
+	vlv_punit_write(dev_priv, CHV_DDR_DVFS, CHV_DDR_DVFS_DOORBELL);
+	if (wait_for((vlv_punit_read(dev_priv, CHV_DDR_DVFS) &
+				CHV_DDR_DVFS_DOORBELL) == 0, 3))
+		DRM_ERROR("timed out for punit change req\n");
+
+	if (val) {
+		vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
+		if (wait_for((vlv_punit_read(dev_priv, CHV_DDR_DVFS) &
+					CHV_DDR_DVFS_DOORBELL) == 0, 3))
+			DRM_ERROR("timed out for punit change req\n");
+	}
+
+out:
+	mutex_unlock(&dev_priv->rps.hw_lock);
 }
 
 void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 				struct drm_crtc *crtc, bool enable)
 {
 	unsigned int val = 0;
-	struct intel_crtc_config *config =
-				&((to_intel_crtc(crtc))->config);
 
 	if (!IS_VALLEYVIEW(dev_priv->dev))
 		return;
 
 	if (enable) {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
-			val = 0x0;
+			intel_wait_for_vblank(dev_priv->dev,
+					(to_intel_crtc(crtc))->pipe);
 			/*
-			 * cannot enable ddr dvfs if
-			 * resolution greater than 19x12
+			 * When display is in single plane maxfifo mode,
+			 * DDR DVFS can be enabled for better power saving.
 			 */
-			if ((config->pipe_src_w * config->pipe_src_h)
-					<= (1920 * 1200)) {
-				mutex_lock(&dev_priv->rps.hw_lock);
-				vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
-				mutex_unlock(&dev_priv->rps.hw_lock);
-			}
+			vlv_set_ddr_dvfs(dev_priv, true);
+
 			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 			mutex_lock(&dev_priv->rps.hw_lock);
 			val = vlv_punit_read(dev_priv, CHV_DPASSC);
 			vlv_punit_write(dev_priv, CHV_DPASSC,
 					(val | CHV_PW_MAXFIFO_MASK));
 			mutex_unlock(&dev_priv->rps.hw_lock);
+			dev_priv->evade_delay = 2000;
 		} else
 			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 		dev_priv->maxfifo_enabled = true;
 	} else {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
+
 			/*
-			 * cannot enable ddr dvfs if
-			 * resolution is greater than 19x12
+			 * If display is in multiplane/multidisplay mode,
+			 * disable DDR DVFS and set higher frequency.
 			 */
-			if ((config->pipe_src_w * config->pipe_src_h)
-					<= (1920 * 1200)) {
-				val = CHV_FORCE_DDR_HIGH_FREQ |
-						CHV_DDR_DVFS_DOORBELL;
-				mutex_lock(&dev_priv->rps.hw_lock);
-				vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
-				mutex_unlock(&dev_priv->rps.hw_lock);
-			}
+			vlv_set_ddr_dvfs(dev_priv, false);
+
 			mutex_lock(&dev_priv->rps.hw_lock);
 			val = vlv_punit_read(dev_priv, CHV_DPASSC);
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
@@ -1775,9 +1718,23 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 			I915_WRITE_BITS(DSPFW1, 0, 0xff800000);
 			I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
 							~(0x3000000)));
+			dev_priv->evade_delay = 2000;
 		} else
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
 		dev_priv->maxfifo_enabled = false;
+	}
+}
+
+void
+vlv_force_ddr_low_frequency(struct drm_i915_private *dev_priv, bool mode)
+{
+	if (mode != dev_priv->force_low_ddr_freq) {
+		dev_priv->force_low_ddr_freq = mode;
+
+		/* Change DVFS frequency directly only if higher DVFS is being
+		 * set. Low DVFS will be set only from maxfifo function */
+		if (!dev_priv->force_low_ddr_freq)
+			vlv_set_ddr_dvfs(dev_priv, mode);
 	}
 }
 

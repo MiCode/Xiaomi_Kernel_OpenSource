@@ -43,7 +43,6 @@ static ssize_t heci_dbgfs_read_meclients(struct file *fp, char __user *ubuf,
 	spin_lock_irqsave(&dev->me_clients_lock, flags);
 	for (i = 0; i < dev->me_clients_num; i++) {
 		cl = &dev->me_clients[i];
-		spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 		/* skip me clients that cannot be connected */
 		if (cl->props.max_number_of_connections == 0)
 			continue;
@@ -55,7 +54,6 @@ static ssize_t heci_dbgfs_read_meclients(struct file *fp, char __user *ubuf,
 			&cl->props.protocol_name,
 			cl->props.max_number_of_connections,
 			cl->props.max_msg_length);
-		spin_lock_irqsave(&dev->me_clients_lock, flags);
 	}
 	spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 out:

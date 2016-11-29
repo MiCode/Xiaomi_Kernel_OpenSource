@@ -2,6 +2,7 @@
  *  linux/kernel/reboot.c
  *
  *  Copyright (C) 2013  Linus Torvalds
+ *  Copyright (C) 2016 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)	"reboot: " fmt
@@ -65,8 +66,17 @@ void emergency_restart(void)
 }
 EXPORT_SYMBOL_GPL(emergency_restart);
 
+#define REBOOT_WORK_TIMEOUT 60
+static void reboot_timeout_fn(unsigned long data)
+{
+	pr_err("reboot/shutdown timeout!\n");
+	BUG();
+}
+static DEFINE_TIMER(reboot_timer, reboot_timeout_fn, 0, 0);
+
 void kernel_restart_prepare(char *cmd)
 {
+	mod_timer(&reboot_timer, jiffies + REBOOT_WORK_TIMEOUT * HZ);
 	blocking_notifier_call_chain(&reboot_notifier_list, SYS_RESTART, cmd);
 	system_state = SYSTEM_RESTART;
 	usermodehelper_disable();
@@ -146,6 +156,7 @@ EXPORT_SYMBOL_GPL(kernel_restart);
 
 static void kernel_shutdown_prepare(enum system_states state)
 {
+	mod_timer(&reboot_timer, jiffies + REBOOT_WORK_TIMEOUT * HZ);
 	blocking_notifier_call_chain(&reboot_notifier_list,
 		(state == SYSTEM_HALT) ? SYS_HALT : SYS_POWER_OFF, NULL);
 	system_state = state;

@@ -2,6 +2,7 @@
  * Support for Clovertrail PNW Camera Imaging ISP subsystem.
  *
  * Copyright (c) 2013 Intel Corporation. All Rights Reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -2406,6 +2407,7 @@ int atomisp_css_stop(struct atomisp_sub_device *asd,
 	atomisp_flush_params_queue(&asd->video_out_vf);
 	atomisp_flush_params_queue(&asd->video_out_preview);
 	atomisp_flush_params_queue(&asd->video_out_video_capture);
+	atomisp_free_css_parameters(&asd->params.css_param);
 	memset(&asd->params.css_param, 0, sizeof(asd->params.css_param));
 	return 0;
 }

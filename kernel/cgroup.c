@@ -12,6 +12,7 @@
  *  --------------------------------------------------
  *  Copyright (C) 2003 BULL SA.
  *  Copyright (C) 2004-2006 Silicon Graphics, Inc.
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  *  Portions derived from Patrick Mochel's sysfs code.
  *  sysfs is Copyright (c) 2001-3 Patrick Mochel
@@ -2177,6 +2178,7 @@ retry_find_task:
 		 */
 		tcred = __task_cred(tsk);
 		if (!uid_eq(cred->euid, GLOBAL_ROOT_UID) &&
+		    !uid_eq(cred->euid, GLOBAL_SYSTEM_UID) &&
 		    !uid_eq(cred->euid, tcred->uid) &&
 		    !uid_eq(cred->euid, tcred->suid)) {
 			/*

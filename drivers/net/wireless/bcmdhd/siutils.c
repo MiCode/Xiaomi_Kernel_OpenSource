@@ -2,8 +2,9 @@
  * Misc utility routines for accessing chip-specific features
  * of the SiliconBackplane-based Broadcom chips.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -22,7 +23,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: siutils.c 474902 2014-05-02 18:31:33Z $
+ * $Id: siutils.c 506728 2014-10-07 07:22:45Z $
  */
 
 #include <bcm_cfg.h>
@@ -354,8 +355,18 @@ si_buscore_setup(si_info_t *sii, chipcregs_t *cc, uint bustype, uint32 savewin,
 	}
 
 #if defined(PCIE_FULL_DONGLE)
-	pci = FALSE;
-#endif
+	if (pcie) {
+		if (pcie_gen2)
+			sii->pub.buscoretype = PCIE2_CORE_ID;
+		else
+			sii->pub.buscoretype = PCIE_CORE_ID;
+		sii->pub.buscorerev = pcierev;
+		sii->pub.buscoreidx = pcieidx;
+	}
+	BCM_REFERENCE(pci);
+	BCM_REFERENCE(pcirev);
+	BCM_REFERENCE(pciidx);
+#else
 	if (pci) {
 		sii->pub.buscoretype = PCI_CORE_ID;
 		sii->pub.buscorerev = pcirev;
@@ -368,6 +379,7 @@ si_buscore_setup(si_info_t *sii, chipcregs_t *cc, uint bustype, uint32 savewin,
 		sii->pub.buscorerev = pcierev;
 		sii->pub.buscoreidx = pcieidx;
 	}
+#endif /* defined(PCIE_FULL_DONGLE) */
 
 	SI_VMSG(("Buscore id/type/rev %d/0x%x/%d\n", sii->pub.buscoreidx, sii->pub.buscoretype,
 	         sii->pub.buscorerev));
@@ -503,6 +515,18 @@ si_doattach(si_info_t *sii, uint devid, osl_t *osh, void *regs,
 		SI_ERROR(("%s: chipcommon register space is null \n", __FUNCTION__));
 		return NULL;
 	}
+#ifdef COSTOMER_HW4
+#ifdef CONFIG_MACH_UNIVERSAL5433
+	/* old revision check */
+	if (!check_rev()) {
+		/* abnormal link status */
+		if (!check_pcie_link_status()) {
+			printk("%s : PCIE LINK is abnormal status\n", __FUNCTION__);
+			return NULL;
+		}
+	}
+#endif /* CONFIG_MACH_UNIVERSAL5433 */
+#endif
 	w = R_REG(osh, &cc->chipid);
 	if ((w & 0xfffff) == 148277) w -= 65532;
 	sih->socitype = (w & CID_TYPE_MASK) >> CID_TYPE_SHIFT;
@@ -1989,6 +2013,42 @@ socram_banksize(si_info_t *sii, sbsocramregs_t *regs, uint8 idx, uint8 mem_type)
 	return banksize;
 }
 
+void si_socram_set_bankpda(si_t *sih, uint32 bankidx, uint32 bankpda)
+{
+	si_info_t *sii = SI_INFO(sih);
+	si_cores_info_t *cores_info = (si_cores_info_t *)sii->cores_info;
+	uint origidx;
+	uint intr_val = 0;
+	sbsocramregs_t *regs;
+	bool wasup;
+	uint corerev;
+
+	/* Block ints and save current core */
+	INTR_OFF(sii, intr_val);
+	origidx = si_coreidx(sih);
+
+	/* Switch to SOCRAM core */
+	if (!(regs = si_setcore(sih, SOCRAM_CORE_ID, 0)))
+		goto done;
+
+	if (!(wasup = si_iscoreup(sih)))
+		si_core_reset(sih, 0, 0);
+
+	corerev = si_corerev(sih);
+	if (corerev >= 16) {
+		W_REG(sii->osh, &regs->bankidx, bankidx);
+		W_REG(sii->osh, &regs->bankpda, bankpda);
+	}
+
+	/* Return to previous state and core */
+	if (!wasup)
+		si_core_disable(sih, 0);
+	si_setcoreidx(sih, origidx);
+
+done:
+	INTR_RESTORE(sii, intr_val);
+}
+
 void
 si_socdevram(si_t *sih, bool set, uint8 *enable, uint8 *protect, uint8 *remap)
 {
@@ -2395,6 +2455,9 @@ si_socram_srmem_size(si_t *sih)
 	if ((CHIPID(sih->chip) == BCM4334_CHIP_ID) && (CHIPREV(sih->chiprev) < 2)) {
 		return (32 * 1024);
 	}
+
+	if (CHIPID(sih->chip) == BCM43430_CHIP_ID)
+		return (64 * 1024);
 
 	/* Block ints and save current core */
 	INTR_OFF(sii, intr_val);

@@ -1,5 +1,6 @@
 /*
  * Copyright © 2011-2012 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -647,6 +648,37 @@ mi_set_context(struct intel_engine_cs *ring,
 	return ret;
 }
 
+static inline bool should_skip_switch(struct intel_engine_cs *ring,
+				      struct intel_context *from,
+				      struct intel_context *to)
+{
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
+
+	if (to->remap_slice)
+		return false;
+
+	if (to->ppgtt) {
+		if (from == to && !test_bit(ring->id,
+				&to->ppgtt->pd_dirty_rings))
+			return true;
+	} else if (dev_priv->mm.aliasing_ppgtt) {
+		if (from == to && !test_bit(ring->id,
+				&dev_priv->mm.aliasing_ppgtt->pd_dirty_rings))
+			return true;
+	}
+
+	return false;
+}
+
+static bool
+needs_pd_load_pre(struct intel_engine_cs *ring, struct intel_context *to)
+{
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
+
+	return ((INTEL_INFO(ring->dev)->gen < 8) ||
+			(ring != &dev_priv->ring[RCS])) && to->ppgtt;
+}
+
 static int do_switch(struct intel_engine_cs *ring,
 		     struct intel_context *to)
 {
@@ -661,7 +693,7 @@ static int do_switch(struct intel_engine_cs *ring,
 		BUG_ON(!i915_gem_obj_is_pinned(from->legacy_hw_ctx.rcs_state));
 	}
 
-	if (from == to && !to->remap_slice)
+	if (should_skip_switch(ring, from, to))
 		return 0;
 
 	/* Trying to pin first makes error handling easier. */
@@ -679,10 +711,20 @@ static int do_switch(struct intel_engine_cs *ring,
 	 */
 	from = ring->last_context;
 
-	if (to->ppgtt) {
+	if (needs_pd_load_pre(ring, to)) {
+		/* Older GENs and non render rings still want the load first,
+		 * "PP_DCLV followed by PP_DIR_BASE register through Load
+		 * Register Immediate commands in Ring Buffer before submitting
+		 * a context."*/
 		ret = to->ppgtt->switch_mm(to->ppgtt, ring, false);
 		if (ret)
 			goto unpin_out;
+
+		/* Doing a PD load always reloads the page dirs */
+		if (to->ppgtt)
+			clear_bit(ring->id, &to->ppgtt->pd_dirty_rings);
+		else
+			clear_bit(ring->id, &dev_priv->mm.aliasing_ppgtt->pd_dirty_rings);
 	}
 
 	if (ring != &dev_priv->ring[RCS]) {
@@ -709,12 +751,37 @@ static int do_switch(struct intel_engine_cs *ring,
 		vma->bind_vma(vma, to->legacy_hw_ctx.rcs_state->cache_level, GLOBAL_BIND);
 	}
 
-	if (!to->legacy_hw_ctx.initialized || i915_gem_context_is_default(to))
+	/* GEN8 does *not* require an explicit reload if the PDPs have been
+	 * setup, and we do not wish to move them.
+	 */
+	if (!to->legacy_hw_ctx.initialized) {
 		hw_flags |= MI_RESTORE_INHIBIT;
+		/* NB: If we inhibit the restore, the context is not allowed to
+		 * die because future work may end up depending on valid address
+		 * space. This means we must enforce that a page table load
+		 * occur when this occurs. */
+	} else if (to->ppgtt && test_and_clear_bit(ring->id, &to->ppgtt->pd_dirty_rings))
+		hw_flags |= MI_FORCE_RESTORE;
 
 	ret = mi_set_context(ring, to, hw_flags);
 	if (ret)
 		goto unpin_out;
+
+	if (IS_GEN8(ring->dev) && to->ppgtt && (hw_flags & MI_RESTORE_INHIBIT)) {
+		/* We have a valid page directory (scratch) to switch to. This
+		 * allows the old VM to be freed. Note that if anything occurs
+		 * between the set context, and here, we are f*cked */
+		ret = to->ppgtt->switch_mm(to->ppgtt, ring, false);
+		/* The hardware context switch is emitted, but we haven't
+		 * actually changed the state - so it's probably safe to bail
+		 * here. Still, let the user know something dangerous has
+		 * happened.
+		 */
+		if (ret) {
+			DRM_ERROR("Failed to change address space on context switch\n");
+			goto unpin_out;
+		}
+	}
 
 	for (i = 0; i < MAX_L3_SLICES; i++) {
 		if (!(to->remap_slice & (1<<i)))
@@ -753,7 +820,11 @@ static int do_switch(struct intel_engine_cs *ring,
 		i915_gem_context_unreference(from);
 	}
 
-	uninitialized = !to->legacy_hw_ctx.initialized && from == NULL;
+	if (INTEL_INFO(ring->dev)->gen < 8)
+		uninitialized = !to->legacy_hw_ctx.initialized && from == NULL;
+	else
+		uninitialized = !to->legacy_hw_ctx.initialized;
+
 	to->legacy_hw_ctx.initialized = true;
 
 done:

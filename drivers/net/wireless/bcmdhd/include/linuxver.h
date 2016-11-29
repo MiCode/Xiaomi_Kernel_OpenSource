@@ -2,8 +2,9 @@
  * Linux-specific abstractions to gain some independence from linux kernel versions.
  * Pave over some 2.2 versus 2.4 versus 2.6 kernel differences.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -604,7 +605,8 @@ static inline bool binary_sema_up(tsk_ctl_t *tsk)
 	(tsk_ctl)->proc_name = name;  \
 	(tsk_ctl)->terminated = FALSE; \
 	(tsk_ctl)->p_task  = kthread_run(thread_func, tsk_ctl, (char*)name); \
-	(tsk_ctl)->thr_pid = (tsk_ctl)->p_task->pid; \
+	if (!IS_ERR((tsk_ctl)->p_task)) \
+		(tsk_ctl)->thr_pid = (tsk_ctl)->p_task->pid; \
 	spin_lock_init(&((tsk_ctl)->spinlock)); \
 	DBG_THR(("%s(): thread:%s:%lx started\n", __FUNCTION__, \
 		(tsk_ctl)->proc_name, (tsk_ctl)->thr_pid)); \

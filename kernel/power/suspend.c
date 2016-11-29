@@ -4,6 +4,7 @@
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This file is released under the GPLv2.
  */
@@ -189,6 +190,16 @@ void __attribute__ ((weak)) arch_suspend_enable_irqs(void)
  *
  * This function should be called after devices have been suspended.
  */
+
+static struct task_struct *ymz_main_suspend;
+void ymz_dump_main_suspend(void)
+{
+	if (ymz_main_suspend)
+		show_stack(ymz_main_suspend, NULL);
+}
+
+int iTCO_wdt_suspend_afternoirq(void);
+int iTCO_wdt_resume_early(void);
 static int suspend_enter(suspend_state_t state, bool *wakeup)
 {
 	char suspend_abort[MAX_SUSPEND_ABORT_LEN];
@@ -263,7 +274,12 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		syscore_resume();
 	}
 
+	clockevents_notify(CLOCK_EVT_NOTIFY_RESUME, NULL);
+
 	arch_suspend_enable_irqs();
+
+	iTCO_wdt_resume_early();
+
 	BUG_ON(irqs_disabled());
 
  Enable_cpus:

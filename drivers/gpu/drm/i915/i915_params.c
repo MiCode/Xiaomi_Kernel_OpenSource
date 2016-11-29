@@ -1,5 +1,6 @@
 /*
  * Copyright © 2014 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
@@ -38,6 +39,7 @@ struct i915_params i915 __read_mostly = {
 	.enable_fbc = -1,
 	.enable_execlists = -1,
 	.enable_hangcheck = true,
+	.enable_inconsistency_reset = false,
 	.enable_ppgtt = -1,
 	.enable_psr = 1,
 	.preliminary_hw_support = IS_ENABLED(CONFIG_DRM_I915_PRELIMINARY_HW_SUPPORT),
@@ -124,6 +126,19 @@ MODULE_PARM_DESC(enable_hangcheck,
 	"Periodically check GPU activity for detecting hangs. "
 	"WARNING: Disabling this can cause system wide hangs. "
 	"(default: true)");
+
+module_param_named(enable_inconsistency_reset, i915.enable_inconsistency_reset, bool, 0644);
+MODULE_PARM_DESC(enable_inconsistency_reset,
+	"Allow promotion to full GPU reset in the event of a context submission "
+	"state inconsistency detection followed by a failed attempt to fake the "
+	"presumed lost context event interrupt. "
+	"If disabled the driver will not have any further options than to "
+	"simply fake more context event interrupts. If those also turn out to be "
+	"ineffective the driver might be caught in an irrecoverably hung state. "
+	"However, this scenario is hypothetical and has never been observed in "
+	"practice where faking interrupts have always turned out to be effective "
+	"in the case of lost context event interrupts. "
+	"(default: false)");
 
 module_param_named(enable_ppgtt, i915.enable_ppgtt, int, 0400);
 MODULE_PARM_DESC(enable_ppgtt,

@@ -972,4 +972,7 @@ config TOUCHSCREEN_FOCALTECH_FT5X06
 	  module will be called ft5x06_ts.
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+
+source "drivers/input/touchscreen/ft5x46/Kconfig"
+
 endif

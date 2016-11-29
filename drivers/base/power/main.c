@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This file is released under the GPLv2
  *
@@ -1576,9 +1577,6 @@ int dpm_prepare(pm_message_t state)
 		get_device(dev);
 		mutex_unlock(&dpm_list_mtx);
 
-		pm_suspend_dbg(PM_SUSPEND_DBG_SUSPEND,
-			"PM: device[%s] driver[%s] suspend prepare enter\n",
-			dev_name(dev), dev_driver_string(dev));
 
 		error = device_prepare(dev, state);
 

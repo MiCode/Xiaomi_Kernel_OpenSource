@@ -2,6 +2,7 @@
  * Most HECI provider device and HECI logic declarations
  *
  * Copyright (c) 2003-2015, Intel Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -127,7 +128,8 @@ struct wr_msg_ctl_info {
 struct heci_hw_ops {
 	bool (*host_is_ready)(struct heci_device *dev);
 	bool (*hw_is_ready)(struct heci_device *dev);
-	int (*hw_reset)(struct heci_device *dev, bool enable);
+	int (*hw_reset)(struct heci_device *dev);
+	int (*ipc_reset)(struct heci_device *dev);
 	int (*hw_start)(struct heci_device *dev);
 	void (*hw_config)(struct heci_device *dev);
 	int (*write)(struct heci_device *dev, struct heci_msg_hdr *hdr,
@@ -278,6 +280,7 @@ void heci_device_init(struct heci_device *dev);
 void heci_reset(struct heci_device *dev, int interrupts);
 int heci_start(struct heci_device *dev);
 void heci_stop(struct heci_device *dev);
+void heci_device_disable(struct heci_device *dev);
 
 static inline unsigned long heci_secs_to_jiffies(unsigned long sec)
 {
@@ -291,9 +294,15 @@ static inline void heci_hw_config(struct heci_device *dev)
 {
 	dev->ops->hw_config(dev);
 }
-static inline int heci_hw_reset(struct heci_device *dev, bool enable)
+
+static inline int heci_ipc_reset(struct heci_device *dev)
 {
-	return dev->ops->hw_reset(dev, enable);
+	return dev->ops->ipc_reset(dev);
+}
+
+static inline int heci_hw_reset(struct heci_device *dev)
+{
+	return dev->ops->hw_reset(dev);
 }
 
 static inline int heci_hw_start(struct heci_device *dev)

@@ -28,7 +28,6 @@ struct power_supply_charger {
 	struct work_struct wireless_chrgr_work;
 	struct mutex evt_lock;
 	struct power_supply_cable_props cable_props;
-	wait_queue_head_t wait_chrg_enable;
 };
 
 static struct power_supply_charger psy_chrgr;
@@ -162,12 +161,7 @@ static int handle_cable_notification(struct notifier_block *nb,
 	if (!data)
 		return NOTIFY_DONE;
 
-	if (event == USB_EVENT_ENUMERATED) {
-		cap.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
-		cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
-		cap.ma = *(int *)data;
-	} else
-		cap = *(struct power_supply_cable_props *)data;
+	cap = *(struct power_supply_cable_props *)data;
 
 	process_cable_props(&cap);
 
@@ -219,22 +213,6 @@ static void init_charger_cables(struct power_supply_cable_props *cable_lst,
 
 	if (!otg_get_chrg_status(otg_xceiver, &cap))
 		process_cable_props(&cap);
-}
-
-static inline int is_charging_can_be_enabled(struct power_supply *psy)
-{
-	int health;
-
-	health = HEALTH(psy);
-	if (IS_BATTERY(psy)) {
-		return (health == POWER_SUPPLY_HEALTH_GOOD) ||
-				(health == POWER_SUPPLY_HEALTH_DEAD);
-	} else {
-		return
-	((CURRENT_THROTTLE_ACTION(psy) != PSY_THROTTLE_DISABLE_CHARGER) &&
-	(CURRENT_THROTTLE_ACTION(psy) != PSY_THROTTLE_DISABLE_CHARGING) &&
-	(INLMT(psy) >= 100) && (health == POWER_SUPPLY_HEALTH_GOOD));
-	}
 }
 
 static inline void get_cur_chrgr_prop(struct power_supply *psy,
@@ -538,52 +516,9 @@ static int get_supplied_by_list(struct power_supply *psy,
 	return cnt;
 }
 
-static int get_battery_status(struct power_supply *psy)
-{
-	int cnt, status, ret;
-	struct power_supply *chrgr_lst[MAX_CHARGER_COUNT];
-	struct batt_props bat_prop;
-	int health;
-
-	if (!IS_BATTERY(psy))
-		return -EINVAL;
-
-	ret = get_bat_prop_cache(psy, &bat_prop);
-	if (ret)
-		return ret;
-
-	status = POWER_SUPPLY_STATUS_DISCHARGING;
-	cnt = get_supplied_by_list(psy, chrgr_lst);
-
-
-	while (cnt--) {
-		if (IS_PRESENT(chrgr_lst[cnt]))
-			status = POWER_SUPPLY_STATUS_NOT_CHARGING;
-
-		if (is_charging_can_be_enabled(chrgr_lst[cnt]) &&
-				(IS_HEALTH_GOOD(chrgr_lst[cnt]))) {
-			health = HEALTH(psy);
-			if ((health == POWER_SUPPLY_HEALTH_GOOD) ||
-				(health == POWER_SUPPLY_HEALTH_DEAD)) {
-				/* do charging with Good / Dead battery */
-				if ((bat_prop.algo_stat ==
-							PSY_ALGO_STAT_FULL) ||
-					(bat_prop.algo_stat ==
-							PSY_ALGO_STAT_MAINT))
-					status = POWER_SUPPLY_STATUS_FULL;
-				else if (IS_CHARGING_ENABLED(chrgr_lst[cnt]))
-					status = POWER_SUPPLY_STATUS_CHARGING;
-			}
-		}
-	}
-	pr_devel("%s Set status=%d for %s\n", __func__, status, psy->name);
-
-	return status;
-}
-
 static void update_charger_online(struct power_supply *psy)
 {
-	if (IS_CHARGER_ENABLED(psy))
+	if (IS_PRESENT(psy))
 		set_charger_online(psy, 1);
 	else
 		set_charger_online(psy, 0);
@@ -615,27 +550,9 @@ static void update_sysfs(struct power_supply *psy)
 
 			update_charger_online(chrgr_lst[cnt]);
 		}
-		/* set battery status */
-		if (set_battery_status(psy, get_battery_status(psy)))
-			/* forcefully cache the battery properties */
-			cache_cur_batt_prop_force(psy);
 	} else {
 		/*set charger online */
 		update_charger_online(psy);
-		/*set battery status */
-		for (i = 0; i < psy->num_supplicants; i++) {
-			psb =
-			    power_supply_get_by_name(psy->
-						     supplied_to[i]);
-			if (psb && IS_BATTERY(psb) && IS_PRESENT(psb))
-				if (set_battery_status(psb,
-					get_battery_status(psb)))
-					/*
-					 * forcefully cache the battery
-					 * properties
-					 */
-					cache_cur_batt_prop_force(psb);
-		}
 	}
 }
 
@@ -670,10 +587,8 @@ static int trigger_algo(struct power_supply *psy)
 		return -EINVAL;
 	}
 
-	bat_prop.algo_stat = algo->get_next_cc_cv(bat_prop,
-						chrg_profile, &cc, &cv);
+	algo->get_next_cc_cv(bat_prop, chrg_profile, &cc, &cv);
 
-	pr_info("%s:Algo_status:%d\n", __func__, bat_prop.algo_stat);
 
 	cache_bat_prop(&bat_prop, false);
 
@@ -699,78 +614,16 @@ static int trigger_algo(struct power_supply *psy)
 		set_cv(chrgr_lst[cnt], cv);
 	}
 
-	if ((bat_prop.algo_stat == PSY_ALGO_STAT_NOT_CHARGE) ||
-		(bat_prop.algo_stat == PSY_ALGO_STAT_FULL))
-		return -EOPNOTSUPP;
-
 	return 0;
-}
-
-static inline void wait_for_charging_enabled(struct power_supply *psy)
-{
-	wait_event_timeout(psy_chrgr.wait_chrg_enable,
-			(IS_CHARGING_ENABLED(psy)), HZ);
-}
-
-static inline void enable_supplied_by_charging
-		(struct power_supply *psy, bool is_enable)
-{
-	struct power_supply *chrgr_lst[MAX_CHARGER_COUNT];
-	int cnt;
-
-	if (psy->type != POWER_SUPPLY_TYPE_BATTERY)
-		return;
-	/* Get list of chargers supplying power to this battery and
-	 * disable charging for all chargers
-	 */
-	cnt = get_supplied_by_list(psy, chrgr_lst);
-	if (cnt == 0)
-		return;
-	while (cnt--) {
-		if (!IS_PRESENT(chrgr_lst[cnt]))
-			continue;
-		if (is_enable && is_charging_can_be_enabled(chrgr_lst[cnt]) &&
-				is_charging_can_be_enabled(psy)) {
-			enable_charging(chrgr_lst[cnt]);
-			wait_for_charging_enabled(chrgr_lst[cnt]);
-		} else
-			disable_charging(chrgr_lst[cnt]);
-	}
 }
 
 static void __power_supply_trigger_charging_handler(struct power_supply *psy)
 {
-	int i;
-	struct power_supply *psb = NULL;
-
 	mutex_lock(&psy_chrgr.evt_lock);
 
 	if (is_trigger_charging_algo(psy)) {
 
-		if (IS_BATTERY(psy)) {
-			if (trigger_algo(psy)) {
-				enable_supplied_by_charging(psy, false);
-			} else {
-				enable_supplied_by_charging(psy, true);
-			}
-		} else if (IS_CHARGER(psy)) {
-			for (i = 0; i < psy->num_supplicants; i++) {
-				psb =
-				    power_supply_get_by_name(psy->
-							     supplied_to[i]);
-
-				if (psb && IS_BATTERY(psb) && IS_PRESENT(psb)) {
-					if (trigger_algo(psb)) {
-						disable_charging(psy);
-						break;
-					} else if (is_charging_can_be_enabled
-								(psy)) {
-						enable_charging(psy);
-						wait_for_charging_enabled(psy);
-					}
-				}
-			}
-		}
+		trigger_algo(psy);
 		update_sysfs(psy);
 		power_supply_changed(psy);
 	}
@@ -799,25 +652,11 @@ static void trigger_algo_psy_class(struct work_struct *work)
 			__trigger_charging_handler);
 }
 
-static bool is_cable_connected(void)
-{
-	int i;
-	struct power_supply_cable_props *cable;
-
-	for (i = 0; i < ARRAY_SIZE(cable_list); ++i) {
-		cable = cable_list + i;
-		if (IS_CABLE_ACTIVE(cable->chrg_evt))
-			return true;
-	}
-	return false;
-}
-
 void power_supply_trigger_charging_handler(struct power_supply *psy)
 {
 	if (!psy_chrgr.is_cable_evt_reg)
 		return;
 
-	wake_up(&psy_chrgr.wait_chrg_enable);
 
 	if (psy)
 		__power_supply_trigger_charging_handler(psy);
@@ -880,14 +719,8 @@ static int select_chrgr_cable(struct device *dev, void *data)
 
 	/* no cable connected. disable charging */
 	if (!max_ma_cable) {
-		if ((IS_CHARGER_ENABLED(psy) || IS_CHARGING_ENABLED(psy))) {
-			disable_charging(psy);
-			disable_charger(psy);
-		}
-		set_cc(psy, 0);
-		set_cv(psy, 0);
-		set_inlmt(psy, 0);
 		/* set present and online as 0 */
+		enable_hvdcp(psy, 0);
 		set_present(psy, 0);
 		update_charger_online(psy);
 		switch_cable(psy, POWER_SUPPLY_CHARGER_TYPE_NONE);
@@ -901,6 +734,8 @@ static int select_chrgr_cable(struct device *dev, void *data)
 	 * capabilities changed.switch cable and enable charger and charging
 	 */
 	set_present(psy, 1);
+	update_charger_online(psy);
+	power_supply_changed(psy);
 	if (CABLE_TYPE(psy) != max_ma_cable->chrg_type) {
 		if (max_ma_cable->chrg_evt ==
 				POWER_SUPPLY_CHARGER_EVENT_ATTACH) {
@@ -915,29 +750,6 @@ static int select_chrgr_cable(struct device *dev, void *data)
 			schedule_work(&psy_chrgr.wireless_chrgr_work);
 		}
 		switch_cable(psy, max_ma_cable->chrg_type);
-	}
-
-	if (IS_CHARGER_CAN_BE_ENABLED(psy) &&
-			(max_ma_cable->ma >= 100) &&
-			IS_CABLE_READY_TO_SUPPLY(max_ma_cable->chrg_evt)) {
-		struct psy_batt_thresholds bat_thresh;
-		memset(&bat_thresh, 0, sizeof(bat_thresh));
-		enable_charger(psy);
-
-		update_charger_online(psy);
-
-		set_inlmt(psy, max_ma_cable->ma);
-		if (!get_battery_thresholds(psy, &bat_thresh)) {
-			if (!ITERM(psy))
-				SET_ITERM(psy, bat_thresh.iterm);
-			SET_MIN_TEMP(psy, bat_thresh.temp_min);
-			SET_MAX_TEMP(psy, bat_thresh.temp_max);
-		}
-
-	} else {
-		set_inlmt(psy, max_ma_cable->ma);
-		disable_charger(psy);
-		update_charger_online(psy);
 	}
 
 	mutex_unlock(&psy_chrgr.evt_lock);
@@ -968,14 +780,6 @@ int psy_charger_throttle_charger(struct power_supply *psy,
 
 	switch THROTTLE_ACTION(psy, state)
 	{
-		case PSY_THROTTLE_DISABLE_CHARGER:
-			SET_MAX_CC(psy, 0);
-			disable_charger(psy);
-			break;
-		case PSY_THROTTLE_DISABLE_CHARGING:
-			SET_MAX_CC(psy, 0);
-			disable_charging(psy);
-			break;
 		case PSY_THROTTLE_CC_LIMIT:
 			SET_MAX_CC(psy, THROTTLE_VALUE(psy, state));
 			break;
@@ -1004,7 +808,6 @@ int power_supply_register_charger(struct power_supply *psy)
 
 	if (!psy_chrgr.is_cable_evt_reg) {
 		mutex_init(&psy_chrgr.evt_lock);
-		init_waitqueue_head(&psy_chrgr.wait_chrg_enable);
 		init_charger_cables(cable_list, ARRAY_SIZE(cable_list));
 		INIT_LIST_HEAD(&psy_chrgr.chrgr_cache_lst);
 		INIT_LIST_HEAD(&psy_chrgr.batt_cache_lst);

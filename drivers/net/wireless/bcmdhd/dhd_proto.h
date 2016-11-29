@@ -4,8 +4,9 @@
  * Provides type definitions and function prototypes used to link the
  * DHD OS, bus, and protocol modules.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -24,7 +25,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_proto.h 472193 2014-04-23 06:27:38Z $
+ * $Id: dhd_proto.h 499674 2014-08-29 21:56:23Z $
  */
 
 #ifndef _dhd_proto_h_
@@ -38,12 +39,8 @@
 
 #define DEFAULT_IOCTL_RESP_TIMEOUT	2000
 #ifndef IOCTL_RESP_TIMEOUT
-#ifdef BCMQT
-#define IOCTL_RESP_TIMEOUT  30000 /* In milli second */
-#else
 /* In milli second default value for Production FW */
 #define IOCTL_RESP_TIMEOUT  DEFAULT_IOCTL_RESP_TIMEOUT
-#endif /* BCMQT */
 #endif /* IOCTL_RESP_TIMEOUT */
 
 #ifndef MFG_IOCTL_RESP_TIMEOUT
@@ -107,8 +104,8 @@ extern int dhd_process_pkt_reorder_info(dhd_pub_t *dhd, uchar *reorder_info_buf,
 	uint reorder_info_len, void **pkt, uint32 *free_buf_count);
 
 #ifdef BCMPCIE
-extern int dhd_prot_process_msgbuf_txcpl(dhd_pub_t *dhd);
-extern int dhd_prot_process_msgbuf_rxcpl(dhd_pub_t *dhd);
+extern bool dhd_prot_process_msgbuf_txcpl(dhd_pub_t *dhd, uint bound);
+extern bool dhd_prot_process_msgbuf_rxcpl(dhd_pub_t *dhd, uint bound);
 extern int dhd_prot_process_ctrlbuf(dhd_pub_t * dhd);
 extern bool dhd_prot_dtohsplit(dhd_pub_t * dhd);
 extern int dhd_post_dummy_msg(dhd_pub_t *dhd);

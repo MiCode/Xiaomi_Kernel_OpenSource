@@ -2,6 +2,7 @@
  * Sensor collection framework core
  *
  * Copyright (c) 2014-2015, Intel Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -70,7 +71,6 @@ int senscol_reset_notify(void)
 
 	struct siginfo si;
 	int ret;
-	struct task_struct *task;
 
 	memset(&si, 0, sizeof(struct siginfo));
 	si.si_signo = SIGUSR1;
@@ -209,12 +209,18 @@ static struct attribute sc_sensdef_defattr_flush = {
 	.mode = (S_IRUGO)
 };
 
+static struct attribute sc_sensdef_defattr_get_sample = {
+	.name = "get_sample",
+	.mode = (S_IRUGO)
+};
+
 struct attribute	*sc_sensdef_defattrs[] = {
 	&sc_sensdef_defattr_name,
 	&sc_sensdef_defattr_id,
 	&sc_sensdef_defattr_usage_id,
 	&sc_sensdef_defattr_sample_size,
 	&sc_sensdef_defattr_flush,
+	&sc_sensdef_defattr_get_sample,
 	NULL
 };
 
@@ -262,6 +268,13 @@ static ssize_t	sc_sensdef_show(struct kobject *kobj, struct attribute *attr,
 			push_sample(pseudo_event_id, &pseudo_event_content);
 			scnprintf(buf, PAGE_SIZE, "0\n");
 		}
+	else if (!strcmp(attr->name, "get_sample")) {
+		rv = sensdef->impl->get_sample(sensdef);
+		/* The sample will arrive to hid "raw event" func,
+		and will be pushed to user via "push_sample" method */
+
+		scnprintf(buf, PAGE_SIZE, "%d\n", !rv);
+	}
 	rv = strlen(buf) + 1;
 	return	rv;
 }
@@ -432,9 +445,15 @@ static struct attribute sc_sensprop_defattr_value = {
 	.mode = (S_IRUGO | S_IWUSR | S_IWGRP)
 };
 
+static struct attribute sc_sensprop_defattr_usage_id = {
+	.name = "usage_id",
+	.mode = (S_IRUGO | S_IWUSR | S_IWGRP)
+};
+
 struct attribute	*sc_sensprop_defattrs[] = {
 /*	&sc_sensprop_defattr_unit,*/
 	&sc_sensprop_defattr_value,
+	&sc_sensprop_defattr_usage_id,
 	NULL
 };
 
@@ -448,7 +467,7 @@ static ssize_t	sc_sensprop_show(struct kobject *kobj, struct attribute *attr,
 {
 	struct sens_property	*pfield;
 	struct sensor_def	*sensor;
-	int	rv;
+	int	rv = -EINVAL;
 
 	/*
 	 * We need "property_power_state" (=2), "property_reporting_state" (=2)
@@ -459,7 +478,11 @@ static ssize_t	sc_sensprop_show(struct kobject *kobj, struct attribute *attr,
 	pfield = container_of(kobj, struct sens_property, kobj);
 	sensor = pfield->sensor;
 
-	rv = sensor->impl->get_sens_property(sensor, pfield, buf, 0x1000);
+	if (!strcmp(attr->name, "value"))
+		rv = sensor->impl->get_sens_property(sensor, pfield, buf,
+			0x1000);
+	else if (!strcmp(attr->name, "usage_id"))
+		scnprintf(buf, PAGE_SIZE, "%08X\n", pfield->usage_id & 0xFFFF);
 	if (rv)
 		return	rv;
 	return	strlen(buf);
@@ -479,6 +502,9 @@ static ssize_t	sc_sensprop_store(struct kobject *kobj, struct attribute *attr,
 	ISH_DBG_PRINT(KERN_ALERT
 		"[senscol]: %s(): +++ attr='%s' buf='%s' size=%u\n",
 		__func__, attr->name, buf, (unsigned)size);
+	if (strcmp(attr->name, "value"))
+		return -EINVAL;
+
 	pfield = container_of(kobj, struct sens_property, kobj);
 	sensor = pfield->sensor;
 	rv = sensor->impl->set_sens_property(sensor, pfield, buf);
@@ -938,25 +964,7 @@ int	push_sample(uint32_t id, void *sample)
 	p_sample->size = sensor->sample_size;
 	memcpy(p_sample->data, sample,
 		sensor->sample_size - offsetof(struct senscol_sample, data));
-#if 0
-	ISH_DBG_PRINT(KERN_ALERT "%s(): pushing to buffer,
-		sample_size=%u[%u]\n", __func__,
-		sensor->sample_size, p_sample->size);
 
-	/***** DEBUG - dump sample ******/
-	do {
-		int	i;
-		char	buf[4096];
-
-		sprintf(buf,  "%s(): sample dump [id=%u size=%u] -- ",
-			__func__, p_sample->id, p_sample->size);
-		for (i = 0; i < p_sample->size; ++i)
-			sprintf(buf + strlen(buf),  "%02X ",
-				(unsigned)p_sample->data[i]);
-		ISH_DBG_PRINT(KERN_ALERT "%s\n", buf);
-	} while (0);
-	/********************************/
-#endif
 	memcpy(senscol_data_buf + senscol_data_tail, p_sample, p_sample->size);
 	senscol_data_tail += sensor->sample_size;
 	if (senscol_data_tail > SENSCOL_DATA_BUF_LAST)

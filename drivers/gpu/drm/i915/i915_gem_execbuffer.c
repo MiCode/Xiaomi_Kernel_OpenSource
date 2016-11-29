@@ -1,5 +1,6 @@
 /*
  * Copyright © 2008,2010 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -847,7 +848,7 @@ i915_gem_execbuffer_move_to_gpu(struct intel_engine_cs *ring,
 
 	list_for_each_entry(vma, vmas, exec_list) {
 		struct drm_i915_gem_object *obj = vma->obj;
-		ret = i915_gem_object_sync(obj, ring, false);
+		ret = i915_gem_object_sync(obj, ring, true);
 		if (ret)
 			return ret;
 
@@ -1442,6 +1443,17 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	int ret, i;
 	bool need_relocs, batch_pinned = false;
 	int fd_fence_complete = -1;
+#ifdef CONFIG_SYNC
+	int fd_fence_wait = (int) args->rsvd2;
+#endif
+
+	/*
+	 * Make sure an broken fence handle is not returned no matter
+	 * how early an error might be hit. Note that rsvd2 has to be
+	 * saved away first because it is also an input parameter!
+	 */
+	if (args->flags & I915_EXEC_REQUEST_FENCE)
+		args->rsvd2 = (__u64) -1;
 
 	if (!i915_gem_check_execbuffer(args))
 		return -EINVAL;
@@ -1694,8 +1706,6 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 
 #ifdef CONFIG_SYNC
 	if (args->flags & I915_EXEC_WAIT_FENCE) {
-		int fd_fence_wait = (int) args->rsvd2;
-
 		if (fd_fence_wait < 0) {
 			DRM_ERROR("Wait fence for ring %d has invalid id %d\n",
 				  (int) ring->id, fd_fence_wait);
@@ -1781,11 +1791,10 @@ err:
 	mutex_unlock(&dev->struct_mutex);
 
 pre_mutex_err:
-	if (fd_fence_complete != -1)
+	if (fd_fence_complete != -1) {
 		sys_close(fd_fence_complete);
-
-	if (args->flags & I915_EXEC_REQUEST_FENCE)
 		args->rsvd2 = (__u64) -1;
+	}
 
 	dev_priv->scheduler->stats[ring->id].exec_early++;
 	intel_runtime_pm_put(dev_priv);

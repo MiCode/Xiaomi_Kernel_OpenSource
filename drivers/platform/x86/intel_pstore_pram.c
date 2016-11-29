@@ -76,8 +76,6 @@ static int register_pram_dev(unsigned long mem_address,
 	pram_data->mem_size = mem_size;
 	pram_data->record_size = pram_record_size;
 	pram_data->console_size = pram_console_size;
-	pram_data->ftrace_size = pram_ftrace_size;
-	pram_data->dump_oops = pram_dump_oops;
 	/*
 	 * For backwards compatibility with previous
 	 * fs/pstore/ram_core.c implementation,

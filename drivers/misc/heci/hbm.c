@@ -22,7 +22,6 @@
 #include "hbm.h"
 #include "client.h"
 #include <linux/spinlock.h>
-
 /*
 #define	DEBUG_FW_BOOT_SEQ	1
 #define	DUMP_CL_PROP	1
@@ -76,7 +75,6 @@ static void heci_hbm_me_cl_allocate(struct heci_device *dev)
 {
 	struct heci_me_client *clients;
 	int b;
-	unsigned long	flags;
 
 	/* count how many ME clients we have */
 	for_each_set_bit(b, dev->me_clients_map, HECI_CLIENTS_MAX)
@@ -557,7 +555,6 @@ void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr)
 	struct hbm_host_enum_response *enum_res;
 	struct heci_msg_hdr heci_hdr;
 	unsigned char data[4];	/* All HBM messages are 4 bytes */
-	unsigned long flags;
 
 	heci_msg = hdr;
 	dev_dbg(&dev->pdev->dev, "bus cmd = %lu\n", heci_msg->hbm_cmd);
@@ -729,7 +726,7 @@ void	recv_hbm(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 	uint8_t	rd_msg_buf[HECI_RD_MSG_BUF_SIZE];
 	struct heci_bus_message	*heci_msg =
 		(struct heci_bus_message *)rd_msg_buf;
-	unsigned long	flags, tx_flags;
+	unsigned long	flags;
 
 	dev->ops->read(dev, rd_msg_buf, heci_hdr->length);
 
@@ -832,8 +829,6 @@ eoi:
 	return;
 }
 EXPORT_SYMBOL(recv_hbm);
-
-/* Suspend and resume notification*/
 
 /*
  *      Receive and process HECI fixed client messages

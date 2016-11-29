@@ -57,6 +57,21 @@ config ANDROID_LOGGER
 	  optimized writes. This optimization avoids logging having too
 	  much overhead in the system.
 
+config LOGCAT_SIZE
+	int "Adjust android log buffer sizes"
+	default 256
+	depends on ANDROID_LOGGER
+	help
+	  Set logger buffer size. Enter a number greater than zero.
+	  Any value less than 256 is recommended. Reduce value to save kernel static memory size.
+
+config LARGE_LOGCAT_SIZE
+	int "Adust android log buffer sizes"
+	default 2048
+	depends on ANDROID_LOGGER
+	help
+	  Some buffer size might be larger than others for storing more log.
+
 config ANDROID_TIMED_OUTPUT
 	bool "Timed output class driver"
 	default y

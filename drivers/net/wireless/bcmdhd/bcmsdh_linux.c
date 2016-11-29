@@ -1,8 +1,9 @@
 /*
  * SDIO access interface for drivers - linux specific (pci only)
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -21,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdh_linux.c 461444 2014-03-12 02:55:28Z $
+ * $Id: bcmsdh_linux.c 538677 2015-03-04 13:24:38Z $
  */
 
 /**
@@ -34,9 +35,6 @@
 #include <linuxver.h>
 #include <linux/pci.h>
 #include <linux/completion.h>
-#ifdef DHD_WAKE_STATUS
-#include <linux/wakeup_reason.h>
-#endif
 
 #include <osl.h>
 #include <pcicfg.h>
@@ -47,9 +45,6 @@ extern void dhdsdio_isr(void * args);
 #include <bcmutils.h>
 #include <dngl_stats.h>
 #include <dhd.h>
-#if defined(CONFIG_ARCH_ODIN)
-#include <linux/platform_data/gpio-odin.h>
-#endif /* defined(CONFIG_ARCH_ODIN) */
 #include <dhd_linux.h>
 
 /* driver info, initialized when bcmsdh_register is called */
@@ -180,7 +175,7 @@ void* bcmsdh_probe(osl_t *osh, void *dev, void *sdioh, void *adapter_info, uint 
 	vendevid = bcmsdh_query_device(bcmsdh);
 	/* try to attach to the target device */
 	bcmsdh_osinfo->context = drvinfo.probe((vendevid >> 16), (vendevid & 0xFFFF), bus_num,
-		slot_num, 0, bus_type, (void *)regs, osh, bcmsdh);
+		slot_num, 0, bus_type, (void *)regs, NULL, bcmsdh);
 	if (bcmsdh_osinfo->context == NULL) {
 		SDLX_MSG(("%s: device attach failed\n", __FUNCTION__));
 		goto err;
@@ -214,25 +209,6 @@ int bcmsdh_remove(bcmsdh_info_t *bcmsdh)
 	return 0;
 }
 
-#ifdef DHD_WAKE_STATUS
-int bcmsdh_set_get_wake(bcmsdh_info_t *bcmsdh, int flag)
-{
-	bcmsdh_os_info_t *bcmsdh_osinfo = bcmsdh->os_cxt;
-	unsigned long flags;
-	int ret;
-
-	spin_lock_irqsave(&bcmsdh_osinfo->oob_irq_spinlock, flags);
-
-	ret = bcmsdh->pkt_wake;
-	if (flag)
-		bcmsdh->total_wake_count++;
-	bcmsdh->pkt_wake = flag;
-
-	spin_unlock_irqrestore(&bcmsdh_osinfo->oob_irq_spinlock, flags);
-	return ret;
-}
-#endif
-
 int bcmsdh_suspend(bcmsdh_info_t *bcmsdh)
 {
 	bcmsdh_os_info_t *bcmsdh_osinfo = bcmsdh->os_cxt;
@@ -245,11 +221,6 @@ int bcmsdh_suspend(bcmsdh_info_t *bcmsdh)
 int bcmsdh_resume(bcmsdh_info_t *bcmsdh)
 {
 	bcmsdh_os_info_t *bcmsdh_osinfo = bcmsdh->os_cxt;
-
-#ifdef DHD_WAKE_STATUS
-	if (check_wakeup_reason(bcmsdh_osinfo->oob_irq_num))
-		bcmsdh_set_get_wake(bcmsdh, 1);
-#endif
 
 	if (drvinfo.resume)
 		return drvinfo.resume(bcmsdh_osinfo->context);
@@ -368,13 +339,8 @@ int bcmsdh_oob_intr_register(bcmsdh_info_t *bcmsdh, bcmsdh_cb_fn_t oob_irq_handl
 		(int)bcmsdh_osinfo->oob_irq_num, (int)bcmsdh_osinfo->oob_irq_flags));
 	bcmsdh_osinfo->oob_irq_handler = oob_irq_handler;
 	bcmsdh_osinfo->oob_irq_handler_context = oob_irq_handler_context;
-#if defined(CONFIG_ARCH_ODIN)
-	err = odin_gpio_sms_request_irq(bcmsdh_osinfo->oob_irq_num, wlan_oob_irq,
-		bcmsdh_osinfo->oob_irq_flags, "bcmsdh_sdmmc", bcmsdh);
-#else
 	err = request_irq(bcmsdh_osinfo->oob_irq_num, wlan_oob_irq,
 		bcmsdh_osinfo->oob_irq_flags, "bcmsdh_sdmmc", bcmsdh);
-#endif /* defined(CONFIG_ARCH_ODIN) */
 	if (err) {
 		SDLX_MSG(("%s: request_irq failed with %d\n", __FUNCTION__, err));
 		return err;

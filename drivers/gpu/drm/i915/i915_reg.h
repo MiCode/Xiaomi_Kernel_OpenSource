@@ -1,4 +1,5 @@
 /* Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -963,8 +964,14 @@ enum punit_power_well {
 
 #define _CHV_PCS_DW10_CH0		0x8228
 #define _CHV_PCS_DW10_CH1		0x8428
+#define   DPIO_PCS_SWING_DEEMPH_CALC_SHIFT	16
+#define   DPIO_PCS_SWING_DEEMPH_CALC_MASK	(0xcf0f << DPIO_PCS_SWING_DEEMPH_CALC_SHIFT)
 #define   DPIO_PCS_SWING_CALC_TX0_TX2	(1<<30)
 #define   DPIO_PCS_SWING_CALC_TX1_TX3	(1<<31)
+#define   DPIO_PCS_DEEMPH_CALC_TX0_TX2	(2<<24)
+#define   DPIO_PCS_DEEMPH_CALC_TX1_TX3	(2<<16)
+#define   DPIO_PCS_DEEMPH_4K_CALC_TX0_TX2	(6<<28)
+#define   DPIO_PCS_DEEMPH_4K_CALC_TX1_TX3	(6<<20)
 #define   DPIO_PCS_TX2DEEMP_MASK	(0xf<<24)
 #define   DPIO_PCS_TX2DEEMP_9P5		(0<<24)
 #define   DPIO_PCS_TX2DEEMP_6P0		(2<<24)
@@ -982,6 +989,7 @@ enum punit_power_well {
 
 #define _VLV_PCS_DW11_CH0		0x822c
 #define _VLV_PCS_DW11_CH1		0x842c
+#define   DPIO_TX2_STAGGER_MASK(x)	((x)<<24)
 #define   DPIO_LANEDESKEW_STRAP_OVRD	(1<<3)
 #define   DPIO_LEFT_TXFIFO_RST_MASTER	(1<<1)
 #define   DPIO_RIGHT_TXFIFO_RST_MASTER	(1<<0)
@@ -994,8 +1002,20 @@ enum punit_power_well {
 #define VLV_PCS01_DW11(ch) _PORT(ch, _VLV_PCS01_DW0_CH0, _VLV_PCS01_DW0_CH1)
 #define VLV_PCS23_DW11(ch) _PORT(ch, _VLV_PCS23_DW0_CH0, _VLV_PCS23_DW0_CH1)
 
+#define _VLV_PCS01_DW12_CH0		0x0230
+#define _VLV_PCS23_DW12_CH0		0x0430
+#define _VLV_PCS01_DW12_CH1		0x2630
+#define _VLV_PCS23_DW12_CH1		0x2830
+#define VLV_PCS01_DW12(ch) _PORT(ch, _VLV_PCS01_DW12_CH0, _VLV_PCS01_DW12_CH1)
+#define VLV_PCS23_DW12(ch) _PORT(ch, _VLV_PCS23_DW12_CH0, _VLV_PCS23_DW12_CH1)
+
 #define _VLV_PCS_DW12_CH0		0x8230
 #define _VLV_PCS_DW12_CH1		0x8430
+#define   DPIO_TX2_STAGGER_MULT(x)	((x)<<20)
+#define   DPIO_TX1_STAGGER_MULT(x)	((x)<<16)
+#define   DPIO_TX1_STAGGER_MASK(x)	((x)<<8)
+#define   DPIO_LANESTAGGER_STRAP_OVRD	(1<<6)
+#define   DPIO_LANESTAGGER_STRAP(x)	((x)<<0)
 #define VLV_PCS_DW12(ch) _PORT(ch, _VLV_PCS_DW12_CH0, _VLV_PCS_DW12_CH1)
 
 #define _VLV_PCS_DW14_CH0		0x8238
@@ -1011,12 +1031,14 @@ enum punit_power_well {
 #define   DPIO_SWING_MARGIN000_SHIFT	16
 #define   DPIO_SWING_MARGIN000_MASK	(0xff << DPIO_SWING_MARGIN000_SHIFT)
 #define   DPIO_UNIQ_TRANS_SCALE_SHIFT	8
+#define   DPIO_UNIQ_TRANS_SCALE_MASK	(0xff << DPIO_UNIQ_TRANS_SCALE_SHIFT)
 #define VLV_TX_DW2(ch) _PORT(ch, _VLV_TX_DW2_CH0, _VLV_TX_DW2_CH1)
 
 #define _VLV_TX_DW3_CH0			0x828c
 #define _VLV_TX_DW3_CH1			0x848c
 /* The following bit for CHV phy */
-#define   DPIO_TX_UNIQ_TRANS_SCALE_EN	(1<<27)
+#define   DPIO_TX_UNIQ_TRANS_SCALE_EN	(0xfff << 16)
+#define   DPIO_DOWN_SCALE_AMP_METHOD_SHIFT	24
 #define   DPIO_TX_UNIQ_TRANS_SCALE_CH1  (1 << 3)
 #define   DPIO_TX_UNIQ_TRANS_SCALE_CH0  (1 << 2)
 #define   DPIO_SWING_MARGIN101_SHIFT	16
@@ -1796,11 +1818,6 @@ enum punit_power_well {
 #define MSG_FBC_REND_STATE	0x50380
 #define   FBC_REND_NUKE		(1<<2)
 #define   FBC_REND_CACHE_CLEAN	(1<<1)
-
-/* PMIC Registers */
-#define XPOWER_PMIC_PANEL_POWER_CTRL_REG 0x12
-#define XPOWER_PMIC_PANEL_POWER_CTRL_DATAMASK (1 << 6)
-#define XPOWER_PMIC_PANEL_POWER_ON_DATA (1 << 6)
 
 /*
  * GPIO regs
@@ -4321,6 +4338,11 @@ enum punit_power_well {
 #define VLV_FW_PIPEB_WM1_MASK1	0xff00
 #define VLV_FW_PIPEB_WM1_MASK2	0xff000000
 
+#define FW1_SR_WM 23
+#define NUM_SR_BITS 9
+#define SHOWM_SR_WM_HO 24
+#define NIBBLE_HIGH 8
+
 #define VLV_FW_SR_MASK		0xff800000
 #define VLV_FW_SR_WM1_MASK	0xff
 #define VLV_DSPHOWM_SR_MASK	0x3000000
@@ -4337,6 +4359,7 @@ enum punit_power_well {
 #define DDL_SPRITEB_PRECISION_H		(1<<23)
 #define DDL_SPRITEB_PRECISION_L		(0<<23)
 #define DDL_SPRITEA_SHIFT	8
+#define DDL_MULTI_PIPE_CHV	0x82
 
 #define DDL_PLANEA_PRECISION_H		(1<<7)
 #define DDL_PLANEA_PRECISION_L		(0<<7)
@@ -6798,6 +6821,7 @@ enum punit_power_well {
 #define  ULPS_STATE_EXIT				(1 << 1)
 #define  ULPS_STATE_NORMAL_OPERATION			(0 << 1)
 #define  DEVICE_READY					(1 << 0)
+#define  CLEAR_DEVICE_READY				(0 << 0)
 
 #define _MIPIA_INTR_STAT			(VLV_DISPLAY_BASE + 0xb004)
 #define _MIPIB_INTR_STAT			(VLV_DISPLAY_BASE + 0xb804)
@@ -7151,8 +7175,5 @@ enum punit_power_well {
 #define GEN8_OA_CTX_CONTROL 0x2360
 
 #define GEN8_RC6_WA_BB	    0x2058
-
-/* CHT_CR Related */
-#define CHT_CR_REVISION 0x22
 
 #endif /* _I915_REG_H_ */

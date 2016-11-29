@@ -1,5 +1,6 @@
 /*
  * Copyright © 2008 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,6 +33,7 @@
 #include "i915_trace.h"
 #include "intel_sync.h"
 #include "intel_drv.h"
+#include <linux/list_sort.h>
 #include <linux/oom.h>
 #include <linux/shmem_fs.h>
 #include <linux/slab.h>
@@ -250,6 +252,137 @@ i915_gem_get_aperture_ioctl(struct drm_device *dev, void *data,
 
 	args->aper_size = dev_priv->gtt.base.total;
 	args->aper_available_size = args->aper_size - pinned;
+
+	return 0;
+}
+
+/**
+ * Detached struct to hold a vma temp list in i915_gem_get_aperture_ioctl2
+ */
+struct i915_vma_list_entry {
+	struct i915_vma *vma;
+	struct list_head vma_ap_link; /* link in the temp aperture ioctl list */
+};
+
+static
+struct i915_vma_list_entry *i915_vma_list_entry_create(struct i915_vma *vma)
+{
+	struct i915_vma_list_entry *vma_list_entry;
+
+	vma_list_entry = kmalloc(sizeof(*vma_list_entry), GFP_KERNEL);
+	if (vma_list_entry == NULL)
+		return ERR_PTR(-ENOMEM);
+
+	INIT_LIST_HEAD(&vma_list_entry->vma_ap_link);
+	vma_list_entry->vma = vma;
+	return vma_list_entry;
+}
+
+static inline bool vma_in_mappable_region(struct i915_vma *vma, u32 map_limit)
+{
+	return (vma->node.start < map_limit) && i915_is_ggtt(vma->vm);
+}
+
+static int vma_rank_by_node_start(void *priv,
+				  struct list_head *A,
+				  struct list_head *B)
+{
+	struct i915_vma_list_entry *a =
+		list_entry(A, struct i915_vma_list_entry, vma_ap_link);
+	struct i915_vma_list_entry *b =
+		list_entry(B, struct i915_vma_list_entry, vma_ap_link);
+
+	return a->vma->node.start - b->vma->node.start;
+}
+
+int
+i915_gem_get_aperture_ioctl2(struct drm_device *dev, void *data,
+			     struct drm_file *file)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_gem_get_aperture2 *args = data;
+	struct i915_gtt *ggtt = &dev_priv->gtt;
+	struct i915_vma *vma;
+	struct i915_vma_list_entry *vma_list_entry;
+	struct list_head map_list;
+	size_t pinned;
+	u64 map_space, map_largest, last, size;
+	const u32 map_limit = dev_priv->gtt.mappable_end;
+
+	INIT_LIST_HEAD(&map_list);
+	pinned = 0;
+	mutex_lock(&dev->struct_mutex);
+	list_for_each_entry(vma, &ggtt->base.active_list, mm_list) {
+		if (vma->pin_count) {
+			pinned += vma->node.size;
+
+			if (vma_in_mappable_region(vma, map_limit)) {
+				vma_list_entry = i915_vma_list_entry_create(vma);
+				if (IS_ERR(vma_list_entry)) {
+					mutex_unlock(&dev->struct_mutex);
+					printk("i915_gem_get_aperture_ioctl2 failed\n");
+					return PTR_ERR(vma_list_entry);
+				}
+				list_add(&vma_list_entry->vma_ap_link, &map_list);
+			}
+		}
+	}
+
+	list_for_each_entry(vma, &ggtt->base.inactive_list, mm_list) {
+		if (vma->pin_count) {
+			pinned += vma->node.size;
+
+			if (vma_in_mappable_region(vma, map_limit)) {
+				vma_list_entry = i915_vma_list_entry_create(vma);
+				if (IS_ERR(vma_list_entry)) {
+					mutex_unlock(&dev->struct_mutex);
+					printk("i915_gem_get_aperture_ioctl2 failed\n");
+					return PTR_ERR(vma_list_entry);
+				}
+				list_add(&vma_list_entry->vma_ap_link, &map_list);
+			}
+		}
+	}
+
+	last = map_largest = map_space = size = 0;
+	list_sort(NULL, &map_list, vma_rank_by_node_start);
+	if (list_empty(&map_list))
+		DRM_DEBUG_DRIVER("map_list empty");
+
+	while (!list_empty(&map_list)) {
+		vma_list_entry = list_first_entry(&map_list, typeof(*vma_list_entry), vma_ap_link);
+		vma = vma_list_entry->vma;
+		list_del_init(&vma_list_entry->vma_ap_link);
+
+		size = vma->node.start - last;
+		if (size > map_largest)
+			map_largest = size;
+		map_space += size;
+		last = vma->node.start + vma->node.size;
+		kfree(vma_list_entry);
+	}
+
+	if (last < map_limit) {
+		size = map_limit - last;
+		if (size > map_largest)
+			map_largest = size;
+		map_space += size;
+	}
+	mutex_unlock(&dev->struct_mutex);
+
+	args->aper_size = dev_priv->gtt.base.total;
+	args->aper_available_size = args->aper_size - pinned;
+	args->map_available_size = map_space;
+	args->map_largest_size = map_largest;
+	args->map_total_size = dev_priv->gtt.mappable_end;
+
+	DRM_DEBUG_DRIVER("aper_size = %llu\n", args->aper_size);
+	DRM_DEBUG_DRIVER("aper_available_size = %llu\n",
+			 args->aper_available_size);
+	DRM_DEBUG_DRIVER("map_available_size = %llu\n",
+			 args->map_available_size);
+	DRM_DEBUG_DRIVER("map_largest_size = %llu\n", args->map_largest_size);
+	DRM_DEBUG_DRIVER("map_total_size = %llu\n", args->map_total_size);
 
 	return 0;
 }
@@ -2454,6 +2587,10 @@ i915_gem_init_seqno(struct drm_device *dev, u32 seqno)
 			ring->semaphore.sync_seqno[j] = 0;
 	}
 
+	if (dev_priv->scheduler)
+		memset(dev_priv->scheduler->last_irq_seqno, 0x00,
+			sizeof(dev_priv->scheduler->last_irq_seqno));
+
 	return 0;
 }
 
@@ -2515,6 +2652,7 @@ static void queue_retire_work(struct drm_i915_private *dev_priv,
 	 * work timer needs to fire at least as frequently as that.
 	 */
 	unsigned long time = min(delay, DRM_I915_HANGCHECK_JIFFIES);
+	trace_printk("[%d][%lu] queue retire work (time=%lu)\n", __LINE__, jiffies, time);
 
 	if (queue_delayed_work(dev_priv->wq,
 			   &dev_priv->mm.retire_work,
@@ -2530,6 +2668,15 @@ static void queue_retire_work(struct drm_i915_private *dev_priv,
 		 * scheduling more.
 		 */
 		dev_priv->mm.retire_work_timestamp = jiffies;
+		trace_printk("[%d] queue retire work ok: %lu\n", __LINE__, dev_priv->mm.retire_work_timestamp);
+	} else
+		trace_printk("[%d][%lu] queue retire work NOT ok: %lu\n", __LINE__, jiffies, dev_priv->mm.retire_work_timestamp);
+
+
+	{
+		unsigned long time_left = dev_priv->mm.retire_work.timer.expires - jiffies;
+
+		trace_printk("[%d][%lu] queue retire work pending: %lu, time left=%lu [%d]\n", __LINE__, jiffies, dev_priv->mm.retire_work_timestamp, time_left, jiffies_to_msecs(time_left));
 	}
 }
 
@@ -2544,6 +2691,7 @@ int __i915_add_request(struct intel_engine_cs *ring,
 	u32 request_ring_position, request_start;
 	int ret = 0;
 
+	trace_printk("add request begin\n ");
 	request = ring->outstanding_lazy_request;
 	if (WARN_ON(request == NULL))
 		return -ENOMEM;
@@ -2620,10 +2768,6 @@ int __i915_add_request(struct intel_engine_cs *ring,
 	list_add_tail(&request->list, &ring->request_list);
 	request->file_priv = NULL;
 
-	/* Avoid race condition where the request completes before it has
-	 * been added to the list. */
-	ring->last_read_seqno = 0;
-
 	if (file) {
 		struct drm_i915_file_private *file_priv = file->driver_priv;
 
@@ -2642,6 +2786,14 @@ int __i915_add_request(struct intel_engine_cs *ring,
 		queue_retire_work(dev_priv, round_jiffies_up_relative(HZ));
 		intel_mark_busy(dev_priv->dev);
 	}
+
+	/*
+	 * Avoid race condition where the request completes before it has
+	 * been added to the list.
+	 */
+	ring->last_read_seqno = 0;
+	if (i915_seqno_passed(ring->get_seqno(ring, false), request->seqno))
+		i915_gem_complete_requests_ring(request->ring, true);
 
 end:
 	intel_runtime_pm_put(dev_priv);
@@ -2892,11 +3044,24 @@ void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
 	u32 seqno;
 
 	seqno = ring->get_seqno(ring, lazy_coherency);
-	if (!seqno)
-		return;
+	{
+		trace_printk("get_seqno = %u\n", seqno);
+		spin_lock_irqsave(&ring->reqlist_lock, flags);
+		list_for_each_entry(req, &ring->request_list, list) {
+			trace_printk("--check_loop_seqno = %u[complete = %d], req = %p\n", req->seqno, req->complete, req);
+		}
+		spin_unlock_irqrestore(&ring->reqlist_lock, flags);
+	}
 
-	if (seqno == ring->last_read_seqno)
+	if (!seqno) {
+		trace_printk("seqno = 0, return\n");
 		return;
+	}
+
+	if (seqno == ring->last_read_seqno) {
+		trace_printk("seqno = %u. same seqno with ring->last_read_seqno, return\n", seqno);
+		return;
+	}
 	ring->last_read_seqno = seqno;
 
 	spin_lock_irqsave(&ring->reqlist_lock, flags);
@@ -2912,7 +3077,7 @@ void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
 				trace_i915_gem_request_complete(req);
 				i915_sync_timeline_advance(req->ctx, req->ring, req->sync_value);
 			}
-
+			trace_printk("request is tracked, get req->complete = %d\n", req->complete);
 			continue;
 		}
 
@@ -2922,6 +3087,7 @@ void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
 
 			i915_sync_timeline_advance(req->ctx, req->ring, req->sync_value);
 		}
+		trace_printk("seqno was pass check, req->seqno = %d, req->complete = %d\n", req->seqno, req->complete);
 	}
 	spin_unlock_irqrestore(&ring->reqlist_lock, flags);
 
@@ -3078,13 +3244,18 @@ i915_gem_retire_work_handler(struct work_struct *work)
 	struct drm_device *dev = dev_priv->dev;
 	bool idle;
 	unsigned long ts = dev_priv->mm.retire_work_timestamp;
+	trace_printk("[%lu][%lu][%p] RETIRE WORK HANDLER: enter\n", jiffies, ts, work);
 
 	/* Come back later if the device is busy... */
 	idle = false;
 	if (mutex_trylock(&dev->struct_mutex)) {
+		trace_printk("RETIRE WORK HANDLER: retire\n");
 		idle = i915_gem_retire_requests(dev);
+		trace_printk("RETIRE WORK HANDLER: retire done (idle=%s)\n", idle?"true":"false");
 		mutex_unlock(&dev->struct_mutex);
-	}
+	} else
+		trace_printk("RETIRE WORK HANDLER: lock contention\n");
+
 
 	if (!idle) {
 		struct intel_engine_cs *ring;
@@ -3093,8 +3264,10 @@ i915_gem_retire_work_handler(struct work_struct *work)
 		queue_retire_work(dev_priv, round_jiffies_up_relative(HZ));
 
 		for_each_ring(ring, dev_priv, i) {
-			if (!list_empty(&ring->request_list))
+			if (!list_empty(&ring->request_list)) {
+				trace_printk("RETIRE WORK HANDLER: hang check %u\n", i);
 				i915_queue_hangcheck(dev, i, ts);
+			}
 		}
 	}
 }
@@ -3226,8 +3399,9 @@ out:
  *
  * @obj: object which may be in use on another ring.
  * @to: ring we wish to use the object on. May be NULL.
- * @add_request: do we need to add a request to track operations
- *    submitted on ring with sync_to function
+ * @to_batch: is the sync request on behalf of batch buffer submission?
+ * If so then the scheduler can (potentially) manage the synchronisation
+ * but if not then the flush is not required.
  *
  * This code is meant to abstract object synchronization with the GPU.
  * Calling with NULL implies synchronizing the object with the CPU
@@ -3237,7 +3411,7 @@ out:
  */
 int
 i915_gem_object_sync(struct drm_i915_gem_object *obj,
-		     struct intel_engine_cs *to, bool add_request)
+		     struct intel_engine_cs *to, bool to_batch)
 {
 	struct intel_engine_cs *from;
 	u32 seqno;
@@ -3248,8 +3422,43 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 	if (from == NULL || to == from)
 		return 0;
 
-	if (to == NULL || !i915_semaphore_is_enabled(obj->base.dev))
-		return i915_gem_object_wait_rendering(obj, false);
+	if (!to_batch) {
+		/*
+		 * The request is coming from a display path. For Android,
+		 * that means SurfaceFlinger. Our SF/HardwareComposer already
+		 * guarantees that all outstanding rendering has completed
+		 * for the frame being presented. It does not guarantee to
+		 * actually present that frame before any further rendering
+		 * has been queued. With native syncs, that can even include
+		 * rendering that writes to the object.
+		 *
+		 * The driver must therefore trust that SF knows what it is
+		 * doing and simply ignore the apparent synchronisation
+		 * requirement. Otherwise a deadlock can occur where the
+		 * display is waiting for rendering to complete to present
+		 * frame N but in reality the rendering is for frame N+1 and
+		 * is itself stalled waiting for frame N to finish displaying.
+		 */
+		return 0;
+	}
+
+	if (i915_gem_request_completed(obj->last_read_req))
+		return 0;
+
+	if (to == NULL)
+		goto wait;
+
+	/*
+	 * The scheduler will manage inter-ring object dependencies
+	 * as long as both to and from requests are scheduler managed
+	 * (i.e. batch buffers).
+	 */
+	if (to_batch &&
+	    i915_scheduler_is_request_tracked(obj->last_read_req, NULL, NULL))
+		return 0;
+
+	if (!i915_semaphore_is_enabled(obj->base.dev))
+		goto wait;
 
 	idx = intel_ring_sync_index(from, to);
 
@@ -3270,11 +3479,14 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 		 */
 		from->semaphore.sync_seqno[idx] =
 				i915_gem_request_get_seqno(obj->last_read_req);
-		if (add_request)
+		if (!to_batch)
 			i915_add_request_no_flush(to);
 	}
 
 	return ret;
+
+wait:
+	return i915_gem_object_wait_rendering(obj, false);
 }
 
 static void i915_gem_object_finish_gtt(struct drm_i915_gem_object *obj)
@@ -3894,6 +4106,17 @@ search_free:
 	if (ret)
 		goto err_remove_node;
 
+	/*  allocate before insert / bind */
+	if (vma->vm->allocate_va_range) {
+		trace_i915_va_alloc(vma->vm, vma->node.start, vma->node.size,
+				VM_TO_TRACE_NAME(vma->vm));
+		ret = vma->vm->allocate_va_range(vma->vm,
+						vma->node.start,
+						vma->node.size);
+		if (ret)
+			goto err_remove_node;
+	}
+
 	list_move_tail(&obj->global_list, &dev_priv->mm.bound_list);
 	list_add_tail(&vma->mm_list, &vm->inactive_list);
 
@@ -4249,7 +4472,7 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	struct drm_device *dev = obj->base.dev;
 
 	if (pipelined != i915_gem_request_get_ring(obj->last_read_req)) {
-		ret = i915_gem_object_sync(obj, pipelined, true);
+		ret = i915_gem_object_sync(obj, pipelined, false);
 		if (ret)
 			return ret;
 	}
@@ -5337,7 +5560,7 @@ i915_gem_suspend(struct drm_device *dev)
 		goto err;
 
 	ret = i915_gpu_idle(dev);
-	if (ret)
+	if (ret && !dev_priv->shutdown_in_progress)
 		goto err;
 
 	i915_gem_retire_requests(dev);
@@ -5475,7 +5698,7 @@ int i915_gem_init_rings(struct drm_device *dev)
 			goto cleanup_vebox_ring;
 	}
 
-	ret = i915_gem_set_seqno(dev, ((u32)~0 - 0x1000));
+	ret = i915_gem_set_seqno(dev, 1);
 	if (ret)
 		goto cleanup_bsd2_ring;
 

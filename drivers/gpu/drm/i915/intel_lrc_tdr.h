@@ -34,8 +34,7 @@ enum context_submission_status
 intel_execlists_TDR_get_submitted_context(struct intel_engine_cs *ring,
 		struct intel_context **ctx);
 
-void intel_execlists_TDR_force_resubmit(struct drm_i915_private *dev_priv,
-		unsigned ringid);
+bool intel_execlists_TDR_force_CSB_check(struct drm_i915_private *dev_priv, unsigned ringid);
 
 #endif /* _INTEL_LRC_TDR_H_ */
 

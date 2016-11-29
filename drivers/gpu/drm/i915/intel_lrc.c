@@ -1,5 +1,6 @@
 /*
  * Copyright © 2014 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -214,17 +215,17 @@ static int intel_lr_context_pin(struct intel_engine_cs *ring,
  * without causing a stall */
 static int logical_ring_test_space(struct intel_ringbuffer *ringbuf, int min_space)
 {
-	//struct intel_engine_cs *ring = ringbuf->ring;
-	//struct drm_device *dev = ring->dev;
-	//struct drm_i915_private *dev_priv = dev->dev_private;
+
+
+
 
 	if (ringbuf->space < min_space) {
 		/* Need to update the actual ring space. Otherwise, the system
 		 * hangs forever testing a software copy of the space value that
 		 * never changes!
 		 */
-		//ringbuf->head  = I915_READ_HEAD(ring);
-		//ringbuf->space = intel_ring_space(ringbuf);
+
+
 		intel_ring_update_space(ringbuf);
 
 		if (ringbuf->space < min_space)
@@ -318,6 +319,8 @@ static void execlists_elsp_write(struct intel_engine_cs *ring,
 	temp = execlists_ctx_descriptor(ctx_obj0);
 	desc[3] = (u32)(temp >> 32);
 	desc[2] = (u32)temp;
+
+	trace_printk("RP:%d, execlists_elsp_write :%x,%x,%x,%x\n", ring->next_context_status_buffer, desc[0], desc[1], desc[2], desc[3]);
 
 	/* Set Force Wakeup bit to prevent GT from entering C6 while ELSP writes
 	 * are in progress.
@@ -658,6 +661,7 @@ unlock:
 
 static int execlists_update_context(struct drm_i915_gem_object *ctx_obj,
 				    struct drm_i915_gem_object *ring_obj,
+				    struct i915_hw_ppgtt *ppgtt,
 				    u32 tail)
 {
 	struct page *page;
@@ -668,6 +672,40 @@ static int execlists_update_context(struct drm_i915_gem_object *ctx_obj,
 
 	reg_state[CTX_RING_TAIL+1] = tail;
 	reg_state[CTX_RING_BUFFER_START+1] = i915_gem_obj_ggtt_offset(ring_obj);
+
+	/* True PPGTT with dynamic page allocation: update PDP registers and
+	 * point the unallocated PDPs to the scratch page
+	 */
+	if (ppgtt) {
+		if (test_bit(3, ppgtt->pdp.used_pdpes)) {
+			reg_state[CTX_PDP3_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[3]->daddr);
+			reg_state[CTX_PDP3_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[3]->daddr);
+		} else {
+			reg_state[CTX_PDP3_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+			reg_state[CTX_PDP3_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+		}
+		if (test_bit(2, ppgtt->pdp.used_pdpes)) {
+			reg_state[CTX_PDP2_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[2]->daddr);
+			reg_state[CTX_PDP2_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[2]->daddr);
+		} else {
+			reg_state[CTX_PDP2_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+			reg_state[CTX_PDP2_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+		}
+		if (test_bit(1, ppgtt->pdp.used_pdpes)) {
+			reg_state[CTX_PDP1_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[1]->daddr);
+			reg_state[CTX_PDP1_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[1]->daddr);
+		} else {
+			reg_state[CTX_PDP1_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+			reg_state[CTX_PDP1_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+		}
+		if (test_bit(0, ppgtt->pdp.used_pdpes)) {
+			reg_state[CTX_PDP0_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[0]->daddr);
+			reg_state[CTX_PDP0_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[0]->daddr);
+		} else {
+			reg_state[CTX_PDP0_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+			reg_state[CTX_PDP0_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+		}
+	}
 
 	kunmap_atomic(reg_state);
 
@@ -687,7 +725,7 @@ static int execlists_submit_context(struct intel_engine_cs *ring,
 	WARN_ON(!i915_gem_obj_is_pinned(ctx_obj0));
 	WARN_ON(!i915_gem_obj_is_pinned(ringbuf0->obj));
 
-	execlists_update_context(ctx_obj0, ringbuf0->obj, tail0);
+	execlists_update_context(ctx_obj0, ringbuf0->obj, to0->ppgtt, tail0);
 
 	if (to1) {
 		ringbuf1 = to1->engine[ring->id].ringbuf;
@@ -696,7 +734,7 @@ static int execlists_submit_context(struct intel_engine_cs *ring,
 		WARN_ON(!i915_gem_obj_is_pinned(ctx_obj1));
 		WARN_ON(!i915_gem_obj_is_pinned(ringbuf1->obj));
 
-		execlists_update_context(ctx_obj1, ringbuf1->obj, tail1);
+		execlists_update_context(ctx_obj1, ringbuf1->obj, to1->ppgtt, tail1);
 	}
 
 	execlists_elsp_write(ring, ctx_obj0, ctx_obj1);
@@ -774,6 +812,7 @@ static void execlists_context_unqueue(struct intel_engine_cs *ring)
 					 req1 ? req1->ctx : NULL,
 					 req1 ? req1->tail : 0));
 
+	trace_printk("unqueue commit: req0->tail=%x,req1->tail=%x\n", req0->tail, req1 ? req1->tail : 0);
 	req0->elsp_submitted++;
 	if (req1)
 		req1->elsp_submitted++;
@@ -819,6 +858,7 @@ static void execlists_TDR_context_unqueue(struct intel_engine_cs *ring)
 	WARN_ON(execlists_submit_context(ring, req0->ctx, req0->tail,
 					 req1 ? req1->ctx : NULL,
 					 req1 ? req1->tail : 0));
+	trace_printk("TDR unqueue commit: req0->tail=%x,req1->tail=%x\n", req0->tail, req1 ? req1->tail : 0);
 }
 
 /**
@@ -856,8 +896,9 @@ intel_execlists_TDR_get_submitted_context(struct intel_engine_cs *ring,
 {
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	unsigned long flags;
-	struct intel_ctx_submit_request *req;
+	struct intel_ctx_submit_request *tmpreq;
 	unsigned hw_context = 0;
+	unsigned sw_context = 0;
 	enum context_submission_status status =
 			CONTEXT_SUBMISSION_STATUS_UNDEFINED;
 	struct intel_context *tmpctx = NULL;
@@ -866,23 +907,45 @@ intel_execlists_TDR_get_submitted_context(struct intel_engine_cs *ring,
 	spin_lock_irqsave(&ring->execlist_lock, flags);
 	hw_context = I915_READ(RING_EXECLIST_STATUS_CTX_ID(ring));
 
-	req = list_first_entry_or_null(&ring->execlist_queue,
+	tmpreq = list_first_entry_or_null(&ring->execlist_queue,
 		struct intel_ctx_submit_request, execlist_link);
 
-	if (req) {
-		if (req->ctx) {
-			tmpctx = req->ctx;
-			i915_gem_context_reference(tmpctx);
+	if (tmpreq) {
+		sw_context =
+			intel_execlists_ctx_id((tmpreq->ctx)->engine[ring->id].state);
+
+		if (tmpreq->elsp_submitted > 0) {
+			/*
+			 * If the caller has not passed a non-NULL req parameter then
+			 * it is not interested in getting a request reference back.
+			 * Don't temporarily grab a reference since holding the execlist
+			 * lock is enough to ensure that the execlist code will hold its
+			 * reference all throughout this function. As long as that reference
+			 * is kept there is no need for us to take yet another reference.
+			 * The reason why this is of interest is because certain callers, such
+			 * as the TDR hang checker, cannot grab struct_mutex before calling
+			 * and because of that we cannot dereference any requests (DRM might
+			 * assert if we do). Just rely on the execlist code to provide
+			 * indirect protection.
+			 */
+			if (tmpreq->ctx)
+				tmpctx = tmpreq->ctx;
+
+			if (ctx)
+				i915_gem_context_reference(tmpctx);
+
 		} else {
-			WARN(1, "No context in request %p", req);
+			DRM_DEBUG_TDR("Head request in %s is inactive " \
+				      "(elsp_submitted=%d, hw_context=%x, sw_context=%x)\n",
+				ring->name,
+				tmpreq->elsp_submitted,
+				hw_context,
+				sw_context);
 		}
+
 	}
 
 	if (tmpctx) {
-		unsigned sw_context =
-			intel_execlists_ctx_id(
-					(tmpctx)->engine[ring->id].state);
-
 		status = ((hw_context == sw_context) && (0 != hw_context)) ?
 			CONTEXT_SUBMISSION_STATUS_OK :
 			CONTEXT_SUBMISSION_STATUS_SUBMITTED;
@@ -897,10 +960,14 @@ intel_execlists_TDR_get_submitted_context(struct intel_engine_cs *ring,
 			CONTEXT_SUBMISSION_STATUS_NONE_SUBMITTED;
 	}
 
+	if (status == CONTEXT_SUBMISSION_STATUS_SUBMITTED)
+		DRM_DEBUG_TDR("hw_ctx=%x, sw_ctx=%x, elsp_submitted=%d\n",
+			hw_context,
+			sw_context,
+			tmpreq ? tmpreq->elsp_submitted : 0);
+
 	if (ctx)
 		*ctx = tmpctx;
-	else if (tmpctx)
-		i915_gem_context_unreference(tmpctx);
 
 	spin_unlock_irqrestore(&ring->execlist_lock, flags);
 	gen8_gt_force_wake_put(dev_priv);
@@ -939,21 +1006,75 @@ static bool execlists_check_remove_request(struct intel_engine_cs *ring,
 }
 
 /**
+ * fake_lost_ctx_event_irq() - Checks for pending faked lost context event IRQs.
+ * @dev_priv: ...
+ * @ring: Engine to check pending faked lost IRQs for.
+ *
+ * Checks the bits in dev_priv->gpu_error.faked_lost_ctx_event_irq corresponding
+ * to the specified engine and updates the bits and returns a value accordingly.
+ *
+ * Return:
+ * 	true: If the current IRQ is to be lost.
+ * 	false: If the current IRQ is to be processed as normal.
+ */
+static inline bool fake_lost_ctx_event_irq(struct drm_i915_private *dev_priv,
+				struct intel_engine_cs *ring)
+{
+	u32 *faked_lost_irq_mask =
+		&dev_priv->gpu_error.faked_lost_ctx_event_irq;
+
+	/*
+	 * Point out the least significant bit in the nibble of the faked lost
+	 * context event IRQ mask that corresponds to the engine at hand.
+	 */
+	u32 engine_nibble = (ring->id << 2);
+
+	/* Check engine nibble for any pending IRQs to be simulated as lost */
+	if (*faked_lost_irq_mask & (0xf << engine_nibble)) {
+		DRM_INFO("Faked lost interrupt on %s! (%x)\n",
+			ring->name,
+			*faked_lost_irq_mask);
+
+		/*
+		 * Subtract the IRQ that is to be simulated as lost from the
+		 * engine nibble.
+		 */
+		*faked_lost_irq_mask -= (0x1 << engine_nibble);
+
+		DRM_INFO("New fake lost irq mask: %x\n",
+			*faked_lost_irq_mask);
+
+		/* Tell the IRQ handler to simulate lost context event IRQ */
+		return true;
+	}
+
+	return false;
+}
+
+/**
  * intel_execlists_handle_ctx_events() - handle Context Switch interrupts
  * @ring: Engine Command Streamer to handle.
+ * @do_lock: Lock execlist spinlock (if false the caller is responsible for this)
  *
  * Check the unread Context Status Buffers and manage the submission of new
  * contexts to the ELSP accordingly.
+ *
+ * Return:
+ * 	The number of unqueued contexts.
  */
-void intel_execlists_handle_ctx_events(struct intel_engine_cs *ring)
+int intel_execlists_handle_ctx_events(struct intel_engine_cs *ring, bool do_lock)
 {
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
+	struct intel_engine_cs *ring_rcs;
 	u32 status_pointer;
 	u8 read_pointer;
 	u8 write_pointer;
 	u32 status;
 	u32 status_id;
 	u32 submit_contexts = 0;
+
+	if (do_lock)
+		spin_lock(&ring->execlist_lock);
 
 	status_pointer = I915_READ(RING_CONTEXT_STATUS_PTR(ring));
 
@@ -962,7 +1083,10 @@ void intel_execlists_handle_ctx_events(struct intel_engine_cs *ring)
 	if (read_pointer > write_pointer)
 		write_pointer += 6;
 
-	spin_lock(&ring->execlist_lock);
+	ring_rcs = &dev_priv->ring[RCS];
+	trace_printk("ring address: %p, ring RCS address:%p\n", ring, ring_rcs);
+	trace_printk("ring status_buffer:%d,ring RCS status_buffer:%d  :%d,%d\n", ring->next_context_status_buffer,
+		ring_rcs->next_context_status_buffer, read_pointer, write_pointer);
 
 	while (read_pointer < write_pointer) {
 		read_pointer++;
@@ -970,17 +1094,45 @@ void intel_execlists_handle_ctx_events(struct intel_engine_cs *ring)
 				(read_pointer % 6) * 8);
 		status_id = I915_READ(RING_CONTEXT_STATUS_BUF(ring) +
 				(read_pointer % 6) * 8 + 4);
+		trace_printk("RCS read pointer, status:%x, status_id:%x\n", status, status_id);
 
 		if (status & GEN8_CTX_STATUS_PREEMPTED) {
 			if (status & GEN8_CTX_STATUS_LITE_RESTORE) {
+				if (fake_lost_ctx_event_irq(dev_priv, ring)) {
+					/*
+					 * If we want to simulate the loss of a
+					 * context event IRQ (only for such
+					 * events that could affect the
+					 * execlist queue, since this is
+					 * something that could affect the
+					 * HW/driver consistency checker) then
+					 * just exit the IRQ handler early with
+					 * no side-effects!  We want to pretend
+					 * like this IRQ never happened.  The
+					 * next time the IRQ handler is entered
+					 * for this engine the CSB events
+					 * should remain in the CSB, waiting to
+					 * be processed.
+					 */
+					goto exit;
+				}
 				if (execlists_check_remove_request(ring, status_id))
 					WARN(1, "Lite Restored request removed from queue\n");
 			} else
-				WARN(1, "Preemption without Lite Restore\n");
+				/*For such request be preempted by itself, its elsp submit count
+				*will be 2, so need remove it in here to make sure it can be removed.
+				*So driver will not wait this request for ever and caused fence timeout.
+				*/
+				if (execlists_check_remove_request(ring, status_id))
+					WARN(1, "Preemption without Lite Restore, - WA in place\n");
 		}
 
 		 if ((status & GEN8_CTX_STATUS_ACTIVE_IDLE) ||
 		     (status & GEN8_CTX_STATUS_ELEMENT_SWITCH)) {
+
+			if (fake_lost_ctx_event_irq(dev_priv, ring))
+			    goto exit;
+
 			if (execlists_check_remove_request(ring, status_id))
 				submit_contexts++;
 		}
@@ -989,13 +1141,17 @@ void intel_execlists_handle_ctx_events(struct intel_engine_cs *ring)
 	if (submit_contexts != 0)
 		execlists_context_unqueue(ring);
 
-	spin_unlock(&ring->execlist_lock);
-
 	WARN(submit_contexts > 2, "More than two context complete events?\n");
 	ring->next_context_status_buffer = write_pointer % 6;
 
 	I915_WRITE(RING_CONTEXT_STATUS_PTR(ring),
 		   ((u32)ring->next_context_status_buffer & 0x07) << 8);
+
+exit:
+	if (do_lock)
+		spin_unlock(&ring->execlist_lock);
+
+	return submit_contexts;
 }
 
 static int execlists_context_queue(struct intel_engine_cs *ring,
@@ -1025,6 +1181,7 @@ static int execlists_context_queue(struct intel_engine_cs *ring,
 		 * Here are two extra NOOPs as padding to avoid lite restore of
 		 * a context with HEAD==TAIL.
 		 */
+		trace_printk("queue ringbuf: H:%x, T:%x\n", ringbuf->head, ringbuf->tail);
 		intel_logical_ring_emit(ringbuf, MI_NOOP);
 		intel_logical_ring_emit(ringbuf, MI_NOOP);
 		intel_logical_ring_advance(ringbuf);
@@ -1055,6 +1212,7 @@ static int execlists_context_queue(struct intel_engine_cs *ring,
 	}
 
 	list_add_tail(&req->execlist_link, &ring->execlist_queue);
+	trace_printk("execlist_queue :%d, %s, pid(%d),tail = %x\n", num_elements, current->comm, task_pid_nr(current), req->tail);
 	if (num_elements == 0)
 		execlists_context_unqueue(ring);
 
@@ -2226,15 +2384,43 @@ static int gen8_init_common_ring(struct intel_engine_cs *ring)
 {
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	unsigned long flags;
+	u8 next_context_status_buffer_hw;
 
 	I915_WRITE_IMR(ring, ~(ring->irq_enable_mask | ring->irq_keep_mask));
 	I915_WRITE(RING_HWSTAM(ring->mmio_base), 0xffffffff);
+
+	if (ring->status_page.obj) {
+		I915_WRITE(RING_HWS_PGA(ring->mmio_base),
+			   (u32)ring->status_page.gfx_addr);
+		POSTING_READ(RING_HWS_PGA(ring->mmio_base));
+	}
 
 	I915_WRITE(RING_MODE_GEN7(ring),
 		   _MASKED_BIT_DISABLE(GFX_REPLAY_MODE) |
 		   _MASKED_BIT_ENABLE(GFX_RUN_LIST_ENABLE));
 	POSTING_READ(RING_MODE_GEN7(ring));
-	DRM_DEBUG_DRIVER("Execlists enabled for %s\n", ring->name);
+
+	/* Instead of reseting the CSB read pointer, we need to read the write
+	 * pointer from hardware and use its value, because "this register is
+	 * power context save restored".
+	 */
+	next_context_status_buffer_hw = I915_READ(RING_CONTEXT_STATUS_PTR(ring)) & 0x07;
+
+	/* But, after power-up / gpu reset, csb write pointer is set to all 1's,
+	 * which is not valid, use 0 in this special case.
+	 */
+	if (next_context_status_buffer_hw == 0x7)
+		next_context_status_buffer_hw = 0;
+
+	if (ring->next_context_status_buffer != next_context_status_buffer_hw)
+		DRM_INFO("csb pointers sw: %u, hw: %u\n",
+			 ring->next_context_status_buffer,
+			 next_context_status_buffer_hw);
+
+	spin_lock_irqsave(&ring->execlist_lock, flags);
+	ring->next_context_status_buffer = next_context_status_buffer_hw;
+	spin_unlock_irqrestore(&ring->execlist_lock, flags);
 
 	return 0;
 }
@@ -2538,7 +2724,6 @@ gen8_ring_save(struct intel_engine_cs *ring, struct intel_context *ctx,
 	uint32_t tail;
 	uint32_t head_addr;
 	uint32_t tail_addr;
-	uint32_t hws_pga;
 	uint32_t hw_context_id1 = ~0u;
 	uint32_t hw_context_id2 = ~0u;
 
@@ -2645,9 +2830,6 @@ gen8_ring_save(struct intel_engine_cs *ring, struct intel_context *ctx,
 	if (flags & RESET_HEAD_TAIL)
 		head = tail = 0;
 
-	/* HW is losing HWS Page address after reset, save it */
-	hws_pga = I915_READ(RING_HWS_PGA(ring->mmio_base));
-
 	data[0] = ctl;
 	data[1] = tail;
 
@@ -2657,7 +2839,6 @@ gen8_ring_save(struct intel_engine_cs *ring, struct intel_context *ctx,
 	 * save the current value as the value to restart at
 	 */
 	data[2] = head;
-	data[3] = hws_pga;
 
 	return 0;
 }
@@ -2670,7 +2851,6 @@ gen8_ring_restore(struct intel_engine_cs *ring, struct intel_context *ctx,
 	uint32_t head;
 	uint32_t tail;
 	uint32_t ctl;
-	uint32_t hws_pga;
 
 	/*
 	 * Expect no less space than for three registers:
@@ -2718,14 +2898,12 @@ gen8_ring_restore(struct intel_engine_cs *ring, struct intel_context *ctx,
 	ctl = data[0];
 	tail = data[1];
 	head = data[2];
-	hws_pga = data[3];
 
-	/* Restore head, tail ring buffer control and hws page address */
+	/* Restore head, tail and ring buffer control */
 
 	I915_WRITE_HEAD_CTX_MMIO(ring, ctx, head);
 	I915_WRITE_TAIL(ring, tail);
 	I915_WRITE_CTL_CTX_MMIO(ring, ctx, ctl);
-	I915_WRITE(RING_HWS_PGA(ring->mmio_base), hws_pga);
 
 	return 0;
 }
@@ -2779,7 +2957,6 @@ static int logical_ring_init(struct drm_device *dev, struct intel_engine_cs *rin
 	INIT_LIST_HEAD(&ring->execlist_queue);
 	INIT_LIST_HEAD(&ring->execlist_retired_req_list);
 	spin_lock_init(&ring->execlist_lock);
-	ring->next_context_status_buffer = 0;
 
 	ret = i915_cmd_parser_init_ring(ring);
 	if (ret)
@@ -2996,7 +3173,7 @@ int intel_logical_rings_init(struct drm_device *dev)
 			goto cleanup_vebox_ring;
 	}
 
-	ret = i915_gem_set_seqno(dev, ((u32)~0 - 0x1000));
+	ret = i915_gem_set_seqno(dev, 1);
 	if (ret)
 		goto cleanup_bsd2_ring;
 
@@ -3154,14 +3331,39 @@ populate_lr_context(struct intel_context *ctx, struct drm_i915_gem_object *ctx_o
 	reg_state[CTX_PDP1_LDW] = GEN8_RING_PDP_LDW(ring, 1);
 	reg_state[CTX_PDP0_UDW] = GEN8_RING_PDP_UDW(ring, 0);
 	reg_state[CTX_PDP0_LDW] = GEN8_RING_PDP_LDW(ring, 0);
-	reg_state[CTX_PDP3_UDW+1] = upper_32_bits(ppgtt->pd_dma_addr[3]);
-	reg_state[CTX_PDP3_LDW+1] = lower_32_bits(ppgtt->pd_dma_addr[3]);
-	reg_state[CTX_PDP2_UDW+1] = upper_32_bits(ppgtt->pd_dma_addr[2]);
-	reg_state[CTX_PDP2_LDW+1] = lower_32_bits(ppgtt->pd_dma_addr[2]);
-	reg_state[CTX_PDP1_UDW+1] = upper_32_bits(ppgtt->pd_dma_addr[1]);
-	reg_state[CTX_PDP1_LDW+1] = lower_32_bits(ppgtt->pd_dma_addr[1]);
-	reg_state[CTX_PDP0_UDW+1] = upper_32_bits(ppgtt->pd_dma_addr[0]);
-	reg_state[CTX_PDP0_LDW+1] = lower_32_bits(ppgtt->pd_dma_addr[0]);
+
+	/* With dynamic page allocation, PDPs may not be allocated at this point,
+	 * Point the unallocated PDPs to the scratch page
+	 */
+	if (test_bit(3, ppgtt->pdp.used_pdpes)) {
+		reg_state[CTX_PDP3_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[3]->daddr);
+		reg_state[CTX_PDP3_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[3]->daddr);
+	} else {
+		reg_state[CTX_PDP3_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+		reg_state[CTX_PDP3_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+	}
+	if (test_bit(2, ppgtt->pdp.used_pdpes)) {
+		reg_state[CTX_PDP2_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[2]->daddr);
+		reg_state[CTX_PDP2_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[2]->daddr);
+	} else {
+		reg_state[CTX_PDP2_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+		reg_state[CTX_PDP2_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+	}
+	if (test_bit(1, ppgtt->pdp.used_pdpes)) {
+		reg_state[CTX_PDP1_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[1]->daddr);
+		reg_state[CTX_PDP1_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[1]->daddr);
+	} else {
+		reg_state[CTX_PDP1_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+		reg_state[CTX_PDP1_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+	}
+	if (test_bit(0, ppgtt->pdp.used_pdpes)) {
+		reg_state[CTX_PDP0_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[0]->daddr);
+		reg_state[CTX_PDP0_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[0]->daddr);
+	} else {
+		reg_state[CTX_PDP0_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+		reg_state[CTX_PDP0_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+	}
+
 	if (ring->id == RCS) {
 		reg_state[CTX_LRI_HEADER_2] = MI_LOAD_REGISTER_IMM(1);
 		reg_state[CTX_R_PWR_CLK_STATE] = 0x20c8;
@@ -3433,62 +3635,81 @@ error_pm:
 }
 
 /**
- * execlists_TDR_force_resubmit() - resubmit pending context if EXECLIST_STATUS
- * context ID is stuck to 0.
+ * execlists_TDR_force_CSB_check() - check CSB manually to act on pending
+ * context status events.
  *
  * @dev_priv: ...
- * @ringid: engine to resubmit context to.
+ * @ringid: engine whose CSB is to be checked.
  *
- * This function is simply a hack to work around a hardware oddity that
- * manifests itself through stuck context ID zero in EXECLIST_STATUS register
- * even though context is pending post-submission. There is no reason for this
- * hardware behaviour but until we have resolved this issue we need this
- * workaround.
+ * In case we missed a context event interrupt we can fake this interrupt by
+ * acting on pending CSB events manually by calling this function. This is
+ * normally what would happen in interrupt context but that does not prevent us
+ * from calling it from a user thread.
+ *
+ * Returns:
+ *	True if faked context event IRQ was effective.
+ *	False otherwise.
  */
-void intel_execlists_TDR_force_resubmit(struct drm_i915_private *dev_priv,
+bool intel_execlists_TDR_force_CSB_check(struct drm_i915_private *dev_priv,
 		unsigned ringid)
 {
 	unsigned long flags;
 	struct intel_engine_cs *ring = &dev_priv->ring[ringid];
-	struct intel_ctx_submit_request *req = NULL;
-	struct intel_context *ctx = NULL;
-	unsigned hw_context = I915_READ(RING_EXECLIST_STATUS_CTX_ID(ring));
+	int ret = 0;
+	enum context_submission_status status =
+			CONTEXT_SUBMISSION_STATUS_UNDEFINED;
 
-	if (spin_is_locked(&ring->execlist_lock))
-		return;
-	else
+	if (atomic_read(&ring->hangcheck.flags)
+		& DRM_I915_HANGCHECK_RESETTING) {
+
+		/*
+		 * Normally it's not a problem to fake context event interrupts
+		 * at any point even though the real interrupt might come in as
+		 * well. However, following a per-engine reset the read pointer
+		 * is set to 0 and the write pointer is set to 7.
+		 * Seeing as 7 % 6 = 1 (% 6 meaning there are 6 event slots),
+		 * which is 1 above the post-reset read pointer position, that
+		 * means that we've got a CSB window of non-zero size that
+		 * might be populated with context events by the hardware
+		 * following the TDR context resubmission. If we do a faked
+		 * interrupt too early (before finishing hang recovery) we
+		 * clear out this window by setting read pointer = write
+		 * pointer = 1 expecting that all contained events have been
+		 * processed (following a reset there will be nothing but
+		 * zeroes in there, though). This does not prevent the hardware
+		 * from filling in CSB slots 0 and 1 with events after this
+		 * point in time, though. By checking the CSB before allowing
+		 * the hardware fill in the events we hide these events from
+		 * being processed, potentially causing irrecoverable hangs.
+		 *
+		 * Solution: Do not fake interrupts while hang recovery is ongoing.
+		 */
+		DRM_DEBUG_TDR("Hang recovery on %s. No CSB check!\n", ring->name);
+
+		/*
+		 * Return true to allow another attempt for recovery since this
+		 * is a transitory state.
+		 */
+		return true;
+	}
+
+	status = intel_execlists_TDR_get_submitted_context(ring, NULL);
+
+	if (status == CONTEXT_SUBMISSION_STATUS_SUBMITTED) {
 		spin_lock_irqsave(&ring->execlist_lock, flags);
 
-	if (hw_context) {
-		WARN(1, "EXECLIST_STATUS context ID (%u) on %s is " \
-			"not zero - no need for forced resubmission!\n",
-			hw_context, ring->name);
-		goto exit;
+		WARN(1, "Inconsistent context state. Faking interrupt on %s!",
+			ring->name);
+
+		ret = intel_execlists_handle_ctx_events(ring, false);
+		if (!ret)
+			DRM_ERROR("Forced CSB check of %s ineffective!\n",
+				ring->name);
+
+		spin_unlock_irqrestore(&ring->execlist_lock, flags);
+		wake_up_all(&ring->irq_queue);
 	}
 
-	req = list_first_entry_or_null(&ring->execlist_queue,
-			struct intel_ctx_submit_request, execlist_link);
-
-	if (req) {
-		if (req->ctx) {
-			ctx = req->ctx;
-			i915_gem_context_reference(ctx);
-
-		} else {
-			WARN(1, "No context in request %p!", req);
-			goto exit;
-		}
-	} else {
-		WARN(1, "No context submitted to %s!\n", ring->name);
-		goto exit;
-	}
-
-	execlists_TDR_context_unqueue(ring);
-
-exit:
-	if (ctx)
-		i915_gem_context_unreference(ctx);
-
-	spin_unlock_irqrestore(&ring->execlist_lock, flags);
+	return !!ret;
 }
 

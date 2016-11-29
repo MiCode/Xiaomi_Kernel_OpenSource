@@ -1,5 +1,6 @@
 /*
  * Copyright © 2008 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -2433,8 +2434,6 @@ static void gen8_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 
 
 	if (ppgtt) {
-		seq_printf(m, "Page directories: %d\n", ppgtt->num_pd_pages);
-		seq_printf(m, "Page tables: %d\n", ppgtt->num_pd_entries);
 		for_each_ring(ring, dev_priv, unused) {
 			seq_printf(m, "%s\n", ring->name);
 			for (i = 0; i < 4; i++) {
@@ -2453,10 +2452,6 @@ static void gen8_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 			i++;
 			ppgtt = i915_vm_to_ppgtt(vm);
 			seq_printf(m, "PPGTT %p - references\n", ppgtt);
-			seq_printf(m, "Page directories: %d\n",
-							ppgtt->num_pd_pages);
-			seq_printf(m, "Page tables: %d\n",
-							ppgtt->num_pd_entries);
 		}
 		seq_printf(m, "Number of PPGTTs active: %d\n", i);
 	}
@@ -2480,11 +2475,13 @@ static void gen6_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 		seq_printf(m, "PP_DIR_BASE_READ: 0x%08x\n", I915_READ(RING_PP_DIR_BASE_READ(ring)));
 		seq_printf(m, "PP_DIR_DCLV: 0x%08x\n", I915_READ(RING_PP_DIR_DCLV(ring)));
 	}
+	seq_printf(m, "ECOCHK: 0x%08x\n\n", I915_READ(GAM_ECOCHK));
+
 	if (dev_priv->mm.aliasing_ppgtt) {
 		struct i915_hw_ppgtt *ppgtt = dev_priv->mm.aliasing_ppgtt;
 
 		seq_puts(m, "aliasing PPGTT:\n");
-		seq_printf(m, "pd gtt offset: 0x%08x\n", ppgtt->pd_offset);
+		seq_printf(m, "pd gtt offset: 0x%08x\n", ppgtt->pd.pd_offset);
 
 		ppgtt->debug_dump(ppgtt, m);
 	}
@@ -2496,7 +2493,6 @@ static void gen6_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 			   get_pid_task(file->pid, PIDTYPE_PID)->comm);
 		idr_for_each(&file_priv->context_idr, per_file_ctx, m);
 	}
-	seq_printf(m, "ECOCHK: 0x%08x\n", I915_READ(GAM_ECOCHK));
 }
 
 static int i915_ppgtt_info(struct seq_file *m, void *data)
@@ -4188,6 +4184,84 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_wedged_fops,
 			i915_wedged_get, i915_wedged_set,
 			"%llu\n");
 
+static int
+i915_fake_ctx_submission_inconsistency_get(void *data, u64 *val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_engine_cs *ring;
+	unsigned i;
+
+	DRM_INFO("Faked inconsistent context submission state: %x\n",
+		dev_priv->gpu_error.faked_lost_ctx_event_irq);
+
+	for_each_ring(ring, dev_priv, i) {
+		u32 fake_cnt =
+			(dev_priv->gpu_error.faked_lost_ctx_event_irq >> (i<<2)) & 0xf;
+
+		DRM_INFO("%s: Faking %s [%u IRQs left to drop]\n",
+			ring->name,
+			fake_cnt?"enabled":"disabled",
+			fake_cnt);
+	}
+
+	*val = (u64) dev_priv->gpu_error.faked_lost_ctx_event_irq;
+
+	return 0;
+}
+
+static int
+i915_fake_ctx_submission_inconsistency_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 fake_status;
+
+	/*
+	 * val contains the new faked_lost_ctx_event_irq word that is to be
+	 * merged with the already set faked_lost_ctx_event_irq word.
+	 *
+	 * val == 0 means clear all previously set fake bits.
+	 *
+	 * Each nibble contains a number between 0-15 denoting the number of
+	 * interrupts left to lose on the engine that nibble corresponds to.
+	 *
+	 * RCS: faked_lost_ctx_event_irq[3:0]
+	 * VCS: faked_lost_ctx_event_irq[7:4]
+	 * BCS: faked_lost_ctx_event_irq[11:8]
+	 * VECS: faked_lost_ctx_event_irq[15:12]
+	 * VCS2: faked_lost_ctx_event_irq[19:16]
+	 *
+	 * The number in each nibble is decremented by the interrupt handler in
+	 * intel_lrc.c once the faked interrupt loss is executed. If a
+	 * targetted interrupt is received when bit corresponding to that
+	 * engine is set that interrupt will be dropped without side-effects.
+	 */
+
+	fake_status =
+		dev_priv->gpu_error.faked_lost_ctx_event_irq;
+
+	DRM_INFO("Faking lost context event IRQ (new status: %x, old status: %x)\n",
+		(u32) val, fake_status);
+
+	if (val) {
+		dev_priv->gpu_error.faked_lost_ctx_event_irq |= ((u32) val);
+	} else {
+		DRM_INFO("Clearing lost context event IRQ mask\n");
+
+		dev_priv->gpu_error.faked_lost_ctx_event_irq = 0;
+	}
+
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_fake_ctx_submission_inconsistency_fops,
+			i915_fake_ctx_submission_inconsistency_get,
+			i915_fake_ctx_submission_inconsistency_set,
+			"%llu\n");
+
+
 static const char *ringid_to_str(enum intel_ring_id ring_id)
 {
 	switch (ring_id) {
@@ -4944,6 +5018,97 @@ static const struct file_operations i915_forcewake_fops = {
 	.release = i915_forcewake_release,
 };
 
+static ssize_t i915_connector_reset_read(struct file *filp, char __user *ubuf,
+	size_t max, loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	struct intel_connector *connector;
+	char *tmpbuf;
+	int ret_count = 0;
+
+	tmpbuf = kmalloc(max + 1, GFP_KERNEL);
+	if (!tmpbuf)
+		return -ENOMEM;
+
+	mutex_lock(&dev->mode_config.mutex);
+	snprintf(&tmpbuf[ret_count], max - ret_count, "List Connectors:\n");
+	ret_count = strlen(tmpbuf);
+
+	list_for_each_entry(connector, &dev->mode_config.connector_list,
+				base.head) {
+		switch (connector->encoder->type) {
+		case INTEL_OUTPUT_DSI:
+			snprintf(&tmpbuf[ret_count], max - ret_count,
+				"\tID=%d; Active:%d; Type=DSI\n",
+				connector->base.base.id,
+				connector->encoder->connectors_active);
+			break;
+		case INTEL_OUTPUT_EDP:
+			snprintf(&tmpbuf[ret_count], max - ret_count,
+				"\tID=%d; Active:%d; Type=EDP\n",
+				connector->base.base.id,
+				connector->encoder->connectors_active);
+			break;
+		default:
+			break;
+		}
+		ret_count = strlen(tmpbuf);
+	}
+	ret_count = simple_read_from_buffer(ubuf, max, ppos,
+		(const void *)tmpbuf, ret_count);
+	mutex_unlock(&dev->mode_config.mutex);
+	kfree(tmpbuf);
+	return ret_count;
+}
+
+static ssize_t i915_connector_reset_write(struct file *filp,
+			const char __user *ubuf,
+			size_t cnt, loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	struct intel_connector *connector;
+	u32 connector_id;
+	char *tmpbuf;
+	ssize_t ret;
+
+	if (cnt == 0)
+		return cnt;
+	tmpbuf = kmalloc(cnt + 1, GFP_KERNEL);
+	if (!tmpbuf)
+		return -ENOMEM;
+
+	if (copy_from_user(tmpbuf, ubuf, cnt)) {
+		kfree(tmpbuf);
+		return -EFAULT;
+	}
+	tmpbuf[cnt] = '\0';
+	ret = kstrtou32(tmpbuf, 0, &connector_id);
+	kfree(tmpbuf);
+	if (ret)
+		return -EINVAL;
+
+	mutex_lock(&dev->mode_config.mutex);
+	list_for_each_entry(connector, &dev->mode_config.connector_list,
+			base.head) {
+		if (connector->base.base.id == connector_id) {
+			intel_connector_reset(&connector->base);
+			DRM_DEBUG_DRIVER("Try to reset Connector %d\n",
+				connector_id);
+		}
+	}
+	mutex_unlock(&dev->mode_config.mutex);
+
+	return cnt;
+}
+
+static const struct file_operations i915_connector_reset_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_connector_reset_read,
+	.write = i915_connector_reset_write,
+	.llseek = default_llseek,
+};
+
 static int i915_forcewake_create(struct dentry *root, struct drm_minor *minor)
 {
 	struct drm_device *dev = minor->dev;
@@ -5032,6 +5197,7 @@ static const struct i915_debugfs_files {
 	const struct file_operations *fops;
 } i915_debugfs_files[] = {
 	{"i915_wedged", &i915_wedged_fops},
+	{"i915_fake_ctx_inconsistency", &i915_fake_ctx_submission_inconsistency_fops},
 	{"i915_max_freq", &i915_max_freq_fops},
 	{"i915_min_freq", &i915_min_freq_fops},
 	{"i915_cur_freq", &i915_cur_freq_fops},
@@ -5063,6 +5229,7 @@ static const struct i915_debugfs_files {
 	{"i915_timestamp", &i915_timestamp_fops},
 	{"i915_punit_read", &i915_punit_read_fops},
 	{"i915_fuse_read", &i915_fuse_read_fops},
+	{"i915_connector_reset", &i915_connector_reset_fops},
 };
 
 void intel_display_crc_init(struct drm_device *dev)

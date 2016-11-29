@@ -406,6 +406,9 @@ static void __init dmi_decode(const struct dmi_header *dm, void *dummy)
 	case 11:	/* OEM Strings */
 		dmi_save_oem_strings_devices(dm);
 		break;
+	case 17:	/* Memory Device */
+		dmi_save_ident(dm, DMI_MEMORY_MANUFACTURER_ID, 23);
+		break;
 	case 38:	/* IPMI Device Information */
 		dmi_save_ipmi_device(dm);
 		break;

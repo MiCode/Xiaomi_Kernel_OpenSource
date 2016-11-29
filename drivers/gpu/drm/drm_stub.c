@@ -2,6 +2,7 @@
  * Created: Fri Jan 19 10:48:35 2001 by faith@acm.org
  *
  * Copyright 2001 VA Linux Systems, Inc., Sunnyvale, California.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * Author Rickard E. (Rik) Faith <faith@valinux.com>
@@ -562,6 +563,8 @@ struct drm_device *drm_dev_alloc(struct drm_driver *driver,
 	mutex_init(&dev->struct_mutex);
 	mutex_init(&dev->ctxlist_mutex);
 	mutex_init(&dev->master_mutex);
+	mutex_init(&dev->halt_mutex);
+	init_waitqueue_head(&dev->halt_queue);
 
 	dev->anon_inode = drm_fs_inode_new();
 	if (IS_ERR(dev->anon_inode)) {

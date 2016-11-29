@@ -2,6 +2,7 @@
  * HECI client driver for HID (ISS)
  *
  * Copyright (c) 2014-2015, Intel Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -55,12 +56,36 @@ struct hid_device	*hid_sensor_hubs[MAX_HID_DEVICES];
 
 static wait_queue_head_t	init_wait;
 wait_queue_head_t	heci_hid_wait;
+static unsigned	bad_recv_cnt;
+static int	multi_packet_cnt;
 
 /*flush notification*/
 void (*flush_cb)(void);
+static int	init_done;
+
+
+static void	report_bad_packet(void *recv_buf, size_t cur_pos, size_t payload_len)
+{
+	struct hostif_msg	*recv_msg = recv_buf;
+
+	dev_err(&hid_heci_cl->device->dev, "[hid-ish]: BAD packet %02X\n",
+		recv_msg->hdr.command);
+	dev_err(&hid_heci_cl->device->dev, "total_bad=%u cur_pos=%u\n",
+		bad_recv_cnt, cur_pos);
+	dev_err(&hid_heci_cl->device->dev, "[%02X %02X %02X %02X]\n",
+		((unsigned char *)recv_msg)[0], ((unsigned char *)recv_msg)[1],
+		((unsigned char *)recv_msg)[2], ((unsigned char *)recv_msg)[3]);
+	dev_err(&hid_heci_cl->device->dev, "[hid-ish]: payload_len=%u\n",
+		payload_len);
+	dev_err(&hid_heci_cl->device->dev, "[hid-ish]: multi_packet_cnt=%u\n",
+		multi_packet_cnt);
+	dev_err(&hid_heci_cl->device->dev, "[hid-ish]: is_response=%02X\n",
+		recv_msg->hdr.command & ~CMD_MASK);
+}
+
 
 /* HECI client driver structures and API for bus interface */
-void	process_recv(void *recv_buf, size_t data_len)
+static void	process_recv(void *recv_buf, size_t data_len)
 {
 	struct hostif_msg	*recv_msg;
 	unsigned char	*payload;
@@ -78,10 +103,14 @@ void	process_recv(void *recv_buf, size_t data_len)
 		(unsigned)data_len);
 
 	if (data_len < sizeof(struct hostif_msg_hdr)) {
-		dev_err(NULL, "[hid-ish]: error, received %u which is ",
+		dev_err(&hid_heci_cl->device->dev,
+			"[hid-ish]: error, received %u which is ",
 			(unsigned)data_len);
-		dev_err(NULL, " less than data header %u\n",
+		dev_err(&hid_heci_cl->device->dev,
+			" less than data header %u\n",
 			(unsigned)sizeof(struct hostif_msg_hdr));
+		++bad_recv_cnt;
+		heci_hw_reset(hid_heci_cl->dev);
 		return;
 	}
 
@@ -95,14 +124,35 @@ void	process_recv(void *recv_buf, size_t data_len)
 		recv_msg = (struct hostif_msg *)(recv_buf + cur_pos);
 		payload_len = recv_msg->hdr.size;
 
+		/* Sanity checks */
+		if (cur_pos + payload_len + sizeof(struct hostif_msg) >
+				total_len) {
+			++bad_recv_cnt;
+			report_bad_packet(recv_msg, cur_pos, payload_len);
+			heci_hw_reset(hid_heci_cl->dev);
+			break;
+		}
+
+
 		switch (recv_msg->hdr.command & CMD_MASK) {
 		default:
+			++bad_recv_cnt;
+			report_bad_packet(recv_msg, cur_pos, payload_len);
+			heci_hw_reset(hid_heci_cl->dev);
 			break;
 
 		case HOSTIF_DM_ENUM_DEVICES:
 			ISH_DBG_PRINT(KERN_ALERT
-				"[hid-ish]: %s(): received HOSTIF_DM_ENUM_DEVICES\n",
-				__func__);
+				"[hid-ish]: %s(): HOSTIF_DM_ENUM_DEVICES [cur_pos=%u] [%02X %02X %02X %02X]\n",
+				__func__, cur_pos, ((unsigned char *)recv_msg)[0], ((unsigned char *)recv_msg)[1], ((unsigned char *)recv_msg)[2], ((unsigned char *)recv_msg)[3]);
+			if ((!(recv_msg->hdr.command & ~CMD_MASK) ||
+					init_done)) {
+				++bad_recv_cnt;
+				report_bad_packet(recv_msg, cur_pos,
+					payload_len);
+				heci_hw_reset(hid_heci_cl->dev);
+				break;
+			}
 			hid_dev_count = (unsigned)*payload;
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): hid_dev_count=%d\n",
@@ -116,13 +166,16 @@ void	process_recv(void *recv_buf, size_t data_len)
 			for (i = 0; i < hid_dev_count; ++i) {
 				if (1 + sizeof(struct device_info) * i >=
 						payload_len) {
-					dev_err(NULL,
+					dev_err(&hid_heci_cl->device->dev,
 						"[hid-ish]: [ENUM_DEVICES]:");
-					dev_err(NULL, " content size %u ", 1 +
+					dev_err(&hid_heci_cl->device->dev,
+						" content size %lu ", 1 +
 						sizeof(struct device_info) *
 						i);
-					dev_err(NULL, "is bigger than ");
-					dev_err(NULL, "payload_len %u\n",
+					dev_err(&hid_heci_cl->device->dev,
+						"is bigger than ");
+					dev_err(&hid_heci_cl->device->dev,
+						"payload_len %u\n",
 						(unsigned)payload_len);
 				}
 
@@ -150,11 +203,19 @@ void	process_recv(void *recv_buf, size_t data_len)
 
 		case HOSTIF_GET_HID_DESCRIPTOR:
 			ISH_DBG_PRINT(KERN_ALERT
-				"[hid-ish]: %s(): received HOSTIF_GET_HID_DESCRIPTOR\n",
-				__func__);
+				"[hid-ish]: %s(): received HOSTIF_GET_HID_DESCRIPTOR [cur_pos=%u] [%02X %02X %02X %02X]\n",
+				__func__, cur_pos, ((unsigned char *)recv_msg)[0], ((unsigned char *)recv_msg)[1], ((unsigned char *)recv_msg)[2], ((unsigned char *)recv_msg)[3]);
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): dump HID descriptor\n",
 				__func__);
+			if ((!(recv_msg->hdr.command & ~CMD_MASK) ||
+					init_done)) {
+				++bad_recv_cnt;
+				report_bad_packet(recv_msg, cur_pos,
+					payload_len);
+				heci_hw_reset(hid_heci_cl->dev);
+				break;
+			}
 			for (i = 0; i < payload_len; ++i)
 				ISH_DBG_PRINT(KERN_ALERT "%02X ", payload[i]);
 			ISH_DBG_PRINT(KERN_ALERT "\n");
@@ -173,11 +234,19 @@ void	process_recv(void *recv_buf, size_t data_len)
 
 		case HOSTIF_GET_REPORT_DESCRIPTOR:
 			ISH_DBG_PRINT(KERN_ALERT
-				"[hid-ish]: %s(): received HOSTIF_GET_REPORT_DESCRIPTOR\n",
-				__func__);
+				"[hid-ish]: %s(): received HOSTIF_GET_REPORT_DESCRIPTOR [cur_pos=%u] [%02X %02X %02X %02X]\n",
+				__func__, cur_pos, ((unsigned char *)recv_msg)[0], ((unsigned char *)recv_msg)[1], ((unsigned char *)recv_msg)[2], ((unsigned char *)recv_msg)[3]);
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): Length of report descriptor is %u\n",
 				__func__, (unsigned)payload_len);
+			if ((!(recv_msg->hdr.command & ~CMD_MASK) ||
+					init_done)) {
+				++bad_recv_cnt;
+				report_bad_packet(recv_msg, cur_pos,
+					payload_len);
+				heci_hw_reset(hid_heci_cl->dev);
+				break;
+			}
 			report_descr[cur_hid_dev] = kmalloc(payload_len,
 				GFP_KERNEL);
 			if (report_descr[cur_hid_dev])
@@ -313,6 +382,10 @@ do_get_report:
 			break;
 
 		}
+
+		if (!cur_pos && cur_pos + payload_len +
+				sizeof(struct hostif_msg) < total_len)
+			++multi_packet_cnt;
 
 		cur_pos += payload_len + sizeof(struct hostif_msg);
 		payload += payload_len + sizeof(struct hostif_msg);
@@ -500,9 +573,6 @@ struct heci_cl_driver	hid_heci_cl_driver = {
 
 /****************************************************************/
 
-
-
-
 void workqueue_init_function(struct work_struct *work)
 {
 	int	rv;
@@ -513,6 +583,7 @@ void workqueue_init_function(struct work_struct *work)
 	struct heci_device	*dev;
 	int	retry_count;
 
+	init_done = 0;
 	ISH_DBG_PRINT(KERN_ALERT
 		"[ish client driver] %s() in workqueue func, continue initialization process\n",
 		__func__);
@@ -700,10 +771,10 @@ void workqueue_init_function(struct work_struct *work)
 		__func__);
 
 ret:
-
 	ISH_DBG_PRINT(KERN_ALERT
 		"[hid-ish] %s() :in ret label --- returning %d\n", __func__,
 		rv);
+	init_done = 1;
 }
 /****************************************************************/
 
@@ -713,7 +784,8 @@ static int __init ish_init(void)
 
 	ISH_INFO_PRINT(KERN_ERR "[hid-ish]: %s():+++ [Build " BUILD_ID "]\n",
 		__func__);
-	g_ish_print_log(KERN_ERR "[hid-ish]: %s():+++ [Build " BUILD_ID "]\n",
+	g_ish_print_log(
+		"[hid-ish]: %s():+++ [Build " BUILD_ID "]\n",
 		__func__);
 
 	init_waitqueue_head(&init_wait);

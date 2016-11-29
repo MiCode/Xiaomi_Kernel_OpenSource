@@ -2,6 +2,7 @@
  * Copyright (c) 2006-2008 Intel Corporation
  * Copyright (c) 2007 Dave Airlie <airlied@linux.ie>
  * Copyright (c) 2008 Red Hat Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * DRM core CRTC related functions
  *
@@ -2239,9 +2240,19 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 		return -ENOENT;
 	}
 
+	crtc = drm_crtc_find(dev, plane_req->crtc_id);
+	if (!crtc) {
+		DRM_DEBUG_KMS("Unknown crtc ID %d\n",
+			      plane_req->crtc_id);
+		ret = -ENOENT;
+		goto out;
+	}
+
 	/* No fb means shut it down */
 	if (!plane_req->fb_id) {
-		drm_modeset_lock_all(dev);
+		if (drm_modeset_lock(&crtc->mutex, NULL))
+			DRM_ERROR("CRTC(%d) lock(noi fb)failed\n",
+				crtc->base.id);
 		old_fb = plane->fb;
 		ret = plane->funcs->disable_plane(plane);
 		if (!ret) {
@@ -2250,15 +2261,7 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 		} else {
 			old_fb = NULL;
 		}
-		drm_modeset_unlock_all(dev);
-		goto out;
-	}
-
-	crtc = drm_crtc_find(dev, plane_req->crtc_id);
-	if (!crtc) {
-		DRM_DEBUG_KMS("Unknown crtc ID %d\n",
-			      plane_req->crtc_id);
-		ret = -ENOENT;
+		drm_modeset_unlock(&crtc->mutex);
 		goto out;
 	}
 
@@ -2322,8 +2325,8 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 		goto out;
 	}
 
-	drm_modeset_lock_all(dev);
-	old_fb = plane->fb;
+	if (drm_modeset_lock(&crtc->mutex, NULL))
+		DRM_ERROR("CRTC(%d) lock failed\n", crtc->base.id);
 
 	if (plane_req->flags & DRM_MODE_PAGE_FLIP_EVENT) {
 		ret = -ENOMEM;
@@ -2350,6 +2353,7 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 		e->base.destroy = (void (*) (struct drm_pending_event *)) kfree;
 	}
 
+	old_fb = plane->fb;
 	ret = plane->funcs->update_plane(plane, crtc, fb,
 					 plane_req->crtc_x, plane_req->crtc_y,
 					 plane_req->crtc_w, plane_req->crtc_h,
@@ -2370,7 +2374,7 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 	}
 
 unlock:
-	drm_modeset_unlock_all(dev);
+	drm_modeset_unlock(&crtc->mutex);
 
 out:
 	if (fb)
@@ -4118,6 +4122,14 @@ out:
 	return ret;
 }
 
+struct drm_crtc *drm_crtc_from_connector(struct
+	drm_connector * connector)
+{
+	if (connector->encoder)
+		return connector->encoder->crtc;
+	return NULL;
+}
+
 /**
  * drm_mode_obj_set_property_ioctl - set the current value of an object's property
  * @dev: DRM device
@@ -4141,13 +4153,13 @@ int drm_mode_obj_set_property_ioctl(struct drm_device *dev, void *data,
 	struct drm_mode_object *arg_obj;
 	struct drm_mode_object *prop_obj;
 	struct drm_property *property;
+	struct drm_crtc *crtc = NULL;
+	struct drm_mode_config *config = &dev->mode_config;
 	int ret = -EINVAL;
 	int i;
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -EINVAL;
-
-	drm_modeset_lock_all(dev);
 
 	arg_obj = drm_mode_object_find(dev, arg->obj_id, arg->obj_type);
 	if (!arg_obj) {
@@ -4177,19 +4189,44 @@ int drm_mode_obj_set_property_ioctl(struct drm_device *dev, void *data,
 
 	switch (arg_obj->type) {
 	case DRM_MODE_OBJECT_CONNECTOR:
-		ret = drm_mode_connector_set_obj_prop(arg_obj, property,
-						      arg->value);
+		crtc = drm_crtc_from_connector(obj_to_connector(arg_obj));
+		if (crtc) {
+			DRM_DEBUG_DRIVER("CRTC from connector,CRTC={id=%d props=%d}\n",
+				crtc->base.id, crtc->base.properties ?
+					crtc->base.properties->count : 0);
+			mutex_lock(&config->mutex);
+			drm_modeset_lock(&crtc->mutex, NULL);
+			ret = drm_mode_connector_set_obj_prop(arg_obj, property,
+							arg->value);
+		} else {
+			DRM_ERROR("No crtc from connector, lock all\n");
+			drm_modeset_lock_all(dev);
+			ret = drm_mode_connector_set_obj_prop(arg_obj, property,
+							arg->value);
+		}
 		break;
 	case DRM_MODE_OBJECT_CRTC:
+		crtc = obj_to_crtc(arg_obj);
+		drm_modeset_lock(&crtc->mutex, NULL);
 		ret = drm_mode_crtc_set_obj_prop(arg_obj, property, arg->value);
 		break;
 	case DRM_MODE_OBJECT_PLANE:
+		crtc = obj_to_plane(arg_obj)->crtc;
+		if (crtc)
+			drm_modeset_lock(&crtc->mutex, NULL);
+		else
+			drm_modeset_lock_all(dev);
 		ret = drm_mode_plane_set_obj_prop(arg_obj, property, arg->value);
 		break;
 	}
 
+	if (crtc) {
+		drm_modeset_unlock(&crtc->mutex);
+		if (arg_obj->type == DRM_MODE_OBJECT_CONNECTOR)
+			mutex_unlock(&config->mutex);
+	} else
+		drm_modeset_unlock_all(dev);
 out:
-	drm_modeset_unlock_all(dev);
 	return ret;
 }
 

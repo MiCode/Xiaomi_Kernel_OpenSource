@@ -63,6 +63,8 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_RT5631 if I2C
 	select SND_SOC_RT5640 if I2C
 	select SND_SOC_RT5651 if I2C
+	select SND_SOC_RT5659 if I2C
+	select SND_SOC_TFA98xx if I2C
 	select SND_SOC_SGTL5000 if I2C
 	select SND_SOC_SI476X if MFD_SI476X_CORE
 	select SND_SOC_SN95031 if INTEL_SCU_IPC
@@ -342,6 +344,9 @@ config SND_SOC_RT5640
 config SND_SOC_RT5651
 	tristate
 
+config SND_SOC_RT5659
+	tristate
+
 config SND_SOC_RT5672
 	tristate
 
@@ -586,3 +591,11 @@ config SND_SOC_ML26124
 
 config SND_SOC_TPA6130A2
 	tristate
+
+config SND_SOC_TFA98xx
+	tristate "NXP Smart PA TFA98xx"
+	default n
+
+config DEBUG_HEADSET_UART
+	bool "use headset uart port"
+	default n

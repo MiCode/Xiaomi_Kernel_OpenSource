@@ -1,5 +1,6 @@
 /*
  * Copyright © 2014 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -161,6 +162,8 @@ const struct drm_ioctl_desc i915_ext_ioctls[] = {
 			  DRM_UNLOCKED|DRM_CONTROL_ALLOW|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(I915_GEM_FALLOCATE, i915_gem_fallocate_ioctl,
 			  DRM_UNLOCKED|DRM_CONTROL_ALLOW|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(I915_GEM_GET_APERTURE2, i915_gem_get_aperture_ioctl2,
+			  DRM_UNLOCKED|DRM_RENDER_ALLOW),
 };
 
 int i915_max_ext_ioctl = ARRAY_SIZE(i915_ext_ioctls);

@@ -2,6 +2,7 @@
  * Export SMBIOS/DMI info via sysfs to userspace
  *
  * Copyright 2007, Lennart Poettering
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Licensed under GPLv2
  */
@@ -57,6 +58,7 @@ DEFINE_DMI_ATTR_WITH_SHOW(chassis_type,		0444, DMI_CHASSIS_TYPE);
 DEFINE_DMI_ATTR_WITH_SHOW(chassis_version,	0444, DMI_CHASSIS_VERSION);
 DEFINE_DMI_ATTR_WITH_SHOW(chassis_serial,	0400, DMI_CHASSIS_SERIAL);
 DEFINE_DMI_ATTR_WITH_SHOW(chassis_asset_tag,	0444, DMI_CHASSIS_ASSET_TAG);
+DEFINE_DMI_ATTR_WITH_SHOW(memory_manufacturer_id,	0444, DMI_MEMORY_MANUFACTURER_ID);
 
 static void ascii_filter(char *d, const char *s)
 {
@@ -201,6 +203,7 @@ static void __init dmi_id_init_attr_table(void)
 	ADD_DMI_ATTR(chassis_version,   DMI_CHASSIS_VERSION);
 	ADD_DMI_ATTR(chassis_serial,    DMI_CHASSIS_SERIAL);
 	ADD_DMI_ATTR(chassis_asset_tag, DMI_CHASSIS_ASSET_TAG);
+	ADD_DMI_ATTR(memory_manufacturer_id, DMI_MEMORY_MANUFACTURER_ID);
 	sys_dmi_attributes[i++] = &sys_dmi_modalias_attr.attr;
 }
 

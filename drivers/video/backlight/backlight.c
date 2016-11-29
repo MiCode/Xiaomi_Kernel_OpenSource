@@ -2,6 +2,7 @@
  * Backlight Lowlevel Control Abstraction
  *
  * Copyright (C) 2003,2004 Hewlett-Packard Company
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  */
 
@@ -16,6 +17,7 @@
 #include <linux/err.h>
 #include <linux/fb.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
 
 #ifdef CONFIG_PMAC_BACKLIGHT
 #include <asm/backlight.h>
@@ -53,8 +55,13 @@ static int fb_notifier_callback(struct notifier_block *self,
 		if (!bd->ops->check_fb ||
 		    bd->ops->check_fb(bd, evdata->info)) {
 			bd->props.fb_blank = *(int *)evdata->data;
-			if (bd->props.fb_blank == FB_BLANK_UNBLANK)
+			if (bd->props.fb_blank == FB_BLANK_UNBLANK) {
 				bd->props.state &= ~BL_CORE_FBBLANK;
+				bd->props.brightness = 35 ;
+				if (strcmp(dev_name(&bd->dev), "lcd-backlight") == 0) {
+					msleep(120);
+				}
+			}
 			else
 				bd->props.state |= BL_CORE_FBBLANK;
 			backlight_update_status(bd);
@@ -145,9 +152,15 @@ static DEVICE_ATTR_RW(bl_power);
 static ssize_t brightness_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
+	int rc = -ENXIO;
 	struct backlight_device *bd = to_backlight_device(dev);
 
-	return sprintf(buf, "%d\n", bd->props.brightness);
+	mutex_lock(&bd->ops_lock);
+	if (bd->ops && bd->ops->get_brightness)
+		rc = sprintf(buf, "%d\n", bd->ops->get_brightness(bd));
+	mutex_unlock(&bd->ops_lock);
+
+	return rc;
 }
 
 static ssize_t brightness_store(struct device *dev,

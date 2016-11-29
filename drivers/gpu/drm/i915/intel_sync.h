@@ -1,5 +1,6 @@
 /*
  * Copyright © 2013 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -74,6 +75,8 @@ void i915_sync_timeline_advance(struct intel_context *ctx,
 				struct intel_engine_cs *ring,
 				uint32_t value);
 void i915_sync_hung_ring(struct intel_engine_cs *ring);
+
+void i915_sync_hung_request(struct drm_i915_gem_request *req);
 
 #else
 

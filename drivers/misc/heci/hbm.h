@@ -2,6 +2,7 @@
  * HECI bus layer messages handling
  *
  * Copyright (c) 2003-2015, Intel Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -321,14 +322,17 @@ int heci_hbm_cl_connect_req(struct heci_device *dev, struct heci_cl *cl);
 void heci_hbm_enum_clients_req(struct heci_device *dev);
 void	recv_hbm(struct heci_device *dev, struct heci_msg_hdr *heci_hdr);
 
-/* Suspend and resume notification*/
+/* System state */
 #define HECI_SYSTEM_STATE_CLIENT_ADDR 13
 
 #define SYSTEM_STATE_SUBSCRIBE                  0x1
 #define SYSTEM_STATE_STATUS                     0x2
 #define SYSTEM_STATE_QUERY_SUBSCRIBERS          0x3
+#define SYSTEM_STATE_STATE_CHANGE_REQ		0x4
 
 #define SUSPEND_STATE_BIT       (1<<1) /*indicates suspend and resume states*/
+
+#define ANDROID_EVENT_MASK	0xff000000
 
 struct ish_system_states_header {
 	u32 cmd;
@@ -350,12 +354,17 @@ struct ish_system_states_query_subscribers {
 	struct ish_system_states_header hdr;
 } __packed;
 
+struct ish_system_states_state_change_req {
+	struct ish_system_states_header hdr;
+	u32 requested_states;
+	u32 states_status;
+} __packed;
+
 void send_suspend(struct heci_device *dev);
 void send_resume(struct heci_device *dev);
 void query_subscribers(struct heci_device *dev);
 
 void recv_fixed_cl_msg(struct heci_device *dev, struct heci_msg_hdr *heci_hdr);
 void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr);
-
 #endif /* _HECI_HBM_H_ */
 

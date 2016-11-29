@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2005 Stephen Street / StreetFire Sound Labs
  * Copyright (C) 2013, Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1404,6 +1405,8 @@ static int pxa2xx_spi_runtime_suspend(struct device *dev)
 static int pxa2xx_spi_runtime_resume(struct device *dev)
 {
 	struct driver_data *drv_data = dev_get_drvdata(dev);
+
+	pxa2xx_spi_dma_resume(drv_data);
 
 	clk_prepare_enable(drv_data->ssp->clk);
 

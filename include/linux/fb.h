@@ -163,6 +163,13 @@ struct fb_cursor_user {
 /*      A hardware display blank revert early change occured */
 #define FB_R_EARLY_EVENT_BLANK		0x11
 
+/*	A event for touchscreen suspend and resume */
+#define TP_POWER_STATE_EVENT		0x12
+
+/*	touchscreen power state code, include suspend and resume state*/
+#define TP_POWER_SUSPEND		0x01
+#define TP_POWER_RESUME			0x02
+
 struct fb_event {
 	struct fb_info *info;
 	void *data;
@@ -178,6 +185,11 @@ struct fb_blit_caps {
 extern int fb_register_client(struct notifier_block *nb);
 extern int fb_unregister_client(struct notifier_block *nb);
 extern int fb_notifier_call_chain(unsigned long val, void *v);
+
+extern int tp_register_client(struct notifier_block *nb);
+extern int tp_unregister_client(struct notifier_block *nb);
+extern int tp_notifier_call_chain(unsigned long val, void *v);
+
 /*
  * Pixmap structure definition
  *

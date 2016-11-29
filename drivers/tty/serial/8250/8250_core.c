@@ -827,7 +827,7 @@ static int broken_efr(struct uart_8250_port *up)
 	/*
 	 * Exar ST16C2550 "A2" devices incorrectly detect as
 	 * having an EFR, and report an ID of 0x0201.  See
-	 * http://linux.derkeiler.com/Mailing-Lists/Kernel/2004-11/4812.html 
+	 * http://linux.derkeiler.com/Mailing-Lists/Kernel/2004-11/4812.html
 	 */
 	if (autoconfig_read_divisor_id(up) == 0x0201 && size_fifo(up) == 16)
 		return 1;
@@ -1182,7 +1182,7 @@ static void autoconfig(struct uart_8250_port *up, unsigned int probeflags)
 	serial_out(up, UART_LCR, save_lcr);
 
 	port->fifosize = uart_config[up->port.type].fifo_size;
-	old_capabilities = up->capabilities; 
+	old_capabilities = up->capabilities;
 	up->capabilities = uart_config[port->type].flags;
 	up->tx_loadsz = uart_config[port->type].tx_loadsz;
 
@@ -2882,14 +2882,12 @@ serial8250_console_write(struct console *co, const char *s, unsigned int count)
 
 	touch_nmi_watchdog();
 
-	local_irq_save(flags);
-	if (port->sysrq) {
-		/* serial8250_handle_irq() already took the lock */
+	if (port->sysrq)
 		locked = 0;
-	} else if (oops_in_progress) {
-		locked = spin_trylock(&port->lock);
-	} else
-		spin_lock(&port->lock);
+	else if (oops_in_progress)
+		locked = spin_trylock_irqsave(&port->lock, flags);
+	else
+		spin_lock_irqsave(&port->lock, flags);
 
 	/*
 	 *	First save the IER then disable the interrupts
@@ -2921,8 +2919,7 @@ serial8250_console_write(struct console *co, const char *s, unsigned int count)
 		serial8250_modem_status(up);
 
 	if (locked)
-		spin_unlock(&port->lock);
-	local_irq_restore(flags);
+		spin_unlock_irqrestore(&port->lock, flags);
 }
 
 static int __init serial8250_console_setup(struct console *co, char *options)

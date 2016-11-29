@@ -2,6 +2,7 @@
  *  linux/drivers/video/fb_notify.c
  *
  *  Copyright (C) 2006 Antonino Daplas <adaplas@pol.net>
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  *	2001 - Documented with DocBook
  *	- Brad Douglas <brad@neruo.com>
@@ -45,3 +46,35 @@ int fb_notifier_call_chain(unsigned long val, void *v)
 	return blocking_notifier_call_chain(&fb_notifier_list, val, v);
 }
 EXPORT_SYMBOL_GPL(fb_notifier_call_chain);
+
+static BLOCKING_NOTIFIER_HEAD(tp_notifier_list);
+
+/**
+ *	tp_register_client - register a client notifier
+ *	@nb: notifier block to callback on events
+ */
+int tp_register_client(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&tp_notifier_list, nb);
+}
+EXPORT_SYMBOL(tp_register_client);
+
+/**
+ *	tp_unregister_client - unregister a client notifier
+ *	@nb: notifier block to callback on events
+ */
+int tp_unregister_client(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&tp_notifier_list, nb);
+}
+EXPORT_SYMBOL(tp_unregister_client);
+
+/**
+ * tp_notifier_call_chain - notify clients of tp_events
+ *
+ */
+int tp_notifier_call_chain(unsigned long val, void *v)
+{
+	return blocking_notifier_call_chain(&tp_notifier_list, val, v);
+}
+EXPORT_SYMBOL_GPL(tp_notifier_call_chain);

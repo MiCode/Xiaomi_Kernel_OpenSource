@@ -1,8 +1,9 @@
 /*
  * pcicfg.h: PCI configuration constants and structures.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -21,11 +22,16 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: pcicfg.h 465082 2014-03-26 17:37:28Z $
+ * $Id: pcicfg.h 506084 2014-10-02 15:34:59Z $
  */
 
 #ifndef	_h_pcicfg_
 #define	_h_pcicfg_
+
+
+/* pci config status reg has a bit to indicate that capability ptr is present */
+
+#define PCI_CAPPTR_PRESENT	0x0010
 
 /* A structure for the config registers is nice, but in most
  * systems the config space is not memory mapped, so we need
@@ -59,6 +65,96 @@
 #define	PCI_CFG_MINGNT		0x3e
 #define	PCI_CFG_MAXLAT		0x3f
 #define	PCI_CFG_DEVCTRL		0xd8
+
+
+/* PCI CAPABILITY DEFINES */
+#define PCI_CAP_POWERMGMTCAP_ID		0x01
+#define PCI_CAP_MSICAP_ID		0x05
+#define PCI_CAP_VENDSPEC_ID		0x09
+#define PCI_CAP_PCIECAP_ID		0x10
+
+/* Data structure to define the Message Signalled Interrupt facility
+ * Valid for PCI and PCIE configurations
+ */
+typedef struct _pciconfig_cap_msi {
+	uint8	capID;
+	uint8	nextptr;
+	uint16	msgctrl;
+	uint32	msgaddr;
+} pciconfig_cap_msi;
+#define MSI_ENABLE	0x1		/* bit 0 of msgctrl */
+
+/* Data structure to define the Power managment facility
+ * Valid for PCI and PCIE configurations
+ */
+typedef struct _pciconfig_cap_pwrmgmt {
+	uint8	capID;
+	uint8	nextptr;
+	uint16	pme_cap;
+	uint16	pme_sts_ctrl;
+	uint8	pme_bridge_ext;
+	uint8	data;
+} pciconfig_cap_pwrmgmt;
+
+#define PME_CAP_PM_STATES (0x1f << 27)	/* Bits 31:27 states that can generate PME */
+#define PME_CSR_OFFSET	    0x4		/* 4-bytes offset */
+#define PME_CSR_PME_EN	  (1 << 8)	/* Bit 8 Enable generating of PME */
+#define PME_CSR_PME_STAT  (1 << 15)	/* Bit 15 PME got asserted */
+
+/* Data structure to define the PCIE capability */
+typedef struct _pciconfig_cap_pcie {
+	uint8	capID;
+	uint8	nextptr;
+	uint16	pcie_cap;
+	uint32	dev_cap;
+	uint16	dev_ctrl;
+	uint16	dev_status;
+	uint32	link_cap;
+	uint16	link_ctrl;
+	uint16	link_status;
+	uint32	slot_cap;
+	uint16	slot_ctrl;
+	uint16	slot_status;
+	uint16	root_ctrl;
+	uint16	root_cap;
+	uint32	root_status;
+} pciconfig_cap_pcie;
+
+/* PCIE Enhanced CAPABILITY DEFINES */
+#define PCIE_EXTCFG_OFFSET	0x100
+#define PCIE_ADVERRREP_CAPID	0x0001
+#define PCIE_VC_CAPID		0x0002
+#define PCIE_DEVSNUM_CAPID	0x0003
+#define PCIE_PWRBUDGET_CAPID	0x0004
+
+/* PCIE Extended configuration */
+#define PCIE_ADV_CORR_ERR_MASK	0x114
+#define CORR_ERR_RE	(1 << 0) /* Receiver  */
+#define CORR_ERR_BT 	(1 << 6) /* Bad TLP  */
+#define CORR_ERR_BD	(1 << 7) /* Bad DLLP */
+#define CORR_ERR_RR	(1 << 8) /* REPLAY_NUM rollover */
+#define CORR_ERR_RT	(1 << 12) /* Reply timer timeout */
+#define ALL_CORR_ERRORS (CORR_ERR_RE | CORR_ERR_BT | CORR_ERR_BD | \
+			 CORR_ERR_RR | CORR_ERR_RT)
+
+/* PCIE Root Control Register bits (Host mode only) */
+#define	PCIE_RC_CORR_SERR_EN		0x0001
+#define	PCIE_RC_NONFATAL_SERR_EN	0x0002
+#define	PCIE_RC_FATAL_SERR_EN		0x0004
+#define	PCIE_RC_PME_INT_EN		0x0008
+#define	PCIE_RC_CRS_EN			0x0010
+
+/* PCIE Root Capability Register bits (Host mode only) */
+#define	PCIE_RC_CRS_VISIBILITY		0x0001
+
+/* Header to define the PCIE specific capabilities in the extended config space */
+typedef struct _pcie_enhanced_caphdr {
+	uint16	capID;
+	uint16	cap_ver:4;
+	uint16	next_ptr:12;
+} pcie_enhanced_caphdr;
+
+
 #define	PCI_BAR0_WIN		0x80	/* backplane addres space accessed by BAR0 */
 #define	PCI_BAR1_WIN		0x84	/* backplane addres space accessed by BAR1 */
 #define	PCI_SPROM_CONTROL	0x88	/* sprom property control */
@@ -73,7 +169,11 @@
 #define	PCI_GPIO_IN		0xb0	/* pci config space gpio input (>=rev3) */
 #define	PCI_GPIO_OUT		0xb4	/* pci config space gpio output (>=rev3) */
 #define	PCI_GPIO_OUTEN		0xb8	/* pci config space gpio output enable (>=rev3) */
-#define	PCI_L1SS_CTRL2		0x24c	/* The L1 PM Substates Control register */
+#define PCI_LINK_CTRL		0xbc	/* PCI link control register */
+#define PCI_DEV_STAT_CTRL2	0xd4	/* PCI device status control 2 register */
+#define PCIE_LTR_MAX_SNOOP	0x1b4	/* PCIE LTRMaxSnoopLatency */
+#define PCI_L1SS_CTRL		0x248	/* The L1 PM Substates Control register */
+#define	PCI_L1SS_CTRL2		0x24c	/* The L1 PM Substates Control 2 register */
 
 /* Private Registers */
 #define	PCI_STAT_CTRL		0xa80
@@ -117,5 +217,45 @@
 #define PCI_16KBB0_WINSZ	(16 * 1024)	/* bar0 window size */
 
 
+/* Header types */
+#define	PCI_HEADER_MULTI	0x80
+#define	PCI_HEADER_MASK		0x7f
+typedef enum {
+	PCI_HEADER_NORMAL,
+	PCI_HEADER_BRIDGE,
+	PCI_HEADER_CARDBUS
+} pci_header_types;
+
 #define PCI_CONFIG_SPACE_SIZE	256
+
+#define DWORD_ALIGN(x)  (x & ~(0x03))
+#define BYTE_POS(x) (x & 0x3)
+#define WORD_POS(x) (x & 0x1)
+
+#define BYTE_SHIFT(x)  (8 * BYTE_POS(x))
+#define WORD_SHIFT(x)  (16 * WORD_POS(x))
+
+#define BYTE_VAL(a, x) ((a >> BYTE_SHIFT(x)) & 0xFF)
+#define WORD_VAL(a, x) ((a >> WORD_SHIFT(x)) & 0xFFFF)
+
+#define read_pci_cfg_byte(a) \
+	(BYTE_VAL(OSL_PCI_READ_CONFIG(osh, DWORD_ALIGN(a), 4), a) & 0xff)
+
+#define read_pci_cfg_word(a) \
+	(WORD_VAL(OSL_PCI_READ_CONFIG(osh, DWORD_ALIGN(a), 4), a) & 0xffff)
+
+#define write_pci_cfg_byte(a, val) do { \
+	uint32 tmpval; \
+	tmpval = (OSL_PCI_READ_CONFIG(osh, DWORD_ALIGN(a), 4) & ~0xFF << BYTE_POS(a)) | \
+		val << BYTE_POS(a); \
+	OSL_PCI_WRITE_CONFIG(osh, DWORD_ALIGN(a), 4, tmpval); \
+	} while (0)
+
+#define write_pci_cfg_word(a, val) do { \
+	uint32 tmpval; \
+	tmpval = (OSL_PCI_READ_CONFIG(osh, DWORD_ALIGN(a), 4) & ~0xFFFF << WORD_POS(a)) | \
+		val << WORD_POS(a); \
+	OSL_PCI_WRITE_CONFIG(osh, DWORD_ALIGN(a), 4, tmpval); \
+	} while (0)
+
 #endif	/* _h_pcicfg_ */

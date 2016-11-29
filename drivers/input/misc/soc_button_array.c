@@ -3,6 +3,7 @@
  * running Windows 8.
  *
  * (C) Copyright 2014 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -43,6 +44,8 @@ static struct soc_button_info soc_button_tbl[] = {
 	{"volume_up", 2, KEY_VOLUMEUP, 1, 0, -1},
 	{"volume_down", 3, KEY_VOLUMEDOWN, 1, 0, -1},
 	{"rotation_lock", 4, KEY_RO, 0, 0, -1},
+	{"hall_lid_back", 5, KEY_RESERVED, 0, 1, -1},
+	{"hall_lid_front", 6, SW_LID, 0, 0, -1},
 };
 
 /*
@@ -147,7 +150,10 @@ static int soc_button_pnp_probe(struct pnp_dev *pdev,
 				gk[j].gpio = soc_button_tbl[i].gpio;
 				gk[j].active_low = 1;
 				gk[j].desc = soc_button_tbl[i].name;
-				gk[j].type = EV_KEY;
+				if (strcmp(soc_button_tbl[i].name, "hall_lid_front") == 0)
+					gk[j].type = EV_SW;
+				else
+					gk[j].type = EV_KEY;
 				gk[j].wakeup = soc_button_tbl[i].wakeup;
 				j++;
 			}

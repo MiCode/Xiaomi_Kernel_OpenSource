@@ -2,6 +2,7 @@
  * User-mode HECI API
  *
  * Copyright (c) 2015, Intel Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -424,6 +425,7 @@ static int heci_ioctl_connect_client(struct file *file,
 	if (i < 0 || dev->me_clients[i].props.fixed_address) {
 		dev_dbg(&dev->pdev->dev, "Cannot connect to FW Client UUID = %pUl\n",
 				&data->in_client_uuid);
+		spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 		rets = -ENODEV;
 		goto end;
 	}
@@ -545,7 +547,8 @@ err:
 	}
 
 	if (cmd == IOCTL_GET_FW_STATUS) {
-		sprintf(fw_stat_buf, "%08X\n", dev->ops->get_fw_status(dev));
+		scnprintf(fw_stat_buf, sizeof(fw_stat_buf),
+			"%08X\n", dev->ops->get_fw_status(dev));
 		copy_to_user((char __user *)data, fw_stat_buf,
 			strlen(fw_stat_buf));
 		return strlen(fw_stat_buf);
@@ -639,7 +642,6 @@ static struct miscdevice  heci_misc_device = {
 		.fops = &heci_fops,
 		.minor = MISC_DYNAMIC_MINOR,
 };
-
 
 int heci_register(struct heci_device *dev)
 {

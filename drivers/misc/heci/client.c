@@ -2,6 +2,7 @@
  * HECI client logic (for both HECI bus driver and user-mode API)
  *
  * Copyright (c) 2003-2015, Intel Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -400,6 +401,7 @@ void	heci_cl_free(struct heci_cl *cl)
 	heci_cl_free_tx_ring(cl);
 	kfree(cl);
 }
+EXPORT_SYMBOL(heci_cl_free);
 
 
 /**

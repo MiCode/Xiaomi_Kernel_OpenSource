@@ -3,6 +3,7 @@
 /*
  *
  * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -35,6 +36,7 @@
 #include "intel_drv.h"
 #include "intel_lrc_tdr.h"
 #include "i915_scheduler.h"
+#include "intel_sync.h"
 
 #include <linux/console.h>
 #include <linux/module.h>
@@ -580,7 +582,7 @@ static int i915_drm_freeze(struct drm_device *dev)
 		error = i915_gem_suspend(dev);
 		if (error) {
 			dev_err(&dev->pdev->dev,
-				"GEM idle failed, resume might fail\n");
+				"GEM idle failed, resume might fail error:%8x\n", error);
 			return error;
 		}
 
@@ -643,6 +645,7 @@ int i915_suspend(struct drm_device *dev, pm_message_t state)
 {
 	int error;
 
+	trace_printk("suspend began, event = 0x%x\n", state.event);
 	if (!dev || !dev->dev_private) {
 		DRM_ERROR("dev: %p\n", dev);
 		DRM_ERROR("DRM not initialized, aborting suspend.\n");
@@ -666,6 +669,7 @@ int i915_suspend(struct drm_device *dev, pm_message_t state)
 		pci_set_power_state(dev->pdev, PCI_D3hot);
 	}
 
+	trace_printk("suspend finished\n");
 	return 0;
 }
 
@@ -726,6 +730,7 @@ static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
 	char *envp[] = { "GSTATE=0", NULL };
+	struct intel_engine_cs *ring;
 
 	if (IS_VALLEYVIEW(dev) && !IS_CHERRYVIEW(dev)) {
 		intel_uncore_early_sanitize(dev);
@@ -763,24 +768,28 @@ static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 			DRM_ERROR("failed to re-initialize GPU, declaring wedged!\n");
 			atomic_set_mask(I915_WEDGED, &dev_priv->gpu_error.reset_counter);
 		}
+		ring = &dev_priv->ring[RCS];
 		mutex_unlock(&dev->struct_mutex);
 
 		/* We need working interrupts for modeset enabling ... */
 		drm_irq_install(dev, dev->pdev->irq);
-
+		trace_printk("line %d, next_context_status_buffer = %x\n", __LINE__, ring->next_context_status_buffer);
 		intel_modeset_init_hw(dev);
-
+		trace_printk("line %d, next_context_status_buffer = %x\n", __LINE__, ring->next_context_status_buffer);
 		/* We need to load HuC after enabling irq */
 		if (ret == 0)
 			intel_chv_huc_load(dev);
+		trace_printk("line %d, next_context_status_buffer = %x\n", __LINE__, ring->next_context_status_buffer);
 
 		if (display_is_on(dev)) {
 			drm_modeset_lock_all(dev);
 			intel_modeset_setup_hw_state(dev, true);
+			trace_printk("line %d, display is on, next_context_status_buffer = %x\n", __LINE__, ring->next_context_status_buffer);
 			drm_modeset_unlock_all(dev);
-		} else
+		} else {
+			trace_printk("line %d, display is off, next_context_status_buffer = %x\n", __LINE__, ring->next_context_status_buffer);
 			intel_display_set_init_power(dev_priv, false);
-
+		}
 		/*
 		 * ... but also need to make sure that hotplug processing
 		 * doesn't cause havoc. Like in the driver load code we don't
@@ -851,6 +860,7 @@ int i915_resume(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
 
+	trace_printk("resume begin\n");
 	/*
 	 * Platforms with opregion should have sane BIOS, older ones (gen3 and
 	 * earlier) need to restore the GTT mappings since the BIOS might clear
@@ -861,6 +871,7 @@ int i915_resume(struct drm_device *dev)
 		return ret;
 
 	drm_kms_helper_poll_enable(dev);
+	trace_printk("resume finished\n");
 	return 0;
 }
 
@@ -911,6 +922,30 @@ int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
 
 	acthd = intel_ring_get_active_head(ring);
 	completed_seqno = ring->get_seqno(ring, false);
+
+	/*
+	 * Flag that engine recovery is in progress.
+	 *
+	 * The DRM_I915_HANGCHECK_RESETTING state is used to prevent the forced
+	 * CSB checker from faking any context event interrupts during this
+	 * critical path. Between engine reset and context resubmission the CSB
+	 * will be in a dedicated init state (e.g. CSB write pointer = 7),
+	 * which must not be disturbed. A faked context event interrupt at this
+	 * time would disturb the init state since the interrupt handler would
+	 * cause side-effects on the CSB read/write pointers and move the write
+	 * pointer value (7) out of its dedicated init state value, which we
+	 * don't want to do before context resubmission.
+	 *
+	 * The reason why there might be a forced CSB check between engine
+	 * reset and context resubmission is that the engine reset will force
+	 * the hardware into idle state post-reset but the driver will still
+	 * seemingly have submitted work in the execlist queue, which the
+	 * consistency checker potentially will interpret as an inconsistent
+	 * context submission state and try to rectify by forcing a CSB check.
+	 */
+	atomic_set_mask(
+		DRM_I915_HANGCHECK_RESETTING,
+		&ring->hangcheck.flags);
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
@@ -1117,6 +1152,10 @@ handle_hung_ring_error:
 	/* Release power lock */
 	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 
+	atomic_clear_mask(
+		DRM_I915_HANGCHECK_RESETTING,
+		&ring->hangcheck.flags);
+
 	return ret;
 }
 
@@ -1212,6 +1251,7 @@ int i915_reset(struct drm_device *dev)
 
 		}
 	}
+
 	i915_gem_reset(dev);
 
 	simulated = dev_priv->gpu_error.stop_rings != 0;
@@ -1235,6 +1275,9 @@ int i915_reset(struct drm_device *dev)
 		} else
 			dev_priv->gpu_error.last_reset = get_seconds();
 	}
+
+	/* Clear simulated lost context event interrupts */
+	dev_priv->gpu_error.faked_lost_ctx_event_irq = 0;
 
 	if (ret) {
 		DRM_ERROR("Failed to reset chip: %i\n", ret);
@@ -2149,12 +2192,46 @@ static struct drm_driver driver = {
 	.patchlevel = DRIVER_PATCHLEVEL,
 };
 
+static void i915_pm_shutdown(struct pci_dev *pdev)
+{
+	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+
+
+	if (drm_dev->switch_power_state == DRM_SWITCH_POWER_OFF)
+		return ;
+
+	/* make sure drm stops processing new ioctls */
+	drm_halt(drm_dev);
+
+	/* wait for drm to go idle */
+	if (drm_wait_idle(drm_dev, 5000))
+		DRM_ERROR("Failed to halt DRM. going for shutdown anyway...\n");
+
+	mutex_lock(&drm_dev->struct_mutex);
+	/* take struct_mutex to avoid sync issue with i915_gem_fault */
+	dev_priv->shutdown_in_progress = true;
+	mutex_unlock(&drm_dev->struct_mutex);
+
+	if (i915_is_device_suspended(drm_dev)) {
+		/* Device already in suspend state */
+		return;
+	}
+
+	/* If KMS is active, we do the leavevt stuff here */
+
+	i915_drm_freeze(drm_dev);
+	pci_disable_device(drm_dev->pdev);
+	pci_set_power_state(drm_dev->pdev, PCI_D3hot);
+}
+
 static struct pci_driver i915_pci_driver = {
 	.name = DRIVER_NAME,
 	.id_table = pciidlist,
 	.probe = i915_pci_probe,
 	.remove = i915_pci_remove,
 	.driver.pm = &i915_pm_ops,
+	.shutdown = i915_pm_shutdown,
 };
 
 static int __init i915_init(void)

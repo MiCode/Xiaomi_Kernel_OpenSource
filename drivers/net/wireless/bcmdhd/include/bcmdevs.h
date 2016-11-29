@@ -1,8 +1,9 @@
 /*
  * Broadcom device-specific manifest constants.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
@@ -300,7 +301,6 @@
 #define PCIXX21_SDIOH_ID	0x803c		/* TI PCI xx21 Standard Host Controller */
 #define R5C822_SDIOH_ID		0x0822		/* Ricoh Co Ltd R5C822 SD/SDIO/MMC/MS/MSPro Host */
 #define JMICRON_SDIOH_ID	0x2381		/* JMicron Standard SDIO Host Controller */
-#define INTEL_CHT_PCIE_ID	0x22c8		/* Intel Bridge */
 
 /* Chip IDs */
 #define	BCM4306_CHIP_ID		0x4306		/* 4306 chipcommon chipid */
@@ -366,6 +366,7 @@
 #define BCM43556_CHIP_ID	0xAA24          /* 43556 chipcommon chipid */
 #define BCM43558_CHIP_ID	0xAA26          /* 43558 chipcommon chipid */
 #define BCM43566_CHIP_ID	0xAA2E          /* 43566 chipcommon chipid */
+#define BCM43567_CHIP_ID	0xAA2F          /* 43567 chipcommon chipid */
 #define BCM43568_CHIP_ID	0xAA30          /* 43568 chipcommon chipid */
 #define BCM43569_CHIP_ID	0xAA31          /* 43569 chipcommon chipid */
 #define BCM43570_CHIP_ID	0xAA32          /* 43570 chipcommon chipid */
@@ -376,6 +377,7 @@
 				(CHIPID(chipid) == BCM43556_CHIP_ID) || \
 				(CHIPID(chipid) == BCM43558_CHIP_ID) || \
 				(CHIPID(chipid) == BCM43566_CHIP_ID) || \
+				(CHIPID(chipid) == BCM43567_CHIP_ID) || \
 				(CHIPID(chipid) == BCM43568_CHIP_ID) || \
 				(CHIPID(chipid) == BCM43569_CHIP_ID) || \
 				(CHIPID(chipid) == BCM43570_CHIP_ID) || \

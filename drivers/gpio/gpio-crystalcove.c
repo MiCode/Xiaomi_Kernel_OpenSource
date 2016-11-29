@@ -2,6 +2,7 @@
  * gpio-crystalcove.c - Intel Crystal Cove GPIO Driver
  *
  * Copyright (C) 2012, 2014 Intel Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -180,6 +181,22 @@ static struct irq_chip crystalcove_irqchip = {
 	.flags = IRQCHIP_SKIP_SET_WAKE,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int crystalcove_suspend_noirq(struct device *dev)
+{
+	struct pmic_gpio *cg = dev_get_drvdata(dev);
+	cg->print_wakeup = 1;
+	return 0;
+}
+
+static int crystalcove_resume_early(struct device *dev)
+{
+	struct pmic_gpio *cg = dev_get_drvdata(dev);
+	cg->print_wakeup = 0;
+	return 0;
+}
+#endif
+
 static irqreturn_t crystalcove_gpio_irq_handler(int irq, void *data)
 {
 	struct pmic_gpio *cg = data;
@@ -192,9 +209,16 @@ static irqreturn_t crystalcove_gpio_irq_handler(int irq, void *data)
 	intel_soc_pmic_writeb(GPIO1IRQ, (pending >> 8) & 0xff);
 
 	local_irq_disable();
-	for (gpio = 0; gpio < cg->gpio_data->num_gpio; gpio++)
-		if (pending & (1 << gpio))
+	for (gpio = 0; gpio < cg->gpio_data->num_gpio; gpio++) {
+		if (pending & (1 << gpio)) {
+			if (cg->print_wakeup) {
+				pr_info("crystalcove_gpio: irq[%d]"
+					" might wake up system!\n",
+					cg->irq_base + gpio);
+			}
 			generic_handle_irq(cg->irq_base + gpio);
+		}
+	}
 	local_irq_enable();
 
 	return IRQ_HANDLED;
@@ -288,8 +312,19 @@ static int crystalcove_gpio_probe(struct platform_device *pdev)
 		return retval;
 	}
 
+	dev_set_drvdata(&pdev->dev, cg);
+
 	return 0;
 }
+
+#ifdef CONFIG_PM_SLEEP
+static const struct dev_pm_ops crystalcove_pm = {
+	.suspend_noirq = crystalcove_suspend_noirq,
+	.resume_early = crystalcove_resume_early,
+};
+#else
+static const struct dev_pm_ops crystalcove_pm;
+#endif
 
 static struct platform_device_id crystalcove_gpio_id_table[] = {
 	{ .name = "crystal_cove_gpio" },
@@ -300,6 +335,7 @@ static struct platform_driver crystalcove_gpio_driver = {
 	.probe = crystalcove_gpio_probe,
 	.driver = {
 		.name = "crystal_cove_gpio",
+		.pm = &crystalcove_pm,
 	},
 	.id_table = crystalcove_gpio_id_table,
 };

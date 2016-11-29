@@ -1,11 +1,85 @@
 config BCMDHD
-	tristate "Broadcom FullMAC wireless cards support"
+	tristate "Broadcom wireless cards support"
+	depends on WLAN
 	---help---
 	  This module adds support for wireless adapters based on
-	  Broadcom FullMAC chipset.
+	  Broadcom WLAN chipset.
 
-	  If you choose to build a module, it'll be called dhd. Say M if
+	  If you choose to build a module, it will be called bcmdhd. Say M if
 	  unsure.
+
+choice
+	prompt "---Enable chip specific options"
+	depends on BCMDHD
+	---help---
+	  Enable specific chip.
+
+config BCMDHD_GENERIC_CHIP_SUPPORT
+	bool "No chip specific options"
+	depends on BCMDHD
+	---help---
+	  Disable any chip specific options.
+
+config BCM4330
+	bool "Broadcom BCM4330 support only"
+	depends on BCMDHD
+	---help---
+	  Enable any BCM4330 specific options.
+
+config BCM4334
+	bool "Broadcom BCM4334 support only"
+	depends on BCMDHD
+	---help---
+	  Enable any BCM4334 specific options.
+
+config BCM43341
+	bool "Broadcom BCM43341 support only"
+	depends on BCMDHD
+	---help---
+	  Enable any BCM43341 specific options.
+
+config BCM43241
+	bool "Broadcom BCM43241 support only"
+	depends on BCMDHD
+	---help---
+	  Enable any BCM43241 specific options.
+
+config BCM4335
+	bool "Broadcom BCM4335 support only"
+	depends on BCMDHD
+	---help---
+	  Enable any BCM4335 specific options.
+
+config BCM4339
+	bool "Broadcom BCM4339 support only"
+	depends on BCMDHD
+	---help---
+	  Enable any BCM4339 specific options.
+
+config BCM4343
+	bool "BCM4343 support"
+	depends on BCMDHD
+	---help---
+	  Enable any BCM4354 specific options.
+
+config BCM4354
+	bool "BCM4354 support"
+	depends on BCMDHD
+	---help---
+	  Enable any BCM4354 specific options.
+
+config BCM4356
+	bool "BCM4356 support"
+	depends on BCMDHD
+	---help---
+	  Enable any BCM4356 specific options.
+endchoice
+
+choice
+	prompt "---Enable Chip Interface"
+	depends on BCMDHD
+	---help---
+	  Enable chip Internaface.
 
 config BCMDHD_SDIO
 	bool "SDIO bus interface support"
@@ -13,32 +87,21 @@ config BCMDHD_SDIO
 
 config BCMDHD_PCIE
 	bool "PCIe bus interface support"
-	depends on BCMDHD && PCI && !BCMDHD_SDIO
+	depends on BCMDHD && PCI
 
-config BCM4324
-	tristate "BCM4324 support"
+endchoice
+
+config INTEL_PLATFORM
+	bool "Enable Intel specific flags"
 	depends on BCMDHD
 	default y
-
-config BCM4339
-	tristate "BCM4339 support"
-	depends on BCMDHD
-	default n
-
-config BCM4354
-	tristate "BCM4354 support"
-	depends on BCMDHD
-	default n
-
-config BCM4356
-	tristate "BCM4356 support"
-	depends on BCMDHD
-	default n
+	---help---
+	  Enable Intel specific flags
 
 config BCMDHD_FW_PATH
 	depends on BCMDHD
 	string "Firmware path"
-	default "/system/vendor/firmware/fw_bcmdhd.bin"
+	default "/system/etc/firmware/fw_bcmdhd.bin"
 	---help---
 	  Path to the firmware file.
 
@@ -70,10 +133,3 @@ config DHD_USE_SCHED_SCAN
 	default n
 	---help---
 	  Use CFG80211 sched scan
-
-config DHD_SET_RANDOM_MAC_VAL
-	hex "Vendor OUI"
-	depends on BCMDHD
-	default 0x001A11
-	---help---
-	  Set vendor OUI for SoftAP

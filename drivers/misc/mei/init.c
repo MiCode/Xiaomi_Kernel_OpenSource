@@ -56,7 +56,7 @@ void mei_cancel_work(struct mei_device *dev)
 	cancel_work_sync(&dev->init_work);
 	cancel_work_sync(&dev->reset_work);
 
-	cancel_delayed_work(&dev->timer_work);
+	cancel_delayed_work_sync(&dev->timer_work);
 }
 EXPORT_SYMBOL_GPL(mei_cancel_work);
 

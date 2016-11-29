@@ -2,6 +2,7 @@
  * Whiskey Cove  --  Device access for Intel WhiskeyCove PMIC
  *
  * Copyright (C) 2013, 2014 Intel Corporation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -77,6 +78,8 @@
 #define STHRMIRQ2	0x4F1B
 
 #define FPO0_USB_COMP_OFFSET 0x01
+
+#define CHARGER_DEBUG
 
 static bool wcove_init_done;
 
@@ -434,6 +437,18 @@ static struct mfd_cell whiskey_cove_dev[] = {
 		.resources = NULL,
 	},
 	{
+		.name = "wcove_regulator",
+		.id = WCOVE_ID_V1P2SX + 1,
+		.num_resources = 0,
+		.resources = NULL,
+	},
+	{
+		.name = "wcove_regulator",
+		.id = WCOVE_ID_VPROG4D + 1,
+		.num_resources = 0,
+		.resources = NULL,
+	},
+	{
 		.name = "whiskey_cove_region",
 	},
 	{NULL, },
@@ -644,13 +659,23 @@ static void wc_set_thermal_pdata(void)
 }
 
 static struct regulator_consumer_supply v1p8sx_consumer[] = {
-	REGULATOR_SUPPLY("v1p8sx", "INT33BE:00"),
-	REGULATOR_SUPPLY("v1p8sx", "INT33FB:00"),
+	REGULATOR_SUPPLY("v1p8sx", "OVTI5693:00"),
+	REGULATOR_SUPPLY("v1p8sx", "SS5K0008:00"),
 };
 
 static struct regulator_consumer_supply v2p8sx_consumer[] = {
-	REGULATOR_SUPPLY("v2p8sx", "INT33BE:00"),
-	REGULATOR_SUPPLY("v2p8sx", "INT33FB:00"),
+	REGULATOR_SUPPLY("v2p8sx", "OVTI5693:00"),
+	REGULATOR_SUPPLY("v2p8sx", "SS5K0008:00"),
+};
+
+static struct regulator_consumer_supply v1p2sx_consumer[] = {
+	REGULATOR_SUPPLY("v1p2sx", "OVTI5693:00"),
+	REGULATOR_SUPPLY("v1p2sx", "SS5K0008:00"),
+};
+
+static struct regulator_consumer_supply vprog4d_consumer[] = {
+	REGULATOR_SUPPLY("vprog4d", "OVTI5693:00"),
+	REGULATOR_SUPPLY("vprog4d", "SS5K0008:00"),
 };
 
 /* v1p8sx regulator */
@@ -677,7 +702,29 @@ static struct regulator_init_data v2p8sx_data = {
 	.num_consumer_supplies	= ARRAY_SIZE(v2p8sx_consumer),
 	.consumer_supplies	= v2p8sx_consumer,
 };
+/* 1v2psx regulator */
+static struct regulator_init_data v1p2sx_data = {
+	.constraints = {
+		.min_uV			= 1200000,
+		.max_uV			= 1200000,
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(v1p2sx_consumer),
+	.consumer_supplies	= v1p2sx_consumer,
+};
 
+
+static struct regulator_init_data vprog4d_data = {
+	.constraints = {
+		.min_uV			= 2800000,
+		.max_uV			= 2800000,
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(vprog4d_consumer),
+	.consumer_supplies	= vprog4d_consumer,
+};
 
 /*************************************************************
 *
@@ -686,6 +733,8 @@ static struct regulator_init_data v2p8sx_data = {
 *************************************************************/
 static struct regulator_init_data wcove_v1p8sx_data;
 static struct regulator_init_data wcove_v2p8sx_data;
+static struct regulator_init_data wcove_v1p2sx_data;
+static struct regulator_init_data wcove_vprog4d_data;
 
 static struct wcove_regulator_info wcove_v1p8sx_info = {
 	.init_data = &wcove_v1p8sx_data,
@@ -693,6 +742,14 @@ static struct wcove_regulator_info wcove_v1p8sx_info = {
 
 static struct wcove_regulator_info wcove_v2p8sx_info = {
 	.init_data = &wcove_v2p8sx_data,
+};
+
+static struct wcove_regulator_info wcove_v1p2sx_info = {
+	.init_data = &wcove_v1p2sx_data,
+};
+
+static struct wcove_regulator_info wcove_vprog4d_info = {
+	.init_data = &wcove_vprog4d_data,
 };
 
 static void wc_set_v1p8_pdata(void)
@@ -713,6 +770,26 @@ static void wc_set_v2p8_pdata(void)
 	/* register camera regulator for whiskey cove PMIC */
 	intel_soc_pmic_set_pdata("wcove_regulator", &wcove_v2p8sx_info,
 		sizeof(struct wcove_regulator_info), WCOVE_ID_V2P8SX + 1);
+}
+
+static void wc_set_v1p2_pdata(void)
+{
+	memcpy((void *)&wcove_v1p2sx_data, (void *)&v1p2sx_data,
+			sizeof(struct regulator_init_data));
+
+	/* register camera regulator for whiskey cove PMIC */
+	intel_soc_pmic_set_pdata("wcove_regulator", &wcove_v1p2sx_info,
+		sizeof(struct wcove_regulator_info), WCOVE_ID_V1P2SX + 1);
+}
+
+static void wc_set_vprog4d_pdata(void)
+{
+	memcpy((void *)&wcove_vprog4d_data, (void *)&vprog4d_data,
+			sizeof(struct regulator_init_data));
+
+	/* register camera regulator for whiskey cove PMIC */
+	intel_soc_pmic_set_pdata("wcove_regulator", &wcove_vprog4d_info,
+		sizeof(struct wcove_regulator_info), WCOVE_ID_VPROG4D + 1);
 }
 
 static void wc_set_gpio_pdata(void)
@@ -848,6 +925,8 @@ static int whiskey_cove_init(void)
 	wc_set_gpio_pdata();
 	wc_set_v1p8_pdata();
 	wc_set_v2p8_pdata();
+	wc_set_v1p2_pdata();
+	wc_set_vprog4d_pdata();
 	wc_set_thermal_pdata();
 	wcove_init_done = true;
 
@@ -888,7 +967,11 @@ static void __init register_external_charger(void)
 		return;
 
 	strncpy(i2c_info.type, "ext-charger", I2C_NAME_SIZE);
+	#if defined CHARGER_DEBUG
+	i2c_info.addr = 0x6A; /* for bq25890/5 */
+	#else
 	i2c_info.addr = pmic_read_tt(TT_I2CDADDR_ADDR);
+	#endif
 	i2c_info.irq = whiskey_cove_pmic.irq_base + CHGR_IRQ;
 	i2c_new_device(wcove_pmic_i2c_adapter, &i2c_info);
 }

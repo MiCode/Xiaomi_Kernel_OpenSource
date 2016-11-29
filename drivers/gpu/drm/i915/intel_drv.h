@@ -2,6 +2,7 @@
  * Copyright (c) 2006 Dave Airlie <airlied@linux.ie>
  * Copyright (c) 2007-2008 Intel Corporation
  *   Jesse Barnes <jesse.barnes@intel.com>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -243,6 +244,9 @@ struct intel_connector {
 	/* since POLL and HPD connectors may use the same HPD line keep the native
 	   state of connector->polled in case hotplug storm detection changes it */
 	u8 polled;
+
+	/* Whether DPMS off is pending on this ? */
+	bool dpms_off_pending;
 };
 
 typedef struct dpll {
@@ -446,8 +450,10 @@ struct intel_crtc {
 	bool active;
 	unsigned long enabled_power_domains;
 	bool primary_enabled; /* is the primary plane (partially) visible? */
+	bool enableprimary;
 	bool lowfreq_avail;
 	bool pri_update;
+	bool atomic_update;
 	struct intel_overlay *overlay;
 
 	struct intel_unpin_work *unpin_work;
@@ -470,6 +476,7 @@ struct intel_crtc {
 	int16_t cursor_x, cursor_y;
 	int16_t cursor_width, cursor_height;
 	uint32_t cursor_cntl;
+	uint32_t cursor_size;
 	uint32_t cursor_base;
 
 	struct intel_plane_config plane_config;
@@ -524,6 +531,7 @@ struct intel_crtc {
 	 * been sent before disable sequence.
 	 */
 	u32 hw_frm_cnt_at_enable;
+	bool skip_check_state;
 };
 
 struct intel_plane_wm_parameters {
@@ -662,17 +670,6 @@ struct intel_hdmi {
 
 #define DP_MAX_DOWNSTREAM_PORTS		0x10
 
-/**
- * HIGH_RR is the highest eDP panel refresh rate read from EDID
- * LOW_RR is the lowest eDP panel refresh rate found from EDID
- * parsing for same resolution.
- */
-enum edp_drrs_refresh_rate_type {
-	DRRS_HIGH_RR,
-	DRRS_LOW_RR,
-	DRRS_MAX_RR, /* RR count */
-};
-
 struct intel_dp {
 	uint32_t output_reg;
 	uint32_t aux_ch_ctl_reg;
@@ -719,11 +716,6 @@ struct intel_dp {
 				     bool has_aux_irq,
 				     int send_bytes,
 				     uint32_t aux_clock_divider);
-	struct {
-		enum drrs_support_type type;
-		enum edp_drrs_refresh_rate_type refresh_rate_type;
-		struct mutex mutex;
-	} drrs_state;
 
 };
 
@@ -997,7 +989,12 @@ void intel_dp_start_link_train(struct intel_dp *intel_dp);
 void intel_dp_complete_link_train(struct intel_dp *intel_dp);
 void intel_dp_stop_link_train(struct intel_dp *intel_dp);
 bool intel_dp_fast_link_train(struct intel_dp *intel_dp);
+bool chv_upfront_link_train(struct drm_device *dev,
+			struct intel_dp *intel_dp, struct intel_crtc *crtc);
+void intel_dp_set_clock(struct intel_encoder *encoder,
+			struct intel_crtc_config *pipe_config, int link_bw);
 void intel_dp_sink_dpms(struct intel_dp *intel_dp, int mode);
+void intel_dp_set_m2_n2(struct intel_crtc *crtc, struct intel_link_m_n *m_n);
 void intel_dp_encoder_destroy(struct drm_encoder *encoder);
 void intel_dp_check_link_status(struct intel_dp *intel_dp);
 int intel_dp_sink_crc(struct intel_dp *intel_dp, u8 *crc);
@@ -1016,7 +1013,6 @@ void intel_vlv_edp_psr_update(struct drm_device *dev);
 void intel_vlv_edp_psr_disable(struct drm_device *dev);
 void intel_vlv_edp_psr_exit(struct drm_device *dev, bool disable);
 void intel_vlv_psr_irq_handler(struct drm_device *dev, enum pipe pipe);
-void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate);
 enum pipe vlv_power_sequencer_pipe(struct intel_dp *intel_dp);
 
 /* intel_dsi.c */
@@ -1084,6 +1080,7 @@ void intel_attach_broadcast_rgb_property(struct drm_connector *connector);
 void intel_attach_force_pfit_property(struct drm_connector *connector);
 extern void
 	intel_attach_scaling_src_size_property(struct drm_connector *connector);
+void intel_attach_force_ddr_low_freq_property(struct drm_connector *connector);
 
 
 /* intel_overlay.c */
@@ -1175,10 +1172,6 @@ void intel_fini_runtime_pm(struct drm_i915_private *dev_priv);
 void ilk_wm_get_hw_state(struct drm_device *dev);
 void __vlv_set_power_well(struct drm_i915_private *dev_priv,
 			  enum punit_power_well power_well_id, bool enable);
-void intel_init_drrs_idleness_detection(struct drm_device *dev,
-		struct intel_connector *connector);
-void intel_update_drrs(struct drm_device *dev);
-void intel_disable_drrs(struct drm_device *dev);
 extern void vlv_modify_rc6_promotion_timer(struct drm_i915_private *dev_priv,
 					    bool media_active);
 bool i915_is_device_suspended(struct drm_device *drm_dev);
@@ -1234,4 +1227,5 @@ struct chv_sprite_csc {
 extern struct chv_sprite_csc *chv_sprite_cscs[];
 extern const uint32_t chv_sprite_csc_num_entries;
 
+extern int intel_connector_reset(struct drm_connector *connector);
 #endif /* __INTEL_DRV_H__ */

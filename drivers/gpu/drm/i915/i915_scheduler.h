@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014 Intel Corporation
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -59,6 +60,11 @@ struct i915_scheduler_obj_entry {
 	struct drm_i915_gem_object          *obj;
 };
 
+enum i915_scheduler_queue_entry_flags {
+	/* Fence is being waited on */
+	i915_qef_fence_waiting              = (1 << 0),
+};
+
 struct i915_scheduler_queue_entry {
 	struct i915_execbuffer_params       params;
 	uint32_t                            priority;
@@ -71,6 +77,7 @@ struct i915_scheduler_queue_entry {
 	struct timespec                     stamp;
 	struct list_head                    link;
 	uint32_t                            scheduler_index;
+	uint32_t                            flags;
 };
 const char *i915_qe_state_str(struct i915_scheduler_queue_entry *node);
 
@@ -112,6 +119,7 @@ struct i915_scheduler {
 	uint32_t            flags[I915_NUM_RINGS];
 	spinlock_t          lock;
 	uint32_t            index;
+	uint32_t            last_irq_seqno[I915_NUM_RINGS];
 
 	/* Tuning parameters: */
 	uint32_t            priority_level_max;
