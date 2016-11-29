@@ -62,6 +62,10 @@
 #define ESR_TIMER_CHG_INIT_OFFSET	2
 #define PROFILE_LOAD_WORD		24
 #define PROFILE_LOAD_OFFSET		0
+#define ESR_RSLOW_DISCHG_WORD		34
+#define ESR_RSLOW_DISCHG_OFFSET		0
+#define ESR_RSLOW_CHG_WORD		51
+#define ESR_RSLOW_CHG_OFFSET		0
 #define NOM_CAP_WORD			58
 #define NOM_CAP_OFFSET			0
 #define ACT_BATT_CAP_BKUP_WORD		74
@@ -69,6 +73,7 @@
 #define CYCLE_COUNT_WORD		75
 #define CYCLE_COUNT_OFFSET		0
 #define PROFILE_INTEGRITY_WORD		79
+#define SW_CONFIG_OFFSET		0
 #define PROFILE_INTEGRITY_OFFSET	3
 #define BATT_SOC_WORD			91
 #define BATT_SOC_OFFSET			0
@@ -564,21 +569,21 @@ static int fg_get_battery_esr(struct fg_chip *chip, int *val)
 
 static int fg_get_battery_resistance(struct fg_chip *chip, int *val)
 {
-	int rc, esr, rslow;
+	int rc, esr_uohms, rslow_uohms;
 
-	rc = fg_get_battery_esr(chip, &esr);
+	rc = fg_get_battery_esr(chip, &esr_uohms);
 	if (rc < 0) {
 		pr_err("failed to get ESR, rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = fg_get_sram_prop(chip, FG_SRAM_RSLOW, &rslow);
+	rc = fg_get_sram_prop(chip, FG_SRAM_RSLOW, &rslow_uohms);
 	if (rc < 0) {
 		pr_err("failed to get Rslow, rc=%d\n", rc);
 		return rc;
 	}
 
-	*val = esr + rslow;
+	*val = esr_uohms + rslow_uohms;
 	return 0;
 }
 
@@ -1365,6 +1370,80 @@ static int fg_charge_full_update(struct fg_chip *chip)
 	}
 
 	fg_dbg(chip, FG_STATUS, "Set charge_full to true @ soc %d\n", msoc);
+	return 0;
+}
+
+#define RCONN_CONFIG_BIT	BIT(0)
+static int fg_rconn_config(struct fg_chip *chip)
+{
+	int rc, esr_uohms;
+	u64 scaling_factor;
+	u32 val = 0;
+
+	rc = fg_sram_read(chip, PROFILE_INTEGRITY_WORD,
+			SW_CONFIG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading SW_CONFIG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (val & RCONN_CONFIG_BIT) {
+		fg_dbg(chip, FG_STATUS, "Rconn already configured: %x\n", val);
+		return 0;
+	}
+
+	rc = fg_get_battery_esr(chip, &esr_uohms);
+	if (rc < 0) {
+		pr_err("failed to get ESR, rc=%d\n", rc);
+		return rc;
+	}
+
+	scaling_factor = div64_u64((u64)esr_uohms * 1000,
+				esr_uohms + (chip->dt.rconn_mohms * 1000));
+
+	rc = fg_sram_read(chip, ESR_RSLOW_CHG_WORD,
+			ESR_RSLOW_CHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading ESR_RSLOW_CHG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+
+	val *= scaling_factor;
+	do_div(val, 1000);
+	rc = fg_sram_write(chip, ESR_RSLOW_CHG_WORD,
+			ESR_RSLOW_CHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR_RSLOW_CHG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+	fg_dbg(chip, FG_STATUS, "esr_rslow_chg modified to %x\n", val & 0xFF);
+
+	rc = fg_sram_read(chip, ESR_RSLOW_DISCHG_WORD,
+			ESR_RSLOW_DISCHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading ESR_RSLOW_DISCHG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+
+	val *= scaling_factor;
+	do_div(val, 1000);
+	rc = fg_sram_write(chip, ESR_RSLOW_DISCHG_WORD,
+			ESR_RSLOW_DISCHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR_RSLOW_DISCHG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+	fg_dbg(chip, FG_STATUS, "esr_rslow_dischg modified to %x\n",
+		val & 0xFF);
+
+	val = RCONN_CONFIG_BIT;
+	rc = fg_sram_write(chip, PROFILE_INTEGRITY_WORD,
+			SW_CONFIG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing SW_CONFIG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -2575,6 +2654,14 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
+	if (chip->dt.rconn_mohms > 0) {
+		rc = fg_rconn_config(chip);
+		if (rc < 0) {
+			pr_err("Error in configuring Rconn, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -3235,6 +3322,12 @@ static int fg_parse_dt(struct fg_chip *chip)
 	rc = fg_parse_ki_coefficients(chip);
 	if (rc < 0)
 		pr_err("Error in parsing Ki coefficients, rc=%d\n", rc);
+
+	rc = of_property_read_u32(node, "qcom,fg-rconn-mohms", &temp);
+	if (rc < 0)
+		chip->dt.rconn_mohms = -EINVAL;
+	else
+		chip->dt.rconn_mohms = temp;
 
 	return 0;
 }

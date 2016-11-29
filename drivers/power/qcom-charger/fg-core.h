@@ -205,10 +205,10 @@ struct fg_dt_props {
 	int	recharge_soc_thr;
 	int	recharge_volt_thr_mv;
 	int	rsense_sel;
-	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	esr_timer_charging;
 	int	esr_timer_awake;
 	int	esr_timer_asleep;
+	int	rconn_mohms;
 	int	cl_start_soc;
 	int	cl_max_temp;
 	int	cl_min_temp;
@@ -218,6 +218,7 @@ struct fg_dt_props {
 	int	cl_min_cap_limit;
 	int	jeita_hyst_temp;
 	int	batt_temp_delta;
+	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_hi_dischg[KI_COEFF_SOC_LEVELS];
