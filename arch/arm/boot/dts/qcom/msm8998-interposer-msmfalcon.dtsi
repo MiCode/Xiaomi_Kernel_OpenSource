@@ -2121,7 +2121,7 @@
 		reg = <0x17300000 0x00100>;
 		interrupts = <0 162 1>;
 
-		vdd_cx-supply = <&pm8998_s1_level>;
+		vdd_cx-supply = <&pm2falcon_s3_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
 

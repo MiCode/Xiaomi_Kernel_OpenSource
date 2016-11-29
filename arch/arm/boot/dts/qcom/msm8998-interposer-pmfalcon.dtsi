@@ -214,7 +214,6 @@
 
 &soc {
 	/delete-node/gpio_keys;
-	/delete-node/qcom,lpass@17300000;
 	/delete-node/qcom,mss@4080000;
 	/delete-node/qcom,bcl;
 	/delete-node/qcom,msm-thermal;
