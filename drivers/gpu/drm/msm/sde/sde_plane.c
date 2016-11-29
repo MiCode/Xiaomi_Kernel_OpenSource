@@ -780,7 +780,6 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 {
 	struct sde_hw_pixel_ext *pe;
 	uint32_t chroma_subsmpl_h, chroma_subsmpl_v;
-	uint32_t tmp, i;
 
 	if (!psde || !fmt) {
 		SDE_ERROR("invalid arg(s), plane %d fmt %d state %d\n",
@@ -817,38 +816,39 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 					chroma_subsmpl_h, chroma_subsmpl_v);
 		}
 	} else if (!psde->pixel_ext_usr) {
+		uint32_t deci_dim, i;
+
 		/* calculate default configuration for QSEED2 */
 		memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
 
 		SDE_DEBUG_PLANE(psde, "default config\n");
+		deci_dim = DECIMATED_DIMENSION(psde->pipe_cfg.src_rect.w,
+				psde->pipe_cfg.horz_decimation);
 		_sde_plane_setup_scaler2(psde,
-				psde->pipe_cfg.src_rect.w,
+				deci_dim,
 				psde->pipe_cfg.dst_rect.w,
 				pe->phase_step_x,
 				pe->horz_filter, fmt, chroma_subsmpl_h);
-		_sde_plane_setup_scaler2(psde,
-				psde->pipe_cfg.src_rect.h,
-				psde->pipe_cfg.dst_rect.h,
-				pe->phase_step_y,
-				pe->vert_filter, fmt, chroma_subsmpl_v);
 
-		/* calculate left/right/top/bottom pixel extensions */
-		tmp = DECIMATED_DIMENSION(psde->pipe_cfg.src_rect.w,
-				psde->pipe_cfg.horz_decimation);
 		if (SDE_FORMAT_IS_YUV(fmt))
-			tmp &= ~0x1;
+			deci_dim &= ~0x1;
 		_sde_plane_setup_pixel_ext(psde, psde->pipe_cfg.src_rect.w,
-				psde->pipe_cfg.dst_rect.w, tmp,
+				psde->pipe_cfg.dst_rect.w, deci_dim,
 				pe->phase_step_x,
 				pe->roi_w,
 				pe->num_ext_pxls_left,
 				pe->num_ext_pxls_right, pe->horz_filter, fmt,
 				chroma_subsmpl_h, 0);
 
-		tmp = DECIMATED_DIMENSION(psde->pipe_cfg.src_rect.h,
+		deci_dim = DECIMATED_DIMENSION(psde->pipe_cfg.src_rect.h,
 				psde->pipe_cfg.vert_decimation);
+		_sde_plane_setup_scaler2(psde,
+				deci_dim,
+				psde->pipe_cfg.dst_rect.h,
+				pe->phase_step_y,
+				pe->vert_filter, fmt, chroma_subsmpl_v);
 		_sde_plane_setup_pixel_ext(psde, psde->pipe_cfg.src_rect.h,
-				psde->pipe_cfg.dst_rect.h, tmp,
+				psde->pipe_cfg.dst_rect.h, deci_dim,
 				pe->phase_step_y,
 				pe->roi_h,
 				pe->num_ext_pxls_top,
