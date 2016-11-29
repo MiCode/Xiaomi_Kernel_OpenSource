@@ -2152,8 +2152,9 @@ static void mdss_dp_event_work(struct work_struct *work)
 			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
 		break;
 	case EV_USBPD_DP_STATUS:
+		config = 0x1; /* DFP_D connected */
 		usbpd_send_svdm(dp->pd, USB_C_DP_SID, DP_VDM_STATUS,
-			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
+			SVDM_CMD_TYPE_INITIATOR, 0x1, &config, 0x1);
 		break;
 	case EV_USBPD_DP_CONFIGURE:
 		config = mdss_dp_usbpd_gen_config_pkt(dp);
@@ -2552,7 +2553,8 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		dp_drv->alt_mode.dp_cap.response = *vdos;
 		mdss_dp_usbpd_ext_capabilities(&dp_drv->alt_mode.dp_cap);
 		dp_drv->alt_mode.current_state |= DISCOVER_MODES_DONE;
-		dp_send_events(dp_drv, EV_USBPD_ENTER_MODE);
+		if (dp_drv->alt_mode.dp_cap.s_port & BIT(0))
+			dp_send_events(dp_drv, EV_USBPD_ENTER_MODE);
 		break;
 	case USBPD_SVDM_ENTER_MODE:
 		dp_drv->alt_mode.current_state |= ENTER_MODE_DONE;
@@ -2574,7 +2576,8 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 
 		if (!(dp_drv->alt_mode.current_state & DP_CONFIGURE_DONE)) {
 			dp_drv->alt_mode.current_state |= DP_STATUS_DONE;
-			dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
+			if (dp_drv->alt_mode.dp_status.c_port & BIT(1))
+				dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
 		}
 		break;
 	case DP_VDM_CONFIGURE:
