@@ -387,6 +387,7 @@ struct mdss_dp_drv_pdata {
 	struct platform_device *ext_pdev;
 
 	struct usbpd *pd;
+	enum plug_orientation orientation;
 	struct dp_hdcp hdcp;
 	struct usbpd_svid_handler svid_handler;
 	struct dp_alt_mode alt_mode;
@@ -437,6 +438,7 @@ struct mdss_dp_drv_pdata {
 	struct dss_module_power power_data[DP_MAX_PM];
 	struct dp_pinctrl_res pin_res;
 	int aux_sel_gpio;
+	int aux_sel_gpio_output;
 	int aux_en_gpio;
 	int usbplug_cc_gpio;
 	int hpd_gpio;

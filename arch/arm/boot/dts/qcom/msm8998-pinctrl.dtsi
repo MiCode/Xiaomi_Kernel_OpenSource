@@ -1508,7 +1508,7 @@
 		mdss_dp_usbplug_cc_active: mdss_dp_usbplug_cc_active {
 			mux {
 				pins = "gpio38";
-				function = "usb_phy";
+				function = "gpio";
 			};
 
 			config {
@@ -1521,7 +1521,7 @@
 		mdss_dp_usbplug_cc_suspend: mdss_dp_usbplug_cc_suspend {
 			mux {
 				pins = "gpio38";
-				function = "usb_phy";
+				function = "gpio";
 			};
 
 			config {
