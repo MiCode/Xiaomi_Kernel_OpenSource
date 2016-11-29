@@ -61,7 +61,7 @@ struct drm_mode_object {
 	struct drm_object_properties *properties;
 };
 
-#define DRM_OBJECT_MAX_PROPERTY 24
+#define DRM_OBJECT_MAX_PROPERTY 64
 struct drm_object_properties {
 	int count, atomic_count;
 	/* NOTE: if we ever start dynamically destroying properties (ie.
