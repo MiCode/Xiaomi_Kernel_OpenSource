@@ -490,6 +490,15 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	}
 
 	priv->kms = kms;
+	pm_runtime_enable(dev->dev);
+
+	if (kms && kms->funcs && kms->funcs->hw_init) {
+		ret = kms->funcs->hw_init(kms);
+		if (ret) {
+			dev_err(dev->dev, "kms hw init failed: %d\n", ret);
+			goto fail;
+		}
+	}
 
 	/* initialize commit thread structure */
 	for (i = 0; i < priv->num_crtcs; i++) {
@@ -510,15 +519,6 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 				kthread_stop(priv->disp_thread[i].thread);
 				priv->disp_thread[i].thread = NULL;
 			}
-			goto fail;
-		}
-	}
-
-	if (kms) {
-		pm_runtime_enable(dev->dev);
-		ret = kms->funcs->hw_init(kms);
-		if (ret) {
-			dev_err(dev->dev, "kms hw init failed: %d\n", ret);
 			goto fail;
 		}
 	}
