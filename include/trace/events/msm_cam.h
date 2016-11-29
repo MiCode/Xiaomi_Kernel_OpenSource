@@ -320,6 +320,32 @@ TRACE_EVENT(msm_cam_string,
 	TP_printk("msm_cam: %s", __entry->str)
 );
 
+TRACE_EVENT(msm_cam_isp_bufcount,
+	TP_PROTO(const char *str,
+	unsigned int vfe_id,
+	unsigned int frame_id,
+	unsigned int frame_src),
+	TP_ARGS(str, vfe_id, frame_id, frame_src),
+	TP_STRUCT__entry(
+		__array(char, str, STRING_LEN)
+		__field(unsigned int, vfe_id)
+		__field(unsigned int, frame_id)
+		__field(unsigned int, frame_src)
+	),
+	TP_fast_assign(
+		strlcpy(__entry->str, str, STRING_LEN);
+		__entry->vfe_id = vfe_id;
+		__entry->frame_id = frame_id;
+		__entry->frame_src = frame_src;
+
+	),
+	TP_printk(" %s vfe_id %d frame_id %d frame_src %d ",
+		__entry->str,
+		__entry->vfe_id, __entry->frame_id,
+		__entry->frame_src
+	)
+);
+
 #endif /* _MSM_CAM_TRACE_H */
 
 /* This part must be outside protection */
