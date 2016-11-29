@@ -2599,8 +2599,10 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 		pr_debug("Attention: hpd_irq high\n");
 
 		if (dp_drv->power_on && dp_drv->hdcp.ops &&
-		    dp_drv->hdcp.ops->cp_irq)
-			dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data);
+		    dp_drv->hdcp.ops->cp_irq) {
+			if (!dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data))
+				return;
+		}
 
 		if (!mdss_dp_process_hpd_irq_high(dp_drv))
 			return;
