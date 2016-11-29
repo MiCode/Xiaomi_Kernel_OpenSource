@@ -43,6 +43,18 @@
 
 &spi_1 {
 	status = "ok";
+
+	can-controller@0 {
+		compatible = "fsl,k61";
+		spi-max-frequency = <4800000>;
+		reg = <0>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <25 0>;
+		reset-gpio = <&tlmm_pinmux 11 0x1>;
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&can_rst_on>;
+		pinctrl-1 = <&can_rst_off>;
+	};
 };
 
 &blsp1_uart3 {

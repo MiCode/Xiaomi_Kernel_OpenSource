@@ -182,11 +182,11 @@
 	sdc1_wlan_gpio {
 		sdc1_wlan_gpio_active: sdc1_wlan_gpio_active {
 			mux {
-				pins = "gpio38", "gpio25";
+				pins = "gpio38";
 				function  = "gpio";
 			};
 			config {
-				pins  = "gpio38", "gpio25";
+				pins  = "gpio38";
 				output-high;
 				drive-strength = <8>;
 				bias-pull-up;
@@ -195,11 +195,11 @@
 
 		sdc1_wlan_gpio_sleep: sdc1_wlan_gpio_sleep {
 			mux {
-				pins = "gpio38", "gpio25";
+				pins = "gpio38";
 				function  = "gpio";
 			};
 			config {
-				pins  = "gpio38", "gpio25";
+				pins  = "gpio38";
 				drive-strength = <2>;
 				bias-disable;
 				output-low;
@@ -1045,6 +1045,35 @@
 			config {
 				pins = "gpio53";
 				bias-pull-down;
+			};
+		};
+
+		can_reset {
+			can_rst_on: rst_on {
+				mux {
+					pins = "gpio11";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio11";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-up;
+				};
+			};
+
+			can_rst_off: rst_off {
+				mux {
+					pins = "gpio11";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio11";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-up;
+					output-high;
+				};
 			};
 		};
 	};
