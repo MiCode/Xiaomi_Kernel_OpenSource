@@ -1414,7 +1414,8 @@ static bool sde_rotator_verify_format(struct sde_rot_mgr *mgr,
 	}
 
 	if ((in_fmt->is_yuv != out_fmt->is_yuv) ||
-		(in_fmt->pixel_mode != out_fmt->pixel_mode)) {
+		(in_fmt->pixel_mode != out_fmt->pixel_mode) ||
+		(in_fmt->unpack_tight != out_fmt->unpack_tight)) {
 		SDEROT_DBG("Rotator does not support CSC\n");
 		return false;
 	}
