@@ -680,12 +680,13 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 	}
 
 	/*
-	 * In CPRh compliant controllers an additional corner is
-	 * allocated to correspond to the APM crossover voltage
+	 * For CPRh compliant controllers two additional corners are
+	 * allocated to correspond to the APM crossover voltage and the MEM ACC
+	 * crossover voltage.
 	 */
 	vreg->corner = devm_kcalloc(ctrl->dev, ctrl->ctrl_type ==
 				    CPR_CTRL_TYPE_CPRH ?
-				    vreg->corner_count + 1 :
+				    vreg->corner_count + 2 :
 				    vreg->corner_count,
 				    sizeof(*vreg->corner), GFP_KERNEL);
 	temp = kcalloc(vreg->corner_count, sizeof(*temp), GFP_KERNEL);
@@ -2079,6 +2080,69 @@ void cprh_adjust_voltages_for_apm(struct cpr3_regulator *vreg)
 		    || corner->open_loop_volt != prev_open_loop)
 			cpr3_debug(vreg, "APM threshold=%d, APM adj=%d changed corner %d voltages; prev: floor=%d, ceiling=%d, open-loop=%d; new: floor=%d, ceiling=%d, open-loop=%d\n",
 				threshold, adj, i, prev_floor, prev_ceiling,
+				prev_open_loop, corner->floor_volt,
+				corner->ceiling_volt, corner->open_loop_volt);
+	}
+}
+
+/**
+ * cprh_adjust_voltages_for_mem_acc() - adjust per-corner floor and ceiling
+ *		voltages so that they do not intersect the MEM ACC threshold
+ *		voltage
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * The following algorithm is applied:
+ *	if floor < threshold <= ceiling:
+ *		if open_loop >= threshold, then floor = threshold
+ *		else ceiling = threshold - step
+ * where:
+ *	step = voltage in microvolts of a single step of the VDD supply
+ *
+ * The open-loop voltage is also bounded by the new floor or ceiling value as
+ * needed.
+ *
+ * Return: none
+ */
+void cprh_adjust_voltages_for_mem_acc(struct cpr3_regulator *vreg)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct cpr3_corner *corner;
+	int i, threshold, prev_ceiling, prev_floor, prev_open_loop;
+
+	if (!ctrl->mem_acc_threshold_volt) {
+		/* MEM ACC not being used. */
+		return;
+	}
+
+	ctrl->mem_acc_threshold_volt = CPR3_ROUND(ctrl->mem_acc_threshold_volt,
+						ctrl->step_volt);
+
+	threshold = ctrl->mem_acc_threshold_volt;
+
+	for (i = 0; i < vreg->corner_count; i++) {
+		corner = &vreg->corner[i];
+
+		if (threshold <= corner->floor_volt
+		    || threshold > corner->ceiling_volt)
+			continue;
+
+		prev_floor = corner->floor_volt;
+		prev_ceiling = corner->ceiling_volt;
+		prev_open_loop = corner->open_loop_volt;
+
+		if (corner->open_loop_volt >= threshold) {
+			corner->floor_volt = max(corner->floor_volt, threshold);
+			if (corner->open_loop_volt < corner->floor_volt)
+				corner->open_loop_volt = corner->floor_volt;
+		} else {
+			corner->ceiling_volt = threshold - ctrl->step_volt;
+		}
+
+		if (corner->floor_volt != prev_floor
+		    || corner->ceiling_volt != prev_ceiling
+		    || corner->open_loop_volt != prev_open_loop)
+			cpr3_debug(vreg, "MEM ACC threshold=%d changed corner %d voltages; prev: floor=%d, ceiling=%d, open-loop=%d; new: floor=%d, ceiling=%d, open-loop=%d\n",
+				threshold, i, prev_floor, prev_ceiling,
 				prev_open_loop, corner->floor_volt,
 				corner->ceiling_volt, corner->open_loop_volt);
 	}
