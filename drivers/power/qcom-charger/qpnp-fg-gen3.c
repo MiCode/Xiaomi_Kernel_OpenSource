@@ -698,18 +698,57 @@ static bool is_batt_empty(struct fg_chip *chip)
 	return ((vbatt_uv < chip->dt.cutoff_volt_mv * 1000) ? true : false);
 }
 
-#define DEBUG_BATT_ID_KOHMS	7
+static int fg_get_debug_batt_id(struct fg_chip *chip, int *batt_id)
+{
+	int rc;
+	u64 temp;
+	u8 buf[2];
+
+	rc = fg_read(chip, ADC_RR_FAKE_BATT_LOW_LSB(chip), buf, 2);
+	if (rc < 0) {
+		pr_err("failed to read addr=0x%04x, rc=%d\n",
+			ADC_RR_FAKE_BATT_LOW_LSB(chip), rc);
+		return rc;
+	}
+
+	/*
+	 * Fake battery threshold is encoded in the following format.
+	 * Threshold (code) = (battery_id in Ohms) * 0.00015 * 2^10 / 2.5
+	 */
+	temp = (buf[1] << 8 | buf[0]) * 2500000;
+	do_div(temp, 150 * 1024);
+	batt_id[0] = temp;
+	rc = fg_read(chip, ADC_RR_FAKE_BATT_HIGH_LSB(chip), buf, 2);
+	if (rc < 0) {
+		pr_err("failed to read addr=0x%04x, rc=%d\n",
+			ADC_RR_FAKE_BATT_HIGH_LSB(chip), rc);
+		return rc;
+	}
+
+	temp = (buf[1] << 8 | buf[0]) * 2500000;
+	do_div(temp, 150 * 1024);
+	batt_id[1] = temp;
+	pr_debug("debug batt_id range: [%d %d]\n", batt_id[0], batt_id[1]);
+	return 0;
+}
+
 static bool is_debug_batt_id(struct fg_chip *chip)
 {
-	int batt_id_delta = 0;
+	int debug_batt_id[2], rc;
 
-	if (!chip->batt_id_kohms)
+	if (!chip->batt_id_ohms)
 		return false;
 
-	batt_id_delta = abs(chip->batt_id_kohms - DEBUG_BATT_ID_KOHMS);
-	if (batt_id_delta <= 1) {
-		fg_dbg(chip, FG_POWER_SUPPLY, "Debug battery id: %dKohms\n",
-			chip->batt_id_kohms);
+	rc = fg_get_debug_batt_id(chip, debug_batt_id);
+	if (rc < 0) {
+		pr_err("Failed to get debug batt_id, rc=%d\n", rc);
+		return false;
+	}
+
+	if (is_between(debug_batt_id[0], debug_batt_id[1],
+		chip->batt_id_ohms)) {
+		fg_dbg(chip, FG_POWER_SUPPLY, "Debug battery id: %dohms\n",
+			chip->batt_id_ohms);
 		return true;
 	}
 
@@ -797,8 +836,8 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 		return rc;
 	}
 
+	chip->batt_id_ohms = batt_id;
 	batt_id /= 1000;
-	chip->batt_id_kohms = batt_id;
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
 		pr_err("Batterydata not available\n");
@@ -3163,10 +3202,17 @@ static int fg_parse_dt(struct fg_chip *chip)
 		}
 	}
 
+	rc = of_property_read_u32(node, "qcom,rradc-base", &base);
+	if (rc < 0) {
+		dev_err(chip->dev, "rradc-base not specified, rc=%d\n", rc);
+		return rc;
+	}
+	chip->rradc_base = base;
+
 	rc = fg_get_batt_profile(chip);
 	if (rc < 0)
 		pr_warn("profile for batt_id=%dKOhms not found..using OTP, rc:%d\n",
-			chip->batt_id_kohms, rc);
+			chip->batt_id_ohms / 1000, rc);
 
 	/* Read all the optional properties below */
 	rc = of_property_read_u32(node, "qcom,fg-cutoff-voltage", &temp);
@@ -3455,7 +3501,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 
 	if (!rc)
 		pr_info("battery SOC:%d voltage: %duV temp: %d id: %dKOhms\n",
-			msoc, volt_uv, batt_temp, chip->batt_id_kohms);
+			msoc, volt_uv, batt_temp, chip->batt_id_ohms / 1000);
 
 	device_init_wakeup(chip->dev, true);
 	if (chip->profile_available)

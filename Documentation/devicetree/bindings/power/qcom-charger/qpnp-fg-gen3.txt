@@ -36,6 +36,12 @@ First Level Node - FG Gen3 device
 	Definition: For details about IIO bindings see:
 		    Documentation/devicetree/bindings/iio/iio-bindings.txt
 
+- qcom,rradc-base
+	Usage:      required
+	Value type: <u32>
+	Definition: Should specify the base address of RR_ADC peripheral. This
+		    is used for reading certain peripheral registers under it.
+
 - qcom,fg-cutoff-voltage
 	Usage:      optional
 	Value type: <u32>
@@ -297,6 +303,7 @@ pmi8998_fg: qpnp,fg {
 	qcom,pmic-revid = <&pmi8998_revid>;
 	io-channels = <&pmi8998_rradc 3>;
 	io-channel-names = "rradc_batt_id";
+	qcom,rradc-base = <0x4500>;
 	qcom,ki-coeff-soc-dischg = <30 60 90>;
 	qcom,ki-coeff-med-dischg = <800 1000 1400>;
 	qcom,ki-coeff-hi-dischg = <1200 1500 2100>;

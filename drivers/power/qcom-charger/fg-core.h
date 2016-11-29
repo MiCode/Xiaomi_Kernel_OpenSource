@@ -39,6 +39,12 @@
 			pr_debug(fmt, ##__VA_ARGS__);	\
 	} while (0)
 
+#define is_between(left, right, value) \
+		(((left) >= (right) && (left) >= (value) \
+			&& (value) >= (right)) \
+		|| ((left) <= (right) && (left) <= (value) \
+			&& (value) <= (right)))
+
 /* Awake votable reasons */
 #define SRAM_READ	"fg_sram_read"
 #define SRAM_WRITE	"fg_sram_write"
@@ -311,8 +317,9 @@ struct fg_chip {
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
+	u32			rradc_base;
 	u32			wa_flags;
-	int			batt_id_kohms;
+	int			batt_id_ohms;
 	int			charge_status;
 	int			prev_charge_status;
 	int			charge_done;
