@@ -1623,7 +1623,7 @@ static inline int sps_bam_process_irq(unsigned long dev)
 }
 
 static inline int sps_get_bam_addr(unsigned long dev, phys_addr_t *base,
-				u32 *size);
+				u32 *size)
 {
 	return -EPERM;
 }
