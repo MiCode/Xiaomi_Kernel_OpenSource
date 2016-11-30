@@ -12,6 +12,7 @@
 
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "msm8998-v2.1-interposer-msmfalcon.dtsi"
+#include "msm8998-camera-sensor-mtp.dtsi"
 
 &uartblsp2dm1 {
 	status = "ok";
