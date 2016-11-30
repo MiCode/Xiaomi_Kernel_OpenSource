@@ -151,6 +151,7 @@ enum fg_sram_param_id {
 	FG_SRAM_CHG_TERM_CURR,
 	FG_SRAM_DELTA_SOC_THR,
 	FG_SRAM_RECHARGE_SOC_THR,
+	FG_SRAM_RECHARGE_VBATT_THR,
 	FG_SRAM_KI_COEFF_MED_DISCHG,
 	FG_SRAM_KI_COEFF_HI_DISCHG,
 	FG_SRAM_MAX,
@@ -198,6 +199,7 @@ struct fg_dt_props {
 	int	sys_term_curr_ma;
 	int	delta_soc_thr;
 	int	recharge_soc_thr;
+	int	recharge_volt_thr_mv;
 	int	rsense_sel;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	esr_timer_charging;
