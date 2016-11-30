@@ -27,6 +27,7 @@
 #include "mhi.h"
 #include "mhi_hwio.h"
 #include "mhi_macros.h"
+#include "mhi_bhi.h"
 #include "mhi_trace.h"
 
 static int reset_chan_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
@@ -1560,15 +1561,25 @@ int mhi_get_epid(struct mhi_client_handle *client_handle)
 	return MHI_EPID;
 }
 
-void mhi_runtime_get(struct mhi_device_ctxt *mhi_dev_ctxt)
+void mhi_master_mode_runtime_get(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	pm_runtime_get(&mhi_dev_ctxt->pcie_device->dev);
 }
 
-void mhi_runtime_put(struct mhi_device_ctxt *mhi_dev_ctxt)
+void mhi_master_mode_runtime_put(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	pm_runtime_mark_last_busy(&mhi_dev_ctxt->pcie_device->dev);
 	pm_runtime_put_noidle(&mhi_dev_ctxt->pcie_device->dev);
+}
+
+void mhi_slave_mode_runtime_get(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	mhi_dev_ctxt->bus_master_rt_get(mhi_dev_ctxt->pcie_device);
+}
+
+void mhi_slave_mode_runtime_put(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	mhi_dev_ctxt->bus_master_rt_put(mhi_dev_ctxt->pcie_device);
 }
 
 /*
@@ -1674,6 +1685,120 @@ int mhi_deregister_channel(struct mhi_client_handle *client_handle)
 	return ret_val;
 }
 EXPORT_SYMBOL(mhi_deregister_channel);
+
+int mhi_register_device(struct mhi_device *mhi_device,
+			const char *node_name,
+			unsigned long user_data)
+{
+	const struct device_node *of_node;
+	struct mhi_device_ctxt *mhi_dev_ctxt = NULL, *itr;
+	struct pcie_core_info *core_info;
+	struct pci_dev *pci_dev = mhi_device->pci_dev;
+	u32 domain = pci_domain_nr(pci_dev->bus);
+	u32 bus = pci_dev->bus->number;
+	u32 dev_id = pci_dev->device;
+	u32 slot = PCI_SLOT(pci_dev->devfn);
+	int ret, i;
+
+	of_node = of_parse_phandle(mhi_device->dev->of_node, node_name, 0);
+	if (!of_node)
+		return -EINVAL;
+
+	if (!mhi_device_drv)
+		return -EPROBE_DEFER;
+
+	/* Traverse thru the list */
+	mutex_lock(&mhi_device_drv->lock);
+	list_for_each_entry(itr, &mhi_device_drv->head, node) {
+		struct platform_device *pdev = itr->plat_dev;
+		struct pcie_core_info *core = &itr->core;
+
+		if (pdev->dev.of_node == of_node &&
+		    core->domain == domain &&
+		    core->bus == bus &&
+		    core->dev_id == dev_id &&
+		    core->slot == slot) {
+			mhi_dev_ctxt = itr;
+			break;
+		}
+	}
+	mutex_unlock(&mhi_device_drv->lock);
+
+	/* perhaps we've not probed yet */
+	if (!mhi_dev_ctxt)
+		return -EPROBE_DEFER;
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Registering Domain:%02u Bus:%04u dev:0x%04x slot:%04u\n",
+		domain, bus, dev_id, slot);
+
+	/* Set up pcie dev info */
+	mhi_dev_ctxt->pcie_device = pci_dev;
+	mhi_dev_ctxt->mhi_pm_state = MHI_PM_DISABLE;
+	INIT_WORK(&mhi_dev_ctxt->process_m1_worker, process_m1_transition);
+	mutex_init(&mhi_dev_ctxt->pm_lock);
+	rwlock_init(&mhi_dev_ctxt->pm_xfer_lock);
+	spin_lock_init(&mhi_dev_ctxt->dev_wake_lock);
+	tasklet_init(&mhi_dev_ctxt->ev_task, mhi_ctrl_ev_task,
+		     (unsigned long)mhi_dev_ctxt);
+	init_completion(&mhi_dev_ctxt->cmd_complete);
+	mhi_dev_ctxt->flags.link_up = 1;
+	core_info = &mhi_dev_ctxt->core;
+	core_info->manufact_id = pci_dev->vendor;
+	core_info->pci_master = false;
+
+	/* Go thru resources and set up */
+	for (i = 0; i < ARRAY_SIZE(mhi_device->resources); i++) {
+		const struct resource *res = &mhi_device->resources[i];
+
+		switch (resource_type(res)) {
+		case IORESOURCE_MEM:
+			/* bus master already mapped it */
+			core_info->bar0_base = (void __iomem *)res->start;
+			core_info->bar0_end = (void __iomem *)res->end;
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"bar mapped to:0x%llx - 0x%llx (virtual)\n",
+				res->start, res->end);
+			break;
+		case IORESOURCE_IRQ:
+			core_info->irq_base = (u32)res->start;
+			core_info->max_nr_msis = (u32)resource_size(res);
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"irq mapped to: %u size:%u\n",
+				core_info->irq_base,
+				core_info->max_nr_msis);
+			break;
+		};
+	}
+
+	if (!core_info->bar0_base || !core_info->irq_base)
+		return -EINVAL;
+
+	mhi_dev_ctxt->bus_master_rt_get = mhi_device->pm_runtime_get;
+	mhi_dev_ctxt->bus_master_rt_put = mhi_device->pm_runtime_noidle;
+	if (!mhi_dev_ctxt->bus_master_rt_get ||
+	    !mhi_dev_ctxt->bus_master_rt_put)
+		return -EINVAL;
+
+	ret = mhi_ctxt_init(mhi_dev_ctxt);
+	if (ret) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"MHI Initialization failed, ret %d\n", ret);
+		return ret;
+	}
+	mhi_init_debugfs(mhi_dev_ctxt);
+
+	/* setup shadow pm functions */
+	mhi_dev_ctxt->assert_wake = mhi_assert_device_wake;
+	mhi_dev_ctxt->deassert_wake = mhi_deassert_device_wake;
+	mhi_dev_ctxt->runtime_get = mhi_slave_mode_runtime_get;
+	mhi_dev_ctxt->runtime_put = mhi_slave_mode_runtime_put;
+	mhi_device->mhi_dev_ctxt = mhi_dev_ctxt;
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exit success\n");
+
+	return 0;
+}
+EXPORT_SYMBOL(mhi_register_device);
 
 void mhi_process_db_brstmode(struct mhi_device_ctxt *mhi_dev_ctxt,
 			     void __iomem *io_addr,
