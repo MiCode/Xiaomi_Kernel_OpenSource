@@ -117,6 +117,7 @@ header-y += elf-fdpic.h
 header-y += elf.h
 header-y += errno.h
 header-y += errqueue.h
+header-y += esoc_ctrl.h
 header-y += ethtool.h
 header-y += eventpoll.h
 header-y += fadvise.h
