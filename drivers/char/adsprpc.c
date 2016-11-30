@@ -56,6 +56,7 @@
 #define BALIGN		128
 #define NUM_CHANNELS	4	/* adsp, mdsp, slpi, cdsp*/
 #define NUM_SESSIONS	9	/*8 compute, 1 cpz*/
+#define M_FDLIST	16
 
 #define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
 
@@ -429,7 +430,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map)
 		ion_free(fl->apps->client, map->handle);
 	if (sess->smmu.enabled) {
 		if (map->size || map->phys)
-			msm_dma_unmap_sg(fl->sctx->dev,
+			msm_dma_unmap_sg(sess->dev,
 				map->table->sgl,
 				map->table->nents, DMA_BIDIRECTIONAL,
 				map->buf);
@@ -926,12 +927,13 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	uint32_t sc = ctx->sc;
 	int inbufs = REMOTE_SCALARS_INBUFS(sc);
 	int outbufs = REMOTE_SCALARS_OUTBUFS(sc);
-	int bufs = inbufs + outbufs;
+	int handles, bufs = inbufs + outbufs;
 	uintptr_t args;
 	ssize_t rlen = 0, copylen = 0, metalen = 0;
-	int i, inh, oix;
+	int i, oix;
 	int err = 0;
 	int mflags = 0;
+	uint64_t *fdlist;
 
 	/* calculate size of the metadata */
 	rpra = 0;
@@ -949,7 +951,15 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 					mflags, &ctx->maps[i]);
 		ipage += 1;
 	}
-	metalen = copylen = (ssize_t)&ipage[0];
+	handles = REMOTE_SCALARS_INHANDLES(sc) + REMOTE_SCALARS_OUTHANDLES(sc);
+	for (i = bufs; i < bufs + handles; i++) {
+		VERIFY(err, !fastrpc_mmap_create(ctx->fl, ctx->fds[i],
+				FASTRPC_ATTR_NOVA, 0, 0, 0, &ctx->maps[i]));
+		if (err)
+			goto bail;
+		ipage += 1;
+	}
+	metalen = copylen = (ssize_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST);
 	/* calculate len requreed for copying */
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
@@ -978,14 +988,11 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	pages = smq_phy_page_start(sc, list);
 	ipage = pages;
 	args = (uintptr_t)ctx->buf->virt + metalen;
-	for (i = 0; i < bufs; ++i) {
-		ssize_t len = lpra[i].buf.len;
-
-		list[i].num = 0;
-		list[i].pgidx = 0;
-		if (!len)
-			continue;
-		list[i].num = 1;
+	for (i = 0; i < bufs + handles; ++i) {
+		if (lpra[i].buf.len)
+			list[i].num = 1;
+		else
+			list[i].num = 0;
 		list[i].pgidx = ipage - pages;
 		ipage++;
 	}
@@ -1006,7 +1013,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			int idx = list[i].pgidx;
 
 			if (map->attr & FASTRPC_ATTR_NOVA) {
-				offset = (uintptr_t)lpra[i].buf.pv;
+				offset = 0;
 			} else {
 				down_read(&current->mm->mmap_sem);
 				VERIFY(err, NULL != (vma = find_vma(current->mm,
@@ -1026,6 +1033,15 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		}
 		rpra[i].buf.pv = buf;
 	}
+	for (i = bufs; i < bufs + handles; ++i) {
+		struct fastrpc_mmap *map = ctx->maps[i];
+
+		pages[i].addr = map->phys;
+		pages[i].size = map->size;
+	}
+	fdlist = (uint64_t *)&pages[bufs + handles];
+	for (i = 0; i < M_FDLIST; i++)
+		fdlist[i] = 0;
 	/* copy non ion buffers */
 	rlen = copylen - metalen;
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
@@ -1076,11 +1092,10 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
 			uint64_to_ptr(rpra[i].buf.pv + rpra[i].buf.len));
 	}
-	inh = inbufs + outbufs;
-	for (i = 0; i < REMOTE_SCALARS_INHANDLES(sc); i++) {
-		rpra[inh + i].buf.pv = ptr_to_uint64(ctx->lpra[inh + i].buf.pv);
-		rpra[inh + i].buf.len = ctx->lpra[inh + i].buf.len;
-		rpra[inh + i].h = ctx->lpra[inh + i].h;
+	for (i = bufs; i < bufs + handles; i++) {
+		rpra[i].dma.fd = ctx->fds[i];
+		rpra[i].dma.len = (uint32_t)lpra[i].buf.len;
+		rpra[i].dma.offset = (uint32_t)(uintptr_t)lpra[i].buf.pv;
 	}
 	if (!ctx->fl->sctx->smmu.coherent)
 		dmac_flush_range((char *)rpra, (char *)rpra + ctx->used);
@@ -1092,12 +1107,20 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 		    remote_arg_t *upra)
 {
 	uint32_t sc = ctx->sc;
+	struct smq_invoke_buf *list;
+	struct smq_phy_page *pages;
+	struct fastrpc_mmap *mmap;
+	uint64_t *fdlist;
 	remote_arg64_t *rpra = ctx->rpra;
-	int i, inbufs, outbufs, outh, size;
+	int i, inbufs, outbufs, handles;
 	int err = 0;
 
 	inbufs = REMOTE_SCALARS_INBUFS(sc);
 	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
+	handles = REMOTE_SCALARS_INHANDLES(sc) + REMOTE_SCALARS_OUTHANDLES(sc);
+	list = smq_invoke_buf_start(ctx->rpra, sc);
+	pages = smq_phy_page_start(sc, list);
+	fdlist = (uint64_t *)(pages + inbufs + outbufs + handles);
 	for (i = inbufs; i < inbufs + outbufs; ++i) {
 		if (!ctx->maps[i]) {
 			K_COPY_TO_USER(err, kernel,
@@ -1111,12 +1134,14 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 			ctx->maps[i] = 0;
 		}
 	}
-	size = sizeof(*rpra) * REMOTE_SCALARS_OUTHANDLES(sc);
-	if (size) {
-		outh = inbufs + outbufs + REMOTE_SCALARS_INHANDLES(sc);
-		K_COPY_TO_USER(err, kernel, &upra[outh], &rpra[outh], size);
-		if (err)
-			goto bail;
+	if (inbufs + outbufs + handles) {
+		for (i = 0; i < M_FDLIST; i++) {
+			if (!fdlist[i])
+				break;
+			if (!fastrpc_mmap_find(ctx->fl, (int)fdlist[i], 0, 0,
+						0, &mmap))
+				fastrpc_mmap_free(mmap);
+		}
 	}
  bail:
 	return err;
@@ -1158,7 +1183,6 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 	uint32_t sc = ctx->sc;
 	remote_arg64_t *rpra = ctx->rpra;
 	int used = ctx->used;
-	int inv = 0;
 
 	inbufs = REMOTE_SCALARS_INBUFS(sc);
 	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
@@ -1171,7 +1195,6 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 			continue;
 		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
 				buf_page_start(rpra[i].buf.pv)) {
-			inv = 1;
 			continue;
 		}
 		if (map && map->handle)
@@ -1184,7 +1207,7 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 						 + rpra[i].buf.len));
 	}
 
-	if (inv || REMOTE_SCALARS_OUTHANDLES(sc))
+	if (rpra)
 		dmac_inv_range(rpra, (char *)rpra + used);
 }
 

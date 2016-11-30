@@ -94,7 +94,7 @@ static int compat_get_fastrpc_ioctl_invoke(
 	struct fastrpc_ioctl_invoke_attrs *inv;
 	union compat_remote_arg *pra32;
 	union remote_arg *pra;
-	int err, len, num, j;
+	int err, len, j;
 
 	err = get_user(sc, &inv32->inv.sc);
 	if (err)
@@ -117,16 +117,11 @@ static int compat_get_fastrpc_ioctl_invoke(
 
 	pra32 = compat_ptr(p);
 	pra = (union remote_arg *)(inv + 1);
-	num = REMOTE_SCALARS_INBUFS(sc) + REMOTE_SCALARS_OUTBUFS(sc);
-	for (j = 0; j < num; j++) {
+	for (j = 0; j < len; j++) {
 		err |= get_user(p, &pra32[j].buf.pv);
 		err |= put_user(p, (uintptr_t *)&pra[j].buf.pv);
 		err |= get_user(s, &pra32[j].buf.len);
 		err |= put_user(s, &pra[j].buf.len);
-	}
-	for (j = 0; j < REMOTE_SCALARS_INHANDLES(sc); j++) {
-		err |= get_user(u, &pra32[num + j].h);
-		err |= put_user(u, &pra[num + j].h);
 	}
 
 	err |= put_user(NULL, &inv->fds);
@@ -141,33 +136,6 @@ static int compat_get_fastrpc_ioctl_invoke(
 	}
 
 	*inva = inv;
-	return err;
-}
-
-static int compat_put_fastrpc_ioctl_invoke(
-			struct compat_fastrpc_ioctl_invoke_attrs __user *inv32,
-			struct fastrpc_ioctl_invoke_attrs __user *inv)
-{
-	compat_uptr_t p;
-	compat_uint_t u, h;
-	union compat_remote_arg *pra32;
-	union remote_arg *pra;
-	int err, i, num;
-
-	err = get_user(u, &inv32->inv.sc);
-	err |= get_user(p, &inv32->inv.pra);
-	if (err)
-		return err;
-
-	pra32 = compat_ptr(p);
-	pra = (union remote_arg *)(inv + 1);
-	num = REMOTE_SCALARS_INBUFS(u) + REMOTE_SCALARS_OUTBUFS(u)
-		+ REMOTE_SCALARS_INHANDLES(u);
-	for (i = 0;  i < REMOTE_SCALARS_OUTHANDLES(u); i++) {
-		err |= get_user(h, &pra[num + i].h);
-		err |= put_user(h, &pra32[num + i].h);
-	}
-
 	return err;
 }
 
@@ -264,19 +232,14 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 	{
 		struct compat_fastrpc_ioctl_invoke_attrs __user *inv32;
 		struct fastrpc_ioctl_invoke_attrs __user *inv;
-		long ret;
 
 		inv32 = compat_ptr(arg);
 		VERIFY(err, 0 == compat_get_fastrpc_ioctl_invoke(inv32,
 							&inv, cmd));
 		if (err)
 			return err;
-		ret = filp->f_op->unlocked_ioctl(filp,
+		return filp->f_op->unlocked_ioctl(filp,
 				FASTRPC_IOCTL_INVOKE_ATTRS, (unsigned long)inv);
-		if (ret)
-			return ret;
-		VERIFY(err, 0 == compat_put_fastrpc_ioctl_invoke(inv32, inv));
-		return err;
 	}
 	case COMPAT_FASTRPC_IOCTL_MMAP:
 	{
