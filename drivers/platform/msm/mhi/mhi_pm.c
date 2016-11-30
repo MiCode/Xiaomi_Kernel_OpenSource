@@ -20,6 +20,7 @@
 #include "mhi_sys.h"
 #include "mhi.h"
 #include "mhi_hwio.h"
+#include "mhi_bhi.h"
 
 /* Write only sysfs attributes */
 static DEVICE_ATTR(MHI_M0, S_IWUSR, NULL, sysfs_init_m0);
@@ -57,14 +58,12 @@ int mhi_pci_suspend(struct device *dev)
 	return r;
 }
 
-int mhi_runtime_suspend(struct device *dev)
+static int mhi_pm_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt,
+			      bool force_m3)
 {
 	int r = 0;
-	struct mhi_device_ctxt *mhi_dev_ctxt = dev_get_drvdata(dev);
 
-	mutex_lock(&mhi_dev_ctxt->pm_lock);
 	read_lock_bh(&mhi_dev_ctxt->pm_xfer_lock);
-
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Entered with State:0x%x %s\n",
 		mhi_dev_ctxt->mhi_pm_state,
@@ -74,17 +73,16 @@ int mhi_runtime_suspend(struct device *dev)
 	if (mhi_dev_ctxt->mhi_pm_state == MHI_PM_DISABLE ||
 	   mhi_dev_ctxt->mhi_pm_state == MHI_PM_M3) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Already in active state, exiting\n");
+			"Already in M3 State\n");
 		read_unlock_bh(&mhi_dev_ctxt->pm_xfer_lock);
-		mutex_unlock(&mhi_dev_ctxt->pm_lock);
 		return 0;
 	}
 
-	if (unlikely(atomic_read(&mhi_dev_ctxt->counters.device_wake))) {
+	if (unlikely(atomic_read(&mhi_dev_ctxt->counters.device_wake) &&
+		     force_m3 == false)){
 		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Busy, Aborting Runtime Suspend\n");
+			"Busy, Aborting M3\n");
 		read_unlock_bh(&mhi_dev_ctxt->pm_xfer_lock);
-		mutex_unlock(&mhi_dev_ctxt->pm_lock);
 		return -EBUSY;
 	}
 
@@ -98,8 +96,7 @@ int mhi_runtime_suspend(struct device *dev)
 		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
 			"Failed to get M0||M1 event, timeout, current state:%s\n",
 			TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
-		r = -EIO;
-		goto rpm_suspend_exit;
+		return -EIO;
 	}
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Allowing M3 State\n");
@@ -116,20 +113,66 @@ int mhi_runtime_suspend(struct device *dev)
 		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
 			"Failed to get M3 event, timeout, current state:%s\n",
 			TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
-		r = -EIO;
-		goto rpm_suspend_exit;
+		return -EIO;
 	}
 
+	return 0;
+}
+
+static int mhi_pm_initiate_m0(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	int r;
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Entered with State:0x%x %s\n",
+		mhi_dev_ctxt->mhi_pm_state,
+		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
+
+	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	mhi_dev_ctxt->mhi_pm_state = MHI_PM_M3_EXIT;
+	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+
+	/* Set and wait for M0 Event */
+	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_M0);
+	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	r = wait_event_timeout(*mhi_dev_ctxt->mhi_ev_wq.m0_event,
+			       mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
+			       mhi_dev_ctxt->mhi_state == MHI_STATE_M1,
+			       msecs_to_jiffies(MHI_MAX_RESUME_TIMEOUT));
+	if (!r) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Failed to get M0 event, timeout\n");
+		r = -EIO;
+	} else
+		r = 0;
+
+	return r;
+}
+
+int mhi_runtime_suspend(struct device *dev)
+{
+	int r = 0;
+	struct mhi_device_ctxt *mhi_dev_ctxt = dev_get_drvdata(dev);
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Enter\n");
+
+	mutex_lock(&mhi_dev_ctxt->pm_lock);
+	r = mhi_pm_initiate_m3(mhi_dev_ctxt, false);
+	if (r) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "abort due to ret:%d\n", r);
+		mutex_unlock(&mhi_dev_ctxt->pm_lock);
+		return r;
+	}
 	r = mhi_turn_off_pcie_link(mhi_dev_ctxt);
 	if (r) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
-			"Failed to Turn off link ret:%d\n",
-			r);
+			"Failed to Turn off link ret:%d\n", r);
 	}
 
-rpm_suspend_exit:
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exited\n");
 	mutex_unlock(&mhi_dev_ctxt->pm_lock);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exited with ret:%d\n", r);
+
 	return r;
 }
 
@@ -167,32 +210,10 @@ int mhi_runtime_resume(struct device *dev)
 
 	/* turn on link */
 	r = mhi_turn_on_pcie_link(mhi_dev_ctxt);
-	if (r) {
-		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
-			"Failed to resume link\n");
+	if (r)
 		goto rpm_resume_exit;
-	}
 
-	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
-	mhi_dev_ctxt->mhi_pm_state = MHI_PM_M3_EXIT;
-	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
-
-	/* Set and wait for M0 Event */
-	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
-	mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_M0);
-	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
-	r = wait_event_timeout(*mhi_dev_ctxt->mhi_ev_wq.m0_event,
-			       mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
-			       mhi_dev_ctxt->mhi_state == MHI_STATE_M1,
-			       msecs_to_jiffies(MHI_MAX_RESUME_TIMEOUT));
-	if (!r) {
-		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
-			"Failed to get M0 event, timeout\n");
-		r = -EIO;
-		goto rpm_resume_exit;
-	}
-	r = 0; /* no errors */
-
+	r = mhi_pm_initiate_m0(mhi_dev_ctxt);
 rpm_resume_exit:
 	mutex_unlock(&mhi_dev_ctxt->pm_lock);
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exited with :%d\n", r);
@@ -212,6 +233,97 @@ int mhi_pci_resume(struct device *dev)
 		pm_runtime_set_active(dev);
 		pm_runtime_enable(dev);
 	}
+
+	return r;
+}
+
+static int mhi_pm_slave_mode_power_on(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	int ret_val;
+	u32 timeout = mhi_dev_ctxt->poll_reset_timeout_ms;
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Entered\n");
+	mutex_lock(&mhi_dev_ctxt->pm_lock);
+	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	mhi_dev_ctxt->mhi_pm_state = MHI_PM_POR;
+	ret_val = set_mhi_base_state(mhi_dev_ctxt);
+	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+
+	if (ret_val) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Error Setting MHI Base State %d\n", ret_val);
+		goto unlock_pm_lock;
+	}
+
+	if (mhi_dev_ctxt->base_state != STATE_TRANSITION_BHI) {
+		ret_val = -EIO;
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Invalid Base State, cur_state:%s\n",
+			state_transition_str(mhi_dev_ctxt->base_state));
+		goto unlock_pm_lock;
+	}
+
+	reinit_completion(&mhi_dev_ctxt->cmd_complete);
+	init_mhi_base_state(mhi_dev_ctxt);
+
+	/*
+	 * Keep wake in Active until AMSS, @ AMSS we will
+	 * decrement counts
+	 */
+	read_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	mhi_dev_ctxt->assert_wake(mhi_dev_ctxt, false);
+	read_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+
+	ret_val = wait_for_completion_timeout(&mhi_dev_ctxt->cmd_complete,
+					      msecs_to_jiffies(timeout));
+	if (!ret_val || mhi_dev_ctxt->dev_exec_env != MHI_EXEC_ENV_AMSS)
+		ret_val = -EIO;
+	else
+		ret_val = 0;
+
+	if (ret_val) {
+		read_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		mhi_dev_ctxt->deassert_wake(mhi_dev_ctxt);
+		read_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	}
+
+unlock_pm_lock:
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exit with ret:%d\n", ret_val);
+	mutex_unlock(&mhi_dev_ctxt->pm_lock);
+	return ret_val;
+}
+
+static int mhi_pm_slave_mode_suspend(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	int r;
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Entered\n");
+	mutex_lock(&mhi_dev_ctxt->pm_lock);
+
+	r = mhi_pm_initiate_m3(mhi_dev_ctxt, false);
+	if (r)
+		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "abort due to ret:%d\n", r);
+	mutex_unlock(&mhi_dev_ctxt->pm_lock);
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exit with ret:%d\n", r);
+
+	return r;
+}
+
+static int mhi_pm_slave_mode_resume(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	int r;
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Entered\n");
+	mutex_lock(&mhi_dev_ctxt->pm_lock);
+
+	r = mhi_pm_initiate_m0(mhi_dev_ctxt);
+	if (r)
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"M3 exit failed ret:%d\n", r);
+	mutex_unlock(&mhi_dev_ctxt->pm_lock);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exit with ret:%d\n", r);
 
 	return r;
 }
@@ -344,3 +456,30 @@ exit:
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exited...\n");
 	return r;
 }
+
+int mhi_pm_control_device(struct mhi_device *mhi_device,
+		       enum mhi_dev_ctrl ctrl)
+{
+	struct mhi_device_ctxt *mhi_dev_ctxt = mhi_device->mhi_dev_ctxt;
+
+	if (!mhi_dev_ctxt)
+		return -EINVAL;
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Entered with cmd:%d\n", ctrl);
+
+	switch (ctrl) {
+	case MHI_DEV_CTRL_INIT:
+		return bhi_probe(mhi_dev_ctxt);
+	case MHI_DEV_CTRL_POWER_ON:
+		return mhi_pm_slave_mode_power_on(mhi_dev_ctxt);
+	case MHI_DEV_CTRL_SUSPEND:
+		return mhi_pm_slave_mode_suspend(mhi_dev_ctxt);
+	case MHI_DEV_CTRL_RESUME:
+		return mhi_pm_slave_mode_resume(mhi_dev_ctxt);
+	default:
+		break;
+	}
+	return -EINVAL;
+}
+EXPORT_SYMBOL(mhi_pm_control_device);

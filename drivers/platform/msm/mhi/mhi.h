@@ -580,11 +580,15 @@ struct mhi_device_ctxt {
 	void *mhi_ipc_log;
 
 	/* Shadow functions since not all device supports runtime pm */
+	int (*bus_master_rt_get)(struct pci_dev *pci_dev);
+	void (*bus_master_rt_put)(struct pci_dev *pci_dev);
 	void (*runtime_get)(struct mhi_device_ctxt *mhi_dev_ctxt);
 	void (*runtime_put)(struct mhi_device_ctxt *mhi_dev_ctxt);
 	void (*assert_wake)(struct mhi_device_ctxt *mhi_dev_ctxt,
 			    bool force_set);
 	void (*deassert_wake)(struct mhi_device_ctxt *mhi_dev_ctxt);
+
+	struct completion cmd_complete;
 };
 
 struct mhi_device_driver {
@@ -687,8 +691,10 @@ void mhi_notify_clients(struct mhi_device_ctxt *mhi_dev_ctxt,
 						enum MHI_CB_REASON reason);
 void mhi_notify_client(struct mhi_client_handle *client_handle,
 		       enum MHI_CB_REASON reason);
-void mhi_runtime_get(struct mhi_device_ctxt *mhi_dev_ctxt);
-void mhi_runtime_put(struct mhi_device_ctxt *mhi_dev_ctxt);
+void mhi_master_mode_runtime_get(struct mhi_device_ctxt *mhi_dev_ctxt);
+void mhi_master_mode_runtime_put(struct mhi_device_ctxt *mhi_dev_ctxt);
+void mhi_slave_mode_runtime_get(struct mhi_device_ctxt *mhi_dev_ctxt);
+void mhi_slave_mode_runtime_put(struct mhi_device_ctxt *mhi_dev_ctxt);
 void mhi_deassert_device_wake(struct mhi_device_ctxt *mhi_dev_ctxt);
 void mhi_assert_device_wake(struct mhi_device_ctxt *mhi_dev_ctxt,
 			    bool force_set);
