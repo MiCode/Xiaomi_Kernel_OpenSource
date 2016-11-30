@@ -15,13 +15,8 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <linux/reset-controller.h>
 
-struct clk_dummy {
-	struct clk_hw hw;
-	struct reset_controller_dev reset;
-	unsigned long rrate;
-};
+#include "common.h"
 
 #define to_clk_dummy(_hw)	container_of(_hw, struct clk_dummy, hw)
 
