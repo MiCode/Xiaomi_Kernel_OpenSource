@@ -157,4 +157,7 @@ static inline struct msm_vfe_axi_stream *msm_isp_vfe_get_stream(
 						index);
 }
 
+int msm_isp_cfg_offline_ping_pong_address(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_stream *stream_info, uint32_t pingpong_status,
+	uint32_t buf_idx);
 #endif /* __MSM_ISP_AXI_UTIL_H__ */
