@@ -1122,6 +1122,7 @@ static int fg_conventional_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	int rc = 0, user_cnt = 0, sublen;
 	bool access_configured = false;
 	u8 *wr_data = val, word[4];
+	u16 orig_address = address;
 	char str[DEBUG_PRINT_BUFFER_SIZE];
 
 	if (address < RAM_OFFSET)
@@ -1130,8 +1131,8 @@ static int fg_conventional_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	if (offset > 3)
 		return -EINVAL;
 
-	address = ((address + offset) / 4) * 4;
-	offset = (address + offset) % 4;
+	address = ((orig_address + offset) / 4) * 4;
+	offset = (orig_address + offset) % 4;
 
 	user_cnt = atomic_add_return(1, &chip->memif_user_cnt);
 	if (fg_debug_mask & FG_MEM_DEBUG_WRITES)
@@ -2451,8 +2452,7 @@ static int fg_is_batt_id_valid(struct fg_chip *chip)
 		return rc;
 	}
 
-	if (fg_debug_mask & FG_IRQS)
-		pr_info("fg batt sts 0x%x\n", fg_batt_sts);
+	pr_debug("fg batt sts 0x%x\n", fg_batt_sts);
 
 	return (fg_batt_sts & BATT_IDED) ? 1 : 0;
 }
@@ -2898,6 +2898,9 @@ static int fg_inc_store_cycle_ctr(struct fg_chip *chip, int bucket)
 			bucket, rc);
 	else
 		chip->cyc_ctr.count[bucket] = cyc_count;
+
+	if (fg_debug_mask & FG_POWER_SUPPLY)
+		pr_info("Stored bucket %d cyc_count: %d\n", bucket, cyc_count);
 	return rc;
 }
 
