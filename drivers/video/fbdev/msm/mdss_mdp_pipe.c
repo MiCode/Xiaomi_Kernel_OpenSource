@@ -1114,6 +1114,7 @@ static void mdss_mdp_init_pipe_params(struct mdss_mdp_pipe *pipe)
 	pipe->is_right_blend = false;
 	pipe->src_split_req = false;
 	pipe->bwc_mode = 0;
+	pipe->restore_roi = false;
 
 	pipe->mfd = NULL;
 	pipe->mixer_left = pipe->mixer_right = NULL;
