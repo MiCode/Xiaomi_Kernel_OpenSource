@@ -123,7 +123,7 @@ struct vblank_event {
 	bool enable;
 };
 
-static void vblank_ctrl_worker(struct work_struct *work)
+static void vblank_ctrl_worker(struct kthread_work *work)
 {
 	struct msm_vblank_ctrl *vbl_ctrl = container_of(work,
 						struct msm_vblank_ctrl, work);
@@ -171,7 +171,7 @@ static int vblank_ctrl_queue_work(struct msm_drm_private *priv,
 	list_add_tail(&vbl_ev->node, &vbl_ctrl->event_list);
 	spin_unlock_irqrestore(&vbl_ctrl->lock, flags);
 
-	queue_work(priv->wq, &vbl_ctrl->work);
+	queue_kthread_work(&priv->disp_thread[crtc_id].worker, &vbl_ctrl->work);
 
 	return 0;
 }
@@ -187,15 +187,25 @@ static int msm_unload(struct drm_device *dev)
 	struct msm_gpu *gpu = priv->gpu;
 	struct msm_vblank_ctrl *vbl_ctrl = &priv->vblank_ctrl;
 	struct vblank_event *vbl_ev, *tmp;
+	int i;
 
 	/* We must cancel and cleanup any pending vblank enable/disable
 	 * work before drm_irq_uninstall() to avoid work re-enabling an
 	 * irq after uninstall has disabled it.
 	 */
-	cancel_work_sync(&vbl_ctrl->work);
+	flush_kthread_work(&vbl_ctrl->work);
 	list_for_each_entry_safe(vbl_ev, tmp, &vbl_ctrl->event_list, node) {
 		list_del(&vbl_ev->node);
 		kfree(vbl_ev);
+	}
+
+	/* clean up display commit worker threads */
+	for (i = 0; i < priv->num_crtcs; i++) {
+		if (priv->disp_thread[i].thread) {
+			flush_kthread_worker(&priv->disp_thread[i].worker);
+			kthread_stop(priv->disp_thread[i].thread);
+			priv->disp_thread[i].thread = NULL;
+		}
 	}
 
 	drm_kms_helper_poll_fini(dev);
@@ -347,7 +357,7 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	struct platform_device *pdev = dev->platformdev;
 	struct msm_drm_private *priv;
 	struct msm_kms *kms;
-	int ret;
+	int ret, i;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -364,7 +374,7 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	INIT_LIST_HEAD(&priv->inactive_list);
 	INIT_LIST_HEAD(&priv->fence_cbs);
 	INIT_LIST_HEAD(&priv->vblank_ctrl.event_list);
-	INIT_WORK(&priv->vblank_ctrl.work, vblank_ctrl_worker);
+	init_kthread_work(&priv->vblank_ctrl.work, vblank_ctrl_worker);
 	spin_lock_init(&priv->vblank_ctrl.lock);
 
 	msm_force_submit(priv);
@@ -409,6 +419,29 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	}
 
 	priv->kms = kms;
+
+	/* initialize commit thread structure */
+	for (i = 0; i < priv->num_crtcs; i++) {
+		priv->disp_thread[i].crtc_id = priv->crtcs[i]->base.id;
+		init_kthread_worker(&priv->disp_thread[i].worker);
+		priv->disp_thread[i].dev = dev;
+		priv->disp_thread[i].thread =
+			kthread_run(kthread_worker_fn,
+				&priv->disp_thread[i].worker,
+				"crtc_commit:%d",
+				priv->disp_thread[i].crtc_id);
+
+		if (IS_ERR(priv->disp_thread[i].thread)) {
+			dev_err(dev->dev, "failed to create kthread\n");
+			priv->disp_thread[i].thread = NULL;
+			/* clean up previously created threads if any */
+			for (i -= 1; i >= 0; i--) {
+				kthread_stop(priv->disp_thread[i].thread);
+				priv->disp_thread[i].thread = NULL;
+			}
+			goto fail;
+		}
+	}
 
 	if (kms) {
 		pm_runtime_enable(dev->dev);

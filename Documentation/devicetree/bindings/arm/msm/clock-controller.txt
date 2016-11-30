@@ -78,6 +78,7 @@ Required properties:
 			"qcom,cc-debug-cobalt"
 			"qcom,gpucc-cobalt"
 			"qcom,mmsscc-cobalt"
+			"qcom,gcc-sdxhedgehog"
 
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.

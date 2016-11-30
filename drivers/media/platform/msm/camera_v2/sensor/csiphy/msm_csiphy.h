@@ -168,6 +168,7 @@ struct csiphy_device {
 	uint8_t num_irq_registers;
 	uint32_t csiphy_sof_debug;
 	uint32_t csiphy_sof_debug_count;
+	uint32_t is_combo_mode;
 };
 
 #define VIDIOC_MSM_CSIPHY_RELEASE \

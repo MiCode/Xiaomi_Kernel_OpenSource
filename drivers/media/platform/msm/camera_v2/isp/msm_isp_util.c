@@ -377,18 +377,15 @@ static int msm_isp_start_fetch_engine_multi_pass(struct vfe_device *vfe_dev,
 		fe_cfg->frame_id;
 
 	if (fe_cfg->offline_pass == OFFLINE_SECOND_PASS) {
-		for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
-			stream_info = &vfe_dev->axi_data.stream_info[i];
-			if (stream_info->stream_id == fe_cfg->output_stream_id)
-				break;
-		}
-
-		if (i == VFE_AXI_SRC_MAX) {
+		stream_info = &vfe_dev->axi_data.stream_info[
+			HANDLE_TO_IDX(fe_cfg->output_stream_id)];
+		if (!stream_info) {
 			pr_err("%s: Couldn't find streamid 0x%X\n", __func__,
 				fe_cfg->output_stream_id);
 			return -EINVAL;
 		}
-
+		vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev,
+			0, 1);
 		msm_isp_reset_framedrop(vfe_dev, stream_info);
 
 		rc = msm_isp_cfg_offline_ping_pong_address(vfe_dev, stream_info,
@@ -1891,6 +1888,10 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 	}
 	ping_pong_status = vfe_dev->hw_info->vfe_ops.axi_ops.
 		get_pingpong_status(vfe_dev);
+	if (vfe_dev->hw_info->vfe_ops.irq_ops.process_eof_irq) {
+		vfe_dev->hw_info->vfe_ops.irq_ops.process_eof_irq(vfe_dev,
+			irq_status0);
+	}
 	msm_isp_process_overflow_irq(vfe_dev,
 		&irq_status0, &irq_status1, 0);
 
