@@ -2043,9 +2043,9 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	struct related_thread_group *grp = NULL;
 	int src_cpu;
 	bool notif_required = false;
-#endif
 	bool freq_notif_allowed = !(wake_flags & WF_NO_NOTIFIER);
 	bool check_group = false;
+#endif
 
 	wake_flags &= ~WF_NO_NOTIFIER;
 
@@ -2156,6 +2156,7 @@ stat:
 out:
 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
 
+#ifdef CONFIG_SMP
 	if (freq_notif_allowed) {
 		if (notif_required && !same_freq_domain(src_cpu, cpu)) {
 			check_for_freq_change(cpu_rq(cpu),
@@ -2166,6 +2167,7 @@ out:
 			check_for_freq_change(cpu_rq(cpu), true, false);
 		}
 	}
+#endif
 
 	return success;
 }
