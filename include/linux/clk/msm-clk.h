@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, 2012-2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009, 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,9 @@ enum branch_mem_flags {
 	CLKFLAG_PERIPH_OFF_SET,
 	CLKFLAG_PERIPH_OFF_CLEAR,
 };
+
+#include <linux/clk.h>
+
 #elif defined(CONFIG_COMMON_CLK_MSM)
 #define CLKFLAG_INVERT			0x00000001
 #define CLKFLAG_NOINVERT		0x00000002
@@ -42,7 +45,6 @@ enum branch_mem_flags {
 #define CLKFLAG_EPROBE_DEFER		0x00010000
 #define CLKFLAG_PERIPH_OFF_SET		0x00020000
 #define CLKFLAG_PERIPH_OFF_CLEAR	0x00040000
-#endif
 
 struct clk_lookup;
 struct clk;
@@ -132,4 +134,5 @@ int msm_clk_notif_register(struct clk *clk, struct notifier_block *nb);
 
 int msm_clk_notif_unregister(struct clk *clk, struct notifier_block *nb);
 
+#endif /* CONFIG_COMMON_CLK_MSM */
 #endif

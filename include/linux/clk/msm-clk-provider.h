@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -29,6 +29,7 @@
 #include <linux/seq_file.h>
 #include <linux/clk/msm-clk.h>
 
+#if defined(CONFIG_COMMON_CLK_MSM)
 /*
  * Bit manipulation macros
  */
@@ -265,4 +266,5 @@ static inline const char *clk_name(struct clk *c)
 		return "(null)";
 	return c->dbg_name;
 };
+#endif /* CONFIG_COMMON_CLK_MSM */
 #endif
