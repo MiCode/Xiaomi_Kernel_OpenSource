@@ -515,12 +515,12 @@ static int msm_bus_disable_node_qos_clk(struct msm_bus_node_device_type *node)
 		goto exit_disable_node_qos_clk;
 	}
 
-	for (i = 0; i < node->num_node_qos_clks; i++)
+	for (i = node->num_node_qos_clks - 1; i >= 0; i--)
 		ret = disable_nodeclk(&node->node_qos_clks[i]);
 
 	bus_node = to_msm_bus_node(node->node_info->bus_device);
 
-	for (i = 0; i < bus_node->num_node_qos_clks; i++)
+	for (i = bus_node->num_node_qos_clks - 1; i >= 0; i--)
 		ret = disable_nodeclk(&bus_node->node_qos_clks[i]);
 
 exit_disable_node_qos_clk:
