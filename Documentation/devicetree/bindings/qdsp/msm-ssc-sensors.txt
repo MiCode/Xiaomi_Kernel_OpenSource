@@ -4,8 +4,16 @@ Required properties:
 
  - compatible:	"qcom,msm-ssc-sensors"
 
+Optional properties:
+ - qcom,qdsp-timer-base:	Base address and length of qdsp timer.
+ - qcom,qtimer-cntpct-lo-offset:	Offset of qtimer cntpct low 32bit register.
+ - qcom,qtimer-cntpct-hi-offset:	Offset of qtimer cntpct high 32bit register.
+
 Example:
 
 	qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
+		qcom,qdsp-timer-base = <0x9850000 0x32>;
+		qcom,qtimer-cntpct-lo-offset = <0x0>;
+		qcom,qtimer-cntpct-hi-offset = <0x4>;
 	};
