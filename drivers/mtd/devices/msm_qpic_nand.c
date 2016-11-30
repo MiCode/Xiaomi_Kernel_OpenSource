@@ -601,10 +601,6 @@ static uint16_t msm_nand_flash_onfi_crc_check(uint8_t *buffer, uint16_t count)
 struct msm_nand_flash_onfi_data {
 	struct msm_nand_common_cfgs cfg;
 	uint32_t exec;
-	uint32_t devcmd1_orig;
-	uint32_t devcmdvld_orig;
-	uint32_t devcmd1_mod;
-	uint32_t devcmdvld_mod;
 	uint32_t ecc_bch_cfg;
 };
 
@@ -676,11 +672,11 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	uint32_t onfi_signature = 0;
 
 	/* SPS command/data descriptors */
-	uint32_t total_cnt = 13;
+	uint32_t total_cnt = 9;
 	/*
-	 * The following 13 commands are required to get onfi parameters -
-	 * flash, addr0, addr1, cfg0, cfg1, dev0_ecc_cfg, cmd_vld, dev_cmd1,
-	 * read_loc_0, exec, flash_status (read cmd), dev_cmd1, cmd_vld.
+	 * The following 9 commands are required to get onfi parameters -
+	 * flash, addr0, addr1, cfg0, cfg1, dev0_ecc_cfg,
+	 * read_loc_0, exec, flash_status (read cmd).
 	 */
 	struct {
 		struct sps_transfer xfer;
@@ -695,9 +691,9 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 
 	ret = msm_nand_version_check(info, &nandc_version);
 	if (!ret && !(nandc_version.nand_major == 1 &&
-			nandc_version.nand_minor == 1 &&
+			nandc_version.nand_minor >= 5 &&
 			nandc_version.qpic_major == 1 &&
-			nandc_version.qpic_minor == 1)) {
+			nandc_version.qpic_minor >= 5)) {
 		ret = -EPERM;
 		goto out;
 	}
@@ -720,32 +716,26 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	}
 
 	memset(&data, 0, sizeof(struct msm_nand_flash_onfi_data));
-	ret = msm_nand_flash_rd_reg(info, MSM_NAND_DEV_CMD1(info),
-				&data.devcmd1_orig);
-	if (ret < 0)
-		goto free_dma;
-	ret = msm_nand_flash_rd_reg(info, MSM_NAND_DEV_CMD_VLD(info),
-			&data.devcmdvld_orig);
-	if (ret < 0)
-		goto free_dma;
 
-	/* Lookup the 'APPS' partition's first page address */
+	/* Lookup the partition to which apps has access to */
 	for (i = 0; i < FLASH_PTABLE_MAX_PARTS_V4; i++) {
-		if (!strcmp("apps", mtd_part[i].name)) {
+		if (mtd_part[i].name && !strcmp("boot", mtd_part[i].name)) {
 			page_address = mtd_part[i].offset << 6;
 			break;
 		}
 	}
-	data.cfg.cmd = MSM_NAND_CMD_PAGE_READ_ALL;
+	if (!page_address) {
+		pr_info("%s: no apps partition found in smem\n", __func__);
+		ret = -EPERM;
+		goto free_dma;
+	}
+	data.cfg.cmd = MSM_NAND_CMD_PAGE_READ_ONFI;
 	data.exec = 1;
 	data.cfg.addr0 = (page_address << 16) |
 				FLASH_READ_ONFI_PARAMETERS_ADDRESS;
 	data.cfg.addr1 = (page_address >> 16) & 0xFF;
 	data.cfg.cfg0 =	MSM_NAND_CFG0_RAW_ONFI_PARAM_INFO;
 	data.cfg.cfg1 = MSM_NAND_CFG1_RAW_ONFI_PARAM_INFO;
-	data.devcmd1_mod = (data.devcmd1_orig & 0xFFFFFF00) |
-				FLASH_READ_ONFI_PARAMETERS_COMMAND;
-	data.devcmdvld_mod = data.devcmdvld_orig & 0xFFFFFFFE;
 	data.ecc_bch_cfg = 1 << ECC_CFG_ECC_DISABLE;
 	dma_buffer->flash_status = 0xeeeeeeee;
 
@@ -755,14 +745,6 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	cmd = curr_cmd;
 	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV0_ECC_CFG(info), WRITE,
 			data.ecc_bch_cfg, 0);
-	cmd++;
-
-	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV_CMD_VLD(info), WRITE,
-			data.devcmdvld_mod, 0);
-	cmd++;
-
-	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV_CMD1(info), WRITE,
-			data.devcmd1_mod, 0);
 	cmd++;
 
 	rdata = (0 << 0) | (ONFI_PARAM_INFO_LENGTH << 16) | (1 << 31);
@@ -775,16 +757,8 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	cmd++;
 
 	msm_nand_prep_single_desc(cmd, MSM_NAND_FLASH_STATUS(info), READ,
-		msm_virt_to_dma(chip, &dma_buffer->flash_status), 0);
-	cmd++;
-
-	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV_CMD1(info), WRITE,
-			data.devcmd1_orig, 0);
-	cmd++;
-
-	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV_CMD_VLD(info), WRITE,
-			data.devcmdvld_orig,
-			SPS_IOVEC_FLAG_UNLOCK | SPS_IOVEC_FLAG_INT);
+		msm_virt_to_dma(chip, &dma_buffer->flash_status),
+		SPS_IOVEC_FLAG_UNLOCK | SPS_IOVEC_FLAG_INT);
 	cmd++;
 
 	BUG_ON(cmd - dma_buffer->cmd > ARRAY_SIZE(dma_buffer->cmd));
@@ -839,8 +813,9 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	}
 
 	ret = msm_nand_put_device(chip->dev);
+	mutex_unlock(&info->lock);
 	if (ret)
-		goto unlock_mutex;
+		goto free_dma;
 
 	/* Check for flash status errors */
 	if (dma_buffer->flash_status & (FS_OP_ERR | FS_MPU_ERR)) {
@@ -894,7 +869,7 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	 */
 	if (!strcmp(onfi_param_page_ptr->device_model, "MT29F4G08ABC"))
 		flash->widebus  = 0;
-	goto unlock_mutex;
+	goto free_dma;
 put_dev:
 	msm_nand_put_device(chip->dev);
 unlock_mutex:
