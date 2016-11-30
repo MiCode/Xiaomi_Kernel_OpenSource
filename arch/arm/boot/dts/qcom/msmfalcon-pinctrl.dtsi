@@ -595,6 +595,62 @@
 			};
 		};
 
+		sdw_clk_pin {
+			sdw_clk_sleep: sdw_clk_sleep {
+				mux {
+					pins = "gpio24";
+					function = "sndwire_clk";
+				};
+
+				config {
+					pins = "gpio24";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			sdw_clk_active: sdw_clk_active {
+				mux {
+					pins = "gpio24";
+					function = "sndwire_clk";
+				};
+
+				config {
+					pins = "gpio24";
+					drive-strength = <16>;
+					bias-disable;
+				};
+			};
+		};
+
+		sdw_clk_data {
+			sdw_data_sleep: sdw_data_sleep {
+				mux {
+					pins = "gpio25";
+					function = "sndwire_data";
+				};
+
+				config {
+					pins = "gpio25";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			sdw_data_active: sdw_data_active {
+				mux {
+					pins = "gpio25";
+					function = "sndwire_data";
+				};
+
+				config {
+					pins = "gpio25";
+					drive-strength = <16>;
+					bias-disable;
+				};
+			};
+		};
+
 		/* WSA speaker reset pins */
 		spkr_1_sd_n {
 			spkr_1_sd_n_sleep: spkr_1_sd_n_sleep {
@@ -651,6 +707,86 @@
 					pins = "gpio27";
 					drive-strength = <16>;   /* 16 mA */
 					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		wcd_gnd_mic_swap {
+			wcd_gnd_mic_swap_idle: wcd_gnd_mic_swap_idle {
+				mux {
+					pins = "gpio63";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio63";
+					drive-strength = <2>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+
+			wcd_gnd_mic_swap_active: wcd_gnd_mic_swap_active {
+				mux {
+					pins = "gpio63";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio63";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		msm_hph_en0 {
+			hph_en0_sleep: hph_en0_sleep {
+				mux {
+					pins = "gpio24";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio24";
+					output-low;
+				};
+			};
+
+			hph_en0_active: hph_en0_active {
+				mux {
+					pins = "gpio24";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio24";
+					output-high;
+				};
+			};
+		};
+
+		msm_hph_en1 {
+			hph_en1_sleep: hph_en1_sleep {
+				mux {
+					pins = "gpio25";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio25";
+					output-low;
+				};
+			};
+
+			hph_en1_active: hph_en1_active {
+				mux {
+					pins = "gpio25";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio25";
 					output-high;
 				};
 			};
