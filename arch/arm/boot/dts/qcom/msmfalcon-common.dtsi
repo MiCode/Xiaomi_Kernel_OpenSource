@@ -35,6 +35,7 @@
 				<61 512 240000 800000>;
 
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
+		extcon = <&pmfalcon_pdphy>;
 
 		clocks = <&clock_gcc GCC_USB30_MASTER_CLK>,
 			<&clock_gcc GCC_CFG_NOC_USB3_AXI_CLK>,
@@ -49,6 +50,8 @@
 				"noc_aggr_clk", "utmi_clk", "sleep_clk",
 				"cfg_ahb_clk", "xo";
 
+		qcom,core-clk-rate = <133330000>;
+
 		resets = <&clock_gcc GCC_USB_30_BCR>;
 		reset-names = "core_reset";
 
@@ -59,7 +62,6 @@
 			interrupts = <0 131 0>;
 			usb-phy = <&qusb_phy0>, <&ssphy>;
 			tx-fifo-resize;
-			snps,usb3-u1u2-disable;
 			snps,nominal-elastic-buffer;
 			snps,is-utmi-l1-suspend;
 			snps,hird-threshold = /bits/ 8 <0x0>;
@@ -72,7 +74,7 @@
 			interrupts = <0 132 0>;
 
 			qcom,bam-type = <0>;
-			qcom,usb-bam-fifo-baseaddr = <0x066bb000>;
+			qcom,usb-bam-fifo-baseaddr = <0x146bb000>;
 			qcom,usb-bam-num-pipes = <8>;
 			qcom,ignore-core-reset-ack;
 			qcom,disable-clk-gating;
@@ -131,16 +133,15 @@
 	qusb_phy0: qusb@c012000 {
 		compatible = "qcom,qusb2phy";
 		reg = <0x0c012000 0x180>,
+			<0x01fcb24c 0x4>,
 			<0x00188018 0x4>;
 		reg-names = "qusb_phy_base",
+			"tcsr_clamp_dig_n_1p8",
 			"ref_clk_addr";
 		vdd-supply = <&pm2falcon_l1>;
 		vdda18-supply = <&pmfalcon_l10>;
 		vdda33-supply = <&pm2falcon_l7>;
 		qcom,vdd-voltage-level = <0 925000 925000>;
-		qcom,tune2-efuse-bit-pos = <21>;
-		qcom,tune2-efuse-num-bits = <4>;
-		qcom,enable-dpdm-pulsing;
 		qcom,qusb-phy-init-seq = <0xf8 0x80
 					0xb3 0x84
 					0x83 0x88
@@ -152,6 +153,8 @@
 					0x9f 0x1c
 					0x00 0x18>;
 		phy_type= "utmi";
+		qcom,phy-clk-scheme = "cml";
+		qcom,major-rev = <1>;
 
 		clocks = <&clock_rpmcc RPM_LN_BB_CLK1>,
 			<&clock_gcc GCC_RX0_USB2_CLKREF_CLK>,
@@ -165,7 +168,7 @@
 
 	ssphy: ssphy@c010000 {
 		compatible = "qcom,usb-ssphy-qmp-v2";
-		reg = <0xc010000 0x7a8>,
+		reg = <0xc010000 0xe18>,
 			<0x01fcb244 0x4>,
 			<0x01fcb248 0x4>;
 		reg-names = "qmp_phy_base",
@@ -174,7 +177,17 @@
 		vdd-supply = <&pm2falcon_l1>;
 		core-supply = <&pmfalcon_l10>;
 		qcom,vdd-voltage-level = <0 925000 925000>;
+		vdd-core-voltage-level = <0 1800000 1800000>;
 		qcom,vbus-valid-override;
+
+		qcom,qmp-phy-reg-offset =
+				<0xd74 /* USB3_PHY_PCS_STATUS */
+				 0xcd8 /* USB3_PHY_AUTONOMOUS_MODE_CTRL */
+				 0xcdc /* USB3_PHY_LFPS_RXTERM_IRQ_CLEAR */
+				 0xc04 /* USB3_PHY_POWER_DOWN_CONTROL */
+				 0xc00 /* USB3_PHY_SW_RESET */
+				 0xc08 /* USB3_PHY_START */
+				 0xa00>; /* USB3PHY_PCS_MISC_TYPEC_CTRL */
 
 		clocks = <&clock_gcc GCC_USB3_PHY_AUX_CLK>,
 			<&clock_gcc GCC_USB3_PHY_PIPE_CLK>,
