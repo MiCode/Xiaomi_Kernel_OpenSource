@@ -170,11 +170,16 @@ enum sde_intr_idx {
  * @split_role:		Role to play in a split-panel configuration
  * @intf_mode:		Interface mode
  * @intf_idx:		Interface index on sde hardware
- * @spin_lock:		Lock for IRQ purposes
+ * @enc_spinlock:	Virtual-Encoder-Wide Spin Lock for IRQ purposes
  * @enable_state:	Enable state tracking
  * @vblank_refcount:	Reference count of vblank request
  * @vsync_cnt:		Vsync count for the physical encoder
  * @underrun_cnt:	Underrun count for the physical encoder
+ * @pending_kickoff_cnt:	Atomic counter tracking the number of kickoffs
+ *				vs. the number of done/vblank irqs. Should hover
+ *				between 0-2 Incremented when a new kickoff is
+ *				scheduled. Decremented in irq handler
+ * @pending_kickoff_wq:		Wait queue for blocking until kickoff completes
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
@@ -192,12 +197,19 @@ struct sde_encoder_phys {
 	enum sde_enc_split_role split_role;
 	enum sde_intf_mode intf_mode;
 	enum sde_intf intf_idx;
-	spinlock_t spin_lock;
+	spinlock_t *enc_spinlock;
 	enum sde_enc_enable_state enable_state;
 	atomic_t vblank_refcount;
 	atomic_t vsync_cnt;
 	atomic_t underrun_cnt;
+	atomic_t pending_kickoff_cnt;
+	wait_queue_head_t pending_kickoff_wq;
 };
+
+static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
+{
+	return atomic_inc_return(&phys->pending_kickoff_cnt);
+}
 
 /**
  * struct sde_encoder_phys_vid - sub-class of sde_encoder_phys to handle video
@@ -206,14 +218,12 @@ struct sde_encoder_phys {
  * @irq_idx:	IRQ interface lookup index
  * @irq_cb:	interrupt callback
  * @hw_intf:	Hardware interface to the intf registers
- * @vblank_completion:	Completion event signaled on reception of the vsync irq
  */
 struct sde_encoder_phys_vid {
 	struct sde_encoder_phys base;
 	int irq_idx[INTR_IDX_MAX];
 	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
 	struct sde_hw_intf *hw_intf;
-	struct completion vblank_completion;
 };
 
 /**
@@ -226,13 +236,6 @@ struct sde_encoder_phys_vid {
  *			For CMD encoders, VBLANK is driven by the PP RD Done IRQ
  * @pp_tx_done_irq_idx:	IRQ signifying frame transmission to panel complete
  * @irq_cb:	interrupt callback
- * @pp_tx_done_wq:	Wait queue that tracks when a commit is flushed
- *			to hardware after the reception of pp_done
- *			Used to prevent back to back commits
- * @pending_cnt:	Atomic counter tracking the number of kickoffs vs.
- *			the number of pp_done irqs. Should hover between 0-2
- *			Incremented when a new kickoff is scheduled
- *			Decremented in pp_done irq
  */
 struct sde_encoder_phys_cmd {
 	struct sde_encoder_phys base;
@@ -240,8 +243,6 @@ struct sde_encoder_phys_cmd {
 	int stream_sel;
 	int irq_idx[INTR_IDX_MAX];
 	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
-	wait_queue_head_t pp_tx_done_wq;
-	atomic_t pending_cnt;
 };
 
 /**
@@ -298,6 +299,7 @@ struct sde_encoder_phys_wb {
  * @split_role:		Role to play in a split-panel configuration
  * @intf_idx:		Interface index this phys_enc will control
  * @wb_idx:		Writeback index this phys_enc will control
+ * @enc_spinlock:	Virtual-Encoder-Wide Spin Lock for IRQ purposes
  */
 struct sde_enc_phys_init_params {
 	struct sde_kms *sde_kms;
@@ -306,6 +308,7 @@ struct sde_enc_phys_init_params {
 	enum sde_enc_split_role split_role;
 	enum sde_intf intf_idx;
 	enum sde_wb wb_idx;
+	spinlock_t *enc_spinlock;
 };
 
 /**
