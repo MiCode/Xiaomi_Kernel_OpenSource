@@ -164,7 +164,7 @@
 				<&mmss_smmu 0x411>,
 				<&mmss_smmu 0x431>;
 			buffer-types = <0xfff>;
-			virtual-addr-pool = <0x70800000 0x8f800000>;
+			virtual-addr-pool = <0x70800000 0x6f800000>;
 		};
 
 		firmware_cb {
