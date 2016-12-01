@@ -358,10 +358,12 @@ static const unsigned int a5xx_registers[] = {
 	0x0000, 0x0002, 0x0004, 0x0020, 0x0022, 0x0026, 0x0029, 0x002B,
 	0x002E, 0x0035, 0x0038, 0x0042, 0x0044, 0x0044, 0x0047, 0x0095,
 	0x0097, 0x00BB, 0x03A0, 0x0464, 0x0469, 0x046F, 0x04D2, 0x04D3,
-	0x04E0, 0x0533, 0x0540, 0x0555, 0xF400, 0xF400, 0xF800, 0xF807,
+	0x04E0, 0x04F4, 0X04F6, 0x0533, 0x0540, 0x0555, 0xF400, 0xF400,
+	0xF800, 0xF807,
 	/* CP */
 	0x0800, 0x081A, 0x081F, 0x0841, 0x0860, 0x0860, 0x0880, 0x08A0,
-	0x0B00, 0x0B12, 0x0B15, 0x0B28, 0x0B78, 0x0B7F, 0x0BB0, 0x0BBD,
+	0x0B00, 0x0B12, 0x0B15, 0X0B1C, 0X0B1E, 0x0B28, 0x0B78, 0x0B7F,
+	0x0BB0, 0x0BBD,
 	/* VSC */
 	0x0BC0, 0x0BC6, 0x0BD0, 0x0C53, 0x0C60, 0x0C61,
 	/* GRAS */
@@ -413,6 +415,19 @@ static const unsigned int a5xx_registers[] = {
 	/* DPM */
 	0xB000, 0xB97F, 0xB9A0, 0xB9BF,
 };
+
+/*
+ * Set of registers to dump for A5XX before actually triggering crash dumper.
+ * Registers in pairs - first value is the start offset, second
+ * is the stop offset (inclusive)
+ */
+static const unsigned int a5xx_pre_crashdumper_registers[] = {
+	/* RBBM: RBBM_STATUS */
+	0x04F5, 0x04F5,
+	/* CP: CP_STATUS_1 */
+	0x0B1D, 0x0B1D,
+};
+
 
 struct a5xx_hlsq_sp_tp_regs {
 	unsigned int statetype;
@@ -636,6 +651,18 @@ static void a5xx_snapshot_shader(struct kgsl_device *device,
 	}
 }
 
+/* Dump registers which get affected by crash dumper trigger */
+static size_t a5xx_snapshot_pre_crashdump_regs(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_registers pre_cdregs = {
+			.regs = a5xx_pre_crashdumper_registers,
+			.count = ARRAY_SIZE(a5xx_pre_crashdumper_registers)/2,
+	};
+
+	return kgsl_snapshot_dump_registers(device, buf, remain, &pre_cdregs);
+}
+
 static size_t a5xx_legacy_snapshot_registers(struct kgsl_device *device,
 		u8 *buf, size_t remain)
 {
@@ -835,16 +862,21 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	/* Disable Clock gating temporarily for the debug bus to work */
 	a5xx_hwcg_set(adreno_dev, false);
 
+	/* Dump the registers which get affected by crash dumper trigger */
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
+		snapshot, a5xx_snapshot_pre_crashdump_regs, NULL);
+
+	/* Dump vbif registers as well which get affected by crash dumper */
+	adreno_snapshot_vbif_registers(device, snapshot,
+		a5xx_vbif_snapshot_registers,
+		ARRAY_SIZE(a5xx_vbif_snapshot_registers));
+
 	/* Try to run the crash dumper */
 	if (device->snapshot_crashdumper)
 		_a5xx_do_crashdump(device);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
 		snapshot, a5xx_snapshot_registers, NULL);
-
-	adreno_snapshot_vbif_registers(device, snapshot,
-		a5xx_vbif_snapshot_registers,
-		ARRAY_SIZE(a5xx_vbif_snapshot_registers));
 
 	/* Dump SP TP HLSQ registers */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
