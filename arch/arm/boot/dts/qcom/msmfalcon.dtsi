@@ -48,6 +48,7 @@
 			reg = <0x0 0x0>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile0>;
+			qcom,ea = <&ea0>;
 		};
 
 		CPU1: cpu@1 {
@@ -56,6 +57,7 @@
 			reg = <0x0 0x1>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile0>;
+			qcom,ea = <&ea1>;
 		};
 
 		CPU2: cpu@2 {
@@ -64,6 +66,7 @@
 			reg = <0x0 0x2>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile0>;
+			qcom,ea = <&ea2>;
 		};
 
 		CPU3: cpu@3 {
@@ -72,6 +75,7 @@
 			reg = <0x0 0x3>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile0>;
+			qcom,ea = <&ea3>;
 		};
 
 		CPU4: cpu@100 {
@@ -80,6 +84,7 @@
 			reg = <0x0 0x100>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile1>;
+			qcom,ea = <&ea4>;
 		};
 
 		CPU5: cpu@101 {
@@ -88,6 +93,7 @@
 			reg = <0x0 0x101>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile2>;
+			qcom,ea = <&ea5>;
 		};
 
 		CPU6: cpu@102 {
@@ -96,6 +102,7 @@
 			reg = <0x0 0x102>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile3>;
+			qcom,ea = <&ea6>;
 		};
 
 		CPU7: cpu@103 {
@@ -104,6 +111,7 @@
 			reg = <0x0 0x103>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,ea = <&ea7>;
 		};
 
 		cpu-map {
@@ -537,6 +545,45 @@
 			qcom,vdd-rstr-reg = "vdd-apps";
 			qcom,levels = <1248000>;
 			qcom,freq-req;
+		};
+	};
+
+	qcom,msm-core@780000 {
+		compatible = "qcom,apss-core-ea";
+		reg = <0x780000 0x1000>;
+		qcom,low-hyst-temp = <10>;
+		qcom,high-hyst-temp = <5>;
+
+		ea0: ea0 {
+			sensor = <&sensor_information1>;
+		};
+
+		ea1: ea1 {
+			sensor = <&sensor_information1>;
+		};
+
+		ea2: ea2 {
+			sensor = <&sensor_information1>;
+		};
+
+		ea3: ea3 {
+			sensor = <&sensor_information1>;
+		};
+
+		ea4: ea4 {
+			sensor = <&sensor_information3>;
+		};
+
+		ea5: ea5 {
+			sensor = <&sensor_information4>;
+		};
+
+		ea6: ea6 {
+			sensor = <&sensor_information5>;
+		};
+
+		ea7: ea7 {
+			sensor = <&sensor_information6>;
 		};
 	};
 
@@ -1205,6 +1252,34 @@
 		compatible = "arm,armv8-pmuv3";
 		qcom,irq-is-percpu;
 		interrupts = <1 6 4>;
+	};
+
+	qcom_seecom: qseecom@86d00000 {
+		compatible = "qcom,qseecom";
+		reg = <0x86d00000 0x2200000>;
+		reg-names = "secapp-region";
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
+		qcom,no-clock-support;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<55 512 0 0>,
+			<55 512 200000 400000>,
+			<55 512 300000 800000>,
+			<55 512 400000 1000000>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		clocks = <&clock_gcc QSEECOM_CE1_CLK>,
+			<&clock_gcc QSEECOM_CE1_CLK>,
+			<&clock_gcc QSEECOM_CE1_CLK>,
+			<&clock_gcc QSEECOM_CE1_CLK>;
+		qcom,ce-opp-freq = <171430000>;
+		qcom,qsee-reentrancy-support = <2>;
 	};
 };
 

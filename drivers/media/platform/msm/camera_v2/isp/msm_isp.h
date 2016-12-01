@@ -243,6 +243,8 @@ struct msm_vfe_core_ops {
 	bool (*is_module_cfg_lock_needed)(uint32_t reg_offset);
 	int (*ahb_clk_cfg)(struct vfe_device *vfe_dev,
 			struct msm_isp_ahb_clk_cfg *ahb_cfg);
+	int (*start_fetch_eng_multi_pass)(struct vfe_device *vfe_dev,
+		void *arg);
 };
 struct msm_vfe_stats_ops {
 	int (*get_stats_idx)(enum msm_isp_stats_type stats_type);
@@ -774,7 +776,7 @@ struct vfe_device {
 	struct msm_isp_statistics *stats;
 	uint64_t msm_isp_last_overflow_ab;
 	uint64_t msm_isp_last_overflow_ib;
-	uint64_t msm_isp_vfe_clk_rate;
+	uint32_t msm_isp_vfe_clk_rate;
 	struct msm_isp_ub_info *ub_info;
 	uint32_t isp_sof_debug;
 	uint32_t isp_raw0_debug;
