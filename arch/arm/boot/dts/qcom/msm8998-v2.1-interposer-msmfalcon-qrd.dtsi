@@ -21,8 +21,10 @@
 
 &ufsphy1 {
 	vdda-phy-supply = <&pm2falcon_l1>;
-	vdda-pll-supply = <&pmfalcon_l10>;
-	vddp-ref-clk-supply = <&pmfalcon_l8>;
+	vdda-pll-supply = <&pmfalcon_l1>;
+	vddp-ref-clk-supply = <&pmfalcon_l1>;
+	vdda-phy-max-uv = <925000>;
+	vdda-phy-min-uv = <800000>;
 	vdda-phy-max-microamp = <51400>;
 	vdda-pll-max-microamp = <14600>;
 	vddp-ref-clk-max-microamp = <100>;
@@ -34,11 +36,9 @@
 	vdd-hba-supply = <&gdsc_ufs>;
 	vdd-hba-fixed-regulator;
 	vcc-supply = <&pm2falcon_l4>;
-	vccq-supply = <&pmfalcon_l8>;
 	vccq2-supply = <&pmfalcon_l8>;
-	vcc-max-microamp = <750000>;
-	vccq-max-microamp = <560000>;
-	vccq2-max-microamp = <750000>;
+	vcc-max-microamp = <500000>;
+	vccq2-max-microamp = <600000>;
 	status = "ok";
 };
 
