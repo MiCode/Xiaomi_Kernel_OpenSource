@@ -1779,7 +1779,7 @@ static int f2fs_ioc_set_encryption_policy(struct file *filp, unsigned long arg)
 		return ret;
 
 	f2fs_update_time(F2FS_I_SB(inode), REQ_TIME);
-	ret = fscrypt_process_policy(inode, &policy);
+	ret = fscrypt_process_policy(filp, &policy);
 
 	mnt_drop_write_file(filp);
 	return ret;
