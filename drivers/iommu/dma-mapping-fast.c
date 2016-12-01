@@ -339,6 +339,30 @@ static void fast_smmu_unmap_page(struct device *dev, dma_addr_t iova,
 	spin_unlock_irqrestore(&mapping->lock, flags);
 }
 
+static void fast_smmu_sync_single_for_cpu(struct device *dev,
+		dma_addr_t iova, size_t size, enum dma_data_direction dir)
+{
+	struct dma_fast_smmu_mapping *mapping = dev->archdata.mapping->fast;
+	av8l_fast_iopte *pmd = iopte_pmd_offset(mapping->pgtbl_pmds, iova);
+	unsigned long offset = iova & ~FAST_PAGE_MASK;
+	struct page *page = phys_to_page((*pmd & FAST_PTE_ADDR_MASK));
+
+	if (!is_device_dma_coherent(dev))
+		__fast_dma_page_dev_to_cpu(page, offset, size, dir);
+}
+
+static void fast_smmu_sync_single_for_device(struct device *dev,
+		dma_addr_t iova, size_t size, enum dma_data_direction dir)
+{
+	struct dma_fast_smmu_mapping *mapping = dev->archdata.mapping->fast;
+	av8l_fast_iopte *pmd = iopte_pmd_offset(mapping->pgtbl_pmds, iova);
+	unsigned long offset = iova & ~FAST_PAGE_MASK;
+	struct page *page = phys_to_page((*pmd & FAST_PTE_ADDR_MASK));
+
+	if (!is_device_dma_coherent(dev))
+		__fast_dma_page_cpu_to_dev(page, offset, size, dir);
+}
+
 static int fast_smmu_map_sg(struct device *dev, struct scatterlist *sg,
 			    int nents, enum dma_data_direction dir,
 			    unsigned long attrs)
@@ -350,6 +374,18 @@ static void fast_smmu_unmap_sg(struct device *dev,
 			       struct scatterlist *sg, int nents,
 			       enum dma_data_direction dir,
 			       unsigned long attrs)
+{
+	WARN_ON_ONCE(1);
+}
+
+static void fast_smmu_sync_sg_for_cpu(struct device *dev,
+		struct scatterlist *sg, int nents, enum dma_data_direction dir)
+{
+	WARN_ON_ONCE(1);
+}
+
+static void fast_smmu_sync_sg_for_device(struct device *dev,
+		struct scatterlist *sg, int nents, enum dma_data_direction dir)
 {
 	WARN_ON_ONCE(1);
 }
@@ -591,8 +627,12 @@ static const struct dma_map_ops fast_smmu_dma_ops = {
 	.mmap = fast_smmu_mmap_attrs,
 	.map_page = fast_smmu_map_page,
 	.unmap_page = fast_smmu_unmap_page,
+	.sync_single_for_cpu = fast_smmu_sync_single_for_cpu,
+	.sync_single_for_device = fast_smmu_sync_single_for_device,
 	.map_sg = fast_smmu_map_sg,
 	.unmap_sg = fast_smmu_unmap_sg,
+	.sync_sg_for_cpu = fast_smmu_sync_sg_for_cpu,
+	.sync_sg_for_device = fast_smmu_sync_sg_for_device,
 	.dma_supported = fast_smmu_dma_supported,
 	.mapping_error = fast_smmu_mapping_error,
 };
