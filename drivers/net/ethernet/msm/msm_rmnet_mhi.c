@@ -34,7 +34,6 @@
 #define MHI_DEFAULT_MTU        8000
 #define MHI_MAX_MRU            0xFFFF
 #define MHI_NAPI_WEIGHT_VALUE  12
-#define MHI_RX_HEADROOM        64
 #define WATCHDOG_TIMEOUT       (30 * HZ)
 #define RMNET_IPC_LOG_PAGES (100)
 
@@ -120,9 +119,9 @@ static int rmnet_mhi_process_fragment(struct rmnet_mhi_private *rmnet_mhi_ptr,
 	if (rmnet_mhi_ptr->frag_skb) {
 		/* Merge the new skb into the old fragment */
 		temp_skb = skb_copy_expand(rmnet_mhi_ptr->frag_skb,
-					MHI_RX_HEADROOM,
-						skb->len,
-					GFP_ATOMIC);
+					   0,
+					   skb->len,
+					   GFP_ATOMIC);
 		if (!temp_skb) {
 			kfree(rmnet_mhi_ptr->frag_skb);
 			rmnet_mhi_ptr->frag_skb = NULL;
@@ -209,9 +208,8 @@ static int rmnet_alloc_rx(struct rmnet_mhi_private *rmnet_mhi_ptr,
 			return -ENOMEM;
 		}
 		skb_priv = (struct mhi_skb_priv *)(skb->cb);
-		skb_priv->dma_size = cur_mru - MHI_RX_HEADROOM;
+		skb_priv->dma_size = cur_mru;
 		skb_priv->dma_addr = 0;
-		skb_reserve(skb, MHI_RX_HEADROOM);
 
 		/* These steps must be in atomic context */
 		spin_lock_irqsave(&rmnet_mhi_ptr->alloc_lock, flags);
