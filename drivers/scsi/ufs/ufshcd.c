@@ -2697,10 +2697,9 @@ static inline u16 ufshcd_upiu_wlun_to_scsi_wlun(u8 upiu_wlun_id)
  * Lock is predominantly held by shutdown context thus, ensuring
  * that no requests from any other context may sneak through.
  */
-static void ufshcd_get_write_lock(struct ufs_hba *hba)
+static inline void ufshcd_get_write_lock(struct ufs_hba *hba)
 {
 	down_write(&hba->lock);
-	hba->issuing_task = current;
 }
 
 /**
@@ -2710,18 +2709,19 @@ static void ufshcd_get_write_lock(struct ufs_hba *hba)
  *
  * Returns 1 if acquired, < 0 on contention
  *
- * After shutdown's initiated, allow requests only from shutdown
- * context. The sync between scaling & issue is maintained
+ * After shutdown's initiated, allow requests only directed to the
+ * well known device lun. The sync between scaling & issue is maintained
  * as is and this restructuring syncs shutdown with these too.
  */
-static int ufshcd_get_read_lock(struct ufs_hba *hba)
+static int ufshcd_get_read_lock(struct ufs_hba *hba, u64 lun)
 {
 	int err = 0;
 
 	err = down_read_trylock(&hba->lock);
 	if (err > 0)
 		goto out;
-	if (hba->issuing_task == current)
+	/* let requests for well known device lun to go through */
+	if (ufshcd_scsi_to_upiu_lun(lun) == UFS_UPIU_UFS_DEVICE_WLUN)
 		return 0;
 	else if (!ufshcd_is_shutdown_ongoing(hba))
 		return -EAGAIN;
@@ -2729,7 +2729,6 @@ static int ufshcd_get_read_lock(struct ufs_hba *hba)
 		return -EPERM;
 
 out:
-	hba->issuing_task = current;
 	return err;
 }
 
@@ -2742,10 +2741,7 @@ out:
  */
 static inline void ufshcd_put_read_lock(struct ufs_hba *hba)
 {
-	if (!ufshcd_is_shutdown_ongoing(hba)) {
-		hba->issuing_task = NULL;
-		up_read(&hba->lock);
-	}
+	up_read(&hba->lock);
 }
 
 /**
@@ -2762,6 +2758,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	unsigned long flags;
 	int tag;
 	int err = 0;
+	bool has_read_lock = false;
 
 	hba = shost_priv(host);
 
@@ -2773,7 +2770,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		BUG();
 	}
 
-	err = ufshcd_get_read_lock(hba);
+	err = ufshcd_get_read_lock(hba, cmd->device->lun);
 	if (unlikely(err < 0)) {
 		if (err == -EPERM) {
 			set_host_byte(cmd, DID_ERROR);
@@ -2782,6 +2779,8 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		}
 		if (err == -EAGAIN)
 			return SCSI_MLQUEUE_HOST_BUSY;
+	} else if (err == 1) {
+		has_read_lock = true;
 	}
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -2922,7 +2921,8 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 out_unlock:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 out:
-	ufshcd_put_read_lock(hba);
+	if (has_read_lock)
+		ufshcd_put_read_lock(hba);
 	return err;
 }
 
@@ -8808,13 +8808,13 @@ int ufshcd_shutdown(struct ufs_hba *hba)
 	pm_runtime_get_sync(hba->dev);
 	ufshcd_hold_all(hba);
 	/**
-	 * (1) Acquire the lock to stop any more requests
-	 * (2) Set state to shutting down
+	 * (1) Set state to shutting down
+	 * (2) Acquire the lock to stop any more requests
 	 * (3) Suspend clock scaling
 	 * (4) Wait for all issued requests to complete
 	 */
-	ufshcd_get_write_lock(hba);
 	ufshcd_mark_shutdown_ongoing(hba);
+	ufshcd_get_write_lock(hba);
 	ufshcd_scsi_block_requests(hba);
 	ufshcd_suspend_clkscaling(hba);
 	ret = ufshcd_wait_for_doorbell_clr(hba, U64_MAX);
