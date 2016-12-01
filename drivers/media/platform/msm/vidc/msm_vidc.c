@@ -316,6 +316,10 @@ err_invalid_input:
 static inline void populate_buf_info(struct buffer_info *binfo,
 			struct v4l2_buffer *b, u32 i)
 {
+	if (i >= VIDEO_MAX_PLANES) {
+		dprintk(VIDC_ERR, "%s: Invalid input\n", __func__);
+		return;
+	}
 	binfo->type = b->type;
 	binfo->fd[i] = b->m.planes[i].reserved[0];
 	binfo->buff_off[i] = b->m.planes[i].reserved[1];
