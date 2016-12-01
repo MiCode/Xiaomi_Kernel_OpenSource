@@ -12,4 +12,10 @@ config CAN_RH850
 	depends on HAS_DMA
 	---help---
 	  Driver for the Renesas RH850 SPI CAN controller.
+
+config CAN_K61
+	tristate "Freescale K61 SPI CAN controllers"
+	depends on SPI
+	---help---
+	  Driver for the Freescale K61 SPI CAN controllers.
 endmenu
