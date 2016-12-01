@@ -36,6 +36,9 @@
 		#interrupt-cells = <1>;
 		iommus = <&apps_smmu 0x880>;
 
+		#address-cells = <1>;
+		#size-cells = <0>;
+
 		/* hw blocks */
 		qcom,sde-off = <0x1000>;
 		qcom,sde-len = <0x45C>;
@@ -161,5 +164,31 @@
 				<1 590 0 150000>,
 				<1 590 0 300000>;
 		};
+	};
+
+	sde_rscc: qcom,sde_rscc@af20000 {
+		status = "disabled";
+		cell-index = <0>;
+		compatible = "qcom,sde-rsc";
+		reg = <0xaf20000 0x1c44>,
+			<0xaf30000 0x3fd4>;
+		reg-names = "drv", "wrapper";
+		qcom,sde-rsc-version = <1>;
+
+		vdd-supply = <&mdss_core_gdsc>;
+		qcom,sde-dram-channels = <2>;
+
+		/* data and reg bus scale settings */
+		qcom,sde-data-bus {
+			qcom,msm-bus,name = "disp_rsc";
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <2>;
+			qcom,msm-bus,vectors-KBps =
+			    <20003 20512 0 0>, <20004 20512 0 0>,
+			    <20003 20512 0 6400000>, <20004 20512 0 6400000>,
+			    <20003 20512 0 6400000>, <20004 20512 0 6400000>;
+		};
+
 	};
 };
