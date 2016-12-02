@@ -787,8 +787,6 @@
 #include "msmfalcon-common.dtsi"
 
 &gdsc_usb30 {
-	clock-names = "core_clk";
-	clocks = <&clock_gcc GCC_USB30_MASTER_CLK>;
 	status = "ok";
 };
 
@@ -837,9 +835,6 @@
 };
 
 &gdsc_mdss {
-	clock-names = "bus_clk", "rot_clk";
-	clocks = <&clock_mmss MMSS_MDSS_AXI_CLK>,
-		 <&clock_mmss MMSS_MDSS_ROT_CLK>;
 	proxy-supply = <&gdsc_mdss>;
 	qcom,proxy-consumer-enable;
 	status = "ok";
