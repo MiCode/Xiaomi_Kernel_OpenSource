@@ -178,6 +178,7 @@ Required properties:
 	"vdd" : vdd supply for digital circuit operation
 	"vdda18" : 1.8v high-voltage analog supply
 	"vdda33" : 3.3v high-voltage analog supply
+	"vdda12" : 1.2v high-voltage analog supply
  - qcom,vdd-voltage-level: This property must be a list of three integer
    values (no, min, max) where each value represents either a voltage in
    microvolts or a value corresponding to voltage corner

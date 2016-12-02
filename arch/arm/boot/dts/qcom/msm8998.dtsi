@@ -1762,6 +1762,7 @@
 		reg-names = "qusb_phy_base",
 				"tcsr_clamp_dig_n_1p8";
 		vdd-supply = <&pm8998_l1>;
+		vdda12-supply = <&pm8998_l2>;
 		vdda18-supply = <&pm8998_l12>;
 		vdda33-supply = <&pm8998_l24>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
