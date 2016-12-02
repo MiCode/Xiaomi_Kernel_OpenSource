@@ -2337,6 +2337,14 @@ static int __q6asm_open_read(struct audio_client *ac,
 		open.mode_flags |= BUFFER_META_ENABLE;
 		open.enc_cfg_id = ASM_MEDIA_FMT_AAC_V2;
 		break;
+	case FORMAT_G711_ALAW_FS:
+		open.mode_flags |= BUFFER_META_ENABLE;
+		open.enc_cfg_id = ASM_MEDIA_FMT_G711_ALAW_FS;
+		break;
+	case FORMAT_G711_MLAW_FS:
+		open.mode_flags |= BUFFER_META_ENABLE;
+		open.enc_cfg_id = ASM_MEDIA_FMT_G711_MLAW_FS;
+		break;
 	case FORMAT_V13K:
 		open.mode_flags |= BUFFER_META_ENABLE;
 		open.enc_cfg_id = ASM_MEDIA_FMT_V13K_FS;
@@ -2864,6 +2872,11 @@ static int __q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
 		break;
 	case FORMAT_DSD:
 		open.dec_fmt_id = ASM_MEDIA_FMT_DSD;
+	case FORMAT_G711_ALAW_FS:
+		open.dec_fmt_id = ASM_MEDIA_FMT_G711_ALAW_FS;
+		break;
+	case FORMAT_G711_MLAW_FS:
+		open.dec_fmt_id = ASM_MEDIA_FMT_G711_MLAW_FS;
 		break;
 	default:
 		pr_err("%s: Invalid format 0x%x\n",
@@ -2879,6 +2892,12 @@ static int __q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
 		break;
 	case FORMAT_MPEG4_AAC:
 		open.enc_cfg_id = ASM_MEDIA_FMT_AAC_V2;
+		break;
+	case FORMAT_G711_ALAW_FS:
+		open.enc_cfg_id = ASM_MEDIA_FMT_G711_ALAW_FS;
+		break;
+	case FORMAT_G711_MLAW_FS:
+		open.enc_cfg_id = ASM_MEDIA_FMT_G711_MLAW_FS;
 		break;
 	case FORMAT_V13K:
 		open.enc_cfg_id = ASM_MEDIA_FMT_V13K_FS;
@@ -3517,6 +3536,57 @@ int q6asm_enc_cfg_blk_aac(struct audio_client *ac,
 	enc_cfg.enc_mode = mode;
 	enc_cfg.aac_fmt_flag = format;
 	enc_cfg.channel_cfg = channels;
+	enc_cfg.sample_rate = sample_rate;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &enc_cfg);
+	if (rc < 0) {
+		pr_err("%s: Comamnd %d failed %d\n",
+			__func__, ASM_STREAM_CMD_SET_ENCDEC_PARAM, rc);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) >= 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s: timeout. waited for FORMAT_UPDATE\n",
+			__func__);
+		rc = -ETIMEDOUT;
+		goto fail_cmd;
+	}
+	if (atomic_read(&ac->cmd_state) > 0) {
+		pr_err("%s: DSP returned error[%s]\n",
+				__func__, adsp_err_get_err_str(
+				atomic_read(&ac->cmd_state)));
+		rc = adsp_err_get_lnx_err_code(
+				atomic_read(&ac->cmd_state));
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return rc;
+}
+
+int q6asm_enc_cfg_blk_g711(struct audio_client *ac,
+			uint32_t frames_per_buf,
+			uint32_t sample_rate)
+{
+	struct asm_g711_enc_cfg_v2 enc_cfg;
+	int rc = 0;
+
+	pr_debug("%s: session[%d]frames[%d]SR[%d]\n",
+		 __func__, ac->session, frames_per_buf,
+		sample_rate);
+
+	q6asm_add_hdr(ac, &enc_cfg.hdr, sizeof(enc_cfg), TRUE);
+	atomic_set(&ac->cmd_state, -1);
+
+	enc_cfg.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM;
+	enc_cfg.encdec.param_id = ASM_PARAM_ID_ENCDEC_ENC_CFG_BLK_V2;
+	enc_cfg.encdec.param_size = sizeof(struct asm_g711_enc_cfg_v2) -
+				sizeof(struct asm_stream_cmd_set_encdec_param);
+	enc_cfg.encblk.frames_per_buf = frames_per_buf;
+	enc_cfg.encblk.enc_cfg_blk_size  = enc_cfg.encdec.param_size -
+				sizeof(struct asm_enc_cfg_blk_param_v2);
 	enc_cfg.sample_rate = sample_rate;
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &enc_cfg);
@@ -5430,6 +5500,75 @@ int q6asm_media_format_block_alac(struct audio_client *ac,
 fail_cmd:
 	return rc;
 }
+
+/*
+ * q6asm_media_format_block_g711 - sends g711 decoder configuration
+ *                                            parameters
+ * @ac: Client session handle
+ * @cfg: Audio stream manager configuration parameters
+ * @stream_id: Stream id
+ */
+int q6asm_media_format_block_g711(struct audio_client *ac,
+				struct asm_g711_dec_cfg *cfg, int stream_id)
+{
+	struct asm_g711_dec_fmt_blk_v2 fmt;
+	int rc = 0;
+
+	if (!ac) {
+		pr_err("%s: audio client is null\n", __func__);
+		return -EINVAL;
+	}
+	if (!cfg) {
+		pr_err("%s: Invalid ASM config\n", __func__);
+		return -EINVAL;
+	}
+
+	if (stream_id <= 0) {
+		pr_err("%s: Invalid stream id\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s :session[%d]rate[%d]\n", __func__,
+		ac->session, cfg->sample_rate);
+
+	memset(&fmt, 0, sizeof(struct asm_g711_dec_fmt_blk_v2));
+
+	q6asm_stream_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE, stream_id);
+	atomic_set(&ac->cmd_state, -1);
+
+	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2;
+	fmt.fmtblk.fmt_blk_size = sizeof(fmt) - sizeof(fmt.hdr) -
+						sizeof(fmt.fmtblk);
+
+	fmt.sample_rate = cfg->sample_rate;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
+	if (rc < 0) {
+		pr_err("%s :Command media format update failed %d\n",
+				__func__, rc);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+				(atomic_read(&ac->cmd_state) >= 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s :timeout. waited for FORMAT_UPDATE\n", __func__);
+		rc = -ETIMEDOUT;
+		goto fail_cmd;
+	}
+
+	if (atomic_read(&ac->cmd_state) > 0) {
+		pr_err("%s: DSP returned error[%s]\n",
+				__func__, adsp_err_get_err_str(
+				atomic_read(&ac->cmd_state)));
+		rc = adsp_err_get_lnx_err_code(
+				atomic_read(&ac->cmd_state));
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return rc;
+}
+EXPORT_SYMBOL(q6asm_media_format_block_g711);
 
 int q6asm_stream_media_format_block_vorbis(struct audio_client *ac,
 				struct asm_vorbis_cfg *cfg, int stream_id)

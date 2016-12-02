@@ -388,6 +388,10 @@ int q6asm_enc_cfg_blk_aac(struct audio_client *ac,
 			 uint32_t bit_rate,
 			 uint32_t mode, uint32_t format);
 
+int q6asm_enc_cfg_blk_g711(struct audio_client *ac,
+			 uint32_t frames_per_buf,
+			uint32_t sample_rate);
+
 int q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 			uint32_t rate, uint32_t channels);
 
@@ -535,6 +539,9 @@ int q6asm_stream_media_format_block_flac(struct audio_client *ac,
 
 int q6asm_media_format_block_alac(struct audio_client *ac,
 			struct asm_alac_cfg *cfg, int stream_id);
+
+int q6asm_media_format_block_g711(struct audio_client *ac,
+			struct asm_g711_dec_cfg *cfg, int stream_id);
 
 int q6asm_stream_media_format_block_vorbis(struct audio_client *ac,
 			struct asm_vorbis_cfg *cfg, int stream_id);
