@@ -20,6 +20,8 @@
 #include <linux/ipa_usb.h>
 #include <linux/usb_bam.h>
 
+#include "u_rmnet.h"
+
 enum ipa_func_type {
 	USB_IPA_FUNC_ECM,
 	USB_IPA_FUNC_MBIM,
@@ -57,6 +59,12 @@ struct f_rndis_qc_opts {
 	int				refcnt;
 };
 
+struct f_rmnet_opts {
+	struct usb_function_instance func_inst;
+	struct f_rmnet *dev;
+	int refcnt;
+};
+
 void ipa_data_port_select(enum ipa_func_type func);
 void ipa_data_disconnect(struct gadget_ipa_port *gp, enum ipa_func_type func);
 int ipa_data_connect(struct gadget_ipa_port *gp, enum ipa_func_type func,
@@ -87,4 +95,6 @@ void *rndis_qc_get_ipa_rx_cb(void);
 bool rndis_qc_get_skip_ep_config(void);
 void *rndis_qc_get_ipa_tx_cb(void);
 void rndis_ipa_reset_trigger(void);
+void gqti_ctrl_update_ipa_pipes(void *gr, enum qti_port_type qport,
+				u32 ipa_prod, u32 ipa_cons);
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,8 @@
 #include <linux/usb/composite.h>
 #include <linux/usb/usb_qdss.h>
 
+#include "u_rmnet.h"
+
 struct usb_qdss_bam_connect_info {
 	u32 usb_bam_pipe_idx;
 	u32 peer_pipe_idx;
@@ -33,8 +35,8 @@ struct gqdss {
 	struct usb_ep *ctrl_out;
 	struct usb_ep *ctrl_in;
 	struct usb_ep *data;
-	int (*send_encap_cmd)(u8 port_num, void *buf, size_t len);
-	void (*notify_modem)(void *g, u8 port_num, int cbits);
+	int (*send_encap_cmd)(enum qti_port_type qport, void *buf, size_t len);
+	void (*notify_modem)(void *g, enum qti_port_type qport, int cbits);
 };
 
 /* struct f_qdss - USB qdss function driver private structure */
