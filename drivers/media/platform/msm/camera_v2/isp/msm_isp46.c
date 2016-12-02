@@ -1423,6 +1423,11 @@ static void msm_vfe46_update_ping_pong_addr(
 		VFE46_PING_PONG_BASE(wm_idx, pingpong_bit));
 }
 
+static void msm_vfe46_set_halt_restart_mask(struct vfe_device *vfe_dev)
+{
+	msm_vfe46_config_irq(vfe_dev, BIT(31), BIT(8), MSM_ISP_IRQ_SET);
+}
+
 static int msm_vfe46_axi_halt(struct vfe_device *vfe_dev,
 	uint32_t blocking)
 {
@@ -1478,11 +1483,9 @@ static void msm_vfe46_axi_restart(struct vfe_device *vfe_dev,
 	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev, VFE_SRC_MAX);
 	memset(&vfe_dev->error_info, 0, sizeof(vfe_dev->error_info));
 	atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
-
-	if (enable_camif) {
+	if (enable_camif)
 		vfe_dev->hw_info->vfe_ops.core_ops.
-		update_camif_state(vfe_dev, ENABLE_CAMIF);
-	}
+			update_camif_state(vfe_dev, ENABLE_CAMIF);
 }
 
 static uint32_t msm_vfe46_get_wm_mask(
@@ -2005,6 +2008,8 @@ struct msm_vfe_hardware_info vfe46_hw_info = {
 			.is_module_cfg_lock_needed =
 				msm_vfe46_is_module_cfg_lock_needed,
 			.ahb_clk_cfg = NULL,
+			.set_halt_restart_mask =
+				msm_vfe46_set_halt_restart_mask,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe46_get_stats_idx,

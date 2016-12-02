@@ -197,4 +197,5 @@ void msm_vfe47_config_irq(struct vfe_device *vfe_dev,
 		enum msm_isp_irq_operation oper);
 int msm_isp47_ahb_clk_cfg(struct vfe_device *vfe_dev,
 			struct msm_isp_ahb_clk_cfg *ahb_cfg);
+void msm_vfe47_set_halt_restart_mask(struct vfe_device *vfe_dev);
 #endif /* __MSM_ISP47_H__ */

@@ -744,7 +744,7 @@ long msm_vfe47_reset_hardware(struct vfe_device *vfe_dev,
 
 	if (blocking_call) {
 		rc = wait_for_completion_timeout(
-			&vfe_dev->reset_complete, msecs_to_jiffies(50));
+			&vfe_dev->reset_complete, msecs_to_jiffies(100));
 		if (rc <= 0) {
 			pr_err("%s:%d failed: reset timeout\n", __func__,
 				__LINE__);
@@ -1821,6 +1821,11 @@ void msm_vfe47_update_ping_pong_addr(
 
 }
 
+void msm_vfe47_set_halt_restart_mask(struct vfe_device *vfe_dev)
+{
+	msm_vfe47_config_irq(vfe_dev, BIT(31), BIT(8), MSM_ISP_IRQ_SET);
+}
+
 int msm_vfe47_axi_halt(struct vfe_device *vfe_dev,
 	uint32_t blocking)
 {
@@ -1882,13 +1887,9 @@ void msm_vfe47_axi_restart(struct vfe_device *vfe_dev,
 	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev, VFE_SRC_MAX);
 	memset(&vfe_dev->error_info, 0, sizeof(vfe_dev->error_info));
 	atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
-
-	if (enable_camif) {
+	if (enable_camif)
 		vfe_dev->hw_info->vfe_ops.core_ops.
-		update_camif_state(vfe_dev, ENABLE_CAMIF);
-	}
-	vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-			0x810000E0, 0xFFFFFF7E, MSM_ISP_IRQ_ENABLE);
+			update_camif_state(vfe_dev, ENABLE_CAMIF);
 }
 
 uint32_t msm_vfe47_get_wm_mask(
@@ -2797,6 +2798,8 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.ahb_clk_cfg = msm_isp47_ahb_clk_cfg,
 			.start_fetch_eng_multi_pass =
 				msm_vfe47_start_fetch_engine_multi_pass,
+			.set_halt_restart_mask =
+				msm_vfe47_set_halt_restart_mask,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe47_get_stats_idx,
