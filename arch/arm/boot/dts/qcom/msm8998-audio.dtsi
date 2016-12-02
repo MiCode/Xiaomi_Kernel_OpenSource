@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,6 +216,10 @@
 		qcom,hph-en0-gpio = <&tavil_hph_en0>;
 		qcom,hph-en1-gpio = <&tavil_hph_en1>;
 		qcom,tavil-mclk-clk-freq = <9600000>;
+
+		qcom,usbc-analog-en1_gpio = <&wcd_usbc_analog_en1_gpio>;
+		qcom,usbc-analog-en2_n_gpio = <&wcd_usbc_analog_en2n_gpio>;
+
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&cpe>, <&compr>,
@@ -302,6 +306,20 @@
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&wcd_gnd_mic_swap_active>;
 		pinctrl-1 = <&wcd_gnd_mic_swap_idle>;
+	};
+
+	wcd_usbc_analog_en1_gpio: msm_cdc_pinctrl@59 {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&wcd_usbc_analog_en1_active>;
+		pinctrl-1 = <&wcd_usbc_analog_en1_idle>;
+	};
+
+	wcd_usbc_analog_en2n_gpio: msm_cdc_pinctrl@60 {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&wcd_usbc_analog_en2n_active>;
+		pinctrl-1 = <&wcd_usbc_analog_en2n_idle>;
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
