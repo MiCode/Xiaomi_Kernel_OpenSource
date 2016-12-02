@@ -1923,6 +1923,8 @@ static void __restore_pipe(struct mdss_mdp_pipe *pipe)
 	pipe->dst.y = pipe->layer.dst_rect.y;
 	pipe->dst.w = pipe->layer.dst_rect.w;
 	pipe->dst.h = pipe->layer.dst_rect.h;
+
+	pipe->restore_roi = false;
 }
 
  /**
@@ -1946,7 +1948,6 @@ static int __crop_adjust_pipe_rect(struct mdss_mdp_pipe *pipe,
 	u32 roi_y_pos;
 	int ret = 0;
 
-	pipe->restore_roi = false;
 	if (mdss_rect_overlap_check(&pipe->dst, &dual_roi->first_roi)) {
 		mdss_mdp_crop_rect(&pipe->src, &pipe->dst,
 				&dual_roi->first_roi, false);
@@ -2092,6 +2093,13 @@ static void __validate_and_set_roi(struct msm_fb_data_type *mfd,
 	}
 
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
+		/*
+		 * Restore the pipe src/dst ROI if it was altered
+		 * in the previous kickoff.
+		 */
+		if (pipe->restore_roi)
+			__restore_pipe(pipe);
+
 		pr_debug("pipe:%d src:{%d,%d,%d,%d} dst:{%d,%d,%d,%d}\n",
 			pipe->num, pipe->src.x, pipe->src.y,
 			pipe->src.w, pipe->src.h, pipe->dst.x,
