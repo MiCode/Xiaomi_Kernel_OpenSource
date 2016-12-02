@@ -27,6 +27,14 @@
 #define PM_OPTIONS_LINK_DOWN \
 	(MSM_PCIE_CONFIG_NO_CFG_RESTORE | MSM_PCIE_CONFIG_LINKDOWN)
 
+#define PCI_BAR_NUM			0
+
+#ifdef CONFIG_ARM_LPAE
+#define PCI_DMA_MASK			64
+#else
+#define PCI_DMA_MASK			32
+#endif
+
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
 static unsigned int pci_link_down_panic;
@@ -562,6 +570,252 @@ out:
 }
 EXPORT_SYMBOL(cnss_auto_resume);
 
+int cnss_pci_get_bar_info(struct cnss_pci_data *pci_priv, void __iomem **va,
+			  phys_addr_t *pa)
+{
+	if (!pci_priv)
+		return -ENODEV;
+
+	*va = pci_priv->bar;
+	*pa = pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM);
+
+	return 0;
+}
+
+#ifdef CONFIG_CNSS_QCA6290
+#define PCI_MAX_BAR_SIZE		0xD00000
+
+static void __iomem *cnss_pci_iomap(struct pci_dev *dev, int bar,
+				    unsigned long maxlen)
+{
+	resource_size_t start = pci_resource_start(dev, bar);
+	resource_size_t len = PCI_MAX_BAR_SIZE;
+	unsigned long flags = pci_resource_flags(dev, bar);
+
+	if (!len || !start)
+		return NULL;
+
+	if ((flags & IORESOURCE_IO) || (flags & IORESOURCE_MEM)) {
+		if (flags & IORESOURCE_CACHEABLE && !(flags & IORESOURCE_IO))
+			return ioremap(start, len);
+		else
+			return ioremap_nocache(start, len);
+	}
+
+	return NULL;
+}
+#else
+static void __iomem *cnss_pci_iomap(struct pci_dev *dev, int bar,
+				    unsigned long maxlen)
+{
+	return pci_iomap(dev, bar, maxlen);
+}
+#endif
+
+static struct cnss_msi_config msi_config = {
+	.total_vectors = 32,
+	.total_users = 3,
+	.users = (struct cnss_msi_user[]) {
+		{ .name = "MHI", .num_vectors = 2, .base_vector = 0 },
+		{ .name = "CE", .num_vectors = 12, .base_vector = 2 },
+		{ .name = "DP", .num_vectors = 18, .base_vector = 14 },
+	},
+};
+
+static int cnss_pci_get_msi_assignment(struct cnss_pci_data *pci_priv)
+{
+	pci_priv->msi_config = &msi_config;
+
+	return 0;
+}
+
+static int cnss_pci_enable_msi(struct cnss_pci_data *pci_priv)
+{
+	int ret = 0;
+	struct pci_dev *pci_dev = pci_priv->pci_dev;
+	int num_vectors;
+	struct cnss_msi_config *msi_config;
+	uint32_t ep_base_data;
+
+	ret = cnss_pci_get_msi_assignment(pci_priv);
+	if (ret) {
+		cnss_pr_err("Failed to get MSI assignment, err = %d\n", ret);
+		goto out;
+	}
+
+	msi_config = pci_priv->msi_config;
+	if (!msi_config) {
+		cnss_pr_err("msi_config is NULL!\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	num_vectors = pci_enable_msi_range(pci_dev,
+					   msi_config->total_vectors,
+					   msi_config->total_vectors);
+	if (num_vectors != msi_config->total_vectors) {
+		cnss_pr_err("Failed to get enough MSI vectors (%d), available vectors = %d",
+			    msi_config->total_vectors, num_vectors);
+		ret = -EINVAL;
+		goto reset_msi_config;
+	}
+
+	pci_read_config_dword(pci_dev, pci_dev->msi_cap + PCI_MSI_DATA_64,
+			      &ep_base_data);
+	pci_priv->msi_ep_base_data = ep_base_data & 0xFFFF;
+
+	return 0;
+
+reset_msi_config:
+	pci_priv->msi_config = NULL;
+out:
+	return ret;
+}
+
+static void cnss_pci_disable_msi(struct cnss_pci_data *pci_priv)
+{
+	pci_disable_msi(pci_priv->pci_dev);
+}
+
+int cnss_get_user_msi_assignment(struct device *dev, char *user_name,
+				 int *num_vectors, uint32_t *user_base_data,
+				 uint32_t *base_vector)
+{
+	struct cnss_pci_data *pci_priv = dev_get_drvdata(dev);
+	struct cnss_msi_config *msi_config;
+	int idx;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	msi_config = pci_priv->msi_config;
+	if (!msi_config) {
+		cnss_pr_err("MSI is not supported.\n");
+		return -EINVAL;
+	}
+
+	for (idx = 0; idx < msi_config->total_users; idx++) {
+		if (strcmp(user_name, msi_config->users[idx].name) == 0) {
+			*num_vectors = msi_config->users[idx].num_vectors;
+			*user_base_data = msi_config->users[idx].base_vector
+				+ pci_priv->msi_ep_base_data;
+			*base_vector = msi_config->users[idx].base_vector;
+
+			cnss_pr_dbg("Assign MSI to user: %s, num_vectors: %d, user_base_data: %u, base_vector: %u\n",
+				    user_name, *num_vectors, *user_base_data,
+				    *base_vector);
+
+			return 0;
+		}
+	}
+
+	cnss_pr_err("Failed to find MSI assignment for %s!\n", user_name);
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(cnss_get_user_msi_assignment);
+
+int cnss_get_msi_irq(struct device *dev, unsigned int vector)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+
+	return pci_dev->irq + vector;
+}
+EXPORT_SYMBOL(cnss_get_msi_irq);
+
+void cnss_get_msi_address(struct device *dev, uint32_t *msi_addr_low,
+			  uint32_t *msi_addr_high)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+
+	pci_read_config_dword(pci_dev, pci_dev->msi_cap + PCI_MSI_ADDRESS_LO,
+			      msi_addr_low);
+
+	pci_read_config_dword(pci_dev, pci_dev->msi_cap + PCI_MSI_ADDRESS_HI,
+			      msi_addr_high);
+}
+EXPORT_SYMBOL(cnss_get_msi_address);
+
+static int cnss_pci_enable_bus(struct cnss_pci_data *pci_priv)
+{
+	int ret = 0;
+	struct pci_dev *pci_dev = pci_priv->pci_dev;
+	uint16_t device_id;
+
+	pci_read_config_word(pci_dev, PCI_DEVICE_ID, &device_id);
+	if (device_id != pci_priv->pci_device_id->device)  {
+		cnss_pr_err("PCI device ID mismatch, config ID: 0x%x, probe ID: 0x%x\n",
+			    device_id, pci_priv->pci_device_id->device);
+		ret = -EIO;
+		goto out;
+	}
+
+	ret = pci_assign_resource(pci_dev, PCI_BAR_NUM);
+	if (ret) {
+		pr_err("Failed to assign PCI resource, err = %d\n", ret);
+		goto out;
+	}
+
+	ret = pci_enable_device(pci_dev);
+	if (ret) {
+		cnss_pr_err("Failed to enable PCI device, err = %d\n", ret);
+		goto out;
+	}
+
+	ret = pci_request_region(pci_dev, PCI_BAR_NUM, "cnss");
+	if (ret) {
+		cnss_pr_err("Failed to request PCI region, err = %d\n", ret);
+		goto disable_device;
+	}
+
+	ret = pci_set_dma_mask(pci_dev, DMA_BIT_MASK(PCI_DMA_MASK));
+	if (ret) {
+		cnss_pr_err("Failed to set PCI DMA mask (%d), err = %d\n",
+			    ret, PCI_DMA_MASK);
+		goto release_region;
+	}
+
+	ret = pci_set_consistent_dma_mask(pci_dev, DMA_BIT_MASK(PCI_DMA_MASK));
+	if (ret) {
+		cnss_pr_err("Failed to set PCI consistent DMA mask (%d), err = %d\n",
+			    ret, PCI_DMA_MASK);
+		goto release_region;
+	}
+
+	pci_set_master(pci_dev);
+
+	pci_priv->bar = cnss_pci_iomap(pci_dev, PCI_BAR_NUM, 0);
+	if (!pci_priv->bar) {
+		cnss_pr_err("Failed to do PCI IO map!\n");
+		ret = -EIO;
+		goto clear_master;
+	}
+	return 0;
+
+clear_master:
+	pci_clear_master(pci_dev);
+release_region:
+	pci_release_region(pci_dev, PCI_BAR_NUM);
+disable_device:
+	pci_disable_device(pci_dev);
+out:
+	return ret;
+}
+
+static void cnss_pci_disable_bus(struct cnss_pci_data *pci_priv)
+{
+	struct pci_dev *pci_dev = pci_priv->pci_dev;
+
+	if (pci_priv->bar) {
+		pci_iounmap(pci_dev, pci_priv->bar);
+		pci_priv->bar = NULL;
+	}
+
+	pci_clear_master(pci_dev);
+	pci_release_region(pci_dev, PCI_BAR_NUM);
+	pci_disable_device(pci_dev);
+}
+
 static int cnss_pci_probe(struct pci_dev *pci_dev,
 			  const struct pci_device_id *id)
 {
@@ -589,10 +843,11 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	pci_priv->pci_link_state = PCI_LINK_UP;
 	pci_priv->plat_priv = plat_priv;
 	pci_priv->pci_dev = pci_dev;
-	plat_priv->bus_priv = pci_priv;
 	pci_priv->pci_device_id = id;
 	pci_priv->device_id = pci_dev->device;
 	cnss_set_pci_priv(pci_dev, pci_priv);
+	plat_priv->device_id = pci_dev->device;
+	plat_priv->bus_priv = pci_priv;
 
 	res = platform_get_resource_byname(plat_priv->plat_dev, IORESOURCE_MEM,
 					   "smmu_iova_base");
@@ -610,6 +865,16 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		}
 	}
 
+	ret = cnss_reg_pci_event(pci_priv);
+	if (ret) {
+		cnss_pr_err("Failed to register PCI event, err = %d\n", ret);
+		goto deinit_smmu;
+	}
+
+	ret = cnss_pci_enable_bus(pci_priv);
+	if (ret)
+		goto dereg_pci_event;
+
 	switch (pci_dev->device) {
 	case QCA6174_DEVICE_ID:
 		pci_read_config_word(pci_dev, QCA6174_REV_ID_OFFSET,
@@ -621,21 +886,23 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		cnss_power_off_device(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
+		ret = cnss_pci_enable_msi(pci_priv);
+		if (ret)
+			goto disable_bus;
 		break;
 	default:
 		cnss_pr_err("Unknown PCI device found: 0x%x\n",
 			    pci_dev->device);
 		ret = -ENODEV;
-		goto deinit_smmu;
-	}
-
-	ret = cnss_reg_pci_event(pci_priv);
-	if (ret) {
-		cnss_pr_err("Failed to register PCI event, err = %d\n", ret);
-		goto deinit_smmu;
+		goto disable_bus;
 	}
 
 	return 0;
+
+disable_bus:
+	cnss_pci_disable_bus(pci_priv);
+dereg_pci_event:
+	cnss_dereg_pci_event(pci_priv);
 deinit_smmu:
 	if (pci_priv->smmu_mapping)
 		cnss_pci_deinit_smmu(pci_priv);
@@ -651,6 +918,9 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	struct cnss_plat_data *plat_priv =
 		cnss_bus_dev_to_plat_priv(&pci_dev->dev);
 
+	if (pci_dev->device == QCA6290_DEVICE_ID)
+		cnss_pci_disable_msi(pci_priv);
+	cnss_pci_disable_bus(pci_priv);
 	cnss_dereg_pci_event(pci_priv);
 	if (pci_priv->smmu_mapping)
 		cnss_pci_deinit_smmu(pci_priv);

@@ -27,6 +27,18 @@
 #define QCA6290_VENDOR_ID		0x168C
 #define QCA6290_DEVICE_ID		0xABCD
 
+struct cnss_msi_user {
+	char *name;
+	int num_vectors;
+	uint32_t base_vector;
+};
+
+struct cnss_msi_config {
+	int total_vectors;
+	int total_users;
+	struct cnss_msi_user *users;
+};
+
 struct cnss_pci_data {
 	struct pci_dev *pci_dev;
 	struct cnss_plat_data *plat_priv;
@@ -42,6 +54,9 @@ struct cnss_pci_data {
 	struct dma_iommu_mapping *smmu_mapping;
 	dma_addr_t smmu_iova_start;
 	size_t smmu_iova_len;
+	void __iomem *bar;
+	struct cnss_msi_config *msi_config;
+	uint32_t msi_ep_base_data;
 };
 
 static inline void cnss_set_pci_priv(struct pci_dev *pci_dev, void *data)
@@ -93,5 +108,7 @@ int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_resume_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_pci_init(struct cnss_plat_data *plat_priv);
 void cnss_pci_deinit(struct cnss_plat_data *plat_priv);
+int cnss_pci_get_bar_info(struct cnss_pci_data *pci_priv, void __iomem **va,
+			  phys_addr_t *pa);
 
 #endif /* _CNSS_PCI_H */

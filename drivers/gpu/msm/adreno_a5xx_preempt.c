@@ -22,7 +22,7 @@
 #define PREEMPT_SMMU_RECORD(_field) \
 		offsetof(struct a5xx_cp_smmu_info, _field)
 
-static void _update_wptr(struct adreno_device *adreno_dev)
+static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 {
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
 	unsigned int wptr;
@@ -35,10 +35,16 @@ static void _update_wptr(struct adreno_device *adreno_dev)
 	if (wptr != rb->wptr) {
 		adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_WPTR,
 			rb->wptr);
+		/*
+		 * In case something got submitted while preemption was on
+		 * going, reset the timer.
+		 */
+		reset_timer = 1;
+	}
 
+	if (reset_timer)
 		rb->dispatch_q.expires = jiffies +
 			msecs_to_jiffies(adreno_cmdbatch_timeout);
-	}
 
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
 }
@@ -90,7 +96,7 @@ static void _a5xx_preemption_done(struct adreno_device *adreno_dev)
 	adreno_dev->next_rb = NULL;
 
 	/* Update the wptr for the new command queue */
-	_update_wptr(adreno_dev);
+	_update_wptr(adreno_dev, true);
 
 	/* Update the dispatcher timer for the new command queue */
 	mod_timer(&adreno_dev->dispatcher.timer,
@@ -213,7 +219,7 @@ void a5xx_preemption_trigger(struct adreno_device *adreno_dev)
 		 */
 
 		if (next != NULL) {
-			_update_wptr(adreno_dev);
+			_update_wptr(adreno_dev, false);
 
 			mod_timer(&adreno_dev->dispatcher.timer,
 				adreno_dev->cur_rb->dispatch_q.expires);
@@ -304,7 +310,7 @@ void a5xx_preempt_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_dev->next_rb = NULL;
 
 	/* Update the wptr if it changed while preemption was ongoing */
-	_update_wptr(adreno_dev);
+	_update_wptr(adreno_dev, true);
 
 	/* Update the dispatcher timer for the new command queue */
 	mod_timer(&adreno_dev->dispatcher.timer,

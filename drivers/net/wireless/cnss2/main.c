@@ -203,6 +203,23 @@ int cnss_get_platform_cap(struct cnss_platform_cap *cap)
 }
 EXPORT_SYMBOL(cnss_get_platform_cap);
 
+int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info)
+{
+	int ret = 0;
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	void *bus_priv = cnss_bus_dev_to_bus_priv(dev);
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	ret = cnss_pci_get_bar_info(bus_priv, &info->va, &info->pa);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_get_soc_info);
+
 void cnss_set_driver_status(enum cnss_driver_status driver_status)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
@@ -598,6 +615,91 @@ static void cnss_qca6174_crash_shutdown(struct cnss_plat_data *plat_priv)
 	plat_priv->driver_ops->crash_shutdown(pci_priv->pci_dev);
 }
 
+static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (!plat_priv->driver_ops)
+		return -EINVAL;
+
+	ret = cnss_power_on_device(plat_priv);
+	if (ret) {
+		cnss_pr_err("Failed to power on device, err = %d\n", ret);
+		goto out;
+	}
+
+	ret = cnss_resume_pci_link(pci_priv);
+	if (ret) {
+		cnss_pr_err("Failed to resume PCI link, err = %d\n", ret);
+		goto power_off;
+	}
+
+	if (plat_priv->driver_status == CNSS_LOAD_UNLOAD) {
+		ret = plat_priv->driver_ops->probe(pci_priv->pci_dev,
+						   pci_priv->pci_device_id);
+		if (ret) {
+			cnss_pr_err("Failed to probe host driver, err = %d\n",
+				    ret);
+			goto suspend_link;
+		}
+	} else if (plat_priv->recovery_in_progress) {
+		ret = plat_priv->driver_ops->reinit(pci_priv->pci_dev,
+						    pci_priv->pci_device_id);
+		if (ret) {
+			cnss_pr_err("Failed to reinit host driver, err = %d\n",
+				    ret);
+			goto suspend_link;
+		}
+		plat_priv->recovery_in_progress = false;
+	} else {
+		cnss_pr_err("Driver state is not correct to power up!\n");
+		ret = -EINVAL;
+		goto suspend_link;
+	}
+	return 0;
+
+suspend_link:
+	cnss_suspend_pci_link(pci_priv);
+power_off:
+	cnss_power_off_device(plat_priv);
+out:
+	return ret;
+}
+
+static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (!plat_priv->driver_ops)
+		return -EINVAL;
+
+	if (plat_priv->driver_status == CNSS_LOAD_UNLOAD) {
+		cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
+		plat_priv->driver_ops->remove(pci_priv->pci_dev);
+		cnss_pci_set_monitor_wake_intr(pci_priv, false);
+		cnss_pci_set_auto_suspended(pci_priv, 0);
+	} else {
+		plat_priv->recovery_in_progress = true;
+		plat_priv->driver_ops->shutdown(pci_priv->pci_dev);
+	}
+
+	ret = cnss_suspend_pci_link(pci_priv);
+	if (ret)
+		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
+
+	cnss_power_off_device(plat_priv);
+
+	return ret;
+}
+
 static int cnss_powerup(const struct subsys_desc *subsys_desc)
 {
 	int ret = 0;
@@ -613,6 +715,7 @@ static int cnss_powerup(const struct subsys_desc *subsys_desc)
 		ret = cnss_qca6174_powerup(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
+		ret = cnss_qca6290_powerup(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown device_id found: 0x%lx\n",
@@ -638,6 +741,7 @@ static int cnss_shutdown(const struct subsys_desc *subsys_desc, bool force_stop)
 		ret = cnss_qca6174_shutdown(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
+		ret = cnss_qca6290_shutdown(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown device_id found: 0x%lx\n",

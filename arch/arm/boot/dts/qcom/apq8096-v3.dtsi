@@ -27,6 +27,12 @@
 	qcom,rmnet-ipa {
 		status = "disabled";
 	};
+
+	qcom,msm-ssc-sensors {
+		qcom,qdsp-timer-base = <0x9850000 0x32>;
+		qcom,qtimer-cntpct-lo-offset = <0x0>;
+		qcom,qtimer-cntpct-hi-offset = <0x4>;
+	};
 };
 
 &ipa_hw {
