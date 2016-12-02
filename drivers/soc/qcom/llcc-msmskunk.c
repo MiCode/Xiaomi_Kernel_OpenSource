@@ -14,7 +14,6 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-
 #include <linux/soc/qcom/llcc-qcom.h>
 
 /*
@@ -64,7 +63,7 @@ static struct llcc_slice_config msmskunk_data[] =  {
 	SCT_ENTRY("rotator",     4, 4, 800, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("voice",       5, 5, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("audio",       6, 6, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("modemhp",     7, 7, 1024, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("modemhp",     7, 7, 1024, 2, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("modem",       8, 8, 1024, 0, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("modemhw",     9, 9, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("compute",     10, 10, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
@@ -74,7 +73,8 @@ static struct llcc_slice_config msmskunk_data[] =  {
 	SCT_ENTRY("sensor",      14, 14, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("compute_dma", 15, 15, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("display",     16, 16, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("videofw",     17, 17, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0)
+	SCT_ENTRY("videofw",     17, 17, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("camerafw",    18, 18, 224, 0, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 };
 
 static int msmskunk_qcom_llcc_probe(struct platform_device *pdev)
