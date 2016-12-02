@@ -558,6 +558,7 @@ static int hdcp_lib_txmtr_init_legacy(struct hdcp_lib_handle *handle);
 
 static struct qseecom_handle *hdcp1_handle;
 static bool hdcp1_supported = true;
+static bool hdcp1_enc_enabled;
 
 static const char *hdcp_lib_message_name(int msg_id)
 {
@@ -2278,6 +2279,11 @@ int hdcp1_set_enc(bool enable)
 	if (!hdcp1_supported || !hdcp1_handle)
 		return -EINVAL;
 
+	if (hdcp1_enc_enabled == enable) {
+		pr_debug("already %s\n", enable ? "enabled" : "disabled");
+		return rc;
+	}
+
 	/* set keys and request aksv */
 	set_enc_req = (struct hdcp1_set_enc_req *)hdcp1_handle->sbuf;
 	set_enc_req->commandid = HDCP1_SET_ENC_MESSAGE_ID;
@@ -2302,7 +2308,8 @@ int hdcp1_set_enc(bool enable)
 		return -EINVAL;
 	}
 
-	pr_debug("success\n");
+	hdcp1_enc_enabled = enable;
+	pr_debug("%s success\n", enable ? "enable" : "disable");
 	return 0;
 }
 
