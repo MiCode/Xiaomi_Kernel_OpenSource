@@ -1639,7 +1639,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	asm_token.token = data->token;
 	if (q6asm_get_flag_from_token(&asm_token, ASM_CMD_NO_WAIT_OFFSET)) {
 		pr_debug("%s: No wait command opcode[0x%x] cmd_opcode:%x\n",
-			 __func__, data->opcode, payload[0]);
+			 __func__, data->opcode, payload ? payload[0] : 0);
 		wakeup_flag = 0;
 	}
 
@@ -1673,9 +1673,14 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		data->dest_port);
 	if ((data->opcode != ASM_DATA_EVENT_RENDERED_EOS) &&
 	    (data->opcode != ASM_DATA_EVENT_EOS) &&
-	    (data->opcode != ASM_SESSION_EVENT_RX_UNDERFLOW))
+	    (data->opcode != ASM_SESSION_EVENT_RX_UNDERFLOW)) {
+		if (payload == NULL) {
+			pr_err("%s: payload is null\n", __func__);
+			return -EINVAL;
+		}
 		dev_vdbg(ac->dev, "%s: Payload = [0x%x] status[0x%x] opcode 0x%x\n",
 			__func__, payload[0], payload[1], data->opcode);
+	}
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
 		switch (payload[0]) {
 		case ASM_STREAM_CMD_SET_PP_PARAMS_V2:
