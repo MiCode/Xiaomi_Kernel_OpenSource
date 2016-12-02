@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,8 @@
 #include "msm_gpu.h"
 #include "dsi_phy.h"
 #include "dsi_phy_hw.h"
-#include "dsi_clk_pwr.h"
+#include "dsi_clk.h"
+#include "dsi_pwr.h"
 #include "dsi_catalog.h"
 
 #define DSI_PHY_DEFAULT_LABEL "MDSS PHY CTRL"
@@ -104,65 +105,6 @@ static int dsi_phy_regmap_deinit(struct msm_dsi_phy *phy)
 	return 0;
 }
 
-static int dsi_phy_clocks_deinit(struct msm_dsi_phy *phy)
-{
-	int rc = 0;
-	struct dsi_core_clk_info *core = &phy->clks.core_clks;
-
-	if (core->mdp_core_clk)
-		devm_clk_put(&phy->pdev->dev, core->mdp_core_clk);
-	if (core->iface_clk)
-		devm_clk_put(&phy->pdev->dev, core->iface_clk);
-	if (core->core_mmss_clk)
-		devm_clk_put(&phy->pdev->dev, core->core_mmss_clk);
-	if (core->bus_clk)
-		devm_clk_put(&phy->pdev->dev, core->bus_clk);
-
-	memset(core, 0x0, sizeof(*core));
-
-	return rc;
-}
-
-static int dsi_phy_clocks_init(struct platform_device *pdev,
-			       struct msm_dsi_phy *phy)
-{
-	int rc = 0;
-	struct dsi_core_clk_info *core = &phy->clks.core_clks;
-
-	core->mdp_core_clk = devm_clk_get(&pdev->dev, "mdp_core_clk");
-	if (IS_ERR(core->mdp_core_clk)) {
-		rc = PTR_ERR(core->mdp_core_clk);
-		pr_err("failed to get mdp_core_clk, rc=%d\n", rc);
-		goto fail;
-	}
-
-	core->iface_clk = devm_clk_get(&pdev->dev, "iface_clk");
-	if (IS_ERR(core->iface_clk)) {
-		rc = PTR_ERR(core->iface_clk);
-		pr_err("failed to get iface_clk, rc=%d\n", rc);
-		goto fail;
-	}
-
-	core->core_mmss_clk = devm_clk_get(&pdev->dev, "core_mmss_clk");
-	if (IS_ERR(core->core_mmss_clk)) {
-		rc = PTR_ERR(core->core_mmss_clk);
-		pr_err("failed to get core_mmss_clk, rc=%d\n", rc);
-		goto fail;
-	}
-
-	core->bus_clk = devm_clk_get(&pdev->dev, "bus_clk");
-	if (IS_ERR(core->bus_clk)) {
-		rc = PTR_ERR(core->bus_clk);
-		pr_err("failed to get bus_clk, rc=%d\n", rc);
-		goto fail;
-	}
-
-	return rc;
-fail:
-	dsi_phy_clocks_deinit(phy);
-	return rc;
-}
-
 static int dsi_phy_supplies_init(struct platform_device *pdev,
 				 struct msm_dsi_phy *phy)
 {
@@ -182,7 +124,7 @@ static int dsi_phy_supplies_init(struct platform_device *pdev,
 		 ARRAY_SIZE(regs->vregs[i].vreg_name),
 		 "%s", "gdsc");
 
-	rc = dsi_clk_pwr_get_dt_vreg_data(&pdev->dev,
+	rc = dsi_pwr_get_dt_vreg_data(&pdev->dev,
 					  &phy->pwr_info.phy_pwr,
 					  "qcom,phy-supply-entries");
 	if (rc) {
@@ -404,16 +346,10 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	rc = dsi_phy_clocks_init(pdev, dsi_phy);
-	if (rc) {
-		pr_err("failed to parse clock information, rc = %d\n", rc);
-		goto fail_regmap;
-	}
-
 	rc = dsi_phy_supplies_init(pdev, dsi_phy);
 	if (rc) {
 		pr_err("failed to parse voltage supplies, rc = %d\n", rc);
-		goto fail_clks;
+		goto fail_regmap;
 	}
 
 	rc = dsi_catalog_phy_setup(&dsi_phy->hw, ver_info->version,
@@ -446,8 +382,6 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 
 fail_supplies:
 	(void)dsi_phy_supplies_deinit(dsi_phy);
-fail_clks:
-	(void)dsi_phy_clocks_deinit(dsi_phy);
 fail_regmap:
 	(void)dsi_phy_regmap_deinit(dsi_phy);
 fail:
@@ -488,10 +422,6 @@ static int dsi_phy_driver_remove(struct platform_device *pdev)
 	rc = dsi_phy_supplies_deinit(phy);
 	if (rc)
 		pr_err("failed to deinitialize voltage supplies, rc=%d\n", rc);
-
-	rc = dsi_phy_clocks_deinit(phy);
-	if (rc)
-		pr_err("failed to deinitialize clocks, rc=%d\n", rc);
 
 	rc = dsi_phy_regmap_deinit(phy);
 	if (rc)
@@ -622,6 +552,19 @@ int dsi_phy_drv_deinit(struct msm_dsi_phy *dsi_phy)
 	return 0;
 }
 
+int dsi_phy_clk_cb_register(struct msm_dsi_phy *dsi_phy,
+	struct clk_ctrl_cb *clk_cb)
+{
+	if (!dsi_phy || !clk_cb) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	dsi_phy->clk_cb.priv = clk_cb->priv;
+	dsi_phy->clk_cb.dsi_clk_cb = clk_cb->dsi_clk_cb;
+	return 0;
+}
+
 /**
  * dsi_phy_validate_mode() - validate a display mode
  * @dsi_phy:            DSI PHY handle.
@@ -679,22 +622,27 @@ int dsi_phy_set_power_state(struct msm_dsi_phy *dsi_phy, bool enable)
 			pr_err("failed to enable digital regulator\n");
 			goto error;
 		}
-		rc = dsi_pwr_enable_regulator(&dsi_phy->pwr_info.phy_pwr, true);
-		if (rc) {
-			pr_err("failed to enable phy power\n");
-			(void)dsi_pwr_enable_regulator(
-						&dsi_phy->pwr_info.digital,
-						false
-						);
-			goto error;
+
+		if (dsi_phy->dsi_phy_state == DSI_PHY_ENGINE_OFF) {
+			rc = dsi_pwr_enable_regulator(
+				&dsi_phy->pwr_info.phy_pwr, true);
+			if (rc) {
+				pr_err("failed to enable phy power\n");
+				(void)dsi_pwr_enable_regulator(
+					&dsi_phy->pwr_info.digital, false);
+				goto error;
+			}
 		}
 	} else {
-		rc = dsi_pwr_enable_regulator(&dsi_phy->pwr_info.phy_pwr,
-					      false);
-		if (rc) {
-			pr_err("failed to enable digital regulator\n");
-			goto error;
+		if (dsi_phy->dsi_phy_state == DSI_PHY_ENGINE_OFF) {
+			rc = dsi_pwr_enable_regulator(
+				&dsi_phy->pwr_info.phy_pwr, false);
+			if (rc) {
+				pr_err("failed to enable digital regulator\n");
+				goto error;
+			}
 		}
+
 		rc = dsi_pwr_enable_regulator(&dsi_phy->pwr_info.digital,
 					      false);
 		if (rc) {
@@ -726,22 +674,27 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 		   bool skip_validation)
 {
 	int rc = 0;
+	struct dsi_clk_ctrl_info clk_info;
 
 	if (!phy || !config) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
+	clk_info.client = DSI_CLK_REQ_DSI_CLIENT;
+	clk_info.clk_type = DSI_CORE_CLK;
+	clk_info.clk_state = DSI_CLK_ON;
+
+	rc = phy->clk_cb.dsi_clk_cb(phy->clk_cb.priv, clk_info);
+	if (rc) {
+		pr_err("failed to enable DSI core clocks\n");
+		return rc;
+	}
+
 	mutex_lock(&phy->phy_lock);
 
 	if (!skip_validation)
 		pr_debug("[PHY_%d] TODO: perform validation\n", phy->index);
-
-	rc = dsi_clk_enable_core_clks(&phy->clks.core_clks, true);
-	if (rc) {
-		pr_err("failed to enable core clocks, rc=%d\n", rc);
-		goto error;
-	}
 
 	memcpy(&phy->mode, &config->video_timing, sizeof(phy->mode));
 	phy->data_lanes = config->common_config.data_lanes;
@@ -755,19 +708,19 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 						 &phy->cfg.timing);
 	if (rc) {
 		pr_err("[%s] failed to set timing, rc=%d\n", phy->name, rc);
-		goto error_disable_clks;
+		goto error;
 	}
 
 	dsi_phy_enable_hw(phy);
+	phy->dsi_phy_state = DSI_PHY_ENGINE_ON;
 
-error_disable_clks:
-	rc = dsi_clk_enable_core_clks(&phy->clks.core_clks, false);
-	if (rc) {
-		pr_err("failed to disable clocks, skip phy disable\n");
-		goto error;
-	}
 error:
 	mutex_unlock(&phy->phy_lock);
+
+	clk_info.clk_state = DSI_CLK_OFF;
+	rc = phy->clk_cb.dsi_clk_cb(phy->clk_cb.priv, clk_info);
+	if (rc)
+		pr_err("failed to disable DSI core clocks\n");
 	return rc;
 }
 
@@ -780,31 +733,67 @@ error:
 int dsi_phy_disable(struct msm_dsi_phy *phy)
 {
 	int rc = 0;
+	struct dsi_clk_ctrl_info clk_info;
 
 	if (!phy) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
+	clk_info.client = DSI_CLK_REQ_DSI_CLIENT;
+	clk_info.clk_type = DSI_CORE_CLK;
+	clk_info.clk_state = DSI_CLK_ON;
+
+	rc = phy->clk_cb.dsi_clk_cb(phy->clk_cb.priv, clk_info);
+	if (rc) {
+		pr_err("failed to enable DSI core clocks\n");
+		return rc;
+	}
+
 	mutex_lock(&phy->phy_lock);
-
-	rc = dsi_clk_enable_core_clks(&phy->clks.core_clks, true);
-	if (rc) {
-		pr_err("failed to enable core clocks, rc=%d\n", rc);
-		goto error;
-	}
-
 	dsi_phy_disable_hw(phy);
+	phy->dsi_phy_state = DSI_PHY_ENGINE_OFF;
+	mutex_unlock(&phy->phy_lock);
 
-	rc = dsi_clk_enable_core_clks(&phy->clks.core_clks, false);
-	if (rc) {
-		pr_err("failed to disable core clocks, rc=%d\n", rc);
-		goto error;
+	clk_info.clk_state = DSI_CLK_OFF;
+
+	rc = phy->clk_cb.dsi_clk_cb(phy->clk_cb.priv, clk_info);
+	if (rc)
+		pr_err("failed to disable DSI core clocks\n");
+
+	return rc;
+}
+
+/**
+ * dsi_phy_idle_ctrl() - enable/disable DSI PHY during idle screen
+ * @phy:          DSI PHY handle
+ * @enable:       boolean to specify PHY enable/disable.
+ *
+ * Return: error code.
+ */
+
+int dsi_phy_idle_ctrl(struct msm_dsi_phy *phy, bool enable)
+{
+	if (!phy) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
 	}
 
-error:
+	mutex_lock(&phy->phy_lock);
+	if (enable) {
+		if (phy->hw.ops.phy_idle_on)
+			phy->hw.ops.phy_idle_on(&phy->hw, &phy->cfg);
+
+		if (phy->hw.ops.regulator_enable)
+			phy->hw.ops.regulator_enable(&phy->hw,
+				&phy->cfg.regulators);
+	} else {
+		if (phy->hw.ops.phy_idle_off)
+			phy->hw.ops.phy_idle_off(&phy->hw);
+	}
 	mutex_unlock(&phy->phy_lock);
-	return rc;
+
+	return 0;
 }
 
 /**

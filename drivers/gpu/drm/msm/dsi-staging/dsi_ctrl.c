@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,8 @@
 #include "msm_gpu.h"
 #include "dsi_ctrl.h"
 #include "dsi_ctrl_hw.h"
-#include "dsi_clk_pwr.h"
+#include "dsi_clk.h"
+#include "dsi_pwr.h"
 #include "dsi_catalog.h"
 
 #define DSI_CTRL_DEFAULT_LABEL "MDSS DSI CTRL"
@@ -44,9 +45,6 @@ enum dsi_ctrl_driver_ops {
 	DSI_CTRL_OP_VID_ENGINE,
 	DSI_CTRL_OP_HOST_ENGINE,
 	DSI_CTRL_OP_CMD_TX,
-	DSI_CTRL_OP_ULPS_TOGGLE,
-	DSI_CTRL_OP_CLAMP_TOGGLE,
-	DSI_CTRL_OP_SET_CLK_SOURCE,
 	DSI_CTRL_OP_HOST_INIT,
 	DSI_CTRL_OP_TPG,
 	DSI_CTRL_OP_PHY_SW_RESET,
@@ -99,16 +97,7 @@ static ssize_t debugfs_state_info_read(struct file *file,
 	/* Dump current state */
 	len += snprintf((buf + len), (SZ_4K - len), "Current State:\n");
 	len += snprintf((buf + len), (SZ_4K - len),
-			"\tPOWER_STATUS = %s\n\tCORE_CLOCK = %s\n",
-			TO_ON_OFF(dsi_ctrl->current_state.pwr_enabled),
-			TO_ON_OFF(dsi_ctrl->current_state.core_clk_enabled));
-	len += snprintf((buf + len), (SZ_4K - len),
-			"\tLINK_CLOCK = %s\n\tULPS_STATUS = %s\n",
-			TO_ON_OFF(dsi_ctrl->current_state.link_clk_enabled),
-			TO_ON_OFF(dsi_ctrl->current_state.ulps_enabled));
-	len += snprintf((buf + len), (SZ_4K - len),
-			"\tCLAMP_STATUS = %s\n\tCTRL_ENGINE = %s\n",
-			TO_ON_OFF(dsi_ctrl->current_state.clamp_enabled),
+			"\tCTRL_ENGINE = %s\n",
 			TO_ON_OFF(dsi_ctrl->current_state.controller_state));
 	len += snprintf((buf + len), (SZ_4K - len),
 			"\tVIDEO_ENGINE = %s\n\tCOMMAND_ENGINE = %s\n",
@@ -118,10 +107,10 @@ static ssize_t debugfs_state_info_read(struct file *file,
 	/* Dump clock information */
 	len += snprintf((buf + len), (SZ_4K - len), "\nClock Info:\n");
 	len += snprintf((buf + len), (SZ_4K - len),
-			"\tBYTE_CLK = %llu, PIXEL_CLK = %llu, ESC_CLK = %llu\n",
-			dsi_ctrl->clk_info.link_clks.byte_clk_rate,
-			dsi_ctrl->clk_info.link_clks.pixel_clk_rate,
-			dsi_ctrl->clk_info.link_clks.esc_clk_rate);
+			"\tBYTE_CLK = %u, PIXEL_CLK = %u, ESC_CLK = %u\n",
+			dsi_ctrl->clk_freq.byte_clk_rate,
+			dsi_ctrl->clk_freq.pix_clk_rate,
+			dsi_ctrl->clk_freq.esc_clk_rate);
 
 	/* TODO: make sure that this does not exceed 4K */
 	if (copy_to_user(buff, buf, len)) {
@@ -142,6 +131,8 @@ static ssize_t debugfs_reg_dump_read(struct file *file,
 	struct dsi_ctrl *dsi_ctrl = file->private_data;
 	char *buf;
 	u32 len = 0;
+	struct dsi_clk_ctrl_info clk_info;
+	int rc = 0;
 
 	if (!dsi_ctrl)
 		return -ENODEV;
@@ -153,14 +144,27 @@ static ssize_t debugfs_reg_dump_read(struct file *file,
 	if (!buf)
 		return -ENOMEM;
 
-	if (dsi_ctrl->current_state.core_clk_enabled) {
-		len = dsi_ctrl->hw.ops.reg_dump_to_buffer(&dsi_ctrl->hw,
-							  buf,
-							  SZ_4K);
-	} else {
-		len = snprintf((buf + len), (SZ_4K - len),
-			       "Core clocks are not turned on, cannot read\n");
+	clk_info.client = DSI_CLK_REQ_DSI_CLIENT;
+	clk_info.clk_type = DSI_CORE_CLK;
+	clk_info.clk_state = DSI_CLK_ON;
+
+	rc = dsi_ctrl->clk_cb.dsi_clk_cb(dsi_ctrl->clk_cb.priv, clk_info);
+	if (rc) {
+		pr_err("failed to enable DSI core clocks\n");
+		kfree(buf);
+		return rc;
 	}
+
+	len = dsi_ctrl->hw.ops.reg_dump_to_buffer(&dsi_ctrl->hw,
+		  buf, SZ_4K);
+
+	clk_info.clk_state = DSI_CLK_OFF;
+	rc = dsi_ctrl->clk_cb.dsi_clk_cb(dsi_ctrl->clk_cb.priv, clk_info);
+	if (rc) {
+		pr_err("failed to disable DSI core clocks\n");
+		return rc;
+	}
+
 
 	/* TODO: make sure that this does not exceed 4K */
 	if (copy_to_user(buff, buf, len)) {
@@ -247,7 +251,7 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 			pr_debug("[%d] No change in state, pwr_state=%d\n",
 			       dsi_ctrl->index, op_state);
 			rc = -EINVAL;
-		} else if (state->power_state == DSI_CTRL_POWER_LINK_CLK_ON) {
+		} else if (state->power_state == DSI_CTRL_POWER_VREG_ON) {
 			if ((state->cmd_engine_state == DSI_CTRL_ENGINE_ON) ||
 			    (state->vid_engine_state == DSI_CTRL_ENGINE_ON) ||
 			    (state->controller_state == DSI_CTRL_ENGINE_ON)) {
@@ -266,7 +270,7 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 			pr_debug("[%d] No change in state, cmd_state=%d\n",
 			       dsi_ctrl->index, op_state);
 			rc = -EINVAL;
-		} else if ((state->power_state != DSI_CTRL_POWER_LINK_CLK_ON) ||
+		} else if ((state->power_state != DSI_CTRL_POWER_VREG_ON) ||
 			   (state->controller_state != DSI_CTRL_ENGINE_ON)) {
 			pr_debug("[%d]State error: op=%d: %d, %d\n",
 			       dsi_ctrl->index,
@@ -281,7 +285,7 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 			pr_debug("[%d] No change in state, cmd_state=%d\n",
 			       dsi_ctrl->index, op_state);
 			rc = -EINVAL;
-		} else if ((state->power_state != DSI_CTRL_POWER_LINK_CLK_ON) ||
+		} else if ((state->power_state != DSI_CTRL_POWER_VREG_ON) ||
 			   (state->controller_state != DSI_CTRL_ENGINE_ON)) {
 			pr_debug("[%d]State error: op=%d: %d, %d\n",
 			       dsi_ctrl->index,
@@ -296,7 +300,7 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 			pr_debug("[%d] No change in state, ctrl_state=%d\n",
 			       dsi_ctrl->index, op_state);
 			rc = -EINVAL;
-		} else if (state->power_state != DSI_CTRL_POWER_LINK_CLK_ON) {
+		} else if (state->power_state != DSI_CTRL_POWER_VREG_ON) {
 			pr_debug("[%d]State error (link is off): op=%d:, %d\n",
 			       dsi_ctrl->index,
 			       op_state,
@@ -314,7 +318,7 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 		}
 		break;
 	case DSI_CTRL_OP_CMD_TX:
-		if ((state->power_state != DSI_CTRL_POWER_LINK_CLK_ON) ||
+		if ((state->power_state != DSI_CTRL_POWER_VREG_ON) ||
 		    (state->host_initialized != true) ||
 		    (state->cmd_engine_state != DSI_CTRL_ENGINE_ON)) {
 			pr_debug("[%d]State error: op=%d: %d, %d, %d\n",
@@ -331,48 +335,9 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 			pr_debug("[%d] No change in state, host_init=%d\n",
 			       dsi_ctrl->index, op_state);
 			rc = -EINVAL;
-		} else if (state->power_state != DSI_CTRL_POWER_CORE_CLK_ON) {
+		} else if (state->power_state != DSI_CTRL_POWER_VREG_ON) {
 			pr_debug("[%d]State error: op=%d: %d\n",
 			       dsi_ctrl->index, op, state->power_state);
-			rc = -EINVAL;
-		}
-		break;
-	case DSI_CTRL_OP_ULPS_TOGGLE:
-		if (state->ulps_enabled == op_state) {
-			pr_debug("[%d] No change in state, ulps_enabled=%d\n",
-			       dsi_ctrl->index, op_state);
-			rc = -EINVAL;
-		} else if ((state->power_state != DSI_CTRL_POWER_LINK_CLK_ON) ||
-			   (state->controller_state != DSI_CTRL_ENGINE_ON)) {
-			pr_debug("[%d]State error: op=%d: %d, %d\n",
-			       dsi_ctrl->index,
-			       op,
-			       state->power_state,
-			       state->controller_state);
-			rc = -EINVAL;
-		}
-		break;
-	case DSI_CTRL_OP_CLAMP_TOGGLE:
-		if (state->clamp_enabled == op_state) {
-			pr_debug("[%d] No change in state, clamp_enabled=%d\n",
-			       dsi_ctrl->index, op_state);
-			rc = -EINVAL;
-		} else if ((state->power_state != DSI_CTRL_POWER_LINK_CLK_ON) ||
-			   (state->controller_state != DSI_CTRL_ENGINE_ON)) {
-			pr_debug("[%d]State error: op=%d: %d, %d\n",
-			       dsi_ctrl->index,
-			       op,
-			       state->power_state,
-			       state->controller_state);
-			rc = -EINVAL;
-		}
-		break;
-	case DSI_CTRL_OP_SET_CLK_SOURCE:
-		if (state->power_state == DSI_CTRL_POWER_LINK_CLK_ON) {
-			pr_debug("[%d] State error: op=%d: %d\n",
-			       dsi_ctrl->index,
-			       op,
-			       state->power_state);
 			rc = -EINVAL;
 		}
 		break;
@@ -381,7 +346,7 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 			pr_debug("[%d] No change in state, tpg_enabled=%d\n",
 			       dsi_ctrl->index, op_state);
 			rc = -EINVAL;
-		} else if ((state->power_state != DSI_CTRL_POWER_LINK_CLK_ON) ||
+		} else if ((state->power_state != DSI_CTRL_POWER_VREG_ON) ||
 			   (state->controller_state != DSI_CTRL_ENGINE_ON)) {
 			pr_debug("[%d]State error: op=%d: %d, %d\n",
 			       dsi_ctrl->index,
@@ -392,7 +357,7 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 		}
 		break;
 	case DSI_CTRL_OP_PHY_SW_RESET:
-		if (state->power_state != DSI_CTRL_POWER_CORE_CLK_ON) {
+		if (state->power_state != DSI_CTRL_POWER_VREG_ON) {
 			pr_debug("[%d]State error: op=%d: %d\n",
 			       dsi_ctrl->index, op, state->power_state);
 			rc = -EINVAL;
@@ -422,23 +387,6 @@ static void dsi_ctrl_update_state(struct dsi_ctrl *dsi_ctrl,
 	switch (op) {
 	case DSI_CTRL_OP_POWER_STATE_CHANGE:
 		state->power_state = op_state;
-		if (op_state == DSI_CTRL_POWER_OFF) {
-			state->pwr_enabled = false;
-			state->core_clk_enabled = false;
-			state->link_clk_enabled = false;
-		} else if (op_state == DSI_CTRL_POWER_VREG_ON) {
-			state->pwr_enabled = true;
-			state->core_clk_enabled = false;
-			state->link_clk_enabled = false;
-		} else if (op_state == DSI_CTRL_POWER_CORE_CLK_ON) {
-			state->pwr_enabled = true;
-			state->core_clk_enabled = true;
-			state->link_clk_enabled = false;
-		} else if (op_state == DSI_CTRL_POWER_LINK_CLK_ON) {
-			state->pwr_enabled = true;
-			state->core_clk_enabled = true;
-			state->link_clk_enabled = true;
-		}
 		break;
 	case DSI_CTRL_OP_CMD_ENGINE:
 		state->cmd_engine_state = op_state;
@@ -448,15 +396,6 @@ static void dsi_ctrl_update_state(struct dsi_ctrl *dsi_ctrl,
 		break;
 	case DSI_CTRL_OP_HOST_ENGINE:
 		state->controller_state = op_state;
-		break;
-	case DSI_CTRL_OP_ULPS_TOGGLE:
-		state->ulps_enabled = (op_state == 1) ? true : false;
-		break;
-	case DSI_CTRL_OP_CLAMP_TOGGLE:
-		state->clamp_enabled = (op_state == 1) ? true : false;
-		break;
-	case DSI_CTRL_OP_SET_CLK_SOURCE:
-		state->clk_source_set = (op_state == 1) ? true : false;
 		break;
 	case DSI_CTRL_OP_HOST_INIT:
 		state->host_initialized = (op_state == 1) ? true : false;
@@ -657,7 +596,7 @@ static int dsi_ctrl_supplies_init(struct platform_device *pdev,
 	struct dsi_regulator_info *regs;
 	struct regulator *vreg = NULL;
 
-	rc = dsi_clk_pwr_get_dt_vreg_data(&pdev->dev,
+	rc = dsi_pwr_get_dt_vreg_data(&pdev->dev,
 					  &ctrl->pwr_info.digital,
 					  "qcom,core-supply-entries");
 	if (rc) {
@@ -665,7 +604,7 @@ static int dsi_ctrl_supplies_init(struct platform_device *pdev,
 		goto error;
 	}
 
-	rc = dsi_clk_pwr_get_dt_vreg_data(&pdev->dev,
+	rc = dsi_pwr_get_dt_vreg_data(&pdev->dev,
 					  &ctrl->pwr_info.host_pwr,
 					  "qcom,ctrl-supply-entries");
 	if (rc) {
@@ -775,7 +714,7 @@ err:
 }
 
 static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
-				      struct dsi_host_config *config)
+	struct dsi_host_config *config, void *clk_handle)
 {
 	int rc = 0;
 	u32 num_of_lanes = 0;
@@ -809,10 +748,12 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	pr_debug("byte_clk_rate = %llu, pclk_rate = %llu\n",
 		  byte_clk_rate, pclk_rate);
 
-	rc = dsi_clk_set_link_frequencies(&dsi_ctrl->clk_info.link_clks,
-					  pclk_rate,
-					  byte_clk_rate,
-					  config->esc_clk_rate_hz);
+	dsi_ctrl->clk_freq.byte_clk_rate = byte_clk_rate;
+	dsi_ctrl->clk_freq.pix_clk_rate = pclk_rate;
+	dsi_ctrl->clk_freq.esc_clk_rate = config->esc_clk_rate_hz;
+
+	rc = dsi_clk_set_link_frequencies(clk_handle, dsi_ctrl->clk_freq,
+					dsi_ctrl->index);
 	if (rc)
 		pr_err("Failed to update link frequencies\n");
 
@@ -824,11 +765,13 @@ static int dsi_ctrl_enable_supplies(struct dsi_ctrl *dsi_ctrl, bool enable)
 	int rc = 0;
 
 	if (enable) {
-		rc = dsi_pwr_enable_regulator(&dsi_ctrl->pwr_info.host_pwr,
-					      true);
-		if (rc) {
-			pr_err("failed to enable host power regs, rc=%d\n", rc);
-			goto error;
+		if (!dsi_ctrl->current_state.host_initialized) {
+			rc = dsi_pwr_enable_regulator(
+				&dsi_ctrl->pwr_info.host_pwr, true);
+			if (rc) {
+				pr_err("failed to enable host power regs\n");
+				goto error;
+			}
 		}
 
 		rc = dsi_pwr_enable_regulator(&dsi_ctrl->pwr_info.digital,
@@ -849,47 +792,16 @@ static int dsi_ctrl_enable_supplies(struct dsi_ctrl *dsi_ctrl, bool enable)
 			goto error;
 		}
 
-		rc = dsi_pwr_enable_regulator(&dsi_ctrl->pwr_info.host_pwr,
-					      false);
-		if (rc) {
-			pr_err("failed to disable host power regs, rc=%d\n",
-			       rc);
-			goto error;
+		if (!dsi_ctrl->current_state.host_initialized) {
+			rc = dsi_pwr_enable_regulator(
+				&dsi_ctrl->pwr_info.host_pwr, false);
+			if (rc) {
+				pr_err("failed to disable host power regs\n");
+				goto error;
+			}
 		}
 	}
 error:
-	return rc;
-}
-
-static int dsi_ctrl_vote_for_bandwidth(struct dsi_ctrl *dsi_ctrl, bool on)
-{
-	int rc = 0;
-	bool changed = false;
-	struct dsi_ctrl_bus_scale_info *axi_bus = &dsi_ctrl->axi_bus_info;
-
-	if (on) {
-		if (axi_bus->refcount == 0)
-			changed = true;
-
-		axi_bus->refcount++;
-	} else {
-		if (axi_bus->refcount != 0) {
-			axi_bus->refcount--;
-
-			if (axi_bus->refcount == 0)
-				changed = true;
-		} else {
-			pr_err("bus bw votes are not balanced\n");
-		}
-	}
-
-	if (changed) {
-		rc = msm_bus_scale_client_update_request(axi_bus->bus_handle,
-							 on ? 1 : 0);
-		if (rc)
-			pr_err("bus scale client update failed, rc=%d\n", rc);
-	}
-
 	return rc;
 }
 
@@ -1089,16 +1001,22 @@ error:
 static int dsi_enable_ulps(struct dsi_ctrl *dsi_ctrl)
 {
 	int rc = 0;
-	u32 lanes;
+	u32 lanes = 0;
 	u32 ulps_lanes;
 
 	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE)
 		lanes = dsi_ctrl->host_config.common_config.data_lanes;
 
-	lanes |= DSI_CLOCK_LANE;
-	dsi_ctrl->hw.ops.ulps_request(&dsi_ctrl->hw, lanes);
+	rc = dsi_ctrl->hw.ops.ulps_ops.wait_for_lane_idle(&dsi_ctrl->hw, lanes);
+	if (rc) {
+		pr_err("lanes not entering idle, skip ULPS\n");
+		return rc;
+	}
 
-	ulps_lanes = dsi_ctrl->hw.ops.get_lanes_in_ulps(&dsi_ctrl->hw);
+	lanes |= DSI_CLOCK_LANE;
+	dsi_ctrl->hw.ops.ulps_ops.ulps_request(&dsi_ctrl->hw, lanes);
+
+	ulps_lanes = dsi_ctrl->hw.ops.ulps_ops.get_lanes_in_ulps(&dsi_ctrl->hw);
 
 	if ((lanes & ulps_lanes) != lanes) {
 		pr_err("Failed to enter ULPS, request=0x%x, actual=0x%x\n",
@@ -1118,21 +1036,16 @@ static int dsi_disable_ulps(struct dsi_ctrl *dsi_ctrl)
 		lanes = dsi_ctrl->host_config.common_config.data_lanes;
 
 	lanes |= DSI_CLOCK_LANE;
-	ulps_lanes = dsi_ctrl->hw.ops.get_lanes_in_ulps(&dsi_ctrl->hw);
+	ulps_lanes = dsi_ctrl->hw.ops.ulps_ops.get_lanes_in_ulps(&dsi_ctrl->hw);
 
 	if ((lanes & ulps_lanes) != lanes)
 		pr_err("Mismatch between lanes in ULPS\n");
 
 	lanes &= ulps_lanes;
 
-	dsi_ctrl->hw.ops.ulps_exit(&dsi_ctrl->hw, lanes);
+	dsi_ctrl->hw.ops.ulps_ops.ulps_exit(&dsi_ctrl->hw, lanes);
 
-	/* 1 ms delay is recommended by specification */
-	udelay(1000);
-
-	dsi_ctrl->hw.ops.clear_ulps_request(&dsi_ctrl->hw, lanes);
-
-	ulps_lanes = dsi_ctrl->hw.ops.get_lanes_in_ulps(&dsi_ctrl->hw);
+	ulps_lanes = dsi_ctrl->hw.ops.ulps_ops.get_lanes_in_ulps(&dsi_ctrl->hw);
 	if (ulps_lanes & lanes) {
 		pr_err("Lanes (0x%x) stuck in ULPS\n", ulps_lanes);
 		rc = -EIO;
@@ -1148,15 +1061,9 @@ static int dsi_ctrl_drv_state_init(struct dsi_ctrl *dsi_ctrl)
 	struct dsi_ctrl_state_info *state = &dsi_ctrl->current_state;
 
 	if (!splash_enabled) {
-		state->power_state = DSI_CTRL_POWER_OFF;
+		state->power_state = DSI_CTRL_POWER_VREG_OFF;
 		state->cmd_engine_state = DSI_CTRL_ENGINE_OFF;
 		state->vid_engine_state = DSI_CTRL_ENGINE_OFF;
-		state->pwr_enabled = false;
-		state->core_clk_enabled = false;
-		state->link_clk_enabled = false;
-		state->ulps_enabled = false;
-		state->clamp_enabled = false;
-		state->clk_source_set = false;
 	}
 
 	return rc;
@@ -1218,9 +1125,9 @@ error:
 	return rc;
 }
 
-static int dsi_enable_io_clamp(struct dsi_ctrl *dsi_ctrl, bool enable)
+static int dsi_enable_io_clamp(struct dsi_ctrl *dsi_ctrl,
+		bool enable, bool ulps_enabled)
 {
-	bool en_ulps = dsi_ctrl->current_state.ulps_enabled;
 	u32 lanes = 0;
 
 	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE)
@@ -1229,9 +1136,11 @@ static int dsi_enable_io_clamp(struct dsi_ctrl *dsi_ctrl, bool enable)
 	lanes |= DSI_CLOCK_LANE;
 
 	if (enable)
-		dsi_ctrl->hw.ops.clamp_enable(&dsi_ctrl->hw, lanes, en_ulps);
+		dsi_ctrl->hw.ops.clamp_enable(&dsi_ctrl->hw,
+			lanes, ulps_enabled);
 	else
-		dsi_ctrl->hw.ops.clamp_disable(&dsi_ctrl->hw, lanes, en_ulps);
+		dsi_ctrl->hw.ops.clamp_disable(&dsi_ctrl->hw,
+			lanes, ulps_enabled);
 
 	return 0;
 }
@@ -1508,6 +1417,19 @@ int dsi_ctrl_drv_deinit(struct dsi_ctrl *dsi_ctrl)
 	return rc;
 }
 
+int dsi_ctrl_clk_cb_register(struct dsi_ctrl *dsi_ctrl,
+	struct clk_ctrl_cb *clk_cb)
+{
+	if (!dsi_ctrl || !clk_cb) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	dsi_ctrl->clk_cb.priv = clk_cb->priv;
+	dsi_ctrl->clk_cb.dsi_clk_cb = clk_cb->dsi_clk_cb;
+	return 0;
+}
+
 /**
  * dsi_ctrl_phy_sw_reset() - perform a PHY software reset
  * @dsi_ctrl:         DSI controller handle.
@@ -1586,6 +1508,63 @@ exit:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
 }
+
+/**
+ * dsi_ctrl_setup() - Setup DSI host hardware while coming out of idle screen.
+ * @dsi_ctrl:        DSI controller handle.
+ *
+ * Initializes DSI controller hardware with host configuration provided by
+ * dsi_ctrl_update_host_config(). Initialization can be performed only during
+ * DSI_CTRL_POWER_CORE_CLK_ON state and after the PHY SW reset has been
+ * performed.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+
+	dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
+					&dsi_ctrl->host_config.lane_map);
+
+	dsi_ctrl->hw.ops.host_setup(&dsi_ctrl->hw,
+				    &dsi_ctrl->host_config.common_config);
+
+	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE) {
+		dsi_ctrl->hw.ops.cmd_engine_setup(&dsi_ctrl->hw,
+					&dsi_ctrl->host_config.common_config,
+					&dsi_ctrl->host_config.u.cmd_engine);
+
+		dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
+				dsi_ctrl->host_config.video_timing.h_active,
+				dsi_ctrl->host_config.video_timing.h_active * 3,
+				dsi_ctrl->host_config.video_timing.v_active,
+				0x0);
+		dsi_ctrl->hw.ops.cmd_engine_en(&dsi_ctrl->hw, true);
+	} else {
+		dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,
+					&dsi_ctrl->host_config.common_config,
+					&dsi_ctrl->host_config.u.video_engine);
+		dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw,
+					  &dsi_ctrl->host_config.video_timing);
+		dsi_ctrl->hw.ops.video_engine_en(&dsi_ctrl->hw, true);
+	}
+
+	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
+	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0x0);
+	dsi_ctrl->hw.ops.ctrl_en(&dsi_ctrl->hw, true);
+
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+	return rc;
+}
+
 
 /**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
@@ -1702,7 +1681,7 @@ error:
  */
 int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
 				struct dsi_host_config *config,
-				int flags)
+				int flags, void *clk_handle)
 {
 	int rc = 0;
 
@@ -1720,7 +1699,7 @@ int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
 	}
 
 	if (!(flags & DSI_MODE_FLAG_SEAMLESS)) {
-		rc = dsi_ctrl_update_link_freqs(ctrl, config);
+		rc = dsi_ctrl_update_link_freqs(ctrl, config, clk_handle);
 		if (rc) {
 			pr_err("[%s] failed to update link frequencies, rc=%d\n",
 			       ctrl->name, rc);
@@ -1795,12 +1774,6 @@ int dsi_ctrl_cmd_transfer(struct dsi_ctrl *dsi_ctrl,
 		goto error;
 	}
 
-	rc = dsi_ctrl_vote_for_bandwidth(dsi_ctrl, true);
-	if (rc) {
-		pr_err("bandwidth request failed, rc=%d\n", rc);
-		goto error;
-	}
-
 	if (flags & DSI_CTRL_CMD_READ) {
 		rc = dsi_message_rx(dsi_ctrl, msg, flags);
 		if (rc)
@@ -1813,7 +1786,6 @@ int dsi_ctrl_cmd_transfer(struct dsi_ctrl *dsi_ctrl,
 
 	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_CMD_TX, 0x0);
 
-	(void)dsi_ctrl_vote_for_bandwidth(dsi_ctrl, false);
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
@@ -1880,10 +1852,6 @@ int dsi_ctrl_set_power_state(struct dsi_ctrl *dsi_ctrl,
 			     enum dsi_power_state state)
 {
 	int rc = 0;
-	bool core_clk_enable = false;
-	bool link_clk_enable = false;
-	bool reg_enable = false;
-	struct dsi_ctrl_state_info *drv_state;
 
 	if (!dsi_ctrl || (state >= DSI_CTRL_POWER_MAX)) {
 		pr_err("Invalid Params\n");
@@ -1900,57 +1868,14 @@ int dsi_ctrl_set_power_state(struct dsi_ctrl *dsi_ctrl,
 		goto error;
 	}
 
-	if (state == DSI_CTRL_POWER_LINK_CLK_ON)
-		reg_enable = core_clk_enable = link_clk_enable = true;
-	else if (state == DSI_CTRL_POWER_CORE_CLK_ON)
-		reg_enable = core_clk_enable = true;
-	else if (state == DSI_CTRL_POWER_VREG_ON)
-		reg_enable = true;
-
-	drv_state = &dsi_ctrl->current_state;
-
-	if ((reg_enable) && (reg_enable != drv_state->pwr_enabled)) {
+	if (state == DSI_CTRL_POWER_VREG_ON) {
 		rc = dsi_ctrl_enable_supplies(dsi_ctrl, true);
 		if (rc) {
 			pr_err("[%d]failed to enable voltage supplies, rc=%d\n",
 			       dsi_ctrl->index, rc);
 			goto error;
 		}
-	}
-
-	if ((core_clk_enable) &&
-	    (core_clk_enable != drv_state->core_clk_enabled)) {
-		rc = dsi_clk_enable_core_clks(&dsi_ctrl->clk_info.core_clks,
-					      true);
-		if (rc) {
-			pr_err("[%d] failed to enable core clocks, rc=%d\n",
-			       dsi_ctrl->index, rc);
-			goto error;
-		}
-	}
-
-	if (link_clk_enable != drv_state->link_clk_enabled) {
-		rc = dsi_clk_enable_link_clks(&dsi_ctrl->clk_info.link_clks,
-					      link_clk_enable);
-		if (rc) {
-			pr_err("[%d] failed to enable link clocks, rc=%d\n",
-			       dsi_ctrl->index, rc);
-			goto error;
-		}
-	}
-
-	if ((!core_clk_enable) &&
-	    (core_clk_enable != drv_state->core_clk_enabled)) {
-		rc = dsi_clk_enable_core_clks(&dsi_ctrl->clk_info.core_clks,
-					      false);
-		if (rc) {
-			pr_err("[%d] failed to disable core clocks, rc=%d\n",
-			       dsi_ctrl->index, rc);
-			goto error;
-		}
-	}
-
-	if ((!reg_enable) && (reg_enable != drv_state->pwr_enabled)) {
+	} else if (state == DSI_CTRL_POWER_VREG_OFF) {
 		rc = dsi_ctrl_enable_supplies(dsi_ctrl, false);
 		if (rc) {
 			pr_err("[%d]failed to disable vreg supplies, rc=%d\n",
@@ -2147,14 +2072,14 @@ error:
 }
 
 /**
- * dsi_ctrl_set_ulps() - set ULPS state for DSI lanes.
- * @dsi_ctrl:         DSI controller handle.
- * @enable:           enable/disable ULPS.
- *
- * ULPS can be enabled/disabled after DSI host engine is turned on.
- *
- * Return: error code.
- */
+  * dsi_ctrl_set_ulps() - set ULPS state for DSI lanes.
+  * @dsi_ctrl:		DSI controller handle.
+  * @enable:		enable/disable ULPS.
+  *
+  * ULPS can be enabled/disabled after DSI host engine is turned on.
+  *
+  * Return: error code.
+  */
 int dsi_ctrl_set_ulps(struct dsi_ctrl *dsi_ctrl, bool enable)
 {
 	int rc = 0;
@@ -2164,14 +2089,13 @@ int dsi_ctrl_set_ulps(struct dsi_ctrl *dsi_ctrl, bool enable)
 		return -EINVAL;
 	}
 
-	mutex_lock(&dsi_ctrl->ctrl_lock);
-
-	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_ULPS_TOGGLE, enable);
-	if (rc) {
-		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
-		       dsi_ctrl->index, rc);
-		goto error;
+	if (!dsi_ctrl->hw.ops.ulps_ops.ulps_request ||
+			!dsi_ctrl->hw.ops.ulps_ops.ulps_exit) {
+		pr_debug("DSI controller ULPS ops not present\n");
+		return 0;
 	}
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
 
 	if (enable)
 		rc = dsi_enable_ulps(dsi_ctrl);
@@ -2180,12 +2104,11 @@ int dsi_ctrl_set_ulps(struct dsi_ctrl *dsi_ctrl, bool enable)
 
 	if (rc) {
 		pr_err("[DSI_%d] Ulps state change(%d) failed, rc=%d\n",
-		       dsi_ctrl->index, enable, rc);
+			dsi_ctrl->index, enable, rc);
 		goto error;
 	}
-
 	pr_debug("[DSI_%d] ULPS state = %d\n", dsi_ctrl->index, enable);
-	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_ULPS_TOGGLE, enable);
+
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
@@ -2200,7 +2123,8 @@ error:
  *
  * Return: error code.
  */
-int dsi_ctrl_set_clamp_state(struct dsi_ctrl *dsi_ctrl, bool enable)
+int dsi_ctrl_set_clamp_state(struct dsi_ctrl *dsi_ctrl,
+		bool enable, bool ulps_enabled)
 {
 	int rc = 0;
 
@@ -2211,21 +2135,13 @@ int dsi_ctrl_set_clamp_state(struct dsi_ctrl *dsi_ctrl, bool enable)
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
 
-	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_CLAMP_TOGGLE, enable);
-	if (rc) {
-		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
-		       dsi_ctrl->index, rc);
-		goto error;
-	}
-
-	rc = dsi_enable_io_clamp(dsi_ctrl, enable);
+	rc = dsi_enable_io_clamp(dsi_ctrl, enable, ulps_enabled);
 	if (rc) {
 		pr_err("[DSI_%d] Failed to enable IO clamp\n", dsi_ctrl->index);
 		goto error;
 	}
 
 	pr_debug("[DSI_%d] Clamp state = %d\n", dsi_ctrl->index, enable);
-	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_CLAMP_TOGGLE, enable);
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
@@ -2244,7 +2160,6 @@ int dsi_ctrl_set_clock_source(struct dsi_ctrl *dsi_ctrl,
 			      struct dsi_clk_link_set *source_clks)
 {
 	int rc = 0;
-	u32 op_state = 0;
 
 	if (!dsi_ctrl || !source_clks) {
 		pr_err("Invalid params\n");
@@ -2252,17 +2167,6 @@ int dsi_ctrl_set_clock_source(struct dsi_ctrl *dsi_ctrl,
 	}
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
-
-	if (source_clks->pixel_clk && source_clks->byte_clk)
-		op_state = 1;
-
-	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_SET_CLK_SOURCE,
-				 op_state);
-	if (rc) {
-		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
-		       dsi_ctrl->index, rc);
-		goto error;
-	}
 
 	rc = dsi_clk_update_parent(source_clks, &dsi_ctrl->clk_info.rcg_clks);
 	if (rc) {
@@ -2277,8 +2181,6 @@ int dsi_ctrl_set_clock_source(struct dsi_ctrl *dsi_ctrl,
 	dsi_ctrl->clk_info.pll_op_clks.pixel_clk = source_clks->pixel_clk;
 
 	pr_debug("[DSI_%d] Source clocks are updated\n", dsi_ctrl->index);
-
-	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_SET_CLK_SOURCE, op_state);
 
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);

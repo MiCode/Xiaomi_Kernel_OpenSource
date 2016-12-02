@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -240,6 +240,44 @@ void dsi_phy_hw_v4_0_disable(struct dsi_phy_hw *phy)
 	DSI_W32(phy, DSIPHY_CMN_GLBL_TEST_CTRL, 0);
 	DSI_W32(phy, DSIPHY_CMN_CTRL_0, 0);
 	pr_debug("[DSI_%d]Phy disabled ", phy->index);
+}
+
+/**
+ * dsi_phy_hw_v4_0_idle_on() - Enable DSI PHY hardware during idle screen
+ * @phy:      Pointer to DSI PHY hardware object.
+ */
+void dsi_phy_hw_v4_0_idle_on(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg)
+{
+	int i = 0;
+
+	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++) {
+		DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL_0(i),
+			cfg->strength.lane[i][0]);
+		DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL_1(i),
+			cfg->strength.lane[i][1]);
+	}
+	wmb(); /* make sure write happens */
+	pr_debug("[DSI_%d]Phy enabled out of idle screen\n", phy->index);
+}
+
+
+/**
+ * dsi_phy_hw_v4_0_idle_off() - Disable DSI PHY hardware during idle screen
+ * @phy:      Pointer to DSI PHY hardware object.
+ */
+void dsi_phy_hw_v4_0_idle_off(struct dsi_phy_hw *phy)
+{
+	int i = 0;
+
+	DSI_W32(phy, DSIPHY_CMN_CTRL_0, 0x7f);
+	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++)
+		DSI_W32(phy, DSIPHY_DLNX_VREG_CNTRL(i), 0x1c);
+	DSI_W32(phy, DSIPHY_CMN_LDO_CNTRL, 0x1C);
+
+	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++)
+		DSI_W32(phy, DSIPHY_DLNX_STRENGTH_CTRL_1(i), 0x0);
+	wmb(); /* make sure write happens */
+	pr_debug("[DSI_%d]Phy disabled during idle screen\n", phy->index);
 }
 
 static const u32 bits_per_pixel[DSI_PIXEL_FORMAT_MAX] = {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -127,6 +127,20 @@ struct dsi_phy_hw_ops {
 	 * @phy:      Pointer to DSI PHY hardware object.
 	 */
 	void (*disable)(struct dsi_phy_hw *phy);
+
+	/**
+	 * phy_idle_on() - Enable PHY hardware when entering idle screen
+	 * @phy:      Pointer to DSI PHY hardware object.
+	 * @cfg:      Per lane configurations for timing, strength and lane
+	 *	      configurations.
+	 */
+	void (*phy_idle_on)(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
+
+	/**
+	 * phy_idle_off() - Disable PHY hardware when exiting idle screen
+	 * @phy:      Pointer to DSI PHY hardware object.
+	 */
+	void (*phy_idle_off)(struct dsi_phy_hw *phy);
 
 	/**
 	 * calculate_timing_params() - calculates timing parameters.

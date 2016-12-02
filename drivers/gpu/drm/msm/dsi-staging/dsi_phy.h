@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,8 @@
 #define _DSI_PHY_H_
 
 #include "dsi_defs.h"
-#include "dsi_clk_pwr.h"
+#include "dsi_clk.h"
+#include "dsi_pwr.h"
 #include "dsi_phy_hw.h"
 
 struct dsi_ver_spec_info {
@@ -24,14 +25,6 @@ struct dsi_ver_spec_info {
 	u32 strength_cfg_count;
 	u32 regulator_cfg_count;
 	u32 timing_cfg_count;
-};
-
-/**
- * struct dsi_phy_clk_info - clock information for DSI controller
- * @core_clks:         Core clocks needed to access PHY registers.
- */
-struct dsi_phy_clk_info {
-	struct dsi_core_clk_info core_clks;
 };
 
 /**
@@ -45,6 +38,19 @@ struct dsi_phy_power_info {
 };
 
 /**
+ * enum phy_engine_state - define engine status for dsi phy.
+ * @DSI_PHY_ENGINE_OFF:  Engine is turned off.
+ * @DSI_PHY_ENGINE_ON:   Engine is turned on.
+ * @DSI_PHY_ENGINE_MAX:  Maximum value.
+ */
+enum phy_engine_state {
+	DSI_PHY_ENGINE_OFF = 0,
+	DSI_PHY_ENGINE_ON,
+	DSI_PHY_ENGINE_MAX,
+};
+
+
+/**
  * struct msm_dsi_phy - DSI PHY object
  * @pdev:              Pointer to platform device.
  * @index:             Instance id.
@@ -53,8 +59,11 @@ struct dsi_phy_power_info {
  * @phy_lock:          Mutex for hardware and object access.
  * @ver_info:          Version specific phy parameters.
  * @hw:                DSI PHY hardware object.
+ * @pwr_info:          Power information.
  * @cfg:               DSI phy configuration.
+ * @clk_cb:	       structure containing call backs for clock control
  * @power_state:       True if PHY is powered on.
+ * @dsi_phy_state:     PHY state information.
  * @mode:              Current mode.
  * @data_lanes:        Number of data lanes used.
  * @dst_format:        Destination format.
@@ -70,11 +79,12 @@ struct msm_dsi_phy {
 	const struct dsi_ver_spec_info *ver_info;
 	struct dsi_phy_hw hw;
 
-	struct dsi_phy_clk_info clks;
 	struct dsi_phy_power_info pwr_info;
 
 	struct dsi_phy_cfg cfg;
+	struct clk_ctrl_cb clk_cb;
 
+	enum phy_engine_state dsi_phy_state;
 	bool power_state;
 	struct dsi_mode_info mode;
 	enum dsi_data_lanes data_lanes;
@@ -168,6 +178,25 @@ int dsi_phy_enable(struct msm_dsi_phy *dsi_phy,
  * Return: error code.
  */
 int dsi_phy_disable(struct msm_dsi_phy *phy);
+
+/**
+ * dsi_phy_clk_cb_register() - Register PHY clock control callback
+ * @phy:          DSI PHY handle
+ * @clk_cb:	  Structure containing call back for clock control
+ *
+ * Return: error code.
+ */
+int dsi_phy_clk_cb_register(struct msm_dsi_phy *phy,
+	struct clk_ctrl_cb *clk_cb);
+
+/**
+ * dsi_phy_idle_ctrl() - enable/disable DSI PHY during idle screen
+ * @phy:          DSI PHY handle
+ * @enable:       boolean to specify PHY enable/disable.
+ *
+ * Return: error code.
+ */
+int dsi_phy_idle_ctrl(struct msm_dsi_phy *phy, bool enable);
 
 /**
  * dsi_phy_set_timing_params() - timing parameters for the panel

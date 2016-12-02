@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,6 +57,8 @@ int dsi_phy_hw_v4_0_calculate_timing_params(struct dsi_phy_hw *phy,
 					    struct dsi_host_common_cfg *cfg,
 					   struct dsi_phy_per_lane_cfgs
 					   *timing);
+void dsi_phy_hw_v4_0_idle_on(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
+void dsi_phy_hw_v4_0_idle_off(struct dsi_phy_hw *phy);
 
 /* Definitions for 1.4 controller hardware driver */
 void dsi_ctrl_hw_14_host_setup(struct dsi_ctrl_hw *ctrl,
@@ -94,10 +96,9 @@ void dsi_ctrl_hw_14_kickoff_fifo_command(struct dsi_ctrl_hw *ctrl,
 			     u32 flags);
 void dsi_ctrl_hw_14_reset_cmd_fifo(struct dsi_ctrl_hw *ctrl);
 void dsi_ctrl_hw_14_trigger_command_dma(struct dsi_ctrl_hw *ctrl);
-
+int dsi_ctrl_hw_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl, u32 lanes);
 void dsi_ctrl_hw_14_ulps_request(struct dsi_ctrl_hw *ctrl, u32 lanes);
 void dsi_ctrl_hw_14_ulps_exit(struct dsi_ctrl_hw *ctrl, u32 lanes);
-void dsi_ctrl_hw_14_clear_ulps_request(struct dsi_ctrl_hw *ctrl, u32 lanes);
 u32 dsi_ctrl_hw_14_get_lanes_in_ulps(struct dsi_ctrl_hw *ctrl);
 
 void dsi_ctrl_hw_14_clamp_enable(struct dsi_ctrl_hw *ctrl,

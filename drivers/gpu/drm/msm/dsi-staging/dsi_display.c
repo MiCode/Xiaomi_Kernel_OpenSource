@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,8 @@
 #include "dsi_ctrl.h"
 #include "dsi_ctrl_hw.h"
 #include "dsi_drm.h"
+#include "dsi_clk.h"
+#include "dsi_pwr.h"
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 
@@ -164,6 +166,273 @@ static void adjust_timing_by_ctrl_count(const struct dsi_display *display,
 	}
 }
 
+static int dsi_display_is_ulps_req_valid(struct dsi_display *display,
+		bool enable)
+{
+	/* TODO: make checks based on cont. splash */
+	int splash_enabled = false;
+
+	pr_debug("checking ulps req validity\n");
+
+	if (!dsi_panel_ulps_feature_enabled(display->panel))
+		return false;
+
+	/* TODO: ULPS during suspend */
+	if (!dsi_panel_initialized(display->panel))
+		return false;
+
+	if (enable && display->ulps_enabled) {
+		pr_debug("ULPS already enabled\n");
+		return false;
+	} else if (!enable && !display->ulps_enabled) {
+		pr_debug("ULPS already disabled\n");
+		return false;
+	}
+
+	/*
+	 * No need to enter ULPS when transitioning from splash screen to
+	 * boot animation since it is expected that the clocks would be turned
+	 * right back on.
+	 */
+	if (enable && splash_enabled)
+		return false;
+
+	return true;
+}
+
+
+/**
+ * dsi_display_set_ulps() - set ULPS state for DSI lanes.
+ * @dsi_display:         DSI display handle.
+ * @enable:           enable/disable ULPS.
+ *
+ * ULPS can be enabled/disabled after DSI host engine is turned on.
+ *
+ * Return: error code.
+ */
+static int dsi_display_set_ulps(struct dsi_display *display, bool enable)
+{
+	int rc = 0;
+	int i = 0;
+	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+
+	if (!display) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (!dsi_display_is_ulps_req_valid(display, enable)) {
+		pr_debug("%s: skipping ULPS config, enable=%d\n",
+			__func__, enable);
+		return 0;
+	}
+
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+
+	rc = dsi_ctrl_set_ulps(m_ctrl->ctrl, enable);
+	if (rc) {
+		pr_err("Ulps controller state change(%d) failed\n", enable);
+		return rc;
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl || (ctrl == m_ctrl))
+			continue;
+
+		rc = dsi_ctrl_set_ulps(ctrl->ctrl, enable);
+		if (rc) {
+			pr_err("Ulps controller state change(%d) failed\n",
+				enable);
+			return rc;
+		}
+	}
+	display->ulps_enabled = enable;
+	return 0;
+}
+
+/**
+ * dsi_display_set_clamp() - set clamp state for DSI IO.
+ * @dsi_display:         DSI display handle.
+ * @enable:           enable/disable clamping.
+ *
+ * Return: error code.
+ */
+static int dsi_display_set_clamp(struct dsi_display *display, bool enable)
+{
+	int rc = 0;
+	int i = 0;
+	struct dsi_display_ctrl *m_ctrl, *ctrl;
+	bool ulps_enabled = false;
+
+
+	if (!display) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	ulps_enabled = display->ulps_enabled;
+
+	rc = dsi_ctrl_set_clamp_state(m_ctrl->ctrl, enable, ulps_enabled);
+	if (rc) {
+		pr_err("DSI Clamp state change(%d) failed\n", enable);
+		return rc;
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl || (ctrl == m_ctrl))
+			continue;
+
+		rc = dsi_ctrl_set_clamp_state(ctrl->ctrl, enable, ulps_enabled);
+		if (rc) {
+			pr_err("DSI Clamp state change(%d) failed\n", enable);
+			return rc;
+		}
+	}
+	display->clamp_enabled = enable;
+	return 0;
+}
+
+/**
+ * dsi_display_setup_ctrl() - setup DSI controller.
+ * @dsi_display:         DSI display handle.
+ *
+ * Return: error code.
+ */
+static int dsi_display_ctrl_setup(struct dsi_display *display)
+{
+	int rc = 0;
+	int i = 0;
+	struct dsi_display_ctrl *ctrl, *m_ctrl;
+
+
+	if (!display) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	rc = dsi_ctrl_setup(m_ctrl->ctrl);
+	if (rc) {
+		pr_err("DSI controller setup failed\n");
+		return rc;
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl || (ctrl == m_ctrl))
+			continue;
+
+		rc = dsi_ctrl_setup(ctrl->ctrl);
+		if (rc) {
+			pr_err("DSI controller setup failed\n");
+			return rc;
+		}
+	}
+	return 0;
+}
+
+static int dsi_display_phy_enable(struct dsi_display *display);
+
+/**
+ * dsi_display_phy_idle_on() - enable DSI PHY while coming out of idle screen.
+ * @dsi_display:         DSI display handle.
+ * @enable:           enable/disable DSI PHY.
+ *
+ * Return: error code.
+ */
+static int dsi_display_phy_idle_on(struct dsi_display *display,
+		bool mmss_clamp)
+{
+	int rc = 0;
+	int i = 0;
+	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+
+	if (!display) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (mmss_clamp && !display->phy_idle_power_off) {
+		dsi_display_phy_enable(display);
+		return 0;
+	}
+
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	rc = dsi_phy_idle_ctrl(m_ctrl->phy, true);
+	if (rc) {
+		pr_err("DSI controller setup failed\n");
+		return rc;
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl || (ctrl == m_ctrl))
+			continue;
+
+		rc = dsi_phy_idle_ctrl(ctrl->phy, true);
+		if (rc) {
+			pr_err("DSI controller setup failed\n");
+			return rc;
+		}
+	}
+	display->phy_idle_power_off = false;
+	return 0;
+}
+
+/**
+ * dsi_display_phy_idle_off() - disable DSI PHY while going to idle screen.
+ * @dsi_display:         DSI display handle.
+ * @enable:           enable/disable DSI PHY.
+ *
+ * Return: error code.
+ */
+static int dsi_display_phy_idle_off(struct dsi_display *display)
+{
+	int rc = 0;
+	int i = 0;
+	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	if (!display) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (!display->panel->allow_phy_power_off) {
+		pr_debug("panel doesn't support this feature\n");
+		return 0;
+	}
+
+	m_ctrl = &display->ctrl[display->cmd_master_idx];
+
+	rc = dsi_phy_idle_ctrl(m_ctrl->phy, false);
+	if (rc) {
+		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
+		       display->name, rc);
+		return rc;
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl || (ctrl == m_ctrl))
+			continue;
+
+		rc = dsi_phy_idle_ctrl(ctrl->phy, false);
+		if (rc) {
+			pr_err("DSI controller setup failed\n");
+			return rc;
+		}
+	}
+	display->phy_idle_power_off = true;
+	return 0;
+}
+
+
+
 static int dsi_display_ctrl_power_on(struct dsi_display *display)
 {
 	int rc = 0;
@@ -171,7 +440,6 @@ static int dsi_display_ctrl_power_on(struct dsi_display *display)
 	struct dsi_display_ctrl *ctrl;
 
 	/* Sequence does not matter for split dsi usecases */
-
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl)
@@ -192,7 +460,8 @@ error:
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl)
 			continue;
-		(void)dsi_ctrl_set_power_state(ctrl->ctrl, DSI_CTRL_POWER_OFF);
+		(void)dsi_ctrl_set_power_state(ctrl->ctrl,
+			DSI_CTRL_POWER_VREG_OFF);
 	}
 	return rc;
 }
@@ -204,13 +473,13 @@ static int dsi_display_ctrl_power_off(struct dsi_display *display)
 	struct dsi_display_ctrl *ctrl;
 
 	/* Sequence does not matter for split dsi usecases */
-
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl)
 			continue;
 
-		rc = dsi_ctrl_set_power_state(ctrl->ctrl, DSI_CTRL_POWER_OFF);
+		rc = dsi_ctrl_set_power_state(ctrl->ctrl,
+			DSI_CTRL_POWER_VREG_OFF);
 		if (rc) {
 			pr_err("[%s] Failed to power off, rc=%d\n",
 			       ctrl->ctrl->name, rc);
@@ -228,7 +497,6 @@ static int dsi_display_phy_power_on(struct dsi_display *display)
 	struct dsi_display_ctrl *ctrl;
 
 	/* Sequence does not matter for split dsi usecases */
-
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl)
@@ -260,7 +528,6 @@ static int dsi_display_phy_power_off(struct dsi_display *display)
 	struct dsi_display_ctrl *ctrl;
 
 	/* Sequence does not matter for split dsi usecases */
-
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->phy)
@@ -277,7 +544,7 @@ error:
 	return rc;
 }
 
-static int dsi_display_ctrl_core_clk_on(struct dsi_display *display)
+static int dsi_display_set_clk_src(struct dsi_display *display)
 {
 	int rc = 0;
 	int i;
@@ -288,64 +555,14 @@ static int dsi_display_ctrl_core_clk_on(struct dsi_display *display)
 	 * be enabled before the other controller. Master controller in the
 	 * clock context refers to the controller that sources the clock.
 	 */
-
-	m_ctrl = &display->ctrl[display->clk_master_idx];
-
-	rc = dsi_ctrl_set_power_state(m_ctrl->ctrl, DSI_CTRL_POWER_CORE_CLK_ON);
-	if (rc) {
-		pr_err("[%s] failed to turn on clocks, rc=%d\n",
-		       display->name, rc);
-		goto error;
-	}
-
-	/* Turn on rest of the controllers */
-	for (i = 0; i < display->ctrl_count; i++) {
-		ctrl = &display->ctrl[i];
-		if (!ctrl->ctrl || (ctrl == m_ctrl))
-			continue;
-
-		rc = dsi_ctrl_set_power_state(ctrl->ctrl,
-					      DSI_CTRL_POWER_CORE_CLK_ON);
-		if (rc) {
-			pr_err("[%s] failed to turn on clock, rc=%d\n",
-			       display->name, rc);
-			goto error_disable_master;
-		}
-	}
-	return rc;
-error_disable_master:
-	(void)dsi_ctrl_set_power_state(m_ctrl->ctrl, DSI_CTRL_POWER_VREG_ON);
-error:
-	return rc;
-}
-
-static int dsi_display_ctrl_link_clk_on(struct dsi_display *display)
-{
-	int rc = 0;
-	int i;
-	struct dsi_display_ctrl *m_ctrl, *ctrl;
-
-	/*
-	 * In case of split DSI usecases, the clock for master controller should
-	 * be enabled before the other controller. Master controller in the
-	 * clock context refers to the controller that sources the clock.
-	 */
-
 	m_ctrl = &display->ctrl[display->clk_master_idx];
 
 	rc = dsi_ctrl_set_clock_source(m_ctrl->ctrl,
-				       &display->clock_info.src_clks);
+		   &display->clock_info.src_clks);
 	if (rc) {
 		pr_err("[%s] failed to set source clocks for master, rc=%d\n",
-		       display->name, rc);
-		goto error;
-	}
-
-	rc = dsi_ctrl_set_power_state(m_ctrl->ctrl, DSI_CTRL_POWER_LINK_CLK_ON);
-	if (rc) {
-		pr_err("[%s] failed to turn on clocks, rc=%d\n",
-		       display->name, rc);
-		goto error;
+			   display->name, rc);
+		return rc;
 	}
 
 	/* Turn on rest of the controllers */
@@ -355,97 +572,14 @@ static int dsi_display_ctrl_link_clk_on(struct dsi_display *display)
 			continue;
 
 		rc = dsi_ctrl_set_clock_source(ctrl->ctrl,
-					       &display->clock_info.src_clks);
+			   &display->clock_info.src_clks);
 		if (rc) {
 			pr_err("[%s] failed to set source clocks, rc=%d\n",
-			       display->name, rc);
-			goto error_disable_master;
-		}
-
-		rc = dsi_ctrl_set_power_state(ctrl->ctrl,
-					      DSI_CTRL_POWER_LINK_CLK_ON);
-		if (rc) {
-			pr_err("[%s] failed to turn on clock, rc=%d\n",
-			       display->name, rc);
-			goto error_disable_master;
+				   display->name, rc);
+			return rc;
 		}
 	}
-	return rc;
-error_disable_master:
-	(void)dsi_ctrl_set_power_state(m_ctrl->ctrl,
-				       DSI_CTRL_POWER_CORE_CLK_ON);
-error:
-	return rc;
-}
-
-static int dsi_display_ctrl_core_clk_off(struct dsi_display *display)
-{
-	int rc = 0;
-	int i;
-	struct dsi_display_ctrl *m_ctrl, *ctrl;
-
-	/*
-	 * In case of split DSI usecases, clock for slave DSI controllers should
-	 * be disabled first before disabling clock for master controller. Slave
-	 * controllers in the clock context refer to controller which source
-	 * clock from another controller.
-	 */
-
-	m_ctrl = &display->ctrl[display->clk_master_idx];
-
-	for (i = 0; i < display->ctrl_count; i++) {
-		ctrl = &display->ctrl[i];
-		if (!ctrl->ctrl || (ctrl == m_ctrl))
-			continue;
-
-		rc = dsi_ctrl_set_power_state(ctrl->ctrl,
-					      DSI_CTRL_POWER_VREG_ON);
-		if (rc) {
-			pr_err("[%s] failed to turn off clock, rc=%d\n",
-			       display->name, rc);
-		}
-	}
-
-	rc = dsi_ctrl_set_power_state(m_ctrl->ctrl, DSI_CTRL_POWER_VREG_ON);
-	if (rc)
-		pr_err("[%s] failed to turn off clocks, rc=%d\n",
-		       display->name, rc);
-
-	return rc;
-}
-
-static int dsi_display_ctrl_link_clk_off(struct dsi_display *display)
-{
-	int rc = 0;
-	int i;
-	struct dsi_display_ctrl *m_ctrl, *ctrl;
-
-	/*
-	 * In case of split DSI usecases, clock for slave DSI controllers should
-	 * be disabled first before disabling clock for master controller. Slave
-	 * controllers in the clock context refer to controller which source
-	 * clock from another controller.
-	 */
-
-	m_ctrl = &display->ctrl[display->clk_master_idx];
-
-	for (i = 0; i < display->ctrl_count; i++) {
-		ctrl = &display->ctrl[i];
-		if (!ctrl->ctrl || (ctrl == m_ctrl))
-			continue;
-
-		rc = dsi_ctrl_set_power_state(ctrl->ctrl,
-					      DSI_CTRL_POWER_CORE_CLK_ON);
-		if (rc) {
-			pr_err("[%s] failed to turn off clock, rc=%d\n",
-			       display->name, rc);
-		}
-	}
-	rc = dsi_ctrl_set_power_state(m_ctrl->ctrl, DSI_CTRL_POWER_CORE_CLK_ON);
-	if (rc)
-		pr_err("[%s] failed to turn off clocks, rc=%d\n",
-		       display->name, rc);
-	return rc;
+	return 0;
 }
 
 static int dsi_display_ctrl_init(struct dsi_display *display)
@@ -893,18 +1027,26 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 		return 0;
 	}
 
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable all DSI clocks, rc=%d\n",
+		       display->name, rc);
+		goto error;
+	}
+
 	rc = dsi_display_wake_up(display);
 	if (rc) {
 		pr_err("[%s] failed to wake up display, rc=%d\n",
 		       display->name, rc);
-		goto error;
+		goto error_disable_clks;
 	}
 
 	rc = dsi_display_cmd_engine_enable(display);
 	if (rc) {
 		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
 		       display->name, rc);
-		goto error;
+		goto error_disable_clks;
 	}
 
 	if (display->ctrl_count > 1) {
@@ -925,6 +1067,13 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 	}
 error_disable_cmd_engine:
 	(void)dsi_display_cmd_engine_disable(display);
+error_disable_clks:
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_OFF);
+	if (rc) {
+		pr_err("[%s] failed to enable all DSI clocks, rc=%d\n",
+		       display->name, rc);
+	}
 error:
 	return rc;
 }
@@ -1093,6 +1242,231 @@ error:
 	(void)dsi_display_clocks_deinit(display);
 	return rc;
 }
+
+static int dsi_display_clk_ctrl_cb(void *priv,
+	struct dsi_clk_ctrl_info clk_state_info)
+{
+	int rc = 0;
+	struct dsi_display *display = NULL;
+	void *clk_handle = NULL;
+
+	if (!priv) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	display = priv;
+
+	if (clk_state_info.client == DSI_CLK_REQ_MDP_CLIENT) {
+		clk_handle = display->mdp_clk_handle;
+	} else if (clk_state_info.client == DSI_CLK_REQ_DSI_CLIENT) {
+		clk_handle = display->dsi_clk_handle;
+	} else {
+		pr_err("invalid clk handle, return error\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * TODO: Wait for CMD_MDP_DONE interrupt if MDP client tries
+	 * to turn off DSI clocks.
+	 */
+	rc = dsi_display_clk_ctrl(clk_handle,
+		clk_state_info.clk_type, clk_state_info.clk_state);
+	if (rc) {
+		pr_err("[%s] failed to %d DSI %d clocks, rc=%d\n",
+		       display->name, clk_state_info.clk_state,
+		       clk_state_info.clk_type, rc);
+		return rc;
+	}
+	return 0;
+}
+
+int dsi_pre_clkoff_cb(void *priv,
+			   enum dsi_clk_type clk,
+			   enum dsi_clk_state new_state)
+{
+	int rc = 0;
+	struct dsi_display *display = priv;
+
+	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF)) {
+		/*
+		 * If ULPS feature is enabled, enter ULPS first.
+		 */
+		if (dsi_panel_initialized(display->panel) &&
+			dsi_panel_ulps_feature_enabled(display->panel)) {
+			rc = dsi_display_set_ulps(display, true);
+			if (rc) {
+				pr_err("%s: failed enable ulps, rc = %d\n",
+			       __func__, rc);
+			}
+		}
+	}
+
+	if ((clk & DSI_CORE_CLK) && (new_state == DSI_CLK_OFF)) {
+		/*
+		 * Enable DSI clamps only if entering idle power collapse.
+		 */
+		if (dsi_panel_initialized(display->panel) &&
+			dsi_panel_ulps_feature_enabled(display->panel)) {
+			dsi_display_phy_idle_off(display);
+			rc = dsi_display_set_clamp(display, true);
+			if (rc)
+				pr_err("%s: Failed to enable dsi clamps. rc=%d\n",
+					__func__, rc);
+		} else {
+			/* Make sure that controller is not in ULPS state when
+			 * the DSI link is not active.
+			 */
+			rc = dsi_display_set_ulps(display, false);
+			if (rc)
+				pr_err("%s: failed to disable ulps. rc=%d\n",
+					__func__, rc);
+		}
+	}
+
+	return rc;
+}
+
+int dsi_post_clkon_cb(void *priv,
+			   enum dsi_clk_type clk,
+			   enum dsi_clk_state curr_state)
+{
+	int rc = 0;
+	struct dsi_display *display = priv;
+	bool mmss_clamp = false;
+
+	if (clk & DSI_CORE_CLK) {
+		mmss_clamp = display->clamp_enabled;
+		/*
+		 * controller setup is needed if coming out of idle
+		 * power collapse with clamps enabled.
+		 */
+		if (mmss_clamp)
+			dsi_display_ctrl_setup(display);
+
+		if (display->ulps_enabled) {
+			/*
+			 * ULPS Entry Request. This is needed if the lanes were
+			 * in ULPS prior to power collapse, since after
+			 * power collapse and reset, the DSI controller resets
+			 * back to idle state and not ULPS. This ulps entry
+			 * request will transition the state of the DSI
+			 * controller to ULPS which will match the state of the
+			 * DSI phy. This needs to be done prior to disabling
+			 * the DSI clamps.
+			 *
+			 * Also, reset the ulps flag so that ulps_config
+			 * function would reconfigure the controller state to
+			 * ULPS.
+			 */
+			display->ulps_enabled = false;
+			rc = dsi_display_set_ulps(display, true);
+			if (rc) {
+				pr_err("%s: Failed to enter ULPS. rc=%d\n",
+					__func__, rc);
+				goto error;
+			}
+		}
+
+		rc = dsi_display_set_clamp(display, false);
+		if (rc) {
+			pr_err("%s: Failed to disable dsi clamps. rc=%d\n",
+				__func__, rc);
+			goto error;
+		}
+
+		/*
+		 * Phy setup is needed if coming out of idle
+		 * power collapse with clamps enabled.
+		 */
+		if (display->phy_idle_power_off || mmss_clamp)
+			dsi_display_phy_idle_on(display, mmss_clamp);
+	}
+	if (clk & DSI_LINK_CLK) {
+		if (display->ulps_enabled) {
+			rc = dsi_display_set_ulps(display, false);
+			if (rc) {
+				pr_err("%s: failed to disable ulps, rc= %d\n",
+				       __func__, rc);
+				goto error;
+			}
+		}
+	}
+error:
+	return rc;
+}
+
+int dsi_post_clkoff_cb(void *priv,
+			    enum dsi_clk_type clk_type,
+			    enum dsi_clk_state curr_state)
+{
+	int rc = 0;
+	struct dsi_display *display = priv;
+
+	if (!display) {
+		pr_err("%s: Invalid arg\n", __func__);
+		return -EINVAL;
+	}
+
+	if ((clk_type & DSI_CORE_CLK) &&
+	    (curr_state == DSI_CLK_OFF)) {
+
+		rc = dsi_display_phy_power_off(display);
+		if (rc)
+			pr_err("[%s] failed to power off PHY, rc=%d\n",
+				   display->name, rc);
+
+		rc = dsi_display_ctrl_power_off(display);
+		if (rc)
+			pr_err("[%s] failed to power DSI vregs, rc=%d\n",
+				   display->name, rc);
+	}
+	return rc;
+}
+
+int dsi_pre_clkon_cb(void *priv,
+			  enum dsi_clk_type clk_type,
+			  enum dsi_clk_state new_state)
+{
+	int rc = 0;
+	struct dsi_display *display = priv;
+
+	if (!display) {
+		pr_err("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if ((clk_type & DSI_CORE_CLK) && (new_state == DSI_CLK_ON)) {
+		/*
+		 * Enable DSI core power
+		 * 1.> PANEL_PM are controlled as part of
+		 *     panel_power_ctrl. Needed not be handled here.
+		 * 2.> CORE_PM are controlled by dsi clk manager.
+		 * 3.> CTRL_PM need to be enabled/disabled
+		 *     only during unblank/blank. Their state should
+		 *     not be changed during static screen.
+		 */
+
+		rc = dsi_display_ctrl_power_on(display);
+		if (rc) {
+			pr_err("[%s] failed to power on dsi controllers, rc=%d\n",
+				   display->name, rc);
+			return rc;
+		}
+
+		rc = dsi_display_phy_power_on(display);
+		if (rc) {
+			pr_err("[%s] failed to power on dsi phy, rc = %d\n",
+				   display->name, rc);
+			return rc;
+		}
+
+		pr_debug("%s: Enable DSI core power\n", __func__);
+	}
+
+	return rc;
+}
+
 
 static int dsi_display_parse_lane_map(struct dsi_display *display)
 {
@@ -1509,7 +1883,7 @@ static int dsi_display_get_dfps_timing(struct dsi_display *display,
 	}
 
 	/* TODO: Remove this direct reference to the dsi_ctrl */
-	clk_hz = m_ctrl->clk_info.link_clks.pixel_clk_rate;
+	clk_hz = m_ctrl->clk_freq.pix_clk_rate;
 	timing = &per_ctrl_mode.timing;
 
 	switch (dfps_caps.type) {
@@ -1598,7 +1972,7 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
 		rc = dsi_ctrl_update_host_config(ctrl->ctrl, &display->config,
-				mode->flags);
+				mode->flags, display->dsi_clk_handle);
 		if (rc) {
 			pr_err("[%s] failed to update ctrl config, rc=%d\n",
 			       display->name, rc);
@@ -1686,7 +2060,12 @@ static int dsi_display_bind(struct device *dev,
 	struct dsi_display_ctrl *display_ctrl;
 	struct drm_device *drm;
 	struct dsi_display *display;
+	struct dsi_clk_info info;
+	struct clk_ctrl_cb clk_cb;
+	void *handle = NULL;
 	struct platform_device *pdev = to_platform_device(dev);
+	char *client1 = "dsi_clk_client";
+	char *client2 = "mdp_event_client";
 	int i, rc = 0;
 
 	if (!dev || !pdev || !master) {
@@ -1711,6 +2090,8 @@ static int dsi_display_bind(struct device *dev,
 		goto error;
 	}
 
+	memset(&info, 0x0, sizeof(info));
+
 	for (i = 0; i < display->ctrl_count; i++) {
 		display_ctrl = &display->ctrl[i];
 
@@ -1726,6 +2107,72 @@ static int dsi_display_bind(struct device *dev,
 			pr_err("[%s] Failed to initialize phy[%d], rc=%d\n",
 				display->name, i, rc);
 			(void)dsi_ctrl_drv_deinit(display_ctrl->ctrl);
+			goto error_ctrl_deinit;
+		}
+
+		memcpy(&info.c_clks[i], &display_ctrl->ctrl->clk_info.core_clks,
+			sizeof(struct dsi_core_clk_info));
+		memcpy(&info.l_clks[i], &display_ctrl->ctrl->clk_info.link_clks,
+			sizeof(struct dsi_link_clk_info));
+		info.bus_handle[i] =
+			display_ctrl->ctrl->axi_bus_info.bus_handle;
+	}
+
+	info.pre_clkoff_cb = dsi_pre_clkoff_cb;
+	info.pre_clkon_cb = dsi_pre_clkon_cb;
+	info.post_clkoff_cb = dsi_post_clkoff_cb;
+	info.post_clkon_cb = dsi_post_clkon_cb;
+	info.priv_data = display;
+	info.master_ndx = display->clk_master_idx;
+	info.dsi_ctrl_count = display->ctrl_count;
+	snprintf(info.name, MAX_STRING_LEN,
+			"DSI_MNGR-%s", display->name);
+
+	display->clk_mngr = dsi_display_clk_mngr_register(&info);
+	if (IS_ERR_OR_NULL(display->clk_mngr)) {
+		rc = PTR_ERR(display->clk_mngr);
+		display->clk_mngr = NULL;
+		pr_err("dsi clock registration failed, rc = %d\n", rc);
+		goto error_ctrl_deinit;
+	}
+
+	handle = dsi_register_clk_handle(display->clk_mngr, client1);
+	if (IS_ERR_OR_NULL(handle)) {
+		rc = PTR_ERR(handle);
+		pr_err("failed to register %s client, rc = %d\n",
+		       client1, rc);
+		goto error_clk_deinit;
+	} else {
+		display->dsi_clk_handle = handle;
+	}
+
+	handle = dsi_register_clk_handle(display->clk_mngr, client2);
+	if (IS_ERR_OR_NULL(handle)) {
+		rc = PTR_ERR(handle);
+		pr_err("failed to register %s client, rc = %d\n",
+		       client2, rc);
+		goto error_clk_client_deinit;
+	} else {
+		display->mdp_clk_handle = handle;
+	}
+
+	clk_cb.priv = display;
+	clk_cb.dsi_clk_cb = dsi_display_clk_ctrl_cb;
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		display_ctrl = &display->ctrl[i];
+
+		rc = dsi_ctrl_clk_cb_register(display_ctrl->ctrl, &clk_cb);
+		if (rc) {
+			pr_err("[%s] failed to register ctrl clk_cb[%d], rc=%d\n",
+			       display->name, i, rc);
+			goto error_ctrl_deinit;
+		}
+
+		rc = dsi_phy_clk_cb_register(display_ctrl->phy, &clk_cb);
+		if (rc) {
+			pr_err("[%s] failed to register phy clk_cb[%d], rc=%d\n",
+			       display->name, i, rc);
 			goto error_ctrl_deinit;
 		}
 	}
@@ -1759,6 +2206,10 @@ error_panel_deinit:
 	(void)dsi_panel_drv_deinit(display->panel);
 error_host_deinit:
 	(void)dsi_display_mipi_host_deinit(display);
+error_clk_client_deinit:
+	(void)dsi_deregister_clk_handle(display->dsi_clk_handle);
+error_clk_deinit:
+	(void)dsi_display_clk_mngr_deregister(display->clk_mngr);
 error_ctrl_deinit:
 	for (i = i - 1; i >= 0; i--) {
 		display_ctrl = &display->ctrl[i];
@@ -2294,25 +2745,12 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error;
 	}
 
-	rc = dsi_display_ctrl_power_on(display);
-	if (rc) {
-		pr_err("[%s] failed to power on dsi controllers, rc=%d\n",
-		       display->name, rc);
-		goto error_panel_post_unprep;
-	}
-
-	rc = dsi_display_phy_power_on(display);
-	if (rc) {
-		pr_err("[%s] failed to power on dsi phy, rc = %d\n",
-		       display->name, rc);
-		goto error_ctrl_pwr_off;
-	}
-
-	rc = dsi_display_ctrl_core_clk_on(display);
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_ON);
 	if (rc) {
 		pr_err("[%s] failed to enable DSI core clocks, rc=%d\n",
 		       display->name, rc);
-		goto error_phy_pwr_off;
+		goto error_panel_post_unprep;
 	}
 
 	rc = dsi_display_phy_sw_reset(display);
@@ -2335,7 +2773,15 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error_phy_disable;
 	}
 
-	rc = dsi_display_ctrl_link_clk_on(display);
+	rc = dsi_display_set_clk_src(display);
+	if (rc) {
+		pr_err("[%s] failed to set DSI link clock source, rc=%d\n",
+			display->name, rc);
+		goto error_ctrl_deinit;
+	}
+
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_LINK_CLK, DSI_CLK_ON);
 	if (rc) {
 		pr_err("[%s] failed to enable DSI link clocks, rc=%d\n",
 		       display->name, rc);
@@ -2360,17 +2806,15 @@ int dsi_display_prepare(struct dsi_display *display)
 error_host_engine_off:
 	(void)dsi_display_ctrl_host_disable(display);
 error_ctrl_link_off:
-	(void)dsi_display_ctrl_link_clk_off(display);
+	(void)dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_LINK_CLK, DSI_CLK_OFF);
 error_ctrl_deinit:
 	(void)dsi_display_ctrl_deinit(display);
 error_phy_disable:
 	(void)dsi_display_phy_disable(display);
 error_ctrl_clk_off:
-	(void)dsi_display_ctrl_core_clk_off(display);
-error_phy_pwr_off:
-	(void)dsi_display_phy_power_off(display);
-error_ctrl_pwr_off:
-	(void)dsi_display_ctrl_power_off(display);
+	(void)dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_OFF);
 error_panel_post_unprep:
 	(void)dsi_panel_post_unprepare(display->panel);
 error:
@@ -2531,7 +2975,8 @@ int dsi_display_unprepare(struct dsi_display *display)
 		pr_err("[%s] failed to disable DSI host, rc=%d\n",
 		       display->name, rc);
 
-	rc = dsi_display_ctrl_link_clk_off(display);
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_LINK_CLK, DSI_CLK_OFF);
 	if (rc)
 		pr_err("[%s] failed to disable Link clocks, rc=%d\n",
 		       display->name, rc);
@@ -2546,19 +2991,10 @@ int dsi_display_unprepare(struct dsi_display *display)
 		pr_err("[%s] failed to disable DSI PHY, rc=%d\n",
 		       display->name, rc);
 
-	rc = dsi_display_ctrl_core_clk_off(display);
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_OFF);
 	if (rc)
 		pr_err("[%s] failed to disable DSI clocks, rc=%d\n",
-		       display->name, rc);
-
-	rc = dsi_display_phy_power_off(display);
-	if (rc)
-		pr_err("[%s] failed to power off PHY, rc=%d\n",
-		       display->name, rc);
-
-	rc = dsi_display_ctrl_power_off(display);
-	if (rc)
-		pr_err("[%s] failed to power DSI vregs, rc=%d\n",
 		       display->name, rc);
 
 	rc = dsi_panel_post_unprepare(display->panel);

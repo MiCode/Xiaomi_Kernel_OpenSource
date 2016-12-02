@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,10 +37,10 @@ static void dsi_catalog_14_init(struct dsi_ctrl_hw *ctrl)
 	ctrl->ops.kickoff_fifo_command   = dsi_ctrl_hw_14_kickoff_fifo_command;
 	ctrl->ops.reset_cmd_fifo         = dsi_ctrl_hw_14_reset_cmd_fifo;
 	ctrl->ops.trigger_command_dma    = dsi_ctrl_hw_14_trigger_command_dma;
-	ctrl->ops.ulps_request           = dsi_ctrl_hw_14_ulps_request;
-	ctrl->ops.ulps_exit              = dsi_ctrl_hw_14_ulps_exit;
-	ctrl->ops.clear_ulps_request     = dsi_ctrl_hw_14_clear_ulps_request;
-	ctrl->ops.get_lanes_in_ulps      = dsi_ctrl_hw_14_get_lanes_in_ulps;
+	ctrl->ops.ulps_ops.ulps_request           = dsi_ctrl_hw_14_ulps_request;
+	ctrl->ops.ulps_ops.ulps_exit     = dsi_ctrl_hw_14_ulps_exit;
+	ctrl->ops.ulps_ops.wait_for_lane_idle = dsi_ctrl_hw_wait_for_lane_idle;
+	ctrl->ops.ulps_ops.get_lanes_in_ulps = dsi_ctrl_hw_14_get_lanes_in_ulps;
 	ctrl->ops.clamp_enable           = dsi_ctrl_hw_14_clamp_enable;
 	ctrl->ops.clamp_disable          = dsi_ctrl_hw_14_clamp_disable;
 	ctrl->ops.get_interrupt_status   = dsi_ctrl_hw_14_get_interrupt_status;
@@ -125,6 +125,8 @@ static void dsi_catalog_phy_4_0_init(struct dsi_phy_hw *phy)
 	phy->ops.disable = dsi_phy_hw_v4_0_disable;
 	phy->ops.calculate_timing_params =
 		dsi_phy_hw_v4_0_calculate_timing_params;
+	phy->ops.phy_idle_on = dsi_phy_hw_v4_0_idle_on;
+	phy->ops.phy_idle_off = dsi_phy_hw_v4_0_idle_off;
 }
 
 /**

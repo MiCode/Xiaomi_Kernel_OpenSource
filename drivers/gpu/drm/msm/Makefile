@@ -95,7 +95,7 @@ msm_drm-$(CONFIG_DRM_MSM_DSI_28NM_PHY) += dsi/pll/dsi_pll_28nm.o
 msm_drm-$(CONFIG_DRM_MSM_DSI_28NM_8960_PHY) += dsi/pll/dsi_pll_28nm_8960.o
 endif
 msm_drm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
-				dsi-staging/dsi_clk_pwr.o \
+				dsi-staging/dsi_pwr.o \
 				dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_phy_hw_v4_0.o \
 				dsi-staging/dsi_ctrl_hw_1_4.o \
@@ -104,6 +104,7 @@ msm_drm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_drm.o \
 				dsi-staging/dsi_display.o \
 				dsi-staging/dsi_panel.o \
+				dsi-staging/dsi_clk_manager.o \
 				dsi-staging/dsi_display_test.o
 
 msm_drm-$(CONFIG_DRM_MSM_DSI_PLL) += dsi/pll/dsi_pll.o \

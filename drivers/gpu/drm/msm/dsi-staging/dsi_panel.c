@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1331,7 +1331,7 @@ static int dsi_panel_parse_power_cfg(struct device *parent,
 {
 	int rc = 0;
 
-	rc = dsi_clk_pwr_of_get_vreg_data(of_node,
+	rc = dsi_pwr_of_get_vreg_data(of_node,
 					  &panel->power_info,
 					  "qcom,panel-supply-entries");
 	if (rc) {
@@ -1871,6 +1871,7 @@ int dsi_panel_enable(struct dsi_panel *panel)
 		pr_err("[%s] failed to send DSI_CMD_SET_ON cmds, rc=%d\n",
 		       panel->name, rc);
 	}
+	panel->panel_initialized = true;
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
@@ -1892,6 +1893,7 @@ int dsi_panel_post_enable(struct dsi_panel *panel)
 		       panel->name, rc);
 		goto error;
 	}
+	panel->panel_initialized = false;
 error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;

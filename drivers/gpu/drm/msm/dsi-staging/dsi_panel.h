@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,8 @@
 
 #include "dsi_defs.h"
 #include "dsi_ctrl_hw.h"
-#include "dsi_clk_pwr.h"
+#include "dsi_clk.h"
+#include "dsi_pwr.h"
 
 #define MAX_BL_LEVEL 4096
 
@@ -159,7 +160,21 @@ struct dsi_panel {
 	struct dsi_pinctrl_info pinctrl;
 
 	bool lp11_init;
+	bool ulps_enabled;
+	bool allow_phy_power_off;
+
+	bool panel_initialized;
 };
+
+static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
+{
+	return panel->ulps_enabled;
+}
+
+static inline bool dsi_panel_initialized(struct dsi_panel *panel)
+{
+	return panel->panel_initialized;
+}
 
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node);

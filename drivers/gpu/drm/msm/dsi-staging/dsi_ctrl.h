@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,8 @@
 
 #include "dsi_defs.h"
 #include "dsi_ctrl_hw.h"
-#include "dsi_clk_pwr.h"
+#include "dsi_clk.h"
+#include "dsi_pwr.h"
 #include "drm_mipi_dsi.h"
 
 /*
@@ -41,18 +42,14 @@
 
 /**
  * enum dsi_power_state - defines power states for dsi controller.
- * @DSI_CTRL_POWER_OFF:         DSI controller is powered down.
+ * @DSI_CTRL_POWER_VREG_OFF:    Digital and analog supplies for DSI controller
+				turned off
  * @DSI_CTRL_POWER_VREG_ON:     Digital and analog supplies for DSI controller
- *				are powered on.
- * @DSI_CTRL_POWER_CORE_CLK_ON: DSI core clocks for register access are enabled.
- * @DSI_CTRL_POWER_LINK_CLK_ON: DSI link clocks for link transfer are enabled.
  * @DSI_CTRL_POWER_MAX:         Maximum value.
  */
 enum dsi_power_state {
-	DSI_CTRL_POWER_OFF = 0,
+	DSI_CTRL_POWER_VREG_OFF = 0,
 	DSI_CTRL_POWER_VREG_ON,
-	DSI_CTRL_POWER_CORE_CLK_ON,
-	DSI_CTRL_POWER_LINK_CLK_ON,
 	DSI_CTRL_POWER_MAX,
 };
 
@@ -112,38 +109,26 @@ struct dsi_ctrl_clk_info {
  * struct dsi_ctrl_bus_scale_info - Bus scale info for msm-bus bandwidth voting
  * @bus_scale_table:        Bus scale voting usecases.
  * @bus_handle:             Handle used for voting bandwidth.
- * @refcount:               reference count.
  */
 struct dsi_ctrl_bus_scale_info {
 	struct msm_bus_scale_pdata *bus_scale_table;
 	u32 bus_handle;
-	u32 refcount;
 };
 
 /**
  * struct dsi_ctrl_state_info - current driver state information
- * @power_state:        Controller power state.
+ * @power_state:        Status of power states on DSI controller.
  * @cmd_engine_state:   Status of DSI command engine.
  * @vid_engine_state:   Status of DSI video engine.
  * @controller_state:   Status of DSI Controller engine.
- * @pwr_enabled:        Set to true, if voltage supplies are enabled.
- * @core_clk_enabled:   Set to true, if core clocks are enabled.
- * @lin_clk_enabled:    Set to true, if link clocks are enabled.
- * @ulps_enabled:       Set to true, if lanes are in ULPS state.
- * @clamp_enabled:      Set to true, if PHY output is clamped.
- * @clk_source_set:     Set to true, if parent is set for DSI link clocks.
+ * @host_initialized:	Boolean to indicate status of DSi host Initialization
+ * @tpg_enabled:        Boolean to indicate whether tpg is enabled.
  */
 struct dsi_ctrl_state_info {
 	enum dsi_power_state power_state;
 	enum dsi_engine_state cmd_engine_state;
 	enum dsi_engine_state vid_engine_state;
 	enum dsi_engine_state controller_state;
-	bool pwr_enabled;
-	bool core_clk_enabled;
-	bool link_clk_enabled;
-	bool ulps_enabled;
-	bool clamp_enabled;
-	bool clk_source_set;
 	bool host_initialized;
 	bool tpg_enabled;
 };
@@ -189,9 +174,11 @@ struct dsi_ctrl_interrupts {
  * @drm_dev:             Pointer to DRM device.
  * @version:             DSI controller version.
  * @hw:                  DSI controller hardware object.
- * @current_state;       Current driver and hardware state.
+ * @current_state:       Current driver and hardware state.
+ * @clk_cb:		 Callback for DSI clock control.
  * @int_info:            Interrupt information.
  * @clk_info:            Clock information.
+ * @clk_freq:            DSi Link clock frequency information.
  * @pwr_info:            Power information.
  * @axi_bus_info:        AXI bus information.
  * @host_config:         Current host configuration.
@@ -212,10 +199,12 @@ struct dsi_ctrl {
 
 	/* Current state */
 	struct dsi_ctrl_state_info current_state;
+	struct clk_ctrl_cb clk_cb;
 
 	struct dsi_ctrl_interrupts int_info;
 	/* Clock and power states */
 	struct dsi_ctrl_clk_info clk_info;
+	struct link_clk_freq clk_freq;
 	struct dsi_ctrl_power_info pwr_info;
 	struct dsi_ctrl_bus_scale_info axi_bus_info;
 
@@ -290,6 +279,7 @@ int dsi_ctrl_validate_timing(struct dsi_ctrl *dsi_ctrl,
  * @dsi_ctrl:          DSI controller handle.
  * @config:            DSI host configuration.
  * @flags:             dsi_mode_flags modifying the behavior
+ * @clk_handle:        Clock handle for DSI clocks
  *
  * Updates driver with new Host configuration to use for host initialization.
  * This function call will only update the software context. The stored
@@ -299,7 +289,7 @@ int dsi_ctrl_validate_timing(struct dsi_ctrl *dsi_ctrl,
  */
 int dsi_ctrl_update_host_config(struct dsi_ctrl *dsi_ctrl,
 				struct dsi_host_config *config,
-				int flags);
+				int flags, void *clk_handle);
 
 /**
  * dsi_ctrl_async_timing_update() - update only controller timing
@@ -353,6 +343,30 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl);
 int dsi_ctrl_host_deinit(struct dsi_ctrl *dsi_ctrl);
 
 /**
+  * dsi_ctrl_set_ulps() - set ULPS state for DSI lanes.
+  * @dsi_ctrl:		DSI controller handle.
+  * @enable:		enable/disable ULPS.
+  *
+  * ULPS can be enabled/disabled after DSI host engine is turned on.
+  *
+  * Return: error code.
+  */
+int dsi_ctrl_set_ulps(struct dsi_ctrl *dsi_ctrl, bool enable);
+
+/**
+ * dsi_ctrl_setup() - Setup DSI host hardware while coming out of idle screen.
+ * @dsi_ctrl:        DSI controller handle.
+ *
+ * Initializes DSI controller hardware with host configuration provided by
+ * dsi_ctrl_update_host_config(). Initialization can be performed only during
+ * DSI_CTRL_POWER_CORE_CLK_ON state and after the PHY SW reset has been
+ * performed.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl);
+
+/**
  * dsi_ctrl_set_tpg_state() - enable/disable test pattern on the controller
  * @dsi_ctrl:          DSI controller handle.
  * @on:                enable/disable test pattern.
@@ -362,6 +376,7 @@ int dsi_ctrl_host_deinit(struct dsi_ctrl *dsi_ctrl);
  *
  * Return: error code.
  */
+
 int dsi_ctrl_set_tpg_state(struct dsi_ctrl *dsi_ctrl, bool on);
 
 /**
@@ -454,15 +469,29 @@ int dsi_ctrl_set_host_engine_state(struct dsi_ctrl *dsi_ctrl,
 int dsi_ctrl_set_ulps(struct dsi_ctrl *dsi_ctrl, bool enable);
 
 /**
+ * dsi_ctrl_clk_cb_register() - Register DSI controller clk control callback
+ * @dsi_ctrl:         DSI controller handle.
+ * @clk__cb:      Structure containing callback for clock control.
+ *
+ * Register call for DSI clock control
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_clk_cb_register(struct dsi_ctrl *dsi_ctrl,
+	struct clk_ctrl_cb *clk_cb);
+
+/**
  * dsi_ctrl_set_clamp_state() - set clamp state for DSI phy
  * @dsi_ctrl:             DSI controller handle.
  * @enable:               enable/disable clamping.
+ * @ulps_enabled:         ulps state.
  *
  * Clamps can be enabled/disabled while DSI contoller is still turned on.
  *
  * Return: error code.
  */
-int dsi_ctrl_set_clamp_state(struct dsi_ctrl *dsi_Ctrl, bool enable);
+int dsi_ctrl_set_clamp_state(struct dsi_ctrl *dsi_Ctrl,
+		bool enable, bool ulps_enabled);
 
 /**
  * dsi_ctrl_set_clock_source() - set clock source fpr dsi link clocks

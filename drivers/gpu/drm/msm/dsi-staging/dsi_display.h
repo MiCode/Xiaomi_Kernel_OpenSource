@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,14 +110,20 @@ struct dsi_display_clk_info {
  * @cmd_master_idx:   The master controller for sending DSI commands to panel.
  * @video_master_idx: The master controller for enabling video engine.
  * @clock_info:       Clock sourcing for DSI display.
+ * @config:           DSI host configuration information.
  * @lane_map:         Lane mapping between DSI host and Panel.
  * @num_of_modes:     Number of modes supported by display.
  * @is_tpg_enabled:   TPG state.
+ * @ulps_enabled:     ulps state.
+ * @clamp_enabled:    clamp state.
+ * @phy_idle_power_off:   PHY power state.
  * @host:             DRM MIPI DSI Host.
- * @connector:        Pointer to DRM connector object.
  * @bridge:           Pointer to DRM bridge object.
  * @cmd_engine_refcount:  Reference count enforcing single instance of cmd eng
- * @root:                 Debugfs root directory
+ * @clk_mngr:         DSI clock manager.
+ * @dsi_clk_handle:   DSI clock handle.
+ * @mdp_clk_handle:   MDP clock handle.
+ * @root:             Debugfs root directory
  */
 struct dsi_display {
 	struct platform_device *pdev;
@@ -146,10 +152,17 @@ struct dsi_display {
 	struct dsi_lane_mapping lane_map;
 	u32 num_of_modes;
 	bool is_tpg_enabled;
+	bool ulps_enabled;
+	bool clamp_enabled;
+	bool phy_idle_power_off;
 
 	struct mipi_dsi_host host;
 	struct dsi_bridge    *bridge;
 	u32 cmd_engine_refcount;
+
+	void *clk_mngr;
+	void *dsi_clk_handle;
+	void *mdp_clk_handle;
 
 	/* DEBUG FS */
 	struct dentry *root;
@@ -315,6 +328,51 @@ int dsi_display_pre_disable(struct dsi_display *display);
  * Return: error code.
  */
 int dsi_display_disable(struct dsi_display *display);
+
+/**
+ * dsi_pre_clkoff_cb() - Callback before clock is turned off
+ * @priv: private data pointer.
+ * @clk_type: clock which is being turned on.
+ * @new_state: next state for the clock.
+ *
+ * @return: error code.
+ */
+int dsi_pre_clkoff_cb(void *priv, enum dsi_clk_type clk_type,
+	enum dsi_clk_state new_state);
+
+/**
+ * dsi_post_clkoff_cb() - Callback after clock is turned off
+ * @priv: private data pointer.
+ * @clk_type: clock which is being turned on.
+ * @curr_state: current state for the clock.
+ *
+ * @return: error code.
+ */
+int dsi_post_clkoff_cb(void *priv, enum dsi_clk_type clk_type,
+	enum dsi_clk_state curr_state);
+
+/**
+ * dsi_post_clkon_cb() - Callback after clock is turned on
+ * @priv: private data pointer.
+ * @clk_type: clock which is being turned on.
+ * @curr_state: current state for the clock.
+ *
+ * @return: error code.
+ */
+int dsi_post_clkon_cb(void *priv, enum dsi_clk_type clk_type,
+	enum dsi_clk_state curr_state);
+
+
+/**
+ * dsi_pre_clkon_cb() - Callback before clock is turned on
+ * @priv: private data pointer.
+ * @clk_type: clock which is being turned on.
+ * @new_state: next state for the clock.
+ *
+ * @return: error code.
+ */
+int dsi_pre_clkon_cb(void *priv, enum dsi_clk_type clk_type,
+	enum dsi_clk_state new_state);
 
 /**
  * dsi_display_unprepare() - power off display hardware.

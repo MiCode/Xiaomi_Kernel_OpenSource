@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,238 +16,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 
-#include "dsi_clk_pwr.h"
-
-#define INC_REFCOUNT(s, start_func) \
-	({ \
-		int rc = 0; \
-		if ((s)->refcount == 0) { \
-			rc = start_func(s); \
-			if (rc) \
-				pr_err("failed to enable, rc = %d\n", rc); \
-		} \
-		(s)->refcount++; \
-		rc; \
-	})
-
-#define DEC_REFCOUNT(s, stop_func) \
-	({ \
-		int rc = 0; \
-		if ((s)->refcount == 0) { \
-			pr_err("unbalanced refcount\n"); \
-		} else { \
-			(s)->refcount--; \
-			if ((s)->refcount == 0) { \
-				rc = stop_func(s); \
-				if (rc) \
-					pr_err("disable failed, rc=%d\n", rc); \
-			} \
-		} \
-		rc; \
-	})
-
-static int dsi_core_clk_start(struct dsi_core_clk_info *clks)
-{
-	int rc = 0;
-
-	rc = clk_prepare_enable(clks->mdp_core_clk);
-	if (rc) {
-		pr_err("failed to enable mdp_core_clk, rc=%d\n", rc);
-		goto error;
-	}
-
-	rc = clk_prepare_enable(clks->iface_clk);
-	if (rc) {
-		pr_err("failed to enable iface_clk, rc=%d\n", rc);
-		goto error_disable_core_clk;
-	}
-
-	rc = clk_prepare_enable(clks->bus_clk);
-	if (rc) {
-		pr_err("failed to enable bus_clk, rc=%d\n", rc);
-		goto error_disable_iface_clk;
-	}
-
-	rc = clk_prepare_enable(clks->core_mmss_clk);
-	if (rc) {
-		pr_err("failed to enable core_mmss_clk, rc=%d\n", rc);
-		goto error_disable_bus_clk;
-	}
-
-	return rc;
-
-error_disable_bus_clk:
-	clk_disable_unprepare(clks->bus_clk);
-error_disable_iface_clk:
-	clk_disable_unprepare(clks->iface_clk);
-error_disable_core_clk:
-	clk_disable_unprepare(clks->mdp_core_clk);
-error:
-	return rc;
-}
-
-static int dsi_core_clk_stop(struct dsi_core_clk_info *clks)
-{
-	clk_disable_unprepare(clks->core_mmss_clk);
-	clk_disable_unprepare(clks->bus_clk);
-	clk_disable_unprepare(clks->iface_clk);
-	clk_disable_unprepare(clks->mdp_core_clk);
-
-	return 0;
-}
-
-static int dsi_link_clk_set_rate(struct dsi_link_clk_info *l_clks)
-{
-	int rc = 0;
-
-	rc = clk_set_rate(l_clks->esc_clk, l_clks->esc_clk_rate);
-	if (rc) {
-		pr_err("clk_set_rate failed for esc_clk rc = %d\n", rc);
-		goto error;
-	}
-
-	rc = clk_set_rate(l_clks->byte_clk, l_clks->byte_clk_rate);
-	if (rc) {
-		pr_err("clk_set_rate failed for byte_clk rc = %d\n", rc);
-		goto error;
-	}
-
-	rc = clk_set_rate(l_clks->pixel_clk, l_clks->pixel_clk_rate);
-	if (rc) {
-		pr_err("clk_set_rate failed for pixel_clk rc = %d\n", rc);
-		goto error;
-	}
-error:
-	return rc;
-}
-
-static int dsi_link_clk_prepare(struct dsi_link_clk_info *l_clks)
-{
-	int rc = 0;
-
-	rc = clk_prepare(l_clks->esc_clk);
-	if (rc) {
-		pr_err("Failed to prepare dsi esc clk, rc=%d\n", rc);
-		goto esc_clk_err;
-	}
-
-	rc = clk_prepare(l_clks->byte_clk);
-	if (rc) {
-		pr_err("Failed to prepare dsi byte clk, rc=%d\n", rc);
-		goto byte_clk_err;
-	}
-
-	rc = clk_prepare(l_clks->pixel_clk);
-	if (rc) {
-		pr_err("Failed to prepare dsi pixel clk, rc=%d\n", rc);
-		goto pixel_clk_err;
-	}
-
-	return rc;
-
-pixel_clk_err:
-	clk_unprepare(l_clks->byte_clk);
-byte_clk_err:
-	clk_unprepare(l_clks->esc_clk);
-esc_clk_err:
-	return rc;
-}
-
-static void dsi_link_clk_unprepare(struct dsi_link_clk_info *l_clks)
-{
-	clk_unprepare(l_clks->pixel_clk);
-	clk_unprepare(l_clks->byte_clk);
-	clk_unprepare(l_clks->esc_clk);
-}
-
-static int dsi_link_clk_enable(struct dsi_link_clk_info *l_clks)
-{
-	int rc = 0;
-
-	rc = clk_enable(l_clks->esc_clk);
-	if (rc) {
-		pr_err("Failed to enable dsi esc clk, rc=%d\n", rc);
-		goto esc_clk_err;
-	}
-
-	rc = clk_enable(l_clks->byte_clk);
-	if (rc) {
-		pr_err("Failed to enable dsi byte clk, rc=%d\n", rc);
-		goto byte_clk_err;
-	}
-
-	rc = clk_enable(l_clks->pixel_clk);
-	if (rc) {
-		pr_err("Failed to enable dsi pixel clk, rc=%d\n", rc);
-		goto pixel_clk_err;
-	}
-
-	return rc;
-
-pixel_clk_err:
-	clk_disable(l_clks->byte_clk);
-byte_clk_err:
-	clk_disable(l_clks->esc_clk);
-esc_clk_err:
-	return rc;
-}
-
-static void dsi_link_clk_disable(struct dsi_link_clk_info *l_clks)
-{
-	clk_disable(l_clks->esc_clk);
-	clk_disable(l_clks->pixel_clk);
-	clk_disable(l_clks->byte_clk);
-}
-
-/**
- * dsi_link_clk_start() - enable dsi link clocks
- */
-static int dsi_link_clk_start(struct dsi_link_clk_info *clks)
-{
-	int rc = 0;
-
-	if (clks->set_new_rate) {
-		rc = dsi_link_clk_set_rate(clks);
-		if (rc) {
-			pr_err("failed to set clk rates, rc = %d\n", rc);
-			goto error;
-		} else {
-			clks->set_new_rate = false;
-		}
-	}
-
-	rc = dsi_link_clk_prepare(clks);
-	if (rc) {
-		pr_err("failed to prepare link clks, rc = %d\n", rc);
-		goto error;
-	}
-
-	rc = dsi_link_clk_enable(clks);
-	if (rc) {
-		pr_err("failed to enable link clks, rc = %d\n", rc);
-		goto error_unprepare;
-	}
-
-	pr_debug("Link clocks are enabled\n");
-	return rc;
-error_unprepare:
-	dsi_link_clk_unprepare(clks);
-error:
-	return rc;
-}
-
-/**
- * dsi_link_clk_stop() - Stop DSI link clocks.
- */
-static int dsi_link_clk_stop(struct dsi_link_clk_info *clks)
-{
-	dsi_link_clk_disable(clks);
-	dsi_link_clk_unprepare(clks);
-
-	pr_debug("Link clocks disabled\n");
-
-	return 0;
-}
+#include "dsi_pwr.h"
 
 /*
  * dsi_pwr_parse_supply_node() - parse power supply node from root device node
@@ -445,14 +214,14 @@ error:
 }
 
 /**
-* dsi_clk_pwr_of_get_vreg_data - Parse regulator supply information
+* dsi_pwr_of_get_vreg_data - Parse regulator supply information
 * @of_node:        Device of node to parse for supply information.
 * @regs:           Pointer where regulator information will be copied to.
 * @supply_name:    Name of the supply node.
 *
 * return: error code in case of failure or 0 for success.
 */
-int dsi_clk_pwr_of_get_vreg_data(struct device_node *of_node,
+int dsi_pwr_of_get_vreg_data(struct device_node *of_node,
 				 struct dsi_regulator_info *regs,
 				 char *supply_name)
 {
@@ -500,14 +269,14 @@ int dsi_clk_pwr_of_get_vreg_data(struct device_node *of_node,
 }
 
 /**
- * dsi_clk_pwr_get_dt_vreg_data - parse regulator supply information
+ * dsi_pwr_get_dt_vreg_data - parse regulator supply information
  * @dev:            Device whose of_node needs to be parsed.
  * @regs:           Pointer where regulator information will be copied to.
  * @supply_name:    Name of the supply node.
  *
  * return: error code in case of failure or 0 for success.
  */
-int dsi_clk_pwr_get_dt_vreg_data(struct device *dev,
+int dsi_pwr_get_dt_vreg_data(struct device *dev,
 				 struct dsi_regulator_info *regs,
 				 char *supply_name)
 {
@@ -590,138 +359,5 @@ int dsi_pwr_enable_regulator(struct dsi_regulator_info *regs, bool enable)
 		}
 	}
 
-	return rc;
-}
-
-/**
- * dsi_clk_enable_core_clks() - enable DSI core clocks
- * @clks:      DSI core clock information.
- * @enable:    enable/disable DSI core clocks.
- *
- * A ref count is maintained, so caller should make sure disable and enable
- * calls are balanced.
- *
- * return: error code in case of failure or 0 for success.
- */
-int dsi_clk_enable_core_clks(struct dsi_core_clk_info *clks, bool enable)
-{
-	int rc = 0;
-
-	if (enable)
-		rc = INC_REFCOUNT(clks, dsi_core_clk_start);
-	else
-		rc = DEC_REFCOUNT(clks, dsi_core_clk_stop);
-
-	return rc;
-}
-
-/**
- * dsi_clk_enable_link_clks() - enable DSI link clocks
- * @clks:      DSI link clock information.
- * @enable:    enable/disable DSI link clocks.
- *
- * A ref count is maintained, so caller should make sure disable and enable
- * calls are balanced.
- *
- * return: error code in case of failure or 0 for success.
- */
-int dsi_clk_enable_link_clks(struct dsi_link_clk_info *clks, bool enable)
-{
-	int rc = 0;
-
-	if (enable)
-		rc = INC_REFCOUNT(clks, dsi_link_clk_start);
-	else
-		rc = DEC_REFCOUNT(clks, dsi_link_clk_stop);
-
-	return rc;
-}
-
-/**
- * dsi_clk_set_link_frequencies() - set frequencies for link clks
- * @clks:         Link clock information
- * @pixel_clk:    pixel clock frequency in KHz.
- * @byte_clk:     Byte clock frequency in KHz.
- * @esc_clk:      Escape clock frequency in KHz.
- *
- * return: error code in case of failure or 0 for success.
- */
-int dsi_clk_set_link_frequencies(struct dsi_link_clk_info *clks,
-				 u64 pixel_clk,
-				 u64 byte_clk,
-				 u64 esc_clk)
-{
-	int rc = 0;
-
-	clks->pixel_clk_rate = pixel_clk;
-	clks->byte_clk_rate = byte_clk;
-	clks->esc_clk_rate = esc_clk;
-	clks->set_new_rate = true;
-
-	return rc;
-}
-
-/**
- * dsi_clk_set_pixel_clk_rate() - set frequency for pixel clock
- * @clks:      DSI link clock information.
- * @pixel_clk: Pixel clock rate in KHz.
- *
- * return: error code in case of failure or 0 for success.
- */
-int dsi_clk_set_pixel_clk_rate(struct dsi_link_clk_info *clks, u64 pixel_clk)
-{
-	int rc = 0;
-
-	rc = clk_set_rate(clks->pixel_clk, pixel_clk);
-	if (rc)
-		pr_err("failed to set clk rate for pixel clk, rc=%d\n", rc);
-	else
-		clks->pixel_clk_rate = pixel_clk;
-
-	return rc;
-}
-
-/**
- * dsi_clk_set_byte_clk_rate() - set frequency for byte clock
- * @clks:      DSI link clock information.
- * @byte_clk: Byte clock rate in KHz.
- *
- * return: error code in case of failure or 0 for success.
- */
-int dsi_clk_set_byte_clk_rate(struct dsi_link_clk_info *clks, u64 byte_clk)
-{
-	int rc = 0;
-
-	rc = clk_set_rate(clks->byte_clk, byte_clk);
-	if (rc)
-		pr_err("failed to set clk rate for byte clk, rc=%d\n", rc);
-	else
-		clks->byte_clk_rate = byte_clk;
-
-	return rc;
-}
-
-/**
- * dsi_clk_update_parent() - update parent clocks for specified clock
- * @parent:       link clock pair which are set as parent.
- * @child:        link clock pair whose parent has to be set.
- */
-int dsi_clk_update_parent(struct dsi_clk_link_set *parent,
-			  struct dsi_clk_link_set *child)
-{
-	int rc = 0;
-
-	rc = clk_set_parent(child->byte_clk, parent->byte_clk);
-	if (rc) {
-		pr_err("failed to set byte clk parent\n");
-		goto error;
-	}
-
-	rc = clk_set_parent(child->pixel_clk, parent->pixel_clk);
-	if (rc) {
-		pr_err("failed to set pixel clk parent\n");
-		goto error;
-	}
-error:
 	return rc;
 }

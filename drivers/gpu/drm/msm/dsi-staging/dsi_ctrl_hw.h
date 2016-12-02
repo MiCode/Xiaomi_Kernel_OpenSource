@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -215,6 +215,50 @@ struct dsi_ctrl_cmd_dma_fifo_info {
 
 struct dsi_ctrl_hw;
 
+struct ulps_config_ops {
+	/**
+	 * wait_for_lane_idle() - wait for DSI lanes to go to idle state
+	 * @ctrl:          Pointer to the controller host hardware.
+	 * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
+	 *                 to be checked to be in idle state.
+	 */
+	int (*wait_for_lane_idle)(struct dsi_ctrl_hw *ctrl, u32 lanes);
+
+	/**
+	 * ulps_request() - request ulps entry for specified lanes
+	 * @ctrl:          Pointer to the controller host hardware.
+	 * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
+	 *                 to enter ULPS.
+	 *
+	 * Caller should check if lanes are in ULPS mode by calling
+	 * get_lanes_in_ulps() operation.
+	 */
+	void (*ulps_request)(struct dsi_ctrl_hw *ctrl, u32 lanes);
+
+	/**
+	 * ulps_exit() - exit ULPS on specified lanes
+	 * @ctrl:          Pointer to the controller host hardware.
+	 * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
+	 *                 to exit ULPS.
+	 *
+	 * Caller should check if lanes are in active mode by calling
+	 * get_lanes_in_ulps() operation.
+	 */
+	void (*ulps_exit)(struct dsi_ctrl_hw *ctrl, u32 lanes);
+
+	/**
+	 * get_lanes_in_ulps() - returns the list of lanes in ULPS mode
+	 * @ctrl:          Pointer to the controller host hardware.
+	 *
+	 * Returns an ORed list of lanes (enum dsi_data_lanes) that are in ULPS
+	 * state. If 0 is returned, all the lanes are active.
+	 *
+	 * Return: List of lanes in ULPS state.
+	 */
+	u32 (*get_lanes_in_ulps)(struct dsi_ctrl_hw *ctrl);
+
+};
+
 /**
  * struct dsi_ctrl_hw_ops - operations supported by dsi host hardware
  */
@@ -383,53 +427,13 @@ struct dsi_ctrl_hw_ops {
 				 u8 *rd_buf,
 				 u32 total_read_len);
 
-	/**
-	 * ulps_request() - request ulps entry for specified lanes
-	 * @ctrl:          Pointer to the controller host hardware.
-	 * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
-	 *                 to enter ULPS.
-	 *
-	 * Caller should check if lanes are in ULPS mode by calling
-	 * get_lanes_in_ulps() operation.
-	 */
-	void (*ulps_request)(struct dsi_ctrl_hw *ctrl, u32 lanes);
-
-	/**
-	 * ulps_exit() - exit ULPS on specified lanes
-	 * @ctrl:          Pointer to the controller host hardware.
-	 * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
-	 *                 to exit ULPS.
-	 *
-	 * Caller should check if lanes are in active mode by calling
-	 * get_lanes_in_ulps() operation.
-	 */
-	void (*ulps_exit)(struct dsi_ctrl_hw *ctrl, u32 lanes);
-
-	/**
-	 * clear_ulps_request() - clear ulps request once all lanes are active
-	 * @ctrl:          Pointer to controller host hardware.
-	 * @lanes:         ORed list of lanes (enum dsi_data_lanes).
-	 *
-	 * ULPS request should be cleared after the lanes have exited ULPS.
-	 */
-	void (*clear_ulps_request)(struct dsi_ctrl_hw *ctrl, u32 lanes);
-
-	/**
-	 * get_lanes_in_ulps() - returns the list of lanes in ULPS mode
-	 * @ctrl:          Pointer to the controller host hardware.
-	 *
-	 * Returns an ORed list of lanes (enum dsi_data_lanes) that are in ULPS
-	 * state. If 0 is returned, all the lanes are active.
-	 *
-	 * Return: List of lanes in ULPS state.
-	 */
-	u32 (*get_lanes_in_ulps)(struct dsi_ctrl_hw *ctrl);
+	struct ulps_config_ops ulps_ops;
 
 	/**
 	 * clamp_enable() - enable DSI clamps to keep PHY driving a stable link
-	 * @ctrl:          Pointer to the controller host hardware.
-	 * @lanes:         ORed list of lanes which need to be clamped.
-	 * @enable_ulps:   TODO:??
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @lanes:        ORed list of lanes which need to have clamps released.
+	 * @enable_ulps: TODO:??
 	 */
 	void (*clamp_enable)(struct dsi_ctrl_hw *ctrl,
 			     u32 lanes,
