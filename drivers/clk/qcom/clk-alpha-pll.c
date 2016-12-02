@@ -648,6 +648,7 @@ const struct clk_ops clk_fabia_fixed_pll_ops = {
 	.enable = clk_fabia_pll_enable,
 	.disable = clk_fabia_pll_disable,
 	.recalc_rate = clk_fabia_pll_recalc_rate,
+	.round_rate = clk_alpha_pll_round_rate,
 };
 EXPORT_SYMBOL_GPL(clk_fabia_fixed_pll_ops);
 
