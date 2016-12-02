@@ -169,6 +169,7 @@ struct msm_cpp_buff_queue_info_t {
 	uint32_t used;
 	uint16_t session_id;
 	uint16_t stream_id;
+	enum smmu_attach_mode security_mode;
 	struct list_head vb2_buff_head;
 	struct list_head native_buff_head;
 };
@@ -234,6 +235,8 @@ struct cpp_device {
 	uint32_t min_clk_rate;
 
 	int iommu_hdl;
+	struct ion_client *ion_client;
+	enum smmu_attach_mode security_mode;
 	/* Reusing proven tasklet from msm isp */
 	atomic_t irq_cnt;
 	uint8_t taskletq_idx;
