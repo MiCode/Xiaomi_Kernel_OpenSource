@@ -959,6 +959,74 @@
 		status = "ok";
 	};
 
+	cpuss_dump {
+		compatible = "qcom,cpuss-dump";
+		qcom,l1_i_cache0 {
+			qcom,dump-node = <&L1_I_0>;
+			qcom,dump-id = <0x60>;
+		};
+		qcom,l1_i_cache1 {
+			qcom,dump-node = <&L1_I_1>;
+			qcom,dump-id = <0x61>;
+		};
+		qcom,l1_i_cache2 {
+			qcom,dump-node = <&L1_I_2>;
+			qcom,dump-id = <0x62>;
+		};
+		qcom,l1_i_cache3 {
+			qcom,dump-node = <&L1_I_3>;
+			qcom,dump-id = <0x63>;
+		};
+		qcom,l1_i_cache100 {
+			qcom,dump-node = <&L1_I_100>;
+			qcom,dump-id = <0x64>;
+		};
+		qcom,l1_i_cache101 {
+			qcom,dump-node = <&L1_I_101>;
+			qcom,dump-id = <0x65>;
+		};
+		qcom,l1_i_cache102 {
+			qcom,dump-node = <&L1_I_102>;
+			qcom,dump-id = <0x66>;
+		};
+		qcom,l1_i_cache103 {
+			qcom,dump-node = <&L1_I_103>;
+			qcom,dump-id = <0x67>;
+		};
+		qcom,l1_d_cache0 {
+			qcom,dump-node = <&L1_D_0>;
+			qcom,dump-id = <0x80>;
+		};
+		qcom,l1_d_cache1 {
+			qcom,dump-node = <&L1_D_1>;
+			qcom,dump-id = <0x81>;
+		};
+		qcom,l1_d_cache2 {
+			qcom,dump-node = <&L1_D_2>;
+			qcom,dump-id = <0x82>;
+		};
+		qcom,l1_d_cache3 {
+			qcom,dump-node = <&L1_D_3>;
+			qcom,dump-id = <0x83>;
+		};
+		qcom,l1_d_cache100 {
+			qcom,dump-node = <&L1_D_100>;
+			qcom,dump-id = <0x84>;
+		};
+		qcom,l1_d_cache101 {
+			qcom,dump-node = <&L1_D_101>;
+			qcom,dump-id = <0x85>;
+		};
+		qcom,l1_d_cache102 {
+			qcom,dump-node = <&L1_D_102>;
+			qcom,dump-id = <0x86>;
+		};
+		qcom,l1_d_cache103 {
+			qcom,dump-node = <&L1_D_103>;
+			qcom,dump-id = <0x87>;
+		};
+	};
+
 	kryo3xx-erp {
 		compatible = "arm,arm64-kryo3xx-cpu-erp";
 		interrupts = <1 6 4>,
