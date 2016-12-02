@@ -22,6 +22,7 @@
 #include <linux/notifier.h>
 #include <linux/irqreturn.h>
 #include <linux/kref.h>
+#include <linux/kthread.h>
 
 #include "mdss.h"
 #include "mdss_mdp_hwio.h"
@@ -550,6 +551,7 @@ struct mdss_mdp_ctl {
 	/* dynamic resolution switch during cont-splash handoff */
 	bool switch_with_handoff;
 	struct mdss_mdp_avr_info avr_info;
+	bool commit_in_progress;
 };
 
 struct mdss_mdp_mixer {
@@ -931,7 +933,6 @@ struct mdss_overlay_private {
 
 	struct sw_sync_timeline *vsync_timeline;
 	struct mdss_mdp_vsync_handler vsync_retire_handler;
-	struct work_struct retire_work;
 	int retire_cnt;
 	bool kickoff_released;
 	u32 cursor_ndx[2];
@@ -943,6 +944,11 @@ struct mdss_overlay_private {
 	struct mdss_mdp_cwb cwb;
 	wait_queue_head_t wb_waitq;
 	atomic_t wb_busy;
+	bool allow_kickoff;
+
+	struct kthread_worker worker;
+	struct kthread_work vsync_work;
+	struct task_struct *thread;
 };
 
 struct mdss_mdp_set_ot_params {
