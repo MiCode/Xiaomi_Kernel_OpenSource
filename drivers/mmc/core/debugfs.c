@@ -310,6 +310,126 @@ out:
 DEFINE_SIMPLE_ATTRIBUTE(mmc_max_clock_fops, mmc_max_clock_get,
 		mmc_max_clock_set, "%llu\n");
 
+static int mmc_err_state_get(void *data, u64 *val)
+{
+	struct mmc_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	*val = host->err_occurred ? 1 : 0;
+
+	return 0;
+}
+
+static int mmc_err_state_clear(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	host->err_occurred = false;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mmc_err_state, mmc_err_state_get,
+		mmc_err_state_clear, "%llu\n");
+
+static int mmc_err_stats_show(struct seq_file *file, void *data)
+{
+	struct mmc_host *host = (struct mmc_host *)file->private;
+
+	if (!host)
+		return -EINVAL;
+
+	seq_printf(file, "# Command Timeout Occurred:\t %d\n",
+		   host->err_stats[MMC_ERR_CMD_TIMEOUT]);
+
+	seq_printf(file, "# Command CRC Errors Occurred:\t %d\n",
+		   host->err_stats[MMC_ERR_CMD_CRC]);
+
+	seq_printf(file, "# Data Timeout Occurred:\t %d\n",
+		   host->err_stats[MMC_ERR_DAT_TIMEOUT]);
+
+	seq_printf(file, "# Data CRC Errors Occurred:\t %d\n",
+		   host->err_stats[MMC_ERR_DAT_CRC]);
+
+	seq_printf(file, "# Auto-Cmd Error Occurred:\t %d\n",
+		   host->err_stats[MMC_ERR_ADMA]);
+
+	seq_printf(file, "# ADMA Error Occurred:\t %d\n",
+		   host->err_stats[MMC_ERR_ADMA]);
+
+	seq_printf(file, "# Tuning Error Occurred:\t %d\n",
+		   host->err_stats[MMC_ERR_TUNING]);
+
+	seq_printf(file, "# CMDQ RED Errors:\t\t %d\n",
+		   host->err_stats[MMC_ERR_CMDQ_RED]);
+
+	seq_printf(file, "# CMDQ GCE Errors:\t\t %d\n",
+		   host->err_stats[MMC_ERR_CMDQ_GCE]);
+
+	seq_printf(file, "# CMDQ ICCE Errors:\t\t %d\n",
+		   host->err_stats[MMC_ERR_CMDQ_ICCE]);
+
+	seq_printf(file, "# Request Timedout:\t %d\n",
+		   host->err_stats[MMC_ERR_REQ_TIMEOUT]);
+
+	seq_printf(file, "# CMDQ Request Timedout:\t %d\n",
+		   host->err_stats[MMC_ERR_CMDQ_REQ_TIMEOUT]);
+
+	seq_printf(file, "# ICE Config Errors:\t\t %d\n",
+		   host->err_stats[MMC_ERR_ICE_CFG]);
+	return 0;
+}
+
+static int mmc_err_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mmc_err_stats_show, inode->i_private);
+}
+
+static ssize_t mmc_err_stats_write(struct file *filp, const char __user *ubuf,
+				   size_t cnt, loff_t *ppos)
+{
+	struct mmc_host *host = filp->f_mapping->host->i_private;
+
+	if (!host)
+		return -EINVAL;
+
+	pr_debug("%s: Resetting MMC error statistics\n", __func__);
+	memset(host->err_stats, 0, sizeof(host->err_stats));
+
+	return cnt;
+}
+
+static const struct file_operations mmc_err_stats_fops = {
+	.open	= mmc_err_stats_open,
+	.read	= seq_read,
+	.write	= mmc_err_stats_write,
+};
+
+static int mmc_force_err_set(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+
+	if (host && host->card && host->ops &&
+			host->ops->force_err_irq) {
+		/*
+		 * To access the force error irq reg, we need to make
+		 * sure the host is powered up and host clock is ticking.
+		 */
+		mmc_get_card(host->card, NULL);
+		host->ops->force_err_irq(host, val);
+		mmc_put_card(host->card, NULL);
+	}
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mmc_force_err_fops, NULL, mmc_force_err_set, "%llu\n");
+
 void mmc_add_host_debugfs(struct mmc_host *host)
 {
 	struct dentry *root;
@@ -351,6 +471,14 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 		&host->clk_scaling.skip_clk_scale_freq_update))
 		goto err_node;
 
+	if (!debugfs_create_file("err_state", 0600, root, host,
+		&mmc_err_state))
+		goto err_node;
+
+	if (!debugfs_create_file("err_stats", 0600, root, host,
+		&mmc_err_stats_fops))
+		goto err_node;
+
 #ifdef CONFIG_FAIL_MMC_REQUEST
 	if (fail_request)
 		setup_fault_attr(&fail_default_attr, fail_request);
@@ -360,6 +488,15 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 					     &host->fail_mmc_request)))
 		goto err_node;
 #endif
+	if (!debugfs_create_file("force_error", 0200, root, host,
+		&mmc_force_err_fops))
+		goto err_node;
+
+	if (!debugfs_create_bool("crash_on_err",
+		0600, root,
+		&host->crash_on_err))
+		goto err_node;
+
 	return;
 
 err_node:
