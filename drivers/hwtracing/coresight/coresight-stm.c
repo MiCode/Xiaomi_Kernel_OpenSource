@@ -141,6 +141,7 @@ struct stm_drvdata {
 	bool			enable;
 	DECLARE_BITMAP(entities, OST_ENTITY_MAX);
 	bool			data_barrier;
+	uint32_t		ch_alloc_fail_count;
 };
 
 static struct stm_drvdata *stmdrvdata;
@@ -385,19 +386,26 @@ static const struct coresight_ops stm_cs_ops = {
 	.source_ops	= &stm_source_ops,
 };
 
-static uint32_t stm_channel_alloc(uint32_t off)
+static uint32_t stm_channel_alloc(void)
 {
 	struct stm_drvdata *drvdata = stmdrvdata;
-	uint32_t ch;
-	unsigned long flags;
+	uint32_t off, ch, num_ch_per_cpu;
+	int cpu;
 
-	spin_lock_irqsave(&drvdata->spinlock, flags);
-	do {
-		ch = find_next_zero_bit(drvdata->chs.bitmap,
-					NR_STM_CHANNEL, off);
-	} while ((ch < NR_STM_CHANNEL) &&
-		 test_and_set_bit(ch, drvdata->chs.bitmap));
-	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	num_ch_per_cpu = NR_STM_CHANNEL/num_present_cpus();
+
+	cpu = get_cpu();
+
+	off = num_ch_per_cpu * cpu;
+	ch = find_next_zero_bit(drvdata->chs.bitmap,
+				NR_STM_CHANNEL, off);
+	if (ch > (off + num_ch_per_cpu)) {
+		put_cpu();
+		return NR_STM_CHANNEL;
+	}
+
+	set_bit(ch, drvdata->chs.bitmap);
+	put_cpu();
 
 	return ch;
 }
@@ -405,11 +413,8 @@ static uint32_t stm_channel_alloc(uint32_t off)
 static void stm_channel_free(uint32_t ch)
 {
 	struct stm_drvdata *drvdata = stmdrvdata;
-	unsigned long flags;
 
-	spin_lock_irqsave(&drvdata->spinlock, flags);
 	clear_bit(ch, drvdata->chs.bitmap);
-	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 }
 
 static int stm_send(void *addr, const void *data, uint32_t size)
@@ -522,7 +527,14 @@ static inline int __stm_trace(uint32_t options, uint8_t entity_id,
 	unsigned long ch_addr;
 
 	/* allocate channel and get the channel address */
-	ch = stm_channel_alloc(0);
+	ch = stm_channel_alloc();
+	if (ch >= NR_STM_CHANNEL) {
+		drvdata->ch_alloc_fail_count++;
+		dev_err_ratelimited(drvdata->dev,
+				    "Channel allocation failed %d",
+				    drvdata->ch_alloc_fail_count);
+		return 0;
+	}
 	ch_addr = (unsigned long)stm_channel_addr(drvdata, ch);
 
 	/* send the ost header */
@@ -789,15 +801,18 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 	if (boot_nr_channel) {
 		res_size = min((resource_size_t)(boot_nr_channel *
 				  BYTES_PER_CHANNEL), resource_size(&res));
-		bitmap_size = boot_nr_channel * sizeof(long);
+		bitmap_size = (boot_nr_channel + sizeof(long) - 1) /
+			       sizeof(long);
 	} else {
 		res_size = min((resource_size_t)(NR_STM_CHANNEL *
 				 BYTES_PER_CHANNEL), resource_size(&res));
-		bitmap_size = NR_STM_CHANNEL * sizeof(long);
+		bitmap_size = (NR_STM_CHANNEL + sizeof(long) - 1) /
+			       sizeof(long);
 	}
 	drvdata->chs.base = devm_ioremap(dev, res.start, res_size);
 	if (!drvdata->chs.base)
 		return -ENOMEM;
+
 	drvdata->chs.bitmap = devm_kzalloc(dev, bitmap_size, GFP_KERNEL);
 	if (!drvdata->chs.bitmap)
 		return -ENOMEM;
