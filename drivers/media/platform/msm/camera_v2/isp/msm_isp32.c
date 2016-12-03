@@ -1474,6 +1474,8 @@ struct msm_vfe_hardware_info vfe32_hw_info = {
 			.is_module_cfg_lock_needed =
 				msm_vfe32_is_module_cfg_lock_needed,
 			.ahb_clk_cfg = NULL,
+			.set_bus_err_ign_mask = NULL,
+			.get_bus_err_mask = NULL,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe32_get_stats_idx,

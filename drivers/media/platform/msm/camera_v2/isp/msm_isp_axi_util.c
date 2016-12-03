@@ -430,6 +430,13 @@ static void msm_isp_axi_reserve_wm(struct vfe_device *vfe_dev,
 			vfe_dev->pdev->id,
 			stream_info->stream_handle[vfe_idx], j);
 		stream_info->wm[vfe_idx][i] = j;
+		/* setup var to ignore bus error from RDI wm */
+		if (stream_info->stream_src >= RDI_INTF_0) {
+			if (vfe_dev->hw_info->vfe_ops.core_ops.
+				set_bus_err_ign_mask)
+				vfe_dev->hw_info->vfe_ops.core_ops.
+					set_bus_err_ign_mask(vfe_dev, j, 1);
+		}
 	}
 }
 
@@ -443,6 +450,13 @@ void msm_isp_axi_free_wm(struct vfe_device *vfe_dev,
 	for (i = 0; i < stream_info->num_planes; i++) {
 		axi_data->free_wm[stream_info->wm[vfe_idx][i]] = 0;
 		axi_data->num_used_wm--;
+		if (stream_info->stream_src >= RDI_INTF_0) {
+			if (vfe_dev->hw_info->vfe_ops.core_ops.
+				set_bus_err_ign_mask)
+				vfe_dev->hw_info->vfe_ops.core_ops.
+					set_bus_err_ign_mask(vfe_dev,
+						stream_info->wm[vfe_idx][i], 0);
+		}
 	}
 	if (stream_info->stream_src <= IDEAL_RAW)
 		axi_data->num_pix_stream++;

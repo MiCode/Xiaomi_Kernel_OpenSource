@@ -2858,6 +2858,8 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 				msm_vfe47_start_fetch_engine_multi_pass,
 			.set_halt_restart_mask =
 				msm_vfe47_set_halt_restart_mask,
+			.set_bus_err_ign_mask = NULL,
+			.get_bus_err_mask = NULL,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe47_get_stats_idx,

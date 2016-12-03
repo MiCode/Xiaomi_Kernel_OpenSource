@@ -241,6 +241,25 @@ static void msm_vfe48_put_regulators(struct vfe_device *vfe_dev)
 	vfe_dev->vfe_num_regulators = 0;
 }
 
+static void msm_vfe48_get_bus_err_mask(struct vfe_device *vfe_dev,
+		uint32_t *bus_err, uint32_t *irq_status1)
+{
+	*bus_err = msm_camera_io_r(vfe_dev->vfe_base + 0xC94);
+
+	*bus_err &= ~vfe_dev->bus_err_ign_mask;
+	if (*bus_err == 0)
+		*irq_status1 &= ~(1 << 4);
+}
+
+static void msm_vfe48_set_bus_err_ign_mask(struct vfe_device *vfe_dev,
+				int wm, int enable)
+{
+	if (enable)
+		vfe_dev->bus_err_ign_mask |= (1 << wm);
+	else
+		vfe_dev->bus_err_ign_mask &= ~(1 << wm);
+}
+
 struct msm_vfe_hardware_info vfe48_hw_info = {
 	.num_iommu_ctx = 1,
 	.num_iommu_secure_ctx = 0,
@@ -315,6 +334,8 @@ struct msm_vfe_hardware_info vfe48_hw_info = {
 				msm_vfe47_start_fetch_engine_multi_pass,
 			.set_halt_restart_mask =
 				msm_vfe47_set_halt_restart_mask,
+			.set_bus_err_ign_mask = msm_vfe48_set_bus_err_ign_mask,
+			.get_bus_err_mask = msm_vfe48_get_bus_err_mask,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe47_get_stats_idx,
