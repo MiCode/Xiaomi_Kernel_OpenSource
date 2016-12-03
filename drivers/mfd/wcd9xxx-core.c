@@ -1215,10 +1215,18 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 {
 	struct wcd9xxx *wcd9xxx;
 	struct wcd9xxx_pdata *pdata;
+	const struct slim_device_id *device_id;
 	int ret = 0;
 	int intf_type;
 
 	intf_type = wcd9xxx_get_intf_type();
+
+	wcd9xxx = devm_kzalloc(&slim->dev, sizeof(struct wcd9xxx),
+				GFP_KERNEL);
+	if (!wcd9xxx) {
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	if (!slim) {
 		ret = -EINVAL;
@@ -1228,7 +1236,8 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	if (intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
 		dev_dbg(&slim->dev, "%s:Codec is detected in I2C mode\n",
 			__func__);
-		return -ENODEV;
+		ret = -ENODEV;
+		goto err;
 	}
 	if (slim->dev.of_node) {
 		dev_info(&slim->dev, "Platform data from device tree\n");
@@ -1262,21 +1271,22 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 		goto err;
 	}
 
-	wcd9xxx = devm_kzalloc(&slim->dev, sizeof(struct wcd9xxx),
-				GFP_KERNEL);
-	if (!wcd9xxx) {
-		ret = -ENOMEM;
-		goto err;
-	}
 	if (!slim->ctrl) {
 		dev_err(&slim->dev, "%s: Error, no SLIMBUS control data\n",
 			__func__);
 		ret = -EINVAL;
 		goto err_codec;
 	}
-	wcd9xxx->type = slim_get_device_id(slim)->driver_data;
+	device_id = slim_get_device_id(slim);
+	if (!device_id) {
+		dev_err(&slim->dev, "%s: Error, no device id\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	wcd9xxx->type = device_id->driver_data;
 	dev_info(&slim->dev, "%s: probing for wcd type: %d, name: %s\n",
-		 __func__, wcd9xxx->type, slim_get_device_id(slim)->name);
+		 __func__, wcd9xxx->type, device_id->name);
 
 	/* wcd9xxx members init */
 	wcd9xxx->multi_reg_write = wcd9xxx_slim_multi_reg_write;
@@ -1417,6 +1427,7 @@ err_supplies:
 err_codec:
 	slim_set_clientdata(slim, NULL);
 err:
+	devm_kfree(&slim->dev, wcd9xxx);
 	return ret;
 }
 static int wcd9xxx_slim_remove(struct slim_device *pdev)
