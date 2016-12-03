@@ -3609,6 +3609,10 @@ struct asm_alac_cfg {
 	u32 channel_layout_tag;
 };
 
+struct asm_g711_dec_cfg {
+	u32 sample_rate;
+};
+
 struct asm_vorbis_cfg {
 	u32 bit_stream_fmt;
 };
@@ -4220,6 +4224,22 @@ struct asm_aac_enc_cfg_v2 {
 
 } __packed;
 
+#define ASM_MEDIA_FMT_G711_ALAW_FS 0x00010BF7
+#define ASM_MEDIA_FMT_G711_MLAW_FS 0x00010C2E
+
+struct asm_g711_enc_cfg_v2 {
+	struct apr_hdr hdr;
+	struct asm_stream_cmd_set_encdec_param encdec;
+	struct asm_enc_cfg_blk_param_v2 encblk;
+
+	u32          sample_rate;
+/*
+ * Number of samples per second.
+ * Supported values: 8000, 16000 Hz
+ */
+
+} __packed;
+
 struct asm_vorbis_fmt_blk_v2 {
 	struct apr_hdr hdr;
 	struct asm_data_cmd_media_fmt_update_v2 fmtblk;
@@ -4319,6 +4339,12 @@ struct asm_alac_fmt_blk_v2 {
 	u32 sample_rate;
 	u32 channel_layout_tag;
 
+} __packed;
+
+struct asm_g711_dec_fmt_blk_v2 {
+	struct apr_hdr hdr;
+	struct asm_data_cmd_media_fmt_update_v2 fmtblk;
+	u32 sample_rate;
 } __packed;
 
 struct asm_ape_fmt_blk_v2 {
@@ -8811,6 +8837,7 @@ struct afe_param_id_clip_bank_sel {
 
 /* Supported OSR clock values */
 #define Q6AFE_LPASS_OSR_CLK_12_P288_MHZ		0xBB8000
+#define Q6AFE_LPASS_OSR_CLK_11_P2896_MHZ		0xAC4400
 #define Q6AFE_LPASS_OSR_CLK_9_P600_MHZ		0x927C00
 #define Q6AFE_LPASS_OSR_CLK_8_P192_MHZ		0x7D0000
 #define Q6AFE_LPASS_OSR_CLK_6_P144_MHZ		0x5DC000

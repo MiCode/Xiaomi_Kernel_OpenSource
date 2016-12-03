@@ -45,6 +45,8 @@
 #define VDDA_UA_ON_LOAD		100000	/* uA units */
 #define VDDA_UA_OFF_LOAD	100		/* uA units */
 
+#define DP_CRYPTO_CLK_RATE_KHZ 337500
+
 struct mdss_dp_attention_node {
 	u32 vdo;
 	struct list_head list;
@@ -208,9 +210,9 @@ static int mdss_dp_get_dt_clk_data(struct device *dev,
 				&ctrl_power_data->clk_config[ctrl_clk_index];
 			strlcpy(clk->clk_name, clk_name, sizeof(clk->clk_name));
 			ctrl_clk_index++;
-			if (!strcmp(clk_name, "ctrl_link_clk"))
-				clk->type = DSS_CLK_PCLK;
-			else if (!strcmp(clk_name, "ctrl_pixel_clk"))
+			if (!strcmp(clk_name, "ctrl_link_clk") ||
+			    !strcmp(clk_name, "ctrl_pixel_clk") ||
+			    !strcmp(clk_name, "ctrl_crypto_clk"))
 				clk->type = DSS_CLK_PCLK;
 			else
 				clk->type = DSS_CLK_AHB;
@@ -1089,6 +1091,23 @@ exit:
 	return ret;
 }
 
+static void mdss_dp_set_clock_rate(struct mdss_dp_drv_pdata *dp,
+		char *name, u32 rate)
+{
+	u32 num = dp->power_data[DP_CTRL_PM].num_clk;
+	struct dss_clk *cfg = dp->power_data[DP_CTRL_PM].clk_config;
+
+	while (num && strcmp(cfg->clk_name, name)) {
+		num--;
+		cfg++;
+	}
+
+	if (num)
+		cfg->rate = rate;
+	else
+		pr_err("%s clock could not be set with rate %d\n", name, rate);
+}
+
 /**
  * mdss_dp_enable_mainlink_clocks() - enables Display Port main link clocks
  * @dp: Display Port Driver data
@@ -1099,12 +1118,14 @@ static int mdss_dp_enable_mainlink_clocks(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
 
-	dp->power_data[DP_CTRL_PM].clk_config[0].rate =
-		((dp->link_rate * DP_LINK_RATE_MULTIPLIER) / 1000);/* KHz */
+	mdss_dp_set_clock_rate(dp, "ctrl_link_clk",
+		(dp->link_rate * DP_LINK_RATE_MULTIPLIER) / DP_KHZ_TO_HZ);
+
+	mdss_dp_set_clock_rate(dp, "ctrl_crypto_clk", DP_CRYPTO_CLK_RATE_KHZ);
 
 	dp->pixel_rate = dp->panel_data.panel_info.clk_rate;
-	dp->power_data[DP_CTRL_PM].clk_config[3].rate =
-		(dp->pixel_rate / 1000);/* KHz */
+	mdss_dp_set_clock_rate(dp, "ctrl_pixel_clk",
+		(dp->pixel_rate / DP_KHZ_TO_HZ));
 
 	ret = mdss_dp_clk_ctrl(dp, DP_CTRL_PM, true);
 	if (ret) {
@@ -1286,12 +1307,8 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 link_training:
 	dp_drv->power_on = true;
 
-	if (-EAGAIN == mdss_dp_train_main_link(dp_drv)) {
-		mutex_unlock(&dp_drv->train_mutex);
-
-		mdss_dp_link_retraining(dp_drv);
-		return 0;
-	}
+	while (-EAGAIN == mdss_dp_train_main_link(dp_drv))
+		pr_debug("MAIN LINK TRAINING RETRY\n");
 
 	dp_drv->cont_splash = 0;
 
@@ -1622,13 +1639,27 @@ static void mdss_dp_hdcp_cb_work(struct work_struct *work)
 	struct mdss_dp_drv_pdata *dp;
 	struct delayed_work *dw = to_delayed_work(work);
 	struct hdcp_ops *ops;
+	unsigned char *base;
 	int rc = 0;
+	u32 hdcp_auth_state;
 
 	dp = container_of(dw, struct mdss_dp_drv_pdata, hdcp_cb_work);
+	base = dp->base;
+
+	hdcp_auth_state = (dp_read(base + DP_HDCP_STATUS) >> 20) & 0x3;
+
+	pr_debug("hdcp auth state %d\n", hdcp_auth_state);
 
 	ops = dp->hdcp.ops;
 
 	switch (dp->hdcp_status) {
+	case HDCP_STATE_AUTHENTICATING:
+		pr_debug("start authenticaton\n");
+
+		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
+			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
+
+		break;
 	case HDCP_STATE_AUTHENTICATED:
 		pr_debug("hdcp authenticated\n");
 		dp->hdcp.auth_state = true;
@@ -1636,7 +1667,7 @@ static void mdss_dp_hdcp_cb_work(struct work_struct *work)
 	case HDCP_STATE_AUTH_FAIL:
 		dp->hdcp.auth_state = false;
 
-		if (dp->power_on) {
+		if (dp->alt_mode.dp_status.hpd_high && dp->power_on) {
 			pr_debug("Reauthenticating\n");
 			if (ops && ops->reauthenticate) {
 				rc = ops->reauthenticate(dp->hdcp.data);
@@ -1664,7 +1695,8 @@ static void mdss_dp_hdcp_cb(void *ptr, enum hdcp_states status)
 
 	dp->hdcp_status = status;
 
-	queue_delayed_work(dp->workq, &dp->hdcp_cb_work, HZ/4);
+	if (dp->alt_mode.dp_status.hpd_high)
+		queue_delayed_work(dp->workq, &dp->hdcp_cb_work, HZ/4);
 }
 
 static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
@@ -1927,20 +1959,28 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		rc = mdss_dp_on(pdata);
 		break;
 	case MDSS_EVENT_PANEL_ON:
+		mdss_dp_ack_state(dp, true);
+
 		mdss_dp_update_hdcp_info(dp);
 
-		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
-			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
+		if (dp_is_hdcp_enabled(dp)) {
+			cancel_delayed_work(&dp->hdcp_cb_work);
 
-		mdss_dp_ack_state(dp, true);
+			dp->hdcp_status = HDCP_STATE_AUTHENTICATING;
+			queue_delayed_work(dp->workq,
+				&dp->hdcp_cb_work, HZ / 2);
+		}
 		break;
 	case MDSS_EVENT_PANEL_OFF:
 		rc = mdss_dp_off(pdata);
 		break;
 	case MDSS_EVENT_BLANK:
-		if (dp_is_hdcp_enabled(dp) && dp->hdcp.ops->off) {
-			flush_delayed_work(&dp->hdcp_cb_work);
-			dp->hdcp.ops->off(dp->hdcp.data);
+		if (dp_is_hdcp_enabled(dp)) {
+			dp->hdcp_status = HDCP_STATE_INACTIVE;
+
+			cancel_delayed_work(&dp->hdcp_cb_work);
+			if (dp->hdcp.ops->off)
+				dp->hdcp.ops->off(dp->hdcp.data);
 		}
 
 		mdss_dp_mainlink_push_idle(pdata);
@@ -2188,9 +2228,6 @@ irqreturn_t dp_isr(int irq, void *ptr)
 	mask1 = isr1 & dp->mask1;
 
 	isr1 &= ~mask1;	/* remove masks bit */
-
-	pr_debug("isr=%x mask=%x isr2=%x\n",
-			isr1, mask1, isr2);
 
 	ack = isr1 & EDP_INTR_STATUS1;
 	ack <<= 1;	/* ack bits */
@@ -2601,8 +2638,7 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 	if (dp_drv->alt_mode.dp_status.hpd_irq) {
 		pr_debug("Attention: hpd_irq high\n");
 
-		if (dp_drv->power_on && dp_drv->hdcp.ops &&
-		    dp_drv->hdcp.ops->cp_irq) {
+		if (dp_drv->hdcp.ops && dp_drv->hdcp.ops->cp_irq) {
 			if (!dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data))
 				return;
 		}
@@ -2616,6 +2652,12 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 
 	if (!dp_drv->alt_mode.dp_status.hpd_high) {
 		pr_debug("Attention: HPD low\n");
+
+		if (dp_is_hdcp_enabled(dp_drv) && dp_drv->hdcp.ops->off) {
+			cancel_delayed_work(&dp_drv->hdcp_cb_work);
+			dp_drv->hdcp.ops->off(dp_drv->hdcp.data);
+		}
+
 		mdss_dp_update_cable_status(dp_drv, false);
 		mdss_dp_notify_clients(dp_drv, false);
 		pr_debug("Attention: Notified clients\n");

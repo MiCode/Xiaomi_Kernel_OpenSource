@@ -228,6 +228,7 @@ struct dp_alt_mode {
 #define DP_LINK_RATE_MAX	DP_LINK_RATE_540
 
 #define DP_LINK_RATE_MULTIPLIER	27000000
+#define DP_KHZ_TO_HZ            1000
 #define DP_MAX_PIXEL_CLK_KHZ	675000
 struct downstream_port_config {
 	/* Byte 02205h */

@@ -23,6 +23,7 @@
 #include <linux/usb_bam.h>
 
 #include "u_data_ipa.h"
+#include "u_rmnet.h"
 
 struct ipa_data_ch_info {
 	struct usb_request			*rx_req;
@@ -562,6 +563,11 @@ static void ipa_data_connect_work(struct work_struct *w)
 			return;
 		}
 		atomic_set(&port->pipe_connect_notified, 1);
+	}
+
+	if (port->func_type == USB_IPA_FUNC_RMNET) {
+		gqti_ctrl_update_ipa_pipes(port->port_usb, QTI_PORT_RMNET,
+			gport->ipa_producer_ep, gport->ipa_consumer_ep);
 	}
 
 	pr_debug("ipa_producer_ep:%d ipa_consumer_ep:%d\n",
@@ -1135,7 +1141,7 @@ int ipa_data_setup(enum ipa_func_type func)
 	}
 	if (ipa_data_wq) {
 		pr_debug("ipa_data_wq is already setup.");
-		goto free_rndis_data;
+		return 0;
 	}
 
 	ipa_data_wq = alloc_workqueue("k_usb_ipa_data",

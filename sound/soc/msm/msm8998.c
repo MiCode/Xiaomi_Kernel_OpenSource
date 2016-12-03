@@ -398,7 +398,8 @@ static char const *ch_text[] = {"Two", "Three", "Four", "Five",
 static char const *usb_sample_rate_text[] = {"KHZ_8", "KHZ_11P025",
 					"KHZ_16", "KHZ_22P05",
 					"KHZ_32", "KHZ_44P1", "KHZ_48",
-					"KHZ_96", "KHZ_192", "KHZ_384"};
+					"KHZ_88P2", "KHZ_96", "KHZ_176P4",
+					"KHZ_192", "KHZ_352P8", "KHZ_384"};
 static char const *ext_disp_sample_rate_text[] = {"KHZ_48", "KHZ_96",
 						  "KHZ_192"};
 static char const *tdm_ch_text[] = {"One", "Two", "Three", "Four",
@@ -1031,12 +1032,21 @@ static int usb_audio_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
 
 	switch (usb_rx_cfg.sample_rate) {
 	case SAMPLING_RATE_384KHZ:
-		sample_rate_val = 9;
+		sample_rate_val = 12;
+		break;
+	case SAMPLING_RATE_352P8KHZ:
+		sample_rate_val = 11;
 		break;
 	case SAMPLING_RATE_192KHZ:
-		sample_rate_val = 8;
+		sample_rate_val = 10;
+		break;
+	case SAMPLING_RATE_176P4KHZ:
+		sample_rate_val = 9;
 		break;
 	case SAMPLING_RATE_96KHZ:
+		sample_rate_val = 8;
+		break;
+	case SAMPLING_RATE_88P2KHZ:
 		sample_rate_val = 7;
 		break;
 	case SAMPLING_RATE_48KHZ:
@@ -1073,14 +1083,23 @@ static int usb_audio_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
 	switch (ucontrol->value.integer.value[0]) {
-	case 9:
+	case 12:
 		usb_rx_cfg.sample_rate = SAMPLING_RATE_384KHZ;
 		break;
-	case 8:
+	case 11:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_352P8KHZ;
+		break;
+	case 10:
 		usb_rx_cfg.sample_rate = SAMPLING_RATE_192KHZ;
 		break;
-	case 7:
+	case 9:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_176P4KHZ;
+		break;
+	case 8:
 		usb_rx_cfg.sample_rate = SAMPLING_RATE_96KHZ;
+		break;
+	case 7:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_88P2KHZ;
 		break;
 	case 6:
 		usb_rx_cfg.sample_rate = SAMPLING_RATE_48KHZ;
@@ -1191,12 +1210,21 @@ static int usb_audio_tx_sample_rate_get(struct snd_kcontrol *kcontrol,
 
 	switch (usb_tx_cfg.sample_rate) {
 	case SAMPLING_RATE_384KHZ:
-		sample_rate_val = 9;
+		sample_rate_val = 12;
+		break;
+	case SAMPLING_RATE_352P8KHZ:
+		sample_rate_val = 11;
 		break;
 	case SAMPLING_RATE_192KHZ:
-		sample_rate_val = 8;
+		sample_rate_val = 10;
+		break;
+	case SAMPLING_RATE_176P4KHZ:
+		sample_rate_val = 9;
 		break;
 	case SAMPLING_RATE_96KHZ:
+		sample_rate_val = 8;
+		break;
+	case SAMPLING_RATE_88P2KHZ:
 		sample_rate_val = 7;
 		break;
 	case SAMPLING_RATE_48KHZ:
@@ -1235,14 +1263,23 @@ static int usb_audio_tx_sample_rate_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
 	switch (ucontrol->value.integer.value[0]) {
-	case 9:
+	case 12:
 		usb_tx_cfg.sample_rate = SAMPLING_RATE_384KHZ;
 		break;
-	case 8:
+	case 11:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_352P8KHZ;
+		break;
+	case 10:
 		usb_tx_cfg.sample_rate = SAMPLING_RATE_192KHZ;
 		break;
-	case 7:
+	case 9:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_176P4KHZ;
+		break;
+	case 8:
 		usb_tx_cfg.sample_rate = SAMPLING_RATE_96KHZ;
+		break;
+	case 7:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_88P2KHZ;
 		break;
 	case 6:
 		usb_tx_cfg.sample_rate = SAMPLING_RATE_48KHZ;
