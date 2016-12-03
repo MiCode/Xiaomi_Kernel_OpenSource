@@ -557,7 +557,7 @@ static int clk_update_vdd(struct clk_vdd_class *vdd_class)
 		pr_debug("Set Voltage level Min %d, Max %d\n", uv[new_base + i],
 				uv[max_lvl + i]);
 		rc = regulator_set_voltage(r[i], uv[new_base + i],
-				uv[max_lvl + i]);
+			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 		if (rc)
 			goto set_voltage_fail;
 
@@ -578,11 +578,13 @@ static int clk_update_vdd(struct clk_vdd_class *vdd_class)
 	return rc;
 
 enable_disable_fail:
-	regulator_set_voltage(r[i], uv[cur_base + i], uv[max_lvl + i]);
+	regulator_set_voltage(r[i], uv[cur_base + i],
+			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 
 set_voltage_fail:
 	for (i--; i >= 0; i--) {
-		regulator_set_voltage(r[i], uv[cur_base + i], uv[max_lvl + i]);
+		regulator_set_voltage(r[i], uv[cur_base + i],
+		       vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 		if (cur_lvl == 0 || cur_lvl == vdd_class->num_levels)
 			regulator_disable(r[i]);
 		else if (level == 0)
@@ -692,6 +694,9 @@ static bool clk_is_rate_level_valid(struct clk_core *core, unsigned long rate)
 static int clk_vdd_class_init(struct clk_vdd_class *vdd)
 {
 	struct clk_handoff_vdd *v;
+
+	if (vdd->skip_handoff)
+		return 0;
 
 	list_for_each_entry(v, &clk_handoff_vdd_list, list) {
 		if (v->vdd_class == vdd)
