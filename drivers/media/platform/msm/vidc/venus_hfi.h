@@ -55,6 +55,8 @@ struct hfi_queue_table_header {
 	u32 qtbl_qhdr_size;
 	u32 qtbl_num_q;
 	u32 qtbl_num_active_q;
+	void *device_addr;
+	char name[256];
 };
 
 struct hfi_queue_header {
