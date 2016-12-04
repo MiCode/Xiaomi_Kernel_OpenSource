@@ -1371,7 +1371,7 @@ int32_t msm_sensor_driver_get_gpio_data(
 	gpio_array_size = of_gpio_count(of_node);
 	CDBG("gpio count %d\n", gpio_array_size);
 	if (gpio_array_size <= 0)
-		return 0;
+		return -ENODEV;
 
 	gconf = kzalloc(sizeof(struct msm_camera_gpio_conf),
 		GFP_KERNEL);
