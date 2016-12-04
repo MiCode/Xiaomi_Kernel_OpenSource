@@ -167,10 +167,10 @@ static unsigned int tdm_slot_offset[TDM_MAX][TDM_SLOT_OFFSET_MAX] = {
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
 	/* TERT_TDM_RX */
-	{0, 4, 0xFFFF},
-	{8, 12, 0xFFFF},
+	{0, 4, 8, 12, 0xFFFF},
 	{16, 20, 0xFFFF},
 	{24, 28, 0xFFFF},
+	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
