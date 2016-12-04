@@ -2957,5 +2957,59 @@
 				};
 			};
 		};
+
+		spkr_1_sd_mediabox {
+			spkr_1_sd_sleep_mediabox: spkr_1_sd_sleep_mediabox {
+				mux {
+					pins = "gpio85";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio85";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+			spkr_1_sd_active_mediabox: spkr_1_sd_active_mediabox {
+				mux {
+					pins = "gpio85";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio85";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		spkr_2_sd_mediabox_mediabox {
+			spkr_2_sd_sleep_mediabox: spkr_2_sd_sleep_mediabox {
+				mux {
+					pins = "gpio112";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio112";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+			spkr_2_sd_active_mediabox: spkr_2_sd_active_mediabox {
+				mux {
+					pins = "gpio112";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio112";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
 	};
 };
