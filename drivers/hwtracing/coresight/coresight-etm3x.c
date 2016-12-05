@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, 2016, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Program Flow Trace driver
  *
@@ -45,7 +45,7 @@
  * remain consistent with existing use cases for now.
  */
 static int boot_enable;
-module_param_named(boot_enable, boot_enable, int, S_IRUGO);
+module_param_named(boot_enable, boot_enable, int, 0444);
 
 /* The number of ETM/PTM currently registered */
 static int etm_count;

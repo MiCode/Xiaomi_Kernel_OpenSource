@@ -264,7 +264,7 @@ static ssize_t tpda_store_trig_async_enable(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(trig_async_enable, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(trig_async_enable, 0644,
 		   tpda_show_trig_async_enable,
 		   tpda_store_trig_async_enable);
 
@@ -297,7 +297,7 @@ static ssize_t tpda_store_trig_flag_ts_enable(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(trig_flag_ts_enable, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(trig_flag_ts_enable, 0644,
 		   tpda_show_trig_flag_ts_enable,
 		   tpda_store_trig_flag_ts_enable);
 
@@ -330,7 +330,7 @@ static ssize_t tpda_store_trig_freq_enable(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(trig_freq_enable, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(trig_freq_enable, 0644,
 		   tpda_show_trig_freq_enable,
 		   tpda_store_trig_freq_enable);
 
@@ -363,7 +363,7 @@ static ssize_t tpda_store_freq_ts_enable(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(freq_ts_enable, S_IRUGO | S_IWUSR, tpda_show_freq_ts_enable,
+static DEVICE_ATTR(freq_ts_enable, 0644, tpda_show_freq_ts_enable,
 		   tpda_store_freq_ts_enable);
 
 static ssize_t tpda_show_freq_req_val(struct device *dev,
@@ -392,7 +392,7 @@ static ssize_t tpda_store_freq_req_val(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(freq_req_val, S_IRUGO | S_IWUSR, tpda_show_freq_req_val,
+static DEVICE_ATTR(freq_req_val, 0644, tpda_show_freq_req_val,
 		   tpda_store_freq_req_val);
 
 static ssize_t tpda_show_freq_req(struct device *dev,
@@ -424,7 +424,7 @@ static ssize_t tpda_store_freq_req(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(freq_req, S_IRUGO | S_IWUSR, tpda_show_freq_req,
+static DEVICE_ATTR(freq_req, 0644, tpda_show_freq_req,
 		   tpda_store_freq_req);
 
 static ssize_t tpda_show_global_flush_req(struct device *dev,
@@ -478,7 +478,7 @@ static ssize_t tpda_store_global_flush_req(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(global_flush_req, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(global_flush_req, 0644,
 		   tpda_show_global_flush_req, tpda_store_global_flush_req);
 
 static ssize_t tpda_show_port_flush_req(struct device *dev,
@@ -530,7 +530,7 @@ static ssize_t tpda_store_port_flush_req(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(port_flush_req, S_IRUGO | S_IWUSR, tpda_show_port_flush_req,
+static DEVICE_ATTR(port_flush_req, 0644, tpda_show_port_flush_req,
 		   tpda_store_port_flush_req);
 
 static struct attribute *tpda_attrs[] = {
