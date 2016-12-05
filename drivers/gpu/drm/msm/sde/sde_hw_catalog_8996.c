@@ -92,6 +92,8 @@ static const struct sde_format_extended plane_formats[] = {
 	{DRM_FORMAT_XBGR4444, 0},
 	{DRM_FORMAT_RGBX4444, 0},
 	{DRM_FORMAT_BGRX4444, 0},
+	{DRM_FORMAT_BGRX8888, 0},
+	{DRM_FORMAT_XBGR8888, 0},
 	{0, 0},
 };
 
@@ -125,6 +127,8 @@ static const struct sde_format_extended plane_formats_yuv[] = {
 	{DRM_FORMAT_XBGR4444, 0},
 	{DRM_FORMAT_RGBX4444, 0},
 	{DRM_FORMAT_BGRX4444, 0},
+	{DRM_FORMAT_BGRX8888, 0},
+	{DRM_FORMAT_XBGR8888, 0},
 
 	{DRM_FORMAT_NV12, 0},
 	{DRM_FORMAT_NV12, DRM_FORMAT_MOD_QCOM_COMPRESSED},
