@@ -14,3 +14,8 @@
 &pm2falcon_wled {
 	status = "disabled";
 };
+
+/* disable LCDB */
+&pm2falcon_lcdb {
+	status = "disabled";
+};
