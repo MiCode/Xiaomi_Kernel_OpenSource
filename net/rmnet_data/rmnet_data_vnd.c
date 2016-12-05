@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -497,6 +497,17 @@ static void rmnet_vnd_setup(struct net_device *dev)
 	INIT_LIST_HEAD(&dev_conf->flow_head);
 }
 
+/* rmnet_vnd_setup() - net_device initialization helper function
+ * @dev:      Virtual network device
+ *
+ * Called during device initialization. Disables GRO.
+ */
+static void rmnet_vnd_disable_offload(struct net_device *dev)
+{
+	dev->wanted_features &= ~NETIF_F_GRO;
+	__netdev_update_features(dev);
+}
+
 /* Exposed API */
 
 /* rmnet_vnd_exit() - Shutdown cleanup hook
@@ -606,6 +617,8 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 		*new_device = dev;
 		LOGM("Registered device %s", dev->name);
 	}
+
+	rmnet_vnd_disable_offload(dev);
 
 	return rc;
 }
