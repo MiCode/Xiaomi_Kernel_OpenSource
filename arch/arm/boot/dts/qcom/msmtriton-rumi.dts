@@ -68,3 +68,8 @@
 	compatible = "qcom,dummycc";
 	clock-output-names = "gfx_clocks";
 };
+
+&clock_mmss {
+	compatible = "qcom,dummycc";
+	clock-output-names = "mmss_clocks";
+};
