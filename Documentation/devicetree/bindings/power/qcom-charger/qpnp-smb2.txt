@@ -64,6 +64,12 @@ Charger specific properties:
   Value type: <u32>
   Definition: Specifies the DC input current limit in micro-amps.
 
+- qcom,boost-threshold-ua
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the boost current threshold in micro-amps.
+		If the value is not present, 100mA is used as default.
+
 - qcom,wipower-max-uw
   Usage:      optional
   Value type: <u32>
