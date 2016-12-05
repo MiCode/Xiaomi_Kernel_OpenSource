@@ -263,7 +263,7 @@ kgsl_memdesc_footprint(const struct kgsl_memdesc *memdesc)
  */
 static inline int kgsl_allocate_global(struct kgsl_device *device,
 	struct kgsl_memdesc *memdesc, uint64_t size, uint64_t flags,
-	unsigned int priv)
+	unsigned int priv, const char *name)
 {
 	int ret;
 
@@ -281,7 +281,7 @@ static inline int kgsl_allocate_global(struct kgsl_device *device,
 	}
 
 	if (ret == 0)
-		kgsl_mmu_add_global(device, memdesc);
+		kgsl_mmu_add_global(device, memdesc, name);
 
 	return ret;
 }

@@ -75,7 +75,7 @@ struct kgsl_mmu_ops {
 			(struct kgsl_mmu *mmu);
 	int (*mmu_init_pt)(struct kgsl_mmu *mmu, struct kgsl_pagetable *);
 	void (*mmu_add_global)(struct kgsl_mmu *mmu,
-			struct kgsl_memdesc *memdesc);
+			struct kgsl_memdesc *memdesc, const char *name);
 	void (*mmu_remove_global)(struct kgsl_mmu *mmu,
 			struct kgsl_memdesc *memdesc);
 	struct kgsl_pagetable * (*mmu_getpagetable)(struct kgsl_mmu *mmu,
@@ -171,6 +171,7 @@ struct kgsl_pagetable *kgsl_mmu_getpagetable_ptbase(struct kgsl_mmu *,
 
 void kgsl_add_global_secure_entry(struct kgsl_device *device,
 					struct kgsl_memdesc *memdesc);
+void kgsl_print_global_pt_entries(struct seq_file *s);
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
 
 int kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
@@ -195,7 +196,7 @@ int kgsl_mmu_find_region(struct kgsl_pagetable *pagetable,
 		uint64_t *gpuaddr, uint64_t size, unsigned int align);
 
 void kgsl_mmu_add_global(struct kgsl_device *device,
-	struct kgsl_memdesc *memdesc);
+	struct kgsl_memdesc *memdesc, const char *name);
 void kgsl_mmu_remove_global(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc);
 
