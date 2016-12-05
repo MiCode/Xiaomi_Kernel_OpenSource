@@ -230,6 +230,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(pd_usb_suspend_supported),
 	POWER_SUPPLY_ATTR(pe_start),
 	POWER_SUPPLY_ATTR(set_ship_mode),
+	POWER_SUPPLY_ATTR(boost_current),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */

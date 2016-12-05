@@ -163,6 +163,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED,
 	POWER_SUPPLY_PROP_PE_START,
 	POWER_SUPPLY_PROP_SET_SHIP_MODE,
+	POWER_SUPPLY_PROP_BOOST_CURRENT,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
