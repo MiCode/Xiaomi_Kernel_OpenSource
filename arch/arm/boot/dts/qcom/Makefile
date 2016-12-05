@@ -135,7 +135,10 @@ dtb-$(CONFIG_ARCH_MSM8998) += msm8998-sim.dtb \
 dtb-$(CONFIG_ARCH_MSMHAMSTER) += msmhamster-rumi.dtb
 
 dtb-$(CONFIG_ARCH_MSMFALCON) += msmfalcon-sim.dtb \
-	msmfalcon-rumi.dtb
+	msmfalcon-rumi.dtb \
+	msmfalcon-cdp.dtb \
+	msmfalcon-mtp.dtb \
+	msmfalcon-rcm.dtb
 
 dtb-$(CONFIG_ARCH_MSMTRITON) += msmtriton-rumi.dtb
 
