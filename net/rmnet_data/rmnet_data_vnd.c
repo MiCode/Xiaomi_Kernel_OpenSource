@@ -504,6 +504,18 @@ static void rmnet_vnd_setup(struct net_device *dev)
 	INIT_LIST_HEAD(&dev_conf->flow_head);
 }
 
+/**
+ * rmnet_vnd_setup() - net_device initialization helper function
+ * @dev:      Virtual network device
+ *
+ * Called during device initialization. Disables GRO.
+ */
+static void rmnet_vnd_disable_offload(struct net_device *dev)
+{
+	dev->wanted_features &= ~NETIF_F_GRO;
+	__netdev_update_features(dev);
+}
+
 /* ***************** Exposed API ******************************************** */
 
 /**
@@ -615,6 +627,8 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 		rmnet_devices[id] = dev;
 		*new_device = dev;
 	}
+
+	rmnet_vnd_disable_offload(dev);
 
 	LOGM("Registered device %s", dev->name);
 	return rc;
