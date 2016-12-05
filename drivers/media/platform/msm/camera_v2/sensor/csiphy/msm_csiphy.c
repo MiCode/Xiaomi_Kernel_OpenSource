@@ -1257,7 +1257,7 @@ static const struct v4l2_subdev_ops msm_csiphy_subdev_ops = {
 static int msm_csiphy_get_clk_info(struct csiphy_device *csiphy_dev,
 	struct platform_device *pdev)
 {
-	int i, rc;
+	int i, rc = 0;
 	char *csi_3p_clk_name = "csi_phy_3p_clk";
 	char *csi_3p_clk_src_name = "csiphy_3p_clk_src";
 	uint32_t clk_cnt = 0;
@@ -1273,6 +1273,7 @@ static int msm_csiphy_get_clk_info(struct csiphy_device *csiphy_dev,
 	if (csiphy_dev->num_all_clk > CSIPHY_NUM_CLK_MAX) {
 		pr_err("%s: invalid count=%zu, max is %d\n", __func__,
 			csiphy_dev->num_all_clk, CSIPHY_NUM_CLK_MAX);
+		rc = -EINVAL;
 		goto MAX_CLK_ERROR;
 	}
 
@@ -1316,13 +1317,14 @@ static int msm_csiphy_get_clk_info(struct csiphy_device *csiphy_dev,
 	}
 
 	csiphy_dev->num_clk = clk_cnt;
+	return rc;
 MAX_CLK_ERROR:
 	msm_camera_put_clk_info(csiphy_dev->pdev,
 		&csiphy_dev->csiphy_all_clk_info,
 		&csiphy_dev->csiphy_all_clk,
 		csiphy_dev->num_all_clk);
 
-	return 0;
+	return rc;
 }
 
 static int csiphy_probe(struct platform_device *pdev)
