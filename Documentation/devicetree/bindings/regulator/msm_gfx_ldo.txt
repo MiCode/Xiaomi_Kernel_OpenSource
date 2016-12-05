@@ -1,6 +1,6 @@
 Qualcomm Technologies, Inc. GFX LDO for Graphics
 
-The GPU core on MSM TITANIUM can be powered by an internal (on-die)
+The GPU core on MSM 8953 can be powered by an internal (on-die)
 MSM LDO or BHS based on its operating corner.
 
 This document describes the bindings that apply for the GFX LDO regulator.
@@ -8,7 +8,7 @@ This document describes the bindings that apply for the GFX LDO regulator.
 - compatible
 	Usage:      required
 	Value type: <string>
-	Definition: should be "qcom,msmtitanium-gfx-ldo" for MSMTITANIUM.
+	Definition: should be "qcom,msm8953-gfx-ldo" for MSM8953.
 
 - reg
 	Usage:      required
@@ -108,7 +108,7 @@ Example
 =======
 
 	gfx_vreg_corner: ldo@0185f000 {
-		compatible = "qcom,msmtitanium-gfx-ldo";
+		compatible = "qcom,msm8953-gfx-ldo";
 		reg = <0x0185f000 0x30>, <0xa0000 0x1000>;
 		reg-names = "ldo_addr", "efuse_addr";
 
@@ -124,7 +124,7 @@ Example
 		qcom,ldo-enable-corner-map = <1 1 1 0 0 0 0>;
 		qcom,init-corner = <5>;
 
-		vdd-cx-supply = <&pmtitanium_s2_level>;
+		vdd-cx-supply = <&pm8953_s2_level>;
 		qcom,vdd-cx-corner-map = <RPM_SMD_REGULATOR_LEVEL_LOW_SVS>,
 					<RPM_SMD_REGULATOR_LEVEL_LOW_SVS>,
 					<RPM_SMD_REGULATOR_LEVEL_LOW_SVS>,
