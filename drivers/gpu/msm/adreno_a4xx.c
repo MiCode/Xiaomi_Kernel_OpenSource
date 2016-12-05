@@ -1364,7 +1364,7 @@ static int _a4xx_pwron_fixup(struct adreno_device *adreno_dev)
 
 	ret = kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
 		&adreno_dev->pwron_fixup, PAGE_SIZE,
-		KGSL_MEMFLAGS_GPUREADONLY, 0);
+		KGSL_MEMFLAGS_GPUREADONLY, 0, "pwron_fixup");
 
 	if (ret)
 		return ret;

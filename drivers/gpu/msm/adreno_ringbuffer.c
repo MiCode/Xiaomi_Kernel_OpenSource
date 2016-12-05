@@ -256,12 +256,12 @@ static int _adreno_ringbuffer_probe(struct adreno_device *adreno_dev,
 	 * switch pagetable
 	 */
 	ret = kgsl_allocate_global(KGSL_DEVICE(adreno_dev), &rb->pagetable_desc,
-		PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED);
+		PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED, "pagetable_desc");
 	if (ret)
 		return ret;
-
 	return kgsl_allocate_global(KGSL_DEVICE(adreno_dev), &rb->buffer_desc,
-			KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0);
+			KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY,
+			0, "ringbuffer");
 }
 
 int adreno_ringbuffer_probe(struct adreno_device *adreno_dev, bool nopreempt)
