@@ -348,6 +348,7 @@ enum {
 #define OTG_STATUS_REG			(OTG_BASE + 0x09)
 #define BOOST_SOFTSTART_DONE_BIT	BIT(3)
 #define OTG_STATE_MASK			GENMASK(2, 0)
+#define OTG_STATE_ENABLED		0x2
 
 /* OTG Interrupt Bits */
 #define TESTMODE_CHANGE_DETECT_RT_STS_BIT	BIT(3)
