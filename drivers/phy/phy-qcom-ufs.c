@@ -15,8 +15,8 @@
 #include "phy-qcom-ufs-i.h"
 
 #define MAX_PROP_NAME              32
-#define VDDA_PHY_MIN_UV            1000000
-#define VDDA_PHY_MAX_UV            1000000
+#define VDDA_PHY_MIN_UV            800000
+#define VDDA_PHY_MAX_UV            925000
 #define VDDA_PLL_MIN_UV            1200000
 #define VDDA_PLL_MAX_UV            1800000
 #define VDDP_REF_CLK_MIN_UV        1200000
@@ -239,7 +239,6 @@ ufs_qcom_phy_init_vregulators(struct phy *generic_phy,
 			      struct ufs_qcom_phy *phy_common)
 {
 	int err;
-	int vdda_phy_uV;
 
 	err = ufs_qcom_phy_init_vreg(generic_phy, &phy_common->vdda_pll,
 		"vdda-pll");
@@ -250,10 +249,6 @@ ufs_qcom_phy_init_vregulators(struct phy *generic_phy,
 		"vdda-phy");
 	if (err)
 		goto out;
-
-	vdda_phy_uV = regulator_get_voltage(phy_common->vdda_phy.reg);
-	phy_common->vdda_phy.max_uV = vdda_phy_uV;
-	phy_common->vdda_phy.min_uV = vdda_phy_uV;
 
 	/* vddp-ref-clk-* properties are optional */
 	__ufs_qcom_phy_init_vreg(generic_phy, &phy_common->vddp_ref_clk,
