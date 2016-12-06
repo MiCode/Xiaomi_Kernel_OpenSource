@@ -423,6 +423,7 @@ config USB_G_ANDROID
 	select USB_F_NCM
 	select USB_F_MASS_STORAGE
 	select USB_F_UAC1 if SND_PCM
+	select USB_F_UAC2 if SND_PCM
 	select USB_F_UVC if MEDIA_SUPPORT
 	help
 	  The Android Composite Gadget supports multiple USB
