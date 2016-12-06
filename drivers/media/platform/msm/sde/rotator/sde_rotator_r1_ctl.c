@@ -167,7 +167,7 @@ int sde_mdp_mixer_pipe_update(struct sde_mdp_pipe *pipe,
 
 int sde_mdp_display_wait4comp(struct sde_mdp_ctl *ctl)
 {
-	int ret;
+	int ret = 0;
 
 	if (!ctl) {
 		SDEROT_ERR("invalid ctl\n");
