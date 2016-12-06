@@ -95,11 +95,9 @@ struct msm_vfe_sof_info {
 struct msm_vfe_dual_hw_ms_info {
 	/* type is Master/Slave */
 	enum msm_vfe_dual_hw_ms_type dual_hw_ms_type;
-	/* sof_info is resource from common_data. If NULL, then this INTF
-	 * sof does not need to be saved */
-	struct msm_vfe_sof_info *sof_info;
-	/* slave_id is index in common_data sof_info array for slaves */
-	uint8_t slave_id;
+	enum msm_vfe_dual_cam_sync_mode sync_state;
+	struct msm_vfe_sof_info sof_info;
+	int index;
 };
 
 struct vfe_subscribe_info {
@@ -245,7 +243,9 @@ struct msm_vfe_core_ops {
 			struct msm_isp_ahb_clk_cfg *ahb_cfg);
 	int (*start_fetch_eng_multi_pass)(struct vfe_device *vfe_dev,
 		void *arg);
+	void (*set_halt_restart_mask)(struct vfe_device *vfe_dev);
 };
+
 struct msm_vfe_stats_ops {
 	int (*get_stats_idx)(enum msm_isp_stats_type stats_type);
 	int (*check_streams)(struct msm_vfe_stats_stream *stream_info);
@@ -678,13 +678,14 @@ struct dual_vfe_resource {
 
 struct master_slave_resource_info {
 	enum msm_vfe_dual_hw_type dual_hw_type;
-	struct msm_vfe_sof_info master_sof_info;
-	uint8_t master_active;
 	uint32_t sof_delta_threshold; /* Updated by Master */
-	uint32_t num_slave;
-	uint32_t reserved_slave_mask;
-	uint32_t slave_active_mask;
-	struct msm_vfe_sof_info slave_sof_info[MS_NUM_SLAVE_MAX];
+	uint32_t active_src_mask;
+	uint32_t src_sof_mask;
+	int master_index;
+	int primary_slv_idx;
+	struct msm_vfe_src_info *src_info[MAX_VFE * VFE_SRC_MAX];
+	uint32_t num_src;
+	enum msm_vfe_dual_cam_sync_mode dual_sync_mode;
 };
 
 struct msm_vfe_common_dev_data {

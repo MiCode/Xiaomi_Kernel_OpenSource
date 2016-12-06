@@ -819,6 +819,16 @@ struct msm_isp_ahb_clk_cfg {
 	uint32_t reserved[2];
 };
 
+enum msm_vfe_dual_cam_sync_mode {
+	MSM_ISP_DUAL_CAM_ASYNC,
+	MSM_ISP_DUAL_CAM_SYNC,
+};
+
+struct msm_isp_dual_hw_master_slave_sync {
+	uint32_t sync_mode;
+	uint32_t reserved[2];
+};
+
 #define V4L2_PIX_FMT_QBGGR8  v4l2_fourcc('Q', 'B', 'G', '8')
 #define V4L2_PIX_FMT_QGBRG8  v4l2_fourcc('Q', 'G', 'B', '8')
 #define V4L2_PIX_FMT_QGRBG8  v4l2_fourcc('Q', 'G', 'R', '8')
@@ -980,6 +990,10 @@ enum msm_isp_ioctl_cmd_code {
 
 #define VIDIOC_MSM_ISP_AHB_CLK_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+25, struct msm_isp_ahb_clk_cfg)
+
+#define VIDIOC_MSM_ISP_DUAL_HW_MASTER_SLAVE_SYNC \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+26, \
+	struct msm_isp_dual_hw_master_slave_sync)
 
 #define VIDIOC_MSM_ISP_FETCH_ENG_MULTI_PASS_START \
 	_IOWR('V', MSM_ISP_FETCH_ENG_MULTI_PASS_START, \
