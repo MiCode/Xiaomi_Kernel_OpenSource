@@ -200,6 +200,10 @@ static void *usbpd_ipc_log;
 		 ((usb_comm) << 25) | ((no_usb_susp) << 24) | \
 		 ((curr1) << 10) | (curr2))
 
+#define PD_RDO_AUGMENTED(obj, mismatch, usb_comm, no_usb_susp, volt, curr) \
+		(((obj) << 28) | ((mismatch) << 26) | ((usb_comm) << 25) | \
+		 ((no_usb_susp) << 24) | ((volt) << 9) | (curr))
+
 #define PD_RDO_OBJ_POS(rdo)		((rdo) >> 28 & 7)
 #define PD_RDO_GIVEBACK(rdo)		((rdo) >> 27 & 1)
 #define PD_RDO_MISMATCH(rdo)		((rdo) >> 26 & 1)
@@ -207,11 +211,14 @@ static void *usbpd_ipc_log;
 #define PD_RDO_NO_USB_SUSP(rdo)		((rdo) >> 24 & 1)
 #define PD_RDO_FIXED_CURR(rdo)		((rdo) >> 10 & 0x3FF)
 #define PD_RDO_FIXED_CURR_MINMAX(rdo)	((rdo) & 0x3FF)
+#define PD_RDO_PROG_VOLTAGE(rdo)	((rdo) >> 9 & 0x7FF)
+#define PD_RDO_PROG_CURR(rdo)		((rdo) & 0x7F)
 
 #define PD_SRC_PDO_TYPE(pdo)		(((pdo) >> 30) & 3)
 #define PD_SRC_PDO_TYPE_FIXED		0
 #define PD_SRC_PDO_TYPE_BATTERY		1
 #define PD_SRC_PDO_TYPE_VARIABLE	2
+#define PD_SRC_PDO_TYPE_AUGMENTED	3
 
 #define PD_SRC_PDO_FIXED_PR_SWAP(pdo)		(((pdo) >> 29) & 1)
 #define PD_SRC_PDO_FIXED_USB_SUSP(pdo)		(((pdo) >> 28) & 1)
@@ -225,6 +232,11 @@ static void *usbpd_ipc_log;
 #define PD_SRC_PDO_VAR_BATT_MAX_VOLT(pdo)	(((pdo) >> 20) & 0x3FF)
 #define PD_SRC_PDO_VAR_BATT_MIN_VOLT(pdo)	(((pdo) >> 10) & 0x3FF)
 #define PD_SRC_PDO_VAR_BATT_MAX(pdo)		((pdo) & 0x3FF)
+
+#define PD_APDO_PPS(pdo)			(((pdo) >> 28) & 3)
+#define PD_APDO_MAX_VOLT(pdo)			(((pdo) >> 17) & 0xFF)
+#define PD_APDO_MIN_VOLT(pdo)			(((pdo) >> 8) & 0xFF)
+#define PD_APDO_MAX_CURR(pdo)			((pdo) & 0x7F)
 
 /* Vendor Defined Messages */
 #define MAX_CRC_RECEIVE_TIME	9 /* ~(2 * tReceive_max(1.1ms) * # retry 4) */
@@ -464,31 +476,48 @@ static int pd_send_msg(struct usbpd *pd, u8 hdr_type, const u32 *data,
 	return 0;
 }
 
-static int pd_select_pdo(struct usbpd *pd, int pdo_pos)
+static int pd_select_pdo(struct usbpd *pd, int pdo_pos, int uv, int ua)
 {
 	int curr;
 	int max_current;
 	bool mismatch = false;
+	u8 type;
 	u32 pdo = pd->received_pdos[pdo_pos - 1];
 
-	/* TODO: handle variable/battery types */
-	if (PD_SRC_PDO_TYPE(pdo) != PD_SRC_PDO_TYPE_FIXED) {
-		usbpd_err(&pd->dev, "Non-fixed PDOs currently unsupported\n");
+	type = PD_SRC_PDO_TYPE(pdo);
+	if (type == PD_SRC_PDO_TYPE_FIXED) {
+		curr = max_current = PD_SRC_PDO_FIXED_MAX_CURR(pdo) * 10;
+
+		/*
+		 * Check if the PDO has enough current, otherwise set the
+		 * Capability Mismatch flag
+		 */
+		if (curr < min_sink_current) {
+			mismatch = true;
+			max_current = min_sink_current;
+		}
+
+		pd->requested_voltage =
+			PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50 * 1000;
+		pd->rdo = PD_RDO_FIXED(pdo_pos, 0, mismatch, 1, 1, curr / 10,
+				max_current / 10);
+	} else if (type == PD_SRC_PDO_TYPE_AUGMENTED) {
+		if ((uv / 100000) > PD_APDO_MAX_VOLT(pdo) ||
+			(uv / 100000) < PD_APDO_MIN_VOLT(pdo) ||
+			(ua / 50000) > PD_APDO_MAX_CURR(pdo) || (ua < 0)) {
+			usbpd_err(&pd->dev, "uv (%d) and ua (%d) out of range of APDO\n",
+					uv, ua);
+			return -EINVAL;
+		}
+
+		curr = ua / 1000;
+		pd->requested_voltage = uv;
+		pd->rdo = PD_RDO_AUGMENTED(pdo_pos, mismatch, 1, 1,
+				uv / 20000, ua / 50000);
+	} else {
+		usbpd_err(&pd->dev, "Only Fixed or Programmable PDOs supported\n");
 		return -ENOTSUPP;
 	}
-
-	curr = max_current = PD_SRC_PDO_FIXED_MAX_CURR(pdo) * 10;
-
-	/*
-	 * Check if the PDO has enough current, otherwise set the
-	 * Capability Mismatch flag
-	 */
-	if (curr < min_sink_current) {
-		mismatch = true;
-		max_current = min_sink_current;
-	}
-
-	pd->requested_voltage = PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50 * 1000;
 
 	/* Can't sink more than 5V if VCONN is sourced from the VBUS input */
 	if (pd->vconn_enabled && !pd->vconn_is_external &&
@@ -497,8 +526,6 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos)
 
 	pd->requested_current = curr;
 	pd->requested_pdo = pdo_pos;
-	pd->rdo = PD_RDO_FIXED(pdo_pos, 0, mismatch, 1, 1, curr / 10,
-			max_current / 10);
 
 	return 0;
 }
@@ -522,7 +549,7 @@ static int pd_eval_src_caps(struct usbpd *pd)
 			POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED, &val);
 
 	/* Select the first PDO (vSafe5V) immediately. */
-	pd_select_pdo(pd, 1);
+	pd_select_pdo(pd, 1, 0, 0);
 
 	return 0;
 }
@@ -2732,18 +2759,27 @@ static ssize_t pdo_h_show(struct device *dev, struct device_attribute *attr,
 					"\tMax Voltage:%d (mV)\n"
 					"\tMin Voltage:%d (mV)\n"
 					"\tMax Power:%d (mW)\n",
-					PD_SRC_PDO_VAR_BATT_MAX_VOLT(pdo),
-					PD_SRC_PDO_VAR_BATT_MIN_VOLT(pdo),
-					PD_SRC_PDO_VAR_BATT_MAX(pdo));
+					PD_SRC_PDO_VAR_BATT_MAX_VOLT(pdo) * 50,
+					PD_SRC_PDO_VAR_BATT_MIN_VOLT(pdo) * 50,
+					PD_SRC_PDO_VAR_BATT_MAX(pdo) * 250);
 		} else if (PD_SRC_PDO_TYPE(pdo) == PD_SRC_PDO_TYPE_VARIABLE) {
 			cnt += scnprintf(&buf[cnt], PAGE_SIZE - cnt,
 					"\tVariable supply\n"
 					"\tMax Voltage:%d (mV)\n"
 					"\tMin Voltage:%d (mV)\n"
 					"\tMax Current:%d (mA)\n",
-					PD_SRC_PDO_VAR_BATT_MAX_VOLT(pdo),
-					PD_SRC_PDO_VAR_BATT_MIN_VOLT(pdo),
-					PD_SRC_PDO_VAR_BATT_MAX(pdo));
+					PD_SRC_PDO_VAR_BATT_MAX_VOLT(pdo) * 50,
+					PD_SRC_PDO_VAR_BATT_MIN_VOLT(pdo) * 50,
+					PD_SRC_PDO_VAR_BATT_MAX(pdo) * 10);
+		} else if (PD_SRC_PDO_TYPE(pdo) == PD_SRC_PDO_TYPE_AUGMENTED) {
+			cnt += scnprintf(&buf[cnt], PAGE_SIZE - cnt,
+					"\tProgrammable Power supply\n"
+					"\tMax Voltage:%d (mV)\n"
+					"\tMin Voltage:%d (mV)\n"
+					"\tMax Current:%d (mA)\n",
+					PD_APDO_MAX_VOLT(pdo) * 100,
+					PD_APDO_MIN_VOLT(pdo) * 100,
+					PD_APDO_MAX_CURR(pdo) * 50);
 		} else {
 			cnt += scnprintf(&buf[cnt], PAGE_SIZE - cnt,
 					"Invalid PDO\n");
@@ -2794,7 +2830,7 @@ static ssize_t select_pdo_store(struct device *dev,
 {
 	struct usbpd *pd = dev_get_drvdata(dev);
 	int src_cap_id;
-	int pdo;
+	int pdo, uv = 0, ua = 0;
 	int ret;
 
 	/* Only allowed if we are already in explicit sink contract */
@@ -2803,8 +2839,9 @@ static ssize_t select_pdo_store(struct device *dev,
 		return -EBUSY;
 	}
 
-	if (sscanf(buf, "%d %d\n", &src_cap_id, &pdo) != 2) {
-		usbpd_err(&pd->dev, "select_pdo: Must specify <src cap id> <PDO>\n");
+	ret = sscanf(buf, "%d %d %d %d", &src_cap_id, &pdo, &uv, &ua);
+	if (ret != 2 && ret != 4) {
+		usbpd_err(&pd->dev, "select_pdo: Must specify <src cap id> <PDO> [<uV> <uA>]\n");
 		return -EINVAL;
 	}
 
@@ -2819,7 +2856,7 @@ static ssize_t select_pdo_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	ret = pd_select_pdo(pd, pdo);
+	ret = pd_select_pdo(pd, pdo, uv, ua);
 	if (ret)
 		return ret;
 
@@ -2842,27 +2879,66 @@ static ssize_t rdo_show(struct device *dev, struct device_attribute *attr,
 {
 	struct usbpd *pd = dev_get_drvdata(dev);
 
-	return scnprintf(buf, PAGE_SIZE, "Request Data Object: %08x\n\n"
-			"Obj Pos:%d\n"
-			"Giveback:%d\n"
-			"Capability Mismatch:%d\n"
-			"USB Communications Capable:%d\n"
-			"No USB Suspend:%d\n"
-			"Operating Current/Power:%d (mA) / %d (mW)\n"
-			"%s Current/Power:%d (mA) / %d (mW)\n",
-			pd->rdo,
+	/* dump the RDO as a hex string */
+	return snprintf(buf, PAGE_SIZE, "%08x\n", pd->rdo);
+}
+static DEVICE_ATTR_RO(rdo);
+
+static ssize_t rdo_h_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	int pos = PD_RDO_OBJ_POS(pd->rdo);
+	int type = PD_SRC_PDO_TYPE(pd->received_pdos[pos]);
+	int len;
+
+	len = scnprintf(buf, PAGE_SIZE, "Request Data Object\n"
+			"\tObj Pos:%d\n"
+			"\tGiveback:%d\n"
+			"\tCapability Mismatch:%d\n"
+			"\tUSB Communications Capable:%d\n"
+			"\tNo USB Suspend:%d\n",
 			PD_RDO_OBJ_POS(pd->rdo),
 			PD_RDO_GIVEBACK(pd->rdo),
 			PD_RDO_MISMATCH(pd->rdo),
 			PD_RDO_USB_COMM(pd->rdo),
-			PD_RDO_NO_USB_SUSP(pd->rdo),
-			PD_RDO_FIXED_CURR(pd->rdo) * 10,
-			PD_RDO_FIXED_CURR(pd->rdo) * 250,
-			PD_RDO_GIVEBACK(pd->rdo) ? "Min" : "Max",
-			PD_RDO_FIXED_CURR_MINMAX(pd->rdo) * 10,
-			PD_RDO_FIXED_CURR_MINMAX(pd->rdo) * 250);
+			PD_RDO_NO_USB_SUSP(pd->rdo));
+
+	switch (type) {
+	case PD_SRC_PDO_TYPE_FIXED:
+	case PD_SRC_PDO_TYPE_VARIABLE:
+		len += scnprintf(buf + len, PAGE_SIZE - len,
+				"(Fixed/Variable)\n"
+				"\tOperating Current:%d (mA)\n"
+				"\t%s Current:%d (mA)\n",
+				PD_RDO_FIXED_CURR(pd->rdo) * 10,
+				PD_RDO_GIVEBACK(pd->rdo) ? "Min" : "Max",
+				PD_RDO_FIXED_CURR_MINMAX(pd->rdo) * 10);
+		break;
+
+	case PD_SRC_PDO_TYPE_BATTERY:
+		len += scnprintf(buf + len, PAGE_SIZE - len,
+				"(Battery)\n"
+				"\tOperating Power:%d (mW)\n"
+				"\t%s Power:%d (mW)\n",
+				PD_RDO_FIXED_CURR(pd->rdo) * 250,
+				PD_RDO_GIVEBACK(pd->rdo) ? "Min" : "Max",
+				PD_RDO_FIXED_CURR_MINMAX(pd->rdo) * 250);
+		break;
+
+	case PD_SRC_PDO_TYPE_AUGMENTED:
+		len += scnprintf(buf + len, PAGE_SIZE - len,
+				"(Programmable)\n"
+				"\tOutput Voltage:%d (mV)\n"
+				"\tOperating Current:%d (mA)\n",
+				PD_RDO_PROG_VOLTAGE(pd->rdo) * 20,
+				PD_RDO_PROG_CURR(pd->rdo) * 50);
+		break;
+	}
+
+	return len;
 }
-static DEVICE_ATTR_RO(rdo);
+static DEVICE_ATTR_RO(rdo_h);
 
 static ssize_t hard_reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
@@ -2898,6 +2974,7 @@ static struct attribute *usbpd_attrs[] = {
 	&dev_attr_pdos[6].attr,
 	&dev_attr_select_pdo.attr,
 	&dev_attr_rdo.attr,
+	&dev_attr_rdo_h.attr,
 	&dev_attr_hard_reset.attr,
 	NULL,
 };
