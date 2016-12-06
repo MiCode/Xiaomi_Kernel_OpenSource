@@ -1748,6 +1748,7 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	u32 val;
+	int ret;
 
 	/* Configure AHB2PHY for one wait state read/write */
 	if (mdwc->ahb2phy_base) {
@@ -1766,7 +1767,11 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 	if (!mdwc->init) {
 		dbg_event(0xFF, "dwc3 init",
 				atomic_read(&mdwc->dev->power.usage_count));
-		dwc3_core_pre_init(dwc);
+		ret = dwc3_core_pre_init(dwc);
+		if (ret) {
+			dev_err(mdwc->dev, "dwc3_core_pre_init failed\n");
+			return;
+		}
 		mdwc->init = true;
 	}
 
@@ -2381,11 +2386,14 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 		return ret;
 	}
 
-	if (!of_property_read_u32(mdwc->dev->of_node, "qcom,core-clk-rate",
+	if (of_property_read_u32(mdwc->dev->of_node, "qcom,core-clk-rate",
 				(u32 *)&mdwc->core_clk_rate)) {
-		mdwc->core_clk_rate = clk_round_rate(mdwc->core_clk,
-							mdwc->core_clk_rate);
+		dev_err(mdwc->dev, "USB core-clk-rate is not present\n");
+		return -EINVAL;
 	}
+
+	mdwc->core_clk_rate = clk_round_rate(mdwc->core_clk,
+							mdwc->core_clk_rate);
 
 	dev_dbg(mdwc->dev, "USB core frequency = %ld\n",
 						mdwc->core_clk_rate);
@@ -2529,8 +2537,12 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 	struct extcon_dev *edev;
 	int ret = 0;
 
-	if (!of_property_read_bool(node, "extcon"))
-		return 0;
+	if (!of_property_read_bool(node, "extcon")) {
+		if (usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST)
+			return 0;
+		dev_err(mdwc->dev, "extcon property doesn't exist\n");
+		return -EINVAL;
+	}
 
 	edev = extcon_get_edev_by_phandle(mdwc->dev, 0);
 	if (IS_ERR(edev) && PTR_ERR(edev) != -ENODEV)
