@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -187,12 +187,13 @@ static void *usbpd_ipc_log;
 
 #define PD_MAX_MSG_ID		7
 
-#define PD_MSG_HDR(type, dr, pr, id, cnt) \
-	(((type) & 0xF) | ((dr) << 5) | (1 << 6) | \
+#define PD_MSG_HDR(type, dr, pr, id, cnt, rev) \
+	(((type) & 0xF) | ((dr) << 5) | (rev << 6) | \
 	 ((pr) << 8) | ((id) << 9) | ((cnt) << 12))
 #define PD_MSG_HDR_COUNT(hdr) (((hdr) >> 12) & 7)
 #define PD_MSG_HDR_TYPE(hdr) ((hdr) & 0xF)
 #define PD_MSG_HDR_ID(hdr) (((hdr) >> 9) & 7)
+#define PD_MSG_HDR_REV(hdr) (((hdr) >> 6) & 3)
 
 #define PD_RDO_FIXED(obj, gb, mismatch, usb_comm, no_usb_susp, curr1, curr2) \
 		(((obj) << 28) | ((gb) << 27) | ((mismatch) << 26) | \
@@ -310,6 +311,7 @@ struct usbpd {
 	enum power_supply_typec_power_role forced_pr;
 	bool			vbus_present;
 
+	enum pd_spec_rev	spec_rev;
 	enum data_role		current_dr;
 	enum power_role		current_pr;
 	bool			in_pr_swap;
@@ -448,7 +450,7 @@ static int pd_send_msg(struct usbpd *pd, u8 hdr_type, const u32 *data,
 	u16 hdr;
 
 	hdr = PD_MSG_HDR(hdr_type, pd->current_dr, pd->current_pr,
-			pd->tx_msgid, num_data);
+			pd->tx_msgid, num_data, pd->spec_rev);
 	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), type, 15);
 	/* TODO figure out timeout. based on tReceive=1.1ms x nRetryCount? */
 
@@ -650,7 +652,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		.msg_rx_cb		= phy_msg_received,
 		.shutdown_cb		= phy_shutdown,
 		.frame_filter_val	= FRAME_FILTER_EN_SOP |
-					  FRAME_FILTER_EN_HARD_RESET
+					  FRAME_FILTER_EN_HARD_RESET,
+		.spec_rev		= USBPD_REV_20,
 	};
 	union power_supply_propval val = {0};
 	unsigned long flags;
@@ -698,6 +701,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 			phy_params.data_role = pd->current_dr;
 			phy_params.power_role = pd->current_pr;
+			phy_params.spec_rev = pd->spec_rev = USBPD_REV_20;
 
 			ret = pd_phy_open(&phy_params);
 			if (ret) {
@@ -850,6 +854,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 			phy_params.data_role = pd->current_dr;
 			phy_params.power_role = pd->current_pr;
+			phy_params.spec_rev = pd->spec_rev = USBPD_REV_20;
 
 			ret = pd_phy_open(&phy_params);
 			if (ret) {
