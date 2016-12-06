@@ -2452,12 +2452,9 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 					rc);
 		}
 	} else {
-		if (chg->wa_flags & BOOST_BACK_WA) {
+		if (chg->wa_flags & BOOST_BACK_WA)
 			vote(chg->usb_suspend_votable,
 						BOOST_BACK_VOTER, false, 0);
-			vote(chg->dc_suspend_votable,
-						BOOST_BACK_VOTER, false, 0);
-		}
 
 		if (chg->dpdm_reg && regulator_is_enabled(chg->dpdm_reg)) {
 			smblib_dbg(chg, PR_MISC, "disabling DPDM regulator\n");
@@ -2941,14 +2938,12 @@ irqreturn_t smblib_handle_switcher_power_ok(int irq, void *data)
 				get_effective_result(chg->usb_suspend_votable))
 		return IRQ_HANDLED;
 
-	if ((stat & USE_DCIN_BIT) &&
-				get_effective_result(chg->dc_suspend_votable))
+	if (stat & USE_DCIN_BIT)
 		return IRQ_HANDLED;
 
 	if (is_storming(&irq_data->storm_data)) {
-		smblib_dbg(chg, PR_MISC, "reverse boost detected; suspending input\n");
+		smblib_err(chg, "Reverse boost detected: suspending input\n");
 		vote(chg->usb_suspend_votable, BOOST_BACK_VOTER, true, 0);
-		vote(chg->dc_suspend_votable, BOOST_BACK_VOTER, true, 0);
 	}
 
 	return IRQ_HANDLED;
