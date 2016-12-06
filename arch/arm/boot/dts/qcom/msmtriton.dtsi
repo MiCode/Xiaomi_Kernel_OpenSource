@@ -965,6 +965,7 @@
 #include "msmtriton-regulator.dtsi"
 #include "msm-gdsc-falcon.dtsi"
 #include "msmfalcon-common.dtsi"
+#include "msm-arm-smmu-triton.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";
