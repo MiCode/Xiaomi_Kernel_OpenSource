@@ -4,7 +4,8 @@ Qualcomm Technologies, Inc Graphics Clock & Reset Controller Binding
 Required properties :
 - compatible : shall contain only one of the following:
 
-			"qcom,gpucc-msmfalcon"
+			"qcom,gpucc-msmfalcon",
+			"qcom,gpucc-msmtriton"
 
 - reg : shall contain base register location and length
 - #clock-cells : shall contain 1

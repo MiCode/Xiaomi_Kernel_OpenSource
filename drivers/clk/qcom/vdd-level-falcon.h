@@ -104,15 +104,10 @@
 	},					\
 	.num_rate_max = VDD_DIG_NUM
 
-#define VDD_GPU_PLL_FMAX_MAP6(l1, f1, l2, f2, l3, f3, l4, f4, l5, f5, l6, f6) \
+#define VDD_GPU_PLL_FMAX_MAP1(l1, f1)			 \
 	.vdd_class = &vdd_mx,				\
-	.rate_max = (unsigned long[VDD_DIG_NUM]) {		\
+	.rate_max = (unsigned long[VDD_DIG_NUM]) {	\
 		[VDD_DIG_##l1] = (f1),			\
-		[VDD_DIG_##l2] = (f2),			\
-		[VDD_DIG_##l3] = (f3),			\
-		[VDD_DIG_##l4] = (f4),			\
-		[VDD_DIG_##l5] = (f5),			\
-		[VDD_DIG_##l6] = (f6),			\
 	},						\
 	.num_rate_max = VDD_DIG_NUM
 
