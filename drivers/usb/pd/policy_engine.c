@@ -611,6 +611,12 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 		return;
 	}
 
+	/* if spec rev differs (i.e. is older), update PHY */
+	if (PD_MSG_HDR_REV(header) < pd->spec_rev) {
+		pd->spec_rev = PD_MSG_HDR_REV(header);
+		pd_phy_update_spec_rev(pd->spec_rev);
+	}
+
 	rx_msg = kzalloc(sizeof(*rx_msg), GFP_KERNEL);
 	if (!rx_msg)
 		return;
@@ -691,6 +697,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &val);
 
+		/* support only PD 2.0 as a source */
+		pd->spec_rev = USBPD_REV_20;
 		pd_reset_protocol(pd);
 
 		if (!pd->in_pr_swap) {
@@ -701,7 +709,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 			phy_params.data_role = pd->current_dr;
 			phy_params.power_role = pd->current_pr;
-			phy_params.spec_rev = pd->spec_rev = USBPD_REV_20;
+			phy_params.spec_rev = pd->spec_rev;
 
 			ret = pd_phy_open(&phy_params);
 			if (ret) {
@@ -713,6 +721,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			}
 
 			pd->pd_phy_opened = true;
+		} else {
+			pd_phy_update_spec_rev(pd->spec_rev);
 		}
 
 		pd->current_state = PE_SRC_SEND_CAPABILITIES;
@@ -844,6 +854,11 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		if (!val.intval)
 			break;
 
+		/*
+		 * support up to PD 3.0 as a sink; if source is 2.0,
+		 * phy_msg_received() will handle the downgrade.
+		 */
+		pd->spec_rev = USBPD_REV_30;
 		pd_reset_protocol(pd);
 
 		if (!pd->in_pr_swap) {
@@ -854,7 +869,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 			phy_params.data_role = pd->current_dr;
 			phy_params.power_role = pd->current_pr;
-			phy_params.spec_rev = pd->spec_rev = USBPD_REV_20;
+			phy_params.spec_rev = pd->spec_rev;
 
 			ret = pd_phy_open(&phy_params);
 			if (ret) {
@@ -866,6 +881,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			}
 
 			pd->pd_phy_opened = true;
+		} else {
+			pd_phy_update_spec_rev(pd->spec_rev);
 		}
 
 		pd->current_voltage = pd->requested_voltage = 5000000;
@@ -1406,6 +1423,15 @@ static inline void rx_msg_cleanup(struct usbpd *pd)
 		kfree(msg);
 	}
 	spin_unlock_irqrestore(&pd->rx_lock, flags);
+}
+
+/* For PD 3.0, check SinkTxOk before allowing initiating AMS */
+static inline bool is_sink_tx_ok(struct usbpd *pd)
+{
+	if (pd->spec_rev == USBPD_REV_30)
+		return pd->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_HIGH;
+
+	return true;
 }
 
 /* Handles current state and determines transitions */
@@ -1986,7 +2012,7 @@ static void usbpd_sm(struct work_struct *w)
 			vconn_swap(pd);
 		} else if (IS_DATA(rx_msg, MSG_VDM)) {
 			handle_vdm_rx(pd, rx_msg);
-		} else if (pd->send_pr_swap) {
+		} else if (pd->send_pr_swap && is_sink_tx_ok(pd)) {
 			pd->send_pr_swap = false;
 			ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0, SOP_MSG);
 			if (ret) {
@@ -1997,7 +2023,7 @@ static void usbpd_sm(struct work_struct *w)
 
 			pd->current_state = PE_PRS_SNK_SRC_SEND_SWAP;
 			kick_sm(pd, SENDER_RESPONSE_TIME);
-		} else if (pd->send_dr_swap) {
+		} else if (pd->send_dr_swap && is_sink_tx_ok(pd)) {
 			pd->send_dr_swap = false;
 			ret = pd_send_msg(pd, MSG_DR_SWAP, NULL, 0, SOP_MSG);
 			if (ret) {
@@ -2008,7 +2034,7 @@ static void usbpd_sm(struct work_struct *w)
 
 			pd->current_state = PE_DRS_SEND_DR_SWAP;
 			kick_sm(pd, SENDER_RESPONSE_TIME);
-		} else {
+		} else if (is_sink_tx_ok(pd)) {
 			handle_vdm_tx(pd);
 		}
 		break;
@@ -2307,6 +2333,12 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		usbpd_info(&pd->dev, "Type-C Source (%s) connected\n",
 				src_current(typec_mode));
 
+		/* if waiting for SinkTxOk to start an AMS */
+		if (pd->spec_rev == USBPD_REV_30 &&
+			typec_mode == POWER_SUPPLY_TYPEC_SOURCE_HIGH &&
+			(pd->send_pr_swap || pd->send_dr_swap || pd->vdm_tx))
+			break;
+
 		if (pd->current_pr == PR_SINK)
 			return 0;
 
@@ -2444,6 +2476,12 @@ static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
 				return -EAGAIN;
 			}
 
+			if (pd->current_state == PE_SNK_READY &&
+					!is_sink_tx_ok(pd)) {
+				usbpd_err(&pd->dev, "Rp indicates SinkTxNG\n");
+				return -EAGAIN;
+			}
+
 			reinit_completion(&pd->swap_complete);
 			pd->send_dr_swap = true;
 			kick_sm(pd, 0);
@@ -2486,6 +2524,12 @@ static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
 			if (pd->current_state != PE_SRC_READY &&
 					pd->current_state != PE_SNK_READY) {
 				usbpd_err(&pd->dev, "power_role swap not allowed: PD not in Ready state\n");
+				return -EAGAIN;
+			}
+
+			if (pd->current_state == PE_SNK_READY &&
+					!is_sink_tx_ok(pd)) {
+				usbpd_err(&pd->dev, "Rp indicates SinkTxNG\n");
 				return -EAGAIN;
 			}
 
@@ -2754,7 +2798,7 @@ static ssize_t select_pdo_store(struct device *dev,
 	int ret;
 
 	/* Only allowed if we are already in explicit sink contract */
-	if (pd->current_state != PE_SNK_READY) {
+	if (pd->current_state != PE_SNK_READY || !is_sink_tx_ok(pd)) {
 		usbpd_err(&pd->dev, "select_pdo: Cannot select new PDO yet\n");
 		return -EBUSY;
 	}
