@@ -2448,6 +2448,9 @@ static int fg_notifier_cb(struct notifier_block *nb,
 	if (event != PSY_EVENT_PROP_CHANGED)
 		return NOTIFY_OK;
 
+	if (work_pending(&chip->status_change_work))
+		return NOTIFY_OK;
+
 	if ((strcmp(psy->desc->name, "battery") == 0)
 		|| (strcmp(psy->desc->name, "usb") == 0)) {
 		/*
