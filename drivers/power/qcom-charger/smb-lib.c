@@ -780,16 +780,6 @@ static int smblib_otg_cl_config(struct smb_charger *chg, int otg_cl_ua)
 		return rc;
 	}
 
-	/* configure PFM/PWM mode for OTG regulator */
-	rc = smblib_masked_write(chg, DC_ENG_SSUPPLY_CFG3_REG,
-				 ENG_SSUPPLY_CFG_SKIP_TH_V0P2_BIT,
-				 otg_cl_ua > MICRO_250MA ? 1 : 0);
-	if (rc < 0) {
-		smblib_err(chg,
-			"Couldn't write DC_ENG_SSUPPLY_CFG3_REG rc=%d\n", rc);
-		return rc;
-	}
-
 	return rc;
 }
 
