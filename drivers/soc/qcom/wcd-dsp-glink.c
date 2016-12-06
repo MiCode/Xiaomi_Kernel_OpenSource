@@ -318,9 +318,6 @@ static void wdsp_glink_notify_state(void *handle, const void *priv,
 		if (ch->free_mem) {
 			kfree(ch);
 			ch = NULL;
-		} else {
-			/* Open the glink channel again */
-			queue_work(wpriv->work_queue, &ch->lcl_ch_open_wrk);
 		}
 	} else if (event == GLINK_REMOTE_DISCONNECTED) {
 		dev_dbg(wpriv->dev, "%s: remote channel: %s disconnected remotely\n",
@@ -607,6 +604,7 @@ static void wdsp_glink_tx_buf_work(struct work_struct *work)
 
 	mutex_lock(&tx_buf->ch->mutex);
 	if (ch->channel_state == GLINK_CONNECTED) {
+		mutex_unlock(&tx_buf->ch->mutex);
 		ret = glink_tx(ch->handle, tx_buf,
 			       cpkt->payload, cpkt->payload_size,
 			       GLINK_TX_REQ_INTENT);
@@ -621,6 +619,7 @@ static void wdsp_glink_tx_buf_work(struct work_struct *work)
 			kfree(tx_buf);
 		}
 	} else {
+		mutex_unlock(&tx_buf->ch->mutex);
 		dev_err(wpriv->dev, "%s: channel %s is not in connected state\n",
 			__func__, ch->ch_cfg.name);
 		/*
@@ -629,7 +628,6 @@ static void wdsp_glink_tx_buf_work(struct work_struct *work)
 		 */
 		kfree(tx_buf);
 	}
-	mutex_unlock(&tx_buf->ch->mutex);
 }
 
 /*
