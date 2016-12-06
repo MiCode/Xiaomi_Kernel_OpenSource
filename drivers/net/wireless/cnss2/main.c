@@ -525,11 +525,15 @@ static int cnss_qca6174_powerup(struct cnss_plat_data *plat_priv)
 	int ret = 0;
 	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
 
-	if (!pci_priv)
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL!\n");
 		return -ENODEV;
+	}
 
-	if (!plat_priv->driver_ops)
+	if (!plat_priv->driver_ops) {
+		cnss_pr_err("driver_ops is NULL!\n");
 		return -EINVAL;
+	}
 
 	ret = cnss_power_on_device(plat_priv);
 	if (ret) {
@@ -620,11 +624,15 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 	int ret = 0;
 	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
 
-	if (!pci_priv)
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL!\n");
 		return -ENODEV;
+	}
 
-	if (!plat_priv->driver_ops)
+	if (!plat_priv->driver_ops) {
+		cnss_pr_err("driver_ops is NULL!\n");
 		return -EINVAL;
+	}
 
 	ret = cnss_power_on_device(plat_priv);
 	if (ret) {
