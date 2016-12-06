@@ -663,8 +663,8 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 			goto failed_set_mode;
 		}
 
-		us = us + 1;
-		do_div(us, USEC_PER_SEC/SCLK_HZ);
+		us = (us + 1) * 1000;
+		do_div(us, NSEC_PER_SEC/SCLK_HZ);
 		msm_mpm_enter_sleep(us, from_idle, cpumask);
 
 		if (cluster->no_saw_devices && !use_psci)
