@@ -940,6 +940,24 @@ int read_platform_resources_from_dt(
 		goto err_load_max_hw_load;
 	}
 
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,max-hq-mbs-per-frame",
+			&res->max_hq_mbs_per_frame);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to determine Max HQ mbs per frame: %d\n", rc);
+		goto err_load_HQ_values;
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,max-hq-frames-per-sec",
+			&res->max_hq_fps);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to determine Max HQ fps: %d\n", rc);
+		goto err_load_HQ_values;
+	}
+
 	rc = msm_vidc_populate_legacy_context_bank(res);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -985,6 +1003,7 @@ int read_platform_resources_from_dt(
 	return rc;
 
 err_setup_legacy_cb:
+err_load_HQ_values:
 err_load_max_hw_load:
 	msm_vidc_free_allowed_clocks_table(res);
 err_load_allowed_clocks_table:

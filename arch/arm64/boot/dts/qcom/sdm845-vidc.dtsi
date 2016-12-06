@@ -45,6 +45,8 @@
 		qcom,clock-configs = <0x0 0x0 0x0 0x0 0x0>;
 		qcom,allowed-clock-rates = <200000000 320000000 380000000
 			444000000 533000000>;
+		qcom,max-hq-mbs-per-frame = <8160>;
+		qcom,max-hq-frames-per-sec = <60>;
 		qcom,clock-freq-tbl {
 			qcom,profile-enc {
 				qcom,codec-mask = <0x55555555>;

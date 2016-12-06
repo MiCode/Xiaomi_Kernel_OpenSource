@@ -163,6 +163,9 @@
 #define HFI_VENC_PERFMODE_MAX_QUALITY	0x1
 #define HFI_VENC_PERFMODE_POWER_SAVE	0x2
 
+#define  HFI_WORKMODE_1		(HFI_COMMON_BASE + 0x1)
+#define  HFI_WORKMODE_2		(HFI_COMMON_BASE + 0x2)
+
 struct hfi_buffer_info {
 	u32 buffer_addr;
 	u32 extra_data_addr;
@@ -215,11 +218,15 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x00E)
 #define  HFI_PROPERTY_PARAM_MAX_SESSIONS_SUPPORTED	    \
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x010)
+#define  HFI_PROPERTY_PARAM_WORK_MODE                       \
+	(HFI_PROPERTY_PARAM_COMMON_START + 0x015)
 
 #define HFI_PROPERTY_CONFIG_COMMON_START				\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x2000)
 #define HFI_PROPERTY_CONFIG_FRAME_RATE					\
 	(HFI_PROPERTY_CONFIG_COMMON_START + 0x001)
+#define HFI_PROPERTY_CONFIG_VIDEOCORES_USAGE				\
+	(HFI_PROPERTY_CONFIG_COMMON_START + 0x002)
 
 #define HFI_PROPERTY_PARAM_VDEC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VDEC + HFI_ARCH_COMMON_OFFSET + 0x3000)
@@ -559,6 +566,14 @@ struct hfi_frame_size {
 	u32 buffer_type;
 	u32 width;
 	u32 height;
+};
+
+struct hfi_videocores_usage_type {
+	u32 video_core_enable_mask;
+};
+
+struct hfi_video_work_mode {
+	u32 video_work_mode;
 };
 
 struct hfi_video_signal_metadata {

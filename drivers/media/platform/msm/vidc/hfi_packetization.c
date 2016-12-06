@@ -1799,6 +1799,34 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(struct hfi_frame_size);
 		break;
 	}
+	case HAL_PARAM_VIDEO_CORES_USAGE:
+	{
+		struct hal_videocores_usage_info *hal = pdata;
+		struct hfi_videocores_usage_type *core_info =
+			(struct hfi_videocores_usage_type *)
+			&pkt->rg_property_data[1];
+
+		core_info->video_core_enable_mask = hal->video_core_enable_mask;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VIDEOCORES_USAGE;
+		pkt->size += sizeof(u32) + sizeof(*core_info);
+		break;
+	}
+	case HAL_PARAM_VIDEO_WORK_MODE:
+	{
+		struct hal_video_work_mode *hal = pdata;
+		struct hfi_video_work_mode *work_mode =
+			(struct hfi_video_work_mode *)
+			&pkt->rg_property_data[1];
+
+		work_mode->video_work_mode = hal->video_work_mode;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_WORK_MODE;
+		pkt->size += sizeof(u32) + sizeof(*work_mode);
+		break;
+	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:
