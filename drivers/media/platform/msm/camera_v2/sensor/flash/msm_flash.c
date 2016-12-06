@@ -936,9 +936,11 @@ static int32_t msm_flash_get_dt_data(struct device_node *of_node,
 	/* Read the gpio information from device tree */
 	rc = msm_sensor_driver_get_gpio_data(
 		&(fctrl->power_info.gpio_conf), of_node);
-	if (rc < 0) {
-		pr_err("%s:%d msm_sensor_driver_get_gpio_data failed rc %d\n",
-			__func__, __LINE__, rc);
+	if (-ENODEV == rc) {
+		pr_notice("No valid flash GPIOs data\n");
+		rc = 0;
+	} else if (rc < 0) {
+		pr_err("Error flash GPIOs rc %d\n", rc);
 		return rc;
 	}
 
