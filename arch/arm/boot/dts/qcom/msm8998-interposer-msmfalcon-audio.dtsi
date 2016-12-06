@@ -14,52 +14,6 @@
 	qcom,audio-ref-clk-gpio = <&pmfalcon_gpios 3 0>;
 };
 
-&slim_aud {
-	tasha_codec {
-		cdc-vdd-buck-supply = <&pmfalcon_s4>;
-		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-buck-current = <650000>;
-
-		cdc-buck-sido-supply = <&pmfalcon_s4>;
-		qcom,cdc-buck-sido-voltage = <1800000 1800000>;
-		qcom,cdc-buck-sido-current = <250000>;
-
-		cdc-vdd-tx-h-supply = <&pmfalcon_s4>;
-		qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-tx-h-current = <25000>;
-
-		cdc-vdd-rx-h-supply = <&pmfalcon_s4>;
-		qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-rx-h-current = <25000>;
-
-		cdc-vddpx-1-supply = <&pmfalcon_s4>;
-		qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
-		qcom,cdc-vddpx-1-current = <10000>;
-	};
-
-	tavil_codec {
-		cdc-vdd-buck-supply = <&pmfalcon_s4>;
-		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-buck-current = <650000>;
-
-		cdc-buck-sido-supply = <&pmfalcon_s4>;
-		qcom,cdc-buck-sido-voltage = <1800000 1800000>;
-		qcom,cdc-buck-sido-current = <250000>;
-
-		cdc-vdd-tx-h-supply = <&pmfalcon_s4>;
-		qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-tx-h-current = <25000>;
-
-		cdc-vdd-rx-h-supply = <&pmfalcon_s4>;
-		qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-rx-h-current = <25000>;
-
-		cdc-vddpx-1-supply = <&pmfalcon_s4>;
-		qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
-		qcom,cdc-vddpx-1-current = <10000>;
-	};
-};
-
 &pmfalcon_gpios {
 	gpio@c200 {
 		status = "ok";
