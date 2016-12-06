@@ -7212,6 +7212,9 @@ static int nl80211_start_radar_detection(struct sk_buff *skb,
 	if (netif_carrier_ok(dev))
 		return -EBUSY;
 
+	if (rdev->wiphy.flags & WIPHY_FLAG_DFS_OFFLOAD)
+		return -EOPNOTSUPP;
+
 	if (wdev->cac_started)
 		return -EBUSY;
 
