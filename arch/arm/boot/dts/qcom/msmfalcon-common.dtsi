@@ -190,6 +190,13 @@
 		reset-names = "phy_reset", "phy_phy_reset";
 	};
 
+	usb_audio_qmi_dev {
+		compatible = "qcom,usb-audio-qmi-dev";
+		iommus = <&lpass_q6_smmu 6>;
+		qcom,usb-audio-stream-id = <6>;
+		qcom,usb-audio-intr-num = <2>;
+	};
+
 	dbm_1p5: dbm@a8f8000 {
 		compatible = "qcom,usb-dbm-1p5";
 		reg = <0xa8f8000 0x300>;
