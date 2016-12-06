@@ -428,9 +428,11 @@ static void wmi_evt_scan_complete(struct wil6210_priv *wil, int id,
 	mutex_lock(&wil->p2p_wdev_mutex);
 	if (wil->scan_request) {
 		struct wmi_scan_complete_event *data = d;
-		bool aborted = (data->status != WMI_SCAN_SUCCESS);
+		int status = le32_to_cpu(data->status);
+		bool aborted = (status != WMI_SCAN_SUCCESS) &&
+				(status != WMI_SCAN_ABORT_REJECTED);
 
-		wil_dbg_wmi(wil, "SCAN_COMPLETE(0x%08x)\n", data->status);
+		wil_dbg_wmi(wil, "SCAN_COMPLETE(0x%08x)\n", status);
 		wil_dbg_misc(wil, "Complete scan_request 0x%p aborted %d\n",
 			     wil->scan_request, aborted);
 
@@ -438,6 +440,7 @@ static void wmi_evt_scan_complete(struct wil6210_priv *wil, int id,
 		cfg80211_scan_done(wil->scan_request, aborted);
 		wil->radio_wdev = wil->wdev;
 		wil->scan_request = NULL;
+		wake_up_interruptible(&wil->wq);
 	} else {
 		wil_err(wil, "SCAN_COMPLETE while not scanning\n");
 	}
@@ -1623,6 +1626,16 @@ int wmi_ps_dev_profile_cfg(struct wil6210_priv *wil,
 			status);
 		rc = -EINVAL;
 	}
+
+int wmi_abort_scan(struct wil6210_priv *wil)
+{
+	int rc;
+
+	wil_dbg_wmi(wil, "sending WMI_ABORT_SCAN_CMDID\n");
+
+	rc = wmi_send(wil, WMI_ABORT_SCAN_CMDID, NULL, 0);
+	if (rc)
+		wil_err(wil, "Failed to abort scan (%d)\n", rc);
 
 	return rc;
 }
