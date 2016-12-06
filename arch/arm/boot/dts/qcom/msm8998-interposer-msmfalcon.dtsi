@@ -3087,6 +3087,7 @@
 #include "msm8998-blsp.dtsi"
 #include "msm-audio.dtsi"
 #include "msmfalcon-audio.dtsi"
+#include "msm-smb138x.dtsi"
 
 /* GPU overrides */
 &msm_gpu {
