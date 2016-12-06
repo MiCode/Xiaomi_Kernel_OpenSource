@@ -4046,7 +4046,8 @@ static int ipa3_trigger_fw_loading_mdms(void)
 	}
 
 	result = gsi_enable_fw(ipa3_res.transport_mem_base,
-				ipa3_res.transport_mem_size);
+				ipa3_res.transport_mem_size,
+				ipa3_get_gsi_ver(ipa3_res.ipa_hw_type));
 	if (result) {
 		IPAERR("Failed to enable GSI FW\n");
 		release_firmware(fw);

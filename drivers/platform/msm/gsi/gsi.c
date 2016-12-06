@@ -2700,10 +2700,15 @@ int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
 }
 EXPORT_SYMBOL(gsi_configure_regs);
 
-int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size)
+int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size, enum gsi_ver ver)
 {
 	void __iomem *gsi_base;
 	uint32_t value;
+
+	if (ver <= GSI_VER_ERR || ver >= GSI_VER_MAX) {
+		GSIERR("Incorrect version %d\n", ver);
+		return -GSI_STATUS_ERROR;
+	}
 
 	gsi_base = ioremap_nocache(gsi_base_addr, gsi_size);
 	if (!gsi_base) {
@@ -2712,7 +2717,7 @@ int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size)
 	}
 
 	/* Enable the MCS and set to x2 clocks */
-	if (gsi_ctx->per.ver >= GSI_VER_1_2) {
+	if (ver >= GSI_VER_1_2) {
 		value = ((1 << GSI_GSI_MCS_CFG_MCS_ENABLE_SHFT) &
 				GSI_GSI_MCS_CFG_MCS_ENABLE_BMSK);
 		gsi_writel(value, gsi_base + GSI_GSI_MCS_CFG_OFFS);
