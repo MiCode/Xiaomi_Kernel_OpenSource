@@ -142,6 +142,8 @@ static void drm_crtc_unregister_all(struct drm_device *dev)
 	}
 }
 
+static const struct fence_ops drm_crtc_fence_ops;
+
 static struct drm_crtc *fence_to_crtc(struct fence *fence)
 {
 	BUG_ON(fence->ops != &drm_crtc_fence_ops);
@@ -167,12 +169,26 @@ static bool drm_crtc_fence_enable_signaling(struct fence *fence)
 	return true;
 }
 
-const struct fence_ops drm_crtc_fence_ops = {
+static const struct fence_ops drm_crtc_fence_ops = {
 	.get_driver_name = drm_crtc_fence_get_driver_name,
 	.get_timeline_name = drm_crtc_fence_get_timeline_name,
 	.enable_signaling = drm_crtc_fence_enable_signaling,
 	.wait = fence_default_wait,
 };
+
+struct fence *drm_crtc_create_fence(struct drm_crtc *crtc)
+{
+	struct fence *fence;
+
+	fence = kzalloc(sizeof(*fence), GFP_KERNEL);
+	if (!fence)
+		return NULL;
+
+	fence_init(fence, &drm_crtc_fence_ops, &crtc->fence_lock,
+		       crtc->fence_context, ++crtc->fence_seqno);
+
+	return fence;
+}
 
 /**
  * drm_crtc_init_with_planes - Initialise a new CRTC object with

@@ -41,7 +41,7 @@ int drm_crtc_check_viewport(const struct drm_crtc *crtc,
 			    const struct drm_display_mode *mode,
 			    const struct drm_framebuffer *fb);
 
-extern const struct fence_ops drm_crtc_fence_ops;
+struct fence *drm_crtc_create_fence(struct drm_crtc *crtc);
 
 void drm_fb_release(struct drm_file *file_priv);
 
