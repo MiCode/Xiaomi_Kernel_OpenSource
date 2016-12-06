@@ -1853,6 +1853,7 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	u32 val;
+	int ret;
 
 	/* Configure AHB2PHY for one wait state read/write */
 	if (mdwc->ahb2phy_base) {
@@ -1871,7 +1872,11 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 	if (!mdwc->init) {
 		dbg_event(0xFF, "dwc3 init",
 				atomic_read(&mdwc->dev->power.usage_count));
-		dwc3_core_pre_init(dwc);
+		ret = dwc3_core_pre_init(dwc);
+		if (ret) {
+			dev_err(mdwc->dev, "dwc3_core_pre_init failed\n");
+			return;
+		}
 		mdwc->init = true;
 	}
 
@@ -2478,28 +2483,19 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 		return PTR_ERR(mdwc->core_reset);
 	}
 
-	if (!of_property_read_u32(mdwc->dev->of_node, "qcom,core-clk-rate",
+	if (of_property_read_u32(mdwc->dev->of_node, "qcom,core-clk-rate",
 				(u32 *)&mdwc->core_clk_rate)) {
-		mdwc->core_clk_rate = clk_round_rate(mdwc->core_clk,
-							mdwc->core_clk_rate);
-	} else {
-		/*
-		 * Get Max supported clk frequency for USB Core CLK and request
-		 * to set the same.
-		 */
-		mdwc->core_clk_rate = clk_round_rate(mdwc->core_clk, LONG_MAX);
+		dev_err(mdwc->dev, "USB core-clk-rate is not present\n");
+		return -EINVAL;
 	}
 
-	if (IS_ERR_VALUE(mdwc->core_clk_rate)) {
-		dev_err(mdwc->dev, "fail to get core clk max freq.\n");
-	} else {
-		dev_dbg(mdwc->dev, "USB core frequency = %ld\n",
+	mdwc->core_clk_rate = clk_round_rate(mdwc->core_clk,
 							mdwc->core_clk_rate);
-		ret = clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
-		if (ret)
-			dev_err(mdwc->dev, "fail to set core_clk freq:%d\n",
-									ret);
-	}
+	dev_dbg(mdwc->dev, "USB core frequency = %ld\n",
+						mdwc->core_clk_rate);
+	ret = clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
+	if (ret)
+		dev_err(mdwc->dev, "fail to set core_clk freq:%d\n", ret);
 
 	if (of_property_read_u32(mdwc->dev->of_node, "qcom,core-clk-rate-hs",
 				(u32 *)&mdwc->core_clk_rate_hs)) {
