@@ -224,6 +224,9 @@ config USB_F_ACC
 config USB_F_DIAG
 	tristate
 
+config USB_F_CDEV
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -517,6 +520,13 @@ config USB_CONFIGFS_F_DIAG
 	help
 	  Diag function driver enables support for Qualcomm diagnostics
 	  port over USB.
+
+config USB_CONFIGFS_F_CDEV
+	bool "USB Serial Character function"
+	select USB_F_CDEV
+	depends on USB_CONFIGFS
+	help
+	  Generic USB serial character function driver to support DUN/NMEA.
 
 choice
 	tristate "USB Gadget Drivers"
