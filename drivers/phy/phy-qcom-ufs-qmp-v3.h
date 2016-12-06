@@ -141,6 +141,7 @@
 #define UFS_PHY_TX_SMALL_AMP_DRV_LVL		PHY_OFF(0x34)
 #define UFS_PHY_LINECFG_DISABLE			PHY_OFF(0x130)
 #define UFS_PHY_RX_SYM_RESYNC_CTRL		PHY_OFF(0x134)
+#define UFS_PHY_RX_MIN_HIBERN8_TIME		PHY_OFF(0x138)
 #define UFS_PHY_RX_SIGDET_CTRL1			PHY_OFF(0x13C)
 #define UFS_PHY_RX_SIGDET_CTRL2			PHY_OFF(0x140)
 #define UFS_PHY_RX_PWM_GEAR_BAND		PHY_OFF(0x14C)
@@ -264,6 +265,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_3_0_0[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_TX_LARGE_AMP_DRV_LVL, 0x0A),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_TX_SMALL_AMP_DRV_LVL, 0x02),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_SYM_RESYNC_CTRL, 0x03),
+	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_MIN_HIBERN8_TIME, 0x9A), /* 8 us */
 };
 
 static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_3_1_0[] = {
@@ -343,6 +345,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_3_1_0[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_SYM_RESYNC_CTRL, 0x03),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_TX_MID_TERM_CTRL1, 0x43),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_SIGDET_CTRL1, 0x0F),
+	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_MIN_HIBERN8_TIME, 0x9A), /* 8 us */
 };
 
 static struct ufs_qcom_phy_calibration phy_cal_table_rate_B[] = {
