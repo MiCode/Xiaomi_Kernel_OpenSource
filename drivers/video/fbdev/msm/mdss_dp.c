@@ -711,7 +711,7 @@ static int mdss_dp_config_gpios(struct mdss_dp_drv_pdata *dp, bool enable)
 		}
 		if (gpio_is_valid(dp->aux_sel_gpio)) {
 			rc = gpio_direction_output(
-				dp->aux_sel_gpio, 0);
+				dp->aux_sel_gpio, dp->aux_sel_gpio_output);
 			if (rc)
 				pr_err("unable to set dir for aux_sel gpio\n");
 		}
@@ -1076,11 +1076,6 @@ static int mdss_dp_get_lane_mapping(struct mdss_dp_drv_pdata *dp,
 		lane_map->lane1 = 0;
 		lane_map->lane2 = 2;
 		lane_map->lane3 = 3;
-
-		if (gpio_is_valid(dp->usbplug_cc_gpio)) {
-			gpio_set_value(dp->usbplug_cc_gpio, 1);
-			pr_debug("Configured cc gpio for new Orientation\n");
-		}
 	}
 
 	pr_debug("lane0 = %d, lane1 = %d, lane2 =%d, lane3 =%d\n",
@@ -1196,7 +1191,6 @@ end:
 static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 {
 	int ret = 0;
-	enum plug_orientation orientation = ORIENTATION_NONE;
 	struct lane_mapping ln_map;
 
 	/* wait until link training is completed */
@@ -1210,15 +1204,14 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 
 		mutex_lock(&dp_drv->train_mutex);
 
-		orientation = usbpd_get_plug_orientation(dp_drv->pd);
-		pr_debug("plug orientation = %d\n", orientation);
-
-		ret = mdss_dp_get_lane_mapping(dp_drv, orientation, &ln_map);
+		ret = mdss_dp_get_lane_mapping(dp_drv, dp_drv->orientation,
+				&ln_map);
 		if (ret)
 			goto exit;
 
 		mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
-				orientation, dp_drv->dpcd.max_lane_count);
+				dp_drv->orientation,
+				dp_drv->dpcd.max_lane_count);
 
 		ret = mdss_dp_enable_mainlink_clocks(dp_drv);
 		if (ret)
@@ -1247,7 +1240,6 @@ exit:
 int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 {
 	int ret = 0;
-	enum plug_orientation orientation = ORIENTATION_NONE;
 	struct lane_mapping ln_map;
 
 	/* wait until link training is completed */
@@ -1267,10 +1259,7 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	}
 	mdss_dp_hpd_configure(&dp_drv->ctrl_io, true);
 
-	orientation = usbpd_get_plug_orientation(dp_drv->pd);
-	pr_debug("plug Orientation = %d\n", orientation);
-
-	ret = mdss_dp_get_lane_mapping(dp_drv, orientation, &ln_map);
+	ret = mdss_dp_get_lane_mapping(dp_drv, dp_drv->orientation, &ln_map);
 	if (ret)
 		goto exit;
 
@@ -1289,8 +1278,8 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 		goto exit;
 	}
 
-	mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
-			orientation, dp_drv->dpcd.max_lane_count);
+	mdss_dp_phy_share_lane_config(&dp_drv->phy_io, dp_drv->orientation,
+			dp_drv->dpcd.max_lane_count);
 
 	pr_debug("link_rate = 0x%x\n", dp_drv->link_rate);
 
@@ -1478,6 +1467,12 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp, bool enable)
 	return mdss_dp_send_cable_notification(dp, enable);
 }
 
+static void mdss_dp_set_default_resolution(struct mdss_dp_drv_pdata *dp)
+{
+	hdmi_edid_set_video_resolution(dp->panel_data.panel_info.edid_data,
+			DEFAULT_VIDEO_RESOLUTION, true);
+}
+
 static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 {
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
@@ -1512,6 +1507,8 @@ static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 	dp_drv->edid_buf = edid_init_data.buf;
 	dp_drv->edid_buf_size = edid_init_data.buf_size;
 
+	mdss_dp_set_default_resolution(dp_drv);
+
 	return 0;
 }
 
@@ -1532,11 +1529,21 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 		pr_err("%s: host init done already\n", __func__);
 		return 0;
 	}
+
 	ret = mdss_dp_regulator_ctrl(dp_drv, true);
 	if (ret) {
 		pr_err("failed to enable regulators\n");
 		goto vreg_error;
 	}
+
+	dp_drv->orientation = usbpd_get_plug_orientation(dp_drv->pd);
+
+	dp_drv->aux_sel_gpio_output = 0;
+	if (dp_drv->orientation == ORIENTATION_CC2)
+		dp_drv->aux_sel_gpio_output = 1;
+
+	pr_debug("orientation = %d, aux_sel_gpio_output = %d\n",
+			dp_drv->orientation, dp_drv->aux_sel_gpio_output);
 
 	mdss_dp_pinctrl_set_state(dp_drv, true);
 	mdss_dp_config_gpios(dp_drv, true);
@@ -1559,9 +1566,6 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	       mdss_dp_get_ctrl_hw_version(&dp_drv->ctrl_io),
 	       mdss_dp_get_phy_hw_version(&dp_drv->phy_io));
 
-	pr_debug("plug Orientation = %d\n",
-			usbpd_get_plug_orientation(dp_drv->pd));
-
 	mdss_dp_phy_aux_setup(&dp_drv->phy_io);
 
 	mdss_dp_irq_enable(dp_drv);
@@ -1569,8 +1573,11 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	mdss_dp_dpcd_cap_read(dp_drv);
 
 	ret = mdss_dp_edid_read(dp_drv);
-	if (ret)
+	if (ret) {
+		pr_info("edid read error, setting default resolution\n");
+		mdss_dp_set_default_resolution(dp_drv);
 		goto edid_error;
+	}
 
 	pr_debug("edid_read success. buf_size=%d\n",
 				dp_drv->edid_buf_size);
@@ -1581,14 +1588,13 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 		goto edid_error;
 	}
 
+edid_error:
 	mdss_dp_update_cable_status(dp_drv, true);
 	mdss_dp_notify_clients(dp_drv, true);
 	dp_drv->dp_initialized = true;
 
 	return ret;
 
-edid_error:
-	mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
 clk_error:
 	mdss_dp_regulator_ctrl(dp_drv, false);
 	mdss_dp_config_gpios(dp_drv, false);
