@@ -944,7 +944,20 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			right_crtc_zpos_cnt[z_pos]++;
 		}
 		pstates[i].sde_pstate->stage = z_pos;
-		SDE_DEBUG("%s: zpos %d", sde_crtc->name, z_pos);
+		/*
+		 * Hardware crossbar still limits the cursor layer always to be
+		 * topmost layer even though mixer could support any stage for
+		 * cursor.
+		 * The topmost blend stage needs to be moved to catalog or dtsi
+		 * as well.
+		 */
+		if ((sde_plane_pipe(pstates[i].drm_pstate->plane, 0)
+				== SSPP_CURSOR0) ||
+			(sde_plane_pipe(pstates[i].drm_pstate->plane, 0)
+				== SSPP_CURSOR1))
+			pstates[i].sde_pstate->stage = SDE_STAGE_6;
+		SDE_DEBUG("%s: zpos %d", sde_crtc->name,
+				pstates[i].sde_pstate->stage);
 	}
 
 end:
