@@ -1104,7 +1104,8 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	mdss_mdp_pp_get_dcm_state(pipe, &dcm_state);
 
 	mdata = mdss_mdp_get_mdata();
-	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_301) ||
+	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_320) ||
+	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_301) ||
 	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_300)) {
 		if (pipe->src_fmt->is_yuv) {
 			/* TODO: check csc cfg from PP block */
@@ -7535,6 +7536,7 @@ static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 		break;
 	case MDSS_MDP_HW_REV_300:
 	case MDSS_MDP_HW_REV_301:
+	case MDSS_MDP_HW_REV_320:
 		pp_cfg = pp_get_driver_ops_v3(ops);
 		if (IS_ERR_OR_NULL(pp_cfg)) {
 			ret = -EINVAL;
