@@ -39,7 +39,7 @@ Optional properties :
  - clocks: a list of phandles to the controller clocks. Use as per
    Documentation/devicetree/bindings/clock/clock-bindings.txt
  - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
-   property. Optional clocks are "bus_aggr_clk" and "cfg_ahb_clk".
+   property. Optional clocks are "bus_aggr_clk", "noc_aggr_clk" and "cfg_ahb_clk".
 - qcom,charging-disabled: If present then battery charging using USB
   is disabled.
 - vbus_dwc3-supply: phandle to the 5V VBUS supply regulator used for host mode.
@@ -95,12 +95,13 @@ Example MSM USB3.0 controller device node :
 		clocks = <&clock_gcc clk_gcc_usb30_master_clk>,
 			<&clock_gcc clk_gcc_cfg_noc_usb3_axi_clk>,
 			<&clock_gcc clk_gcc_aggre1_usb3_axi_clk>,
+			<&clock_rpmcc RPM_AGGR2_NOC_CLK>,
 			<&clock_gcc clk_gcc_usb30_mock_utmi_clk>,
 			<&clock_gcc clk_gcc_usb30_sleep_clk>,
 			<&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			<&clock_gcc clk_cxo_dwc3_clk>;
 
-		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
+		clock-names = "core_clk", "iface_clk", "bus_aggr_clk", "noc_aggr_clk",
 				"utmi_clk", "sleep_clk", "cfg_ahb_clk", "xo";
 
 		resets = <&clock_gcc GCC_USB_30_BCR>;
