@@ -192,15 +192,12 @@ struct msm_vfe_axi_ops {
 		uint8_t plane_idx);
 	void (*clear_wm_xbar_reg)(struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info, uint8_t plane_idx);
-
-	void (*cfg_ub)(struct vfe_device *vfe_dev);
-
+	void (*cfg_ub)(struct vfe_device *vfe_dev,
+		enum msm_vfe_input_src frame_src);
 	void (*read_wm_ping_pong_addr)(struct vfe_device *vfe_dev);
-
 	void (*update_ping_pong_addr)(void __iomem *vfe_base,
 		uint8_t wm_idx, uint32_t pingpong_bit, dma_addr_t paddr,
 		int32_t buf_size);
-
 	uint32_t (*get_wm_mask)(uint32_t irq_status0, uint32_t irq_status1);
 	uint32_t (*get_comp_mask)(uint32_t irq_status0, uint32_t irq_status1);
 	uint32_t (*get_pingpong_status)(struct vfe_device *vfe_dev);
@@ -209,6 +206,8 @@ struct msm_vfe_axi_ops {
 		uint32_t enable_camif);
 	void (*update_cgc_override)(struct vfe_device *vfe_dev,
 		uint8_t wm_idx, uint8_t cgc_override);
+	uint32_t (*ub_reg_offset)(struct vfe_device *vfe_dev, int idx);
+	uint32_t (*get_ub_size)(struct vfe_device *vfe_dev);
 };
 
 struct msm_vfe_core_ops {
