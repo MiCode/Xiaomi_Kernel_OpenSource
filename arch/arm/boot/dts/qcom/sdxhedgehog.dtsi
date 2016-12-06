@@ -161,3 +161,30 @@
 
 	qcom,pcie-phy-ver = <0x21>;
 };
+
+&cnss_pcie {
+	wlan-en-gpio = <&pmdcalifornium_gpios 8 0>;
+};
+
+&pmdcalifornium_gpios {
+	gpio@c500 { /* GPIO 6 - Rome 3.3V control */
+		status = "ok";
+		qcom,mode = <1>;		/* Digital output*/
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <1>;		/* Output high */
+		qcom,vin-sel = <0>;		/* VPH_PWR */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,out-strength = <1>;	/* High drive strength */
+		qcom,master-en = <1>;		/* Enable GPIO */
+	};
+
+	gpio@c700 { /* GPIO 8 - BT_EN */
+		status = "ok";
+		qcom,mode = <1>;         /* Digital output*/
+		qcom,pull = <4>;         /* Pulldown 10uA */
+		qcom,vin-sel = <0>;      /* VPH_PWR */
+		qcom,src-sel = <0>;      /* GPIO */
+		qcom,invert = <0>;       /* Invert */
+		qcom,master-en = <1>;    /* Enable GPIO */
+	};
+};
