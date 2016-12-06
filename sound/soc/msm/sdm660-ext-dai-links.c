@@ -1861,6 +1861,24 @@ static struct snd_soc_dai_link msm_wcn_be_dai_links[] = {
 	},
 };
 
+static struct snd_soc_dai_link ext_disp_be_dai_link[] = {
+	/* DISP PORT BACK END DAI Link */
+	{
+		.name = LPASS_BE_DISPLAY_PORT,
+		.stream_name = "Display Port Playback",
+		.cpu_dai_name = "msm-dai-q6-dp.24608",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-ext-disp-audio-codec-rx",
+		.codec_dai_name = "msm_dp_audio_codec_rx_dai",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_DISPLAY_PORT_RX,
+		.be_hw_params_fixup = msm_common_be_hw_params_fixup,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+
 static struct snd_soc_dai_link msm_ext_tasha_dai_links[
 ARRAY_SIZE(msm_ext_common_fe_dai) +
 ARRAY_SIZE(msm_ext_tasha_fe_dai) +
@@ -1868,7 +1886,8 @@ ARRAY_SIZE(msm_ext_common_be_dai) +
 ARRAY_SIZE(msm_ext_tasha_be_dai) +
 ARRAY_SIZE(msm_mi2s_be_dai_links) +
 ARRAY_SIZE(msm_auxpcm_be_dai_links) +
-ARRAY_SIZE(msm_wcn_be_dai_links)];
+ARRAY_SIZE(msm_wcn_be_dai_links) +
+ARRAY_SIZE(ext_disp_be_dai_link)];
 
 static struct snd_soc_dai_link msm_ext_tavil_dai_links[
 ARRAY_SIZE(msm_ext_common_fe_dai) +
@@ -1877,7 +1896,8 @@ ARRAY_SIZE(msm_ext_common_be_dai) +
 ARRAY_SIZE(msm_ext_tavil_be_dai) +
 ARRAY_SIZE(msm_mi2s_be_dai_links) +
 ARRAY_SIZE(msm_auxpcm_be_dai_links) +
-ARRAY_SIZE(msm_wcn_be_dai_links)];
+ARRAY_SIZE(msm_wcn_be_dai_links) +
+ARRAY_SIZE(ext_disp_be_dai_link)];
 
 /**
  * populate_snd_card_dailinks - prepares dailink array and initializes card.
@@ -1951,6 +1971,15 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev,
 				   sizeof(msm_wcn_be_dai_links));
 			len4 += ARRAY_SIZE(msm_wcn_be_dai_links);
 		}
+		if (of_property_read_bool(dev->of_node,
+					  "qcom,ext-disp-audio-rx")) {
+			dev_dbg(dev, "%s(): ext disp audio support present\n",
+					__func__);
+			memcpy(msm_ext_tasha_dai_links + len4,
+				ext_disp_be_dai_link,
+				sizeof(ext_disp_be_dai_link));
+			len4 += ARRAY_SIZE(ext_disp_be_dai_link);
+		}
 		msm_ext_dai_links = msm_ext_tasha_dai_links;
 	} else if (strnstr(card->name, "tavil", strlen(card->name))) {
 		len1 = ARRAY_SIZE(msm_ext_common_fe_dai);
@@ -1986,6 +2015,15 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev,
 				   msm_wcn_be_dai_links,
 				   sizeof(msm_wcn_be_dai_links));
 			len4 += ARRAY_SIZE(msm_wcn_be_dai_links);
+		}
+		if (of_property_read_bool(dev->of_node,
+					  "qcom,ext-disp-audio-rx")) {
+			dev_dbg(dev, "%s(): ext disp audio support present\n",
+					__func__);
+			memcpy(msm_ext_tavil_dai_links + len4,
+				ext_disp_be_dai_link,
+				sizeof(ext_disp_be_dai_link));
+			len4 += ARRAY_SIZE(ext_disp_be_dai_link);
 		}
 		msm_ext_dai_links = msm_ext_tavil_dai_links;
 	} else {

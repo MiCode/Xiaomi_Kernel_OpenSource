@@ -36,6 +36,11 @@ struct dev_config {
 	u32 channels;
 };
 
+enum {
+	DP_RX_IDX,
+	EXT_DISP_RX_IDX_MAX,
+};
+
 /* TDM default config */
 static struct dev_config tdm_rx_cfg[TDM_INTERFACE_MAX][TDM_PORT_MAX] = {
 	{ /* PRI TDM */
@@ -124,6 +129,10 @@ static struct dev_config tdm_tx_cfg[TDM_INTERFACE_MAX][TDM_PORT_MAX] = {
 	}
 };
 
+/* Default configuration of external display BE */
+static struct dev_config ext_disp_rx_cfg[] = {
+	[DP_RX_IDX] =   {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
+};
 static struct dev_config usb_rx_cfg = {
 	.sample_rate = SAMPLING_RATE_48KHZ,
 	.bit_format = SNDRV_PCM_FORMAT_S16_LE,
@@ -264,7 +273,11 @@ static char const *usb_sample_rate_text[] = {"KHZ_8", "KHZ_11P025",
 					"KHZ_16", "KHZ_22P05",
 					"KHZ_32", "KHZ_44P1", "KHZ_48",
 					"KHZ_96", "KHZ_192", "KHZ_384"};
+static char const *ext_disp_bit_format_text[] = {"S16_LE", "S24_LE"};
+static char const *ext_disp_sample_rate_text[] = {"KHZ_48", "KHZ_96",
+						  "KHZ_192"};
 
+static SOC_ENUM_SINGLE_EXT_DECL(ext_disp_rx_chs, ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(proxy_rx_chs, ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(prim_aux_pcm_rx_sample_rate, auxpcm_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(sec_aux_pcm_rx_sample_rate, auxpcm_rate_text);
@@ -294,8 +307,11 @@ static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_chs, usb_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_chs, usb_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_format, bit_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(ext_disp_rx_format, ext_disp_bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_sample_rate, usb_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_sample_rate, usb_sample_rate_text);
+static SOC_ENUM_SINGLE_EXT_DECL(ext_disp_rx_sample_rate,
+				ext_disp_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(tdm_tx_chs, tdm_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(tdm_tx_format, tdm_bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(tdm_tx_sample_rate, tdm_sample_rate_text);
@@ -1514,6 +1530,162 @@ static int usb_audio_tx_format_put(struct snd_kcontrol *kcontrol,
 	return rc;
 }
 
+static int ext_disp_get_port_idx(struct snd_kcontrol *kcontrol)
+{
+	int idx;
+
+	if (strnstr(kcontrol->id.name, "Display Port RX",
+			 sizeof("Display Port RX")))
+		idx = DP_RX_IDX;
+	else {
+		pr_err("%s: unsupported BE: %s",
+			__func__, kcontrol->id.name);
+		idx = -EINVAL;
+	}
+
+	return idx;
+}
+
+static int ext_disp_rx_format_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = ext_disp_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	switch (ext_disp_rx_cfg[idx].bit_format) {
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+
+	pr_debug("%s: ext_disp_rx[%d].format = %d, ucontrol value = %ld\n",
+		 __func__, idx, ext_disp_rx_cfg[idx].bit_format,
+		 ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int ext_disp_rx_format_put(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = ext_disp_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		ext_disp_rx_cfg[idx].bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		ext_disp_rx_cfg[idx].bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	pr_debug("%s: ext_disp_rx[%d].format = %d, ucontrol value = %ld\n",
+		 __func__, idx, ext_disp_rx_cfg[idx].bit_format,
+		 ucontrol->value.integer.value[0]);
+
+	return 0;
+}
+
+static int ext_disp_rx_ch_get(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = ext_disp_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	ucontrol->value.integer.value[0] =
+			ext_disp_rx_cfg[idx].channels - 2;
+
+	pr_debug("%s: ext_disp_rx[%d].ch = %d\n", __func__,
+		 idx, ext_disp_rx_cfg[idx].channels);
+
+	return 0;
+}
+
+static int ext_disp_rx_ch_put(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = ext_disp_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	ext_disp_rx_cfg[idx].channels =
+			ucontrol->value.integer.value[0] + 2;
+
+	pr_debug("%s: ext_disp_rx[%d].ch = %d\n", __func__,
+		 idx, ext_disp_rx_cfg[idx].channels);
+	return 1;
+}
+
+static int ext_disp_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	int sample_rate_val;
+	int idx = ext_disp_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	switch (ext_disp_rx_cfg[idx].sample_rate) {
+	case SAMPLING_RATE_192KHZ:
+		sample_rate_val = 2;
+		break;
+
+	case SAMPLING_RATE_96KHZ:
+		sample_rate_val = 1;
+		break;
+
+	case SAMPLING_RATE_48KHZ:
+	default:
+		sample_rate_val = 0;
+		break;
+	}
+
+	ucontrol->value.integer.value[0] = sample_rate_val;
+	pr_debug("%s: ext_disp_rx[%d].sample_rate = %d\n", __func__,
+		 idx, ext_disp_rx_cfg[idx].sample_rate);
+
+	return 0;
+}
+
+static int ext_disp_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = ext_disp_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 2:
+		ext_disp_rx_cfg[idx].sample_rate = SAMPLING_RATE_192KHZ;
+		break;
+	case 1:
+		ext_disp_rx_cfg[idx].sample_rate = SAMPLING_RATE_96KHZ;
+		break;
+	case 0:
+	default:
+		ext_disp_rx_cfg[idx].sample_rate = SAMPLING_RATE_48KHZ;
+		break;
+	}
+
+	pr_debug("%s: control value = %ld, ext_disp_rx[%d].sample_rate = %d\n",
+		 __func__, ucontrol->value.integer.value[0], idx,
+		 ext_disp_rx_cfg[idx].sample_rate);
+	return 0;
+}
+
 const struct snd_kcontrol_new msm_common_snd_controls[] = {
 	SOC_ENUM_EXT("PROXY_RX Channels", proxy_rx_chs,
 			proxy_rx_ch_get, proxy_rx_ch_put),
@@ -1585,16 +1757,23 @@ const struct snd_kcontrol_new msm_common_snd_controls[] = {
 			usb_audio_rx_ch_get, usb_audio_rx_ch_put),
 	SOC_ENUM_EXT("USB_AUDIO_TX Channels", usb_tx_chs,
 			usb_audio_tx_ch_get, usb_audio_tx_ch_put),
+	SOC_ENUM_EXT("Display Port RX Channels", ext_disp_rx_chs,
+			ext_disp_rx_ch_get, ext_disp_rx_ch_put),
 	SOC_ENUM_EXT("USB_AUDIO_RX Format", usb_rx_format,
 			usb_audio_rx_format_get, usb_audio_rx_format_put),
 	SOC_ENUM_EXT("USB_AUDIO_TX Format", usb_tx_format,
 			usb_audio_tx_format_get, usb_audio_tx_format_put),
+	SOC_ENUM_EXT("Display Port RX Bit Format", ext_disp_rx_format,
+			ext_disp_rx_format_get, ext_disp_rx_format_put),
 	SOC_ENUM_EXT("USB_AUDIO_RX SampleRate", usb_rx_sample_rate,
 			usb_audio_rx_sample_rate_get,
 			usb_audio_rx_sample_rate_put),
 	SOC_ENUM_EXT("USB_AUDIO_TX SampleRate", usb_tx_sample_rate,
 			usb_audio_tx_sample_rate_get,
 			usb_audio_tx_sample_rate_put),
+	SOC_ENUM_EXT("Display Port RX SampleRate", ext_disp_rx_sample_rate,
+			ext_disp_rx_sample_rate_get,
+			ext_disp_rx_sample_rate_put),
 	SOC_ENUM_EXT("PRI_TDM_RX_0 SampleRate", tdm_rx_sample_rate,
 			tdm_rx_sample_rate_get,
 			tdm_rx_sample_rate_put),
@@ -1705,6 +1884,23 @@ static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned int bit)
 	}
 }
 
+static int msm_ext_disp_get_idx_from_beid(int32_t be_id)
+{
+	int idx;
+
+	switch (be_id) {
+	case MSM_BACKEND_DAI_DISPLAY_PORT_RX:
+		idx = DP_RX_IDX;
+		break;
+	default:
+		pr_err("%s: Incorrect ext_disp be_id %d\n", __func__, be_id);
+		idx = -EINVAL;
+		break;
+	}
+
+	return idx;
+}
+
 /**
  * msm_common_be_hw_params_fixup - updates settings of ALSA BE hw params.
  *
@@ -1722,6 +1918,7 @@ int msm_common_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 	int rc = 0;
+	int idx;
 
 	pr_debug("%s: format = %d, rate = %d\n",
 		  __func__, params_format(params), params_rate(params));
@@ -1739,6 +1936,21 @@ int msm_common_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				usb_tx_cfg.bit_format);
 		rate->min = rate->max = usb_tx_cfg.sample_rate;
 		channels->min = channels->max = usb_tx_cfg.channels;
+		break;
+
+	case MSM_BACKEND_DAI_DISPLAY_PORT_RX:
+		idx = msm_ext_disp_get_idx_from_beid(dai_link->be_id);
+		if (IS_ERR_VALUE(idx)) {
+			pr_err("%s: Incorrect ext disp idx %d\n",
+			       __func__, idx);
+			rc = idx;
+			break;
+		}
+
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				ext_disp_rx_cfg[idx].bit_format);
+		rate->min = rate->max = ext_disp_rx_cfg[idx].sample_rate;
+		channels->min = channels->max = ext_disp_rx_cfg[idx].channels;
 		break;
 
 	case MSM_BACKEND_DAI_AFE_PCM_RX:
