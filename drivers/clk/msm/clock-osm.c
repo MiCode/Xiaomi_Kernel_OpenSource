@@ -126,6 +126,7 @@ enum clk_osm_trace_packet_id {
 #define PLL_WAIT_LOCK_TIME_US	10
 #define PLL_WAIT_LOCK_TIME_NS	(PLL_WAIT_LOCK_TIME_US * 1000)
 #define PLL_MIN_LVAL 43
+#define L_VAL(freq_data)	((freq_data) & GENMASK(7, 0))
 
 #define CC_ZERO_BEHAV_CTRL 0x100C
 #define SPM_CC_DCVS_DISABLE 0x1020
@@ -831,7 +832,7 @@ static void clk_osm_print_osm_table(struct clk_osm *c)
 	for (i = 0; i < c->num_entries; i++) {
 		pll_src = (table[i].freq_data & GENMASK(27, 26)) >> 26;
 		pll_div = (table[i].freq_data & GENMASK(25, 24)) >> 24;
-		lval = table[i].freq_data & GENMASK(7, 0);
+		lval = L_VAL(table[i].freq_data);
 		core_count = (table[i].freq_data & GENMASK(18, 16)) >> 16;
 
 		pr_debug("%3d, %11lu, %2u, %5u, %2u, %6u, %8u, %7u, %5u\n",
@@ -1894,6 +1895,7 @@ static void clk_osm_program_apm_regs(struct clk_osm *c)
 
 static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 {
+	struct osm_entry *table = c->osm_table;
 	int i, curr_level, j = 0;
 	int mem_acc_level_map[MAX_MEM_ACC_LEVELS] = {0, 0, 0};
 	int threshold_vc[4];
@@ -1964,6 +1966,16 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 				threshold_vc[3]);
 		/* SEQ_REG(49) = SEQ_REG(28) init by TZ */
 	}
+
+	/*
+	 * Program L_VAL corresponding to the first virtual
+	 * corner with MEM ACC level 3.
+	 */
+	if (c->mem_acc_threshold_vc)
+		for (i = 0; i < c->num_entries; i++)
+			if (c->mem_acc_threshold_vc == table[i].virtual_corner)
+				scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(32),
+					     L_VAL(table[i].freq_data));
 
 	return;
 }
