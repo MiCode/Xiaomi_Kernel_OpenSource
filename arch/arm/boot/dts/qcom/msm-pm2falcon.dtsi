@@ -130,10 +130,10 @@
 			reg-names = "qpnp-lpg-channel-base",
 					"qpnp-lpg-lut-base";
 			qcom,channel-id = <1>;
+			qcom,lpg-lut-size = <0x7e>;
 			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <0>;
 			#pwm-cells = <2>;
-			status = "disabled";
 		};
 
 		pm2falcon_pwm_2: pwm@b200 {
@@ -143,10 +143,10 @@
 			reg-names = "qpnp-lpg-channel-base",
 					 "qpnp-lpg-lut-base";
 			qcom,channel-id = <2>;
+			qcom,lpg-lut-size = <0x7e>;
 			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <1>;
 			#pwm-cells = <2>;
-			status = "disabled";
 		};
 
 		pm2falcon_pwm_3: pwm@b300 {
@@ -156,10 +156,10 @@
 			reg-names = "qpnp-lpg-channel-base",
 					 "qpnp-lpg-lut-base";
 			qcom,channel-id = <3>;
+			qcom,lpg-lut-size = <0x7e>;
 			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <2>;
 			#pwm-cells = <2>;
-			status = "disabled";
 		};
 
 		pm2falcon_pwm_4: pwm@b400 {
@@ -169,6 +169,7 @@
 			reg-names = "qpnp-lpg-channel-base",
 					 "qpnp-lpg-lut-base";
 			qcom,channel-id = <4>;
+			qcom,lpg-lut-size = <0x7e>;
 			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <3>;
 			#pwm-cells = <2>;
@@ -179,7 +180,6 @@
 			compatible = "qcom,leds-qpnp";
 			reg = <0xd000 0x100>;
 			label = "rgb";
-			status = "disabled";
 
 			red_led: qcom,rgb_0 {
 				label = "rgb";
@@ -270,7 +270,6 @@
 			qcom,thermal-derate-current = <200 500 1000>;
 			qcom,isc-delay = <192>;
 			qcom,pmic-revid = <&pm2falcon_revid>;
-			status = "disabled";
 
 			pm2falcon_flash0: qcom,flash_0 {
 				label = "flash";
