@@ -16,6 +16,7 @@
 #include <linux/irqreturn.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/consumer.h>
+#include <linux/extcon.h>
 #include "storm-watch.h"
 
 enum print_reason {
@@ -48,6 +49,8 @@ enum print_reason {
 #define LEGACY_CABLE_VOTER		"LEGACY_CABLE_VOTER"
 #define PD_INACTIVE_VOTER		"PD_INACTIVE_VOTER"
 #define BOOST_BACK_VOTER		"BOOST_BACK_VOTER"
+#define HVDCP_INDIRECT_VOTER		"HVDCP_INDIRECT_VOTER"
+#define MICRO_USB_VOTER			"MICRO_USB_VOTER"
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -66,6 +69,12 @@ enum {
 	QC_CHARGER_DETECTION_WA_BIT	= BIT(0),
 	BOOST_BACK_WA			= BIT(1),
 	TYPEC_CC2_REMOVAL_WA_BIT	= BIT(2),
+};
+
+static const unsigned int smblib_extcon_cable[] = {
+	EXTCON_USB,
+	EXTCON_USB_HOST,
+	EXTCON_NONE,
 };
 
 struct smb_regulator {
@@ -181,7 +190,8 @@ struct smb_charger {
 	struct votable		*pl_disable_votable;
 	struct votable		*chg_disable_votable;
 	struct votable		*pl_enable_votable_indirect;
-	struct votable		*hvdcp_disable_votable;
+	struct votable		*hvdcp_disable_votable_indirect;
+	struct votable		*hvdcp_enable_votable;
 	struct votable		*apsd_disable_votable;
 
 	/* work */
@@ -213,12 +223,16 @@ struct smb_charger {
 	bool			step_chg_enabled;
 	bool			is_hdc;
 	bool			chg_done;
+	bool			micro_usb_mode;
 	int			input_limited_fcc_ua;
 
 	/* workaround flag */
 	u32			wa_flags;
 	enum cc2_sink_type	cc2_sink_detach_flag;
 	int			boost_current_ua;
+
+	/* extcon for VBUS / ID notification to USB for uUSB */
+	struct extcon_dev	*extcon;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
