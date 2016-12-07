@@ -20,6 +20,10 @@ struct clk *__of_clk_get_from_provider(struct of_phandle_args *clkspec,
 struct clk *__clk_create_clk(struct clk_hw *hw, const char *dev_id,
 			     const char *con_id);
 void __clk_free_clk(struct clk *clk);
+
+/* Debugfs API to print the enabled clocks */
+void clock_debug_print_enabled(void);
+
 #else
 /* All these casts to avoid ifdefs in clkdev... */
 static inline struct clk *
