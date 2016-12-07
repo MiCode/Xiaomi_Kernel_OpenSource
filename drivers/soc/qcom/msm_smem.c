@@ -375,7 +375,7 @@ static void *__smem_get_entry_secure(unsigned int id,
 	uint32_t a_hdr_size;
 	int rc;
 
-	SMEM_DBG("%s(%u, %u, %u, %u, %d, %d)\n", __func__, id, *size, to_proc,
+	SMEM_DBG("%s(%u, %u, %u, %d, %d)\n", __func__, id, to_proc,
 					flags, skip_init_check, use_rspinlock);
 
 	if (!skip_init_check && !smem_initialized_check())
@@ -818,7 +818,7 @@ EXPORT_SYMBOL(smem_alloc);
 void *smem_get_entry(unsigned int id, unsigned int *size, unsigned int to_proc,
 							unsigned int flags)
 {
-	SMEM_DBG("%s(%u, %u, %u, %u)\n", __func__, id, *size, to_proc, flags);
+	SMEM_DBG("%s(%u, %u, %u)\n", __func__, id, to_proc, flags);
 
 	/*
 	 * Handle the circular dependecy between SMEM and software implemented
