@@ -494,9 +494,9 @@ enum {
 
 #define TYPE_C_STATUS_3_REG			(USBIN_BASE + 0x0D)
 #define ENABLE_BANDGAP_BIT			BIT(7)
-#define U_USB_GROUND_NOVBUS_BIT			BIT(6)
+#define U_USB_GND_NOVBUS_BIT			BIT(6)
 #define U_USB_FLOAT_NOVBUS_BIT			BIT(5)
-#define U_USB_GROUND_BIT			BIT(4)
+#define U_USB_GND_BIT				BIT(4)
 #define U_USB_FMB1_BIT				BIT(3)
 #define U_USB_FLOAT1_BIT			BIT(2)
 #define U_USB_FMB2_BIT				BIT(1)
