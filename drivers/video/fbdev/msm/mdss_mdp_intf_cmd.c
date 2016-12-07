@@ -2151,8 +2151,10 @@ static void mdss_mdp_cmd_dsc_reconfig(struct mdss_mdp_ctl *ctl)
 		}
 	}
 
-	changed = ctl->mixer_left->roi_changed;
-	if (is_split_lm(ctl->mfd))
+	if (ctl->mixer_left)
+		changed |= ctl->mixer_left->roi_changed;
+	if (is_split_lm(ctl->mfd) &&
+	    ctl->mixer_right)
 		changed |= ctl->mixer_right->roi_changed;
 
 	if (changed)
