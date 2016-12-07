@@ -2481,28 +2481,6 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 #define	BOOST_KICK	0
 #define	CPU_RESERVED	1
 
-static inline int is_reserved(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	return test_bit(CPU_RESERVED, &rq->hmp_flags);
-}
-
-static inline int mark_reserved(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	/* Name boost_flags as hmp_flags? */
-	return test_and_set_bit(CPU_RESERVED, &rq->hmp_flags);
-}
-
-static inline void clear_reserved(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	clear_bit(CPU_RESERVED, &rq->hmp_flags);
-}
-
 static inline u64 cpu_cravg_sync(int cpu, int sync)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -2580,6 +2558,29 @@ extern int alloc_related_thread_groups(void);
 
 extern unsigned long all_cluster_ids[];
 
+extern void check_for_migration(struct rq *rq, struct task_struct *p);
+
+static inline int is_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	return test_bit(CPU_RESERVED, &rq->hmp_flags);
+}
+
+static inline int mark_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	return test_and_set_bit(CPU_RESERVED, &rq->hmp_flags);
+}
+
+static inline void clear_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	clear_bit(CPU_RESERVED, &rq->hmp_flags);
+}
+
 #else	/* CONFIG_SCHED_WALT */
 
 struct hmp_sched_stats;
@@ -2592,6 +2593,8 @@ static inline bool task_sched_boost(struct task_struct *p)
 }
 
 static inline void clear_boost_kick(int cpu) { }
+
+static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 
 static inline int task_will_fit(struct task_struct *p, int cpu)
 {
@@ -2700,7 +2703,6 @@ extern void note_task_waking(struct task_struct *p, u64 wallclock);
 extern void
 check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
 extern int got_boost_kick(void);
-extern void check_for_migration(struct rq *rq, struct task_struct *p);
 extern void clear_ed_task(struct task_struct *p, struct rq *rq);
 extern void fixup_nr_big_tasks(struct hmp_sched_stats *stats,
 					struct task_struct *p, s64 delta);
@@ -2763,8 +2765,6 @@ static inline int got_boost_kick(void)
 {
 	return 0;
 }
-
-static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 
 static inline void clear_ed_task(struct task_struct *p, struct rq *rq) { }
 

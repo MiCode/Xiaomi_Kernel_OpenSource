@@ -6582,6 +6582,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		task_util_boosted = boosted_task_util(p);
 		/* Find cpu with sufficient capacity */
 		for_each_cpu_and(i, tsk_cpus_allowed(p), sched_group_cpus(sg_target)) {
+			if (is_reserved(i))
+				continue;
+
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
 			 * so prev_cpu will receive a negative bias due to the double
@@ -10661,6 +10664,26 @@ void inc_hmp_sched_stats_fair(struct rq *rq,
 	inc_nr_big_task(&rq->hmp_stats, p);
 }
 
+static inline int
+kick_active_balance(struct rq *rq, struct task_struct *p, int new_cpu)
+{
+	unsigned long flags;
+	int rc = 0;
+
+	/* Invoke active balance to force migrate currently running task */
+	raw_spin_lock_irqsave(&rq->lock, flags);
+	if (!rq->active_balance) {
+		rq->active_balance = 1;
+		rq->push_cpu = new_cpu;
+		get_task_struct(p);
+		rq->push_task = p;
+		rc = 1;
+	}
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
+
+	return rc;
+}
+
 #else
 
 static inline int task_will_be_throttled(struct task_struct *p)
@@ -11428,26 +11451,6 @@ static inline int migration_needed(struct task_struct *p, int cpu)
 	return 0;
 }
 
-static inline int
-kick_active_balance(struct rq *rq, struct task_struct *p, int new_cpu)
-{
-	unsigned long flags;
-	int rc = 0;
-
-	/* Invoke active balance to force migrate currently running task */
-	raw_spin_lock_irqsave(&rq->lock, flags);
-	if (!rq->active_balance) {
-		rq->active_balance = 1;
-		rq->push_cpu = new_cpu;
-		get_task_struct(p);
-		rq->push_task = p;
-		rc = 1;
-	}
-	raw_spin_unlock_irqrestore(&rq->lock, flags);
-
-	return rc;
-}
-
 static DEFINE_RAW_SPINLOCK(migration_lock);
 
 /*
@@ -11722,5 +11725,31 @@ static int task_will_be_throttled(struct task_struct *p)
 	return 0;
 }
 #endif /* CONFIG_CFS_BANDWIDTH */
+
+#elif defined(CONFIG_SCHED_WALT)
+
+void check_for_migration(struct rq *rq, struct task_struct *p)
+{
+	int new_cpu;
+	int active_balance;
+	int cpu = task_cpu(p);
+
+	if (rq->misfit_task) {
+		if (rq->curr->state != TASK_RUNNING ||
+		    rq->curr->nr_cpus_allowed == 1)
+			return;
+
+		new_cpu = energy_aware_wake_cpu(p, cpu, 0);
+		if (new_cpu != cpu) {
+			active_balance = kick_active_balance(rq, p, new_cpu);
+			if (active_balance) {
+				mark_reserved(new_cpu);
+				stop_one_cpu_nowait(cpu,
+					active_load_balance_cpu_stop, rq,
+					&rq->active_balance_work);
+			}
+		}
+	}
+}
 
 #endif /* CONFIG_SCHED_HMP */
