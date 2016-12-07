@@ -155,6 +155,7 @@
 					   "usbin_i",
 					   "usbin_v";
 
+			qcom,boost-threshold-ua = <100000>;
 			qcom,wipower-max-uw = <5000000>;
 			dpdm-supply = <&qusb_phy0>;
 
