@@ -89,6 +89,9 @@ SoCs:
 - MSMSKUNK
   compatible = "qcom,msmskunk"
 
+- SDMBAT
+  compatible = "qcom,sdmbat"
+
 - MSM8952
   compatible = "qcom,msm8952"
 
@@ -260,6 +263,10 @@ compatible = "qcom,msmskunk-rumi"
 compatible = "qcom,msmskunk-cdp"
 compatible = "qcom,msmskunk-mtp"
 compatible = "qcom,msmskunk-mtp"
+compatible = "qcom,sdmbat-sim"
+compatible = "qcom,sdmbat-rumi"
+compatible = "qcom,sdmbat-cdp"
+compatible = "qcom,sdmbat-mtp"
 compatible = "qcom,msm8952-rumi"
 compatible = "qcom,msm8952-sim"
 compatible = "qcom,msm8952-qrd"
