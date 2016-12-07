@@ -836,8 +836,8 @@ enum handoff dp_vco_handoff(struct clk *c)
 		io->handoff_resources = true;
 		ret = HANDOFF_ENABLED_CLK;
 	} else {
-		io->handoff_resources = false;
 		mdss_pll_resource_enable(io, false);
+		ret = HANDOFF_DISABLED_CLK;
 		DEV_DBG("%s: PLL not locked\n", __func__);
 	}
 
