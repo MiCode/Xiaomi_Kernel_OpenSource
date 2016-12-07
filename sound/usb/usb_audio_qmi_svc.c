@@ -232,9 +232,8 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 	if (subs->sync_endpoint) {
 		ep = usb_pipe_endpoint(subs->dev, subs->sync_endpoint->pipe);
 		if (!ep) {
-			pr_err("%s: sync ep # %d context is null\n", __func__,
-				subs->sync_endpoint->ep_num);
-			goto err;
+			pr_debug("%s: implicit fb on data ep\n", __func__);
+			goto skip_sync_ep;
 		}
 		memcpy(&resp->std_as_sync_ep_desc, &ep->desc, sizeof(ep->desc));
 		resp->std_as_sync_ep_desc_valid = 1;
@@ -248,6 +247,7 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 		resp->xhci_mem_info.tr_sync.pa = xhci_pa;
 	}
 
+skip_sync_ep:
 	resp->interrupter_num = uaudio_qdev->intr_num;
 	resp->interrupter_num_valid = 1;
 
