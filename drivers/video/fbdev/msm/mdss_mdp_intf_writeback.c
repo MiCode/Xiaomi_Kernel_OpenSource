@@ -262,7 +262,7 @@ static void mdss_mdp_writeback_cwb_overflow(void *arg)
 	mdss_mdp_set_intr_callback_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
 			CWB_PPB_0, NULL, NULL);
 
-	if (mdss_mdp_get_split_ctl(ctl)) {
+	if (ctl->mixer_right) {
 		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
 			CWB_PPB_1);
 		mdss_mdp_set_intr_callback_nosync(
@@ -297,7 +297,7 @@ static void mdss_mdp_writeback_cwb_intr_done(void *arg)
 	mdss_mdp_set_intr_callback_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
 			CWB_PPB_0, NULL, NULL);
 
-	if (mdss_mdp_get_split_ctl(ctl)) {
+	if (ctl->mixer_right) {
 		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
 			CWB_PPB_1);
 		mdss_mdp_set_intr_callback_nosync(
@@ -477,7 +477,6 @@ int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_writeback_ctx *ctx = NULL;
 	struct mdp_layer_buffer *buffer = NULL;
 	struct mdss_mdp_cwb *cwb = NULL;
-	struct mdss_mdp_ctl *sctl = NULL;
 	int i, ret = 0;
 	unsigned long total_buf_len = 0;
 	struct mdss_mdp_data *data = NULL;
@@ -547,11 +546,10 @@ int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
 			CWB_PPB_0, mdss_mdp_writeback_cwb_overflow, ctl);
 	mdss_mdp_irq_enable(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_0);
 
-	sctl = mdss_mdp_get_split_ctl(ctl);
-	if (sctl) {
+	if (ctl->mixer_right) {
 		mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
 				CWB_PPB_1, mdss_mdp_writeback_cwb_overflow,
-				sctl);
+				ctl);
 		mdss_mdp_irq_enable(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_1);
 	}
 

@@ -3513,7 +3513,6 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 	struct mdss_overlay_private *mdp5_data = NULL;
 	struct mdss_mdp_wb_data *cwb_data;
 	struct mdss_mdp_writeback_arg wb_args;
-	struct mdss_mdp_ctl *sctl = NULL;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	u32 opmode, data_point;
@@ -3575,14 +3574,11 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 
 	/* Select MEM_SEL to WB */
 	ctl->opmode |= MDSS_MDP_CTL_OP_WFD_MODE;
-	sctl = mdss_mdp_get_split_ctl(ctl);
-	if (sctl)
-		sctl->opmode |= MDSS_MDP_CTL_OP_WFD_MODE;
 
 	/* Select CWB data point */
 	data_point = (cwb->layer.flags & MDP_COMMIT_CWB_DSPP) ? 0x4 : 0;
 	writel_relaxed(data_point, mdata->mdp_base + mdata->ppb_ctl[2]);
-	if (sctl)
+	if (ctl->mixer_right)
 		writel_relaxed(data_point + 1,
 				mdata->mdp_base + mdata->ppb_ctl[3]);
 
@@ -3591,11 +3587,6 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 
 	opmode = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_TOP) | ctl->opmode;
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_TOP, opmode);
-	if (sctl) {
-		opmode = mdss_mdp_ctl_read(sctl, MDSS_MDP_REG_CTL_TOP) |
-			sctl->opmode;
-		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_TOP, opmode);
-	}
 
 	/* Increase commit count to signal CWB release fence */
 	atomic_inc(&cwb->cwb_sync_pt_data.commit_cnt);
