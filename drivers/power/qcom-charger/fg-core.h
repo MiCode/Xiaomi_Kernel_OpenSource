@@ -188,6 +188,10 @@ struct fg_alg_flag {
 	bool	invalid;
 };
 
+enum wa_flags {
+	PMI8998_V1_REV_WA = BIT(0),
+};
+
 /* DT parameters for FG device */
 struct fg_dt_props {
 	bool	force_load_profile;
@@ -306,6 +310,7 @@ struct fg_chip {
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
+	u32			wa_flags;
 	int			batt_id_kohms;
 	int			charge_status;
 	int			prev_charge_status;
