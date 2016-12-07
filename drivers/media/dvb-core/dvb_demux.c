@@ -2840,6 +2840,11 @@ static int dmx_section_feed_stop_filtering(struct dmx_section_feed *feed)
 
 	mutex_lock(&dvbdmx->mutex);
 
+	if (dvbdmxfeed->state < DMX_STATE_GO) {
+		mutex_unlock(&dvbdmx->mutex);
+		return -EINVAL;
+	}
+
 	if (!dvbdmx->stop_feed) {
 		mutex_unlock(&dvbdmx->mutex);
 		return -ENODEV;
