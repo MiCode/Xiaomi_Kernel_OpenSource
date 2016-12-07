@@ -26,6 +26,7 @@
 #include <linux/workqueue.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
+#include <msm_camera_tz_util.h>
 #include "cam_smmu_api.h"
 
 #define SCRATCH_ALLOC_START SZ_128K
@@ -883,16 +884,26 @@ static int cam_smmu_attach_sec_cpp(int idx)
 	 * all cpp sids are shared in SCM call. so no need of
 	 * attach again.
 	 */
-
 	if (cam_smmu_send_syscall_cpp_intf(VMID_CP_CAMERA, idx)) {
 		pr_err("error: syscall failed\n");
 		return -EINVAL;
 	}
+
+	msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_SECURE,
+		MSM_CAMERA_TZ_HW_BLOCK_CPP);
+
+	iommu_cb_set.cb_info[idx].state = CAM_SMMU_ATTACH;
+
 	return 0;
 }
 
 static int cam_smmu_detach_sec_cpp(int idx)
 {
+	msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_NON_SECURE,
+		MSM_CAMERA_TZ_HW_BLOCK_CPP);
+
+	iommu_cb_set.cb_info[idx].state = CAM_SMMU_DETACH;
+
 	/*
 	 * When exiting secure, do scm call to attach
 	 * with CPP SID in NS mode.
@@ -921,11 +932,18 @@ static int cam_smmu_attach_sec_vfe_ns_stats(int idx)
 			return -EINVAL;
 		}
 	}
+
+	msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_SECURE,
+		MSM_CAMERA_TZ_HW_BLOCK_ISP);
+
 	return 0;
 }
 
 static int cam_smmu_detach_sec_vfe_ns_stats(int idx)
 {
+	msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_NON_SECURE,
+		MSM_CAMERA_TZ_HW_BLOCK_ISP);
+
 	/*
 	 *While exiting from secure mode for secure pixel and non-secure stats,
 	 *localizing detach/scm of non-secure SID's to detach secure
