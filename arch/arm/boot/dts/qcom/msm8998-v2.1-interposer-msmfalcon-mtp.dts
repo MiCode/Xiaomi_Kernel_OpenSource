@@ -17,6 +17,7 @@
 #include "msm8998-interposer-msmfalcon-mtp.dtsi"
 #include "msm8998-interposer-pmfalcon.dtsi"
 #include "msm8998-interposer-msmfalcon-audio.dtsi"
+#include "msm8998-interposer-camera-sensor-mtp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8998 v2.1 MSM FALCON Interposer MTP";

@@ -45,12 +45,6 @@
 	/delete-property/qcom,switch-source;
 };
 
-&eeprom0 {
-	/delete-property/cam_vio-supply;
-	/delete-property/cam_vana-supply;
-	/delete-property/cam_vdig-supply;
-	/delete-property/gpios;
-};
 
 &eeprom1 {
 	/delete-property/cam_vio-supply;
@@ -66,7 +60,6 @@
 };
 
 &cci {
-	/delete-node/qcom,camera@0;
 	/delete-node/qcom,camera@1;
 	/delete-node/qcom,camera@2;
 
@@ -220,10 +213,6 @@
 };
 
 &soc {
-	/delete-node/qcom,csid@ca30000;
-	/delete-node/qcom,csid@ca30400;
-	/delete-node/qcom,csid@ca30800;
-	/delete-node/qcom,csid@ca30c00;
 	/delete-node/gpio_keys;
 	/delete-node/qcom,mss@4080000;
 	/delete-node/qcom,bcl;
