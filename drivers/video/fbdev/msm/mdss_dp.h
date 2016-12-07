@@ -39,11 +39,6 @@
 #define EDP_PORT_MAX		1
 #define EDP_SINK_CAP_LEN	16
 
-#define EDP_AUX_ERR_NONE	0
-#define EDP_AUX_ERR_ADDR	-1
-#define EDP_AUX_ERR_TOUT	-2
-#define EDP_AUX_ERR_NACK	-3
-
 /* 4 bits of aux command */
 #define EDP_CMD_AUX_WRITE	0x8
 #define EDP_CMD_AUX_READ	0x9
@@ -388,6 +383,7 @@ struct mdss_dp_drv_pdata {
 	struct platform_device *ext_pdev;
 
 	struct usbpd *pd;
+	enum plug_orientation orientation;
 	struct dp_hdcp hdcp;
 	struct usbpd_svid_handler svid_handler;
 	struct dp_alt_mode alt_mode;
@@ -438,6 +434,7 @@ struct mdss_dp_drv_pdata {
 	struct dss_module_power power_data[DP_MAX_PM];
 	struct dp_pinctrl_res pin_res;
 	int aux_sel_gpio;
+	int aux_sel_gpio_output;
 	int aux_en_gpio;
 	int usbplug_cc_gpio;
 	int hpd_gpio;
@@ -511,17 +508,52 @@ enum dp_lane_count {
 	DP_LANE_COUNT_4	= 4,
 };
 
+enum dp_aux_error {
+	EDP_AUX_ERR_NONE	= 0,
+	EDP_AUX_ERR_ADDR	= -1,
+	EDP_AUX_ERR_TOUT	= -2,
+	EDP_AUX_ERR_NACK	= -3,
+	EDP_AUX_ERR_DEFER	= -4,
+	EDP_AUX_ERR_NACK_DEFER	= -5,
+};
+
+static inline char *mdss_dp_get_aux_error(u32 aux_error)
+{
+	switch (aux_error) {
+	case EDP_AUX_ERR_NONE:
+		return DP_ENUM_STR(EDP_AUX_ERR_NONE);
+	case EDP_AUX_ERR_ADDR:
+		return DP_ENUM_STR(EDP_AUX_ERR_ADDR);
+	case EDP_AUX_ERR_TOUT:
+		return DP_ENUM_STR(EDP_AUX_ERR_TOUT);
+	case EDP_AUX_ERR_NACK:
+		return DP_ENUM_STR(EDP_AUX_ERR_NACK);
+	case EDP_AUX_ERR_DEFER:
+		return DP_ENUM_STR(EDP_AUX_ERR_DEFER);
+	case EDP_AUX_ERR_NACK_DEFER:
+		return DP_ENUM_STR(EDP_AUX_ERR_NACK_DEFER);
+	default:
+		return "unknown";
+	}
+}
+
 enum test_response {
-	TEST_NACK	= 0x0,
-	TEST_ACK	= 0x1,
+	TEST_ACK			= 0x1,
+	TEST_NACK			= 0x2,
+	TEST_EDID_CHECKSUM_WRITE	= 0x4,
 };
 
 static inline char *mdss_dp_get_test_response(u32 test_response)
 {
 	switch (test_response) {
-	case TEST_NACK:		return DP_ENUM_STR(TEST_NACK);
-	case TEST_ACK:		return DP_ENUM_STR(TEST_ACK);
-	default:		return "unknown";
+	case TEST_NACK:
+		return DP_ENUM_STR(TEST_NACK);
+	case TEST_ACK:
+		return DP_ENUM_STR(TEST_ACK);
+	case TEST_EDID_CHECKSUM_WRITE:
+		return DP_ENUM_STR(TEST_EDID_CHECKSUM_WRITE);
+	default:
+		return "unknown";
 	}
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,6 +123,7 @@
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 		qcom,dynamic-mode-switch-enabled;
 		qcom,dynamic-mode-switch-type = "dynamic-switch-immediate";
+		qcom,mode-switch-commands-state = "dsi_hs_mode";
 		qcom,video-to-cmd-mode-switch-commands =
 			[23 00 00 00 00 00 02 b0 00
 			29 00 00 00 00 00 02 b3 0c

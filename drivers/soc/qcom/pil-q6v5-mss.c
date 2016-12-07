@@ -270,6 +270,17 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 		q6_desc->ops = &pil_msa_mss_ops_selfauth;
 	}
 
+	q6->cx_ipeak_vote = of_property_read_bool(pdev->dev.of_node,
+							"qcom,cx-ipeak-vote");
+	if (q6->cx_ipeak_vote) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						    "cxip_lm_vote_clear");
+		q6->cxip_lm_vote_clear = devm_ioremap_resource(&pdev->dev,
+								res);
+		if (!q6->cxip_lm_vote_clear)
+			return -ENOMEM;
+	}
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "restart_reg");
 	if (!res) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,

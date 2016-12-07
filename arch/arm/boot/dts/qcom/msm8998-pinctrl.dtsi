@@ -1347,14 +1347,14 @@
 		};
 
 		cam_sensor_front_active: cam_sensor_front_active {
-			/* RESET */
+			/* RESET  VANA*/
 			mux {
-				pins = "gpio28";
+				pins = "gpio28", "gpio29";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio28";
+				pins = "gpio28", "gpio29";
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -1508,7 +1508,7 @@
 		mdss_dp_usbplug_cc_active: mdss_dp_usbplug_cc_active {
 			mux {
 				pins = "gpio38";
-				function = "usb_phy";
+				function = "gpio";
 			};
 
 			config {
@@ -1521,7 +1521,7 @@
 		mdss_dp_usbplug_cc_suspend: mdss_dp_usbplug_cc_suspend {
 			mux {
 				pins = "gpio38";
-				function = "usb_phy";
+				function = "gpio";
 			};
 
 			config {

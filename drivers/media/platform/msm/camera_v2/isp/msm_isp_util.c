@@ -202,17 +202,17 @@ void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp,
 	struct vfe_device *vfe_dev)
 {
 	struct timespec ts;
+
 	do_gettimeofday(&(time_stamp->event_time));
 	if (vfe_dev->vt_enable) {
 		msm_isp_get_avtimer_ts(time_stamp);
 		time_stamp->buf_time.tv_sec    = time_stamp->vt_time.tv_sec;
 		time_stamp->buf_time.tv_usec   = time_stamp->vt_time.tv_usec;
-	} else	{
+	} else {
 		get_monotonic_boottime(&ts);
 		time_stamp->buf_time.tv_sec    = ts.tv_sec;
 		time_stamp->buf_time.tv_usec   = ts.tv_nsec/1000;
 	}
-
 }
 
 static inline u32 msm_isp_evt_mask_to_isp_event(u32 evt_mask)
@@ -548,18 +548,53 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 	return rc;
 }
 
+static int msm_isp_dual_hw_master_slave_sync(struct vfe_device *vfe_dev,
+						void *arg)
+{
+	int rc = 0;
+
+	struct msm_isp_dual_hw_master_slave_sync *link = arg;
+	unsigned long flags;
+	struct master_slave_resource_info *ms_res =
+			&vfe_dev->common_data->ms_resource;
+	int i;
+	struct msm_vfe_src_info *src_info = NULL;
+
+	spin_lock_irqsave(
+			&vfe_dev->common_data->common_dev_data_lock,
+			flags);
+	ms_res->dual_sync_mode = link->sync_mode;
+	if (ms_res->dual_sync_mode == MSM_ISP_DUAL_CAM_ASYNC) {
+		for (i = 0; i < MAX_VFE * VFE_SRC_MAX; i++) {
+			if (ms_res->src_info[i] == NULL)
+				continue;
+			src_info = ms_res->src_info[i];
+			if (src_info->dual_hw_ms_info.sync_state ==
+				MSM_ISP_DUAL_CAM_ASYNC)
+				continue;
+			ms_res->active_src_mask &= ~(1 <<
+				src_info->dual_hw_ms_info.index);
+			ms_res->src_sof_mask &= ~(1 <<
+				src_info->dual_hw_ms_info.index);
+			src_info->dual_hw_ms_info.sync_state =
+				MSM_ISP_DUAL_CAM_ASYNC;
+		}
+	}
+	spin_unlock_irqrestore(
+			&vfe_dev->common_data->common_dev_data_lock,
+			flags);
+	return rc;
+}
+
 static int msm_isp_set_dual_HW_master_slave_mode(
 	struct vfe_device *vfe_dev, void *arg)
 {
-	/*
-	 * This method assumes no 2 processes are accessing it simultaneously.
-	 * Currently this is guaranteed by mutex lock in ioctl.
-	 * If that changes, need to revisit this
-	 */
-	int rc = 0, i, j;
+	int rc = 0, i;
 	struct msm_isp_set_dual_hw_ms_cmd *dual_hw_ms_cmd = NULL;
 	struct msm_vfe_src_info *src_info = NULL;
 	unsigned long flags;
+	struct master_slave_resource_info *ms_res =
+			&vfe_dev->common_data->ms_resource;
 
 	if (!vfe_dev || !arg) {
 		pr_err("%s: Error! Invalid input vfe_dev %pK arg %pK\n",
@@ -567,6 +602,7 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 		return -EINVAL;
 	}
 
+	spin_lock_irqsave(&vfe_dev->common_data->common_dev_data_lock, flags);
 	dual_hw_ms_cmd = (struct msm_isp_set_dual_hw_ms_cmd *)arg;
 	vfe_dev->common_data->ms_resource.dual_hw_type = DUAL_HW_MASTER_SLAVE;
 	vfe_dev->vfe_ub_policy = MSM_WM_UB_EQUAL_SLICING;
@@ -575,50 +611,20 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 			vfe_dev->pdev->id, dual_hw_ms_cmd->primary_intf);
 		src_info = &vfe_dev->axi_data.
 			src_info[dual_hw_ms_cmd->primary_intf];
+		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
 		src_info->dual_hw_ms_info.dual_hw_ms_type =
 			dual_hw_ms_cmd->dual_hw_ms_type;
-	}
-
-	/* No lock needed here since ioctl lock protects 2 session from race */
-	if (src_info != NULL &&
-		dual_hw_ms_cmd->dual_hw_ms_type == MS_TYPE_MASTER) {
-		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
-		ISP_DBG("%s: vfe %d Master\n", __func__, vfe_dev->pdev->id);
-
-		src_info->dual_hw_ms_info.sof_info =
-			&vfe_dev->common_data->ms_resource.master_sof_info;
-		vfe_dev->common_data->ms_resource.sof_delta_threshold =
-			dual_hw_ms_cmd->sof_delta_threshold;
-	} else if (src_info != NULL) {
-		spin_lock_irqsave(
-			&vfe_dev->common_data->common_dev_data_lock,
-			flags);
-		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
-		ISP_DBG("%s: vfe %d Slave\n", __func__, vfe_dev->pdev->id);
-
-		for (j = 0; j < MS_NUM_SLAVE_MAX; j++) {
-			if (vfe_dev->common_data->ms_resource.
-				reserved_slave_mask & (1 << j))
-				continue;
-
-			vfe_dev->common_data->ms_resource.reserved_slave_mask |=
-				(1 << j);
-			vfe_dev->common_data->ms_resource.num_slave++;
-			src_info->dual_hw_ms_info.sof_info =
-				&vfe_dev->common_data->ms_resource.
-				slave_sof_info[j];
-			src_info->dual_hw_ms_info.slave_id = j;
-			ISP_DBG("%s: Slave id %d\n", __func__, j);
-			break;
-		}
-		spin_unlock_irqrestore(
-			&vfe_dev->common_data->common_dev_data_lock,
-			flags);
-
-		if (j == MS_NUM_SLAVE_MAX) {
-			pr_err("%s: Error! Cannot find free aux resource\n",
-				__func__);
-			return -EBUSY;
+		src_info->dual_hw_ms_info.index = dual_hw_ms_cmd->
+			primary_intf + VFE_SRC_MAX * vfe_dev->pdev->id;
+		ms_res->src_info[src_info->dual_hw_ms_info.index] = src_info;
+		ms_res->num_src++;
+		if (dual_hw_ms_cmd->dual_hw_ms_type == MS_TYPE_MASTER) {
+			ms_res->master_index = src_info->dual_hw_ms_info.index;
+			ms_res->sof_delta_threshold =
+				dual_hw_ms_cmd->sof_delta_threshold;
+		} else {
+			ms_res->primary_slv_idx =
+				src_info->dual_hw_ms_info.index;
 		}
 	}
 	ISP_DBG("%s: vfe %d num_src %d\n", __func__, vfe_dev->pdev->id,
@@ -630,6 +636,8 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 		if (dual_hw_ms_cmd->input_src[i] >= VFE_SRC_MAX) {
 			pr_err("%s: Error! Invalid SRC param %d\n", __func__,
 				dual_hw_ms_cmd->input_src[i]);
+			spin_unlock_irqrestore(&vfe_dev->common_data->
+					common_dev_data_lock, flags);
 			return -EINVAL;
 		}
 		ISP_DBG("%s: vfe %d src %d type %d\n", __func__,
@@ -640,8 +648,13 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
 		src_info->dual_hw_ms_info.dual_hw_ms_type =
 			dual_hw_ms_cmd->dual_hw_ms_type;
+		src_info->dual_hw_ms_info.index = dual_hw_ms_cmd->
+			input_src[i] + VFE_SRC_MAX * vfe_dev->pdev->id;
+		ms_res->src_info[src_info->dual_hw_ms_info.index] = src_info;
+		ms_res->num_src++;
 	}
-
+	spin_unlock_irqrestore(&vfe_dev->common_data->common_dev_data_lock,
+				flags);
 	return rc;
 }
 
@@ -860,11 +873,7 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		break;
 	case VIDIOC_MSM_ISP_AXI_RESET:
 		mutex_lock(&vfe_dev->core_mutex);
-		/* For dual vfe reset both on vfe1 call */
-		if (vfe_dev->is_split && vfe_dev->pdev->id == ISP_VFE0) {
-			mutex_unlock(&vfe_dev->core_mutex);
-			return 0;
-		}
+		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
 		if (atomic_read(&vfe_dev->error_info.overflow_state)
 			!= HALT_ENFORCED) {
 			rc = msm_isp_stats_reset(vfe_dev);
@@ -875,15 +884,12 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 			pr_err_ratelimited("%s: no HW reset, halt enforced.\n",
 				__func__);
 		}
+		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_AXI_RESTART:
 		mutex_lock(&vfe_dev->core_mutex);
-		/* For dual vfe restart both on vfe1 call */
-		if (vfe_dev->is_split && vfe_dev->pdev->id == ISP_VFE0) {
-			mutex_unlock(&vfe_dev->core_mutex);
-			return 0;
-		}
+		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
 		if (atomic_read(&vfe_dev->error_info.overflow_state)
 			!= HALT_ENFORCED) {
 			rc = msm_isp_stats_restart(vfe_dev);
@@ -894,6 +900,7 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 			pr_err_ratelimited("%s: no AXI restart, halt enforced.\n",
 				__func__);
 		}
+		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_INPUT_CFG:
@@ -913,6 +920,11 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_SET_DUAL_HW_MASTER_SLAVE:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_set_dual_HW_master_slave_mode(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
+	case VIDIOC_MSM_ISP_DUAL_HW_MASTER_SLAVE_SYNC:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_dual_hw_master_slave_sync(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_FETCH_ENG_START:
@@ -1773,7 +1785,7 @@ static inline void msm_isp_update_error_info(struct vfe_device *vfe_dev,
 	vfe_dev->error_info.error_count++;
 }
 
-static void msm_isp_process_overflow_irq(
+static int msm_isp_process_overflow_irq(
 	struct vfe_device *vfe_dev,
 	uint32_t *irq_status0, uint32_t *irq_status1)
 {
@@ -1781,7 +1793,7 @@ static void msm_isp_process_overflow_irq(
 
 	/* if there are no active streams - do not start recovery */
 	if (!vfe_dev->axi_data.num_active_stream)
-		return;
+		return 0;
 
 	/*Mask out all other irqs if recovery is started*/
 	if (atomic_read(&vfe_dev->error_info.overflow_state) != NO_OVERFLOW) {
@@ -1792,7 +1804,7 @@ static void msm_isp_process_overflow_irq(
 		*irq_status0 &= halt_restart_mask0;
 		*irq_status1 &= halt_restart_mask1;
 
-		return;
+		return 0;
 	}
 
 	/*Check if any overflow bit is set*/
@@ -1802,17 +1814,20 @@ static void msm_isp_process_overflow_irq(
 
 	if (overflow_mask) {
 		struct msm_isp_event_data error_event;
-		struct msm_vfe_axi_halt_cmd halt_cmd;
 		uint32_t val = 0;
 		int i;
 		struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+
+		if (atomic_cmpxchg(&vfe_dev->error_info.overflow_state,
+				NO_OVERFLOW, OVERFLOW_DETECTED != NO_OVERFLOW))
+			return 0;
 
 		if (vfe_dev->reset_pending == 1) {
 			pr_err("%s:%d failed: overflow %x during reset\n",
 				__func__, __LINE__, overflow_mask);
 			/* Clear overflow bits since reset is pending */
 			*irq_status1 &= ~overflow_mask;
-			return;
+			return 0;
 		}
 		if (msm_vfe_is_vfe48(vfe_dev))
 			val = msm_camera_io_r(vfe_dev->vfe_base + 0xC94);
@@ -1825,13 +1840,25 @@ static void msm_isp_process_overflow_irq(
 				__func__, i, axi_data->free_wm[i]);
 		}
 
-		halt_cmd.overflow_detected = 1;
-		halt_cmd.stop_camif = 1;
-		halt_cmd.blocking_halt = 0;
+		vfe_dev->hw_info->vfe_ops.core_ops.
+				set_halt_restart_mask(vfe_dev);
+		/* mask off other vfe if dual vfe is used */
+		if (vfe_dev->is_split) {
+			int other_vfe_id;
+			struct vfe_device *temp_vfe;
 
-		msm_isp_axi_halt(vfe_dev, &halt_cmd);
+			other_vfe_id = (vfe_dev->pdev->id == ISP_VFE0) ?
+				ISP_VFE1 : ISP_VFE0;
+			temp_vfe = vfe_dev->common_data->
+				dual_vfe_res->vfe_dev[other_vfe_id];
 
-		/*Update overflow state*/
+			atomic_set(&temp_vfe->error_info.overflow_state,
+				OVERFLOW_DETECTED);
+			temp_vfe->hw_info->vfe_ops.core_ops.
+				set_halt_restart_mask(temp_vfe);
+		}
+
+		/* reset irq status so skip further process */
 		*irq_status0 = 0;
 		*irq_status1 = 0;
 
@@ -1845,7 +1872,9 @@ static void msm_isp_process_overflow_irq(
 			msm_isp_send_event(vfe_dev,
 				ISP_EVENT_ERROR, &error_event);
 		}
+		return 1;
 	}
+	return 0;
 }
 
 void msm_isp_reset_burst_count_and_frame_drop(
@@ -1901,8 +1930,12 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 		return IRQ_HANDLED;
 	}
 
-	msm_isp_process_overflow_irq(vfe_dev,
-		&irq_status0, &irq_status1);
+	if (msm_isp_process_overflow_irq(vfe_dev,
+		&irq_status0, &irq_status1)) {
+		/* if overflow initiated no need to handle the interrupts */
+		pr_err("overflow processed\n");
+		return IRQ_HANDLED;
+	}
 
 	vfe_dev->hw_info->vfe_ops.core_ops.
 		get_error_mask(&error_mask0, &error_mask1);
@@ -2203,6 +2236,7 @@ void msm_isp_flush_tasklet(struct vfe_device *vfe_dev)
 		queue_cmd->cmd_used = 0;
 	}
 	spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
+	tasklet_kill(&vfe_dev->vfe_tasklet);
 
 	return;
 }

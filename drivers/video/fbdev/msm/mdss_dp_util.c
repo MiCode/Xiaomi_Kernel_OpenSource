@@ -312,8 +312,8 @@ void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
 	}
 
 	if (tu_entry == tu_table + ARRAY_SIZE(tu_table)) {
-		pr_err("requested ln_cnt=%d, lrate=0x%x not supported\n",
-				ln_cnt, link_rate);
+		pr_err("requested res=%d, ln_cnt=%d, lrate=0x%x not supported\n",
+				res, ln_cnt, link_rate);
 		return;
 	}
 
@@ -604,8 +604,9 @@ static u8 mdss_dp_calculate_parity_byte(u32 data)
 	u8 iData = 0;
 	u8 i = 0;
 	u8 parityByte;
+	u8 num_byte = (data & 0xFF00) > 0 ? 8 : 2;
 
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < num_byte; i++) {
 		iData = (data >> i*4) & 0xF;
 
 		ci = iData ^ x1;

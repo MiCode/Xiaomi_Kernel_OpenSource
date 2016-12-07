@@ -83,6 +83,15 @@ static int clk_branch_wait(const struct clk_branch *br, bool enabling,
 	if (clk_branch_in_hwcg_mode(br))
 		return 0;
 
+	/*
+	 * Some of the BRANCH_VOTED clocks could be controlled by other
+	 * masters via voting registers, and would require to add delay
+	 * polling for the status bit to allow previous clk_disable
+	 * by the GDS controller to go through.
+	 */
+	if (enabling && voted)
+		udelay(5);
+
 	if (br->halt_check == BRANCH_HALT_DELAY || (!enabling && voted)) {
 		udelay(10);
 	} else if (br->halt_check == BRANCH_HALT_ENABLE ||

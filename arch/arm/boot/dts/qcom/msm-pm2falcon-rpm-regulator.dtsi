@@ -194,7 +194,7 @@
 	rpm-regulator-ldob9 {
 		compatible = "qcom,rpm-smd-regulator-resource";
 		qcom,resource-name = "rwsc";
-		qcom,resource-id = <9>;
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <0>;
 		status = "disabled";
 
@@ -209,7 +209,7 @@
 	rpm-regulator-ldob10 {
 		compatible = "qcom,rpm-smd-regulator-resource";
 		qcom,resource-name = "rwsm";
-		qcom,resource-id = <10>;
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <0>;
 		status = "disabled";
 

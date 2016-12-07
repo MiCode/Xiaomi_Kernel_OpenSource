@@ -39,13 +39,15 @@
 		clocks = <&clock_gcc GCC_USB30_MASTER_CLK>,
 			<&clock_gcc GCC_CFG_NOC_USB3_AXI_CLK>,
 			<&clock_gcc GCC_AGGRE2_USB3_AXI_CLK>,
+			<&clock_rpmcc RPM_AGGR2_NOC_CLK>,
 			<&clock_gcc GCC_USB30_MOCK_UTMI_CLK>,
 			<&clock_gcc GCC_USB30_SLEEP_CLK>,
 			<&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>,
 			<&clock_rpmcc CXO_DWC3_CLK>;
 
 		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
-				"utmi_clk", "sleep_clk", "cfg_ahb_clk", "xo";
+				"noc_aggr_clk", "utmi_clk", "sleep_clk",
+				"cfg_ahb_clk", "xo";
 
 		resets = <&clock_gcc GCC_USB_30_BCR>;
 		reset-names = "core_reset";

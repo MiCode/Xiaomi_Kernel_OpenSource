@@ -328,7 +328,7 @@ int vmem_allocate(size_t size, phys_addr_t *addr)
 		goto exit;
 	}
 	if (!size) {
-		pr_err("%s Invalid size %ld\n", __func__, size);
+		pr_err("%s Invalid size %zu\n", __func__, size);
 		rc = -EINVAL;
 		goto exit;
 	}

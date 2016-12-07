@@ -1796,9 +1796,6 @@ static void arm_iommu_unmap_page(struct device *dev, dma_addr_t handle,
 	int offset = handle & ~PAGE_MASK;
 	int len = PAGE_ALIGN(size + offset);
 
-	if (!iova)
-		return;
-
 	if (!(is_device_dma_coherent(dev) ||
 	      dma_get_attr(DMA_ATTR_SKIP_CPU_SYNC, attrs)))
 		__dma_page_dev_to_cpu(page, offset, size, dir);
@@ -1816,9 +1813,6 @@ static void arm_iommu_sync_single_for_cpu(struct device *dev,
 						mapping->domain, iova));
 	unsigned int offset = handle & ~PAGE_MASK;
 
-	if (!iova)
-		return;
-
 	if (!is_device_dma_coherent(dev))
 		__dma_page_dev_to_cpu(page, offset, size, dir);
 }
@@ -1831,9 +1825,6 @@ static void arm_iommu_sync_single_for_device(struct device *dev,
 	struct page *page = phys_to_page(iommu_iova_to_phys(
 						mapping->domain, iova));
 	unsigned int offset = handle & ~PAGE_MASK;
-
-	if (!iova)
-		return;
 
 	if (!is_device_dma_coherent(dev))
 		__dma_page_cpu_to_dev(page, offset, size, dir);
