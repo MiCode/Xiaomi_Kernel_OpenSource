@@ -98,6 +98,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmfalcon")
 #define early_machine_is_msmskunk()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmskunk")
+#define early_machine_is_sdmbat()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdmbat")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -136,6 +138,7 @@
 #define early_machine_is_msmhamster()	0
 #define early_machine_is_msmfalcon()	0
 #define early_machine_is_msmskunk()	0
+#define early_machine_is_sdmbat()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -196,7 +199,7 @@ enum msm_cpu {
 	MSM_CPU_HAMSTER,
 	MSM_CPU_FALCON,
 	MSM_CPU_SKUNK,
-
+	MSM_CPU_BAT,
 };
 
 struct msm_soc_info {
