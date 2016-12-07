@@ -173,6 +173,7 @@ enum {
 	VI_SENSE_2,
 	AUDIO_NOMINAL,
 	HPH_PA_DELAY,
+	CLSH_Z_CONFIG,
 };
 
 enum {
@@ -2238,6 +2239,7 @@ static int tavil_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 	u8 dem_inp;
 	int ret = 0;
 	struct tavil_dsd_config *dsd_conf = tavil->dsd_config;
+	uint32_t impedl = 0, impedr = 0;
 
 	dev_dbg(codec->dev, "%s wname: %s event: %d hph_mode: %d\n", __func__,
 		w->name, event, hph_mode);
@@ -2274,6 +2276,18 @@ static int tavil_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 			     WCD_CLSH_EVENT_PRE_DAC,
 			     WCD_CLSH_STATE_HPHL,
 			     hph_mode);
+
+		ret = tavil_mbhc_get_impedance(tavil->mbhc,
+					       &impedl, &impedr);
+		if (!ret) {
+			wcd_clsh_imped_config(codec, impedl, false);
+			set_bit(CLSH_Z_CONFIG, &tavil->status_mask);
+		} else {
+			dev_dbg(codec->dev, "%s: Failed to get mbhc impedance %d\n",
+				__func__, ret);
+			ret = 0;
+		}
+
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* 1000us required as per HW requirement */
@@ -2292,6 +2306,11 @@ static int tavil_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					    WCD934X_HPH_NEW_INT_RDAC_GAIN_CTL,
 					    0xF0, 0x0);
+
+		if (test_bit(CLSH_Z_CONFIG, &tavil->status_mask)) {
+			wcd_clsh_imped_config(codec, impedl, true);
+			clear_bit(CLSH_Z_CONFIG, &tavil->status_mask);
+		}
 		break;
 	default:
 		break;
