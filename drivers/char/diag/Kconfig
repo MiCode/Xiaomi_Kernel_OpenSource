@@ -1,0 +1,37 @@
+menu "Diag Support"
+
+config DIAG_CHAR
+	tristate "DIAG CHAR Interface Core"
+	default m
+	depends on USB_CONFIGFS_F_DIAG || USB_FUNCTION_DIAG || USB_QCOM_MAEMO
+	depends on ARCH_QCOM
+	depends on POWER_RESET_QCOM
+	select CRC_CCITT
+	help
+	  Char driver interface for SoC Diagnostic information. The DIAG Char
+	  driver provides diag forwarding to user space and SoC Peripherals.
+	  This enables diagchar for maemo usb gadget or android usb gadget
+	  based on config selected.
+
+config DIAG_OVER_USB
+	bool "Enable DIAG traffic to go over USB"
+	depends on DIAG_CHAR
+	depends on ARCH_QCOM
+	default y
+	help
+	  Diag over USB enables sending DIAG traffic over a USB transport. When
+	  the USB endpoints become available, the DIAG driver will enable Diag
+	  traffic over USB. This allows for host side tools to parse and display
+	  Diag traffic from the USB endpoint.
+
+config DIAGFWD_BRIDGE_CODE
+	bool "Enable QSC/9K DIAG traffic over SMUX/HSIC"
+	depends on DIAG_CHAR
+	depends on USB_QCOM_DIAG_BRIDGE || MSM_MHI
+	default y
+	help
+	  SMUX/HSIC Transport Layer for DIAG Router. When the MHI/SMUX endpoints
+	  become available, this bridge driver enables DIAG traffic over MHI
+	  and SMUX.
+
+endmenu
