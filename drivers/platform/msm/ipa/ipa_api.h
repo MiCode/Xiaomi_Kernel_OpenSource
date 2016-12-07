@@ -331,7 +331,8 @@ struct ipa_api_controller {
 	int (*ipa_create_wdi_mapping)(u32 num_buffers,
 		struct ipa_wdi_buffer_info *info);
 
-	struct ipa_gsi_ep_config *(*ipa_get_gsi_ep_info)(int ipa_ep_idx);
+	const struct ipa_gsi_ep_config *(*ipa_get_gsi_ep_info)
+		(enum ipa_client_type client);
 
 	int (*ipa_register_ipa_ready_cb)(void (*ipa_ready_cb)(void *user_data),
 		void *user_data);

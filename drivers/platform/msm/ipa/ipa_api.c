@@ -2392,15 +2392,15 @@ EXPORT_SYMBOL(ipa_create_wdi_mapping);
 
 /**
  * ipa_get_gsi_ep_info() - provide gsi ep information
- * @ipa_ep_idx: IPA endpoint index
+ * @client: IPA client type
  *
  * Return value: pointer to ipa_gsi_ep_info
  */
-struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx)
+const struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(enum ipa_client_type client)
 {
 	if (!ipa_api_ctrl || !ipa_api_ctrl->ipa_get_gsi_ep_info)
 		return NULL;
-	return ipa_api_ctrl->ipa_get_gsi_ep_info(ipa_ep_idx);
+	return ipa_api_ctrl->ipa_get_gsi_ep_info(client);
 }
 EXPORT_SYMBOL(ipa_get_gsi_ep_info);
 

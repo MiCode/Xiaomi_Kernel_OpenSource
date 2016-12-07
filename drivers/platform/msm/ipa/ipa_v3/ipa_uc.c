@@ -844,13 +844,14 @@ int ipa3_uc_reset_pipe(enum ipa_client_type ipa_client)
 
 int ipa3_uc_is_gsi_channel_empty(enum ipa_client_type ipa_client)
 {
-	struct ipa_gsi_ep_config *gsi_ep_info;
+	const struct ipa_gsi_ep_config *gsi_ep_info;
 	union IpaHwChkChEmptyCmdData_t cmd;
 	int ret;
 
-	gsi_ep_info = ipa3_get_gsi_ep_info(ipa3_get_ep_mapping(ipa_client));
+	gsi_ep_info = ipa3_get_gsi_ep_info(ipa_client);
 	if (!gsi_ep_info) {
-		IPAERR("Invalid IPA ep index\n");
+		IPAERR("Failed getting GSI EP info for client=%d\n",
+		       ipa_client);
 		return 0;
 	}
 
