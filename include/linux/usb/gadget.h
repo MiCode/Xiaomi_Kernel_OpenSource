@@ -297,6 +297,7 @@ struct usb_ep_caps {
  * @comp_desc: In case of SuperSpeed support, this is the endpoint companion
  *	descriptor that is used to configure the endpoint
  * @ep_type: Used to specify type of EP eg. normal vs h/w accelerated.
+ * @ep_num: Used EP number
  * @ep_intr_num: Interrupter number for EP.
  *
  * the bus controller driver lists all the general purpose endpoints in
@@ -322,6 +323,7 @@ struct usb_ep {
 	const struct usb_endpoint_descriptor	*desc;
 	const struct usb_ss_ep_comp_descriptor	*comp_desc;
 	enum ep_type		ep_type;
+	u8			ep_num;
 	u8			ep_intr_num;
 };
 
@@ -984,6 +986,9 @@ extern struct usb_ep *usb_ep_autoconfig_ss(struct usb_gadget *,
 extern void usb_ep_autoconfig_release(struct usb_ep *);
 
 extern void usb_ep_autoconfig_reset(struct usb_gadget *);
+extern struct usb_ep *usb_ep_autoconfig_by_name(struct usb_gadget *gadget,
+			struct usb_endpoint_descriptor *desc,
+			const char *ep_name);
 
 #ifdef CONFIG_USB_DWC3_MSM
 int msm_ep_config(struct usb_ep *ep);
