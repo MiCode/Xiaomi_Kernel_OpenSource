@@ -25,6 +25,7 @@
 #include <linux/tty_flip.h>
 #include <linux/serial_core.h>
 #include <linux/serial.h>
+#include <linux/workqueue.h>
 
 #define EUD_ENABLE_CMD 1
 #define EUD_DISABLE_CMD 0
@@ -60,11 +61,14 @@
 struct eud_chip {
 	struct device			*dev;
 	int				eud_irq;
+	unsigned int			extcon_id;
+	unsigned int			int_status;
 	bool				usb_attach;
 	bool				chgr_enable;
 	void __iomem			*eud_reg_base;
 	struct extcon_dev		*extcon;
 	struct uart_port		port;
+	struct work_struct		eud_work;
 };
 
 static const unsigned int eud_extcon_cable[] = {
@@ -86,8 +90,13 @@ static void enable_eud(struct platform_device *pdev)
 
 	/* write into CSR to enable EUD */
 	writel_relaxed(BIT(0), priv->eud_reg_base + EUD_REG_CSR_EUD_EN);
+	/* Enable vbus, chgr & safe mode warning interrupts */
+	writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR | EUD_INT_SAFE_MODE,
+			priv->eud_reg_base + EUD_REG_INT1_EN_MASK);
+
 	/* Ensure Register Writes Complete */
 	wmb();
+
 	dev_dbg(&pdev->dev, "%s: EUD Enabled!\n", __func__);
 }
 
@@ -129,10 +138,24 @@ static const struct kernel_param_ops eud_param_ops = {
 
 module_param_cb(enable, &eud_param_ops, &enable, 0644);
 
+static void eud_event_notifier(struct work_struct *eud_work)
+{
+	struct eud_chip *chip = container_of(eud_work, struct eud_chip,
+					eud_work);
+
+	if (chip->int_status == EUD_INT_VBUS)
+		extcon_set_cable_state_(chip->extcon, chip->extcon_id,
+					chip->usb_attach);
+	else if (chip->int_status == EUD_INT_CHGR)
+		extcon_set_cable_state_(chip->extcon, chip->extcon_id,
+					chip->chgr_enable);
+}
+
 static void usb_attach_detach(struct eud_chip *chip)
 {
 	u32 reg;
 
+	chip->extcon_id = EXTCON_USB;
 	/* read ctl_out_1[4] to find USB attach or detach event */
 	reg = readl_relaxed(chip->eud_reg_base + EUD_REG_CTL_OUT_1);
 	if (reg & BIT(4))
@@ -140,7 +163,7 @@ static void usb_attach_detach(struct eud_chip *chip)
 	else
 		chip->usb_attach = false;
 
-	extcon_set_cable_state_(chip->extcon, EXTCON_USB, chip->usb_attach);
+	schedule_work(&chip->eud_work);
 
 	/* set and clear vbus_int_clr[0] to clear interrupt */
 	writel_relaxed(BIT(0), chip->eud_reg_base + EUD_REG_VBUS_INT_CLR);
@@ -153,6 +176,7 @@ static void chgr_enable_disable(struct eud_chip *chip)
 {
 	u32 reg;
 
+	chip->extcon_id = EXTCON_CHG_USB_SDP;
 	/* read ctl_out_1[6] to find charger enable or disable event */
 	reg = readl_relaxed(chip->eud_reg_base + EUD_REG_CTL_OUT_1);
 	if (reg & BIT(6))
@@ -160,8 +184,7 @@ static void chgr_enable_disable(struct eud_chip *chip)
 	else
 		chip->chgr_enable = false;
 
-	extcon_set_cable_state_(chip->extcon, EXTCON_CHG_USB_SDP,
-						chip->chgr_enable);
+	schedule_work(&chip->eud_work);
 
 	/* set and clear chgr_int_clr[0] to clear interrupt */
 	writel_relaxed(BIT(0), chip->eud_reg_base + EUD_REG_CHGR_INT_CLR);
@@ -370,20 +393,24 @@ static irqreturn_t handle_eud_irq(int irq, void *data)
 {
 	struct eud_chip *chip = data;
 	u32 reg;
+	u32 int_mask_en1 = readl_relaxed(chip->eud_reg_base +
+					EUD_REG_INT1_EN_MASK);
 
 	/* read status register and find out which interrupt triggered */
 	reg = readl_relaxed(chip->eud_reg_base + EUD_REG_INT_STATUS_1);
 	if (reg & EUD_INT_RX) {
 		dev_dbg(chip->dev, "EUD RX Interrupt!\n");
 		eud_uart_rx(chip);
-	} else if (reg & EUD_INT_TX) {
+	} else if ((reg & EUD_INT_TX) & int_mask_en1) {
 		dev_dbg(chip->dev, "EUD TX Interrupt!\n");
 		eud_uart_tx(chip);
 	} else if (reg & EUD_INT_VBUS) {
 		dev_dbg(chip->dev, "EUD VBUS Interrupt!\n");
+		chip->int_status = EUD_INT_VBUS;
 		usb_attach_detach(chip);
 	} else if (reg & EUD_INT_CHGR) {
 		dev_dbg(chip->dev, "EUD CHGR Interrupt!\n");
+		chip->int_status = EUD_INT_CHGR;
 		chgr_enable_disable(chip);
 	} else if (reg & EUD_INT_SAFE_MODE) {
 		dev_dbg(chip->dev, "EUD SAFE MODE Interrupt!\n");
@@ -447,6 +474,8 @@ static int msm_eud_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, true);
 	enable_irq_wake(chip->eud_irq);
 
+	INIT_WORK(&chip->eud_work, eud_event_notifier);
+
 	port = &chip->port;
 	port->line = pdev->id;
 	port->type = PORT_EUD_UART;
@@ -463,10 +492,6 @@ static int msm_eud_probe(struct platform_device *pdev)
 		dev_err(chip->dev, "failed to add uart port!\n");
 		return ret;
 	}
-
-	/* Enable vbus, chgr & safe mode warning interrupts */
-	writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR | EUD_INT_SAFE_MODE,
-			chip->eud_reg_base + EUD_REG_INT1_EN_MASK);
 
 	eud_private = pdev;
 
