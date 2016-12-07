@@ -989,7 +989,7 @@
 			0    29000    11000        0>;
 
 	qcom,cpr-floor-to-ceiling-max-range =
-	       <50000 50000 50000 50000 50000 50000 70000 70000>;
+	       <40000 40000 40000 40000 40000 40000 50000 50000>;
 
 	qcom,cpr-fused-closed-loop-voltage-adjustment-map =
 		<0 0 0 0 1 2 3 4>;
