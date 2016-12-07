@@ -231,10 +231,12 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 	msm8953-ext-codec-mtp.dtb \
 	msm8953-qrd-sku3.dtb \
 	msm8953-rcm.dtb \
+	apq8053-rcm.dtb \
 	msm8953-ext-codec-rcm.dtb \
 	apq8053-cdp.dtb \
 	apq8053-mtp.dtb \
 	apq8053-ext-audio-mtp.dtb \
+	apq8053-ext-codec-rcm.dtb \
 	msm8953-cdp-1200p.dtb \
 	msm8953-iot-mtp.dtb \
 	apq8053-iot-mtp.dtb
@@ -276,8 +278,16 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	msm8909-mtp-wcd9326.dtb \
 	msm8909-mtp-wcd9326-refboard.dtb \
 	msm8909-512mb-mtp-wcd9326-refboard.dtb \
+	msm8909-512mb-cdp-wcd9326-refboard.dtb \
+	msm8909-512mb-rcm-wcd9326-refboard.dtb \
+	msm8909-cdp-wcd9326-refboard.dtb \
+	msm8909-rcm-wcd9326-refboard.dtb \
 	apq8009-mtp-wcd9326-refboard.dtb \
 	apq8009-512mb-mtp-wcd9326-refboard.dtb \
+	apq8009-512mb-cdp-wcd9326-refboard.dtb \
+	apq8009-512mb-rcm-wcd9326-refboard.dtb \
+	apq8009-cdp-wcd9326-refboard.dtb \
+	apq8009-rcm-wcd9326-refboard.dtb \
 	apq8009-mtp-drone.dtb \
 	msm8909-mtp.dtb \
 	msm8909-1gb-mtp.dtb

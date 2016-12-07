@@ -109,6 +109,10 @@
 	status = "okay";
 };
 
+&mhi_uci_0 {
+	status = "okay";
+};
+
 &pm8994_mpps {
 	mpp@a100 { /* MPP 2*/
 		/* MDM PON conrol*/

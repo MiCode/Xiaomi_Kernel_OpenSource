@@ -1351,6 +1351,7 @@ struct msm_vidc_cb_cmd_done {
 		struct vidc_hal_session_init_done session_init_done;
 		struct hal_buffer_info buffer_info;
 		union hal_get_property property;
+		enum hal_flush flush_type;
 	} data;
 };
 
