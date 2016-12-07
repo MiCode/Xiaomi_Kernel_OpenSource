@@ -373,7 +373,7 @@
 		};
 		qcom,sde-plane-id@5 {
 			qcom,display-type = "primary";
-			qcom,plane-name = "cursor0", "cursor1";
+			qcom,plane-name = "cursor0";
 			qcom,plane-type = "cursor";
 		};
 	};
