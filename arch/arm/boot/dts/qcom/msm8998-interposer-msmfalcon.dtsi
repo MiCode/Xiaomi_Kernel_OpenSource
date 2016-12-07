@@ -2812,6 +2812,7 @@
 
 	qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
+		qcom,firmware-name = "slpi_v2";
 		status = "ok";
 	};
 
