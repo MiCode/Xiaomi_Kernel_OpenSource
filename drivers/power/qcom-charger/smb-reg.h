@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -859,6 +859,10 @@ enum {
 #define WDOG_STATUS_2_BIT			BIT(2)
 #define WDOG_STATUS_1_BIT			BIT(1)
 #define BARK_BITE_STATUS_BIT			BIT(0)
+
+#define SYSOK_REASON_STATUS_REG			(MISC_BASE + 0x0D)
+#define SYSOK_REASON_DCIN_BIT			BIT(1)
+#define SYSOK_REASON_USBIN_BIT			BIT(0)
 
 /* MISC Interrupt Bits */
 #define SWITCHER_POWER_OK_RT_STS_BIT		BIT(7)

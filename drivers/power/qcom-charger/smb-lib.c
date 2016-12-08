@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -625,6 +625,21 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't un-vote for USB ICL rc=%d\n", rc);
+}
+
+static bool smblib_sysok_reason_usbin(struct smb_charger *chg)
+{
+	int rc;
+	u8 stat;
+
+	rc = smblib_read(chg, SYSOK_REASON_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get SYSOK_REASON_STATUS rc=%d\n", rc);
+		/* assuming 'not usbin' in case of read failure */
+		return false;
+	}
+
+	return stat & SYSOK_REASON_USBIN_BIT;
 }
 
 /*********************
@@ -2852,6 +2867,8 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	typec_source_removal(chg);
 	typec_sink_removal(chg);
 
+	chg->usb_ever_removed = true;
+
 	smblib_update_usb_type(chg);
 }
 
@@ -2860,6 +2877,7 @@ static void smblib_handle_typec_insertion(struct smb_charger *chg,
 {
 	int rp;
 	bool vbus_cc_short = false;
+	bool valid_legacy_cable;
 
 	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, false, 0);
 
@@ -2871,10 +2889,12 @@ static void smblib_handle_typec_insertion(struct smb_charger *chg,
 		typec_sink_removal(chg);
 	}
 
+	valid_legacy_cable = legacy_cable &&
+		(chg->usb_ever_removed || !smblib_sysok_reason_usbin(chg));
 	vote(chg->pd_disallowed_votable_indirect, LEGACY_CABLE_VOTER,
-			legacy_cable, 0);
+			valid_legacy_cable, 0);
 
-	if (legacy_cable) {
+	if (valid_legacy_cable) {
 		rp = smblib_get_prop_ufp_mode(chg);
 		if (rp == POWER_SUPPLY_TYPEC_SOURCE_HIGH
 				|| rp == POWER_SUPPLY_TYPEC_NON_COMPLIANT) {
@@ -3473,43 +3493,6 @@ int smblib_deinit(struct smb_charger *chg)
 	}
 
 	smblib_iio_deinit(chg);
-
-	return 0;
-}
-
-int smblib_validate_initial_typec_legacy_status(struct smb_charger *chg)
-{
-	int rc;
-	u8 stat;
-
-
-	if (qpnp_pon_is_warm_reset())
-		return 0;
-
-	rc = smblib_read(chg, TYPE_C_STATUS_5_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_STATUS_5 rc=%d\n", rc);
-		return rc;
-	}
-
-	if ((stat & TYPEC_LEGACY_CABLE_STATUS_BIT) == 0)
-		return 0;
-
-	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
-				 TYPEC_DISABLE_CMD_BIT, TYPEC_DISABLE_CMD_BIT);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't disable typec rc=%d\n", rc);
-		return rc;
-	}
-
-	usleep_range(150000, 151000);
-
-	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
-				 TYPEC_DISABLE_CMD_BIT, 0);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't enable typec rc=%d\n", rc);
-		return rc;
-	}
 
 	return 0;
 }

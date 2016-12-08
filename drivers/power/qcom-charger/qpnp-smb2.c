@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1141,13 +1141,6 @@ static int smb2_configure_typec(struct smb_charger *chg)
 	rc = smblib_masked_write(chg, TYPE_C_CFG_3_REG, EN_TRYSINK_MODE_BIT, 0);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't set TRYSINK_MODE rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = smblib_validate_initial_typec_legacy_status(chg);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't validate typec legacy status rc=%d\n",
-			rc);
 		return rc;
 	}
 
