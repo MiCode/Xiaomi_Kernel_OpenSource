@@ -49,7 +49,8 @@ static int msm_ext_disp_get_intf_data(struct msm_ext_disp *ext_disp,
 		struct msm_ext_disp_init_data **data);
 static int msm_ext_disp_audio_ack(struct platform_device *pdev, u32 ack);
 static int msm_ext_disp_update_audio_ops(struct msm_ext_disp *ext_disp,
-		enum msm_ext_disp_cable_state state);
+		enum msm_ext_disp_type type,
+		enum msm_ext_disp_cable_state state, u32 flags);
 
 static int msm_ext_disp_switch_dev_register(struct msm_ext_disp *ext_disp)
 {
@@ -359,9 +360,18 @@ static int msm_ext_disp_send_audio_notification(struct msm_ext_disp *ext_disp,
 }
 
 static int msm_ext_disp_process_display(struct msm_ext_disp *ext_disp,
-		enum msm_ext_disp_cable_state state)
+		enum msm_ext_disp_type type,
+		enum msm_ext_disp_cable_state state, u32 flags)
 {
-	int ret = msm_ext_disp_send_cable_notification(ext_disp, state);
+	int ret = 0;
+
+	if (flags & MSM_EXT_DISP_HPD_NO_VIDEO) {
+		pr_debug("skipping video setup for display (%s)\n",
+			msm_ext_disp_name(type));
+		goto end;
+	}
+
+	ret = msm_ext_disp_send_cable_notification(ext_disp, state);
 
 	/* positive ret value means audio node was switched */
 	if (IS_ERR_VALUE(ret) || !ret) {
@@ -383,9 +393,18 @@ end:
 }
 
 static int msm_ext_disp_process_audio(struct msm_ext_disp *ext_disp,
-		enum msm_ext_disp_cable_state state)
+		enum msm_ext_disp_type type,
+		enum msm_ext_disp_cable_state state, u32 flags)
 {
-	int ret = msm_ext_disp_send_audio_notification(ext_disp, state);
+	int ret = 0;
+
+	if (flags & MSM_EXT_DISP_HPD_NO_AUDIO) {
+		pr_debug("skipping audio setup for display (%s)\n",
+			msm_ext_disp_name(type));
+		goto end;
+	}
+
+	ret = msm_ext_disp_send_audio_notification(ext_disp, state);
 
 	/* positive ret value means audio node was switched */
 	if (IS_ERR_VALUE(ret) || !ret || !ext_disp->ack_enabled) {
@@ -408,7 +427,8 @@ end:
 
 static int msm_ext_disp_hpd(struct platform_device *pdev,
 		enum msm_ext_disp_type type,
-		enum msm_ext_disp_cable_state state)
+		enum msm_ext_disp_cable_state state,
+		u32 flags)
 {
 	int ret = 0;
 	struct msm_ext_disp *ext_disp = NULL;
@@ -455,21 +475,24 @@ static int msm_ext_disp_hpd(struct platform_device *pdev,
 	if (state == EXT_DISPLAY_CABLE_CONNECT) {
 		ext_disp->current_disp = type;
 
-		ret = msm_ext_disp_process_display(ext_disp, state);
+		ret = msm_ext_disp_process_display(ext_disp, type, state,
+			flags);
 		if (ret)
 			goto end;
 
-		msm_ext_disp_update_audio_ops(ext_disp, state);
+		ret = msm_ext_disp_update_audio_ops(ext_disp, type, state,
+			flags);
 		if (ret)
 			goto end;
 
-		ret = msm_ext_disp_process_audio(ext_disp, state);
+		ret = msm_ext_disp_process_audio(ext_disp, type, state,
+			flags);
 		if (ret)
 			goto end;
 	} else {
-		msm_ext_disp_process_audio(ext_disp, state);
-		msm_ext_disp_update_audio_ops(ext_disp, state);
-		msm_ext_disp_process_display(ext_disp, state);
+		msm_ext_disp_process_audio(ext_disp, type, state, flags);
+		msm_ext_disp_update_audio_ops(ext_disp, type, state, flags);
+		msm_ext_disp_process_display(ext_disp, type, state, flags);
 
 		ext_disp->current_disp = EXT_DISPLAY_TYPE_MAX;
 	}
@@ -624,10 +647,17 @@ end:
 }
 
 static int msm_ext_disp_update_audio_ops(struct msm_ext_disp *ext_disp,
-		enum msm_ext_disp_cable_state state)
+		enum msm_ext_disp_type type,
+		enum msm_ext_disp_cable_state state, u32 flags)
 {
 	int ret = 0;
 	struct msm_ext_disp_audio_codec_ops *ops = ext_disp->ops;
+
+	if (flags & MSM_EXT_DISP_HPD_NO_AUDIO) {
+		pr_debug("skipping audio ops setup for display (%s)\n",
+			msm_ext_disp_name(type));
+		goto end;
+	}
 
 	if (!ops) {
 		pr_err("Invalid audio ops\n");
