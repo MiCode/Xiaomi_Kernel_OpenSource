@@ -1178,15 +1178,16 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 		goto out;
 
 	cpumask_andnot(&allowed_mask, new_mask, cpu_isolated_mask);
+	cpumask_and(&allowed_mask, &allowed_mask, cpu_valid_mask);
 
-	dest_cpu = cpumask_any_and(cpu_valid_mask, &allowed_mask);
+	dest_cpu = cpumask_any(&allowed_mask);
 	if (dest_cpu >= nr_cpu_ids) {
-		dest_cpu = cpumask_any_and(cpu_valid_mask, new_mask);
+		cpumask_and(&allowed_mask, cpu_valid_mask, new_mask);
+		dest_cpu = cpumask_any(&allowed_mask);
 		if (dest_cpu >= nr_cpu_ids) {
 			ret = -EINVAL;
 			goto out;
 		}
-		cpumask_copy(&allowed_mask, new_mask);
 	}
 
 	do_set_cpus_allowed(p, new_mask);
@@ -4900,6 +4901,8 @@ long sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
 	cpumask_var_t cpus_allowed, new_mask;
 	struct task_struct *p;
 	int retval;
+	int dest_cpu;
+	cpumask_t allowed_mask;
 
 	rcu_read_lock();
 
@@ -4961,20 +4964,26 @@ long sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
 	}
 #endif
 again:
-	retval = __set_cpus_allowed_ptr(p, new_mask, true);
-
-	if (!retval) {
-		cpuset_cpus_allowed(p, cpus_allowed);
-		if (!cpumask_subset(new_mask, cpus_allowed)) {
-			/*
-			 * We must have raced with a concurrent cpuset
-			 * update. Just reset the cpus_allowed to the
-			 * cpuset's cpus_allowed
-			 */
-			cpumask_copy(new_mask, cpus_allowed);
-			goto again;
+	cpumask_andnot(&allowed_mask, new_mask, cpu_isolated_mask);
+	dest_cpu = cpumask_any_and(cpu_active_mask, &allowed_mask);
+	if (dest_cpu < nr_cpu_ids) {
+		retval = __set_cpus_allowed_ptr(p, new_mask, true);
+		if (!retval) {
+			cpuset_cpus_allowed(p, cpus_allowed);
+			if (!cpumask_subset(new_mask, cpus_allowed)) {
+				/*
+				 * We must have raced with a concurrent cpuset
+				 * update. Just reset the cpus_allowed to the
+				 * cpuset's cpus_allowed
+				 */
+				cpumask_copy(new_mask, cpus_allowed);
+				goto again;
+			}
 		}
+	} else {
+		retval = -EINVAL;
 	}
+
 out_free_new_mask:
 	free_cpumask_var(new_mask);
 out_free_cpus_allowed:
