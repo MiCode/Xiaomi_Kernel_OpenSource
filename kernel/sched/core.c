@@ -5735,6 +5735,37 @@ static struct task_struct fake_task = {
 };
 
 /*
+ * Remove a task from the runqueue and pretend that it's migrating. This
+ * should prevent migrations for the detached task and disallow further
+ * changes to tsk_cpus_allowed.
+ */
+static void
+detach_one_task(struct task_struct *p, struct rq *rq, struct list_head *tasks)
+{
+	lockdep_assert_held(&rq->lock);
+
+	p->on_rq = TASK_ON_RQ_MIGRATING;
+	deactivate_task(rq, p, 0);
+	list_add(&p->se.group_node, tasks);
+}
+
+static void attach_tasks(struct list_head *tasks, struct rq *rq)
+{
+	struct task_struct *p;
+
+	lockdep_assert_held(&rq->lock);
+
+	while (!list_empty(tasks)) {
+		p = list_first_entry(tasks, struct task_struct, se.group_node);
+		list_del_init(&p->se.group_node);
+
+		BUG_ON(task_rq(p) != rq);
+		activate_task(rq, p, 0);
+		p->on_rq = TASK_ON_RQ_QUEUED;
+	}
+}
+
+/*
  * Migrate all tasks (not pinned if pinned argument say so) from the rq,
  * sleeping tasks will be migrated by try_to_wake_up()->select_task_rq().
  *
@@ -5749,6 +5780,7 @@ static void migrate_tasks(struct rq *dead_rq, bool migrate_pinned_tasks)
 	struct pin_cookie cookie;
 	int dest_cpu;
 	unsigned int num_pinned_kthreads = 1; /* this thread */
+	LIST_HEAD(tasks);
 	cpumask_t avail_cpus;
 
 	cpumask_andnot(&avail_cpus, cpu_online_mask, cpu_isolated_mask);
@@ -5773,12 +5805,10 @@ static void migrate_tasks(struct rq *dead_rq, bool migrate_pinned_tasks)
 
 	for (;;) {
 		/*
-		 * There's this thread running + pinned threads, bail when
-		 * that's the only remaining threads.
+		 * There's this thread running, bail when that's the only
+		 * remaining thread.
 		 */
-		if ((migrate_pinned_tasks && rq->nr_running == 1) ||
-		   (!migrate_pinned_tasks &&
-		    rq->nr_running <= num_pinned_kthreads))
+		if (rq->nr_running == 1)
 			break;
 
 		/*
@@ -5791,8 +5821,9 @@ static void migrate_tasks(struct rq *dead_rq, bool migrate_pinned_tasks)
 
 		if (!migrate_pinned_tasks && next->flags & PF_KTHREAD &&
 			!cpumask_intersects(&avail_cpus, &next->cpus_allowed)) {
-			lockdep_unpin_lock(&rq->lock, cookie);
+			detach_one_task(next, rq, &tasks);
 			num_pinned_kthreads += 1;
+			lockdep_unpin_lock(&rq->lock, cookie);
 			continue;
 		}
 
@@ -5840,6 +5871,9 @@ static void migrate_tasks(struct rq *dead_rq, bool migrate_pinned_tasks)
 	}
 
 	rq->stop = stop;
+
+	if (num_pinned_kthreads > 1)
+		attach_tasks(&tasks, rq);
 }
 
 static void set_rq_online(struct rq *rq);
