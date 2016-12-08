@@ -138,6 +138,9 @@ int adm_set_softvolume(int port_id, int copp_idx,
 
 int adm_set_mic_gain(int port_id, int copp_idx, int volume);
 
+int adm_send_set_multichannel_ec_primary_mic_ch(int port_id, int copp_idx,
+				int primary_mic_ch);
+
 int adm_param_enable(int port_id, int copp_idx, int module_id,  int enable);
 
 int adm_send_calibration(int port_id, int copp_idx, int path, int perf_mode,
