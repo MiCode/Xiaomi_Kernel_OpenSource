@@ -332,9 +332,17 @@ static long avtimer_ioctl(struct file *file, unsigned int ioctl_num,
 	switch (ioctl_num) {
 	case IOCTL_GET_AVTIMER_TICK:
 	{
-		uint64_t avtimer_tick;
+		uint64_t avtimer_tick = 0;
+		int rc;
 
-		avcs_core_query_timer(&avtimer_tick);
+		rc = avcs_core_query_timer(&avtimer_tick);
+
+		if (rc) {
+			pr_err("%s: Error: Invalid AV Timer tick, rc = %d\n",
+				__func__, rc);
+			return rc;
+		}
+
 		pr_debug_ratelimited("%s: AV Timer tick: time %llx\n",
 		__func__, avtimer_tick);
 		if (copy_to_user((void *) ioctl_param, &avtimer_tick,
