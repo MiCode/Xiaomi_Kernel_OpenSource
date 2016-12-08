@@ -1928,8 +1928,7 @@ static void __restore_pipe(struct mdss_mdp_pipe *pipe)
 }
 
  /**
- * __crop_adjust_pipe_rect() - Adjust pipe roi for dual partial
- *   update feature.
+ * __adjust_pipe_rect() - Adjust pipe roi for dual partial update feature.
  * @pipe: pipe to check against.
  * @dual_roi: roi's for the dual partial roi.
  *
@@ -1937,53 +1936,54 @@ static void __restore_pipe(struct mdss_mdp_pipe *pipe)
  * by merging the two width aligned ROIs (first_roi and
  * second_roi) vertically. So, the y-offset of all the
  * pipes belonging to the second_roi needs to adjusted
- * accordingly. Also the cropping of the pipe's src/dst
- * rect has to be done with respect to the ROI the pipe
- * is intersecting with, before the adjustment.
+ * accordingly. Also check, if the pipe dest rect is
+ * totally within first or second ROI.
  */
-static int __crop_adjust_pipe_rect(struct mdss_mdp_pipe *pipe,
+static int __adjust_pipe_rect(struct mdss_mdp_pipe *pipe,
 		struct mdss_dsi_dual_pu_roi *dual_roi)
 {
 	u32 adjust_h;
-	u32 roi_y_pos;
 	int ret = 0;
+	struct mdss_rect res_rect;
 
 	if (mdss_rect_overlap_check(&pipe->dst, &dual_roi->first_roi)) {
-		mdss_mdp_crop_rect(&pipe->src, &pipe->dst,
-				&dual_roi->first_roi, false);
-		pipe->restore_roi = true;
+		mdss_mdp_intersect_rect(&res_rect, &pipe->dst,
+				&dual_roi->first_roi);
+		if (!mdss_rect_cmp(&res_rect, &pipe->dst)) {
+			ret = -EINVAL;
+			goto end;
+		}
 
 	} else if (mdss_rect_overlap_check(&pipe->dst, &dual_roi->second_roi)) {
-		mdss_mdp_crop_rect(&pipe->src, &pipe->dst,
-				&dual_roi->second_roi, false);
-		adjust_h =  dual_roi->second_roi.y;
-		roi_y_pos = dual_roi->first_roi.y + dual_roi->first_roi.h;
-
-		if (adjust_h > roi_y_pos) {
-			adjust_h = adjust_h - roi_y_pos;
-			pipe->dst.y -= adjust_h;
-		} else {
-			pr_err("wrong y-pos adjust_y:%d roi_y_pos:%d\n",
-				adjust_h, roi_y_pos);
+		mdss_mdp_intersect_rect(&res_rect, &pipe->dst,
+				&dual_roi->second_roi);
+		if (!mdss_rect_cmp(&res_rect, &pipe->dst)) {
 			ret = -EINVAL;
+			goto end;
 		}
+
+		adjust_h = dual_roi->second_roi.y -
+				(dual_roi->first_roi.y + dual_roi->first_roi.h);
+		pipe->dst.y -= adjust_h;
 		pipe->restore_roi = true;
 
 	} else {
 		ret = -EINVAL;
+		goto end;
 	}
 
-	pr_debug("crop/adjusted p:%d src:{%d,%d,%d,%d} dst:{%d,%d,%d,%d} r:%d\n",
+	pr_debug("adjusted p:%d src:{%d,%d,%d,%d} dst:{%d,%d,%d,%d} r:%d\n",
 		pipe->num, pipe->src.x, pipe->src.y,
 		pipe->src.w, pipe->src.h, pipe->dst.x,
 		pipe->dst.y, pipe->dst.w, pipe->dst.h,
 		pipe->restore_roi);
 
+end:
 	if (ret) {
-		pr_err("dual roi error p%d dst{%d,%d,%d,%d}",
-			pipe->num, pipe->dst.x, pipe->dst.y, pipe->dst.w,
-			pipe->dst.h);
-		pr_err(" roi1{%d,%d,%d,%d} roi2{%d,%d,%d,%d}\n",
+		pr_err("pipe:%d dst:{%d,%d,%d,%d} - not cropped for any PU ROI",
+			pipe->num, pipe->dst.x, pipe->dst.y,
+			pipe->dst.w, pipe->dst.h);
+		pr_err("ROI0:{%d,%d,%d,%d} ROI1:{%d,%d,%d,%d}\n",
 			dual_roi->first_roi.x, dual_roi->first_roi.y,
 			dual_roi->first_roi.w, dual_roi->first_roi.h,
 			dual_roi->second_roi.x, dual_roi->second_roi.y,
@@ -2106,7 +2106,7 @@ static void __validate_and_set_roi(struct msm_fb_data_type *mfd,
 			pipe->dst.y, pipe->dst.w, pipe->dst.h);
 
 		if (dual_roi->enabled) {
-			if (__crop_adjust_pipe_rect(pipe, dual_roi)) {
+			if (__adjust_pipe_rect(pipe, dual_roi)) {
 				skip_partial_update = true;
 				break;
 			}
@@ -2114,7 +2114,7 @@ static void __validate_and_set_roi(struct msm_fb_data_type *mfd,
 
 		if (!__is_roi_valid(pipe, &l_roi, &r_roi)) {
 			skip_partial_update = true;
-			pr_err("error. invalid pu config for pipe%d: %d,%d,%d,%d, dual_pu_roi:%d\n",
+			pr_err("error. invalid pu config for pipe:%d dst:{%d,%d,%d,%d} dual_pu_roi:%d\n",
 				pipe->num, pipe->dst.x, pipe->dst.y,
 				pipe->dst.w, pipe->dst.h,
 				dual_roi->enabled);
