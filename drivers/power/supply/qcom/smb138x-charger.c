@@ -39,6 +39,9 @@
 #define DEAD_TIME_MASK			GENMASK(7, 4)
 #define HIGH_DEAD_TIME_MASK		GENMASK(7, 4)
 
+#define SMB2CHG_DC_TM_SREFGEN		(DCIN_BASE + 0xE2)
+#define STACKED_DIODE_EN_BIT		BIT(2)
+
 enum {
 	OOB_COMP_WA_BIT = BIT(0),
 };
@@ -1214,6 +1217,13 @@ static int smb138x_slave_probe(struct smb138x *chip)
 		dev_err(chg->dev, "Couldn't enable parallel current sensing rc=%d\n",
 			rc);
 		goto cleanup;
+	}
+
+	/* enable stacked diode */
+	rc = smblib_write(chg, SMB2CHG_DC_TM_SREFGEN, STACKED_DIODE_EN_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't enable stacked diode rc=%d\n", rc);
+		return rc;
 	}
 
 	rc = smb138x_init_parallel_psy(chip);
