@@ -1208,6 +1208,14 @@ static int taiko_mad_input_put(struct snd_kcontrol *kcontrol,
 
 	taiko_mad_input = ucontrol->value.integer.value[0];
 
+	if (taiko_mad_input >= ARRAY_SIZE(taiko_conn_mad_text)) {
+		dev_err(codec->dev,
+			"%s: taiko_mad_input = %d out of bounds\n",
+			__func__, taiko_mad_input);
+		return -EINVAL;
+	}
+
+
 	micb_4_int_reg = taiko->resmgr.reg_addr->micb_4_int_rbias;
 	pr_debug("%s: taiko_mad_input = %s\n", __func__,
 			taiko_conn_mad_text[taiko_mad_input]);
