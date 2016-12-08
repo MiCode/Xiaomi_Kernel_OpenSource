@@ -75,3 +75,8 @@
 	compatible = "qcom,dummycc";
 	clock-output-names = "mmss_clocks";
 };
+
+&clock_debug {
+	compatible = "qcom,dummycc";
+	clock-output-names = "debug_clocks";
+};

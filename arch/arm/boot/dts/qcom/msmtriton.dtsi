@@ -561,7 +561,7 @@
 	};
 
 	clock_gcc: clock-controller@100000 {
-		compatible = "qcom,gcc-msmfalcon";
+		compatible = "qcom,gcc-msmfalcon", "syscon";
 		reg = <0x100000 0x94000>;
 		vdd_dig-supply = <&pm2falcon_s3_level>;
 		vdd_dig_ao-supply = <&pm2falcon_s3_level_ao>;
@@ -597,6 +597,35 @@
 			< 775000000 7>;  /* TURBO  */
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	cpu_debug: syscon@1791101c {
+		compatible = "syscon";
+		reg = <0x1791101c 0x4>;
+	};
+
+	gpu_debug: syscon@05065120 {
+		compatible = "syscon";
+		reg = <0x05065120 0x4>;
+	};
+
+	mmss_debug: syscon@c8c0900 {
+		compatible = "syscon";
+		reg = <0xc8c0900 0x4>;
+	};
+
+	clock_debug: qcom,cc-debug@62000 {
+		compatible = "qcom,gcc-debug-msmfalcon";
+		reg = <0x62000 0x4>;
+		reg-names = "dbg_offset";
+		clocks = <&clock_rpmcc  RPM_XO_CLK_SRC>;
+		clock-names = "xo_clk_src";
+		qcom,cc-count = <4>;
+		qcom,gcc = <&clock_gcc>;
+		qcom,cpu = <&cpu_debug>;
+		qcom,mmss = <&mmss_debug>;
+		qcom,gpu = <&gpu_debug>;
+		#clock-cells = <1>;
 	};
 
 	qcom,ipc-spinlock@1f40000 {
