@@ -465,6 +465,24 @@ out:
 	return rc;
 }
 
+static int qpnp_wled_swire_avdd_config(struct qpnp_wled *wled)
+{
+	int rc;
+	u8 val;
+
+	if (wled->pmic_rev_id->pmic_subtype != PMI8998_SUBTYPE &&
+		wled->pmic_rev_id->pmic_subtype != PM2FALCON_SUBTYPE)
+		return 0;
+
+	if (!wled->disp_type_amoled || wled->avdd_mode_spmi)
+		return 0;
+
+	val = QPNP_WLED_AVDD_MV_TO_REG(wled->avdd_target_voltage_mv);
+	rc = qpnp_wled_write_reg(wled,
+			QPNP_WLED_SWIRE_AVDD_REG(wled->ctrl_base), val);
+	return rc;
+}
+
 static int qpnp_wled_sync_reg_toggle(struct qpnp_wled *wled)
 {
 	int rc;
@@ -884,8 +902,20 @@ static void qpnp_wled_work(struct work_struct *work)
 	}
 
 	if (!!level != wled->prev_state) {
-		rc = qpnp_wled_module_en(wled, wled->ctrl_base, !!level);
+		if (!!level) {
+			/*
+			 * For AMOLED display in pmi8998, SWIRE_AVDD_DEFAULT has
+			 * to be reconfigured every time the module is enabled.
+			 */
+			rc = qpnp_wled_swire_avdd_config(wled);
+			if (rc < 0) {
+				pr_err("Write to SWIRE_AVDD_DEFAULT register failed rc:%d\n",
+					rc);
+				goto unlock_mutex;
+			}
+		}
 
+		rc = qpnp_wled_module_en(wled, wled->ctrl_base, !!level);
 		if (rc) {
 			dev_err(&wled->pdev->dev, "wled %sable failed\n",
 						level ? "en" : "dis");
@@ -1246,22 +1276,22 @@ static int qpnp_wled_avdd_mode_config(struct qpnp_wled *wled)
 		wled->avdd_target_voltage_mv = QPNP_WLED_AVDD_MIN_MV;
 	}
 
-	reg = QPNP_WLED_AVDD_MV_TO_REG(wled->avdd_target_voltage_mv);
-
 	if (wled->avdd_mode_spmi) {
+		reg = QPNP_WLED_AVDD_MV_TO_REG(wled->avdd_target_voltage_mv);
 		reg |= QPNP_WLED_AVDD_SEL_SPMI_BIT;
 		rc = qpnp_wled_write_reg(wled,
 				QPNP_WLED_AMOLED_VOUT_REG(wled->ctrl_base),
 				reg);
+		if (rc < 0)
+			pr_err("Write to AMOLED_VOUT register failed, rc=%d\n",
+				rc);
 	} else {
-		rc = qpnp_wled_write_reg(wled,
-				QPNP_WLED_SWIRE_AVDD_REG(wled->ctrl_base),
-				reg);
+		rc = qpnp_wled_swire_avdd_config(wled);
+		if (rc < 0)
+			pr_err("Write to SWIRE_AVDD_DEFAULT register failed rc:%d\n",
+				rc);
 	}
 
-	if (rc < 0)
-		dev_err(&wled->pdev->dev, "Write to VOUT/AVDD register failed, rc=%d\n",
-			rc);
 	return rc;
 }
 
