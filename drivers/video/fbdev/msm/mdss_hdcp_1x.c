@@ -510,7 +510,7 @@ static int hdcp_1x_read(struct hdcp_1x *hdcp,
 				HDCP_STATE_NAME, sink->name);
 	} else if (IS_ENABLED(CONFIG_FB_MSM_MDSS_DP_PANEL) &&
 		hdcp->init_data.client_id == HDCP_CLIENT_DP) {
-		int size = sink->len;
+		int size = sink->len, offset = sink->addr;
 
 		do {
 			struct edp_cmd cmd = {0};
@@ -519,7 +519,7 @@ static int hdcp_1x_read(struct hdcp_1x *hdcp,
 			read_size = min(size, max_size);
 
 			cmd.read = 1;
-			cmd.addr = sink->addr;
+			cmd.addr = offset;
 			cmd.len = read_size;
 			cmd.out_buf = buf;
 
@@ -533,6 +533,9 @@ static int hdcp_1x_read(struct hdcp_1x *hdcp,
 			msleep(edid_read_delay_us);
 			buf += read_size;
 			size -= read_size;
+
+			if (!realign)
+				offset += read_size;
 		} while (size > 0);
 	}
 
@@ -890,29 +893,10 @@ error:
 	return rc;
 }
 
-static int hdcp_1x_set_v_h(struct hdcp_1x *hdcp,
-			struct hdcp_1x_reg_data *rd, u8 *buf)
-{
-	int rc;
-	struct dss_io_data *io = hdcp->init_data.hdcp_io;
-
-	rc = hdcp_1x_read(hdcp, rd->sink, buf, false);
-	if (IS_ERR_VALUE(rc)) {
-		pr_err("error reading %s\n", rd->sink->name);
-		goto end;
-	}
-
-	DSS_REG_W(io, rd->reg_id,
-		(buf[3] << 24 | buf[2] << 16 | buf[1] << 8 | buf[0]));
-end:
-	return rc;
-}
-
 static int hdcp_1x_transfer_v_h(struct hdcp_1x *hdcp)
 {
 	int rc = 0;
-	u8 buf[4];
-	u32 phy_addr;
+	struct dss_io_data *io = hdcp->init_data.hdcp_io;
 	struct hdcp_reg_set *reg_set = &hdcp->reg_set;
 	struct hdcp_1x_reg_data reg_data[]  = {
 		{reg_set->sec_data7,  &hdcp->sink_addr.v_h0},
@@ -921,23 +905,39 @@ static int hdcp_1x_transfer_v_h(struct hdcp_1x *hdcp)
 		{reg_set->sec_data10, &hdcp->sink_addr.v_h3},
 		{reg_set->sec_data11, &hdcp->sink_addr.v_h4},
 	};
+	struct hdcp_sink_addr sink = {"V", reg_data->sink->addr};
 	u32 size = ARRAY_SIZE(reg_data);
-	u32 iter = 0;
+	u8 buf[0xFF] = {0};
+	u32 i = 0, len = 0;
 
 	if (!hdcp_1x_state(HDCP_STATE_AUTHENTICATING)) {
 		pr_err("invalid state\n");
 		return -EINVAL;
 	}
 
-	phy_addr = hdcp->init_data.phy_addr;
+	for (i = 0; i < size; i++) {
+		struct hdcp_1x_reg_data *rd = reg_data + i;
 
-	for (iter = 0; iter < size; iter++) {
-		struct hdcp_1x_reg_data *rd = reg_data + iter;
-
-		memset(buf, 0, sizeof(buf));
-		hdcp_1x_set_v_h(hdcp, rd, buf);
+		len += rd->sink->len;
 	}
 
+	sink.len = len;
+
+	rc = hdcp_1x_read(hdcp, &sink, buf, false);
+	if (IS_ERR_VALUE(rc)) {
+		pr_err("error reading %s\n", sink.name);
+		goto end;
+	}
+
+
+	for (i = 0; i < size; i++) {
+		struct hdcp_1x_reg_data *rd = reg_data + i;
+		u32 reg_data;
+
+		memcpy(&reg_data, buf + (sizeof(u32) * i), sizeof(u32));
+		DSS_REG_W(io, rd->reg_id, reg_data);
+	}
+end:
 	return rc;
 }
 
@@ -956,7 +956,7 @@ static int hdcp_1x_validate_downstream(struct hdcp_1x *hdcp)
 	}
 
 	rc = hdcp_1x_read(hdcp, &hdcp->sink_addr.bstatus,
-			buf, true);
+			buf, false);
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("error reading bstatus\n");
 		goto end;
@@ -1027,7 +1027,7 @@ static int hdcp_1x_read_ksv_fifo(struct hdcp_1x *hdcp)
 
 	while (ksv_bytes && --ksv_read_retry) {
 		rc = hdcp_1x_read(hdcp, &hdcp->sink_addr.ksv_fifo,
-				ksv_fifo, false);
+				ksv_fifo, true);
 		if (IS_ERR_VALUE(rc))
 			pr_err("could not read ksv fifo (%d)\n",
 				ksv_read_retry);
@@ -1119,7 +1119,7 @@ static int hdcp_1x_wait_for_ksv_ready(struct hdcp_1x *hdcp)
 	 * maximum permitted time to check for READY bit is five seconds.
 	 */
 	rc = hdcp_1x_read(hdcp, &hdcp->sink_addr.bcaps,
-		&hdcp->bcaps, true);
+		&hdcp->bcaps, false);
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("error reading bcaps\n");
 		goto error;
@@ -1131,7 +1131,7 @@ static int hdcp_1x_wait_for_ksv_ready(struct hdcp_1x *hdcp)
 		while (!(hdcp->bcaps & BIT(5)) && --timeout) {
 			rc = hdcp_1x_read(hdcp,
 				&hdcp->sink_addr.bcaps,
-				&hdcp->bcaps, true);
+				&hdcp->bcaps, false);
 			if (IS_ERR_VALUE(rc) ||
 			   !hdcp_1x_state(HDCP_STATE_AUTHENTICATING)) {
 				pr_err("error reading bcaps\n");
