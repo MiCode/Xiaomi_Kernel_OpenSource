@@ -1003,6 +1003,9 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	if (ret)
 		usb_remove_phy(&qphy->phy);
 
+	/* de-asseert clamp dig n to reduce leakage on 1p8 upon boot up */
+	writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
+
 	return ret;
 }
 
