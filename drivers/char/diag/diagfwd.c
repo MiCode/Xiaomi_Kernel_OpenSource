@@ -566,6 +566,10 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 			diag_process_stm_mask(cmd, DIAG_STM_WDSP,
 						PERIPHERAL_WDSP);
 
+		if (mask & DIAG_STM_CDSP)
+			diag_process_stm_mask(cmd, DIAG_STM_CDSP,
+						PERIPHERAL_CDSP);
+
 		if (mask & DIAG_STM_APPS)
 			diag_process_stm_mask(cmd, DIAG_STM_APPS, APPS_DATA);
 	}
@@ -589,6 +593,9 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 	if (driver->feature[PERIPHERAL_WDSP].stm_support)
 		rsp_supported |= DIAG_STM_WDSP;
 
+	if (driver->feature[PERIPHERAL_CDSP].stm_support)
+		rsp_supported |= DIAG_STM_CDSP;
+
 	rsp_supported |= DIAG_STM_APPS;
 
 	/* Set mask denoting STM state/status for each peripheral/APSS */
@@ -606,6 +613,9 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 
 	if (driver->stm_state[PERIPHERAL_WDSP])
 		rsp_status |= DIAG_STM_WDSP;
+
+	if (driver->stm_state[PERIPHERAL_CDSP])
+		rsp_status |= DIAG_STM_CDSP;
 
 	if (driver->stm_state[APPS_DATA])
 		rsp_status |= DIAG_STM_APPS;

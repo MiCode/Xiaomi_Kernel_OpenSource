@@ -64,6 +64,13 @@ struct diag_glink_info glink_data[NUM_PERIPHERALS] = {
 		.edge = "wdsp",
 		.name = "DIAG_DATA",
 		.hdl = NULL
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_DATA,
+		.edge = "cdsp",
+		.name = "DIAG_DATA",
+		.hdl = NULL
 	}
 };
 
@@ -100,6 +107,13 @@ struct diag_glink_info glink_cntl[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_CNTL,
 		.edge = "wdsp",
+		.name = "DIAG_CTRL",
+		.hdl = NULL
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_CNTL,
+		.edge = "cdsp",
 		.name = "DIAG_CTRL",
 		.hdl = NULL
 	}
@@ -140,6 +154,13 @@ struct diag_glink_info glink_dci[NUM_PERIPHERALS] = {
 		.edge = "wdsp",
 		.name = "DIAG_DCI_DATA",
 		.hdl = NULL
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_DCI,
+		.edge = "cdsp",
+		.name = "DIAG_DCI_DATA",
+		.hdl = NULL
 	}
 };
 
@@ -178,6 +199,13 @@ struct diag_glink_info glink_cmd[NUM_PERIPHERALS] = {
 		.edge = "wdsp",
 		.name = "DIAG_CMD",
 		.hdl = NULL
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_CMD,
+		.edge = "cdsp",
+		.name = "DIAG_CMD",
+		.hdl = NULL
 	}
 };
 
@@ -214,6 +242,13 @@ struct diag_glink_info glink_dci_cmd[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_DCI_CMD,
 		.edge = "wdsp",
+		.name = "DIAG_DCI_CMD",
+		.hdl = NULL
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_DCI_CMD,
+		.edge = "cdsp",
 		.name = "DIAG_DCI_CMD",
 		.hdl = NULL
 	}

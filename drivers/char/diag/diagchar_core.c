@@ -383,6 +383,8 @@ static uint32_t diag_translate_kernel_to_user_mask(uint32_t peripheral_mask)
 		ret |= DIAG_CON_SENSORS;
 	if (peripheral_mask & MD_PERIPHERAL_MASK(PERIPHERAL_WDSP))
 		ret |= DIAG_CON_WDSP;
+	if (peripheral_mask & MD_PERIPHERAL_MASK(PERIPHERAL_CDSP))
+		ret |= DIAG_CON_CDSP;
 
 	return ret;
 }
@@ -1520,6 +1522,8 @@ static uint32_t diag_translate_mask(uint32_t peripheral_mask)
 		ret |= (1 << PERIPHERAL_SENSORS);
 	if (peripheral_mask & DIAG_CON_WDSP)
 		ret |= (1 << PERIPHERAL_WDSP);
+	if (peripheral_mask & DIAG_CON_CDSP)
+		ret |= (1 << PERIPHERAL_CDSP);
 
 	return ret;
 }
