@@ -2786,6 +2786,23 @@ static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
 	return ret;
 }
 
+static bool arm_smmu_is_iova_coherent(struct iommu_domain *domain,
+					 dma_addr_t iova)
+{
+	bool ret;
+	unsigned long flags;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+
+	if (!ops)
+		return false;
+
+	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
+	ret = ops->is_iova_coherent(ops, iova);
+	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+	return ret;
+}
+
 static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 					unsigned long flags)
 {
@@ -2915,6 +2932,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.tlbi_domain		= arm_smmu_tlbi_domain,
 	.enable_config_clocks	= arm_smmu_enable_config_clocks,
 	.disable_config_clocks	= arm_smmu_disable_config_clocks,
+	.is_iova_coherent	= arm_smmu_is_iova_coherent,
 };
 
 #define IMPL_DEF1_MICRO_MMU_CTRL	0
