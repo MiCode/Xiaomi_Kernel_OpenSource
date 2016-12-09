@@ -87,7 +87,7 @@ struct sde_encoder_virt_ops {
  *				For CMD encoder, may wait for previous tx done
  * @handle_post_kickoff:	Do any work necessary post-kickoff work
  * @trigger_start:		Process start event on physical encoder
- * @needs_split_flush:		Whether encoder type needs split flush
+ * @needs_single_flush:		Whether encoder slaves need to be flushed
  * @setup_misr:		Sets up MISR, enable and disables based on sysfs
  * @collect_misr:		Collects MISR data on frame update
  */
@@ -114,7 +114,7 @@ struct sde_encoder_phys_ops {
 	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc);
 	void (*handle_post_kickoff)(struct sde_encoder_phys *phys_enc);
 	void (*trigger_start)(struct sde_encoder_phys *phys_enc);
-	bool (*needs_split_flush)(struct sde_encoder_phys *phys_enc);
+	bool (*needs_single_flush)(struct sde_encoder_phys *phys_enc);
 
 	void (*setup_misr)(struct sde_encoder_phys *phys_encs,
 			struct sde_misr_params *misr_map);
@@ -387,5 +387,16 @@ static inline enum sde_3d_blend_mode sde_encoder_helper_get_3d_blend_mode(
 
 	return BLEND_3D_NONE;
 }
+
+/**
+ * sde_encoder_helper_split_config - split display configuration helper function
+ *	This helper function may be used by physical encoders to configure
+ *	the split display related registers.
+ * @phys_enc: Pointer to physical encoder structure
+ * @interface: enum sde_intf setting
+ */
+void sde_encoder_helper_split_config(
+		struct sde_encoder_phys *phys_enc,
+		enum sde_intf interface);
 
 #endif /* __sde_encoder_phys_H__ */

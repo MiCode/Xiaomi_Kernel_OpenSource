@@ -80,9 +80,8 @@ static void sde_encoder_phys_cmd_mode_set(
 	/* Retrieve previously allocated HW Resources. Shouldn't fail */
 	sde_rm_init_hw_iter(&iter, phys_enc->parent->base.id, SDE_HW_BLK_CTL);
 	for (i = 0; i <= instance; i++) {
-		sde_rm_get_hw(rm, &iter);
-		if (i == instance)
-			phys_enc->hw_ctl = (struct sde_hw_ctl *) iter.hw;
+		if (sde_rm_get_hw(rm, &iter))
+			phys_enc->hw_ctl = (struct sde_hw_ctl *)iter.hw;
 	}
 
 	if (IS_ERR_OR_NULL(phys_enc->hw_ctl)) {
@@ -129,6 +128,22 @@ static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
 			phys_enc);
 }
 
+static bool _sde_encoder_phys_is_ppsplit_slave(
+		struct sde_encoder_phys *phys_enc)
+{
+	enum sde_rm_topology_name topology;
+
+	if (!phys_enc)
+		return false;
+
+	topology = sde_connector_get_topology_name(phys_enc->connector);
+	if (topology == SDE_RM_TOPOLOGY_PPSPLIT &&
+			phys_enc->split_role == ENC_ROLE_SLAVE)
+		return true;
+
+	return false;
+}
+
 static int _sde_encoder_phys_cmd_wait_for_idle(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -136,6 +151,15 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 			to_sde_encoder_phys_cmd(phys_enc);
 	u32 irq_status;
 	int ret;
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return -EINVAL;
+	}
+
+	/* slave encoder doesn't enable for ppsplit */
+	if (_sde_encoder_phys_is_ppsplit_slave(phys_enc))
+		return 0;
 
 	/* return EWOULDBLOCK since we know the wait isn't necessary */
 	if (phys_enc->enable_state == SDE_ENC_DISABLED) {
@@ -374,34 +398,16 @@ static void sde_encoder_phys_cmd_pingpong_config(
 	sde_encoder_phys_cmd_tearcheck_config(phys_enc);
 }
 
-static bool sde_encoder_phys_cmd_needs_split_flush(
+static bool sde_encoder_phys_cmd_needs_single_flush(
 		struct sde_encoder_phys *phys_enc)
 {
-	return false;
-}
+	enum sde_rm_topology_name topology;
 
-static void sde_encoder_phys_cmd_split_config(
-		struct sde_encoder_phys *phys_enc, bool enable)
-{
-	struct sde_encoder_phys_cmd *cmd_enc =
-		to_sde_encoder_phys_cmd(phys_enc);
-	struct sde_hw_mdp *hw_mdptop = phys_enc->hw_mdptop;
-	struct split_pipe_cfg cfg = { 0 };
+	if (!phys_enc)
+		return false;
 
-	if (!phys_enc) {
-		SDE_ERROR("invalid encoder\n");
-		return;
-	}
-	SDE_DEBUG_CMDENC(cmd_enc, "enable %d\n", enable);
-
-	cfg.en = enable;
-	cfg.mode = INTF_MODE_CMD;
-	cfg.intf = cmd_enc->intf_idx;
-	cfg.split_flush_en = enable &&
-		sde_encoder_phys_cmd_needs_split_flush(phys_enc);
-
-	if (hw_mdptop && hw_mdptop->ops.setup_split_pipe)
-		hw_mdptop->ops.setup_split_pipe(hw_mdptop, &cfg);
+	topology = sde_connector_get_topology_name(phys_enc->connector);
+	return topology == SDE_RM_TOPOLOGY_PPSPLIT;
 }
 
 static int sde_encoder_phys_cmd_control_vblank_irq(
@@ -453,27 +459,25 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 		to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_hw_ctl *ctl;
 	u32 flush_mask;
-	int ret = 0;
+	int ret;
 
-	if (!phys_enc) {
-		SDE_ERROR("invalid encoder\n");
+	if (!phys_enc || !phys_enc->hw_ctl) {
+		SDE_ERROR("invalid arg(s), encoder %d\n", phys_enc != 0);
 		return;
 	}
 	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
-	if (WARN_ON(phys_enc->enable_state == SDE_ENC_ENABLED))
+	if (phys_enc->enable_state == SDE_ENC_ENABLED) {
+		SDE_ERROR("already enabled\n");
 		return;
+	}
 
-	/*
-	 * Only master configures master/slave configuration, so no slave check
-	 * In solo configuration, solo encoder needs to program no-split
-	 */
-	if (phys_enc->split_role == ENC_ROLE_MASTER)
-		sde_encoder_phys_cmd_split_config(phys_enc, true);
-	else if (phys_enc->split_role == ENC_ROLE_SOLO)
-		sde_encoder_phys_cmd_split_config(phys_enc, false);
+	sde_encoder_helper_split_config(phys_enc, cmd_enc->intf_idx);
 
 	sde_encoder_phys_cmd_pingpong_config(phys_enc);
+
+	if (_sde_encoder_phys_is_ppsplit_slave(phys_enc))
+		goto update_flush;
 
 	/* Both master and slave need to register for pp_tx_done */
 	ret = sde_encoder_phys_cmd_register_irq(phys_enc,
@@ -503,6 +507,7 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 		return;
 	}
 
+update_flush:
 	ctl = phys_enc->hw_ctl;
 	ctl->ops.get_bitmask_intf(ctl, &flush_mask, cmd_enc->intf_idx);
 	ctl->ops.update_pending_flush(ctl, flush_mask);
@@ -524,24 +529,30 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 	}
 	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
-	if (WARN_ON(phys_enc->enable_state == SDE_ENC_DISABLED))
+	if (phys_enc->enable_state == SDE_ENC_DISABLED) {
+		SDE_ERROR_CMDENC(cmd_enc, "already disabled\n");
 		return;
+	}
 
 	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0);
 
-	ret = _sde_encoder_phys_cmd_wait_for_idle(phys_enc);
-	if (ret) {
-		atomic_set(&phys_enc->pending_kickoff_cnt, 0);
-		SDE_ERROR_CMDENC(cmd_enc,
-				"pp %d failed wait for idle at disable: %d\n",
-				phys_enc->hw_pp->idx - PINGPONG_0, ret);
-		SDE_EVT32(DRMID(phys_enc->parent),
-				phys_enc->hw_pp->idx - PINGPONG_0, ret);
-	}
+	if (!_sde_encoder_phys_is_ppsplit_slave(phys_enc)) {
+		ret = _sde_encoder_phys_cmd_wait_for_idle(phys_enc);
+		if (ret) {
+			atomic_set(&phys_enc->pending_kickoff_cnt, 0);
+			SDE_ERROR_CMDENC(cmd_enc,
+					"pp %d failed wait for idle, %d\n",
+					phys_enc->hw_pp->idx - PINGPONG_0, ret);
+			SDE_EVT32(DRMID(phys_enc->parent),
+					phys_enc->hw_pp->idx - PINGPONG_0, ret);
+		}
 
-	sde_encoder_phys_cmd_unregister_irq(phys_enc, INTR_IDX_UNDERRUN);
-	sde_encoder_phys_cmd_control_vblank_irq(phys_enc, false);
-	sde_encoder_phys_cmd_unregister_irq(phys_enc, INTR_IDX_PINGPONG);
+		sde_encoder_phys_cmd_unregister_irq(
+				phys_enc, INTR_IDX_UNDERRUN);
+		sde_encoder_phys_cmd_control_vblank_irq(phys_enc, false);
+		sde_encoder_phys_cmd_unregister_irq(
+				phys_enc, INTR_IDX_PINGPONG);
+	}
 
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 
@@ -634,7 +645,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->wait_for_commit_done = sde_encoder_phys_cmd_wait_for_commit_done;
 	ops->prepare_for_kickoff = sde_encoder_phys_cmd_prepare_for_kickoff;
 	ops->trigger_start = sde_encoder_helper_trigger_start;
-	ops->needs_split_flush = sde_encoder_phys_cmd_needs_split_flush;
+	ops->needs_single_flush = sde_encoder_phys_cmd_needs_single_flush;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(
