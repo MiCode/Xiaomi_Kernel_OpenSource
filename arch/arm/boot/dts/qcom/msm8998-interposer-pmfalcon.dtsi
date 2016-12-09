@@ -65,15 +65,6 @@
 
 };
 
-&bluetooth {
-	/delete-property/qca,bt-vdd-io-supply;
-	/delete-property/qca,bt-vdd-xtal-supply;
-	/delete-property/qca,bt-vdd-core-supply;
-	/delete-property/qca,bt-vdd-pa-supply;
-	/delete-property/qca,bt-vdd-ldo-supply;
-	/delete-property/qca,bt-chip-pwd-supply;
-};
-
 &sdhc_2 {
 	/delete-property/vdd-supply;
 	/delete-property/vdd-io-supply;
