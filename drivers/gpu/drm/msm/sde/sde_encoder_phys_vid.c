@@ -318,36 +318,10 @@ static void sde_encoder_phys_vid_underrun_irq(void *arg, int irq_idx)
 			phys_enc);
 }
 
-static bool sde_encoder_phys_vid_needs_split_flush(
+static bool sde_encoder_phys_vid_needs_single_flush(
 		struct sde_encoder_phys *phys_enc)
 {
 	return phys_enc && phys_enc->split_role != ENC_ROLE_SOLO;
-}
-
-static void _sde_encoder_phys_vid_split_config(
-		struct sde_encoder_phys *phys_enc, bool enable)
-{
-	struct sde_encoder_phys_vid *vid_enc =
-		to_sde_encoder_phys_vid(phys_enc);
-	struct sde_hw_mdp *hw_mdptop = phys_enc->hw_mdptop;
-	struct split_pipe_cfg cfg = { 0 };
-
-	SDE_DEBUG_VIDENC(vid_enc, "enable %d\n", enable);
-
-	cfg.en = enable;
-	cfg.mode = INTF_MODE_VIDEO;
-	cfg.intf = vid_enc->hw_intf->idx;
-	cfg.split_flush_en = enable &&
-		sde_encoder_phys_vid_needs_split_flush(phys_enc);
-
-	/* Configure split pipe control to handle master/slave triggering */
-	if (hw_mdptop && hw_mdptop->ops.setup_split_pipe) {
-		unsigned long lock_flags;
-
-		spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
-		hw_mdptop->ops.setup_split_pipe(hw_mdptop, &cfg);
-		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
-	}
 }
 
 static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc,
@@ -428,16 +402,17 @@ static void sde_encoder_phys_vid_mode_set(
 		struct drm_display_mode *mode,
 		struct drm_display_mode *adj_mode)
 {
-	struct sde_rm *rm = &phys_enc->sde_kms->rm;
+	struct sde_rm *rm;
 	struct sde_rm_hw_iter iter;
 	int i, instance;
 	struct sde_encoder_phys_vid *vid_enc;
 
-	if (!phys_enc) {
+	if (!phys_enc || !phys_enc->sde_kms) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 
+	rm = &phys_enc->sde_kms->rm;
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
 	phys_enc->cached_mode = *adj_mode;
 	SDE_DEBUG_VIDENC(vid_enc, "caching mode:\n");
@@ -448,11 +423,9 @@ static void sde_encoder_phys_vid_mode_set(
 	/* Retrieve previously allocated HW Resources. Shouldn't fail */
 	sde_rm_init_hw_iter(&iter, phys_enc->parent->base.id, SDE_HW_BLK_CTL);
 	for (i = 0; i <= instance; i++) {
-		sde_rm_get_hw(rm, &iter);
-		if (i == instance)
-			phys_enc->hw_ctl = (struct sde_hw_ctl *) iter.hw;
+		if (sde_rm_get_hw(rm, &iter))
+			phys_enc->hw_ctl = (struct sde_hw_ctl *)iter.hw;
 	}
-
 	if (IS_ERR_OR_NULL(phys_enc->hw_ctl)) {
 		SDE_ERROR_VIDENC(vid_enc, "failed to init ctl, %ld\n",
 				PTR_ERR(phys_enc->hw_ctl));
@@ -530,10 +503,7 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	if (WARN_ON(!vid_enc->hw_intf->ops.enable_timing))
 		return;
 
-	if (phys_enc->split_role == ENC_ROLE_MASTER)
-		_sde_encoder_phys_vid_split_config(phys_enc, true);
-	else if (phys_enc->split_role == ENC_ROLE_SOLO)
-		_sde_encoder_phys_vid_split_config(phys_enc, false);
+	sde_encoder_helper_split_config(phys_enc, vid_enc->hw_intf->idx);
 
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
 	ret = sde_encoder_phys_vid_control_vblank_irq(phys_enc, true);
@@ -771,7 +741,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->control_vblank_irq = sde_encoder_phys_vid_control_vblank_irq;
 	ops->wait_for_commit_done = sde_encoder_phys_vid_wait_for_commit_done;
 	ops->handle_post_kickoff = sde_encoder_phys_vid_handle_post_kickoff;
-	ops->needs_split_flush = sde_encoder_phys_vid_needs_split_flush;
+	ops->needs_single_flush = sde_encoder_phys_vid_needs_single_flush;
 	ops->setup_misr = sde_encoder_phys_vid_setup_misr;
 	ops->collect_misr = sde_encoder_phys_vid_collect_misr;
 }

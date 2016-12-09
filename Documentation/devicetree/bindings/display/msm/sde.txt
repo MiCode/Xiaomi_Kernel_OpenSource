@@ -58,6 +58,8 @@ Required properties
 - qcom,sde-pp-off:		Array of offset addresses for the available
 				pingpong blocks. These offsets are calculated
 				from register "mdp_phys" defined in reg property.
+- qcom,sde-pp-slave:		Array of flags indicating whether each ping pong
+				block may be configured as a pp slave.
 - qcom,sde-intf-off:		Array of offset addresses for the available SDE
 				interface blocks that can drive data to a
 				panel controller. The offsets are calculated
@@ -297,6 +299,7 @@ Example:
     qcom,sde-intf-type = "none", "dsi", "dsi", "hdmi";
     qcom,sde-pp-off = <0x00071000 0x00071800
 			  0x00072000 0x00072800>;
+    qcom,sde-pp-slave = <0x0 0x0 0x0 0x0>;
     qcom,sde-cdm-off = <0x0007a200>;
     qcom,sde-dsc-off = <0x00081000 0x00081400>;
     qcom,sde-intf-max-prefetch-lines = <0x15 0x15 0x15 0x15>;

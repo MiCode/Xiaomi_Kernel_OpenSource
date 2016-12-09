@@ -592,7 +592,7 @@ static int _sde_rm_reserve_lms(
 	struct sde_rm_hw_blk *pp[MAX_BLOCKS];
 	struct sde_rm_hw_iter iter_i, iter_j;
 	int lm_count = 0;
-	int i;
+	int i, rc = 0;
 
 	if (!reqs->num_lm) {
 		SDE_ERROR("invalid number of lm: %d\n", reqs->num_lm);
@@ -651,7 +651,27 @@ static int _sde_rm_reserve_lms(
 				dspp[i] ? dspp[i]->id : 0);
 	}
 
-	return 0;
+	if (reqs->top_name == SDE_RM_TOPOLOGY_PPSPLIT) {
+		/* reserve a free PINGPONG_SLAVE block */
+		rc = -ENAVAIL;
+		sde_rm_init_hw_iter(&iter_i, 0, SDE_HW_BLK_PINGPONG);
+		while (sde_rm_get_hw(rm, &iter_i)) {
+			struct sde_pingpong_cfg *pp_cfg =
+				(struct sde_pingpong_cfg *)
+				(iter_i.blk->catalog);
+
+			if (!(test_bit(SDE_PINGPONG_SLAVE, &pp_cfg->features)))
+				continue;
+			if (RESERVED_BY_OTHER(iter_i.blk, rsvp))
+				continue;
+
+			iter_i.blk->rsvp_nxt = rsvp;
+			rc = 0;
+			break;
+		}
+	}
+
+	return rc;
 }
 
 static int _sde_rm_reserve_ctls(

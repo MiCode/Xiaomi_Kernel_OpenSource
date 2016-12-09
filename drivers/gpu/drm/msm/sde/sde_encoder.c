@@ -244,6 +244,57 @@ void sde_encoder_destroy(struct drm_encoder *drm_enc)
 	kfree(sde_enc);
 }
 
+void sde_encoder_helper_split_config(
+		struct sde_encoder_phys *phys_enc,
+		enum sde_intf interface)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct split_pipe_cfg cfg = { 0 };
+	struct sde_hw_mdp *hw_mdptop;
+	enum sde_rm_topology_name topology;
+
+	if (!phys_enc || !phys_enc->hw_mdptop || !phys_enc->parent) {
+		SDE_ERROR("invalid arg(s), encoder %d\n", phys_enc != 0);
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(phys_enc->parent);
+	hw_mdptop = phys_enc->hw_mdptop;
+	cfg.en = phys_enc->split_role != ENC_ROLE_SOLO;
+	cfg.mode = phys_enc->intf_mode;
+	cfg.intf = interface;
+
+	if (cfg.en && phys_enc->ops.needs_single_flush &&
+			phys_enc->ops.needs_single_flush(phys_enc))
+		cfg.split_flush_en = true;
+
+	topology = sde_connector_get_topology_name(phys_enc->connector);
+	if (topology == SDE_RM_TOPOLOGY_PPSPLIT)
+		cfg.pp_split_slave = cfg.intf;
+	else
+		cfg.pp_split_slave = INTF_MAX;
+
+	if (phys_enc->split_role != ENC_ROLE_SLAVE) {
+		/* master/solo encoder */
+		SDE_DEBUG_ENC(sde_enc, "enable %d\n", cfg.en);
+
+		if (hw_mdptop->ops.setup_split_pipe)
+			hw_mdptop->ops.setup_split_pipe(hw_mdptop, &cfg);
+	} else {
+		/*
+		 * slave encoder
+		 * - determine split index from master index,
+		 *   assume master is first pp
+		 */
+		cfg.pp_split_index = sde_enc->hw_pp[0]->idx - PINGPONG_0;
+		SDE_DEBUG_ENC(sde_enc, "master using pp%d\n",
+				cfg.pp_split_index);
+
+		if (hw_mdptop->ops.setup_pp_split)
+			hw_mdptop->ops.setup_pp_split(hw_mdptop, &cfg);
+	}
+}
+
 static int sde_encoder_virt_atomic_check(
 		struct drm_encoder *drm_enc,
 		struct drm_crtc_state *crtc_state,
@@ -579,6 +630,7 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		struct sde_encoder_phys *phys, uint32_t extra_flush_bits)
 {
 	struct sde_hw_ctl *ctl;
+	int pending_kickoff_cnt;
 
 	if (!drm_enc || !phys) {
 		SDE_ERROR("invalid argument(s), drm_enc %d, phys_enc %d\n",
@@ -591,6 +643,10 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		SDE_ERROR("missing trigger cb\n");
 		return;
 	}
+
+	pending_kickoff_cnt = sde_encoder_phys_inc_pending(phys);
+	SDE_EVT32(DRMID(&to_sde_encoder_virt(drm_enc)->base),
+			phys->intf_idx, pending_kickoff_cnt);
 
 	if (extra_flush_bits && ctl->ops.update_pending_flush)
 		ctl->ops.update_pending_flush(ctl, extra_flush_bits);
@@ -672,7 +728,6 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	struct sde_hw_ctl *ctl;
 	uint32_t i, pending_flush;
 	unsigned long lock_flags;
-	int pending_kickoff_cnt;
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -687,18 +742,16 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	/* don't perform flush/start operations for slave encoders */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
 		if (!phys || phys->enable_state == SDE_ENC_DISABLED)
 			continue;
-
-		pending_kickoff_cnt = sde_encoder_phys_inc_pending(phys);
-		SDE_EVT32(DRMID(&sde_enc->base), i, pending_kickoff_cnt);
 
 		ctl = phys->hw_ctl;
 		if (!ctl)
 			continue;
 
-		if (!phys->ops.needs_split_flush ||
-				!phys->ops.needs_split_flush(phys))
+		if (!phys->ops.needs_single_flush ||
+				!phys->ops.needs_single_flush(phys))
 			_sde_encoder_trigger_flush(&sde_enc->base, phys, 0x0);
 		else if (ctl->ops.get_pending_flush)
 			pending_flush |= ctl->ops.get_pending_flush(ctl);

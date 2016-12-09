@@ -159,6 +159,7 @@ enum {
  * @SDE_PINGPONG_TE         Tear check block
  * @SDE_PINGPONG_TE2        Additional tear check block for split pipes
  * @SDE_PINGPONG_SPLIT      PP block supports split fifo
+ * @SDE_PINGPONG_SLAVE      PP block is a suitable slave for split fifo
  * @SDE_PINGPONG_DSC,       Display stream compression blocks
  * @SDE_PINGPONG_MAX
  */
@@ -166,6 +167,7 @@ enum {
 	SDE_PINGPONG_TE = 0x1,
 	SDE_PINGPONG_TE2,
 	SDE_PINGPONG_SPLIT,
+	SDE_PINGPONG_SLAVE,
 	SDE_PINGPONG_DSC,
 	SDE_PINGPONG_MAX
 };
