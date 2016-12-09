@@ -13,7 +13,7 @@
 qcom,demo_6000mah {
 	qcom,max-voltage-uv = <4350000>;
 	qcom,fg-cc-cv-threshold-mv = <4340>;
-	qcom,nom-batt-capacity-mah = <6000>;
+	qcom,fastchg-current-ma = <6000>;
 	qcom,batt-id-kohm = <75>;
 	qcom,battery-beta = <3435>;
 	qcom,battery-type = "Demo_battery_6000mah";
