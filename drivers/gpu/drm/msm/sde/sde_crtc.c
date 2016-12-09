@@ -564,7 +564,6 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
 	struct sde_crtc *sde_crtc;
 	struct msm_drm_private *priv;
-	struct list_head *list, *next;
 	struct sde_crtc_frame_event *fevent;
 	unsigned long flags;
 	int pipe_id;
@@ -582,20 +581,19 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	SDE_EVT32(DRMID(crtc), event);
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
-	list_for_each_safe(list, next, &sde_crtc->frame_event_list) {
-		list_del_init(list);
-		break;
-	}
+	fevent = list_first_entry_or_null(&sde_crtc->frame_event_list,
+			struct sde_crtc_frame_event, list);
+	if (fevent)
+		list_del_init(&fevent->list);
 	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
 
-	if (!list) {
+	if (!fevent) {
 		SDE_ERROR("crtc%d event %d overflow\n",
 				crtc->base.id, event);
 		SDE_EVT32(DRMID(crtc), event);
 		return;
 	}
 
-	fevent = container_of(list, struct sde_crtc_frame_event, list);
 	fevent->event = event;
 	fevent->crtc = crtc;
 	fevent->ts = ktime_get();
