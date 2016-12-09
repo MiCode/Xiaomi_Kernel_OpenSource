@@ -29,7 +29,7 @@ Required properties:
 - qcom,wcnss-vadc: VADC handle for battery voltage notification APIs.
 - pinctrl-<n> : Pinctrl states as described in bindings/pinctrl/pinctrl-bindings.txt
 - pinctrl-names : Names corresponding to the numbered pinctrl states
-- clocks: from common clock binding: handle to xo and rf_clk clocks.
+- clocks: from common clock binding: handle to xo, rf_clk and wcnss snoc clocks.
 - clock-names: Names of all the clocks that are accessed by the subsystem
 - qcom,vdd-voltage-level: This property represents (nominal, min, max) voltage
 for iris and pronto regulators in milli-volts.
@@ -39,6 +39,9 @@ iris and pronto regulators in micro-amps.
 Optional properties:
 - qcom,has-autodetect-xo: boolean flag to determine whether Iris XO auto detect
 should be performed during boot up.
+- qcom,snoc-wcnss-clock-freq: indicates the wcnss snoc clock frequency in Hz.
+If wcnss_snoc clock is specified in the list of clocks, this property needs
+to be set to make it functional.
 - qcom,wlan-rx-buff-count: WLAN RX buffer count is a configurable value,
 using a smaller count for this buffer will reduce the memory usage.
 - qcom,is-pronto-v3: boolean flag to determine the pronto hardware version
@@ -94,7 +97,12 @@ Example:
         clocks = <&clock_rpm clk_xo_wlan_clk>,
                    <&clock_rpm clk_rf_clk2>,
                    <&clock_debug clk_gcc_debug_mux>,
-                   <&clock_gcc clk_wcnss_m_clk>;
-        clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
+                   <&clock_gcc clk_wcnss_m_clk>,
+		   <&clock_gcc clk_snoc_wcnss_a_clk>;
+
+        clock-names = "xo", "rf_clk", "measure", "wcnss_debug",
+			"snoc_wcnss";
+
+	qcom,snoc-wcnss-clock-freq = <200000000>;
 	qcom,wcnss-pm = <11 21 1200 1 1 6>;
     };
