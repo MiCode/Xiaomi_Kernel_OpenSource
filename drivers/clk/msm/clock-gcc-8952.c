@@ -91,6 +91,9 @@ static DEFINE_CLK_VOTER(pnoc_usb_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_usb_clk, &snoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_usb_clk, &bimc_clk.c, LONG_MAX);
 
+static DEFINE_CLK_VOTER(snoc_wcnss_a_clk, &snoc_a_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(bimc_wcnss_a_clk, &bimc_a_clk.c, LONG_MAX);
+
 /* Branch Voter clocks */
 static DEFINE_CLK_BRANCH_VOTER(xo_gcc, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_otg_clk, &xo_clk_src.c);
@@ -3781,6 +3784,9 @@ static struct clk_lookup msm_clocks_lookup_common[] = {
 	CLK_LIST(pnoc_usb_clk),
 	CLK_LIST(snoc_usb_clk),
 	CLK_LIST(bimc_usb_clk),
+
+	CLK_LIST(snoc_wcnss_a_clk),
+	CLK_LIST(bimc_wcnss_a_clk),
 
 	CLK_LIST(qdss_clk),
 	CLK_LIST(qdss_a_clk),
