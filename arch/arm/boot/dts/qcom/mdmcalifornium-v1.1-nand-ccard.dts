@@ -20,3 +20,7 @@
 		     "qcom,mtp";
 	qcom,board-id = <8 0x6>, <8 0x106>;
 };
+
+&qnand_1 {
+	status = "ok";
+};
