@@ -2605,6 +2605,8 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		break;
 	case USBPD_SVDM_ATTENTION:
 		node = kzalloc(sizeof(*node), GFP_KERNEL);
+		if (!node)
+			return;
 		node->vdo = *vdos;
 
 		mutex_lock(&dp_drv->attention_lock);
