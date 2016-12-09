@@ -32,10 +32,7 @@
 #define DCVS_BUFFER_SAFEGUARD (DCVS_DEC_EXTRA_OUTPUT_BUFFERS - 1)
 
 void msm_dcvs_init(struct msm_vidc_inst *inst);
-void msm_dcvs_init_load(struct msm_vidc_inst *inst);
-void msm_dcvs_monitor_buffer(struct msm_vidc_inst *inst);
 int  msm_dcvs_get_extra_buff_count(struct msm_vidc_inst *inst);
-void msm_dcvs_check_and_scale_clocks(struct msm_vidc_inst *inst, bool is_etb);
 int msm_dcvs_try_enable(struct msm_vidc_inst *inst);
 int msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst);
 int msm_comm_init_clocks_and_bus_data(struct msm_vidc_inst *inst);

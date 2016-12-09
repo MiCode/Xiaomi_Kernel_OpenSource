@@ -883,6 +883,7 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id = HAL_PARAM_VDEC_SYNC_FRAME_DECODE;
 		hal_property.enable = ctrl->val;
 		pdata = &hal_property;
+		msm_dcvs_try_enable(inst);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE:
 		inst->flags |= VIDC_SECURE;

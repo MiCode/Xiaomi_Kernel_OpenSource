@@ -206,23 +206,14 @@ struct buf_count {
 };
 
 struct dcvs_stats {
-	int num_ftb[DCVS_FTB_WINDOW];
-	bool transition_turbo;
-	int ftb_index;
-	int ftb_counter;
-	bool prev_freq_lowered;
-	bool prev_freq_increased;
-	int threshold_disp_buf_high;
-	int threshold_disp_buf_low;
+	int buffer_counter;
 	int load;
 	int load_low;
 	int load_high;
 	int min_threshold;
 	int max_threshold;
-	int etb_counter;
-	bool is_power_save_mode;
 	unsigned int extra_buffer_count;
-	u32 supported_codecs;
+	enum hal_buffer buffer_type;
 };
 
 struct profile_data {

@@ -1525,9 +1525,6 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		inst->prop.width[OUTPUT_PORT] = event_notify->width;
 	}
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		msm_dcvs_init_load(inst);
-
 	rc = msm_vidc_check_session_supported(inst);
 	if (!rc) {
 		seq_changed_event.type = event;
@@ -3850,7 +3847,6 @@ static void log_frame(struct msm_vidc_inst *inst, struct vidc_frame_data *data,
 			data->timestamp, data->flags);
 		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_FTB);
 	}
-
 }
 
 /*
@@ -4723,6 +4719,10 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		return 0;
 	}
 
+	// Finish FLUSH As Soon As Possible.
+	inst->dcvs.buffer_counter = 0;
+	msm_comm_scale_clocks_and_bus(inst);
+
 	msm_comm_flush_dynamic_buffers(inst);
 
 	if (inst->state == MSM_VIDC_CORE_INVALID ||
@@ -5058,9 +5058,6 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 		return -ENOTSUPP;
 	}
 
-	if (!rc)
-		msm_dcvs_try_enable(inst);
-
 	if (!rc) {
 		if (inst->prop.width[CAPTURE_PORT] < capability->width.min ||
 			inst->prop.height[CAPTURE_PORT] <
@@ -5377,10 +5374,7 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 			if (rc)
 				dprintk(VIDC_WARN,
 					"Failed to set frame rate %d\n", rc);
-		} else {
-			msm_dcvs_init_load(inst);
 		}
-		msm_dcvs_try_enable(inst);
 	}
 exit:
 	return rc;

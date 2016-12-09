@@ -1390,7 +1390,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 			"Failed to move inst: %pK to start done state\n", inst);
 		goto fail_start;
 	}
-	msm_dcvs_init_load(inst);
+	msm_dcvs_init(inst);
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
 		rc = msm_comm_queue_output_buffers(inst);
@@ -1953,7 +1953,6 @@ void *msm_vidc_open(int core_id, int session_type)
 	if (rc)
 		goto fail_bufq_capture;
 
-	msm_dcvs_init(inst);
 	rc = vb2_bufq_init(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 			session_type);
 	if (rc) {
