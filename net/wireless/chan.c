@@ -596,10 +596,12 @@ static bool cfg80211_secondary_chans_ok(struct wiphy *wiphy,
 
 		if (!c)
 			return false;
-		/* check for radar flags */
+
 		if ((!(wiphy->flags & WIPHY_FLAG_DFS_OFFLOAD)) &&
-		    (prohibited_flags & c->flags & IEEE80211_CHAN_RADAR) &&
-		    (c->dfs_state != NL80211_DFS_AVAILABLE))
+		    (c->flags & prohibited_flags & IEEE80211_CHAN_RADAR))
+			return false;
+
+		if (c->flags & prohibited_flags & ~IEEE80211_CHAN_RADAR)
 			return false;
 	}
 	return true;
