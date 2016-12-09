@@ -80,6 +80,7 @@ struct hdcp_sink_addr_map {
 	/* addresses to write to sink */
 	struct hdcp_sink_addr an;
 	struct hdcp_sink_addr aksv;
+	struct hdcp_sink_addr ainfo;
 };
 
 struct hdcp_int_set {
@@ -190,14 +191,14 @@ struct hdcp_reg_set {
 	 {"bstatus", 0x41, 2}, {"??", 0x0, 0}, {"ksv-fifo", 0x43, 0}, \
 	 {"v_h0", 0x20, 4}, {"v_h1", 0x24, 4}, {"v_h2", 0x28, 4}, \
 	 {"v_h3", 0x2c, 4}, {"v_h4", 0x30, 4}, {"an", 0x18, 8}, \
-	 {"aksv", 0x10, 5} }
+	 {"aksv", 0x10, 5}, {"ainfo", 0x00, 0},}
 
 #define HDCP_DP_SINK_ADDR_MAP \
 	{{"bcaps", 0x68028, 1}, {"bksv", 0x68000, 5}, {"r0'", 0x68005, 2}, \
 	 {"binfo", 0x6802A, 2}, {"cp_irq_status", 0x68029, 2}, \
 	 {"ksv-fifo", 0x6802C, 0}, {"v_h0", 0x68014, 4}, {"v_h1", 0x68018, 4}, \
 	 {"v_h2", 0x6801C, 4}, {"v_h3", 0x68020, 4}, {"v_h4", 0x68024, 4}, \
-	 {"an", 0x6800C, 8}, {"aksv", 0x68007, 5}  }
+	 {"an", 0x6800C, 8}, {"aksv", 0x68007, 5}, {"ainfo", 0x6803B, 1} }
 
 #define HDCP_HDMI_INT_SET \
 	{HDMI_HDCP_INT_CTRL, \
@@ -783,6 +784,25 @@ error:
 	return rc;
 }
 
+static void hdcp_1x_enable_sink_irq_hpd(struct hdcp_1x *hdcp)
+{
+	int rc;
+	u8 enable_hpd_irq = 0x1;
+	u16 version = *hdcp->init_data.version;
+	const int major = 1, minor = 2;
+
+	pr_debug("version 0x%x\n", version);
+
+	if (((version & 0xFF) < minor) ||
+	    (((version >> 8) & 0xFF) < major) ||
+	    (hdcp->current_tp.ds_type != DS_REPEATER))
+		return;
+
+	rc = hdcp_1x_write(hdcp, &hdcp->sink_addr.ainfo, &enable_hpd_irq);
+	if (IS_ERR_VALUE(rc))
+		pr_debug("error writing ainfo to sink\n");
+}
+
 static int hdcp_1x_verify_r0(struct hdcp_1x *hdcp)
 {
 	int rc, r0_retry = 3;
@@ -819,7 +839,7 @@ static int hdcp_1x_verify_r0(struct hdcp_1x *hdcp)
 			timeout_count = wait_for_completion_timeout(
 				&hdcp->sink_r0_available, HZ / 2);
 
-			if (!timeout_count || hdcp->reauth) {
+			if (hdcp->reauth) {
 				pr_err("sink R0 not ready\n");
 				rc = -EINVAL;
 				goto error;
@@ -879,6 +899,8 @@ static int hdcp_1x_authentication_part1(struct hdcp_1x *hdcp)
 	rc = hdcp_1x_send_an_aksv_to_sink(hdcp);
 	if (rc)
 		goto error;
+
+	hdcp_1x_enable_sink_irq_hpd(hdcp);
 
 	rc = hdcp_1x_verify_r0(hdcp);
 	if (rc)
