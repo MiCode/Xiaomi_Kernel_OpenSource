@@ -1169,12 +1169,14 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
-	/* disable Type-C factory mode */
+	/*
+	 * disable Type-C factory mode and stay in Attached.SRC state when VCONN
+	 * over-current happens
+	 */
 	rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
-				 FACTORY_MODE_DETECTION_EN_BIT, 0);
+			FACTORY_MODE_DETECTION_EN_BIT | VCONN_OC_CFG_BIT, 0);
 	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't disable Type-C factory mode rc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't configure Type-C rc=%d\n", rc);
 		return rc;
 	}
 
