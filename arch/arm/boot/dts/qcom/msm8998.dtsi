@@ -2036,10 +2036,9 @@
 		clock-names = "xo", "iface_clk", "bus_clk",
 			      "mem_clk", "gpll0_mss_clk", "snoc_axi_clk",
 			      "mnoc_axi_clk", "qdss_clk";
-		qcom,proxy-clock-names = "xo", "qdss_clk";
-		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
-					  "gpll0_mss_clk", "snoc_axi_clk",
-					  "mnoc_axi_clk";
+		qcom,proxy-clock-names = "xo", "qdss_clk", "mem_clk";
+		qcom,active-clock-names = "iface_clk", "bus_clk",
+			"gpll0_mss_clk", "snoc_axi_clk", "mnoc_axi_clk";
 
 		interrupts = <0 448 1>;
 		vdd_cx-supply = <&pm8998_s1_level>;
