@@ -824,10 +824,10 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 		chip->bp.float_volt_uv = -EINVAL;
 	}
 
-	rc = of_property_read_u32(profile_node, "qcom,nom-batt-capacity-mah",
+	rc = of_property_read_u32(profile_node, "qcom,fastchg-current-ma",
 			&chip->bp.fastchg_curr_ma);
 	if (rc < 0) {
-		pr_err("battery nominal capacity unavailable, rc:%d\n", rc);
+		pr_err("battery fastchg current unavailable, rc:%d\n", rc);
 		chip->bp.fastchg_curr_ma = -EINVAL;
 	}
 
