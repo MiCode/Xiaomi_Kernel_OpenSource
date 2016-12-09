@@ -214,7 +214,6 @@ static struct smb_params v1_params = {
 
 #define STEP_CHARGING_MAX_STEPS	5
 struct smb_dt_props {
-	bool	no_battery;
 	int	fcc_ua;
 	int	usb_icl_ua;
 	int	otg_cl_ua;
@@ -226,7 +225,9 @@ struct smb_dt_props {
 	struct	device_node *revid_dev_node;
 	int	float_option;
 	int	chg_inhibit_thr_mv;
+	bool	no_battery;
 	bool	hvdcp_disable;
+	bool	auto_recharge_soc;
 };
 
 struct smb2 {
@@ -344,6 +345,8 @@ static int smb2_parse_dt(struct smb2 *chip)
 		return -EINVAL;
 	}
 
+	chip->dt.auto_recharge_soc = of_property_read_bool(node,
+						"qcom,auto-recharge-soc");
 	return 0;
 }
 
@@ -1295,6 +1298,28 @@ static int smb2_init_hw(struct smb2 *chip)
 		dev_err(chg->dev, "Couldn't validate typec legacy status rc=%d\n",
 			rc);
 		return rc;
+	}
+
+	if (chip->dt.auto_recharge_soc) {
+		rc = smblib_masked_write(chg, FG_UPDATE_CFG_2_SEL_REG,
+				SOC_LT_CHG_RECHARGE_THRESH_SEL_BIT |
+				VBT_LT_CHG_RECHARGE_THRESH_SEL_BIT,
+				VBT_LT_CHG_RECHARGE_THRESH_SEL_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure FG_UPDATE_CFG2_SEL_REG rc=%d\n",
+				rc);
+			return rc;
+		}
+	} else {
+		rc = smblib_masked_write(chg, FG_UPDATE_CFG_2_SEL_REG,
+				SOC_LT_CHG_RECHARGE_THRESH_SEL_BIT |
+				VBT_LT_CHG_RECHARGE_THRESH_SEL_BIT,
+				SOC_LT_CHG_RECHARGE_THRESH_SEL_BIT);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't configure FG_UPDATE_CFG2_SEL_REG rc=%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	return rc;
