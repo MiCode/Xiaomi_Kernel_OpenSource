@@ -126,3 +126,22 @@ DMA_ATTR_EXEC_MAPPING
 By default, the DMA mappings are non-executable. Some use cases might require
 an executable mapping. This attribute can be used to indicate to the DMA
 subsystem to create an executable mappings for the buffer.
+
+DMA_ATTR_FORCE_COHERENT
+-----------------------
+
+When passed to a DMA map call the DMA_ATTR_FORCE_COHERENT DMA
+attribute can be used to force a buffer to be mapped as IO coherent.
+This DMA attribute is only currently supported for arm64 stage 1 IOMMU
+mappings.
+
+DMA_ATTR_FORCE_NON_COHERENT
+---------------------------
+When passed to a DMA map call the DMA_ATTR_FORCE_NON_COHERENT DMA
+attribute can be used to force a buffer to not be mapped as IO
+coherent.
+The DMA_ATTR_FORCE_NON_COHERENT DMA attribute overrides the buffer IO
+coherency configuration set by making the device IO coherent.
+
+This DMA attribute is only currently supported for arm64 stage 1 IOMMU
+mappings.
