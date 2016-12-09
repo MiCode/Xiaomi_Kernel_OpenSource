@@ -48,7 +48,7 @@
 /* Z value compared in milliOhm */
 #define TAVIL_MBHC_IS_SECOND_RAMP_REQUIRED(z) ((z > 400000) || (z < 32000))
 #define TAVIL_MBHC_ZDET_CONST         (86 * 16384)
-#define TAVIL_MBHC_MOISTURE_RREF      R_24_KOHM
+#define TAVIL_MBHC_MOISTURE_RREF      R_184_KOHM
 
 static struct wcd_mbhc_register
 	wcd_mbhc_registers[WCD_MBHC_REG_FUNC_MAX] = {
