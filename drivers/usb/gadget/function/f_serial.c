@@ -1211,6 +1211,14 @@ int gserial_init_port(int port_num, const char *name,
 	return ret;
 }
 
+void gserial_deinit_port(void)
+{
+	no_char_bridge_ports = 0;
+	no_tty_ports = 0;
+	no_smd_ports = 0;
+	no_hsic_sports = 0;
+	nr_ports = 0;
+}
 
 bool gserial_is_connected(void)
 {
