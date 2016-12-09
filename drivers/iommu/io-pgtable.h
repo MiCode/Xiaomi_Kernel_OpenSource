@@ -143,6 +143,9 @@ struct io_pgtable_ops {
 		     size_t size);
 	phys_addr_t (*iova_to_phys)(struct io_pgtable_ops *ops,
 				    unsigned long iova);
+	bool (*is_iova_coherent)(struct io_pgtable_ops *ops,
+				unsigned long iova);
+
 };
 
 /**
