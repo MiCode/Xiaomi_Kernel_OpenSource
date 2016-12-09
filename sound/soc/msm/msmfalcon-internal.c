@@ -17,7 +17,8 @@
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "msm-audio-pinctrl.h"
 #include "msmfalcon-common.h"
-#include "../codecs/msm8x16/msm8x16-wcd.h"
+#include "../codecs/msmfalcon_cdc/msm-digital-cdc.h"
+#include "../codecs/msmfalcon_cdc/msm-analog-cdc.h"
 #include "../codecs/msm_sdw/msm_sdw.h"
 
 #define __CHIPSET__ "MSMFALCON "
@@ -181,6 +182,8 @@ static void msm_int_mi2s_snd_shutdown(struct snd_pcm_substream *substream);
 
 static struct wcd_mbhc_config *mbhc_cfg_ptr;
 static struct snd_info_entry *msm_sdw_codec_root;
+static struct snd_info_entry *msm_dig_codec_root;
+static struct snd_info_entry *pmic_analog_codec_root;
 
 static int int_mi2s_get_bit_format_val(int bit_format)
 {
@@ -704,10 +707,13 @@ static int msm_int_enable_dig_cdc_clk(struct snd_soc_codec *codec,
 		   atomic_read(&pdata->int_mclk0_rsc_ref));
 	if (enable) {
 		if (int_mi2s_cfg[INT0_MI2S].sample_rate ==
-				SAMPLING_RATE_44P1KHZ)
+				SAMPLING_RATE_44P1KHZ) {
 			clk_freq_in_hz = NATIVE_MCLK_RATE;
-		else
+			pdata->native_clk_set = true;
+		} else {
 			clk_freq_in_hz = pdata->mclk_freq;
+			pdata->native_clk_set = false;
+		}
 
 		if (pdata->digital_cdc_core_clk.clk_freq_in_hz
 				!= clk_freq_in_hz)
@@ -804,12 +810,12 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 		}
 		mutex_unlock(&pdata->cdc_int_mclk0_mutex);
 		atomic_inc(&pdata->int_mclk0_rsc_ref);
-		msm8x16_wcd_mclk_enable(codec, 1, true);
+		msm_anlg_cdc_mclk_enable(codec, 1, true);
 		break;
 	case 0:
 		if (atomic_read(&pdata->int_mclk0_rsc_ref) <= 0)
 			break;
-		msm8x16_wcd_mclk_enable(codec, 0, true);
+		msm_anlg_cdc_mclk_enable(codec, 0, true);
 		mutex_lock(&pdata->cdc_int_mclk0_mutex);
 		if ((!atomic_dec_return(&pdata->int_mclk0_rsc_ref)) &&
 				(atomic_read(&pdata->int_mclk0_enabled))) {
@@ -995,7 +1001,7 @@ static int msm_int_mclk0_event(struct snd_soc_dapm_widget *w,
 		if (atomic_read(&pdata->int_mclk0_rsc_ref) == 0) {
 			pr_debug("%s: disabling MCLK\n", __func__);
 			/* disable the codec mclk config*/
-			msm8x16_wcd_mclk_enable(codec, 0, true);
+			msm_anlg_cdc_mclk_enable(codec, 0, true);
 			msm_int_enable_dig_cdc_clk(codec, 0, true);
 		}
 		break;
@@ -1169,7 +1175,7 @@ static int msm_int_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_codec *codec = rtd->codec_dais[ANA_CDC]->codec;
 	int ret = 0;
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
@@ -1193,7 +1199,7 @@ static int msm_int_mi2s_snd_startup(struct snd_pcm_substream *substream)
 				__func__, "int_pdm");
 		return ret;
 	}
-	msm8x16_wcd_mclk_enable(codec, 1, true);
+	msm_anlg_cdc_mclk_enable(codec, 1, true);
 	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 	if (ret < 0)
 		pr_err("%s: set fmt cpu dai failed; ret=%d\n", __func__, ret);
@@ -1274,23 +1280,22 @@ static void *def_msm_int_wcd_mbhc_cal(void)
 
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_soc_codec *codec = rtd->codec;
-	struct snd_soc_dapm_context *dapm =
-			snd_soc_codec_get_dapm(codec);
+	struct snd_soc_codec *dig_cdc = rtd->codec_dais[DIG_CDC]->codec;
+	struct snd_soc_codec *ana_cdc = rtd->codec_dais[ANA_CDC]->codec;
+	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(ana_cdc);
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
+	struct snd_card *card;
+	struct snd_info_entry *entry;
 	int ret = -ENOMEM;
 
 	pr_debug("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
-	snd_soc_add_codec_controls(codec, msm_snd_controls,
-			ARRAY_SIZE(msm_snd_controls));
-
-	snd_soc_add_codec_controls(codec, msm_common_snd_controls,
-			ARRAY_SIZE(msm_snd_controls));
+	snd_soc_add_codec_controls(ana_cdc, msm_snd_controls,
+				   ARRAY_SIZE(msm_snd_controls));
 
 	snd_soc_dapm_new_controls(dapm, msm_int_dapm_widgets,
-			ARRAY_SIZE(msm_int_dapm_widgets));
+				  ARRAY_SIZE(msm_int_dapm_widgets));
 
 	snd_soc_dapm_ignore_suspend(dapm, "Handset Mic");
 	snd_soc_dapm_ignore_suspend(dapm, "Headset Mic");
@@ -1322,18 +1327,40 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			msm_sdw_set_spkr_gain_offset(rtd->codec,
 						   RX_GAIN_OFFSET_M1P5_DB);
 	}
-	msm8x16_wcd_spk_ext_pa_cb(enable_spk_ext_pa, codec);
-	msm8x16_wcd_hph_comp_cb(msm_config_hph_compander_gpio, codec);
+	msm_anlg_cdc_spk_ext_pa_cb(enable_spk_ext_pa, ana_cdc);
+	msm_dig_cdc_hph_comp_cb(msm_config_hph_compander_gpio, dig_cdc);
 
 	mbhc_cfg_ptr->calibration = def_msm_int_wcd_mbhc_cal();
 	if (mbhc_cfg_ptr->calibration) {
-		ret = msm8x16_wcd_hs_detect(codec, mbhc_cfg_ptr);
+		ret = msm_anlg_cdc_hs_detect(ana_cdc, mbhc_cfg_ptr);
 		if (ret) {
-			pr_err("%s: msm8x16_wcd_hs_detect failed\n", __func__);
+			pr_err("%s: msm_anlg_cdc_hs_detect failed\n", __func__);
 			kfree(mbhc_cfg_ptr->calibration);
 			return ret;
 		}
 	}
+	card = rtd->card->snd_card;
+	entry = snd_register_module_info(card->module, "codecs",
+					 card->proc_root);
+	if (!entry) {
+		pr_debug("%s: Cannot create codecs module entry\n",
+			 __func__);
+		msm_dig_codec_root = NULL;
+		goto done;
+	}
+	msm_dig_codec_root = entry;
+	msm_dig_codec_info_create_codec_entry(msm_dig_codec_root, dig_cdc);
+	entry = snd_register_module_info(card->module, "codecs",
+					 card->proc_root);
+	if (!entry) {
+		pr_debug("%s: Cannot create codecs module entry\n",
+			 __func__);
+		pmic_analog_codec_root = NULL;
+		goto done;
+	}
+	pmic_analog_codec_root = entry;
+	msm_anlg_codec_info_create_codec_entry(pmic_analog_codec_root, ana_cdc);
+done:
 	return 0;
 }
 
@@ -1596,6 +1623,39 @@ static struct snd_soc_ops msm_sdw_mi2s_be_ops = {
 	.shutdown = msm_sdw_mi2s_snd_shutdown,
 };
 
+struct snd_soc_dai_link_component dlc_rx1[] = {
+	{
+		.of_node = NULL,
+		.dai_name = "msm_dig_cdc_dai_rx1",
+	},
+	{
+		.of_node = NULL,
+		.dai_name  = "msm_anlg_cdc_i2s_rx1",
+	},
+};
+
+struct snd_soc_dai_link_component dlc_tx1[] = {
+	{
+		.of_node = NULL,
+		.dai_name = "msm_dig_cdc_dai_tx1",
+	},
+	{
+		.of_node = NULL,
+		.dai_name  = "msm_anlg_cdc_i2s_tx1",
+	},
+};
+
+struct snd_soc_dai_link_component dlc_tx2[] = {
+	{
+		.of_node = NULL,
+		.dai_name = "msm_dig_cdc_dai_tx2",
+	},
+	{
+		.of_node = NULL,
+		.dai_name  = "msm_anlg_cdc_i2s_tx2",
+	},
+};
+
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link msm_int_dai[] = {
 	/* FrontEnd DAI Links */
@@ -1726,6 +1786,7 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.stream_name = "Compress1",
 		.cpu_dai_name	= "MultiMedia4",
 		.platform_name  = "msm-compress-dsp",
+		.async_ops = ASYNC_DPCM_SND_SOC_HW_PARAMS,
 		.dynamic = 1,
 		.dpcm_capture = 1,
 		.dpcm_playback = 1,
@@ -2253,8 +2314,8 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.stream_name = "INT0 MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.7",
 		.platform_name = "msm-pcm-routing",
-		.codec_name     = "cajon_codec",
-		.codec_dai_name = "msm8x16_wcd_i2s_rx1",
+		.codecs = dlc_rx1,
+		.num_codecs = CODECS_MAX,
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
@@ -2262,6 +2323,22 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.be_id = MSM_BACKEND_DAI_INT0_MI2S_RX,
 		.init = &msm_audrx_init,
 		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
+		.ops = &msm_int_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_INT3_MI2S_TX,
+		.stream_name = "INT3 MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.10",
+		.platform_name = "msm-pcm-routing",
+		.codecs = dlc_tx1,
+		.num_codecs = CODECS_MAX,
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
+			ASYNC_DPCM_SND_SOC_HW_PARAMS,
+		.be_id = MSM_BACKEND_DAI_INT3_MI2S_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ops = &msm_int_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
@@ -2285,29 +2362,13 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.stream_name = "INT2 MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.9",
 		.platform_name = "msm-pcm-routing",
-		.codec_name     = "cajon_codec",
-		.codec_dai_name = "msm8x16_wcd_i2s_tx2",
+		.codecs = dlc_tx2,
+		.num_codecs = CODECS_MAX,
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
 			ASYNC_DPCM_SND_SOC_HW_PARAMS,
 		.be_id = MSM_BACKEND_DAI_INT2_MI2S_TX,
-		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
-		.ops = &msm_int_mi2s_be_ops,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = LPASS_BE_INT3_MI2S_TX,
-		.stream_name = "INT3 MI2S Capture",
-		.cpu_dai_name = "msm-dai-q6-mi2s.10",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "cajon_codec",
-		.codec_dai_name = "msm8x16_wcd_i2s_tx1",
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
-			ASYNC_DPCM_SND_SOC_HW_PARAMS,
-		.be_id = MSM_BACKEND_DAI_INT3_MI2S_TX,
 		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
 		.ops = &msm_int_mi2s_be_ops,
 		.ignore_suspend = 1,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -861,6 +861,7 @@ static struct snd_soc_dai_link msm_ext_common_fe_dai[] = {
 		.stream_name = "Compress1",
 		.cpu_dai_name	= "MultiMedia4",
 		.platform_name  = "msm-compress-dsp",
+		.async_ops = ASYNC_DPCM_SND_SOC_HW_PARAMS,
 		.dynamic = 1,
 		.dpcm_capture = 1,
 		.dpcm_playback = 1,

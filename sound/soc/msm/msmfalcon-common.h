@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,6 +59,12 @@ struct tdm_port {
 	u32 channel;
 };
 
+enum {
+	DIG_CDC,
+	ANA_CDC,
+	CODECS_MAX,
+};
+
 extern const struct snd_kcontrol_new msm_common_snd_controls[];
 struct msmfalcon_codec {
 	void* (*get_afe_config_fn)(struct snd_soc_codec *codec,
@@ -83,6 +89,7 @@ struct msm_asoc_mach_data {
 	struct snd_info_entry *codec_root;
 	int spk_ext_pa_gpio;
 	int mclk_freq;
+	bool native_clk_set;
 	int lb_mode;
 	int snd_card_val;
 	u8 micbias1_cap_mode;

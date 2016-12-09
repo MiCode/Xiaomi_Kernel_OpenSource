@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,9 +25,9 @@
 #include <linux/pm_qos.h>
 #include <soc/qcom/pm.h>
 #include <sound/soc.h>
-#include "msm8x16-wcd.h"
-#include "msm8916-wcd-irq.h"
-#include "msm8x16_wcd_registers.h"
+#include "msm-analog-cdc.h"
+#include "msmfalcon-cdc-irq.h"
+#include "msmfalcon-cdc-registers.h"
 
 #define MAX_NUM_IRQS 14
 #define NUM_IRQ_REGS 2
