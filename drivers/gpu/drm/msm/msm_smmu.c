@@ -96,16 +96,17 @@ static void msm_smmu_detach(struct msm_mmu *mmu, const char **names, int cnt)
 	DBG("detaching");
 }
 
-static int msm_smmu_map(struct msm_mmu *mmu, uint32_t iova,
+static int msm_smmu_map(struct msm_mmu *mmu, dma_addr_t iova,
 		struct sg_table *sgt, unsigned len, int prot)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
 	struct iommu_domain *domain;
 	struct scatterlist *sg;
-	unsigned int da = iova;
+	dma_addr_t da = iova;
 	unsigned int i, j;
 	int ret;
+	size_t bytes;
 
 	if (!client)
 		return -ENODEV;
@@ -115,10 +116,8 @@ static int msm_smmu_map(struct msm_mmu *mmu, uint32_t iova,
 		return -EINVAL;
 
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		u32 pa = sg_phys(sg) - sg->offset;
+		dma_addr_t pa = sg_phys(sg) - sg->offset;
 		size_t bytes = sg->length + sg->offset;
-
-		VERB("map[%d]: %08x %08x(%zx)", i, iova, pa, bytes);
 
 		ret = iommu_map(domain, da, pa, bytes, prot);
 		if (ret)
@@ -133,8 +132,7 @@ fail:
 	da = iova;
 
 	for_each_sg(sgt->sgl, sg, i, j) {
-		size_t bytes = sg->length + sg->offset;
-
+		bytes = sg->length + sg->offset;
 		iommu_unmap(domain, da, bytes);
 		da += bytes;
 	}
@@ -164,14 +162,14 @@ static void msm_smmu_unmap_sg(struct msm_mmu *mmu, struct sg_table *sgt,
 	dma_unmap_sg(client->dev, sgt->sgl, sgt->nents, dir);
 }
 
-static int msm_smmu_unmap(struct msm_mmu *mmu, uint32_t iova,
+static int msm_smmu_unmap(struct msm_mmu *mmu, dma_addr_t iova,
 		struct sg_table *sgt, unsigned len)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
 	struct iommu_domain *domain;
 	struct scatterlist *sg;
-	unsigned int da = iova;
+	dma_addr_t da = iova;
 	int i;
 
 	if (!client)
@@ -188,8 +186,6 @@ static int msm_smmu_unmap(struct msm_mmu *mmu, uint32_t iova,
 		unmapped = iommu_unmap(domain, da, bytes);
 		if (unmapped < bytes)
 			return unmapped;
-
-		VERB("unmap[%d]: %08x(%zx)", i, iova, bytes);
 
 		WARN_ON(!PAGE_ALIGNED(bytes));
 
