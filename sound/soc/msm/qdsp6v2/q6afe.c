@@ -503,6 +503,7 @@ int afe_get_port_type(u16 port_id)
 	case SLIMBUS_2_TX:
 	case SLIMBUS_3_TX:
 	case SLIMBUS_4_TX:
+	case SLIMBUS_TX_VI:
 	case SLIMBUS_5_TX:
 	case SLIMBUS_6_TX:
 	case SLIMBUS_7_TX:
@@ -607,6 +608,7 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case SLIMBUS_3_TX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
+	case SLIMBUS_TX_VI:
 	case SLIMBUS_5_RX:
 	case SLIMBUS_5_TX:
 	case SLIMBUS_6_RX:
@@ -2785,6 +2787,13 @@ static int __afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		return ret;
 	}
 
+	/*
+	 * Virtual SLIMBUS_TX_VI shares afe port with SLIMBUS_4_TX.
+	 * port_id changes to physical port of SLIMBUS_4_TX.
+	 */
+	if (port_id == SLIMBUS_TX_VI)
+		port_id = SLIMBUS_4_TX;
+
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
 		(port_id == RT_PROXY_DAI_002_TX)) {
 		pr_debug("%s: before incrementing pcm_afe_instance %d"\
@@ -2950,6 +2959,7 @@ static int __afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	case SLIMBUS_3_TX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
+	case SLIMBUS_TX_VI:
 	case SLIMBUS_5_RX:
 	case SLIMBUS_5_TX:
 	case SLIMBUS_6_RX:
@@ -3143,6 +3153,7 @@ int afe_get_port_index(u16 port_id)
 	case RT_PROXY_PORT_001_TX: return IDX_RT_PROXY_PORT_001_TX;
 	case SLIMBUS_4_RX: return IDX_SLIMBUS_4_RX;
 	case SLIMBUS_4_TX: return IDX_SLIMBUS_4_TX;
+	case SLIMBUS_TX_VI: return IDX_SLIMBUS_4_TX;
 	case SLIMBUS_5_RX: return IDX_SLIMBUS_5_RX;
 	case SLIMBUS_5_TX: return IDX_SLIMBUS_5_TX;
 	case SLIMBUS_6_RX: return IDX_SLIMBUS_6_RX;
@@ -5070,6 +5081,14 @@ int afe_close(int port_id)
 		goto fail_cmd;
 	}
 	pr_debug("%s: port_id = 0x%x\n", __func__, port_id);
+
+	/*
+	 * Virtual SLIMBUS_TX_VI shares afe port with SLIMBUS_4_TX.
+	 * port_id changes to physical port of SLIMBUS_4_TX.
+	 */
+	if (port_id == SLIMBUS_TX_VI)
+		port_id = SLIMBUS_4_TX;
+
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
 			(port_id == RT_PROXY_DAI_002_TX)) {
 		pr_debug("%s: before decrementing pcm_afe_instance %d\n",
