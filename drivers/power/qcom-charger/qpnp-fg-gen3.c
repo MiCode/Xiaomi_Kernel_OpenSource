@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,7 @@
 
 #define pr_fmt(fmt)	"FG: %s: " fmt, __func__
 
+#include <linux/ktime.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
@@ -330,17 +331,18 @@ module_param_named(
 	debug_mask, fg_gen3_debug_mask, int, 0600
 );
 
-static int fg_sram_update_period_ms = 30000;
+static bool fg_profile_dump;
 module_param_named(
-	sram_update_period_ms, fg_sram_update_period_ms, int, 0600
+	profile_dump, fg_profile_dump, bool, 0600
 );
 
-static bool fg_sram_dump;
+static int fg_sram_dump_period_ms = 20000;
 module_param_named(
-	sram_dump, fg_sram_dump, bool, 0600
+	sram_dump_period_ms, fg_sram_dump_period_ms, int, 0600
 );
 
 static int fg_restart;
+static bool fg_sram_dump;
 
 /* All getters HERE */
 
@@ -1838,18 +1840,6 @@ static int fg_get_cycle_count(struct fg_chip *chip)
 	return count;
 }
 
-static void dump_sram(u8 *buf, int len)
-{
-	int i;
-	char str[16];
-
-	for (i = 0; i < len; i += 4) {
-		str[0] = '\0';
-		fill_string(str, sizeof(str), buf + i, 4);
-		pr_info("%03d %s\n", PROFILE_LOAD_WORD + (i / 4), str);
-	}
-}
-
 #define PROFILE_LOAD_BIT	BIT(0)
 #define BOOTLOADER_LOAD_BIT	BIT(1)
 #define BOOTLOADER_RESTART_BIT	BIT(2)
@@ -1885,11 +1875,13 @@ static bool is_profile_load_required(struct fg_chip *chip)
 
 		if (!chip->dt.force_load_profile) {
 			pr_warn("Profiles doesn't match, skipping loading it since force_load_profile is disabled\n");
-			if (fg_sram_dump) {
+			if (fg_profile_dump) {
 				pr_info("FG: loaded profile:\n");
-				dump_sram(buf, PROFILE_COMP_LEN);
+				dump_sram(buf, PROFILE_LOAD_WORD,
+					PROFILE_COMP_LEN);
 				pr_info("FG: available profile:\n");
-				dump_sram(chip->batt_profile, PROFILE_LEN);
+				dump_sram(chip->batt_profile, PROFILE_LOAD_WORD,
+					PROFILE_LEN);
 			}
 			return false;
 		}
@@ -1897,9 +1889,10 @@ static bool is_profile_load_required(struct fg_chip *chip)
 		fg_dbg(chip, FG_STATUS, "Profiles are different, loading the correct one\n");
 	} else {
 		fg_dbg(chip, FG_STATUS, "Profile integrity bit is not set\n");
-		if (fg_sram_dump) {
+		if (fg_profile_dump) {
 			pr_info("FG: profile to be loaded:\n");
-			dump_sram(chip->batt_profile, PROFILE_LEN);
+			dump_sram(chip->batt_profile, PROFILE_LOAD_WORD,
+				PROFILE_LEN);
 		}
 	}
 	return true;
@@ -2055,6 +2048,71 @@ done:
 out:
 	vote(chip->awake_votable, PROFILE_LOAD, false, 0);
 }
+
+static void sram_dump_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work, struct fg_chip,
+					    sram_dump_work.work);
+	u8 buf[FG_SRAM_LEN];
+	int rc;
+	s64 timestamp_ms;
+
+	rc = fg_sram_read(chip, 0, 0, buf, FG_SRAM_LEN, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading FG SRAM, rc:%d\n", rc);
+		goto resched;
+	}
+
+	timestamp_ms = ktime_to_ms(ktime_get_boottime());
+	fg_dbg(chip, FG_STATUS, "SRAM Dump Started at %lld.%lld\n",
+		timestamp_ms / 1000, timestamp_ms % 1000);
+	dump_sram(buf, 0, FG_SRAM_LEN);
+	timestamp_ms = ktime_to_ms(ktime_get_boottime());
+	fg_dbg(chip, FG_STATUS, "SRAM Dump done at %lld.%lld\n",
+		timestamp_ms / 1000, timestamp_ms % 1000);
+resched:
+	schedule_delayed_work(&chip->sram_dump_work,
+			msecs_to_jiffies(fg_sram_dump_period_ms));
+}
+
+static int fg_sram_dump_sysfs(const char *val, const struct kernel_param *kp)
+{
+	int rc;
+	struct power_supply *bms_psy;
+	struct fg_chip *chip;
+	bool old_val = fg_sram_dump;
+
+	rc = param_set_bool(val, kp);
+	if (rc) {
+		pr_err("Unable to set fg_sram_dump: %d\n", rc);
+		return rc;
+	}
+
+	if (fg_sram_dump == old_val)
+		return 0;
+
+	bms_psy = power_supply_get_by_name("bms");
+	if (!bms_psy) {
+		pr_err("bms psy not found\n");
+		return -ENODEV;
+	}
+
+	chip = power_supply_get_drvdata(bms_psy);
+	if (fg_sram_dump)
+		schedule_delayed_work(&chip->sram_dump_work,
+				msecs_to_jiffies(fg_sram_dump_period_ms));
+	else
+		cancel_delayed_work_sync(&chip->sram_dump_work);
+
+	return 0;
+}
+
+static struct kernel_param_ops fg_sram_dump_ops = {
+	.set = fg_sram_dump_sysfs,
+	.get = param_get_bool,
+};
+
+module_param_cb(sram_dump_en, &fg_sram_dump_ops, &fg_sram_dump, 0644);
 
 static int fg_restart_sysfs(const char *val, const struct kernel_param *kp)
 {
@@ -3449,6 +3507,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_WORK(&chip->cycle_count_work, cycle_count_work);
 	INIT_DELAYED_WORK(&chip->batt_avg_work, batt_avg_work);
+	INIT_DELAYED_WORK(&chip->sram_dump_work, sram_dump_work);
 
 	rc = fg_memif_init(chip);
 	if (rc < 0) {
@@ -3542,6 +3601,8 @@ static int fg_gen3_suspend(struct device *dev)
 	}
 
 	cancel_delayed_work_sync(&chip->batt_avg_work);
+	if (fg_sram_dump)
+		cancel_delayed_work_sync(&chip->sram_dump_work);
 	return 0;
 }
 
@@ -3563,6 +3624,9 @@ static int fg_gen3_resume(struct device *dev)
 	fg_circ_buf_clr(&chip->ibatt_circ_buf);
 	fg_circ_buf_clr(&chip->vbatt_circ_buf);
 	schedule_delayed_work(&chip->batt_avg_work, 0);
+	if (fg_sram_dump)
+		schedule_delayed_work(&chip->sram_dump_work,
+				msecs_to_jiffies(fg_sram_dump_period_ms));
 	return 0;
 }
 

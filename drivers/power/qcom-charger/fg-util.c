@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,8 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-#define pr_fmt(fmt)	"FG: %s: " fmt, __func__
 
 #include "fg-core.h"
 
@@ -171,6 +169,24 @@ void fill_string(char *str, size_t str_len, u8 *buf, int buf_len)
 		pos += scnprintf(str + pos, str_len - pos, "%02x", buf[i]);
 		if (i < buf_len - 1)
 			pos += scnprintf(str + pos, str_len - pos, " ");
+	}
+}
+
+void dump_sram(u8 *buf, int addr, int len)
+{
+	int i;
+	char str[16];
+
+	/*
+	 * Length passed should be in multiple of 4 as each FG SRAM word
+	 * holds 4 bytes. To keep this simple, even if a length which is
+	 * not a multiple of 4 bytes or less than 4 bytes is passed, SRAM
+	 * registers dumped will be always in multiple of 4 bytes.
+	 */
+	for (i = 0; i < len; i += 4) {
+		str[0] = '\0';
+		fill_string(str, sizeof(str), buf + i, 4);
+		pr_info("%03d %s\n", addr + (i / 4), str);
 	}
 }
 
