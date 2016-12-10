@@ -50,6 +50,15 @@ config DOLBY_DS2
 	 device, end point dependent post processing parameters and
 	 the various posrt processing parameters
 
+config DOLBY_LICENSE
+	bool "Enable Dolby LICENSE"
+	depends on SND_SOC_MSM_QDSP6V2_INTF
+	help
+	 To add support for dolby DAP post processing,
+	 and retain DAP set license functionality only.
+	 This is required by Dolby GEF implementation which needs
+	 nothing but dolby license validation functionality in driver.
+
 config DTS_EAGLE
 	bool "Enable DTS Eagle Support"
 	depends on SND_SOC_MSM_QDSP6V2_INTF
@@ -211,7 +220,7 @@ config SND_SOC_MSM8998
 	select QTI_PP
 	select SND_SOC_CPE
 	select MSM_ULTRASOUND
-	select DOLBY_DS2
+	select DOLBY_LICENSE
 	select SND_HWDEP
         select DTS_EAGLE
 	help
