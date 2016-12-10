@@ -111,3 +111,8 @@
 &pmfalcon_pdphy {
 	status = "disabled";
 };
+
+&clock_mmss {
+	compatible = "qcom,dummycc";
+	clock-output-names = "mmss_clocks";
+};
