@@ -897,7 +897,6 @@ struct ufs_hba {
 
 	/* sync b/w diff contexts */
 	struct rw_semaphore lock;
-	struct task_struct *issuing_task;
 	unsigned long shutdown_in_prog;
 
 	struct reset_control *core_reset;
