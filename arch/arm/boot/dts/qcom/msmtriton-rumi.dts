@@ -23,6 +23,8 @@
 };
 
 &usb3 {
+	/delete-property/ USB3_GDSC-supply;
+	/delete-property/ extcon;
 	dwc3@a800000 {
 		maximum-speed = "high-speed";
 	};
