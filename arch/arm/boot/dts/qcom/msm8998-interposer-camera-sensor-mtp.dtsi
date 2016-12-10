@@ -12,6 +12,36 @@
  */
 
 &soc {
+	tlmm: pinctrl@03400000 {
+		cam_sensor_rear_active: cam_sensor_rear_active {
+			/* RESET, STANDBY */
+			mux {
+				pins = "gpio30", "gpio8";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio30", "gpio8";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_rear_suspend: cam_sensor_rear_suspend {
+			/* RESET, STANDBY */
+			mux {
+				pins = "gpio30", "gpio8";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio30", "gpio8";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+	};
+
 	led_flash0: qcom,camera-flash@0 {
 		cell-index = <0>;
 		compatible = "qcom,camera-flash";
@@ -46,48 +76,72 @@
 	};
 
 	qcom,csid@ca30000  {
-		qcom,csi-vdd-voltage = <1225000>;
+		qcom,csi-vdd-voltage = <1200000>;
 		qcom,mipi-csi-vdd-supply = <&pmfalcon_l1>;
 		gdscr-supply = <&gdsc_camss_top>;
 		vdd_sec-supply = <&pm2falcon_l1>;
 		bimc_smmu-supply = <&gdsc_bimc_smmu>;
 		qcom,cam-vreg-name = "vdd_sec", "gdscr", "bimc_smmu";
+		qcom,cam-vreg-min-voltage = <925000 0 0>;
+		qcom,cam-vreg-max-voltage = <925000 0 0>;
+		qcom,cam-vreg-op-mode = <0 0 0>;
 		qcom,clock-rates = <0 0 0 0 0 0 0 384000000 384000000
 			0 0 0 0 0>;
 	};
 
 	qcom,csid@ca30400 {
-		qcom,csi-vdd-voltage = <1225000>;
+		qcom,csi-vdd-voltage = <1200000>;
 		qcom,mipi-csi-vdd-supply = <&pmfalcon_l1>;
 		gdscr-supply = <&gdsc_camss_top>;
 		vdd_sec-supply = <&pm2falcon_l1>;
 		bimc_smmu-supply = <&gdsc_bimc_smmu>;
 		qcom,cam-vreg-name = "vdd_sec", "gdscr", "bimc_smmu";
+		qcom,cam-vreg-min-voltage = <925000 0 0>;
+		qcom,cam-vreg-max-voltage = <925000 0 0>;
+		qcom,cam-vreg-op-mode = <0 0 0>;
 		qcom,clock-rates = <0 0 0 0 0 0 0 384000000 384000000
 			0 0 0 0 0>;
 	};
 
 	qcom,csid@ca30800 {
-		qcom,csi-vdd-voltage = <1225000>;
+		qcom,csi-vdd-voltage = <1200000>;
 		qcom,mipi-csi-vdd-supply = <&pmfalcon_l1>;
 		gdscr-supply = <&gdsc_camss_top>;
 		vdd_sec-supply = <&pm2falcon_l1>;
 		bimc_smmu-supply = <&gdsc_bimc_smmu>;
 		qcom,cam-vreg-name = "vdd_sec", "gdscr", "bimc_smmu";
+		qcom,cam-vreg-min-voltage = <925000 0 0>;
+		qcom,cam-vreg-max-voltage = <925000 0 0>;
+		qcom,cam-vreg-op-mode = <0 0 0>;
 		qcom,clock-rates = <0 0 0 0 0 0 0 384000000 384000000
 			0 0 0 0 0>;
 	};
 
 	qcom,csid@ca30c00 {
-		qcom,csi-vdd-voltage = <1225000>;
+		qcom,csi-vdd-voltage = <1200000>;
 		qcom,mipi-csi-vdd-supply = <&pmfalcon_l1>;
 		gdscr-supply = <&gdsc_camss_top>;
 		vdd_sec-supply = <&pm2falcon_l1>;
 		bimc_smmu-supply = <&gdsc_bimc_smmu>;
 		qcom,cam-vreg-name = "vdd_sec", "gdscr", "bimc_smmu";
+		qcom,cam-vreg-min-voltage = <925000 0 0>;
+		qcom,cam-vreg-max-voltage = <925000 0 0>;
+		qcom,cam-vreg-op-mode = <0 0 0>;
 		qcom,clock-rates = <0 0 0 0 0 0 0 384000000 384000000
 			0 0 0 0 0>;
 	};
+};
+
+&cci {
+	/delete-node/qcom,camera@0;
+	/delete-node/qcom,camera@1;
+	/delete-node/qcom,camera@2;
+	/delete-node/qcom,eeprom@0;
+	/delete-node/qcom,eeprom@1;
+	/delete-node/qcom,eeprom@2;
+	/delete-node/qcom,actuator@0;
+	/delete-node/qcom,actuator@1;
+	/delete-node/qcom,ois@0;
 };
 
 &cci {
@@ -145,9 +199,9 @@
 		cam_vana-supply = <&pm2falcon_bob>;
 		cam_vdig-supply = <&pmfalcon_s5>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig";
-		qcom,cam-vreg-min-voltage = <0 3300000 1350000>;
-		qcom,cam-vreg-max-voltage = <0 3600000 1350000>;
-		qcom,cam-vreg-op-mode = <0 80000 105000>;
+		qcom,cam-vreg-min-voltage = <1780000 3300000 1350000>;
+		qcom,cam-vreg-max-voltage = <1950000 3600000 1350000>;
+		qcom,cam-vreg-op-mode = <105000 80000 105000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_active
@@ -158,8 +212,8 @@
 				&cam_actuator_vaf_suspend>;
 		gpios = <&tlmm 13 0>,
 			<&tlmm 30 0>,
-			<&pmfalcon_gpios 4 0>,
-			<&tlmm 29 0>,
+			<&pm2falcon_gpios 4 0>,
+			<&tlmm 8 0>,
 			<&tlmm 27 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-vdig = <2>;
@@ -190,28 +244,33 @@
 		cam_vana-supply = <&pm2falcon_bob>;
 		cam_vdig-supply = <&pmfalcon_s5>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig";
-		qcom,cam-vreg-min-voltage = <0 3300000 1350000>;
-		qcom,cam-vreg-max-voltage = <0 3600000 1350000>;
-		qcom,cam-vreg-op-mode = <0 80000 105000>;
+		qcom,cam-vreg-min-voltage = <1780000 3300000 1350000>;
+		qcom,cam-vreg-max-voltage = <1950000 3600000 1350000>;
+		qcom,cam-vreg-op-mode = <105000 80000 105000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk1_active
-				 &cam_sensor_front_active>;
+				 &cam_sensor_front_active
+				&cam_actuator_vaf_active>;
 		pinctrl-1 = <&cam_sensor_mclk1_suspend
-				 &cam_sensor_front_suspend>;
+				 &cam_sensor_front_suspend
+				&cam_actuator_vaf_suspend>;
 		gpios = <&tlmm 14 0>,
 			<&tlmm 28 0>,
 			<&pmfalcon_gpios 3 0>,
-			<&tlmm 29 0>;
+			<&tlmm 29 0>,
+			<&tlmm 27 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-vdig = <2>;
 		qcom,gpio-vana = <3>;
-		qcom,gpio-req-tbl-num = <0 1 2 3>;
-		qcom,gpio-req-tbl-flags = <1 0 0 0>;
+		qcom,gpio-vaf = <4>;
+		qcom,gpio-req-tbl-num = <0 1 2 3 4>;
+		qcom,gpio-req-tbl-flags = <1 0 0 0 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK2",
 					"CAM_RESET2",
 					"CAM_VDIG",
-					"CAM_VANA";
+					"CAM_VANA",
+					"CAM_VAF";
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <1>;
@@ -229,7 +288,6 @@
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <270>;
-		qcom,led-flash-src = <&led_flash0>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,ois-src = <&ois0>;
 		qcom,eeprom-src = <&eeprom0>;
@@ -237,9 +295,9 @@
 		cam_vana-supply = <&pm2falcon_bob>;
 		cam_vdig-supply = <&pmfalcon_s5>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig";
-		qcom,cam-vreg-min-voltage = <0 3300000 1350000>;
-		qcom,cam-vreg-max-voltage = <0 3600000 1350000>;
-		qcom,cam-vreg-op-mode = <0 80000 105000>;
+		qcom,cam-vreg-min-voltage = <1780000 3300000 1350000>;
+		qcom,cam-vreg-max-voltage = <1950000 3600000 1350000>;
+		qcom,cam-vreg-op-mode = <105000 80000 105000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_active
@@ -248,8 +306,8 @@
 				 &cam_sensor_rear_suspend>;
 		gpios = <&tlmm 13 0>,
 			<&tlmm 30 0>,
-			<&pmfalcon_gpios 4 0>,
-			<&tlmm 29 0>;
+			<&pm2falcon_gpios 4 0>,
+			<&tlmm 8 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-vdig = <2>;
 		qcom,gpio-vana = <3>;
@@ -276,16 +334,15 @@
 		qcom,csiphy-sd-index = <2>;
 		qcom,csid-sd-index = <2>;
 		qcom,mount-angle = <90>;
-		qcom,led-flash-src = <&led_flash1>;
-		qcom,eeprom-src = <&eeprom2>;
 		qcom,actuator-src = <&actuator1>;
+		qcom,eeprom-src = <&eeprom2>;
 		cam_vio-supply = <&pmfalcon_l11>;
 		cam_vana-supply = <&pm2falcon_bob>;
 		cam_vdig-supply = <&pmfalcon_s5>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig";
-		qcom,cam-vreg-min-voltage = <0 3300000 1350000>;
-		qcom,cam-vreg-max-voltage = <0 3600000 1350000>;
-		qcom,cam-vreg-op-mode = <0 80000 105000>;
+		qcom,cam-vreg-min-voltage = <1780000 3300000 1350000>;
+		qcom,cam-vreg-max-voltage = <1950000 3600000 1350000>;
+		qcom,cam-vreg-op-mode = <105000 80000 105000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk1_active
@@ -294,8 +351,8 @@
 				 &cam_sensor_front_suspend>;
 		gpios = <&tlmm 14 0>,
 			<&tlmm 28 0>,
-			<&pmfalcon_gpios 3 0>,
-			<&tlmm 29 0>;
+			<&pm2falcon_gpios 3 0>,
+			<&tlmm 8 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-vdig = <2>;
 		qcom,gpio-vana = <3>;
@@ -316,8 +373,7 @@
 	};
 };
 
-
-&pmfalcon_gpios {
+&pm2falcon_gpios {
 	gpio@c300 { /* GPIO4 -CAMERA SENSOR 0 VDIG*/
 		qcom,mode = <1>;                /* Output */
 		qcom,pull = <5>;                /* No Pull */
@@ -328,7 +384,7 @@
 		status = "ok";
 	};
 
-	gpio@c200 { /* GPIO3 -CAMERA SENSOR 1 VDIG*/
+	gpio@c200 { /* GPIO3 -CAMERA SENSOR 2 VDIG*/
 		qcom,mode = <1>;                /* Output */
 		qcom,pull = <5>;                /* No Pull */
 		qcom,vin-sel = <0>;             /* VIN1 GPIO_LV */
