@@ -855,12 +855,22 @@ static int wdsp_spi_event_handler(struct device *dev, void *priv_data,
 				  void *data)
 {
 	struct spi_device *spi = to_spi_device(dev);
+	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
 	int ret = 0;
 
 	dev_dbg(&spi->dev, "%s: event type %d\n",
 		__func__, event);
 
 	switch (event) {
+	case WDSP_EVENT_POST_SHUTDOWN:
+		cancel_delayed_work_sync(&wcd_spi->clk_dwork);
+		WCD_SPI_MUTEX_LOCK(spi, wcd_spi->clk_mutex);
+		if (test_bit(WCD_SPI_CLK_STATE_ENABLED, &wcd_spi->status_mask))
+			wcd_spi_clk_disable(spi);
+		wcd_spi->clk_users = 0;
+		WCD_SPI_MUTEX_UNLOCK(spi, wcd_spi->clk_mutex);
+		break;
+
 	case WDSP_EVENT_PRE_DLOAD_CODE:
 	case WDSP_EVENT_PRE_DLOAD_DATA:
 		ret = wcd_spi_clk_ctrl(spi, WCD_SPI_CLK_ENABLE,
