@@ -124,6 +124,7 @@
 
 		/* Trace bus */
 		coresight-name = "coresight-gfx";
+		coresight-atid = <3>;
 		port {
 			gfx_out_funnel_in1: endpoint {
 				remote-endpoint = <&funnel_in1_in_gfx>;
