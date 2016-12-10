@@ -61,9 +61,9 @@
 		reg = <0x088e2000 0x400>;
 		reg-names = "qusb_phy_base";
 
-		vdd-supply = <&pmcobalt_l1>;
-		vdda18-supply = <&pmcobalt_l12>;
-		vdda33-supply = <&pmcobalt_l24>;
+		vdd-supply = <&pm8998_l1>;
+		vdda18-supply = <&pm8998_l12>;
+		vdda33-supply = <&pm8998_l24>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		qcom,qusb-phy-init-seq =
 				/* <value reg_offset> */
