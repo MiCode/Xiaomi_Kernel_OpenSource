@@ -7053,6 +7053,7 @@ static void ufshcd_init_icc_levels(struct ufs_hba *hba)
 	int ret;
 	int buff_len = hba->desc_size.pwr_desc;
 	u8 desc_buf[hba->desc_size.pwr_desc];
+	u32 icc_level;
 
 	ret = ufshcd_read_power_desc(hba, desc_buf, buff_len);
 	if (ret) {
@@ -7062,21 +7063,17 @@ static void ufshcd_init_icc_levels(struct ufs_hba *hba)
 		return;
 	}
 
-	hba->init_prefetch_data.icc_level =
-			ufshcd_find_max_sup_active_icc_level(hba,
-			desc_buf, buff_len);
-	dev_dbg(hba->dev, "%s: setting icc_level 0x%x",
-			__func__, hba->init_prefetch_data.icc_level);
+	icc_level = ufshcd_find_max_sup_active_icc_level(hba, desc_buf,
+							 buff_len);
+	dev_dbg(hba->dev, "%s: setting icc_level 0x%x", __func__, icc_level);
 
 	ret = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
-		QUERY_ATTR_IDN_ACTIVE_ICC_LVL, 0, 0,
-		&hba->init_prefetch_data.icc_level);
+		QUERY_ATTR_IDN_ACTIVE_ICC_LVL, 0, 0, &icc_level);
 
 	if (ret)
 		dev_err(hba->dev,
 			"%s: Failed configuring bActiveICCLevel = %d ret = %d",
-			__func__, hba->init_prefetch_data.icc_level , ret);
-
+			__func__, icc_level, ret);
 }
 
 /**
@@ -7547,8 +7544,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 				QUERY_FLAG_IDN_PWR_ON_WPE, &flag))
 			hba->dev_info.f_power_on_wp_en = flag;
 
-		if (!hba->is_init_prefetch)
-			ufshcd_init_icc_levels(hba);
+		ufshcd_init_icc_levels(hba);
 
 		/* Add required well known logical units to scsi mid layer */
 		if (ufshcd_scsi_add_wlus(hba))
@@ -7579,9 +7575,6 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		scsi_scan_host(hba->host);
 		pm_runtime_put_sync(hba->dev);
 	}
-
-	if (!hba->is_init_prefetch)
-		hba->is_init_prefetch = true;
 
 out:
 	/*
