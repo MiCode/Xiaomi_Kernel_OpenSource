@@ -1801,7 +1801,11 @@ int mpq_dmx_terminate_feed(struct dvb_demux_feed *feed)
 		}
 
 		mpq_sdmx_close_session(mpq_demux);
-		mpq_demux->num_secure_feeds--;
+		if (mpq_demux->num_secure_feeds > 0)
+			mpq_demux->num_secure_feeds--;
+		else
+			MPQ_DVB_DBG_PRINT("%s: Invalid secure feed count= %u\n",
+				 __func__, mpq_demux->num_secure_feeds);
 	}
 
 	if (dvb_dmx_is_video_feed(feed)) {
@@ -1818,7 +1822,11 @@ int mpq_dmx_terminate_feed(struct dvb_demux_feed *feed)
 	}
 
 	mpq_sdmx_terminate_metadata_buffer(mpq_feed);
-	mpq_demux->num_active_feeds--;
+	if (mpq_demux->num_active_feeds > 0)
+		mpq_demux->num_active_feeds--;
+	else
+		MPQ_DVB_DBG_PRINT("%s: Invalid num_active_feeds count = %u\n",
+				  __func__, mpq_demux->num_active_feeds);
 
 	mutex_unlock(&mpq_demux->mutex);
 
