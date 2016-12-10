@@ -25,6 +25,8 @@
 #include <linux/timer.h>
 #include <linux/pm_opp.h>
 #include <linux/cpu_cooling.h>
+#include <linux/bitmap.h>
+#include <linux/msm_thermal.h>
 
 #include <asm/smp_plat.h>
 #include <asm/cacheflush.h>
@@ -83,6 +85,7 @@ struct msm_lmh_dcvs_hw {
 	uint32_t max_freq;
 	uint32_t hw_freq_limit;
 	struct list_head list;
+	DECLARE_BITMAP(is_irq_enabled, 1);
 };
 
 LIST_HEAD(lmh_dcvs_hw_list);
@@ -145,8 +148,19 @@ static void msm_lmh_dcvs_poll(unsigned long data)
 	if (max_limit >= hw->max_freq) {
 		del_timer(&hw->poll_timer);
 		writel_relaxed(0xFF, hw->int_clr_reg);
+		set_bit(1, hw->is_irq_enabled);
 		enable_irq(hw->irq_num);
 	} else {
+		mod_timer(&hw->poll_timer, jiffies + msecs_to_jiffies(
+			MSM_LIMITS_POLLING_DELAY_MS));
+	}
+}
+
+static void lmh_dcvs_notify(struct msm_lmh_dcvs_hw *hw)
+{
+	if (test_and_clear_bit(1, hw->is_irq_enabled)) {
+		disable_irq_nosync(hw->irq_num);
+		msm_lmh_mitigation_notify(hw);
 		mod_timer(&hw->poll_timer, jiffies + msecs_to_jiffies(
 			MSM_LIMITS_POLLING_DELAY_MS));
 	}
@@ -156,11 +170,7 @@ static irqreturn_t lmh_dcvs_handle_isr(int irq, void *data)
 {
 	struct msm_lmh_dcvs_hw *hw = data;
 
-	disable_irq_nosync(irq);
-	msm_lmh_mitigation_notify(hw);
-	mod_timer(&hw->poll_timer, jiffies + msecs_to_jiffies(
-			MSM_LIMITS_POLLING_DELAY_MS));
-
+	lmh_dcvs_notify(hw);
 	return IRQ_HANDLED;
 }
 
@@ -314,6 +324,17 @@ static struct cpu_cooling_ops cd_ops = {
 	.ceil_limit = lmh_set_max_limit,
 };
 
+int msm_lmh_dcvsh_sw_notify(int cpu)
+{
+	struct msm_lmh_dcvs_hw *hw = get_dcvsh_hw_from_cpu(cpu);
+
+	if (!hw)
+		return -EINVAL;
+
+	lmh_dcvs_notify(hw);
+	return 0;
+}
+
 static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -460,6 +481,7 @@ static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 		pr_err("Error getting IRQ number. err:%d\n", ret);
 		return ret;
 	}
+	set_bit(1, hw->is_irq_enabled);
 	ret = devm_request_threaded_irq(&pdev->dev, hw->irq_num, NULL,
 		lmh_dcvs_handle_isr, IRQF_TRIGGER_HIGH | IRQF_ONESHOT
 		| IRQF_NO_SUSPEND, sensor_name, hw);
