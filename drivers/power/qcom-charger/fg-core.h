@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +62,7 @@
 					CHARS_PER_ITEM) + 1)		\
 
 #define FG_SRAM_ADDRESS_MAX		255
+#define FG_SRAM_LEN			504
 #define PROFILE_LEN			224
 #define PROFILE_COMP_LEN		148
 #define BUCKET_COUNT			8
@@ -342,6 +343,7 @@ struct fg_chip {
 	struct work_struct	status_change_work;
 	struct work_struct	cycle_count_work;
 	struct delayed_work	batt_avg_work;
+	struct delayed_work	sram_dump_work;
 	struct fg_circ_buf	ibatt_circ_buf;
 	struct fg_circ_buf	vbatt_circ_buf;
 };
@@ -392,6 +394,7 @@ extern int fg_clear_ima_errors_if_any(struct fg_chip *chip, bool check_hw_sts);
 extern int fg_clear_dma_errors_if_any(struct fg_chip *chip);
 extern int fg_debugfs_create(struct fg_chip *chip);
 extern void fill_string(char *str, size_t str_len, u8 *buf, int buf_len);
+extern void dump_sram(u8 *buf, int addr, int len);
 extern int64_t twos_compliment_extend(int64_t val, int s_bit_pos);
 extern s64 fg_float_decode(u16 val);
 extern bool is_input_present(struct fg_chip *chip);
