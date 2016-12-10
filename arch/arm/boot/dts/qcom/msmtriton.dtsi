@@ -564,7 +564,7 @@
 	};
 
 	clock_gfx: clock-controller@5065000 {
-		compatible = "qcom,gpucc-msmfalcon";
+		compatible = "qcom,gpucc-msmtriton";
 		reg = <0x5065000 0x10000>;
 		vdd_dig_gfx-supply = <&pm2falcon_s3_level>;
 		vdd_mx_gfx-supply = <&pm2falcon_s5_level>;
@@ -572,13 +572,13 @@
 		qcom,gfxfreq-corner =
 			< 0         0>,
 			< 160000000 1>,  /* MinSVS */
-			< 266000000 2>,  /* LowSVS */
+			< 240000000 2>,  /* LowSVS */
 			< 370000000 3>,  /* SVS    */
 			< 465000000 4>,  /* SVS_L1 */
 			< 588000000 5>,  /* NOM    */
 			< 647000000 6>,  /* NOM_L1 */
-			< 700000000 7>,  /* TURBO  */
-			< 750000000 7>;  /* TURBO  */
+			< 700000000 7>,  /* TURBO */
+			< 775000000 7>;  /* TURBO  */
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};

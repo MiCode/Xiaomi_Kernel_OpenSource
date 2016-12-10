@@ -587,6 +587,60 @@
 			};
 		};
 
+		hph_en0_ctrl {
+			hph_en0_idle: hph_en0_idle {
+				mux {
+					pins = "gpio67";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio67";
+					drive-strength = <2>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+			hph_en0_active: hph_en0_active {
+				mux {
+					pins = "gpio67";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio67";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		hph_en1_ctrl {
+			hph_en1_idle: hph_en1_idle {
+				mux {
+					pins = "gpio68";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio68";
+					drive-strength = <2>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+			hph_en1_active: hph_en1_active {
+				mux {
+					pins = "gpio68";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio68";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
 		wcd_gnd_mic_swap {
 			wcd_gnd_mic_swap_idle: wcd_gnd_mic_swap_idle {
 				mux {

@@ -53,6 +53,8 @@
 			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"MADINPUT", "MCLK",
+			"hifi amp", "LINEOUT1",
+			"hifi amp", "LINEOUT2",
 			"AMIC2", "MIC BIAS2",
 			"MIC BIAS2", "Headset Mic",
 			"AMIC3", "MIC BIAS2",
@@ -81,6 +83,8 @@
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
 		qcom,us-euro-gpios = <&wcd_us_euro_gpio>;
+		qcom,hph-en0-gpio = <&hph_en0_gpio>;
+		qcom,hph-en1-gpio = <&hph_en1_gpio>;
 		qcom,tasha-mclk-clk-freq = <9600000>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
@@ -142,6 +146,20 @@
 				<&wsa881x_213>, <&wsa881x_214>;
 		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 					  "SpkrLeft", "SpkrRight";
+
+		hph_en0_gpio: msm_cdc_pinctrl@67 {
+			compatible = "qcom,msm-cdc-pinctrl";
+			pinctrl-names = "aud_active", "aud_sleep";
+			pinctrl-0 = <&hph_en0_active>;
+			pinctrl-1 = <&hph_en0_idle>;
+		};
+
+		hph_en1_gpio: msm_cdc_pinctrl@68 {
+			compatible = "qcom,msm-cdc-pinctrl";
+			pinctrl-names = "aud_active", "aud_sleep";
+			pinctrl-0 = <&hph_en1_active>;
+			pinctrl-1 = <&hph_en1_idle>;
+		};
 	};
 
 	sound-tavil {
@@ -165,6 +183,8 @@
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"MADINPUT", "MCLK",
+			"hifi amp", "LINEOUT1",
+			"hifi amp", "LINEOUT2",
 			"AMIC2", "MIC BIAS2",
 			"MIC BIAS2", "Headset Mic",
 			"AMIC3", "MIC BIAS2",

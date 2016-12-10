@@ -54,6 +54,7 @@ struct hbtp_data {
 	struct pinctrl *ts_pinctrl;
 	struct pinctrl_state *gpio_state_active;
 	struct pinctrl_state *gpio_state_suspend;
+	bool ddic_rst_enabled;
 	struct pinctrl_state *ddic_rst_state_active;
 	struct pinctrl_state *ddic_rst_state_suspend;
 	u32 ts_pinctrl_seq_delay;
@@ -521,15 +522,17 @@ static int hbtp_pinctrl_enable(struct hbtp_data *ts, bool on)
 	if (rc < 0)
 		return -EINVAL;
 
-	rc = hbtp_ddic_rst_select(ts, true);
-	if (rc < 0)
-		goto err_ddic_rst_pinctrl_enable;
+	if (ts->ddic_rst_enabled) {
+		rc = hbtp_ddic_rst_select(ts, true);
+		if (rc < 0)
+			goto err_ddic_rst_pinctrl_enable;
+	}
 
 	return rc;
 
 pinctrl_suspend:
-	if (ts->ddic_rst_state_suspend)
-		hbtp_ddic_rst_select(ts, true);
+	if (ts->ddic_rst_enabled)
+		hbtp_ddic_rst_select(ts, false);
 err_ddic_rst_pinctrl_enable:
 	hbtp_gpio_select(ts, false);
 	return rc;
@@ -1078,8 +1081,10 @@ static int hbtp_pinctrl_init(struct hbtp_data *data)
 			dev_err(&data->pdev->dev, "count(%u) is not same as %u\n",
 				(u32)count, HBTP_PINCTRL_DDIC_SEQ_NUM);
 		}
+
+		data->ddic_rst_enabled = true;
 	} else {
-		dev_err(&data->pdev->dev, "ddic pinctrl act/sus not found\n");
+		dev_warn(&data->pdev->dev, "ddic pinctrl act/sus not found\n");
 	}
 
 	data->manage_pin_ctrl = true;

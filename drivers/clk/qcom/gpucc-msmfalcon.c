@@ -113,13 +113,7 @@ static struct clk_alpha_pll gpu_pll0_pll_out_main = {
 			.parent_names = (const char *[]){ "xo" },
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_ops,
-			VDD_GPU_PLL_FMAX_MAP6(
-					MIN, 266000000,
-					LOWER, 432000000,
-					LOW, 640000000,
-					LOW_L1, 800000000,
-					NOMINAL, 1020000000,
-					HIGH, 1500000000),
+			VDD_GPU_PLL_FMAX_MAP1(LOW_L1, 1500000000),
 		},
 	},
 };
@@ -136,13 +130,7 @@ static struct clk_alpha_pll gpu_pll1_pll_out_main = {
 			.parent_names = (const char *[]){ "xo" },
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_ops,
-			VDD_GPU_PLL_FMAX_MAP6(
-					MIN, 266000000,
-					LOWER, 432000000,
-					LOW, 640000000,
-					LOW_L1, 800000000,
-					NOMINAL, 1020000000,
-					HIGH, 1500000000),
+			VDD_GPU_PLL_FMAX_MAP1(LOW_L1, 1500000000),
 		},
 	},
 };
@@ -196,6 +184,19 @@ static const struct freq_tbl ftbl_gfx3d_clk_src[] = {
 	F_GFX(647000000, 0,  2, 0, 0, 1294000000),
 	F_GFX(700000000, 0,  2, 0, 0, 1400000000),
 	F_GFX(750000000, 0,  2, 0, 0, 1500000000),
+	{ }
+};
+
+static const struct freq_tbl ftbl_gfx3d_clk_src_triton[] = {
+	F_GFX( 19200000, 0,  1, 0, 0,         0),
+	F_GFX(160000000, 0,  2, 0, 0,  640000000),
+	F_GFX(240000000, 0,  2, 0, 0,  480000000),
+	F_GFX(370000000, 0,  2, 0, 0,  740000000),
+	F_GFX(465000000, 0,  2, 0, 0,  930000000),
+	F_GFX(588000000, 0,  2, 0, 0, 1176000000),
+	F_GFX(647000000, 0,  2, 0, 0, 1294000000),
+	F_GFX(700000000, 0,  2, 0, 0, 1400000000),
+	F_GFX(775000000, 0,  2, 0, 0, 1550000000),
 	{ }
 };
 
@@ -343,6 +344,7 @@ static const struct qcom_cc_desc gpucc_falcon_desc = {
 
 static const struct of_device_id gpucc_falcon_match_table[] = {
 	{ .compatible = "qcom,gpucc-msmfalcon" },
+	{ .compatible = "qcom,gpucc-msmtriton" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gpucc_falcon_match_table);
@@ -409,6 +411,7 @@ static int gpucc_falcon_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct regmap *regmap;
+	bool is_triton = 0;
 
 	regmap = qcom_cc_map(pdev, &gpucc_falcon_desc);
 	if (IS_ERR(regmap))
@@ -439,6 +442,17 @@ static int gpucc_falcon_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 					"Unable to get vdd_gfx regulator\n");
 		return PTR_ERR(vdd_gfx.regulator[0]);
+	}
+
+	is_triton = of_device_is_compatible(pdev->dev.of_node,
+					"qcom,gpucc-msmtriton");
+	if (is_triton) {
+		gpu_pll0_pll_out_main.clkr.hw.init->rate_max[VDD_DIG_LOW_L1]
+						= 1550000000;
+		gpu_pll1_pll_out_main.clkr.hw.init->rate_max[VDD_DIG_LOW_L1]
+						= 1550000000;
+		/* Add new frequency table */
+		gfx3d_clk_src.freq_tbl = ftbl_gfx3d_clk_src_triton;
 	}
 
 	/* GFX rail fmax data linked to branch clock */
