@@ -42,6 +42,7 @@ obj-$(CONFIG_MSM_IPC_ROUTER_MHI_XPRT) += ipc_router_mhi_xprt.o
 obj-$(CONFIG_MSM_IPC_ROUTER_GLINK_XPRT) += ipc_router_glink_xprt.o
 obj-$(CONFIG_MSM_QMI_INTERFACE) += qmi_interface.o
 obj-$(CONFIG_MSM_GLINK_PKT) += msm_glink_pkt.o
+obj-y			+=	qdsp6v2/
 obj-$(CONFIG_MSM_SYSTEM_HEALTH_MONITOR)	+=	system_health_monitor_v01.o
 obj-$(CONFIG_MSM_SYSTEM_HEALTH_MONITOR)	+=	system_health_monitor.o
 obj-$(CONFIG_MSM_SYSMON_GLINK_COMM) += sysmon-glink.o sysmon-qmi.o
