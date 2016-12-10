@@ -550,7 +550,7 @@ static int fg_get_battery_esr(struct fg_chip *chip, int *val)
 		return rc;
 	}
 
-	if (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4)
+	if (chip->wa_flags & PMI8998_V1_REV_WA)
 		temp = ((buf[0] & ESR_MSB_MASK) << 8) |
 			(buf[1] & ESR_LSB_MASK);
 	else
@@ -597,7 +597,7 @@ static int fg_get_battery_current(struct fg_chip *chip, int *val)
 		return rc;
 	}
 
-	if (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4)
+	if (chip->wa_flags & PMI8998_V1_REV_WA)
 		temp = buf[0] << 8 | buf[1];
 	else
 		temp = buf[1] << 8 | buf[0];
@@ -624,7 +624,7 @@ static int fg_get_battery_voltage(struct fg_chip *chip, int *val)
 		return rc;
 	}
 
-	if (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4)
+	if (chip->wa_flags & PMI8998_V1_REV_WA)
 		temp = buf[0] << 8 | buf[1];
 	else
 		temp = buf[1] << 8 | buf[0];
@@ -2401,8 +2401,8 @@ static int fg_hw_init(struct fg_chip *chip)
 	}
 
 	/* This SRAM register is only present in v2.0 and above */
-	if (chip->pmic_rev_id->rev4 >= PMI8998_V2P0_REV4 &&
-		chip->bp.float_volt_uv > 0) {
+	if (!(chip->wa_flags & PMI8998_V1_REV_WA) &&
+					chip->bp.float_volt_uv > 0) {
 		fg_encode(chip->sp, FG_SRAM_FLOAT_VOLT,
 			chip->bp.float_volt_uv / 1000, buf);
 		rc = fg_sram_write(chip, chip->sp[FG_SRAM_FLOAT_VOLT].addr_word,
@@ -2482,8 +2482,8 @@ static int fg_hw_init(struct fg_chip *chip)
 	}
 
 	/* This configuration is available only for pmicobalt v2.0 and above */
-	if (chip->pmic_rev_id->rev4 >= PMI8998_V2P0_REV4 &&
-		chip->dt.recharge_volt_thr_mv > 0) {
+	if (!(chip->wa_flags & PMI8998_V1_REV_WA) &&
+			chip->dt.recharge_volt_thr_mv > 0) {
 		fg_encode(chip->sp, FG_SRAM_RECHARGE_VBATT_THR,
 			chip->dt.recharge_volt_thr_mv, buf);
 		rc = fg_sram_write(chip,
@@ -3013,12 +3013,17 @@ static int fg_parse_dt(struct fg_chip *chip)
 		if (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4) {
 			chip->sp = pmi8998_v1_sram_params;
 			chip->alg_flags = pmi8998_v1_alg_flags;
+			chip->wa_flags |= PMI8998_V1_REV_WA;
 		} else if (chip->pmic_rev_id->rev4 == PMI8998_V2P0_REV4) {
 			chip->sp = pmi8998_v2_sram_params;
 			chip->alg_flags = pmi8998_v2_alg_flags;
 		} else {
 			return -EINVAL;
 		}
+		break;
+	case PMFALCON_SUBTYPE:
+		chip->sp = pmi8998_v2_sram_params;
+		chip->alg_flags = pmi8998_v2_alg_flags;
 		break;
 	default:
 		return -EINVAL;
