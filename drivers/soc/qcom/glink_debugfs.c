@@ -64,6 +64,8 @@ struct glink_dbgfs_dent {
 	struct dentry *self;
 	spinlock_t file_list_lock_lhb0;
 	struct list_head file_list;
+	bool rm_debugfs;
+	struct work_struct rm_work;
 };
 
 static struct dentry *dent;
@@ -91,6 +93,7 @@ static const struct file_operations debug_ops = {
 	.llseek = seq_lseek,
 };
 #endif
+static void glink_dfs_dent_rm_worker(struct work_struct *work);
 
 /**
  * glink_get_ss_enum_string() - get the name of the subsystem based on enum
@@ -568,6 +571,8 @@ void glink_dfs_update_list(struct dentry *curr_dent, struct dentry *parent,
 				curr, strlen(curr) + 1);
 			strlcpy(dbgfs_dent_s->par_name, par_dir,
 					strlen(par_dir) + 1);
+			INIT_WORK(&dbgfs_dent_s->rm_work,
+				  glink_dfs_dent_rm_worker);
 			mutex_lock(&dent_list_lock_lha0);
 			list_add_tail(&dbgfs_dent_s->list_node, &dent_list);
 			mutex_unlock(&dent_list_lock_lha0);
@@ -606,8 +611,21 @@ void glink_remove_dfs_entry(struct glink_dbgfs_dent *entry)
 		spin_unlock_irqrestore(&entry->file_list_lock_lhb0, flags);
 	}
 	list_del(&entry->list_node);
+	schedule_work(&entry->rm_work);
+}
+
+/**
+ * glink_dfs_dent_rm_worker() - Remove the debugfs entry recursively
+ * @work:	Deferred work whose entry needs to be removed.
+ */
+static void glink_dfs_dent_rm_worker(struct work_struct *work)
+{
+	struct glink_dbgfs_dent *entry =
+		container_of(work, struct glink_dbgfs_dent, rm_work);
+
+	if (entry->rm_debugfs)
+		debugfs_remove_recursive(entry->self);
 	kfree(entry);
-	entry = NULL;
 }
 
 /**
@@ -622,7 +640,6 @@ void glink_debugfs_remove_recur(struct glink_dbgfs *rm_dfs)
 	const char *c_dir_name;
 	const char *p_dir_name;
 	struct glink_dbgfs_dent *entry, *entry_temp;
-	struct dentry *par_dent = NULL;
 
 	if (rm_dfs == NULL)
 		return;
@@ -636,13 +653,11 @@ void glink_debugfs_remove_recur(struct glink_dbgfs *rm_dfs)
 			glink_remove_dfs_entry(entry);
 		} else if (!strcmp(entry->self_name, c_dir_name)
 				&& !strcmp(entry->par_name, p_dir_name)) {
-			par_dent = entry->self;
+			entry->rm_debugfs = true;
 			glink_remove_dfs_entry(entry);
 		}
 	}
 	mutex_unlock(&dent_list_lock_lha0);
-	if (par_dent != NULL)
-		debugfs_remove_recursive(par_dent);
 }
 EXPORT_SYMBOL(glink_debugfs_remove_recur);
 
