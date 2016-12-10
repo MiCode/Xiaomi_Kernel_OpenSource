@@ -993,13 +993,17 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 		DEV_ERR("invalid input\n");
 		return -EINVAL;
 	}
-
-	ret = hdmi_get_supported_mode(&timing, 0, vic);
 	pinfo = &dp_drv->panel_data.panel_info;
 
-	if (ret || !timing.supported || !pinfo) {
-		DEV_ERR("%s: invalid timing data\n", __func__);
-		return -EINVAL;
+	if (vic != HDMI_VFRMT_UNKNOWN) {
+		ret = hdmi_get_supported_mode(&timing, 0, vic);
+
+		if (ret || !timing.supported || !pinfo) {
+			DEV_ERR("%s: invalid timing data\n", __func__);
+			return -EINVAL;
+		}
+	} else {
+		pr_debug("reset panel info to zeroes\n");
 	}
 
 	dp_drv->vic = vic;
@@ -1207,6 +1211,9 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 			goto exit;
 		}
 
+		if (dp_drv->new_vic && (dp_drv->new_vic != dp_drv->vic))
+			dp_init_panel_info(dp_drv, dp_drv->new_vic);
+
 		mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
 				dp_drv->orientation,
 				dp_drv->dpcd.max_lane_count);
@@ -1398,6 +1405,7 @@ static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv)
 	dp_drv->power_on = false;
 	dp_drv->sink_info_read = false;
 
+	dp_init_panel_info(dp_drv, HDMI_VFRMT_UNKNOWN);
 	mutex_unlock(&dp_drv->train_mutex);
 	complete_all(&dp_drv->irq_comp);
 	pr_debug("end\n");
@@ -1445,6 +1453,7 @@ static int mdss_dp_off_hpd(struct mdss_dp_drv_pdata *dp_drv)
 
 	dp_drv->power_on = false;
 	dp_drv->sink_info_read = false;
+	dp_init_panel_info(dp_drv, HDMI_VFRMT_UNKNOWN);
 
 	mdss_dp_ack_state(dp_drv, false);
 	mutex_unlock(&dp_drv->train_mutex);
