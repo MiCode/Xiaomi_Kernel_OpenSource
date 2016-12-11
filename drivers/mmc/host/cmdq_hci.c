@@ -345,6 +345,7 @@ static int cmdq_enable(struct mmc_host *mmc)
 {
 	int err = 0;
 	u32 cqcfg;
+	u32 cqcap = 0;
 	bool dcmd_enable;
 	struct cmdq_host *cq_host = mmc_cmdq_private(mmc);
 
@@ -372,6 +373,18 @@ static int cmdq_enable(struct mmc_host *mmc)
 
 	cqcfg = ((cq_host->caps & CMDQ_TASK_DESC_SZ_128 ? CQ_TASK_DESC_SZ : 0) |
 			(dcmd_enable ? CQ_DCMD : 0));
+
+	cqcap = cmdq_readl(cq_host, CQCAP);
+	if (cqcap & CQCAP_CS) {
+		/*
+		 * In case host controller supports cryptographic operations
+		 * then, it uses 128bit task descriptor. Upper 64 bits of task
+		 * descriptor would be used to pass crypto specific informaton.
+		 */
+		cq_host->caps |= CMDQ_CAP_CRYPTO_SUPPORT |
+				 CMDQ_TASK_DESC_SZ_128;
+		cqcfg |= CQ_ICE_ENABLE;
+	}
 
 	cmdq_writel(cq_host, cqcfg, CQCFG);
 	/* enable CQ_HOST */
@@ -688,6 +701,30 @@ static void cmdq_prep_dcmd_desc(struct mmc_host *mmc,
 		upper_32_bits(*task_desc));
 }
 
+static inline
+void cmdq_prep_crypto_desc(struct cmdq_host *cq_host, u64 *task_desc,
+			u64 ice_ctx)
+{
+	u64 *ice_desc = NULL;
+
+	if (cq_host->caps & CMDQ_CAP_CRYPTO_SUPPORT) {
+		/*
+		 * Get the address of ice context for the given task descriptor.
+		 * ice context is present in the upper 64bits of task descriptor
+		 * ice_conext_base_address = task_desc + 8-bytes
+		 */
+		ice_desc = (__le64 __force *)((u8 *)task_desc +
+						CQ_TASK_DESC_TASK_PARAMS_SIZE);
+		memset(ice_desc, 0, CQ_TASK_DESC_ICE_PARAMS_SIZE);
+
+		/*
+		 *  Assign upper 64bits data of task descritor with ice context
+		 */
+		if (ice_ctx)
+			*ice_desc = cpu_to_le64(ice_ctx);
+	}
+}
+
 static void cmdq_pm_qos_vote(struct sdhci_host *host, struct mmc_request *mrq)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -711,6 +748,7 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	u32 tag = mrq->cmdq_req->tag;
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 	struct sdhci_host *host = mmc_priv(mmc);
+	u64 ice_ctx = 0;
 
 	if (!cq_host->enabled) {
 		pr_err("%s: CMDQ host not enabled yet !!!\n",
@@ -730,7 +768,7 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	if (cq_host->ops->crypto_cfg) {
-		err = cq_host->ops->crypto_cfg(mmc, mrq, tag);
+		err = cq_host->ops->crypto_cfg(mmc, mrq, tag, &ice_ctx);
 		if (err) {
 			pr_err("%s: failed to configure crypto: err %d tag %d\n",
 					mmc_hostname(mmc), err, tag);
@@ -743,6 +781,9 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	cmdq_prep_task_desc(mrq, &data, 1,
 			    (mrq->cmdq_req->cmdq_req_flags & QBR));
 	*task_desc = cpu_to_le64(data);
+
+	cmdq_prep_crypto_desc(cq_host, task_desc, ice_ctx);
+
 	cmdq_log_task_desc_history(cq_host, *task_desc, false);
 
 	err = cmdq_prep_tran_desc(mrq, cq_host, tag);
@@ -787,7 +828,8 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 			    CMDQ_SEND_STATUS_TRIGGER, CQ_VENDOR_CFG);
 
 	cmdq_runtime_pm_put(cq_host);
-	if (cq_host->ops->crypto_cfg_reset)
+	if (!(cq_host->caps & CMDQ_CAP_CRYPTO_SUPPORT) &&
+			cq_host->ops->crypto_cfg_reset)
 		cq_host->ops->crypto_cfg_reset(mmc, tag);
 	mrq->done(mrq);
 }
