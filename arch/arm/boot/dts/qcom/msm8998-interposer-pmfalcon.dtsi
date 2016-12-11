@@ -65,11 +65,6 @@
 
 };
 
-&sdhc_2 {
-	/delete-property/vdd-supply;
-	/delete-property/vdd-io-supply;
-};
-
 &i2c_5 {
 	/delete-node/synaptics@20;
 };
