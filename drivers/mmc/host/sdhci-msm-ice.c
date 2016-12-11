@@ -180,6 +180,13 @@ int sdhci_msm_ice_init(struct sdhci_host *host)
 	int err = 0;
 
 	if (msm_host->ice.vops->init) {
+		err = sdhci_msm_ice_pltfm_init(msm_host);
+		if (err)
+			goto out;
+
+		if (msm_host->ice_hci_support)
+			sdhci_msm_enable_ice_hci(host, true);
+
 		err = msm_host->ice.vops->init(msm_host->ice.pdev,
 					msm_host,
 					sdhci_msm_ice_error_cb);
@@ -187,6 +194,8 @@ int sdhci_msm_ice_init(struct sdhci_host *host)
 			pr_err("%s: ice init err %d\n",
 				mmc_hostname(host->mmc), err);
 			sdhci_msm_ice_print_regs(host);
+			if (msm_host->ice_hci_support)
+				sdhci_msm_enable_ice_hci(host, false);
 			goto out;
 		}
 		msm_host->ice.state = SDHCI_MSM_ICE_STATE_ACTIVE;
@@ -303,6 +312,10 @@ int sdhci_msm_ice_reset(struct sdhci_host *host)
 			return err;
 		}
 	}
+
+	/* If ICE HCI support is present then re-enable it */
+	if (msm_host->ice_hci_support)
+		sdhci_msm_enable_ice_hci(host, true);
 
 	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
 		pr_err("%s: ice is in invalid state after reset %d\n",
