@@ -43,6 +43,7 @@
 		mhi_rmnet0 = &mhi_rmnet_0;
 		mhi_rmnet1 = &mhi_rmnet_1;
 		mhi_uci0 = &mhi_uci_0;
+		mhi0 = &mhi_0;
 	};
 
 	psci {
@@ -1691,12 +1692,19 @@
 					 <0>, <0>, <0>, <0>, <0>, <0>, <0>;
 	};
 
-	mhi: qcom,mhi {
+	mhi_0: mhi: qcom,mhi@0 {
 		compatible = "qcom,mhi";
+		qcom,mhi-address-window = <0x0 0x80000000 0x1 0xffffffff>;
+		qcom,pci-dev_id = <0x0302>;
+		qcom,pci-domain = <2>;
+		qcom,pci-bus = <1>;
+		qcom,pci-slot = <0>;
 	};
 
 	mhi_rmnet_0: qcom,mhi-rmnet@0 {
 		compatible = "qcom,mhi-rmnet";
+		cell-index = <0>;
+		qcom,mhi = <&mhi_0>;
 		qcom,mhi-rx-channel = <101>;
 		qcom,mhi-tx-channel = <100>;
 		qcom,mhi-mru = <8000>;
@@ -1705,6 +1713,8 @@
 
 	mhi_rmnet_1: qcom,mhi-rmnet@1 {
 		compatible = "qcom,mhi-rmnet";
+		cell-index = <1>;
+		qcom,mhi = <&mhi_0>;
 		qcom,mhi-rx-channel = <102>;
 		qcom,mhi-mru = <0x4000>;
 		status = "disabled";
@@ -1731,6 +1741,7 @@
 					<32 0x1000>,
 					<33 0x1000>;
 		qcom,mhi-uci-ctrlchan = <18>;
+		qcom,mhi = <&mhi_0>;
 		status = "disabled";
 	};
 
