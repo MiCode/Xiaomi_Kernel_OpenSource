@@ -13,7 +13,6 @@
 #include <dt-bindings/clock/qcom,gcc-msmfalcon.h>
 #include <dt-bindings/clock/qcom,mmcc-msmfalcon.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
-#include <dt-bindings/msm/msm-bus-ids.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 &soc {
@@ -61,7 +60,6 @@
 	};
 
 	lpass_q6_smmu: arm,smmu-lpass_q6@5100000 {
-		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		reg = <0x5100000 0x40000>;
 		#iommu-cells = <1>;
@@ -94,11 +92,11 @@
 	};
 
 	mmss_bimc_smmu: arm,smmu-mmss@cd00000 {
-		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		reg = <0xcd00000 0x40000>;
 		#iommu-cells = <1>;
 		qcom,register-save;
+		qcom,no-smr-check;
 		qcom,skip-init;
 		#global-interrupts = <2>;
 		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>,
@@ -129,7 +127,7 @@
 			     <GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH>;
 		vdd-supply = <&gdsc_bimc_smmu>;
 		clocks = <&clock_mmss MMSS_MNOC_AHB_CLK>,
-			 <&clock_gcc  MMSSNOC_AXI_CLK>,
+			 <&clock_rpmcc  MMSSNOC_AXI_CLK>,
 			 <&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
 			 <&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>;
 		clock-names = "mmss_mnoc_ahb_clk",
@@ -137,11 +135,9 @@
 			      "mmss_bimc_smmu_ahb_clk",
 			      "mmss_bimc_smmu_axi_clk";
 		#clock-cells = <1>;
-		qcom,bus-master-id = <MSM_BUS_MNOC_BIMC_MAS>;
 	};
 
 	kgsl_smmu: arm,smmu-kgsl@5040000 {
-		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		reg = <0x5040000 0x10000>;
 		#iommu-cells = <1>;
@@ -170,7 +166,6 @@
 	};
 
 	turing_q6_smmu: arm,smmu-turing_q6@5180000 {
-		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		reg = <0x5180000 0x40000>;
 		#iommu-cells = <1>;

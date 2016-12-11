@@ -14,6 +14,7 @@
 #include "msm8998-camera-sensor-cdp.dtsi"
 / {
 	bluetooth: bt_wcn3990 {
+		status = "disabled";
 		compatible = "qca,wcn3990";
 		qca,bt-vdd-io-supply = <&pm8998_s3>;
 		qca,bt-vdd-xtal-supply = <&pm8998_s5>;

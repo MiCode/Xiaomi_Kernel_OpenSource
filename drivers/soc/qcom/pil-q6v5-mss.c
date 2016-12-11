@@ -285,6 +285,11 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 	if (!res) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"restart_reg_sec");
+		if (!res) {
+			dev_err(&pdev->dev, "Failed to get resource for restart reg\n");
+			return -EINVAL;
+		}
+
 		q6->restart_reg_sec = true;
 	}
 

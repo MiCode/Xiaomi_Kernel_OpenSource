@@ -869,8 +869,11 @@
 	};
 
 	clock_mmss: clock-controller@c8c0000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "mmss_clocks";
+		compatible = "qcom,mmcc-msmfalcon";
+		reg = <0xc8c0000 0x40000>;
+		vdd_mx_mmss-supply = <&pm2falcon_s5_level>;
+		vdd_dig_mmss-supply = <&pm2falcon_s3_level>;
+		vdda-supply = <&pmfalcon_l10>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -1544,6 +1547,24 @@
 		clocks = <&clock_gcc GCC_PRNG_AHB_CLK>;
 		clock-names = "iface_clk";
 	};
+
+	qcom,chd_silver {
+		compatible = "qcom,core-hang-detect";
+		label = "silver";
+		qcom,threshold-arr = <0x179880b0 0x179980b0
+				      0x179a80b0 0x179b80b0>;
+		qcom,config-arr = <0x179880b8 0x179980b8
+				   0x179a80b8 0x179b80b8>;
+	};
+
+	qcom,chd_gold {
+		compatible = "qcom,core-hang-detect";
+		label = "gold";
+		qcom,threshold-arr = <0x178880b0 0x178980b0
+				      0x178a80b0 0x178b80b0>;
+		qcom,config-arr = <0x178880b8  0x178980b8
+				   0x178a80b8  0x178b80b8>;
+	};
 };
 
 #include "msmfalcon-ion.dtsi"
@@ -1555,6 +1576,7 @@
 #include "msmfalcon-regulator.dtsi"
 #include "msm-gdsc-falcon.dtsi"
 #include "msmfalcon-gpu.dtsi"
+#include "msmfalcon-pm.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";
@@ -1635,3 +1657,32 @@
 #include "msmfalcon-common.dtsi"
 #include "msmfalcon-blsp.dtsi"
 #include "msmfalcon-vidc.dtsi"
+
+&pm2falcon_gpios {
+	/* GPIO 7 for VOL_UP */
+	gpio@c600 {
+		status = "okay";
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,out-strength = <1>;
+	};
+};
+
+&soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		status = "okay";
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm2falcon_gpios 7 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+	};
+};
