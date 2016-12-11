@@ -276,6 +276,25 @@ void sdhci_msm_ice_update_cfg(struct sdhci_host *host, u64 lba,
 	mb();
 }
 
+static inline
+void sdhci_msm_ice_hci_update_cmdq_cfg(u64 dun, unsigned int bypass,
+				short key_index, u64 *ice_ctx)
+{
+	/*
+	 * The naming convention got changed between ICE2.0 and ICE3.0
+	 * registers fields. Below is the equivalent names for
+	 * ICE3.0 Vs ICE2.0:
+	 *   Data Unit Number(DUN) == Logical Base address(LBA)
+	 *   Crypto Configuration index (CCI) == Key Index
+	 *   Crypto Enable (CE) == !BYPASS
+	 */
+	if (ice_ctx)
+		*ice_ctx = DATA_UNIT_NUM(dun) |
+			CRYPTO_CONFIG_INDEX(key_index) |
+			CRYPTO_ENABLE(!bypass);
+
+}
+
 int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 			u32 slot)
 {
@@ -344,7 +363,14 @@ int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
 				slot, bypass, key_index);
 	}
 
-	sdhci_msm_ice_update_cfg(host, lba, slot, bypass, key_index);
+	if (msm_host->ice_hci_support) {
+		/* For ICE HCI / ICE3.0 */
+		sdhci_msm_ice_hci_update_cmdq_cfg(lba, bypass, key_index,
+						ice_ctx);
+	} else {
+		/* For ICE versions earlier to ICE3.0 */
+		sdhci_msm_ice_update_cfg(host, lba, slot, bypass, key_index);
+	}
 	return 0;
 }
 
