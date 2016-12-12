@@ -4078,11 +4078,6 @@ void wcd_imped_config(struct snd_soc_codec *codec,
 			 __func__);
 		return;
 	}
-	if (value >= wcd_imped_val[ARRAY_SIZE(wcd_imped_val) - 1]) {
-		pr_err("%s, invalid imped, greater than 48 Ohm\n = %d\n",
-			__func__, value);
-		return;
-	}
 
 	codec_version = get_codec_version(msm8x16_wcd);
 
@@ -4093,9 +4088,9 @@ void wcd_imped_config(struct snd_soc_codec *codec,
 		case CONGA:
 			/*
 			 * For 32Ohm load and higher loads, Set 0x19E
-			 * bit 5 to 1 (POS_6_DB_DI). For loads lower
+			 * bit 5 to 1 (POS_0_DB_DI). For loads lower
 			 * than 32Ohm (such as 16Ohm load), Set 0x19E
-			 * bit 5 to 0 (POS_1P5_DB_DI)
+			 * bit 5 to 0 (POS_M4P5_DB_DI)
 			 */
 			if (value >= 32)
 				snd_soc_update_bits(codec,
