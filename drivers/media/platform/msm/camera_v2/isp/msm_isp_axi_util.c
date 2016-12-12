@@ -1680,11 +1680,6 @@ void msm_isp_halt_send_error(struct vfe_device *vfe_dev, uint32_t event)
 		temp_dev->hw_info->vfe_ops.core_ops.
 				set_halt_restart_mask(temp_dev);
 	}
-	/* heavy spin lock in axi halt, avoid spin lock outside. */
-	msm_isp_axi_halt(vfe_dev, &halt_cmd);
-	if (temp_dev)
-		msm_isp_axi_halt(temp_dev, &halt_cmd);
-
 	error_event.frame_id =
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 
