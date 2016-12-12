@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,14 +21,6 @@
 #define EMAC_RGMII_CORE_IE_C            0x2001
 #define EMAC_RGMII_PLL_L_VAL            0x14
 #define EMAC_RGMII_PHY_MODE             0
-
-static int emac_rgmii_config(struct platform_device *pdev,
-			     struct emac_adapter *adpt)
-{
-	/* For rgmii phy, the mdio lines are dedicated pins */
-	adpt->phy.uses_gpios = false;
-	return 0;
-}
 
 static int emac_rgmii_init(struct emac_adapter *adpt)
 {
@@ -110,40 +102,25 @@ static int emac_rgmii_init(struct emac_adapter *adpt)
 	return 0;
 }
 
+static int emac_rgmii_config(struct platform_device *pdev,
+			     struct emac_adapter *adpt)
+{
+	/* For rgmii phy, the mdio lines are dedicated pins */
+	return emac_rgmii_init(adpt);
+}
+
 static void emac_rgmii_reset_nop(struct emac_adapter *adpt)
 {
 }
 
-static int emac_rgmii_init_ephy(struct emac_adapter *adpt)
-{
-	u16 val;
-	struct emac_phy *phy = &adpt->phy;
-
-	/* disable hibernation in case of rgmii phy */
-	int retval = emac_phy_write(adpt, phy->addr, MII_DBG_ADDR,
-				    HIBERNATE_CTRL_REG);
-	if (retval)
-		return retval;
-
-	retval = emac_phy_read(adpt, phy->addr, MII_DBG_DATA, &val);
-	if (retval)
-		return retval;
-
-	val &= ~HIBERNATE_EN;
-	retval = emac_phy_write(adpt, phy->addr, MII_DBG_DATA, val);
-
-	return retval;
-}
-
-static int emac_rgmii_link_setup_no_ephy(struct emac_adapter *adpt, u32 speed,
-					 bool autoneg)
+static int emac_rgmii_link_setup_no_ephy(struct emac_adapter *adpt)
 {
 	emac_err(adpt, "error rgmii can't setup phy link without ephy\n");
 	return -ENOTSUPP;
 }
 
-static int emac_rgmii_link_check_no_ephy(struct emac_adapter *adpt, u32 *speed,
-					 bool *link_up)
+static int emac_rgmii_link_check_no_ephy(struct emac_adapter *adpt,
+					 struct phy_device *phydev)
 {
 	emac_err(adpt, "error rgmii can't check phy link without ephy\n");
 	return -ENOTSUPP;
@@ -160,18 +137,20 @@ static void emac_rgmii_down_nop(struct emac_adapter *adpt)
 
 static void emac_rgmii_tx_clk_set_rate(struct emac_adapter *adpt)
 {
-	switch (adpt->phy.link_speed) {
-	case EMAC_LINK_SPEED_1GB_FULL:
+	struct phy_device *phydev = adpt->phydev;
+
+	switch (phydev->speed) {
+	case SPEED_1000:
 		clk_set_rate(adpt->clk[EMAC_CLK_TX].clk, EMC_CLK_RATE_125MHZ);
 		break;
-	case EMAC_LINK_SPEED_100_FULL:
-	case EMAC_LINK_SPEED_100_HALF:
+	case SPEED_100:
 		clk_set_rate(adpt->clk[EMAC_CLK_TX].clk, EMC_CLK_RATE_25MHZ);
 		break;
-	case EMAC_LINK_SPEED_10_FULL:
-	case EMAC_LINK_SPEED_10_HALF:
+	case SPEED_10:
 		clk_set_rate(adpt->clk[EMAC_CLK_TX].clk, EMC_CLK_RATE_2_5MHZ);
 		break;
+	default:
+		emac_err(adpt, "error tx clk set rate because of unknown speed\n");
 	}
 }
 
@@ -183,9 +162,7 @@ struct emac_phy_ops emac_rgmii_ops = {
 	.config			= emac_rgmii_config,
 	.up			= emac_rgmii_up_nop,
 	.down			= emac_rgmii_down_nop,
-	.init			= emac_rgmii_init,
 	.reset			= emac_rgmii_reset_nop,
-	.init_ephy		= emac_rgmii_init_ephy,
 	.link_setup_no_ephy	= emac_rgmii_link_setup_no_ephy,
 	.link_check_no_ephy	= emac_rgmii_link_check_no_ephy,
 	.tx_clk_set_rate	= emac_rgmii_tx_clk_set_rate,
