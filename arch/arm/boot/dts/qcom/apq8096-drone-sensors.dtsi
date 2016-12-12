@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -249,9 +249,18 @@
 	};
 
 	spi@7575000 { /* BLSP1 QUP1 - SPI1 */
-		pinctrl-0 = <&spi_0_active &spi_0_cs0_active &spi_0_cs1_active>;
-		pinctrl-1 = <&spi_0_sleep &spi_0_cs0_sleep &spi_0_cs1_sleep>;
-		status = "disabled";
+		pinctrl-0 = <&spi_0_active>;
+		pinctrl-1 = <&spi_0_sleep>;
+		status = "ok";
+		mpu9250-spi@0 {
+			compatible = "invn,mpu9250";
+			reg = <0>;
+			spi-max-frequency = <8000000>;
+			invn,mpu9250-irq = <&tlmm 79 0>;
+			spi-cpol;
+			spi-cpha;
+			status = "ok";
+		};
 	};
 
 	spi@75B8000 { /* BLSP2 QUP4 - SPI10 */
