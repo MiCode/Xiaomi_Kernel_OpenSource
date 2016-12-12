@@ -816,6 +816,73 @@ static ssize_t mdss_fb_get_dfps_mode(struct device *dev,
 	return ret;
 }
 
+static ssize_t mdss_fb_change_persist_mode(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t len)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_info *pinfo = NULL;
+	struct mdss_panel_data *pdata;
+	int ret = 0;
+	u32 persist_mode;
+
+	if (!mfd || !mfd->panel_info) {
+		pr_err("%s: Panel info is NULL!\n", __func__);
+	return len;
+	}
+
+	pinfo = mfd->panel_info;
+
+	if (kstrtouint(buf, 0, &persist_mode)) {
+		pr_err("kstrtouint buf error!\n");
+		return len;
+	}
+
+	mutex_lock(&mfd->mdss_sysfs_lock);
+	if (mdss_panel_is_power_off(mfd->panel_power_state)) {
+		pinfo->persist_mode = persist_mode;
+		goto end;
+	}
+
+	mutex_lock(&mfd->bl_lock);
+
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+	if ((pdata) && (pdata->apply_display_setting))
+		ret = pdata->apply_display_setting(pdata, persist_mode);
+
+	mutex_unlock(&mfd->bl_lock);
+
+	if (!ret) {
+		pr_debug("%s: Persist mode %d\n", __func__, persist_mode);
+		pinfo->persist_mode = persist_mode;
+	}
+
+end:
+	mutex_unlock(&mfd->mdss_sysfs_lock);
+	return len;
+}
+
+static ssize_t mdss_fb_get_persist_mode(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_data *pdata;
+	struct mdss_panel_info *pinfo;
+	int ret;
+
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+	if (!pdata) {
+		pr_err("no panel connected!\n");
+		return -EINVAL;
+	}
+	pinfo = &pdata->panel_info;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", pinfo->persist_mode);
+
+	return ret;
+}
+
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO | S_IWUSR, mdss_fb_show_split,
 					mdss_fb_store_split);
@@ -834,6 +901,8 @@ static DEVICE_ATTR(msm_fb_dfps_mode, S_IRUGO | S_IWUSR,
 	mdss_fb_get_dfps_mode, mdss_fb_change_dfps_mode);
 static DEVICE_ATTR(measured_fps, S_IRUGO | S_IWUSR | S_IWGRP,
 	mdss_fb_get_fps_info, NULL);
+static DEVICE_ATTR(msm_fb_persist_mode, S_IRUGO | S_IWUSR,
+	mdss_fb_get_persist_mode, mdss_fb_change_persist_mode);
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
 	&dev_attr_msm_fb_split.attr,
@@ -846,6 +915,7 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_panel_status.attr,
 	&dev_attr_msm_fb_dfps_mode.attr,
 	&dev_attr_measured_fps.attr,
+	&dev_attr_msm_fb_persist_mode.attr,
 	NULL,
 };
 
@@ -1196,6 +1266,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mfd->file_list);
 
 	mutex_init(&mfd->bl_lock);
+	mutex_init(&mfd->mdss_sysfs_lock);
 	mutex_init(&mfd->switch_lock);
 
 	fbi_list[fbi_list_index++] = fbi;
@@ -1962,7 +2033,7 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 			mfd->index, ret);
 		return ret;
 	}
-
+	mutex_lock(&mfd->mdss_sysfs_lock);
 	if (mfd->op_enable == 0) {
 		if (blank_mode == FB_BLANK_UNBLANK)
 			mfd->suspend.panel_power_state = MDSS_PANEL_POWER_ON;
@@ -1972,7 +2043,8 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 			mfd->suspend.panel_power_state = MDSS_PANEL_POWER_LP1;
 		else
 			mfd->suspend.panel_power_state = MDSS_PANEL_POWER_OFF;
-		return 0;
+		ret = 0;
+		goto end;
 	}
 	pr_debug("mode: %d\n", blank_mode);
 
@@ -1986,7 +2058,11 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 		pdata->panel_info.is_lpm_mode = false;
 	}
 
-	return mdss_fb_blank_sub(blank_mode, info, mfd->op_enable);
+	ret = mdss_fb_blank_sub(blank_mode, info, mfd->op_enable);
+
+end:
+	mutex_unlock(&mfd->mdss_sysfs_lock);
+	return ret;
 }
 
 static inline int mdss_fb_create_ion_client(struct msm_fb_data_type *mfd)

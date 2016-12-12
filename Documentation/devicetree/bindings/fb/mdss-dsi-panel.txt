@@ -61,6 +61,30 @@ Required properties:
 						 transmitted
 					byte 5, 6: 16 bits length in network byte order
 					byte 7 and beyond: number byte of payload
+- qcom,mdss-dsi-lp-mode-on:		This is used to enable display low persistence mode.
+					A byte stream formed by multiple dcs packets base on
+					qcom dsi controller protocol.
+					byte 0: dcs data type
+					byte 1: set to indicate this is an individual packet
+						 (no chain)
+					byte 2: virtual channel number
+					byte 3: expect ack from client (dcs read command)
+					byte 4: wait number of specified ms after dcs command
+						 transmitted
+					byte 5, 6: 16 bits length in network byte order
+					byte 7 and beyond: number byte of payload
+- qcom,mdss-dsi-lp-mode-off:		This is used to disable display low persistence mode.
+					A byte stream formed by multiple dcs packets base on
+					qcom dsi controller protocol.
+					byte 0: dcs data type
+					byte 1: set to indicate this is an individual packet
+						 (no chain)
+					byte 2: virtual channel number
+					byte 3: expect ack from client (dcs read command)
+					byte 4: wait number of specified ms after dcs command
+						 transmitted
+					byte 5, 6: 16 bits length in network byte order
+					byte 7 and beyond: number byte of payload
 - qcom,mdss-dsi-post-panel-on-command:	same as "qcom,mdss-dsi-on-command" except commands are
 					sent after displaying an image.
 
@@ -611,6 +635,9 @@ Example:
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-off-command = [22 01 00 00 00 00 00];
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-lp-mode-on = [32 01 00 00 00 00 02 00 00
+					29 01 00 00 10 00 02 FF 99];
+		qcom,mdss-dsi-lp-mode-off = [22 01 00 00 00 00 00];
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 		qcom,mdss-dsi-pan-enable-dynamic-fps;
 		qcom,mdss-dsi-pan-fps-update = "dfps_suspend_resume_mode";
