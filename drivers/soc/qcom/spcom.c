@@ -731,7 +731,9 @@ static int spcom_close(struct spcom_channel *ch)
 
 	ch->glink_handle = NULL;
 	ch->ref_count = 0;
-
+	ch->rx_abort = false;
+	ch->tx_abort = false;
+	ch->glink_state = GLINK_LOCAL_DISCONNECTED;
 	ch->txn_id = INITIAL_TXN_ID; /* use non-zero nonce for debug */
 	ch->pid = 0;
 
