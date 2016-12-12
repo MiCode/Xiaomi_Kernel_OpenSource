@@ -594,6 +594,7 @@ static void sde_encoder_underrun_callback(struct drm_encoder *drm_enc,
 		return;
 
 	atomic_inc(&phy_enc->underrun_cnt);
+	SDE_EVT32(DRMID(drm_enc), atomic_read(&phy_enc->underrun_cnt));
 }
 
 void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
