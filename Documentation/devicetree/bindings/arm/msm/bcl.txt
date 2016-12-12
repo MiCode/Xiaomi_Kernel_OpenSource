@@ -38,17 +38,19 @@ Optional parameters:
 - qcom,bcl-framework-interface: If this property is defined, then the BCL uses
 		the BCL framework for monitoring battery voltage and current.
 		When this property is defined, the 'qcom,high-threshold-uamp',
-		'qcom,low-threshold-uamp', 'qcom,mitigation-freq-khz',
-		'qcom,vph-high-threshold-uv', 'qcom,vph-low-threshold-uv' and
-		'qcom,thermal-handle' properties should be defined in the
-		'qcom,ibat-monitor' node.
+		'qcom,low-threshold-uamp', 'qcom,vph-high-threshold-uv',
+		'qcom,vph-low-threshold-uv' and 'qcom,thermal-handle' properties
+		should be defined in the 'qcom,ibat-monitor' node.
 - qcom,bcl-hotplug-list = <hotplug-phandle-list>: List of phandles to the cores
 		that are to be hotplugged, when battery current limit condition
 		is reached.
 - qcom,bcl-soc-hotplug-list: List of phandles to the cores that are to be hotplugged,
 		when battery SOC limit condition is reached.
-- qcom,bcl-freq-control-list: List of phandles to the cores that are to be frequency
-                mitigated when BCL condition is reached.
+- qcom,bcl-freq-control-list: This optional property takes list of phandles to the
+		cores that are to be frequency mitigated when BCL condition is
+		reached. When this property is defined, 'qcom,mitigation-freq-khz'
+		and 'qcom,thermal-handle' should be defined in the
+		'qcom,ibat-monitor' node.
 - qcom,bcl-no-bms: This is an optional node for BCL IAVAIL monitor mode.
 		If this property is defined, BCL IAVAIL monitor gets rbat value
 		from power supply battery module instead of bms module.
@@ -65,10 +67,12 @@ Optional nodes:
 		which the BCL driver should cap the maximum frequency.
 	* qcom,low-threshold-uamp: The battery current, in microampere, below
 		which the BCL driver should clear the CPU frequency mitigation.
-	* qcom,mitigation-freq-khz: The maximum frequency value the BCL driver
-		should mitigate the CPUS's with. This frequency shouldn't be
-		less than the minimum frequency request that the kernel thermal
-		monitor driver places during vdd restriction.
+	* qcom,mitigation-freq-khz: This optional property defines the maximum
+		frequency value the BCL driver should mitigate the CPUS's with.
+		This property is valid only if 'qcom,bcl-freq-control-list' is
+		defined in bcl parent node. This frequency shouldn't be less than
+		the minimum frequency request that the kernel thermal monitor
+		driver places during vdd restriction.
 	* qcom,ibat-channel: The ADC hardware's Ibat channel number.
 	* qcom,uv-to-ua-numerator: The conversion parameter required for converting
 		the voltage measure from ADC hardware to current value.
@@ -92,7 +96,8 @@ Optional nodes:
 		used by BCL driver to get the minimum frequency request that the
 		thermal driver places during vdd restriction. This frequency
 		value will be the lowest max frequency value the BCL driver can
-		request.
+		request. This property is valid only if 'qcom,bcl-freq-control-list'
+		is defined in bcl parent node.
 	* qcom,soc-low-threshold: The battery SOC percentage threshold below which
 		mitigation needs to be applied.
 

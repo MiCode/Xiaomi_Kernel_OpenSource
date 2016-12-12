@@ -1495,10 +1495,7 @@ static int probe_bcl_periph_prop(struct bcl_context *bcl)
 		bcl->ibat_high_thresh.trip_value);
 	if (ret)
 		goto ibat_probe_exit;
-	BCL_FETCH_DT_U32(ibat_node, key, "qcom,mitigation-freq-khz", ret,
-		bcl->bcl_p_freq_max);
-	if (ret)
-		goto ibat_probe_exit;
+
 	BCL_FETCH_DT_U32(ibat_node, key, "qcom,vph-high-threshold-uv", ret,
 		bcl->vbat_high_thresh.trip_value);
 	if (ret)
@@ -1520,7 +1517,18 @@ static int probe_bcl_periph_prop(struct bcl_context *bcl)
 		= bcl->ibat_low_thresh.trip_notify = bcl_periph_ibat_notify;
 	bcl->ibat_high_thresh.trip_data
 		= bcl->ibat_low_thresh.trip_data = (void *) bcl;
-	get_vdd_rstr_freq(bcl, ibat_node);
+
+	if (bcl_frequency_mask) {
+		BCL_FETCH_DT_U32(ibat_node, key, "qcom,mitigation-freq-khz",
+			ret, bcl->bcl_p_freq_max);
+		if (ret)
+			goto ibat_probe_exit;
+		get_vdd_rstr_freq(bcl, ibat_node);
+	} else {
+		bcl->bcl_p_freq_max = UINT_MAX;
+		bcl->thermal_freq_limit = 0;
+	}
+
 	bcl->bcl_p_freq_max = max(bcl->bcl_p_freq_max, bcl->thermal_freq_limit);
 
 	bcl->btm_mode = BCL_MONITOR_DISABLED;
@@ -1574,11 +1582,6 @@ static int probe_btm_properties(struct bcl_context *bcl)
 		goto btm_probe_exit;
 	bcl->btm_high_threshold_uv = current_to_voltage(bcl, curr_ua);
 
-	key = "qcom,mitigation-freq-khz";
-	ret = of_property_read_u32(ibat_node, key, &bcl->btm_freq_max);
-	if (ret < 0)
-		goto btm_probe_exit;
-
 	key = "qcom,ibat-channel";
 	ret = of_property_read_u32(ibat_node, key, &bcl->btm_ibat_chan);
 	if (ret < 0)
@@ -1618,7 +1621,17 @@ static int probe_btm_properties(struct bcl_context *bcl)
 		ret = PTR_ERR(bcl->btm_vadc_dev);
 		goto btm_probe_exit;
 	}
-	get_vdd_rstr_freq(bcl, ibat_node);
+
+	if (bcl_frequency_mask) {
+		key = "qcom,mitigation-freq-khz";
+		ret = of_property_read_u32(ibat_node, key, &bcl->btm_freq_max);
+		if (ret < 0)
+			goto btm_probe_exit;
+		get_vdd_rstr_freq(bcl, ibat_node);
+	} else {
+		bcl->btm_freq_max = UINT_MAX;
+		bcl->thermal_freq_limit = 0;
+	}
 	bcl->btm_freq_max = max(bcl->btm_freq_max, bcl->thermal_freq_limit);
 
 	bcl->btm_mode = BCL_MONITOR_DISABLED;
@@ -1738,6 +1751,8 @@ static int bcl_probe(struct platform_device *pdev)
 		}
 	}
 	for_each_possible_cpu(cpu) {
+		if (!(bcl_frequency_mask & BIT(cpu)))
+			continue;
 		snprintf(cpu_str, MAX_CPU_NAME, "cpu%d", cpu);
 		bcl->cpufreq_handle[cpu] = devmgr_register_mitigation_client(
 					&pdev->dev, cpu_str, NULL);
