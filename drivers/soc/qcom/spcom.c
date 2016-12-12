@@ -352,11 +352,11 @@ static void spcom_link_state_notif_cb(struct glink_link_state_cb_info *cb_info,
 
 	switch (cb_info->link_state) {
 	case GLINK_LINK_STATE_UP:
-		pr_debug("GLINK_LINK_STATE_UP.\n");
+		pr_info("GLINK_LINK_STATE_UP.\n");
 		spcom_create_predefined_channels_chardev();
 		break;
 	case GLINK_LINK_STATE_DOWN:
-		pr_debug("GLINK_LINK_STATE_DOWN.\n");
+		pr_err("GLINK_LINK_STATE_DOWN.\n");
 		break;
 	default:
 		pr_err("unknown link_state [%d].\n", cb_info->link_state);
@@ -466,7 +466,7 @@ static void spcom_notify_state(void *handle, const void *priv, unsigned event)
 		 * This is not expected on normal operation.
 		 * This may happen upon remote SSR.
 		 */
-		pr_debug("GLINK_REMOTE_DISCONNECTED, ch [%s].\n", ch->name);
+		pr_err("GLINK_REMOTE_DISCONNECTED, ch [%s].\n", ch->name);
 		/*
 		 * after glink_close(),
 		 * expecting notify GLINK_LOCAL_DISCONNECTED
