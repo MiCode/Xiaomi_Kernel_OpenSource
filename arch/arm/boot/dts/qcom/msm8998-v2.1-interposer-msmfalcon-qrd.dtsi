@@ -42,6 +42,10 @@
 	};
 };
 
+&blsp1_uart3_hs {
+	status = "ok";
+};
+
 &uartblsp2dm1 {
 	status = "ok";
 	pinctrl-names = "default";
