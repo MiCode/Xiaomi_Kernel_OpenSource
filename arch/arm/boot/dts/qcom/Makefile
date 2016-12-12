@@ -138,7 +138,8 @@ dtb-$(CONFIG_ARCH_MSMFALCON) += msmfalcon-sim.dtb \
 	msmfalcon-rumi.dtb \
 	msmfalcon-cdp.dtb \
 	msmfalcon-mtp.dtb \
-	msmfalcon-rcm.dtb
+	msmfalcon-rcm.dtb \
+	msmfalcon-qrd.dtb
 
 dtb-$(CONFIG_ARCH_MSMTRITON) += msmtriton-rumi.dtb
 
