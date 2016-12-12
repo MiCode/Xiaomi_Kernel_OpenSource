@@ -1029,6 +1029,8 @@
 #include "msmtriton-ion.dtsi"
 #include "msm-pmfalcon.dtsi"
 #include "msm-pm2falcon.dtsi"
+#include "msm-pmfalcon-rpm-regulator.dtsi"
+#include "msm-pm2falcon-rpm-regulator.dtsi"
 #include "msmtriton-regulator.dtsi"
 #include "msm-gdsc-falcon.dtsi"
 #include "msmfalcon-common.dtsi"
