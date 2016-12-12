@@ -5204,6 +5204,14 @@ static int tavil_mad_input_put(struct snd_kcontrol *kcontrol,
 
 	tavil_mad_input = ucontrol->value.integer.value[0];
 
+	if (tavil_mad_input >= sizeof(tavil_conn_mad_text)/
+	    sizeof(tavil_conn_mad_text[0])) {
+		dev_err(codec->dev,
+			"%s: tavil_mad_input = %d out of bounds\n",
+			__func__, tavil_mad_input);
+		return -EINVAL;
+	}
+
 	if (strnstr(tavil_conn_mad_text[tavil_mad_input], "NOTUSED",
 				sizeof("NOTUSED"))) {
 		dev_dbg(codec->dev,
