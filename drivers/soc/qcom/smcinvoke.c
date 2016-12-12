@@ -243,7 +243,7 @@ static int marshal_out(void *buf, uint32_t buf_size,
 			pr_err("%s: buffer overflow detected\n", __func__);
 			goto out;
 		}
-		if (copy_to_user((void __user *)(args_buf[i].b.addr),
+		if (copy_to_user((void __user *)(uintptr_t)(args_buf[i].b.addr),
 			(uint8_t *)(buf) + tz_args->b.offset,
 						tz_args->b.size)) {
 			pr_err("Error %d copying ctxt to user\n", ret);
@@ -328,7 +328,7 @@ static int marshal_in(const struct smcinvoke_cmd_req *req,
 		tz_args++;
 
 		if (copy_from_user(buf+offset,
-				(void __user *)(args_buf[i].b.addr),
+			(void __user *)(uintptr_t)(args_buf[i].b.addr),
 						args_buf[i].b.size))
 			goto out;
 
@@ -397,7 +397,7 @@ long smcinvoke_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 			}
 
 			ret = copy_from_user(args_buf,
-						(void __user *)(req.args),
+					(void __user *)(uintptr_t)(req.args),
 						nr_args * req.argsize);
 
 			if (ret) {
@@ -432,8 +432,8 @@ long smcinvoke_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 
 		ret = marshal_out(in_msg, inmsg_size, &req, args_buf);
 
-		ret |=  copy_to_user((void __user *)(req.args), args_buf,
-						nr_args * req.argsize);
+		ret |=  copy_to_user((void __user *)(uintptr_t)(req.args),
+					args_buf, nr_args * req.argsize);
 		ret |=  copy_to_user((void __user *)arg, &req, sizeof(req));
 		if (ret)
 			goto out;
