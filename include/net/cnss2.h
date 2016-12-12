@@ -77,7 +77,8 @@ struct cnss_wlan_driver {
 enum cnss_driver_status {
 	CNSS_UNINITIALIZED,
 	CNSS_INITIALIZED,
-	CNSS_LOAD_UNLOAD
+	CNSS_LOAD_UNLOAD,
+	CNSS_RECOVERY,
 };
 
 extern int cnss_wlan_register_driver(struct cnss_wlan_driver *driver);

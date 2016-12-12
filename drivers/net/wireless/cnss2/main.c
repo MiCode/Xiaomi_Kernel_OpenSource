@@ -646,7 +646,7 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 				    ret);
 			goto suspend_link;
 		}
-	} else if (plat_priv->recovery_in_progress) {
+	} else if (plat_priv->driver_status == CNSS_RECOVERY) {
 		ret = plat_priv->driver_ops->reinit(pci_priv->pci_dev,
 						    pci_priv->pci_device_id);
 		if (ret) {
@@ -654,7 +654,7 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 				    ret);
 			goto suspend_link;
 		}
-		plat_priv->recovery_in_progress = false;
+		plat_priv->driver_status = CNSS_INITIALIZED;
 	} else {
 		cnss_pr_err("Driver state is not correct to power up!\n");
 		ret = -EINVAL;
@@ -687,7 +687,7 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 		cnss_pci_set_monitor_wake_intr(pci_priv, false);
 		cnss_pci_set_auto_suspended(pci_priv, 0);
 	} else {
-		plat_priv->recovery_in_progress = true;
+		plat_priv->driver_status = CNSS_RECOVERY;
 		plat_priv->driver_ops->shutdown(pci_priv->pci_dev);
 	}
 
@@ -861,7 +861,7 @@ void cnss_device_self_recovery(void)
 		return;
 	}
 
-	if (plat_priv->recovery_in_progress) {
+	if (plat_priv->driver_status == CNSS_RECOVERY) {
 		cnss_pr_err("Recovery is already in progress!\n");
 		return;
 	}
@@ -873,13 +873,13 @@ void cnss_device_self_recovery(void)
 
 	subsys_info = &plat_priv->subsys_info;
 	plat_priv->recovery_count++;
-	plat_priv->recovery_in_progress = true;
+	plat_priv->driver_status = CNSS_RECOVERY;
 	pm_stay_awake(&plat_priv->plat_dev->dev);
 	cnss_shutdown(&subsys_info->subsys_desc, false);
 	udelay(WLAN_RECOVERY_DELAY);
 	cnss_powerup(&subsys_info->subsys_desc);
 	pm_relax(&plat_priv->plat_dev->dev);
-	plat_priv->recovery_in_progress = false;
+	plat_priv->driver_status = CNSS_INITIALIZED;
 }
 EXPORT_SYMBOL(cnss_device_self_recovery);
 

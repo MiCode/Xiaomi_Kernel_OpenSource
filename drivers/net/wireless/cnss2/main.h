@@ -97,7 +97,6 @@ struct cnss_plat_data {
 	struct cnss_wlan_driver *driver_ops;
 	enum cnss_driver_status driver_status;
 	uint32_t recovery_count;
-	bool recovery_in_progress;
 	struct cnss_wlan_mac_info wlan_mac_info;
 };
 
