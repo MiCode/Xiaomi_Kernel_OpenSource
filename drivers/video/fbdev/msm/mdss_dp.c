@@ -1387,6 +1387,7 @@ static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv)
 	wmb();
 	mdss_dp_disable_mainlink_clocks(dp_drv);
 	dp_drv->power_on = false;
+	dp_drv->sink_info_read = false;
 
 	mutex_unlock(&dp_drv->train_mutex);
 	complete_all(&dp_drv->irq_comp);
@@ -1434,6 +1435,8 @@ static int mdss_dp_off_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	dp_drv->dp_initialized = false;
 
 	dp_drv->power_on = false;
+	dp_drv->sink_info_read = false;
+
 	mdss_dp_ack_state(dp_drv, false);
 	mutex_unlock(&dp_drv->train_mutex);
 	pr_debug("DP off done\n");
@@ -1545,7 +1548,7 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 			panel_data);
 
 	if (dp_drv->dp_initialized) {
-		pr_err("%s: host init done already\n", __func__);
+		pr_debug("%s: host init done already\n", __func__);
 		return 0;
 	}
 
@@ -1588,37 +1591,47 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	mdss_dp_phy_aux_setup(&dp_drv->phy_io);
 
 	mdss_dp_irq_enable(dp_drv);
-	pr_debug("irq enabled\n");
-	mdss_dp_dpcd_cap_read(dp_drv);
-
-	ret = mdss_dp_edid_read(dp_drv);
-	if (ret) {
-		pr_info("edid read error, setting default resolution\n");
-		mdss_dp_set_default_resolution(dp_drv);
-		goto edid_error;
-	}
-
-	pr_debug("edid_read success. buf_size=%d\n",
-				dp_drv->edid_buf_size);
-
-	ret = hdmi_edid_parser(dp_drv->panel_data.panel_info.edid_data);
-	if (ret) {
-		DEV_ERR("%s: edid parse failed\n", __func__);
-		goto edid_error;
-	}
-
-edid_error:
-	mdss_dp_update_cable_status(dp_drv, true);
-	mdss_dp_notify_clients(dp_drv, true);
 	dp_drv->dp_initialized = true;
 
-	return ret;
+	return 0;
 
 clk_error:
 	mdss_dp_regulator_ctrl(dp_drv, false);
 	mdss_dp_config_gpios(dp_drv, false);
 vreg_error:
 	return ret;
+}
+
+static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
+{
+	int ret;
+
+	if (dp->sink_info_read)
+		return 0;
+
+	mdss_dp_dpcd_cap_read(dp);
+
+	ret = mdss_dp_edid_read(dp);
+	if (ret) {
+		pr_debug("edid read error, setting default resolution\n");
+
+		mdss_dp_set_default_resolution(dp);
+		goto end;
+	}
+
+	ret = hdmi_edid_parser(dp->panel_data.panel_info.edid_data);
+	if (ret) {
+		pr_err("edid parse failed\n");
+		goto end;
+	}
+
+	dp->sink_info_read = true;
+end:
+	mdss_dp_update_cable_status(dp, true);
+	mdss_dp_notify_clients(dp, true);
+
+	return ret;
+
 }
 
 static int mdss_dp_check_params(struct mdss_dp_drv_pdata *dp, void *arg)
@@ -2703,8 +2716,10 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		dp_drv->alt_mode.current_state |= DP_CONFIGURE_DONE;
 		pr_debug("Configure: config USBPD to DP done\n");
 
+		mdss_dp_host_init(&dp_drv->panel_data);
+
 		if (dp_drv->alt_mode.dp_status.hpd_high)
-			mdss_dp_host_init(&dp_drv->panel_data);
+			mdss_dp_process_hpd_high(dp_drv);
 		break;
 	default:
 		pr_err("unknown cmd: %d\n", cmd);
@@ -2752,12 +2767,12 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 
 	dp_drv->alt_mode.current_state |= DP_STATUS_DONE;
 
-	if (dp_drv->alt_mode.current_state & DP_CONFIGURE_DONE)
+	if (dp_drv->alt_mode.current_state & DP_CONFIGURE_DONE) {
 		mdss_dp_host_init(&dp_drv->panel_data);
-	else
+		mdss_dp_process_hpd_high(dp_drv);
+	} else {
 		dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
-
-	pr_debug("exit\n");
+	}
 }
 
 static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp)
