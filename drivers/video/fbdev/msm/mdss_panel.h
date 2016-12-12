@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -115,6 +115,11 @@ enum {
 	MDSS_PANEL_BLANK_BLANK = 0,
 	MDSS_PANEL_BLANK_UNBLANK,
 	MDSS_PANEL_BLANK_LOW_POWER,
+};
+
+enum {
+	MDSS_PANEL_LOW_PERSIST_MODE_OFF = 0,
+	MDSS_PANEL_LOW_PERSIST_MODE_ON,
 };
 
 enum {
@@ -892,6 +897,9 @@ struct mdss_panel_info {
 	/* debugfs structure for the panel */
 	struct mdss_panel_debugfs_info *debugfs_info;
 
+	/* persistence mode on/off */
+	bool persist_mode;
+
 	/* stores initial adaptive variable refresh vtotal value */
 	u32 saved_avr_vtotal;
 
@@ -936,6 +944,7 @@ struct mdss_panel_timing {
 struct mdss_panel_data {
 	struct mdss_panel_info panel_info;
 	void (*set_backlight) (struct mdss_panel_data *pdata, u32 bl_level);
+	int (*apply_display_setting)(struct mdss_panel_data *pdata, u32 mode);
 	unsigned char *mmss_cc_base;
 
 	/**
