@@ -928,7 +928,7 @@ static int mpq_map_buffer_to_kernel(
 		MPQ_DVB_DBG_PRINT("%s: secured buffer\n", __func__);
 		*kernel_mem = NULL;
 	} else {
-		unsigned long tmp;
+		size_t tmp;
 		*kernel_mem = ion_map_kernel(client, ion_handle);
 		if (IS_ERR_OR_NULL(*kernel_mem)) {
 			ret = PTR_ERR(*kernel_mem);
@@ -940,7 +940,7 @@ static int mpq_map_buffer_to_kernel(
 		}
 		ion_handle_get_size(client, ion_handle, &tmp);
 		MPQ_DVB_DBG_PRINT(
-			"%s: mapped to address 0x%p, size=%lu\n",
+			"%s: mapped to address 0x%p, size=%zu\n",
 			__func__, *kernel_mem, tmp);
 	}
 
