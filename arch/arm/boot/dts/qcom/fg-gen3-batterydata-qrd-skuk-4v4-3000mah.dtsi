@@ -12,7 +12,7 @@
 
 qcom,qrd_msm8998_skuk_3000mah {
 	qcom,max-voltage-uv = <4400000>;
-	qcom,nom-batt-capacity-mah = <3000>;
+	qcom,fastchg-current-ma = <3000>;
 	qcom,batt-id-kohm = <68>;
 	qcom,battery-beta = <3380>;
 	qcom,battery-type = "qrd_msm8998_skuk_300mah";
