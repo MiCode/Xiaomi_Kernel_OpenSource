@@ -195,7 +195,7 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 		if (rc < 0)
 			msm_isp_halt_send_error(vfe_dev,
-				ISP_EVENT_BUF_FATAL_ERROR);
+				ISP_EVENT_PING_PONG_MISMATCH);
 		return rc;
 	}
 

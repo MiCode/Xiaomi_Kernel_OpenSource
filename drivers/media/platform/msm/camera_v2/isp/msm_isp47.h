@@ -30,6 +30,8 @@ enum msm_vfe47_stats_comp_idx {
 
 extern struct msm_vfe_hardware_info vfe47_hw_info;
 
+void msm_vfe47_read_and_clear_irq_status(struct vfe_device *vfe_dev,
+	uint32_t *irq_status0, uint32_t *irq_status1);
 void msm_vfe47_read_irq_status(struct vfe_device *vfe_dev,
 	uint32_t *irq_status0, uint32_t *irq_status1);
 void msm_vfe47_enable_camif_error(struct vfe_device *vfe_dev,

@@ -558,6 +558,7 @@ static int msm_isp_composite_irq(struct vfe_device *vfe_dev,
 {
 	/* interrupt recv on same vfe w/o recv on other vfe */
 	if (stream_info->composite_irq[irq] & (1 << vfe_dev->pdev->id)) {
+		msm_isp_dump_ping_pong_mismatch(vfe_dev);
 		pr_err("%s: irq %d out of sync for dual vfe on vfe %d\n",
 			__func__, irq, vfe_dev->pdev->id);
 		return -EINVAL;
@@ -1604,7 +1605,23 @@ void msm_isp_halt_send_error(struct vfe_device *vfe_dev, uint32_t event)
 	struct msm_isp_event_data error_event;
 	struct msm_vfe_axi_halt_cmd halt_cmd;
 	struct vfe_device *temp_dev = NULL;
+	uint32_t irq_status0 = 0, irq_status1 = 0;
 
+	if (atomic_read(&vfe_dev->error_info.overflow_state) !=
+		NO_OVERFLOW)
+		/* Recovery is already in Progress */
+		return;
+
+	if (event == ISP_EVENT_PING_PONG_MISMATCH &&
+		vfe_dev->axi_data.recovery_count < MAX_RECOVERY_THRESHOLD) {
+		pr_err("%s: ping pong mismatch on vfe%d recovery count %d\n",
+			__func__, vfe_dev->pdev->id,
+			vfe_dev->axi_data.recovery_count);
+		msm_isp_process_overflow_irq(vfe_dev,
+			&irq_status0, &irq_status1, 1);
+		vfe_dev->axi_data.recovery_count++;
+		return;
+	}
 	memset(&halt_cmd, 0, sizeof(struct msm_vfe_axi_halt_cmd));
 	memset(&error_event, 0, sizeof(struct msm_isp_event_data));
 	halt_cmd.stop_camif = 1;
@@ -3777,6 +3794,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 			(~(pingpong_status >>
 			stream_info->wm[vfe_idx][i]) & 0x1)) {
 			spin_unlock_irqrestore(&stream_info->lock, flags);
+			msm_isp_dump_ping_pong_mismatch(vfe_dev);
 			pr_err("%s: Write master ping pong mismatch. Status: 0x%x %x\n",
 				__func__, pingpong_status,
 				stream_info->stream_src);
@@ -3798,7 +3816,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 		if (rc < 0)
 			msm_isp_halt_send_error(vfe_dev,
-					ISP_EVENT_BUF_FATAL_ERROR);
+					ISP_EVENT_PING_PONG_MISMATCH);
 		return;
 	}
 
