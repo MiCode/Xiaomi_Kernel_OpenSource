@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,11 +51,11 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 	dsi_mode->panel_mode = 0; /* TODO: Panel Mode */
 
 	if (msm_is_mode_seamless(drm_mode))
-		dsi_mode->flags |= DSI_MODE_FLAG_SEAMLESS;
+		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_SEAMLESS;
 	if (msm_is_mode_dynamic_fps(drm_mode))
-		dsi_mode->flags |= DSI_MODE_FLAG_DFPS;
+		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_DFPS;
 	if (msm_needs_vblank_pre_modeset(drm_mode))
-		dsi_mode->flags |= DSI_MODE_FLAG_VBLANK_PRE_MODESET;
+		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_VBLANK_PRE_MODESET;
 }
 
 static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
@@ -81,11 +81,11 @@ static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 	drm_mode->vrefresh = dsi_mode->timing.refresh_rate;
 	drm_mode->clock = dsi_mode->pixel_clk_khz;
 
-	if (dsi_mode->flags & DSI_MODE_FLAG_SEAMLESS)
+	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_SEAMLESS)
 		drm_mode->flags |= DRM_MODE_FLAG_SEAMLESS;
-	if (dsi_mode->flags & DSI_MODE_FLAG_DFPS)
+	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_DFPS)
 		drm_mode->private_flags |= MSM_MODE_FLAG_SEAMLESS_DYNAMIC_FPS;
-	if (dsi_mode->flags & DSI_MODE_FLAG_VBLANK_PRE_MODESET)
+	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_VBLANK_PRE_MODESET)
 		drm_mode->private_flags |= MSM_MODE_FLAG_VBLANK_PRE_MODESET;
 
 	drm_mode_set_name(drm_mode);
@@ -125,7 +125,7 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 		return;
 	}
 
-	if (c_bridge->dsi_mode.flags & DSI_MODE_FLAG_SEAMLESS) {
+	if (c_bridge->dsi_mode.dsi_mode_flags & DSI_MODE_FLAG_SEAMLESS) {
 		pr_debug("[%d] seamless pre-enable\n", c_bridge->id);
 		return;
 	}
@@ -155,7 +155,7 @@ static void dsi_bridge_enable(struct drm_bridge *bridge)
 		return;
 	}
 
-	if (c_bridge->dsi_mode.flags & DSI_MODE_FLAG_SEAMLESS) {
+	if (c_bridge->dsi_mode.dsi_mode_flags & DSI_MODE_FLAG_SEAMLESS) {
 		pr_debug("[%d] seamless enable\n", c_bridge->id);
 		return;
 	}

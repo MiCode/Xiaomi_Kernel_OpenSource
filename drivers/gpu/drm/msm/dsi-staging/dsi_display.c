@@ -1884,12 +1884,10 @@ static bool dsi_display_is_seamless_dfps_possible(
 
 	/* skip polarity comparison */
 
-	if (cur->timing.refresh_rate == tgt->timing.refresh_rate) {
+	if (cur->timing.refresh_rate == tgt->timing.refresh_rate)
 		pr_debug("timing.refresh_rate identical %d %d\n",
 				cur->timing.refresh_rate,
 				tgt->timing.refresh_rate);
-		return false;
-	}
 
 	if (cur->pixel_clk_khz != tgt->pixel_clk_khz)
 		pr_debug("pixel_clk_khz differs %d %d\n",
@@ -1901,8 +1899,9 @@ static bool dsi_display_is_seamless_dfps_possible(
 		return false;
 	}
 
-	if (cur->flags != tgt->flags)
-		pr_debug("flags differs %d %d\n", cur->flags, tgt->flags);
+	if (cur->dsi_mode_flags != tgt->dsi_mode_flags)
+		pr_debug("flags differs %d %d\n",
+				cur->dsi_mode_flags, tgt->dsi_mode_flags);
 
 	return true;
 }
@@ -1962,6 +1961,13 @@ static int dsi_display_dfps_update(struct dsi_display *display,
 
 	panel_mode = &display->panel->mode;
 	memcpy(panel_mode, dsi_mode, sizeof(*panel_mode));
+	/*
+	 * dsi_mode_flags flags are used to communicate with other drm driver
+	 * components, and are transient. They aren't inherently part of the
+	 * display panel's mode and shouldn't be saved into the cached currently
+	 * active mode.
+	 */
+	panel_mode->dsi_mode_flags = 0;
 
 error:
 	return rc;
@@ -2094,7 +2100,7 @@ static bool dsi_display_validate_mode_seamless(struct dsi_display *display,
 		pr_debug("Dynamic FPS not supported for seamless\n");
 	} else {
 		pr_debug("Mode switch is seamless Dynamic FPS\n");
-		adj_mode->flags |= DSI_MODE_FLAG_DFPS |
+		adj_mode->dsi_mode_flags |= DSI_MODE_FLAG_DFPS |
 				DSI_MODE_FLAG_VBLANK_PRE_MODESET;
 	}
 
@@ -2121,7 +2127,7 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 	memcpy(&display->config.lane_map, &display->lane_map,
 	       sizeof(display->lane_map));
 
-	if (mode->flags & DSI_MODE_FLAG_DFPS) {
+	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DFPS) {
 		rc = dsi_display_dfps_update(display, mode);
 		if (rc) {
 			pr_err("[%s]DSI dfps update failed, rc=%d\n",
@@ -2133,7 +2139,7 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
 		rc = dsi_ctrl_update_host_config(ctrl->ctrl, &display->config,
-				mode->flags, display->dsi_clk_handle);
+				mode->dsi_mode_flags, display->dsi_clk_handle);
 		if (rc) {
 			pr_err("[%s] failed to update ctrl config, rc=%d\n",
 			       display->name, rc);
@@ -2813,7 +2819,7 @@ int dsi_display_validate_mode(struct dsi_display *display,
 	}
 
 	if ((flags & DSI_VALIDATE_FLAG_ALLOW_ADJUST) &&
-			(mode->flags & DSI_MODE_FLAG_SEAMLESS)) {
+			(mode->dsi_mode_flags & DSI_MODE_FLAG_SEAMLESS)) {
 		rc = dsi_display_validate_mode_seamless(display, mode);
 		if (rc) {
 			pr_err("[%s] seamless not possible rc=%d\n",
