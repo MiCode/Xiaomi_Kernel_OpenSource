@@ -278,6 +278,7 @@ int pil_mss_shutdown(struct pil_desc *pil)
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	int ret = 0;
 
+	dev_info(pil->dev, "MSS is shutting down\n");
 	if (drv->axi_halt_base) {
 		pil_q6v5_halt_axi_port(pil,
 			drv->axi_halt_base + MSS_Q6_HALT_BASE);
