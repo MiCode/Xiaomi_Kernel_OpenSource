@@ -62,6 +62,12 @@ Optional properties:
 			  Valid range: 1-4. 1 => PWM-G1, 2 => PWM-G2, 3 => PWM-G3, 4 => PWM-G4
 - limit-rx-pwm-gear	: Specify the max. limit on the RX PWM gear. Refer "limit-tx-pwm-gear" for expected values.
 - scsi-cmd-timeout	: Specify the command timeout (in seconds) for scsi commands
+- dev-ref-clk-freq	: Specify the device reference clock frequency, must be one of the following:
+			  0: 19.2 MHz
+			  1: 26 MHz
+			  2: 38.4 MHz
+			  3: 52 MHz
+			  Defaults to 26 MHz if not specified.
 
 Note: If above properties are not defined it can be assumed that the supply
 regulators or clocks are always on.
@@ -92,6 +98,7 @@ Example:
 		phy-names = "ufsphy";
 		rpm-level = <3>;
 		spm-level = <5>;
+		dev-ref-clk-freq = <0>; /* reference clock freq: 19.2 MHz */
 	};
 
 ==== MSM UFS platform driver properties =====

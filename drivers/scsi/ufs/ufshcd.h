@@ -737,6 +737,8 @@ struct ufs_hba {
 	unsigned int irq;
 	bool is_irq_enabled;
 
+	u32 dev_ref_clk_freq;
+
 	/* Interrupt aggregation support is broken */
 	#define UFSHCD_QUIRK_BROKEN_INTR_AGGR			UFS_BIT(0)
 
