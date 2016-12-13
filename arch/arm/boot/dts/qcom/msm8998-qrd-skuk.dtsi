@@ -119,6 +119,15 @@
 		input-name = "gpio-keys";
 		status = "okay";
 
+		home {
+			label = "home";
+			gpios = <&pm8998_gpios 5 0x1>;
+			linux,input-type = <1>;
+			linux,code = <102>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
 		vol_up {
 			label = "volume_up";
 			gpios = <&pm8998_gpios 6 0x1>;
