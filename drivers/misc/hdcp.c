@@ -1193,7 +1193,7 @@ static void hdcp_lib_msg_recvd(struct hdcp_lib_handle *handle)
 	struct hdcp_rcvd_msg_req *req_buf;
 	struct hdcp_rcvd_msg_rsp *rsp_buf;
 	uint32_t msglen;
-	char *msg;
+	char *msg = NULL;
 
 	if (!handle || !handle->qseecom_handle ||
 		!handle->qseecom_handle->sbuf) {
