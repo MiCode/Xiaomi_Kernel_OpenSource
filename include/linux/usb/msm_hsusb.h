@@ -327,6 +327,7 @@ struct msm_otg_platform_data {
 	bool enable_streaming;
 	bool enable_axi_prefetch;
 	bool enable_sdp_typec_current_limit;
+	bool vbus_low_as_hostmode;
 };
 
 /* phy related flags */
