@@ -7006,24 +7006,27 @@ static u32 ufshcd_get_max_icc_level(int sup_curr_uA, u32 start_scan, char *buff)
 }
 
 /**
- * ufshcd_calc_icc_level - calculate the max ICC level
+ * ufshcd_find_max_sup_active_icc_level - find the max ICC level
  * In case regulators are not initialized we'll return 0
  * @hba: per-adapter instance
  * @desc_buf: power descriptor buffer to extract ICC levels from.
  * @len: length of desc_buff
  *
- * Returns calculated ICC level
+ * Returns calculated max ICC level
  */
 static u32 ufshcd_find_max_sup_active_icc_level(struct ufs_hba *hba,
 							u8 *desc_buf, int len)
 {
 	u32 icc_level = 0;
 
-	if (!hba->vreg_info.vcc || !hba->vreg_info.vccq ||
-						!hba->vreg_info.vccq2) {
-		dev_err(hba->dev,
-			"%s: Regulator capability was not set, actvIccLevel=%d",
-							__func__, icc_level);
+	/*
+	 * VCCQ rail is optional for removable UFS card and also most of the
+	 * vendors don't use this rail for embedded UFS devices as well. So
+	 * it is normal that VCCQ rail may not be provided for given platform.
+	 */
+	if (!hba->vreg_info.vcc || !hba->vreg_info.vccq2) {
+		dev_err(hba->dev, "%s: Regulator capability was not set, bActiveICCLevel=%d\n",
+			__func__, icc_level);
 		goto out;
 	}
 
