@@ -705,6 +705,7 @@ static const struct freq_tbl ftbl_hmss_ahb_clk_src[] = {
 	F(19200000, P_XO, 1, 0, 0),
 	F(37500000, P_GPLL0_OUT_MAIN, 16, 0, 0),
 	F(75000000, P_GPLL0_OUT_MAIN, 8, 0, 0),
+	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
 	{ }
 };
 
@@ -820,7 +821,7 @@ static const struct freq_tbl ftbl_qspi_ser_clk_src[] = {
 	F(19200000, P_XO, 1, 0, 0),
 	F(80200000, P_PLL1_EARLY_DIV_CLK_SRC, 5, 0, 0),
 	F(160400000, P_GPLL1_OUT_MAIN, 5, 0, 0),
-	F(320800000, P_GPLL1_OUT_MAIN, 2.5, 0, 0),
+	F(267333333, P_GPLL1_OUT_MAIN, 3, 0, 0),
 	{ }
 };
 
@@ -838,7 +839,7 @@ static struct clk_rcg2 qspi_ser_clk_src = {
 		VDD_DIG_FMAX_MAP3(
 				LOWER, 80200000,
 				LOW, 160400000,
-				NOMINAL, 320800000),
+				NOMINAL, 267333333),
 	},
 };
 
@@ -876,6 +877,7 @@ static const struct freq_tbl ftbl_sdcc1_ice_core_clk_src[] = {
 	F(75000000, P_PLL0_EARLY_DIV_CLK_SRC, 4, 0, 0),
 	F(150000000, P_GPLL0_OUT_MAIN, 4, 0, 0),
 	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
 	{ }
 };
 
@@ -905,6 +907,7 @@ static const struct freq_tbl ftbl_sdcc2_apps_clk_src[] = {
 	F(50000000, P_PLL0_EARLY_DIV_CLK_SRC, 6, 0, 0),
 	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
 	F(192000000, P_GPLL4_OUT_MAIN, 8, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
 	{ }
 };
 
@@ -929,6 +932,7 @@ static struct clk_rcg2 sdcc2_apps_clk_src = {
 static const struct freq_tbl ftbl_ufs_axi_clk_src[] = {
 	F(50000000, P_PLL0_EARLY_DIV_CLK_SRC, 6, 0, 0),
 	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(150000000, P_GPLL0_OUT_MAIN, 4, 0, 0),
 	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
 	F(240000000, P_GPLL0_OUT_MAIN, 2.5, 0, 0),
 	{ }
@@ -1045,12 +1049,18 @@ static struct clk_rcg2 usb20_master_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_usb20_mock_utmi_clk_src[] = {
+	F(19200000, P_XO, 1, 0, 0),
+	F(60000000, P_GPLL0_OUT_MAIN, 10, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 usb20_mock_utmi_clk_src = {
 	.cmd_rcgr = 0x2f024,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
-	.freq_tbl = ftbl_hmss_rbcpr_clk_src,
+	.freq_tbl = ftbl_usb20_mock_utmi_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "usb20_mock_utmi_clk_src",
 		.parent_names = gcc_parent_names_0,
