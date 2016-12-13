@@ -400,6 +400,7 @@ struct mdss_dp_drv_pdata {
 	bool link_clks_on;
 	bool power_on;
 	bool sink_info_read;
+	bool hpd;
 
 	/* dp specific */
 	unsigned char *base;

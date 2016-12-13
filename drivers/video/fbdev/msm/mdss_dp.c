@@ -68,6 +68,7 @@ static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv);
 static void mdss_dp_mainlink_push_idle(struct mdss_panel_data *pdata);
 static inline void mdss_dp_link_retraining(struct mdss_dp_drv_pdata *dp);
 static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp_drv);
+static void dp_send_events(struct mdss_dp_drv_pdata *dp, u32 events);
 
 static void mdss_dp_put_dt_clk_data(struct device *dev,
 	struct dss_module_power *module_power)
@@ -1868,13 +1869,69 @@ static ssize_t mdss_dp_sysfs_rda_s3d_mode(struct device *dev,
 	return ret;
 }
 
+static ssize_t mdss_dp_wta_hpd(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int hpd;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid data\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	ret = kstrtoint(buf, 10, &hpd);
+	if (ret) {
+		pr_err("kstrtoint failed. ret=%d\n", (int)ret);
+		goto end;
+	}
+
+	dp->hpd = !!hpd;
+	pr_debug("hpd=%d\n", dp->hpd);
+
+	if (dp->hpd && dp->cable_connected) {
+		if (dp->alt_mode.current_state & DP_CONFIGURE_DONE) {
+			mdss_dp_host_init(&dp->panel_data);
+			mdss_dp_process_hpd_high(dp);
+		} else {
+			dp_send_events(dp, EV_USBPD_DISCOVER_MODES);
+		}
+	} else if (!dp->hpd && dp->power_on) {
+		mdss_dp_notify_clients(dp, false);
+	}
+end:
+	return ret;
+}
+
+static ssize_t mdss_dp_rda_hpd(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", dp->hpd);
+	pr_debug("hpd: %d\n", dp->hpd);
+
+	return ret;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO, mdss_dp_rda_connected, NULL);
 static DEVICE_ATTR(s3d_mode, S_IRUGO | S_IWUSR, mdss_dp_sysfs_rda_s3d_mode,
 	mdss_dp_sysfs_wta_s3d_mode);
+static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, mdss_dp_rda_hpd,
+	mdss_dp_wta_hpd);
 
 static struct attribute *mdss_dp_fs_attrs[] = {
 	&dev_attr_connected.attr,
 	&dev_attr_s3d_mode.attr,
+	&dev_attr_hpd.attr,
 	NULL,
 };
 
@@ -2341,8 +2398,9 @@ static void usbpd_connect_callback(struct usbpd_svid_handler *hdlr)
 	}
 
 	mdss_dp_update_cable_status(dp_drv, true);
-	dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
-	pr_debug("discover_mode event sent\n");
+
+	if (dp_drv->hpd)
+		dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
 }
 
 static void usbpd_disconnect_callback(struct usbpd_svid_handler *hdlr)
