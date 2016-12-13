@@ -3519,6 +3519,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	smmu->streamid_mask = size - 1;
 	if (id & ID0_SMS) {
 		u32 smr;
+		int i;
 
 		smmu->features |= ARM_SMMU_FEAT_STREAM_MATCH;
 		size = (id >> ID0_NUMSMRG_SHIFT) & ID0_NUMSMRG_MASK;
@@ -3533,14 +3534,25 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 		 * bits are set, so check each one separately. We can reject
 		 * masters later if they try to claim IDs outside these masks.
 		 */
+		for (i = 0; i < size; i++) {
+			smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(i));
+			if (!(smr & SMR_VALID))
+				break;
+		}
+		if (i == size) {
+			dev_err(smmu->dev,
+				"Unable to compute streamid_masks\n");
+			return -ENODEV;
+		}
+
 		smr = smmu->streamid_mask << SMR_ID_SHIFT;
-		writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(0));
-		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(0));
+		writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(i));
+		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(i));
 		smmu->streamid_mask = smr >> SMR_ID_SHIFT;
 
 		smr = smmu->streamid_mask << SMR_MASK_SHIFT;
-		writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(0));
-		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(0));
+		writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(i));
+		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(i));
 		smmu->smr_mask_mask = smr >> SMR_MASK_SHIFT;
 
 		/* Zero-initialised to mark as invalid */
