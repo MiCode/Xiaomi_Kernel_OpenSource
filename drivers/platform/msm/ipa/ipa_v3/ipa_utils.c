@@ -4497,6 +4497,10 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_pdev = ipa3_get_pdev;
 	api_ctrl->ipa_ntn_uc_reg_rdyCB = ipa3_ntn_uc_reg_rdyCB;
 	api_ctrl->ipa_ntn_uc_dereg_rdyCB = ipa3_ntn_uc_dereg_rdyCB;
+	api_ctrl->ipa_conn_wdi3_pipes = ipa3_conn_wdi3_pipes;
+	api_ctrl->ipa_disconn_wdi3_pipes = ipa3_disconn_wdi3_pipes;
+	api_ctrl->ipa_enable_wdi3_pipes = ipa3_enable_wdi3_pipes;
+	api_ctrl->ipa_disable_wdi3_pipes = ipa3_disable_wdi3_pipes;
 
 	return 0;
 }
