@@ -148,8 +148,11 @@ static int dp_cmd_fifo_tx(struct edp_buf *tp, unsigned char *base)
 	}
 
 	data = (tp->trans_num - 1);
-	if (tp->i2c)
+	if (tp->i2c) {
 		data |= BIT(8); /* I2C */
+		data |= BIT(10); /* NO SEND ADDR */
+		data |= BIT(11); /* NO SEND STOP */
+	}
 
 	data |= BIT(9); /* GO */
 	dp_write(base + DP_AUX_TRANS_CTRL, data);
