@@ -244,7 +244,8 @@ static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 
 	ret = kgsl_allocate_global(&adreno_dev->dev,
 					&crit_pkts, PAGE_SIZE,
-					KGSL_MEMFLAGS_GPUREADONLY, 0);
+					KGSL_MEMFLAGS_GPUREADONLY,
+					0, "crit_pkts");
 	if (ret)
 		return ret;
 
@@ -258,19 +259,19 @@ static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 
 	ret = kgsl_allocate_global(&adreno_dev->dev,
 					&crit_pkts_refbuf1,
-					PAGE_SIZE, 0, 0);
+					PAGE_SIZE, 0, 0, "crit_pkts_refbuf1");
 	if (ret)
 		return ret;
 
 	ret = kgsl_allocate_global(&adreno_dev->dev,
 					&crit_pkts_refbuf2,
-					PAGE_SIZE, 0, 0);
+					PAGE_SIZE, 0, 0, "crit_pkts_refbuf2");
 	if (ret)
 		return ret;
 
 	ret = kgsl_allocate_global(&adreno_dev->dev,
 					&crit_pkts_refbuf3,
-					PAGE_SIZE, 0, 0);
+					PAGE_SIZE, 0, 0, "crit_pkts_refbuf3");
 	if (ret)
 		return ret;
 
@@ -2461,7 +2462,7 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 	}
 
 	ret = kgsl_allocate_global(device, ucode, fw->size - 4,
-				KGSL_MEMFLAGS_GPUREADONLY, 0);
+				KGSL_MEMFLAGS_GPUREADONLY, 0, "ucode");
 
 	if (ret)
 		goto done;

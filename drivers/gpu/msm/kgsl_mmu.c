@@ -512,12 +512,12 @@ void kgsl_mmu_remove_global(struct kgsl_device *device,
 EXPORT_SYMBOL(kgsl_mmu_remove_global);
 
 void kgsl_mmu_add_global(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc)
+		struct kgsl_memdesc *memdesc, const char *name)
 {
 	struct kgsl_mmu *mmu = &device->mmu;
 
 	if (MMU_OP_VALID(mmu, mmu_add_global))
-		mmu->mmu_ops->mmu_add_global(mmu, memdesc);
+		mmu->mmu_ops->mmu_add_global(mmu, memdesc, name);
 }
 EXPORT_SYMBOL(kgsl_mmu_add_global);
 
@@ -589,7 +589,7 @@ static struct kgsl_mmu_pt_ops nommu_pt_ops = {
 };
 
 static void nommu_add_global(struct kgsl_mmu *mmu,
-		struct kgsl_memdesc *memdesc)
+		struct kgsl_memdesc *memdesc, const char *name)
 {
 	memdesc->gpuaddr = (uint64_t) sg_phys(memdesc->sgt->sgl);
 }
