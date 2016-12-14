@@ -572,6 +572,7 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		break;
 	case 0x10000001:
 	case 0x10010000:
+	case 0x10020000:
 		reg = qmp_settings_rev1;
 		misc = qmp_settings_rev1_misc;
 		break;
