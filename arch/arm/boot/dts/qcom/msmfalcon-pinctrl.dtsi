@@ -49,6 +49,19 @@
 			};
 		};
 
+		trigout_b: trigout_b {
+			mux {
+				pins = "gpio12";
+				function = "qdss_cti1_b";
+			};
+
+			config {
+				pins = "gpio12";
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
 		/* SDC pin type */
 		sdc1_clk_on: sdc1_clk_on {
 			config {

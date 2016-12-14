@@ -1678,6 +1678,108 @@
 
 		status = "disabled";
 	};
+
+	jtag_fuse: jtagfuse@786040 {
+		compatible = "qcom,jtag-fuse-v4";
+		reg = <0x786040 0x8>;
+		reg-names = "fuse-base";
+	};
+
+	jtag_mm0: jtagmm@7840000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7840000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+	};
+
+	jtag_mm1: jtagmm@7940000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7940000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+	};
+
+	jtag_mm2: jtagmm@7a40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7a40000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+	};
+
+	jtag_mm3: jtagmm@7b40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7b40000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+	};
+
+	jtag_mm4: jtagmm@7c40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7c40000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+	};
+
+	jtag_mm5: jtagmm@7d40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7d40000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+	};
+
+	jtag_mm6: jtagmm@7e40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7e40000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+	};
+
+	jtag_mm7: jtagmm@7f40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7f40000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+	};
 };
 
 #include "msmfalcon-ion.dtsi"
