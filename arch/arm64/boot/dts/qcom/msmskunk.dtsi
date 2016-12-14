@@ -388,9 +388,12 @@
 		};
 	};
 
-	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+	clock_gcc: qcom,gcc@100000 {
+		compatible = "qcom,gcc-msmskunk";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pmcobalt_s9_level>;
+		vdd_cx_ao-supply = <&pmcobalt_s9_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
