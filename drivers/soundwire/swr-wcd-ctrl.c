@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +65,8 @@ struct usecase uc[] = {
 	{6, 10, 7800},		/* UC15: 2*(Spkr + SB + VI) */
 	{2, 3, 3600},		/* UC16: Spkr + VI */
 	{4, 6, 7200},		/* UC17: 2*(Spkr + VI) */
+	{3, 7, 4200},		/* UC18: Spkr + Comp + VI */
+	{6, 14, 8400},		/* UC19: 2*(Spkr + Comp + VI) */
 };
 #define MAX_USECASE	ARRAY_SIZE(uc)
 
@@ -177,6 +179,21 @@ struct port_params pp[MAX_USECASE][SWR_MSTR_PORT_LEN] = {
 		{7, 1, 0},
 		{15, 7, 0},
 		{7, 6, 0},
+		{15, 10, 0},
+	},
+	/* UC 18 */
+	{
+		{7, 1, 0},
+		{31, 2, 0},
+		{15, 7, 0},
+	},
+	/* UC 19 */
+	{
+		{7, 1, 0},
+		{31, 2, 0},
+		{15, 7, 0},
+		{7, 6, 0},
+		{31, 18, 0},
 		{15, 10, 0},
 	},
 };
