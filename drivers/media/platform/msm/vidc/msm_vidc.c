@@ -692,37 +692,10 @@ static bool valid_v4l2_buffer(struct v4l2_buffer *b,
 		inst->fmts[port].num_planes == b->length;
 }
 
-int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
-{
-	struct msm_vidc_inst *inst = instance;
-
-	if (!inst || !inst->core || !b || !valid_v4l2_buffer(b, inst))
-		return -EINVAL;
-
-	if (inst->state == MSM_VIDC_CORE_INVALID ||
-		inst->core->state == VIDC_CORE_INVALID)
-		return -EINVAL;
-
-	if (is_dynamic_output_buffer_mode(b, inst))
-		return 0;
-
-	if (map_and_register_buf(inst, b))
-		return -EINVAL;
-
-	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_prepare_buf(instance, b);
-	if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_prepare_buf(instance, b);
-	return -EINVAL;
-}
-EXPORT_SYMBOL(msm_vidc_prepare_buf);
-
 int msm_vidc_release_buffers(void *instance, int buffer_type)
 {
 	struct msm_vidc_inst *inst = instance;
 	struct buffer_info *bi, *dummy;
-	struct v4l2_buffer buffer_info;
-	struct v4l2_plane plane[VIDEO_MAX_PLANES];
 	int i, rc = 0;
 
 	if (!inst)
@@ -739,58 +712,6 @@ int msm_vidc_release_buffers(void *instance, int buffer_type)
 		}
 	}
 
-	/*
-	 * In dynamic buffer mode, driver needs to release resources,
-	 * but not call release buffers on firmware, as the buffers
-	 * were never registered with firmware.
-	 */
-	if (buffer_type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
-		inst->buffer_mode_set[CAPTURE_PORT] ==
-				HAL_BUFFER_MODE_DYNAMIC) {
-		goto free_and_unmap;
-	}
-
-	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry(bi, &inst->registeredbufs.list, list) {
-		bool release_buf = false;
-
-		if (bi->type == buffer_type) {
-			buffer_info.type = bi->type;
-			for (i = 0; i < min(bi->num_planes, VIDEO_MAX_PLANES);
-						i++) {
-				plane[i].reserved[0] = bi->fd[i];
-				plane[i].reserved[1] = bi->buff_off[i];
-				plane[i].length = bi->size[i];
-				plane[i].m.userptr = bi->device_addr[i];
-				buffer_info.m.planes = plane;
-				dprintk(VIDC_DBG,
-					"Releasing buffer: %d, %d, %d\n",
-					buffer_info.m.planes[i].reserved[0],
-					buffer_info.m.planes[i].reserved[1],
-					buffer_info.m.planes[i].length);
-			}
-			buffer_info.length = bi->num_planes;
-			release_buf = true;
-		}
-
-		if (!release_buf)
-			continue;
-		if (inst->session_type == MSM_VIDC_DECODER)
-			rc = msm_vdec_release_buf(instance,
-				&buffer_info);
-		if (inst->session_type == MSM_VIDC_ENCODER)
-			rc = msm_venc_release_buf(instance,
-				&buffer_info);
-		if (rc)
-			dprintk(VIDC_ERR,
-				"Failed Release buffer: %d, %d, %d\n",
-				buffer_info.m.planes[0].reserved[0],
-				buffer_info.m.planes[0].reserved[1],
-				buffer_info.m.planes[0].length);
-	}
-	mutex_unlock(&inst->registeredbufs.lock);
-
-free_and_unmap:
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(bi, dummy, &inst->registeredbufs.list, list) {
 		if (bi->type == buffer_type) {
