@@ -28,10 +28,6 @@
 #define VIDEO_CC_VENUS_CTL_AXI_CLK				11
 #define VIDEO_CC_VENUS_CTL_CORE_CLK				12
 #define VIDEO_PLL0						13
-#define VIDEO_PLL0_OUT_EVEN					14
-#define VIDEO_PLL0_OUT_MAIN					15
-#define VIDEO_PLL0_OUT_ODD					16
-#define VIDEO_PLL0_OUT_TEST					17
 
 #define VIDEO_CC_INTERFACE_BCR					0
 #define VIDEO_CC_VCODEC0_BCR					1
