@@ -175,6 +175,7 @@ enum icnss_driver_event_type {
 
 struct icnss_event_pd_service_down_data {
 	bool crashed;
+	bool fw_rejuvenate;
 };
 
 struct icnss_driver_event {
@@ -256,6 +257,9 @@ struct icnss_stats {
 	uint32_t vbatt_req;
 	uint32_t vbatt_resp;
 	uint32_t vbatt_req_err;
+	uint32_t rejuvenate_ack_req;
+	uint32_t rejuvenate_ack_resp;
+	uint32_t rejuvenate_ack_err;
 };
 
 #define MAX_NO_OF_MAC_ADDR 4
@@ -1001,6 +1005,8 @@ static int wlfw_ind_register_send_sync_msg(void)
 	req.msa_ready_enable = 1;
 	req.pin_connect_result_enable_valid = 1;
 	req.pin_connect_result_enable = 1;
+	req.rejuvenate_enable_valid = 1;
+	req.rejuvenate_enable = 1;
 
 	req_desc.max_msg_len = WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_WLFW_IND_REGISTER_REQ_V01;
@@ -1390,6 +1396,51 @@ out:
 	return ret;
 }
 
+static int wlfw_rejuvenate_ack_send_sync_msg(struct icnss_priv *priv)
+{
+	int ret;
+	struct wlfw_rejuvenate_ack_req_msg_v01 req;
+	struct wlfw_rejuvenate_ack_resp_msg_v01 resp;
+	struct msg_desc req_desc, resp_desc;
+
+	icnss_pr_dbg("Sending rejuvenate ack request, state: 0x%lx\n",
+		     priv->state);
+
+	memset(&req, 0, sizeof(req));
+	memset(&resp, 0, sizeof(resp));
+
+	req_desc.max_msg_len = WLFW_REJUVENATE_ACK_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.msg_id = QMI_WLFW_REJUVENATE_ACK_REQ_V01;
+	req_desc.ei_array = wlfw_rejuvenate_ack_req_msg_v01_ei;
+
+	resp_desc.max_msg_len = WLFW_REJUVENATE_ACK_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.msg_id = QMI_WLFW_REJUVENATE_ACK_RESP_V01;
+	resp_desc.ei_array = wlfw_rejuvenate_ack_resp_msg_v01_ei;
+
+	priv->stats.rejuvenate_ack_req++;
+	ret = qmi_send_req_wait(priv->wlfw_clnt, &req_desc, &req, sizeof(req),
+				&resp_desc, &resp, sizeof(resp),
+				WLFW_TIMEOUT_MS);
+	if (ret < 0) {
+		icnss_pr_err("Send rejuvenate ack req failed %d\n", ret);
+		goto out;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_pr_err("QMI rejuvenate ack request rejected, result:%d error %d\n",
+			     resp.resp.result, resp.resp.error);
+		ret = resp.resp.result;
+		goto out;
+	}
+	priv->stats.rejuvenate_ack_resp++;
+	return 0;
+
+out:
+	priv->stats.rejuvenate_ack_err++;
+	ICNSS_ASSERT(false);
+	return ret;
+}
+
 static void icnss_qmi_wlfw_clnt_notify_work(struct work_struct *work)
 {
 	int ret;
@@ -1430,6 +1481,8 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 			  unsigned int msg_id, void *msg,
 			  unsigned int msg_len, void *ind_cb_priv)
 {
+	struct icnss_event_pd_service_down_data *event_data;
+
 	if (!penv)
 		return;
 
@@ -1449,6 +1502,17 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 		icnss_pr_dbg("Received Pin Connect Test Result msg_id 0x%x\n",
 			     msg_id);
 		icnss_qmi_pin_connect_result_ind(msg, msg_len);
+		break;
+	case QMI_WLFW_REJUVENATE_IND_V01:
+		icnss_pr_dbg("Received Rejuvenate Indication msg_id 0x%x, state: 0x%lx\n",
+			     msg_id, penv->state);
+		event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
+		if (event_data == NULL)
+			return;
+		event_data->crashed = true;
+		event_data->fw_rejuvenate = true;
+		icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
+					0, event_data);
 		break;
 	default:
 		icnss_pr_err("Invalid msg_id 0x%x\n", msg_id);
@@ -1772,6 +1836,9 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 		icnss_call_driver_shutdown(priv);
 	else
 		icnss_call_driver_remove(priv);
+
+	if (event_data->fw_rejuvenate)
+		wlfw_rejuvenate_ack_send_sync_msg(priv);
 
 out:
 	ret = icnss_hw_power_off(priv);
@@ -3103,6 +3170,9 @@ static int icnss_stats_show(struct seq_file *s, void *data)
 	ICNSS_STATS_DUMP(s, priv, vbatt_req);
 	ICNSS_STATS_DUMP(s, priv, vbatt_resp);
 	ICNSS_STATS_DUMP(s, priv, vbatt_req_err);
+	ICNSS_STATS_DUMP(s, priv, rejuvenate_ack_req);
+	ICNSS_STATS_DUMP(s, priv, rejuvenate_ack_resp);
+	ICNSS_STATS_DUMP(s, priv, rejuvenate_ack_err);
 
 	seq_puts(s, "\n<------------------ PM stats ------------------->\n");
 	ICNSS_STATS_DUMP(s, priv, pm_suspend);
