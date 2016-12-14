@@ -931,6 +931,8 @@ struct ufs_hba {
 
 	enum bkops_status urgent_bkops_lvl;
 	bool is_urgent_bkops_lvl_checked;
+	int latency_hist_enabled;
+	struct io_latency_state io_lat_s;
 
 	struct rw_semaphore clk_scaling_lock;
 
