@@ -886,6 +886,7 @@ no_data_count:
 				goto err_no_mem;
 
 			/* Kick devfreq awake incase _resume() didn't do it */
+
 			bus->devfreq->nb.notifier_call(
 				&bus->devfreq->nb, 0, NULL);
 		}
@@ -1115,7 +1116,7 @@ static int __tzbsp_set_video_state(enum tzbsp_video_state state)
 static inline int __boot_firmware(struct venus_hfi_device *device)
 {
 	int rc = 0;
-	u32 ctrl_status = 0, count = 0, max_tries = 100;
+	u32 ctrl_status = 0, count = 0, max_tries = 1000;
 
 	__write_register(device, VIDC_CTRL_INIT, 0x1);
 	while (!ctrl_status && count < max_tries) {
@@ -1125,7 +1126,7 @@ static inline int __boot_firmware(struct venus_hfi_device *device)
 			break;
 		}
 
-		usleep_range(500, 1000);
+		usleep_range(50, 100);
 		count++;
 	}
 
@@ -3154,7 +3155,7 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 	int rc = 0;
 	u32 wfi_status = 0, idle_status = 0, pc_ready = 0;
 	int count = 0;
-	const int max_tries = 5;
+	const int max_tries = 10;
 	struct venus_hfi_device *device = list_first_entry(
 			&hal_ctxt.dev_head, struct venus_hfi_device, list);
 
@@ -3214,7 +3215,7 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 			if ((wfi_status & BIT(0)) && (pc_ready &
 				VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_PC_READY))
 				break;
-			usleep_range(1000, 1500);
+			usleep_range(150, 250);
 			count++;
 		}
 
@@ -3715,7 +3716,6 @@ static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
 	}
 
 	venus_hfi_for_each_clock_reverse(device, cl) {
-		usleep_range(100, 500);
 		dprintk(VIDC_DBG, "Clock: %s disable and unprepare\n",
 				cl->name);
 		clk_disable_unprepare(cl->clk);
@@ -3774,7 +3774,6 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 
 fail_clk_enable:
 	venus_hfi_for_each_clock_reverse_continue(device, cl, c) {
-		usleep_range(100, 500);
 		dprintk(VIDC_ERR, "Clock: %s disable and unprepare\n",
 			cl->name);
 		clk_disable_unprepare(cl->clk);
