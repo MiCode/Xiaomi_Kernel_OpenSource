@@ -3557,18 +3557,16 @@ unsigned int icnss_socinfo_get_serial_number(struct device *dev)
 }
 EXPORT_SYMBOL(icnss_socinfo_get_serial_number);
 
-int icnss_set_wlan_mac_address(struct device *dev,
-			       const u8 *in, uint32_t len)
+int icnss_set_wlan_mac_address(const u8 *in, const uint32_t len)
 {
-	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_priv *priv = penv;
 	uint32_t no_of_mac_addr;
 	struct icnss_wlan_mac_addr *addr = NULL;
 	int iter;
 	u8 *temp = NULL;
 
-	if (priv->magic != ICNSS_MAGIC) {
-		icnss_pr_err("Invalid drvdata: dev %p, data %p, magic 0x%x\n",
-			     dev, priv, priv->magic);
+	if (!priv) {
+		icnss_pr_err("Priv data is NULL\n");
 		return -EINVAL;
 	}
 

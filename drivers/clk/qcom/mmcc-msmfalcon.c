@@ -906,7 +906,7 @@ static struct clk_rcg2 dp_crypto_clk_src = {
 
 static const struct freq_tbl ftbl_dp_gtc_clk_src[] = {
 	F(40000000, P_GPLL0_OUT_MAIN_DIV, 7.5, 0, 0),
-	F(300000000, P_GPLL0_OUT_MAIN_DIV, 1, 0, 0),
+	F(60000000, P_GPLL0_OUT_MAIN, 10, 0, 0),
 	{ }
 };
 
@@ -923,7 +923,7 @@ static struct clk_rcg2 dp_gtc_clk_src = {
 		.ops = &clk_rcg2_ops,
 		VDD_DIG_FMAX_MAP2(
 			LOWER, 40000000,
-			LOW, 300000000),
+			LOW, 60000000),
 	},
 };
 
@@ -1136,9 +1136,10 @@ static struct clk_rcg2 mdp_clk_src = {
 		.parent_names = mmcc_parent_names_7,
 		.num_parents = 7,
 		.ops = &clk_rcg2_ops,
-		VDD_DIG_FMAX_MAP4(
+		VDD_DIG_FMAX_MAP5(
 			LOWER, 171428571,
 			LOW, 275000000,
+			LOW_L1, 300000000,
 			NOMINAL, 330000000,
 			HIGH, 412500000),
 	},
@@ -1183,6 +1184,7 @@ static struct clk_rcg2 pclk1_clk_src = {
 static const struct freq_tbl ftbl_rot_clk_src[] = {
 	F(171428571, P_GPLL0_OUT_MAIN, 3.5, 0, 0),
 	F(275000000, P_MMPLL5_PLL_OUT_MAIN, 3, 0, 0),
+	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(330000000, P_MMPLL5_PLL_OUT_MAIN, 2.5, 0, 0),
 	F(412500000, P_MMPLL5_PLL_OUT_MAIN, 2, 0, 0),
 	{ }
@@ -1199,9 +1201,10 @@ static struct clk_rcg2 rot_clk_src = {
 		.parent_names = mmcc_parent_names_7,
 		.num_parents = 7,
 		.ops = &clk_rcg2_ops,
-		VDD_DIG_FMAX_MAP4(
+		VDD_DIG_FMAX_MAP5(
 			LOWER, 171428571,
 			LOW, 275000000,
+			LOW_L1, 300000000,
 			NOMINAL, 330000000,
 			HIGH, 412500000),
 	},
