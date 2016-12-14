@@ -2047,3 +2047,6 @@
 		};
 	};
 };
+
+#include "msmfalcon-mdss.dtsi"
+#include "msmfalcon-mdss-pll.dtsi"
