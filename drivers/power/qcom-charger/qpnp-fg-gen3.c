@@ -2050,6 +2050,7 @@ done:
 
 	fg_notify_charger(chip);
 	chip->profile_loaded = true;
+	chip->soc_reporting_ready = true;
 	fg_dbg(chip, FG_STATUS, "profile loaded successfully");
 out:
 	vote(chip->awake_votable, PROFILE_LOAD, false, 0);
@@ -2386,6 +2387,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG:
 		rc = fg_get_time_to_empty(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_SOC_REPORTING_READY:
+		pval->intval = chip->soc_reporting_ready;
+		break;
 	default:
 		pr_err("unsupported property %d\n", psp);
 		rc = -EINVAL;
@@ -2483,6 +2487,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
+	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
 };
 
 static const struct power_supply_desc fg_psy_desc = {
@@ -2773,9 +2778,11 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 		chip->profile_available = false;
 		chip->profile_loaded = false;
 		clear_cycle_counter(chip);
+		chip->soc_reporting_ready = false;
 	} else {
 		rc = fg_get_batt_profile(chip);
 		if (rc < 0) {
+			chip->soc_reporting_ready = true;
 			pr_err("Error in getting battery profile, rc:%d\n", rc);
 			return IRQ_HANDLED;
 		}
@@ -3213,9 +3220,11 @@ static int fg_parse_dt(struct fg_chip *chip)
 	chip->rradc_base = base;
 
 	rc = fg_get_batt_profile(chip);
-	if (rc < 0)
+	if (rc < 0) {
+		chip->soc_reporting_ready = true;
 		pr_warn("profile for batt_id=%dKOhms not found..using OTP, rc:%d\n",
 			chip->batt_id_ohms / 1000, rc);
+	}
 
 	/* Read all the optional properties below */
 	rc = of_property_read_u32(node, "qcom,fg-cutoff-voltage", &temp);
