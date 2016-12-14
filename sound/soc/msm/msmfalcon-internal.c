@@ -13,9 +13,9 @@
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
+#include <linux/mfd/msm-cdc-pinctrl.h>
 #include <sound/pcm_params.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
-#include "msm-audio-pinctrl.h"
 #include "msmfalcon-common.h"
 #include "../codecs/msmfalcon_cdc/msm-digital-cdc.h"
 #include "../codecs/msmfalcon_cdc/msm-analog-cdc.h"
@@ -451,22 +451,25 @@ static const struct snd_soc_dapm_widget msm_int_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic4", msm_dmic_event),
 };
 
-static int msm_config_hph_compander_gpio(bool enable)
+static int msm_config_hph_compander_gpio(bool enable,
+					 struct snd_soc_codec *codec)
 {
+	struct snd_soc_card *card = codec->component.card;
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret = 0;
 
 	pr_debug("%s: %s HPH Compander\n", __func__,
 		enable ? "Enable" : "Disable");
 
 	if (enable) {
-		ret = msm_gpioset_activate(CLIENT_WCD, "comp_gpio");
+		ret = msm_cdc_pinctrl_select_active_state(pdata->comp_gpio_p);
 		if (ret) {
 			pr_err("%s: gpio set cannot be activated %s\n",
 				__func__, "comp_gpio");
 			goto done;
 		}
 	} else {
-		ret = msm_gpioset_suspend(CLIENT_WCD, "comp_gpio");
+		ret = msm_cdc_pinctrl_select_sleep_state(pdata->comp_gpio_p);
 		if (ret) {
 			pr_err("%s: gpio set cannot be de-activated %s\n",
 				__func__, "comp_gpio");
@@ -517,7 +520,8 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 		enable ? "Enable" : "Disable");
 
 	if (enable) {
-		ret = msm_gpioset_activate(CLIENT_WCD, "ext_spk_gpio");
+		ret = msm_cdc_pinctrl_select_active_state(
+						pdata->ext_spk_gpio_p);
 		if (ret) {
 			pr_err("%s: gpio set cannot be de-activated %s\n",
 					__func__, "ext_spk_gpio");
@@ -526,7 +530,8 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
 	} else {
 		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
-		ret = msm_gpioset_suspend(CLIENT_WCD, "ext_spk_gpio");
+		ret = msm_cdc_pinctrl_select_sleep_state(
+						pdata->ext_spk_gpio_p);
 		if (ret) {
 			pr_err("%s: gpio set cannot be de-activated %s\n",
 					__func__, "ext_spk_gpio");
@@ -538,20 +543,22 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 
 static int msm_config_sdw_gpio(bool enable, struct snd_soc_codec *codec)
 {
+	struct snd_soc_card *card = codec->component.card;
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret = 0;
 
 	pr_debug("%s: %s SDW Clk/Data Gpios\n", __func__,
 		enable ? "Enable" : "Disable");
 
 	if (enable) {
-		ret = msm_gpioset_activate(CLIENT_WCD, "sdw_pin");
+		ret = msm_cdc_pinctrl_select_active_state(pdata->sdw_gpio_p);
 		if (ret) {
 			pr_err("%s: gpio set cannot be activated %s\n",
 				__func__, "sdw_pin");
 			goto done;
 		}
 	} else {
-		ret = msm_gpioset_suspend(CLIENT_WCD, "sdw_pin");
+		ret = msm_cdc_pinctrl_select_sleep_state(pdata->sdw_gpio_p);
 		if (ret) {
 			pr_err("%s: gpio set cannot be de-activated %s\n",
 				__func__, "sdw_pin");
@@ -782,7 +789,7 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 			ucontrol->value.integer.value[0]);
 	switch (ucontrol->value.integer.value[0]) {
 	case 1:
-		ret = msm_gpioset_activate(CLIENT_WCD, "int_pdm");
+		ret = msm_cdc_pinctrl_select_active_state(pdata->pdm_gpio_p);
 		if (ret) {
 			pr_err("%s: failed to enable the pri gpios: %d\n",
 					__func__, ret);
@@ -799,8 +806,8 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 				pr_err("%s: failed to enable the MCLK: %d\n",
 						__func__, ret);
 				mutex_unlock(&pdata->cdc_int_mclk0_mutex);
-				ret = msm_gpioset_suspend(CLIENT_WCD,
-								"int_pdm");
+				ret = msm_cdc_pinctrl_select_sleep_state(
+							pdata->pdm_gpio_p);
 				if (ret)
 					pr_err("%s: failed to disable the pri gpios: %d\n",
 							__func__, ret);
@@ -832,7 +839,7 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 			atomic_set(&pdata->int_mclk0_enabled, false);
 		}
 		mutex_unlock(&pdata->cdc_int_mclk0_mutex);
-		ret = msm_gpioset_suspend(CLIENT_WCD, "int_pdm");
+		ret = msm_cdc_pinctrl_select_sleep_state(pdata->pdm_gpio_p);
 		if (ret)
 			pr_err("%s: failed to disable the pri gpios: %d\n",
 					__func__, ret);
@@ -957,7 +964,7 @@ static int msm_dmic_event(struct snd_soc_dapm_widget *w,
 	pr_debug("%s: event = %d\n", __func__, event);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		ret = msm_gpioset_activate(CLIENT_WCD, "dmic_gpio");
+		ret = msm_cdc_pinctrl_select_active_state(pdata->dmic_gpio_p);
 		if (ret < 0) {
 			pr_err("%s: gpio set cannot be activated %sd",
 					__func__, "dmic_gpio");
@@ -965,7 +972,7 @@ static int msm_dmic_event(struct snd_soc_dapm_widget *w,
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		ret = msm_gpioset_suspend(CLIENT_WCD, "dmic_gpio");
+		ret = msm_cdc_pinctrl_select_sleep_state(pdata->dmic_gpio_p);
 		if (ret < 0) {
 			pr_err("%s: gpio set cannot be de-activated %sd",
 					__func__, "dmic_gpio");
@@ -992,7 +999,7 @@ static int msm_int_mclk0_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		pr_debug("%s: mclk_res_ref = %d\n",
 			__func__, atomic_read(&pdata->int_mclk0_rsc_ref));
-		ret = msm_gpioset_suspend(CLIENT_WCD, "int_pdm");
+		ret = msm_cdc_pinctrl_select_sleep_state(pdata->pdm_gpio_p);
 		if (ret < 0) {
 			pr_err("%s: gpio set cannot be de-activated %sd",
 					__func__, "int_pdm");
@@ -1177,7 +1184,9 @@ static int msm_int_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_codec *codec = rtd->codec_dais[ANA_CDC]->codec;
 	int ret = 0;
+	struct msm_asoc_mach_data *pdata = NULL;
 
+	pdata = snd_soc_card_get_drvdata(codec->component.card);
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
 
@@ -1193,7 +1202,7 @@ static int msm_int_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		return ret;
 	}
 	/* Enable the codec mclk config */
-	ret = msm_gpioset_activate(CLIENT_WCD, "int_pdm");
+	ret = msm_cdc_pinctrl_select_active_state(pdata->pdm_gpio_p);
 	if (ret < 0) {
 		pr_err("%s: gpio set cannot be activated %s\n",
 				__func__, "int_pdm");
