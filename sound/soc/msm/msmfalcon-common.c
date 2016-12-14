@@ -16,7 +16,6 @@
 #include <sound/pcm_params.h>
 #include <sound/q6afe-v2.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
-#include "msm-audio-pinctrl.h"
 #include "msmfalcon-common.h"
 #include "msmfalcon-internal.h"
 #include "msmfalcon-external.h"
@@ -2316,7 +2315,7 @@ codec_dai:
 			dai_link[i].codec_of_node = phandle;
 			dai_link[i].codec_name = NULL;
 		}
-		if (pdata->int_codec) {
+		if (pdata->snd_card_val == INT_SND_CARD) {
 			if ((dai_link[i].be_id ==
 					MSM_BACKEND_DAI_INT0_MI2S_RX) ||
 			    (dai_link[i].be_id ==
@@ -2720,13 +2719,16 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 
 	if (pdata->snd_card_val == INT_SND_CARD) {
 		/*reading the gpio configurations from dtsi file*/
-		ret = msm_gpioset_initialize(CLIENT_WCD, &pdev->dev);
-		if (ret < 0) {
-			dev_err(&pdev->dev,
-				"%s: error reading dtsi files%d\n",
-				__func__, ret);
-			goto err;
-		}
+		pdata->pdm_gpio_p = of_parse_phandle(pdev->dev.of_node,
+					"qcom,cdc-pdm-gpios", 0);
+		pdata->comp_gpio_p = of_parse_phandle(pdev->dev.of_node,
+					"qcom,cdc-comp-gpios", 0);
+		pdata->sdw_gpio_p = of_parse_phandle(pdev->dev.of_node,
+					"qcom,cdc-sdw-gpios", 0);
+		pdata->dmic_gpio_p = of_parse_phandle(pdev->dev.of_node,
+					"qcom,cdc-dmic-gpios", 0);
+		pdata->ext_spk_gpio_p = of_parse_phandle(pdev->dev.of_node,
+					"qcom,cdc-ext-spk-gpios", 0);
 	}
 
 	/*
