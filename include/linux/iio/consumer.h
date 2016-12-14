@@ -226,6 +226,16 @@ int iio_read_channel_processed(struct iio_channel *chan, int *val);
 int iio_write_channel_raw(struct iio_channel *chan, int val);
 
 /**
+ * iio_write_channel_processed() - write to a given channel
+ * @chan:		The channel being queried.
+ * @val:		Value being written.
+ *
+ * Note processed writes to iio channels are converted to raw
+ * values before being written.
+ */
+int iio_write_channel_processed(struct iio_channel *chan, int val);
+
+/**
  * iio_get_channel_type() - get the type of a channel
  * @channel:		The channel being queried.
  * @type:		The type of the channel.
