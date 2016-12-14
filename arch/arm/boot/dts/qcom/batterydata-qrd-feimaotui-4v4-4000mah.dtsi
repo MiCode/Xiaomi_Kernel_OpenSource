@@ -1,0 +1,49 @@
+
+qcom,2336564_s88537a1scud_4000mah_averaged_masterslave_mar1st2016 {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4100>;
+	qcom,batt-id-kohm = <10>;
+	qcom,battery-beta = <4250>;
+	qcom,thermal-coefficients = [B7 85 B2 49 71 35];
+	qcom,battery-type = "qrd_msm8937_feimaotui_4000mah";
+	qcom,chg-rslow-comp-c1 = <2463522>;
+	qcom,chg-rslow-comp-c2 = <2332467>;
+	qcom,chg-rs-to-rslow = <1195701>;
+	qcom,chg-rslow-comp-thr = <0x99>;
+	qcom,checksum = <0xE6EB>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.15";
+	qcom,fg-profile-data = [
+		 D6 83 78 7C
+		 06 81 7F 77
+		 59 83 7B 74
+		 48 8A 5E 95
+		 EF 81 25 9B
+		 2D BE 31 CB
+		 54 11 13 88
+		 F7 7E D4 82
+		 6F 7D 5E 83
+		 FE 6C 18 89
+		 63 94 29 82
+		 87 9A FC BD
+		 75 CB 5A 0E
+		 33 10 D3 59
+		 14 70 EE FC
+		 2C 0B DD 46
+		 93 41 00 00
+		 A0 3F 2E 30
+		 5E 34 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 99 71 50 70
+		 8A 55 02 82
+		 EC 76 AE 6B
+		 2F 6C 03 79
+		 3C 75 D5 68
+		 C2 74 8B 9A
+		 23 73 5A 3F
+		 55 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2007 Google Incorporated
  * Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -54,6 +55,8 @@
 #include "mdss_debug.h"
 #include "mdss_smmu.h"
 #include "mdss_mdp.h"
+#include "mdss_dsi.h"
+
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
@@ -248,11 +251,22 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 
 static int lcd_backlight_registered;
 
+#define MDSS_BRIGHT_TO_BL1(out, v, bl_min, bl_max, min_bright, max_bright) do {\
+					if (v <= ((int)min_bright*(int)bl_max-(int)bl_min*(int)max_bright)\
+						/((int)bl_max - (int)bl_min)) out = 1; \
+					else \
+					out = (((int)bl_max - (int)bl_min)*v + \
+					((int)max_bright*(int)bl_min - (int)min_bright*(int)bl_max)) \
+					/((int)max_bright - (int)min_bright); \
+					} while (0)
+
 static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
-				      enum led_brightness value)
+			enum led_brightness value)
 {
 	struct msm_fb_data_type *mfd = dev_get_drvdata(led_cdev->dev->parent);
-	int bl_lvl;
+	int bl_lvl, brightness_min;
+
+	brightness_min = 10;
 
 	if (mfd->boot_notification_led) {
 		led_trigger_event(mfd->boot_notification_led, 0);
@@ -264,11 +278,22 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 
 	/* This maps android backlight level 0 to 255 into
 	   driver backlight level 0 to bl_max with rounding */
+	#if 1
+	if (mfd->panel_info->bl_min == 1)
+		mfd->panel_info->bl_min = 5;
+	MDSS_BRIGHT_TO_BL1(bl_lvl, value, mfd->panel_info->bl_min, mfd->panel_info->bl_max,
+			brightness_min, mfd->panel_info->brightness_max);
+
+	if (bl_lvl && !value)
+		bl_lvl = 0;
+
+	#else
 	MDSS_BRIGHT_TO_BL(bl_lvl, value, mfd->panel_info->bl_max,
 				mfd->panel_info->brightness_max);
-
+	#endif
 	if (!bl_lvl && value)
 		bl_lvl = 1;
+	pr_debug("bl_lvl is %d, value is %d\n", bl_lvl, value);
 
 	if (!IS_CALIB_MODE_BL(mfd) && (!mfd->ext_bl_ctrl || !value ||
 							!mfd->bl_level)) {
@@ -4420,6 +4445,9 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 	struct msm_sync_pt_data *sync_pt_data = NULL;
 	unsigned int dsi_mode = 0;
 	struct mdss_panel_data *pdata = NULL;
+	unsigned int Color_mode = 0;
+	unsigned int CE_mode = 0;
+
 
 	if (!info || !info->par)
 		return -EINVAL;
@@ -4498,6 +4526,22 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 
 	case MSMFB_ASYNC_POSITION_UPDATE:
 		ret = mdss_fb_async_position_update_ioctl(info, argp);
+		break;
+
+	case MSMFB_ENHANCE_SET_GAMMA:
+		if (copy_from_user(&Color_mode, argp, sizeof(Color_mode))) {
+			pr_err("%s: MSMFB_ENHANCE_SET_GAMMA ioctl failed\n", __func__);
+			goto exit;
+		}
+		ret = mdss_panel_set_gamma(pdata, Color_mode);
+		break;
+
+	case MSMFB_ENHANCE_SET_CE:
+		if (copy_from_user(&CE_mode, argp, sizeof(CE_mode))) {
+			pr_err("%s: MSMFB_ENHANCE_SET_CE ioctl failed\n", __func__);
+			goto exit;
+		}
+		ret = mdss_panel_set_ce(pdata, CE_mode);
 		break;
 
 	default:

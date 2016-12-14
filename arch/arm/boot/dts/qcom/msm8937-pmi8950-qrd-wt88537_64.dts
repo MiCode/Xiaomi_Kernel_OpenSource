@@ -1,0 +1,69 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8937.dtsi"
+#include "msm8937-pmi8950-qrd-wt88537_64.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8937-PMI8950 QRD SKU1";
+	compatible = "qcom,msm8937-pmi8950-qrd-wt88537_64",
+		   "qcom,msm8937-qrd", "qcom,msm8937", "qcom,qrd";
+	qcom,board-id= <0x1000b 1>, <0x2000b 1>;
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-qrd-Desay-4v4-4000mah.dtsi"
+		#include "batterydata-qrd-Atl-4v4-4000mah.dtsi"
+		#include "batterydata-qrd-Coslight-4v4-4000mah.dtsi"
+		#include "batterydata-qrd-feimaotui-4v4-4000mah.dtsi"
+	};
+};
+
+&pmi8950_charger {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,float-voltage-mv = <4400>;
+	qcom,thermal-mitigation = <2000 1500 1200 800 800>;
+	status = "okay";
+};
+
+&pmi8950_fg {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,cold-bat-decidegc = <(0)>;
+	qcom,cool-bat-decidegc = <(100)>;
+	qcom,hot-bat-decidegc = <600>;
+	qcom,warm-bat-decidegc = <450>;
+	qcom,warm-bat-india-decidegc = <500>;
+	qcom,fg-iterm-ma = <200>;
+	qcom,fg-chg-iterm-ma = <150>;
+	qcom,resume-soc = <99>;
+	qcom,fg-cutoff-voltage-mv = <3500>;
+	qcom,cl-max-increment-deciperc = <1>;
+	qcom,cl-max-decrement-deciperc = <1>;
+	qcom,fg-delta-soc = <1>;
+	qcom,bad-battery-detection-enable;
+	qcom,hold-soc-while-full;
+};
+
+&int_codec {
+	qcom,model = "msm8952-sku1-snd-card";
+};
+
+&i2c_2 {
+	pericom-type-c@1d {
+		status="disabled";
+	};
+};

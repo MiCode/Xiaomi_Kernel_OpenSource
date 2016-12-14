@@ -1,0 +1,49 @@
+
+qcom,2336567_s88537a1coslight_4000mah_averaged_masterslave_mar3rd2016 {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <4250>;
+	qcom,thermal-coefficients = [B7 85 B2 49 71 35];
+	qcom,battery-type = "qrd_msm8937_Coslight_4000mah";
+	qcom,chg-rslow-comp-c1 = <3658227>;
+	qcom,chg-rslow-comp-c2 = <6007355>;
+	qcom,chg-rs-to-rslow = <1091156>;
+	qcom,chg-rslow-comp-thr = <0xB2>;
+	qcom,checksum = <0xA765>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.15";
+	qcom,fg-profile-data = [
+		 E1 83 E0 7C
+		 31 81 88 77
+		 62 83 1C 74
+		 4E 89 60 94
+		 40 82 A6 98
+		 79 B6 08 C2
+		 52 17 07 88
+		 0A 7E F7 81
+		 73 7C 36 83
+		 40 79 08 86
+		 9D 81 6B 82
+		 6B 98 D0 B6
+		 25 C3 5E 15
+		 32 10 42 59
+		 14 70 EE FC
+		 04 36 DC 44
+		 DE 3B 00 00
+		 7C 4C FD 31
+		 E6 41 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 4F 71 C5 6B
+		 5B 74 71 88
+		 88 7C E6 71
+		 60 74 15 72
+		 A2 75 71 6A
+		 B9 66 5C A3
+		 23 91 60 87
+		 5E A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

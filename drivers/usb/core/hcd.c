@@ -2672,7 +2672,7 @@ int usb_add_hcd(struct usb_hcd *hcd,
 			hcd->phy = phy;
 		}
 	}
-
+	msleep(50);
 	dev_info(hcd->self.controller, "%s\n", hcd->product_desc);
 
 	/* Keep old behaviour if authorized_default is not in [0, 1]. */

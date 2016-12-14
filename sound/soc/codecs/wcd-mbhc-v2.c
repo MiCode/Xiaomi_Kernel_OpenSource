@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +30,8 @@
 #include <sound/jack.h>
 #include "wcd-mbhc-v2.h"
 #include "wcdcal-hwdep.h"
+#include "msm8x16_wcd_registers.h"
+
 
 #define WCD_MBHC_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | \
 			   SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
@@ -330,7 +333,7 @@ out_micb_en:
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_PULLUP);
 		else
 			/* enable current source and disable mb, pullup*/
-			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 
 		/* configure cap settings properly when micbias is disabled */
 		if (mbhc->mbhc_cb->set_cap_mode)
@@ -350,7 +353,7 @@ out_micb_en:
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 		else
 			/* Disable micbias, pullup & enable cs */
-			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 		mutex_unlock(&mbhc->hphl_pa_lock);
 		break;
 	case WCD_EVENT_PRE_HPHR_PA_OFF:
@@ -367,7 +370,7 @@ out_micb_en:
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 		else
 			/* Disable micbias, pullup & enable cs */
-			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 		mutex_unlock(&mbhc->hphr_pa_lock);
 		break;
 	case WCD_EVENT_PRE_HPHL_PA_ON:
@@ -588,7 +591,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				mbhc->hph_status, WCD_MBHC_JACK_MASK);
-		wcd_mbhc_set_and_turnoff_hph_padac(mbhc);
+		msm8x16_wcd_codec_set_headset_state(mbhc->hph_status);
 		hphrocp_off_report(mbhc, SND_JACK_OC_HPHR);
 		hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
 		mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
@@ -693,6 +696,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				    (mbhc->hph_status | SND_JACK_MECHANICAL),
 				    WCD_MBHC_JACK_MASK);
 		wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
+		msm8x16_wcd_codec_set_headset_state(mbhc->hph_status);
 	}
 	pr_debug("%s: leave hph_status %x\n", __func__, mbhc->hph_status);
 }
@@ -1051,9 +1055,9 @@ static void wcd_enable_mbhc_supply(struct wcd_mbhc *mbhc,
 							WCD_MBHC_EN_PULLUP);
 			else
 				wcd_enable_curr_micbias(mbhc,
-							WCD_MBHC_EN_CS);
+							WCD_MBHC_EN_MB);
 		} else if (plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
-			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 		} else {
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_NONE);
 		}
@@ -1122,11 +1126,18 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	bool micbias1 = false;
 	int ret = 0;
 	int rc, spl_hs_count = 0;
+	bool detection_type;
 
 	pr_debug("%s: enter\n", __func__);
 
 	mbhc = container_of(work, struct wcd_mbhc, correct_plug_swch);
 	codec = mbhc->codec;
+
+	detection_type = (snd_soc_read(codec,
+				MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_1)) & 0x20;
+	if (detection_type)
+		return;
+
 
 	/*
 	 * Enable micbias/pullup for detection in correct work.
@@ -1898,7 +1909,7 @@ static irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 	mbhc->buttons_pressed |= mask;
 	mbhc->mbhc_cb->lock_sleep(mbhc, true);
 	if (schedule_delayed_work(&mbhc->mbhc_btn_dwork,
-				msecs_to_jiffies(400)) == 0) {
+				msecs_to_jiffies(500)) == 0) {
 		WARN(1, "Button pressed twice without release event\n");
 		mbhc->mbhc_cb->lock_sleep(mbhc, false);
 	}
@@ -2055,10 +2066,10 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HS_L_DET_PULL_UP_COMP_CTRL, 1);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 1);
 
-	/* Insertion debounce set to 96ms */
-	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_INSREM_DBNC, 6);
-	/* Button Debounce set to 16ms */
-	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_DBNC, 2);
+	/* Insertion debounce set to 256ms */
+	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_INSREM_DBNC, 9);
+	/* Button Debounce set to 32ms */
+	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_DBNC, 3);
 
 	/* Enable micbias ramp */
 	if (mbhc->mbhc_cb->mbhc_micb_ramp_control)

@@ -205,22 +205,6 @@
 		};
 	};
 
-	rpm-regulator-ldoa5 {
-		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "ldoa";
-		qcom,resource-id = <5>;
-		qcom,regulator-type = <0>;
-		qcom,hpm-min-load = <10000>;
-		status = "disabled";
-
-		regulator-l5 {
-			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmcobalt_l5";
-			qcom,set = <3>;
-			status = "disabled";
-		};
-	};
-
 	rpm-regulator-ldoa6 {
 		compatible = "qcom,rpm-smd-regulator-resource";
 		qcom,resource-name = "ldoa";
@@ -232,22 +216,6 @@
 		regulator-l6 {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pmcobalt_l6";
-			qcom,set = <3>;
-			status = "disabled";
-		};
-	};
-
-	rpm-regulator-ldoa7 {
-		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "ldoa";
-		qcom,resource-id = <7>;
-		qcom,regulator-type = <0>;
-		qcom,hpm-min-load = <10000>;
-		status = "disabled";
-
-		regulator-l7 {
-			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmcobalt_l7";
 			qcom,set = <3>;
 			status = "disabled";
 		};

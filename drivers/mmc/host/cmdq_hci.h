@@ -197,7 +197,7 @@ struct cmdq_host {
 };
 
 struct cmdq_host_ops {
-	void (*set_tranfer_params)(struct mmc_host *mmc);
+	void (*set_transfer_params)(struct mmc_host *mmc);
 	void (*set_data_timeout)(struct mmc_host *mmc, u32 val);
 	void (*clear_set_irqs)(struct mmc_host *mmc, bool clear);
 	void (*set_block_size)(struct mmc_host *mmc);

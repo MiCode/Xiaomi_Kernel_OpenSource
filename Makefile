@@ -694,6 +694,8 @@ else
 # Use make W=1 to enable this warning (see scripts/Makefile.build)
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 endif
+# transport MTK_CDEFS ( mtk compile macros ) to .c for compile
+KBUILD_CFLAGS += $(MTK_CDEFS)
 
 ifdef CONFIG_FRAME_POINTER
 KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls

@@ -735,6 +735,9 @@ static ssize_t mmc_bkops_stats_write(struct file *filp,
 	if (!card)
 		return cnt;
 
+	if (!access_ok(VERIFY_READ, ubuf, cnt))
+		return cnt;
+
 	stats = &card->bkops.stats;
 
 	err = kstrtoint_from_user(ubuf, cnt, 0, &value);

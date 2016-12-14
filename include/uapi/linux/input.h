@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -480,6 +481,9 @@ struct input_keymap_entry {
 #define KEY_RFKILL		247	/* Key that controls all radios */
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
+
+#define KEY_NEXTSONG_NEW        250
+#define KEY_PREVIOUSSONG_NEW    251
 
 /* Code 255 is reserved for special needs of AT keyboard driver */
 

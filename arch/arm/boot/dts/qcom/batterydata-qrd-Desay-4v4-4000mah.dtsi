@@ -1,0 +1,49 @@
+
+qcom,2312442_a12desay_4000mah_averaged_masterslave_feb1st2016 {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <30>;
+	qcom,battery-beta = <4100>;
+	qcom,thermal-coefficients = [DA 85 5E 4A DB 35];
+	qcom,battery-type = "qrd_msm8937_Desay_4000mah";
+	qcom,chg-rslow-comp-c1 = <3278930>;
+	qcom,chg-rslow-comp-c2 = <4973220>;
+	qcom,chg-rs-to-rslow = <1125247>;
+	qcom,chg-rslow-comp-thr = <0xAC>;
+	qcom,checksum = <0xAB22>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.15";
+	qcom,fg-profile-data = [
+		 D6 83 5E 7C
+		 BB 80 9B 76
+		 64 83 81 74
+		 A6 89 BC 94
+		 9D 82 F3 91
+		 E0 AF 03 BB
+		 52 16 FE 83
+		 7E 7D 8B 81
+		 0B 7C 6A 83
+		 62 6F B7 89
+		 29 95 49 82
+		 32 9A B0 BD
+		 0A CB 52 0D
+		 1B 10 B3 59
+		 14 70 EE FC
+		 78 3E 7B 3F
+		 0B 40 00 00
+		 5A 46 C1 2B
+		 1E 2A 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 BA 70 4D 6B
+		 31 63 73 88
+		 BF 75 02 6B
+		 DE 60 EF 7B
+		 D4 6E 44 63
+		 D6 75 4F A0
+		 1E E4 60 FF
+		 5E A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

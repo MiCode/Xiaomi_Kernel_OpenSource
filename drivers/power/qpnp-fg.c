@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -243,7 +244,7 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(CHG_TERM_CURRENT, 0x4F8,   2,      250),
 	SETTING(IRQ_VOLT_EMPTY,	 0x458,   3,      3100),
 	SETTING(CUTOFF_VOLTAGE,	 0x40C,   0,      3200),
-	SETTING(VBAT_EST_DIFF,	 0x000,   0,      30),
+	SETTING(VBAT_EST_DIFF,	 0x000,   0,      100),
 	SETTING(DELTA_SOC,	 0x450,   3,      1),
 	SETTING(BATT_LOW,	 0x458,   0,      4200),
 	SETTING(THERM_DELAY,	 0x4AC,   3,      0),
@@ -506,6 +507,8 @@ struct fg_chip {
 	bool			jeita_hysteresis_support;
 	bool			batt_hot;
 	bool			batt_cold;
+	bool			batt_warm;
+	bool			batt_cool;
 	int			cold_hysteresis;
 	int			hot_hysteresis;
 	/* ESR pulse tuning */
@@ -1546,11 +1549,6 @@ static int fg_mem_masked_write(struct fg_chip *chip, u16 addr,
 	return rc;
 }
 
-static int soc_to_setpoint(int soc)
-{
-	return DIV_ROUND_CLOSEST(soc * 255, 100);
-}
-
 static void batt_to_setpoint_adc(int vbatt_mv, u8 *data)
 {
 	int val;
@@ -1745,8 +1743,6 @@ static int get_prop_capacity(struct fg_chip *chip)
 
 	if (chip->battery_missing)
 		return MISSING_CAPACITY;
-	if (!chip->profile_loaded && !chip->use_otp_profile)
-		return DEFAULT_CAPACITY;
 	if (chip->charge_full)
 		return FULL_CAPACITY;
 	if (chip->soc_empty) {
@@ -3466,49 +3462,75 @@ static void check_gain_compensation(struct fg_chip *chip)
 	}
 }
 
+#define WARNTEMP 30
+#define COOLTEMP 30
+
 static void fg_hysteresis_config(struct fg_chip *chip)
 {
 	int hard_hot = 0, hard_cold = 0;
+	int soft_hot = 0, soft_cold = 0;
 
+	soft_hot = get_prop_jeita_temp(chip, FG_MEM_SOFT_HOT);
+	soft_cold = get_prop_jeita_temp(chip, FG_MEM_SOFT_COLD);
 	hard_hot = get_prop_jeita_temp(chip, FG_MEM_HARD_HOT);
 	hard_cold = get_prop_jeita_temp(chip, FG_MEM_HARD_COLD);
+
 	if (chip->health == POWER_SUPPLY_HEALTH_OVERHEAT && !chip->batt_hot) {
 		/* turn down the hard hot threshold */
+		set_prop_jeita_temp(chip, FG_MEM_HARD_HOT, hard_hot - chip->hot_hysteresis);
 		chip->batt_hot = true;
-		set_prop_jeita_temp(chip, FG_MEM_HARD_HOT,
-			hard_hot - chip->hot_hysteresis);
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("hard hot hysteresis: old hot=%d, new hot=%d\n",
-				hard_hot, hard_hot - chip->hot_hysteresis);
-	} else if (chip->health == POWER_SUPPLY_HEALTH_COLD &&
-		!chip->batt_cold) {
-		/* turn up the hard cold threshold */
-		chip->batt_cold = true;
-		set_prop_jeita_temp(chip, FG_MEM_HARD_COLD,
-			hard_cold + chip->cold_hysteresis);
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("hard cold hysteresis: old cold=%d, new cold=%d\n",
-				hard_cold, hard_cold + chip->hot_hysteresis);
-	} else if (chip->health != POWER_SUPPLY_HEALTH_OVERHEAT &&
-		chip->batt_hot) {
+		chip->batt_warm = false;
+		chip->batt_cold = false;
+		chip->batt_cold = false;
+	}  else if (chip->health != POWER_SUPPLY_HEALTH_OVERHEAT && chip->batt_hot) {
 		/* restore the hard hot threshold */
-		set_prop_jeita_temp(chip, FG_MEM_HARD_HOT,
-			hard_hot + chip->hot_hysteresis);
-		chip->batt_hot = !chip->batt_hot;
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("restore hard hot threshold: old hot=%d, new hot=%d\n",
-				hard_hot,
-				hard_hot + chip->hot_hysteresis);
-	} else if (chip->health != POWER_SUPPLY_HEALTH_COLD &&
-		chip->batt_cold) {
+		set_prop_jeita_temp(chip, FG_MEM_HARD_HOT, hard_hot + chip->hot_hysteresis);
+		chip->batt_hot = false;
+		chip->batt_warm = true;
+		chip->batt_cold = false;
+		chip->batt_cool = false;
+	} else if (chip->health == POWER_SUPPLY_HEALTH_WARM && !chip->batt_warm) {
+		/* turn down the soft hot threshold */
+		set_prop_jeita_temp(chip, FG_MEM_SOFT_HOT, soft_hot - WARNTEMP);
+		chip->batt_hot = false;
+		chip->batt_warm = true;
+		chip->batt_cold = false;
+		chip->batt_cool = false;
+	} else if (chip->health != POWER_SUPPLY_HEALTH_WARM && chip->batt_warm) {
+		/* restore the soft hot threshold */
+		set_prop_jeita_temp(chip, FG_MEM_SOFT_HOT, soft_hot + WARNTEMP);
+		chip->batt_warm = false;
+		chip->batt_hot = false;
+		chip->batt_cold = false;
+		chip->batt_cool = false;
+	} else if (chip->health == POWER_SUPPLY_HEALTH_COOL && !chip->batt_cool) {
+		/* turn up the soft cold threshold */
+		set_prop_jeita_temp(chip, FG_MEM_SOFT_COLD, soft_cold + COOLTEMP);
+		chip->batt_hot = false;
+		chip->batt_warm = false;
+		chip->batt_cold = false;
+		chip->batt_cool = true;
+	} else if (chip->health != POWER_SUPPLY_HEALTH_COOL && chip->batt_cool) {
+		/* restore the soft cold threshold */
+		set_prop_jeita_temp(chip, FG_MEM_SOFT_COLD, soft_cold - COOLTEMP);
+		chip->batt_cool = false;
+		chip->batt_hot = false;
+		chip->batt_warm = false;
+		chip->batt_cold = false;
+	} else if (chip->health == POWER_SUPPLY_HEALTH_COLD && !chip->batt_cold) {
+		/* turn up the hard cold threshold */
+		set_prop_jeita_temp(chip, FG_MEM_HARD_COLD, hard_cold + chip->cold_hysteresis);
+		chip->batt_hot = false;
+		chip->batt_warm = false;
+		chip->batt_cold = true;
+		chip->batt_cool = false;
+	} else if (chip->health != POWER_SUPPLY_HEALTH_COLD && chip->batt_cold) {
 		/* restore the hard cold threshold */
-		set_prop_jeita_temp(chip, FG_MEM_HARD_COLD,
-			hard_cold - chip->cold_hysteresis);
-		chip->batt_cold = !chip->batt_cold;
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("restore hard cold threshold: old cold=%d, new cold=%d\n",
-				hard_cold,
-				hard_cold - chip->cold_hysteresis);
+		set_prop_jeita_temp(chip, FG_MEM_HARD_COLD, hard_cold - chip->cold_hysteresis);
+		chip->batt_cold = false;
+		chip->batt_hot = false;
+		chip->batt_warm = false;
+		chip->batt_cool = true;
 	}
 }
 
@@ -3538,6 +3560,9 @@ static int fg_init_batt_temp_state(struct fg_chip *chip)
 		(batt_info_sts & JEITA_HARD_HOT_RT_STS) ? true : false;
 	chip->batt_cold =
 		(batt_info_sts & JEITA_HARD_COLD_RT_STS) ? true : false;
+	chip->batt_warm = false;
+	chip->batt_cool = false;
+
 	if (chip->batt_hot || chip->batt_cold) {
 		if (chip->batt_hot) {
 			chip->health = POWER_SUPPLY_HEALTH_OVERHEAT;
@@ -3584,8 +3609,7 @@ static int fg_power_set_property(struct power_supply *psy,
 			schedule_work(&chip->set_resume_soc_work);
 		}
 
-		if (chip->jeita_hysteresis_support)
-			fg_hysteresis_config(chip);
+		fg_hysteresis_config(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_DONE:
 		chip->charge_done = val->intval;
@@ -5333,6 +5357,31 @@ do {									\
 	}								\
 } while (0)
 
+bool add_india_temperature = false;
+void add_warm_india_temperature(struct fg_chip *chip)
+{
+	char *boardid_string = NULL;
+	char boardid_start[32] = " ";
+	int India_0;
+	int India_1;
+
+	boardid_string = strstr(saved_command_line, "board_id=");
+
+	if (boardid_string != NULL) {
+		strncpy(boardid_start, boardid_string+9, 9);
+		India_0 = strncmp(boardid_start, "S88537CA1", 9);
+		India_1 = strncmp(boardid_start, "S88537EC1", 9);
+	}
+	if ((India_0 == 0) || (India_1 == 0)) {
+		add_india_temperature = true;
+	} else {
+		pr_err("else add temperature\n");
+		add_india_temperature = false;
+	}
+}
+
+
+
 #define DEFAULT_EVALUATION_CURRENT_MA	1000
 static int fg_of_init(struct fg_chip *chip)
 {
@@ -5341,7 +5390,12 @@ static int fg_of_init(struct fg_chip *chip)
 	struct device_node *node = chip->spmi->dev.of_node;
 	u32 temp[2] = {0};
 
-	OF_READ_SETTING(FG_MEM_SOFT_HOT, "warm-bat-decidegc", rc, 1);
+	add_warm_india_temperature(chip);
+	if (add_india_temperature) {
+		OF_READ_SETTING(FG_MEM_SOFT_HOT, "warm-bat-india-decidegc", rc, 1);
+	} else {
+		OF_READ_SETTING(FG_MEM_SOFT_HOT, "warm-bat-decidegc", rc, 1);
+	}
 	OF_READ_SETTING(FG_MEM_SOFT_COLD, "cool-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_HARD_HOT, "hot-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_HARD_COLD, "cold-bat-decidegc", rc, 1);
@@ -6192,7 +6246,7 @@ static int fg_common_hw_init(struct fg_chip *chip)
 	}
 
 	rc = fg_mem_masked_write(chip, settings[FG_MEM_DELTA_SOC].address, 0xFF,
-			soc_to_setpoint(settings[FG_MEM_DELTA_SOC].value),
+			settings[FG_MEM_DELTA_SOC].value,
 			settings[FG_MEM_DELTA_SOC].offset);
 	if (rc) {
 		pr_err("failed to write delta soc rc=%d\n", rc);

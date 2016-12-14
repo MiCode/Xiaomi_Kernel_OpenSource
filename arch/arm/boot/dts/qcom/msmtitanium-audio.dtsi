@@ -102,7 +102,7 @@
 
 		cdc-vdd-io-supply = <&pmtitanium_l5>;
 		qcom,cdc-vdd-io-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-io-current = <5000>;
+		qcom,cdc-vdd-io-current = <10000>;
 
 		cdc-vdd-pa-supply = <&pmtitanium_s4>;
 		qcom,cdc-vdd-pa-voltage = <1900000 2050000>;
@@ -174,4 +174,6 @@
 	cdc-vdd-mic-bias-supply = <&pmtitanium_l13>;
 	qcom,cdc-vdd-mic-bias-voltage = <3125000 3125000>;
 	qcom,cdc-vdd-mic-bias-current = <15000>;
+
+	qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
 };

@@ -139,7 +139,20 @@
 				};
 			};
 		};
-
+		gpio_led_pins {
+			gpio_led_off: gpio_led_off {
+				mux {
+					pins = "gpio45";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio45";
+					drive-strength = <6>;
+					bias-disable;
+					output-high;
+				};
+			};
+		};
 		pmx_rd_nfc_int {
 			/*qcom,pins = <&gp 17>;*/
 			pins = "gpio17";
@@ -289,7 +302,102 @@
 				};
 			};
 		};
+		fpc_spi_active: fpc_spi_active{
+			mux {
+				pins = "gpio20", "gpio21", "gpio22", "gpio23";
+				function = "blsp_spi6";
+			};
+			config {
+				pins = "gpio20", "gpio21", "gpio22", "gpio23";
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+		fpc_reset_reset: fpc_reset_reset{
+			mux {
+				pins = "gpio8";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio8";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				output-low;
+			};
+		};
+		fpc_reset_active: fpc_reset_active{
+			mux {
+				pins = "gpio8";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio8";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				output-high;
+			};
+		};
 
+		fpc_irq_active: fpc_irq_active {
+			mux {
+				pins = "gpio9";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio9";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				input-enable;
+			};
+		};
+		goodix_spi_active: goodix_spi_active{
+			mux {
+				pins = "gpio20", "gpio21", "gpio22", "gpio23";
+				function = "blsp_spi6";
+			};
+			config {
+				pins = "gpio20", "gpio21", "gpio22", "gpio23";
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+		goodix_reset_reset: goodix_reset_reset{
+			mux {
+				pins = "gpio8";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio8";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				output-low;
+			};
+		};
+		goodix_reset_active: goodix_reset_active{
+			mux {
+				pins = "gpio8";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio8";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				output-high;
+			};
+		};
+
+		goodix_irq_active: goodix_irq_active {
+			mux {
+				pins = "gpio9";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio9";
+				drive-strength = <2>;
+				bias-disable = <0>;
+				input-enable;
+			};
+		};
 		wcnss_pmux_5wire {
 			/* Active configuration of bus pins */
 			wcnss_default: wcnss_default {
@@ -1198,7 +1306,7 @@
 				config {
 					pins = "gpio67";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-up;
 				};
 			};
 		};

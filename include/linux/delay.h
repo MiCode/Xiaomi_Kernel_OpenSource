@@ -3,6 +3,7 @@
 
 /*
  * Copyright (C) 1993 Linus Torvalds
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Delay routines, using a pre-computed "loops_per_jiffy" value.
  */
@@ -46,6 +47,11 @@ void calibrate_delay(void);
 void msleep(unsigned int msecs);
 unsigned long msleep_interruptible(unsigned int msecs);
 void usleep_range(unsigned long min, unsigned long max);
+
+static inline void usleep(unsigned long usecs)
+{
+	usleep_range(usecs, usecs);
+}
 
 static inline void ssleep(unsigned int seconds)
 {

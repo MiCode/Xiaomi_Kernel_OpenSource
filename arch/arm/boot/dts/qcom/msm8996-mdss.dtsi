@@ -278,10 +278,6 @@
 		mdss_fb2: qcom,mdss_fb_hdmi {
 			cell-index = <2>;
 			compatible = "qcom,mdss-fb";
-			qcom,cont-splash-memory {
-				linux,contiguous-region =
-				<&cont_splash_mem_hdmi>;
-			};
 		};
 
 		mdss_fb3: qcom,mdss_fb_secondary {

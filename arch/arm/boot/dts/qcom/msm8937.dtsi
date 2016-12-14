@@ -33,7 +33,7 @@
 		other_ext_mem: other_ext_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85b00000 0x0 0xd00000>;
+			reg = <0x0 0x84A00000 0x0 0x1E00000>;
 		};
 
 		modem_mem: modem_region@0 {
@@ -544,7 +544,7 @@
 		reg = <0x78b7000 0x600>;
 		interrupt-names = "qup_irq";
 		interrupts = <0 97 0>;
-		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-out = <100000>;
 		qcom,clk-freq-in  = <19200000>;
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
@@ -559,7 +559,7 @@
 		dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
 			<&dma_blsp1 9 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
-		status = "disabled";
+		status = "okay";
 	};
 
 	i2c_5: i2c@7af5000 { /* BLSP2 QUP1 */
@@ -1077,6 +1077,8 @@
 		HSUSB_3p3-supply = <&pm8937_l13>;
 		qcom,vdd-voltage-level = <0 1200000 1200000>;
 		vbus_otg-supply = <&smbcharger_charger_otg>;
+		qcom,hsusb-otg-phy-init-seq =
+			 <0x53 0x80 0x32 0x81 0x07 0x82 0x13 0x83 0xffffffff>;
 
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
 		qcom,hsusb-otg-mode = <3>; /* OTG mode */
@@ -1213,6 +1215,18 @@
 		compatible = "qcom,jtag-fuse-v2";
 		reg = <0xa601c 0x8>;
 		reg-names = "fuse-base";
+	};
+
+	sn_fuse: snfuse@0xa0128 {
+		compatible = "qcom,sn-fuse";
+		reg = <0xa0128 0x4>;
+		reg-names = "sn-base";
+	};
+
+	sec_boot_fuse: secbootfuse@0xa41d0 {
+		compatible = "qcom,sec-boot-fuse";
+		reg = <0xa41d0 0x4>;
+		reg-names = "sec-boot-base";
 	};
 
 	jtag_mm0: jtagmm@61bc000 {
@@ -1492,9 +1506,9 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@85b00000 {
+	qcom_seecom: qseecom@84A00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85b00000 0x800000>;
+		reg = <0x84A00000 0x1900000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;

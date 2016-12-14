@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +34,7 @@
 #include <linux/workqueue.h>
 #include <linux/sched.h>
 #include <sound/q6afe-v2.h>
+#include <linux/switch.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -97,7 +99,7 @@ enum {
 #define SPK_PMD 2
 #define SPK_PMU 3
 
-#define MICBIAS_DEFAULT_VAL 1800000
+#define MICBIAS_DEFAULT_VAL 2700000
 #define MICBIAS_MIN_VAL 1600000
 #define MICBIAS_STEP_SIZE 50000
 
@@ -131,7 +133,9 @@ enum {
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
 static struct snd_soc_dai_driver msm8x16_wcd_i2s_dai[];
-/* By default enable the internal speaker boost */
+
+static struct switch_dev accdet_data;
+static int accdet_state;
 static bool spkr_boost_en = true;
 
 #define MSM8X16_WCD_ACQUIRE_LOCK(x) \
@@ -650,7 +654,7 @@ static void msm8x16_wcd_mbhc_internal_micbias_ctrl(struct snd_soc_codec *codec,
 		if (enable)
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MICB_1_INT_RBIAS,
-				0x10, 0x10);
+				0x18, 0x18);
 		else
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MICB_1_INT_RBIAS,
@@ -4042,6 +4046,17 @@ static int msm8x16_wcd_hphr_dac_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+void msm8x16_wcd_codec_set_headset_state(u32 state)
+{
+	switch_set_state((struct switch_dev *)&accdet_data, state);
+	accdet_state = state;
+}
+
+int msm8x16_wcd_codec_get_headset_state(void)
+{
+	pr_debug("%s accdet_state = %d\n", __func__, accdet_state);
+	return accdet_state;
+}
 static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event)
 {
@@ -5536,6 +5551,15 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 
 	wcd_mbhc_init(&msm8x16_wcd_priv->mbhc, codec, &mbhc_cb, &intr_ids,
 		      wcd_mbhc_registers, true);
+	accdet_data.name = "h2w";
+	accdet_data.index = 0;
+	accdet_data.state = 0;
+
+	ret = switch_dev_register(&accdet_data);
+	if (ret) {
+		dev_err(codec->dev, "%s: Failed to register h2w\n", __func__);
+		return -ENOMEM;
+	}
 
 	msm8x16_wcd_priv->mclk_enabled = false;
 	msm8x16_wcd_priv->clock_active = false;

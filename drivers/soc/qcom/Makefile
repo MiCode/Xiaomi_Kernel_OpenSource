@@ -80,11 +80,16 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-y += subsystem_restart.o
 	obj-y += ramdump.o
 endif
+obj-$(CONFIG_CPUMAXFREQ) += cpumaxfreq.o
+obj-$(CONFIG_SERIAL_NUM) += serial_num.o
+obj-$(CONFIG_SECBOOT_FUSE) += secboot_fuse.o
 
 obj-$(CONFIG_MSM_SERVICE_NOTIFIER) += service-notifier.o
 obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o sysmon-qmi.o
 obj-$(CONFIG_MSM_SECURE_BUFFER) += secure_buffer.o
 obj-$(CONFIG_TRACER_PKT) += tracer_pkt.o
+obj-$(CONFIG_MSM_SMART_SUPPORT) += smart_policy.o
+
 obj-$(CONFIG_ICNSS) += icnss.o wlan_firmware_service_v01.o
 obj-$(CONFIG_MSM_BAM_DMUX) += bam_dmux.o
 obj-$(CONFIG_MSM_SERVICE_LOCATOR) += service-locator.o

@@ -383,8 +383,6 @@
 			"cdc-vdd-rx-h",
 			"cdc-vdd-px";
 
-		qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
-
 		qcom,cdc-micbias1-mv = <1800>;
 		qcom,cdc-micbias2-mv = <1800>;
 		qcom,cdc-micbias3-mv = <1800>;

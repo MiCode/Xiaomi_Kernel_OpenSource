@@ -21,7 +21,7 @@
 		reg = <0x1c40000 0x10000>;
 		#iommu-cells = <1>;
 		#global-interrupts = <1>;
-		interrupts = <0 199 0>, <0 225 0>, <0 232 0>,
+		interrupts = <0 37 0>, <0 225 0>, <0 232 0>,
 				<0 233 0>, <0 234 0>;
 		qcom,register-save;
 		qcom,skip-init;

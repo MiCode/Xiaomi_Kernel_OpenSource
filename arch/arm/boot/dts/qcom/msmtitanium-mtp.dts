@@ -15,6 +15,7 @@
 
 #include "msmtitanium.dtsi"
 #include "msmtitanium-mtp.dtsi"
+#include "msmtitanium-audio-mtp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSMTITANIUM MTP";

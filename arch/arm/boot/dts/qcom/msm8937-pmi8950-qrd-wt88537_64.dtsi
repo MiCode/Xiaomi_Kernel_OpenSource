@@ -1,0 +1,349 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm-pmi8950.dtsi"
+#include "msm8937-qrd.dtsi"
+#include "msm8937-mdss-panels.dtsi"
+#include "dsi-panel-hx8394f-boe-720p-video.dtsi"
+#include "dsi-panel-nt35521s-ebbg-720p-video.dtsi"
+#include "msm8937-camera-sensor-qrd-wt88537.dtsi"
+#include "dsi-panel-ili9881c-tianma-720p-video.dtsi"
+
+
+
+&soc {
+	led_flash0: qcom,camera-flash {
+		cell-index = <0>;
+		compatible = "qcom,camera-flash";
+		qcom,flash-type = <1>;
+		qcom,flash-source = <&pmi8950_flash0 &pmi8950_flash1>;
+		qcom,torch-source = <&pmi8950_torch0 &pmi8950_torch1 &pmi8950_torch2>;
+		qcom,switch-source = <&pmi8950_switch>;
+	};
+
+	i2c@78b7000 {
+		status = "ok";
+		ftech@3E {
+			compatible = "focaltech,5336";
+			reg = <0x3E>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0x2008>;
+			vdd-supply = <&pm8937_l10>;
+			vcc_i2c-supply = <&pm8937_l5>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+				"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			ftech,name = "ft5336";
+			ftech,family-id = <0x36>;
+			ftech,reset-gpio = <&tlmm 64 0x00>;
+			ftech,irq-gpio = <&tlmm 65 0x2008>;
+			ftech,display-coords = <0 0 720 1280>;
+			ftech,panel-coords = <0 0 720 1280>;
+			ftech,virtual-key1 = <139 180 2000>;/*menu*/
+			ftech,virtual-key2 = <172 540 2000>;/*home*/
+			ftech,virtual-key3 = <158 900 2000>;/*back*/
+			ftech,no-force-update;
+			ftech,i2c-pull-up;
+			ftech,group-id = <1>;
+			ftech,hard-reset-delay-ms = <20>;
+			ftech,soft-reset-delay-ms = <200>;
+			ftech,num-max-touches = <10>;
+			ftech,fw-delay-aa-ms = <30>;
+			ftech,fw-delay-55-ms = <30>;
+			ftech,fw-upgrade-id1 = <0x79>;
+			ftech,fw-upgrade-id2 = <0x18>;
+			ftech,fw-delay-readid-ms = <10>;
+			ftech,fw-delay-era-flsh-ms = <2000>;
+			ftech,fw-auto-cal;
+			ftech,ignore-id-check;
+		};
+
+		ist30xx@50 {
+			compatible = "imagis,ist30xx-ts";
+			reg = <0x50>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0x2008>;
+			vdd-supply = <&pm8937_l10>;
+			vcc_i2c-supply = <&pm8937_l5>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+				"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			ist30xx,name = "ist30xx";
+			ist30xx,family-id = <0x36>;
+			ist30xx,reset-gpio = <&tlmm 64 0x00>;
+			ist30xx,irq-gpio = <&tlmm 65 0x2008>;
+			};
+
+	};
+
+	gen-vkey1 {
+		compatible = "qcom,gen-vkeys";
+		label = "ft5x06_720p";
+		qcom,disp-maxx = <720>;
+		qcom,disp-maxy = <1280>;
+		qcom,panel-maxx = <720>;
+		qcom,panel-maxy = <1458>;
+		qcom,key-codes = <139 172 158>;
+		qcom,y-offset = <0>;
+	};
+
+	gen-vkeys_ist {
+		compatible = "qcom,gen-vkeys_ist";
+		label = "ist30xx_ts_input";
+		qcom,disp-maxx = <1080>;
+		qcom,disp-maxy = <1920>;
+		qcom,panel-maxx = <1080>;
+		qcom,panel-maxy = <2098>;
+		qcom,key-codes = <139 172 158>;
+		qcom,y-offset = <0>;
+	};
+	gpio-leds {
+		compatible = "gpio-leds";
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_led_off>;
+
+		infred {
+			gpios = <&tlmm 45 0>;
+			label = "infrared";
+			linux,default-trigger = "infra-red";
+			default-state = "off";
+			retain-state-suspended;
+		};
+
+	};
+	fpc1020 {
+		compatible = "soc:fpc1020";
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <9 0x0>;
+
+		fpc,gpio_rst    = <&tlmm 8 0>;
+		fpc,gpio_irq    = <&tlmm 9 0>;
+
+		vcc_spi-supply  = <&pm8937_l5>;
+		vdd_ana-supply  = <&pm8937_l5>;
+		vdd_io-supply   = <&pm8937_l5>;
+
+		fpc,enable-on-boot;
+		/delete-property/
+		fpc,enable-wakeup;
+
+		fpc,spi-max-frequency = <4800000>;
+
+		/* Only for SPI Clock Handled by Linux */
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+				<&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
+
+		pinctrl-names = "fpc1020_spi_active",
+			"fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active";
+
+		pinctrl-0 = <&fpc_spi_active>;
+		pinctrl-1 = <&fpc_reset_reset>;
+		pinctrl-2 = <&fpc_reset_active>;
+		pinctrl-3 = <&fpc_irq_active>;
+	};
+	goodix_fp {
+		compatible = "goodix,fingerprint";
+		spi-max-frequency = <1000000>;
+		input-device-name = "gf3208";
+		interrupt-parent = <&tlmm>;
+		interrupts = <9 0x0>;
+
+		goodix,gpio_reset    = <&tlmm 8 0>;
+		goodix,gpio_irq      = <&tlmm 9 0>;
+
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+				<&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
+
+		pinctrl-names = "goodixfp_spi_active",
+			"goodixfp_reset_reset",
+			"goodixfp_reset_active",
+			"goodixfp_irq_active";
+
+		pinctrl-0 = <&goodix_spi_active>;
+		pinctrl-1 = <&goodix_reset_reset>;
+		pinctrl-2 = <&goodix_reset_active>;
+		pinctrl-3 = <&goodix_irq_active>;
+	};
+
+};
+&i2c_2  { /* i2c 6 */
+	aw2013@45 { /*blink */
+		compatible = "awinic,aw2013";
+		reg = <0x45>;
+		rgb_led-supply = <&pm8937_l10>;
+
+		red {
+			label = "red";
+			linux,default-trigger = "battery-red";
+			default-state = "off";
+			retain-state-suspended;
+		};
+
+		green {
+			label = "green";
+			linux,default-trigger = "battery-green";
+			default-state = "off";
+			retain-state-suspended;
+		};
+
+		blue {
+			label = "blue";
+			linux,default-trigger = "battery-blue";
+			default-state = "off";
+			retain-state-suspended;
+		};
+		white {
+			label = "white";
+			linux,default-trigger = "none";
+			default-state = "off";
+			retain-state-suspended;
+		};
+
+		yellow {
+			label = "yellow";
+			linux,default-trigger = "none";
+			default-state = "off";
+			retain-state-suspended;
+		};
+
+		cyan {
+			label = "cyan";
+			linux,default-trigger = "none";
+			default-state = "off";
+			retain-state-suspended;
+		};
+		purple {
+			label = "purple";
+			linux,default-trigger = "none";
+			default-state = "off";
+			retain-state-suspended;
+		};
+
+	};
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+
+	qcom,dsi-pref-prim-pan = <&dsi_hx8394f_boe_720_vid>;
+	qcom,dsi-pref-sub-pan = <&dsi_nt35521s_ebbg_720_video>;
+	qcom,dsi-pref-sub1-pan = <&dsi_ili9881c_tianma_720p_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 60 0>;
+
+	qcom,regulator-ldo-mode;
+	qcom,platform-regulator-settings = [ 00 01 01 00 20 07 00];
+
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
+};
+
+&ibb_regulator {
+	qcom,qpnp-ibb-discharge-resistor = <32>;
+};
+
+&dsi_panel_pwr_supply {
+	qcom,panel-supply-entry@2 {
+		reg = <2>;
+		qcom,supply-name = "lab";
+		qcom,supply-min-voltage = <4600000>;
+		qcom,supply-max-voltage = <6000000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+	};
+
+	qcom,panel-supply-entry@3 {
+		reg = <3>;
+		qcom,supply-name = "ibb";
+		qcom,supply-min-voltage = <4600000>;
+		qcom,supply-max-voltage = <6000000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+		qcom,supply-post-on-sleep = <20>;
+	};
+};
+
+&dsi_hx8394f_boe_720_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt35521s_ebbg_720_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_ili9881c_tianma_720p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+
+&spmi_bus {
+	qcom,pmi8950@3 {
+		labibb: qpnp-labibb-regulator {
+			ibb_regulator: qcom,ibb@dc00 {
+				/delete-property/
+					qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-lcd-voltage = <5000000>;
+			};
+
+			lab_regulator: qcom,lab@de00 {
+				/delete-property/
+					qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-lcd-voltage = <5000000>;
+			};
+		};
+	};
+};
+
+&sdc2_cmd_on {
+	config {
+		drive-strength = <12>;
+	};
+};
+
+&sdc2_data_on {
+	config {
+		drive-strength = <12>;
+	};
+};

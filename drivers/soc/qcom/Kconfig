@@ -775,6 +775,28 @@ config MSM_REMOTEQDSS
 	  enable/disable these events. Interface located in
 	  /sys/class/remoteqdss.
 
+config CPUMAXFREQ
+	bool "Enable CPUMAXFREQ Proc Interface"
+	help
+	Provide a interface for getting the maximum frequency supported by cpu core
+
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
+	help
+	Provide a interface for reading CPU serial number
+
+config SECBOOT_FUSE
+	bool "Enable Secure boot fuse Proc Interface"
+	help
+	   Provide a interface for reading CPU secure boot fuse setting. Interface located in
+	   /proc/secboot_fuse_reg
+
 source "drivers/soc/qcom/memshare/Kconfig"
+#patch, jiangtao.wt, 20160311, performance patch from qcom
+config MSM_SMART_SUPPORT
+	bool "Msm smart policy support"
+	help
+	  Enable this to be able to choose the smart policy for controlling the
+	  performance and power on some msm platforms.
 
 endif # ARCH_MSM
