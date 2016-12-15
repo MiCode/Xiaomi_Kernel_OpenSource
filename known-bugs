@@ -1,0 +1,4 @@
+1, Kernel build error when ARCH=arm with multi_v7_defconfig+CONFIG_SMP=n 
+	arch/arm/kernel/psci.c:287:115: error: redefinition of 'psci_init'
+  This bug start from commit dbcfee724255ae1 ARM: 8457/1: psci-smp is built only for SMP
+
