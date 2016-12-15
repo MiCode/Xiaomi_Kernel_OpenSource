@@ -117,6 +117,11 @@ MODULE_PARM_DESC(cpu_to_affin, "affin usb irq to this cpu");
 #define	GSI_IF_STS	(QSCRATCH_REG_OFFSET + 0x1A4)
 #define	GSI_WR_CTRL_STATE_MASK	BIT(15)
 
+#define DWC3_GEVNTCOUNT_EVNTINTRPTMASK		(1 << 31)
+#define DWC3_GEVNTADRHI_EVNTADRHI_GSI_EN(n)	(n << 22)
+#define DWC3_GEVNTADRHI_EVNTADRHI_GSI_IDX(n)	(n << 16)
+#define DWC3_GEVENT_TYPE_GSI			0x3
+
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
 	struct usb_request *req;
@@ -213,6 +218,8 @@ struct dwc3_msm {
 	unsigned int		lpm_to_suspend_delay;
 	bool			init;
 	enum plug_orientation	typec_orientation;
+	u32			num_gsi_event_buffers;
+	struct dwc3_event_buffer **gsi_ev_buff;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -232,7 +239,7 @@ struct dwc3_msm {
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA);
-
+static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event);
 /**
  *
  * Read register with debug info.
@@ -1608,10 +1615,9 @@ static void dwc3_msm_vbus_draw_work(struct work_struct *w)
 static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	struct dwc3_event_buffer *evt;
 	u32 reg;
-
-	if (dwc->revision < DWC3_REVISION_230A)
-		return;
+	int i;
 
 	switch (event) {
 	case DWC3_CONTROLLER_ERROR_EVENT:
@@ -1695,6 +1701,93 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 	case DWC3_CONTROLLER_RESTART_USB_SESSION:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_RESTART_USB_SESSION received\n");
 		schedule_work(&mdwc->restart_usb_work);
+		break;
+	case DWC3_GSI_EVT_BUF_ALLOC:
+		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_ALLOC\n");
+
+		if (!mdwc->num_gsi_event_buffers)
+			break;
+
+		mdwc->gsi_ev_buff = devm_kzalloc(dwc->dev,
+			sizeof(*dwc->ev_buf) * mdwc->num_gsi_event_buffers,
+			GFP_KERNEL);
+		if (!mdwc->gsi_ev_buff) {
+			dev_err(dwc->dev, "can't allocate gsi_ev_buff\n");
+			break;
+		}
+
+		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
+
+			evt = devm_kzalloc(dwc->dev, sizeof(*evt), GFP_KERNEL);
+			if (!evt)
+				break;
+			evt->dwc	= dwc;
+			evt->length	= DWC3_EVENT_BUFFERS_SIZE;
+			evt->buf	= dma_alloc_coherent(dwc->dev,
+						DWC3_EVENT_BUFFERS_SIZE,
+						&evt->dma, GFP_KERNEL);
+			if (!evt->buf) {
+				dev_err(dwc->dev,
+					"can't allocate gsi_evt_buf(%d)\n", i);
+				break;
+			}
+			mdwc->gsi_ev_buff[i] = evt;
+		}
+		break;
+	case DWC3_GSI_EVT_BUF_SETUP:
+		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_SETUP\n");
+		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
+			evt = mdwc->gsi_ev_buff[i];
+			dev_dbg(mdwc->dev, "Evt buf %p dma %08llx length %d\n",
+				evt->buf, (unsigned long long) evt->dma,
+				evt->length);
+			memset(evt->buf, 0, evt->length);
+			evt->lpos = 0;
+			/*
+			 * Primary event buffer is programmed with registers
+			 * DWC3_GEVNT*(0). Hence use DWC3_GEVNT*(i+1) to
+			 * program USB GSI related event buffer with DWC3
+			 * controller.
+			 */
+			dwc3_writel(dwc->regs, DWC3_GEVNTADRLO((i+1)),
+				lower_32_bits(evt->dma));
+			dwc3_writel(dwc->regs, DWC3_GEVNTADRHI((i+1)),
+				DWC3_GEVNTADRHI_EVNTADRHI_GSI_EN(
+				DWC3_GEVENT_TYPE_GSI) |
+				DWC3_GEVNTADRHI_EVNTADRHI_GSI_IDX((i+1)));
+			dwc3_writel(dwc->regs, DWC3_GEVNTSIZ((i+1)),
+				DWC3_GEVNTCOUNT_EVNTINTRPTMASK |
+				((evt->length) & 0xffff));
+			dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT((i+1)), 0);
+		}
+		break;
+	case DWC3_GSI_EVT_BUF_CLEANUP:
+		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_CLEANUP\n");
+		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
+			evt = mdwc->gsi_ev_buff[i];
+			evt->lpos = 0;
+			/*
+			 * Primary event buffer is programmed with registers
+			 * DWC3_GEVNT*(0). Hence use DWC3_GEVNT*(i+1) to
+			 * program USB GSI related event buffer with DWC3
+			 * controller.
+			 */
+			dwc3_writel(dwc->regs, DWC3_GEVNTADRLO((i+1)), 0);
+			dwc3_writel(dwc->regs, DWC3_GEVNTADRHI((i+1)), 0);
+			dwc3_writel(dwc->regs, DWC3_GEVNTSIZ((i+1)),
+					DWC3_GEVNTSIZ_INTMASK |
+					DWC3_GEVNTSIZ_SIZE((i+1)));
+			dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT((i+1)), 0);
+		}
+		break;
+	case DWC3_GSI_EVT_BUF_FREE:
+		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_FREE\n");
+		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
+			evt = mdwc->gsi_ev_buff[i];
+			if (evt)
+				dma_free_coherent(dwc->dev, evt->length,
+							evt->buf, evt->dma);
+		}
 		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
@@ -2877,6 +2970,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	if (cpu_to_affin)
 		register_cpu_notifier(&mdwc->dwc3_cpu_notifier);
+
+	ret = of_property_read_u32(node, "qcom,num-gsi-evt-buffs",
+				&mdwc->num_gsi_event_buffers);
 
 	/*
 	 * Clocks and regulators will not be turned on until the first time

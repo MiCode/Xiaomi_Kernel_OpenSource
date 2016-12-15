@@ -780,6 +780,12 @@ struct dwc3_scratchpad_array {
 #define DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT	7
 #define DWC3_CONTROLLER_RESTART_USB_SESSION	8
 
+/* USB GSI event buffer related notification */
+#define DWC3_GSI_EVT_BUF_ALLOC			9
+#define DWC3_GSI_EVT_BUF_SETUP			10
+#define DWC3_GSI_EVT_BUF_CLEANUP		11
+#define DWC3_GSI_EVT_BUF_FREE			12
+
 #define MAX_INTR_STATS				10
 
 /**
