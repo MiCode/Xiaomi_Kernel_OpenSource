@@ -5486,17 +5486,26 @@ long group_norm_util(struct energy_env *eenv, struct sched_group *sg)
 	return util_sum;
 }
 
-static int find_new_capacity(struct energy_env *eenv,
-	const struct sched_group_energy * const sge)
+static int __find_new_capacity(unsigned long util,
+			       const struct sched_group_energy const *sge)
 {
 	int idx;
-	unsigned long util = group_max_util(eenv);
 
 	for (idx = 0; idx < sge->nr_cap_states; idx++) {
 		if (sge->cap_states[idx].cap >= util)
 			break;
 	}
 
+	return idx;
+}
+
+static int find_new_capacity(struct energy_env *eenv,
+			     const struct sched_group_energy const *sge)
+{
+	int idx;
+	unsigned long util = group_max_util(eenv);
+
+	idx = __find_new_capacity(util, sge);
 	eenv->cap_idx = idx;
 
 	return idx;
@@ -6582,6 +6591,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	sg_target = sg;
 
 	if (sysctl_sched_is_big_little) {
+		unsigned long target_cpu_cap_idx = ULONG_MAX, cap_idx;
 
 		/*
 		 * Find group with sufficient capacity. We only get here if no cpu is
@@ -6618,6 +6628,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			 * accounting. However, the blocked utilization may be zero.
 			 */
 			new_util = cpu_util(i) + task_util_boosted;
+			cap_idx = __find_new_capacity(new_util, sg_target->sge);
 
 			/*
 			 * Ensure minimum capacity to grant the required boost.
@@ -6627,15 +6638,18 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			if (new_util > capacity_orig_of(i))
 				continue;
 
-			if (new_util < capacity_curr_of(i)) {
+			if (cap_idx < target_cpu_cap_idx) {
 				target_cpu = i;
-				if (cpu_rq(i)->nr_running)
-					break;
+				target_cpu_cap_idx = cap_idx;
+			} else if (target_cpu != task_cpu(p) &&
+				   cap_idx == target_cpu_cap_idx) {
+				if (cpu_rq(i)->nr_running <
+				    cpu_rq(target_cpu)->nr_running) {
+					target_cpu = i;
+					target_cpu_cap_idx = cap_idx;
+				}
 			}
 
-			/* cpu has capacity at higher OPP, keep it as fallback */
-			if (target_cpu == task_cpu(p))
-				target_cpu = i;
 		}
 	} else {
 		/*
