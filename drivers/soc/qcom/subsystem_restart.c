@@ -178,7 +178,7 @@ struct subsys_device {
 	struct cdev char_dev;
 	dev_t dev_no;
 	struct completion err_ready;
-	bool crashed;
+	enum crash_status crashed;
 	int notif_state;
 	struct list_head list;
 };
@@ -649,7 +649,7 @@ static void subsystem_powerup(struct subsys_device *dev, void *data)
 			current, name);
 	}
 	subsys_set_state(dev, SUBSYS_ONLINE);
-	subsys_set_crash_status(dev, false);
+	subsys_set_crash_status(dev, CRASH_STATUS_NO_CRASH);
 }
 
 static int __find_subsys(struct device *dev, void *data)
@@ -1130,12 +1130,13 @@ int subsystem_crashed(const char *name)
 }
 EXPORT_SYMBOL(subsystem_crashed);
 
-void subsys_set_crash_status(struct subsys_device *dev, bool crashed)
+void subsys_set_crash_status(struct subsys_device *dev,
+				enum crash_status crashed)
 {
 	dev->crashed = crashed;
 }
 
-bool subsys_get_crash_status(struct subsys_device *dev)
+enum crash_status subsys_get_crash_status(struct subsys_device *dev)
 {
 	return dev->crashed;
 }
