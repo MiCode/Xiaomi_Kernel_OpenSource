@@ -60,6 +60,8 @@ Optional properties :
 	  should point to external connector device, which provide "USB-HOST"
 	  cable events. A single phandle may be specified if a single connector
 	  device provides both "USB" and "USB-HOST" events.
+- qcom,pm-qos-latency: This represents max tolerable CPU latency in microsecs,
+	which is used as a vote by driver to get max performance in perf mode.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
@@ -84,6 +86,7 @@ Example MSM USB3.0 controller device node :
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
 		qcom,usb-dbm = <&dbm_1p4>;
 		qcom,lpm-to-suspend-delay-ms = <2>;
+		qcom,pm-qos-latency = <2>;
 
 		qcom,msm_bus,name = "usb3";
 		qcom,msm_bus,num_cases = <2>;
