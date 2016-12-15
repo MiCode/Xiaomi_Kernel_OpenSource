@@ -1762,6 +1762,7 @@ struct common_data {
 	struct vss_isoundfocus_rsp_get_sectors_t soundFocusResponse;
 	struct shared_mem_info source_tracking_sh_mem;
 	struct vss_isourcetrack_activity_data_t sourceTrackingResponse;
+	bool sidetone_enable;
 };
 
 struct voice_session_itr {
@@ -1894,4 +1895,6 @@ uint32_t voice_get_topology(uint32_t topology_idx);
 int voc_set_sound_focus(struct sound_focus_param sound_focus_param);
 int voc_get_sound_focus(struct sound_focus_param *soundFocusData);
 int voc_get_source_tracking(struct source_tracking_param *sourceTrackingData);
+int voc_set_afe_sidetone(uint32_t session_id, bool sidetone_enable);
+bool voc_get_afe_sidetone(void);
 #endif
