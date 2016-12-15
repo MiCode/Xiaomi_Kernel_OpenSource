@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -904,6 +904,8 @@ int cpr3_apm_init(struct cpr3_controller *ctrl);
 int cpr3_mem_acc_init(struct cpr3_regulator *vreg);
 void cprh_adjust_voltages_for_apm(struct cpr3_regulator *vreg);
 void cprh_adjust_voltages_for_mem_acc(struct cpr3_regulator *vreg);
+int cpr3_adjust_target_quotients(struct cpr3_regulator *vreg,
+			int *fuse_volt_adjust);
 
 #else
 
@@ -1082,6 +1084,12 @@ static inline void cprh_adjust_voltages_for_apm(struct cpr3_regulator *vreg)
 
 static inline void cprh_adjust_voltages_for_mem_acc(struct cpr3_regulator *vreg)
 {
+}
+
+static inline int cpr3_adjust_target_quotients(struct cpr3_regulator *vreg,
+			int *fuse_volt_adjust)
+{
+	return 0;
 }
 
 #endif /* CONFIG_REGULATOR_CPR3 */
