@@ -169,6 +169,15 @@ config MSM_VIDEOCC_SDM845
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
 
+config MSM_CAMCC_SDM845
+	tristate "SDM845 Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  sdm845 devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
 config CLOCK_QPNP_DIV
 	tristate "QPNP PMIC clkdiv driver"
 	depends on COMMON_CLK_QCOM && SPMI
