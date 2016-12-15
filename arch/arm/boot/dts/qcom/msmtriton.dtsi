@@ -621,6 +621,11 @@
 		};
 	};
 
+	qcom,lmh {
+		compatible = "qcom,lmh_v1";
+		interrupts = <GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	wdog: qcom,wdt@17817000 {
 		status = "disabled";
 		compatible = "qcom,msm-watchdog";
