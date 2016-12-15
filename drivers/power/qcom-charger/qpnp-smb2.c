@@ -1884,6 +1884,12 @@ static int smb2_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
+	rc = smb2_init_hw(chip);
+	if (rc < 0) {
+		pr_err("Couldn't initialize hardware rc=%d\n", rc);
+		goto cleanup;
+	}
+
 	rc = smb2_init_dc_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize dc psy rc=%d\n", rc);
@@ -1913,12 +1919,6 @@ static int smb2_probe(struct platform_device *pdev)
 	rc = smb2_init_batt_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize batt psy rc=%d\n", rc);
-		goto cleanup;
-	}
-
-	rc = smb2_init_hw(chip);
-	if (rc < 0) {
-		pr_err("Couldn't initialize hardware rc=%d\n", rc);
 		goto cleanup;
 	}
 
