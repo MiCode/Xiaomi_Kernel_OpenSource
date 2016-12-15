@@ -49,6 +49,12 @@ module_param(qmi_bypass, bool, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(qmi_bypass, "Bypass QMI from platform driver");
 #endif
 
+static bool enable_waltest;
+#ifdef CONFIG_CNSS2_DEBUG
+module_param(enable_waltest, bool, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(enable_waltest, "Enable to handle firmware waltest");
+#endif
+
 static struct cnss_fw_files FW_FILES_QCA6174_FW_3_0 = {
 	"qwlan30.bin", "bdwlan30.bin", "otp30.bin", "utf30.bin",
 	"utfbd30.bin", "epping30.bin", "evicted30.bin"
@@ -995,6 +1001,12 @@ bypass_fbc:
 	}
 
 skip_fw_ready:
+	if (enable_waltest) {
+		cnss_pr_dbg("Firmware waltest is enabled.\n");
+		ret = 0;
+		goto out;
+	}
+
 	if (plat_priv->driver_status == CNSS_LOAD_UNLOAD) {
 		ret = plat_priv->driver_ops->probe(pci_priv->pci_dev,
 						   pci_priv->pci_device_id);
@@ -1044,6 +1056,9 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 	if (!plat_priv->driver_ops)
 		return -EINVAL;
 
+	if (enable_waltest)
+		goto bypass_driver_remove;
+
 	if (plat_priv->driver_status == CNSS_LOAD_UNLOAD) {
 		cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
 		plat_priv->driver_ops->remove(pci_priv->pci_dev);
@@ -1056,6 +1071,7 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 
 	clear_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
 
+bypass_driver_remove:
 	if (!fbc_bypass)
 		cnss_pci_stop_mhi(pci_priv);
 
