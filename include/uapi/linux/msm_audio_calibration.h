@@ -98,11 +98,14 @@ enum {
 	ULP_LSM_TOPOLOGY_ID_CAL_TYPE,
 	AFE_FB_SPKR_PROT_TH_VI_CAL_TYPE,
 	AFE_FB_SPKR_PROT_EX_VI_CAL_TYPE,
+	AFE_SIDETONE_IIR_CAL_TYPE,
 	MAX_CAL_TYPES,
 };
 
 #define AFE_FB_SPKR_PROT_TH_VI_CAL_TYPE AFE_FB_SPKR_PROT_TH_VI_CAL_TYPE
 #define AFE_FB_SPKR_PROT_EX_VI_CAL_TYPE AFE_FB_SPKR_PROT_EX_VI_CAL_TYPE
+
+#define AFE_SIDETONE_IIR_CAL_TYPE AFE_SIDETONE_IIR_CAL_TYPE
 
 enum {
 	VERSION_0_0,
@@ -346,6 +349,19 @@ struct audio_cal_info_sidetone {
 	int32_t		pid;
 };
 
+#define MAX_SIDETONE_IIR_DATA_SIZE   224
+#define MAX_NO_IIR_FILTER_STAGE      10
+
+struct audio_cal_info_sidetone_iir {
+	uint16_t	iir_enable;
+	uint16_t	num_biquad_stages;
+	uint16_t	pregain;
+	int32_t	        tx_acdb_id;
+	int32_t	        rx_acdb_id;
+	int32_t	        mid;
+	int32_t	        pid;
+	uint8_t	        iir_config[MAX_SIDETONE_IIR_DATA_SIZE];
+};
 struct audio_cal_info_lsm_top {
 	int32_t		topology;
 	int32_t		acdb_id;
@@ -578,6 +594,17 @@ struct audio_cal_type_sidetone {
 struct audio_cal_sidetone {
 	struct audio_cal_header			hdr;
 	struct audio_cal_type_sidetone		cal_type;
+};
+
+struct audio_cal_type_sidetone_iir {
+	struct audio_cal_type_header	   cal_hdr;
+	struct audio_cal_data		   cal_data;
+	struct audio_cal_info_sidetone_iir cal_info;
+};
+
+struct audio_cal_sidetone_iir {
+	struct audio_cal_header		   hdr;
+	struct audio_cal_type_sidetone_iir cal_type;
 };
 
 struct audio_cal_type_lsm_top {
