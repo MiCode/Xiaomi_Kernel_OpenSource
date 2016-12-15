@@ -147,6 +147,9 @@ enum plug_orientation {
 #define B_SESS_VLD		1
 #define B_SUSPEND		2
 
+#define PM_QOS_SAMPLE_SEC	2
+#define PM_QOS_THRESHOLD	400
+
 struct dwc3_msm {
 	struct device *dev;
 	void __iomem *base;
@@ -224,6 +227,9 @@ struct dwc3_msm {
 	enum plug_orientation	typec_orientation;
 	u32			num_gsi_event_buffers;
 	struct dwc3_event_buffer **gsi_ev_buff;
+	int pm_qos_latency;
+	struct pm_qos_request pm_qos_req_dma;
+	struct delayed_work perf_vote_work;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1964,6 +1970,8 @@ static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 	}
 }
 
+static void msm_dwc3_perf_vote_update(struct dwc3_msm *mdwc,
+						bool perf_mode);
 
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
@@ -1976,6 +1984,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		dev_dbg(mdwc->dev, "%s: Already suspended\n", __func__);
 		return 0;
 	}
+
+	cancel_delayed_work_sync(&mdwc->perf_vote_work);
+	msm_dwc3_perf_vote_update(mdwc, false);
 
 	if (!mdwc->in_host_mode) {
 		evt = dwc->ev_buf;
@@ -2258,6 +2269,10 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	 * Low Power Mode
 	 */
 	dwc3_pwr_event_handler(mdwc);
+
+	if (pm_qos_request_active(&mdwc->pm_qos_req_dma))
+		schedule_delayed_work(&mdwc->perf_vote_work,
+			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 
 	dbg_event(0xFF, "Ctl Res", atomic_read(&dwc->in_lpm));
 	return 0;
@@ -2715,6 +2730,7 @@ static ssize_t mode_store(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR_RW(mode);
+static void msm_dwc3_perf_vote_work(struct work_struct *w);
 
 static ssize_t speed_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
@@ -2782,6 +2798,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_WORK(&mdwc->bus_vote_w, dwc3_msm_bus_vote_w);
 	INIT_WORK(&mdwc->vbus_draw_work, dwc3_msm_vbus_draw_work);
 	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
+	INIT_DELAYED_WORK(&mdwc->perf_vote_work, msm_dwc3_perf_vote_work);
 
 	mdwc->dwc3_wq = alloc_ordered_workqueue("dwc3_wq", 0);
 	if (!mdwc->dwc3_wq) {
@@ -3060,6 +3077,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto put_dwc3;
 
+	ret = of_property_read_u32(node, "qcom,pm-qos-latency",
+				&mdwc->pm_qos_latency);
+	if (ret) {
+		dev_dbg(&pdev->dev, "setting pm-qos-latency to zero.\n");
+		mdwc->pm_qos_latency = 0;
+	}
+
 	/* Update initial VBUS/ID state from extcon */
 	if (mdwc->extcon_vbus && extcon_get_cable_state_(mdwc->extcon_vbus,
 							EXTCON_USB))
@@ -3127,6 +3151,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		clk_prepare_enable(mdwc->xo_clk);
 	}
 
+	cancel_delayed_work_sync(&mdwc->perf_vote_work);
 	cancel_delayed_work_sync(&mdwc->sm_work);
 
 	if (mdwc->hs_phy)
@@ -3233,6 +3258,45 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+static void msm_dwc3_perf_vote_update(struct dwc3_msm *mdwc, bool perf_mode)
+{
+	static bool curr_perf_mode;
+	int latency = mdwc->pm_qos_latency;
+
+	if ((curr_perf_mode == perf_mode) || !latency)
+		return;
+
+	if (perf_mode)
+		pm_qos_update_request(&mdwc->pm_qos_req_dma, latency);
+	else
+		pm_qos_update_request(&mdwc->pm_qos_req_dma,
+						PM_QOS_DEFAULT_VALUE);
+
+	curr_perf_mode = perf_mode;
+	pr_debug("%s: latency updated to: %d\n", __func__,
+			perf_mode ? latency : PM_QOS_DEFAULT_VALUE);
+}
+
+static void msm_dwc3_perf_vote_work(struct work_struct *w)
+{
+	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
+						perf_vote_work.work);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	static unsigned long	last_irq_cnt;
+	bool in_perf_mode = false;
+
+	if (dwc->irq_cnt - last_irq_cnt >= PM_QOS_THRESHOLD)
+		in_perf_mode = true;
+
+	pr_debug("%s: in_perf_mode:%u, interrupts in last sample:%lu\n",
+		 __func__, in_perf_mode, (dwc->irq_cnt - last_irq_cnt));
+
+	last_irq_cnt = dwc->irq_cnt;
+	msm_dwc3_perf_vote_update(mdwc, in_perf_mode);
+	schedule_delayed_work(&mdwc->perf_vote_work,
+			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+}
+
 #define VBUS_REG_CHECK_DELAY	(msecs_to_jiffies(1000))
 
 /**
@@ -3337,6 +3401,16 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			atomic_read(&mdwc->dev->power.usage_count));
 		pm_runtime_mark_last_busy(mdwc->dev);
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
+#ifdef CONFIG_SMP
+		mdwc->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
+		mdwc->pm_qos_req_dma.irq = dwc->irq;
+#endif
+		pm_qos_add_request(&mdwc->pm_qos_req_dma,
+				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+		/* start in perf mode for better performance initially */
+		msm_dwc3_perf_vote_update(mdwc, true);
+		schedule_delayed_work(&mdwc->perf_vote_work,
+				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off host\n", __func__);
 
@@ -3346,6 +3420,10 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			dev_err(mdwc->dev, "unable to disable vbus_reg\n");
 			return ret;
 		}
+
+		cancel_delayed_work_sync(&mdwc->perf_vote_work);
+		msm_dwc3_perf_vote_update(mdwc, false);
+		pm_qos_remove_request(&mdwc->pm_qos_req_dma);
 
 		pm_runtime_get_sync(mdwc->dev);
 		dbg_event(0xFF, "StopHost gsync",
@@ -3430,9 +3508,23 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		usb_gadget_vbus_connect(&dwc->gadget);
+#ifdef CONFIG_SMP
+		mdwc->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
+		mdwc->pm_qos_req_dma.irq = dwc->irq;
+#endif
+		pm_qos_add_request(&mdwc->pm_qos_req_dma,
+				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+		/* start in perf mode for better performance initially */
+		msm_dwc3_perf_vote_update(mdwc, true);
+		schedule_delayed_work(&mdwc->perf_vote_work,
+				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off gadget %s\n",
 					__func__, dwc->gadget.name);
+		cancel_delayed_work_sync(&mdwc->perf_vote_work);
+		msm_dwc3_perf_vote_update(mdwc, false);
+		pm_qos_remove_request(&mdwc->pm_qos_req_dma);
+
 		usb_gadget_vbus_disconnect(&dwc->gadget);
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
 		usb_phy_notify_disconnect(mdwc->ss_phy, USB_SPEED_SUPER);
