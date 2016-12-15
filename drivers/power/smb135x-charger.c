@@ -375,6 +375,7 @@ struct smb135x_chg {
 	struct mutex			otg_oc_count_lock;
 	struct delayed_work		hvdcp_det_work;
 
+	struct mutex			parallel_config_lock;
 	bool				parallel_charger;
 	bool				parallel_charger_present;
 	bool				bms_controlled_charging;
@@ -1954,7 +1955,9 @@ static int smb135x_parallel_set_property(struct power_supply *psy,
 			chip->chg_enabled = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
+		mutex_lock(&chip->parallel_config_lock);
 		rc = smb135x_parallel_set_chg_present(chip, val->intval);
+		mutex_unlock(&chip->parallel_config_lock);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		if (chip->parallel_charger_present) {
@@ -4391,6 +4394,7 @@ static int smb135x_parallel_charger_probe(struct i2c_client *client,
 	mutex_init(&chip->path_suspend_lock);
 	mutex_init(&chip->current_change_lock);
 	mutex_init(&chip->read_write_lock);
+	mutex_init(&chip->parallel_config_lock);
 	wakeup_source_init(&chip->wake_source.source, "smb_wake_source");
 
 	match = of_match_node(smb135x_match_table, node);
@@ -4449,6 +4453,7 @@ static int smb135x_charger_remove(struct i2c_client *client)
 
 	if (chip->parallel_charger) {
 		power_supply_unregister(&chip->parallel_psy);
+		mutex_destroy(&chip->parallel_config_lock);
 		goto mutex_destroy;
 	}
 
