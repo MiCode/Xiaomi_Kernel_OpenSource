@@ -142,7 +142,10 @@ dtb-$(CONFIG_ARCH_MSMFALCON) += msmfalcon-sim.dtb \
 	msmfalcon-internal-codec-mtp.dtb \
 	msmfalcon-rcm.dtb \
 	msmfalcon-internal-codec-rcm.dtb \
-	msmfalcon-qrd.dtb
+	msmfalcon-qrd.dtb \
+	apqfalcon-cdp.dtb \
+	apqfalcon-mtp.dtb \
+	apqfalcon-rcm.dtb
 
 dtb-$(CONFIG_ARCH_MSMTRITON) += msmtriton-rumi.dtb
 
