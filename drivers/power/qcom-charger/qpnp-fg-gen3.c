@@ -2148,7 +2148,14 @@ static int fg_get_time_to_full(struct fg_chip *chip, int *val)
 		return -ENODATA;
 	}
 
-	if (chip->charge_status == POWER_SUPPLY_STATUS_FULL) {
+	rc = fg_get_prop_capacity(chip, &msoc);
+	if (rc < 0) {
+		pr_err("failed to get msoc rc=%d\n", rc);
+		return rc;
+	}
+	fg_dbg(chip, FG_TTF, "msoc=%d\n", msoc);
+
+	if (msoc >= 100) {
 		*val = 0;
 		return 0;
 	}
@@ -2211,13 +2218,6 @@ static int fg_get_time_to_full(struct fg_chip *chip, int *val)
 	act_cap_uah *= MILLI_UNIT;
 	fg_dbg(chip, FG_TTF, "actual_capacity_uah=%d\n", act_cap_uah);
 
-	rc = fg_get_prop_capacity(chip, &msoc);
-	if (rc < 0) {
-		pr_err("failed to get msoc rc=%d\n", rc);
-		return rc;
-	}
-	fg_dbg(chip, FG_TTF, "msoc=%d\n", msoc);
-
 	rc = fg_get_sram_prop(chip, FG_SRAM_FULL_SOC, &full_soc);
 	if (rc < 0) {
 		pr_err("failed to get full soc rc=%d\n", rc);
@@ -2257,7 +2257,7 @@ skip_cc_estimate:
 	fg_dbg(chip, FG_TTF, "t_predicted_cc=%lld\n", t_predicted_cc);
 
 	/* CV estimate starts here */
-	if (chip->charge_type == POWER_SUPPLY_CHARGE_TYPE_TAPER)
+	if (chip->charge_type >= POWER_SUPPLY_CHARGE_TYPE_TAPER)
 		ln_val = ibatt_avg / abs(chip->dt.sys_term_curr_ma);
 	else
 		ln_val = i_cc2cv / abs(chip->dt.sys_term_curr_ma);
