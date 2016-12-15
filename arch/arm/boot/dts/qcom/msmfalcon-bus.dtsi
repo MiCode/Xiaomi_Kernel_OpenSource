@@ -41,6 +41,20 @@
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpmcc RPM_AGGR2_NOC_CLK>,
 				<&clock_rpmcc RPM_AGGR2_NOC_A_CLK>;
+			qcom,node-qos-clks {
+				clock-names =
+				"clk-ipa-clk",
+				"clk-sdcc1-ahb-no-rate",
+				"clk-sdcc2-ahb-no-rate",
+				"clk-blsp1-ahb-no-rate",
+				"clk-blsp2-ahb-no-rate";
+				clocks =
+				<&clock_rpmcc RPM_IPA_CLK>,
+				<&clock_gcc GCC_SDCC1_AHB_CLK>,
+				<&clock_gcc GCC_SDCC2_AHB_CLK>,
+				<&clock_gcc GCC_BLSP1_AHB_CLK>,
+				<&clock_gcc GCC_BLSP2_AHB_CLK>;
+			};
 		};
 
 		fab_bimc: fab-bimc {
@@ -85,10 +99,32 @@
 			qcom,bus-type = <1>;
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <20480>;
-			qcom,util-fact = <154>;
+			qcom,util-fact = <153>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
 				<&clock_rpmcc MMSSNOC_AXI_A_CLK>;
+			clk-camss-ahb-no-rate-supply =
+					<&gdsc_camss_top>;
+			clk-video-ahb-no-rate-supply =
+					<&gdsc_venus>;
+			clk-video-axi-no-rate-supply =
+					<&gdsc_venus>;
+			qcom,node-qos-clks {
+				clock-names =
+				"clk-mmssnoc-axi-no-rate",
+				"clk-noc-cfg-ahb-no-rate",
+				"clk-mnoc-ahb-no-rate",
+				"clk-camss-ahb-no-rate",
+				"clk-video-ahb-no-rate",
+				"clk-video-axi-no-rate";
+				clocks =
+				<&clock_rpmcc MMSSNOC_AXI_CLK>,
+				<&clock_gcc GCC_MMSS_NOC_CFG_AHB_CLK>,
+				<&clock_mmss MMSS_MNOC_AHB_CLK>,
+				<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+				<&clock_mmss MMSS_VIDEO_AHB_CLK>,
+				<&clock_mmss MMSS_VIDEO_AXI_CLK>;
+			};
 		};
 
 		fab_snoc: fab-snoc {
@@ -269,12 +305,9 @@
 			qcom,agg-ports = <2>;
 			qcom,ap-owned;
 			qcom,qport = <1>;
-			qcom,qos-mode = "fixed";
+			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_hmss_l3
 				 &slv_ebi &slv_bimc_snoc>;
-			qcom,prio-lvl = <0>;
-			qcom,prio-rd = <0>;
-			qcom,prio-wr = <0>;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_GFX3D>;
 		};
@@ -301,6 +334,22 @@
 			qcom,connections = <&slv_hmss_l3 &slv_ebi>;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_BIMC>;
+		};
+
+		mas_pimem: mas-pimem {
+			cell-id = <MSM_BUS_MASTER_PIMEM>;
+			label = "mas-pimem";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <2>;
+			qcom,ap-owned;
+			qcom,qport = <4>;
+			qcom,qos-mode = "fixed";
+			qcom,connections = <&slv_hmss_l3 &slv_ebi>;
+			qcom,prio-lvl = <0>;
+			qcom,prio-rd = <0>;
+			qcom,prio-wr = <0>;
+			qcom,bus-dev = <&fab_bimc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_PIMEM>;
 		};
 
 		mas_snoc_cnoc: mas-snoc-cnoc {
@@ -432,7 +481,20 @@
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,bus-dev = <&fab_mnoc>;
+			qcom,vrail-comp = <50>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP0>;
+			clk-mdss-axi-no-rate-supply =
+					<&gdsc_mdss>;
+			clk-mdss-ahb-no-rate-supply =
+					<&gdsc_mdss>;
+			qcom,node-qos-clks {
+				clock-names =
+				"clk-mdss-ahb-no-rate",
+				"clk-mdss-axi-no-rate";
+				clocks =
+				<&clock_mmss MMSS_MDSS_AHB_CLK>,
+				<&clock_mmss MMSS_MDSS_AXI_CLK>;
+			};
 		};
 
 		mas_mdp_p1: mas-mdp-p1 {
@@ -445,6 +507,7 @@
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,bus-dev = <&fab_mnoc>;
+			qcom,vrail-comp = <50>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP1>;
 		};
 
@@ -546,6 +609,7 @@
 			qcom,bus-dev = <&fab_snoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_A2NOC_SNOC>;
 		};
+
 		/*Internal nodes*/
 
 		/*Slaves*/
@@ -1097,6 +1161,9 @@
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,connections = <&mas_mnoc_bimc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_MNOC_BIMC>;
+			qcom,enable-only-clk;
+			clock-names = "node_clk";
+			clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>;
 		};
 
 		slv_srvc_mnoc:slv-srvc-mnoc {
