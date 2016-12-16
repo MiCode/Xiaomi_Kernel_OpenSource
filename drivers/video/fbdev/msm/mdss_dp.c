@@ -1211,16 +1211,20 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 
 		ret = mdss_dp_get_lane_mapping(dp_drv, dp_drv->orientation,
 				&ln_map);
-		if (ret)
+		if (ret) {
+			mutex_unlock(&dp_drv->train_mutex);
 			goto exit;
+		}
 
 		mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
 				dp_drv->orientation,
 				dp_drv->dpcd.max_lane_count);
 
 		ret = mdss_dp_enable_mainlink_clocks(dp_drv);
-		if (ret)
+		if (ret) {
+			mutex_unlock(&dp_drv->train_mutex);
 			goto exit;
+		}
 
 		mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
 
@@ -1238,7 +1242,6 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 	pr_debug("end\n");
 
 exit:
-	mutex_unlock(&dp_drv->train_mutex);
 	return ret;
 }
 
