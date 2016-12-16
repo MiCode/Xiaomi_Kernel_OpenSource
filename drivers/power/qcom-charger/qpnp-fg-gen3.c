@@ -799,7 +799,7 @@ static const char *fg_get_battery_type(struct fg_chip *chip)
 	if (chip->bp.batt_type_str) {
 		if (chip->profile_loaded)
 			return chip->bp.batt_type_str;
-		else
+		else if (chip->profile_available)
 			return LOADING_BATT_TYPE;
 	}
 
@@ -1615,6 +1615,18 @@ static int fg_esr_fcc_config(struct fg_chip *chip)
 	fg_dbg(chip, FG_STATUS, "esr_fcc_ctrl_en set to %d\n",
 		chip->esr_fcc_ctrl_en);
 	return 0;
+}
+
+static int fg_batt_missing_config(struct fg_chip *chip, bool enable)
+{
+	int rc;
+
+	rc = fg_masked_write(chip, BATT_INFO_BATT_MISS_CFG(chip),
+			BM_FROM_BATT_ID_BIT, enable ? BM_FROM_BATT_ID_BIT : 0);
+	if (rc < 0)
+		pr_err("Error in writing to %04x, rc=%d\n",
+			BATT_INFO_BATT_MISS_CFG(chip), rc);
+	return rc;
 }
 
 static void fg_batt_avg_update(struct fg_chip *chip)
@@ -2833,7 +2845,6 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 	u8 status;
 	int rc;
 
-	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
 	rc = fg_read(chip, BATT_INFO_INT_RT_STS(chip), &status, 1);
 	if (rc < 0) {
 		pr_err("failed to read addr=0x%04x, rc=%d\n",
@@ -2841,22 +2852,38 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
+	fg_dbg(chip, FG_IRQ, "irq %d triggered sts:%d\n", irq, status);
 	chip->battery_missing = (status & BT_MISS_BIT);
 
 	if (chip->battery_missing) {
 		chip->profile_available = false;
 		chip->profile_loaded = false;
 		chip->soc_reporting_ready = false;
-	} else {
-		rc = fg_get_batt_profile(chip);
-		if (rc < 0) {
-			chip->soc_reporting_ready = true;
-			pr_err("Error in getting battery profile, rc:%d\n", rc);
-			return IRQ_HANDLED;
-		}
-		clear_battery_profile(chip);
-		schedule_delayed_work(&chip->profile_load_work, 0);
+		return IRQ_HANDLED;
 	}
+
+	rc = fg_batt_missing_config(chip, false);
+	if (rc < 0) {
+		pr_err("Error in disabling BMD, rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+
+	rc = fg_get_batt_profile(chip);
+	if (rc < 0) {
+		chip->soc_reporting_ready = true;
+		pr_err("Error in getting battery profile, rc:%d\n", rc);
+		goto enable_bmd;
+	}
+
+	clear_battery_profile(chip);
+	schedule_delayed_work(&chip->profile_load_work, 0);
+
+enable_bmd:
+	/* Wait for 200ms before enabling BMD again */
+	msleep(200);
+	rc = fg_batt_missing_config(chip, true);
+	if (rc < 0)
+		pr_err("Error in enabling BMD, rc=%d\n", rc);
 
 	return IRQ_HANDLED;
 }
