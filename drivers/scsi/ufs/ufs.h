@@ -489,6 +489,14 @@ struct ufs_vreg_info {
 	struct ufs_vreg *vdd_hba;
 };
 
+/* Possible values for bDeviceSubClass of device descriptor */
+enum {
+	UFS_DEV_EMBEDDED_BOOTABLE	= 0x00,
+	UFS_DEV_EMBEDDED_NON_BOOTABLE	= 0x01,
+	UFS_DEV_REMOVABLE_BOOTABLE	= 0x02,
+	UFS_DEV_REMOVABLE_NON_BOOTABLE	= 0x03,
+};
+
 struct ufs_dev_info {
 	/* device descriptor info */
 	u8	b_device_sub_class;

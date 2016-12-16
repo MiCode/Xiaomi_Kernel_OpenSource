@@ -7083,12 +7083,16 @@ static void ufshcd_set_active_icc_lvl(struct ufs_hba *hba)
  * ufshcd_scsi_add_wlus - Adds required W-LUs
  * @hba: per-adapter instance
  *
- * UFS device specification requires the UFS devices to support 4 well known
- * logical units:
+ * UFS devices can support upto 4 well known logical units:
  *	"REPORT_LUNS" (address: 01h)
  *	"UFS Device" (address: 50h)
  *	"RPMB" (address: 44h)
  *	"BOOT" (address: 30h)
+ *
+ * "REPORT_LUNS" & "UFS Device" are mandatory for all device classes (see
+ * "bDeviceSubClass" parameter of device descriptor) while "BOOT" is supported
+ * only for bootable devices. "RPMB" is only supported with embedded devices.
+ *
  * UFS device's power management needs to be controlled by "POWER CONDITION"
  * field of SSU (START STOP UNIT) command. But this "power condition" field
  * will take effect only when its sent to "UFS device" well known logical unit
@@ -7099,8 +7103,8 @@ static void ufshcd_set_active_icc_lvl(struct ufs_hba *hba)
  * Block) LU so user space process can control this LU. User space may also
  * want to have access to BOOT LU.
 
- * This function adds scsi device instances for each of all well known LUs
- * (except "REPORT LUNS" LU).
+ * This function tries to add scsi device instances for each of all well known
+ * LUs (except "REPORT LUNS" LU) depending on device class.
  *
  * Returns zero on success (all required W-LUs are added successfully),
  * non-zero error value on failure (if failed to add any of the required W-LU).
@@ -7110,35 +7114,59 @@ static int ufshcd_scsi_add_wlus(struct ufs_hba *hba)
 	int ret = 0;
 	struct scsi_device *sdev_rpmb;
 	struct scsi_device *sdev_boot;
+	bool is_bootable_dev = false;
+	bool is_embedded_dev = false;
+
+	if ((hba->dev_info.b_device_sub_class == UFS_DEV_EMBEDDED_BOOTABLE) ||
+	    (hba->dev_info.b_device_sub_class == UFS_DEV_REMOVABLE_BOOTABLE))
+		is_bootable_dev = true;
+
+	if ((hba->dev_info.b_device_sub_class == UFS_DEV_EMBEDDED_BOOTABLE) ||
+	    (hba->dev_info.b_device_sub_class == UFS_DEV_EMBEDDED_NON_BOOTABLE))
+		is_embedded_dev = true;
 
 	hba->sdev_ufs_device = __scsi_add_device(hba->host, 0, 0,
 		ufshcd_upiu_wlun_to_scsi_wlun(UFS_UPIU_UFS_DEVICE_WLUN), NULL);
 	if (IS_ERR(hba->sdev_ufs_device)) {
 		ret = PTR_ERR(hba->sdev_ufs_device);
+		dev_err(hba->dev, "%s: failed adding DEVICE_WLUN. ret %d\n",
+			__func__, ret);
 		hba->sdev_ufs_device = NULL;
 		goto out;
 	}
 	scsi_device_put(hba->sdev_ufs_device);
 
-	sdev_boot = __scsi_add_device(hba->host, 0, 0,
-		ufshcd_upiu_wlun_to_scsi_wlun(UFS_UPIU_BOOT_WLUN), NULL);
-	if (IS_ERR(sdev_boot)) {
-		ret = PTR_ERR(sdev_boot);
-		goto remove_sdev_ufs_device;
-	}
-	scsi_device_put(sdev_boot);
+	if (is_bootable_dev) {
+		sdev_boot = __scsi_add_device(hba->host, 0, 0,
+			ufshcd_upiu_wlun_to_scsi_wlun(UFS_UPIU_BOOT_WLUN),
+			NULL);
 
-	sdev_rpmb = __scsi_add_device(hba->host, 0, 0,
-		ufshcd_upiu_wlun_to_scsi_wlun(UFS_UPIU_RPMB_WLUN), NULL);
-	if (IS_ERR(sdev_rpmb)) {
-		ret = PTR_ERR(sdev_rpmb);
-		goto remove_sdev_boot;
+		if (IS_ERR(sdev_boot)) {
+			dev_err(hba->dev, "%s: failed adding BOOT_WLUN. ret %d\n",
+				__func__, ret);
+			ret = PTR_ERR(sdev_boot);
+			goto remove_sdev_ufs_device;
+		}
+		scsi_device_put(sdev_boot);
 	}
-	scsi_device_put(sdev_rpmb);
+
+	if (is_embedded_dev) {
+		sdev_rpmb = __scsi_add_device(hba->host, 0, 0,
+			ufshcd_upiu_wlun_to_scsi_wlun(UFS_UPIU_RPMB_WLUN),
+			NULL);
+		if (IS_ERR(sdev_rpmb)) {
+			dev_err(hba->dev, "%s: failed adding RPMB_WLUN. ret %d\n",
+				__func__, ret);
+			ret = PTR_ERR(sdev_rpmb);
+			goto remove_sdev_boot;
+		}
+		scsi_device_put(sdev_rpmb);
+	}
 	goto out;
 
 remove_sdev_boot:
-	scsi_remove_device(sdev_boot);
+	if (is_bootable_dev)
+		scsi_remove_device(sdev_boot);
 remove_sdev_ufs_device:
 	scsi_remove_device(hba->sdev_ufs_device);
 out:
@@ -7572,6 +7600,9 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	if (ret)
 		goto out;
 
+	/* clear any previous UFS device information */
+	memset(&hba->dev_info, 0, sizeof(hba->dev_info));
+
 	/* cache important parameters from device descriptor for later use */
 	ret = ufs_read_device_desc_data(hba);
 	if (ret)
@@ -7637,8 +7668,6 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	if (!ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress) {
 		bool flag;
 
-		/* clear any previous UFS device information */
-		memset(&hba->dev_info, 0, sizeof(hba->dev_info));
 		if (!ufshcd_query_flag_retry(hba, UPIU_QUERY_OPCODE_READ_FLAG,
 				QUERY_FLAG_IDN_PWR_ON_WPE, &flag))
 			hba->dev_info.f_power_on_wp_en = flag;
