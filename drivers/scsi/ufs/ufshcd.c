@@ -7195,10 +7195,10 @@ static void ufs_fixup_device_setup(struct ufs_hba *hba,
 	struct ufs_dev_fix *f;
 
 	for (f = ufs_fixups; f->quirk; f++) {
-		if ((f->card.wmanufacturerid == dev_desc->wmanufacturerid ||
-		     f->card.wmanufacturerid == UFS_ANY_VENDOR) &&
-		    (STR_PRFX_EQUAL(f->card.model, dev_desc->model) ||
-		     !strcmp(f->card.model, UFS_ANY_MODEL)))
+		if ((f->w_manufacturer_id == dev_desc->wmanufacturerid ||
+		     f->w_manufacturer_id == UFS_ANY_VENDOR) &&
+		    (STR_PRFX_EQUAL(f->model, dev_desc->model) ||
+		     !strcmp(f->model, UFS_ANY_MODEL)))
 			hba->dev_quirks |= f->quirk;
 	}
 }
@@ -7507,6 +7507,29 @@ out:
 	return err;
 }
 
+static int ufs_read_device_desc_data(struct ufs_hba *hba)
+{
+	int err;
+	u8 desc_buf[QUERY_DESC_DEVICE_DEF_SIZE];
+
+	err = ufshcd_read_device_desc(hba, desc_buf, sizeof(desc_buf));
+	if (err)
+		return err;
+
+	/*
+	 * getting vendor (manufacturerID) and Bank Index in big endian
+	 * format
+	 */
+	hba->dev_info.w_manufacturer_id =
+		desc_buf[DEVICE_DESC_PARAM_MANF_ID] << 8 |
+		desc_buf[DEVICE_DESC_PARAM_MANF_ID + 1];
+	hba->dev_info.b_device_sub_class =
+		desc_buf[DEVICE_DESC_PARAM_DEVICE_SUB_CLASS];
+	hba->dev_info.i_product_name = desc_buf[DEVICE_DESC_PARAM_PRDCT_NAME];
+
+	return 0;
+}
+
 /**
  * ufshcd_probe_hba - probe hba to detect device and initialize
  * @hba: per-adapter instance
@@ -7546,6 +7569,11 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		goto out;
 
 	ret = ufshcd_complete_dev_init(hba);
+	if (ret)
+		goto out;
+
+	/* cache important parameters from device descriptor for later use */
+	ret = ufs_read_device_desc_data(hba);
 	if (ret)
 		goto out;
 

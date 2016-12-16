@@ -31,16 +31,17 @@
  * @quirk: device quirk
  */
 struct ufs_dev_fix {
-	struct ufs_dev_desc card;
+	u16 w_manufacturer_id;
+	char *model;
 	unsigned int quirk;
 };
 
-#define END_FIX { { 0 }, 0 }
+#define END_FIX { 0 }
 
 /* add specific device quirk */
 #define UFS_FIX(_vendor, _model, _quirk) { \
-	.card.wmanufacturerid = (_vendor),\
-	.card.model = (_model),		   \
+	.w_manufacturer_id = (_vendor),\
+	.model = (_model),		  \
 	.quirk = (_quirk),		   \
 }
 

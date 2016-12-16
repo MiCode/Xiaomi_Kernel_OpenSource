@@ -490,7 +490,14 @@ struct ufs_vreg_info {
 };
 
 struct ufs_dev_info {
+	/* device descriptor info */
+	u8	b_device_sub_class;
+	u16	w_manufacturer_id;
+	u8	i_product_name;
+
+	/* query flags */
 	bool f_power_on_wp_en;
+
 	/* Keeps information if any of the LU is power on write protected */
 	bool is_lu_power_on_wp;
 };
