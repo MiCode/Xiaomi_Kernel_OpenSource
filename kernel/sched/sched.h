@@ -1094,7 +1094,6 @@ static inline void sched_ttwu_pending(void) { }
 #define FREQ_REPORT_CPU_LOAD			1
 #define FREQ_REPORT_TOP_TASK			2
 
-#define MAJOR_TASK_PCT 85
 #define SCHED_UPMIGRATE_MIN_NICE 15
 #define EXITING_TASK_MARKER	0xdeaddead
 
@@ -1120,7 +1119,6 @@ extern unsigned int sched_init_task_load_windows;
 extern unsigned int up_down_migrate_scale_factor;
 extern unsigned int sysctl_sched_restrict_cluster_spill;
 extern unsigned int sched_pred_alert_load;
-extern unsigned int sched_major_task_runtime;
 extern struct sched_cluster init_cluster;
 extern unsigned int  __read_mostly sched_short_sleep_task_threshold;
 extern unsigned int  __read_mostly sched_long_cpu_selection_threshold;
