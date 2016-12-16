@@ -1,0 +1,23 @@
+Qualcomm Technologies, Inc. Display Clock & Reset Controller Binding
+----------------------------------------------------
+
+Required properties :
+- compatible : shall contain "qcom,dispcc-sdm845".
+- reg : shall contain base register location and length.
+- reg-names: names of registers listed in the same order as in
+	     the reg property.
+- #clock-cells : shall contain 1.
+- #reset-cells : shall contain 1.
+
+Optional properties :
+- vdd_<rail>-supply: The logic rail supply.
+
+Example:
+	clock_dispcc: qcom,dispcc@af00000 {
+		compatible = "qcom,dispcc-sdm845";
+		reg = <0xaf00000 0x100000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm8998_s9_level>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,25 +51,16 @@
 #define DISP_CC_MDSS_ROT_CLK_SRC				34
 #define DISP_CC_MDSS_RSCC_AHB_CLK				35
 #define DISP_CC_MDSS_RSCC_VSYNC_CLK				36
-#define DISP_CC_MDSS_SPDM_DEBUG_CLK				37
-#define DISP_CC_MDSS_SPDM_DP_CRYPTO_CLK				38
-#define DISP_CC_MDSS_SPDM_DP_PIXEL1_CLK				39
-#define DISP_CC_MDSS_SPDM_DP_PIXEL_CLK				40
-#define DISP_CC_MDSS_SPDM_MDP_CLK				41
-#define DISP_CC_MDSS_SPDM_PCLK0_CLK				42
-#define DISP_CC_MDSS_SPDM_PCLK1_CLK				43
-#define DISP_CC_MDSS_SPDM_ROT_CLK				44
-#define DISP_CC_MDSS_VSYNC_CLK					45
-#define DISP_CC_MDSS_VSYNC_CLK_SRC				46
-#define DISP_CC_PLL0						47
-#define DISP_CC_PLL0_OUT_EVEN					48
-#define DISP_CC_PLL0_OUT_MAIN					49
-#define DISP_CC_PLL0_OUT_ODD					50
-#define DISP_CC_PLL0_OUT_TEST					51
+#define DISP_CC_MDSS_VSYNC_CLK					37
+#define DISP_CC_MDSS_VSYNC_CLK_SRC				38
+#define DISP_CC_PLL0						39
+#define DISP_CC_MDSS_BYTE0_DIV_CLK_SRC				40
+#define DISP_CC_MDSS_BYTE1_DIV_CLK_SRC				41
+#define DISP_CC_MDSS_DP_LINK_DIV_CLK_SRC			42
 
-#define DISP_CC_DISP_CC_MDSS_CORE_BCR				0
-#define DISP_CC_DISP_CC_MDSS_GCC_CLOCKS_BCR			1
-#define DISP_CC_DISP_CC_MDSS_RSCC_BCR				2
-#define DISP_CC_DISP_CC_MDSS_SPDM_BCR				3
+#define DISP_CC_MDSS_CORE_BCR					0
+#define DISP_CC_MDSS_GCC_CLOCKS_BCR				1
+#define DISP_CC_MDSS_RSCC_BCR					2
+#define DISP_CC_MDSS_SPDM_BCR					3
 
 #endif
