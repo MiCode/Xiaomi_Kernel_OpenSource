@@ -28,7 +28,7 @@
 #include <soc/qcom/boot_stats.h>
 
 #define MAX_STRING_LEN 256
-#define BOOT_MARKER_MAX_LEN 21
+#define BOOT_MARKER_MAX_LEN 40
 static struct dentry *dent_bkpi, *dent_bkpi_status;
 static struct boot_marker boot_marker_list;
 
@@ -44,7 +44,7 @@ static void _create_boot_marker(const char *name,
 {
 	struct boot_marker *new_boot_marker;
 
-	pr_debug("%-22s:%llu.%03llu seconds\n", name,
+	pr_debug("%-41s:%llu.%03llu seconds\n", name,
 		timer_value/TIMER_KHZ,
 		((timer_value % TIMER_KHZ)
 		* 1000) / TIMER_KHZ);
@@ -64,14 +64,18 @@ static void _create_boot_marker(const char *name,
 
 static void set_bootloader_stats(void)
 {
-	_create_boot_marker("Lk Start - ",
-			readl_relaxed(&boot_stats->bootloader_start));
-	_create_boot_marker("Lk End - ",
-			readl_relaxed(&boot_stats->bootloader_end));
-	_create_boot_marker("Lk Display - ",
-			readl_relaxed(&boot_stats->bootloader_display));
-	_create_boot_marker("Lk Load Kernel - ",
-			readl_relaxed(&boot_stats->bootloader_load_kernel));
+	_create_boot_marker("M - APPSBL Start - ",
+		readl_relaxed(&boot_stats->bootloader_start));
+	_create_boot_marker("M - APPSBL Display Init - ",
+		readl_relaxed(&boot_stats->bootloader_display));
+	_create_boot_marker("M - APPSBL Early-Domain Start - ",
+		readl_relaxed(&boot_stats->bootloader_early_domain_start));
+	_create_boot_marker("D - APPSBL Kernel Load Time - ",
+		readl_relaxed(&boot_stats->bootloader_load_kernel));
+	_create_boot_marker("D - APPSBL Kernel Auth Time - ",
+		readl_relaxed(&boot_stats->bootloader_checksum));
+	_create_boot_marker("M - APPSBL End - ",
+		readl_relaxed(&boot_stats->bootloader_end));
 }
 
 void place_marker(const char *name)
@@ -95,7 +99,7 @@ static ssize_t bootkpi_reader(struct file *fp, char __user *user_buffer,
 	mutex_lock(&boot_marker_list.lock);
 	list_for_each_entry(marker, &boot_marker_list.list, list) {
 		temp += scnprintf(buf + temp, PAGE_SIZE - temp,
-			"%-22s:%llu.%03llu seconds\n",
+			"%-41s:%llu.%03llu seconds\n",
 			marker->marker_name,
 			marker->timer_value/TIMER_KHZ,
 			(((marker->timer_value % TIMER_KHZ)
