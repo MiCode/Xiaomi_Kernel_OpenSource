@@ -648,7 +648,7 @@ static void ufshcd_print_host_state(struct ufs_hba *hba)
 	dev_err(hba->dev, "Host capabilities=0x%x, caps=0x%x\n",
 		hba->capabilities, hba->caps);
 	dev_err(hba->dev, "quirks=0x%x, dev. quirks=0x%x\n", hba->quirks,
-		hba->dev_quirks);
+		hba->dev_info.quirks);
 }
 
 /**
@@ -1297,7 +1297,7 @@ static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 			/* scale down gear */
 			new_pwr_info.gear_tx = scale_down_gear;
 			new_pwr_info.gear_rx = scale_down_gear;
-			if (!(hba->dev_quirks & UFS_DEVICE_NO_FASTAUTO)) {
+			if (!(hba->dev_info.quirks & UFS_DEVICE_NO_FASTAUTO)) {
 				new_pwr_info.pwr_tx = FASTAUTO_MODE;
 				new_pwr_info.pwr_rx = FASTAUTO_MODE;
 			}
@@ -5164,7 +5164,7 @@ link_startup:
 			goto out;
 	}
 
-	if (hba->dev_quirks & UFS_DEVICE_QUIRK_BROKEN_LCC) {
+	if (hba->dev_info.quirks & UFS_DEVICE_QUIRK_BROKEN_LCC) {
 		ret = ufshcd_disable_host_tx_lcc(hba);
 		if (ret)
 			goto out;
@@ -6158,7 +6158,8 @@ static void ufshcd_err_handler(struct work_struct *work)
 	/* Complete requests that have door-bell cleared by h/w */
 	ufshcd_complete_requests(hba);
 
-	if (hba->dev_quirks & UFS_DEVICE_QUIRK_RECOVERY_FROM_DL_NAC_ERRORS) {
+	if (hba->dev_info.quirks &
+	    UFS_DEVICE_QUIRK_RECOVERY_FROM_DL_NAC_ERRORS) {
 		bool ret;
 
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
@@ -6311,7 +6312,7 @@ static void ufshcd_update_uic_error(struct ufs_hba *hba)
 
 	if (reg & UIC_DATA_LINK_LAYER_ERROR_PA_INIT)
 		hba->uic_error |= UFSHCD_UIC_DL_PA_INIT_ERROR;
-	else if (hba->dev_quirks &
+	else if (hba->dev_info.quirks &
 		   UFS_DEVICE_QUIRK_RECOVERY_FROM_DL_NAC_ERRORS) {
 		if (reg & UIC_DATA_LINK_LAYER_ERROR_NAC_RECEIVED)
 			hba->uic_error |=
@@ -7227,7 +7228,7 @@ static void ufs_fixup_device_setup(struct ufs_hba *hba,
 		     f->w_manufacturer_id == UFS_ANY_VENDOR) &&
 		    (STR_PRFX_EQUAL(f->model, dev_desc->model) ||
 		     !strcmp(f->model, UFS_ANY_MODEL)))
-			hba->dev_quirks |= f->quirk;
+			hba->dev_info.quirks |= f->quirk;
 	}
 }
 
@@ -7385,11 +7386,11 @@ static void ufshcd_tune_unipro_params(struct ufs_hba *hba)
 		ufshcd_tune_pa_hibern8time(hba);
 	}
 
-	if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_TACTIVATE)
+	if (hba->dev_info.quirks & UFS_DEVICE_QUIRK_PA_TACTIVATE)
 		/* set 1ms timeout for PA_TACTIVATE */
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), 10);
 
-	if (hba->dev_quirks & UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE)
+	if (hba->dev_info.quirks & UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE)
 		ufshcd_quirk_tune_host_pa_tactivate(hba);
 
 	ufshcd_vops_apply_dev_quirks(hba);
@@ -7458,7 +7459,7 @@ static void ufshcd_def_desc_sizes(struct ufs_hba *hba)
 
 static void ufshcd_apply_pm_quirks(struct ufs_hba *hba)
 {
-	if (hba->dev_quirks & UFS_DEVICE_QUIRK_NO_LINK_OFF) {
+	if (hba->dev_info.quirks & UFS_DEVICE_QUIRK_NO_LINK_OFF) {
 		if (ufs_get_pm_lvl_to_link_pwr_state(hba->rpm_lvl) ==
 		    UIC_LINK_OFF_STATE) {
 			hba->rpm_lvl =
@@ -7623,7 +7624,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 
 	ufshcd_apply_pm_quirks(hba);
 	ret = ufshcd_set_vccq_rail_unused(hba,
-		(hba->dev_quirks & UFS_DEVICE_NO_VCCQ) ? true : false);
+		(hba->dev_info.quirks & UFS_DEVICE_NO_VCCQ) ? true : false);
 	if (ret)
 		goto out;
 
@@ -8680,7 +8681,7 @@ static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
 	 * rails in LPM mode.
 	 */
 	if (!ufshcd_is_link_active(hba) &&
-	    hba->dev_quirks & UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM)
+	    hba->dev_info.quirks & UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM)
 		usleep_range(2000, 2100);
 
 	/*

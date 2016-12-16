@@ -510,6 +510,9 @@ struct ufs_dev_info {
 	bool is_lu_power_on_wp;
 	/* is Unit Attention Condition cleared on UFS Device LUN? */
 	unsigned is_ufs_dev_wlun_ua_cleared:1;
+
+	/* Device deviations from standard UFS device spec. */
+	unsigned int quirks;
 };
 
 #define MAX_MODEL_LEN 16
