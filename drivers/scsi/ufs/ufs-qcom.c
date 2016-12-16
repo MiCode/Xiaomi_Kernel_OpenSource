@@ -1820,18 +1820,6 @@ static void ufs_qcom_pm_qos_remove(struct ufs_qcom_host *host)
 }
 #endif /* CONFIG_SMP */
 
-#define	ANDROID_BOOT_DEV_MAX	30
-static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
-
-#ifndef MODULE
-static int __init get_android_boot_dev(char *str)
-{
-	strlcpy(android_boot_dev, str, ANDROID_BOOT_DEV_MAX);
-	return 1;
-}
-__setup("androidboot.bootdevice=", get_android_boot_dev);
-#endif
-
 /*
  * ufs_qcom_parse_lpm - read from DTS whether LPM modes should be disabled.
  */
@@ -1861,9 +1849,6 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct ufs_qcom_host *host;
 	struct resource *res;
-
-	if (strlen(android_boot_dev) && strcmp(android_boot_dev, dev_name(dev)))
-		return -ENODEV;
 
 	host = devm_kzalloc(dev, sizeof(*host), GFP_KERNEL);
 	if (!host) {
