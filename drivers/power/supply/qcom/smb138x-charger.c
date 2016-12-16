@@ -902,6 +902,23 @@ static int smb138x_setup_wa_flags(struct smb138x *chip)
  * DETERMINE INITIAL STATUS *
  ****************************/
 
+static irqreturn_t smb138x_handle_temperature_change(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb138x *chip = irq_data->parent_data;
+
+	power_supply_changed(chip->parallel_psy);
+	return IRQ_HANDLED;
+}
+
+static int smb138x_determine_initial_slave_status(struct smb138x *chip)
+{
+	struct smb_irq_data irq_data = {chip, "determine-initial-status"};
+
+	smb138x_handle_temperature_change(0, &irq_data);
+	return 0;
+}
+
 static int smb138x_determine_initial_status(struct smb138x *chip)
 {
 	struct smb_irq_data irq_data = {chip, "determine-initial-status"};
@@ -909,7 +926,6 @@ static int smb138x_determine_initial_status(struct smb138x *chip)
 	smblib_handle_usb_plugin(0, &irq_data);
 	smblib_handle_usb_typec_change(0, &irq_data);
 	smblib_handle_usb_source_change(0, &irq_data);
-
 	return 0;
 }
 
@@ -1078,7 +1094,7 @@ static const struct smb138x_irq_info smb138x_irqs[] = {
 	},
 	{
 		.name		= "temperature-change",
-		.handler	= smblib_handle_debug,
+		.handler	= smb138x_handle_temperature_change,
 	},
 	{
 		.name		= "switcher-power-ok",
@@ -1272,6 +1288,12 @@ static int smb138x_slave_probe(struct smb138x *chip)
 	rc = smb138x_init_parallel_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize parallel psy rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	rc = smb138x_determine_initial_slave_status(chip);
+	if (rc < 0) {
+		pr_err("Couldn't determine initial status rc=%d\n", rc);
 		goto cleanup;
 	}
 
