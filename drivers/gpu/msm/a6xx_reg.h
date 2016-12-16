@@ -70,11 +70,28 @@
 #define A6XX_CP_ADDR_MODE_CNTL           0x842
 #define A6XX_CP_PROTECT_CNTL             0x84F
 #define A6XX_CP_PROTECT_REG              0x850
+#define A6XX_CP_CRASH_SCRIPT_BASE_LO     0x900
+#define A6XX_CP_CRASH_SCRIPT_BASE_HI     0x901
+#define A6XX_CP_CRASH_DUMP_CNTL          0x902
+#define A6XX_CP_CRASH_DUMP_STATUS        0x903
 #define A6XX_CP_SQE_STAT_ADDR            0x908
 #define A6XX_CP_SQE_STAT_DATA            0x909
+#define A6XX_CP_DRAW_STATE_ADDR          0x90A
+#define A6XX_CP_DRAW_STATE_DATA          0x90B
+#define A6XX_CP_ROQ_DBG_ADDR             0x90C
+#define A6XX_CP_ROQ_DBG_DATA             0x90D
+#define A6XX_CP_SQE_UCODE_DBG_ADDR       0x910
+#define A6XX_CP_SQE_UCODE_DBG_DATA       0x911
+#define A6XX_CP_IB1_BASE                 0x928
+#define A6XX_CP_IB1_BASE_HI              0x929
+#define A6XX_CP_IB1_REM_SIZE             0x92A
+#define A6XX_CP_IB2_BASE                 0x92B
+#define A6XX_CP_IB2_BASE_HI              0x92C
+#define A6XX_CP_IB2_REM_SIZE             0x92D
 #define A6XX_CP_ALWAYS_ON_COUNTER_LO     0x980
 #define A6XX_CP_ALWAYS_ON_COUNTER_HI     0x981
 #define A6XX_CP_AHB_CNTL                 0x98D
+#define A6XX_CP_APERTURE_CNTL_HOST       0xA00
 #define A6XX_VSC_ADDR_MODE_CNTL          0xC01
 
 /* RBBM registers */

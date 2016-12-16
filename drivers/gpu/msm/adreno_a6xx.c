@@ -15,6 +15,7 @@
 
 #include "adreno.h"
 #include "a6xx_reg.h"
+#include "adreno_a6xx.h"
 #include "adreno_cp_parser.h"
 #include "adreno_trace.h"
 #include "adreno_pm4types.h"
@@ -99,6 +100,11 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 	addr = ALIGN(ADRENO_UCHE_GMEM_BASE + adreno_dev->gmem_size, SZ_64K);
 	adreno_dev->sp_local_gpuaddr = addr;
 	adreno_dev->sp_pvt_gpuaddr = addr + SZ_64K;
+}
+
+static void a6xx_init(struct adreno_device *adreno_dev)
+{
+	a6xx_crashdump_init(adreno_dev);
 }
 
 /**
@@ -1522,10 +1528,20 @@ static struct adreno_irq a6xx_irq = {
 	.mask = A6XX_INT_MASK,
 };
 
+static struct adreno_snapshot_sizes a6xx_snap_sizes = {
+	.cp_pfp = 0x33,
+	.roq = 0x400,
+};
+
+static struct adreno_snapshot_data a6xx_snapshot_data = {
+	.sect_sizes = &a6xx_snap_sizes,
+};
+
 /* Register offset defines for A6XX, in order of enum adreno_regs */
 static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_BASE, A6XX_CP_RB_BASE),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_BASE_HI, A6XX_CP_RB_BASE_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_RPTR_ADDR_LO,
 				A6XX_CP_RB_RPTR_ADDR_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_RPTR_ADDR_HI,
@@ -1533,8 +1549,17 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_RPTR, A6XX_CP_RB_RPTR),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_WPTR, A6XX_CP_RB_WPTR),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_CNTL, A6XX_CP_RB_CNTL),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_ME_CNTL, A6XX_CP_SQE_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_CNTL, A6XX_CP_MISC_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_HW_FAULT, A6XX_CP_HW_FAULT),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB1_BASE, A6XX_CP_IB1_BASE),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB1_BASE_HI, A6XX_CP_IB1_BASE_HI),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB1_BUFSZ, A6XX_CP_IB1_REM_SIZE),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BASE, A6XX_CP_IB2_BASE),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BASE_HI, A6XX_CP_IB2_BASE_HI),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB2_BUFSZ, A6XX_CP_IB2_REM_SIZE),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_ROQ_ADDR, A6XX_CP_ROQ_DBG_ADDR),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_ROQ_DATA, A6XX_CP_ROQ_DBG_DATA),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, A6XX_RBBM_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS3, A6XX_RBBM_STATUS3),
 
@@ -1597,10 +1622,13 @@ static const struct adreno_reg_offsets a6xx_reg_offsets = {
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = &a6xx_reg_offsets,
 	.start = a6xx_start,
+	.snapshot = a6xx_snapshot,
 	.irq = &a6xx_irq,
+	.snapshot_data = &a6xx_snapshot_data,
 	.irq_trace = trace_kgsl_a5xx_irq_status,
 	.num_prio_levels = KGSL_PRIORITY_MAX_RB_LEVELS,
 	.platform_setup = a6xx_platform_setup,
+	.init = a6xx_init,
 	.rb_start = a6xx_rb_start,
 	.regulator_enable = a6xx_sptprac_enable,
 	.regulator_disable = a6xx_sptprac_disable,
