@@ -537,8 +537,9 @@ char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt)
 	else if (min_link_rate <= DP_LINK_RATE_540)
 		calc_link_rate = DP_LINK_RATE_540;
 	else {
-		pr_err("link_rate = %d is unsupported\n", min_link_rate);
-		calc_link_rate = 0;
+		/* Cap the link rate to the max supported rate */
+		pr_debug("link_rate = %d is unsupported\n", min_link_rate);
+		calc_link_rate = DP_LINK_RATE_540;
 	}
 
 	return calc_link_rate;
