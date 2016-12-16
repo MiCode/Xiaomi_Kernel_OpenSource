@@ -28,6 +28,7 @@
 		USB3_GDSC-supply = <&usb30_prim_gdsc>;
 		qcom,usb-dbm = <&dbm_1p5>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
+		qcom,num-gsi-evt-buffs = <0x3>;
 
 		clocks = <&clock_gcc GCC_USB30_PRIM_MASTER_CLK>,
 			 <&clock_gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
@@ -52,7 +53,6 @@
 			tx-fifo-resize;
 			snps,nominal-elastic-buffer;
 			snps,hird_thresh = <0x10>;
-			snps,num-gsi-evt-buffs = <0x3>;
 		};
 	};
 
