@@ -599,6 +599,19 @@ struct sde_vbif_cfg {
 	struct sde_vbif_dynamic_ot_tbl dynamic_ot_rd_tbl;
 	struct sde_vbif_dynamic_ot_tbl dynamic_ot_wr_tbl;
 };
+/**
+ * struct sde_reg_dma_cfg - information of lut dma blocks
+ * @id                 enum identifying this block
+ * @base               register offset of this block
+ * @features           bit mask identifying sub-blocks/features
+ * @version            version of lutdma hw block
+ * @trigger_sel_off    offset to trigger select registers of lutdma
+ */
+struct sde_reg_dma_cfg {
+	SDE_HW_BLK_INFO;
+	u32 version;
+	u32 trigger_sel_off;
+};
 
 /**
  * struct sde_mdss_cfg - information of MDSS HW
@@ -663,6 +676,9 @@ struct sde_mdss_cfg {
 
 	u32 vbif_count;
 	struct sde_vbif_cfg vbif[MAX_BLOCKS];
+
+	u32 reg_dma_count;
+	struct sde_reg_dma_cfg dma_cfg;
 	/* Add additional block data structures here */
 };
 

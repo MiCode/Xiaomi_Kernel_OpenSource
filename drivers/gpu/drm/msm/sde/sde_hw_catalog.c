@@ -227,6 +227,13 @@ enum {
 	VBIF_PROP_MAX,
 };
 
+enum {
+	REG_DMA_OFF,
+	REG_DMA_VERSION,
+	REG_DMA_TRIGGER_OFF,
+	REG_DMA_PROP_MAX
+};
+
 /*************************************************************
  * dts property definition
  *************************************************************/
@@ -404,6 +411,16 @@ static struct sde_prop_type vbif_prop[] = {
 		PROP_TYPE_U32_ARRAY},
 	{VBIF_DYNAMIC_OT_WR_LIMIT, "qcom,sde-vbif-dynamic-ot-wr-limit", false,
 		PROP_TYPE_U32_ARRAY},
+};
+
+static struct sde_prop_type reg_dma_prop[REG_DMA_PROP_MAX] = {
+	[REG_DMA_OFF] =  {REG_DMA_OFF, "qcom,sde-reg-dma-off", false,
+		PROP_TYPE_U32},
+	[REG_DMA_VERSION] = {REG_DMA_VERSION, "qcom,sde-reg-dma-version",
+		false, PROP_TYPE_U32},
+	[REG_DMA_TRIGGER_OFF] = {REG_DMA_TRIGGER_OFF,
+		"qcom,sde-reg-dma-trigger-off", false,
+		PROP_TYPE_U32},
 };
 
 /*************************************************************
@@ -1880,6 +1897,39 @@ end:
 	return rc;
 }
 
+static int sde_parse_reg_dma_dt(struct device_node *np,
+		struct sde_mdss_cfg *sde_cfg)
+{
+	u32 val;
+	int rc = 0;
+	int i = 0;
+
+	sde_cfg->reg_dma_count = 0;
+	for (i = 0; i < REG_DMA_PROP_MAX; i++) {
+		rc = of_property_read_u32(np, reg_dma_prop[i].prop_name,
+				&val);
+		if (rc)
+			break;
+		switch (i) {
+		case REG_DMA_OFF:
+			sde_cfg->dma_cfg.base = val;
+			break;
+		case REG_DMA_VERSION:
+			sde_cfg->dma_cfg.version = val;
+			break;
+		case REG_DMA_TRIGGER_OFF:
+			sde_cfg->dma_cfg.trigger_sel_off = val;
+			break;
+		default:
+			break;
+		}
+	}
+	if (!rc && i == REG_DMA_PROP_MAX)
+		sde_cfg->reg_dma_count = 1;
+	/* reg dma is optional feature hence return 0 */
+	return 0;
+}
+
 static void sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 {
 	switch (hw_rev) {
@@ -1978,6 +2028,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 		goto end;
 
 	rc = sde_vbif_parse_dt(np, sde_cfg);
+	if (rc)
+		goto end;
+
+	rc = sde_parse_reg_dma_dt(np, sde_cfg);
 	if (rc)
 		goto end;
 
