@@ -567,7 +567,7 @@
 		};
 		qcom,sde-plane-id@2 {
 			qcom,display-type = "primary";
-			qcom,plane-name = "cursor0", "cursor1";
+			qcom,plane-name = "cursor0";
 			qcom,plane-type = "cursor";
 		};
 		qcom,sde-plane-id@3 {
@@ -586,16 +586,21 @@
 			qcom,plane-type = "overlay";
 		};
 		qcom,sde-plane-id@6 {
+			qcom,display-type = "secondary";
+			qcom,plane-name = "cursor1";
+			qcom,plane-type = "cursor";
+		};
+		qcom,sde-plane-id@7 {
 			qcom,display-type = "tertiary";
 			qcom,plane-name = "rgb3";
 			qcom,plane-type = "primary";
 		};
-		qcom,sde-plane-id@7 {
+		qcom,sde-plane-id@8 {
 			qcom,display-type = "tertiary";
 			qcom,plane-name = "vig3";
 			qcom,plane-type = "overlay";
 		};
-		qcom,sde-plane-id@8 {
+		qcom,sde-plane-id@9 {
 			qcom,display-type = "tertiary";
 			qcom,plane-name = "dma1";
 			qcom,plane-type = "overlay";

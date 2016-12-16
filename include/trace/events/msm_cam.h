@@ -21,6 +21,7 @@
 #include <linux/tracepoint.h>
 
 struct vfe_device;
+#define STRING_LEN 80
 
 TRACE_EVENT(msm_cam_isp_overflow,
 
@@ -213,6 +214,135 @@ TRACE_EVENT(msm_cam_isp_overflow,
 		__entry->rdi2_state,
 		__entry->rdi2_width0, __entry->rdi2_height0,
 		__entry->rdi2_width1, __entry->rdi2_height1
+	)
+);
+
+TRACE_EVENT(msm_cam_tasklet_debug_dump,
+	TP_PROTO(struct dual_vfe_state tasklet_state),
+	TP_ARGS(tasklet_state),
+	TP_STRUCT__entry(
+		__field(unsigned int, vfe_id)
+		__field(unsigned int, irq_status0)
+		__field(unsigned int, irq_status1)
+		__field(unsigned int, core)
+		__field(unsigned int, ping_pong_status)
+		__field(long, tv_sec)
+		__field(long, tv_usec)
+	),
+	TP_fast_assign(
+		__entry->vfe_id = tasklet_state.current_vfe_irq.vfe_id;
+		__entry->irq_status0 =
+			tasklet_state.current_vfe_irq.irq_status0;
+		__entry->irq_status1 =
+			tasklet_state.current_vfe_irq.irq_status1;
+		__entry->core = tasklet_state.current_vfe_irq.core;
+		__entry->ping_pong_status =
+			tasklet_state.current_vfe_irq.ping_pong_status;
+		__entry->tv_sec =
+			tasklet_state.current_vfe_irq.ts.buf_time.tv_sec;
+		__entry->tv_usec =
+			tasklet_state.current_vfe_irq.ts.buf_time.tv_usec;
+	),
+	TP_printk("vfe_id %d, core %d, irq_st0 0x%x, irq_st1 0x%x\n"
+		"pi_po_st 0x%x, time %ld:%ld",
+		__entry->vfe_id,
+		__entry->core,
+		__entry->irq_status0,
+		__entry->irq_status1,
+		__entry->ping_pong_status,
+		__entry->tv_sec,
+		__entry->tv_usec
+	)
+);
+
+TRACE_EVENT(msm_cam_ping_pong_debug_dump,
+	TP_PROTO(struct dual_vfe_state ping_pong_state),
+	TP_ARGS(ping_pong_state),
+	TP_STRUCT__entry(
+		__field(unsigned int, curr_vfe_id)
+		__field(unsigned int, curr_irq_status0)
+		__field(unsigned int, curr_irq_status1)
+		__field(unsigned int, curr_ping_pong_status)
+		__field(unsigned int, othr_vfe_id)
+		__field(unsigned int, othr_irq_status0)
+		__field(unsigned int, othr_irq_status1)
+		__field(unsigned int, othr_ping_pong_status)
+		__field(long, othr_tv_sec)
+		__field(long, othr_tv_usec)
+	),
+	TP_fast_assign(
+		__entry->curr_vfe_id =
+			ping_pong_state.current_vfe_irq.vfe_id;
+		__entry->curr_irq_status0 =
+			ping_pong_state.current_vfe_irq.irq_status0;
+		__entry->curr_irq_status1 =
+			ping_pong_state.current_vfe_irq.irq_status1;
+		__entry->curr_ping_pong_status =
+			ping_pong_state.current_vfe_irq.ping_pong_status;
+		__entry->othr_vfe_id =
+			ping_pong_state.other_vfe.vfe_id;
+		__entry->othr_irq_status0 =
+			ping_pong_state.other_vfe.irq_status0;
+		__entry->othr_irq_status1 =
+			ping_pong_state.other_vfe.irq_status1;
+		__entry->othr_ping_pong_status =
+			ping_pong_state.other_vfe.ping_pong_status;
+		__entry->othr_tv_sec =
+			ping_pong_state.other_vfe.ts.buf_time.tv_sec;
+		__entry->othr_tv_usec =
+			ping_pong_state.other_vfe.ts.buf_time.tv_usec
+	),
+	TP_printk("vfe_id %d, irq_st0 0x%x, irq_st1 0x%x, pi_po_st 0x%x\n"
+		"other vfe_id %d, irq_st0 0x%x, irq_st1 0x%x\n"
+		"pi_po_st 0x%x, time %ld:%ld",
+		__entry->curr_vfe_id,
+		__entry->curr_irq_status0,
+		__entry->curr_irq_status1,
+		__entry->curr_ping_pong_status,
+		__entry->othr_vfe_id,
+		__entry->othr_irq_status0,
+		__entry->othr_irq_status1,
+		__entry->othr_ping_pong_status,
+		__entry->othr_tv_sec,
+		__entry->othr_tv_usec
+	)
+);
+
+TRACE_EVENT(msm_cam_string,
+	TP_PROTO(const char *str),
+	TP_ARGS(str),
+	TP_STRUCT__entry(
+		__array(char, str, STRING_LEN)
+	),
+	TP_fast_assign(
+		strlcpy(__entry->str, str, STRING_LEN);
+	),
+	TP_printk("msm_cam: %s", __entry->str)
+);
+
+TRACE_EVENT(msm_cam_isp_bufcount,
+	TP_PROTO(const char *str,
+	unsigned int vfe_id,
+	unsigned int frame_id,
+	unsigned int frame_src),
+	TP_ARGS(str, vfe_id, frame_id, frame_src),
+	TP_STRUCT__entry(
+		__array(char, str, STRING_LEN)
+		__field(unsigned int, vfe_id)
+		__field(unsigned int, frame_id)
+		__field(unsigned int, frame_src)
+	),
+	TP_fast_assign(
+		strlcpy(__entry->str, str, STRING_LEN);
+		__entry->vfe_id = vfe_id;
+		__entry->frame_id = frame_id;
+		__entry->frame_src = frame_src;
+
+	),
+	TP_printk(" %s vfe_id %d frame_id %d frame_src %d ",
+		__entry->str,
+		__entry->vfe_id, __entry->frame_id,
+		__entry->frame_src
 	)
 );
 

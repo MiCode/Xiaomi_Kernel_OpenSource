@@ -14,6 +14,8 @@
 #include <asm/div64.h>
 #include "msm_isp_util.h"
 #include "msm_isp_axi_util.h"
+#include "trace/events/msm_cam.h"
+
 
 #define ISP_SOF_DEBUG_COUNT 0
 
@@ -950,6 +952,9 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 		ISP_DBG("%s: vfe %d frame_src %d frame id: %u\n", __func__,
 			vfe_dev->pdev->id, frame_src,
 			vfe_dev->axi_data.src_info[frame_src].frame_id);
+		trace_msm_cam_isp_bufcount("msm_isp_notify:",
+		vfe_dev->pdev->id,
+		vfe_dev->axi_data.src_info[frame_src].frame_id, frame_src);
 
 		/*
 		 * Cannot support dual_cam and framedrop same time in union.
@@ -1994,6 +1999,10 @@ static int msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 			return rc;
 		}
 	}
+
+	trace_msm_cam_isp_bufcount("msm_isp_process_done_buf:",
+		vfe_dev->pdev->id, frame_id,
+		SRC_TO_INTF(stream_info->stream_src));
 
 	buf_event.frame_id = frame_id;
 	buf_event.timestamp = *time_stamp;
@@ -3200,9 +3209,14 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	}
 
 	frame_src = SRC_TO_INTF(stream_info->stream_src);
+
 	pingpong_status =
 		vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(
 			vfe_dev);
+
+	trace_msm_cam_isp_bufcount("msm_isp_request_frame:",
+		vfe_dev->pdev->id, frame_id, frame_src);
+
 	/*
 	 * If PIX stream is active then RDI path uses SOF frame ID of PIX
 	 * In case of standalone RDI streaming, SOF are used from

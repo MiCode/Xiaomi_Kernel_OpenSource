@@ -2005,6 +2005,8 @@ void msm_isp_do_tasklet(unsigned long data)
 			current_vfe_irq.irq_status1 = irq_status1;
 			tasklet_data.arr[tasklet_data.first].
 			current_vfe_irq.ping_pong_status = pingpong_status;
+			tasklet_data.arr[tasklet_data.first].
+			current_vfe_irq.ts = ts;
 			tasklet_data.first =
 			(tasklet_data.first + 1) % MAX_ISP_PING_PONG_DUMP_SIZE;
 			spin_unlock(&dump_tasklet_lock);
@@ -2282,7 +2284,6 @@ void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev,
 void msm_isp_dump_irq_debug(void)
 {
 	uint32_t index, count, i;
-	char current_vfe_buf[800], other_vfe_buf[200];
 
 	if (dump_data.fill_count > MAX_ISP_PING_PONG_DUMP_SIZE) {
 		index = dump_data.first;
@@ -2292,24 +2293,7 @@ void msm_isp_dump_irq_debug(void)
 		count = dump_data.first;
 	}
 	for (i = 0; i < count; i++) {
-		snprintf(current_vfe_buf, sizeof(current_vfe_buf),
-		"vfe_id %d: irq_st0 0x%.8x: irq_st1 0x%.8x: pi_po_st 0x%.8x *** ",
-		dump_data.arr[index].current_vfe_irq.vfe_id,
-		dump_data.arr[index].current_vfe_irq.irq_status0,
-		dump_data.arr[index].current_vfe_irq.irq_status1,
-		dump_data.arr[index].current_vfe_irq.ping_pong_status);
-		snprintf(other_vfe_buf, sizeof(other_vfe_buf),
-		"other vfe_id %d: irq_st0 0x%.8x: irq_st1 0x%.8x: pi_po_st 0x%.8x time %u:%u",
-		dump_data.arr[index].other_vfe.vfe_id,
-		dump_data.arr[index].other_vfe.irq_status0,
-		dump_data.arr[index].other_vfe.irq_status1,
-		dump_data.arr[index].other_vfe.ping_pong_status,
-		(uint32_t)dump_data.arr[index].other_vfe.ts.buf_time.tv_sec,
-		(uint32_t)dump_data.arr[index].other_vfe.ts.buf_time.tv_usec);
-
-		strlcat(current_vfe_buf, other_vfe_buf,
-			sizeof(current_vfe_buf));
-		pr_err("%s\n", current_vfe_buf);
+		trace_msm_cam_ping_pong_debug_dump(dump_data.arr[index]);
 		index = (index + 1) % MAX_ISP_PING_PONG_DUMP_SIZE;
 	}
 }
@@ -2326,12 +2310,7 @@ void msm_isp_dump_taskelet_debug(void)
 		count = tasklet_data.first;
 	}
 	for (i = 0; i < count; i++) {
-		pr_err("vfe_id %d: core %d: irq_st0 0x%.8x: irq_st1 0x%.8x: pi_po_st 0x%.8x:\n",
-		tasklet_data.arr[index].current_vfe_irq.vfe_id,
-		tasklet_data.arr[index].current_vfe_irq.core,
-		tasklet_data.arr[index].current_vfe_irq.irq_status0,
-		tasklet_data.arr[index].current_vfe_irq.irq_status1,
-		tasklet_data.arr[index].current_vfe_irq.ping_pong_status);
+		trace_msm_cam_tasklet_debug_dump(tasklet_data.arr[index]);
 		index = (index + 1) % MAX_ISP_PING_PONG_DUMP_SIZE;
 	}
 }
@@ -2349,9 +2328,9 @@ void msm_isp_dump_ping_pong_mismatch(void)
 		(uint32_t)dump_data.vfe_dev->common_data->dual_vfe_res->vfe_dev[
 			i]->vfe_irq->start);
 	}
-	pr_err(" ***** msm_isp_dump_irq_debug ****\n");
+	trace_msm_cam_string(" ***** msm_isp_dump_irq_debug ****");
 	msm_isp_dump_irq_debug();
-	pr_err(" ***** msm_isp_dump_taskelet_debug ****\n");
+	trace_msm_cam_string(" ***** msm_isp_dump_taskelet_debug ****");
 	msm_isp_dump_taskelet_debug();
 	spin_unlock(&dump_tasklet_lock);
 }

@@ -4135,7 +4135,8 @@ static int ipa3_trigger_fw_loading_mdms(void)
 	}
 
 	result = gsi_enable_fw(ipa3_res.transport_mem_base,
-				ipa3_res.transport_mem_size);
+				ipa3_res.transport_mem_size,
+				ipa3_get_gsi_ver(ipa3_res.ipa_hw_type));
 	if (result) {
 		IPAERR("Failed to enable GSI FW\n");
 		release_firmware(fw);
@@ -4763,6 +4764,9 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	} else {
 		IPADBG("Initialization of ipa interrupts skipped\n");
 	}
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)
+		ipa3_enable_dcd();
 
 	INIT_LIST_HEAD(&ipa3_ctx->ipa_ready_cb_list);
 

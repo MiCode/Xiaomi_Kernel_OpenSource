@@ -16,6 +16,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "drm_edid.h"
 #include "sde_kms.h"
 #include "sde_hdmi.h"
 #include "hdmi.h"
@@ -32,6 +33,19 @@ struct sde_hdmi_bridge {
 #define HDMI_TX_SCRAMBLER_TIMEOUT_MSEC 200
 /* default hsyncs for 4k@60 for 200ms */
 #define HDMI_DEFAULT_TIMEOUT_HSYNC 28571
+/* for AVI program */
+#define HDMI_AVI_INFOFRAME_BUFFER_SIZE \
+	(HDMI_INFOFRAME_HEADER_SIZE + HDMI_AVI_INFOFRAME_SIZE)
+#define HDMI_VS_INFOFRAME_BUFFER_SIZE (HDMI_INFOFRAME_HEADER_SIZE + 6)
+#define HDMI_SPD_INFOFRAME_BUFFER_SIZE \
+	(HDMI_INFOFRAME_HEADER_SIZE + HDMI_SPD_INFOFRAME_SIZE)
+#define HDMI_DEFAULT_VENDOR_NAME "unknown"
+#define HDMI_DEFAULT_PRODUCT_NAME "msm"
+#define LEFT_SHIFT_BYTE(x) ((x) << 8)
+#define LEFT_SHIFT_WORD(x) ((x) << 16)
+#define LEFT_SHIFT_24BITS(x) ((x) << 24)
+#define HDMI_AVI_IFRAME_LINE_NUMBER 1
+#define HDMI_VENDOR_IFRAME_LINE_NUMBER 3
 
 void _sde_hdmi_bridge_destroy(struct drm_bridge *bridge)
 {
@@ -412,6 +426,118 @@ static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
 	}
 }
 
+static void _sde_hdmi_bridge_set_avi_infoframe(struct hdmi *hdmi,
+	const struct drm_display_mode *mode)
+{
+	u8 avi_iframe[HDMI_AVI_INFOFRAME_BUFFER_SIZE] = {0};
+	u8 *avi_frame = &avi_iframe[HDMI_INFOFRAME_HEADER_SIZE];
+	u8 checksum;
+	u32 reg_val;
+	struct hdmi_avi_infoframe info;
+
+	drm_hdmi_avi_infoframe_from_display_mode(&info, mode);
+	hdmi_avi_infoframe_pack(&info, avi_iframe, sizeof(avi_iframe));
+	checksum = avi_iframe[HDMI_INFOFRAME_HEADER_SIZE - 1];
+
+	reg_val = checksum |
+		LEFT_SHIFT_BYTE(avi_frame[0]) |
+		LEFT_SHIFT_WORD(avi_frame[1]) |
+		LEFT_SHIFT_24BITS(avi_frame[2]);
+	hdmi_write(hdmi, REG_HDMI_AVI_INFO(0), reg_val);
+
+	reg_val = avi_frame[3] |
+		LEFT_SHIFT_BYTE(avi_frame[4]) |
+		LEFT_SHIFT_WORD(avi_frame[5]) |
+		LEFT_SHIFT_24BITS(avi_frame[6]);
+	hdmi_write(hdmi, REG_HDMI_AVI_INFO(1), reg_val);
+
+	reg_val = avi_frame[7] |
+		LEFT_SHIFT_BYTE(avi_frame[8]) |
+		LEFT_SHIFT_WORD(avi_frame[9]) |
+		LEFT_SHIFT_24BITS(avi_frame[10]);
+	hdmi_write(hdmi, REG_HDMI_AVI_INFO(2), reg_val);
+
+	reg_val = avi_frame[11] |
+		LEFT_SHIFT_BYTE(avi_frame[12]) |
+		LEFT_SHIFT_24BITS(avi_iframe[1]);
+	hdmi_write(hdmi, REG_HDMI_AVI_INFO(3), reg_val);
+
+	/* AVI InfFrame enable (every frame) */
+	hdmi_write(hdmi, REG_HDMI_INFOFRAME_CTRL0,
+		hdmi_read(hdmi, REG_HDMI_INFOFRAME_CTRL0) | BIT(1) | BIT(0));
+
+	reg_val = hdmi_read(hdmi, REG_HDMI_INFOFRAME_CTRL1);
+	reg_val &= ~0x3F;
+	reg_val |= HDMI_AVI_IFRAME_LINE_NUMBER;
+	hdmi_write(hdmi, REG_HDMI_INFOFRAME_CTRL1, reg_val);
+}
+
+static void _sde_hdmi_bridge_set_vs_infoframe(struct hdmi *hdmi,
+	const struct drm_display_mode *mode)
+{
+	u8 vs_iframe[HDMI_VS_INFOFRAME_BUFFER_SIZE] = {0};
+	u32 reg_val;
+	struct hdmi_vendor_infoframe info;
+
+	drm_hdmi_vendor_infoframe_from_display_mode(&info, mode);
+	hdmi_vendor_infoframe_pack(&info, vs_iframe, sizeof(vs_iframe));
+
+	reg_val = (info.s3d_struct << 24) | (info.vic << 16) |
+			(vs_iframe[3] << 8) | (vs_iframe[7] << 5) |
+			vs_iframe[2];
+	hdmi_write(hdmi, REG_HDMI_VENSPEC_INFO0, reg_val);
+
+	/* vendor specific info-frame enable (every frame) */
+	hdmi_write(hdmi, REG_HDMI_INFOFRAME_CTRL0,
+		hdmi_read(hdmi, REG_HDMI_INFOFRAME_CTRL0) | BIT(13) | BIT(12));
+
+	reg_val = hdmi_read(hdmi, REG_HDMI_INFOFRAME_CTRL1);
+	reg_val &= ~0x3F000000;
+	reg_val |= (HDMI_VENDOR_IFRAME_LINE_NUMBER << 24);
+	hdmi_write(hdmi, REG_HDMI_INFOFRAME_CTRL1, reg_val);
+}
+
+static void _sde_hdmi_bridge_set_spd_infoframe(struct hdmi *hdmi,
+	const struct drm_display_mode *mode)
+{
+	u8 spd_iframe[HDMI_SPD_INFOFRAME_BUFFER_SIZE] = {0};
+	u32 packet_payload, packet_control, packet_header;
+	struct hdmi_spd_infoframe info;
+	int i;
+
+	/* Need to query vendor and product name from platform setup */
+	hdmi_spd_infoframe_init(&info, HDMI_DEFAULT_VENDOR_NAME,
+		HDMI_DEFAULT_PRODUCT_NAME);
+	hdmi_spd_infoframe_pack(&info, spd_iframe, sizeof(spd_iframe));
+
+	packet_header = spd_iframe[0]
+			| LEFT_SHIFT_BYTE(spd_iframe[1] & 0x7f)
+			| LEFT_SHIFT_WORD(spd_iframe[2] & 0x7f);
+	hdmi_write(hdmi, REG_HDMI_GENERIC1_HDR, packet_header);
+
+	for (i = 0; i < 6; i++) {
+		packet_payload = spd_iframe[3 + i * 4]
+			| LEFT_SHIFT_BYTE(spd_iframe[4 + i * 4] & 0x7f)
+			| LEFT_SHIFT_WORD(spd_iframe[5 + i * 4] & 0x7f)
+			| LEFT_SHIFT_24BITS(spd_iframe[6 + i * 4] & 0x7f);
+		hdmi_write(hdmi, REG_HDMI_GENERIC1(i), packet_payload);
+	}
+
+	packet_payload = (spd_iframe[27] & 0x7f)
+			| LEFT_SHIFT_BYTE(spd_iframe[28] & 0x7f);
+	hdmi_write(hdmi, REG_HDMI_GENERIC1(6), packet_payload);
+
+	/*
+	 * GENERIC1_LINE | GENERIC1_CONT | GENERIC1_SEND
+	 * Setup HDMI TX generic packet control
+	 * Enable this packet to transmit every frame
+	 * Enable HDMI TX engine to transmit Generic packet 1
+	 */
+	packet_control = hdmi_read(hdmi, REG_HDMI_GEN_PKT_CTRL);
+	packet_control |= ((0x1 << 24) | (1 << 5) | (1 << 4));
+	hdmi_write(hdmi, REG_HDMI_GEN_PKT_CTRL, packet_control);
+}
+
 static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 		 struct drm_display_mode *mode,
 		 struct drm_display_mode *adjusted_mode)
@@ -469,6 +595,20 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 		frame_ctrl |= HDMI_FRAME_CTRL_INTERLACED_EN;
 	DRM_DEBUG("frame_ctrl=%08x\n", frame_ctrl);
 	hdmi_write(hdmi, REG_HDMI_FRAME_CTRL, frame_ctrl);
+
+	/*
+	 * Setup info frame
+	 * Current drm_edid driver doesn't have all CEA formats defined in
+	 * latest CEA-861(CTA-861) spec. So, don't check if mode is CEA mode
+	 * in here. Once core framework is updated, the check needs to be
+	 * added back.
+	 */
+	if (hdmi->hdmi_mode) {
+		_sde_hdmi_bridge_set_avi_infoframe(hdmi, mode);
+		_sde_hdmi_bridge_set_vs_infoframe(hdmi, mode);
+		_sde_hdmi_bridge_set_spd_infoframe(hdmi, mode);
+		DRM_DEBUG("hdmi setup info frame\n");
+	}
 
 	_sde_hdmi_bridge_setup_scrambler(hdmi, mode);
 
