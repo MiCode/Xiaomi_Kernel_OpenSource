@@ -529,9 +529,11 @@
 		#reset-cells = <1>;
 	};
 
-	clock_dispcc: qcom,dispcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+	clock_dispcc: qcom,dispcc@af00000 {
+		compatible = "qcom,dispcc-sdm845";
+		reg = <0xaf00000 0x100000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&pm8998_s9_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
