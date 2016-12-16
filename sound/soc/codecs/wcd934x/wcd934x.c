@@ -8863,8 +8863,9 @@ done:
 	return ret;
 }
 
-static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
+static int tavil_soc_codec_probe(struct snd_soc_component *component)
 {
+	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct wcd9xxx *control;
 	struct tavil_priv *tavil;
 	struct wcd9xxx_pdata *pdata;
@@ -9027,8 +9028,9 @@ err:
 	return ret;
 }
 
-static int tavil_soc_codec_remove(struct snd_soc_codec *codec)
+static int tavil_soc_codec_remove(struct snd_soc_component *component)
 {
+	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct wcd9xxx *control;
 	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
 
@@ -9056,12 +9058,12 @@ static struct regmap *tavil_get_regmap(struct device *dev)
 }
 
 static struct snd_soc_codec_driver soc_codec_dev_tavil = {
-	.probe = tavil_soc_codec_probe,
-	.remove = tavil_soc_codec_remove,
 	.controls = tavil_snd_controls,
 	.num_controls = ARRAY_SIZE(tavil_snd_controls),
 	.get_regmap = tavil_get_regmap,
 	.component_driver = {
+		.probe = tavil_soc_codec_probe,
+		.remove = tavil_soc_codec_remove,
 		.dapm_widgets = tavil_dapm_widgets,
 		.num_dapm_widgets = ARRAY_SIZE(tavil_dapm_widgets),
 		.dapm_routes = tavil_audio_map,

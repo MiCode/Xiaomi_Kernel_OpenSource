@@ -13522,8 +13522,9 @@ static struct regulator *tasha_codec_find_ondemand_regulator(
 	return NULL;
 }
 
-static int tasha_codec_probe(struct snd_soc_codec *codec)
+static int tasha_codec_probe(struct snd_soc_component *component)
 {
+	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct wcd9xxx *control;
 	struct tasha_priv *tasha;
 	struct wcd9xxx_pdata *pdata;
@@ -13741,8 +13742,9 @@ err:
 	return ret;
 }
 
-static int tasha_codec_remove(struct snd_soc_codec *codec)
+static int tasha_codec_remove(struct snd_soc_component *component)
 {
+	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx *control;
 
@@ -13765,12 +13767,12 @@ static struct regmap *tasha_get_regmap(struct device *dev)
 }
 
 static struct snd_soc_codec_driver soc_codec_dev_tasha = {
-	.probe = tasha_codec_probe,
-	.remove = tasha_codec_remove,
 	.controls = tasha_snd_controls,
 	.num_controls = ARRAY_SIZE(tasha_snd_controls),
 	.get_regmap = tasha_get_regmap,
 	.component_driver = {
+		.probe = tasha_codec_probe,
+		.remove = tasha_codec_remove,
 		.dapm_widgets = tasha_dapm_widgets,
 		.num_dapm_widgets = ARRAY_SIZE(tasha_dapm_widgets),
 		.dapm_routes = audio_map,

@@ -1026,8 +1026,9 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
 	return 0;
 }
 
-static int wsa881x_probe(struct snd_soc_codec *codec)
+static int wsa881x_probe(struct snd_soc_component *component)
 {
+	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
 	struct swr_device *dev;
 
@@ -1052,8 +1053,9 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 	return 0;
 }
 
-static int wsa881x_remove(struct snd_soc_codec *codec)
+static int wsa881x_remove(struct snd_soc_component *component)
 {
+	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
 
 	if (wsa881x->tz_pdata.tz_dev)
@@ -1075,12 +1077,12 @@ static struct regmap *wsa881x_get_regmap(struct device *dev)
 }
 
 static struct snd_soc_codec_driver soc_codec_dev_wsa881x = {
-	.probe = wsa881x_probe,
-	.remove = wsa881x_remove,
 	.controls = wsa881x_snd_controls,
 	.num_controls = ARRAY_SIZE(wsa881x_snd_controls),
 	.get_regmap = wsa881x_get_regmap,
 	.component_driver = {
+		.probe = wsa881x_probe,
+		.remove = wsa881x_remove,
 		.dapm_widgets = wsa881x_dapm_widgets,
 		.num_dapm_widgets = ARRAY_SIZE(wsa881x_dapm_widgets),
 		.dapm_routes = wsa881x_audio_map,

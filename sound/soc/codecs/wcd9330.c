@@ -8767,8 +8767,9 @@ static int tomtom_cpe_initialize(struct snd_soc_codec *codec)
 	return 0;
 }
 
-static int tomtom_codec_probe(struct snd_soc_codec *codec)
+static int tomtom_codec_probe(struct snd_soc_component *component)
 {
+	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct wcd9xxx *control;
 	struct tomtom_priv *tomtom;
 	struct wcd9xxx_pdata *pdata;
@@ -8971,8 +8972,9 @@ err_nomem_slimch:
 	devm_kfree(codec->dev, tomtom);
 	return ret;
 }
-static int tomtom_codec_remove(struct snd_soc_codec *codec)
+static int tomtom_codec_remove(struct snd_soc_component *component)
 {
+	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx *control;
 
@@ -9009,12 +9011,12 @@ static struct regmap *tomtom_get_regmap(struct device *dev)
 }
 
 static struct snd_soc_codec_driver soc_codec_dev_tomtom = {
-	.probe = tomtom_codec_probe,
-	.remove = tomtom_codec_remove,
 	.controls = tomtom_snd_controls,
 	.num_controls = ARRAY_SIZE(tomtom_snd_controls),
 	.get_regmap = tomtom_get_regmap,
 	.component_driver = {
+		.probe = tomtom_codec_probe,
+		.remove = tomtom_codec_remove,
 		.dapm_widgets = tomtom_dapm_widgets,
 		.num_dapm_widgets = ARRAY_SIZE(tomtom_dapm_widgets),
 		.dapm_routes = audio_map,
