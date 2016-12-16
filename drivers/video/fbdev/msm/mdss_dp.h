@@ -443,6 +443,7 @@ struct mdss_dp_drv_pdata {
 	struct dss_io_data hdcp_io;
 	int base_size;
 	unsigned char *mmss_cc_base;
+	bool override_config;
 	u32 mask1;
 	u32 mask2;
 

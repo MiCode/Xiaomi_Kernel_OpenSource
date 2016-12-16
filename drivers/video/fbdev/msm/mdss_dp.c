@@ -1037,7 +1037,7 @@ static u32 mdss_dp_get_bpp(struct mdss_dp_drv_pdata *dp)
 	 * For test pattern, the test data has the bit depth per color
 	 * component. Otherwise, set it based on EDID.
 	 */
-	if (mdss_dp_is_video_pattern_requested(dp))
+	if (dp->override_config || mdss_dp_is_video_pattern_requested(dp))
 		bit_depth = dp->test_data.test_bit_depth;
 	else
 		bit_depth = dp->edid.color_depth;
@@ -2202,6 +2202,111 @@ static ssize_t mdss_dp_rda_hpd(struct device *dev,
 	return ret;
 }
 
+static int mdss_dp_parse_config_value(char const *buf, char const *name,
+	u32 *val)
+{
+	int ret = 0;
+	char *buf1;
+	char *token;
+
+	buf1 = strnstr(buf, name, PAGE_SIZE);
+	if (buf1) {
+		buf1 = buf1 + strlen(name);
+		token = strsep(&buf1, " ");
+		ret = kstrtou32(token, 10, val);
+		if (ret) {
+			pr_err("kstrtoint failed. ret=%d\n", (int)ret);
+			goto end;
+		}
+		pr_debug("parsed %s(%d)\n", name, *val);
+	} else {
+		ret = -EINVAL;
+	}
+
+end:
+	return ret;
+}
+
+static ssize_t mdss_dp_wta_config(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	u32 val;
+	u32 bit_depth;
+	int ret;
+	char const *bpp_key = "bpp=";
+	char const *pattern_type_key = "pattern_type=";
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid data\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	ret = mdss_dp_parse_config_value(buf, bpp_key, &val);
+	if (ret) {
+		pr_debug("%s config not found\n", bpp_key);
+		goto pattern_type;
+	}
+
+	bit_depth = mdss_dp_bpp_to_test_bit_depth(val);
+	if (!mdss_dp_is_test_bit_depth_valid(bit_depth)) {
+		pr_err("invalid bpp = %d\n", val);
+	} else {
+		dp->test_data.test_bit_depth = bit_depth;
+		if (val != 0)
+			dp->override_config = true;
+		else
+			dp->override_config = false;
+		pr_debug("bpp=%d, test_bit_depth=%d\n", val,
+			dp->test_data.test_bit_depth);
+	}
+
+pattern_type:
+	ret = mdss_dp_parse_config_value(buf, pattern_type_key, &val);
+	if (ret) {
+		pr_debug("%s config not found\n", pattern_type_key);
+		goto end;
+	}
+
+	if (!mdss_dp_is_test_video_pattern_valid(val)) {
+		pr_err("invalid test video pattern = %d\n", val);
+	} else {
+		dp->test_data.test_video_pattern = val;
+		pr_debug("test_video_pattern=%d (%s)\n",
+			dp->test_data.test_video_pattern,
+			mdss_dp_test_video_pattern_to_string(
+				dp->test_data.test_video_pattern));
+	}
+
+end:
+	return count;
+}
+
+static ssize_t mdss_dp_rda_config(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	u32 bpp;
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	bpp = mdss_dp_get_bpp(dp);
+	ret = snprintf(buf, PAGE_SIZE, "bpp=%d\npattern_type=%d\n",
+		bpp, dp->test_data.test_video_pattern);
+
+	pr_debug("bpp: %d pattern_type=%d (%s)\n",
+		bpp, dp->test_data.test_video_pattern,
+		mdss_dp_test_video_pattern_to_string(
+			dp->test_data.test_video_pattern));
+
+	return ret;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO, mdss_dp_rda_connected, NULL);
 static DEVICE_ATTR(s3d_mode, S_IRUGO | S_IWUSR, mdss_dp_sysfs_rda_s3d_mode,
 	mdss_dp_sysfs_wta_s3d_mode);
@@ -2209,13 +2314,15 @@ static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, mdss_dp_rda_hpd,
 	mdss_dp_wta_hpd);
 static DEVICE_ATTR(psm, S_IRUGO | S_IWUSR, mdss_dp_rda_psm,
 	mdss_dp_wta_psm);
-
+static DEVICE_ATTR(config, S_IRUGO | S_IWUSR, mdss_dp_rda_config,
+	mdss_dp_wta_config);
 
 static struct attribute *mdss_dp_fs_attrs[] = {
 	&dev_attr_connected.attr,
 	&dev_attr_s3d_mode.attr,
 	&dev_attr_hpd.attr,
 	&dev_attr_psm.attr,
+	&dev_attr_config.attr,
 	NULL,
 };
 
