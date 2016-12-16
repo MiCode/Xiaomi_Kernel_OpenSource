@@ -9013,11 +9013,13 @@ static struct snd_soc_codec_driver soc_codec_dev_tomtom = {
 	.remove = tomtom_codec_remove,
 	.controls = tomtom_snd_controls,
 	.num_controls = ARRAY_SIZE(tomtom_snd_controls),
-	.dapm_widgets = tomtom_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(tomtom_dapm_widgets),
-	.dapm_routes = audio_map,
-	.num_dapm_routes = ARRAY_SIZE(audio_map),
 	.get_regmap = tomtom_get_regmap,
+	.component_driver = {
+		.dapm_widgets = tomtom_dapm_widgets,
+		.num_dapm_widgets = ARRAY_SIZE(tomtom_dapm_widgets),
+		.dapm_routes = audio_map,
+		.num_dapm_routes = ARRAY_SIZE(audio_map),
+	},
 };
 
 #ifdef CONFIG_PM

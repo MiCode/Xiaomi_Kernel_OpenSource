@@ -13769,11 +13769,13 @@ static struct snd_soc_codec_driver soc_codec_dev_tasha = {
 	.remove = tasha_codec_remove,
 	.controls = tasha_snd_controls,
 	.num_controls = ARRAY_SIZE(tasha_snd_controls),
-	.dapm_widgets = tasha_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(tasha_dapm_widgets),
-	.dapm_routes = audio_map,
-	.num_dapm_routes = ARRAY_SIZE(audio_map),
 	.get_regmap = tasha_get_regmap,
+	.component_driver = {
+		.dapm_widgets = tasha_dapm_widgets,
+		.num_dapm_widgets = ARRAY_SIZE(tasha_dapm_widgets),
+		.dapm_routes = audio_map,
+		.num_dapm_routes = ARRAY_SIZE(audio_map),
+	},
 };
 
 #ifdef CONFIG_PM

@@ -1079,11 +1079,13 @@ static struct snd_soc_codec_driver soc_codec_dev_wsa881x = {
 	.remove = wsa881x_remove,
 	.controls = wsa881x_snd_controls,
 	.num_controls = ARRAY_SIZE(wsa881x_snd_controls),
-	.dapm_widgets = wsa881x_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(wsa881x_dapm_widgets),
-	.dapm_routes = wsa881x_audio_map,
-	.num_dapm_routes = ARRAY_SIZE(wsa881x_audio_map),
 	.get_regmap = wsa881x_get_regmap,
+	.component_driver = {
+		.dapm_widgets = wsa881x_dapm_widgets,
+		.num_dapm_widgets = ARRAY_SIZE(wsa881x_dapm_widgets),
+		.dapm_routes = wsa881x_audio_map,
+		.num_dapm_routes = ARRAY_SIZE(wsa881x_audio_map),
+	},
 };
 
 static int wsa881x_swr_startup(struct swr_device *swr_dev)
