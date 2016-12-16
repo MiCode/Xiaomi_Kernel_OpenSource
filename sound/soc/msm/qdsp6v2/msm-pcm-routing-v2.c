@@ -11732,7 +11732,7 @@ static const struct snd_kcontrol_new device_pp_params_mixer_controls[] = {
 	msm_routing_put_device_pp_params_mixer),
 };
 
-static struct snd_pcm_ops msm_routing_pcm_ops = {
+static const struct snd_pcm_ops msm_routing_pcm_ops = {
 	.hw_params	= msm_pcm_routing_hw_params,
 	.close          = msm_pcm_routing_close,
 	.prepare        = msm_pcm_routing_prepare,

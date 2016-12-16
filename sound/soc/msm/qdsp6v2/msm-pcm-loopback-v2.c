@@ -458,7 +458,7 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	return 0;
 }
 
-static struct snd_pcm_ops msm_pcm_ops = {
+static const struct snd_pcm_ops msm_pcm_ops = {
 	.open           = msm_pcm_open,
 	.close          = msm_pcm_close,
 	.prepare        = msm_pcm_prepare,

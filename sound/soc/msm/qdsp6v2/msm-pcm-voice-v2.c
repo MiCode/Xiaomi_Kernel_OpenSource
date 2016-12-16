@@ -634,7 +634,7 @@ static struct snd_kcontrol_new msm_voice_controls[] = {
 	},
 };
 
-static struct snd_pcm_ops msm_pcm_ops = {
+static const struct snd_pcm_ops msm_pcm_ops = {
 	.open			= msm_pcm_open,
 	.hw_params		= msm_pcm_hw_params,
 	.close			= msm_pcm_close,

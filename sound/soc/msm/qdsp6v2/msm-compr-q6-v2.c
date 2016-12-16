@@ -1626,7 +1626,7 @@ static int msm_compr_add_controls(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
-static struct snd_pcm_ops msm_compr_ops = {
+static const struct snd_pcm_ops msm_compr_ops = {
 	.open	   = msm_compr_open,
 	.hw_params	= msm_compr_hw_params,
 	.close	  = msm_compr_close,

@@ -838,7 +838,7 @@ static snd_pcm_uframes_t msm_afe_pointer(struct snd_pcm_substream *substream)
 	return bytes_to_frames(runtime, (prtd->pcm_irq_pos));
 }
 
-static struct snd_pcm_ops msm_afe_ops = {
+static const struct snd_pcm_ops msm_afe_ops = {
 	.open           = msm_afe_open,
 	.copy           = msm_afe_copy,
 	.hw_params	= msm_afe_hw_params,

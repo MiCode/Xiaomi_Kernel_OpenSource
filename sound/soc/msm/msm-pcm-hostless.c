@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,7 +29,7 @@ static int msm_pcm_hostless_prepare(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static struct snd_pcm_ops msm_pcm_hostless_ops = {
+static const struct snd_pcm_ops msm_pcm_hostless_ops = {
 	.prepare = msm_pcm_hostless_prepare
 };
 

@@ -3080,7 +3080,7 @@ static int msm_asoc_cpe_lsm_probe(struct snd_soc_platform *platform)
 	return 0;
 }
 
-static struct snd_pcm_ops msm_cpe_lsm_ops = {
+static const struct snd_pcm_ops msm_cpe_lsm_ops = {
 	.open = msm_cpe_lsm_open,
 	.close = msm_cpe_lsm_close,
 	.ioctl = msm_cpe_lsm_ioctl,

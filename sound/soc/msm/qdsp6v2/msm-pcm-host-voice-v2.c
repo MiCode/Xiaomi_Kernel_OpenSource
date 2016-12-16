@@ -1440,7 +1440,7 @@ done:
 	return ret;
 }
 
-static struct snd_pcm_ops msm_pcm_ops = {
+static const struct snd_pcm_ops msm_pcm_ops = {
 	.open           = msm_pcm_open,
 	.hw_params      = msm_pcm_hw_params,
 	.prepare        = msm_pcm_prepare,

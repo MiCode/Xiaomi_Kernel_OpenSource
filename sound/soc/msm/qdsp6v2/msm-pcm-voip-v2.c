@@ -1586,7 +1586,7 @@ static int voip_get_media_type(uint32_t mode, uint32_t rate_type,
 }
 
 
-static struct snd_pcm_ops msm_pcm_ops = {
+static const struct snd_pcm_ops msm_pcm_ops = {
 	.open           = msm_pcm_open,
 	.copy		= msm_pcm_copy,
 	.hw_params	= msm_pcm_hw_params,

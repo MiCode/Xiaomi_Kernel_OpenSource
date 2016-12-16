@@ -1910,7 +1910,7 @@ static int msm_lsm_pcm_copy(struct snd_pcm_substream *substream, int ch,
 	return 0;
 }
 
-static struct snd_pcm_ops msm_lsm_ops = {
+static const struct snd_pcm_ops msm_lsm_ops = {
 	.open           = msm_lsm_open,
 	.close          = msm_lsm_close,
 	.ioctl          = msm_lsm_ioctl,
