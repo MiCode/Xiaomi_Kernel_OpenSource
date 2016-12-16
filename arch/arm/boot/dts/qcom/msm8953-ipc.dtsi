@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,6 +113,18 @@
 
 #include "msm8953-mdss-panels.dtsi"
 
+&i2c_5 { /* BLSP2 QUP1 (HDMI) */
+	lt8912@48 {
+		compatible = "lontium,lt8912";
+		reg = <0x48>;
+		qcom,hdmi-reset = <&tlmm 64 0x0>;
+	};
+};
+
+&dsi_lt8912_480_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
@@ -122,7 +134,7 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_truly_1080_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_lt8912_480_vid>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
