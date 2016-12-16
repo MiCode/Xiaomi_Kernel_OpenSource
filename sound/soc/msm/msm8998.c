@@ -3304,7 +3304,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
+	struct snd_soc_component *aux_comp;
 	struct snd_card *card;
 	struct snd_info_entry *entry;
 	struct msm_asoc_mach_data *pdata =
@@ -3439,12 +3439,16 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	pr_debug("%s: Number of aux devices: %d\n",
 		__func__, rtd->card->num_aux_devs);
 	if (!strcmp(dev_name(codec_dai->dev), "tavil_codec")) {
-		if (rtd->card->num_aux_devs && rtd_aux && rtd_aux->component)
-			if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
-			    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
+		if (rtd->card->num_aux_devs &&
+		    !list_empty(&rtd->card->aux_comp_list)) {
+			aux_comp = list_first_entry(&rtd->card->aux_comp_list,
+					struct snd_soc_component, list_aux);
+			if (!strcmp(aux_comp->name, WSA8810_NAME_1) ||
+			    !strcmp(aux_comp->name, WSA8810_NAME_2)) {
 				tavil_set_spkr_mode(rtd->codec, SPKR_MODE_1);
 				tavil_set_spkr_gain_offset(rtd->codec,
 							RX_GAIN_OFFSET_M1P5_DB);
+			}
 		}
 		card = rtd->card->snd_card;
 		entry = snd_info_create_subdir(card->module, "codecs",
@@ -3458,12 +3462,16 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		pdata->codec_root = entry;
 		tavil_codec_info_create_codec_entry(pdata->codec_root, codec);
 	} else {
-		if (rtd->card->num_aux_devs && rtd_aux && rtd_aux->component)
-			if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
-			    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
+		if (rtd->card->num_aux_devs &&
+		    !list_empty(&rtd->card->aux_comp_list)) {
+			aux_comp = list_first_entry(&rtd->card->aux_comp_list,
+					struct snd_soc_component, list_aux);
+			if (!strcmp(aux_comp->name, WSA8810_NAME_1) ||
+			    !strcmp(aux_comp->name, WSA8810_NAME_2)) {
 				tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
 				tasha_set_spkr_gain_offset(rtd->codec,
 							RX_GAIN_OFFSET_M1P5_DB);
+			}
 		}
 		card = rtd->card->snd_card;
 		entry = snd_info_create_subdir(card->module, "codecs",
