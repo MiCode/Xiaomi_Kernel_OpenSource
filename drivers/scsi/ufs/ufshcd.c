@@ -7003,7 +7003,6 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	/* UFS device is also active now */
 	ufshcd_set_ufs_dev_active(hba);
 	ufshcd_force_reset_auto_bkops(hba);
-	hba->wlun_dev_clr_ua = true;
 
 	if (ufshcd_get_max_pwr_mode(hba)) {
 		dev_err(hba->dev,
@@ -7947,12 +7946,12 @@ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
 	 * handling context.
 	 */
 	hba->host->eh_noresume = 1;
-	if (hba->wlun_dev_clr_ua) {
+	if (!hba->dev_info.is_ufs_dev_wlun_ua_cleared) {
 		ret = ufshcd_send_request_sense(hba, sdp);
 		if (ret)
 			goto out;
 		/* Unit attention condition is cleared now */
-		hba->wlun_dev_clr_ua = false;
+		hba->dev_info.is_ufs_dev_wlun_ua_cleared = 1;
 	}
 
 	cmd[4] = pwr_mode << 4;
