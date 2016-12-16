@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,32 +31,23 @@
 #define UFS_MODEL_TOSHIBA_64GB "THGLF2G9D8KBADG"
 
 /**
- * ufs_card_info - ufs device details
- * @wmanufacturerid: card details
- * @model: card model
- */
-struct ufs_card_info {
-	u16 wmanufacturerid;
-	char *model;
-};
-
-/**
  * ufs_card_fix - ufs device quirk info
  * @card: ufs card details
  * @quirk: device quirk
  */
 struct ufs_card_fix {
-	struct ufs_card_info card;
+	u16 w_manufacturer_id;
+	char *model;
 	unsigned int quirk;
 };
 
-#define END_FIX { { 0 } , 0 }
+#define END_FIX { 0 }
 
 /* add specific device quirk */
 #define UFS_FIX(_vendor, _model, _quirk) \
 		{						  \
-				.card.wmanufacturerid = (_vendor),\
-				.card.model = (_model),		  \
+				.w_manufacturer_id = (_vendor),\
+				.model = (_model),		  \
 				.quirk = (_quirk),		  \
 		}
 

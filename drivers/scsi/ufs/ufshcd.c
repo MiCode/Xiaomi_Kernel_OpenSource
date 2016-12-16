@@ -6895,6 +6895,29 @@ out:
 	return err;
 }
 
+static int ufs_read_device_desc_data(struct ufs_hba *hba)
+{
+	int err;
+	u8 desc_buf[QUERY_DESC_DEVICE_MAX_SIZE];
+
+	err = ufshcd_read_device_desc(hba, desc_buf, sizeof(desc_buf));
+	if (err)
+		return err;
+
+	/*
+	 * getting vendor (manufacturerID) and Bank Index in big endian
+	 * format
+	 */
+	hba->dev_info.w_manufacturer_id =
+		desc_buf[DEVICE_DESC_PARAM_MANF_ID] << 8 |
+		desc_buf[DEVICE_DESC_PARAM_MANF_ID + 1];
+	hba->dev_info.b_device_sub_class =
+		desc_buf[DEVICE_DESC_PARAM_DEVICE_SUB_CLASS];
+	hba->dev_info.i_product_name = desc_buf[DEVICE_DESC_PARAM_PRDCT_NAME];
+
+	return 0;
+}
+
 /**
  * ufshcd_probe_hba - probe hba to detect device and initialize
  * @hba: per-adapter instance
@@ -6929,6 +6952,11 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		goto out;
 
 	ret = ufshcd_complete_dev_init(hba);
+	if (ret)
+		goto out;
+
+	/* cache important parameters from device descriptor for later use */
+	ret = ufs_read_device_desc_data(hba);
 	if (ret)
 		goto out;
 
