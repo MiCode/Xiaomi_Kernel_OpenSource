@@ -74,6 +74,10 @@ struct ipa_uc_offload_ctx {
 
 static struct ipa_uc_offload_ctx *ipa_uc_offload_ctx[IPA_UC_MAX_PROT_SIZE];
 
+static int ipa_uc_ntn_cons_release(void);
+static int ipa_uc_ntn_cons_request(void);
+static void ipa_uc_offload_rm_notify(void *, enum ipa_rm_event, unsigned long);
+
 static int ipa_commit_partial_hdr(
 	struct ipa_ioc_add_hdr *hdr,
 	const char *netdev_name,
@@ -115,16 +119,37 @@ static int ipa_uc_offload_ntn_reg_intf(
 	struct ipa_uc_offload_out_params *outp,
 	struct ipa_uc_offload_ctx *ntn_ctx)
 {
-	struct ipa_ioc_add_hdr *hdr;
+	struct ipa_ioc_add_hdr *hdr = NULL;
 	struct ipa_tx_intf tx;
 	struct ipa_rx_intf rx;
 	struct ipa_ioc_tx_intf_prop tx_prop[2];
 	struct ipa_ioc_rx_intf_prop rx_prop[2];
+	struct ipa_rm_create_params param;
 	u32 len;
 	int ret = 0;
 
 	IPA_UC_OFFLOAD_DBG("register interface for netdev %s\n",
 					 inp->netdev_name);
+	memset(&param, 0, sizeof(param));
+	param.name = IPA_RM_RESOURCE_ODU_ADAPT_PROD;
+	param.reg_params.user_data = ntn_ctx;
+	param.reg_params.notify_cb = ipa_uc_offload_rm_notify;
+	param.floor_voltage = IPA_VOLTAGE_SVS;
+	ret = ipa_rm_create_resource(&param);
+	if (ret) {
+		IPA_UC_OFFLOAD_ERR("fail to create ODU_ADAPT_PROD resource\n");
+		return -EFAULT;
+	}
+
+	memset(&param, 0, sizeof(param));
+	param.name = IPA_RM_RESOURCE_ODU_ADAPT_CONS;
+	param.request_resource = ipa_uc_ntn_cons_request;
+	param.release_resource = ipa_uc_ntn_cons_release;
+	ret = ipa_rm_create_resource(&param);
+	if (ret) {
+		IPA_UC_OFFLOAD_ERR("fail to create ODU_ADAPT_CONS resource\n");
+		goto fail_create_rm_cons;
+	}
 
 	memcpy(ntn_ctx->netdev_name, inp->netdev_name, IPA_RESOURCE_NAME_MAX);
 	ntn_ctx->hdr_len = inp->hdr_info[0].hdr_len;
@@ -136,7 +161,8 @@ static int ipa_uc_offload_ntn_reg_intf(
 	hdr = kzalloc(len, GFP_KERNEL);
 	if (hdr == NULL) {
 		IPA_UC_OFFLOAD_ERR("fail to alloc %d bytes\n", len);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto fail_alloc;
 	}
 
 	if (ipa_commit_partial_hdr(hdr, ntn_ctx->netdev_name, inp->hdr_info)) {
@@ -197,8 +223,15 @@ static int ipa_uc_offload_ntn_reg_intf(
 	init_completion(&ntn_ctx->ntn_completion);
 	ntn_ctx->state = IPA_UC_OFFLOAD_STATE_INITIALIZED;
 
+	kfree(hdr);
+	return ret;
+
 fail:
 	kfree(hdr);
+fail_alloc:
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_CONS);
+fail_create_rm_cons:
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
 	return ret;
 }
 
@@ -301,9 +334,10 @@ int ipa_uc_ntn_conn_pipes(struct ipa_ntn_conn_in_params *inp,
 			struct ipa_ntn_conn_out_params *outp,
 			struct ipa_uc_offload_ctx *ntn_ctx)
 {
-	struct ipa_rm_create_params param;
 	int result = 0;
+	enum ipa_uc_offload_state prev_state;
 
+	prev_state = ntn_ctx->state;
 	if (inp->dl.ring_base_pa % IPA_NTN_DMA_POOL_ALIGNMENT ||
 		inp->dl.buff_pool_base_pa % IPA_NTN_DMA_POOL_ALIGNMENT) {
 		IPA_UC_OFFLOAD_ERR("alignment failure on TX\n");
@@ -315,42 +349,13 @@ int ipa_uc_ntn_conn_pipes(struct ipa_ntn_conn_in_params *inp,
 		return -EINVAL;
 	}
 
-	memset(&param, 0, sizeof(param));
-	param.name = IPA_RM_RESOURCE_ODU_ADAPT_PROD;
-	param.reg_params.user_data = ntn_ctx;
-	param.reg_params.notify_cb = ipa_uc_offload_rm_notify;
-	param.floor_voltage = IPA_VOLTAGE_SVS;
-	result = ipa_rm_create_resource(&param);
+	result = ipa_rm_add_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
+		IPA_RM_RESOURCE_APPS_CONS);
 	if (result) {
-		IPA_UC_OFFLOAD_ERR("fail to create ODU_ADAPT_PROD resource\n");
-		return -EFAULT;
+		IPA_UC_OFFLOAD_ERR("fail to add rm dependency: %d\n", result);
+		return result;
 	}
 
-	memset(&param, 0, sizeof(param));
-	param.name = IPA_RM_RESOURCE_ODU_ADAPT_CONS;
-	param.request_resource = ipa_uc_ntn_cons_request;
-	param.release_resource = ipa_uc_ntn_cons_release;
-	result = ipa_rm_create_resource(&param);
-	if (result) {
-		IPA_UC_OFFLOAD_ERR("fail to create ODU_ADAPT_CONS resource\n");
-		goto fail_create_rm_cons;
-	}
-
-	if (ipa_rm_add_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
-		IPA_RM_RESOURCE_APPS_CONS)) {
-		IPA_UC_OFFLOAD_ERR("fail to add rm dependency\n");
-		result = -EFAULT;
-		goto fail;
-	}
-
-	if (ipa_setup_uc_ntn_pipes(inp, ntn_ctx->notify,
-		ntn_ctx->priv, ntn_ctx->hdr_len, outp)) {
-		IPA_UC_OFFLOAD_ERR("fail to setup uc offload pipes\n");
-		result = -EFAULT;
-		goto fail;
-	}
-
-	ntn_ctx->state = IPA_UC_OFFLOAD_STATE_UP;
 	result = ipa_rm_request_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
 	if (result == -EINPROGRESS) {
 		if (wait_for_completion_timeout(&ntn_ctx->ntn_completion,
@@ -365,13 +370,22 @@ int ipa_uc_ntn_conn_pipes(struct ipa_ntn_conn_in_params *inp,
 		goto fail;
 	}
 
+	ntn_ctx->state = IPA_UC_OFFLOAD_STATE_UP;
+	result = ipa_setup_uc_ntn_pipes(inp, ntn_ctx->notify,
+		ntn_ctx->priv, ntn_ctx->hdr_len, outp);
+	if (result) {
+		IPA_UC_OFFLOAD_ERR("fail to setup uc offload pipes: %d\n",
+				result);
+		ntn_ctx->state = prev_state;
+		result = -EFAULT;
+		goto fail;
+	}
+
 	return 0;
 
 fail:
-	ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_CONS);
-fail_create_rm_cons:
-	ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
-
+	ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
+		IPA_RM_RESOURCE_APPS_CONS);
 	return result;
 }
 
@@ -399,7 +413,8 @@ int ipa_uc_offload_conn_pipes(struct ipa_uc_offload_conn_in_params *inp,
 		return -EINVAL;
 	}
 
-	if (offload_ctx->state != IPA_UC_OFFLOAD_STATE_INITIALIZED) {
+	if (offload_ctx->state != IPA_UC_OFFLOAD_STATE_INITIALIZED &&
+		offload_ctx->state != IPA_UC_OFFLOAD_STATE_DOWN) {
 		IPA_UC_OFFLOAD_ERR("Invalid state %d\n", offload_ctx->state);
 		return -EPERM;
 	}
@@ -454,32 +469,34 @@ EXPORT_SYMBOL(ipa_set_perf_profile);
 static int ipa_uc_ntn_disconn_pipes(struct ipa_uc_offload_ctx *ntn_ctx)
 {
 	int ipa_ep_idx_ul, ipa_ep_idx_dl;
+	int ret = 0;
 
 	ntn_ctx->state = IPA_UC_OFFLOAD_STATE_DOWN;
-	if (ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
-				IPA_RM_RESOURCE_APPS_CONS)) {
-		IPA_UC_OFFLOAD_ERR("fail to delete rm dependency\n");
+
+	ret = ipa_rm_release_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
+	if (ret) {
+		IPA_UC_OFFLOAD_ERR("fail to release ODU_ADAPT_PROD res: %d\n",
+						  ret);
 		return -EFAULT;
 	}
 
-	if (ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD)) {
-		IPA_UC_OFFLOAD_ERR("fail to delete ODU_ADAPT_PROD resource\n");
-		return -EFAULT;
-	}
-
-	if (ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_CONS)) {
-		IPA_UC_OFFLOAD_ERR("fail to delete ODU_ADAPT_CONS resource\n");
+	ret = ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
+		IPA_RM_RESOURCE_APPS_CONS);
+	if (ret) {
+		IPA_UC_OFFLOAD_ERR("fail to del dep ODU->APPS, %d\n", ret);
 		return -EFAULT;
 	}
 
 	ipa_ep_idx_ul = ipa_get_ep_mapping(IPA_CLIENT_ODU_PROD);
 	ipa_ep_idx_dl = ipa_get_ep_mapping(IPA_CLIENT_ODU_TETH_CONS);
-	if (ipa_tear_down_uc_offload_pipes(ipa_ep_idx_ul, ipa_ep_idx_dl)) {
-		IPA_UC_OFFLOAD_ERR("fail to tear down uc offload pipes\n");
+	ret = ipa_tear_down_uc_offload_pipes(ipa_ep_idx_ul, ipa_ep_idx_dl);
+	if (ret) {
+		IPA_UC_OFFLOAD_ERR("fail to tear down ntn offload pipes, %d\n",
+						 ret);
 		return -EFAULT;
 	}
 
-	return 0;
+	return ret;
 }
 
 int ipa_uc_offload_disconn_pipes(u32 clnt_hdl)
@@ -523,6 +540,16 @@ static int ipa_uc_ntn_cleanup(struct ipa_uc_offload_ctx *ntn_ctx)
 {
 	int len, result = 0;
 	struct ipa_ioc_del_hdr *hdr;
+
+	if (ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD)) {
+		IPA_UC_OFFLOAD_ERR("fail to delete ODU_ADAPT_PROD resource\n");
+		return -EFAULT;
+	}
+
+	if (ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_CONS)) {
+		IPA_UC_OFFLOAD_ERR("fail to delete ODU_ADAPT_CONS resource\n");
+		return -EFAULT;
+	}
 
 	len = sizeof(struct ipa_ioc_del_hdr) + 2 * sizeof(struct ipa_hdr_del);
 	hdr = kzalloc(len, GFP_KERNEL);
