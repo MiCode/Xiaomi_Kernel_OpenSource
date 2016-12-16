@@ -483,6 +483,15 @@ config PANIC_ON_GLADIATOR_ERROR_V2
 
 		If unsure, say N.
 
+config MSM_GLADIATOR_ERROR_V2_MAIN_LOGGER_ONLY
+	depends on MSM_GLADIATOR_ERP_V2
+	bool "QCOM Gladiator error v2 main logger support only"
+	help
+	  Gladiator has two error loggers to report error captured.
+	  By default, two error loggers will both be enabled.
+	  This option enables only the main error logger.
+	  If unsure, say no
+
 config MSM_GLADIATOR_HANG_DETECT
 	tristate "MSM Gladiator Hang Detection Support"
 	help

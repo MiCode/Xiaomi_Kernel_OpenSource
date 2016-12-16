@@ -23,6 +23,11 @@
 #include <linux/clk.h>
 
 #define MODULE_NAME "gladiator-v2_error_reporting"
+#ifdef CONFIG_MSM_GLADIATOR_ERROR_V2_MAIN_LOGGER_ONLY
+#define OBSERVER_ERROR_ENABLE	0
+#else
+#define OBSERVER_ERROR_ENABLE	1
+#endif
 
 /* Register Offsets */
 #define GLADIATOR_ID_COREID	0x0
@@ -733,7 +738,8 @@ static int parse_dt_node(struct platform_device *pdev,
 static inline void gladiator_irq_init(void __iomem *gladiator_virt_base)
 {
 	writel_relaxed(1, gladiator_virt_base + GLADIATOR_FAULTEN);
-	writel_relaxed(1, gladiator_virt_base + OBSERVER_0_FAULTEN);
+	writel_relaxed(OBSERVER_ERROR_ENABLE,
+			gladiator_virt_base + OBSERVER_0_FAULTEN);
 }
 
 #define CCI_LEVEL 2
