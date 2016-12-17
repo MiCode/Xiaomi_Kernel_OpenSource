@@ -734,8 +734,10 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 	int rlen, ret = 0;
 	int edid_blk = 0, blk_num = 0, retries = 10;
 	bool edid_parsing_done = false;
-	const u8 cea_tag = 0x02;
+	const u8 cea_tag = 0x02, start_ext_blk = 0x1;
+	u32 const segment_addr = 0x30;
 	u32 checksum = 0;
+	char segment = 0x1;
 
 	ret = dp_aux_chan_ready(dp);
 	if (ret) {
@@ -764,7 +766,7 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 			ret = dp_edid_buf_error(rp->data, rp->len);
 			if (ret) {
 				pr_err("corrupt edid block detected\n");
-				goto end;
+				continue;
 			}
 
 			if (edid_parsing_done) {
@@ -782,7 +784,6 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 				rp->data);
 
 			edid_parsing_done = true;
-			checksum = rp->data[rp->len - 1];
 		} else {
 			edid_blk++;
 			blk_num++;
@@ -800,11 +801,17 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 		memcpy(dp->edid_buf + (edid_blk * EDID_BLOCK_SIZE),
 			rp->data, EDID_BLOCK_SIZE);
 
+		checksum = rp->data[rp->len - 1];
+
+		/* break if no more extension blocks present */
 		if (edid_blk == dp->edid.ext_block_cnt)
-			goto end;
+			break;
+
+		/* write segment number to read block 3 onwards */
+		if (edid_blk == start_ext_blk)
+			dp_aux_write_buf(dp, segment_addr, &segment, 1, 1);
 	} while (retries--);
 
-end:
 	if (dp->test_data.test_requested == TEST_EDID_READ) {
 		pr_debug("sending checksum %d\n", checksum);
 		dp_aux_send_checksum(dp, checksum);
