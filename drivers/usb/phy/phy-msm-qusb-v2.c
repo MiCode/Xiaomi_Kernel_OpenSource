@@ -600,7 +600,8 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				readl_relaxed(qphy->base +
 					QUSB2PHY_PLL_ANALOG_CONTROLS_TWO);
 
-			writel_relaxed(0x1b,
+			/* use CSR & switch to SE clk */
+			writel_relaxed(0xb,
 				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_TWO);
 
 			/* enable clock bypass */
