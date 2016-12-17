@@ -332,8 +332,8 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	prtd->session_id = prtd->audio_client->session;
 
 	pr_debug("msm_pcm_routing_reg_phy_stream w/ id %d\n",
-		 soc_prtd->dai_link->be_id);
-	ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+		 soc_prtd->dai_link->id);
+	ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->id,
 				       prtd->audio_client->perf_mode,
 				       prtd->session_id, substream->stream);
 
@@ -539,7 +539,7 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 		}
 		q6asm_audio_client_free(ac);
 	}
-	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
+	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->id,
 					 dir == IN ?
 					 SNDRV_PCM_STREAM_PLAYBACK :
 					 SNDRV_PCM_STREAM_CAPTURE);
@@ -622,7 +622,7 @@ static int msm_pcm_add_volume_control(struct snd_soc_pcm_runtime *rtd)
 
 	dev_dbg(rtd->dev, "%s, Volume control add\n", __func__);
 	ret = snd_pcm_add_volume_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
-			NULL, 1, rtd->dai_link->be_id,
+			NULL, 1, rtd->dai_link->id,
 			&volume_info);
 	if (ret < 0) {
 		pr_err("%s volume control failed ret %d\n", __func__, ret);

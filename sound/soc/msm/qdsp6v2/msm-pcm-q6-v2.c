@@ -352,7 +352,7 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	pr_debug("%s: session ID %d\n", __func__,
 			prtd->audio_client->session);
 	prtd->session_id = prtd->audio_client->session;
-	ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+	ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->id,
 			prtd->audio_client->perf_mode,
 			prtd->session_id, substream->stream);
 	if (ret) {
@@ -442,7 +442,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		event.event_func = msm_pcm_route_event_handler;
 		event.priv_data = (void *) prtd;
 		ret = msm_pcm_routing_reg_phy_stream_v2(
-				soc_prtd->dai_link->be_id,
+				soc_prtd->dai_link->id,
 				prtd->audio_client->perf_mode,
 				prtd->session_id, substream->stream,
 				event);
@@ -771,7 +771,7 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 					prtd->audio_client);
 		q6asm_audio_client_free(prtd->audio_client);
 	}
-	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
+	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->id,
 						SNDRV_PCM_STREAM_PLAYBACK);
 	kfree(prtd);
 	return 0;
@@ -876,7 +876,7 @@ static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 		q6asm_audio_client_free(prtd->audio_client);
 	}
 
-	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
+	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->id,
 		SNDRV_PCM_STREAM_CAPTURE);
 	kfree(prtd);
 
@@ -1078,7 +1078,7 @@ static int msm_pcm_add_volume_control(struct snd_soc_pcm_runtime *rtd)
 
 	dev_dbg(rtd->dev, "%s, Volume control add\n", __func__);
 	ret = snd_pcm_add_volume_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
-			NULL, 1, rtd->dai_link->be_id,
+			NULL, 1, rtd->dai_link->id,
 			&volume_info);
 	if (ret < 0) {
 		pr_err("%s volume control failed ret %d\n", __func__, ret);
@@ -1318,7 +1318,7 @@ static int msm_pcm_add_app_type_controls(struct snd_soc_pcm_runtime *rtd)
 				strlen(deviceNo) + 1 + strlen(suffix) + 1;
 		pr_debug("%s: Playback app type cntrl add\n", __func__);
 		ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
-					NULL, 1, ctl_len, rtd->dai_link->be_id,
+					NULL, 1, ctl_len, rtd->dai_link->id,
 					&app_type_info);
 		if (ret < 0) {
 			pr_err("%s: playback app type cntrl add failed: %d\n",
@@ -1337,7 +1337,7 @@ static int msm_pcm_add_app_type_controls(struct snd_soc_pcm_runtime *rtd)
 				strlen(deviceNo) + 1 + strlen(suffix) + 1;
 		pr_debug("%s: Capture app type cntrl add\n", __func__);
 		ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_CAPTURE,
-					NULL, 1, ctl_len, rtd->dai_link->be_id,
+					NULL, 1, ctl_len, rtd->dai_link->id,
 					&app_type_info);
 		if (ret < 0) {
 			pr_err("%s: capture app type cntrl add failed: %d\n",

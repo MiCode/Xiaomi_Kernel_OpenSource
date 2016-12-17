@@ -142,29 +142,29 @@ int msm_pcm_routing_hwdep_new(struct snd_soc_pcm_runtime *runtime,
 	struct snd_soc_dai_link *dai_link = runtime->dai_link;
 	int rc;
 
-	if (dai_link->be_id < 0 ||
-		dai_link->be_id >= MSM_BACKEND_DAI_MAX) {
-		pr_err("%s:be_id %d invalid index\n",
-			__func__, dai_link->be_id);
+	if (dai_link->id < 0 ||
+		dai_link->id >= MSM_BACKEND_DAI_MAX) {
+		pr_err("%s:BE id %d invalid index\n",
+			__func__, dai_link->id);
 		return -EINVAL;
 	}
-	pr_debug("%s be_id %d\n", __func__, dai_link->be_id);
+	pr_debug("%s BE id %d\n", __func__, dai_link->id);
 	rc = snd_hwdep_new(runtime->card->snd_card,
-			   msm_bedais[dai_link->be_id].name,
-			   dai_link->be_id, &hwdep);
+			   msm_bedais[dai_link->id].name,
+			   dai_link->id, &hwdep);
 	if (hwdep == NULL) {
 		pr_err("%s: hwdep intf failed to create %s- hwdep NULL\n",
-			__func__, msm_bedais[dai_link->be_id].name);
+			__func__, msm_bedais[dai_link->id].name);
 		return rc;
 	}
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("%s: hwdep intf failed to create %s rc %d\n", __func__,
-			msm_bedais[dai_link->be_id].name, rc);
+			msm_bedais[dai_link->id].name, rc);
 		return rc;
 	}
 
 	hwdep->iface = SNDRV_HWDEP_IFACE_AUDIO_BE;
-	hwdep->private_data = &msm_bedais[dai_link->be_id];
+	hwdep->private_data = &msm_bedais[dai_link->id];
 	hwdep->ops.open = msm_pcm_routing_hwdep_open;
 	hwdep->ops.ioctl = msm_pcm_routing_hwdep_ioctl;
 	hwdep->ops.release = msm_pcm_routing_hwdep_release;

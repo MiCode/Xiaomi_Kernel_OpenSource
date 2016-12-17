@@ -248,8 +248,8 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 		return rc;
 	}
 
-	use_default = !(pdata->ch_map[rtd->dai_link->be_id]->set_ch_map);
-	chmap = pdata->ch_map[rtd->dai_link->be_id]->channel_map;
+	use_default = !(pdata->ch_map[rtd->dai_link->id]->set_ch_map);
+	chmap = pdata->ch_map[rtd->dai_link->id]->channel_map;
 	num_channels = prtd->num_channels;
 
 	if (prtd->num_channels > 2) {
@@ -818,11 +818,11 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 	switch (prtd->codec) {
 	case FORMAT_LINEAR_PCM:
 		pr_debug("SND_AUDIOCODEC_PCM\n");
-		if (pdata->ch_map[rtd->dai_link->be_id]) {
+		if (pdata->ch_map[rtd->dai_link->id]) {
 			use_default_chmap =
-			    !(pdata->ch_map[rtd->dai_link->be_id]->set_ch_map);
+			    !(pdata->ch_map[rtd->dai_link->id]->set_ch_map);
 			chmap =
-			    pdata->ch_map[rtd->dai_link->be_id]->channel_map;
+			    pdata->ch_map[rtd->dai_link->id]->channel_map;
 		}
 
 		switch (prtd->codec_param.codec.format) {
@@ -1121,7 +1121,7 @@ static int msm_compr_configure_dsp_for_playback
 		prtd->gapless_state.stream_opened[stream_index] = 1;
 
 		ret = msm_pcm_routing_reg_phy_compr_stream(
-				soc_prtd->dai_link->be_id,
+				soc_prtd->dai_link->id,
 				ac->perf_mode,
 				prtd->session_id,
 				SNDRV_PCM_STREAM_PLAYBACK,
@@ -1145,8 +1145,8 @@ static int msm_compr_configure_dsp_for_playback
 		}
 		prtd->gapless_state.stream_opened[stream_index] = 1;
 
-		pr_debug("%s: be_id %d\n", __func__, soc_prtd->dai_link->be_id);
-		ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+		pr_debug("%s: BE id %d\n", __func__, soc_prtd->dai_link->be_id);
+		ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->id,
 				ac->perf_mode,
 				prtd->session_id,
 				SNDRV_PCM_STREAM_PLAYBACK);
@@ -1254,7 +1254,7 @@ static int msm_compr_configure_dsp_for_capture(struct snd_compr_stream *cstream)
 		return ret;
 	}
 
-	ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+	ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->id,
 			ac->perf_mode,
 			prtd->session_id,
 			SNDRV_PCM_STREAM_CAPTURE);
@@ -1331,22 +1331,22 @@ static int msm_compr_playback_open(struct snd_compr_stream *cstream)
 
 	runtime->private_data = NULL;
 	prtd->cstream = cstream;
-	pdata->cstream[rtd->dai_link->be_id] = cstream;
-	pdata->audio_effects[rtd->dai_link->be_id] =
+	pdata->cstream[rtd->dai_link->id] = cstream;
+	pdata->audio_effects[rtd->dai_link->id] =
 		 kzalloc(sizeof(struct msm_compr_audio_effects), GFP_KERNEL);
-	if (!pdata->audio_effects[rtd->dai_link->be_id]) {
+	if (!pdata->audio_effects[rtd->dai_link->id]) {
 		pr_err("%s: Could not allocate memory for effects\n", __func__);
-		pdata->cstream[rtd->dai_link->be_id] = NULL;
+		pdata->cstream[rtd->dai_link->id] = NULL;
 		kfree(prtd);
 		return -ENOMEM;
 	}
-	pdata->dec_params[rtd->dai_link->be_id] =
+	pdata->dec_params[rtd->dai_link->id] =
 		 kzalloc(sizeof(struct msm_compr_dec_params), GFP_KERNEL);
-	if (!pdata->dec_params[rtd->dai_link->be_id]) {
+	if (!pdata->dec_params[rtd->dai_link->id]) {
 		pr_err("%s: Could not allocate memory for dec params\n",
 			__func__);
-		kfree(pdata->audio_effects[rtd->dai_link->be_id]);
-		pdata->cstream[rtd->dai_link->be_id] = NULL;
+		kfree(pdata->audio_effects[rtd->dai_link->id]);
+		pdata->cstream[rtd->dai_link->id] = NULL;
 		kfree(prtd);
 		return -ENOMEM;
 	}
@@ -1392,9 +1392,9 @@ static int msm_compr_playback_open(struct snd_compr_stream *cstream)
 				(app_cb)compr_event_handler, prtd);
 	if (!prtd->audio_client) {
 		pr_err("%s: Could not allocate memory for client\n", __func__);
-		kfree(pdata->audio_effects[rtd->dai_link->be_id]);
-		kfree(pdata->dec_params[rtd->dai_link->be_id]);
-		pdata->cstream[rtd->dai_link->be_id] = NULL;
+		kfree(pdata->audio_effects[rtd->dai_link->id]);
+		kfree(pdata->dec_params[rtd->dai_link->id]);
+		pdata->cstream[rtd->dai_link->id] = NULL;
 		runtime->private_data = NULL;
 		kfree(prtd);
 		return -ENOMEM;
@@ -1423,13 +1423,13 @@ static int msm_compr_capture_open(struct snd_compr_stream *cstream)
 
 	runtime->private_data = NULL;
 	prtd->cstream = cstream;
-	pdata->cstream[rtd->dai_link->be_id] = cstream;
+	pdata->cstream[rtd->dai_link->id] = cstream;
 
 	prtd->audio_client = q6asm_audio_client_alloc(
 				(app_cb)compr_event_handler, prtd);
 	if (!prtd->audio_client) {
 		pr_err("%s: Could not allocate memory for client\n", __func__);
-		pdata->cstream[rtd->dai_link->be_id] = NULL;
+		pdata->cstream[rtd->dai_link->id] = NULL;
 		kfree(prtd);
 		return -ENOMEM;
 	}
@@ -1548,9 +1548,9 @@ static int msm_compr_playback_free(struct snd_compr_stream *cstream)
 	}
 	spin_unlock_irqrestore(&prtd->lock, flags);
 
-	pdata->cstream[soc_prtd->dai_link->be_id] = NULL;
+	pdata->cstream[soc_prtd->dai_link->id] = NULL;
 	if (cstream->direction == SND_COMPRESS_PLAYBACK) {
-		msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
+		msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->id,
 						SNDRV_PCM_STREAM_PLAYBACK);
 	}
 
@@ -1558,10 +1558,10 @@ static int msm_compr_playback_free(struct snd_compr_stream *cstream)
 
 	q6asm_audio_client_free(ac);
 
-	kfree(pdata->audio_effects[soc_prtd->dai_link->be_id]);
-	pdata->audio_effects[soc_prtd->dai_link->be_id] = NULL;
-	kfree(pdata->dec_params[soc_prtd->dai_link->be_id]);
-	pdata->dec_params[soc_prtd->dai_link->be_id] = NULL;
+	kfree(pdata->audio_effects[soc_prtd->dai_link->id]);
+	pdata->audio_effects[soc_prtd->dai_link->id] = NULL;
+	kfree(pdata->dec_params[soc_prtd->dai_link->id]);
+	pdata->dec_params[soc_prtd->dai_link->id] = NULL;
 	kfree(prtd);
 
 	return 0;
@@ -1613,8 +1613,8 @@ static int msm_compr_capture_free(struct snd_compr_stream *cstream)
 	}
 	spin_unlock_irqrestore(&prtd->lock, flags);
 
-	pdata->cstream[soc_prtd->dai_link->be_id] = NULL;
-	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
+	pdata->cstream[soc_prtd->dai_link->id] = NULL;
+	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->id,
 					SNDRV_PCM_STREAM_CAPTURE);
 
 	q6asm_audio_client_buf_free_contiguous(dir, ac);
@@ -1886,9 +1886,9 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
 	struct msm_compr_pdata *pdata =
 			snd_soc_platform_get_drvdata(rtd->platform);
-	uint32_t *volume = pdata->volume[rtd->dai_link->be_id];
+	uint32_t *volume = pdata->volume[rtd->dai_link->id];
 	struct audio_client *ac = prtd->audio_client;
-	unsigned long fe_id = rtd->dai_link->be_id;
+	unsigned long fe_id = rtd->dai_link->id;
 	int rc = 0;
 	int bytes_to_write;
 	unsigned long flags;
@@ -3538,7 +3538,7 @@ static int msm_compr_add_volume_control(struct snd_soc_pcm_runtime *rtd)
 		return 0;
 	}
 	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
-		 __func__, rtd->dai_link->name, rtd->dai_link->be_id,
+		 __func__, rtd->dai_link->name, rtd->dai_link->id,
 		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
 	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1 +
 		  strlen(suffix) + 1;
@@ -3550,7 +3550,7 @@ static int msm_compr_add_volume_control(struct snd_soc_pcm_runtime *rtd)
 	snprintf(mixer_str, ctl_len, "%s %d %s", mixer_ctl_name,
 		 rtd->pcm->device, suffix);
 	fe_volume_control[0].name = mixer_str;
-	fe_volume_control[0].private_value = rtd->dai_link->be_id;
+	fe_volume_control[0].private_value = rtd->dai_link->id;
 	pr_debug("Registering new mixer ctl %s", mixer_str);
 	snd_soc_add_platform_controls(rtd->platform, fe_volume_control,
 				      ARRAY_SIZE(fe_volume_control));
@@ -3583,7 +3583,7 @@ static int msm_compr_add_audio_effects_control(struct snd_soc_pcm_runtime *rtd)
 	}
 
 	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
-		 __func__, rtd->dai_link->name, rtd->dai_link->be_id,
+		 __func__, rtd->dai_link->name, rtd->dai_link->id,
 		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
 
 	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
@@ -3595,7 +3595,7 @@ static int msm_compr_add_audio_effects_control(struct snd_soc_pcm_runtime *rtd)
 	snprintf(mixer_str, ctl_len, "%s %d", mixer_ctl_name, rtd->pcm->device);
 
 	fe_audio_effects_config_control[0].name = mixer_str;
-	fe_audio_effects_config_control[0].private_value = rtd->dai_link->be_id;
+	fe_audio_effects_config_control[0].private_value = rtd->dai_link->id;
 	pr_debug("Registering new mixer ctl %s\n", mixer_str);
 	snd_soc_add_platform_controls(rtd->platform,
 				fe_audio_effects_config_control,
@@ -3627,7 +3627,7 @@ static int msm_compr_add_query_audio_effect_control(
 		return 0;
 	}
 	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
-		 __func__, rtd->dai_link->name, rtd->dai_link->be_id,
+		 __func__, rtd->dai_link->name, rtd->dai_link->id,
 		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
 	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
 	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
@@ -3637,7 +3637,7 @@ static int msm_compr_add_query_audio_effect_control(
 	}
 	snprintf(mixer_str, ctl_len, "%s %d", mixer_ctl_name, rtd->pcm->device);
 	fe_query_audio_effect_control[0].name = mixer_str;
-	fe_query_audio_effect_control[0].private_value = rtd->dai_link->be_id;
+	fe_query_audio_effect_control[0].private_value = rtd->dai_link->id;
 	pr_debug("%s: registering new mixer ctl %s\n", __func__, mixer_str);
 	snd_soc_add_platform_controls(rtd->platform,
 				fe_query_audio_effect_control,
@@ -3672,7 +3672,7 @@ static int msm_compr_add_dec_runtime_params_control(
 	}
 
 	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
-		 __func__, rtd->dai_link->name, rtd->dai_link->be_id,
+		 __func__, rtd->dai_link->name, rtd->dai_link->id,
 		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
 
 	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1 +
@@ -3686,7 +3686,7 @@ static int msm_compr_add_dec_runtime_params_control(
 		 rtd->pcm->device, suffix);
 
 	fe_dec_params_control[0].name = mixer_str;
-	fe_dec_params_control[0].private_value = rtd->dai_link->be_id;
+	fe_dec_params_control[0].private_value = rtd->dai_link->id;
 	pr_debug("Registering new mixer ctl %s", mixer_str);
 	snd_soc_add_platform_controls(rtd->platform,
 				      fe_dec_params_control,
@@ -3721,7 +3721,7 @@ static int msm_compr_add_app_type_cfg_control(struct snd_soc_pcm_runtime *rtd)
 	}
 
 	pr_debug("%s: added new compr FE ctl with name %s, id %d, cpu dai %s, device no %d\n",
-		__func__, rtd->dai_link->name, rtd->dai_link->be_id,
+		__func__, rtd->dai_link->name, rtd->dai_link->id,
 			rtd->dai_link->cpu_dai_name, rtd->pcm->device);
 	if (rtd->compr->direction == SND_COMPRESS_PLAYBACK)
 		ctl_len = strlen(playback_mixer_ctl_name) + 1 + strlen(deviceNo)
@@ -3743,7 +3743,7 @@ static int msm_compr_add_app_type_cfg_control(struct snd_soc_pcm_runtime *rtd)
 			 capture_mixer_ctl_name, rtd->pcm->device, suffix);
 
 	fe_app_type_cfg_control[0].name = mixer_str;
-	fe_app_type_cfg_control[0].private_value = rtd->dai_link->be_id;
+	fe_app_type_cfg_control[0].private_value = rtd->dai_link->id;
 
 	if (rtd->compr->direction == SND_COMPRESS_PLAYBACK) {
 		fe_app_type_cfg_control[0].put =
@@ -3789,7 +3789,7 @@ static int msm_compr_add_channel_map_control(struct snd_soc_pcm_runtime *rtd)
 	}
 
 	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
-		 __func__, rtd->dai_link->name, rtd->dai_link->be_id,
+		 __func__, rtd->dai_link->name, rtd->dai_link->id,
 		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
 
 	ctl_len = strlen(mixer_ctl_name) + strlen(deviceNo) + 1;
@@ -3801,16 +3801,16 @@ static int msm_compr_add_channel_map_control(struct snd_soc_pcm_runtime *rtd)
 	snprintf(mixer_str, ctl_len, "%s%d", mixer_ctl_name, rtd->pcm->device);
 
 	fe_channel_map_control[0].name = mixer_str;
-	fe_channel_map_control[0].private_value = rtd->dai_link->be_id;
+	fe_channel_map_control[0].private_value = rtd->dai_link->id;
 	pr_debug("%s: Registering new mixer ctl %s\n", __func__, mixer_str);
 	snd_soc_add_platform_controls(rtd->platform,
 				fe_channel_map_control,
 				ARRAY_SIZE(fe_channel_map_control));
 
 	pdata = snd_soc_platform_get_drvdata(rtd->platform);
-	pdata->ch_map[rtd->dai_link->be_id] =
+	pdata->ch_map[rtd->dai_link->id] =
 		 kzalloc(sizeof(struct msm_compr_ch_map), GFP_KERNEL);
-	if (!pdata->ch_map[rtd->dai_link->be_id]) {
+	if (!pdata->ch_map[rtd->dai_link->id]) {
 		pr_err("%s: Could not allocate memory for channel map\n",
 			__func__);
 		kfree(mixer_str);

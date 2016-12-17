@@ -291,10 +291,10 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		}
 		event.event_func = msm_pcm_route_event_handler;
 		event.priv_data = (void *) pcm;
-		msm_pcm_routing_reg_phy_stream(soc_pcm_tx->dai_link->be_id,
+		msm_pcm_routing_reg_phy_stream(soc_pcm_tx->dai_link->id,
 			pcm->audio_client->perf_mode,
 			pcm->session_id, pcm->capture_substream->stream);
-		msm_pcm_routing_reg_phy_stream_v2(soc_pcm_rx->dai_link->be_id,
+		msm_pcm_routing_reg_phy_stream_v2(soc_pcm_rx->dai_link->id,
 			pcm->audio_client->perf_mode,
 			pcm->session_id, pcm->playback_substream->stream,
 			event);
@@ -340,12 +340,12 @@ static void stop_pcm(struct msm_pcm_loopback *pcm)
 
 	if (pcm->playback_substream != NULL) {
 		soc_pcm_rx = pcm->playback_substream->private_data;
-		msm_pcm_routing_dereg_phy_stream(soc_pcm_rx->dai_link->be_id,
+		msm_pcm_routing_dereg_phy_stream(soc_pcm_rx->dai_link->id,
 				SNDRV_PCM_STREAM_PLAYBACK);
 	}
 	if (pcm->capture_substream != NULL) {
 		soc_pcm_tx = pcm->capture_substream->private_data;
-		msm_pcm_routing_dereg_phy_stream(soc_pcm_tx->dai_link->be_id,
+		msm_pcm_routing_dereg_phy_stream(soc_pcm_tx->dai_link->id,
 				SNDRV_PCM_STREAM_CAPTURE);
 	}
 	q6asm_audio_client_free(pcm->audio_client);
@@ -527,7 +527,7 @@ static int msm_pcm_add_volume_controls(struct snd_soc_pcm_runtime *rtd)
 	dev_dbg(rtd->dev, "%s, Volume cntrl add\n", __func__);
 	ret = snd_pcm_add_volume_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
 				      NULL, 1,
-				      rtd->dai_link->be_id,
+				      rtd->dai_link->id,
 				      &volume_info);
 	if (ret < 0)
 		return ret;
@@ -678,7 +678,7 @@ static int msm_pcm_add_app_type_controls(struct snd_soc_pcm_runtime *rtd)
 				strlen(deviceNo) + 1 + strlen(suffix) + 1;
 		pr_debug("%s: Playback app type cntrl add\n", __func__);
 		ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
-					NULL, 1, ctl_len, rtd->dai_link->be_id,
+					NULL, 1, ctl_len, rtd->dai_link->id,
 					&app_type_info);
 		if (ret < 0)
 			return ret;
@@ -694,7 +694,7 @@ static int msm_pcm_add_app_type_controls(struct snd_soc_pcm_runtime *rtd)
 				strlen(deviceNo) + 1 + strlen(suffix) + 1;
 		pr_debug("%s: Capture app type cntrl add\n", __func__);
 		ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_CAPTURE,
-					NULL, 1, ctl_len, rtd->dai_link->be_id,
+					NULL, 1, ctl_len, rtd->dai_link->id,
 					&app_type_info);
 		if (ret < 0)
 			return ret;

@@ -11340,10 +11340,10 @@ static int msm_pcm_routing_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	unsigned int be_id = rtd->dai_link->be_id;
+	unsigned int be_id = rtd->dai_link->id;
 
 	if (be_id >= MSM_BACKEND_DAI_MAX) {
-		pr_err("%s: unexpected be_id %d\n", __func__, be_id);
+		pr_err("%s: unexpected BE id %d\n", __func__, be_id);
 		return -EINVAL;
 	}
 
@@ -11351,7 +11351,7 @@ static int msm_pcm_routing_hw_params(struct snd_pcm_substream *substream,
 	msm_bedais[be_id].sample_rate = params_rate(params);
 	msm_bedais[be_id].channel = params_channels(params);
 	msm_bedais[be_id].format = params_format(params);
-	pr_debug("%s: BE Sample Rate (%d) format (%d) be_id %d\n",
+	pr_debug("%s: BE Sample Rate (%d) format (%d) BE id %d\n",
 		__func__, msm_bedais[be_id].sample_rate,
 		msm_bedais[be_id].format, be_id);
 	mutex_unlock(&routing_lock);
@@ -11361,7 +11361,7 @@ static int msm_pcm_routing_hw_params(struct snd_pcm_substream *substream,
 static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	unsigned int be_id = rtd->dai_link->be_id;
+	unsigned int be_id = rtd->dai_link->id;
 	int i, session_type, path_type, topology;
 	struct msm_pcm_routing_bdai_data *bedai;
 	struct msm_pcm_routing_fdai_data *fdai;
@@ -11370,7 +11370,7 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 		 __func__, substream->pcm->id);
 
 	if (be_id >= MSM_BACKEND_DAI_MAX) {
-		pr_err("%s: unexpected be_id %d\n", __func__, be_id);
+		pr_err("%s: unexpected BE id %d\n", __func__, be_id);
 		return -EINVAL;
 	}
 
@@ -11422,7 +11422,7 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	unsigned int be_id = rtd->dai_link->be_id;
+	unsigned int be_id = rtd->dai_link->id;
 	int i, path_type, session_type, topology;
 	struct msm_pcm_routing_bdai_data *bedai;
 	u32 channels, sample_rate;
@@ -11434,7 +11434,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 		 __func__, substream->pcm->id);
 
 	if (be_id >= MSM_BACKEND_DAI_MAX) {
-		pr_err("%s: unexpected be_id %d\n", __func__, be_id);
+		pr_err("%s: unexpected BE id %d\n", __func__, be_id);
 		return -EINVAL;
 	}
 
