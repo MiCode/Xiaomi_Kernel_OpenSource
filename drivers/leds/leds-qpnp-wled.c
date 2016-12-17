@@ -108,7 +108,14 @@
 #define QPNP_WLED_SWITCH_FREQ_1600_KHZ	1600
 #define QPNP_WLED_SWITCH_FREQ_OVERWRITE 0x80
 #define QPNP_WLED_OVP_MASK		GENMASK(1, 0)
-#define QPNP_WLED_TEST4_EN_VREF_UP	0x32
+#define QPNP_WLED_TEST4_EN_DEB_BYPASS_ILIM_BIT	BIT(6)
+#define QPNP_WLED_TEST4_EN_SH_FOR_SS_BIT	BIT(5)
+#define QPNP_WLED_TEST4_EN_CLAMP_BIT		BIT(4)
+#define QPNP_WLED_TEST4_EN_SOFT_START_BIT	BIT(1)
+#define QPNP_WLED_TEST4_EN_VREF_UP			\
+		(QPNP_WLED_TEST4_EN_SH_FOR_SS_BIT |	\
+		QPNP_WLED_TEST4_EN_CLAMP_BIT |		\
+		QPNP_WLED_TEST4_EN_SOFT_START_BIT)
 #define QPNP_WLED_TEST4_EN_IIND_UP	0x1
 
 /* sink registers */
@@ -167,6 +174,7 @@
 
 #define QPNP_WLED_SINK_TEST5_HYB	0x14
 #define QPNP_WLED_SINK_TEST5_DIG	0x1E
+#define QPNP_WLED_SINK_TEST5_HVG_PULL_STR_BIT	BIT(3)
 
 #define QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE	0x0B
 #define QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE	0x05
@@ -1005,7 +1013,8 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 		/*
 		 * enable VREF_UP to avoid false ovp on low brightness for LCD
 		 */
-		reg = QPNP_WLED_TEST4_EN_VREF_UP;
+		reg = QPNP_WLED_TEST4_EN_VREF_UP
+				| QPNP_WLED_TEST4_EN_DEB_BYPASS_ILIM_BIT;
 		rc = qpnp_wled_sec_write_reg(wled,
 				QPNP_WLED_TEST4_REG(base_addr), reg);
 		if (rc)
@@ -1520,10 +1529,13 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		return rc;
 
 	/* Configure TEST5 register */
-	if (wled->dim_mode == QPNP_WLED_DIM_DIGITAL)
+	if (wled->dim_mode == QPNP_WLED_DIM_DIGITAL) {
 		reg = QPNP_WLED_SINK_TEST5_DIG;
-	else
+	} else {
 		reg = QPNP_WLED_SINK_TEST5_HYB;
+		if (wled->pmic_rev_id->pmic_subtype == PM2FALCON_SUBTYPE)
+			reg |= QPNP_WLED_SINK_TEST5_HVG_PULL_STR_BIT;
+	}
 
 	rc = qpnp_wled_sec_write_reg(wled,
 			QPNP_WLED_SINK_TEST5_REG(wled->sink_base), reg);
