@@ -3025,7 +3025,6 @@ static int msm_asoc_cpe_lsm_probe(struct snd_soc_platform *platform)
 	const char *cpe_dev_id = "qcom,msm-cpe-lsm-id";
 	u32 port_id = 0;
 	int ret = 0;
-	int i;
 
 	if (!platform || !platform->component.card) {
 		pr_err("%s: Invalid platform or card\n",
@@ -3036,8 +3035,7 @@ static int msm_asoc_cpe_lsm_probe(struct snd_soc_platform *platform)
 	card = platform->component.card;
 
 	/* Match platform to codec */
-	for (i = 0; i < card->num_links; i++) {
-		rtd = &card->rtd[i];
+	list_for_each_entry(rtd, &card->rtd_list, list) {
 		if (!rtd->platform)
 			continue;
 		if (!strcmp(rtd->platform->component.name,
