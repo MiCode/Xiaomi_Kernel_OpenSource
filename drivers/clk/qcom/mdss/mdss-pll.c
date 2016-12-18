@@ -19,12 +19,9 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/iopoll.h>
-#include <linux/clk/msm-clock-generic.h>
 
 #include "mdss-pll.h"
 #include "mdss-dsi-pll.h"
-#include "mdss-hdmi-pll.h"
-#include "mdss-dp-pll.h"
 
 int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable)
 {
@@ -175,27 +172,7 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 
 	switch (pll_res->pll_interface_type) {
 	case MDSS_DSI_PLL_8996:
-		rc = dsi_pll_clock_register_8996(pdev, pll_res);
-		break;
-	case MDSS_DSI_PLL_8998:
-		rc = dsi_pll_clock_register_8998(pdev, pll_res);
-	case MDSS_DP_PLL_8998:
-		rc = dp_pll_clock_register_8998(pdev, pll_res);
-		break;
-	case MDSS_HDMI_PLL_8996:
-		rc = hdmi_8996_v1_pll_clock_register(pdev, pll_res);
-		break;
-	case MDSS_HDMI_PLL_8996_V2:
-		rc = hdmi_8996_v2_pll_clock_register(pdev, pll_res);
-		break;
-	case MDSS_HDMI_PLL_8996_V3:
-		rc = hdmi_8996_v3_pll_clock_register(pdev, pll_res);
-		break;
-	case MDSS_HDMI_PLL_8996_V3_1_8:
-		rc = hdmi_8996_v3_1p8_pll_clock_register(pdev, pll_res);
-		break;
-	case MDSS_HDMI_PLL_8998:
-		rc = hdmi_8998_pll_clock_register(pdev, pll_res);
+		rc = dsi_pll_clock_register_14nm(pdev, pll_res);
 		break;
 	case MDSS_UNKNOWN_PLL:
 	default:
