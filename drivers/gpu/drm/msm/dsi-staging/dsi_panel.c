@@ -1562,6 +1562,8 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node)
 {
 	struct dsi_panel *panel;
+	const char *data;
+	u32 len = 0;
 	int rc = 0;
 
 	panel = kzalloc(sizeof(*panel), GFP_KERNEL);
@@ -1578,6 +1580,25 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 		pr_err("failed to parse panel timing, rc=%d\n", rc);
 		goto error;
 	}
+
+	data = of_get_property(of_node,
+		"qcom,mdss-dsi-panel-phy-timings", &len);
+	if (!data) {
+		pr_debug("%s:%d, Unable to read Phy timing settings",
+		       __func__, __LINE__);
+	} else {
+		int i = 0;
+
+		panel->phy_timing_val = kzalloc((sizeof(u32) * len),
+			GFP_KERNEL);
+		if (!panel->phy_timing_val) {
+			kfree(panel);
+			return ERR_PTR(-ENOMEM);
+		}
+		for (i = 0; i < len; i++)
+			panel->phy_timing_val[i] = data[i];
+	}
+	panel->phy_timing_len = len;
 
 	panel->mode.pixel_clk_khz = (DSI_H_TOTAL(&panel->mode.timing) *
 				    DSI_V_TOTAL(&panel->mode.timing) *

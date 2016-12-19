@@ -419,3 +419,17 @@ u32 dsi_phy_hw_v3_0_get_lanes_in_ulps(struct dsi_phy_hw *phy)
 	return lanes;
 }
 
+int dsi_phy_hw_timing_val_v3_0(struct dsi_phy_per_lane_cfgs *timing_cfg,
+		u32 *timing_val, u32 size)
+{
+	int i = 0;
+
+	if (size != DSI_PHY_TIMING_V3_SIZE) {
+		pr_err("Unexpected timing array size %d\n", size);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < size; i++)
+		timing_cfg->lane_v3[i] = timing_val[i];
+	return 0;
+}

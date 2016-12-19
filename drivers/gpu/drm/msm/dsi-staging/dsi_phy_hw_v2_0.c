@@ -232,3 +232,21 @@ void dsi_phy_hw_v2_0_idle_off(struct dsi_phy_hw *phy)
 	pr_debug("[DSI_%d]Phy disabled during idle screen\n", phy->index);
 }
 
+int dsi_phy_hw_timing_val_v2_0(struct dsi_phy_per_lane_cfgs *timing_cfg,
+		u32 *timing_val, u32 size)
+{
+	int i = 0, j = 0;
+
+	if (size != (DSI_LANE_MAX * DSI_MAX_SETTINGS)) {
+		pr_err("Unexpected timing array size %d\n", size);
+		return -EINVAL;
+	}
+
+	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++) {
+		for (j = 0; j < DSI_MAX_SETTINGS; j++) {
+			timing_cfg->lane[i][j] = *timing_val;
+			timing_val++;
+		}
+	}
+	return 0;
+}

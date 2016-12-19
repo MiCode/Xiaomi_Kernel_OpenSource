@@ -17,7 +17,7 @@
 #include "dsi_defs.h"
 
 #define DSI_MAX_SETTINGS 8
-#define DSI_PHY_TIMING_V3 12
+#define DSI_PHY_TIMING_V3_SIZE 12
 
 /**
  * enum dsi_phy_version - DSI PHY version enumeration
@@ -75,7 +75,7 @@ enum dsi_phy_pll_source {
  */
 struct dsi_phy_per_lane_cfgs {
 	u8 lane[DSI_LANE_MAX][DSI_MAX_SETTINGS];
-	u8 lane_v3[DSI_PHY_TIMING_V3];
+	u8 lane_v3[DSI_PHY_TIMING_V3_SIZE];
 	u32 count_per_lane;
 };
 
@@ -84,6 +84,7 @@ struct dsi_phy_per_lane_cfgs {
  * @lanecfg:          Lane configuration settings.
  * @strength:         Strength settings for lanes.
  * @timing:           Timing parameters for lanes.
+ * @is_phy_timing_present:	Boolean whether phy timings are defined.
  * @regulators:       Regulator settings for lanes.
  * @pll_source:       PLL source.
  * @lane_map:         DSI logical to PHY lane mapping.
@@ -92,6 +93,7 @@ struct dsi_phy_cfg {
 	struct dsi_phy_per_lane_cfgs lanecfg;
 	struct dsi_phy_per_lane_cfgs strength;
 	struct dsi_phy_per_lane_cfgs timing;
+	bool is_phy_timing_present;
 	struct dsi_phy_per_lane_cfgs regulators;
 	enum dsi_phy_pll_source pll_source;
 	struct dsi_lane_map lane_map;
@@ -214,6 +216,15 @@ struct dsi_phy_hw_ops {
 				       struct dsi_mode_info *mode,
 				       struct dsi_host_common_cfg *config,
 				       struct dsi_phy_per_lane_cfgs *timing);
+
+	/**
+	 * phy_timing_val() - Gets PHY timing values.
+	 * @timing_val: Timing parameters for each lane which will be returned.
+	 * @timing: Array containing PHY timing values
+	 * @size: Size of the array
+	 */
+	int (*phy_timing_val)(struct dsi_phy_per_lane_cfgs *timing_val,
+				u32 *timing, u32 size);
 
 	void *timing_ops;
 	struct phy_ulps_config_ops ulps_ops;

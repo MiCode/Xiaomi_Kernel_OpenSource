@@ -219,7 +219,7 @@ int dsi_phy_idle_ctrl(struct msm_dsi_phy *phy, bool enable);
  * Return: error code.
  */
 int dsi_phy_set_timing_params(struct msm_dsi_phy *phy,
-			      u8 *timing, u32 size);
+			      u32 *timing, u32 size);
 
 /**
  * dsi_phy_drv_register() - register platform driver for dsi phy

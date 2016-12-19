@@ -807,7 +807,12 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 	phy->dst_format = config->common_config.dst_format;
 	phy->cfg.pll_source = pll_source;
 
-	rc = phy->hw.ops.calculate_timing_params(&phy->hw,
+	/**
+	 * If PHY timing parameters are not present in panel dtsi file,
+	 * then calculate them in the driver
+	 */
+	if (!phy->cfg.is_phy_timing_present)
+		rc = phy->hw.ops.calculate_timing_params(&phy->hw,
 						 &phy->mode,
 						 &config->common_config,
 						 &phy->cfg.timing);
@@ -913,11 +918,9 @@ int dsi_phy_idle_ctrl(struct msm_dsi_phy *phy, bool enable)
  * Return: error code.
  */
 int dsi_phy_set_timing_params(struct msm_dsi_phy *phy,
-			      u8 *timing, u32 size)
+			      u32 *timing, u32 size)
 {
 	int rc = 0;
-	int i, j;
-	struct dsi_phy_per_lane_cfgs *timing_cfg;
 
 	if (!phy || !timing || !size) {
 		pr_err("Invalid params\n");
@@ -926,18 +929,10 @@ int dsi_phy_set_timing_params(struct msm_dsi_phy *phy,
 
 	mutex_lock(&phy->phy_lock);
 
-	if (size != (DSI_LANE_MAX * phy->cfg.timing.count_per_lane)) {
-		pr_err("Unexpected timing array size %d\n", size);
-		rc = -EINVAL;
-	} else {
-		timing_cfg = &phy->cfg.timing;
-		for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++) {
-			for (j = 0; j < timing_cfg->count_per_lane; j++) {
-				timing_cfg->lane[i][j] = *timing;
-				timing++;
-			}
-		}
-	}
+	if (phy->hw.ops.phy_timing_val)
+		rc = phy->hw.ops.phy_timing_val(&phy->cfg.timing, timing, size);
+	if (!rc)
+		phy->cfg.is_phy_timing_present = true;
 	mutex_unlock(&phy->phy_lock);
 	return rc;
 }

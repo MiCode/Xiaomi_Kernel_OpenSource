@@ -162,6 +162,9 @@ struct dsi_panel {
 	struct dsi_panel_cmd_set cmd_sets[DSI_CMD_SET_MAX];
 	struct dsi_panel_phy_props phy_props;
 
+	u32 *phy_timing_val;
+	u32 phy_timing_len;
+
 	struct dsi_regulator_info power_info;
 	struct dsi_display_mode mode;
 

@@ -1698,6 +1698,17 @@ static int dsi_display_res_init(struct dsi_display *display)
 		goto error_ctrl_put;
 	}
 
+	if (display->panel->phy_timing_len) {
+		for (i = 0; i < display->ctrl_count; i++) {
+			ctrl = &display->ctrl[i];
+			 rc = dsi_phy_set_timing_params(ctrl->phy,
+				display->panel->phy_timing_val,
+				display->panel->phy_timing_len);
+			if (rc)
+				pr_err("failed to add DSI PHY timing params");
+		}
+	}
+
 	rc = dsi_display_parse_lane_map(display);
 	if (rc) {
 		pr_err("Lane map not found, rc=%d\n", rc);

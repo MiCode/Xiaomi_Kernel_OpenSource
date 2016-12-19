@@ -79,6 +79,10 @@ then 3 options can be tried.
 
 Optional properties:
 - qcom,mdss-dsi-panel-name:		A string used as a descriptive name of the panel
+- qcom,mdss-dsi-panel-phy-timings:	An array of length 'n' char that specifies the DSI PHY lane
+					timing settings for the panel. This is specific to SDE DRM driver.
+					The value of 'n' depends on the DSI PHY h/w revision and parsing this
+					property properly will be taken care in the DSI PHY DRM driver.
 - qcom,cmd-sync-wait-broadcast:		Boolean used to broadcast dcs command to panels.
 - qcom,mdss-dsi-fbc-enable:		Boolean used to enable frame buffer compression mode.
 - qcom,mdss-dsi-fbc-slice-height:	Slice height(in lines) of compressed block.

@@ -82,6 +82,8 @@ void dsi_phy_hw_v2_0_enable(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
 void dsi_phy_hw_v2_0_disable(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
 void dsi_phy_hw_v2_0_idle_on(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
 void dsi_phy_hw_v2_0_idle_off(struct dsi_phy_hw *phy);
+int dsi_phy_hw_timing_val_v2_0(struct dsi_phy_per_lane_cfgs *timing_cfg,
+		u32 *timing_val, u32 size);
 
 /* Definitions for 10nm PHY hardware driver */
 void dsi_phy_hw_v3_0_regulator_enable(struct dsi_phy_hw *phy,
@@ -95,6 +97,9 @@ void dsi_phy_hw_v3_0_ulps_request(struct dsi_phy_hw *phy,
 void dsi_phy_hw_v3_0_ulps_exit(struct dsi_phy_hw *phy,
 			struct dsi_phy_cfg *cfg, u32 lanes);
 u32 dsi_phy_hw_v3_0_get_lanes_in_ulps(struct dsi_phy_hw *phy);
+int dsi_phy_hw_timing_val_v3_0(struct dsi_phy_per_lane_cfgs *timing_cfg,
+		u32 *timing_val, u32 size);
+
 /* DSI controller common ops */
 u32 dsi_ctrl_hw_cmn_get_interrupt_status(struct dsi_ctrl_hw *ctrl);
 void dsi_ctrl_hw_cmn_clear_interrupt_status(struct dsi_ctrl_hw *ctrl, u32 ints);
