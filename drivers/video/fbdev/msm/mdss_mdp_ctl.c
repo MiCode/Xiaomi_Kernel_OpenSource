@@ -3563,6 +3563,11 @@ int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
 		goto cwb_setup_fail;
 	}
 
+	/* Add to cleanup list */
+	mutex_lock(&cwb->queue_lock);
+	list_add_tail(&cwb_data->next, &mdp5_data->cwb.cleanup_queue);
+	mutex_unlock(&cwb->queue_lock);
+
 	memset(&wb_args, 0, sizeof(wb_args));
 	wb_args.data = &cwb_data->data;
 

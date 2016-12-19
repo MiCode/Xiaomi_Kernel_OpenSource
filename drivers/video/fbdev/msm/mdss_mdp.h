@@ -424,6 +424,7 @@ struct mdss_mdp_ctl_intfs_ops {
 struct mdss_mdp_cwb {
 	struct mutex queue_lock;
 	struct list_head data_queue;
+	struct list_head cleanup_queue;
 	int valid;
 	u32 wb_idx;
 	struct mdp_output_layer layer;
