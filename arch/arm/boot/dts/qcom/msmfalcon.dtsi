@@ -725,6 +725,11 @@
 		};
 	};
 
+	qcom,lmh {
+		compatible = "qcom,lmh_v1";
+		interrupts = <GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	qcom,msm-core@780000 {
 		compatible = "qcom,apss-core-ea";
 		reg = <0x780000 0x1000>;
