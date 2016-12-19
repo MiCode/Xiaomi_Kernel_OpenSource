@@ -44,6 +44,9 @@ Optional properties :
 - qcom,core-clk-rate: If present, indicates clock frequency to be set for USB master clock.
 - qcom,detect-dpdm-floating: Indicates if SDP must be rechecked for floating data lines.
   If datalines are floating then don't treat that as SDP.
+- qcom,pm-qos-latency: This property represents the maximum tolerable CPU latency in
+  microsecs, which is used as a vote to keep the CPUs in a high enough power state when
+  USB bus is in use (not suspended).
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
@@ -75,6 +78,7 @@ Example MSM USB3.0 controller device node :
 		qcom,msm_bus,vectors =
 				<61 512 0 0>,
 				<61 512 240000000 960000000>;
+		qcom,pm-qos-latency = <2>;
 		dwc3@f9200000 {
 			compatible = "synopsys,dwc3";
 			reg = <0xf9200000 0xfc000>;

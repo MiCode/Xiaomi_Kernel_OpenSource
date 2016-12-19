@@ -232,16 +232,19 @@
 
 	qcom,cpr-fuse-version-map =
 		/* Format: <speed_bin foundry cpr_rev ...> */
+		<  0      0      1    (-1)    (-1)    (-1)>,
 		<  0      0    (-1)   (-1)    (-1)    (-1)>,
 		<(-1)   (-1)   (-1)   (-1)    (-1)    (-1)>;
 
 	qcom,cpr-init-voltage-adjustment =
-		<40000  15000   20000>,
-		<0       0          0>;
+		<0       0        0>,
+		<10000   0        0>,
+		<0       0        0>;
 
 	qcom,cpr-quotient-adjustment =
-		<66    57   66>, /* SVSP(35mv); NOM(30mv); TUR(35mv); KV(1.9) */
-		<0      0    0>;
+		<(-19) (-28) (-19)>, /* SVSP(-10) NOM(-15) TUR(-10); KV(1.9) */
+		< 0     0       0 >,
+		< 0     0       0 >;
 
 	qcom,cpr-enable;
 };

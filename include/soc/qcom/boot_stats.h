@@ -20,6 +20,12 @@ struct boot_stats {
 	uint32_t bootloader_end;
 	uint32_t bootloader_display;
 	uint32_t bootloader_load_kernel;
+	uint32_t load_kernel_start;
+	uint32_t load_kernel_end;
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+	uint32_t bootloader_early_domain_start;
+	uint32_t bootloader_checksum;
+#endif
 };
 
 int boot_stats_init(void);
