@@ -1197,6 +1197,11 @@
 		qcom,threshold-arr = <0x1799041c 0x17990420>;
 		qcom,config-reg = <0x17990434>;
 	};
+
+	cmd_db: qcom,cmd-db@861e0000 {
+		compatible = "qcom,cmd-db";
+		reg = <0x861e0000 0x4000>;
+	};
 };
 
 &pcie_0_gdsc {
