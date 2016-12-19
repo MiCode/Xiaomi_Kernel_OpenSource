@@ -26,6 +26,11 @@
 	qcom,msm-id = <321 0x0>;
 	interrupt-parent = <&intc>;
 
+	aliases {
+		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
+		ufshc2 = &ufshc_card; /* Removable UFS slot */
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -442,7 +447,7 @@
 		status = "disabled";
 	};
 
-	ufs_mem: ufshc_mem@1d84000 {
+	ufshc_mem: ufshc_mem@1d84000 {
 		compatible = "qcom,ufshc";
 		reg = <0x1d84000 0x2500>;
 		interrupts = <0 265 0>;
@@ -482,7 +487,7 @@
 			<0 0>,
 			<0 0>;
 
-		qcom,msm-bus,name = "ufs_mem";
+		qcom,msm-bus,name = "ufshc_mem";
 		qcom,msm-bus,num-cases = <22>;
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
@@ -534,7 +539,7 @@
 		status = "disabled";
 	};
 
-	ufs_card: ufshc_card@1da4000 {
+	ufshc_card: ufshc_card@1da4000 {
 		compatible = "qcom,ufshc";
 		reg = <0x1da4000 0x2500>;
 		interrupts = <0 125 0>;
@@ -571,7 +576,7 @@
 			<0 0>,
 			<0 0>;
 
-		qcom,msm-bus,name = "ufs_card";
+		qcom,msm-bus,name = "ufshc_card";
 		qcom,msm-bus,num-cases = <9>;
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =

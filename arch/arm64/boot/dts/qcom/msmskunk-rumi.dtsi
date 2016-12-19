@@ -24,7 +24,7 @@
 	status = "ok";
 };
 
-&ufs_mem {
+&ufshc_mem {
 	limit-tx-hs-gear = <1>;
 	limit-rx-hs-gear = <1>;
 	scsi-cmd-timeout = <300000>;
@@ -77,7 +77,7 @@
 	status = "ok";
 };
 
-&ufs_card {
+&ufshc_card {
 	limit-tx-hs-gear = <1>;
 	limit-rx-hs-gear = <1>;
 
