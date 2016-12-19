@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,73 +34,41 @@ static struct ufs_card_fix ufs_fixups[] = {
 	END_FIX
 };
 
-static int ufs_get_device_info(struct ufs_hba *hba,
-				struct ufs_card_info *card_data)
+void ufs_advertise_fixup_device(struct ufs_hba *hba)
 {
 	int err;
-	u8 model_index;
 	u8 str_desc_buf[QUERY_DESC_STRING_MAX_SIZE + 1];
-	u8 desc_buf[QUERY_DESC_DEVICE_MAX_SIZE];
+	char *model;
+	struct ufs_card_fix *f;
 
-	err = ufshcd_read_device_desc(hba, desc_buf,
-					QUERY_DESC_DEVICE_MAX_SIZE);
-	if (err)
+	model = kmalloc(MAX_MODEL_LEN + 1, GFP_KERNEL);
+	if (!model)
 		goto out;
 
-	/*
-	 * getting vendor (manufacturerID) and Bank Index in big endian
-	 * format
-	 */
-	card_data->wmanufacturerid = desc_buf[DEVICE_DESC_PARAM_MANF_ID] << 8 |
-				     desc_buf[DEVICE_DESC_PARAM_MANF_ID + 1];
-
-	model_index = desc_buf[DEVICE_DESC_PARAM_PRDCT_NAME];
-
 	memset(str_desc_buf, 0, QUERY_DESC_STRING_MAX_SIZE);
-	err = ufshcd_read_string_desc(hba, model_index, str_desc_buf,
-					QUERY_DESC_STRING_MAX_SIZE, ASCII_STD);
+	err = ufshcd_read_string_desc(hba, hba->dev_info.i_product_name,
+			str_desc_buf, QUERY_DESC_STRING_MAX_SIZE, ASCII_STD);
 	if (err)
 		goto out;
 
 	str_desc_buf[QUERY_DESC_STRING_MAX_SIZE] = '\0';
-	strlcpy(card_data->model, (str_desc_buf + QUERY_DESC_HDR_SIZE),
+	strlcpy(model, (str_desc_buf + QUERY_DESC_HDR_SIZE),
 		min_t(u8, str_desc_buf[QUERY_DESC_LENGTH_OFFSET],
 		      MAX_MODEL_LEN));
 	/* Null terminate the model string */
-	card_data->model[MAX_MODEL_LEN] = '\0';
-
-out:
-	return err;
-}
-
-void ufs_advertise_fixup_device(struct ufs_hba *hba)
-{
-	int err;
-	struct ufs_card_fix *f;
-	struct ufs_card_info card_data;
-
-	card_data.wmanufacturerid = 0;
-	card_data.model = kmalloc(MAX_MODEL_LEN + 1, GFP_KERNEL);
-	if (!card_data.model)
-		goto out;
-
-	/* get device data*/
-	err = ufs_get_device_info(hba, &card_data);
-	if (err) {
-		dev_err(hba->dev, "%s: Failed getting device info\n", __func__);
-		goto out;
-	}
+	model[MAX_MODEL_LEN] = '\0';
 
 	for (f = ufs_fixups; f->quirk; f++) {
 		/* if same wmanufacturerid */
-		if (((f->card.wmanufacturerid == card_data.wmanufacturerid) ||
-		     (f->card.wmanufacturerid == UFS_ANY_VENDOR)) &&
+		if (((f->w_manufacturer_id ==
+			hba->dev_info.w_manufacturer_id) ||
+		     (f->w_manufacturer_id == UFS_ANY_VENDOR)) &&
 		    /* and same model */
-		    (STR_PRFX_EQUAL(f->card.model, card_data.model) ||
-		     !strcmp(f->card.model, UFS_ANY_MODEL)))
+		    (STR_PRFX_EQUAL(f->model, model) ||
+		     !strcmp(f->model, UFS_ANY_MODEL)))
 			/* update quirks */
 			hba->dev_quirks |= f->quirk;
 	}
 out:
-	kfree(card_data.model);
+	kfree(model);
 }
