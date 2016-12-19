@@ -450,6 +450,7 @@
 		phy-names = "ufsphy";
 
 		lanes-per-direction = <2>;
+		dev-ref-clk-freq = <0>; /* 19.2 MHz */
 
 		/* TODO: add "ref_clk" */
 		clock-names =
