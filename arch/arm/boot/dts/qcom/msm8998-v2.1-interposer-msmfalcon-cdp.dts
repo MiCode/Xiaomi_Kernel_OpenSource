@@ -149,3 +149,7 @@
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,panel-mode-gpio = <&tlmm 91 0>;
 };
+
+&pm2falcon_wled {
+	qcom,led-strings-list = [01 02];
+};
