@@ -33,6 +33,7 @@
 #define CLK_GET_ACCURACY_NOCACHE BIT(8) /* do not use the cached clk accuracy */
 #define CLK_RECALC_NEW_RATES	BIT(9) /* recalc rates after notifications */
 #define CLK_IS_CRITICAL		BIT(11) /* do not gate, ever */
+#define CLK_IS_MEASURE          BIT(14) /* measure clock */
 
 struct clk;
 struct clk_hw;
