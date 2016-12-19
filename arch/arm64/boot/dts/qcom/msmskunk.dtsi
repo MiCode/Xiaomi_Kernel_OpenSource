@@ -428,7 +428,7 @@
 		#reset-cells = <1>;
 	};
 
-	ufsphy_mem: ufsphy@1d87000 {
+	ufsphy_mem: ufsphy_mem@1d87000 {
 		reg = <0x1d87000 0xda8>; /* PHY regs */
 		reg-names = "phy_mem";
 		#phy-cells = <0>;
@@ -442,7 +442,7 @@
 		status = "disabled";
 	};
 
-	ufs_mem: ufshc@1d84000 {
+	ufs_mem: ufshc_mem@1d84000 {
 		compatible = "qcom,ufshc";
 		reg = <0x1d84000 0x2500>;
 		interrupts = <0 265 0>;
@@ -462,6 +462,7 @@
 			"tx_lane0_sync_clk",
 			"rx_lane0_sync_clk",
 			"rx_lane1_sync_clk";
+		/* TODO: add HW CTL clocks when available */
 		clocks =
 			<&clock_gcc GCC_UFS_PHY_AXI_CLK>,
 			<&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
@@ -514,6 +515,79 @@
 		"HS_RA_G1_L2", "HS_RA_G2_L2", "HS_RA_G3_L2",
 		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
 		"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2",
+		"MAX";
+
+		status = "disabled";
+	};
+
+	ufsphy_card: ufsphy_card@1da7000 {
+		reg = <0x1da7000 0xda8>; /* PHY regs */
+		reg-names = "phy_mem";
+		#phy-cells = <0>;
+
+		/* TODO: add "ref_clk_src" */
+		clock-names = "ref_clk",
+			"ref_aux_clk";
+		clocks = <&clock_gcc GCC_UFS_CARD_CLKREF_CLK>,
+			<&clock_gcc GCC_UFS_CARD_PHY_AUX_CLK>;
+
+		status = "disabled";
+	};
+
+	ufs_card: ufshc_card@1da4000 {
+		compatible = "qcom,ufshc";
+		reg = <0x1da4000 0x2500>;
+		interrupts = <0 125 0>;
+		phys = <&ufsphy_card>;
+		phy-names = "ufsphy";
+
+		lanes-per-direction = <1>;
+		dev-ref-clk-freq = <0>; /* 19.2 MHz */
+
+		/* TODO: add "ref_clk" */
+		clock-names =
+			"core_clk",
+			"bus_aggr_clk",
+			"iface_clk",
+			"core_clk_unipro",
+			"core_clk_ice",
+			"tx_lane0_sync_clk",
+			"rx_lane0_sync_clk";
+		/* TODO: add HW CTL clocks when available */
+		clocks =
+			<&clock_gcc GCC_UFS_CARD_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_UFS_CARD_AXI_CLK>,
+			<&clock_gcc GCC_UFS_CARD_AHB_CLK>,
+			<&clock_gcc GCC_UFS_CARD_UNIPRO_CORE_CLK>,
+			<&clock_gcc GCC_UFS_CARD_ICE_CORE_CLK>,
+			<&clock_gcc GCC_UFS_CARD_TX_SYMBOL_0_CLK>,
+			<&clock_gcc GCC_UFS_CARD_RX_SYMBOL_0_CLK>;
+		freq-table-hz =
+			<50000000 200000000>,
+			<0 0>,
+			<0 0>,
+			<37500000 150000000>,
+			<75000000 300000000>,
+			<0 0>,
+			<0 0>;
+
+		qcom,msm-bus,name = "ufs_card";
+		qcom,msm-bus,num-cases = <9>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		<95 512 0 0>, <1 650 0 0>,          /* No vote */
+		<95 512 922 0>, <1 650 1000 0>,     /* PWM G1 */
+		<95 512 127796 0>, <1 650 1000 0>,  /* HS G1 RA */
+		<95 512 255591 0>, <1 650 1000 0>,  /* HS G2 RA */
+		<95 512 511181 0>, <1 650 1000 0>,  /* HS G3 RA */
+		<95 512 149422 0>, <1 650 1000 0>,  /* HS G1 RB */
+		<95 512 298189 0>, <1 650 1000 0>,  /* HS G2 RB */
+		<95 512 596378 0>, <1 650 1000 0>,  /* HS G3 RB */
+		<95 512 4096000 0>, <1 650 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN",
+		"PWM_G1_L1",
+		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
+		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
 		"MAX";
 
 		status = "disabled";
