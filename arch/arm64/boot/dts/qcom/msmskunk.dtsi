@@ -497,6 +497,13 @@
 		#reset-cells = <1>;
 	};
 
+	clock_cpucc: qcom,cpucc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "cpucc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
 	ufsphy_mem: ufsphy_mem@1d87000 {
 		reg = <0x1d87000 0xda8>; /* PHY regs */
 		reg-names = "phy_mem";
