@@ -167,10 +167,18 @@ int dsi_core_clk_start(struct dsi_core_clks *c_clks)
 		goto error;
 	}
 
+	if (c_clks->clks.mnoc_clk) {
+		rc = clk_prepare_enable(c_clks->clks.mnoc_clk);
+		if (rc) {
+			pr_err("failed to enable mnoc_clk, rc=%d\n", rc);
+			goto error_disable_core_clk;
+		}
+	}
+
 	rc = clk_prepare_enable(c_clks->clks.iface_clk);
 	if (rc) {
 		pr_err("failed to enable iface_clk, rc=%d\n", rc);
-		goto error_disable_core_clk;
+		goto error_disable_mnoc_clk;
 	}
 
 	rc = clk_prepare_enable(c_clks->clks.bus_clk);
@@ -199,6 +207,9 @@ error_disable_bus_clk:
 	clk_disable_unprepare(c_clks->clks.bus_clk);
 error_disable_iface_clk:
 	clk_disable_unprepare(c_clks->clks.iface_clk);
+error_disable_mnoc_clk:
+	if (c_clks->clks.mnoc_clk)
+		clk_disable_unprepare(c_clks->clks.mnoc_clk);
 error_disable_core_clk:
 	clk_disable_unprepare(c_clks->clks.mdp_core_clk);
 error:
@@ -212,6 +223,8 @@ int dsi_core_clk_stop(struct dsi_core_clks *c_clks)
 	clk_disable_unprepare(c_clks->clks.core_mmss_clk);
 	clk_disable_unprepare(c_clks->clks.bus_clk);
 	clk_disable_unprepare(c_clks->clks.iface_clk);
+	if (c_clks->clks.mnoc_clk)
+		clk_disable_unprepare(c_clks->clks.mnoc_clk);
 	clk_disable_unprepare(c_clks->clks.mdp_core_clk);
 
 	return 0;
@@ -237,6 +250,21 @@ static int dsi_link_clk_set_rate(struct dsi_link_clks *l_clks)
 	if (rc) {
 		pr_err("clk_set_rate failed for pixel_clk rc = %d\n", rc);
 		goto error;
+	}
+
+	/*
+	 * If byte_intf_clk is present, set rate for that too.
+	 * For DPHY: byte_intf_clk_rate = byte_clk_rate / 2
+	 * todo: this needs to be revisited when support for CPHY is added
+	 */
+	if (l_clks->clks.byte_intf_clk) {
+		rc = clk_set_rate(l_clks->clks.byte_intf_clk,
+			(l_clks->freq.byte_clk_rate / 2));
+		if (rc) {
+			pr_err("set_rate failed for byte_intf_clk rc = %d\n",
+				rc);
+			goto error;
+		}
 	}
 error:
 	return rc;
@@ -264,8 +292,19 @@ static int dsi_link_clk_prepare(struct dsi_link_clks *l_clks)
 		goto pixel_clk_err;
 	}
 
+	if (l_clks->clks.byte_intf_clk) {
+		rc = clk_prepare(l_clks->clks.byte_intf_clk);
+		if (rc) {
+			pr_err("Failed to prepare dsi byte intf clk, rc=%d\n",
+				rc);
+			goto byte_intf_clk_err;
+		}
+	}
+
 	return rc;
 
+byte_intf_clk_err:
+	clk_unprepare(l_clks->clks.pixel_clk);
 pixel_clk_err:
 	clk_unprepare(l_clks->clks.byte_clk);
 byte_clk_err:
@@ -276,6 +315,8 @@ esc_clk_err:
 
 static void dsi_link_clk_unprepare(struct dsi_link_clks *l_clks)
 {
+	if (l_clks->clks.byte_intf_clk)
+		clk_unprepare(l_clks->clks.byte_intf_clk);
 	clk_unprepare(l_clks->clks.pixel_clk);
 	clk_unprepare(l_clks->clks.byte_clk);
 	clk_unprepare(l_clks->clks.esc_clk);
@@ -303,8 +344,19 @@ static int dsi_link_clk_enable(struct dsi_link_clks *l_clks)
 		goto pixel_clk_err;
 	}
 
+	if (l_clks->clks.byte_intf_clk) {
+		rc = clk_enable(l_clks->clks.byte_intf_clk);
+		if (rc) {
+			pr_err("Failed to enable dsi byte intf clk, rc=%d\n",
+				rc);
+			goto byte_intf_clk_err;
+		}
+	}
+
 	return rc;
 
+byte_intf_clk_err:
+	clk_disable(l_clks->clks.pixel_clk);
 pixel_clk_err:
 	clk_disable(l_clks->clks.byte_clk);
 byte_clk_err:
@@ -315,6 +367,8 @@ esc_clk_err:
 
 static void dsi_link_clk_disable(struct dsi_link_clks *l_clks)
 {
+	if (l_clks->clks.byte_intf_clk)
+		clk_disable(l_clks->clks.byte_intf_clk);
 	clk_disable(l_clks->clks.esc_clk);
 	clk_disable(l_clks->clks.pixel_clk);
 	clk_disable(l_clks->clks.byte_clk);

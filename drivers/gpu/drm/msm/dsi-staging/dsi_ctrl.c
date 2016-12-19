@@ -454,6 +454,8 @@ static int dsi_ctrl_clocks_deinit(struct dsi_ctrl *ctrl)
 		devm_clk_put(&ctrl->pdev->dev, core->core_mmss_clk);
 	if (core->bus_clk)
 		devm_clk_put(&ctrl->pdev->dev, core->bus_clk);
+	if (core->mnoc_clk)
+		devm_clk_put(&ctrl->pdev->dev, core->mnoc_clk);
 
 	memset(core, 0x0, sizeof(*core));
 
@@ -463,6 +465,8 @@ static int dsi_ctrl_clocks_deinit(struct dsi_ctrl *ctrl)
 		devm_clk_put(&ctrl->pdev->dev, link->pixel_clk);
 	if (link->esc_clk)
 		devm_clk_put(&ctrl->pdev->dev, link->esc_clk);
+	if (link->byte_intf_clk)
+		devm_clk_put(&ctrl->pdev->dev, link->byte_intf_clk);
 
 	memset(link, 0x0, sizeof(*link));
 
@@ -512,6 +516,12 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 		goto fail;
 	}
 
+	core->mnoc_clk = devm_clk_get(&pdev->dev, "mnoc_clk");
+	if (IS_ERR(core->mnoc_clk)) {
+		core->mnoc_clk = NULL;
+		pr_debug("can't get mnoc clock, rc=%d\n", rc);
+	}
+
 	link->byte_clk = devm_clk_get(&pdev->dev, "byte_clk");
 	if (IS_ERR(link->byte_clk)) {
 		rc = PTR_ERR(link->byte_clk);
@@ -531,6 +541,12 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 		rc = PTR_ERR(link->esc_clk);
 		pr_err("failed to get esc_clk, rc=%d\n", rc);
 		goto fail;
+	}
+
+	link->byte_intf_clk = devm_clk_get(&pdev->dev, "byte_intf_clk");
+	if (IS_ERR(link->byte_intf_clk)) {
+		link->byte_intf_clk = NULL;
+		pr_debug("can't find byte intf clk, rc=%d\n", rc);
 	}
 
 	rcg->byte_clk = devm_clk_get(&pdev->dev, "byte_clk_rcg");

@@ -38,6 +38,7 @@ enum dsi_link_clk_type {
 	DSI_LINK_ESC_CLK,
 	DSI_LINK_BYTE_CLK,
 	DSI_LINK_PIX_CLK,
+	DSI_LINK_BYTE_INTF_CLK,
 	DSI_LINK_CLK_MAX,
 };
 
@@ -65,12 +66,14 @@ struct clk_ctrl_cb {
  * @iface_clk:           Handle to MDP interface clock.
  * @core_mmss_clk:       Handle to MMSS core clock.
  * @bus_clk:             Handle to bus clock.
+ * @mnoc_clk:            Handle to MMSS NOC clock.
  */
 struct dsi_core_clk_info {
 	struct clk *mdp_core_clk;
 	struct clk *iface_clk;
 	struct clk *core_mmss_clk;
 	struct clk *bus_clk;
+	struct clk *mnoc_clk;
 };
 
 /**
@@ -78,11 +81,13 @@ struct dsi_core_clk_info {
  * @byte_clk:        Handle to DSI byte clock.
  * @pixel_clk:       Handle to DSI pixel clock.
  * @esc_clk:         Handle to DSI escape clock.
+ * @byte_intf_clk:   Handle to DSI byte intf. clock.
  */
 struct dsi_link_clk_info {
 	struct clk *byte_clk;
 	struct clk *pixel_clk;
 	struct clk *esc_clk;
+	struct clk *byte_intf_clk;
 };
 
 /**
