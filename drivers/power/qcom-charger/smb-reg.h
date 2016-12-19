@@ -897,7 +897,7 @@ enum {
 #define BITE_WDOG_INT_EN_BIT			BIT(5)
 #define SFT_AFTER_WDOG_IRQ_MASK			GENMASK(4, 3)
 #define WDOG_IRQ_SFT_BIT			BIT(2)
-#define WDOG_OPTION_BIT				BIT(1)
+#define WDOG_TIMER_EN_ON_PLUGIN_BIT		BIT(1)
 #define WDOG_TIMER_EN_BIT			BIT(0)
 
 #define MISC_CFG_REG				(MISC_BASE + 0x52)
