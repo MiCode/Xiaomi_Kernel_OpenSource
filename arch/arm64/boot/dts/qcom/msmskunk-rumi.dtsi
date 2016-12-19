@@ -66,9 +66,9 @@
 &ufsphy_card {
 	compatible = "qcom,ufs-phy-qrbtc-msmskunk";
 
-	vdda-phy-supply = <&pmcobalt_l1>; /* 0.88v */
-	vdda-pll-supply = <&pmcobalt_l26>; /* 1.2v */
-	vddp-ref-clk-supply = <&pmcobalt_l2>;
+	vdda-phy-supply = <&pm8998_l1>; /* 0.88v */
+	vdda-pll-supply = <&pm8998_l26>; /* 1.2v */
+	vddp-ref-clk-supply = <&pm8998_l2>;
 	vdda-phy-max-microamp = <62900>;
 	vdda-pll-max-microamp = <18300>;
 	vddp-ref-clk-max-microamp = <100>;
@@ -83,8 +83,8 @@
 
 	vdd-hba-supply = <&ufs_card_gdsc>;
 	vdd-hba-fixed-regulator;
-	vcc-supply = <&pmcobalt_l21>;
-	vccq2-supply = <&pmcobalt_s4>;
+	vcc-supply = <&pm8998_l21>;
+	vccq2-supply = <&pm8998_s4>;
 	vcc-max-microamp = <300000>;
 	vccq2-max-microamp = <300000>;
 
