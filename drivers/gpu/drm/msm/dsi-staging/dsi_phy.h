@@ -67,7 +67,6 @@ enum phy_engine_state {
  * @mode:              Current mode.
  * @data_lanes:        Number of data lanes used.
  * @dst_format:        Destination format.
- * @lane_map:          Map between logical and physical lanes.
  */
 struct msm_dsi_phy {
 	struct platform_device *pdev;
@@ -89,7 +88,6 @@ struct msm_dsi_phy {
 	struct dsi_mode_info mode;
 	enum dsi_data_lanes data_lanes;
 	enum dsi_pixel_format dst_format;
-	struct dsi_lane_mapping lane_map;
 };
 
 /**

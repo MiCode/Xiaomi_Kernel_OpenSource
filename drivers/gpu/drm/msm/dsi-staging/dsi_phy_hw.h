@@ -80,6 +80,7 @@ struct dsi_phy_per_lane_cfgs {
  * @timing:           Timing parameters for lanes.
  * @regulators:       Regulator settings for lanes.
  * @pll_source:       PLL source.
+ * @lane_map:         DSI logical to PHY lane mapping.
  */
 struct dsi_phy_cfg {
 	struct dsi_phy_per_lane_cfgs lanecfg;
@@ -87,6 +88,7 @@ struct dsi_phy_cfg {
 	struct dsi_phy_per_lane_cfgs timing;
 	struct dsi_phy_per_lane_cfgs regulators;
 	enum dsi_phy_pll_source pll_source;
+	struct dsi_lane_map lane_map;
 };
 
 struct dsi_phy_hw;

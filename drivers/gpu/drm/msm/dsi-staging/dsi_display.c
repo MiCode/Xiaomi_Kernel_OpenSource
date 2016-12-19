@@ -582,6 +582,25 @@ static int dsi_display_set_clk_src(struct dsi_display *display)
 	return 0;
 }
 
+static int dsi_display_phy_reset_config(struct dsi_display *display,
+		bool enable)
+{
+	int rc = 0;
+	int i;
+	struct dsi_display_ctrl *ctrl;
+
+	for (i = 0 ; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		rc = dsi_ctrl_phy_reset_config(ctrl->ctrl, enable);
+		if (rc) {
+			pr_err("[%s] failed to %s phy reset, rc=%d\n",
+			       display->name, enable ? "mask" : "unmask", rc);
+			return rc;
+		}
+	}
+	return 0;
+}
+
 static int dsi_display_ctrl_init(struct dsi_display *display)
 {
 	int rc = 0;
@@ -1344,7 +1363,7 @@ int dsi_post_clkon_cb(void *priv,
 		if (mmss_clamp)
 			dsi_display_ctrl_setup(display);
 
-		if (display->ulps_enabled) {
+		if (display->ulps_enabled && mmss_clamp) {
 			/*
 			 * ULPS Entry Request. This is needed if the lanes were
 			 * in ULPS prior to power collapse, since after
@@ -1467,16 +1486,109 @@ int dsi_pre_clkon_cb(void *priv,
 	return rc;
 }
 
+static void __set_lane_map_v2(u8 *lane_map_v2,
+	enum dsi_phy_data_lanes lane0,
+	enum dsi_phy_data_lanes lane1,
+	enum dsi_phy_data_lanes lane2,
+	enum dsi_phy_data_lanes lane3)
+{
+	lane_map_v2[DSI_LOGICAL_LANE_0] = lane0;
+	lane_map_v2[DSI_LOGICAL_LANE_1] = lane1;
+	lane_map_v2[DSI_LOGICAL_LANE_2] = lane2;
+	lane_map_v2[DSI_LOGICAL_LANE_3] = lane3;
+}
 
 static int dsi_display_parse_lane_map(struct dsi_display *display)
 {
-	int rc = 0;
+	int rc = 0, i = 0;
+	const char *data;
+	u8 temp[DSI_LANE_MAX - 1];
 
-	display->lane_map.physical_lane0 = DSI_LOGICAL_LANE_0;
-	display->lane_map.physical_lane1 = DSI_LOGICAL_LANE_1;
-	display->lane_map.physical_lane2 = DSI_LOGICAL_LANE_2;
-	display->lane_map.physical_lane3 = DSI_LOGICAL_LANE_3;
-	return rc;
+	if (!display) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	/* lane-map-v2 supersedes lane-map-v1 setting */
+	rc = of_property_read_u8_array(display->pdev->dev.of_node,
+		"qcom,lane-map-v2", temp, (DSI_LANE_MAX - 1));
+	if (!rc) {
+		for (i = DSI_LOGICAL_LANE_0; i < (DSI_LANE_MAX - 1); i++)
+			display->lane_map.lane_map_v2[i] = BIT(temp[i]);
+		return 0;
+	} else if (rc != EINVAL) {
+		pr_warn("Incorrect mapping, configure default\n");
+		goto set_default;
+	}
+
+	/* lane-map older version, for DSI controller version < 2.0 */
+	data = of_get_property(display->pdev->dev.of_node,
+		"qcom,lane-map", NULL);
+	if (!data)
+		goto set_default;
+
+	if (!strcmp(data, "lane_map_3012")) {
+		display->lane_map.lane_map_v1 = DSI_LANE_MAP_3012;
+		__set_lane_map_v2(display->lane_map.lane_map_v2,
+			DSI_PHYSICAL_LANE_1,
+			DSI_PHYSICAL_LANE_2,
+			DSI_PHYSICAL_LANE_3,
+			DSI_PHYSICAL_LANE_0);
+	} else if (!strcmp(data, "lane_map_2301")) {
+		display->lane_map.lane_map_v1 = DSI_LANE_MAP_2301;
+		__set_lane_map_v2(display->lane_map.lane_map_v2,
+			DSI_PHYSICAL_LANE_2,
+			DSI_PHYSICAL_LANE_3,
+			DSI_PHYSICAL_LANE_0,
+			DSI_PHYSICAL_LANE_1);
+	} else if (!strcmp(data, "lane_map_1230")) {
+		display->lane_map.lane_map_v1 = DSI_LANE_MAP_1230;
+		__set_lane_map_v2(display->lane_map.lane_map_v2,
+			DSI_PHYSICAL_LANE_3,
+			DSI_PHYSICAL_LANE_0,
+			DSI_PHYSICAL_LANE_1,
+			DSI_PHYSICAL_LANE_2);
+	} else if (!strcmp(data, "lane_map_0321")) {
+		display->lane_map.lane_map_v1 = DSI_LANE_MAP_0321;
+		__set_lane_map_v2(display->lane_map.lane_map_v2,
+			DSI_PHYSICAL_LANE_0,
+			DSI_PHYSICAL_LANE_3,
+			DSI_PHYSICAL_LANE_2,
+			DSI_PHYSICAL_LANE_1);
+	} else if (!strcmp(data, "lane_map_1032")) {
+		display->lane_map.lane_map_v1 = DSI_LANE_MAP_1032;
+		__set_lane_map_v2(display->lane_map.lane_map_v2,
+			DSI_PHYSICAL_LANE_1,
+			DSI_PHYSICAL_LANE_0,
+			DSI_PHYSICAL_LANE_3,
+			DSI_PHYSICAL_LANE_2);
+	} else if (!strcmp(data, "lane_map_2103")) {
+		display->lane_map.lane_map_v1 = DSI_LANE_MAP_2103;
+		__set_lane_map_v2(display->lane_map.lane_map_v2,
+			DSI_PHYSICAL_LANE_2,
+			DSI_PHYSICAL_LANE_1,
+			DSI_PHYSICAL_LANE_0,
+			DSI_PHYSICAL_LANE_3);
+	} else if (!strcmp(data, "lane_map_3210")) {
+		display->lane_map.lane_map_v1 = DSI_LANE_MAP_3210;
+		__set_lane_map_v2(display->lane_map.lane_map_v2,
+			DSI_PHYSICAL_LANE_3,
+			DSI_PHYSICAL_LANE_2,
+			DSI_PHYSICAL_LANE_1,
+			DSI_PHYSICAL_LANE_0);
+	} else {
+		pr_warn("%s: invalid lane map %s specified. defaulting to lane_map0123\n",
+			__func__, data);
+		goto set_default;
+	}
+	return 0;
+
+set_default:
+	/* default lane mapping */
+	__set_lane_map_v2(display->lane_map.lane_map_v2, DSI_PHYSICAL_LANE_0,
+		DSI_PHYSICAL_LANE_1, DSI_PHYSICAL_LANE_2, DSI_PHYSICAL_LANE_3);
+	display->lane_map.lane_map_v1 = DSI_LANE_MAP_0123;
+	return 0;
 }
 
 static int dsi_display_parse_dt(struct dsi_display *display)
@@ -1535,11 +1647,6 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 		display->panel_of = of_node;
 	}
 
-	rc = dsi_display_parse_lane_map(display);
-	if (rc) {
-		pr_err("Lane map not found, rc=%d\n", rc);
-		goto error;
-	}
 error:
 	return rc;
 }
@@ -1575,6 +1682,12 @@ static int dsi_display_res_init(struct dsi_display *display)
 		rc = PTR_ERR(display->panel);
 		pr_err("failed to get panel, rc=%d\n", rc);
 		display->panel = NULL;
+		goto error_ctrl_put;
+	}
+
+	rc = dsi_display_parse_lane_map(display);
+	if (rc) {
+		pr_err("Lane map not found, rc=%d\n", rc);
 		goto error_ctrl_put;
 	}
 
@@ -1978,7 +2091,6 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 			       display->name, rc);
 			goto error;
 		}
-
 	}
 error:
 	return rc;
@@ -2317,7 +2429,6 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 		display->display_type = "unknown";
 
 	mutex_init(&display->display_lock);
-
 	display->pdev = pdev;
 	platform_set_drvdata(pdev, display);
 	mutex_lock(&dsi_display_list_lock);
@@ -2773,11 +2884,18 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error_phy_disable;
 	}
 
+	rc = dsi_display_phy_reset_config(display, true);
+	if (rc) {
+		pr_err("[%s] failed to setup DSI controller, rc=%d\n",
+		       display->name, rc);
+		goto error_ctrl_deinit;
+	}
+
 	rc = dsi_display_set_clk_src(display);
 	if (rc) {
 		pr_err("[%s] failed to set DSI link clock source, rc=%d\n",
 			display->name, rc);
-		goto error_ctrl_deinit;
+		goto error_phy_reset_off;
 	}
 
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
@@ -2785,7 +2903,7 @@ int dsi_display_prepare(struct dsi_display *display)
 	if (rc) {
 		pr_err("[%s] failed to enable DSI link clocks, rc=%d\n",
 		       display->name, rc);
-		goto error_ctrl_deinit;
+		goto error_phy_reset_off;
 	}
 
 	rc = dsi_display_ctrl_host_enable(display);
@@ -2808,6 +2926,8 @@ error_host_engine_off:
 error_ctrl_link_off:
 	(void)dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_LINK_CLK, DSI_CLK_OFF);
+error_phy_reset_off:
+	(void)dsi_display_phy_reset_config(display, false);
 error_ctrl_deinit:
 	(void)dsi_display_ctrl_deinit(display);
 error_phy_disable:
@@ -2989,6 +3109,11 @@ int dsi_display_unprepare(struct dsi_display *display)
 	rc = dsi_display_phy_disable(display);
 	if (rc)
 		pr_err("[%s] failed to disable DSI PHY, rc=%d\n",
+		       display->name, rc);
+
+	rc = dsi_display_phy_reset_config(display, false);
+	if (rc)
+		pr_err("[%s] failed to disable DSI PHY reset config, rc=%d\n",
 		       display->name, rc);
 
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,

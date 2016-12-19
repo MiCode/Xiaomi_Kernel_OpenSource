@@ -697,9 +697,9 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 		pr_debug("[PHY_%d] TODO: perform validation\n", phy->index);
 
 	memcpy(&phy->mode, &config->video_timing, sizeof(phy->mode));
+	memcpy(&phy->cfg.lane_map, &config->lane_map, sizeof(config->lane_map));
 	phy->data_lanes = config->common_config.data_lanes;
 	phy->dst_format = config->common_config.dst_format;
-	phy->lane_map = config->lane_map;
 	phy->cfg.pll_source = pll_source;
 
 	rc = phy->hw.ops.calculate_timing_params(&phy->hw,

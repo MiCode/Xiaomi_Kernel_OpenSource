@@ -319,6 +319,16 @@ int dsi_ctrl_async_timing_update(struct dsi_ctrl *dsi_ctrl,
 int dsi_ctrl_phy_sw_reset(struct dsi_ctrl *dsi_ctrl);
 
 /**
+ * dsi_ctrl_phy_reset_config() - Mask/unmask propagation of ahb reset signal
+ *	to DSI PHY hardware.
+ * @dsi_ctrl:        DSI controller handle.
+ * @enable:			Mask/unmask the PHY reset signal.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_phy_reset_config(struct dsi_ctrl *dsi_ctrl, bool enable);
+
+/**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
  *

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,59 +20,38 @@
 #include "dsi_ctrl_reg.h"
 #include "dsi_hw.h"
 
-#define MMSS_MISC_CLAMP_REG_OFF           0x0014
-
-/**
- * dsi_ctrl_hw_14_setup_lane_map() - setup mapping between
- *	logical and physical lanes
- * @ctrl:          Pointer to the controller host hardware.
- * @lane_map:      Structure defining the mapping between DSI logical
- *                 lanes and physical lanes.
- */
-void dsi_ctrl_hw_14_setup_lane_map(struct dsi_ctrl_hw *ctrl,
-			       struct dsi_lane_map *lane_map)
+void dsi_ctrl_hw_20_setup_lane_map(struct dsi_ctrl_hw *ctrl,
+		       struct dsi_lane_map *lane_map)
 {
-	DSI_W32(ctrl, DSI_LANE_SWAP_CTRL, lane_map->lane_map_v1);
+	u32 reg_value = lane_map->lane_map_v2[DSI_LOGICAL_LANE_0] |
+			(lane_map->lane_map_v2[DSI_LOGICAL_LANE_1] << 4) |
+			(lane_map->lane_map_v2[DSI_LOGICAL_LANE_2] << 8) |
+			(lane_map->lane_map_v2[DSI_LOGICAL_LANE_3] << 12);
+
+	DSI_W32(ctrl, DSI_LANE_SWAP_CTRL, reg_value);
 
 	pr_debug("[DSI_%d] Lane swap setup complete\n", ctrl->index);
 }
 
-/**
- * dsi_ctrl_hw_14_wait_for_lane_idle()
- * This function waits for all the active DSI lanes to be idle by polling all
- * the FIFO_EMPTY bits and polling he lane status to ensure that all the lanes
- * are in stop state. This function assumes that the bus clocks required to
- * access the registers are already turned on.
- *
- * @ctrl:      Pointer to the controller host hardware.
- * @lanes:     ORed list of lanes (enum dsi_data_lanes) which need
- *             to be stopped.
- *
- * return: Error code.
- */
-int dsi_ctrl_hw_14_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl, u32 lanes)
+int dsi_ctrl_hw_20_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl,
+		u32 lanes)
 {
 	int rc = 0, val = 0;
-	u32 stop_state_mask = 0, fifo_empty_mask = 0;
+	u32 fifo_empty_mask = 0;
 	u32 const sleep_us = 10;
 	u32 const timeout_us = 100;
 
-	if (lanes & DSI_DATA_LANE_0) {
-		stop_state_mask |= BIT(0);
+	if (lanes & DSI_DATA_LANE_0)
 		fifo_empty_mask |= (BIT(12) | BIT(16));
-	}
-	if (lanes & DSI_DATA_LANE_1) {
-		stop_state_mask |= BIT(1);
-			fifo_empty_mask |= BIT(20);
-	}
-	if (lanes & DSI_DATA_LANE_2) {
-		stop_state_mask |= BIT(2);
+
+	if (lanes & DSI_DATA_LANE_1)
+		fifo_empty_mask |= BIT(20);
+
+	if (lanes & DSI_DATA_LANE_2)
 		fifo_empty_mask |= BIT(24);
-	}
-	if (lanes & DSI_DATA_LANE_3) {
-		stop_state_mask |= BIT(3);
+
+	if (lanes & DSI_DATA_LANE_3)
 		fifo_empty_mask |= BIT(28);
-	}
 
 	pr_debug("%s: polling for fifo empty, mask=0x%08x\n", __func__,
 		fifo_empty_mask);
@@ -84,247 +63,12 @@ int dsi_ctrl_hw_14_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl, u32 lanes)
 		goto error;
 	}
 
-	pr_debug("%s: polling for lanes to be in stop state, mask=0x%08x\n",
-		__func__, stop_state_mask);
-	rc = readl_poll_timeout(ctrl->base + DSI_LANE_STATUS, val,
-			(val & stop_state_mask), sleep_us, timeout_us);
-	if (rc) {
-		pr_err("%s: lanes not in stop state, LANE_STATUS=0x%08x\n",
-			__func__, val);
-		goto error;
-	}
-
 error:
 	return rc;
-
-}
-
-/**
- * ulps_request() - request ulps entry for specified lanes
- * @ctrl:          Pointer to the controller host hardware.
- * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
- *                 to enter ULPS.
- *
- * Caller should check if lanes are in ULPS mode by calling
- * get_lanes_in_ulps() operation.
- */
-void dsi_ctrl_hw_14_ulps_request(struct dsi_ctrl_hw *ctrl, u32 lanes)
-{
-	u32 reg = 0;
-
-	if (lanes & DSI_CLOCK_LANE)
-		reg = BIT(4);
-	if (lanes & DSI_DATA_LANE_0)
-		reg |= BIT(0);
-	if (lanes & DSI_DATA_LANE_1)
-		reg |= BIT(1);
-	if (lanes & DSI_DATA_LANE_2)
-		reg |= BIT(2);
-	if (lanes & DSI_DATA_LANE_3)
-		reg |= BIT(3);
-
-	/*
-	 * ULPS entry request. Wait for short time to make sure
-	 * that the lanes enter ULPS. Recommended as per HPG.
-	 */
-	DSI_W32(ctrl, DSI_LANE_CTRL, reg);
-	usleep_range(100, 110);
-
-	pr_debug("[DSI_%d] ULPS requested for lanes 0x%x\n", ctrl->index,
-		 lanes);
-}
-
-/**
- * ulps_exit() - exit ULPS on specified lanes
- * @ctrl:          Pointer to the controller host hardware.
- * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
- *                 to exit ULPS.
- *
- * Caller should check if lanes are in active mode by calling
- * get_lanes_in_ulps() operation.
- */
-void dsi_ctrl_hw_14_ulps_exit(struct dsi_ctrl_hw *ctrl, u32 lanes)
-{
-	u32 reg = 0;
-
-	if (lanes & DSI_CLOCK_LANE)
-		reg = BIT(12);
-	if (lanes & DSI_DATA_LANE_0)
-		reg |= BIT(8);
-	if (lanes & DSI_DATA_LANE_1)
-		reg |= BIT(9);
-	if (lanes & DSI_DATA_LANE_2)
-		reg |= BIT(10);
-	if (lanes & DSI_DATA_LANE_3)
-		reg |= BIT(11);
-
-	/*
-	 * ULPS Exit Request
-	 * Hardware requirement is to wait for at least 1ms
-	 */
-	DSI_W32(ctrl, DSI_LANE_CTRL, reg);
-	usleep_range(1000, 1010);
-	/*
-	 * Sometimes when exiting ULPS, it is possible that some DSI
-	 * lanes are not in the stop state which could lead to DSI
-	 * commands not going through. To avoid this, force the lanes
-	 * to be in stop state.
-	 */
-	DSI_W32(ctrl, DSI_LANE_CTRL, reg << 8);
-	DSI_W32(ctrl, DSI_LANE_CTRL, 0x0);
-
-	pr_debug("[DSI_%d] ULPS exit request for lanes=0x%x\n",
-		 ctrl->index, lanes);
-}
-
-/**
- * get_lanes_in_ulps() - returns the list of lanes in ULPS mode
- * @ctrl:          Pointer to the controller host hardware.
- *
- * Returns an ORed list of lanes (enum dsi_data_lanes) that are in ULPS
- * state. If 0 is returned, all the lanes are active.
- *
- * Return: List of lanes in ULPS state.
- */
-u32 dsi_ctrl_hw_14_get_lanes_in_ulps(struct dsi_ctrl_hw *ctrl)
-{
-	u32 reg = 0;
-	u32 lanes = 0;
-
-	reg = DSI_R32(ctrl, DSI_LANE_STATUS);
-	if (!(reg & BIT(8)))
-		lanes |= DSI_DATA_LANE_0;
-	if (!(reg & BIT(9)))
-		lanes |= DSI_DATA_LANE_1;
-	if (!(reg & BIT(10)))
-		lanes |= DSI_DATA_LANE_2;
-	if (!(reg & BIT(11)))
-		lanes |= DSI_DATA_LANE_3;
-	if (!(reg & BIT(12)))
-		lanes |= DSI_CLOCK_LANE;
-
-	pr_debug("[DSI_%d] lanes in ulps = 0x%x\n", ctrl->index, lanes);
-	return lanes;
-}
-
-/**
- * clamp_enable() - enable DSI clamps to keep PHY driving a stable link
- * @ctrl:          Pointer to the controller host hardware.
- * @lanes:         ORed list of lanes which need to be clamped.
- * @enable_ulps:   Boolean to specify if ULPS is enabled in DSI controller
- */
-void dsi_ctrl_hw_14_clamp_enable(struct dsi_ctrl_hw *ctrl,
-				 u32 lanes,
-				 bool enable_ulps)
-{
-	u32 clamp_reg = 0;
-	u32 bit_shift = 0;
-	u32 reg = 0;
-
-	if (ctrl->index == 1)
-		bit_shift = 16;
-
-	if (lanes & DSI_CLOCK_LANE) {
-		clamp_reg |= BIT(9);
-		if (enable_ulps)
-			clamp_reg |= BIT(8);
-	}
-
-	if (lanes & DSI_DATA_LANE_0) {
-		clamp_reg |= BIT(7);
-		if (enable_ulps)
-			clamp_reg |= BIT(6);
-	}
-
-	if (lanes & DSI_DATA_LANE_1) {
-		clamp_reg |= BIT(5);
-		if (enable_ulps)
-			clamp_reg |= BIT(4);
-	}
-
-	if (lanes & DSI_DATA_LANE_2) {
-		clamp_reg |= BIT(3);
-		if (enable_ulps)
-			clamp_reg |= BIT(2);
-	}
-
-	if (lanes & DSI_DATA_LANE_3) {
-		clamp_reg |= BIT(1);
-		if (enable_ulps)
-			clamp_reg |= BIT(0);
-	}
-
-	reg = DSI_MMSS_MISC_R32(ctrl, MMSS_MISC_CLAMP_REG_OFF);
-	reg |= (clamp_reg << bit_shift);
-	DSI_MMSS_MISC_W32(ctrl, MMSS_MISC_CLAMP_REG_OFF, reg);
-
-	reg = DSI_MMSS_MISC_R32(ctrl, MMSS_MISC_CLAMP_REG_OFF);
-	reg |= (BIT(15) << bit_shift);	/* Enable clamp */
-	DSI_MMSS_MISC_W32(ctrl, MMSS_MISC_CLAMP_REG_OFF, reg);
-
-	pr_debug("[DSI_%d] Clamps enabled for lanes=0x%x\n", ctrl->index,
-		 lanes);
-}
-
-/**
- * clamp_disable() - disable DSI clamps
- * @ctrl:          Pointer to the controller host hardware.
- * @lanes:         ORed list of lanes which need to have clamps released.
- * @disable_ulps:   Boolean to specify if ULPS is enabled in DSI controller
- */
-void dsi_ctrl_hw_14_clamp_disable(struct dsi_ctrl_hw *ctrl,
-				  u32 lanes,
-				  bool disable_ulps)
-{
-	u32 clamp_reg = 0;
-	u32 bit_shift = 0;
-	u32 reg = 0;
-
-	if (ctrl->index == 1)
-		bit_shift = 16;
-
-	if (lanes & DSI_CLOCK_LANE) {
-		clamp_reg |= BIT(9);
-		if (disable_ulps)
-			clamp_reg |= BIT(8);
-	}
-
-	if (lanes & DSI_DATA_LANE_0) {
-		clamp_reg |= BIT(7);
-		if (disable_ulps)
-			clamp_reg |= BIT(6);
-	}
-
-	if (lanes & DSI_DATA_LANE_1) {
-		clamp_reg |= BIT(5);
-		if (disable_ulps)
-			clamp_reg |= BIT(4);
-	}
-
-	if (lanes & DSI_DATA_LANE_2) {
-		clamp_reg |= BIT(3);
-		if (disable_ulps)
-			clamp_reg |= BIT(2);
-	}
-
-	if (lanes & DSI_DATA_LANE_3) {
-		clamp_reg |= BIT(1);
-		if (disable_ulps)
-			clamp_reg |= BIT(0);
-	}
-
-	clamp_reg |= BIT(15); /* Enable clamp */
-	clamp_reg <<= bit_shift;
-
-	reg = DSI_MMSS_MISC_R32(ctrl, MMSS_MISC_CLAMP_REG_OFF);
-	reg &= ~(clamp_reg);
-	DSI_MMSS_MISC_W32(ctrl, MMSS_MISC_CLAMP_REG_OFF, reg);
-
-	pr_debug("[DSI_%d] Disable clamps for lanes=%d\n", ctrl->index, lanes);
 }
 
 #define DUMP_REG_VALUE(off) "\t%-30s: 0x%08x\n", #off, DSI_R32(ctrl, off)
-ssize_t dsi_ctrl_hw_14_reg_dump_to_buffer(struct dsi_ctrl_hw *ctrl,
+ssize_t dsi_ctrl_hw_20_reg_dump_to_buffer(struct dsi_ctrl_hw *ctrl,
 					  char *buf,
 					  u32 size)
 {

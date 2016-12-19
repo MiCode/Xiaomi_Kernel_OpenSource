@@ -149,7 +149,7 @@ struct dsi_display {
 
 	struct dsi_display_clk_info clock_info;
 	struct dsi_host_config config;
-	struct dsi_lane_mapping lane_map;
+	struct dsi_lane_map lane_map;
 	u32 num_of_modes;
 	bool is_tpg_enabled;
 	bool ulps_enabled;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,22 +70,6 @@ enum dsi_mode_flags {
 };
 
 /**
- * enum dsi_data_lanes - dsi physical lanes
- * @DSI_DATA_LANE_0: Physical lane 0
- * @DSI_DATA_LANE_1: Physical lane 1
- * @DSI_DATA_LANE_2: Physical lane 2
- * @DSI_DATA_LANE_3: Physical lane 3
- * @DSI_CLOCK_LANE:  Physical clock lane
- */
-enum dsi_data_lanes {
-	DSI_DATA_LANE_0 = BIT(0),
-	DSI_DATA_LANE_1 = BIT(1),
-	DSI_DATA_LANE_2 = BIT(2),
-	DSI_DATA_LANE_3 = BIT(3),
-	DSI_CLOCK_LANE  = BIT(4)
-};
-
-/**
  * enum dsi_logical_lane - dsi logical lanes
  * @DSI_LOGICAL_LANE_0:     Logical lane 0
  * @DSI_LOGICAL_LANE_1:     Logical lane 1
@@ -101,6 +85,63 @@ enum dsi_logical_lane {
 	DSI_LOGICAL_LANE_3,
 	DSI_LOGICAL_CLOCK_LANE,
 	DSI_LANE_MAX
+};
+
+/**
+ * enum dsi_data_lanes - BIT map for DSI data lanes
+ * This is used to identify the active DSI data lanes for
+ * various operations like DSI data lane enable/ULPS/clamp
+ * configurations.
+ * @DSI_DATA_LANE_0: BIT(DSI_LOGICAL_LANE_0)
+ * @DSI_DATA_LANE_1: BIT(DSI_LOGICAL_LANE_1)
+ * @DSI_DATA_LANE_2: BIT(DSI_LOGICAL_LANE_2)
+ * @DSI_DATA_LANE_3: BIT(DSI_LOGICAL_LANE_3)
+ * @DSI_CLOCK_LANE:  BIT(DSI_LOGICAL_CLOCK_LANE)
+ */
+enum dsi_data_lanes {
+	DSI_DATA_LANE_0 = BIT(DSI_LOGICAL_LANE_0),
+	DSI_DATA_LANE_1 = BIT(DSI_LOGICAL_LANE_1),
+	DSI_DATA_LANE_2 = BIT(DSI_LOGICAL_LANE_2),
+	DSI_DATA_LANE_3 = BIT(DSI_LOGICAL_LANE_3),
+	DSI_CLOCK_LANE  = BIT(DSI_LOGICAL_CLOCK_LANE)
+};
+
+/**
+ * enum dsi_phy_data_lanes - dsi physical lanes
+ * used for DSI logical to physical lane mapping
+ * @DSI_PHYSICAL_LANE_INVALID: Physical lane valid/invalid
+ * @DSI_PHYSICAL_LANE_0: Physical lane 0
+ * @DSI_PHYSICAL_LANE_1: Physical lane 1
+ * @DSI_PHYSICAL_LANE_2: Physical lane 2
+ * @DSI_PHYSICAL_LANE_3: Physical lane 3
+ */
+enum dsi_phy_data_lanes {
+	DSI_PHYSICAL_LANE_INVALID = 0,
+	DSI_PHYSICAL_LANE_0 = BIT(0),
+	DSI_PHYSICAL_LANE_1 = BIT(1),
+	DSI_PHYSICAL_LANE_2 = BIT(2),
+	DSI_PHYSICAL_LANE_3  = BIT(3)
+};
+
+enum dsi_lane_map_type_v1 {
+	DSI_LANE_MAP_0123,
+	DSI_LANE_MAP_3012,
+	DSI_LANE_MAP_2301,
+	DSI_LANE_MAP_1230,
+	DSI_LANE_MAP_0321,
+	DSI_LANE_MAP_1032,
+	DSI_LANE_MAP_2103,
+	DSI_LANE_MAP_3210,
+};
+
+/**
+ * lane_map: DSI logical <-> physical lane mapping
+ * lane_map_v1: Lane mapping for DSI controllers < v2.0
+ * lane_map_v2: Lane mapping for DSI controllers >= 2.0
+ */
+struct dsi_lane_map {
+	enum dsi_lane_map_type_v1 lane_map_v1;
+	u8 lane_map_v2[DSI_LANE_MAX - 1];
 };
 
 /**
@@ -224,20 +265,6 @@ struct dsi_mode_info {
 };
 
 /**
- * struct dsi_lane_mapping - Mapping between DSI logical and physical lanes
- * @physical_lane0:   Logical lane to which physical lane 0 is mapped.
- * @physical_lane1:   Logical lane to which physical lane 1 is mapped.
- * @physical_lane2:   Logical lane to which physical lane 2 is mapped.
- * @physical_lane3:   Logical lane to which physical lane 3 is mapped.
- */
-struct dsi_lane_mapping {
-	enum dsi_logical_lane physical_lane0;
-	enum dsi_logical_lane physical_lane1;
-	enum dsi_logical_lane physical_lane2;
-	enum dsi_logical_lane physical_lane3;
-};
-
-/**
  * struct dsi_host_common_cfg - Host configuration common to video and cmd mode
  * @dst_format:          Destination pixel format.
  * @data_lanes:          Physical data lanes to be enabled.
@@ -247,6 +274,7 @@ struct dsi_lane_mapping {
  * @mdp_cmd_trigger:     MDP frame update trigger for command mode.
  * @dma_cmd_trigger:     Command DMA trigger.
  * @cmd_trigger_stream:  Command mode stream to trigger.
+ * @swap_mode:           DSI color swap mode.
  * @bit_swap_read:       Is red color bit swapped.
  * @bit_swap_green:      Is green color bit swapped.
  * @bit_swap_blue:       Is blue color bit swapped.
@@ -281,7 +309,6 @@ struct dsi_host_common_cfg {
 
 /**
  * struct dsi_video_engine_cfg - DSI video engine configuration
- * @host_cfg:                  Pointer to host common configuration.
  * @last_line_interleave_en:   Allow command mode op interleaved on last line of
  *                             video stream.
  * @pulse_mode_hsa_he:         Send HSA and HE following VS/VE packet if set to
@@ -309,8 +336,6 @@ struct dsi_video_engine_cfg {
 
 /**
  * struct dsi_cmd_engine_cfg - DSI command engine configuration
- * @host_cfg:                  Pointer to host common configuration.
- * @host_cfg:                      Common host configuration
  * @max_cmd_packets_interleave     Maximum number of command mode RGB packets to
  *                                 send with in one horizontal blanking period
  *                                 of the video mode frame.
@@ -339,7 +364,6 @@ struct dsi_cmd_engine_cfg {
  * @bit_clk_rate_hz:       Bit clock frequency in Hz.
  * @video_timing:          Video timing information of a frame.
  * @lane_map:              Mapping between logical and physical lanes.
- * @phy_type:              PHY type to be used.
  */
 struct dsi_host_config {
 	enum dsi_op_mode panel_mode;
@@ -351,7 +375,7 @@ struct dsi_host_config {
 	u64 esc_clk_rate_hz;
 	u64 bit_clk_rate_hz;
 	struct dsi_mode_info video_timing;
-	struct dsi_lane_mapping lane_map;
+	struct dsi_lane_map lane_map;
 };
 
 /**

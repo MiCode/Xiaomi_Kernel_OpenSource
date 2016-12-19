@@ -60,43 +60,69 @@ int dsi_phy_hw_v4_0_calculate_timing_params(struct dsi_phy_hw *phy,
 void dsi_phy_hw_v4_0_idle_on(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
 void dsi_phy_hw_v4_0_idle_off(struct dsi_phy_hw *phy);
 
-/* Definitions for 1.4 controller hardware driver */
-void dsi_ctrl_hw_14_host_setup(struct dsi_ctrl_hw *ctrl,
+/* DSI controller common ops */
+u32 dsi_ctrl_hw_cmn_get_interrupt_status(struct dsi_ctrl_hw *ctrl);
+void dsi_ctrl_hw_cmn_clear_interrupt_status(struct dsi_ctrl_hw *ctrl, u32 ints);
+void dsi_ctrl_hw_cmn_enable_status_interrupts(struct dsi_ctrl_hw *ctrl,
+					     u32 ints);
+
+u64 dsi_ctrl_hw_cmn_get_error_status(struct dsi_ctrl_hw *ctrl);
+void dsi_ctrl_hw_cmn_clear_error_status(struct dsi_ctrl_hw *ctrl, u64 errors);
+void dsi_ctrl_hw_cmn_enable_error_interrupts(struct dsi_ctrl_hw *ctrl,
+					    u64 errors);
+
+void dsi_ctrl_hw_cmn_video_test_pattern_setup(struct dsi_ctrl_hw *ctrl,
+				 enum dsi_test_pattern type,
+				 u32 init_val);
+void dsi_ctrl_hw_cmn_cmd_test_pattern_setup(struct dsi_ctrl_hw *ctrl,
+			       enum dsi_test_pattern  type,
+			       u32 init_val,
+			       u32 stream_id);
+void dsi_ctrl_hw_cmn_test_pattern_enable(struct dsi_ctrl_hw *ctrl, bool enable);
+void dsi_ctrl_hw_cmn_trigger_cmd_test_pattern(struct dsi_ctrl_hw *ctrl,
+				 u32 stream_id);
+
+void dsi_ctrl_hw_cmn_host_setup(struct dsi_ctrl_hw *ctrl,
 			       struct dsi_host_common_cfg *config);
-void dsi_ctrl_hw_14_video_engine_en(struct dsi_ctrl_hw *ctrl, bool on);
-void dsi_ctrl_hw_14_video_engine_setup(struct dsi_ctrl_hw *ctrl,
+void dsi_ctrl_hw_cmn_video_engine_en(struct dsi_ctrl_hw *ctrl, bool on);
+void dsi_ctrl_hw_cmn_video_engine_setup(struct dsi_ctrl_hw *ctrl,
 				       struct dsi_host_common_cfg *common_cfg,
 				       struct dsi_video_engine_cfg *cfg);
-void dsi_ctrl_hw_14_set_video_timing(struct dsi_ctrl_hw *ctrl,
+void dsi_ctrl_hw_cmn_set_video_timing(struct dsi_ctrl_hw *ctrl,
 			 struct dsi_mode_info *mode);
 
-void dsi_ctrl_hw_14_cmd_engine_setup(struct dsi_ctrl_hw *ctrl,
+void dsi_ctrl_hw_cmn_cmd_engine_setup(struct dsi_ctrl_hw *ctrl,
 				     struct dsi_host_common_cfg *common_cfg,
 				     struct dsi_cmd_engine_cfg *cfg);
 
-void dsi_ctrl_hw_14_ctrl_en(struct dsi_ctrl_hw *ctrl, bool on);
-void dsi_ctrl_hw_14_cmd_engine_en(struct dsi_ctrl_hw *ctrl, bool on);
+void dsi_ctrl_hw_cmn_ctrl_en(struct dsi_ctrl_hw *ctrl, bool on);
+void dsi_ctrl_hw_cmn_cmd_engine_en(struct dsi_ctrl_hw *ctrl, bool on);
 
-void dsi_ctrl_hw_14_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
+void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
 				     u32 width_in_pixels,
 				     u32 h_stride,
 				     u32 height_in_lines,
 				     u32 vc_id);
-void dsi_ctrl_hw_14_phy_sw_reset(struct dsi_ctrl_hw *ctrl);
-void dsi_ctrl_hw_14_soft_reset(struct dsi_ctrl_hw *ctrl);
+void dsi_ctrl_hw_cmn_phy_sw_reset(struct dsi_ctrl_hw *ctrl);
+void dsi_ctrl_hw_cmn_soft_reset(struct dsi_ctrl_hw *ctrl);
 
-void dsi_ctrl_hw_14_setup_lane_map(struct dsi_ctrl_hw *ctrl,
-		       struct dsi_lane_mapping *lane_map);
-void dsi_ctrl_hw_14_kickoff_command(struct dsi_ctrl_hw *ctrl,
+void dsi_ctrl_hw_cmn_kickoff_command(struct dsi_ctrl_hw *ctrl,
 			struct dsi_ctrl_cmd_dma_info *cmd,
 			u32 flags);
 
-void dsi_ctrl_hw_14_kickoff_fifo_command(struct dsi_ctrl_hw *ctrl,
+void dsi_ctrl_hw_cmn_kickoff_fifo_command(struct dsi_ctrl_hw *ctrl,
 			     struct dsi_ctrl_cmd_dma_fifo_info *cmd,
 			     u32 flags);
-void dsi_ctrl_hw_14_reset_cmd_fifo(struct dsi_ctrl_hw *ctrl);
-void dsi_ctrl_hw_14_trigger_command_dma(struct dsi_ctrl_hw *ctrl);
-int dsi_ctrl_hw_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl, u32 lanes);
+void dsi_ctrl_hw_cmn_reset_cmd_fifo(struct dsi_ctrl_hw *ctrl);
+void dsi_ctrl_hw_cmn_trigger_command_dma(struct dsi_ctrl_hw *ctrl);
+void dsi_ctrl_hw_dln0_phy_err(struct dsi_ctrl_hw *ctrl);
+void dsi_ctrl_hw_cmn_phy_reset_config(struct dsi_ctrl_hw *ctrl,
+			bool enable);
+
+/* Definitions specific to 1.4 DSI controller hardware */
+int dsi_ctrl_hw_14_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl, u32 lanes);
+void dsi_ctrl_hw_14_setup_lane_map(struct dsi_ctrl_hw *ctrl,
+		       struct dsi_lane_map *lane_map);
 void dsi_ctrl_hw_14_ulps_request(struct dsi_ctrl_hw *ctrl, u32 lanes);
 void dsi_ctrl_hw_14_ulps_exit(struct dsi_ctrl_hw *ctrl, u32 lanes);
 u32 dsi_ctrl_hw_14_get_lanes_in_ulps(struct dsi_ctrl_hw *ctrl);
@@ -108,27 +134,16 @@ void dsi_ctrl_hw_14_clamp_enable(struct dsi_ctrl_hw *ctrl,
 void dsi_ctrl_hw_14_clamp_disable(struct dsi_ctrl_hw *ctrl,
 				  u32 lanes,
 				  bool disable_ulps);
-u32 dsi_ctrl_hw_14_get_interrupt_status(struct dsi_ctrl_hw *ctrl);
-void dsi_ctrl_hw_14_clear_interrupt_status(struct dsi_ctrl_hw *ctrl, u32 ints);
-void dsi_ctrl_hw_14_enable_status_interrupts(struct dsi_ctrl_hw *ctrl,
-					     u32 ints);
-
-u64 dsi_ctrl_hw_14_get_error_status(struct dsi_ctrl_hw *ctrl);
-void dsi_ctrl_hw_14_clear_error_status(struct dsi_ctrl_hw *ctrl, u64 errors);
-void dsi_ctrl_hw_14_enable_error_interrupts(struct dsi_ctrl_hw *ctrl,
-					    u64 errors);
-
-void dsi_ctrl_hw_14_video_test_pattern_setup(struct dsi_ctrl_hw *ctrl,
-				 enum dsi_test_pattern type,
-				 u32 init_val);
-void dsi_ctrl_hw_14_cmd_test_pattern_setup(struct dsi_ctrl_hw *ctrl,
-			       enum dsi_test_pattern  type,
-			       u32 init_val,
-			       u32 stream_id);
-void dsi_ctrl_hw_14_test_pattern_enable(struct dsi_ctrl_hw *ctrl, bool enable);
-void dsi_ctrl_hw_14_trigger_cmd_test_pattern(struct dsi_ctrl_hw *ctrl,
-				 u32 stream_id);
 ssize_t dsi_ctrl_hw_14_reg_dump_to_buffer(struct dsi_ctrl_hw *ctrl,
 					  char *buf,
 					  u32 size);
+
+/* Definitions specific to 2.0 DSI controller hardware */
+void dsi_ctrl_hw_20_setup_lane_map(struct dsi_ctrl_hw *ctrl,
+		       struct dsi_lane_map *lane_map);
+int dsi_ctrl_hw_20_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl, u32 lanes);
+ssize_t dsi_ctrl_hw_20_reg_dump_to_buffer(struct dsi_ctrl_hw *ctrl,
+					  char *buf,
+					  u32 size);
+
 #endif /* _DSI_CATALOG_H_ */

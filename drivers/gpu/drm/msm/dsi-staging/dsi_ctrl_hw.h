@@ -215,15 +215,7 @@ struct dsi_ctrl_cmd_dma_fifo_info {
 
 struct dsi_ctrl_hw;
 
-struct ulps_config_ops {
-	/**
-	 * wait_for_lane_idle() - wait for DSI lanes to go to idle state
-	 * @ctrl:          Pointer to the controller host hardware.
-	 * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
-	 *                 to be checked to be in idle state.
-	 */
-	int (*wait_for_lane_idle)(struct dsi_ctrl_hw *ctrl, u32 lanes);
-
+struct ctrl_ulps_config_ops {
 	/**
 	 * ulps_request() - request ulps entry for specified lanes
 	 * @ctrl:          Pointer to the controller host hardware.
@@ -256,7 +248,6 @@ struct ulps_config_ops {
 	 * Return: List of lanes in ULPS state.
 	 */
 	u32 (*get_lanes_in_ulps)(struct dsi_ctrl_hw *ctrl);
-
 };
 
 /**
@@ -371,7 +362,7 @@ struct dsi_ctrl_hw_ops {
 	 *                 lanes and physical lanes.
 	 */
 	void (*setup_lane_map)(struct dsi_ctrl_hw *ctrl,
-			       struct dsi_lane_mapping *lane_map);
+			       struct dsi_lane_map *lane_map);
 
 	/**
 	 * kickoff_command() - transmits commands stored in memory
@@ -427,7 +418,22 @@ struct dsi_ctrl_hw_ops {
 				 u8 *rd_buf,
 				 u32 total_read_len);
 
-	struct ulps_config_ops ulps_ops;
+	/**
+	 * wait_for_lane_idle() - wait for DSI lanes to go to idle state
+	 * @ctrl:          Pointer to the controller host hardware.
+	 * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
+	 *                 to be checked to be in idle state.
+	 */
+	int (*wait_for_lane_idle)(struct dsi_ctrl_hw *ctrl, u32 lanes);
+
+	struct ctrl_ulps_config_ops ulps_ops;
+
+	/**
+	 * clamp_enable() - enable DSI clamps
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @lanes:        ORed list of lanes which need to have clamps released.
+	 * @enable_ulps: ulps state.
+	 */
 
 	/**
 	 * clamp_enable() - enable DSI clamps to keep PHY driving a stable link
@@ -443,11 +449,20 @@ struct dsi_ctrl_hw_ops {
 	 * clamp_disable() - disable DSI clamps
 	 * @ctrl:         Pointer to the controller host hardware.
 	 * @lanes:        ORed list of lanes which need to have clamps released.
-	 * @disable_ulps: TODO:??
+	 * @disable_ulps: ulps state.
 	 */
 	void (*clamp_disable)(struct dsi_ctrl_hw *ctrl,
 			      u32 lanes,
 			      bool disable_ulps);
+
+	/**
+	 * phy_reset_config() - Disable/enable propagation of  reset signal
+	 *	from ahb domain to DSI PHY
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @enable:	True to mask the reset signal, false to unmask
+	 */
+	void (*phy_reset_config)(struct dsi_ctrl_hw *ctrl,
+			     bool enable);
 
 	/**
 	 * get_interrupt_status() - returns the interrupt status
@@ -539,6 +554,12 @@ struct dsi_ctrl_hw_ops {
 	 * @enable:        Enable/Disable test pattern engine.
 	 */
 	void (*test_pattern_enable)(struct dsi_ctrl_hw *ctrl, bool enable);
+
+	/**
+	 * clear_phy0_ln_err() - clear DSI PHY lane-0 errors
+	 * @ctrl:          Pointer to the controller host hardware.
+	 */
+	void (*clear_phy0_ln_err)(struct dsi_ctrl_hw *ctrl);
 
 	/**
 	 * trigger_cmd_test_pattern() - trigger a command mode frame update with

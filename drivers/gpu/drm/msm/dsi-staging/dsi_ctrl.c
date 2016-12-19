@@ -155,6 +155,7 @@ static ssize_t debugfs_reg_dump_read(struct file *file,
 		return rc;
 	}
 
+	if (dsi_ctrl->hw.ops.reg_dump_to_buffer)
 	len = dsi_ctrl->hw.ops.reg_dump_to_buffer(&dsi_ctrl->hw,
 		  buf, SZ_4K);
 
@@ -162,6 +163,7 @@ static ssize_t debugfs_reg_dump_read(struct file *file,
 	rc = dsi_ctrl->clk_cb.dsi_clk_cb(dsi_ctrl->clk_cb.priv, clk_info);
 	if (rc) {
 		pr_err("failed to disable DSI core clocks\n");
+		kfree(buf);
 		return rc;
 	}
 
@@ -1007,10 +1009,16 @@ static int dsi_enable_ulps(struct dsi_ctrl *dsi_ctrl)
 	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE)
 		lanes = dsi_ctrl->host_config.common_config.data_lanes;
 
-	rc = dsi_ctrl->hw.ops.ulps_ops.wait_for_lane_idle(&dsi_ctrl->hw, lanes);
+	rc = dsi_ctrl->hw.ops.wait_for_lane_idle(&dsi_ctrl->hw, lanes);
 	if (rc) {
 		pr_err("lanes not entering idle, skip ULPS\n");
 		return rc;
+	}
+
+	if (!dsi_ctrl->hw.ops.ulps_ops.ulps_request ||
+			!dsi_ctrl->hw.ops.ulps_ops.ulps_exit) {
+		pr_debug("DSI controller ULPS ops not present\n");
+		return 0;
 	}
 
 	lanes |= DSI_CLOCK_LANE;
@@ -1032,10 +1040,19 @@ static int dsi_disable_ulps(struct dsi_ctrl *dsi_ctrl)
 	int rc = 0;
 	u32 ulps_lanes, lanes = 0;
 
+	dsi_ctrl->hw.ops.clear_phy0_ln_err(&dsi_ctrl->hw);
+
+	if (!dsi_ctrl->hw.ops.ulps_ops.ulps_request ||
+			!dsi_ctrl->hw.ops.ulps_ops.ulps_exit) {
+		pr_debug("DSI controller ULPS ops not present\n");
+		return 0;
+	}
+
 	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE)
 		lanes = dsi_ctrl->host_config.common_config.data_lanes;
 
 	lanes |= DSI_CLOCK_LANE;
+
 	ulps_lanes = dsi_ctrl->hw.ops.ulps_ops.get_lanes_in_ulps(&dsi_ctrl->hw);
 
 	if ((lanes & ulps_lanes) != lanes)
@@ -1565,6 +1582,26 @@ int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
 	return rc;
 }
 
+/**
+ * dsi_ctrl_phy_reset_config() - Mask/unmask propagation of ahb reset signal
+ *	to DSI PHY hardware.
+ * @dsi_ctrl:        DSI controller handle.
+ * @enable:			Mask/unmask the PHY reset signal.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_phy_reset_config(struct dsi_ctrl *dsi_ctrl, bool enable)
+{
+	if (!dsi_ctrl) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (dsi_ctrl->hw.ops.phy_reset_config)
+		dsi_ctrl->hw.ops.phy_reset_config(&dsi_ctrl->hw, enable);
+
+	return 0;
+}
 
 /**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
@@ -2089,12 +2126,6 @@ int dsi_ctrl_set_ulps(struct dsi_ctrl *dsi_ctrl, bool enable)
 		return -EINVAL;
 	}
 
-	if (!dsi_ctrl->hw.ops.ulps_ops.ulps_request ||
-			!dsi_ctrl->hw.ops.ulps_ops.ulps_exit) {
-		pr_debug("DSI controller ULPS ops not present\n");
-		return 0;
-	}
-
 	mutex_lock(&dsi_ctrl->ctrl_lock);
 
 	if (enable)
@@ -2131,6 +2162,12 @@ int dsi_ctrl_set_clamp_state(struct dsi_ctrl *dsi_ctrl,
 	if (!dsi_ctrl) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
+	}
+
+	if (!dsi_ctrl->hw.ops.clamp_enable ||
+			!dsi_ctrl->hw.ops.clamp_disable) {
+		pr_debug("No clamp control for DSI controller\n");
+		return 0;
 	}
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);

@@ -18,56 +18,74 @@
 #include "dsi_catalog.h"
 
 /**
- * dsi_catalog_14_init() - catalog init for dsi controller v1.4
+ * dsi_catalog_cmn_init() - catalog init for dsi controller v1.4
  */
-static void dsi_catalog_14_init(struct dsi_ctrl_hw *ctrl)
+static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
+		enum dsi_ctrl_version version)
 {
-	ctrl->ops.host_setup             = dsi_ctrl_hw_14_host_setup;
-	ctrl->ops.setup_lane_map         = dsi_ctrl_hw_14_setup_lane_map;
-	ctrl->ops.video_engine_en        = dsi_ctrl_hw_14_video_engine_en;
-	ctrl->ops.video_engine_setup     = dsi_ctrl_hw_14_video_engine_setup;
-	ctrl->ops.set_video_timing       = dsi_ctrl_hw_14_set_video_timing;
-	ctrl->ops.cmd_engine_setup       = dsi_ctrl_hw_14_cmd_engine_setup;
-	ctrl->ops.setup_cmd_stream       = dsi_ctrl_hw_14_setup_cmd_stream;
-	ctrl->ops.ctrl_en                = dsi_ctrl_hw_14_ctrl_en;
-	ctrl->ops.cmd_engine_en          = dsi_ctrl_hw_14_cmd_engine_en;
-	ctrl->ops.phy_sw_reset           = dsi_ctrl_hw_14_phy_sw_reset;
-	ctrl->ops.soft_reset             = dsi_ctrl_hw_14_soft_reset;
-	ctrl->ops.kickoff_command        = dsi_ctrl_hw_14_kickoff_command;
-	ctrl->ops.kickoff_fifo_command   = dsi_ctrl_hw_14_kickoff_fifo_command;
-	ctrl->ops.reset_cmd_fifo         = dsi_ctrl_hw_14_reset_cmd_fifo;
-	ctrl->ops.trigger_command_dma    = dsi_ctrl_hw_14_trigger_command_dma;
-	ctrl->ops.ulps_ops.ulps_request           = dsi_ctrl_hw_14_ulps_request;
-	ctrl->ops.ulps_ops.ulps_exit     = dsi_ctrl_hw_14_ulps_exit;
-	ctrl->ops.ulps_ops.wait_for_lane_idle = dsi_ctrl_hw_wait_for_lane_idle;
-	ctrl->ops.ulps_ops.get_lanes_in_ulps = dsi_ctrl_hw_14_get_lanes_in_ulps;
-	ctrl->ops.clamp_enable           = dsi_ctrl_hw_14_clamp_enable;
-	ctrl->ops.clamp_disable          = dsi_ctrl_hw_14_clamp_disable;
-	ctrl->ops.get_interrupt_status   = dsi_ctrl_hw_14_get_interrupt_status;
-	ctrl->ops.get_error_status       = dsi_ctrl_hw_14_get_error_status;
-	ctrl->ops.clear_error_status     = dsi_ctrl_hw_14_clear_error_status;
+	/* common functions */
+	ctrl->ops.host_setup             = dsi_ctrl_hw_cmn_host_setup;
+	ctrl->ops.video_engine_en        = dsi_ctrl_hw_cmn_video_engine_en;
+	ctrl->ops.video_engine_setup     = dsi_ctrl_hw_cmn_video_engine_setup;
+	ctrl->ops.set_video_timing       = dsi_ctrl_hw_cmn_set_video_timing;
+	ctrl->ops.cmd_engine_setup       = dsi_ctrl_hw_cmn_cmd_engine_setup;
+	ctrl->ops.setup_cmd_stream       = dsi_ctrl_hw_cmn_setup_cmd_stream;
+	ctrl->ops.ctrl_en                = dsi_ctrl_hw_cmn_ctrl_en;
+	ctrl->ops.cmd_engine_en          = dsi_ctrl_hw_cmn_cmd_engine_en;
+	ctrl->ops.phy_sw_reset           = dsi_ctrl_hw_cmn_phy_sw_reset;
+	ctrl->ops.soft_reset             = dsi_ctrl_hw_cmn_soft_reset;
+	ctrl->ops.kickoff_command        = dsi_ctrl_hw_cmn_kickoff_command;
+	ctrl->ops.kickoff_fifo_command   = dsi_ctrl_hw_cmn_kickoff_fifo_command;
+	ctrl->ops.reset_cmd_fifo         = dsi_ctrl_hw_cmn_reset_cmd_fifo;
+	ctrl->ops.trigger_command_dma    = dsi_ctrl_hw_cmn_trigger_command_dma;
+	ctrl->ops.get_interrupt_status   = dsi_ctrl_hw_cmn_get_interrupt_status;
+	ctrl->ops.get_error_status       = dsi_ctrl_hw_cmn_get_error_status;
+	ctrl->ops.clear_error_status     = dsi_ctrl_hw_cmn_clear_error_status;
 	ctrl->ops.clear_interrupt_status =
-		dsi_ctrl_hw_14_clear_interrupt_status;
+		dsi_ctrl_hw_cmn_clear_interrupt_status;
 	ctrl->ops.enable_status_interrupts =
-		dsi_ctrl_hw_14_enable_status_interrupts;
+		dsi_ctrl_hw_cmn_enable_status_interrupts;
 	ctrl->ops.enable_error_interrupts =
-		dsi_ctrl_hw_14_enable_error_interrupts;
+		dsi_ctrl_hw_cmn_enable_error_interrupts;
 	ctrl->ops.video_test_pattern_setup =
-		dsi_ctrl_hw_14_video_test_pattern_setup;
+		dsi_ctrl_hw_cmn_video_test_pattern_setup;
 	ctrl->ops.cmd_test_pattern_setup =
-		dsi_ctrl_hw_14_cmd_test_pattern_setup;
-	ctrl->ops.test_pattern_enable    = dsi_ctrl_hw_14_test_pattern_enable;
+		dsi_ctrl_hw_cmn_cmd_test_pattern_setup;
+	ctrl->ops.test_pattern_enable    = dsi_ctrl_hw_cmn_test_pattern_enable;
 	ctrl->ops.trigger_cmd_test_pattern =
-		dsi_ctrl_hw_14_trigger_cmd_test_pattern;
-	ctrl->ops.reg_dump_to_buffer    = dsi_ctrl_hw_14_reg_dump_to_buffer;
-}
+		dsi_ctrl_hw_cmn_trigger_cmd_test_pattern;
+	ctrl->ops.clear_phy0_ln_err = dsi_ctrl_hw_dln0_phy_err;
+	ctrl->ops.phy_reset_config = dsi_ctrl_hw_cmn_phy_reset_config;
 
-/**
- * dsi_catalog_20_init() - catalog init for dsi controller v2.0
- */
-static void dsi_catalog_20_init(struct dsi_ctrl_hw *ctrl)
-{
-	set_bit(DSI_CTRL_CPHY, ctrl->feature_map);
+	switch (version) {
+	case DSI_CTRL_VERSION_1_4:
+		ctrl->ops.setup_lane_map = dsi_ctrl_hw_14_setup_lane_map;
+		ctrl->ops.ulps_ops.ulps_request = dsi_ctrl_hw_14_ulps_request;
+		ctrl->ops.ulps_ops.ulps_exit = dsi_ctrl_hw_14_ulps_exit;
+		ctrl->ops.wait_for_lane_idle =
+			dsi_ctrl_hw_14_wait_for_lane_idle;
+		ctrl->ops.ulps_ops.get_lanes_in_ulps =
+			dsi_ctrl_hw_14_get_lanes_in_ulps;
+		ctrl->ops.clamp_enable = dsi_ctrl_hw_14_clamp_enable;
+		ctrl->ops.clamp_disable = dsi_ctrl_hw_14_clamp_disable;
+		ctrl->ops.reg_dump_to_buffer =
+			dsi_ctrl_hw_14_reg_dump_to_buffer;
+		break;
+	case DSI_CTRL_VERSION_2_0:
+		ctrl->ops.setup_lane_map = dsi_ctrl_hw_20_setup_lane_map;
+		ctrl->ops.wait_for_lane_idle =
+			dsi_ctrl_hw_20_wait_for_lane_idle;
+		ctrl->ops.reg_dump_to_buffer =
+			dsi_ctrl_hw_20_reg_dump_to_buffer;
+		ctrl->ops.ulps_ops.ulps_request = NULL;
+		ctrl->ops.ulps_ops.ulps_exit = NULL;
+		ctrl->ops.ulps_ops.get_lanes_in_ulps = NULL;
+		ctrl->ops.clamp_enable = NULL;
+		ctrl->ops.clamp_disable = NULL;
+		break;
+	default:
+		break;
+	}
 }
 
 /**
@@ -102,10 +120,8 @@ int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 
 	switch (version) {
 	case DSI_CTRL_VERSION_1_4:
-		dsi_catalog_14_init(ctrl);
-		break;
 	case DSI_CTRL_VERSION_2_0:
-		dsi_catalog_20_init(ctrl);
+		dsi_catalog_cmn_init(ctrl, version);
 		break;
 	default:
 		return -ENOTSUPP;
