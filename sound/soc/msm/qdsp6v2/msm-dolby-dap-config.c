@@ -681,7 +681,7 @@ int msm_dolby_dap_param_to_set_control_put(struct snd_kcontrol *kcontrol,
 					   struct snd_ctl_elem_value *ucontrol)
 {
 	int rc = 0, port_id, copp_idx;
-	uint32_t idx, j;
+	uint32_t idx, j, current_offset;
 	uint32_t device = ucontrol->value.integer.value[0];
 	uint32_t param_id = ucontrol->value.integer.value[1];
 	uint32_t offset = ucontrol->value.integer.value[2];
@@ -758,6 +758,19 @@ int msm_dolby_dap_param_to_set_control_put(struct snd_kcontrol *kcontrol,
 		default: {
 			/* cache the parameters */
 			dolby_dap_params_modified[idx] += 1;
+			current_offset = dolby_dap_params_offset[idx] + offset;
+			if (current_offset >= TOTAL_LENGTH_DOLBY_PARAM) {
+				pr_err("%s: invalid offset %d at idx %d\n",
+				__func__, offset, idx);
+				return -EINVAL;
+			}
+			if ((0 == length) || (current_offset + length - 1
+				< current_offset) || (current_offset + length
+				> TOTAL_LENGTH_DOLBY_PARAM)) {
+				pr_err("%s: invalid length %d at idx %d\n",
+				__func__, length, idx);
+				return -EINVAL;
+			}
 			dolby_dap_params_length[idx] = length;
 			pr_debug("%s: param recvd deviceId=0x%x paramId=0x%x offset=%d length=%d\n",
 				__func__, device, param_id, offset, length);
