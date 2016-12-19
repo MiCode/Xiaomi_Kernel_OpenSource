@@ -392,8 +392,8 @@
 		compatible = "qcom,gcc-msmskunk";
 		reg = <0x100000 0x1f0000>;
 		reg-names = "cc_base";
-		vdd_cx-supply = <&pmcobalt_s9_level>;
-		vdd_cx_ao-supply = <&pmcobalt_s9_level_ao>;
+		vdd_cx-supply = <&pm8998_s9_level>;
+		vdd_cx_ao-supply = <&pm8998_s9_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -402,7 +402,7 @@
 		compatible = "qcom,video_cc-msmskunk";
 		reg = <0xab00000 0x10000>;
 		reg-names = "cc_base";
-		vdd_cx-supply = <&pmcobalt_s9_level>;
+		vdd_cx-supply = <&pm8998_s9_level>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -545,9 +545,9 @@
 					  "mnoc_axi_clk";
 
 		interrupts = <0 266 1>;
-		vdd_cx-supply = <&pmcobalt_s9_level>;
+		vdd_cx-supply = <&pm8998_s9_level>;
 		vdd_cx-voltage = <RPMH_REGULATOR_LEVEL_MAX>;
-		vdd_mx-supply = <&pmcobalt_s6_level>;
+		vdd_mx-supply = <&pm8998_s6_level>;
 		vdd_mx-uV = <RPMH_REGULATOR_LEVEL_MAX>;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
@@ -575,7 +575,7 @@
 		reg = <0x17300000 0x00100>;
 		interrupts = <0 162 1>;
 
-		vdd_cx-supply = <&pmcobalt_s9_level>;
+		vdd_cx-supply = <&pm8998_s9_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_MAX 100000>;
 
@@ -607,8 +607,8 @@
 		reg = <0x5c00000 0x4000>;
 		interrupts = <0 494 1>;
 
-		vdd_cx-supply = <&pmcobalt_l27_level>;
-		vdd_px-supply = <&pmcobalt_lvs2>;
+		vdd_cx-supply = <&pm8998_l27_level>;
+		vdd_px-supply = <&pm8998_lvs2>;
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_MAX 0>;
 		qcom,proxy-reg-names = "vdd_cx", "vdd_px";
 		qcom,keep-proxy-regs-on;
@@ -656,10 +656,10 @@
 			    "sp2soc_irq_mask", "rmb_err", "rmb_err_spare2";
 		interrupts = <0 352 1>;
 
-		vdd_cx-supply = <&pmcobalt_s9_level>;
+		vdd_cx-supply = <&pm8998_s9_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_MAX 100000>;
-		vdd_mx-supply = <&pmcobalt_s6_level>;
+		vdd_mx-supply = <&pm8998_s6_level>;
 		vdd_mx-uV = <RPMH_REGULATOR_LEVEL_MAX 100000>;
 
 		clocks = <&clock_gcc RPMH_CXO_CLK>;
@@ -691,7 +691,7 @@
 		reg = <0x8300000 0x100000>;
 		interrupts = <0 578 1>;
 
-		vdd_cx-supply = <&pmcobalt_s9_level>;
+		vdd_cx-supply = <&pm8998_s9_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_MAX 100000>;
 
