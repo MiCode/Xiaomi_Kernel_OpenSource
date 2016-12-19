@@ -231,8 +231,24 @@ void ufshcd_update_query_stats(struct ufs_hba *hba,
 		_ret;                                                   \
 	})
 
-#define ufshcd_hex_dump(prefix_str, buf, len) \
-print_hex_dump(KERN_ERR, prefix_str, DUMP_PREFIX_OFFSET, 16, 4, buf, len, false)
+static void ufshcd_hex_dump(struct ufs_hba *hba, const char * const str,
+			    const void *buf, size_t len)
+
+{
+	/*
+	 * device name is expected to take up ~20 characters and "str" passed
+	 * to this function is expected to be of ~10 character so we would need
+	 * ~30 characters string to hold the concatenation of these 2 strings.
+	 */
+	#define MAX_PREFIX_STR_SIZE 50
+	char prefix_str[MAX_PREFIX_STR_SIZE] = {0};
+
+	/* concatenate the device name and "str" */
+	snprintf(prefix_str, MAX_PREFIX_STR_SIZE, "%s %s: ",
+		 dev_name(hba->dev), str);
+	print_hex_dump(KERN_ERR, prefix_str, DUMP_PREFIX_OFFSET,
+		       16, 4, buf, len, false);
+}
 
 static u32 ufs_query_desc_max_size[] = {
 	QUERY_DESC_DEVICE_MAX_SIZE,
@@ -531,7 +547,8 @@ static void ufshcd_print_host_regs(struct ufs_hba *hba)
 	 * that IORESOURCE_MEM flag is on when xxx_get_resource() is invoked
 	 * during platform/pci probe function.
 	 */
-	ufshcd_hex_dump("host regs: ", hba->mmio_base, UFSHCI_REG_SPACE_SIZE);
+	ufshcd_hex_dump(hba, "host regs", hba->mmio_base,
+			UFSHCI_REG_SPACE_SIZE);
 	dev_err(hba->dev, "hba->ufs_version = 0x%x, hba->capabilities = 0x%x",
 		hba->ufs_version, hba->capabilities);
 	dev_err(hba->dev,
@@ -571,22 +588,22 @@ void ufshcd_print_trs(struct ufs_hba *hba, unsigned long bitmap, bool pr_prdt)
 		dev_err(hba->dev,
 			"UPIU[%d] - Transfer Request Descriptor phys@0x%llx",
 			tag, (u64)lrbp->utrd_dma_addr);
-		ufshcd_hex_dump("UPIU TRD: ", lrbp->utr_descriptor_ptr,
+		ufshcd_hex_dump(hba, "UPIU TRD", lrbp->utr_descriptor_ptr,
 				sizeof(struct utp_transfer_req_desc));
 		dev_err(hba->dev, "UPIU[%d] - Request UPIU phys@0x%llx", tag,
 			(u64)lrbp->ucd_req_dma_addr);
-		ufshcd_hex_dump("UPIU REQ: ", lrbp->ucd_req_ptr,
+		ufshcd_hex_dump(hba, "UPIU REQ", lrbp->ucd_req_ptr,
 				sizeof(struct utp_upiu_req));
 		dev_err(hba->dev, "UPIU[%d] - Response UPIU phys@0x%llx", tag,
 			(u64)lrbp->ucd_rsp_dma_addr);
-		ufshcd_hex_dump("UPIU RSP: ", lrbp->ucd_rsp_ptr,
+		ufshcd_hex_dump(hba, "UPIU RSP", lrbp->ucd_rsp_ptr,
 				sizeof(struct utp_upiu_rsp));
 		prdt_length =
 			le16_to_cpu(lrbp->utr_descriptor_ptr->prd_table_length);
 		dev_err(hba->dev, "UPIU[%d] - PRDT - %d entries  phys@0x%llx",
 			tag, prdt_length, (u64)lrbp->ucd_prdt_dma_addr);
 		if (pr_prdt)
-			ufshcd_hex_dump("UPIU PRDT: ", lrbp->ucd_prdt_ptr,
+			ufshcd_hex_dump(hba, "UPIU PRDT", lrbp->ucd_prdt_ptr,
 				sizeof(struct ufshcd_sg_entry) * prdt_length);
 	}
 }
@@ -602,15 +619,15 @@ static void ufshcd_print_tmrs(struct ufs_hba *hba, unsigned long bitmap)
 	for_each_set_bit(tag, &bitmap, hba->nutmrs) {
 		tmrdp = &hba->utmrdl_base_addr[tag];
 		dev_err(hba->dev, "TM[%d] - Task Management Header", tag);
-		ufshcd_hex_dump("TM TRD: ", &tmrdp->header,
+		ufshcd_hex_dump(hba, "TM TRD", &tmrdp->header,
 				sizeof(struct request_desc_header));
 		dev_err(hba->dev, "TM[%d] - Task Management Request UPIU",
 				tag);
-		ufshcd_hex_dump("TM REQ: ", tmrdp->task_req_upiu,
+		ufshcd_hex_dump(hba, "TM REQ", tmrdp->task_req_upiu,
 				sizeof(struct utp_upiu_req));
 		dev_err(hba->dev, "TM[%d] - Task Management Response UPIU",
 				tag);
-		ufshcd_hex_dump("TM RSP: ", tmrdp->task_rsp_upiu,
+		ufshcd_hex_dump(hba, "TM RSP", tmrdp->task_rsp_upiu,
 				sizeof(struct utp_task_req_desc));
 	}
 }
