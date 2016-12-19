@@ -3348,6 +3348,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		return -EINVAL;
 	}
 
+	evt_dma_addr = 0;
 	ep->gsi_evt_ring_hdl = ~0;
 	memset(&gsi_evt_ring_props, 0, sizeof(gsi_evt_ring_props));
 	/*
@@ -3361,13 +3362,14 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		gsi_evt_ring_props.re_size =
 			GSI_EVT_RING_RE_SIZE_16B;
 
-		gsi_evt_ring_props.ring_len = IPA_GSI_EVT_RING_LEN;
+		gsi_evt_ring_props.ring_len = 2 * in->desc_fifo_sz;
 		gsi_evt_ring_props.ring_base_vaddr =
-			dma_alloc_coherent(ipa3_ctx->pdev, IPA_GSI_EVT_RING_LEN,
+			dma_alloc_coherent(ipa3_ctx->pdev,
+			gsi_evt_ring_props.ring_len,
 			&evt_dma_addr, GFP_KERNEL);
 		if (!gsi_evt_ring_props.ring_base_vaddr) {
 			IPAERR("fail to dma alloc %u bytes\n",
-				IPA_GSI_EVT_RING_LEN);
+				gsi_evt_ring_props.ring_len);
 			return -ENOMEM;
 		}
 		gsi_evt_ring_props.ring_base_addr = evt_dma_addr;
@@ -3495,7 +3497,7 @@ fail_get_gsi_ep_info:
 	}
 fail_alloc_evt_ring:
 	if (gsi_evt_ring_props.ring_base_vaddr)
-		dma_free_coherent(ipa3_ctx->pdev, IPA_GSI_EVT_RING_LEN,
+		dma_free_coherent(ipa3_ctx->pdev, gsi_evt_ring_props.ring_len,
 			gsi_evt_ring_props.ring_base_vaddr, evt_dma_addr);
 	IPAERR("Return with err: %d\n", result);
 	return result;
