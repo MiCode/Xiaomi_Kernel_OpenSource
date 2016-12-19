@@ -506,6 +506,7 @@
 			qcom,pmic-revid = <&pmfalcon_revid>;
 			io-channels = <&pmfalcon_rradc 0>;
 			io-channel-names = "rradc_batt_id";
+			qcom,rradc-base = <0x4500>;
 			qcom,fg-esr-timer-awake = <96>;
 			qcom,fg-esr-timer-asleep = <256>;
 			qcom,cycle-counter-en;
