@@ -16,6 +16,7 @@
 #include <dt-bindings/clock/qcom,dispcc-skunk.h>
 #include <dt-bindings/clock/qcom,gpucc-skunk.h>
 #include <dt-bindings/clock/qcom,videocc-skunk.h>
+#include <dt-bindings/clock/qcom,cpucc-skunk.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
