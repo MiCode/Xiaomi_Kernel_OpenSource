@@ -11,6 +11,7 @@
  */
 
 #include "msmfalcon-pinctrl.dtsi"
+#include "msmfalcon-camera-sensor-cdp.dtsi"
 / {
 };
 
