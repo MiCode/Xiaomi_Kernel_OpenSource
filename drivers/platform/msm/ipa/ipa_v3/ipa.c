@@ -39,6 +39,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/scm.h>
+#include <asm/cacheflush.h>
 
 #ifdef CONFIG_ARM64
 
