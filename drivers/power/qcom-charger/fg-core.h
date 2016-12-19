@@ -39,6 +39,12 @@
 			pr_debug(fmt, ##__VA_ARGS__);	\
 	} while (0)
 
+#define is_between(left, right, value) \
+		(((left) >= (right) && (left) >= (value) \
+			&& (value) >= (right)) \
+		|| ((left) <= (right) && (left) <= (value) \
+			&& (value) <= (right)))
+
 /* Awake votable reasons */
 #define SRAM_READ	"fg_sram_read"
 #define SRAM_WRITE	"fg_sram_write"
@@ -205,10 +211,10 @@ struct fg_dt_props {
 	int	recharge_soc_thr;
 	int	recharge_volt_thr_mv;
 	int	rsense_sel;
-	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	esr_timer_charging;
 	int	esr_timer_awake;
 	int	esr_timer_asleep;
+	int	rconn_mohms;
 	int	cl_start_soc;
 	int	cl_max_temp;
 	int	cl_min_temp;
@@ -218,6 +224,7 @@ struct fg_dt_props {
 	int	cl_min_cap_limit;
 	int	jeita_hyst_temp;
 	int	batt_temp_delta;
+	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_hi_dischg[KI_COEFF_SOC_LEVELS];
@@ -310,8 +317,9 @@ struct fg_chip {
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
+	u32			rradc_base;
 	u32			wa_flags;
-	int			batt_id_kohms;
+	int			batt_id_ohms;
 	int			charge_status;
 	int			prev_charge_status;
 	int			charge_done;
