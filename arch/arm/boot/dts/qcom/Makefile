@@ -137,8 +137,11 @@ dtb-$(CONFIG_ARCH_MSMHAMSTER) += msmhamster-rumi.dtb
 dtb-$(CONFIG_ARCH_MSMFALCON) += msmfalcon-sim.dtb \
 	msmfalcon-rumi.dtb \
 	msmfalcon-cdp.dtb \
+	msmfalcon-internal-codec-cdp.dtb \
 	msmfalcon-mtp.dtb \
+	msmfalcon-internal-codec-mtp.dtb \
 	msmfalcon-rcm.dtb \
+	msmfalcon-internal-codec-rcm.dtb \
 	msmfalcon-qrd.dtb
 
 dtb-$(CONFIG_ARCH_MSMTRITON) += msmtriton-rumi.dtb
