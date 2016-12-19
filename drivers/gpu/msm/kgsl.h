@@ -100,6 +100,7 @@ static inline void KGSL_STATS_ADD(uint64_t size, atomic_long_t *stat,
 
 #define KGSL_MAX_NUMIBS 100000
 #define KGSL_MAX_SYNCPOINTS 32
+#define KGSL_MAX_SPARSE 1000
 
 struct kgsl_device;
 struct kgsl_context;
@@ -431,6 +432,8 @@ long kgsl_ioctl_sparse_virt_free(struct kgsl_device_private *dev_priv,
 long kgsl_ioctl_sparse_bind(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
 long kgsl_ioctl_sparse_unbind(struct kgsl_device_private *dev_priv,
+					unsigned int cmd, void *data);
+long kgsl_ioctl_gpu_sparse_command(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
 
 void kgsl_mem_entry_destroy(struct kref *kref);

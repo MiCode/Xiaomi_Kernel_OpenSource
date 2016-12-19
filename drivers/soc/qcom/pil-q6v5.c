@@ -512,6 +512,8 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 			val |= BIT(i);
 			writel_relaxed(val, drv->reg_base +
 					QDSP6V6SS_MEM_PWR_CTL);
+			val = readl_relaxed(drv->reg_base +
+					QDSP6V6SS_MEM_PWR_CTL);
 			/*
 			 * Wait for 1us for both memory peripheral and
 			 * data array to turn on.

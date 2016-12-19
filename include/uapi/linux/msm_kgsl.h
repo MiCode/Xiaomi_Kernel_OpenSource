@@ -50,6 +50,7 @@
 #define KGSL_CONTEXT_IFH_NOP            0x00010000
 #define KGSL_CONTEXT_SECURE             0x00020000
 #define KGSL_CONTEXT_NO_SNAPSHOT        0x00040000
+#define KGSL_CONTEXT_SPARSE             0x00080000
 
 #define KGSL_CONTEXT_PREEMPT_STYLE_MASK       0x0E000000
 #define KGSL_CONTEXT_PREEMPT_STYLE_SHIFT      25
@@ -89,6 +90,7 @@
 #define KGSL_CMDBATCH_END_OF_FRAME	KGSL_CONTEXT_END_OF_FRAME   /* 0x100 */
 #define KGSL_CMDBATCH_SYNC		KGSL_CONTEXT_SYNC           /* 0x400 */
 #define KGSL_CMDBATCH_PWR_CONSTRAINT	KGSL_CONTEXT_PWR_CONSTRAINT /* 0x800 */
+#define KGSL_CMDBATCH_SPARSE	    0x1000 /* 0x1000 */
 
 /*
  * Reserve bits [16:19] and bits [28:31] for possible bits shared between
@@ -1555,5 +1557,35 @@ struct kgsl_sparse_bind {
 
 #define IOCTL_KGSL_SPARSE_BIND \
 	_IOW(KGSL_IOC_TYPE, 0x54, struct kgsl_sparse_bind)
+
+/**
+ * struct kgsl_gpu_sparse_command - Argument for
+ * IOCTL_KGSL_GPU_SPARSE_COMMAND
+ * @flags: Current flags for the object
+ * @sparselist: List of kgsl_sparse_binding_object to bind/unbind
+ * @synclist: List of kgsl_command_syncpoints
+ * @sparsesize: Size of kgsl_sparse_binding_object
+ * @numsparse: Number of elements in list
+ * @sync_size: Size of kgsl_command_syncpoint structure
+ * @numsyncs: Number of kgsl_command_syncpoints in syncpoint list
+ * @context_id: Context ID submitting the kgsl_gpu_command
+ * @timestamp: Timestamp for the submitted commands
+ * @id: Virtual ID to bind/unbind
+ */
+struct kgsl_gpu_sparse_command {
+	uint64_t flags;
+	uint64_t __user sparselist;
+	uint64_t __user synclist;
+	unsigned int sparsesize;
+	unsigned int numsparse;
+	unsigned int syncsize;
+	unsigned int numsyncs;
+	unsigned int context_id;
+	unsigned int timestamp;
+	unsigned int id;
+};
+
+#define IOCTL_KGSL_GPU_SPARSE_COMMAND \
+	_IOWR(KGSL_IOC_TYPE, 0x55, struct kgsl_gpu_sparse_command)
 
 #endif /* _UAPI_MSM_KGSL_H */
