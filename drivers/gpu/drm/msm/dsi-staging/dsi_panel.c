@@ -91,7 +91,18 @@ static int dsi_panel_gpio_request(struct dsi_panel *panel)
 		}
 	}
 
+	if (gpio_is_valid(r_config->lcd_mode_sel_gpio)) {
+		rc = gpio_request(r_config->lcd_mode_sel_gpio, "mode_gpio");
+		if (rc) {
+			pr_err("request for mode_gpio failed, rc=%d\n", rc);
+			goto error_release_mode_sel;
+		}
+	}
+
 	goto error;
+error_release_mode_sel:
+	if (gpio_is_valid(panel->bl_config.en_gpio))
+		gpio_free(panel->bl_config.en_gpio);
 error_release_disp_en:
 	if (gpio_is_valid(r_config->disp_en_gpio))
 		gpio_free(r_config->disp_en_gpio);
@@ -115,6 +126,9 @@ static int dsi_panel_gpio_release(struct dsi_panel *panel)
 
 	if (gpio_is_valid(panel->bl_config.en_gpio))
 		gpio_free(panel->bl_config.en_gpio);
+
+	if (gpio_is_valid(panel->reset_config.lcd_mode_sel_gpio))
+		gpio_free(panel->reset_config.lcd_mode_sel_gpio);
 
 	return rc;
 }
@@ -156,6 +170,25 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 		rc = gpio_direction_output(panel->bl_config.en_gpio, 1);
 		if (rc)
 			pr_err("unable to set dir for bklt gpio rc=%d\n", rc);
+	}
+
+	if (gpio_is_valid(panel->reset_config.lcd_mode_sel_gpio)) {
+		bool out = true;
+
+		if ((panel->reset_config.mode_sel_state == MODE_SEL_DUAL_PORT)
+				|| (panel->reset_config.mode_sel_state
+					== MODE_GPIO_LOW))
+			out = false;
+		else if ((panel->reset_config.mode_sel_state
+				== MODE_SEL_SINGLE_PORT) ||
+				(panel->reset_config.mode_sel_state
+				 == MODE_GPIO_HIGH))
+			out = true;
+
+		rc = gpio_direction_output(
+			panel->reset_config.lcd_mode_sel_gpio, out);
+		if (rc)
+			pr_err("unable to set dir for mode gpio rc=%d\n", rc);
 	}
 exit:
 	return rc;
@@ -229,6 +262,9 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 
 	if (gpio_is_valid(panel->reset_config.reset_gpio))
 		gpio_set_value(panel->reset_config.reset_gpio, 0);
+
+	if (gpio_is_valid(panel->reset_config.lcd_mode_sel_gpio))
+		gpio_set_value(panel->reset_config.lcd_mode_sel_gpio, 0);
 
 	rc = dsi_panel_set_pinctrl_state(panel, false);
 	if (rc) {
@@ -1347,6 +1383,7 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel,
 				 struct device_node *of_node)
 {
 	int rc = 0;
+	const char *data;
 
 	panel->reset_config.reset_gpio = of_get_named_gpio(of_node,
 					      "qcom,platform-reset-gpio",
@@ -1370,6 +1407,31 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel,
 			pr_debug("[%s] platform-en-gpio is not set, rc=%d\n",
 				 panel->name, rc);
 		}
+	}
+
+	panel->reset_config.lcd_mode_sel_gpio = of_get_named_gpio(of_node,
+		"qcom,panel-mode-gpio", 0);
+	if (!gpio_is_valid(panel->reset_config.lcd_mode_sel_gpio))
+		pr_debug("%s:%d mode gpio not specified\n", __func__, __LINE__);
+
+	data = of_get_property(of_node,
+		"qcom,mdss-dsi-mode-sel-gpio-state", NULL);
+	if (data) {
+		if (!strcmp(data, "single_port"))
+			panel->reset_config.mode_sel_state =
+				MODE_SEL_SINGLE_PORT;
+		else if (!strcmp(data, "dual_port"))
+			panel->reset_config.mode_sel_state =
+				MODE_SEL_DUAL_PORT;
+		else if (!strcmp(data, "high"))
+			panel->reset_config.mode_sel_state =
+				MODE_GPIO_HIGH;
+		else if (!strcmp(data, "low"))
+			panel->reset_config.mode_sel_state =
+				MODE_GPIO_LOW;
+	} else {
+		/* Set default mode as SPLIT mode */
+		panel->reset_config.mode_sel_state = MODE_SEL_DUAL_PORT;
 	}
 
 	/* TODO:  release memory */

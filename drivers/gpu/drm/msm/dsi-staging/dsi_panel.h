@@ -69,6 +69,14 @@ enum dsi_backlight_type {
 	DSI_BACKLIGHT_MAX,
 };
 
+enum {
+	MODE_GPIO_NOT_VALID = 0,
+	MODE_SEL_DUAL_PORT,
+	MODE_SEL_SINGLE_PORT,
+	MODE_GPIO_HIGH,
+	MODE_GPIO_LOW,
+};
+
 struct dsi_dfps_capabilities {
 	bool dfps_support;
 	enum dsi_dfps_type type;
@@ -131,6 +139,8 @@ struct dsi_panel_reset_config {
 
 	int reset_gpio;
 	int disp_en_gpio;
+	int lcd_mode_sel_gpio;
+	u32 mode_sel_state;
 };
 
 struct dsi_panel {
