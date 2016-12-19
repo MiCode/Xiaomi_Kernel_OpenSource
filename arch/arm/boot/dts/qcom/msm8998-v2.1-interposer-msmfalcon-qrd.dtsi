@@ -120,3 +120,33 @@
 
 	status = "ok";
 };
+
+
+&i2c_5 {
+	status = "okay";
+	synaptics@20 {
+		compatible = "synaptics,dsx";
+		reg = <0x20>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <125 0x2008>;
+		avdd-supply = <&pm2falcon_l3>;
+		vdd-supply = <&pmfalcon_l11>;
+		synaptics,vdd-voltage = <1880000 1880000>;
+		synaptics,avdd-voltage = <3000000 3008000>;
+		synaptics,vdd-current = <40000>;
+		synaptics,avdd-current = <20000>;
+		/* pins used by touchscreen */
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+			"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend1 &ts_reset_suspend1>;
+		pinctrl-2 = <&ts_release>;
+		synaptics,display-coords = <0 0 1439 2559>;
+		synaptics,panel-coords = <0 0 1439 2779>;
+		synaptics,irq-gpio = <&tlmm 125 0x2008>;
+		synaptics,reset-gpio = <&tlmm 89 0x0>;
+		synaptics,i2c-pull-up;
+		synaptics,disable-gpios;
+		synaptics,button-map = <139 172 158>;
+	};
+};
