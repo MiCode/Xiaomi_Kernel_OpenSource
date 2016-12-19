@@ -17,22 +17,25 @@
 #include "dsi_defs.h"
 
 #define DSI_MAX_SETTINGS 8
+#define DSI_PHY_TIMING_V3 12
 
 /**
  * enum dsi_phy_version - DSI PHY version enumeration
  * @DSI_PHY_VERSION_UNKNOWN:    Unknown version.
- * @DSI_PHY_VERSION_1_0:        28nm-HPM.
- * @DSI_PHY_VERSION_2_0:        28nm-LPM.
- * @DSI_PHY_VERSION_3_0:        20nm.
- * @DSI_PHY_VERSION_4_0:        14nm.
+ * @DSI_PHY_VERSION_0_0_HPM:    28nm-HPM.
+ * @DSI_PHY_VERSION_0_0_LPM:    28nm-HPM.
+ * @DSI_PHY_VERSION_1_0:        20nm
+ * @DSI_PHY_VERSION_2_0:        14nm
+ * @DSI_PHY_VERSION_3_0:        10nm
  * @DSI_PHY_VERSION_MAX:
  */
 enum dsi_phy_version {
 	DSI_PHY_VERSION_UNKNOWN,
-	DSI_PHY_VERSION_1_0, /* 28nm-HPM */
-	DSI_PHY_VERSION_2_0, /* 28nm-LPM */
-	DSI_PHY_VERSION_3_0, /* 20nm */
-	DSI_PHY_VERSION_4_0, /* 14nm */
+	DSI_PHY_VERSION_0_0_HPM, /* 28nm-HPM */
+	DSI_PHY_VERSION_0_0_LPM, /* 28nm-LPM */
+	DSI_PHY_VERSION_1_0, /* 20nm */
+	DSI_PHY_VERSION_2_0, /* 14nm */
+	DSI_PHY_VERSION_3_0, /* 10nm */
 	DSI_PHY_VERSION_MAX
 };
 
@@ -40,6 +43,7 @@ enum dsi_phy_version {
  * enum dsi_phy_hw_features - features supported by DSI PHY hardware
  * @DSI_PHY_DPHY:        Supports DPHY
  * @DSI_PHY_CPHY:        Supports CPHY
+ * @DSI_PHY_MAX_FEATURES:
  */
 enum dsi_phy_hw_features {
 	DSI_PHY_DPHY,
@@ -66,10 +70,12 @@ enum dsi_phy_pll_source {
 /**
  * struct dsi_phy_per_lane_cfgs - Holds register values for PHY parameters
  * @lane:           A set of maximum 8 values for each lane.
+ * @lane_v3:        A set of maximum 12 values for each lane.
  * @count_per_lane: Number of values per each lane.
  */
 struct dsi_phy_per_lane_cfgs {
 	u8 lane[DSI_LANE_MAX][DSI_MAX_SETTINGS];
+	u8 lane_v3[DSI_PHY_TIMING_V3];
 	u32 count_per_lane;
 };
 
@@ -92,6 +98,57 @@ struct dsi_phy_cfg {
 };
 
 struct dsi_phy_hw;
+
+struct phy_ulps_config_ops {
+	/**
+	 * wait_for_lane_idle() - wait for DSI lanes to go to idle state
+	 * @phy:           Pointer to DSI PHY hardware instance.
+	 * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
+	 *                 to be checked to be in idle state.
+	 */
+	int (*wait_for_lane_idle)(struct dsi_phy_hw *phy, u32 lanes);
+
+	/**
+	 * ulps_request() - request ulps entry for specified lanes
+	 * @phy:           Pointer to DSI PHY hardware instance.
+	 * @cfg:           Per lane configurations for timing, strength and lane
+	 *	           configurations.
+	 * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
+	 *                 to enter ULPS.
+	 *
+	 * Caller should check if lanes are in ULPS mode by calling
+	 * get_lanes_in_ulps() operation.
+	 */
+	void (*ulps_request)(struct dsi_phy_hw *phy,
+			struct dsi_phy_cfg *cfg, u32 lanes);
+
+	/**
+	 * ulps_exit() - exit ULPS on specified lanes
+	 * @phy:           Pointer to DSI PHY hardware instance.
+	 * @cfg:           Per lane configurations for timing, strength and lane
+	 *                 configurations.
+	 * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need
+	 *                 to exit ULPS.
+	 *
+	 * Caller should check if lanes are in active mode by calling
+	 * get_lanes_in_ulps() operation.
+	 */
+	void (*ulps_exit)(struct dsi_phy_hw *phy,
+			struct dsi_phy_cfg *cfg, u32 lanes);
+
+	/**
+	 * get_lanes_in_ulps() - returns the list of lanes in ULPS mode
+	 * @phy:           Pointer to DSI PHY hardware instance.
+	 *
+	 * Returns an ORed list of lanes (enum dsi_data_lanes) that are in ULPS
+	 * state. If 0 is returned, all the lanes are active.
+	 *
+	 * Return: List of lanes in ULPS state.
+	 */
+	u32 (*get_lanes_in_ulps)(struct dsi_phy_hw *phy);
+};
+
+
 
 /**
  * struct dsi_phy_hw_ops - Operations for DSI PHY hardware.
@@ -127,8 +184,10 @@ struct dsi_phy_hw_ops {
 	/**
 	 * disable() - Disable PHY hardware
 	 * @phy:      Pointer to DSI PHY hardware object.
+	 * @cfg:      Per lane configurations for timing, strength and lane
+	 *	      configurations.
 	 */
-	void (*disable)(struct dsi_phy_hw *phy);
+	void (*disable)(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
 
 	/**
 	 * phy_idle_on() - Enable PHY hardware when entering idle screen
@@ -155,6 +214,9 @@ struct dsi_phy_hw_ops {
 				       struct dsi_mode_info *mode,
 				       struct dsi_host_common_cfg *config,
 				       struct dsi_phy_per_lane_cfgs *timing);
+
+	void *timing_ops;
+	struct phy_ulps_config_ops ulps_ops;
 };
 
 /**

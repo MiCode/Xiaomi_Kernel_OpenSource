@@ -39,6 +39,20 @@ struct dsi_phy_list_item {
 static LIST_HEAD(dsi_phy_list);
 static DEFINE_MUTEX(dsi_phy_list_lock);
 
+static const struct dsi_ver_spec_info dsi_phy_v0_0_hpm = {
+	.version = DSI_PHY_VERSION_0_0_HPM,
+	.lane_cfg_count = 4,
+	.strength_cfg_count = 2,
+	.regulator_cfg_count = 1,
+	.timing_cfg_count = 8,
+};
+static const struct dsi_ver_spec_info dsi_phy_v0_0_lpm = {
+	.version = DSI_PHY_VERSION_0_0_LPM,
+	.lane_cfg_count = 4,
+	.strength_cfg_count = 2,
+	.regulator_cfg_count = 1,
+	.timing_cfg_count = 8,
+};
 static const struct dsi_ver_spec_info dsi_phy_v1_0 = {
 	.version = DSI_PHY_VERSION_1_0,
 	.lane_cfg_count = 4,
@@ -57,26 +71,21 @@ static const struct dsi_ver_spec_info dsi_phy_v3_0 = {
 	.version = DSI_PHY_VERSION_3_0,
 	.lane_cfg_count = 4,
 	.strength_cfg_count = 2,
-	.regulator_cfg_count = 1,
-	.timing_cfg_count = 8,
-};
-static const struct dsi_ver_spec_info dsi_phy_v4_0 = {
-	.version = DSI_PHY_VERSION_4_0,
-	.lane_cfg_count = 4,
-	.strength_cfg_count = 2,
-	.regulator_cfg_count = 1,
-	.timing_cfg_count = 8,
+	.regulator_cfg_count = 0,
+	.timing_cfg_count = 12,
 };
 
 static const struct of_device_id msm_dsi_phy_of_match[] = {
+	{ .compatible = "qcom,dsi-phy-v0.0-hpm",
+	  .data = &dsi_phy_v0_0_hpm,},
+	{ .compatible = "qcom,dsi-phy-v0.0-lpm",
+	  .data = &dsi_phy_v0_0_lpm,},
 	{ .compatible = "qcom,dsi-phy-v1.0",
 	  .data = &dsi_phy_v1_0,},
 	{ .compatible = "qcom,dsi-phy-v2.0",
 	  .data = &dsi_phy_v2_0,},
 	{ .compatible = "qcom,dsi-phy-v3.0",
 	  .data = &dsi_phy_v3_0,},
-	{ .compatible = "qcom,dsi-phy-v4.0",
-	  .data = &dsi_phy_v4_0,},
 	{}
 };
 
@@ -268,16 +277,18 @@ static int dsi_phy_settings_init(struct platform_device *pdev,
 	}
 
 	regs->count_per_lane = phy->ver_info->regulator_cfg_count;
+	if (regs->count_per_lane > 0) {
 	rc = dsi_phy_parse_dt_per_lane_cfgs(pdev, regs,
 					    "qcom,platform-regulator-settings");
-	if (rc) {
-		pr_err("failed to parse lane cfgs, rc=%d\n", rc);
-		goto err;
+		if (rc) {
+			pr_err("failed to parse lane cfgs, rc=%d\n", rc);
+			goto err;
+		}
 	}
 
 	/* Actual timing values are dependent on panel */
 	timing->count_per_lane = phy->ver_info->timing_cfg_count;
-
+	return 0;
 err:
 	lane->count_per_lane = 0;
 	strength->count_per_lane = 0;
@@ -457,7 +468,7 @@ static void dsi_phy_enable_hw(struct msm_dsi_phy *phy)
 static void dsi_phy_disable_hw(struct msm_dsi_phy *phy)
 {
 	if (phy->hw.ops.disable)
-		phy->hw.ops.disable(&phy->hw);
+		phy->hw.ops.disable(&phy->hw, &phy->cfg);
 
 	if (phy->hw.ops.regulator_disable)
 		phy->hw.ops.regulator_disable(&phy->hw);
@@ -654,6 +665,100 @@ int dsi_phy_set_power_state(struct msm_dsi_phy *dsi_phy, bool enable)
 	dsi_phy->power_state = enable;
 error:
 	mutex_unlock(&dsi_phy->phy_lock);
+	return rc;
+}
+
+static int dsi_phy_enable_ulps(struct msm_dsi_phy *phy,
+		struct dsi_host_config *config)
+{
+	int rc = 0;
+	u32 lanes = 0;
+	u32 ulps_lanes;
+
+	if (config->panel_mode == DSI_OP_CMD_MODE)
+		lanes = config->common_config.data_lanes;
+	lanes |= DSI_CLOCK_LANE;
+
+	rc = phy->hw.ops.ulps_ops.wait_for_lane_idle(&phy->hw, lanes);
+	if (rc) {
+		pr_err("lanes not entering idle, skip ULPS\n");
+		return rc;
+	}
+
+	phy->hw.ops.ulps_ops.ulps_request(&phy->hw, &phy->cfg, lanes);
+
+	ulps_lanes = phy->hw.ops.ulps_ops.get_lanes_in_ulps(&phy->hw);
+
+	if ((lanes & ulps_lanes) != lanes) {
+		pr_err("Failed to enter ULPS, request=0x%x, actual=0x%x\n",
+		       lanes, ulps_lanes);
+		rc = -EIO;
+	}
+
+	return rc;
+}
+
+static int dsi_phy_disable_ulps(struct msm_dsi_phy *phy,
+		 struct dsi_host_config *config)
+{
+	int rc = 0;
+	u32 ulps_lanes, lanes = 0;
+
+	if (config->panel_mode == DSI_OP_CMD_MODE)
+		lanes = config->common_config.data_lanes;
+	lanes |= DSI_CLOCK_LANE;
+
+	ulps_lanes = phy->hw.ops.ulps_ops.get_lanes_in_ulps(&phy->hw);
+
+	if ((lanes & ulps_lanes) != lanes)
+		pr_err("Mismatch between lanes in ULPS\n");
+
+	lanes &= ulps_lanes;
+
+	phy->hw.ops.ulps_ops.ulps_exit(&phy->hw, &phy->cfg, lanes);
+
+	ulps_lanes = phy->hw.ops.ulps_ops.get_lanes_in_ulps(&phy->hw);
+	if (ulps_lanes & lanes) {
+		pr_err("Lanes (0x%x) stuck in ULPS\n", ulps_lanes);
+		rc = -EIO;
+	}
+
+	return rc;
+}
+
+
+int dsi_phy_set_ulps(struct msm_dsi_phy *phy, struct dsi_host_config *config,
+		bool enable)
+{
+	int rc = 0;
+
+	if (!phy) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (!phy->hw.ops.ulps_ops.ulps_request ||
+			!phy->hw.ops.ulps_ops.ulps_exit) {
+		pr_debug("DSI PHY ULPS ops not present\n");
+		return 0;
+	}
+
+	mutex_lock(&phy->phy_lock);
+
+	if (enable)
+		rc = dsi_phy_enable_ulps(phy, config);
+	else
+		rc = dsi_phy_disable_ulps(phy, config);
+
+	if (rc) {
+		pr_err("[DSI_PHY%d] Ulps state change(%d) failed, rc=%d\n",
+			phy->index, enable, rc);
+		goto error;
+	}
+	pr_debug("[DSI_PHY%d] ULPS state = %d\n", phy->index, enable);
+
+error:
+	mutex_unlock(&phy->phy_lock);
 	return rc;
 }
 

@@ -131,18 +131,41 @@ int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 }
 
 /**
- * dsi_catalog_phy_4_0_init() - catalog init for DSI PHY v4.0
+ * dsi_catalog_phy_2_0_init() - catalog init for DSI PHY 14nm
  */
-static void dsi_catalog_phy_4_0_init(struct dsi_phy_hw *phy)
+static void dsi_catalog_phy_2_0_init(struct dsi_phy_hw *phy)
 {
-	phy->ops.regulator_enable = dsi_phy_hw_v4_0_regulator_enable;
-	phy->ops.regulator_disable = dsi_phy_hw_v4_0_regulator_disable;
-	phy->ops.enable = dsi_phy_hw_v4_0_enable;
-	phy->ops.disable = dsi_phy_hw_v4_0_disable;
+	phy->ops.regulator_enable = dsi_phy_hw_v2_0_regulator_enable;
+	phy->ops.regulator_disable = dsi_phy_hw_v2_0_regulator_disable;
+	phy->ops.enable = dsi_phy_hw_v2_0_enable;
+	phy->ops.disable = dsi_phy_hw_v2_0_disable;
 	phy->ops.calculate_timing_params =
-		dsi_phy_hw_v4_0_calculate_timing_params;
-	phy->ops.phy_idle_on = dsi_phy_hw_v4_0_idle_on;
-	phy->ops.phy_idle_off = dsi_phy_hw_v4_0_idle_off;
+		dsi_phy_hw_calculate_timing_params;
+	phy->ops.phy_idle_on = dsi_phy_hw_v2_0_idle_on;
+	phy->ops.phy_idle_off = dsi_phy_hw_v2_0_idle_off;
+	phy->ops.calculate_timing_params =
+		dsi_phy_hw_calculate_timing_params;
+}
+
+/**
+ * dsi_catalog_phy_3_0_init() - catalog init for DSI PHY 10nm
+ */
+static void dsi_catalog_phy_3_0_init(struct dsi_phy_hw *phy)
+{
+	phy->ops.regulator_enable = dsi_phy_hw_v3_0_regulator_enable;
+	phy->ops.regulator_disable = dsi_phy_hw_v3_0_regulator_disable;
+	phy->ops.enable = dsi_phy_hw_v3_0_enable;
+	phy->ops.disable = dsi_phy_hw_v3_0_disable;
+	phy->ops.calculate_timing_params =
+		dsi_phy_hw_calculate_timing_params;
+	phy->ops.ulps_ops.wait_for_lane_idle =
+		dsi_phy_hw_v3_0_wait_for_lane_idle;
+	phy->ops.ulps_ops.ulps_request =
+		dsi_phy_hw_v3_0_ulps_request;
+	phy->ops.ulps_ops.ulps_exit =
+		dsi_phy_hw_v3_0_ulps_exit;
+	phy->ops.ulps_ops.get_lanes_in_ulps =
+		dsi_phy_hw_v3_0_get_lanes_in_ulps;
 }
 
 /**
@@ -170,13 +193,18 @@ int dsi_catalog_phy_setup(struct dsi_phy_hw *phy,
 	phy->index = index;
 	set_bit(DSI_PHY_DPHY, phy->feature_map);
 
+	dsi_phy_timing_calc_init(phy, version);
+
 	switch (version) {
-	case DSI_PHY_VERSION_4_0:
-		dsi_catalog_phy_4_0_init(phy);
-		break;
-	case DSI_PHY_VERSION_1_0:
 	case DSI_PHY_VERSION_2_0:
+		dsi_catalog_phy_2_0_init(phy);
+		break;
 	case DSI_PHY_VERSION_3_0:
+		dsi_catalog_phy_3_0_init(phy);
+		break;
+	case DSI_PHY_VERSION_0_0_HPM:
+	case DSI_PHY_VERSION_0_0_LPM:
+	case DSI_PHY_VERSION_1_0:
 	default:
 		return -ENOTSUPP;
 	}

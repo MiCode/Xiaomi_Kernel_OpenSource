@@ -178,6 +178,17 @@ int dsi_phy_enable(struct msm_dsi_phy *dsi_phy,
 int dsi_phy_disable(struct msm_dsi_phy *phy);
 
 /**
+ * dsi_phy_set_ulps() - set ulps state for DSI pHY
+ * @phy:          DSI PHY handle
+ * @config:	  DSi host configuration information.
+ * @enable:	  Enable/Disable
+ *
+ * Return: error code.
+ */
+int dsi_phy_set_ulps(struct msm_dsi_phy *phy,  struct dsi_host_config *config,
+		bool enable);
+
+/**
  * dsi_phy_clk_cb_register() - Register PHY clock control callback
  * @phy:          DSI PHY handle
  * @clk_cb:	  Structure containing call back for clock control

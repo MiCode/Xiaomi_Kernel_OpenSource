@@ -236,6 +236,12 @@ static int dsi_display_set_ulps(struct dsi_display *display, bool enable)
 		return rc;
 	}
 
+	rc = dsi_phy_set_ulps(m_ctrl->phy, &display->config, enable);
+	if (rc) {
+		pr_err("Ulps PHY state change(%d) failed\n", enable);
+		return rc;
+	}
+
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl || (ctrl == m_ctrl))
@@ -247,6 +253,13 @@ static int dsi_display_set_ulps(struct dsi_display *display, bool enable)
 				enable);
 			return rc;
 		}
+
+		rc = dsi_phy_set_ulps(ctrl->phy, &display->config, enable);
+		if (rc) {
+			pr_err("Ulps PHY state change(%d) failed\n", enable);
+			return rc;
+		}
+
 	}
 	display->ulps_enabled = enable;
 	return 0;

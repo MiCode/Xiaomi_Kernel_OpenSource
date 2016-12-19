@@ -34,7 +34,7 @@ int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 
 /**
  * dsi_catalog_phy_setup() - return catalog info for dsi phy hardware
- * @ctrl:        Pointer to DSI PHY hw object.
+ * @phy:        Pointer to DSI PHY hw object.
  * @version:     DSI PHY version.
  * @index:       DSI PHY instance ID.
  *
@@ -46,20 +46,55 @@ int dsi_catalog_phy_setup(struct dsi_phy_hw *phy,
 			  enum dsi_phy_version version,
 			  u32 index);
 
-/* Definitions for 4.0 PHY hardware driver */
-void dsi_phy_hw_v4_0_regulator_enable(struct dsi_phy_hw *phy,
-				      struct dsi_phy_per_lane_cfgs *cfg);
-void dsi_phy_hw_v4_0_regulator_disable(struct dsi_phy_hw *phy);
-void dsi_phy_hw_v4_0_enable(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
-void dsi_phy_hw_v4_0_disable(struct dsi_phy_hw *phy);
-int dsi_phy_hw_v4_0_calculate_timing_params(struct dsi_phy_hw *phy,
-					    struct dsi_mode_info *mode,
-					    struct dsi_host_common_cfg *cfg,
-					   struct dsi_phy_per_lane_cfgs
-					   *timing);
-void dsi_phy_hw_v4_0_idle_on(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
-void dsi_phy_hw_v4_0_idle_off(struct dsi_phy_hw *phy);
+/**
+ * dsi_phy_timing_calc_init() - initialize info for DSI PHY timing calculations
+ * @phy:        Pointer to DSI PHY hw object.
+ * @version:     DSI PHY version.
+ *
+ * This function setups the catalog information in the dsi_phy_hw object.
+ *
+ * return: error code for failure and 0 for success.
+ */
+int dsi_phy_timing_calc_init(struct dsi_phy_hw *phy,
+	enum dsi_phy_version version);
 
+/**
+ * dsi_phy_hw_calculate_timing_params() - DSI PHY timing parameter calculations
+ * @phy:        Pointer to DSI PHY hw object.
+ * @mode:       DSI mode information.
+ * @host:       DSI host configuration.
+ * @timing:     DSI phy lane configurations.
+ *
+ * This function setups the catalog information in the dsi_phy_hw object.
+ *
+ * return: error code for failure and 0 for success.
+ */
+int dsi_phy_hw_calculate_timing_params(struct dsi_phy_hw *phy,
+					    struct dsi_mode_info *mode,
+	struct dsi_host_common_cfg *host,
+	struct dsi_phy_per_lane_cfgs *timing);
+
+/* Definitions for 14nm PHY hardware driver */
+void dsi_phy_hw_v2_0_regulator_enable(struct dsi_phy_hw *phy,
+				      struct dsi_phy_per_lane_cfgs *cfg);
+void dsi_phy_hw_v2_0_regulator_disable(struct dsi_phy_hw *phy);
+void dsi_phy_hw_v2_0_enable(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
+void dsi_phy_hw_v2_0_disable(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
+void dsi_phy_hw_v2_0_idle_on(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
+void dsi_phy_hw_v2_0_idle_off(struct dsi_phy_hw *phy);
+
+/* Definitions for 10nm PHY hardware driver */
+void dsi_phy_hw_v3_0_regulator_enable(struct dsi_phy_hw *phy,
+				      struct dsi_phy_per_lane_cfgs *cfg);
+void dsi_phy_hw_v3_0_regulator_disable(struct dsi_phy_hw *phy);
+void dsi_phy_hw_v3_0_enable(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
+void dsi_phy_hw_v3_0_disable(struct dsi_phy_hw *phy, struct dsi_phy_cfg *cfg);
+int dsi_phy_hw_v3_0_wait_for_lane_idle(struct dsi_phy_hw *phy, u32 lanes);
+void dsi_phy_hw_v3_0_ulps_request(struct dsi_phy_hw *phy,
+		struct dsi_phy_cfg *cfg, u32 lanes);
+void dsi_phy_hw_v3_0_ulps_exit(struct dsi_phy_hw *phy,
+			struct dsi_phy_cfg *cfg, u32 lanes);
+u32 dsi_phy_hw_v3_0_get_lanes_in_ulps(struct dsi_phy_hw *phy);
 /* DSI controller common ops */
 u32 dsi_ctrl_hw_cmn_get_interrupt_status(struct dsi_ctrl_hw *ctrl);
 void dsi_ctrl_hw_cmn_clear_interrupt_status(struct dsi_ctrl_hw *ctrl, u32 ints);
