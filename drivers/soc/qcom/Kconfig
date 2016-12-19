@@ -450,3 +450,9 @@ config ICNSS_DEBUG
           primarily consists of logs consisting of information related to
           hardware register access and enabling BUG_ON for certain cases to aid
           the debugging.
+
+config QCOM_COMMAND_DB
+	bool "Command DB"
+	help
+	  Command DB queries shared memory by key string for shared system
+	  resources
