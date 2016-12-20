@@ -340,9 +340,9 @@
 		qcom,gic-parent = <&intc>;
 		qcom,gic-map =
 			<0x02 216>, /* tsens1_tsens_upper_lower_int */
-			<0x31 212>, /* usb30_power_event_irq */
 			<0x34 275>, /* qmp_usb3_lfps_rxterm_irq_cx */
 			<0x4f 379>, /* qusb2phy_intr */
+			<0x51 379>, /* qusb2phy_intr */
 			<0x57 358>, /* ee0_apps_hlos_spmi_periph_irq */
 			<0x5b 519>, /* lpass_pmu_tmr_timeout_irq_cx */
 			<0xff 16>,  /* APC[0-7]_qgicQTmrHypPhysIrptReq */
