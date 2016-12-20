@@ -1026,6 +1026,51 @@ int mdss_dp_aux_link_status_read(struct mdss_dp_drv_pdata *ep, int len)
 	return len;
 }
 
+/*
+ * mdss_dp_aux_send_psm_request() - sends a power save mode messge to sink
+ * @dp: Display Port Driver data
+ */
+int mdss_dp_aux_send_psm_request(struct mdss_dp_drv_pdata *dp, bool enable)
+{
+	u8 psm_request[4];
+	int rc = 0;
+
+	psm_request[0] = enable ? 2 : 1;
+
+	pr_debug("sending psm %s request\n", enable ? "entry" : "exit");
+	if (enable) {
+		dp_aux_write_buf(dp, 0x600, psm_request, 1, 0);
+	} else {
+		ktime_t timeout = ktime_add_ms(ktime_get(), 20);
+
+		/*
+		 * It could take up to 1ms (20 ms of embedded sinks) till
+		 * the sink is ready to reply to this AUX transaction. It is
+		 * expected that the source keep retrying periodically during
+		 * this time.
+		 */
+		for (;;) {
+			rc = dp_aux_write_buf(dp, 0x600, psm_request, 1, 0);
+			if ((rc >= 0) ||
+				(ktime_compare(ktime_get(), timeout) > 0))
+				break;
+			usleep_range(100, 120);
+		}
+
+		/*
+		 * if the aux transmission succeeded, then the function would
+		 * return the number of bytes transmitted.
+		 */
+		if (rc > 0)
+			rc = 0;
+	}
+
+	if (!rc)
+		dp->psm_enabled = enable;
+
+	return rc;
+}
+
 /**
  * mdss_dp_aux_send_test_response() - sends a test response to the sink
  * @dp: Display Port Driver data

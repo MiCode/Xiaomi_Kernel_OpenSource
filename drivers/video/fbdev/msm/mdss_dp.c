@@ -1235,6 +1235,15 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 
 		dp_drv->power_on = true;
 
+		if (dp_drv->psm_enabled) {
+			ret = mdss_dp_aux_send_psm_request(dp_drv, false);
+			if (ret) {
+				pr_err("Failed to exit low power mode, rc=%d\n",
+					ret);
+				goto exit;
+			}
+		}
+
 		ret = mdss_dp_train_main_link(dp_drv);
 
 		mutex_unlock(&dp_drv->train_mutex);
@@ -1301,6 +1310,15 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	reinit_completion(&dp_drv->idle_comp);
 
 	mdss_dp_configure_source_params(dp_drv, &ln_map);
+
+	if (dp_drv->psm_enabled) {
+		ret = mdss_dp_aux_send_psm_request(dp_drv, false);
+		if (ret) {
+			pr_err("Failed to exit low power mode, rc=%d\n", ret);
+			goto exit;
+		}
+	}
+
 
 link_training:
 	dp_drv->power_on = true;
@@ -1869,6 +1887,124 @@ static ssize_t mdss_dp_sysfs_rda_s3d_mode(struct device *dev,
 	return ret;
 }
 
+static bool mdss_dp_is_test_ongoing(struct mdss_dp_drv_pdata *dp)
+{
+	return dp->hpd_irq_clients_notified;
+}
+
+/**
+ * mdss_dp_psm_config() - Downstream device uPacket RX Power Management
+ * @dp: Display Port Driver data
+ *
+ * Perform required steps to configure the uPacket RX of a downstream
+ * connected device in a power-save mode.
+ */
+static int mdss_dp_psm_config(struct mdss_dp_drv_pdata *dp, bool enable)
+{
+	int ret = 0;
+
+	if (!dp) {
+		pr_err("invalid data\n");
+		return -EINVAL;
+	}
+
+	if (dp->psm_enabled == enable) {
+		pr_debug("No change in psm requested\n");
+		goto end;
+	}
+
+	pr_debug("Power save mode %s requested\n", enable ? "entry" : "exit");
+
+	if (enable) {
+		ret = mdss_dp_aux_send_psm_request(dp, true);
+		if (ret)
+			goto end;
+
+		/*
+		 * If this configuration is requested as part of an
+		 * automated test, then HPD notification has already been
+		 * sent out. Just disable the main-link and turn off DP Tx.
+		 *
+		 * Otherwise, trigger a complete shutdown of the pipeline.
+		 */
+		if (mdss_dp_is_test_ongoing(dp)) {
+			mdss_dp_mainlink_push_idle(&dp->panel_data);
+			mdss_dp_off_irq(dp);
+		} else {
+			mdss_dp_notify_clients(dp, false);
+		}
+	} else {
+		/*
+		 * If this configuration is requested as part of an
+		 * automated test, then just perform a link retraining.
+		 *
+		 * Otherwise, re-initialize the host and setup the complete
+		 * pipeline from scratch by sending a connection notification
+		 * to user modules.
+		 */
+		if (mdss_dp_is_test_ongoing(dp)) {
+			mdss_dp_link_retraining(dp);
+		} else {
+			mdss_dp_host_init(&dp->panel_data);
+			mdss_dp_notify_clients(dp, true);
+		}
+	}
+
+end:
+	pr_debug("Power save mode %s %s\n",
+		dp->psm_enabled ? "entry" : "exit",
+		ret ? "failed" : "successful");
+
+	return ret;
+}
+
+static ssize_t mdss_dp_wta_psm(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int psm;
+	int rc;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid data\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	rc = kstrtoint(buf, 10, &psm);
+	if (rc) {
+		pr_err("kstrtoint failed. ret=%d\n", (int)ret);
+		goto end;
+	}
+
+	rc = mdss_dp_psm_config(dp, psm ? true : false);
+	if (rc) {
+		pr_err("failed to config Power Save Mode\n");
+		goto end;
+	}
+
+end:
+	return ret;
+}
+
+static ssize_t mdss_dp_rda_psm(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", dp->psm_enabled ? 1 : 0);
+	pr_debug("psm: %s\n", dp->psm_enabled ? "enabled" : "disabled");
+
+	return ret;
+}
+
 static ssize_t mdss_dp_wta_hpd(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1927,11 +2063,15 @@ static DEVICE_ATTR(s3d_mode, S_IRUGO | S_IWUSR, mdss_dp_sysfs_rda_s3d_mode,
 	mdss_dp_sysfs_wta_s3d_mode);
 static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, mdss_dp_rda_hpd,
 	mdss_dp_wta_hpd);
+static DEVICE_ATTR(psm, S_IRUGO | S_IWUSR, mdss_dp_rda_psm,
+	mdss_dp_wta_psm);
+
 
 static struct attribute *mdss_dp_fs_attrs[] = {
 	&dev_attr_connected.attr,
 	&dev_attr_s3d_mode.attr,
 	&dev_attr_hpd.attr,
+	&dev_attr_psm.attr,
 	NULL,
 };
 

@@ -401,6 +401,7 @@ struct mdss_dp_drv_pdata {
 	bool power_on;
 	bool sink_info_read;
 	bool hpd;
+	bool psm_enabled;
 
 	/* dp specific */
 	unsigned char *base;
@@ -683,6 +684,7 @@ void mdss_dp_lane_power_ctrl(struct mdss_dp_drv_pdata *ep, int up);
 void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *ep);
 char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt);
 int mdss_dp_aux_set_sink_power_state(struct mdss_dp_drv_pdata *ep, char state);
+int mdss_dp_aux_send_psm_request(struct mdss_dp_drv_pdata *dp, bool enable);
 void mdss_dp_aux_send_test_response(struct mdss_dp_drv_pdata *ep);
 void *mdss_dp_get_hdcp_data(struct device *dev);
 int mdss_dp_hdcp2p2_init(struct mdss_dp_drv_pdata *dp_drv);
