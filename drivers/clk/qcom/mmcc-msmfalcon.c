@@ -529,6 +529,7 @@ static struct clk_rcg2 ahb_clk_src = {
 	.hid_width = 5,
 	.parent_map = mmcc_parent_map_10,
 	.freq_tbl = ftbl_ahb_clk_src,
+	.flags = FORCE_ENABLE_RCGR,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "ahb_clk_src",
 		.parent_names = mmcc_parent_names_10,
@@ -1281,6 +1282,7 @@ static struct clk_rcg2 video_core_clk_src = {
 	.hid_width = 5,
 	.parent_map = mmcc_parent_map_12,
 	.freq_tbl = ftbl_video_core_clk_src,
+	.flags = FORCE_ENABLE_RCGR,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "video_core_clk_src",
 		.parent_names = mmcc_parent_names_12,
@@ -1323,6 +1325,7 @@ static struct clk_branch mmss_bimc_smmu_ahb_clk = {
 			.parent_names = (const char *[]){
 				"ahb_clk_src",
 			},
+			.flags = CLK_ENABLE_HAND_OFF,
 			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
@@ -1337,6 +1340,7 @@ static struct clk_branch mmss_bimc_smmu_axi_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "mmss_bimc_smmu_axi_clk",
+			.flags = CLK_ENABLE_HAND_OFF,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2016,9 +2020,9 @@ static struct clk_branch mmss_camss_jpeg0_clk = {
 	},
 };
 
-static DEFINE_CLK_VOTER(mmss_camss_jpeg0_vote_clk, &mmss_camss_jpeg0_clk.c, 0);
+static DEFINE_CLK_VOTER(mmss_camss_jpeg0_vote_clk, mmss_camss_jpeg0_clk, 0);
 static DEFINE_CLK_VOTER(mmss_camss_jpeg0_dma_vote_clk,
-					&mmss_camss_jpeg0_clk.c, 0);
+					mmss_camss_jpeg0_clk, 0);
 
 static struct clk_branch mmss_camss_jpeg_ahb_clk = {
 	.halt_reg = 0x35b4,
@@ -2318,6 +2322,7 @@ static struct clk_branch mmss_mdss_ahb_clk = {
 			.parent_names = (const char *[]){
 				"ahb_clk_src",
 			},
+			.flags = CLK_ENABLE_HAND_OFF,
 			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
@@ -2602,7 +2607,7 @@ static struct clk_branch mmss_mdss_mdp_clk = {
 				"mdp_clk_src",
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_ENABLE_HAND_OFF,
 			.ops = &clk_branch2_ops,
 		},
 	},
