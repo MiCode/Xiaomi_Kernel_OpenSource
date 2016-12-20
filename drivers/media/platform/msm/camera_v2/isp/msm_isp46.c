@@ -1902,6 +1902,7 @@ struct msm_vfe_hardware_info vfe46_hw_info = {
 			.process_stats_irq = msm_isp_process_stats_irq,
 			.process_epoch_irq = msm_vfe46_process_epoch_irq,
 			.config_irq = msm_vfe46_config_irq,
+			.preprocess_camif_irq = msm_isp47_preprocess_camif_irq,
 		},
 		.axi_ops = {
 			.reload_wm = msm_vfe46_axi_reload_wm,
