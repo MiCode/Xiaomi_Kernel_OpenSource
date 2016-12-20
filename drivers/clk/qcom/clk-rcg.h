@@ -171,10 +171,12 @@ struct clk_rcg2 {
 	const struct parent_map	*parent_map;
 	const struct freq_tbl	*freq_tbl;
 	unsigned long		current_freq;
+	u32		new_index;
+	u32		curr_index;
 	struct clk_regmap	clkr;
 
-#define FORCE_ENABLE_RCGR	BIT(0)
 	u8 flags;
+#define FORCE_ENABLE_RCGR	BIT(0)
 };
 
 #define to_clk_rcg2(_hw) container_of(to_clk_regmap(_hw), struct clk_rcg2, clkr)
