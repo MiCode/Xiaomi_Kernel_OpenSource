@@ -42,7 +42,8 @@
 #define SDE_HW_VER_170	SDE_HW_VER(1, 7, 0) /* 8996 v1.0 */
 #define SDE_HW_VER_171	SDE_HW_VER(1, 7, 1) /* 8996 v2.0 */
 #define SDE_HW_VER_172	SDE_HW_VER(1, 7, 2) /* 8996 v3.0 */
-#define SDE_HW_VER_300	SDE_HW_VER(3, 0, 0) /* cobalt v1.0 */
+#define SDE_HW_VER_300	SDE_HW_VER(3, 0, 0) /* 8998 v1.0 */
+#define SDE_HW_VER_301	SDE_HW_VER(3, 0, 1) /* 8998 v1.1 */
 #define SDE_HW_VER_400	SDE_HW_VER(4, 0, 0) /* msmskunk v1.0 */
 
 #define IS_MSMSKUNK_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_400)
@@ -457,7 +458,8 @@ struct sde_ctl_cfg {
  * @sblk:              SSPP sub-blocks information
  * @xin_id:            bus client identifier
  * @clk_ctrl           clock control identifier
-  *@name               source pipe name
+ * @name               source pipe name
+ * @type               sspp type identifier
  */
 struct sde_sspp_cfg {
 	SDE_HW_BLK_INFO;
@@ -465,6 +467,7 @@ struct sde_sspp_cfg {
 	u32 xin_id;
 	enum sde_clk_ctrl_type clk_ctrl;
 	char name[SSPP_NAME_SIZE];
+	u32 type;
 };
 
 /**
@@ -652,6 +655,10 @@ struct sde_vp_cfg {
  * @csc_type           csc or csc_10bit support.
  * @has_src_split      source split feature status
  * @has_cdp            Client driver prefetch feature status
+ * @dma_formats        Supported formats for dma pipe
+ * @cursor_formats     Supported formats for cursor pipe
+ * @vig_formats        Supported formats for vig pipe
+ * @wb_formats         Supported formats for wb
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -704,6 +711,11 @@ struct sde_mdss_cfg {
 
 	u32 vp_count;
 	struct sde_vp_cfg vp[MAX_BLOCKS];
+
+	struct sde_format_extended *dma_formats;
+	struct sde_format_extended *cursor_formats;
+	struct sde_format_extended *vig_formats;
+	struct sde_format_extended *wb_formats;
 };
 
 struct sde_mdss_hw_cfg_handler {
