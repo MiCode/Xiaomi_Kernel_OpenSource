@@ -110,6 +110,7 @@ struct smb_params {
 	struct smb_chg_param	step_soc;
 	struct smb_chg_param	step_cc_delta[5];
 	struct smb_chg_param	freq_buck;
+	struct smb_chg_param	freq_boost;
 };
 
 struct parallel_params {
@@ -198,6 +199,7 @@ struct smb_charger {
 	int			voltage_max_uv;
 	int			pd_active;
 	bool			system_suspend_supported;
+	int			boost_threshold_ua;
 
 	int			system_temp_level;
 	int			thermal_levels;
@@ -216,6 +218,7 @@ struct smb_charger {
 	/* workaround flag */
 	u32			wa_flags;
 	enum cc2_sink_type	cc2_sink_detach_flag;
+	int			boost_current_ua;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -346,6 +349,8 @@ int smblib_set_prop_usb_current_max(struct smb_charger *chg,
 int smblib_set_prop_usb_voltage_min(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_usb_voltage_max(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_set_prop_boost_current(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_typec_power_role(struct smb_charger *chg,
 				const union power_supply_propval *val);

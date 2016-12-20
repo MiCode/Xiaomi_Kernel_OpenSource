@@ -178,3 +178,7 @@
 		};
 	};
 };
+
+&pm2falcon_wled {
+	qcom,led-strings-list = [01 02];
+};

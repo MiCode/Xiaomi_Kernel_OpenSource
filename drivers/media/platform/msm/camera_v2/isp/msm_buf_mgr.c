@@ -188,11 +188,27 @@ static int msm_isp_prepare_v4l2_buf(struct msm_isp_buf_mgr *buf_mgr,
 	int ret;
 	struct msm_isp_buffer_mapped_info *mapped_info;
 	uint32_t accu_length = 0;
+	struct msm_isp_bufq *bufq = NULL;
 
+	bufq = msm_isp_get_bufq(buf_mgr, buf_info->bufq_handle);
+	if (!bufq) {
+		pr_err("%s: Invalid bufq, stream id %x\n",
+			__func__, stream_id);
+		return -EINVAL;
+	}
 	for (i = 0; i < qbuf_buf->num_planes; i++) {
 		mapped_info = &buf_info->mapped_info[i];
 		mapped_info->buf_fd = qbuf_buf->planes[i].addr;
-		ret = cam_smmu_get_phy_addr(buf_mgr->iommu_hdl,
+
+		if (bufq->security_mode == SECURE_MODE)
+			ret = cam_smmu_get_stage2_phy_addr(buf_mgr->iommu_hdl,
+					mapped_info->buf_fd,
+					CAM_SMMU_MAP_RW,
+					buf_mgr->client,
+					&(mapped_info->paddr),
+					&(mapped_info->len));
+		else
+			ret = cam_smmu_get_phy_addr(buf_mgr->iommu_hdl,
 					mapped_info->buf_fd,
 					CAM_SMMU_MAP_RW,
 					&(mapped_info->paddr),
@@ -242,8 +258,13 @@ static void msm_isp_unprepare_v4l2_buf(
 
 	for (i = 0; i < buf_info->num_planes; i++) {
 		mapped_info = &buf_info->mapped_info[i];
-
-		cam_smmu_put_phy_addr(buf_mgr->iommu_hdl, mapped_info->buf_fd);
+		/* SEC_CAM: check any change is needed for secure_mode */
+		if (bufq->security_mode == SECURE_MODE)
+			cam_smmu_put_stage2_phy_addr(buf_mgr->iommu_hdl,
+					mapped_info->buf_fd);
+		else
+			cam_smmu_put_phy_addr(buf_mgr->iommu_hdl,
+					mapped_info->buf_fd);
 	}
 	return;
 }
@@ -259,7 +280,15 @@ static int msm_isp_map_buf(struct msm_isp_buf_mgr *buf_mgr,
 			__func__, __LINE__, buf_mgr, mapped_info);
 		return -EINVAL;
 	}
-	ret = cam_smmu_get_phy_addr(buf_mgr->iommu_hdl,
+	if (buf_mgr->secure_enable == SECURE_MODE)
+		ret = cam_smmu_get_stage2_phy_addr(buf_mgr->iommu_hdl,
+				fd,
+				CAM_SMMU_MAP_RW,
+				buf_mgr->client,
+				&(mapped_info->paddr),
+				&(mapped_info->len));
+	else
+		ret = cam_smmu_get_phy_addr(buf_mgr->iommu_hdl,
 				fd,
 				CAM_SMMU_MAP_RW,
 				&(mapped_info->paddr),
@@ -275,7 +304,11 @@ static int msm_isp_map_buf(struct msm_isp_buf_mgr *buf_mgr,
 
 	return rc;
 smmu_map_error:
-	cam_smmu_put_phy_addr(buf_mgr->iommu_hdl,
+	if (buf_mgr->secure_enable == SECURE_MODE)
+		cam_smmu_put_stage2_phy_addr(buf_mgr->iommu_hdl,
+					fd);
+	else
+		cam_smmu_put_phy_addr(buf_mgr->iommu_hdl,
 			fd);
 	return rc;
 }
@@ -289,7 +322,12 @@ static int msm_isp_unmap_buf(struct msm_isp_buf_mgr *buf_mgr,
 		return -EINVAL;
 	}
 
-	cam_smmu_put_phy_addr(buf_mgr->iommu_hdl,
+	/* SEC_CAMERA: recheck Put part for stats */
+	if (buf_mgr->secure_enable == SECURE_MODE)
+		cam_smmu_put_stage2_phy_addr(buf_mgr->iommu_hdl,
+					fd);
+	else
+		cam_smmu_put_phy_addr(buf_mgr->iommu_hdl,
 			fd);
 
 	return 0;
@@ -921,7 +959,7 @@ static int msm_isp_get_buf_src(struct msm_isp_buf_mgr *buf_mgr,
 }
 
 static int msm_isp_request_bufq(struct msm_isp_buf_mgr *buf_mgr,
-	struct msm_isp_buf_request *buf_request)
+	struct msm_isp_buf_request_ver2 *buf_request)
 {
 	int i;
 	struct msm_isp_bufq *bufq = NULL;
@@ -961,6 +999,7 @@ static int msm_isp_request_bufq(struct msm_isp_buf_mgr *buf_mgr,
 	bufq->num_bufs = buf_request->num_buf;
 	bufq->buf_type = buf_request->buf_type;
 	INIT_LIST_HEAD(&bufq->head);
+	bufq->security_mode = buf_request->security_mode;
 
 	for (i = 0; i < buf_request->num_buf; i++) {
 		bufq->bufs[i].state = MSM_ISP_BUFFER_STATE_INITIALIZED;
@@ -1032,15 +1071,25 @@ static int msm_isp_buf_put_scratch(struct msm_isp_buf_mgr *buf_mgr)
 	if (!buf_mgr->scratch_buf_addr)
 		return 0;
 
-	rc = cam_smmu_put_phy_addr_scratch(buf_mgr->iommu_hdl,
+	if (buf_mgr->secure_enable == SECURE_MODE) {
+		rc = cam_smmu_free_stage2_scratch_mem(buf_mgr->iommu_hdl,
+				buf_mgr->client, buf_mgr->sc_handle);
+		if (buf_mgr->scratch_buf_stats_addr)
+			rc = cam_smmu_put_phy_addr_scratch(buf_mgr->iommu_hdl,
+				buf_mgr->scratch_buf_stats_addr);
+	} else {
+		rc = cam_smmu_put_phy_addr_scratch(buf_mgr->iommu_hdl,
 				buf_mgr->scratch_buf_addr);
+	}
 	if (rc)
 		pr_err("%s: failed to put scratch buffer to img iommu: %d\n",
 			__func__, rc);
 
 
-	if (!rc)
+	if (!rc) {
 		buf_mgr->scratch_buf_addr = 0;
+		buf_mgr->scratch_buf_stats_addr = 0;
+	}
 
 	return rc;
 }
@@ -1057,17 +1106,40 @@ static int msm_isp_buf_put_scratch(struct msm_isp_buf_mgr *buf_mgr)
 static int msm_isp_buf_get_scratch(struct msm_isp_buf_mgr *buf_mgr)
 {
 	int rc;
+	size_t range = buf_mgr->scratch_buf_range;
 
 	if (buf_mgr->scratch_buf_addr || !buf_mgr->scratch_buf_range)
 		/* already mapped or not supported */
 		return 0;
 
-	rc = cam_smmu_get_phy_addr_scratch(
+	if (buf_mgr->secure_enable == SECURE_MODE) {
+		rc = cam_smmu_alloc_get_stage2_scratch_mem(buf_mgr->iommu_hdl,
+				CAM_SMMU_MAP_RW,
+				buf_mgr->client,
+				&buf_mgr->sc_handle,
+				&buf_mgr->scratch_buf_addr,
+				&range);
+		if (rc)
+			goto done;
+
+		rc = cam_smmu_get_phy_addr_scratch(
+				buf_mgr->iommu_hdl,
+				CAM_SMMU_MAP_RW,
+				&buf_mgr->scratch_buf_stats_addr,
+				buf_mgr->scratch_buf_range,
+				SZ_4K);
+		if (rc)
+			msm_isp_buf_put_scratch(buf_mgr);
+	} else {
+		rc = cam_smmu_get_phy_addr_scratch(
 				buf_mgr->iommu_hdl,
 				CAM_SMMU_MAP_RW,
 				&buf_mgr->scratch_buf_addr,
 				buf_mgr->scratch_buf_range,
 				SZ_4K);
+		buf_mgr->scratch_buf_stats_addr = buf_mgr->scratch_buf_addr;
+	}
+done:
 	if (rc) {
 		pr_err("%s: failed to map scratch buffer to img iommu: %d\n",
 			__func__, rc);
@@ -1085,20 +1157,23 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 	pr_debug("%s: cmd->security_mode : %d\n", __func__, cmd->security_mode);
 	mutex_lock(&buf_mgr->lock);
 	if (cmd->iommu_attach_mode == IOMMU_ATTACH) {
-		buf_mgr->secure_enable = cmd->security_mode;
-
 		/*
 		 * Call hypervisor thru scm call to notify secure or
 		 * non-secure mode
 		 */
 		if (buf_mgr->attach_ref_cnt == 0) {
-			rc = cam_smmu_ops(buf_mgr->iommu_hdl,
-				CAM_SMMU_ATTACH);
+			if (cmd->security_mode == SECURE_MODE)
+				rc = cam_smmu_ops(buf_mgr->iommu_hdl,
+					CAM_SMMU_ATTACH_SEC_VFE_NS_STATS);
+			else
+				rc = cam_smmu_ops(buf_mgr->iommu_hdl,
+					CAM_SMMU_ATTACH);
 			if (rc < 0) {
 				pr_err("%s: img smmu attach error, rc :%d\n",
 					__func__, rc);
-			goto err1;
+				goto err1;
 			}
+			buf_mgr->secure_enable = cmd->security_mode;
 		}
 		buf_mgr->attach_ref_cnt++;
 		rc = msm_isp_buf_get_scratch(buf_mgr);
@@ -1113,8 +1188,12 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 
 		if (buf_mgr->attach_ref_cnt == 0) {
 			rc = msm_isp_buf_put_scratch(buf_mgr);
-			rc |= cam_smmu_ops(buf_mgr->iommu_hdl,
-				CAM_SMMU_DETACH);
+			if (buf_mgr->secure_enable == SECURE_MODE)
+				rc |= cam_smmu_ops(buf_mgr->iommu_hdl,
+					CAM_SMMU_DETACH_SEC_VFE_NS_STATS);
+			else
+				rc |= cam_smmu_ops(buf_mgr->iommu_hdl,
+					CAM_SMMU_DETACH);
 			if (rc < 0) {
 				pr_err("%s: img/stats smmu detach error, rc :%d\n",
 					__func__, rc);
@@ -1126,8 +1205,11 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 	return rc;
 
 err2:
-	if (cam_smmu_ops(buf_mgr->iommu_hdl, CAM_SMMU_DETACH))
-		pr_err("%s: img smmu detach error\n", __func__);
+	if (buf_mgr->secure_enable == SECURE_MODE)
+		cam_smmu_ops(buf_mgr->iommu_hdl,
+				CAM_SMMU_DETACH_SEC_VFE_NS_STATS);
+	else
+		cam_smmu_ops(buf_mgr->iommu_hdl, CAM_SMMU_DETACH);
 err1:
 	mutex_unlock(&buf_mgr->lock);
 	return rc;
@@ -1162,12 +1244,11 @@ static int msm_isp_init_isp_buf_mgr(struct msm_isp_buf_mgr *buf_mgr,
 
 	buf_mgr->pagefault_debug_disable = 0;
 	buf_mgr->frameId_mismatch_recovery = 0;
-	mutex_unlock(&buf_mgr->lock);
-	return 0;
-
+	/* create ION client */
+	buf_mgr->client = msm_ion_client_create("vfe");
 get_handle_error:
 	mutex_unlock(&buf_mgr->lock);
-	return rc;
+	return 0;
 }
 
 static int msm_isp_deinit_isp_buf_mgr(
@@ -1186,10 +1267,21 @@ static int msm_isp_deinit_isp_buf_mgr(
 	buf_mgr->pagefault_debug_disable = 0;
 
 	msm_isp_buf_put_scratch(buf_mgr);
-	cam_smmu_ops(buf_mgr->iommu_hdl, CAM_SMMU_DETACH);
+	if (buf_mgr->attach_ref_cnt != 0) {
+		if (buf_mgr->secure_enable == SECURE_MODE)
+			cam_smmu_ops(buf_mgr->iommu_hdl,
+				CAM_SMMU_DETACH_SEC_VFE_NS_STATS);
+		else
+			cam_smmu_ops(buf_mgr->iommu_hdl, CAM_SMMU_DETACH);
+	}
 	cam_smmu_destroy_handle(buf_mgr->iommu_hdl);
-
 	buf_mgr->attach_ref_cnt = 0;
+	buf_mgr->secure_enable = 0;
+	buf_mgr->attach_ref_cnt = 0;
+	if (buf_mgr->client) {
+		ion_client_destroy(buf_mgr->client);
+		buf_mgr->client = NULL;
+	}
 	mutex_unlock(&buf_mgr->lock);
 	return 0;
 }
@@ -1200,8 +1292,20 @@ int msm_isp_proc_buf_cmd(struct msm_isp_buf_mgr *buf_mgr,
 	switch (cmd) {
 	case VIDIOC_MSM_ISP_REQUEST_BUF: {
 		struct msm_isp_buf_request *buf_req = arg;
+		struct msm_isp_buf_request_ver2 buf_req_ver2;
 
-		buf_mgr->ops->request_buf(buf_mgr, buf_req);
+		memcpy(&buf_req_ver2, buf_req,
+			sizeof(struct msm_isp_buf_request));
+		buf_req_ver2.security_mode = NON_SECURE_MODE;
+		buf_mgr->ops->request_buf(buf_mgr, &buf_req_ver2);
+		memcpy(buf_req, &buf_req_ver2,
+			sizeof(struct msm_isp_buf_request));
+		break;
+	}
+	case VIDIOC_MSM_ISP_REQUEST_BUF_VER2: {
+		struct msm_isp_buf_request_ver2 *buf_req_ver2 = arg;
+
+		buf_mgr->ops->request_buf(buf_mgr, buf_req_ver2);
 		break;
 	}
 	case VIDIOC_MSM_ISP_ENQUEUE_BUF: {
@@ -1393,7 +1497,6 @@ int msm_isp_create_isp_buf_mgr(
 	buf_mgr->open_count = 0;
 	buf_mgr->pagefault_debug_disable = 0;
 	buf_mgr->secure_enable = NON_SECURE_MODE;
-	buf_mgr->attach_state = MSM_ISP_BUF_MGR_DETACH;
 	buf_mgr->scratch_buf_range = scratch_buf_range;
 	mutex_init(&buf_mgr->lock);
 

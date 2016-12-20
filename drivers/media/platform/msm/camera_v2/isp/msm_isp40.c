@@ -2263,6 +2263,8 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 				msm_vfe40_start_fetch_engine_multi_pass,
 			.set_halt_restart_mask =
 				msm_vfe40_set_halt_restart_mask,
+			.set_bus_err_ign_mask = NULL,
+			.get_bus_err_mask = NULL,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe40_get_stats_idx,

@@ -210,6 +210,13 @@ static struct smb_params v1_params = {
 		.max_u	= 2000,
 		.step_u	= 200,
 	},
+	.freq_boost		= {
+		.name	= "boost switching frequency",
+		.reg	= CFG_BUCKBOOST_FREQ_SELECT_BOOST_REG,
+		.min_u	= 600,
+		.max_u	= 2000,
+		.step_u	= 200,
+	},
 };
 
 #define STEP_CHARGING_MAX_STEPS	5
@@ -218,6 +225,7 @@ struct smb_dt_props {
 	int	usb_icl_ua;
 	int	otg_cl_ua;
 	int	dc_icl_ua;
+	int	boost_threshold_ua;
 	int	fv_uv;
 	int	wipower_max_uw;
 	u32	step_soc_threshold[STEP_CHARGING_MAX_STEPS - 1];
@@ -243,6 +251,7 @@ module_param_named(
 );
 
 #define MICRO_1P5A	1500000
+#define MICRO_P1A	100000
 static int smb2_parse_dt(struct smb2 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -303,6 +312,12 @@ static int smb2_parse_dt(struct smb2 *chip)
 				"qcom,dc-icl-ua", &chip->dt.dc_icl_ua);
 	if (rc < 0)
 		chip->dt.dc_icl_ua = -EINVAL;
+
+	rc = of_property_read_u32(node,
+				"qcom,boost-threshold-ua",
+				&chip->dt.boost_threshold_ua);
+	if (rc < 0)
+		chip->dt.boost_threshold_ua = MICRO_P1A;
 
 	rc = of_property_read_u32(node, "qcom,wipower-max-uw",
 				&chip->dt.wipower_max_uw);
@@ -370,6 +385,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_PD_ACTIVE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
+	POWER_SUPPLY_PROP_BOOST_CURRENT,
 	POWER_SUPPLY_PROP_PE_START,
 };
 
@@ -436,6 +452,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_NOW:
 		rc = smblib_get_prop_usb_current_now(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_BOOST_CURRENT:
+		val->intval = chg->boost_current_ua;
+		break;
 	case POWER_SUPPLY_PROP_PD_IN_HARD_RESET:
 		rc = smblib_get_prop_pd_in_hard_reset(chg, val);
 		break;
@@ -489,6 +508,9 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED:
 		chg->system_suspend_supported = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_BOOST_CURRENT:
+		rc = smblib_set_prop_boost_current(chg, val);
 		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
@@ -1073,6 +1095,7 @@ static int smb2_init_hw(struct smb2 *chip)
 
 	chg->otg_cl_ua = chip->dt.otg_cl_ua;
 	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
+	chg->boost_threshold_ua = chip->dt.boost_threshold_ua;
 
 	rc = smblib_read(chg, APSD_RESULT_STATUS_REG, &stat);
 	if (rc < 0) {

@@ -780,16 +780,6 @@ static int smblib_otg_cl_config(struct smb_charger *chg, int otg_cl_ua)
 		return rc;
 	}
 
-	/* configure PFM/PWM mode for OTG regulator */
-	rc = smblib_masked_write(chg, DC_ENG_SSUPPLY_CFG3_REG,
-				 ENG_SSUPPLY_CFG_SKIP_TH_V0P2_BIT,
-				 otg_cl_ua > MICRO_250MA ? 1 : 0);
-	if (rc < 0) {
-		smblib_err(chg,
-			"Couldn't write DC_ENG_SSUPPLY_CFG3_REG rc=%d\n", rc);
-		return rc;
-	}
-
 	return rc;
 }
 
@@ -1155,31 +1145,8 @@ int smblib_get_prop_batt_capacity(struct smb_charger *chg,
 int smblib_get_prop_batt_status(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
-	union power_supply_propval pval = {0, };
-	bool usb_online, dc_online;
 	u8 stat;
 	int rc;
-
-	rc = smblib_get_prop_usb_online(chg, &pval);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get usb online property rc=%d\n",
-			rc);
-		return rc;
-	}
-	usb_online = (bool)pval.intval;
-
-	rc = smblib_get_prop_dc_online(chg, &pval);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get dc online property rc=%d\n",
-			rc);
-		return rc;
-	}
-	dc_online = (bool)pval.intval;
-
-	if (!usb_online && !dc_online) {
-		val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
-		return rc;
-	}
 
 	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_1_REG, &stat);
 	if (rc < 0) {
@@ -1498,7 +1465,7 @@ int smblib_get_prop_dc_online(struct smb_charger *chg,
 		   stat);
 
 	val->intval = (stat & USE_DCIN_BIT) &&
-		      (stat & VALID_INPUT_POWER_SOURCE_BIT);
+		      (stat & VALID_INPUT_POWER_SOURCE_STS_BIT);
 
 	return rc;
 }
@@ -1511,7 +1478,7 @@ int smblib_get_prop_dc_current_max(struct smb_charger *chg,
 }
 
 /*******************
- * USB PSY SETTERS *
+ * DC PSY SETTERS *
  * *****************/
 
 int smblib_set_prop_dc_current_max(struct smb_charger *chg,
@@ -1564,7 +1531,7 @@ int smblib_get_prop_usb_online(struct smb_charger *chg,
 		   stat);
 
 	val->intval = (stat & USE_USBIN_BIT) &&
-		      (stat & VALID_INPUT_POWER_SOURCE_BIT);
+		      (stat & VALID_INPUT_POWER_SOURCE_STS_BIT);
 	return rc;
 }
 
@@ -1890,6 +1857,25 @@ int smblib_set_prop_usb_current_max(struct smb_charger *chg,
 			rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
 					false, 0);
 	}
+	return rc;
+}
+
+#define FSW_2MHZ		2000
+#define FSW_800KHZ_RESET	800
+int smblib_set_prop_boost_current(struct smb_charger *chg,
+				    const union power_supply_propval *val)
+{
+	int rc = 0;
+
+	rc = smblib_set_charge_param(chg, &chg->param.freq_boost,
+				val->intval <= chg->boost_threshold_ua ?
+				FSW_2MHZ : FSW_800KHZ_RESET);
+	if (rc < 0) {
+		dev_err(chg->dev, "Error in setting freq_boost rc=%d\n", rc);
+		return rc;
+	}
+
+	chg->boost_current_ua = val->intval;
 	return rc;
 }
 
@@ -2763,6 +2749,12 @@ static void typec_sink_insertion(struct smb_charger *chg)
 			false, 0);
 }
 
+static void typec_sink_removal(struct smb_charger *chg)
+{
+	smblib_set_charge_param(chg, &chg->param.freq_boost, FSW_800KHZ_RESET);
+	chg->boost_current_ua = 0;
+}
+
 static void smblib_handle_typec_removal(struct smb_charger *chg)
 {
 	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, true, 0);
@@ -2782,6 +2774,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	vote(chg->apsd_disable_votable, PD_HARD_RESET_VOTER, false, 0);
 
 	typec_source_removal(chg);
+	typec_sink_removal(chg);
 
 	smblib_update_usb_type(chg);
 }
@@ -2799,6 +2792,7 @@ static void smblib_handle_typec_insertion(struct smb_charger *chg,
 		typec_sink_insertion(chg);
 	} else {
 		typec_source_insertion(chg);
+		typec_sink_removal(chg);
 	}
 
 	vote(chg->pd_disallowed_votable_indirect, LEGACY_CABLE_VOTER,

@@ -1536,6 +1536,41 @@ static void check_preempt_curr_rt(struct rq *rq, struct task_struct *p, int flag
 #endif
 }
 
+#if defined(CONFIG_SMP) && defined(CONFIG_CPU_FREQ_GOV_SCHED)
+static void sched_rt_update_capacity_req(struct rq *rq)
+{
+	u64 total, used, age_stamp, avg;
+	s64 delta;
+
+	if (!sched_freq())
+		return;
+
+	sched_avg_update(rq);
+	/*
+	 * Since we're reading these variables without serialization make sure
+	 * we read them once before doing sanity checks on them.
+	 */
+	age_stamp = READ_ONCE(rq->age_stamp);
+	avg = READ_ONCE(rq->rt_avg);
+	delta = rq_clock(rq) - age_stamp;
+
+	if (unlikely(delta < 0))
+		delta = 0;
+
+	total = sched_avg_period() + delta;
+
+	used = div_u64(avg, total);
+	if (unlikely(used > SCHED_CAPACITY_SCALE))
+		used = SCHED_CAPACITY_SCALE;
+
+	set_rt_cpu_capacity(rq->cpu, 1, (unsigned long)(used));
+}
+#else
+static inline void sched_rt_update_capacity_req(struct rq *rq)
+{ }
+
+#endif
+
 static struct sched_rt_entity *pick_next_rt_entity(struct rq *rq,
 						   struct rt_rq *rt_rq)
 {
@@ -1604,8 +1639,17 @@ pick_next_task_rt(struct rq *rq, struct task_struct *prev)
 	if (prev->sched_class == &rt_sched_class)
 		update_curr_rt(rq);
 
-	if (!rt_rq->rt_queued)
+	if (!rt_rq->rt_queued) {
+		/*
+		 * The next task to be picked on this rq will have a lower
+		 * priority than rt tasks so we can spend some time to update
+		 * the capacity used by rt tasks based on the last activity.
+		 * This value will be the used as an estimation of the next
+		 * activity.
+		 */
+		sched_rt_update_capacity_req(rq);
 		return NULL;
+	}
 
 	put_prev_task(rq, prev);
 
@@ -1679,6 +1723,7 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	int i;
 	int restrict_cluster;
 	int boost_on_big;
+	int pack_task, wakeup_latency, least_wakeup_latency = INT_MAX;
 
 	boost_on_big = sched_boost() == FULL_THROTTLE_BOOST &&
 			sched_boost_policy() == SCHED_BOOST_ON_BIG;
@@ -1694,6 +1739,8 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 
 	if (!cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask))
 		return best_cpu; /* No targets found */
+
+	pack_task = is_short_burst_task(task);
 
 	/*
 	 * At this point we have built a mask of cpus representing the
@@ -1720,6 +1767,20 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 			if (!restrict_cluster)
 				cpu_load = scale_load_to_cpu(cpu_load, i);
 
+			if (pack_task) {
+				wakeup_latency = cpu_rq(i)->wakeup_latency;
+
+				if (wakeup_latency > least_wakeup_latency)
+					continue;
+
+				if (wakeup_latency < least_wakeup_latency) {
+					least_wakeup_latency = wakeup_latency;
+					min_load = cpu_load;
+					best_cpu = i;
+					continue;
+				}
+			}
+
 			if (cpu_load < min_load ||
 				(cpu_load == min_load &&
 				(i == prev_cpu || (best_cpu != prev_cpu &&
@@ -1728,6 +1789,7 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 				best_cpu = i;
 			}
 		}
+
 		if (restrict_cluster && best_cpu != -1)
 			break;
 	}
@@ -2408,6 +2470,9 @@ static void task_tick_rt(struct rq *rq, struct task_struct *p, int queued)
 	struct sched_rt_entity *rt_se = &p->rt;
 
 	update_curr_rt(rq);
+
+	if (rq->rt.rt_nr_running)
+		sched_rt_update_capacity_req(rq);
 
 	watchdog(rq, p);
 

@@ -243,6 +243,10 @@ struct msm_vfe_core_ops {
 	int (*start_fetch_eng_multi_pass)(struct vfe_device *vfe_dev,
 		void *arg);
 	void (*set_halt_restart_mask)(struct vfe_device *vfe_dev);
+	void (*set_bus_err_ign_mask)(struct vfe_device *vfe_dev,
+		int wm, int enable);
+	void (*get_bus_err_mask)(struct vfe_device *vfe_dev,
+		uint32_t *bus_err, uint32_t *irq_status1);
 };
 
 struct msm_vfe_stats_ops {
@@ -786,6 +790,8 @@ struct vfe_device {
 	/* irq info */
 	uint32_t irq0_mask;
 	uint32_t irq1_mask;
+
+	uint32_t bus_err_ign_mask;
 };
 
 struct vfe_parent_device {
