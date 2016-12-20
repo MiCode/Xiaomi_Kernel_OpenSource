@@ -216,7 +216,7 @@ static int dp_aux_write_cmds(struct mdss_dp_drv_pdata *ep,
 
 	len = dp_cmd_fifo_tx(&ep->txp, ep->base);
 
-	wait_for_completion(&ep->aux_comp);
+	wait_for_completion_timeout(&ep->aux_comp, HZ/4);
 
 	if (ep->aux_error_num == EDP_AUX_ERR_NONE)
 		ret = len;
@@ -272,7 +272,7 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 
 	dp_cmd_fifo_tx(tp, ep->base);
 
-	wait_for_completion(&ep->aux_comp);
+	wait_for_completion_timeout(&ep->aux_comp, HZ/4);
 
 	if (ep->aux_error_num == EDP_AUX_ERR_NONE) {
 		ret = dp_cmd_fifo_rx(rp, len, ep->base);
@@ -1509,18 +1509,18 @@ static void dp_host_train_set(struct mdss_dp_drv_pdata *ep, int train)
 }
 
 char vm_pre_emphasis[4][4] = {
-	{0x00, 0x09, 0x11, 0x0C},	/* pe0, 0 db */
-	{0x00, 0x0A, 0x10, 0xFF},	/* pe1, 3.5 db */
-	{0x00, 0x0C, 0xFF, 0xFF},	/* pe2, 6.0 db */
-	{0x00, 0xFF, 0xFF, 0xFF}	/* pe3, 9.5 db */
+	{0x00, 0x0B, 0x12, 0xFF},       /* pe0, 0 db */
+	{0x00, 0x0A, 0x12, 0xFF},       /* pe1, 3.5 db */
+	{0x00, 0x0C, 0xFF, 0xFF},       /* pe2, 6.0 db */
+	{0xFF, 0xFF, 0xFF, 0xFF}        /* pe3, 9.5 db */
 };
 
 /* voltage swing, 0.2v and 1.0v are not support */
 char vm_voltage_swing[4][4] = {
-	{0x07, 0x0f, 0x12, 0x1E}, /* sw0, 0.4v  */
+	{0x07, 0x0F, 0x14, 0xFF}, /* sw0, 0.4v  */
 	{0x11, 0x1D, 0x1F, 0xFF}, /* sw1, 0.6 v */
 	{0x18, 0x1F, 0xFF, 0xFF}, /* sw1, 0.8 v */
-	{0x1E, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
+	{0xFF, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
 
 static void dp_aux_set_voltage_and_pre_emphasis_lvl(
@@ -1533,6 +1533,14 @@ static void dp_aux_set_voltage_and_pre_emphasis_lvl(
 
 	value0 = vm_voltage_swing[(int)(dp->v_level)][(int)(dp->p_level)];
 	value1 = vm_pre_emphasis[(int)(dp->v_level)][(int)(dp->p_level)];
+
+	/* program default setting first */
+	dp_write(dp->phy_io.base + QSERDES_TX0_OFFSET + TXn_TX_DRV_LVL, 0x2A);
+	dp_write(dp->phy_io.base + QSERDES_TX1_OFFSET + TXn_TX_DRV_LVL, 0x2A);
+	dp_write(dp->phy_io.base + QSERDES_TX0_OFFSET + TXn_TX_EMP_POST1_LVL,
+		0x20);
+	dp_write(dp->phy_io.base + QSERDES_TX1_OFFSET + TXn_TX_EMP_POST1_LVL,
+		0x20);
 
 	/* Enable MUX to use Cursor values from these registers */
 	value0 |= BIT(5);
@@ -1600,10 +1608,10 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 
 	pr_debug("Entered++");
 
-	dp_host_train_set(ep, 0x01); /* train_1 */
 	dp_cap_lane_rate_set(ep);
 	dp_train_pattern_set_write(ep, 0x21); /* train_1 */
 	dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
+	dp_host_train_set(ep, 0x01); /* train_1 */
 
 	tries = 0;
 	old_v_level = ep->v_level;
@@ -1658,7 +1666,6 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 	dp_train_pattern_set_write(ep, pattern | 0x20);/* train_2 */
 
 	do  {
-		dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
 		dp_host_train_set(ep, pattern);
 
 		usleep_time = ep->dpcd.training_read_interval;
@@ -1678,6 +1685,7 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 		}
 
 		dp_sink_train_set_adjust(ep);
+		dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
 	} while (1);
 
 	return ret;
