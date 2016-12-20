@@ -124,6 +124,45 @@ static const struct soc_enum hdmi_config_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, hdmi_format),
 };
 
+static int msm_dai_q6_ext_disp_drift_info(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	uinfo->count = sizeof(struct afe_param_id_dev_timing_stats);
+
+	return 0;
+}
+
+static int msm_dai_q6_ext_disp_drift_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = -EINVAL;
+	struct afe_param_id_dev_timing_stats timing_stats;
+	struct snd_soc_dai *dai = kcontrol->private_data;
+	struct msm_dai_q6_hdmi_dai_data *dai_data = dev_get_drvdata(dai->dev);
+
+	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+		pr_err("%s:  afe port not started. status_mask = %ld\n",
+			__func__, *dai_data->status_mask);
+		goto done;
+	}
+
+	memset(&timing_stats, 0, sizeof(struct afe_param_id_dev_timing_stats));
+	ret = afe_get_av_dev_drift(&timing_stats, dai->id);
+	if (ret) {
+		pr_err("%s: Error getting AFE Drift for port %d, err=%d\n",
+			__func__, dai->id, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	memcpy(ucontrol->value.bytes.data, (void *)&timing_stats,
+	       sizeof(struct afe_param_id_dev_timing_stats));
+done:
+	return ret;
+}
+
 static const struct snd_kcontrol_new hdmi_config_controls[] = {
 	SOC_ENUM_EXT("HDMI RX Format", hdmi_config_enum[0],
 				 msm_dai_q6_ext_disp_format_get,
@@ -132,6 +171,13 @@ static const struct snd_kcontrol_new hdmi_config_controls[] = {
 				 HDMI_RX_CA_MAX, 0, 1,
 				 msm_dai_q6_ext_disp_ca_get,
 				 msm_dai_q6_ext_disp_ca_put),
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READ,
+		.iface	= SNDRV_CTL_ELEM_IFACE_PCM,
+		.name	= "HDMI RX Drift",
+		.info	= msm_dai_q6_ext_disp_drift_info,
+		.get	= msm_dai_q6_ext_disp_drift_get,
+	},
 };
 
 static const struct snd_kcontrol_new display_port_config_controls[] = {
@@ -142,6 +188,13 @@ static const struct snd_kcontrol_new display_port_config_controls[] = {
 				 HDMI_RX_CA_MAX, 0, 1,
 				 msm_dai_q6_ext_disp_ca_get,
 				 msm_dai_q6_ext_disp_ca_put),
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READ,
+		.iface	= SNDRV_CTL_ELEM_IFACE_PCM,
+		.name	= "DISPLAY Port RX Drift",
+		.info	= msm_dai_q6_ext_disp_drift_info,
+		.get	= msm_dai_q6_ext_disp_drift_get,
+	},
 };
 
 /* Current implementation assumes hw_param is called once
@@ -297,6 +350,10 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 		kcontrol = &hdmi_config_controls[1];
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(kcontrol, dai_data));
+
+		kcontrol = &hdmi_config_controls[2];
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(kcontrol, dai));
 	} else if (dai->driver->id == DISPLAY_PORT_RX) {
 		kcontrol = &display_port_config_controls[0];
 		rc = snd_ctl_add(dai->component->card->snd_card,
@@ -305,6 +362,10 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 		kcontrol = &display_port_config_controls[1];
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(kcontrol, dai_data));
+
+		kcontrol = &display_port_config_controls[2];
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				snd_ctl_new1(kcontrol, dai));
 	} else {
 		dev_err(dai->dev, "%s: Invalid id:%d\n",
 			__func__, dai->driver->id);
