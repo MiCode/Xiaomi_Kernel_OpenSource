@@ -465,6 +465,10 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 	unsigned long lock_flags;
 	struct sde_encoder_phys_vid *vid_enc =
 			to_sde_encoder_phys_vid(phys_enc);
+	struct sde_hw_intf_cfg intf_cfg = { 0 };
+	struct sde_hw_intf *intf = vid_enc->hw_intf;
+	struct sde_hw_ctl *ctl = phys_enc->hw_ctl;
+	u32 flush_mask = 0;
 
 	if (!vid_enc->hw_intf || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid hw: intf %pK ctl %pK\n", vid_enc->hw_intf,
@@ -477,13 +481,19 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 	if (WARN_ON(!vid_enc->hw_intf->ops.enable_timing))
 		return;
 
+	if (WARN_ON(!phys_enc->hw_ctl->ops.setup_intf_cfg))
+		return;
+
 	if (WARN_ON(phys_enc->enable_state == SDE_ENC_DISABLED))
 		return;
 
 	spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
+	phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl, &intf_cfg);
 	vid_enc->hw_intf->ops.enable_timing(vid_enc->hw_intf, 0);
 	reinit_completion(&vid_enc->vblank_completion);
 	phys_enc->enable_state = SDE_ENC_DISABLED;
+	ctl->ops.get_bitmask_intf(ctl, &flush_mask, intf->idx);
+	ctl->ops.update_pending_flush(ctl, flush_mask);
 	spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
 
 	/*
