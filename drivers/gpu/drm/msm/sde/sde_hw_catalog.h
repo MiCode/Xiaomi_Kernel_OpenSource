@@ -472,12 +472,14 @@ struct sde_ctl_cfg {
  * @sblk:              SSPP sub-blocks information
  * @xin_id:            bus client identifier
  * @clk_ctrl           clock control identifier
+ * @type               sspp type identifier
  */
 struct sde_sspp_cfg {
 	SDE_HW_BLK_INFO;
 	const struct sde_sspp_sub_blks *sblk;
 	u32 xin_id;
 	enum sde_clk_ctrl_type clk_ctrl;
+	u32 type;
 };
 
 /**
@@ -654,6 +656,10 @@ struct sde_perf_cfg {
  * @smart_dma_rev      Supported version of SmartDMA feature.
  * @has_src_split      source split feature status
  * @has_cdp            Client driver prefetch feature status
+ * @dma_formats        Supported formats for dma pipe
+ * @cursor_formats     Supported formats for cursor pipe
+ * @vig_formats        Supported formats for vig pipe
+ * @wb_formats         Supported formats for wb
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -708,6 +714,10 @@ struct sde_mdss_cfg {
 	/* Add additional block data structures here */
 
 	struct sde_perf_cfg perf;
+	struct sde_format_extended *dma_formats;
+	struct sde_format_extended *cursor_formats;
+	struct sde_format_extended *vig_formats;
+	struct sde_format_extended *wb_formats;
 };
 
 struct sde_mdss_hw_cfg_handler {

@@ -441,6 +441,38 @@ static struct sde_prop_type reg_dma_prop[REG_DMA_PROP_MAX] = {
 /*************************************************************
  * static API list
  *************************************************************/
+
+/**
+ * _sde_copy_formats   - copy formats from src_list to dst_list
+ * @dst_list:          pointer to destination list where to copy formats
+ * @dst_list_size:     size of destination list
+ * @dst_list_pos:      starting position on the list where to copy formats
+ * @src_list:          pointer to source list where to copy formats from
+ * @src_list_size:     size of source list
+ * Return: number of elements populated
+ */
+static uint32_t _sde_copy_formats(
+		struct sde_format_extended *dst_list,
+		uint32_t dst_list_size,
+		uint32_t dst_list_pos,
+		const struct sde_format_extended *src_list,
+		uint32_t src_list_size)
+{
+	uint32_t cur_pos, i;
+
+	if (!dst_list || !src_list || (dst_list_pos >= (dst_list_size - 1)))
+		return 0;
+
+	for (i = 0, cur_pos = dst_list_pos;
+		(cur_pos < (dst_list_size - 1)) && src_list[i].fourcc_format
+		&& (i < src_list_size); ++i, ++cur_pos)
+		dst_list[cur_pos] = src_list[i];
+
+	dst_list[cur_pos].fourcc_format = 0;
+
+	return i;
+}
+
 static int _parse_dt_u32_handler(struct device_node *np,
 	char *prop_name, u32 *offsets, int len, bool mandatory)
 {
@@ -695,7 +727,7 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 	sspp->id = SSPP_VIG0 + *vig_count;
 	snprintf(sspp->name, SDE_HW_BLK_NAME_LEN, "sspp_%u", sspp->id);
 	sspp->clk_ctrl = SDE_CLK_CTRL_VIG0 + *vig_count;
-	sblk->format_list = plane_formats_yuv;
+	sspp->type = SSPP_TYPE_VIG;
 	set_bit(SDE_SSPP_QOS, &sspp->features);
 	(*vig_count)++;
 
@@ -781,7 +813,7 @@ static void _sde_sspp_setup_rgb(struct sde_mdss_cfg *sde_cfg,
 	sspp->id = SSPP_RGB0 + *rgb_count;
 	snprintf(sspp->name, SDE_HW_BLK_NAME_LEN, "sspp_%u", sspp->id);
 	sspp->clk_ctrl = SDE_CLK_CTRL_RGB0 + *rgb_count;
-	sblk->format_list = plane_formats;
+	sspp->type = SSPP_TYPE_RGB;
 	set_bit(SDE_SSPP_QOS, &sspp->features);
 	(*rgb_count)++;
 
@@ -829,7 +861,7 @@ static void _sde_sspp_setup_cursor(struct sde_mdss_cfg *sde_cfg,
 	sspp->id = SSPP_CURSOR0 + *cursor_count;
 	snprintf(sspp->name, SDE_HW_BLK_NAME_LEN, "sspp_%u", sspp->id);
 	sspp->clk_ctrl = SDE_CLK_CTRL_CURSOR0 + *cursor_count;
-	sblk->format_list = plane_formats;
+	sspp->type = SSPP_TYPE_CURSOR;
 	(*cursor_count)++;
 }
 
@@ -842,7 +874,7 @@ static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 	sspp->id = SSPP_DMA0 + *dma_count;
 	sspp->clk_ctrl = SDE_CLK_CTRL_DMA0 + *dma_count;
 	snprintf(sspp->name, SDE_HW_BLK_NAME_LEN, "sspp_%u", sspp->id);
-	sblk->format_list = plane_formats;
+	sspp->type = SSPP_TYPE_DMA;
 	set_bit(SDE_SSPP_QOS, &sspp->features);
 	(*dma_count)++;
 }
@@ -1364,7 +1396,6 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 		wb->xin_id = PROP_VALUE_ACCESS(prop_value, WB_XIN_ID, i);
 		wb->vbif_idx = VBIF_NRT;
 		wb->len = PROP_VALUE_ACCESS(prop_value, WB_LEN, 0);
-		wb->format_list = wb2_formats;
 		if (!prop_exists[WB_LEN])
 			wb->len = DEFAULT_SDE_HW_BLOCK_LEN;
 		sblk->maxlinewidth = sde_cfg->max_wb_linewidth;
@@ -2065,8 +2096,124 @@ end:
 	return rc;
 }
 
-static void sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
+static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
+	uint32_t hw_rev)
 {
+	int i, rc = 0;
+	uint32_t dma_list_size, vig_list_size, wb2_list_size;
+	uint32_t cursor_list_size = 0;
+	struct sde_sspp_sub_blks *sblk;
+	uint32_t index = 0;
+
+	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300)) {
+		cursor_list_size = ARRAY_SIZE(cursor_formats);
+		sde_cfg->cursor_formats = kcalloc(cursor_list_size,
+			sizeof(struct sde_format_extended), GFP_KERNEL);
+		if (!sde_cfg->cursor_formats) {
+			rc = -ENOMEM;
+			goto end;
+		}
+		index = _sde_copy_formats(sde_cfg->cursor_formats,
+			cursor_list_size, 0, cursor_formats,
+			ARRAY_SIZE(cursor_formats));
+	}
+
+	dma_list_size = ARRAY_SIZE(plane_formats);
+	vig_list_size = ARRAY_SIZE(plane_formats_yuv);
+	wb2_list_size = ARRAY_SIZE(wb2_formats);
+
+	dma_list_size += ARRAY_SIZE(rgb_10bit_formats);
+	vig_list_size += ARRAY_SIZE(rgb_10bit_formats)
+		+ ARRAY_SIZE(tp10_ubwc_formats)
+		+ ARRAY_SIZE(p010_formats);
+	wb2_list_size += ARRAY_SIZE(rgb_10bit_formats)
+		+ ARRAY_SIZE(tp10_ubwc_formats);
+
+	sde_cfg->dma_formats = kcalloc(dma_list_size,
+		sizeof(struct sde_format_extended), GFP_KERNEL);
+	if (!sde_cfg->dma_formats) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	sde_cfg->vig_formats = kcalloc(vig_list_size,
+		sizeof(struct sde_format_extended), GFP_KERNEL);
+	if (!sde_cfg->vig_formats) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	sde_cfg->wb_formats = kcalloc(wb2_list_size,
+		sizeof(struct sde_format_extended), GFP_KERNEL);
+	if (!sde_cfg->wb_formats) {
+		SDE_ERROR("failed to allocate wb format list\n");
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	index = _sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
+		0, plane_formats, ARRAY_SIZE(plane_formats));
+	index += _sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
+		index, rgb_10bit_formats,
+		ARRAY_SIZE(rgb_10bit_formats));
+
+	index = _sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
+		0, plane_formats_yuv, ARRAY_SIZE(plane_formats_yuv));
+	index += _sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
+		index, rgb_10bit_formats,
+		ARRAY_SIZE(rgb_10bit_formats));
+	index += _sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
+		index, p010_formats, ARRAY_SIZE(p010_formats));
+
+	index += _sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
+		index, tp10_ubwc_formats,
+		ARRAY_SIZE(tp10_ubwc_formats));
+
+	index = _sde_copy_formats(sde_cfg->wb_formats, wb2_list_size,
+		0, wb2_formats, ARRAY_SIZE(wb2_formats));
+	index += _sde_copy_formats(sde_cfg->wb_formats, wb2_list_size,
+		index, rgb_10bit_formats,
+		ARRAY_SIZE(rgb_10bit_formats));
+	index += _sde_copy_formats(sde_cfg->wb_formats, wb2_list_size,
+		index, tp10_ubwc_formats,
+		ARRAY_SIZE(tp10_ubwc_formats));
+
+	for (i = 0; i < sde_cfg->sspp_count; ++i) {
+		struct sde_sspp_cfg *sspp = &sde_cfg->sspp[i];
+
+		sblk = (struct sde_sspp_sub_blks *)sspp->sblk;
+		switch (sspp->type) {
+		case SSPP_TYPE_VIG:
+			sblk->format_list = sde_cfg->vig_formats;
+			break;
+		case SSPP_TYPE_CURSOR:
+			if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300))
+				sblk->format_list = sde_cfg->cursor_formats;
+			else
+				SDE_ERROR("invalid sspp type %d, xin id %d\n",
+					sspp->type, sspp->xin_id);
+			break;
+		case SSPP_TYPE_DMA:
+			sblk->format_list = sde_cfg->dma_formats;
+			break;
+		default:
+			SDE_ERROR("invalid sspp type %d\n", sspp->type);
+			rc = -EINVAL;
+			goto end;
+		}
+	}
+
+	for (i = 0; i < sde_cfg->wb_count; ++i)
+		sde_cfg->wb[i].format_list = sde_cfg->wb_formats;
+
+end:
+	return rc;
+}
+
+static int sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
+{
+	int rc = 0;
+
 	switch (hw_rev) {
 	case SDE_HW_VER_170:
 	case SDE_HW_VER_171:
@@ -2074,10 +2221,14 @@ static void sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		/* update msm8996 target here */
 		break;
 	case SDE_HW_VER_300:
+	case SDE_HW_VER_301:
 	case SDE_HW_VER_400:
 		/* update msm8998 and sdm845 target here */
+		rc = sde_hardware_format_caps(sde_cfg, hw_rev);
 		break;
 	}
+
+	return rc;
 }
 
 void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
@@ -2106,6 +2257,12 @@ void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 		kfree(sde_cfg->vbif[i].dynamic_ot_rd_tbl.cfg);
 		kfree(sde_cfg->vbif[i].dynamic_ot_wr_tbl.cfg);
 	}
+
+	kfree(sde_cfg->dma_formats);
+	kfree(sde_cfg->cursor_formats);
+	kfree(sde_cfg->vig_formats);
+	kfree(sde_cfg->wb_formats);
+
 	kfree(sde_cfg);
 }
 
@@ -2174,7 +2331,9 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 	if (rc)
 		goto end;
 
-	sde_hardware_caps(sde_cfg, hw_rev);
+	rc = sde_hardware_caps(sde_cfg, hw_rev);
+	if (rc)
+		goto end;
 
 	return sde_cfg;
 
