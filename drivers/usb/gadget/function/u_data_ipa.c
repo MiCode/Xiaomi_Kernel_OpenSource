@@ -837,13 +837,16 @@ void ipa_data_suspend(struct gadget_ipa_port *gp, enum ipa_func_type func,
 		 * the BAM disconnect API. This lets us restore this info when
 		 * the USB bus is resumed.
 		 */
-		gp->in_ep_desc_backup = gp->in->desc;
-		gp->out_ep_desc_backup = gp->out->desc;
-
-		pr_debug("in_ep_desc_backup = %p, out_ep_desc_backup = %p",
-			gp->in_ep_desc_backup,
-			gp->out_ep_desc_backup);
-
+		if (gp->in) {
+			gp->in_ep_desc_backup = gp->in->desc;
+			pr_debug("in_ep_desc_backup = %p\n",
+				gp->in_ep_desc_backup);
+		}
+		if (gp->out) {
+			gp->out_ep_desc_backup = gp->out->desc;
+			pr_debug("out_ep_desc_backup = %p\n",
+				gp->out_ep_desc_backup);
+		}
 		ipa_data_disconnect(gp, func);
 		return;
 	}
@@ -919,8 +922,8 @@ void ipa_data_resume(struct gadget_ipa_port *gp, enum ipa_func_type func,
 	struct ipa_data_ch_info *port;
 	unsigned long flags;
 	struct usb_gadget *gadget = NULL;
-	u8 src_connection_idx;
-	u8 dst_connection_idx;
+	u8 src_connection_idx = 0;
+	u8 dst_connection_idx = 0;
 	enum usb_ctrl usb_bam_type;
 
 	pr_debug("dev:%p port number:%d\n", gp, func);
@@ -944,20 +947,25 @@ void ipa_data_resume(struct gadget_ipa_port *gp, enum ipa_func_type func,
 	gadget = gp->cdev->gadget;
 	/* resume with remote wakeup disabled */
 	if (!remote_wakeup_enabled) {
-		/* Restore endpoint descriptors info. */
-		gp->in->desc = gp->in_ep_desc_backup;
-		gp->out->desc = gp->out_ep_desc_backup;
-
-		pr_debug("in_ep_desc_backup = %p, out_ep_desc_backup = %p",
-			gp->in_ep_desc_backup,
-			gp->out_ep_desc_backup);
+		int bam_pipe_num = (func == USB_IPA_FUNC_DPL) ? 1 : 0;
 		usb_bam_type = usb_bam_get_bam_type(gadget->name);
-		src_connection_idx = usb_bam_get_connection_idx(usb_bam_type,
-			IPA_P_BAM, USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE,
-			0);
-		dst_connection_idx = usb_bam_get_connection_idx(usb_bam_type,
-			IPA_P_BAM, PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE,
-			0);
+		/* Restore endpoint descriptors info. */
+		if (gp->in) {
+			gp->in->desc = gp->in_ep_desc_backup;
+			pr_debug("in_ep_desc_backup = %p\n",
+				gp->in_ep_desc_backup);
+			dst_connection_idx = usb_bam_get_connection_idx(
+				usb_bam_type, IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
+				USB_BAM_DEVICE, bam_pipe_num);
+		}
+		if (gp->out) {
+			gp->out->desc = gp->out_ep_desc_backup;
+			pr_debug("out_ep_desc_backup = %p\n",
+				gp->out_ep_desc_backup);
+			src_connection_idx = usb_bam_get_connection_idx(
+				usb_bam_type, IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
+				USB_BAM_DEVICE, bam_pipe_num);
+		}
 		ipa_data_connect(gp, func,
 				src_connection_idx, dst_connection_idx);
 		return;
