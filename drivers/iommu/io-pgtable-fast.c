@@ -437,7 +437,7 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 		reg = (AV8L_FAST_TCR_SH_OS << AV8L_FAST_TCR_SH0_SHIFT) |
 			(AV8L_FAST_TCR_RGN_NC << AV8L_FAST_TCR_IRGN0_SHIFT) |
 			(AV8L_FAST_TCR_RGN_WBWA << AV8L_FAST_TCR_ORGN0_SHIFT);
-	else if (cfg->iommu_dev && cfg->iommu_dev->archdata.dma_coherent)
+	else if (cfg->quirks & IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT)
 		reg = (AV8L_FAST_TCR_SH_OS << AV8L_FAST_TCR_SH0_SHIFT) |
 			(AV8L_FAST_TCR_RGN_WBWA << AV8L_FAST_TCR_IRGN0_SHIFT) |
 			(AV8L_FAST_TCR_RGN_WBWA << AV8L_FAST_TCR_ORGN0_SHIFT);
@@ -583,6 +583,7 @@ static int __init av8l_fast_positive_testing(void)
 	av8l_fast_iopte *pmds;
 
 	cfg = (struct io_pgtable_cfg) {
+		.quirks = 0,
 		.tlb = &dummy_tlb_ops,
 		.ias = 32,
 		.oas = 32,
