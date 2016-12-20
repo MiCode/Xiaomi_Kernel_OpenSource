@@ -2115,7 +2115,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 		set_task_cpu(p, cpu);
 	}
 
-	set_task_last_wake(p, wallclock);
+	note_task_waking(p, wallclock);
 #endif /* CONFIG_SMP */
 	ttwu_queue(p, cpu);
 stat:
@@ -2184,7 +2184,7 @@ static void try_to_wake_up_local(struct task_struct *p)
 		update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 		update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
 		ttwu_activate(rq, p, ENQUEUE_WAKEUP);
-		set_task_last_wake(p, wallclock);
+		note_task_waking(p, wallclock);
 	}
 
 	ttwu_do_wakeup(rq, p, 0);
