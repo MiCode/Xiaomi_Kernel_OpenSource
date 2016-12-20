@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1075,11 +1075,13 @@ void _sde_rm_release_rsvp(
 
 	kfree(rsvp);
 
-	(void) msm_property_set_property(
-			sde_connector_get_propinfo(conn),
-			sde_connector_get_property_values(conn->state),
-			CONNECTOR_PROP_TOPOLOGY_NAME,
-			SDE_RM_TOPOLOGY_UNKNOWN);
+	/* if no remaining reservation, then clear the topology name */
+	if (!_sde_rm_get_rsvp(rm, conn->encoder))
+		(void) msm_property_set_property(
+				sde_connector_get_propinfo(conn),
+				sde_connector_get_property_values(conn->state),
+				CONNECTOR_PROP_TOPOLOGY_NAME,
+				SDE_RM_TOPOLOGY_UNKNOWN);
 }
 
 void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
