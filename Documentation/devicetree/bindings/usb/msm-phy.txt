@@ -104,7 +104,7 @@ Required properties:
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd" : vdd supply for SSPHY digital circuit operation
-	"vdda18" : 1.8v high-voltage analog supply for SSPHY
+	"core" : high-voltage analog supply for SSPHY
  - qcom,vdd-voltage-level: This property must be a list of three integer
    values (no, min, max) where each value represents either a voltage in
    microvolts or a value corresponding to voltage corner
@@ -121,6 +121,9 @@ Optional properties:
    value, single ended clk value, delay after register write.
  - qcom,qmp-phy-reg-offset: If present stores phy register offsets in an order
    defined in the phy driver.
+ - qcom,core-voltage-level: This property must be a list of three integer
+   values (no, min, max) where each value represents either a voltage in
+   microvolts or a value corresponding to voltage corner.
 
 Example:
 	ssphy0: ssphy@f9b38000 {

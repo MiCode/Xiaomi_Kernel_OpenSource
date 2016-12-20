@@ -2242,7 +2242,7 @@
 					0x974 0x8d8 0x8dc 0x804 0x800
 					0x808>;
 		vdd-supply = <&pm8953_l3>;
-		vdda18-supply = <&pm8953_l7>;
+		core-supply = <&pm8953_l7>;
 		qcom,vdd-voltage-level = <0 925000 925000>;
 		qcom,vbus-valid-override;
 

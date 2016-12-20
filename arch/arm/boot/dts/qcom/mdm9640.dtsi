@@ -1322,7 +1322,7 @@
 		reg-names = "qmp_phy_base",
 			    "vls_clamp_reg";
 		vdd-supply = <&pmd9635_l4>;
-		vdda18-supply = <&pmd9635_l8>;
+		core-supply = <&pmd9635_l8>;
 		qcom,vdd-voltage-level = <0 1000000 1000000>;
 		qcom,vbus-valid-override;
 		qcom,override-pll-calibration;
