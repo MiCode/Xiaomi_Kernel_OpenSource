@@ -344,6 +344,7 @@
 			<0x34 275>, /* qmp_usb3_lfps_rxterm_irq_cx */
 			<0x4f 379>, /* qusb2phy_intr */
 			<0x57 358>, /* ee0_apps_hlos_spmi_periph_irq */
+			<0x5b 519>, /* lpass_pmu_tmr_timeout_irq_cx */
 			<0xff 16>,  /* APC[0-7]_qgicQTmrHypPhysIrptReq */
 			<0xff 17>,  /* APC[0-7]_qgicQTmrSecPhysIrptReq */
 			<0xff 18>,  /* APC[0-7]_qgicQTmrNonSecPhysIrptReq */
@@ -708,7 +709,6 @@
 			<0xff 515>, /* turing_irq_out_vmm[3] */
 			<0xff 516>, /* lpass_irq_out_apcs[41] */
 			<0xff 517>, /* lpass_irq_out_apcs[42] */
-			<0xff 519>, /* lpass_irq_out_apcs[44] */
 			<0xff 520>, /* lpass_irq_out_apcs[45] */
 			<0xff 544>, /* turing_irq_out_apcs[00] */
 			<0xff 545>, /* turing_irq_out_apcs[01] */
