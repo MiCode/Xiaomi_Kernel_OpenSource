@@ -2744,6 +2744,44 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 	return 0;
 }
 
+static int msm_compr_get_metadata(struct snd_compr_stream *cstream,
+				struct snd_compr_metadata *metadata)
+{
+	struct msm_compr_audio *prtd;
+	struct audio_client *ac;
+	int ret = -EINVAL;
+
+	pr_debug("%s\n", __func__);
+
+	if (!metadata || !cstream || !cstream->runtime)
+		return ret;
+
+	if (metadata->key != SNDRV_COMPRESS_PATH_DELAY) {
+		pr_err("%s, unsupported key %d\n", __func__, metadata->key);
+		return ret;
+	}
+
+	prtd = cstream->runtime->private_data;
+	if (!prtd || !prtd->audio_client) {
+		pr_err("%s: prtd or audio client is NULL\n", __func__);
+		return ret;
+	}
+
+	ac = prtd->audio_client;
+	ret = q6asm_get_path_delay(prtd->audio_client);
+	if (ret) {
+		pr_err("%s: get_path_delay failed, ret=%d\n", __func__, ret);
+		return ret;
+	}
+
+	pr_debug("%s, path delay(in us) %u\n", __func__, ac->path_delay);
+
+	metadata->value[0] = ac->path_delay;
+
+	return ret;
+}
+
+
 static int msm_compr_set_next_track_param(struct snd_compr_stream *cstream,
 				union snd_codec_options *codec_options)
 {
@@ -3891,6 +3929,7 @@ static struct snd_compr_ops msm_compr_ops = {
 	.pointer		= msm_compr_pointer,
 	.set_params		= msm_compr_set_params,
 	.set_metadata		= msm_compr_set_metadata,
+	.get_metadata		= msm_compr_get_metadata,
 	.set_next_track_param	= msm_compr_set_next_track_param,
 	.ack			= msm_compr_ack,
 	.copy			= msm_compr_copy,
