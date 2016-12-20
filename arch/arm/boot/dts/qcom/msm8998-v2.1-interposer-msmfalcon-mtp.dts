@@ -104,10 +104,6 @@
 	core-supply = <&pmfalcon_l1>;
 };
 
-&pm2falcon_wled {
-	qcom,led-strings-list = [00 01];
-};
-
 &mdss_dsi {
 	hw-config = "split_dsi";
 	vdda-1p2-supply = <&pmfalcon_l1>;
