@@ -80,6 +80,25 @@ config QCOM_SMEM
 	  The driver provides an interface to items in a heap shared among all
 	  processors in a Qualcomm platform.
 
+config MSM_SERVICE_LOCATOR
+	bool "Service Locator"
+	depends on MSM_QMI_INTERFACE
+	help
+	  The Service Locator provides a library to retrieve location
+	  information given a service identifier. Location here translates
+	  to what process domain exports the service, and which subsystem
+	  that process domain will execute in.
+
+config MSM_SERVICE_NOTIFIER
+	bool "Service Notifier"
+	depends on MSM_SERVICE_LOCATOR && MSM_SUBSYSTEM_RESTART
+	help
+	  The Service Notifier provides a library for a kernel client to
+	  register for state change notifications regarding a remote service.
+	  A remote service here refers to a process providing certain services
+	  like audio, the identifier for which is provided by the service
+	  locator.
+
 config QCOM_SMD
 	tristate "Qualcomm Shared Memory Driver (SMD)"
 	depends on QCOM_SMEM
