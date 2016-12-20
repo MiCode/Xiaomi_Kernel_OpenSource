@@ -122,6 +122,9 @@ void kgsl_pwrscale_busy(struct kgsl_device *device);
 void kgsl_pwrscale_sleep(struct kgsl_device *device);
 void kgsl_pwrscale_wake(struct kgsl_device *device);
 
+void kgsl_pwrscale_midframe_timer_restart(struct kgsl_device *device);
+void kgsl_pwrscale_midframe_timer_cancel(struct kgsl_device *device);
+
 void kgsl_pwrscale_enable(struct kgsl_device *device);
 void kgsl_pwrscale_disable(struct kgsl_device *device, bool turbo);
 
