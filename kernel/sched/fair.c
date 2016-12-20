@@ -6573,8 +6573,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	int target_cpu = task_cpu(p);
 	unsigned long task_util_boosted, new_util;
 	int i;
+	int cpu = smp_processor_id();
 
-	if (sysctl_sched_sync_hint_enable && sync) {
+	if (sysctl_sched_sync_hint_enable && sync && !cpu_overutilized(cpu)) {
 		int cpu = smp_processor_id();
 		cpumask_t search_cpus;
 		cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_online_mask);
