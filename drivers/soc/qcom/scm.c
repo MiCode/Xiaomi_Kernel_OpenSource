@@ -134,6 +134,7 @@ struct scm_response {
 #define R3_STR "r3"
 #define R4_STR "r4"
 #define R5_STR "r5"
+#define R6_STR "r6"
 
 #endif
 
@@ -481,6 +482,7 @@ static int __scm_call_armv8_32(u32 w0, u32 w1, u32 w2, u32 w3, u32 w4, u32 w5,
 	register u32 r3 asm("r3") = w3;
 	register u32 r4 asm("r4") = w4;
 	register u32 r5 asm("r5") = w5;
+	register u32 r6 asm("r6") = 0;
 
 	do {
 		asm volatile(
@@ -494,13 +496,14 @@ static int __scm_call_armv8_32(u32 w0, u32 w1, u32 w2, u32 w3, u32 w4, u32 w5,
 			__asmeq("%7", R3_STR)
 			__asmeq("%8", R4_STR)
 			__asmeq("%9", R5_STR)
+			__asmeq("%10", R6_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
 			"smc	#0\n"
 			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3)
 			: "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4),
-			 "r" (r5));
+			 "r" (r5), "r" (r6));
 
 	} while (r0 == SCM_INTERRUPTED);
 
