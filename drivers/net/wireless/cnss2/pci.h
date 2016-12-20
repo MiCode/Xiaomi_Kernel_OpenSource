@@ -14,6 +14,7 @@
 #define _CNSS_PCI_H
 
 #include <asm/dma-iommu.h>
+#include <linux/msm_mhi.h>
 #include <linux/msm_pcie.h>
 #include <linux/pci.h>
 
@@ -26,6 +27,17 @@
 #define QCA6174_REV3_2_VERSION		0x5030000
 #define QCA6290_VENDOR_ID		0x168C
 #define QCA6290_DEVICE_ID		0xABCD
+
+enum cnss_mhi_state {
+	CNSS_MHI_INIT,
+	CNSS_MHI_DEINIT,
+	CNSS_MHI_SUSPEND,
+	CNSS_MHI_RESUME,
+	CNSS_MHI_POWER_ON,
+	CNSS_MHI_POWER_OFF,
+	CNSS_MHI_RAM_DUMP,
+	CNSS_MHI_NOTIFY_LINK_ERROR,
+};
 
 struct cnss_msi_user {
 	char *name;
@@ -57,6 +69,8 @@ struct cnss_pci_data {
 	void __iomem *bar;
 	struct cnss_msi_config *msi_config;
 	uint32_t msi_ep_base_data;
+	struct mhi_device mhi_dev;
+	unsigned long mhi_state;
 };
 
 static inline void cnss_set_pci_priv(struct pci_dev *pci_dev, void *data)
@@ -110,5 +124,9 @@ int cnss_pci_init(struct cnss_plat_data *plat_priv);
 void cnss_pci_deinit(struct cnss_plat_data *plat_priv);
 int cnss_pci_get_bar_info(struct cnss_pci_data *pci_priv, void __iomem **va,
 			  phys_addr_t *pa);
+int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
+			   enum cnss_mhi_state state);
+int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv);
+void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv);
 
 #endif /* _CNSS_PCI_H */
