@@ -2126,6 +2126,9 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	vig_list_size += ARRAY_SIZE(rgb_10bit_formats)
 		+ ARRAY_SIZE(tp10_ubwc_formats)
 		+ ARRAY_SIZE(p010_formats);
+	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400))
+		vig_list_size += ARRAY_SIZE(p010_ubwc_formats);
+
 	wb2_list_size += ARRAY_SIZE(rgb_10bit_formats)
 		+ ARRAY_SIZE(tp10_ubwc_formats);
 
@@ -2164,6 +2167,10 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		ARRAY_SIZE(rgb_10bit_formats));
 	index += _sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
 		index, p010_formats, ARRAY_SIZE(p010_formats));
+	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400))
+		index += _sde_copy_formats(sde_cfg->vig_formats,
+			vig_list_size, index, p010_ubwc_formats,
+			ARRAY_SIZE(p010_ubwc_formats));
 
 	index += _sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
 		index, tp10_ubwc_formats,
