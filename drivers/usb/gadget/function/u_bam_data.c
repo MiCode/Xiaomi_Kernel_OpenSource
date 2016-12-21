@@ -935,7 +935,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			| MSM_PRODUCER | d->src_pipe_idx;
 		d->rx_req->length = 32*1024;
 		d->rx_req->udc_priv = sps_params;
-		msm_ep_config(port->port_usb->out, d->rx_req, GFP_ATOMIC);
+		msm_ep_config(port->port_usb->out, d->rx_req);
 
 		/* Configure TX */
 		configure_usb_data_fifo(d->usb_bam_type,
@@ -945,7 +945,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 					| d->dst_pipe_idx;
 		d->tx_req->length = 32*1024;
 		d->tx_req->udc_priv = sps_params;
-		msm_ep_config(port->port_usb->in, d->tx_req, GFP_ATOMIC);
+		msm_ep_config(port->port_usb->in, d->tx_req);
 
 	} else {
 		/* Configure RX */
