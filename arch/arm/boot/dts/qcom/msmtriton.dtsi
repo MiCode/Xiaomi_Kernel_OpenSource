@@ -874,12 +874,14 @@
 		qcom,proxy-reg-names = "vdd";
 
 		clocks = <&clock_mmss MMSS_VIDEO_CORE_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
 			<&clock_mmss MMSS_VIDEO_AHB_CLK>,
+			<&clock_rpmcc MMSSNOC_AXI_CLK>,
 			<&clock_mmss MMSS_VIDEO_AXI_CLK>;
-		clock-names = "core_clk","iface_clk",
-			"bus_clk";
-		qcom,proxy-clock-names = "core_clk",
-			"iface_clk","bus_clk";
+		clock-names = "core_clk", "mnoc_ahb_clk", "iface_clk",
+			"noc_axi_clk", "bus_clk";
+		qcom,proxy-clock-names = "core_clk", "mnoc_ahb_clk",
+			"iface_clk", "noc_axi_clk", "bus_clk";
 
 		qcom,msm-bus,name = "pil-venus";
 		qcom,msm-bus,num-cases = <2>;
