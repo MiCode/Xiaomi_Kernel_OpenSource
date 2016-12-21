@@ -822,7 +822,8 @@ static int ufs_qcom_crypto_req_setup(struct ufs_hba *hba,
 
 	/* Use request LBA as the DUN value */
 	if (req->bio)
-		*dun = req->bio->bi_iter.bi_sector;
+		*dun = (req->bio->bi_iter.bi_sector) >>
+				UFS_QCOM_ICE_TR_DATA_UNIT_4_KB;
 
 	ret = ufs_qcom_ice_req_setup(host, lrbp->cmd, cc_index, enable);
 
