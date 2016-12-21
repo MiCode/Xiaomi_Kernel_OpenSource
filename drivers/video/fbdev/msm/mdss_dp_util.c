@@ -239,20 +239,33 @@ static void mdss_dp_get_extra_req_bytes(u64 result_valid,
 	}
 }
 
+static u64 roundup_u64(u64 x, u64 y)
+{
+	x += (y - 1);
+	return (div64_ul(x, y) * y);
+}
+
+static u64 rounddown_u64(u64 x, u64 y)
+{
+	u64 rem;
+
+	div64_u64_rem(x, y, &rem);
+	return (x - rem);
+}
 
 static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 				struct dp_vc_tu_mapping_table *tu_table,
 				struct mdss_panel_info *pinfo)
 {
-	u64 const multiplier = 1000000;
+	u32 const multiplier = 1000000;
 	u64 pclk, lclk;
 	u8 bpp;
 	int run_idx = 0;
 	u32 lwidth, h_blank;
 	u32 fifo_empty = 0;
-	u32 ratio_scale = 1001, reminder;
+	u32 ratio_scale = 1001;
 	u64 temp, ratio, original_ratio;
-	u64 temp2;
+	u64 temp2, reminder;
 	u64 temp3, temp4, result = 0;
 
 	u64 err = multiplier;
@@ -330,14 +343,14 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 	pr_debug("pclk=%lld, active_width=%d, h_blank=%d\n",
 						pclk, lwidth, h_blank);
 	pr_debug("lclk = %lld, ln_cnt = %d\n", lclk, ln_cnt);
-	ratio = div_u64_rem(pclk * bpp * multiplier,
+	ratio = div64_u64_rem(pclk * bpp * multiplier,
 				8 * ln_cnt * lclk, &reminder);
-	ratio = (pclk * bpp * multiplier) / (8 * ln_cnt * lclk);
+	ratio = div64_u64((pclk * bpp * multiplier), (8 * ln_cnt * lclk));
 	original_ratio = ratio;
 
-	extra_buffer_margin = roundup(extra_pclk_cycle_delay
-				* lclk * multiplier / pclk, multiplier);
-	extra_buffer_margin /= multiplier;
+	extra_buffer_margin = roundup_u64(div64_u64(extra_pclk_cycle_delay
+				* lclk * multiplier, pclk), multiplier);
+	extra_buffer_margin = div64_u64(extra_buffer_margin, multiplier);
 
 	/* To deal with cases where lines are not distributable */
 	if (((lwidth % ln_cnt) != 0) && ratio < multiplier) {
@@ -350,7 +363,7 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 	for (tu_size = 32; tu_size <= 64; tu_size++) {
 		temp = ratio * tu_size;
 		temp2 = ((temp / multiplier) + 1) * multiplier;
-		n_err = roundup(temp, multiplier) - temp;
+		n_err = roundup_u64(temp, multiplier) - temp;
 
 		if (n_err < err) {
 			err = n_err;
@@ -361,7 +374,7 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 
 	tu_size_minus1 = tu_size_desired - 1;
 
-	valid_boundary_link = roundup(ratio * tu_size_desired, multiplier);
+	valid_boundary_link = roundup_u64(ratio * tu_size_desired, multiplier);
 	valid_boundary_link /= multiplier;
 	n_tus = rounddown((lwidth * bpp * multiplier)
 			/ (8 * valid_boundary_link), multiplier) / multiplier;
@@ -369,20 +382,20 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 	pr_debug("Info: n_symbol_per_tu=%d, number_of_tus=%d\n",
 					valid_boundary_link, n_tus);
 
-	extra_bytes = roundup((n_tus + 1)
+	extra_bytes = roundup_u64((n_tus + 1)
 			* ((valid_boundary_link * multiplier)
 			- (original_ratio * tu_size_desired)), multiplier);
 	extra_bytes /= multiplier;
-	extra_pclk_cycles = roundup(extra_bytes
-				* 8 * multiplier / bpp, multiplier);
+	extra_pclk_cycles = roundup(extra_bytes * 8 * multiplier / bpp,
+			multiplier);
 	extra_pclk_cycles /= multiplier;
-	extra_pclk_cycles_in_link_clk = roundup(extra_pclk_cycles
-				* lclk * multiplier / pclk, multiplier);
+	extra_pclk_cycles_in_link_clk = roundup_u64(div64_u64(extra_pclk_cycles
+				* lclk * multiplier, pclk), multiplier);
 	extra_pclk_cycles_in_link_clk /= multiplier;
-	filler_size = roundup((tu_size_desired - valid_boundary_link)
+	filler_size = roundup_u64((tu_size_desired - valid_boundary_link)
 						* multiplier, multiplier);
 	filler_size /= multiplier;
-	ratio_by_tu = (ratio * tu_size_desired) / multiplier;
+	ratio_by_tu = div64_u64(ratio * tu_size_desired, multiplier);
 
 	pr_debug("extra_pclk_cycles_in_link_clk=%d, extra_bytes=%d\n",
 				extra_pclk_cycles_in_link_clk, extra_bytes);
@@ -416,21 +429,18 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 					i_lower_bdry_cnt <= 15;
 					i_lower_bdry_cnt++) {
 					new_valid_boundary_link =
-						roundup(ratio
+						roundup_u64(ratio
 						* tu_size, multiplier);
-					average_valid2 =
-						(u64)(i_upper_bdry_cnt
+					average_valid2 = (i_upper_bdry_cnt
 						* new_valid_boundary_link
 						+ i_lower_bdry_cnt
 						* (new_valid_boundary_link
 							- multiplier))
 						/ (i_upper_bdry_cnt
 							+ i_lower_bdry_cnt);
-					n_tus =
-						rounddown(((u64)lwidth
+					n_tus = rounddown_u64(div64_u64(lwidth
 						* multiplier * multiplier
-						* (u64)bpp / 8)
-						/ (u64)average_valid2,
+						* (bpp / 8), average_valid2),
 							multiplier);
 					n_tus /= multiplier;
 					n_tus_per_lane
@@ -474,8 +484,8 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 							- multiplier));
 					n_err_neg = nn_err_neg = false;
 					effective_valid
-						= total_valid
-							/ n_tus_per_lane;
+						= div_u64(total_valid,
+							n_tus_per_lane);
 					n_n_err = (effective_valid
 							>= (ratio * tu_size))
 						? (effective_valid
@@ -501,21 +511,22 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 						: (ratio_by_tu
 							- resulting_valid);
 
-					resulting_valid_tmp =
-						(u64)(i_upper_bdry_cnt
+					resulting_valid_tmp = div64_u64(
+						(i_upper_bdry_cnt
 						* new_valid_boundary_link
 						+ i_lower_bdry_cnt
 						* (new_valid_boundary_link
-							- multiplier))
-						/ (i_upper_bdry_cnt
-							+ i_lower_bdry_cnt);
+							- multiplier)),
+						(i_upper_bdry_cnt
+							+ i_lower_bdry_cnt));
 					ratio_by_tu_tmp =
 						original_ratio * tu_size;
 					ratio_by_tu_tmp /= multiplier;
-					n_tus_tmp = rounddown(((u64)lwidth
+					n_tus_tmp = rounddown_u64(
+						div64_u64(lwidth
 						* multiplier * multiplier
-						* (u64)bpp / 8)
-						/ (u64)resulting_valid_tmp,
+						* bpp / 8,
+						resulting_valid_tmp),
 						multiplier);
 					n_tus_tmp /= multiplier;
 
@@ -536,8 +547,8 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 					temp4 = (i_upper_bdry_cnt
 							* ln_cnt * temp4);
 
-					temp3 = roundup(temp3, multiplier);
-					temp4 = roundup(temp4, multiplier);
+					temp3 = roundup_u64(temp3, multiplier);
+					temp4 = roundup_u64(temp4, multiplier);
 					mdss_dp_get_extra_req_bytes
 						(resulting_valid_tmp,
 						new_valid_boundary_link,
@@ -546,7 +557,7 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 						&result,
 						(original_ratio * tu_size));
 					extra_req_bytes_new_tmp
-						= result / multiplier;
+						= div64_ul(result, multiplier);
 					if ((extra_req_bytes_is_neg)
 						&& (extra_req_bytes_new_tmp
 							> 1))
@@ -562,15 +573,16 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 					if (extra_pclk_cycles_tmp <= 0)
 						extra_pclk_cycles_tmp = 1;
 					extra_pclk_cycles_in_lclk_tmp =
-						roundup(extra_pclk_cycles_tmp
-							* lclk * multiplier
-							/ pclk, multiplier);
+						roundup_u64(div64_u64(
+							extra_pclk_cycles_tmp
+							* lclk * multiplier,
+							pclk), multiplier);
 					extra_pclk_cycles_in_lclk_tmp
 						/= multiplier;
-					filler_size_tmp =
-						roundup((tu_size * multiplier
-						- new_valid_boundary_link),
-							multiplier);
+					filler_size_tmp = roundup_u64(
+						(tu_size * multiplier *
+						new_valid_boundary_link),
+						multiplier);
 					filler_size_tmp /= multiplier;
 					lower_filler_size_tmp =
 						filler_size_tmp + 1;
@@ -596,11 +608,11 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 						delay_start_link_tmp
 							= temp3 + temp4;
 
-					min_hblank_tmp = (int)(roundup
-						(delay_start_link_tmp
-						* pclk * multiplier
-						/ lclk, multiplier)
-							/ multiplier)
+					min_hblank_tmp = (int)div64_u64(
+						roundup_u64(
+						div64_u64(delay_start_link_tmp
+						* pclk * multiplier, lclk),
+						multiplier), multiplier)
 						+ hblank_margin;
 
 					if (((even_distribution == 1)
@@ -660,8 +672,8 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 		}
 	}
 
-	min_hblank = (int) roundup(delay_start_link * pclk
-			* multiplier / lclk, multiplier)
+	min_hblank = ((int) roundup_u64(div64_u64(delay_start_link * pclk
+			* multiplier, lclk), multiplier))
 			/ multiplier + hblank_margin;
 	if (h_blank < (u32)min_hblank) {
 		pr_err(" WARNING: run_idx=%d Programmed h_blank %d is smaller than the min_hblank %d supported.\n",
