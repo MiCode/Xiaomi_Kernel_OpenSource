@@ -821,6 +821,7 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		break;
 	}
 	case VIDIOC_MSM_ISP_REQUEST_BUF:
+	case VIDIOC_MSM_ISP_REQUEST_BUF_VER2:
 		/* fallthrough */
 	case VIDIOC_MSM_ISP_ENQUEUE_BUF:
 		/* fallthrough */
