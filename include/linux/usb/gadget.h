@@ -300,6 +300,8 @@ struct usb_ep_caps {
  * @ep_type: Used to specify type of EP eg. normal vs h/w accelerated.
  * @ep_num: Used EP number
  * @ep_intr_num: Interrupter number for EP.
+ * @endless: In case where endless transfer is being initiated, this is set
+ *      to disable usb event interrupt for few events.
  *
  * the bus controller driver lists all the general purpose endpoints in
  * gadget->ep_list.  the control endpoint (gadget->ep0) is not in that list,
@@ -326,6 +328,7 @@ struct usb_ep {
 	enum ep_type		ep_type;
 	u8			ep_num;
 	u8			ep_intr_num;
+	bool			endless;
 };
 
 /*-------------------------------------------------------------------------*/
