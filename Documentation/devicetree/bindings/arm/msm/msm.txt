@@ -92,6 +92,9 @@ SoCs:
 - MSMFALCON
   compatible = "qcom,msmfalcon"
 
+- APQFALCON
+  compatible = "qcom,apqfalcon"
+
 - MSMTRITON
   compatible = "qcom,msmtriton"
 
@@ -265,6 +268,8 @@ compatible = "qcom,msmfalcon-rumi"
 compatible = "qcom,msmfalcon-cdp"
 compatible = "qcom,msmfalcon-mtp"
 compatible = "qcom,msmfalcon-qrd"
+compatible = "qcom,apqfalcon-mtp"
+compatible = "qcom,apqfalcon-cdp"
 compatible = "qcom,msmtriton-rumi"
 compatible = "qcom,msm8952-rumi"
 compatible = "qcom,msm8952-sim"
