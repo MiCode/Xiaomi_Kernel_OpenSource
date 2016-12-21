@@ -1662,6 +1662,8 @@ static void mdss_dp_hdcp_cb_work(struct work_struct *work)
 	case HDCP_STATE_AUTHENTICATING:
 		pr_debug("start authenticaton\n");
 
+		dp->dpcd_version = dp->dpcd.minor | (dp->dpcd.major << 8);
+
 		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
 			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
 
@@ -1739,6 +1741,7 @@ static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
 	hdcp_init_data.cb_data       = (void *)dp_drv;
 	hdcp_init_data.sec_access    = true;
 	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
+	hdcp_init_data.version       = &dp_drv->dpcd_version;
 
 	dp_drv->hdcp.hdcp1 = hdcp_1x_init(&hdcp_init_data);
 	if (IS_ERR_OR_NULL(dp_drv->hdcp.hdcp1)) {
