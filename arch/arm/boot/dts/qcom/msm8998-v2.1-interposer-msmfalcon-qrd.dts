@@ -158,3 +158,7 @@
 &pmfalcon_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 };
+
+&pm2falcon_wled {
+	qcom,led-strings-list = [00 01];
+};
