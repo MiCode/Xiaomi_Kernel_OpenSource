@@ -396,7 +396,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 	unsigned long		flags;
 	bool			is_ipa_disconnected = true;
 
-	pr_debug("%s: Connect workqueue started", __func__);
+	pr_debug("%s: Connect workqueue started\n", __func__);
 
 	spin_lock_irqsave(&port->port_lock, flags);
 
@@ -446,8 +446,14 @@ static void ipa_data_connect_work(struct work_struct *w)
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		usb_bam_alloc_fifos(port->usb_bam_type,
 						port->src_connection_idx);
-
 		spin_lock_irqsave(&port->port_lock, flags);
+		if (!port->port_usb || port->rx_req == NULL) {
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			pr_err("%s: port_usb is NULL, or rx_req cleaned\n",
+				__func__);
+			goto out;
+		}
+
 		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
 				| MSM_PRODUCER | port->src_pipe_idx;
 		port->rx_req->length = 32*1024;
@@ -459,8 +465,6 @@ static void ipa_data_connect_work(struct work_struct *w)
 		if (ret) {
 			pr_err("msm_ep_config() failed for OUT EP\n");
 			spin_unlock_irqrestore(&port->port_lock, flags);
-			usb_bam_free_fifos(port->usb_bam_type,
-					port->src_connection_idx);
 			goto out;
 		}
 	}
@@ -470,6 +474,12 @@ static void ipa_data_connect_work(struct work_struct *w)
 		usb_bam_alloc_fifos(port->usb_bam_type,
 						port->dst_connection_idx);
 		spin_lock_irqsave(&port->port_lock, flags);
+		if (!port->port_usb || port->tx_req == NULL) {
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			pr_err("%s: port_usb is NULL, or tx_req cleaned\n",
+				__func__);
+			goto unconfig_msm_ep_out;
+		}
 		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB |
 						port->dst_pipe_idx;
 		port->tx_req->length = 32*1024;
@@ -538,6 +548,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 			spin_unlock_irqrestore(&port->port_lock, flags);
 			goto disconnect_usb_bam_ipa_out;
 		}
+
 		gport->ipa_consumer_ep = port->ipa_params.ipa_cons_ep_idx;
 	}
 
@@ -572,6 +583,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 			goto disconnect_usb_bam_ipa_out;
 		}
 		spin_lock_irqsave(&port->port_lock, flags);
+		is_ipa_disconnected = false;
 		/* check if USB cable is disconnected or not */
 		if (!port->port_usb) {
 			pr_debug("%s:%d: cable is disconnected.\n",
@@ -581,7 +593,6 @@ static void ipa_data_connect_work(struct work_struct *w)
 		}
 
 		gport->ipa_producer_ep = port->ipa_params.ipa_prod_ep_idx;
-		is_ipa_disconnected = false;
 	}
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
@@ -612,7 +623,8 @@ static void ipa_data_connect_work(struct work_struct *w)
 			return;
 		}
 		atomic_set(&port->pipe_connect_notified, 1);
-	} else {
+	} else if (port->func_type == USB_IPA_FUNC_RMNET ||
+			port->func_type == USB_IPA_FUNC_DPL) {
 		/* For RmNet and DPL need to update_ipa_pipes to qti */
 		enum qti_port_type qti_port_type = port->func_type ==
 			USB_IPA_FUNC_RMNET ? QTI_PORT_RMNET : QTI_PORT_DPL;
@@ -675,13 +687,13 @@ unconfig_msm_ep_out:
 						port->dst_connection_idx);
 	spin_lock_irqsave(&port->port_lock, flags);
 	/* check if USB cable is disconnected or not */
-	if (port->port_usb && gport->out) {
+	if (port->port_usb && gport->out)
 		msm_ep_unconfig(port->port_usb->out);
-		usb_bam_free_fifos(port->usb_bam_type,
-						port->src_connection_idx);
-	}
 	spin_unlock_irqrestore(&port->port_lock, flags);
 out:
+	if (gport->out)
+		usb_bam_free_fifos(port->usb_bam_type,
+						port->src_connection_idx);
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->is_connected = false;
 	spin_unlock_irqrestore(&port->port_lock, flags);
