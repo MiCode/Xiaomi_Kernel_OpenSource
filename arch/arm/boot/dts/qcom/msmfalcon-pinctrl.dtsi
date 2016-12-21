@@ -924,5 +924,46 @@
 				};
 			};
 		};
+
+		ts_mux {
+			ts_active: ts_active {
+				mux {
+					pins = "gpio66", "gpio67";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio66", "gpio67";
+					drive-strength = <16>;
+					bias-pull-up;
+				};
+			};
+
+			ts_reset_suspend: ts_reset_suspend {
+				mux {
+					pins = "gpio66";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio66";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			ts_int_suspend: ts_int_suspend {
+				mux {
+					pins = "gpio67";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio67";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
 	};
 };
