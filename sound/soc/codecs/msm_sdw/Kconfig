@@ -1,0 +1,6 @@
+config SND_SOC_MSM_SDW
+	tristate "MSM Internal soundwire codec"
+	 help
+	 MSM-based soundwire codec core driver
+	 supported along with internal digital
+	 codec core.

@@ -16,3 +16,4 @@ obj-$(CONFIG_PINCTRL_MSM8996)	+= pinctrl-msm8996.o
 obj-$(CONFIG_PINCTRL_MSM8998)	+= pinctrl-msm8998.o
 obj-$(CONFIG_PINCTRL_MSMFALCON)	+= pinctrl-msmfalcon.o
 obj-$(CONFIG_PINCTRL_WCD)	+= pinctrl-wcd.o
+obj-$(CONFIG_PINCTRL_LPI)	+= pinctrl-lpi.o
