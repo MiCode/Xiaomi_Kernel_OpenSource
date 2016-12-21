@@ -145,7 +145,6 @@
 			<0 1000>;
 
 		anoc_1_tbu: anoc_1_tbu@0x150c5000 {
-			status = "disabled";
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x150c5000 0x1000>,
 				<0x150c2200 0x8>;
@@ -167,7 +166,6 @@
 		};
 
 		anoc_2_tbu: anoc_2_tbu@0x150c9000 {
-			status = "disabled";
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x150c9000 0x1000>,
 				<0x150c2208 0x8>;
@@ -189,7 +187,6 @@
 		};
 
 		mnoc_hf_0_tbu: mnoc_hf_0_tbu@0x150cd000 {
-			status = "disabled";
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x150cd000 0x1000>,
 				<0x150c2210 0x8>;
@@ -211,7 +208,6 @@
 		};
 
 		mnoc_hf_1_tbu: mnoc_hf_1_tbu@0x150d1000 {
-			status = "disabled";
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x150d1000 0x1000>,
 				<0x150c2218 0x8>;
@@ -233,7 +229,6 @@
 		};
 
 		mnoc_sf_0_tbu: mnoc_sf_0_tbu@0x150d5000 {
-			status = "disabled";
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x150d5000 0x1000>,
 				<0x150c2220 0x8>;
@@ -255,7 +250,6 @@
 		};
 
 		compute_dsp_tbu: compute_dsp_tbu@0x150d9000 {
-			status = "disabled";
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x150d9000 0x1000>,
 				<0x150c2228 0x8>;
@@ -276,7 +270,6 @@
 		};
 
 		adsp_tbu: adsp_tbu@0x150dd000 {
-			status = "disabled";
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x150dd000 0x1000>,
 				<0x150c2230 0x8>;
@@ -298,7 +291,6 @@
 		};
 
 		anoc_1_pcie_tbu: anoc_1_pcie_tbu@0x150e1000 {
-			status = "disabled";
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x150e1000 0x1000>,
 				<0x150c2238 0x8>;
