@@ -67,7 +67,7 @@ void ufs_advertise_fixup_device(struct ufs_hba *hba)
 		    (STR_PRFX_EQUAL(f->model, model) ||
 		     !strcmp(f->model, UFS_ANY_MODEL)))
 			/* update quirks */
-			hba->dev_quirks |= f->quirk;
+			hba->dev_info.quirks |= f->quirk;
 	}
 out:
 	kfree(model);
