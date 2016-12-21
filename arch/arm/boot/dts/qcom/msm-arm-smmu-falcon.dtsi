@@ -196,4 +196,15 @@
 		clock-names = "turing_q6_smmu_clk";
 		#clock-cells = <1>;
 	};
+
+	iommu_test_device {
+		compatible = "iommu-debug-test";
+		/*
+		 * 42 shouldn't be used by anyone on the mmss_smmu.  We just
+		 * need _something_ here to get this node recognized by the
+		 * SMMU driver. Our test uses ATOS, which doesn't use SIDs
+		 * anyways, so using a dummy value is ok.
+		 */
+		iommus = <&mmss_bimc_smmu 42>;
+	};
 };
