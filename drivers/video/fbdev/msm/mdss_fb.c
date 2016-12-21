@@ -4258,6 +4258,7 @@ static void __mdss_fb_copy_pixel_ext(struct mdp_scale_data *src,
 {
 	if (!src || !dest)
 		return;
+	dest->enable = true;
 	memcpy(dest->init_phase_x, src->init_phase_x,
 		sizeof(src->init_phase_x));
 	memcpy(dest->phase_step_x, src->phase_step_x,

@@ -1040,7 +1040,6 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	if (layer->flags & MDP_LAYER_SECURE_CAMERA_SESSION)
 		pipe->flags |= MDP_SECURE_CAMERA_OVERLAY_SESSION;
 
-	pipe->scaler.enable = (layer->flags & SCALER_ENABLED);
 	pipe->is_fg = layer->flags & MDP_LAYER_FORGROUND;
 	pipe->img_width = layer->buffer.width & 0x3fff;
 	pipe->img_height = layer->buffer.height & 0x3fff;
@@ -1072,6 +1071,16 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	pr_debug("pipe:%d src{%d,%d,%d,%d}, dst{%d,%d,%d,%d}\n", pipe->num,
 		pipe->src.x, pipe->src.y, pipe->src.w, pipe->src.h,
 		pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h);
+
+	if (layer->flags & SCALER_ENABLED) {
+		memcpy(&pipe->scaler, layer->scale,
+				sizeof(struct mdp_scale_data_v2));
+		/* Sanitize enable flag */
+		pipe->scaler.enable &= (ENABLE_SCALE | ENABLE_DETAIL_ENHANCE |
+				ENABLE_DIRECTION_DETECTION);
+	} else {
+		pipe->scaler.enable = 0;
+	}
 
 	flags = pipe->flags;
 	if (is_single_layer)
@@ -1195,9 +1204,6 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	if (layer->flags & SCALER_ENABLED)
-		memcpy(&pipe->scaler, layer->scale,
-			sizeof(struct mdp_scale_data_v2));
 	ret = mdss_mdp_overlay_setup_scaling(pipe);
 	if (ret) {
 		pr_err("scaling setup failed %d\n", ret);
