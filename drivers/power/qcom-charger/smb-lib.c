@@ -39,6 +39,9 @@
 
 static bool is_secure(struct smb_charger *chg, int addr)
 {
+
+	if (addr == SHIP_MODE_REG)
+		return true;
 	/* assume everything above 0xA0 is secure */
 	return (bool)((addr & 0xFF) >= 0xA0);
 }
@@ -2066,6 +2069,22 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 	chg->pd_active = pd_active;
 	smblib_update_usb_type(chg);
 	power_supply_changed(chg->usb_psy);
+
+	return rc;
+}
+
+int smblib_set_prop_ship_mode(struct smb_charger *chg,
+				const union power_supply_propval *val)
+{
+	int rc;
+
+	smblib_dbg(chg, PR_MISC, "Set ship mode: %d!!\n", !!val->intval);
+
+	rc = smblib_masked_write(chg, SHIP_MODE_REG, SHIP_MODE_EN_BIT,
+			!!val->intval ? SHIP_MODE_EN_BIT : 0);
+	if (rc < 0)
+		dev_err(chg->dev, "Couldn't %s ship mode, rc=%d\n",
+				!!val->intval ? "enable" : "disable", rc);
 
 	return rc;
 }
