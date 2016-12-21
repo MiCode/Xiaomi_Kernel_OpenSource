@@ -30,6 +30,7 @@
 #include "clk-rcg.h"
 #include "clk-regmap.h"
 #include "clk-regmap-divider.h"
+#include "clk-voter.h"
 #include "reset.h"
 #include "vdd-level-falcon.h"
 
@@ -2015,6 +2016,10 @@ static struct clk_branch mmss_camss_jpeg0_clk = {
 	},
 };
 
+static DEFINE_CLK_VOTER(mmss_camss_jpeg0_vote_clk, &mmss_camss_jpeg0_clk.c, 0);
+static DEFINE_CLK_VOTER(mmss_camss_jpeg0_dma_vote_clk,
+					&mmss_camss_jpeg0_clk.c, 0);
+
 static struct clk_branch mmss_camss_jpeg_ahb_clk = {
 	.halt_reg = 0x35b4,
 	.halt_check = BRANCH_HALT,
@@ -2806,6 +2811,11 @@ static struct clk_branch mmss_video_subcore0_clk = {
 	},
 };
 
+struct clk_hw *mmcc_msmfalcon_hws[] = {
+	[MMSS_CAMSS_JPEG0_VOTE_CLK] = &mmss_camss_jpeg0_vote_clk.hw,
+	[MMSS_CAMSS_JPEG0_DMA_VOTE_CLK] = &mmss_camss_jpeg0_dma_vote_clk.hw,
+};
+
 static struct clk_regmap *mmcc_falcon_clocks[] = {
 	[AHB_CLK_SRC] = &ahb_clk_src.clkr,
 	[BYTE0_CLK_SRC] = &byte0_clk_src.clkr,
@@ -2955,6 +2965,8 @@ static const struct qcom_cc_desc mmcc_falcon_desc = {
 	.config = &mmcc_falcon_regmap_config,
 	.clks = mmcc_falcon_clocks,
 	.num_clks = ARRAY_SIZE(mmcc_falcon_clocks),
+	.hwclks = mmcc_msmfalcon_hws,
+	.num_hwclks = ARRAY_SIZE(mmcc_msmfalcon_hws),
 	.resets = mmcc_falcon_resets,
 	.num_resets = ARRAY_SIZE(mmcc_falcon_resets),
 };

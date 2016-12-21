@@ -2212,7 +2212,7 @@ static struct clk_branch gcc_ufs_axi_hw_ctl_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_hw_ctl_ops,
 		},
 	},
 };
@@ -2260,7 +2260,7 @@ static struct clk_branch gcc_ufs_ice_core_hw_ctl_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_hw_ctl_ops,
 		},
 	},
 };
@@ -2295,7 +2295,7 @@ static struct clk_branch gcc_ufs_phy_aux_hw_ctl_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_hw_ctl_ops,
 		},
 	},
 };
@@ -2366,7 +2366,7 @@ static struct clk_branch gcc_ufs_unipro_core_hw_ctl_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_hw_ctl_ops,
 		},
 	},
 };
