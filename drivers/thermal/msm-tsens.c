@@ -84,6 +84,8 @@
 
 /* TSENS_TM registers for 8996 */
 #define TSENS_TM_INT_EN(n)			((n) + 0x1004)
+#define TSENS_TM_CRITICAL_WD_BARK		BIT(31)
+#define TSENS_TM_CRITICAL_CYCLE_MONITOR	BIT(30)
 #define TSENS_TM_CRITICAL_INT_EN		BIT(2)
 #define TSENS_TM_UPPER_INT_EN			BIT(1)
 #define TSENS_TM_LOWER_INT_EN			BIT(0)
@@ -854,6 +856,7 @@ struct tsens_tm_device {
 	int				tsens_upper_irq_cnt;
 	int				tsens_lower_irq_cnt;
 	int				tsens_critical_irq_cnt;
+	int				tsens_critical_wd_cnt;
 	struct delayed_work		tsens_critical_poll_test;
 	struct completion		tsens_rslt_completion;
 	struct tsens_mtc_sysfs		mtcsys;
@@ -2398,7 +2401,9 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 	void __iomem *sensor_status_addr;
 	void __iomem *sensor_int_mask_addr;
 	void __iomem *sensor_critical_addr;
+	void __iomem *wd_critical_addr;
 	int sensor_sw_id = -EINVAL, rc = 0;
+	int wd_mask;
 
 	tm->crit_set = false;
 	sensor_status_addr = TSENS_TM_SN_STATUS(tm->tsens_addr);
@@ -2406,6 +2411,30 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 		TSENS_TM_CRITICAL_INT_MASK(tm->tsens_addr);
 	sensor_critical_addr =
 		TSENS_TM_SN_CRITICAL_THRESHOLD(tm->tsens_addr);
+	wd_critical_addr =
+		TSENS_TM_CRITICAL_INT_STATUS(tm->tsens_addr);
+
+	if (tm->wd_bark) {
+		wd_mask = readl_relaxed(wd_critical_addr);
+		/*
+		* Check whether the reason for critical interrupt is
+		* because of watchdog
+		*/
+		if (wd_mask & TSENS_TM_CRITICAL_WD_BARK) {
+			/*
+			 * Clear watchdog interrupt and
+			 * increment global wd count
+			 */
+			writel_relaxed(wd_mask | TSENS_TM_CRITICAL_WD_BARK,
+				(TSENS_TM_CRITICAL_INT_CLEAR
+				(tm->tsens_addr)));
+			writel_relaxed(wd_mask & ~(TSENS_TM_CRITICAL_WD_BARK),
+				(TSENS_TM_CRITICAL_INT_CLEAR
+				(tm->tsens_addr)));
+			tm->tsens_critical_wd_cnt++;
+			return IRQ_HANDLED;
+		}
+	}
 
 	for (i = 0; i < tm->tsens_num_sensor; i++) {
 		bool critical_thr = false;
@@ -2670,7 +2699,9 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 static int tsens_hw_init(struct tsens_tm_device *tmdev)
 {
 	void __iomem *srot_addr;
+	void __iomem *sensor_int_mask_addr;
 	unsigned int srot_val;
+	int crit_mask;
 
 	if (!tmdev) {
 		pr_err("Invalid tsens device\n");
@@ -2683,6 +2714,18 @@ static int tsens_hw_init(struct tsens_tm_device *tmdev)
 		if (!(srot_val & TSENS_EN)) {
 			pr_err("TSENS device is not enabled\n");
 			return -ENODEV;
+		}
+
+		if (tmdev->cycle_compltn_monitor) {
+			sensor_int_mask_addr =
+				TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_addr);
+			crit_mask = readl_relaxed(sensor_int_mask_addr);
+			writel_relaxed(
+				crit_mask | tmdev->cycle_compltn_monitor_val,
+				(TSENS_TM_CRITICAL_INT_MASK
+				(tmdev->tsens_addr)));
+			/*Update critical cycle monitoring*/
+			mb();
 		}
 		writel_relaxed(TSENS_TM_CRITICAL_INT_EN |
 			TSENS_TM_UPPER_INT_EN | TSENS_TM_LOWER_INT_EN,
