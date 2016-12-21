@@ -124,7 +124,7 @@
 		};
 	};
 
-	qcom,pm2falcon@3 {
+	pm2falcon_3: qcom,pm2falcon@3 {
 		compatible ="qcom,spmi-pmic";
 		reg = <0x3 SPMI_USID>;
 		#address-cells = <2>;
