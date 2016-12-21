@@ -1832,6 +1832,24 @@ static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host)
 		pr_info("%s: will disable all LPM modes\n", __func__);
 }
 
+static void ufs_qcom_save_host_ptr(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	int id;
+
+	if (!hba->dev->of_node)
+		return;
+
+	/* Extract platform data */
+	id = of_alias_get_id(hba->dev->of_node, "ufshc");
+	if (id <= 0)
+		dev_err(hba->dev, "Failed to get host index %d\n", id);
+	else if (id <= MAX_UFS_QCOM_HOSTS)
+		ufs_qcom_hosts[id - 1] = host;
+	else
+		dev_err(hba->dev, "invalid host index %d\n", id);
+}
+
 /**
  * ufs_qcom_init - bind phy with controller
  * @hba: host controller instance
@@ -1968,9 +1986,6 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	ufs_qcom_setup_clocks(hba, true, false);
 
-	if (hba->dev->id < MAX_UFS_QCOM_HOSTS)
-		ufs_qcom_hosts[hba->dev->id] = host;
-
 	host->dbg_print_en |= UFS_QCOM_DEFAULT_DBG_PRINT_EN;
 	ufs_qcom_get_default_testbus_cfg(host);
 	err = ufs_qcom_testbus_config(host);
@@ -1979,6 +1994,8 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 				__func__, err);
 		err = 0;
 	}
+
+	ufs_qcom_save_host_ptr(hba);
 
 	goto out;
 
