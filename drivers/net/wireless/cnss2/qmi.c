@@ -508,6 +508,10 @@ int cnss_wlfw_wlan_mode_send_sync(struct cnss_plat_data *plat_priv,
 				sizeof(req), &resp_desc, &resp, sizeof(resp),
 				QMI_WLFW_TIMEOUT_MS);
 	if (ret < 0) {
+		if (mode == QMI_WLFW_OFF_V01 && ret == -ENETRESET) {
+			cnss_pr_dbg("WLFW service is disconnected while sending mode off request.\n");
+			return 0;
+		}
 		cnss_pr_err("Failed to send mode request, mode: %d, err = %d\n",
 			    mode, ret);
 		goto out;
