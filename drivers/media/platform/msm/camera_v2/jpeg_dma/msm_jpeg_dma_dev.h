@@ -254,6 +254,7 @@ struct msm_jpegdma_buf_handle {
  * @format_idx: Current format index.
  */
 struct jpegdma_ctx {
+	struct mutex lock;
 	struct msm_jpegdma_device *jdma_device;
 	atomic_t active;
 	struct completion completion;
