@@ -25,6 +25,10 @@
 #include <linux/msm-bus-board.h>
 #include <linux/regulator/consumer.h>
 #include <linux/dma-direction.h>
+#include <soc/qcom/scm.h>
+#include <soc/qcom/rpm-smd.h>
+#include <soc/qcom/secure_buffer.h>
+#include <asm/cacheflush.h>
 
 #include "sde_rotator_base.h"
 #include "sde_rotator_core.h"
@@ -36,6 +40,18 @@
 #include "sde_rotator_r3.h"
 #include "sde_rotator_trace.h"
 #include "sde_rotator_debug.h"
+
+
+/* Rotator device id to be used in SCM call */
+#define SDE_ROTATOR_DEVICE	21
+
+/* SCM call function id to be used for switching between secure and non
+ * secure context
+ */
+#define MEM_PROTECT_SD_CTRL_SWITCH 0x18
+
+/* Rotator secure SID */
+#define SDE_ROTATOR_SECURE_SID  0xe01
 
 /* waiting for hw time out, 3 vsync for 30fps*/
 #define ROT_HW_ACQUIRE_TIMEOUT_IN_MS 100
@@ -505,6 +521,7 @@ static int sde_rotator_import_buffer(struct sde_layer_buffer *buffer,
 		planes[i].memory_id = buffer->planes[i].fd;
 		planes[i].offset = buffer->planes[i].offset;
 		planes[i].buffer = buffer->planes[i].buffer;
+		planes[i].handle = buffer->planes[i].handle;
 	}
 
 	ret =  sde_mdp_data_get_and_validate_size(data, planes,
@@ -512,6 +529,86 @@ static int sde_rotator_import_buffer(struct sde_layer_buffer *buffer,
 
 	return ret;
 }
+
+static int sde_rotator_secure_session_ctrl(struct sde_rot_entry *entry)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	uint32_t sid_info;
+	struct scm_desc desc;
+	unsigned int resp = 0;
+	int ret = 0;
+
+	if (test_bit(SDE_CAPS_SEC_ATTACH_DETACH_SMMU,
+		mdata->sde_caps_map)) {
+		sid_info = SDE_ROTATOR_SECURE_SID;
+		desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_RW, SCM_VAL, SCM_VAL);
+		desc.args[0] = SDE_ROTATOR_DEVICE;
+		desc.args[1] = SCM_BUFFER_PHYS(&sid_info);
+		desc.args[2] = sizeof(uint32_t);
+
+		if (!mdata->sec_cam_en &&
+			(entry->item.flags & SDE_ROTATION_SECURE_CAMERA)) {
+			/*
+			 * Enable secure camera operation
+			 * Send SCM call to hypervisor to switch the
+			 * secure_vmid to secure context
+			 */
+			desc.args[3] = VMID_CP_CAMERA_PREVIEW;
+
+			mdata->sec_cam_en = 1;
+			sde_smmu_secure_ctrl(0);
+
+			dmac_flush_range(&sid_info, &sid_info + 1);
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+					MEM_PROTECT_SD_CTRL_SWITCH), &desc);
+			resp = desc.ret[0];
+			if (ret) {
+				SDEROT_ERR("scm_call(1) ret=%d, resp=%x\n",
+					ret, resp);
+				/* failure, attach smmu */
+				mdata->sec_cam_en = 0;
+				sde_smmu_secure_ctrl(1);
+				return -EINVAL;
+			}
+
+			SDEROT_DBG("scm_call(1) ret=%d, resp=%x",
+				ret, resp);
+			SDEROT_EVTLOG(1, entry->item.flags,
+					entry->src_buf.p[0].addr,
+					entry->dst_buf.p[0].addr);
+		} else if (mdata->sec_cam_en && !(entry->item.flags &
+				SDE_ROTATION_SECURE_CAMERA)) {
+			/*
+			 * Disable secure camera operation
+			 * Send SCM call to hypervisor to switch the
+			 * secure_vmid to non-secure context
+			 */
+			desc.args[3] = VMID_CP_PIXEL;
+			mdata->sec_cam_en = 0;
+
+			dmac_flush_range(&sid_info, &sid_info + 1);
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				MEM_PROTECT_SD_CTRL_SWITCH), &desc);
+			resp = desc.ret[0];
+
+			SDEROT_DBG("scm_call(0): ret=%d, resp=%x",
+				ret, resp);
+
+			/* force smmu to reattach */
+			sde_smmu_secure_ctrl(1);
+			SDEROT_EVTLOG(0, entry->item.flags,
+					entry->src_buf.p[0].addr,
+					entry->dst_buf.p[0].addr);
+		}
+	} else {
+		return 0;
+	}
+	if (ret)
+		return ret;
+
+	return resp;
+}
+
 
 static int sde_rotator_map_and_check_data(struct sde_rot_entry *entry)
 {
@@ -530,6 +627,13 @@ static int sde_rotator_map_and_check_data(struct sde_rot_entry *entry)
 	ret = sde_smmu_ctrl(1);
 	if (IS_ERR_VALUE(ret))
 		return ret;
+
+	ret = sde_rotator_secure_session_ctrl(entry);
+	if (ret) {
+		SDEROT_ERR("failed secure session enabling/disabling %d\n",
+			ret);
+		goto end;
+	}
 
 	/* if error during map, the caller will release the data */
 	ret = sde_mdp_data_map(&entry->src_buf, true, DMA_TO_DEVICE);
@@ -641,6 +745,9 @@ static int sde_rotator_import_data(struct sde_rot_mgr *mgr,
 
 	if (entry->item.flags & SDE_ROTATION_EXT_DMA_BUF)
 		flag |= SDE_ROT_EXT_DMA_BUF;
+
+	if (entry->item.flags & SDE_ROTATION_SECURE_CAMERA)
+		flag |= SDE_SECURE_CAMERA_SESSION;
 
 	ret = sde_rotator_import_buffer(input, &entry->src_buf, flag,
 				&mgr->pdev->dev, true);

@@ -45,4 +45,6 @@ int sde_smmu_map_dma_buf(struct dma_buf *dma_buf,
 void sde_smmu_unmap_dma_buf(struct sg_table *table, int domain,
 		int dir, struct dma_buf *dma_buf);
 
+int sde_smmu_secure_ctrl(int enable);
+
 #endif /* SDE_ROTATOR_SMMU_H */
