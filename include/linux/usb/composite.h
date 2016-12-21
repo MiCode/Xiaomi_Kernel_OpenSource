@@ -338,6 +338,10 @@ struct usb_configuration {
 	unsigned		fullspeed:1;
 	unsigned		superspeed_plus:1;
 	struct usb_function	*interface[MAX_CONFIG_INTERFACES];
+
+	/* number of in and out eps used in this configuration */
+	int			num_ineps_used;
+	int			num_outeps_used;
 };
 
 int usb_add_config(struct usb_composite_dev *,

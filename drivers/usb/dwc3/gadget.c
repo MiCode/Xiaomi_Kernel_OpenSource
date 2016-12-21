@@ -202,15 +202,22 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 	int		fifo_size;
 	int		mdwidth;
 	int		num;
+	int		num_eps;
+	struct usb_composite_dev *cdev = get_gadget_data(&dwc->gadget);
 
 	if (!dwc->needs_fifo_resize)
 		return 0;
 
+	/* gadget.num_eps never be greater than dwc->num_in_eps */
+	num_eps = min_t(int, dwc->num_in_eps,
+			cdev->config->num_ineps_used + 1);
 	ram1_depth = DWC3_RAM1_DEPTH(dwc->hwparams.hwparams7);
 	mdwidth = DWC3_MDWIDTH(dwc->hwparams.hwparams0);
 
 	/* MDWIDTH is represented in bits, we need it in bytes */
 	mdwidth >>= 3;
+
+	dev_dbg(dwc->dev, "%s: num eps: %d\n", __func__, num_eps);
 
 	/*
 	 * FIXME For now we will only allocate 1 wMaxPacketSize space
@@ -218,16 +225,21 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 	 * improve this algorithm so that we better use the internal
 	 * FIFO space
 	 */
-	for (num = 0; num < dwc->num_in_eps; num++) {
+	for (num = 0; num < num_eps; num++) {
 		/* bit0 indicates direction; 1 means IN ep */
 		struct dwc3_ep	*dep = dwc->eps[(num << 1) | 1];
 		int		mult = 1;
 		int		tmp;
+		int		max_packet = 1024;
 
-		if (!(dep->flags & DWC3_EP_ENABLED))
-			continue;
+		if (!(dep->flags & DWC3_EP_ENABLED)) {
+			dev_warn(dwc->dev, "ep%dIn not enabled", num);
+			tmp = max_packet + mdwidth;
+			goto resize_fifo;
+		}
 
-		if (usb_endpoint_xfer_bulk(dep->endpoint.desc)
+		if (((dep->endpoint.maxburst > 1) &&
+				usb_endpoint_xfer_bulk(dep->endpoint.desc))
 				|| usb_endpoint_xfer_isoc(dep->endpoint.desc))
 			mult = 3;
 
@@ -237,12 +249,13 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 		 * Make sure that's true somehow and change FIFO allocation
 		 * accordingly.
 		 *
-		 * If we have Bulk or Isochronous endpoints, we want
-		 * them to be able to be very, very fast. So we're giving
+		 * If we have Bulk (burst only) or Isochronous endpoints, we
+		 * want them to be able to be very, very fast. So we're giving
 		 * those endpoints a fifo_size which is enough for 3 full
 		 * packets
 		 */
 		tmp = mult * (dep->endpoint.maxpacket + mdwidth);
+resize_fifo:
 		tmp += mdwidth;
 
 		fifo_size = DIV_ROUND_UP(tmp, mdwidth);
@@ -252,9 +265,20 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 		dwc3_trace(trace_dwc3_gadget, "%s: Fifo Addr %04x Size %d",
 				dep->name, last_fifo_depth, fifo_size & 0xffff);
 
+		last_fifo_depth += (fifo_size & 0xffff);
+		if (dwc->tx_fifo_size &&
+				(last_fifo_depth >= dwc->tx_fifo_size)) {
+			/*
+			 * Fifo size allocated exceeded available RAM size.
+			 * Hence return error.
+			 */
+			dev_err(dwc->dev, "Fifosize(%d) > available RAM(%d)\n",
+					last_fifo_depth, dwc->tx_fifo_size);
+			return -ENOMEM;
+		}
+
 		dwc3_writel(dwc->regs, DWC3_GTXFIFOSIZ(num), fifo_size);
 
-		last_fifo_depth += (fifo_size & 0xffff);
 	}
 
 	return 0;
