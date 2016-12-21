@@ -21,7 +21,7 @@ snd-soc-msm8998-objs := msm8998.o
 obj-$(CONFIG_SND_SOC_MSM8998) += snd-soc-msm8998.o
 
 # for MSMFALCON sound card driver
-snd-soc-msmfalcon-common-objs := msm-audio-pinctrl.o msmfalcon-common.o
+snd-soc-msmfalcon-common-objs := msmfalcon-common.o
 obj-$(CONFIG_SND_SOC_MSMFALCON_COMMON) += snd-soc-msmfalcon-common.o
 
 # for MSMFALCON sound card driver

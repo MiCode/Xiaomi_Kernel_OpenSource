@@ -232,11 +232,11 @@ static int msm_dig_cdc_codec_config_compander(struct snd_soc_codec *codec,
 
 			/* Enable Compander GPIO */
 			if (dig_cdc->codec_hph_comp_gpio)
-				dig_cdc->codec_hph_comp_gpio(1);
+				dig_cdc->codec_hph_comp_gpio(1, codec);
 		} else if (SND_SOC_DAPM_EVENT_OFF(event)) {
 			/* Disable Compander GPIO */
 			if (dig_cdc->codec_hph_comp_gpio)
-				dig_cdc->codec_hph_comp_gpio(0);
+				dig_cdc->codec_hph_comp_gpio(0, codec);
 
 			snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_COMP0_B2_CTL, 0x0F, 0x05);
@@ -264,7 +264,8 @@ static int msm_dig_cdc_codec_config_compander(struct snd_soc_codec *codec,
  *
  */
 void msm_dig_cdc_hph_comp_cb(
-	int (*codec_hph_comp_gpio)(bool enable), struct snd_soc_codec *codec)
+	int (*codec_hph_comp_gpio)(bool enable, struct snd_soc_codec *codec),
+	struct snd_soc_codec *codec)
 {
 	struct msm_dig_priv *dig_cdc = snd_soc_codec_get_drvdata(codec);
 
