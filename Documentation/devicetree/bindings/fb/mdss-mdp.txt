@@ -239,6 +239,10 @@ Bus Scaling Data:
 - qcom,max-mixer-width:	Specify maximum MDP mixer width that the device supports.
 				This is a mandatory property, if not specified then
 				mdp probe will fail.
+- qcom,mdss-reg-bus:            Subnode to provide Bus scaling for register access for
+                                MDP and DSI Blocks.
+- qcom,mdss-rot-reg-bus:        Subnode to provide Bus scaling for register access for
+                                Rotator Block.
 
 Optional properties:
 - batfet-supply :	Phandle for battery FET regulator device node.
@@ -531,14 +535,13 @@ Fudge Factors:			Fudge factors are used to boost demand for
 - qcom,max-pipe-width:		This value specifies the maximum MDP SSPP width
 				the device supports. If not specified, a default value
 				of 2048 will be applied.
-- qcom,mdss-reg-bus:		Property to provide Bus scaling for register access for
-				MDP and DSI Blocks.
-
-- qcom,mdss-rot-reg-bus:	Property to provide Bus scaling for register access for
-				Rotator Block.
 
 Optional subnodes:
-- mdss_fb:		Child nodes representing the frame buffer virtual devices.
+- mdss_fb:			Child nodes representing the frame buffer virtual devices.
+
+- qcom,mdss-hw-rt-bus:	        Subnode to request min vote on the bus.
+			        Some targets expect min vote on the bus during SMMU
+			        and TZ operations. Use this handle to request the vote needed.
 
 Subnode properties:
 - compatible :		Must be "qcom,mdss-fb"
@@ -849,6 +852,16 @@ Example:
 			    <1 590 0 76800>,
 			    <1 590 0 160000>,
 			    <1 590 0 320000>;
+		};
+
+		qcom,mdss-hw-rt {
+		    /* hw-rt Bus Scale Settings */
+		    qcom,msm-bus,name = "mdss_hw_rt";
+		    qcom,msm-bus,num-cases = <2>;
+		    qcom,msm-bus,num-paths = <1>;
+		    qcom,msm-bus,vectors-KBps =
+			    <22 512 0 0>,
+			    <22 512 0 1000>;
 		};
 
 		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
