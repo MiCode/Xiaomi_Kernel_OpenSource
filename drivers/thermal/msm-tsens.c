@@ -832,8 +832,12 @@ struct tsens_tm_device {
 	bool				calibration_less_mode;
 	bool				tsens_local_init;
 	bool				gain_offset_programmed;
+	bool				cycle_compltn_monitor;
+	bool				wd_bark;
 	int				tsens_factor;
 	uint32_t			tsens_num_sensor;
+	uint32_t			cycle_compltn_monitor_val;
+	uint32_t			wd_bark_val;
 	int				tsens_irq;
 	int				tsens_critical_irq;
 	void				*tsens_addr;
@@ -5331,6 +5335,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 	u32 *tsens_slope_data, *sensor_id, *client_id;
 	u32 *temp1_calib_offset_factor, *temp2_calib_offset_factor;
 	u32 rc = 0, i, tsens_num_sensors = 0;
+	u32 cycle_monitor = 0, wd_bark = 0;
 	const struct of_device_id *id;
 
 	rc = of_property_read_u32(of_node,
@@ -5426,6 +5431,28 @@ static int get_device_tree_data(struct platform_device *pdev,
 			tmdev->sensor[i].sensor_hw_num = sensor_id[i];
 			tmdev->sensor[i].sensor_sw_id = i;
 		}
+	}
+
+	rc = of_property_read_u32(of_node,
+			"qcom,cycle-monitor", &cycle_monitor);
+	if (rc) {
+		pr_debug("Default cycle completion monitor\n");
+		tmdev->cycle_compltn_monitor = false;
+	} else {
+		pr_debug("Use specified cycle completion monitor\n");
+		tmdev->cycle_compltn_monitor = true;
+		tmdev->cycle_compltn_monitor_val = cycle_monitor;
+	}
+
+	rc = of_property_read_u32(of_node,
+			"qcom,wd-bark", &wd_bark);
+	if (rc) {
+		pr_debug("Default Watchdog bark\n");
+		tmdev->wd_bark = false;
+	} else {
+		pr_debug("Use specified Watchdog bark\n");
+		tmdev->wd_bark = true;
+		tmdev->wd_bark_val = wd_bark;
 	}
 
 	if (!strcmp(id->compatible, "qcom,mdm9630-tsens") ||
