@@ -75,3 +75,5 @@
 &cti_cpu7 {
 	cpu = <&CPU3>;
 };
+
+/delete-node/ &cti_turing;
