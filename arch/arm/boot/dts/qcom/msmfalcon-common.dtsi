@@ -63,6 +63,7 @@
 			usb-phy = <&qusb_phy0>, <&ssphy>;
 			tx-fifo-resize;
 			snps,nominal-elastic-buffer;
+			snps,disable-clk-gating;
 			snps,is-utmi-l1-suspend;
 			snps,hird-threshold = /bits/ 8 <0x0>;
 		};
