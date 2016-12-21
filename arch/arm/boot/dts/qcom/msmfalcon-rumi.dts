@@ -137,3 +137,8 @@
 	vccq2-max-microamp = <600000>;
 	qcom,disable-lpm;
 };
+
+&clock_debug {
+	compatible = "qcom,dummycc";
+	clock-output-names = "debug_clocks";
+};
