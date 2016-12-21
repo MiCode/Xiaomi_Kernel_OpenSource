@@ -204,3 +204,15 @@ config MSM_CLK_RPMH
 	  SoCs. It accepts requests from other hardware subsystems via RSC.
 	  Say Y to support the clocks managed by RPMh VRM/ARC on platforms
 	  such as sdm845.
+
+config CLOCK_CPU_OSM
+	tristate "OSM CPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the OSM clock controller.
+	 Operating State Manager (OSM) is a hardware engine used by some
+	 Qualcomm Technologies, Inc. (QTI) SoCs to manage frequency and
+	 voltage scaling in hardware. OSM is capable of controlling
+	 frequency and voltage requests for multiple clusters via the
+	 existence of multiple OSM domains.
+	 Say Y if you want to support OSM clocks.
