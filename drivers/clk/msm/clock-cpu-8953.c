@@ -796,11 +796,13 @@ static struct notifier_block clock_panic_notifier = {
 	.priority = 1,
 };
 
+static unsigned long pwrcl_boot_rate = 883200000;
+
 static int clock_cpu_probe(struct platform_device *pdev)
 {
 	int speed_bin, version, rc, cpu, mux_id;
 	char prop_name[] = "qcom,speedX-bin-vX-XXX";
-	unsigned long ccirate, pwrcl_boot_rate = 883200000;
+	unsigned long ccirate;
 
 	get_speed_bin(pdev, &speed_bin, &version);
 
@@ -952,7 +954,7 @@ arch_initcall(clock_cpu_init);
 #define SRC_DIV				0x1
 
 /* Configure PLL at Low frequency */
-unsigned long pwrcl_early_boot_rate = 652800000;
+static unsigned long pwrcl_early_boot_rate = 652800000;
 
 static int __init cpu_clock_pwr_init(void)
 {
@@ -968,9 +970,20 @@ static int __init cpu_clock_pwr_init(void)
 	clk_ops_variable_rate = clk_ops_variable_rate_pll_hwfsm;
 	clk_ops_variable_rate.list_registers = variable_pll_list_registers;
 
-	__variable_rate_pll_init(&apcs_hf_pll.c);
-	apcs_hf_pll.c.ops->set_rate(&apcs_hf_pll.c, pwrcl_early_boot_rate);
-	clk_ops_variable_rate_pll.enable(&apcs_hf_pll.c);
+	/* Read back the L-val of PLL */
+	regval = readl_relaxed(virt_bases[APCS_C0_PLL_BASE] + APCS_PLL_L_VAL);
+	if (regval) {
+		pr_debug("PLL preconfigured for frequency %ld\n",
+					(19200000UL * regval));
+		pwrcl_boot_rate = (apcs_hf_pll.src_rate * regval);
+		apcs_hf_pll.c.ops->set_rate(&apcs_hf_pll.c, pwrcl_boot_rate);
+		clk_ops_variable_rate_pll_hwfsm.enable(&apcs_hf_pll.c);
+	} else {
+		__variable_rate_pll_init(&apcs_hf_pll.c);
+		apcs_hf_pll.c.ops->set_rate(&apcs_hf_pll.c,
+							pwrcl_early_boot_rate);
+		clk_ops_variable_rate_pll.enable(&apcs_hf_pll.c);
+	}
 
 	base = ioremap_nocache(APCS_ALIAS1_CMD_RCGR, SZ_8);
 	regval = readl_relaxed(base);
