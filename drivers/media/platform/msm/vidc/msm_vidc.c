@@ -813,11 +813,13 @@ static bool valid_v4l2_buffer(struct v4l2_buffer *b,
 		inst->bufq[port].num_planes == b->length;
 }
 
-int msm_vidc_release_buffers(void *instance, int buffer_type)
+int msm_vidc_release_buffer(void *instance, int buffer_type,
+		unsigned int buffer_index)
 {
 	struct msm_vidc_inst *inst = instance;
 	struct buffer_info *bi, *dummy;
 	int i, rc = 0;
+	int found_buf = 0;
 
 	if (!inst)
 		return -EINVAL;
@@ -835,7 +837,8 @@ int msm_vidc_release_buffers(void *instance, int buffer_type)
 
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(bi, dummy, &inst->registeredbufs.list, list) {
-		if (bi->type == buffer_type) {
+		if (bi->type == buffer_type && bi->v4l2_index == buffer_index) {
+			found_buf = 1;
 			list_del(&bi->list);
 			for (i = 0; i < bi->num_planes; i++) {
 				if (bi->handle[i] && bi->mapped[i]) {
@@ -846,15 +849,38 @@ int msm_vidc_release_buffers(void *instance, int buffer_type)
 						bi->buff_off[i], bi->mapped[i]);
 					msm_comm_smem_free(inst,
 							bi->handle[i]);
+					found_buf = 2;
 				}
 			}
 			kfree(bi);
+			break;
 		}
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
+
+	switch (found_buf) {
+	case 0:
+		dprintk(VIDC_WARN,
+			"%s: No buffer(type: %d) found for index %d\n",
+			__func__, buffer_type, buffer_index);
+		break;
+	case 1:
+		dprintk(VIDC_WARN,
+			"%s: Buffer(type: %d) found for index %d.",
+			__func__, buffer_type, buffer_index);
+		dprintk(VIDC_WARN, "zero planes mapped.\n");
+		break;
+	case 2:
+		dprintk(VIDC_DBG,
+			"%s: Released buffer(type: %d) for index %d\n",
+			__func__, buffer_type, buffer_index);
+		break;
+	default:
+		break;
+	}
 	return rc;
 }
-EXPORT_SYMBOL(msm_vidc_release_buffers);
+EXPORT_SYMBOL(msm_vidc_release_buffer);
 
 int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 {
@@ -1103,7 +1129,6 @@ static const struct vb2_mem_ops msm_vidc_vb2_mem_ops = {
 	.put_userptr = vidc_put_userptr,
 };
 
-
 static void msm_vidc_cleanup_buffer(struct vb2_buffer *vb)
 {
 	int rc = 0;
@@ -1137,8 +1162,7 @@ static void msm_vidc_cleanup_buffer(struct vb2_buffer *vb)
 		return;
 	}
 
-	rc = msm_vidc_release_buffers(inst,
-		vb->type);
+	rc = msm_vidc_release_buffer(inst, vb->type, vb->index);
 	if (rc)
 		dprintk(VIDC_ERR, "%s : Failed to release buffers : %d\n",
 			__func__, rc);
@@ -2130,10 +2154,17 @@ int msm_vidc_close(void *instance)
 	if (!inst || !inst->core)
 		return -EINVAL;
 
+	/*
+	 * Make sure that HW stop working on these buffers that
+	 * we are going to free.
+	 */
+	if (inst->state != MSM_VIDC_CORE_INVALID &&
+		inst->core->state != VIDC_CORE_INVALID)
+		rc = msm_comm_try_state(inst,
+				MSM_VIDC_RELEASE_RESOURCES_DONE);
 
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(bi, dummy, &inst->registeredbufs.list, list) {
-		if (bi->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 			int i = 0;
 
 			list_del(&bi->list);
@@ -2146,7 +2177,6 @@ int msm_vidc_close(void *instance)
 
 			kfree(bi);
 		}
-	}
 	mutex_unlock(&inst->registeredbufs.lock);
 
 	cleanup_instance(inst);
