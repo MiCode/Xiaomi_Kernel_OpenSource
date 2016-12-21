@@ -101,6 +101,10 @@
 	status = "ok";
 };
 
+&usb3 {
+	extcon = <&pmfalcon_pdphy>;
+};
+
 &qusb_phy0 {
 	vdd-supply = <&pm2falcon_l1>;
 	vdda18-supply = <&pmfalcon_l10>;
