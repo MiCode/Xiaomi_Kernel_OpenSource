@@ -77,11 +77,30 @@ struct msm_sde_rotator_fence {
 	__u32	reserved[5];
 };
 
+/**
+* struct msm_sde_rotator_comp_ratio - v4l2 buffer compression ratio
+* @index: id number of the buffer
+* @type: enum v4l2_buf_type; buffer type
+* @numer: numerator of the ratio
+* @denom: denominator of the ratio
+**/
+struct msm_sde_rotator_comp_ratio {
+	__u32	index;
+	__u32	type;
+	__u32	numer;
+	__u32	denom;
+	__u32	reserved[4];
+};
+
 /* SDE Rotator private ioctl ID */
 #define VIDIOC_G_SDE_ROTATOR_FENCE \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 10, struct msm_sde_rotator_fence)
 #define VIDIOC_S_SDE_ROTATOR_FENCE \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 11, struct msm_sde_rotator_fence)
+#define VIDIOC_G_SDE_ROTATOR_COMP_RATIO \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 12, struct msm_sde_rotator_comp_ratio)
+#define VIDIOC_S_SDE_ROTATOR_COMP_RATIO \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 13, struct msm_sde_rotator_comp_ratio)
 
 /* SDE Rotator private control ID's */
 #define V4L2_CID_SDE_ROTATOR_SECURE	(V4L2_CID_USER_BASE + 0x1000)
