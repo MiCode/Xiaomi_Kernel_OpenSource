@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -753,7 +753,7 @@ inc_loop:
 			list_del(&mport->list);
 			kfree(mport);
 		}
-		if (!mport_next) {
+		if (!mport_next || (&mport_next->list == &swrm->mport_list)) {
 			dev_err(swrm->dev, "%s: end of list\n", __func__);
 			break;
 		}
