@@ -416,22 +416,9 @@ static int sde_rotator_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct sde_rotator_ctx *ctx = vb2_get_drv_priv(q);
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
-	struct sde_rotation_config config;
-	int ret;
 
 	SDEDEV_DBG(rot_dev->dev, "start streaming s:%d t:%d\n",
 			ctx->session_id, q->type);
-
-	sde_rot_mgr_lock(rot_dev->mgr);
-	sde_rotator_get_config_from_ctx(ctx, &config);
-	ret = sde_rotator_session_config(rot_dev->mgr, ctx->private, &config);
-	sde_rot_mgr_unlock(rot_dev->mgr);
-	if (ret < 0) {
-		SDEDEV_ERR(rot_dev->dev,
-			"fail config in stream on s:%d t:%d r:%d\n",
-			ctx->session_id, q->type, ret);
-		return -EINVAL;
-	}
 
 	if (!IS_ERR_OR_NULL(ctx->request) ||
 				atomic_read(&ctx->command_pending))
@@ -1501,10 +1488,38 @@ static int sde_rotator_streamon(struct file *file,
 	void *fh, enum v4l2_buf_type buf_type)
 {
 	struct sde_rotator_ctx *ctx = sde_rotator_ctx_from_fh(fh);
+	struct sde_rotator_device *rot_dev = ctx->rot_dev;
+	struct sde_rotation_config config;
+	struct vb2_queue *vq;
 	int ret;
 
 	SDEDEV_DBG(ctx->rot_dev->dev, "stream on s:%d t:%d\n",
 			ctx->session_id, buf_type);
+
+	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
+			buf_type == V4L2_BUF_TYPE_VIDEO_OUTPUT ?
+			V4L2_BUF_TYPE_VIDEO_CAPTURE :
+			V4L2_BUF_TYPE_VIDEO_OUTPUT);
+
+	if (!vq) {
+		SDEDEV_ERR(ctx->rot_dev->dev, "fail to get vq on s:%d t:%d\n",
+				ctx->session_id, buf_type);
+		return -EINVAL;
+	}
+
+	if (vb2_is_streaming(vq)) {
+		sde_rot_mgr_lock(rot_dev->mgr);
+		sde_rotator_get_config_from_ctx(ctx, &config);
+		ret = sde_rotator_session_config(rot_dev->mgr, ctx->private,
+				&config);
+		sde_rot_mgr_unlock(rot_dev->mgr);
+		if (ret < 0) {
+			SDEDEV_ERR(rot_dev->dev,
+				"fail config in stream on s:%d t:%d r:%d\n",
+				ctx->session_id, buf_type, ret);
+			return ret;
+		}
+	}
 
 	ret = v4l2_m2m_streamon(file, ctx->fh.m2m_ctx, buf_type);
 	if (ret < 0)
