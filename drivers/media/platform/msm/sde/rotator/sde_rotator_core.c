@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1390,6 +1390,14 @@ static void sde_rotator_commit_handler(struct work_struct *work)
 		entry->item.dst_rect.x, entry->item.dst_rect.y,
 		entry->item.dst_rect.w, entry->item.dst_rect.h);
 
+	ATRACE_INT("sde_smmu_ctrl", 0);
+	ret = sde_smmu_ctrl(1);
+	if (IS_ERR_VALUE(ret)) {
+		SDEROT_ERR("IOMMU attach failed\n");
+		goto smmu_error;
+	}
+	ATRACE_INT("sde_smmu_ctrl", 1);
+
 	ret = sde_rotator_map_and_check_data(entry);
 	if (ret) {
 		SDEROT_ERR("fail to prepare input/output data %d\n", ret);
@@ -1415,6 +1423,8 @@ static void sde_rotator_commit_handler(struct work_struct *work)
 	sde_rot_mgr_unlock(mgr);
 	return;
 error:
+	sde_smmu_ctrl(0);
+smmu_error:
 	sde_rotator_put_hw_resource(entry->commitq, entry, hw);
 get_hw_res_err:
 	sde_rotator_signal_output(entry);
@@ -1491,6 +1501,7 @@ static void sde_rotator_done_handler(struct work_struct *work)
 	sde_rot_mgr_lock(mgr);
 	sde_rotator_put_hw_resource(entry->commitq, entry, entry->commitq->hw);
 	sde_rotator_signal_output(entry);
+	ATRACE_INT("sde_rot_done", 1);
 	sde_rotator_release_entry(mgr, entry);
 	atomic_dec(&request->pending_count);
 	if (request->retireq && request->retire_work)
@@ -1498,6 +1509,10 @@ static void sde_rotator_done_handler(struct work_struct *work)
 	if (entry->item.ts)
 		entry->item.ts[SDE_ROTATOR_TS_RETIRE] = ktime_get();
 	sde_rot_mgr_unlock(mgr);
+
+	ATRACE_INT("sde_smmu_ctrl", 3);
+	sde_smmu_ctrl(0);
+	ATRACE_INT("sde_smmu_ctrl", 4);
 }
 
 static bool sde_rotator_verify_format(struct sde_rot_mgr *mgr,
