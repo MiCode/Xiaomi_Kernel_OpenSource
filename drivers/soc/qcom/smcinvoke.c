@@ -192,9 +192,9 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 
 	desc.arginfo = SMCINVOKE_TZ_PARAM_ID;
 	desc.args[0] = (uint64_t)virt_to_phys(in_buf);
-	desc.args[1] = in_buf_len;
+	desc.args[1] = inbuf_flush_size;
 	desc.args[2] = (uint64_t)virt_to_phys(out_buf);
-	desc.args[3] = out_buf_len;
+	desc.args[3] = outbuf_flush_size;
 
 	dmac_flush_range(in_buf, in_buf + inbuf_flush_size);
 	dmac_flush_range(out_buf, out_buf + outbuf_flush_size);
