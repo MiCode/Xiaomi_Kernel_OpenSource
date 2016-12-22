@@ -2379,6 +2379,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	int ret = 0;
 	int hph_swh = 0;
 	int gnd_swh = 0;
+	u32 hph_moist_config[3];
 	struct snd_soc_card *card = codec->component.card;
 	const char *hph_switch = "qcom,msm-mbhc-hphl-swh";
 	const char *gnd_switch = "qcom,msm-mbhc-gnd-swh";
@@ -2397,6 +2398,21 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		dev_err(card->dev,
 			"%s: missing %s in dt node\n", __func__, gnd_switch);
 		goto err;
+	}
+
+	ret = of_property_read_u32_array(card->dev->of_node,
+					 "qcom,msm-mbhc-moist-cfg",
+					 hph_moist_config, 3);
+	if (ret) {
+		dev_dbg(card->dev, "%s: no qcom,msm-mbhc-moist-cfg in DT\n",
+			__func__);
+		mbhc->moist_vref = V_45_MV;
+		mbhc->moist_iref = I_3P0_UA;
+		mbhc->moist_rref = R_24_KOHM;
+	} else {
+		mbhc->moist_vref = hph_moist_config[0];
+		mbhc->moist_iref = hph_moist_config[1];
+		mbhc->moist_rref = hph_moist_config[2];
 	}
 
 	mbhc->in_swch_irq_handler = false;
