@@ -268,7 +268,7 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 	struct pci_dev *pci_dev;
 	struct cnss_pci_data *pci_priv;
 
-	if (notify == NULL || notify->user)
+	if (!notify)
 		return;
 
 	pci_dev = notify->user;
@@ -276,7 +276,7 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 		return;
 
 	pci_priv = cnss_get_pci_priv(pci_dev);
-	if (pci_priv)
+	if (!pci_priv)
 		return;
 
 	switch (notify->event) {
