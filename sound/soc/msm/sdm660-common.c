@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2772,11 +2772,24 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
-	if (ret) {
+	if (ret == -EPROBE_DEFER) {
+		if (codec_reg_done) {
+			/*
+			 * return failure as EINVAL since other codec
+			 * registered sound card successfully.
+			 * This avoids any further probe calls.
+			 */
+			ret = -EINVAL;
+		}
+		goto err;
+	} else if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
 			ret);
 		goto err;
 	}
+	if (pdata->snd_card_val != INT_SND_CARD)
+		msm_ext_register_audio_notifier(pdev);
+
 	return 0;
 err:
 	if (pdata->us_euro_gpio > 0) {
