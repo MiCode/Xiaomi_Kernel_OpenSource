@@ -257,11 +257,30 @@ static int msm_drm_uninit(struct device *dev)
 	return 0;
 }
 
+#define KMS_MDP4 0
+#define KMS_MDP5 1
+#define KMS_SDE  2
+
 static int get_mdp_ver(struct platform_device *pdev)
 {
+#ifdef CONFIG_OF
+	static const struct of_device_id match_types[] = { {
+		.compatible = "qcom,mdss_mdp",
+		.data	= (void	*)KMS_MDP5,
+	},
+	{
+		.compatible = "qcom,sde-kms",
+		.data	= (void	*)KMS_SDE,
+		/* end node */
+	} };
 	struct device *dev = &pdev->dev;
+	const struct of_device_id *match;
 
-	return (int) (unsigned long) of_device_get_match_data(dev);
+	match = of_match_node(match_types, dev->of_node);
+	if (match)
+		return (int)(unsigned long)match->data;
+#endif
+	return KMS_MDP4;
 }
 
 #include <linux/of_address.h>
@@ -399,12 +418,14 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	msm_gem_shrinker_init(ddev);
 
 	switch (get_mdp_ver(pdev)) {
-	case 4:
-		kms = mdp4_kms_init(ddev);
-		priv->kms = kms;
+	case KMS_MDP4:
+		kms = mdp4_kms_init(dev);
 		break;
-	case 5:
-		kms = mdp5_kms_init(ddev);
+	case KMS_MDP5:
+		kms = mdp5_kms_init(dev);
+		break;
+	case KMS_SDE:
+		kms = sde_kms_init(dev);
 		break;
 	default:
 		kms = ERR_PTR(-ENODEV);
@@ -1048,8 +1069,9 @@ static int msm_pdev_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id dt_match[] = {
-	{ .compatible = "qcom,mdp4", .data = (void *)4 },	/* MDP4 */
-	{ .compatible = "qcom,mdss", .data = (void *)5 },	/* MDP5 MDSS */
+	{ .compatible = "qcom,mdp" },      /* mdp4 */
+	{ .compatible = "qcom,mdss_mdp" }, /* mdp5 */
+	{ .compatible = "qcom,sde-kms" },  /* sde  */
 	{}
 };
 MODULE_DEVICE_TABLE(of, dt_match);
