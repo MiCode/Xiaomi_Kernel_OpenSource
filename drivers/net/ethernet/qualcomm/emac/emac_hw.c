@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,7 +75,7 @@ void emac_hw_enable_intr(struct emac_hw *hw)
 		struct emac_irq_per_dev *irq = &adpt->irq[i];
 		const struct emac_irq_common *irq_cmn = &emac_irq_cmn_tbl[i];
 
-		emac_reg_w32(hw, EMAC, irq_cmn->status_reg, ~DIS_INT);
+		emac_reg_w32(hw, EMAC, irq_cmn->status_reg, (u32)~DIS_INT);
 		emac_reg_w32(hw, EMAC, irq_cmn->mask_reg, irq->mask);
 	}
 
@@ -246,6 +246,8 @@ void emac_hw_config_wol(struct emac_hw *hw, u32 wufc)
 void emac_hw_config_pow_save(struct emac_hw *hw, u32 speed,
 			     bool wol_en, bool rx_en)
 {
+	struct emac_adapter *adpt = emac_hw_get_adap(hw);
+	struct phy_device *phydev = adpt->phydev;
 	u32 dma_mas, mac;
 
 	dma_mas = emac_reg_r32(hw, EMAC, EMAC_DMA_MAS_CTRL);
@@ -254,23 +256,21 @@ void emac_hw_config_pow_save(struct emac_hw *hw, u32 speed,
 
 	mac = emac_reg_r32(hw, EMAC, EMAC_MAC_CTRL);
 	mac &= ~(FULLD | RXEN | TXEN);
-	mac = (mac & ~SPEED_BMSK) |
-	  (((u32)emac_mac_speed_10_100 << SPEED_SHFT) & SPEED_BMSK);
+	mac = (mac & ~SPEED_MASK) | SPEED(1);
 
 	if (wol_en) {
 		if (rx_en)
 			mac |= (RXEN | BROAD_EN);
 
 		/* If WOL is enabled, set link speed/duplex for mac */
-		if (EMAC_LINK_SPEED_1GB_FULL == speed)
-			mac = (mac & ~SPEED_BMSK) |
-			  (((u32)emac_mac_speed_1000 << SPEED_SHFT) &
-			   SPEED_BMSK);
+		if (phydev->speed == SPEED_1000)
+			mac = (mac & ~SPEED_MASK) | (SPEED(2) & SPEED_MASK);
 
-		if (EMAC_LINK_SPEED_10_FULL == speed ||
-		    EMAC_LINK_SPEED_100_FULL == speed ||
-		    EMAC_LINK_SPEED_1GB_FULL == speed)
-			mac |= FULLD;
+		if (DUPLEX_FULL == phydev->duplex)
+			if (SPEED_10 == phydev->speed ||
+			    SPEED_100 == phydev->speed ||
+			    SPEED_1000 == phydev->speed)
+				mac |= FULLD;
 	} else {
 		/* select lower clock speed if WOL is disabled */
 		dma_mas |= LPW_CLK_SEL;
@@ -282,7 +282,7 @@ void emac_hw_config_pow_save(struct emac_hw *hw, u32 speed,
 }
 
 /* Config descriptor rings */
-static void emac_hw_config_ring_ctrl(struct emac_hw *hw)
+static void emac_mac_dma_rings_config(struct emac_hw *hw)
 {
 	struct emac_adapter *adpt = emac_hw_get_adap(hw);
 
@@ -459,14 +459,15 @@ static void emac_hw_config_dma_ctrl(struct emac_hw *hw)
 /* Configure MAC */
 void emac_hw_config_mac(struct emac_hw *hw)
 {
+	struct emac_adapter *adpt = emac_hw_get_adap(hw);
 	u32 val;
 
-	emac_hw_set_mac_addr(hw, hw->mac_addr);
+	emac_hw_set_mac_addr(hw, adpt->netdev->dev_addr);
 
-	emac_hw_config_ring_ctrl(hw);
+	emac_mac_dma_rings_config(hw);
 
 	emac_reg_w32(hw, EMAC, EMAC_MAX_FRAM_LEN_CTRL,
-		     hw->mtu + ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN);
+		     adpt->netdev->mtu + ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN);
 
 	emac_hw_config_tx_ctrl(hw);
 	emac_hw_config_rx_ctrl(hw);
@@ -497,6 +498,7 @@ void emac_hw_reset_mac(struct emac_hw *hw)
 	wmb(); /* ensure mac is fully reset */
 	usleep_range(100, 150);
 
+	/* interrupt clear-on-read */
 	emac_reg_update32(hw, EMAC, EMAC_DMA_MAS_CTRL, 0, INT_RD_CLR_EN);
 	wmb(); /* ensure the interrupt clear-on-read setting is flushed to HW */
 }
@@ -505,7 +507,7 @@ void emac_hw_reset_mac(struct emac_hw *hw)
 void emac_hw_start_mac(struct emac_hw *hw)
 {
 	struct emac_adapter *adpt = emac_hw_get_adap(hw);
-	struct emac_phy *phy = &adpt->phy;
+	struct phy_device *phydev = adpt->phydev;
 	u32 mac, csr1;
 
 	/* enable tx queue */
@@ -522,43 +524,29 @@ void emac_hw_start_mac(struct emac_hw *hw)
 
 	mac |= TXEN | RXEN;     /* enable RX/TX */
 
-	/* enable RX/TX Flow Control */
-	switch (phy->cur_fc_mode) {
-	case EMAC_FC_FULL:
-		mac |= (TXFC | RXFC);
-		break;
-	case EMAC_FC_RX_PAUSE:
+	/* Configure MAC flow control to match the PHY's settings. */
+	if (phydev->pause)
 		mac |= RXFC;
-		break;
-	case EMAC_FC_TX_PAUSE:
+	if (phydev->pause != phydev->asym_pause)
 		mac |= TXFC;
-		break;
-	default:
-		break;
-	}
 
 	/* setup link speed */
-	mac &= ~SPEED_BMSK;
-	switch (phy->link_speed) {
-	case EMAC_LINK_SPEED_1GB_FULL:
-		mac |= ((emac_mac_speed_1000 << SPEED_SHFT) & SPEED_BMSK);
+	mac &= ~SPEED_MASK;
+	switch (phydev->speed) {
+	case SPEED_1000:
+		mac |= SPEED(2);
 		csr1 |= FREQ_MODE;
 		break;
 	default:
-		mac |= ((emac_mac_speed_10_100 << SPEED_SHFT) & SPEED_BMSK);
+		mac |= SPEED(1);
 		csr1 &= ~FREQ_MODE;
 		break;
 	}
 
-	switch (phy->link_speed) {
-	case EMAC_LINK_SPEED_1GB_FULL:
-	case EMAC_LINK_SPEED_100_FULL:
-	case EMAC_LINK_SPEED_10_FULL:
+	if (phydev->duplex == DUPLEX_FULL)
 		mac |= FULLD;
-		break;
-	default:
+	else
 		mac &= ~FULLD;
-	}
 
 	/* other parameters */
 	mac |= (CRCE | PCRCE);
@@ -581,7 +569,7 @@ void emac_hw_start_mac(struct emac_hw *hw)
 		      IRQ_MODERATOR_EN | IRQ_MODERATOR2_EN));
 
 	if (TEST_FLAG(hw, HW_PTP_CAP))
-		emac_ptp_set_linkspeed(hw, phy->link_speed);
+		emac_ptp_set_linkspeed(hw, phydev->speed);
 
 	emac_hw_config_mac_ctrl(hw);
 
@@ -611,12 +599,12 @@ void emac_hw_set_mac_addr(struct emac_hw *hw, u8 *addr)
 	 * 0<-->C6112233, 1<-->00A0.
 	 */
 
-	/* low dword */
+	/* low 32bit word */
 	sta = (((u32)addr[2]) << 24) | (((u32)addr[3]) << 16) |
 	      (((u32)addr[4]) << 8)  | (((u32)addr[5]));
 	emac_reg_w32(hw, EMAC, EMAC_MAC_STA_ADDR0, sta);
 
-	/* hight dword */
+	/* hight 32bit word */
 	sta = (((u32)addr[0]) << 8) | (((u32)addr[1]));
 	emac_reg_w32(hw, EMAC, EMAC_MAC_STA_ADDR1, sta);
 	wmb(); /* ensure that the MAC address is flushed to HW */

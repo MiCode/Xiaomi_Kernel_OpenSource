@@ -64,8 +64,8 @@
 #define MULTI_ALL                                             0x2000000
 #define RX_CHKSUM_EN                                          0x1000000
 #define HUGE                                                   0x800000
-#define SPEED_BMSK                                             0x300000
-#define SPEED_SHFT                                                   20
+#define SPEED(x)					(((x) & 0x3) << 20)
+#define SPEED_MASK					SPEED(0x3)
 #define SIMR                                                    0x80000
 #define TPAUSE                                                  0x10000
 #define PROM_MODE                                                0x8000
@@ -177,30 +177,30 @@
 #define RFD0_CONS_IDX_SHFT                                            0
 
 /* EMAC_INT_STATUS */
-#define DIS_INT                                              0x80000000
-#define PTP_INT                                              0x40000000
-#define RFD4_UR_INT                                          0x20000000
-#define TX_PKT_INT3                                           0x4000000
-#define TX_PKT_INT2                                           0x2000000
-#define TX_PKT_INT1                                           0x1000000
-#define RX_PKT_INT3                                             0x80000
-#define RX_PKT_INT2                                             0x40000
-#define RX_PKT_INT1                                             0x20000
-#define RX_PKT_INT0                                             0x10000
-#define TX_PKT_INT                                               0x8000
-#define TXQ_TO_INT                                               0x4000
-#define GPHY_WAKEUP_INT                                          0x2000
-#define GPHY_LINK_DOWN_INT                                       0x1000
-#define GPHY_LINK_UP_INT                                          0x800
-#define DMAW_TO_INT                                               0x400
-#define DMAR_TO_INT                                               0x200
-#define TXF_UR_INT                                                0x100
-#define RFD3_UR_INT                                                0x80
-#define RFD2_UR_INT                                                0x40
-#define RFD1_UR_INT                                                0x20
-#define RFD0_UR_INT                                                0x10
-#define RXF_OF_INT                                                  0x8
-#define SW_MAN_INT                                                  0x4
+#define DIS_INT                                                BIT(31)
+#define PTP_INT                                                BIT(30)
+#define RFD4_UR_INT                                            BIT(29)
+#define TX_PKT_INT3                                            BIT(26)
+#define TX_PKT_INT2                                            BIT(25)
+#define TX_PKT_INT1                                            BIT(24)
+#define RX_PKT_INT3                                            BIT(19)
+#define RX_PKT_INT2                                            BIT(18)
+#define RX_PKT_INT1                                            BIT(17)
+#define RX_PKT_INT0                                            BIT(16)
+#define TX_PKT_INT                                             BIT(15)
+#define TXQ_TO_INT                                             BIT(14)
+#define GPHY_WAKEUP_INT                                        BIT(13)
+#define GPHY_LINK_DOWN_INT                                     BIT(12)
+#define GPHY_LINK_UP_INT                                       BIT(11)
+#define DMAW_TO_INT                                            BIT(10)
+#define DMAR_TO_INT                                             BIT(9)
+#define TXF_UR_INT                                              BIT(8)
+#define RFD3_UR_INT                                             BIT(7)
+#define RFD2_UR_INT                                             BIT(6)
+#define RFD1_UR_INT                                             BIT(5)
+#define RFD0_UR_INT                                             BIT(4)
+#define RXF_OF_INT                                              BIT(3)
+#define SW_MAN_INT                                              BIT(2)
 
 /* EMAC_INT_RETRIG_INIT */
 #define INT_RETRIG_TIME_BMSK                                     0xffff
@@ -280,14 +280,14 @@
 #define H1TPD_PROD_IDX_SHFT                                           0
 
 /* EMAC_EMAC_WRAPPER_CSR1 */
-#define TX_INDX_FIFO_SYNC_RST                                  0x800000
-#define TX_TS_FIFO_SYNC_RST                                    0x400000
-#define RX_TS_FIFO2_SYNC_RST                                   0x200000
-#define RX_TS_FIFO1_SYNC_RST                                   0x100000
-#define TX_TS_ENABLE                                            0x10000
-#define DIS_1588_CLKS                                             0x800
-#define FREQ_MODE                                                 0x200
-#define ENABLE_RRD_TIMESTAMP                                        0x8
+#define TX_INDX_FIFO_SYNC_RST                                  BIT(23)
+#define TX_TS_FIFO_SYNC_RST                                    BIT(22)
+#define RX_TS_FIFO2_SYNC_RST                                   BIT(21)
+#define RX_TS_FIFO1_SYNC_RST                                   BIT(20)
+#define TX_TS_ENABLE                                           BIT(16)
+#define DIS_1588_CLKS                                          BIT(11)
+#define FREQ_MODE                                               BIT(9)
+#define ENABLE_RRD_TIMESTAMP                                    BIT(3)
 
 /* EMAC_EMAC_WRAPPER_CSR2 */
 #define HDRIVE_BMSK                                              0x3000
@@ -395,140 +395,5 @@
 #define GRANDMASTER_MODE                                           0x40
 #define GM_PPS_SYNC                                                0x20
 
-/* EMAC_QSERDES_COM_SYS_CLK_CTRL */
-#define SYSCLK_CM                                                  0x10
-#define SYSCLK_AC_COUPLE                                           0x08
-
-/* EMAC_QSERDES_COM_PLL_CNTRL */
-#define OCP_EN                                                     0x20
-#define PLL_DIV_FFEN                                               0x04
-#define PLL_DIV_ORD                                                0x02
-
-/* EMAC_QSERDES_COM_SYSCLK_EN_SEL */
-#define SYSCLK_SEL_CMOS                                             0x8
-
-/* EMAC_QSERDES_COM_RESETSM_CNTRL */
-#define FRQ_TUNE_MODE                                              0x10
-
-/* EMAC_QSERDES_COM_RES_TRIM_SEARCH */
-#define RESTRIM_SEARCH						   0x0
-
-/* EMAC_QSERDES_COM_BGTC */
-#define BGTC							   0x7
-
-/* EMAC_QSERDES_COM_PLLLOCK_CMP_EN */
-#define PLLLOCK_CMP_EN                                             0x01
-
-/* EMAC_QSERDES_COM_DEC_START1 */
-#define DEC_START1_MUX                                             0x80
-
-/* EMAC_QSERDES_COM_DIV_FRAC_START1 */
-#define DIV_FRAC_START1_MUX                                        0x80
-
-/* EMAC_QSERDES_COM_DIV_FRAC_START2 */
-#define DIV_FRAC_START2_MUX                                        0x80
-
-/* EMAC_QSERDES_COM_DIV_FRAC_START3 */
-#define DIV_FRAC_START3_MUX                                        0x10
-
-/* EMAC_QSERDES_COM_DEC_START2 */
-#define DEC_START2_MUX                                              0x2
-#define DEC_START2                                                  0x1
-
-/* EMAC_QSERDES_COM_RESET_SM */
-#define QSERDES_READY                                              0x20
-
-/* EMAC_QSERDES_TX_TX_EMP_POST1_LVL */
-#define TX_EMP_POST1_LVL_MUX                                       0x20
-#define TX_EMP_POST1_LVL_BMSK                                      0x1f
-#define TX_EMP_POST1_LVL_SHFT                                         0
-
-/* EMAC_QSERDES_TX_TX_DRV_LVL */
-#define TX_DRV_LVL_MUX                                             0x10
-#define TX_DRV_LVL_BMSK                                            0x0f
-#define TX_DRV_LVL_SHFT                                               0
-
-/* EMAC_QSERDES_TX_TRAN_DRVR_EMP_EN */
-#define EMP_EN_MUX                                                  0x2
-#define EMP_EN                                                      0x1
-
-/* EMAC_QSERDES_RX_CDR_CONTROL */
-/* EMAC_QSERDES_RX_CDR_CONTROL2 */
-#define SECONDORDERENABLE                                          0x40
-#define FIRSTORDER_THRESH_BMSK                                     0x38
-#define FIRSTORDER_THRESH_SHFT                                        3
-#define SECONDORDERGAIN_BMSK                                       0x07
-#define SECONDORDERGAIN_SHFT                                          0
-
-/* EMAC_QSERDES_RX_RX_EQ_GAIN12 */
-#define RX_EQ_GAIN2_BMSK                                           0xf0
-#define RX_EQ_GAIN2_SHFT                                              4
-#define RX_EQ_GAIN1_BMSK                                           0x0f
-#define RX_EQ_GAIN1_SHFT                                              0
-
-/* EMAC_SGMII_PHY_SERDES_START */
-#define SERDES_START                                               0x01
-
-/* EMAC_SGMII_PHY_CMN_PWR_CTRL */
-#define BIAS_EN                                                    0x40
-#define PLL_EN                                                     0x20
-#define SYSCLK_EN                                                  0x10
-#define CLKBUF_L_EN                                                0x08
-#define PLL_TXCLK_EN                                               0x02
-#define PLL_RXCLK_EN                                               0x01
-
-/* EMAC_QSERDES_COM_PLL_VCOTAIL_EN */
-#define PLL_VCO_TAIL_MUX					   0x80
-#define PLL_VCO_TAIL						   0x7c
-#define PLL_EN_VCOTAIL_EN					   0x1
-
-/* EMAC_SGMII_PHY_RX_PWR_CTRL */
-#define L0_RX_SIGDET_EN                                            0x80
-#define L0_RX_TERM_MODE_BMSK                                       0x30
-#define L0_RX_TERM_MODE_SHFT                                          4
-#define L0_RX_I_EN                                                 0x02
-
-/* EMAC_SGMII_PHY_TX_PWR_CTRL */
-#define L0_TX_EN                                                   0x20
-#define L0_CLKBUF_EN                                               0x10
-#define L0_TRAN_BIAS_EN                                            0x02
-
-/* EMAC_SGMII_PHY_LANE_CTRL1 */
-#define L0_RX_EQ_EN                                                0x40
-#define L0_RESET_TSYNC_EN                                          0x10
-#define L0_DRV_LVL_BMSK                                            0x0f
-#define L0_DRV_LVL_SHFT                                               0
-
-/* EMAC_SGMII_PHY_AUTONEG_CFG2 */
-#define FORCE_AN_TX_CFG                                            0x20
-#define FORCE_AN_RX_CFG                                            0x10
-#define AN_ENABLE                                                  0x01
-
-/* EMAC_SGMII_PHY_SPEED_CFG1 */
-#define DUPLEX_MODE                                                0x10
-#define SPDMODE_1000                                               0x02
-#define SPDMODE_100                                                0x01
-#define SPDMODE_10                                                 0x00
-#define SPDMODE_BMSK                                               0x03
-#define SPDMODE_SHFT                                                  0
-
-/* EMAC_SGMII_PHY_POW_DWN_CTRL0 */
-#define PWRDN_B                                                    0x01
-
-/* EMAC_SGMII_PHY_RESET_CTRL */
-#define PHY_SW_RESET                                               0x01
-
-/* EMAC_SGMII_PHY_IRQ_CMD */
-#define IRQ_GLOBAL_CLEAR                                           0x01
-
-/* EMAC_SGMII_PHY_INTERRUPT_MASK */
-#define DECODE_CODE_ERR                                            0x80
-#define DECODE_DISP_ERR                                            0x40
-#define PLL_UNLOCK                                                 0x20
-#define AN_ILLEGAL_TERM                                            0x10
-#define SYNC_FAIL                                                  0x08
-#define AN_START                                                   0x04
-#define AN_END                                                     0x02
-#define AN_REQUEST                                                 0x01
 
 #endif /* __EMAC_DEFINES_H__ */

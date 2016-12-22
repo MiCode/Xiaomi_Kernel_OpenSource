@@ -1572,24 +1572,21 @@
 	};
 
 	emac0: qcom,emac@7c40000 {
-		cell-index = <0>;
 		compatible = "qcom,mdm9607-emac";
-		reg-names = "emac", "emac_csr", "emac_1588", "emac_sgmii";
+		reg-names = "emac", "emac_csr", "emac_1588";
 		reg = <0x7c40000 0x10000>,
 			<0x7c56000 0x1000>,
-			<0x7c5C000 0x4000>,
-			<0x7c58000 0x400>;
+			<0x7c5c000 0x4000>;
+
 		#address-cells = <0>;
 		interrupt-parent = <&emac0>;
 		#interrupt-cells = <1>;
-		interrupts = <0 1 2>;
+		interrupts = <0 1>;
 		interrupt-map-mask = <0xffffffff>;
 		interrupt-map = <0 &intc 0 76 0
-				1 &intc 0 80 0
-				2 &tlmm_pinmux 30 0x8>;
-		interrupt-names = "emac_core0_irq",
-				"emac_sgmii_irq",
-				"emac_wol_irq";
+				1 &tlmm_pinmux 30 0x8>;
+		interrupt-names = "emac_core0_irq", "emac_wol_irq";
+
 		emac_vreg1-supply = <&mdm9607_l1>;
 		emac_vreg2-supply = <&mdm9607_l3>;
 		emac_vreg3-supply = <&mdm9607_l5>;
@@ -1603,8 +1600,13 @@
 			 <&clock_gcc clk_gcc_emac_0_tx_clk>,
 			 <&clock_gcc clk_gcc_emac_0_rx_clk>,
 			 <&clock_gcc clk_gcc_emac_0_sys_clk>;
-		clock-names = "axi_clk", "cfg_ahb_clk", "125m_clk",
-			"25m_clk", "tx_clk", "rx_clk", "sys_clk";
+		clock-names = "axi_clk", "cfg_ahb_clk", "high_speed_clk",
+			"mdio_clk", "tx_clk", "rx_clk", "sys_clk";
+
+		internal-phy = <&emac_sgmii>;
+		phy-handle = <&phy0>;
+		phy-mode = "sgmii";
+
 		pinctrl-names = "emac_mdio_active", "emac_mdio_sleep",
 			"emac_ephy_active", "emac_ephy_sleep";
 		pinctrl-0 = <&emac0_mdio_active>;
@@ -1613,10 +1615,21 @@
 		pinctrl-3 = <&emac0_ephy_sleep>;
 		qcom,emac-tstamp-en;
 		qcom,emac-ptp-frac-ns-adj = <125000000 1>;
-		phy-mode = "sgmii";
-		phy-addr = <0>;
 		status = "disable";
+
+		phy0: ethernet-phy@0 {
+			reg = <0>;
+		};
 	};
+
+	emac_sgmii: ethernet@7c58000 {
+		compatible = "qcom,mdm9607-emac-sgmii";
+		reg-names = "emac_sgmii";
+		reg = <0x7c58000 0x400>;
+		interrupt-names = "emac_sgmii_irq";
+		interrupts = <0 80 0>;
+	};
+
 	pps {
 		compatible = "pps-gpio";
 		pinctrl-names = "default";

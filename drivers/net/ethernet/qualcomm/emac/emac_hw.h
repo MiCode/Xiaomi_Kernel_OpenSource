@@ -147,6 +147,6 @@ bool emac_hw_read_tx_tstamp(struct emac_hw *hw, struct emac_hwtxtstamp *ts);
 #define HIBERNATE_EN                    0x8000
 
 /* MII_INT_ENABLE/MII_INT_STATUS */
-#define LINK_SUCCESS_INTERRUPT		0x400
-#define LINK_SUCCESS_BX			0x80
+#define LINK_SUCCESS_INTERRUPT			BIT(10)
+#define LINK_SUCCESS_BX			BIT(7)
 #endif /*_EMAC_HW_H_*/
