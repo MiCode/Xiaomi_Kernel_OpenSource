@@ -118,6 +118,7 @@ struct usb_os_desc_table {
 /**
  * struct usb_function - describes one function of a configuration
  * @name: For diagnostics, identifies the function.
+ * @intf_id: Interface ID
  * @strings: tables of strings, keyed by identifiers assigned during bind()
  *	and by language IDs provided in control requests
  * @fs_descriptors: Table of full (or low) speed descriptors, using interface and
@@ -197,6 +198,7 @@ struct usb_os_desc_table {
 
 struct usb_function {
 	const char			*name;
+	int				intf_id;
 	struct usb_gadget_strings	**strings;
 	struct usb_descriptor_header	**fs_descriptors;
 	struct usb_descriptor_header	**hs_descriptors;
