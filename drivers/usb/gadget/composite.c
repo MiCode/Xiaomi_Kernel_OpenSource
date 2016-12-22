@@ -422,9 +422,7 @@ EXPORT_SYMBOL_GPL(usb_interface_id);
 static int usb_func_wakeup_int(struct usb_function *func)
 {
 	int ret;
-	unsigned long flags;
 	struct usb_gadget *gadget;
-	struct usb_composite_dev *cdev;
 
 	pr_debug("%s - %s function wakeup\n",
 		__func__, func->name ? func->name : "");
@@ -443,10 +441,7 @@ static int usb_func_wakeup_int(struct usb_function *func)
 		return -ENOTSUPP;
 	}
 
-	cdev = get_gadget_data(gadget);
-	spin_lock_irqsave(&cdev->lock, flags);
 	ret = usb_gadget_func_wakeup(gadget, func->intf_id);
-	spin_unlock_irqrestore(&cdev->lock, flags);
 
 	return ret;
 }
@@ -454,10 +449,12 @@ static int usb_func_wakeup_int(struct usb_function *func)
 int usb_func_wakeup(struct usb_function *func)
 {
 	int ret;
+	unsigned long flags;
 
 	pr_debug("%s function wakeup\n",
 		func->name ? func->name : "");
 
+	spin_lock_irqsave(&func->config->cdev->lock, flags);
 	ret = usb_func_wakeup_int(func);
 	if (ret == -EAGAIN) {
 		DBG(func->config->cdev,
@@ -470,6 +467,7 @@ int usb_func_wakeup(struct usb_function *func)
 			func->name ? func->name : "", ret);
 	}
 
+	spin_unlock_irqrestore(&func->config->cdev->lock, flags);
 	return ret;
 }
 EXPORT_SYMBOL(usb_func_wakeup);
@@ -2372,7 +2370,8 @@ void composite_resume(struct usb_gadget *gadget)
 	struct usb_composite_dev	*cdev = get_gadget_data(gadget);
 	struct usb_function		*f;
 	u16				maxpower;
-	int ret;
+	int				ret;
+	unsigned long			flags;
 
 	/* REVISIT:  should we have config level
 	 * suspend/resume callbacks?
@@ -2381,6 +2380,7 @@ void composite_resume(struct usb_gadget *gadget)
 	if (cdev->driver->resume)
 		cdev->driver->resume(cdev);
 
+	spin_lock_irqsave(&cdev->lock, flags);
 	if (cdev->config) {
 		list_for_each_entry(f, &cdev->config->functions, list) {
 			ret = usb_func_wakeup_int(f);
@@ -2408,6 +2408,7 @@ void composite_resume(struct usb_gadget *gadget)
 			maxpower : CONFIG_USB_GADGET_VBUS_DRAW);
 	}
 
+	spin_unlock_irqrestore(&cdev->lock, flags);
 	cdev->suspended = 0;
 }
 
