@@ -33,7 +33,7 @@ int msm_ext_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 #ifdef CONFIG_SND_SOC_EXT_CODEC
 int msm_ext_cdc_init(struct platform_device *, struct msm_asoc_mach_data *,
 		     struct snd_soc_card **, struct wcd_mbhc_config *);
-void msm_ext_register_audio_notifier(void);
+void msm_ext_register_audio_notifier(struct platform_device *pdev);
 void msm_ext_cdc_deinit(void);
 #else
 inline int msm_ext_cdc_init(struct platform_device *pdev,
@@ -44,7 +44,7 @@ inline int msm_ext_cdc_init(struct platform_device *pdev,
 	return 0;
 }
 
-inline void msm_ext_register_audio_notifier(void)
+inline void msm_ext_register_audio_notifier(struct platform_device *pdev)
 {
 }
 inline void msm_ext_cdc_deinit(void)
