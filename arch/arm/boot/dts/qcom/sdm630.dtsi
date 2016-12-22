@@ -48,7 +48,7 @@
 			reg = <0x0 0x100>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile0>;
-			efficiency = <1024>;
+			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
 				compatible = "arm,arch-cache";
@@ -72,7 +72,7 @@
 			reg = <0x0 0x101>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile1>;
-			efficiency = <1024>;
+			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
 			L1_I_101: l1-icache {
 				compatible = "arm,arch-cache";
@@ -90,7 +90,7 @@
 			reg = <0x0 0x102>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile2>;
-			efficiency = <1024>;
+			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
 			L1_I_102: l1-icache {
 				compatible = "arm,arch-cache";
@@ -108,7 +108,7 @@
 			reg = <0x0 0x103>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile3>;
-			efficiency = <1024>;
+			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
 			L1_I_103: l1-icache {
 				compatible = "arm,arch-cache";
