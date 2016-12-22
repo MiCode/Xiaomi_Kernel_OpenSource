@@ -15,13 +15,13 @@
 
 #include "msmfalcon.dtsi"
 #include "msmfalcon-pinctrl.dtsi"
+#include "msm-pm3falcon.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM FALCON PMFALCON + PM2FALCON SIM";
+	model = "Qualcomm Technologies, Inc. MSM FALCON PMFALCON + PM3FALCON SIM";
 	compatible = "qcom,msmfalcon-sim", "qcom,msmfalcon", "qcom,sim";
 	qcom,board-id = <16 0>;
-	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
-			<0x0001001b 0x0201011a 0x0 0x0>;
+	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
 
 	chosen {
 		bootargs = "lpm_levels.sleep_disabled=1";

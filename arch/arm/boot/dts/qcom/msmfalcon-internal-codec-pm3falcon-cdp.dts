@@ -15,11 +15,11 @@
 
 #include "msmfalcon.dtsi"
 #include "msmfalcon-cdp.dtsi"
+#include "msm-pm3falcon.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM FALCON PMFALCON + PM2FALCON Int. Audio Codec CDP";
+	model = "Qualcomm Technologies, Inc. MSM FALCON PMFALCON + PM3FALCON Int. Audio Codec CDP";
 	compatible = "qcom,msmfalcon-cdp", "qcom,msmfalcon", "qcom,cdp";
 	qcom,board-id = <1 1>;
-	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
-			<0x0001001b 0x0201011a 0x0 0x0>;
+	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
 };
