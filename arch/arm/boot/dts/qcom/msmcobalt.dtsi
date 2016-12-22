@@ -1392,7 +1392,7 @@
 		reg-names = "qmp_phy_base",
 			    "vls_clamp_reg";
 		vdd-supply = <&pmcobalt_l1>;
-		vdda18-supply = <&pmcobalt_l12>;
+		core-supply = <&pmcobalt_l12>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		qcom,vbus-valid-override;
 

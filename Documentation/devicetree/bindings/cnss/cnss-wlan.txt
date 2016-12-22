@@ -48,6 +48,7 @@ Optional properties:
   - vdd-wlan-en-supply: WLAN_EN fixed regulator specified by QCA6174 specifications.
   - qcom,wlan-en-vreg-support: Boolean property to decide the whether the WLAN_EN pin
 				is a gpio or fixed regulator.
+  - qcom,mhi: phandle to indicate the device which needs MHI support.
 
 Example:
 
@@ -64,4 +65,5 @@ Example:
         pinctrl-0 = <&cnss_default>;
         qcom,wlan-rc-num = <0>;
         qcom,wlan-smmu-iova-address = <0 0x10000000>;
+        qcom,mhi = <&mhi_wlan>;
     };

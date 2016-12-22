@@ -1914,12 +1914,12 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 		ISP_DBG("%s: error_mask0/1 & error_count are set!\n", __func__);
 		return IRQ_HANDLED;
 	}
+	dump_data.vfe_dev = (struct vfe_device *) data;
 	if (vfe_dev->is_split &&
 		(vfe_dev->common_data->dual_vfe_res->vfe_dev[
 			!vfe_dev->pdev->id]) &&
 		(vfe_dev->common_data->dual_vfe_res->vfe_dev[
 			!vfe_dev->pdev->id]->vfe_open_cnt)) {
-		dump_data.vfe_dev = (struct vfe_device *) data;
 		spin_lock(&dump_irq_lock);
 		dump_data.arr[dump_data.first].current_vfe_irq.
 			vfe_id = vfe_dev->pdev->id;
