@@ -131,7 +131,7 @@ struct sde_kms {
 	struct dentry *debugfs_vbif;
 
 	/* io/register spaces: */
-	void __iomem *mmio, *vbif[VBIF_MAX];
+	void __iomem *mmio, *vbif[VBIF_MAX], *reg_dma;
 
 	struct regulator *vdd;
 	struct regulator *mmagic;

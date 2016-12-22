@@ -438,10 +438,12 @@ struct sde_mdss_color {
  * struct sde_hw_cp_cfg: hardware dspp/lm feature payload.
  * @payload: Feature specific payload.
  * @len: Length of the payload.
+ * @ctl: control pointer associated with dspp/lm.
  */
 struct sde_hw_cp_cfg {
 	void *payload;
 	u32 len;
+	void *ctl;
 };
 
 /**
