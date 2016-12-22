@@ -1089,6 +1089,7 @@ static u32 sde_hw_rotator_wait_done_regdma(
 				!sde_hw_rotator_pending_swts(rot, ctx, &swts),
 				KOFF_TIMEOUT);
 
+		ATRACE_INT("sde_rot_done", 0);
 		spin_lock_irqsave(&rot->rotisr_lock, flags);
 
 		last_isr = ctx->last_regdma_isr_status;
@@ -1769,7 +1770,6 @@ static int sde_hw_rotator_kickoff(struct sde_rot_hw_resource *hw,
 	struct sde_hw_rotator *rot;
 	struct sde_hw_rotator_resource_info *resinfo;
 	struct sde_hw_rotator_context *ctx;
-	int ret = 0;
 
 	if (!hw || !entry) {
 		SDEROT_ERR("null hw resource/entry\n");
@@ -1785,12 +1785,6 @@ static int sde_hw_rotator_kickoff(struct sde_rot_hw_resource *hw,
 		SDEROT_ERR("Cannot locate rotator ctx from sesison id:%d\n",
 				entry->item.session_id);
 		return -EINVAL;
-	}
-
-	ret = sde_smmu_ctrl(1);
-	if (IS_ERR_VALUE(ret)) {
-		SDEROT_ERR("IOMMU attach failed\n");
-		return ret;
 	}
 
 	rot->ops.start_rotator(ctx, ctx->q_id);
@@ -1831,8 +1825,6 @@ static int sde_hw_rotator_wait4done(struct sde_rot_hw_resource *hw,
 	}
 
 	ret = rot->ops.wait_rotator_done(ctx, ctx->q_id, 0);
-
-	sde_smmu_ctrl(0);
 
 	if (rot->dbgmem) {
 		sde_hw_rotator_unmap_vaddr(&ctx->src_dbgbuf);
