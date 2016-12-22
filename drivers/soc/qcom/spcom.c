@@ -272,6 +272,8 @@ static struct spcom_device *spcom_dev;
 static int spcom_create_channel_chardev(const char *name);
 static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec);
 static int spcom_close(struct spcom_channel *ch);
+static void spcom_notify_rx_abort(void *handle, const void *priv,
+				  const void *pkt_priv);
 
 /**
  * spcom_is_ready() - driver is initialized and ready.
@@ -467,6 +469,13 @@ static void spcom_notify_state(void *handle, const void *priv, unsigned event)
 		 * This may happen upon remote SSR.
 		 */
 		pr_err("GLINK_REMOTE_DISCONNECTED, ch [%s].\n", ch->name);
+
+		/*
+		 * Abort any blocking read() operation.
+		 * The glink notification might be after REMOTE_DISCONNECT.
+		 */
+		spcom_notify_rx_abort(NULL, ch, NULL);
+
 		/*
 		 * after glink_close(),
 		 * expecting notify GLINK_LOCAL_DISCONNECTED
@@ -515,7 +524,7 @@ static void spcom_notify_rx_abort(void *handle, const void *priv,
 
 	pr_debug("ch [%s] pending rx aborted.\n", ch->name);
 
-	if (spcom_is_channel_connected(ch)) {
+	if (spcom_is_channel_connected(ch) && (!ch->rx_abort)) {
 		ch->rx_abort = true;
 		complete_all(&ch->rx_done);
 	}
@@ -535,9 +544,9 @@ static void spcom_notify_tx_abort(void *handle, const void *priv,
 
 	pr_debug("ch [%s] pending tx aborted.\n", ch->name);
 
-	if (spcom_is_channel_connected(ch)) {
-		complete_all(&ch->tx_done);
+	if (spcom_is_channel_connected(ch) && (!ch->tx_abort)) {
 		ch->tx_abort = true;
+		complete_all(&ch->tx_done);
 	}
 }
 
