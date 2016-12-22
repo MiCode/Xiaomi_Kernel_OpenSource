@@ -56,3 +56,5 @@ usb_f_accessory-y               := f_accessory.o
 obj-$(CONFIG_USB_F_ACC)         += usb_f_accessory.o
 usb_f_diag-y			:= f_diag.o
 obj-$(CONFIG_USB_F_DIAG)	+= usb_f_diag.o
+usb_f_cdev-y			:= f_cdev.o
+obj-$(CONFIG_USB_F_CDEV)	+= usb_f_cdev.o
