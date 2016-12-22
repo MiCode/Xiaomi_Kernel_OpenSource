@@ -58,7 +58,7 @@ static inline int _stage_offset(struct sde_hw_mixer *ctx, enum sde_stage stage)
 		return -EINVAL;
 
 	if ((stage - SDE_STAGE_0) <= sblk->maxblendstages)
-		return sblk->blendstage_base[stage];
+		return sblk->blendstage_base[stage - 1];
 	else
 		return -EINVAL;
 }
@@ -126,7 +126,7 @@ static void sde_hw_lm_setup_blendcfg(struct sde_hw_mixer *ctx,
 
 	SDE_REG_WRITE(c, LM_BLEND0_FG_ALPHA + stage_off,
 			fg->const_alpha);
-	SDE_REG_WRITE(c, LM_BLEND0_FG_ALPHA + stage_off,
+	SDE_REG_WRITE(c, LM_BLEND0_BG_ALPHA + stage_off,
 			bg->const_alpha);
 	SDE_REG_WRITE(c, LM_OP_MODE, blend_op);
 }
