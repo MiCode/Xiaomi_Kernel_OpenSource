@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -772,7 +772,7 @@ static void tavil_mbhc_moisture_config(struct wcd_mbhc *mbhc)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
 
-	if (TAVIL_MBHC_MOISTURE_RREF == R_OFF)
+	if (mbhc->moist_rref == R_OFF)
 		return;
 
 	/* Donot enable moisture detection if jack type is NC */
@@ -783,7 +783,7 @@ static void tavil_mbhc_moisture_config(struct wcd_mbhc *mbhc)
 	}
 
 	snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_2,
-			    0x0C, TAVIL_MBHC_MOISTURE_RREF << 2);
+			    0x0C, mbhc->moist_rref << 2);
 }
 
 static bool tavil_hph_register_recovery(struct wcd_mbhc *mbhc)
