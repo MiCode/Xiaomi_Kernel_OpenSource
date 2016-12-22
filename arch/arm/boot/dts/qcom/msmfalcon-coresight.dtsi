@@ -43,9 +43,17 @@
 	};
 
 	replicator: replicator@6046000 {
-		compatible = "arm,coresight-replicator";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b909>;
+
+		reg = <0x6046000 0x1000>;
+		reg-names = "replicator-base";
 
 		coresight-name = "coresight-replicator";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "apb_pclk", "core_a_clk";
 
 		ports{
 			#address-cells = <1>;
@@ -188,6 +196,14 @@
 					remote-endpoint = <&stm_out_funnel_in0>;
 				};
 			};
+			port@4 {
+				reg = <0>;
+				funnel_in0_in_rpm_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&rpm_etm0_out_funnel_in0>;
+				};
+			};
 		};
 	};
 
@@ -237,6 +253,14 @@
 					slave-mode;
 					remote-endpoint =
 					    <&funnel_apss_merg_out_funnel_in1>;
+				};
+			};
+			port@4 {
+				reg = <4>;
+				funnel_in1_in_turing_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+					    <&turing_etm0_out_funnel_in1>;
 				};
 			};
 		};
@@ -599,6 +623,10 @@
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,cti-gpio-trigout = <4>;
+		pinctrl-names = "cti-trigout-pctrl";
+		pinctrl-0 = <&trigout_b>;
 	};
 
 	cti3: cti@6013000 {
@@ -765,6 +793,8 @@
 		coresight-name = "coresight-cti-cpu0";
 		cpu = <&CPU0>;
 
+		qcom,cti-save;
+
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
 		clock-names = "core_clk", "core_a_clk";
@@ -777,6 +807,8 @@
 
 		coresight-name = "coresight-cti-cpu1";
 		cpu = <&CPU1>;
+
+		qcom,cti-save;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -791,6 +823,8 @@
 		coresight-name = "coresight-cti-cpu2";
 		cpu = <&CPU2>;
 
+		qcom,cti-save;
+
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
 		clock-names = "core_clk", "core_a_clk";
@@ -803,6 +837,8 @@
 
 		coresight-name = "coresight-cti-cpu3";
 		cpu = <&CPU3>;
+
+		qcom,cti-save;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -817,6 +853,8 @@
 		coresight-name = "coresight-cti-cpu4";
 		cpu = <&CPU4>;
 
+		qcom,cti-save;
+
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
 		clock-names = "core_clk", "core_a_clk";
@@ -829,6 +867,8 @@
 
 		coresight-name = "coresight-cti-cpu5";
 		cpu = <&CPU5>;
+
+		qcom,cti-save;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -843,6 +883,8 @@
 		coresight-name = "coresight-cti-cpu6";
 		cpu = <&CPU6>;
 
+		qcom,cti-save;
+
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
 		clock-names = "core_clk", "core_a_clk";
@@ -855,6 +897,8 @@
 
 		coresight-name = "coresight-cti-cpu7";
 		cpu = <&CPU7>;
+
+		qcom,cti-save;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -1582,6 +1626,22 @@
 						<&funnel_wcss_out_funnel_dlct>;
 				};
 			};
+			port@4 {
+				reg = <1>;
+				funnel_dlct_in_audio_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&audio_etm0_out_funnel_dlct>;
+				};
+			};
+			port@5 {
+				reg = <2>;
+				funnel_dlct_in_modem_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&modem_etm0_out_funnel_dlct>;
+				};
+			};
 		};
 	};
 
@@ -1599,6 +1659,100 @@
 		port{
 			tpdm_dlct_out_funnel_dlct: endpoint {
 				remote-endpoint = <&funnel_dlct_in_tpdm_dlct>;
+			};
+		};
+	};
+
+	hwevent: hwevent@158000 {
+		compatible = "qcom,coresight-hwevent";
+		reg = <0x158000 0x80>,
+		      <0x17091000 0x80>,
+		      <0x1730200c 0x4>,
+		      <0xc90137c 0x4>,
+		      <0xc828018 0x80>,
+		      <0x1c00058 0x80>,
+		      <0x5e02038 0x4>,
+		      <0x5e02028 0x10>,
+		      <0x1fcb360 0x80>,
+		      <0x1fcb760 0x80>,
+		      <0x1fcbf60 0x80>,
+		      <0xa8f8860 0x4>,
+		      <0x500c260 0x4>,
+		      <0x500d040 0x4>,
+		      <0x1da6400 0x80>;
+		reg-names = "gcc-ctrl", "lpass-stm", "lpass-qdsp", "mdss-mdp",
+			    "mdss-misc", "pcie0-hwev", "ssc-en", "ssc-hwev",
+			    "tcsr-qdss", "tcsr-mss0", "tcsr-mss1", "usb-ctrl",
+			    "vbif-stm", "vbif-stm-en", "ufs-mux";
+
+		coresight-name = "coresight-hwevent";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>,
+			 <&clock_mmss MMSS_MISC_AHB_CLK>;
+		clock-names = "core_clk", "core_a_clk", "core_mmss_clk";
+
+		qcom,hwevent-clks = "core_mmss_clk";
+	};
+
+	csr: csr@6001000 {
+		compatible = "qcom,coresight-csr";
+		reg = <0x6001000 0x1000>;
+		reg-names = "csr-base";
+
+		coresight-name = "coresight-csr";
+
+		qcom,blk-size = <1>;
+	};
+
+	modem_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-name = "coresight-modem-etm0";
+		qcom,inst-id = <2>;
+
+		port{
+			modem_etm0_out_funnel_dlct: endpoint {
+				remote-endpoint = <&funnel_dlct_in_modem_etm0>;
+			};
+		};
+	};
+
+	audio_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-name = "coresight-audio-etm0";
+		qcom,inst-id = <5>;
+
+		port{
+			audio_etm0_out_funnel_dlct: endpoint {
+				remote-endpoint = <&funnel_dlct_in_audio_etm0>;
+			};
+		};
+	};
+
+	rpm_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-name = "coresight-rpm-etm0";
+		qcom,inst-id = <4>;
+
+		port{
+			rpm_etm0_out_funnel_in0: endpoint {
+				remote-endpoint = <&funnel_in0_in_rpm_etm0>;
+			};
+		};
+	};
+
+	turing_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-name = "coresight-turing-etm0";
+		qcom,inst-id = <13>;
+
+		port{
+			turing_etm0_out_funnel_in1: endpoint {
+				remote-endpoint = <&funnel_in1_in_turing_etm0>;
 			};
 		};
 	};

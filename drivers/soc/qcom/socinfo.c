@@ -537,6 +537,7 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* falcon ID */
 	[317] = {MSM_CPU_FALCON, "MSMFALCON"},
+	[324] = {MSM_CPU_FALCON, "APQFALCON"},
 
 	/* triton ID */
 	[318] = {MSM_CPU_TRITON, "MSMTRITON"},
@@ -1210,6 +1211,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msmfalcon()) {
 		dummy_socinfo.id = 317;
 		strlcpy(dummy_socinfo.build_id, "msmfalcon - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_apqfalcon()) {
+		dummy_socinfo.id = 324;
+		strlcpy(dummy_socinfo.build_id, "apqfalcon - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msmtriton()) {
 		dummy_socinfo.id = 318;

@@ -3520,7 +3520,7 @@ static void sdhci_cmdq_set_transfer_params(struct mmc_host *mmc)
 	if (host->version >= SDHCI_SPEC_200) {
 		ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
 		ctrl &= ~SDHCI_CTRL_DMA_MASK;
-		if (host->flags & SDHCI_USE_ADMA_64BIT)
+		if (host->flags & SDHCI_USE_64_BIT_DMA)
 			ctrl |= SDHCI_CTRL_ADMA64;
 		else
 			ctrl |= SDHCI_CTRL_ADMA32;

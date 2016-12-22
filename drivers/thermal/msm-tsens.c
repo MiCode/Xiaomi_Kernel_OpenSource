@@ -84,6 +84,8 @@
 
 /* TSENS_TM registers for 8996 */
 #define TSENS_TM_INT_EN(n)			((n) + 0x1004)
+#define TSENS_TM_CRITICAL_WD_BARK		BIT(31)
+#define TSENS_TM_CRITICAL_CYCLE_MONITOR	BIT(30)
 #define TSENS_TM_CRITICAL_INT_EN		BIT(2)
 #define TSENS_TM_UPPER_INT_EN			BIT(1)
 #define TSENS_TM_LOWER_INT_EN			BIT(0)
@@ -832,8 +834,12 @@ struct tsens_tm_device {
 	bool				calibration_less_mode;
 	bool				tsens_local_init;
 	bool				gain_offset_programmed;
+	bool				cycle_compltn_monitor;
+	bool				wd_bark;
 	int				tsens_factor;
 	uint32_t			tsens_num_sensor;
+	uint32_t			cycle_compltn_monitor_val;
+	uint32_t			wd_bark_val;
 	int				tsens_irq;
 	int				tsens_critical_irq;
 	void				*tsens_addr;
@@ -850,6 +856,7 @@ struct tsens_tm_device {
 	int				tsens_upper_irq_cnt;
 	int				tsens_lower_irq_cnt;
 	int				tsens_critical_irq_cnt;
+	int				tsens_critical_wd_cnt;
 	struct delayed_work		tsens_critical_poll_test;
 	struct completion		tsens_rslt_completion;
 	struct tsens_mtc_sysfs		mtcsys;
@@ -2394,7 +2401,9 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 	void __iomem *sensor_status_addr;
 	void __iomem *sensor_int_mask_addr;
 	void __iomem *sensor_critical_addr;
+	void __iomem *wd_critical_addr;
 	int sensor_sw_id = -EINVAL, rc = 0;
+	int wd_mask;
 
 	tm->crit_set = false;
 	sensor_status_addr = TSENS_TM_SN_STATUS(tm->tsens_addr);
@@ -2402,6 +2411,30 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 		TSENS_TM_CRITICAL_INT_MASK(tm->tsens_addr);
 	sensor_critical_addr =
 		TSENS_TM_SN_CRITICAL_THRESHOLD(tm->tsens_addr);
+	wd_critical_addr =
+		TSENS_TM_CRITICAL_INT_STATUS(tm->tsens_addr);
+
+	if (tm->wd_bark) {
+		wd_mask = readl_relaxed(wd_critical_addr);
+		/*
+		* Check whether the reason for critical interrupt is
+		* because of watchdog
+		*/
+		if (wd_mask & TSENS_TM_CRITICAL_WD_BARK) {
+			/*
+			 * Clear watchdog interrupt and
+			 * increment global wd count
+			 */
+			writel_relaxed(wd_mask | TSENS_TM_CRITICAL_WD_BARK,
+				(TSENS_TM_CRITICAL_INT_CLEAR
+				(tm->tsens_addr)));
+			writel_relaxed(wd_mask & ~(TSENS_TM_CRITICAL_WD_BARK),
+				(TSENS_TM_CRITICAL_INT_CLEAR
+				(tm->tsens_addr)));
+			tm->tsens_critical_wd_cnt++;
+			return IRQ_HANDLED;
+		}
+	}
 
 	for (i = 0; i < tm->tsens_num_sensor; i++) {
 		bool critical_thr = false;
@@ -2666,7 +2699,9 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 static int tsens_hw_init(struct tsens_tm_device *tmdev)
 {
 	void __iomem *srot_addr;
+	void __iomem *sensor_int_mask_addr;
 	unsigned int srot_val;
+	int crit_mask;
 
 	if (!tmdev) {
 		pr_err("Invalid tsens device\n");
@@ -2679,6 +2714,18 @@ static int tsens_hw_init(struct tsens_tm_device *tmdev)
 		if (!(srot_val & TSENS_EN)) {
 			pr_err("TSENS device is not enabled\n");
 			return -ENODEV;
+		}
+
+		if (tmdev->cycle_compltn_monitor) {
+			sensor_int_mask_addr =
+				TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_addr);
+			crit_mask = readl_relaxed(sensor_int_mask_addr);
+			writel_relaxed(
+				crit_mask | tmdev->cycle_compltn_monitor_val,
+				(TSENS_TM_CRITICAL_INT_MASK
+				(tmdev->tsens_addr)));
+			/*Update critical cycle monitoring*/
+			mb();
 		}
 		writel_relaxed(TSENS_TM_CRITICAL_INT_EN |
 			TSENS_TM_UPPER_INT_EN | TSENS_TM_LOWER_INT_EN,
@@ -5331,6 +5378,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 	u32 *tsens_slope_data, *sensor_id, *client_id;
 	u32 *temp1_calib_offset_factor, *temp2_calib_offset_factor;
 	u32 rc = 0, i, tsens_num_sensors = 0;
+	u32 cycle_monitor = 0, wd_bark = 0;
 	const struct of_device_id *id;
 
 	rc = of_property_read_u32(of_node,
@@ -5426,6 +5474,28 @@ static int get_device_tree_data(struct platform_device *pdev,
 			tmdev->sensor[i].sensor_hw_num = sensor_id[i];
 			tmdev->sensor[i].sensor_sw_id = i;
 		}
+	}
+
+	rc = of_property_read_u32(of_node,
+			"qcom,cycle-monitor", &cycle_monitor);
+	if (rc) {
+		pr_debug("Default cycle completion monitor\n");
+		tmdev->cycle_compltn_monitor = false;
+	} else {
+		pr_debug("Use specified cycle completion monitor\n");
+		tmdev->cycle_compltn_monitor = true;
+		tmdev->cycle_compltn_monitor_val = cycle_monitor;
+	}
+
+	rc = of_property_read_u32(of_node,
+			"qcom,wd-bark", &wd_bark);
+	if (rc) {
+		pr_debug("Default Watchdog bark\n");
+		tmdev->wd_bark = false;
+	} else {
+		pr_debug("Use specified Watchdog bark\n");
+		tmdev->wd_bark = true;
+		tmdev->wd_bark_val = wd_bark;
 	}
 
 	if (!strcmp(id->compatible, "qcom,mdm9630-tsens") ||

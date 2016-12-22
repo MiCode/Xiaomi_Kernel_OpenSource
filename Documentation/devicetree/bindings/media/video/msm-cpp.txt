@@ -68,6 +68,8 @@ Optional properties:
   platforms that support such feature.
 - qcom,vbif-setting: The offset and value for vbif core qos registers.
   The first entry is register offset and second entry is register value.
+- qcom,micro-reset: Boolean flag indicating if micro reset need to be enabled.
+  This needs to present on platforms that support this feature.
 
 Example:
 
@@ -111,6 +113,7 @@ Example:
 			<0x2C 0x10000000>;
 		qcom,src-clock-rates = <100000000 200000000 384000000 404000000
 			480000000 576000000 600000000>;
+		qcom,micro-reset;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <553>;
 			qcom,plane-base = <481>;

@@ -168,6 +168,7 @@
 		reset-names = "micro_iface_reset";
 		qcom,src-clock-rates = <100000000 200000000 384000000 404000000
 			480000000 576000000 600000000>;
+		qcom,micro-reset;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <790>;
 			qcom,plane-base = <715>;

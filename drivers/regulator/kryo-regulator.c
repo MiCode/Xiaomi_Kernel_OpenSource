@@ -28,7 +28,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
-#include <linux/regulator/kryo-regulator.h>
+#include <linux/regulator/msm-ldo-regulator.h>
 
 #include <soc/qcom/spm.h>
 
@@ -89,9 +89,9 @@ struct kryo_regulator {
 	struct regulator_dev		*retention_rdev;
 	struct regulator_desc		retention_desc;
 	const char			*name;
-	enum kryo_supply_mode		mode;
-	enum kryo_supply_mode		retention_mode;
-	enum kryo_supply_mode		pre_lpm_state_mode;
+	enum msm_ldo_supply_mode	mode;
+	enum msm_ldo_supply_mode	retention_mode;
+	enum msm_ldo_supply_mode	pre_lpm_state_mode;
 	void __iomem			*reg_base;
 	void __iomem			*pm_apcc_base;
 	struct dentry			*debugfs;
@@ -248,7 +248,7 @@ static int kryo_set_ldo_volt(struct kryo_regulator *kvreg, int volt)
 
 /* Locks must be held by the caller */
 static int kryo_configure_mode(struct kryo_regulator *kvreg,
-				enum kryo_supply_mode mode)
+				enum msm_ldo_supply_mode mode)
 {
 	u32 reg;
 	int timeout = PWR_GATE_SWITCH_TIMEOUT_US;

@@ -10,10 +10,6 @@
  * GNU General Public License for more details.
  */
 
-&clock_audio {
-	/delete-property/qcom,audio-ref-clk-gpio;
-};
-
 &slim_aud {
 	tasha_codec {
 		/delete-property/cdc-vdd-buck-supply;

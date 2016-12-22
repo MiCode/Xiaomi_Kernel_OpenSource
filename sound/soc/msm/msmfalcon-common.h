@@ -59,6 +59,12 @@ struct tdm_port {
 	u32 channel;
 };
 
+enum {
+	DIG_CDC,
+	ANA_CDC,
+	CODECS_MAX,
+};
+
 extern const struct snd_kcontrol_new msm_common_snd_controls[];
 struct msmfalcon_codec {
 	void* (*get_afe_config_fn)(struct snd_soc_codec *codec,
@@ -78,11 +84,17 @@ struct msm_asoc_mach_data {
 	struct device_node *us_euro_gpio_p; /* used by pinctrl API */
 	struct device_node *hph_en1_gpio_p; /* used by pinctrl API */
 	struct device_node *hph_en0_gpio_p; /* used by pinctrl API */
+	struct device_node *pdm_gpio_p; /* used by pinctrl API */
+	struct device_node *comp_gpio_p; /* used by pinctrl API */
+	struct device_node *sdw_gpio_p; /* used by pinctrl API */
+	struct device_node *dmic_gpio_p; /* used by pinctrl API */
+	struct device_node *ext_spk_gpio_p; /* used by pinctrl API */
 	struct snd_soc_codec *codec;
 	struct msmfalcon_codec msmfalcon_codec_fn;
 	struct snd_info_entry *codec_root;
 	int spk_ext_pa_gpio;
 	int mclk_freq;
+	bool native_clk_set;
 	int lb_mode;
 	int snd_card_val;
 	u8 micbias1_cap_mode;

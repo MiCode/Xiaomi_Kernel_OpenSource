@@ -96,6 +96,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmhamster")
 #define early_machine_is_msmfalcon()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmfalcon")
+#define early_machine_is_apqfalcon()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,apqfalcon")
 #define early_machine_is_msmtriton()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmtriton")
 #else
@@ -135,6 +137,7 @@
 #define early_machine_is_apq8998()	0
 #define early_machine_is_msmhamster()	0
 #define early_machine_is_msmfalcon()	0
+#define early_machine_is_apqfalcon()	0
 #define early_machine_is_msmtriton()	0
 #endif
 

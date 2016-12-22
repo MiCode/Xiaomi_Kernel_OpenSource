@@ -898,6 +898,11 @@ static int dp_get_cable_status(struct platform_device *pdev, u32 vote)
 	return hpd;
 }
 
+static bool mdss_dp_is_dvi_mode(struct mdss_dp_drv_pdata *dp)
+{
+	return hdmi_edid_is_dvi_mode(dp->panel_data.panel_info.edid_data);
+}
+
 static int dp_audio_info_setup(struct platform_device *pdev,
 	struct msm_ext_disp_audio_setup_params *params)
 {
@@ -1447,6 +1452,7 @@ static int mdss_dp_send_cable_notification(
 	struct mdss_dp_drv_pdata *dp, int val)
 {
 	int ret = 0;
+	u32 flags = 0;
 
 	if (!dp) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1454,9 +1460,12 @@ static int mdss_dp_send_cable_notification(
 		goto end;
 	}
 
-	if (dp && dp->ext_audio_data.intf_ops.hpd)
+	if (mdss_dp_is_dvi_mode(dp))
+		flags |= MSM_EXT_DISP_HPD_NO_AUDIO;
+
+	if (dp->ext_audio_data.intf_ops.hpd)
 		ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
-				dp->ext_audio_data.type, val);
+				dp->ext_audio_data.type, val, flags);
 
 end:
 	return ret;
@@ -1662,6 +1671,8 @@ static void mdss_dp_hdcp_cb_work(struct work_struct *work)
 	case HDCP_STATE_AUTHENTICATING:
 		pr_debug("start authenticaton\n");
 
+		dp->dpcd_version = dp->dpcd.minor | (dp->dpcd.major << 8);
+
 		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
 			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
 
@@ -1739,6 +1750,7 @@ static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
 	hdcp_init_data.cb_data       = (void *)dp_drv;
 	hdcp_init_data.sec_access    = true;
 	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
+	hdcp_init_data.version       = &dp_drv->dpcd_version;
 
 	dp_drv->hdcp.hdcp1 = hdcp_1x_init(&hdcp_init_data);
 	if (IS_ERR_OR_NULL(dp_drv->hdcp.hdcp1)) {

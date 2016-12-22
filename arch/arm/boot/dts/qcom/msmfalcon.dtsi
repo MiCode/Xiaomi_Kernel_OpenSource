@@ -15,6 +15,7 @@
 #include <dt-bindings/clock/qcom,gpu-msmfalcon.h>
 #include <dt-bindings/clock/qcom,mmcc-msmfalcon.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
+#include <dt-bindings/clock/audio-ext-clk.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
@@ -884,7 +885,7 @@
 	};
 
 	clock_gcc: clock-controller@100000 {
-		compatible = "qcom,gcc-msmfalcon";
+		compatible = "qcom,gcc-msmfalcon", "syscon";
 		reg = <0x100000 0x94000>;
 		vdd_dig-supply = <&pm2falcon_s3_level>;
 		vdd_dig_ao-supply = <&pm2falcon_s3_level_ao>;
@@ -920,6 +921,35 @@
 			< 750000000 7>;  /* TURBO  */
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	cpu_debug: syscon@1791101c {
+		compatible = "syscon";
+		reg = <0x1791101c 0x4>;
+	};
+
+	gpu_debug: syscon@05065120 {
+		compatible = "syscon";
+		reg = <0x05065120 0x4>;
+	};
+
+	mmss_debug: syscon@c8c0900 {
+		compatible = "syscon";
+		reg = <0xc8c0900 0x4>;
+	};
+
+	clock_debug: qcom,cc-debug@62000 {
+		compatible = "qcom,gcc-debug-msmfalcon";
+		reg = <0x62000 0x4>;
+		reg-names = "dbg_offset";
+		clocks = <&clock_rpmcc  RPM_XO_CLK_SRC>;
+		clock-names = "xo_clk_src";
+		qcom,cc-count = <4>;
+		qcom,gcc = <&clock_gcc>;
+		qcom,cpu = <&cpu_debug>;
+		qcom,mmss = <&mmss_debug>;
+		qcom,gpu = <&gpu_debug>;
+		#clock-cells = <1>;
 	};
 
 	sdhc_1: sdhci@c0c4000 {
@@ -1031,6 +1061,98 @@
 			"smem_targ_info_reg";
 		qcom,mpu-enabled;
 	};
+
+
+	qcom,msm-adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
+	};
+
+	qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-adsp";
+		qcom,fastrpc-glink;
+
+		qcom,msm_fastrpc_compute_cb1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 3>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb2 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 7>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb3 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 8>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb4 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 9>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb5 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&turing_q6_smmu 3>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb6 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&turing_q6_smmu 4>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb7 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&turing_q6_smmu 5>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb8 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&turing_q6_smmu 6>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb9 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&turing_q6_smmu 7>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb10 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&turing_q6_smmu 8>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb11 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&turing_q6_smmu 9>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb12 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&turing_q6_smmu 10>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb13 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&turing_q6_smmu 11>;
+			dma-coherent;
+		};
+	};
+
 
 	dcc: dcc@10b3000 {
 		compatible = "qcom,dcc";
@@ -1286,7 +1408,7 @@
 		reg = <0x15700000 0x00100>;
 		interrupts = <0 162 1>;
 
-		vdd_cx-supply = <&pm2falcon_s3_level>;
+		vdd_cx-supply = <&pm2falcon_l9_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
 
@@ -1328,7 +1450,7 @@
 
 		qcom,pas-id = <18>;
 		qcom,proxy-timeout-ms = <10000>;
-		qcom,smem-id = <423>;
+		qcom,smem-id = <601>;
 		qcom,sysmon-id = <7>;
 		qcom,ssctl-instance-id = <0x17>;
 		qcom,firmware-name = "cdsp";
@@ -1678,6 +1800,108 @@
 
 		status = "disabled";
 	};
+
+	jtag_fuse: jtagfuse@786040 {
+		compatible = "qcom,jtag-fuse-v4";
+		reg = <0x786040 0x8>;
+		reg-names = "fuse-base";
+	};
+
+	jtag_mm0: jtagmm@7840000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7840000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+	};
+
+	jtag_mm1: jtagmm@7940000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7940000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+	};
+
+	jtag_mm2: jtagmm@7a40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7a40000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+	};
+
+	jtag_mm3: jtagmm@7b40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7b40000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+	};
+
+	jtag_mm4: jtagmm@7c40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7c40000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+	};
+
+	jtag_mm5: jtagmm@7d40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7d40000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+	};
+
+	jtag_mm6: jtagmm@7e40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7e40000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+	};
+
+	jtag_mm7: jtagmm@7f40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x7f40000 0x1000>;
+		reg-names = "etm-base";
+
+		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
+			 <&clock_rpmcc RPM_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+	};
 };
 
 #include "msmfalcon-ion.dtsi"
@@ -1690,6 +1914,8 @@
 #include "msm-gdsc-falcon.dtsi"
 #include "msmfalcon-gpu.dtsi"
 #include "msmfalcon-pm.dtsi"
+#include "msm-audio.dtsi"
+#include "msmfalcon-audio.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,22 +11,22 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __KRYO_REGULATOR_H__
-#define __KRYO_REGULATOR_H__
+#ifndef __MSM_LDO_REGULATOR_H__
+#define __MSM_LDO_REGULATOR_H__
 
 /**
- * enum kryo_supply_mode - supported operating modes by this regulator type.
+ * enum msm_ldo_supply_mode - supported operating modes by this regulator type.
  * Use negative logic to ensure BHS mode is treated as the safe default by the
  * the regulator framework. This is necessary since LDO mode can only be enabled
  * when several constraints are satisfied. Consumers of this regulator are
  * expected to request changes in operating modes through the use of
- * regulator_allow_bypass() passing in the desired Kryo supply mode.
+ * regulator_allow_bypass() passing in the desired LDO supply mode.
  * %BHS_MODE:	to select BHS as operating mode
  * %LDO_MODE:	to select LDO as operating mode
  */
-enum kryo_supply_mode {
+enum msm_ldo_supply_mode {
 	BHS_MODE = false,
 	LDO_MODE = true,
 };
 
-#endif /* __KRYO_REGULATOR_H__ */
+#endif /* __MSM_LDO_REGULATOR_H__ */

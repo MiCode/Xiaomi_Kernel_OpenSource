@@ -152,6 +152,12 @@ Charger specific properties:
 		be based off battery voltage. For both SOC and battery voltage,
 		charger receives the signal from FG to resume charging.
 
+- qcom,micro-usb
+  Usage:      optional
+  Value type: <empty>
+  Definition: Boolean flag which indicates that the platform only support
+		micro usb port.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================

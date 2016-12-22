@@ -542,7 +542,7 @@ int mdss_dba_utils_video_on(void *data, struct mdss_panel_info *pinfo)
 	video_cfg.h_pulse_width = pinfo->lcdc.h_pulse_width;
 	video_cfg.v_pulse_width = pinfo->lcdc.v_pulse_width;
 	video_cfg.pclk_khz = (unsigned long)pinfo->clk_rate / 1000;
-	video_cfg.hdmi_mode = hdmi_edid_get_sink_mode(ud->edid_data);
+	video_cfg.hdmi_mode = !hdmi_edid_is_dvi_mode(ud->edid_data);
 
 	/* Calculate number of DSI lanes configured */
 	video_cfg.num_of_input_lanes = 0;

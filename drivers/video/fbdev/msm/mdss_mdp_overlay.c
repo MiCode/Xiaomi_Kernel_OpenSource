@@ -1206,7 +1206,8 @@ static void __overlay_pipe_cleanup(struct msm_fb_data_type *mfd,
  * and cleaned up. Also cleanup of any pipe buffers after flip.
  */
 static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
-		struct list_head *destroy_pipes)
+		struct list_head *destroy_pipes,
+		bool locked)
 {
 	struct mdss_mdp_pipe *pipe, *tmp;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
@@ -1215,7 +1216,8 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 	bool skip_fetch_halt, pair_found;
 	struct mdss_mdp_data *buf, *tmpbuf;
 
-	mutex_lock(&mdp5_data->list_lock);
+	if (!locked)
+		mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry(pipe, destroy_pipes, list) {
 		pair_found = false;
 		skip_fetch_halt = false;
@@ -1292,7 +1294,8 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 				ctl->mixer_right->next_pipe_map &= ~pipe->ndx;
 		}
 	}
-	mutex_unlock(&mdp5_data->list_lock);
+	if (!locked)
+		mutex_unlock(&mdp5_data->list_lock);
 }
 
 void mdss_mdp_handoff_cleanup_pipes(struct msm_fb_data_type *mfd,
@@ -2207,6 +2210,13 @@ static int __overlay_secure_ctrl(struct msm_fb_data_type *mfd)
 			/*wait for ping pong done */
 			if (ctl->ops.wait_pingpong)
 				mdss_mdp_display_wait4pingpong(ctl, true);
+			/*
+			 * unmap the previous commit buffers before
+			 * transitioning to secure state
+			 */
+			mdss_mdp_overlay_cleanup(mfd,
+					&mdp5_data->pipes_destroy,
+					true);
 			ret = mdss_mdp_secure_session_ctrl(1,
 					MDP_SECURE_DISPLAY_OVERLAY_SESSION);
 			if (ret) {
@@ -2308,11 +2318,6 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	}
 
 	mutex_lock(&mdp5_data->list_lock);
-	ret = __overlay_secure_ctrl(mfd);
-	if (IS_ERR_VALUE(ret)) {
-		pr_err("secure operation failed %d\n", ret);
-		goto commit_fail;
-	}
 
 	if (!ctl->shared_lock)
 		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_BEGIN);
@@ -2326,15 +2331,22 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	if (ctl->ops.wait_pingpong && mdp5_data->mdata->serialize_wait4pp)
 		mdss_mdp_display_wait4pingpong(ctl, true);
 
-	/*
-	 * Setup pipe in solid fill before unstaging,
-	 * to ensure no fetches are happening after dettach or reattach.
-	 */
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_cleanup, list) {
 		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_right);
 		pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
 		list_move(&pipe->list, &mdp5_data->pipes_destroy);
+	}
+
+	/*
+	 * go to secure state if required, this should be done
+	 * after moving the buffers from the previous commit to
+	 * destroy list
+	 */
+	ret = __overlay_secure_ctrl(mfd);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("secure operation failed %d\n", ret);
+		goto commit_fail;
 	}
 
 	/* call this function before any registers programming */
@@ -2405,7 +2417,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mdss_fb_update_notify_update(mfd);
 commit_fail:
 	ATRACE_BEGIN("overlay_cleanup");
-	mdss_mdp_overlay_cleanup(mfd, &mdp5_data->pipes_destroy);
+	mdss_mdp_overlay_cleanup(mfd, &mdp5_data->pipes_destroy, false);
 	ATRACE_END("overlay_cleanup");
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_FLUSHED);

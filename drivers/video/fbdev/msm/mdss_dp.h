@@ -493,6 +493,7 @@ struct mdss_dp_drv_pdata {
 	u32 max_pclk_khz;
 	u32 vic;
 	u32 new_vic;
+	u16 dpcd_version;
 	int fb_node;
 	int hdcp_status;
 

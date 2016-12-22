@@ -25,6 +25,20 @@
 		      pinctrl-0 = <&spkr_2_sd_n_active>;
 		      pinctrl-1 = <&spkr_2_sd_n_sleep>;
 		};
+
+		tasha_hph_en0: msm_cdc_pinctrl_hph_en0 {
+		      compatible = "qcom,msm-cdc-pinctrl";
+		      pinctrl-names = "aud_active", "aud_sleep";
+		      pinctrl-0 = <&hph_en0_active>;
+		      pinctrl-1 = <&hph_en0_sleep>;
+		};
+
+		tasha_hph_en1: msm_cdc_pinctrl_hph_en1 {
+		      compatible = "qcom,msm-cdc-pinctrl";
+		      pinctrl-names = "aud_active", "aud_sleep";
+		      pinctrl-0 = <&hph_en1_active>;
+		      pinctrl-1 = <&hph_en1_sleep>;
+		};
 	};
 
 	tavil_codec {

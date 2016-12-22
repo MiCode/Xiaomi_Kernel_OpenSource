@@ -12,6 +12,7 @@
 
 #include <dt-bindings/clock/qcom,gcc-msmfalcon.h>
 #include <dt-bindings/clock/qcom,mmcc-msmfalcon.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
@@ -135,6 +136,7 @@
 			      "mmss_bimc_smmu_ahb_clk",
 			      "mmss_bimc_smmu_axi_clk";
 		#clock-cells = <1>;
+		qcom,bus-master-id = <MSM_BUS_MNOC_BIMC_MAS>;
 	};
 
 	kgsl_smmu: arm,smmu-kgsl@5040000 {
@@ -195,5 +197,16 @@
 		clocks = <&clock_gcc HLOS1_VOTE_TURING_ADSP_SMMU_CLK>;
 		clock-names = "turing_q6_smmu_clk";
 		#clock-cells = <1>;
+	};
+
+	iommu_test_device {
+		compatible = "iommu-debug-test";
+		/*
+		 * 42 shouldn't be used by anyone on the mmss_smmu.  We just
+		 * need _something_ here to get this node recognized by the
+		 * SMMU driver. Our test uses ATOS, which doesn't use SIDs
+		 * anyways, so using a dummy value is ok.
+		 */
+		iommus = <&mmss_bimc_smmu 42>;
 	};
 };

@@ -54,6 +54,11 @@ struct diag_smd_info smd_data[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_DATA,
 		.name = "DIAG_DATA"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_DATA,
+		.name = "CDSP_DATA"
 	}
 };
 
@@ -82,6 +87,11 @@ struct diag_smd_info smd_cntl[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_CNTL,
 		.name = "DIAG_CTRL"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_CNTL,
+		.name = "CDSP_CNTL"
 	}
 };
 
@@ -110,6 +120,11 @@ struct diag_smd_info smd_dci[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_DCI,
 		.name = "DIAG_DCI_DATA"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_DCI,
+		.name = "CDSP_DCI"
 	}
 };
 
@@ -138,6 +153,11 @@ struct diag_smd_info smd_cmd[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_CMD,
 		.name = "DIAG_CMD"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_CMD,
+		.name = "CDSP_CMD"
 	}
 };
 
@@ -166,6 +186,11 @@ struct diag_smd_info smd_dci_cmd[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_DCI_CMD,
 		.name = "DIAG_DCI_CMD"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_DCI_CMD,
+		.name = "CDSP_DCI_CMD"
 	}
 };
 

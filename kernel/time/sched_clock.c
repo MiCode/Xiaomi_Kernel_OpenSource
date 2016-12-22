@@ -71,6 +71,10 @@ struct clock_data {
 static struct hrtimer sched_clock_timer;
 static int irqtime = -1;
 static int initialized;
+static u64 suspend_ns;
+static u64 suspend_cycles;
+static u64 resume_cycles;
+
 
 core_param(irqtime, irqtime, int, 0400);
 
@@ -282,6 +286,11 @@ static int sched_clock_suspend(void)
 	struct clock_read_data *rd = &cd.read_data[0];
 
 	update_sched_clock();
+
+	suspend_ns = rd->epoch_ns;
+	suspend_cycles = rd->epoch_cyc;
+	pr_info("suspend ns:%17llu	suspend cycles:%17llu\n",
+				rd->epoch_ns, rd->epoch_cyc);
 	hrtimer_cancel(&sched_clock_timer);
 	rd->read_sched_clock = suspended_sched_clock_read;
 
@@ -293,6 +302,8 @@ static void sched_clock_resume(void)
 	struct clock_read_data *rd = &cd.read_data[0];
 
 	rd->epoch_cyc = cd.actual_read_sched_clock();
+	resume_cycles = rd->epoch_cyc;
+	pr_info("resume cycles:%17llu\n", rd->epoch_cyc);
 	hrtimer_start(&sched_clock_timer, cd.wrap_kt, HRTIMER_MODE_REL);
 	rd->read_sched_clock = cd.actual_read_sched_clock;
 }

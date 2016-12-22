@@ -124,7 +124,7 @@
 		};
 	};
 
-	qcom,pm2falcon@3 {
+	pm2falcon_3: qcom,pm2falcon@3 {
 		compatible ="qcom,spmi-pmic";
 		reg = <0x3 SPMI_USID>;
 		#address-cells = <2>;
@@ -249,7 +249,6 @@
 			qcom,sync-dly-us = <800>;
 			qcom,fs-curr-ua = <25000>;
 			qcom,cons-sync-write-delay-us = <1000>;
-			qcom,en-phase-stag;
 			qcom,led-strings-list = [00 01 02];
 			qcom,en-ext-pfet-sc-pro;
 			qcom,loop-auto-gm-en;

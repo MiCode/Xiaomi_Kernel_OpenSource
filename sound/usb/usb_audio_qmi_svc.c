@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/usb/audio.h>
+#include <linux/usb/audio-v2.h>
 #include <linux/uaccess.h>
 #include <sound/pcm.h>
 #include <sound/core.h>
@@ -76,6 +77,8 @@ struct intf_info {
 
 struct uaudio_dev {
 	struct usb_device *udev;
+	/* audio control interface */
+	struct usb_host_interface *ctrl_intf;
 	unsigned int card_num;
 	atomic_t in_use;
 	struct kref kref;
@@ -400,8 +403,8 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 	struct uac_format_type_i_discrete_descriptor *fmt_v1;
 	struct uac_format_type_i_ext_descriptor *fmt_v2;
 	struct uac1_as_header_descriptor *as;
-	struct uac1_ac_header_descriptor *ac;
 	int protocol;
+	void *hdr_ptr;
 	u8 *xfer_buf;
 	u32 len, mult, remainder;
 	unsigned long va, tr_data_va = 0, tr_sync_va = 0, dcba_va = 0,
@@ -436,6 +439,19 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 		goto err;
 	}
 
+	if (!uadev[card_num].ctrl_intf) {
+		pr_err("%s: audio ctrl intf info not cached\n", __func__);
+		goto err;
+	}
+
+	hdr_ptr = snd_usb_find_csint_desc(uadev[card_num].ctrl_intf->extra,
+					uadev[card_num].ctrl_intf->extralen,
+					NULL, UAC_HEADER);
+	if (!hdr_ptr) {
+		pr_err("%s: no UAC_HEADER desc\n", __func__);
+		goto err;
+	}
+
 	if (protocol == UAC_VERSION_1) {
 		as = snd_usb_find_csint_desc(alts->extra, alts->extralen, NULL,
 			UAC_AS_GENERAL);
@@ -449,25 +465,22 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 		fmt_v1 = (struct uac_format_type_i_discrete_descriptor *)fmt;
 		resp->usb_audio_subslot_size = fmt_v1->bSubframeSize;
 		resp->usb_audio_subslot_size_valid = 1;
+
+		resp->usb_audio_spec_revision =
+			((struct uac1_ac_header_descriptor *)hdr_ptr)->bcdADC;
+		resp->usb_audio_spec_revision_valid = 1;
 	} else if (protocol == UAC_VERSION_2) {
 		fmt_v2 = (struct uac_format_type_i_ext_descriptor *)fmt;
 		resp->usb_audio_subslot_size = fmt_v2->bSubslotSize;
 		resp->usb_audio_subslot_size_valid = 1;
+
+		resp->usb_audio_spec_revision =
+			((struct uac2_ac_header_descriptor *)hdr_ptr)->bcdADC;
+		resp->usb_audio_spec_revision_valid = 1;
 	} else {
 		pr_err("%s: unknown protocol version %x\n", __func__, protocol);
 		goto err;
 	}
-
-	ac = snd_usb_find_csint_desc(alts->extra,
-						 alts->extralen,
-						 NULL, UAC_HEADER);
-	if (!ac) {
-		pr_err("%s: %u:%d : no UAC_HEADER desc\n", __func__,
-			subs->interface, subs->altset_idx);
-		goto err;
-	}
-	resp->usb_audio_spec_revision = ac->bcdADC;
-	resp->usb_audio_spec_revision_valid = 1;
 
 	resp->slot_id = subs->dev->slot_id;
 	resp->slot_id_valid = 1;
@@ -919,6 +932,7 @@ static int handle_uaudio_stream_req(void *req_h, void *req)
 	subs->pcm_format = pcm_format;
 	subs->channels = req_msg->number_of_ch;
 	subs->cur_rate = req_msg->bit_rate;
+	uadev[pcm_card_num].ctrl_intf = chip->ctrl_intf;
 
 	ret = snd_usb_enable_audio_stream(subs, req_msg->enable);
 
