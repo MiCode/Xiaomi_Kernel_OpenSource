@@ -1011,8 +1011,10 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 	u32 mask, reg_val, reg_val_lvl, i, vbif_qos;
 	u32 reg_high;
 	bool is_nrt_vbif = mdss_mdp_is_nrt_vbif_client(mdata, pipe);
+	u32 *vbif_qos_ptr = is_realtime ? mdata->vbif_rt_qos :
+		mdata->vbif_nrt_qos;
 
-	if (mdata->npriority_lvl == 0)
+	if ((mdata->npriority_lvl == 0) || !vbif_qos_ptr)
 		return;
 
 	if (test_bit(MDSS_QOS_REMAPPER, mdata->mdss_qos_map)) {
@@ -1028,8 +1030,7 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 				is_nrt_vbif);
 
 			mask = 0x3 << (pipe->xin_id * 4);
-			vbif_qos = is_realtime ?
-				mdata->vbif_rt_qos[i] : mdata->vbif_nrt_qos[i];
+			vbif_qos = vbif_qos_ptr[i];
 
 			reg_val &= ~(mask);
 			reg_val |= vbif_qos << (pipe->xin_id * 4);
@@ -1053,8 +1054,7 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 
 			mask = 0x3 << (pipe->xin_id * 2);
 			reg_val &= ~(mask);
-			vbif_qos = is_realtime ?
-				mdata->vbif_rt_qos[i] : mdata->vbif_nrt_qos[i];
+			vbif_qos = vbif_qos_ptr[i];
 			reg_val |= vbif_qos << (pipe->xin_id * 2);
 			MDSS_VBIF_WRITE(mdata, MDSS_VBIF_QOS_REMAP_BASE + i*4,
 				reg_val, is_nrt_vbif);

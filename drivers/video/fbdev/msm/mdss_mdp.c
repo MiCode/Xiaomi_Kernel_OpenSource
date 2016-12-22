@@ -4158,6 +4158,7 @@ static int mdss_mdp_parse_dt_prefill(struct platform_device *pdev)
 static void mdss_mdp_parse_vbif_qos(struct platform_device *pdev)
 {
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	u32 npriority_lvl_nrt;
 	int rc;
 
 	mdata->npriority_lvl = mdss_mdp_parse_dt_prop_len(pdev,
@@ -4183,8 +4184,20 @@ static void mdss_mdp_parse_vbif_qos(struct platform_device *pdev)
 		return;
 	}
 
-	mdata->npriority_lvl = mdss_mdp_parse_dt_prop_len(pdev,
+	npriority_lvl_nrt = mdss_mdp_parse_dt_prop_len(pdev,
 			"qcom,mdss-vbif-qos-nrt-setting");
+
+	if (!npriority_lvl_nrt) {
+		pr_debug("no vbif nrt priorities found rt:%d\n",
+			mdata->npriority_lvl);
+		return;
+	} else if (npriority_lvl_nrt != mdata->npriority_lvl) {
+		/* driver expects same number for both nrt and rt */
+		pr_err("invalid nrt settings nrt(%d) != rt(%d)\n",
+			npriority_lvl_nrt, mdata->npriority_lvl);
+		return;
+	}
+
 	if (mdata->npriority_lvl == MDSS_VBIF_QOS_REMAP_ENTRIES) {
 		mdata->vbif_nrt_qos = kzalloc(sizeof(u32) *
 				mdata->npriority_lvl, GFP_KERNEL);
@@ -4202,7 +4215,7 @@ static void mdss_mdp_parse_vbif_qos(struct platform_device *pdev)
 		}
 	} else {
 		mdata->npriority_lvl = 0;
-		pr_debug("Invalid or no vbif qos nrt seting\n");
+		pr_debug("Invalid or no vbif qos nrt setting\n");
 	}
 }
 
