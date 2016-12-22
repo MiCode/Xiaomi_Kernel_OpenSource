@@ -1451,7 +1451,17 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	int ret;
 	unsigned int old_val;
 	unsigned int *data = (unsigned int *)table->data;
-	int update_min_nice = 0;
+	int update_task_count = 0;
+
+	/*
+	 * The policy mutex is acquired with cpu_hotplug.lock
+	 * held from cpu_up()->cpufreq_governor_interactive()->
+	 * sched_set_window(). So enforce the same order here.
+	 */
+	if (write && (data == &sysctl_sched_upmigrate_pct)) {
+		update_task_count = 1;
+		get_online_cpus();
+	}
 
 	mutex_lock(&policy_mutex);
 
@@ -1481,20 +1491,18 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	 * includes taking runqueue lock of all online cpus and re-initiatizing
 	 * their big counter values based on changed criteria.
 	 */
-	if ((data == &sysctl_sched_upmigrate_pct || update_min_nice)) {
-		get_online_cpus();
+	if (update_task_count)
 		pre_big_task_count_change(cpu_online_mask);
-	}
 
 	set_hmp_defaults();
 
-	if ((data == &sysctl_sched_upmigrate_pct || update_min_nice)) {
+	if (update_task_count)
 		post_big_task_count_change(cpu_online_mask);
-		put_online_cpus();
-	}
 
 done:
 	mutex_unlock(&policy_mutex);
+	if (update_task_count)
+		put_online_cpus();
 	return ret;
 }
 
