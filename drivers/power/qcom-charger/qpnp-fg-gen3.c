@@ -1898,6 +1898,17 @@ static bool is_profile_load_required(struct fg_chip *chip)
 	return true;
 }
 
+static void clear_battery_profile(struct fg_chip *chip)
+{
+	u8 val = 0;
+	int rc;
+
+	rc = fg_sram_write(chip, PROFILE_INTEGRITY_WORD,
+			PROFILE_INTEGRITY_OFFSET, &val, 1, FG_IMA_DEFAULT);
+	if (rc < 0)
+		pr_err("failed to write profile integrity rc=%d\n", rc);
+}
+
 #define SOC_READY_WAIT_MS		2000
 static int __fg_restart(struct fg_chip *chip)
 {
@@ -2413,7 +2424,7 @@ static int fg_psy_get_property(struct power_supply *psy,
 		pval->intval = chip->cl.nom_cap_uah;
 		break;
 	case POWER_SUPPLY_PROP_RESISTANCE_ID:
-		rc = fg_get_batt_id(chip, &pval->intval);
+		pval->intval = chip->batt_id_ohms;
 		break;
 	case POWER_SUPPLY_PROP_BATTERY_TYPE:
 		pval->strval = fg_get_battery_type(chip);
@@ -2835,7 +2846,6 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 	if (chip->battery_missing) {
 		chip->profile_available = false;
 		chip->profile_loaded = false;
-		clear_cycle_counter(chip);
 		chip->soc_reporting_ready = false;
 	} else {
 		rc = fg_get_batt_profile(chip);
@@ -2844,6 +2854,7 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 			pr_err("Error in getting battery profile, rc:%d\n", rc);
 			return IRQ_HANDLED;
 		}
+		clear_battery_profile(chip);
 		schedule_delayed_work(&chip->profile_load_work, 0);
 	}
 
