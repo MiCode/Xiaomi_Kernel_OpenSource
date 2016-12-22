@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3323,6 +3323,17 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 					    134, 135, 136, 137, 138, 139,
 					    140, 141, 142, 143};
 
+	/* Tavil Codec SLIMBUS configuration
+	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7, RX8
+	 * TX1, TX2, TX3, TX4, TX5, TX6, TX7, TX8, TX9, TX10, TX11, TX12, TX13
+	 * TX14, TX15, TX16
+	 */
+	unsigned int rx_ch_tavil[WCD934X_RX_MAX] = {144, 145, 146, 147, 148,
+					    149, 150, 151};
+	unsigned int tx_ch_tavil[WCD934X_TX_MAX] = {128, 129, 130, 131, 132,
+					    134, 135, 136, 137, 138, 139,
+					    133, 140, 141, 142, 143};
+
 	pr_info("%s: dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
 	rtd->pmdown_time = 0;
@@ -3383,8 +3394,15 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_sync(dapm);
 
-	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
-				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
+	if (!strcmp(dev_name(codec_dai->dev), "tavil_codec")) {
+		snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch_tavil),
+					tx_ch_tavil, ARRAY_SIZE(rx_ch_tavil),
+					rx_ch_tavil);
+	} else {
+		snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
+					tx_ch, ARRAY_SIZE(rx_ch),
+					rx_ch);
+	}
 
 	if (!strcmp(dev_name(codec_dai->dev), "tavil_codec")) {
 		msm_codec_fn.get_afe_config_fn = tavil_get_afe_config;
