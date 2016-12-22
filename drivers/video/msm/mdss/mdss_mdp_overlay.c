@@ -2820,6 +2820,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	int ret = 0;
 	struct mdss_mdp_commit_cb commit_cb;
+	u8 sd_transition_state = 0;
 
 	if (!ctl || !ctl->mixer_left)
 		return -ENODEV;
@@ -2863,7 +2864,8 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	if (ctl->ops.wait_pingpong && mdp5_data->mdata->serialize_wait4pp)
 		mdss_mdp_display_wait4pingpong(ctl, true);
 
-	if (mdp5_data->sd_transition_state != SD_TRANSITION_NONE) {
+	sd_transition_state = mdp5_data->sd_transition_state;
+	if (sd_transition_state != SD_TRANSITION_NONE) {
 		ret = __config_secure_display(mdp5_data);
 		if (IS_ERR_VALUE(ret)) {
 			pr_err("Secure session config failed\n");
@@ -2953,7 +2955,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	 * If we are transitioning from secure to non-secure display,
 	 * disable the secure display.
 	 */
-	if (mdp5_data->sd_enabled && (mdp5_data->sd_transition_state ==
+	if (mdp5_data->sd_enabled && (sd_transition_state ==
 			SD_TRANSITION_SECURE_TO_NON_SECURE)) {
 		ret = mdss_mdp_secure_display_ctrl(mdp5_data->mdata, 0);
 		if (!ret)
