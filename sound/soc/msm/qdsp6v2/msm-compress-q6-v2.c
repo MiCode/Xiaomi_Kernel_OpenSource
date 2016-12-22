@@ -27,6 +27,7 @@
 #include <sound/initval.h>
 #include <sound/control.h>
 #include <sound/q6asm-v2.h>
+#include <sound/q6core.h>
 #include <sound/pcm_params.h>
 #include <sound/audio_effects.h>
 #include <asm/dma.h>
@@ -104,7 +105,6 @@ struct msm_compr_pdata {
 	uint32_t volume[MSM_FRONTEND_DAI_MAX][2]; /* For both L & R */
 	struct msm_compr_audio_effects *audio_effects[MSM_FRONTEND_DAI_MAX];
 	bool use_dsp_gapless_mode;
-	bool use_legacy_api; /* indicates use older asm apis*/
 	struct msm_compr_dec_params *dec_params[MSM_FRONTEND_DAI_MAX];
 	struct msm_compr_ch_map *ch_map[MSM_FRONTEND_DAI_MAX];
 	bool is_in_use[MSM_FRONTEND_DAI_MAX];
@@ -2244,13 +2244,22 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			/*
 			 * Cache this time as last known time
 			 */
-			if (pdata->use_legacy_api)
+			switch (q6core_get_avs_version()) {
+			case (Q6_SUBSYS_AVS2_6):
 				q6asm_get_session_time_legacy(
 							prtd->audio_client,
 						       &prtd->marker_timestamp);
-			else
+				break;
+			case (Q6_SUBSYS_AVS2_7):
+			case (Q6_SUBSYS_AVS2_8):
 				q6asm_get_session_time(prtd->audio_client,
 						       &prtd->marker_timestamp);
+				break;
+			case (Q6_SUBSYS_INVALID):
+			default:
+				pr_err("%s: INVALID AVS IMAGE\n", __func__);
+				break;
+			}
 
 			spin_lock_irqsave(&prtd->lock, flags);
 			/*
@@ -2433,13 +2442,22 @@ static int msm_compr_pointer(struct snd_compr_stream *cstream,
 		   stream.
 		*/
 		if (!first_buffer || gapless_transition) {
-
-			if (pdata->use_legacy_api)
-				rc = q6asm_get_session_time_legacy(
-				prtd->audio_client, &prtd->marker_timestamp);
-			else
-				rc = q6asm_get_session_time(
-				prtd->audio_client, &prtd->marker_timestamp);
+			switch (q6core_get_avs_version()) {
+			case (Q6_SUBSYS_AVS2_6):
+				q6asm_get_session_time_legacy(
+					prtd->audio_client,
+					&prtd->marker_timestamp);
+				break;
+			case (Q6_SUBSYS_AVS2_7):
+			case (Q6_SUBSYS_AVS2_8):
+				q6asm_get_session_time(prtd->audio_client,
+					&prtd->marker_timestamp);
+				break;
+			case (Q6_SUBSYS_INVALID):
+			default:
+				pr_err("%s: INVALID AVS IMAGE\n", __func__);
+				break;
+			}
 			if (rc < 0) {
 				pr_err("%s: Get Session Time return =%lld\n",
 					__func__, timestamp);
@@ -3402,8 +3420,6 @@ static int msm_compr_probe(struct snd_soc_platform *platform)
 {
 	struct msm_compr_pdata *pdata;
 	int i;
-	int rc;
-	const char *qdsp_version;
 
 	pr_debug("%s\n", __func__);
 	pdata = (struct msm_compr_pdata *)
@@ -3426,17 +3442,6 @@ static int msm_compr_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform, msm_compr_gapless_controls,
 				      ARRAY_SIZE(msm_compr_gapless_controls));
 
-	rc =  of_property_read_string(platform->dev->of_node,
-		"qcom,adsp-version", &qdsp_version);
-	if (!rc) {
-		if (!strcmp(qdsp_version, "MDSP 1.2"))
-			pdata->use_legacy_api = true;
-		else
-			pdata->use_legacy_api = false;
-	} else
-		pdata->use_legacy_api = false;
-
-	pr_debug("%s: use legacy api %d\n", __func__, pdata->use_legacy_api);
 	/*
 	 * use_dsp_gapless_mode part of platform data(pdata) is updated from HAL
 	 * through a mixer control before compress driver is opened. The mixer
