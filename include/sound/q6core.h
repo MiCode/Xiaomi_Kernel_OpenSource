@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -175,4 +175,23 @@ struct avs_mem_assign_region {
 	u32                  addr_msw;
 } __packed;
 
+#define AVCS_GET_VERSIONS	0x00012905
+struct avcs_cmd_get_version_result {
+	struct apr_hdr hdr;
+	uint32_t id;
+};
+#define AVCS_GET_VERSIONS_RSP	0x00012906
+
+#define AVCS_CMDRSP_Q6_ID_2_6	0x00040000
+#define AVCS_CMDRSP_Q6_ID_2_7	0x00040001
+#define AVCS_CMDRSP_Q6_ID_2_8   0x00040002
+
+enum q6_subsys_image {
+	Q6_SUBSYS_AVS2_6 = 1,
+	Q6_SUBSYS_AVS2_7,
+	Q6_SUBSYS_AVS2_8,
+	Q6_SUBSYS_INVALID,
+};
+enum q6_subsys_image q6core_get_avs_version(void);
+int core_get_adsp_ver(void);
 #endif /* __Q6CORE_H__ */
