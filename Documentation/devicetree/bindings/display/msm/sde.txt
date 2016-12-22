@@ -144,6 +144,8 @@ Optional properties:
 				on each sspp. This property is for multirect feature support.
 				Number of offsets defined should match the number of
 				offsets defined in property: qcom,sde-sspp-off.
+- qcom,sde-sspp-excl-rect:	Array of u32 values indicating exclusion rectangle
+				support on each sspp.
 - qcom,sde-intf-type:		Array of string provides the interface type information.
 				Possible string values
 					"dsi" - dsi display interface
@@ -356,6 +358,10 @@ Example:
     qcom,sde-highest-bank-bit = <15>;
     qcom,sde-has-mixer-gc;
     qcom,sde-sspp-max-rects = <1 1 1 1
+				1 1 1 1
+				1 1
+				1 1>;
+    qcom,sde-sspp-excl-rect = <1 1 1 1
 				1 1 1 1
 				1 1
 				1 1>;

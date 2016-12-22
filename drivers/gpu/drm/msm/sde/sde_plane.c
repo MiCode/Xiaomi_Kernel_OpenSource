@@ -1073,6 +1073,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		case PLANE_PROP_V_DECIMATE:
 		case PLANE_PROP_SRC_CONFIG:
 		case PLANE_PROP_ZPOS:
+		case PLANE_PROP_EXCL_RECT_V1:
 			pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
 			break;
 		case PLANE_PROP_CSC_V1:
@@ -1152,6 +1153,11 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 					&psde->pipe_cfg, &psde->pixel_ext,
 					psde->scaler3_cfg);
 		}
+
+		/* update excl rect */
+		if (psde->pipe_hw->ops.setup_excl_rect)
+			psde->pipe_hw->ops.setup_excl_rect(psde->pipe_hw,
+					&pstate->excl_rect);
 	}
 
 	if ((pstate->dirty & SDE_PLANE_DIRTY_FORMAT) &&
@@ -1235,6 +1241,7 @@ static void _sde_plane_atomic_check_mode_changed(struct sde_plane *psde,
 		struct drm_plane_state *old_state)
 {
 	struct sde_plane_state *pstate = to_sde_plane_state(state);
+	struct sde_plane_state *old_pstate = to_sde_plane_state(old_state);
 
 	/* no need to check it again */
 	if (pstate->dirty == SDE_PLANE_DIRTY_ALL)
@@ -1259,6 +1266,12 @@ static void _sde_plane_atomic_check_mode_changed(struct sde_plane *psde,
 		   state->crtc_x != old_state->crtc_x ||
 		   state->crtc_y != old_state->crtc_y) {
 		SDE_DEBUG_PLANE(psde, "crtc rect updated\n");
+		pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
+	} else if (pstate->excl_rect.w != old_pstate->excl_rect.w ||
+		   pstate->excl_rect.h != old_pstate->excl_rect.h ||
+		   pstate->excl_rect.x != old_pstate->excl_rect.x ||
+		   pstate->excl_rect.y != old_pstate->excl_rect.y) {
+		SDE_DEBUG_PLANE(psde, "excl rect updated\n");
 		pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
 	}
 
@@ -1432,6 +1445,27 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 			"too much scaling requested %ux%u->%ux%u\n",
 			src_deci_w, src_deci_h, dst.w, dst.h);
 		ret = -E2BIG;
+	}
+
+	/* check excl rect configs */
+	if (pstate->excl_rect.w && pstate->excl_rect.h) {
+		struct sde_rect intersect;
+
+		/*
+		 * Check exclusion rect against src rect.
+		 * Cropping is not required as hardware will consider only the
+		 * intersecting region with the src rect.
+		 */
+		sde_kms_rect_intersect(&intersect, &src, &pstate->excl_rect);
+		if (!intersect.w || !intersect.h || SDE_FORMAT_IS_YUV(fmt)) {
+			SDE_ERROR_PLANE(psde,
+				"invalid excl_rect:{%d,%d,%d,%d} src:{%d,%d,%d,%d}, fmt:%s\n",
+				pstate->excl_rect.x, pstate->excl_rect.y,
+				pstate->excl_rect.w, pstate->excl_rect.h,
+				src.x, src.y, src.w, src.h,
+				drm_get_format_name(fmt->base.pixel_format));
+			ret = -EINVAL;
+		}
 	}
 
 modeset_update:
@@ -1619,6 +1653,10 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			feature_name, 0, 0, 0xFFFFFFFF, 0,
 			PLANE_PROP_CONTRAST_ADJUST);
 	}
+
+	if (psde->features & BIT(SDE_SSPP_EXCL_RECT))
+		msm_property_install_volatile_range(&psde->property_info,
+			"excl_rect_v1", 0x0, 0, ~0, 0, PLANE_PROP_EXCL_RECT_V1);
 
 	/* standard properties */
 	msm_property_install_rotation(&psde->property_info,
@@ -1868,6 +1906,33 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 	SDE_DEBUG_PLANE(psde, "user property data copied\n");
 }
 
+static void _sde_plane_set_excl_rect_v1(struct sde_plane *psde,
+		struct sde_plane_state *pstate, void *usr_ptr)
+{
+	struct drm_clip_rect excl_rect_v1;
+
+	if (!psde) {
+		SDE_ERROR("invalid plane\n");
+		return;
+	}
+
+	if (!usr_ptr) {
+		SDE_DEBUG_PLANE(psde, "excl rect data removed\n");
+		return;
+	}
+
+	if (copy_from_user(&excl_rect_v1, usr_ptr, sizeof(excl_rect_v1))) {
+		SDE_ERROR_PLANE(psde, "failed to copy excl rect data\n");
+		return;
+	}
+
+	/* populate from user space */
+	pstate->excl_rect.x = excl_rect_v1.x1;
+	pstate->excl_rect.y = excl_rect_v1.y1;
+	pstate->excl_rect.w = excl_rect_v1.x2 - excl_rect_v1.x1 + 1;
+	pstate->excl_rect.h = excl_rect_v1.y2 - excl_rect_v1.y1 + 1;
+}
+
 static int sde_plane_atomic_set_property(struct drm_plane *plane,
 		struct drm_plane_state *state, struct drm_property *property,
 		uint64_t val)
@@ -1903,6 +1968,10 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 			case PLANE_PROP_SCALER_V2:
 				_sde_plane_set_scaler_v2(psde, pstate,
 					(void *)val);
+				break;
+			case PLANE_PROP_EXCL_RECT_V1:
+				_sde_plane_set_excl_rect_v1(psde, pstate,
+						(void *)val);
 				break;
 			default:
 				/* nothing to do */

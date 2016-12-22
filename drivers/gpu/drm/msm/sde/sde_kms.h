@@ -360,6 +360,15 @@ void sde_kms_info_append_format(struct sde_kms_info *info,
 void sde_kms_info_stop(struct sde_kms_info *info);
 
 /**
+ * sde_kms_rect_intersect() - find the intersecting region between two rects
+ * @res: Intersecting region between the two rectangles
+ * @rect1: first rectangle coordinates
+ * @rect2: second rectangle coordinates
+ */
+void sde_kms_rect_intersect(struct sde_rect *res,
+		const struct sde_rect *rect1, const struct sde_rect *rect2);
+
+/**
  * Vblank enable/disable functions
  */
 int sde_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);

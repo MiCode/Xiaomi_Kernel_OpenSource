@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -150,4 +150,20 @@ void sde_kms_info_stop(struct sde_kms_info *info)
 		if ((info->staged_len + len) < SDE_KMS_INFO_MAX_SIZE)
 			info->len = info->staged_len + len;
 	}
+}
+
+void sde_kms_rect_intersect(struct sde_rect *res,
+		const struct sde_rect *rect1, const struct sde_rect *rect2)
+{
+	int l, t, r, b;
+
+	l = max(rect1->x, rect2->x);
+	t = max(rect1->y, rect2->y);
+	r = min((rect1->x + rect1->w), (rect2->x + rect2->w));
+	b = min((rect1->y + rect1->h), (rect2->y + rect2->h));
+
+	if (r < l || b < t)
+		*res = (struct sde_rect) {0, 0, 0, 0};
+	else
+		*res = (struct sde_rect) {l, t, (r - l), (b - t)};
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -295,6 +295,14 @@ struct sde_hw_sspp_ops {
 			struct sde_hw_pipe_cfg *cfg,
 			struct sde_hw_pixel_ext *pe_ext,
 			void *scale_cfg);
+
+	/**
+	 * setup_excl_rect - setup pipe exclusion rectangle
+	 * @ctx: Pointer to pipe context
+	 * @excl_rect: Pointer to exclclusion rect structure
+	 */
+	void (*setup_excl_rect)(struct sde_hw_pipe *ctx,
+			struct sde_rect *excl_rect);
 
 	/**
 	 * setup_sourceaddress - setup pipe source addresses
