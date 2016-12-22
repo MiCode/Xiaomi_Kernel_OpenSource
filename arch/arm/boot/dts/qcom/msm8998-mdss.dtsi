@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -126,7 +126,7 @@
 				    <0x012ac 0xc0000ccc>,
 				    <0x012b4 0xc0000ccc>,
 				    <0x012bc 0x00cccccc>,
-				    <0x012c4 0x000000cc>,
+				    <0x012c4 0x0000cccc>,
 				    <0x013a8 0x0cccc0c0>,
 				    <0x013b0 0xccccc0c0>,
 				    <0x013b8 0xcccc0000>,
