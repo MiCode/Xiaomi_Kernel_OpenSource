@@ -161,6 +161,8 @@ enum fg_sram_param_id {
 	FG_SRAM_RECHARGE_VBATT_THR,
 	FG_SRAM_KI_COEFF_MED_DISCHG,
 	FG_SRAM_KI_COEFF_HI_DISCHG,
+	FG_SRAM_ESR_TIGHT_FILTER,
+	FG_SRAM_ESR_BROAD_FILTER,
 	FG_SRAM_MAX,
 };
 
@@ -225,6 +227,11 @@ struct fg_dt_props {
 	int	cl_min_cap_limit;
 	int	jeita_hyst_temp;
 	int	batt_temp_delta;
+	int	esr_flt_switch_temp;
+	int	esr_tight_flt_upct;
+	int	esr_broad_flt_upct;
+	int	esr_tight_lt_flt_upct;
+	int	esr_broad_lt_flt_upct;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
@@ -337,6 +344,7 @@ struct fg_chip {
 	bool			ki_coeff_dischg_en;
 	bool			esr_fcc_ctrl_en;
 	bool			soc_reporting_ready;
+	bool			esr_flt_cold_temp_en;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;

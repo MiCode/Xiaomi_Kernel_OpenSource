@@ -37,6 +37,11 @@
 #define SYS_TERM_CURR_OFFSET		0
 #define VBATT_FULL_WORD			7
 #define VBATT_FULL_OFFSET		0
+#define ESR_FILTER_WORD			8
+#define ESR_UPD_TIGHT_OFFSET		0
+#define ESR_UPD_BROAD_OFFSET		1
+#define ESR_UPD_TIGHT_LOW_TEMP_OFFSET	2
+#define ESR_UPD_BROAD_LOW_TEMP_OFFSET	3
 #define KI_COEFF_MED_DISCHG_WORD	9
 #define KI_COEFF_MED_DISCHG_OFFSET	3
 #define KI_COEFF_HI_DISCHG_WORD		10
@@ -203,6 +208,10 @@ static struct fg_sram_param pmi8998_v1_sram_params[] = {
 	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_WORD,
 		KI_COEFF_HI_DISCHG_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
+	PARAM(ESR_TIGHT_FILTER, ESR_FILTER_WORD, ESR_UPD_TIGHT_OFFSET,
+		1, 512, 1000000, 0, fg_encode_default, NULL),
+	PARAM(ESR_BROAD_FILTER, ESR_FILTER_WORD, ESR_UPD_BROAD_OFFSET,
+		1, 512, 1000000, 0, fg_encode_default, NULL),
 };
 
 static struct fg_sram_param pmi8998_v2_sram_params[] = {
@@ -263,6 +272,10 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_v2_WORD,
 		KI_COEFF_HI_DISCHG_v2_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
+	PARAM(ESR_TIGHT_FILTER, ESR_FILTER_WORD, ESR_UPD_TIGHT_OFFSET,
+		1, 512, 1000000, 0, fg_encode_default, NULL),
+	PARAM(ESR_BROAD_FILTER, ESR_FILTER_WORD, ESR_UPD_BROAD_OFFSET,
+		1, 512, 1000000, 0, fg_encode_default, NULL),
 };
 
 static struct fg_alg_flag pmi8998_v1_alg_flags[] = {
@@ -1550,6 +1563,65 @@ static int fg_adjust_recharge_soc(struct fg_chip *chip)
 	return 0;
 }
 
+static int fg_esr_filter_config(struct fg_chip *chip, int batt_temp)
+{
+	u8 esr_tight_lt_flt, esr_broad_lt_flt;
+	bool cold_temp = false;
+	int rc;
+
+	/*
+	 * If the battery temperature is lower than -20 C, then skip modifying
+	 * ESR filter.
+	 */
+	if (batt_temp < -210)
+		return 0;
+
+	/*
+	 * If battery temperature is lesser than 10 C (default), then apply the
+	 * normal ESR tight and broad filter values to ESR low temperature tight
+	 * and broad filters. If battery temperature is higher than 10 C, then
+	 * apply back the low temperature ESR filter coefficients to ESR low
+	 * temperature tight and broad filters.
+	 */
+	if (batt_temp > chip->dt.esr_flt_switch_temp
+		&& chip->esr_flt_cold_temp_en) {
+		fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER,
+			chip->dt.esr_tight_lt_flt_upct, &esr_tight_lt_flt);
+		fg_encode(chip->sp, FG_SRAM_ESR_BROAD_FILTER,
+			chip->dt.esr_broad_lt_flt_upct, &esr_broad_lt_flt);
+	} else if (batt_temp <= chip->dt.esr_flt_switch_temp
+			&& !chip->esr_flt_cold_temp_en) {
+		fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER,
+			chip->dt.esr_tight_flt_upct, &esr_tight_lt_flt);
+		fg_encode(chip->sp, FG_SRAM_ESR_BROAD_FILTER,
+			chip->dt.esr_broad_flt_upct, &esr_broad_lt_flt);
+		cold_temp = true;
+	} else {
+		return 0;
+	}
+
+	rc = fg_sram_write(chip, ESR_FILTER_WORD,
+			ESR_UPD_TIGHT_LOW_TEMP_OFFSET, &esr_tight_lt_flt, 1,
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR LT tight filter, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_sram_write(chip, ESR_FILTER_WORD,
+			ESR_UPD_BROAD_LOW_TEMP_OFFSET, &esr_broad_lt_flt, 1,
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR LT broad filter, rc=%d\n", rc);
+		return rc;
+	}
+
+	chip->esr_flt_cold_temp_en = cold_temp;
+	fg_dbg(chip, FG_STATUS, "applied %s ESR filter values\n",
+		cold_temp ? "cold" : "normal");
+	return 0;
+}
+
 static int fg_esr_fcc_config(struct fg_chip *chip)
 {
 	union power_supply_propval prop = {0, };
@@ -2790,6 +2862,26 @@ static int fg_hw_init(struct fg_chip *chip)
 		}
 	}
 
+	fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER,
+		chip->dt.esr_tight_flt_upct, buf);
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_TIGHT_FILTER].addr_word,
+			chip->sp[FG_SRAM_ESR_TIGHT_FILTER].addr_byte, buf,
+			chip->sp[FG_SRAM_ESR_TIGHT_FILTER].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR tight filter, rc=%d\n", rc);
+		return rc;
+	}
+
+	fg_encode(chip->sp, FG_SRAM_ESR_BROAD_FILTER,
+		chip->dt.esr_broad_flt_upct, buf);
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_BROAD_FILTER].addr_word,
+			chip->sp[FG_SRAM_ESR_BROAD_FILTER].addr_byte, buf,
+			chip->sp[FG_SRAM_ESR_BROAD_FILTER].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR broad filter, rc=%d\n", rc);
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -2900,6 +2992,10 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 		pr_err("Error in getting batt_temp\n");
 		return IRQ_HANDLED;
 	}
+
+	rc = fg_esr_filter_config(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring ESR filter rc:%d\n", rc);
 
 	if (!is_charger_available(chip)) {
 		chip->last_batt_temp = batt_temp;
@@ -3207,6 +3303,11 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 #define DEFAULT_CL_MAX_LIM_DECIPERC	0
 #define BTEMP_DELTA_LOW			2
 #define BTEMP_DELTA_HIGH		10
+#define DEFAULT_ESR_FLT_TEMP_DECIDEGC	100
+#define DEFAULT_ESR_TIGHT_FLT_UPCT	3907
+#define DEFAULT_ESR_BROAD_FLT_UPCT	99610
+#define DEFAULT_ESR_TIGHT_LT_FLT_UPCT	48829
+#define DEFAULT_ESR_BROAD_LT_FLT_UPCT	148438
 static int fg_parse_dt(struct fg_chip *chip)
 {
 	struct device_node *child, *revid_node, *node = chip->dev->of_node;
@@ -3483,6 +3584,40 @@ static int fg_parse_dt(struct fg_chip *chip)
 	else
 		chip->dt.rconn_mohms = temp;
 
+	rc = of_property_read_u32(node, "qcom,fg-esr-filter-switch-temp",
+			&temp);
+	if (rc < 0)
+		chip->dt.esr_flt_switch_temp = DEFAULT_ESR_FLT_TEMP_DECIDEGC;
+	else
+		chip->dt.esr_flt_switch_temp = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-esr-tight-filter-micro-pct",
+			&temp);
+	if (rc < 0)
+		chip->dt.esr_tight_flt_upct = DEFAULT_ESR_TIGHT_FLT_UPCT;
+	else
+		chip->dt.esr_tight_flt_upct = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-esr-broad-filter-micro-pct",
+			&temp);
+	if (rc < 0)
+		chip->dt.esr_broad_flt_upct = DEFAULT_ESR_BROAD_FLT_UPCT;
+	else
+		chip->dt.esr_broad_flt_upct = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-esr-tight-lt-filter-micro-pct",
+			&temp);
+	if (rc < 0)
+		chip->dt.esr_tight_lt_flt_upct = DEFAULT_ESR_TIGHT_LT_FLT_UPCT;
+	else
+		chip->dt.esr_tight_lt_flt_upct = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-esr-broad-lt-filter-micro-pct",
+			&temp);
+	if (rc < 0)
+		chip->dt.esr_broad_lt_flt_upct = DEFAULT_ESR_BROAD_LT_FLT_UPCT;
+	else
+		chip->dt.esr_broad_lt_flt_upct = temp;
 	return 0;
 }
 
@@ -3608,9 +3743,13 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	if (!rc)
 		rc = fg_get_battery_temp(chip, &batt_temp);
 
-	if (!rc)
+	if (!rc) {
 		pr_info("battery SOC:%d voltage: %duV temp: %d id: %dKOhms\n",
 			msoc, volt_uv, batt_temp, chip->batt_id_ohms / 1000);
+		rc = fg_esr_filter_config(chip, batt_temp);
+		if (rc < 0)
+			pr_err("Error in configuring ESR filter rc:%d\n", rc);
+	}
 
 	device_init_wakeup(chip->dev, true);
 	if (chip->profile_available)

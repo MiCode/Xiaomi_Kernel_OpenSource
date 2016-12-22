@@ -273,6 +273,45 @@ First Level Node - FG Gen3 device
 		    is specified, then ESR to Rslow scaling factors will be
 		    updated to account it for an accurate ESR.
 
+- qcom,fg-esr-filter-switch-temp
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery temperature threshold below which low temperature
+		    ESR filter coefficients will be switched to normal
+		    temperature ESR filter coefficients. If this is not
+		    specified, then the default value used will be 100. Unit is
+		    in decidegC.
+
+- qcom,fg-esr-tight-filter-micro-pct
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value in micro percentage for ESR tight filter. If this is
+		    not specified, then a default value of 3907 (0.39 %) will
+		    be used. Lowest possible value is 1954 (0.19 %).
+
+- qcom,fg-esr-broad-filter-micro-pct
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value in micro percentage for ESR broad filter. If this is
+		    not specified, then a default value of 99610 (9.96 %) will
+		    be used. Lowest possible value is 1954 (0.19 %).
+
+- qcom,fg-esr-tight-lt-filter-micro-pct
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value in micro percentage for low temperature ESR tight
+		    filter. If this is not specified, then a default value of
+		    48829 (4.88 %) will be used. Lowest possible value is 1954
+		    (0.19 %).
+
+- qcom,fg-esr-broad-lt-filter-micro-pct
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value in micro percentage for low temperature ESR broad
+		    filter. If this is not specified, then a default value of
+		    148438 (14.84 %) will be used. Lowest possible value is
+		    1954 (0.19 %).
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
 ==========================================================
