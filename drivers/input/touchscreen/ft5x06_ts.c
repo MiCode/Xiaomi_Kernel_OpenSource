@@ -1936,7 +1936,7 @@ static int ft5x06_debug_data_get(void *_data, u64 *val)
 {
 	struct ft5x06_ts_data *data = _data;
 	int rc;
-	u8 reg;
+	u8 reg = 0;
 
 	mutex_lock(&data->input_dev->mutex);
 
@@ -2255,7 +2255,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	struct ft5x06_ts_data *data;
 	struct input_dev *input_dev;
 	struct dentry *temp;
-	u8 reg_value;
+	u8 reg_value = 0;
 	u8 reg_addr;
 	int err, len, retval, attr_count;
 
