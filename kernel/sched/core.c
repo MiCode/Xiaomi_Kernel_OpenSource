@@ -3354,14 +3354,14 @@ void scheduler_tick(void)
 	old_load = task_load(curr);
 	set_window_start(rq);
 
-	update_rq_clock(rq);
-	curr->sched_class->task_tick(rq, curr, 0);
-	cpu_load_update_active(rq);
-	calc_global_load_tick(rq);
 
 	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 
+	update_rq_clock(rq);
+	curr->sched_class->task_tick(rq, curr, 0);
+	cpu_load_update_active(rq);
+	calc_global_load_tick(rq);
 	cpufreq_update_util(rq, 0);
 	early_notif = early_detection_notify(rq, wallclock);
 
