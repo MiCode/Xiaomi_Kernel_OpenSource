@@ -1474,7 +1474,7 @@ static int ipa3_is_xdci_channel_empty(struct ipa3_ep_context *ep,
 	return 0;
 }
 
-static int ipa3_enable_force_clear(u32 request_id, bool throttle_source,
+int ipa3_enable_force_clear(u32 request_id, bool throttle_source,
 	u32 source_pipe_bitmask)
 {
 	struct ipa_enable_force_clear_datapath_req_msg_v01 req;
@@ -1497,7 +1497,7 @@ static int ipa3_enable_force_clear(u32 request_id, bool throttle_source,
 	return 0;
 }
 
-static int ipa3_disable_force_clear(u32 request_id)
+int ipa3_disable_force_clear(u32 request_id)
 {
 	struct ipa_disable_force_clear_datapath_req_msg_v01 req;
 	int result;
