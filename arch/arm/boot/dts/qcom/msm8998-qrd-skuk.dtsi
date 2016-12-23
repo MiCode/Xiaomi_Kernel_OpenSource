@@ -299,6 +299,7 @@
 
 &pmi8998_fg {
 	qcom,battery-data = <&qrd_batterydata>;
+	qcom,fg-jeita-thresholds = <0 5 55 55>;
 };
 
 &pmi8998_haptics {
