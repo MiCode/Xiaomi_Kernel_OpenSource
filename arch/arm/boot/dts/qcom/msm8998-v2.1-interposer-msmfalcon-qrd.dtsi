@@ -72,30 +72,6 @@
 	status = "ok";
 };
 
-&sdc2_cd_on {
-	mux {
-		pins = "gpio54";
-	};
-
-	config {
-		pins = "gpio54";
-		/delete-property/ bias-pull-up;
-		bias-disable;
-	};
-};
-
-&sdc2_cd_off {
-	mux {
-		pins = "gpio54";
-	};
-
-	config {
-		pins = "gpio54";
-		/delete-property/ bias-pull-up;
-		bias-disable;
-	};
-};
-
 &sdhc_2 {
 	vdd-supply = <&pm2falcon_l5>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
@@ -113,7 +89,7 @@
 				50000000 100000000 200000000>;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 
-	cd-gpios = <&tlmm 54 0x0>;
+	cd-gpios = <&tlmm 95 0x0>;
 
 	status = "ok";
 };
