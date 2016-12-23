@@ -2485,8 +2485,11 @@ static int _qce_sps_add_sg_data_off(struct qce_device *pce_dev,
 	res_within_sg = sg_dma_len(sg_src);
 
 	while (off > 0) {
-		if (!sg_src)
+		if (!sg_src) {
+			pr_err("broken sg list off %d nbytes %d\n",
+				off, nbytes);
 			return -ENOENT;
+		}
 		len = sg_dma_len(sg_src);
 		if (off < len) {
 			res_within_sg = len - off;
@@ -2494,7 +2497,8 @@ static int _qce_sps_add_sg_data_off(struct qce_device *pce_dev,
 		}
 		off -= len;
 		sg_src = sg_next(sg_src);
-		res_within_sg = sg_dma_len(sg_src);
+		if (sg_src)
+			res_within_sg = sg_dma_len(sg_src);
 	}
 	while (nbytes > 0 && sg_src) {
 		len = min(nbytes, res_within_sg);
@@ -2525,9 +2529,15 @@ static int _qce_sps_add_sg_data_off(struct qce_device *pce_dev,
 			addr += data_cnt;
 			len -= data_cnt;
 		}
-		sg_src = sg_next(sg_src);
-		off = 0;
-		res_within_sg = sg_dma_len(sg_src);
+		if (nbytes) {
+			sg_src = sg_next(sg_src);
+			if (!sg_src) {
+				pr_err("more data bytes %d\n", nbytes);
+				return -ENOMEM;
+			}
+			res_within_sg = sg_dma_len(sg_src);
+			off = 0;
+		}
 	}
 	return 0;
 }
