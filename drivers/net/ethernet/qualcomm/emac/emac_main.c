@@ -40,14 +40,7 @@
 #include "emac_phy.h"
 #include "emac_hw.h"
 #include "emac_ptp.h"
-
-#define DRV_VERSION "1.1.0.0"
-
-char emac_drv_name[] = "qcom_emac";
-const char emac_drv_description[] =
-			     "Qualcomm Technologies, Inc. EMAC Ethernet Driver";
-const char emac_drv_version[] = DRV_VERSION;
-static struct of_device_id emac_dt_match[];
+#include "emac_sgmii.h"
 
 #define EMAC_MSG_DEFAULT (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK |  \
 		NETIF_MSG_TIMER | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP |         \
@@ -59,13 +52,13 @@ static struct of_device_id emac_dt_match[];
 #define EMAC_RRDES_ERROR (EMAC_RRDES_IPF | EMAC_RRDES_CRC | EMAC_RRDES_FAE | \
 			EMAC_RRDES_TRN | EMAC_RRDES_RNT | EMAC_RRDES_INC | \
 			EMAC_RRDES_FOV | EMAC_RRDES_LEN)
-#define EMAC_RRDES_STATS_DW_IDX 3
 
+#define EMAC_RRDES_STATS_DW_IDX 3
 #define EMAC_RRDESC_SIZE      4
+/* The RRD size if timestamping is enabled: */
 #define EMAC_TS_RRDESC_SIZE   6
 #define EMAC_TPDESC_SIZE      4
 #define EMAC_RFDESC_SIZE      2
-
 #define EMAC_RSS_IDT_SIZE     256
 
 #define EMAC_SKB_CB(skb) ((struct emac_skb_cb *)(skb)->cb)
@@ -118,13 +111,9 @@ const struct emac_irq_common emac_irq_cmn_tbl[EMAC_IRQ_CNT] = {
 		0,		0},
 };
 
-static const char * const emac_gpio_name[] = {
-	"qcom,emac-gpio-mdc", "qcom,emac-gpio-mdio"
-};
-
 static const char * const emac_clk_name[] = {
-	"axi_clk", "cfg_ahb_clk", "125m_clk", "25m_clk", "tx_clk", "rx_clk",
-	"sys_clk"
+	"axi_clk", "cfg_ahb_clk", "high_speed_clk", "mdio_clk", "tx_clk",
+	"rx_clk", "sys_clk"
 };
 
 static const char * const emac_regulator_name[] = {
@@ -161,7 +150,7 @@ static int emac_acpi_clk_set_rate(struct emac_adapter *adpt,
 
 	if ((obj->type != ACPI_TYPE_INTEGER) || (obj->integer.value)) {
 		ret = -EINVAL;
-		emac_err(clk_info->adpt,
+		emac_err(adpt,
 			 "set clock rate for %d failed\n", clk_info->index);
 	}
 
@@ -169,137 +158,12 @@ static int emac_acpi_clk_set_rate(struct emac_adapter *adpt,
 	return ret;
 }
 
-#define EMAC_PHY_MODE_MAX_LEN		16
-struct emac_phy_mode_lookup {
-	char	name[EMAC_PHY_MODE_MAX_LEN];
-	int	type;
-};
-
-static phy_interface_t emac_phy_interface_type(const char *phy_mode)
-{
-	static struct emac_phy_mode_lookup[] = {
-		{"sgmii",	PHY_INTERFACE_MODE_SGMII},
-		{"rgmii",	PHY_INTERFACE_MODE_RGMII},
-		{"xgmii",	PHY_INTERFACE_MODE_XGMII},
-		{"rgmii-id",	PHY_INTERFACE_MODE_RGMII_ID},
-		{"rgmii-txid",	PHY_INTERFACE_MODE_RGMII_TXID},
-		{"tbi",		PHY_INTERFACE_MODE_TBI},
-		{"rmii",	PHY_INTERFACE_MODE_RMII},
-		{"rtbi",	PHY_INTERFACE_MODE_RTBI},
-		{NULL,		0},
-	};
-
-	struct emac_phy_mode_lookup *cur = emac_phy_mode_lookup;
-
-	if (!phy_mode)
-		return PHY_INTERFACE_MODE_NA;
-
-	for (; cur->name; ++cur)
-		if (!strcasecmp(phy_mode, cur->name))
-			return cur->type;
-
-	return PHY_INTERFACE_MODE_MII;
-}
-
-static int emac_device_property_read_string(struct device *dev,
-					    const char *propname,
-					    const char **val)
-{
-	return (ACPI_HANDLE(dev)) ?
-		acpi_dev_prop_read(ACPI_COMPANION(dev), propname,
-				   DEV_PROP_STRING, val, 1) :
-		of_property_read_string(dev->of_node, propname, val);
-}
-
-static inline bool emac_device_property_read_bool(struct device *dev,
-						  const char *propname)
-{
-	return (ACPI_HANDLE(dev)) ?
-		!acpi_dev_prop_get(ACPI_COMPANION(dev), propname, NULL) :
-		of_property_read_bool(dev->of_node, propname);
-}
-
-static inline int emac_device_property_read_u32(struct device *dev,
-						const char *propname, u32 *val)
-{
-	return DEV_PROP_READ_ARRAY(dev, propname, u32, DEV_PROP_U32, val, 1);
-	return (ACPI_HANDLE(dev) ?
-		acpi_dev_prop_read((ACPI_COMPANION(dev)), propname,
-				   DEV_PROP_U32, val, nval) :
-		of_property_read_u32(dev->of_node, propname, val);
-}
-
-static int emac_device_property_read_u8_array(struct device *dev,
-					      const char *propname,
-					      u8 *val, size_t nval)
-{
-	return (ACPI_HANDLE(dev) ?
-		acpi_dev_prop_read((ACPI_COMPANION(dev)), propname, DEV_PROP_U8,
-				   val, nval) :
-		of_property_read_u8_array(dev->of_node, propname, u8, val,
-					  nval);
-}
-
-static int emac_acpi_get_properties(struct platform_device *pdev,
-				    struct emac_adapter *adpt)
-{
-	struct device *dev = &pdev->dev;
-	const char *phy_mode;
-	u8 maddr[ETH_ALEN];
-	int ret;
-
-	ret = emac_device_property_read_string(dev, "phy-mode", &phy_mode);
-	if (ret < 0)
-		phy_mode = NULL;
-	adpt->phy_mode = emac_phy_interface_type(phy_mode);
-
-	ret = emac_device_property_read_u32(dev, "phy-channel",
-					    &adpt->hw.phy_addr);
-	if (ret < 0)
-		adpt->hw.phy_addr = 0;
-
-	ret = emac_device_property_read_u8_array(dev, "mac-address", maddr,
-						 ETH_ALEN);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "no MAC address found\n");
-		return ret;
-	}
-
-	if (!is_valid_ether_addr(maddr)) {
-		dev_err(&pdev->dev, "invalid MAC address %pM\n", maddr);
-		return -EINVAL;
-	}
-
-	ret = emac_device_property_read_u32(dev, "phy-version",
-					    &adpt->hw.phy_version);
-	if (ret < 0)
-		adpt->hw.phy_version = 0;
-
-	adpt->phy.external = !emac_device_property_read_bool(dev, "no-ephy");
-	adpt->tstamp_en = device_property_read_bool(dev, "tstamp-eble");
-	ether_addr_copy(adpt->hw.mac_perm_addr, maddr);
-	return 0;
-}
-
 static int emac_acpi_get_resources(struct platform_device *pdev,
 				   struct emac_adapter *adpt)
 {
 	struct device *dev = &pdev->dev;
-	struct net_device *netdev = adpt->netdev;
-	struct emac_irq_info *irq_info;
 	union acpi_object *obj;
-	struct resource *res;
-	void __iomem *regmap;
-	int i, retval;
 	const char duuid[16];
-	u16 irq_map[EMAC_NUM_IRQ] = {EMAC_CORE0_IRQ, EMAC_CORE3_IRQ,
-				     EMAC_CORE1_IRQ, EMAC_CORE2_IRQ,
-				     EMAC_SGMII_PHY_IRQ, EMAC_WOL_IRQ};
-
-	/* Get device specific properties */
-	retval = emac_acpi_get_properties(pdev, adpt);
-	if (retval < 0)
-		return -ENODEV;
 
 	/* Execute DSM function 1 to initialize the clocks */
 	obj = acpi_evaluate_dsm(ACPI_HANDLE(dev), duuid, 0x1, 1, NULL);
@@ -312,81 +176,6 @@ static int emac_acpi_get_resources(struct platform_device *pdev,
 		return -ENOENT;
 	}
 	ACPI_FREE(obj);
-
-	dev_info(&pdev->dev, "MAC address %pM\n", adpt->hw.mac_perm_addr);
-
-	/* set phy address to zero for internal phy */
-	if (!adpt->phy.external)
-		adpt->hw.phy_addr = 0;
-
-	/* check phy mode */
-	if (adpt->phy_mode == PHY_INTERFACE_MODE_NA) {
-		emac_err(adpt, "PHY interface mode not valid\n");
-		return -EINVAL;
-	}
-
-	/* Assume GPIOs required for MDC/MDIO are enabled in firmware */
-	adpt->phy.uses_gpios = true;
-
-	/* get irqs */
-	for (i = 0; i < EMAC_NUM_IRQ; i++) {
-		/* SGMII_PHY IRQ is only required if phy_mode is "sgmii" */
-		if ((irq_map[i] == EMAC_SGMII_PHY_IRQ) &&
-		    (adpt->phy_mode != PHY_INTERFACE_MODE_SGMII))
-			continue;
-
-		irq_info = &adpt->irq_info[irq_map[i]];
-
-		retval = platform_get_irq(pdev, i);
-		if (retval < 0) {
-			/* If WOL IRQ is not specified, WOL is disabled */
-			if (irq_map[i] == EMAC_WOL_IRQ)
-				continue;
-			emac_err(adpt, "irq %d not found\n", i);
-			return retval;
-		}
-		irq_info->irq = retval;
-	}
-
-	/* get register addresses */
-	for (i = 0; i < NUM_EMAC_REG_BASES; i++) {
-		/* 1588 is required only if tstamp is enabled */
-		if ((i == EMAC_1588) && !adpt->tstamp_en)
-			continue;
-
-		/* qserdes & sgmii_phy are required only for sgmii phy */
-		if ((adpt->phy_mode != PHY_INTERFACE_MODE_SGMII) &&
-		    ((i == EMAC_QSERDES) || (i == EMAC_SGMII_PHY)))
-			continue;
-
-		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
-		if (!res) {
-			emac_err(adpt, "can't get %d iomem resource\n", i);
-			return -ENOMEM;
-		}
-
-		regmap = devm_ioremap(&pdev->dev, res->start,
-				      resource_size(res));
-		/**
-		 * SGMII-v2 controller has two CSRs one per lane digital part
-		 * and second one for per lane analog part. The PHY regmap is
-		 * compatible to SGMII-v1 controller and will be used in PHY
-		 * common code and sgmii_laned regmap referenced in SGMII-v2
-		 * specific initialization code.
-		 */
-		if ((i == EMAC_SGMII_PHY) &&
-		    (adpt->hw.phy_version == SGMII_PHY_VERSION_2)) {
-			adpt->hw.sgmii_laned = regmap;
-			regmap += SGMII_PHY_LN_OFFSET;
-		}
-		adpt->hw.reg_addr[i] = regmap;
-
-		if (!adpt->hw.reg_addr[i]) {
-			emac_err(adpt, "can't ioremap %pR\n", res);
-			return -EFAULT;
-		}
-	}
-	netdev->base_addr = (unsigned long)adpt->hw.reg_addr[EMAC];
 	return 0;
 }
 #else
@@ -438,45 +227,47 @@ int emac_clk_set_rate(struct emac_adapter *adpt, enum emac_clk_id id,
 }
 
 /* reinitialize */
-void emac_reinit_locked(struct emac_adapter *adpt)
+int emac_reinit_locked(struct emac_adapter *adpt)
 {
 	struct net_device *netdev = adpt->netdev;
+	int ret = 0;
 
 	WARN_ON(in_interrupt());
 
+	/* Reset might take few 10s of ms */
 	while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
-		msleep(20); /* Reset might take few 10s of ms */
+		msleep(EMAC_ADPT_RESET_WAIT_TIME);
 
 	if (TEST_FLAG(adpt, ADPT_STATE_DOWN)) {
 		CLR_FLAG(adpt, ADPT_STATE_RESETTING);
-		return;
+		return -EPERM;
 	}
 
 	pm_runtime_get_sync(netdev->dev.parent);
-	emac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
 
+	emac_mac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
 	adpt->phy.ops.reset(adpt);
-	emac_up(adpt);
+	ret = emac_mac_up(adpt);
+
 	pm_runtime_mark_last_busy(netdev->dev.parent);
 	pm_runtime_put_autosuspend(netdev->dev.parent);
 
 	CLR_FLAG(adpt, ADPT_STATE_RESETTING);
+	return ret;
 }
 
 void emac_task_schedule(struct emac_adapter *adpt)
 {
 	if (!TEST_FLAG(adpt, ADPT_STATE_DOWN) &&
-	    !TEST_FLAG(adpt, ADPT_STATE_WATCH_DOG)) {
-		SET_FLAG(adpt, ADPT_STATE_WATCH_DOG);
-		schedule_work(&adpt->emac_task);
+			!TEST_FLAG(adpt, ADPT_STATE_WATCH_DOG)) {
+			SET_FLAG(adpt, ADPT_STATE_WATCH_DOG);
+			schedule_work(&adpt->work_thread);
 	}
 }
 
 void emac_check_lsc(struct emac_adapter *adpt)
 {
 	SET_FLAG(adpt, ADPT_TASK_LSC_REQ);
-	adpt->link_jiffies = jiffies + EMAC_TRY_LINK_TIMEOUT;
-
 	if (!TEST_FLAG(adpt, ADPT_STATE_DOWN))
 		emac_task_schedule(adpt);
 }
@@ -535,11 +326,12 @@ static int emac_set_mac_address(struct net_device *netdev, void *p)
 	if (netif_running(netdev))
 		return -EBUSY;
 
-	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
-	memcpy(hw->mac_addr, addr->sa_data, netdev->addr_len);
+	ether_addr_copy(netdev->dev_addr, addr->sa_data);
 
 	pm_runtime_get_sync(netdev->dev.parent);
-	emac_hw_set_mac_addr(hw, hw->mac_addr);
+
+	emac_hw_set_mac_addr(hw, netdev->dev_addr);
+
 	pm_runtime_mark_last_busy(netdev->dev.parent);
 	pm_runtime_put_autosuspend(netdev->dev.parent);
 	return 0;
@@ -603,7 +395,7 @@ static bool emac_get_rrdesc(struct emac_rx_queue *rxque,
 
 	if (unlikely(srrd->genr.nor != 1)) {
 		/* multiple rfd not supported */
-		emac_err(adpt, "Multi rfd not support yet! nor = %d\n",
+		emac_err(adpt, "Multi-RFD not support yet! nor = %d\n",
 			 srrd->genr.nor);
 	}
 
@@ -691,9 +483,6 @@ static int emac_refresh_rx_buffer(struct emac_rx_queue *rxque)
 	struct emac_hw *hw = &adpt->hw;
 	struct emac_buffer *curr_rxbuf;
 	struct emac_buffer *next_rxbuf;
-	union emac_sw_rfdesc srfd;
-	struct sk_buff *skb;
-	void *skb_data = NULL;
 	u32 count = 0;
 	u32 next_produce_idx;
 
@@ -705,6 +494,10 @@ static int emac_refresh_rx_buffer(struct emac_rx_queue *rxque)
 
 	/* this always has a blank rx_buffer*/
 	while (next_rxbuf->dma == 0) {
+		struct sk_buff *skb;
+		union emac_sw_rfdesc srfd;
+		int ret;
+
 		skb = dev_alloc_skb(adpt->rxbuf_size + NET_IP_ALIGN);
 		if (unlikely(!skb)) {
 			emac_err(adpt, "alloc rx buffer failed\n");
@@ -716,12 +509,20 @@ static int emac_refresh_rx_buffer(struct emac_rx_queue *rxque)
 		 * the 14 byte MAC header is removed
 		 */
 		skb_reserve(skb, NET_IP_ALIGN);
-		skb_data = skb->data;
 		curr_rxbuf->skb = skb;
 		curr_rxbuf->length = adpt->rxbuf_size;
-		curr_rxbuf->dma = dma_map_single(rxque->dev, skb_data,
+		curr_rxbuf->dma = dma_map_single(rxque->dev, skb->data,
 						 curr_rxbuf->length,
 						 DMA_FROM_DEVICE);
+		ret = dma_mapping_error(rxque->dev, curr_rxbuf->dma);
+		if (ret) {
+			emac_err(adpt,
+				 "error DMA mapping DMA buffers, err:%lld buf_vrtl:0x%p data_len:%d dma_dir:%s\n",
+				 (u64)curr_rxbuf->dma, skb->data,
+				 curr_rxbuf->length, "DMA_FROM_DEVICE");
+			dev_kfree_skb(skb);
+			break;
+		}
 		srfd.genr.addr = curr_rxbuf->dma;
 		emac_set_rfdesc(rxque, &srfd);
 		next_produce_idx = rxque->rfd.produce_idx;
@@ -905,7 +706,7 @@ static void emac_handle_rx(struct emac_adapter *adpt,
 		(hw_consume_idx -  rxque->rrd.consume_idx) :
 		(hw_consume_idx + rxque->rrd.count - rxque->rrd.consume_idx);
 
-	while (1) {
+	do {
 		if (!num_consume_pkts)
 			break;
 
@@ -921,7 +722,7 @@ static void emac_handle_rx(struct emac_adapter *adpt,
 			skb = rfbuf->skb;
 		} else {
 			/* multi rfd not supported */
-			emac_err(adpt, "Multi rfd not support yet!\n");
+			emac_err(adpt, "multi-RFD not support yet!\n");
 			break;
 		}
 		emac_clean_rfdesc(rxque, &srrd);
@@ -963,9 +764,7 @@ static void emac_handle_rx(struct emac_adapter *adpt,
 
 		netdev->last_rx = jiffies;
 		(*num_pkts)++;
-		if (*num_pkts >= max_pkts)
-			break;
-	}
+	} while (*num_pkts < max_pkts);
 
 	if (count) {
 		proc_idx = (rxque->rfd.process_idx << rxque->process_shft) &
@@ -1055,7 +854,6 @@ quit_polling:
 			     irq->mask);
 		wmb(); /* ensure that interrupt enable is flushed to HW */
 	}
-
 	return work_done;
 }
 
@@ -1333,34 +1131,32 @@ static int emac_start_xmit(struct sk_buff *skb,
 static void emac_wol_gpio_irq(struct emac_adapter *adpt, bool enable)
 {
 	struct emac_irq_per_dev *wol_irq = &adpt->irq[EMAC_WOL_IRQ];
+	struct emac_phy *phy = &adpt->phy;
 	unsigned long flags;
 
-	spin_lock_irqsave(&adpt->wol_irq_lock, flags);
-	if (enable && !adpt->is_wol_enabled)
+	spin_lock_irqsave(&phy->wol_irq_lock, flags);
+	if (enable && !phy->is_wol_enabled)
 		enable_irq(wol_irq->irq);
-	else if (!enable && adpt->is_wol_enabled)
+	else if (!enable && phy->is_wol_enabled)
 		disable_irq_nosync(wol_irq->irq);
-	adpt->is_wol_enabled = enable;
-	spin_unlock_irqrestore(&adpt->wol_irq_lock, flags);
+	phy->is_wol_enabled = enable;
+	spin_unlock_irqrestore(&phy->wol_irq_lock, flags);
 }
 
 /* ISR */
 static irqreturn_t emac_wol_isr(int irq, void *data)
 {
 	struct emac_adapter *adpt = emac_irq_get_adpt(data);
-	struct emac_phy *phy = &adpt->phy;
 	struct net_device *netdev = adpt->netdev;
-	int ret = 0;
 	u16 val = 0;
 
 	pm_runtime_get_sync(netdev->dev.parent);
-	ret = emac_phy_read(adpt, phy->addr, MII_INT_STATUS, &val);
+	val = phy_read(adpt->phydev, MII_INT_STATUS);
 	pm_runtime_mark_last_busy(netdev->dev.parent);
 	pm_runtime_put_autosuspend(netdev->dev.parent);
 
 	if (!pm_runtime_status_suspended(adpt->netdev->dev.parent)) {
-		if (!ret &&
-		    ((val & LINK_SUCCESS_INTERRUPT) || (val & LINK_SUCCESS_BX)))
+		if ((val & LINK_SUCCESS_INTERRUPT) || (val & LINK_SUCCESS_BX))
 			emac_wol_gpio_irq(adpt, false);
 	}
 	return IRQ_HANDLED;
@@ -1389,7 +1185,7 @@ static irqreturn_t emac_isr(int _irq, void *data)
 			break;
 
 		if (status & ISR_ERROR) {
-			emac_warn(adpt, intr, "isr error status 0x%x\n",
+			emac_warn(adpt, intr, "isr error status 0x%lx\n",
 				  status & ISR_ERROR);
 			/* reset MAC */
 			SET_FLAG(adpt, ADPT_TASK_REINIT_REQ);
@@ -1418,11 +1214,12 @@ static irqreturn_t emac_isr(int _irq, void *data)
 		}
 
 		if (status & ISR_OVER)
-			emac_warn(adpt, intr, "TX/RX overflow status 0x%x\n",
+			emac_warn(adpt, intr, "TX/RX overflow status 0x%lx\n",
 				  status & ISR_OVER);
 
 		/* link event */
 		if (status & (ISR_GPHY_LINK | SW_MAN_INT)) {
+			adpt->irq_status = ISR_GPHY_LINK;
 			emac_check_lsc(adpt);
 			break;
 		}
@@ -1468,16 +1265,16 @@ static int emac_set_features(struct net_device *netdev,
 	if (!(changed & (NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX)))
 		return 0;
 
+	if (!netif_running(netdev))
+		return 0;
+
 	netdev->features = features;
 	if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
 		SET_FLAG(hw, HW_VLANSTRIP_EN);
 	else
 		CLR_FLAG(hw, HW_VLANSTRIP_EN);
 
-	if (netif_running(netdev))
-		emac_reinit_locked(adpt);
-
-	return 0;
+	return emac_reinit_locked(adpt);
 }
 
 static void emac_napi_enable_all(struct emac_adapter *adpt)
@@ -1906,51 +1703,10 @@ static int emac_change_mtu(struct net_device *netdev, int new_mtu)
 		emac_info(adpt, hw, "changing MTU from %d to %d\n",
 			  netdev->mtu, new_mtu);
 		netdev->mtu = new_mtu;
-		adpt->hw.mtu = new_mtu;
 		adpt->rxbuf_size = new_mtu > EMAC_DEF_RX_BUF_SIZE ?
 			ALIGN(max_frame, 8) : EMAC_DEF_RX_BUF_SIZE;
-		emac_reinit_locked(adpt);
-	}
-
-	return 0;
-}
-
-static inline int msm_emac_request_gpio_on(struct emac_adapter *adpt,
-					   bool mdio, bool ephy)
-{
-	int i = 0;
-	int result = 0;
-	struct emac_phy *phy = &adpt->phy;
-
-	if (phy->external) {
-		for (i = 0; phy->uses_gpios && i < EMAC_GPIO_CNT; i++) {
-			result = gpio_request(adpt->gpio[i], emac_gpio_name[i]);
-			if (result) {
-				emac_err(adpt,
-					 "error:%d on gpio_request(%d:%s)\n",
-					 result, adpt->gpio[i],
-					 emac_gpio_name[i]);
-
-				while (--i >= 0)
-					gpio_free(adpt->gpio[i]);
-				goto error;
-			}
-		}
-	}
-	return 0;
-error:
-	return result;
-}
-
-static inline int msm_emac_request_gpio_off(struct emac_adapter *adpt,
-					    bool mdio, bool ephy)
-{
-	int i = 0;
-	struct emac_phy *phy = &adpt->phy;
-
-	if (phy->external) {
-		for (i = 0; phy->uses_gpios && i < EMAC_GPIO_CNT; i++)
-			gpio_free(adpt->gpio[i]);
+		if (netif_running(netdev))
+			return emac_reinit_locked(adpt);
 	}
 	return 0;
 }
@@ -2021,14 +1777,90 @@ static inline int msm_emac_request_pinctrl_off(struct emac_adapter *adpt,
 	return ret;
 }
 
+/* Check link status and handle link state changes */
+static void emac_adjust_link(struct net_device *netdev)
+{
+	struct emac_adapter *adpt = netdev_priv(netdev);
+	struct phy_device *phydev = netdev->phydev;
+	struct emac_phy *phy = &adpt->phy;
+	struct emac_hw *hw = &adpt->hw;
+	bool status_changed = false;
+
+	if (!TEST_FLAG(adpt, ADPT_TASK_LSC_REQ))
+		return;
+	CLR_FLAG(adpt, ADPT_TASK_LSC_REQ);
+
+	/* ensure that no reset is in progress while link task is running */
+	while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
+		/* Reset might take few 10s of ms */
+		msleep(EMAC_ADPT_RESET_WAIT_TIME);
+
+	if (TEST_FLAG(adpt, ADPT_STATE_DOWN))
+		goto link_task_done;
+
+	if (!phy->external)
+		phy->ops.link_check_no_ephy(adpt, phydev);
+
+	if (phy->link_up != phydev->link) {
+		status_changed = true;
+		phy->link_up = phydev->link;
+	}
+
+	if (phydev->link) {
+		/* check speed/duplex/pause changes */
+		if ((phy->link_speed != phydev->speed) ||
+		    (phy->link_duplex != phydev->duplex) ||
+		    (phy->link_pause != phydev->pause)) {
+			phy->link_speed = phydev->speed;
+			phy->link_duplex = phydev->duplex;
+			phy->link_pause = phydev->pause;
+			status_changed = true;
+		}
+
+		/* done if nothing has changed */
+		if (!status_changed)
+			goto link_task_done;
+
+		/* Acquire resources */
+		pm_runtime_get_sync(netdev->dev.parent);
+
+		/* Acquire wake lock if link is detected to avoid device going
+		 * into suspend
+		 */
+		__pm_stay_awake(&adpt->link_wlock);
+
+		phy->ops.tx_clk_set_rate(adpt);
+
+		emac_hw_start_mac(hw);
+	} else {
+		/* done if nothing has changed */
+		if (!status_changed)
+			goto link_task_done;
+
+		emac_hw_stop_mac(hw);
+
+		/* Release wake lock if link is disconnected */
+		__pm_relax(&adpt->link_wlock);
+
+		pm_runtime_mark_last_busy(netdev->dev.parent);
+		pm_runtime_put_autosuspend(netdev->dev.parent);
+	}
+
+	if (status_changed)
+		phy_print_status(phydev);
+
+link_task_done:
+	CLR_FLAG(adpt, ADPT_STATE_RESETTING);
+}
+
 /* Bringup the interface/HW */
-int emac_up(struct emac_adapter *adpt)
+int emac_mac_up(struct emac_adapter *adpt)
 {
 	struct emac_phy *phy = &adpt->phy;
 	struct emac_hw *hw = &adpt->hw;
 	struct net_device *netdev = adpt->netdev;
-	int retval = 0;
-	int i;
+	int ret = 0;
+	int i = 0, irq_cnt = 0;
 
 	if (!TEST_FLAG(adpt, ADPT_STATE_DOWN))
 		return 0;
@@ -2039,28 +1871,25 @@ int emac_up(struct emac_adapter *adpt)
 	emac_hw_config_mac(hw);
 	emac_config_rss(adpt);
 
-	retval = phy->ops.up(adpt);
-	if (retval)
-		return retval;
+	ret = phy->ops.up(adpt);
+	if (ret)
+		return ret;
 
-	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
-		struct emac_irq_per_dev *irq = &adpt->irq[i];
-		const struct emac_irq_common *irq_cmn = &emac_irq_cmn_tbl[i];
+	for (irq_cnt = 0; irq_cnt < EMAC_NUM_CORE_IRQ; irq_cnt++) {
+		struct emac_irq_per_dev *irq = &adpt->irq[irq_cnt];
+		const struct emac_irq_common *irq_cmn =
+			&emac_irq_cmn_tbl[irq_cnt];
 
 		if (!irq->irq)
 			continue;
 
-		retval = request_irq(irq->irq, irq_cmn->handler,
-				     irq_cmn->irqflags, irq_cmn->name, irq);
-		if (retval) {
+		ret = request_irq(irq->irq, irq_cmn->handler,
+				  irq_cmn->irqflags, irq_cmn->name, irq);
+		if (ret) {
 			emac_err(adpt,
 				 "error:%d on request_irq(%d:%s flags:0x%lx)\n",
-				 retval, irq->irq, irq_cmn->name,
+				 ret, irq->irq, irq_cmn->name,
 				 irq_cmn->irqflags);
-			while (--i >= 0)
-				if (adpt->irq[i].irq)
-					free_irq(adpt->irq[i].irq,
-						 &adpt->irq[i]);
 			goto err_request_irq;
 		}
 	}
@@ -2068,25 +1897,49 @@ int emac_up(struct emac_adapter *adpt)
 	for (i = 0; i < adpt->num_rxques; i++)
 		emac_refresh_rx_buffer(&adpt->rx_queue[i]);
 
-	emac_napi_enable_all(adpt);
+	ret = phy_connect_direct(netdev, adpt->phydev, emac_adjust_link,
+				 phy->phy_interface);
+	if (ret) {
+		netdev_err(adpt->netdev, "could not connect phy\n");
+		goto err_request_irq;
+	}
+
+	/* enable mac irq */
 	emac_enable_intr(adpt);
 
+	/* Reset phy related parameter */
+	phy->link_up = 0;
+	phy->link_duplex = DUPLEX_UNKNOWN;
+	phy->link_speed = SPEED_UNKNOWN;
+	phy->link_pause = 0;
+
+	/* Enable pause frames. */
+	adpt->phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+	adpt->phydev->advertising |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+
+	adpt->phydev->irq = PHY_IGNORE_INTERRUPT;
+	phy_start(adpt->phydev);
+
+	emac_napi_enable_all(adpt);
 	netif_start_queue(netdev);
 	CLR_FLAG(adpt, ADPT_STATE_DOWN);
-
 	/* check link status */
 	SET_FLAG(adpt, ADPT_TASK_LSC_REQ);
-	adpt->link_jiffies = jiffies + EMAC_TRY_LINK_TIMEOUT;
-	mod_timer(&adpt->emac_timer, jiffies);
-	return retval;
+
+	return ret;
 
 err_request_irq:
+	while (--i >= 0)
+		if (adpt->irq[i].irq)
+			free_irq(adpt->irq[i].irq,
+				 &adpt->irq[i]);
+
 	adpt->phy.ops.down(adpt);
-	return retval;
+	return ret;
 }
 
 /* Bring down the interface/HW */
-void emac_down(struct emac_adapter *adpt, u32 ctrl)
+void emac_mac_down(struct emac_adapter *adpt, u32 ctrl)
 {
 	struct net_device *netdev = adpt->netdev;
 	struct emac_phy *phy = &adpt->phy;
@@ -2096,25 +1949,29 @@ void emac_down(struct emac_adapter *adpt, u32 ctrl)
 
 	if (TEST_FLAG(adpt, ADPT_STATE_DOWN))
 		return;
-
 	SET_FLAG(adpt, ADPT_STATE_DOWN);
+
 	netif_stop_queue(netdev);
-
-	netif_carrier_off(netdev);
-
-	emac_disable_intr(adpt);
 	emac_napi_disable_all(adpt);
 
+	phy_stop(adpt->phydev);
+
+	/* Interrupts must be disabled before the PHY is disconnected, to
+	 * avoid a race condition where adjust_link is null when we get
+	 * an interrupt.
+	 */
+	emac_disable_intr(adpt);
 	phy->ops.down(adpt);
 
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++)
 		if (adpt->irq[i].irq)
 			free_irq(adpt->irq[i].irq, &adpt->irq[i]);
 
+	phy_disconnect(adpt->phydev);
+
 	CLR_FLAG(adpt, ADPT_TASK_LSC_REQ);
 	CLR_FLAG(adpt, ADPT_TASK_REINIT_REQ);
 	CLR_FLAG(adpt, ADPT_TASK_CHK_SGMII_REQ);
-	del_timer_sync(&adpt->emac_timer);
 
 	cancel_work_sync(&adpt->hwtxtstamp_task);
 	spin_lock_irqsave(&adpt->hwtxtstamp_lock, flags);
@@ -2125,7 +1982,6 @@ void emac_down(struct emac_adapter *adpt, u32 ctrl)
 	if (ctrl & EMAC_HW_CTRL_RESET_MAC)
 		emac_hw_reset_mac(hw);
 
-	phy->link_speed = EMAC_LINK_SPEED_UNKNOWN;
 	emac_clean_all_tx_queues(adpt);
 	emac_clean_all_rx_queues(adpt);
 }
@@ -2134,38 +1990,42 @@ void emac_down(struct emac_adapter *adpt, u32 ctrl)
 static int emac_open(struct net_device *netdev)
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
+	struct emac_phy *phy = &adpt->phy;
 	struct emac_irq_per_dev *irq = &adpt->irq[EMAC_WOL_IRQ];
 	const struct emac_irq_common *irq_cmn = &emac_irq_cmn_tbl[EMAC_WOL_IRQ];
 	int retval;
 
-	netif_carrier_off(netdev);
-
 	/* allocate rx/tx dma buffer & descriptors */
 	retval = emac_alloc_all_rtx_descriptor(adpt);
 	if (retval) {
-		emac_err(adpt, "error in emac_alloc_all_rtx_descriptor\n");
+		emac_err(adpt, "error allocating rx/tx rings\n");
 		goto err_alloc_rtx;
 	}
 
 	pm_runtime_get_sync(netdev->dev.parent);
-	retval = emac_up(adpt);
+	retval = emac_mac_up(adpt);
 	pm_runtime_mark_last_busy(netdev->dev.parent);
 	pm_runtime_put_autosuspend(netdev->dev.parent);
 	if (retval)
 		goto err_up;
 
-	/* Register for EMAC WOL ISR */
-	retval = request_threaded_irq(irq->irq, NULL, irq_cmn->handler,
-				      IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-				      irq_cmn->name, irq);
-	if (retval) {
-		emac_err(adpt,
-			 "error:%d on request_irq(%d:%s flags:0x%lx)\n",
-			 retval, irq->irq, irq_cmn->name, irq_cmn->irqflags);
-		goto err_up;
-	} else {
-		adpt->is_wol_enabled = true;
-		emac_wol_gpio_irq(adpt, false);
+	if (irq->irq) {
+		/* Register for EMAC WOL ISR */
+		retval = request_threaded_irq(irq->irq, NULL, irq_cmn->handler,
+					      IRQF_TRIGGER_FALLING
+					      | IRQF_ONESHOT,
+					      irq_cmn->name, irq);
+		if (retval) {
+			emac_err(adpt,
+				 "error:%d on request_irq(%d:%s flags:0x%lx)\n",
+				 retval, irq->irq, irq_cmn->name,
+				 irq_cmn->irqflags);
+			goto err_up;
+		} else {
+			phy->is_wol_irq_reg = 1;
+			phy->is_wol_enabled = true;
+			emac_wol_gpio_irq(adpt, false);
+		}
 	}
 	return retval;
 
@@ -2180,19 +2040,23 @@ static int emac_close(struct net_device *netdev)
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw *hw = &adpt->hw;
+	struct emac_phy *phy = &adpt->phy;
 
 	/* ensure no task is running and no reset is in progress */
 	while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
-		msleep(20); /* Reset might take few 10s of ms */
+		/* Reset might take few 10s of ms */
+		msleep(EMAC_ADPT_RESET_WAIT_TIME);
 
 	pm_runtime_get_sync(netdev->dev.parent);
+
 	if (adpt->irq[EMAC_WOL_IRQ].irq) {
-		adpt->is_wol_enabled = false;
+		phy->is_wol_enabled = false;
 		free_irq(adpt->irq[EMAC_WOL_IRQ].irq, &adpt->irq[EMAC_WOL_IRQ]);
+		phy->is_wol_irq_reg = 0;
 	}
 
 	if (!TEST_FLAG(adpt, ADPT_STATE_DOWN))
-		emac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
+		emac_mac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
 	else
 		emac_hw_reset_mac(hw);
 
@@ -2216,91 +2080,24 @@ int emac_resize_rings(struct net_device *netdev)
 	return emac_open(netdev);
 }
 
-/* PHY related IOCTLs */
-static int emac_mii_ioctl(struct net_device *netdev,
-			  struct ifreq *ifr, int cmd)
-{
-	struct emac_adapter *adpt = netdev_priv(netdev);
-	struct emac_phy *phy = &adpt->phy;
-	struct mii_ioctl_data *data = if_mii(ifr);
-	int retval = 0;
-
-	switch (cmd) {
-	case SIOCGMIIPHY:
-		data->phy_id = phy->addr;
-		break;
-
-	case SIOCGMIIREG:
-		if (!capable(CAP_NET_ADMIN)) {
-			retval = -EPERM;
-			break;
-		}
-
-		if (data->reg_num & ~(0x1F)) {
-			retval = -EFAULT;
-			break;
-		}
-
-		if (data->phy_id >= PHY_MAX_ADDR) {
-			retval = -EFAULT;
-			break;
-		}
-
-		if (phy->external && data->phy_id != phy->addr) {
-			retval = -EFAULT;
-			break;
-		}
-
-		retval = emac_phy_read(adpt, data->phy_id, data->reg_num,
-				       &data->val_out);
-		break;
-
-	case SIOCSMIIREG:
-		if (!capable(CAP_NET_ADMIN)) {
-			retval = -EPERM;
-			break;
-		}
-
-		if (data->reg_num & ~(0x1F)) {
-			retval = -EFAULT;
-			break;
-		}
-
-		if (data->phy_id >= PHY_MAX_ADDR) {
-			retval = -EFAULT;
-			break;
-		}
-
-		if (phy->external && data->phy_id != phy->addr) {
-			retval = -EFAULT;
-			break;
-		}
-
-		retval = emac_phy_write(adpt, data->phy_id, data->reg_num,
-					data->val_in);
-
-		break;
-	}
-
-	return retval;
-}
-
 /* IOCTL support for the interface */
 static int emac_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw *hw = &adpt->hw;
 
+	if (!netif_running(netdev))
+		return -EINVAL;
+
+	if (!netdev->phydev)
+		return -ENODEV;
+
 	switch (cmd) {
-	case SIOCGMIIPHY:
-	case SIOCGMIIREG:
-	case SIOCSMIIREG:
-		return emac_mii_ioctl(netdev, ifr, cmd);
 	case SIOCSHWTSTAMP:
 		if (TEST_FLAG(hw, HW_PTP_CAP))
 			return emac_tstamp_ioctl(netdev, ifr, cmd);
 	default:
-		return -EOPNOTSUPP;
+		return phy_mii_ioctl(netdev->phydev, ifr, cmd);
 	}
 }
 
@@ -2314,12 +2111,12 @@ void emac_update_hw_stats(struct emac_adapter *adpt)
 	/* Prevent stats update while adapter is being reset, or if the
 	 * connection is down.
 	 */
-	if (adpt->phy.link_speed == 0)
+	if (adpt->phydev->speed <= 0)
 		return;
 
 	if (TEST_FLAG(adpt, ADPT_STATE_DOWN) ||
-	    TEST_FLAG(adpt, ADPT_STATE_RESETTING))
-		return;
+		TEST_FLAG(adpt, ADPT_STATE_RESETTING))
+			return;
 
 	/* update rx status */
 	hw_reg_addr = REG_MAC_RX_STATUS_BIN;
@@ -2355,11 +2152,14 @@ void emac_update_hw_stats(struct emac_adapter *adpt)
 }
 
 /* Provide network statistics info for the interface */
-struct rtnl_link_stats64 *emac_get_stats64(struct net_device *netdev,
-					   struct rtnl_link_stats64 *net_stats)
+static struct rtnl_link_stats64 *
+	emac_get_stats64(struct net_device *netdev,
+			 struct rtnl_link_stats64 *net_stats)
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw_stats *hw_stats = &adpt->hw_stats;
+
+	spin_lock(&hw_stats->lock);
 
 	memset(net_stats, 0, sizeof(struct rtnl_link_stats64));
 	emac_update_hw_stats(adpt);
@@ -2388,19 +2188,21 @@ struct rtnl_link_stats64 *emac_get_stats64(struct net_device *netdev,
 	net_stats->tx_aborted_errors = hw_stats->tx_abort_col;
 	net_stats->tx_window_errors = hw_stats->tx_late_col;
 
+	spin_unlock(&hw_stats->lock);
+
 	return net_stats;
 }
 
 static const struct net_device_ops emac_netdev_ops = {
-	.ndo_open		= &emac_open,
-	.ndo_stop		= &emac_close,
-	.ndo_validate_addr	= &eth_validate_addr,
-	.ndo_start_xmit		= &emac_start_xmit,
-	.ndo_set_mac_address	= &emac_set_mac_address,
-	.ndo_change_mtu		= &emac_change_mtu,
-	.ndo_do_ioctl		= &emac_ioctl,
-	.ndo_tx_timeout		= &emac_tx_timeout,
-	.ndo_get_stats64	= &emac_get_stats64,
+	.ndo_open		= emac_open,
+	.ndo_stop		= emac_close,
+	.ndo_validate_addr	= eth_validate_addr,
+	.ndo_start_xmit		= emac_start_xmit,
+	.ndo_set_mac_address	= emac_set_mac_address,
+	.ndo_change_mtu		= emac_change_mtu,
+	.ndo_do_ioctl		= emac_ioctl,
+	.ndo_tx_timeout		= emac_tx_timeout,
+	.ndo_get_stats64	= emac_get_stats64,
 	.ndo_set_features       = emac_set_features,
 	.ndo_set_rx_mode        = emac_set_rx_mode,
 };
@@ -2419,137 +2221,28 @@ static void emac_reinit_task_routine(struct emac_adapter *adpt)
 	emac_reinit_locked(adpt);
 }
 
-static inline char *emac_get_link_speed_desc(u32 speed)
+/* Watchdog task routine, called to reinitialize the EMAC */
+static void emac_work_thread(struct work_struct *work)
 {
-	switch (speed) {
-	case EMAC_LINK_SPEED_1GB_FULL:
-		return  "1 Gbps Duplex Full";
-	case EMAC_LINK_SPEED_100_FULL:
-		return "100 Mbps Duplex Full";
-	case EMAC_LINK_SPEED_100_HALF:
-		return "100 Mbps Duplex Half";
-	case EMAC_LINK_SPEED_10_FULL:
-		return "10 Mbps Duplex Full";
-	case EMAC_LINK_SPEED_10_HALF:
-		return "10 Mbps Duplex HALF";
-	default:
-		return "unknown speed";
-	}
-}
-
-/* Check link status and handle link state changes */
-static void emac_link_task_routine(struct emac_adapter *adpt)
-{
-	struct net_device *netdev = adpt->netdev;
-	struct emac_phy *phy = &adpt->phy;
-	struct emac_hw *hw = &adpt->hw;
-	char *link_desc;
-
-	if (!TEST_FLAG(adpt, ADPT_TASK_LSC_REQ))
-		return;
-	CLR_FLAG(adpt, ADPT_TASK_LSC_REQ);
-
-	/* ensure that no reset is in progress while link task is running */
-	while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
-		msleep(20); /* Reset might take few 10s of ms */
-
-	if (TEST_FLAG(adpt, ADPT_STATE_DOWN))
-		goto link_task_done;
-
-	pm_runtime_get_sync(netdev->dev.parent);
-	emac_phy_check_link(adpt, &phy->link_speed, &phy->link_up);
-	link_desc = emac_get_link_speed_desc(phy->link_speed);
-	pm_runtime_mark_last_busy(netdev->dev.parent);
-	pm_runtime_put_autosuspend(netdev->dev.parent);
-
-	if (phy->link_up) {
-		if (netif_carrier_ok(netdev))
-			goto link_task_done;
-
-		if (!adpt->runtime_enable)
-			pm_runtime_get_sync(netdev->dev.parent);
-		/* Acquire wake lock if link is detected to avoid device going
-		 * into suspend
-		 */
-		__pm_stay_awake(&adpt->link_wlock);
-		emac_info(adpt, timer, "NIC Link is Up %s\n", link_desc);
-
-		phy->ops.tx_clk_set_rate(adpt);
-
-		emac_hw_start_mac(hw);
-		netif_carrier_on(netdev);
-		netif_wake_queue(netdev);
-		adpt->runtime_enable = 1;
-	} else {
-		if (time_after(adpt->link_jiffies, jiffies))
-			SET_FLAG(adpt, ADPT_TASK_LSC_REQ);
-
-		/* only continue if link was up previously */
-		if (!netif_carrier_ok(netdev))
-			goto link_task_done;
-
-		phy->link_speed = 0;
-		emac_info(adpt, timer, "NIC Link is Down\n");
-		netif_stop_queue(netdev);
-		netif_carrier_off(netdev);
-
-		emac_hw_stop_mac(hw);
-		/* Release wake lock if link is disconnected */
-		__pm_relax(&adpt->link_wlock);
-		pm_runtime_mark_last_busy(netdev->dev.parent);
-		pm_runtime_put_autosuspend(netdev->dev.parent);
-		adpt->runtime_enable = 0;
-	}
-
-	/* link state transition, kick timer */
-	mod_timer(&adpt->emac_timer, jiffies);
-
-link_task_done:
-	CLR_FLAG(adpt, ADPT_STATE_RESETTING);
-}
-
-/* Watchdog task routine */
-static void emac_task_routine(struct work_struct *work)
-{
-	struct emac_adapter *adpt = container_of(work, struct emac_adapter,
-						 emac_task);
+	struct emac_adapter *adpt =
+		container_of(work, struct emac_adapter, work_thread);
 
 	if (!TEST_FLAG(adpt, ADPT_STATE_WATCH_DOG))
 		emac_warn(adpt, timer, "flag STATE_WATCH_DOG doesn't set\n");
 
 	emac_reinit_task_routine(adpt);
 
-	emac_link_task_routine(adpt);
+	phy_mac_interrupt(adpt->phydev, !!(adpt->irq_status & ISR_GPHY_LINK));
+	adpt->irq_status &= ~ISR_GPHY_LINK;
 
 	adpt->phy.ops.periodic_task(adpt);
 
 	CLR_FLAG(adpt, ADPT_STATE_WATCH_DOG);
 }
 
-/* Timer routine */
-static void emac_timer_routine(unsigned long data)
-{
-	struct emac_adapter *adpt = (struct emac_adapter *)data;
-	unsigned long delay;
-
-	if (pm_runtime_status_suspended(adpt->netdev->dev.parent))
-		return;
-
-	/* poll faster when waiting for link */
-	if (TEST_FLAG(adpt, ADPT_TASK_LSC_REQ))
-		delay = HZ / 10;
-	else
-		delay = 2 * HZ;
-
-	/* Reset the timer */
-	mod_timer(&adpt->emac_timer, delay + jiffies);
-
-	emac_task_schedule(adpt);
-}
-
 /* Initialize all queue data structures */
-static void emac_init_rtx_queues(struct platform_device *pdev,
-				 struct emac_adapter *adpt)
+static void emac_mac_rx_tx_ring_init_all(struct platform_device *pdev,
+					 struct emac_adapter *adpt)
 {
 	int que_idx;
 
@@ -2704,7 +2397,6 @@ static void emac_init_adapter(struct emac_adapter *adpt)
 
 	/* mtu */
 	adpt->netdev->mtu = ETH_DATA_LEN;
-	hw->mtu = adpt->netdev->mtu;
 	max_frame = adpt->netdev->mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
 	adpt->rxbuf_size = adpt->netdev->mtu > EMAC_DEF_RX_BUF_SIZE ?
 			   ALIGN(max_frame, 8) : EMAC_DEF_RX_BUF_SIZE;
@@ -2717,10 +2409,6 @@ static void emac_init_adapter(struct emac_adapter *adpt)
 	hw->dmaw_dly_cnt = DMAW_DLY_CNT_DEF;
 	hw->tpd_burst = TXQ0_NUM_TPD_PREF_DEF;
 	hw->rfd_burst = RXQ0_NUM_RFD_PREF_DEF;
-
-	/* link */
-	phy->link_up = false;
-	phy->link_speed = EMAC_LINK_SPEED_UNKNOWN;
 
 	/* flow control */
 	phy->req_fc_mode = EMAC_FC_FULL;
@@ -2745,22 +2433,18 @@ static void emac_init_adapter(struct emac_adapter *adpt)
 }
 
 /* Get the clock */
-static int emac_get_clk(struct platform_device *pdev,
-			struct emac_adapter *adpt)
+static int emac_clks_get(struct platform_device *pdev,
+			 struct emac_adapter *adpt)
 {
-	struct clk *clk;
-	u8 i;
+	unsigned int i;
 
 	for (i = 0; i < EMAC_CLK_CNT; i++) {
-		clk = clk_get(&pdev->dev, emac_clk_name[i]);
+		struct clk *clk = devm_clk_get(&pdev->dev, emac_clk_name[i]);
 
 		if (IS_ERR(clk)) {
 			emac_err(adpt, "error:%ld on clk_get(%s)\n",
 				 PTR_ERR(clk), emac_clk_name[i]);
 
-			while (--i >= 0)
-				if (adpt->clk[i].clk)
-					clk_put(adpt->clk[i].clk);
 			return PTR_ERR(clk);
 		}
 
@@ -2771,9 +2455,14 @@ static int emac_get_clk(struct platform_device *pdev,
 }
 
 /* Initialize clocks */
-static int emac_init_clks(struct emac_adapter *adpt)
+static int emac_clks_phase1_init(struct platform_device *pdev,
+				 struct emac_adapter *adpt)
 {
 	int retval;
+
+	retval = emac_clks_get(pdev, adpt);
+	if (retval)
+		return retval;
 
 	retval = emac_clk_prepare_enable(adpt, EMAC_CLK_AXI);
 	if (retval)
@@ -2783,17 +2472,16 @@ static int emac_init_clks(struct emac_adapter *adpt)
 	if (retval)
 		return retval;
 
-	retval = emac_clk_set_rate(adpt, EMAC_CLK_125M, EMC_CLK_RATE_19_2MHZ);
+	retval = emac_clk_set_rate(adpt, EMAC_CLK_HIGH_SPEED,
+				   EMC_CLK_RATE_19_2MHZ);
 	if (retval)
 		return retval;
 
-	retval = emac_clk_prepare_enable(adpt, EMAC_CLK_125M);
-
-	return retval;
+	return emac_clk_prepare_enable(adpt, EMAC_CLK_HIGH_SPEED);
 }
 
 /* Enable clocks; needs emac_init_clks to be called before */
-static int emac_enable_clks(struct emac_adapter *adpt)
+static int emac_clks_phase2_init(struct emac_adapter *adpt)
 {
 	int retval;
 
@@ -2805,15 +2493,16 @@ static int emac_enable_clks(struct emac_adapter *adpt)
 	if (retval)
 		return retval;
 
-	retval = emac_clk_set_rate(adpt, EMAC_CLK_125M, EMC_CLK_RATE_125MHZ);
+	retval = emac_clk_set_rate(adpt, EMAC_CLK_HIGH_SPEED,
+				   EMC_CLK_RATE_125MHZ);
 	if (retval)
 		return retval;
 
-	retval = emac_clk_set_rate(adpt, EMAC_CLK_SYS_25M, EMC_CLK_RATE_25MHZ);
+	retval = emac_clk_set_rate(adpt, EMAC_CLK_MDIO, EMC_CLK_RATE_25MHZ);
 	if (retval)
 		return retval;
 
-	retval = emac_clk_prepare_enable(adpt, EMAC_CLK_SYS_25M);
+	retval = emac_clk_prepare_enable(adpt, EMAC_CLK_MDIO);
 	if (retval)
 		return retval;
 
@@ -2888,55 +2577,53 @@ static int msm_emac_pinctrl_init(struct emac_adapter *adpt, struct device *dev)
 static int emac_get_resources(struct platform_device *pdev,
 			      struct emac_adapter *adpt)
 {
-	int retval = 0;
-	u8 i;
 	struct resource *res;
 	struct net_device *netdev = adpt->netdev;
 	struct device_node *node = pdev->dev.of_node;
 	static const char * const res_name[] = {"emac", "emac_csr",
 						"emac_1588"};
-	const void *maddr;
-	const struct of_device_id *id;
+	int retval = 0, bus_id = 0;
+	u8 mac_addr[ETH_ALEN] = {0};
+	const void *maddr = NULL;
+	u8 i;
 
 	if (!node)
 		return -ENODEV;
 
-	/* get id */
-	retval = of_property_read_u32(node, "cell-index", &pdev->id);
+	/* get bus id */
+	bus_id = of_alias_get_id(node, "emac");
+	if (bus_id >= 0)
+		pdev->id = bus_id;
+
+	/* get time stamp enable flag */
+	if (ACPI_COMPANION(&pdev->dev))
+		adpt->tstamp_en
+			= device_property_read_bool(&pdev->dev,
+						    "qcom,emac-tstamp-en");
+	else
+		adpt->tstamp_en
+			= of_property_read_bool(node, "qcom,emac-tstamp-en");
+
+	/* get mac address */
+	if (ACPI_COMPANION(&pdev->dev)) {
+		retval = device_property_read_u8_array(&pdev->dev,
+						       "mac-address",
+							mac_addr, ETH_ALEN);
+		if (!retval)
+			ether_addr_copy(netdev->dev_addr, mac_addr);
+	} else {
+		maddr = of_get_mac_address(node);
+		if (maddr)
+			ether_addr_copy(netdev->dev_addr, maddr);
+	}
+
+	/* Get pinctrl */
+	retval = msm_emac_pinctrl_init(adpt, &pdev->dev);
 	if (retval)
 		return retval;
 
-	/* get board id */
-	id = of_match_node(emac_dt_match, node);
-	if (id == NULL) {
-		emac_err(adpt, "can't find emac_dt_match node\n");
-		return -ENODEV;
-	}
-	adpt->phy.board_id = (enum emac_phy_map_type)id->data;
-
-	/* get time stamp enable flag */
-	adpt->tstamp_en = of_property_read_bool(node, "qcom,emac-tstamp-en");
-
-	retval = msm_emac_pinctrl_init(adpt, &pdev->dev);
-	if (!retval) {
-		adpt->gpio_on = msm_emac_request_pinctrl_on;
-		adpt->gpio_off = msm_emac_request_pinctrl_off;
-	} else {
-		for (i = 0; adpt->phy.uses_gpios && i < EMAC_GPIO_CNT; i++) {
-			retval = of_get_named_gpio(node, emac_gpio_name[i], 0);
-			if (retval < 0)
-				return retval;
-
-			adpt->gpio[i] = retval;
-		}
-		adpt->gpio_on = msm_emac_request_gpio_on;
-		adpt->gpio_off = msm_emac_request_gpio_off;
-	}
-
-	/* get mac address */
-	maddr = of_get_mac_address(node);
-	if (maddr)
-		memcpy(adpt->hw.mac_perm_addr, maddr, netdev->addr_len);
+	adpt->gpio_on = msm_emac_request_pinctrl_on;
+	adpt->gpio_off = msm_emac_request_pinctrl_off;
 
 	/* get irqs */
 	for (i = 0; i < EMAC_IRQ_CNT; i++) {
@@ -2944,10 +2631,6 @@ static int emac_get_resources(struct platform_device *pdev,
 						 emac_irq_cmn_tbl[i].name);
 		adpt->irq[i].irq = (retval > 0) ? retval : 0;
 	}
-
-	retval = emac_get_clk(pdev, adpt);
-	if (retval)
-		return retval;
 
 	/* get register addresses */
 	retval = 0;
@@ -2958,56 +2641,20 @@ static int emac_get_resources(struct platform_device *pdev,
 
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   res_name[i]);
-		if (!res) {
-			emac_err(adpt, "can't get %s resource\n", res_name[i]);
-			retval = -ENOMEM;
-			break;
-		}
-
-		adpt->hw.reg_addr[i] = ioremap(res->start, resource_size(res));
-		if (!adpt->hw.reg_addr[i]) {
+		adpt->hw.reg_addr[i] = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(adpt->hw.reg_addr[i])) {
 			emac_err(adpt, "can't remap %s\n", res_name[i]);
-			retval = -ENOMEM;
+			retval = PTR_ERR(adpt->hw.reg_addr[i]);
 			break;
 		}
-	}
-
-	if (retval) {
-		while (--i >= 0)
-			if (adpt->hw.reg_addr[i])
-				iounmap(adpt->hw.reg_addr[i]);
-		goto err_reg_res;
 	}
 
 	netdev->base_addr = (unsigned long)adpt->hw.reg_addr[EMAC];
-	return 0;
-
-err_reg_res:
-	for (i = 0; i < EMAC_CLK_CNT; i++) {
-		if (adpt->clk[i].clk)
-			clk_put(adpt->clk[i].clk);
-	}
-
-	return retval;
-}
-
-/* Release resources */
-static void emac_release_resources(struct emac_adapter *adpt)
-{
-	u8 i;
 
 	if (ACPI_HANDLE(adpt->dev))
-		return;
+		retval = emac_acpi_get_resources(pdev, adpt);
 
-	for (i = 0; i < NUM_EMAC_REG_BASES; i++) {
-		if (adpt->hw.reg_addr[i])
-			iounmap(adpt->hw.reg_addr[i]);
-	}
-
-	for (i = 0; i < EMAC_CLK_CNT; i++) {
-		if (adpt->clk[i].clk)
-			clk_put(adpt->clk[i].clk);
-	}
+	return retval;
 }
 
 /* Get the regulator */
@@ -3134,7 +2781,6 @@ static int emac_pm_suspend(struct device *device, bool wol_enable)
 	struct emac_hw *hw = &adpt->hw;
 	struct emac_phy *phy = &adpt->phy;
 	u32 wufc = adpt->wol;
-	int retval = 0;
 
 	/* Check link state. Don't suspend if link is up */
 	if (netif_carrier_ok(adpt->netdev))
@@ -3147,25 +2793,36 @@ static int emac_pm_suspend(struct device *device, bool wol_enable)
 	if (netif_running(netdev)) {
 		/* ensure no task is running and no reset is in progress */
 		while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
-			msleep(20);	/* Reset might take few 10s of ms */
+			/* Reset might take few 10s of ms */
+			msleep(EMAC_ADPT_RESET_WAIT_TIME);
 
-		emac_down(adpt, 0);
+		emac_mac_down(adpt, 0);
 
 		CLR_FLAG(adpt, ADPT_STATE_RESETTING);
 	}
 
-	emac_hw_config_pow_save(hw, adpt->phy.link_speed, !!wufc,
+	phy_suspend(adpt->phydev);
+	flush_delayed_work(&adpt->phydev->state_queue);
+	emac_hw_config_pow_save(hw, adpt->phydev->speed, !!wufc,
 				!!(wufc & EMAC_WOL_MAGIC));
 
-	/* Enable EPHY Link UP interrupt */
-	if (!phy->link_up) {
-		retval = emac_phy_write(adpt, phy->addr, MII_INT_ENABLE,
-					LINK_SUCCESS_INTERRUPT |
-					LINK_SUCCESS_BX);
-		if (retval)
-			return retval;
+	if (!adpt->phydev->link && phy->is_wol_irq_reg) {
+		int value;
 
-		if (wol_enable)
+		/* ePHY driver keep external phy into power down mode if WOL
+		 * is not enabled. This change is to make sure to keep ePHY
+		 * in active state for LINK UP to work
+		 */
+		value = phy_read(adpt->phydev, MII_BMCR);
+		value &= ~BMCR_PDOWN;
+		phy_write(adpt->phydev, MII_BMCR, value);
+
+		/* Enable EPHY Link UP interrupt */
+		phy_write(adpt->phydev, MII_INT_ENABLE,
+			  LINK_SUCCESS_INTERRUPT |
+			  LINK_SUCCESS_BX);
+
+		if (wol_enable && phy->is_wol_irq_reg)
 			emac_wol_gpio_irq(adpt, true);
 	}
 
@@ -3180,30 +2837,24 @@ static int emac_pm_resume(struct device *device)
 	struct platform_device *pdev = to_platform_device(device);
 	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
 	struct emac_adapter *adpt = netdev_priv(netdev);
-	struct emac_phy *phy = &adpt->phy;
 	struct emac_hw	*hw  = &adpt->hw;
+	struct emac_phy *phy = &adpt->phy;
 	int retval = 0;
 
 	adpt->gpio_on(adpt, true, false);
 	emac_enable_regulator(adpt, EMAC_VREG1, EMAC_VREG2);
-	emac_init_clks(adpt);
-	emac_enable_clks(adpt);
+	emac_clks_phase1_init(pdev, adpt);
+	emac_clks_phase2_init(adpt);
 	emac_hw_reset_mac(hw);
-	emac_phy_reset_external(adpt);
-
-	retval = emac_phy_setup_link(adpt, phy->autoneg_advertised, true,
-				     !phy->disable_fc_autoneg);
-	if (retval)
-		goto error;
 
 	/* Disable EPHY Link UP interrupt */
-	retval = emac_phy_write(adpt, phy->addr, MII_INT_ENABLE, 0);
-	if (retval)
-		goto error;
+	if (phy->is_wol_irq_reg)
+		phy_write(adpt->phydev, MII_INT_ENABLE, 0);
 
+	phy_resume(adpt->phydev);
 
 	if (netif_running(netdev)) {
-		retval = emac_up(adpt);
+		retval = emac_mac_up(adpt);
 		if (retval)
 			goto error;
 	}
@@ -3240,17 +2891,10 @@ static int emac_pm_sys_suspend(struct device *device)
 	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_phy *phy = &adpt->phy;
-	bool link_up = false;
-
-	/* Check link state. Don't suspend if link is up */
-	if (netif_carrier_ok(adpt->netdev))
-		return -EPERM;
-
-	phy->link_speed = EMAC_LINK_SPEED_10_HALF;
-	phy->link_up = link_up;
 
 	/* Disable EPHY WOL interrupt*/
-	emac_wol_gpio_irq(adpt, false);
+	if (phy->is_wol_irq_reg)
+		emac_wol_gpio_irq(adpt, false);
 
 	if (!pm_runtime_enabled(device) || !pm_runtime_suspended(device)) {
 		emac_pm_suspend(device, false);
@@ -3274,6 +2918,7 @@ static int emac_pm_sys_resume(struct device *device)
 	struct platform_device *pdev = to_platform_device(device);
 	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
 	struct emac_adapter *adpt = netdev_priv(netdev);
+	struct emac_phy *phy = &adpt->phy;
 
 	netif_device_attach(netdev);
 
@@ -3286,7 +2931,8 @@ static int emac_pm_sys_resume(struct device *device)
 		pm_request_autosuspend(netdev->dev.parent);
 	}
 	/* Enable EPHY WOL interrupt*/
-	emac_wol_gpio_irq(adpt, true);
+	if (phy->is_wol_irq_reg)
+		emac_wol_gpio_irq(adpt, true);
 	return 0;
 }
 #endif
@@ -3298,15 +2944,30 @@ static int emac_probe(struct platform_device *pdev)
 	struct emac_adapter *adpt;
 	struct emac_phy *phy;
 	struct emac_hw *hw;
-	int retval;
+	int ret;
 	u8 i;
 	u32 hw_ver;
 
+	/* The EMAC itself is capable of 64-bit DMA, so try that first. */
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		/* Some platforms may restrict the EMAC's address bus to less
+		 * then the size of DDR. In this case, we need to try a
+		 * smaller mask.  We could try every possible smaller mask,
+		 * but that's overkill.  Instead, just fall to 32-bit, which
+		 * should always work.
+		*/
+		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+		if (ret) {
+			dev_err(&pdev->dev, "could not set DMA mask\n");
+				return ret;
+		}
+	}
+
 	netdev = alloc_etherdev(sizeof(struct emac_adapter));
-	if (netdev == NULL) {
+	if (!netdev) {
 		dev_err(&pdev->dev, "etherdev alloc failed\n");
-		retval = -ENOMEM;
-		goto err_alloc_netdev;
+		return -ENOMEM;
 	}
 
 	dev_set_drvdata(&pdev->dev, netdev);
@@ -3318,14 +2979,6 @@ static int emac_probe(struct platform_device *pdev)
 	hw = &adpt->hw;
 	adpt->msg_enable = netif_msg_init(msm_emac_msglvl, EMAC_MSG_DEFAULT);
 
-	adpt->dma_mask = DMA_BIT_MASK(32);
-	pdev->dev.dma_mask = &adpt->dma_mask;
-	pdev->dev.dma_parms = &adpt->dma_parms;
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-
-	dma_set_max_seg_size(&pdev->dev, 65536);
-	dma_set_seg_boundary(&pdev->dev, 0xffffffff);
-
 	for (i = 0; i < EMAC_IRQ_CNT; i++) {
 		adpt->irq[i].idx  = i;
 		adpt->irq[i].mask = emac_irq_cmn_tbl[i].init_mask;
@@ -3333,20 +2986,17 @@ static int emac_probe(struct platform_device *pdev)
 	adpt->irq[0].mask |= (msm_emac_intr_ext ? IMR_EXTENDED_MASK :
 			      IMR_NORMAL_MASK);
 
-	if (ACPI_HANDLE(adpt->dev))
-		retval = emac_acpi_get_resources(pdev, adpt);
-	else
-		retval = emac_get_resources(pdev, adpt);
-	if (retval)
-		goto err_res;
+	ret = emac_get_resources(pdev, adpt);
+	if (ret)
+		goto err_get_resource;
 
-	retval = msm_emac_ldo_init(pdev, adpt);
-	if (retval)
+	ret = msm_emac_ldo_init(pdev, adpt);
+	if (ret)
 		goto err_ldo_init;
 
 	/* initialize clocks */
-	retval = emac_init_clks(adpt);
-	if (retval)
+	ret = emac_clks_phase1_init(pdev, adpt);
+	if (ret)
 		goto err_clk_init;
 
 	hw_ver = emac_reg_r32(hw, EMAC, EMAC_CORE_HW_VERSION);
@@ -3373,39 +3023,28 @@ static int emac_probe(struct platform_device *pdev)
 	/* init adapter */
 	emac_init_adapter(adpt);
 
-	/* init phy */
-	retval = emac_phy_config(pdev, adpt);
-	if (retval)
-		goto err_init_phy;
+	/* init internal phy */
+	ret = emac_phy_config_internal(pdev, adpt);
+	if (ret)
+		goto err_clk_init;
 
 	/* enable clocks */
-	retval = emac_enable_clks(adpt);
-	if (retval)
-		goto err_clk_en;
+	ret = emac_clks_phase2_init(adpt);
+	if (ret)
+		goto err_clk_init;
 
 	/* Configure MDIO lines */
-	retval = adpt->gpio_on(adpt, true, true);
-	if (retval)
-		goto err_init_mdio_gpio;
+	ret = adpt->gpio_on(adpt, true, true);
+	if (ret)
+		goto err_clk_init;
 
 	/* init external phy */
-	retval = emac_phy_init_external(adpt);
-	if (retval)
-		goto err_init_ephy;
+	ret = emac_phy_config_external(pdev, adpt);
+	if (ret)
+		goto err_init_mdio_gpio;
 
 	/* reset mac */
 	emac_hw_reset_mac(hw);
-
-	/* setup link to put it in a known good starting state */
-	retval = emac_phy_setup_link(adpt, phy->autoneg_advertised, true,
-				     !phy->disable_fc_autoneg);
-	if (retval)
-		goto err_phy_link;
-
-	/* set mac address */
-	memcpy(hw->mac_addr, hw->mac_perm_addr, netdev->addr_len);
-	memcpy(netdev->dev_addr, hw->mac_addr, netdev->addr_len);
-	emac_hw_set_mac_addr(hw, hw->mac_addr);
 
 	/* disable emac core and phy regulator */
 	emac_disable_clks(adpt);
@@ -3420,19 +3059,18 @@ static int emac_probe(struct platform_device *pdev)
 	netdev->vlan_features |= NETIF_F_SG | NETIF_F_HW_CSUM |
 				 NETIF_F_TSO | NETIF_F_TSO6;
 
-	setup_timer(&adpt->emac_timer, &emac_timer_routine,
-		    (unsigned long)adpt);
-	INIT_WORK(&adpt->emac_task, emac_task_routine);
+	INIT_WORK(&adpt->work_thread, emac_work_thread);
 
 	/* Initialize queues */
-	emac_init_rtx_queues(pdev, adpt);
+	emac_mac_rx_tx_ring_init_all(pdev, adpt);
 
 	for (i = 0; i < adpt->num_rxques; i++)
 		netif_napi_add(netdev, &adpt->rx_queue[i].napi,
-			       emac_napi_rtx, 64);
+			       emac_napi_rtx, NAPI_POLL_WEIGHT);
 
+	spin_lock_init(&adpt->hw_stats.lock);
 	spin_lock_init(&adpt->hwtxtstamp_lock);
-	spin_lock_init(&adpt->wol_irq_lock);
+	spin_lock_init(&phy->wol_irq_lock);
 	skb_queue_head_init(&adpt->hwtxtstamp_pending_queue);
 	skb_queue_head_init(&adpt->hwtxtstamp_ready_queue);
 	INIT_WORK(&adpt->hwtxtstamp_task, emac_hwtxtstamp_task_routine);
@@ -3442,7 +3080,6 @@ static int emac_probe(struct platform_device *pdev)
 	SET_FLAG(adpt, ADPT_STATE_DOWN);
 	strlcpy(netdev->name, "eth%d", sizeof(netdev->name));
 
-	adpt->runtime_enable = 0;
 	pm_runtime_set_autosuspend_delay(&pdev->dev, EMAC_TRY_LINK_TIMEOUT);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -3453,14 +3090,14 @@ static int emac_probe(struct platform_device *pdev)
 	if (!pm_runtime_enabled(&pdev->dev))
 		emac_pm_resume(&pdev->dev);
 
-	retval = register_netdev(netdev);
-	if (retval) {
-		emac_err(adpt, "register netdevice failed\n");
-		goto err_register_netdev;
-	}
-
-	/* carrier off reporting is important to ethtool even BEFORE open */
+	/* libphy will determine the link state */
 	netif_carrier_off(netdev);
+
+	ret = register_netdev(netdev);
+	if (ret) {
+		emac_err(adpt, "register netdevice failed\n");
+		goto err_undo_napi;
+	}
 
 	if (TEST_FLAG(hw, HW_PTP_CAP)) {
 		pm_runtime_get_sync(&pdev->dev);
@@ -3469,30 +3106,30 @@ static int emac_probe(struct platform_device *pdev)
 		pm_runtime_put_autosuspend(&pdev->dev);
 	}
 
-	pr_info("%s - version %s\n", emac_drv_description, emac_drv_version);
-	emac_dbg(adpt, probe, "EMAC HW ID %d.%d\n", hw->devid, hw->revid);
-	emac_dbg(adpt, probe, "EMAC HW version %d.%d.%d\n",
+	emac_dbg(adpt, probe, "HW ID %d.%d, HW version %d.%d.%d\n",
+		 hw->devid, hw->revid,
 		 (hw_ver & MAJOR_BMSK) >> MAJOR_SHFT,
 		 (hw_ver & MINOR_BMSK) >> MINOR_SHFT,
 		 (hw_ver & STEP_BMSK) >> STEP_SHFT);
+
 	return 0;
 
-err_register_netdev:
-err_phy_link:
-err_init_ephy:
-	adpt->gpio_off(adpt, true, true);
+err_undo_napi:
+	for (i = 0; i < adpt->num_rxques; i++)
+		netif_napi_del(&adpt->rx_queue[i].napi);
+	if (!ACPI_COMPANION(&pdev->dev))
+		put_device(&adpt->phydev->dev);
+	mdiobus_unregister(adpt->mii_bus);
 err_init_mdio_gpio:
-err_clk_en:
-err_init_phy:
+	adpt->gpio_off(adpt, true, true);
 err_clk_init:
 	emac_disable_clks(adpt);
 err_ldo_init:
 	emac_disable_regulator(adpt, EMAC_VREG1, EMAC_VREG5);
-	emac_release_resources(adpt);
-err_res:
+err_get_resource:
 	free_netdev(netdev);
-err_alloc_netdev:
-	return retval;
+
+	return ret;
 }
 
 static int emac_remove(struct platform_device *pdev)
@@ -3500,29 +3137,40 @@ static int emac_remove(struct platform_device *pdev)
 	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw *hw = &adpt->hw;
-
-	pr_info("exiting %s\n", emac_drv_name);
+	struct emac_sgmii *sgmii = adpt->phy.private;
+	struct emac_phy *phy = &adpt->phy;
+	u32 i;
 
 	if (!pm_runtime_enabled(&pdev->dev) ||
 	    !pm_runtime_suspended(&pdev->dev)) {
 		if (netif_running(netdev)) {
 			/* ensure no task/reset is in progress */
 			while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
-				msleep(20); /* Reset might take few 10s of ms */
+				/* Reset might take few 10s of ms */
+				msleep(EMAC_ADPT_RESET_WAIT_TIME);
 
-			emac_down(adpt, 0);
-			CLR_FLAG(adpt, ADPT_STATE_RESETTING);
-		}
+				emac_mac_down(adpt, 0);
+				CLR_FLAG(adpt, ADPT_STATE_RESETTING);
+			}
 		pm_runtime_disable(netdev->dev.parent);
 		pm_runtime_set_suspended(netdev->dev.parent);
 		pm_runtime_enable(netdev->dev.parent);
 	}
+
 	pm_runtime_disable(netdev->dev.parent);
 
 	/* Disable EPHY WOL interrupt in suspend */
-	emac_wol_gpio_irq(adpt, false);
+	if (phy->is_wol_irq_reg)
+		emac_wol_gpio_irq(adpt, false);
+
+	mdiobus_unregister(adpt->mii_bus);
 	unregister_netdev(netdev);
+
+	for (i = 0; i < adpt->num_rxques; i++)
+		netif_napi_del(&adpt->rx_queue[i].napi);
+
 	wakeup_source_trash(&adpt->link_wlock);
+
 	if (TEST_FLAG(hw, HW_PTP_CAP))
 		emac_ptp_remove(netdev);
 
@@ -3530,7 +3178,14 @@ static int emac_remove(struct platform_device *pdev)
 	emac_disable_clks(adpt);
 	emac_disable_regulator(adpt, EMAC_VREG1, EMAC_VREG5);
 
-	emac_release_resources(adpt);
+	if (!ACPI_COMPANION(&pdev->dev))
+		put_device(&adpt->phydev->dev);
+
+	if (sgmii->digital)
+		iounmap(sgmii->digital);
+	if (sgmii->base)
+		iounmap(sgmii->base);
+
 	free_netdev(netdev);
 	dev_set_drvdata(&pdev->dev, NULL);
 	return 0;
@@ -3551,21 +3206,20 @@ static const struct dev_pm_ops emac_pm_ops = {
 static struct of_device_id emac_dt_match[] = {
 	{
 		.compatible = "qcom,emac",
-		.data = (void *)EMAC_PHY_MAP_DEFAULT,
 	},
 	{
 		.compatible = "qcom,mdm9607-emac",
-		.data = (void *)EMAC_PHY_MAP_MDM9607,
 	},
 	{}
 };
+MODULE_DEVICE_TABLE(of, emac_dt_match);
 
 static struct platform_driver emac_platform_driver = {
 	.probe   = emac_probe,
 	.remove  = emac_remove,
 	.driver = {
 		.owner = THIS_MODULE,
-		.name	= "msm_emac",
+		.name	= "qcom-emac",
 		.pm = &emac_pm_ops,
 		.of_match_table = emac_dt_match,
 		.acpi_match_table = ACPI_PTR(emac_acpi_match),

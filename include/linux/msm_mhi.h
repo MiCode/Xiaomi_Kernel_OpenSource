@@ -117,6 +117,11 @@ struct mhi_client_handle {
 	struct mhi_client_config *client_config;
 };
 
+struct __packed bhi_vec_entry {
+	u64 phys_addr;
+	u64 size;
+};
+
 /**
  * mhi_is_device_ready - Check if MHI is ready to register clients
  *

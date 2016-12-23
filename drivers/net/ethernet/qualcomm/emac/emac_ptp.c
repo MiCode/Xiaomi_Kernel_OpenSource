@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,9 +42,9 @@ struct emac_ptp_frac_ns_adj {
 };
 
 static const struct emac_tstamp_hw_delay emac_ptp_hw_delay[] = {
-	{ PHY_INTERFACE_MODE_SGMII, 1000, 16, 60 },
-	{ PHY_INTERFACE_MODE_SGMII, 100, 280, 100 },
-	{ PHY_INTERFACE_MODE_SGMII, 10, 2400, 400 },
+	{ PHY_INTERFACE_MODE_SGMII, SPEED_1000, 16, 60 },
+	{ PHY_INTERFACE_MODE_SGMII, SPEED_100, 280, 100 },
+	{ PHY_INTERFACE_MODE_SGMII, SPEED_10, 2400, 400 },
 	{ 0 }
 };
 
@@ -52,7 +52,7 @@ static inline u32 get_rtc_ref_clkrate(struct emac_hw *hw)
 {
 	struct emac_adapter *adpt = emac_hw_get_adap(hw);
 
-	return clk_get_rate(adpt->clk[EMAC_CLK_125M].clk);
+	return clk_get_rate(adpt->clk[EMAC_CLK_HIGH_SPEED].clk);
 }
 
 static inline bool is_valid_frac_ns_adj(s32 val)
@@ -119,27 +119,9 @@ static const struct emac_tstamp_hw_delay *emac_get_ptp_hw_delay(u32 link_speed,
 								int phy_mode)
 {
 	const struct emac_tstamp_hw_delay *info = emac_ptp_hw_delay;
-	u32 speed;
-
-	switch (link_speed) {
-	case EMAC_LINK_SPEED_1GB_FULL:
-		speed = 1000;
-		break;
-	case EMAC_LINK_SPEED_100_FULL:
-	case EMAC_LINK_SPEED_100_HALF:
-		speed = 100;
-		break;
-	case EMAC_LINK_SPEED_10_FULL:
-	case EMAC_LINK_SPEED_10_HALF:
-		speed = 10;
-		break;
-	default:
-		speed = 0;
-		break;
-	}
 
 	for (info = emac_ptp_hw_delay; info->phy_mode; info++) {
-		if (info->phy_mode == phy_mode && info->speed == speed)
+		if (info->phy_mode == phy_mode && info->speed == link_speed)
 			return info;
 	}
 
@@ -153,7 +135,7 @@ static int emac_hw_adjust_tstamp_offset(struct emac_hw *hw,
 	const struct emac_tstamp_hw_delay *delay_info;
 	struct emac_phy *phy = &emac_hw_get_adap(hw)->phy;
 
-	delay_info = emac_get_ptp_hw_delay(link_speed, phy->phy_mode);
+	delay_info = emac_get_ptp_hw_delay(link_speed, phy->phy_interface);
 
 	if (clk_mode == emac_ptp_clk_mode_oc_one_step) {
 		u32 latency = (delay_info) ? delay_info->tx : 0;
@@ -408,7 +390,7 @@ int emac_ptp_config(struct emac_hw *hw)
 	ret = emac_hw_1588_core_enable(hw,
 				       hw->ptp_mode,
 				       hw->ptp_clk_mode,
-				       EMAC_LINK_SPEED_1GB_FULL,
+				       SPEED_1000,
 				       hw->frac_ns_adj);
 	if (ret)
 		goto unlock_out;
@@ -449,7 +431,7 @@ int emac_ptp_set_linkspeed(struct emac_hw *hw, u32 link_speed)
 
 	spin_lock_irqsave(&hw->ptp_lock, flag);
 	emac_reg_update32(hw, EMAC_1588, EMAC_P1588_CTRL_REG, ETH_MODE_SW,
-			  (link_speed == EMAC_LINK_SPEED_1GB_FULL) ? 0 :
+			  (link_speed == SPEED_1000) ? 0 :
 			  ETH_MODE_SW);
 	wmb(); /* ensure ETH_MODE_SW is set before we proceed */
 	emac_hw_adjust_tstamp_offset(hw, hw->ptp_clk_mode, link_speed);
@@ -739,8 +721,8 @@ static ssize_t emac_ptp_sysfs_mode_set(struct device *dev,
 				       const char *buf, size_t count)
 {
 	struct emac_adapter *adpt = netdev_priv(to_net_dev(dev));
-	struct emac_phy *phy = &adpt->phy;
 	struct emac_hw *hw = &adpt->hw;
+	struct phy_device *phydev = adpt->phydev;
 	enum emac_ptp_mode mode;
 
 	if (!strcmp(buf, "master"))
@@ -759,7 +741,7 @@ static ssize_t emac_ptp_sysfs_mode_set(struct device *dev,
 
 		emac_hw_1588_core_disable(hw);
 		emac_hw_1588_core_enable(hw, mode, hw->ptp_clk_mode,
-					 phy->link_speed, hw->frac_ns_adj);
+					 phydev->speed, hw->frac_ns_adj);
 		if (rx_tstamp_enable)
 			emac_hw_config_rx_tstamp(hw, true);
 		if (tx_tstamp_enable)
@@ -844,14 +826,6 @@ static void emac_ptp_sysfs_create(struct net_device *netdev)
 	}
 }
 
-static void emac_ptp_sysfs_remove(struct net_device *netdev)
-{
-	struct device_attribute *devattr;
-
-	for (devattr = ptp_sysfs_devattr; devattr->attr.name; devattr++)
-		device_remove_file(&netdev->dev, devattr);
-}
-
 static void emac_ptp_of_get_property(struct emac_adapter *adpt)
 {
 	struct emac_hw *hw = &adpt->hw;
@@ -914,6 +888,5 @@ void emac_ptp_remove(struct net_device *netdev)
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw *hw = &adpt->hw;
 
-	emac_ptp_sysfs_remove(netdev);
 	kfree(hw->frac_ns_adj_tbl);
 }

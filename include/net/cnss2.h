@@ -81,6 +81,46 @@ enum cnss_driver_status {
 	CNSS_RECOVERY,
 };
 
+struct cnss_ce_tgt_pipe_cfg {
+	u32 pipe_num;
+	u32 pipe_dir;
+	u32 nentries;
+	u32 nbytes_max;
+	u32 flags;
+	u32 reserved;
+};
+
+struct cnss_ce_svc_pipe_cfg {
+	u32 service_id;
+	u32 pipe_dir;
+	u32 pipe_num;
+};
+
+struct cnss_shadow_reg_cfg {
+	u16 ce_id;
+	u16 reg_offset;
+};
+
+struct cnss_wlan_enable_cfg {
+	u32 num_ce_tgt_cfg;
+	struct cnss_ce_tgt_pipe_cfg *ce_tgt_cfg;
+	u32 num_ce_svc_pipe_cfg;
+	struct cnss_ce_svc_pipe_cfg *ce_svc_cfg;
+	u32 num_shadow_reg_cfg;
+	struct cnss_shadow_reg_cfg *shadow_reg_cfg;
+};
+
+enum cnss_driver_mode {
+	CNSS_MISSION,
+	CNSS_FTM,
+	CNSS_EPPING,
+	CNSS_WALTEST,
+	CNSS_OFF,
+	CNSS_CCPM,
+	CNSS_QVIT,
+	CNSS_CALIBRATION,
+};
+
 extern int cnss_wlan_register_driver(struct cnss_wlan_driver *driver);
 extern void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver);
 extern void cnss_wlan_pci_link_down(void);
@@ -116,5 +156,10 @@ extern int cnss_get_user_msi_assignment(struct device *dev, char *user_name,
 extern int cnss_get_msi_irq(struct device *dev, unsigned int vector);
 extern void cnss_get_msi_address(struct device *dev, uint32_t *msi_addr_low,
 				 uint32_t *msi_addr_high);
+extern int cnss_wlan_enable(struct device *dev,
+			    struct cnss_wlan_enable_cfg *config,
+			    enum cnss_driver_mode mode,
+			    const char *host_version);
+extern int cnss_wlan_disable(struct device *dev, enum cnss_driver_mode mode);
 
 #endif /* _NET_CNSS2_H */

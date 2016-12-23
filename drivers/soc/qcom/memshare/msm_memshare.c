@@ -305,6 +305,21 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 		bootup_request++;
 		break;
 
+	case SUBSYS_BEFORE_POWERUP:
+		if (_cmd)
+			notifdata = (struct notif_data *) _cmd;
+		else
+			break;
+
+		if (notifdata->enable_ramdump) {
+			pr_info("memshare: %s, Ramdump collection is enabled\n",
+					__func__);
+			ret = mem_share_do_ramdump();
+			if (ret)
+				pr_err("Ramdump collection failed\n");
+		}
+		break;
+
 	case SUBSYS_AFTER_POWERUP:
 		pr_debug("memshare: Modem has booted up\n");
 		for (i = 0; i < MAX_CLIENTS; i++) {
@@ -354,23 +369,6 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 		}
 		bootup_request++;
 		break;
-
-		case SUBSYS_RAMDUMP_NOTIFICATION:
-
-			if (_cmd)
-				notifdata = (struct notif_data *) _cmd;
-			else
-				break;
-
-			if (!(notifdata->enable_ramdump)) {
-				pr_err("In %s, Ramdump collection is disabled\n",
-						__func__);
-			} else {
-				ret = mem_share_do_ramdump();
-				if (ret)
-					pr_err("Ramdump collection failed\n");
-			}
-			break;
 
 	default:
 		pr_debug("Memshare: code: %lu\n", code);
