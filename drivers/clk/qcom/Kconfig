@@ -219,4 +219,16 @@ config QCOM_A53
 	  Say Y if you want to support CPU frequency scaling on devices
 	  such as MSM8916.
 
+config CLOCK_CPU_OSM
+	tristate "OSM CPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the osm clock controller.
+	 Operating State Manager (OSM) is a hardware engine used by some
+	 Qualcomm Technologies, Inc. (QTI) SoCs to manage frequency and
+	 voltage scaling in hardware. OSM is capable of controlling
+	 frequency and voltage requests for multiple clusters via the
+	 existence of multiple OSM domains.
+	 Say Y if you want to support osm clocks.
+
 source "drivers/clk/qcom/mdss/Kconfig"
