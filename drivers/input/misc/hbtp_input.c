@@ -208,9 +208,13 @@ static int hbtp_input_create_input_dev(struct hbtp_input_absinfo *absinfo)
 	input_mt_init_slots(input_dev, HBTP_MAX_FINGER, 0);
 	for (i = 0; i <= ABS_MT_LAST - ABS_MT_FIRST; i++) {
 		abs = absinfo + i;
-		if (abs->active)
-			input_set_abs_params(input_dev, abs->code,
+		if (abs->active) {
+			if (abs->code >= 0 && abs->code < ABS_CNT)
+				input_set_abs_params(input_dev, abs->code,
 					abs->minimum, abs->maximum, 0, 0);
+			else
+				pr_err("%s: ABS code out of bound\n", __func__);
+		}
 	}
 
 	if (hbtp->override_disp_coords) {
