@@ -1407,6 +1407,36 @@ static int fg_adjust_ki_coeff_dischg(struct fg_chip *chip)
 	return 0;
 }
 
+static int fg_set_recharge_voltage(struct fg_chip *chip, int voltage_mv)
+{
+	u8 buf;
+	int rc;
+
+	if (chip->dt.auto_recharge_soc)
+		return 0;
+
+	/* This configuration is available only for pmicobalt v2.0 and above */
+	if (chip->wa_flags & PMI8998_V1_REV_WA)
+		return 0;
+
+	fg_dbg(chip, FG_STATUS, "Setting recharge voltage to %dmV\n",
+		voltage_mv);
+	fg_encode(chip->sp, FG_SRAM_RECHARGE_VBATT_THR, voltage_mv, &buf);
+	rc = fg_sram_write(chip,
+			chip->sp[FG_SRAM_RECHARGE_VBATT_THR].addr_word,
+			chip->sp[FG_SRAM_RECHARGE_VBATT_THR].addr_byte,
+			&buf, chip->sp[FG_SRAM_RECHARGE_VBATT_THR].len,
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing recharge_vbatt_thr, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+#define AUTO_RECHG_VOLT_LOW_LIMIT_MV	3700
 static int fg_charge_full_update(struct fg_chip *chip)
 {
 	union power_supply_propval prop = {0, };
@@ -1454,18 +1484,46 @@ static int fg_charge_full_update(struct fg_chip *chip)
 		return rc;
 	}
 
-	fg_dbg(chip, FG_STATUS, "msoc: %d bsoc: %x health: %d status: %d\n",
-		msoc, bsoc, chip->health, chip->charge_status);
-	if (chip->charge_done) {
-		if (msoc >= 99 && chip->health == POWER_SUPPLY_HEALTH_GOOD)
+	fg_dbg(chip, FG_STATUS, "msoc: %d bsoc: %x health: %d status: %d full: %d\n",
+		msoc, bsoc, chip->health, chip->charge_status,
+		chip->charge_full);
+	if (chip->charge_done && !chip->charge_full) {
+		if (msoc >= 99 && chip->health == POWER_SUPPLY_HEALTH_GOOD) {
+			fg_dbg(chip, FG_STATUS, "Setting charge_full to true\n");
 			chip->charge_full = true;
-		else
+			/*
+			 * Lower the recharge voltage so that VBAT_LT_RECHG
+			 * signal will not be asserted soon.
+			 */
+			rc = fg_set_recharge_voltage(chip,
+					AUTO_RECHG_VOLT_LOW_LIMIT_MV);
+			if (rc < 0) {
+				pr_err("Error in reducing recharge voltage, rc=%d\n",
+					rc);
+				return rc;
+			}
+		} else {
 			fg_dbg(chip, FG_STATUS, "Terminated charging @ SOC%d\n",
 				msoc);
-	} else if ((bsoc >> 8) <= recharge_soc) {
+		}
+	} else if ((bsoc >> 8) <= recharge_soc && chip->charge_full) {
 		fg_dbg(chip, FG_STATUS, "bsoc: %d recharge_soc: %d\n",
 			bsoc >> 8, recharge_soc);
 		chip->charge_full = false;
+		/*
+		 * Raise the recharge voltage so that VBAT_LT_RECHG signal
+		 * will be asserted soon as battery SOC had dropped below
+		 * the recharge SOC threshold.
+		 */
+		rc = fg_set_recharge_voltage(chip,
+					chip->dt.recharge_volt_thr_mv);
+		if (rc < 0) {
+			pr_err("Error in setting recharge voltage, rc=%d\n",
+				rc);
+			return rc;
+		}
+	} else {
+		return 0;
 	}
 
 	if (!chip->charge_full)
@@ -1570,13 +1628,16 @@ static int fg_rconn_config(struct fg_chip *chip)
 
 static int fg_set_recharge_soc(struct fg_chip *chip, int recharge_soc)
 {
-	u8 buf[4];
+	u8 buf;
 	int rc;
 
-	fg_encode(chip->sp, FG_SRAM_RECHARGE_SOC_THR, recharge_soc, buf);
+	if (!chip->dt.auto_recharge_soc)
+		return 0;
+
+	fg_encode(chip->sp, FG_SRAM_RECHARGE_SOC_THR, recharge_soc, &buf);
 	rc = fg_sram_write(chip,
 			chip->sp[FG_SRAM_RECHARGE_SOC_THR].addr_word,
-			chip->sp[FG_SRAM_RECHARGE_SOC_THR].addr_byte, buf,
+			chip->sp[FG_SRAM_RECHARGE_SOC_THR].addr_byte, &buf,
 			chip->sp[FG_SRAM_RECHARGE_SOC_THR].len, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error in writing recharge_soc_thr, rc=%d\n", rc);
@@ -1589,6 +1650,9 @@ static int fg_set_recharge_soc(struct fg_chip *chip, int recharge_soc)
 static int fg_adjust_recharge_soc(struct fg_chip *chip)
 {
 	int rc, msoc, recharge_soc, new_recharge_soc = 0;
+
+	if (!chip->dt.auto_recharge_soc)
+		return 0;
 
 	recharge_soc = chip->dt.recharge_soc_thr;
 	/*
@@ -2816,18 +2880,11 @@ static int fg_hw_init(struct fg_chip *chip)
 		}
 	}
 
-	/* This configuration is available only for pmicobalt v2.0 and above */
-	if (!(chip->wa_flags & PMI8998_V1_REV_WA) &&
-			chip->dt.recharge_volt_thr_mv > 0) {
-		fg_encode(chip->sp, FG_SRAM_RECHARGE_VBATT_THR,
-			chip->dt.recharge_volt_thr_mv, buf);
-		rc = fg_sram_write(chip,
-				chip->sp[FG_SRAM_RECHARGE_VBATT_THR].addr_word,
-				chip->sp[FG_SRAM_RECHARGE_VBATT_THR].addr_byte,
-				buf, chip->sp[FG_SRAM_RECHARGE_VBATT_THR].len,
-				FG_IMA_DEFAULT);
+	if (chip->dt.recharge_volt_thr_mv > 0) {
+		rc = fg_set_recharge_voltage(chip,
+			chip->dt.recharge_volt_thr_mv);
 		if (rc < 0) {
-			pr_err("Error in writing recharge_vbatt_thr, rc=%d\n",
+			pr_err("Error in setting recharge_voltage, rc=%d\n",
 				rc);
 			return rc;
 		}
@@ -3544,6 +3601,9 @@ static int fg_parse_dt(struct fg_chip *chip)
 		chip->dt.recharge_volt_thr_mv = DEFAULT_RECHARGE_VOLT_MV;
 	else
 		chip->dt.recharge_volt_thr_mv = temp;
+
+	chip->dt.auto_recharge_soc = of_property_read_bool(node,
+					"qcom,fg-auto-recharge-soc");
 
 	rc = of_property_read_u32(node, "qcom,fg-rsense-sel", &temp);
 	if (rc < 0)
