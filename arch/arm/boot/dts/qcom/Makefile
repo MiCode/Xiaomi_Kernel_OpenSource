@@ -135,17 +135,29 @@ dtb-$(CONFIG_ARCH_MSM8998) += msm8998-sim.dtb \
 dtb-$(CONFIG_ARCH_MSMHAMSTER) += msmhamster-rumi.dtb
 
 dtb-$(CONFIG_ARCH_MSMFALCON) += msmfalcon-sim.dtb \
-	msmfalcon-rumi.dtb \
-	msmfalcon-cdp.dtb \
 	msmfalcon-internal-codec-cdp.dtb \
-	msmfalcon-mtp.dtb \
 	msmfalcon-internal-codec-mtp.dtb \
-	msmfalcon-rcm.dtb \
 	msmfalcon-internal-codec-rcm.dtb \
+	msmfalcon-cdp.dtb \
+	msmfalcon-mtp.dtb \
 	msmfalcon-qrd.dtb \
+	msmfalcon-rcm.dtb \
+	msmfalcon-rumi.dtb \
+	msmfalcon-pm3falcon-cdp.dtb \
+	msmfalcon-pm3falcon-mtp.dtb \
+	msmfalcon-pm3falcon-qrd.dtb \
+	msmfalcon-pm3falcon-rcm.dtb \
+	msmfalcon-pm3falcon-rumi.dtb \
+	msmfalcon-internal-codec-pm3falcon-cdp.dtb \
+	msmfalcon-internal-codec-pm3falcon-mtp.dtb \
+	msmfalcon-internal-codec-pm3falcon-rcm.dtb \
+	msmfalcon-pm3falcon-sim.dtb \
 	apqfalcon-cdp.dtb \
 	apqfalcon-mtp.dtb \
-	apqfalcon-rcm.dtb
+	apqfalcon-rcm.dtb \
+	apqfalcon-pm3falcon-cdp.dtb \
+	apqfalcon-pm3falcon-mtp.dtb \
+	apqfalcon-pm3falcon-rcm.dtb
 
 dtb-$(CONFIG_ARCH_MSMTRITON) += msmtriton-rumi.dtb
 

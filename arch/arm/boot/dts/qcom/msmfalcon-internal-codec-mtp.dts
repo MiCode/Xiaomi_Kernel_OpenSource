@@ -17,7 +17,9 @@
 #include "msmfalcon-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM FALCON Int. Audio Codec MTP";
+	model = "Qualcomm Technologies, Inc. MSM FALCON PMFALCON + PM2FALCON Int. Audio Codec MTP";
 	compatible = "qcom,msmfalcon-mtp", "qcom,msmfalcon", "qcom,mtp";
 	qcom,board-id = <8 1>;
+	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
+			<0x0001001b 0x0201011a 0x0 0x0>;
 };
