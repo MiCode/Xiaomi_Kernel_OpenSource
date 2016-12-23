@@ -9532,4 +9532,26 @@ struct adm_param_fluence_sourcetracking_t {
 #define AUDPROC_PARAM_ID_AUDIOSPHERE_DESIGN_MULTICHANNEL_INPUT   0x0001091D
 
 #define AUDPROC_PARAM_ID_AUDIOSPHERE_OPERATING_INPUT_MEDIA_INFO  0x0001091E
+
+#define AUDPROC_MODULE_ID_VOICE_TX_SECNS   0x10027059
+#define AUDPROC_PARAM_IDX_SEC_PRIMARY_MIC_CH 0x10014444
+
+struct admx_sec_primary_mic_ch {
+	uint16_t version;
+	/*version number*/
+
+	uint16_t reserved;
+
+	uint16_t sec_primary_mic_ch;
+	/*<primary channel number.*/
+
+	uint16_t reserved1;
+} __packed;
+
+
+struct adm_set_sec_primary_ch_params {
+	struct adm_cmd_set_pp_params_v5 params;
+	struct adm_param_data_v5 data;
+	struct admx_sec_primary_mic_ch sec_primary_mic_ch_data;
+} __packed;
 #endif /*_APR_AUDIO_V2_H_ */
