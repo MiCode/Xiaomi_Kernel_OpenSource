@@ -781,7 +781,7 @@ static int icnss_unmap_msa_permissions(struct icnss_priv *priv, u32 index)
 	u32 size;
 	u32 dest_vmids[1] = {VMID_HLOS};
 	int source_vmlist[3] = {VMID_MSS_MSA, VMID_WLAN, 0};
-	int dest_perms[1] = {PERM_READ|PERM_WRITE};
+	int dest_perms[1] = {PERM_READ|PERM_WRITE|PERM_EXEC};
 	int source_nelems = 0;
 	int dest_nelems = sizeof(dest_vmids)/sizeof(u32);
 
