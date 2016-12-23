@@ -60,6 +60,48 @@ static inline void mdss_dp_link_retraining(struct mdss_dp_drv_pdata *dp);
 static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp_drv);
 static void dp_send_events(struct mdss_dp_drv_pdata *dp, u32 events);
 
+static inline void mdss_dp_reset_test_data(struct mdss_dp_drv_pdata *dp)
+{
+	dp->test_data = (const struct dpcd_test_request){ 0 };
+	dp->test_data.test_bit_depth = DP_TEST_BIT_DEPTH_UNKNOWN;
+}
+
+static inline bool mdss_dp_is_link_status_updated(struct mdss_dp_drv_pdata *dp)
+{
+	return dp->link_status.link_status_updated;
+}
+
+static inline bool mdss_dp_is_downstream_port_status_changed(
+		struct mdss_dp_drv_pdata *dp)
+{
+	return dp->link_status.downstream_port_status_changed;
+}
+
+static inline bool mdss_dp_is_link_training_requested(
+		struct mdss_dp_drv_pdata *dp)
+{
+	return (dp->test_data.test_requested == TEST_LINK_TRAINING);
+}
+
+static inline bool mdss_dp_is_video_pattern_requested(
+		struct mdss_dp_drv_pdata *dp)
+{
+	return (dp->test_data.test_requested == TEST_VIDEO_PATTERN);
+}
+
+static inline bool mdss_dp_is_phy_test_pattern_requested(
+		struct mdss_dp_drv_pdata *dp)
+{
+	return (dp->test_data.test_requested == PHY_TEST_PATTERN);
+}
+
+static inline bool mdss_dp_soft_hpd_reset(struct mdss_dp_drv_pdata *dp)
+{
+	return (mdss_dp_is_link_training_requested(dp) ||
+			mdss_dp_is_phy_test_pattern_requested(dp)) &&
+		dp->alt_mode.dp_status.hpd_irq;
+}
+
 static void mdss_dp_put_dt_clk_data(struct device *dev,
 	struct dss_module_power *module_power)
 {
@@ -798,9 +840,11 @@ void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *dp)
 {
 	struct dpcd_cap *cap;
 	struct display_timing_desc *timing;
+	struct mdss_panel_info *pinfo;
 	u32 data = 0;
 
 	timing = &dp->edid.timing[0];
+	pinfo = &dp->panel_data.panel_info;
 
 	cap = &dp->dpcd;
 
@@ -823,8 +867,8 @@ void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *dp)
 	if (cap->scrambler_reset)
 		data |= (1 << 10);
 
-	if (dp->edid.color_depth != 6)
-		data |= 0x100;	/* Default: 8 bits */
+	/* Bits per components */
+	data |= (mdss_dp_bpp_to_test_bit_depth(pinfo->bpp) << 8);
 
 	/* Num of Lanes */
 	data |= ((dp->lane_cnt - 1) << 4);
@@ -983,6 +1027,55 @@ end:
 	return ret;
 }
 
+static u32 mdss_dp_get_bpp(struct mdss_dp_drv_pdata *dp)
+{
+	u32 bpp;
+	u32 bit_depth;
+
+	/*
+	 * Set bpp value based on whether a test video pattern is requested.
+	 * For test pattern, the test data has the bit depth per color
+	 * component. Otherwise, set it based on EDID.
+	 */
+	if (mdss_dp_is_video_pattern_requested(dp))
+		bit_depth = dp->test_data.test_bit_depth;
+	else
+		bit_depth = dp->edid.color_depth;
+
+	if (!mdss_dp_is_test_bit_depth_valid(bit_depth)) {
+		pr_debug("invalid bit_depth=%d. fall back to default\n",
+			bit_depth);
+		bit_depth = DP_TEST_BIT_DEPTH_8; /* default to 24bpp */
+	}
+
+	bpp = mdss_dp_test_bit_depth_to_bpp(bit_depth);
+	return bpp;
+}
+
+static u32 mdss_dp_get_colorimetry_config(struct mdss_dp_drv_pdata *dp)
+{
+	u32 cc;
+	enum dynamic_range dr;
+
+	/* unless a video pattern CTS test is ongoing, use CEA_VESA */
+	if (mdss_dp_is_video_pattern_requested(dp))
+		dr = dp->test_data.test_dyn_range;
+	else
+		dr = DP_DYNAMIC_RANGE_RGB_VESA;
+
+	/* Only RGB_VESA nd RGB_CEA supported for now */
+	switch (dr) {
+	case DP_DYNAMIC_RANGE_RGB_CEA:
+		cc = BIT(3);
+		break;
+	case DP_DYNAMIC_RANGE_RGB_VESA:
+	default:
+		cc = 0;
+	}
+
+	return cc;
+}
+
 static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 {
 	struct mdss_panel_info *pinfo;
@@ -1023,7 +1116,6 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 	pinfo->type = DP_PANEL;
 	pinfo->pdest = DISPLAY_4;
 	pinfo->wait_cycle = 0;
-	pinfo->bpp = 24;
 	pinfo->fb_num = 1;
 
 	pinfo->lcdc.border_clr = 0; /* blk */
@@ -1031,8 +1123,8 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 	pinfo->lcdc.hsync_skew = 0;
 	pinfo->is_pluggable = true;
 
-	dp_drv->bpp = pinfo->bpp;
-
+	pinfo->bpp = mdss_dp_get_bpp(dp_drv);
+	pr_debug("bpp=%d\n", pinfo->bpp);
 	pr_debug("update res. vic= %d, pclk_rate = %llu\n",
 				dp_drv->vic, pinfo->clk_rate);
 
@@ -1157,6 +1249,9 @@ static void mdss_dp_configure_source_params(struct mdss_dp_drv_pdata *dp,
 	mdss_dp_fill_link_cfg(dp);
 	mdss_dp_mainlink_ctrl(&dp->ctrl_io, true);
 	mdss_dp_config_ctrl(dp);
+	mdss_dp_config_misc(dp,
+		mdss_dp_bpp_to_test_bit_depth(mdss_dp_get_bpp(dp)),
+		mdss_dp_get_colorimetry_config(dp));
 	mdss_dp_sw_config_msa(&dp->ctrl_io, dp->link_rate, &dp->dp_cc_io);
 	mdss_dp_timing_cfg(&dp->ctrl_io, &dp->panel_data.panel_info);
 }
@@ -1347,42 +1442,12 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 			panel_data);
 
+	if (dp_drv->power_on) {
+		pr_debug("Link already setup, return\n");
+		return 0;
+	}
+
 	return mdss_dp_on_hpd(dp_drv);
-}
-
-static inline void mdss_dp_reset_test_data(struct mdss_dp_drv_pdata *dp)
-{
-	dp->test_data = (const struct dpcd_test_request){ 0 };
-}
-
-static inline bool mdss_dp_is_link_status_updated(struct mdss_dp_drv_pdata *dp)
-{
-	return dp->link_status.link_status_updated;
-}
-
-static inline bool mdss_dp_is_downstream_port_status_changed(
-		struct mdss_dp_drv_pdata *dp)
-{
-	return dp->link_status.downstream_port_status_changed;
-}
-
-static inline bool mdss_dp_is_link_training_requested(
-		struct mdss_dp_drv_pdata *dp)
-{
-	return (dp->test_data.test_requested == TEST_LINK_TRAINING);
-}
-
-static inline bool mdss_dp_is_phy_test_pattern_requested(
-		struct mdss_dp_drv_pdata *dp)
-{
-	return (dp->test_data.test_requested == PHY_TEST_PATTERN);
-}
-
-static inline bool mdss_dp_soft_hpd_reset(struct mdss_dp_drv_pdata *dp)
-{
-	return (mdss_dp_is_link_training_requested(dp) ||
-			mdss_dp_is_phy_test_pattern_requested(dp)) &&
-		dp->alt_mode.dp_status.hpd_irq;
 }
 
 static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv)
@@ -1504,11 +1569,6 @@ end:
 	return ret;
 }
 
-static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp, bool enable)
-{
-	return mdss_dp_send_cable_notification(dp, enable);
-}
-
 static void mdss_dp_set_default_resolution(struct mdss_dp_drv_pdata *dp)
 {
 	hdmi_edid_set_video_resolution(dp->panel_data.panel_info.edid_data,
@@ -1617,6 +1677,93 @@ vreg_error:
 	return ret;
 }
 
+/**
+ * mdss_dp_notify_clients() - notifies DP clients of cable connection
+ * @dp: Display Port Driver data
+ * @status: HPD notification status requested
+ *
+ * This function will send a notification to display/audio clients of change
+ * in DP connection status.
+ */
+static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
+	enum notification_status status)
+{
+	const int irq_comp_timeout = HZ * 2;
+	int ret = 0;
+
+	mutex_lock(&dp->pd_msg_mutex);
+	if (status == dp->hpd_notification_status) {
+		pr_debug("No change in status %s --> %s\n",
+			mdss_dp_notification_status_to_string(status),
+			mdss_dp_notification_status_to_string(
+				dp->hpd_notification_status));
+		goto end;
+	}
+
+	switch (status) {
+	case NOTIFY_CONNECT_IRQ_HPD:
+		if (dp->hpd_notification_status != NOTIFY_DISCONNECT_IRQ_HPD)
+			goto invalid_request;
+		/* Follow the same programming as for NOTIFY_CONNECT */
+		mdss_dp_host_init(&dp->panel_data);
+		mdss_dp_send_cable_notification(dp, true);
+		break;
+	case NOTIFY_CONNECT:
+		if ((dp->hpd_notification_status == NOTIFY_CONNECT_IRQ_HPD) ||
+			(dp->hpd_notification_status ==
+			 NOTIFY_DISCONNECT_IRQ_HPD))
+			goto invalid_request;
+		mdss_dp_host_init(&dp->panel_data);
+		mdss_dp_send_cable_notification(dp, true);
+		break;
+	case NOTIFY_DISCONNECT:
+		mdss_dp_send_cable_notification(dp, false);
+		break;
+	case NOTIFY_DISCONNECT_IRQ_HPD:
+		if (dp->hpd_notification_status == NOTIFY_DISCONNECT)
+			goto invalid_request;
+
+		mdss_dp_send_cable_notification(dp, false);
+		if (!IS_ERR_VALUE(ret) && ret) {
+			reinit_completion(&dp->irq_comp);
+			ret = wait_for_completion_timeout(&dp->irq_comp,
+					irq_comp_timeout);
+			if (ret <= 0) {
+				pr_warn("irq_comp timed out\n");
+				ret = -EINVAL;
+			} else {
+				ret = 0;
+			}
+		}
+		break;
+	default:
+		pr_err("Invalid notification status = %d\n", status);
+		ret = -EINVAL;
+		break;
+	}
+
+	goto end;
+
+invalid_request:
+	pr_err("Invalid request %s --> %s\n",
+		mdss_dp_notification_status_to_string(
+			dp->hpd_notification_status),
+		mdss_dp_notification_status_to_string(status));
+	ret = -EINVAL;
+
+end:
+	if (!ret) {
+		pr_debug("Successfully sent notification %s --> %s\n",
+			mdss_dp_notification_status_to_string(
+				dp->hpd_notification_status),
+			mdss_dp_notification_status_to_string(status));
+		dp->hpd_notification_status = status;
+	}
+
+	mutex_unlock(&dp->pd_msg_mutex);
+	return ret;
+}
+
 static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 {
 	int ret;
@@ -1643,7 +1790,7 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 	dp->sink_info_read = true;
 end:
 	mdss_dp_update_cable_status(dp, true);
-	mdss_dp_notify_clients(dp, true);
+	mdss_dp_notify_clients(dp, NOTIFY_CONNECT);
 
 	return ret;
 
@@ -1885,7 +2032,7 @@ static ssize_t mdss_dp_sysfs_rda_s3d_mode(struct device *dev,
 
 static bool mdss_dp_is_test_ongoing(struct mdss_dp_drv_pdata *dp)
 {
-	return dp->hpd_irq_clients_notified;
+	return (dp->hpd_notification_status == NOTIFY_DISCONNECT_IRQ_HPD);
 }
 
 /**
@@ -1927,7 +2074,7 @@ static int mdss_dp_psm_config(struct mdss_dp_drv_pdata *dp, bool enable)
 			mdss_dp_mainlink_push_idle(&dp->panel_data);
 			mdss_dp_off_irq(dp);
 		} else {
-			mdss_dp_notify_clients(dp, false);
+			mdss_dp_notify_clients(dp, NOTIFY_DISCONNECT);
 		}
 	} else {
 		/*
@@ -1942,7 +2089,7 @@ static int mdss_dp_psm_config(struct mdss_dp_drv_pdata *dp, bool enable)
 			mdss_dp_link_retraining(dp);
 		} else {
 			mdss_dp_host_init(&dp->panel_data);
-			mdss_dp_notify_clients(dp, true);
+			mdss_dp_notify_clients(dp, NOTIFY_CONNECT);
 		}
 	}
 
@@ -2032,7 +2179,7 @@ static ssize_t mdss_dp_wta_hpd(struct device *dev,
 			dp_send_events(dp, EV_USBPD_DISCOVER_MODES);
 		}
 	} else if (!dp->hpd && dp->power_on) {
-		mdss_dp_notify_clients(dp, false);
+		mdss_dp_notify_clients(dp, NOTIFY_DISCONNECT);
 	}
 end:
 	return ret;
@@ -2577,7 +2724,7 @@ static void usbpd_disconnect_callback(struct usbpd_svid_handler *hdlr)
 	pr_debug("cable disconnected\n");
 	mdss_dp_update_cable_status(dp_drv, false);
 	dp_drv->alt_mode.current_state = UNKNOWN_STATE;
-	mdss_dp_notify_clients(dp_drv, false);
+	mdss_dp_notify_clients(dp_drv, NOTIFY_DISCONNECT);
 }
 
 static int mdss_dp_validate_callback(u8 cmd,
@@ -2634,41 +2781,6 @@ static inline void mdss_dp_send_test_response(struct mdss_dp_drv_pdata *dp)
 }
 
 /**
- * mdss_dp_hpd_irq_notify_clients() - notifies DP clients of HPD IRQ tear down
- * @dp: Display Port Driver data
- *
- * This function will send a notification to display/audio clients of DP tear
- * down during an HPD IRQ. This happens only if HPD IRQ is toggled,
- * in which case the user space proceeds with shutdown of DP driver, including
- * mainlink disable, and pushing the controller into idle state.
- */
-static int mdss_dp_hpd_irq_notify_clients(struct mdss_dp_drv_pdata *dp)
-{
-	const int irq_comp_timeout = HZ * 2;
-	int ret = 0;
-
-	if (dp->hpd_irq_toggled) {
-		dp->hpd_irq_clients_notified = true;
-
-		ret = mdss_dp_notify_clients(dp, false);
-
-		if (!IS_ERR_VALUE(ret) && ret) {
-			reinit_completion(&dp->irq_comp);
-			ret = wait_for_completion_timeout(&dp->irq_comp,
-					irq_comp_timeout);
-			if (ret <= 0) {
-				pr_warn("irq_comp timed out\n");
-				ret = -EINVAL;
-			} else {
-				ret = 0;
-			}
-		}
-	}
-
-	return 0;
-}
-
-/**
  * mdss_dp_link_retraining() - initiates link retraining
  * @dp: Display Port Driver data
  *
@@ -2678,7 +2790,7 @@ static int mdss_dp_hpd_irq_notify_clients(struct mdss_dp_drv_pdata *dp)
  */
 static inline void mdss_dp_link_retraining(struct mdss_dp_drv_pdata *dp)
 {
-	if (mdss_dp_hpd_irq_notify_clients(dp))
+	if (mdss_dp_notify_clients(dp, NOTIFY_DISCONNECT_IRQ_HPD))
 		return;
 
 	mdss_dp_on_irq(dp);
@@ -2814,6 +2926,41 @@ static int mdss_dp_process_downstream_port_status_change(
 }
 
 /**
+ * mdss_dp_process_video_pattern_request() - process new video pattern request
+ * @dp: Display Port Driver data
+ *
+ * This function will handle a new video pattern request that are initiated by
+ * the sink. This is acheieved by first sending a disconnect notification to
+ * the sink followed by a subsequent connect notification to the user modules,
+ * where it is expected that the user modules would draw the required test
+ * pattern.
+ */
+static int mdss_dp_process_video_pattern_request(struct mdss_dp_drv_pdata *dp)
+{
+	if (!mdss_dp_is_video_pattern_requested(dp))
+		return -EINVAL;
+
+	pr_info("%s: bit depth=%d(%d bpp) pattern=%s\n",
+		mdss_dp_get_test_name(TEST_VIDEO_PATTERN),
+		dp->test_data.test_bit_depth,
+		mdss_dp_test_bit_depth_to_bpp(dp->test_data.test_bit_depth),
+		mdss_dp_test_video_pattern_to_string(
+			dp->test_data.test_video_pattern));
+
+	/* Send a disconnect notification */
+	mdss_dp_notify_clients(dp, NOTIFY_DISCONNECT_IRQ_HPD);
+
+	mdss_dp_off_irq(dp);
+
+	/* Send a connect notification */
+	mdss_dp_notify_clients(dp, NOTIFY_CONNECT_IRQ_HPD);
+
+	mdss_dp_send_test_response(dp);
+
+	return 0;
+}
+
+/**
  * mdss_dp_process_hpd_irq_high() - handle HPD IRQ transition to HIGH
  * @dp: Display Port Driver data
  *
@@ -2826,6 +2973,8 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 	int ret = 0;
 
 	dp->hpd_irq_on = true;
+
+	mdss_dp_reset_test_data(dp);
 
 	mdss_dp_aux_parse_sink_status_field(dp);
 
@@ -2844,10 +2993,14 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 	ret = mdss_dp_process_phy_test_pattern_request(dp);
 	if (!ret)
 		goto exit;
-	pr_debug("done\n");
-exit:
-	mdss_dp_reset_test_data(dp);
 
+	ret = mdss_dp_process_video_pattern_request(dp);
+	if (!ret)
+		goto exit;
+
+	pr_debug("done\n");
+
+exit:
 	return ret;
 }
 
@@ -2860,17 +3013,21 @@ exit:
  */
 static int mdss_dp_process_hpd_irq_low(struct mdss_dp_drv_pdata *dp)
 {
-	if (!dp->hpd_irq_clients_notified)
+	if (!dp->hpd_irq_on)
 		return -EINVAL;
 
 	pr_debug("enter: HPD IRQ low\n");
 
-	dp->hpd_irq_on = false;
-	dp->hpd_irq_clients_notified = false;
+	if (dp->hpd_notification_status == NOTIFY_CONNECT_IRQ_HPD) {
+		mdss_dp_notify_clients(dp, NOTIFY_DISCONNECT);
+	} else {
+		/* Clients already notified, so shudown interface directly */
+		mdss_dp_update_cable_status(dp, false);
+		mdss_dp_mainlink_push_idle(&dp->panel_data);
+		mdss_dp_off_hpd(dp);
+	}
 
-	mdss_dp_update_cable_status(dp, false);
-	mdss_dp_mainlink_push_idle(&dp->panel_data);
-	mdss_dp_off_hpd(dp);
+	dp->hpd_irq_on = false;
 
 	mdss_dp_reset_test_data(dp);
 
@@ -2977,7 +3134,7 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 		}
 
 		mdss_dp_update_cable_status(dp_drv, false);
-		mdss_dp_notify_clients(dp_drv, false);
+		mdss_dp_notify_clients(dp_drv, NOTIFY_DISCONNECT);
 		pr_debug("Attention: Notified clients\n");
 		return;
 	}

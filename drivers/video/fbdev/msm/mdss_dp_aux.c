@@ -466,10 +466,8 @@ void dp_extract_edid_video_support(struct edp_edid *edid, char *buf)
 		edid->video_intf = *bp & 0x0f;
 		/* 6, 8, 10, 12, 14 and 16 bit per component */
 		edid->color_depth = ((*bp & 0x70) >> 4); /* color bit depth */
-		if (edid->color_depth) {
-			edid->color_depth *= 2;
-			edid->color_depth += 4;
-		}
+		/* decrement to match with the test_bit_depth enum definition */
+		edid->color_depth--;
 		pr_debug("Digital Video intf=%d color_depth=%d\n",
 			 edid->video_intf, edid->color_depth);
 	} else {
@@ -1258,6 +1256,243 @@ end:
 	return ret;
 }
 
+static int dp_parse_test_timing_params1(struct mdss_dp_drv_pdata *ep,
+	int const addr, int const len, u32 *val)
+{
+	char *bp;
+	struct edp_buf *rp;
+	int rlen;
+
+	if (len < 2)
+		return -EINVAL;
+
+	/* Read the requested video test pattern (Byte 0x221). */
+	rlen = dp_aux_read_buf(ep, addr, len, 0);
+	if (rlen < len) {
+		pr_err("failed to read 0x%x\n", addr);
+		return -EINVAL;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+
+	*val = bp[1] | (bp[0] << 8);
+
+	return 0;
+}
+
+static int dp_parse_test_timing_params2(struct mdss_dp_drv_pdata *ep,
+	int const addr, int const len, u32 *val1, u32 *val2)
+{
+	char *bp;
+	struct edp_buf *rp;
+	int rlen;
+
+	if (len < 2)
+		return -EINVAL;
+
+	/* Read the requested video test pattern (Byte 0x221). */
+	rlen = dp_aux_read_buf(ep, addr, len, 0);
+	if (rlen < len) {
+		pr_err("failed to read 0x%x\n", addr);
+		return -EINVAL;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+
+	*val1 = (bp[0] & BIT(7)) >> 7;
+	*val2 = bp[1] | ((bp[0] & 0x7F) << 8);
+
+	return 0;
+}
+
+static int dp_parse_test_timing_params3(struct mdss_dp_drv_pdata *ep,
+	int const addr, u32 *val)
+{
+	char *bp;
+	struct edp_buf *rp;
+	int rlen;
+
+	/* Read the requested video test pattern (Byte 0x221). */
+	rlen = dp_aux_read_buf(ep, addr, 1, 0);
+	if (rlen < 1) {
+		pr_err("failed to read 0x%x\n", addr);
+		return -EINVAL;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	*val = bp[0];
+
+	return 0;
+}
+
+/**
+ * dp_parse_video_pattern_params() - parses video pattern parameters from DPCD
+ * @ep: Display Port Driver data
+ *
+ * Returns 0 if it successfully parses the video test pattern and the test
+ * bit depth requested by the sink and, and if the values parsed are valid.
+ */
+static int dp_parse_video_pattern_params(struct mdss_dp_drv_pdata *ep)
+{
+	int ret = 0;
+	char *bp;
+	char data;
+	struct edp_buf *rp;
+	int rlen;
+	u32 dyn_range;
+	int const test_parameter_len = 0x1;
+	int const test_video_pattern_addr = 0x221;
+	int const test_misc_addr = 0x232;
+
+	/* Read the requested video test pattern (Byte 0x221). */
+	rlen = dp_aux_read_buf(ep, test_video_pattern_addr,
+			test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read test video pattern\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	if (!mdss_dp_is_test_video_pattern_valid(data)) {
+		pr_err("invalid test video pattern = 0x%x\n", data);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ep->test_data.test_video_pattern = data;
+	pr_debug("test video pattern = 0x%x (%s)\n",
+		ep->test_data.test_video_pattern,
+		mdss_dp_test_video_pattern_to_string(
+			ep->test_data.test_video_pattern));
+
+	/* Read the requested color bit depth and dynamic range (Byte 0x232) */
+	rlen = dp_aux_read_buf(ep, test_misc_addr, test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read test bit depth\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	/* Dynamic Range */
+	dyn_range = (data & BIT(3)) >> 3;
+	if (!mdss_dp_is_dynamic_range_valid(dyn_range)) {
+		pr_err("invalid test dynamic range = 0x%x", dyn_range);
+		ret = -EINVAL;
+		goto exit;
+	}
+	ep->test_data.test_dyn_range = dyn_range;
+	pr_debug("test dynamic range = 0x%x (%s)\n",
+		ep->test_data.test_dyn_range,
+		mdss_dp_dynamic_range_to_string(ep->test_data.test_dyn_range));
+
+	/* Color bit depth */
+	data &= (BIT(5) | BIT(6) | BIT(7));
+	data >>= 5;
+	if (!mdss_dp_is_test_bit_depth_valid(data)) {
+		pr_err("invalid test bit depth = 0x%x\n", data);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ep->test_data.test_bit_depth = data;
+	pr_debug("test bit depth = 0x%x (%s)\n",
+		ep->test_data.test_bit_depth,
+		mdss_dp_test_bit_depth_to_string(ep->test_data.test_bit_depth));
+
+	/* resolution timing params */
+	ret = dp_parse_test_timing_params1(ep, 0x222, 2,
+			&ep->test_data.test_h_total);
+	if (ret) {
+		pr_err("failed to parse test_h_total (0x222)\n");
+		goto exit;
+	}
+	pr_debug("TEST_H_TOTAL = %d\n", ep->test_data.test_h_total);
+
+	ret = dp_parse_test_timing_params1(ep, 0x224, 2,
+			&ep->test_data.test_v_total);
+	if (ret) {
+		pr_err("failed to parse test_v_total (0x224)\n");
+		goto exit;
+	}
+	pr_debug("TEST_V_TOTAL = %d\n", ep->test_data.test_v_total);
+
+	ret = dp_parse_test_timing_params1(ep, 0x226, 2,
+			&ep->test_data.test_h_start);
+	if (ret) {
+		pr_err("failed to parse test_h_start (0x226)\n");
+		goto exit;
+	}
+	pr_debug("TEST_H_START = %d\n", ep->test_data.test_h_start);
+
+	ret = dp_parse_test_timing_params1(ep, 0x228, 2,
+			&ep->test_data.test_v_start);
+	if (ret) {
+		pr_err("failed to parse test_v_start (0x228)\n");
+		goto exit;
+	}
+	pr_debug("TEST_V_START = %d\n", ep->test_data.test_v_start);
+
+	ret = dp_parse_test_timing_params2(ep, 0x22A, 2,
+			&ep->test_data.test_hsync_pol,
+			&ep->test_data.test_hsync_width);
+	if (ret) {
+		pr_err("failed to parse (0x22A)\n");
+		goto exit;
+	}
+	pr_debug("TEST_HSYNC_POL = %d\n", ep->test_data.test_hsync_pol);
+	pr_debug("TEST_HSYNC_WIDTH = %d\n", ep->test_data.test_hsync_width);
+
+	ret = dp_parse_test_timing_params2(ep, 0x22C, 2,
+			&ep->test_data.test_vsync_pol,
+			&ep->test_data.test_vsync_width);
+	if (ret) {
+		pr_err("failed to parse (0x22C)\n");
+		goto exit;
+	}
+	pr_debug("TEST_VSYNC_POL = %d\n", ep->test_data.test_vsync_pol);
+	pr_debug("TEST_VSYNC_WIDTH = %d\n", ep->test_data.test_vsync_width);
+
+	ret = dp_parse_test_timing_params1(ep, 0x22E, 2,
+			&ep->test_data.test_h_width);
+	if (ret) {
+		pr_err("failed to parse test_h_width (0x22E)\n");
+		goto exit;
+	}
+	pr_debug("TEST_H_WIDTH = %d\n", ep->test_data.test_h_width);
+
+	ret = dp_parse_test_timing_params1(ep, 0x230, 2,
+			&ep->test_data.test_v_height);
+	if (ret) {
+		pr_err("failed to parse test_v_height (0x230)\n");
+		goto exit;
+	}
+	pr_debug("TEST_V_HEIGHT = %d\n", ep->test_data.test_v_height);
+
+	ret = dp_parse_test_timing_params3(ep, 0x233, &ep->test_data.test_rr_d);
+	ep->test_data.test_rr_d &= BIT(0);
+	if (ret) {
+		pr_err("failed to parse test_rr_d (0x233)\n");
+		goto exit;
+	}
+	pr_debug("TEST_REFRESH_DENOMINATOR = %d\n", ep->test_data.test_rr_d);
+
+	ret = dp_parse_test_timing_params3(ep, 0x234, &ep->test_data.test_rr_n);
+	if (ret) {
+		pr_err("failed to parse test_rr_n (0x234)\n");
+		goto exit;
+	}
+	pr_debug("TEST_REFRESH_NUMERATOR = %d\n", ep->test_data.test_rr_n);
+
+exit:
+	return ret;
+}
+
 
 /**
  * dp_is_test_supported() - checks if test requested by sink is supported
@@ -1268,6 +1503,7 @@ end:
 static bool dp_is_test_supported(u32 test_requested)
 {
 	return (test_requested == TEST_LINK_TRAINING) ||
+		(test_requested == TEST_VIDEO_PATTERN) ||
 		(test_requested == TEST_EDID_READ) ||
 		(test_requested == PHY_TEST_PATTERN);
 }
@@ -1289,6 +1525,7 @@ static void dp_sink_parse_test_request(struct mdss_dp_drv_pdata *ep)
 	int const test_parameter_len = 0x1;
 	int const device_service_irq_addr = 0x201;
 	int const test_request_addr = 0x218;
+	char buf[4];
 
 	/**
 	 * Read the device service IRQ vector (Byte 0x201) to determine
@@ -1341,11 +1578,18 @@ static void dp_sink_parse_test_request(struct mdss_dp_drv_pdata *ep)
 	case TEST_LINK_TRAINING:
 		ret = dp_parse_link_training_params(ep);
 		break;
+	case TEST_VIDEO_PATTERN:
+		ret = dp_parse_video_pattern_params(ep);
+		break;
 	default:
 		pr_debug("test 0x%x not supported\n",
 				ep->test_data.test_requested);
 		return;
 	}
+
+	/* clear the test request IRQ */
+	buf[0] = 1;
+	dp_aux_write_buf(ep, test_request_addr, buf, 1, 0);
 
 	/**
 	 * Send a TEST_ACK if all test parameters are valid, otherwise send
@@ -1833,8 +2077,6 @@ int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 clear:
 	dp_clear_training_pattern(dp);
 	if (ret != -EINVAL) {
-		mdss_dp_config_misc_settings(&dp->ctrl_io,
-				&dp->panel_data.panel_info);
 		mdss_dp_setup_tr_unit(&dp->ctrl_io, dp->link_rate,
 					dp->lane_cnt, dp->vic,
 					&dp->panel_data.panel_info);

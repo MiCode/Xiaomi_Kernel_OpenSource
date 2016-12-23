@@ -767,28 +767,15 @@ void mdss_dp_sw_config_msa(struct dss_io_data *ctrl_io,
 	writel_relaxed(nvid, ctrl_io->base + DP_SOFTWARE_NVID);
 }
 
-void mdss_dp_config_misc_settings(struct dss_io_data *ctrl_io,
-					struct mdss_panel_info *pinfo)
+void mdss_dp_config_misc(struct mdss_dp_drv_pdata *dp, u32 bd, u32 cc)
 {
-	u32 bpp = pinfo->bpp;
-	u32 misc_val = 0x0;
+	u32 misc_val = cc;
 
-	switch (bpp) {
-	case 18:
-		misc_val |= (0x0 << 5);
-		break;
-	case 30:
-		misc_val |= (0x2 << 5);
-		break;
-	case 24:
-	default:
-		misc_val |= (0x1 << 5);
-	}
-
+	misc_val |= (bd << 5);
 	misc_val |= BIT(0); /* Configure clock to synchronous mode */
 
 	pr_debug("Misc settings = 0x%x\n", misc_val);
-	writel_relaxed(misc_val, ctrl_io->base + DP_MISC1_MISC0);
+	writel_relaxed(misc_val, dp->ctrl_io.base + DP_MISC1_MISC0);
 }
 
 void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,

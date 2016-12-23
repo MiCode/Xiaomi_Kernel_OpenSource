@@ -269,6 +269,21 @@ struct dpcd_test_request {
 	u32 test_link_rate;
 	u32 test_lane_count;
 	u32 phy_test_pattern_sel;
+	u32 test_video_pattern;
+	u32 test_bit_depth;
+	u32 test_dyn_range;
+	u32 test_h_total;
+	u32 test_v_total;
+	u32 test_h_start;
+	u32 test_v_start;
+	u32 test_hsync_pol;
+	u32 test_hsync_width;
+	u32 test_vsync_pol;
+	u32 test_vsync_width;
+	u32 test_h_width;
+	u32 test_v_height;
+	u32 test_rr_d;
+	u32 test_rr_n;
 	u32 response;
 };
 
@@ -493,11 +508,10 @@ struct mdss_dp_drv_pdata {
 	char tu_desired;
 	char valid_boundary;
 	char delay_start;
-	u32 bpp;
 	struct dp_statistic dp_stat;
 	bool hpd_irq_on;
 	bool hpd_irq_toggled;
-	bool hpd_irq_clients_notified;
+	u32 hpd_notification_status;
 
 	struct mdss_dp_event_data dp_event;
 	struct task_struct *ev_thread;
@@ -623,6 +637,7 @@ static inline char *mdss_dp_get_test_response(u32 test_response)
 enum test_type {
 	UNKNOWN_TEST		= 0,
 	TEST_LINK_TRAINING	= BIT(0),
+	TEST_VIDEO_PATTERN	= BIT(1),
 	PHY_TEST_PATTERN	= BIT(3),
 	TEST_EDID_READ		= BIT(2),
 };
@@ -631,6 +646,7 @@ static inline char *mdss_dp_get_test_name(u32 test_requested)
 {
 	switch (test_requested) {
 	case TEST_LINK_TRAINING:	return DP_ENUM_STR(TEST_LINK_TRAINING);
+	case TEST_VIDEO_PATTERN:	return DP_ENUM_STR(TEST_VIDEO_PATTERN);
 	case PHY_TEST_PATTERN:		return DP_ENUM_STR(PHY_TEST_PATTERN);
 	case TEST_EDID_READ:		return DP_ENUM_STR(TEST_EDID_READ);
 	default:			return "unknown";
@@ -689,6 +705,222 @@ static inline char *mdss_dp_ev_event_to_string(int event)
 		return DP_ENUM_STR(EV_USBPD_EXIT_MODE);
 	case EV_USBPD_ATTENTION:
 		return DP_ENUM_STR(EV_USBPD_ATTENTION);
+	default:
+		return "unknown";
+	}
+}
+
+enum dynamic_range {
+	DP_DYNAMIC_RANGE_RGB_VESA = 0x00,
+	DP_DYNAMIC_RANGE_RGB_CEA = 0x01,
+	DP_DYNAMIC_RANGE_UNKNOWN = 0xFFFFFFFF,
+};
+
+static inline char *mdss_dp_dynamic_range_to_string(u32 dr)
+{
+	switch (dr) {
+	case DP_DYNAMIC_RANGE_RGB_VESA:
+		return DP_ENUM_STR(DP_DYNAMIC_RANGE_RGB_VESA);
+	case DP_DYNAMIC_RANGE_RGB_CEA:
+		return DP_ENUM_STR(DP_DYNAMIC_RANGE_RGB_CEA);
+	case DP_DYNAMIC_RANGE_UNKNOWN:
+	default:
+		return "unknown";
+	}
+}
+
+/**
+ * mdss_dp_is_dynamic_range_valid() - validates the dynamic range
+ * @bit_depth: the dynamic range value to be checked
+ *
+ * Returns true if the dynamic range value is supported.
+ */
+static inline bool mdss_dp_is_dynamic_range_valid(u32 dr)
+{
+	switch (dr) {
+	case DP_DYNAMIC_RANGE_RGB_VESA:
+	case DP_DYNAMIC_RANGE_RGB_CEA:
+		return true;
+	default:
+		return false;
+	}
+}
+
+enum test_bit_depth {
+	DP_TEST_BIT_DEPTH_6 = 0x00,
+	DP_TEST_BIT_DEPTH_8 = 0x01,
+	DP_TEST_BIT_DEPTH_10 = 0x02,
+	DP_TEST_BIT_DEPTH_UNKNOWN = 0xFFFFFFFF,
+};
+
+static inline char *mdss_dp_test_bit_depth_to_string(u32 tbd)
+{
+	switch (tbd) {
+	case DP_TEST_BIT_DEPTH_6:
+		return DP_ENUM_STR(DP_TEST_BIT_DEPTH_6);
+	case DP_TEST_BIT_DEPTH_8:
+		return DP_ENUM_STR(DP_TEST_BIT_DEPTH_8);
+	case DP_TEST_BIT_DEPTH_10:
+		return DP_ENUM_STR(DP_TEST_BIT_DEPTH_10);
+	case DP_TEST_BIT_DEPTH_UNKNOWN:
+	default:
+		return "unknown";
+	}
+}
+
+/**
+ * mdss_dp_is_test_bit_depth_valid() - validates the bit depth requested
+ * @bit_depth: bit depth requested by the sink
+ *
+ * Returns true if the requested bit depth is supported.
+ */
+static inline bool mdss_dp_is_test_bit_depth_valid(u32 tbd)
+{
+	/* DP_TEST_VIDEO_PATTERN_NONE is treated as invalid */
+	switch (tbd) {
+	case DP_TEST_BIT_DEPTH_6:
+	case DP_TEST_BIT_DEPTH_8:
+	case DP_TEST_BIT_DEPTH_10:
+		return true;
+	default:
+		return false;
+	}
+}
+
+/**
+ * mdss_dp_test_bit_depth_to_bpp() - convert test bit depth to bpp
+ * @tbd: test bit depth
+ *
+ * Returns the bits per pixel (bpp) to be used corresponding to the
+ * git bit depth value. This function assumes that bit depth has
+ * already been validated.
+ */
+static inline u32 mdss_dp_test_bit_depth_to_bpp(enum test_bit_depth tbd)
+{
+	u32 bpp;
+
+	/*
+	 * Few simplistic rules and assumptions made here:
+	 *    1. Bit depth is per color component
+	 *    2. If bit depth is unknown return 0
+	 *    3. Assume 3 color components
+	 */
+	switch (tbd) {
+	case DP_TEST_BIT_DEPTH_6:
+		bpp = 18;
+		break;
+	case DP_TEST_BIT_DEPTH_8:
+		bpp = 24;
+		break;
+	case DP_TEST_BIT_DEPTH_10:
+		bpp = 30;
+		break;
+	case DP_TEST_BIT_DEPTH_UNKNOWN:
+	default:
+		bpp = 0;
+	}
+
+	return bpp;
+}
+
+/**
+ * mdss_dp_bpp_to_test_bit_depth() - convert bpp to test bit depth
+ * &bpp: the bpp to be converted
+ *
+ * Return the bit depth per color component to used with the video
+ * test pattern data based on the bits per pixel value.
+ */
+static inline u32 mdss_dp_bpp_to_test_bit_depth(u32 bpp)
+{
+	enum test_bit_depth tbd;
+
+	/*
+	 * Few simplistic rules and assumptions made here:
+	 *    1. Test bit depth is bit depth per color component
+	 *    2. Assume 3 color components
+	 */
+	switch (bpp) {
+	case 18:
+		tbd = DP_TEST_BIT_DEPTH_6;
+		break;
+	case 24:
+		tbd = DP_TEST_BIT_DEPTH_8;
+		break;
+	case 30:
+		tbd = DP_TEST_BIT_DEPTH_10;
+		break;
+	default:
+		tbd = DP_TEST_BIT_DEPTH_UNKNOWN;
+		break;
+	}
+
+	return tbd;
+}
+
+enum test_video_pattern {
+	DP_TEST_VIDEO_PATTERN_NONE = 0x00,
+	DP_TEST_VIDEO_PATTERN_COLOR_RAMPS = 0x01,
+	DP_TEST_VIDEO_PATTERN_BW_VERT_LINES = 0x02,
+	DP_TEST_VIDEO_PATTERN_COLOR_SQUARE = 0x03,
+};
+
+static inline char *mdss_dp_test_video_pattern_to_string(u32 test_video_pattern)
+{
+	switch (test_video_pattern) {
+	case DP_TEST_VIDEO_PATTERN_NONE:
+		return DP_ENUM_STR(DP_TEST_VIDEO_PATTERN_NONE);
+	case DP_TEST_VIDEO_PATTERN_COLOR_RAMPS:
+		return DP_ENUM_STR(DP_TEST_VIDEO_PATTERN_COLOR_RAMPS);
+	case DP_TEST_VIDEO_PATTERN_BW_VERT_LINES:
+		return DP_ENUM_STR(DP_TEST_VIDEO_PATTERN_BW_VERT_LINES);
+	case DP_TEST_VIDEO_PATTERN_COLOR_SQUARE:
+		return DP_ENUM_STR(DP_TEST_VIDEO_PATTERN_COLOR_SQUARE);
+	default:
+		return "unknown";
+	}
+}
+
+/**
+ * mdss_dp_is_test_video_pattern_valid() - validates the video pattern
+ * @pattern: video pattern requested by the sink
+ *
+ * Returns true if the requested video pattern is supported.
+ */
+static inline bool mdss_dp_is_test_video_pattern_valid(u32 pattern)
+{
+	switch (pattern) {
+	case DP_TEST_VIDEO_PATTERN_NONE:
+	case DP_TEST_VIDEO_PATTERN_COLOR_RAMPS:
+	case DP_TEST_VIDEO_PATTERN_BW_VERT_LINES:
+	case DP_TEST_VIDEO_PATTERN_COLOR_SQUARE:
+		return true;
+	default:
+		return false;
+	}
+}
+
+enum notification_status {
+	NOTIFY_UNKNOWN,
+	NOTIFY_CONNECT,
+	NOTIFY_DISCONNECT,
+	NOTIFY_CONNECT_IRQ_HPD,
+	NOTIFY_DISCONNECT_IRQ_HPD,
+};
+
+static inline char const *mdss_dp_notification_status_to_string(
+	enum notification_status status)
+{
+	switch (status) {
+	case NOTIFY_UNKNOWN:
+		return DP_ENUM_STR(NOTIFY_UNKNOWN);
+	case NOTIFY_CONNECT:
+		return DP_ENUM_STR(NOTIFY_CONNECT);
+	case NOTIFY_DISCONNECT:
+		return DP_ENUM_STR(NOTIFY_DISCONNECT);
+	case NOTIFY_CONNECT_IRQ_HPD:
+		return DP_ENUM_STR(NOTIFY_CONNECT_IRQ_HPD);
+	case NOTIFY_DISCONNECT_IRQ_HPD:
+		return DP_ENUM_STR(NOTIFY_DISCONNECT_IRQ_HPD);
 	default:
 		return "unknown";
 	}

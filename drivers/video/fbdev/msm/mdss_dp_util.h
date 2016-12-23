@@ -65,6 +65,7 @@
 #define DP_TEST_80BIT_CUSTOM_PATTERN_REG1	(0x000004C4)
 #define DP_TEST_80BIT_CUSTOM_PATTERN_REG2	(0x000004C8)
 
+#define MMSS_DP_MISC1_MISC0			(0x0000042C)
 #define	MMSS_DP_AUDIO_TIMING_GEN		(0x00000480)
 #define	MMSS_DP_AUDIO_TIMING_RBR_32		(0x00000484)
 #define	MMSS_DP_AUDIO_TIMING_HBR_32		(0x00000488)
@@ -285,8 +286,7 @@ void mdss_dp_switch_usb3_phy_to_dp_mode(struct dss_io_data *tcsr_reg_io);
 void mdss_dp_assert_phy_reset(struct dss_io_data *ctrl_io, bool assert);
 void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
 			u8 ln_cnt, u32 res, struct mdss_panel_info *pinfo);
-void mdss_dp_config_misc_settings(struct dss_io_data *ctrl_io,
-					struct mdss_panel_info *pinfo);
+void mdss_dp_config_misc(struct mdss_dp_drv_pdata *dp, u32 bd, u32 cc);
 void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io);
 void mdss_dp_hpd_configure(struct dss_io_data *ctrl_io, bool enable);
 void mdss_dp_aux_ctrl(struct dss_io_data *ctrl_io, bool enable);
