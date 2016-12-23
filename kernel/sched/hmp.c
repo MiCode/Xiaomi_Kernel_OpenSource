@@ -3070,6 +3070,7 @@ const char *sched_window_reset_reasons[] = {
 	"WINDOW_CHANGE",
 	"POLICY_CHANGE",
 	"HIST_SIZE_CHANGE",
+	"FREQ_AGGREGATE_CHANGE",
 };
 
 /* Called with IRQs enabled */
