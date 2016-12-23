@@ -325,7 +325,7 @@ config USB_CONFIGFS_ECM_SUBSET
 	  a simple CDC subset is used, placing fewer demands on USB.
 
 config USB_CONFIGFS_QCRNDIS
-	bool "RNDIS"
+	bool "QCRNDIS"
 	depends on USB_CONFIGFS
 	depends on RNDIS_IPA
 	depends on NET
