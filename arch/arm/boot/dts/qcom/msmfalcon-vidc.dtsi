@@ -14,6 +14,8 @@
 #include <dt-bindings/msm/msm-bus-ids.h>
 #include <dt-bindings/clock/qcom,gcc-msmfalcon.h>
 #include <dt-bindings/clock/qcom,mmcc-msmfalcon.h>
+#include <dt-bindings/clock/qcom,rpmcc.h>
+
 
 &soc {
 	msm_vidc: qcom,vidc@cc00000 {
@@ -25,16 +27,10 @@
 		qcom,hfi-version = "3xx";
 		qcom,firmware-name = "venus";
 		qcom,sw-power-collapse;
-		qcom,debug-timeout;
 		qcom,reg-presets =
-			<0x80124 0x00000003>,
-			<0x80550 0x01111111>,
-			<0x80560 0x01111111>,
-			<0x80568 0x01111111>,
-			<0x80570 0x01111111>,
-			<0x80580 0x01111111>,
-			<0x80588 0x01111111>,
-			<0xe2010 0x00000000>;
+			<0x80010 0x00000003>,
+			<0x80018 0x05555556>,
+			<0x8001c 0x05555556>;
 
 		qcom,max-hw-load = <1036800>; /* Full 4k @ 30 */
 		qcom,allowed-clock-rates =
@@ -70,7 +66,7 @@
 			"mmss_video_axi_clk",
 			"mmss_video_core0_clk";
 		clocks = <&clock_gcc GCC_MMSS_SYS_NOC_AXI_CLK>,
-			<&clock_gcc MMSSNOC_AXI_CLK>,
+			<&clock_rpmcc MMSSNOC_AXI_CLK>,
 			<&clock_mmss MMSS_MNOC_AHB_CLK>,
 			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
 			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
@@ -210,7 +206,7 @@
 				<&mmss_bimc_smmu 0x411>,
 				<&mmss_bimc_smmu 0x431>;
 			buffer-types = <0xfff>;
-			virtual-addr-pool = <0x70800000 0x8f800000>;
+			virtual-addr-pool = <0x70800000 0x6f800000>;
 		};
 
 		firmware_cb {
