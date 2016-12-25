@@ -4557,7 +4557,7 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 			rounddown(smmu_info.ipa_base, PAGE_SIZE),
 			rounddown(smmu_info.ipa_base, PAGE_SIZE),
 			roundup(smmu_info.ipa_size, PAGE_SIZE),
-			IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
+			IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
 		if (ret) {
 			IPAERR("map IPA to WLAN_CB IOMMU failed ret=%d\n",
 				ret);
@@ -4746,7 +4746,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 				rounddown(smmu_info.ipa_base, PAGE_SIZE),
 				rounddown(smmu_info.ipa_base, PAGE_SIZE),
 				roundup(smmu_info.ipa_size, PAGE_SIZE),
-				IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
+				IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
 		if (result) {
 			IPAERR("map IPA region to AP_CB IOMMU failed ret=%d\n",
 				result);
