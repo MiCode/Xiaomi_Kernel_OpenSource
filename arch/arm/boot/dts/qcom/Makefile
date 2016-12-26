@@ -116,6 +116,8 @@ dtb-$(CONFIG_ARCH_MSM8998) += msm8998-sim.dtb \
 	msm8998-v2-qrd-skuk.dtb \
 	msm8998-qrd-vr1.dtb \
 	msm8998-v2-qrd-vr1.dtb \
+	msm8998-v2-qrd-skuk-evt3.dtb \
+	msm8998-v2-qrd-skuk-hdk.dtb \
 	apq8998-mtp.dtb \
 	apq8998-cdp.dtb \
 	apq8998-v2-mtp.dtb \
