@@ -73,8 +73,10 @@ struct cprh_msm8998_kbss_fuses {
 /*
  * Fuse combos 0 - 7 map to CPR fusing revision 0 - 7 with speed bin fuse = 0.
  * Fuse combos 8 - 15 map to CPR fusing revision 0 - 7 with speed bin fuse = 1.
+ * Fuse combos 16 - 23 map to CPR fusing revision 0 - 7 with speed bin fuse = 2.
+ * Fuse combos 24 - 31 map to CPR fusing revision 0 - 7 with speed bin fuse = 3.
  */
-#define CPRH_MSM8998_KBSS_FUSE_COMBO_COUNT 16
+#define CPRH_MSM8998_KBSS_FUSE_COMBO_COUNT 32
 
 /*
  * Constants which define the name of each fuse corner.
@@ -866,6 +868,44 @@ static int cprh_kbss_apm_crossover_as_corner(struct cpr3_regulator *vreg)
 }
 
 /**
+ * cprh_kbss_mem_acc_crossover_as_corner() - introduce a corner whose floor,
+ *		open-loop, and ceiling voltages correspond to the MEM ACC
+ *		crossover voltage.
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * The MEM ACC corner is utilized as a crossover corner by OSM and CPRh
+ * hardware to set the VDD supply voltage during the MEM ACC switch
+ * routine.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cprh_kbss_mem_acc_crossover_as_corner(struct cpr3_regulator *vreg)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct cpr3_corner *corner;
+
+	if (!ctrl->mem_acc_crossover_volt) {
+		/* MEM ACC voltage crossover corner not required. */
+		return 0;
+	}
+
+	corner = &vreg->corner[vreg->corner_count];
+	/*
+	 * 0 MHz indicates this corner is not to be
+	 * used as active DCVS set point.
+	 */
+	corner->proc_freq = 0;
+	corner->floor_volt = ctrl->mem_acc_crossover_volt;
+	corner->ceiling_volt = ctrl->mem_acc_crossover_volt;
+	corner->open_loop_volt = ctrl->mem_acc_crossover_volt;
+	corner->abs_ceiling_volt = ctrl->mem_acc_crossover_volt;
+	corner->use_open_loop = true;
+	vreg->corner_count++;
+
+	return 0;
+}
+
+/**
  * cprh_msm8998_kbss_set_no_interpolation_quotients() - use the fused target
  *		quotient values for lower frequencies.
  * @vreg:		Pointer to the CPR3 regulator
@@ -1196,6 +1236,7 @@ static int cprh_kbss_init_regulator(struct cpr3_regulator *vreg)
 	}
 
 	cprh_adjust_voltages_for_apm(vreg);
+	cprh_adjust_voltages_for_mem_acc(vreg);
 
 	cpr3_open_loop_voltage_as_ceiling(vreg);
 
@@ -1244,6 +1285,13 @@ static int cprh_kbss_init_regulator(struct cpr3_regulator *vreg)
 	rc = cprh_kbss_apm_crossover_as_corner(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to introduce APM voltage crossover corner, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = cprh_kbss_mem_acc_crossover_as_corner(vreg);
+	if (rc) {
+		cpr3_err(vreg, "unable to introduce MEM ACC voltage crossover corner, rc=%d\n",
 			rc);
 		return rc;
 	}
@@ -1420,6 +1468,25 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 	ctrl->saw_use_unit_mV = of_property_read_bool(ctrl->dev->of_node,
 					"qcom,cpr-saw-use-unit-mV");
 
+	rc = of_property_read_u32(ctrl->dev->of_node,
+				  "qcom,mem-acc-threshold-voltage",
+				  &ctrl->mem_acc_threshold_volt);
+	if (!rc) {
+		ctrl->mem_acc_threshold_volt
+		    = CPR3_ROUND(ctrl->mem_acc_threshold_volt, ctrl->step_volt);
+
+		rc = of_property_read_u32(ctrl->dev->of_node,
+					  "qcom,mem-acc-crossover-voltage",
+					  &ctrl->mem_acc_crossover_volt);
+		if (rc) {
+			cpr3_err(ctrl, "error reading property qcom,mem-acc-crossover-voltage, rc=%d\n",
+				 rc);
+			return rc;
+		}
+		ctrl->mem_acc_crossover_volt
+		    = CPR3_ROUND(ctrl->mem_acc_crossover_volt, ctrl->step_volt);
+	}
+
 	/*
 	 * Use fixed step quotient if specified otherwise use dynamically
 	 * calculated per RO step quotient
@@ -1475,6 +1542,14 @@ static int cprh_kbss_populate_opp_table(struct cpr3_controller *ctrl)
 
 	for (i = 0; i < vreg->corner_count; i++) {
 		corner = &vreg->corner[i];
+		if (!corner->proc_freq) {
+			/*
+			 * 0 MHz indicates this corner is not to be
+			 * used as active DCVS set point. Don't add it
+			 * to the OPP table.
+			 */
+			continue;
+		}
 		rc = dev_pm_opp_add(dev, corner->proc_freq, i + 1);
 		if (rc) {
 			cpr3_err(ctrl, "could not add OPP for corner %d with frequency %u MHz, rc=%d\n",

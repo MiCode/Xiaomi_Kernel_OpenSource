@@ -141,6 +141,9 @@ struct cpr4_sdelta {
  * @use_open_loop:	Boolean indicating that open-loop (i.e CPR disabled) as
  *			opposed to closed-loop operation must be used for this
  *			corner on CPRh controllers.
+ * @ldo_mode_allowed:	Boolean which indicates if LDO mode is allowed for this
+ *			corner. This field is applicable for CPR4 controllers
+ *			that manage LDO300 supply regulator.
  * @sdelta:		The CPR4 controller specific data for this corner. This
  *			field is applicable for CPR4 controllers.
  *
@@ -174,6 +177,7 @@ struct cpr3_corner {
 	u32			irq_en;
 	int			aging_derate;
 	bool			use_open_loop;
+	bool			ldo_mode_allowed;
 	struct cpr4_sdelta	*sdelta;
 };
 
@@ -190,6 +194,18 @@ struct cpr3_corner {
 struct cprh_corner_band {
 	int			corner;
 	struct cpr4_sdelta	*sdelta;
+};
+
+/**
+ * enum cpr3_ldo_type - Constants which define the LDO supply regulator
+ *	types used to manage the subsystem component rail voltage.
+ * %CPR3_LDO_KRYO:	Kryo LDO regulator used to sub-regulate the HMSS
+ *			per-cluster voltage.
+ * %CPR3_LDO300:	LDO regulator used to sub-regulate the GFX voltage.
+ */
+enum cpr3_ldo_type {
+	CPR3_LDO_KRYO	= 0,
+	CPR3_LDO300	= 1,
 };
 
 /**
@@ -275,6 +291,7 @@ struct cprh_corner_band {
  *			participated in the last aggregation event
  * @debug_corner:	Index identifying voltage corner used for displaying
  *			corner configuration values in debugfs
+ * @ldo_type:		LDO regulator type.
  * @ldo_min_headroom_volt: Minimum voltage difference in microvolts required
  *			between the VDD supply voltage and the LDO output in
  *			order for the LDO operate
@@ -358,6 +375,7 @@ struct cpr3_regulator {
 	int			last_closed_loop_corner;
 	bool			aggregated;
 	int			debug_corner;
+	enum cpr3_ldo_type	ldo_type;
 	int			ldo_min_headroom_volt;
 	int			ldo_max_headroom_volt;
 	int			ldo_adjust_volt;
@@ -565,6 +583,11 @@ struct cpr3_panic_regs_info {
  * @mem_acc_corner_map: mem-acc regulator corners mapping to low and high
  *			voltage mem-acc settings for the memories powered by
  *			this CPR3 controller and its associated CPR3 regulators
+ * @mem_acc_crossover_volt: Voltage in microvolts corresponding to the voltage
+ *			that the VDD supply must be set to while a MEM ACC
+ *			switch is in progress. This element must be initialized
+ *			for CPRh controllers when a MEM ACC threshold voltage is
+ *			defined.
  * @core_clk:		Pointer to the CPR3 controller core clock
  * @iface_clk:		Pointer to the CPR3 interface clock (platform specific)
  * @bus_clk:		Pointer to the CPR3 bus clock (platform specific)
@@ -710,6 +733,8 @@ struct cpr3_panic_regs_info {
  * @panic_regs_info:	Array of panic registers information which provides the
  *			list of registers to dump when the device crashes.
  * @panic_notifier:	Notifier block registered to global panic notifier list.
+ * @support_ldo300_vreg: Boolean value which indicates that this CPR controller
+ *			manages an underlying LDO regulator of type LDO300.
  *
  * This structure contains both configuration and runtime state data.  The
  * elements cpr_allowed_sw, use_hw_closed_loop, aggr_corner, cpr_enabled,
@@ -744,6 +769,7 @@ struct cpr3_controller {
 	int			system_supply_max_volt;
 	int			mem_acc_threshold_volt;
 	int			mem_acc_corner_map[CPR3_MEM_ACC_CORNERS];
+	int			mem_acc_crossover_volt;
 	struct clk		*core_clk;
 	struct clk		*iface_clk;
 	struct clk		*bus_clk;
@@ -809,6 +835,7 @@ struct cpr3_controller {
 	u32			voltage_settling_time;
 	struct cpr3_panic_regs_info *panic_regs_info;
 	struct notifier_block	panic_notifier;
+	bool			support_ldo300_vreg;
 };
 
 /* Used for rounding voltages to the closest physically available set point. */
@@ -876,6 +903,7 @@ int cpr4_parse_core_count_temp_voltage_adj(struct cpr3_regulator *vreg,
 int cpr3_apm_init(struct cpr3_controller *ctrl);
 int cpr3_mem_acc_init(struct cpr3_regulator *vreg);
 void cprh_adjust_voltages_for_apm(struct cpr3_regulator *vreg);
+void cprh_adjust_voltages_for_mem_acc(struct cpr3_regulator *vreg);
 
 #else
 
@@ -1049,6 +1077,10 @@ static inline int cpr3_mem_acc_init(struct cpr3_regulator *vreg)
 }
 
 static inline void cprh_adjust_voltages_for_apm(struct cpr3_regulator *vreg)
+{
+}
+
+static inline void cprh_adjust_voltages_for_mem_acc(struct cpr3_regulator *vreg)
 {
 }
 

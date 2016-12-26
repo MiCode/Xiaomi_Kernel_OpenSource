@@ -29,6 +29,8 @@ int link2xclk_divsel_set_div(struct div_clk *clk, int div)
 	int rc;
 	u32 link2xclk_div_tx0, link2xclk_div_tx1;
 	u32 phy_mode;
+	u8 orientation;
+	u32 spare_value;
 	struct mdss_pll_resources *dp_res = clk->priv;
 
 	rc = mdss_pll_resource_enable(dp_res, true);
@@ -36,6 +38,11 @@ int link2xclk_divsel_set_div(struct div_clk *clk, int div)
 		pr_err("Failed to enable mdss DP PLL resources\n");
 		return rc;
 	}
+
+	spare_value = MDSS_PLL_REG_R(dp_res->phy_base, DP_PHY_SPARE0);
+	orientation = (spare_value & 0xF0) >> 4;
+	pr_debug("spare_value=0x%x, orientation=0x%x\n", spare_value,
+			orientation);
 
 	link2xclk_div_tx0 = MDSS_PLL_REG_R(dp_res->phy_base,
 				QSERDES_TX0_OFFSET + TXn_TX_BAND);
@@ -49,8 +56,12 @@ int link2xclk_divsel_set_div(struct div_clk *clk, int div)
 	link2xclk_div_tx0 |= 0x4;
 	link2xclk_div_tx1 |= 0x4;
 
-	/*configure DP PHY MODE */
-	phy_mode = 0x58;
+	/* Configure DP PHY MODE depending on the plug orientation */
+	if (orientation == ORIENTATION_CC2)
+		phy_mode = 0x48;
+	else
+		phy_mode = 0x58;
+
 
 	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_TX_BAND,
@@ -334,11 +345,9 @@ int dp_config_vco_rate(struct dp_pll_vco_clk *vco, unsigned long rate)
 	wmb();
 
 	if (orientation == ORIENTATION_CC2)
-		MDSS_PLL_REG_W(dp_res->phy_base,
-				DP_PHY_MODE, 0x48);
+		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0x48);
 	else
-		MDSS_PLL_REG_W(dp_res->phy_base,
-				DP_PHY_MODE, 0x58);
+		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0x58);
 
 	MDSS_PLL_REG_W(dp_res->phy_base,
 			DP_PHY_TX0_TX1_LANE_CTL, 0x05);
@@ -452,7 +461,7 @@ static int dp_pll_enable(struct clk *c)
 	struct dp_pll_vco_clk *vco = mdss_dp_to_vco_clk(c);
 	struct mdss_pll_resources *dp_res = vco->priv;
 	u8 orientation, ln_cnt;
-	u32 spare_value, bias_en, drvr_en;
+	u32 spare_value, bias_en, drvr_en, lane_mode;
 
 	spare_value = MDSS_PLL_REG_R(dp_res->phy_base, DP_PHY_SPARE0);
 	ln_cnt = spare_value & 0x0F;
@@ -562,12 +571,18 @@ static int dp_pll_enable(struct clk *c)
 	 */
 	wmb();
 
+	if (vco->rate == DP_VCO_HSCLK_RATE_2700MHZDIV1000)
+		lane_mode = 0xc6;
+	else
+		lane_mode = 0xf6;
+
 	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_LANE_MODE_1,
-			0xf6);
+			lane_mode);
 	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_LANE_MODE_1,
-			0xf6);
+			lane_mode);
+
 	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_CLKBUF_ENABLE,
 			0x1f);
@@ -821,8 +836,8 @@ enum handoff dp_vco_handoff(struct clk *c)
 		io->handoff_resources = true;
 		ret = HANDOFF_ENABLED_CLK;
 	} else {
-		io->handoff_resources = false;
 		mdss_pll_resource_enable(io, false);
+		ret = HANDOFF_DISABLED_CLK;
 		DEV_DBG("%s: PLL not locked\n", __func__);
 	}
 

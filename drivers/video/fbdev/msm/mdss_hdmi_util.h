@@ -16,6 +16,7 @@
 #include "video/msm_hdmi_modes.h"
 
 #include "mdss_panel.h"
+#include "mdss_hdmi_panel.h"
 
 /* HDMI_TX Registers */
 #define HDMI_CTRL                        (0x00000000)
@@ -495,6 +496,7 @@ bool hdmi_is_valid_resv_timing(int mode);
 void hdmi_reset_resv_timing_info(void);
 int hdmi_panel_get_vic(struct mdss_panel_info *pinfo,
 		struct hdmi_util_ds_data *ds_data);
+int hdmi_tx_setup_tmds_clk_rate(u32 pixel_freq, u32 out_format, bool dc_enable);
 
 /* todo: Fix this. Right now this is defined in mdss_hdmi_tx.c */
 void *hdmi_get_featuredata_from_sysfs_dev(struct device *device, u32 type);

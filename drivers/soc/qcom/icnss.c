@@ -36,6 +36,7 @@
 #include <linux/thread_info.h>
 #include <linux/uaccess.h>
 #include <linux/qpnp/qpnp-adc.h>
+#include <linux/etherdevice.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/msm_qmi_interface.h>
@@ -257,6 +258,12 @@ struct icnss_stats {
 	uint32_t vbatt_req_err;
 };
 
+#define MAX_NO_OF_MAC_ADDR 4
+struct icnss_wlan_mac_addr {
+	u8 mac_addr[MAX_NO_OF_MAC_ADDR][ETH_ALEN];
+	uint32_t no_of_mac_addr_set;
+};
+
 static struct icnss_priv {
 	uint32_t magic;
 	struct platform_device *pdev;
@@ -310,6 +317,8 @@ static struct icnss_priv {
 	uint64_t vph_pwr;
 	atomic_t pm_count;
 	struct ramdump_device *msa0_dump_dev;
+	bool is_wlan_mac_set;
+	struct icnss_wlan_mac_addr wlan_mac_addr;
 } *penv;
 
 static void icnss_pm_stay_awake(struct icnss_priv *priv)
@@ -1887,7 +1896,8 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	icnss_pr_dbg("Modem-Notify: event %lu\n", code);
 
-	if (code == SUBSYS_AFTER_SHUTDOWN) {
+	if (code == SUBSYS_AFTER_SHUTDOWN &&
+		notif->crashed != CRASH_STATUS_WDOG_BITE) {
 		icnss_remove_msa_permissions(priv);
 		icnss_pr_info("Collecting msa0 segment dump\n");
 		icnss_msa0_ramdump(priv);
@@ -2621,6 +2631,78 @@ unsigned int icnss_socinfo_get_serial_number(struct device *dev)
 	return socinfo_get_serial_number();
 }
 EXPORT_SYMBOL(icnss_socinfo_get_serial_number);
+
+int icnss_set_wlan_mac_address(const u8 *in, const uint32_t len)
+{
+	struct icnss_priv *priv = penv;
+	uint32_t no_of_mac_addr;
+	struct icnss_wlan_mac_addr *addr = NULL;
+	int iter;
+	u8 *temp = NULL;
+
+	if (!priv) {
+		icnss_pr_err("Priv data is NULL\n");
+		return -EINVAL;
+	}
+
+	if (priv->is_wlan_mac_set) {
+		icnss_pr_dbg("WLAN MAC address is already set\n");
+		return 0;
+	}
+
+	if (len == 0 || (len % ETH_ALEN) != 0) {
+		icnss_pr_err("Invalid length %d\n", len);
+		return -EINVAL;
+	}
+
+	no_of_mac_addr = len / ETH_ALEN;
+	if (no_of_mac_addr > MAX_NO_OF_MAC_ADDR) {
+		icnss_pr_err("Exceed maxinum supported MAC address %u %u\n",
+			     MAX_NO_OF_MAC_ADDR, no_of_mac_addr);
+		return -EINVAL;
+	}
+
+	priv->is_wlan_mac_set = true;
+	addr = &priv->wlan_mac_addr;
+	addr->no_of_mac_addr_set = no_of_mac_addr;
+	temp = &addr->mac_addr[0][0];
+
+	for (iter = 0; iter < no_of_mac_addr;
+	     ++iter, temp += ETH_ALEN, in += ETH_ALEN) {
+		ether_addr_copy(temp, in);
+		icnss_pr_dbg("MAC_ADDR:%02x:%02x:%02x:%02x:%02x:%02x\n",
+			     temp[0], temp[1], temp[2],
+			     temp[3], temp[4], temp[5]);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(icnss_set_wlan_mac_address);
+
+u8 *icnss_get_wlan_mac_address(struct device *dev, uint32_t *num)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_wlan_mac_addr *addr = NULL;
+
+	if (priv->magic != ICNSS_MAGIC) {
+		icnss_pr_err("Invalid drvdata: dev %p, data %p, magic 0x%x\n",
+			     dev, priv, priv->magic);
+		goto out;
+	}
+
+	if (!priv->is_wlan_mac_set) {
+		icnss_pr_dbg("WLAN MAC address is not set\n");
+		goto out;
+	}
+
+	addr = &priv->wlan_mac_addr;
+	*num = addr->no_of_mac_addr_set;
+	return &addr->mac_addr[0][0];
+out:
+	*num = 0;
+	return NULL;
+}
+EXPORT_SYMBOL(icnss_get_wlan_mac_address);
 
 static int icnss_smmu_init(struct icnss_priv *priv)
 {

@@ -52,17 +52,25 @@ void *service_notif_register_notifier(const char *service_path, int instance_id,
 int service_notif_unregister_notifier(void *service_notif_handle,
 					struct notifier_block *nb);
 
+int service_notif_pd_restart(const char *service_path, int instance_id);
+
 #else
 
-static void *service_notif_register_notifier(const char *service_path,
+static inline void *service_notif_register_notifier(const char *service_path,
 				int instance_id, struct notifier_block *nb,
 				int *curr_state)
 {
 	return ERR_PTR(-ENODEV);
 }
 
-static int service_notif_unregister_notifier(void *service_notif_handle,
+static inline int service_notif_unregister_notifier(void *service_notif_handle,
 					struct notifier_block *nb)
+{
+	return -ENODEV;
+}
+
+static inline int service_notif_pd_restart(const char *service_path,
+						int instance_id)
 {
 	return -ENODEV;
 }

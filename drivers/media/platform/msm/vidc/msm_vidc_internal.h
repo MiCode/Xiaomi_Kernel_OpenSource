@@ -230,6 +230,7 @@ enum msm_vidc_modes {
 	VIDC_TURBO = BIT(1),
 	VIDC_THUMBNAIL = BIT(2),
 	VIDC_LOW_POWER = BIT(3),
+	VIDC_REALTIME = BIT(4),
 };
 
 struct msm_vidc_core {
@@ -298,6 +299,7 @@ struct msm_vidc_inst {
 	atomic_t in_flush;
 	u32 pic_struct;
 	u32 colour_space;
+	u32 operating_rate;
 };
 
 extern struct msm_vidc_drv *vidc_driver;

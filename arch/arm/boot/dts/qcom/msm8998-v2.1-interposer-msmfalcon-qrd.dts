@@ -25,6 +25,24 @@
 	qcom,board-id = <0x03000b 0x80>;
 };
 
+&slim_aud {
+	tasha_codec {
+		/delete-property/cdc-vdd-buck-supply;
+		/delete-property/cdc-buck-sido-supply;
+		/delete-property/cdc-vdd-tx-h-supply;
+		/delete-property/cdc-vdd-rx-h-supply;
+		/delete-property/cdc-vddpx-1-supply;
+	};
+
+	tavil_codec {
+		/delete-property/cdc-vdd-buck-supply;
+		/delete-property/cdc-buck-sido-supply;
+		/delete-property/cdc-vdd-tx-h-supply;
+		/delete-property/cdc-vdd-rx-h-supply;
+		/delete-property/cdc-vddpx-1-supply;
+	};
+};
+
 &clock_gcc {
 	vdd_dig-supply = <&pm2falcon_s3_level>;
 	vdd_dig_ao-supply = <&pm2falcon_s3_level_ao>;
@@ -100,11 +118,8 @@
 	core-supply = <&pmfalcon_l1>;
 };
 
-&pm2falcon_wled {
-	qcom,led-strings-list = [00 01];
-};
-
 &pm2falcon_gpios {
+	/* GPIO 7 for VOL_UP */
 	gpio@c600 {
 		status = "ok";
 		qcom,mode = <0>;
@@ -130,4 +145,20 @@
 			debounce-interval = <15>;
 		};
 	};
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+
+		#include "fg-gen3-batterydata-qrd-skuk-4v4-3000mah.dtsi"
+	};
+};
+
+&pmfalcon_fg {
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&pm2falcon_wled {
+	qcom,led-strings-list = [00 01];
 };

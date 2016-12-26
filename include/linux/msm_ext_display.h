@@ -22,6 +22,15 @@
 #define AUDIO_ACK_CONNECT BIT(0)
 
 /**
+ *  Flags to be used with the HPD operation of the external display
+ *  interface:
+ *  MSM_EXT_DISP_HPD_NO_AUDIO: audio will not be routed to external display
+ *  MSM_EXT_DISP_HPD_NO_VIDEO: video will not be routed to external display
+ */
+#define MSM_EXT_DISP_HPD_NO_AUDIO BIT(0)
+#define MSM_EXT_DISP_HPD_NO_VIDEO BIT(1)
+
+/**
  * struct ext_disp_cable_notify - cable notify handler structure
  * @link: a link for the linked list
  * @status: current status of HDMI/DP cable connection
@@ -87,7 +96,8 @@ enum msm_ext_disp_power_state {
 struct msm_ext_disp_intf_ops {
 	int (*hpd)(struct platform_device *pdev,
 			enum msm_ext_disp_type type,
-			enum msm_ext_disp_cable_state state);
+			enum msm_ext_disp_cable_state state,
+			u32 flags);
 	int (*notify)(struct platform_device *pdev,
 			enum msm_ext_disp_cable_state state);
 	int (*ack)(struct platform_device *pdev,

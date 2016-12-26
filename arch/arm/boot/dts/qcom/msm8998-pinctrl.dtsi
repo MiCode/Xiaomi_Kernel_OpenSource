@@ -587,6 +587,60 @@
 			};
 		};
 
+		hph_en0_ctrl {
+			hph_en0_idle: hph_en0_idle {
+				mux {
+					pins = "gpio67";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio67";
+					drive-strength = <2>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+			hph_en0_active: hph_en0_active {
+				mux {
+					pins = "gpio67";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio67";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		hph_en1_ctrl {
+			hph_en1_idle: hph_en1_idle {
+				mux {
+					pins = "gpio68";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio68";
+					drive-strength = <2>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+			hph_en1_active: hph_en1_active {
+				mux {
+					pins = "gpio68";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio68";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
 		wcd_gnd_mic_swap {
 			wcd_gnd_mic_swap_idle: wcd_gnd_mic_swap_idle {
 				mux {
@@ -1508,7 +1562,7 @@
 		mdss_dp_usbplug_cc_active: mdss_dp_usbplug_cc_active {
 			mux {
 				pins = "gpio38";
-				function = "usb_phy";
+				function = "gpio";
 			};
 
 			config {
@@ -1521,7 +1575,7 @@
 		mdss_dp_usbplug_cc_suspend: mdss_dp_usbplug_cc_suspend {
 			mux {
 				pins = "gpio38";
-				function = "usb_phy";
+				function = "gpio";
 			};
 
 			config {
@@ -1697,6 +1751,52 @@
 					drive-strength = <2>;
 					bias-disable;
 				};
+			};
+		};
+
+		ufs_dev_reset_assert: ufs_dev_reset_assert {
+			config {
+				pins = "ufs_reset";
+				bias-pull-down;		/* default: pull down */
+				/*
+				 * UFS_RESET driver strengths are having
+				 * different values/steps compared to typical
+				 * GPIO drive strengths.
+				 *
+				 * Following table clarifies:
+				 *
+				 * HDRV value | UFS_RESET | Typical GPIO
+				 *   (dec)    |   (mA)    |    (mA)
+				 *     0      |   0.8     |    2
+				 *     1      |   1.55    |    4
+				 *     2      |   2.35    |    6
+				 *     3      |   3.1     |    8
+				 *     4      |   3.9     |    10
+				 *     5      |   4.65    |    12
+				 *     6      |   5.4     |    14
+				 *     7      |   6.15    |    16
+				 *
+				 * POR value for UFS_RESET HDRV is 3 which means
+				 * 3.1mA and we want to use that. Hence just
+				 * specify 8mA to "drive-strength" binding and
+				 * that should result into writing 3 to HDRV
+				 * field.
+				 */
+				drive-strength = <8>;	/* default: 3.1 mA */
+				output-low; /* active low reset */
+			};
+		};
+
+		ufs_dev_reset_deassert: ufs_dev_reset_deassert {
+			config {
+				pins = "ufs_reset";
+				bias-pull-down;		/* default: pull down */
+				/*
+				 * default: 3.1 mA
+				 * check comments under ufs_dev_reset_assert
+				 */
+				drive-strength = <8>;
+				output-high; /* active low reset */
 			};
 		};
 
@@ -2930,6 +3030,60 @@
 					pins = "gpio69";
 					drive-strength = <8>; /* 8 mA */
 					bias-disable;         /* NO PULL */
+				};
+			};
+		};
+
+		spkr_1_sd_mediabox {
+			spkr_1_sd_sleep_mediabox: spkr_1_sd_sleep_mediabox {
+				mux {
+					pins = "gpio85";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio85";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+			spkr_1_sd_active_mediabox: spkr_1_sd_active_mediabox {
+				mux {
+					pins = "gpio85";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio85";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		spkr_2_sd_mediabox_mediabox {
+			spkr_2_sd_sleep_mediabox: spkr_2_sd_sleep_mediabox {
+				mux {
+					pins = "gpio112";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio112";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+			spkr_2_sd_active_mediabox: spkr_2_sd_active_mediabox {
+				mux {
+					pins = "gpio112";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio112";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;
+					output-high;
 				};
 			};
 		};

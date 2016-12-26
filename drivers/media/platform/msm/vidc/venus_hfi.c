@@ -934,8 +934,6 @@ err_create_pkt:
 	return rc;
 }
 
-static DECLARE_COMPLETION(release_resources_done);
-
 static int __alloc_imem(struct venus_hfi_device *device, unsigned long size)
 {
 	struct imem *imem = NULL;
@@ -1963,6 +1961,8 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 	q_tbl_hdr = (struct hfi_queue_table_header *)
 			dev->iface_q_table.align_virtual_addr;
 	q_tbl_hdr->qtbl_version = 0;
+	q_tbl_hdr->device_addr = (void *)dev;
+	strlcpy(q_tbl_hdr->name, "msm_v4l2_vidc", sizeof(q_tbl_hdr->name));
 	q_tbl_hdr->qtbl_size = VIDC_IFACEQ_TABLE_SIZE;
 	q_tbl_hdr->qtbl_qhdr0_offset = sizeof(struct hfi_queue_table_header);
 	q_tbl_hdr->qtbl_qhdr_size = sizeof(struct hfi_queue_header);
@@ -2169,8 +2169,6 @@ static int venus_hfi_core_init(void *device)
 
 	dev = device;
 	mutex_lock(&dev->lock);
-
-	init_completion(&release_resources_done);
 
 	rc = __load_fw(dev);
 	if (rc) {
@@ -3458,7 +3456,6 @@ static int __response_handler(struct venus_hfi_device *device)
 			break;
 		case HAL_SYS_RELEASE_RESOURCE_DONE:
 			dprintk(VIDC_DBG, "Received SYS_RELEASE_RESOURCE\n");
-			complete(&release_resources_done);
 			break;
 		case HAL_SYS_INIT_DONE:
 			dprintk(VIDC_DBG, "Received SYS_INIT_DONE\n");
@@ -3765,8 +3762,8 @@ static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
 		return;
 	}
 
-	venus_hfi_for_each_clock(device, cl) {
-		 usleep_range(100, 500);
+	venus_hfi_for_each_clock_reverse(device, cl) {
+		usleep_range(100, 500);
 		dprintk(VIDC_DBG, "Clock: %s disable and unprepare\n",
 				cl->name);
 		clk_disable_unprepare(cl->clk);
@@ -3776,7 +3773,7 @@ static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
 static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 {
 	struct clock_info *cl = NULL, *cl_fail = NULL;
-	int rc = 0;
+	int rc = 0, c = 0;
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %pK\n", device);
 		return -EINVAL;
@@ -3814,6 +3811,7 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 			goto fail_clk_enable;
 		}
 
+		c++;
 		dprintk(VIDC_DBG, "Clock: %s prepared and enabled\n", cl->name);
 	}
 
@@ -3822,9 +3820,7 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 	return rc;
 
 fail_clk_enable:
-	venus_hfi_for_each_clock(device, cl) {
-		if (cl_fail == cl)
-			break;
+	venus_hfi_for_each_clock_reverse_continue(device, cl, c) {
 		usleep_range(100, 500);
 		dprintk(VIDC_ERR, "Clock: %s disable and unprepare\n",
 			cl->name);

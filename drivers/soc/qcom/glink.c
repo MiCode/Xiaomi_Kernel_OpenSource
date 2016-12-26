@@ -1058,7 +1058,8 @@ static void glink_edge_ctx_release(struct rwref_lock *ch_st_lock)
  *                              it is not found.
  * @xprt_ctx:	Transport to search for a matching edge.
  *
- * Return: The edge ctx corresponding to edge of @xprt_ctx.
+ * Return: The edge ctx corresponding to edge of @xprt_ctx or
+ *	NULL if memory allocation fails.
  */
 static struct glink_core_edge_ctx *edge_name_to_ctx_create(
 				struct glink_core_xprt_ctx *xprt_ctx)
@@ -1074,6 +1075,10 @@ static struct glink_core_edge_ctx *edge_name_to_ctx_create(
 		}
 	}
 	edge_ctx = kzalloc(sizeof(struct glink_core_edge_ctx), GFP_KERNEL);
+	if (!edge_ctx) {
+		mutex_unlock(&edge_list_lock_lhd0);
+		return NULL;
+	}
 	strlcpy(edge_ctx->name, xprt_ctx->edge, GLINK_NAME_SIZE);
 	rwref_lock_init(&edge_ctx->edge_ref_lock_lhd1, glink_edge_ctx_release);
 	mutex_init(&edge_ctx->edge_migration_lock_lhd2);
@@ -1664,6 +1669,14 @@ void ch_purge_intent_lists(struct channel_ctx *ctx)
 		rwref_put(&tx_info->pkt_ref);
 	}
 	spin_unlock_irqrestore(&ctx->tx_lists_lock_lhc3, flags);
+
+	spin_lock_irqsave(&ctx->tx_pending_rmt_done_lock_lhc4, flags);
+	list_for_each_entry_safe(tx_info, tx_info_temp,
+				 &ctx->tx_pending_remote_done, list_done) {
+		ctx->notify_tx_abort(ctx, ctx->user_priv, tx_info->pkt_priv);
+		rwref_put(&tx_info->pkt_ref);
+	}
+	spin_unlock_irqrestore(&ctx->tx_pending_rmt_done_lock_lhc4, flags);
 
 	spin_lock_irqsave(&ctx->local_rx_intent_lst_lock_lhc1, flags);
 	list_for_each_entry_safe(ptr_intent, tmp_intent,
@@ -3909,6 +3922,10 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 	xprt_ptr->local_version_idx = cfg->versions_entries - 1;
 	xprt_ptr->remote_version_idx = cfg->versions_entries - 1;
 	xprt_ptr->edge_ctx = edge_name_to_ctx_create(xprt_ptr);
+	if (!xprt_ptr->edge_ctx) {
+		kfree(xprt_ptr);
+		return -ENOMEM;
+	}
 	xprt_ptr->l_features =
 			cfg->versions[cfg->versions_entries - 1].features;
 	if (!if_ptr->poll)

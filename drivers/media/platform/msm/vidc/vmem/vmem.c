@@ -226,9 +226,9 @@ exit:
 
 static inline int __power_off(struct vmem *v)
 {
-	int c = 0;
+	int c = v->num_clocks;
 
-	for (c = 0; c < v->num_clocks; ++c) {
+	for (c--; c >= 0; --c) {
 		clk_disable_unprepare(v->clocks[c].clk);
 		pr_debug("Disabled clock %s\n", v->clocks[c].name);
 	}
@@ -328,7 +328,7 @@ int vmem_allocate(size_t size, phys_addr_t *addr)
 		goto exit;
 	}
 	if (!size) {
-		pr_err("%s Invalid size %ld\n", __func__, size);
+		pr_err("%s Invalid size %zu\n", __func__, size);
 		rc = -EINVAL;
 		goto exit;
 	}

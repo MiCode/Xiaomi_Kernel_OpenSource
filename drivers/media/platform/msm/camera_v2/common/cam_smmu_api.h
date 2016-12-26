@@ -23,6 +23,8 @@
 #include <linux/random.h>
 #include <linux/spinlock_types.h>
 #include <linux/mutex.h>
+#include <linux/msm_ion.h>
+
 
 /*
  * Enum for possible CAM SMMU operations
@@ -31,6 +33,10 @@
 enum cam_smmu_ops_param {
 	CAM_SMMU_ATTACH,
 	CAM_SMMU_DETACH,
+	CAM_SMMU_ATTACH_SEC_VFE_NS_STATS,
+	CAM_SMMU_DETACH_SEC_VFE_NS_STATS,
+	CAM_SMMU_ATTACH_SEC_CPP,
+	CAM_SMMU_DETACH_SEC_CPP,
 	CAM_SMMU_VOTE,
 	CAM_SMMU_DEVOTE,
 	CAM_SMMU_OPS_INVALID
@@ -85,6 +91,59 @@ int cam_smmu_get_phy_addr(int handle,
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_smmu_put_phy_addr(int handle, int ion_fd);
+
+/**
+ * @param handle: Client has to pass back the smmu handle provided.
+ * @param ion_fd: ION handle identifying the memory buffer.
+ * @dir         : Mapping direction: which will traslate toDMA_BIDIRECTIONAL,
+ *                DMA_TO_DEVICE or DMA_FROM_DEVICE
+ * @client   : Client has to pass the ion_client pointer created by the client.
+ * @phys_addr   : Pointer to physical address where mapped address will be
+ *                returned.
+ * @len         : Length of buffer mapped returned by CAM SMMU driver.
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_get_stage2_phy_addr(int handle,
+			int ion_fd, enum cam_smmu_map_dir dir,
+			struct ion_client *client, ion_phys_addr_t *addr,
+			size_t *len_ptr);
+
+/**
+ * @param handle: Handle to identify the CAMSMMU client (VFE, CPP, FD etc.)
+ * @param ion_fd: ION handle identifying the memory buffer.
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_put_stage2_phy_addr(int handle, int ion_fd);
+
+/**
+ * @param handle: Client has to pass back the smmu handle provided.
+ * @dir         : Mapping direction: which will traslate toDMA_BIDIRECTIONAL,
+ *                DMA_TO_DEVICE or DMA_FROM_DEVICE, client has to pass.
+ * @client   : Client has to pass the ion_client pointer created by the client.
+ * @ion_handle  : handle to the buffer returned by CAM SMMU driver.
+ * @phys_addr   : Pointer to physical address where mapped address will be
+ *                returned.
+ * @len         : Length of buffer mapped returned by CAM SMMU driver.
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_alloc_get_stage2_scratch_mem(int handle,
+		enum cam_smmu_map_dir dir, struct ion_client *client,
+		struct ion_handle **sc_handle, ion_phys_addr_t *addr,
+		size_t *len_ptr);
+
+
+/**
+ * @param handle: Client has to pass back the smmu handle provided.
+ * @client   : Client has to pass the ion_client pointer provided by SMMU
+ *                driver.
+ * @ion_handle  : Client has to pass the ion_handle provided by SMMU
+ *                driver.
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+
+int cam_smmu_free_stage2_scratch_mem(int handle,
+	struct ion_client *client, struct ion_handle *sc_handle);
 
 /**
  * @brief	   : Allocates a scratch buffer

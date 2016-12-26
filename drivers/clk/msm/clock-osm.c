@@ -81,11 +81,12 @@ enum clk_osm_trace_packet_id {
 #define MEM_ACC_SEQ_REG_VAL_START(n) (SEQ_REG(60 + (n)))
 #define SEQ_REG1_MSM8998_V2 0x1048
 #define VERSION_REG 0x0
-#define VERSION_1P1 0x00010100
 
 #define OSM_TABLE_SIZE 40
 #define MAX_CLUSTER_CNT 2
-#define MAX_CONFIG 4
+#define CORE_COUNT_VAL(val) ((val & GENMASK(18, 16)) >> 16)
+#define SINGLE_CORE 1
+#define MAX_CORE_COUNT 4
 #define LLM_SW_OVERRIDE_CNT 3
 
 #define ENABLE_REG 0x1004
@@ -124,6 +125,7 @@ enum clk_osm_trace_packet_id {
 #define PLL_WAIT_LOCK_TIME_US	10
 #define PLL_WAIT_LOCK_TIME_NS	(PLL_WAIT_LOCK_TIME_US * 1000)
 #define PLL_MIN_LVAL 43
+#define L_VAL(freq_data)	((freq_data) & GENMASK(7, 0))
 
 #define CC_ZERO_BEHAV_CTRL 0x100C
 #define SPM_CC_DCVS_DISABLE 0x1020
@@ -350,13 +352,14 @@ struct clk_osm {
 	unsigned long pbases[NUM_BASES];
 	spinlock_t lock;
 
-	u32 version;
 	u32 cpu_reg_mask;
 	u32 num_entries;
 	u32 cluster_num;
 	u32 irq;
 	u32 apm_crossover_vc;
 	u32 apm_threshold_vc;
+	u32 mem_acc_crossover_vc;
+	u32 mem_acc_threshold_vc;
 	u32 cycle_counter_reads;
 	u32 cycle_counter_delay;
 	u32 cycle_counter_factor;
@@ -642,11 +645,25 @@ static long clk_osm_round_rate(struct clk *c, unsigned long rate)
 
 static int clk_osm_search_table(struct osm_entry *table, int entries, long rate)
 {
-	int i;
+	int quad_core_index, single_core_index = 0;
+	int core_count;
 
-	for (i = 0; i < entries; i++)
-		if (rate == table[i].frequency)
-			return i;
+	for (quad_core_index = 0; quad_core_index < entries;
+	     quad_core_index++) {
+		core_count =
+			CORE_COUNT_VAL(table[quad_core_index].freq_data);
+		if (rate == table[quad_core_index].frequency &&
+		    core_count == SINGLE_CORE) {
+			single_core_index = quad_core_index;
+			continue;
+		}
+		if (rate == table[quad_core_index].frequency &&
+		    core_count == MAX_CORE_COUNT)
+			return quad_core_index;
+	}
+	if (single_core_index)
+		return single_core_index;
+
 	return -EINVAL;
 }
 
@@ -813,7 +830,7 @@ static void clk_osm_print_osm_table(struct clk_osm *c)
 	for (i = 0; i < c->num_entries; i++) {
 		pll_src = (table[i].freq_data & GENMASK(27, 26)) >> 26;
 		pll_div = (table[i].freq_data & GENMASK(25, 24)) >> 24;
-		lval = table[i].freq_data & GENMASK(7, 0);
+		lval = L_VAL(table[i].freq_data);
 		core_count = (table[i].freq_data & GENMASK(18, 16)) >> 16;
 
 		pr_debug("%3d, %11lu, %2u, %5u, %2u, %6u, %8u, %7u, %5u\n",
@@ -829,6 +846,8 @@ static void clk_osm_print_osm_table(struct clk_osm *c)
 	}
 	pr_debug("APM threshold corner=%d, crossover corner=%d\n",
 		 c->apm_threshold_vc, c->apm_crossover_vc);
+	pr_debug("MEM-ACC threshold corner=%d, crossover corner=%d\n",
+		 c->mem_acc_threshold_vc, c->mem_acc_crossover_vc);
 }
 
 static int clk_osm_get_lut(struct platform_device *pdev,
@@ -839,8 +858,10 @@ static int clk_osm_get_lut(struct platform_device *pdev,
 	int prop_len, total_elems, num_rows, i, j, k;
 	int rc = 0;
 	u32 *array;
+	u32 *fmax_temp;
 	u32 data;
 	bool last_entry = false;
+	unsigned long abs_fmax = 0;
 
 	if (!of_find_property(of, prop_name, &prop_len)) {
 		dev_err(&pdev->dev, "missing %s\n", prop_name);
@@ -855,9 +876,9 @@ static int clk_osm_get_lut(struct platform_device *pdev,
 
 	num_rows = total_elems / NUM_FIELDS;
 
-	clk->fmax = devm_kzalloc(&pdev->dev, num_rows * sizeof(unsigned long),
-			       GFP_KERNEL);
-	if (!clk->fmax)
+	fmax_temp = devm_kzalloc(&pdev->dev, num_rows * sizeof(unsigned long),
+				 GFP_KERNEL);
+	if (!fmax_temp)
 		return -ENOMEM;
 
 	array = devm_kzalloc(&pdev->dev, prop_len, GFP_KERNEL);
@@ -893,18 +914,33 @@ static int clk_osm_get_lut(struct platform_device *pdev,
 			 c->osm_table[j].spare_data);
 
 		data = (array[i + FREQ_DATA] & GENMASK(18, 16)) >> 16;
-		if (!last_entry) {
-			clk->fmax[k] = array[i];
+		if (!last_entry && data == MAX_CORE_COUNT) {
+			fmax_temp[k] = array[i];
 			k++;
 		}
 
 		if (i < total_elems - NUM_FIELDS)
 			i += NUM_FIELDS;
-		else
+		else {
+			abs_fmax = array[i];
 			last_entry = true;
+		}
 	}
+
+	fmax_temp[k++] = abs_fmax;
+	clk->fmax = devm_kzalloc(&pdev->dev, k * sizeof(unsigned long),
+				 GFP_KERNEL);
+	if (!clk->fmax) {
+		rc = -ENOMEM;
+		goto exit;
+	}
+
+	for (i = 0; i < k; i++)
+		clk->fmax[i] = fmax_temp[i];
+
 	clk->num_fmax = k;
 exit:
+	devm_kfree(&pdev->dev, fmax_temp);
 	devm_kfree(&pdev->dev, array);
 	return rc;
 }
@@ -1490,19 +1526,26 @@ static int clk_osm_resolve_open_loop_voltages(struct clk_osm *c)
 }
 
 static int clk_osm_resolve_crossover_corners(struct clk_osm *c,
-				     struct platform_device *pdev)
+				     struct platform_device *pdev,
+				     const char *mem_acc_prop)
 {
 	struct regulator *regulator = c->vdd_reg;
-	int count, vc, i, threshold, rc = 0;
+	int count, vc, i, apm_threshold;
+	int mem_acc_threshold = 0;
+	int rc = 0;
 	u32 corner_volt;
 
 	rc = of_property_read_u32(pdev->dev.of_node,
 				  "qcom,apm-threshold-voltage",
-				  &threshold);
+				  &apm_threshold);
 	if (rc) {
 		pr_info("qcom,apm-threshold-voltage property not specified\n");
 		return rc;
 	}
+
+	if (mem_acc_prop)
+		of_property_read_u32(pdev->dev.of_node, mem_acc_prop,
+					  &mem_acc_threshold);
 
 	/* Determine crossover virtual corner */
 	count = regulator_count_voltages(regulator);
@@ -1511,16 +1554,46 @@ static int clk_osm_resolve_crossover_corners(struct clk_osm *c,
 		return count;
 	}
 
-	c->apm_crossover_vc = count - 1;
+	/*
+	 * CPRh corners (in hardware) are ordered:
+	 * 0 - n-1		- for n functional corners
+	 * APM crossover	- required for OSM
+	 * [MEM ACC crossover]	- optional
+	 *
+	 * 'count' corresponds to the total number of corners including n
+	 * functional corners, the APM crossover corner, and potentially the
+	 * MEM ACC cross over corner.
+	 */
+	if (mem_acc_threshold) {
+		c->apm_crossover_vc = count - 2;
+		c->mem_acc_crossover_vc = count - 1;
+	} else {
+		c->apm_crossover_vc = count - 1;
+	}
 
-	/* Determine threshold virtual corner */
+	/* Determine APM threshold virtual corner */
 	for (i = 0; i < OSM_TABLE_SIZE; i++) {
 		vc = c->osm_table[i].virtual_corner + 1;
 		corner_volt = regulator_list_corner_voltage(regulator, vc);
 
-		if (corner_volt >= threshold) {
+		if (corner_volt >= apm_threshold) {
 			c->apm_threshold_vc = c->osm_table[i].virtual_corner;
 			break;
+		}
+	}
+
+	/* Determine MEM ACC threshold virtual corner */
+	if (mem_acc_threshold) {
+		for (i = 0; i < OSM_TABLE_SIZE; i++) {
+			vc = c->osm_table[i].virtual_corner + 1;
+			corner_volt
+				= regulator_list_corner_voltage(regulator, vc);
+
+			if (corner_volt >= mem_acc_threshold) {
+				c->mem_acc_threshold_vc
+					= c->osm_table[i].virtual_corner;
+				break;
+			}
 		}
 	}
 
@@ -1777,9 +1850,9 @@ static int clk_osm_set_llm_volt_policy(struct platform_device *pdev)
 
 	/* Enable or disable LLM VOLT DVCS */
 	regval = val | clk_osm_read_reg(&pwrcl_clk, LLM_INTF_DCVS_DISABLE);
-	clk_osm_write_reg(&pwrcl_clk, val, LLM_INTF_DCVS_DISABLE);
+	clk_osm_write_reg(&pwrcl_clk, regval, LLM_INTF_DCVS_DISABLE);
 	regval = val | clk_osm_read_reg(&perfcl_clk, LLM_INTF_DCVS_DISABLE);
-	clk_osm_write_reg(&perfcl_clk, val, LLM_INTF_DCVS_DISABLE);
+	clk_osm_write_reg(&perfcl_clk, regval, LLM_INTF_DCVS_DISABLE);
 
 	/* Wait for the writes to complete */
 	clk_osm_mb(&perfcl_clk, OSM_BASE);
@@ -1820,8 +1893,10 @@ static void clk_osm_program_apm_regs(struct clk_osm *c)
 
 static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 {
+	struct osm_entry *table = c->osm_table;
 	int i, curr_level, j = 0;
 	int mem_acc_level_map[MAX_MEM_ACC_LEVELS] = {0, 0, 0};
+	int threshold_vc[4];
 
 	curr_level = c->osm_table[0].spare_data;
 	for (i = 0; i < c->num_entries; i++) {
@@ -1829,7 +1904,8 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 			break;
 
 		if (c->osm_table[i].spare_data != curr_level) {
-			mem_acc_level_map[j++] = i - 1;
+			mem_acc_level_map[j++]
+					= c->osm_table[i].virtual_corner - 1;
 			curr_level = c->osm_table[i].spare_data;
 		}
 	}
@@ -1855,16 +1931,49 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 			clk_osm_write_reg(c, c->apcs_mem_acc_cfg[i],
 					  MEM_ACC_SEQ_REG_CFG_START(i));
 	} else {
+		if (c->mem_acc_crossover_vc)
+			scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(88),
+					c->mem_acc_crossover_vc);
+
+		threshold_vc[0] = mem_acc_level_map[0];
+		threshold_vc[1] = mem_acc_level_map[0] + 1;
+		threshold_vc[2] = mem_acc_level_map[1];
+		threshold_vc[3] = mem_acc_level_map[1] + 1;
+
+		/*
+		 * Use dynamic MEM ACC threshold voltage based value for the
+		 * highest MEM ACC threshold if it is specified instead of the
+		 * fixed mapping in the LUT.
+		 */
+		if (c->mem_acc_threshold_vc) {
+			threshold_vc[2] = c->mem_acc_threshold_vc - 1;
+			threshold_vc[3] = c->mem_acc_threshold_vc;
+			if (threshold_vc[1] >= threshold_vc[2])
+				threshold_vc[1] = threshold_vc[2] - 1;
+			if (threshold_vc[0] >= threshold_vc[1])
+				threshold_vc[0] = threshold_vc[1] - 1;
+		}
+
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(55),
-			     mem_acc_level_map[0]);
+				threshold_vc[0]);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(56),
-			     mem_acc_level_map[0] + 1);
+				threshold_vc[1]);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(57),
-			     mem_acc_level_map[1]);
+				threshold_vc[2]);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(58),
-			     mem_acc_level_map[1] + 1);
+				threshold_vc[3]);
 		/* SEQ_REG(49) = SEQ_REG(28) init by TZ */
 	}
+
+	/*
+	 * Program L_VAL corresponding to the first virtual
+	 * corner with MEM ACC level 3.
+	 */
+	if (c->mem_acc_threshold_vc)
+		for (i = 0; i < c->num_entries; i++)
+			if (c->mem_acc_threshold_vc == table[i].virtual_corner)
+				scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(32),
+					     L_VAL(table[i].freq_data));
 
 	return;
 }
@@ -2458,7 +2567,7 @@ static int debugfs_set_wdog_trace(void *data, u64 val)
 	struct clk_osm *c = data;
 	int regval;
 
-	if (c->version >= VERSION_1P1) {
+	if (msm8998_v2) {
 		regval = clk_osm_read_reg(c, TRACE_CTRL);
 		regval = val ? regval | TRACE_CTRL_ENABLE_WDOG_STATUS :
 			regval & ~TRACE_CTRL_ENABLE_WDOG_STATUS;
@@ -3076,13 +3185,14 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = clk_osm_resolve_crossover_corners(&pwrcl_clk, pdev);
+	rc = clk_osm_resolve_crossover_corners(&pwrcl_clk, pdev, NULL);
 	if (rc)
 		dev_info(&pdev->dev, "No APM crossover corner programmed\n");
 
-	rc = clk_osm_resolve_crossover_corners(&perfcl_clk, pdev);
+	rc = clk_osm_resolve_crossover_corners(&perfcl_clk, pdev,
+				"qcom,perfcl-apcs-mem-acc-threshold-voltage");
 	if (rc)
-		dev_info(&pdev->dev, "No APM crossover corner programmed\n");
+		dev_info(&pdev->dev, "No MEM-ACC crossover corner programmed\n");
 
 	clk_osm_setup_cycle_counters(&pwrcl_clk);
 	clk_osm_setup_cycle_counters(&perfcl_clk);
@@ -3247,9 +3357,6 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 			rc);
 		goto exit2;
 	}
-
-	pwrcl_clk.version = clk_osm_read_reg(&pwrcl_clk, VERSION_REG);
-	perfcl_clk.version = clk_osm_read_reg(&perfcl_clk, VERSION_REG);
 
 	populate_opp_table(pdev);
 	populate_debugfs_dir(&pwrcl_clk);

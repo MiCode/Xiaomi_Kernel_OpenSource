@@ -55,6 +55,8 @@ struct hfi_queue_table_header {
 	u32 qtbl_qhdr_size;
 	u32 qtbl_num_q;
 	u32 qtbl_num_active_q;
+	void *device_addr;
+	char name[256];
 };
 
 struct hfi_queue_header {
@@ -184,6 +186,11 @@ struct vidc_iface_q_info {
 
 #define venus_hfi_for_each_clock_reverse(__device, __cinfo) \
 	venus_hfi_for_each_thing_reverse(__device, __cinfo, clock)
+
+#define venus_hfi_for_each_clock_reverse_continue(__device, __rinfo, \
+		__from) \
+	venus_hfi_for_each_thing_reverse_continue(__device, __rinfo, \
+			clock, __from)
 
 /* Bus set helpers */
 #define venus_hfi_for_each_bus(__device, __binfo) \

@@ -343,7 +343,8 @@
 			<0x2 216>, /* tsens1_upper_lower_int	*/
 			<0x34 275>, /* qmp_usb3_lfps_rxterm_irq_cx	*/
 			<0x57 358>, /*  spmi_periph_irq[0]	*/
-			<0x4f 379>, /* usb2phy_intr	*/
+			<0x4f 379>, /* usb2phy_intr: qusb2phy_dmse_hv	*/
+			<0x51 379>, /* usb2phy_intr: qusb2phy_dpse_hv	*/
 			<0x50 384>, /* sp_rmb_sp2soc_irq	*/
 			<0xff 16>, /* APC0_qgicQTmrHypPhysIrptReq	*/
 			<0xff 17>, /* APC3_qgicQTmrSecPhysIrptReq	*/

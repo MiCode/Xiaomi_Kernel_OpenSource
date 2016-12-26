@@ -187,7 +187,7 @@ Documentation/devicetree/bindings/coresight/coresight.txt
 - coresight-child-list   List of phandles pointing to the children of this
                          component.
 - coresight-child-ports  List of input port numbers of the children.
-
+- coresight-atid         The unique ATID value of the coresight device
 
 Example of A330 GPU in MSM8916:
 

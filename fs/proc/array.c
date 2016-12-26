@@ -171,15 +171,15 @@ static inline void task_state(struct seq_file *m, struct pid_namespace *ns,
 	seq_printf(m,
 		"State:\t%s\n"
 		"Tgid:\t%d\n"
-		"Ngid:\t%d\n"
 		"Pid:\t%d\n"
 		"PPid:\t%d\n"
 		"TracerPid:\t%d\n"
 		"Uid:\t%d\t%d\t%d\t%d\n"
 		"Gid:\t%d\t%d\t%d\t%d\n"
+		"Ngid:\t%d\n"
 		"FDSize:\t%d\nGroups:\t",
 		get_task_state(p),
-		tgid, ngid, pid_nr_ns(pid, ns), ppid, tpid,
+		tgid, pid_nr_ns(pid, ns), ppid, tpid,
 		from_kuid_munged(user_ns, cred->uid),
 		from_kuid_munged(user_ns, cred->euid),
 		from_kuid_munged(user_ns, cred->suid),
@@ -188,7 +188,7 @@ static inline void task_state(struct seq_file *m, struct pid_namespace *ns,
 		from_kgid_munged(user_ns, cred->egid),
 		from_kgid_munged(user_ns, cred->sgid),
 		from_kgid_munged(user_ns, cred->fsgid),
-		max_fds);
+		ngid, max_fds);
 
 	group_info = cred->group_info;
 	for (g = 0; g < group_info->ngroups; g++)

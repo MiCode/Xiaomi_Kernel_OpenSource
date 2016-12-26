@@ -31,6 +31,12 @@
 					      struct mdp_set_cfg)
 
 /*
+ * Ioctl for setting the PLL PPM.
+ * PLL PPM is passed by the user space using this IOCTL.
+ */
+#define MSMFB_MDP_SET_PANEL_PPM _IOW(MDP_IOCTL_MAGIC, 131, int)
+
+/*
  * To allow proper structure padding for 64bit/32bit target
  */
 #ifdef __LP64
@@ -164,6 +170,8 @@ VALIDATE/COMMIT FLAG CONFIGURATION
 #define MDP_COMMIT_CWB_DSPP 0x1000
 
 #define MDP_COMMIT_VERSION_1_0		0x00010000
+
+#define OUT_LAYER_COLOR_SPACE
 
 /**********************************************************************
 Configuration structures
@@ -357,8 +365,11 @@ struct mdp_output_layer {
 	/* Buffer attached with output layer. Device uses it for commit call */
 	struct mdp_layer_buffer		buffer;
 
+	/* color space of the destination */
+	enum mdp_color_space		color_space;
+
 	/* 32bits reserved value for future usage. */
-	uint32_t			reserved[6];
+	uint32_t			reserved[5];
 };
 
 /*

@@ -51,6 +51,15 @@
 			};
 		};
 
+		qcom,temp-alarm@2400 {
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			label = "pmfalcon_tz";
+			qcom,channel-num = <6>;
+			qcom,temp_alarm-vadc = <&pmfalcon_vadc>;
+		};
+
 		pmfalcon_gpios: gpios {
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
@@ -497,6 +506,7 @@
 			qcom,pmic-revid = <&pmfalcon_revid>;
 			io-channels = <&pmfalcon_rradc 0>;
 			io-channel-names = "rradc_batt_id";
+			qcom,rradc-base = <0x4500>;
 			qcom,fg-esr-timer-awake = <96>;
 			qcom,fg-esr-timer-asleep = <256>;
 			qcom,cycle-counter-en;
@@ -549,6 +559,20 @@
 						  "mem-xcp",
 						  "dma-grant";
 			};
+		};
+
+		bcl@4200 {
+			compatible = "qcom,msm-bcl-lmh";
+			reg = <0x4200 0xff>,
+				<0x4300 0xff>;
+			reg-names = "fg_user_adc",
+					"fg_lmh";
+			interrupts = <0x0 0x42 0x0 IRQ_TYPE_NONE>,
+					<0x0 0x42 0x2 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-high-ibat-int",
+					"bcl-low-vbat-int";
+			qcom,vbat-polling-delay-ms = <100>;
+			qcom,ibat-polling-delay-ms = <100>;
 		};
 	};
 

@@ -22,6 +22,8 @@
 #define SESSION_NAME_LEN 20
 #define NUM_OF_MEMORY_BLOCKS 1
 #define NUM_OF_BUFFERS 2
+#define VSS_NUM_CHANNELS_MAX 8
+#define VSS_CHANNEL_MAPPING_SIZE (sizeof(uint8_t) * VSS_NUM_CHANNELS_MAX)
 /*
  * BUFFER BLOCK SIZE based on
  * the supported page size
@@ -98,7 +100,9 @@ struct stream_data {
 /* Device information payload structure */
 struct device_data {
 	uint32_t dev_mute;
-	uint32_t sample;
+	uint32_t sample_rate;
+	uint16_t bits_per_sample;
+	uint8_t  channel_mapping[VSS_NUM_CHANNELS_MAX];
 	uint32_t enabled;
 	uint32_t dev_id;
 	uint32_t port_id;
@@ -106,6 +110,25 @@ struct device_data {
 	uint32_t volume_ramp_duration_ms;
 	uint32_t dev_mute_ramp_duration_ms;
 	uint32_t no_of_channels;
+};
+
+/*
+ * Format information structure to match
+ * vss_param_endpoint_media_format_info_t
+ */
+struct media_format_info {
+	uint32_t port_id;
+	uint16_t num_channels;
+	uint16_t bits_per_sample;
+	uint32_t sample_rate;
+	uint8_t  channel_mapping[VSS_NUM_CHANNELS_MAX];
+};
+
+enum {
+	VOC_NO_SET_PARAM_TOKEN = 0,
+	VOC_RTAC_SET_PARAM_TOKEN,
+	VOC_SET_MEDIA_FORMAT_PARAM_TOKEN,
+	VOC_SET_PARAM_TOKEN_MAX
 };
 
 struct voice_dev_route_state {
@@ -188,6 +211,81 @@ struct vss_map_memory_cmd {
 struct vss_unmap_memory_cmd {
 	struct apr_hdr hdr;
 	struct vss_icommon_cmd_unmap_memory_t vss_unmap_mem;
+} __packed;
+
+struct vss_param_endpoint_media_format_info_t {
+	/* AFE port ID to which this media format corresponds to. */
+	uint32_t port_id;
+	/*
+	 * Number of channels of data.
+	 * Supported values: 1 to 8
+	 */
+	uint16_t num_channels;
+	/*
+	 * Bits per sample of data.
+	 * Supported values: 16 and 24
+	 */
+	uint16_t bits_per_sample;
+	/*
+	 * Sampling rate in Hz.
+	 * Supported values: 8000, 11025, 16000, 22050, 24000, 32000,
+	 * 44100, 48000, 88200, 96000, 176400, and 192000
+	 */
+	uint32_t sample_rate;
+	/*
+	 * The channel[i] mapping describes channel i. Each element i
+	 * of the array describes channel i inside the data buffer. An
+	 * unused or unknown channel is set to 0.
+	 */
+	uint8_t channel_mapping[VSS_NUM_CHANNELS_MAX];
+} __packed;
+
+struct vss_icommon_param_data_t {
+	/* Valid ID of the module. */
+	uint32_t module_id;
+	/* Valid ID of the parameter. */
+	uint32_t param_id;
+	/*
+	 * Data size of the structure relating to the param_id/module_id
+	 * combination in uint8_t bytes.
+	 */
+	uint16_t param_size;
+	/* This field must be set to zero. */
+	uint16_t reserved;
+	/*
+	 * Parameter data payload when inband. Should have size param_size.
+	 * Bit size of payload must be a multiple of 4.
+	 */
+	union {
+		struct vss_param_endpoint_media_format_info_t media_format_info;
+	};
+} __packed;
+
+/* Payload structure for the VSS_ICOMMON_CMD_SET_PARAM_V2 command. */
+struct vss_icommon_cmd_set_param_v2_t {
+	/*
+	 * Pointer to the unique identifier for an address (physical/virtual).
+	 *
+	 * If the parameter data payload is within the message payload
+	 * (in-band), set this field to 0. The parameter data begins at the
+	 * specified data payload address.
+	 *
+	 * If the parameter data is out-of-band, this field is the handle to
+	 * the physical address in the shared memory that holds the parameter
+	 * data.
+	 */
+	uint32_t mem_handle;
+	/*
+	 * Location of the parameter data payload.
+	 *
+	 * The payload is an array of vss_icommon_param_data_t. If the
+	 * mem_handle is 0, this field is ignored.
+	 */
+	uint64_t mem_address;
+	/* Size of the parameter data payload in bytes. */
+	uint32_t mem_size;
+	/* Parameter data payload when the data is inband. */
+	struct vss_icommon_param_data_t param_data;
 } __packed;
 
 /* TO MVM commands */
@@ -576,6 +674,14 @@ struct vss_imemory_cmd_unmap_t {
 
 #define VSS_IRECORD_MODE_TX_RX_MIXING			0x00010F7B
 /* Select mixed Tx and Rx paths. */
+
+#define VSS_PARAM_TX_PORT_ENDPOINT_MEDIA_INFO		0x00013253
+
+#define VSS_PARAM_RX_PORT_ENDPOINT_MEDIA_INFO		0x00013254
+
+#define VSS_PARAM_EC_REF_PORT_ENDPOINT_MEDIA_INFO	0x00013255
+
+#define VSS_MODULE_CVD_GENERIC				0x0001316E
 
 #define VSS_ISTREAM_EVT_NOT_READY			0x000110FD
 
@@ -1378,6 +1484,11 @@ struct cvp_set_dev_channels_cmd {
 	struct vss_ivocproc_cmd_topology_set_dev_channels_t cvp_set_channels;
 } __packed;
 
+struct cvp_set_media_format_cmd {
+	struct apr_hdr hdr;
+	struct vss_icommon_cmd_set_param_v2_t cvp_set_param_v2;
+} __packed;
+
 struct cvp_set_vp3_data_cmd {
 	struct apr_hdr hdr;
 } __packed;
@@ -1613,7 +1724,7 @@ struct common_data {
 	uint32_t default_vol_ramp_duration_ms;
 	uint32_t default_mute_ramp_duration_ms;
 	bool ec_ref_ext;
-	uint16_t ec_port_id;
+	struct media_format_info ec_media_fmt_info;
 
 	/* APR to MVM in the Q6 */
 	void *apr_q6_mvm;
@@ -1685,8 +1796,8 @@ enum {
 enum {
 	RX_PATH = 0,
 	TX_PATH,
+	EC_REF_PATH,
 };
-
 
 #define VOC_PATH_PASSIVE 0
 #define VOC_PATH_FULL 1
@@ -1773,7 +1884,9 @@ uint32_t voc_get_session_id(char *name);
 int voc_start_playback(uint32_t set, uint16_t port_id);
 int voc_start_record(uint32_t port_id, uint32_t set, uint32_t session_id);
 int voice_get_idx_for_session(u32 session_id);
-int voc_set_ext_ec_ref(uint16_t port_id, bool state);
+int voc_set_ext_ec_ref_port_id(uint16_t port_id, bool state);
+int voc_get_ext_ec_ref_port_id(void);
+int voc_set_ext_ec_ref_media_fmt_info(struct media_format_info *finfo);
 int voc_update_amr_vocoder_rate(uint32_t session_id);
 int voc_disable_device(uint32_t session_id);
 int voc_enable_device(uint32_t session_id);
@@ -1781,7 +1894,7 @@ void voc_set_destroy_cvd_flag(bool is_destroy_cvd);
 void voc_set_vote_bms_flag(bool is_vote_bms);
 int voc_disable_topology(uint32_t session_id, uint32_t disable);
 int voc_set_device_config(uint32_t session_id, uint8_t path_dir,
-			  uint8_t no_of_channels, uint32_t dev_port_id);
+			  struct media_format_info *finfo);
 uint32_t voice_get_topology(uint32_t topology_idx);
 int voc_set_sound_focus(struct sound_focus_param sound_focus_param);
 int voc_get_sound_focus(struct sound_focus_param *soundFocusData);

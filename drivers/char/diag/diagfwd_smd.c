@@ -54,6 +54,11 @@ struct diag_smd_info smd_data[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_DATA,
 		.name = "DIAG_DATA"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_DATA,
+		.name = "CDSP_DATA"
 	}
 };
 
@@ -82,6 +87,11 @@ struct diag_smd_info smd_cntl[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_CNTL,
 		.name = "DIAG_CTRL"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_CNTL,
+		.name = "CDSP_CNTL"
 	}
 };
 
@@ -110,6 +120,11 @@ struct diag_smd_info smd_dci[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_DCI,
 		.name = "DIAG_DCI_DATA"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_DCI,
+		.name = "CDSP_DCI"
 	}
 };
 
@@ -138,6 +153,11 @@ struct diag_smd_info smd_cmd[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_CMD,
 		.name = "DIAG_CMD"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_CMD,
+		.name = "CDSP_CMD"
 	}
 };
 
@@ -166,6 +186,11 @@ struct diag_smd_info smd_dci_cmd[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_WDSP,
 		.type = TYPE_DCI_CMD,
 		.name = "DIAG_DCI_CMD"
+	},
+	{
+		.peripheral = PERIPHERAL_CDSP,
+		.type = TYPE_DCI_CMD,
+		.name = "CDSP_DCI_CMD"
 	}
 };
 
@@ -765,14 +790,13 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 	}
 
 	/*
-	 * In this case don't reset the buffers as there is no need to further
-	 * read over peripherals. Also release the wake source hold earlier.
+	 * Reset the buffers. Also release the wake source hold earlier.
 	 */
 	if (atomic_read(&smd_info->diag_state) == 0) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			 "%s closing read thread. diag state is closed\n",
 			 smd_info->name);
-		diag_ws_release();
+		diagfwd_channel_read_done(smd_info->fwd_ctxt, buf, 0);
 		return 0;
 	}
 

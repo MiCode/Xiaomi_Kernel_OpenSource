@@ -62,6 +62,10 @@
 #define ESR_TIMER_CHG_INIT_OFFSET	2
 #define PROFILE_LOAD_WORD		24
 #define PROFILE_LOAD_OFFSET		0
+#define ESR_RSLOW_DISCHG_WORD		34
+#define ESR_RSLOW_DISCHG_OFFSET		0
+#define ESR_RSLOW_CHG_WORD		51
+#define ESR_RSLOW_CHG_OFFSET		0
 #define NOM_CAP_WORD			58
 #define NOM_CAP_OFFSET			0
 #define ACT_BATT_CAP_BKUP_WORD		74
@@ -69,6 +73,7 @@
 #define CYCLE_COUNT_WORD		75
 #define CYCLE_COUNT_OFFSET		0
 #define PROFILE_INTEGRITY_WORD		79
+#define SW_CONFIG_OFFSET		0
 #define PROFILE_INTEGRITY_OFFSET	3
 #define BATT_SOC_WORD			91
 #define BATT_SOC_OFFSET			0
@@ -564,21 +569,21 @@ static int fg_get_battery_esr(struct fg_chip *chip, int *val)
 
 static int fg_get_battery_resistance(struct fg_chip *chip, int *val)
 {
-	int rc, esr, rslow;
+	int rc, esr_uohms, rslow_uohms;
 
-	rc = fg_get_battery_esr(chip, &esr);
+	rc = fg_get_battery_esr(chip, &esr_uohms);
 	if (rc < 0) {
 		pr_err("failed to get ESR, rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = fg_get_sram_prop(chip, FG_SRAM_RSLOW, &rslow);
+	rc = fg_get_sram_prop(chip, FG_SRAM_RSLOW, &rslow_uohms);
 	if (rc < 0) {
 		pr_err("failed to get Rslow, rc=%d\n", rc);
 		return rc;
 	}
 
-	*val = esr + rslow;
+	*val = esr_uohms + rslow_uohms;
 	return 0;
 }
 
@@ -693,18 +698,57 @@ static bool is_batt_empty(struct fg_chip *chip)
 	return ((vbatt_uv < chip->dt.cutoff_volt_mv * 1000) ? true : false);
 }
 
-#define DEBUG_BATT_ID_KOHMS	7
+static int fg_get_debug_batt_id(struct fg_chip *chip, int *batt_id)
+{
+	int rc;
+	u64 temp;
+	u8 buf[2];
+
+	rc = fg_read(chip, ADC_RR_FAKE_BATT_LOW_LSB(chip), buf, 2);
+	if (rc < 0) {
+		pr_err("failed to read addr=0x%04x, rc=%d\n",
+			ADC_RR_FAKE_BATT_LOW_LSB(chip), rc);
+		return rc;
+	}
+
+	/*
+	 * Fake battery threshold is encoded in the following format.
+	 * Threshold (code) = (battery_id in Ohms) * 0.00015 * 2^10 / 2.5
+	 */
+	temp = (buf[1] << 8 | buf[0]) * 2500000;
+	do_div(temp, 150 * 1024);
+	batt_id[0] = temp;
+	rc = fg_read(chip, ADC_RR_FAKE_BATT_HIGH_LSB(chip), buf, 2);
+	if (rc < 0) {
+		pr_err("failed to read addr=0x%04x, rc=%d\n",
+			ADC_RR_FAKE_BATT_HIGH_LSB(chip), rc);
+		return rc;
+	}
+
+	temp = (buf[1] << 8 | buf[0]) * 2500000;
+	do_div(temp, 150 * 1024);
+	batt_id[1] = temp;
+	pr_debug("debug batt_id range: [%d %d]\n", batt_id[0], batt_id[1]);
+	return 0;
+}
+
 static bool is_debug_batt_id(struct fg_chip *chip)
 {
-	int batt_id_delta = 0;
+	int debug_batt_id[2], rc;
 
-	if (!chip->batt_id_kohms)
+	if (!chip->batt_id_ohms)
 		return false;
 
-	batt_id_delta = abs(chip->batt_id_kohms - DEBUG_BATT_ID_KOHMS);
-	if (batt_id_delta <= 1) {
-		fg_dbg(chip, FG_POWER_SUPPLY, "Debug battery id: %dKohms\n",
-			chip->batt_id_kohms);
+	rc = fg_get_debug_batt_id(chip, debug_batt_id);
+	if (rc < 0) {
+		pr_err("Failed to get debug batt_id, rc=%d\n", rc);
+		return false;
+	}
+
+	if (is_between(debug_batt_id[0], debug_batt_id[1],
+		chip->batt_id_ohms)) {
+		fg_dbg(chip, FG_POWER_SUPPLY, "Debug battery id: %dohms\n",
+			chip->batt_id_ohms);
 		return true;
 	}
 
@@ -792,8 +836,8 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 		return rc;
 	}
 
+	chip->batt_id_ohms = batt_id;
 	batt_id /= 1000;
-	chip->batt_id_kohms = batt_id;
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
 		pr_err("Batterydata not available\n");
@@ -824,10 +868,10 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 		chip->bp.float_volt_uv = -EINVAL;
 	}
 
-	rc = of_property_read_u32(profile_node, "qcom,nom-batt-capacity-mah",
+	rc = of_property_read_u32(profile_node, "qcom,fastchg-current-ma",
 			&chip->bp.fastchg_curr_ma);
 	if (rc < 0) {
-		pr_err("battery nominal capacity unavailable, rc:%d\n", rc);
+		pr_err("battery fastchg current unavailable, rc:%d\n", rc);
 		chip->bp.fastchg_curr_ma = -EINVAL;
 	}
 
@@ -1365,6 +1409,80 @@ static int fg_charge_full_update(struct fg_chip *chip)
 	}
 
 	fg_dbg(chip, FG_STATUS, "Set charge_full to true @ soc %d\n", msoc);
+	return 0;
+}
+
+#define RCONN_CONFIG_BIT	BIT(0)
+static int fg_rconn_config(struct fg_chip *chip)
+{
+	int rc, esr_uohms;
+	u64 scaling_factor;
+	u32 val = 0;
+
+	rc = fg_sram_read(chip, PROFILE_INTEGRITY_WORD,
+			SW_CONFIG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading SW_CONFIG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (val & RCONN_CONFIG_BIT) {
+		fg_dbg(chip, FG_STATUS, "Rconn already configured: %x\n", val);
+		return 0;
+	}
+
+	rc = fg_get_battery_esr(chip, &esr_uohms);
+	if (rc < 0) {
+		pr_err("failed to get ESR, rc=%d\n", rc);
+		return rc;
+	}
+
+	scaling_factor = div64_u64((u64)esr_uohms * 1000,
+				esr_uohms + (chip->dt.rconn_mohms * 1000));
+
+	rc = fg_sram_read(chip, ESR_RSLOW_CHG_WORD,
+			ESR_RSLOW_CHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading ESR_RSLOW_CHG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+
+	val *= scaling_factor;
+	do_div(val, 1000);
+	rc = fg_sram_write(chip, ESR_RSLOW_CHG_WORD,
+			ESR_RSLOW_CHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR_RSLOW_CHG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+	fg_dbg(chip, FG_STATUS, "esr_rslow_chg modified to %x\n", val & 0xFF);
+
+	rc = fg_sram_read(chip, ESR_RSLOW_DISCHG_WORD,
+			ESR_RSLOW_DISCHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading ESR_RSLOW_DISCHG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+
+	val *= scaling_factor;
+	do_div(val, 1000);
+	rc = fg_sram_write(chip, ESR_RSLOW_DISCHG_WORD,
+			ESR_RSLOW_DISCHG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR_RSLOW_DISCHG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+	fg_dbg(chip, FG_STATUS, "esr_rslow_dischg modified to %x\n",
+		val & 0xFF);
+
+	val = RCONN_CONFIG_BIT;
+	rc = fg_sram_write(chip, PROFILE_INTEGRITY_WORD,
+			SW_CONFIG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing SW_CONFIG_OFFSET, rc=%d\n", rc);
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -2330,6 +2448,9 @@ static int fg_notifier_cb(struct notifier_block *nb,
 	if (event != PSY_EVENT_PROP_CHANGED)
 		return NOTIFY_OK;
 
+	if (work_pending(&chip->status_change_work))
+		return NOTIFY_OK;
+
 	if ((strcmp(psy->desc->name, "battery") == 0)
 		|| (strcmp(psy->desc->name, "usb") == 0)) {
 		/*
@@ -2573,6 +2694,14 @@ static int fg_hw_init(struct fg_chip *chip)
 	if (rc < 0) {
 		pr_err("Error in writing batt_temp_delta, rc=%d\n", rc);
 		return rc;
+	}
+
+	if (chip->dt.rconn_mohms > 0) {
+		rc = fg_rconn_config(chip);
+		if (rc < 0) {
+			pr_err("Error in configuring Rconn, rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	return 0;
@@ -3076,10 +3205,17 @@ static int fg_parse_dt(struct fg_chip *chip)
 		}
 	}
 
+	rc = of_property_read_u32(node, "qcom,rradc-base", &base);
+	if (rc < 0) {
+		dev_err(chip->dev, "rradc-base not specified, rc=%d\n", rc);
+		return rc;
+	}
+	chip->rradc_base = base;
+
 	rc = fg_get_batt_profile(chip);
 	if (rc < 0)
 		pr_warn("profile for batt_id=%dKOhms not found..using OTP, rc:%d\n",
-			chip->batt_id_kohms, rc);
+			chip->batt_id_ohms / 1000, rc);
 
 	/* Read all the optional properties below */
 	rc = of_property_read_u32(node, "qcom,fg-cutoff-voltage", &temp);
@@ -3236,6 +3372,12 @@ static int fg_parse_dt(struct fg_chip *chip)
 	if (rc < 0)
 		pr_err("Error in parsing Ki coefficients, rc=%d\n", rc);
 
+	rc = of_property_read_u32(node, "qcom,fg-rconn-mohms", &temp);
+	if (rc < 0)
+		chip->dt.rconn_mohms = -EINVAL;
+	else
+		chip->dt.rconn_mohms = temp;
+
 	return 0;
 }
 
@@ -3362,7 +3504,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 
 	if (!rc)
 		pr_info("battery SOC:%d voltage: %duV temp: %d id: %dKOhms\n",
-			msoc, volt_uv, batt_temp, chip->batt_id_kohms);
+			msoc, volt_uv, batt_temp, chip->batt_id_ohms / 1000);
 
 	device_init_wakeup(chip->dev, true);
 	if (chip->profile_available)

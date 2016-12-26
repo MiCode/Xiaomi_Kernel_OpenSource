@@ -83,6 +83,7 @@ enum sde_caps_settings {
 	SDE_CAPS_R1_WB,
 	SDE_CAPS_R3_WB,
 	SDE_CAPS_R3_1P5_DOWNSCALE,
+	SDE_CAPS_SEC_ATTACH_DETACH_SMMU,
 	SDE_CAPS_MAX,
 };
 
@@ -111,6 +112,7 @@ struct sde_smmu_client {
 	struct sde_module_power mp;
 	struct reg_bus_client *reg_bus_clt;
 	bool domain_attached;
+	int domain;
 };
 
 struct sde_rot_vbif_debug_bus {
@@ -169,6 +171,9 @@ struct sde_rot_data_type {
 	u32 regdump_size;
 
 	void *sde_rot_hw;
+	int sec_cam_en;
+
+	struct ion_client *iclient;
 };
 
 int sde_rotator_base_init(struct sde_rot_data_type **pmdata,

@@ -856,6 +856,17 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 	int result = 0;
 	int cpu_path = 0;
 
+	/* Just do the context switch incase of NOMMU */
+	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE) {
+		if ((!(flags & ADRENO_CONTEXT_SWITCH_FORCE_GPU)) &&
+			adreno_isidle(device))
+			_set_ctxt_cpu(rb, drawctxt);
+		else
+			result = _set_ctxt_gpu(rb, drawctxt);
+
+		return result;
+	}
+
 	if (rb->drawctxt_active)
 		cur_pt = rb->drawctxt_active->base.proc_priv->pagetable;
 

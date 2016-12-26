@@ -94,11 +94,12 @@ int set_qdss_data_connection(struct usb_gadget *gadget,
 
 static int init_data(struct usb_ep *ep)
 {
+	struct f_qdss *qdss = ep->driver_data;
 	int res = 0;
 
 	pr_debug("init_data\n");
 
-	res = msm_ep_config(ep);
+	res = msm_ep_config(ep, qdss->endless_req);
 	if (res)
 		pr_err("msm_ep_config failed\n");
 

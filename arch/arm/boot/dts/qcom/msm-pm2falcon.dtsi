@@ -34,6 +34,13 @@
 				<PON_POWER_OFF_SHUTDOWN>;
 		};
 
+		qcom,temp-alarm@2400 {
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			label = "pm2falcon_tz";
+		};
+
 		pm2falcon_gpios: gpios {
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
@@ -117,7 +124,7 @@
 		};
 	};
 
-	qcom,pm2falcon@3 {
+	pm2falcon_3: qcom,pm2falcon@3 {
 		compatible ="qcom,spmi-pmic";
 		reg = <0x3 SPMI_USID>;
 		#address-cells = <2>;
@@ -222,15 +229,12 @@
 		pm2falcon_wled: qcom,leds@d800 {
 			compatible = "qcom,qpnp-wled";
 			reg = <0xd800 0x100>,
-				<0xd900 0x100>,
-				<0xdc00 0x100>,
-				<0xde00 0x100>;
+				<0xd900 0x100>;
 			reg-names = "qpnp-wled-ctrl-base",
-					"qpnp-wled-sink-base",
-					"qpnp-wled-ibb-base",
-					"qpnp-wled-lab-base";
-			interrupts = <0x3 0xd8 0x2>;
-			interrupt-names = "sc-irq";
+					"qpnp-wled-sink-base";
+			interrupts = <0x3 0xd8 0x1 IRQ_TYPE_EDGE_BOTH>,
+					<0x3 0xd8 0x2 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "ovp-irq", "sc-irq";
 			linux,name = "wled";
 			linux,default-trigger = "bkl-trigger";
 			qcom,fdbk-output = "auto";

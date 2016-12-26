@@ -32,11 +32,6 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/qpnp/power-on.h>
 
-#define CREATE_MASK(NUM_BITS, POS) \
-	((unsigned char) (((1 << (NUM_BITS)) - 1) << (POS)))
-#define PON_MASK(MSB_BIT, LSB_BIT) \
-	CREATE_MASK(MSB_BIT - LSB_BIT + 1, LSB_BIT)
-
 #define PMIC_VER_8941           0x01
 #define PMIC_VERSION_REG        0x0105
 #define PMIC_VERSION_REV4_REG   0x0103
@@ -109,6 +104,7 @@
 #define QPNP_PON_S2_CNTL_EN			BIT(7)
 #define QPNP_PON_S2_RESET_ENABLE		BIT(7)
 #define QPNP_PON_DELAY_BIT_SHIFT		6
+#define QPNP_PON_GEN2_DELAY_BIT_SHIFT		14
 
 #define QPNP_PON_S1_TIMER_MASK			(0xF)
 #define QPNP_PON_S2_TIMER_MASK			(0x7)
@@ -135,7 +131,7 @@
 #define QPNP_PON_S3_SRC_KPDPWR_AND_RESIN	2
 #define QPNP_PON_S3_SRC_KPDPWR_OR_RESIN		3
 #define QPNP_PON_S3_SRC_MASK			0x3
-#define QPNP_PON_HARD_RESET_MASK		PON_MASK(7, 5)
+#define QPNP_PON_HARD_RESET_MASK		GENMASK(7, 5)
 
 #define QPNP_PON_UVLO_DLOAD_EN			BIT(7)
 #define QPNP_PON_SMPL_EN			BIT(7)
@@ -149,6 +145,8 @@
 #define PON_S1_COUNT_MAX			0xF
 #define QPNP_PON_MIN_DBC_US			(USEC_PER_SEC / 64)
 #define QPNP_PON_MAX_DBC_US			(USEC_PER_SEC * 2)
+#define QPNP_PON_GEN2_MIN_DBC_US		62
+#define QPNP_PON_GEN2_MAX_DBC_US		(USEC_PER_SEC / 4)
 
 #define QPNP_KEY_STATUS_DELAY			msecs_to_jiffies(250)
 
@@ -227,7 +225,7 @@ static DEFINE_SPINLOCK(spon_list_slock);
 static LIST_HEAD(spon_dev_list);
 
 static u32 s1_delay[PON_S1_COUNT_MAX + 1] = {
-	0 , 32, 56, 80, 138, 184, 272, 408, 608, 904, 1352, 2048,
+	0, 32, 56, 80, 138, 184, 272, 408, 608, 904, 1352, 2048,
 	3072, 4480, 6720, 10256
 };
 
@@ -292,14 +290,6 @@ static const char * const qpnp_poff_reason[] = {
 	[39] = "Triggered from S3_RESET_KPDPWR_ANDOR_RESIN (power key and/or reset line)",
 };
 
-/*
- * On the kernel command line specify
- * qpnp-power-on.warm_boot=1 to indicate a warm
- * boot of the device.
- */
-static int warm_boot;
-module_param(warm_boot, int, 0);
-
 static int
 qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 {
@@ -349,10 +339,10 @@ int qpnp_pon_set_restart_reason(enum pon_restart_reason reason)
 
 	if (is_pon_gen2(pon))
 		rc = qpnp_pon_masked_write(pon, QPNP_PON_SOFT_RB_SPARE(pon),
-					   PON_MASK(7, 1), (reason << 1));
+					   GENMASK(7, 1), (reason << 1));
 	else
 		rc = qpnp_pon_masked_write(pon, QPNP_PON_SOFT_RB_SPARE(pon),
-					   PON_MASK(7, 2), (reason << 2));
+					   GENMASK(7, 2), (reason << 2));
 
 	if (rc)
 		dev_err(&pon->pdev->dev,
@@ -383,23 +373,31 @@ EXPORT_SYMBOL(qpnp_pon_check_hard_reset_stored);
 static int qpnp_pon_set_dbc(struct qpnp_pon *pon, u32 delay)
 {
 	int rc = 0;
-	u32 delay_reg;
+	u32 val;
 
 	if (delay == pon->dbc)
 		goto out;
+
 	if (pon->pon_input)
 		mutex_lock(&pon->pon_input->mutex);
 
-	if (delay < QPNP_PON_MIN_DBC_US)
-		delay = QPNP_PON_MIN_DBC_US;
-	else if (delay > QPNP_PON_MAX_DBC_US)
-		delay = QPNP_PON_MAX_DBC_US;
+	if (is_pon_gen2(pon)) {
+		if (delay < QPNP_PON_GEN2_MIN_DBC_US)
+			delay = QPNP_PON_GEN2_MIN_DBC_US;
+		else if (delay > QPNP_PON_GEN2_MAX_DBC_US)
+			delay = QPNP_PON_GEN2_MAX_DBC_US;
+		val = (delay << QPNP_PON_GEN2_DELAY_BIT_SHIFT) / USEC_PER_SEC;
+	} else {
+		if (delay < QPNP_PON_MIN_DBC_US)
+			delay = QPNP_PON_MIN_DBC_US;
+		else if (delay > QPNP_PON_MAX_DBC_US)
+			delay = QPNP_PON_MAX_DBC_US;
+		val = (delay << QPNP_PON_DELAY_BIT_SHIFT) / USEC_PER_SEC;
+	}
 
-	delay_reg = (delay << QPNP_PON_DELAY_BIT_SHIFT) / USEC_PER_SEC;
-	delay_reg = ilog2(delay_reg);
+	val = ilog2(val);
 	rc = qpnp_pon_masked_write(pon, QPNP_PON_DBC_CTL(pon),
-					QPNP_PON_DBC_DELAY_MASK(pon),
-					delay_reg);
+					QPNP_PON_DBC_DELAY_MASK(pon), val);
 	if (rc) {
 		dev_err(&pon->pdev->dev, "Unable to set PON debounce\n");
 		goto unlock;
@@ -795,7 +793,8 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 					cfg->key_code, pon_rt_sts);
 	key_status = pon_rt_sts & pon_rt_bit;
 
-	/* simulate press event in case release event occured
+	/*
+	 * simulate press event in case release event occurred
 	 * without a press event
 	 */
 	if (!cfg->old_state && !key_status) {
@@ -1207,8 +1206,6 @@ qpnp_pon_config_input(struct qpnp_pon *pon,  struct qpnp_pon_config *cfg)
 		pon->pon_input->phys = "qpnp_pon/input0";
 	}
 
-	/* don't send dummy release event when system resumes */
-	__set_bit(INPUT_PROP_NO_DUMMY_RELEASE, pon->pon_input->propbit);
 	input_set_capability(pon->pon_input, EV_KEY, cfg->key_code);
 
 	return 0;
@@ -1258,7 +1255,7 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 				if (rc == -EINVAL) {
 					dev_dbg(&pon->pdev->dev,
 						"'qcom,support-reset' DT property doesn't exist\n");
-				 } else {
+				} else {
 					dev_err(&pon->pdev->dev,
 						"Unable to read 'qcom,support-reset'\n");
 					return rc;
@@ -1280,10 +1277,12 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 				}
 			}
 
-			/* If the value read from REVISION2 register is 0x00,
-			   then there is a single register to control s2 reset.
-			   Otherwise there are separate registers for s2 reset
-			   type and s2 reset enable */
+			/*
+			 * If the value read from REVISION2 register is 0x00,
+			 * then there is a single register to control s2 reset.
+			 * Otherwise there are separate registers for s2 reset
+			 * type and s2 reset enable.
+			 */
 			if (pon->pon_ver == QPNP_PON_GEN1_V1) {
 				cfg->s2_cntl_addr = cfg->s2_cntl2_addr =
 					QPNP_PON_KPDPWR_S2_CNTL(pon);
@@ -1344,8 +1343,10 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 					return rc;
 				}
 
-				/*PM8941 V3 does not have harware bug. Hence
-				bark is not required from PMIC versions 3.0*/
+				/*
+				 * PM8941 V3 does not have hardware bug. Hence
+				 * bark is not required from PMIC versions 3.0.
+				 */
 				if (!(revid_rev4 == PMIC8941_V1_REV4 ||
 					revid_rev4 == PMIC8941_V2_REV4)) {
 					cfg->support_reset = false;
@@ -1669,7 +1670,8 @@ static int pon_regulator_init(struct qpnp_pon *pon)
 			return rc;
 		}
 
-		init_data = of_get_regulator_init_data(dev, node, &pon_reg->rdesc);
+		init_data = of_get_regulator_init_data(dev, node,
+				&pon_reg->rdesc);
 		if (!init_data) {
 			dev_err(dev, "regulator init data is missing\n");
 			return -EINVAL;
@@ -1847,8 +1849,7 @@ static void qpnp_pon_debugfs_init(struct platform_device *pdev)
 		dev_err(&pon->pdev->dev,
 			"Unable to create debugfs directory\n");
 	} else {
-		ent = debugfs_create_file("uvlo_panic",
-				S_IFREG | S_IWUSR | S_IRUGO,
+		ent = debugfs_create_file("uvlo_panic", 0644,
 				pon->debugfs, pon, &qpnp_pon_debugfs_uvlo_fops);
 		if (!ent)
 			dev_err(&pon->pdev->dev,
@@ -2203,8 +2204,7 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	if (rc) {
 		if (rc != -EINVAL) {
 			dev_err(&pdev->dev,
-				"Unable to read debounce delay rc: %d\n",
-				rc);
+				"Unable to read debounce delay rc: %d\n", rc);
 			return rc;
 		}
 	} else {
@@ -2308,7 +2308,7 @@ static int qpnp_pon_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id spmi_match_table[] = {
+static const struct of_device_id spmi_match_table[] = {
 	{ .compatible = "qcom,qpnp-power-on", },
 	{}
 };

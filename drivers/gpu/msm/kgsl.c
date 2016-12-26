@@ -353,8 +353,10 @@ static int kgsl_mem_entry_track_gpuaddr(struct kgsl_device *device,
 	/*
 	 * If SVM is enabled for this object then the address needs to be
 	 * assigned elsewhere
+	 * Also do not proceed further in case of NoMMU.
 	 */
-	if (kgsl_memdesc_use_cpu_map(&entry->memdesc))
+	if (kgsl_memdesc_use_cpu_map(&entry->memdesc) ||
+		(kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE))
 		return 0;
 
 	pagetable = kgsl_memdesc_is_secured(&entry->memdesc) ?
@@ -491,20 +493,17 @@ void kgsl_context_dump(struct kgsl_context *context)
 EXPORT_SYMBOL(kgsl_context_dump);
 
 /* Allocate a new context ID */
-static int _kgsl_get_context_id(struct kgsl_device *device,
-		struct kgsl_context *context)
+static int _kgsl_get_context_id(struct kgsl_device *device)
 {
 	int id;
 
 	idr_preload(GFP_KERNEL);
 	write_lock(&device->context_lock);
-	id = idr_alloc(&device->context_idr, context, 1,
+	/* Allocate the slot but don't put a pointer in it yet */
+	id = idr_alloc(&device->context_idr, NULL, 1,
 		KGSL_MEMSTORE_MAX, GFP_NOWAIT);
 	write_unlock(&device->context_lock);
 	idr_preload_end();
-
-	if (id > 0)
-		context->id = id;
 
 	return id;
 }
@@ -529,7 +528,7 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	char name[64];
 	int ret = 0, id;
 
-	id = _kgsl_get_context_id(device, context);
+	id = _kgsl_get_context_id(device);
 	if (id == -ENOSPC) {
 		/*
 		 * Before declaring that there are no contexts left try
@@ -538,7 +537,7 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 		 */
 
 		flush_workqueue(device->events_wq);
-		id = _kgsl_get_context_id(device, context);
+		id = _kgsl_get_context_id(device);
 	}
 
 	if (id < 0) {
@@ -549,6 +548,8 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 
 		return id;
 	}
+
+	context->id = id;
 
 	kref_init(&context->refcount);
 	/*
@@ -1438,6 +1439,17 @@ long kgsl_ioctl_device_waittimestamp_ctxtid(
 	return result;
 }
 
+static inline bool _check_context_is_sparse(struct kgsl_context *context,
+			uint64_t flags)
+{
+	if ((context->flags & KGSL_CONTEXT_SPARSE) ||
+		(flags & KGSL_DRAWOBJ_SPARSE))
+		return true;
+
+	return false;
+}
+
+
 long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 				      unsigned int cmd, void *data)
 {
@@ -1461,6 +1473,11 @@ long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	context = kgsl_context_get_owner(dev_priv, param->drawctxt_id);
 	if (context == NULL)
 		return -EINVAL;
+
+	if (_check_context_is_sparse(context, param->flags)) {
+		kgsl_context_put(context);
+		return -EINVAL;
+	}
 
 	cmdobj = kgsl_drawobj_cmd_create(device, context, param->flags,
 					CMDOBJ_TYPE);
@@ -1557,6 +1574,11 @@ long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
 	if (context == NULL)
 		return -EINVAL;
 
+	if (_check_context_is_sparse(context, param->flags)) {
+		kgsl_context_put(context);
+		return -EINVAL;
+	}
+
 	if (type & SYNCOBJ_TYPE) {
 		struct kgsl_drawobj_sync *syncobj =
 				kgsl_drawobj_sync_create(device, context);
@@ -1630,6 +1652,11 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
 	if (context == NULL)
 		return -EINVAL;
+
+	if (_check_context_is_sparse(context, param->flags)) {
+		kgsl_context_put(context);
+		return -EINVAL;
+	}
 
 	if (type & SYNCOBJ_TYPE) {
 		struct kgsl_drawobj_sync *syncobj =
@@ -1733,6 +1760,12 @@ long kgsl_ioctl_drawctxt_create(struct kgsl_device_private *dev_priv,
 		goto done;
 	}
 	trace_kgsl_context_create(dev_priv->device, context, param->flags);
+
+	/* Commit the pointer to the context in context_idr */
+	write_lock(&device->context_lock);
+	idr_replace(&device->context_idr, context, context->id);
+	write_unlock(&device->context_lock);
+
 	param->drawctxt_id = context->id;
 done:
 	return result;
@@ -3735,6 +3768,128 @@ long kgsl_ioctl_sparse_bind(struct kgsl_device_private *dev_priv,
 	return ret;
 }
 
+long kgsl_ioctl_gpu_sparse_command(struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
+{
+	struct kgsl_gpu_sparse_command *param = data;
+	struct kgsl_device *device = dev_priv->device;
+	struct kgsl_context *context;
+	struct kgsl_drawobj *drawobj[2];
+	struct kgsl_drawobj_sparse *sparseobj;
+	long result;
+	unsigned int i = 0;
+
+	/* Make sure sparse and syncpoint count isn't too big */
+	if (param->numsparse > KGSL_MAX_SPARSE ||
+		param->numsyncs > KGSL_MAX_SYNCPOINTS)
+		return -EINVAL;
+
+	/* Make sure there is atleast one sparse or sync */
+	if (param->numsparse == 0 && param->numsyncs == 0)
+		return -EINVAL;
+
+	/* Only Sparse commands are supported in this ioctl */
+	if (!(param->flags & KGSL_DRAWOBJ_SPARSE) || (param->flags &
+			(KGSL_DRAWOBJ_SUBMIT_IB_LIST | KGSL_DRAWOBJ_MARKER
+			| KGSL_DRAWOBJ_SYNC)))
+		return -EINVAL;
+
+	context = kgsl_context_get_owner(dev_priv, param->context_id);
+	if (context == NULL)
+		return -EINVAL;
+
+	/* Restrict bind commands to bind context */
+	if (!(context->flags & KGSL_CONTEXT_SPARSE)) {
+		kgsl_context_put(context);
+		return -EINVAL;
+	}
+
+	if (param->numsyncs) {
+		struct kgsl_drawobj_sync *syncobj = kgsl_drawobj_sync_create(
+				device, context);
+		if (IS_ERR(syncobj)) {
+			result = PTR_ERR(syncobj);
+			goto done;
+		}
+
+		drawobj[i++] = DRAWOBJ(syncobj);
+		result = kgsl_drawobj_sync_add_synclist(device, syncobj,
+				to_user_ptr(param->synclist),
+				param->syncsize, param->numsyncs);
+		if (result)
+			goto done;
+	}
+
+	if (param->numsparse) {
+		sparseobj = kgsl_drawobj_sparse_create(device, context,
+					param->flags);
+		if (IS_ERR(sparseobj)) {
+			result = PTR_ERR(sparseobj);
+			goto done;
+		}
+
+		sparseobj->id = param->id;
+		drawobj[i++] = DRAWOBJ(sparseobj);
+		result = kgsl_drawobj_sparse_add_sparselist(device, sparseobj,
+				param->id, to_user_ptr(param->sparselist),
+				param->sparsesize, param->numsparse);
+		if (result)
+			goto done;
+	}
+
+	result = dev_priv->device->ftbl->queue_cmds(dev_priv, context,
+					drawobj, i, &param->timestamp);
+
+done:
+	/*
+	 * -EPROTO is a "success" error - it just tells the user that the
+	 * context had previously faulted
+	 */
+	if (result && result != -EPROTO)
+		while (i--)
+			kgsl_drawobj_destroy(drawobj[i]);
+
+	kgsl_context_put(context);
+	return result;
+}
+
+void kgsl_sparse_bind(struct kgsl_process_private *private,
+		struct kgsl_drawobj_sparse *sparseobj)
+{
+	struct kgsl_sparseobj_node *sparse_node;
+	struct kgsl_mem_entry *virt_entry = NULL;
+	long ret = 0;
+	char *name;
+
+	virt_entry = kgsl_sharedmem_find_id_flags(private, sparseobj->id,
+			KGSL_MEMFLAGS_SPARSE_VIRT);
+	if (virt_entry == NULL)
+		return;
+
+	list_for_each_entry(sparse_node, &sparseobj->sparselist, node) {
+		if (sparse_node->obj.flags & KGSL_SPARSE_BIND) {
+			ret = sparse_bind_range(private, &sparse_node->obj,
+					virt_entry);
+			name = "bind";
+		} else {
+			ret = sparse_unbind_range(&sparse_node->obj,
+					virt_entry);
+			name = "unbind";
+		}
+
+		if (ret)
+			KGSL_CORE_ERR("kgsl: Unable to '%s' ret %ld virt_id %d, phys_id %d, virt_offset %16.16llX, phys_offset %16.16llX, size %16.16llX, flags %16.16llX\n",
+				name, ret, sparse_node->virt_id,
+				sparse_node->obj.id,
+				sparse_node->obj.virtoffset,
+				sparse_node->obj.physoffset,
+				sparse_node->obj.size, sparse_node->obj.flags);
+	}
+
+	kgsl_mem_entry_put(virt_entry);
+}
+EXPORT_SYMBOL(kgsl_sparse_bind);
+
 long kgsl_ioctl_gpuobj_info(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data)
 {
@@ -4649,7 +4804,7 @@ static void kgsl_core_exit(void)
 		kgsl_driver.class = NULL;
 	}
 
-	kgsl_drawobj_exit();
+	kgsl_drawobjs_cache_exit();
 
 	kgsl_memfree_exit();
 	unregister_chrdev_region(kgsl_driver.major, KGSL_DEVICE_MAX);
@@ -4725,7 +4880,7 @@ static int __init kgsl_core_init(void)
 
 	kgsl_events_init();
 
-	result = kgsl_drawobj_init();
+	result = kgsl_drawobjs_cache_init();
 	if (result)
 		goto err;
 

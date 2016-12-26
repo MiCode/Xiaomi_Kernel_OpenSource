@@ -897,7 +897,6 @@ struct ufs_hba {
 
 	/* sync b/w diff contexts */
 	struct rw_semaphore lock;
-	struct task_struct *issuing_task;
 	unsigned long shutdown_in_prog;
 
 	struct reset_control *core_reset;
@@ -907,6 +906,10 @@ struct ufs_hba {
 	int scsi_block_reqs_cnt;
 
 	bool full_init_linereset;
+	struct pinctrl *pctrl;
+	
+	int			latency_hist_enabled;
+	struct io_latency_state io_lat_s;
 };
 
 static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)

@@ -48,7 +48,7 @@ static char buildvariant[BUILD_VARIANT];
 
 static bool target_added;
 static bool verity_enabled = true;
-struct dentry *debug_dir;
+static struct dentry *debug_dir;
 static int android_verity_ctr(struct dm_target *ti, unsigned argc, char **argv);
 
 static struct target_type android_verity_target = {
@@ -532,7 +532,7 @@ blkdev_release:
 }
 
 /* helper functions to extract properties from dts */
-const char *find_dt_value(const char *name)
+static const char *find_dt_value(const char *name)
 {
 	struct device_node *firmware;
 	const char *value;

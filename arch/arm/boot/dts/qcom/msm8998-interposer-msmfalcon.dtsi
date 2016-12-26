@@ -360,6 +360,25 @@
 			label = "cont_splash_mem";
 		};
 	};
+
+	bluetooth: bt_wcn3990 {
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-core-supply = <&pmfalcon_l9_pin_ctrl>;
+		qca,bt-vdd-pa-supply = <&pmfalcon_l6_pin_ctrl>;
+		qca,bt-vdd-ldo-supply = <&pmfalcon_l19_pin_ctrl>;
+		qca,bt-chip-pwd-supply = <&pm2falcon_bob_pin1>;
+		clocks = <&clock_gcc clk_rf_clk1>;
+		clock-names = "rf_clk1";
+
+		qca,bt-vdd-core-voltage-level = <1800000 1900000>;
+		qca,bt-vdd-pa-voltage-level = <1304000 1370000>;
+		qca,bt-vdd-ldo-voltage-level = <3312000 3400000>;
+		qca,bt-chip-pwd-voltage-level = <3600000 3600000>;
+
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-ldo-current-level = <1>; /* LPM/PFM */
+	};
 };
 
 #include "msm8998-smp2p.dtsi"
@@ -3109,8 +3128,7 @@
 #include "msm8998-mdss.dtsi"
 #include "msm8998-mdss-pll.dtsi"
 #include "msm8998-blsp.dtsi"
-#include "msm-audio.dtsi"
-#include "msmfalcon-audio.dtsi"
+#include "msm-smb138x.dtsi"
 
 /* GPU overrides */
 &msm_gpu {

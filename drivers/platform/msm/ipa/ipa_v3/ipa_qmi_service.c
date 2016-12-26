@@ -880,7 +880,8 @@ static void ipa3_q6_clnt_ind_cb(struct qmi_handle *handle, unsigned int msg_id,
 		IPAWANDBG("Quota reached indication on qmux(%d) Mbytes(%lu)\n",
 			  qmi_ind.apn.mux_id,
 			  (unsigned long int) qmi_ind.apn.num_Mbytes);
-		ipa3_broadcast_quota_reach_ind(qmi_ind.apn.mux_id);
+		ipa3_broadcast_quota_reach_ind(qmi_ind.apn.mux_id,
+			IPA_UPSTEAM_MODEM);
 	}
 }
 

@@ -656,7 +656,7 @@ static int clk_update_vdd(struct clk_vdd_class *vdd_class)
 		pr_debug("Set Voltage level Min %d, Max %d\n", uv[new_base + i],
 				uv[max_lvl + i]);
 		rc = regulator_set_voltage(r[i], uv[new_base + i],
-				uv[max_lvl + i]);
+			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 		if (rc)
 			goto set_voltage_fail;
 
@@ -677,11 +677,13 @@ static int clk_update_vdd(struct clk_vdd_class *vdd_class)
 	return rc;
 
 enable_disable_fail:
-	regulator_set_voltage(r[i], uv[cur_base + i], uv[max_lvl + i]);
+	regulator_set_voltage(r[i], uv[cur_base + i],
+			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 
 set_voltage_fail:
 	for (i--; i >= 0; i--) {
-		regulator_set_voltage(r[i], uv[cur_base + i], uv[max_lvl + i]);
+		regulator_set_voltage(r[i], uv[cur_base + i],
+		       vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 		if (cur_lvl == 0 || cur_lvl == vdd_class->num_levels)
 			regulator_disable(r[i]);
 		else if (level == 0)
@@ -792,6 +794,9 @@ static int clk_vdd_class_init(struct clk_vdd_class *vdd)
 {
 	struct clk_handoff_vdd *v;
 
+	if (vdd->skip_handoff)
+		return 0;
+
 	list_for_each_entry(v, &clk_handoff_vdd_list, list) {
 		if (v->vdd_class == vdd)
 			return 0;
@@ -823,6 +828,9 @@ static void clk_core_unprepare(struct clk_core *core)
 		return;
 
 	if (WARN_ON(core->prepare_count == 0))
+		return;
+
+	if (WARN_ON(core->prepare_count == 1 && core->flags & CLK_IS_CRITICAL))
 		return;
 
 	if (--core->prepare_count > 0)
@@ -938,6 +946,9 @@ static void clk_core_disable(struct clk_core *core)
 		return;
 
 	if (WARN_ON(core->enable_count == 0))
+		return;
+
+	if (WARN_ON(core->enable_count == 1 && core->flags & CLK_IS_CRITICAL))
 		return;
 
 	if (--core->enable_count > 0)
@@ -2790,6 +2801,8 @@ static int clk_debug_create_one(struct clk_core *core, struct dentry *pdentry)
 			goto err_out;
 	}
 
+	clk_debug_measure_add(core->hw, core->dentry);
+
 	ret = 0;
 	goto out;
 
@@ -2919,8 +2932,10 @@ static int __init clk_debug_init(void)
 		return -ENOMEM;
 
 	mutex_lock(&clk_debug_lock);
-	hlist_for_each_entry(core, &clk_debug_list, debug_node)
+	hlist_for_each_entry(core, &clk_debug_list, debug_node) {
+		clk_register_debug(core->hw, core->dentry);
 		clk_debug_create_one(core, rootdir);
+	}
 
 	inited = 1;
 	mutex_unlock(&clk_debug_lock);
@@ -3120,6 +3135,16 @@ static int __clk_init(struct device *dev, struct clk *clk_user)
 	 */
 	if (core->ops->init)
 		core->ops->init(core->hw);
+
+	if (core->flags & CLK_IS_CRITICAL) {
+		unsigned long flags;
+
+		clk_core_prepare(core);
+
+		flags = clk_enable_lock();
+		clk_core_enable(core);
+		clk_enable_unlock(flags);
+	}
 
 	kref_init(&core->ref);
 out:
@@ -3850,6 +3875,41 @@ static int parent_ready(struct device_node *np)
 		 */
 		return 1;
 	}
+}
+
+/**
+ * of_clk_detect_critical() - set CLK_IS_CRITICAL flag from Device Tree
+ * @np: Device node pointer associated with clock provider
+ * @index: clock index
+ * @flags: pointer to clk_core->flags
+ *
+ * Detects if the clock-critical property exists and, if so, sets the
+ * corresponding CLK_IS_CRITICAL flag.
+ *
+ * Do not use this function. It exists only for legacy Device Tree
+ * bindings, such as the one-clock-per-node style that are outdated.
+ * Those bindings typically put all clock data into .dts and the Linux
+ * driver has no clock data, thus making it impossible to set this flag
+ * correctly from the driver. Only those drivers may call
+ * of_clk_detect_critical from their setup functions.
+ *
+ * Return: error code or zero on success
+ */
+int of_clk_detect_critical(struct device_node *np,
+					  int index, unsigned long *flags)
+{
+	struct property *prop;
+	const __be32 *cur;
+	uint32_t idx;
+
+	if (!np || !flags)
+		return -EINVAL;
+
+	of_property_for_each_u32(np, "clock-critical", prop, cur, idx)
+		if (index == idx)
+			*flags |= CLK_IS_CRITICAL;
+
+	return 0;
 }
 
 /**

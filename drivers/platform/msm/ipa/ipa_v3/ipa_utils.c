@@ -507,6 +507,10 @@ int ipa3_get_clients_from_rm_resource(
 	case IPA_RM_RESOURCE_MHI_CONS:
 		clients->names[i++] = IPA_CLIENT_MHI_CONS;
 		break;
+	case IPA_RM_RESOURCE_ODU_ADAPT_CONS:
+		clients->names[i++] = IPA_CLIENT_ODU_EMB_CONS;
+		clients->names[i++] = IPA_CLIENT_ODU_TETH_CONS;
+		break;
 	case IPA_RM_RESOURCE_USB_PROD:
 		clients->names[i++] = IPA_CLIENT_USB_PROD;
 		break;
@@ -516,6 +520,8 @@ int ipa3_get_clients_from_rm_resource(
 	case IPA_RM_RESOURCE_MHI_PROD:
 		clients->names[i++] = IPA_CLIENT_MHI_PROD;
 		break;
+	case IPA_RM_RESOURCE_ODU_ADAPT_PROD:
+		clients->names[i++] = IPA_CLIENT_ODU_PROD;
 	default:
 		break;
 	}
@@ -554,7 +560,9 @@ bool ipa3_should_pipe_be_suspended(enum ipa_client_type client)
 	    client == IPA_CLIENT_WLAN1_CONS   ||
 	    client == IPA_CLIENT_WLAN2_CONS   ||
 	    client == IPA_CLIENT_WLAN3_CONS   ||
-	    client == IPA_CLIENT_WLAN4_CONS)
+	    client == IPA_CLIENT_WLAN4_CONS   ||
+	    client == IPA_CLIENT_ODU_EMB_CONS ||
+	    client == IPA_CLIENT_ODU_TETH_CONS)
 		return true;
 
 	return false;
@@ -992,11 +1000,39 @@ void ipa3_set_client(int index, enum ipacm_client_enum client, bool uplink)
 	}
 }
 
+/* ipa3_get_wlan_stats() - get ipa wifi stats
+ *
+ * Return value: success or failure
+ */
+int ipa3_get_wlan_stats(struct ipa_get_wdi_sap_stats *wdi_sap_stats)
+{
+	if (ipa3_ctx->uc_wdi_ctx.stats_notify) {
+		ipa3_ctx->uc_wdi_ctx.stats_notify(IPA_GET_WDI_SAP_STATS,
+			wdi_sap_stats);
+	} else {
+		IPAERR("uc_wdi_ctx.stats_notify NULL\n");
+		return -EFAULT;
+	}
+	return 0;
+}
+
+int ipa3_set_wlan_quota(struct ipa_set_wifi_quota *wdi_quota)
+{
+	if (ipa3_ctx->uc_wdi_ctx.stats_notify) {
+		ipa3_ctx->uc_wdi_ctx.stats_notify(IPA_SET_WIFI_QUOTA,
+			wdi_quota);
+	} else {
+		IPAERR("uc_wdi_ctx.stats_notify NULL\n");
+		return -EFAULT;
+	}
+	return 0;
+}
+
 /**
  * ipa3_get_client() - provide client mapping
  * @client: client type
  *
- * Return value: none
+ * Return value: client mapping enum
  */
 enum ipacm_client_enum ipa3_get_client(int pipe_idx)
 {
@@ -3114,6 +3150,8 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_suspend_wdi_pipe = ipa3_suspend_wdi_pipe;
 	api_ctrl->ipa_get_wdi_stats = ipa3_get_wdi_stats;
 	api_ctrl->ipa_get_smem_restr_bytes = ipa3_get_smem_restr_bytes;
+	api_ctrl->ipa_broadcast_wdi_quota_reach_ind =
+			ipa3_broadcast_wdi_quota_reach_ind;
 	api_ctrl->ipa_uc_wdi_get_dbpa = ipa3_uc_wdi_get_dbpa;
 	api_ctrl->ipa_uc_reg_rdyCB = ipa3_uc_reg_rdyCB;
 	api_ctrl->ipa_uc_dereg_rdyCB = ipa3_uc_dereg_rdyCB;

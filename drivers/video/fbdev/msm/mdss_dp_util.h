@@ -185,6 +185,7 @@
 #define DP_HDCP_RCVPORT_DATA6                          (0x0C4)
 
 #define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_SHA_CTRL           (0x024)
+#define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_SHA_DATA           (0x028)
 #define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA0      (0x004)
 #define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA1      (0x008)
 #define HDCP_SEC_DP_TZ_HV_HLOS_HDCP_RCVPORT_DATA7      (0x00C)
@@ -244,6 +245,8 @@ static const struct dp_vc_tu_mapping_table tu_table[] = {
 			0x21, 0x001a, false, 0x00, 0x00, 0x00, 0x27},
 	{HDMI_VFRMT_1920x1080p60_16_9, 4, 06, 24,
 			0x16, 0x000f, false, 0x00, 0x00, 0x00, 0x1f},
+	{HDMI_VFRMT_1920x1080p60_16_9, 4, 10, 24,
+			0x21, 0x0013, false, 0x21, 0x8, 0x1, 0x26},
 	{HDMI_VFRMT_1920x1080p60_16_9, 2, 10, 24,
 			0x21, 0x0011, false, 0x00, 0x00, 0x00, 0x27},
 	{HDMI_VFRMT_1920x1080p60_16_9, 1, 20, 24,

@@ -90,6 +90,8 @@ static uint32_t sde_rotator_get_flags_from_ctx(struct sde_rotator_ctx *ctx)
 		ret_flags ^= SDE_ROTATION_FLIP_UD;
 	if (ctx->secure)
 		ret_flags |= SDE_ROTATION_SECURE;
+	if (ctx->secure_camera)
+		ret_flags |= SDE_ROTATION_SECURE_CAMERA;
 	if (ctx->format_out.fmt.pix.field == V4L2_FIELD_INTERLACED &&
 			ctx->format_cap.fmt.pix.field == V4L2_FIELD_NONE)
 		ret_flags |= SDE_ROTATION_DEINTERLACE;
@@ -121,6 +123,25 @@ static void sde_rotator_get_config_from_ctx(struct sde_rotator_ctx *ctx,
 	config->output.format = ctx->format_cap.fmt.pix.pixelformat;
 	config->output.comp_ratio.numer = 1;
 	config->output.comp_ratio.denom = 1;
+
+	/*
+	 * Use compression ratio of the first buffer to estimate
+	 * performance requirement of the session. If core layer does
+	 * not support dynamic per buffer compression ratio recalculation,
+	 * this configuration will determine the overall static compression
+	 * ratio of the session.
+	 */
+	if (ctx->vbinfo_out)
+		config->input.comp_ratio = ctx->vbinfo_out[0].comp_ratio;
+	if (ctx->vbinfo_cap)
+		config->output.comp_ratio = ctx->vbinfo_cap[0].comp_ratio;
+
+	SDEDEV_DBG(ctx->rot_dev->dev, "config s:%d out_cr:%u/%u cap_cr:%u/%u\n",
+			ctx->session_id,
+			config->input.comp_ratio.numer,
+			config->input.comp_ratio.denom,
+			config->output.comp_ratio.numer,
+			config->output.comp_ratio.denom);
 }
 
 /*
@@ -272,8 +293,11 @@ static int sde_rotator_queue_setup(struct vb2_queue *q,
 					ctx->nbuf_out, GFP_KERNEL);
 		if (!ctx->vbinfo_out)
 			return -ENOMEM;
-		for (i = 0; i < ctx->nbuf_out; i++)
+		for (i = 0; i < ctx->nbuf_out; i++) {
 			ctx->vbinfo_out[i].fd = -1;
+			ctx->vbinfo_out[i].comp_ratio.numer = 1;
+			ctx->vbinfo_out[i].comp_ratio.denom = 1;
+		}
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		ctx->nbuf_cap = *num_buffers;
@@ -282,8 +306,11 @@ static int sde_rotator_queue_setup(struct vb2_queue *q,
 					ctx->nbuf_cap, GFP_KERNEL);
 		if (!ctx->vbinfo_cap)
 			return -ENOMEM;
-		for (i = 0; i < ctx->nbuf_cap; i++)
+		for (i = 0; i < ctx->nbuf_cap; i++) {
 			ctx->vbinfo_cap[i].fd = -1;
+			ctx->vbinfo_cap[i].comp_ratio.numer = 1;
+			ctx->vbinfo_cap[i].comp_ratio.denom = 1;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -510,28 +537,45 @@ static void *sde_rotator_get_userptr(void *alloc_ctx,
 	struct sde_rotator_ctx *ctx = alloc_ctx;
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
 	struct sde_rotator_buf_handle *buf;
+	struct ion_client *iclient = rot_dev->mdata->iclient;
 
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
 	buf->fd = vaddr;
-	buf->secure = ctx->secure;
+	buf->secure = ctx->secure || ctx->secure_camera;
 	buf->ctx = ctx;
 	buf->rot_dev = rot_dev;
-	buf->buffer = dma_buf_get(buf->fd);
-
-	if (IS_ERR_OR_NULL(buf->buffer)) {
-		SDEDEV_ERR(rot_dev->dev, "fail get dmabuf fd:%d r:%ld\n",
+	if (ctx->secure_camera) {
+		buf->handle = ion_import_dma_buf(iclient,
+				buf->fd);
+		if (IS_ERR_OR_NULL(buf->handle)) {
+			SDEDEV_ERR(rot_dev->dev,
+				"fail get ion_handler fd:%d r:%ld\n",
 				buf->fd, PTR_ERR(buf->buffer));
-		goto error_dma_buf_get;
+			goto error_buf_get;
+		}
+		SDEDEV_DBG(rot_dev->dev,
+				"get ion_handle s:%d fd:%d buf:%pad\n",
+				buf->ctx->session_id,
+				buf->fd, &buf->handle);
+	} else {
+		buf->buffer = dma_buf_get(buf->fd);
+		if (IS_ERR_OR_NULL(buf->buffer)) {
+			SDEDEV_ERR(rot_dev->dev,
+				"fail get dmabuf fd:%d r:%ld\n",
+				buf->fd, PTR_ERR(buf->buffer));
+			goto error_buf_get;
+		}
+		SDEDEV_DBG(rot_dev->dev,
+				"get dmabuf s:%d fd:%d buf:%pad\n",
+				buf->ctx->session_id,
+				buf->fd, &buf->buffer);
 	}
 
-	SDEDEV_DBG(rot_dev->dev, "get dmabuf s:%d fd:%d buf:%pad\n",
-			buf->ctx->session_id,
-			buf->fd, &buf->buffer);
 	return buf;
-error_dma_buf_get:
+error_buf_get:
 	kfree(buf);
 	return ERR_PTR(-ENOMEM);
 }
@@ -618,6 +662,9 @@ static int sde_rotator_s_ctrl(struct v4l2_ctrl *ctrl)
 		ret = sde_rotator_s_ctx_ctrl(ctx, &ctx->secure, ctrl);
 		break;
 
+	case V4L2_CID_SDE_ROTATOR_SECURE_CAMERA:
+		ret = sde_rotator_s_ctx_ctrl(ctx, &ctx->secure_camera, ctrl);
+		break;
 	default:
 		v4l2_warn(&rot_dev->v4l2_dev, "invalid control %d\n", ctrl->id);
 		ret = -EINVAL;
@@ -641,6 +688,17 @@ static const struct v4l2_ctrl_config sde_rotator_ctrl_secure = {
 	.ops = &sde_rotator_ctrl_ops,
 	.id = V4L2_CID_SDE_ROTATOR_SECURE,
 	.name = "Non-secure/Secure Domain",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.def = 0,
+	.min = 0,
+	.max = 1,
+	.step = 1,
+};
+
+static const struct v4l2_ctrl_config sde_rotator_ctrl_secure_camera = {
+	.ops = &sde_rotator_ctrl_ops,
+	.id = V4L2_CID_SDE_ROTATOR_SECURE_CAMERA,
+	.name = "Secure Camera content",
 	.type = V4L2_CTRL_TYPE_INTEGER,
 	.def = 0,
 	.min = 0,
@@ -924,6 +982,8 @@ static int sde_rotator_open(struct file *file)
 			&sde_rotator_ctrl_ops, V4L2_CID_ROTATE, 0, 270, 90, 0);
 	v4l2_ctrl_new_custom(ctrl_handler,
 			&sde_rotator_ctrl_secure, NULL);
+	v4l2_ctrl_new_custom(ctrl_handler,
+			&sde_rotator_ctrl_secure_camera, NULL);
 	if (ctrl_handler->error) {
 		ret = ctrl_handler->error;
 		v4l2_ctrl_handler_free(ctrl_handler);
@@ -1688,6 +1748,7 @@ static long sde_rotator_private_ioctl(struct file *file, void *fh,
 			sde_rotator_ctx_from_fh(file->private_data);
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
 	struct msm_sde_rotator_fence *fence = arg;
+	struct msm_sde_rotator_comp_ratio *comp_ratio = arg;
 	struct sde_rotator_vbinfo *vbinfo;
 
 	switch (cmd) {
@@ -1766,6 +1827,52 @@ static long sde_rotator_private_ioctl(struct file *file, void *fh,
 				ctx->session_id, fence->index,
 				fence->fd);
 		break;
+	case VIDIOC_S_SDE_ROTATOR_COMP_RATIO:
+		if (!comp_ratio)
+			return -EINVAL;
+		else if (!comp_ratio->numer || !comp_ratio->denom)
+			return -EINVAL;
+		else if (comp_ratio->type == V4L2_BUF_TYPE_VIDEO_OUTPUT &&
+				comp_ratio->index < ctx->nbuf_out)
+			vbinfo = &ctx->vbinfo_out[comp_ratio->index];
+		else if (comp_ratio->type == V4L2_BUF_TYPE_VIDEO_CAPTURE &&
+				comp_ratio->index < ctx->nbuf_cap)
+			vbinfo = &ctx->vbinfo_cap[comp_ratio->index];
+		else
+			return -EINVAL;
+
+		vbinfo->comp_ratio.numer = comp_ratio->numer;
+		vbinfo->comp_ratio.denom = comp_ratio->denom;
+
+		SDEDEV_DBG(rot_dev->dev,
+				"VIDIOC_S_SDE_ROTATOR_COMP_RATIO s:%d i:%d t:%d cr:%u/%u\n",
+				ctx->session_id, comp_ratio->index,
+				comp_ratio->type,
+				vbinfo->comp_ratio.numer,
+				vbinfo->comp_ratio.denom);
+		break;
+	case VIDIOC_G_SDE_ROTATOR_COMP_RATIO:
+		if (!comp_ratio)
+			return -EINVAL;
+		else if (comp_ratio->type == V4L2_BUF_TYPE_VIDEO_OUTPUT &&
+				comp_ratio->index < ctx->nbuf_out)
+			vbinfo = &ctx->vbinfo_out[comp_ratio->index];
+		else if (comp_ratio->type == V4L2_BUF_TYPE_VIDEO_CAPTURE &&
+				comp_ratio->index < ctx->nbuf_cap)
+			vbinfo = &ctx->vbinfo_cap[comp_ratio->index];
+		else
+			return -EINVAL;
+
+		comp_ratio->numer = vbinfo->comp_ratio.numer;
+		comp_ratio->denom = vbinfo->comp_ratio.denom;
+
+		SDEDEV_DBG(rot_dev->dev,
+				"VIDIOC_G_SDE_ROTATOR_COMP_RATIO s:%d i:%d t:%d cr:%u/%u\n",
+				ctx->session_id, comp_ratio->index,
+				comp_ratio->type,
+				comp_ratio->numer,
+				comp_ratio->denom);
+		break;
 	default:
 		SDEDEV_WARN(rot_dev->dev, "invalid ioctl type %x\n", cmd);
 		return -ENOTTY;
@@ -1801,6 +1908,24 @@ static long sde_rotator_compat_ioctl32(struct file *file,
 
 		if (copy_to_user((void __user *)arg, &fence,
 				sizeof(struct msm_sde_rotator_fence)))
+			return -EFAULT;
+
+		break;
+	}
+	case VIDIOC_S_SDE_ROTATOR_COMP_RATIO:
+	case VIDIOC_G_SDE_ROTATOR_COMP_RATIO:
+	{
+		struct msm_sde_rotator_comp_ratio comp_ratio;
+
+		if (copy_from_user(&comp_ratio, (void __user *)arg,
+				sizeof(struct msm_sde_rotator_comp_ratio)))
+			return -EFAULT;
+
+		ret = sde_rotator_private_ioctl(file, file->private_data,
+			0, cmd, (void *)&comp_ratio);
+
+		if (copy_to_user((void __user *)arg, &comp_ratio,
+				sizeof(struct msm_sde_rotator_comp_ratio)))
 			return -EFAULT;
 
 		break;
@@ -1949,13 +2074,15 @@ static int sde_rotator_process_buffers(struct sde_rotator_ctx *ctx,
 	vbinfo_cap = &ctx->vbinfo_cap[dst_buf->index];
 
 	SDEDEV_DBG(rot_dev->dev,
-		"process buffer s:%d.%u src:(%u,%u,%u,%u) dst:(%u,%u,%u,%u) rot:%d flip:%d/%d sec:%d\n",
+		"process buffer s:%d.%u src:(%u,%u,%u,%u) dst:(%u,%u,%u,%u) rot:%d flip:%d/%d sec:%d src_cr:%u/%u dst_cr:%u/%u\n",
 		ctx->session_id, vbinfo_cap->fence_ts,
 		ctx->crop_out.left, ctx->crop_out.top,
 		ctx->crop_out.width, ctx->crop_out.height,
 		ctx->crop_cap.left, ctx->crop_cap.top,
 		ctx->crop_cap.width, ctx->crop_cap.height,
-		ctx->rotate, ctx->hflip, ctx->vflip, ctx->secure);
+		ctx->rotate, ctx->hflip, ctx->vflip, ctx->secure,
+		vbinfo_out->comp_ratio.numer, vbinfo_out->comp_ratio.denom,
+		vbinfo_cap->comp_ratio.numer, vbinfo_cap->comp_ratio.denom);
 
 	/* allocate slot for timestamp */
 	ts = stats->ts[stats->count++ % SDE_ROTATOR_NUM_EVENTS];
@@ -2010,15 +2137,19 @@ static int sde_rotator_process_buffers(struct sde_rotator_ctx *ctx,
 	sde_rotator_get_item_from_ctx(ctx, &item);
 	item.flags |= SDE_ROTATION_EXT_DMA_BUF;
 	item.input.planes[0].buffer = src_handle->buffer;
+	item.input.planes[0].handle = src_handle->handle;
 	item.input.planes[0].offset = src_handle->addr;
 	item.input.planes[0].stride = ctx->format_out.fmt.pix.bytesperline;
 	item.input.plane_count = 1;
 	item.input.fence = NULL;
+	item.input.comp_ratio = vbinfo_out->comp_ratio;
 	item.output.planes[0].buffer = dst_handle->buffer;
+	item.output.planes[0].handle = dst_handle->handle;
 	item.output.planes[0].offset = dst_handle->addr;
 	item.output.planes[0].stride = ctx->format_cap.fmt.pix.bytesperline;
 	item.output.plane_count = 1;
 	item.output.fence = NULL;
+	item.output.comp_ratio = vbinfo_cap->comp_ratio;
 	item.sequence_id = vbinfo_cap->fence_ts;
 	item.ts = ts;
 

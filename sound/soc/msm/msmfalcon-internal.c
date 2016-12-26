@@ -13,11 +13,13 @@
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
+#include <linux/mfd/msm-cdc-pinctrl.h>
 #include <sound/pcm_params.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
-#include "msm-audio-pinctrl.h"
 #include "msmfalcon-common.h"
-#include "../codecs/msm8x16/msm8x16-wcd.h"
+#include "../codecs/msmfalcon_cdc/msm-digital-cdc.h"
+#include "../codecs/msmfalcon_cdc/msm-analog-cdc.h"
+#include "../codecs/msm_sdw/msm_sdw.h"
 
 #define __CHIPSET__ "MSMFALCON "
 #define MSM_DAILINK_NAME(name) (__CHIPSET__#name)
@@ -29,6 +31,9 @@
 
 #define WCN_CDC_SLIM_RX_CH_MAX 2
 #define WCN_CDC_SLIM_TX_CH_MAX 3
+
+#define WSA8810_NAME_1 "wsa881x.20170211"
+#define WSA8810_NAME_2 "wsa881x.20170212"
 
 enum {
 	INT0_MI2S = 0,
@@ -176,6 +181,9 @@ static int msm_int_mi2s_snd_startup(struct snd_pcm_substream *substream);
 static void msm_int_mi2s_snd_shutdown(struct snd_pcm_substream *substream);
 
 static struct wcd_mbhc_config *mbhc_cfg_ptr;
+static struct snd_info_entry *msm_sdw_codec_root;
+static struct snd_info_entry *msm_dig_codec_root;
+static struct snd_info_entry *pmic_analog_codec_root;
 
 static int int_mi2s_get_bit_format_val(int bit_format)
 {
@@ -443,22 +451,25 @@ static const struct snd_soc_dapm_widget msm_int_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic4", msm_dmic_event),
 };
 
-static int msm_config_hph_compander_gpio(bool enable)
+static int msm_config_hph_compander_gpio(bool enable,
+					 struct snd_soc_codec *codec)
 {
+	struct snd_soc_card *card = codec->component.card;
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret = 0;
 
 	pr_debug("%s: %s HPH Compander\n", __func__,
 		enable ? "Enable" : "Disable");
 
 	if (enable) {
-		ret = msm_gpioset_activate(CLIENT_WCD, "comp_gpio");
+		ret = msm_cdc_pinctrl_select_active_state(pdata->comp_gpio_p);
 		if (ret) {
 			pr_err("%s: gpio set cannot be activated %s\n",
 				__func__, "comp_gpio");
 			goto done;
 		}
 	} else {
-		ret = msm_gpioset_suspend(CLIENT_WCD, "comp_gpio");
+		ret = msm_cdc_pinctrl_select_sleep_state(pdata->comp_gpio_p);
 		if (ret) {
 			pr_err("%s: gpio set cannot be de-activated %s\n",
 				__func__, "comp_gpio");
@@ -509,7 +520,8 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 		enable ? "Enable" : "Disable");
 
 	if (enable) {
-		ret = msm_gpioset_activate(CLIENT_WCD, "ext_spk_gpio");
+		ret = msm_cdc_pinctrl_select_active_state(
+						pdata->ext_spk_gpio_p);
 		if (ret) {
 			pr_err("%s: gpio set cannot be de-activated %s\n",
 					__func__, "ext_spk_gpio");
@@ -518,7 +530,8 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
 	} else {
 		gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
-		ret = msm_gpioset_suspend(CLIENT_WCD, "ext_spk_gpio");
+		ret = msm_cdc_pinctrl_select_sleep_state(
+						pdata->ext_spk_gpio_p);
 		if (ret) {
 			pr_err("%s: gpio set cannot be de-activated %s\n",
 					__func__, "ext_spk_gpio");
@@ -526,6 +539,35 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 		}
 	}
 	return 0;
+}
+
+static int msm_config_sdw_gpio(bool enable, struct snd_soc_codec *codec)
+{
+	struct snd_soc_card *card = codec->component.card;
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	int ret = 0;
+
+	pr_debug("%s: %s SDW Clk/Data Gpios\n", __func__,
+		enable ? "Enable" : "Disable");
+
+	if (enable) {
+		ret = msm_cdc_pinctrl_select_active_state(pdata->sdw_gpio_p);
+		if (ret) {
+			pr_err("%s: gpio set cannot be activated %s\n",
+				__func__, "sdw_pin");
+			goto done;
+		}
+	} else {
+		ret = msm_cdc_pinctrl_select_sleep_state(pdata->sdw_gpio_p);
+		if (ret) {
+			pr_err("%s: gpio set cannot be de-activated %s\n",
+				__func__, "sdw_pin");
+			goto done;
+		}
+	}
+
+done:
+	return ret;
 }
 
 static int int_mi2s_get_idx_from_beid(int32_t be_id)
@@ -672,10 +714,13 @@ static int msm_int_enable_dig_cdc_clk(struct snd_soc_codec *codec,
 		   atomic_read(&pdata->int_mclk0_rsc_ref));
 	if (enable) {
 		if (int_mi2s_cfg[INT0_MI2S].sample_rate ==
-				SAMPLING_RATE_44P1KHZ)
+				SAMPLING_RATE_44P1KHZ) {
 			clk_freq_in_hz = NATIVE_MCLK_RATE;
-		else
+			pdata->native_clk_set = true;
+		} else {
 			clk_freq_in_hz = pdata->mclk_freq;
+			pdata->native_clk_set = false;
+		}
 
 		if (pdata->digital_cdc_core_clk.clk_freq_in_hz
 				!= clk_freq_in_hz)
@@ -744,7 +789,7 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 			ucontrol->value.integer.value[0]);
 	switch (ucontrol->value.integer.value[0]) {
 	case 1:
-		ret = msm_gpioset_activate(CLIENT_WCD, "int_pdm");
+		ret = msm_cdc_pinctrl_select_active_state(pdata->pdm_gpio_p);
 		if (ret) {
 			pr_err("%s: failed to enable the pri gpios: %d\n",
 					__func__, ret);
@@ -761,8 +806,8 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 				pr_err("%s: failed to enable the MCLK: %d\n",
 						__func__, ret);
 				mutex_unlock(&pdata->cdc_int_mclk0_mutex);
-				ret = msm_gpioset_suspend(CLIENT_WCD,
-								"int_pdm");
+				ret = msm_cdc_pinctrl_select_sleep_state(
+							pdata->pdm_gpio_p);
 				if (ret)
 					pr_err("%s: failed to disable the pri gpios: %d\n",
 							__func__, ret);
@@ -772,12 +817,12 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 		}
 		mutex_unlock(&pdata->cdc_int_mclk0_mutex);
 		atomic_inc(&pdata->int_mclk0_rsc_ref);
-		msm8x16_wcd_mclk_enable(codec, 1, true);
+		msm_anlg_cdc_mclk_enable(codec, 1, true);
 		break;
 	case 0:
 		if (atomic_read(&pdata->int_mclk0_rsc_ref) <= 0)
 			break;
-		msm8x16_wcd_mclk_enable(codec, 0, true);
+		msm_anlg_cdc_mclk_enable(codec, 0, true);
 		mutex_lock(&pdata->cdc_int_mclk0_mutex);
 		if ((!atomic_dec_return(&pdata->int_mclk0_rsc_ref)) &&
 				(atomic_read(&pdata->int_mclk0_enabled))) {
@@ -794,7 +839,7 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 			atomic_set(&pdata->int_mclk0_enabled, false);
 		}
 		mutex_unlock(&pdata->cdc_int_mclk0_mutex);
-		ret = msm_gpioset_suspend(CLIENT_WCD, "int_pdm");
+		ret = msm_cdc_pinctrl_select_sleep_state(pdata->pdm_gpio_p);
 		if (ret)
 			pr_err("%s: failed to disable the pri gpios: %d\n",
 					__func__, ret);
@@ -893,7 +938,7 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_bt_sample_rate_put),
 };
 
-static const struct snd_kcontrol_new msm_swr_controls[] = {
+static const struct snd_kcontrol_new msm_sdw_controls[] = {
 	SOC_ENUM_EXT("INT4_MI2S_RX Format", int4_mi2s_rx_format,
 		     int_mi2s_bit_format_get, int_mi2s_bit_format_put),
 	SOC_ENUM_EXT("INT4_MI2S_RX SampleRate", int4_mi2s_rx_sample_rate,
@@ -919,7 +964,7 @@ static int msm_dmic_event(struct snd_soc_dapm_widget *w,
 	pr_debug("%s: event = %d\n", __func__, event);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		ret = msm_gpioset_activate(CLIENT_WCD, "dmic_gpio");
+		ret = msm_cdc_pinctrl_select_active_state(pdata->dmic_gpio_p);
 		if (ret < 0) {
 			pr_err("%s: gpio set cannot be activated %sd",
 					__func__, "dmic_gpio");
@@ -927,7 +972,7 @@ static int msm_dmic_event(struct snd_soc_dapm_widget *w,
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		ret = msm_gpioset_suspend(CLIENT_WCD, "dmic_gpio");
+		ret = msm_cdc_pinctrl_select_sleep_state(pdata->dmic_gpio_p);
 		if (ret < 0) {
 			pr_err("%s: gpio set cannot be de-activated %sd",
 					__func__, "dmic_gpio");
@@ -954,7 +999,7 @@ static int msm_int_mclk0_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		pr_debug("%s: mclk_res_ref = %d\n",
 			__func__, atomic_read(&pdata->int_mclk0_rsc_ref));
-		ret = msm_gpioset_suspend(CLIENT_WCD, "int_pdm");
+		ret = msm_cdc_pinctrl_select_sleep_state(pdata->pdm_gpio_p);
 		if (ret < 0) {
 			pr_err("%s: gpio set cannot be de-activated %sd",
 					__func__, "int_pdm");
@@ -963,7 +1008,7 @@ static int msm_int_mclk0_event(struct snd_soc_dapm_widget *w,
 		if (atomic_read(&pdata->int_mclk0_rsc_ref) == 0) {
 			pr_debug("%s: disabling MCLK\n", __func__);
 			/* disable the codec mclk config*/
-			msm8x16_wcd_mclk_enable(codec, 0, true);
+			msm_anlg_cdc_mclk_enable(codec, 0, true);
 			msm_int_enable_dig_cdc_clk(codec, 0, true);
 		}
 		break;
@@ -1098,7 +1143,7 @@ done:
 	return ret;
 }
 
-static int msm_swr_mi2s_snd_startup(struct snd_pcm_substream *substream)
+static int msm_sdw_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
@@ -1113,13 +1158,6 @@ static int msm_swr_mi2s_snd_startup(struct snd_pcm_substream *substream)
 				__func__, ret);
 		return ret;
 	}
-	/* Enable the codec mclk config */
-	ret = msm_gpioset_activate(CLIENT_WCD, "swr_pin");
-	if (ret < 0) {
-		pr_err("%s: gpio set cannot be activated %sd",
-				__func__, "swr_pin");
-		return ret;
-	}
 	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 	if (ret < 0)
 		pr_err("%s: set fmt cpu dai failed; ret=%d\n", __func__, ret);
@@ -1127,7 +1165,7 @@ static int msm_swr_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	return ret;
 }
 
-static void msm_swr_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
+static void msm_sdw_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 {
 	int ret;
 
@@ -1144,9 +1182,11 @@ static int msm_int_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_codec *codec = rtd->codec_dais[ANA_CDC]->codec;
 	int ret = 0;
+	struct msm_asoc_mach_data *pdata = NULL;
 
+	pdata = snd_soc_card_get_drvdata(codec->component.card);
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
 
@@ -1162,13 +1202,13 @@ static int msm_int_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		return ret;
 	}
 	/* Enable the codec mclk config */
-	ret = msm_gpioset_activate(CLIENT_WCD, "int_pdm");
+	ret = msm_cdc_pinctrl_select_active_state(pdata->pdm_gpio_p);
 	if (ret < 0) {
 		pr_err("%s: gpio set cannot be activated %s\n",
 				__func__, "int_pdm");
 		return ret;
 	}
-	msm8x16_wcd_mclk_enable(codec, 1, true);
+	msm_anlg_cdc_mclk_enable(codec, 1, true);
 	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 	if (ret < 0)
 		pr_err("%s: set fmt cpu dai failed; ret=%d\n", __func__, ret);
@@ -1249,22 +1289,22 @@ static void *def_msm_int_wcd_mbhc_cal(void)
 
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_soc_codec *codec = rtd->codec;
-	struct snd_soc_dapm_context *dapm =
-			snd_soc_codec_get_dapm(codec);
+	struct snd_soc_codec *dig_cdc = rtd->codec_dais[DIG_CDC]->codec;
+	struct snd_soc_codec *ana_cdc = rtd->codec_dais[ANA_CDC]->codec;
+	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(ana_cdc);
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
+	struct snd_card *card;
+	struct snd_info_entry *entry;
 	int ret = -ENOMEM;
 
 	pr_debug("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
-	snd_soc_add_codec_controls(codec, msm_snd_controls,
-			ARRAY_SIZE(msm_snd_controls));
-
-	snd_soc_add_codec_controls(codec, msm_common_snd_controls,
-			ARRAY_SIZE(msm_snd_controls));
+	snd_soc_add_codec_controls(ana_cdc, msm_snd_controls,
+				   ARRAY_SIZE(msm_snd_controls));
 
 	snd_soc_dapm_new_controls(dapm, msm_int_dapm_widgets,
-			ARRAY_SIZE(msm_int_dapm_widgets));
+				  ARRAY_SIZE(msm_int_dapm_widgets));
 
 	snd_soc_dapm_ignore_suspend(dapm, "Handset Mic");
 	snd_soc_dapm_ignore_suspend(dapm, "Headset Mic");
@@ -1285,39 +1325,86 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_sync(dapm);
 
-	msm8x16_wcd_spk_ext_pa_cb(enable_spk_ext_pa, codec);
-	msm8x16_wcd_hph_comp_cb(msm_config_hph_compander_gpio, codec);
+	/*
+	 * Send speaker configuration only for WSA8810.
+	 * Defalut configuration is for WSA8815.
+	 */
+	if (rtd_aux && rtd_aux->component)
+		if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
+		    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
+			msm_sdw_set_spkr_mode(rtd->codec, SPKR_MODE_1);
+			msm_sdw_set_spkr_gain_offset(rtd->codec,
+						   RX_GAIN_OFFSET_M1P5_DB);
+	}
+	msm_anlg_cdc_spk_ext_pa_cb(enable_spk_ext_pa, ana_cdc);
+	msm_dig_cdc_hph_comp_cb(msm_config_hph_compander_gpio, dig_cdc);
 
 	mbhc_cfg_ptr->calibration = def_msm_int_wcd_mbhc_cal();
 	if (mbhc_cfg_ptr->calibration) {
-		ret = msm8x16_wcd_hs_detect(codec, mbhc_cfg_ptr);
+		ret = msm_anlg_cdc_hs_detect(ana_cdc, mbhc_cfg_ptr);
 		if (ret) {
-			pr_err("%s: msm8x16_wcd_hs_detect failed\n", __func__);
+			pr_err("%s: msm_anlg_cdc_hs_detect failed\n", __func__);
 			kfree(mbhc_cfg_ptr->calibration);
 			return ret;
 		}
 	}
+	card = rtd->card->snd_card;
+	entry = snd_register_module_info(card->module, "codecs",
+					 card->proc_root);
+	if (!entry) {
+		pr_debug("%s: Cannot create codecs module entry\n",
+			 __func__);
+		msm_dig_codec_root = NULL;
+		goto done;
+	}
+	msm_dig_codec_root = entry;
+	msm_dig_codec_info_create_codec_entry(msm_dig_codec_root, dig_cdc);
+	entry = snd_register_module_info(card->module, "codecs",
+					 card->proc_root);
+	if (!entry) {
+		pr_debug("%s: Cannot create codecs module entry\n",
+			 __func__);
+		pmic_analog_codec_root = NULL;
+		goto done;
+	}
+	pmic_analog_codec_root = entry;
+	msm_anlg_codec_info_create_codec_entry(pmic_analog_codec_root, ana_cdc);
+done:
 	return 0;
 }
 
-static int msm_swr_audrx_init(struct snd_soc_pcm_runtime *rtd)
+static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm =
 			snd_soc_codec_get_dapm(codec);
+	struct snd_card *card;
+	struct snd_info_entry *entry;
 
-	snd_soc_add_codec_controls(codec, msm_swr_controls,
-			ARRAY_SIZE(msm_swr_controls));
+	snd_soc_add_codec_controls(codec, msm_sdw_controls,
+			ARRAY_SIZE(msm_sdw_controls));
 
-	snd_soc_dapm_ignore_suspend(dapm, "AIF1_SWR Playback");
-	snd_soc_dapm_ignore_suspend(dapm, "VIfeed_SWR");
+	snd_soc_dapm_ignore_suspend(dapm, "AIF1_SDW Playback");
+	snd_soc_dapm_ignore_suspend(dapm, "VIfeed_SDW");
 	snd_soc_dapm_ignore_suspend(dapm, "SPK1 OUT");
 	snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
-	snd_soc_dapm_ignore_suspend(dapm, "AIF1_SWR VI");
-	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT_SWR");
+	snd_soc_dapm_ignore_suspend(dapm, "AIF1_SDW VI");
+	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT_SDW");
 
 	snd_soc_dapm_sync(dapm);
-
+	msm_sdw_gpio_cb(msm_config_sdw_gpio, codec);
+	card = rtd->card->snd_card;
+	entry = snd_register_module_info(card->module, "codecs",
+					 card->proc_root);
+	if (!entry) {
+		pr_debug("%s: Cannot create codecs module entry\n",
+			 __func__);
+		msm_sdw_codec_root = NULL;
+		goto done;
+	}
+	msm_sdw_codec_root = entry;
+	msm_sdw_codec_info_create_codec_entry(msm_sdw_codec_root, codec);
+done:
 	return 0;
 }
 
@@ -1540,9 +1627,42 @@ static struct snd_soc_ops msm_int_mi2s_be_ops = {
 	.shutdown = msm_int_mi2s_snd_shutdown,
 };
 
-static struct snd_soc_ops msm_swr_mi2s_be_ops = {
-	.startup = msm_swr_mi2s_snd_startup,
-	.shutdown = msm_swr_mi2s_snd_shutdown,
+static struct snd_soc_ops msm_sdw_mi2s_be_ops = {
+	.startup = msm_sdw_mi2s_snd_startup,
+	.shutdown = msm_sdw_mi2s_snd_shutdown,
+};
+
+struct snd_soc_dai_link_component dlc_rx1[] = {
+	{
+		.of_node = NULL,
+		.dai_name = "msm_dig_cdc_dai_rx1",
+	},
+	{
+		.of_node = NULL,
+		.dai_name  = "msm_anlg_cdc_i2s_rx1",
+	},
+};
+
+struct snd_soc_dai_link_component dlc_tx1[] = {
+	{
+		.of_node = NULL,
+		.dai_name = "msm_dig_cdc_dai_tx1",
+	},
+	{
+		.of_node = NULL,
+		.dai_name  = "msm_anlg_cdc_i2s_tx1",
+	},
+};
+
+struct snd_soc_dai_link_component dlc_tx2[] = {
+	{
+		.of_node = NULL,
+		.dai_name = "msm_dig_cdc_dai_tx2",
+	},
+	{
+		.of_node = NULL,
+		.dai_name  = "msm_anlg_cdc_i2s_tx2",
+	},
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
@@ -1675,6 +1795,7 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.stream_name = "Compress1",
 		.cpu_dai_name	= "MultiMedia4",
 		.platform_name  = "msm-compress-dsp",
+		.async_ops = ASYNC_DPCM_SND_SOC_HW_PARAMS,
 		.dynamic = 1,
 		.dpcm_capture = 1,
 		.dpcm_playback = 1,
@@ -1721,25 +1842,24 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.codec_name = "snd-soc-dummy",
 	},
 	{/* hw:x,11 */
-		.name = "SLIMBUS_3 Hostless",
-		.stream_name = "SLIMBUS_3 Hostless",
-		.cpu_dai_name = "SLIMBUS3_HOSTLESS",
+		.name = "INT3 MI2S_TX Hostless",
+		.stream_name = "INT3 MI2S_TX Hostless",
+		.cpu_dai_name = "INT3_MI2S_TX_HOSTLESS",
 		.platform_name = "msm-pcm-hostless",
 		.dynamic = 1,
 		.dpcm_capture = 1,
-		.dpcm_playback = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			    SND_SOC_DPCM_TRIGGER_POST},
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_pmdown_time = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
 	{/* hw:x,12 */
-		.name = "SLIMBUS_4 Hostless",
-		.stream_name = "SLIMBUS_4 Hostless",
-		.cpu_dai_name = "SLIMBUS4_HOSTLESS",
+		.name = "SLIMBUS_7 Hostless",
+		.stream_name = "SLIMBUS_7 Hostless",
+		.cpu_dai_name = "SLIMBUS7_HOSTLESS",
 		.platform_name = "msm-pcm-hostless",
 		.dynamic = 1,
 		.dpcm_capture = 1,
@@ -2118,11 +2238,11 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.stream_name = "INT5_mi2s Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.12",
 		.platform_name = "msm-pcm-hostless",
-		.codec_name = "msm_swr_codec",
-		.codec_dai_name = "msm_swr_vifeedback",
+		.codec_name = "msm_sdw_codec",
+		.codec_dai_name = "msm_sdw_vifeedback",
 		.be_id = MSM_BACKEND_DAI_INT5_MI2S_TX,
 		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
-		.ops = &msm_swr_mi2s_be_ops,
+		.ops = &msm_sdw_mi2s_be_ops,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
 		.dpcm_capture = 1,
@@ -2202,8 +2322,8 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.stream_name = "INT0 MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.7",
 		.platform_name = "msm-pcm-routing",
-		.codec_name     = "cajon_codec",
-		.codec_dai_name = "msm8x16_wcd_i2s_rx1",
+		.codecs = dlc_rx1,
+		.num_codecs = CODECS_MAX,
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
@@ -2215,18 +2335,34 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.ignore_suspend = 1,
 	},
 	{
+		.name = LPASS_BE_INT3_MI2S_TX,
+		.stream_name = "INT3 MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.10",
+		.platform_name = "msm-pcm-routing",
+		.codecs = dlc_tx1,
+		.num_codecs = CODECS_MAX,
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
+			ASYNC_DPCM_SND_SOC_HW_PARAMS,
+		.be_id = MSM_BACKEND_DAI_INT3_MI2S_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_int_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
 		.name = LPASS_BE_INT4_MI2S_RX,
 		.stream_name = "INT4 MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.11",
 		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm_swr_codec",
-		.codec_dai_name = "msm_swr_i2s_rx1",
+		.codec_name = "msm_sdw_codec",
+		.codec_dai_name = "msm_sdw_i2s_rx1",
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_INT4_MI2S_RX,
-		.init = &msm_swr_audrx_init,
+		.init = &msm_sdw_audrx_init,
 		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
-		.ops = &msm_swr_mi2s_be_ops,
+		.ops = &msm_sdw_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
 	{
@@ -2234,29 +2370,13 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.stream_name = "INT2 MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.9",
 		.platform_name = "msm-pcm-routing",
-		.codec_name     = "cajon_codec",
-		.codec_dai_name = "msm8x16_wcd_i2s_tx2",
+		.codecs = dlc_tx2,
+		.num_codecs = CODECS_MAX,
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
 			ASYNC_DPCM_SND_SOC_HW_PARAMS,
 		.be_id = MSM_BACKEND_DAI_INT2_MI2S_TX,
-		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
-		.ops = &msm_int_mi2s_be_ops,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = LPASS_BE_INT3_MI2S_TX,
-		.stream_name = "INT3 MI2S Capture",
-		.cpu_dai_name = "msm-dai-q6-mi2s.10",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "cajon_codec",
-		.codec_dai_name = "msm8x16_wcd_i2s_tx1",
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
-			ASYNC_DPCM_SND_SOC_HW_PARAMS,
-		.be_id = MSM_BACKEND_DAI_INT3_MI2S_TX,
 		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
 		.ops = &msm_int_mi2s_be_ops,
 		.ignore_suspend = 1,
@@ -2913,8 +3033,7 @@ static int msm_internal_init(struct platform_device *pdev,
 			AFE_API_VERSION_I2S_CONFIG;
 	pdata->digital_cdc_core_clk.clk_id =
 			Q6AFE_LPASS_CLK_ID_INT_MCLK_0;
-	pdata->digital_cdc_core_clk.clk_freq_in_hz =
-			pdata->mclk_freq;
+	pdata->digital_cdc_core_clk.clk_freq_in_hz = 0;
 	pdata->digital_cdc_core_clk.clk_attri =
 			Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO;
 	pdata->digital_cdc_core_clk.clk_root =

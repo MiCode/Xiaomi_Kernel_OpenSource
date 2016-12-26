@@ -1931,9 +1931,6 @@ static void arm_coherent_iommu_unmap_page(struct device *dev, dma_addr_t handle,
 	int offset = handle & ~PAGE_MASK;
 	int len = PAGE_ALIGN(size + offset);
 
-	if (!iova)
-		return;
-
 	iommu_unmap(mapping->domain, iova, len);
 	__free_iova(mapping, iova, len);
 }
@@ -1957,9 +1954,6 @@ static void arm_iommu_unmap_page(struct device *dev, dma_addr_t handle,
 	int offset = handle & ~PAGE_MASK;
 	int len = PAGE_ALIGN(size + offset);
 
-	if (!iova)
-		return;
-
 	if (!dma_get_attr(DMA_ATTR_SKIP_CPU_SYNC, attrs))
 		__dma_page_dev_to_cpu(page, offset, size, dir);
 
@@ -1975,9 +1969,6 @@ static void arm_iommu_sync_single_for_cpu(struct device *dev,
 	struct page *page = phys_to_page(iommu_iova_to_phys(mapping->domain, iova));
 	unsigned int offset = handle & ~PAGE_MASK;
 
-	if (!iova)
-		return;
-
 	__dma_page_dev_to_cpu(page, offset, size, dir);
 }
 
@@ -1988,9 +1979,6 @@ static void arm_iommu_sync_single_for_device(struct device *dev,
 	dma_addr_t iova = handle & PAGE_MASK;
 	struct page *page = phys_to_page(iommu_iova_to_phys(mapping->domain, iova));
 	unsigned int offset = handle & ~PAGE_MASK;
-
-	if (!iova)
-		return;
 
 	__dma_page_cpu_to_dev(page, offset, size, dir);
 }
@@ -2172,12 +2160,16 @@ int arm_iommu_attach_device(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
 	int err;
+	int s1_bypass = 0;
 
 	err = __arm_iommu_attach_device(dev, mapping);
 	if (err)
 		return err;
 
-	set_dma_ops(dev, &iommu_ops);
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
+					&s1_bypass);
+	if (!s1_bypass)
+		set_dma_ops(dev, &iommu_ops);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(arm_iommu_attach_device);
@@ -2211,8 +2203,21 @@ static void __arm_iommu_detach_device(struct device *dev)
  */
 void arm_iommu_detach_device(struct device *dev)
 {
+	struct dma_iommu_mapping *mapping;
+	int s1_bypass = 0;
+
+	mapping = to_dma_iommu_mapping(dev);
+	if (!mapping) {
+		dev_warn(dev, "Not attached\n");
+		return;
+	}
+
 	__arm_iommu_detach_device(dev);
-	set_dma_ops(dev, NULL);
+
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
+					&s1_bypass);
+	if (!s1_bypass)
+		set_dma_ops(dev, NULL);
 }
 EXPORT_SYMBOL_GPL(arm_iommu_detach_device);
 

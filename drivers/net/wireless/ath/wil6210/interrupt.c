@@ -141,7 +141,7 @@ static void wil6210_unmask_irq_misc(struct wil6210_priv *wil, bool unmask_halp)
 	      unmask_halp ? WIL6210_IMC_MISC : WIL6210_IMC_MISC_NO_HALP);
 }
 
-void wil6210_unmask_halp(struct wil6210_priv *wil)
+static void wil6210_unmask_halp(struct wil6210_priv *wil)
 {
 	wil_dbg_irq(wil, "%s()\n", __func__);
 
@@ -149,7 +149,7 @@ void wil6210_unmask_halp(struct wil6210_priv *wil)
 	      BIT_DMA_EP_MISC_ICR_HALP);
 }
 
-void wil6210_unmask_irq_pseudo(struct wil6210_priv *wil)
+static void wil6210_unmask_irq_pseudo(struct wil6210_priv *wil)
 {
 	wil_dbg_irq(wil, "%s()\n", __func__);
 

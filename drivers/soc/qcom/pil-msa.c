@@ -75,6 +75,9 @@
 #define MSS_RESTART_ID			0xA
 
 #define MSS_MAGIC			0XAABADEAD
+/* CX_IPEAK Parameters */
+#define CX_IPEAK_MSS			BIT(5)
+
 enum scm_cmd {
 	PAS_MEM_SETUP_CMD = 2,
 };
@@ -275,6 +278,7 @@ int pil_mss_shutdown(struct pil_desc *pil)
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	int ret = 0;
 
+	dev_info(pil->dev, "MSS is shutting down\n");
 	if (drv->axi_halt_base) {
 		pil_q6v5_halt_axi_port(pil,
 			drv->axi_halt_base + MSS_Q6_HALT_BASE);
@@ -303,6 +307,14 @@ int pil_mss_shutdown(struct pil_desc *pil)
 			dev_err(pil->dev, "error turning ON AHB clock(rc:%d)\n",
 									ret);
 	}
+
+	/*
+	 *  If MSS was in turbo state before fatal error occurs, it would
+	 *  have set the vote bit. Since MSS is restarting, So PIL need to
+	 *  clear this bit. This may clear the throttle state.
+	 */
+	if (drv->cx_ipeak_vote)
+		writel_relaxed(CX_IPEAK_MSS, drv->cxip_lm_vote_clear);
 
 	ret = pil_mss_restart_reg(drv, 1);
 
@@ -531,7 +543,7 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	struct modem_data *md = dev_get_drvdata(pil->dev);
-	const struct firmware *fw, *dp_fw;
+	const struct firmware *fw, *dp_fw = NULL;
 	char fw_name_legacy[10] = "mba.b00";
 	char fw_name[10] = "mba.mbn";
 	char *dp_name = "msadp";

@@ -73,6 +73,24 @@ KBSS specific properties:
 		    switching. If this property is not specified, then a value
 		    of 0 is assumed.
 
+- qcom,mem-acc-threshold-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the highest memory accelerator (MEM ACC) threshold
+		    voltage in microvolts.  The floor to ceiling voltage range
+		    for every corner is adjusted to ensure that it does not
+		    intersect this voltage. The value of this property must
+		    match with the MEM ACC threshold voltage defined in the OSM
+		    device to ensure that MEM ACC settings are switched
+		    appropriately.
+
+- qcom,mem-acc-crossover-voltage
+	Usage:      required if qcom,mem-acc-threshold-voltage is specified
+	Value type: <u32>
+	Definition: Specifies the MEM ACC crossover voltage in microvolts which
+		    corresponds to the voltage the VDD supply must be set to
+		    when switching the MEM ACC configuration.
+
 - qcom,voltage-base
 	Usage:      required
 	Value type: <u32>

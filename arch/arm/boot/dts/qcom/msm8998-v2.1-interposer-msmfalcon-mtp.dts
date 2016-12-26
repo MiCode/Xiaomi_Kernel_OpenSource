@@ -87,23 +87,6 @@
 	status = "ok";
 };
 
-&usb3 {
-	extcon = <&pmfalcon_pdphy>;
-};
-
-&qusb_phy0 {
-	vdd-supply = <&pm2falcon_l1>;
-	vdda18-supply = <&pmfalcon_l10>;
-	qcom,vdd-voltage-level = <0 925000 925000>;
-	vdda33-supply = <&pm2falcon_l7>;
-};
-
-&ssphy {
-	vdd-supply = <&pm2falcon_l1>;
-	qcom,vdd-voltage-level = <0 925000 925000>;
-	core-supply = <&pmfalcon_l1>;
-};
-
 &mdss_dsi {
 	hw-config = "split_dsi";
 	vdda-1p2-supply = <&pmfalcon_l1>;
@@ -148,6 +131,23 @@
 	qcom,platform-reset-gpio = <&tlmm 94 0>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,panel-mode-gpio = <&tlmm 91 0>;
+};
+
+&usb3 {
+	extcon = <&pmfalcon_pdphy>;
+};
+
+&qusb_phy0 {
+	vdd-supply = <&pm2falcon_l1>;
+	vdda18-supply = <&pmfalcon_l10>;
+	qcom,vdd-voltage-level = <0 925000 925000>;
+	vdda33-supply = <&pm2falcon_l7>;
+};
+
+&ssphy {
+	vdd-supply = <&pm2falcon_l1>;
+	qcom,vdd-voltage-level = <0 925000 925000>;
+	core-supply = <&pmfalcon_l1>;
 };
 
 &pm2falcon_gpios {

@@ -203,6 +203,18 @@ struct kgsl_memobj_node {
 	unsigned long priv;
 };
 
+/**
+ * struct kgsl_sparseobj_node - Sparse object descriptor
+ * @node: Local list node for the sparse cmdbatch
+ * @virt_id: Virtual ID to bind/unbind
+ * @obj:  struct kgsl_sparse_binding_object
+ */
+struct kgsl_sparseobj_node {
+	struct list_head node;
+	unsigned int virt_id;
+	struct kgsl_sparse_binding_object obj;
+};
+
 struct kgsl_device {
 	struct device *dev;
 	const char *name;
@@ -264,6 +276,10 @@ struct kgsl_device {
 
 	u32 snapshot_faultcount;	/* Total number of faults since boot */
 	bool force_panic;		/* Force panic after snapshot dump */
+
+	/* Use CP Crash dumper to get GPU snapshot*/
+	bool snapshot_crashdumper;
+
 	struct kobject snapshot_kobj;
 
 	struct kobject ppd_kobj;
@@ -634,6 +650,9 @@ long kgsl_ioctl_copy_in(unsigned int kernel_cmd, unsigned int user_cmd,
 
 long kgsl_ioctl_copy_out(unsigned int kernel_cmd, unsigned int user_cmd,
 		unsigned long, unsigned char *ptr);
+
+void kgsl_sparse_bind(struct kgsl_process_private *private,
+		struct kgsl_drawobj_sparse *sparse);
 
 /**
  * kgsl_context_put() - Release context reference count

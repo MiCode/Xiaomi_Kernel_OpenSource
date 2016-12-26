@@ -92,14 +92,15 @@ static ssize_t gpu_load_show(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)
 {
-	unsigned long sysfs_busy_perc;
+	unsigned long sysfs_busy_perc = 0;
 	/*
 	 * Average out the samples taken since last read
 	 * This will keep the average value in sync with
 	 * with the client sampling duration.
 	 */
 	spin_lock(&sample_lock);
-	sysfs_busy_perc = (acc_relative_busy * 100) / acc_total;
+	if (acc_total)
+		sysfs_busy_perc = (acc_relative_busy * 100) / acc_total;
 
 	/* Reset the parameters */
 	acc_total = 0;

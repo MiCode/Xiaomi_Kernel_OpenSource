@@ -1,0 +1,3 @@
+
+config SND_SOC_MSMFALCON_CDC
+	tristate "MSM Internal PMIC based codec"

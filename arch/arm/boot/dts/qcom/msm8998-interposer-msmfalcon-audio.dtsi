@@ -10,18 +10,60 @@
  * GNU General Public License for more details.
  */
 
-&clock_audio {
-	qcom,audio-ref-clk-gpio = <&pmfalcon_gpios 3 0>;
+#include "msm-audio.dtsi"
+#include "msmfalcon-audio.dtsi"
+
+&pm2falcon_3 {
+	/delete-node/analog-codec;
 };
 
-&pmfalcon_gpios {
-	gpio@c200 {
-		status = "ok";
-		qcom,mode = <1>;
-		qcom,pull = <5>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <2>;
-		qcom,master-en = <1>;
-		qcom,out-strength = <2>;
+&soc {
+	/delete-node/msm-sdw-codec@152c1000;
+	/delete-node/sound;
+};
+
+&slim_aud {
+	tasha_codec {
+		clocks = <&clock_audio clk_audio_pmi_clk>,
+			<&clock_audio clk_audio_ap_clk2>;
 	};
+	tavil_codec {
+		clocks = <&clock_audio_lnbb clk_audio_pmi_lnbb_clk>;
+	};
+};
+
+&tasha_hph_en0 {
+	/delete-property/pinctrl-0;
+	/delete-property/pinctrl-1;
+};
+
+&tasha_hph_en1 {
+	/delete-property/pinctrl-0;
+	/delete-property/pinctrl-1;
+};
+
+&clock_audio {
+	qcom,audio-ref-clk-gpio = <&pmfalcon_gpios 3 0>;
+	clocks = <&clock_gcc clk_div_clk1>;
+	pinctrl-0 = <&spkr_i2s_clk_sleep>;
+	pinctrl-1 = <&spkr_i2s_clk_active>;
+};
+
+&clock_audio_lnbb {
+	clocks = <&clock_gcc clk_ln_bb_clk2>;
+};
+
+&wcd_rst_gpio {
+	qcom,cdc-rst-n-gpio = <&tlmm 64 0>;
+	pinctrl-0 = <&cdc_reset_active>;
+	pinctrl-1 = <&cdc_reset_sleep>;
+};
+
+&wcd9xxx_intc {
+	interrupt-parent = <&tlmm>;
+	qcom,gpio-connect = <&tlmm 54 0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&wcd_intr_default>;
+	/delete-property/interrupts;
+	/delete-property/interrupt-names;
 };

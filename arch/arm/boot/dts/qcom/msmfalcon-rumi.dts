@@ -28,6 +28,7 @@
 
 &usb3 {
 	/delete-property/ USB3_GDSC-supply;
+	/delete-property/ extcon;
 	dwc3@a800000 {
 		maximum-speed = "high-speed";
 	};
@@ -110,4 +111,34 @@
 
 &pmfalcon_pdphy {
 	status = "disabled";
+};
+
+&clock_mmss {
+	compatible = "qcom,dummycc";
+	clock-output-names = "mmss_clocks";
+};
+
+&ufsphy1 {
+	vdda-phy-supply = <&pm2falcon_l1>;
+	vdda-pll-supply = <&pmfalcon_l10>;
+	vddp-ref-clk-supply = <&pmfalcon_l1>;
+	vdda-phy-max-microamp = <51400>;
+	vdda-pll-max-microamp = <14200>;
+	vddp-ref-clk-max-microamp = <100>;
+	vddp-ref-clk-always-on;
+};
+
+&ufs1 {
+	vdd-hba-supply = <&gdsc_ufs>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm2falcon_l4>;
+	vccq2-supply = <&pmfalcon_l8>;
+	vcc-max-microamp = <500000>;
+	vccq2-max-microamp = <600000>;
+	qcom,disable-lpm;
+};
+
+&clock_debug {
+	compatible = "qcom,dummycc";
+	clock-output-names = "debug_clocks";
 };

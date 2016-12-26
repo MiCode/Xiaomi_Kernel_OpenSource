@@ -788,6 +788,7 @@ struct adm_cmd_connect_afe_port_v5 {
 #define SLIMBUS_3_TX		0x4007
 #define SLIMBUS_4_RX		0x4008
 #define SLIMBUS_4_TX		0x4009
+#define SLIMBUS_TX_VI		0x4f09
 #define SLIMBUS_5_RX		0x400a
 #define SLIMBUS_5_TX		0x400b
 #define SLIMBUS_6_RX		0x400c
@@ -3609,6 +3610,10 @@ struct asm_alac_cfg {
 	u32 channel_layout_tag;
 };
 
+struct asm_g711_dec_cfg {
+	u32 sample_rate;
+};
+
 struct asm_vorbis_cfg {
 	u32 bit_stream_fmt;
 };
@@ -4220,6 +4225,22 @@ struct asm_aac_enc_cfg_v2 {
 
 } __packed;
 
+#define ASM_MEDIA_FMT_G711_ALAW_FS 0x00010BF7
+#define ASM_MEDIA_FMT_G711_MLAW_FS 0x00010C2E
+
+struct asm_g711_enc_cfg_v2 {
+	struct apr_hdr hdr;
+	struct asm_stream_cmd_set_encdec_param encdec;
+	struct asm_enc_cfg_blk_param_v2 encblk;
+
+	u32          sample_rate;
+/*
+ * Number of samples per second.
+ * Supported values: 8000, 16000 Hz
+ */
+
+} __packed;
+
 struct asm_vorbis_fmt_blk_v2 {
 	struct apr_hdr hdr;
 	struct asm_data_cmd_media_fmt_update_v2 fmtblk;
@@ -4319,6 +4340,12 @@ struct asm_alac_fmt_blk_v2 {
 	u32 sample_rate;
 	u32 channel_layout_tag;
 
+} __packed;
+
+struct asm_g711_dec_fmt_blk_v2 {
+	struct apr_hdr hdr;
+	struct asm_data_cmd_media_fmt_update_v2 fmtblk;
+	u32 sample_rate;
 } __packed;
 
 struct asm_ape_fmt_blk_v2 {
@@ -7990,11 +8017,10 @@ struct asm_eq_params {
 /*	Band cut equalizer effect.*/
 #define ASM_PARAM_EQ_BAND_CUT       6
 
-/* Voice get & set params */
-#define VOICE_CMD_SET_PARAM				0x0001133D
-#define VOICE_CMD_GET_PARAM				0x0001133E
-#define VOICE_EVT_GET_PARAM_ACK				0x00011008
-
+/* Get & set params */
+#define VSS_ICOMMON_CMD_SET_PARAM_V2	0x0001133D
+#define VSS_ICOMMON_CMD_GET_PARAM_V2	0x0001133E
+#define VSS_ICOMMON_RSP_GET_PARAM	0x00011008
 
 /** ID of the Bass Boost module.
     This module supports the following parameter IDs:
@@ -8811,6 +8837,7 @@ struct afe_param_id_clip_bank_sel {
 
 /* Supported OSR clock values */
 #define Q6AFE_LPASS_OSR_CLK_12_P288_MHZ		0xBB8000
+#define Q6AFE_LPASS_OSR_CLK_11_P2896_MHZ		0xAC4400
 #define Q6AFE_LPASS_OSR_CLK_9_P600_MHZ		0x927C00
 #define Q6AFE_LPASS_OSR_CLK_8_P192_MHZ		0x7D0000
 #define Q6AFE_LPASS_OSR_CLK_6_P144_MHZ		0x5DC000

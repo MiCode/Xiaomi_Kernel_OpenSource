@@ -45,6 +45,8 @@
 #define VDDA_UA_ON_LOAD		100000	/* uA units */
 #define VDDA_UA_OFF_LOAD	100		/* uA units */
 
+#define DP_CRYPTO_CLK_RATE_KHZ 337500
+
 struct mdss_dp_attention_node {
 	u32 vdo;
 	struct list_head list;
@@ -208,9 +210,9 @@ static int mdss_dp_get_dt_clk_data(struct device *dev,
 				&ctrl_power_data->clk_config[ctrl_clk_index];
 			strlcpy(clk->clk_name, clk_name, sizeof(clk->clk_name));
 			ctrl_clk_index++;
-			if (!strcmp(clk_name, "ctrl_link_clk"))
-				clk->type = DSS_CLK_PCLK;
-			else if (!strcmp(clk_name, "ctrl_pixel_clk"))
+			if (!strcmp(clk_name, "ctrl_link_clk") ||
+			    !strcmp(clk_name, "ctrl_pixel_clk") ||
+			    !strcmp(clk_name, "ctrl_crypto_clk"))
 				clk->type = DSS_CLK_PCLK;
 			else
 				clk->type = DSS_CLK_AHB;
@@ -709,7 +711,7 @@ static int mdss_dp_config_gpios(struct mdss_dp_drv_pdata *dp, bool enable)
 		}
 		if (gpio_is_valid(dp->aux_sel_gpio)) {
 			rc = gpio_direction_output(
-				dp->aux_sel_gpio, 0);
+				dp->aux_sel_gpio, dp->aux_sel_gpio_output);
 			if (rc)
 				pr_err("unable to set dir for aux_sel gpio\n");
 		}
@@ -896,6 +898,11 @@ static int dp_get_cable_status(struct platform_device *pdev, u32 vote)
 	return hpd;
 }
 
+static bool mdss_dp_is_dvi_mode(struct mdss_dp_drv_pdata *dp)
+{
+	return hdmi_edid_is_dvi_mode(dp->panel_data.panel_info.edid_data);
+}
+
 static int dp_audio_info_setup(struct platform_device *pdev,
 	struct msm_ext_disp_audio_setup_params *params)
 {
@@ -1074,11 +1081,6 @@ static int mdss_dp_get_lane_mapping(struct mdss_dp_drv_pdata *dp,
 		lane_map->lane1 = 0;
 		lane_map->lane2 = 2;
 		lane_map->lane3 = 3;
-
-		if (gpio_is_valid(dp->usbplug_cc_gpio)) {
-			gpio_set_value(dp->usbplug_cc_gpio, 1);
-			pr_debug("Configured cc gpio for new Orientation\n");
-		}
 	}
 
 	pr_debug("lane0 = %d, lane1 = %d, lane2 =%d, lane3 =%d\n",
@@ -1087,6 +1089,23 @@ static int mdss_dp_get_lane_mapping(struct mdss_dp_drv_pdata *dp,
 
 exit:
 	return ret;
+}
+
+static void mdss_dp_set_clock_rate(struct mdss_dp_drv_pdata *dp,
+		char *name, u32 rate)
+{
+	u32 num = dp->power_data[DP_CTRL_PM].num_clk;
+	struct dss_clk *cfg = dp->power_data[DP_CTRL_PM].clk_config;
+
+	while (num && strcmp(cfg->clk_name, name)) {
+		num--;
+		cfg++;
+	}
+
+	if (num)
+		cfg->rate = rate;
+	else
+		pr_err("%s clock could not be set with rate %d\n", name, rate);
 }
 
 /**
@@ -1099,12 +1118,14 @@ static int mdss_dp_enable_mainlink_clocks(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
 
-	dp->power_data[DP_CTRL_PM].clk_config[0].rate =
-		((dp->link_rate * DP_LINK_RATE_MULTIPLIER) / 1000);/* KHz */
+	mdss_dp_set_clock_rate(dp, "ctrl_link_clk",
+		(dp->link_rate * DP_LINK_RATE_MULTIPLIER) / DP_KHZ_TO_HZ);
+
+	mdss_dp_set_clock_rate(dp, "ctrl_crypto_clk", DP_CRYPTO_CLK_RATE_KHZ);
 
 	dp->pixel_rate = dp->panel_data.panel_info.clk_rate;
-	dp->power_data[DP_CTRL_PM].clk_config[3].rate =
-		(dp->pixel_rate / 1000);/* KHz */
+	mdss_dp_set_clock_rate(dp, "ctrl_pixel_clk",
+		(dp->pixel_rate / DP_KHZ_TO_HZ));
 
 	ret = mdss_dp_clk_ctrl(dp, DP_CTRL_PM, true);
 	if (ret) {
@@ -1175,7 +1196,6 @@ end:
 static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 {
 	int ret = 0;
-	enum plug_orientation orientation = ORIENTATION_NONE;
 	struct lane_mapping ln_map;
 
 	/* wait until link training is completed */
@@ -1189,15 +1209,14 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 
 		mutex_lock(&dp_drv->train_mutex);
 
-		orientation = usbpd_get_plug_orientation(dp_drv->pd);
-		pr_debug("plug orientation = %d\n", orientation);
-
-		ret = mdss_dp_get_lane_mapping(dp_drv, orientation, &ln_map);
+		ret = mdss_dp_get_lane_mapping(dp_drv, dp_drv->orientation,
+				&ln_map);
 		if (ret)
 			goto exit;
 
 		mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
-				orientation, dp_drv->dpcd.max_lane_count);
+				dp_drv->orientation,
+				dp_drv->dpcd.max_lane_count);
 
 		ret = mdss_dp_enable_mainlink_clocks(dp_drv);
 		if (ret)
@@ -1226,7 +1245,6 @@ exit:
 int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 {
 	int ret = 0;
-	enum plug_orientation orientation = ORIENTATION_NONE;
 	struct lane_mapping ln_map;
 
 	/* wait until link training is completed */
@@ -1246,10 +1264,7 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	}
 	mdss_dp_hpd_configure(&dp_drv->ctrl_io, true);
 
-	orientation = usbpd_get_plug_orientation(dp_drv->pd);
-	pr_debug("plug Orientation = %d\n", orientation);
-
-	ret = mdss_dp_get_lane_mapping(dp_drv, orientation, &ln_map);
+	ret = mdss_dp_get_lane_mapping(dp_drv, dp_drv->orientation, &ln_map);
 	if (ret)
 		goto exit;
 
@@ -1268,8 +1283,8 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 		goto exit;
 	}
 
-	mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
-			orientation, dp_drv->dpcd.max_lane_count);
+	mdss_dp_phy_share_lane_config(&dp_drv->phy_io, dp_drv->orientation,
+			dp_drv->dpcd.max_lane_count);
 
 	pr_debug("link_rate = 0x%x\n", dp_drv->link_rate);
 
@@ -1286,12 +1301,8 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 link_training:
 	dp_drv->power_on = true;
 
-	if (-EAGAIN == mdss_dp_train_main_link(dp_drv)) {
-		mutex_unlock(&dp_drv->train_mutex);
-
-		mdss_dp_link_retraining(dp_drv);
-		return 0;
-	}
+	while (-EAGAIN == mdss_dp_train_main_link(dp_drv))
+		pr_debug("MAIN LINK TRAINING RETRY\n");
 
 	dp_drv->cont_splash = 0;
 
@@ -1441,6 +1452,7 @@ static int mdss_dp_send_cable_notification(
 	struct mdss_dp_drv_pdata *dp, int val)
 {
 	int ret = 0;
+	u32 flags = 0;
 
 	if (!dp) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1448,9 +1460,12 @@ static int mdss_dp_send_cable_notification(
 		goto end;
 	}
 
-	if (dp && dp->ext_audio_data.intf_ops.hpd)
+	if (mdss_dp_is_dvi_mode(dp))
+		flags |= MSM_EXT_DISP_HPD_NO_AUDIO;
+
+	if (dp->ext_audio_data.intf_ops.hpd)
 		ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
-				dp->ext_audio_data.type, val);
+				dp->ext_audio_data.type, val, flags);
 
 end:
 	return ret;
@@ -1459,6 +1474,12 @@ end:
 static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp, bool enable)
 {
 	return mdss_dp_send_cable_notification(dp, enable);
+}
+
+static void mdss_dp_set_default_resolution(struct mdss_dp_drv_pdata *dp)
+{
+	hdmi_edid_set_video_resolution(dp->panel_data.panel_info.edid_data,
+			DEFAULT_VIDEO_RESOLUTION, true);
 }
 
 static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
@@ -1495,6 +1516,8 @@ static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 	dp_drv->edid_buf = edid_init_data.buf;
 	dp_drv->edid_buf_size = edid_init_data.buf_size;
 
+	mdss_dp_set_default_resolution(dp_drv);
+
 	return 0;
 }
 
@@ -1515,11 +1538,21 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 		pr_err("%s: host init done already\n", __func__);
 		return 0;
 	}
+
 	ret = mdss_dp_regulator_ctrl(dp_drv, true);
 	if (ret) {
 		pr_err("failed to enable regulators\n");
 		goto vreg_error;
 	}
+
+	dp_drv->orientation = usbpd_get_plug_orientation(dp_drv->pd);
+
+	dp_drv->aux_sel_gpio_output = 0;
+	if (dp_drv->orientation == ORIENTATION_CC2)
+		dp_drv->aux_sel_gpio_output = 1;
+
+	pr_debug("orientation = %d, aux_sel_gpio_output = %d\n",
+			dp_drv->orientation, dp_drv->aux_sel_gpio_output);
 
 	mdss_dp_pinctrl_set_state(dp_drv, true);
 	mdss_dp_config_gpios(dp_drv, true);
@@ -1542,9 +1575,6 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	       mdss_dp_get_ctrl_hw_version(&dp_drv->ctrl_io),
 	       mdss_dp_get_phy_hw_version(&dp_drv->phy_io));
 
-	pr_debug("plug Orientation = %d\n",
-			usbpd_get_plug_orientation(dp_drv->pd));
-
 	mdss_dp_phy_aux_setup(&dp_drv->phy_io);
 
 	mdss_dp_irq_enable(dp_drv);
@@ -1552,8 +1582,11 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	mdss_dp_dpcd_cap_read(dp_drv);
 
 	ret = mdss_dp_edid_read(dp_drv);
-	if (ret)
+	if (ret) {
+		pr_info("edid read error, setting default resolution\n");
+		mdss_dp_set_default_resolution(dp_drv);
 		goto edid_error;
+	}
 
 	pr_debug("edid_read success. buf_size=%d\n",
 				dp_drv->edid_buf_size);
@@ -1564,14 +1597,13 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 		goto edid_error;
 	}
 
+edid_error:
 	mdss_dp_update_cable_status(dp_drv, true);
 	mdss_dp_notify_clients(dp_drv, true);
 	dp_drv->dp_initialized = true;
 
 	return ret;
 
-edid_error:
-	mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
 clk_error:
 	mdss_dp_regulator_ctrl(dp_drv, false);
 	mdss_dp_config_gpios(dp_drv, false);
@@ -1622,13 +1654,29 @@ static void mdss_dp_hdcp_cb_work(struct work_struct *work)
 	struct mdss_dp_drv_pdata *dp;
 	struct delayed_work *dw = to_delayed_work(work);
 	struct hdcp_ops *ops;
+	unsigned char *base;
 	int rc = 0;
+	u32 hdcp_auth_state;
 
 	dp = container_of(dw, struct mdss_dp_drv_pdata, hdcp_cb_work);
+	base = dp->base;
+
+	hdcp_auth_state = (dp_read(base + DP_HDCP_STATUS) >> 20) & 0x3;
+
+	pr_debug("hdcp auth state %d\n", hdcp_auth_state);
 
 	ops = dp->hdcp.ops;
 
 	switch (dp->hdcp_status) {
+	case HDCP_STATE_AUTHENTICATING:
+		pr_debug("start authenticaton\n");
+
+		dp->dpcd_version = dp->dpcd.minor | (dp->dpcd.major << 8);
+
+		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
+			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
+
+		break;
 	case HDCP_STATE_AUTHENTICATED:
 		pr_debug("hdcp authenticated\n");
 		dp->hdcp.auth_state = true;
@@ -1636,7 +1684,7 @@ static void mdss_dp_hdcp_cb_work(struct work_struct *work)
 	case HDCP_STATE_AUTH_FAIL:
 		dp->hdcp.auth_state = false;
 
-		if (dp->power_on) {
+		if (dp->alt_mode.dp_status.hpd_high && dp->power_on) {
 			pr_debug("Reauthenticating\n");
 			if (ops && ops->reauthenticate) {
 				rc = ops->reauthenticate(dp->hdcp.data);
@@ -1664,7 +1712,8 @@ static void mdss_dp_hdcp_cb(void *ptr, enum hdcp_states status)
 
 	dp->hdcp_status = status;
 
-	queue_delayed_work(dp->workq, &dp->hdcp_cb_work, HZ/4);
+	if (dp->alt_mode.dp_status.hpd_high)
+		queue_delayed_work(dp->workq, &dp->hdcp_cb_work, HZ/4);
 }
 
 static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
@@ -1701,6 +1750,7 @@ static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
 	hdcp_init_data.cb_data       = (void *)dp_drv;
 	hdcp_init_data.sec_access    = true;
 	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
+	hdcp_init_data.version       = &dp_drv->dpcd_version;
 
 	dp_drv->hdcp.hdcp1 = hdcp_1x_init(&hdcp_init_data);
 	if (IS_ERR_OR_NULL(dp_drv->hdcp.hdcp1)) {
@@ -1927,20 +1977,28 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		rc = mdss_dp_on(pdata);
 		break;
 	case MDSS_EVENT_PANEL_ON:
+		mdss_dp_ack_state(dp, true);
+
 		mdss_dp_update_hdcp_info(dp);
 
-		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
-			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
+		if (dp_is_hdcp_enabled(dp)) {
+			cancel_delayed_work(&dp->hdcp_cb_work);
 
-		mdss_dp_ack_state(dp, true);
+			dp->hdcp_status = HDCP_STATE_AUTHENTICATING;
+			queue_delayed_work(dp->workq,
+				&dp->hdcp_cb_work, HZ / 2);
+		}
 		break;
 	case MDSS_EVENT_PANEL_OFF:
 		rc = mdss_dp_off(pdata);
 		break;
 	case MDSS_EVENT_BLANK:
-		if (dp_is_hdcp_enabled(dp) && dp->hdcp.ops->off) {
-			flush_delayed_work(&dp->hdcp_cb_work);
-			dp->hdcp.ops->off(dp->hdcp.data);
+		if (dp_is_hdcp_enabled(dp)) {
+			dp->hdcp_status = HDCP_STATE_INACTIVE;
+
+			cancel_delayed_work(&dp->hdcp_cb_work);
+			if (dp->hdcp.ops->off)
+				dp->hdcp.ops->off(dp->hdcp.data);
 		}
 
 		mdss_dp_mainlink_push_idle(pdata);
@@ -2152,8 +2210,9 @@ static void mdss_dp_event_work(struct work_struct *work)
 			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
 		break;
 	case EV_USBPD_DP_STATUS:
+		config = 0x1; /* DFP_D connected */
 		usbpd_send_svdm(dp->pd, USB_C_DP_SID, DP_VDM_STATUS,
-			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
+			SVDM_CMD_TYPE_INITIATOR, 0x1, &config, 0x1);
 		break;
 	case EV_USBPD_DP_CONFIGURE:
 		config = mdss_dp_usbpd_gen_config_pkt(dp);
@@ -2187,9 +2246,6 @@ irqreturn_t dp_isr(int irq, void *ptr)
 	mask1 = isr1 & dp->mask1;
 
 	isr1 &= ~mask1;	/* remove masks bit */
-
-	pr_debug("isr=%x mask=%x isr2=%x\n",
-			isr1, mask1, isr2);
 
 	ack = isr1 & EDP_INTR_STATUS1;
 	ack <<= 1;	/* ack bits */
@@ -2552,7 +2608,8 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		dp_drv->alt_mode.dp_cap.response = *vdos;
 		mdss_dp_usbpd_ext_capabilities(&dp_drv->alt_mode.dp_cap);
 		dp_drv->alt_mode.current_state |= DISCOVER_MODES_DONE;
-		dp_send_events(dp_drv, EV_USBPD_ENTER_MODE);
+		if (dp_drv->alt_mode.dp_cap.s_port & BIT(0))
+			dp_send_events(dp_drv, EV_USBPD_ENTER_MODE);
 		break;
 	case USBPD_SVDM_ENTER_MODE:
 		dp_drv->alt_mode.current_state |= ENTER_MODE_DONE;
@@ -2574,7 +2631,8 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 
 		if (!(dp_drv->alt_mode.current_state & DP_CONFIGURE_DONE)) {
 			dp_drv->alt_mode.current_state |= DP_STATUS_DONE;
-			dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
+			if (dp_drv->alt_mode.dp_status.c_port & BIT(1))
+				dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
 		}
 		break;
 	case DP_VDM_CONFIGURE:
@@ -2598,9 +2656,10 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 	if (dp_drv->alt_mode.dp_status.hpd_irq) {
 		pr_debug("Attention: hpd_irq high\n");
 
-		if (dp_drv->power_on && dp_drv->hdcp.ops &&
-		    dp_drv->hdcp.ops->cp_irq)
-			dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data);
+		if (dp_drv->hdcp.ops && dp_drv->hdcp.ops->cp_irq) {
+			if (!dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data))
+				return;
+		}
 
 		if (!mdss_dp_process_hpd_irq_high(dp_drv))
 			return;
@@ -2611,6 +2670,12 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 
 	if (!dp_drv->alt_mode.dp_status.hpd_high) {
 		pr_debug("Attention: HPD low\n");
+
+		if (dp_is_hdcp_enabled(dp_drv) && dp_drv->hdcp.ops->off) {
+			cancel_delayed_work(&dp_drv->hdcp_cb_work);
+			dp_drv->hdcp.ops->off(dp_drv->hdcp.data);
+		}
+
 		mdss_dp_update_cable_status(dp_drv, false);
 		mdss_dp_notify_clients(dp_drv, false);
 		pr_debug("Attention: Notified clients\n");

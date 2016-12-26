@@ -299,7 +299,6 @@ struct msm_fb_data_type {
 	u32 ad_bl_level;
 	u32 bl_level;
 	u32 bl_scale;
-	u32 bl_min_lvl;
 	u32 unset_bl_level;
 	bool allow_bl_update;
 	u32 bl_level_scaled;

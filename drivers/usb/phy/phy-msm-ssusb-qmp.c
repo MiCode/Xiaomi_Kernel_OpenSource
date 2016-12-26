@@ -307,12 +307,12 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		phy->clk_enabled = true;
 	}
 
-	writel_relaxed(0x01,
-		phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
-
 	/* select usb3 phy mode */
 	if (phy->tcsr_usb3_dp_phymode)
 		writel_relaxed(0x0, phy->tcsr_usb3_dp_phymode);
+
+	writel_relaxed(0x01,
+		phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
 
 	/* Make sure that above write completed to get PHY into POWER DOWN */
 	mb();

@@ -1660,6 +1660,10 @@
 		qcom,pm-qos-cpu-group-latency-us = <70 70>;
 		qcom,pm-qos-default-cpu = <0>;
 
+		pinctrl-names = "dev-reset-assert", "dev-reset-deassert";
+		pinctrl-0 = <&ufs_dev_reset_assert>;
+		pinctrl-1 = <&ufs_dev_reset_deassert>;
+
 		resets = <&clock_gcc UFS_BCR>;
 		reset-names = "core_reset";
 
@@ -1758,6 +1762,7 @@
 		reg-names = "qusb_phy_base",
 				"tcsr_clamp_dig_n_1p8";
 		vdd-supply = <&pm8998_l1>;
+		vdda12-supply = <&pm8998_l2>;
 		vdda18-supply = <&pm8998_l12>;
 		vdda33-supply = <&pm8998_l24>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
@@ -2032,10 +2037,9 @@
 		clock-names = "xo", "iface_clk", "bus_clk",
 			      "mem_clk", "gpll0_mss_clk", "snoc_axi_clk",
 			      "mnoc_axi_clk", "qdss_clk";
-		qcom,proxy-clock-names = "xo", "qdss_clk";
-		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
-					  "gpll0_mss_clk", "snoc_axi_clk",
-					  "mnoc_axi_clk";
+		qcom,proxy-clock-names = "xo", "qdss_clk", "mem_clk";
+		qcom,active-clock-names = "iface_clk", "bus_clk",
+			"gpll0_mss_clk", "snoc_axi_clk", "mnoc_axi_clk";
 
 		interrupts = <0 448 1>;
 		vdd_cx-supply = <&pm8998_s1_level>;
@@ -2046,7 +2050,6 @@
 		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
 		qcom,ssctl-instance-id = <0x12>;
-		qcom,override-acc;
 		qcom,qdsp6v62-1-2;
 		status = "ok";
 		memory-region = <&modem_mem>;
@@ -2245,6 +2248,7 @@
 		qcom,support-fde;
 		qcom,no-clock-support;
 		qcom,appsbl-qseecom-support;
+		qcom,fde-key-size;
 		qcom,commonlib64-loaded-by-uefi;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
@@ -3186,3 +3190,4 @@
 #include "msm-rdbg.dtsi"
 #include "msm8998-blsp.dtsi"
 #include "msm8998-audio.dtsi"
+#include "msm-smb138x.dtsi"

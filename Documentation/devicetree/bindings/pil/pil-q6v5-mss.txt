@@ -16,6 +16,8 @@ Required properties:
 		      If "halt_base" is in same 4K pages this register then
 		      this will be defined else "halt_q6", "halt_modem",
 		      "halt_nc" is required.
+		      "cxip_lm_vote_clear" needs to defined , in case PIL has to
+		      clear the CX Ipeak bit if it was set by MSS.
 - interrupts:         The modem watchdog interrupt
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
 - vdd_cx-voltage:     Voltage corner/level(max) for cx rail.
@@ -84,6 +86,8 @@ Optional properties:
 		    wordline clamp, and compiler memory clamp during MSS restart.
 - qcom,qdsp6v56-1-10: Boolean- Present if the qdsp version is v56 1.10
 - qcom,override-acc-1: Override the default ACC settings with this value if present.
+- qcom,cx-ipeak-vote: Boolean- Present if we need to set bit 5 of cxip_lm_vote_clear
+			 during modem shutdown
 
 Example:
 	qcom,mss@fc880000 {

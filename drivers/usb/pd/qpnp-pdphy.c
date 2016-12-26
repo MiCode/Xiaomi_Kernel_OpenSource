@@ -71,6 +71,9 @@
 
 #define USB_PDPHY_RX_BUFFER		0x80
 
+#define USB_PDPHY_SEC_ACCESS		0xD0
+#define USB_PDPHY_TRIM_3		0xF3
+
 /* VDD regulator */
 #define VDD_PDPHY_VOL_MIN		3088000 /* uV */
 #define VDD_PDPHY_VOL_MAX		3088000 /* uV */
@@ -673,6 +676,9 @@ static irqreturn_t pdphy_msg_rx_irq_thread(int irq, void *data)
 	if (ret)
 		goto done;
 
+	/* ack to change ownership of rx buffer back to PDPHY RX HW */
+	pdphy_reg_write(pdphy, USB_PDPHY_RX_ACKNOWLEDGE, 0);
+
 	if (((buf[0] & 0xf) == PD_MSG_BIST) && size >= 5) { /* BIST */
 		u8 mode = buf[5] >> 4; /* [31:28] of 1st data object */
 
@@ -688,9 +694,6 @@ static irqreturn_t pdphy_msg_rx_irq_thread(int irq, void *data)
 
 	if (pdphy->msg_rx_cb)
 		pdphy->msg_rx_cb(pdphy->usbpd, frame_type, buf, size + 1);
-
-	/* ack to change ownership of rx buffer back to PDPHY RX HW */
-	pdphy_reg_write(pdphy, USB_PDPHY_RX_ACKNOWLEDGE, 0);
 
 	print_hex_dump_debug("rx msg:", DUMP_PREFIX_NONE, 32, 4, buf, size + 1,
 		false);
@@ -804,6 +807,14 @@ static int pdphy_probe(struct platform_device *pdev)
 		pdphy_msg_rx_discarded_irq, NULL,
 		(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 	if (ret < 0)
+		return ret;
+
+	ret = pdphy_reg_write(pdphy, USB_PDPHY_SEC_ACCESS, 0xA5);
+	if (ret)
+		return ret;
+
+	ret = pdphy_reg_write(pdphy, USB_PDPHY_TRIM_3, 0x2);
+	if (ret)
 		return ret;
 
 	/* usbpd_create() could call back to us, so have __pdphy ready */

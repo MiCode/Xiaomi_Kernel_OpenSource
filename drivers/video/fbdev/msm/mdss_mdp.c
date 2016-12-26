@@ -491,6 +491,18 @@ static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 					mdata->reg_bus_hdl);
 	}
 
+	if (mdata->hw_rt_bus_scale_table && !mdata->hw_rt_bus_hdl) {
+		mdata->hw_rt_bus_hdl =
+			msm_bus_scale_register_client(
+			      mdata->hw_rt_bus_scale_table);
+		if (!mdata->hw_rt_bus_hdl)
+			/* Continue without reg_bus scaling */
+			pr_warn("hw_rt_bus client register failed\n");
+		else
+			pr_debug("register hw_rt_bus=%x\n",
+					mdata->hw_rt_bus_hdl);
+	}
+
 	/*
 	 * Following call will not result in actual vote rather update the
 	 * current index and ab/ib value. When continuous splash is enabled,
@@ -511,6 +523,11 @@ static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
 	if (mdata->reg_bus_hdl) {
 		msm_bus_scale_unregister_client(mdata->reg_bus_hdl);
 		mdata->reg_bus_hdl = 0;
+	}
+
+	if (mdata->hw_rt_bus_hdl) {
+		msm_bus_scale_unregister_client(mdata->hw_rt_bus_hdl);
+		mdata->hw_rt_bus_hdl = 0;
 	}
 }
 
@@ -823,7 +840,7 @@ void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 
 int mdss_mdp_irq_enable(u32 intr_type, u32 intf_num)
 {
-	int irq_idx, idx;
+	int irq_idx = 0;
 	unsigned long irq_flags;
 	int ret = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -842,7 +859,7 @@ int mdss_mdp_irq_enable(u32 intr_type, u32 intf_num)
 	spin_lock_irqsave(&mdp_lock, irq_flags);
 	if (mdata->mdp_irq_mask[irq.reg_idx] & irq.irq_mask) {
 		pr_warn("MDSS MDP IRQ-0x%x is already set, mask=%x\n",
-				irq.irq_mask, mdata->mdp_irq_mask[idx]);
+				irq.irq_mask, mdata->mdp_irq_mask[irq.reg_idx]);
 		ret = -EBUSY;
 	} else {
 		pr_debug("MDP IRQ mask old=%x new=%x\n",
@@ -1139,12 +1156,31 @@ static int mdss_mdp_clk_update(u32 clk_idx, u32 enable)
 {
 	int ret = -ENODEV;
 	struct clk *clk = mdss_mdp_get_clk(clk_idx);
+	struct mdss_data_type *mdata = mdss_res;
 
 	if (clk) {
 		pr_debug("clk=%d en=%d\n", clk_idx, enable);
 		if (enable) {
 			if (clk_idx == MDSS_CLK_MDP_VSYNC)
 				clk_set_rate(clk, 19200000);
+			if (mdss_has_quirk(mdata, MDSS_QUIRK_MDP_CLK_SET_RATE)
+					&& (clk_idx == MDSS_CLK_MDP_CORE)) {
+
+				if (WARN_ON(!mdata->mdp_clk_rate)) {
+					/*
+					 * rate should have been set in probe
+					 * or during clk scaling; but if this
+					 * is not the case, set max clk rate.
+					 */
+					pr_warn("set max mdp clk rate:%u\n",
+						mdata->max_mdp_clk_rate);
+					mdss_mdp_set_clk_rate(
+						mdata->max_mdp_clk_rate, true);
+				} else {
+					clk_set_rate(clk, mdata->mdp_clk_rate);
+				}
+			}
+
 			ret = clk_prepare_enable(clk);
 		} else {
 			clk_disable_unprepare(clk);
@@ -1172,7 +1208,7 @@ int mdss_mdp_vsync_clk_enable(int enable, bool locked)
 	return ret;
 }
 
-void mdss_mdp_set_clk_rate(unsigned long rate)
+void mdss_mdp_set_clk_rate(unsigned long rate, bool locked)
 {
 	struct mdss_data_type *mdata = mdss_res;
 	unsigned long clk_rate;
@@ -1182,7 +1218,9 @@ void mdss_mdp_set_clk_rate(unsigned long rate)
 	min_clk_rate = max(rate, mdata->perf_tune.min_mdp_clk);
 
 	if (clk) {
-		mutex_lock(&mdp_clk_lock);
+
+		if (!locked)
+			mutex_lock(&mdp_clk_lock);
 		if (min_clk_rate < mdata->max_mdp_clk_rate)
 			clk_rate = clk_round_rate(clk, min_clk_rate);
 		else
@@ -1190,12 +1228,15 @@ void mdss_mdp_set_clk_rate(unsigned long rate)
 		if (IS_ERR_VALUE(clk_rate)) {
 			pr_err("unable to round rate err=%ld\n", clk_rate);
 		} else if (clk_rate != clk_get_rate(clk)) {
+
+			mdata->mdp_clk_rate = clk_rate;
 			if (IS_ERR_VALUE(clk_set_rate(clk, clk_rate)))
 				pr_err("clk_set_rate failed\n");
 			else
 				pr_debug("mdp clk rate=%lu\n", clk_rate);
 		}
-		mutex_unlock(&mdp_clk_lock);
+		if (!locked)
+			mutex_unlock(&mdp_clk_lock);
 	} else {
 		pr_err("mdp src clk not setup properly\n");
 	}
@@ -1220,6 +1261,54 @@ unsigned long mdss_mdp_get_clk_rate(u32 clk_idx, bool locked)
 }
 
 /**
+ * mdss_bus_rt_bw_vote() -- place bus bandwidth request
+ * @enable: value of enable or disable
+ *
+ * hw_rt table has two entries, 0 and Min Vote (1Mhz)
+ * while attaching SMMU and for few TZ operations which
+ * happen at very early stage, we will request Min Vote
+ * thru this handle.
+ *
+ */
+static int mdss_bus_rt_bw_vote(bool enable)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int rc = 0;
+	bool changed = false;
+
+	if (!mdata->hw_rt_bus_hdl || mdata->handoff_pending)
+		return 0;
+
+	if (enable) {
+		if (mdata->hw_rt_bus_ref_cnt == 0)
+			changed = true;
+		mdata->hw_rt_bus_ref_cnt++;
+	} else {
+		if (mdata->hw_rt_bus_ref_cnt != 0) {
+			mdata->hw_rt_bus_ref_cnt--;
+			if (mdata->hw_rt_bus_ref_cnt == 0)
+				changed = true;
+		} else {
+			pr_warn("%s: bus bw votes are not balanced\n",
+				__func__);
+		}
+	}
+
+	pr_debug("%pS: task:%s bw_cnt=%d changed=%d enable=%d\n",
+		__builtin_return_address(0), current->group_leader->comm,
+		mdata->hw_rt_bus_ref_cnt, changed, enable);
+
+	if (changed) {
+		rc = msm_bus_scale_client_update_request(mdata->hw_rt_bus_hdl,
+							 enable ? 1 : 0);
+		if (rc)
+			pr_err("%s: Bus bandwidth vote failed\n", __func__);
+	}
+
+	return rc;
+}
+
+/**
  * __mdss_mdp_reg_access_clk_enable - Enable minimum MDSS clocks required
  * for register access
  */
@@ -1229,9 +1318,7 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 	if (enable) {
 		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
 				VOTE_INDEX_LOW);
-		if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
-				mdss_bus_scale_set_quota(MDSS_HW_RT,
-					SZ_1M, SZ_1M);
+		mdss_bus_rt_bw_vote(true);
 		mdss_mdp_clk_update(MDSS_CLK_MNOC_AHB, 1);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
@@ -1241,8 +1328,7 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
 		mdss_mdp_clk_update(MDSS_CLK_MNOC_AHB, 0);
-		if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
-			mdss_bus_scale_set_quota(MDSS_HW_RT, 0, 0);
+		mdss_bus_rt_bw_vote(false);
 		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
 				VOTE_INDEX_DISABLE);
 	}
@@ -1322,9 +1408,7 @@ int mdss_iommu_ctrl(int enable)
 		 * finished handoff, as it may still be working with phys addr
 		 */
 		if (!mdata->iommu_attached && !mdata->handoff_pending) {
-			if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
-				mdss_bus_scale_set_quota(MDSS_HW_RT,
-					 SZ_1M, SZ_1M);
+			mdss_bus_rt_bw_vote(true);
 			rc = mdss_smmu_attach(mdata);
 		}
 		mdata->iommu_ref_cnt++;
@@ -1333,12 +1417,7 @@ int mdss_iommu_ctrl(int enable)
 			mdata->iommu_ref_cnt--;
 			if (mdata->iommu_ref_cnt == 0) {
 				rc = mdss_smmu_detach(mdata);
-				if (mdss_has_quirk(mdata,
-					MDSS_QUIRK_MIN_BUS_VOTE) &&
-					(!mdata->sec_disp_en ||
-					 !mdata->sec_cam_en))
-					mdss_bus_scale_set_quota(MDSS_HW_RT,
-								0, 0);
+				mdss_bus_rt_bw_vote(false);
 			}
 		} else {
 			pr_err("unbalanced iommu ref\n");
@@ -1779,7 +1858,7 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	mdss_mdp_irq_clk_register(mdata, "mnoc_clk", MDSS_CLK_MNOC_AHB);
 
 	/* Setting the default clock rate to the max supported.*/
-	mdss_mdp_set_clk_rate(mdata->max_mdp_clk_rate);
+	mdss_mdp_set_clk_rate(mdata->max_mdp_clk_rate, false);
 	pr_debug("mdp clk rate=%ld\n",
 		mdss_mdp_get_clk_rate(MDSS_CLK_MDP_CORE, false));
 
@@ -1816,8 +1895,10 @@ static int mdss_mdp_debug_init(struct platform_device *pdev,
 	mdss_debug_register_dump_range(pdev, dbg_blk, "qcom,regs-dump-mdp",
 		"qcom,regs-dump-names-mdp", "qcom,regs-dump-xin-id-mdp");
 
-	mdss_debug_register_io("vbif", &mdata->vbif_io, NULL);
-	mdss_debug_register_io("vbif_nrt", &mdata->vbif_nrt_io, NULL);
+	if (mdata->vbif_io.base)
+		mdss_debug_register_io("vbif", &mdata->vbif_io, NULL);
+	if (mdata->vbif_nrt_io.base)
+		mdss_debug_register_io("vbif_nrt", &mdata->vbif_nrt_io, NULL);
 
 	return 0;
 }
@@ -1955,7 +2036,6 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_mdp_init_default_prefill_factors(mdata);
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
-		mdss_set_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE);
 		mdss_set_quirk(mdata, MDSS_QUIRK_NEED_SECURE_MAP);
 		break;
 	case MDSS_MDP_HW_REV_115:
@@ -1976,7 +2056,6 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_mdp_init_default_prefill_factors(mdata);
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
-		mdss_set_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE);
 		mdss_set_quirk(mdata, MDSS_QUIRK_NEED_SECURE_MAP);
 		break;
 	case MDSS_MDP_HW_REV_300:
@@ -2020,6 +2099,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
 		mdss_set_quirk(mdata, MDSS_QUIRK_MMSS_GDSC_COLLAPSE);
+		mdss_set_quirk(mdata, MDSS_QUIRK_MDP_CLK_SET_RATE);
 		mdata->has_wb_ubwc = true;
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_AVR_SUPPORTED, mdata->mdss_caps_map);
@@ -2406,15 +2486,17 @@ static void __update_sspp_info(struct mdss_mdp_pipe *pipe,
 	size_t len = PAGE_SIZE;
 	int num_bytes = BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1);
 
+	if (!pipe)
+		return;
 #define SPRINT(fmt, ...) \
 		(*cnt += scnprintf(buf + *cnt, len - *cnt, fmt, ##__VA_ARGS__))
 
-	for (i = 0; i < pipe_cnt; i++) {
+	for (i = 0; i < pipe_cnt && pipe; i++) {
 		SPRINT("pipe_num:%d pipe_type:%s pipe_ndx:%d rects:%d pipe_is_handoff:%d display_id:%d ",
 			pipe->num, type, pipe->ndx, pipe->multirect.max_rects,
 			pipe->is_handed_off, mdss_mdp_get_display_id(pipe));
 		SPRINT("fmts_supported:");
-		for (j = 0; j < num_bytes && pipe; j++)
+		for (j = 0; j < num_bytes; j++)
 			SPRINT("%d,", pipe->supported_formats[j]);
 		SPRINT("\n");
 		pipe += pipe->multirect.max_rects;
@@ -3391,15 +3473,18 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 	mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-sw-reset-off",
 		&sw_reset_offset, 1);
 	if (sw_reset_offset) {
-		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
-			"qcom,mdss-pipe-vig-sw-reset-map", mdata->vig_pipes,
-			mdata->nvig_pipes);
-		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
-			"qcom,mdss-pipe-rgb-sw-reset-map", mdata->rgb_pipes,
-			mdata->nrgb_pipes);
-		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
-			"qcom,mdss-pipe-dma-sw-reset-map", mdata->dma_pipes,
-			mdata->ndma_pipes);
+		if (mdata->vig_pipes)
+			mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+				"qcom,mdss-pipe-vig-sw-reset-map",
+				mdata->vig_pipes, mdata->nvig_pipes);
+		if (mdata->rgb_pipes)
+			mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+				"qcom,mdss-pipe-rgb-sw-reset-map",
+				mdata->rgb_pipes, mdata->nrgb_pipes);
+		if (mdata->dma_pipes)
+			mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+				"qcom,mdss-pipe-dma-sw-reset-map",
+				mdata->dma_pipes, mdata->ndma_pipes);
 	}
 
 	mdata->has_panic_ctrl = of_property_read_bool(pdev->dev.of_node,
@@ -3584,6 +3669,7 @@ static int mdss_mdp_cdm_addr_setup(struct mdss_data_type *mdata,
 		head[i].base = (mdata->mdss_io.base) + cdm_offsets[i];
 		atomic_set(&head[i].kref.refcount, 0);
 		mutex_init(&head[i].lock);
+		init_completion(&head[i].free_comp);
 		pr_debug("%s: cdm off (%d) = %pK\n", __func__, i, head[i].base);
 	}
 
@@ -4444,6 +4530,23 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 		rc = 0;
 		mdata->reg_bus_scale_table = NULL;
 		pr_debug("mdss-reg-bus not found\n");
+	}
+
+	node = of_get_child_by_name(pdev->dev.of_node, "qcom,mdss-hw-rt-bus");
+	if (node) {
+		mdata->hw_rt_bus_scale_table =
+			msm_bus_pdata_from_node(pdev, node);
+		if (IS_ERR_OR_NULL(mdata->hw_rt_bus_scale_table)) {
+			rc = PTR_ERR(mdata->hw_rt_bus_scale_table);
+			if (!rc)
+				pr_err("hw_rt_bus_scale failed rc=%d\n", rc);
+			rc = 0;
+			mdata->hw_rt_bus_scale_table = NULL;
+		}
+	} else {
+		rc = 0;
+		mdata->hw_rt_bus_scale_table = NULL;
+		pr_debug("mdss-hw-rt-bus not found\n");
 	}
 
 	return rc;

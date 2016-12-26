@@ -676,11 +676,13 @@ ssize_t adreno_coresight_store_register(struct device *dev,
  * @registers - Array of GPU specific registers to configure trace bus output
  * @count - Number of registers in the array
  * @groups - Pointer to an attribute list of control files
+ * @atid - The unique ATID value of the coresight device
  */
 struct adreno_coresight {
 	struct adreno_coresight_register *registers;
 	unsigned int count;
 	const struct attribute_group **groups;
+	unsigned int atid;
 };
 
 

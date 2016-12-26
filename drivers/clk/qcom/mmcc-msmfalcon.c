@@ -30,6 +30,7 @@
 #include "clk-rcg.h"
 #include "clk-regmap.h"
 #include "clk-regmap-divider.h"
+#include "clk-voter.h"
 #include "reset.h"
 #include "vdd-level-falcon.h"
 
@@ -112,8 +113,8 @@ static const struct parent_map mmcc_parent_map_1[] = {
 
 static const char * const mmcc_parent_names_1[] = {
 	"xo",
-	"dsi0_phy_pll_out_byteclk",
-	"dsi1_phy_pll_out_byteclk",
+	"dsi0pll_byte_clk_mux",
+	"dsi1pll_byte_clk_mux",
 	"core_bi_pll_test_se",
 };
 
@@ -240,8 +241,8 @@ static const struct parent_map mmcc_parent_map_8[] = {
 
 static const char * const mmcc_parent_names_8[] = {
 	"xo",
-	"dsi0_phy_pll_out_dsiclk",
-	"dsi1_phy_pll_out_dsiclk",
+	"dsi0pll_pixel_clk_mux",
+	"dsi1pll_pixel_clk_mux",
 	"core_bi_pll_test_se",
 };
 
@@ -906,7 +907,7 @@ static struct clk_rcg2 dp_crypto_clk_src = {
 
 static const struct freq_tbl ftbl_dp_gtc_clk_src[] = {
 	F(40000000, P_GPLL0_OUT_MAIN_DIV, 7.5, 0, 0),
-	F(300000000, P_GPLL0_OUT_MAIN_DIV, 1, 0, 0),
+	F(60000000, P_GPLL0_OUT_MAIN, 10, 0, 0),
 	{ }
 };
 
@@ -923,7 +924,7 @@ static struct clk_rcg2 dp_gtc_clk_src = {
 		.ops = &clk_rcg2_ops,
 		VDD_DIG_FMAX_MAP2(
 			LOWER, 40000000,
-			LOW, 300000000),
+			LOW, 60000000),
 	},
 };
 
@@ -1136,9 +1137,10 @@ static struct clk_rcg2 mdp_clk_src = {
 		.parent_names = mmcc_parent_names_7,
 		.num_parents = 7,
 		.ops = &clk_rcg2_ops,
-		VDD_DIG_FMAX_MAP4(
+		VDD_DIG_FMAX_MAP5(
 			LOWER, 171428571,
 			LOW, 275000000,
+			LOW_L1, 300000000,
 			NOMINAL, 330000000,
 			HIGH, 412500000),
 	},
@@ -1183,6 +1185,7 @@ static struct clk_rcg2 pclk1_clk_src = {
 static const struct freq_tbl ftbl_rot_clk_src[] = {
 	F(171428571, P_GPLL0_OUT_MAIN, 3.5, 0, 0),
 	F(275000000, P_MMPLL5_PLL_OUT_MAIN, 3, 0, 0),
+	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(330000000, P_MMPLL5_PLL_OUT_MAIN, 2.5, 0, 0),
 	F(412500000, P_MMPLL5_PLL_OUT_MAIN, 2, 0, 0),
 	{ }
@@ -1199,9 +1202,10 @@ static struct clk_rcg2 rot_clk_src = {
 		.parent_names = mmcc_parent_names_7,
 		.num_parents = 7,
 		.ops = &clk_rcg2_ops,
-		VDD_DIG_FMAX_MAP4(
+		VDD_DIG_FMAX_MAP5(
 			LOWER, 171428571,
 			LOW, 275000000,
+			LOW_L1, 300000000,
 			NOMINAL, 330000000,
 			HIGH, 412500000),
 	},
@@ -2012,6 +2016,10 @@ static struct clk_branch mmss_camss_jpeg0_clk = {
 	},
 };
 
+static DEFINE_CLK_VOTER(mmss_camss_jpeg0_vote_clk, &mmss_camss_jpeg0_clk.c, 0);
+static DEFINE_CLK_VOTER(mmss_camss_jpeg0_dma_vote_clk,
+					&mmss_camss_jpeg0_clk.c, 0);
+
 static struct clk_branch mmss_camss_jpeg_ahb_clk = {
 	.halt_reg = 0x35b4,
 	.halt_check = BRANCH_HALT,
@@ -2803,6 +2811,11 @@ static struct clk_branch mmss_video_subcore0_clk = {
 	},
 };
 
+struct clk_hw *mmcc_msmfalcon_hws[] = {
+	[MMSS_CAMSS_JPEG0_VOTE_CLK] = &mmss_camss_jpeg0_vote_clk.hw,
+	[MMSS_CAMSS_JPEG0_DMA_VOTE_CLK] = &mmss_camss_jpeg0_dma_vote_clk.hw,
+};
+
 static struct clk_regmap *mmcc_falcon_clocks[] = {
 	[AHB_CLK_SRC] = &ahb_clk_src.clkr,
 	[BYTE0_CLK_SRC] = &byte0_clk_src.clkr,
@@ -2952,6 +2965,8 @@ static const struct qcom_cc_desc mmcc_falcon_desc = {
 	.config = &mmcc_falcon_regmap_config,
 	.clks = mmcc_falcon_clocks,
 	.num_clks = ARRAY_SIZE(mmcc_falcon_clocks),
+	.hwclks = mmcc_msmfalcon_hws,
+	.num_hwclks = ARRAY_SIZE(mmcc_msmfalcon_hws),
 	.resets = mmcc_falcon_resets,
 	.num_resets = ARRAY_SIZE(mmcc_falcon_resets),
 };

@@ -20,9 +20,15 @@
 	model = "Qualcomm Technologies, Inc. MSM TRITON RUMI";
 	compatible = "qcom,msmtriton-rumi", "qcom,msmtriton", "qcom,rumi";
 	qcom,board-id = <15 0>;
+
+	chosen {
+		bootargs = "lpm_levels.sleep_disabled=1";
+	};
 };
 
 &usb3 {
+	/delete-property/ USB3_GDSC-supply;
+	/delete-property/ extcon;
 	dwc3@a800000 {
 		maximum-speed = "high-speed";
 	};
@@ -67,4 +73,14 @@
 &clock_gfx {
 	compatible = "qcom,dummycc";
 	clock-output-names = "gfx_clocks";
+};
+
+&clock_mmss {
+	compatible = "qcom,dummycc";
+	clock-output-names = "mmss_clocks";
+};
+
+&clock_debug {
+	compatible = "qcom,dummycc";
+	clock-output-names = "debug_clocks";
 };

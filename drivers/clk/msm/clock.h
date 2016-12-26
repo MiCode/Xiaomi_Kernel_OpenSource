@@ -41,6 +41,8 @@ extern struct list_head orphan_clk_list;
 #if defined(CONFIG_DEBUG_FS) && defined(CONFIG_COMMON_CLK_MSM)
 int clock_debug_register(struct clk *clk);
 void clock_debug_print_enabled(void);
+#elif defined(CONFIG_DEBUG_FS) && defined(CONFIG_COMMON_CLK_QCOM)
+void clock_debug_print_enabled(void);
 #else
 static inline int clock_debug_register(struct clk *unused)
 {

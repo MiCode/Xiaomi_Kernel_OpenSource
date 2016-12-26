@@ -624,15 +624,15 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	IPADBG("cmd=%x nr=%d\n", cmd, _IOC_NR(cmd));
 
-	if (!ipa3_is_ready()) {
-		IPAERR("IPA not ready, waiting for init completion\n");
-		wait_for_completion(&ipa3_ctx->init_completion_obj);
-	}
-
 	if (_IOC_TYPE(cmd) != IPA_IOC_MAGIC)
 		return -ENOTTY;
 	if (_IOC_NR(cmd) >= IPA_IOCTL_MAX)
 		return -ENOTTY;
+
+	if (!ipa3_is_ready()) {
+		IPAERR("IPA not ready, waiting for init completion\n");
+		wait_for_completion(&ipa3_ctx->init_completion_obj);
+	}
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 

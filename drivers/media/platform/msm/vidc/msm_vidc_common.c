@@ -107,6 +107,11 @@ static inline bool is_low_power_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_LOW_POWER);
 }
 
+static inline bool is_realtime_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_REALTIME);
+}
+
 int msm_comm_g_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl)
 {
 	return v4l2_g_ctrl(&inst->ctrl_handler, ctrl);
@@ -257,16 +262,6 @@ int msm_comm_ctrl_deinit(struct msm_vidc_inst *inst)
 	return 0;
 }
 
-static inline bool is_non_realtime_session(struct msm_vidc_inst *inst)
-{
-	int rc = 0;
-	struct v4l2_control ctrl = {
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY
-	};
-	rc = msm_comm_g_ctrl(inst, &ctrl);
-	return (!rc && ctrl.value);
-}
-
 enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 {
 	switch (msm_comm_g_ctrl_for_id(inst,
@@ -282,8 +277,7 @@ enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 {
 	int output_port_mbs, capture_port_mbs;
-	int fps, rc;
-	struct v4l2_control ctrl;
+	int fps;
 
 	output_port_mbs = inst->in_reconfig ?
 			NUM_MBS_PER_FRAME(inst->reconfig_width,
@@ -294,18 +288,18 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
 		inst->prop.height[CAPTURE_PORT]);
 
-	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE;
-	rc = msm_comm_g_ctrl(inst, &ctrl);
-	if (!rc && ctrl.value) {
-		fps = (ctrl.value >> 16) ? ctrl.value >> 16 : 1;
+	if (inst->operating_rate) {
+		fps = (inst->operating_rate >> 16) ?
+			inst->operating_rate >> 16 : 1;
 		/*
 		 * Check if operating rate is less than fps.
 		 * If Yes, then use fps to scale clocks
 		*/
 		fps = fps > inst->prop.fps ? fps : inst->prop.fps;
 		return max(output_port_mbs, capture_port_mbs) * fps;
-	} else
+	} else {
 		return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
+	}
 }
 
 int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
@@ -344,7 +338,7 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 	 * ----------------|----------------------|------------------------|
 	 */
 
-	if (is_non_realtime_session(inst) &&
+	if (!is_realtime_session(inst) &&
 		(quirks & LOAD_CALC_IGNORE_NON_REALTIME_LOAD)) {
 		if (!inst->prop.fps) {
 			dprintk(VIDC_INFO, "instance:%pK fps = 0\n", inst);
@@ -523,7 +517,6 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 	list_for_each_entry(inst, &core->instances, list) {
 		int codec = 0, yuv = 0;
-		struct v4l2_control ctrl;
 
 		codec = inst->session_type == MSM_VIDC_DECODER ?
 			inst->fmts[OUTPUT_PORT].fourcc :
@@ -540,11 +533,9 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 		vote_data[i].height = max(inst->prop.height[CAPTURE_PORT],
 			inst->prop.height[OUTPUT_PORT]);
 
-		ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE;
-		rc = msm_comm_g_ctrl(inst, &ctrl);
-		if (!rc && ctrl.value)
-			vote_data[i].fps = (ctrl.value >> 16) ?
-				ctrl.value >> 16 : 1;
+		if (inst->operating_rate)
+			vote_data[i].fps = (inst->operating_rate >> 16) ?
+				inst->operating_rate >> 16 : 1;
 		else
 			vote_data[i].fps = inst->prop.fps;
 
@@ -1514,6 +1505,9 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
+	struct v4l2_event flush_event = {0};
+	u32 *ptr = NULL;
+	enum hal_flush flush_type;
 	int rc;
 
 	if (!response) {
@@ -1541,8 +1535,31 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 		}
 	}
 	atomic_dec(&inst->in_flush);
-	dprintk(VIDC_DBG, "Notify flush complete to client\n");
-	msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_FLUSH_DONE);
+	flush_event.type = V4L2_EVENT_MSM_VIDC_FLUSH_DONE;
+	ptr = (u32 *)flush_event.u.data;
+
+	flush_type = response->data.flush_type;
+	switch (flush_type) {
+	case HAL_FLUSH_INPUT:
+		ptr[0] = V4L2_QCOM_CMD_FLUSH_OUTPUT;
+		break;
+	case HAL_FLUSH_OUTPUT:
+		ptr[0] = V4L2_QCOM_CMD_FLUSH_CAPTURE;
+		break;
+	case HAL_FLUSH_ALL:
+		ptr[0] |= V4L2_QCOM_CMD_FLUSH_CAPTURE;
+		ptr[0] |= V4L2_QCOM_CMD_FLUSH_OUTPUT;
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid flush type received!");
+		goto exit;
+	}
+
+	dprintk(VIDC_DBG,
+		"Notify flush complete, flush_type: %x\n", flush_type);
+	v4l2_event_queue_fh(&inst->event_handler, &flush_event);
+
+exit:
 	put_inst(inst);
 }
 
@@ -1640,6 +1657,17 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 				"Got SYS_ERR but unable to identify core\n");
 		return;
 	}
+
+	mutex_lock(&core->lock);
+	if (core->state == VIDC_CORE_INVALID ||
+		core->state == VIDC_CORE_UNINIT) {
+		dprintk(VIDC_ERR,
+			"%s: Core already moved to state %d\n",
+			 __func__, core->state);
+		mutex_unlock(&core->lock);
+		return;
+	}
+	mutex_unlock(&core->lock);
 
 	dprintk(VIDC_WARN, "SYS_ERROR %d received for core %pK\n", cmd, core);
 	msm_comm_clean_notify_client(core);
@@ -2453,7 +2481,6 @@ static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 	abort_completion = SESSION_MSG_INDEX(HAL_SESSION_ABORT_DONE);
-	init_completion(&inst->completions[abort_completion]);
 
 	rc = call_hfi_op(hdev, session_abort, (void *)inst->session);
 	if (rc) {
@@ -2635,8 +2662,6 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 			__func__);
 	}
 
-	init_completion(&core->completions
-			[SYS_MSG_INDEX(HAL_SYS_INIT_DONE)]);
 	rc = call_hfi_op(hdev, core_init, hdev->hfi_device_data);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init core, id = %d\n",
@@ -2740,8 +2765,6 @@ static int msm_comm_session_init(int flipped_state,
 		dprintk(VIDC_ERR, "Invalid session\n");
 		return -EINVAL;
 	}
-	init_completion(
-		&inst->completions[SESSION_MSG_INDEX(HAL_SESSION_INIT_DONE)]);
 
 	rc = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
 			inst, get_hal_domain(inst->session_type),
@@ -2879,8 +2902,6 @@ static int msm_vidc_start(int flipped_state, struct msm_vidc_inst *inst)
 			inst, inst->state);
 		goto exit;
 	}
-	init_completion(
-		&inst->completions[SESSION_MSG_INDEX(HAL_SESSION_START_DONE)]);
 	rc = call_hfi_op(hdev, session_start, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -2910,8 +2931,6 @@ static int msm_vidc_stop(int flipped_state, struct msm_vidc_inst *inst)
 		goto exit;
 	}
 	dprintk(VIDC_DBG, "Send Stop to hal\n");
-	init_completion(
-		&inst->completions[SESSION_MSG_INDEX(HAL_SESSION_STOP_DONE)]);
 	rc = call_hfi_op(hdev, session_stop, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to send stop\n");
@@ -2941,8 +2960,6 @@ static int msm_vidc_release_res(int flipped_state, struct msm_vidc_inst *inst)
 	}
 	dprintk(VIDC_DBG,
 		"Send release res to hal\n");
-	init_completion(&inst->completions[
-			SESSION_MSG_INDEX(HAL_SESSION_RELEASE_RESOURCE_DONE)]);
 	rc = call_hfi_op(hdev, session_release_res, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -2973,8 +2990,6 @@ static int msm_comm_session_close(int flipped_state,
 	}
 	dprintk(VIDC_DBG,
 		"Send session close to hal\n");
-	init_completion(
-		&inst->completions[SESSION_MSG_INDEX(HAL_SESSION_END_DONE)]);
 	rc = call_hfi_op(hdev, session_end, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -4020,8 +4035,6 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 	}
 	mutex_unlock(&inst->sync_lock);
 
-	init_completion(&inst->completions[
-			SESSION_MSG_INDEX(HAL_SESSION_PROPERTY_INFO)]);
 	switch (ptype) {
 	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
 	case HAL_CONFIG_VDEC_ENTROPY:
@@ -4251,8 +4264,6 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 		if (inst->state != MSM_VIDC_CORE_INVALID &&
 				core->state != VIDC_CORE_INVALID) {
 			buffer_info.response_required = true;
-			init_completion(&inst->completions[SESSION_MSG_INDEX
-			   (HAL_SESSION_RELEASE_BUFFER_DONE)]);
 			rc = call_hfi_op(hdev, session_release_buffers,
 				(void *)inst->session, &buffer_info);
 			if (rc) {
@@ -4323,9 +4334,6 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 		if (inst->state != MSM_VIDC_CORE_INVALID &&
 				core->state != VIDC_CORE_INVALID) {
 			buffer_info.response_required = true;
-			init_completion(
-			   &inst->completions[SESSION_MSG_INDEX
-			   (HAL_SESSION_RELEASE_BUFFER_DONE)]);
 			rc = call_hfi_op(hdev, session_release_buffers,
 				(void *)inst->session, &buffer_info);
 			if (rc) {

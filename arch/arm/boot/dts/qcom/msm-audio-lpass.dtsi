@@ -187,6 +187,11 @@
 			qcom,msm-dai-q6-dev-id = <16393>;
 		};
 
+		sb_4_tx_vi: qcom,msm-dai-q6-sb-4-tx-vi {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <20233>;
+		};
+
 		sb_5_tx: qcom,msm-dai-q6-sb-5-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16395>;

@@ -92,6 +92,31 @@
 		.intr_detection_bit = -1,		\
 		.intr_detection_width = -1,		\
 	}
+
+#define UFS_RESET(pg_name, offset)				\
+	{					        \
+		.name = #pg_name,			\
+		.pins = pg_name##_pins,			\
+		.npins = (unsigned)ARRAY_SIZE(pg_name##_pins),	\
+		.ctl_reg = offset,			\
+		.io_reg = offset + 0x4,			\
+		.intr_cfg_reg = 0,			\
+		.intr_status_reg = 0,			\
+		.intr_target_reg = 0,			\
+		.mux_bit = -1,				\
+		.pull_bit = 3,				\
+		.drv_bit = 0,				\
+		.oe_bit = -1,				\
+		.in_bit = -1,				\
+		.out_bit = 0,				\
+		.intr_enable_bit = -1,			\
+		.intr_status_bit = -1,			\
+		.intr_target_bit = -1,			\
+		.intr_raw_status_bit = -1,		\
+		.intr_polarity_bit = -1,		\
+		.intr_detection_bit = -1,		\
+		.intr_detection_width = -1,		\
+	}
 static const struct pinctrl_pin_desc msm8998_pins[] = {
 	PINCTRL_PIN(0, "GPIO_0"),
 	PINCTRL_PIN(1, "GPIO_1"),
@@ -246,6 +271,7 @@ static const struct pinctrl_pin_desc msm8998_pins[] = {
 	PINCTRL_PIN(150, "SDC2_CLK"),
 	PINCTRL_PIN(151, "SDC2_CMD"),
 	PINCTRL_PIN(152, "SDC2_DATA"),
+	PINCTRL_PIN(153, "UFS_RESET"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -404,6 +430,7 @@ DECLARE_MSM_GPIO_PINS(149);
 static const unsigned int sdc2_clk_pins[] = { 150 };
 static const unsigned int sdc2_cmd_pins[] = { 151 };
 static const unsigned int sdc2_data_pins[] = { 152 };
+static const unsigned int ufs_reset_pins[] = { 153 };
 
 enum msm8998_functions {
 	msm_mux_blsp_spi1,
@@ -1856,6 +1883,7 @@ static const struct msm_pingroup msm8998_groups[] = {
 	SDC_QDSD_PINGROUP(sdc2_clk, 0x999000, 14, 6),
 	SDC_QDSD_PINGROUP(sdc2_cmd, 0x999000, 11, 3),
 	SDC_QDSD_PINGROUP(sdc2_data, 0x999000, 9, 0),
+	UFS_RESET(ufs_reset, 0x19d000),
 };
 
 static const struct msm_pinctrl_soc_data msm8998_pinctrl = {

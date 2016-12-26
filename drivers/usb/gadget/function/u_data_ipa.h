@@ -20,6 +20,8 @@
 #include <linux/ipa_usb.h>
 #include <linux/usb_bam.h>
 
+#include "u_rmnet.h"
+
 enum ipa_func_type {
 	USB_IPA_FUNC_ECM,
 	USB_IPA_FUNC_MBIM,
@@ -45,6 +47,25 @@ struct gadget_ipa_port {
 
 };
 
+struct ipa_function_bind_info {
+	struct usb_string *string_defs;
+	int data_str_idx;
+	struct usb_interface_descriptor *data_desc;
+	struct usb_endpoint_descriptor *fs_in_desc;
+	struct usb_endpoint_descriptor *fs_out_desc;
+	struct usb_endpoint_descriptor *fs_notify_desc;
+	struct usb_endpoint_descriptor *hs_in_desc;
+	struct usb_endpoint_descriptor *hs_out_desc;
+	struct usb_endpoint_descriptor *hs_notify_desc;
+	struct usb_endpoint_descriptor *ss_in_desc;
+	struct usb_endpoint_descriptor *ss_out_desc;
+	struct usb_endpoint_descriptor *ss_notify_desc;
+
+	struct usb_descriptor_header **fs_desc_hdr;
+	struct usb_descriptor_header **hs_desc_hdr;
+	struct usb_descriptor_header **ss_desc_hdr;
+};
+
 /* for configfs support */
 #define MAX_INST_NAME_LEN      40
 
@@ -55,6 +76,12 @@ struct f_rndis_qc_opts {
 	const char			*manufacturer;
 	struct net_device		*net;
 	int				refcnt;
+};
+
+struct f_rmnet_opts {
+	struct usb_function_instance func_inst;
+	struct f_rmnet *dev;
+	int refcnt;
 };
 
 void ipa_data_port_select(enum ipa_func_type func);
@@ -87,4 +114,6 @@ void *rndis_qc_get_ipa_rx_cb(void);
 bool rndis_qc_get_skip_ep_config(void);
 void *rndis_qc_get_ipa_tx_cb(void);
 void rndis_ipa_reset_trigger(void);
+void gqti_ctrl_update_ipa_pipes(void *gr, enum qti_port_type qport,
+				u32 ipa_prod, u32 ipa_cons);
 #endif

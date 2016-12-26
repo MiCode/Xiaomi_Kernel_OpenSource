@@ -323,7 +323,9 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 			if (!ret) {
 				hdmi_edid_parser(udata->edid_data);
 				hdmi_edid_get_audio_blk(udata->edid_data, &blk);
-				udata->ops.set_audio_block(udata->dba_data,
+				if (udata->ops.set_audio_block)
+					udata->ops.set_audio_block(
+							udata->dba_data,
 							sizeof(blk), &blk);
 			} else {
 				pr_err("failed to get edid%d\n", ret);
@@ -540,7 +542,7 @@ int mdss_dba_utils_video_on(void *data, struct mdss_panel_info *pinfo)
 	video_cfg.h_pulse_width = pinfo->lcdc.h_pulse_width;
 	video_cfg.v_pulse_width = pinfo->lcdc.v_pulse_width;
 	video_cfg.pclk_khz = (unsigned long)pinfo->clk_rate / 1000;
-	video_cfg.hdmi_mode = hdmi_edid_get_sink_mode(ud->edid_data);
+	video_cfg.hdmi_mode = !hdmi_edid_is_dvi_mode(ud->edid_data);
 
 	/* Calculate number of DSI lanes configured */
 	video_cfg.num_of_input_lanes = 0;

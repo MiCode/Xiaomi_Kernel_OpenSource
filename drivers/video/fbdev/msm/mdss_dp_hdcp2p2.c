@@ -23,6 +23,8 @@
 #include "mdss_hdcp.h"
 #include "mdss_dp_util.h"
 
+struct dp_hdcp2p2_ctrl;
+
 enum dp_hdcp2p2_sink_status {
 	SINK_DISCONNECTED,
 	SINK_CONNECTED
@@ -33,9 +35,21 @@ enum dp_auth_status {
 	DP_HDCP_AUTH_STATUS_SUCCESS
 };
 
+struct dp_hdcp2p2_int_set {
+	u32 interrupt;
+	char *name;
+	void (*func)(struct dp_hdcp2p2_ctrl *ctrl);
+};
+
+struct dp_hdcp2p2_interrupts {
+	u32 reg;
+	struct dp_hdcp2p2_int_set *int_set;
+};
+
 struct dp_hdcp2p2_ctrl {
 	atomic_t auth_state;
 	enum dp_hdcp2p2_sink_status sink_status; /* Is sink connected */
+	struct dp_hdcp2p2_interrupts *intr;
 	struct hdcp_init_data init_data;
 	struct mutex mutex; /* mutex to protect access to ctrl */
 	struct mutex msg_lock; /* mutex to protect access to msg buffer */
@@ -172,7 +186,10 @@ static int dp_hdcp2p2_wakeup(struct hdmi_hdcp_wakeup_data *data)
 		queue_kthread_work(&ctrl->worker, &ctrl->status);
 		break;
 	case HDMI_HDCP_WKUP_CMD_LINK_POLL:
-		ctrl->polling = true;
+		if (ctrl->cp_irq_done)
+			queue_kthread_work(&ctrl->worker, &ctrl->recv_msg);
+		else
+			ctrl->polling = true;
 		break;
 	case HDMI_HDCP_WKUP_CMD_AUTHENTICATE:
 		queue_kthread_work(&ctrl->worker, &ctrl->auth);
@@ -211,6 +228,31 @@ static void dp_hdcp2p2_reset(struct dp_hdcp2p2_ctrl *ctrl)
 	atomic_set(&ctrl->auth_state, HDCP_STATE_INACTIVE);
 }
 
+static void dp_hdcp2p2_set_interrupts(struct dp_hdcp2p2_ctrl *ctrl, bool enable)
+{
+	unsigned char *base = ctrl->init_data.core_io->base;
+	struct dp_hdcp2p2_interrupts *intr = ctrl->intr;
+
+	while (intr && intr->reg) {
+		struct dp_hdcp2p2_int_set *int_set = intr->int_set;
+		u32 interrupts = 0;
+
+		while (int_set && int_set->interrupt) {
+			interrupts |= int_set->interrupt;
+			int_set++;
+		}
+
+		if (enable)
+			dp_write(base + intr->reg,
+				dp_read(base + intr->reg) | interrupts);
+		else
+			dp_write(base + intr->reg,
+				dp_read(base + intr->reg) & ~interrupts);
+
+		intr++;
+	}
+}
+
 static void dp_hdcp2p2_off(void *input)
 {
 	struct dp_hdcp2p2_ctrl *ctrl = (struct dp_hdcp2p2_ctrl *)input;
@@ -220,6 +262,13 @@ static void dp_hdcp2p2_off(void *input)
 		pr_err("invalid input\n");
 		return;
 	}
+
+	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
+		pr_err("hdcp is off\n");
+		return;
+	}
+
+	dp_hdcp2p2_set_interrupts(ctrl, false);
 
 	dp_hdcp2p2_reset(ctrl);
 
@@ -236,6 +285,8 @@ static int dp_hdcp2p2_authenticate(void *input)
 	int rc = 0;
 
 	flush_kthread_worker(&ctrl->worker);
+
+	dp_hdcp2p2_set_interrupts(ctrl, true);
 
 	ctrl->sink_status = SINK_CONNECTED;
 	atomic_set(&ctrl->auth_state, HDCP_STATE_AUTHENTICATING);
@@ -316,6 +367,8 @@ static void dp_hdcp2p2_auth_failed(struct dp_hdcp2p2_ctrl *ctrl)
 		pr_err("invalid input\n");
 		return;
 	}
+
+	dp_hdcp2p2_set_interrupts(ctrl, false);
 
 	/* notify DP about HDCP failure */
 	ctrl->init_data.notify_status(ctrl->init_data.cb_data,
@@ -574,18 +627,6 @@ static void dp_hdcp2p2_link_work(struct kthread_work *work)
 
 	cdata.context = ctrl->lib_ctx;
 
-	ctrl->sink_rx_status = 0;
-	rc = mdss_dp_aux_read_rx_status(ctrl->init_data.cb_data,
-		&ctrl->sink_rx_status);
-
-	if (rc) {
-		pr_err("failed to read rx status\n");
-
-		cdata.cmd = HDCP_LIB_WKUP_CMD_LINK_FAILED;
-		atomic_set(&ctrl->auth_state, HDCP_STATE_AUTH_FAIL);
-		goto exit;
-	}
-
 	if (ctrl->sink_rx_status & ctrl->abort_mask) {
 		if (ctrl->sink_rx_status & BIT(3))
 			pr_err("reauth_req set by sink\n");
@@ -636,6 +677,7 @@ static void dp_hdcp2p2_auth_work(struct kthread_work *work)
 
 static int dp_hdcp2p2_cp_irq(void *input)
 {
+	int rc = 0;
 	struct dp_hdcp2p2_ctrl *ctrl = input;
 
 	if (!ctrl) {
@@ -643,9 +685,67 @@ static int dp_hdcp2p2_cp_irq(void *input)
 		return -EINVAL;
 	}
 
+	ctrl->sink_rx_status = 0;
+	rc = mdss_dp_aux_read_rx_status(ctrl->init_data.cb_data,
+		&ctrl->sink_rx_status);
+	if (rc) {
+		pr_err("failed to read rx status\n");
+		goto error;
+	}
+
+	pr_debug("sink_rx_status=0x%x\n", ctrl->sink_rx_status);
+
+	if (!ctrl->sink_rx_status) {
+		pr_debug("not a hdcp 2.2 irq\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
 	queue_kthread_work(&ctrl->worker, &ctrl->link);
 
 	return 0;
+error:
+	return rc;
+}
+
+static int dp_hdcp2p2_isr(void *input)
+{
+	struct dp_hdcp2p2_ctrl *ctrl = (struct dp_hdcp2p2_ctrl *)input;
+	int rc = 0;
+	struct dss_io_data *io;
+	struct dp_hdcp2p2_interrupts *intr;
+	u32 hdcp_int_val;
+
+	if (!ctrl || !ctrl->init_data.core_io) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	io = ctrl->init_data.core_io;
+	intr = ctrl->intr;
+
+	while (intr && intr->reg) {
+		struct dp_hdcp2p2_int_set *int_set = intr->int_set;
+
+		hdcp_int_val = dp_read(io->base + intr->reg);
+
+		while (int_set && int_set->interrupt) {
+			if (hdcp_int_val & (int_set->interrupt >> 2)) {
+				pr_debug("%s\n", int_set->name);
+
+				if (int_set->func)
+					int_set->func(ctrl);
+
+				dp_write(io->base + intr->reg, hdcp_int_val |
+					(int_set->interrupt >> 1));
+			}
+			int_set++;
+		}
+		intr++;
+	}
+end:
+	return rc;
 }
 
 void dp_hdcp2p2_deinit(void *input)
@@ -679,6 +779,7 @@ void *dp_hdcp2p2_init(struct hdcp_init_data *init_data)
 	int rc;
 	struct dp_hdcp2p2_ctrl *ctrl;
 	static struct hdcp_ops ops = {
+		.isr = dp_hdcp2p2_isr,
 		.reauthenticate = dp_hdcp2p2_reauthenticate,
 		.authenticate = dp_hdcp2p2_authenticate,
 		.feature_supported = dp_hdcp2p2_feature_supported,
@@ -689,7 +790,22 @@ void *dp_hdcp2p2_init(struct hdcp_init_data *init_data)
 	static struct hdcp_client_ops client_ops = {
 		.wakeup = dp_hdcp2p2_wakeup,
 	};
-
+	static struct dp_hdcp2p2_int_set int_set1[] = {
+		{BIT(17), "authentication successful", 0},
+		{BIT(20), "authentication failed", 0},
+		{BIT(24), "encryption enabled", 0},
+		{BIT(27), "encryption disabled", 0},
+		{0},
+	};
+	static struct dp_hdcp2p2_int_set int_set2[] = {
+		{BIT(2),  "key fifo underflow", 0},
+		{0},
+	};
+	static struct dp_hdcp2p2_interrupts intr[] = {
+		{DP_INTR_STATUS2, int_set1},
+		{DP_INTR_STATUS3, int_set2},
+		{0}
+	};
 	static struct hdcp_txmtr_ops txmtr_ops;
 	struct hdcp_register_data register_data = {0};
 
@@ -714,6 +830,7 @@ void *dp_hdcp2p2_init(struct hdcp_init_data *init_data)
 	}
 
 	ctrl->sink_status = SINK_DISCONNECTED;
+	ctrl->intr = intr;
 
 	atomic_set(&ctrl->auth_state, HDCP_STATE_INACTIVE);
 

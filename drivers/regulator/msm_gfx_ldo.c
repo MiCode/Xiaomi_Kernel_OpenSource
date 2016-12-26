@@ -27,11 +27,13 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/regulator/msm-ldo-regulator.h>
 
 #define LDO_ATEST_REG			0x0
 #define LDO_CFG0_REG			0x4
 #define LDO_CFG1_REG			0x8
 #define LDO_CFG2_REG			0xC
+#define LDO_LD_DATA_REG			0x10
 
 #define LDO_VREF_TEST_CFG		0x14
 #define ENABLE_LDO_STATUS_BIT		(BIT(8) | BIT(12))
@@ -45,6 +47,8 @@
 #define PWRSWITCH_CTRL_REG		0x1C
 #define LDO_CLAMP_IO_BIT		BIT(31)
 #define CPR_BYPASS_IN_LDO_MODE_BIT	BIT(30)
+#define EN_LDOAP_CTRL_CPR_BIT		BIT(29)
+#define CX_CPR_BYPASS_IN_LDO_MODE_BIT	BIT(10)
 #define PWR_SRC_SEL_BIT			BIT(9)
 #define ACK_SW_OVR_BIT			BIT(8)
 #define LDO_PREON_SW_OVR_BIT		BIT(7)
@@ -62,7 +66,11 @@
 #define LDO_READY_BIT			BIT(2)
 #define BHS_EN_REST_ACK_BIT		BIT(1)
 
-#define MIN_LDO_VOLTAGE			345000
+#define REF_CURRENT_X1_REG		0x2C
+#define REF_CURRENT_X2_REG		0x30
+#define ADC_CTL_REG			0x34
+
+#define MIN_LDO_VOLTAGE			375000
 #define MAX_LDO_VOLTAGE			980000
 #define LDO_STEP_VOLATGE		5000
 
@@ -72,20 +80,18 @@
 #define MAX_FUSE_ROW_BIT		63
 #define MIN_CORNER_OFFSET		1
 
-#define GFX_LDO_FUSE_STEP_VOLT		10
+#define GFX_LDO_FUSE_STEP_VOLT		10000
 #define GFX_LDO_FUSE_SIZE		5
-#define GFX_LDO_BYPASS_FUSE_MASK	0xF
-#define GFX_LDO_BYPASS_FUSE_VALUE	0xF
-
-enum regulator_mode {
-	LDO,
-	BHS,
-};
 
 enum direction {
 	NO_CHANGE,
 	UP,
 	DOWN,
+};
+
+enum voltage_handling {
+	VOLTAGE,
+	CORNER,
 };
 
 struct fuse_param {
@@ -115,12 +121,11 @@ struct msm_gfx_ldo {
 	u32			*ldo_corner_en_map;
 	u32			*vdd_cx_corner_map;
 	u32			*mem_acc_corner_map;
-	u8			*force_ldo_bypass;
 	const int		*ref_volt;
 	const struct fuse_param	*ldo_enable_param;
 	const struct fuse_param	**init_volt_param;
-	bool			ldo_enable;
-	bool			ldo_bypass_fuse_enable;
+	bool			ldo_fuse_enable;
+	bool			ldo_mode_disable;
 	struct ldo_config	*ldo_init_config;
 
 	void __iomem		*efuse_base;
@@ -129,15 +134,16 @@ struct msm_gfx_ldo {
 	phys_addr_t		ldo_addr;
 
 	bool			vreg_enabled;
-	enum regulator_mode	mode;
+	enum msm_ldo_supply_mode mode;
 	u32			corner;
 	int			ldo_voltage_uv;
 	struct mutex		ldo_mutex;
+	enum voltage_handling	ops_type;
 };
 
-#define MSMTITANIUM_LDO_FUSE_CORNERS		3
+#define MSM8953_LDO_FUSE_CORNERS		3
 #define LDO_MAX_OFFSET				0xFFFF
-static struct ldo_config msmtitanium_ldo_config[] = {
+static struct ldo_config msm8953_ldo_config[] = {
 	{LDO_ATEST_REG,		0x00000203},
 	{LDO_CFG0_REG,		0x05008600},
 	{LDO_CFG1_REG,		       0x0},
@@ -146,22 +152,40 @@ static struct ldo_config msmtitanium_ldo_config[] = {
 	{LDO_MAX_OFFSET,	LDO_MAX_OFFSET},
 };
 
-static struct fuse_param msmtitanium_ldo_enable_param[] = {
-	{65, 10, 10},
+static struct ldo_config msmfalcon_ldo_config[] = {
+	{LDO_ATEST_REG,		0x00000080},
+	{LDO_CFG0_REG,		0x0100A600},
+	{LDO_CFG1_REG,		0x000000A0},
+	{LDO_CFG2_REG,		0x0000C3FE},
+	{LDO_LD_DATA_REG,	0x00000000},
+	{LDO_VREF_TEST_CFG,	0x00401100},
+	{REF_CURRENT_X1_REG,	0x00000230},
+	{REF_CURRENT_X2_REG,	0x00000048},
+	{ADC_CTL_REG,		0x00000000},
+	{LDO_MAX_OFFSET,	LDO_MAX_OFFSET},
+};
+
+static struct fuse_param msm8953_ldo_enable_param[] = {
+	{65, 11, 11},
 	{},
 };
 
 static const struct fuse_param
-msmtitanium_init_voltage_param[MSMTITANIUM_LDO_FUSE_CORNERS][2] = {
+msm8953_init_voltage_param[MSM8953_LDO_FUSE_CORNERS][2] = {
 		{ {73, 42, 46}, {} },
 		{ {73, 37, 41}, {} },
 		{ {73, 32, 36}, {} },
 };
 
-static const int msmtitanium_fuse_ref_volt[MSMTITANIUM_LDO_FUSE_CORNERS] = {
+static const int msm8953_fuse_ref_volt[MSM8953_LDO_FUSE_CORNERS] = {
 	580000,
 	650000,
 	720000,
+};
+
+enum {
+	MSM8953_SOC_ID,
+	MSMFALCON_SOC_ID,
 };
 
 static int convert_open_loop_voltage_fuse(int ref_volt, int step_volt,
@@ -211,15 +235,14 @@ static int read_fuse_param(void __iomem *fuse_base_addr,
 	return 0;
 }
 
-static enum regulator_mode get_operating_mode(struct msm_gfx_ldo *ldo_vreg,
+static enum msm_ldo_supply_mode get_operating_mode(struct msm_gfx_ldo *ldo_vreg,
 								int corner)
 {
-	if (ldo_vreg->ldo_enable
-		&& ldo_vreg->ldo_corner_en_map[corner]
-		&& !ldo_vreg->force_ldo_bypass[corner])
-		return LDO;
+	if (!ldo_vreg->ldo_mode_disable && ldo_vreg->ldo_fuse_enable
+			&& ldo_vreg->ldo_corner_en_map[corner])
+		return LDO_MODE;
 
-	return BHS;
+	return BHS_MODE;
 }
 
 static char *register_str[] = {
@@ -248,16 +271,14 @@ static void dump_registers(struct msm_gfx_ldo *ldo_vreg, char *func)
 	}
 }
 
-#define GET_VREF(a) (1 + DIV_ROUND_UP(a - MIN_LDO_VOLTAGE, LDO_STEP_VOLATGE))
+#define GET_VREF(a) DIV_ROUND_UP(a - MIN_LDO_VOLTAGE, LDO_STEP_VOLATGE)
 
-static void configure_ldo_voltage(struct msm_gfx_ldo *ldo_vreg, int new_corner)
+static void configure_ldo_voltage(struct msm_gfx_ldo *ldo_vreg, int new_uv)
 {
-	int new_uv = 0, val = 0;
+	int val = 0;
 	u32 reg = 0;
 
-	new_uv = ldo_vreg->open_loop_volt[new_corner];
 	val = GET_VREF(new_uv);
-
 	reg = readl_relaxed(ldo_vreg->ldo_base + LDO_VREF_SET_REG);
 
 	/* set the new voltage */
@@ -269,6 +290,9 @@ static void configure_ldo_voltage(struct msm_gfx_ldo *ldo_vreg, int new_corner)
 	reg |= UPDATE_VREF_BIT;
 	writel_relaxed(reg, ldo_vreg->ldo_base + LDO_VREF_SET_REG);
 
+	/* complete the writes */
+	mb();
+
 	reg &= ~UPDATE_VREF_BIT;
 	writel_relaxed(reg, ldo_vreg->ldo_base + LDO_VREF_SET_REG);
 
@@ -278,12 +302,12 @@ static void configure_ldo_voltage(struct msm_gfx_ldo *ldo_vreg, int new_corner)
 	mb();
 }
 
-static int ldo_update_voltage(struct msm_gfx_ldo *ldo_vreg, int new_corner)
+static int ldo_update_voltage(struct msm_gfx_ldo *ldo_vreg, int new_uv)
 {
 	int timeout = 50;
 	u32 reg = 0;
 
-	configure_ldo_voltage(ldo_vreg, new_corner);
+	configure_ldo_voltage(ldo_vreg, new_uv);
 
 	while (--timeout) {
 		reg = readl_relaxed(ldo_vreg->ldo_base +
@@ -306,47 +330,45 @@ static int ldo_update_voltage(struct msm_gfx_ldo *ldo_vreg, int new_corner)
 	return 0;
 }
 
-static int enable_ldo_mode(struct msm_gfx_ldo *ldo_vreg)
+static int enable_ldo_mode(struct msm_gfx_ldo *ldo_vreg, int new_uv)
 {
 	u32 ctl = 0;
 
 	/* set the ldo-vref */
-	configure_ldo_voltage(ldo_vreg, ldo_vreg->corner);
-
-	pr_debug("LDO voltage configured =%d uV corner=%d\n",
-			ldo_vreg->ldo_voltage_uv,
-			ldo_vreg->corner + MIN_CORNER_OFFSET);
+	configure_ldo_voltage(ldo_vreg, new_uv);
 
 	/* configure the LDO for power-up */
 	ctl = readl_relaxed(ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* Move BHS under SW control */
 	ctl |= BHS_UNDER_SW_CTL;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* Set LDO under gdsc control */
 	ctl &= ~LDO_UNDER_SW_CTRL_BIT;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* enable hw_pre-on to gdsc */
 	ctl |= LDO_PREON_SW_OVR_BIT;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* remove LDO bypass */
 	ctl &= ~LDO_BYPASS_BIT;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* set power-source as LDO */
 	ctl |= PWR_SRC_SEL_BIT;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* clear fake-sw ack to gdsc */
 	ctl &= ~ACK_SW_OVR_BIT;
 	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* put CPR in bypass mode */
-	ctl |= CPR_BYPASS_IN_LDO_MODE_BIT;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	if (ldo_vreg->ops_type == CORNER) {
+		ctl |= CPR_BYPASS_IN_LDO_MODE_BIT;
+		writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
+	}
 
 	/* complete all writes */
 	mb();
@@ -370,9 +392,11 @@ static int enable_bhs_mode(struct msm_gfx_ldo *ldo_vreg)
 	ctl &= ~PWR_SRC_SEL_BIT;
 	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
-	/* clear CPR in by-pass mode */
-	ctl &= ~CPR_BYPASS_IN_LDO_MODE_BIT;
-	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
+	if (ldo_vreg->ops_type == CORNER) {
+		/* clear GFX CPR in by-pass mode */
+		ctl &= ~CPR_BYPASS_IN_LDO_MODE_BIT;
+		writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
+	}
 
 	/* Enable the BHS control signals to gdsc */
 	ctl &= ~BHS_EN_FEW_BIT;
@@ -389,11 +413,11 @@ static int enable_bhs_mode(struct msm_gfx_ldo *ldo_vreg)
 	return 0;
 }
 
-static int msm_gfx_ldo_enable(struct regulator_dev *rdev)
+static int msm_gfx_ldo_corner_enable(struct regulator_dev *rdev)
 {
 	struct msm_gfx_ldo *ldo_vreg  = rdev_get_drvdata(rdev);
-	int rc = 0;
-	enum regulator_mode enable_mode;
+	int rc = 0, new_uv;
+	enum msm_ldo_supply_mode enable_mode;
 
 	mutex_lock(&ldo_vreg->ldo_mutex);
 
@@ -401,6 +425,15 @@ static int msm_gfx_ldo_enable(struct regulator_dev *rdev)
 				ldo_vreg->corner + MIN_CORNER_OFFSET);
 
 	if (ldo_vreg->vdd_cx) {
+		rc = regulator_set_voltage(ldo_vreg->vdd_cx,
+			ldo_vreg->vdd_cx_corner_map[ldo_vreg->corner],
+			INT_MAX);
+		if (rc) {
+			pr_err("Unable to set CX for corner %d rc=%d\n",
+				ldo_vreg->corner + MIN_CORNER_OFFSET, rc);
+			goto fail;
+		}
+
 		rc = regulator_enable(ldo_vreg->vdd_cx);
 		if (rc) {
 			pr_err("regulator_enable: vdd_cx: failed rc=%d\n", rc);
@@ -409,19 +442,24 @@ static int msm_gfx_ldo_enable(struct regulator_dev *rdev)
 	}
 
 	enable_mode = get_operating_mode(ldo_vreg, ldo_vreg->corner);
-	if (enable_mode == LDO)
-		rc = enable_ldo_mode(ldo_vreg);
-	else
+	if (enable_mode == LDO_MODE) {
+		new_uv = ldo_vreg->open_loop_volt[ldo_vreg->corner];
+		rc = enable_ldo_mode(ldo_vreg, new_uv);
+		pr_debug("LDO voltage configured =%d uV corner=%d\n",
+			ldo_vreg->ldo_voltage_uv,
+			ldo_vreg->corner + MIN_CORNER_OFFSET);
+	} else {
 		rc = enable_bhs_mode(ldo_vreg);
+	}
 
 	if (rc) {
 		pr_err("Failed to enable regulator in %s mode rc=%d\n",
-			(enable_mode == LDO) ? "LDO" : "BHS", rc);
+			(enable_mode == LDO_MODE) ? "LDO" : "BHS", rc);
 		goto disable_cx;
 	}
 
 	pr_debug("regulator_enable complete. mode=%s, corner=%d\n",
-			(enable_mode == LDO) ? "LDO" : "BHS",
+			(enable_mode == LDO_MODE) ? "LDO" : "BHS",
 			ldo_vreg->corner + MIN_CORNER_OFFSET);
 
 	ldo_vreg->mode = enable_mode;
@@ -465,15 +503,17 @@ done:
 	return rc;
 }
 
-static int switch_mode_to_ldo(struct msm_gfx_ldo *ldo_vreg, int new_corner)
+static int switch_mode_to_ldo(struct msm_gfx_ldo *ldo_vreg, int new_uv)
 {
 	u32 ctl = 0, status = 0, timeout = 50;
 
 	ctl = readl_relaxed(ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
-	/* enable CPR bypass mode for LDO */
-	ctl |= CPR_BYPASS_IN_LDO_MODE_BIT;
-	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
+	if (ldo_vreg->ops_type == CORNER) {
+		/* enable CPR bypass mode for LDO */
+		ctl |= CPR_BYPASS_IN_LDO_MODE_BIT;
+		writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
+	}
 
 	/* fake ack to GDSC */
 	ctl |= ACK_SW_OVR_BIT;
@@ -506,7 +546,7 @@ static int switch_mode_to_ldo(struct msm_gfx_ldo *ldo_vreg, int new_corner)
 	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* set the new LDO voltage */
-	ldo_update_voltage(ldo_vreg, new_corner);
+	ldo_update_voltage(ldo_vreg, new_uv);
 
 	pr_debug("LDO voltage =%d uV\n", ldo_vreg->ldo_voltage_uv);
 
@@ -538,7 +578,7 @@ static int switch_mode_to_ldo(struct msm_gfx_ldo *ldo_vreg, int new_corner)
 
 	/* remove LDO bypass */
 	ctl &= ~LDO_BYPASS_BIT;
-	writel_relaxed(ctl, ldo_vreg + PWRSWITCH_CTRL_REG);
+	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	/* expose LDO to gdsc */
 	ctl &= ~ACK_SW_OVR_BIT;
@@ -610,9 +650,11 @@ static int switch_mode_to_bhs(struct msm_gfx_ldo *ldo_vreg)
 	ctl &= ~BHS_UNDER_SW_CTL;
 	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
-	/* Enable CPR in BHS mode */
-	ctl &= ~CPR_BYPASS_IN_LDO_MODE_BIT;
-	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
+	if (ldo_vreg->ops_type == CORNER) {
+		/* Enable CPR in BHS mode */
+		ctl &= ~CPR_BYPASS_IN_LDO_MODE_BIT;
+		writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
+	}
 
 	/* make sure that all configuration is complete */
 	mb();
@@ -622,12 +664,12 @@ static int switch_mode_to_bhs(struct msm_gfx_ldo *ldo_vreg)
 	return 0;
 }
 
-static int msm_gfx_ldo_set_voltage(struct regulator_dev *rdev,
+static int msm_gfx_ldo_set_corner(struct regulator_dev *rdev,
 		int corner, int corner_max, unsigned *selector)
 {
 	struct msm_gfx_ldo *ldo_vreg  = rdev_get_drvdata(rdev);
-	int rc = 0, mem_acc_corner;
-	enum regulator_mode new_mode;
+	int rc = 0, mem_acc_corner, new_uv;
+	enum msm_ldo_supply_mode new_mode;
 	enum direction dir = NO_CHANGE;
 
 	corner -= MIN_CORNER_OFFSET;
@@ -639,7 +681,7 @@ static int msm_gfx_ldo_set_voltage(struct regulator_dev *rdev,
 		goto done;
 
 	pr_debug("set-voltage requested: old_mode=%s old_corner=%d new_corner=%d vreg_enabled=%d\n",
-				ldo_vreg->mode == BHS ? "BHS" : "LDO",
+				ldo_vreg->mode == BHS_MODE ? "BHS" : "LDO",
 				ldo_vreg->corner + MIN_CORNER_OFFSET,
 				corner + MIN_CORNER_OFFSET,
 				ldo_vreg->vreg_enabled);
@@ -648,17 +690,6 @@ static int msm_gfx_ldo_set_voltage(struct regulator_dev *rdev,
 		dir = UP;
 	else if (corner < ldo_vreg->corner)
 		dir = DOWN;
-
-	if (ldo_vreg->vdd_cx) {
-		rc = regulator_set_voltage(ldo_vreg->vdd_cx,
-			ldo_vreg->vdd_cx_corner_map[corner],
-			INT_MAX);
-		if (rc) {
-			pr_err("Unable to set CX for corner %d rc=%d\n",
-					corner + MIN_CORNER_OFFSET, rc);
-			goto done;
-		}
-	}
 
 	if (ldo_vreg->mem_acc_vreg && dir == DOWN) {
 		mem_acc_corner = ldo_vreg->mem_acc_corner_map[corner];
@@ -671,23 +702,36 @@ static int msm_gfx_ldo_set_voltage(struct regulator_dev *rdev,
 		goto done;
 	}
 
+	if (ldo_vreg->vdd_cx) {
+		rc = regulator_set_voltage(ldo_vreg->vdd_cx,
+			ldo_vreg->vdd_cx_corner_map[corner],
+			INT_MAX);
+		if (rc) {
+			pr_err("Unable to set CX for corner %d rc=%d\n",
+					corner + MIN_CORNER_OFFSET, rc);
+			goto done;
+		}
+	}
+
 	new_mode = get_operating_mode(ldo_vreg, corner);
 
-	if (new_mode == BHS) {
-		if (ldo_vreg->mode == LDO) {
+	if (new_mode == BHS_MODE) {
+		if (ldo_vreg->mode == LDO_MODE) {
 			rc = switch_mode_to_bhs(ldo_vreg);
 			if (rc)
 				pr_err("Switch to BHS corner=%d failed rc=%d\n",
 						corner + MIN_CORNER_OFFSET, rc);
 		}
 	} else { /* new mode - LDO */
-		if (ldo_vreg->mode == BHS) {
-			rc = switch_mode_to_ldo(ldo_vreg, corner);
+		new_uv = ldo_vreg->open_loop_volt[ldo_vreg->corner];
+
+		if (ldo_vreg->mode == BHS_MODE) {
+			rc = switch_mode_to_ldo(ldo_vreg, new_uv);
 			if (rc)
 				pr_err("Switch to LDO failed corner=%d rc=%d\n",
 						corner + MIN_CORNER_OFFSET, rc);
 		} else {
-			rc = ldo_update_voltage(ldo_vreg, corner);
+			rc = ldo_update_voltage(ldo_vreg, new_uv);
 			if (rc)
 				pr_err("Update voltage failed corner=%d rc=%d\n",
 						corner + MIN_CORNER_OFFSET, rc);
@@ -696,8 +740,8 @@ static int msm_gfx_ldo_set_voltage(struct regulator_dev *rdev,
 
 	if (!rc) {
 		pr_debug("set-voltage complete. old_mode=%s new_mode=%s old_corner=%d new_corner=%d\n",
-				ldo_vreg->mode == BHS ? "BHS" : "LDO",
-				new_mode == BHS ? "BHS" : "LDO",
+				ldo_vreg->mode == BHS_MODE ? "BHS" : "LDO",
+				new_mode == BHS_MODE ? "BHS" : "LDO",
 				ldo_vreg->corner + MIN_CORNER_OFFSET,
 				corner + MIN_CORNER_OFFSET);
 
@@ -715,7 +759,7 @@ done:
 	return rc;
 }
 
-static int msm_gfx_ldo_get_voltage(struct regulator_dev *rdev)
+static int msm_gfx_ldo_get_corner(struct regulator_dev *rdev)
 {
 	struct msm_gfx_ldo *ldo_vreg  = rdev_get_drvdata(rdev);
 
@@ -730,12 +774,176 @@ static int msm_gfx_ldo_is_enabled(struct regulator_dev *rdev)
 }
 
 static struct regulator_ops msm_gfx_ldo_corner_ops = {
-	.enable		= msm_gfx_ldo_enable,
+	.enable		= msm_gfx_ldo_corner_enable,
+	.disable	= msm_gfx_ldo_disable,
+	.is_enabled	= msm_gfx_ldo_is_enabled,
+	.set_voltage	= msm_gfx_ldo_set_corner,
+	.get_voltage	= msm_gfx_ldo_get_corner,
+};
+
+static int msm_gfx_ldo_get_bypass(struct regulator_dev *rdev,
+				  bool *enable)
+{
+	struct msm_gfx_ldo *ldo_vreg = rdev_get_drvdata(rdev);
+
+	*enable = ldo_vreg->mode;
+
+	return 0;
+}
+
+static int msm_gfx_ldo_set_bypass(struct regulator_dev *rdev,
+				  bool mode)
+{
+	struct msm_gfx_ldo *ldo_vreg = rdev_get_drvdata(rdev);
+	int rc = 0;
+
+	mutex_lock(&ldo_vreg->ldo_mutex);
+
+	if (ldo_vreg->mode == mode || !ldo_vreg->vreg_enabled)
+		goto done;
+
+	if (mode == LDO_MODE)
+		rc = switch_mode_to_ldo(ldo_vreg, ldo_vreg->ldo_voltage_uv);
+	else
+		rc = switch_mode_to_bhs(ldo_vreg);
+
+	if (rc) {
+		pr_err("Failed to configure regulator in %s mode rc=%d\n",
+			(mode == LDO_MODE) ? "LDO" : "BHS", rc);
+		goto done;
+	}
+
+	pr_debug("regulator_set_bypass complete. mode=%s, voltage = %d uV\n",
+			(mode == LDO_MODE) ? "LDO" : "BHS",
+			(mode == LDO_MODE) ? ldo_vreg->ldo_voltage_uv : 0);
+
+	ldo_vreg->mode = mode;
+
+done:
+	mutex_unlock(&ldo_vreg->ldo_mutex);
+	return rc;
+}
+
+static int msm_gfx_ldo_voltage_enable(struct regulator_dev *rdev)
+{
+	struct msm_gfx_ldo *ldo_vreg = rdev_get_drvdata(rdev);
+	int rc = 0;
+	enum msm_ldo_supply_mode enable_mode;
+
+	mutex_lock(&ldo_vreg->ldo_mutex);
+
+	pr_debug("regulator_enable requested. voltage=%d\n",
+		ldo_vreg->ldo_voltage_uv);
+
+	enable_mode = ldo_vreg->mode;
+
+	if (enable_mode == LDO_MODE)
+		rc = enable_ldo_mode(ldo_vreg, ldo_vreg->ldo_voltage_uv);
+	else
+		rc = enable_bhs_mode(ldo_vreg);
+
+	if (rc) {
+		pr_err("Failed to enable regulator in %s mode rc=%d\n",
+			(enable_mode == LDO_MODE) ? "LDO" : "BHS", rc);
+		goto fail;
+	}
+
+	pr_debug("regulator_enable complete. mode=%s, voltage = %d uV\n",
+		(enable_mode == LDO_MODE) ? "LDO" : "BHS",
+		(enable_mode == LDO_MODE) ? ldo_vreg->ldo_voltage_uv : 0);
+
+	ldo_vreg->vreg_enabled = true;
+
+fail:
+	mutex_unlock(&ldo_vreg->ldo_mutex);
+	return rc;
+}
+
+static int msm_gfx_ldo_set_voltage(struct regulator_dev *rdev,
+		int new_uv, int max_uv, unsigned *selector)
+{
+	struct msm_gfx_ldo *ldo_vreg = rdev_get_drvdata(rdev);
+	int rc = 0;
+
+	mutex_lock(&ldo_vreg->ldo_mutex);
+
+	if (new_uv == ldo_vreg->ldo_voltage_uv)
+		goto done;
+
+	if (!ldo_vreg->vreg_enabled || ldo_vreg->mode != LDO_MODE) {
+		ldo_vreg->ldo_voltage_uv = new_uv;
+		goto done;
+	}
+
+	/* update LDO voltage */
+	rc = ldo_update_voltage(ldo_vreg, new_uv);
+	if (rc)
+		pr_err("Update voltage failed for [%d, %d], rc=%d\n",
+			new_uv, max_uv, rc);
+done:
+	mutex_unlock(&ldo_vreg->ldo_mutex);
+	return rc;
+}
+
+static int msm_gfx_ldo_get_voltage(struct regulator_dev *rdev)
+{
+	struct msm_gfx_ldo *ldo_vreg = rdev_get_drvdata(rdev);
+
+	return ldo_vreg->ldo_voltage_uv;
+}
+
+static struct regulator_ops msm_gfx_ldo_voltage_ops = {
+	.enable		= msm_gfx_ldo_voltage_enable,
 	.disable	= msm_gfx_ldo_disable,
 	.is_enabled	= msm_gfx_ldo_is_enabled,
 	.set_voltage	= msm_gfx_ldo_set_voltage,
 	.get_voltage	= msm_gfx_ldo_get_voltage,
+	.set_bypass	= msm_gfx_ldo_set_bypass,
+	.get_bypass	= msm_gfx_ldo_get_bypass,
 };
+
+static int msm_gfx_ldo_adjust_init_voltage(struct msm_gfx_ldo *ldo_vreg)
+{
+	int rc, len, size, i;
+	u32 *volt_adjust;
+	struct device_node *of_node = ldo_vreg->dev->of_node;
+	char *prop_name = "qcom,ldo-init-voltage-adjustment";
+
+	if (!of_find_property(of_node, prop_name, &len)) {
+		/* No initial voltage adjustment needed. */
+		return 0;
+	}
+
+	size = len / sizeof(u32);
+	if (size != ldo_vreg->num_ldo_corners) {
+		pr_err("%s length=%d is invalid: required:%d\n",
+				prop_name, size, ldo_vreg->num_ldo_corners);
+		return -EINVAL;
+	}
+
+	volt_adjust = devm_kcalloc(ldo_vreg->dev, size, sizeof(*volt_adjust),
+								GFP_KERNEL);
+	if (!volt_adjust)
+		return -ENOMEM;
+
+	rc = of_property_read_u32_array(of_node, prop_name, volt_adjust, size);
+	if (rc) {
+		pr_err("failed to read %s property rc=%d\n", prop_name, rc);
+		return rc;
+	}
+
+	for (i = 0; i < ldo_vreg->num_corners; i++) {
+		if (volt_adjust[i]) {
+			ldo_vreg->open_loop_volt[i] += volt_adjust[i];
+			pr_info("adjusted the open-loop voltage[%d] %d -> %d\n",
+				i + MIN_CORNER_OFFSET,
+				ldo_vreg->open_loop_volt[i] - volt_adjust[i],
+				ldo_vreg->open_loop_volt[i]);
+		}
+	}
+
+	return 0;
+}
 
 static int msm_gfx_ldo_voltage_init(struct msm_gfx_ldo *ldo_vreg)
 {
@@ -754,12 +962,9 @@ static int msm_gfx_ldo_voltage_init(struct msm_gfx_ldo *ldo_vreg)
 	ldo_vreg->floor_volt = devm_kcalloc(ldo_vreg->dev,
 			len, sizeof(*ldo_vreg->floor_volt),
 			GFP_KERNEL);
-	ldo_vreg->force_ldo_bypass = devm_kcalloc(ldo_vreg->dev,
-			len, sizeof(*ldo_vreg->force_ldo_bypass),
-			GFP_KERNEL);
 
 	if (!ldo_vreg->open_loop_volt || !ldo_vreg->ceiling_volt
-		|| !ldo_vreg->floor_volt || !ldo_vreg->force_ldo_bypass)
+					|| !ldo_vreg->floor_volt)
 		return -ENOMEM;
 
 	rc = of_property_read_u32_array(of_node, "qcom,ldo-voltage-ceiling",
@@ -784,13 +989,6 @@ static int msm_gfx_ldo_voltage_init(struct msm_gfx_ldo *ldo_vreg)
 			pr_err("Unable to read init-voltage rc=%d\n", rc);
 			return rc;
 		}
-		if (ldo_vreg->ldo_bypass_fuse_enable &&
-			((efuse_bits & GFX_LDO_BYPASS_FUSE_MASK) ==
-						GFX_LDO_BYPASS_FUSE_VALUE)) {
-			ldo_vreg->force_ldo_bypass[i] = true;
-			pr_info("LDO corner %d in force-bypass\n",
-					i + MIN_CORNER_OFFSET);
-		}
 		ldo_vreg->open_loop_volt[i] = convert_open_loop_voltage_fuse(
 					ldo_vreg->ref_volt[i],
 					GFX_LDO_FUSE_STEP_VOLT,
@@ -798,6 +996,12 @@ static int msm_gfx_ldo_voltage_init(struct msm_gfx_ldo *ldo_vreg)
 					GFX_LDO_FUSE_SIZE);
 		pr_info("LDO corner %d: target-volt = %d uV\n",
 			i + MIN_CORNER_OFFSET, ldo_vreg->open_loop_volt[i]);
+	}
+
+	rc = msm_gfx_ldo_adjust_init_voltage(ldo_vreg);
+	if (rc) {
+		pr_err("Unable to adjust init voltages rc=%d\n", rc);
+		return rc;
 	}
 
 	for (i = 0; i < ldo_vreg->num_ldo_corners; i++) {
@@ -824,8 +1028,8 @@ static int msm_gfx_ldo_voltage_init(struct msm_gfx_ldo *ldo_vreg)
 		pr_err("Unable to read ldo_enable_param rc=%d\n", rc);
 		return rc;
 	}
-	ldo_vreg->ldo_enable = !!efuse_bits;
-	pr_info("LDO mode %s by default\n", ldo_vreg->ldo_enable ?
+	ldo_vreg->ldo_fuse_enable = !!efuse_bits;
+	pr_info("LDO-mode fuse %s by default\n", ldo_vreg->ldo_fuse_enable ?
 					"enabled" : "disabled");
 
 	return rc;
@@ -908,7 +1112,7 @@ static int msm_gfx_ldo_init(struct platform_device *pdev,
 {
 	struct resource *res;
 	u32 len, ctl;
-	int rc, i = 0;
+	int i = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ldo_addr");
 	if (!res || !res->start) {
@@ -927,17 +1131,12 @@ static int msm_gfx_ldo_init(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	rc = msm_gfx_ldo_mem_acc_init(ldo_vreg);
-	if (rc) {
-		pr_err("Unable to initialize mem_acc rc=%d\n", rc);
-		return rc;
-	}
-
 	/* HW initialization */
 
-	/* clear clamp_io */
+	/* clear clamp_io, enable CPR in auto-bypass*/
 	ctl = readl_relaxed(ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 	ctl &= ~LDO_CLAMP_IO_BIT;
+	ctl |= EN_LDOAP_CTRL_CPR_BIT;
 	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
 	i = 0;
@@ -1063,24 +1262,46 @@ static int msm_gfx_ldo_target_init(struct msm_gfx_ldo *ldo_vreg)
 {
 	int i;
 
-	/* MSMTITANIUM */
+	/* MSM8953 */
 	ldo_vreg->init_volt_param = devm_kzalloc(ldo_vreg->dev,
-			(MSMTITANIUM_LDO_FUSE_CORNERS *
+			(MSM8953_LDO_FUSE_CORNERS *
 			sizeof(struct fuse_param *)), GFP_KERNEL);
 	if (!ldo_vreg->init_volt_param)
 		return -ENOMEM;
 
-	for (i = 0; i < MSMTITANIUM_LDO_FUSE_CORNERS; i++)
+	for (i = 0; i < MSM8953_LDO_FUSE_CORNERS; i++)
 		ldo_vreg->init_volt_param[i] =
-				msmtitanium_init_voltage_param[i];
+				msm8953_init_voltage_param[i];
 
-	ldo_vreg->ldo_init_config = msmtitanium_ldo_config;
-	ldo_vreg->ref_volt = msmtitanium_fuse_ref_volt;
-	ldo_vreg->ldo_enable_param = msmtitanium_ldo_enable_param;
-	ldo_vreg->ldo_bypass_fuse_enable = true;
+	ldo_vreg->ref_volt = msm8953_fuse_ref_volt;
+	ldo_vreg->ldo_enable_param = msm8953_ldo_enable_param;
 
 	return 0;
 }
+
+static int debugfs_ldo_mode_disable_set(void *data, u64 val)
+{
+	struct msm_gfx_ldo *ldo_vreg = data;
+
+	ldo_vreg->ldo_mode_disable = !!val;
+
+	pr_debug("LDO-mode %s\n", ldo_vreg->ldo_mode_disable ?
+					"disabled" : "enabled");
+
+	return 0;
+}
+
+static int debugfs_ldo_mode_disable_get(void *data, u64 *val)
+{
+	struct msm_gfx_ldo *ldo_vreg = data;
+
+	*val = ldo_vreg->ldo_mode_disable;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(ldo_mode_disable_fops, debugfs_ldo_mode_disable_get,
+				debugfs_ldo_mode_disable_set, "%llu\n");
 
 static int debugfs_ldo_set_voltage(void *data, u64 val)
 {
@@ -1090,7 +1311,7 @@ static int debugfs_ldo_set_voltage(void *data, u64 val)
 
 	mutex_lock(&ldo_vreg->ldo_mutex);
 
-	if (ldo_vreg->mode == BHS || !ldo_vreg->vreg_enabled ||
+	if (ldo_vreg->mode == BHS_MODE || !ldo_vreg->vreg_enabled ||
 		val > MAX_LDO_VOLTAGE || val < MIN_LDO_VOLTAGE) {
 		rc = -EINVAL;
 		goto done;
@@ -1107,6 +1328,9 @@ static int debugfs_ldo_set_voltage(void *data, u64 val)
 	/* Initiate VREF update */
 	reg |= UPDATE_VREF_BIT;
 	writel_relaxed(reg, ldo_vreg->ldo_base + LDO_VREF_SET_REG);
+
+	/* complete the writes */
+	mb();
 
 	reg &= ~UPDATE_VREF_BIT;
 	writel_relaxed(reg, ldo_vreg->ldo_base + LDO_VREF_SET_REG);
@@ -1126,6 +1350,10 @@ static int debugfs_ldo_set_voltage(void *data, u64 val)
 		pr_err("LDO_VREF_SETTLED not set PWRSWITCH_STATUS = 0x%x\n",
 								reg);
 		rc = -EBUSY;
+	} else {
+		ldo_vreg->ldo_voltage_uv = val;
+		pr_debug("LDO voltage set to %d uV\n",
+				ldo_vreg->ldo_voltage_uv);
 	}
 done:
 	mutex_unlock(&ldo_vreg->ldo_mutex);
@@ -1135,12 +1363,12 @@ done:
 static int debugfs_ldo_get_voltage(void *data, u64 *val)
 {
 	struct msm_gfx_ldo *ldo_vreg = data;
-	int rc = -EINVAL;
+	int rc = 0;
 	u32 reg;
 
 	mutex_lock(&ldo_vreg->ldo_mutex);
 
-	if (ldo_vreg->mode == BHS || !ldo_vreg->vreg_enabled) {
+	if (ldo_vreg->mode == BHS_MODE || !ldo_vreg->vreg_enabled) {
 		rc = -EINVAL;
 		goto done;
 	}
@@ -1148,7 +1376,7 @@ static int debugfs_ldo_get_voltage(void *data, u64 *val)
 	reg = readl_relaxed(ldo_vreg->ldo_base + LDO_VREF_SET_REG);
 	reg &= VREF_VAL_MASK;
 
-	rc = (reg * LDO_STEP_VOLATGE) + MIN_LDO_VOLTAGE;
+	*val = (reg * LDO_STEP_VOLATGE) + MIN_LDO_VOLTAGE;
 done:
 	mutex_unlock(&ldo_vreg->ldo_mutex);
 	return rc;
@@ -1180,7 +1408,7 @@ static ssize_t msm_gfx_ldo_debug_info_read(struct file *file, char __user *buff,
 	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
 		"Regulator_enable = %d Regulator mode = %s Corner = %d LDO-voltage = %d uV\n",
 		ldo_vreg->vreg_enabled,
-		ldo_vreg->mode == BHS ? "BHS" : "LDO",
+		ldo_vreg->mode == BHS_MODE ? "BHS" : "LDO",
 		ldo_vreg->corner + MIN_CORNER_OFFSET,
 		ldo_vreg->ldo_voltage_uv);
 	ret += len;
@@ -1229,6 +1457,13 @@ static void msm_gfx_ldo_debugfs_init(struct msm_gfx_ldo *ldo_vreg)
 		pr_err("ldo_voltage node creation failed\n");
 		return;
 	}
+
+	temp = debugfs_create_file("ldo_mode_disable", S_IRUGO | S_IWUSR,
+			ldo_vreg->debugfs, ldo_vreg, &ldo_mode_disable_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("ldo_mode_disable node creation failed\n");
+		return;
+	}
 }
 
 static void msm_gfx_ldo_debugfs_remove(struct msm_gfx_ldo *ldo_vreg)
@@ -1236,38 +1471,10 @@ static void msm_gfx_ldo_debugfs_remove(struct msm_gfx_ldo *ldo_vreg)
 	debugfs_remove_recursive(ldo_vreg->debugfs);
 }
 
-static int msm_gfx_ldo_probe(struct platform_device *pdev)
+static int msm_gfx_ldo_corner_config_init(struct msm_gfx_ldo *ldo_vreg,
+		struct platform_device *pdev)
 {
-	struct msm_gfx_ldo *ldo_vreg;
-	struct regulator_config reg_config = {};
-	struct regulator_desc *rdesc;
-	struct regulator_init_data *init_data = pdev->dev.platform_data;
-	struct device *dev = &pdev->dev;
 	int rc;
-
-	ldo_vreg = devm_kzalloc(dev, sizeof(*ldo_vreg), GFP_KERNEL);
-	if (!ldo_vreg)
-		return -ENOMEM;
-
-	init_data = of_get_regulator_init_data(dev, dev->of_node);
-	if (!init_data) {
-		pr_err("regulator init data is missing\n");
-		return -EINVAL;
-	}
-
-	init_data->constraints.input_uV = init_data->constraints.max_uV;
-	init_data->constraints.valid_ops_mask
-			|= REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS;
-
-	ldo_vreg->rdesc.name = init_data->constraints.name;
-	if (ldo_vreg->rdesc.name == NULL) {
-		dev_err(dev, "regulator-name missing\n");
-		return -EINVAL;
-	}
-
-	ldo_vreg->dev = &pdev->dev;
-	mutex_init(&ldo_vreg->ldo_mutex);
-	platform_set_drvdata(pdev, ldo_vreg);
 
 	rc = msm_gfx_ldo_target_init(ldo_vreg);
 	if (rc) {
@@ -1293,6 +1500,90 @@ static int msm_gfx_ldo_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = msm_gfx_ldo_mem_acc_init(ldo_vreg);
+	if (rc) {
+		pr_err("Unable to initialize mem_acc rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+};
+
+/* Data corresponds to the SoC revision */
+static const struct of_device_id msm_gfx_ldo_match_table[] = {
+	{
+		.compatible = "qcom,msm8953-gfx-ldo",
+		.data = (void *)(uintptr_t)MSM8953_SOC_ID,
+	},
+	{
+		.compatible = "qcom,msmfalcon-gfx-ldo",
+		.data = (void *)(uintptr_t)MSMFALCON_SOC_ID,
+	},
+	{}
+};
+
+static int msm_gfx_ldo_probe(struct platform_device *pdev)
+{
+	struct msm_gfx_ldo *ldo_vreg;
+	struct regulator_config reg_config = {};
+	struct regulator_desc *rdesc;
+	struct regulator_init_data *init_data = pdev->dev.platform_data;
+	struct device *dev = &pdev->dev;
+	const struct of_device_id *match;
+	int soc_id, rc;
+
+	match = of_match_device(msm_gfx_ldo_match_table, dev);
+	if (!match)
+		return -ENODEV;
+
+	ldo_vreg = devm_kzalloc(dev, sizeof(*ldo_vreg), GFP_KERNEL);
+	if (!ldo_vreg)
+		return -ENOMEM;
+
+	init_data = of_get_regulator_init_data(dev, dev->of_node, NULL);
+	if (!init_data) {
+		pr_err("regulator init data is missing\n");
+		return -EINVAL;
+	}
+
+	init_data->constraints.input_uV = init_data->constraints.max_uV;
+	init_data->constraints.valid_ops_mask
+			|= REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS;
+
+	ldo_vreg->rdesc.name = init_data->constraints.name;
+	if (ldo_vreg->rdesc.name == NULL) {
+		dev_err(dev, "regulator-name missing\n");
+		return -EINVAL;
+	}
+
+	soc_id = (uintptr_t)match->data;
+	ldo_vreg->dev = &pdev->dev;
+	mutex_init(&ldo_vreg->ldo_mutex);
+	platform_set_drvdata(pdev, ldo_vreg);
+
+	switch (soc_id) {
+	case MSM8953_SOC_ID:
+		ldo_vreg->ldo_init_config = msm8953_ldo_config;
+		ldo_vreg->ops_type = CORNER;
+		rc = msm_gfx_ldo_corner_config_init(ldo_vreg, pdev);
+		if (rc) {
+			pr_err("ldo corner handling initialization failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+		break;
+	case MSMFALCON_SOC_ID:
+		ldo_vreg->ldo_init_config = msmfalcon_ldo_config;
+		ldo_vreg->ops_type = VOLTAGE;
+		init_data->constraints.valid_ops_mask
+			|= REGULATOR_CHANGE_BYPASS;
+		break;
+	default:
+		pr_err("invalid SOC ID = %d\n", soc_id);
+		return -EINVAL;
+	}
+
+	/* HW initialization */
 	rc = msm_gfx_ldo_init(pdev, ldo_vreg);
 	if (rc) {
 		pr_err("ldo_init failed rc=%d\n", rc);
@@ -1302,7 +1593,11 @@ static int msm_gfx_ldo_probe(struct platform_device *pdev)
 	rdesc			= &ldo_vreg->rdesc;
 	rdesc->owner		= THIS_MODULE;
 	rdesc->type		= REGULATOR_VOLTAGE;
-	rdesc->ops		= &msm_gfx_ldo_corner_ops;
+
+	if (ldo_vreg->ops_type == CORNER)
+		rdesc->ops = &msm_gfx_ldo_corner_ops;
+	else
+		rdesc->ops = &msm_gfx_ldo_voltage_ops;
 
 	reg_config.dev = &pdev->dev;
 	reg_config.init_data = init_data;
@@ -1330,11 +1625,6 @@ static int msm_gfx_ldo_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static struct of_device_id msm_gfx_ldo_match_table[] = {
-	{ .compatible = "qcom,msmtitanium-gfx-ldo", },
-	{}
-};
 
 static struct platform_driver msm_gfx_ldo_driver = {
 	.driver		= {
