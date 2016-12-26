@@ -2886,7 +2886,6 @@
 	};
 
 	 qcom,icnss@18800000 {
-		status = "disabled";
 		compatible = "qcom,icnss";
 		reg = <0x18800000 0x800000>,
 		      <0x10AC000 0x20>,
@@ -2894,6 +2893,8 @@
 		      <0xb0000000 0x10000>;
 		reg-names = "membase", "mpm_config",
 			    "smmu_iova_base", "smmu_iova_ipa";
+		iommus = <&anoc2_smmu 0x1900>,
+			<&anoc2_smmu 0x1901>;
 		interrupts = <0 413 0 /* CE0 */ >,
 			     <0 414 0 /* CE1 */ >,
 			     <0 415 0 /* CE2 */ >,
@@ -2907,6 +2908,8 @@
 			     <0 424 0 /* CE10 */ >,
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
+		qcom,icnss-vadc = <&pmfalcon_vadc>;
+		qcom,icnss-adc_tm = <&pmfalcon_adc_tm>;
 	};
 
 	tspp: msm_tspp@0c1e7000 {
