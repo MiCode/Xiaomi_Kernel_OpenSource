@@ -1229,6 +1229,7 @@ static struct clk_branch gcc_blsp1_ahb_clk = {
 		.enable_mask = BIT(17),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_blsp1_ahb_clk",
+			.flags = CLK_ENABLE_HAND_OFF,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1422,6 +1423,7 @@ static struct clk_branch gcc_blsp2_ahb_clk = {
 		.enable_mask = BIT(15),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_blsp2_ahb_clk",
+			.flags = CLK_ENABLE_HAND_OFF,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2844,7 +2846,7 @@ static struct measure_clk_data debug_mux_priv = {
 static const char *const debug_mux_parent_names[] = {
 	"snoc_clk",
 	"cnoc_clk",
-	"cnoc_periph",
+	"cnoc_periph_clk",
 	"bimc_clk",
 	"ce1_clk",
 	"ipa_clk",
@@ -2924,6 +2926,7 @@ static const char *const debug_mux_parent_names[] = {
 	"gcc_ufs_rx_symbol_1_clk",
 	"gcc_ufs_tx_symbol_0_clk",
 	"gcc_usb3_phy_pipe_clk",
+	"mmssnoc_axi_clk",
 	"mmss_bimc_smmu_ahb_clk",
 	"mmss_bimc_smmu_axi_clk",
 	"mmss_camss_ahb_clk",
@@ -3104,6 +3107,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 		{ "gcc_ufs_rx_symbol_1_clk",		0x162 },
 		{ "gcc_ufs_tx_symbol_0_clk",		0x0EC },
 		{ "gcc_usb3_phy_pipe_clk",		0x040 },
+		{ "mmssnoc_axi_clk",                    0x22,   MMCC,   0x004 },
 		{ "mmss_bimc_smmu_ahb_clk",		0x22,	MMCC,	0x00C },
 		{ "mmss_bimc_smmu_axi_clk",		0x22,	MMCC,	0x00D },
 		{ "mmss_camss_ahb_clk",			0x22,	MMCC,	0x037 },
