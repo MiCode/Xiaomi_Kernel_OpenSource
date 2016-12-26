@@ -128,5 +128,6 @@
 #define  CXO_PIL_SSC_CLK			83
 #define  CXO_PIL_CDSP_CLK			84
 #define  CNOC_PERIPH_KEEPALIVE_A_CLK		85
+#define  MMSSNOC_A_CLK_CPU_VOTE			86
 
 #endif
