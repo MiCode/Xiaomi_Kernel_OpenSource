@@ -23,3 +23,51 @@
 	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
 			<0x0001001b 0x0201011a 0x0 0x0>;
 };
+
+&slim_aud {
+	status = "disabled";
+};
+
+&dai_slim {
+	status = "disabled";
+};
+
+&wcd9335 {
+	status = "disabled";
+};
+
+&wcd934x_cdc {
+	status = "disabled";
+};
+
+&clock_audio {
+	status = "disabled";
+};
+
+&wcd_rst_gpio {
+	status = "disabled";
+};
+
+&wcd9xxx_intc {
+	status = "disabled";
+};
+
+&tasha_snd {
+	status = "disabled";
+};
+
+&tavil_snd {
+	status = "disabled";
+};
+
+&int_codec {
+	status = "okay";
+};
+
+&pmic_analog_codec {
+	status = "okay";
+};
+
+&msm_sdw_codec {
+	status = "okay";
+};
