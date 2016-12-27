@@ -145,7 +145,6 @@ static void sde_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_crtc_mixer *mixer = sde_crtc->mixer;
-	struct drm_device *dev = crtc->dev;
 	struct sde_hw_mixer *lm;
 	unsigned long flags;
 	struct drm_display_mode *mode;
@@ -171,7 +170,7 @@ static void sde_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		(sde_crtc->num_mixers == 0)) {
 		rc = sde_crtc_reserve_hw_resources(crtc, sde_crtc->encoder);
 		if (rc) {
-			dev_err(dev->dev, " error reserving HW resource for this CRTC\n");
+			DRM_ERROR("error reserving HW resource for CRTC\n");
 			return;
 		}
 	}
@@ -577,7 +576,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_kms *sde_kms = get_kms(crtc);
 	struct drm_plane *plane;
-	struct drm_device *dev = crtc->dev;
 	struct plane_state pstates[SDE_STAGE_MAX];
 	int max_stages = CRTC_HW_MIXER_MAXSTAGES(sde_kms->catalog, 0);
 	int cnt = 0, i;
@@ -591,7 +589,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_plane_state *pstate;
 
 		if (cnt >= (max_stages)) {
-			dev_err(dev->dev, "too many planes!\n");
+			DRM_ERROR("too many planes!\n");
 			return -EINVAL;
 		}
 
@@ -704,7 +702,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 
 	rc = sde_crtc_reserve_hw_resources(crtc, encoder);
 	if (rc) {
-		dev_err(dev->dev, " error reserving HW resource for this CRTC\n");
+		DRM_ERROR(" error reserving HW resource for this CRTC\n");
 		return ERR_PTR(-EINVAL);
 	}
 
