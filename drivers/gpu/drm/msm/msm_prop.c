@@ -462,7 +462,7 @@ void *msm_property_get_blob(struct msm_property_info *info,
 	size_t len = 0;
 	void *rc = 0;
 
-	if (!info || (property_idx >= info->blob_count)) {
+	if (!info || !property_blobs || (property_idx >= info->blob_count)) {
 		DRM_ERROR("invalid argument(s)\n");
 	} else {
 		blob = property_blobs[property_idx];
