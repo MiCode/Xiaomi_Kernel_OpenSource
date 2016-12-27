@@ -268,11 +268,12 @@ irqreturn_t sde_irq(struct msm_kms *kms)
 
 int sde_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 {
-	return sde_crtc_vblank(crtc);
+	return sde_crtc_vblank(crtc, true);
 }
 
 void sde_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 {
+	sde_crtc_vblank(crtc, false);
 }
 
 static void sde_hw_irq_mask(struct irq_data *irqd)
