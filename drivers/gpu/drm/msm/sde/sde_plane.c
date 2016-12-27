@@ -390,7 +390,7 @@ static void _sde_plane_setup_csc(struct sde_plane *psde,
 	};
 	struct sde_drm_csc *csc = NULL;
 	size_t csc_size = 0;
-	bool user_blob = false;
+	int i;
 
 	if (!psde || !pstate || !fmt) {
 		DRM_ERROR("Invalid arguments\n");
@@ -400,16 +400,16 @@ static void _sde_plane_setup_csc(struct sde_plane *psde,
 		return;
 
 	/* check for user space override */
+	psde->csc_ptr = NULL;
 	csc = msm_property_get_blob(&psde->property_info,
 			pstate->property_blobs,
 			&csc_size,
 			PLANE_PROP_CSC);
 	if (csc) {
-		struct sde_csc_cfg cfg;
-		int i;
-
 		/* user space override */
-		memcpy(&cfg, &sde_csc_NOP, sizeof(struct sde_csc_cfg));
+		memcpy(&psde->csc_cfg,
+				&sde_csc_NOP,
+				sizeof(struct sde_csc_cfg));
 		switch (csc->version) {
 		case SDE_DRM_CSC_V1:
 			if (!_sde_plane_verify_blob(csc,
@@ -417,43 +417,37 @@ static void _sde_plane_setup_csc(struct sde_plane *psde,
 					&csc->v1,
 					sizeof(struct sde_drm_csc_v1))) {
 				for (i = 0; i < SDE_CSC_MATRIX_COEFF_SIZE; ++i)
-					cfg.csc_mv[i] =
+					psde->csc_cfg.csc_mv[i] =
 						csc->v1.ctm_coeff[i] >> 16;
 				for (i = 0; i < SDE_CSC_BIAS_SIZE; ++i) {
-					cfg.csc_pre_bv[i] =
+					psde->csc_cfg.csc_pre_bv[i] =
 						csc->v1.pre_bias[i];
-					cfg.csc_post_bv[i] =
+					psde->csc_cfg.csc_post_bv[i] =
 						csc->v1.post_bias[i];
 				}
 				for (i = 0; i < SDE_CSC_CLAMP_SIZE; ++i) {
-					cfg.csc_pre_lv[i] =
+					psde->csc_cfg.csc_pre_lv[i] =
 						csc->v1.pre_clamp[i];
-					cfg.csc_post_lv[i] =
+					psde->csc_cfg.csc_post_lv[i] =
 						csc->v1.post_clamp[i];
 				}
-				user_blob = true;
+				psde->csc_ptr = &psde->csc_cfg;
 			}
 			break;
 		default:
 			break;
 		}
-
-		if (!user_blob)
-			DRM_ERROR("Invalid csc blob, v%lld\n", csc->version);
-		else
-			psde->pipe_hw->ops.setup_csc(psde->pipe_hw,
-					(struct sde_csc_cfg *)&cfg);
+		if (!psde->csc_ptr)
+			DRM_ERROR("invalid csc blob, v%lld\n", csc->version);
 	}
 
-	if (user_blob) {
-		DBG("User blobs override for CSC");
-		psde->csc_ptr = &psde->csc_cfg;
+	if (psde->csc_ptr)
+		DBG("user blob override for csc");
 	/* revert to kernel default */
-	} else if (SDE_FORMAT_IS_YUV(fmt)) {
+	else if (SDE_FORMAT_IS_YUV(fmt))
 		psde->csc_ptr = (struct sde_csc_cfg *)&sde_csc_YUV2RGB_601L;
-	} else {
+	else
 		psde->csc_ptr = (struct sde_csc_cfg *)&sde_csc_NOP;
-	}
 
 	psde->pipe_hw->ops.setup_csc(psde->pipe_hw, psde->csc_ptr);
 }
