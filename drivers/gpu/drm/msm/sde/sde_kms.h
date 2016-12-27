@@ -605,6 +605,13 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *encoder,
 int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_encoder);
 
 /**
+ * sde_encoder_get_intf_mode - returns current underlying interface mode
+ * @encoder:	encoder pointer
+ * Returns:	Interface mode of underlying physical master encoder
+ */
+enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
+
+/**
  * sde_encoders_init - query platform, create all encoders and bridges,
  *	and register them with the drm_device
  * @dev:	drm device pointer
