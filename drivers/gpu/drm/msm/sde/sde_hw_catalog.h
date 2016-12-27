@@ -329,7 +329,7 @@ struct sde_ctl_cfg {
  * @id:                index identifying this block
  * @base               register offset of this block
  * @features           bit mask identifying sub-blocks/features
- * @sblk:              Sub-blocks of SSPP
+ * @sblk:              SSPP sub-blocks information
  */
 struct sde_sspp_cfg {
 	SDE_HW_BLK_INFO;
@@ -341,11 +341,17 @@ struct sde_sspp_cfg {
  * @id:                index identifying this block
  * @base               register offset of this block
  * @features           bit mask identifying sub-blocks/features
- * @sblk:              Sub-blocks of SSPP
+ * @sblk:              LM Sub-blocks information
+ * @dspp:              ID of connected DSPP, DSPP_MAX if unsupported
+ * @pingpong:          ID of connected PingPong, PINGPONG_MAX if unsupported
+ * @lm_pair_mask:      Bitmask of LMs that can be controlled by same CTL
  */
 struct sde_lm_cfg {
 	SDE_HW_BLK_INFO;
 	const struct sde_lm_sub_blks *sblk;
+	u32 dspp;
+	u32 pingpong;
+	u32 lm_pair_mask;
 };
 
 /**
