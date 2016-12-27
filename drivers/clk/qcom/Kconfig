@@ -216,3 +216,11 @@ config CLOCK_CPU_OSM
 	 frequency and voltage requests for multiple clusters via the
 	 existence of multiple OSM domains.
 	 Say Y if you want to support OSM clocks.
+
+config MSM_GPUCC_SDM845
+	tristate "SDM845 Graphics Clock Controller"
+	depends on MSM_GCC_SDM845
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  sdm845 devices.
+	  Say Y if you want to support graphics controller devices.
