@@ -123,10 +123,10 @@ void sde_fence_signal(struct sde_fence *fence, bool is_error);
 #else
 static inline int sde_fence_init(void *dev,
 		struct sde_fence *fence,
-		const char *name,
-		int offset)
+		const char *name)
 {
 	/* do nothing */
+	return 0;
 }
 
 static inline void sde_fence_deinit(struct sde_fence *fence)
@@ -147,6 +147,12 @@ static inline int sde_fence_get(struct sde_fence *fence, uint64_t *val)
 static inline void sde_fence_signal(struct sde_fence *fence, bool is_error)
 {
 	/* do nothing */
+}
+
+static inline int sde_fence_create(struct sde_fence *fence, uint64_t *val,
+								int offset)
+{
+	return 0;
 }
 #endif /* IS_ENABLED(CONFIG_SW_SYNC) */
 
