@@ -143,12 +143,16 @@ enum icnss_debug_quirks {
 	SSR_ONLY,
 	PDR_ONLY,
 	VBATT_DISABLE,
+	FW_REJUVENATE_ENABLE,
 };
 
 #define ICNSS_QUIRKS_DEFAULT		BIT(VBATT_DISABLE)
 
 unsigned long quirks = ICNSS_QUIRKS_DEFAULT;
 module_param(quirks, ulong, 0600);
+
+uint64_t dynamic_feature_mask = QMI_WLFW_FW_REJUVENATE_V01;
+module_param(dynamic_feature_mask, ullong, 0600);
 
 void *icnss_ipc_log_context;
 
@@ -1005,8 +1009,10 @@ static int wlfw_ind_register_send_sync_msg(void)
 	req.msa_ready_enable = 1;
 	req.pin_connect_result_enable_valid = 1;
 	req.pin_connect_result_enable = 1;
-	req.rejuvenate_enable_valid = 1;
-	req.rejuvenate_enable = 1;
+	if (test_bit(FW_REJUVENATE_ENABLE, &quirks)) {
+		req.rejuvenate_enable_valid = 1;
+		req.rejuvenate_enable = 1;
+	}
 
 	req_desc.max_msg_len = WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_WLFW_IND_REGISTER_REQ_V01;
@@ -1441,6 +1447,69 @@ out:
 	return ret;
 }
 
+static int wlfw_dynamic_feature_mask_send_sync_msg(struct icnss_priv *priv,
+					   uint64_t dynamic_feature_mask)
+{
+	int ret;
+	struct wlfw_dynamic_feature_mask_req_msg_v01 req;
+	struct wlfw_dynamic_feature_mask_resp_msg_v01 resp;
+	struct msg_desc req_desc, resp_desc;
+
+	if (!test_bit(ICNSS_WLFW_QMI_CONNECTED, &priv->state)) {
+		icnss_pr_err("Invalid state for dynamic feature: 0x%lx\n",
+			     priv->state);
+		return -EINVAL;
+	}
+
+	if (!test_bit(FW_REJUVENATE_ENABLE, &quirks)) {
+		icnss_pr_dbg("FW rejuvenate is disabled from quirks\n");
+		dynamic_feature_mask &= ~QMI_WLFW_FW_REJUVENATE_V01;
+	}
+
+	icnss_pr_dbg("Sending dynamic feature mask request, val 0x%llx, state: 0x%lx\n",
+		     dynamic_feature_mask, priv->state);
+
+	memset(&req, 0, sizeof(req));
+	memset(&resp, 0, sizeof(resp));
+
+	req.mask_valid = 1;
+	req.mask = dynamic_feature_mask;
+
+	req_desc.max_msg_len =
+		WLFW_DYNAMIC_FEATURE_MASK_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.msg_id = QMI_WLFW_DYNAMIC_FEATURE_MASK_REQ_V01;
+	req_desc.ei_array = wlfw_dynamic_feature_mask_req_msg_v01_ei;
+
+	resp_desc.max_msg_len =
+		WLFW_DYNAMIC_FEATURE_MASK_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.msg_id = QMI_WLFW_DYNAMIC_FEATURE_MASK_RESP_V01;
+	resp_desc.ei_array = wlfw_dynamic_feature_mask_resp_msg_v01_ei;
+
+	ret = qmi_send_req_wait(priv->wlfw_clnt, &req_desc, &req, sizeof(req),
+				&resp_desc, &resp, sizeof(resp),
+				WLFW_TIMEOUT_MS);
+	if (ret < 0) {
+		icnss_pr_err("Send dynamic feature mask req failed %d\n", ret);
+		goto out;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_pr_err("QMI dynamic feature mask request rejected, result:%d error %d\n",
+			     resp.resp.result, resp.resp.error);
+		ret = resp.resp.result;
+		goto out;
+	}
+
+	icnss_pr_dbg("prev_mask_valid %u, prev_mask 0x%llx, curr_maks_valid %u, curr_mask 0x%llx\n",
+		     resp.prev_mask_valid, resp.prev_mask,
+		     resp.curr_mask_valid, resp.curr_mask);
+
+	return 0;
+
+out:
+	return ret;
+}
+
 static void icnss_qmi_wlfw_clnt_notify_work(struct work_struct *work)
 {
 	int ret;
@@ -1583,6 +1652,11 @@ static int icnss_driver_event_server_arrive(void *data)
 		goto err_setup_msa;
 
 	ret = wlfw_cap_send_sync_msg();
+	if (ret < 0)
+		goto err_setup_msa;
+
+	ret = wlfw_dynamic_feature_mask_send_sync_msg(penv,
+						      dynamic_feature_mask);
 	if (ret < 0)
 		goto err_setup_msa;
 
@@ -2843,32 +2917,34 @@ static void icnss_smmu_deinit(struct icnss_priv *priv)
 	priv->smmu_mapping = NULL;
 }
 
-static int icnss_test_mode_show(struct seq_file *s, void *data)
+static int icnss_fw_debug_show(struct seq_file *s, void *data)
 {
 	struct icnss_priv *priv = s->private;
 
-	seq_puts(s, "0 : Test mode disable\n");
-	seq_puts(s, "1 : WLAN Firmware test\n");
-	seq_puts(s, "2 : CCPM test\n");
+	seq_puts(s, "\nUsage: echo <CMD> <VAL> > <DEBUGFS>/icnss/fw_debug\n");
 
-	seq_puts(s, "\n");
+	seq_puts(s, "\nCMD: test_mode\n");
+	seq_puts(s, "  VAL: 0 (Test mode disable)\n");
+	seq_puts(s, "  VAL: 1 (WLAN FW test)\n");
+	seq_puts(s, "  VAL: 2 (CCPM test)\n");
+
+	seq_puts(s, "\nCMD: dynamic_feature_mask\n");
+	seq_puts(s, "  VAL: (64 bit feature mask)\n");
 
 	if (!test_bit(ICNSS_FW_READY, &priv->state)) {
-		seq_puts(s, "Firmware is not ready yet!, wait for FW READY\n");
+		seq_puts(s, "Firmware is not ready yet, can't run test_mode!\n");
 		goto out;
 	}
 
 	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state)) {
-		seq_puts(s, "Machine mode is running, can't run test mode!\n");
+		seq_puts(s, "Machine mode is running, can't run test_mode!\n");
 		goto out;
 	}
 
 	if (test_bit(ICNSS_FW_TEST_MODE, &priv->state)) {
-		seq_puts(s, "Test mode is running!\n");
+		seq_puts(s, "test_mode is running, can't run test_mode!\n");
 		goto out;
 	}
-
-	seq_puts(s, "Test can be run, Have fun!\n");
 
 out:
 	seq_puts(s, "\n");
@@ -2955,31 +3031,58 @@ out:
 	return ret;
 }
 
-static ssize_t icnss_test_mode_write(struct file *fp, const char __user *buf,
+static ssize_t icnss_fw_debug_write(struct file *fp,
+				    const char __user *user_buf,
 				    size_t count, loff_t *off)
 {
 	struct icnss_priv *priv =
 		((struct seq_file *)fp->private_data)->private;
-	int ret;
-	u32 val;
+	char buf[64];
+	char *sptr, *token;
+	unsigned int len = 0;
+	char *cmd;
+	uint64_t val;
+	const char *delim = " ";
+	int ret = 0;
 
-	ret = kstrtou32_from_user(buf, count, 0, &val);
-	if (ret)
-		return ret;
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, len))
+		return -EINVAL;
 
-	switch (val) {
-	case 0:
-		ret = icnss_test_mode_fw_test_off(priv);
-		break;
-	case 1:
-		ret = icnss_test_mode_fw_test(priv, ICNSS_WALTEST);
-		break;
-	case 2:
-		ret = icnss_test_mode_fw_test(priv, ICNSS_CCPM);
-		break;
-	default:
-		ret = -EINVAL;
-		break;
+	buf[len] = '\0';
+	sptr = buf;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+	if (!sptr)
+		return -EINVAL;
+	cmd = token;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+	if (kstrtou64(token, 0, &val))
+		return -EINVAL;
+
+	if (strcmp(cmd, "test_mode") == 0) {
+		switch (val) {
+		case 0:
+			ret = icnss_test_mode_fw_test_off(priv);
+			break;
+		case 1:
+			ret = icnss_test_mode_fw_test(priv, ICNSS_WALTEST);
+			break;
+		case 2:
+			ret = icnss_test_mode_fw_test(priv, ICNSS_CCPM);
+			break;
+		default:
+			return -EINVAL;
+		}
+	} else if (strcmp(cmd, "dynamic_feature_mask") == 0) {
+		ret = wlfw_dynamic_feature_mask_send_sync_msg(priv, val);
+	} else {
+		return -EINVAL;
 	}
 
 	if (ret)
@@ -2991,16 +3094,16 @@ static ssize_t icnss_test_mode_write(struct file *fp, const char __user *buf,
 	return count;
 }
 
-static int icnss_test_mode_open(struct inode *inode, struct file *file)
+static int icnss_fw_debug_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, icnss_test_mode_show, inode->i_private);
+	return single_open(file, icnss_fw_debug_show, inode->i_private);
 }
 
-static const struct file_operations icnss_test_mode_fops = {
+static const struct file_operations icnss_fw_debug_fops = {
 	.read		= seq_read,
-	.write		= icnss_test_mode_write,
+	.write		= icnss_fw_debug_write,
 	.release	= single_release,
-	.open		= icnss_test_mode_open,
+	.open		= icnss_fw_debug_open,
 	.owner		= THIS_MODULE,
 	.llseek		= seq_lseek,
 };
@@ -3428,8 +3531,8 @@ static int icnss_debugfs_create(struct icnss_priv *priv)
 
 	priv->root_dentry = root_dentry;
 
-	debugfs_create_file("test_mode", 0644, root_dentry, priv,
-			    &icnss_test_mode_fops);
+	debugfs_create_file("fw_debug", 0644, root_dentry, priv,
+			    &icnss_fw_debug_fops);
 
 	debugfs_create_file("stats", 0644, root_dentry, priv,
 			    &icnss_stats_fops);
