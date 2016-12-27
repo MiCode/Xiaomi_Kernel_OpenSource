@@ -16,6 +16,13 @@
 #include <drm/drm_fourcc.h>
 #include "sde_hw_mdss.h"
 
+#define SDE_FORMAT_FLAG_ROTATOR BIT(0)
+#define SDE_FORMAT_FLAG_UBWC    BIT(1)
+
+#define SDE_FORMAT_IS_YUV(X)        ((X)->is_yuv)
+#define SDE_FORMAT_IS_ROTATOR(X)    ((X)->flag & SDE_FORMAT_FLAG_ROTATOR)
+#define SDE_FORMAT_IS_UBWC(X)       ((X)->flag & SDE_FORMAT_FLAG_UBWC)
+
 /**
  * MDP supported format packing, bpp, and other format
  * information.
