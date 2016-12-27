@@ -169,6 +169,7 @@ static void sde_prepare_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
+
 	sde_enable(sde_kms);
 }
 
