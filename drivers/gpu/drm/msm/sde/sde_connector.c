@@ -16,6 +16,28 @@
 #include "sde_kms.h"
 #include "sde_connector.h"
 
+int sde_connector_get_info(struct drm_connector *connector,
+		struct msm_display_info *info)
+{
+	struct sde_connector *c_conn;
+
+	if (!connector || !info) {
+		SDE_ERROR("invalid argument(s), conn %pK, info %pK\n",
+				connector, info);
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(connector);
+
+	if (!c_conn->display || !c_conn->ops.get_info) {
+		SDE_ERROR("display info not supported for %pK\n",
+				c_conn->display);
+		return -EINVAL;
+	}
+
+	return c_conn->ops.get_info(info, c_conn->display);
+}
+
 static void sde_connector_destroy(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
