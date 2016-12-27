@@ -571,17 +571,9 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc,
 static int sde_encoder_virt_add_phys_encs(
 		u32 display_caps,
 		struct sde_encoder_virt *sde_enc,
-		struct sde_kms *sde_kms,
-		enum sde_intf intf_idx,
-		enum sde_pingpong pp_idx,
-		enum sde_ctl ctl_idx,
-		enum sde_enc_split_role split_role)
+		struct sde_enc_phys_init_params *params)
 {
 	struct sde_encoder_phys *enc = NULL;
-	struct sde_encoder_virt_ops parent_ops = {
-		sde_encoder_vblank_callback,
-		sde_encoder_handle_phys_enc_ready_for_kickoff
-	};
 
 	DBG("");
 
@@ -597,8 +589,7 @@ static int sde_encoder_virt_add_phys_encs(
 	}
 
 	if (display_caps & MSM_DISPLAY_CAP_VID_MODE) {
-		enc = sde_encoder_phys_vid_init(sde_kms, intf_idx, ctl_idx,
-				split_role, &sde_enc->base, parent_ops);
+		enc = sde_encoder_phys_vid_init(params);
 
 		if (IS_ERR_OR_NULL(enc)) {
 			DRM_ERROR("Failed to initialize phys vid enc: %ld\n",
@@ -611,9 +602,7 @@ static int sde_encoder_virt_add_phys_encs(
 	}
 
 	if (display_caps & MSM_DISPLAY_CAP_CMD_MODE) {
-		enc = sde_encoder_phys_cmd_init(sde_kms, intf_idx, pp_idx,
-				ctl_idx, split_role, &sde_enc->base,
-				parent_ops);
+		enc = sde_encoder_phys_cmd_init(params);
 
 		if (IS_ERR_OR_NULL(enc)) {
 			DRM_ERROR("Failed to initialize phys cmd enc: %ld\n",
@@ -628,32 +617,20 @@ static int sde_encoder_virt_add_phys_encs(
 	return 0;
 }
 
-static int sde_encoder_virt_add_phys_enc_wb(
-		struct sde_encoder_virt *sde_enc,
-		struct sde_kms *sde_kms,
-		enum sde_wb wb_idx,
-		enum sde_ctl ctl_idx,
-		enum sde_cdm cdm_idx,
-		enum sde_enc_split_role split_role)
+static int sde_encoder_virt_add_phys_enc_wb(struct sde_encoder_virt *sde_enc,
+		struct sde_enc_phys_init_params *params)
 {
 	struct sde_encoder_phys *enc = NULL;
-	struct sde_encoder_virt_ops parent_ops = {
-		sde_encoder_vblank_callback,
-		sde_encoder_handle_phys_enc_ready_for_kickoff
-	};
 
 	DBG("");
 
-	if (sde_enc->num_phys_encs + 1 >=
-			ARRAY_SIZE(sde_enc->phys_encs)) {
+	if (sde_enc->num_phys_encs + 1 >= ARRAY_SIZE(sde_enc->phys_encs)) {
 		DRM_ERROR("Too many physical encoders %d, unable to add\n",
 			  sde_enc->num_phys_encs);
 		return -EINVAL;
 	}
 
-	enc = sde_encoder_phys_wb_init(sde_kms, wb_idx,
-			ctl_idx, cdm_idx, split_role, &sde_enc->base,
-			parent_ops);
+	enc = sde_encoder_phys_wb_init(params);
 
 	if (IS_ERR_OR_NULL(enc)) {
 		DRM_ERROR("Failed to initialize phys wb enc: %ld\n",
@@ -674,7 +651,17 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 {
 	int ret = 0;
 	int i = 0;
-	enum sde_intf_type intf_type = INTF_NONE;
+	enum sde_intf_type intf_type;
+	struct sde_encoder_virt_ops parent_ops = {
+		sde_encoder_vblank_callback,
+		sde_encoder_handle_phys_enc_ready_for_kickoff
+	};
+	struct sde_enc_phys_init_params phys_params;
+
+	memset(&phys_params, 0, sizeof(phys_params));
+	phys_params.sde_kms = sde_kms;
+	phys_params.parent = &sde_enc->base;
+	phys_params.parent_ops = parent_ops;
 
 	DBG("");
 
@@ -703,63 +690,63 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		 * h_tile_instance_ids[2] = {1, 0}; DSI1 = left, DSI0 = right
 		 */
 		const struct sde_hw_res_map *hw_res_map = NULL;
-		enum sde_intf intf_idx = INTF_MAX;
-		enum sde_pingpong pp_idx = PINGPONG_MAX;
-		enum sde_wb wb_idx = WB_MAX;
-		enum sde_ctl ctl_idx = CTL_MAX;
-		enum sde_cdm cdm_idx = SDE_NONE;
 		u32 controller_id = disp_info->h_tile_instance[i];
-		enum sde_enc_split_role split_role = ENC_ROLE_SOLO;
 
 		if (disp_info->num_of_h_tiles > 1) {
 			if (i == 0)
-				split_role = ENC_ROLE_MASTER;
+				phys_params.split_role = ENC_ROLE_MASTER;
 			else
-				split_role = ENC_ROLE_SLAVE;
+				phys_params.split_role = ENC_ROLE_SLAVE;
+		} else {
+			phys_params.split_role = ENC_ROLE_SOLO;
 		}
 
 		DBG("h_tile_instance %d = %d, split_role %d",
-				i, controller_id, split_role);
+				i, controller_id, phys_params.split_role);
 
 		if (intf_type == INTF_WB) {
-			wb_idx = sde_encoder_get_wb(sde_kms->catalog,
+			phys_params.wb_idx = sde_encoder_get_wb(
+					sde_kms->catalog,
 					intf_type, controller_id);
-			if (wb_idx == WB_MAX) {
+			if (phys_params.wb_idx == WB_MAX) {
 				DRM_ERROR(
-					"Error: could not get the writeback id\n");
+					"Error: could not get writeback: type %d, id %d\n",
+					intf_type, controller_id);
 				ret = -EINVAL;
 			}
-			intf_idx = SDE_NONE;
 		} else {
-			intf_idx = sde_encoder_get_intf(sde_kms->catalog,
-					intf_type, controller_id);
-			if (intf_idx == INTF_MAX) {
+			phys_params.intf_idx = sde_encoder_get_intf(
+					sde_kms->catalog, intf_type,
+					controller_id);
+			if (phys_params.intf_idx == INTF_MAX) {
 				DRM_ERROR(
-					"Error: could not get the interface id\n");
+					"Error: could not get writeback: type %d, id %d\n",
+					intf_type, controller_id);
 				ret = -EINVAL;
 			}
-			wb_idx = SDE_NONE;
 		}
 
-		hw_res_map = sde_rm_get_res_map(sde_kms, intf_idx, wb_idx);
+		hw_res_map = sde_rm_get_res_map(sde_kms, phys_params.intf_idx,
+				phys_params.wb_idx);
 		if (IS_ERR_OR_NULL(hw_res_map)) {
+			DRM_ERROR("failed to get hw_res_map: %ld\n",
+					PTR_ERR(hw_res_map));
 			ret = -EINVAL;
 		} else {
-			pp_idx = hw_res_map->pp;
-			ctl_idx = hw_res_map->ctl;
-			cdm_idx = hw_res_map->cdm;
+			phys_params.pp_idx = hw_res_map->pp;
+			phys_params.ctl_idx = hw_res_map->ctl;
+			phys_params.cdm_idx = hw_res_map->cdm;
 		}
 
 		if (!ret) {
 			if (intf_type == INTF_WB)
-				ret = sde_encoder_virt_add_phys_enc_wb(
-						sde_enc, sde_kms, wb_idx,
-						ctl_idx, cdm_idx, split_role);
+				ret = sde_encoder_virt_add_phys_enc_wb(sde_enc,
+						&phys_params);
 			else
 				ret = sde_encoder_virt_add_phys_encs(
 						disp_info->capabilities,
-						sde_enc, sde_kms, intf_idx,
-						pp_idx, ctl_idx, split_role);
+						sde_enc,
+						&phys_params);
 			if (ret)
 				DRM_ERROR("Failed to add phys encs\n");
 		}
