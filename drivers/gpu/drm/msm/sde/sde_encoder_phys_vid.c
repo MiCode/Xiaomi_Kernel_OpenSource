@@ -504,7 +504,7 @@ static void sde_encoder_phys_vid_get_hw_resources(
 	 * otherwise signal/return failure
 	 */
 	hw_res_map = sde_rm_get_res_map(phys_enc->sde_kms,
-			vid_enc->hw_intf->idx);
+			vid_enc->hw_intf->idx, SDE_NONE);
 	if (IS_ERR_OR_NULL(hw_res_map)) {
 		DRM_ERROR("Failed to get hw_res_map: %ld", PTR_ERR(hw_res_map));
 		return;

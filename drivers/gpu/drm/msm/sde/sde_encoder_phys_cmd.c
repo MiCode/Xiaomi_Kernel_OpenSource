@@ -379,7 +379,7 @@ static void sde_encoder_phys_cmd_get_hw_resources(
 	hw_res->intfs[cmd_enc->intf_idx] = INTF_MODE_CMD;
 	hw_res->pingpongs[cmd_enc->hw_pp->idx] = true;
 	hw_res_map = sde_rm_get_res_map(phys_enc->sde_kms,
-			cmd_enc->intf_idx);
+			cmd_enc->intf_idx, SDE_NONE);
 	if (IS_ERR_OR_NULL(hw_res_map)) {
 		DRM_ERROR("Failed to get hw_res_map: %ld", PTR_ERR(hw_res_map));
 		return;

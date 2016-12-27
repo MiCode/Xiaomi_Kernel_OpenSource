@@ -180,7 +180,7 @@ enum {
 #define SDE_HW_BLK_INFO \
 	u32 id; \
 	u32 base; \
-	unsigned long features; \
+	unsigned long features
 
 /**
  * MACRO SDE_HW_SUBBLK_INFO - information of HW sub-block inside SDE

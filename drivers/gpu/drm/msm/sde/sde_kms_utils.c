@@ -13,6 +13,7 @@
 #include "sde_kms.h"
 #include "sde_hw_lm.h"
 #include "sde_hw_ctl.h"
+#include "sde_hw_cdm.h"
 
 struct sde_hw_intr *sde_rm_acquire_intr(struct sde_kms *sde_kms)
 {
@@ -106,6 +107,50 @@ void sde_rm_release_ctl_path(struct sde_kms *sde_kms, enum sde_ctl idx)
 	}
 }
 
+struct sde_hw_cdm *sde_rm_acquire_cdm_path(struct sde_kms *sde_kms,
+		enum sde_cdm idx, struct sde_hw_mdp *hw_mdp)
+{
+	struct sde_hw_cdm *hw_cdm;
+
+	if (!sde_kms) {
+		DRM_ERROR("Invalid KMS driver");
+		return ERR_PTR(-EINVAL);
+	} else if ((idx == SDE_NONE) || (idx > sde_kms->catalog->cdm_count)) {
+		DRM_ERROR("Invalid Cdm Path Idx %d", idx);
+		return ERR_PTR(-EINVAL);
+	} else if (sde_kms->hw_res.cdm[idx]) {
+		DRM_ERROR("Cdm path %d already in use ", idx);
+		return ERR_PTR(-ENODEV);
+	}
+
+	sde_enable(sde_kms);
+	hw_cdm = sde_hw_cdm_init(idx, sde_kms->mmio, sde_kms->catalog, hw_mdp);
+	sde_disable(sde_kms);
+
+	if (!IS_ERR_OR_NULL(hw_cdm))
+		sde_kms->hw_res.cdm[idx] = hw_cdm;
+
+	return hw_cdm;
+}
+
+struct sde_hw_cdm *sde_rm_get_cdm_path(struct sde_kms *sde_kms,
+	enum sde_cdm idx)
+{
+	if (!sde_kms) {
+		DRM_ERROR("Invalid KMS Driver");
+		return ERR_PTR(-EINVAL);
+	} else if ((idx == SDE_NONE) || (idx > sde_kms->catalog->cdm_count)) {
+		DRM_ERROR("Invalid Cdm path Idx %d", idx);
+		return ERR_PTR(-EINVAL);
+	}
+
+	return sde_kms->hw_res.cdm[idx];
+}
+
+void sde_rm_release_cdm_path(struct sde_kms *sde_kms, enum sde_cdm idx)
+{
+}
+
 struct sde_hw_mixer *sde_rm_acquire_mixer(struct sde_kms *sde_kms,
 	enum sde_lm idx)
 {
@@ -153,23 +198,32 @@ struct sde_hw_mixer *sde_rm_get_mixer(struct sde_kms *sde_kms,
 }
 
 const struct sde_hw_res_map *sde_rm_get_res_map(struct sde_kms *sde_kms,
-		enum sde_intf idx)
+		enum sde_intf intf, enum sde_wb wb)
 {
+	int i;
+
 	if (!sde_kms) {
 		DRM_ERROR("Invalid KMS Driver");
 		return ERR_PTR(-EINVAL);
 	}
-	if ((idx == SDE_NONE) || (idx > sde_kms->catalog->intf_count)) {
-		DRM_ERROR("Invalid intf id %d", idx);
-		return ERR_PTR(-EINVAL);
+
+	for (i = 0; i < (INTF_MAX + WB_MAX); i++) {
+		if ((sde_kms->hw_res.res_table[i].intf == intf) &&
+				(sde_kms->hw_res.res_table[i].wb == wb)) {
+			DBG(
+				" Platform Resource map for INTF %d, WB %d -> lm %d, pp %d ctl %d cdm %d",
+					sde_kms->hw_res.res_table[i].intf,
+					sde_kms->hw_res.res_table[i].wb,
+					sde_kms->hw_res.res_table[i].lm,
+					sde_kms->hw_res.res_table[i].pp,
+					sde_kms->hw_res.res_table[i].ctl,
+					sde_kms->hw_res.res_table[i].cdm);
+
+			return &(sde_kms->hw_res.res_table[i]);
+		}
 	}
 
-	DBG(" Platform Resource map for INTF %d -> lm %d, pp %d ctl %d",
-			sde_kms->hw_res.res_table[idx].intf,
-			sde_kms->hw_res.res_table[idx].lm,
-			sde_kms->hw_res.res_table[idx].pp,
-			sde_kms->hw_res.res_table[idx].ctl);
-	return &(sde_kms->hw_res.res_table[idx]);
+	return ERR_PTR(-EINVAL);
 }
 
 void sde_kms_info_reset(struct sde_kms_info *info)
