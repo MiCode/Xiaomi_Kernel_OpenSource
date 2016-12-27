@@ -590,21 +590,37 @@ exit:
 }
 
 int msm_property_set_property(struct msm_property_info *info,
+		uint64_t *property_values,
 		uint32_t property_idx,
 		uint64_t val)
 {
 	int rc = -EINVAL;
 
 	if (!info || (property_idx >= info->property_count) ||
-			property_idx < info->blob_count) {
+			property_idx < info->blob_count || !property_values) {
 		DRM_ERROR("invalid argument(s)\n");
 	} else {
+		struct drm_property *drm_prop;
+
+		mutex_lock(&info->property_lock);
+
+		/* update cached value */
+		if (property_values)
+			property_values[property_idx] = val;
+
+		/* update the new default value for immutables */
+		drm_prop = info->property_array[property_idx];
+		if (drm_prop->flags & DRM_MODE_PROP_IMMUTABLE)
+			info->property_data[property_idx].default_value = val;
+
+		mutex_unlock(&info->property_lock);
+
 		/* update drm object */
-		rc = drm_object_property_set_value(info->base,
-				info->property_array[property_idx], val);
+		rc = drm_object_property_set_value(info->base, drm_prop, val);
 		if (rc)
 			DRM_ERROR("failed set property value, idx %d rc %d\n",
 					property_idx, rc);
+
 	}
 
 	return rc;

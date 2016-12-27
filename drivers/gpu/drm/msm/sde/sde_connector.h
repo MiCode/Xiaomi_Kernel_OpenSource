@@ -223,6 +223,14 @@ struct sde_connector_state {
 	 (to_sde_connector_state((S))->property_values[(X)]) : 0)
 
 /**
+ * sde_connector_get_property_values - retrieve property values cache
+ * @S: Pointer to drm connector state
+ * Returns: Integer value of requested property
+ */
+#define sde_connector_get_property_values(S) \
+	((S) ? (to_sde_connector_state((S))->property_values) : 0)
+
+/**
  * sde_connector_get_out_fb - query out_fb value from sde connector state
  * @S: Pointer to drm connector state
  * Returns: Output fb associated with specified connector state
