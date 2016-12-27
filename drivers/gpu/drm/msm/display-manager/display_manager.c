@@ -22,8 +22,11 @@
 #include "msm_drv.h"
 #include "msm_kms.h"
 #include "msm_gpu.h"
-#include "display_manager.h"
+#include "sde_connector.h"
+
 #include "dsi_display.h"
+#include "dsi_drm.h"
+#include "display_manager.h"
 
 static u32 dm_get_num_of_displays(struct display_manager *disp_m)
 {
@@ -97,21 +100,26 @@ static int disp_manager_comp_ops_bind(struct device *dev,
 				     struct device *master,
 				     void *data)
 {
-	int rc = 0;
-	struct drm_device *drm = dev_get_drvdata(master);
-	struct platform_device *pdev = to_platform_device(dev);
+	struct drm_device *drm;
 	struct msm_drm_private *priv;
 	struct display_manager *disp_m;
 	struct dsi_display *dsi_display;
-	int i;
+	int i, rc = -EINVAL;
 
-	if (!master || !dev || !drm->dev_private) {
+	if (master && dev) {
+		drm = dev_get_drvdata(master);
+		disp_m = platform_get_drvdata(to_platform_device(dev));
+		if (drm && drm->dev_private && disp_m)
+			rc = 0;
+	}
+
+	if (rc) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
 	priv = drm->dev_private;
-	disp_m = platform_get_drvdata(pdev);
+	disp_m->drm_dev = drm;
 
 	/* DSI displays */
 	for (i = 0; i < disp_m->dsi_display_count; i++) {
@@ -363,9 +371,16 @@ int display_manager_drm_init_by_index(struct display_manager *disp_m,
 				      u32 display_index,
 				      struct drm_encoder *encoder)
 {
-	int rc = 0;
+	static const struct sde_connector_ops dsi_ops = {
+		.post_init =  dsi_conn_post_init,
+		.detect =     dsi_conn_detect,
+		.get_modes =  dsi_connector_get_modes,
+		.mode_valid = dsi_conn_mode_valid
+	};
+	int rc = -EINVAL;
 	int i;
 	struct dsi_display *display;
+	struct drm_connector *connector;
 
 	if (!disp_m || !encoder) {
 		pr_err("Invalid params\n");
@@ -379,7 +394,21 @@ int display_manager_drm_init_by_index(struct display_manager *disp_m,
 		if (!display || !dsi_display_is_active(display))
 			continue;
 
-		dsi_display_drm_init(display, encoder);
+		rc = dsi_display_drm_bridge_init(display, encoder);
+		if (rc)
+			continue;
+
+		connector = sde_connector_init(disp_m->drm_dev,
+				encoder,
+				0,
+				display,
+				&dsi_ops,
+				DRM_CONNECTOR_POLL_HPD,
+				DRM_MODE_CONNECTOR_DSI);
+		if (!connector)
+			rc = -ENOMEM;
+		else if (IS_ERR(connector))
+			rc = PTR_ERR(connector);
 		break;
 	}
 
@@ -407,7 +436,7 @@ int display_manager_drm_deinit_by_index(struct display_manager *disp_m,
 		if (!display || !dsi_display_is_active(display))
 			continue;
 
-		dsi_display_drm_deinit(display);
+		dsi_display_drm_bridge_deinit(display);
 		break;
 	}
 

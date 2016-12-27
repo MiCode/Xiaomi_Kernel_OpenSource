@@ -55,7 +55,6 @@ enum dsi_display_type {
 
 /**
  * struct dsi_display_info - defines dsi display properties
- * @display_type:      Display type as defined by device tree.
  * @type:              Type of panel connected to DSI interface.
  * @num_of_h_tiles:    In case of split panels, number of h tiles indicates the
  *		       number of dsi interfaces used. For single DSI panels this
@@ -70,7 +69,6 @@ enum dsi_display_type {
  * @dsi_op_mode:       dsi operation mode, video or cmd mode
  */
 struct dsi_display_info {
-	char display_type[20];
 	enum dsi_display_type type;
 
 	/* Split DSI properties */
@@ -185,7 +183,6 @@ struct dsi_display {
 	bool is_tpg_enabled;
 
 	struct mipi_dsi_host host;
-	struct dsi_connector *connector;
 	struct dsi_bridge    *bridge;
 	u32 cmd_engine_refcount;
 
@@ -284,22 +281,23 @@ int dsi_display_bind(struct dsi_display *display, struct drm_device *dev);
 int dsi_display_unbind(struct dsi_display *display);
 
 /**
- * dsi_display_drm_init() - initializes DRM objects for the display device.
+ * dsi_display_drm_bridge_init() - initializes DRM bridge object for DSI
  * @display:            Handle to the display.
  * @encoder:            Pointer to the encoder object which is connected to the
  *			display.
  *
  * Return: error code.
  */
-int dsi_display_drm_init(struct dsi_display *display, struct drm_encoder *enc);
+int dsi_display_drm_bridge_init(struct dsi_display *display,
+		struct drm_encoder *enc);
 
 /**
- * dsi_display_drm_deinit() - destroys DRM objects assosciated with the display
+ * dsi_display_drm_bridge_deinit() - destroys DRM bridge for the display
  * @display:        Handle to the display.
  *
  * Return: error code.
  */
-int dsi_display_drm_deinit(struct dsi_display *display);
+int dsi_display_drm_bridge_deinit(struct dsi_display *display);
 
 /**
  * dsi_display_get_info() - returns the display properties
