@@ -104,3 +104,7 @@ struct sde_hw_dspp *sde_hw_dspp_init(enum sde_dspp idx,
 	return c;
 }
 
+void sde_hw_dspp_destroy(struct sde_hw_dspp *dspp)
+{
+	kfree(dspp);
+}

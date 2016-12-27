@@ -106,7 +106,7 @@ struct sde_hw_cdm {
 };
 
 /**
- * sde_hw_cdm_init(): Initializes the cdm hw driver object.
+ * sde_hw_cdm_init - initializes the cdm hw driver object.
  * should be called once before accessing every cdm.
  * @idx:  cdm index for which driver object is required
  * @addr: mapped register io address of MDP
@@ -117,5 +117,11 @@ struct sde_hw_cdm *sde_hw_cdm_init(enum sde_cdm idx,
 		void __iomem *addr,
 		struct sde_mdss_cfg *m,
 		struct sde_hw_mdp *hw_mdp);
+
+/**
+ * sde_hw_cdm_destroy - destroys CDM driver context
+ * @cdm:   pointer to CDM driver context
+ */
+void sde_hw_cdm_destroy(struct sde_hw_cdm *cdm);
 
 #endif /*_SDE_HW_CDM_H */

@@ -93,4 +93,10 @@ struct sde_hw_mixer *sde_hw_lm_init(enum sde_lm idx,
 		void __iomem *addr,
 		struct sde_mdss_cfg *m);
 
+/**
+ * sde_hw_lm_destroy(): Destroys layer mixer driver context
+ * @lm:   Pointer to LM driver context
+ */
+void sde_hw_lm_destroy(struct sde_hw_mixer *lm);
+
 #endif /*_SDE_HW_LM_H */
