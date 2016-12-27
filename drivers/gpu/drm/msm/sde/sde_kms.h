@@ -25,6 +25,7 @@
 #include "sde_hw_top.h"
 #include "sde_connector.h"
 #include "sde_rm.h"
+#include "sde_power_handle.h"
 
 /**
  * SDE_DEBUG - macro for kms/plane/crtc/encoder/connector logs
@@ -113,11 +114,12 @@ struct sde_encoder_hw_resources {
 struct sde_kms {
 	struct msm_kms base;
 	struct drm_device *dev;
-	int rev;
+	int core_rev;
 	struct sde_mdss_cfg *catalog;
 
 	struct msm_mmu *mmu[MSM_SMMU_DOMAIN_MAX];
 	int mmu_id[MSM_SMMU_DOMAIN_MAX];
+	struct sde_power_client *core_client;
 
 	/* directory entry for debugfs */
 	void *debugfs_root;
@@ -128,16 +130,6 @@ struct sde_kms {
 	struct regulator *vdd;
 	struct regulator *mmagic;
 	struct regulator *venus;
-
-	struct clk *axi_clk;
-	struct clk *ahb_clk;
-	struct clk *src_clk;
-	struct clk *core_clk;
-	struct clk *lut_clk;
-	struct clk *mmagic_clk;
-	struct clk *iommu_axi_clk[MSM_SMMU_DOMAIN_MAX];
-	struct clk *iommu_ahb_clk[MSM_SMMU_DOMAIN_MAX];
-	struct clk *vsync_clk;
 
 	struct {
 		unsigned long enabled_mask;
@@ -205,9 +197,6 @@ struct sde_plane_state {
 #define sde_plane_get_property32(S, X) \
 	((S) && ((X) < PLANE_PROP_COUNT) ? \
 	 (uint32_t)((S)->property_values[(X)]) : 0)
-
-int sde_disable(struct sde_kms *sde_kms);
-int sde_enable(struct sde_kms *sde_kms);
 
 /**
  * Debugfs functions - extra helper functions for debugfs support
