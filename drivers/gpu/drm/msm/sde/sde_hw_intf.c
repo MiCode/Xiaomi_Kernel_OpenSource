@@ -13,7 +13,6 @@
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_intf.h"
-#include "sde_hw_mdp_top.h"
 
 #define INTF_TIMING_ENGINE_EN           0x000
 #define INTF_CONFIG                     0x004
@@ -173,24 +172,17 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 				(0x21 << 8));
 
 	SDE_REG_WRITE(c, INTF_HSYNC_CTL, hsync_ctl);
-	SDE_REG_WRITE(c, INTF_VSYNC_PERIOD_F0,
-			vsync_period * hsync_period);
+	SDE_REG_WRITE(c, INTF_VSYNC_PERIOD_F0, vsync_period * hsync_period);
 	SDE_REG_WRITE(c, INTF_VSYNC_PULSE_WIDTH_F0,
 			p->vsync_pulse_width * hsync_period);
 	SDE_REG_WRITE(c, INTF_DISPLAY_HCTL, display_hctl);
-	SDE_REG_WRITE(c, INTF_DISPLAY_V_START_F0,
-			display_v_start);
-	SDE_REG_WRITE(c, INTF_DISPLAY_V_END_F0,
-			display_v_end);
+	SDE_REG_WRITE(c, INTF_DISPLAY_V_START_F0, display_v_start);
+	SDE_REG_WRITE(c, INTF_DISPLAY_V_END_F0, display_v_end);
 	SDE_REG_WRITE(c, INTF_ACTIVE_HCTL,  active_hctl);
-	SDE_REG_WRITE(c, INTF_ACTIVE_V_START_F0,
-			active_v_start);
-	SDE_REG_WRITE(c, INTF_ACTIVE_V_END_F0,
-			active_v_end);
-
+	SDE_REG_WRITE(c, INTF_ACTIVE_V_START_F0, active_v_start);
+	SDE_REG_WRITE(c, INTF_ACTIVE_V_END_F0, active_v_end);
 	SDE_REG_WRITE(c, INTF_BORDER_COLOR, p->border_clr);
-	SDE_REG_WRITE(c, INTF_UNDERFLOW_COLOR,
-			p->underflow_clr);
+	SDE_REG_WRITE(c, INTF_UNDERFLOW_COLOR, p->underflow_clr);
 	SDE_REG_WRITE(c, INTF_HSYNC_SKEW, p->hsync_skew);
 	SDE_REG_WRITE(c, INTF_POLARITY_CTL, polarity_ctl);
 	SDE_REG_WRITE(c, INTF_FRAME_LINE_COUNT_EN, 0x3);
@@ -203,24 +195,8 @@ static void sde_hw_intf_enable_timing_engine(
 		u8 enable)
 {
 	struct sde_hw_blk_reg_map *c = &intf->hw;
-	u32 intf_sel;
-
-	/* Display interface select */
-	if (enable) {
-		/* top block */
-		struct sde_hw_mdp *mdp = sde_hw_mdptop_init(MDP_TOP,
-				c->base_off,
-				intf->mdss);
-		struct sde_hw_blk_reg_map *top = &mdp->hw;
-
-		intf_sel = SDE_REG_READ(top, DISP_INTF_SEL);
-
-		intf_sel |= (intf->cap->type << ((intf->idx - INTF_0) * 8));
-		SDE_REG_WRITE(top, DISP_INTF_SEL,  intf_sel);
-	}
-
-	SDE_REG_WRITE(c, INTF_TIMING_ENGINE_EN,
-			enable & 0x1);
+	/* Note: Display interface select is handled in top block hw layer */
+	SDE_REG_WRITE(c, INTF_TIMING_ENGINE_EN, enable != 0);
 }
 
 static void sde_hw_intf_setup_prg_fetch(
