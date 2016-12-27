@@ -510,7 +510,7 @@ static struct platform_driver dsi_phy_platform_driver = {
 	.probe      = dsi_phy_driver_probe,
 	.remove     = dsi_phy_driver_remove,
 	.driver     = {
-		.name   = "msm_dsi_phy",
+		.name   = "dsi_phy",
 		.of_match_table = msm_dsi_phy_of_match,
 	},
 };
@@ -848,12 +848,12 @@ int dsi_phy_set_timing_params(struct msm_dsi_phy *phy,
 	return rc;
 }
 
-void __init dsi_phy_drv_register(void)
+void dsi_phy_drv_register(void)
 {
 	platform_driver_register(&dsi_phy_platform_driver);
 }
 
-void __exit dsi_phy_drv_unregister(void)
+void dsi_phy_drv_unregister(void)
 {
 	platform_driver_unregister(&dsi_phy_platform_driver);
 }

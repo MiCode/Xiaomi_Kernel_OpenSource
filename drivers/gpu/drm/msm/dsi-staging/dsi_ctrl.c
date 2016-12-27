@@ -2335,7 +2335,7 @@ error:
 /**
  * dsi_ctrl_drv_register() - register platform driver for dsi controller
  */
-void __init dsi_ctrl_drv_register(void)
+void dsi_ctrl_drv_register(void)
 {
 	platform_driver_register(&dsi_ctrl_driver);
 }
@@ -2343,7 +2343,7 @@ void __init dsi_ctrl_drv_register(void)
 /**
  * dsi_ctrl_drv_unregister() - unregister platform driver
  */
-void __exit dsi_ctrl_drv_unregister(void)
+void dsi_ctrl_drv_unregister(void)
 {
 	platform_driver_unregister(&dsi_ctrl_driver);
 }
