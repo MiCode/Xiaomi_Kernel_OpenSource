@@ -244,13 +244,13 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.intf_count = 4,
 		.intf = {
 			{.id = INTF_0, .base = 0x0006B000,
-				.type = INTF_NONE},
+				.type = INTF_NONE, .controller_id = 0},
 			{.id = INTF_1, .base = 0x0006B800,
-				.type = INTF_DSI},
+				.type = INTF_DSI, .controller_id = 0},
 			{.id = INTF_2, .base = 0x0006C000,
-				.type = INTF_DSI},
+				.type = INTF_DSI, .controller_id = 1},
 			{.id = INTF_3, .base = 0x0006C800,
-				.type = INTF_HDMI},
+				.type = INTF_HDMI, .controller_id = 0},
 		},
 		.wb_count = 3,
 		.wb = {
