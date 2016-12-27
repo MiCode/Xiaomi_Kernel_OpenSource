@@ -125,7 +125,9 @@ static int disp_manager_comp_ops_bind(struct device *dev,
 
 		rc = dsi_display_bind(dsi_display, drm);
 		if (rc) {
-			pr_err("Failed to bind dsi display_%d, rc=%d\n", i, rc);
+			if (rc != -EPROBE_DEFER)
+				pr_err("Failed to bind dsi display_%d, rc=%d\n",
+					i, rc);
 			goto error_unbind_dsi;
 		}
 	}

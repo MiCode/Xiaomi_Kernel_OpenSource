@@ -111,7 +111,9 @@ static int dsi_panel_gpio_release(struct dsi_panel *panel)
 	if (gpio_is_valid(r_config->disp_en_gpio))
 		gpio_free(r_config->disp_en_gpio);
 
-	/* TODO:  backlight gpios */
+	if (gpio_is_valid(panel->bl_config.en_gpio))
+		gpio_free(panel->bl_config.en_gpio);
+
 	return rc;
 }
 
@@ -302,6 +304,31 @@ static int dsi_panel_bl_register(struct dsi_panel *panel)
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
 		led_trigger_register_simple("bkl-trigger", &bl->wled);
+
+		/* LED APIs don't tell us directly whether a classdev has yet
+		 * been registered to service this trigger. Until classdev is
+		 * registered, calling led_trigger has no effect, and doesn't
+		 * fail. Classdevs are associated with any registered triggers
+		 * when they do register, but that is too late for FBCon.
+		 * Check the cdev list directly and defer if appropriate.
+		 */
+		if (!bl->wled) {
+			pr_err("[%s] backlight registration failed\n",
+					panel->name);
+			rc = -EINVAL;
+		} else {
+			read_lock(&bl->wled->leddev_list_lock);
+			if (list_empty(&bl->wled->led_cdevs))
+				rc = -EPROBE_DEFER;
+			read_unlock(&bl->wled->leddev_list_lock);
+
+			if (rc) {
+				pr_info("[%s] backlight %s not ready, defer probe\n",
+					panel->name, bl->wled->name);
+				led_trigger_unregister_simple(bl->wled);
+			}
+		}
+
 		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
@@ -1503,7 +1530,7 @@ int dsi_panel_drv_init(struct dsi_panel *panel,
 	if (rc) {
 		pr_err("[%s] Failed to get panel regulators, rc=%d\n",
 		       panel->name, rc);
-		goto error;
+		goto exit;
 	}
 
 	rc = dsi_panel_pinctrl_init(panel);
@@ -1521,17 +1548,21 @@ int dsi_panel_drv_init(struct dsi_panel *panel,
 
 	rc = dsi_panel_bl_register(panel);
 	if (rc) {
-		pr_err("[%s] failed to register backlight, rc=%d\n",
-		       panel->name, rc);
+		if (rc != -EPROBE_DEFER)
+			pr_err("[%s] failed to register backlight, rc=%d\n",
+			       panel->name, rc);
+		goto error_gpio_release;
 	}
-	rc = 0;
-	goto error;
+
+	goto exit;
+
+error_gpio_release:
 	(void)dsi_panel_gpio_release(panel);
 error_pinctrl_deinit:
 	(void)dsi_panel_pinctrl_deinit(panel);
 error_vreg_put:
 	(void)dsi_panel_vreg_put(panel);
-error:
+exit:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
