@@ -70,6 +70,8 @@ struct sde_encoder_virt {
 	spinlock_t spin_lock;
 	uint32_t bus_scaling_client;
 
+	uint32_t display_num_of_h_tiles;
+
 	unsigned int num_phys_encs;
 	struct sde_encoder_phys *phys_encs[MAX_PHYS_ENCODERS_PER_VIRTUAL];
 	struct sde_encoder_phys *cur_master;
@@ -155,14 +157,15 @@ static void bs_set(struct sde_encoder_virt *sde_enc, int idx)
 #endif
 
 void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
-				  struct sde_encoder_hw_resources *hw_res)
+		struct sde_encoder_hw_resources *hw_res,
+		struct drm_connector_state *conn_state)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
 
 	DBG("");
 
-	if (!hw_res || !drm_enc) {
+	if (!hw_res || !drm_enc || !conn_state) {
 		DRM_ERROR("Invalid pointer");
 		return;
 	}
@@ -171,11 +174,13 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 
 	/* Query resources used by phys encs, expected to be without overlap */
 	memset(hw_res, 0, sizeof(*hw_res));
+	hw_res->display_num_of_h_tiles = sde_enc->display_num_of_h_tiles;
+
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
 		if (phys && phys->ops.get_hw_resources)
-			phys->ops.get_hw_resources(phys, hw_res);
+			phys->ops.get_hw_resources(phys, hw_res, conn_state);
 	}
 }
 
@@ -231,54 +236,14 @@ static void sde_encoder_destroy(struct drm_encoder *drm_enc)
 	kfree(sde_enc);
 }
 
-static bool sde_encoder_virt_mode_fixup(struct drm_encoder *drm_enc,
-					const struct drm_display_mode *mode,
-					struct drm_display_mode *adj_mode)
+static int sde_encoder_virt_atomic_check(
+		struct drm_encoder *drm_enc,
+		struct drm_crtc_state *crtc_state,
+		struct drm_connector_state *conn_state)
 {
-	struct sde_encoder_virt *sde_enc = NULL;
-	int i = 0;
-	bool ret = true;
-
-	DBG("");
-
-	if (!drm_enc) {
-		DRM_ERROR("Invalid pointer");
-		return false;
-	}
-
-	sde_enc = to_sde_encoder_virt(drm_enc);
-	MSM_EVT(drm_enc->dev, 0, 0);
-
-	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
-
-		if (phys && phys->ops.mode_fixup) {
-			ret = phys->ops.mode_fixup(phys, mode, adj_mode);
-			if (!ret) {
-				DRM_ERROR("Mode unsupported, phys_enc %d\n", i);
-				break;
-			}
-
-			if (sde_enc->num_phys_encs > 1) {
-				DBG("ModeFix only checking 1 phys_enc");
-				break;
-			}
-		}
-	}
-
-	/* Call to populate mode->crtc* information required by framework */
-	drm_mode_set_crtcinfo(adj_mode, 0);
-
-	MSM_EVT(drm_enc->dev, adj_mode->flags, adj_mode->private_flags);
-
-	return ret;
-}
-
-static int sde_encoder_virt_atomic_check(struct drm_encoder *drm_enc,
-		    struct drm_crtc_state *crtc_state,
-		    struct drm_connector_state *conn_state)
-{
-	struct sde_encoder_virt *sde_enc = NULL;
+	struct sde_encoder_virt *sde_enc;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
 	const struct drm_display_mode *mode;
 	struct drm_display_mode *adj_mode;
 	int i = 0;
@@ -292,6 +257,8 @@ static int sde_encoder_virt_atomic_check(struct drm_encoder *drm_enc,
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	priv = drm_enc->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
 	mode = &crtc_state->mode;
 	adj_mode = &crtc_state->adjusted_mode;
 	MSM_EVT(drm_enc->dev, 0, 0);
@@ -300,22 +267,24 @@ static int sde_encoder_virt_atomic_check(struct drm_encoder *drm_enc,
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && phys->ops.atomic_check) {
+		if (phys && phys->ops.atomic_check)
 			ret = phys->ops.atomic_check(phys, crtc_state,
 					conn_state);
-			if (ret)
-				DRM_ERROR("Mode unsupported, phys_enc %d.%d\n",
-						drm_enc->base.id, i);
-			break;
-		} else if (phys && phys->ops.mode_fixup) {
-			if (!phys->ops.mode_fixup(phys, mode, adj_mode)) {
-				DRM_ERROR("Mode unsupported, phys_enc %d.%d\n",
-						drm_enc->base.id, i);
+		else if (phys && phys->ops.mode_fixup)
+			if (!phys->ops.mode_fixup(phys, mode, adj_mode))
 				ret = -EINVAL;
-			}
+
+		if (ret) {
+			SDE_ERROR("enc %d mode unsupported, phys %d\n",
+					drm_enc->base.id, i);
 			break;
 		}
 	}
+
+	/* Reserve dynamic resources now. Indicating AtomicTest phase */
+	if (!ret)
+		ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
+				conn_state, true);
 
 	/* Call to populate mode->crtc* information required by framework */
 	drm_mode_set_crtcinfo(adj_mode, 0);
@@ -329,8 +298,12 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 				      struct drm_display_mode *mode,
 				      struct drm_display_mode *adj_mode)
 {
-	struct sde_encoder_virt *sde_enc = NULL;
-	int i = 0;
+	struct sde_encoder_virt *sde_enc;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	struct list_head *connector_list;
+	struct drm_connector *conn = NULL, *conn_iter;
+	int i = 0, ret;
 
 	DBG("");
 
@@ -340,7 +313,30 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	priv = drm_enc->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
+	connector_list = &sde_kms->dev->mode_config.connector_list;
+
 	MSM_EVT(drm_enc->dev, 0, 0);
+
+	list_for_each_entry(conn_iter, connector_list, head)
+		if (conn_iter->encoder == drm_enc)
+			conn = conn_iter;
+
+	if (!conn) {
+		SDE_ERROR("enc %d failed to find attached connector\n",
+				drm_enc->base.id);
+		return;
+	}
+
+	/* Reserve dynamic resources now. Indicating non-AtomicTest phase */
+	ret = sde_rm_reserve(&sde_kms->rm, drm_enc, drm_enc->crtc->state,
+			conn->state, false);
+	if (ret) {
+		SDE_ERROR("enc %d failed to reserve hw resources, ret %d\n",
+				drm_enc->base.id, ret);
+		return;
+	}
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
@@ -390,6 +386,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
 	int i = 0;
 
 	DBG("");
@@ -400,6 +398,9 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	priv = drm_enc->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
+
 	MSM_EVT(drm_enc->dev, 0, 0);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
@@ -413,10 +414,11 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	DBG("clear phys enc master");
 
 	bs_set(sde_enc, 0);
+
+	sde_rm_release(&sde_kms->rm, drm_enc);
 }
 
 static const struct drm_encoder_helper_funcs sde_encoder_helper_funcs = {
-	.mode_fixup = sde_encoder_virt_mode_fixup,
 	.mode_set = sde_encoder_virt_mode_set,
 	.disable = sde_encoder_virt_disable,
 	.enable = sde_encoder_virt_enable,
@@ -699,6 +701,8 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 
 	WARN_ON(disp_info->num_of_h_tiles < 1);
 
+	sde_enc->display_num_of_h_tiles = disp_info->num_of_h_tiles;
+
 	DBG("dsi_info->num_of_h_tiles %d", disp_info->num_of_h_tiles);
 
 	for (i = 0; i < disp_info->num_of_h_tiles && !ret; i++) {
@@ -707,7 +711,6 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		 * h_tile_instance_ids[2] = {0, 1}; DSI0 = left, DSI1 = right
 		 * h_tile_instance_ids[2] = {1, 0}; DSI1 = left, DSI0 = right
 		 */
-		const struct sde_hw_res_map *hw_res_map = NULL;
 		u32 controller_id = disp_info->h_tile_instance[i];
 
 		if (disp_info->num_of_h_tiles > 1) {
@@ -723,6 +726,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 				i, controller_id, phys_params.split_role);
 
 		if (intf_type == INTF_WB) {
+			phys_params.intf_idx = INTF_MAX;
 			phys_params.wb_idx = sde_encoder_get_wb(
 					sde_kms->catalog,
 					intf_type, controller_id);
@@ -733,6 +737,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 				ret = -EINVAL;
 			}
 		} else {
+			phys_params.wb_idx = WB_MAX;
 			phys_params.intf_idx = sde_encoder_get_intf(
 					sde_kms->catalog, intf_type,
 					controller_id);
@@ -742,18 +747,6 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 					intf_type, controller_id);
 				ret = -EINVAL;
 			}
-		}
-
-		hw_res_map = sde_rm_get_res_map(sde_kms, phys_params.intf_idx,
-				phys_params.wb_idx);
-		if (IS_ERR_OR_NULL(hw_res_map)) {
-			DRM_ERROR("failed to get hw_res_map: %ld\n",
-					PTR_ERR(hw_res_map));
-			ret = -EINVAL;
-		} else {
-			phys_params.pp_idx = hw_res_map->pp;
-			phys_params.ctl_idx = hw_res_map->ctl;
-			phys_params.cdm_idx = hw_res_map->cdm;
 		}
 
 		if (!ret) {
