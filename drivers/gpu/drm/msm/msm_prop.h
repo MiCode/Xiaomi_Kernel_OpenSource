@@ -115,6 +115,7 @@ void msm_property_destroy(struct msm_property_info *info);
  * msm_property_install_range - install standard drm range property
  * @info: Pointer to property info container struct
  * @name: Property name
+ * @flags: Other property type flags, e.g. DRM_MODE_PROP_IMMUTABLE
  * @min: Min property value
  * @max: Max property value
  * @init: Default property value
@@ -122,6 +123,7 @@ void msm_property_destroy(struct msm_property_info *info);
  */
 void msm_property_install_range(struct msm_property_info *info,
 		const char *name,
+		int flags,
 		uint64_t min,
 		uint64_t max,
 		uint64_t init,
@@ -142,6 +144,7 @@ void msm_property_install_rotation(struct msm_property_info *info,
  * msm_property_install_enum - install standard drm enum/bitmask property
  * @info: Pointer to property info container struct
  * @name: Property name
+ * @flags: Other property type flags, e.g. DRM_MODE_PROP_IMMUTABLE
  * @is_bitmask: Set to non-zero to create a bitmask property, rather than an
  *              enumeration one
  * @values: Array of allowable enumeration/bitmask values
@@ -150,6 +153,7 @@ void msm_property_install_rotation(struct msm_property_info *info,
  */
 void msm_property_install_enum(struct msm_property_info *info,
 		const char *name,
+		int flags,
 		int is_bitmask,
 		const struct drm_prop_enum_list *values,
 		int num_values,
