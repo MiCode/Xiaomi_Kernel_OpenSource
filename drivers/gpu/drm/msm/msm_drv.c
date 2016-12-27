@@ -500,6 +500,11 @@ fail:
  * DRM operations:
  */
 
+#ifdef CONFIG_QCOM_KGSL
+static void load_gpu(struct drm_device *dev)
+{
+}
+#else
 static void load_gpu(struct drm_device *dev)
 {
 	static DEFINE_MUTEX(init_lock);
@@ -512,6 +517,7 @@ static void load_gpu(struct drm_device *dev)
 
 	mutex_unlock(&init_lock);
 }
+#endif
 
 static int msm_open(struct drm_device *dev, struct drm_file *file)
 {
@@ -1087,6 +1093,16 @@ static struct platform_driver msm_platform_driver = {
 		.pm     = &msm_pm_ops,
 	},
 };
+
+#ifdef CONFIG_QCOM_KGSL
+void __init adreno_register(void)
+{
+}
+
+void __exit adreno_unregister(void)
+{
+}
+#endif
 
 static int __init msm_drm_register(void)
 {
