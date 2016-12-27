@@ -722,6 +722,36 @@
 			};
 		};
 
+		sec_mi2s_mclk_a_lines {
+			sec_mi2s_mclk_a_active: sec_mi2s_mclk_a_active {
+				mux {
+					pins = "gpio25";
+					function = "sec_mi2s_mclk_a";
+				};
+
+				config {
+					pins = "gpio25";
+					drive-strength = <8>; /* 8 MA */
+					output-high;
+					bias-disable;
+				};
+			};
+
+			sec_mi2s_mclk_a_sleep: sec_mi2s_mclk_a_sleep {
+				mux {
+					pins = "gpio25";
+					function = "sec_mi2s_mclk_a";
+				};
+
+				config {
+					pins = "gpio25";
+					drive-strength = <2>; /* 2 MA */
+					output-low;
+					bias-pull-down;
+				};
+			};
+		};
+
 		cdc_reset_ctrl {
 			cdc_reset_sleep: cdc_reset_sleep {
 				mux {
