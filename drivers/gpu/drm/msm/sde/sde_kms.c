@@ -192,10 +192,14 @@ static void sde_complete_commit(struct msm_kms *kms,
 	struct sde_kms *sde_kms = to_sde_kms(kms);
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *crtc_state;
+	struct drm_connector *connector;
+	struct drm_connector_state *conn_state;
 	int i;
 
 	for_each_crtc_in_state(state, crtc, crtc_state, i)
 		sde_crtc_complete_commit(crtc);
+	for_each_connector_in_state(state, connector, conn_state, i)
+		sde_connector_complete_commit(connector);
 	sde_disable(sde_kms);
 
 	MSM_EVT(sde_kms->dev, 0, 0);
@@ -212,10 +216,14 @@ static void sde_kms_prepare_fence(struct msm_kms *kms,
 {
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *crtc_state;
+	struct drm_connector *connector;
+	struct drm_connector_state *conn_state;
 	int i;
 
 	for_each_crtc_in_state(state, crtc, crtc_state, i)
 		sde_crtc_prepare_fence(crtc);
+	for_each_connector_in_state(state, connector, conn_state, i)
+		sde_connector_prepare_fence(connector);
 }
 
 static int modeset_init(struct sde_kms *sde_kms)

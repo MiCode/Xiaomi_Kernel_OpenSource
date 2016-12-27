@@ -32,6 +32,7 @@ static void sde_connector_destroy(struct drm_connector *connector)
 	msm_property_destroy(&c_conn->property_info);
 
 	drm_connector_unregister(connector);
+	sde_fence_deinit(&c_conn->retire_fence);
 	drm_connector_cleanup(connector);
 	kfree(c_conn);
 }
@@ -258,10 +259,12 @@ static int sde_connector_atomic_get_property(struct drm_connector *connector,
 	c_state = to_sde_connector_state(state);
 
 	idx = msm_property_index(&c_conn->property_info, property);
-
-	/* get cached property value */
-	rc = msm_property_atomic_get(&c_conn->property_info,
-			c_state->property_values, 0, property, val);
+	if (idx == CONNECTOR_PROP_RETIRE_FENCE)
+		rc = sde_fence_create(&c_conn->retire_fence, val);
+	else
+		/* get cached property value */
+		rc = msm_property_atomic_get(&c_conn->property_info,
+				c_state->property_values, 0, property, val);
 
 	/* allow for custom override */
 	if (c_conn->ops.get_property)
@@ -271,6 +274,27 @@ static int sde_connector_atomic_get_property(struct drm_connector *connector,
 				val,
 				c_conn->display);
 	return rc;
+}
+
+void sde_connector_prepare_fence(struct drm_connector *connector)
+{
+	if (!connector) {
+		SDE_ERROR("invalid connector\n");
+		return;
+	}
+
+	sde_fence_prepare(&to_sde_connector(connector)->retire_fence);
+}
+
+void sde_connector_complete_commit(struct drm_connector *connector)
+{
+	if (!connector) {
+		SDE_ERROR("invalid connector\n");
+		return;
+	}
+
+	/* signal connector's retire fence */
+	sde_fence_signal(&to_sde_connector(connector)->retire_fence, 0);
 }
 
 static enum drm_connector_status
@@ -429,10 +453,23 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			"conn%u",
 			c_conn->base.base.id);
 
+	/*
+	 * Initialize retire fence support. Set fence offset to 0 for virtual
+	 * connectors so that the fence signals at the end of the current commit
+	 * and 1 for others so that the fence signals after one additional
+	 * commit.
+	 */
+	rc = sde_fence_init(dev, &c_conn->retire_fence, c_conn->name,
+			connector_type == DRM_MODE_CONNECTOR_VIRTUAL ? 0 : 1);
+	if (rc) {
+		SDE_ERROR("failed to init fence, %d\n", rc);
+		goto error_cleanup_conn;
+	}
+
 	rc = drm_connector_register(&c_conn->base);
 	if (rc) {
 		SDE_ERROR("failed to register drm connector, %d\n", rc);
-		goto error_cleanup_conn;
+		goto error_cleanup_fence;
 	}
 
 	rc = drm_mode_connector_attach_encoder(&c_conn->base, encoder);
@@ -476,6 +513,9 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		kfree(info);
 	}
 
+	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
+			0, ~0, ~0, CONNECTOR_PROP_RETIRE_FENCE);
+
 	rc = msm_property_install_get_status(&c_conn->property_info);
 	if (rc) {
 		SDE_ERROR("failed to create one or more properties\n");
@@ -492,6 +532,8 @@ error_destroy_property:
 	msm_property_destroy(&c_conn->property_info);
 error_unregister_conn:
 	drm_connector_unregister(&c_conn->base);
+error_cleanup_fence:
+	sde_fence_deinit(&c_conn->retire_fence);
 error_cleanup_conn:
 	drm_connector_cleanup(&c_conn->base);
 error_free_conn:
