@@ -34,6 +34,9 @@ struct display_manager {
 	u32 dp_display_count;
 	void **dp_displays;
 
+	u32 wb_display_count;
+	void **wb_displays;
+
 	/* Debug fs */
 	struct dentry *debugfs_root;
 };
