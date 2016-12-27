@@ -36,7 +36,7 @@
 #define SDE_MAX_PLANES			4
 #endif
 
-#define PIPES_PER_STAGE			2
+#define SDE_MAX_PIPES_PER_STAGE		2
 
 #define SDE_FORMAT_FLAG_YUV		(1 << 0)
 
