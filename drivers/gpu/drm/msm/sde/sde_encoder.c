@@ -27,10 +27,6 @@
 #define MAX_PHYS_ENCODERS_PER_VIRTUAL \
 	(MAX_H_TILES_PER_DISPLAY * NUM_PHYS_ENCODER_TYPES)
 
-#define EVTLOG(enc) (!enc ? NULL : \
-		!enc->base.dev ? NULL : \
-		&((struct msm_drm_private *)enc->base.dev->dev_private)->evtlog)
-
 /**
  * struct sde_encoder_virt - virtual encoder. Container of one or more physical
  *	encoders. Virtual encoder manages one "logical" display. Physical
@@ -209,7 +205,7 @@ static bool sde_encoder_virt_mode_fixup(struct drm_encoder *drm_enc,
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
-	MSM_EVT(EVTLOG(sde_enc), 0, 0);
+	MSM_EVT(drm_enc->dev, 0, 0);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
@@ -231,7 +227,7 @@ static bool sde_encoder_virt_mode_fixup(struct drm_encoder *drm_enc,
 	/* Call to populate mode->crtc* information required by framework */
 	drm_mode_set_crtcinfo(adj_mode, 0);
 
-	MSM_EVT(EVTLOG(sde_enc), adj_mode->flags, adj_mode->private_flags);
+	MSM_EVT(drm_enc->dev, adj_mode->flags, adj_mode->private_flags);
 
 	return ret;
 }
@@ -251,7 +247,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
-	MSM_EVT(EVTLOG(sde_enc), 0, 0);
+	MSM_EVT(drm_enc->dev, 0, 0);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
@@ -280,7 +276,7 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
-	MSM_EVT(EVTLOG(sde_enc), 0, 0);
+	MSM_EVT(drm_enc->dev, 0, 0);
 
 	bs_set(sde_enc, 1);
 
@@ -317,7 +313,7 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
-	MSM_EVT(EVTLOG(sde_enc), 0, 0);
+	MSM_EVT(drm_enc->dev, 0, 0);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
