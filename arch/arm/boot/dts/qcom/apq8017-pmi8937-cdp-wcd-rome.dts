@@ -15,6 +15,7 @@
 
 #include "apq8017.dtsi"
 #include "msm8917-pmi8937-cdp.dtsi"
+#include "apq8017-rome.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8017-PMI8937 CDP \
