@@ -47,6 +47,7 @@ msm_drm-y := \
 	sde/sde_vbif.o \
 	sde_dbg_evtlog.o \
 	sde_io_util.o \
+	sde/sde_hw_reg_dma_v1_color_proc.o \
 
 # use drm gpu driver only if qcom_kgsl driver not available
 ifneq ($(CONFIG_QCOM_KGSL),y)

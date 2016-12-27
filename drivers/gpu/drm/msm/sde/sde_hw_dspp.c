@@ -36,33 +36,9 @@ static struct sde_dspp_cfg *_dspp_offset(enum sde_dspp dspp,
 	return ERR_PTR(-EINVAL);
 }
 
-void sde_dspp_setup_histogram(struct sde_hw_dspp *ctx, void *cfg)
-{
-}
-
-void sde_dspp_read_histogram(struct sde_hw_dspp *ctx, void *cfg)
-{
-}
-
-void sde_dspp_update_igc(struct sde_hw_dspp *ctx, void *cfg)
-{
-}
-
-void sde_dspp_setup_sharpening(struct sde_hw_dspp *ctx, void *cfg)
-{
-}
-
-void sde_dspp_setup_danger_safe(struct sde_hw_dspp *ctx, void *cfg)
-{
-}
-
-void sde_dspp_setup_dither(struct sde_hw_dspp *ctx, void *cfg)
-{
-}
-
 static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 {
-	int i = 0;
+	int i = 0, ret;
 
 	for (i = 0; i < SDE_DSPP_MAX; i++) {
 		if (!test_bit(i, &features))
@@ -81,8 +57,16 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 		case SDE_DSPP_VLUT:
 			if (c->cap->sblk->vlut.version ==
 				(SDE_COLOR_PROCESS_VER(0x1, 0x7))) {
-				c->ops.setup_vlut = sde_setup_dspp_pa_vlut_v1_7;
+				c->ops.setup_vlut =
+				    sde_setup_dspp_pa_vlut_v1_7;
+			} else if (c->cap->sblk->vlut.version ==
+					(SDE_COLOR_PROCESS_VER(0x1, 0x8))) {
+				ret = reg_dmav1_init_dspp_op_v4(i, c->idx);
+				if (ret)
+					c->ops.setup_vlut =
+					reg_dmav1_setup_dspp_vlutv18;
 			}
+			break;
 		default:
 			break;
 		}
