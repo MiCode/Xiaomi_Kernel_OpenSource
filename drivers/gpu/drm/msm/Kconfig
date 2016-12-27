@@ -83,3 +83,10 @@ config DRM_MSM_DSI_28NM_8960_PHY
 	help
 	  Choose this option if the 28nm DSI PHY 8960 variant is used on the
 	  platform.
+config DRM_MSM_MDP4
+	tristate "MSM MDP4 DRM driver"
+	depends on DRM_MSM
+	default n
+	help
+	  Choose this option if MSM MDP4 revision support is needed in DRM/KMS.
+
