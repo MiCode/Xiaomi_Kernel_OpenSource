@@ -630,33 +630,6 @@ static void sde_encoder_phys_wb_mode_set(
 }
 
 /**
- * sde_encoder_phys_wb_control_vblank_irq - Control vblank interrupt
- * @phys_enc:	Pointer to physical encoder
- * @enable:	Enable interrupt
- */
-static int sde_encoder_phys_wb_control_vblank_irq(
-		struct sde_encoder_phys *phys_enc,
-		bool enable)
-{
-	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
-	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
-	int ret = 0;
-
-	SDE_DEBUG("[wb:%d,%d]\n", hw_wb->idx - WB_0, enable);
-
-	if (enable)
-		ret = sde_encoder_phys_wb_register_irq(phys_enc);
-	else
-		ret = sde_encoder_phys_wb_unregister_irq(phys_enc);
-
-	if (ret)
-		SDE_ERROR("control vblank irq error %d, enable %d\n", ret,
-				enable);
-
-	return ret;
-}
-
-/**
  * sde_encoder_phys_wb_wait_for_commit_done - wait until request is committed
  * @phys_enc:	Pointer to physical encoder
  */
@@ -962,7 +935,6 @@ static void sde_encoder_phys_wb_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->destroy = sde_encoder_phys_wb_destroy;
 	ops->atomic_check = sde_encoder_phys_wb_atomic_check;
 	ops->get_hw_resources = sde_encoder_phys_wb_get_hw_resources;
-	ops->control_vblank_irq = sde_encoder_phys_wb_control_vblank_irq;
 	ops->wait_for_commit_done = sde_encoder_phys_wb_wait_for_commit_done;
 	ops->prepare_for_kickoff = sde_encoder_phys_wb_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_wb_handle_post_kickoff;
