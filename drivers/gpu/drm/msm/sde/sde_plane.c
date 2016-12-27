@@ -89,11 +89,10 @@ static void _sde_plane_update_sync_fence(struct drm_plane *plane,
 	DBG("0x%llX", fd);
 }
 
-int sde_plane_wait_sync_fence(struct drm_plane *plane)
+int sde_plane_wait_sync_fence(struct drm_plane *plane, uint32_t wait_ms)
 {
 	struct sde_plane_state *pstate;
 	void *sync_fence;
-	long wait_ms;
 	int ret = -EINVAL;
 
 	if (!plane) {
@@ -105,11 +104,8 @@ int sde_plane_wait_sync_fence(struct drm_plane *plane)
 		sync_fence = pstate->sync_fence;
 
 		if (sync_fence) {
-			wait_ms = (long)sde_plane_get_property(pstate,
-					PLANE_PROP_SYNC_FENCE_TIMEOUT);
-
 			DBG("%s", to_sde_plane(plane)->pipe_name);
-			ret = sde_sync_wait(sync_fence, wait_ms);
+			ret = sde_sync_wait(sync_fence, (long)wait_ms);
 			if (!ret)
 				DBG("signaled");
 			else if (ret == -ETIME)
@@ -1090,10 +1086,6 @@ static void _sde_plane_install_properties(struct drm_plane *plane)
 
 	msm_property_install_range(&psde->property_info, "sync_fence",
 			0, ~0, ~0, PLANE_PROP_SYNC_FENCE);
-
-	msm_property_install_range(&psde->property_info, "sync_fence_timeout",
-			0, ~0, 10000,
-			PLANE_PROP_SYNC_FENCE_TIMEOUT);
 
 	/* standard properties */
 	msm_property_install_rotation(&psde->property_info,
