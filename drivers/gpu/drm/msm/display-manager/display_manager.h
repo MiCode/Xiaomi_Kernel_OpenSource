@@ -43,6 +43,15 @@ enum display_compression_type {
 	DISPLAY_COMPRESISON_MAX
 };
 
+/**
+ * enum display_interface_mode - interface modes supported by the display
+ * @DISPLAY_INTF_MODE_VID:       Display supports video or "active" mode
+ * @DISPLAY_INTF_MODE_CMD:       Display supports command mode
+ */
+enum display_interface_mode {
+	DISPLAY_INTF_MODE_VID		= BIT(0),
+	DISPLAY_INTF_MODE_CMD		= BIT(1),
+};
 
 /**
  * struct display_info - defines display properties
@@ -58,6 +67,7 @@ enum display_compression_type {
  * @max_height:         Max height of display. In case of hot pluggable display,
  *			this is max height supported by controller.
  * @compression:        Compression supported by the display.
+ * @intf_mode:          Bitmask of interface modes supported by the display
  */
 struct display_info {
 	enum display_interface_type intf;
@@ -73,6 +83,7 @@ struct display_info {
 	u32 max_height;
 
 	enum display_compression_type compression;
+	enum display_interface_mode intf_mode;
 };
 
 struct display_manager {

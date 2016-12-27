@@ -95,7 +95,7 @@ static int dsi_bridge_attach(struct drm_bridge *bridge)
 {
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
 
-	if (!c_bridge) {
+	if (!bridge) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
@@ -111,12 +111,10 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 	int rc = 0;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
 
-	if (!c_bridge) {
+	if (!bridge) {
 		pr_err("Invalid params\n");
 		return;
 	}
-
-	pr_debug("");
 
 	/* By this point mode should have been validated through mode_fixup */
 	rc = dsi_display_set_mode(c_bridge->display,
@@ -152,7 +150,7 @@ static void dsi_bridge_enable(struct drm_bridge *bridge)
 	int rc = 0;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
 
-	if (!c_bridge) {
+	if (!bridge) {
 		pr_err("Invalid params\n");
 		return;
 	}
@@ -173,20 +171,16 @@ static void dsi_bridge_disable(struct drm_bridge *bridge)
 	int rc = 0;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
 
-	if (!c_bridge) {
+	if (!bridge) {
 		pr_err("Invalid params\n");
-		rc = -EINVAL;
-		goto error;
+		return;
 	}
 
 	rc = dsi_display_pre_disable(c_bridge->display);
 	if (rc) {
 		pr_err("[%d] DSI display pre disable failed, rc=%d\n",
 		       c_bridge->id, rc);
-		goto error;
 	}
-error:
-	pr_debug("");
 }
 
 static void dsi_bridge_post_disable(struct drm_bridge *bridge)
@@ -194,7 +188,7 @@ static void dsi_bridge_post_disable(struct drm_bridge *bridge)
 	int rc = 0;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
 
-	if (!c_bridge) {
+	if (!bridge) {
 		pr_err("Invalid params\n");
 		return;
 	}
@@ -203,18 +197,15 @@ static void dsi_bridge_post_disable(struct drm_bridge *bridge)
 	if (rc) {
 		pr_err("[%d] DSI display disable failed, rc=%d\n",
 		       c_bridge->id, rc);
-		goto error;
+		return;
 	}
 
 	rc = dsi_display_unprepare(c_bridge->display);
 	if (rc) {
 		pr_err("[%d] DSI display unprepare failed, rc=%d\n",
 		       c_bridge->id, rc);
-		goto error;
+		return;
 	}
-
-error:
-	pr_debug("[%d] DSI bridge post disable done\n", c_bridge->id);
 }
 
 static void dsi_bridge_mode_set(struct drm_bridge *bridge,
@@ -223,15 +214,17 @@ static void dsi_bridge_mode_set(struct drm_bridge *bridge,
 {
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
 
-	if (!c_bridge || !mode || !adjusted_mode) {
+	if (!bridge || !mode || !adjusted_mode) {
 		pr_err("Invalid params\n");
 		return;
 	}
 
-	pr_debug("");
-
 	memset(&(c_bridge->dsi_mode), 0x0, sizeof(struct dsi_display_mode));
 	convert_to_dsi_mode(adjusted_mode, &(c_bridge->dsi_mode));
+
+	pr_debug("note: using panel cmd/vid mode instead of user val\n");
+	c_bridge->dsi_mode.panel_mode =
+		c_bridge->display->panel->mode.panel_mode;
 }
 
 static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
@@ -243,7 +236,7 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
 	struct dsi_display_mode dsi_mode;
 
-	if (!c_bridge || !mode || !adjusted_mode) {
+	if (!bridge || !mode || !adjusted_mode) {
 		pr_err("Invalid params\n");
 		return false;
 	}
@@ -584,10 +577,8 @@ error:
 
 void dsi_drm_bridge_cleanup(struct dsi_bridge *bridge)
 {
-	struct drm_encoder *encoder = bridge->base.encoder;
-
-	if (!encoder)
-		encoder->bridge = NULL;
+	if (bridge && bridge->base.encoder)
+		bridge->base.encoder->bridge = NULL;
 
 	kfree(bridge);
 }
