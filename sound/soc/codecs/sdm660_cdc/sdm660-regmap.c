@@ -12,7 +12,7 @@
  */
 
 #include <linux/regmap.h>
-#include "msmfalcon-cdc-registers.h"
+#include "sdm660-cdc-registers.h"
 
 /*
  * Default register reset values that are common across different versions

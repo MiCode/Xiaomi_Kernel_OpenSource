@@ -19,11 +19,11 @@
 #include <sound/pcm_params.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "../codecs/wcd9335.h"
-#include "msmfalcon-common.h"
-#include "msmfalcon-external.h"
+#include "sdm660-common.h"
+#include "sdm660-external.h"
 
 #define DEV_NAME_STR_LEN            32
-#define __CHIPSET__ "MSMFALCON "
+#define __CHIPSET__ "SDM660 "
 #define MSM_DAILINK_NAME(name) (__CHIPSET__#name)
 
 #define WCN_CDC_SLIM_RX_CH_MAX 2
@@ -1882,7 +1882,7 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev,
 	if (strnstr(card->name, "tasha", strlen(card->name))) {
 		codec_ver = tasha_codec_ver();
 		if (codec_ver == WCD9326)
-			card->name = "msmfalcon-tashalite-snd-card";
+			card->name = "sdm660-tashalite-snd-card";
 
 		len1 = ARRAY_SIZE(msm_ext_common_fe_dai);
 		len2 = len1 + ARRAY_SIZE(msm_ext_tasha_fe_dai);

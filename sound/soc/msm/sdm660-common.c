@@ -16,13 +16,13 @@
 #include <sound/pcm_params.h>
 #include <sound/q6afe-v2.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
-#include "msmfalcon-common.h"
-#include "msmfalcon-internal.h"
-#include "msmfalcon-external.h"
-#include "../codecs/msmfalcon_cdc/msm-analog-cdc.h"
+#include "sdm660-common.h"
+#include "sdm660-internal.h"
+#include "sdm660-external.h"
+#include "../codecs/sdm660_cdc/msm-analog-cdc.h"
 #include "../codecs/wsa881x.h"
 
-#define DRV_NAME "msmfalcon-asoc-snd"
+#define DRV_NAME "sdm660-asoc-snd"
 
 #define MSM_INT_DIGITAL_CODEC "msm-dig-codec"
 #define PMIC_INT_ANALOG_CODEC "analog-codec"
@@ -2658,12 +2658,12 @@ static void i2s_auxpcm_deinit(void)
 			mi2s_auxpcm_conf[count].pcm_i2s_sel_vt_addr);
 }
 
-static const struct of_device_id msmfalcon_asoc_machine_of_match[]  = {
-	{ .compatible = "qcom,msmfalcon-asoc-snd",
+static const struct of_device_id sdm660_asoc_machine_of_match[]  = {
+	{ .compatible = "qcom,sdm660-asoc-snd",
 	  .data = "internal_codec"},
-	{ .compatible = "qcom,msmfalcon-asoc-snd-tasha",
+	{ .compatible = "qcom,sdm660-asoc-snd-tasha",
 	  .data = "tasha_codec"},
-	{ .compatible = "qcom,msmfalcon-asoc-snd-tavil",
+	{ .compatible = "qcom,sdm660-asoc-snd-tavil",
 	  .data = "tavil_codec"},
 	{},
 };
@@ -2682,7 +2682,7 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	if (!pdata)
 		return -ENOMEM;
 
-	match = of_match_node(msmfalcon_asoc_machine_of_match,
+	match = of_match_node(sdm660_asoc_machine_of_match,
 			      pdev->dev.of_node);
 	if (!match)
 		goto err;
@@ -2821,19 +2821,19 @@ static int msm_asoc_machine_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver msmfalcon_asoc_machine_driver = {
+static struct platform_driver sdm660_asoc_machine_driver = {
 	.driver = {
 		.name = DRV_NAME,
 		.owner = THIS_MODULE,
 		.pm = &snd_soc_pm_ops,
-		.of_match_table = msmfalcon_asoc_machine_of_match,
+		.of_match_table = sdm660_asoc_machine_of_match,
 	},
 	.probe = msm_asoc_machine_probe,
 	.remove = msm_asoc_machine_remove,
 };
-module_platform_driver(msmfalcon_asoc_machine_driver);
+module_platform_driver(sdm660_asoc_machine_driver);
 
 MODULE_DESCRIPTION("ALSA SoC msm");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:" DRV_NAME);
-MODULE_DEVICE_TABLE(of, msmfalcon_asoc_machine_of_match);
+MODULE_DEVICE_TABLE(of, sdm660_asoc_machine_of_match);

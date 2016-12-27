@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MSMFALCON_INTERNAL
-#define __MSMFALCON_INTERNAL
+#ifndef __SDM660_INTERNAL
+#define __SDM660_INTERNAL
 
 #include <sound/soc.h>
 

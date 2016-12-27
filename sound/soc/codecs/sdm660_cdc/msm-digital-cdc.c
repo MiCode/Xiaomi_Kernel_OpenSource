@@ -26,10 +26,10 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
-#include "msmfalcon-cdc-registers.h"
+#include "sdm660-cdc-registers.h"
 #include "msm-digital-cdc.h"
 #include "msm-cdc-common.h"
-#include "../../msm/msmfalcon-common.h"
+#include "../../msm/sdm660-common.h"
 
 #define DRV_NAME "msm_digital_codec"
 #define MCLK_RATE_9P6MHZ        9600000

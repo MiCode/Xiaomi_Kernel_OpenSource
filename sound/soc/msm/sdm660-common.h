@@ -66,7 +66,7 @@ enum {
 };
 
 extern const struct snd_kcontrol_new msm_common_snd_controls[];
-struct msmfalcon_codec {
+struct sdm660_codec {
 	void* (*get_afe_config_fn)(struct snd_soc_codec *codec,
 				   enum afe_config_type config_type);
 };
@@ -90,7 +90,7 @@ struct msm_asoc_mach_data {
 	struct device_node *dmic_gpio_p; /* used by pinctrl API */
 	struct device_node *ext_spk_gpio_p; /* used by pinctrl API */
 	struct snd_soc_codec *codec;
-	struct msmfalcon_codec msmfalcon_codec_fn;
+	struct sdm660_codec sdm660_codec_fn;
 	struct snd_info_entry *codec_root;
 	int spk_ext_pa_gpio;
 	int mclk_freq;

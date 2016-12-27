@@ -11,7 +11,7 @@
  */
 
 #include <linux/regmap.h>
-#include "msmfalcon-cdc-registers.h"
+#include "sdm660-cdc-registers.h"
 
 extern struct reg_default
 		msm89xx_cdc_core_defaults[MSM89XX_CDC_CORE_CACHE_SIZE];

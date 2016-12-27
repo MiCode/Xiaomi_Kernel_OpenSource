@@ -21,14 +21,14 @@
 #include <linux/qdsp6v2/audio_notifier.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "msm-audio-pinctrl.h"
-#include "msmfalcon-common.h"
-#include "msmfalcon-external.h"
+#include "sdm660-common.h"
+#include "sdm660-external.h"
 #include "../codecs/wcd9335.h"
 #include "../codecs/wcd934x/wcd934x.h"
 #include "../codecs/wcd934x/wcd934x-mbhc.h"
 
-#define MSMFALCON_SPK_ON     1
-#define MSMFALCON_SPK_OFF    0
+#define SDM660_SPK_ON     1
+#define SDM660_SPK_OFF    0
 
 #define WCD9XXX_MBHC_DEF_BUTTONS    8
 #define WCD9XXX_MBHC_DEF_RLOADS     5
@@ -663,7 +663,7 @@ static void msm_ext_control(struct snd_soc_codec *codec)
 			snd_soc_codec_get_dapm(codec);
 
 	pr_debug("%s: msm_ext_spk_control = %d", __func__, msm_ext_spk_control);
-	if (msm_ext_spk_control == MSMFALCON_SPK_ON) {
+	if (msm_ext_spk_control == SDM660_SPK_ON) {
 		snd_soc_dapm_enable_pin(dapm, "Lineout_1 amp");
 		snd_soc_dapm_enable_pin(dapm, "Lineout_3 amp");
 	} else {
@@ -1281,7 +1281,7 @@ err_fail:
 	return ret;
 }
 
-static int msmfalcon_notifier_service_cb(struct notifier_block *this,
+static int sdm660_notifier_service_cb(struct notifier_block *this,
 					 unsigned long opcode, void *ptr)
 {
 	int ret;
@@ -1339,7 +1339,7 @@ done:
 }
 
 static struct notifier_block service_nb = {
-	.notifier_call  = msmfalcon_notifier_service_cb,
+	.notifier_call  = sdm660_notifier_service_cb,
 	.priority = -INT_MAX,
 };
 
@@ -1739,7 +1739,7 @@ void msm_ext_register_audio_notifier(void)
 {
 	int ret;
 
-	ret = audio_notifier_register("msmfalcon", AUDIO_NOTIFIER_ADSP_DOMAIN,
+	ret = audio_notifier_register("sdm660", AUDIO_NOTIFIER_ADSP_DOMAIN,
 				      &service_nb);
 	if (ret < 0)
 		pr_err("%s: Audio notifier register failed ret = %d\n",
