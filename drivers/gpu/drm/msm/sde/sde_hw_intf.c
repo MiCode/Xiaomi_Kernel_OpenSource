@@ -341,7 +341,7 @@ struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 	cfg = _intf_offset(idx, m, addr, &c->hw);
 	if (IS_ERR_OR_NULL(cfg)) {
 		kfree(c);
-		pr_err("Error Panic\n");
+		pr_err("failed to create sde_hw_intf %d\n", idx);
 		return ERR_PTR(-EINVAL);
 	}
 

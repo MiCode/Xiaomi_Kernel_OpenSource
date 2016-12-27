@@ -352,7 +352,7 @@ struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,
 	cfg = _ctl_offset(idx, m, addr, &c->hw);
 	if (IS_ERR_OR_NULL(cfg)) {
 		kfree(c);
-		pr_err("Error Panic\n");
+		pr_err("failed to create sde_hw_ctl %d\n", idx);
 		return ERR_PTR(-EINVAL);
 	}
 
