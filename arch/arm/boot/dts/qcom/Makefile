@@ -161,7 +161,7 @@ dtb-$(CONFIG_ARCH_SDM660) += sdm660-sim.dtb \
 	sda660-pm660a-mtp.dtb \
 	sda660-pm660a-rcm.dtb
 
-dtb-$(CONFIG_ARCH_MSMTRITON) += msmtriton-rumi.dtb
+dtb-$(CONFIG_ARCH_SDM630) += sdm630-rumi.dtb
 
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)

@@ -13,12 +13,12 @@
 
 /dts-v1/;
 
-#include "msmtriton.dtsi"
+#include "sdm630.dtsi"
 #include "sdm660-pinctrl.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM TRITON RUMI";
-	compatible = "qcom,msmtriton-rumi", "qcom,msmtriton", "qcom,rumi";
+	model = "Qualcomm Technologies, Inc. SDM 630 RUMI";
+	compatible = "qcom,sdm630-rumi", "qcom,sdm630", "qcom,rumi";
 	qcom,board-id = <15 0>;
 
 	chosen {

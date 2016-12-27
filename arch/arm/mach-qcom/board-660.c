@@ -32,19 +32,19 @@ DT_MACHINE_START(SDM660_DT,
 	.dt_compat = sdm660_dt_match,
 MACHINE_END
 
-static const char *msmtriton_dt_match[] __initconst = {
-	"qcom,msmtriton",
-	"qcom,apqtriton",
+static const char *sdm630_dt_match[] __initconst = {
+	"qcom,sdm630",
+	"qcom,sda630",
 	NULL
 };
 
-static void __init msmtriton_init(void)
+static void __init sdm630_init(void)
 {
 	board_dt_populate(NULL);
 }
 
-DT_MACHINE_START(MSMTRITON_DT,
-	"Qualcomm Technologies, Inc. MSM TRITON (Flattened Device Tree)")
-	.init_machine = msmtriton_init,
-	.dt_compat = msmtriton_dt_match,
+DT_MACHINE_START(SDM630_DT,
+	"Qualcomm Technologies, Inc. SDM 630 (Flattened Device Tree)")
+	.init_machine = sdm630_init,
+	.dt_compat = sdm630_dt_match,
 MACHINE_END

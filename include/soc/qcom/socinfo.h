@@ -98,8 +98,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm660")
 #define early_machine_is_sda660()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda660")
-#define early_machine_is_msmtriton()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmtriton")
+#define early_machine_is_sdm630()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm630")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -138,7 +138,7 @@
 #define early_machine_is_msmhamster()	0
 #define early_machine_is_sdm660()	0
 #define early_machine_is_sda660()	0
-#define early_machine_is_msmtriton()	0
+#define early_machine_is_sdm630()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -198,7 +198,7 @@ enum msm_cpu {
 	MSM_CPU_8998,
 	MSM_CPU_HAMSTER,
 	MSM_CPU_660,
-	MSM_CPU_TRITON,
+	MSM_CPU_630,
 };
 
 struct msm_soc_info {

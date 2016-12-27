@@ -95,8 +95,8 @@ SoCs:
 - SDA660
   compatible = "qcom,sda660"
 
-- MSMTRITON
-  compatible = "qcom,msmtriton"
+- SDM630
+  compatible = "qcom,sdm630"
 
 - MSM8952
   compatible = "qcom,msm8952"
@@ -270,7 +270,7 @@ compatible = "qcom,sdm660-mtp"
 compatible = "qcom,sdm660-qrd"
 compatible = "qcom,sda660-mtp"
 compatible = "qcom,sda660-cdp"
-compatible = "qcom,msmtriton-rumi"
+compatible = "qcom,sdm630-rumi"
 compatible = "qcom,msm8952-rumi"
 compatible = "qcom,msm8952-sim"
 compatible = "qcom,msm8952-qrd"

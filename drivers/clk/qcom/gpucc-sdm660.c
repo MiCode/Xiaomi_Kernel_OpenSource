@@ -187,7 +187,7 @@ static const struct freq_tbl ftbl_gfx3d_clk_src[] = {
 	{ }
 };
 
-static const struct freq_tbl ftbl_gfx3d_clk_src_triton[] = {
+static const struct freq_tbl ftbl_gfx3d_clk_src_630[] = {
 	F_GFX( 19200000, 0,  1, 0, 0,         0),
 	F_GFX(160000000, 0,  2, 0, 0,  640000000),
 	F_GFX(240000000, 0,  2, 0, 0,  480000000),
@@ -344,7 +344,7 @@ static const struct qcom_cc_desc gpucc_660_desc = {
 
 static const struct of_device_id gpucc_660_match_table[] = {
 	{ .compatible = "qcom,gpucc-sdm660" },
-	{ .compatible = "qcom,gpucc-msmtriton" },
+	{ .compatible = "qcom,gpucc-sdm630" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gpucc_660_match_table);
@@ -411,7 +411,7 @@ static int gpucc_660_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct regmap *regmap;
-	bool is_triton = 0;
+	bool is_630 = 0;
 
 	regmap = qcom_cc_map(pdev, &gpucc_660_desc);
 	if (IS_ERR(regmap))
@@ -444,15 +444,15 @@ static int gpucc_660_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_gfx.regulator[0]);
 	}
 
-	is_triton = of_device_is_compatible(pdev->dev.of_node,
-					"qcom,gpucc-msmtriton");
-	if (is_triton) {
+	is_630 = of_device_is_compatible(pdev->dev.of_node,
+					"qcom,gpucc-sdm630");
+	if (is_630) {
 		gpu_pll0_pll_out_main.clkr.hw.init->rate_max[VDD_DIG_LOW_L1]
 						= 1550000000;
 		gpu_pll1_pll_out_main.clkr.hw.init->rate_max[VDD_DIG_LOW_L1]
 						= 1550000000;
 		/* Add new frequency table */
-		gfx3d_clk_src.freq_tbl = ftbl_gfx3d_clk_src_triton;
+		gfx3d_clk_src.freq_tbl = ftbl_gfx3d_clk_src_630;
 	}
 
 	/* GFX rail fmax data linked to branch clock */

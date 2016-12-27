@@ -19,8 +19,8 @@
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. MSMTRITON";
-	compatible = "qcom,msmtriton";
+	model = "Qualcomm Technologies, Inc. SDM630";
+	compatible = "qcom,sdm630";
 	qcom,msm-id = <318 0x0>;
 	interrupt-parent = <&intc>;
 
@@ -312,8 +312,8 @@
 	};
 };
 
-#include "msmtriton-smp2p.dtsi"
-#include "msmtriton-coresight.dtsi"
+#include "sdm630-smp2p.dtsi"
+#include "sdm630-coresight.dtsi"
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -450,7 +450,7 @@
 	};
 
 	tsens: tsens@10ad000 {
-		compatible = "qcom,msmtriton-tsens";
+		compatible = "qcom,sdm630-tsens";
 		reg = <0x10ad000 0x2000>;
 		reg-names = "tsens_physical";
 		interrupts = <0 184 0>, <0 430 0>;
@@ -758,7 +758,7 @@
 	};
 
 	clock_gfx: clock-controller@5065000 {
-		compatible = "qcom,gpucc-msmtriton";
+		compatible = "qcom,gpucc-sdm630";
 		reg = <0x5065000 0x10000>;
 		vdd_dig_gfx-supply = <&pm660l_s3_level>;
 		vdd_mx_gfx-supply = <&pm660l_s5_level>;
@@ -1239,15 +1239,15 @@
 	};
 };
 
-#include "msmtriton-ion.dtsi"
+#include "sdm630-ion.dtsi"
 #include "msm-pm660.dtsi"
 #include "msm-pm660l.dtsi"
 #include "msm-pm660-rpm-regulator.dtsi"
 #include "msm-pm660l-rpm-regulator.dtsi"
-#include "msmtriton-regulator.dtsi"
+#include "sdm630-regulator.dtsi"
 #include "msm-gdsc-660.dtsi"
 #include "sdm660-common.dtsi"
-#include "msm-arm-smmu-triton.dtsi"
+#include "msm-arm-smmu-630.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";

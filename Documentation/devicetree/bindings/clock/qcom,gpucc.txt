@@ -5,7 +5,7 @@ Required properties :
 - compatible : shall contain only one of the following:
 
 			"qcom,gpucc-sdm660",
-			"qcom,gpucc-msmtriton"
+			"qcom,gpucc-sdm630"
 
 - reg : shall contain base register location and length
 - #clock-cells : shall contain 1

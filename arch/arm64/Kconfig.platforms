@@ -97,14 +97,14 @@ config ARCH_SDM660
 	  If you do not wish to build a kernel that runs
 	  on this chipset,say 'N' here.
 
-config ARCH_MSMTRITON
-	bool "Enable Support for Qualcomm Technologies Inc MSMTRITON"
+config ARCH_SDM630
+	bool "Enable Support for Qualcomm Technologies Inc SDM630"
 	depends on ARCH_QCOM
 	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	select QCOM_GDSC
 	help
-	  This enables support for the MSMTRITON chipset.
+	  This enables support for the SDM630 chipset.
 	  If you do not wish to build a kernel that runs
 	  on this chipset,say 'N' here.
 
