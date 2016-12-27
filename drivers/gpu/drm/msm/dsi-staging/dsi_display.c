@@ -1956,17 +1956,17 @@ int dsi_display_drm_bridge_deinit(struct dsi_display *display)
 	return rc;
 }
 
-int dsi_display_get_info(struct dsi_display *display,
-			 struct dsi_display_info *info)
+int dsi_display_get_info(struct msm_display_info *info, void *disp)
 {
-	int rc = 0;
-	int i;
+	struct dsi_display *display;
 	struct dsi_panel_phy_props phy_props;
+	int i, rc;
 
-	if (!display || !info) {
-		pr_err("Invalid params\n");
+	if (!info || !disp) {
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
+	display = disp;
 
 	mutex_lock(&display->display_lock);
 	rc = dsi_panel_get_phy_props(display->panel, &phy_props);
@@ -1976,21 +1976,31 @@ int dsi_display_get_info(struct dsi_display *display,
 		goto error;
 	}
 
-	info->type = display->type;
+	info->intf_type = DRM_MODE_CONNECTOR_DSI;
 
-	/* TODO: do not access dsi_ctrl structure */
 	info->num_of_h_tiles = display->ctrl_count;
 	for (i = 0; i < info->num_of_h_tiles; i++)
-		info->h_tile_ids[i] = display->ctrl[i].ctrl->index;
+		info->h_tile_instance[i] = display->ctrl[i].ctrl->index;
 
-	info->is_hot_pluggable = false;
-	info->is_edid_supported = false;
-
+	info->is_connected = true;
 	info->width_mm = phy_props.panel_width_mm;
 	info->height_mm = phy_props.panel_height_mm;
+	info->max_width = 1920;
+	info->max_height = 1080;
+	info->compression = MSM_DISPLAY_COMPRESS_NONE;
 
-	info->op_mode = display->panel->mode.panel_mode;
-
+	switch (display->panel->mode.panel_mode) {
+	case DSI_OP_VIDEO_MODE:
+		info->capabilities |= MSM_DISPLAY_CAP_VID_MODE;
+		break;
+	case DSI_OP_CMD_MODE:
+		info->capabilities |= MSM_DISPLAY_CAP_CMD_MODE;
+		break;
+	default:
+		pr_err("unknwown dsi panel mode %d\n",
+				display->panel->mode.panel_mode);
+		break;
+	}
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;

@@ -508,7 +508,7 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc,
 }
 
 static int sde_encoder_virt_add_phys_encs(
-		enum display_interface_mode intf_mode,
+		u32 display_caps,
 		struct sde_encoder_virt *sde_enc,
 		struct sde_kms *sde_kms,
 		enum sde_intf intf_idx,
@@ -535,7 +535,7 @@ static int sde_encoder_virt_add_phys_encs(
 		return -EINVAL;
 	}
 
-	if (intf_mode & DISPLAY_INTF_MODE_VID) {
+	if (display_caps & MSM_DISPLAY_CAP_VID_MODE) {
 		enc = sde_encoder_phys_vid_init(sde_kms, intf_idx, ctl_idx,
 				split_role, &sde_enc->base, parent_ops);
 
@@ -549,7 +549,7 @@ static int sde_encoder_virt_add_phys_encs(
 		++sde_enc->num_phys_encs;
 	}
 
-	if (intf_mode & DISPLAY_INTF_MODE_CMD) {
+	if (display_caps & MSM_DISPLAY_CAP_CMD_MODE) {
 		enc = sde_encoder_phys_cmd_init(sde_kms, intf_idx, pp_idx,
 				ctl_idx, split_role, &sde_enc->base,
 				parent_ops);
@@ -569,7 +569,7 @@ static int sde_encoder_virt_add_phys_encs(
 
 static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 				 struct sde_kms *sde_kms,
-				 struct display_info *disp_info,
+				 struct msm_display_info *disp_info,
 				 int *drm_enc_mode)
 {
 	int ret = 0;
@@ -578,10 +578,10 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 
 	DBG("");
 
-	if (disp_info->intf == DISPLAY_INTF_DSI) {
+	if (disp_info->intf_type == DRM_MODE_CONNECTOR_DSI) {
 		*drm_enc_mode = DRM_MODE_ENCODER_DSI;
 		intf_type = INTF_DSI;
-	} else if (disp_info->intf == DISPLAY_INTF_HDMI) {
+	} else if (disp_info->intf_type == DRM_MODE_CONNECTOR_HDMIA) {
 		*drm_enc_mode = DRM_MODE_ENCODER_TMDS;
 		intf_type = INTF_HDMI;
 	} else {
@@ -633,7 +633,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 
 		if (!ret) {
 			ret = sde_encoder_virt_add_phys_encs(
-					disp_info->intf_mode,
+					disp_info->capabilities,
 					sde_enc, sde_kms, intf_idx, pp_idx,
 					ctl_idx, split_role);
 			if (ret)
@@ -646,7 +646,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 }
 
 static struct drm_encoder *sde_encoder_virt_init(
-		struct drm_device *dev, struct display_info *disp_info)
+		struct drm_device *dev, struct msm_display_info *disp_info)
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct sde_kms *sde_kms = to_sde_kms(priv->kms);
@@ -750,7 +750,7 @@ void sde_encoders_init(struct drm_device *dev)
 	}
 
 	for (i = 0; i < num_displays; i++) {
-		struct display_info info = { 0 };
+		struct msm_display_info info = { 0 };
 		struct drm_encoder *enc = NULL;
 		u32 ret = 0;
 
