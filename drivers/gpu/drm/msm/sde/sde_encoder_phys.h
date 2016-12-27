@@ -131,7 +131,6 @@ enum sde_enc_enable_state {
  * @hw_ctl:		Hardware interface to the ctl registers
  * @hw_cdm:		Hardware interface to the cdm registers
  * @cdm_cfg:		Chroma-down hardware configuration
- * @needs_cdm:		Whether the mode / fmt require a CDM to function
  * @sde_kms:		Pointer to the sde_kms top level
  * @cached_mode:	DRM mode cached at mode_set time, acted on in enable
  * @enabled:		Whether the encoder has enabled and running a mode
@@ -147,7 +146,6 @@ struct sde_encoder_phys {
 	struct sde_encoder_virt_ops parent_ops;
 	struct sde_hw_mdp *hw_mdptop;
 	struct sde_hw_ctl *hw_ctl;
-	bool needs_cdm;
 	struct sde_hw_cdm *hw_cdm;
 	struct sde_hw_cdm_cfg cdm_cfg;
 	struct sde_kms *sde_kms;
