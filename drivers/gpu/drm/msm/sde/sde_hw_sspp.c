@@ -444,7 +444,8 @@ static void sde_hw_sspp_setup_sharpening(struct sde_hw_pipe *ctx,
 	struct sde_hw_blk_reg_map *c;
 	u32 idx;
 
-	if (_sspp_subblk_offset(ctx, SDE_SSPP_SCALER_QSEED2, &idx) || !cfg)
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SCALER_QSEED2, &idx) || !cfg ||
+			!test_bit(SDE_SSPP_SCALER_QSEED2, &ctx->cap->features))
 		return;
 
 	c = &ctx->hw;
@@ -521,7 +522,7 @@ static void _setup_layer_ops(struct sde_hw_sspp_ops *ops,
 		unsigned long features)
 {
 	if (test_bit(SDE_SSPP_SRC, &features)) {
-		ops->setup_sourceformat = sde_hw_sspp_setup_format;
+		ops->setup_format = sde_hw_sspp_setup_format;
 		ops->setup_rects = sde_hw_sspp_setup_rects;
 		ops->setup_sourceaddress = sde_hw_sspp_setup_sourceaddress;
 		ops->setup_solidfill = sde_hw_sspp_setup_solidfill;
