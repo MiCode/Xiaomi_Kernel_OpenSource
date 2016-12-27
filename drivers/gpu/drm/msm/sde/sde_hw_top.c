@@ -108,12 +108,41 @@ static void sde_hw_setup_traffic_shaper(struct sde_hw_mdp *mdp,
 	SDE_REG_WRITE(c, offset, ts_control);
 }
 
+static bool sde_hw_setup_clk_force_ctrl(struct sde_hw_mdp *mdp,
+		enum sde_clk_ctrl_type clk_ctrl, bool enable)
+{
+	struct sde_hw_blk_reg_map *c = &mdp->hw;
+	u32 reg_off, bit_off;
+	u32 reg_val, new_val;
+	bool clk_forced_on;
+
+	if (clk_ctrl <= SDE_CLK_CTRL_NONE || clk_ctrl >= SDE_CLK_CTRL_MAX)
+		return false;
+
+	reg_off = mdp->cap->clk_ctrls[clk_ctrl].reg_off;
+	bit_off = mdp->cap->clk_ctrls[clk_ctrl].bit_off;
+
+	reg_val = SDE_REG_READ(c, reg_off);
+
+	if (enable)
+		new_val = reg_val | BIT(bit_off);
+	else
+		new_val = reg_val & ~BIT(bit_off);
+
+	SDE_REG_WRITE(c, reg_off, new_val);
+
+	clk_forced_on = !(reg_val & BIT(bit_off));
+
+	return clk_forced_on;
+}
+
 static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 		unsigned long cap)
 {
 	ops->setup_split_pipe = sde_hw_setup_split_pipe_control;
 	ops->setup_cdm_output = sde_hw_setup_cdm_output;
 	ops->setup_traffic_shaper = sde_hw_setup_traffic_shaper;
+	ops->setup_clk_force_ctrl = sde_hw_setup_clk_force_ctrl;
 }
 
 static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,

@@ -93,6 +93,16 @@ struct sde_hw_mdp_ops {
 	 */
 	void (*setup_traffic_shaper)(struct sde_hw_mdp *mdp,
 			struct traffic_shaper_cfg *cfg);
+
+	/**
+	 * setup_clk_force_ctrl - set clock force control
+	 * @mdp: mdp top context driver
+	 * @clk_ctrl: clock to be controlled
+	 * @enable: force on enable
+	 * @return: if the clock is forced-on by this function
+	 */
+	bool (*setup_clk_force_ctrl)(struct sde_hw_mdp *mdp,
+			enum sde_clk_ctrl_type clk_ctrl, bool enable);
 };
 
 struct sde_hw_mdp {

@@ -72,6 +72,26 @@ TRACE_EVENT(sde_perf_set_danger_luts,
 			__entry->safe_lut)
 );
 
+TRACE_EVENT(sde_perf_set_ot,
+	TP_PROTO(u32 pnum, u32 xin_id, u32 rd_lim, u32 vbif_idx),
+	TP_ARGS(pnum, xin_id, rd_lim, vbif_idx),
+	TP_STRUCT__entry(
+			__field(u32, pnum)
+			__field(u32, xin_id)
+			__field(u32, rd_lim)
+			__field(u32, vbif_idx)
+	),
+	TP_fast_assign(
+			__entry->pnum = pnum;
+			__entry->xin_id = xin_id;
+			__entry->rd_lim = rd_lim;
+			__entry->vbif_idx = vbif_idx;
+	),
+	TP_printk("pnum:%d xin_id:%d ot:%d vbif:%d",
+			__entry->pnum, __entry->xin_id, __entry->rd_lim,
+			__entry->vbif_idx)
+)
+
 #endif /* _SDE_TRACE_H_ */
 
 /* This part must be outside protection */

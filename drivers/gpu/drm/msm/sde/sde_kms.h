@@ -140,6 +140,9 @@ struct sde_kms {
 	struct sde_irq irq_obj;
 
 	struct sde_rm rm;
+
+	struct sde_hw_vbif *hw_vbif[VBIF_MAX];
+	struct sde_hw_mdp *hw_mdp;
 };
 
 struct vsync_info {
@@ -148,6 +151,18 @@ struct vsync_info {
 };
 
 #define to_sde_kms(x) container_of(x, struct sde_kms, base)
+
+struct sde_vbif_set_ot_params {
+	u32 xin_id;
+	u32 num;
+	u32 width;
+	u32 height;
+	u32 frame_rate;
+	bool rd;
+	bool is_wfd;
+	u32 vbif_idx;
+	u32 clk_ctrl;
+};
 
 struct sde_plane_state {
 	struct drm_plane_state base;
@@ -617,5 +632,13 @@ enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
  * @dev:	drm device pointer
  */
 void sde_encoders_init(struct drm_device *dev);
+
+/**
+ * sde_vbif_set_ot_limit - set OT limit for vbif client
+ * @sde_kms:	SDE handler
+ * @params:	Pointer to OT configuration parameters
+ */
+void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
+		struct sde_vbif_set_ot_params *params);
 
 #endif /* __sde_kms_H__ */
