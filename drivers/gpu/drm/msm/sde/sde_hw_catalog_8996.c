@@ -146,6 +146,10 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 
 	/* Setup Register maps and defaults */
 	*cfg = (struct sde_mdss_cfg){
+		.mdss_count = 1,
+		.mdss = {
+			{.id = MDP_TOP, .base = 0x00000000, .features = 0}
+		},
 		.mdp_count = 1,
 		.mdp = {
 			{.id = MDP_TOP, .base = 0x00001000, .features = 0,

@@ -20,8 +20,30 @@
 #include "sde_encoder_phys.h"
 #include "sde_mdp_formats.h"
 
+#define VBLANK_TIMEOUT msecs_to_jiffies(100)
+
 #define to_sde_encoder_phys_vid(x) \
 	container_of(x, struct sde_encoder_phys_vid, base)
+
+static bool sde_encoder_phys_vid_is_master(
+		struct sde_encoder_phys *phys_enc)
+{
+	bool ret = true;
+
+	return ret;
+}
+
+static void sde_encoder_phys_vid_wait_for_vblank(
+		struct sde_encoder_phys_vid *vid_enc)
+{
+	int rc = 0;
+
+	DBG("");
+	rc = wait_for_completion_timeout(&vid_enc->vblank_complete,
+			VBLANK_TIMEOUT);
+	if (rc == 0)
+		DRM_ERROR("Timed out waiting for vblank irq\n");
+}
 
 static void drm_mode_to_intf_timing_params(
 		const struct sde_encoder_phys *phys_enc,
@@ -195,19 +217,29 @@ static bool sde_encoder_phys_vid_mode_fixup(
 	return true;
 }
 
+static void sde_encoder_phys_vid_flush_intf(struct sde_encoder_phys *phys_enc)
+{
+	struct sde_hw_intf *intf = phys_enc->hw_intf;
+	struct sde_hw_ctl *ctl = phys_enc->hw_ctl;
+	u32 flush_mask = 0;
+
+	DBG("");
+
+	ctl->ops.get_bitmask_intf(ctl, &flush_mask, intf->idx);
+	ctl->ops.setup_flush(ctl, flush_mask);
+
+	DBG("Flushing CTL_ID %d, flush_mask %x, INTF %d",
+			ctl->idx, flush_mask, intf->idx);
+}
+
 static void sde_encoder_phys_vid_mode_set(
 		struct sde_encoder_phys *phys_enc,
 		struct drm_display_mode *mode,
-		struct drm_display_mode *adjusted_mode)
+		struct drm_display_mode *adj_mode)
 {
-	mode = adjusted_mode;
-	phys_enc->cached_mode = *adjusted_mode;
-
-	DBG("set mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
-	    mode->base.id, mode->name, mode->vrefresh, mode->clock,
-	    mode->hdisplay, mode->hsync_start, mode->hsync_end, mode->htotal,
-	    mode->vdisplay, mode->vsync_start, mode->vsync_end, mode->vtotal,
-	    mode->type, mode->flags);
+	phys_enc->cached_mode = *adj_mode;
+	DBG("intf %d, caching mode:", phys_enc->hw_intf->idx);
+	drm_mode_debug_printmodeline(adj_mode);
 }
 
 static void sde_encoder_phys_vid_setup_timing_engine(
@@ -249,56 +281,113 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	programmable_fetch_config(phys_enc, &p);
 }
 
-static void sde_encoder_phys_vid_wait_for_vblank(
-		struct sde_encoder_phys_vid *vid_enc)
+static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 {
-	DBG("");
-	mdp_irq_wait(vid_enc->base.mdp_kms, vid_enc->vblank_irq.irqmask);
-}
-
-static void sde_encoder_phys_vid_vblank_irq(struct mdp_irq *irq,
-					    uint32_t irqstatus)
-{
-	struct sde_encoder_phys_vid *vid_enc =
-	    container_of(irq, struct sde_encoder_phys_vid,
-			 vblank_irq);
+	struct sde_encoder_phys_vid *vid_enc = arg;
 	struct sde_encoder_phys *phys_enc = &vid_enc->base;
 
 	phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent);
+
+	/* signal VBLANK completion */
+	complete_all(&vid_enc->vblank_complete);
+}
+
+static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_vid *vid_enc =
+	    to_sde_encoder_phys_vid(phys_enc);
+	struct sde_irq_callback irq_cb;
+	int ret = 0;
+
+	vid_enc->irq_idx = sde_irq_idx_lookup(phys_enc->sde_kms,
+			SDE_IRQ_TYPE_INTF_VSYNC, phys_enc->hw_intf->idx);
+	if (vid_enc->irq_idx < 0) {
+		DRM_ERROR(
+			"Failed to lookup IRQ index for INTF_VSYNC with intf=%d\n",
+			phys_enc->hw_intf->idx);
+		return -EINVAL;
+	}
+
+	irq_cb.func = sde_encoder_phys_vid_vblank_irq;
+	irq_cb.arg = vid_enc;
+	ret = sde_register_irq_callback(phys_enc->sde_kms, vid_enc->irq_idx,
+			&irq_cb);
+	if (ret) {
+		DRM_ERROR("Failed to register IRQ callback INTF_VSYNC\n");
+		return ret;
+	}
+
+	ret = sde_enable_irq(phys_enc->sde_kms, &vid_enc->irq_idx, 1);
+	if (ret) {
+		DRM_ERROR(
+			"Failed to enable IRQ for INTF_VSYNC, intf %d, irq_idx=%d\n",
+				phys_enc->hw_intf->idx,
+				vid_enc->irq_idx);
+		vid_enc->irq_idx = -EINVAL;
+
+		/* Unregister callback on IRQ enable failure */
+		sde_register_irq_callback(phys_enc->sde_kms, vid_enc->irq_idx,
+				NULL);
+		return ret;
+	}
+
+	DBG("Registered IRQ for intf %d, irq_idx=%d\n",
+			phys_enc->hw_intf->idx,
+			vid_enc->irq_idx);
+
+	return ret;
+}
+
+static int sde_encoder_phys_vid_unregister_irq(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_vid *vid_enc =
+			to_sde_encoder_phys_vid(phys_enc);
+
+	sde_register_irq_callback(phys_enc->sde_kms, vid_enc->irq_idx, NULL);
+	sde_disable_irq(phys_enc->sde_kms, &vid_enc->irq_idx, 1);
+
+	DBG("Un-Register IRQ for intf %d, irq_idx=%d\n",
+			phys_enc->hw_intf->idx,
+			vid_enc->irq_idx);
+
+	return 0;
 }
 
 static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-	    to_sde_encoder_phys_vid(phys_enc);
-	unsigned long lock_flags;
+	int ret = 0;
 
 	DBG("");
-
-	if (WARN_ON(phys_enc->enabled))
-		return;
 
 	if (WARN_ON(!phys_enc->hw_intf->ops.enable_timing))
 		return;
 
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
 
-	spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
-	phys_enc->hw_intf->ops.enable_timing(phys_enc->hw_intf, 1);
-	spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
+	sde_encoder_phys_vid_flush_intf(phys_enc);
 
-	phys_enc->enabled = true;
+	/* Register for interrupt unless we're the slave encoder */
+	if (sde_encoder_phys_vid_is_master(phys_enc))
+		ret = sde_encoder_phys_vid_register_irq(phys_enc);
 
-	mdp_irq_register(phys_enc->mdp_kms, &vid_enc->vblank_irq);
-	DBG("Registered IRQ for intf %d mask 0x%X", phys_enc->hw_intf->idx,
-	    vid_enc->vblank_irq.irqmask);
+	if (!ret && !phys_enc->enabled) {
+		unsigned long lock_flags = 0;
+
+		/* Now enable timing engine */
+		spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
+		phys_enc->hw_intf->ops.enable_timing(phys_enc->hw_intf, 1);
+		spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
+
+		phys_enc->enabled = true;
+	}
 }
 
 static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-	    to_sde_encoder_phys_vid(phys_enc);
 	unsigned long lock_flags;
+	struct sde_encoder_phys_vid *vid_enc =
+			to_sde_encoder_phys_vid(phys_enc);
 
 	DBG("");
 
@@ -310,6 +399,7 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 
 	spin_lock_irqsave(&phys_enc->spin_lock, lock_flags);
 	phys_enc->hw_intf->ops.enable_timing(phys_enc->hw_intf, 0);
+	reinit_completion(&vid_enc->vblank_complete);
 	spin_unlock_irqrestore(&phys_enc->spin_lock, lock_flags);
 
 	/*
@@ -321,7 +411,7 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 	 * scanout buffer) don't latch properly..
 	 */
 	sde_encoder_phys_vid_wait_for_vblank(vid_enc);
-	mdp_irq_unregister(phys_enc->mdp_kms, &vid_enc->vblank_irq);
+	sde_encoder_phys_vid_unregister_irq(phys_enc);
 	phys_enc->enabled = false;
 }
 
@@ -361,7 +451,6 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 {
 	struct sde_encoder_phys *phys_enc = NULL;
 	struct sde_encoder_phys_vid *vid_enc = NULL;
-	u32 irq_mask = 0x8000000;
 	int ret = 0;
 
 	DBG("");
@@ -371,6 +460,9 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 		ret = -ENOMEM;
 		goto fail;
 	}
+	vid_enc->irq_idx = -EINVAL;
+	init_completion(&vid_enc->vblank_complete);
+
 	phys_enc = &vid_enc->base;
 
 	phys_enc->hw_intf =
@@ -390,9 +482,7 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 	sde_encoder_phys_vid_init_cbs(&phys_enc->phys_ops);
 	phys_enc->parent = parent;
 	phys_enc->parent_ops = parent_ops;
-	phys_enc->mdp_kms = &sde_kms->base;
-	vid_enc->vblank_irq.irq = sde_encoder_phys_vid_vblank_irq;
-	vid_enc->vblank_irq.irqmask = irq_mask;
+	phys_enc->sde_kms = sde_kms;
 	spin_lock_init(&phys_enc->spin_lock);
 
 	DBG("Created sde_encoder_phys_vid for intf %d", phys_enc->hw_intf->idx);
