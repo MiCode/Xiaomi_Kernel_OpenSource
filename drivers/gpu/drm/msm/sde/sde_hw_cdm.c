@@ -218,7 +218,7 @@ int sde_hw_cdm_enable(struct sde_hw_cdm *ctx,
 		struct sde_hw_cdm_cfg *cdm)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
-	struct sde_mdp_format_params *fmt = cdm->output_fmt;
+	struct sde_format *fmt = cdm->output_fmt;
 	u32 opmode = 0;
 	u32 cdm_enable = 0;
 	u32 csc = 0;
@@ -227,7 +227,7 @@ int sde_hw_cdm_enable(struct sde_hw_cdm *ctx,
 		return 0;
 
 	if (cdm->output_type == CDM_CDWN_OUTPUT_HDMI) {
-		if (fmt->chroma_sample != SDE_MDP_CHROMA_H1V2)
+		if (fmt->chroma_sample != SDE_CHROMA_H1V2)
 			return -EINVAL; /*unsupported format */
 		opmode = BIT(0);
 		opmode |= (fmt->chroma_sample << 1);

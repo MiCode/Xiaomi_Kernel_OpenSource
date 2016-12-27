@@ -23,7 +23,7 @@ struct sde_hw_cdm_cfg {
 	u32 output_bit_depth;
 	u32 h_cdwn_type;
 	u32 v_cdwn_type;
-	struct sde_mdp_format_params *output_fmt;
+	struct sde_format *output_fmt;
 	u32 output_type;
 	int flags;
 };
