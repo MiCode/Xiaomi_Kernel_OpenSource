@@ -12,8 +12,8 @@
  *
  */
 
-#ifndef UFS_QCOM_PHY_QMP_V3_FALCON_H_
-#define UFS_QCOM_PHY_QMP_V3_FALCON_H_
+#ifndef UFS_QCOM_PHY_QMP_V3_660_H_
+#define UFS_QCOM_PHY_QMP_V3_660_H_
 
 #include "phy-qcom-ufs-i.h"
 
@@ -185,14 +185,14 @@
 #define UFS_PHY_RX_LINECFG_DISABLE_BIT		BIT(1)
 
 /*
- * This structure represents the v3 falcon specific phy.
+ * This structure represents the v3 660 specific phy.
  * common_cfg MUST remain the first field in this structure
  * in case extra fields are added. This way, when calling
  * get_ufs_qcom_phy() of generic phy, we can extract the
  * common phy structure (struct ufs_qcom_phy) out of it
  * regardless of the relevant specific phy.
  */
-struct ufs_qcom_phy_qmp_v3_falcon {
+struct ufs_qcom_phy_qmp_v3_660 {
 	struct ufs_qcom_phy common_cfg;
 };
 
