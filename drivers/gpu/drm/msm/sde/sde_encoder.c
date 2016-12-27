@@ -256,6 +256,57 @@ static bool sde_encoder_virt_mode_fixup(struct drm_encoder *drm_enc,
 	return ret;
 }
 
+static int sde_encoder_virt_atomic_check(struct drm_encoder *drm_enc,
+		    struct drm_crtc_state *crtc_state,
+		    struct drm_connector_state *conn_state)
+{
+	struct sde_encoder_virt *sde_enc = NULL;
+	const struct drm_display_mode *mode;
+	struct drm_display_mode *adj_mode;
+	int i = 0;
+	int ret = 0;
+
+	DBG("");
+
+	if (!drm_enc || !crtc_state || !conn_state) {
+		DRM_ERROR("Invalid pointer");
+		return -EINVAL;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	mode = &crtc_state->mode;
+	adj_mode = &crtc_state->adjusted_mode;
+	MSM_EVT(drm_enc->dev, 0, 0);
+
+	/* perform atomic check on the first physical encoder (master) */
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->ops.atomic_check) {
+			ret = phys->ops.atomic_check(phys, crtc_state,
+					conn_state);
+			if (ret)
+				DRM_ERROR("Mode unsupported, phys_enc %d.%d\n",
+						drm_enc->base.id, i);
+			break;
+		} else if (phys && phys->ops.mode_fixup) {
+			if (!phys->ops.mode_fixup(phys, mode, adj_mode)) {
+				DRM_ERROR("Mode unsupported, phys_enc %d.%d\n",
+						drm_enc->base.id, i);
+				ret = -EINVAL;
+			}
+			break;
+		}
+	}
+
+	/* Call to populate mode->crtc* information required by framework */
+	drm_mode_set_crtcinfo(adj_mode, 0);
+
+	MSM_EVT(drm_enc->dev, adj_mode->flags, adj_mode->private_flags);
+
+	return ret;
+}
+
 static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 				      struct drm_display_mode *mode,
 				      struct drm_display_mode *adj_mode)
@@ -351,6 +402,7 @@ static const struct drm_encoder_helper_funcs sde_encoder_helper_funcs = {
 	.mode_set = sde_encoder_virt_mode_set,
 	.disable = sde_encoder_virt_disable,
 	.enable = sde_encoder_virt_enable,
+	.atomic_check = sde_encoder_virt_atomic_check,
 };
 
 static const struct drm_encoder_funcs sde_encoder_funcs = {
@@ -372,6 +424,15 @@ static enum sde_intf sde_encoder_get_intf(struct sde_mdss_cfg *catalog,
 	}
 
 	return INTF_MAX;
+}
+
+static enum sde_wb sde_encoder_get_wb(struct sde_mdss_cfg *catalog,
+		enum sde_intf_type type, u32 controller_id)
+{
+	if (controller_id < catalog->wb_count)
+		return catalog->wb[controller_id].id;
+
+	return WB_MAX;
 }
 
 static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc)
@@ -567,6 +628,45 @@ static int sde_encoder_virt_add_phys_encs(
 	return 0;
 }
 
+static int sde_encoder_virt_add_phys_enc_wb(
+		struct sde_encoder_virt *sde_enc,
+		struct sde_kms *sde_kms,
+		enum sde_wb wb_idx,
+		enum sde_ctl ctl_idx,
+		enum sde_cdm cdm_idx,
+		enum sde_enc_split_role split_role)
+{
+	struct sde_encoder_phys *enc = NULL;
+	struct sde_encoder_virt_ops parent_ops = {
+		sde_encoder_vblank_callback,
+		sde_encoder_handle_phys_enc_ready_for_kickoff
+	};
+
+	DBG("");
+
+	if (sde_enc->num_phys_encs + 1 >=
+			ARRAY_SIZE(sde_enc->phys_encs)) {
+		DRM_ERROR("Too many physical encoders %d, unable to add\n",
+			  sde_enc->num_phys_encs);
+		return -EINVAL;
+	}
+
+	enc = sde_encoder_phys_wb_init(sde_kms, wb_idx,
+			ctl_idx, cdm_idx, split_role, &sde_enc->base,
+			parent_ops);
+
+	if (IS_ERR_OR_NULL(enc)) {
+		DRM_ERROR("Failed to initialize phys wb enc: %ld\n",
+			PTR_ERR(enc));
+		return enc == 0 ? -EINVAL : PTR_ERR(enc);
+	}
+
+	sde_enc->phys_encs[sde_enc->num_phys_encs] = enc;
+	++sde_enc->num_phys_encs;
+
+	return 0;
+}
+
 static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 				 struct sde_kms *sde_kms,
 				 struct msm_display_info *disp_info,
@@ -584,6 +684,9 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	} else if (disp_info->intf_type == DRM_MODE_CONNECTOR_HDMIA) {
 		*drm_enc_mode = DRM_MODE_ENCODER_TMDS;
 		intf_type = INTF_HDMI;
+	} else if (disp_info->intf_type == DRM_MODE_CONNECTOR_VIRTUAL) {
+		*drm_enc_mode = DRM_MODE_ENCODER_VIRTUAL;
+		intf_type = INTF_WB;
 	} else {
 		DRM_ERROR("Unsupported display interface type");
 		return -EINVAL;
@@ -602,7 +705,9 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		const struct sde_hw_res_map *hw_res_map = NULL;
 		enum sde_intf intf_idx = INTF_MAX;
 		enum sde_pingpong pp_idx = PINGPONG_MAX;
+		enum sde_wb wb_idx = WB_MAX;
 		enum sde_ctl ctl_idx = CTL_MAX;
+		enum sde_cdm cdm_idx = SDE_NONE;
 		u32 controller_id = disp_info->h_tile_instance[i];
 		enum sde_enc_split_role split_role = ENC_ROLE_SOLO;
 
@@ -616,26 +721,45 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		DBG("h_tile_instance %d = %d, split_role %d",
 				i, controller_id, split_role);
 
-		intf_idx = sde_encoder_get_intf(sde_kms->catalog,
-				intf_type, controller_id);
-		if (intf_idx == INTF_MAX) {
-			DRM_ERROR("Error: could not get the interface id\n");
-			ret = -EINVAL;
+		if (intf_type == INTF_WB) {
+			wb_idx = sde_encoder_get_wb(sde_kms->catalog,
+					intf_type, controller_id);
+			if (wb_idx == WB_MAX) {
+				DRM_ERROR(
+					"Error: could not get the writeback id\n");
+				ret = -EINVAL;
+			}
+			intf_idx = SDE_NONE;
+		} else {
+			intf_idx = sde_encoder_get_intf(sde_kms->catalog,
+					intf_type, controller_id);
+			if (intf_idx == INTF_MAX) {
+				DRM_ERROR(
+					"Error: could not get the interface id\n");
+				ret = -EINVAL;
+			}
+			wb_idx = SDE_NONE;
 		}
 
-		hw_res_map = sde_rm_get_res_map(sde_kms, intf_idx, SDE_NONE);
+		hw_res_map = sde_rm_get_res_map(sde_kms, intf_idx, wb_idx);
 		if (IS_ERR_OR_NULL(hw_res_map)) {
 			ret = -EINVAL;
 		} else {
 			pp_idx = hw_res_map->pp;
 			ctl_idx = hw_res_map->ctl;
+			cdm_idx = hw_res_map->cdm;
 		}
 
 		if (!ret) {
-			ret = sde_encoder_virt_add_phys_encs(
-					disp_info->capabilities,
-					sde_enc, sde_kms, intf_idx, pp_idx,
-					ctl_idx, split_role);
+			if (intf_type == INTF_WB)
+				ret = sde_encoder_virt_add_phys_enc_wb(
+						sde_enc, sde_kms, wb_idx,
+						ctl_idx, cdm_idx, split_role);
+			else
+				ret = sde_encoder_virt_add_phys_encs(
+						disp_info->capabilities,
+						sde_enc, sde_kms, intf_idx,
+						pp_idx, ctl_idx, split_role);
 			if (ret)
 				DRM_ERROR("Failed to add phys encs\n");
 		}
