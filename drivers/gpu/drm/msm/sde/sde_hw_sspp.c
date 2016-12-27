@@ -414,7 +414,7 @@ static void sde_hw_sspp_setup_sourceaddress(struct sde_hw_pipe *ctx,
 		return;
 
 	for (i = 0; i < cfg->src.num_planes; i++)
-		SDE_REG_WRITE(c, SSPP_SRC0_ADDR  + idx + i*0x4,
+		SDE_REG_WRITE(c, SSPP_SRC0_ADDR + idx + i*0x4,
 			cfg->addr.plane[i]);
 }
 
