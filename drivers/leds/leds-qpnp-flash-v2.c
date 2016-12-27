@@ -1733,7 +1733,7 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 	led->pdata->thermal_hysteresis = -EINVAL;
 	rc = of_property_read_u32(node, "qcom,thermal-hysteresis", &val);
 	if (!rc) {
-		if (led->pdata->pmic_rev_id->pmic_subtype == PM2FALCON_SUBTYPE)
+		if (led->pdata->pmic_rev_id->pmic_subtype == PM660L_SUBTYPE)
 			val = THERMAL_HYST_TEMP_TO_VAL(val, 20);
 		else
 			val = THERMAL_HYST_TEMP_TO_VAL(val, 15);

@@ -10,8 +10,8 @@
 * GNU General Public License for more details.
 */
 
-#include "msm-arm-smmu-falcon.dtsi"
-#include "msm-arm-smmu-impl-defs-falcon.dtsi"
+#include "msm-arm-smmu-660.dtsi"
+#include "msm-arm-smmu-impl-defs-660.dtsi"
 
 &soc {
 	/delete-node/ arm,smmu-turing_q6@5180000;

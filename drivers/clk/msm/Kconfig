@@ -7,7 +7,7 @@ config COMMON_CLK_MSM
 	  This support clock controller used by MSM devices which support
 	  global, mmss and gpu clock controller.
 	  Say Y if you want to support the clocks exposed by the MSM on
-	  platforms such as msm8996, msm8998, msmfalcon etc.
+	  platforms such as msm8996, msm8998 etc.
 
 config MSM_CLK_CONTROLLER_V2
 	bool "QTI clock driver"

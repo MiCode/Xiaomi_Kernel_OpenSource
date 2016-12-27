@@ -3,7 +3,7 @@ Qualcomm Technologies Inc Global Clock Debug Controller Binding
 
 Required properties :
 - compatible:	shall contain the following:
-			"qcom,gcc-debug-msmfalcon"
+			"qcom,gcc-debug-sdm660"
 
 - reg:		shall contain global clock controller
 	        base register offset location and length.
@@ -24,7 +24,7 @@ In the case where "qcom,cc-count" is > 1, the below needs to be defined.
 
 Example:
 	clock_gcc: clock-controller@100000 {
-		compatible = "qcom,gcc-msmfalcon", "syscon";
+		compatible = "qcom,gcc-sdm660", "syscon";
 		....
 	};
 
@@ -44,7 +44,7 @@ Example:
 	};
 
 	clock_debug: qcom,cc-debug@62000 {
-		compatible = "qcom,gcc-debug-msmfalcon";
+		compatible = "qcom,gcc-debug-sdm660";
 		reg = <0x62000 0x4>;
 		reg-names = "cc_offset";
 		clocks = <&clock_rpmcc  RPM_XO_CLK_SRC>;

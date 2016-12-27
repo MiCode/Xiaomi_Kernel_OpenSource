@@ -11,9 +11,9 @@
  */
 
 #include "skeleton64.dtsi"
-#include <dt-bindings/clock/qcom,gcc-msmfalcon.h>
-#include <dt-bindings/clock/qcom,gpu-msmfalcon.h>
-#include <dt-bindings/clock/qcom,mmcc-msmfalcon.h>
+#include <dt-bindings/clock/qcom,gcc-sdm660.h>
+#include <dt-bindings/clock/qcom,gpu-sdm660.h>
+#include <dt-bindings/clock/qcom,mmcc-sdm660.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
@@ -523,7 +523,7 @@
 		};
 		sensor_information12: qcom,sensor-information-12 {
 			qcom,sensor-type =  "alarm";
-			qcom,sensor-name = "pmfalcon_tz";
+			qcom,sensor-name = "pm660_tz";
 			qcom,scaling-factor = <1000>;
 		};
 		sensor_information13: qcom,sensor-information-13 {
@@ -598,7 +598,7 @@
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 
-		vdd-dig-supply = <&pm2falcon_s3_floor_level>;
+		vdd-dig-supply = <&pm660l_s3_floor_level>;
 		vdd-gfx-supply = <&gfx_vreg_corner>;
 
 		qcom,vdd-dig-rstr{
@@ -734,25 +734,25 @@
 	};
 
 	clock_rpmcc: qcom,rpmcc {
-		compatible = "qcom,rpmcc-msmfalcon", "qcom,rpmcc";
+		compatible = "qcom,rpmcc-sdm660", "qcom,rpmcc";
 		#clock-cells = <1>;
 	};
 
 	clock_gcc: clock-controller@100000 {
-		compatible = "qcom,gcc-msmfalcon", "syscon";
+		compatible = "qcom,gcc-sdm660", "syscon";
 		reg = <0x100000 0x94000>;
-		vdd_dig-supply = <&pm2falcon_s3_level>;
-		vdd_dig_ao-supply = <&pm2falcon_s3_level_ao>;
+		vdd_dig-supply = <&pm660l_s3_level>;
+		vdd_dig_ao-supply = <&pm660l_s3_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
 	clock_mmss: clock-controller@c8c0000 {
-		compatible = "qcom,mmcc-msmfalcon";
+		compatible = "qcom,mmcc-sdm660";
 		reg = <0xc8c0000 0x40000>;
-		vdd_mx_mmss-supply = <&pm2falcon_s5_level>;
-		vdd_dig_mmss-supply = <&pm2falcon_s3_level>;
-		vdda-supply = <&pmfalcon_l10>;
+		vdd_mx_mmss-supply = <&pm660l_s5_level>;
+		vdd_dig_mmss-supply = <&pm660l_s3_level>;
+		vdda-supply = <&pm660_l10>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -760,8 +760,8 @@
 	clock_gfx: clock-controller@5065000 {
 		compatible = "qcom,gpucc-msmtriton";
 		reg = <0x5065000 0x10000>;
-		vdd_dig_gfx-supply = <&pm2falcon_s3_level>;
-		vdd_mx_gfx-supply = <&pm2falcon_s5_level>;
+		vdd_dig_gfx-supply = <&pm660l_s3_level>;
+		vdd_mx_gfx-supply = <&pm660l_s5_level>;
 		vdd_gfx-supply = <&gfx_vreg_corner>;
 		qcom,gfxfreq-corner =
 			< 0         0>,
@@ -793,7 +793,7 @@
 	};
 
 	clock_debug: qcom,cc-debug@62000 {
-		compatible = "qcom,gcc-debug-msmfalcon";
+		compatible = "qcom,gcc-debug-sdm660";
 		reg = <0x62000 0x4>;
 		reg-names = "dbg_offset";
 		clocks = <&clock_rpmcc  RPM_XO_CLK_SRC>;
@@ -1017,7 +1017,7 @@
 		reg = <0x15700000 0x00100>;
 		interrupts = <0 162 1>;
 
-		vdd_cx-supply = <&pm2falcon_l9_level>;
+		vdd_cx-supply = <&pm660l_l9_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
 
@@ -1103,9 +1103,9 @@
 					 "mnoc_axi_clk";
 
 		interrupts = <0 448 1>;
-		vdd_cx-supply = <&pm2falcon_s3_level>;
+		vdd_cx-supply = <&pm660l_s3_level>;
 		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-		vdd_mx-supply = <&pm2falcon_s5_level>;
+		vdd_mx-supply = <&pm660l_s5_level>;
 		vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
@@ -1240,13 +1240,13 @@
 };
 
 #include "msmtriton-ion.dtsi"
-#include "msm-pmfalcon.dtsi"
-#include "msm-pm2falcon.dtsi"
-#include "msm-pmfalcon-rpm-regulator.dtsi"
-#include "msm-pm2falcon-rpm-regulator.dtsi"
+#include "msm-pm660.dtsi"
+#include "msm-pm660l.dtsi"
+#include "msm-pm660-rpm-regulator.dtsi"
+#include "msm-pm660l-rpm-regulator.dtsi"
 #include "msmtriton-regulator.dtsi"
-#include "msm-gdsc-falcon.dtsi"
-#include "msmfalcon-common.dtsi"
+#include "msm-gdsc-660.dtsi"
+#include "sdm660-common.dtsi"
 #include "msm-arm-smmu-triton.dtsi"
 
 &gdsc_usb30 {

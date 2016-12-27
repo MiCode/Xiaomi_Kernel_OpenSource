@@ -937,7 +937,7 @@ static struct of_device_id tsens_match[] = {
 	{	.compatible = "qcom,msmhamster-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_NONE,
 	},
-	{	.compatible = "qcom,msmfalcon-tsens",
+	{	.compatible = "qcom,sdm660-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_NONE,
 	},
 	{	.compatible = "qcom,msmtriton-tsens",
@@ -5507,7 +5507,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 		(!strcmp(id->compatible, "qcom,msm8998-tsens")))
 		tmdev->tsens_type = TSENS_TYPE3;
 	else if (!strcmp(id->compatible, "qcom,msmtitanium-tsens") ||
-		(!strcmp(id->compatible, "qcom,msmfalcon-tsens") ||
+		(!strcmp(id->compatible, "qcom,sdm660-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmtriton-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmhamster-tsens"))))) {
 		tmdev->tsens_type = TSENS_TYPE3;
@@ -5530,7 +5530,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 		(!strcmp(id->compatible, "qcom,msm8937-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msmtitanium-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msm8998-tsens")) ||
-		(!strcmp(id->compatible, "qcom,msmfalcon-tsens") ||
+		(!strcmp(id->compatible, "qcom,sdm660-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmtriton-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmhamster-tsens")))))
 			tmdev->tsens_valid_status_check = true;
@@ -5547,7 +5547,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 	if (!strcmp(id->compatible, "qcom,msm8996-tsens") ||
 		(!strcmp(id->compatible, "qcom,msm8998-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msmhamster-tsens")) ||
-		(!strcmp(id->compatible, "qcom,msmfalcon-tsens") ||
+		(!strcmp(id->compatible, "qcom,sdm660-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmtriton-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmtitanium-tsens"))))) {
 		tmdev->tsens_critical_irq =

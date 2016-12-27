@@ -98,7 +98,7 @@ Optional properties:
 				  used if qcom,thermal-derate-en is specified.
 				  Allowed values are:
 				  0, 15, 30, 45 for pmi8998.
-				  0, 20, 40, 60 for pm2falcon.
+				  0, 20, 40, 60 for pm660l.
 - qcom,thermal-thrsh1		: Integer property to specify OTST1 threshold
 				  for thermal mitigation. Unit is in Celsius.
 				  Accepted values are:

@@ -14,7 +14,7 @@
 /dts-v1/;
 
 #include "msmtriton.dtsi"
-#include "msmfalcon-pinctrl.dtsi"
+#include "sdm660-pinctrl.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM TRITON RUMI";

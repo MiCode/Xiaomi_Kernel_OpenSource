@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include "msmfalcon-coresight.dtsi"
+#include "sdm660-coresight.dtsi"
 
 &etm0 {
 	cpu = <&CPU4>;

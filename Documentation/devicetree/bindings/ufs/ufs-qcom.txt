@@ -10,7 +10,7 @@ Required properties:
 - compatible        : compatible list, contains "qcom,ufs-phy-qmp-20nm"
 		      or "qcom,ufs-phy-qmp-14nm" or "qcom,ufs-phy-qmp-v3"
 		      or "qcom,ufs-phy-qrbtc-v2" or
-		      "qcom,ufs-phy-qmp-v3-falcon"
+		      "qcom,ufs-phy-qmp-v3-660"
 		      according to the relevant phy in use.
 - reg               : should contain PHY register address space (mandatory),
 - reg-names         : indicates various resources passed to driver (via reg proptery) by name.
