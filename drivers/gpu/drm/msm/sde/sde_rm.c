@@ -42,6 +42,8 @@ struct sde_rm_requirements {
 	enum sde_rm_topology_name top_name;
 	uint64_t top_ctrl;
 	int num_lm;
+	int num_ctl;
+	bool needs_split_display;
 	struct sde_encoder_hw_resources hw_res;
 };
 
@@ -622,28 +624,47 @@ static int _sde_rm_reserve_ctls(
 		struct sde_rm_rsvp *rsvp,
 		struct sde_rm_requirements *reqs)
 {
+	struct sde_rm_hw_blk *ctls[MAX_BLOCKS];
 	struct sde_rm_hw_iter iter;
-	int num_ctls;
-	int count = 0;
+	int i = 0;
 
-	num_ctls = (reqs->top_name == SDE_RM_TOPOLOGY_DUALPIPE) ? 2 : 1;
+	memset(&ctls, 0, sizeof(ctls));
 
-	memset(&iter, 0, sizeof(iter));
-	iter.type = SDE_HW_BLK_CTL;
+	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_CTL);
 	while (sde_rm_get_hw(rm, &iter)) {
+		unsigned long caps;
+		bool has_split_display, has_ppsplit;
+
 		if (RESERVED_BY_OTHER(iter.blk, rsvp))
 			continue;
 
-		iter.blk->rsvp_nxt = rsvp;
-		MSM_EVTMSG(rm->dev, iter.blk->type_name, rsvp->enc_id,
-				iter.blk->id);
+		caps = ((struct sde_ctl_cfg *)iter.blk->catalog)->features;
+		has_split_display = BIT(SDE_CTL_SPLIT_DISPLAY) & caps;
+		has_ppsplit = BIT(SDE_CTL_PINGPONG_SPLIT) & caps;
 
-		if (++count == num_ctls)
+		SDE_DEBUG("ctl %d caps 0x%lX\n", iter.blk->id, caps);
+
+		if (reqs->needs_split_display != has_split_display)
+			continue;
+
+		if (reqs->top_name == SDE_RM_TOPOLOGY_PPSPLIT && !has_ppsplit)
+			continue;
+
+		ctls[i] = iter.blk;
+		SDE_DEBUG("ctl %d match\n", iter.blk->id);
+
+		if (++i == reqs->num_ctl)
 			break;
 	}
 
-	if (count != num_ctls)
+	if (i != reqs->num_ctl)
 		return -ENAVAIL;
+
+	for (i = 0; i < ARRAY_SIZE(ctls) && i < reqs->num_ctl; i++) {
+		ctls[i]->rsvp_nxt = rsvp;
+		MSM_EVTMSG(rm->dev, ctls[i]->type_name, rsvp->enc_id,
+				ctls[i]->id);
+	}
 
 	return 0;
 }
@@ -783,7 +804,7 @@ static int _sde_rm_make_next_rsvp(
 	 * Assign LMs and blocks whose usage is tied to them: DSPP & Pingpong.
 	 * Do assignment preferring to give away low-resource mixers first:
 	 * - Check mixers without DSPPs
-	 * - Only then check mixers with DSPPs
+	 * - Only then allow to grab from mixers with DSPP capability
 	 */
 	ret = _sde_rm_reserve_lms(rm, rsvp, reqs);
 	if (ret && !RM_RQ_DSPP(reqs)) {
@@ -796,9 +817,20 @@ static int _sde_rm_make_next_rsvp(
 		return ret;
 	}
 
+	/*
+	 * Do assignment preferring to give away low-resource CTLs first:
+	 * - Check mixers without Split Display
+	 * - Only then allow to grab from CTLs with split display capability
+	 */
 	_sde_rm_reserve_ctls(rm, rsvp, reqs);
-	if (ret)
+	if (ret && !reqs->needs_split_display) {
+		reqs->needs_split_display = true;
+		_sde_rm_reserve_ctls(rm, rsvp, reqs);
+	}
+	if (ret) {
+		SDE_ERROR("unable to find appropriate CTL\n");
 		return ret;
+	}
 
 	/* Assign INTFs, WBs, and blks whose usage is tied to them: CTL & CDM */
 	ret = _sde_rm_reserve_intf_related_hw(rm, rsvp, &reqs->hw_res);
@@ -862,9 +894,13 @@ static int _sde_rm_populate_requirements(
 			/* user requests serving dual display with 1 lm */
 			reqs->top_name = SDE_RM_TOPOLOGY_PPSPLIT;
 			reqs->num_lm = 1;
+			reqs->num_ctl = 1;
+			reqs->needs_split_display = true;
 		} else {
 			/* dual display, serve with 2 lms */
 			reqs->top_name = SDE_RM_TOPOLOGY_DUALPIPE;
+			reqs->num_ctl = 2;
+			reqs->needs_split_display = true;
 		}
 
 	} else if (reqs->num_lm == 1) {
@@ -872,13 +908,19 @@ static int _sde_rm_populate_requirements(
 			/* wide display, must split across 2 lm and merge */
 			reqs->top_name = SDE_RM_TOPOLOGY_DUALPIPEMERGE;
 			reqs->num_lm = 2;
+			reqs->num_ctl = 1;
+			reqs->needs_split_display = false;
 		} else if (RM_RQ_FORCE_TILING(reqs)) {
 			/* thin display, but user requests 2 lm and merge */
 			reqs->top_name = SDE_RM_TOPOLOGY_DUALPIPEMERGE;
 			reqs->num_lm = 2;
+			reqs->num_ctl = 1;
+			reqs->needs_split_display = false;
 		} else {
 			/* thin display, serve with only 1 lm */
 			reqs->top_name = SDE_RM_TOPOLOGY_SINGLEPIPE;
+			reqs->num_ctl = 1;
+			reqs->needs_split_display = false;
 		}
 
 	} else {
@@ -891,8 +933,8 @@ static int _sde_rm_populate_requirements(
 			reqs->hw_res.display_num_of_h_tiles);
 	SDE_DEBUG("display_max_width %d rm->lm_max_width %d\n",
 			mode->hdisplay, rm->lm_max_width);
-	SDE_DEBUG("num_lm %d topology_name %d\n", reqs->num_lm,
-			reqs->top_name);
+	SDE_DEBUG("num_lm %d num_ctl %d topology_name %d\n", reqs->num_lm,
+			reqs->num_ctl, reqs->top_name);
 	MSM_EVT(rm->dev, mode->hdisplay, rm->lm_max_width);
 	MSM_EVT(rm->dev, reqs->num_lm, reqs->top_ctrl);
 	MSM_EVT(rm->dev, reqs->top_name, 0);
