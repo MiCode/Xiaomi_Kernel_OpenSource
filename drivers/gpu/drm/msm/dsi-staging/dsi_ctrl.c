@@ -1371,7 +1371,7 @@ static struct platform_driver dsi_ctrl_driver = {
 	.probe = dsi_ctrl_dev_probe,
 	.remove = dsi_ctrl_dev_remove,
 	.driver = {
-		.name = "mdss_dsi_ctrl",
+		.name = "drm_dsi_ctrl",
 		.of_match_table = msm_dsi_of_match,
 	},
 };
