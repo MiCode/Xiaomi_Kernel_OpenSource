@@ -116,7 +116,7 @@ static int ipa2_smmu_map_peer_bam(unsigned long dev)
 					roundup(size + base -
 					rounddown(base, PAGE_SIZE), PAGE_SIZE),
 					IOMMU_READ | IOMMU_WRITE |
-					IOMMU_DEVICE)) {
+					IOMMU_MMIO)) {
 					IPAERR("Fail to ipa_iommu_map\n");
 					return -EINVAL;
 				}

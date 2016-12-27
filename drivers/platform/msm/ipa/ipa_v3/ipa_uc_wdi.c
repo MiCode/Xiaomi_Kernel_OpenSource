@@ -513,7 +513,7 @@ static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 
 	ret = ipa3_iommu_map(cb->mapping->domain, va, rounddown(pa, PAGE_SIZE),
 			true_len,
-			device ? (prot | IOMMU_DEVICE) : prot);
+			device ? (prot | IOMMU_MMIO) : prot);
 	if (ret) {
 		IPAERR("iommu map failed for pa=%pa len=%zu\n", &pa, true_len);
 		return -EINVAL;

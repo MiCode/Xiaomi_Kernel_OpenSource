@@ -151,7 +151,7 @@ static int ipa3_smmu_map_peer_bam(unsigned long dev)
 					roundup(size + base -
 					rounddown(base, PAGE_SIZE), PAGE_SIZE),
 					IOMMU_READ | IOMMU_WRITE |
-					IOMMU_DEVICE)) {
+					IOMMU_MMIO)) {
 					IPAERR("Fail to ipa3_iommu_map\n");
 					return -EINVAL;
 				}
@@ -1082,7 +1082,7 @@ int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map)
 
 	if (map) {
 		res = ipa3_iommu_map(smmu_domain, phys_addr, phys_addr,
-			PAGE_SIZE, IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
+			PAGE_SIZE, IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
 	} else {
 		res = iommu_unmap(smmu_domain, phys_addr, PAGE_SIZE);
 		res = (res != PAGE_SIZE);
