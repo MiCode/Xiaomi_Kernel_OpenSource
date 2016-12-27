@@ -219,10 +219,10 @@ static int sde_hw_ctl_reset_control(struct sde_hw_ctl *ctx)
 
 static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 		enum sde_lm lm,
-		struct sde_hw_stage_cfg *cfg)
+		struct sde_hw_stage_cfg *stage_cfg)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
-	u32 mixercfg, mixercfg_ext = 0;
+	u32 mixercfg, mixercfg_ext, mix, ext;
 	int i, j;
 	u8 stages;
 	int pipes_per_stage;
@@ -237,56 +237,62 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	else
 		pipes_per_stage = 1;
 
-	mixercfg = cfg->border_enable << 24; /* BORDER_OUT */
+	mixercfg = stage_cfg->border_enable << 24; /* BORDER_OUT */
+	mixercfg_ext = 0;
 
 	for (i = 0; i <= stages; i++) {
+		/* overflow to ext register if 'i + 1 > 7' */
+		mix = (i + 1) & 0x7;
+		ext = i >= 7;
+
+		/* 0: base, 1, stage_0, etc. */
 		for (j = 0; j < pipes_per_stage; j++) {
-			switch (cfg->stage[i][j]) {
+			switch (stage_cfg->stage[i][j]) {
 			case SSPP_VIG0:
-				mixercfg |= (i + 1) << 0;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 0;
+				mixercfg |= mix << 0;
+				mixercfg_ext |= ext << 0;
 				break;
 			case SSPP_VIG1:
-				mixercfg |= (i + 1) << 3;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 2;
+				mixercfg |= mix << 3;
+				mixercfg_ext |= ext << 2;
 				break;
 			case SSPP_VIG2:
-				mixercfg |= (i + 1) << 6;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 4;
+				mixercfg |= mix << 6;
+				mixercfg_ext |= ext << 4;
 				break;
 			case SSPP_VIG3:
-				mixercfg |= (i + 1) << 26;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 6;
+				mixercfg |= mix << 26;
+				mixercfg_ext |= ext << 6;
 				break;
 			case SSPP_RGB0:
-				mixercfg |= (i + 1) << 9;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 8;
+				mixercfg |= mix << 9;
+				mixercfg_ext |= ext << 8;
 				break;
 			case SSPP_RGB1:
-				mixercfg |= (i + 1) << 12;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 10;
+				mixercfg |= mix << 12;
+				mixercfg_ext |= ext << 10;
 				break;
 			case SSPP_RGB2:
-				mixercfg |= (i + 1) << 15;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 12;
+				mixercfg |= mix << 15;
+				mixercfg_ext |= ext << 12;
 				break;
 			case SSPP_RGB3:
-				mixercfg |= (i + 1) << 29;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 14;
+				mixercfg |= mix << 29;
+				mixercfg_ext |= ext << 14;
 				break;
 			case SSPP_DMA0:
-				mixercfg |= (i + 1) << 18;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 16;
+				mixercfg |= mix << 18;
+				mixercfg_ext |= ext << 16;
 				break;
 			case SSPP_DMA1:
-				mixercfg |= (i + 1) << 21;
-				mixercfg_ext |= ((i > SDE_STAGE_5) ? 1:0) << 18;
+				mixercfg |= mix << 21;
+				mixercfg_ext |= ext << 18;
 				break;
 			case SSPP_CURSOR0:
-				mixercfg_ext |= (i + 1) << 20;
+				mixercfg_ext |= ((i + 1) & 0xF) << 20;
 				break;
 			case SSPP_CURSOR1:
-				mixercfg_ext |= (i + 1) << 26;
+				mixercfg_ext |= ((i + 1) & 0xF) << 26;
 				break;
 			default:
 				break;
