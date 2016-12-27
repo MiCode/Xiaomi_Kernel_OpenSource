@@ -15,7 +15,7 @@
 
 #include "sde_hw_catalog.h"
 #include "sde_hw_mdss.h"
-#include "sde_hw_mdp_util.h"
+#include "sde_hw_util.h"
 
 struct sde_hw_pipe;
 

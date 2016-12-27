@@ -17,7 +17,7 @@
 
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
-#include "sde_hw_mdp_util.h"
+#include "sde_hw_util.h"
 #include "sde_hw_mdss.h"
 
 #define IRQ_SOURCE_MDP		BIT(0)

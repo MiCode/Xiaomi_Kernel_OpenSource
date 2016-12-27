@@ -15,7 +15,7 @@
 
 #include "sde_kms.h"
 #include "sde_hw_interrupts.h"
-#include "sde_hw_mdp_util.h"
+#include "sde_hw_util.h"
 #include "sde_hw_mdss.h"
 
 /**
