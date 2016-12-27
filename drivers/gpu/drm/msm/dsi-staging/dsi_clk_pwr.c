@@ -271,7 +271,7 @@ static int dsi_pwr_parse_supply_node(struct device_node *root,
 		}
 
 		snprintf(regs->vregs[i].vreg_name,
-			 strlen(regs->vregs[i].vreg_name),
+			 ARRAY_SIZE(regs->vregs[i].vreg_name),
 			 "%s", st);
 
 		rc = of_property_read_u32(node, "qcom,supply-min-voltage",
