@@ -1951,7 +1951,7 @@ int dsi_ctrl_set_power_state(struct dsi_ctrl *dsi_ctrl,
 	}
 
 	if ((!reg_enable) && (reg_enable != drv_state->pwr_enabled)) {
-		rc = dsi_ctrl_enable_supplies(dsi_ctrl, true);
+		rc = dsi_ctrl_enable_supplies(dsi_ctrl, false);
 		if (rc) {
 			pr_err("[%d]failed to disable vreg supplies, rc=%d\n",
 			       dsi_ctrl->index, rc);
