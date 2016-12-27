@@ -62,15 +62,27 @@ static int _mixer_stages(const struct sde_lm_cfg *mixer, int count,
 	return stages;
 }
 
-static inline void sde_hw_ctl_force_start(struct sde_hw_ctl *ctx)
+static inline void sde_hw_ctl_trigger_start(struct sde_hw_ctl *ctx)
 {
 	SDE_REG_WRITE(&ctx->hw, CTL_START, 0x1);
 }
 
-static inline void sde_hw_ctl_setup_flush(struct sde_hw_ctl *ctx, u32 flushbits)
+static inline void sde_hw_ctl_clear_pending_flush(struct sde_hw_ctl *ctx)
 {
-	SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, flushbits);
+	ctx->pending_flush_mask = 0x0;
 }
+
+static inline void sde_hw_ctl_update_pending_flush(struct sde_hw_ctl *ctx,
+		u32 flushbits)
+{
+	ctx->pending_flush_mask |= flushbits;
+}
+
+static inline void sde_hw_ctl_trigger_flush(struct sde_hw_ctl *ctx)
+{
+	SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, ctx->pending_flush_mask);
+}
+
 
 static inline int sde_hw_ctl_get_bitmask_sspp(struct sde_hw_ctl *ctx,
 		u32 *flushbits, enum sde_sspp sspp)
@@ -317,7 +329,21 @@ static void sde_hw_ctl_intf_cfg(struct sde_hw_ctl *ctx,
 
 	if (cfg->mode_3d) {
 		intf_cfg |= BIT(19);
-		intf_cfg |= (cfg->mode_3d - 1) << 20;
+		intf_cfg |= (cfg->mode_3d - 0x1) << 20;
+	}
+
+	switch (cfg->intf_mode_sel) {
+	case SDE_CTL_MODE_SEL_VID:
+		intf_cfg &= ~BIT(17);
+		intf_cfg &= ~(0x3 << 15);
+		break;
+	case SDE_CTL_MODE_SEL_CMD:
+		intf_cfg |= BIT(17);
+		intf_cfg |= ((cfg->stream_sel & 0x3) << 15);
+		break;
+	default:
+		pr_err("unknown interface type %d\n", cfg->intf_mode_sel);
+		return;
 	}
 
 	SDE_REG_WRITE(c, CTL_TOP, intf_cfg);
@@ -326,8 +352,10 @@ static void sde_hw_ctl_intf_cfg(struct sde_hw_ctl *ctx,
 static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 		unsigned long cap)
 {
-	ops->setup_flush = sde_hw_ctl_setup_flush;
-	ops->setup_start = sde_hw_ctl_force_start;
+	ops->clear_pending_flush = sde_hw_ctl_clear_pending_flush;
+	ops->update_pending_flush = sde_hw_ctl_update_pending_flush;
+	ops->trigger_flush = sde_hw_ctl_trigger_flush;
+	ops->trigger_start = sde_hw_ctl_trigger_start;
 	ops->setup_intf_cfg = sde_hw_ctl_intf_cfg;
 	ops->reset = sde_hw_ctl_reset_control;
 	ops->setup_blendstage = sde_hw_ctl_setup_blendstage;

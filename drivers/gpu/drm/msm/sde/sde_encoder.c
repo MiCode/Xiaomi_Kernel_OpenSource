@@ -23,9 +23,17 @@
 #include "sde_encoder_phys.h"
 #include "display_manager.h"
 
+/*
+ * Two to anticipate panels that can do cmd/vid dynamic switching
+ * plan is to create all possible physical encoder types, and switch between
+ * them at runtime
+ */
 #define NUM_PHYS_ENCODER_TYPES 2
+
 #define MAX_PHYS_ENCODERS_PER_VIRTUAL \
 	(MAX_H_TILES_PER_DISPLAY * NUM_PHYS_ENCODER_TYPES)
+
+#define WAIT_TIMEOUT_MSEC 100
 
 /**
  * struct sde_encoder_virt - virtual encoder. Container of one or more physical
@@ -40,21 +48,37 @@
  * @phys_encs:		Container of physical encoders managed.
  * @cur_master:		Pointer to the current master in this mode. Optimization
  *			Only valid after enable. Cleared as disable.
- * @kms_vblank_callback:	Callback into the upper layer / CRTC for
- *				notification of the VBLANK
- * @kms_vblank_callback_data:	Data from upper layer for VBLANK notification
+ * @crtc_vblank_cb:	Callback into the upper layer / CRTC for
+ *			notification of the VBLANK
+ * @crtc_vblank_cb_data:	Data from upper layer for VBLANK notification
+ * @pending_kickoff_mask:	Bitmask used to track which physical encoders
+ *				still have pending transmissions before we can
+ *				trigger the next kickoff. Bitmask tracks the
+ *				index of the phys_enc table. Protect since
+ *				shared between irq and commit thread
+ * @crtc_kickoff_cb:		Callback into CRTC that will flush & start
+ *				all CTL paths
+ * @crtc_kickoff_cb_data:	Opaque user data given to crtc_kickoff_cb
+ * @pending_kickoff_mask:	Bitmask tracking which phys_enc we are still
+ *				waiting on before we can trigger the next
+ *				kickoff. Bit0 = phys_encs[0] etc.
+ * @pending_kickoff_wq:		Wait queue commit thread to wait on phys_encs
+ *				become ready for kickoff in IRQ contexts
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
 	spinlock_t spin_lock;
 	uint32_t bus_scaling_client;
 
-	int num_phys_encs;
+	unsigned int num_phys_encs;
 	struct sde_encoder_phys *phys_encs[MAX_PHYS_ENCODERS_PER_VIRTUAL];
 	struct sde_encoder_phys *cur_master;
 
-	void (*kms_vblank_callback)(void *);
-	void *kms_vblank_callback_data;
+	void (*crtc_vblank_cb)(void *);
+	void *crtc_vblank_cb_data;
+
+	unsigned int pending_kickoff_mask;
+	wait_queue_head_t pending_kickoff_wq;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -255,12 +279,6 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 		if (phys && phys->ops.mode_set)
 			phys->ops.mode_set(phys, mode, adj_mode);
 	}
-
-	if (msm_is_mode_dynamic_fps(adj_mode)) {
-		if (sde_enc->cur_master->ops.flush_intf)
-			sde_enc->cur_master->ops.flush_intf(
-					sde_enc->cur_master);
-	}
 }
 
 static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
@@ -369,44 +387,168 @@ static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc)
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
 	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
-	if (sde_enc->kms_vblank_callback)
-		sde_enc->kms_vblank_callback(sde_enc->kms_vblank_callback_data);
+	if (sde_enc->crtc_vblank_cb)
+		sde_enc->crtc_vblank_cb(sde_enc->crtc_vblank_cb_data);
 	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
 }
 
-static int sde_encoder_virt_add_phys_vid_enc(
+void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
+		void (*vbl_cb)(void *), void *vbl_data)
+{
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	unsigned long lock_flags;
+	bool enable;
+	int i;
+
+	enable = vbl_cb ? true : false;
+
+	MSM_EVT(drm_enc->dev, enable, 0);
+
+	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
+	sde_enc->crtc_vblank_cb = vbl_cb;
+	sde_enc->crtc_vblank_cb_data = vbl_data;
+	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->ops.control_vblank_irq)
+			phys->ops.control_vblank_irq(phys, enable);
+	}
+}
+
+static void sde_encoder_handle_phys_enc_ready_for_kickoff(
+		struct drm_encoder *drm_enc,
+		struct sde_encoder_phys *ready_phys)
+{
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	unsigned long lock_flags;
+	unsigned int i, mask;
+
+	/* One of the physical encoders has become ready for kickoff */
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		if (sde_enc->phys_encs[i] == ready_phys) {
+			spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
+			sde_enc->pending_kickoff_mask &= ~(1 << i);
+			mask = sde_enc->pending_kickoff_mask;
+			spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
+			MSM_EVT(drm_enc->dev, i, mask);
+		}
+	}
+
+	/* Wake the commit thread to check if they all ready for kickoff */
+	wake_up_all(&sde_enc->pending_kickoff_wq);
+}
+
+void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc,
+		void (*kickoff_cb)(void *), void *kickoff_data)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct sde_encoder_phys *phys;
+	unsigned long lock_flags;
+	bool need_to_wait;
+	unsigned int i;
+	int ret;
+
+	if (!drm_enc) {
+		DRM_ERROR("invalid arguments");
+		return;
+	}
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	MSM_EVT(drm_enc->dev, 0, 0);
+
+	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
+	sde_enc->pending_kickoff_mask = 0;
+	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		need_to_wait = false;
+		phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->ops.prepare_for_kickoff)
+			phys->ops.prepare_for_kickoff(phys, &need_to_wait);
+
+		if (need_to_wait) {
+			spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
+			sde_enc->pending_kickoff_mask |= 1 << i;
+			spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
+		}
+	}
+
+	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
+	MSM_EVT(drm_enc->dev, sde_enc->pending_kickoff_mask, 0);
+	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
+
+	/* Wait for the busy phys encs to be ready */
+	ret = -ERESTARTSYS;
+	while (ret == -ERESTARTSYS) {
+		spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
+		ret = wait_event_interruptible_lock_irq_timeout(
+				sde_enc->pending_kickoff_wq,
+				sde_enc->pending_kickoff_mask == 0,
+				sde_enc->spin_lock,
+				msecs_to_jiffies(WAIT_TIMEOUT_MSEC));
+		spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
+		if (!ret)
+			DBG("wait %u msec timed out", WAIT_TIMEOUT_MSEC);
+	}
+
+	/* All phys encs are ready to go, trigger the kickoff */
+	if (kickoff_cb)
+		kickoff_cb(kickoff_data);
+
+	/* Allow phys encs to handle any post-kickoff business */
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->ops.handle_post_kickoff)
+			phys->ops.handle_post_kickoff(phys);
+	}
+}
+
+static int sde_encoder_virt_add_phys_encs(
+		enum display_interface_mode intf_mode,
 		struct sde_encoder_virt *sde_enc,
 		struct sde_kms *sde_kms,
 		enum sde_intf intf_idx,
 		enum sde_ctl ctl_idx,
 		enum sde_enc_split_role split_role)
 {
-	int ret = 0;
+	struct sde_encoder_phys *enc = NULL;
+	struct sde_encoder_virt_ops parent_ops = {
+		sde_encoder_vblank_callback,
+		sde_encoder_handle_phys_enc_ready_for_kickoff
+	};
 
 	DBG("");
 
-	if (sde_enc->num_phys_encs >= ARRAY_SIZE(sde_enc->phys_encs)) {
-		DRM_ERROR("Too many video encoders %d, unable to add\n",
+	/*
+	 * We may create up to NUM_PHYS_ENCODER_TYPES physical encoder types
+	 * in this function, check up-front.
+	 */
+	if (sde_enc->num_phys_encs + NUM_PHYS_ENCODER_TYPES >=
+			ARRAY_SIZE(sde_enc->phys_encs)) {
+		DRM_ERROR("Too many physical encoders %d, unable to add\n",
 			  sde_enc->num_phys_encs);
-		ret = -EINVAL;
-	} else {
-		struct sde_encoder_virt_ops parent_ops = {
-			sde_encoder_vblank_callback
-		};
-		struct sde_encoder_phys *enc =
-		    sde_encoder_phys_vid_init(sde_kms, intf_idx, ctl_idx,
-				    split_role, &sde_enc->base, parent_ops);
-		if (IS_ERR_OR_NULL(enc)) {
-			DRM_ERROR("Failed to initialize phys enc: %ld\n",
-					PTR_ERR(enc));
-			ret = enc == 0 ? -EINVAL : PTR_ERR(enc);
-		} else {
-			sde_enc->phys_encs[sde_enc->num_phys_encs] = enc;
-			++sde_enc->num_phys_encs;
-		}
+		return -EINVAL;
 	}
 
-	return ret;
+	if (intf_mode & DISPLAY_INTF_MODE_VID) {
+		enc = sde_encoder_phys_vid_init(sde_kms, intf_idx, ctl_idx,
+				split_role, &sde_enc->base, parent_ops);
+
+		if (IS_ERR_OR_NULL(enc)) {
+			DRM_ERROR("Failed to initialize phys vid enc: %ld\n",
+				PTR_ERR(enc));
+			return enc == 0 ? -EINVAL : PTR_ERR(enc);
+		}
+
+		sde_enc->phys_encs[sde_enc->num_phys_encs] = enc;
+		++sde_enc->num_phys_encs;
+	}
+
+	return 0;
 }
 
 static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
@@ -469,11 +611,15 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 			ret = -EINVAL;
 		} else {
 			ctl_idx = hw_res_map->ctl;
-			ret = sde_encoder_virt_add_phys_vid_enc(
-					sde_enc, sde_kms, intf_idx, ctl_idx,
-					split_role);
+		}
+
+		if (!ret) {
+			ret = sde_encoder_virt_add_phys_encs(
+					disp_info->intf_mode,
+					sde_enc, sde_kms, intf_idx,
+					ctl_idx, split_role);
 			if (ret)
-				DRM_ERROR("Failed to add phys enc\n");
+				DRM_ERROR("Failed to add phys encs\n");
 		}
 	}
 
@@ -510,6 +656,8 @@ static struct drm_encoder *sde_encoder_virt_init(
 	drm_encoder_init(dev, drm_enc, &sde_encoder_funcs, drm_enc_mode);
 	drm_encoder_helper_add(drm_enc, &sde_encoder_helper_funcs);
 	bs_init(sde_enc);
+	sde_enc->pending_kickoff_mask = 0;
+	init_waitqueue_head(&sde_enc->pending_kickoff_wq);
 
 	DBG("Created encoder");
 
@@ -523,39 +671,30 @@ fail:
 	return ERR_PTR(ret);
 }
 
-void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
-		void (*cb)(void *), void *data)
-{
-	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
-	unsigned long lock_flags;
-
-	DBG("");
-
-	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
-	sde_enc->kms_vblank_callback = cb;
-	sde_enc->kms_vblank_callback_data = data;
-	spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
-}
-
-void  sde_encoder_get_vblank_status(struct drm_encoder *drm_enc,
-		struct vsync_info *vsync)
+int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
-	struct sde_encoder_phys *master = NULL;
+	int i, ret = 0;
 
 	DBG("");
 
-	if (!vsync || !drm_enc) {
+	if (!drm_enc) {
 		DRM_ERROR("Invalid pointer");
-		return;
+		return -EINVAL;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
-	memset(vsync, 0, sizeof(*vsync));
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-	master = sde_enc->cur_master;
-	if (master && master->ops.get_vblank_status)
-		master->ops.get_vblank_status(master, vsync);
+		if (phys && phys->ops.wait_for_commit_done) {
+			ret = phys->ops.wait_for_commit_done(phys);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return ret;
 }
 
 /* encoders init,
