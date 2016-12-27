@@ -306,6 +306,11 @@
 	status = "okay";
 };
 
+&pmi8998_wled {
+	qcom,led-strings-list = [00 01];
+	qcom,fs-curr-ua = <20000>;
+};
+
 &tlmm {
 	/* add pingrp for touchscreen */
 	pmx_ts_rst_active {
