@@ -21,6 +21,7 @@
 #include "sde_formats.h"
 #include "sde_hw_top.h"
 #include "sde_hw_interrupts.h"
+#include "sde_core_irq.h"
 #include "sde_wb.h"
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
@@ -487,8 +488,9 @@ static int sde_encoder_phys_wb_unregister_irq(
 	if (wb_enc->bypass_irqreg)
 		return 0;
 
-	sde_disable_irq(phys_enc->sde_kms, &wb_enc->irq_idx, 1);
-	sde_register_irq_callback(phys_enc->sde_kms, wb_enc->irq_idx, NULL);
+	sde_core_irq_disable(phys_enc->sde_kms, &wb_enc->irq_idx, 1);
+	sde_core_irq_register_callback(phys_enc->sde_kms, wb_enc->irq_idx,
+			NULL);
 
 	SDE_DEBUG("un-register IRQ for wb %d, irq_idx=%d\n",
 			hw_wb->idx - WB_0,
@@ -532,7 +534,7 @@ static int sde_encoder_phys_wb_register_irq(struct sde_encoder_phys *phys_enc)
 		return 0;
 
 	intr_type = sde_encoder_phys_wb_get_intr_type(hw_wb);
-	wb_enc->irq_idx = sde_irq_idx_lookup(phys_enc->sde_kms,
+	wb_enc->irq_idx = sde_core_irq_idx_lookup(phys_enc->sde_kms,
 			intr_type, hw_wb->idx);
 	if (wb_enc->irq_idx < 0) {
 		SDE_ERROR(
@@ -543,14 +545,14 @@ static int sde_encoder_phys_wb_register_irq(struct sde_encoder_phys *phys_enc)
 
 	irq_cb.func = sde_encoder_phys_wb_done_irq;
 	irq_cb.arg = wb_enc;
-	ret = sde_register_irq_callback(phys_enc->sde_kms, wb_enc->irq_idx,
-			&irq_cb);
+	ret = sde_core_irq_register_callback(phys_enc->sde_kms,
+			wb_enc->irq_idx, &irq_cb);
 	if (ret) {
 		SDE_ERROR("failed to register IRQ callback WB_DONE\n");
 		return ret;
 	}
 
-	ret = sde_enable_irq(phys_enc->sde_kms, &wb_enc->irq_idx, 1);
+	ret = sde_core_irq_enable(phys_enc->sde_kms, &wb_enc->irq_idx, 1);
 	if (ret) {
 		SDE_ERROR(
 			"failed to enable IRQ for WB_DONE, wb %d, irq_idx=%d\n",
@@ -559,8 +561,8 @@ static int sde_encoder_phys_wb_register_irq(struct sde_encoder_phys *phys_enc)
 		wb_enc->irq_idx = -EINVAL;
 
 		/* Unregister callback on IRQ enable failure */
-		sde_register_irq_callback(phys_enc->sde_kms, wb_enc->irq_idx,
-				NULL);
+		sde_core_irq_register_callback(phys_enc->sde_kms,
+				wb_enc->irq_idx, NULL);
 		return ret;
 	}
 
@@ -679,7 +681,7 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 	if (!ret) {
 		MSM_EVT(DEV(phys_enc), wb_enc->frame_count, 0);
 
-		irq_status = sde_read_irq(phys_enc->sde_kms,
+		irq_status = sde_core_irq_read(phys_enc->sde_kms,
 				wb_enc->irq_idx, true);
 		if (irq_status) {
 			SDE_DEBUG("wb:%d done but irq not triggered\n",
