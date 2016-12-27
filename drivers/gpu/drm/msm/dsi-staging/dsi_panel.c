@@ -317,6 +317,47 @@ error:
 	return rc;
 }
 
+#ifdef CONFIG_LEDS_TRIGGERS
+static int dsi_panel_led_bl_register(struct dsi_panel *panel,
+				struct dsi_backlight_config *bl)
+{
+	int rc = 0;
+
+	led_trigger_register_simple("bkl-trigger", &bl->wled);
+
+	/* LED APIs don't tell us directly whether a classdev has yet
+	 * been registered to service this trigger. Until classdev is
+	 * registered, calling led_trigger has no effect, and doesn't
+	 * fail. Classdevs are associated with any registered triggers
+	 * when they do register, but that is too late for FBCon.
+	 * Check the cdev list directly and defer if appropriate.
+	 */
+	if (!bl->wled) {
+		pr_err("[%s] backlight registration failed\n", panel->name);
+		rc = -EINVAL;
+	} else {
+		read_lock(&bl->wled->leddev_list_lock);
+		if (list_empty(&bl->wled->led_cdevs))
+			rc = -EPROBE_DEFER;
+		read_unlock(&bl->wled->leddev_list_lock);
+
+		if (rc) {
+			pr_info("[%s] backlight %s not ready, defer probe\n",
+				panel->name, bl->wled->name);
+			led_trigger_unregister_simple(bl->wled);
+		}
+	}
+
+	return rc;
+}
+#else
+static int dsi_panel_led_bl_register(struct dsi_panel *panel,
+				struct dsi_backlight_config *bl)
+{
+	return 0;
+}
+#endif
+
 static int dsi_panel_bl_register(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -324,32 +365,7 @@ static int dsi_panel_bl_register(struct dsi_panel *panel)
 
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
-		led_trigger_register_simple("bkl-trigger", &bl->wled);
-
-		/* LED APIs don't tell us directly whether a classdev has yet
-		 * been registered to service this trigger. Until classdev is
-		 * registered, calling led_trigger has no effect, and doesn't
-		 * fail. Classdevs are associated with any registered triggers
-		 * when they do register, but that is too late for FBCon.
-		 * Check the cdev list directly and defer if appropriate.
-		 */
-		if (!bl->wled) {
-			pr_err("[%s] backlight registration failed\n",
-					panel->name);
-			rc = -EINVAL;
-		} else {
-			read_lock(&bl->wled->leddev_list_lock);
-			if (list_empty(&bl->wled->led_cdevs))
-				rc = -EPROBE_DEFER;
-			read_unlock(&bl->wled->leddev_list_lock);
-
-			if (rc) {
-				pr_info("[%s] backlight %s not ready, defer probe\n",
-					panel->name, bl->wled->name);
-				led_trigger_unregister_simple(bl->wled);
-			}
-		}
-
+		rc = dsi_panel_led_bl_register(panel, bl);
 		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
