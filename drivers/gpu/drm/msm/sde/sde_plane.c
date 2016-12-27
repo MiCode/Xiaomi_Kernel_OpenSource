@@ -31,6 +31,8 @@
 
 #define SDE_NAME_SIZE  12
 
+#define SDE_PLANE_COLOR_FILL_FLAG	BIT(31)
+
 struct sde_plane {
 	struct drm_plane base;
 
@@ -48,6 +50,8 @@ struct sde_plane {
 	struct sde_hw_pixel_ext pixel_ext;
 	struct sde_hw_sharp_cfg sharp_cfg;
 	struct sde_hw_scaler3_cfg scaler3_cfg;
+	uint32_t color_fill;
+	bool is_error;
 
 	struct sde_csc_cfg csc_cfg;
 	struct sde_csc_cfg *csc_ptr;
@@ -72,27 +76,28 @@ static bool sde_plane_enabled(struct drm_plane_state *state)
 	return state && state->fb && state->crtc;
 }
 
-/* helper to update a state's sync fence pointer from the property */
-static void _sde_plane_update_sync_fence(struct drm_plane *plane,
+/* helper to update a state's input fence pointer from the property */
+static void _sde_plane_set_input_fence(struct drm_plane *plane,
 		struct sde_plane_state *pstate, uint64_t fd)
 {
 	if (!plane || !pstate)
 		return;
 
 	/* clear previous reference */
-	if (pstate->sync_fence)
-		sde_sync_put(pstate->sync_fence);
+	if (pstate->input_fence)
+		sde_sync_put(pstate->input_fence);
 
 	/* get fence pointer for later */
-	pstate->sync_fence = sde_sync_get(fd);
+	pstate->input_fence = sde_sync_get(fd);
 
 	DBG("0x%llX", fd);
 }
 
-int sde_plane_wait_sync_fence(struct drm_plane *plane, uint32_t wait_ms)
+int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 {
+	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
-	void *sync_fence;
+	void *input_fence;
 	int ret = -EINVAL;
 
 	if (!plane) {
@@ -100,18 +105,27 @@ int sde_plane_wait_sync_fence(struct drm_plane *plane, uint32_t wait_ms)
 	} else if (!plane->state) {
 		DRM_ERROR("Invalid plane state\n");
 	} else {
+		psde = to_sde_plane(plane);
 		pstate = to_sde_plane_state(plane->state);
-		sync_fence = pstate->sync_fence;
+		input_fence = pstate->input_fence;
 
-		if (sync_fence) {
-			DBG("%s", to_sde_plane(plane)->pipe_name);
-			ret = sde_sync_wait(sync_fence, (long)wait_ms);
-			if (!ret)
-				DBG("signaled");
-			else if (ret == -ETIME)
-				DRM_ERROR("timeout\n");
-			else
-				DRM_ERROR("error %d\n", ret);
+		if (input_fence) {
+			ret = sde_sync_wait(input_fence, wait_ms);
+			switch (ret) {
+			case 0:
+				DBG("%s signaled", psde->pipe_name);
+				break;
+			case -ETIME:
+				DRM_ERROR("timeout on %s, %ums\n",
+						psde->pipe_name, wait_ms);
+				psde->is_error = true;
+				break;
+			default:
+				DRM_ERROR("error on %s, %d\n",
+						psde->pipe_name, ret);
+				psde->is_error = true;
+				break;
+			}
 		} else {
 			ret = 0;
 		}
@@ -437,15 +451,11 @@ static void _sde_plane_setup_csc(struct sde_plane *psde,
 			DRM_ERROR("invalid csc blob, v%lld\n", csc->version);
 	}
 
+	/* revert to kernel default if override not available */
 	if (psde->csc_ptr)
 		DBG("user blob override for csc");
-	/* revert to kernel default */
 	else if (SDE_FORMAT_IS_YUV(fmt))
 		psde->csc_ptr = (struct sde_csc_cfg *)&sde_csc_YUV2RGB_601L;
-	else
-		psde->csc_ptr = (struct sde_csc_cfg *)&sde_csc_NOP;
-
-	psde->pipe_hw->ops.setup_csc(psde->pipe_hw, psde->csc_ptr);
 }
 
 static void _sde_plane_setup_scaler(struct sde_plane *psde,
@@ -619,7 +629,14 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 	}
 }
 
-int sde_plane_color_fill(struct drm_plane *plane,
+/**
+ * _sde_plane_color_fill - enables color fill on plane
+ * @plane:  Pointer to DRM plane object
+ * @color:  RGB fill color value, [23..16] Blue, [15..8] Green, [7..0] Red
+ * @alpha:  8-bit fill alpha value, 255 selects 100% alpha
+ * Returns: 0 on success
+ */
+static int _sde_plane_color_fill(struct drm_plane *plane,
 		uint32_t color, uint32_t alpha)
 {
 	struct sde_plane *psde;
@@ -635,6 +652,8 @@ int sde_plane_color_fill(struct drm_plane *plane,
 		DRM_ERROR("Invalid plane h/w pointer\n");
 		return -EINVAL;
 	}
+
+	DBG("");
 
 	/*
 	 * select fill format to match user property expectation,
@@ -676,7 +695,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 {
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
-	uint32_t nplanes, color_fill;
+	uint32_t nplanes;
 	uint32_t src_flags;
 	const struct sde_format *fmt;
 
@@ -747,12 +766,11 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	fmt = psde->pipe_cfg.src.format;
 
 	/* check for color fill */
-	color_fill = (uint32_t)sde_plane_get_property(pstate,
+	psde->color_fill = (uint32_t)sde_plane_get_property(pstate,
 			PLANE_PROP_COLOR_FILL);
-	if (color_fill & BIT(31)) {
-		/* force 100% alpha, stop other processing */
-		return sde_plane_color_fill(plane, color_fill, 0xFF);
-	}
+	if (psde->color_fill & SDE_PLANE_COLOR_FILL_FLAG)
+		/* skip remaining processing on color fill */
+		return 0;
 
 	_sde_plane_set_scanout(plane, pstate, &psde->pipe_cfg, fb);
 
@@ -778,6 +796,8 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	/* update csc */
 	if (SDE_FORMAT_IS_YUV(fmt))
 		_sde_plane_setup_csc(psde, pstate, fmt);
+	else
+		psde->csc_ptr = 0;
 
 	return 0;
 }
@@ -1005,9 +1025,34 @@ exit:
 	return ret;
 }
 
-void sde_plane_complete_flip(struct drm_plane *plane)
+/**
+ * sde_plane_flush - final plane operations before commit flush
+ * @plane: Pointer to drm plane structure
+ */
+void sde_plane_flush(struct drm_plane *plane)
 {
-	if (plane && plane->state)
+	struct sde_plane *psde;
+
+	if (!plane)
+		return;
+
+	psde = to_sde_plane(plane);
+
+	/*
+	 * These updates have to be done immediately before the plane flush
+	 * timing, and may not be moved to the atomic_update/mode_set functions.
+	 */
+	if (psde->is_error)
+		/* force white frame with 0% alpha pipe output on error */
+		_sde_plane_color_fill(plane, 0xFFFFFF, 0x0);
+	else if (psde->color_fill & SDE_PLANE_COLOR_FILL_FLAG)
+		/* force 100% alpha */
+		_sde_plane_color_fill(plane, psde->color_fill, 0xFF);
+	else if (psde->pipe_hw && psde->csc_ptr && psde->pipe_hw->ops.setup_csc)
+		psde->pipe_hw->ops.setup_csc(psde->pipe_hw, psde->csc_ptr);
+
+	/* flag h/w flush complete */
+	if (plane->state)
 		to_sde_plane_state(plane->state)->pending = false;
 }
 
@@ -1024,6 +1069,7 @@ static void sde_plane_atomic_update(struct drm_plane *plane,
 	}
 
 	sde_plane = to_sde_plane(plane);
+	sde_plane->is_error = false;
 	state = plane->state;
 	pstate = to_sde_plane_state(state);
 
@@ -1084,8 +1130,9 @@ static void _sde_plane_install_properties(struct drm_plane *plane)
 				0, 0xFFFFFFFF, 0,
 				PLANE_PROP_COLOR_FILL);
 
-	msm_property_install_range(&psde->property_info, "sync_fence",
-			0, ~0, ~0, PLANE_PROP_SYNC_FENCE);
+	msm_property_install_range(&psde->property_info, "input_fence",
+			0, ~0, ~0,
+			PLANE_PROP_INPUT_FENCE);
 
 	/* standard properties */
 	msm_property_install_rotation(&psde->property_info,
@@ -1133,9 +1180,8 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 		if (!ret) {
 			idx = msm_property_index(&psde->property_info,
 					property);
-			if (idx == PLANE_PROP_SYNC_FENCE)
-				_sde_plane_update_sync_fence(plane,
-						pstate, val);
+			if (idx == PLANE_PROP_INPUT_FENCE)
+				_sde_plane_set_input_fence(plane, pstate, val);
 		}
 	}
 
@@ -1223,8 +1269,8 @@ static void sde_plane_destroy_state(struct drm_plane *plane,
 		drm_framebuffer_unreference(state->fb);
 
 	/* remove ref count for fence */
-	if (pstate->sync_fence)
-		sde_sync_put(pstate->sync_fence);
+	if (pstate->input_fence)
+		sde_sync_put(pstate->input_fence);
 
 	/* destroy value helper */
 	msm_property_destroy_state(&psde->property_info, pstate,
@@ -1258,10 +1304,10 @@ sde_plane_duplicate_state(struct drm_plane *plane)
 		drm_framebuffer_reference(pstate->base.fb);
 
 	/* add ref count for fence */
-	if (pstate->sync_fence) {
-		pstate->sync_fence = 0;
-		_sde_plane_update_sync_fence(plane, pstate, pstate->
-				property_values[PLANE_PROP_SYNC_FENCE]);
+	if (pstate->input_fence) {
+		pstate->input_fence = 0;
+		_sde_plane_set_input_fence(plane, pstate, pstate->
+				property_values[PLANE_PROP_INPUT_FENCE]);
 	}
 
 	pstate->mode_changed = false;
