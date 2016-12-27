@@ -31,11 +31,9 @@ struct sde_hw_ctl;
 /**
  * struct sde_hw_stage_cfg - blending stage cfg
  * @stage
- * @border_enable
  */
 struct sde_hw_stage_cfg {
-	enum sde_sspp stage[SDE_STAGE_MAX][SDE_MAX_PIPES_PER_STAGE];
-	u8 border_enable[CRTC_DUAL_MIXERS];
+	enum sde_sspp stage[CRTC_DUAL_MIXERS][SDE_STAGE_MAX][PIPES_PER_STAGE];
 };
 
 /**
@@ -98,12 +96,10 @@ struct sde_hw_ctl_ops {
 
 	int (*reset)(struct sde_hw_ctl *c);
 
-	int (*get_bitmask_sspp)(struct sde_hw_ctl *ctx,
-		u32 *flushbits,
+	uint32_t (*get_bitmask_sspp)(struct sde_hw_ctl *ctx,
 		enum sde_sspp blk);
 
-	int (*get_bitmask_mixer)(struct sde_hw_ctl *ctx,
-		u32 *flushbits,
+	uint32_t (*get_bitmask_mixer)(struct sde_hw_ctl *ctx,
 		enum sde_lm blk);
 
 	int (*get_bitmask_dspp)(struct sde_hw_ctl *ctx,
