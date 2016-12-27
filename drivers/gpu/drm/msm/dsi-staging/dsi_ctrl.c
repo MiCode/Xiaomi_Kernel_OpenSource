@@ -1812,7 +1812,7 @@ int dsi_ctrl_cmd_transfer(struct dsi_ctrl *dsi_ctrl,
 	}
 
 	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_CMD_TX, 0x0);
-error_disable_bw_vote:
+
 	(void)dsi_ctrl_vote_for_bandwidth(dsi_ctrl, false);
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
