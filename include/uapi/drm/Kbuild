@@ -20,3 +20,4 @@ header-y += vmwgfx_drm.h
 header-y += msm_drm.h
 header-y += vc4_drm.h
 header-y += virtgpu_drm.h
+header-y += sde_drm.h
