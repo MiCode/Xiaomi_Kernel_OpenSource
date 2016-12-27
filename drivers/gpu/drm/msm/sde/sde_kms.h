@@ -15,6 +15,7 @@
 
 #include "msm_drv.h"
 #include "msm_kms.h"
+#include "msm_mmu.h"
 #include "mdp/mdp_kms.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_ctl.h"
@@ -108,8 +109,8 @@ struct sde_kms {
 	int rev;
 	struct sde_mdss_cfg *catalog;
 
-	struct msm_mmu *mmu;
-	int mmu_id;
+	struct msm_mmu *mmu[MSM_SMMU_DOMAIN_MAX];
+	int mmu_id[MSM_SMMU_DOMAIN_MAX];
 
 	/* directory entry for debugfs */
 	void *debugfs_root;
@@ -127,7 +128,8 @@ struct sde_kms {
 	struct clk *core_clk;
 	struct clk *lut_clk;
 	struct clk *mmagic_clk;
-	struct clk *iommu_clk;
+	struct clk *iommu_axi_clk[MSM_SMMU_DOMAIN_MAX];
+	struct clk *iommu_ahb_clk[MSM_SMMU_DOMAIN_MAX];
 	struct clk *vsync_clk;
 
 	struct {

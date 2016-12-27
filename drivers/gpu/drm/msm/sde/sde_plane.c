@@ -1490,7 +1490,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	/* cache local stuff for later */
 	plane = &psde->base;
 	psde->pipe = pipe;
-	psde->mmu_id = kms->mmu_id;
+	psde->mmu_id = kms->mmu_id[MSM_SMMU_DOMAIN_UNSECURE];
 
 	/* initialize underlying h/w driver */
 	psde->pipe_hw = sde_hw_sspp_init(pipe, kms->mmio, kms->catalog);

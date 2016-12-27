@@ -460,7 +460,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	c_conn->display = display;
 
 	sde_kms = to_sde_kms(priv->kms);
-	c_conn->mmu_id = sde_kms->mmu_id;
+	c_conn->mmu_id = sde_kms->mmu_id[MSM_SMMU_DOMAIN_UNSECURE];
 
 	if (ops)
 		c_conn->ops = *ops;

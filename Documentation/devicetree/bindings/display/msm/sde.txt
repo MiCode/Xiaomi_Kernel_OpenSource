@@ -22,11 +22,14 @@ Required properties
 Subnode properties:
 - compatible :          Compatible name used in smmu v2.
                         smmu_v2 names should be:
-                        "qcom,smmu_mdp_unsec"   - smmu context bank device for
+                        "qcom,smmu-mdp-unsec"   - smmu context bank device for
                                                 unsecure mdp domain.
-                        "qcom,smmu_mdp_sec"     - smmu context bank device for
+                        "qcom,smmu-rot-unsec"   - smmu context bank device for
+                                                unsecure rotation domain.
+                        "qcom,smmu-mdp-sec"     - smmu context bank device for
                                                 secure mdp domain.
-
+                        "qcom,smmu-rot-sec"     - smmu context bank device for
+                                                secure rotation domain.
 Please refer to ../../interrupt-controller/interrupts.txt for a general
 description of interrupt bindings.
 
