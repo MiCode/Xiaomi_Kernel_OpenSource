@@ -159,7 +159,7 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 		(vsync_polarity << 1) | /* VSYNC Polarity */
 		(hsync_polarity << 0);  /* HSYNC Polarity */
 
-	if (!fmt->is_yuv)
+	if (!SDE_FORMAT_IS_YUV(fmt))
 		panel_format = (fmt->bits[C0_G_Y] |
 				(fmt->bits[C1_B_Cb] << 2) |
 				(fmt->bits[C2_R_Cr] << 4) |

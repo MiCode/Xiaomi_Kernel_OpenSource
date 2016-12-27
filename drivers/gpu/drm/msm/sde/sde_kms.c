@@ -318,6 +318,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.wait_for_crtc_commit_done = sde_wait_for_crtc_commit_done,
 	.enable_vblank   = sde_enable_vblank,
 	.disable_vblank  = sde_disable_vblank,
+	.check_modified_format = sde_format_check_modified_format,
 	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_round_pixclk,
 	.preclose        = sde_preclose,
@@ -626,6 +627,11 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 */
 	dev->mode_config.max_width =  catalog->mixer[0].sblk->maxwidth;
 	dev->mode_config.max_height = 4096;
+
+	/*
+	 * Support format modifiers for compression etc.
+	 */
+	dev->mode_config.allow_fb_modifiers = true;
 
 	sde_kms->hw_intr = sde_rm_acquire_intr(sde_kms);
 
