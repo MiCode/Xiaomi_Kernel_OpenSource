@@ -537,6 +537,16 @@ int msm_atomic_commit(struct drm_device *dev,
 	drm_atomic_helper_swap_state(state, true);
 
 	/*
+	 * Provide the driver a chance to prepare for output fences. This is
+	 * done after the point of no return, but before asynchronous commits
+	 * are dispatched to work queues, so that the fence preparation is
+	 * finished before the .atomic_commit returns.
+	 */
+	if (priv && priv->kms && priv->kms->funcs &&
+			priv->kms->funcs->prepare_fence)
+		priv->kms->funcs->prepare_fence(priv->kms, state);
+
+	/*
 	 * Everything below can be run asynchronously without the need to grab
 	 * any modeset locks at all under one conditions: It must be guaranteed
 	 * that the asynchronous work has either been cancelled (if the driver

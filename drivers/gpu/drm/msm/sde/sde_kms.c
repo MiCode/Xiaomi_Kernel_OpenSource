@@ -190,7 +190,12 @@ static void sde_complete_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	int i;
 
+	for_each_crtc_in_state(state, crtc, crtc_state, i)
+		sde_crtc_complete_commit(crtc);
 	sde_disable(sde_kms);
 
 	MSM_EVT(sde_kms->dev, 0, 0);
@@ -200,6 +205,17 @@ static void sde_wait_for_crtc_commit_done(struct msm_kms *kms,
 		struct drm_crtc *crtc)
 {
 	sde_crtc_wait_for_commit_done(crtc);
+}
+
+static void sde_kms_prepare_fence(struct msm_kms *kms,
+		struct drm_atomic_state *state)
+{
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	int i;
+
+	for_each_crtc_in_state(state, crtc, crtc_state, i)
+		sde_crtc_prepare_fence(crtc);
 }
 
 static int modeset_init(struct sde_kms *sde_kms)
@@ -312,6 +328,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.irq_postinstall = sde_irq_postinstall,
 	.irq_uninstall   = sde_irq_uninstall,
 	.irq             = sde_irq,
+	.prepare_fence   = sde_kms_prepare_fence,
 	.prepare_commit  = sde_prepare_commit,
 	.commit          = sde_commit,
 	.complete_commit = sde_complete_commit,
