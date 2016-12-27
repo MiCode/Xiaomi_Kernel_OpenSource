@@ -846,6 +846,7 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 	enum msm_vfe_dual_hw_type dual_hw_type;
 	enum msm_vfe_dual_hw_ms_type ms_type;
 	unsigned long flags;
+	int i;
 	struct master_slave_resource_info *ms_res =
 				&vfe_dev->common_data->ms_resource;
 
@@ -869,8 +870,27 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 				src_info->dual_hw_ms_info.index)) {
 				pr_err("Frame out of sync on vfe %d\n",
 					vfe_dev->pdev->id);
-				msm_isp_halt_send_error(vfe_dev,
-					ISP_EVENT_BUF_FATAL_ERROR);
+				/*
+				 * set this isp as async mode to force
+				 *it sync again at the next sof
+				 */
+				src_info->dual_hw_ms_info.sync_state =
+							MSM_ISP_DUAL_CAM_ASYNC;
+				/*
+				 * set the other isp as async mode to force
+				 * it sync again at the next sof
+				 */
+				for (i = 0; i < MAX_VFE * VFE_SRC_MAX; i++) {
+					if (ms_res->src_info[i] == NULL)
+						continue;
+					if (src_info == ms_res->src_info[i] ||
+						ms_res->src_info[i]->
+								active == 0)
+						continue;
+					ms_res->src_info[i]->dual_hw_ms_info.
+							sync_state =
+							MSM_ISP_DUAL_CAM_ASYNC;
+				}
 			}
 			ms_res->src_sof_mask |= (1 <<
 					src_info->dual_hw_ms_info.index);
