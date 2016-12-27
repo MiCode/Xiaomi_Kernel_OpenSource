@@ -62,6 +62,7 @@ struct sde_plane {
 
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[PLANE_PROP_COUNT];
+	struct drm_property_blob *blob_sde_info;
 
 	/* debugfs related stuff */
 	struct dentry *debugfs_root;
@@ -1105,6 +1106,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane)
 	static const struct drm_prop_enum_list e_src_config[] = {
 		{SDE_DRM_DEINTERLACE, "deinterlace"}
 	};
+	const struct sde_format_extended *format_list;
+	static struct sde_kms_info sde_info;
 	struct sde_plane *psde = to_sde_plane(plane);
 
 	DBG("");
@@ -1152,6 +1155,29 @@ static void _sde_plane_install_properties(struct drm_plane *plane)
 	if (psde->features & BIT(SDE_SSPP_CSC)) {
 		msm_property_install_blob(&psde->property_info, "csc", 0,
 			PLANE_PROP_CSC);
+	}
+	format_list = psde->pipe_sblk->format_list;
+	if (format_list) {
+		/* assume single thread */
+		struct sde_kms_info *info = &sde_info;
+
+		msm_property_install_blob(&psde->property_info, "sde_info",
+				DRM_MODE_PROP_IMMUTABLE,
+				PLANE_PROP_SDE_INFO);
+		sde_kms_info_reset(info);
+		sde_kms_info_start(info, "pixel_formats");
+		while (format_list->fourcc_format) {
+			sde_kms_info_append_format(info,
+					format_list->fourcc_format,
+					format_list->modifier);
+			++format_list;
+		}
+		sde_kms_info_stop(info);
+		msm_property_set_blob(&psde->property_info,
+				&psde->blob_sde_info,
+				SDE_KMS_INFO_DATA(info),
+				SDE_KMS_INFO_DATALEN(info),
+				PLANE_PROP_SDE_INFO);
 	}
 }
 
@@ -1231,6 +1257,8 @@ static void sde_plane_destroy(struct drm_plane *plane)
 
 		debugfs_remove_recursive(psde->debugfs_root);
 
+		if (psde->blob_sde_info)
+			drm_property_unreference_blob(psde->blob_sde_info);
 		msm_property_destroy(&psde->property_info);
 		mutex_destroy(&psde->lock);
 
@@ -1478,12 +1506,16 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	/* cache features mask for later */
 	psde->features = psde->pipe_hw->cap->features;
 	psde->pipe_sblk = psde->pipe_hw->cap->sblk;
+	if (!psde->pipe_sblk) {
+		SDE_ERROR("invalid sblk on pipe %d\n", pipe);
+		goto clean_sspp;
+	}
 
 	/* add plane to DRM framework */
-	psde->nformats = sde_populate_formats(psde->formats,
-		ARRAY_SIZE(psde->formats),
-		!(psde->features & BIT(SDE_SSPP_CSC)) ||
-		!(psde->features & SDE_SSPP_SCALER));
+	psde->nformats = sde_populate_formats(psde->pipe_sblk->format_list,
+			psde->formats,
+			0,
+			ARRAY_SIZE(psde->formats));
 
 	if (!psde->nformats) {
 		DRM_ERROR("[%u]No valid formats for plane\n", pipe);
