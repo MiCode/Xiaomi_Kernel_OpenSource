@@ -145,13 +145,23 @@ struct sde_hw_pipe_cfg {
 };
 
 /**
- * struct danger_safe_cfg:
- * @danger_lut:
- * @safe_lut:
+ * struct sde_hw_pipe_qos_cfg : Source pipe QoS configuration
+ * @danger_lut: LUT for generate danger level based on fill level
+ * @safe_lut: LUT for generate safe level based on fill level
+ * @creq_lut: LUT for generate creq level based on fill level
+ * @creq_vblank: creq value generated to vbif during vertical blanking
+ * @danger_vblank: danger value generated during vertical blanking
+ * @vblank_en: enable creq_vblank and danger_vblank during vblank
+ * @danger_safe_en: enable danger safe generation
  */
-struct danger_safe_cfg {
+struct sde_hw_pipe_qos_cfg {
 	u32 danger_lut;
 	u32 safe_lut;
+	u32 creq_lut;
+	u32 creq_vblank;
+	u32 danger_vblank;
+	bool vblank_en;
+	bool danger_safe_en;
 };
 
 /**
@@ -226,14 +236,31 @@ struct sde_hw_sspp_ops {
 	void (*setup_igc)(struct sde_hw_pipe *ctx);
 
 	/**
-	 * setup_danger_safe - setup danger safe LUTS
+	 * setup_danger_safe_lut - setup danger safe LUTs
 	 * @ctx: Pointer to pipe context
-	 * @danger_lut: Danger LUT setting
-	 * @safe_lut: Safe LUT setting
+	 * @cfg: Pointer to pipe QoS configuration
+	 *
 	 */
-	void (*setup_danger_safe)(struct sde_hw_pipe *ctx,
-			u32 danger_lut,
-			u32 safe_lut);
+	void (*setup_danger_safe_lut)(struct sde_hw_pipe *ctx,
+			struct sde_hw_pipe_qos_cfg *cfg);
+
+	/**
+	 * setup_creq_lut - setup CREQ LUT
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to pipe QoS configuration
+	 *
+	 */
+	void (*setup_creq_lut)(struct sde_hw_pipe *ctx,
+			struct sde_hw_pipe_qos_cfg *cfg);
+
+	/**
+	 * setup_qos_ctrl - setup QoS control
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to pipe QoS configuration
+	 *
+	 */
+	void (*setup_qos_ctrl)(struct sde_hw_pipe *ctx,
+			struct sde_hw_pipe_qos_cfg *cfg);
 
 	/**
 	 * setup_histogram - setup histograms
