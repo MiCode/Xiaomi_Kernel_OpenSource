@@ -177,7 +177,6 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 	struct mdss_smmu_client *mdss_smmu;
 	int i, rc = 0;
 
-	mutex_lock(&mdp_iommu_lock);
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
 		if (!mdss_smmu_is_valid_domain_type(mdata, i))
 			continue;
@@ -211,11 +210,9 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 			}
 		} else {
 			pr_err("iommu device not attached for domain[%d]\n", i);
-			mutex_unlock(&mdp_iommu_lock);
 			return -ENODEV;
 		}
 	}
-	mutex_unlock(&mdp_iommu_lock);
 
 	return 0;
 
@@ -228,7 +225,6 @@ err:
 			mdss_smmu->domain_attached = false;
 		}
 	}
-	mutex_unlock(&mdp_iommu_lock);
 
 	return rc;
 }
@@ -245,7 +241,6 @@ static int mdss_smmu_detach_v2(struct mdss_data_type *mdata)
 	struct mdss_smmu_client *mdss_smmu;
 	int i;
 
-	mutex_lock(&mdp_iommu_lock);
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
 		if (!mdss_smmu_is_valid_domain_type(mdata, i))
 			continue;
@@ -270,7 +265,6 @@ static int mdss_smmu_detach_v2(struct mdss_data_type *mdata)
 			}
 		}
 	}
-	mutex_unlock(&mdp_iommu_lock);
 
 	return 0;
 }
