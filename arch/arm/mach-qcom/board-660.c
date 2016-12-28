@@ -48,3 +48,20 @@ DT_MACHINE_START(SDM630_DT,
 	.init_machine = sdm630_init,
 	.dt_compat = sdm630_dt_match,
 MACHINE_END
+
+static const char *sdm658_dt_match[] __initconst = {
+	"qcom,sdm658",
+	"qcom,sda658",
+	NULL
+};
+
+static void __init sdm658_init(void)
+{
+	board_dt_populate(NULL);
+}
+
+DT_MACHINE_START(SDM658_DT,
+	"Qualcomm Technologies, Inc. SDM 658 (Flattened Device Tree)")
+	.init_machine = sdm658_init,
+	.dt_compat = sdm658_dt_match,
+MACHINE_END

@@ -98,6 +98,10 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm660")
 #define early_machine_is_sda660()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda660")
+#define early_machine_is_sdm658()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm658")
+#define early_machine_is_sda658()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda658")
 #define early_machine_is_sdm630()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm630")
 #else
@@ -138,6 +142,8 @@
 #define early_machine_is_msmhamster()	0
 #define early_machine_is_sdm660()	0
 #define early_machine_is_sda660()	0
+#define early_machine_is_sdm658()	0
+#define early_machine_is_sda658()	0
 #define early_machine_is_sdm630()	0
 #endif
 
