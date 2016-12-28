@@ -91,7 +91,7 @@ static int cpp_get_clk_freq_tbl_dt(struct cpp_device *cpp_dev)
 	hw_info = &cpp_dev->hw_info;
 
 	if ((hw_info == NULL) || (of_node == NULL)) {
-		pr_err("Invalid hw_info %p or ofnode %p\n", hw_info, of_node);
+		pr_err("Invalid hw_info %pK or ofnode %pK\n", hw_info, of_node);
 		rc = -EINVAL;
 		goto err;
 

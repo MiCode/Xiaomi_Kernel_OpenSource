@@ -63,6 +63,11 @@ Emergency Download Mode:
 -compatible: "qcom,msm-imem-emergency_download_mode"
 -reg: start address and size of emergency_download_mode region in imem
 
+Kaslr Offset:
+------------------------
+-compatible: "qcom,msm-imem-kaslr_offset"
+-reg: start address and size of kaslr_offset region in imem
+
 USB Diag Cookies:
 -----------------
 Memory region used to store USB PID and serial numbers to be used by
@@ -100,6 +105,12 @@ Example:
 			compatible = "qcom,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
 		};
+
+		kaslr_offset@6d0 {
+			compatible = "qcom,msm-imem-kaslr_offset";
+			reg = <0x6d0 12>;
+		};
+
 
 		pil@94c {
 			compatible = "qcom,msm-imem-pil";

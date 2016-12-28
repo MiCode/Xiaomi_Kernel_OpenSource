@@ -268,6 +268,7 @@ struct dpcd_test_request {
 	u32 test_requested;
 	u32 test_link_rate;
 	u32 test_lane_count;
+	u32 phy_test_pattern_sel;
 	u32 response;
 };
 
@@ -509,6 +510,51 @@ enum dp_lane_count {
 	DP_LANE_COUNT_4	= 4,
 };
 
+enum phy_test_pattern {
+	PHY_TEST_PATTERN_NONE,
+	PHY_TEST_PATTERN_D10_2_NO_SCRAMBLING,
+	PHY_TEST_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT,
+	PHY_TEST_PATTERN_PRBS7,
+	PHY_TEST_PATTERN_80_BIT_CUSTOM_PATTERN,
+	PHY_TEST_PATTERN_HBR2_CTS_EYE_PATTERN,
+};
+
+static inline char *mdss_dp_get_phy_test_pattern(u32 phy_test_pattern_sel)
+{
+	switch (phy_test_pattern_sel) {
+	case PHY_TEST_PATTERN_NONE:
+		return DP_ENUM_STR(PHY_TEST_PATTERN_NONE);
+	case PHY_TEST_PATTERN_D10_2_NO_SCRAMBLING:
+		return DP_ENUM_STR(PHY_TEST_PATTERN_D10_2_NO_SCRAMBLING);
+	case PHY_TEST_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT:
+		return DP_ENUM_STR(PHY_TEST_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT);
+	case PHY_TEST_PATTERN_PRBS7:
+		return DP_ENUM_STR(PHY_TEST_PATTERN_PRBS7);
+	case PHY_TEST_PATTERN_80_BIT_CUSTOM_PATTERN:
+		return DP_ENUM_STR(PHY_TEST_PATTERN_80_BIT_CUSTOM_PATTERN);
+	case PHY_TEST_PATTERN_HBR2_CTS_EYE_PATTERN:
+		return DP_ENUM_STR(PHY_TEST_PATTERN_HBR2_CTS_EYE_PATTERN);
+	default:
+		return "unknown";
+	}
+}
+
+static inline bool mdss_dp_is_phy_test_pattern_supported(
+		u32 phy_test_pattern_sel)
+{
+	switch (phy_test_pattern_sel) {
+	case PHY_TEST_PATTERN_NONE:
+	case PHY_TEST_PATTERN_D10_2_NO_SCRAMBLING:
+	case PHY_TEST_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT:
+	case PHY_TEST_PATTERN_PRBS7:
+	case PHY_TEST_PATTERN_80_BIT_CUSTOM_PATTERN:
+	case PHY_TEST_PATTERN_HBR2_CTS_EYE_PATTERN:
+		return true;
+	default:
+		return false;
+	}
+}
+
 enum dp_aux_error {
 	EDP_AUX_ERR_NONE	= 0,
 	EDP_AUX_ERR_ADDR	= -1,
@@ -561,7 +607,7 @@ static inline char *mdss_dp_get_test_response(u32 test_response)
 enum test_type {
 	UNKNOWN_TEST		= 0,
 	TEST_LINK_TRAINING	= BIT(0),
-	TEST_PATTERN		= BIT(1),
+	PHY_TEST_PATTERN	= BIT(3),
 	TEST_EDID_READ		= BIT(2),
 };
 
@@ -569,7 +615,7 @@ static inline char *mdss_dp_get_test_name(u32 test_requested)
 {
 	switch (test_requested) {
 	case TEST_LINK_TRAINING:	return DP_ENUM_STR(TEST_LINK_TRAINING);
-	case TEST_PATTERN:		return DP_ENUM_STR(TEST_PATTERN);
+	case PHY_TEST_PATTERN:		return DP_ENUM_STR(PHY_TEST_PATTERN);
 	case TEST_EDID_READ:		return DP_ENUM_STR(TEST_EDID_READ);
 	default:			return "unknown";
 	}
@@ -640,5 +686,10 @@ void *mdss_dp_get_hdcp_data(struct device *dev);
 int mdss_dp_hdcp2p2_init(struct mdss_dp_drv_pdata *dp_drv);
 bool mdss_dp_aux_clock_recovery_done(struct mdss_dp_drv_pdata *ep);
 bool mdss_dp_aux_channel_eq_done(struct mdss_dp_drv_pdata *ep);
+bool mdss_dp_aux_is_link_rate_valid(u32 link_rate);
+bool mdss_dp_aux_is_lane_count_valid(u32 lane_count);
+int mdss_dp_aux_link_status_read(struct mdss_dp_drv_pdata *ep, int len);
+void mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(
+		struct mdss_dp_drv_pdata *dp);
 
 #endif /* MDSS_DP_H */

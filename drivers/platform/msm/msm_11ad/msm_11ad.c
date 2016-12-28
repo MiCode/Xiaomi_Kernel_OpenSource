@@ -33,7 +33,7 @@
 #define WIGIG_DEVICE (0x0310)
 
 #define SMMU_BASE	0x10000000 /* Device address range base */
-#define SMMU_SIZE	0x40000000 /* Device address range size */
+#define SMMU_SIZE	((SZ_1G * 4ULL) - SMMU_BASE)
 
 #define WIGIG_ENABLE_DELAY	50
 #define PM_OPT_SUSPEND (MSM_PCIE_CONFIG_NO_CFG_RESTORE | \
@@ -87,6 +87,8 @@ struct msm11ad_ctx {
 
 	/* SMMU */
 	bool use_smmu; /* have SMMU enabled? */
+	int smmu_bypass;
+	int smmu_fast_map;
 	struct dma_iommu_mapping *mapping;
 
 	/* bus frequency scaling */
@@ -596,10 +598,12 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 {
 	int atomic_ctx = 1;
 	int rc;
-	int bypass_enable = 1;
 
 	if (!ctx->use_smmu)
 		return 0;
+
+	dev_info(ctx->dev, "Initialize SMMU, bypass = %d, fastmap = %d\n",
+		 ctx->smmu_bypass, ctx->smmu_fast_map);
 
 	ctx->mapping = arm_iommu_create_mapping(&platform_bus_type,
 						SMMU_BASE, SMMU_SIZE);
@@ -608,7 +612,6 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 		dev_err(ctx->dev, "Failed to create IOMMU mapping (%d)\n", rc);
 		return rc;
 	}
-	dev_info(ctx->dev, "IOMMU mapping created: %p\n", ctx->mapping);
 
 	rc = iommu_domain_set_attr(ctx->mapping->domain,
 				   DOMAIN_ATTR_ATOMIC,
@@ -619,13 +622,24 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 		goto release_mapping;
 	}
 
-	rc = iommu_domain_set_attr(ctx->mapping->domain,
-				   DOMAIN_ATTR_S1_BYPASS,
-				   &bypass_enable);
-	if (rc) {
-		dev_err(ctx->dev, "Set bypass attribute to SMMU failed (%d)\n",
-			rc);
-		goto release_mapping;
+	if (ctx->smmu_bypass) {
+		rc = iommu_domain_set_attr(ctx->mapping->domain,
+					   DOMAIN_ATTR_S1_BYPASS,
+					   &ctx->smmu_bypass);
+		if (rc) {
+			dev_err(ctx->dev, "Set bypass attribute to SMMU failed (%d)\n",
+				rc);
+			goto release_mapping;
+		}
+	} else if (ctx->smmu_fast_map) {
+		rc = iommu_domain_set_attr(ctx->mapping->domain,
+					   DOMAIN_ATTR_FAST,
+					   &ctx->smmu_fast_map);
+		if (rc) {
+			dev_err(ctx->dev, "Set fast attribute to SMMU failed (%d)\n",
+				rc);
+			goto release_mapping;
+		}
 	}
 
 	rc = arm_iommu_attach_device(&ctx->pcidev->dev, ctx->mapping);
@@ -869,6 +883,9 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	}
 	ctx->use_smmu = of_property_read_bool(of_node, "qcom,smmu-support");
 	ctx->bus_scale = msm_bus_cl_get_pdata(pdev);
+
+	ctx->smmu_bypass = 1;
+	ctx->smmu_fast_map = 0;
 
 	/*== execute ==*/
 	/* turn device on */

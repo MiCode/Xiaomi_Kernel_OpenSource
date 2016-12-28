@@ -118,6 +118,11 @@
 	core-supply = <&pmfalcon_l1>;
 };
 
+&sdhc_2 {
+	vdd-supply = <&pm2falcon_l5>;
+	vdd-io-supply = <&pm2falcon_l2>;
+};
+
 &pm2falcon_gpios {
 	/* GPIO 7 for VOL_UP */
 	gpio@c600 {

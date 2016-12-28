@@ -13,6 +13,7 @@
 
 #include <linux/export.h>
 #include <linux/kernel.h>
+#include <linux/hrtimer.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
@@ -36,6 +37,18 @@ static struct kgsl_popp popp_param[POPP_MAX] = {
 	{-5, 0},
 	{0, 0},
 };
+
+/**
+* struct kgsl_midframe_info - midframe power stats sampling info
+* @timer - midframe sampling timer
+* @timer_check_ws - Updates powerstats on midframe expiry
+* @device - pointer to kgsl_device
+*/
+static struct kgsl_midframe_info {
+	struct hrtimer timer;
+	struct work_struct timer_check_ws;
+	struct kgsl_device *device;
+} *kgsl_midframe = NULL;
 
 static void do_devfreq_suspend(struct work_struct *work);
 static void do_devfreq_resume(struct work_struct *work);
@@ -183,8 +196,56 @@ void kgsl_pwrscale_update(struct kgsl_device *device)
 	if (device->state != KGSL_STATE_SLUMBER)
 		queue_work(device->pwrscale.devfreq_wq,
 			&device->pwrscale.devfreq_notify_ws);
+
+	kgsl_pwrscale_midframe_timer_restart(device);
 }
 EXPORT_SYMBOL(kgsl_pwrscale_update);
+
+void kgsl_pwrscale_midframe_timer_restart(struct kgsl_device *device)
+{
+	if (kgsl_midframe) {
+		WARN_ON(!mutex_is_locked(&device->mutex));
+
+		/* If the timer is already running, stop it */
+		if (hrtimer_active(&kgsl_midframe->timer))
+			hrtimer_cancel(
+				&kgsl_midframe->timer);
+
+		hrtimer_start(&kgsl_midframe->timer,
+				ns_to_ktime(KGSL_GOVERNOR_CALL_INTERVAL
+					* NSEC_PER_USEC), HRTIMER_MODE_REL);
+	}
+}
+EXPORT_SYMBOL(kgsl_pwrscale_midframe_timer_restart);
+
+void kgsl_pwrscale_midframe_timer_cancel(struct kgsl_device *device)
+{
+	if (kgsl_midframe) {
+		WARN_ON(!mutex_is_locked(&device->mutex));
+		hrtimer_cancel(&kgsl_midframe->timer);
+	}
+}
+EXPORT_SYMBOL(kgsl_pwrscale_midframe_timer_cancel);
+
+static void kgsl_pwrscale_midframe_timer_check(struct work_struct *work)
+{
+	struct kgsl_device *device = kgsl_midframe->device;
+
+	mutex_lock(&device->mutex);
+	if (device->state == KGSL_STATE_ACTIVE)
+		kgsl_pwrscale_update(device);
+	mutex_unlock(&device->mutex);
+}
+
+static enum hrtimer_restart kgsl_pwrscale_midframe_timer(struct hrtimer *timer)
+{
+	struct kgsl_device *device = kgsl_midframe->device;
+
+	queue_work(device->pwrscale.devfreq_wq,
+			&kgsl_midframe->timer_check_ws);
+
+	return HRTIMER_NORESTART;
+}
 
 /*
  * kgsl_pwrscale_disable - temporarily disable the governor
@@ -852,6 +913,17 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 			data->bin.ctxt_aware_busy_penalty = 12000;
 	}
 
+	if (of_property_read_bool(device->pdev->dev.of_node,
+			"qcom,enable-midframe-timer")) {
+		kgsl_midframe = kzalloc(
+				sizeof(struct kgsl_midframe_info), GFP_KERNEL);
+		hrtimer_init(&kgsl_midframe->timer,
+				CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+		kgsl_midframe->timer.function =
+				kgsl_pwrscale_midframe_timer;
+		kgsl_midframe->device = device;
+	}
+
 	/*
 	 * If there is a separate GX power rail, allow
 	 * independent modification to its voltage through
@@ -900,6 +972,9 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 	INIT_WORK(&pwrscale->devfreq_suspend_ws, do_devfreq_suspend);
 	INIT_WORK(&pwrscale->devfreq_resume_ws, do_devfreq_resume);
 	INIT_WORK(&pwrscale->devfreq_notify_ws, do_devfreq_notify);
+	if (kgsl_midframe)
+		INIT_WORK(&kgsl_midframe->timer_check_ws,
+				kgsl_pwrscale_midframe_timer_check);
 
 	pwrscale->next_governor_call = ktime_add_us(ktime_get(),
 			KGSL_GOVERNOR_CALL_INTERVAL);
@@ -940,9 +1015,13 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 	pwrscale = &device->pwrscale;
 	if (!pwrscale->devfreqptr)
 		return;
+
+	kgsl_pwrscale_midframe_timer_cancel(device);
 	flush_workqueue(pwrscale->devfreq_wq);
 	destroy_workqueue(pwrscale->devfreq_wq);
 	devfreq_remove_device(device->pwrscale.devfreqptr);
+	kfree(kgsl_midframe);
+	kgsl_midframe = NULL;
 	device->pwrscale.devfreqptr = NULL;
 	srcu_cleanup_notifier_head(&device->pwrscale.nh);
 	for (i = 0; i < KGSL_PWREVENT_MAX; i++)
