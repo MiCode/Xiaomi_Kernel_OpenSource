@@ -763,35 +763,35 @@ static void wcd_clsh_state_ear_lo(struct snd_soc_codec *codec,
 	dev_dbg(codec->dev, "%s: mode: %s, %s\n", __func__, mode_to_str(mode),
 		is_enable ? "enable" : "disable");
 
-	if (is_enable && (req_state == WCD_CLSH_STATE_LO)) {
-		wcd_clsh_set_buck_regulator_mode(codec, CLS_AB);
-	} else {
-		if (req_state == WCD_CLSH_STATE_EAR)
-			goto end;
-
-		/* LO powerdown.
-		 * If EAR Class-H is already enabled, just
-		 * turn on regulator other enable Class-H
-		 * configuration
+	if (is_enable) {
+		/* LO powerup is taken care in PA sequence.
+		 * No need to change to class AB here.
 		 */
-		if (wcd_clsh_enable_status(codec)) {
-			wcd_clsh_set_buck_regulator_mode(codec,
-					CLS_H_NORMAL);
-			goto end;
+		if (req_state == WCD_CLSH_STATE_EAR) {
+			/* EAR powerup.*/
+			if (!wcd_clsh_enable_status(codec)) {
+				wcd_enable_clsh_block(codec, clsh_d, true);
+				wcd_clsh_set_buck_mode(codec, mode);
+				wcd_clsh_set_flyback_mode(codec, mode);
+			}
+			snd_soc_update_bits(codec,
+					WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
+					0x40, 0x40);
 		}
-		wcd_enable_clsh_block(codec, clsh_d, true);
-		snd_soc_update_bits(codec,
-				WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
-				0x40, 0x40);
-		wcd_clsh_set_buck_regulator_mode(codec,
-				CLS_H_NORMAL);
-		wcd_clsh_set_buck_mode(codec, mode);
-		wcd_clsh_set_flyback_mode(codec, mode);
-		wcd_clsh_flyback_ctrl(codec, clsh_d, mode, true);
-		wcd_clsh_buck_ctrl(codec, clsh_d, mode, true);
+	} else {
+		if (req_state == WCD_CLSH_STATE_EAR) {
+			/* EAR powerdown.*/
+			wcd_enable_clsh_block(codec, clsh_d, false);
+			wcd_clsh_set_buck_mode(codec, CLS_H_NORMAL);
+			wcd_clsh_set_flyback_mode(codec, CLS_H_NORMAL);
+			snd_soc_update_bits(codec,
+					WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
+					0x40, 0x00);
+		}
+		/* LO powerdown is taken care in PA sequence.
+		 * No need to change to class H here.
+		 */
 	}
-end:
-	return;
 }
 
 static void wcd_clsh_state_hph_lo(struct snd_soc_codec *codec,
@@ -1140,6 +1140,7 @@ static bool wcd_clsh_is_state_valid(u8 state)
 	case WCD_CLSH_STATE_HPHL_LO:
 	case WCD_CLSH_STATE_HPHR_LO:
 	case WCD_CLSH_STATE_HPH_ST_LO:
+	case WCD_CLSH_STATE_EAR_LO:
 		return true;
 	default:
 		return false;
