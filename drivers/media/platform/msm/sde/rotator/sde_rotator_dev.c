@@ -1186,14 +1186,30 @@ static int sde_rotator_enum_fmt_vid_cap(struct file *file,
 	struct sde_rotator_ctx *ctx = sde_rotator_ctx_from_fh(fh);
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
 	struct sde_mdp_format_params *fmt;
-	u32 pixfmt;
+	u32 i, index, pixfmt;
+	bool found = false;
 
-	pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, f->index, false);
-	if (!pixfmt)
-		return -EINVAL;
+	for (i = 0, index = 0; index <= f->index; i++) {
+		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, false);
+		if (!pixfmt)
+			return -EINVAL;
 
-	fmt = sde_get_format_params(pixfmt);
-	if (!fmt)
+		fmt = sde_get_format_params(pixfmt);
+		if (!fmt)
+			return -EINVAL;
+
+		if (sde_mdp_is_private_format(fmt))
+			continue;
+
+		if (index == f->index) {
+			found = true;
+			break;
+		}
+
+		index++;
+	}
+
+	if (!found)
 		return -EINVAL;
 
 	f->pixelformat = pixfmt;
@@ -1214,14 +1230,30 @@ static int sde_rotator_enum_fmt_vid_out(struct file *file,
 	struct sde_rotator_ctx *ctx = sde_rotator_ctx_from_fh(fh);
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
 	struct sde_mdp_format_params *fmt;
-	u32 pixfmt;
+	u32 i, index, pixfmt;
+	bool found = false;
 
-	pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, f->index, true);
-	if (!pixfmt)
-		return -EINVAL;
+	for (i = 0, index = 0; index <= f->index; i++) {
+		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, true);
+		if (!pixfmt)
+			return -EINVAL;
 
-	fmt = sde_get_format_params(pixfmt);
-	if (!fmt)
+		fmt = sde_get_format_params(pixfmt);
+		if (!fmt)
+			return -EINVAL;
+
+		if (sde_mdp_is_private_format(fmt))
+			continue;
+
+		if (index == f->index) {
+			found = true;
+			break;
+		}
+
+		index++;
+	}
+
+	if (!found)
 		return -EINVAL;
 
 	f->pixelformat = pixfmt;

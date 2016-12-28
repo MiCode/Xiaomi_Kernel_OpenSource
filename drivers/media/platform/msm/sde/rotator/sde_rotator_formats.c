@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,9 +31,9 @@
 		.pixel_mode = SDE_MDP_PIXEL_NORMAL,		\
 		.element = { (e0), (e1), (e2) },		\
 		.bits = {					\
-			[C2_R_Cr] = COLOR_5BIT,			\
-			[C0_G_Y] = COLOR_6BIT,			\
-			[C1_B_Cb] = COLOR_5BIT,			\
+			[C2_R_Cr] = SDE_COLOR_5BIT,		\
+			[C0_G_Y] = SDE_COLOR_6BIT,		\
+			[C1_B_Cb] = SDE_COLOR_5BIT,		\
 		},						\
 		.is_ubwc = isubwc,				\
 	}
@@ -53,9 +53,9 @@
 		.pixel_mode = SDE_MDP_PIXEL_NORMAL,		\
 		.element = { (e0), (e1), (e2) },		\
 		.bits = {					\
-			[C2_R_Cr] = COLOR_8BIT,			\
-			[C0_G_Y] = COLOR_8BIT,			\
-			[C1_B_Cb] = COLOR_8BIT,			\
+			[C2_R_Cr] = SDE_COLOR_8BIT,		\
+			[C0_G_Y] = SDE_COLOR_8BIT,		\
+			[C1_B_Cb] = SDE_COLOR_8BIT,		\
 		},						\
 		.is_ubwc = isubwc,				\
 	}
@@ -76,10 +76,10 @@
 		.pixel_mode = SDE_MDP_PIXEL_NORMAL,		\
 		.element = { (e0), (e1), (e2), (e3) },		\
 		.bits = {					\
-			[C3_ALPHA] = COLOR_8BIT,		\
-			[C2_R_Cr] = COLOR_8BIT,			\
-			[C0_G_Y] = COLOR_8BIT,			\
-			[C1_B_Cb] = COLOR_8BIT,			\
+			[C3_ALPHA] = SDE_COLOR_8BIT,		\
+			[C2_R_Cr] = SDE_COLOR_8BIT,		\
+			[C0_G_Y] = SDE_COLOR_8BIT,		\
+			[C1_B_Cb] = SDE_COLOR_8BIT,		\
 		},						\
 		.is_ubwc = isubwc,				\
 	}
@@ -88,9 +88,9 @@
 		.format = (fmt),				\
 		.is_yuv = 1,					\
 		.bits = {					\
-			[C2_R_Cr] = COLOR_8BIT,			\
-			[C0_G_Y] = COLOR_8BIT,			\
-			[C1_B_Cb] = COLOR_8BIT,			\
+			[C2_R_Cr] = SDE_COLOR_8BIT,		\
+			[C0_G_Y] = SDE_COLOR_8BIT,		\
+			[C1_B_Cb] = SDE_COLOR_8BIT,		\
 		},						\
 		.alpha_enable = 0,				\
 		.unpack_tight = 1,				\
@@ -143,10 +143,10 @@
 		.frame_format = SDE_MDP_FMT_LINEAR,		\
 		.pixel_mode = SDE_MDP_PIXEL_NORMAL,		\
 		.bits = {					\
-			[C3_ALPHA] = COLOR_ALPHA_1BIT,		\
-			[C2_R_Cr] = COLOR_5BIT,			\
-			[C0_G_Y] = COLOR_5BIT,			\
-			[C1_B_Cb] = COLOR_5BIT,			\
+			[C3_ALPHA] = SDE_COLOR_ALPHA_1BIT,	\
+			[C2_R_Cr] = SDE_COLOR_5BIT,		\
+			[C0_G_Y] = SDE_COLOR_5BIT,		\
+			[C1_B_Cb] = SDE_COLOR_5BIT,		\
 		},						\
 		.is_ubwc = SDE_MDP_COMPRESS_NONE,		\
 	}
@@ -166,10 +166,10 @@
 		.pixel_mode = SDE_MDP_PIXEL_NORMAL,		\
 		.element = { (e0), (e1), (e2), (e3) },		\
 		.bits = {					\
-			[C3_ALPHA] = COLOR_ALPHA_4BIT,		\
-			[C2_R_Cr] = COLOR_4BIT,			\
-			[C0_G_Y] = COLOR_4BIT,			\
-			[C1_B_Cb] = COLOR_4BIT,			\
+			[C3_ALPHA] = SDE_COLOR_ALPHA_4BIT,	\
+			[C2_R_Cr] = SDE_COLOR_4BIT,		\
+			[C0_G_Y] = SDE_COLOR_4BIT,		\
+			[C1_B_Cb] = SDE_COLOR_4BIT,		\
 		},						\
 		.is_ubwc = SDE_MDP_COMPRESS_NONE,		\
 	}
@@ -190,10 +190,10 @@
 		.pixel_mode = SDE_MDP_PIXEL_10BIT,		\
 		.element = { (e0), (e1), (e2), (e3) },		\
 		.bits = {					\
-			[C3_ALPHA] = COLOR_8BIT,		\
-			[C2_R_Cr] = COLOR_8BIT,			\
-			[C0_G_Y] = COLOR_8BIT,			\
-			[C1_B_Cb] = COLOR_8BIT,			\
+			[C3_ALPHA] = SDE_COLOR_8BIT,		\
+			[C2_R_Cr] = SDE_COLOR_8BIT,		\
+			[C0_G_Y] = SDE_COLOR_8BIT,		\
+			[C1_B_Cb] = SDE_COLOR_8BIT,		\
 		},						\
 		.is_ubwc = isubwc,				\
 	}
@@ -281,6 +281,240 @@ static struct sde_mdp_format_params_ubwc sde_mdp_format_ubwc_map[] = {
 		.micro = {
 			.tile_height = 4,
 			.tile_width = 48,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_1010102(SDE_PIX_FMT_RGBA_1010102_TILE,
+			"SDE/RGBA_1010102_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_1010102(SDE_PIX_FMT_RGBX_1010102_TILE,
+			"SDE/RGBX_1010102102_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			0, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_1010102(SDE_PIX_FMT_BGRA_1010102_TILE,
+			"SDE/BGRA_1010102_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_1010102(SDE_PIX_FMT_BGRX_1010102_TILE,
+			"SDE/BGRX_1010102_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			0, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_1010102(SDE_PIX_FMT_ARGB_2101010_TILE,
+			"SDE/ARGB_2101010_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_1010102(SDE_PIX_FMT_XRGB_2101010_TILE,
+			"SDE/XRGB_2101010_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			0, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_1010102(SDE_PIX_FMT_ABGR_2101010_TILE,
+			"SDE/ABGR_2101010_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			1, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_1010102(SDE_PIX_FMT_XBGR_2101010_TILE,
+			"SDE/XBGR_2101010_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			0, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CRCB_H2V2_TILE,
+			"Y_CRCB_H2V2_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_CHROMA_420, SDE_MDP_PIXEL_NORMAL,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			C2_R_Cr, C1_B_Cb, SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 8,
+			.tile_width = 32,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_YUV_PSEUDO(SDE_PIX_FMT_Y_CBCR_H2V2_TILE,
+			"Y_CBCR_H2V2_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_CHROMA_420, SDE_MDP_PIXEL_NORMAL,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			C1_B_Cb, C2_R_Cr, SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 8,
+			.tile_width = 32,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_8888(SDE_PIX_FMT_ABGR_8888_TILE,
+			"SDE/ABGR_8888_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			1, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_8888(SDE_PIX_FMT_XRGB_8888_TILE,
+			"SDE/XRGB_8888_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			0, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 32,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_8888(SDE_PIX_FMT_ARGB_8888_TILE,
+			"SDE/ARGB_8888_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_8888(SDE_PIX_FMT_RGBA_8888_TILE,
+			"SDE/RGBA_8888_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_8888(SDE_PIX_FMT_RGBX_8888_TILE,
+			"SDE/RGBX_8888_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			0, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_8888(SDE_PIX_FMT_BGRA_8888_TILE,
+			"SDE/BGRA_8888_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_8888(SDE_PIX_FMT_BGRX_8888_TILE,
+			"SDE/BGRX_8888_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			0, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format =
+			FMT_RGB_8888(SDE_PIX_FMT_XBGR_8888_TILE,
+			"SDE/XBGR_8888_TILE",
+			SDE_MDP_FMT_TILE_A5X,
+			SDE_MDP_FORMAT_FLAG_PRIVATE,
+			0, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr,
+			SDE_MDP_COMPRESS_NONE),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
 		},
 	},
 };
