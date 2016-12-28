@@ -1183,13 +1183,28 @@
 		reg = <0xc0c4000 0x1000>, <0xc0c5000 0x1000>;
 		reg-names = "hc_mem", "cmdq_mem";
 
-		interrupts = <0 129 0>, <0 227 0>;
+		interrupts = <0 110 0>, <0 112 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
 
 		qcom,bus-width = <8>;
 		qcom,large-address-bus;
 
 		qcom,devfreq,freq-table = <50000000 200000000>;
+
+		qcom,msm-bus,name = "sdhc1";
+		qcom,msm-bus,num-cases = <9>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <78 512 0 0>, /* No vote */
+			<78 512 1046 3200>,    /* 400 KB/s*/
+			<78 512 52286 160000>, /* 20 MB/s */
+			<78 512 65360 200000>, /* 25 MB/s */
+			<78 512 130718 400000>, /* 50 MB/s */
+			<78 512 130718 400000>, /* 100 MB/s */
+			<78 512 261438 800000>, /* 200 MB/s */
+			<78 512 261438 800000>, /* 400 MB/s */
+			<78 512 1338562 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100000000 200000000 400000000 4294967295>;
 
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
 			 <&clock_gcc GCC_SDCC1_APPS_CLK>;
