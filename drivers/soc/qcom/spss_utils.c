@@ -48,6 +48,7 @@ static const char *test_firmware_name;
 static const char *prod_firmware_name;
 static const char *firmware_name;
 static struct device *spss_dev;
+static u32 spss_debug_reg_addr; /* SP_SCSR_MBn_SP2CL_GPm(n,m) */
 
 /*==========================================================================*/
 /*		Device Sysfs */
@@ -117,6 +118,51 @@ static ssize_t test_fuse_state_store(struct device *dev,
 static DEVICE_ATTR(test_fuse_state, 0444,
 		test_fuse_state_show, test_fuse_state_store);
 
+static ssize_t spss_debug_reg_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	int ret;
+	void __iomem *spss_debug_reg = NULL;
+	int val1, val2;
+
+	if (!dev || !attr || !buf) {
+		pr_err("invalid param.\n");
+		return -EINVAL;
+	}
+
+	pr_debug("spss_debug_reg_addr [0x%x].\n", spss_debug_reg_addr);
+
+	spss_debug_reg = ioremap_nocache(spss_debug_reg_addr, 0x16);
+
+	if (!spss_debug_reg) {
+		pr_err("can't map debug reg addr.\n");
+		return -EFAULT;
+	}
+
+	val1 = readl_relaxed(spss_debug_reg);
+	val2 = readl_relaxed(((char *) spss_debug_reg) + 0x04);
+
+	ret = snprintf(buf, PAGE_SIZE, "val1 [0x%x] val2 [0x%x]", val1, val2);
+
+	iounmap(spss_debug_reg);
+
+	return ret;
+}
+
+static ssize_t spss_debug_reg_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf,
+		size_t size)
+{
+	pr_err("set debug reg is not allowed.\n");
+
+	return -EINVAL;
+}
+
+static DEVICE_ATTR(spss_debug_reg, 0444,
+		spss_debug_reg_show, spss_debug_reg_store);
+
 static int spss_create_sysfs(struct device *dev)
 {
 	int ret;
@@ -130,6 +176,12 @@ static int spss_create_sysfs(struct device *dev)
 	ret = device_create_file(dev, &dev_attr_test_fuse_state);
 	if (ret < 0) {
 		pr_err("failed to create sysfs file for test_fuse_state.\n");
+		return ret;
+	}
+
+	ret = device_create_file(dev, &dev_attr_spss_debug_reg);
+	if (ret < 0) {
+		pr_err("failed to create sysfs file for spss_debug_reg.\n");
 		return ret;
 	}
 
@@ -200,6 +252,13 @@ static int spss_parse_dt(struct device_node *node)
 		is_test_fuse_set = true;
 
 	iounmap(spss_fuse_reg);
+
+	ret = of_property_read_u32(node, "qcom,spss-debug-reg-addr",
+		&spss_debug_reg_addr);
+	if (ret < 0) {
+		pr_err("can't get debug regs addr.\n");
+		return ret;
+	}
 
 	return 0;
 }
