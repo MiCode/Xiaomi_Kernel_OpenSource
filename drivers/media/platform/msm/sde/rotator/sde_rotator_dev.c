@@ -413,16 +413,15 @@ static int sde_rotator_start_streaming(struct vb2_queue *q, unsigned int count)
 	SDEDEV_DBG(rot_dev->dev, "start streaming s:%d t:%d\n",
 			ctx->session_id, q->type);
 
-	if (!IS_ERR_OR_NULL(ctx->request) ||
-				atomic_read(&ctx->command_pending))
+	if (!list_empty(&ctx->pending_list)) {
 		SDEDEV_ERR(rot_dev->dev,
 				"command pending error s:%d t:%d p:%d\n",
 				ctx->session_id, q->type,
-				atomic_read(&ctx->command_pending));
+				!list_empty(&ctx->pending_list));
+		return -EINVAL;
+	}
 
-	ctx->request = NULL;
 	ctx->abort_pending = 0;
-	atomic_set(&ctx->command_pending, 0);
 
 	return 0;
 }
@@ -443,18 +442,18 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 
 	SDEDEV_DBG(rot_dev->dev, "stop streaming s:%d t:%d p:%d\n",
 			ctx->session_id, q->type,
-			atomic_read(&ctx->command_pending));
+			!list_empty(&ctx->pending_list));
 	ctx->abort_pending = 1;
 	mutex_unlock(q->lock);
 	ret = wait_event_timeout(ctx->wait_queue,
-			(atomic_read(&ctx->command_pending) == 0),
+			list_empty(&ctx->pending_list),
 			msecs_to_jiffies(rot_dev->streamoff_timeout));
 	mutex_lock(q->lock);
 	if (!ret)
 		SDEDEV_ERR(rot_dev->dev,
 				"timeout to stream off s:%d t:%d p:%d\n",
 				ctx->session_id, q->type,
-				atomic_read(&ctx->command_pending));
+				!list_empty(&ctx->pending_list));
 
 	sde_rotator_return_all_buffers(q, VB2_BUF_STATE_ERROR);
 
@@ -737,9 +736,7 @@ static ssize_t sde_rotator_ctx_show(struct kobject *kobj,
 			ctx->format_cap.fmt.pix.bytesperline,
 			ctx->format_cap.fmt.pix.sizeimage);
 	SPRINT("abort_pending=%d\n", ctx->abort_pending);
-	SPRINT("command_pending=%d\n", atomic_read(&ctx->command_pending));
-	SPRINT("submit_work=%d\n", work_busy(&ctx->submit_work));
-	SPRINT("retire_work=%d\n", work_busy(&ctx->retire_work));
+	SPRINT("command_pending=%d\n", !list_empty(&ctx->pending_list));
 	SPRINT("sequence=%u\n",
 		sde_rotator_get_timeline_commit_ts(ctx->work_queue.timeline));
 	SPRINT("timestamp=%u\n",
@@ -858,7 +855,7 @@ static int sde_rotator_open(struct file *file)
 	struct sde_rotator_ctx *ctx;
 	struct v4l2_ctrl_handler *ctrl_handler;
 	char name[32];
-	int ret;
+	int i, ret;
 
 	if (atomic_read(&rot_dev->mgr->device_suspended))
 		return -EPERM;
@@ -883,7 +880,6 @@ static int sde_rotator_open(struct file *file)
 	ctx->vflip = 0;
 	ctx->rotate = 0;
 	ctx->secure = 0;
-	atomic_set(&ctx->command_pending, 0);
 	ctx->abort_pending = 0;
 	ctx->format_cap.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	ctx->format_cap.fmt.pix.pixelformat = SDE_PIX_FMT_Y_CBCR_H2V2;
@@ -898,8 +894,21 @@ static int sde_rotator_open(struct file *file)
 	ctx->crop_out.width = 640;
 	ctx->crop_out.height = 480;
 	init_waitqueue_head(&ctx->wait_queue);
-	INIT_WORK(&ctx->submit_work, sde_rotator_submit_handler);
-	INIT_WORK(&ctx->retire_work, sde_rotator_retire_handler);
+	spin_lock_init(&ctx->list_lock);
+	INIT_LIST_HEAD(&ctx->pending_list);
+	INIT_LIST_HEAD(&ctx->retired_list);
+
+	for (i = 0 ; i < ARRAY_SIZE(ctx->requests); i++) {
+		struct sde_rotator_request *request = &ctx->requests[i];
+
+		INIT_WORK(&request->submit_work,
+				sde_rotator_submit_handler);
+		INIT_WORK(&request->retire_work,
+				sde_rotator_retire_handler);
+		request->ctx = ctx;
+		INIT_LIST_HEAD(&request->list);
+		list_add_tail(&request->list, &ctx->retired_list);
+	}
 
 	v4l2_fh_init(&ctx->fh, video);
 	file->private_data = &ctx->fh;
@@ -1010,6 +1019,7 @@ static int sde_rotator_release(struct file *file)
 	struct sde_rotator_ctx *ctx =
 			sde_rotator_ctx_from_fh(file->private_data);
 	u32 session_id = ctx->session_id;
+	struct list_head *curr, *next;
 
 	ATRACE_END(ctx->kobj.name);
 
@@ -1020,16 +1030,28 @@ static int sde_rotator_release(struct file *file)
 	v4l2_m2m_streamoff(file, ctx->fh.m2m_ctx, V4L2_BUF_TYPE_VIDEO_OUTPUT);
 	v4l2_m2m_streamoff(file, ctx->fh.m2m_ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
 	mutex_unlock(&rot_dev->lock);
-	SDEDEV_DBG(rot_dev->dev, "release submit work s:%d w:%x\n",
-			session_id, work_busy(&ctx->submit_work));
-	cancel_work_sync(&ctx->submit_work);
+	SDEDEV_DBG(rot_dev->dev, "release submit work s:%d\n", session_id);
+	list_for_each_safe(curr, next, &ctx->pending_list) {
+		struct sde_rotator_request *request =
+			container_of(curr, struct sde_rotator_request, list);
+
+		SDEDEV_DBG(rot_dev->dev, "release submit work s:%d\n",
+				session_id);
+		cancel_work_sync(&request->submit_work);
+	}
 	SDEDEV_DBG(rot_dev->dev, "release session s:%d\n", session_id);
 	sde_rot_mgr_lock(rot_dev->mgr);
 	sde_rotator_session_close(rot_dev->mgr, ctx->private, session_id);
 	sde_rot_mgr_unlock(rot_dev->mgr);
-	SDEDEV_DBG(rot_dev->dev, "release retire work s:%d w:%x\n",
-			session_id, work_busy(&ctx->retire_work));
-	cancel_work_sync(&ctx->retire_work);
+	SDEDEV_DBG(rot_dev->dev, "release retire work s:%d\n", session_id);
+	list_for_each_safe(curr, next, &ctx->pending_list) {
+		struct sde_rotator_request *request =
+			container_of(curr, struct sde_rotator_request, list);
+
+		SDEDEV_DBG(rot_dev->dev, "release retire work s:%d\n",
+				session_id);
+		cancel_work_sync(&request->retire_work);
+	}
 	mutex_lock(&rot_dev->lock);
 	SDEDEV_DBG(rot_dev->dev, "release context s:%d\n", session_id);
 	sde_rotator_destroy_timeline(ctx->work_queue.timeline);
@@ -1045,6 +1067,61 @@ static int sde_rotator_release(struct file *file)
 	mutex_unlock(&rot_dev->lock);
 	SDEDEV_DBG(rot_dev->dev, "release complete s:%d\n", session_id);
 	return 0;
+}
+
+/*
+ * sde_rotator_update_retire_sequence - update retired sequence of the context
+ *	referenced in the request, and wake up any waiting for update event
+ * @request: Pointer to rotator request
+ */
+static void sde_rotator_update_retire_sequence(
+		struct sde_rotator_request *request)
+{
+	struct sde_rotator_ctx *ctx;
+	struct sde_rot_entry_container *req;
+
+	if (!request || !request->ctx) {
+		SDEROT_ERR("invalid parameters\n");
+		return;
+	}
+
+	ctx = request->ctx;
+	req = request->req;
+
+	if (req && req->entries && req->count)
+		ctx->retired_sequence_id =
+				req->entries[req->count - 1].item.sequence_id;
+
+	wake_up(&ctx->wait_queue);
+
+	SDEROT_DBG("update sequence s:%d.%d\n",
+				ctx->session_id, ctx->retired_sequence_id);
+}
+
+/*
+ * sde_rotator_retire_request - retire the given rotator request with
+ *	device mutex locked
+ * @request: Pointer to rotator request
+ */
+static void sde_rotator_retire_request(struct sde_rotator_request *request)
+{
+	struct sde_rotator_ctx *ctx;
+
+	if (!request || !request->ctx) {
+		SDEROT_ERR("invalid parameters\n");
+		return;
+	}
+
+	ctx = request->ctx;
+
+	request->req = NULL;
+	spin_lock(&ctx->list_lock);
+	list_del_init(&request->list);
+	list_add_tail(&request->list, &ctx->retired_list);
+	spin_unlock(&ctx->list_lock);
+
+	SDEROT_DBG("retire request s:%d.%d\n",
+				ctx->session_id, ctx->retired_sequence_id);
 }
 
 /*
@@ -1992,8 +2069,10 @@ static void sde_rotator_retire_handler(struct work_struct *work)
 	struct vb2_v4l2_buffer *dst_buf;
 	struct sde_rotator_ctx *ctx;
 	struct sde_rotator_device *rot_dev;
+	struct sde_rotator_request *request;
 
-	ctx = container_of(work, struct sde_rotator_ctx, retire_work);
+	request = container_of(work, struct sde_rotator_request, retire_work);
+	ctx = request->ctx;
 
 	if (!ctx || !ctx->rot_dev) {
 		SDEROT_ERR("null context/device\n");
@@ -2008,15 +2087,14 @@ static void sde_rotator_retire_handler(struct work_struct *work)
 	if (ctx->abort_pending) {
 		SDEDEV_DBG(rot_dev->dev, "abort command in retire s:%d\n",
 				ctx->session_id);
-		ctx->request = ERR_PTR(-EINTR);
-		atomic_dec(&ctx->command_pending);
-		wake_up(&ctx->wait_queue);
+		sde_rotator_update_retire_sequence(request);
+		sde_rotator_retire_request(request);
 		mutex_unlock(&rot_dev->lock);
 		return;
 	}
 
 	if (rot_dev->early_submit) {
-		if (IS_ERR_OR_NULL(ctx->request)) {
+		if (IS_ERR_OR_NULL(request->req)) {
 			/* fail pending request or something wrong */
 			SDEDEV_ERR(rot_dev->dev,
 					"pending request fail in retire s:%d\n",
@@ -2037,9 +2115,8 @@ static void sde_rotator_retire_handler(struct work_struct *work)
 				src_buf, dst_buf);
 		}
 
-		ctx->request = NULL;
-		atomic_dec(&ctx->command_pending);
-		wake_up(&ctx->wait_queue);
+		sde_rotator_update_retire_sequence(request);
+		sde_rotator_retire_request(request);
 		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
 		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
 		v4l2_m2m_job_finish(rot_dev->m2m_dev, ctx->fh.m2m_ctx);
@@ -2052,9 +2129,11 @@ static void sde_rotator_retire_handler(struct work_struct *work)
  * @ctx: Pointer rotator context.
  * @src_buf: Pointer to Vb2 source buffer.
  * @dst_buf: Pointer to Vb2 destination buffer.
+ * @request: Pointer to rotator request
  */
 static int sde_rotator_process_buffers(struct sde_rotator_ctx *ctx,
-	struct vb2_buffer *src_buf, struct vb2_buffer *dst_buf)
+	struct vb2_buffer *src_buf, struct vb2_buffer *dst_buf,
+	struct sde_rotator_request *request)
 {
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
 	struct sde_rotation_item item;
@@ -2173,17 +2252,17 @@ static int sde_rotator_process_buffers(struct sde_rotator_ctx *ctx,
 	}
 
 	req->retireq = ctx->work_queue.rot_work_queue;
-	req->retire_work = &ctx->retire_work;
+	req->retire_work = &request->retire_work;
 
 	ret = sde_rotator_handle_request_common(
-			rot_dev->mgr, ctx->private, req, &item);
+			rot_dev->mgr, ctx->private, req);
 	if (ret) {
 		SDEDEV_ERR(rot_dev->dev, "fail handle request\n");
 		goto error_handle_request;
 	}
 
 	sde_rotator_queue_request(rot_dev->mgr, ctx->private, req);
-	ctx->request = req;
+	request->req = req;
 
 	return 0;
 error_handle_request:
@@ -2191,7 +2270,7 @@ error_handle_request:
 error_init_request:
 error_fence_wait:
 error_null_buffer:
-	ctx->request = ERR_PTR(ret);
+	request->req = NULL;
 	return ret;
 }
 
@@ -2207,11 +2286,13 @@ static void sde_rotator_submit_handler(struct work_struct *work)
 	struct sde_rotator_device *rot_dev;
 	struct vb2_v4l2_buffer *src_buf;
 	struct vb2_v4l2_buffer *dst_buf;
+	struct sde_rotator_request *request;
 	int ret;
 
-	ctx = container_of(work, struct sde_rotator_ctx, submit_work);
+	request = container_of(work, struct sde_rotator_request, submit_work);
+	ctx = request->ctx;
 
-	if (!ctx->rot_dev) {
+	if (!ctx || !ctx->rot_dev) {
 		SDEROT_ERR("null device\n");
 		return;
 	}
@@ -2223,9 +2304,8 @@ static void sde_rotator_submit_handler(struct work_struct *work)
 	if (ctx->abort_pending) {
 		SDEDEV_DBG(rot_dev->dev, "abort command in submit s:%d\n",
 				ctx->session_id);
-		ctx->request = ERR_PTR(-EINTR);
-		atomic_dec(&ctx->command_pending);
-		wake_up(&ctx->wait_queue);
+		sde_rotator_update_retire_sequence(request);
+		sde_rotator_retire_request(request);
 		mutex_unlock(&rot_dev->lock);
 		return;
 	}
@@ -2235,7 +2315,7 @@ static void sde_rotator_submit_handler(struct work_struct *work)
 	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	sde_rot_mgr_lock(rot_dev->mgr);
 	ret = sde_rotator_process_buffers(ctx, &src_buf->vb2_buf,
-			&dst_buf->vb2_buf);
+			&dst_buf->vb2_buf, request);
 	sde_rot_mgr_unlock(rot_dev->mgr);
 	if (ret) {
 		SDEDEV_ERR(rot_dev->dev,
@@ -2258,6 +2338,7 @@ static void sde_rotator_device_run(void *priv)
 	struct sde_rotator_device *rot_dev;
 	struct vb2_v4l2_buffer *src_buf;
 	struct vb2_v4l2_buffer *dst_buf;
+	struct sde_rotator_request *request;
 	int ret;
 
 	if (!ctx || !ctx->rot_dev) {
@@ -2269,8 +2350,11 @@ static void sde_rotator_device_run(void *priv)
 	SDEDEV_DBG(rot_dev->dev, "device run s:%d\n", ctx->session_id);
 
 	if (rot_dev->early_submit) {
+		request = list_first_entry_or_null(&ctx->pending_list,
+				struct sde_rotator_request, list);
+
 		/* pending request mode, check for completion */
-		if (IS_ERR_OR_NULL(ctx->request)) {
+		if (!request || IS_ERR_OR_NULL(request->req)) {
 			/* pending request fails or something wrong. */
 			SDEDEV_ERR(rot_dev->dev,
 				"pending request fail in device run s:%d\n",
@@ -2278,19 +2362,19 @@ static void sde_rotator_device_run(void *priv)
 			rot_dev->stats.fail_count++;
 			ATRACE_INT("fail_count", rot_dev->stats.fail_count);
 			goto error_process_buffers;
-		} else if (!atomic_read(&ctx->request->pending_count)) {
+
+		} else if (!atomic_read(&request->req->pending_count)) {
 			/* pending request completed. signal done. */
 			int failed_count =
-				atomic_read(&ctx->request->failed_count);
+				atomic_read(&request->req->failed_count);
 			SDEDEV_DBG(rot_dev->dev,
 				"pending request completed in device run s:%d\n",
 				ctx->session_id);
 
 			/* disconnect request (will be freed by core layer) */
 			sde_rot_mgr_lock(rot_dev->mgr);
-			ctx->request->retireq = NULL;
-			ctx->request->retire_work = NULL;
-			ctx->request = NULL;
+			sde_rotator_req_finish(rot_dev->mgr, ctx->private,
+					request->req);
 			sde_rot_mgr_unlock(rot_dev->mgr);
 
 			if (failed_count) {
@@ -2314,8 +2398,8 @@ static void sde_rotator_device_run(void *priv)
 				goto error_process_buffers;
 			}
 
-			atomic_dec(&ctx->command_pending);
-			wake_up(&ctx->wait_queue);
+			sde_rotator_update_retire_sequence(request);
+			sde_rotator_retire_request(request);
 			v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
 			v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
 			v4l2_m2m_job_finish(rot_dev->m2m_dev, ctx->fh.m2m_ctx);
@@ -2327,17 +2411,28 @@ static void sde_rotator_device_run(void *priv)
 
 			/* disconnect request (will be freed by core layer) */
 			sde_rot_mgr_lock(rot_dev->mgr);
-			ctx->request->retireq = NULL;
-			ctx->request->retire_work = NULL;
-			ctx->request = ERR_PTR(-EIO);
+			sde_rotator_req_finish(rot_dev->mgr, ctx->private,
+					request->req);
 			sde_rot_mgr_unlock(rot_dev->mgr);
 
 			goto error_process_buffers;
 		}
 	} else {
-		/* no pending request. submit buffer the usual way. */
-		atomic_inc(&ctx->command_pending);
+		request = list_first_entry_or_null(&ctx->retired_list,
+				struct sde_rotator_request, list);
+		if (!request) {
+			SDEDEV_ERR(rot_dev->dev,
+				"no free request in device run s:%d\n",
+				ctx->session_id);
+			goto error_retired_list;
+		}
 
+		spin_lock(&ctx->list_lock);
+		list_del_init(&request->list);
+		list_add_tail(&request->list, &ctx->pending_list);
+		spin_unlock(&ctx->list_lock);
+
+		/* no pending request. submit buffer the usual way. */
 		dst_buf = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
 		src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 		if (!src_buf || !dst_buf) {
@@ -2350,13 +2445,12 @@ static void sde_rotator_device_run(void *priv)
 
 		sde_rot_mgr_lock(rot_dev->mgr);
 		ret = sde_rotator_process_buffers(ctx, &src_buf->vb2_buf,
-				&dst_buf->vb2_buf);
+				&dst_buf->vb2_buf, request);
 		sde_rot_mgr_unlock(rot_dev->mgr);
 		if (ret) {
 			SDEDEV_ERR(rot_dev->dev,
 				"fail process buffer in device run s:%d\n",
 				ctx->session_id);
-			ctx->request = ERR_PTR(ret);
 			rot_dev->stats.fail_count++;
 			ATRACE_INT("fail_count", rot_dev->stats.fail_count);
 			goto error_process_buffers;
@@ -2366,8 +2460,9 @@ static void sde_rotator_device_run(void *priv)
 	return;
 error_process_buffers:
 error_empty_buffer:
-	atomic_dec(&ctx->command_pending);
-	wake_up(&ctx->wait_queue);
+error_retired_list:
+	sde_rotator_update_retire_sequence(request);
+	sde_rotator_retire_request(request);
 	src_buf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 	if (src_buf)
@@ -2406,6 +2501,7 @@ static int sde_rotator_job_ready(void *priv)
 {
 	struct sde_rotator_ctx *ctx = priv;
 	struct sde_rotator_device *rot_dev;
+	struct sde_rotator_request *request;
 	int ret = 0;
 
 	if (!ctx || !ctx->rot_dev) {
@@ -2416,26 +2512,43 @@ static int sde_rotator_job_ready(void *priv)
 	rot_dev = ctx->rot_dev;
 	SDEDEV_DBG(rot_dev->dev, "job ready s:%d\n", ctx->session_id);
 
+	request = list_first_entry_or_null(&ctx->pending_list,
+			struct sde_rotator_request, list);
+
 	if (!rot_dev->early_submit) {
 		/* always ready in normal mode. */
 		ret = 1;
-	} else if (IS_ERR(ctx->request)) {
+	} else if (request && IS_ERR_OR_NULL(request->req)) {
 		/* if pending request fails, forward to device run state. */
 		SDEDEV_DBG(rot_dev->dev,
 				"pending request fail in job ready s:%d\n",
 				ctx->session_id);
 		ret = 1;
-	} else if (!ctx->request) {
+	} else if (list_empty(&ctx->pending_list)) {
 		/* if no pending request, submit a new request. */
 		SDEDEV_DBG(rot_dev->dev,
 				"submit job s:%d sc:%d dc:%d p:%d\n",
 				ctx->session_id,
 				v4l2_m2m_num_src_bufs_ready(ctx->fh.m2m_ctx),
 				v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx),
-				atomic_read(&ctx->command_pending));
-		atomic_inc(&ctx->command_pending);
-		queue_work(ctx->work_queue.rot_work_queue, &ctx->submit_work);
-	} else if (!atomic_read(&ctx->request->pending_count)) {
+				!list_empty(&ctx->pending_list));
+
+		request = list_first_entry_or_null(&ctx->retired_list,
+				struct sde_rotator_request, list);
+		if (!request) {
+			/* should not happen */
+			SDEDEV_ERR(rot_dev->dev,
+					"no free request in job ready s:%d\n",
+					ctx->session_id);
+		} else {
+			spin_lock(&ctx->list_lock);
+			list_del_init(&request->list);
+			list_add_tail(&request->list, &ctx->pending_list);
+			spin_unlock(&ctx->list_lock);
+			queue_work(ctx->work_queue.rot_work_queue,
+					&request->submit_work);
+		}
+	} else if (request && !atomic_read(&request->req->pending_count)) {
 		/* if pending request completed, forward to device run state */
 		SDEDEV_DBG(rot_dev->dev,
 				"pending request completed in job ready s:%d\n",

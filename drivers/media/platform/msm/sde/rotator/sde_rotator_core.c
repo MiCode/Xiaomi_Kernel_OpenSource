@@ -1887,8 +1887,9 @@ static int sde_rotator_add_request(struct sde_rot_mgr *mgr,
 
 		INIT_WORK(&entry->commit_work, sde_rotator_commit_handler);
 		INIT_WORK(&entry->done_work, sde_rotator_done_handler);
-		SDEROT_DBG("Entry added. wbidx=%u, src{%u,%u,%u,%u}f=%u\n"
-			"dst{%u,%u,%u,%u}f=%u session_id=%u\n", item->wb_idx,
+		SDEROT_DBG(
+			"Entry added. wbidx=%u, src{%u,%u,%u,%u}f=%x dst{%u,%u,%u,%u}f=%x session_id=%u\n",
+			item->wb_idx,
 			item->src_rect.x, item->src_rect.y,
 			item->src_rect.w, item->src_rect.h, item->input.format,
 			item->dst_rect.x, item->dst_rect.y,
@@ -1967,8 +1968,7 @@ static void sde_rotator_free_completed_request(struct sde_rot_mgr *mgr,
 	struct sde_rot_entry_container *req, *req_next;
 
 	list_for_each_entry_safe(req, req_next, &private->req_list, list) {
-		if ((atomic_read(&req->pending_count) == 0) &&
-				(!req->retire_work && !req->retireq)) {
+		if ((atomic_read(&req->pending_count) == 0) && req->finished) {
 			list_del_init(&req->list);
 			devm_kfree(&mgr->pdev->dev, req);
 		}
@@ -2139,7 +2139,7 @@ static int sde_rotator_close_session(struct sde_rot_mgr *mgr,
 	sde_rotator_update_clk(mgr);
 	sde_rotator_resource_ctrl(mgr, false);
 done:
-	SDEROT_DBG("Closed session id:%u", id);
+	SDEROT_DBG("Closed session id:%u\n", id);
 	return 0;
 }
 
@@ -2230,14 +2230,25 @@ struct sde_rot_entry_container *sde_rotator_req_init(
 	return req;
 }
 
+void sde_rotator_req_finish(struct sde_rot_mgr *mgr,
+	struct sde_rot_file_private *private,
+	struct sde_rot_entry_container *req)
+{
+	if (!mgr || !private || !req) {
+		SDEROT_ERR("null parameters\n");
+		return;
+	}
+
+	req->finished = true;
+}
+
 int sde_rotator_handle_request_common(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *private,
-	struct sde_rot_entry_container *req,
-	struct sde_rotation_item *items)
+	struct sde_rot_entry_container *req)
 {
 	int ret;
 
-	if (!mgr || !private || !req || !items) {
+	if (!mgr || !private || !req) {
 		SDEROT_ERR("null parameters\n");
 		return -EINVAL;
 	}

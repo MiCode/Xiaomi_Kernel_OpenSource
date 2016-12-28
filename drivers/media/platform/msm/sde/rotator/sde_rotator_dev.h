@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,9 @@
 /* Event logging constants */
 #define SDE_ROTATOR_NUM_EVENTS		4096
 #define SDE_ROTATOR_NUM_TIMESTAMPS	SDE_ROTATOR_TS_MAX
+
+/* maximum number of outstanding requests per ctx session */
+#define SDE_ROTATOR_REQUEST_MAX		2
 
 struct sde_rotator_device;
 struct sde_rotator_ctx;
@@ -80,6 +83,22 @@ struct sde_rotator_vbinfo {
 };
 
 /*
+ * struct sde_rotator_request - device layer rotation request
+ * @list: list head for submit/retire list
+ * @submit_work: submit work structure
+ * @retire_work: retire work structure
+ * @request: Pointer to core layer rotator manager request
+ * @ctx: Pointer to parent context
+ */
+struct sde_rotator_request {
+	struct list_head list;
+	struct work_struct submit_work;
+	struct work_struct retire_work;
+	struct sde_rot_entry_container *req;
+	struct sde_rotator_ctx *ctx;
+};
+
+/*
  * struct sde_rotator_ctx - Structure contains per open file handle context.
  * @kobj: kernel object of this context
  * @rot_dev: Pointer to rotator device.
@@ -95,18 +114,20 @@ struct sde_rotator_vbinfo {
  * @vflip: vertical flip (1-flip)
  * @rotate: rotation angle (0,90,180,270)
  * @secure: Non-secure (0) / Secure processing
- * @command_pending: Number of pending transaction in h/w
  * @abort_pending: True if abort is requested for async handling.
  * @nbuf_cap: Number of requested buffer for capture queue
  * @nbuf_out: Number of requested buffer for output queue
  * @fence_cap: Fence info for each requested capture buffer
  * @fence_out: Fence info for each requested output buffer
  * @wait_queue: Wait queue for signaling end of job
- * @submit_work: Work structure for submitting work
- * @retire_work: Work structure for retiring work
  * @work_queue: work queue for submit and retire processing
- * @request: current service request
  * @private: Pointer to session private information
+ * @commit_sequence_id: last committed sequence id
+ * @retired_sequence_id: last retired sequence id
+ * @list_lock: lock for pending/retired list
+ * @pending_list: list of pending request
+ * @retired_list: list of retired/free request
+ * @requests: static allocation of free requests
  */
 struct sde_rotator_ctx {
 	struct kobject kobj;
@@ -124,18 +145,20 @@ struct sde_rotator_ctx {
 	s32 rotate;
 	s32 secure;
 	s32 secure_camera;
-	atomic_t command_pending;
 	int abort_pending;
 	int nbuf_cap;
 	int nbuf_out;
 	struct sde_rotator_vbinfo *vbinfo_cap;
 	struct sde_rotator_vbinfo *vbinfo_out;
 	wait_queue_head_t wait_queue;
-	struct work_struct submit_work;
-	struct work_struct retire_work;
 	struct sde_rot_queue work_queue;
-	struct sde_rot_entry_container *request;
 	struct sde_rot_file_private *private;
+	u32 commit_sequence_id;
+	u32 retired_sequence_id;
+	spinlock_t list_lock;
+	struct list_head pending_list;
+	struct list_head retired_list;
+	struct sde_rotator_request requests[SDE_ROTATOR_REQUEST_MAX];
 };
 
 /*
