@@ -1310,6 +1310,16 @@ static int spcom_handle_send_command(struct spcom_channel *ch,
 
 	pr_debug("send req/resp ch [%s] size [%d] .\n", ch->name, size);
 
+	/*
+	 * check that cmd buf size is at least struct size,
+	 * to allow access to struct fields.
+	 */
+	if (size < sizeof(*cmd)) {
+		pr_err("ch [%s] invalid cmd buf.\n",
+			ch->name);
+		return -EINVAL;
+	}
+
 	/* Check if remote side connect */
 	if (!spcom_is_channel_connected(ch)) {
 		pr_err("ch [%s] remote side not connect.\n", ch->name);
@@ -1320,6 +1330,18 @@ static int spcom_handle_send_command(struct spcom_channel *ch,
 	buf = &cmd->buf;
 	buf_size = cmd->buf_size;
 	timeout_msec = cmd->timeout_msec;
+
+	/* Check param validity */
+	if (buf_size > SPCOM_MAX_RESPONSE_SIZE) {
+		pr_err("ch [%s] invalid buf size [%d].\n",
+			ch->name, buf_size);
+		return -EINVAL;
+	}
+	if (size != sizeof(*cmd) + buf_size) {
+		pr_err("ch [%s] invalid cmd size [%d].\n",
+			ch->name, size);
+		return -EINVAL;
+	}
 
 	/* Allocate Buffers*/
 	tx_buf_size = sizeof(*hdr) + buf_size;
@@ -1541,6 +1563,12 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 	struct ion_handle *ion_handle;
 	int i;
 
+	if (size != sizeof(*cmd)) {
+		pr_err("cmd size [%d] , expected [%d].\n",
+		       (int) size,  (int) sizeof(*cmd));
+		return -EINVAL;
+	}
+
 	/* Check ION client */
 	if (spcom_dev->ion_client == NULL) {
 		pr_err("invalid ion client.\n");
@@ -1587,6 +1615,12 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 	int fd = cmd->arg;
 	struct ion_client *ion_client = spcom_dev->ion_client;
 	int i;
+
+	if (size != sizeof(*cmd)) {
+		pr_err("cmd size [%d] , expected [%d].\n",
+		       (int) size,  (int) sizeof(*cmd));
+		return -EINVAL;
+	}
 
 	/* Check ION client */
 	if (ion_client == NULL) {
