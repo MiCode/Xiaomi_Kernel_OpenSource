@@ -325,8 +325,8 @@ static struct attribute *secure_touch_attrs[] = {
 	&dev_attr_secure_touch_enable.attr,
 	&dev_attr_secure_touch.attr,
 	&dev_attr_secure_touch_userspace.attr,
-	NULL
 #endif
+	NULL
 };
 
 static const struct attribute_group secure_touch_attr_group = {
