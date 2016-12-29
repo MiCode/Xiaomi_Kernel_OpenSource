@@ -51,15 +51,6 @@
 	msr	daifclr, #2
 	.endm
 
-	.macro	save_and_disable_irq, flags
-	mrs	\flags, daif
-	msr	daifset, #2
-	.endm
-
-	.macro	restore_irq, flags
-	msr	daif, \flags
-	.endm
-
 /*
  * Save/disable and restore interrupts.
  */
@@ -292,13 +283,6 @@ lr	.req	x30		// link register
 	b.lt	9000f
 	msr	pmuserenr_el0, xzr		// Disable PMU access from EL0
 9000:
-	.endm
-
-/*
- * Return the current thread_info.
- */
-	.macro	get_thread_info, rd
-	mrs	\rd, sp_el0
 	.endm
 
 /*
