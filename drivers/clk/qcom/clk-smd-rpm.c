@@ -55,6 +55,7 @@
 		.hw.init = &(struct clk_init_data){			      \
 			.ops = &clk_smd_rpm_ops,			      \
 			.name = #_name,					      \
+			.flags = CLK_ENABLE_HAND_OFF,			      \
 			.parent_names = (const char *[]){ "xo_board" },       \
 			.num_parents = 1,				      \
 		},							      \
@@ -72,6 +73,7 @@
 		.hw.init = &(struct clk_init_data){			      \
 			.ops = &clk_smd_rpm_ops,			      \
 			.name = #_active,				      \
+			.flags = CLK_ENABLE_HAND_OFF,			      \
 			.parent_names = (const char *[]){ "xo_board" },	      \
 			.num_parents = 1,				      \
 		},							      \
@@ -95,6 +97,7 @@
 		.hw.init = &(struct clk_init_data){			      \
 			.ops = &clk_smd_rpm_branch_ops,			      \
 			.name = #_name,					      \
+			.flags = CLK_ENABLE_HAND_OFF,			      \
 			.parent_names = (const char *[]){ "xo_board" },	      \
 			.num_parents = 1,				      \
 		},							      \
@@ -113,6 +116,7 @@
 		.hw.init = &(struct clk_init_data){			      \
 			.ops = &clk_smd_rpm_branch_ops,			      \
 			.name = #_active,				      \
+			.flags = CLK_ENABLE_HAND_OFF,			      \
 			.parent_names = (const char *[]){ "xo_board" },	      \
 			.num_parents = 1,				      \
 		},							      \
@@ -177,6 +181,8 @@ struct rpm_smd_clk_desc {
 
 static DEFINE_MUTEX(rpm_smd_clk_lock);
 
+static int clk_smd_rpm_prepare(struct clk_hw *hw);
+
 static int clk_smd_rpm_handoff(struct clk_hw *hw)
 {
 	int ret = 0;
@@ -197,6 +203,8 @@ static int clk_smd_rpm_handoff(struct clk_hw *hw)
 			r->rpm_clk_id, &req, 1);
 	if (ret)
 		return ret;
+
+	ret = clk_smd_rpm_prepare(hw);
 
 	return ret;
 }
@@ -462,12 +470,20 @@ static int clk_vote_bimc(struct clk_hw *hw, uint32_t rate)
 	return ret;
 }
 
+static int clk_smd_rpm_is_enabled(struct clk_hw *hw)
+{
+	struct clk_smd_rpm *r = to_clk_smd_rpm(hw);
+
+	return r->enabled;
+}
+
 static const struct clk_ops clk_smd_rpm_ops = {
 	.prepare	= clk_smd_rpm_prepare,
 	.unprepare	= clk_smd_rpm_unprepare,
 	.set_rate	= clk_smd_rpm_set_rate,
 	.round_rate	= clk_smd_rpm_round_rate,
 	.recalc_rate	= clk_smd_rpm_recalc_rate,
+	.is_enabled	= clk_smd_rpm_is_enabled,
 };
 
 static const struct clk_ops clk_smd_rpm_branch_ops = {
@@ -475,6 +491,7 @@ static const struct clk_ops clk_smd_rpm_branch_ops = {
 	.unprepare	= clk_smd_rpm_unprepare,
 	.round_rate	= clk_smd_rpm_round_rate,
 	.recalc_rate	= clk_smd_rpm_recalc_rate,
+	.is_enabled	= clk_smd_rpm_is_enabled,
 };
 
 /* msm8916 */
@@ -813,6 +830,17 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 		}
 
 		ret = clk_smd_rpm_handoff(hw_clks[i]);
+		if (ret)
+			goto err;
+	}
+
+	for (i = (desc->num_rpm_clks + 1); i < num_clks; i++) {
+		if (!hw_clks[i]) {
+			clks[i] = ERR_PTR(-ENOENT);
+			continue;
+		}
+
+		ret = voter_clk_handoff(hw_clks[i]);
 		if (ret)
 			goto err;
 	}
