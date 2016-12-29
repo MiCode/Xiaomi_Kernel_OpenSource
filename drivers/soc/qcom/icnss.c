@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -719,6 +719,15 @@ int icnss_power_on(struct device *dev)
 	return icnss_hw_power_on(priv);
 }
 EXPORT_SYMBOL(icnss_power_on);
+
+bool icnss_is_fw_ready(void)
+{
+	if (!penv)
+		return false;
+	else
+		return test_bit(ICNSS_FW_READY, &penv->state);
+}
+EXPORT_SYMBOL(icnss_is_fw_ready);
 
 int icnss_power_off(struct device *dev)
 {
