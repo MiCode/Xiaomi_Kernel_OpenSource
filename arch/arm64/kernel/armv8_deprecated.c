@@ -281,9 +281,9 @@ static void __init register_insn_emulation_sysctl(struct ctl_table *table)
  * Error-checking SWP macros implemented using ldxr{b}/stxr{b}
  */
 #define __user_swpX_asm(data, addr, res, temp, B)		\
-do {								\
-	uaccess_enable();					\
 	__asm__ __volatile__(					\
+	ALTERNATIVE("nop", SET_PSTATE_PAN(0), ARM64_HAS_PAN,	\
+		    CONFIG_ARM64_PAN)				\
 	"	mov		%w2, %w1\n"			\
 	"0:	ldxr"B"		%w1, [%3]\n"			\
 	"1:	stxr"B"		%w0, %w2, [%3]\n"		\
@@ -300,11 +300,11 @@ do {								\
 	"	.quad		0b, 3b\n"			\
 	"	.quad		1b, 3b\n"			\
 	"	.popsection\n"					\
+	ALTERNATIVE("nop", SET_PSTATE_PAN(1), ARM64_HAS_PAN,	\
+		CONFIG_ARM64_PAN)				\
 	: "=&r" (res), "+r" (data), "=&r" (temp)		\
 	: "r" (addr), "i" (-EAGAIN), "i" (-EFAULT)		\
-	: "memory");						\
-	uaccess_disable();					\
-} while (0)
+	: "memory")
 
 #define __user_swp_asm(data, addr, res, temp) \
 	__user_swpX_asm(data, addr, res, temp, "")
