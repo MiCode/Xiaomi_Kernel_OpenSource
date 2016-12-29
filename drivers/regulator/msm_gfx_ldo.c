@@ -152,7 +152,7 @@ static struct ldo_config msm8953_ldo_config[] = {
 	{LDO_MAX_OFFSET,	LDO_MAX_OFFSET},
 };
 
-static struct ldo_config msmfalcon_ldo_config[] = {
+static struct ldo_config sdm660_ldo_config[] = {
 	{LDO_ATEST_REG,		0x00000080},
 	{LDO_CFG0_REG,		0x0100A600},
 	{LDO_CFG1_REG,		0x000000A0},
@@ -185,7 +185,7 @@ static const int msm8953_fuse_ref_volt[MSM8953_LDO_FUSE_CORNERS] = {
 
 enum {
 	MSM8953_SOC_ID,
-	MSMFALCON_SOC_ID,
+	SDM660_SOC_ID,
 };
 
 static int convert_open_loop_voltage_fuse(int ref_volt, int step_volt,
@@ -1516,8 +1516,8 @@ static const struct of_device_id msm_gfx_ldo_match_table[] = {
 		.data = (void *)(uintptr_t)MSM8953_SOC_ID,
 	},
 	{
-		.compatible = "qcom,msmfalcon-gfx-ldo",
-		.data = (void *)(uintptr_t)MSMFALCON_SOC_ID,
+		.compatible = "qcom,sdm660-gfx-ldo",
+		.data = (void *)(uintptr_t)SDM660_SOC_ID,
 	},
 	{}
 };
@@ -1572,8 +1572,8 @@ static int msm_gfx_ldo_probe(struct platform_device *pdev)
 			return rc;
 		}
 		break;
-	case MSMFALCON_SOC_ID:
-		ldo_vreg->ldo_init_config = msmfalcon_ldo_config;
+	case SDM660_SOC_ID:
+		ldo_vreg->ldo_init_config = sdm660_ldo_config;
 		ldo_vreg->ops_type = VOLTAGE;
 		init_data->constraints.valid_ops_mask
 			|= REGULATOR_CHANGE_BYPASS;

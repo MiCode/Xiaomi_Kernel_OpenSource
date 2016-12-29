@@ -1,0 +1,497 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&rpm_bus {
+	rpm-regulator-smpa4 {
+		status = "okay";
+		pm660_s4: regulator-s4 {
+			regulator-min-microvolt = <1805000>;
+			regulator-max-microvolt = <2040000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa5 {
+		status = "okay";
+		pm660_s5: regulator-s5 {
+			regulator-min-microvolt = <1350000>;
+			regulator-max-microvolt = <1350000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa6 {
+		status = "okay";
+		pm660_s6: regulator-s6 {
+			regulator-min-microvolt = <504000>;
+			regulator-max-microvolt = <992000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpb1 {
+		status = "okay";
+		pm660l_s1: regulator-s1 {
+			regulator-min-microvolt = <1125000>;
+			regulator-max-microvolt = <1125000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpb2 {
+		status = "okay";
+		pm660l_s2: regulator-s2 {
+			regulator-min-microvolt = <1050000>;
+			regulator-max-microvolt = <1050000>;
+			status = "okay";
+		};
+	};
+
+	/* PM660L S3 + S4 - VDD_CX supply */
+	rpm-regulator-smpb3 {
+		status = "okay";
+		pm660l_s3_level: regulator-s3-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_s3_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+		};
+
+		pm660l_s3_floor_level: regulator-s3-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_s3_floor_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-floor-level;
+			qcom,always-send-voltage;
+		};
+
+		pm660l_s3_level_ao: regulator-s3-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_s3_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+		};
+	};
+
+	/* PM660L S5 - VDD_MX supply */
+	rpm-regulator-smpb5 {
+		status = "okay";
+		pm660l_s5_level: regulator-s5-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_s5_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+		};
+
+		pm660l_s5_floor_level: regulator-s5-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_s5_floor_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-floor-level;
+			qcom,always-send-voltage;
+		};
+
+		pm660l_s5_level_ao: regulator-s5-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_s5_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+		};
+	};
+
+	rpm-regulator-ldoa1 {
+		status = "okay";
+		pm660_l1: regulator-l1 {
+			regulator-min-microvolt = <1150000>;
+			regulator-max-microvolt = <1250000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa2 {
+		status = "okay";
+		pm660_l2: regulator-l2 {
+			regulator-min-microvolt = <950000>;
+			regulator-max-microvolt = <1010000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa3 {
+		status = "okay";
+		pm660_l3: regulator-l3 {
+			regulator-min-microvolt = <950000>;
+			regulator-max-microvolt = <1010000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa5 {
+		status = "okay";
+		pm660_l5: regulator-l5 {
+			regulator-min-microvolt = <525000>;
+			regulator-max-microvolt = <950000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa6 {
+		status = "okay";
+		pm660_l6: regulator-l6 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1370000>;
+			status = "okay";
+		};
+
+		pm660_l6_pin_ctrl: regulator-l6-pin-ctrl {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_l6_pin_ctrl";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1370000>;
+			/* Force NPM follows HW_EN1 */
+			qcom,init-pin-ctrl-mode = <2>;
+			/* Enable follows HW_EN1 */
+			qcom,enable-with-pin-ctrl = <0 2>;
+		};
+	};
+
+	rpm-regulator-ldoa7 {
+		status = "okay";
+		pm660_l7: regulator-l7 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa8 {
+		status = "okay";
+		pm660_l8: regulator-l8 {
+			regulator-min-microvolt = <1750000>;
+			regulator-max-microvolt = <1900000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa9 {
+		status = "okay";
+		pm660_l9: regulator-l9 {
+			regulator-min-microvolt = <1750000>;
+			regulator-max-microvolt = <1900000>;
+			status = "okay";
+		};
+
+		pm660_l9_pin_ctrl: regulator-l9-pin-ctrl {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_l9_pin_ctrl";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1750000>;
+			regulator-max-microvolt = <1900000>;
+			/* Force NPM follows HW_EN1 */
+			qcom,init-pin-ctrl-mode = <2>;
+			/* Enable follows HW_EN1 */
+			qcom,enable-with-pin-ctrl = <0 2>;
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		status = "okay";
+		pm660_l10: regulator-l10 {
+			regulator-min-microvolt = <1780000>;
+			regulator-max-microvolt = <1950000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa11 {
+		status = "okay";
+		pm660_l11: regulator-l11 {
+			regulator-min-microvolt = <1780000>;
+			regulator-max-microvolt = <1950000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa12 {
+		status = "okay";
+		pm660_l12: regulator-l12 {
+			regulator-min-microvolt = <1780000>;
+			regulator-max-microvolt = <1950000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa13 {
+		status = "okay";
+		pm660_l13: regulator-l13 {
+			regulator-min-microvolt = <1780000>;
+			regulator-max-microvolt = <1950000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa14 {
+		status = "okay";
+		pm660_l14: regulator-l14 {
+			regulator-min-microvolt = <1710000>;
+			regulator-max-microvolt = <1900000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa15 {
+		status = "okay";
+		pm660_l15: regulator-l15 {
+			regulator-min-microvolt = <1650000>;
+			regulator-max-microvolt = <2950000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa17 {
+		status = "okay";
+		pm660_l17: regulator-l17 {
+			regulator-min-microvolt = <1650000>;
+			regulator-max-microvolt = <2950000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa19 {
+		status = "okay";
+		pm660_l19: regulator-l19 {
+			regulator-min-microvolt = <3200000>;
+			regulator-max-microvolt = <3400000>;
+			status = "okay";
+		};
+
+		pm660_l19_pin_ctrl: regulator-l19-pin-ctrl {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_l19_pin_ctrl";
+			qcom,set = <3>;
+			regulator-min-microvolt = <3200000>;
+			regulator-max-microvolt = <3400000>;
+			/* Force NPM follows HW_EN1 */
+			qcom,init-pin-ctrl-mode = <2>;
+			/* Enable follows HW_EN1 */
+			qcom,enable-with-pin-ctrl = <0 2>;
+		};
+	};
+
+	rpm-regulator-ldob1 {
+		status = "okay";
+		pm660l_l1: regulator-l1 {
+			regulator-min-microvolt = <800000>;
+			regulator-max-microvolt = <925000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldob2 {
+		status = "okay";
+		pm660l_l2: regulator-l2 {
+			regulator-min-microvolt = <350000>;
+			regulator-max-microvolt = <3100000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldob3 {
+		status = "okay";
+		pm660l_l3: regulator-l3 {
+			regulator-min-microvolt = <1710000>;
+			regulator-max-microvolt = <3600000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldob4 {
+		status = "okay";
+		pm660l_l4: regulator-l4 {
+			regulator-min-microvolt = <1700000>;
+			regulator-max-microvolt = <2950000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldob5 {
+		status = "okay";
+		pm660l_l5: regulator-l5 {
+			regulator-min-microvolt = <1721000>;
+			regulator-max-microvolt = <3600000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldob6 {
+		status = "okay";
+		pm660l_l6: regulator-l6 {
+			regulator-min-microvolt = <1700000>;
+			regulator-max-microvolt = <3300000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldob7 {
+		status = "okay";
+		pm660l_l7: regulator-l7 {
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <3125000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldob8 {
+		status = "okay";
+		pm660l_l8: regulator-l8 {
+			regulator-min-microvolt = <3200000>;
+			regulator-max-microvolt = <3400000>;
+			status = "okay";
+		};
+	};
+
+	/* PM660L L9 = VDD_SSC_CX supply */
+	rpm-regulator-ldob9 {
+		status = "okay";
+		pm660l_l9_level: regulator-l9-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l9_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+		};
+
+		pm660l_l9_floor_level: regulator-l9-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l9_floor_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-floor-level;
+			qcom,always-send-voltage;
+		};
+	};
+
+	/* PM660L L10 = VDD_SSC_MX supply */
+	rpm-regulator-ldob10 {
+		status = "okay";
+		pm660l_l10_level: regulator-l10-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l10_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+		};
+
+		pm660l_l10_floor_level: regulator-l10-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l10_floor_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-floor-level;
+			qcom,always-send-voltage;
+		};
+	};
+
+	rpm-regulator-bobb {
+		status = "okay";
+		pm660l_bob: regulator-bob {
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3600000>;
+			status = "okay";
+		};
+
+		pm660l_bob_pin1: regulator-bob-pin1 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_bob_pin1";
+			qcom,set = <3>;
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3600000>;
+			qcom,use-pin-ctrl-voltage1;
+		};
+
+		pm660l_bob_pin2: regulator-bob-pin2 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_bob_pin2";
+			qcom,set = <3>;
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3600000>;
+			qcom,use-pin-ctrl-voltage2;
+		};
+
+		pm660l_bob_pin3: regulator-bob-pin3 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_bob_pin3";
+			qcom,set = <3>;
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3600000>;
+			qcom,use-pin-ctrl-voltage3;
+		};
+	};
+};
+
+&pm660_charger {
+	smb2_vbus: qcom,smb2-vbus {
+		regulator-name = "smb2-vbus";
+	};
+
+	smb2_vconn: qcom,smb2-vconn {
+		regulator-name = "smb2-vconn";
+	};
+};
+
+/* Stub regulators */
+/ {
+	/* GFX Supply */
+	gfx_vreg_corner: regulator-gfx-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "gfx_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+};

@@ -1453,7 +1453,7 @@ static int smb2_setup_wa_flags(struct smb2 *chip)
 		if (pmic_rev_id->rev4 == PMI8998_V2P0_REV4) /* PMI rev 2.0 */
 			chg->wa_flags |= TYPEC_CC2_REMOVAL_WA_BIT;
 		break;
-	case PMFALCON_SUBTYPE:
+	case PM660_SUBTYPE:
 		chip->chg.wa_flags |= BOOST_BACK_WA;
 		break;
 	default:

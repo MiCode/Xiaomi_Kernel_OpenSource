@@ -89,14 +89,14 @@ SoCs:
 - MSMHAMSTER
   compatible = "qcom,msmhamster"
 
-- MSMFALCON
-  compatible = "qcom,msmfalcon"
+- SDM660
+  compatible = "qcom,sdm660"
 
-- APQFALCON
-  compatible = "qcom,apqfalcon"
+- SDA660
+  compatible = "qcom,sda660"
 
-- MSMTRITON
-  compatible = "qcom,msmtriton"
+- SDM630
+  compatible = "qcom,sdm630"
 
 - MSM8952
   compatible = "qcom,msm8952"
@@ -263,14 +263,14 @@ compatible = "qcom,msm8998-qrd"
 compatible = "qcom,msmhamster-rumi"
 compatible = "qcom,msmhamster-cdp"
 compatible = "qcom,msmhamster-mtp"
-compatible = "qcom,msmfalcon-sim"
-compatible = "qcom,msmfalcon-rumi"
-compatible = "qcom,msmfalcon-cdp"
-compatible = "qcom,msmfalcon-mtp"
-compatible = "qcom,msmfalcon-qrd"
-compatible = "qcom,apqfalcon-mtp"
-compatible = "qcom,apqfalcon-cdp"
-compatible = "qcom,msmtriton-rumi"
+compatible = "qcom,sdm660-sim"
+compatible = "qcom,sdm660-rumi"
+compatible = "qcom,sdm660-cdp"
+compatible = "qcom,sdm660-mtp"
+compatible = "qcom,sdm660-qrd"
+compatible = "qcom,sda660-mtp"
+compatible = "qcom,sda660-cdp"
+compatible = "qcom,sdm630-rumi"
 compatible = "qcom,msm8952-rumi"
 compatible = "qcom,msm8952-sim"
 compatible = "qcom,msm8952-qrd"

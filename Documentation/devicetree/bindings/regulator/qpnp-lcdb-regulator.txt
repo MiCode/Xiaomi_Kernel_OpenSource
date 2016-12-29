@@ -209,7 +209,7 @@ Properties below are specific to BOOST subnode only.
 Example
 =======
 
-pm2falcon_lcdb: qpnp-lcdb@ec00 {
+pm660l_lcdb: qpnp-lcdb@ec00 {
 	compatible = "qcom,qpnp-lcdb-regulator";
 	#address-cells = <1>;
 	#size-cells = <1>;

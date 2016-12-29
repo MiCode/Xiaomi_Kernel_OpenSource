@@ -535,12 +535,12 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* Hamster ID */
 	[306] = {MSM_CPU_HAMSTER, "MSMHAMSTER"},
 
-	/* falcon ID */
-	[317] = {MSM_CPU_FALCON, "MSMFALCON"},
-	[324] = {MSM_CPU_FALCON, "APQFALCON"},
+	/* 660 ID */
+	[317] = {MSM_CPU_660, "SDM660"},
+	[324] = {MSM_CPU_660, "SDA660"},
 
-	/* triton ID */
-	[318] = {MSM_CPU_TRITON, "MSMTRITON"},
+	/* 630 ID */
+	[318] = {MSM_CPU_630, "SDM630"},
 
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -1208,17 +1208,17 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 306;
 		strlcpy(dummy_socinfo.build_id, "msmhamster - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msmfalcon()) {
+	} else if (early_machine_is_sdm660()) {
 		dummy_socinfo.id = 317;
-		strlcpy(dummy_socinfo.build_id, "msmfalcon - ",
+		strlcpy(dummy_socinfo.build_id, "sdm660 - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_apqfalcon()) {
+	} else if (early_machine_is_sda660()) {
 		dummy_socinfo.id = 324;
-		strlcpy(dummy_socinfo.build_id, "apqfalcon - ",
+		strlcpy(dummy_socinfo.build_id, "sda660 - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msmtriton()) {
+	} else if (early_machine_is_sdm630()) {
 		dummy_socinfo.id = 318;
-		strlcpy(dummy_socinfo.build_id, "msmtriton - ",
+		strlcpy(dummy_socinfo.build_id, "sdm630 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_apq8998()) {
 		dummy_socinfo.id = 319;

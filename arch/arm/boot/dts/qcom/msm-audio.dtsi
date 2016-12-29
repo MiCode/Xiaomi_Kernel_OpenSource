@@ -571,8 +571,8 @@
 	};
 
 	tasha_snd: sound-9335 {
-		compatible = "qcom,msmfalcon-asoc-snd-tasha";
-		qcom,model = "msmfalcon-tasha-snd-card";
+		compatible = "qcom,sdm660-asoc-snd-tasha";
+		qcom,model = "sdm660-tasha-snd-card";
 		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
@@ -683,8 +683,8 @@
 	};
 
 	tavil_snd: sound-tavil {
-		compatible = "qcom,msmfalcon-asoc-snd-tavil";
-		qcom,model = "msmfalcon-tavil-snd-card";
+		compatible = "qcom,sdm660-asoc-snd-tavil";
+		qcom,model = "sdm660-tavil-snd-card";
 		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
@@ -792,8 +792,8 @@
 
 	int_codec: sound {
 		status = "disabled";
-		compatible = "qcom,msmfalcon-asoc-snd";
-		qcom,model = "msmfalcon-snd-card";
+		compatible = "qcom,sdm660-asoc-snd";
+		qcom,model = "sdm660-snd-card";
 		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
@@ -913,7 +913,7 @@
 
 	clock_audio: audio_ext_clk {
 		compatible = "qcom,audio-ref-clk";
-		qcom,audio-ref-clk-gpio = <&pmfalcon_gpios 3 0>;
+		qcom,audio-ref-clk-gpio = <&pm660_gpios 3 0>;
 		clock-names = "osr_clk";
 		clocks = <&clock_rpmcc AUDIO_PMI_CLK>;
 		qcom,node_has_rpm_clock;

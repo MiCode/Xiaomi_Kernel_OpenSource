@@ -3157,7 +3157,7 @@ static int fg_parse_dt(struct fg_chip *chip)
 			return -EINVAL;
 		}
 		break;
-	case PMFALCON_SUBTYPE:
+	case PM660_SUBTYPE:
 		chip->sp = pmi8998_v2_sram_params;
 		chip->alg_flags = pmi8998_v2_alg_flags;
 		break;

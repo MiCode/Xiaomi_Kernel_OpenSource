@@ -36,10 +36,10 @@
 
 #include "cpr3-regulator.h"
 
-#define MSMFALCON_MMSS_FUSE_CORNERS	6
+#define SDM660_MMSS_FUSE_CORNERS	6
 
 /**
- * struct cpr4_msmfalcon_mmss_fuses - MMSS specific fuse data for MSMFALCON
+ * struct cpr4_sdm660_mmss_fuses - MMSS specific fuse data for SDM660
  * @init_voltage:	Initial (i.e. open-loop) voltage fuse parameter value
  *			for each fuse corner (raw, not converted to a voltage)
  * @offset_voltage:	The closed-loop voltage margin adjustment fuse parameter
@@ -55,19 +55,19 @@
  *
  * This struct holds the values for all of the fuses read from memory.
  */
-struct cpr4_msmfalcon_mmss_fuses {
-	u64	init_voltage[MSMFALCON_MMSS_FUSE_CORNERS];
-	u64	offset_voltage[MSMFALCON_MMSS_FUSE_CORNERS];
+struct cpr4_sdm660_mmss_fuses {
+	u64	init_voltage[SDM660_MMSS_FUSE_CORNERS];
+	u64	offset_voltage[SDM660_MMSS_FUSE_CORNERS];
 	u64	cpr_fusing_rev;
-	u64	ldo_enable[MSMFALCON_MMSS_FUSE_CORNERS];
+	u64	ldo_enable[SDM660_MMSS_FUSE_CORNERS];
 	u64	ldo_cpr_cl_enable;
 };
 
 /* Fuse combos 0 -  7 map to CPR fusing revision 0 - 7 */
-#define CPR4_MSMFALCON_MMSS_FUSE_COMBO_COUNT	8
+#define CPR4_SDM660_MMSS_FUSE_COMBO_COUNT	8
 
 /*
- * MSMFALCON MMSS fuse parameter locations:
+ * SDM660 MMSS fuse parameter locations:
  *
  * Structs are organized with the following dimensions:
  *	Outer: 0 to 3 for fuse corners from lowest to highest corner
@@ -79,7 +79,7 @@ struct cpr4_msmfalcon_mmss_fuses {
  *		a given parameter may correspond to different fuse rows.
  */
 static const struct cpr3_fuse_param
-msmfalcon_mmss_init_voltage_param[MSMFALCON_MMSS_FUSE_CORNERS][2] = {
+sdm660_mmss_init_voltage_param[SDM660_MMSS_FUSE_CORNERS][2] = {
 	{{65, 39, 43}, {} },
 	{{65, 39, 43}, {} },
 	{{65, 34, 38}, {} },
@@ -88,13 +88,13 @@ msmfalcon_mmss_init_voltage_param[MSMFALCON_MMSS_FUSE_CORNERS][2] = {
 	{{65, 24, 28}, {} },
 };
 
-static const struct cpr3_fuse_param msmfalcon_cpr_fusing_rev_param[] = {
+static const struct cpr3_fuse_param sdm660_cpr_fusing_rev_param[] = {
 	{71, 34, 36},
 	{},
 };
 
 static const struct cpr3_fuse_param
-msmfalcon_mmss_offset_voltage_param[MSMFALCON_MMSS_FUSE_CORNERS][2] = {
+sdm660_mmss_offset_voltage_param[SDM660_MMSS_FUSE_CORNERS][2] = {
 	{{} },
 	{{} },
 	{{} },
@@ -104,7 +104,7 @@ msmfalcon_mmss_offset_voltage_param[MSMFALCON_MMSS_FUSE_CORNERS][2] = {
 };
 
 static const struct cpr3_fuse_param
-msmfalcon_mmss_ldo_enable_param[MSMFALCON_MMSS_FUSE_CORNERS][2] = {
+sdm660_mmss_ldo_enable_param[SDM660_MMSS_FUSE_CORNERS][2] = {
 	{{73, 62, 62}, {} },
 	{{73, 61, 61}, {} },
 	{{73, 60, 60}, {} },
@@ -113,15 +113,15 @@ msmfalcon_mmss_ldo_enable_param[MSMFALCON_MMSS_FUSE_CORNERS][2] = {
 	{{73, 57, 57}, {} },
 };
 
-static const struct cpr3_fuse_param msmfalcon_ldo_cpr_cl_enable_param[] = {
+static const struct cpr3_fuse_param sdm660_ldo_cpr_cl_enable_param[] = {
 	{71, 38, 38},
 	{},
 };
 
-/* Additional MSMFALCON specific data: */
+/* Additional SDM660 specific data: */
 
 /* Open loop voltage fuse reference voltages in microvolts */
-static const int msmfalcon_mmss_fuse_ref_volt[MSMFALCON_MMSS_FUSE_CORNERS] = {
+static const int sdm660_mmss_fuse_ref_volt[SDM660_MMSS_FUSE_CORNERS] = {
 	584000,
 	644000,
 	724000,
@@ -130,36 +130,36 @@ static const int msmfalcon_mmss_fuse_ref_volt[MSMFALCON_MMSS_FUSE_CORNERS] = {
 	924000,
 };
 
-#define MSMFALCON_MMSS_FUSE_STEP_VOLT		10000
-#define MSMFALCON_MMSS_OFFSET_FUSE_STEP_VOLT	10000
-#define MSMFALCON_MMSS_VOLTAGE_FUSE_SIZE	5
+#define SDM660_MMSS_FUSE_STEP_VOLT		10000
+#define SDM660_MMSS_OFFSET_FUSE_STEP_VOLT	10000
+#define SDM660_MMSS_VOLTAGE_FUSE_SIZE	5
 
-#define MSMFALCON_MMSS_CPR_SENSOR_COUNT		11
+#define SDM660_MMSS_CPR_SENSOR_COUNT		11
 
-#define MSMFALCON_MMSS_CPR_CLOCK_RATE		19200000
+#define SDM660_MMSS_CPR_CLOCK_RATE		19200000
 
 /**
- * cpr4_msmfalcon_mmss_read_fuse_data() - load MMSS specific fuse parameter
+ * cpr4_sdm660_mmss_read_fuse_data() - load MMSS specific fuse parameter
  *		values
  * @vreg:		Pointer to the CPR3 regulator
  *
- * This function allocates a cpr4_msmfalcon_mmss_fuses struct, fills it with
+ * This function allocates a cpr4_sdm660_mmss_fuses struct, fills it with
  * values read out of hardware fuses, and finally copies common fuse values
  * into the regulator struct.
  *
  * Return: 0 on success, errno on failure
  */
-static int cpr4_msmfalcon_mmss_read_fuse_data(struct cpr3_regulator *vreg)
+static int cpr4_sdm660_mmss_read_fuse_data(struct cpr3_regulator *vreg)
 {
 	void __iomem *base = vreg->thread->ctrl->fuse_base;
-	struct cpr4_msmfalcon_mmss_fuses *fuse;
+	struct cpr4_sdm660_mmss_fuses *fuse;
 	int i, rc;
 
 	fuse = devm_kzalloc(vreg->thread->ctrl->dev, sizeof(*fuse), GFP_KERNEL);
 	if (!fuse)
 		return -ENOMEM;
 
-	rc = cpr3_read_fuse_param(base, msmfalcon_cpr_fusing_rev_param,
+	rc = cpr3_read_fuse_param(base, sdm660_cpr_fusing_rev_param,
 			&fuse->cpr_fusing_rev);
 	if (rc) {
 		cpr3_err(vreg, "Unable to read CPR fusing revision fuse, rc=%d\n",
@@ -168,7 +168,7 @@ static int cpr4_msmfalcon_mmss_read_fuse_data(struct cpr3_regulator *vreg)
 	}
 	cpr3_info(vreg, "CPR fusing revision = %llu\n", fuse->cpr_fusing_rev);
 
-	rc = cpr3_read_fuse_param(base, msmfalcon_ldo_cpr_cl_enable_param,
+	rc = cpr3_read_fuse_param(base, sdm660_ldo_cpr_cl_enable_param,
 			&fuse->ldo_cpr_cl_enable);
 	if (rc) {
 		cpr3_err(vreg, "Unable to read ldo cpr closed-loop enable fuse, rc=%d\n",
@@ -176,9 +176,9 @@ static int cpr4_msmfalcon_mmss_read_fuse_data(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
-	for (i = 0; i < MSMFALCON_MMSS_FUSE_CORNERS; i++) {
+	for (i = 0; i < SDM660_MMSS_FUSE_CORNERS; i++) {
 		rc = cpr3_read_fuse_param(base,
-			msmfalcon_mmss_init_voltage_param[i],
+			sdm660_mmss_init_voltage_param[i],
 			&fuse->init_voltage[i]);
 		if (rc) {
 			cpr3_err(vreg, "Unable to read fuse-corner %d initial voltage fuse, rc=%d\n",
@@ -187,7 +187,7 @@ static int cpr4_msmfalcon_mmss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 
 		rc = cpr3_read_fuse_param(base,
-			msmfalcon_mmss_offset_voltage_param[i],
+			sdm660_mmss_offset_voltage_param[i],
 			&fuse->offset_voltage[i]);
 		if (rc) {
 			cpr3_err(vreg, "Unable to read fuse-corner %d offset voltage fuse, rc=%d\n",
@@ -196,7 +196,7 @@ static int cpr4_msmfalcon_mmss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 
 		rc = cpr3_read_fuse_param(base,
-			msmfalcon_mmss_ldo_enable_param[i],
+			sdm660_mmss_ldo_enable_param[i],
 			&fuse->ldo_enable[i]);
 		if (rc) {
 			cpr3_err(vreg, "Unable to read fuse-corner %d ldo enable fuse, rc=%d\n",
@@ -206,31 +206,31 @@ static int cpr4_msmfalcon_mmss_read_fuse_data(struct cpr3_regulator *vreg)
 	}
 
 	vreg->fuse_combo = fuse->cpr_fusing_rev;
-	if (vreg->fuse_combo >= CPR4_MSMFALCON_MMSS_FUSE_COMBO_COUNT) {
+	if (vreg->fuse_combo >= CPR4_SDM660_MMSS_FUSE_COMBO_COUNT) {
 		cpr3_err(vreg, "invalid CPR fuse combo = %d found, not in range 0 - %d\n",
 			vreg->fuse_combo,
-			CPR4_MSMFALCON_MMSS_FUSE_COMBO_COUNT - 1);
+			CPR4_SDM660_MMSS_FUSE_COMBO_COUNT - 1);
 		return -EINVAL;
 	}
 
 	vreg->cpr_rev_fuse	= fuse->cpr_fusing_rev;
-	vreg->fuse_corner_count	= MSMFALCON_MMSS_FUSE_CORNERS;
+	vreg->fuse_corner_count	= SDM660_MMSS_FUSE_CORNERS;
 	vreg->platform_fuses	= fuse;
 
 	return 0;
 }
 
 /**
- * cpr3_msmfalcon_mmss_calculate_open_loop_voltages() - calculate the open-loop
+ * cpr3_sdm660_mmss_calculate_open_loop_voltages() - calculate the open-loop
  *		voltage for each corner of a CPR3 regulator
  * @vreg:		Pointer to the CPR3 regulator
  *
  * Return: 0 on success, errno on failure
  */
-static int cpr4_msmfalcon_mmss_calculate_open_loop_voltages(
+static int cpr4_sdm660_mmss_calculate_open_loop_voltages(
 			struct cpr3_regulator *vreg)
 {
-	struct cpr4_msmfalcon_mmss_fuses *fuse = vreg->platform_fuses;
+	struct cpr4_sdm660_mmss_fuses *fuse = vreg->platform_fuses;
 	int i, rc = 0;
 	const int *ref_volt;
 	int *fuse_volt;
@@ -240,11 +240,11 @@ static int cpr4_msmfalcon_mmss_calculate_open_loop_voltages(
 	if (!fuse_volt)
 		return -ENOMEM;
 
-	ref_volt = msmfalcon_mmss_fuse_ref_volt;
+	ref_volt = sdm660_mmss_fuse_ref_volt;
 	for (i = 0; i < vreg->fuse_corner_count; i++) {
 		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(ref_volt[i],
-			MSMFALCON_MMSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
-			MSMFALCON_MMSS_VOLTAGE_FUSE_SIZE);
+			SDM660_MMSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
+			SDM660_MMSS_VOLTAGE_FUSE_SIZE);
 		cpr3_info(vreg, "fuse_corner[%d] open-loop=%7d uV\n",
 			i, fuse_volt[i]);
 	}
@@ -298,7 +298,7 @@ done:
  */
 static int cpr4_mmss_parse_ldo_mode_data(struct cpr3_regulator *vreg)
 {
-	struct cpr4_msmfalcon_mmss_fuses *fuse = vreg->platform_fuses;
+	struct cpr4_sdm660_mmss_fuses *fuse = vreg->platform_fuses;
 	int i, rc = 0;
 	u32 *ldo_allowed;
 	char *prop_str = "qcom,cpr-corner-allow-ldo-mode";
@@ -341,7 +341,7 @@ done:
  */
 static int cpr4_mmss_parse_corner_operating_mode(struct cpr3_regulator *vreg)
 {
-	struct cpr4_msmfalcon_mmss_fuses *fuse = vreg->platform_fuses;
+	struct cpr4_sdm660_mmss_fuses *fuse = vreg->platform_fuses;
 	int i, rc = 0;
 	u32 *use_closed_loop;
 	char *prop_str = "qcom,cpr-corner-allow-closed-loop";
@@ -476,7 +476,7 @@ static int cpr4_mmss_init_thread(struct cpr3_thread *thread)
 	vreg->ldo_regulator_bypass = BHS_MODE;
 	vreg->ldo_type = CPR3_LDO300;
 
-	rc = cpr4_msmfalcon_mmss_read_fuse_data(vreg);
+	rc = cpr4_sdm660_mmss_read_fuse_data(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to read CPR fuse data, rc=%d\n", rc);
 		return rc;
@@ -489,7 +489,7 @@ static int cpr4_mmss_init_thread(struct cpr3_thread *thread)
 		return rc;
 	}
 
-	rc = cpr4_msmfalcon_mmss_calculate_open_loop_voltages(vreg);
+	rc = cpr4_sdm660_mmss_calculate_open_loop_voltages(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to calculate open-loop voltages, rc=%d\n",
 			rc);
@@ -548,7 +548,7 @@ static int cpr4_mmss_init_controller(struct cpr3_controller *ctrl)
 		return rc;
 	}
 
-	ctrl->sensor_count = MSMFALCON_MMSS_CPR_SENSOR_COUNT;
+	ctrl->sensor_count = SDM660_MMSS_CPR_SENSOR_COUNT;
 
 	/*
 	 * MMSS only has one thread (0) so the zeroed array does not need
@@ -559,7 +559,7 @@ static int cpr4_mmss_init_controller(struct cpr3_controller *ctrl)
 	if (!ctrl->sensor_owner)
 		return -ENOMEM;
 
-	ctrl->cpr_clock_rate = MSMFALCON_MMSS_CPR_CLOCK_RATE;
+	ctrl->cpr_clock_rate = SDM660_MMSS_CPR_CLOCK_RATE;
 	ctrl->ctrl_type = CPR_CTRL_TYPE_CPR4;
 	ctrl->support_ldo300_vreg = true;
 
@@ -572,7 +572,7 @@ static int cpr4_mmss_init_controller(struct cpr3_controller *ctrl)
 			     &ctrl->step_quot_fixed);
 	ctrl->use_dynamic_step_quot = !ctrl->step_quot_fixed;
 
-	/* iface_clk is optional for msmfalcon */
+	/* iface_clk is optional for sdm660 */
 	ctrl->iface_clk = NULL;
 	ctrl->bus_clk = devm_clk_get(ctrl->dev, "bus_clk");
 	if (IS_ERR(ctrl->bus_clk)) {
@@ -688,7 +688,7 @@ static int cpr4_mmss_regulator_resume(struct platform_device *pdev)
 /* Data corresponds to the SoC revision */
 static const struct of_device_id cpr4_mmss_regulator_match_table[] = {
 	{
-		.compatible = "qcom,cpr4-msmfalcon-mmss-ldo-regulator",
+		.compatible = "qcom,cpr4-sdm660-mmss-ldo-regulator",
 		.data = (void *)NULL,
 	},
 };
