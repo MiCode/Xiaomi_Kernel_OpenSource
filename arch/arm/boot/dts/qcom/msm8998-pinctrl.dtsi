@@ -700,13 +700,13 @@
 			spi_4_active: spi_4_active {
 				mux {
 					pins = "gpio8", "gpio9",
-							"gpio10", "gpio1";
+							"gpio10", "gpio11";
 					function = "blsp_spi4";
 				};
 
 				config {
 					pins = "gpio8", "gpio9",
-							"gpio10", "gpio1";
+							"gpio10", "gpio11";
 					drive-strength = <6>;
 					bias-disable;
 				};
@@ -715,13 +715,13 @@
 			spi_4_sleep: spi_4_sleep {
 				mux {
 					pins = "gpio8", "gpio9",
-							"gpio10", "gpio1";
+							"gpio10", "gpio11";
 					function = "blsp_spi4";
 				};
 
 				config {
 					pins = "gpio8", "gpio9",
-							"gpio10", "gpio1";
+							"gpio10", "gpio11";
 					drive-strength = <6>;
 					bias-disable;
 				};
@@ -758,8 +758,8 @@
 		spi_5 {
 			spi_5_active: spi_5_active {
 				mux {
-					pins = "gpio0", "gpio",
-							"gpio2", "gpio3";
+					pins = "gpio85", "gpio86",
+							"gpio87", "gpio88";
 					function = "blsp_spi5";
 				};
 
