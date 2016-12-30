@@ -686,6 +686,50 @@ error:
 }
 EXPORT_SYMBOL(msm_camera_regulator_enable);
 
+/* set regulator mode */
+int msm_camera_regulator_set_mode(struct msm_cam_regulator *vdd_info,
+				int cnt, bool mode)
+{
+	int i;
+	int rc;
+	struct msm_cam_regulator *tmp = vdd_info;
+
+	if (!tmp) {
+		pr_err("Invalid params");
+		return -EINVAL;
+	}
+	CDBG("cnt : %d\n", cnt);
+
+	for (i = 0; i < cnt; i++) {
+		if (tmp && !IS_ERR_OR_NULL(tmp->vdd)) {
+			CDBG("name : %s, enable : %d\n", tmp->name, mode);
+			if (mode) {
+				rc = regulator_set_mode(tmp->vdd,
+					REGULATOR_MODE_FAST);
+				if (rc < 0) {
+					pr_err("regulator enable failed %d\n",
+						i);
+					goto error;
+				}
+			} else {
+				rc = regulator_set_mode(tmp->vdd,
+					REGULATOR_MODE_NORMAL);
+				if (rc < 0)
+					pr_err("regulator disable failed %d\n",
+						i);
+					goto error;
+			}
+		}
+		tmp++;
+	}
+
+	return 0;
+error:
+	return rc;
+}
+EXPORT_SYMBOL(msm_camera_regulator_set_mode);
+
+
 /* Put regulators regulators */
 void msm_camera_put_regulators(struct platform_device *pdev,
 	struct msm_cam_regulator **vdd_info, int cnt)
