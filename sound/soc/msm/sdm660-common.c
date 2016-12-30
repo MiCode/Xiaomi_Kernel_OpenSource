@@ -1683,6 +1683,17 @@ const struct snd_kcontrol_new msm_common_snd_controls[] = {
 			tdm_tx_ch_put),
 };
 
+/**
+ * msm_common_snd_controls_size - to return controls size
+ *
+ * Return: returns size of common controls array
+ */
+int msm_common_snd_controls_size(void)
+{
+	return ARRAY_SIZE(msm_common_snd_controls);
+}
+EXPORT_SYMBOL(msm_common_snd_controls_size);
+
 static inline int param_is_mask(int p)
 {
 	return (p >= SNDRV_PCM_HW_PARAM_FIRST_MASK) &&
