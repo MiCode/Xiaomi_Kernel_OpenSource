@@ -1487,10 +1487,11 @@
 	spss_utils: qcom,spss_utils {
 		compatible = "qcom,spss-utils";
 		/* spss test fuse physical address */
-		qcom,spss-fuse-addr = <0x007841c4 0x4>;
+		qcom,spss-fuse-addr = <0x007841c4>;
 		qcom,spss-fuse-bit = <27>;
 		qcom,spss-test-firmware-name = "spss";    /* default name */
 		qcom,spss-prod-firmware-name = "spss1p";  /* 8 chars max */
+		qcom,spss-debug-reg-addr = <0x01d06020>;
 		status = "ok";
 	};
 
