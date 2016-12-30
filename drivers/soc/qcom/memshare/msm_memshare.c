@@ -510,6 +510,8 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 		pr_err("memshare: %s client not found, requested client: %d, proc_id: %d\n",
 				__func__, alloc_req->client_id,
 				alloc_req->proc_id);
+		kfree(alloc_resp);
+		alloc_resp = NULL;
 		return -EINVAL;
 	}
 
@@ -554,6 +556,9 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 	if (rc < 0)
 		pr_err("In %s, Error sending the alloc request: %d\n",
 							__func__, rc);
+
+	kfree(alloc_resp);
+	alloc_resp = NULL;
 	return rc;
 }
 
@@ -671,6 +676,8 @@ static int handle_query_size_req(void *req_h, void *req, void *conn_h)
 		pr_err("memshare: %s client not found, requested client: %d, proc_id: %d\n",
 				__func__, query_req->client_id,
 				query_req->proc_id);
+		kfree(query_resp);
+		query_resp = NULL;
 		return -EINVAL;
 	}
 
@@ -696,6 +703,8 @@ static int handle_query_size_req(void *req_h, void *req, void *conn_h)
 		pr_err("In %s, Error sending the query request: %d\n",
 							__func__, rc);
 
+	kfree(query_resp);
+	query_resp = NULL;
 	return rc;
 }
 
