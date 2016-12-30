@@ -1405,6 +1405,11 @@ static int modify_ion_addr(void *buf,
 		return -ENODEV;
 	}
 
+	if (buf_size < sizeof(uint64_t)) {
+		pr_err("buf size too small [%d].\n", buf_size);
+		return -ENODEV;
+	}
+
 	if (buf_offset > buf_size - sizeof(uint64_t)) {
 		pr_err("invalid buf_offset [%d].\n", buf_offset);
 		return -ENODEV;
@@ -1466,6 +1471,16 @@ static int spcom_handle_send_modified_command(struct spcom_channel *ch,
 
 	pr_debug("send req/resp ch [%s] size [%d] .\n", ch->name, size);
 
+	/*
+	 * check that cmd buf size is at least struct size,
+	 * to allow access to struct fields.
+	 */
+	if (size < sizeof(*cmd)) {
+		pr_err("ch [%s] invalid cmd buf.\n",
+			ch->name);
+		return -EINVAL;
+	}
+
 	/* Check if remote side connect */
 	if (!spcom_is_channel_connected(ch)) {
 		pr_err("ch [%s] remote side not connect.\n", ch->name);
@@ -1477,6 +1492,18 @@ static int spcom_handle_send_modified_command(struct spcom_channel *ch,
 	buf_size = cmd->buf_size;
 	timeout_msec = cmd->timeout_msec;
 	memcpy(ion_info, cmd->ion_info, sizeof(ion_info));
+
+	/* Check param validity */
+	if (buf_size > SPCOM_MAX_RESPONSE_SIZE) {
+		pr_err("ch [%s] invalid buf size [%d].\n",
+			ch->name, buf_size);
+		return -EINVAL;
+	}
+	if (size != sizeof(*cmd) + buf_size) {
+		pr_err("ch [%s] invalid cmd size [%d].\n",
+			ch->name, size);
+		return -EINVAL;
+	}
 
 	/* Allocate Buffers*/
 	tx_buf_size = sizeof(*hdr) + buf_size;
@@ -1736,6 +1763,13 @@ static int spcom_handle_read_req_resp(struct spcom_channel *ch,
 	if (!spcom_is_channel_connected(ch)) {
 		pr_err("ch [%s] remote side not connect.\n", ch->name);
 		return -ENOTCONN;
+	}
+
+	/* Check param validity */
+	if (size > SPCOM_MAX_RESPONSE_SIZE) {
+		pr_err("ch [%s] inavlid size [%d].\n",
+			ch->name, size);
+		return -EINVAL;
 	}
 
 	/* Allocate Buffers*/
