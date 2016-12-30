@@ -27,3 +27,9 @@
 &blsp1_uart1 {
 	status = "ok";
 };
+
+&soc {
+	gpio_keys {
+		/delete-node/ home;
+	};
+};
