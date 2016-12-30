@@ -491,7 +491,6 @@ struct mdss_dp_drv_pdata {
 	u32 current_event;
 	spinlock_t event_lock;
 	spinlock_t lock;
-	struct hdmi_util_ds_data ds_data;
 	struct switch_dev sdev;
 	struct kobject *kobj;
 	u32 max_pclk_khz;
