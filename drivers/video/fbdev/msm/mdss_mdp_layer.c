@@ -2823,6 +2823,8 @@ int mdss_mdp_layer_pre_commit_cwb(struct msm_fb_data_type *mfd,
 	}
 
 	mdp5_data->cwb.layer = *commit->output_layer;
+	mdp5_data->cwb.layer.flags |=  (commit->flags & MDP_COMMIT_CWB_DSPP) ?
+			MDP_COMMIT_CWB_DSPP : 0;
 	mdp5_data->cwb.wb_idx = commit->output_layer->writeback_ndx;
 
 	mutex_lock(&mdp5_data->cwb.queue_lock);

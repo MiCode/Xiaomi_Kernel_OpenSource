@@ -36,6 +36,18 @@
 /* Max number of regulators defined in device tree */
 #define MSM_FD_MAX_REGULATOR_NUM 3
 
+/* Conditional spin lock macro */
+#define MSM_FD_SPIN_LOCK(l, f) ({\
+	if (f) \
+		spin_lock(&l); \
+})
+
+/* Conditional spin unlock macro */
+#define MSM_FD_SPIN_UNLOCK(l, f) ({ \
+	if (f) \
+		spin_unlock(&l); \
+})
+
 /*
  * struct msm_fd_size - Structure contain FD size related values.
  * @width: Image width.

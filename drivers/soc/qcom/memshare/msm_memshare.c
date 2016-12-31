@@ -337,6 +337,21 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 		bootup_request++;
 		break;
 
+	case SUBSYS_BEFORE_POWERUP:
+		if (_cmd)
+			notifdata = (struct notif_data *) _cmd;
+		else
+			break;
+
+		if (notifdata->enable_ramdump) {
+			pr_info("memshare: %s, Ramdump collection is enabled\n",
+					__func__);
+			ret = mem_share_do_ramdump();
+			if (ret)
+				pr_err("Ramdump collection failed\n");
+		}
+		break;
+
 	case SUBSYS_AFTER_POWERUP:
 		pr_debug("memshare: Modem has booted up\n");
 		for (i = 0; i < MAX_CLIENTS; i++) {
@@ -386,22 +401,6 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 		}
 		bootup_request++;
 		break;
-
-		case SUBSYS_RAMDUMP_NOTIFICATION:
-			if (_cmd)
-				notifdata = (struct notif_data *) _cmd;
-			else
-				break;
-
-			if (!(notifdata->enable_ramdump)) {
-				pr_info("In %s, Ramdump collection is disabled\n",
-						__func__);
-			} else {
-				ret = mem_share_do_ramdump();
-				if (ret)
-					pr_err("Ramdump collection failed\n");
-			}
-			break;
 
 	default:
 		pr_debug("Memshare: code: %lu\n", code);
@@ -511,6 +510,8 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 		pr_err("memshare: %s client not found, requested client: %d, proc_id: %d\n",
 				__func__, alloc_req->client_id,
 				alloc_req->proc_id);
+		kfree(alloc_resp);
+		alloc_resp = NULL;
 		return -EINVAL;
 	}
 
@@ -555,6 +556,9 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 	if (rc < 0)
 		pr_err("In %s, Error sending the alloc request: %d\n",
 							__func__, rc);
+
+	kfree(alloc_resp);
+	alloc_resp = NULL;
 	return rc;
 }
 
@@ -672,6 +676,8 @@ static int handle_query_size_req(void *req_h, void *req, void *conn_h)
 		pr_err("memshare: %s client not found, requested client: %d, proc_id: %d\n",
 				__func__, query_req->client_id,
 				query_req->proc_id);
+		kfree(query_resp);
+		query_resp = NULL;
 		return -EINVAL;
 	}
 
@@ -697,6 +703,8 @@ static int handle_query_size_req(void *req_h, void *req, void *conn_h)
 		pr_err("In %s, Error sending the query request: %d\n",
 							__func__, rc);
 
+	kfree(query_resp);
+	query_resp = NULL;
 	return rc;
 }
 

@@ -148,8 +148,11 @@ static int dp_cmd_fifo_tx(struct edp_buf *tp, unsigned char *base)
 	}
 
 	data = (tp->trans_num - 1);
-	if (tp->i2c)
+	if (tp->i2c) {
 		data |= BIT(8); /* I2C */
+		data |= BIT(10); /* NO SEND ADDR */
+		data |= BIT(11); /* NO SEND STOP */
+	}
 
 	data |= BIT(9); /* GO */
 	dp_write(base + DP_AUX_TRANS_CTRL, data);
@@ -213,7 +216,7 @@ static int dp_aux_write_cmds(struct mdss_dp_drv_pdata *ep,
 
 	len = dp_cmd_fifo_tx(&ep->txp, ep->base);
 
-	wait_for_completion(&ep->aux_comp);
+	wait_for_completion_timeout(&ep->aux_comp, HZ/4);
 
 	if (ep->aux_error_num == EDP_AUX_ERR_NONE)
 		ret = len;
@@ -269,7 +272,7 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 
 	dp_cmd_fifo_tx(tp, ep->base);
 
-	wait_for_completion(&ep->aux_comp);
+	wait_for_completion_timeout(&ep->aux_comp, HZ/4);
 
 	if (ep->aux_error_num == EDP_AUX_ERR_NONE) {
 		ret = dp_cmd_fifo_rx(rp, len, ep->base);
@@ -731,8 +734,10 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 	int rlen, ret = 0;
 	int edid_blk = 0, blk_num = 0, retries = 10;
 	bool edid_parsing_done = false;
-	const u8 cea_tag = 0x02;
+	const u8 cea_tag = 0x02, start_ext_blk = 0x1;
+	u32 const segment_addr = 0x30;
 	u32 checksum = 0;
+	char segment = 0x1;
 
 	ret = dp_aux_chan_ready(dp);
 	if (ret) {
@@ -761,7 +766,7 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 			ret = dp_edid_buf_error(rp->data, rp->len);
 			if (ret) {
 				pr_err("corrupt edid block detected\n");
-				goto end;
+				continue;
 			}
 
 			if (edid_parsing_done) {
@@ -779,7 +784,6 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 				rp->data);
 
 			edid_parsing_done = true;
-			checksum = rp->data[rp->len - 1];
 		} else {
 			edid_blk++;
 			blk_num++;
@@ -797,11 +801,17 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 		memcpy(dp->edid_buf + (edid_blk * EDID_BLOCK_SIZE),
 			rp->data, EDID_BLOCK_SIZE);
 
+		checksum = rp->data[rp->len - 1];
+
+		/* break if no more extension blocks present */
 		if (edid_blk == dp->edid.ext_block_cnt)
-			goto end;
+			break;
+
+		/* write segment number to read block 3 onwards */
+		if (edid_blk == start_ext_blk)
+			dp_aux_write_buf(dp, segment_addr, &segment, 1, 1);
 	} while (retries--);
 
-end:
 	if (dp->test_data.test_requested == TEST_EDID_READ) {
 		pr_debug("sending checksum %d\n", checksum);
 		dp_aux_send_checksum(dp, checksum);
@@ -1014,6 +1024,51 @@ int mdss_dp_aux_link_status_read(struct mdss_dp_drv_pdata *ep, int len)
 	sp->req_pre_emphasis[3] = data & 0x03;
 
 	return len;
+}
+
+/*
+ * mdss_dp_aux_send_psm_request() - sends a power save mode messge to sink
+ * @dp: Display Port Driver data
+ */
+int mdss_dp_aux_send_psm_request(struct mdss_dp_drv_pdata *dp, bool enable)
+{
+	u8 psm_request[4];
+	int rc = 0;
+
+	psm_request[0] = enable ? 2 : 1;
+
+	pr_debug("sending psm %s request\n", enable ? "entry" : "exit");
+	if (enable) {
+		dp_aux_write_buf(dp, 0x600, psm_request, 1, 0);
+	} else {
+		ktime_t timeout = ktime_add_ms(ktime_get(), 20);
+
+		/*
+		 * It could take up to 1ms (20 ms of embedded sinks) till
+		 * the sink is ready to reply to this AUX transaction. It is
+		 * expected that the source keep retrying periodically during
+		 * this time.
+		 */
+		for (;;) {
+			rc = dp_aux_write_buf(dp, 0x600, psm_request, 1, 0);
+			if ((rc >= 0) ||
+				(ktime_compare(ktime_get(), timeout) > 0))
+				break;
+			usleep_range(100, 120);
+		}
+
+		/*
+		 * if the aux transmission succeeded, then the function would
+		 * return the number of bytes transmitted.
+		 */
+		if (rc > 0)
+			rc = 0;
+	}
+
+	if (!rc)
+		dp->psm_enabled = enable;
+
+	return rc;
 }
 
 /**
@@ -1499,18 +1554,18 @@ static void dp_host_train_set(struct mdss_dp_drv_pdata *ep, int train)
 }
 
 char vm_pre_emphasis[4][4] = {
-	{0x00, 0x09, 0x11, 0x0C},	/* pe0, 0 db */
-	{0x00, 0x0A, 0x10, 0xFF},	/* pe1, 3.5 db */
-	{0x00, 0x0C, 0xFF, 0xFF},	/* pe2, 6.0 db */
-	{0x00, 0xFF, 0xFF, 0xFF}	/* pe3, 9.5 db */
+	{0x00, 0x0B, 0x12, 0xFF},       /* pe0, 0 db */
+	{0x00, 0x0A, 0x12, 0xFF},       /* pe1, 3.5 db */
+	{0x00, 0x0C, 0xFF, 0xFF},       /* pe2, 6.0 db */
+	{0xFF, 0xFF, 0xFF, 0xFF}        /* pe3, 9.5 db */
 };
 
 /* voltage swing, 0.2v and 1.0v are not support */
 char vm_voltage_swing[4][4] = {
-	{0x07, 0x0f, 0x12, 0x1E}, /* sw0, 0.4v  */
+	{0x07, 0x0F, 0x14, 0xFF}, /* sw0, 0.4v  */
 	{0x11, 0x1D, 0x1F, 0xFF}, /* sw1, 0.6 v */
 	{0x18, 0x1F, 0xFF, 0xFF}, /* sw1, 0.8 v */
-	{0x1E, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
+	{0xFF, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
 
 static void dp_aux_set_voltage_and_pre_emphasis_lvl(
@@ -1523,6 +1578,14 @@ static void dp_aux_set_voltage_and_pre_emphasis_lvl(
 
 	value0 = vm_voltage_swing[(int)(dp->v_level)][(int)(dp->p_level)];
 	value1 = vm_pre_emphasis[(int)(dp->v_level)][(int)(dp->p_level)];
+
+	/* program default setting first */
+	dp_write(dp->phy_io.base + QSERDES_TX0_OFFSET + TXn_TX_DRV_LVL, 0x2A);
+	dp_write(dp->phy_io.base + QSERDES_TX1_OFFSET + TXn_TX_DRV_LVL, 0x2A);
+	dp_write(dp->phy_io.base + QSERDES_TX0_OFFSET + TXn_TX_EMP_POST1_LVL,
+		0x20);
+	dp_write(dp->phy_io.base + QSERDES_TX1_OFFSET + TXn_TX_EMP_POST1_LVL,
+		0x20);
 
 	/* Enable MUX to use Cursor values from these registers */
 	value0 |= BIT(5);
@@ -1590,10 +1653,10 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 
 	pr_debug("Entered++");
 
-	dp_host_train_set(ep, 0x01); /* train_1 */
 	dp_cap_lane_rate_set(ep);
 	dp_train_pattern_set_write(ep, 0x21); /* train_1 */
 	dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
+	dp_host_train_set(ep, 0x01); /* train_1 */
 
 	tries = 0;
 	old_v_level = ep->v_level;
@@ -1648,7 +1711,6 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 	dp_train_pattern_set_write(ep, pattern | 0x20);/* train_2 */
 
 	do  {
-		dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
 		dp_host_train_set(ep, pattern);
 
 		usleep_time = ep->dpcd.training_read_interval;
@@ -1668,6 +1730,7 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 		}
 
 		dp_sink_train_set_adjust(ep);
+		dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
 	} while (1);
 
 	return ret;
@@ -1773,7 +1836,8 @@ clear:
 		mdss_dp_config_misc_settings(&dp->ctrl_io,
 				&dp->panel_data.panel_info);
 		mdss_dp_setup_tr_unit(&dp->ctrl_io, dp->link_rate,
-					dp->lane_cnt, dp->vic);
+					dp->lane_cnt, dp->vic,
+					&dp->panel_data.panel_info);
 		mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);
 		pr_debug("State_ctrl set to SEND_VIDEO\n");
 	}

@@ -262,7 +262,7 @@ static void mdss_mdp_writeback_cwb_overflow(void *arg)
 	mdss_mdp_set_intr_callback_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
 			CWB_PPB_0, NULL, NULL);
 
-	if (mdss_mdp_get_split_ctl(ctl)) {
+	if (ctl->mixer_right) {
 		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
 			CWB_PPB_1);
 		mdss_mdp_set_intr_callback_nosync(
@@ -297,7 +297,7 @@ static void mdss_mdp_writeback_cwb_intr_done(void *arg)
 	mdss_mdp_set_intr_callback_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
 			CWB_PPB_0, NULL, NULL);
 
-	if (mdss_mdp_get_split_ctl(ctl)) {
+	if (ctl->mixer_right) {
 		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
 			CWB_PPB_1);
 		mdss_mdp_set_intr_callback_nosync(
@@ -477,21 +477,34 @@ int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_writeback_ctx *ctx = NULL;
 	struct mdp_layer_buffer *buffer = NULL;
 	struct mdss_mdp_cwb *cwb = NULL;
-	struct mdss_mdp_ctl *sctl = NULL;
-	int ret = 0;
+	int i, ret = 0;
+	unsigned long total_buf_len = 0;
+	struct mdss_mdp_data *data = NULL;
+	struct mdss_mdp_plane_sizes ps;
+	struct mdss_mdp_format_params *fmt;
+
+	if (!wb_arg->data)
+		return -EINVAL;
 
 	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
 	cwb = &mdp5_data->cwb;
 	ctx = (struct mdss_mdp_writeback_ctx *)cwb->priv_data;
 
+	data = wb_arg->data;
 	buffer = &cwb->layer.buffer;
 
-	ctx->opmode = 0;
-	ctx->img_width = buffer->width;
+	/*
+	 * client can program CWB output dimensions as only primary
+	 * resolution, but output buffer allocated can be with bigger stride
+	 * aligned for platform specific reasons & can interpret the output
+	 * buffer in same stride. Program output stride based on client request
+	 */
+	ctx->img_width = buffer->planes[0].stride;
 	ctx->img_height = buffer->height;
 	ctx->width = buffer->width;
 	ctx->height = buffer->height;
 	ctx->frame_rate = ctl->frame_rate;
+	ctx->opmode = 0;
 	ctx->dst_rect.x = 0;
 	ctx->dst_rect.y = 0;
 	ctx->dst_rect.w = ctx->width;
@@ -501,6 +514,23 @@ int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
 	if (ret) {
 		pr_err("format setup failed for cwb\n");
 		return ret;
+	}
+
+	/*
+	 * Need additional buffer size validation as we are
+	 * updating img_width with buffer->planes[0].stride
+	 */
+	fmt = mdss_mdp_get_format_params(buffer->format);
+	mdss_mdp_get_plane_sizes(fmt, ctx->img_width,
+			buffer->height, &ps, 0, 0);
+
+	for (i = 0; i < buffer->plane_count ; i++)
+		total_buf_len += data->p[i].len;
+
+	if (total_buf_len < ps.total_size) {
+		pr_err("Buffer size=%lu, expected size=%d\n", total_buf_len,
+				ps.total_size);
+		return -EINVAL;
 	}
 
 	ret = mdss_mdp_writeback_addr_setup(ctx, wb_arg->data);
@@ -516,11 +546,10 @@ int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
 			CWB_PPB_0, mdss_mdp_writeback_cwb_overflow, ctl);
 	mdss_mdp_irq_enable(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_0);
 
-	sctl = mdss_mdp_get_split_ctl(ctl);
-	if (sctl) {
+	if (ctl->mixer_right) {
 		mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
 				CWB_PPB_1, mdss_mdp_writeback_cwb_overflow,
-				sctl);
+				ctl);
 		mdss_mdp_irq_enable(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_1);
 	}
 

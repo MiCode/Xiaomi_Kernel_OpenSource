@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,12 +71,15 @@ void msm_fd_hw_remove_buffers_from_queue(struct msm_fd_device *fd,
 	struct vb2_queue *vb2_q);
 
 int msm_fd_hw_buffer_done(struct msm_fd_device *fd,
-	struct msm_fd_buffer *buffer);
+	struct msm_fd_buffer *buffer, u8 lock_flag);
 
-struct msm_fd_buffer *msm_fd_hw_get_active_buffer(struct msm_fd_device *fd);
+struct msm_fd_buffer *msm_fd_hw_get_active_buffer(struct msm_fd_device *fd,
+	u8 lock_flag);
+
+struct msm_fd_buffer *msm_fd_hw_get_next_buffer(struct msm_fd_device *fd);
 
 int msm_fd_hw_schedule_and_start(struct msm_fd_device *fd);
 
-int msm_fd_hw_schedule_next_buffer(struct msm_fd_device *fd);
+int msm_fd_hw_schedule_next_buffer(struct msm_fd_device *fd, u8 lock_flag);
 
 #endif /* __MSM_FD_HW_H__ */
