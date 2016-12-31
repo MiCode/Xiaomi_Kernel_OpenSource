@@ -326,6 +326,28 @@ Optional properties:
 					2A/2B command.
 - qcom,dcs-cmd-by-left:			Boolean to indicate that dcs command are sent
 					through the left DSI controller only in a dual-dsi configuration
+- qcom,mdss-dsi-panel-hdr-enabled:	Boolean to indicate HDR support in panel.
+- qcom,mdss-dsi-panel-hdr-color-primaries:
+					Array of 8 unsigned integers denoting chromaticity of panel.These
+					values are specified in nits units. The value range is 0 through 50000.
+					To obtain real chromacity, these values should be divided by factor of
+					50000. The structure of array is defined in below order
+						value 1: x value of white chromaticity of display panel
+						value 2: y value of white chromaticity of display panel
+						value 3: x value of red chromaticity of display panel
+						value 4: y value of red chromaticity of display panel
+						value 5: x value of green chromaticity of display panel
+						value 6: y value of green chromaticity of display panel
+						value 7: x value of blue chromaticity of display panel
+						value 8: y value of blue chromaticity of display panel
+- qcom,mdss-dsi-panel-peak-brightness:	Maximum brightness supported by panel.In absence of maximum value
+					typical value becomes peak brightness. Value is specified in nits units.
+					To obtail real peak brightness, this value should be divided by factor of
+					10000.
+- qcom,mdss-dsi-panel-blackness-level:	Blackness level supported by panel. Blackness level is defined as
+					ratio of peak brightness to contrast. Value is specified in nits units.
+					To obtail real blackness level, this value should be divided by factor of
+					10000.
 - qcom,mdss-dsi-lp11-init:		Boolean used to enable the DSI clocks and data lanes (low power 11)
 					before issuing hardware reset line.
 - qcom,mdss-dsi-init-delay-us:		Delay in microseconds(us) before performing any DSI activity in lp11
