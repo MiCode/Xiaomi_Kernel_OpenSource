@@ -18,6 +18,7 @@
 #include <dt-bindings/clock/audio-ext-clk.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/clock/qcom,cpu-osm.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM 660";
@@ -1176,6 +1177,43 @@
 			<&clock_rpmcc RPM_XO_A_CLK_SRC>;
 
 		#clock-cells = <1>;
+	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk", "cpu4_clk", "cpu5_clk",
+				"cpu6_clk", "cpu7_clk";
+		clocks = <&clock_cpu PWRCL_CLK>,
+			 <&clock_cpu PWRCL_CLK>,
+			 <&clock_cpu PWRCL_CLK>,
+			 <&clock_cpu PWRCL_CLK>,
+			 <&clock_cpu PERFCL_CLK>,
+			 <&clock_cpu PERFCL_CLK>,
+			 <&clock_cpu PERFCL_CLK>,
+			 <&clock_cpu PERFCL_CLK>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table-0 =
+			<  300000 >,
+			<  633600 >,
+			<  902400 >,
+			< 1113600 >,
+			< 1401600 >,
+			< 1536000 >,
+			< 1747200 >,
+			< 1843200 >;
+
+		qcom,cpufreq-table-4 =
+			<  300000 >,
+			< 1113600 >,
+			< 1401600 >,
+			< 1747200 >,
+			< 1958400 >,
+			< 2150400 >,
+			< 2208000 >,
+			< 2457600 >;
 	};
 
 	sdhc_1: sdhci@c0c4000 {
