@@ -239,3 +239,9 @@
 #include "msm-pm660-rpm-regulator.dtsi"
 #include "msm-pm660l-rpm-regulator.dtsi"
 #include "sdm660-regulator.dtsi"
+
+&soc {
+	/* remove sdm660 MMSS CPR Controller node */
+	/delete-node/cpr4-ctrl@05061000;
+	/delete-node/regulator@01fcf004;
+};
