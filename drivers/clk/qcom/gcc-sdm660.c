@@ -3028,7 +3028,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 		{ "snoc_clk",				0x000 },
 		{ "cnoc_clk",				0x00E },
 		{ "cnoc_periph_clk",			0x198 },
-		{ "bimc_clk",				0x14E },
+		{ "bimc_clk",				0x19D },
 		{ "ce1_clk",				0x097 },
 		{ "ipa_clk",				0x11b },
 		{ "gcc_aggre2_ufs_axi_clk",		0x10B },
