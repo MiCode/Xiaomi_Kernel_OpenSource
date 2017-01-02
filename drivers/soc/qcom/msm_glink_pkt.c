@@ -664,7 +664,16 @@ ssize_t glink_pkt_read(struct file *file,
 	spin_unlock_irqrestore(&devp->pkt_list_lock, flags);
 
 	ret = copy_to_user(buf, pkt->data, pkt->size);
-	BUG_ON(ret != 0);
+	 if (ret) {
+		GLINK_PKT_ERR(
+		"%s copy_to_user failed ret[%d] on dev id:%d size %zu\n",
+		 __func__, ret, devp->i, pkt->size);
+		spin_lock_irqsave(&devp->pkt_list_lock, flags);
+		list_add_tail(&pkt->list, &devp->pkt_list);
+		spin_unlock_irqrestore(&devp->pkt_list_lock, flags);
+		return -EFAULT;
+	}
+
 
 	ret = pkt->size;
 	glink_rx_done(devp->handle, pkt->data, false);
@@ -738,7 +747,13 @@ ssize_t glink_pkt_write(struct file *file,
 	}
 
 	ret = copy_from_user(data, buf, count);
-	BUG_ON(ret != 0);
+	if (ret) {
+		GLINK_PKT_ERR(
+		"%s copy_from_user failed ret[%d] on dev id:%d size %zu\n",
+		 __func__, ret, devp->i, count);
+		kfree(data);
+		return -EFAULT;
+	}
 
 	ret = glink_tx(devp->handle, data, data, count, GLINK_TX_REQ_INTENT);
 	if (ret) {
