@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1216,6 +1216,15 @@ void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl, struct dsc_desc *dsc)
 {
 	u32 data, offset;
 
+	if (!dsc) {
+		if (ctrl->panel_mode == DSI_VIDEO_MODE)
+			offset = MDSS_DSI_VIDEO_COMPRESSION_MODE_CTRL;
+		else
+			offset = MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL;
+		MIPI_OUTP((ctrl->ctrl_base) + offset, 0);
+		return;
+	}
+
 	if (dsc->pkt_per_line <= 0) {
 		pr_err("%s: Error: pkt_per_line cannot be negative or 0\n",
 			__func__);
@@ -1404,8 +1413,7 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x5C, stream_total);
 	}
 
-	if (dsc)	/* compressed */
-		mdss_dsi_dsc_config(ctrl_pdata, dsc);
+	mdss_dsi_dsc_config(ctrl_pdata, dsc);
 }
 
 void mdss_dsi_ctrl_setup(struct mdss_dsi_ctrl_pdata *ctrl)
