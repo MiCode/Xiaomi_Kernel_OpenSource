@@ -1900,6 +1900,11 @@ static int msm_routing_lsm_mux_put(struct snd_kcontrol *kcontrol,
 	int lsm_port = AFE_PORT_ID_SLIMBUS_MULTI_CHAN_5_TX;
 	struct snd_soc_dapm_update *update = NULL;
 
+	if (mux >= e->items) {
+		pr_err("%s: Invalid mux value %d\n", __func__, mux);
+		return -EINVAL;
+	}
+
 	pr_debug("%s: LSM enable %ld\n", __func__,
 			ucontrol->value.integer.value[0]);
 	switch (ucontrol->value.integer.value[0]) {
@@ -2223,6 +2228,11 @@ static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	struct snd_soc_dapm_update *update = NULL;
 
+	if (mux >= e->items) {
+		pr_err("%s: Invalid mux value %d\n", __func__, mux);
+		return -EINVAL;
+	}
+
 	mutex_lock(&routing_lock);
 	switch (ucontrol->value.integer.value[0]) {
 	case 0:
@@ -2418,6 +2428,11 @@ static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 	bool state = true;
 	uint16_t ext_ec_ref_port_id;
 	struct snd_soc_dapm_update *update = NULL;
+
+	if (mux >= e->items) {
+		pr_err("%s: Invalid mux value %d\n", __func__, mux);
+		return -EINVAL;
+	}
 
 	mutex_lock(&routing_lock);
 	msm_route_ext_ec_ref = ucontrol->value.integer.value[0];
