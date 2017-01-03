@@ -3033,7 +3033,7 @@ static int msm_internal_init(struct platform_device *pdev,
 			AFE_API_VERSION_I2S_CONFIG;
 	pdata->digital_cdc_core_clk.clk_id =
 			Q6AFE_LPASS_CLK_ID_INT_MCLK_0;
-	pdata->digital_cdc_core_clk.clk_freq_in_hz = 0;
+	pdata->digital_cdc_core_clk.clk_freq_in_hz = pdata->mclk_freq;
 	pdata->digital_cdc_core_clk.clk_attri =
 			Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO;
 	pdata->digital_cdc_core_clk.clk_root =
