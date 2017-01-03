@@ -407,7 +407,7 @@ struct mdss_dsi_ctrl_pdata {
 	int (*cmdlist_commit)(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp);
 	void (*switch_mode)(struct mdss_panel_data *pdata, int mode);
 	struct mdss_panel_data panel_data;
-	unsigned char *ctrl_base;
+	unsigned char __iomem *ctrl_base;
 	struct mdss_io_data ctrl_io;
 	struct mdss_io_data mmss_misc_io;
 	struct mdss_io_data phy_io;
