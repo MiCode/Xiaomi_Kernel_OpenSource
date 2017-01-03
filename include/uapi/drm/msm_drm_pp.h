@@ -1,8 +1,7 @@
 #ifndef _MSM_DRM_PP_H_
 #define _MSM_DRM_PP_H_
 
-#include <drm/drm.h>
-
+#include <linux/types.h>
 /**
  * struct drm_msm_pcc_coeff - PCC coefficient structure for each color
  *                            component.
@@ -79,4 +78,43 @@ struct drm_msm_memcol {
 	__u32 val_region;
 };
 
+#define GAMUT_3D_MODE_17 1
+#define GAMUT_3D_MODE_5 2
+#define GAMUT_3D_MODE_13 3
+
+#define GAMUT_3D_MODE17_TBL_SZ 1229
+#define GAMUT_3D_MODE5_TBL_SZ 32
+#define GAMUT_3D_MODE13_TBL_SZ 550
+#define GAMUT_3D_SCALE_OFF_SZ 16
+#define GAMUT_3D_TBL_NUM 4
+#define GAMUT_3D_SCALE_OFF_TBL_NUM 3
+#define GAMUT_3D_MAP_EN (1 << 0)
+
+/**
+ * struct drm_msm_3d_col - 3d gamut color component structure
+ * @c0: Holds c0 value
+ * @c2_c1: Holds c2/c1 values
+ */
+struct drm_msm_3d_col {
+	__u32 c0;
+	__u32 c2_c1;
+};
+/**
+ * struct drm_msm_3d_gamut - 3d gamut feature structure
+ * @flags: flags for the feature values are:
+ *         0 - no map
+ *         GAMUT_3D_MAP_EN - enable map
+ * @mode: lut mode can take following values:
+ *        - GAMUT_3D_MODE_17
+ *        - GAMUT_3D_MODE_5
+ *        - GAMUT_3D_MODE_13
+ * @scale_off: Scale offset table
+ * @col: Color component tables
+ */
+struct drm_msm_3d_gamut {
+	__u64 flags;
+	__u32 mode;
+	__u32 scale_off[GAMUT_3D_SCALE_OFF_TBL_NUM][GAMUT_3D_SCALE_OFF_SZ];
+	struct drm_msm_3d_col col[GAMUT_3D_TBL_NUM][GAMUT_3D_MODE17_TBL_SZ];
+};
 #endif /* _MSM_DRM_PP_H_ */
