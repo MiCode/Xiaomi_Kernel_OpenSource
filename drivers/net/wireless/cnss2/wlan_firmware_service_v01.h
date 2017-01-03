@@ -1,4 +1,4 @@
- /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,10 +68,11 @@
 #define QMI_WLFW_MAX_DATA_SIZE_V01 6144
 #define QMI_WLFW_MAX_NUM_CE_V01 12
 #define QMI_WLFW_MAX_TIMESTAMP_LEN_V01 32
+#define QMI_WLFW_MAX_BUILD_ID_LEN_V01 128
 #define QMI_WLFW_MAX_STR_LEN_V01 16
 #define QMI_WLFW_MAX_NUM_SHADOW_REG_V01 24
 #define QMI_WLFW_MAC_ADDR_SIZE_V01 6
-#define QMI_WLFW_MAX_BUILD_ID_LEN_V01 128
+#define QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01 36
 #define QMI_WLFW_MAX_NUM_SVC_V01 24
 
 enum wlfw_driver_mode_enum_v01 {
@@ -116,6 +117,7 @@ enum wlfw_pipedir_enum_v01 {
 #define QMI_WLFW_ALREADY_REGISTERED_V01 ((uint64_t)0x01ULL)
 #define QMI_WLFW_FW_READY_V01 ((uint64_t)0x02ULL)
 #define QMI_WLFW_MSA_READY_V01 ((uint64_t)0x04ULL)
+#define QMI_WLFW_FW_MEM_READY_V01 ((uint64_t)0x08ULL)
 
 struct wlfw_ce_tgt_pipe_cfg_s_v01 {
 	uint32_t pipe_num;
@@ -134,6 +136,10 @@ struct wlfw_ce_svc_pipe_cfg_s_v01 {
 struct wlfw_shadow_reg_cfg_s_v01 {
 	uint16_t id;
 	uint16_t offset;
+};
+
+struct wlfw_shadow_reg_v2_cfg_s_v01 {
+	uint32_t addr;
 };
 
 struct wlfw_memory_region_info_s_v01 {
@@ -248,9 +254,13 @@ struct wlfw_wlan_cfg_req_msg_v01 {
 	uint32_t shadow_reg_len;
 	struct wlfw_shadow_reg_cfg_s_v01
 		shadow_reg[QMI_WLFW_MAX_NUM_SHADOW_REG_V01];
+	uint8_t shadow_reg_v2_valid;
+	uint32_t shadow_reg_v2_len;
+	struct wlfw_shadow_reg_v2_cfg_s_v01
+		shadow_reg_v2[QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01];
 };
 
-#define WLFW_WLAN_CFG_REQ_MSG_V01_MAX_MSG_LEN 655
+#define WLFW_WLAN_CFG_REQ_MSG_V01_MAX_MSG_LEN 803
 extern struct elem_info wlfw_wlan_cfg_req_msg_v01_ei[];
 
 struct wlfw_wlan_cfg_resp_msg_v01 {

@@ -1,4 +1,4 @@
- /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,6 +119,23 @@ static struct elem_info wlfw_shadow_reg_cfg_s_v01_ei[] = {
 		.tlv_type       = 0,
 		.offset         = offsetof(struct wlfw_shadow_reg_cfg_s_v01,
 					   offset),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.is_array       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+static struct elem_info wlfw_shadow_reg_v2_cfg_s_v01_ei[] = {
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint32_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0,
+		.offset         = offsetof(struct wlfw_shadow_reg_v2_cfg_s_v01,
+					   addr),
 	},
 	{
 		.data_type      = QMI_EOTI,
@@ -697,6 +714,34 @@ struct elem_info wlfw_wlan_cfg_req_msg_v01_ei[] = {
 		.offset         = offsetof(struct wlfw_wlan_cfg_req_msg_v01,
 					   shadow_reg),
 		.ei_array      = wlfw_shadow_reg_cfg_s_v01_ei,
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint8_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x14,
+		.offset         = offsetof(struct wlfw_wlan_cfg_req_msg_v01,
+					   shadow_reg_v2_valid),
+	},
+	{
+		.data_type      = QMI_DATA_LEN,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint8_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x14,
+		.offset         = offsetof(struct wlfw_wlan_cfg_req_msg_v01,
+					   shadow_reg_v2_len),
+	},
+	{
+		.data_type      = QMI_STRUCT,
+		.elem_len       = QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01,
+		.elem_size      = sizeof(struct wlfw_shadow_reg_v2_cfg_s_v01),
+		.is_array       = VAR_LEN_ARRAY,
+		.tlv_type       = 0x14,
+		.offset         = offsetof(struct wlfw_wlan_cfg_req_msg_v01,
+					   shadow_reg_v2),
+		.ei_array      = wlfw_shadow_reg_v2_cfg_s_v01_ei,
 	},
 	{
 		.data_type      = QMI_EOTI,
