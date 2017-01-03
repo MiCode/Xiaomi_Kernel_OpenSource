@@ -48,8 +48,10 @@
 #define KI_COEFF_HI_DISCHG_OFFSET	0
 #define KI_COEFF_LOW_DISCHG_WORD	10
 #define KI_COEFF_LOW_DISCHG_OFFSET	2
-#define DELTA_SOC_THR_WORD		12
-#define DELTA_SOC_THR_OFFSET		3
+#define DELTA_MSOC_THR_WORD		12
+#define DELTA_MSOC_THR_OFFSET		3
+#define DELTA_BSOC_THR_WORD		13
+#define DELTA_BSOC_THR_OFFSET		2
 #define RECHARGE_SOC_THR_WORD		14
 #define RECHARGE_SOC_THR_OFFSET		0
 #define CHG_TERM_CURR_WORD		14
@@ -113,8 +115,10 @@
 #define KI_COEFF_MED_DISCHG_v2_OFFSET	0
 #define KI_COEFF_HI_DISCHG_v2_WORD	10
 #define KI_COEFF_HI_DISCHG_v2_OFFSET	1
-#define DELTA_SOC_THR_v2_WORD		13
-#define DELTA_SOC_THR_v2_OFFSET		0
+#define DELTA_BSOC_THR_v2_WORD		12
+#define DELTA_BSOC_THR_v2_OFFSET	3
+#define DELTA_MSOC_THR_v2_WORD		13
+#define DELTA_MSOC_THR_v2_OFFSET	0
 #define RECHARGE_SOC_THR_v2_WORD	14
 #define RECHARGE_SOC_THR_v2_OFFSET	1
 #define CHG_TERM_CURR_v2_WORD		15
@@ -142,6 +146,8 @@ static void fg_encode_current(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val_ma, u8 *buf);
 static void fg_encode_default(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val, u8 *buf);
+
+static struct fg_irq_info fg_irqs[FG_IRQ_MAX];
 
 #define PARAM(_id, _addr_word, _addr_byte, _len, _num, _den, _offset,	\
 	      _enc, _dec)						\
@@ -188,8 +194,10 @@ static struct fg_sram_param pmi8998_v1_sram_params[] = {
 		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(CHG_TERM_CURR, CHG_TERM_CURR_WORD, CHG_TERM_CURR_OFFSET, 1,
 		100000, 390625, 0, fg_encode_current, NULL),
-	PARAM(DELTA_SOC_THR, DELTA_SOC_THR_WORD, DELTA_SOC_THR_OFFSET, 1, 2048,
-		100, 0, fg_encode_default, NULL),
+	PARAM(DELTA_MSOC_THR, DELTA_MSOC_THR_WORD, DELTA_MSOC_THR_OFFSET, 1,
+		2048, 100, 0, fg_encode_default, NULL),
+	PARAM(DELTA_BSOC_THR, DELTA_BSOC_THR_WORD, DELTA_BSOC_THR_OFFSET, 1,
+		2048, 100, 0, fg_encode_default, NULL),
 	PARAM(RECHARGE_SOC_THR, RECHARGE_SOC_THR_WORD, RECHARGE_SOC_THR_OFFSET,
 		1, 256, 100, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_DISCHG_MAX, ESR_TIMER_DISCHG_MAX_WORD,
@@ -248,8 +256,10 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(CHG_TERM_CURR, CHG_TERM_CURR_v2_WORD, CHG_TERM_CURR_v2_OFFSET, 1,
 		100000, 390625, 0, fg_encode_current, NULL),
-	PARAM(DELTA_SOC_THR, DELTA_SOC_THR_v2_WORD, DELTA_SOC_THR_v2_OFFSET, 1,
-		2048, 100, 0, fg_encode_default, NULL),
+	PARAM(DELTA_MSOC_THR, DELTA_MSOC_THR_v2_WORD, DELTA_MSOC_THR_v2_OFFSET,
+		1, 2048, 100, 0, fg_encode_default, NULL),
+	PARAM(DELTA_BSOC_THR, DELTA_BSOC_THR_v2_WORD, DELTA_BSOC_THR_v2_OFFSET,
+		1, 2048, 100, 0, fg_encode_default, NULL),
 	PARAM(RECHARGE_SOC_THR, RECHARGE_SOC_THR_v2_WORD,
 		RECHARGE_SOC_THR_v2_OFFSET, 1, 256, 100, 0, fg_encode_default,
 		NULL),
@@ -1409,6 +1419,16 @@ static int fg_charge_full_update(struct fg_chip *chip)
 	if (!batt_psy_initialized(chip))
 		return 0;
 
+	if (!chip->charge_done && chip->bsoc_delta_irq_en) {
+		disable_irq_wake(fg_irqs[BSOC_DELTA_IRQ].irq);
+		disable_irq_nosync(fg_irqs[BSOC_DELTA_IRQ].irq);
+		chip->bsoc_delta_irq_en = false;
+	} else if (chip->charge_done && !chip->bsoc_delta_irq_en) {
+		enable_irq(fg_irqs[BSOC_DELTA_IRQ].irq);
+		enable_irq_wake(fg_irqs[BSOC_DELTA_IRQ].irq);
+		chip->bsoc_delta_irq_en = true;
+	}
+
 	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_HEALTH,
 		&prop);
 	if (rc < 0) {
@@ -1434,8 +1454,8 @@ static int fg_charge_full_update(struct fg_chip *chip)
 		return rc;
 	}
 
-	fg_dbg(chip, FG_STATUS, "msoc: %d health: %d status: %d\n", msoc,
-		chip->health, chip->charge_status);
+	fg_dbg(chip, FG_STATUS, "msoc: %d bsoc: %x health: %d status: %d\n",
+		msoc, bsoc, chip->health, chip->charge_status);
 	if (chip->charge_done) {
 		if (msoc >= 99 && chip->health == POWER_SUPPLY_HEALTH_GOOD)
 			chip->charge_full = true;
@@ -2763,15 +2783,27 @@ static int fg_hw_init(struct fg_chip *chip)
 	}
 
 	if (chip->dt.delta_soc_thr > 0 && chip->dt.delta_soc_thr < 100) {
-		fg_encode(chip->sp, FG_SRAM_DELTA_SOC_THR,
+		fg_encode(chip->sp, FG_SRAM_DELTA_MSOC_THR,
 			chip->dt.delta_soc_thr, buf);
 		rc = fg_sram_write(chip,
-				chip->sp[FG_SRAM_DELTA_SOC_THR].addr_word,
-				chip->sp[FG_SRAM_DELTA_SOC_THR].addr_byte,
-				buf, chip->sp[FG_SRAM_DELTA_SOC_THR].len,
+				chip->sp[FG_SRAM_DELTA_MSOC_THR].addr_word,
+				chip->sp[FG_SRAM_DELTA_MSOC_THR].addr_byte,
+				buf, chip->sp[FG_SRAM_DELTA_MSOC_THR].len,
 				FG_IMA_DEFAULT);
 		if (rc < 0) {
-			pr_err("Error in writing delta_soc_thr, rc=%d\n", rc);
+			pr_err("Error in writing delta_msoc_thr, rc=%d\n", rc);
+			return rc;
+		}
+
+		fg_encode(chip->sp, FG_SRAM_DELTA_BSOC_THR,
+			chip->dt.delta_soc_thr, buf);
+		rc = fg_sram_write(chip,
+				chip->sp[FG_SRAM_DELTA_BSOC_THR].addr_word,
+				chip->sp[FG_SRAM_DELTA_BSOC_THR].addr_byte,
+				buf, chip->sp[FG_SRAM_DELTA_BSOC_THR].len,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing delta_bsoc_thr, rc=%d\n", rc);
 			return rc;
 		}
 	}
@@ -3062,7 +3094,20 @@ static irqreturn_t fg_soc_update_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t fg_delta_soc_irq_handler(int irq, void *data)
+static irqreturn_t fg_delta_bsoc_irq_handler(int irq, void *data)
+{
+	struct fg_chip *chip = data;
+	int rc;
+
+	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
+	rc = fg_charge_full_update(chip);
+	if (rc < 0)
+		pr_err("Error in charge_full_update, rc=%d\n", rc);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 {
 	struct fg_chip *chip = data;
 	int rc;
@@ -3136,12 +3181,13 @@ static struct fg_irq_info fg_irqs[FG_IRQ_MAX] = {
 	},
 	[MSOC_DELTA_IRQ] = {
 		.name		= "msoc-delta",
-		.handler	= fg_delta_soc_irq_handler,
+		.handler	= fg_delta_msoc_irq_handler,
 		.wakeable	= true,
 	},
 	[BSOC_DELTA_IRQ] = {
 		.name		= "bsoc-delta",
-		.handler	= fg_dummy_irq_handler,
+		.handler	= fg_delta_bsoc_irq_handler,
+		.wakeable	= true,
 	},
 	[SOC_READY_IRQ] = {
 		.name		= "soc-ready",
@@ -3755,6 +3801,13 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	/* Keep SOC_UPDATE irq disabled until we require it */
 	if (fg_irqs[SOC_UPDATE_IRQ].irq)
 		disable_irq_nosync(fg_irqs[SOC_UPDATE_IRQ].irq);
+
+	/* Keep BSOC_DELTA_IRQ irq disabled until we require it */
+	if (fg_irqs[BSOC_DELTA_IRQ].irq) {
+		disable_irq_wake(fg_irqs[BSOC_DELTA_IRQ].irq);
+		disable_irq_nosync(fg_irqs[BSOC_DELTA_IRQ].irq);
+		chip->bsoc_delta_irq_en = false;
+	}
 
 	rc = fg_debugfs_create(chip);
 	if (rc < 0) {
