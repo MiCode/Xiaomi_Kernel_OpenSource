@@ -323,7 +323,7 @@ static void clk_smd_rpm_unprepare(struct clk_hw *hw)
 	mutex_lock(&rpm_smd_clk_lock);
 
 	if (!r->rate)
-		goto out;
+		goto enable;
 
 	/* Take peer clock's rate into account only if it's enabled. */
 	if (peer->enabled)
@@ -340,6 +340,7 @@ static void clk_smd_rpm_unprepare(struct clk_hw *hw)
 	if (ret)
 		goto out;
 
+enable:
 	r->enabled = false;
 
 out:
@@ -575,6 +576,8 @@ static DEFINE_CLK_VOTER(pnoc_pm_clk, pnoc_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_sps_clk, pnoc_clk, 0);
 static DEFINE_CLK_VOTER(mmssnoc_a_clk_cpu_vote, mmssnoc_axi_rpm_a_clk,
 							19200000);
+static DEFINE_CLK_VOTER(mmssnoc_a_cpu_clk, mmssnoc_axi_a_clk,
+							19200000);
 
 /* Voter Branch clocks */
 static DEFINE_CLK_BRANCH_VOTER(cxo_dwc3_clk, cxo);
@@ -744,11 +747,12 @@ static struct clk_hw *sdm660_clks[] = {
 	[CXO_PIL_LPASS_CLK]	= &cxo_pil_lpass_clk.hw,
 	[CXO_PIL_CDSP_CLK]	= &cxo_pil_cdsp_clk.hw,
 	[CNOC_PERIPH_KEEPALIVE_A_CLK] = &cnoc_periph_keepalive_a_clk.hw,
+	[MMSSNOC_A_CLK_CPU_VOTE] = &mmssnoc_a_cpu_clk.hw
 };
 
 static const struct rpm_smd_clk_desc rpm_clk_sdm660 = {
 	.clks = sdm660_clks,
-	.num_rpm_clks = RPM_CNOC_PERIPH_A_CLK,
+	.num_rpm_clks = MMSSNOC_AXI_A_CLK,
 	.num_clks = ARRAY_SIZE(sdm660_clks),
 };
 
@@ -855,6 +859,7 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 		/* Hold an active set vote for the cnoc_periph resource */
 		clk_set_rate(cnoc_periph_keepalive_a_clk.hw.clk, 19200000);
 		clk_prepare_enable(cnoc_periph_keepalive_a_clk.hw.clk);
+		clk_prepare_enable(mmssnoc_a_cpu_clk.hw.clk);
 	}
 
 	dev_info(&pdev->dev, "Registered RPM clocks\n");
