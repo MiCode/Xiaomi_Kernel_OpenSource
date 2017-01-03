@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2141,7 +2141,7 @@
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
 		clock-names = "core_clk", "core_a_clk";
 
-		qcom,coresight-jtagmm-cpu = <&CPU0>;
+		qcom,coresight-jtagmm-cpu = <&CPU4>;
 	};
 
 	jtag_mm5: jtagmm@7d40000 {
@@ -2153,7 +2153,7 @@
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
 		clock-names = "core_clk", "core_a_clk";
 
-		qcom,coresight-jtagmm-cpu = <&CPU1>;
+		qcom,coresight-jtagmm-cpu = <&CPU5>;
 	};
 
 	jtag_mm6: jtagmm@7e40000 {
@@ -2165,7 +2165,7 @@
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
 		clock-names = "core_clk", "core_a_clk";
 
-		qcom,coresight-jtagmm-cpu = <&CPU2>;
+		qcom,coresight-jtagmm-cpu = <&CPU6>;
 	};
 
 	jtag_mm7: jtagmm@7f40000 {
@@ -2177,7 +2177,7 @@
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
 		clock-names = "core_clk", "core_a_clk";
 
-		qcom,coresight-jtagmm-cpu = <&CPU3>;
+		qcom,coresight-jtagmm-cpu = <&CPU7>;
 	};
 };
 
