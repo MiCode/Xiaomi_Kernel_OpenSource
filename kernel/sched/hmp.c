@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3882,7 +3882,7 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	struct migration_sum_data d;
 	int migrate_type;
 	int cpu = cpu_of(rq);
-	bool new_task = is_new_task(p);
+	bool new_task;
 	int i;
 
 	if (!sched_freq_aggregate)
@@ -3892,6 +3892,7 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	update_task_ravg(p, rq, TASK_UPDATE, wallclock, 0);
+	new_task = is_new_task(p);
 
 	/* cpu_time protected by related_thread_group_lock, grp->lock rq_lock */
 	cpu_time = _group_cpu_time(grp, cpu);
@@ -3986,6 +3987,8 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 
 	BUG_ON((s64)*src_curr_runnable_sum < 0);
 	BUG_ON((s64)*src_prev_runnable_sum < 0);
+	BUG_ON((s64)*src_nt_curr_runnable_sum < 0);
+	BUG_ON((s64)*src_nt_prev_runnable_sum < 0);
 }
 
 static inline struct group_cpu_time *
