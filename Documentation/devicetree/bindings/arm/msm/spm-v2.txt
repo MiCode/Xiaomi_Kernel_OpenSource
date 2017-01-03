@@ -64,6 +64,8 @@ only on SAW2 v3.0 and above.
 - qcom,use-qchannel-for-wfi: This boolean property is used to indicate
 	that the SPM gets triggerd by the qchannel and not by means of
 	wfi. So a wfe could trigger a spm for clock gating as well.
+- qcom,pwr-state-dx: Indicates the power state idx of the core.
+- qcom,wake-config: Indicate SPM wake up signal configuration.
 - modes: Lists all the available low power modes for the device
 
 Second level properties for modes
