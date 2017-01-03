@@ -1079,9 +1079,11 @@
 		clocks = <&clock_gcc clk_xo_wlan_clk>,
 			 <&clock_gcc clk_rf_clk2>,
 			 <&clock_debug clk_gcc_debug_mux_8937>,
-			 <&clock_gcc clk_wcnss_m_clk>;
+			 <&clock_gcc clk_wcnss_m_clk>,
+			 <&clock_gcc clk_snoc_wcnss_a_clk>;
 
-		clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
+		clock-names = "xo", "rf_clk", "measure", "wcnss_debug",
+				"snoc_wcnss";
 
 		qcom,has-autodetect-xo;
 		qcom,is-pronto-v3;

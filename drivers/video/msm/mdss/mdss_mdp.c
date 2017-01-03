@@ -1796,6 +1796,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_mdp_init_default_prefill_factors(mdata);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
+		mdss_set_quirk(mdata, MDSS_QUIRK_HDR_SUPPORT_ENABLED);
 		break;
 	case MDSS_MDP_HW_REV_105:
 	case MDSS_MDP_HW_REV_109:
@@ -2401,6 +2402,8 @@ ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" dest_scaler");
 	if (mdata->has_separate_rotator)
 		SPRINT(" separate_rotator");
+	if (mdss_has_quirk(mdata, MDSS_QUIRK_HDR_SUPPORT_ENABLED))
+		SPRINT(" hdr");
 	SPRINT("\n");
 #undef SPRINT
 

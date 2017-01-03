@@ -24,6 +24,11 @@
 		qcom,torch-source = <&pmi8950_torch0 &pmi8950_torch1>;
 		qcom,switch-source = <&pmi8950_switch>;
 	};
+
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&tlmm 129 0>; /* BT_EN */
+	};
 };
 
 &pm8937_gpios {

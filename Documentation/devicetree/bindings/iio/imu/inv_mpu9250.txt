@@ -1,0 +1,29 @@
+The mpu9250 sensor is 9-axis gyroscope+accelerometer+magnetometer combo
+device which is made by InvenSense Inc. It can be accessed
+via SPI bus with max frequency up to 20MHz. The recommended
+SPI mode is the mode 3(CPOL=1, CPHA=1).
+
+Required properties:
+ - compatible        : Should be "invn,mpu9250".
+ - reg               : the Chip select ID.
+ - spi-max-frequency : the SPI bus max frequency.
+ - invn,mu9250-irq   : the irq gpio.
+
+Optional properties:
+ - spi-cpol       : SPI MODE(CPOL).
+ - spi-cpha       : SPI MODE(CPHA).
+
+spi-cpol,spi-cpha,spi-max-frequency information is described in
+Documentation/devicetree/bindings/spi/spi_qsd.txt.
+
+Example:
+	spi@7575000 {
+		mpu9250-spi@0 {
+			compatible = "invn,mpu9250";
+			reg = <0>;
+			spi-max-frequency = <8000000>;
+			invn,mpu9250-irq = <&tlmm 79 0>;
+			spi-cpol;
+			spi-cpha;
+		};
+	};
