@@ -2,7 +2,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm MSM SDHCI Platform
  * driver source file
  *
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -223,6 +223,9 @@ static struct sdhci_msm_host *sdhci_slot[2];
 static int disable_slots;
 /* root can write, others read */
 module_param(disable_slots, int, S_IRUGO|S_IWUSR);
+
+static bool nocmdq;
+module_param(nocmdq, bool, S_IRUGO|S_IWUSR);
 
 enum vdd_io_level {
 	/* set vdd_io_data->low_vol_level */
@@ -3880,6 +3883,11 @@ static void sdhci_msm_cmdq_init(struct sdhci_host *host,
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	if (nocmdq) {
+		dev_dbg(&pdev->dev, "CMDQ disabled via cmdline\n");
+		return;
+	}
 
 	host->cq_host = cmdq_pltfm_init(pdev);
 	if (IS_ERR(host->cq_host)) {
