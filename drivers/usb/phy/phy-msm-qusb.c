@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,8 @@
 #define CLAMP_N_EN			BIT(5)
 #define FREEZIO_N			BIT(1)
 #define POWER_DOWN			BIT(0)
+
+#define QUSB2PHY_PORT_TEST_CTRL		0xB8
 
 #define QUSB2PHY_PWR_CTRL1		0x210
 #define PWR_CTRL1_CLAMP_N_EN		BIT(1)
@@ -687,6 +689,21 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 
 			writel_relaxed(intr_mask,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
+
+			/* enable phy auto-resume */
+			writel_relaxed(0x0C,
+					qphy->base + QUSB2PHY_PORT_TEST_CTRL);
+			/* flush the previous write before next write */
+			wmb();
+			writel_relaxed(0x04,
+				qphy->base + QUSB2PHY_PORT_TEST_CTRL);
+
+
+			dev_dbg(phy->dev, "%s: intr_mask = %x\n",
+			__func__, intr_mask);
+
+			/* Makes sure that above write goes through */
+			wmb();
 
 			qusb_phy_enable_clocks(qphy, false);
 		} else { /* Disconnect case */
