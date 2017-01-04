@@ -377,6 +377,7 @@ struct sched_cluster init_cluster = {
 	.dstate_wakeup_latency	=	0,
 	.exec_scale_factor	=	1024,
 	.notifier_sent		=	0,
+	.wake_up_idle		=	0,
 };
 
 static void update_all_clusters_stats(void)
@@ -662,6 +663,19 @@ int sched_set_static_cluster_pwr_cost(int cpu, unsigned int cost)
 unsigned int sched_get_static_cluster_pwr_cost(int cpu)
 {
 	return cpu_rq(cpu)->cluster->static_cluster_pwr_cost;
+}
+
+int sched_set_cluster_wake_idle(int cpu, unsigned int wake_idle)
+{
+	struct sched_cluster *cluster = cpu_rq(cpu)->cluster;
+
+	cluster->wake_up_idle = !!wake_idle;
+	return 0;
+}
+
+unsigned int sched_get_cluster_wake_idle(int cpu)
+{
+	return cpu_rq(cpu)->cluster->wake_up_idle;
 }
 
 /*

@@ -2601,6 +2601,8 @@ extern int sched_set_static_cpu_pwr_cost(int cpu, unsigned int cost);
 extern unsigned int sched_get_static_cpu_pwr_cost(int cpu);
 extern int sched_set_static_cluster_pwr_cost(int cpu, unsigned int cost);
 extern unsigned int sched_get_static_cluster_pwr_cost(int cpu);
+extern int sched_set_cluster_wake_idle(int cpu, unsigned int wake_idle);
+extern unsigned int sched_get_cluster_wake_idle(int cpu);
 extern int sched_update_freq_max_load(const cpumask_t *cpumask);
 extern void sched_update_cpu_freq_min_max(const cpumask_t *cpus,
 							u32 fmin, u32 fmax);
