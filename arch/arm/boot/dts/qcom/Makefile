@@ -159,7 +159,8 @@ dtb-$(CONFIG_ARCH_MDMCALIFORNIUM) += mdmcalifornium-sim.dtb \
 	mdmcalifornium-v1.1-nand-cdp.dtb \
 	mdmcalifornium-v1.1-emmc-mtp.dtb \
 	mdmcalifornium-v1.1-nand-mtp.dtb \
-	mdmcalifornium-v1.1-nand-dualwifi-mtp.dtb
+	mdmcalifornium-v1.1-nand-dualwifi-mtp.dtb \
+	mdmcalifornium-v1.1-nand-ccard.dtb
 
 dtb-$(CONFIG_ARCH_SDXHEDGEHOG) += sdxhedgehog-emmc-cdp.dtb \
 	sdxhedgehog-emmc-mtp.dtb \
