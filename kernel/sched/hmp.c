@@ -3314,6 +3314,7 @@ skip_early:
 			busy[i].prev_load = div64_u64(sched_ravg_window,
 							NSEC_PER_USEC);
 			busy[i].new_task_load = 0;
+			busy[i].predicted_load = 0;
 			goto exit_early;
 		}
 
