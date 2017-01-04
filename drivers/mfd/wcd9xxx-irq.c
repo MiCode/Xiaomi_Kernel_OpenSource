@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -304,6 +304,7 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 		goto err_disable_irq;
 	}
 
+	memset(status, 0, sizeof(status));
 	ret = regmap_bulk_read(wcd9xxx_res->wcd_core_regmap,
 		wcd9xxx_res->intr_reg[WCD9XXX_INTR_STATUS_BASE],
 		status, num_irq_regs);
