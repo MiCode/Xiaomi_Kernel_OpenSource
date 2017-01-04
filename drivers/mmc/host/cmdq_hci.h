@@ -145,6 +145,11 @@
 #define DAT_ADDR_LO(x)	((x & 0xFFFFFFFF) << 32)
 #define DAT_ADDR_HI(x)	((x & 0xFFFFFFFF) << 0)
 
+/*
+ * Add new macro for updated CQ vendor specific
+ * register address for SDHC v5.0 onwards.
+ */
+#define CQ_V5_VENDOR_CFG	0x900
 #define CQ_VENDOR_CFG	0x100
 #define CMDQ_SEND_STATUS_TRIGGER (1 << 31)
 
@@ -177,6 +182,7 @@ struct cmdq_host {
 	bool enabled;
 	bool halted;
 	bool init_done;
+	bool offset_changed;
 
 	u8 *desc_base;
 
