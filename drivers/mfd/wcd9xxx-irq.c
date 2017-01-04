@@ -307,6 +307,7 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 		goto err_disable_irq;
 	}
 
+	memset(status, 0, sizeof(status));
 	ret = regmap_bulk_read(wcd9xxx_res->wcd_core_regmap,
 		wcd9xxx_res->intr_reg[WCD9XXX_INTR_STATUS_BASE],
 		status, num_irq_regs);
