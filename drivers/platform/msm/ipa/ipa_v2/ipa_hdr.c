@@ -43,7 +43,7 @@ static int ipa_generate_hdr_hw_tbl(struct ipa_mem_buffer *mem)
 		IPAERR("hdr tbl empty\n");
 		return -EPERM;
 	}
-	IPADBG("tbl_sz=%d\n", ipa_ctx->hdr_tbl.end);
+	IPADBG_LOW("tbl_sz=%d\n", ipa_ctx->hdr_tbl.end);
 
 	mem->base = dma_alloc_coherent(ipa_ctx->pdev, mem->size,
 			&mem->phys_base, GFP_KERNEL);
@@ -57,7 +57,7 @@ static int ipa_generate_hdr_hw_tbl(struct ipa_mem_buffer *mem)
 			link) {
 		if (entry->is_hdr_proc_ctx)
 			continue;
-		IPADBG("hdr of len %d ofst=%d\n", entry->hdr_len,
+		IPADBG_LOW("hdr of len %d ofst=%d\n", entry->hdr_len,
 				entry->offset_entry->offset);
 		memcpy(mem->base + entry->offset_entry->offset, entry->hdr,
 				entry->hdr_len);
@@ -74,7 +74,7 @@ static void ipa_hdr_proc_ctx_to_hw_format(struct ipa_mem_buffer *mem,
 	list_for_each_entry(entry,
 			&ipa_ctx->hdr_proc_ctx_tbl.head_proc_ctx_entry_list,
 			link) {
-		IPADBG("processing type %d ofst=%d\n",
+		IPADBG_LOW("processing type %d ofst=%d\n",
 			entry->type, entry->offset_entry->offset);
 		if (entry->type == IPA_HDR_PROC_NONE) {
 			struct ipa_hdr_proc_ctx_add_hdr_seq *ctx;
@@ -88,7 +88,7 @@ static void ipa_hdr_proc_ctx_to_hw_format(struct ipa_mem_buffer *mem,
 				entry->hdr->phys_base :
 				hdr_base_addr +
 				entry->hdr->offset_entry->offset;
-			IPADBG("header address 0x%x\n",
+			IPADBG_LOW("header address 0x%x\n",
 				ctx->hdr_add.hdr_addr);
 			ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
 			ctx->end.length = 0;
@@ -105,7 +105,7 @@ static void ipa_hdr_proc_ctx_to_hw_format(struct ipa_mem_buffer *mem,
 				entry->hdr->phys_base :
 				hdr_base_addr +
 				entry->hdr->offset_entry->offset;
-			IPADBG("header address 0x%x\n",
+			IPADBG_LOW("header address 0x%x\n",
 				ctx->hdr_add.hdr_addr);
 			ctx->cmd.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
 			ctx->cmd.length = 0;
@@ -117,7 +117,7 @@ static void ipa_hdr_proc_ctx_to_hw_format(struct ipa_mem_buffer *mem,
 				ctx->cmd.value = IPA_HDR_UCP_802_3_TO_ETHII;
 			else if (entry->type == IPA_HDR_PROC_802_3_TO_802_3)
 				ctx->cmd.value = IPA_HDR_UCP_802_3_TO_802_3;
-			IPADBG("command id %d\n", ctx->cmd.value);
+			IPADBG_LOW("command id %d\n", ctx->cmd.value);
 			ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
 			ctx->end.length = 0;
 			ctx->end.value = 0;
@@ -144,7 +144,7 @@ static int ipa_generate_hdr_proc_ctx_hw_tbl(u32 hdr_sys_addr,
 	/* make sure table is aligned */
 	mem->size += IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE;
 
-	IPADBG("tbl_sz=%d\n", ipa_ctx->hdr_proc_ctx_tbl.end);
+	IPADBG_LOW("tbl_sz=%d\n", ipa_ctx->hdr_proc_ctx_tbl.end);
 
 	mem->base = dma_alloc_coherent(ipa_ctx->pdev, mem->size,
 			&mem->phys_base, GFP_KERNEL);
@@ -487,7 +487,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	int needed_len;
 	int mem_size;
 
-	IPADBG("processing type %d hdr_hdl %d\n",
+	IPADBG_LOW("processing type %d hdr_hdl %d\n",
 		proc_ctx->type, proc_ctx->hdr_hdl);
 
 	if (!HDR_PROC_TYPE_IS_VALID(proc_ctx->type)) {
@@ -566,7 +566,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	entry->offset_entry = offset;
 	list_add(&entry->link, &htbl->head_proc_ctx_entry_list);
 	htbl->proc_ctx_cnt++;
-	IPADBG("add proc ctx of sz=%d cnt=%d ofst=%d\n", needed_len,
+	IPADBG_LOW("add proc ctx of sz=%d cnt=%d ofst=%d\n", needed_len,
 			htbl->proc_ctx_cnt, offset->offset);
 
 	id = ipa_id_alloc(entry);
@@ -692,12 +692,12 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 	list_add(&entry->link, &htbl->head_hdr_entry_list);
 	htbl->hdr_cnt++;
 	if (entry->is_hdr_proc_ctx)
-		IPADBG("add hdr of sz=%d hdr_cnt=%d phys_base=%pa\n",
+		IPADBG_LOW("add hdr of sz=%d hdr_cnt=%d phys_base=%pa\n",
 			hdr->hdr_len,
 			htbl->hdr_cnt,
 			&entry->phys_base);
 	else
-		IPADBG("add hdr of sz=%d hdr_cnt=%d ofst=%d\n",
+		IPADBG_LOW("add hdr of sz=%d hdr_cnt=%d ofst=%d\n",
 			hdr->hdr_len,
 			htbl->hdr_cnt,
 			entry->offset_entry->offset);
