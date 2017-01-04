@@ -118,6 +118,8 @@ Optional properties:
 				control feature is available on each source pipe.
 - qcom,sde-has-src-split:	Boolean property to indicate if source split
 				feature is available or not.
+- qcom,sde-has-dim-layer:	Boolean property to indicate if mixer has dim layer
+				feature is available or not.
 - qcom,sde-has-mixer-gc:	Boolean property to indicate if mixer has gamma correction
 				feature available or not.
 - qcom,sde-has-cdp:		Boolean property to indicate if cdp feature is
@@ -340,6 +342,7 @@ Example:
     qcom,sde-panic-per-pipe;
     qcom,sde-has-cdp;
     qcom,sde-has-src-split;
+    qcom,sde-has-dim-layer;
     qcom,sde-sspp-src-size = <0x100>;
     qcom,sde-mixer-size = <0x100>;
     qcom,sde-ctl-size = <0x100>;

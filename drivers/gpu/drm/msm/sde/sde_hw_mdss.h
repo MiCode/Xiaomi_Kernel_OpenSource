@@ -440,4 +440,18 @@ struct sde_hw_cp_cfg {
 	u32 len;
 };
 
+/**
+ * struct sde_hw_dim_layer: dim layer configs
+ * @flags: Flag to represent INCLUSIVE/EXCLUSIVE
+ * @stage: Blending stage of dim layer
+ * @color_fill: Color fill to be used for the layer
+ * @rect: Dim layer coordinates
+ */
+struct sde_hw_dim_layer {
+	uint32_t flags;
+	uint32_t stage;
+	struct sde_mdss_color color_fill;
+	struct sde_rect rect;
+};
+
 #endif  /* _SDE_HW_MDSS_H */

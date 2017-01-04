@@ -66,6 +66,19 @@ struct sde_hw_lm_ops {
 	void (*setup_gc)(struct sde_hw_mixer *mixer,
 			void *cfg);
 
+	/**
+	 * setup_dim_layer: configure dim layer settings
+	 * @ctx: Pointer to layer mixer context
+	 * @dim_layer: dim layer configs
+	 */
+	void (*setup_dim_layer)(struct sde_hw_mixer *ctx,
+			struct sde_hw_dim_layer *dim_layer);
+
+	/**
+	 * clear_dim_layer: clear dim layer settings
+	 * @ctx: Pointer to layer mixer context
+	 */
+	void (*clear_dim_layer)(struct sde_hw_mixer *ctx);
 };
 
 struct sde_hw_mixer {

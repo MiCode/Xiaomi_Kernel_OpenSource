@@ -1,6 +1,8 @@
 #ifndef _SDE_DRM_H_
 #define _SDE_DRM_H_
 
+#include "drm.h"
+
 /* Total number of supported color planes */
 #define SDE_MAX_PLANES  4
 
@@ -273,6 +275,53 @@ struct sde_drm_csc_v1 {
 	uint32_t post_bias[SDE_CSC_BIAS_SIZE];
 	uint32_t pre_clamp[SDE_CSC_CLAMP_SIZE];
 	uint32_t post_clamp[SDE_CSC_CLAMP_SIZE];
+};
+
+/**
+ * struct sde_drm_color - struct to store the color and alpha values
+ * @color_0: Color 0 value
+ * @color_1: Color 1 value
+ * @color_2: Color 2 value
+ * @color_3: Color 3 value
+ */
+struct sde_drm_color {
+	uint32_t color_0;
+	uint32_t color_1;
+	uint32_t color_2;
+	uint32_t color_3;
+};
+
+/* Total number of supported dim layers */
+#define SDE_MAX_DIM_LAYERS 7
+
+/* SDE_DRM_DIM_LAYER_CONFIG_FLAG - flags for Dim Layer */
+/* Color fill inside of the rect, including border */
+#define SDE_DRM_DIM_LAYER_INCLUSIVE     0x1
+/* Color fill outside of the rect, excluding border */
+#define SDE_DRM_DIM_LAYER_EXCLUSIVE     0x2
+
+/**
+ * struct sde_drm_dim_layer - dim layer cfg struct
+ * @flags:         Refer SDE_DRM_DIM_LAYER_CONFIG_FLAG for possible values
+ * @stage:         Blending stage of the dim layer
+ * @color_fill:    Color fill for dim layer
+ * @rect:          Dim layer coordinates
+ */
+struct sde_drm_dim_layer_cfg {
+	uint32_t flags;
+	uint32_t stage;
+	struct sde_drm_color color_fill;
+	struct drm_clip_rect rect;
+};
+
+/**
+ * struct sde_drm_dim_layer_v1 - version 1 of dim layer struct
+ * @num_layers:    Numer of Dim Layers
+ * @layer:         Dim layer user cfgs ptr for the num_layers
+ */
+struct sde_drm_dim_layer_v1 {
+	uint32_t num_layers;
+	struct sde_drm_dim_layer_cfg layer_cfg[SDE_MAX_DIM_LAYERS];
 };
 
 /* Writeback Config version definition */

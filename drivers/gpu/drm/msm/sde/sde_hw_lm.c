@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include "sde_kms.h"
 #include "sde_hw_catalog.h"
 #include "sde_hwio.h"
 #include "sde_hw_lm.h"
@@ -23,6 +24,11 @@
 /* These register are offset to mixer base + stage base */
 #define LM_BLEND0_OP                     0x00
 #define LM_BLEND0_CONST_ALPHA            0x04
+#define LM_FG_COLOR_FILL_COLOR_0         0x08
+#define LM_FG_COLOR_FILL_COLOR_1         0x0C
+#define LM_FG_COLOR_FILL_SIZE            0x10
+#define LM_FG_COLOR_FILL_XY              0x14
+
 #define LM_BLEND0_FG_ALPHA               0x04
 #define LM_BLEND0_BG_ALPHA               0x08
 
@@ -159,9 +165,66 @@ static void sde_hw_lm_gc(struct sde_hw_mixer *mixer,
 {
 }
 
+static void sde_hw_lm_clear_dim_layer(struct sde_hw_mixer *ctx)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	const struct sde_lm_sub_blks *sblk = ctx->cap->sblk;
+	int stage_off, i;
+	u32 reset = BIT(16), val;
+
+	reset = ~reset;
+	for (i = SDE_STAGE_0; i < sblk->maxblendstages; i++) {
+		stage_off = _stage_offset(ctx, i);
+		if (WARN_ON(stage_off < 0))
+			return;
+
+		/*
+		 * read the existing blendn_op register and clear only DIM layer
+		 * bit (color_fill bit)
+		 */
+		val = SDE_REG_READ(c, LM_BLEND0_OP + stage_off);
+		val &= reset;
+		SDE_REG_WRITE(c, LM_BLEND0_OP + stage_off, val);
+	}
+}
+
+static void sde_hw_lm_setup_dim_layer(struct sde_hw_mixer *ctx,
+		struct sde_hw_dim_layer *dim_layer)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	int stage_off;
+	u32 val = 0;
+
+	stage_off = _stage_offset(ctx, dim_layer->stage);
+	if (stage_off < 0) {
+		SDE_ERROR("invalid stage_off:%d for dim layer\n", stage_off);
+		return;
+	}
+
+	val = (dim_layer->color_fill.color_1 & 0xFFF) << 16 |
+			(dim_layer->color_fill.color_0 & 0xFFF);
+	SDE_REG_WRITE(c, LM_FG_COLOR_FILL_COLOR_0 + stage_off, val);
+
+	val = 0;
+	val = (dim_layer->color_fill.color_3 & 0xFFF) << 16 |
+			(dim_layer->color_fill.color_2 & 0xFFF);
+	SDE_REG_WRITE(c, LM_FG_COLOR_FILL_COLOR_1 + stage_off, val);
+
+	val = dim_layer->rect.h << 16 | dim_layer->rect.w;
+	SDE_REG_WRITE(c, LM_FG_COLOR_FILL_SIZE + stage_off, val);
+
+	val = dim_layer->rect.y << 16 | dim_layer->rect.x;
+	SDE_REG_WRITE(c, LM_FG_COLOR_FILL_XY + stage_off, val);
+
+	val = BIT(16); /* enable dim layer */
+	if (dim_layer->flags & SDE_DRM_DIM_LAYER_EXCLUSIVE)
+		val |= BIT(17);
+	SDE_REG_WRITE(c, LM_BLEND0_OP + stage_off, val);
+}
+
 static void _setup_mixer_ops(struct sde_mdss_cfg *m,
 		struct sde_hw_lm_ops *ops,
-		unsigned long cap)
+		unsigned long features)
 {
 	ops->setup_mixer_out = sde_hw_lm_setup_out;
 	if (IS_MSMSKUNK_TARGET(m->hwversion))
@@ -171,6 +234,11 @@ static void _setup_mixer_ops(struct sde_mdss_cfg *m,
 	ops->setup_alpha_out = sde_hw_lm_setup_color3;
 	ops->setup_border_color = sde_hw_lm_setup_border_color;
 	ops->setup_gc = sde_hw_lm_gc;
+
+	if (test_bit(SDE_DIM_LAYER, &features)) {
+		ops->setup_dim_layer = sde_hw_lm_setup_dim_layer;
+		ops->clear_dim_layer = sde_hw_lm_clear_dim_layer;
+	}
 };
 
 struct sde_hw_mixer *sde_hw_lm_init(enum sde_lm idx,
