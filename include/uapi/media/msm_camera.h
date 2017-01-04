@@ -1541,7 +1541,9 @@ enum msm_camera_i2c_reg_addr_type {
 	MSM_CAMERA_I2C_BYTE_ADDR = 1,
 	MSM_CAMERA_I2C_WORD_ADDR,
 	MSM_CAMERA_I2C_3B_ADDR,
+	MSM_CAMERA_I2C_DWORD_ADDR,
 };
+#define MSM_CAMERA_I2C_DWORD_ADDR MSM_CAMERA_I2C_DWORD_ADDR
 
 struct msm_camera_i2c_reg_array {
 	uint16_t reg_addr;
