@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, Linaro Limited
- * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -591,8 +591,6 @@ static DEFINE_CLK_VOTER(pnoc_msmbus_clk, pnoc_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_msmbus_a_clk, pnoc_a_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_pm_clk, pnoc_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_sps_clk, pnoc_clk, 0);
-static DEFINE_CLK_VOTER(mmssnoc_a_clk_cpu_vote, mmssnoc_axi_rpm_a_clk,
-							19200000);
 static DEFINE_CLK_VOTER(mmssnoc_a_cpu_clk, mmssnoc_axi_a_clk,
 							19200000);
 
@@ -667,7 +665,6 @@ static struct clk_hw *msm8996_clks[] = {
 	[CXO_OTG_CLK]		= &cxo_otg_clk.hw,
 	[CXO_PIL_LPASS_CLK]	= &cxo_pil_lpass_clk.hw,
 	[CXO_PIL_SSC_CLK]	= &cxo_pil_ssc_clk.hw,
-	[MMSSNOC_A_CLK_CPU_VOTE] = &mmssnoc_a_clk_cpu_vote.hw
 };
 
 static const struct rpm_smd_clk_desc rpm_clk_msm8996 = {
@@ -879,8 +876,6 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 		/* Hold an active set vote for the pnoc_keepalive_a_clk */
 		clk_set_rate(pnoc_keepalive_a_clk.hw.clk, 19200000);
 		clk_prepare_enable(pnoc_keepalive_a_clk.hw.clk);
-
-		clk_prepare_enable(mmssnoc_a_clk_cpu_vote.hw.clk);
 	} else if (is_660) {
 		clk_prepare_enable(sdm660_cxo_a.hw.clk);
 
