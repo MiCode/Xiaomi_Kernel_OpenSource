@@ -104,6 +104,9 @@ SoCs:
 - SDM630
   compatible = "qcom,sdm630"
 
+- SDA630
+  compatible = "qcom,sda630"
+
 - MSM8952
   compatible = "qcom,msm8952"
 
@@ -284,6 +287,8 @@ compatible = "qcom,sda660-cdp"
 compatible = "qcom,sdm630-rumi"
 compatible = "qcom,sdm630-mtp"
 compatible = "qcom,sdm630-cdp"
+compatible = "qcom,sda630-mtp"
+compatible = "qcom,sda630-cdp"
 compatible = "qcom,msm8952-rumi"
 compatible = "qcom,msm8952-sim"
 compatible = "qcom,msm8952-qrd"

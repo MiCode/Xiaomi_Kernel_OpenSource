@@ -194,7 +194,13 @@ dtb-$(CONFIG_ARCH_SDM630) += sdm630-rumi.dtb \
 	sdm630-pm660a-rcm.dtb \
 	sdm630-internal-codec-pm660a-cdp.dtb \
 	sdm630-internal-codec-pm660a-mtp.dtb \
-	sdm630-internal-codec-pm660a-rcm.dtb
+	sdm630-internal-codec-pm660a-rcm.dtb \
+	sda630-mtp.dtb \
+	sda630-cdp.dtb \
+	sda630-rcm.dtb \
+	sda630-pm660a-mtp.dtb \
+	sda630-pm660a-cdp.dtb \
+	sda630-pm660a-rcm.dtb
 
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)
