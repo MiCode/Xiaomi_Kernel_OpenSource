@@ -1,8 +1,8 @@
 #
 #Makefile for BMI160 IIO Driver
 #
-obj-y   += bmi160_i2c.o bmi160_core.o bmi160.o 
-obj-y   += bmi160_ring.o
+obj-${CONFIG_SENSORS_BMI160_IIO}   += bmi160_i2c.o bmi160_core.o bmi160.o
+obj-${CONFIG_SENSORS_BMI160_IIO_RING}   += bmi160_ring.o
 
 EXTRA_CFLAGS += -DBMI160_ENABLE_INT1
 
