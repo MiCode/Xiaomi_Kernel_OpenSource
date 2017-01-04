@@ -6,8 +6,28 @@ config CNSS
 	---help---
 	  This module adds support for the CNSS connectivity subsystem used
 	  for wifi devices based on the QCA AR6320 chipset.
-	  This driver also adds support to integrate WLAN module to subsystem
-	  restart framework.
+
+config CNSS_SDIO
+	bool "Enable/disable cnss sdio platform driver for wifi module"
+	depends on CNSS
+	depends on MMC
+	---help---
+	 This module adds support for the CNSS wlan module interfaced
+	 with SDIO bus.
+	 This driver also adds support to integrate WLAN module to subsystem
+	 restart framework, power on WLAN chip and registered the WLAN module
+	 as a SDIO client device.
+
+config CNSS_PCI
+	bool "Enable/disable cnss pci platform driver for wifi module"
+	depends on CNSS
+	depends on PCI
+	---help---
+	 This module adds support for the CNSS wlan module interfaced
+	 with PCIe bus.
+	 This driver also adds support to integrate WLAN module to subsystem
+	 restart framework, power on WLAN chip and registered the WLAN module
+	 as a PCIe client device.
 
 config CNSS_MAC_BUG
 	bool "Enable/disable 0-4K memory initialization for QCA6174"
