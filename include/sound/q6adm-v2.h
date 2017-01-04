@@ -65,6 +65,20 @@ struct route_payload {
 	unsigned int session_id;
 };
 
+struct default_chmixer_param_id_coeff {
+	uint32_t index;
+	uint16_t num_output_channels;
+	uint16_t num_input_channels;
+};
+
+struct msm_pcm_channel_mixer {
+	int output_channel;
+	int input_channels[ADM_MAX_CHANNELS];
+	bool enable;
+	int rule;
+	int channel_weight[ADM_MAX_CHANNELS][ADM_MAX_CHANNELS];
+};
+
 int srs_trumedia_open(int port_id, int copp_idx, __s32 srs_tech_id,
 		      void *srs_params);
 
@@ -166,4 +180,8 @@ int adm_get_source_tracking(int port_id, int copp_idx,
 			    struct source_tracking_param *sourceTrackingData);
 int adm_swap_speaker_channels(int port_id, int copp_idx, int sample_rate,
 				bool spk_swap);
+int adm_programable_channel_mixer(int port_id, int copp_idx, int session_id,
+			int session_type,
+			struct msm_pcm_channel_mixer *ch_mixer,
+			int channel_index);
 #endif /* __Q6_ADM_V2_H__ */
