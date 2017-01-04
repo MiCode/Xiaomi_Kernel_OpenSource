@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -288,6 +288,7 @@ static struct cnss_data {
 	atomic_t auto_suspended;
 	bool monitor_wake_intr;
 	struct cnss_dual_wifi dual_wifi_info;
+	struct cnss_dev_platform_ops platform_ops;
 } *penv;
 
 static unsigned int pcie_link_down_panic;
@@ -1608,6 +1609,31 @@ int cnss_msm_pcie_enumerate(u32 rc_idx)
 }
 #endif
 
+static void cnss_pcie_set_platform_ops(struct device *dev)
+{
+	struct cnss_dev_platform_ops *pf_ops = &penv->platform_ops;
+
+	pf_ops->request_bus_bandwidth = cnss_pci_request_bus_bandwidth;
+	pf_ops->get_virt_ramdump_mem = cnss_pci_get_virt_ramdump_mem;
+	pf_ops->device_self_recovery = cnss_pci_device_self_recovery;
+	pf_ops->schedule_recovery_work = cnss_pci_schedule_recovery_work;
+	pf_ops->device_crashed = cnss_pci_device_crashed;
+	pf_ops->get_wlan_mac_address = cnss_pci_get_wlan_mac_address;
+	pf_ops->set_wlan_mac_address = cnss_pcie_set_wlan_mac_address;
+	pf_ops->power_up = cnss_pcie_power_up;
+	pf_ops->power_down = cnss_pcie_power_down;
+
+	dev->platform_data = pf_ops;
+}
+
+static void cnss_pcie_reset_platform_ops(struct device *dev)
+{
+	struct cnss_dev_platform_ops *pf_ops = &penv->platform_ops;
+
+	memset(pf_ops, 0, sizeof(struct cnss_dev_platform_ops));
+	dev->platform_data = NULL;
+}
+
 static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 			       const struct pci_device_id *id)
 {
@@ -1618,6 +1644,7 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 	struct codeswap_codeseg_info *cnss_seg_info = NULL;
 	struct device *dev = &pdev->dev;
 
+	cnss_pcie_set_platform_ops(dev);
 	penv->pdev = pdev;
 	penv->id = id;
 	penv->fw_available = false;
@@ -1726,6 +1753,7 @@ end_dma_alloc:
 err_unknown:
 err_pcie_suspend:
 smmu_init_fail:
+	cnss_pcie_reset_platform_ops(dev);
 	return ret;
 }
 
@@ -1737,6 +1765,7 @@ static void cnss_wlan_pci_remove(struct pci_dev *pdev)
 		return;
 
 	dev = &penv->pldev->dev;
+	cnss_pcie_reset_platform_ops(dev);
 	device_remove_file(dev, &dev_attr_wlan_setup);
 
 	if (penv->smmu_mapping)
