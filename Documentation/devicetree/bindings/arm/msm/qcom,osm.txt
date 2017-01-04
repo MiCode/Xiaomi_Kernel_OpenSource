@@ -10,8 +10,9 @@ Properties:
 	Usage:      required
 	Value type: <string>
 	Definition: must be "qcom,cpu-clock-osm-msm8998-v1",
-		    "qcom,cpu-clock-osm-msm8998-v2" or
-		    "qcom,clk-cpu-osm".
+		    "qcom,cpu-clock-osm-msm8998-v2",
+		    "qcom,clk-cpu-osm" or
+		    "qcom,clk-cpu-osm-sdm630".
 
 - reg
 	Usage:      required
