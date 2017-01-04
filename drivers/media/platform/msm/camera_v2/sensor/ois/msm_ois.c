@@ -33,6 +33,30 @@ static int32_t msm_ois_power_down(struct msm_ois_ctrl_t *o_ctrl);
 
 static struct i2c_driver msm_ois_i2c_driver;
 
+static int32_t data_type_to_num_bytes(
+	enum msm_camera_i2c_data_type data_type)
+{
+	int32_t ret_val;
+
+	switch (data_type) {
+	case MSM_CAMERA_I2C_BYTE_DATA:
+		ret_val = 1;
+		break;
+	case MSM_CAMERA_I2C_WORD_DATA:
+		ret_val = 2;
+		break;
+	case MSM_CAMERA_I2C_DWORD_DATA:
+		ret_val = 4;
+		break;
+	default:
+		pr_err("unsupported data type: %d\n",
+			data_type);
+		ret_val = 1;
+		break;
+	}
+	return ret_val;
+}
+
 static int32_t msm_ois_download(struct msm_ois_ctrl_t *o_ctrl)
 {
 	uint16_t bytes_in_tx = 0;
@@ -155,7 +179,9 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 	uint16_t size, struct reg_settings_ois_t *settings)
 {
 	int32_t rc = -EFAULT;
-	int32_t i = 0;
+	int32_t i = 0, num_byte_seq = 0;
+	uint8_t *reg_data_seq;
+
 	struct msm_camera_i2c_seq_reg_array *reg_setting;
 	CDBG("Enter\n");
 
@@ -233,13 +259,51 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 					settings[i].data_type);
 				break;
 			}
+			break;
 		}
+		case MSM_OIS_READ: {
+			switch (settings[i].data_type) {
+			case MSM_CAMERA_I2C_BYTE_DATA:
+			case MSM_CAMERA_I2C_WORD_DATA:
+			case MSM_CAMERA_I2C_DWORD_DATA:
+
+				num_byte_seq =
+					data_type_to_num_bytes
+					(settings[i].data_type);
+				reg_data_seq = kzalloc(sizeof(uint32_t),
+						GFP_KERNEL);
+				if (!reg_data_seq)
+					return -ENOMEM;
+
+				rc = msm_camera_cci_i2c_read_seq
+					(&o_ctrl->i2c_client,
+					settings[i].reg_addr,
+					reg_data_seq,
+					num_byte_seq);
+
+				memcpy(&settings[i].reg_data,
+					reg_data_seq, sizeof(uint32_t));
+
+				CDBG("ois data read 0x%x from address 0x%x",
+					settings[i].reg_addr,
+					settings[i].reg_data);
+
+				kfree(reg_data_seq);
+				reg_data_seq = NULL;
+
+				break;
+			default:
+				pr_err("Unsupport data type for MSM_OIS_READ: %d\n",
+					settings[i].data_type);
+				break;
+			}
+			break;
 		}
 
 		if (rc < 0)
 			break;
+		}
 	}
-
 	CDBG("Exit\n");
 	return rc;
 }
@@ -348,7 +412,7 @@ static int32_t msm_ois_control(struct msm_ois_ctrl_t *o_ctrl,
 	struct msm_ois_set_info_t *set_info)
 {
 	struct reg_settings_ois_t *settings = NULL;
-	int32_t rc = 0;
+	int32_t rc = 0, i = 0;
 	struct msm_camera_cci_client *cci_client = NULL;
 	CDBG("Enter\n");
 
@@ -390,6 +454,18 @@ static int32_t msm_ois_control(struct msm_ois_ctrl_t *o_ctrl,
 		rc = msm_ois_write_settings(o_ctrl,
 			set_info->ois_params.setting_size,
 			settings);
+
+		for (i = 0; i < set_info->ois_params.setting_size; i++) {
+			if (set_info->ois_params.settings[i].i2c_operation
+				== MSM_OIS_READ) {
+				set_info->ois_params.settings[i].reg_data =
+					settings[i].reg_data;
+				CDBG("ois_data at addr 0x%x is 0x%x",
+				set_info->ois_params.settings[i].reg_addr,
+				set_info->ois_params.settings[i].reg_data);
+			}
+		}
+
 		kfree(settings);
 		if (rc < 0) {
 			pr_err("Error\n");
@@ -401,7 +477,6 @@ static int32_t msm_ois_control(struct msm_ois_ctrl_t *o_ctrl,
 
 	return rc;
 }
-
 
 static int32_t msm_ois_config(struct msm_ois_ctrl_t *o_ctrl,
 	void __user *argp)
