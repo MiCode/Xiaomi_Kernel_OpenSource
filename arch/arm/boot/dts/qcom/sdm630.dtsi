@@ -17,6 +17,7 @@
 #include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/clock/qcom,cpu-osm.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM630";
@@ -937,6 +938,105 @@
 		qcom,rmnet-ipa-ssr;
 		qcom,ipa-loaduC;
 		qcom,ipa-advertise-sg-support;
+	};
+
+	clock_cpu: qcom,clk-cpu-630@179c0000 {
+		compatible = "qcom,clk-cpu-osm-sdm630";
+		status = "disabled";
+		reg = <0x179c0000 0x4000>, <0x17916000 0x1000>,
+			<0x17816000 0x1000>, <0x179d1000 0x1000>,
+			<0x00784130 0x8>;
+		reg-names = "osm", "pwrcl_pll", "perfcl_pll",
+			"apcs_common", "perfcl_efuse";
+
+		interrupts = <GIC_SPI 35 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 36 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "pwrcl-irq", "perfcl-irq";
+
+		qcom,pwrcl-speedbin0-v0 =
+			<   300000000 0x0004000f 0x01200020 0x1 1 >,
+			<   614400000 0x05040020 0x03200020 0x1 2 >,
+			<   883200000 0x0404002e 0x04250025 0x1 3 >,
+			<  1094400000 0x04040039 0x052e002e 0x2 4 >,
+			<  1382400000 0x04040048 0x07390039 0x2 5 >,
+			<  1536000000 0x04040050 0x08400040 0x3 6 >,
+			<  1728000000 0x0404005a 0x09480048 0x3 7 >,
+			<  1843200000 0x04040060 0x094c004c 0x3 8 >;
+
+		qcom,perfcl-speedbin0-v0 =
+			<   300000000 0x0004000f 0x01200020 0x1 1 >,
+			<   787200000 0x05040029 0x04200020 0x1 2 >,
+			<  1113600000 0x0404003a 0x052e002e 0x1 3 >,
+			<  1344000000 0x04040046 0x07380038 0x2 4 >,
+			<  1516800000 0x0404004f 0x073f003f 0x2 5 >,
+			<  1670400000 0x04040057 0x08450045 0x2 6 >,
+			<  1881600000 0x04040062 0x094e004e 0x3 7 >,
+			<  2016000000 0x04040069 0x0a540054 0x3 8 >,
+			<  2150400000 0x04040070 0x0b590059 0x3 9 >,
+			<  2380800000 0x0404007c 0x0c630063 0x3 10 >;
+
+		qcom,perfcl-speedbin1-v0 =
+			<   300000000 0x0004000f 0x01200020 0x1 1 >,
+			<   787200000 0x05040029 0x04200020 0x1 2 >,
+			<  1113600000 0x0404003a 0x052e002e 0x1 3 >,
+			<  1344000000 0x04040046 0x07380038 0x2 4 >,
+			<  1516800000 0x0404004f 0x073f003f 0x2 5 >,
+			<  1670400000 0x04040057 0x08450045 0x2 6 >,
+			<  1881600000 0x04040062 0x094e004e 0x3 7 >,
+			<  2016000000 0x04040069 0x0a540054 0x3 8 >,
+			<  2150400000 0x04040070 0x0b590059 0x3 8 >,
+			<  2208000000 0x04040073 0x0b5c005c 0x3 10 >;
+
+		qcom,perfcl-speedbin2-v0 =
+			<   300000000 0x0004000f 0x01200020 0x1 1 >,
+			<   787200000 0x05040029 0x04200020 0x1 2 >,
+			<  1113600000 0x0404003a 0x052e002e 0x1 3 >,
+			<  1344000000 0x04040046 0x07380038 0x2 4 >,
+			<  1516800000 0x0404004f 0x073f003f 0x2 5 >,
+			<  1670400000 0x04040057 0x08450045 0x2 6 >,
+			<  1881600000 0x04040062 0x094e004e 0x3 7 >,
+			<  2016000000 0x04040069 0x0a540054 0x3 8 >,
+			<  2150400000 0x04040070 0x0b590059 0x3 9 >,
+			<  2380800000 0x0404007c 0x0c630063 0x3 10 >,
+			<  2515200000 0x04040083 0x0d680068 0x3 11 >;
+
+		qcom,up-timer = <1000 1000>;
+		qcom,down-timer = <1000 1000>;
+		qcom,pc-override-index = <0 0>;
+		qcom,set-ret-inactive;
+		qcom,enable-llm-freq-vote;
+		qcom,llm-freq-up-timer = <327675 327675>;
+		qcom,llm-freq-down-timer = <327675 327675>;
+		qcom,enable-llm-volt-vote;
+		qcom,llm-volt-up-timer = <327675 327675>;
+		qcom,llm-volt-down-timer = <327675 327675>;
+		qcom,cc-reads = <10>;
+		qcom,cc-delay = <5>;
+		qcom,cc-factor = <100>;
+		qcom,osm-clk-rate = <200000000>;
+		qcom,xo-clk-rate = <19200000>;
+
+		qcom,l-val-base = <0x17916004 0x17816004>;
+		qcom,apcs-itm-present = <0x179d143c 0x179d143c>;
+		qcom,apcs-pll-user-ctl = <0x1791600c 0x1781600c>;
+		qcom,apcs-cfg-rcgr = <0x17911054 0x17811054>;
+		qcom,apcs-cmd-rcgr = <0x17911050 0x17811050>;
+		qcom,apm-mode-ctl = <0x179d0004 0x179d0010>;
+		qcom,apm-ctrl-status = <0x179d000c 0x179d0018>;
+
+		qcom,apm-threshold-voltage = <872000>;
+		qcom,boost-fsm-en;
+		qcom,safe-fsm-en;
+		qcom,ps-fsm-en;
+		qcom,droop-fsm-en;
+		qcom,wfx-fsm-en;
+		qcom,pc-fsm-en;
+
+		clock-names = "aux_clk", "xo_a";
+		clocks = <&clock_gcc HMSS_GPLL0_CLK_SRC>,
+			<&clock_rpmcc RPM_XO_A_CLK_SRC>;
+
+		#clock-cells = <1>;
 	};
 
 	qcom,ipc-spinlock@1f40000 {
