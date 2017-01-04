@@ -524,6 +524,7 @@ static int process_amss_transition(
 	read_lock_bh(&mhi_dev_ctxt->pm_xfer_lock);
 	ring_all_ev_dbs(mhi_dev_ctxt);
 	read_unlock_bh(&mhi_dev_ctxt->pm_xfer_lock);
+	complete(&mhi_dev_ctxt->cmd_complete);
 
 	/*
 	 * runtime_allow will decrement usage_count, counts were
