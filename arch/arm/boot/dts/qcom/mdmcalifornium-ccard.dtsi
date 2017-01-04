@@ -14,6 +14,13 @@
 #include "mdmcalifornium-v1.1.dtsi"
 #include "mdmcalifornium-pinctrl.dtsi"
 
+/ {
+	aliases {
+		serial0 = &blsp1_uart3;
+		serial1 = &blsp1_uart1;
+	};
+};
+
 &soc {
 	sound {
 		status = "disabled";
@@ -89,6 +96,7 @@
 
 	/* 4V regulator for peripherals */
 	periph_vreg: regulator-periph-lm53635 {
+		status = "disabled";
 		compatible = "regulator-fixed";
 		regulator-name = "periph_vreg";
 		startup-delay-us = <4000>;
@@ -182,9 +190,16 @@
 	/delete-property/ vdd-wlan-xtal-aon-supply;
 };
 
+/* BLE serial (no HCI) */
+&blsp1_uart1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_console_active>;
+};
+
 /* Console conflicts with periph_vreg (GPIO_9) */
 &blsp1_uart3 {
-	status = "disabled";
+	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_console_active>;
 };
@@ -234,6 +249,11 @@
 			 0x0 2 &intc 0 180 0>;
 	interrupt-names = "hs_phy_irq", "ss_phy_irq", "pwr_event_irq";
 	qcom,charging-disabled;
+};
+
+/* Needed by blsp1_uart1 (BLE) */
+&pmdcalifornium_l13 {
+	regulator-always-on;
 };
 
 &pmdcalifornium_gpios {
