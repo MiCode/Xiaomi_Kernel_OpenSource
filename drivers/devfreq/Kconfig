@@ -74,6 +74,15 @@ config DEVFREQ_GOV_PASSIVE
 
 comment "DEVFREQ Drivers"
 
+config DEVFREQ_GOV_QCOM_ADRENO_TZ
+	tristate "Qualcomm Technologies Inc Adreno Trustzone"
+	depends on QCOM_KGSL && QCOM_SCM
+	help
+	   Trustzone based governor for the Adreno GPU. Sets
+	   the frequency using a "on-demand" algorithm. This
+	   governor is unlikely to be useful for other
+	   devices.
+
 config ARM_EXYNOS_BUS_DEVFREQ
 	tristate "ARM EXYNOS Generic Memory Bus DEVFREQ Driver"
 	depends on ARCH_EXYNOS || COMPILE_TEST
