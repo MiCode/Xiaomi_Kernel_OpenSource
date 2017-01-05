@@ -2258,8 +2258,6 @@
 #include "msm-gdsc-660.dtsi"
 #include "sdm660-gpu.dtsi"
 #include "sdm660-pm.dtsi"
-#include "msm-audio.dtsi"
-#include "sdm660-audio.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";
@@ -2342,6 +2340,8 @@
 #include "sdm660-blsp.dtsi"
 #include "sdm660-camera.dtsi"
 #include "sdm660-vidc.dtsi"
+#include "msm-audio.dtsi"
+#include "sdm660-audio.dtsi"
 
 &pm660l_gpios {
 	/* GPIO 7 for VOL_UP */
