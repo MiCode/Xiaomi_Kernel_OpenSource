@@ -27,9 +27,8 @@
 #include <soc/qcom/icnss.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-
-#define ICNSS_MAX_IRQ_REGISTRATIONS 12
-const char *ce_name[ICNSS_MAX_IRQ_REGISTRATIONS] = {
+#define WCN3990_MAX_IRQ 12
+const char *ce_name[WCN3990_MAX_IRQ] = {
 	"WLAN_CE_0",
 	"WLAN_CE_1",
 	"WLAN_CE_2",
@@ -46,6 +45,7 @@ const char *ce_name[ICNSS_MAX_IRQ_REGISTRATIONS] = {
 
 #define ATH10K_SNOC_TARGET_WAIT 3000
 #define ATH10K_SNOC_NUM_WARM_RESET_ATTEMPTS 3
+#define SNOC_HIF_POWER_DOWN_DELAY 30
 
 static void ath10k_snoc_buffer_cleanup(struct ath10k *ar);
 static int ath10k_snoc_init_irq(struct ath10k *ar);
@@ -714,6 +714,20 @@ static void ath10k_snoc_kill_tasklet(struct ath10k *ar)
 	del_timer_sync(&ar_snoc->rx_post_retry);
 }
 
+static void ath10k_snoc_ce_deinit(struct ath10k *ar)
+{
+	int i;
+
+	for (i = 0; i < CE_COUNT; i++)
+		ath10k_ce_deinit_pipe(ar, i);
+}
+
+static void ath10k_snoc_release_resource(struct ath10k *ar)
+{
+	netif_napi_del(&ar->napi);
+	ath10k_snoc_ce_deinit(ar);
+}
+
 static int ath10k_snoc_hif_map_service_to_pipe(struct ath10k *ar,
 					       u16 service_id,
 					       u8 *ul_pipe, u8 *dl_pipe)
@@ -857,14 +871,6 @@ static void ath10k_snoc_buffer_cleanup(struct ath10k *ar)
 	}
 }
 
-static void ath10k_snoc_ce_deinit(struct ath10k *ar)
-{
-	int i;
-
-	for (i = 0; i < CE_COUNT; i++)
-		ath10k_ce_deinit_pipe(ar, i);
-}
-
 static void ath10k_snoc_flush(struct ath10k *ar)
 {
 	ath10k_snoc_kill_tasklet(ar);
@@ -873,14 +879,13 @@ static void ath10k_snoc_flush(struct ath10k *ar)
 
 static void ath10k_snoc_hif_stop(struct ath10k *ar)
 {
+	if (!ar)
+		return;
 	ath10k_dbg(ar, ATH10K_DBG_BOOT, "boot hif stop\n");
 	ath10k_snoc_irq_disable(ar);
 	ath10k_snoc_flush(ar);
-}
-
-static int ath10k_snoc_init_config(struct ath10k *ar)
-{
-	return 0;
+	napi_synchronize(&ar->napi);
+	napi_disable(&ar->napi);
 }
 
 static int ath10k_snoc_alloc_pipes(struct ath10k *ar)
@@ -935,9 +940,8 @@ static int ath10k_snoc_init_pipes(struct ath10k *ar)
 static void ath10k_snoc_hif_power_down(struct ath10k *ar)
 {
 	ath10k_dbg(ar, ATH10K_DBG_BOOT, "boot hif power down\n");
-	msleep(1000);
+	msleep(SNOC_HIF_POWER_DOWN_DELAY);
 	icnss_wlan_disable(ICNSS_OFF);
-	icnss_power_off(ar->dev);
 }
 
 static void ath10k_snoc_ce_tasklet(unsigned long ptr)
@@ -974,7 +978,8 @@ static irqreturn_t ath10k_snoc_per_engine_handler(int irq, void *arg)
 		return IRQ_HANDLED;
 	}
 
-	tasklet_schedule(&ar_snoc->pipe_info[ce_id].intr);
+	ath10k_snoc_irq_disable(ar);
+	napi_schedule(&ar->napi);
 
 	return IRQ_HANDLED;
 }
@@ -1149,7 +1154,6 @@ static int ath10k_snoc_hif_power_up(struct ath10k *ar)
 		   __func__, ar->state);
 
 	if (ar->state == ATH10K_STATE_ON) {
-		icnss_power_on(ar->dev);
 		ret = ath10k_snoc_bus_configure(ar);
 		if (ret)
 			ath10k_err(ar, "failed to configure bus: %d\n", ret);
@@ -1160,19 +1164,28 @@ static int ath10k_snoc_hif_power_up(struct ath10k *ar)
 		goto err_sleep;
 	}
 
-	ret = ath10k_snoc_init_config(ar);
-	if (ret) {
-		ath10k_err(ar, "failed to setup init config: %d\n", ret);
-		goto err_ce;
-	}
-
+	napi_enable(&ar->napi);
 	return 0;
-
-err_ce:
-	ath10k_snoc_ce_deinit(ar);
 
 err_sleep:
 	return ret;
+}
+
+static int ath10k_snoc_napi_poll(struct napi_struct *ctx, int budget)
+{
+	struct ath10k *ar = container_of(ctx, struct ath10k, napi);
+	int done = 0;
+
+	ath10k_ce_per_engine_service_any(ar);
+
+	done = ath10k_htt_txrx_compl_task(ar, budget);
+
+	if (done < budget) {
+		napi_complete(ctx);
+		ath10k_snoc_irq_enable(ar);
+	}
+
+	return done;
 }
 
 static int ath10k_snoc_resource_init(struct ath10k *ar)
@@ -1266,6 +1279,9 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 		goto err_core_destroy;
 	}
 
+	netif_napi_add(&ar->napi_dev, &ar->napi, ath10k_snoc_napi_poll,
+		       ATH10K_NAPI_BUDGET);
+
 	ret = ath10k_snoc_init_irq(ar);
 	if (ret) {
 		ath10k_err(ar, "failed to init irqs: %d\n", ret);
@@ -1320,6 +1336,7 @@ static int ath10k_snoc_remove(struct platform_device *pdev)
 	ath10k_snoc_free_irq(ar);
 	ath10k_snoc_kill_tasklet(ar);
 	ath10k_snoc_deinit_irq(ar);
+	ath10k_snoc_release_resource(ar);
 	ath10k_snoc_free_pipes(ar);
 	ath10k_core_destroy(ar);
 
