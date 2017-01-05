@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -211,7 +211,6 @@
 #define ADC_BITSTREAM_INV_BIT			BIT(4)
 #define SOURCE_SELECT_MASK			GENMASK(1, 0)
 #define SRC_SEL_BATFET				0x0
-#define SRC_SEL_RSENSE				0x1
 #define SRC_SEL_BATFET_SMB			0x2
 #define SRC_SEL_RESERVED			0x3
 
