@@ -5156,7 +5156,7 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 				u32 block)
 {
 	int ret = 0;
-	u32 sum = 0;
+	int sum = 0;
 	char __iomem *v_base = NULL;
 	unsigned long flag;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
