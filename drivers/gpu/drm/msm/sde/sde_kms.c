@@ -32,8 +32,6 @@ static const char * const iommu_ports[] = {
 		"mdp_0",
 };
 
-#define DEFAULT_MDP_SRC_CLK 300000000
-
 /**
  * Controls size of event log buffer. Specified as a power of 2.
  */
@@ -736,13 +734,6 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 		SDE_ERROR("sde power client create failed\n");
 		rc = -EINVAL;
 		goto kms_destroy;
-	}
-
-	rc = sde_power_clk_set_rate(&priv->phandle, "core_clk",
-		DEFAULT_MDP_SRC_CLK);
-	if (rc) {
-		SDE_ERROR("core clock set rate failed\n");
-		goto clk_rate_err;
 	}
 
 	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
