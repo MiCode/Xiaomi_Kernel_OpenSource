@@ -174,6 +174,7 @@ enum {
  *                          support
  * @SDE_WB_WBWC_1_5         UBWC 1.5 support
  * @SDE_WB_YUV_CONFIG       Writeback supports output of YUV colorspace
+ * @SDE_WB_PIPE_ALPHA       Writeback supports pipe alpha
  * @SDE_WB_MAX              maximum value
  */
 enum {
@@ -187,6 +188,7 @@ enum {
 	SDE_WB_TRAFFIC_SHAPER,
 	SDE_WB_UBWC_1_0,
 	SDE_WB_YUV_CONFIG,
+	SDE_WB_PIPE_ALPHA,
 	SDE_WB_MAX
 };
 
