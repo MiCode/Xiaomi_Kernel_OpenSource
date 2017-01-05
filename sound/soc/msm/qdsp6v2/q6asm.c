@@ -7449,9 +7449,13 @@ int q6asm_async_write(struct audio_client *ac,
 	else if (ac->io_mode == io_compressed ||
 			ac->io_mode == io_compressed_stream)
 		lbuf_phys_addr = (param->paddr - param->metadata_len);
-	else
-		lbuf_phys_addr = param->paddr;
-
+	else {
+		if (param->flags & SET_TIMESTAMP)
+			lbuf_phys_addr = param->paddr -
+				sizeof(struct snd_codec_metadata);
+		else
+			lbuf_phys_addr = param->paddr;
+	}
 	dev_vdbg(ac->dev, "%s: token[0x%x], buf_addr[%pK], buf_size[0x%x], ts_msw[0x%x], ts_lsw[0x%x], lbuf_phys_addr: 0x[%pK]\n",
 			__func__,
 			write.hdr.token, &param->paddr,
