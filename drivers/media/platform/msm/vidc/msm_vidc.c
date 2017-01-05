@@ -878,6 +878,7 @@ int msm_vidc_release_buffer(void *instance, int buffer_type,
 	struct buffer_info *bi, *dummy;
 	int i, rc = 0;
 	int found_buf = 0;
+	struct vb2_buf_entry *temp, *next;
 
 	if (!inst)
 		return -EINVAL;
@@ -936,6 +937,16 @@ int msm_vidc_release_buffer(void *instance, int buffer_type,
 	default:
 		break;
 	}
+
+	mutex_lock(&inst->pendingq.lock);
+	list_for_each_entry_safe(temp, next, &inst->pendingq.list, list) {
+		if (temp->vb->type == buffer_type) {
+			list_del(&temp->list);
+			kfree(temp);
+		}
+	}
+	mutex_unlock(&inst->pendingq.lock);
+
 	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_release_buffer);
