@@ -4465,6 +4465,33 @@ bool ipa3_is_msm_device(void)
 }
 
 /**
+* ipa3_disable_prefetch() - disable\enable tx prefetch
+*
+* @client: the client which is related to the TX where prefetch will be
+*          disabled
+*
+* Return value: Non applicable
+*
+*/
+void ipa3_disable_prefetch(enum ipa_client_type client)
+{
+	struct ipahal_reg_tx_cfg cfg;
+	u8 qmb;
+
+	qmb = ipa3_get_qmb_master_sel(client);
+
+	IPADBG("disabling prefetch for qmb %d\n", (int)qmb);
+
+	ipahal_read_reg_fields(IPA_TX_CFG, &cfg);
+	/* QMB0 (DDR) correlates with TX0, QMB1(PCIE) correlates with TX1 */
+	if (qmb == QMB_MASTER_SELECT_DDR)
+		cfg.tx0_prefetch_disable = true;
+	else
+		cfg.tx1_prefetch_disable = true;
+	ipahal_write_reg_fields(IPA_TX_CFG, &cfg);
+}
+
+/**
  * ipa3_get_pdev() - return a pointer to IPA dev struct
  *
  * Return value: a pointer to IPA dev struct

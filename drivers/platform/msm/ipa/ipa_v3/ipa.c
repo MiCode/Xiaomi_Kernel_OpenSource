@@ -3962,6 +3962,13 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 		IPADBG("Initialization of ipa interrupts skipped\n");
 	}
 
+	/*
+	 * IPAv3.5.x requires to disable prefetch for USB in order to allow
+	 * MBIM to work, currently MBIM is not needed in MHI mode.
+	 */
+	if (!ipa3_ctx->ipa_config_is_mhi)
+		ipa3_disable_prefetch(IPA_CLIENT_USB_CONS);
+
 	memset(&gsi_props, 0, sizeof(gsi_props));
 	gsi_props.ver = ipa3_get_gsi_ver(resource_p->ipa_hw_type);
 	gsi_props.ee = resource_p->ee;

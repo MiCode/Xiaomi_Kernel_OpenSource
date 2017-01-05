@@ -1962,4 +1962,5 @@ struct dentry *ipa_debugfs_get_root(void);
 bool ipa3_is_msm_device(void);
 struct device *ipa3_get_pdev(void);
 void ipa3_enable_dcd(void);
+void ipa3_disable_prefetch(enum ipa_client_type client);
 #endif /* _IPA3_I_H_ */
