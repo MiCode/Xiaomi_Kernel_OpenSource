@@ -43,6 +43,7 @@ msm-y := \
 	sde/sde_kms.o \
 	sde/sde_plane.o \
 	sde/sde_connector.o \
+	sde/sde_color_processing.o \
 	msm_atomic.o \
 	msm_debugfs.o \
 	msm_drv.o \

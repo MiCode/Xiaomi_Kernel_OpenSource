@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include "sde_hw_lm.h"
 #include "sde_hw_ctl.h"
 #include "sde_crtc.h"
+#include "sde_color_processing.h"
 
 #define CTL(i)       (CTL_0 + (i))
 #define LM(i)        (LM_0  + (i))
@@ -64,6 +65,7 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 		return;
 
 	msm_property_destroy(&sde_crtc->property_info);
+	sde_cp_crtc_destroy_properties(crtc);
 	debugfs_remove_recursive(sde_crtc->debugfs_root);
 	sde_fence_deinit(&sde_crtc->output_fence);
 
@@ -495,10 +497,11 @@ static void _sde_crtc_setup_mixer_for_encoder(
 	struct sde_crtc_mixer *mixer;
 	struct sde_hw_ctl *last_valid_ctl = NULL;
 	int i;
-	struct sde_rm_hw_iter lm_iter, ctl_iter;
+	struct sde_rm_hw_iter lm_iter, ctl_iter, dspp_iter;
 
 	sde_rm_init_hw_iter(&lm_iter, enc->base.id, SDE_HW_BLK_LM);
 	sde_rm_init_hw_iter(&ctl_iter, enc->base.id, SDE_HW_BLK_CTL);
+	sde_rm_init_hw_iter(&dspp_iter, enc->base.id, SDE_HW_BLK_DSPP);
 
 	/* Set up all the mixers and ctls reserved by this encoder */
 	for (i = sde_crtc->num_mixers; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
@@ -524,6 +527,10 @@ static void _sde_crtc_setup_mixer_for_encoder(
 					mixer->hw_lm->idx);
 			return;
 		}
+
+		/* Dspp may be null */
+		(void) sde_rm_get_hw(rm, &dspp_iter);
+		mixer->hw_dspp = (struct sde_hw_dspp *)dspp_iter.hw;
 
 		mixer->encoder = enc;
 
@@ -598,6 +605,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		return;
 
 	_sde_crtc_blend_setup(crtc);
+	sde_cp_crtc_apply_properties(crtc);
 
 	/*
 	 * PP_DONE irq is only used by command mode for now.
@@ -1026,7 +1034,12 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 					property);
 			if (idx == CRTC_PROP_INPUT_FENCE_TIMEOUT)
 				_sde_crtc_set_input_fence_timeout(cstate);
+		} else {
+			ret = sde_cp_crtc_set_property(crtc,
+					property, val);
 		}
+		if (ret)
+			DRM_ERROR("failed to set the property\n");
 	}
 
 	return ret;
@@ -1082,9 +1095,13 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 			ret = msm_property_atomic_get(&sde_crtc->property_info,
 					cstate->property_values,
 					cstate->property_blobs, property, val);
+			if (ret)
+				ret = sde_cp_crtc_get_property(crtc,
+					property, val);
 		}
+		if (ret)
+			DRM_ERROR("get property failed\n");
 	}
-
 	return ret;
 }
 
@@ -1194,6 +1211,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 		return ERR_PTR(-ENOMEM);
 
 	crtc = &sde_crtc->base;
+	crtc->dev = dev;
 
 	sde_crtc->drm_crtc_id = drm_crtc_id;
 	atomic_set(&sde_crtc->drm_requested_vblank, 0);
@@ -1219,6 +1237,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 			sizeof(struct sde_crtc_state));
 
 	sde_crtc_install_properties(crtc);
+	sde_cp_crtc_init(crtc);
 
 	SDE_DEBUG("%s: successfully initialized crtc\n", sde_crtc->name);
 	return crtc;

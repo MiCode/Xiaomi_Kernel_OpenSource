@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #include "sde_formats.h"
 #include "sde_encoder_phys.h"
 #include "display_manager.h"
+#include "sde_color_processing.h"
 
 #define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
 		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
@@ -309,8 +310,11 @@ static int sde_encoder_virt_atomic_check(
 		ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
 				conn_state, true);
 
-	/* Call to populate mode->crtc* information required by framework */
-	drm_mode_set_crtcinfo(adj_mode, 0);
+	if (!ret) {
+		sde_cp_crtc_install_properties(drm_enc->crtc);
+		/* populate mode->crtc* information required by framework */
+		drm_mode_set_crtcinfo(adj_mode, 0);
+	}
 
 	MSM_EVT(drm_enc->dev, adj_mode->flags, adj_mode->private_flags);
 
@@ -437,6 +441,7 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	SDE_DEBUG_ENC(sde_enc, "cleared master\n");
 
 	bs_set(sde_enc, 0);
+	sde_cp_crtc_destroy_properties(drm_enc->crtc);
 
 	sde_rm_release(&sde_kms->rm, drm_enc);
 }

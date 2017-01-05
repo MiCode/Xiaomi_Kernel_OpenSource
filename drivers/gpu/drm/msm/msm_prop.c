@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -350,7 +350,7 @@ int msm_property_atomic_set(struct msm_property_info *info,
 
 	property_idx = msm_property_index(info, property);
 	if (!info || (property_idx == -EINVAL) || !property_values) {
-		DRM_ERROR("invalid argument(s)\n");
+		DRM_DEBUG("Invalid argument(s)\n");
 	} else {
 		/* extra handling for incoming properties */
 		mutex_lock(&info->property_lock);
@@ -399,7 +399,7 @@ int msm_property_atomic_get(struct msm_property_info *info,
 
 	property_idx = msm_property_index(info, property);
 	if (!info || (property_idx == -EINVAL) || !property_values || !val) {
-		DRM_ERROR("invalid argument(s)\n");
+		DRM_DEBUG("Invalid argument(s)\n");
 	} else {
 		mutex_lock(&info->property_lock);
 		*val = property_values[property_idx];
