@@ -2366,9 +2366,9 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 		phy_timings_present = true;
 	}
 
-	data = of_get_property(np, "qcom,mdss-dsi-panel-timings-8996", &len);
+	data = of_get_property(np, "qcom,mdss-dsi-panel-timings-phy-v2", &len);
 	if ((!data) || (len != 40)) {
-		pr_debug("%s:%d, Unable to read 8996 Phy lane timing settings",
+		pr_debug("%s:%d, Unable to read phy-v2 lane timing settings",
 		       __func__, __LINE__);
 	} else {
 		for (i = 0; i < len; i++)
