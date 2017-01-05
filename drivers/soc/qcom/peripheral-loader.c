@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -627,6 +627,7 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 	char fw_name[30];
 	int num = seg->num;
 	const struct firmware *fw = NULL;
+	void __iomem *firmware_buf;
 	struct pil_map_fw_info map_fw_info = {
 		.attrs = desc->attrs,
 		.region = desc->priv->region,
@@ -638,20 +639,28 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 	if (seg->filesz) {
 		snprintf(fw_name, ARRAY_SIZE(fw_name), "%s.b%02d",
 				desc->fw_name, num);
+		firmware_buf = desc->map_fw_mem(seg->paddr, seg->filesz,
+						map_data);
+		if (!firmware_buf) {
+			pil_err(desc, "Failed to map memory for firmware buffer\n");
+			return -ENOMEM;
+		}
+
 		ret = request_firmware_into_buf(&fw, fw_name, desc->dev,
-						map_data, seg->filesz);
-		if (ret < 0) {
+						firmware_buf, seg->filesz);
+		desc->unmap_fw_mem(firmware_buf, seg->filesz, map_data);
+
+		if (ret) {
 			pil_err(desc, "Failed to locate blob %s or blob is too big(rc:%d)\n",
 				fw_name, ret);
 			return ret;
 		}
 
-		if (ret != seg->filesz) {
+		if (fw->size != seg->filesz) {
 			pil_err(desc, "Blob size %u doesn't match %lu\n",
 					ret, seg->filesz);
 			return -EPERM;
 		}
-		ret = 0;
 	}
 
 	/* Zero out trailing memory */
