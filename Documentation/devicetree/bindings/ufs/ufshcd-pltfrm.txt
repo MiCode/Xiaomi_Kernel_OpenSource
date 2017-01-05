@@ -139,6 +139,10 @@ Note: The instantaneous bandwidth (IB) value in the vectors-KBps field should
 - qcom,bus-vector-names: specifies string IDs for the corresponding
 bus vectors in the same order as qcom,msm-bus,vectors-KBps property.
 
+- qcom,vddp-ref-clk-supply	 : reference clock to ufs device. Controlled by the host driver.
+- qcom,vddp-ref-clk-max-microamp : specifies max. load that can be drawn for
+				   ref-clk supply.
+
 Example:
 	ufshc@0xfc598000 {
 		...
