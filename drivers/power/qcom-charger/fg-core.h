@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +62,7 @@
 					CHARS_PER_ITEM) + 1)		\
 
 #define FG_SRAM_ADDRESS_MAX		255
+#define FG_SRAM_LEN			504
 #define PROFILE_LEN			224
 #define PROFILE_COMP_LEN		148
 #define BUCKET_COUNT			8
@@ -160,6 +161,8 @@ enum fg_sram_param_id {
 	FG_SRAM_RECHARGE_VBATT_THR,
 	FG_SRAM_KI_COEFF_MED_DISCHG,
 	FG_SRAM_KI_COEFF_HI_DISCHG,
+	FG_SRAM_ESR_TIGHT_FILTER,
+	FG_SRAM_ESR_BROAD_FILTER,
 	FG_SRAM_MAX,
 };
 
@@ -224,6 +227,11 @@ struct fg_dt_props {
 	int	cl_min_cap_limit;
 	int	jeita_hyst_temp;
 	int	batt_temp_delta;
+	int	esr_flt_switch_temp;
+	int	esr_tight_flt_upct;
+	int	esr_broad_flt_upct;
+	int	esr_tight_lt_flt_upct;
+	int	esr_broad_lt_flt_upct;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
@@ -336,12 +344,14 @@ struct fg_chip {
 	bool			ki_coeff_dischg_en;
 	bool			esr_fcc_ctrl_en;
 	bool			soc_reporting_ready;
+	bool			esr_flt_cold_temp_en;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct work_struct	cycle_count_work;
 	struct delayed_work	batt_avg_work;
+	struct delayed_work	sram_dump_work;
 	struct fg_circ_buf	ibatt_circ_buf;
 	struct fg_circ_buf	vbatt_circ_buf;
 };
@@ -392,6 +402,7 @@ extern int fg_clear_ima_errors_if_any(struct fg_chip *chip, bool check_hw_sts);
 extern int fg_clear_dma_errors_if_any(struct fg_chip *chip);
 extern int fg_debugfs_create(struct fg_chip *chip);
 extern void fill_string(char *str, size_t str_len, u8 *buf, int buf_len);
+extern void dump_sram(u8 *buf, int addr, int len);
 extern int64_t twos_compliment_extend(int64_t val, int s_bit_pos);
 extern s64 fg_float_decode(u16 val);
 extern bool is_input_present(struct fg_chip *chip);
