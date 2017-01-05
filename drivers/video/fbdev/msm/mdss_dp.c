@@ -2245,21 +2245,6 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 	return rc;
 }
 
-static int mdss_dp_remove(struct platform_device *pdev)
-{
-	struct mdss_dp_drv_pdata *dp_drv = NULL;
-
-	dp_drv = platform_get_drvdata(pdev);
-	dp_hdcp2p2_deinit(dp_drv->hdcp.data);
-
-	iounmap(dp_drv->ctrl_io.base);
-	dp_drv->ctrl_io.base = NULL;
-	iounmap(dp_drv->phy_io.base);
-	dp_drv->phy_io.base = NULL;
-
-	return 0;
-}
-
 static int mdss_dp_device_register(struct mdss_dp_drv_pdata *dp_drv)
 {
 	int ret;
@@ -2370,81 +2355,105 @@ static void mdss_dp_do_link_train(struct mdss_dp_drv_pdata *dp)
 	mdss_dp_link_train(dp);
 }
 
-static void mdss_dp_event_work(struct work_struct *work)
+static int mdss_dp_event_thread(void *data)
 {
-	struct mdss_dp_drv_pdata *dp = NULL;
 	unsigned long flag;
 	u32 todo = 0, config;
 
-	if (!work) {
-		pr_err("invalid work structure\n");
-		return;
+	struct mdss_dp_event_data *ev_data;
+	struct mdss_dp_event *ev;
+	struct mdss_dp_drv_pdata *dp = NULL;
+
+	if (!data)
+		return -EINVAL;
+
+	ev_data = (struct mdss_dp_event_data *)data;
+	init_waitqueue_head(&ev_data->event_q);
+	spin_lock_init(&ev_data->event_lock);
+
+	while (!kthread_should_stop()) {
+		wait_event(ev_data->event_q,
+			(ev_data->pndx != ev_data->gndx) ||
+			kthread_should_stop());
+		spin_lock_irqsave(&ev_data->event_lock, flag);
+		ev = &(ev_data->event_list[ev_data->gndx++]);
+		todo = ev->id;
+		dp = ev->dp;
+		ev->id = 0;
+		ev_data->gndx %= MDSS_DP_EVENT_Q_MAX;
+		spin_unlock_irqrestore(&ev_data->event_lock, flag);
+
+		pr_debug("todo=%s\n", mdss_dp_ev_event_to_string(todo));
+
+		switch (todo) {
+		case EV_EDID_READ:
+			mdss_dp_edid_read(dp);
+			break;
+		case EV_DPCD_CAP_READ:
+			mdss_dp_dpcd_cap_read(dp);
+			break;
+		case EV_DPCD_STATUS_READ:
+			mdss_dp_dpcd_status_read(dp);
+			break;
+		case EV_LINK_TRAIN:
+			mdss_dp_do_link_train(dp);
+			break;
+		case EV_VIDEO_READY:
+			mdss_dp_video_ready(dp);
+			break;
+		case EV_IDLE_PATTERNS_SENT:
+			mdss_dp_idle_patterns_sent(dp);
+			break;
+		case EV_USBPD_ATTENTION:
+			mdss_dp_handle_attention(dp);
+			break;
+		case EV_USBPD_DISCOVER_MODES:
+			usbpd_send_svdm(dp->pd, USB_C_DP_SID,
+				USBPD_SVDM_DISCOVER_MODES,
+				SVDM_CMD_TYPE_INITIATOR, 0x0, 0x0, 0x0);
+			break;
+		case EV_USBPD_ENTER_MODE:
+			usbpd_send_svdm(dp->pd, USB_C_DP_SID,
+				USBPD_SVDM_ENTER_MODE,
+				SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
+			break;
+		case EV_USBPD_EXIT_MODE:
+			usbpd_send_svdm(dp->pd, USB_C_DP_SID,
+				USBPD_SVDM_EXIT_MODE,
+				SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
+			break;
+		case EV_USBPD_DP_STATUS:
+			config = 0x1; /* DFP_D connected */
+			usbpd_send_svdm(dp->pd, USB_C_DP_SID, DP_VDM_STATUS,
+				SVDM_CMD_TYPE_INITIATOR, 0x1, &config, 0x1);
+			break;
+		case EV_USBPD_DP_CONFIGURE:
+			config = mdss_dp_usbpd_gen_config_pkt(dp);
+			usbpd_send_svdm(dp->pd, USB_C_DP_SID, DP_VDM_CONFIGURE,
+				SVDM_CMD_TYPE_INITIATOR, 0x1, &config, 0x1);
+			break;
+		default:
+			pr_err("Unknown event:%d\n", todo);
+		}
 	}
 
-	dp = container_of(work, struct mdss_dp_drv_pdata, work);
-
-	spin_lock_irqsave(&dp->event_lock, flag);
-	todo = dp->current_event;
-	dp->current_event = 0;
-	spin_unlock_irqrestore(&dp->event_lock, flag);
-
-	pr_debug("todo=%s\n", mdss_dp_ev_event_to_string(todo));
-
-	switch (todo) {
-	case EV_EDID_READ:
-		mdss_dp_edid_read(dp);
-		break;
-	case EV_DPCD_CAP_READ:
-		mdss_dp_dpcd_cap_read(dp);
-		break;
-	case EV_DPCD_STATUS_READ:
-		mdss_dp_dpcd_status_read(dp);
-		break;
-	case EV_LINK_TRAIN:
-		mdss_dp_do_link_train(dp);
-		break;
-	case EV_VIDEO_READY:
-		mdss_dp_video_ready(dp);
-		break;
-	case EV_IDLE_PATTERNS_SENT:
-		mdss_dp_idle_patterns_sent(dp);
-		break;
-	case EV_USBPD_ATTENTION:
-		mdss_dp_handle_attention(dp);
-		break;
-	case EV_USBPD_DISCOVER_MODES:
-		usbpd_send_svdm(dp->pd, USB_C_DP_SID, USBPD_SVDM_DISCOVER_MODES,
-			SVDM_CMD_TYPE_INITIATOR, 0x0, 0x0, 0x0);
-		break;
-	case EV_USBPD_ENTER_MODE:
-		usbpd_send_svdm(dp->pd, USB_C_DP_SID, USBPD_SVDM_ENTER_MODE,
-			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
-		break;
-	case EV_USBPD_EXIT_MODE:
-		usbpd_send_svdm(dp->pd, USB_C_DP_SID, USBPD_SVDM_EXIT_MODE,
-			SVDM_CMD_TYPE_INITIATOR, 0x1, 0x0, 0x0);
-		break;
-	case EV_USBPD_DP_STATUS:
-		config = 0x1; /* DFP_D connected */
-		usbpd_send_svdm(dp->pd, USB_C_DP_SID, DP_VDM_STATUS,
-			SVDM_CMD_TYPE_INITIATOR, 0x1, &config, 0x1);
-		break;
-	case EV_USBPD_DP_CONFIGURE:
-		config = mdss_dp_usbpd_gen_config_pkt(dp);
-		usbpd_send_svdm(dp->pd, USB_C_DP_SID, DP_VDM_CONFIGURE,
-			SVDM_CMD_TYPE_INITIATOR, 0x1, &config, 0x1);
-		break;
-	default:
-		pr_err("Unknown event:%d\n", todo);
-	}
+	return 0;
 }
 
-static void dp_send_events(struct mdss_dp_drv_pdata *dp, u32 events)
+static void dp_send_events(struct mdss_dp_drv_pdata *dp, u32 event)
 {
-	spin_lock(&dp->event_lock);
-	dp->current_event = events;
-	queue_work(dp->workq, &dp->work);
-	spin_unlock(&dp->event_lock);
+	struct mdss_dp_event *ev;
+	struct mdss_dp_event_data *ev_data = &dp->dp_event;
+
+	pr_debug("event=%s\n", mdss_dp_ev_event_to_string(event));
+
+	spin_lock(&ev_data->event_lock);
+	ev = &ev_data->event_list[ev_data->pndx++];
+	ev->id = event;
+	ev->dp = dp;
+	ev_data->pndx %= MDSS_DP_EVENT_Q_MAX;
+	wake_up(&ev_data->event_q);
+	spin_unlock(&ev_data->event_lock);
 }
 
 irqreturn_t dp_isr(int irq, void *ptr)
@@ -2480,10 +2489,10 @@ irqreturn_t dp_isr(int irq, void *ptr)
 	}
 
 	if (isr2 & EDP_INTR_READY_FOR_VIDEO)
-		dp_send_events(dp, EV_VIDEO_READY);
+		mdss_dp_video_ready(dp);
 
 	if (isr2 & EDP_INTR_IDLE_PATTERNs_SENT)
-		dp_send_events(dp, EV_IDLE_PATTERNS_SENT);
+		mdss_dp_idle_patterns_sent(dp);
 
 	if (isr1 && dp->aux_cmd_busy) {
 		/* clear DP_AUX_TRANS_CTRL */
@@ -2506,17 +2515,32 @@ irqreturn_t dp_isr(int irq, void *ptr)
 	return IRQ_HANDLED;
 }
 
+static void mdss_dp_event_cleanup(struct mdss_dp_drv_pdata *dp)
+{
+	destroy_workqueue(dp->workq);
+
+	if (dp->ev_thread == current)
+		return;
+
+	kthread_stop(dp->ev_thread);
+}
+
 static int mdss_dp_event_setup(struct mdss_dp_drv_pdata *dp)
 {
 
-	spin_lock_init(&dp->event_lock);
+	dp->ev_thread = kthread_run(mdss_dp_event_thread,
+		(void *)&dp->dp_event, "mdss_dp_event");
+	if (IS_ERR(dp->ev_thread)) {
+		pr_err("unable to start event thread\n");
+		return PTR_ERR(dp->ev_thread);
+	}
+
 	dp->workq = create_workqueue("mdss_dp_hpd");
 	if (!dp->workq) {
 		pr_err("%s: Error creating workqueue\n", __func__);
 		return -EPERM;
 	}
 
-	INIT_WORK(&dp->work, mdss_dp_event_work);
 	INIT_DELAYED_WORK(&dp->hdcp_cb_work, mdss_dp_hdcp_cb_work);
 	INIT_LIST_HEAD(&dp->attention_head);
 	return 0;
@@ -3210,6 +3234,22 @@ static inline bool dp_is_stream_shareable(struct mdss_dp_drv_pdata *dp_drv)
 	}
 
 	return ret;
+}
+
+static int mdss_dp_remove(struct platform_device *pdev)
+{
+	struct mdss_dp_drv_pdata *dp_drv = NULL;
+
+	dp_drv = platform_get_drvdata(pdev);
+	dp_hdcp2p2_deinit(dp_drv->hdcp.data);
+
+	mdss_dp_event_cleanup(dp_drv);
+	iounmap(dp_drv->ctrl_io.base);
+	dp_drv->ctrl_io.base = NULL;
+	iounmap(dp_drv->phy_io.base);
+	dp_drv->phy_io.base = NULL;
+
+	return 0;
 }
 
 static const struct of_device_id msm_mdss_dp_dt_match[] = {

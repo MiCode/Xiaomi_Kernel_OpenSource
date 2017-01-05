@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -376,6 +376,21 @@ struct dp_hdcp {
 	bool feature_enabled;
 };
 
+struct mdss_dp_event {
+	struct mdss_dp_drv_pdata *dp;
+	u32 id;
+};
+
+#define MDSS_DP_EVENT_Q_MAX 4
+
+struct mdss_dp_event_data {
+	wait_queue_head_t event_q;
+	u32 pndx;
+	u32 gndx;
+	struct mdss_dp_event event_list[MDSS_DP_EVENT_Q_MAX];
+	spinlock_t event_lock;
+};
+
 struct mdss_dp_drv_pdata {
 	/* device driver */
 	int (*on) (struct mdss_panel_data *pdata);
@@ -484,12 +499,11 @@ struct mdss_dp_drv_pdata {
 	bool hpd_irq_toggled;
 	bool hpd_irq_clients_notified;
 
-	/* event */
+	struct mdss_dp_event_data dp_event;
+	struct task_struct *ev_thread;
+
 	struct workqueue_struct *workq;
-	struct work_struct work;
 	struct delayed_work hdcp_cb_work;
-	u32 current_event;
-	spinlock_t event_lock;
 	spinlock_t lock;
 	struct switch_dev sdev;
 	struct kobject *kobj;
@@ -661,6 +675,20 @@ static inline char *mdss_dp_ev_event_to_string(int event)
 		return DP_ENUM_STR(EV_IDLE_PATTERNS_SENT);
 	case EV_VIDEO_READY:
 		return DP_ENUM_STR(EV_VIDEO_READY);
+	case EV_USBPD_DISCOVER_MODES:
+		return DP_ENUM_STR(EV_USBPD_DISCOVER_MODES);
+	case EV_USBPD_ENTER_MODE:
+		return DP_ENUM_STR(EV_USBPD_ENTER_MODE);
+	case EV_USBPD_DP_STATUS:
+		return DP_ENUM_STR(EV_USBPD_DP_STATUS);
+	case EV_USBPD_DP_CONFIGURE:
+		return DP_ENUM_STR(EV_USBPD_DP_CONFIGURE);
+	case EV_USBPD_CC_PIN_POLARITY:
+		return DP_ENUM_STR(EV_USBPD_CC_PIN_POLARITY);
+	case EV_USBPD_EXIT_MODE:
+		return DP_ENUM_STR(EV_USBPD_EXIT_MODE);
+	case EV_USBPD_ATTENTION:
+		return DP_ENUM_STR(EV_USBPD_ATTENTION);
 	default:
 		return "unknown";
 	}
