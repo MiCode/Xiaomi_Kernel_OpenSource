@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,9 +17,9 @@
 /* VIG layer capability */
 #define VIG_17X_MASK \
 	(BIT(SDE_SSPP_SRC) | BIT(SDE_SSPP_SCALER_QSEED2) |\
-	BIT(SDE_SSPP_CSC) | BIT(SDE_SSPP_PA_V1) |\
-	BIT(SDE_SSPP_HIST_V1) | BIT(SDE_SSPP_PCC) |\
-	BIT(SDE_SSPP_IGC) | BIT(SDE_SSPP_QOS))
+	BIT(SDE_SSPP_CSC) | BIT(SDE_SSPP_HSIC) |\
+	BIT(SDE_SSPP_PCC) | BIT(SDE_SSPP_IGC) |\
+	BIT(SDE_SSPP_MEMCOLOR) | BIT(SDE_SSPP_QOS))
 
 /* RGB layer capability */
 #define RGB_17X_MASK \
@@ -28,8 +28,8 @@
 
 /* DMA layer capability */
 #define DMA_17X_MASK \
-	(BIT(SDE_SSPP_SRC) | BIT(SDE_SSPP_PA_V1) |\
-	BIT(SDE_SSPP_PCC) | BIT(SDE_SSPP_IGC) | BIT(SDE_SSPP_QOS))
+	(BIT(SDE_SSPP_SRC) | BIT(SDE_SSPP_PCC) | BIT(SDE_SSPP_IGC) |\
+	BIT(SDE_SSPP_QOS))
 
 /* Cursor layer capability */
 #define CURSOR_17X_MASK  (BIT(SDE_SSPP_SRC) | BIT(SDE_SSPP_CURSOR))
@@ -39,8 +39,9 @@
 
 #define DSPP_17X_MASK \
 	(BIT(SDE_DSPP_IGC) | BIT(SDE_DSPP_PCC) |\
-	BIT(SDE_DSPP_GC) | BIT(SDE_DSPP_PA) | BIT(SDE_DSPP_GAMUT) |\
-	BIT(SDE_DSPP_DITHER) | BIT(SDE_DSPP_HIST))
+	BIT(SDE_DSPP_GC) | BIT(SDE_DSPP_HSIC) | BIT(SDE_DSPP_GAMUT) |\
+	BIT(SDE_DSPP_DITHER) | BIT(SDE_DSPP_HIST) | BIT(SDE_DSPP_MEMCOLOR) |\
+	BIT(SDE_DSPP_SIXZONE))
 
 #define PINGPONG_17X_MASK \
 	(BIT(SDE_PINGPONG_TE) | BIT(SDE_PINGPONG_DSC))
@@ -254,13 +255,15 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 			.base = 0x200, .len = 0x70,},
 		.csc_blk = {.id = SDE_SSPP_CSC,
 			.base = 0x320, .len = 0x44,},
-		.pa_blk = {.id = SDE_SSPP_PA_V1,
-			.base = 0x200, .len = 0x0,},
-		.hist_lut = {.id = SDE_SSPP_HIST_V1,
-			.base = 0xA00, .len = 0x400,},
-		.pcc_blk = {.id = SDE_SSPP_PCC,
-			.base = 0x1780, .len = 0x64,},
 		.format_list = plane_formats_yuv,
+		.igc_blk = {.id = SDE_SSPP_IGC, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.pcc_blk = {.id = SDE_SSPP_PCC, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.hsic = {.id = SDE_SSPP_HSIC, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.memcolor = {.id = SDE_SSPP_MEMCOLOR, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
 	};
 
 	static const struct sde_sspp_sub_blks layer = {
@@ -284,13 +287,11 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 			.base = 0x200, .len = 0x70,},
 		.csc_blk = {.id = SDE_SSPP_CSC,
 			.base = 0x320, .len = 0x44,},
-		.pa_blk = {.id = SDE_SSPP_PA_V1,
-			.base = 0x200, .len = 0x0,},
-		.hist_lut = {.id = SDE_SSPP_HIST_V1,
-			.base = 0xA00, .len = 0x400,},
-		.pcc_blk = {.id = SDE_SSPP_PCC,
-			.base = 0x1780, .len = 0x64,},
 		.format_list = plane_formats,
+		.igc_blk = {.id = SDE_SSPP_IGC, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.pcc_blk = {.id = SDE_SSPP_PCC, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
 	};
 
 	static const struct sde_sspp_sub_blks dma = {
@@ -311,10 +312,11 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.src_blk = {.id = SDE_SSPP_SRC, .base = 0x00, .len = 0x150,},
 		.scaler_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.csc_blk = {.id = 0, .base = 0x00, .len = 0x0,},
-		.pa_blk = {.id = 0, .base = 0x200, .len = 0x0,},
-		.hist_lut = {.id = 0, .base = 0xA00, .len = 0x0,},
-		.pcc_blk = {.id = SDE_SSPP_PCC, .base = 0x01780, .len = 0x64,},
 		.format_list = plane_formats,
+		.igc_blk = {.id = SDE_SSPP_IGC, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.pcc_blk = {.id = SDE_SSPP_PCC, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
 	};
 
 	static const struct sde_sspp_sub_blks cursor = {
@@ -325,9 +327,6 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.src_blk = {.id = SDE_SSPP_SRC, .base = 0x00, .len = 0x150,},
 		.scaler_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.csc_blk = {.id = 0, .base = 0x00, .len = 0x0,},
-		.pa_blk = {.id = 0, .base = 0x00, .len = 0x0,},
-		.hist_lut = {.id = 0, .base = 0x00, .len = 0x0,},
-		.pcc_blk = {.id = 0, .base = 0x00, .len = 0x0,},
 		.format_list = plane_formats,
 	};
 
@@ -336,23 +335,31 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.maxwidth = 2560,
 		.maxblendstages = 7, /* excluding base layer */
 		.blendstage_base = { /* offsets relative to mixer base */
-			0x20, 0x50, 0x80, 0xB0, 0x230, 0x260, 0x290 }
+			0x20, 0x50, 0x80, 0xB0, 0x230, 0x260, 0x290 },
+		.gc = {.id = SDE_DSPP_GC, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
 	};
 
 	/* DSPP capability */
 	static const struct sde_dspp_sub_blks dspp = {
-			.igc = {.id = SDE_DSPP_GC, .base = 0x17c0, .len = 0x0,
-				.version = 0x1},
-		.pcc = {.id = SDE_DSPP_PCC, .base = 0x00, .len = 0x0,
-			.version = 0x1},
-		.gamut = {.id = SDE_DSPP_GAMUT, .base = 0x01600, .len = 0x0,
-			.version = 0x1},
-		.dither = {.id = SDE_DSPP_DITHER, .base = 0x00, .len = 0x0,
-			.version = 0x1},
-		.pa = {.id = SDE_DSPP_PA, .base = 0x00, .len = 0x0,
-			.version = 0x1},
+		.igc = {.id = SDE_DSPP_IGC, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.pcc = {.id = SDE_DSPP_PCC, .base = 0x0, .len = 0x7,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.gamut = {.id = SDE_DSPP_GAMUT, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.dither = {.id = SDE_DSPP_DITHER, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.hsic = {.id = SDE_DSPP_HSIC, .base = 0x00, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.memcolor = {.id = SDE_DSPP_MEMCOLOR, .base = 0x00, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.sixzone = {.id = SDE_DSPP_SIXZONE, .base = 0x00, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
 		.hist = {.id = SDE_DSPP_HIST, .base = 0x00, .len = 0x0,
-			.version = 0x1},
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
+		.gc = {.id = SDE_DSPP_GC, .base = 0x0, .len = 0x0,
+			.version = SDE_COLOR_PROCESS_VER(0x1, 0x0)},
 	};
 
 	/* PINGPONG capability */
