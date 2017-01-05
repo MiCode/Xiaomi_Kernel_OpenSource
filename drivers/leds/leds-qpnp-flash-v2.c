@@ -1102,13 +1102,19 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
 					int *max_current)
 {
-	struct led_classdev *led_cdev = trigger_to_lcdev(trig);
+	struct led_classdev *led_cdev;
 	struct flash_switch_data *snode;
 	struct qpnp_flash_led *led;
 	int rc;
 
-	if (!led_cdev) {
+	if (!trig) {
 		pr_err("Invalid led_trigger provided\n");
+		return -EINVAL;
+	}
+
+	led_cdev = trigger_to_lcdev(trig);
+	if (!led_cdev) {
+		pr_err("Invalid led_cdev in trigger %s\n", trig->name);
 		return -EINVAL;
 	}
 
