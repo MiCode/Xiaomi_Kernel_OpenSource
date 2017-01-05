@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,15 +53,54 @@ static const char * const iommu_ports[] = {
 
 static int sde_debugfs_show_regset32(struct seq_file *s, void *data)
 {
-	struct sde_debugfs_regset32 *regset = s->private;
+	struct sde_debugfs_regset32 *regset;
+	struct sde_kms *sde_kms;
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
 	void __iomem *base;
-	int i;
+	uint32_t i, addr;
 
-	base = regset->base + regset->offset;
+	if (!s || !s->private)
+		return 0;
 
-	for (i = 0; i < regset->blk_len; i += 4)
-		seq_printf(s, "[%x] 0x%08x\n",
-				regset->offset + i, readl_relaxed(base + i));
+	regset = s->private;
+
+	sde_kms = regset->sde_kms;
+	if (!sde_kms || !sde_kms->mmio)
+		return 0;
+
+	dev = sde_kms->dev;
+	if (!dev)
+		return 0;
+
+	priv = dev->dev_private;
+	if (!priv)
+		return 0;
+
+	base = sde_kms->mmio + regset->offset;
+
+	/* insert padding spaces, if needed */
+	if (regset->offset & 0xF) {
+		seq_printf(s, "[%x]", regset->offset & ~0xF);
+		for (i = 0; i < (regset->offset & 0xF); i += 4)
+			seq_puts(s, "         ");
+	}
+
+	if (sde_power_resource_enable(&priv->phandle,
+				sde_kms->core_client, true)) {
+		seq_puts(s, "failed to enable sde clocks\n");
+		return 0;
+	}
+
+	/* main register output */
+	for (i = 0; i < regset->blk_len; i += 4) {
+		addr = regset->offset + i;
+		if ((addr & 0xF) == 0x0)
+			seq_printf(s, i ? "\n[%x]" : "[%x]", addr);
+		seq_printf(s, " %08x", readl_relaxed(base + i));
+	}
+	seq_puts(s, "\n");
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	return 0;
 }
@@ -79,19 +118,19 @@ static const struct file_operations sde_fops_regset32 = {
 };
 
 void sde_debugfs_setup_regset32(struct sde_debugfs_regset32 *regset,
-		uint32_t offset, uint32_t length, void __iomem *base)
+		uint32_t offset, uint32_t length, struct sde_kms *sde_kms)
 {
 	if (regset) {
 		regset->offset = offset;
 		regset->blk_len = length;
-		regset->base = base;
+		regset->sde_kms = sde_kms;
 	}
 }
 
 void *sde_debugfs_create_regset32(const char *name, umode_t mode,
 		void *parent, struct sde_debugfs_regset32 *regset)
 {
-	if (!name || !regset || !regset->base || !regset->blk_len)
+	if (!name || !regset || !regset->sde_kms || !regset->blk_len)
 		return NULL;
 
 	/* make sure offset is a multiple of 4 */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,7 +216,7 @@ struct sde_plane_state {
 struct sde_debugfs_regset32 {
 	uint32_t offset;
 	uint32_t blk_len;
-	void __iomem *base;
+	struct sde_kms *sde_kms;
 };
 
 /**
@@ -226,10 +226,10 @@ struct sde_debugfs_regset32 {
  * @regset: opaque register definition structure
  * @offset: sub-block offset
  * @length: sub-block length, in bytes
- * @base: base IOMEM address
+ * @sde_kms: pointer to sde kms structure
  */
 void sde_debugfs_setup_regset32(struct sde_debugfs_regset32 *regset,
-		uint32_t offset, uint32_t length, void __iomem *base);
+		uint32_t offset, uint32_t length, struct sde_kms *sde_kms);
 
 /**
  * sde_debugfs_create_regset32 - Create register read back file for debugfs
