@@ -1150,6 +1150,16 @@ static int _sde_debugfs_mixer_open(struct inode *inode, struct file *file)
 	return single_open(file, _sde_debugfs_mixer_read, inode->i_private);
 }
 
+static void sde_crtc_suspend(struct drm_crtc *crtc)
+{
+	sde_cp_crtc_suspend(crtc);
+}
+
+static void sde_crtc_resume(struct drm_crtc *crtc)
+{
+	sde_cp_crtc_resume(crtc);
+}
+
 static const struct drm_crtc_funcs sde_crtc_funcs = {
 	.set_config = drm_atomic_helper_set_config,
 	.destroy = sde_crtc_destroy,
@@ -1160,6 +1170,8 @@ static const struct drm_crtc_funcs sde_crtc_funcs = {
 	.reset = sde_crtc_reset,
 	.atomic_duplicate_state = sde_crtc_duplicate_state,
 	.atomic_destroy_state = sde_crtc_destroy_state,
+	.save = sde_crtc_suspend,
+	.restore = sde_crtc_resume,
 };
 
 static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
