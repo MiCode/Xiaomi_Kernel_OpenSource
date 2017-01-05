@@ -42,4 +42,10 @@ struct drm_msm_pcc {
 	struct drm_msm_pcc_coeff b;
 };
 
+#define PA_VLUT_SIZE 256
+struct drm_msm_pa_vlut {
+	__u64 flags;
+	__u32 val[PA_VLUT_SIZE];
+};
+
 #endif /* _MSM_DRM_PP_H_ */
