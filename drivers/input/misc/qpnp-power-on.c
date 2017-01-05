@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
-#include <linux/qpnp/power-on.h>
+#include <linux/input/qpnp-power-on.h>
 #include <linux/power_supply.h>
 
 #define PMIC_VER_8941           0x01
@@ -223,7 +223,7 @@ struct qpnp_pon {
 
 static int pon_ship_mode_en;
 module_param_named(
-	ship_mode_en, pon_ship_mode_en, int, S_IRUSR | S_IWUSR
+	ship_mode_en, pon_ship_mode_en, int, 0600
 );
 
 static struct qpnp_pon *sys_reset_dev;
