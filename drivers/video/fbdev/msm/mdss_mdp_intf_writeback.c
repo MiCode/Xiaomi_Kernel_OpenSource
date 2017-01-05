@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -521,6 +521,10 @@ int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
 	 * updating img_width with buffer->planes[0].stride
 	 */
 	fmt = mdss_mdp_get_format_params(buffer->format);
+	if (!fmt) {
+		pr_err("invalid format for cwb\n");
+		return -EINVAL;
+	}
 	mdss_mdp_get_plane_sizes(fmt, ctx->img_width,
 			buffer->height, &ps, 0, 0);
 
