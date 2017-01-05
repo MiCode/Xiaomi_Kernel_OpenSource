@@ -984,7 +984,8 @@ static struct drm_connector *_sde_rm_get_connector(
  */
 void _sde_rm_release_rsvp(
 		struct sde_rm *rm,
-		struct sde_rm_rsvp *rsvp)
+		struct sde_rm_rsvp *rsvp,
+		struct drm_connector *conn)
 {
 	struct sde_rm_rsvp *rsvp_c, *rsvp_n;
 	struct sde_rm_hw_blk *blk;
@@ -1020,6 +1021,12 @@ void _sde_rm_release_rsvp(
 	}
 
 	kfree(rsvp);
+
+	(void) msm_property_set_property(
+			sde_connector_get_propinfo(conn),
+			sde_connector_get_property_values(conn->state),
+			CONNECTOR_PROP_TOPOLOGY_NAME,
+			SDE_RM_TOPOLOGY_UNKNOWN);
 }
 
 void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
@@ -1054,12 +1061,7 @@ void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
 	} else {
 		SDE_DEBUG("release rsvp[s%de%d]\n", rsvp->seq,
 				rsvp->enc_id);
-		_sde_rm_release_rsvp(rm, rsvp);
-		(void) msm_property_set_property(
-				sde_connector_get_propinfo(conn),
-				sde_connector_get_property_values(conn->state),
-				CONNECTOR_PROP_TOPOLOGY_NAME,
-				SDE_RM_TOPOLOGY_UNKNOWN);
+		_sde_rm_release_rsvp(rm, rsvp, conn);
 	}
 }
 
@@ -1078,7 +1080,7 @@ static int _sde_rm_commit_rsvp(
 			CONNECTOR_PROP_TOPOLOGY_NAME,
 			rsvp->topology);
 	if (ret)
-		_sde_rm_release_rsvp(rm, rsvp);
+		_sde_rm_release_rsvp(rm, rsvp, conn_state->connector);
 
 	/* Swap next rsvp to be the active */
 	for (type = 0; type < SDE_HW_BLK_MAX; type++) {
@@ -1168,7 +1170,7 @@ int sde_rm_reserve(
 	if (rsvp_cur && test_only && RM_RQ_CLEAR(&reqs)) {
 		SDE_DEBUG("test_only & CLEAR: clear rsvp[s%de%d]\n",
 				rsvp_cur->seq, rsvp_cur->enc_id);
-		_sde_rm_release_rsvp(rm, rsvp_cur);
+		_sde_rm_release_rsvp(rm, rsvp_cur, conn_state->connector);
 		rsvp_cur = NULL;
 		_sde_rm_print_rsvps(rm, "post_clear");
 	}
@@ -1181,7 +1183,7 @@ int sde_rm_reserve(
 
 	if (ret) {
 		SDE_ERROR("failed to reserve hw resources: %d\n", ret);
-		_sde_rm_release_rsvp(rm, rsvp_nxt);
+		_sde_rm_release_rsvp(rm, rsvp_nxt, conn_state->connector);
 	} else if (test_only && !RM_RQ_LOCK(&reqs)) {
 		/*
 		 * Normally, if test_only, test the reservation and then undo
@@ -1190,13 +1192,13 @@ int sde_rm_reserve(
 		 */
 		SDE_DEBUG("test_only: discard test rsvp[s%de%d]\n",
 				rsvp_nxt->seq, rsvp_nxt->enc_id);
-		_sde_rm_release_rsvp(rm, rsvp_nxt);
+		_sde_rm_release_rsvp(rm, rsvp_nxt, conn_state->connector);
 	} else {
 		if (test_only && RM_RQ_LOCK(&reqs))
 			SDE_DEBUG("test_only & LOCK: lock rsvp[s%de%d]\n",
 					rsvp_nxt->seq, rsvp_nxt->enc_id);
 
-		_sde_rm_release_rsvp(rm, rsvp_cur);
+		_sde_rm_release_rsvp(rm, rsvp_cur, conn_state->connector);
 
 		ret = _sde_rm_commit_rsvp(rm, rsvp_nxt, conn_state);
 	}
