@@ -16,7 +16,7 @@
 #include <linux/iio/consumer.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/driver.h>
-#include <linux/qpnp/power-on.h>
+#include <linux/input/qpnp-power-on.h>
 #include <linux/irq.h>
 #include "smb-lib.h"
 #include "smb-reg.h"
