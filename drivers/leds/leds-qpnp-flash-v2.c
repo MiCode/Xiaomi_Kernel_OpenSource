@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1569,6 +1569,7 @@ static int qpnp_flash_led_parse_and_register_switch(struct qpnp_flash_led *led,
 	snode->pdev = led->pdev;
 	snode->cdev.brightness_set = qpnp_flash_led_brightness_set;
 	snode->cdev.brightness_get = qpnp_flash_led_brightness_get;
+	snode->cdev.flags |= LED_KEEP_TRIGGER;
 	rc = led_classdev_register(&led->pdev->dev, &snode->cdev);
 	if (rc < 0) {
 		pr_err("Unable to register led switch node\n");
