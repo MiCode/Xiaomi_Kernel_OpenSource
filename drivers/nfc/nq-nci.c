@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -107,6 +107,26 @@ static void nqx_disable_irq(struct nqx_dev *nqx_dev)
 	if (nqx_dev->irq_enabled) {
 		disable_irq_nosync(nqx_dev->client->irq);
 		nqx_dev->irq_enabled = false;
+	}
+	spin_unlock_irqrestore(&nqx_dev->irq_enabled_lock, flags);
+}
+
+/**
+ * nqx_enable_irq()
+ *
+ * Check if interrupt is enabled or not
+ * and enable interrupt
+ *
+ * Return: void
+ */
+static void nqx_enable_irq(struct nqx_dev *nqx_dev)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&nqx_dev->irq_enabled_lock, flags);
+	if (!nqx_dev->irq_enabled) {
+		nqx_dev->irq_enabled = true;
+		enable_irq(nqx_dev->client->irq);
 	}
 	spin_unlock_irqrestore(&nqx_dev->irq_enabled_lock, flags);
 }
@@ -467,6 +487,7 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 		/* hardware dependent delay */
 		msleep(100);
 	} else if (arg == 1) {
+		nqx_enable_irq(nqx_dev);
 		dev_dbg(&nqx_dev->client->dev,
 			"gpio_set_value enable: %s: info: %p\n",
 			__func__, nqx_dev);
