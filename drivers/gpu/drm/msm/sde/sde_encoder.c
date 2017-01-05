@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 #include "msm_drv.h"
 #include "sde_kms.h"
 #include "drm_crtc.h"
@@ -22,6 +23,12 @@
 #include "sde_formats.h"
 #include "sde_encoder_phys.h"
 #include "display_manager.h"
+
+#define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
+		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
+
+#define SDE_ERROR_ENC(e, fmt, ...) SDE_ERROR("enc%d " fmt,\
+		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
 
 /*
  * Two to anticipate panels that can do cmd/vid dynamic switching
@@ -120,13 +127,24 @@ static struct msm_bus_scale_pdata mdp_bus_scale_table = {
 
 static void bs_init(struct sde_encoder_virt *sde_enc)
 {
+	if (!sde_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
 	sde_enc->bus_scaling_client =
 	    msm_bus_scale_register_client(&mdp_bus_scale_table);
-	DBG("bus scale client: %08x", sde_enc->bus_scaling_client);
+	SDE_DEBUG_ENC(sde_enc, "bus scale client %08x\n",
+			sde_enc->bus_scaling_client);
 }
 
 static void bs_fini(struct sde_encoder_virt *sde_enc)
 {
+	if (!sde_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
 	if (sde_enc->bus_scaling_client) {
 		msm_bus_scale_unregister_client(sde_enc->bus_scaling_client);
 		sde_enc->bus_scaling_client = 0;
@@ -135,8 +153,13 @@ static void bs_fini(struct sde_encoder_virt *sde_enc)
 
 static void bs_set(struct sde_encoder_virt *sde_enc, int idx)
 {
+	if (!sde_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
 	if (sde_enc->bus_scaling_client) {
-		DBG("set bus scaling: %d", idx);
+		SDE_DEBUG_ENC(sde_enc, "set bus scaling to %d\n", idx);
 		idx = 1;
 		msm_bus_scale_client_update_request(sde_enc->bus_scaling_client,
 						    idx);
@@ -163,14 +186,14 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
 
-	DBG("");
-
 	if (!hw_res || !drm_enc || !conn_state) {
-		DRM_ERROR("Invalid pointer");
+		SDE_ERROR("invalid argument(s), drm_enc %d, res %d, state %d\n",
+				drm_enc != 0, hw_res != 0, conn_state != 0);
 		return;
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	SDE_DEBUG_ENC(sde_enc, "\n");
 
 	/* Query resources used by phys encs, expected to be without overlap */
 	memset(hw_res, 0, sizeof(*hw_res));
@@ -190,7 +213,7 @@ bool sde_encoder_needs_ctl_start(struct drm_encoder *drm_enc)
 	struct sde_encoder_phys *phys;
 
 	if (!drm_enc) {
-		DRM_ERROR("Invalid pointer");
+		SDE_ERROR("invalid pointer\n");
 		return false;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
@@ -207,14 +230,13 @@ static void sde_encoder_destroy(struct drm_encoder *drm_enc)
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
 
-	DBG("");
-
 	if (!drm_enc) {
-		DRM_ERROR("Invalid pointer");
+		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	SDE_DEBUG_ENC(sde_enc, "\n");
 
 	for (i = 0; i < ARRAY_SIZE(sde_enc->phys_encs); i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
@@ -227,7 +249,7 @@ static void sde_encoder_destroy(struct drm_encoder *drm_enc)
 	}
 
 	if (sde_enc->num_phys_encs) {
-		DRM_ERROR("Expected num_phys_encs to be 0 not %d\n",
+		SDE_ERROR_ENC(sde_enc, "expected 0 num_phys_encs not %d\n",
 				sde_enc->num_phys_encs);
 	}
 
@@ -249,14 +271,15 @@ static int sde_encoder_virt_atomic_check(
 	int i = 0;
 	int ret = 0;
 
-	DBG("");
-
 	if (!drm_enc || !crtc_state || !conn_state) {
-		DRM_ERROR("Invalid pointer");
+		SDE_ERROR("invalid arg(s), drm_enc %d, crtc/conn state %d/%d\n",
+				drm_enc != 0, crtc_state != 0, conn_state != 0);
 		return -EINVAL;
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	SDE_DEBUG_ENC(sde_enc, "\n");
+
 	priv = drm_enc->dev->dev_private;
 	sde_kms = to_sde_kms(priv->kms);
 	mode = &crtc_state->mode;
@@ -275,8 +298,8 @@ static int sde_encoder_virt_atomic_check(
 				ret = -EINVAL;
 
 		if (ret) {
-			SDE_ERROR("enc %d mode unsupported, phys %d\n",
-					drm_enc->base.id, i);
+			SDE_ERROR_ENC(sde_enc,
+					"mode unsupported, phys idx %d\n", i);
 			break;
 		}
 	}
@@ -305,14 +328,14 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	struct drm_connector *conn = NULL, *conn_iter;
 	int i = 0, ret;
 
-	DBG("");
-
 	if (!drm_enc) {
-		DRM_ERROR("Invalid pointer");
+		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	SDE_DEBUG_ENC(sde_enc, "\n");
+
 	priv = drm_enc->dev->dev_private;
 	sde_kms = to_sde_kms(priv->kms);
 	connector_list = &sde_kms->dev->mode_config.connector_list;
@@ -324,8 +347,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 			conn = conn_iter;
 
 	if (!conn) {
-		SDE_ERROR("enc %d failed to find attached connector\n",
-				drm_enc->base.id);
+		SDE_ERROR_ENC(sde_enc, "failed to find attached connector\n");
 		return;
 	}
 
@@ -333,8 +355,8 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	ret = sde_rm_reserve(&sde_kms->rm, drm_enc, drm_enc->crtc->state,
 			conn->state, false);
 	if (ret) {
-		SDE_ERROR("enc %d failed to reserve hw resources, ret %d\n",
-				drm_enc->base.id, ret);
+		SDE_ERROR_ENC(sde_enc,
+				"failed to reserve hw resources, %d\n", ret);
 		return;
 	}
 
@@ -351,14 +373,14 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i = 0;
 
-	DBG("");
-
 	if (!drm_enc) {
-		DRM_ERROR("Invalid pointer");
+		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	SDE_DEBUG_ENC(sde_enc, "\n");
+
 	MSM_EVT(drm_enc->dev, 0, 0);
 
 	bs_set(sde_enc, 1);
@@ -376,7 +398,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 			 * the encoder role found at panel probe time
 			 */
 			if (phys->ops.is_master && phys->ops.is_master(phys)) {
-				DBG("phys enc master is now idx %d", i);
+				SDE_DEBUG_ENC(sde_enc,
+						"master is now idx %d\n", i);
 				sde_enc->cur_master = phys;
 			}
 		}
@@ -390,14 +413,14 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	struct sde_kms *sde_kms;
 	int i = 0;
 
-	DBG("");
-
 	if (!drm_enc) {
-		DRM_ERROR("Invalid pointer");
+		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	SDE_DEBUG_ENC(sde_enc, "\n");
+
 	priv = drm_enc->dev->dev_private;
 	sde_kms = to_sde_kms(priv->kms);
 
@@ -411,7 +434,7 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	}
 
 	sde_enc->cur_master = NULL;
-	DBG("clear phys enc master");
+	SDE_DEBUG_ENC(sde_enc, "cleared master\n");
 
 	bs_set(sde_enc, 0);
 
@@ -433,8 +456,6 @@ static enum sde_intf sde_encoder_get_intf(struct sde_mdss_cfg *catalog,
 		enum sde_intf_type type, u32 controller_id)
 {
 	int i = 0;
-
-	DBG("");
 
 	for (i = 0; i < catalog->intf_count; i++) {
 		if (catalog->intf[i].type == type
@@ -460,10 +481,8 @@ static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc)
 	struct sde_encoder_virt *sde_enc = NULL;
 	unsigned long lock_flags;
 
-	if (!drm_enc) {
-		DRM_ERROR("Invalid pointer");
+	if (!drm_enc)
 		return;
-	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
@@ -483,6 +502,11 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 
 	enable = vbl_cb ? true : false;
 
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	SDE_DEBUG_ENC(sde_enc, "\n");
 	MSM_EVT(drm_enc->dev, enable, 0);
 
 	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
@@ -532,11 +556,12 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc,
 	int ret;
 
 	if (!drm_enc) {
-		DRM_ERROR("invalid arguments");
+		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
+	SDE_DEBUG_ENC(sde_enc, "\n");
 	MSM_EVT(drm_enc->dev, 0, 0);
 
 	spin_lock_irqsave(&sde_enc->spin_lock, lock_flags);
@@ -572,7 +597,8 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc,
 				msecs_to_jiffies(WAIT_TIMEOUT_MSEC));
 		spin_unlock_irqrestore(&sde_enc->spin_lock, lock_flags);
 		if (!ret)
-			DBG("wait %u msec timed out", WAIT_TIMEOUT_MSEC);
+			SDE_DEBUG_ENC(sde_enc, "wait %ums timed out\n",
+					WAIT_TIMEOUT_MSEC);
 	}
 
 	/* All phys encs are ready to go, trigger the kickoff */
@@ -595,7 +621,7 @@ static int sde_encoder_virt_add_phys_encs(
 {
 	struct sde_encoder_phys *enc = NULL;
 
-	DBG("");
+	SDE_DEBUG_ENC(sde_enc, "\n");
 
 	/*
 	 * We may create up to NUM_PHYS_ENCODER_TYPES physical encoder types
@@ -603,7 +629,7 @@ static int sde_encoder_virt_add_phys_encs(
 	 */
 	if (sde_enc->num_phys_encs + NUM_PHYS_ENCODER_TYPES >=
 			ARRAY_SIZE(sde_enc->phys_encs)) {
-		DRM_ERROR("Too many physical encoders %d, unable to add\n",
+		SDE_ERROR_ENC(sde_enc, "too many physical encoders %d\n",
 			  sde_enc->num_phys_encs);
 		return -EINVAL;
 	}
@@ -612,7 +638,7 @@ static int sde_encoder_virt_add_phys_encs(
 		enc = sde_encoder_phys_vid_init(params);
 
 		if (IS_ERR_OR_NULL(enc)) {
-			DRM_ERROR("Failed to initialize phys vid enc: %ld\n",
+			SDE_ERROR_ENC(sde_enc, "failed to init vid enc: %ld\n",
 				PTR_ERR(enc));
 			return enc == 0 ? -EINVAL : PTR_ERR(enc);
 		}
@@ -625,7 +651,7 @@ static int sde_encoder_virt_add_phys_encs(
 		enc = sde_encoder_phys_cmd_init(params);
 
 		if (IS_ERR_OR_NULL(enc)) {
-			DRM_ERROR("Failed to initialize phys cmd enc: %ld\n",
+			SDE_ERROR_ENC(sde_enc, "failed to init cmd enc: %ld\n",
 				PTR_ERR(enc));
 			return enc == 0 ? -EINVAL : PTR_ERR(enc);
 		}
@@ -642,10 +668,15 @@ static int sde_encoder_virt_add_phys_enc_wb(struct sde_encoder_virt *sde_enc,
 {
 	struct sde_encoder_phys *enc = NULL;
 
-	DBG("");
+	if (!sde_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return -EINVAL;
+	}
+
+	SDE_DEBUG_ENC(sde_enc, "\n");
 
 	if (sde_enc->num_phys_encs + 1 >= ARRAY_SIZE(sde_enc->phys_encs)) {
-		DRM_ERROR("Too many physical encoders %d, unable to add\n",
+		SDE_ERROR_ENC(sde_enc, "too many physical encoders %d\n",
 			  sde_enc->num_phys_encs);
 		return -EINVAL;
 	}
@@ -653,7 +684,7 @@ static int sde_encoder_virt_add_phys_enc_wb(struct sde_encoder_virt *sde_enc,
 	enc = sde_encoder_phys_wb_init(params);
 
 	if (IS_ERR_OR_NULL(enc)) {
-		DRM_ERROR("Failed to initialize phys wb enc: %ld\n",
+		SDE_ERROR_ENC(sde_enc, "failed to init wb enc: %ld\n",
 			PTR_ERR(enc));
 		return enc == 0 ? -EINVAL : PTR_ERR(enc);
 	}
@@ -678,12 +709,18 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	};
 	struct sde_enc_phys_init_params phys_params;
 
+	if (!sde_enc || !sde_kms) {
+		SDE_ERROR("invalid arg(s), enc %d kms %d\n",
+				sde_enc != 0, sde_kms != 0);
+		return -EINVAL;
+	}
+
 	memset(&phys_params, 0, sizeof(phys_params));
 	phys_params.sde_kms = sde_kms;
 	phys_params.parent = &sde_enc->base;
 	phys_params.parent_ops = parent_ops;
 
-	DBG("");
+	SDE_DEBUG("\n");
 
 	if (disp_info->intf_type == DRM_MODE_CONNECTOR_DSI) {
 		*drm_enc_mode = DRM_MODE_ENCODER_DSI;
@@ -695,7 +732,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		*drm_enc_mode = DRM_MODE_ENCODER_VIRTUAL;
 		intf_type = INTF_WB;
 	} else {
-		DRM_ERROR("Unsupported display interface type");
+		SDE_ERROR_ENC(sde_enc, "unsupported display interface type\n");
 		return -EINVAL;
 	}
 
@@ -703,7 +740,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 
 	sde_enc->display_num_of_h_tiles = disp_info->num_of_h_tiles;
 
-	DBG("dsi_info->num_of_h_tiles %d", disp_info->num_of_h_tiles);
+	SDE_DEBUG("dsi_info->num_of_h_tiles %d\n", disp_info->num_of_h_tiles);
 
 	for (i = 0; i < disp_info->num_of_h_tiles && !ret; i++) {
 		/*
@@ -722,7 +759,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 			phys_params.split_role = ENC_ROLE_SOLO;
 		}
 
-		DBG("h_tile_instance %d = %d, split_role %d",
+		SDE_DEBUG("h_tile_instance %d = %d, split_role %d\n",
 				i, controller_id, phys_params.split_role);
 
 		if (intf_type == INTF_WB) {
@@ -731,8 +768,8 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 					sde_kms->catalog,
 					intf_type, controller_id);
 			if (phys_params.wb_idx == WB_MAX) {
-				DRM_ERROR(
-					"Error: could not get writeback: type %d, id %d\n",
+				SDE_ERROR_ENC(sde_enc,
+					"could not get wb: type %d, id %d\n",
 					intf_type, controller_id);
 				ret = -EINVAL;
 			}
@@ -742,8 +779,8 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 					sde_kms->catalog, intf_type,
 					controller_id);
 			if (phys_params.intf_idx == INTF_MAX) {
-				DRM_ERROR(
-					"Error: could not get writeback: type %d, id %d\n",
+				SDE_ERROR_ENC(sde_enc,
+					"could not get wb: type %d, id %d\n",
 					intf_type, controller_id);
 				ret = -EINVAL;
 			}
@@ -759,7 +796,8 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 						sde_enc,
 						&phys_params);
 			if (ret)
-				DRM_ERROR("Failed to add phys encs\n");
+				SDE_ERROR_ENC(sde_enc,
+						"failed to add phys encs\n");
 		}
 	}
 
@@ -776,8 +814,6 @@ static struct drm_encoder *sde_encoder_virt_init(
 	struct sde_encoder_virt *sde_enc = NULL;
 	int drm_enc_mode = DRM_MODE_ENCODER_NONE;
 	int ret = 0;
-
-	DBG("");
 
 	sde_enc = kzalloc(sizeof(*sde_enc), GFP_KERNEL);
 	if (!sde_enc) {
@@ -799,12 +835,12 @@ static struct drm_encoder *sde_encoder_virt_init(
 	sde_enc->pending_kickoff_mask = 0;
 	init_waitqueue_head(&sde_enc->pending_kickoff_wq);
 
-	DBG("Created encoder");
+	SDE_DEBUG_ENC(sde_enc, "created\n");
 
 	return drm_enc;
 
 fail:
-	DRM_ERROR("Failed to create encoder\n");
+	SDE_ERROR("failed to create encoder\n");
 	if (drm_enc)
 		sde_encoder_destroy(drm_enc);
 
@@ -816,13 +852,12 @@ int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_enc)
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i, ret = 0;
 
-	DBG("");
-
 	if (!drm_enc) {
-		DRM_ERROR("Invalid pointer");
+		SDE_ERROR("invalid encoder\n");
 		return -EINVAL;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	SDE_DEBUG_ENC(sde_enc, "\n");
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
@@ -847,27 +882,28 @@ void sde_encoders_init(struct drm_device *dev)
 	u32 i = 0;
 	u32 num_displays = 0;
 
-	DBG("");
+	SDE_DEBUG("\n");
 
 	if (!dev || !dev->dev_private) {
-		DRM_ERROR("Invalid pointer");
+		SDE_ERROR("invalid device %d\n", dev != 0);
 		return;
 	}
 
 	priv = dev->dev_private;
 	priv->num_encoders = 0;
 	if (!priv->kms || !priv->dm) {
-		DRM_ERROR("Invalid pointer");
+		SDE_ERROR("invalid priv pointer, kms %d dm %d\n",
+				priv->kms != 0, priv->dm != 0);
 		return;
 	}
 	disp_man = priv->dm;
 
 	num_displays = display_manager_get_count(disp_man);
-	DBG("num_displays %d", num_displays);
+	SDE_DEBUG("num_displays %d\n", num_displays);
 
 	if (num_displays > ARRAY_SIZE(priv->encoders)) {
 		num_displays = ARRAY_SIZE(priv->encoders);
-		DRM_ERROR("Too many displays found, capping to %d",
+		SDE_ERROR("too many displays found, capping to %d\n",
 				num_displays);
 	}
 
@@ -878,19 +914,19 @@ void sde_encoders_init(struct drm_device *dev)
 
 		ret = display_manager_get_info_by_index(disp_man, i, &info);
 		if (ret) {
-			DRM_ERROR("Failed to get display info, %d", ret);
+			SDE_ERROR("failed to get display info, %d\n", ret);
 			return;
 		}
 
 		enc = sde_encoder_virt_init(dev, &info);
 		if (IS_ERR_OR_NULL(enc)) {
-			DRM_ERROR("Encoder initialization failed");
+			SDE_ERROR("encoder initialization failed\n");
 			return;
 		}
 
 		ret = display_manager_drm_init_by_index(disp_man, i, enc);
 		if (ret) {
-			DRM_ERROR("Display drm_init failed, %d", ret);
+			SDE_ERROR("display drm_init failed, %d\n", ret);
 			return;
 		}
 
