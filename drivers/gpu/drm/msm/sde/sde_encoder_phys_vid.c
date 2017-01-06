@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -309,10 +309,26 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 		return;
 
 	phys_enc = &vid_enc->base;
-	phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent);
+	if (phys_enc->parent_ops.handle_vblank_virt)
+		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
+				phys_enc);
 
 	/* signal VBLANK completion */
 	complete_all(&vid_enc->vblank_completion);
+}
+
+static void sde_encoder_phys_vid_underrun_irq(void *arg, int irq_idx)
+{
+	struct sde_encoder_phys_vid *vid_enc = arg;
+	struct sde_encoder_phys *phys_enc;
+
+	if (!vid_enc)
+		return;
+
+	phys_enc = &vid_enc->base;
+	if (phys_enc->parent_ops.handle_underrun_virt)
+		phys_enc->parent_ops.handle_underrun_virt(phys_enc->parent,
+			phys_enc);
 }
 
 static bool sde_encoder_phys_vid_needs_split_flush(
@@ -347,7 +363,9 @@ static void _sde_encoder_phys_vid_split_config(
 	}
 }
 
-static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc)
+static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc,
+	enum sde_intr_type intr_type, int *irq_idx,
+	void (*irq_func)(void *, int), const char *irq_name)
 {
 	struct sde_encoder_phys_vid *vid_enc =
 			to_sde_encoder_phys_vid(phys_enc);
@@ -359,59 +377,62 @@ static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc)
 		return -EINVAL;
 	}
 
-	vid_enc->irq_idx = sde_core_irq_idx_lookup(phys_enc->sde_kms,
-			SDE_IRQ_TYPE_INTF_VSYNC, vid_enc->hw_intf->idx);
-	if (vid_enc->irq_idx < 0) {
+	*irq_idx = sde_core_irq_idx_lookup(phys_enc->sde_kms, intr_type,
+			vid_enc->hw_intf->idx);
+	if (*irq_idx < 0) {
 		SDE_ERROR_VIDENC(vid_enc,
-				"failed to lookup IRQ index for INTF_VSYNC\n");
+			"failed to lookup IRQ index for %s type:%d\n", irq_name,
+			intr_type);
 		return -EINVAL;
 	}
 
-	irq_cb.func = sde_encoder_phys_vid_vblank_irq;
+	irq_cb.func = irq_func;
 	irq_cb.arg = vid_enc;
-	ret = sde_core_irq_register_callback(phys_enc->sde_kms,
-			vid_enc->irq_idx, &irq_cb);
+	ret = sde_core_irq_register_callback(phys_enc->sde_kms, *irq_idx,
+			&irq_cb);
 	if (ret) {
 		SDE_ERROR_VIDENC(vid_enc,
-				"failed to register IRQ callback INTF_VSYNC");
+			"failed to register IRQ callback for %s\n", irq_name);
 		return ret;
 	}
 
-	ret = sde_core_irq_enable(phys_enc->sde_kms, &vid_enc->irq_idx, 1);
+	ret = sde_core_irq_enable(phys_enc->sde_kms, irq_idx, true);
 	if (ret) {
 		SDE_ERROR_VIDENC(vid_enc,
-			"enable IRQ for INTF_VSYNC failed, irq_idx %d\n",
-				vid_enc->irq_idx);
-		vid_enc->irq_idx = -EINVAL;
+			"enable IRQ for intr:%s failed, irq_idx %d\n",
+			irq_name, *irq_idx);
+		*irq_idx = -EINVAL;
 
-		/* Unregister callback on IRQ enable failure */
+		/* unregister callback on IRQ enable failure */
 		sde_core_irq_register_callback(phys_enc->sde_kms,
-				vid_enc->irq_idx, NULL);
+						*irq_idx, NULL);
 		return ret;
 	}
 
-	SDE_DEBUG_VIDENC(vid_enc, "registered %d\n", vid_enc->irq_idx);
+	SDE_DEBUG_VIDENC(vid_enc, "registered irq %s idx: %d\n",
+						irq_name, *irq_idx);
 
 	return ret;
 }
 
 static int sde_encoder_phys_vid_unregister_irq(
-		struct sde_encoder_phys *phys_enc)
+	struct sde_encoder_phys *phys_enc, int irq_idx)
 {
 	struct sde_encoder_phys_vid *vid_enc =
 			to_sde_encoder_phys_vid(phys_enc);
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
-		return -EINVAL;
+		goto end;
 	}
 
-	sde_core_irq_register_callback(phys_enc->sde_kms, vid_enc->irq_idx,
-			NULL);
-	sde_core_irq_disable(phys_enc->sde_kms, &vid_enc->irq_idx, 1);
+	sde_core_irq_disable(phys_enc->sde_kms, &irq_idx, 1);
 
-	SDE_DEBUG_VIDENC(vid_enc, "unregistered %d\n", vid_enc->irq_idx);
+	sde_core_irq_register_callback(phys_enc->sde_kms, irq_idx, NULL);
 
+	SDE_DEBUG_VIDENC(vid_enc, "unregistered %d\n", irq_idx);
+
+end:
 	return 0;
 }
 
@@ -478,9 +499,13 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 			atomic_read(&phys_enc->vblank_refcount));
 
 	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
-		ret = sde_encoder_phys_vid_register_irq(phys_enc);
+		ret = sde_encoder_phys_vid_register_irq(phys_enc,
+			SDE_IRQ_TYPE_INTF_VSYNC,
+			&vid_enc->irq_idx[INTR_IDX_VSYNC],
+			sde_encoder_phys_vid_vblank_irq, "vsync_irq");
 	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
-		ret = sde_encoder_phys_vid_unregister_irq(phys_enc);
+		ret = sde_encoder_phys_vid_unregister_irq(phys_enc,
+			vid_enc->irq_idx[INTR_IDX_VSYNC]);
 
 	if (ret)
 		SDE_ERROR_VIDENC(vid_enc,
@@ -497,6 +522,7 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	struct sde_hw_intf *intf = vid_enc->hw_intf;
 	struct sde_hw_ctl *ctl = phys_enc->hw_ctl;
 	u32 flush_mask = 0;
+	int ret;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -518,7 +544,18 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 		_sde_encoder_phys_vid_split_config(phys_enc, false);
 
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
-	sde_encoder_phys_vid_control_vblank_irq(phys_enc, true);
+	ret = sde_encoder_phys_vid_control_vblank_irq(phys_enc, true);
+	if (ret)
+		goto end;
+
+	ret = sde_encoder_phys_vid_register_irq(phys_enc,
+		SDE_IRQ_TYPE_INTF_UNDER_RUN,
+		&vid_enc->irq_idx[INTR_IDX_UNDERRUN],
+		sde_encoder_phys_vid_underrun_irq, "underrun");
+	if (ret) {
+		sde_encoder_phys_vid_control_vblank_irq(phys_enc, false);
+		goto end;
+	}
 
 	ctl->ops.get_bitmask_intf(ctl, &flush_mask, intf->idx);
 	ctl->ops.update_pending_flush(ctl, flush_mask);
@@ -529,6 +566,9 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	/* ctl_flush & timing engine enable will be triggered by framework */
 	if (phys_enc->enable_state == SDE_ENC_DISABLED)
 		phys_enc->enable_state = SDE_ENC_ENABLING;
+
+end:
+	return;
 }
 
 static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
@@ -718,7 +758,6 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 		ret = -ENOMEM;
 		goto fail;
 	}
-	vid_enc->irq_idx = -EINVAL;
 	init_completion(&vid_enc->vblank_completion);
 
 	phys_enc = &vid_enc->base;
@@ -730,6 +769,7 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 		goto fail;
 	}
 	phys_enc->hw_mdptop = hw_mdp;
+	phys_enc->intf_idx = p->intf_idx;
 
 	/**
 	 * hw_intf resource permanently assigned to this encoder
@@ -769,7 +809,7 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 
-	SDE_DEBUG_VIDENC(vid_enc, "created\n");
+	SDE_DEBUG_VIDENC(vid_enc, "created intf idx:%d\n", p->intf_idx);
 
 	return phys_enc;
 

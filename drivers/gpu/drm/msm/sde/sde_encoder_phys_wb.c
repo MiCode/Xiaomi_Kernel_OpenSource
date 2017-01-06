@@ -542,7 +542,8 @@ static void sde_encoder_phys_wb_done_irq(void *arg, int irq_idx)
 
 	complete_all(&wb_enc->wbdone_complete);
 
-	phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent);
+	phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
+			phys_enc);
 }
 
 /**
@@ -1066,6 +1067,7 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	phys_enc->sde_kms = p->sde_kms;
 	phys_enc->split_role = p->split_role;
 	phys_enc->intf_mode = INTF_MODE_WB_LINE;
+	phys_enc->intf_idx = p->intf_idx;
 	spin_lock_init(&phys_enc->spin_lock);
 
 	ret = sde_encoder_phys_wb_init_debugfs(phys_enc, p->sde_kms);
