@@ -403,8 +403,7 @@ static void _sde_crtc_wait_for_fences(struct drm_crtc *crtc)
 {
 	struct drm_plane *plane = NULL;
 	uint32_t wait_ms = 1;
-	u64 ktime_end;
-	s64 ktime_wait; /* need signed 64-bit type */
+	ktime_t kt_end, kt_wait;
 
 	DBG("");
 
@@ -414,8 +413,8 @@ static void _sde_crtc_wait_for_fences(struct drm_crtc *crtc)
 	}
 
 	/* use monotonic timer to limit total fence wait time */
-	ktime_end = ktime_get_ns() +
-		to_sde_crtc_state(crtc->state)->input_fence_timeout_ns;
+	kt_end = ktime_add_ns(ktime_get(),
+		to_sde_crtc_state(crtc->state)->input_fence_timeout_ns);
 
 	/*
 	 * Wait for fences sequentially, as all of them need to be signalled
@@ -429,9 +428,9 @@ static void _sde_crtc_wait_for_fences(struct drm_crtc *crtc)
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		if (wait_ms) {
 			/* determine updated wait time */
-			ktime_wait = ktime_end - ktime_get_ns();
-			if (ktime_wait >= 0)
-				wait_ms = ktime_wait / NSEC_PER_MSEC;
+			kt_wait = ktime_sub(kt_end, ktime_get());
+			if (ktime_compare(kt_wait, ktime_set(0, 0)) >= 0)
+				wait_ms = ktime_to_ms(kt_wait);
 			else
 				wait_ms = 0;
 		}
