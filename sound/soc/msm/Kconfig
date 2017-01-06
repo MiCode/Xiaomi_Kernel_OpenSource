@@ -204,6 +204,7 @@ config SND_SOC_MDMCALIFORNIUM
         select MSM_QDSP6V2_CODECS
         select SND_SOC_WCD9335
         select SND_SOC_WSA881X
+        select SND_SOC_TLV320AIC3X
         select SND_HWDEP
         help
          To add support for SoC audio on MDMCALIFORNIUM.
