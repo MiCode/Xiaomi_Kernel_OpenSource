@@ -17,6 +17,10 @@
 #include <linux/errno.h>
 #include <linux/mutex.h>
 
+#ifndef CHAR_BIT
+#define CHAR_BIT 8 /* define this if limits.h not available */
+#endif
+
 #ifdef CONFIG_SYNC
 /**
  * sde_sync_get - Query sync fence object from a file handle
@@ -48,6 +52,15 @@ void sde_sync_put(void *fence);
  * Return: Zero on success, or -ETIME on timeout
  */
 int sde_sync_wait(void *fence, long timeout_ms);
+
+/**
+ * sde_sync_get_name_prefix - get integer representation of fence name prefix
+ * @fence: Pointer to opaque fence structure
+ *
+ * Return: 32-bit integer containing first 4 characters of fence name,
+ *         big-endian notation
+ */
+uint32_t sde_sync_get_name_prefix(void *fence);
 #else
 static inline void *sde_sync_get(uint64_t fd)
 {
@@ -61,6 +74,11 @@ static inline void sde_sync_put(void *fence)
 static inline int sde_sync_wait(void *fence, long timeout_ms)
 {
 	return 0;
+}
+
+static inline uint32_t sde_sync_get_name_prefix(void *fence)
+{
+	return 0x0;
 }
 #endif
 
