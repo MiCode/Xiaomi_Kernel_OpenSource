@@ -198,6 +198,13 @@ struct sde_plane_state {
 	((S) && ((X) < PLANE_PROP_COUNT) ? ((S)->property_values[(X)]) : 0)
 
 /**
+ * sde_is_custom_client - whether or not to enable non-standard customizations
+ *
+ * Return: Whether or not the 'sdeclient' module parameter was set on boot up
+ */
+bool sde_is_custom_client(void);
+
+/**
  * Debugfs functions - extra helper functions for debugfs support
  *
  * Main debugfs documentation is located at,
