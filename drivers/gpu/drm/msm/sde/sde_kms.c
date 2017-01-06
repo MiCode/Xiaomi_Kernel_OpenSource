@@ -401,6 +401,27 @@ static int sde_hw_init(struct msm_kms *kms)
 {
 	return 0;
 }
+
+static int sde_kms_postinit(struct msm_kms *kms)
+{
+	struct sde_kms *sde_kms = to_sde_kms(kms);
+	struct drm_device *dev;
+
+	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev) {
+		SDE_ERROR("invalid sde_kms\n");
+		return -EINVAL;
+	}
+
+	dev = sde_kms->dev;
+
+	/*
+	 * Allow vblank interrupt to be disabled by drm vblank timer.
+	 */
+	dev->vblank_disable_allowed = true;
+
+	return 0;
+}
+
 static long sde_round_pixclk(struct msm_kms *kms, unsigned long rate,
 		struct drm_encoder *encoder)
 {
@@ -438,6 +459,7 @@ static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
 
 static const struct msm_kms_funcs kms_funcs = {
 	.hw_init         = sde_hw_init,
+	.postinit        = sde_kms_postinit,
 	.irq_preinstall  = sde_irq_preinstall,
 	.irq_postinstall = sde_irq_postinstall,
 	.irq_uninstall   = sde_irq_uninstall,
