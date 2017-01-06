@@ -18,7 +18,6 @@
 
 
 #define ISP_SOF_DEBUG_COUNT 0
-
 static int msm_isp_update_dual_HW_ms_info_at_start(
 	struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src stream_src,
@@ -2195,9 +2194,10 @@ static void msm_isp_update_camif_output_count(
 /*Factor in Q2 format*/
 #define ISP_DEFAULT_FORMAT_FACTOR 6
 #define ISP_BUS_UTILIZATION_FACTOR 6
-static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
+int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev,
+	enum msm_vfe_hw_state hw_state)
 {
-	int i, rc = 0;
+	int i, rc = 0, frame_src, ms_type;
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	uint64_t total_pix_bandwidth = 0, total_rdi_bandwidth = 0;
@@ -2206,6 +2206,15 @@ static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
 
 	for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
 		stream_info = &axi_data->stream_info[i];
+		frame_src = SRC_TO_INTF(stream_info->stream_src);
+		ms_type = vfe_dev->axi_data.src_info[frame_src].
+			dual_hw_ms_info.dual_hw_ms_type;
+		if (hw_state == HW_STATE_SLEEP) {
+			rc = msm_isp_update_bandwidth(
+				ISP_VFE0 + vfe_dev->pdev->id, 0, 0);
+			return rc;
+		}
+
 		if (stream_info->state == ACTIVE ||
 			stream_info->state == START_PENDING) {
 			if (stream_info->stream_src < RDI_INTF_0) {
@@ -2216,11 +2225,11 @@ static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
 			}
 		}
 	}
-	total_bandwidth = total_pix_bandwidth + total_rdi_bandwidth;
-	rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
-		(total_bandwidth + vfe_dev->hw_info->min_ab),
-		(total_bandwidth + vfe_dev->hw_info->min_ib));
 
+	total_bandwidth = total_pix_bandwidth + total_rdi_bandwidth;
+		rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
+			(total_bandwidth + vfe_dev->hw_info->min_ab),
+			(total_bandwidth + vfe_dev->hw_info->min_ib));
 	if (rc < 0)
 		pr_err("%s: update failed\n", __func__);
 
@@ -2831,7 +2840,7 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 			}
 		}
 	}
-	msm_isp_update_stream_bandwidth(vfe_dev);
+	msm_isp_update_stream_bandwidth(vfe_dev, stream_cfg_cmd->hw_state);
 	vfe_dev->hw_info->vfe_ops.axi_ops.reload_wm(vfe_dev,
 		vfe_dev->vfe_base, wm_reload_mask);
 	msm_isp_update_camif_output_count(vfe_dev, stream_cfg_cmd);
@@ -3010,7 +3019,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 	}
 
 	msm_isp_update_camif_output_count(vfe_dev, stream_cfg_cmd);
-	msm_isp_update_stream_bandwidth(vfe_dev);
+	msm_isp_update_stream_bandwidth(vfe_dev, stream_cfg_cmd->hw_state);
 
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 		stream_info = &axi_data->stream_info[
