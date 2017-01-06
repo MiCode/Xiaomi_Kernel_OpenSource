@@ -60,7 +60,7 @@ static const char * const iommu_ports[] = {
  *
  *	This is disabled by default.
  */
-static bool sdecustom;
+static bool sdecustom = true;
 module_param(sdecustom, bool, 0400);
 MODULE_PARM_DESC(sdecustom, "Enable customizations for sde clients");
 
