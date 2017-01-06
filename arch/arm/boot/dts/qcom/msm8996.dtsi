@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3334,6 +3334,57 @@
 			qcom,msm-dai-q6-mi2s-dev-id = <3>;
 			qcom,msm-mi2s-rx-lines = <1>;
 			qcom,msm-mi2s-tx-lines = <0>;
+		};
+	};
+
+	qcom,msm-dai-tdm-sec-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37137>;
+		qcom,msm-cpudai-tdm-group-num-ports = <4>;
+		qcom,msm-cpudai-tdm-group-port-id = <36881 36883 36885 36887>;
+		qcom,msm-cpudai-tdm-clk-rate = <0>;
+		dai_sec_tdm_tx_0: qcom,msm-dai-q6-tdm-sec-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36881>;
+			qcom,msm-cpudai-tdm-sync-mode = <1>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_tx_1: qcom,msm-dai-q6-tdm-sec-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36883>;
+			qcom,msm-cpudai-tdm-sync-mode = <1>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_tx_2: qcom,msm-dai-q6-tdm-sec-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36885>;
+			qcom,msm-cpudai-tdm-sync-mode = <1>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+
+		dai_sec_tdm_tx_3: qcom,msm-dai-q6-tdm-sec-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36887>;
+			qcom,msm-cpudai-tdm-sync-mode = <1>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};
 
