@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -410,6 +410,7 @@ static enum power_supply_property smb138x_parallel_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CHARGER_TEMP,
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
+	POWER_SUPPLY_PROP_MODEL_NAME,
 };
 
 static int smb138x_parallel_get_prop(struct power_supply *psy,
@@ -455,6 +456,9 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
 		rc = smblib_get_prop_charger_temp_max(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+		val->strval = "smb138x";
 		break;
 	default:
 		pr_err("parallel power supply get prop %d not supported\n",
