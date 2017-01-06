@@ -2202,6 +2202,27 @@ static inline void clear_top_tasks_table(u8 *table)
 	memset(table, 0, NUM_LOAD_INDICES * sizeof(u8));
 }
 
+static void rollover_top_tasks(struct rq *rq, bool full_window)
+{
+	u8 curr_table = rq->curr_table;
+	u8 prev_table = 1 - curr_table;
+	int curr_top = rq->curr_top;
+
+	clear_top_tasks_table(rq->top_tasks[prev_table]);
+	clear_top_tasks_bitmap(rq->top_tasks_bitmap[prev_table]);
+
+	if (full_window) {
+		curr_top = 0;
+		clear_top_tasks_table(rq->top_tasks[curr_table]);
+		clear_top_tasks_bitmap(
+				rq->top_tasks_bitmap[curr_table]);
+	}
+
+	rq->curr_table = prev_table;
+	rq->prev_top = curr_top;
+	rq->curr_top = 0;
+}
+
 static u32 empty_windows[NR_CPUS];
 
 static void rollover_task_window(struct task_struct *p, bool full_window)
@@ -2319,29 +2340,18 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	if (flip_counters) {
 		u64 curr_sum = *curr_runnable_sum;
 		u64 nt_curr_sum = *nt_curr_runnable_sum;
-		u8 curr_table = rq->curr_table;
-		u8 prev_table = 1 - curr_table;
-		int curr_top = rq->curr_top;
 
-		clear_top_tasks_table(rq->top_tasks[prev_table]);
-		clear_top_tasks_bitmap(rq->top_tasks_bitmap[prev_table]);
-
-		if (prev_sum_reset) {
+		if (prev_sum_reset)
 			curr_sum = nt_curr_sum = 0;
-			curr_top = 0;
-			clear_top_tasks_table(rq->top_tasks[curr_table]);
-			clear_top_tasks_bitmap(
-					rq->top_tasks_bitmap[curr_table]);
-		}
 
 		*prev_runnable_sum = curr_sum;
 		*nt_prev_runnable_sum = nt_curr_sum;
 
 		*curr_runnable_sum = 0;
 		*nt_curr_runnable_sum = 0;
-		rq->curr_table = prev_table;
-		rq->prev_top = curr_top;
-		rq->curr_top = 0;
+
+		if (p_is_curr_task)
+			rollover_top_tasks(rq, full_window);
 	}
 
 	if (!account_busy_for_cpu_time(rq, p, irqtime, event))
