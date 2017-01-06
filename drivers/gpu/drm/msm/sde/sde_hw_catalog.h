@@ -17,9 +17,14 @@
 #include <linux/bug.h>
 #include <linux/bitmap.h>
 #include <linux/err.h>
+#include <drm/drmP.h>
 
-#define MAX_BLOCKS    8
-#define MAX_LAYERS    12
+/**
+ * Max hardware block count: For ex: max 12 SSPP pipes or
+ * 5 ctl paths. In all cases, it can have max 12 hardware blocks
+ * based on current design
+ */
+#define MAX_BLOCKS    12
 
 #define SDE_HW_VER(MAJOR, MINOR, STEP) (((MAJOR & 0xF) << 28)    |\
 		((MINOR & 0xFFF) << 16)  |\
@@ -225,12 +230,14 @@ enum {
  * MACRO SDE_HW_BLK_INFO - information of HW blocks inside SDE
  * @id:                enum identifying this block
  * @base:              register base offset to mdss
+ * @len:               length of hardware block
  * @features           bit mask identifying sub-blocks/features
  */
 #define SDE_HW_BLK_INFO \
 	u32 id; \
 	u32 base; \
-	unsigned long features
+	u32 len; \
+	unsigned long features; \
 
 /**
  * MACRO SDE_HW_SUBBLK_INFO - information of HW sub-block inside SDE
@@ -588,9 +595,24 @@ struct sde_vbif_cfg {
  * This is the main catalog data structure representing
  * this HW version. Contains number of instances,
  * register offsets, capabilities of the all MDSS HW sub-blocks.
+ *
+ * @max_sspp_linewidth max source pipe line width support.
+ * @max_mixer_width    max layer mixer line width support.
+ * @max_mixer_blendstages max layer mixer blend stages or
+ *                       supported z order
+ * @max_wb_linewidth   max writeback line width support.
+ * @highest_bank_bit   highest memory bit setting for tile buffers.
+ * @qseed_type         qseed2 or qseed3 support.
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
+
+	u32 max_sspp_linewidth;
+	u32 max_mixer_width;
+	u32 max_mixer_blendstages;
+	u32 max_wb_linewidth;
+	u32 highest_bank_bit;
+	u32 qseed_type;
 
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];
@@ -602,7 +624,7 @@ struct sde_mdss_cfg {
 	struct sde_ctl_cfg ctl[MAX_BLOCKS];
 
 	u32 sspp_count;
-	struct sde_sspp_cfg sspp[MAX_LAYERS];
+	struct sde_sspp_cfg sspp[MAX_BLOCKS];
 
 	u32 mixer_count;
 	struct sde_lm_cfg mixer[MAX_BLOCKS];
@@ -650,7 +672,14 @@ struct sde_mdss_hw_cfg_handler {
 #define BLK_WB(s) ((s)->wb)
 #define BLK_AD(s) ((s)->ad)
 
-struct sde_mdss_cfg *sde_mdss_cfg_170_init(u32 step);
-struct sde_mdss_cfg *sde_hw_catalog_init(u32 major, u32 minor, u32 step);
+/**
+ * sde_hw_catalog_init() - sde hardware catalog init API parses dtsi property
+ * and stores all parsed offset, hardware capabilities in config structure.
+ * @dev:          drm device node.
+ * @hw_rev:       caller needs provide the hardware revision before parsing.
+ *
+ * Return: parsed sde config structure
+ */
+struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev);
 
 #endif /* _SDE_HW_CATALOG_H */

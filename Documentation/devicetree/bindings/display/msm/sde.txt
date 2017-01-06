@@ -18,6 +18,51 @@ Required properties
 - interrupt-controller: Mark the device node as an interrupt controller.
 - #interrupt-cells: Should be one. The first cell is interrupt number.
 - iommus: Specifies the SID's used by this context bank.
+- qcom,sde-sspp-type:		Array of strings for SDE source surface pipes type information.
+				A source pipe can be "vig", "rgb", "dma" or "cursor" type.
+				Number of xin ids defined should match the number of offsets
+				defined in property: qcom,sde-sspp-off.
+- qcom,sde-sspp-off:		Array of offset for SDE source surface pipes. The offsets
+				are calculated from register "mdp_phys" defined in
+				reg property + "sde-off". The number of offsets defined here should
+				reflect the amount of pipes that can be active in SDE for
+				this configuration.
+- qcom,sde-sspp-xin-id:		Array of VBIF clients ids (xins) corresponding
+				to the respective source pipes. Number of xin ids
+				defined should match the number of offsets
+				defined in property: qcom,sde-sspp-off.
+- qcom,sde-ctl-off:		Array of offset addresses for the available ctl
+				hw blocks within SDE, these offsets are
+				calculated from register "mdp_phys" defined in
+				reg property.  The number of ctl offsets defined
+				here should reflect the number of control paths
+				that can be configured concurrently on SDE for
+				this configuration.
+- qcom,sde-wb-off:		Array of offset addresses for the programmable
+				writeback blocks within SDE.
+- qcom,sde-wb-xin-id:		Array of VBIF clients ids (xins) corresponding
+				to the respective writeback. Number of xin ids
+				defined should match the number of offsets
+				defined in property: qcom,sde-wb-off.
+- qcom,sde-mixer-off:	 	Array of offset addresses for the available
+				mixer blocks that can drive data to panel
+				interfaces. These offsets are be calculated from
+				register "mdp_phys" defined in reg property.
+				The number of offsets defined should reflect the
+				amount of mixers that can drive data to a panel
+				interface.
+- qcom,sde-dspp-off: 		Array of offset addresses for the available dspp
+				blocks. These offsets are calculated from
+				register "mdp_phys" defined in reg property.
+- qcom,sde-pp-off:		Array of offset addresses for the available
+				pingpong blocks. These offsets are calculated
+				from register "mdp_phys" defined in reg property.
+- qcom,sde-intf-off:		Array of offset addresses for the available SDE
+				interface blocks that can drive data to a
+				panel controller. The offsets are calculated
+				from "mdp_phys" defined in reg property. The number
+				of offsets defined should reflect the number of
+				programmable interface blocks available in hardware.
 
 Optional properties:
 - clock-rate:		List of clock rates in Hz.
@@ -39,11 +84,99 @@ Optional properties:
 				-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
 - qcom,sde-reg-bus:		Property to provide Bus scaling for register access for
 				mdss blocks.
-
+- qcom,sde-sspp-src-size:	A u32 value indicates the address range for each sspp.
+- qcom,sde-mixer-size:		A u32 value indicates the address range for each mixer.
+- qcom,sde-ctl-size:		A u32 value indicates the address range for each ctl.
+- qcom,sde-dspp-size:		A u32 value indicates the address range for each dspp.
+- qcom,sde-intf-size:		A u32 value indicates the address range for each intf.
+- qcom,sde-dsc-size:		A u32 value indicates the address range for each dsc.
+- qcom,sde-cdm-size:		A u32 value indicates the address range for each cdm.
+- qcom,sde-pp-size:		A u32 value indicates the address range for each pingpong.
+- qcom,sde-wb-size:		A u32 value indicates the address range for each writeback.
+- qcom,sde-len:			A u32 entry for SDE address range.
+- qcom,sde-intf-max-prefetch-lines:	Array of u32 values for max prefetch lines on
+				each interface.
+- qcom,sde-sspp-linewidth:	A u32 value indicates the max sspp line width.
+- qcom,sde-mixer-linewidth:	A u32 value indicates the max mixer line width.
+- qcom,sde-wb-linewidth:	A u32 value indicates the max writeback line width.
+- qcom,sde-sspp-scale-size:	A u32 value indicates the scaling block size on sspp.
+- qcom,sde-mixer-blendstages:	A u32 value indicates the max mixer blend stages for
+				alpha blending.
+- qcom,sde-qseed-type:		A string entry indiates qseed support on sspp and wb.
+				It supports "qssedv3" and "qseedv2" entries for qseed
+				type. By default "qseedv2" is used if this optional property
+				is not defined.
+- qcom,sde-highest-bank-bit:	A u32 property to indicate GPU/Camera/Video highest memory
+				bank bit used for tile format buffers.
+- qcom,sde-panic-per-pipe:	Boolean property to indicate if panic signal
+				control feature is available on each source pipe.
+- qcom,sde-has-src-split:	Boolean property to indicate if source split
+				feature is available or not.
+- qcom,sde-has-mixer-gc:	Boolean property to indicate if mixer has gamma correction
+				feature available or not.
+- qcom,sde-has-cdp:		Boolean property to indicate if cdp feature is
+				available or not.
+- qcom,sde-sspp-clk-ctrl:	Array of offsets describing clk control
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the control
+				register. 2nd value represents bit offset within
+				control register. Number of offsets defined should
+				match the number of offsets defined in
+				property: qcom,sde-sspp-off
+- qcom,sde-sspp-clk-status:	Array of offsets describing clk status
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the status
+				register. 2nd value represents bit offset within
+				control register. Number of offsets defined should
+				match the number of offsets defined in
+				property: qcom,sde-sspp-off.
+- qcom,sde-sspp-danger-lut:	Array of u32 values indicating the danger luts on each
+				sspp. Number of offsets defined should
+				match the number of offsets defined in
+				property: qcom,sde-sspp-off.
+- qcom,sde-sspp-safe-lut:	Array of u32 values indicating the safe luts on each
+				sspp. Number of offsets defined should
+				match the number of offsets defined in
+				property: qcom,sde-sspp-off.
+- qcom,sde-sspp-qseed-off:	A u32 offset value indicates the qseed block offset
+				from sspp base. It will install qseed property on
+				vig and rgb sspp pipes.
+- qcom,sde-sspp-csc-off:	A u32 offset value indicates the csc block offset
+				from sspp base. It will be used to install the csc
+				property on vig type pipe.
+- qcom,sde-sspp-max-rects:	Array of u32 values indicating maximum rectangles supported
+				on each sspp. This property is for multirect feature support.
+				Number of offsets defined should match the number of
+				offsets defined in property: qcom,sde-sspp-off.
+- qcom,sde-intf-type:		Array of string provides the interface type information.
+				Possible string values
+					"dsi" - dsi display interface
+					"dp" - Display Port interface
+					"hdmi" - HDMI display interface
+				An interface is considered as "none" if interface type
+				is not defined.
+- qcom,sde-off:			SDE offset from "mdp_phys" defined in reg property.
+- qcom,sde-cdm-off:	 	Array of offset addresses for the available
+				cdm blocks. These offsets will be calculated from
+				register "mdp_phys" defined in reg property.
+- qcom,sde-te-off:		A u32 offset indicates the te block offset on pingpong.
+				This offset is 0x0 by default.
+- qcom,sde-te2-off:		A u32 offset indicates the te2 block offset on pingpong.
+- qcom,sde-te-size:		A u32 value indicates the te block address range.
+- qcom,sde-te2-size:		A u32 value indicates the te2 block address range.
+- qcom,sde-dsc-off:	 	A u32 offset indicates the dsc block offset on pingpong.
+- qcom,sde-dspp-igc-off:	A u32 offset indicates the igc block offset on dssp.
+- qcom,sde-dspp-pcc-off:	A u32 offset indicates the pcc block offset on dssp.
+- qcom,sde-dspp-gc-off:		A u32 offset indicates the gc block offset on dssp.
+- qcom,sde-dspp-pa-off:		A u32 offset indicates the pa block offset on dssp.
+- qcom,sde-dspp-gamut-off:	A u32 offset indicates the gamut block offset on dssp.
+- qcom,sde-dspp-dither-off:	A u32 offset indicates the dither block offset on dssp.
+- qcom,sde-dspp-hist-off:	A u32 offset indicates the hist block offset on dssp.
+- qcom,sde-dspp-ad-off:		A u32 offset indicates the ad block offset on dssp.
 
 Bus Scaling Data:
 - qcom,msm-bus,name:		String property describing client name.
-- qcom,msm-bus,num-cases:	This is the the number of Bus Scaling use cases
+- qcom,msm-bus,num-cases:	This is the number of Bus Scaling use cases
 				defined in the vectors property.
 - qcom,msm-bus,num-paths:	This represents the number of paths in each
 				Bus Scaling Usecase.
@@ -99,6 +232,97 @@ Example:
     interrupt-controller;
     #interrupt-cells = <1>;
     iommus = <&mdp_smmu 0>;
+
+    qcom,sde-off = <0x1000>;
+    qcom,sde-ctl-off = <0x00002000 0x00002200 0x00002400
+		     0x00002600 0x00002800>;
+    qcom,sde-mixer-off = <0x00045000 0x00046000
+			0x00047000 0x0004a000>;
+    qcom,sde-dspp-off = <0x00055000 0x00057000>;
+    qcom,sde-wb-off = <0x00066000>;
+    qcom,sde-wb-xin-id = <6>;
+    qcom,sde-intf-off = <0x0006b000 0x0006b800
+			0x0006c000 0x0006c800>;
+    qcom,sde-intf-type = "none", "dsi", "dsi", "hdmi";
+    qcom,sde-pp-off = <0x00071000 0x00071800
+			  0x00072000 0x00072800>;
+    qcom,sde-cdm-off = <0x0007a200>;
+    qcom,sde-dsc-off = <0x00081000 0x00081400>;
+    qcom,sde-intf-max-prefetch-lines = <0x15 0x15 0x15 0x15>;
+
+    qcom,sde-sspp-type = "vig", "vig", "vig",
+			      "vig", "rgb", "rgb",
+			      "rgb", "rgb", "dma",
+			      "dma", "cursor", "cursor";
+
+    qcom,sde-sspp-off = <0x00005000 0x00007000 0x00009000
+		      0x0000b000 0x00015000 0x00017000
+		      0x00019000 0x0001b000 0x00025000
+		      0x00027000 0x00035000 0x00037000>;
+
+    qcom,sde-sspp-xin-id = <0 4 8
+			12 1 5
+			9 13 2
+			10 7 7>;
+
+    /* offsets are relative to "mdp_phys + qcom,sde-off */
+    qcom,sde-sspp-clk-ctrl = <0x2ac 0>, <0x2b4 0>, <0x2bc 0>,
+			  <0x2c4 0>, <0x2ac 4>, <0x2b4 4>, <0x2bc 4>,
+			  <0x2c4 4>, <0x2ac 8>, <0x2b4 8>, <0x3a8 16>,
+			  <0x3b0 16>;
+    qcom,sde-sspp-clk-status = <0x2ac 0>, <0x2b4 0>, <0x2bc 0>,
+			  <0x2c4 0>, <0x2ac 4>, <0x2b4 4>, <0x2bc 4>,
+			  <0x2c4 4>, <0x2ac 8>, <0x2b4 8>, <0x3a8 16>,
+			  <0x3b0 16>;
+    qcom,sde-mixer-linewidth = <2560>;
+    qcom,sde-sspp-linewidth = <2560>;
+    qcom,sde-mixer-blendstages = <0x7>;
+    qcom,sde-highest-bank-bit = <0x2>;
+    qcom,sde-panic-per-pipe;
+    qcom,sde-has-cdp;
+    qcom,sde-has-src-split;
+    qcom,sde-sspp-src-size = <0x100>;
+    qcom,sde-mixer-size = <0x100>;
+    qcom,sde-ctl-size = <0x100>;
+    qcom,sde-dspp-size = <0x100>;
+    qcom,sde-intf-size = <0x100>;
+    qcom,sde-dsc-size = <0x100>;
+    qcom,sde-cdm-size = <0x100>;
+    qcom,sde-pp-size = <0x100>;
+    qcom,sde-wb-size = <0x100>;
+    qcom,sde-len = <0x100>;
+    qcom,sde-wb-linewidth = <2560>;
+    qcom,sde-sspp-scale-size = <0x100>;
+    qcom,sde-mixer-blendstages = <0x8>;
+    qcom,sde-qseed-type = "qseedv2";
+    qcom,sde-highest-bank-bit = <15>;
+    qcom,sde-has-mixer-gc;
+    qcom,sde-sspp-danger-lut = <0x55 0x55 0x55 0x55
+				0x55 0x55 0x55 0x55
+				0xaa 0xaa
+				0xbb 0xbb>;
+    qcom,sde-sspp-safe-lut = <0x11 0x11 0x11 0x11
+				0x11 0x11 0x11 0x11
+				0xaa 0xaa
+				0xbb 0xbb>;
+    qcom,sde-sspp-max-rects = <1 1 1 1
+				1 1 1 1
+				1 1
+				1 1>;
+    qcom,sde-te-off = <0x100>;
+    qcom,sde-te2-off = <0x100>;
+    qcom,sde-te-size = <0xffff>;
+    qcom,sde-te2-size = <0xffff>;
+    qcom,sde-sspp-qseed-off = <0x100>;
+    qcom,sde-sspp-csc-off = <0x100>;
+    qcom,sde-dspp-igc-off = <0x100>;
+    qcom,sde-dspp-pcc-off = <0x100>;
+    qcom,sde-dspp-gc-off = <0x100>;
+    qcom,sde-dspp-pa-off = <0x100>;
+    qcom,sde-dspp-gamut-off = <0x100>;
+    qcom,sde-dspp-dither-off = <0x100>;
+    qcom,sde-dspp-hist-off = <0x100>;
+    qcom,sde-dspp-ad-off = <0x100>;
 
     qcom,platform-supply-entries {
        #address-cells = <1>;

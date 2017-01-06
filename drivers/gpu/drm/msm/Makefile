@@ -120,7 +120,6 @@ msm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
 obj-$(CONFIG_DRM_MSM)	+= msm.o
 
 obj-$(CONFIG_DRM_MSM) += sde/sde_hw_catalog.o \
-	sde/sde_hw_catalog_8996.o \
 	sde/sde_hw_cdm.o \
 	sde/sde_hw_dspp.o \
 	sde/sde_hw_intf.o \
