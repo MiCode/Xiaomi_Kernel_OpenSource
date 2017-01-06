@@ -2168,25 +2168,31 @@ static void msm_isp_update_camif_output_count(
 		stream_info =
 			&axi_data->stream_info[
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
-		if (stream_info->stream_src >= RDI_INTF_0)
-			continue;
 		if (stream_info->stream_src == PIX_ENCODER ||
 			stream_info->stream_src == PIX_VIEWFINDER ||
 			stream_info->stream_src == PIX_VIDEO ||
 			stream_info->stream_src == IDEAL_RAW) {
 			if (stream_cfg_cmd->cmd == START_STREAM)
-				vfe_dev->axi_data.src_info[VFE_PIX_0].
-					pix_stream_count++;
+				vfe_dev->axi_data.src_info[
+					SRC_TO_INTF(stream_info->stream_src)].
+						pix_stream_count++;
 			else
-				vfe_dev->axi_data.src_info[VFE_PIX_0].
-					pix_stream_count--;
-		} else if (stream_info->stream_src == CAMIF_RAW) {
+				vfe_dev->axi_data.src_info[
+					SRC_TO_INTF(stream_info->stream_src)].
+						pix_stream_count--;
+		} else if (stream_info->stream_src == CAMIF_RAW ||
+				stream_info->stream_src == RDI_INTF_0 ||
+				stream_info->stream_src == RDI_INTF_1 ||
+				stream_info->stream_src == RDI_INTF_2) {
 			if (stream_cfg_cmd->cmd == START_STREAM)
-				vfe_dev->axi_data.src_info[VFE_PIX_0].
-					raw_stream_count++;
+				vfe_dev->axi_data.src_info[
+					SRC_TO_INTF(stream_info->stream_src)].
+						raw_stream_count++;
 			else
-				vfe_dev->axi_data.src_info[VFE_PIX_0].
-					raw_stream_count--;
+				vfe_dev->axi_data.src_info[
+					SRC_TO_INTF(stream_info->stream_src)].
+						raw_stream_count--;
+
 		}
 	}
 }
@@ -2844,7 +2850,18 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 	vfe_dev->hw_info->vfe_ops.axi_ops.reload_wm(vfe_dev,
 		vfe_dev->vfe_base, wm_reload_mask);
 	msm_isp_update_camif_output_count(vfe_dev, stream_cfg_cmd);
-
+	for (i = 0; i < VFE_SRC_MAX; i++) {
+		if ((vfe_dev->axi_data.src_info[i].pix_stream_count ||
+			vfe_dev->axi_data.src_info[i].raw_stream_count) &&
+			!vfe_dev->axi_data.src_info[i].flag) {
+			/*Configure UB*/
+			vfe_dev->hw_info->vfe_ops.axi_ops.cfg_ub(vfe_dev, i);
+			/*when start reset overflow state*/
+			atomic_set(&vfe_dev->error_info.overflow_state,
+				NO_OVERFLOW);
+			vfe_dev->axi_data.src_info[i].flag = 1;
+		}
+	}
 	if (camif_update == ENABLE_CAMIF) {
 		vfe_dev->hw_info->vfe_ops.core_ops.
 			update_camif_state(vfe_dev, camif_update);
@@ -2919,7 +2936,6 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 				clear_wm_irq_mask(vfe_dev, stream_info);
 
 		stream_info->state = STOP_PENDING;
-
 		if (!halt && !ext_read &&
 			!(stream_info->stream_type == BURST_STREAM &&
 			stream_info->runtime_num_burst_capture == 0))
@@ -3059,14 +3075,6 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	if (rc < 0) {
 		pr_err("%s: Invalid stream state\n", __func__);
 		return rc;
-	}
-
-	if (axi_data->num_active_stream == 0) {
-		/*Configure UB*/
-		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_ub(vfe_dev);
-		/*when start reset overflow state*/
-		atomic_set(&vfe_dev->error_info.overflow_state,
-			NO_OVERFLOW);
 	}
 	msm_isp_get_camif_update_state_and_halt(vfe_dev, stream_cfg_cmd,
 		&camif_update, &halt);
