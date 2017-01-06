@@ -1,36 +1,6 @@
 #ifndef _SDE_DRM_H_
 #define _SDE_DRM_H_
 
-/*
- * Each top level structure is of the following format:
- *
- * struct {
- *         uint64_t version;
- *         union {
- *                 struct version v1;
- *                 ...
- *         } u;
- *
- * Each top level structure maintains independent versioning and is defined
- * as follows:
- *
- * #define STRUCTNAME_V1	0x1
- * ...
- * #define STRUCTNAME_Vn	0x###
- * #define STRUCTNAME_VERSION	STRUCTNAME_Vn
- *
- * Version fields should ALWAYS be declared as type uint64_t. This is because
- * 64-bit compilers tend to pad the structure to 64-bit align the start of
- * union structure members. Having an explicit 64-bit version helps to maintain
- * consistent structure layout between 32-bit and 64-bit compilers.
- *
- * Updates to the structures UAPI should always define a new sub-structure to
- * place within the union, and update STRUCTNAME_VERSION to reference the
- * new version number.
- *
- * User mode code should always set the 'version' field to STRUCTNAME_VERSION.
- */
-
 /* Total number of supported color planes */
 #define SDE_MAX_PLANES  4
 
@@ -105,25 +75,9 @@ struct sde_drm_pix_ext_v1 {
 };
 
 /**
- * Enable mask bits for "scaler" property
- *
- * @SDE_DRM_SCALER_PIX_EXT: pix ext sub-structures are valid
- * @SDE_DRM_SCALER_SCALER_2: scaler 2 sub-structures are valid
- * @SDE_DRM_SCALER_SCALER_3: scaler 3 sub-structures are valid
- * @SDE_DRM_SCALER_DECIMATE: decimation fields are valid
- */
-#define SDE_DRM_SCALER_PIX_EXT      0x1
-#define SDE_DRM_SCALER_SCALER_2     0x2
-#define SDE_DRM_SCALER_SCALER_3     0x4
-#define SDE_DRM_SCALER_DECIMATE     0x8
-
-/**
  * struct sde_drm_scaler_v1 - version 1 of struct sde_drm_scaler
- * @enable:        Mask of SDE_DRM_SCALER_ bits
  * @lr:            Pixel extension settings for left/right
  * @tb:            Pixel extension settings for top/botton
- * @horz_decimate: Horizontal decimation factor
- * @vert_decimate: Vertical decimation factor
  * @init_phase_x:  Initial scaler phase values for x
  * @phase_step_x:  Phase step values for x
  * @init_phase_y:  Initial scaler phase values for y
@@ -133,21 +87,10 @@ struct sde_drm_pix_ext_v1 {
  */
 struct sde_drm_scaler_v1 {
 	/*
-	 * General definitions
-	 */
-	uint32_t enable;
-
-	/*
 	 * Pix ext settings
 	 */
 	struct sde_drm_pix_ext_v1 lr;
 	struct sde_drm_pix_ext_v1 tb;
-
-	/*
-	 * Decimation settings
-	 */
-	uint32_t horz_decimate;
-	uint32_t vert_decimate;
 
 	/*
 	 * Phase settings
@@ -163,22 +106,6 @@ struct sde_drm_scaler_v1 {
 	 */
 	uint32_t horz_filter[SDE_MAX_PLANES];
 	uint32_t vert_filter[SDE_MAX_PLANES];
-};
-
-/* Scaler version definition, see top of file for guidelines */
-#define SDE_DRM_SCALER_V1       0x1
-#define SDE_DRM_SCALER_VERSION  SDE_DRM_SCALER_V1
-
-/**
- * struct sde_drm_scaler - scaler structure
- * @version:    Structure version, set to SDE_DRM_SCALER_VERSION
- * @v1:         Version 1 of scaler structure
- */
-struct sde_drm_scaler {
-	uint64_t version;
-	union {
-		struct sde_drm_scaler_v1        v1;
-	};
 };
 
 /*
