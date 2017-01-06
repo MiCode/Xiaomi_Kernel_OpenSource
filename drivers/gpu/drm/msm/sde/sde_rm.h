@@ -12,8 +12,8 @@
  *
  */
 
-#ifndef __SDE_KMS_RM_H__
-#define __SDE_KMS_RM_H__
+#ifndef __SDE_RM_H__
+#define __SDE_RM_H__
 
 #include <linux/list.h>
 
@@ -198,4 +198,4 @@ int sde_rm_check_property_topctl(uint64_t val);
  */
 int sde_rm_check_property_topctl(uint64_t val);
 
-#endif /* __sde_kms_rm_H__ */
+#endif /* __SDE_RM_H__ */
