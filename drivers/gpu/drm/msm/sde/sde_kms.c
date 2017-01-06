@@ -234,6 +234,21 @@ static void sde_wait_for_commit_done(struct msm_kms *kms,
 	struct drm_device *dev = crtc->dev;
 	int ret;
 
+	if (!kms || !crtc || !crtc->state) {
+		SDE_ERROR("invalid params\n");
+		return;
+	}
+
+	if (!crtc->state->enable) {
+		SDE_DEBUG("[crtc:%d] not enable\n", crtc->base.id);
+		return;
+	}
+
+	if (!crtc->state->active) {
+		SDE_DEBUG("[crtc:%d] not active\n", crtc->base.id);
+		return;
+	}
+
 	 /* ref count the vblank event and interrupts while we wait for it */
 	if (drm_crtc_vblank_get(crtc))
 		return;
