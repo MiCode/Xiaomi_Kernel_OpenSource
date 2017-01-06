@@ -312,6 +312,7 @@
 	};
 };
 
+#include "sdm660-blsp.dtsi"
 #include "sdm630-smp2p.dtsi"
 #include "sdm630-coresight.dtsi"
 &soc {
@@ -341,6 +342,22 @@
 			     <1 3 0xf08>,
 			     <1 0 0xf08>;
 		clock-frequency = <19200000>;
+	};
+
+	dma_blsp1: qcom,sps-dma@0xc144000{ /* BLSP1 */
+		#dma-cells = <4>;
+		compatible = "qcom,sps-dma";
+		reg = <0xc144000 0x1F000>;
+		interrupts = <0 238 0>;
+		qcom,summing-threshold = <0x10>;
+	};
+
+	dma_blsp2: qcom,sps-dma@0xc184000{ /* BLSP2 */
+		#dma-cells = <4>;
+		compatible = "qcom,sps-dma";
+		reg = <0xc184000 0x1F000>;
+		interrupts = <0 239 0>;
+		qcom,summing-threshold = <0x10>;
 	};
 
 	restart@10ac000 {
@@ -657,6 +674,31 @@
 		clocks = <&clock_gcc GCC_BLSP2_UART2_APPS_CLK>,
 			 <&clock_gcc GCC_BLSP2_AHB_CLK>;
 		clock-names = "core", "iface";
+	};
+
+	slim_aud: slim@151c0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x151c0000 0x2c000>,
+			<0x15180000 0x2e000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x7e0000>;
+		qcom,ea-pc = <0x260>;
+		status = "disabled";
+	};
+
+	slim_qca: slim@15240000 {
+		cell-index = <3>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x15240000 0x2c000>,
+			<0x15200000 0x24000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 291 0>, <0 292 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x1800>;
+		status = "disabled";
 	};
 
 	timer@17920000 {
