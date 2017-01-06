@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,8 +71,8 @@ static long msm_jpeg_compat_ioctl(struct file *filp, unsigned int cmd,
 	int rc;
 	struct msm_jpeg_device *pgmn_dev = filp->private_data;
 
-	JPEG_DBG("%s:%d] cmd=%d pgmn_dev=0x%lx arg=0x%lx\n", __func__,
-		__LINE__, _IOC_NR(cmd), (unsigned long)pgmn_dev,
+	JPEG_DBG("%s:%d] cmd=%d pgmn_dev=0x%pK arg=0x%lx\n", __func__,
+		__LINE__, _IOC_NR(cmd), pgmn_dev,
 	(unsigned long)arg);
 
 	rc = __msm_jpeg_compat_ioctl(pgmn_dev, cmd, arg);
@@ -87,8 +87,8 @@ static long msm_jpeg_ioctl(struct file *filp, unsigned int cmd,
 	int rc;
 	struct msm_jpeg_device *pgmn_dev = filp->private_data;
 
-	JPEG_DBG("%s:%d] cmd=%d pgmn_dev=0x%lx arg=0x%lx\n", __func__,
-		__LINE__, _IOC_NR(cmd), (unsigned long)pgmn_dev,
+	JPEG_DBG("%s:%d] cmd=%d pgmn_dev=0x%pK arg=0x%lx\n", __func__,
+		__LINE__, _IOC_NR(cmd), pgmn_dev,
 	(unsigned long)arg);
 
 	rc = __msm_jpeg_ioctl(pgmn_dev, cmd, arg);
@@ -114,9 +114,9 @@ int msm_jpeg_subdev_init(struct v4l2_subdev *jpeg_sd)
 	struct msm_jpeg_device *pgmn_dev =
 		(struct msm_jpeg_device *)jpeg_sd->host_priv;
 
-	JPEG_DBG("%s:%d: jpeg_sd=0x%lx pgmn_dev=0x%lx\n",
+	JPEG_DBG("%s:%d: jpeg_sd=0x%lx pgmn_dev=0x%pK\n",
 		__func__, __LINE__, (unsigned long)jpeg_sd,
-		(unsigned long)pgmn_dev);
+		pgmn_dev);
 	rc = __msm_jpeg_open(pgmn_dev);
 	JPEG_DBG("%s:%d: rc=%d\n",
 		__func__, __LINE__, rc);
@@ -132,7 +132,7 @@ static long msm_jpeg_subdev_ioctl(struct v4l2_subdev *sd,
 
 	JPEG_DBG("%s: cmd=%d\n", __func__, cmd);
 
-	JPEG_DBG("%s: pgmn_dev 0x%lx", __func__, (unsigned long)pgmn_dev);
+	JPEG_DBG("%s: pgmn_dev 0x%pK", __func__, pgmn_dev);
 
 	JPEG_DBG("%s: Calling __msm_jpeg_ioctl\n", __func__);
 
@@ -146,7 +146,7 @@ void msm_jpeg_subdev_release(struct v4l2_subdev *jpeg_sd)
 	int rc;
 	struct msm_jpeg_device *pgmn_dev =
 		(struct msm_jpeg_device *)jpeg_sd->host_priv;
-	JPEG_DBG("%s:pgmn_dev=0x%lx", __func__, (unsigned long)pgmn_dev);
+	JPEG_DBG("%s:pgmn_dev=0x%pK", __func__, pgmn_dev);
 	rc = __msm_jpeg_release(pgmn_dev);
 	JPEG_DBG("%s:rc=%d", __func__, rc);
 }
