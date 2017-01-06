@@ -603,6 +603,8 @@ struct sde_vbif_cfg {
  * @max_wb_linewidth   max writeback line width support.
  * @highest_bank_bit   highest memory bit setting for tile buffers.
  * @qseed_type         qseed2 or qseed3 support.
+ * @has_src_split      source split feature status
+ * @has_cdp            Client driver prefetch feature status
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -613,6 +615,8 @@ struct sde_mdss_cfg {
 	u32 max_wb_linewidth;
 	u32 highest_bank_bit;
 	u32 qseed_type;
+	bool has_src_split;
+	bool has_cdp;
 
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];
