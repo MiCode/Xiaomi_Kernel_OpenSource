@@ -735,7 +735,9 @@ void mdss_dp_timing_cfg(struct dss_io_data *ctrl_io,
 
 	data = pinfo->lcdc.v_pulse_width;
 	data <<= 16;
+	data |= (pinfo->lcdc.v_active_low << 31);
 	data |= pinfo->lcdc.h_pulse_width;
+	data |= (pinfo->lcdc.h_active_low << 15);
 	/* DP_HSYNC_VSYNC_WIDTH_POLARITY */
 	writel_relaxed(data, ctrl_io->base + DP_HSYNC_VSYNC_WIDTH_POLARITY);
 

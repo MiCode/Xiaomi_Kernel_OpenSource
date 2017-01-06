@@ -1014,9 +1014,11 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 	pinfo->lcdc.h_back_porch = timing.back_porch_h;
 	pinfo->lcdc.h_front_porch = timing.front_porch_h;
 	pinfo->lcdc.h_pulse_width = timing.pulse_width_h;
+	pinfo->lcdc.h_active_low = timing.active_low_h;
 	pinfo->lcdc.v_back_porch = timing.back_porch_v;
 	pinfo->lcdc.v_front_porch = timing.front_porch_v;
 	pinfo->lcdc.v_pulse_width = timing.pulse_width_v;
+	pinfo->lcdc.v_active_low = timing.active_low_v;
 
 	pinfo->type = DP_PANEL;
 	pinfo->pdest = DISPLAY_4;
