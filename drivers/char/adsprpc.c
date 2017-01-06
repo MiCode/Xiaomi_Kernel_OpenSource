@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -606,6 +606,13 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, unsigned attr,
 		if (sess->smmu.enabled) {
 			init_dma_attrs(&attrs);
 			dma_set_attr(DMA_ATTR_EXEC_MAPPING, &attrs);
+
+			if (map->attr & FASTRPC_ATTR_NON_COHERENT)
+				dma_set_attr(DMA_ATTR_FORCE_NON_COHERENT,
+								 &attrs);
+			else if (map->attr & FASTRPC_ATTR_COHERENT)
+				dma_set_attr(DMA_ATTR_FORCE_COHERENT, &attrs);
+
 			VERIFY(err, map->table->nents ==
 					msm_dma_map_sg_attrs(sess->dev,
 					map->table->sgl, map->table->nents,
@@ -1143,10 +1150,15 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
-		if (ctx->fl->sctx->smmu.coherent)
-			continue;
+
 		if (map && map->uncached)
 			continue;
+		if (ctx->fl->sctx->smmu.coherent &&
+			!(map && (map->attr & FASTRPC_ATTR_NON_COHERENT)))
+			continue;
+		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
+			continue;
+
 		if (rpra[i].buf.len && ctx->overps[oix]->mstart)
 			dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
 			uint64_to_ptr(rpra[i].buf.pv + rpra[i].buf.len));
@@ -1213,6 +1225,12 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 			continue;
 		if (!rpra[i].buf.len)
 			continue;
+		if (ctx->fl->sctx->smmu.coherent &&
+			!(map && (map->attr & FASTRPC_ATTR_NON_COHERENT)))
+			continue;
+		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
+			continue;
+
 		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
 				buf_page_start(rpra[i].buf.pv))
 			continue;
@@ -1239,10 +1257,17 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
 	for (i = inbufs; i < inbufs + outbufs; ++i) {
 		struct fastrpc_mmap *map = ctx->maps[i];
+
 		if (map && map->uncached)
 			continue;
 		if (!rpra[i].buf.len)
 			continue;
+		if (ctx->fl->sctx->smmu.coherent &&
+			!(map && (map->attr & FASTRPC_ATTR_NON_COHERENT)))
+			continue;
+		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
+			continue;
+
 		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
 				buf_page_start(rpra[i].buf.pv)) {
 			inv = 1;
@@ -1389,15 +1414,13 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 			goto bail;
 	}
 
-	if (!fl->sctx->smmu.coherent) {
-		inv_args_pre(ctx);
-		if (mode == FASTRPC_MODE_SERIAL)
-			inv_args(ctx);
-	}
+	inv_args_pre(ctx);
+	if (mode == FASTRPC_MODE_SERIAL)
+		inv_args(ctx);
 	VERIFY(err, 0 == fastrpc_invoke_send(ctx, kernel, invoke->handle));
 	if (err)
 		goto bail;
-	if (mode == FASTRPC_MODE_PARALLEL && !fl->sctx->smmu.coherent)
+	if (mode == FASTRPC_MODE_PARALLEL)
 		inv_args(ctx);
  wait:
 	if (kernel)
