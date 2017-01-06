@@ -357,17 +357,30 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
 	int i = 0;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
+	} else if (!drm_enc->dev) {
+		SDE_ERROR("invalid dev\n");
+		return;
+	} else if (!drm_enc->dev->dev_private) {
+		SDE_ERROR("invalid dev_private\n");
+		return;
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	priv = drm_enc->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
+
 	SDE_DEBUG_ENC(sde_enc, "\n");
 
 	MSM_EVT(drm_enc->dev, 0, 0);
+
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 
 	bs_set(sde_enc, 1);
 
@@ -402,6 +415,12 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
+	} else if (!drm_enc->dev) {
+		SDE_ERROR("invalid dev\n");
+		return;
+	} else if (!drm_enc->dev->dev_private) {
+		SDE_ERROR("invalid dev_private\n");
+		return;
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
@@ -415,9 +434,12 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && phys->ops.disable)
+		if (phys && phys->ops.disable && !phys->ops.is_master(phys))
 			phys->ops.disable(phys);
 	}
+
+	if (sde_enc->cur_master && sde_enc->cur_master->ops.disable)
+		sde_enc->cur_master->ops.disable(sde_enc->cur_master);
 
 	sde_enc->cur_master = NULL;
 	SDE_DEBUG_ENC(sde_enc, "cleared master\n");
@@ -426,6 +448,8 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	sde_cp_crtc_destroy_properties(drm_enc->crtc);
 
 	sde_rm_release(&sde_kms->rm, drm_enc);
+
+	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 }
 
 static const struct drm_encoder_helper_funcs sde_encoder_helper_funcs = {

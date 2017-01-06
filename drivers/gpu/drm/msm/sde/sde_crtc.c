@@ -830,6 +830,12 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		return -EINVAL;
 	}
 
+	if (!state->enable || !state->active) {
+		SDE_DEBUG("crtc%d -> enable %d, active %d, skip atomic_check\n",
+				crtc->base.id, state->enable, state->active);
+		return 0;
+	}
+
 	sde_crtc = to_sde_crtc(crtc);
 	mode = &state->adjusted_mode;
 	SDE_DEBUG("%s: check", sde_crtc->name);
@@ -922,6 +928,14 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 	}
 
 	return 0;
+}
+
+void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file)
+{
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+
+	SDE_DEBUG("%s: cancel: %p", sde_crtc->name, file);
+	complete_flip(crtc, file);
 }
 
 /**
