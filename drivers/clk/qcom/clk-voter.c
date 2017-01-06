@@ -123,6 +123,16 @@ static unsigned long voter_clk_recalc_rate(struct clk_hw *hw,
 	return v->rate;
 }
 
+int voter_clk_handoff(struct clk_hw *hw)
+{
+	struct clk_voter *v = to_clk_voter(hw);
+
+	v->enabled = true;
+
+	return 0;
+}
+EXPORT_SYMBOL(voter_clk_handoff);
+
 struct clk_ops clk_ops_voter = {
 	.prepare = voter_clk_prepare,
 	.unprepare = voter_clk_unprepare,

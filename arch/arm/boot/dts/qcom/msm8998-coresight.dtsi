@@ -1132,6 +1132,8 @@
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 
+		qcom,msr-fix-req;
+
 		port{
 			tpdm_qm_out_tpda: endpoint {
 				remote-endpoint = <&tpda_in_tpdm_qm>;
@@ -1150,6 +1152,8 @@
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,msr-fix-req;
 
 		port{
 			tpdm_pimem_out_tpda: endpoint {
@@ -1205,6 +1209,8 @@
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 
+		qcom,msr-fix-req;
+
 		port{
 			tpdm_apss_out_tpda_apss: endpoint {
 				remote-endpoint = <&tpda_apss_in_tpdm_apss>;
@@ -1258,6 +1264,8 @@
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,msr-fix-req;
 
 		port{
 			tpdm_mss_out_tpda_mss: endpoint {
@@ -1452,6 +1460,8 @@
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,msr-fix-req;
 
 		port{
 			tpdm_spss_out_tpda_spss: endpoint {

@@ -1804,6 +1804,44 @@ static ssize_t ipa_write_polling_iteration(struct file *file,
 	return count;
 }
 
+static ssize_t ipa_enable_ipc_low(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	unsigned long missing;
+	s8 option = 0;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	missing = copy_from_user(dbg_buff, ubuf, count);
+	if (missing)
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+	if (kstrtos8(dbg_buff, 0, &option))
+		return -EFAULT;
+
+	if (option) {
+		if (!ipa_ctx->logbuf_low) {
+			ipa_ctx->logbuf_low =
+				ipc_log_context_create(IPA_IPC_LOG_PAGES,
+				"ipa_low", 0);
+		}
+
+		if (ipa_ctx->logbuf_low == NULL) {
+			IPAERR("failed to get logbuf_low\n");
+			return -EFAULT;
+		}
+
+	} else {
+		if (ipa_ctx->logbuf_low)
+			ipc_log_context_destroy(ipa_ctx->logbuf_low);
+			ipa_ctx->logbuf_low = NULL;
+	}
+
+	return count;
+}
+
 const struct file_operations ipa_gen_reg_ops = {
 	.read = ipa_read_gen_reg,
 };
@@ -1880,6 +1918,10 @@ const struct file_operations ipa_status_stats_ops = {
 const struct file_operations ipa2_active_clients = {
 	.read = ipa2_print_active_clients_log,
 	.write = ipa2_clear_active_clients_log,
+};
+
+const struct file_operations ipa_ipc_low_ops = {
+	.write = ipa_enable_ipc_low,
 };
 
 const struct file_operations ipa_rx_poll_time_ops = {
@@ -2094,6 +2136,13 @@ void ipa_debugfs_init(void)
 		&ipa_ctx->ctrl->clock_scaling_bw_threshold_turbo);
 	if (!file) {
 		IPAERR("could not create bw_threshold_turbo_mbps\n");
+		goto fail;
+	}
+
+	file = debugfs_create_file("enable_low_prio_print", write_only_mode,
+		dent, 0, &ipa_ipc_low_ops);
+	if (!file) {
+		IPAERR("could not create enable_low_prio_print file\n");
 		goto fail;
 	}
 
