@@ -11,6 +11,9 @@
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
+
 #include "msm_drv.h"
 #include "sde_kms.h"
 #include "drm_crtc.h"
@@ -73,6 +76,9 @@
  *				kickoff. Bit0 = phys_encs[0] etc.
  * @pending_kickoff_wq:		Wait queue commit thread to wait on phys_encs
  *				become ready for kickoff in IRQ contexts
+ * @debugfs_root:		Debug file system root file node
+ * @enc_lock:			Lock around physical encoder create/destroy and
+				access.
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -90,6 +96,9 @@ struct sde_encoder_virt {
 
 	unsigned int pending_kickoff_mask;
 	wait_queue_head_t pending_kickoff_wq;
+
+	struct dentry *debugfs_root;
+	struct mutex enc_lock;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -222,7 +231,8 @@ static void sde_encoder_destroy(struct drm_encoder *drm_enc)
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	SDE_DEBUG_ENC(sde_enc, "\n");
 
-	for (i = 0; i < ARRAY_SIZE(sde_enc->phys_encs); i++) {
+	mutex_lock(&sde_enc->enc_lock);
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
 		if (phys && phys->ops.destroy) {
@@ -232,13 +242,17 @@ static void sde_encoder_destroy(struct drm_encoder *drm_enc)
 		}
 	}
 
-	if (sde_enc->num_phys_encs) {
+	if (sde_enc->num_phys_encs)
 		SDE_ERROR_ENC(sde_enc, "expected 0 num_phys_encs not %d\n",
 				sde_enc->num_phys_encs);
-	}
+	sde_enc->num_phys_encs = 0;
+	mutex_unlock(&sde_enc->enc_lock);
 
 	drm_encoder_cleanup(drm_enc);
 	bs_fini(sde_enc);
+	debugfs_remove_recursive(sde_enc->debugfs_root);
+	mutex_destroy(&sde_enc->enc_lock);
+
 	kfree(sde_enc);
 }
 
@@ -757,6 +771,85 @@ void sde_encoder_schedule_kickoff(struct drm_encoder *drm_enc)
 	}
 }
 
+static int _sde_encoder_status_show(struct seq_file *s, void *data)
+{
+	struct sde_encoder_virt *sde_enc;
+	int i;
+
+	if (!s || !s->private)
+		return -EINVAL;
+
+	sde_enc = s->private;
+
+	mutex_lock(&sde_enc->enc_lock);
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (!phys)
+			continue;
+
+		seq_printf(s, "intf:%d    vsync:%8d     underrun:%8d    ",
+				phys->intf_idx - INTF_0,
+				atomic_read(&phys->vsync_cnt),
+				atomic_read(&phys->underrun_cnt));
+
+		switch (phys->intf_mode) {
+		case INTF_MODE_VIDEO:
+			seq_puts(s, "mode: video\n");
+			break;
+		case INTF_MODE_CMD:
+			seq_puts(s, "mode: command\n");
+			break;
+		case INTF_MODE_WB_BLOCK:
+			seq_puts(s, "mode: wb block\n");
+			break;
+		case INTF_MODE_WB_LINE:
+			seq_puts(s, "mode: wb line\n");
+			break;
+		default:
+			seq_puts(s, "mode: ???\n");
+			break;
+		}
+	}
+	mutex_unlock(&sde_enc->enc_lock);
+
+	return 0;
+}
+
+static int _sde_encoder_debugfs_status_open(struct inode *inode,
+		struct file *file)
+{
+	return single_open(file, _sde_encoder_status_show, inode->i_private);
+}
+
+static void _sde_encoder_init_debugfs(struct drm_encoder *drm_enc,
+	struct sde_encoder_virt *sde_enc, struct sde_kms *sde_kms)
+{
+	static const struct file_operations debugfs_status_fops = {
+		.open =		_sde_encoder_debugfs_status_open,
+		.read =		seq_read,
+		.llseek =	seq_lseek,
+		.release =	single_release,
+	};
+	char name[SDE_NAME_SIZE];
+
+	if (!drm_enc || !sde_enc || !sde_kms) {
+		SDE_ERROR("invalid encoder or kms\n");
+		return;
+	}
+
+	snprintf(name, SDE_NAME_SIZE, "encoder%u", drm_enc->base.id);
+
+	/* create overall sub-directory for the encoder */
+	sde_enc->debugfs_root = debugfs_create_dir(name,
+					sde_debugfs_get_root(sde_kms));
+	if (sde_enc->debugfs_root) {
+		/* don't error check these */
+		debugfs_create_file("status", 0644,
+			sde_enc->debugfs_root, sde_enc, &debugfs_status_fops);
+	}
+}
+
 static int sde_encoder_virt_add_phys_encs(
 		u32 display_caps,
 		struct sde_encoder_virt *sde_enc,
@@ -886,6 +979,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 
 	SDE_DEBUG("dsi_info->num_of_h_tiles %d\n", disp_info->num_of_h_tiles);
 
+	mutex_lock(&sde_enc->enc_lock);
 	for (i = 0; i < disp_info->num_of_h_tiles && !ret; i++) {
 		/*
 		 * Left-most tile is at index 0, content is controller id
@@ -944,6 +1038,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 						"failed to add phys encs\n");
 		}
 	}
+	mutex_unlock(&sde_enc->enc_lock);
 
 
 	return ret;
@@ -965,6 +1060,7 @@ static struct drm_encoder *sde_encoder_virt_init(
 		goto fail;
 	}
 
+	mutex_init(&sde_enc->enc_lock);
 	ret = sde_encoder_setup_display(sde_enc, sde_kms, disp_info,
 			&drm_enc_mode);
 	if (ret)
@@ -978,6 +1074,8 @@ static struct drm_encoder *sde_encoder_virt_init(
 	bs_init(sde_enc);
 	sde_enc->pending_kickoff_mask = 0;
 	init_waitqueue_head(&sde_enc->pending_kickoff_wq);
+
+	_sde_encoder_init_debugfs(drm_enc, sde_enc, sde_kms);
 
 	SDE_DEBUG_ENC(sde_enc, "created\n");
 
