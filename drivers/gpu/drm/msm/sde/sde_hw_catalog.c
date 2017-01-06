@@ -68,6 +68,9 @@
 #define LINE_LM_OFFSET			5
 #define LINE_MODE_WB_OFFSET		2
 
+/* maximum XIN halt timeout in usec */
+#define VBIF_XIN_HALT_TIMEOUT		0x4000
+
 /*************************************************************
  *  DTSI PROPERTY INDEX
  *************************************************************/
@@ -147,6 +150,16 @@ enum {
 	WB_LEN,
 	WB_ID,
 	WB_XIN_ID,
+};
+
+enum {
+	VBIF_OFF,
+	VBIF_LEN,
+	VBIF_ID,
+	VBIF_DEFAULT_OT_RD_LIMIT,
+	VBIF_DEFAULT_OT_WR_LIMIT,
+	VBIF_DYNAMIC_OT_RD_LIMIT,
+	VBIF_DYNAMIC_OT_WR_LIMIT,
 };
 
 /*************************************************************
@@ -262,6 +275,20 @@ static struct sde_prop_type wb_prop[] = {
 	{WB_LEN, "qcom,sde-wb-size", false, PROP_TYPE_U32},
 	{WB_ID, "qcom,sde-wb-id", true, PROP_TYPE_U32_ARRAY},
 	{WB_XIN_ID, "qcom,sde-wb-xin-id", false, PROP_TYPE_U32_ARRAY},
+};
+
+static struct sde_prop_type vbif_prop[] = {
+	{VBIF_OFF, "qcom,sde-vbif-off", true, PROP_TYPE_U32_ARRAY},
+	{VBIF_LEN, "qcom,sde-vbif-size", false, PROP_TYPE_U32},
+	{VBIF_ID, "qcom,sde-vbif-id", false, PROP_TYPE_U32_ARRAY},
+	{VBIF_DEFAULT_OT_RD_LIMIT, "qcom,sde-vbif-default-ot-rd-limit", false,
+		PROP_TYPE_U32},
+	{VBIF_DEFAULT_OT_WR_LIMIT, "qcom,sde-vbif-default-ot-wr-limit", false,
+		PROP_TYPE_U32},
+	{VBIF_DYNAMIC_OT_RD_LIMIT, "qcom,sde-vbif-dynamic-ot-rd-limit", false,
+		PROP_TYPE_U32_ARRAY},
+	{VBIF_DYNAMIC_OT_WR_LIMIT, "qcom,sde-vbif-dynamic-ot-wr-limit", false,
+		PROP_TYPE_U32_ARRAY},
 };
 
 /*************************************************************
@@ -975,6 +1002,128 @@ end:
 	return rc;
 }
 
+static int sde_vbif_parse_dt(struct device_node *np,
+				struct sde_mdss_cfg *sde_cfg)
+{
+	int rc, prop_count[MAX_BLOCKS], i, j, k;
+	u32 prop_value[MAX_BLOCKS][MAX_SDE_HW_BLK] = { { 0 } };
+	u32 bit_value[MAX_BLOCKS][MAX_SDE_HW_BLK][MAX_BIT_OFFSET]
+				= { { { 0 } } };
+	u32 off_count, vbif_len, rd_len = 0, wr_len = 0;
+	struct sde_vbif_cfg *vbif;
+
+	if (!sde_cfg) {
+		SDE_ERROR("invalid argument\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	rc = _validate_dt_entry(np, vbif_prop, ARRAY_SIZE(vbif_prop),
+			prop_count, &off_count);
+	if (rc)
+		goto end;
+
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_DYNAMIC_OT_RD_LIMIT], 1,
+			&prop_count[VBIF_DYNAMIC_OT_RD_LIMIT], &rd_len);
+	if (rc)
+		goto end;
+
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_DYNAMIC_OT_WR_LIMIT], 1,
+			&prop_count[VBIF_DYNAMIC_OT_WR_LIMIT], &wr_len);
+	if (rc)
+		goto end;
+
+	sde_cfg->vbif_count = off_count;
+
+	rc = _read_dt_entry(np, vbif_prop, ARRAY_SIZE(vbif_prop), prop_count,
+		prop_value, bit_value);
+	if (rc)
+		goto end;
+
+	vbif_len = prop_value[VBIF_LEN][0];
+	if (!vbif_len)
+		vbif_len = DEFAULT_SDE_HW_BLOCK_LEN;
+
+	for (i = 0; i < off_count; i++) {
+		vbif = sde_cfg->vbif + i;
+		vbif->base = prop_value[VBIF_OFF][i];
+		vbif->len = vbif_len;
+		vbif->id = VBIF_0 + prop_value[VBIF_ID][i];
+
+		SDE_DEBUG("vbif:%d\n", vbif->id - VBIF_0);
+
+		vbif->xin_halt_timeout = VBIF_XIN_HALT_TIMEOUT;
+
+		vbif->default_ot_rd_limit =
+				prop_value[VBIF_DEFAULT_OT_RD_LIMIT][0];
+		SDE_DEBUG("default_ot_rd_limit=%u\n",
+				vbif->default_ot_rd_limit);
+
+		vbif->default_ot_wr_limit =
+				prop_value[VBIF_DEFAULT_OT_WR_LIMIT][0];
+		SDE_DEBUG("default_ot_wr_limit=%u\n",
+				vbif->default_ot_wr_limit);
+
+		vbif->dynamic_ot_rd_tbl.count =
+				prop_count[VBIF_DYNAMIC_OT_RD_LIMIT] / 2;
+		SDE_DEBUG("dynamic_ot_rd_tbl.count=%u\n",
+				vbif->dynamic_ot_rd_tbl.count);
+		if (vbif->dynamic_ot_rd_tbl.count) {
+			vbif->dynamic_ot_rd_tbl.cfg = kcalloc(
+				vbif->dynamic_ot_rd_tbl.count,
+				sizeof(struct sde_vbif_dynamic_ot_cfg),
+				GFP_KERNEL);
+			if (!vbif->dynamic_ot_rd_tbl.cfg) {
+				rc = -ENOMEM;
+				goto end;
+			}
+		}
+
+		for (j = 0, k = 0; j < vbif->dynamic_ot_rd_tbl.count; j++) {
+			vbif->dynamic_ot_rd_tbl.cfg[j].pps = (u64)
+				prop_value[VBIF_DYNAMIC_OT_RD_LIMIT][k++];
+			vbif->dynamic_ot_rd_tbl.cfg[j].ot_limit =
+				prop_value[VBIF_DYNAMIC_OT_RD_LIMIT][k++];
+			SDE_DEBUG("dynamic_ot_rd_tbl[%d].cfg=<%llu %u>\n", j,
+				vbif->dynamic_ot_rd_tbl.cfg[j].pps,
+				vbif->dynamic_ot_rd_tbl.cfg[j].ot_limit);
+		}
+
+		vbif->dynamic_ot_wr_tbl.count =
+				prop_count[VBIF_DYNAMIC_OT_WR_LIMIT] / 2;
+		SDE_DEBUG("dynamic_ot_wr_tbl.count=%u\n",
+				vbif->dynamic_ot_wr_tbl.count);
+		if (vbif->dynamic_ot_wr_tbl.count) {
+			vbif->dynamic_ot_wr_tbl.cfg = kcalloc(
+				vbif->dynamic_ot_wr_tbl.count,
+				sizeof(struct sde_vbif_dynamic_ot_cfg),
+				GFP_KERNEL);
+			if (!vbif->dynamic_ot_wr_tbl.cfg) {
+				rc = -ENOMEM;
+				goto end;
+			}
+		}
+
+		for (j = 0, k = 0; j < vbif->dynamic_ot_wr_tbl.count; j++) {
+			vbif->dynamic_ot_wr_tbl.cfg[j].pps = (u64)
+				prop_value[VBIF_DYNAMIC_OT_WR_LIMIT][k++];
+			vbif->dynamic_ot_wr_tbl.cfg[j].ot_limit =
+				prop_value[VBIF_DYNAMIC_OT_WR_LIMIT][k++];
+			SDE_DEBUG("dynamic_ot_wr_tbl[%d].cfg=<%llu %u>\n", j,
+				vbif->dynamic_ot_wr_tbl.cfg[j].pps,
+				vbif->dynamic_ot_wr_tbl.cfg[j].ot_limit);
+		}
+
+		if (vbif->default_ot_rd_limit || vbif->default_ot_wr_limit ||
+				vbif->dynamic_ot_rd_tbl.count ||
+				vbif->dynamic_ot_wr_tbl.count)
+			set_bit(SDE_VBIF_QOS_OTLIM, &vbif->features);
+	}
+
+end:
+	return rc;
+}
+
 static int sde_pp_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 {
 	int rc, prop_count[MAX_BLOCKS], i;
@@ -1141,6 +1290,11 @@ static void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 
 	for (i = 0; i < sde_cfg->pingpong_count; i++)
 		kfree(sde_cfg->pingpong[i].sblk);
+
+	for (i = 0; i < sde_cfg->vbif_count; i++) {
+		kfree(sde_cfg->vbif[i].dynamic_ot_rd_tbl.cfg);
+		kfree(sde_cfg->vbif[i].dynamic_ot_wr_tbl.cfg);
+	}
 }
 
 /*************************************************************
@@ -1193,6 +1347,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 
 	/* cdm parsing should be done after intf and wb for mapping setup */
 	rc = sde_cdm_parse_dt(np, sde_cfg);
+	if (rc)
+		goto end;
+
+	rc = sde_vbif_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
 
