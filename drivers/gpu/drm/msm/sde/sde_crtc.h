@@ -77,9 +77,7 @@ struct sde_crtc {
 
 	/*if there is a pending flip, these will be non-null */
 	struct drm_pending_vblank_event *event;
-	atomic_t pending;
 	u32 vsync_count;
-	atomic_t drm_requested_vblank;
 
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[CRTC_PROP_COUNT];

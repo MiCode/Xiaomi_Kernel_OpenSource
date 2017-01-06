@@ -352,21 +352,10 @@ static void sde_crtc_vblank_cb(void *data)
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_kms *sde_kms = get_kms(crtc);
 	struct drm_device *dev = sde_kms->dev;
-	unsigned int pending;
 
-	pending = atomic_xchg(&sde_crtc->pending, 0);
-
-	if (pending & PENDING_FLIP) {
-		complete_flip(crtc, NULL);
-		/* free ref count paired with the atomic_flush */
-		drm_crtc_vblank_put(crtc);
-	}
-
-	if (atomic_read(&sde_crtc->drm_requested_vblank)) {
-		drm_handle_vblank(dev, sde_crtc->drm_crtc_id);
-		DBG_IRQ("");
-		MSM_EVT(crtc->dev, crtc->base.id, 0);
-	}
+	drm_handle_vblank(dev, sde_crtc->drm_crtc_id);
+	DBG_IRQ("");
+	MSM_EVT(crtc->dev, crtc->base.id, 0);
 }
 
 void sde_crtc_complete_commit(struct drm_crtc *crtc)
@@ -567,17 +556,6 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	 */
 }
 
-static void request_pending(struct drm_crtc *crtc, u32 pending)
-{
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-
-	atomic_or(pending, &sde_crtc->pending);
-
-	/* ref count the vblank event and interrupts over the atomic commit */
-	if (drm_crtc_vblank_get(crtc))
-		return;
-}
-
 static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_crtc_state)
 {
@@ -623,8 +601,6 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	 */
 	drm_atomic_crtc_for_each_plane(plane, crtc)
 		sde_plane_flush(plane);
-
-	request_pending(crtc, PENDING_FLIP);
 
 	/* Kickoff will be scheduled by outer layer */
 }
@@ -900,7 +876,6 @@ end:
 
 int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 {
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct drm_encoder *encoder;
 	struct drm_device *dev = crtc->dev;
 
@@ -909,13 +884,7 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
 			continue;
-		/*
-		 * Mark that framework requested vblank,
-		 * as opposed to enabling vblank only for our internal purposes
-		 * Currently this variable isn't required, but may be useful for
-		 * future features
-		 */
-		atomic_set(&sde_crtc->drm_requested_vblank, en);
+
 		MSM_EVT(crtc->dev, crtc->base.id, en);
 
 		if (en)
@@ -1191,7 +1160,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 	crtc->dev = dev;
 
 	sde_crtc->drm_crtc_id = drm_crtc_id;
-	atomic_set(&sde_crtc->drm_requested_vblank, 0);
 
 	drm_crtc_init_with_planes(dev, crtc, plane, NULL, &sde_crtc_funcs);
 
