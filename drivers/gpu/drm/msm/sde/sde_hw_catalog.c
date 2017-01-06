@@ -145,6 +145,7 @@ enum {
 enum {
 	WB_OFF,
 	WB_LEN,
+	WB_ID,
 	WB_XIN_ID,
 };
 
@@ -259,6 +260,7 @@ static struct sde_prop_type intf_prop[] = {
 static struct sde_prop_type wb_prop[] = {
 	{WB_OFF, "qcom,sde-wb-off", true, PROP_TYPE_U32_ARRAY},
 	{WB_LEN, "qcom,sde-wb-size", false, PROP_TYPE_U32},
+	{WB_ID, "qcom,sde-wb-id", true, PROP_TYPE_U32_ARRAY},
 	{WB_XIN_ID, "qcom,sde-wb-xin-id", false, PROP_TYPE_U32_ARRAY},
 };
 
@@ -833,8 +835,8 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 		wb->sblk = sblk;
 
 		wb->base = prop_value[WB_OFF][i];
-		wb->id = WB_0 + i;
-		wb->clk_ctrl = SDE_CLK_CTRL_NONE;
+		wb->id = WB_0 + prop_value[WB_ID][i];
+		wb->clk_ctrl = SDE_CLK_CTRL_WB0 + prop_value[WB_ID][i];
 		wb->xin_id = prop_value[WB_XIN_ID][i];
 		wb->vbif_idx = VBIF_NRT;
 		wb->len = prop_value[WB_LEN][0];
@@ -843,7 +845,7 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 			wb->len = DEFAULT_SDE_HW_BLOCK_LEN;
 		sblk->maxlinewidth = sde_cfg->max_wb_linewidth;
 
-		if (i >= LINE_MODE_WB_OFFSET)
+		if (wb->id >= LINE_MODE_WB_OFFSET)
 			set_bit(SDE_WB_LINE_MODE, &wb->features);
 		else
 			set_bit(SDE_WB_BLOCK_MODE, &wb->features);
