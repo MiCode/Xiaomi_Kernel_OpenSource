@@ -784,7 +784,27 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 struct plane_state {
 	struct sde_plane_state *sde_pstate;
 	struct drm_plane_state *drm_pstate;
+
+	int stage;
 };
+
+static int pstate_cmp(const void *a, const void *b)
+{
+	struct plane_state *pa = (struct plane_state *)a;
+	struct plane_state *pb = (struct plane_state *)b;
+	int rc = 0;
+	int pa_zpos, pb_zpos;
+
+	pa_zpos = sde_plane_get_property(pa->sde_pstate, PLANE_PROP_ZPOS);
+	pb_zpos = sde_plane_get_property(pb->sde_pstate, PLANE_PROP_ZPOS);
+
+	if (pa_zpos != pb_zpos)
+		rc = pa_zpos - pb_zpos;
+	else
+		rc = pa->drm_pstate->crtc_x - pb->drm_pstate->crtc_x;
+
+	return rc;
+}
 
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
@@ -820,16 +840,19 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	 /* get plane state for all drm planes associated with crtc state */
 	drm_atomic_crtc_state_for_each_plane(plane, state) {
 		pstate = drm_atomic_get_plane_state(state->state, plane);
-		if (IS_ERR(pstate)) {
-			SDE_ERROR("%s: failed to get plane:%d state\n",
-					sde_crtc->name,
-					plane->base.id);
-			rc = -EINVAL;
+		if (IS_ERR_OR_NULL(pstate)) {
+			rc = PTR_ERR(pstate);
+			SDE_ERROR("%s: failed to get plane%d state, %d\n",
+					sde_crtc->name, plane->base.id, rc);
 			goto end;
 		}
+		if (cnt >= ARRAY_SIZE(pstates))
+			continue;
 
 		pstates[cnt].sde_pstate = to_sde_plane_state(pstate);
 		pstates[cnt].drm_pstate = pstate;
+		pstates[cnt].stage = sde_plane_get_property(
+				pstates[cnt].sde_pstate, PLANE_PROP_ZPOS);
 		cnt++;
 
 		if (CHECK_LAYER_BOUNDS(pstate->crtc_y, pstate->crtc_h,
@@ -845,11 +868,30 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		}
 	}
 
-	for (i = 0; i < cnt; i++) {
-		z_pos = sde_plane_get_property(pstates[i].sde_pstate,
-			PLANE_PROP_ZPOS);
+	if (!sde_is_custom_client()) {
+		int stage_old = pstates[0].stage;
 
-		if (pstates[i].drm_pstate->crtc_x < mixer_width) {
+		/* assign mixer stages based on sorted zpos property */
+		sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
+		z_pos = 0;
+		for (i = 0; i < cnt; i++) {
+			if (stage_old != pstates[i].stage)
+				++z_pos;
+			stage_old = pstates[i].stage;
+			pstates[i].stage = z_pos;
+		}
+	}
+
+	for (i = 0; i < cnt; i++) {
+		z_pos = pstates[i].stage;
+
+		/* verify z_pos setting before using it */
+		if (z_pos >= SDE_STAGE_MAX) {
+			SDE_ERROR("> %d plane stages assigned\n",
+					SDE_STAGE_MAX - SDE_STAGE_0);
+			rc = -EINVAL;
+			goto end;
+		} else if (pstates[i].drm_pstate->crtc_x < mixer_width) {
 			if (left_crtc_zpos_cnt[z_pos] == 2) {
 				SDE_ERROR("> 2 plane @ stage%d on left\n",
 					z_pos);
@@ -866,7 +908,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			}
 			right_crtc_zpos_cnt[z_pos]++;
 		}
-		pstates[i].sde_pstate->stage = z_pos;
+		pstates[i].sde_pstate->stage = z_pos + SDE_STAGE_0;
 		SDE_DEBUG("%s: zpos %d", sde_crtc->name, z_pos);
 	}
 
