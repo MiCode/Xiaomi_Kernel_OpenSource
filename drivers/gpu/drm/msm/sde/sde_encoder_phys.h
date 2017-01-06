@@ -79,7 +79,8 @@ struct sde_encoder_virt_ops {
  *				triggering the next kickoff
  *				(ie for previous tx to complete)
  * @handle_post_kickoff:	Do any work necessary post-kickoff work
- * @needs_ctl_start:		Whether encoder type needs ctl_start
+ * @trigger_start:		Process start event on physical encoder
+ * @needs_split_flush:		Whether encoder type needs split flush
  */
 
 struct sde_encoder_phys_ops {
@@ -104,7 +105,8 @@ struct sde_encoder_phys_ops {
 	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc,
 			bool *wait_until_ready);
 	void (*handle_post_kickoff)(struct sde_encoder_phys *phys_enc);
-	bool (*needs_ctl_start)(struct sde_encoder_phys *phys_enc);
+	void (*trigger_start)(struct sde_encoder_phys *phys_enc);
+	bool (*needs_split_flush)(struct sde_encoder_phys *phys_enc);
 };
 
 /**
@@ -300,5 +302,13 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
 		struct drm_framebuffer *fb, const struct sde_format *format,
 		struct sde_rect *wb_roi);
+
+/**
+ * sde_encoder_helper_trigger_start - control start helper function
+ *	This helper function may be optionally specified by physical
+ *	encoders if they require ctl_start triggering.
+ * @phys_enc: Pointer to physical encoder structure
+ */
+void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc);
 
 #endif /* __sde_encoder_phys_H__ */
