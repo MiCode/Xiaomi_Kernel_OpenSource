@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3160,8 +3160,8 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, chip);
 
-	chip->parallel_psy_d.name = "usb-parallel";
-	chip->parallel_psy_d.type = POWER_SUPPLY_TYPE_USB_PARALLEL;
+	chip->parallel_psy_d.name = "parallel";
+	chip->parallel_psy_d.type = POWER_SUPPLY_TYPE_PARALLEL;
 	chip->parallel_psy_d.get_property = smb1351_parallel_get_property;
 	chip->parallel_psy_d.set_property = smb1351_parallel_set_property;
 	chip->parallel_psy_d.properties	= smb1351_parallel_properties;
