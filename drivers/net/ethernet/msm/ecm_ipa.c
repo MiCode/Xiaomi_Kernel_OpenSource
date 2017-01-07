@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -188,7 +188,7 @@ static ssize_t ecm_ipa_debugfs_enable_read(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos);
 static ssize_t ecm_ipa_debugfs_atomic_read(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos);
-static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx);
+static void ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx);
 static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *ecm_ipa_ctx);
 static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl);
 static int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl,
@@ -301,10 +301,7 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 		ECM_IPA_DEBUG("device_ready_notify() was not supplied");
 	ecm_ipa_ctx->device_ready_notify = params->device_ready_notify;
 
-	result = ecm_ipa_debugfs_init(ecm_ipa_ctx);
-	if (result)
-		goto fail_debugfs;
-	ECM_IPA_DEBUG("debugfs entries were created\n");
+	ecm_ipa_debugfs_init(ecm_ipa_ctx);
 
 	result = ecm_ipa_set_device_ethernet_addr(net->dev_addr,
 			params->device_ethaddr);
@@ -353,7 +350,6 @@ fail_register_netdev:
 fail_set_device_ethernet:
 fail_rules_cfg:
 	ecm_ipa_debugfs_destroy(ecm_ipa_ctx);
-fail_debugfs:
 fail_netdev_priv:
 	free_netdev(net);
 fail_alloc_etherdev:
@@ -1389,8 +1385,9 @@ static ssize_t ecm_ipa_debugfs_atomic_read(struct file *file,
 	return simple_read_from_buffer(ubuf, count, ppos, atomic_str, nbytes);
 }
 
+#ifdef CONFIG_DEBUG_FS
 
-static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx)
+static void ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx)
 {
 	const mode_t flags_read_write = S_IRUGO | S_IWUGO;
 	const mode_t flags_read_only = S_IRUGO;
@@ -1400,7 +1397,7 @@ static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx)
 	ECM_IPA_LOG_ENTRY();
 
 	if (!ecm_ipa_ctx)
-		return -EINVAL;
+		return;
 
 	ecm_ipa_ctx->directory = debugfs_create_dir("ecm_ipa", NULL);
 	if (!ecm_ipa_ctx->directory) {
@@ -1460,13 +1457,14 @@ static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx)
 		goto fail_file;
 	}
 
+	ECM_IPA_DEBUG("debugfs entries were created\n");
 	ECM_IPA_LOG_EXIT();
 
-	return 0;
+	return;
 fail_file:
 	debugfs_remove_recursive(ecm_ipa_ctx->directory);
 fail_directory:
-	return -EFAULT;
+	return;
 }
 
 static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *ecm_ipa_ctx)
@@ -1474,6 +1472,13 @@ static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *ecm_ipa_ctx)
 	debugfs_remove_recursive(ecm_ipa_ctx->directory);
 }
 
+#else /* !CONFIG_DEBUG_FS*/
+
+static void ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx) {}
+
+static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *ecm_ipa_ctx) {}
+
+#endif /* CONFIG_DEBUG_FS */
 /**
  * ecm_ipa_ep_cfg() - configure the USB endpoints for ECM
  *
