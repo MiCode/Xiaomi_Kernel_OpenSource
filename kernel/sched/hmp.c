@@ -773,8 +773,6 @@ __read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 /* Temporarily disable window-stats activity on all cpus */
 unsigned int __read_mostly sched_disable_window_stats;
 
-static unsigned int sync_cpu;
-
 struct related_thread_group *related_thread_groups[MAX_NUM_CGROUP_COLOC_ID];
 static LIST_HEAD(active_related_thread_groups);
 static DEFINE_RWLOCK(related_thread_group_lock);
@@ -2986,30 +2984,26 @@ void mark_task_starting(struct task_struct *p)
 
 void set_window_start(struct rq *rq)
 {
-	int cpu = cpu_of(rq);
-	struct rq *sync_rq = cpu_rq(sync_cpu);
+	static int sync_cpu_available;
 
 	if (rq->window_start)
 		return;
 
-	if (cpu == sync_cpu) {
+	if (!sync_cpu_available) {
 		rq->window_start = sched_ktime_clock();
+		sync_cpu_available = 1;
 	} else {
+		struct rq *sync_rq = cpu_rq(cpumask_any(cpu_online_mask));
+
 		raw_spin_unlock(&rq->lock);
 		double_rq_lock(rq, sync_rq);
-		rq->window_start = cpu_rq(sync_cpu)->window_start;
+		rq->window_start = sync_rq->window_start;
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
 		raw_spin_unlock(&sync_rq->lock);
 	}
 
 	rq->curr->ravg.mark_start = rq->window_start;
-}
-
-void migrate_sync_cpu(int cpu, int new_cpu)
-{
-	if (cpu == sync_cpu)
-		sync_cpu = new_cpu;
 }
 
 static void reset_all_task_stats(void)
