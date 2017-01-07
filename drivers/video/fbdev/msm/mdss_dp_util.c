@@ -208,6 +208,499 @@ void mdss_dp_state_ctrl(struct dss_io_data *ctrl_io, u32 data)
 	writel_relaxed(data, ctrl_io->base + DP_STATE_CTRL);
 }
 
+static void mdss_dp_get_extra_req_bytes(u64 result_valid,
+					int valid_bdary_link,
+					u64 value1, u64 value2,
+					bool *negative, u64 *result,
+					u64 compare)
+{
+	*negative = false;
+	if (result_valid >= compare) {
+		if (valid_bdary_link
+				>= compare)
+			*result = value1 + value2;
+		else {
+			if (value1 < value2)
+				*negative = true;
+			*result = (value1 >= value2) ?
+				(value1 - value2) : (value2 - value1);
+		}
+	} else {
+		if (valid_bdary_link
+				>= compare) {
+			if (value1 >= value2)
+				*negative = true;
+			*result = (value1 >= value2) ?
+				(value1 - value2) : (value2 - value1);
+		} else {
+			*result = value1 + value2;
+			*negative = true;
+		}
+	}
+}
+
+static u64 roundup_u64(u64 x, u64 y)
+{
+	x += (y - 1);
+	return (div64_ul(x, y) * y);
+}
+
+static u64 rounddown_u64(u64 x, u64 y)
+{
+	u64 rem;
+
+	div64_u64_rem(x, y, &rem);
+	return (x - rem);
+}
+
+static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
+				struct dp_vc_tu_mapping_table *tu_table,
+				struct mdss_panel_info *pinfo)
+{
+	u32 const multiplier = 1000000;
+	u64 pclk, lclk;
+	u8 bpp;
+	int run_idx = 0;
+	u32 lwidth, h_blank;
+	u32 fifo_empty = 0;
+	u32 ratio_scale = 1001;
+	u64 temp, ratio, original_ratio;
+	u64 temp2, reminder;
+	u64 temp3, temp4, result = 0;
+
+	u64 err = multiplier;
+	u64 n_err = 0, n_n_err = 0;
+	bool n_err_neg, nn_err_neg;
+	u8 hblank_margin = 16;
+
+	u8 tu_size, tu_size_desired, tu_size_minus1;
+	int valid_boundary_link;
+	u64 resulting_valid;
+	u64 total_valid;
+	u64 effective_valid;
+	u64 effective_valid_recorded;
+	int n_tus;
+	int n_tus_per_lane;
+	int paired_tus;
+	int remainder_tus;
+	int remainder_tus_upper, remainder_tus_lower;
+	int extra_bytes;
+	int filler_size;
+	int delay_start_link;
+	int boundary_moderation_en = 0;
+	int upper_bdry_cnt = 0;
+	int lower_bdry_cnt = 0;
+	int i_upper_bdry_cnt = 0;
+	int i_lower_bdry_cnt = 0;
+	int valid_lower_boundary_link = 0;
+	int even_distribution_bf = 0;
+	int even_distribution_legacy = 0;
+	int even_distribution = 0;
+	int min_hblank = 0;
+	int extra_pclk_cycles;
+	u8 extra_pclk_cycle_delay = 4;
+	int extra_pclk_cycles_in_link_clk;
+	u64 ratio_by_tu;
+	u64 average_valid2;
+	u64 extra_buffer_margin;
+	int new_valid_boundary_link;
+
+	u64 resulting_valid_tmp;
+	u64 ratio_by_tu_tmp;
+	int n_tus_tmp;
+	int extra_pclk_cycles_tmp;
+	int extra_pclk_cycles_in_lclk_tmp;
+	int extra_req_bytes_new_tmp;
+	int filler_size_tmp;
+	int lower_filler_size_tmp;
+	int delay_start_link_tmp;
+	int min_hblank_tmp = 0;
+	bool extra_req_bytes_is_neg = false;
+
+	u8 dp_brute_force = 1;
+	u64 brute_force_threshold = 10;
+	u64 diff_abs;
+
+	bpp = pinfo->bpp;
+	lwidth = pinfo->xres; /* active width */
+	h_blank = pinfo->lcdc.h_back_porch + pinfo->lcdc.h_front_porch +
+				pinfo->lcdc.h_pulse_width;
+	pclk = pinfo->clk_rate;
+
+	boundary_moderation_en = 0;
+	upper_bdry_cnt = 0;
+	lower_bdry_cnt = 0;
+	i_upper_bdry_cnt = 0;
+	i_lower_bdry_cnt = 0;
+	valid_lower_boundary_link = 0;
+	even_distribution_bf = 0;
+	even_distribution_legacy = 0;
+	even_distribution = 0;
+	min_hblank = 0;
+
+	lclk = link_rate * DP_LINK_RATE_MULTIPLIER;
+
+	pr_debug("pclk=%lld, active_width=%d, h_blank=%d\n",
+						pclk, lwidth, h_blank);
+	pr_debug("lclk = %lld, ln_cnt = %d\n", lclk, ln_cnt);
+	ratio = div64_u64_rem(pclk * bpp * multiplier,
+				8 * ln_cnt * lclk, &reminder);
+	ratio = div64_u64((pclk * bpp * multiplier), (8 * ln_cnt * lclk));
+	original_ratio = ratio;
+
+	extra_buffer_margin = roundup_u64(div64_u64(extra_pclk_cycle_delay
+				* lclk * multiplier, pclk), multiplier);
+	extra_buffer_margin = div64_u64(extra_buffer_margin, multiplier);
+
+	/* To deal with cases where lines are not distributable */
+	if (((lwidth % ln_cnt) != 0) && ratio < multiplier) {
+		ratio = ratio * ratio_scale;
+		ratio = ratio < (1000 * multiplier)
+				? ratio : (1000 * multiplier);
+	}
+	pr_debug("ratio = %lld\n", ratio);
+
+	for (tu_size = 32; tu_size <= 64; tu_size++) {
+		temp = ratio * tu_size;
+		temp2 = ((temp / multiplier) + 1) * multiplier;
+		n_err = roundup_u64(temp, multiplier) - temp;
+
+		if (n_err < err) {
+			err = n_err;
+			tu_size_desired = tu_size;
+		}
+	}
+	pr_debug("Info: tu_size_desired = %d\n", tu_size_desired);
+
+	tu_size_minus1 = tu_size_desired - 1;
+
+	valid_boundary_link = roundup_u64(ratio * tu_size_desired, multiplier);
+	valid_boundary_link /= multiplier;
+	n_tus = rounddown((lwidth * bpp * multiplier)
+			/ (8 * valid_boundary_link), multiplier) / multiplier;
+	even_distribution_legacy = n_tus % ln_cnt == 0 ? 1 : 0;
+	pr_debug("Info: n_symbol_per_tu=%d, number_of_tus=%d\n",
+					valid_boundary_link, n_tus);
+
+	extra_bytes = roundup_u64((n_tus + 1)
+			* ((valid_boundary_link * multiplier)
+			- (original_ratio * tu_size_desired)), multiplier);
+	extra_bytes /= multiplier;
+	extra_pclk_cycles = roundup(extra_bytes * 8 * multiplier / bpp,
+			multiplier);
+	extra_pclk_cycles /= multiplier;
+	extra_pclk_cycles_in_link_clk = roundup_u64(div64_u64(extra_pclk_cycles
+				* lclk * multiplier, pclk), multiplier);
+	extra_pclk_cycles_in_link_clk /= multiplier;
+	filler_size = roundup_u64((tu_size_desired - valid_boundary_link)
+						* multiplier, multiplier);
+	filler_size /= multiplier;
+	ratio_by_tu = div64_u64(ratio * tu_size_desired, multiplier);
+
+	pr_debug("extra_pclk_cycles_in_link_clk=%d, extra_bytes=%d\n",
+				extra_pclk_cycles_in_link_clk, extra_bytes);
+	pr_debug("extra_pclk_cycles_in_link_clk=%d\n",
+				extra_pclk_cycles_in_link_clk);
+	pr_debug("filler_size=%d, extra_buffer_margin=%lld\n",
+				filler_size, extra_buffer_margin);
+
+	delay_start_link = ((extra_bytes > extra_pclk_cycles_in_link_clk)
+			? extra_bytes
+			: extra_pclk_cycles_in_link_clk)
+				+ filler_size + extra_buffer_margin;
+	resulting_valid = valid_boundary_link;
+	pr_debug("Info: delay_start_link=%d, filler_size=%d\n",
+				delay_start_link, filler_size);
+	pr_debug("valid_boundary_link=%d ratio_by_tu=%lld\n",
+				valid_boundary_link, ratio_by_tu);
+
+	diff_abs = (resulting_valid >= ratio_by_tu)
+				? (resulting_valid - ratio_by_tu)
+				: (ratio_by_tu - resulting_valid);
+
+	if (err != 0 && ((diff_abs > brute_force_threshold)
+			|| (even_distribution_legacy == 0)
+			|| (dp_brute_force == 1))) {
+		err = multiplier;
+		for (tu_size = 32; tu_size <= 64; tu_size++) {
+			for (i_upper_bdry_cnt = 1; i_upper_bdry_cnt <= 15;
+						i_upper_bdry_cnt++) {
+				for (i_lower_bdry_cnt = 1;
+					i_lower_bdry_cnt <= 15;
+					i_lower_bdry_cnt++) {
+					new_valid_boundary_link =
+						roundup_u64(ratio
+						* tu_size, multiplier);
+					average_valid2 = (i_upper_bdry_cnt
+						* new_valid_boundary_link
+						+ i_lower_bdry_cnt
+						* (new_valid_boundary_link
+							- multiplier))
+						/ (i_upper_bdry_cnt
+							+ i_lower_bdry_cnt);
+					n_tus = rounddown_u64(div64_u64(lwidth
+						* multiplier * multiplier
+						* (bpp / 8), average_valid2),
+							multiplier);
+					n_tus /= multiplier;
+					n_tus_per_lane
+						= rounddown(n_tus
+							* multiplier
+							/ ln_cnt, multiplier);
+					n_tus_per_lane /= multiplier;
+					paired_tus =
+						rounddown((n_tus_per_lane)
+							* multiplier
+							/ (i_upper_bdry_cnt
+							+ i_lower_bdry_cnt),
+							multiplier);
+					paired_tus /= multiplier;
+					remainder_tus = n_tus_per_lane
+							- paired_tus
+						* (i_upper_bdry_cnt
+							+ i_lower_bdry_cnt);
+					if ((remainder_tus
+						- i_upper_bdry_cnt) > 0) {
+						remainder_tus_upper
+							= i_upper_bdry_cnt;
+						remainder_tus_lower =
+							remainder_tus
+							- i_upper_bdry_cnt;
+					} else {
+						remainder_tus_upper
+							= remainder_tus;
+						remainder_tus_lower = 0;
+					}
+					total_valid = paired_tus
+						* (i_upper_bdry_cnt
+						* new_valid_boundary_link
+							+ i_lower_bdry_cnt
+						* (new_valid_boundary_link
+							- multiplier))
+						+ (remainder_tus_upper
+						* new_valid_boundary_link)
+						+ (remainder_tus_lower
+						* (new_valid_boundary_link
+							- multiplier));
+					n_err_neg = nn_err_neg = false;
+					effective_valid
+						= div_u64(total_valid,
+							n_tus_per_lane);
+					n_n_err = (effective_valid
+							>= (ratio * tu_size))
+						? (effective_valid
+							- (ratio * tu_size))
+						: ((ratio * tu_size)
+							- effective_valid);
+					if (effective_valid < (ratio * tu_size))
+						nn_err_neg = true;
+					n_err = (average_valid2
+						>= (ratio * tu_size))
+						? (average_valid2
+							- (ratio * tu_size))
+						: ((ratio * tu_size)
+							- average_valid2);
+					if (average_valid2 < (ratio * tu_size))
+						n_err_neg = true;
+					even_distribution =
+						n_tus % ln_cnt == 0 ? 1 : 0;
+					diff_abs =
+						resulting_valid >= ratio_by_tu
+						? (resulting_valid
+							- ratio_by_tu)
+						: (ratio_by_tu
+							- resulting_valid);
+
+					resulting_valid_tmp = div64_u64(
+						(i_upper_bdry_cnt
+						* new_valid_boundary_link
+						+ i_lower_bdry_cnt
+						* (new_valid_boundary_link
+							- multiplier)),
+						(i_upper_bdry_cnt
+							+ i_lower_bdry_cnt));
+					ratio_by_tu_tmp =
+						original_ratio * tu_size;
+					ratio_by_tu_tmp /= multiplier;
+					n_tus_tmp = rounddown_u64(
+						div64_u64(lwidth
+						* multiplier * multiplier
+						* bpp / 8,
+						resulting_valid_tmp),
+						multiplier);
+					n_tus_tmp /= multiplier;
+
+					temp3 = (resulting_valid_tmp
+						>= (original_ratio * tu_size))
+						? (resulting_valid_tmp
+						- original_ratio * tu_size)
+						: (original_ratio * tu_size)
+						- resulting_valid_tmp;
+					temp3 = (n_tus_tmp + 1) * temp3;
+					temp4 = (new_valid_boundary_link
+						>= (original_ratio * tu_size))
+						? (new_valid_boundary_link
+							- original_ratio
+							* tu_size)
+						: (original_ratio * tu_size)
+						- new_valid_boundary_link;
+					temp4 = (i_upper_bdry_cnt
+							* ln_cnt * temp4);
+
+					temp3 = roundup_u64(temp3, multiplier);
+					temp4 = roundup_u64(temp4, multiplier);
+					mdss_dp_get_extra_req_bytes
+						(resulting_valid_tmp,
+						new_valid_boundary_link,
+						temp3, temp4,
+						&extra_req_bytes_is_neg,
+						&result,
+						(original_ratio * tu_size));
+					extra_req_bytes_new_tmp
+						= div64_ul(result, multiplier);
+					if ((extra_req_bytes_is_neg)
+						&& (extra_req_bytes_new_tmp
+							> 1))
+						extra_req_bytes_new_tmp
+						= extra_req_bytes_new_tmp - 1;
+					if (extra_req_bytes_new_tmp == 0)
+						extra_req_bytes_new_tmp = 1;
+					extra_pclk_cycles_tmp =
+						(u64)(extra_req_bytes_new_tmp
+						      * 8 * multiplier) / bpp;
+					extra_pclk_cycles_tmp /= multiplier;
+
+					if (extra_pclk_cycles_tmp <= 0)
+						extra_pclk_cycles_tmp = 1;
+					extra_pclk_cycles_in_lclk_tmp =
+						roundup_u64(div64_u64(
+							extra_pclk_cycles_tmp
+							* lclk * multiplier,
+							pclk), multiplier);
+					extra_pclk_cycles_in_lclk_tmp
+						/= multiplier;
+					filler_size_tmp = roundup_u64(
+						(tu_size * multiplier *
+						new_valid_boundary_link),
+						multiplier);
+					filler_size_tmp /= multiplier;
+					lower_filler_size_tmp =
+						filler_size_tmp + 1;
+					if (extra_req_bytes_is_neg)
+						temp3 = (extra_req_bytes_new_tmp
+						> extra_pclk_cycles_in_lclk_tmp
+						? extra_pclk_cycles_in_lclk_tmp
+						: extra_req_bytes_new_tmp);
+					else
+						temp3 = (extra_req_bytes_new_tmp
+						> extra_pclk_cycles_in_lclk_tmp
+						? extra_req_bytes_new_tmp :
+						extra_pclk_cycles_in_lclk_tmp);
+
+					temp4 = lower_filler_size_tmp
+						+ extra_buffer_margin;
+					if (extra_req_bytes_is_neg)
+						delay_start_link_tmp
+							= (temp3 >= temp4)
+							? (temp3 - temp4)
+							: (temp4 - temp3);
+					else
+						delay_start_link_tmp
+							= temp3 + temp4;
+
+					min_hblank_tmp = (int)div64_u64(
+						roundup_u64(
+						div64_u64(delay_start_link_tmp
+						* pclk * multiplier, lclk),
+						multiplier), multiplier)
+						+ hblank_margin;
+
+					if (((even_distribution == 1)
+						|| ((even_distribution_bf == 0)
+						&& (even_distribution_legacy
+								== 0)))
+						&& !n_err_neg && !nn_err_neg
+						&& n_n_err < err
+						&& (n_n_err < diff_abs
+						|| (dp_brute_force == 1))
+						&& (new_valid_boundary_link
+									- 1) > 0
+						&& (h_blank >=
+							(u32)min_hblank_tmp)) {
+						upper_bdry_cnt =
+							i_upper_bdry_cnt;
+						lower_bdry_cnt =
+							i_lower_bdry_cnt;
+						err = n_n_err;
+						boundary_moderation_en = 1;
+						tu_size_desired = tu_size;
+						valid_boundary_link =
+							new_valid_boundary_link;
+						effective_valid_recorded
+							= effective_valid;
+						delay_start_link
+							= delay_start_link_tmp;
+						filler_size = filler_size_tmp;
+						min_hblank = min_hblank_tmp;
+						n_tus = n_tus_tmp;
+						even_distribution_bf = 1;
+
+						pr_debug("upper_bdry_cnt=%d, lower_boundary_cnt=%d, err=%lld, tu_size_desired=%d, valid_boundary_link=%d, effective_valid=%lld\n",
+							upper_bdry_cnt,
+							lower_bdry_cnt, err,
+							tu_size_desired,
+							valid_boundary_link,
+							effective_valid);
+					}
+				}
+			}
+		}
+
+		if (boundary_moderation_en == 1) {
+			resulting_valid = (u64)(upper_bdry_cnt
+					*valid_boundary_link + lower_bdry_cnt
+					* (valid_boundary_link - 1))
+					/ (upper_bdry_cnt + lower_bdry_cnt);
+			ratio_by_tu = original_ratio * tu_size_desired;
+			valid_lower_boundary_link =
+				(valid_boundary_link / multiplier) - 1;
+
+			tu_size_minus1 = tu_size_desired - 1;
+			even_distribution_bf = 1;
+			valid_boundary_link /= multiplier;
+			pr_debug("Info: Boundary_moderation enabled\n");
+		}
+	}
+
+	min_hblank = ((int) roundup_u64(div64_u64(delay_start_link * pclk
+			* multiplier, lclk), multiplier))
+			/ multiplier + hblank_margin;
+	if (h_blank < (u32)min_hblank) {
+		pr_err(" WARNING: run_idx=%d Programmed h_blank %d is smaller than the min_hblank %d supported.\n",
+					run_idx, h_blank, min_hblank);
+	}
+
+	if (fifo_empty)	{
+		tu_size_minus1 = 31;
+		valid_boundary_link = 32;
+		delay_start_link = 0;
+		boundary_moderation_en = 0;
+	}
+
+	pr_debug("tu_size_minus1=%d valid_boundary_link=%d delay_start_link=%d boundary_moderation_en=%d\n upper_boundary_cnt=%d lower_boundary_cnt=%d valid_lower_boundary_link=%d min_hblank=%d\n",
+		tu_size_minus1, valid_boundary_link, delay_start_link,
+		boundary_moderation_en, upper_bdry_cnt, lower_bdry_cnt,
+		valid_lower_boundary_link, min_hblank);
+
+	tu_table->valid_boundary_link = valid_boundary_link;
+	tu_table->delay_start_link = delay_start_link;
+	tu_table->boundary_moderation_en = boundary_moderation_en;
+	tu_table->valid_lower_boundary_link = valid_lower_boundary_link;
+	tu_table->upper_boundary_count = upper_bdry_cnt;
+	tu_table->lower_boundary_count = lower_bdry_cnt;
+	tu_table->tu_size_minus1 = tu_size_minus1;
+}
+
 void mdss_dp_timing_cfg(struct dss_io_data *ctrl_io,
 					struct mdss_panel_info *pinfo)
 {
@@ -297,12 +790,13 @@ void mdss_dp_config_misc_settings(struct dss_io_data *ctrl_io,
 }
 
 void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
-				u8 ln_cnt, u32 res)
+		u8 ln_cnt, u32 res, struct mdss_panel_info *pinfo)
 {
 	u32 dp_tu = 0x0;
 	u32 valid_boundary = 0x0;
 	u32 valid_boundary2 = 0x0;
 	struct dp_vc_tu_mapping_table const *tu_entry = tu_table;
+	struct dp_vc_tu_mapping_table tu_calc_table;
 
 	for (; tu_entry != tu_table + ARRAY_SIZE(tu_table); ++tu_entry) {
 		if ((tu_entry->vic == res) &&
@@ -314,18 +808,18 @@ void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
 	if (tu_entry == tu_table + ARRAY_SIZE(tu_table)) {
 		pr_err("requested res=%d, ln_cnt=%d, lrate=0x%x not supported\n",
 				res, ln_cnt, link_rate);
-		return;
 	}
 
-	dp_tu |= tu_entry->tu_size_minus1;
-	valid_boundary |= tu_entry->valid_boundary_link;
-	valid_boundary |= (tu_entry->delay_start_link << 16);
+	mdss_dp_calc_tu_parameters(link_rate, ln_cnt, &tu_calc_table, pinfo);
+	dp_tu |= tu_calc_table.tu_size_minus1;
+	valid_boundary |= tu_calc_table.valid_boundary_link;
+	valid_boundary |= (tu_calc_table.delay_start_link << 16);
 
-	valid_boundary2 |= (tu_entry->valid_lower_boundary_link << 1);
-	valid_boundary2 |= (tu_entry->upper_boundary_count << 16);
-	valid_boundary2 |= (tu_entry->lower_boundary_count << 20);
+	valid_boundary2 |= (tu_calc_table.valid_lower_boundary_link << 1);
+	valid_boundary2 |= (tu_calc_table.upper_boundary_count << 16);
+	valid_boundary2 |= (tu_calc_table.lower_boundary_count << 20);
 
-	if (tu_entry->boundary_moderation_en)
+	if (tu_calc_table.boundary_moderation_en)
 		valid_boundary2 |= BIT(0);
 
 	writel_relaxed(valid_boundary, ctrl_io->base + DP_VALID_BOUNDARY);
@@ -891,4 +1385,88 @@ void mdss_dp_audio_enable(struct dss_io_data *ctrl_io, bool enable)
 		audio_ctrl &= ~BIT(0);
 
 	writel_relaxed(audio_ctrl, ctrl_io->base + MMSS_DP_AUDIO_CFG);
+}
+
+/**
+ * mdss_dp_phy_send_test_pattern() - sends the requested PHY test pattern
+ * @ep: Display Port Driver data
+ *
+ * Updates the DP controller state and sends the requested PHY test pattern
+ * to the sink.
+ */
+void mdss_dp_phy_send_test_pattern(struct mdss_dp_drv_pdata *dp)
+{
+	struct dss_io_data *io = &dp->ctrl_io;
+	u32 phy_test_pattern_sel = dp->test_data.phy_test_pattern_sel;
+	u32 value = 0x0;
+
+	if (!mdss_dp_is_phy_test_pattern_supported(phy_test_pattern_sel)) {
+		pr_err("test pattern 0x%x not supported\n",
+				phy_test_pattern_sel);
+		return;
+	}
+
+	/* Disable mainlink */
+	writel_relaxed(0x0, io->base + DP_MAINLINK_CTRL);
+
+	/* Reset mainlink */
+	mdss_dp_mainlink_reset(io);
+
+	/* Enable mainlink */
+	writel_relaxed(0x0, io->base + DP_MAINLINK_CTRL);
+
+	/* Initialize DP state control */
+	mdss_dp_state_ctrl(io, 0x00);
+
+	pr_debug("phy_test_pattern_sel = %s\n",
+			mdss_dp_get_phy_test_pattern(phy_test_pattern_sel));
+
+	switch (phy_test_pattern_sel) {
+	case PHY_TEST_PATTERN_D10_2_NO_SCRAMBLING:
+		mdss_dp_state_ctrl(io, BIT(0));
+		break;
+	case PHY_TEST_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT:
+		value = readl_relaxed(io->base +
+				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
+		value &= ~(1 << 16);
+		writel_relaxed(value, io->base +
+				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
+		value |= 0xFC;
+		writel_relaxed(value, io->base +
+				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
+		writel_relaxed(0x2, io->base + DP_MAINLINK_LEVELS);
+		mdss_dp_state_ctrl(io, BIT(4));
+		break;
+	case PHY_TEST_PATTERN_PRBS7:
+		mdss_dp_state_ctrl(io, BIT(5));
+		break;
+	case PHY_TEST_PATTERN_80_BIT_CUSTOM_PATTERN:
+		mdss_dp_state_ctrl(io, BIT(6));
+		/* 00111110000011111000001111100000 */
+		writel_relaxed(0x3E0F83E0, io->base +
+				DP_TEST_80BIT_CUSTOM_PATTERN_REG0);
+		/* 00001111100000111110000011111000 */
+		writel_relaxed(0x0F83E0F8, io->base +
+				DP_TEST_80BIT_CUSTOM_PATTERN_REG1);
+		/* 1111100000111110 */
+		writel_relaxed(0x0000F83E, io->base +
+				DP_TEST_80BIT_CUSTOM_PATTERN_REG2);
+		break;
+	case PHY_TEST_PATTERN_HBR2_CTS_EYE_PATTERN:
+		value = readl_relaxed(io->base +
+				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
+		value |= BIT(16);
+		writel_relaxed(value, io->base +
+				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
+		value |= 0xFC;
+		writel_relaxed(value, io->base +
+				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
+		writel_relaxed(0x2, io->base + DP_MAINLINK_LEVELS);
+		mdss_dp_state_ctrl(io, BIT(4));
+		break;
+	default:
+		pr_debug("No valid test pattern requested: 0x%x\n",
+				phy_test_pattern_sel);
+		return;
+	}
 }

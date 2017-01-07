@@ -530,7 +530,7 @@ static int sde_rotator_import_buffer(struct sde_layer_buffer *buffer,
 	return ret;
 }
 
-static int sde_rotator_secure_session_ctrl(struct sde_rot_entry *entry)
+static int sde_rotator_secure_session_ctrl(bool enable)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	uint32_t sid_info;
@@ -546,8 +546,7 @@ static int sde_rotator_secure_session_ctrl(struct sde_rot_entry *entry)
 		desc.args[1] = SCM_BUFFER_PHYS(&sid_info);
 		desc.args[2] = sizeof(uint32_t);
 
-		if (!mdata->sec_cam_en &&
-			(entry->item.flags & SDE_ROTATION_SECURE_CAMERA)) {
+		if (!mdata->sec_cam_en && enable) {
 			/*
 			 * Enable secure camera operation
 			 * Send SCM call to hypervisor to switch the
@@ -573,11 +572,8 @@ static int sde_rotator_secure_session_ctrl(struct sde_rot_entry *entry)
 
 			SDEROT_DBG("scm_call(1) ret=%d, resp=%x",
 				ret, resp);
-			SDEROT_EVTLOG(1, entry->item.flags,
-					entry->src_buf.p[0].addr,
-					entry->dst_buf.p[0].addr);
-		} else if (mdata->sec_cam_en && !(entry->item.flags &
-				SDE_ROTATION_SECURE_CAMERA)) {
+			SDEROT_EVTLOG(1);
+		} else if (mdata->sec_cam_en && !enable) {
 			/*
 			 * Disable secure camera operation
 			 * Send SCM call to hypervisor to switch the
@@ -596,9 +592,7 @@ static int sde_rotator_secure_session_ctrl(struct sde_rot_entry *entry)
 
 			/* force smmu to reattach */
 			sde_smmu_secure_ctrl(1);
-			SDEROT_EVTLOG(0, entry->item.flags,
-					entry->src_buf.p[0].addr,
-					entry->dst_buf.p[0].addr);
+			SDEROT_EVTLOG(0);
 		}
 	} else {
 		return 0;
@@ -618,6 +612,7 @@ static int sde_rotator_map_and_check_data(struct sde_rot_entry *entry)
 	struct sde_mdp_format_params *fmt;
 	struct sde_mdp_plane_sizes ps;
 	bool rotation;
+	bool secure;
 
 	input = &entry->item.input;
 	output = &entry->item.output;
@@ -628,7 +623,9 @@ static int sde_rotator_map_and_check_data(struct sde_rot_entry *entry)
 	if (IS_ERR_VALUE(ret))
 		return ret;
 
-	ret = sde_rotator_secure_session_ctrl(entry);
+	secure = (entry->item.flags & SDE_ROTATION_SECURE_CAMERA) ?
+			true : false;
+	ret = sde_rotator_secure_session_ctrl(secure);
 	if (ret) {
 		SDEROT_ERR("failed secure session enabling/disabling %d\n",
 			ret);
@@ -2194,6 +2191,11 @@ static int sde_rotator_close(struct sde_rot_mgr *mgr,
 		return -EINVAL;
 	}
 
+	/*
+	 * if secure camera session was enabled
+	 * go back to non secure state
+	 */
+	sde_rotator_secure_session_ctrl(false);
 	sde_rotator_release_rotator_perf_session(mgr, private);
 
 	list_del_init(&private->list);

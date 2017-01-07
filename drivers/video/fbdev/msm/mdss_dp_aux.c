@@ -148,8 +148,11 @@ static int dp_cmd_fifo_tx(struct edp_buf *tp, unsigned char *base)
 	}
 
 	data = (tp->trans_num - 1);
-	if (tp->i2c)
+	if (tp->i2c) {
 		data |= BIT(8); /* I2C */
+		data |= BIT(10); /* NO SEND ADDR */
+		data |= BIT(11); /* NO SEND STOP */
+	}
 
 	data |= BIT(9); /* GO */
 	dp_write(base + DP_AUX_TRANS_CTRL, data);
@@ -213,7 +216,7 @@ static int dp_aux_write_cmds(struct mdss_dp_drv_pdata *ep,
 
 	len = dp_cmd_fifo_tx(&ep->txp, ep->base);
 
-	wait_for_completion(&ep->aux_comp);
+	wait_for_completion_timeout(&ep->aux_comp, HZ/4);
 
 	if (ep->aux_error_num == EDP_AUX_ERR_NONE)
 		ret = len;
@@ -269,7 +272,7 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 
 	dp_cmd_fifo_tx(tp, ep->base);
 
-	wait_for_completion(&ep->aux_comp);
+	wait_for_completion_timeout(&ep->aux_comp, HZ/4);
 
 	if (ep->aux_error_num == EDP_AUX_ERR_NONE) {
 		ret = dp_cmd_fifo_rx(rp, len, ep->base);
@@ -537,8 +540,9 @@ char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt)
 	else if (min_link_rate <= DP_LINK_RATE_540)
 		calc_link_rate = DP_LINK_RATE_540;
 	else {
-		pr_err("link_rate = %d is unsupported\n", min_link_rate);
-		calc_link_rate = 0;
+		/* Cap the link rate to the max supported rate */
+		pr_debug("link_rate = %d is unsupported\n", min_link_rate);
+		calc_link_rate = DP_LINK_RATE_540;
 	}
 
 	return calc_link_rate;
@@ -730,8 +734,10 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 	int rlen, ret = 0;
 	int edid_blk = 0, blk_num = 0, retries = 10;
 	bool edid_parsing_done = false;
-	const u8 cea_tag = 0x02;
+	const u8 cea_tag = 0x02, start_ext_blk = 0x1;
+	u32 const segment_addr = 0x30;
 	u32 checksum = 0;
+	char segment = 0x1;
 
 	ret = dp_aux_chan_ready(dp);
 	if (ret) {
@@ -760,7 +766,7 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 			ret = dp_edid_buf_error(rp->data, rp->len);
 			if (ret) {
 				pr_err("corrupt edid block detected\n");
-				goto end;
+				continue;
 			}
 
 			if (edid_parsing_done) {
@@ -778,7 +784,6 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 				rp->data);
 
 			edid_parsing_done = true;
-			checksum = rp->data[rp->len - 1];
 		} else {
 			edid_blk++;
 			blk_num++;
@@ -796,11 +801,17 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 		memcpy(dp->edid_buf + (edid_blk * EDID_BLOCK_SIZE),
 			rp->data, EDID_BLOCK_SIZE);
 
+		checksum = rp->data[rp->len - 1];
+
+		/* break if no more extension blocks present */
 		if (edid_blk == dp->edid.ext_block_cnt)
-			goto end;
+			break;
+
+		/* write segment number to read block 3 onwards */
+		if (edid_blk == start_ext_blk)
+			dp_aux_write_buf(dp, segment_addr, &segment, 1, 1);
 	} while (retries--);
 
-end:
 	if (dp->test_data.test_requested == TEST_EDID_READ) {
 		pr_debug("sending checksum %d\n", checksum);
 		dp_aux_send_checksum(dp, checksum);
@@ -960,7 +971,7 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 	dp_sink_parse_sink_count(ep);
 }
 
-static int dp_link_status_read(struct mdss_dp_drv_pdata *ep, int len)
+int mdss_dp_aux_link_status_read(struct mdss_dp_drv_pdata *ep, int len)
 {
 	char *bp;
 	char data;
@@ -1015,6 +1026,51 @@ static int dp_link_status_read(struct mdss_dp_drv_pdata *ep, int len)
 	return len;
 }
 
+/*
+ * mdss_dp_aux_send_psm_request() - sends a power save mode messge to sink
+ * @dp: Display Port Driver data
+ */
+int mdss_dp_aux_send_psm_request(struct mdss_dp_drv_pdata *dp, bool enable)
+{
+	u8 psm_request[4];
+	int rc = 0;
+
+	psm_request[0] = enable ? 2 : 1;
+
+	pr_debug("sending psm %s request\n", enable ? "entry" : "exit");
+	if (enable) {
+		dp_aux_write_buf(dp, 0x600, psm_request, 1, 0);
+	} else {
+		ktime_t timeout = ktime_add_ms(ktime_get(), 20);
+
+		/*
+		 * It could take up to 1ms (20 ms of embedded sinks) till
+		 * the sink is ready to reply to this AUX transaction. It is
+		 * expected that the source keep retrying periodically during
+		 * this time.
+		 */
+		for (;;) {
+			rc = dp_aux_write_buf(dp, 0x600, psm_request, 1, 0);
+			if ((rc >= 0) ||
+				(ktime_compare(ktime_get(), timeout) > 0))
+				break;
+			usleep_range(100, 120);
+		}
+
+		/*
+		 * if the aux transmission succeeded, then the function would
+		 * return the number of bytes transmitted.
+		 */
+		if (rc > 0)
+			rc = 0;
+	}
+
+	if (!rc)
+		dp->psm_enabled = enable;
+
+	return rc;
+}
+
 /**
  * mdss_dp_aux_send_test_response() - sends a test response to the sink
  * @dp: Display Port Driver data
@@ -1031,12 +1087,12 @@ void mdss_dp_aux_send_test_response(struct mdss_dp_drv_pdata *dp)
 }
 
 /**
- * dp_is_link_rate_valid() - validates the link rate
+ * mdss_dp_aux_is_link_rate_valid() - validates the link rate
  * @lane_rate: link rate requested by the sink
  *
  * Returns true if the requested link rate is supported.
  */
-static bool dp_is_link_rate_valid(u32 link_rate)
+bool mdss_dp_aux_is_link_rate_valid(u32 link_rate)
 {
 	return (link_rate == DP_LINK_RATE_162) ||
 		(link_rate == DP_LINK_RATE_270) ||
@@ -1044,12 +1100,12 @@ static bool dp_is_link_rate_valid(u32 link_rate)
 }
 
 /**
- * dp_is_lane_count_valid() - validates the lane count
+ * mdss_dp_aux_is_lane_count_valid() - validates the lane count
  * @lane_count: lane count requested by the sink
  *
  * Returns true if the requested lane count is supported.
  */
-static bool dp_is_lane_count_valid(u32 lane_count)
+bool mdss_dp_aux_is_lane_count_valid(u32 lane_count)
 {
 	return (lane_count == DP_LANE_COUNT_1) ||
 		(lane_count == DP_LANE_COUNT_2) ||
@@ -1086,7 +1142,7 @@ static int dp_parse_link_training_params(struct mdss_dp_drv_pdata *ep)
 	bp = rp->data;
 	data = *bp++;
 
-	if (!dp_is_link_rate_valid(data)) {
+	if (!mdss_dp_aux_is_link_rate_valid(data)) {
 		pr_err("invalid link rate = 0x%x\n", data);
 		ret = -EINVAL;
 		goto exit;
@@ -1108,7 +1164,7 @@ static int dp_parse_link_training_params(struct mdss_dp_drv_pdata *ep)
 	data = *bp++;
 	data &= 0x1F;
 
-	if (!dp_is_lane_count_valid(data)) {
+	if (!mdss_dp_aux_is_lane_count_valid(data)) {
 		pr_err("invalid lane count = 0x%x\n", data);
 		ret = -EINVAL;
 		goto exit;
@@ -1157,6 +1213,53 @@ static void dp_sink_parse_sink_count(struct mdss_dp_drv_pdata *ep)
 }
 
 /**
+ * dp_parse_phy_test_params() - parses the phy test parameters
+ * @ep: Display Port Driver data
+ *
+ * Parses the DPCD (Byte 0x248) for the DP PHY test pattern that is being
+ * requested.
+ */
+static int dp_parse_phy_test_params(struct mdss_dp_drv_pdata *ep)
+{
+	char *bp;
+	char data;
+	struct edp_buf *rp;
+	int rlen;
+	int const param_len = 0x1;
+	int const phy_test_pattern_addr = 0x248;
+	int const dpcd_version_1_2 = 0x12;
+	int ret = 0;
+
+	rlen = dp_aux_read_buf(ep, phy_test_pattern_addr, param_len, 0);
+	if (rlen < param_len) {
+		pr_err("failed to read phy test pattern\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	if (ep->dpcd.major == dpcd_version_1_2)
+		data = data & 0x7;
+	else
+		data = data & 0x3;
+
+	ep->test_data.phy_test_pattern_sel = data;
+
+	pr_debug("phy_test_pattern_sel = %s\n",
+			mdss_dp_get_phy_test_pattern(data));
+
+	if (!mdss_dp_is_phy_test_pattern_supported(data))
+		ret = -EINVAL;
+
+end:
+	return ret;
+}
+
+
+/**
  * dp_is_test_supported() - checks if test requested by sink is supported
  * @test_requested: test requested by the sink
  *
@@ -1165,7 +1268,8 @@ static void dp_sink_parse_sink_count(struct mdss_dp_drv_pdata *ep)
 static bool dp_is_test_supported(u32 test_requested)
 {
 	return (test_requested == TEST_LINK_TRAINING) ||
-		(test_requested == TEST_EDID_READ);
+		(test_requested == TEST_EDID_READ) ||
+		(test_requested == PHY_TEST_PATTERN);
 }
 
 /**
@@ -1229,8 +1333,19 @@ static void dp_sink_parse_test_request(struct mdss_dp_drv_pdata *ep)
 	pr_debug("%s requested\n", mdss_dp_get_test_name(data));
 	ep->test_data.test_requested = data;
 
-	if (ep->test_data.test_requested == TEST_LINK_TRAINING)
+	switch (ep->test_data.test_requested) {
+	case PHY_TEST_PATTERN:
+		ret = dp_parse_phy_test_params(ep);
+		if (ret)
+			break;
+	case TEST_LINK_TRAINING:
 		ret = dp_parse_link_training_params(ep);
+		break;
+	default:
+		pr_debug("test 0x%x not supported\n",
+				ep->test_data.test_requested);
+		return;
+	}
 
 	/**
 	 * Send a TEST_ACK if all test parameters are valid, otherwise send
@@ -1439,21 +1554,22 @@ static void dp_host_train_set(struct mdss_dp_drv_pdata *ep, int train)
 }
 
 char vm_pre_emphasis[4][4] = {
-	{0x00, 0x09, 0x11, 0x0C},	/* pe0, 0 db */
-	{0x00, 0x0A, 0x10, 0xFF},	/* pe1, 3.5 db */
-	{0x00, 0x0C, 0xFF, 0xFF},	/* pe2, 6.0 db */
-	{0x00, 0xFF, 0xFF, 0xFF}	/* pe3, 9.5 db */
+	{0x00, 0x0B, 0x12, 0xFF},       /* pe0, 0 db */
+	{0x00, 0x0A, 0x12, 0xFF},       /* pe1, 3.5 db */
+	{0x00, 0x0C, 0xFF, 0xFF},       /* pe2, 6.0 db */
+	{0xFF, 0xFF, 0xFF, 0xFF}        /* pe3, 9.5 db */
 };
 
 /* voltage swing, 0.2v and 1.0v are not support */
 char vm_voltage_swing[4][4] = {
-	{0x07, 0x0f, 0x12, 0x1E}, /* sw0, 0.4v  */
+	{0x07, 0x0F, 0x14, 0xFF}, /* sw0, 0.4v  */
 	{0x11, 0x1D, 0x1F, 0xFF}, /* sw1, 0.6 v */
 	{0x18, 0x1F, 0xFF, 0xFF}, /* sw1, 0.8 v */
-	{0x1E, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
+	{0xFF, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
 
-static void dp_voltage_pre_emphasise_set(struct mdss_dp_drv_pdata *dp)
+static void dp_aux_set_voltage_and_pre_emphasis_lvl(
+		struct mdss_dp_drv_pdata *dp)
 {
 	u32 value0 = 0;
 	u32 value1 = 0;
@@ -1462,6 +1578,14 @@ static void dp_voltage_pre_emphasise_set(struct mdss_dp_drv_pdata *dp)
 
 	value0 = vm_voltage_swing[(int)(dp->v_level)][(int)(dp->p_level)];
 	value1 = vm_pre_emphasis[(int)(dp->v_level)][(int)(dp->p_level)];
+
+	/* program default setting first */
+	dp_write(dp->phy_io.base + QSERDES_TX0_OFFSET + TXn_TX_DRV_LVL, 0x2A);
+	dp_write(dp->phy_io.base + QSERDES_TX1_OFFSET + TXn_TX_DRV_LVL, 0x2A);
+	dp_write(dp->phy_io.base + QSERDES_TX0_OFFSET + TXn_TX_EMP_POST1_LVL,
+		0x20);
+	dp_write(dp->phy_io.base + QSERDES_TX1_OFFSET + TXn_TX_EMP_POST1_LVL,
+		0x20);
 
 	/* Enable MUX to use Cursor values from these registers */
 	value0 |= BIT(5);
@@ -1488,6 +1612,38 @@ static void dp_voltage_pre_emphasise_set(struct mdss_dp_drv_pdata *dp)
 
 }
 
+/**
+ * mdss_dp_aux_update_voltage_and_pre_emphasis_lvl() - updates DP PHY settings
+ * @ep: Display Port Driver data
+ *
+ * Updates the DP PHY with the requested voltage swing and pre-emphasis
+ * levels if they are different from the current settings.
+ */
+void mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(
+		struct mdss_dp_drv_pdata *dp)
+{
+	int const num_bytes = 6;
+	struct dpcd_link_status *status = &dp->link_status;
+
+	/* Read link status for updated voltage and pre-emphasis levels. */
+	mdss_dp_aux_link_status_read(dp, num_bytes);
+
+	pr_info("Current: v_level = %d, p_level = %d\n",
+			dp->v_level, dp->p_level);
+	pr_info("Requested: v_level = %d, p_level = %d\n",
+			status->req_voltage_swing[0],
+			status->req_pre_emphasis[0]);
+
+	if ((status->req_voltage_swing[0] != dp->v_level) ||
+			(status->req_pre_emphasis[0] != dp->p_level)) {
+		dp->v_level = status->req_voltage_swing[0];
+		dp->p_level = status->req_pre_emphasis[0];
+
+		dp_aux_set_voltage_and_pre_emphasis_lvl(dp);
+	}
+
+	pr_debug("end\n");
+}
 static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 {
 	int tries, old_v_level;
@@ -1497,10 +1653,10 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 
 	pr_debug("Entered++");
 
-	dp_host_train_set(ep, 0x01); /* train_1 */
 	dp_cap_lane_rate_set(ep);
 	dp_train_pattern_set_write(ep, 0x21); /* train_1 */
-	dp_voltage_pre_emphasise_set(ep);
+	dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
+	dp_host_train_set(ep, 0x01); /* train_1 */
 
 	tries = 0;
 	old_v_level = ep->v_level;
@@ -1508,7 +1664,7 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 		usleep_time = ep->dpcd.training_read_interval;
 		usleep_range(usleep_time, usleep_time);
 
-		dp_link_status_read(ep, 6);
+		mdss_dp_aux_link_status_read(ep, 6);
 		if (mdss_dp_aux_clock_recovery_done(ep)) {
 			ret = 0;
 			break;
@@ -1531,7 +1687,7 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 		}
 
 		dp_sink_train_set_adjust(ep);
-		dp_voltage_pre_emphasise_set(ep);
+		dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
 	}
 
 	return ret;
@@ -1555,13 +1711,12 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 	dp_train_pattern_set_write(ep, pattern | 0x20);/* train_2 */
 
 	do  {
-		dp_voltage_pre_emphasise_set(ep);
 		dp_host_train_set(ep, pattern);
 
 		usleep_time = ep->dpcd.training_read_interval;
 		usleep_range(usleep_time, usleep_time);
 
-		dp_link_status_read(ep, 6);
+		mdss_dp_aux_link_status_read(ep, 6);
 
 		if (mdss_dp_aux_channel_eq_done(ep)) {
 			ret = 0;
@@ -1575,6 +1730,7 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 		}
 
 		dp_sink_train_set_adjust(ep);
+		dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
 	} while (1);
 
 	return ret;
@@ -1680,7 +1836,8 @@ clear:
 		mdss_dp_config_misc_settings(&dp->ctrl_io,
 				&dp->panel_data.panel_info);
 		mdss_dp_setup_tr_unit(&dp->ctrl_io, dp->link_rate,
-					dp->lane_cnt, dp->vic);
+					dp->lane_cnt, dp->vic,
+					&dp->panel_data.panel_info);
 		mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);
 		pr_debug("State_ctrl set to SEND_VIDEO\n");
 	}
@@ -1698,7 +1855,7 @@ void mdss_dp_aux_parse_sink_status_field(struct mdss_dp_drv_pdata *ep)
 {
 	dp_sink_parse_sink_count(ep);
 	dp_sink_parse_test_request(ep);
-	dp_link_status_read(ep, 6);
+	mdss_dp_aux_link_status_read(ep, 6);
 }
 
 int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *ep)
@@ -1706,7 +1863,7 @@ int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *ep)
 	struct dpcd_link_status *sp;
 	int ret = 0; /* not sync */
 
-	ret = dp_link_status_read(ep, 6);
+	ret = mdss_dp_aux_link_status_read(ep, 6);
 
 	if (ret) {
 		sp = &ep->link_status;

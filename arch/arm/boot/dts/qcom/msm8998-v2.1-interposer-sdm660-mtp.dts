@@ -1,0 +1,184 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+
+#include "msm8998-v2.1-interposer-sdm660.dtsi"
+#include "msm8998-interposer-sdm660-mtp.dtsi"
+#include "msm8998-interposer-pm660.dtsi"
+#include "msm8998-interposer-sdm660-audio.dtsi"
+#include "msm8998-interposer-camera-sensor-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8998 v2.1 SDM 660 Interposer MTP";
+	compatible = "qcom,msm8998-mtp", "qcom,msm8998", "qcom,mtp";
+	qcom,board-id = <8 2>;
+};
+
+&pm660_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&clock_gcc {
+	vdd_dig-supply = <&pm660l_s3_level>;
+	vdd_dig_ao-supply = <&pm660l_s3_level_ao>;
+};
+
+&clock_mmss {
+	vdd_dig-supply = <&pm660l_s3_level>;
+	vdd_mmsscc_mx-supply = <&pm660l_s5_level>;
+};
+
+&clock_gpu {
+	vdd_dig-supply = <&pm660l_s3_level>;
+};
+
+&clock_gfx {
+	/* GFX Rail = CX */
+	vdd_gpucc-supply = <&pm660l_s3_level>;
+	vdd_mx-supply = <&pm660l_s5_level>;
+	vdd_gpu_mx-supply = <&pm660l_s5_level>;
+	qcom,gfxfreq-speedbin0 =
+		<         0 0                           0 >,
+		< 180000000 RPM_SMD_REGULATOR_LEVEL_MIN_SVS
+					RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 257000000 RPM_SMD_REGULATOR_LEVEL_LOW_SVS
+					RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 342000000 RPM_SMD_REGULATOR_LEVEL_SVS
+					RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 414000000 RPM_SMD_REGULATOR_LEVEL_SVS_PLUS
+					RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 515000000 RPM_SMD_REGULATOR_LEVEL_NOM
+					RPM_SMD_REGULATOR_LEVEL_NOM >,
+		< 596000000 RPM_SMD_REGULATOR_LEVEL_NOM_PLUS
+					RPM_SMD_REGULATOR_LEVEL_NOM >,
+		< 670000000 RPM_SMD_REGULATOR_LEVEL_TURBO
+					RPM_SMD_REGULATOR_LEVEL_TURBO >,
+		< 710000000 RPM_SMD_REGULATOR_LEVEL_TURBO
+					RPM_SMD_REGULATOR_LEVEL_TURBO >;
+	qcom,gfxfreq-mx-speedbin0 =
+		<         0                           0 >,
+		< 180000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 257000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 342000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 414000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+		< 515000000 RPM_SMD_REGULATOR_LEVEL_NOM >,
+		< 596000000 RPM_SMD_REGULATOR_LEVEL_NOM >,
+		< 670000000 RPM_SMD_REGULATOR_LEVEL_TURBO >,
+		< 710000000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
+};
+
+&gdsc_gpu_gx {
+	clock-names = "core_root_clk";
+	clocks = <&clock_gfx clk_gfx3d_clk_src>;
+	qcom,force-enable-root-clk;
+	/* GFX Rail = CX */
+	parent-supply = <&pm660l_s3_level>;
+	status = "ok";
+};
+
+&mdss_dsi {
+	hw-config = "split_dsi";
+	vdda-1p2-supply = <&pm660_l1>;
+	vdda-0p9-supply = <&pm660l_l1>;
+
+	qcom,ctrl-supply-entries {
+		qcom,ctrl-supply-entry@0 {
+			qcom,supply-min-voltage = <1200000>;
+			qcom,supply-max-voltage = <1250000>;
+		};
+	};
+
+	qcom,phy-supply-entries {
+		qcom,phy-supply-entry@0 {
+			qcom,supply-min-voltage = <880000>;
+			qcom,supply-max-voltage = <925000>;
+		};
+	};
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_truly_video>;
+	wqhd-vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-reset-gpio = <&tlmm 94 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,panel-mode-gpio = <&tlmm 91 0>;
+};
+
+&mdss_dsi1 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_truly_video>;
+	wqhd-vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-reset-gpio = <&tlmm 94 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,panel-mode-gpio = <&tlmm 91 0>;
+};
+
+&usb3 {
+	extcon = <&pm660_pdphy>;
+};
+
+&qusb_phy0 {
+	vdd-supply = <&pm660l_l1>;
+	vdda18-supply = <&pm660_l10>;
+	qcom,vdd-voltage-level = <0 925000 925000>;
+	vdda33-supply = <&pm660l_l7>;
+};
+
+&ssphy {
+	vdd-supply = <&pm660l_l1>;
+	qcom,vdd-voltage-level = <0 925000 925000>;
+	core-supply = <&pm660_l1>;
+};
+
+&pm660l_gpios {
+	/* GPIO 7 for VOL_UP */
+	gpio@c600 {
+		status = "okay";
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,out-strength = <1>;
+	};
+};
+
+&soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		status = "okay";
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm660l_gpios 7 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+	};
+};
+
+&pm660l_wled {
+	qcom,led-strings-list = [01 02];
+};

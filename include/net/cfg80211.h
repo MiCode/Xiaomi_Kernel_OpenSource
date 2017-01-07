@@ -68,6 +68,7 @@ struct wiphy;
 #define CFG80211_CONNECT_BSS 1
 #define CFG80211_ABORT_SCAN 1
 #define CFG80211_UPDATE_CONNECT_PARAMS 1
+#define CFG80211_BEACON_TX_RATE_CUSTOM_BACKPORT 1
 
 /*
  * wireless hardware capability structures

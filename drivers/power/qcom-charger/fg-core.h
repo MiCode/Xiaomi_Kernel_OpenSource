@@ -335,6 +335,7 @@ struct fg_chip {
 	bool			recharge_soc_adjusted;
 	bool			ki_coeff_dischg_en;
 	bool			esr_fcc_ctrl_en;
+	bool			soc_reporting_ready;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;

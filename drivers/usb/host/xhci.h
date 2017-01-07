@@ -1960,4 +1960,8 @@ struct xhci_input_control_ctx *xhci_get_input_control_ctx(struct xhci_container_
 struct xhci_slot_ctx *xhci_get_slot_ctx(struct xhci_hcd *xhci, struct xhci_container_ctx *ctx);
 struct xhci_ep_ctx *xhci_get_ep_ctx(struct xhci_hcd *xhci, struct xhci_container_ctx *ctx, unsigned int ep_index);
 
+/* EHSET */
+int xhci_submit_single_step_set_feature(struct usb_hcd *hcd, struct urb *urb,
+					int is_setup);
+
 #endif /* __LINUX_XHCI_HCD_H */

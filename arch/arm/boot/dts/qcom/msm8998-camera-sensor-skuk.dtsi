@@ -16,6 +16,7 @@
 		cell-index = <0>;
 		compatible = "qcom,camera-flash";
 		qcom,flash-source = <&pmi8998_flash0 &pmi8998_flash1>;
+		qcom,torch-source = <&pmi8998_torch0 &pmi8998_torch1>;
 		qcom,switch-source = <&pmi8998_switch0>;
 		status = "ok";
 	};
@@ -24,6 +25,7 @@
 		cell-index = <1>;
 		compatible = "qcom,camera-flash";
 		qcom,flash-source = <&pmi8998_flash2>;
+		qcom,torch-source = <&pmi8998_torch2>;
 		qcom,switch-source = <&pmi8998_switch1>;
 		status = "ok";
 	};

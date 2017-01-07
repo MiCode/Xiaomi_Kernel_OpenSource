@@ -116,6 +116,8 @@ dtb-$(CONFIG_ARCH_MSM8998) += msm8998-sim.dtb \
 	msm8998-v2-qrd-skuk.dtb \
 	msm8998-qrd-vr1.dtb \
 	msm8998-v2-qrd-vr1.dtb \
+	msm8998-v2-qrd-skuk-evt3.dtb \
+	msm8998-v2-qrd-skuk-hdk.dtb \
 	apq8998-mtp.dtb \
 	apq8998-cdp.dtb \
 	apq8998-v2-mtp.dtb \
@@ -128,26 +130,38 @@ dtb-$(CONFIG_ARCH_MSM8998) += msm8998-sim.dtb \
 	apq8998-v2.1-cdp.dtb \
 	apq8998-v2.1-qrd.dtb \
 	apq8998-v2.1-mediabox.dtb \
-	msm8998-v2.1-interposer-msmfalcon-cdp.dtb \
-	msm8998-v2.1-interposer-msmfalcon-mtp.dtb \
-	msm8998-v2.1-interposer-msmfalcon-qrd.dtb
+	msm8998-v2.1-interposer-sdm660-cdp.dtb \
+	msm8998-v2.1-interposer-sdm660-mtp.dtb \
+	msm8998-v2.1-interposer-sdm660-qrd.dtb
 
 dtb-$(CONFIG_ARCH_MSMHAMSTER) += msmhamster-rumi.dtb
 
-dtb-$(CONFIG_ARCH_MSMFALCON) += msmfalcon-sim.dtb \
-	msmfalcon-rumi.dtb \
-	msmfalcon-cdp.dtb \
-	msmfalcon-internal-codec-cdp.dtb \
-	msmfalcon-mtp.dtb \
-	msmfalcon-internal-codec-mtp.dtb \
-	msmfalcon-rcm.dtb \
-	msmfalcon-internal-codec-rcm.dtb \
-	msmfalcon-qrd.dtb \
-	apqfalcon-cdp.dtb \
-	apqfalcon-mtp.dtb \
-	apqfalcon-rcm.dtb
+dtb-$(CONFIG_ARCH_SDM660) += sdm660-sim.dtb \
+	sdm660-internal-codec-cdp.dtb \
+	sdm660-internal-codec-mtp.dtb \
+	sdm660-internal-codec-rcm.dtb \
+	sdm660-cdp.dtb \
+	sdm660-mtp.dtb \
+	sdm660-qrd.dtb \
+	sdm660-rcm.dtb \
+	sdm660-rumi.dtb \
+	sdm660-pm660a-cdp.dtb \
+	sdm660-pm660a-mtp.dtb \
+	sdm660-pm660a-qrd.dtb \
+	sdm660-pm660a-rcm.dtb \
+	sdm660-pm660a-rumi.dtb \
+	sdm660-internal-codec-pm660a-cdp.dtb \
+	sdm660-internal-codec-pm660a-mtp.dtb \
+	sdm660-internal-codec-pm660a-rcm.dtb \
+	sdm660-pm660a-sim.dtb \
+	sda660-cdp.dtb \
+	sda660-mtp.dtb \
+	sda660-rcm.dtb \
+	sda660-pm660a-cdp.dtb \
+	sda660-pm660a-mtp.dtb \
+	sda660-pm660a-rcm.dtb
 
-dtb-$(CONFIG_ARCH_MSMTRITON) += msmtriton-rumi.dtb
+dtb-$(CONFIG_ARCH_SDM630) += sdm630-rumi.dtb
 
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)

@@ -1347,19 +1347,16 @@ static struct miscdevice rndis_qc_device = {
 
 static void qcrndis_free_inst(struct usb_function_instance *f)
 {
-	struct f_rndis_qc	*rndis;
 	struct f_rndis_qc_opts	*opts = container_of(f,
 				struct f_rndis_qc_opts, func_inst);
 	unsigned long flags;
 
-	rndis = opts->rndis;
 	misc_deregister(&rndis_qc_device);
 
 	ipa_data_free(USB_IPA_FUNC_RNDIS);
 	spin_lock_irqsave(&rndis_lock, flags);
-	kfree(rndis);
-	_rndis_qc = NULL;
 	kfree(opts->rndis);
+	_rndis_qc = NULL;
 	kfree(opts);
 	spin_unlock_irqrestore(&rndis_lock, flags);
 }
@@ -1441,13 +1438,6 @@ static struct usb_function_instance *qcrndis_alloc_inst(void)
 	return &opts->func_inst;
 }
 
-static void rndis_qc_cleanup(void)
-{
-	pr_info("rndis QC cleanup\n");
-
-	misc_deregister(&rndis_qc_device);
-}
-
 void *rndis_qc_get_ipa_rx_cb(void)
 {
 	return rndis_ipa_params.ipa_rx_notify;
@@ -1485,7 +1475,6 @@ static int __init usb_qcrndis_init(void)
 static void __exit usb_qcrndis_exit(void)
 {
 	usb_function_unregister(&rndis_bamusb_func);
-	rndis_qc_cleanup();
 }
 
 module_init(usb_qcrndis_init);

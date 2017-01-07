@@ -1118,7 +1118,6 @@ static int msm_fd_hw_try_enable(struct msm_fd_device *fd,
 	int enabled = 0;
 
 	if (state == fd->state) {
-
 		fd->state = MSM_FD_DEVICE_RUNNING;
 		atomic_set(&buffer->active, 1);
 
@@ -1132,7 +1131,7 @@ static int msm_fd_hw_try_enable(struct msm_fd_device *fd,
  * msm_fd_hw_next_buffer - Get next buffer from fd device processing queue.
  * @fd: Fd device.
  */
-static struct msm_fd_buffer *msm_fd_hw_next_buffer(struct msm_fd_device *fd)
+struct msm_fd_buffer *msm_fd_hw_get_next_buffer(struct msm_fd_device *fd)
 {
 	struct msm_fd_buffer *buffer = NULL;
 
@@ -1150,14 +1149,15 @@ static struct msm_fd_buffer *msm_fd_hw_next_buffer(struct msm_fd_device *fd)
 void msm_fd_hw_add_buffer(struct msm_fd_device *fd,
 	struct msm_fd_buffer *buffer)
 {
-	spin_lock(&fd->slock);
+	MSM_FD_SPIN_LOCK(fd->slock, 1);
 
 	atomic_set(&buffer->active, 0);
 	init_completion(&buffer->completion);
 
 	INIT_LIST_HEAD(&buffer->list);
 	list_add_tail(&buffer->list, &fd->buf_queue);
-	spin_unlock(&fd->slock);
+
+	MSM_FD_SPIN_UNLOCK(fd->slock, 1);
 }
 
 /*
@@ -1173,8 +1173,7 @@ void msm_fd_hw_remove_buffers_from_queue(struct msm_fd_device *fd,
 	struct msm_fd_buffer *active_buffer;
 	unsigned long time;
 
-	spin_lock(&fd->slock);
-
+	MSM_FD_SPIN_LOCK(fd->slock, 1);
 	active_buffer = NULL;
 	list_for_each_entry_safe(curr_buff, temp, &fd->buf_queue, list) {
 		if (curr_buff->vb_v4l2_buf.vb2_buf.vb2_queue == vb2_q) {
@@ -1189,21 +1188,31 @@ void msm_fd_hw_remove_buffers_from_queue(struct msm_fd_device *fd,
 			}
 		}
 	}
-	spin_unlock(&fd->slock);
+	MSM_FD_SPIN_UNLOCK(fd->slock, 1);
 
 	/* We need to wait active buffer to finish */
 	if (active_buffer) {
 		time = wait_for_completion_timeout(&active_buffer->completion,
 			msecs_to_jiffies(MSM_FD_PROCESSING_TIMEOUT_MS));
+
+		MSM_FD_SPIN_LOCK(fd->slock, 1);
 		if (!time) {
-			/* Do a vb2 buffer done since it timed out */
-			vb2_buffer_done(&active_buffer->vb_v4l2_buf.vb2_buf,
-				VB2_BUF_STATE_DONE);
-			/* Remove active buffer */
-			msm_fd_hw_get_active_buffer(fd);
-			/* Schedule if other buffers are present in device */
-			msm_fd_hw_schedule_next_buffer(fd);
+			if (atomic_read(&active_buffer->active)) {
+				atomic_set(&active_buffer->active, 0);
+				/* Do a vb2 buffer done since it timed out */
+				vb2_buffer_done(
+					&active_buffer->vb_v4l2_buf.vb2_buf,
+					VB2_BUF_STATE_DONE);
+				/* Remove active buffer */
+				msm_fd_hw_get_active_buffer(fd, 0);
+				/* Schedule if other buffers are present */
+				msm_fd_hw_schedule_next_buffer(fd, 0);
+			} else {
+				dev_err(fd->dev, "activ buf no longer active\n");
+			}
 		}
+		fd->state = MSM_FD_DEVICE_IDLE;
+		MSM_FD_SPIN_UNLOCK(fd->slock, 1);
 	}
 
 	return;
@@ -1215,22 +1224,19 @@ void msm_fd_hw_remove_buffers_from_queue(struct msm_fd_device *fd,
  * @buffer: Fd buffer.
  */
 int msm_fd_hw_buffer_done(struct msm_fd_device *fd,
-	struct msm_fd_buffer *buffer)
+	struct msm_fd_buffer *buffer, u8 lock_flag)
 {
 	int ret = 0;
-
-	spin_lock(&fd->slock);
+	MSM_FD_SPIN_LOCK(fd->slock, lock_flag);
 
 	if (atomic_read(&buffer->active)) {
 		atomic_set(&buffer->active, 0);
 		complete_all(&buffer->completion);
 	} else {
-		dev_err(fd->dev, "Buffer is not active\n");
 		ret = -1;
 	}
 
-	spin_unlock(&fd->slock);
-
+	MSM_FD_SPIN_UNLOCK(fd->slock, lock_flag);
 	return ret;
 }
 
@@ -1238,17 +1244,18 @@ int msm_fd_hw_buffer_done(struct msm_fd_device *fd,
  * msm_fd_hw_get_active_buffer - Get active buffer from fd processing queue.
  * @fd: Fd device.
  */
-struct msm_fd_buffer *msm_fd_hw_get_active_buffer(struct msm_fd_device *fd)
+struct msm_fd_buffer *msm_fd_hw_get_active_buffer(struct msm_fd_device *fd,
+	u8 lock_flag)
 {
 	struct msm_fd_buffer *buffer = NULL;
 
-	spin_lock(&fd->slock);
+	MSM_FD_SPIN_LOCK(fd->slock, lock_flag);
 	if (!list_empty(&fd->buf_queue)) {
 		buffer = list_first_entry(&fd->buf_queue,
 			struct msm_fd_buffer, list);
 		list_del(&buffer->list);
 	}
-	spin_unlock(&fd->slock);
+	MSM_FD_SPIN_UNLOCK(fd->slock, lock_flag);
 
 	return buffer;
 }
@@ -1263,12 +1270,13 @@ int msm_fd_hw_schedule_and_start(struct msm_fd_device *fd)
 {
 	struct msm_fd_buffer *buf;
 
-	spin_lock(&fd->slock);
-	buf = msm_fd_hw_next_buffer(fd);
+	MSM_FD_SPIN_LOCK(fd->slock, 1);
+
+	buf = msm_fd_hw_get_next_buffer(fd);
 	if (buf)
 		msm_fd_hw_try_enable(fd, buf, MSM_FD_DEVICE_IDLE);
 
-	spin_unlock(&fd->slock);
+	MSM_FD_SPIN_UNLOCK(fd->slock, 1);
 
 	msm_fd_hw_update_settings(fd, buf);
 
@@ -1281,26 +1289,26 @@ int msm_fd_hw_schedule_and_start(struct msm_fd_device *fd)
  *
  * NOTE: This can be executed only when device is in running state.
  */
-int msm_fd_hw_schedule_next_buffer(struct msm_fd_device *fd)
+int msm_fd_hw_schedule_next_buffer(struct msm_fd_device *fd, u8 lock_flag)
 {
 	struct msm_fd_buffer *buf;
 	int ret;
 
-	spin_lock(&fd->slock);
+	MSM_FD_SPIN_LOCK(fd->slock, lock_flag);
 
 	/* We can schedule next buffer only in running state */
 	if (fd->state != MSM_FD_DEVICE_RUNNING) {
 		dev_err(fd->dev, "Can not schedule next buffer\n");
-		spin_unlock(&fd->slock);
+		MSM_FD_SPIN_UNLOCK(fd->slock, lock_flag);
 		return -EBUSY;
 	}
 
-	buf = msm_fd_hw_next_buffer(fd);
+	buf = msm_fd_hw_get_next_buffer(fd);
 	if (buf) {
 		ret = msm_fd_hw_try_enable(fd, buf, MSM_FD_DEVICE_RUNNING);
 		if (0 == ret) {
-			dev_err(fd->dev, "Ouch can not process next buffer\n");
-			spin_unlock(&fd->slock);
+			dev_err(fd->dev, "Can not process next buffer\n");
+			MSM_FD_SPIN_UNLOCK(fd->slock, lock_flag);
 			return -EBUSY;
 		}
 	} else {
@@ -1308,7 +1316,7 @@ int msm_fd_hw_schedule_next_buffer(struct msm_fd_device *fd)
 		if (fd->recovery_mode)
 			dev_err(fd->dev, "No Buffer in recovery mode.Device Idle\n");
 	}
-	spin_unlock(&fd->slock);
+	MSM_FD_SPIN_UNLOCK(fd->slock, lock_flag);
 
 	msm_fd_hw_update_settings(fd, buf);
 

@@ -195,7 +195,7 @@ struct hdcp_reg_set {
 
 #define HDCP_DP_SINK_ADDR_MAP \
 	{{"bcaps", 0x68028, 1}, {"bksv", 0x68000, 5}, {"r0'", 0x68005, 2}, \
-	 {"binfo", 0x6802A, 2}, {"cp_irq_status", 0x68029, 2}, \
+	 {"binfo", 0x6802A, 2}, {"cp_irq_status", 0x68029, 1}, \
 	 {"ksv-fifo", 0x6802C, 0}, {"v_h0", 0x68014, 4}, {"v_h1", 0x68018, 4}, \
 	 {"v_h2", 0x6801C, 4}, {"v_h3", 0x68020, 4}, {"v_h4", 0x68024, 4}, \
 	 {"an", 0x6800C, 8}, {"aksv", 0x68007, 5}, {"ainfo", 0x6803B, 1} }
@@ -1763,6 +1763,30 @@ static void hdcp_1x_update_client_reg_set(struct hdcp_1x *hdcp)
 	}
 }
 
+static bool hdcp_1x_is_cp_irq_raised(struct hdcp_1x *hdcp)
+{
+	int ret;
+	u8 buf = 0;
+	struct hdcp_sink_addr sink = {"irq", 0x201, 1};
+
+	ret = hdcp_1x_read(hdcp, &sink, &buf, false);
+	if (IS_ERR_VALUE(ret))
+		pr_err("error reading irq_vector\n");
+
+	return buf & BIT(2) ? true : false;
+}
+
+static void hdcp_1x_clear_cp_irq(struct hdcp_1x *hdcp)
+{
+	int ret;
+	u8 buf = BIT(2);
+	struct hdcp_sink_addr sink = {"irq", 0x201, 1};
+
+	ret = hdcp_1x_write(hdcp, &sink, &buf);
+	if (IS_ERR_VALUE(ret))
+		pr_err("error clearing irq_vector\n");
+}
+
 static int hdcp_1x_cp_irq(void *input)
 {
 	struct hdcp_1x *hdcp = (struct hdcp_1x *)input;
@@ -1771,14 +1795,19 @@ static int hdcp_1x_cp_irq(void *input)
 
 	if (!hdcp) {
 		pr_err("invalid input\n");
-		goto end;
+		goto irq_not_handled;
+	}
+
+	if (!hdcp_1x_is_cp_irq_raised(hdcp)) {
+		pr_debug("cp_irq not raised\n");
+		goto irq_not_handled;
 	}
 
 	ret = hdcp_1x_read(hdcp, &hdcp->sink_addr.cp_irq_status,
 			&buf, false);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("error reading cp_irq_status\n");
-		return ret;
+		goto irq_not_handled;
 	}
 
 	if ((buf & BIT(2)) || (buf & BIT(3))) {
@@ -1793,27 +1822,23 @@ static int hdcp_1x_cp_irq(void *input)
 
 		complete_all(&hdcp->sink_r0_available);
 		hdcp_1x_update_auth_status(hdcp);
-
-		goto end;
-	}
-
-	if (buf & BIT(1)) {
+	} else if (buf & BIT(1)) {
 		pr_debug("R0' AVAILABLE\n");
 		hdcp->sink_r0_ready = true;
 		complete_all(&hdcp->sink_r0_available);
-		goto end;
-	}
-
-	if ((buf & BIT(0))) {
+	} else if ((buf & BIT(0))) {
 		pr_debug("KSVs READY\n");
 
 		hdcp->ksv_ready = true;
-		goto end;
+	} else {
+		pr_debug("spurious interrupt\n");
 	}
 
-	return -EINVAL;
-end:
+	hdcp_1x_clear_cp_irq(hdcp);
 	return 0;
+
+irq_not_handled:
+	return -EINVAL;
 }
 
 void *hdcp_1x_init(struct hdcp_init_data *init_data)

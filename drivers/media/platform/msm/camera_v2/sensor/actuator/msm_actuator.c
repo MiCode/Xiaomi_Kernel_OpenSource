@@ -1418,6 +1418,7 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 	case CFG_GET_ACTUATOR_INFO:
 		cdata->is_af_supported = 1;
 		cdata->cfg.cam_name = a_ctrl->cam_name;
+		rc = 0;
 		break;
 
 	case CFG_SET_ACTUATOR_INFO:

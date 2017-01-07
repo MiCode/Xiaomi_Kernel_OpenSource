@@ -31,6 +31,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/qpnp/power-on.h>
+#include <linux/power_supply.h>
 
 #define PMIC_VER_8941           0x01
 #define PMIC_VERSION_REG        0x0105
@@ -219,6 +220,11 @@ struct qpnp_pon {
 	bool			is_spon;
 	bool			store_hard_reset_reason;
 };
+
+static int pon_ship_mode_en;
+module_param_named(
+	ship_mode_en, pon_ship_mode_en, int, S_IRUSR | S_IWUSR
+);
 
 static struct qpnp_pon *sys_reset_dev;
 static DEFINE_SPINLOCK(spon_list_slock);
@@ -523,6 +529,8 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 	int rc = 0;
 	struct qpnp_pon *pon = sys_reset_dev;
 	struct qpnp_pon *tmp;
+	struct power_supply *batt_psy;
+	union power_supply_propval val;
 	unsigned long flags;
 
 	if (!pon)
@@ -555,6 +563,19 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 				"Error configuring secondary PON rc: %d\n",
 				rc);
 			goto out;
+		}
+	}
+	/* Set ship mode here if it has been requested */
+	if (!!pon_ship_mode_en) {
+		batt_psy = power_supply_get_by_name("battery");
+		if (batt_psy) {
+			pr_debug("Set ship mode!\n");
+			val.intval = 1;
+			rc = power_supply_set_property(batt_psy,
+					POWER_SUPPLY_PROP_SET_SHIP_MODE, &val);
+			if (rc)
+				dev_err(&pon->pdev->dev,
+						"Set ship-mode failed\n");
 		}
 	}
 out:

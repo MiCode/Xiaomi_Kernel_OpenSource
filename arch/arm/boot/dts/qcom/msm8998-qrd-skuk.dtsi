@@ -160,6 +160,15 @@
 		input-name = "gpio-keys";
 		status = "okay";
 
+		home {
+			label = "home";
+			gpios = <&pm8998_gpios 5 0x1>;
+			linux,input-type = <1>;
+			linux,code = <102>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
 		vol_up {
 			label = "volume_up";
 			gpios = <&pm8998_gpios 6 0x1>;
@@ -290,10 +299,16 @@
 
 &pmi8998_fg {
 	qcom,battery-data = <&qrd_batterydata>;
+	qcom,fg-jeita-thresholds = <0 5 55 55>;
 };
 
 &pmi8998_haptics {
 	status = "okay";
+};
+
+&pmi8998_wled {
+	qcom,led-strings-list = [00 01];
+	qcom,fs-curr-ua = <20000>;
 };
 
 &tlmm {

@@ -1,8 +1,8 @@
 if ARCH_QCOM
 menu "QCOM SoC Type"
 
-config ARCH_MSMFALCON
-        bool "Enable Support for MSMFALCON"
+config ARCH_SDM660
+        bool "Enable Support for SDM660"
 	select CLKDEV_LOOKUP
 	select HAVE_CLK
 	select HAVE_CLK_PREPARE
@@ -36,11 +36,11 @@ config ARCH_MSMFALCON
 	select GENERIC_IRQ_MIGRATION
 	select MSM_JTAGV8 if CORESIGHT_ETMV4
 	help
-	This enables support for the MSMFALCON chipset. If you do not
+	This enables support for the SDM660 chipset. If you do not
 	wish to build a kernel that runs on this chipset, say 'N' here.
 
-config ARCH_MSMTRITON
-        bool "Enable Support for MSMTRITON"
+config ARCH_SDM630
+        bool "Enable Support for SDM630"
 	select CLKDEV_LOOKUP
 	select HAVE_CLK
 	select HAVE_CLK_PREPARE
@@ -68,7 +68,7 @@ config ARCH_MSMTRITON
 	select MSM_RPM_SMD
 	select MSM_JTAGV8 if CORESIGHT_ETMV4
 	help
-	This enables support for the MSMTRITON chipset. If you do not
+	This enables support for the SDM630 chipset. If you do not
 	wish to build a kernel that runs on this chipset, say 'N' here.
 
 config ARCH_MSM8X60

@@ -314,7 +314,7 @@ static int msm_dai_slim_prepare(struct snd_pcm_substream *substream,
 	struct msm_slim_dai_data *dai_data = NULL;
 	struct slim_ch prop;
 	int rc;
-	u8 i, j;
+	u8 i;
 
 	dai_data = msm_slim_get_dai_data(drv_data, dai);
 	if (!dai_data) {
@@ -331,6 +331,13 @@ static int msm_dai_slim_prepare(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
+	if (dai_data->status & DAI_STATE_PREPARED) {
+		dev_dbg(dai->dev,
+			"%s: dai id (%d) has already prepared.\n",
+			__func__, dai->id);
+		return 0;
+	}
+
 	dma_data = &dai_data->dma_data;
 	snd_soc_dai_set_dma_data(dai, substream, dma_data);
 
@@ -343,6 +350,10 @@ static int msm_dai_slim_prepare(struct snd_pcm_substream *substream,
 			goto error_chan_query;
 		}
 	}
+
+	/* To decrement the channel ref count*/
+	for (i = 0; i < dai_data->ch_cnt; i++)
+		slim_dealloc_ch(drv_data->sdev, dai_data->chan_h[i]);
 
 	prop.prot = SLIM_AUTO_ISO;
 	prop.baser = SLIM_RATE_4000HZ;
@@ -367,8 +378,6 @@ static int msm_dai_slim_prepare(struct snd_pcm_substream *substream,
 
 error_define_chan:
 error_chan_query:
-	for (j = 0; j < i; j++)
-		slim_dealloc_ch(drv_data->sdev, dai_data->chan_h[j]);
 	return rc;
 }
 
@@ -378,7 +387,6 @@ static void msm_dai_slim_shutdown(struct snd_pcm_substream *stream,
 	struct msm_dai_slim_drv_data *drv_data = dev_get_drvdata(dai->dev);
 	struct msm_slim_dma_data *dma_data = NULL;
 	struct msm_slim_dai_data *dai_data;
-	int i, rc = 0;
 
 	dai_data = msm_slim_get_dai_data(drv_data, dai);
 	dma_data = snd_soc_dai_get_dma_data(dai, stream);
@@ -395,15 +403,6 @@ static void msm_dai_slim_shutdown(struct snd_pcm_substream *stream,
 			"%s: dai id (%d) has invalid state 0x%x\n",
 			__func__, dai->id, dai_data->status);
 		return;
-	}
-
-	for (i = 0; i < dai_data->ch_cnt; i++) {
-		rc = slim_dealloc_ch(drv_data->sdev, dai_data->chan_h[i]);
-		if (rc) {
-			dev_err(dai->dev,
-				"%s: dealloc_ch failed, err = %d\n",
-				__func__, rc);
-		}
 	}
 
 	snd_soc_dai_set_dma_data(dai, stream, NULL);
