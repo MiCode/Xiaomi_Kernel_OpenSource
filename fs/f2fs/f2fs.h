@@ -152,6 +152,12 @@ static inline void inode_unlock(struct inode *inode)
 	   ____ptr ? rb_entry(____ptr, type, member) : NULL; \
 	})
 
+#define list_last_entry(ptr, type, member) \
+	list_entry((ptr)->prev, type, member)
+
+#define list_first_entry(ptr, type, member) \
+	list_entry((ptr)->next, type, member)
+
 /**
  * wq_has_sleeper - check if there are any waiting processes
  * @wq: wait queue head
