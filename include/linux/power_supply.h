@@ -103,6 +103,12 @@ enum {
 	POWER_SUPPLY_DP_DM_ICL_UP = 12,
 };
 
+enum {
+	POWER_SUPPLY_PARALLEL_NONE,
+	POWER_SUPPLY_PARALLEL_USBIN_USBIN,
+	POWER_SUPPLY_PARALLEL_MID_MID,
+};
+
 enum power_supply_property {
 	/* Properties of type `int' */
 	POWER_SUPPLY_PROP_STATUS = 0,
@@ -235,6 +241,9 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_PE_START,
 	POWER_SUPPLY_PROP_SET_SHIP_MODE,
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
+	POWER_SUPPLY_PROP_FCC_DELTA,
+	POWER_SUPPLY_PROP_ICL_REDUCTION,
+	POWER_SUPPLY_PROP_PARALLEL_MODE,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
@@ -258,9 +267,10 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_PD,	/* Power Delivery */
 	POWER_SUPPLY_TYPE_WIRELESS,	/* Accessory Charger Adapters */
 	POWER_SUPPLY_TYPE_BMS,		/* Battery Monitor System */
-	POWER_SUPPLY_TYPE_USB_PARALLEL,		/* USB Parallel Path */
-	POWER_SUPPLY_TYPE_WIPOWER,		/* Wipower */
-	POWER_SUPPLY_TYPE_TYPEC,	/*Type-C */
+	POWER_SUPPLY_TYPE_PARALLEL,	/* Parallel Path */
+	POWER_SUPPLY_TYPE_MAIN,		/* Main Path */
+	POWER_SUPPLY_TYPE_WIPOWER,	/* Wipower */
+	POWER_SUPPLY_TYPE_TYPEC,	/* Type-C */
 	POWER_SUPPLY_TYPE_UFP,		/* Type-C UFP */
 	POWER_SUPPLY_TYPE_DFP,		/* TYpe-C DFP */
 };
