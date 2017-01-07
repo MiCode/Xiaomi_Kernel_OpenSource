@@ -25,14 +25,6 @@ config INPUT
 
 if INPUT
 
-config QPNP_POWER_ON
-        tristate "QPNP PMIC POWER-ON Driver"
-        depends on SPMI && ARCH_QCOM
-        help
-          This driver supports the power-on functionality on Qualcomm
-          PNP PMIC. It currently supports reporting the change in status of
-          the KPDPWR_N line (connected to the power-key).
-
 config INPUT_LEDS
 	tristate "Export input device LEDs in sysfs"
 	depends on LEDS_CLASS
