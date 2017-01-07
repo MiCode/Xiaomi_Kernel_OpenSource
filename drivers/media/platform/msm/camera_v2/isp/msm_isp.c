@@ -500,6 +500,10 @@ static int vfe_probe(struct platform_device *pdev)
 	memset(&vfe_common_data, 0, sizeof(vfe_common_data));
 	mutex_init(&vfe_common_data.vfe_common_mutex);
 	spin_lock_init(&vfe_common_data.common_dev_data_lock);
+	spin_lock_init(&vfe_common_data.vfe_irq_dump.
+			common_dev_irq_dump_lock);
+	spin_lock_init(&vfe_common_data.vfe_irq_dump.
+			common_dev_tasklet_dump_lock);
 	for (i = 0; i < (VFE_AXI_SRC_MAX * MAX_VFE); i++)
 		spin_lock_init(&(vfe_common_data.streams[i].lock));
 	for (i = 0; i < (MSM_ISP_STATS_MAX * MAX_VFE); i++)

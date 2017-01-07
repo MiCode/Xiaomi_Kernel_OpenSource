@@ -269,6 +269,8 @@ struct msm_vfe_hardware_info vfe48_hw_info = {
 	.min_ab = 100000000,
 	.vfe_ops = {
 		.irq_ops = {
+			.read_and_clear_irq_status =
+				msm_vfe47_read_and_clear_irq_status,
 			.read_irq_status = msm_vfe47_read_irq_status,
 			.process_camif_irq = msm_vfe47_process_input_irq,
 			.process_reset_irq = msm_vfe47_process_reset_irq,

@@ -556,7 +556,7 @@ void msm_vfe47_process_error_status(struct vfe_device *vfe_dev)
 		pr_err("%s: status dsp error\n", __func__);
 }
 
-void msm_vfe47_read_irq_status(struct vfe_device *vfe_dev,
+void msm_vfe47_read_and_clear_irq_status(struct vfe_device *vfe_dev,
 	uint32_t *irq_status0, uint32_t *irq_status1)
 {
 	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x6C);
@@ -580,6 +580,13 @@ void msm_vfe47_read_irq_status(struct vfe_device *vfe_dev,
 		vfe_dev->error_info.violation_status =
 		msm_camera_io_r(vfe_dev->vfe_base + 0x7C);
 
+}
+
+void msm_vfe47_read_irq_status(struct vfe_device *vfe_dev,
+	uint32_t *irq_status0, uint32_t *irq_status1)
+{
+	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x6C);
+	*irq_status1 = msm_camera_io_r(vfe_dev->vfe_base + 0x70);
 }
 
 void msm_vfe47_process_reg_update(struct vfe_device *vfe_dev,
@@ -1931,7 +1938,9 @@ void msm_vfe47_axi_restart(struct vfe_device *vfe_dev,
 	uint32_t blocking, uint32_t enable_camif)
 {
 	vfe_dev->hw_info->vfe_ops.irq_ops.config_irq(vfe_dev,
-			0x810000E0, 0xFFFFFF7E, MSM_ISP_IRQ_ENABLE);
+			vfe_dev->recovery_irq0_mask,
+			vfe_dev->recovery_irq1_mask,
+			MSM_ISP_IRQ_ENABLE);
 	/* Start AXI */
 	msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x400);
 
@@ -2783,7 +2792,8 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 	.min_ab = 100000000,
 	.vfe_ops = {
 		.irq_ops = {
-			.read_irq_status = msm_vfe47_read_irq_status,
+			.read_and_clear_irq_status =
+				msm_vfe47_read_and_clear_irq_status,
 			.process_camif_irq = msm_vfe47_process_input_irq,
 			.process_reset_irq = msm_vfe47_process_reset_irq,
 			.process_halt_irq = msm_vfe47_process_halt_irq,
@@ -2793,6 +2803,7 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.process_stats_irq = msm_isp_process_stats_irq,
 			.process_epoch_irq = msm_vfe47_process_epoch_irq,
 			.config_irq = msm_vfe47_config_irq,
+			.read_irq_status = msm_vfe47_read_irq_status,
 		},
 		.axi_ops = {
 			.reload_wm = msm_vfe47_axi_reload_wm,
