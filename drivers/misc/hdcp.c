@@ -559,6 +559,7 @@ static int hdcp_lib_txmtr_init_legacy(struct hdcp_lib_handle *handle);
 static struct qseecom_handle *hdcp1_handle;
 static bool hdcp1_supported = true;
 static bool hdcp1_enc_enabled;
+static struct mutex hdcp1_ta_cmd_lock;
 
 static const char *hdcp_lib_message_name(int msg_id)
 {
@@ -2217,6 +2218,8 @@ bool hdcp1_check_if_supported_load_app(void)
 		if (rc) {
 			pr_err("qseecom_start_app failed %d\n", rc);
 			hdcp1_supported = false;
+		} else {
+			mutex_init(&hdcp1_ta_cmd_lock);
 		}
 	}
 
@@ -2281,12 +2284,16 @@ int hdcp1_set_enc(bool enable)
 	struct hdcp1_set_enc_req *set_enc_req;
 	struct hdcp1_set_enc_rsp *set_enc_rsp;
 
-	if (!hdcp1_supported || !hdcp1_handle)
-		return -EINVAL;
+	mutex_lock(&hdcp1_ta_cmd_lock);
+
+	if (!hdcp1_supported || !hdcp1_handle) {
+		rc = -EINVAL;
+		goto end;
+	}
 
 	if (hdcp1_enc_enabled == enable) {
 		pr_debug("already %s\n", enable ? "enabled" : "disabled");
-		return rc;
+		goto end;
 	}
 
 	/* set keys and request aksv */
@@ -2304,18 +2311,21 @@ int hdcp1_set_enc(bool enable)
 
 	if (rc < 0) {
 		pr_err("qseecom cmd failed err=%d\n", rc);
-		return -EINVAL;
+		goto end;
 	}
 
 	rc = set_enc_rsp->ret;
 	if (rc) {
 		pr_err("enc cmd failed, rsp=%d\n", set_enc_rsp->ret);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	hdcp1_enc_enabled = enable;
 	pr_debug("%s success\n", enable ? "enable" : "disable");
-	return 0;
+end:
+	mutex_unlock(&hdcp1_ta_cmd_lock);
+	return rc;
 }
 
 int hdcp_library_register(struct hdcp_register_data *data)
