@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -312,7 +312,7 @@ void mdss_dp_phy_share_lane_config(struct dss_io_data *phy_io,
 					u8 orientation, u8 ln_cnt);
 void mdss_dp_config_audio_acr_ctrl(struct dss_io_data *ctrl_io,
 						char link_rate);
-void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io);
+void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io, u32 num_of_channels);
 void mdss_dp_audio_enable(struct dss_io_data *ctrl_io, bool enable);
 void mdss_dp_audio_select_core(struct dss_io_data *ctrl_io);
 void mdss_dp_audio_set_sample_rate(struct dss_io_data *ctrl_io,

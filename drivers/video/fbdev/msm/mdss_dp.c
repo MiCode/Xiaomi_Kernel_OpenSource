@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -905,7 +905,7 @@ static int dp_audio_info_setup(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
-	mdss_dp_audio_setup_sdps(&dp_ctrl->ctrl_io);
+	mdss_dp_audio_setup_sdps(&dp_ctrl->ctrl_io, params->num_of_channels);
 	mdss_dp_config_audio_acr_ctrl(&dp_ctrl->ctrl_io, dp_ctrl->link_rate);
 	mdss_dp_set_safe_to_exit_level(&dp_ctrl->ctrl_io, dp_ctrl->lane_cnt);
 	mdss_dp_audio_enable(&dp_ctrl->ctrl_io, true);

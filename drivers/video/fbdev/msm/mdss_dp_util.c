@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1113,7 +1113,8 @@ static u8 mdss_dp_calculate_parity_byte(u32 data)
 	return parityByte;
 }
 
-static void mdss_dp_audio_setup_audio_stream_sdp(struct dss_io_data *ctrl_io)
+static void mdss_dp_audio_setup_audio_stream_sdp(struct dss_io_data *ctrl_io,
+		u32 num_of_channels)
 {
 	u32 value = 0;
 	u32 new_value = 0;
@@ -1141,7 +1142,7 @@ static void mdss_dp_audio_setup_audio_stream_sdp(struct dss_io_data *ctrl_io)
 
 	/* Config header and parity byte 3 */
 	value = readl_relaxed(ctrl_io->base + MMSS_DP_AUDIO_STREAM_1);
-	new_value = 0x01;
+	new_value = num_of_channels - 1;
 	parity_byte = mdss_dp_calculate_parity_byte(new_value);
 	value |= ((new_value << HEADER_BYTE_3_BIT)
 			| (parity_byte << PARITY_BYTE_3_BIT));
@@ -1309,7 +1310,7 @@ static void mdss_dp_audio_setup_isrc_sdp(struct dss_io_data *ctrl_io)
 	writel_relaxed(0x0, ctrl_io->base + MMSS_DP_AUDIO_ISRC_4);
 }
 
-void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io)
+void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io, u32 num_of_channels)
 {
 	u32 sdp_cfg = 0;
 	u32 sdp_cfg2 = 0;
@@ -1335,7 +1336,7 @@ void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io)
 
 	writel_relaxed(sdp_cfg2, ctrl_io->base + MMSS_DP_SDP_CFG2);
 
-	mdss_dp_audio_setup_audio_stream_sdp(ctrl_io);
+	mdss_dp_audio_setup_audio_stream_sdp(ctrl_io, num_of_channels);
 	mdss_dp_audio_setup_audio_timestamp_sdp(ctrl_io);
 	mdss_dp_audio_setup_audio_infoframe_sdp(ctrl_io);
 	mdss_dp_audio_setup_copy_management_sdp(ctrl_io);
