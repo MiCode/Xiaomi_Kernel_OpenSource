@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, 2014, 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1653,10 +1653,10 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 
 	pr_debug("Entered++");
 
+	dp_host_train_set(ep, 0x01); /* train_1 */
 	dp_cap_lane_rate_set(ep);
 	dp_train_pattern_set_write(ep, 0x21); /* train_1 */
 	dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
-	dp_host_train_set(ep, 0x01); /* train_1 */
 
 	tries = 0;
 	old_v_level = ep->v_level;
@@ -1708,11 +1708,11 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 	else
 		pattern = 0x02;
 
+	dp_host_train_set(ep, pattern);
+	dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
 	dp_train_pattern_set_write(ep, pattern | 0x20);/* train_2 */
 
 	do  {
-		dp_host_train_set(ep, pattern);
-
 		usleep_time = ep->dpcd.training_read_interval;
 		usleep_range(usleep_time, usleep_time);
 
@@ -1723,11 +1723,11 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 			break;
 		}
 
-		tries++;
 		if (tries > maximum_retries) {
 			ret = -1;
 			break;
 		}
+		tries++;
 
 		dp_sink_train_set_adjust(ep);
 		dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
