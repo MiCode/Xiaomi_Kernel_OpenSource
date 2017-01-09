@@ -32,4 +32,8 @@ static inline int msm_vfe_is_vfe48(struct vfe_device *vfe_dev)
 		MSM_VFE48_HW_VERSION_MASK) == MSM_VFE48_HW_VERSION);
 }
 
+void msm_vfe48_stats_cfg_ub(struct vfe_device *vfe_dev);
+uint32_t msm_vfe48_get_ub_size(struct vfe_device *vfe_dev);
+
+
 #endif /* __MSM_ISP48_H__ */
