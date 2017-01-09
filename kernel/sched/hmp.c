@@ -27,9 +27,7 @@
 const char *task_event_names[] = {"PUT_PREV_TASK", "PICK_NEXT_TASK",
 		"TASK_WAKE", "TASK_MIGRATE", "TASK_UPDATE", "IRQ_UPDATE"};
 
-const char *migrate_type_names[] = {"GROUP_TO_RQ", "RQ_TO_GROUP",
-				"RQ_TO_RQ", "GROUP_TO_GROUP"};
-
+const char *migrate_type_names[] = {"GROUP_TO_RQ", "RQ_TO_GROUP"};
 
 static ktime_t ktime_last;
 static bool sched_ktime_suspended;
@@ -1691,45 +1689,19 @@ static inline unsigned int load_to_freq(struct rq *rq, u64 load)
 	return freq;
 }
 
-static inline struct group_cpu_time *
-_group_cpu_time(struct related_thread_group *grp, int cpu);
-
-/*
- * Return load from all related group in given cpu.
- * Caller must ensure that related_thread_group_lock is held.
- */
-static void _group_load_in_cpu(int cpu, u64 *grp_load, u64 *new_grp_load)
-{
-	struct related_thread_group *grp;
-
-	for_each_related_thread_group(grp) {
-		struct group_cpu_time *cpu_time;
-
-		cpu_time = _group_cpu_time(grp, cpu);
-		*grp_load += cpu_time->prev_runnable_sum;
-		if (new_grp_load)
-			*new_grp_load += cpu_time->nt_prev_runnable_sum;
-	}
-}
-
 /*
  * Return load from all related groups in given frequency domain.
- * Caller must ensure that related_thread_group_lock is held.
  */
 static void group_load_in_freq_domain(struct cpumask *cpus,
 				u64 *grp_load, u64 *new_grp_load)
 {
-	struct related_thread_group *grp;
 	int j;
 
-	for_each_related_thread_group(grp) {
-		for_each_cpu(j, cpus) {
-			struct group_cpu_time *cpu_time;
+	for_each_cpu(j, cpus) {
+		struct rq *rq = cpu_rq(j);
 
-			cpu_time = _group_cpu_time(grp, j);
-			*grp_load += cpu_time->prev_runnable_sum;
-			*new_grp_load += cpu_time->nt_prev_runnable_sum;
-		}
+		*grp_load += rq->grp_time.prev_runnable_sum;
+		*new_grp_load += rq->grp_time.nt_prev_runnable_sum;
 	}
 }
 
@@ -1771,20 +1743,18 @@ static int send_notification(struct rq *rq, int check_pred, int check_groups)
 		if (freq_required < cur_freq + sysctl_sched_pred_alert_freq)
 			return 0;
 	} else {
-		read_lock_irqsave(&related_thread_group_lock, flags);
 		/*
 		 * Protect from concurrent update of rq->prev_runnable_sum and
 		 * group cpu load
 		 */
-		raw_spin_lock(&rq->lock);
+		raw_spin_lock_irqsave(&rq->lock, flags);
 		if (check_groups)
-			_group_load_in_cpu(cpu_of(rq), &group_load, NULL);
+			group_load = rq->grp_time.prev_runnable_sum;
 
 		new_load = rq->prev_runnable_sum + group_load;
 		new_load = freq_policy_load(rq, new_load);
 
-		raw_spin_unlock(&rq->lock);
-		read_unlock_irqrestore(&related_thread_group_lock, flags);
+		raw_spin_unlock_irqrestore(&rq->lock, flags);
 
 		cur_freq = load_to_freq(rq, rq->old_busy_time);
 		freq_required = load_to_freq(rq, new_load);
@@ -2258,6 +2228,31 @@ static void rollover_task_window(struct task_struct *p, bool full_window)
 	}
 }
 
+static void rollover_cpu_window(struct rq *rq, bool full_window)
+{
+	u64 curr_sum = rq->curr_runnable_sum;
+	u64 nt_curr_sum = rq->nt_curr_runnable_sum;
+	u64 grp_curr_sum = rq->grp_time.curr_runnable_sum;
+	u64 grp_nt_curr_sum = rq->grp_time.nt_curr_runnable_sum;
+
+	if (unlikely(full_window)) {
+		curr_sum = 0;
+		nt_curr_sum = 0;
+		grp_curr_sum = 0;
+		grp_nt_curr_sum = 0;
+	}
+
+	rq->prev_runnable_sum = curr_sum;
+	rq->nt_prev_runnable_sum = nt_curr_sum;
+	rq->grp_time.prev_runnable_sum = grp_curr_sum;
+	rq->grp_time.nt_prev_runnable_sum = grp_nt_curr_sum;
+
+	rq->curr_runnable_sum = 0;
+	rq->nt_curr_runnable_sum = 0;
+	rq->grp_time.curr_runnable_sum = 0;
+	rq->grp_time.nt_curr_runnable_sum = 0;
+}
+
 /*
  * Account cpu activity in its busy time counters (rq->curr/prev_runnable_sum)
  */
@@ -2274,8 +2269,6 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	u64 *prev_runnable_sum = &rq->prev_runnable_sum;
 	u64 *nt_curr_runnable_sum = &rq->nt_curr_runnable_sum;
 	u64 *nt_prev_runnable_sum = &rq->nt_prev_runnable_sum;
-	int flip_counters = 0;
-	int prev_sum_reset = 0;
 	bool new_task;
 	struct related_thread_group *grp;
 	int cpu = rq->cpu;
@@ -2290,51 +2283,6 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 
 	new_task = is_new_task(p);
 
-	grp = p->grp;
-	if (grp && sched_freq_aggregate) {
-		/* cpu_time protected by rq_lock */
-		struct group_cpu_time *cpu_time =
-			_group_cpu_time(grp, cpu_of(rq));
-
-		curr_runnable_sum = &cpu_time->curr_runnable_sum;
-		prev_runnable_sum = &cpu_time->prev_runnable_sum;
-
-		nt_curr_runnable_sum = &cpu_time->nt_curr_runnable_sum;
-		nt_prev_runnable_sum = &cpu_time->nt_prev_runnable_sum;
-
-		if (cpu_time->window_start != rq->window_start) {
-			int nr_windows;
-
-			delta = rq->window_start - cpu_time->window_start;
-			nr_windows = div64_u64(delta, window_size);
-			if (nr_windows > 1)
-				prev_sum_reset = 1;
-
-			cpu_time->window_start = rq->window_start;
-			flip_counters = 1;
-		}
-
-		if (p_is_curr_task && new_window) {
-			u64 curr_sum = rq->curr_runnable_sum;
-			u64 nt_curr_sum = rq->nt_curr_runnable_sum;
-
-			if (full_window)
-				curr_sum = nt_curr_sum = 0;
-
-			rq->prev_runnable_sum = curr_sum;
-			rq->nt_prev_runnable_sum = nt_curr_sum;
-
-			rq->curr_runnable_sum = 0;
-			rq->nt_curr_runnable_sum = 0;
-		}
-	} else {
-		if (p_is_curr_task && new_window) {
-			flip_counters = 1;
-			if (full_window)
-				prev_sum_reset = 1;
-		}
-	}
-
 	/*
 	 * Handle per-task window rollover. We don't care about the idle
 	 * task or exiting tasks.
@@ -2344,25 +2292,24 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 			rollover_task_window(p, full_window);
 	}
 
-	if (flip_counters) {
-		u64 curr_sum = *curr_runnable_sum;
-		u64 nt_curr_sum = *nt_curr_runnable_sum;
-
-		if (prev_sum_reset)
-			curr_sum = nt_curr_sum = 0;
-
-		*prev_runnable_sum = curr_sum;
-		*nt_prev_runnable_sum = nt_curr_sum;
-
-		*curr_runnable_sum = 0;
-		*nt_curr_runnable_sum = 0;
-
-		if (p_is_curr_task)
-			rollover_top_tasks(rq, full_window);
+	if (p_is_curr_task && new_window) {
+		rollover_cpu_window(rq, full_window);
+		rollover_top_tasks(rq, full_window);
 	}
 
 	if (!account_busy_for_cpu_time(rq, p, irqtime, event))
 		goto done;
+
+	grp = p->grp;
+	if (grp && sched_freq_aggregate) {
+		struct group_cpu_time *cpu_time = &rq->grp_time;
+
+		curr_runnable_sum = &cpu_time->curr_runnable_sum;
+		prev_runnable_sum = &cpu_time->prev_runnable_sum;
+
+		nt_curr_runnable_sum = &cpu_time->nt_curr_runnable_sum;
+		nt_prev_runnable_sum = &cpu_time->nt_prev_runnable_sum;
+	}
 
 	if (!new_window) {
 		/*
@@ -2880,7 +2827,7 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 done:
 	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
 				     rq->cc.cycles, rq->cc.time,
-				     _group_cpu_time(p->grp, cpu_of(rq)));
+				     p->grp ? &rq->grp_time : NULL);
 
 	p->ravg.mark_start = wallclock;
 }
@@ -3037,7 +2984,6 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 	u64 start_ts = sched_ktime_clock();
 	int reason = WINDOW_CHANGE;
 	unsigned int old = 0, new = 0;
-	struct related_thread_group *grp;
 
 	local_irq_save(flags);
 
@@ -3055,19 +3001,6 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 
 	read_unlock(&tasklist_lock);
 
-	list_for_each_entry(grp, &active_related_thread_groups, list) {
-		int j;
-
-		for_each_possible_cpu(j) {
-			struct group_cpu_time *cpu_time;
-			/* Protected by rq lock */
-			cpu_time = _group_cpu_time(grp, j);
-			memset(cpu_time, 0, sizeof(struct group_cpu_time));
-			if (window_start)
-				cpu_time->window_start = window_start;
-		}
-	}
-
 	if (window_size) {
 		sched_ravg_window = window_size * TICK_NSEC;
 		set_hmp_defaults();
@@ -3083,6 +3016,7 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 			rq->window_start = window_start;
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
+		memset(&rq->grp_time, 0, sizeof(struct group_cpu_time));
 		for (i = 0; i < NUM_TRACKED_WINDOWS; i++) {
 			memset(&rq->load_subs[i], 0,
 					sizeof(struct load_subtractions));
@@ -3178,9 +3112,6 @@ static inline u64 freq_policy_load(struct rq *rq, u64 load)
 	return load;
 }
 
-static inline void
-sync_window_start(struct rq *rq, struct group_cpu_time *cpu_time);
-
 void sched_get_cpus_busy(struct sched_load *busy,
 			 const struct cpumask *query_cpus)
 {
@@ -3197,7 +3128,6 @@ void sched_get_cpus_busy(struct sched_load *busy,
 	unsigned int window_size;
 	u64 max_prev_sum = 0;
 	int max_busy_cpu = cpumask_first(query_cpus);
-	struct related_thread_group *grp;
 	u64 total_group_load = 0, total_ngload = 0;
 	bool aggregate_load = false;
 	struct sched_cluster *cluster = cpu_cluster(cpumask_first(query_cpus));
@@ -3206,8 +3136,6 @@ void sched_get_cpus_busy(struct sched_load *busy,
 		return;
 
 	local_irq_save(flags);
-
-	read_lock(&related_thread_group_lock);
 
 	/*
 	 * This function could be called in timer context, and the
@@ -3261,15 +3189,6 @@ void sched_get_cpus_busy(struct sched_load *busy,
 
 	raw_spin_unlock(&cluster->load_lock);
 
-	for_each_related_thread_group(grp) {
-		for_each_cpu(cpu, query_cpus) {
-			/* Protected by rq_lock */
-			struct group_cpu_time *cpu_time =
-						_group_cpu_time(grp, cpu);
-			sync_window_start(cpu_rq(cpu), cpu_time);
-		}
-	}
-
 	group_load_in_freq_domain(
 			&cpu_rq(max_busy_cpu)->freq_domain_cpumask,
 			&total_group_load, &total_ngload);
@@ -3290,7 +3209,8 @@ void sched_get_cpus_busy(struct sched_load *busy,
 				ngload[i] = total_ngload;
 			}
 		} else {
-			_group_load_in_cpu(cpu, &group_load[i], &ngload[i]);
+			group_load[i] = rq->grp_time.prev_runnable_sum;
+			ngload[i] = rq->grp_time.nt_prev_runnable_sum;
 		}
 
 		load[i] += group_load[i];
@@ -3314,8 +3234,6 @@ skip_early:
 
 	for_each_cpu(cpu, query_cpus)
 		raw_spin_unlock(&(cpu_rq(cpu))->lock);
-
-	read_unlock(&related_thread_group_lock);
 
 	local_irq_restore(flags);
 
@@ -3633,18 +3551,17 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	if (grp && sched_freq_aggregate) {
 		struct group_cpu_time *cpu_time;
 
-		cpu_time = _group_cpu_time(grp, cpu_of(src_rq));
+		cpu_time = &src_rq->grp_time;
 		src_curr_runnable_sum = &cpu_time->curr_runnable_sum;
 		src_prev_runnable_sum = &cpu_time->prev_runnable_sum;
 		src_nt_curr_runnable_sum = &cpu_time->nt_curr_runnable_sum;
 		src_nt_prev_runnable_sum = &cpu_time->nt_prev_runnable_sum;
 
-		cpu_time = _group_cpu_time(grp, cpu_of(dest_rq));
+		cpu_time = &dest_rq->grp_time;
 		dst_curr_runnable_sum = &cpu_time->curr_runnable_sum;
 		dst_prev_runnable_sum = &cpu_time->prev_runnable_sum;
 		dst_nt_curr_runnable_sum = &cpu_time->nt_curr_runnable_sum;
 		dst_nt_prev_runnable_sum = &cpu_time->nt_prev_runnable_sum;
-		sync_window_start(dest_rq, cpu_time);
 
 		if (p->ravg.curr_window) {
 			*src_curr_runnable_sum -= p->ravg.curr_window;
@@ -3773,61 +3690,6 @@ void set_preferred_cluster(struct related_thread_group *grp)
 
 #define DEFAULT_CGROUP_COLOC_ID 1
 
-static inline void free_group_cputime(struct related_thread_group *grp)
-{
-	free_percpu(grp->cpu_time);
-}
-
-static int alloc_group_cputime(struct related_thread_group *grp)
-{
-	int i;
-	struct group_cpu_time *cpu_time;
-	int cpu = raw_smp_processor_id();
-	struct rq *rq = cpu_rq(cpu);
-	u64 window_start = rq->window_start;
-
-	grp->cpu_time = alloc_percpu_gfp(struct group_cpu_time, GFP_ATOMIC);
-	if (!grp->cpu_time)
-		return -ENOMEM;
-
-	for_each_possible_cpu(i) {
-		cpu_time = per_cpu_ptr(grp->cpu_time, i);
-		memset(cpu_time, 0, sizeof(struct group_cpu_time));
-		cpu_time->window_start = window_start;
-	}
-
-	return 0;
-}
-
-/*
- * A group's window_start may be behind. When moving it forward, flip prev/curr
- * counters. When moving forward > 1 window, prev counter is set to 0
- */
-static inline void
-sync_window_start(struct rq *rq, struct group_cpu_time *cpu_time)
-{
-	u64 delta;
-	int nr_windows;
-	u64 curr_sum = cpu_time->curr_runnable_sum;
-	u64 nt_curr_sum = cpu_time->nt_curr_runnable_sum;
-
-	delta = rq->window_start - cpu_time->window_start;
-	if (!delta)
-		return;
-
-	nr_windows = div64_u64(delta, sched_ravg_window);
-	if (nr_windows > 1)
-		curr_sum = nt_curr_sum = 0;
-
-	cpu_time->prev_runnable_sum  = curr_sum;
-	cpu_time->curr_runnable_sum  = 0;
-
-	cpu_time->nt_prev_runnable_sum = nt_curr_sum;
-	cpu_time->nt_curr_runnable_sum = 0;
-
-	cpu_time->window_start = rq->window_start;
-}
-
 /*
  * Task's cpu usage is accounted in:
  *	rq->curr/prev_runnable_sum,  when its ->grp is NULL
@@ -3845,7 +3707,6 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	u64 *src_prev_runnable_sum, *dst_prev_runnable_sum;
 	u64 *src_nt_curr_runnable_sum, *dst_nt_curr_runnable_sum;
 	u64 *src_nt_prev_runnable_sum, *dst_nt_prev_runnable_sum;
-	struct migration_sum_data d;
 	int migrate_type;
 	int cpu = cpu_of(rq);
 	bool new_task;
@@ -3860,15 +3721,10 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	update_task_ravg(p, rq, TASK_UPDATE, wallclock, 0);
 	new_task = is_new_task(p);
 
-	/* cpu_time protected by related_thread_group_lock, grp->lock rq_lock */
-	cpu_time = _group_cpu_time(grp, cpu);
+	cpu_time = &rq->grp_time;
 	if (event == ADD_TASK) {
-		sync_window_start(rq, cpu_time);
 		migrate_type = RQ_TO_GROUP;
-		d.src_rq = rq;
-		d.src_cpu_time = NULL;
-		d.dst_rq = NULL;
-		d.dst_cpu_time = cpu_time;
+
 		src_curr_runnable_sum = &rq->curr_runnable_sum;
 		dst_curr_runnable_sum = &cpu_time->curr_runnable_sum;
 		src_prev_runnable_sum = &rq->prev_runnable_sum;
@@ -3893,17 +3749,7 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 
 	} else {
 		migrate_type = GROUP_TO_RQ;
-		d.src_rq = NULL;
-		d.src_cpu_time = cpu_time;
-		d.dst_rq = rq;
-		d.dst_cpu_time = NULL;
 
-		/*
-		 * In case of REM_TASK, cpu_time->window_start would be
-		 * uptodate, because of the update_task_ravg() we called
-		 * above on the moving task. Hence no need for
-		 * sync_window_start()
-		 */
 		src_curr_runnable_sum = &cpu_time->curr_runnable_sum;
 		dst_curr_runnable_sum = &rq->curr_runnable_sum;
 		src_prev_runnable_sum = &cpu_time->prev_runnable_sum;
@@ -3949,24 +3795,12 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	p->ravg.curr_window_cpu[cpu] = p->ravg.curr_window;
 	p->ravg.prev_window_cpu[cpu] = p->ravg.prev_window;
 
-	trace_sched_migration_update_sum(p, migrate_type, &d);
+	trace_sched_migration_update_sum(p, migrate_type, rq);
 
 	BUG_ON((s64)*src_curr_runnable_sum < 0);
 	BUG_ON((s64)*src_prev_runnable_sum < 0);
 	BUG_ON((s64)*src_nt_curr_runnable_sum < 0);
 	BUG_ON((s64)*src_nt_prev_runnable_sum < 0);
-}
-
-static inline struct group_cpu_time *
-task_group_cpu_time(struct task_struct *p, int cpu)
-{
-	return _group_cpu_time(rcu_dereference(p->grp), cpu);
-}
-
-static inline struct group_cpu_time *
-_group_cpu_time(struct related_thread_group *grp, int cpu)
-{
-	return grp ? per_cpu_ptr(grp->cpu_time, cpu) : NULL;
 }
 
 static inline struct related_thread_group*
@@ -3988,12 +3822,6 @@ int alloc_related_thread_groups(void)
 			goto err;
 		}
 
-		if (alloc_group_cputime(grp)) {
-			kfree(grp);
-			ret = -ENOMEM;
-			goto err;
-		}
-
 		grp->id = i;
 		INIT_LIST_HEAD(&grp->tasks);
 		INIT_LIST_HEAD(&grp->list);
@@ -4008,7 +3836,6 @@ err:
 	for (i = 1; i < MAX_NUM_CGROUP_COLOC_ID; i++) {
 		grp = lookup_related_thread_group(i);
 		if (grp) {
-			free_group_cputime(grp);
 			kfree(grp);
 			related_thread_groups[i] = NULL;
 		} else {

@@ -8220,6 +8220,7 @@ void __init sched_init(void)
 		rq->cluster = &init_cluster;
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
+		memset(&rq->grp_time, 0, sizeof(struct group_cpu_time));
 		rq->old_busy_time = 0;
 		rq->old_estimated_time = 0;
 		rq->old_busy_time_group = 0;

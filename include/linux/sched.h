@@ -333,8 +333,6 @@ enum task_event {
 enum migrate_types {
 	GROUP_TO_RQ,
 	RQ_TO_GROUP,
-	RQ_TO_RQ,
-	GROUP_TO_GROUP,
 };
 
 #include <linux/spinlock.h>

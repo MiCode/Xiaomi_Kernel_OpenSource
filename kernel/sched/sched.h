@@ -394,6 +394,13 @@ struct load_subtractions {
 	u64 new_subs;
 };
 
+struct group_cpu_time {
+	u64 curr_runnable_sum;
+	u64 prev_runnable_sum;
+	u64 nt_curr_runnable_sum;
+	u64 nt_prev_runnable_sum;
+};
+
 struct sched_cluster {
 	raw_spinlock_t load_lock;
 	struct list_head list;
@@ -435,12 +442,6 @@ struct related_thread_group {
 	struct sched_cluster *preferred_cluster;
 	struct rcu_head rcu;
 	u64 last_update;
-	struct group_cpu_time __percpu *cpu_time;	/* one per cluster */
-};
-
-struct migration_sum_data {
-	struct rq *src_rq, *dst_rq;
-	struct group_cpu_time *src_cpu_time, *dst_cpu_time;
 };
 
 extern struct list_head cluster_head;
@@ -784,6 +785,7 @@ struct rq {
 	u64 prev_runnable_sum;
 	u64 nt_curr_runnable_sum;
 	u64 nt_prev_runnable_sum;
+	struct group_cpu_time grp_time;
 	struct load_subtractions load_subs[NUM_TRACKED_WINDOWS];
 	DECLARE_BITMAP_ARRAY(top_tasks_bitmap,
 			NUM_TRACKED_WINDOWS, NUM_LOAD_INDICES);
@@ -1375,14 +1377,6 @@ check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
 
 extern void notify_migration(int src_cpu, int dest_cpu,
 			bool src_cpu_dead, struct task_struct *p);
-
-struct group_cpu_time {
-	u64 curr_runnable_sum;
-	u64 prev_runnable_sum;
-	u64 nt_curr_runnable_sum;
-	u64 nt_prev_runnable_sum;
-	u64 window_start;
-};
 
 /* Is frequency of two cpus synchronized with each other? */
 static inline int same_freq_domain(int src_cpu, int dst_cpu)
