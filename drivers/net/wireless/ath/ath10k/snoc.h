@@ -17,6 +17,7 @@
 #include "ce.h"
 #include "pci.h"
 #define ATH10K_SNOC_RX_POST_RETRY_MS 50
+#define CE_POLL_PIPE 4
 
 /* struct snoc_state: SNOC target state
  * @pipe_cfg_addr: pipe configuration address
