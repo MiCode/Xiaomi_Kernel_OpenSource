@@ -424,8 +424,11 @@ static int ath10k_htt_rx_pop_paddr_list(struct ath10k_htt *htt,
 	is_offload = !!(ev->info & HTT_RX_IN_ORD_IND_INFO_OFFLOAD_MASK);
 
 	while (msdu_count--) {
+#ifdef CONFIG_ATH10K_SNOC
+		paddr = __le32_to_cpu(msdu_desc->msdu_paddr_lo);
+#else
 		paddr = __le32_to_cpu(msdu_desc->msdu_paddr);
-
+#endif
 		msdu = ath10k_htt_rx_pop_paddr(htt, paddr);
 		if (!msdu) {
 			__skb_queue_purge(list);
