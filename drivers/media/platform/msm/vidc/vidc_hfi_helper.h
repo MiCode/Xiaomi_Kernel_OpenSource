@@ -293,6 +293,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x007)
 #define  HFI_PROPERTY_PARAM_VDEC_PIC_STRUCT				\
 	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x009)
+#define  HFI_PROPERTY_PARAM_VDEC_COLOUR_SPACE				\
+	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x00A)
 
 
 #define HFI_PROPERTY_CONFIG_VDEC_COMMON_START				\
@@ -435,6 +437,10 @@ struct hfi_pic_struct {
 struct hfi_bitrate {
 	u32 bit_rate;
 	u32 layer_id;
+};
+
+struct hfi_colour_space {
+	u32 colour_space;
 };
 
 #define HFI_CAPABILITY_FRAME_WIDTH			(HFI_COMMON_BASE + 0x1)

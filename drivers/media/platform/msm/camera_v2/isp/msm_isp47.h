@@ -97,10 +97,11 @@ void msm_vfe47_axi_clear_wm_xbar_reg(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, uint8_t plane_idx);
 void msm_vfe47_cfg_axi_ub_equal_default(
-	struct vfe_device *vfe_dev);
+	struct vfe_device *vfe_dev, enum msm_vfe_input_src frame_src);
 void msm_vfe47_cfg_axi_ub_equal_slicing(
 	struct vfe_device *vfe_dev);
-void msm_vfe47_cfg_axi_ub(struct vfe_device *vfe_dev);
+void msm_vfe47_cfg_axi_ub(struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src);
 void msm_vfe47_read_wm_ping_pong_addr(
 	struct vfe_device *vfe_dev);
 void msm_vfe47_update_ping_pong_addr(
