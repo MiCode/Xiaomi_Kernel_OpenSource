@@ -2236,12 +2236,12 @@ static void i2c_msm_pm_xfer_end(struct i2c_msm_ctrl *ctrl)
 		i2c_msm_dma_free_channels(ctrl);
 
 	i2c_msm_pm_clk_disable_unprepare(ctrl);
-	if (pm_runtime_enabled(ctrl->dev)) {
-		pm_runtime_mark_last_busy(ctrl->dev);
-		pm_runtime_put_autosuspend(ctrl->dev);
-	} else {
+
+	if (!pm_runtime_enabled(ctrl->dev))
 		i2c_msm_pm_suspend(ctrl->dev);
-	}
+
+	pm_runtime_mark_last_busy(ctrl->dev);
+	pm_runtime_put_autosuspend(ctrl->dev);
 	mutex_unlock(&ctrl->xfer.mtx);
 }
 
