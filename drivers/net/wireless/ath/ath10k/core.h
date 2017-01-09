@@ -912,6 +912,10 @@ struct ath10k {
 	struct net_device napi_dev;
 	struct napi_struct napi;
 
+	void (*bus_write32)(void *ar, u32 offset, u32 value);
+	u32 (*bus_read32)(void *ar, u32 offset);
+	spinlock_t ce_lock; /* lock for CE access */
+	void *ce_states;
 	/* must be last */
 	u8 drv_priv[0] __aligned(sizeof(void *));
 };

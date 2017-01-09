@@ -425,7 +425,7 @@ static inline u32 ath10k_ce_base_address(struct ath10k *ar, unsigned int ce_id)
 
 #define CE_INTERRUPT_SUMMARY(ar) \
 	CE_WRAPPER_INTERRUPT_SUMMARY_HOST_MSI_GET( \
-		ath10k_pci_read32((ar), CE_WRAPPER_BASE_ADDRESS + \
+		ar->bus_read32((ar), CE_WRAPPER_BASE_ADDRESS + \
 		CE_WRAPPER_INTERRUPT_SUMMARY_ADDRESS))
 
 #endif /* _CE_H_ */
