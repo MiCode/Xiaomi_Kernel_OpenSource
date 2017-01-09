@@ -852,11 +852,6 @@ int security_file_open(struct file *file, const struct cred *cred)
 	return fsnotify_perm(file, MAY_OPEN);
 }
 
-int security_file_close(struct file *file)
-{
-	return call_int_hook(file_close, 0, file);
-}
-
 int security_task_create(unsigned long clone_flags)
 {
 	return call_int_hook(task_create, 0, clone_flags);
