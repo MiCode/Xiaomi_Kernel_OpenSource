@@ -224,6 +224,7 @@ enum ath10k_hw_rev {
 	ATH10K_HW_QCA9377,
 	ATH10K_HW_QCA4019,
 	ATH10K_HW_QCA9887,
+	ATH10K_HW_WCN3990,
 };
 
 struct ath10k_hw_regs {
