@@ -34,3 +34,14 @@
 		/delete-node/ home;
 	};
 };
+
+&usb_otg {
+	qcom,vbus-low-as-hostmode;
+	vbus_otg-supply = <0>;
+};
+
+&i2c_2 {
+	pericom-type-c@1d {
+		status = "disabled";
+	};
+};
