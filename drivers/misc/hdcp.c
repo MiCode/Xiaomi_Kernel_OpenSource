@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -805,8 +805,8 @@ static int hdcp_lib_get_version(struct hdcp_lib_handle *handle)
 		goto exit;
 	}
 
-	if (handle->hdcp_state & HDCP_STATE_APP_LOADED) {
-		pr_err("library already loaded\n");
+	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
+		pr_err("library not loaded\n");
 		return rc;
 	}
 
@@ -901,8 +901,8 @@ static int hdcp_app_init_legacy(struct hdcp_lib_handle *handle)
 		goto exit;
 	}
 
-	if (handle->hdcp_state & HDCP_STATE_APP_LOADED) {
-		pr_err("library already loaded\n");
+	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
+		pr_err("library not loaded\n");
 		goto exit;
 	}
 
@@ -949,8 +949,8 @@ static int hdcp_app_init(struct hdcp_lib_handle *handle)
 		goto exit;
 	}
 
-	if (handle->hdcp_state & HDCP_STATE_APP_LOADED) {
-		pr_err("library already loaded\n");
+	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
+		pr_err("library not loaded\n");
 		goto exit;
 	}
 
@@ -1024,6 +1024,7 @@ static int hdcp_lib_library_load(struct hdcp_lib_handle *handle)
 		goto exit;
 	}
 
+	handle->hdcp_state |= HDCP_STATE_APP_LOADED;
 	pr_debug("qseecom_start_app success\n");
 
 	rc = hdcp_lib_get_version(handle);
@@ -1050,8 +1051,6 @@ static int hdcp_lib_library_load(struct hdcp_lib_handle *handle)
 		pr_err("app init failed\n");
 		goto exit;
 	}
-
-	handle->hdcp_state |= HDCP_STATE_APP_LOADED;
 exit:
 	return rc;
 }
@@ -1240,8 +1239,8 @@ static int hdcp_lib_txmtr_init(struct hdcp_lib_handle *handle)
 		goto exit;
 	}
 
-	if (handle->hdcp_state & HDCP_STATE_TXMTR_INIT) {
-		pr_err("txmtr already initialized\n");
+	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
+		pr_err("library not loaded\n");
 		goto exit;
 	}
 
@@ -1619,6 +1618,12 @@ static int hdcp_lib_check_valid_state(struct hdcp_lib_handle *handle)
 	if (handle->wakeup_cmd == HDCP_LIB_WKUP_CMD_START) {
 		if (!list_empty(&handle->worker.work_list)) {
 			pr_debug("error: queue not empty\n");
+			rc = -EBUSY;
+			goto exit;
+		}
+
+		if (handle->hdcp_state & HDCP_STATE_APP_LOADED) {
+			pr_debug("library already loaded\n");
 			rc = -EBUSY;
 			goto exit;
 		}
