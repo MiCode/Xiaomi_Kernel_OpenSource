@@ -698,20 +698,27 @@ static int wcd9xxx_map_irq(struct wcd9xxx_core_resource *wcd9xxx_res, int irq)
 
 static int wcd9xxx_irq_probe(struct platform_device *pdev)
 {
-	int irq;
+	int irq, dir_apps_irq = -EINVAL;
 	struct wcd9xxx_irq_drv_data *data;
 	struct device_node *node = pdev->dev.of_node;
 	int ret = -EINVAL;
 
 	irq = of_get_named_gpio(node, "qcom,gpio-connect", 0);
-	if (!gpio_is_valid(irq)) {
+	if (!gpio_is_valid(irq))
+		dir_apps_irq = platform_get_irq_byname(pdev, "wcd_irq");
+
+	if (!gpio_is_valid(irq) && dir_apps_irq < 0) {
 		dev_err(&pdev->dev, "TLMM connect gpio not found\n");
 		return -EPROBE_DEFER;
 	} else {
-		irq = gpio_to_irq(irq);
-		if (irq < 0) {
-			dev_err(&pdev->dev, "Unable to configure irq\n");
-			return irq;
+		if (dir_apps_irq > 0) {
+			irq = dir_apps_irq;
+		} else {
+			irq = gpio_to_irq(irq);
+			if (irq < 0) {
+				dev_err(&pdev->dev, "Unable to configure irq\n");
+				return irq;
+			}
 		}
 		dev_dbg(&pdev->dev, "%s: virq = %d\n", __func__, irq);
 		data = wcd9xxx_irq_add_domain(node, node->parent);

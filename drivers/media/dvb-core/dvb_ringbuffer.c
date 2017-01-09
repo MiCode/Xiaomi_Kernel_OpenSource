@@ -233,9 +233,11 @@ ssize_t dvb_ringbuffer_write_user(struct dvb_ringbuffer *rbuf,
 		 */
 		smp_store_release(&rbuf->pwrite, 0);
 	}
-	status = copy_from_user(rbuf->data+rbuf->pwrite, buf, todo);
-	if (status)
-		return len - todo;
+
+	if (copy_from_user(rbuf->data + rbuf->pwrite, buf, todo)) {
+		smp_store_release(&rbuf->pwrite, oldpwrite);
+		return -EFAULT;
+	}
 	/* smp_store_release() for write pointer update, see above */
 	smp_store_release(&rbuf->pwrite, (rbuf->pwrite + todo) % rbuf->size);
 
