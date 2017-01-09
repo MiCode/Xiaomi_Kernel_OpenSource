@@ -272,6 +272,12 @@ struct icnss_wlan_mac_addr {
 	uint32_t no_of_mac_addr_set;
 };
 
+struct service_notifier_context {
+	void *handle;
+	uint32_t instance_id;
+	char name[QMI_SERVREG_LOC_NAME_LENGTH_V01 + 1];
+};
+
 static struct icnss_priv {
 	uint32_t magic;
 	struct platform_device *pdev;
@@ -309,7 +315,7 @@ static struct icnss_priv {
 	spinlock_t on_off_lock;
 	struct icnss_stats stats;
 	struct work_struct service_notifier_work;
-	void **service_notifier;
+	struct service_notifier_context *service_notifier;
 	struct notifier_block service_notifier_nb;
 	int total_domains;
 	struct notifier_block get_service_nb;
@@ -2114,8 +2120,9 @@ static int icnss_pdr_unregister_notifier(struct icnss_priv *priv)
 		return 0;
 
 	for (i = 0; i < priv->total_domains; i++)
-		service_notif_unregister_notifier(priv->service_notifier[i],
-						  &priv->service_notifier_nb);
+		service_notif_unregister_notifier(
+				priv->service_notifier[i].handle,
+				&priv->service_notifier_nb);
 
 	kfree(priv->service_notifier);
 
@@ -2168,7 +2175,7 @@ static int icnss_get_service_location_notify(struct notifier_block *nb,
 	int curr_state;
 	int ret;
 	int i;
-	void **handle;
+	struct service_notifier_context *notifier;
 
 	icnss_pr_dbg("Get service notify opcode: %lu, state: 0x%lx\n", opcode,
 		     priv->state);
@@ -2182,9 +2189,10 @@ static int icnss_get_service_location_notify(struct notifier_block *nb,
 		goto out;
 	}
 
-	handle = kcalloc(pd->total_domains, sizeof(void *), GFP_KERNEL);
-
-	if (!handle) {
+	notifier = kcalloc(pd->total_domains,
+				sizeof(struct service_notifier_context),
+				GFP_KERNEL);
+	if (!notifier) {
 		ret = -ENOMEM;
 		goto out;
 	}
@@ -2196,21 +2204,24 @@ static int icnss_get_service_location_notify(struct notifier_block *nb,
 			     pd->domain_list[i].name,
 			     pd->domain_list[i].instance_id);
 
-		handle[i] =
+		notifier[i].handle =
 			service_notif_register_notifier(pd->domain_list[i].name,
 				pd->domain_list[i].instance_id,
 				&priv->service_notifier_nb, &curr_state);
+		notifier[i].instance_id = pd->domain_list[i].instance_id;
+		strlcpy(notifier[i].name, pd->domain_list[i].name,
+			QMI_SERVREG_LOC_NAME_LENGTH_V01 + 1);
 
-		if (IS_ERR(handle[i])) {
+		if (IS_ERR(notifier[i].handle)) {
 			icnss_pr_err("%d: Unable to register notifier for %s(0x%x)\n",
 				     i, pd->domain_list->name,
 				     pd->domain_list->instance_id);
-			ret = PTR_ERR(handle[i]);
+			ret = PTR_ERR(notifier[i].handle);
 			goto free_handle;
 		}
 	}
 
-	priv->service_notifier = handle;
+	priv->service_notifier = notifier;
 	priv->total_domains = pd->total_domains;
 
 	set_bit(ICNSS_PDR_ENABLED, &priv->state);
@@ -2221,11 +2232,11 @@ static int icnss_get_service_location_notify(struct notifier_block *nb,
 
 free_handle:
 	for (i = 0; i < pd->total_domains; i++) {
-		if (handle[i])
-			service_notif_unregister_notifier(handle[i],
+		if (notifier[i].handle)
+			service_notif_unregister_notifier(notifier[i].handle,
 					&priv->service_notifier_nb);
 	}
-	kfree(handle);
+	kfree(notifier);
 
 out:
 	icnss_pr_err("PD restart not enabled: %d, state: 0x%lx\n", ret,
@@ -2854,6 +2865,42 @@ out:
 }
 EXPORT_SYMBOL(icnss_get_wlan_mac_address);
 
+int icnss_trigger_recovery(struct device *dev)
+{
+	int ret = 0;
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (priv->magic != ICNSS_MAGIC) {
+		icnss_pr_err("Invalid drvdata: magic 0x%x\n", priv->magic);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (test_bit(ICNSS_PD_RESTART, &priv->state)) {
+		icnss_pr_err("PD recovery already in progress: state: 0x%lx\n",
+			     priv->state);
+		ret = -EPERM;
+		goto out;
+	}
+
+	if (!priv->service_notifier[0].handle) {
+		icnss_pr_err("Invalid handle during recovery\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/*
+	 * Initiate PDR, required only for the first instance
+	 */
+	ret = service_notif_pd_restart(priv->service_notifier[0].name,
+		priv->service_notifier[0].instance_id);
+
+out:
+	return ret;
+}
+EXPORT_SYMBOL(icnss_trigger_recovery);
+
+
 static int icnss_smmu_init(struct icnss_priv *priv)
 {
 	struct dma_iommu_mapping *mapping;
@@ -3075,6 +3122,9 @@ static ssize_t icnss_fw_debug_write(struct file *fp,
 			break;
 		case 2:
 			ret = icnss_test_mode_fw_test(priv, ICNSS_CCPM);
+			break;
+		case 3:
+			ret = icnss_trigger_recovery(&priv->pdev->dev);
 			break;
 		default:
 			return -EINVAL;
