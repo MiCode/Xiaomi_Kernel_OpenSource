@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -509,6 +509,7 @@ struct inv_mpu9250_state {
 	uint8_t *tx_buf;   /* used for spi transaction */
 	uint8_t *rx_buf;   /* used for spi transaction */
 	uint8_t fifo_packet_size;
+	int fifo_cnt_threshold;
 	enum   inv_devices chip_type;
 	int gpio;
 	DECLARE_KFIFO(timestamps, long long, TIMESTAMP_FIFO_SIZE);
@@ -530,6 +531,7 @@ int mpu9250_bulk_read(struct inv_mpu9250_state *st,
 				int reg, char *buf, int size);
 int mpu9250_start_fifo(struct inv_mpu9250_state *st);
 int inv_mpu9250_set_power_itg(struct inv_mpu9250_state *st, bool power_on);
+int inv_mpu9250_get_interrupt_status(struct inv_mpu9250_state *st);
 extern int inv_mpu9250_spi_bulk_read(struct inv_mpu9250_state *st,
 		int reg, uint8_t length, uint8_t *buf);
 #endif
