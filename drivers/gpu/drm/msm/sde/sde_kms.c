@@ -838,11 +838,13 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 	_sde_debugfs_destroy(sde_kms);
 	_sde_kms_mmu_destroy(sde_kms);
 
-	for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
-		u32 vbif_idx = sde_kms->catalog->vbif[i].id;
+	if (sde_kms->catalog) {
+		for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
+			u32 vbif_idx = sde_kms->catalog->vbif[i].id;
 
-		if ((vbif_idx < VBIF_MAX) && sde_kms->hw_vbif[vbif_idx])
-			sde_hw_vbif_destroy(sde_kms->hw_vbif[vbif_idx]);
+			if ((vbif_idx < VBIF_MAX) && sde_kms->hw_vbif[vbif_idx])
+				sde_hw_vbif_destroy(sde_kms->hw_vbif[vbif_idx]);
+		}
 	}
 
 	if (sde_kms->rm_init)
