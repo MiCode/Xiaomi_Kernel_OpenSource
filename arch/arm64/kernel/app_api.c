@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,13 +74,24 @@ void set_app_setting_bit_for_32bit_apps(void)
 	uint64_t reg;
 
 	spin_lock_irqsave(&spinlock_32bit_app, flags);
-	asm volatile("mrs %0, S3_0_c15_c15_1 " : "=r" (reg));
-	reg = reg | BIT(18);
-	reg = reg & ~BIT(2);
-	reg = reg | 0x3;
-	isb();
-	asm volatile("msr S3_0_c15_c15_1, %0" : : "r" (reg));
-	isb();
+	if (use_32bit_app_setting) {
+		asm volatile("mrs %0, S3_0_c15_c15_0 " : "=r" (reg));
+		reg = reg | BIT(24);
+		isb();
+		asm volatile("msr S3_0_c15_c15_0, %0" : : "r" (reg));
+		isb();
+		asm volatile("mrs %0, S3_0_c15_c15_1 " : "=r" (reg));
+		reg = reg | BIT(18) | BIT(2) | BIT(0);
+		isb();
+		asm volatile("msr S3_0_c15_c15_1, %0" : : "r" (reg));
+		isb();
+	} else if (use_32bit_app_setting_pro) {
+		asm volatile("mrs %0, S3_0_c15_c15_1 " : "=r" (reg));
+		reg = reg | BIT(18);
+		isb();
+		asm volatile("msr S3_0_c15_c15_1, %0" : : "r" (reg));
+		isb();
+	}
 	spin_unlock_irqrestore(&spinlock_32bit_app, flags);
 }
 EXPORT_SYMBOL(set_app_setting_bit_for_32bit_apps);
@@ -91,12 +102,26 @@ void clear_app_setting_bit_for_32bit_apps(void)
 	uint64_t reg;
 
 	spin_lock_irqsave(&spinlock_32bit_app, flags);
-	asm volatile("mrs %0, S3_0_c15_c15_1 " : "=r" (reg));
-	reg = reg & ~BIT(18);
-	reg = reg & ~0x3;
-	isb();
-	asm volatile("msr S3_0_c15_c15_1, %0" : : "r" (reg));
-	isb();
+	if (use_32bit_app_setting) {
+		asm volatile("mrs %0, S3_0_c15_c15_0 " : "=r" (reg));
+		reg = reg & ~BIT(24);
+		isb();
+		asm volatile("msr S3_0_c15_c15_0, %0" : : "r" (reg));
+		isb();
+		asm volatile("mrs %0, S3_0_c15_c15_1 " : "=r" (reg));
+		reg = reg & ~BIT(18);
+		reg = reg & ~BIT(2);
+		reg = reg & ~BIT(0);
+		isb();
+		asm volatile("msr S3_0_c15_c15_1, %0" : : "r" (reg));
+		isb();
+	} else if (use_32bit_app_setting_pro) {
+		asm volatile("mrs %0, S3_0_c15_c15_1 " : "=r" (reg));
+		reg = reg & ~BIT(18);
+		isb();
+		asm volatile("msr S3_0_c15_c15_1, %0" : : "r" (reg));
+		isb();
+	}
 	spin_unlock_irqrestore(&spinlock_32bit_app, flags);
 }
 EXPORT_SYMBOL(clear_app_setting_bit_for_32bit_apps);
