@@ -141,34 +141,31 @@ struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
 		void __iomem *addr,
 		const struct sde_mdss_cfg *m)
 {
-	static struct sde_hw_mdp *c;
+	struct sde_hw_mdp *mdp;
 	const struct sde_mdp_cfg *cfg;
 
-	/* mdp top is singleton */
-	if (c)
-		return c;
-
-	c = kzalloc(sizeof(*c), GFP_KERNEL);
-	if (!c)
+	mdp = kzalloc(sizeof(*mdp), GFP_KERNEL);
+	if (!mdp)
 		return ERR_PTR(-ENOMEM);
 
-	cfg = _top_offset(idx, m, addr, &c->hw);
+	cfg = _top_offset(idx, m, addr, &mdp->hw);
 	if (IS_ERR_OR_NULL(cfg)) {
-		kfree(c);
+		kfree(mdp);
 		return ERR_PTR(-EINVAL);
 	}
 
 	/*
 	 * Assign ops
 	 */
-	c->idx = idx;
-	c->cap = cfg;
-	_setup_mdp_ops(&c->ops, c->cap->features);
+	mdp->idx = idx;
+	mdp->cap = cfg;
+	_setup_mdp_ops(&mdp->ops, mdp->cap->features);
 
 	/*
 	 * Perform any default initialization for the intf
 	 */
-	return c;
+
+	return mdp;
 }
 
 void sde_hw_mdp_destroy(struct sde_hw_mdp *mdp)
