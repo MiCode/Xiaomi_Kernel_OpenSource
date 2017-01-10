@@ -3729,7 +3729,7 @@ static struct sched_cluster *best_cluster(struct related_thread_group *grp,
 			return cluster;
 	}
 
-	return NULL;
+	return sched_cluster[0];
 }
 
 static void _set_preferred_cluster(struct related_thread_group *grp)
@@ -3742,7 +3742,6 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 
 	if (!sysctl_sched_enable_colocation) {
 		grp->last_update = sched_ktime_clock();
-		grp->preferred_cluster = NULL;
 		return;
 	}
 
