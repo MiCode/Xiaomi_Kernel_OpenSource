@@ -274,6 +274,9 @@ static bool tadc_is_reg_locked(struct tadc_chip *chip, u16 reg)
 	if ((reg & 0xFF00) == chip->tadc_cmp_base)
 		return true;
 
+	if (reg == TADC_HWTRIG_CONV_CH_EN_REG(chip))
+		return true;
+
 	return false;
 }
 
@@ -909,6 +912,8 @@ static int tadc_parse_dt(struct tadc_chip *chip)
 
 static int tadc_init_hw(struct tadc_chip *chip)
 {
+	int rc;
+
 	chip->chans[TADC_THERM1].thr[0].addr_lo =
 					TADC_CMP_THR1_CH1_CMP_LO_REG(chip);
 	chip->chans[TADC_THERM1].thr[0].addr_hi =
@@ -951,6 +956,16 @@ static int tadc_init_hw(struct tadc_chip *chip)
 					TADC_CMP_THR3_CH3_CMP_LO_REG(chip);
 	chip->chans[TADC_DIE_TEMP].thr[2].addr_hi =
 					TADC_CMP_THR3_CH3_CMP_HI_REG(chip);
+
+	/* enable all temperature hardware triggers */
+	rc = tadc_write(chip, TADC_HWTRIG_CONV_CH_EN_REG(chip),
+							BIT(TADC_THERM1) |
+							BIT(TADC_THERM2) |
+							BIT(TADC_DIE_TEMP));
+	if (rc < 0) {
+		pr_err("Couldn't enable hardware triggers rc=%d\n", rc);
+		return rc;
+	}
 
 	return 0;
 }
