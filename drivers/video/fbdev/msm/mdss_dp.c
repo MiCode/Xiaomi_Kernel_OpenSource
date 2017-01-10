@@ -84,6 +84,12 @@ static inline bool mdss_dp_is_downstream_port_status_changed(
 	return dp->link_status.downstream_port_status_changed;
 }
 
+static inline bool mdss_dp_is_audio_pattern_requested(
+		struct mdss_dp_drv_pdata *dp)
+{
+	return (dp->test_data.test_requested & TEST_AUDIO_PATTERN);
+}
+
 static inline bool mdss_dp_is_link_training_requested(
 		struct mdss_dp_drv_pdata *dp)
 {
@@ -93,7 +99,8 @@ static inline bool mdss_dp_is_link_training_requested(
 static inline bool mdss_dp_is_video_pattern_requested(
 		struct mdss_dp_drv_pdata *dp)
 {
-	return (dp->test_data.test_requested == TEST_VIDEO_PATTERN);
+	return (dp->test_data.test_requested & TEST_VIDEO_PATTERN)
+		&& !(dp->test_data.test_requested & TEST_AUDIO_DISABLED_VIDEO);
 }
 
 static inline bool mdss_dp_is_phy_test_pattern_requested(
@@ -1574,8 +1581,11 @@ static int mdss_dp_send_cable_notification(
 
 	flags |= MSM_EXT_DISP_HPD_VIDEO;
 
-	if (!mdss_dp_is_dvi_mode(dp))
+	if (!mdss_dp_is_dvi_mode(dp) || dp->audio_test_req) {
+		dp->audio_test_req = false;
+
 		flags |= MSM_EXT_DISP_HPD_AUDIO;
+	}
 
 	if (dp->ext_audio_data.intf_ops.hpd)
 		ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
@@ -3165,6 +3175,48 @@ static int mdss_dp_process_phy_test_pattern_request(
 }
 
 /**
+ * mdss_dp_process_audio_pattern_request() - process new audio pattern request
+ * @dp: Display Port Driver data
+ *
+ * This function will handle a new audio pattern request that is initiated by
+ * the sink. This is acheieved by sending the necessary secondary data packets
+ * to the sink. It is expected that any simulatenous requests for video
+ * patterns will be handled before the audio pattern is sent to the sink.
+ */
+static int mdss_dp_process_audio_pattern_request(struct mdss_dp_drv_pdata *dp)
+{
+	if (!mdss_dp_is_audio_pattern_requested(dp))
+		return -EINVAL;
+
+	pr_debug("sampling_rate=%s, channel_count=%d, pattern_type=%s\n",
+		mdss_dp_get_audio_sample_rate(
+			dp->test_data.test_audio_sampling_rate),
+		dp->test_data.test_audio_channel_count,
+		mdss_dp_get_audio_test_pattern(
+			dp->test_data.test_audio_pattern_type));
+
+	pr_debug("audio_period: ch1=0x%x, ch2=0x%x, ch3=0x%x, ch4=0x%x\n",
+		dp->test_data.test_audio_period_ch_1,
+		dp->test_data.test_audio_period_ch_2,
+		dp->test_data.test_audio_period_ch_3,
+		dp->test_data.test_audio_period_ch_4);
+
+	pr_debug("audio_period: ch5=0x%x, ch6=0x%x, ch7=0x%x, ch8=0x%x\n",
+		dp->test_data.test_audio_period_ch_5,
+		dp->test_data.test_audio_period_ch_6,
+		dp->test_data.test_audio_period_ch_7,
+		dp->test_data.test_audio_period_ch_8);
+
+	if (dp->ext_audio_data.intf_ops.hpd)
+		dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
+			dp->ext_audio_data.type, 1, MSM_EXT_DISP_HPD_AUDIO);
+
+	dp->audio_test_req = true;
+
+	return 0;
+}
+
+/**
  * mdss_dp_process_downstream_port_status_change() - process port status changes
  * @dp: Display Port Driver data
  *
@@ -3223,7 +3275,7 @@ static int mdss_dp_process_video_pattern_request(struct mdss_dp_drv_pdata *dp)
 	bool ov_res = false;
 
 	if (!mdss_dp_is_video_pattern_requested(dp))
-		return -EINVAL;
+		goto end;
 
 	pr_info("%s: bit depth=%d(%d bpp) pattern=%s\n",
 		mdss_dp_get_test_name(TEST_VIDEO_PATTERN),
@@ -3249,9 +3301,14 @@ static int mdss_dp_process_video_pattern_request(struct mdss_dp_drv_pdata *dp)
 
 	mdss_dp_link_maintenance(dp, lt_needed);
 
+	if (mdss_dp_is_audio_pattern_requested(dp))
+		goto end;
+
 	mdss_dp_send_test_response(dp);
 
 	return 0;
+end:
+	return -EINVAL;
 }
 
 /**
@@ -3291,6 +3348,10 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 		goto exit;
 
 	ret = mdss_dp_process_video_pattern_request(dp);
+	if (!ret)
+		goto exit;
+
+	ret = mdss_dp_process_audio_pattern_request(dp);
 	if (!ret)
 		goto exit;
 

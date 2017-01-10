@@ -1295,6 +1295,236 @@ static void dp_sink_parse_sink_count(struct mdss_dp_drv_pdata *ep)
 			ep->sink_count.count, ep->sink_count.cp_ready);
 }
 
+static int dp_get_test_period(struct mdss_dp_drv_pdata *ep, int const addr)
+{
+	int ret = 0;
+	char *bp;
+	char data;
+	struct edp_buf *rp;
+	int rlen;
+	int const test_parameter_len = 0x1;
+	int const max_audio_period = 0xA;
+
+	/* TEST_AUDIO_PERIOD_CH_XX */
+	rlen = dp_aux_read_buf(ep, addr, test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read test_audio_period (0x%x)\n", addr);
+		ret = -EINVAL;
+		goto exit;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	/* Period - Bits 3:0 */
+	data = data & 0xF;
+	if ((int)data > max_audio_period) {
+		pr_err("invalid test_audio_period_ch_1 = 0x%x\n", data);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ret = data;
+
+exit:
+	return ret;
+}
+
+static int dp_parse_audio_channel_test_period(struct mdss_dp_drv_pdata *ep)
+{
+	int ret = 0;
+	int const test_audio_period_ch_1_addr = 0x273;
+	int const test_audio_period_ch_2_addr = 0x274;
+	int const test_audio_period_ch_3_addr = 0x275;
+	int const test_audio_period_ch_4_addr = 0x276;
+	int const test_audio_period_ch_5_addr = 0x277;
+	int const test_audio_period_ch_6_addr = 0x278;
+	int const test_audio_period_ch_7_addr = 0x279;
+	int const test_audio_period_ch_8_addr = 0x27A;
+
+	/* TEST_AUDIO_PERIOD_CH_1 (Byte 0x273) */
+	ret = dp_get_test_period(ep, test_audio_period_ch_1_addr);
+	if (ret == -EINVAL)
+		goto exit;
+
+	ep->test_data.test_audio_period_ch_1 = ret;
+	pr_debug("test_audio_period_ch_1 = 0x%x\n", ret);
+
+	/* TEST_AUDIO_PERIOD_CH_2 (Byte 0x274) */
+	ret = dp_get_test_period(ep, test_audio_period_ch_2_addr);
+	if (ret == -EINVAL)
+		goto exit;
+
+	ep->test_data.test_audio_period_ch_2 = ret;
+	pr_debug("test_audio_period_ch_2 = 0x%x\n", ret);
+
+	/* TEST_AUDIO_PERIOD_CH_3 (Byte 0x275) */
+	ret = dp_get_test_period(ep, test_audio_period_ch_3_addr);
+	if (ret == -EINVAL)
+		goto exit;
+
+	ep->test_data.test_audio_period_ch_3 = ret;
+	pr_debug("test_audio_period_ch_3 = 0x%x\n", ret);
+
+	/* TEST_AUDIO_PERIOD_CH_4 (Byte 0x276) */
+	ret = dp_get_test_period(ep, test_audio_period_ch_4_addr);
+	if (ret == -EINVAL)
+		goto exit;
+
+	ep->test_data.test_audio_period_ch_4 = ret;
+	pr_debug("test_audio_period_ch_4 = 0x%x\n", ret);
+
+	/* TEST_AUDIO_PERIOD_CH_5 (Byte 0x277) */
+	ret = dp_get_test_period(ep, test_audio_period_ch_5_addr);
+	if (ret == -EINVAL)
+		goto exit;
+
+	ep->test_data.test_audio_period_ch_5 = ret;
+	pr_debug("test_audio_period_ch_5 = 0x%x\n", ret);
+
+	/* TEST_AUDIO_PERIOD_CH_6 (Byte 0x278) */
+	ret = dp_get_test_period(ep, test_audio_period_ch_6_addr);
+	if (ret == -EINVAL)
+		goto exit;
+
+	ep->test_data.test_audio_period_ch_6 = ret;
+	pr_debug("test_audio_period_ch_6 = 0x%x\n", ret);
+
+	/* TEST_AUDIO_PERIOD_CH_7 (Byte 0x279) */
+	ret = dp_get_test_period(ep, test_audio_period_ch_7_addr);
+	if (ret == -EINVAL)
+		goto exit;
+
+	ep->test_data.test_audio_period_ch_7 = ret;
+	pr_debug("test_audio_period_ch_7 = 0x%x\n", ret);
+
+	/* TEST_AUDIO_PERIOD_CH_8 (Byte 0x27A) */
+	ret = dp_get_test_period(ep, test_audio_period_ch_8_addr);
+	if (ret == -EINVAL)
+		goto exit;
+
+	ep->test_data.test_audio_period_ch_8 = ret;
+	pr_debug("test_audio_period_ch_8 = 0x%x\n", ret);
+
+
+exit:
+	return ret;
+}
+
+static int dp_parse_audio_pattern_type(struct mdss_dp_drv_pdata *ep)
+{
+	int ret = 0;
+	char *bp;
+	char data;
+	struct edp_buf *rp;
+	int rlen;
+	int const test_parameter_len = 0x1;
+	int const test_audio_pattern_type_addr = 0x272;
+	int const max_audio_pattern_type = 0x1;
+
+	/* Read the requested audio pattern type (Byte 0x272). */
+	rlen = dp_aux_read_buf(ep, test_audio_pattern_type_addr,
+			test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read test audio mode data\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	/* Audio Pattern Type - Bits 7:0 */
+	if ((int)data > max_audio_pattern_type) {
+		pr_err("invalid audio pattern type = 0x%x\n", data);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ep->test_data.test_audio_pattern_type = data;
+	pr_debug("audio pattern type = %s\n",
+			mdss_dp_get_audio_test_pattern(data));
+
+exit:
+	return ret;
+}
+
+static int dp_parse_audio_mode(struct mdss_dp_drv_pdata *ep)
+{
+	int ret = 0;
+	char *bp;
+	char data;
+	struct edp_buf *rp;
+	int rlen;
+	int const test_parameter_len = 0x1;
+	int const test_audio_mode_addr = 0x271;
+	int const max_audio_sampling_rate = 0x6;
+	int const max_audio_channel_count = 0x8;
+	int sampling_rate = 0x0;
+	int channel_count = 0x0;
+
+	/* Read the requested audio mode (Byte 0x271). */
+	rlen = dp_aux_read_buf(ep, test_audio_mode_addr,
+			test_parameter_len, 0);
+	if (rlen < test_parameter_len) {
+		pr_err("failed to read test audio mode data\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	/* Sampling Rate - Bits 3:0 */
+	sampling_rate = data & 0xF;
+	if (sampling_rate > max_audio_sampling_rate) {
+		pr_err("sampling rate (0x%x) greater than max (0x%x)\n",
+				sampling_rate, max_audio_sampling_rate);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	/* Channel Count - Bits 7:4 */
+	channel_count = ((data & 0xF0) >> 4) + 1;
+	if (channel_count > max_audio_channel_count) {
+		pr_err("channel_count (0x%x) greater than max (0x%x)\n",
+				channel_count, max_audio_channel_count);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ep->test_data.test_audio_sampling_rate = sampling_rate;
+	ep->test_data.test_audio_channel_count = channel_count;
+	pr_debug("sampling_rate = %s, channel_count = 0x%x\n",
+		mdss_dp_get_audio_sample_rate(sampling_rate), channel_count);
+
+exit:
+	return ret;
+}
+
+/**
+ * dp_parse_audio_pattern_params() - parses audio pattern parameters from DPCD
+ * @ep: Display Port Driver data
+ *
+ * Returns 0 if it successfully parses the audio test pattern parameters.
+ */
+static int dp_parse_audio_pattern_params(struct mdss_dp_drv_pdata *ep)
+{
+	int ret = 0;
+
+	ret = dp_parse_audio_mode(ep);
+	if (ret)
+		goto exit;
+
+	ret = dp_parse_audio_pattern_type(ep);
+	if (ret)
+		goto exit;
+
+	ret = dp_parse_audio_channel_test_period(ep);
+
+exit:
+	return ret;
+}
 /**
  * dp_parse_phy_test_params() - parses the phy test parameters
  * @ep: Display Port Driver data
@@ -1572,6 +1802,19 @@ exit:
 	return ret;
 }
 
+/**
+ * mdss_dp_is_video_audio_test_requested() - checks for audio/video test request
+ * @test: test requested by the sink
+ *
+ * Returns true if the requested test is a permitted audio/video test.
+ */
+static bool mdss_dp_is_video_audio_test_requested(u32 test)
+{
+	return (test == TEST_VIDEO_PATTERN) ||
+		(test == (TEST_AUDIO_PATTERN | TEST_VIDEO_PATTERN)) ||
+		(test == TEST_AUDIO_PATTERN) ||
+		(test == (TEST_AUDIO_PATTERN | TEST_AUDIO_DISABLED_VIDEO));
+}
 
 /**
  * dp_is_test_supported() - checks if test requested by sink is supported
@@ -1582,9 +1825,9 @@ exit:
 static bool dp_is_test_supported(u32 test_requested)
 {
 	return (test_requested == TEST_LINK_TRAINING) ||
-		(test_requested == TEST_VIDEO_PATTERN) ||
 		(test_requested == TEST_EDID_READ) ||
-		(test_requested == PHY_TEST_PATTERN);
+		(test_requested == PHY_TEST_PATTERN) ||
+		mdss_dp_is_video_audio_test_requested(test_requested);
 }
 
 /**
@@ -1646,26 +1889,27 @@ static void dp_sink_parse_test_request(struct mdss_dp_drv_pdata *ep)
 		return;
 	}
 
-	pr_debug("%s requested\n", mdss_dp_get_test_name(data));
+	pr_debug("%s (0x%x) requested\n", mdss_dp_get_test_name(data), data);
 	ep->test_data.test_requested = data;
 
-	switch (ep->test_data.test_requested) {
-	case PHY_TEST_PATTERN:
+	if (ep->test_data.test_requested == PHY_TEST_PATTERN) {
 		ret = dp_parse_phy_test_params(ep);
 		if (ret)
-			break;
-	case TEST_LINK_TRAINING:
+			goto end;
 		ret = dp_parse_link_training_params(ep);
-		break;
-	case TEST_VIDEO_PATTERN:
-		ret = dp_parse_video_pattern_params(ep);
-		break;
-	default:
-		pr_debug("test 0x%x not supported\n",
-				ep->test_data.test_requested);
-		return;
 	}
 
+	if (ep->test_data.test_requested == TEST_LINK_TRAINING)
+		ret = dp_parse_link_training_params(ep);
+
+	if (mdss_dp_is_video_audio_test_requested(
+				ep->test_data.test_requested)) {
+		ret = dp_parse_video_pattern_params(ep);
+		if (ret)
+			goto end;
+		ret = dp_parse_audio_pattern_params(ep);
+	}
+end:
 	/* clear the test request IRQ */
 	buf[0] = 1;
 	dp_aux_write_buf(ep, test_request_addr, buf, 1, 0);

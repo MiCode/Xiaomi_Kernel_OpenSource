@@ -284,6 +284,17 @@ struct dpcd_test_request {
 	u32 test_v_height;
 	u32 test_rr_d;
 	u32 test_rr_n;
+	u32 test_audio_sampling_rate;
+	u32 test_audio_channel_count;
+	u32 test_audio_pattern_type;
+	u32 test_audio_period_ch_1;
+	u32 test_audio_period_ch_2;
+	u32 test_audio_period_ch_3;
+	u32 test_audio_period_ch_4;
+	u32 test_audio_period_ch_5;
+	u32 test_audio_period_ch_6;
+	u32 test_audio_period_ch_7;
+	u32 test_audio_period_ch_8;
 	u32 response;
 };
 
@@ -439,6 +450,7 @@ struct mdss_dp_drv_pdata {
 	bool sink_info_read;
 	bool hpd;
 	bool psm_enabled;
+	bool audio_test_req;
 
 	/* dp specific */
 	unsigned char *base;
@@ -548,6 +560,55 @@ enum dp_lane_count {
 	DP_LANE_COUNT_4	= 4,
 };
 
+enum audio_pattern_type {
+	AUDIO_TEST_PATTERN_OPERATOR_DEFINED	= 0x00,
+	AUDIO_TEST_PATTERN_SAWTOOTH		= 0x01,
+};
+
+static inline char *mdss_dp_get_audio_test_pattern(u32 pattern)
+{
+	switch (pattern) {
+	case AUDIO_TEST_PATTERN_OPERATOR_DEFINED:
+		return DP_ENUM_STR(AUDIO_TEST_PATTERN_OPERATOR_DEFINED);
+	case AUDIO_TEST_PATTERN_SAWTOOTH:
+		return DP_ENUM_STR(AUDIO_TEST_PATTERN_SAWTOOTH);
+	default:
+		return "unknown";
+	}
+}
+
+enum audio_sample_rate {
+	AUDIO_SAMPLE_RATE_32_KHZ	= 0x00,
+	AUDIO_SAMPLE_RATE_44_1_KHZ	= 0x01,
+	AUDIO_SAMPLE_RATE_48_KHZ	= 0x02,
+	AUDIO_SAMPLE_RATE_88_2_KHZ	= 0x03,
+	AUDIO_SAMPLE_RATE_96_KHZ	= 0x04,
+	AUDIO_SAMPLE_RATE_176_4_KHZ	= 0x05,
+	AUDIO_SAMPLE_RATE_192_KHZ	= 0x06,
+};
+
+static inline char *mdss_dp_get_audio_sample_rate(u32 rate)
+{
+	switch (rate) {
+	case AUDIO_SAMPLE_RATE_32_KHZ:
+		return DP_ENUM_STR(AUDIO_SAMPLE_RATE_32_KHZ);
+	case AUDIO_SAMPLE_RATE_44_1_KHZ:
+		return DP_ENUM_STR(AUDIO_SAMPLE_RATE_44_1_KHZ);
+	case AUDIO_SAMPLE_RATE_48_KHZ:
+		return DP_ENUM_STR(AUDIO_SAMPLE_RATE_48_KHZ);
+	case AUDIO_SAMPLE_RATE_88_2_KHZ:
+		return DP_ENUM_STR(AUDIO_SAMPLE_RATE_88_2_KHZ);
+	case AUDIO_SAMPLE_RATE_96_KHZ:
+		return DP_ENUM_STR(AUDIO_SAMPLE_RATE_96_KHZ);
+	case AUDIO_SAMPLE_RATE_176_4_KHZ:
+		return DP_ENUM_STR(AUDIO_SAMPLE_RATE_176_4_KHZ);
+	case AUDIO_SAMPLE_RATE_192_KHZ:
+		return DP_ENUM_STR(AUDIO_SAMPLE_RATE_192_KHZ);
+	default:
+		return "unknown";
+	}
+}
+
 enum phy_test_pattern {
 	PHY_TEST_PATTERN_NONE,
 	PHY_TEST_PATTERN_D10_2_NO_SCRAMBLING,
@@ -648,6 +709,8 @@ enum test_type {
 	TEST_VIDEO_PATTERN	= 0x2,
 	PHY_TEST_PATTERN	= 0x8,
 	TEST_EDID_READ		= 0x4,
+	TEST_AUDIO_PATTERN		= 32,
+	TEST_AUDIO_DISABLED_VIDEO	= 64,
 };
 
 static inline char *mdss_dp_get_test_name(u32 test_requested)
@@ -657,6 +720,7 @@ static inline char *mdss_dp_get_test_name(u32 test_requested)
 	case TEST_VIDEO_PATTERN:	return DP_ENUM_STR(TEST_VIDEO_PATTERN);
 	case PHY_TEST_PATTERN:		return DP_ENUM_STR(PHY_TEST_PATTERN);
 	case TEST_EDID_READ:		return DP_ENUM_STR(TEST_EDID_READ);
+	case TEST_AUDIO_PATTERN:	return DP_ENUM_STR(TEST_AUDIO_PATTERN);
 	default:			return "unknown";
 	}
 }
