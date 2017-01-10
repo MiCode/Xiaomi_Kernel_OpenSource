@@ -2824,6 +2824,8 @@ err_late_init:
 		unregister_hotcpu_notifier(&etm4_cpu_notifier);
 		unregister_hotcpu_notifier(&etm4_cpu_dying_notifier);
 	}
+	etmdrvdata[drvdata->cpu] = NULL;
+	dev_set_drvdata(dev, NULL);
 	return ret;
 }
 

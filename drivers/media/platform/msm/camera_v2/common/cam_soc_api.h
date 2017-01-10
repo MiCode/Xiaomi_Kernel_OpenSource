@@ -248,6 +248,23 @@ int msm_camera_regulator_enable(struct msm_cam_regulator *vdd_info,
 				int cnt, int enable);
 
 /**
+ * @brief      : set the regultors mode
+ *
+ * This function sets the regulators for a specific
+ * mode. say:REGULATOR_MODE_FAST/REGULATOR_MODE_NORMAL
+ *
+ * @param vdd_info: Pointer to list of regulators
+ * @param cnt: Number of regulators to enable/disable
+ * @param mode: Flags specifies either enable/disable
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+
+int msm_camera_regulator_set_mode(struct msm_cam_regulator *vdd_info,
+				int cnt, bool mode);
+
+
+/**
  * @brief      : Release the regulators
  *
  * This function releases the regulator resources.

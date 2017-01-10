@@ -1878,6 +1878,13 @@ static int msm_cpe_lsm_reg_model(struct snd_pcm_substream *substream,
 
 	lsm_ops->lsm_get_snd_model_offset(cpe->core_handle,
 			session, &offset);
+	/* Check if 'p_info->param_size + offset' crosses U32_MAX. */
+	if (p_info->param_size > U32_MAX - offset) {
+		dev_err(rtd->dev,
+			"%s: Invalid param_size %d\n",
+			__func__, p_info->param_size);
+		return -EINVAL;
+	}
 	session->snd_model_size = p_info->param_size + offset;
 
 	session->snd_model_data = vzalloc(session->snd_model_size);

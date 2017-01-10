@@ -221,7 +221,6 @@ struct cal_block_data *cal_utils_get_cal_block_by_key(
 int32_t core_set_license(uint32_t key, uint32_t module_id)
 {
 	struct avcs_cmd_set_license *cmd_setl = NULL;
-	struct audio_cal_info_metainfo *metainfo = NULL;
 	struct cal_block_data *cal_block = NULL;
 	int rc = 0, packet_size = 0;
 
@@ -278,9 +277,9 @@ int32_t core_set_license(uint32_t key, uint32_t module_id)
 	memcpy((uint8_t *)cmd_setl + sizeof(struct avcs_cmd_set_license),
 		cal_block->cal_data.kvaddr,
 		cal_block->cal_data.size);
-	pr_info("%s: Set license opcode=0x%x ,key=0x%x, id =0x%x, size = %d\n",
+	pr_info("%s: Set license opcode=0x%x, id =0x%x, size = %d\n",
 			__func__, cmd_setl->hdr.opcode,
-			metainfo->nKey, cmd_setl->id, cmd_setl->size);
+			cmd_setl->id, cmd_setl->size);
 	rc = apr_send_pkt(q6core_lcl.core_handle_q, (uint32_t *)cmd_setl);
 	if (rc < 0)
 		pr_err("%s: SET_LICENSE failed op[0x%x]rc[%d]\n",

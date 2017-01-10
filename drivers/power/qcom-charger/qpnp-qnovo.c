@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -99,8 +99,6 @@
 #define VADC_LSB_NA	1220700
 #define GAIN_LSB_FACTOR	976560
 
-#define MIN_EN_UA	1000000
-
 #define USER_VOTER		"user_voter"
 #define OK_TO_QNOVO_VOTER	"ok_to_qnovo_voter"
 
@@ -119,9 +117,7 @@ enum {
 struct chg_props {
 	bool		charging;
 	bool		usb_online;
-	int		usb_input_uA;
 	bool		dc_online;
-	int		dc_input_uA;
 };
 
 struct chg_status {
@@ -1092,7 +1088,6 @@ static void get_chg_props(struct qnovo *chip, struct chg_props *cp)
 	}
 
 	cp->usb_online = false;
-	cp->usb_input_uA = 0;
 	if (!chip->usb_psy)
 		chip->usb_psy = power_supply_get_by_name("usb");
 	if (chip->usb_psy) {
@@ -1102,17 +1097,9 @@ static void get_chg_props(struct qnovo *chip, struct chg_props *cp)
 			pr_err("Couldn't read usb online rc = %d\n", rc);
 		else
 			cp->usb_online = (bool)pval.intval;
-
-		rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
-		if (rc < 0)
-			pr_err("Couldn't read usb current max rc = %d\n", rc);
-		else
-			cp->usb_input_uA = pval.intval;
 	}
 
 	cp->dc_online = false;
-	cp->dc_input_uA = 0;
 	if (!chip->dc_psy)
 		chip->dc_psy = power_supply_get_by_name("dc");
 	if (chip->dc_psy) {
@@ -1122,13 +1109,6 @@ static void get_chg_props(struct qnovo *chip, struct chg_props *cp)
 			pr_err("Couldn't read dc online rc = %d\n", rc);
 		else
 			cp->dc_online = (bool)pval.intval;
-
-		rc = power_supply_get_property(chip->dc_psy,
-				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
-		if (rc < 0)
-			pr_err("Couldn't read dc current max rc = %d\n", rc);
-		else
-			cp->dc_input_uA = pval.intval;
 	}
 }
 
@@ -1138,8 +1118,7 @@ static void get_chg_status(struct qnovo *chip, const struct chg_props *cp,
 	cs->ok_to_qnovo = false;
 
 	if (cp->charging &&
-		((cp->usb_online && cp->usb_input_uA >= MIN_EN_UA)
-		|| (cp->dc_online && cp->dc_input_uA >= MIN_EN_UA)))
+		(cp->usb_online || cp->dc_online))
 		cs->ok_to_qnovo = true;
 }
 
