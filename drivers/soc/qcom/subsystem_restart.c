@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1697,7 +1697,6 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	if (ret) {
 		subsys_debugfs_remove(subsys);
 		put_device(&subsys->dev);
-		kfree(subsys);
 		return ERR_PTR(ret);
 	}
 
@@ -1759,7 +1758,6 @@ err_setup_irqs:
 err_register:
 	subsys_debugfs_remove(subsys);
 	device_unregister(&subsys->dev);
-	kfree(subsys);
 	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(subsys_register);
