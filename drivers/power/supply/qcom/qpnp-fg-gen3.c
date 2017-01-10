@@ -981,6 +981,38 @@ static int fg_set_esr_timer(struct fg_chip *chip, int cycles, bool charging,
 
 /* Other functions HERE */
 
+static void fg_notify_charger(struct fg_chip *chip)
+{
+	union power_supply_propval prop = {0, };
+	int rc;
+
+	if (!chip->batt_psy)
+		return;
+
+	if (!chip->profile_available)
+		return;
+
+	prop.intval = chip->bp.float_volt_uv;
+	rc = power_supply_set_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop);
+	if (rc < 0) {
+		pr_err("Error in setting voltage_max property on batt_psy, rc=%d\n",
+			rc);
+		return;
+	}
+
+	prop.intval = chip->bp.fastchg_curr_ma * 1000;
+	rc = power_supply_set_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &prop);
+	if (rc < 0) {
+		pr_err("Error in setting constant_charge_current_max property on batt_psy, rc=%d\n",
+			rc);
+		return;
+	}
+
+	fg_dbg(chip, FG_STATUS, "Notified charger on float voltage and FCC\n");
+}
+
 static int fg_awake_cb(struct votable *votable, void *data, int awake,
 			const char *client)
 {
@@ -995,13 +1027,17 @@ static int fg_awake_cb(struct votable *votable, void *data, int awake,
 	return 0;
 }
 
-static bool is_charger_available(struct fg_chip *chip)
+static bool batt_psy_initialized(struct fg_chip *chip)
 {
-	if (!chip->batt_psy)
-		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy)
+		return true;
 
+	chip->batt_psy = power_supply_get_by_name("battery");
 	if (!chip->batt_psy)
 		return false;
+
+	/* batt_psy is initialized, set the fcc and fv */
+	fg_notify_charger(chip);
 
 	return true;
 }
@@ -1359,7 +1395,7 @@ static int fg_charge_full_update(struct fg_chip *chip)
 	if (!chip->dt.hold_soc_while_full)
 		return 0;
 
-	if (!is_charger_available(chip))
+	if (!batt_psy_initialized(chip))
 		return 0;
 
 	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_HEALTH,
@@ -1723,7 +1759,7 @@ static void status_change_work(struct work_struct *work)
 	union power_supply_propval prop = {0, };
 	int rc;
 
-	if (!is_charger_available(chip)) {
+	if (!batt_psy_initialized(chip)) {
 		fg_dbg(chip, FG_STATUS, "Charger not available?!\n");
 		goto out;
 	}
@@ -2040,37 +2076,6 @@ out:
 	return rc;
 }
 
-static void fg_notify_charger(struct fg_chip *chip)
-{
-	union power_supply_propval prop = {0, };
-	int rc;
-
-	if (!is_charger_available(chip)) {
-		pr_warn("Charger not available yet?\n");
-		return;
-	}
-
-	prop.intval = chip->bp.float_volt_uv;
-	rc = power_supply_set_property(chip->batt_psy,
-			POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop);
-	if (rc < 0) {
-		pr_err("Error in setting voltage_max property on batt_psy, rc=%d\n",
-			rc);
-		return;
-	}
-
-	prop.intval = chip->bp.fastchg_curr_ma * 1000;
-	rc = power_supply_set_property(chip->batt_psy,
-			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &prop);
-	if (rc < 0) {
-		pr_err("Error in setting constant_charge_current_max property on batt_psy, rc=%d\n",
-			rc);
-		return;
-	}
-
-	fg_dbg(chip, FG_STATUS, "Notified charger on float voltage and FCC\n");
-}
-
 static void profile_load_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
@@ -2136,6 +2141,7 @@ done:
 				rc);
 	}
 
+	batt_psy_initialized(chip);
 	fg_notify_charger(chip);
 	chip->profile_loaded = true;
 	chip->soc_reporting_ready = true;
@@ -2296,7 +2302,7 @@ static int fg_get_time_to_full(struct fg_chip *chip, int *val)
 		return -ENODATA;
 	}
 
-	if (!is_charger_available(chip)) {
+	if (!batt_psy_initialized(chip)) {
 		fg_dbg(chip, FG_TTF, "charger is not available\n");
 		return -ENODATA;
 	}
@@ -3004,7 +3010,7 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	if (rc < 0)
 		pr_err("Error in configuring ESR filter rc:%d\n", rc);
 
-	if (!is_charger_available(chip)) {
+	if (!batt_psy_initialized(chip)) {
 		chip->last_batt_temp = batt_temp;
 		return IRQ_HANDLED;
 	}
@@ -3062,7 +3068,7 @@ static irqreturn_t fg_delta_soc_irq_handler(int irq, void *data)
 	if (rc < 0)
 		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
 
-	if (is_charger_available(chip))
+	if (batt_psy_initialized(chip))
 		power_supply_changed(chip->batt_psy);
 
 	return IRQ_HANDLED;
@@ -3073,7 +3079,7 @@ static irqreturn_t fg_empty_soc_irq_handler(int irq, void *data)
 	struct fg_chip *chip = data;
 
 	fg_dbg(chip, FG_IRQ, "irq %d triggered\n", irq);
-	if (is_charger_available(chip))
+	if (batt_psy_initialized(chip))
 		power_supply_changed(chip->batt_psy);
 
 	return IRQ_HANDLED;
