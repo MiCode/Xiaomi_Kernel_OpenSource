@@ -350,6 +350,9 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	if (!conn) {
 		SDE_ERROR_ENC(sde_enc, "failed to find attached connector\n");
 		return;
+	} else if (!conn->state) {
+		SDE_ERROR_ENC(sde_enc, "invalid connector state\n");
+		return;
 	}
 
 	/* Reserve dynamic resources now. Indicating non-AtomicTest phase */
@@ -364,8 +367,11 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && phys->ops.mode_set)
-			phys->ops.mode_set(phys, mode, adj_mode);
+		if (phys) {
+			phys->connector = conn->state->connector;
+			if (phys->ops.mode_set)
+				phys->ops.mode_set(phys, mode, adj_mode);
+		}
 	}
 }
 
@@ -452,11 +458,10 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && phys->ops.disable && !phys->ops.is_master(phys)) {
-			phys->ops.disable(phys);
-
-			atomic_set(&phys->vsync_cnt, 0);
-			atomic_set(&phys->underrun_cnt, 0);
+		if (phys) {
+			if (phys->ops.disable && !phys->ops.is_master(phys))
+				phys->ops.disable(phys);
+			phys->connector = NULL;
 		}
 	}
 
