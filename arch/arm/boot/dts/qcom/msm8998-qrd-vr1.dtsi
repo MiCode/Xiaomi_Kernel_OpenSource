@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -307,12 +307,39 @@
 
 &red_led {
 	/delete-property/ linux,default-trigger;
+	qcom,start-idx = <1>;
+	qcom,idx-len = <10>;
+	qcom,duty-pcts = [00 19 32 4b 64
+			64 4b 32 19 00];
+	qcom,lut-flags = <3>;
+	qcom,pause-lo = <0>;
+	qcom,pause-hi = <0>;
+	qcom,ramp-step-ms = <255>;
+	qcom,use-blink;
 };
 
 &green_led {
 	/delete-property/ linux,default-trigger;
+	qcom,start-idx = <1>;
+	qcom,idx-len = <10>;
+	qcom,duty-pcts = [00 19 32 4b 64
+			64 4b 32 19 00];
+	qcom,lut-flags = <3>;
+	qcom,pause-lo = <0>;
+	qcom,pause-hi = <0>;
+	qcom,ramp-step-ms = <255>;
+	qcom,use-blink;
 };
 
 &blue_led {
 	/delete-property/ linux,default-trigger;
+	qcom,start-idx = <1>;
+	qcom,idx-len = <10>;
+	qcom,duty-pcts = [00 19 32 4b 64
+			64 4b 32 19 00];
+	qcom,lut-flags = <3>;
+	qcom,pause-lo = <0>;
+	qcom,pause-hi = <0>;
+	qcom,ramp-step-ms = <255>;
+	qcom,use-blink;
 };
