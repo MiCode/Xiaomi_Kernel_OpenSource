@@ -26,6 +26,7 @@
 #include <linux/memblock.h>
 #include <linux/fs.h>
 #include <linux/io.h>
+#include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/stop_machine.h>
 
@@ -305,8 +306,10 @@ static void __init __map_memblock(phys_addr_t start, phys_addr_t end)
 	 * for now. This will get more fine grained later once all memory
 	 * is mapped
 	 */
-	unsigned long kernel_x_start = round_down(__pa(_stext), SECTION_SIZE);
-	unsigned long kernel_x_end = round_up(__pa(__init_end), SECTION_SIZE);
+	unsigned long kernel_x_start = round_down(__pa_symbol(_stext),
+						  SECTION_SIZE);
+	unsigned long kernel_x_end = round_up(__pa_symbol(__init_end),
+					      SECTION_SIZE);
 
 	if (end < kernel_x_start) {
 		create_mapping(start, __phys_to_virt(start),
@@ -394,19 +397,20 @@ void __init fixup_executable(void)
 #ifdef CONFIG_DEBUG_RODATA
 	/* now that we are actually fully mapped, make the start/end more fine grained */
 	if (!IS_ALIGNED((unsigned long)_stext, SECTION_SIZE)) {
-		unsigned long aligned_start = round_down(__pa(_stext),
+		unsigned long aligned_start = round_down(__pa_symbol(_stext),
 							SECTION_SIZE);
 
 		create_mapping(aligned_start, __phys_to_virt(aligned_start),
-				__pa(_stext) - aligned_start,
+				__pa_symbol(_stext) - aligned_start,
 				PAGE_KERNEL);
 	}
 
 	if (!IS_ALIGNED((unsigned long)__init_end, SECTION_SIZE)) {
-		unsigned long aligned_end = round_up(__pa(__init_end),
+		unsigned long aligned_end = round_up(__pa_symbol(__init_end),
 							SECTION_SIZE);
-		create_mapping(__pa(__init_end), (unsigned long)__init_end,
-				aligned_end - __pa(__init_end),
+		create_mapping(__pa_symbol(__init_end),
+				(unsigned long)__init_end,
+				aligned_end - __pa_symbol(__init_end),
 				PAGE_KERNEL);
 	}
 #endif
@@ -415,7 +419,7 @@ void __init fixup_executable(void)
 #ifdef CONFIG_DEBUG_RODATA
 void mark_rodata_ro(void)
 {
-	create_mapping_late(__pa(_stext), (unsigned long)_stext,
+	create_mapping_late(__pa_symbol(_stext), (unsigned long)_stext,
 				(unsigned long)__init_begin - (unsigned long)_stext,
 				PAGE_KERNEL_EXEC | PTE_RDONLY);
 }
@@ -423,7 +427,8 @@ void mark_rodata_ro(void)
 
 void fixup_init(void)
 {
-	create_mapping_late(__pa(__init_begin), (unsigned long)__init_begin,
+	create_mapping_late(__pa_symbol(__init_begin),
+			(unsigned long)__init_begin,
 			(unsigned long)__init_end - (unsigned long)__init_begin,
 			PAGE_KERNEL);
 }
@@ -567,6 +572,12 @@ static inline pte_t * fixmap_pte(unsigned long addr)
 	return pte_offset_kernel(pmd, addr);
 }
 
+/*
+ * The p*d_populate functions call virt_to_phys implicitly so they can't be used
+ * directly on kernel symbols (bm_p*d). This function is called too early to use
+ * lm_alias so __p*d_populate functions must be used to populate with the
+ * physical address from __pa_symbol.
+ */
 void __init early_fixmap_init(void)
 {
 	pgd_t *pgd;
@@ -575,11 +586,13 @@ void __init early_fixmap_init(void)
 	unsigned long addr = FIXADDR_START;
 
 	pgd = pgd_offset_k(addr);
-	pgd_populate(&init_mm, pgd, bm_pud);
+	if (pgd_none(*pgd))
+		__pgd_populate(pgd, __pa_symbol(bm_pud), PUD_TABLE_TYPE);
 	pud = pud_offset(pgd, addr);
-	pud_populate(&init_mm, pud, bm_pmd);
+	if (pud_none(*pud))
+		__pud_populate(pud, __pa_symbol(bm_pmd), PMD_TYPE_TABLE);
 	pmd = pmd_offset(pud, addr);
-	pmd_populate_kernel(&init_mm, pmd, bm_pte);
+	__pmd_populate(pmg, __pa_symbol(bm_pte), PMD_TYPE_TABLE);
 
 	/*
 	 * The boot-ioremap range spans multiple pmds, for which
