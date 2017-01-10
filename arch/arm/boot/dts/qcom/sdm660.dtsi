@@ -1095,7 +1095,6 @@
 
 	clock_cpu: qcom,clk-cpu-660@179c0000 {
 		compatible = "qcom,clk-cpu-osm";
-		status = "disabled";
 		reg = <0x179c0000 0x4000>, <0x17916000 0x1000>,
 		      <0x17816000 0x1000>, <0x179d1000 0x1000>,
 		      <0x00784130 0x8>;
@@ -1161,7 +1160,7 @@
 		qcom,apm-mode-ctl = <0x179d0004 0x179d0010>;
 		qcom,apm-ctrl-status = <0x179d000c 0x179d0018>;
 
-		qcom,apm-threshold-voltage = <832000>;
+		qcom,apm-threshold-voltage = <872000>;
 		qcom,boost-fsm-en;
 		qcom,safe-fsm-en;
 		qcom,ps-fsm-en;
