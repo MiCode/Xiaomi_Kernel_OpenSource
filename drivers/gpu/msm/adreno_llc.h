@@ -52,9 +52,16 @@ static inline void adreno_llc_setup(struct kgsl_device *device)
 		if (!llcc_slice_activate(adreno_dev->gpu_llc_slice)) {
 			if (gpudev->llc_configure_gpu_scid)
 				gpudev->llc_configure_gpu_scid(adreno_dev);
-			if (gpudev->llc_enable_overrides)
-				gpudev->llc_enable_overrides(adreno_dev);
 		}
+
+	if (adreno_dev->gpuhtw_llc_slice)
+		if (!llcc_slice_activate(adreno_dev->gpuhtw_llc_slice)) {
+			if (gpudev->llc_configure_gpuhtw_scid)
+				gpudev->llc_configure_gpuhtw_scid(adreno_dev);
+		}
+
+	if (gpudev->llc_enable_overrides)
+		gpudev->llc_enable_overrides(adreno_dev);
 }
 
 #else

@@ -1142,6 +1142,28 @@ static void _free_pt(struct kgsl_iommu_context *ctx, struct kgsl_pagetable *pt)
 	kfree(iommu_pt);
 }
 
+void _enable_gpuhtw_llc(struct kgsl_mmu *mmu, struct kgsl_iommu_pt *iommu_pt)
+{
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	int gpuhtw_llc_enable = 1;
+	int ret;
+
+	/* GPU pagetable walk LLC slice not enabled */
+	if (!adreno_dev->gpuhtw_llc_slice)
+		return;
+
+	/* Domain attribute to enable system cache for GPU pagetable walks */
+	ret = iommu_domain_set_attr(iommu_pt->domain,
+			DOMAIN_ATTR_USE_UPSTREAM_HINT, &gpuhtw_llc_enable);
+	/*
+	 * Warn that the system cache will not be used for GPU
+	 * pagetable walks. This is not a fatal error.
+	 */
+	WARN_ONCE(ret,
+		"System cache not enabled for GPU pagetable walks: %d\n", ret);
+}
+
 static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 {
 	int ret = 0;
@@ -1164,6 +1186,8 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 			goto done;
 		}
 	}
+
+	_enable_gpuhtw_llc(mmu, iommu_pt);
 
 	ret = _attach_pt(iommu_pt, ctx);
 	if (ret)
@@ -1237,6 +1261,8 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		goto done;
 	}
 
+	_enable_gpuhtw_llc(mmu, iommu_pt);
+
 	ret = _attach_pt(iommu_pt, ctx);
 
 	if (MMU_FEATURE(mmu, KGSL_MMU_HYP_SECURE_ALLOC))
@@ -1296,6 +1322,8 @@ static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		KGSL_CORE_ERR("set DOMAIN_ATTR_PROCID failed: %d\n", ret);
 		goto done;
 	}
+
+	_enable_gpuhtw_llc(mmu, iommu_pt);
 
 	ret = _attach_pt(iommu_pt, ctx);
 	if (ret)

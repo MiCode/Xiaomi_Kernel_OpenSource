@@ -35,6 +35,10 @@
 #define A6XX_GPU_LLC_SCID_NUM_BITS	5
 #define A6XX_GPU_LLC_SCID_MASK \
 	((1 << (A6XX_LLC_NUM_GPU_SCIDS * A6XX_GPU_LLC_SCID_NUM_BITS)) - 1)
+#define A6XX_GPUHTW_LLC_SCID_SHIFT	25
+#define A6XX_GPUHTW_LLC_SCID_MASK \
+	(((1 << A6XX_GPU_LLC_SCID_NUM_BITS) - 1) << A6XX_GPUHTW_LLC_SCID_SHIFT)
+
 #define A6XX_GPU_CX_REG_BASE		0x509E000
 #define A6XX_GPU_CX_REG_SIZE		0x1000
 
@@ -630,6 +634,24 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 }
 
 /*
+ * a6xx_llc_configure_gpuhtw_scid() - Program the SCID for GPU pagetables
+ * @adreno_dev: The adreno device pointer
+ */
+static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
+{
+	uint32_t gpuhtw_scid;
+	void __iomem *gpu_cx_reg;
+
+	gpuhtw_scid = adreno_llc_get_scid(adreno_dev->gpuhtw_llc_slice);
+
+	gpu_cx_reg = ioremap(A6XX_GPU_CX_REG_BASE, A6XX_GPU_CX_REG_SIZE);
+	extregrmw(gpu_cx_reg + A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
+			A6XX_GPUHTW_LLC_SCID_MASK,
+			gpuhtw_scid << A6XX_GPUHTW_LLC_SCID_SHIFT);
+	iounmap(gpu_cx_reg);
+}
+
+/*
  * a6xx_llc_enable_overrides() - Override the page attributes
  * @adreno_dev: The adreno device pointer
  */
@@ -762,5 +784,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.microcode_read = a6xx_microcode_read,
 	.enable_64bit = a6xx_enable_64bit,
 	.llc_configure_gpu_scid = a6xx_llc_configure_gpu_scid,
+	.llc_configure_gpuhtw_scid = a6xx_llc_configure_gpuhtw_scid,
 	.llc_enable_overrides = a6xx_llc_enable_overrides
 };

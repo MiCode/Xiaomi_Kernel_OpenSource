@@ -398,6 +398,7 @@ struct adreno_gpu_core {
  * @active_list_lock: Lock to protect active_list
  * @gpu_llc_slice: GPU system cache slice descriptor
  * @gpu_llc_slice_enable: To enable the GPU system cache slice or not
+ * @gpuhtw_llc_slice: GPU pagetables system cache slice descriptor
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -459,6 +460,7 @@ struct adreno_device {
 
 	void *gpu_llc_slice;
 	bool gpu_llc_slice_enable;
+	void *gpuhtw_llc_slice;
 };
 
 /**
@@ -815,6 +817,7 @@ struct adreno_gpudev {
 	void (*clk_set_options)(struct adreno_device *,
 				const char *, struct clk *);
 	void (*llc_configure_gpu_scid)(struct adreno_device *adreno_dev);
+	void (*llc_configure_gpuhtw_scid)(struct adreno_device *adreno_dev);
 	void (*llc_enable_overrides)(struct adreno_device *adreno_dev);
 };
 
