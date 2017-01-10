@@ -39,6 +39,10 @@ bool use_32bit_app_setting = false;
 module_param(use_32bit_app_setting, bool, 0644);
 MODULE_PARM_DESC(use_32bit_app_setting, "control use of 32 bit app specific settings");
 
+bool use_32bit_app_setting_pro = false;
+module_param(use_32bit_app_setting_pro, bool, 0644);
+MODULE_PARM_DESC(use_32bit_app_setting_pro, "control use of 32 bit app specific settings");
+
 static int set_name(const char *str, struct kernel_param *kp)
 {
 	int len = strlen(str);
