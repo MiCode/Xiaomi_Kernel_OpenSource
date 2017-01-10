@@ -1983,7 +1983,6 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 {
 	u8 i = 0, offset = 0, std_blk = 0;
 	u32 video_format = HDMI_VFRMT_640x480p60_4_3;
-	u32 has480p = false;
 	u8 len = 0;
 	u8 num_of_cea_blocks;
 	u8 *data_buf;
@@ -2046,9 +2045,6 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 				video_format == HDMI_VFRMT_2880x576p50_16_9 ||
 				video_format == HDMI_VFRMT_1920x1250i50_16_9)
 				has50hz_mode = true;
-
-			if (video_format == HDMI_VFRMT_640x480p60_4_3)
-				has480p = true;
 		}
 	}
 
@@ -2066,9 +2062,6 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 
 			hdmi_edid_add_sink_video_format(edid_ctrl,
 				video_format);
-
-			if (video_format == HDMI_VFRMT_640x480p60_4_3)
-				has480p = true;
 
 			/* Make a note of the preferred video format */
 			if (i == 0)
@@ -2103,8 +2096,6 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 
 				hdmi_edid_add_sink_video_format(edid_ctrl,
 					video_format);
-				if (video_format == HDMI_VFRMT_640x480p60_4_3)
-					has480p = true;
 
 				/* Make a note of the preferred video format */
 				if (i == 0) {
@@ -2192,15 +2183,6 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 		if (!rc)
 			pr_debug("%s: 3D formats in VSD\n", __func__);
 	}
-
-	/*
-	 * Need to add default 640 by 480 timings, in case not described
-	 * in the EDID structure.
-	 * All DTV sink devices should support this mode
-	 */
-	if (!has480p)
-		hdmi_edid_add_sink_video_format(edid_ctrl,
-			HDMI_VFRMT_640x480p60_4_3);
 } /* hdmi_edid_get_display_mode */
 
 u32 hdmi_edid_get_raw_data(void *input, u8 *buf, u32 size)
