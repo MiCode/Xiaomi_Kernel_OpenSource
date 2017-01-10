@@ -2735,6 +2735,11 @@ static int mmc_power_restore(struct mmc_host *host)
 	}
 
 	ret = mmc_init_card(host, host->card->ocr, host->card);
+	if (ret) {
+		pr_err("%s: %s: mmc_init_card failed (%d)\n",
+			mmc_hostname(host), __func__, ret);
+		return ret;
+	}
 
 	ret = mmc_resume_clk_scaling(host);
 	if (ret)
