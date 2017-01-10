@@ -37,6 +37,7 @@ enum dbm_reg {
 	DBM_HW_TRB2_EP,
 	DBM_HW_TRB3_EP,
 	DBM_PIPE_CFG,
+	DBM_DISABLE_UPDXFER,
 	DBM_SOFT_RESET,
 	DBM_GEN_CFG,
 	DBM_GEVNTADR_LSB,
@@ -103,6 +104,7 @@ static const struct dbm_reg_data dbm_1_5_regtable[] = {
 	[DBM_HW_TRB2_EP]	= { 0x0240, 0x4 },
 	[DBM_HW_TRB3_EP]	= { 0x0250, 0x4 },
 	[DBM_PIPE_CFG]		= { 0x0274, 0x0 },
+	[DBM_DISABLE_UPDXFER]	= { 0x0298, 0x0 },
 	[DBM_SOFT_RESET]	= { 0x020C, 0x0 },
 	[DBM_GEN_CFG]		= { 0x0210, 0x0 },
 	[DBM_GEVNTADR_LSB]	= { 0x0260, 0x0 },
@@ -192,7 +194,7 @@ static int find_matching_dbm_ep(struct dbm *dbm, u8 usb_ep)
 		if (dbm->ep_num_mapping[i] == usb_ep)
 			return i;
 
-	pr_err("%s: No DBM EP matches USB EP %d", __func__, usb_ep);
+	pr_debug("%s: No DBM EP matches USB EP %d", __func__, usb_ep);
 	return -ENODEV; /* Not found */
 }
 
@@ -291,6 +293,7 @@ int dbm_ep_config(struct dbm *dbm, u8 usb_ep, u8 bam_pipe, bool producer,
 {
 	int dbm_ep;
 	u32 ep_cfg;
+	u32 data;
 
 	if (!dbm) {
 		pr_err("%s: dbm pointer is NULL!\n", __func__);
@@ -333,6 +336,10 @@ int dbm_ep_config(struct dbm *dbm, u8 usb_ep, u8 bam_pipe, bool producer,
 	}
 
 	msm_dbm_write_ep_reg_field(dbm, DBM_EP_CFG, dbm_ep, DBM_EN_EP, 1);
+
+	data = msm_dbm_read_reg(dbm, DBM_DISABLE_UPDXFER);
+	data &= ~(0x1 << dbm_ep);
+	msm_dbm_write_reg(dbm, DBM_DISABLE_UPDXFER, data);
 
 	return dbm_ep;
 }
@@ -378,7 +385,7 @@ int dbm_ep_unconfig(struct dbm *dbm, u8 usb_ep)
 	dbm_ep = find_matching_dbm_ep(dbm, usb_ep);
 
 	if (dbm_ep < 0) {
-		pr_err("usb ep index %d has no corresponding dbm ep\n", usb_ep);
+		pr_debug("usb ep index %d has no corespondng dbm ep\n", usb_ep);
 		return -ENODEV;
 	}
 
@@ -433,6 +440,35 @@ int dbm_event_buffer_config(struct dbm *dbm, u32 addr_lo, u32 addr_hi, int size)
 	return 0;
 }
 
+/**
+ * Disable update xfer before queueing stop xfer command to USB3 core.
+ *
+ * @usb_ep - USB physical EP number.
+ *
+ */
+int dwc3_dbm_disable_update_xfer(struct dbm *dbm, u8 usb_ep)
+{
+	u32 data;
+	u8 dbm_ep;
+
+	if (!dbm) {
+		pr_err("%s: dbm pointer is NULL!\n", __func__);
+		return -EPERM;
+	}
+
+	dbm_ep = find_matching_dbm_ep(dbm, usb_ep);
+
+	if (dbm_ep < 0) {
+		pr_err("usb ep index %d has no corresponding dbm ep\n", usb_ep);
+		return -ENODEV;
+	}
+
+	data = msm_dbm_read_reg(dbm, DBM_DISABLE_UPDXFER);
+	data |= (0x1 << dbm_ep);
+	msm_dbm_write_reg(dbm, DBM_DISABLE_UPDXFER, data);
+
+	return 0;
+}
 
 int dbm_data_fifo_config(struct dbm *dbm, u8 dep_num, phys_addr_t addr,
 				u32 size, u8 dst_pipe_idx)

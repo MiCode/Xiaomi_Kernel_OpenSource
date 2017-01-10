@@ -402,6 +402,7 @@ static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
 	[NL80211_ATTR_SCHED_SCAN_DELAY] = { .type = NLA_U32 },
 	[NL80211_ATTR_REG_INDOOR] = { .type = NLA_FLAG },
 	[NL80211_ATTR_PBSS] = { .type = NLA_FLAG },
+	[NL80211_ATTR_BSSID] = { .len = ETH_ALEN },
 };
 
 /* policy for the key attributes */
@@ -1551,6 +1552,7 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
 			if (rdev->wiphy.features &
 					NL80211_FEATURE_SUPPORTS_WMM_ADMISSION)
 				CMD(add_tx_ts, ADD_TX_TS);
+			CMD(update_connect_params, UPDATE_CONNECT_PARAMS);
 		}
 		/* add into the if now */
 #undef CMD
@@ -3478,13 +3480,12 @@ out:
 	return 0;
 }
 
-static int validate_beacon_tx_rate(struct cfg80211_ap_settings *params)
+static int validate_beacon_tx_rate(struct cfg80211_registered_device *rdev,
+				   enum nl80211_band band,
+				   struct cfg80211_bitrate_mask *beacon_rate)
 {
-	u32 rate, count_ht, count_vht, i;
-	enum nl80211_band band;
-
-	band = params->chandef.chan->band;
-	rate = params->beacon_rate.control[band].legacy;
+	u32 count_ht, count_vht, i;
+	u32 rate = beacon_rate->control[band].legacy;
 
 	/* Allow only one rate */
 	if (hweight32(rate) > 1)
@@ -3492,9 +3493,9 @@ static int validate_beacon_tx_rate(struct cfg80211_ap_settings *params)
 
 	count_ht = 0;
 	for (i = 0; i < IEEE80211_HT_MCS_MASK_LEN; i++) {
-		if (hweight8(params->beacon_rate.control[band].ht_mcs[i]) > 1) {
+		if (hweight8(beacon_rate->control[band].ht_mcs[i]) > 1) {
 			return -EINVAL;
-		} else if (params->beacon_rate.control[band].ht_mcs[i]) {
+		} else if (beacon_rate->control[band].ht_mcs[i]) {
 			count_ht++;
 			if (count_ht > 1)
 				return -EINVAL;
@@ -3505,9 +3506,9 @@ static int validate_beacon_tx_rate(struct cfg80211_ap_settings *params)
 
 	count_vht = 0;
 	for (i = 0; i < NL80211_VHT_NSS_MAX; i++) {
-		if (hweight16(params->beacon_rate.control[band].vht_mcs[i]) > 1) {
+		if (hweight16(beacon_rate->control[band].vht_mcs[i]) > 1) {
 			return -EINVAL;
-		} else if (params->beacon_rate.control[band].vht_mcs[i]) {
+		} else if (beacon_rate->control[band].vht_mcs[i]) {
 			count_vht++;
 			if (count_vht > 1)
 				return -EINVAL;
@@ -3517,6 +3518,19 @@ static int validate_beacon_tx_rate(struct cfg80211_ap_settings *params)
 	}
 
 	if ((count_ht && count_vht) || (!rate && !count_ht && !count_vht))
+		return -EINVAL;
+
+	if (rate &&
+	    !wiphy_ext_feature_isset(&rdev->wiphy,
+				     NL80211_EXT_FEATURE_BEACON_RATE_LEGACY))
+		return -EINVAL;
+	if (count_ht &&
+	    !wiphy_ext_feature_isset(&rdev->wiphy,
+				     NL80211_EXT_FEATURE_BEACON_RATE_HT))
+		return -EINVAL;
+	if (count_vht &&
+	    !wiphy_ext_feature_isset(&rdev->wiphy,
+				     NL80211_EXT_FEATURE_BEACON_RATE_VHT))
 		return -EINVAL;
 
 	return 0;
@@ -3757,7 +3771,8 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 		if (err)
 			return err;
 
-		err = validate_beacon_tx_rate(&params);
+		err = validate_beacon_tx_rate(rdev, params.chandef.chan->band,
+					      &params.beacon_rate);
 		if (err)
 			return err;
 	}
@@ -6310,7 +6325,20 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 	request->no_cck =
 		nla_get_flag(info->attrs[NL80211_ATTR_TX_NO_CCK_RATE]);
 
-	if (info->attrs[NL80211_ATTR_MAC])
+	/* Initial implementation used NL80211_ATTR_MAC to set the specific
+	 * BSSID to scan for. This was problematic because that same attribute
+	 * was already used for another purpose (local random MAC address). The
+	 * NL80211_ATTR_BSSID attribute was added to fix this. For backwards
+	 * compatibility with older userspace components, also use the
+	 * NL80211_ATTR_MAC value here if it can be determined to be used for
+	 * the specific BSSID use case instead of the random MAC address
+	 * (NL80211_ATTR_SCAN_FLAGS is used to enable random MAC address use).
+	 */
+	if (info->attrs[NL80211_ATTR_BSSID])
+		memcpy(request->bssid,
+		       nla_data(info->attrs[NL80211_ATTR_BSSID]), ETH_ALEN);
+	else if (!(request->flags & NL80211_SCAN_FLAG_RANDOM_ADDR) &&
+		 info->attrs[NL80211_ATTR_MAC])
 		memcpy(request->bssid, nla_data(info->attrs[NL80211_ATTR_MAC]),
 		       ETH_ALEN);
 	else
@@ -8329,6 +8357,37 @@ static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
 	return err;
 }
 
+static int nl80211_update_connect_params(struct sk_buff *skb,
+					 struct genl_info *info)
+{
+	struct cfg80211_connect_params connect = {};
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct net_device *dev = info->user_ptr[1];
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	u32 changed = 0;
+	int ret;
+
+	if (!rdev->ops->update_connect_params)
+		return -EOPNOTSUPP;
+
+	if (info->attrs[NL80211_ATTR_IE]) {
+		if (!is_valid_ie_attr(info->attrs[NL80211_ATTR_IE]))
+			return -EINVAL;
+		connect.ie = nla_data(info->attrs[NL80211_ATTR_IE]);
+		connect.ie_len = nla_len(info->attrs[NL80211_ATTR_IE]);
+		changed |= UPDATE_ASSOC_IES;
+	}
+
+	wdev_lock(dev->ieee80211_ptr);
+	if (!wdev->current_bss)
+		ret = -ENOLINK;
+	else
+		ret = rdev_update_connect_params(rdev, dev, &connect, changed);
+	wdev_unlock(dev->ieee80211_ptr);
+
+	return ret;
+}
+
 static int nl80211_disconnect(struct sk_buff *skb, struct genl_info *info)
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
@@ -9062,6 +9121,17 @@ static int nl80211_join_mesh(struct sk_buff *skb, struct genl_info *info)
 
 		err = ieee80211_get_ratemask(sband, rates, n_rates,
 					     &setup.basic_rates);
+		if (err)
+			return err;
+	}
+
+	if (info->attrs[NL80211_ATTR_TX_RATES] && setup.chandef.chan != NULL) {
+		err = nl80211_parse_tx_bitrate_mask(info, &setup.beacon_rate);
+		if (err)
+			return err;
+
+		err = validate_beacon_tx_rate(rdev, setup.chandef.chan->band,
+					      &setup.beacon_rate);
 		if (err)
 			return err;
 	}
@@ -11200,6 +11270,14 @@ static const struct genl_ops nl80211_ops[] = {
 	{
 		.cmd = NL80211_CMD_CONNECT,
 		.doit = nl80211_connect,
+		.policy = nl80211_policy,
+		.flags = GENL_ADMIN_PERM,
+		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
+				  NL80211_FLAG_NEED_RTNL,
+	},
+	{
+		.cmd = NL80211_CMD_UPDATE_CONNECT_PARAMS,
+		.doit = nl80211_update_connect_params,
 		.policy = nl80211_policy,
 		.flags = GENL_ADMIN_PERM,
 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |

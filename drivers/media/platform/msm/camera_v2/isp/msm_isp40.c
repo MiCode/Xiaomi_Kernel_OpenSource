@@ -1099,7 +1099,7 @@ static int msm_vfe40_start_fetch_engine_multi_pass(struct vfe_device *vfe_dev,
 		rc = vfe_dev->buf_mgr->ops->get_buf_by_index(
 			vfe_dev->buf_mgr, bufq_handle, fe_cfg->buf_idx, &buf);
 		if (rc < 0 || !buf) {
-			pr_err("%s: No fetch buffer rc= %d buf= %p\n",
+			pr_err("%s: No fetch buffer rc= %d buf= %pK\n",
 				__func__, rc, buf);
 			return -EINVAL;
 		}
@@ -2263,6 +2263,8 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 				msm_vfe40_start_fetch_engine_multi_pass,
 			.set_halt_restart_mask =
 				msm_vfe40_set_halt_restart_mask,
+			.set_bus_err_ign_mask = NULL,
+			.get_bus_err_mask = NULL,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe40_get_stats_idx,

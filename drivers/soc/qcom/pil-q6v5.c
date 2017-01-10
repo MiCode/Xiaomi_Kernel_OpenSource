@@ -149,7 +149,7 @@ err_vreg_pll:
 err_cx_enable:
 	regulator_set_load(drv->vreg_cx, 0);
 err_cx_mode:
-	regulator_set_voltage(drv->vreg_cx, RPM_REGULATOR_CORNER_NONE, uv);
+	regulator_set_voltage(drv->vreg_cx, RPM_REGULATOR_CORNER_NONE, INT_MAX);
 err_cx_voltage:
 	clk_disable_unprepare(drv->qdss_clk);
 err_qdss_vote:
@@ -179,7 +179,7 @@ void pil_q6v5_remove_proxy_votes(struct pil_desc *pil)
 	}
 	regulator_disable(drv->vreg_cx);
 	regulator_set_load(drv->vreg_cx, 0);
-	regulator_set_voltage(drv->vreg_cx, RPM_REGULATOR_CORNER_NONE, uv);
+	regulator_set_voltage(drv->vreg_cx, RPM_REGULATOR_CORNER_NONE, INT_MAX);
 	clk_disable_unprepare(drv->xo);
 	clk_disable_unprepare(drv->pnoc_clk);
 	clk_disable_unprepare(drv->qdss_clk);
@@ -198,9 +198,9 @@ void pil_q6v5_halt_axi_port(struct pil_desc *pil, void __iomem *halt_base)
 	ret = readl_poll_timeout(halt_base + AXI_HALTACK,
 		status, status != 0, 50, HALT_ACK_TIMEOUT_US);
 	if (ret)
-		dev_warn(pil->dev, "Port %p halt timeout\n", halt_base);
+		dev_warn(pil->dev, "Port %pK halt timeout\n", halt_base);
 	else if (!readl_relaxed(halt_base + AXI_IDLE))
-		dev_warn(pil->dev, "Port %p halt failed\n", halt_base);
+		dev_warn(pil->dev, "Port %pK halt failed\n", halt_base);
 
 	/* Clear halt request (port will remain halted until reset) */
 	writel_relaxed(0, halt_base + AXI_HALTREQ);
@@ -511,6 +511,8 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 		for ( ; i >= 0; i--) {
 			val |= BIT(i);
 			writel_relaxed(val, drv->reg_base +
+					QDSP6V6SS_MEM_PWR_CTL);
+			val = readl_relaxed(drv->reg_base +
 					QDSP6V6SS_MEM_PWR_CTL);
 			/*
 			 * Wait for 1us for both memory peripheral and

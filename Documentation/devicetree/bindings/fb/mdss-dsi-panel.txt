@@ -37,8 +37,8 @@ Required properties:
 					"display_2" = DISPLAY_2
 - qcom,mdss-dsi-panel-timings:		An array of length 12 that specifies the PHY
 					timing settings for the panel.
-- qcom,mdss-dsi-panel-timings-8996:		An array of length 40 char that specifies the 8996 PHY lane
-					timing settings for the panel.
+- qcom,mdss-dsi-panel-timings-phy-v2:	An array of length 40 char that specifies the PHY version 2
+					lane timing settings for the panel.
 - qcom,mdss-dsi-on-command:		A byte stream formed by multiple dcs packets base on
 					qcom dsi controller protocol.
 					byte 0: dcs data type
@@ -365,6 +365,28 @@ the fps window.
 					2A/2B command.
 - qcom,dcs-cmd-by-left:			Boolean to indicate that dcs command are sent
 					through the left DSI controller only in a dual-dsi configuration
+- qcom,mdss-dsi-panel-hdr-enabled:      Boolean to indicate HDR support in panel.
+- qcom,mdss-dsi-panel-hdr-color-primaries:
+                                        Array of 8 unsigned integers denoting chromaticity of panel.These
+                                        values are specified in nits units. The value range is 0 through 50000.
+                                        To obtain real chromacity, these values should be divided by factor of
+                                        50000. The structure of array is defined in below order
+                                        value 1: x value of white chromaticity of display panel
+                                        value 2: y value of white chromaticity of display panel
+                                        value 3: x value of red chromaticity of display panel
+                                        value 4: y value of red chromaticity of display panel
+                                        value 5: x value of green chromaticity of display panel
+                                        value 6: y value of green chromaticity of display panel
+                                        value 7: x value of blue chromaticity of display panel
+                                        value 8: y value of blue chromaticity of display panel
+- qcom,mdss-dsi-panel-peak-brightness:  Maximum brightness supported by panel.In absence of maximum value
+                                        typical value becomes peak brightness. Value is specified in nits units.
+                                        To obtail real peak brightness, this value should be divided by factor of
+                                        10000.
+- qcom,mdss-dsi-panel-blackness-level:  Blackness level supported by panel. Blackness level is defined as
+                                        ratio of peak brightness to contrast. Value is specified in nits units.
+                                        To obtail real blackness level, this value should be divided by factor of
+                                        10000.
 - qcom,mdss-dsi-lp11-init:		Boolean used to enable the DSI clocks and data lanes (low power 11)
 					before issuing hardware reset line.
 - qcom,mdss-dsi-init-delay-us:		Delay in microseconds(us) before performing any DSI activity in lp11
@@ -616,7 +638,7 @@ Example:
 		qcom,mdss-mdp-transfer-time-us = <12500>;
 		qcom,mdss-dsi-panel-timings = [7d 25 1d 00 37 33
 					22 27 1e 03 04 00];
-                qcom,mdss-dsi-panel-timings-8996 = [23 20 06 09 05 03 04 a0
+                qcom,mdss-dsi-panel-timings-phy-v2 = [23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0
                                 23 20 06 09 05 03 04 a0

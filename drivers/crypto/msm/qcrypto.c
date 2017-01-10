@@ -821,19 +821,16 @@ static struct qcrypto_alg *_qcrypto_aead_alg_alloc(struct crypto_priv *cp,
 	return q_alg;
 };
 
-static int _qcrypto_cipher_cra_init(struct crypto_tfm *tfm)
+static int _qcrypto_cipher_ctx_init(struct qcrypto_cipher_ctx *ctx,
+					struct qcrypto_alg *q_alg)
 {
-	struct crypto_alg *alg = tfm->__crt_alg;
-	struct qcrypto_alg *q_alg;
-	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
-
-
-	q_alg = container_of(alg, struct qcrypto_alg, cipher_alg);
+	if (!ctx || !q_alg) {
+		pr_err("ctx or q_alg is NULL\n");
+		return -EINVAL;
+	}
 	ctx->flags = 0;
-
 	/* update context with ptr to cp */
 	ctx->cp = q_alg->cp;
-
 	/* random first IV */
 	get_random_bytes(ctx->iv, QCRYPTO_MAX_IV_LENGTH);
 	if (_qcrypto_init_assign) {
@@ -845,6 +842,16 @@ static int _qcrypto_cipher_cra_init(struct crypto_tfm *tfm)
 	INIT_LIST_HEAD(&ctx->rsp_queue);
 	ctx->auth_alg = QCE_HASH_LAST;
 	return 0;
+}
+
+static int _qcrypto_cipher_cra_init(struct crypto_tfm *tfm)
+{
+	struct crypto_alg *alg = tfm->__crt_alg;
+	struct qcrypto_alg *q_alg;
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
+
+	q_alg = container_of(alg, struct qcrypto_alg, cipher_alg);
+	return _qcrypto_cipher_ctx_init(ctx, q_alg);
 };
 
 static int _qcrypto_ahash_cra_init(struct crypto_tfm *tfm)
@@ -941,13 +948,22 @@ static int _qcrypto_cra_aes_ablkcipher_init(struct crypto_tfm *tfm)
 	return _qcrypto_cra_ablkcipher_init(tfm);
 };
 
+static int _qcrypto_aead_cra_init(struct crypto_aead *tfm)
+{
+	struct qcrypto_cipher_ctx *ctx = crypto_aead_ctx(tfm);
+	struct aead_alg *aeadalg = crypto_aead_alg(tfm);
+	struct qcrypto_alg *q_alg = container_of(aeadalg, struct qcrypto_alg,
+						aead_alg);
+	return _qcrypto_cipher_ctx_init(ctx, q_alg);
+};
+
 static int _qcrypto_cra_aead_sha1_init(struct crypto_aead *tfm)
 {
 	int rc;
 	struct qcrypto_cipher_ctx *ctx = crypto_aead_ctx(tfm);
 
 	crypto_aead_set_reqsize(tfm, sizeof(struct qcrypto_cipher_req_ctx));
-	rc = _qcrypto_cipher_cra_init(&tfm->base);
+	rc = _qcrypto_aead_cra_init(tfm);
 	ctx->auth_alg = QCE_HASH_SHA1_HMAC;
 	return rc;
 }
@@ -958,7 +974,7 @@ static int _qcrypto_cra_aead_sha256_init(struct crypto_aead *tfm)
 	struct qcrypto_cipher_ctx *ctx = crypto_aead_ctx(tfm);
 
 	crypto_aead_set_reqsize(tfm, sizeof(struct qcrypto_cipher_req_ctx));
-	rc = _qcrypto_cipher_cra_init(&tfm->base);
+	rc = _qcrypto_aead_cra_init(tfm);
 	ctx->auth_alg = QCE_HASH_SHA256_HMAC;
 	return rc;
 }
@@ -969,7 +985,7 @@ static int _qcrypto_cra_aead_ccm_init(struct  crypto_aead *tfm)
 	struct qcrypto_cipher_ctx *ctx = crypto_aead_ctx(tfm);
 
 	crypto_aead_set_reqsize(tfm, sizeof(struct qcrypto_cipher_req_ctx));
-	rc = _qcrypto_cipher_cra_init(&tfm->base);
+	rc = _qcrypto_aead_cra_init(tfm);
 	ctx->auth_alg =  QCE_HASH_AES_CMAC;
 	return rc;
 }
@@ -980,7 +996,7 @@ static int _qcrypto_cra_aead_rfc4309_ccm_init(struct  crypto_aead *tfm)
 	struct qcrypto_cipher_ctx *ctx = crypto_aead_ctx(tfm);
 
 	crypto_aead_set_reqsize(tfm, sizeof(struct qcrypto_cipher_req_ctx));
-	rc = _qcrypto_cipher_cra_init(&tfm->base);
+	rc = _qcrypto_aead_cra_init(tfm);
 	ctx->auth_alg =  QCE_HASH_AES_CMAC;
 	return rc;
 }
@@ -992,7 +1008,7 @@ static int _qcrypto_cra_aead_aes_sha1_init(struct crypto_aead *tfm)
 	struct crypto_priv *cp = &qcrypto_dev;
 
 	crypto_aead_set_reqsize(tfm, sizeof(struct qcrypto_cipher_req_ctx));
-	rc = _qcrypto_cipher_cra_init(&tfm->base);
+	rc = _qcrypto_aead_cra_init(tfm);
 	if (rc)
 		return rc;
 	ctx->cipher_aes192_fb = NULL;
@@ -1023,7 +1039,7 @@ static int _qcrypto_cra_aead_aes_sha256_init(struct crypto_aead *tfm)
 	struct crypto_priv *cp = &qcrypto_dev;
 
 	crypto_aead_set_reqsize(tfm, sizeof(struct qcrypto_cipher_req_ctx));
-	rc = _qcrypto_cipher_cra_init(&tfm->base);
+	rc = _qcrypto_aead_cra_init(tfm);
 	if (rc)
 		return rc;
 	ctx->cipher_aes192_fb = NULL;
@@ -1828,7 +1844,7 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 			if (rctx->dir  == QCE_ENCRYPT) {
 				/* copy the icv to dst */
 				scatterwalk_map_and_copy(icv, areq->dst,
-						areq->cryptlen,
+						areq->cryptlen + areq->assoclen,
 						ctx->authsize, 1);
 
 			} else {
@@ -1836,8 +1852,9 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 
 				/* compare icv from src */
 				scatterwalk_map_and_copy(tmp,
-					areq->src, areq->cryptlen -
-					ctx->authsize, ctx->authsize, 0);
+					areq->src, areq->assoclen +
+					areq->cryptlen - ctx->authsize,
+					ctx->authsize, 0);
 				ret = memcmp(icv, tmp, ctx->authsize);
 				if (ret != 0)
 					ret = -EBADMSG;

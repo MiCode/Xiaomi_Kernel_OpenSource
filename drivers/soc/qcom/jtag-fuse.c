@@ -53,15 +53,25 @@
 #define APPS_SPNIDEN_DISABLE_V3	BIT(31)
 #define DAP_DEVICEEN_DISABLE_V3	BIT(7)
 
+/* JTAG FUSE V4 */
+#define ALL_DEBUG_DISABLE_V4		BIT(29)
+#define APPS_DBGEN_DISABLE_V4		BIT(4)
+#define APPS_NIDEN_DISABLE_V4		BIT(15)
+#define APPS_SPIDEN_DISABLE_V4		BIT(28)
+#define APPS_SPNIDEN_DISABLE_V4		BIT(23)
+#define DAP_DEVICEEN_DISABLE_V4		BIT(3)
+
 #define JTAG_FUSE_VERSION_V1		"qcom,jtag-fuse"
 #define JTAG_FUSE_VERSION_V2		"qcom,jtag-fuse-v2"
 #define JTAG_FUSE_VERSION_V3		"qcom,jtag-fuse-v3"
+#define JTAG_FUSE_VERSION_V4		"qcom,jtag-fuse-v4"
 
 struct fuse_drvdata {
 	void __iomem		*base;
 	struct device		*dev;
 	bool			fuse_v2;
 	bool			fuse_v3;
+	bool			fuse_v4;
 };
 
 static struct fuse_drvdata *fusedrvdata;
@@ -87,7 +97,20 @@ bool msm_jtag_fuse_apps_access_disabled(void)
 		       (unsigned long)config2);
 	}
 
-	if (drvdata->fuse_v3) {
+	if (drvdata->fuse_v4) {
+		if (config0 & ALL_DEBUG_DISABLE_V4)
+			ret = true;
+		else if (config1 & APPS_DBGEN_DISABLE_V4)
+			ret = true;
+		else if (config1 & APPS_NIDEN_DISABLE_V4)
+			ret = true;
+		else if (config1 & APPS_SPIDEN_DISABLE_V4)
+			ret = true;
+		else if (config1 & APPS_SPNIDEN_DISABLE_V4)
+			ret = true;
+		else if (config1 & DAP_DEVICEEN_DISABLE_V4)
+			ret = true;
+	} else if (drvdata->fuse_v3) {
 		if (config0 & ALL_DEBUG_DISABLE_V3)
 			ret = true;
 		else if (config1 & APPS_DBGEN_DISABLE_V3)
@@ -139,6 +162,7 @@ static const struct of_device_id jtag_fuse_match[] = {
 	{.compatible = JTAG_FUSE_VERSION_V1 },
 	{.compatible = JTAG_FUSE_VERSION_V2 },
 	{.compatible = JTAG_FUSE_VERSION_V3 },
+	{.compatible = JTAG_FUSE_VERSION_V4 },
 	{}
 };
 
@@ -163,6 +187,8 @@ static int jtag_fuse_probe(struct platform_device *pdev)
 		drvdata->fuse_v2 = true;
 	else if (!strcmp(match->compatible, JTAG_FUSE_VERSION_V3))
 		drvdata->fuse_v3 = true;
+	else if (!strcmp(match->compatible, JTAG_FUSE_VERSION_V4))
+		drvdata->fuse_v4 = true;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "fuse-base");
 	if (!res)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -720,6 +720,15 @@ int icnss_power_on(struct device *dev)
 }
 EXPORT_SYMBOL(icnss_power_on);
 
+bool icnss_is_fw_ready(void)
+{
+	if (!penv)
+		return false;
+	else
+		return test_bit(ICNSS_FW_READY, &penv->state);
+}
+EXPORT_SYMBOL(icnss_is_fw_ready);
+
 int icnss_power_off(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
@@ -781,7 +790,7 @@ static int icnss_unmap_msa_permissions(struct icnss_priv *priv, u32 index)
 	u32 size;
 	u32 dest_vmids[1] = {VMID_HLOS};
 	int source_vmlist[3] = {VMID_MSS_MSA, VMID_WLAN, 0};
-	int dest_perms[1] = {PERM_READ|PERM_WRITE};
+	int dest_perms[1] = {PERM_READ|PERM_WRITE|PERM_EXEC};
 	int source_nelems = 0;
 	int dest_nelems = sizeof(dest_vmids)/sizeof(u32);
 
@@ -1896,7 +1905,8 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	icnss_pr_dbg("Modem-Notify: event %lu\n", code);
 
-	if (code == SUBSYS_AFTER_SHUTDOWN) {
+	if (code == SUBSYS_AFTER_SHUTDOWN &&
+		notif->crashed != CRASH_STATUS_WDOG_BITE) {
 		icnss_remove_msa_permissions(priv);
 		icnss_pr_info("Collecting msa0 segment dump\n");
 		icnss_msa0_ramdump(priv);

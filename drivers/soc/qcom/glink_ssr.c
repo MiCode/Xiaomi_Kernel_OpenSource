@@ -80,6 +80,19 @@ struct configure_and_open_ch_work {
 };
 
 /**
+ * struct rx_done_ch_work - Work structure used for sending rx_done on
+ *				glink_ssr channels
+ * handle:	G-Link channel handle to be used for sending rx_done
+ * ptr:		Intent pointer data provided in notify rx function
+ * work:	Work structure
+ */
+struct rx_done_ch_work {
+	void *handle;
+	const void *ptr;
+	struct work_struct work;
+};
+
+/**
  * struct close_ch_work - Work structure for used for closing glink_ssr channels
  * edge:	The G-Link edge name for the channel being closed
  * handle:	G-Link channel handle to be closed
@@ -101,6 +114,15 @@ static struct workqueue_struct *glink_ssr_wq;
 static LIST_HEAD(subsystem_list);
 static atomic_t responses_remaining = ATOMIC_INIT(0);
 static wait_queue_head_t waitqueue;
+
+static void rx_done_cb_worker(struct work_struct *work)
+{
+	struct rx_done_ch_work *rx_done_work =
+		container_of(work, struct rx_done_ch_work, work);
+
+	glink_rx_done(rx_done_work->handle, rx_done_work->ptr, false);
+	kfree(rx_done_work);
+}
 
 static void link_state_cb_worker(struct work_struct *work)
 {
@@ -196,7 +218,14 @@ void glink_ssr_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 {
 	struct ssr_notify_data *cb_data = (struct ssr_notify_data *)priv;
 	struct cleanup_done_msg *resp = (struct cleanup_done_msg *)ptr;
+	struct rx_done_ch_work *rx_done_work;
 
+	rx_done_work = kmalloc(sizeof(*rx_done_work), GFP_ATOMIC);
+	if (!rx_done_work) {
+		GLINK_SSR_ERR("<SSR> %s: Could not allocate rx_done_work\n",
+				__func__);
+		return;
+	}
 	if (unlikely(!cb_data))
 		goto missing_cb_data;
 	if (unlikely(!cb_data->do_cleanup_data))
@@ -221,6 +250,10 @@ void glink_ssr_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 
 	kfree(cb_data->do_cleanup_data);
 	cb_data->do_cleanup_data = NULL;
+	rx_done_work->ptr = ptr;
+	rx_done_work->handle = handle;
+	INIT_WORK(&rx_done_work->work, rx_done_cb_worker);
+	queue_work(glink_ssr_wq, &rx_done_work->work);
 	wake_up(&waitqueue);
 	return;
 

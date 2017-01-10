@@ -67,6 +67,8 @@ struct wiphy;
 #define CFG80211_CONNECT_PREV_BSSID 1
 #define CFG80211_CONNECT_BSS 1
 #define CFG80211_ABORT_SCAN 1
+#define CFG80211_UPDATE_CONNECT_PARAMS 1
+#define CFG80211_BEACON_TX_RATE_CUSTOM_BACKPORT 1
 
 /*
  * wireless hardware capability structures
@@ -731,7 +733,7 @@ struct cfg80211_bitrate_mask {
  *	MAC address based access control
  * @pbss: If set, start as a PCP instead of AP. Relevant for DMG
  *	networks.
- * @beacon_rate: masks for setting user configured beacon tx rate.
+ * @beacon_rate: bitrate to be used for beacons
  */
 struct cfg80211_ap_settings {
 	struct cfg80211_chan_def chandef;
@@ -1393,6 +1395,7 @@ struct mesh_config {
  * @beacon_interval: beacon interval to use
  * @mcast_rate: multicat rate for Mesh Node [6Mbps is the default for 802.11a]
  * @basic_rates: basic rates to use when creating the mesh
+ * @beacon_rate: bitrate to be used for beacons
  *
  * These parameters are fixed when the mesh is created.
  */
@@ -1413,6 +1416,7 @@ struct mesh_setup {
 	u16 beacon_interval;
 	int mcast_rate[IEEE80211_NUM_BANDS];
 	u32 basic_rates;
+	struct cfg80211_bitrate_mask beacon_rate;
 };
 
 /**
@@ -1966,6 +1970,18 @@ struct cfg80211_connect_params {
 };
 
 /**
+ * enum cfg80211_connect_params_changed - Connection parameters being updated
+ *
+ * This enum provides information of all connect parameters that
+ * have to be updated as part of update_connect_params() call.
+ *
+ * @UPDATE_ASSOC_IES: Indicates whether association request IEs are updated
+ */
+enum cfg80211_connect_params_changed {
+	UPDATE_ASSOC_IES		= BIT(0),
+};
+
+/**
  * enum wiphy_params_flags - set_wiphy_params bitfield values
  * @WIPHY_PARAM_RETRY_SHORT: wiphy->retry_short has changed
  * @WIPHY_PARAM_RETRY_LONG: wiphy->retry_long has changed
@@ -2380,6 +2396,14 @@ struct cfg80211_qos_map {
  *	If the connection fails for some reason, call cfg80211_connect_result()
  *	with the status from the AP.
  *	(invoked with the wireless_dev mutex held)
+ * @update_connect_params: Update the connect parameters while connected to a
+ *	BSS. The updated parameters can be used by driver/firmware for
+ *	subsequent BSS selection (roaming) decisions and to form the
+ *	Authentication/(Re)Association Request frames. This call does not
+ *	request an immediate disassociation or reassociation with the current
+ *	BSS, i.e., this impacts only subsequent (re)associations. The bits in
+ *	changed are defined in &enum cfg80211_connect_params_changed.
+ *	(invoked with the wireless_dev mutex held)
  * @disconnect: Disconnect from the BSS/ESS.
  *	(invoked with the wireless_dev mutex held)
  *
@@ -2650,6 +2674,10 @@ struct cfg80211_ops {
 
 	int	(*connect)(struct wiphy *wiphy, struct net_device *dev,
 			   struct cfg80211_connect_params *sme);
+	int	(*update_connect_params)(struct wiphy *wiphy,
+					 struct net_device *dev,
+					 struct cfg80211_connect_params *sme,
+					 u32 changed);
 	int	(*disconnect)(struct wiphy *wiphy, struct net_device *dev,
 			      u16 reason_code);
 

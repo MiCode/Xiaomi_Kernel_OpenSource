@@ -622,6 +622,7 @@ int msm_gfxcc_8998_probe(struct platform_device *pdev)
 	struct device_node *of_node = pdev->dev.of_node;
 	int rc;
 	struct regulator *reg;
+	u32 regval;
 	bool is_v2 = 0, is_vq = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
@@ -696,6 +697,14 @@ int msm_gfxcc_8998_probe(struct platform_device *pdev)
 	 * counter might be corrupted frequently.
 	 */
 	clk_set_flags(&gpucc_gfx3d_clk.c, CLKFLAG_RETAIN_PERIPH);
+
+	/*
+	 * Program the droop detector's gfx_pdn to 1'b1 in order to reduce
+	 * leakage between the graphics and CX rails.
+	 */
+	regval = readl_relaxed(virt_base_gfx + GPUCC_GPU_DD_WRAP_CTRL);
+	regval |= BIT(0);
+	writel_relaxed(regval, virt_base_gfx + GPUCC_GPU_DD_WRAP_CTRL);
 
 	dev_info(&pdev->dev, "Completed registering all GPU clocks\n");
 

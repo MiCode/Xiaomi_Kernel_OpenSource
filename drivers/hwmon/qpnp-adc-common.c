@@ -1896,8 +1896,8 @@ int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 	}
 
 	for_each_child_of_node(node, child) {
-		int channel_num, scaling, post_scaling, hw_settle_time;
-		int fast_avg_setup, calib_type = 0, rc;
+		int channel_num, scaling = 0, post_scaling = 0;
+		int fast_avg_setup, calib_type = 0, rc, hw_settle_time = 0;
 		const char *calibration_param, *channel_name;
 
 		channel_name = of_get_property(child,

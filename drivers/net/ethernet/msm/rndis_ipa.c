@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -135,29 +135,6 @@ enum rndis_ipa_operation {
 	RNDIS_IPA_DEBUG("Driver state: %s\n",\
 	rndis_ipa_state_string(ctx->state));
 
-/**
- * struct rndis_loopback_pipe - hold all information needed for
- *  pipe loopback logic
- */
-struct rndis_loopback_pipe {
-	struct sps_pipe          *ipa_sps;
-	struct ipa_sps_params ipa_sps_connect;
-	struct ipa_connect_params ipa_connect_params;
-
-	struct sps_pipe          *dma_sps;
-	struct sps_connect        dma_connect;
-
-	struct sps_alloc_dma_chan dst_alloc;
-	struct sps_dma_chan       ipa_sps_channel;
-	enum sps_mode mode;
-	u32 ipa_peer_bam_hdl;
-	u32 peer_pipe_index;
-	u32 ipa_drv_ep_hdl;
-	u32 ipa_pipe_index;
-	enum ipa_client_type ipa_client;
-	ipa_notify_cb ipa_callback;
-	struct ipa_ep_cfg *ipa_ep_cfg;
-};
 
 /**
  * struct rndis_ipa_dev - main driver context parameters
@@ -172,13 +149,9 @@ struct rndis_loopback_pipe {
  * @rx_dump_enable: dump all Rx packets
  * @icmp_filter: allow all ICMP packet to pass through the filters
  * @rm_enable: flag that enable/disable Resource manager request prior to Tx
- * @loopback_enable:  flag that enable/disable USB stub loopback
  * @deaggregation_enable: enable/disable IPA HW deaggregation logic
  * @during_xmit_error: flags that indicate that the driver is in a middle
  *  of error handling in Tx path
- * @usb_to_ipa_loopback_pipe: usb to ipa (Rx) pipe representation for loopback
- * @ipa_to_usb_loopback_pipe: ipa to usb (Tx) pipe representation for loopback
- * @bam_dma_hdl: handle representing bam-dma, used for loopback logic
  * @directory: holds all debug flags used by the driver to allow cleanup
  *  for driver unload
  * @eth_ipv4_hdr_hdl: saved handle for ipv4 header-insertion table
@@ -208,12 +181,8 @@ struct rndis_ipa_dev {
 	bool rx_dump_enable;
 	bool icmp_filter;
 	bool rm_enable;
-	bool loopback_enable;
 	bool deaggregation_enable;
 	bool during_xmit_error;
-	struct rndis_loopback_pipe usb_to_ipa_loopback_pipe;
-	struct rndis_loopback_pipe ipa_to_usb_loopback_pipe;
-	u32 bam_dma_hdl;
 	struct dentry *directory;
 	uint32_t eth_ipv4_hdr_hdl;
 	uint32_t eth_ipv6_hdr_hdl;
@@ -277,31 +246,12 @@ static int resource_request(struct rndis_ipa_dev *rndis_ipa_ctx);
 static void resource_release(struct rndis_ipa_dev *rndis_ipa_ctx);
 static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 					struct net_device *net);
-static int rndis_ipa_loopback_pipe_create(
-		struct rndis_ipa_dev *rndis_ipa_ctx,
-		struct rndis_loopback_pipe *loopback_pipe);
-static void rndis_ipa_destroy_loopback_pipe(
-		struct rndis_loopback_pipe *loopback_pipe);
-static int rndis_ipa_create_loopback(struct rndis_ipa_dev *rndis_ipa_ctx);
-static void rndis_ipa_destroy_loopback(struct rndis_ipa_dev *rndis_ipa_ctx);
-static int rndis_ipa_setup_loopback(bool enable,
-		struct rndis_ipa_dev *rndis_ipa_ctx);
-static int rndis_ipa_debugfs_loopback_open(struct inode *inode,
-		struct file *file);
 static int rndis_ipa_debugfs_atomic_open(struct inode *inode,
 		struct file *file);
 static int rndis_ipa_debugfs_aggr_open(struct inode *inode,
 		struct file *file);
 static ssize_t rndis_ipa_debugfs_aggr_write(struct file *file,
 		const char __user *buf, size_t count, loff_t *ppos);
-static ssize_t rndis_ipa_debugfs_loopback_write(struct file *file,
-		const char __user *buf, size_t count, loff_t *ppos);
-static ssize_t rndis_ipa_debugfs_enable_write(struct file *file,
-		const char __user *buf, size_t count, loff_t *ppos);
-static ssize_t rndis_ipa_debugfs_enable_read(struct file *file,
-		char __user *ubuf, size_t count, loff_t *ppos);
-static ssize_t rndis_ipa_debugfs_loopback_read(struct file *file,
-		char __user *ubuf, size_t count, loff_t *ppos);
 static ssize_t rndis_ipa_debugfs_atomic_read(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos);
 static void rndis_ipa_dump_skb(struct sk_buff *skb);
@@ -334,12 +284,6 @@ static const struct net_device_ops rndis_ipa_netdev_ops = {
 const struct file_operations rndis_ipa_debugfs_atomic_ops = {
 	.open = rndis_ipa_debugfs_atomic_open,
 	.read = rndis_ipa_debugfs_atomic_read,
-};
-
-const struct file_operations rndis_ipa_loopback_ops = {
-		.open = rndis_ipa_debugfs_loopback_open,
-		.read = rndis_ipa_debugfs_loopback_read,
-		.write = rndis_ipa_debugfs_loopback_write,
 };
 
 const struct file_operations rndis_ipa_aggr_ops = {
@@ -2195,14 +2139,6 @@ static int rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx)
 		goto fail_file;
 	}
 
-	file = debugfs_create_file("loopback_enable", flags_read_write,
-				rndis_ipa_ctx->directory,
-				rndis_ipa_ctx, &rndis_ipa_loopback_ops);
-	if (!file) {
-		RNDIS_IPA_ERROR("could not create outstanding file\n");
-		goto fail_file;
-	}
-
 	file = debugfs_create_u8("state", flags_read_only,
 			rndis_ipa_ctx->directory, (u8 *)&rndis_ipa_ctx->state);
 	if (!file) {
@@ -2358,59 +2294,6 @@ static ssize_t rndis_ipa_debugfs_aggr_write(struct file *file,
 	return count;
 }
 
-static int rndis_ipa_debugfs_loopback_open(struct inode *inode,
-		struct file *file)
-{
-	struct rndis_ipa_dev *rndis_ipa_ctx = inode->i_private;
-	file->private_data = rndis_ipa_ctx;
-
-	return 0;
-}
-
-static ssize_t rndis_ipa_debugfs_loopback_read(struct file *file,
-		char __user *ubuf, size_t count, loff_t *ppos)
-{
-	int cnt;
-	struct rndis_ipa_dev *rndis_ipa_ctx = file->private_data;
-
-	file->private_data = &rndis_ipa_ctx->loopback_enable;
-
-	cnt = rndis_ipa_debugfs_enable_read(file,
-			ubuf, count, ppos);
-
-	return cnt;
-}
-
-static ssize_t rndis_ipa_debugfs_loopback_write(struct file *file,
-		const char __user *buf, size_t count, loff_t *ppos)
-{
-	int retval;
-	int cnt;
-	struct rndis_ipa_dev *rndis_ipa_ctx = file->private_data;
-	bool old_state = rndis_ipa_ctx->loopback_enable;
-
-	file->private_data = &rndis_ipa_ctx->loopback_enable;
-
-	cnt = rndis_ipa_debugfs_enable_write(file,
-			buf, count, ppos);
-
-	RNDIS_IPA_DEBUG("loopback_enable was set to:%d->%d\n",
-			old_state, rndis_ipa_ctx->loopback_enable);
-
-	if (old_state == rndis_ipa_ctx->loopback_enable) {
-		RNDIS_IPA_ERROR("NOP - same state\n");
-		return cnt;
-	}
-
-	retval = rndis_ipa_setup_loopback(
-				rndis_ipa_ctx->loopback_enable,
-				rndis_ipa_ctx);
-	if (retval)
-		rndis_ipa_ctx->loopback_enable = old_state;
-
-	return cnt;
-}
-
 static int rndis_ipa_debugfs_atomic_open(struct inode *inode, struct file *file)
 {
 	struct rndis_ipa_dev *rndis_ipa_ctx = inode->i_private;
@@ -2439,319 +2322,6 @@ static ssize_t rndis_ipa_debugfs_atomic_read(struct file *file,
 	RNDIS_IPA_LOG_EXIT();
 
 	return simple_read_from_buffer(ubuf, count, ppos, atomic_str, nbytes);
-}
-
-static ssize_t rndis_ipa_debugfs_enable_read(struct file *file,
-		char __user *ubuf, size_t count, loff_t *ppos)
-{
-	int nbytes;
-	int size = 0;
-	int ret;
-	loff_t pos;
-	u8 enable_str[sizeof(char)*3] = {0};
-	bool *enable = file->private_data;
-	pos = *ppos;
-	nbytes = scnprintf(enable_str, sizeof(enable_str), "%d\n", *enable);
-	ret = simple_read_from_buffer(ubuf, count, ppos, enable_str, nbytes);
-	if (ret < 0) {
-		RNDIS_IPA_ERROR("simple_read_from_buffer problem\n");
-		return ret;
-	}
-	size += ret;
-	count -= nbytes;
-	*ppos = pos + size;
-	return size;
-}
-
-static ssize_t rndis_ipa_debugfs_enable_write(struct file *file,
-		const char __user *buf, size_t count, loff_t *ppos)
-{
-	unsigned long missing;
-	char input;
-	bool *enable = file->private_data;
-	if (count != sizeof(input) + 1) {
-		RNDIS_IPA_ERROR("wrong input length(%zd)\n", count);
-		return -EINVAL;
-	}
-	if (!buf) {
-		RNDIS_IPA_ERROR("Bad argument\n");
-		return -EINVAL;
-	}
-	missing = copy_from_user(&input, buf, 1);
-	if (missing)
-		return -EFAULT;
-	RNDIS_IPA_DEBUG("input received %c\n", input);
-	*enable = input - '0';
-	RNDIS_IPA_DEBUG("value was set to %d\n", *enable);
-	return count;
-}
-
-/**
- * Connects IPA->BAMDMA
- * This shall simulate the path from IPA to USB
- * Allowing the driver TX path
- */
-static int rndis_ipa_loopback_pipe_create(
-		struct rndis_ipa_dev *rndis_ipa_ctx,
-		struct rndis_loopback_pipe *loopback_pipe)
-{
-	int retval;
-
-	RNDIS_IPA_LOG_ENTRY();
-
-	/* SPS pipe has two side handshake
-	 * This is the first handshake of IPA->BAMDMA,
-	 * This is the IPA side
-	 */
-	loopback_pipe->ipa_connect_params.client = loopback_pipe->ipa_client;
-	loopback_pipe->ipa_connect_params.client_bam_hdl =
-			rndis_ipa_ctx->bam_dma_hdl;
-	loopback_pipe->ipa_connect_params.client_ep_idx =
-		loopback_pipe->peer_pipe_index;
-	loopback_pipe->ipa_connect_params.desc_fifo_sz = BAM_DMA_DESC_FIFO_SIZE;
-	loopback_pipe->ipa_connect_params.data_fifo_sz = BAM_DMA_DATA_FIFO_SIZE;
-	loopback_pipe->ipa_connect_params.notify = loopback_pipe->ipa_callback;
-	loopback_pipe->ipa_connect_params.priv = rndis_ipa_ctx;
-	loopback_pipe->ipa_connect_params.ipa_ep_cfg =
-		*(loopback_pipe->ipa_ep_cfg);
-
-	/* loopback_pipe->ipa_sps_connect is out param */
-	retval = ipa_connect(&loopback_pipe->ipa_connect_params,
-			&loopback_pipe->ipa_sps_connect,
-			&loopback_pipe->ipa_drv_ep_hdl);
-	if (retval) {
-		RNDIS_IPA_ERROR("ipa_connect() fail (%d)", retval);
-		return retval;
-	}
-	RNDIS_IPA_DEBUG("ipa_connect() succeeded, ipa_drv_ep_hdl=%d",
-			loopback_pipe->ipa_drv_ep_hdl);
-
-	/* SPS pipe has two side handshake
-	 * This is the second handshake of IPA->BAMDMA,
-	 * This is the BAMDMA side
-	 */
-	loopback_pipe->dma_sps = sps_alloc_endpoint();
-	if (!loopback_pipe->dma_sps) {
-		RNDIS_IPA_ERROR("sps_alloc_endpoint() failed ");
-		retval = -ENOMEM;
-		goto fail_sps_alloc;
-	}
-
-	retval = sps_get_config(loopback_pipe->dma_sps,
-		&loopback_pipe->dma_connect);
-	if (retval) {
-		RNDIS_IPA_ERROR("sps_get_config() failed (%d)", retval);
-		goto fail_get_cfg;
-	}
-
-	/* Start setting the non IPA ep for SPS driver*/
-	loopback_pipe->dma_connect.mode = loopback_pipe->mode;
-
-	/* SPS_MODE_DEST: DMA end point is the dest (consumer) IPA->DMA */
-	if (loopback_pipe->mode == SPS_MODE_DEST) {
-
-		loopback_pipe->dma_connect.source =
-				loopback_pipe->ipa_sps_connect.ipa_bam_hdl;
-		loopback_pipe->dma_connect.src_pipe_index =
-				loopback_pipe->ipa_sps_connect.ipa_ep_idx;
-		loopback_pipe->dma_connect.destination =
-				rndis_ipa_ctx->bam_dma_hdl;
-		loopback_pipe->dma_connect.dest_pipe_index =
-				loopback_pipe->peer_pipe_index;
-
-	/* SPS_MODE_SRC: DMA end point is the source (producer) DMA->IPA */
-	} else {
-
-		loopback_pipe->dma_connect.source =
-				rndis_ipa_ctx->bam_dma_hdl;
-		loopback_pipe->dma_connect.src_pipe_index =
-				loopback_pipe->peer_pipe_index;
-		loopback_pipe->dma_connect.destination =
-				loopback_pipe->ipa_sps_connect.ipa_bam_hdl;
-		loopback_pipe->dma_connect.dest_pipe_index =
-				loopback_pipe->ipa_sps_connect.ipa_ep_idx;
-
-	}
-
-	loopback_pipe->dma_connect.desc = loopback_pipe->ipa_sps_connect.desc;
-	loopback_pipe->dma_connect.data = loopback_pipe->ipa_sps_connect.data;
-	loopback_pipe->dma_connect.event_thresh = 0x10;
-	/* BAM-to-BAM */
-	loopback_pipe->dma_connect.options = SPS_O_AUTO_ENABLE;
-
-	RNDIS_IPA_DEBUG("doing sps_connect() with - ");
-	RNDIS_IPA_DEBUG("src bam_hdl:0x%lx, src_pipe#:%d",
-			loopback_pipe->dma_connect.source,
-			loopback_pipe->dma_connect.src_pipe_index);
-	RNDIS_IPA_DEBUG("dst bam_hdl:0x%lx, dst_pipe#:%d",
-			loopback_pipe->dma_connect.destination,
-			loopback_pipe->dma_connect.dest_pipe_index);
-
-	retval = sps_connect(loopback_pipe->dma_sps,
-		&loopback_pipe->dma_connect);
-	if (retval) {
-		RNDIS_IPA_ERROR("sps_connect() fail for BAMDMA side (%d)",
-			retval);
-		goto fail_sps_connect;
-	}
-
-	RNDIS_IPA_LOG_EXIT();
-
-	return 0;
-
-fail_sps_connect:
-fail_get_cfg:
-	sps_free_endpoint(loopback_pipe->dma_sps);
-fail_sps_alloc:
-	ipa_disconnect(loopback_pipe->ipa_drv_ep_hdl);
-	return retval;
-}
-
-static void rndis_ipa_destroy_loopback_pipe(
-		struct rndis_loopback_pipe *loopback_pipe)
-{
-	sps_disconnect(loopback_pipe->dma_sps);
-	sps_free_endpoint(loopback_pipe->dma_sps);
-}
-
-/**
- * rndis_ipa_create_loopback() - create a BAM-DMA loopback
- *  in order to replace the USB core
- */
-static int rndis_ipa_create_loopback(struct rndis_ipa_dev *rndis_ipa_ctx)
-{
-	/* The BAM handle should be use as
-	 * source/destination in the sps_connect()
-	 */
-	int retval;
-
-	RNDIS_IPA_LOG_ENTRY();
-
-
-	retval = sps_ctrl_bam_dma_clk(true);
-	if (retval) {
-		RNDIS_IPA_ERROR("fail on enabling BAM-DMA clocks");
-		return -ENODEV;
-	}
-
-	/* Get BAM handle instead of USB handle */
-	rndis_ipa_ctx->bam_dma_hdl = sps_dma_get_bam_handle();
-	if (!rndis_ipa_ctx->bam_dma_hdl) {
-		RNDIS_IPA_ERROR("sps_dma_get_bam_handle() failed");
-		return -ENODEV;
-	}
-	RNDIS_IPA_DEBUG("sps_dma_get_bam_handle() succeeded (0x%x)",
-			rndis_ipa_ctx->bam_dma_hdl);
-
-	/* IPA<-BAMDMA, NetDev Rx path (BAMDMA is the USB stub) */
-	rndis_ipa_ctx->usb_to_ipa_loopback_pipe.ipa_client =
-	IPA_CLIENT_USB_PROD;
-	rndis_ipa_ctx->usb_to_ipa_loopback_pipe.peer_pipe_index =
-		FROM_USB_TO_IPA_BAMDMA;
-	/*DMA EP mode*/
-	rndis_ipa_ctx->usb_to_ipa_loopback_pipe.mode = SPS_MODE_SRC;
-	rndis_ipa_ctx->usb_to_ipa_loopback_pipe.ipa_ep_cfg =
-		&usb_to_ipa_ep_cfg_deaggr_en;
-	rndis_ipa_ctx->usb_to_ipa_loopback_pipe.ipa_callback =
-			rndis_ipa_packet_receive_notify;
-	RNDIS_IPA_DEBUG("setting up IPA<-BAMDAM pipe (RNDIS_IPA RX path)");
-	retval = rndis_ipa_loopback_pipe_create(rndis_ipa_ctx,
-			&rndis_ipa_ctx->usb_to_ipa_loopback_pipe);
-	if (retval) {
-		RNDIS_IPA_ERROR("fail to close IPA->BAMDAM pipe");
-		goto fail_to_usb;
-	}
-	RNDIS_IPA_DEBUG("IPA->BAMDAM pipe successfully connected (TX path)");
-
-	/* IPA->BAMDMA, NetDev Tx path (BAMDMA is the USB stub)*/
-	rndis_ipa_ctx->ipa_to_usb_loopback_pipe.ipa_client =
-		IPA_CLIENT_USB_CONS;
-	/*DMA EP mode*/
-	rndis_ipa_ctx->ipa_to_usb_loopback_pipe.mode = SPS_MODE_DEST;
-	rndis_ipa_ctx->ipa_to_usb_loopback_pipe.ipa_ep_cfg = &ipa_to_usb_ep_cfg;
-	rndis_ipa_ctx->ipa_to_usb_loopback_pipe.peer_pipe_index =
-		FROM_IPA_TO_USB_BAMDMA;
-	rndis_ipa_ctx->ipa_to_usb_loopback_pipe.ipa_callback =
-			rndis_ipa_tx_complete_notify;
-	RNDIS_IPA_DEBUG("setting up IPA->BAMDAM pipe (RNDIS_IPA TX path)");
-	retval = rndis_ipa_loopback_pipe_create(rndis_ipa_ctx,
-			&rndis_ipa_ctx->ipa_to_usb_loopback_pipe);
-	if (retval) {
-		RNDIS_IPA_ERROR("fail to close IPA<-BAMDAM pipe");
-		goto fail_from_usb;
-	}
-	RNDIS_IPA_DEBUG("IPA<-BAMDAM pipe successfully connected(RX path)");
-
-	RNDIS_IPA_LOG_EXIT();
-
-	return 0;
-
-fail_from_usb:
-	rndis_ipa_destroy_loopback_pipe(
-			&rndis_ipa_ctx->usb_to_ipa_loopback_pipe);
-fail_to_usb:
-
-	return retval;
-}
-
-static void rndis_ipa_destroy_loopback(struct rndis_ipa_dev *rndis_ipa_ctx)
-{
-	rndis_ipa_destroy_loopback_pipe(
-			&rndis_ipa_ctx->ipa_to_usb_loopback_pipe);
-	rndis_ipa_destroy_loopback_pipe(
-			&rndis_ipa_ctx->usb_to_ipa_loopback_pipe);
-	sps_dma_free_bam_handle(rndis_ipa_ctx->bam_dma_hdl);
-	if (sps_ctrl_bam_dma_clk(false))
-		RNDIS_IPA_ERROR("fail to disable BAM-DMA clocks");
-}
-
-/**
- * rndis_ipa_setup_loopback() - create/destroy a loopback on IPA HW
- *  (as USB pipes loopback) and notify RNDIS_IPA netdev for pipe connected
- * @enable: flag that determines if the loopback should be created or destroyed
- * @rndis_ipa_ctx: driver main context
- *
- * This function is the main loopback logic.
- * It shall create/destory the loopback by using BAM-DMA and notify
- * the netdev accordingly.
- */
-static int rndis_ipa_setup_loopback(bool enable,
-		struct rndis_ipa_dev *rndis_ipa_ctx)
-{
-	int retval;
-
-	if (!enable) {
-		rndis_ipa_destroy_loopback(rndis_ipa_ctx);
-		RNDIS_IPA_DEBUG("loopback destroy done");
-		retval = rndis_ipa_pipe_disconnect_notify(rndis_ipa_ctx);
-		if (retval) {
-			RNDIS_IPA_ERROR("connect notify fail");
-			return -ENODEV;
-		}
-		return 0;
-	}
-
-	RNDIS_IPA_DEBUG("creating loopback (instead of USB core)");
-	retval = rndis_ipa_create_loopback(rndis_ipa_ctx);
-	RNDIS_IPA_DEBUG("creating loopback- %s", (retval ? "FAIL" : "OK"));
-	if (retval) {
-		RNDIS_IPA_ERROR("Fail to connect loopback");
-		return -ENODEV;
-	}
-	retval = rndis_ipa_pipe_connect_notify(
-			rndis_ipa_ctx->usb_to_ipa_loopback_pipe.ipa_drv_ep_hdl,
-			rndis_ipa_ctx->ipa_to_usb_loopback_pipe.ipa_drv_ep_hdl,
-			BAM_DMA_DATA_FIFO_SIZE,
-			15,
-			BAM_DMA_DATA_FIFO_SIZE - rndis_ipa_ctx->net->mtu,
-			rndis_ipa_ctx);
-	if (retval) {
-		RNDIS_IPA_ERROR("connect notify fail");
-		return -ENODEV;
-	}
-
-	return 0;
-
 }
 
 static int rndis_ipa_init_module(void)

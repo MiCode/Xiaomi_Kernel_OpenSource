@@ -450,9 +450,7 @@ static int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 	}
 
 	pix_cfg = &input_cfg->d.pix_cfg;
-	if ((pix_cfg->hvx_cmd > HVX_DISABLE) &&
-		(pix_cfg->hvx_cmd <= HVX_ROUND_TRIP))
-		vfe_dev->hvx_cmd = pix_cfg->hvx_cmd;
+	vfe_dev->hvx_cmd = pix_cfg->hvx_cmd;
 	vfe_dev->is_split = input_cfg->d.pix_cfg.is_split;
 
 	vfe_dev->axi_data.src_info[VFE_PIX_0].pixel_clock =
@@ -1791,12 +1789,17 @@ static int msm_isp_process_overflow_irq(
 	uint32_t *irq_status0, uint32_t *irq_status1)
 {
 	uint32_t overflow_mask;
+	uint32_t bus_err = 0;
 
 	/* if there are no active streams - do not start recovery */
 	if (!vfe_dev->axi_data.num_active_stream)
 		return 0;
 
-	/*Mask out all other irqs if recovery is started*/
+	if (vfe_dev->hw_info->vfe_ops.core_ops.
+		get_bus_err_mask)
+		vfe_dev->hw_info->vfe_ops.core_ops.get_bus_err_mask(
+			vfe_dev, &bus_err, irq_status1);
+	/* Mask out all other irqs if recovery is started */
 	if (atomic_read(&vfe_dev->error_info.overflow_state) != NO_OVERFLOW) {
 		uint32_t halt_restart_mask0, halt_restart_mask1;
 		vfe_dev->hw_info->vfe_ops.core_ops.
@@ -1808,14 +1811,13 @@ static int msm_isp_process_overflow_irq(
 		return 0;
 	}
 
-	/*Check if any overflow bit is set*/
+	/* Check if any overflow bit is set */
 	vfe_dev->hw_info->vfe_ops.core_ops.
 		get_overflow_mask(&overflow_mask);
 	overflow_mask &= *irq_status1;
 
 	if (overflow_mask) {
 		struct msm_isp_event_data error_event;
-		uint32_t val = 0;
 		int i;
 		struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 
@@ -1830,10 +1832,8 @@ static int msm_isp_process_overflow_irq(
 			*irq_status1 &= ~overflow_mask;
 			return 0;
 		}
-		if (msm_vfe_is_vfe48(vfe_dev))
-			val = msm_camera_io_r(vfe_dev->vfe_base + 0xC94);
 		pr_err("%s: vfe %d overflow mask %x, bus_error %x\n",
-			__func__, vfe_dev->pdev->id, overflow_mask, val);
+			__func__, vfe_dev->pdev->id, overflow_mask, bus_err);
 		for (i = 0; i < axi_data->hw_info->num_wm; i++) {
 			if (!axi_data->free_wm[i])
 				continue;

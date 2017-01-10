@@ -1078,21 +1078,33 @@ static u32 sde_hw_rotator_wait_done_regdma(
 		spin_unlock_irqrestore(&rot->rotisr_lock, flags);
 	} else {
 		int cnt = 200;
+		bool pending;
 
 		do {
 			udelay(500);
-			status = SDE_ROTREG_READ(rot->mdss_base, ROTTOP_STATUS);
+			last_isr = SDE_ROTREG_READ(rot->mdss_base,
+					REGDMA_CSR_REGDMA_INT_STATUS);
+			pending = sde_hw_rotator_pending_swts(rot, ctx, &swts);
 			cnt--;
-		} while ((cnt > 0) && (status & ROT_BUSY_BIT)
-				&& ((status & ROT_ERROR_BIT) == 0));
+		} while ((cnt > 0) && pending &&
+				((last_isr & REGDMA_INT_ERR_MASK) == 0));
 
-		if (status & ROT_ERROR_BIT)
-			SDEROT_ERR("Rotator error\n");
-		else if (status & ROT_BUSY_BIT)
-			SDEROT_ERR("Rotator busy\n");
+		if (last_isr & REGDMA_INT_ERR_MASK) {
+			SDEROT_ERR("Rotator error, ts:0x%X/0x%X status:%x\n",
+				ctx->timestamp, swts, last_isr);
+			sde_hw_rotator_dump_status(rot);
+			status = ROT_ERROR_BIT;
+		} else if (pending) {
+			SDEROT_ERR("Rotator timeout, ts:0x%X/0x%X status:%x\n",
+				ctx->timestamp, swts, last_isr);
+			sde_hw_rotator_dump_status(rot);
+			status = ROT_ERROR_BIT;
+		} else {
+			status = 0;
+		}
 
 		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_CSR_REGDMA_INT_CLEAR,
-				0xFFFF);
+				last_isr);
 	}
 
 	sts = (status & ROT_ERROR_BIT) ? -ENODEV : 0;
@@ -2097,6 +2109,8 @@ static ssize_t sde_hw_rotator_show_caps(struct sde_rot_mgr *mgr,
 		SPRINT("min_downscale=1.5\n");
 	else
 		SPRINT("min_downscale=2.0\n");
+
+	SPRINT("downscale_compression=1\n");
 
 #undef SPRINT
 	return cnt;

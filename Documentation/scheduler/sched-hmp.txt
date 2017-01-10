@@ -726,6 +726,16 @@ d. /proc/sys/kernel/sched_select_prev_cpu_us
 	Default value of sched_select_prev_cpu_us is 2000 (2ms).  This can be
 	turned off by setting it to 0.
 
+e. /proc/sys/kernel/sched_short_burst_ns
+	This threshold controls whether a task is considered as "short-burst"
+	or not. "short-burst" tasks are eligible for packing to avoid overhead
+	associated with waking up an idle CPU. "non-idle" CPUs which are not
+	loaded with IRQs and can accommodate the waking task without exceeding
+	spill limits are considered. The ties are broken with load followed
+	by previous CPU. This tunable does not affect cluster selection.
+	It only affects CPU selection in a given cluster. This packing is
+	skipped for tasks that are eligible for "wake-up-idle" and "boost".
+
 **** 5.2.4 Wakeup Logic for Task "p"
 
 Wakeup task placement logic is as follows:

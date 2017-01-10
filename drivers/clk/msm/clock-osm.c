@@ -1850,9 +1850,9 @@ static int clk_osm_set_llm_volt_policy(struct platform_device *pdev)
 
 	/* Enable or disable LLM VOLT DVCS */
 	regval = val | clk_osm_read_reg(&pwrcl_clk, LLM_INTF_DCVS_DISABLE);
-	clk_osm_write_reg(&pwrcl_clk, val, LLM_INTF_DCVS_DISABLE);
+	clk_osm_write_reg(&pwrcl_clk, regval, LLM_INTF_DCVS_DISABLE);
 	regval = val | clk_osm_read_reg(&perfcl_clk, LLM_INTF_DCVS_DISABLE);
-	clk_osm_write_reg(&perfcl_clk, val, LLM_INTF_DCVS_DISABLE);
+	clk_osm_write_reg(&perfcl_clk, regval, LLM_INTF_DCVS_DISABLE);
 
 	/* Wait for the writes to complete */
 	clk_osm_mb(&perfcl_clk, OSM_BASE);

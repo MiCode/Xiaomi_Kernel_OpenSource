@@ -322,7 +322,7 @@
  * @NL80211_CMD_GET_SCAN: get scan results
  * @NL80211_CMD_TRIGGER_SCAN: trigger a new scan with the given parameters
  *	%NL80211_ATTR_TX_NO_CCK_RATE is used to decide whether to send the
- *	probe requests at CCK rate or not. %NL80211_ATTR_MAC can be used to
+ *	probe requests at CCK rate or not. %NL80211_ATTR_BSSID can be used to
  *	specify a BSSID to scan for; if not included, the wildcard BSSID will
  *	be used.
  * @NL80211_CMD_NEW_SCAN_RESULTS: scan notification (as a reply to
@@ -826,6 +826,47 @@
  *	not running. The driver indicates the status of the scan through
  *	cfg80211_scan_done().
  *
+ * @NL80211_CMD_START_NAN: Start NAN operation, identified by its
+ *	%NL80211_ATTR_WDEV interface. This interface must have been previously
+ *	created with %NL80211_CMD_NEW_INTERFACE. After it has been started, the
+ *	NAN interface will create or join a cluster. This command must have a
+ *	valid %NL80211_ATTR_NAN_MASTER_PREF attribute and optional
+ *	%NL80211_ATTR_NAN_DUAL attributes.
+ *	After this command NAN functions can be added.
+ * @NL80211_CMD_STOP_NAN: Stop the NAN operation, identified by
+ *	its %NL80211_ATTR_WDEV interface.
+ * @NL80211_CMD_ADD_NAN_FUNCTION: Add a NAN function. The function is defined
+ *	with %NL80211_ATTR_NAN_FUNC nested attribute. When called, this
+ *	operation returns the strictly positive and unique instance id
+ *	(%NL80211_ATTR_NAN_FUNC_INST_ID) and a cookie (%NL80211_ATTR_COOKIE)
+ *	of the function upon success.
+ *	Since instance ID's can be re-used, this cookie is the right
+ *	way to identify the function. This will avoid races when a termination
+ *	event is handled by the user space after it has already added a new
+ *	function that got the same instance id from the kernel as the one
+ *	which just terminated.
+ *	This cookie may be used in NAN events even before the command
+ *	returns, so userspace shouldn't process NAN events until it processes
+ *	the response to this command.
+ *	Look at %NL80211_ATTR_SOCKET_OWNER as well.
+ * @NL80211_CMD_DEL_NAN_FUNCTION: Delete a NAN function by cookie.
+ *	This command is also used as a notification sent when a NAN function is
+ *	terminated. This will contain a %NL80211_ATTR_NAN_FUNC_INST_ID
+ *	and %NL80211_ATTR_COOKIE attributes.
+ * @NL80211_CMD_CHANGE_NAN_CONFIG: Change current NAN configuration. NAN
+ *	must be operational (%NL80211_CMD_START_NAN was executed).
+ *	It must contain at least one of the following attributes:
+ *	%NL80211_ATTR_NAN_MASTER_PREF, %NL80211_ATTR_NAN_DUAL.
+ * @NL80211_CMD_NAN_FUNC_MATCH: Notification sent when a match is reported.
+ *	This will contain a %NL80211_ATTR_NAN_MATCH nested attribute and
+ *	%NL80211_ATTR_COOKIE.
+ *
+ * @NL80211_CMD_UPDATE_CONNECT_PARAMS: Update one or more connect parameters
+ *	for subsequent roaming cases if the driver or firmware uses internal
+ *	BSS selection. This command can be issued only while connected and it
+ *	does not result in a change for the current association. Currently,
+ *	only the %NL80211_ATTR_IE data is used and updated with this command.
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -1013,6 +1054,17 @@ enum nl80211_commands {
 	NL80211_CMD_WIPHY_REG_CHANGE,
 
 	NL80211_CMD_ABORT_SCAN,
+
+	NL80211_CMD_START_NAN,
+	NL80211_CMD_STOP_NAN,
+	NL80211_CMD_ADD_NAN_FUNCTION,
+	NL80211_CMD_DEL_NAN_FUNCTION,
+	NL80211_CMD_CHANGE_NAN_CONFIG,
+	NL80211_CMD_NAN_MATCH,
+
+	NL80211_CMD_SET_MULTICAST_TO_UNICAST,
+
+	NL80211_CMD_UPDATE_CONNECT_PARAMS,
 
 	/* add new commands above here */
 
@@ -1328,7 +1380,13 @@ enum nl80211_commands {
  *	enum nl80211_band value is used as the index (nla_type() of the nested
  *	data. If a band is not included, it will be configured to allow all
  *	rates based on negotiated supported rates information. This attribute
- *	is used with %NL80211_CMD_SET_TX_BITRATE_MASK.
+ *	is used with %NL80211_CMD_SET_TX_BITRATE_MASK and with starting AP,
+ *	and joining mesh networks (not IBSS yet). In the later case, it must
+ *	specify just a single bitrate, which is to be used for the beacon.
+ *	The driver must also specify support for this with the extended
+ *	features NL80211_EXT_FEATURE_BEACON_RATE_LEGACY,
+ *	NL80211_EXT_FEATURE_BEACON_RATE_HT and
+ *	NL80211_EXT_FEATURE_BEACON_RATE_VHT.
  *
  * @NL80211_ATTR_FRAME_MATCH: A binary attribute which typically must contain
  *	at least one byte, currently used with @NL80211_CMD_REGISTER_FRAME.
@@ -1812,6 +1870,70 @@ enum nl80211_commands {
  *	%NL80211_ATTR_EXT_CAPA_MASK, to specify the extended capabilities per
  *	interface type.
  *
+ * @NL80211_ATTR_MU_MIMO_GROUP_DATA: array of 24 bytes that defines a MU-MIMO
+ *	groupID for monitor mode.
+ *	The first 8 bytes are a mask that defines the membership in each
+ *	group (there are 64 groups, group 0 and 63 are reserved),
+ *	each bit represents a group and set to 1 for being a member in
+ *	that group and 0 for not being a member.
+ *	The remaining 16 bytes define the position in each group: 2 bits for
+ *	each group.
+ *	(smaller group numbers represented on most significant bits and bigger
+ *	group numbers on least significant bits.)
+ *	This attribute is used only if all interfaces are in monitor mode.
+ *	Set this attribute in order to monitor packets using the given MU-MIMO
+ *	groupID data.
+ *	to turn off that feature set all the bits of the groupID to zero.
+ * @NL80211_ATTR_MU_MIMO_FOLLOW_MAC_ADDR: mac address for the sniffer to follow
+ *	when using MU-MIMO air sniffer.
+ *	to turn that feature off set an invalid mac address
+ *	(e.g. FF:FF:FF:FF:FF:FF)
+ *
+ * @NL80211_ATTR_SCAN_START_TIME_TSF: The time at which the scan was actually
+ *	started (u64). The time is the TSF of the BSS the interface that
+ *	requested the scan is connected to (if available, otherwise this
+ *	attribute must not be included).
+ * @NL80211_ATTR_SCAN_START_TIME_TSF_BSSID: The BSS according to which
+ *	%NL80211_ATTR_SCAN_START_TIME_TSF is set.
+ * @NL80211_ATTR_MEASUREMENT_DURATION: measurement duration in TUs (u16). If
+ *	%NL80211_ATTR_MEASUREMENT_DURATION_MANDATORY is not set, this is the
+ *	maximum measurement duration allowed. This attribute is used with
+ *	measurement requests. It can also be used with %NL80211_CMD_TRIGGER_SCAN
+ *	if the scan is used for beacon report radio measurement.
+ * @NL80211_ATTR_MEASUREMENT_DURATION_MANDATORY: flag attribute that indicates
+ *	that the duration specified with %NL80211_ATTR_MEASUREMENT_DURATION is
+ *	mandatory. If this flag is not set, the duration is the maximum duration
+ *	and the actual measurement duration may be shorter.
+ *
+ * @NL80211_ATTR_MESH_PEER_AID: Association ID for the mesh peer (u16). This is
+ *	used to pull the stored data for mesh peer in power save state.
+ *
+ * @NL80211_ATTR_NAN_MASTER_PREF: the master preference to be used by
+ *	%NL80211_CMD_START_NAN and optionally with
+ *	%NL80211_CMD_CHANGE_NAN_CONFIG. Its type is u8 and it can't be 0.
+ *	Also, values 1 and 255 are reserved for certification purposes and
+ *	should not be used during a normal device operation.
+ * @NL80211_ATTR_NAN_DUAL: NAN dual band operation config (see
+ *	&enum nl80211_nan_dual_band_conf). This attribute is used with
+ *	%NL80211_CMD_START_NAN and optionally with
+ *	%NL80211_CMD_CHANGE_NAN_CONFIG.
+ * @NL80211_ATTR_NAN_FUNC: a function that can be added to NAN. See
+ *	&enum nl80211_nan_func_attributes for description of this nested
+ *	attribute.
+ * @NL80211_ATTR_NAN_MATCH: used to report a match. This is a nested attribute.
+ *	See &enum nl80211_nan_match_attributes.
+ * @NL80211_ATTR_FILS_KEK: KEK for FILS (Re)Association Request/Response frame
+ *	protection.
+ * @NL80211_ATTR_FILS_NONCES: Nonces (part of AAD) for FILS (Re)Association
+ *	Request/Response frame protection. This attribute contains the 16 octet
+ *	STA Nonce followed by 16 octets of AP Nonce.
+ *
+ * @NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED: Indicates whether or not multicast
+ *	packets should be send out as unicast to all stations (flag attribute).
+ *
+ * @NL80211_ATTR_BSSID: The BSSID of the AP. Note that %NL80211_ATTR_MAC is also
+ *	used in various commands/events for specifying the BSSID.
+ *
  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -2195,6 +2317,28 @@ enum nl80211_attrs {
 	NL80211_ATTR_PAD,
 
 	NL80211_ATTR_IFTYPE_EXT_CAPA,
+
+	NL80211_ATTR_MU_MIMO_GROUP_DATA,
+	NL80211_ATTR_MU_MIMO_FOLLOW_MAC_ADDR,
+
+	NL80211_ATTR_SCAN_START_TIME_TSF,
+	NL80211_ATTR_SCAN_START_TIME_TSF_BSSID,
+	NL80211_ATTR_MEASUREMENT_DURATION,
+	NL80211_ATTR_MEASUREMENT_DURATION_MANDATORY,
+
+	NL80211_ATTR_MESH_PEER_AID,
+
+	NL80211_ATTR_NAN_MASTER_PREF,
+	NL80211_ATTR_NAN_DUAL,
+	NL80211_ATTR_NAN_FUNC,
+	NL80211_ATTR_NAN_MATCH,
+
+	NL80211_ATTR_FILS_KEK,
+	NL80211_ATTR_FILS_NONCES,
+
+	NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED,
+
+	NL80211_ATTR_BSSID,
 
 	/* add attributes here, update the policy in nl80211.c */
 
@@ -4432,12 +4576,47 @@ enum nl80211_feature_flags {
 /**
  * enum nl80211_ext_feature_index - bit index of extended features.
  * @NL80211_EXT_FEATURE_VHT_IBSS: This driver supports IBSS with VHT datarates.
+ * @NL80211_EXT_FEATURE_RRM: This driver supports RRM. When featured, user can
+ *	can request to use RRM (see %NL80211_ATTR_USE_RRM) with
+ *	%NL80211_CMD_ASSOCIATE and %NL80211_CMD_CONNECT requests, which will set
+ *	the ASSOC_REQ_USE_RRM flag in the association request even if
+ *	NL80211_FEATURE_QUIET is not advertized.
+ * @NL80211_EXT_FEATURE_MU_MIMO_AIR_SNIFFER: This device supports MU-MIMO air
+ *	sniffer which means that it can be configured to hear packets from
+ *	certain groups which can be configured by the
+ *	%NL80211_ATTR_MU_MIMO_GROUP_DATA attribute,
+ *	or can be configured to follow a station by configuring the
+ *	%NL80211_ATTR_MU_MIMO_FOLLOW_MAC_ADDR attribute.
+ * @NL80211_EXT_FEATURE_SCAN_START_TIME: This driver includes the actual
+ *	time the scan started in scan results event. The time is the TSF of
+ *	the BSS that the interface that requested the scan is connected to
+ *	(if available).
+ * @NL80211_EXT_FEATURE_BSS_PARENT_TSF: Per BSS, this driver reports the
+ *	time the last beacon/probe was received. The time is the TSF of the
+ *	BSS that the interface that requested the scan is connected to
+ *	(if available).
+ * @NL80211_EXT_FEATURE_SET_SCAN_DWELL: This driver supports configuration of
+ *	channel dwell time.
+ * @NL80211_EXT_FEATURE_BEACON_RATE_LEGACY: Driver supports beacon rate
+ *	configuration (AP/mesh), supporting a legacy (non HT/VHT) rate.
+ * @NL80211_EXT_FEATURE_BEACON_RATE_HT: Driver supports beacon rate
+ *	configuration (AP/mesh) with HT rates.
+ * @NL80211_EXT_FEATURE_BEACON_RATE_VHT: Driver supports beacon rate
+ *	configuration (AP/mesh) with VHT rates.
  *
  * @NUM_NL80211_EXT_FEATURES: number of extended features.
  * @MAX_NL80211_EXT_FEATURES: highest extended feature index.
  */
 enum nl80211_ext_feature_index {
 	NL80211_EXT_FEATURE_VHT_IBSS,
+	NL80211_EXT_FEATURE_RRM,
+	NL80211_EXT_FEATURE_MU_MIMO_AIR_SNIFFER,
+	NL80211_EXT_FEATURE_SCAN_START_TIME,
+	NL80211_EXT_FEATURE_BSS_PARENT_TSF,
+	NL80211_EXT_FEATURE_SET_SCAN_DWELL,
+	NL80211_EXT_FEATURE_BEACON_RATE_LEGACY,
+	NL80211_EXT_FEATURE_BEACON_RATE_HT,
+	NL80211_EXT_FEATURE_BEACON_RATE_VHT,
 
 	/* add new features before the definition below */
 	NUM_NL80211_EXT_FEATURES,

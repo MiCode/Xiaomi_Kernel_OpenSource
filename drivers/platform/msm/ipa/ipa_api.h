@@ -183,6 +183,9 @@ struct ipa_api_controller {
 
 	u16 (*ipa_get_smem_restr_bytes)(void);
 
+	int (*ipa_broadcast_wdi_quota_reach_ind)(uint32_t fid,
+		uint64_t num_bytes);
+
 	int (*ipa_uc_wdi_get_dbpa)(struct ipa_wdi_db_params *out);
 
 	int (*ipa_uc_reg_rdyCB)(struct ipa_wdi_uc_ready_params *param);

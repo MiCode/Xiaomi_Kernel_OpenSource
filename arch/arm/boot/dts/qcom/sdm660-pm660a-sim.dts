@@ -1,0 +1,111 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+
+#include "sdm660.dtsi"
+#include "sdm660-pinctrl.dtsi"
+#include "msm-pm660a.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM 660 PM660 + PM660A SIM";
+	compatible = "qcom,sdm660-sim", "qcom,sdm660", "qcom,sim";
+	qcom,board-id = <16 0>;
+	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
+
+	chosen {
+		bootargs = "lpm_levels.sleep_disabled=1";
+	};
+};
+
+&usb3 {
+	reg = <0xa800000 0xfc000>;
+	reg-names = "core_base";
+	/delete-property/ extcon;
+	dwc3@a800000 {
+		maximum-speed = "high-speed";
+	};
+};
+
+&ssphy {
+	compatible =  "usb-nop-xceiv";
+};
+
+&qusb_phy0 {
+	compatible =  "usb-nop-xceiv";
+};
+
+&uartblsp1dm1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
+};
+
+&sdhc_1 {
+	/* device core power supply */
+	vdd-supply = <&pm660l_l4>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	/* device communication power supply */
+	vdd-io-supply = <&pm660_l8>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 192000000
+								384000000>;
+
+	qcom,nonremovable;
+	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
+
+	status = "ok";
+};
+
+&pm660_charger {
+	status = "disabled";
+};
+
+&pm660_fg {
+	status = "disabled";
+};
+
+&pm660_pdphy {
+	status = "disabled";
+};
+
+&ufsphy1 {
+	vdda-phy-supply = <&pm660l_l1>;
+	vdda-pll-supply = <&pm660_l10>;
+	vddp-ref-clk-supply = <&pm660_l1>;
+	vdda-phy-max-microamp = <51400>;
+	vdda-pll-max-microamp = <14200>;
+	vddp-ref-clk-max-microamp = <100>;
+	vddp-ref-clk-always-on;
+	status = "ok";
+};
+
+&ufs1 {
+	vdd-hba-supply = <&gdsc_ufs>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm660l_l4>;
+	vccq2-supply = <&pm660_l8>;
+	vcc-max-microamp = <500000>;
+	vccq2-max-microamp = <600000>;
+	status = "ok";
+};

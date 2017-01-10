@@ -141,6 +141,9 @@ struct cpr4_sdelta {
  * @use_open_loop:	Boolean indicating that open-loop (i.e CPR disabled) as
  *			opposed to closed-loop operation must be used for this
  *			corner on CPRh controllers.
+ * @ldo_mode_allowed:	Boolean which indicates if LDO mode is allowed for this
+ *			corner. This field is applicable for CPR4 controllers
+ *			that manage LDO300 supply regulator.
  * @sdelta:		The CPR4 controller specific data for this corner. This
  *			field is applicable for CPR4 controllers.
  *
@@ -174,6 +177,7 @@ struct cpr3_corner {
 	u32			irq_en;
 	int			aging_derate;
 	bool			use_open_loop;
+	bool			ldo_mode_allowed;
 	struct cpr4_sdelta	*sdelta;
 };
 
@@ -190,6 +194,18 @@ struct cpr3_corner {
 struct cprh_corner_band {
 	int			corner;
 	struct cpr4_sdelta	*sdelta;
+};
+
+/**
+ * enum cpr3_ldo_type - Constants which define the LDO supply regulator
+ *	types used to manage the subsystem component rail voltage.
+ * %CPR3_LDO_KRYO:	Kryo LDO regulator used to sub-regulate the HMSS
+ *			per-cluster voltage.
+ * %CPR3_LDO300:	LDO regulator used to sub-regulate the GFX voltage.
+ */
+enum cpr3_ldo_type {
+	CPR3_LDO_KRYO	= 0,
+	CPR3_LDO300	= 1,
 };
 
 /**
@@ -275,6 +291,7 @@ struct cprh_corner_band {
  *			participated in the last aggregation event
  * @debug_corner:	Index identifying voltage corner used for displaying
  *			corner configuration values in debugfs
+ * @ldo_type:		LDO regulator type.
  * @ldo_min_headroom_volt: Minimum voltage difference in microvolts required
  *			between the VDD supply voltage and the LDO output in
  *			order for the LDO operate
@@ -358,6 +375,7 @@ struct cpr3_regulator {
 	int			last_closed_loop_corner;
 	bool			aggregated;
 	int			debug_corner;
+	enum cpr3_ldo_type	ldo_type;
 	int			ldo_min_headroom_volt;
 	int			ldo_max_headroom_volt;
 	int			ldo_adjust_volt;
@@ -715,6 +733,8 @@ struct cpr3_panic_regs_info {
  * @panic_regs_info:	Array of panic registers information which provides the
  *			list of registers to dump when the device crashes.
  * @panic_notifier:	Notifier block registered to global panic notifier list.
+ * @support_ldo300_vreg: Boolean value which indicates that this CPR controller
+ *			manages an underlying LDO regulator of type LDO300.
  *
  * This structure contains both configuration and runtime state data.  The
  * elements cpr_allowed_sw, use_hw_closed_loop, aggr_corner, cpr_enabled,
@@ -815,6 +835,7 @@ struct cpr3_controller {
 	u32			voltage_settling_time;
 	struct cpr3_panic_regs_info *panic_regs_info;
 	struct notifier_block	panic_notifier;
+	bool			support_ldo300_vreg;
 };
 
 /* Used for rounding voltages to the closest physically available set point. */

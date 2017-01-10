@@ -1467,7 +1467,15 @@ static void gsi_ctrl_notify_resp_complete(struct usb_ep *ep,
 			event->bNotificationType, req->status);
 		/* FALLTHROUGH */
 	case 0:
-		/*
+		/* no need to handle multiple resp available for RNDIS */
+		if (gsi->prot_id == IPA_USB_RNDIS) {
+			atomic_set(&gsi->c_port.notify_count, 0);
+			log_event_dbg("notify_count = %d",
+			atomic_read(&gsi->c_port.notify_count));
+			break;
+		}
+
+		 /*
 		  * handle multiple pending resp available
 		  * notifications by queuing same until we're done,
 		  * rest of the notification require queuing new
@@ -2245,7 +2253,7 @@ skip_string_id_alloc:
 		if (!ep)
 			goto fail;
 		gsi->d_port.in_ep = ep;
-		msm_ep_config(gsi->d_port.in_ep, NULL, GFP_KERNEL);
+		msm_ep_config(gsi->d_port.in_ep, NULL);
 		ep->driver_data = cdev;	/* claim */
 	}
 
@@ -2255,7 +2263,7 @@ skip_string_id_alloc:
 		if (!ep)
 			goto fail;
 		gsi->d_port.out_ep = ep;
-		msm_ep_config(gsi->d_port.out_ep, NULL, GFP_KERNEL);
+		msm_ep_config(gsi->d_port.out_ep, NULL);
 		ep->driver_data = cdev;	/* claim */
 	}
 

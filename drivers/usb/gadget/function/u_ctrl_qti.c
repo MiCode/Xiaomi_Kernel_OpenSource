@@ -204,7 +204,6 @@ int gqti_ctrl_connect(void *gr, enum qti_port_type qport, unsigned intf)
 {
 	struct qti_ctrl_port	*port;
 	struct grmnet *g_rmnet = NULL;
-	struct gqdss *g_dpl = NULL;
 	unsigned long flags;
 
 	pr_debug("%s: port type:%d gadget:%p\n", __func__, qport, gr);
@@ -224,17 +223,13 @@ int gqti_ctrl_connect(void *gr, enum qti_port_type qport, unsigned intf)
 	port->ep_type = DATA_EP_TYPE_HSUSB;
 	port->intf = intf;
 
-	if (gr && port->port_type == QTI_PORT_RMNET) {
+	if (gr) {
 		port->port_usb = gr;
 		g_rmnet = (struct grmnet *)gr;
 		g_rmnet->send_encap_cmd = gqti_ctrl_send_cpkt_tomodem;
 		g_rmnet->notify_modem = gqti_ctrl_notify_modem;
-	} else if (gr && port->port_type == QTI_PORT_DPL) {
-		port->port_usb = gr;
-		g_dpl = (struct gqdss *)gr;
-		g_dpl->send_encap_cmd = gqti_ctrl_send_cpkt_tomodem;
-		g_dpl->notify_modem = gqti_ctrl_notify_modem;
-		atomic_set(&port->line_state, 1);
+		if (port->port_type == QTI_PORT_DPL)
+			atomic_set(&port->line_state, 1);
 	} else {
 		spin_unlock_irqrestore(&port->lock, flags);
 		pr_err("%s(): Port is used without port type.\n", __func__);
@@ -263,7 +258,6 @@ void gqti_ctrl_disconnect(void *gr, enum qti_port_type qport)
 	unsigned long		flags;
 	struct rmnet_ctrl_pkt	*cpkt;
 	struct grmnet *g_rmnet = NULL;
-	struct gqdss *g_dpl = NULL;
 
 	pr_debug("%s: gadget:%p\n", __func__, gr);
 
@@ -287,14 +281,10 @@ void gqti_ctrl_disconnect(void *gr, enum qti_port_type qport)
 	port->ipa_cons_idx = -1;
 	port->port_usb = NULL;
 
-	if (gr && port->port_type == QTI_PORT_RMNET) {
+	if (gr) {
 		g_rmnet = (struct grmnet *)gr;
 		g_rmnet->send_encap_cmd = NULL;
 		g_rmnet->notify_modem = NULL;
-	} else if (gr && port->port_type == QTI_PORT_DPL) {
-		g_dpl = (struct gqdss *)gr;
-		g_dpl->send_encap_cmd = NULL;
-		g_dpl->notify_modem = NULL;
 	} else {
 		pr_err("%s(): unrecognized gadget type(%d).\n",
 					__func__, port->port_type);

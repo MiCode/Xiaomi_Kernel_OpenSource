@@ -153,33 +153,33 @@ config MSM_MMCC_8996
 	  Say Y if you want to support multimedia devices such as display,
 	  graphics, video encode/decode, camera, etc.
 
-config MSM_GCC_FALCON
-	tristate "MSMFALCON Global Clock Controller"
+config MSM_GCC_660
+	tristate "SDM660 Global Clock Controller"
 	select QCOM_GDSC
 	depends on COMMON_CLK_QCOM
 	---help---
 	  Support for the global clock controller on Qualcomm Technologies, Inc
-	  MSMfalcon devices.
+	  SDM660 devices.
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, UFS, SD/eMMC, PCIe, etc.
 
-config MSM_GPUCC_FALCON
-	tristate "MSMFALCON Graphics Clock Controller"
-	select MSM_GCC_FALCON
+config MSM_GPUCC_660
+	tristate "SDM660 Graphics Clock Controller"
+	select MSM_GCC_660
 	depends on COMMON_CLK_QCOM
 	help
 	  Support for the graphics clock controller on Qualcomm Technologies, Inc
-	  MSMfalcon devices.
+	  SDM660 devices.
 	  Say Y if you want to support graphics controller devices which will
 	  be required to enable those device.
 
-config MSM_MMCC_FALCON
-	tristate "MSMFALCON Multimedia Clock Controller"
-	select MSM_GCC_FALCON
+config MSM_MMCC_660
+	tristate "SDM660 Multimedia Clock Controller"
+	select MSM_GCC_660
 	depends on COMMON_CLK_QCOM
 	help
 	  Support for the multimedia clock controller on Qualcomm Technologies, Inc
-	  MSMfalcon devices.
+	  SDM660 devices.
 	  Say Y if you want to support multimedia devices such as display,
 	  video encode/decode, camera, etc.
 
@@ -218,3 +218,17 @@ config QCOM_A53
 	  Support for the A53 clock controller on MSM devices.
 	  Say Y if you want to support CPU frequency scaling on devices
 	  such as MSM8916.
+
+config CLOCK_CPU_OSM
+	tristate "OSM CPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the osm clock controller.
+	 Operating State Manager (OSM) is a hardware engine used by some
+	 Qualcomm Technologies, Inc. (QTI) SoCs to manage frequency and
+	 voltage scaling in hardware. OSM is capable of controlling
+	 frequency and voltage requests for multiple clusters via the
+	 existence of multiple OSM domains.
+	 Say Y if you want to support osm clocks.
+
+source "drivers/clk/qcom/mdss/Kconfig"

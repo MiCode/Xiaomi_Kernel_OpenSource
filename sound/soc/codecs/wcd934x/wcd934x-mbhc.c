@@ -906,6 +906,29 @@ static const struct snd_kcontrol_new impedance_detect_controls[] = {
 };
 
 /*
+ * tavil_mbhc_get_impedance: get impedance of headphone left and right channels
+ * @wcd934x_mbhc: handle to struct wcd934x_mbhc *
+ * @zl: handle to left-ch impedance
+ * @zr: handle to right-ch impedance
+ * return 0 for success or error code in case of failure
+ */
+int tavil_mbhc_get_impedance(struct wcd934x_mbhc *wcd934x_mbhc,
+			     uint32_t *zl, uint32_t *zr)
+{
+	if (!wcd934x_mbhc) {
+		pr_err("%s: mbhc not initialized!\n", __func__);
+		return -EINVAL;
+	}
+	if (!zl || !zr) {
+		pr_err("%s: zl or zr null!\n", __func__);
+		return -EINVAL;
+	}
+
+	return wcd_mbhc_get_impedance(&wcd934x_mbhc->wcd_mbhc, zl, zr);
+}
+EXPORT_SYMBOL(tavil_mbhc_get_impedance);
+
+/*
  * tavil_mbhc_hs_detect: starts mbhc insertion/removal functionality
  * @codec: handle to snd_soc_codec *
  * @mbhc_cfg: handle to mbhc configuration structure

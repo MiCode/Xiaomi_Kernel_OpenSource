@@ -682,9 +682,6 @@ EXPORT_SYMBOL(usb_sec_event_ring_setup);
 int usb_sec_event_ring_cleanup(struct usb_device *dev,
 	unsigned intr_num)
 {
-	if (dev->state == USB_STATE_NOTATTACHED)
-		return 0;
-
 	return usb_hcd_sec_event_ring_cleanup(dev, intr_num);
 }
 EXPORT_SYMBOL(usb_sec_event_ring_cleanup);

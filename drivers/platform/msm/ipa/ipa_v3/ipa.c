@@ -2301,12 +2301,16 @@ void ipa3_q6_post_shutdown_cleanup(void)
 	int client_idx;
 
 	IPADBG_LOW("ENTER\n");
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	if (!ipa3_ctx->uc_ctx.uc_loaded) {
 		IPAERR("uC is not loaded. Skipping\n");
 		return;
 	}
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	/* Handle the issue where SUSPEND was removed for some reason */
+	ipa3_q6_avoid_holb();
 
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
 		if (IPA_CLIENT_IS_Q6_PROD(client_idx)) {
@@ -3612,6 +3616,7 @@ static int ipa3_apps_cons_request_resource(void)
 
 static void ipa3_sps_release_resource(struct work_struct *work)
 {
+	mutex_lock(&ipa3_ctx->transport_pm.transport_pm_mutex);
 	/* check whether still need to decrease client usage */
 	if (atomic_read(&ipa3_ctx->transport_pm.dec_clients)) {
 		if (atomic_read(&ipa3_ctx->transport_pm.eot_activity)) {
@@ -3623,6 +3628,7 @@ static void ipa3_sps_release_resource(struct work_struct *work)
 		}
 	}
 	atomic_set(&ipa3_ctx->transport_pm.eot_activity, 0);
+	mutex_unlock(&ipa3_ctx->transport_pm.transport_pm_mutex);
 }
 
 int ipa3_create_apps_resource(void)
@@ -4402,6 +4408,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_create_transport_wq;
 	}
 
+	/* Initialize the SPS PM lock. */
+	mutex_init(&ipa3_ctx->transport_pm.transport_pm_mutex);
 	spin_lock_init(&ipa3_ctx->transport_pm.lock);
 	ipa3_ctx->transport_pm.res_granted = false;
 	ipa3_ctx->transport_pm.res_rel_in_prog = false;

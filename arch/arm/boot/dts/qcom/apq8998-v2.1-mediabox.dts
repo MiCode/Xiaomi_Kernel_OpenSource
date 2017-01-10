@@ -28,3 +28,21 @@
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "hdmi";
 };
+
+&slim_aud {
+	tasha_codec {
+		wsa_spkr_sd1: msm_cdc_pinctrll {
+		      compatible = "qcom,msm-cdc-pinctrl";
+		      pinctrl-names = "aud_active", "aud_sleep";
+		      pinctrl-0 = <&spkr_1_sd_active_mediabox>;
+		      pinctrl-1 = <&spkr_1_sd_sleep_mediabox>;
+		};
+
+		wsa_spkr_sd2: msm_cdc_pinctrlr {
+		      compatible = "qcom,msm-cdc-pinctrl";
+		      pinctrl-names = "aud_active", "aud_sleep";
+		      pinctrl-0 = <&spkr_2_sd_active_mediabox>;
+		      pinctrl-1 = <&spkr_2_sd_sleep_mediabox>;
+		};
+	};
+};

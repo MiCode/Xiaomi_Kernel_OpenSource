@@ -548,19 +548,52 @@ int msm_isp_release_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	return 0;
 }
 
+void msm_isp_stop_all_stats_stream(struct vfe_device *vfe_dev)
+{
+	struct msm_vfe_stats_stream_cfg_cmd stream_cfg_cmd;
+	struct msm_vfe_stats_stream *stream_info;
+	int i;
+	int vfe_idx;
+	unsigned long flags;
+
+	stream_cfg_cmd.enable = 0;
+	stream_cfg_cmd.num_streams = 0;
+
+	for (i = 0; i < MSM_ISP_STATS_MAX; i++) {
+		stream_info =  msm_isp_get_stats_stream_common_data(vfe_dev, i);
+		spin_lock_irqsave(&stream_info->lock, flags);
+		if (stream_info->state == STATS_AVAILABLE ||
+			stream_info->state == STATS_INACTIVE) {
+			spin_unlock_irqrestore(&stream_info->lock, flags);
+			continue;
+		}
+		vfe_idx = msm_isp_get_vfe_idx_for_stats_stream_user(vfe_dev,
+							stream_info);
+		if (vfe_idx == -ENOTTY) {
+			spin_unlock_irqrestore(&stream_info->lock, flags);
+			continue;
+		}
+		stream_cfg_cmd.stream_handle[
+			stream_cfg_cmd.num_streams] =
+			stream_info->stream_handle[vfe_idx];
+		stream_cfg_cmd.num_streams++;
+		spin_unlock_irqrestore(&stream_info->lock, flags);
+	}
+	if (stream_cfg_cmd.num_streams)
+		msm_isp_cfg_stats_stream(vfe_dev, &stream_cfg_cmd);
+}
+
 void msm_isp_release_all_stats_stream(struct vfe_device *vfe_dev)
 {
 	struct msm_vfe_stats_stream_release_cmd
 				stream_release_cmd[MSM_ISP_STATS_MAX];
-	struct msm_vfe_stats_stream_cfg_cmd stream_cfg_cmd;
 	struct msm_vfe_stats_stream *stream_info;
 	int i;
 	int vfe_idx;
 	int num_stream = 0;
 	unsigned long flags;
 
-	stream_cfg_cmd.enable = 0;
-	stream_cfg_cmd.num_streams = 0;
+	msm_isp_stop_all_stats_stream(vfe_dev);
 
 	for (i = 0; i < MSM_ISP_STATS_MAX; i++) {
 		stream_info =  msm_isp_get_stats_stream_common_data(vfe_dev, i);
@@ -577,18 +610,8 @@ void msm_isp_release_all_stats_stream(struct vfe_device *vfe_dev)
 		}
 		stream_release_cmd[num_stream++].stream_handle =
 				stream_info->stream_handle[vfe_idx];
-		if (stream_info->state == STATS_INACTIVE) {
-			spin_unlock_irqrestore(&stream_info->lock, flags);
-			continue;
-		}
-		stream_cfg_cmd.stream_handle[
-			stream_cfg_cmd.num_streams] =
-			stream_info->stream_handle[vfe_idx];
-		stream_cfg_cmd.num_streams++;
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 	}
-	if (stream_cfg_cmd.num_streams)
-		msm_isp_cfg_stats_stream(vfe_dev, &stream_cfg_cmd);
 
 	for (i = 0; i < num_stream; i++)
 		msm_isp_release_stats_stream(vfe_dev, &stream_release_cmd[i]);

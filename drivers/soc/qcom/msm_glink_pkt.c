@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -502,13 +502,21 @@ static void glink_pkt_queue_rx_intent_worker(struct work_struct *work)
 				struct queue_rx_intent_work, work);
 	struct glink_pkt_dev *devp = work_item->devp;
 
-	if (!devp || !devp->handle) {
+	if (!devp) {
+		GLINK_PKT_ERR("%s: Invalid device\n", __func__);
+		kfree(work_item);
+		return;
+	}
+	mutex_lock(&devp->ch_lock);
+	if (!devp->handle) {
 		GLINK_PKT_ERR("%s: Invalid device Handle\n", __func__);
+		mutex_unlock(&devp->ch_lock);
 		kfree(work_item);
 		return;
 	}
 
 	ret = glink_queue_rx_intent(devp->handle, devp, work_item->intent_size);
+	mutex_unlock(&devp->ch_lock);
 	GLINK_PKT_INFO("%s: Triggered with size[%zu] ret[%d]\n",
 				__func__, work_item->intent_size, ret);
 	if (ret)
@@ -664,7 +672,16 @@ ssize_t glink_pkt_read(struct file *file,
 	spin_unlock_irqrestore(&devp->pkt_list_lock, flags);
 
 	ret = copy_to_user(buf, pkt->data, pkt->size);
-	BUG_ON(ret != 0);
+	 if (ret) {
+		GLINK_PKT_ERR(
+		"%s copy_to_user failed ret[%d] on dev id:%d size %zu\n",
+		 __func__, ret, devp->i, pkt->size);
+		spin_lock_irqsave(&devp->pkt_list_lock, flags);
+		list_add_tail(&pkt->list, &devp->pkt_list);
+		spin_unlock_irqrestore(&devp->pkt_list_lock, flags);
+		return -EFAULT;
+	}
+
 
 	ret = pkt->size;
 	glink_rx_done(devp->handle, pkt->data, false);
@@ -738,7 +755,13 @@ ssize_t glink_pkt_write(struct file *file,
 	}
 
 	ret = copy_from_user(data, buf, count);
-	BUG_ON(ret != 0);
+	if (ret) {
+		GLINK_PKT_ERR(
+		"%s copy_from_user failed ret[%d] on dev id:%d size %zu\n",
+		 __func__, ret, devp->i, count);
+		kfree(data);
+		return -EFAULT;
+	}
 
 	ret = glink_tx(devp->handle, data, data, count, GLINK_TX_REQ_INTENT);
 	if (ret) {
@@ -1036,6 +1059,27 @@ error:
 }
 
 /**
+ * pop_rx_pkt() - return first pkt from rx pkt_list
+ * devp:	pointer to G-Link packet device.
+ *
+ * This function return first item from rx pkt_list and NULL if list is empty.
+ */
+struct glink_rx_pkt *pop_rx_pkt(struct glink_pkt_dev *devp)
+{
+	unsigned long flags;
+	struct glink_rx_pkt *pkt = NULL;
+
+	spin_lock_irqsave(&devp->pkt_list_lock, flags);
+	if (!list_empty(&devp->pkt_list)) {
+		pkt = list_first_entry(&devp->pkt_list,
+				struct glink_rx_pkt, list);
+		list_del(&pkt->list);
+	}
+	spin_unlock_irqrestore(&devp->pkt_list_lock, flags);
+	return pkt;
+}
+
+/**
  * glink_pkt_release() - release operation on glink_pkt device
  * inode:	Pointer to the inode structure.
  * file:	Pointer to the file structure.
@@ -1049,6 +1093,7 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 	int ret = 0;
 	struct glink_pkt_dev *devp = file->private_data;
 	unsigned long flags;
+	struct glink_rx_pkt *pkt;
 	GLINK_PKT_INFO("%s() on dev id:%d by [%s] ref_cnt[%d]\n",
 			__func__, devp->i, current->comm, devp->ref_cnt);
 
@@ -1057,9 +1102,14 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 		devp->ref_cnt--;
 
 	if (devp->handle && devp->ref_cnt == 0) {
+		while ((pkt = pop_rx_pkt(devp))) {
+			glink_rx_done(devp->handle, pkt->data, false);
+			kfree(pkt);
+		}
 		wake_up(&devp->ch_read_wait_queue);
 		wake_up_interruptible(&devp->ch_opened_wait_queue);
 		ret = glink_close(devp->handle);
+		devp->handle = NULL;
 		if (ret)  {
 			GLINK_PKT_ERR("%s: close failed ret[%d]\n",
 						__func__, ret);

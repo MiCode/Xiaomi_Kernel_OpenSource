@@ -605,7 +605,8 @@ void cnss_sdio_device_crashed(void)
 		return;
 	ssr_info = &cnss_pdata->ssr_info;
 	if (ssr_info->subsys) {
-		subsys_set_crash_status(ssr_info->subsys, true);
+		subsys_set_crash_status(ssr_info->subsys,
+					CRASH_STATUS_ERR_FATAL);
 		subsystem_restart_dev(ssr_info->subsys);
 	}
 }

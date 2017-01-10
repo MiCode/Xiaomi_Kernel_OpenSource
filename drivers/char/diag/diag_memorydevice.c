@@ -356,8 +356,8 @@ int diag_md_init()
 			ch->tbl[j].buf = NULL;
 			ch->tbl[j].len = 0;
 			ch->tbl[j].ctx = 0;
-			spin_lock_init(&(ch->lock));
 		}
+		spin_lock_init(&(ch->lock));
 	}
 
 	return 0;

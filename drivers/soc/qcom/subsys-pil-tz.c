@@ -25,6 +25,7 @@
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
 #include <linux/dma-mapping.h>
+#include <linux/highmem.h>
 
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/ramdump.h>
@@ -613,6 +614,10 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 		return -ENOMEM;
 	}
 
+	/* Make sure there are no mappings in PKMAP and fixmap */
+	kmap_flush_unused();
+	kmap_atomic_flush_unused();
+
 	memcpy(mdata_buf, metadata, size);
 
 	request.proc = d->pas_id;
@@ -876,7 +881,7 @@ static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *dev_id)
 							d->subsys_desc.name);
 		return IRQ_HANDLED;
 	}
-	subsys_set_crash_status(d->subsys, true);
+	subsys_set_crash_status(d->subsys, CRASH_STATUS_ERR_FATAL);
 	log_failure_reason(d);
 	subsystem_restart_dev(d->subsys);
 
@@ -895,7 +900,7 @@ static irqreturn_t subsys_wdog_bite_irq_handler(int irq, void *dev_id)
 			!gpio_get_value(d->subsys_desc.err_fatal_gpio))
 		panic("%s: System ramdump requested. Triggering device restart!\n",
 							__func__);
-	subsys_set_crash_status(d->subsys, true);
+	subsys_set_crash_status(d->subsys, CRASH_STATUS_WDOG_BITE);
 	log_failure_reason(d);
 	subsystem_restart_dev(d->subsys);
 
@@ -952,7 +957,7 @@ static void clear_wdog(struct pil_tz_data *d)
 	if (!subsys_get_crash_status(d->subsys)) {
 		pr_err("wdog bite received from %s!\n", d->subsys_desc.name);
 		__raw_writel(BIT(d->bits_arr[ERR_READY]), d->irq_clear);
-		subsys_set_crash_status(d->subsys, true);
+		subsys_set_crash_status(d->subsys, CRASH_STATUS_WDOG_BITE);
 		log_failure_reason(d);
 		subsystem_restart_dev(d->subsys);
 	}

@@ -361,6 +361,10 @@ Required properties:
 
  - compatible : "qcom,msm-cdc-pinctrl"
 
+Optional properties:
+ - qcom,lpi-gpios : This boolean property is added if GPIOs are under
+		    LPI TLMM.
+
 * msm-dai-slim
 
 Required properties:
@@ -1606,10 +1610,10 @@ Example:
 		asoc-wsa-codec-prefixes = "SpkrMono";
 	};
 
-* MSMFALCON ASoC Machine driver
+* SDM660 ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,msmfalcon-asoc-snd"
+- compatible : "qcom,sdm660-asoc-snd"
 - qcom,model : The user-visible name of this sound card.
 - qcom,msm-hs-micbias-type : This property is used to recognize the headset
   micbias type, internal or external.
@@ -1655,11 +1659,15 @@ mclk frequency needs to be configured for internal and external PA.
 - qcom,wsa-max-devs : Maximum number of WSA881x devices present in the target
 - qcom,wsa-devs : List of phandles for all possible WSA881x devices supported for the target
 - qcom,wsa-aux-dev-prefix : Name prefix with Left/Right configuration for WSA881x device
+- qcom,cdc-pdm-gpios : phandle for pdm gpios.
+- qcom,cdc-comp-gpios : phandle for compander gpios.
+- qcom,cdc-dmic-gpios : phandle for Digital mic clk and data gpios.
+- qcom,cdc-sdw-gpios : phandle for soundwire clk and data gpios.
 
 Example:
 	 sound {
-		compatible = "qcom,msmfalcon-asoc-snd";
-		qcom,model = "msmfalcon-snd-card";
+		compatible = "qcom,sdm660-asoc-snd";
+		qcom,model = "sdm660-snd-card";
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
@@ -1675,24 +1683,11 @@ Example:
 			"AMIC1", "MIC BIAS External",
 			"AMIC2", "MIC BIAS Internal2",
 			"AMIC3", "MIC BIAS External";
-		qcom,msm-gpios =
-			"int_pdm",
-			"us_eu_gpio";
-		qcom,pinctrl-names =
-			"all_off",
-			"int_pdm_act",
-			"us_eu_gpio_act",
-			"int_pdm_us_eu_gpio_act";
-		pinctrl-names =
-			"all_off",
-			"int_pdm_act",
-			"us_eu_gpio_act",
-			"int_pdm_us_eu_gpio_act";
-		pinctrl-0 = <&cdc_pdm_lines_sus &cdc_pdm_lines_2_sus &cross_conn_det_sus>;
-		pinctrl-1 = <&cdc_pdm_lines_act &cdc_pdm_lines_2_act &cross_conn_det_sus>;
-		pinctrl-2 = <&cdc_pdm_lines_sus &cdc_pdm_lines_2_sus &cross_conn_det_act>;
-		pinctrl-3 = <&cdc_pdm_lines_act &cdc_pdm_lines_2_act &cross_conn_det_act>;
 		qcom,cdc-us-euro-gpios = <&msm_gpio 63 0>;
+		qcom,cdc-pdm-gpios = <&cdc_pdm_gpios>;
+		qcom,cdc-comp-gpios = <&cdc_comp_gpios>;
+		qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+		qcom,cdc-sdw-gpios = <&cdc_sdw_gpios>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&lpa>;
@@ -1777,6 +1772,10 @@ Optional Properties:
 - qcom,msm-mi2s-master: This property is used to inform machine driver
   if MSM is the clock master of mi2s. 1 means master and 0 means slave. The
   first entry is primary mi2s; the second entry is secondary mi2s, and so on.
+- qcom,msm-mi2s-ext-mclk: This property is used to inform machine driver
+  if MCLK from MSM is used for any external audio connections. 1 means used
+  as external mclk source and 0 indicate not used. The first entry is
+  primary mclk; the second entry is secondary mclk, and so on.
 - reg: This property provides the AUX PCM/MI2S mux select register addresses
   and size.
 - reg_names: This property provides the name of the AUX PCM/MI2S mux select
@@ -1817,6 +1816,7 @@ Example:
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
 		qcom,msm-mi2s-master = <1>, <0>, <1>, <1>;
+		qcom,msm-mi2s-ext-mclk = <1>, <1>, <0>, <1>;
 		reg = <0x1711a000 0x4>,
 		      <0x1711b000 0x4>,
 		      <0x1711c000 0x4>,
@@ -2156,11 +2156,11 @@ Example:
 		asoc-codec-names = "msm-stub-codec.1";
 	};
 
-* MSMFALCON ASoC Slimbus Machine driver
+* SDM660 ASoC Slimbus Machine driver
 
 Required properties:
-- compatible : "qcom,msmfalcon-asoc-snd-tasha" for tasha codec,
-		"qcom,msmfalcon-asoc-snd-tavil" for tavil codec.
+- compatible : "qcom,sdm660-asoc-snd-tasha" for tasha codec,
+		"qcom,sdm660-asoc-snd-tavil" for tavil codec.
 - qcom,model : The user-visible name of this sound card.
 - qcom,msm-mclk-freq : MCLK frequency value for external codec
 - qcom,msm-gpios : Lists down all the gpio sets that are supported.
@@ -2200,8 +2200,8 @@ Optional properties:
 Example:
 
 	sound-9335 {
-	compatible = "qcom,msmfalcon-asoc-snd-tasha";
-	qcom,model = "msmfalcon-tasha-snd-card";
+	compatible = "qcom,sdm660-asoc-snd-tasha";
+	qcom,model = "sdm660-tasha-snd-card";
 
 	qcom,audio-routing =
 		"RX_BIAS", "MCLK",

@@ -60,6 +60,11 @@
 #define DP_MAINLINK_LEVELS			(0x00000444)
 #define	DP_TU					(0x0000044C)
 
+#define DP_HBR2_COMPLIANCE_SCRAMBLER_RESET	(0x00000454)
+#define DP_TEST_80BIT_CUSTOM_PATTERN_REG0	(0x000004C0)
+#define DP_TEST_80BIT_CUSTOM_PATTERN_REG1	(0x000004C4)
+#define DP_TEST_80BIT_CUSTOM_PATTERN_REG2	(0x000004C8)
+
 #define	MMSS_DP_AUDIO_TIMING_GEN		(0x00000480)
 #define	MMSS_DP_AUDIO_TIMING_RBR_32		(0x00000484)
 #define	MMSS_DP_AUDIO_TIMING_HBR_32		(0x00000488)
@@ -279,7 +284,7 @@ void mdss_dp_phy_reset(struct dss_io_data *ctrl_io);
 void mdss_dp_switch_usb3_phy_to_dp_mode(struct dss_io_data *tcsr_reg_io);
 void mdss_dp_assert_phy_reset(struct dss_io_data *ctrl_io, bool assert);
 void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
-				u8 ln_cnt, u32 res);
+			u8 ln_cnt, u32 res, struct mdss_panel_info *pinfo);
 void mdss_dp_config_misc_settings(struct dss_io_data *ctrl_io,
 					struct mdss_panel_info *pinfo);
 void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io);
@@ -315,5 +320,6 @@ void mdss_dp_audio_set_sample_rate(struct dss_io_data *ctrl_io,
 void mdss_dp_set_safe_to_exit_level(struct dss_io_data *ctrl_io,
 		uint32_t lane_cnt);
 int mdss_dp_aux_read_rx_status(struct mdss_dp_drv_pdata *dp, u8 *rx_status);
+void mdss_dp_phy_send_test_pattern(struct mdss_dp_drv_pdata *dp);
 
 #endif /* __DP_UTIL_H__ */

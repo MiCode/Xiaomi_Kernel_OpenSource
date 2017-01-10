@@ -13,6 +13,7 @@
 #include <linux/dmapool.h>
 #include <linux/delay.h>
 #include <linux/mm.h>
+#include "ipa_qmi_service.h"
 
 #define IPA_HOLB_TMR_DIS 0x0
 
@@ -1185,6 +1186,12 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	ep->client_notify = in->sys.notify;
 	ep->priv = in->sys.priv;
 
+	/* for AP+STA stats update */
+	if (in->wdi_notify)
+		ipa3_ctx->uc_wdi_ctx.stats_notify = in->wdi_notify;
+	else
+		IPADBG("in->wdi_notify is null\n");
+
 	if (!ep->skip_ep_cfg) {
 		if (ipa3_cfg_ep(ipa_ep_idx, &in->sys.ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
@@ -1276,6 +1283,12 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
+	/* for AP+STA stats update */
+	if (ipa3_ctx->uc_wdi_ctx.stats_notify)
+		ipa3_ctx->uc_wdi_ctx.stats_notify = NULL;
+	else
+		IPADBG("uc_wdi_ctx.stats_notify already null\n");
+
 uc_timeout:
 	return result;
 }
@@ -1357,6 +1370,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 	u32 prod_hdl;
 	int i;
 	u32 rx_door_bell_value;
+	u32 source_pipe_bitmask = 0;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -1392,6 +1406,17 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 	 * holb on IPA Producer pipe
 	 */
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		/* enable force clear */
+		IPADBG("Stopping PROD channel - hdl=%d clnt=%d\n",
+			clnt_hdl, ep->client);
+		source_pipe_bitmask = 1 <<
+				ipa3_get_ep_mapping(ep->client);
+		result = ipa3_enable_force_clear(clnt_hdl, false,
+			source_pipe_bitmask);
+		if (result)
+			goto uc_timeout;
+
+		/* remove delay on wlan-prod pipe*/
 		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 
@@ -1424,7 +1449,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 					rx_door_bell_value,
 					*ipa3_ctx->uc_ctx.rdy_ring_rp_va,
 					*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va);
-				if (rx_door_bell_value !=
+				if (*ipa3_ctx->uc_ctx.rdy_ring_rp_va !=
 					*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va) {
 					usleep_range(IPA_UC_WAIT_MIN_SLEEP,
 						IPA_UC_WAII_MAX_SLEEP);
@@ -1457,10 +1482,13 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_delay = true;
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+		/* disable force clear */
+		ipa3_disable_force_clear(clnt_hdl);
 	}
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->uc_offload_state &= ~IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) disabled\n", clnt_hdl);
+
 
 uc_timeout:
 	return result;
@@ -1616,6 +1644,23 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 
 uc_timeout:
 	return result;
+}
+
+/**
+ * ipa_broadcast_wdi_quota_reach_ind() - quota reach
+ * @uint32_t fid: [in] input netdev ID
+ * @uint64_t num_bytes: [in] used bytes
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa3_broadcast_wdi_quota_reach_ind(uint32_t fid,
+	uint64_t num_bytes)
+{
+	IPAERR("Quota reached indication on fis(%d) Mbytes(%lu)\n",
+			  fid,
+			  (unsigned long int) num_bytes);
+	ipa3_broadcast_quota_reach_ind(0, IPA_UPSTEAM_WLAN);
+	return 0;
 }
 
 int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)

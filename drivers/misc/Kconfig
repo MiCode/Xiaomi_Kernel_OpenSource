@@ -555,6 +555,11 @@ config QPNP_MISC
 	  peripheral. The MISC peripheral holds the USB ID interrupt
 	  and the driver provides an API to check if this interrupt
 	  is available on the current PMIC chip.
+config MEMORY_STATE_TIME
+	tristate "Memory freq/bandwidth time statistics"
+	depends on PROFILING
+	help
+	  Memory time statistics exported to /sys/kernel/memory_state_time
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

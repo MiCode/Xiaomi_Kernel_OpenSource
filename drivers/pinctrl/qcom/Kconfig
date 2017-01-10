@@ -112,13 +112,13 @@ config PINCTRL_MSM8996
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  Qualcomm TLMM block found in the Qualcomm MSM8996 platform.
 
-config PINCTRL_MSMFALCON
-	tristate "Qualcomm MSMFALCON pin controller driver"
+config PINCTRL_SDM660
+	tristate "Qualcomm SDM660 pin controller driver"
 	depends on GPIOLIB && OF
 	select PINCTRL_MSM
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
-	  Qualcomm TLMM block found in the Qualcomm MSMFALCON platform.
+	  Qualcomm TLMM block found in the Qualcomm SDM660 platform.
 
 config PINCTRL_WCD
 	tristate "Qualcomm Technologies, Inc WCD pin controller driver"
@@ -126,5 +126,12 @@ config PINCTRL_WCD
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  WCD gpio controller block.
+
+config PINCTRL_LPI
+	tristate "Qualcomm Technologies, Inc LPI pin controller driver"
+	depends on GPIOLIB && OF
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  LPI gpio controller block.
 
 endif

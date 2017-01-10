@@ -1,0 +1,238 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&rpm_bus {
+	rpm-regulator-smpb1 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpb";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <1>;
+		status = "disabled";
+
+		regulator-s1 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_s1";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-smpb2 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpb";
+		qcom,resource-id = <2>;
+		qcom,regulator-type = <1>;
+		status = "disabled";
+
+		regulator-s2 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_s2";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-smpb3 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpb";
+		qcom,resource-id = <3>;
+		qcom,regulator-type = <1>;
+		status = "disabled";
+
+		regulator-s3 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_s3";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-smpb5 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpb";
+		qcom,resource-id = <5>;
+		qcom,regulator-type = <1>;
+		status = "disabled";
+
+		regulator-s5 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_s5";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldob1 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldob";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <0>;
+		status = "disabled";
+
+		regulator-l1 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l1";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldob2 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldob";
+		qcom,resource-id = <2>;
+		qcom,regulator-type = <0>;
+		status = "disabled";
+
+		regulator-l2 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l2";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldob3 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldob";
+		qcom,resource-id = <3>;
+		qcom,regulator-type = <0>;
+		status = "disabled";
+
+		regulator-l3 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l3";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldob4 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldob";
+		qcom,resource-id = <4>;
+		qcom,regulator-type = <0>;
+		status = "disabled";
+
+		regulator-l4 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l4";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldob5 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldob";
+		qcom,resource-id = <5>;
+		qcom,regulator-type = <0>;
+		status = "disabled";
+
+		regulator-l5 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l5";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldob6 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldob";
+		qcom,resource-id = <6>;
+		qcom,regulator-type = <0>;
+		status = "disabled";
+
+		regulator-l6 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l6";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldob7 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldob";
+		qcom,resource-id = <7>;
+		qcom,regulator-type = <0>;
+		status = "disabled";
+
+		regulator-l7 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l7";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldob8 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldob";
+		qcom,resource-id = <8>;
+		qcom,regulator-type = <0>;
+		status = "disabled";
+
+		regulator-l8 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l8";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldob9 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "rwsc";
+		qcom,resource-id = <0>;
+		qcom,regulator-type = <0>;
+		status = "disabled";
+
+		regulator-l9 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l9";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldob10 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "rwsm";
+		qcom,resource-id = <0>;
+		qcom,regulator-type = <0>;
+		status = "disabled";
+
+		regulator-l10 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_l10";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-bobb {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "bobb";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <4>;
+		status = "disabled";
+
+		regulator-bob {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660l_bob";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+};

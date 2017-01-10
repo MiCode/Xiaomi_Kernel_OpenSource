@@ -1487,10 +1487,11 @@
 	spss_utils: qcom,spss_utils {
 		compatible = "qcom,spss-utils";
 		/* spss test fuse physical address */
-		qcom,spss-fuse-addr = <0x007841c4 0x4>;
+		qcom,spss-fuse-addr = <0x007841c4>;
 		qcom,spss-fuse-bit = <27>;
 		qcom,spss-test-firmware-name = "spss";    /* default name */
 		qcom,spss-prod-firmware-name = "spss1p";  /* 8 chars max */
+		qcom,spss-debug-reg-addr = <0x01d06020>;
 		status = "ok";
 	};
 
@@ -2037,10 +2038,9 @@
 		clock-names = "xo", "iface_clk", "bus_clk",
 			      "mem_clk", "gpll0_mss_clk", "snoc_axi_clk",
 			      "mnoc_axi_clk", "qdss_clk";
-		qcom,proxy-clock-names = "xo", "qdss_clk";
-		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
-					  "gpll0_mss_clk", "snoc_axi_clk",
-					  "mnoc_axi_clk";
+		qcom,proxy-clock-names = "xo", "qdss_clk", "mem_clk";
+		qcom,active-clock-names = "iface_clk", "bus_clk",
+			"gpll0_mss_clk", "snoc_axi_clk", "mnoc_axi_clk";
 
 		interrupts = <0 448 1>;
 		vdd_cx-supply = <&pm8998_s1_level>;
@@ -2051,7 +2051,6 @@
 		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
 		qcom,ssctl-instance-id = <0x12>;
-		qcom,override-acc;
 		qcom,qdsp6v62-1-2;
 		status = "ok";
 		memory-region = <&modem_mem>;
@@ -2250,6 +2249,7 @@
 		qcom,support-fde;
 		qcom,no-clock-support;
 		qcom,appsbl-qseecom-support;
+		qcom,fde-key-size;
 		qcom,commonlib64-loaded-by-uefi;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
@@ -2826,6 +2826,11 @@
 			reg = <0x6b0 32>;
 		};
 
+		kaslr_offset@6d0 {
+			compatible = "qcom,msm-imem-kaslr_offset";
+			reg = <0x6d0 12>;
+		};
+
 		pil@94c {
 			compatible = "qcom,msm-imem-pil";
 			reg = <0x94c 200>;
@@ -3148,6 +3153,7 @@
 
 &gdsc_cpp {
 	parent-supply = <&gdsc_camss_top>;
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 

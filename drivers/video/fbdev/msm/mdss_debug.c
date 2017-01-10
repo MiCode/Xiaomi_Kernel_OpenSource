@@ -169,7 +169,8 @@ static ssize_t panel_debug_base_reg_write(struct file *file,
 			break;
 		}
 		/* End of a hex value in given string */
-		bufp[NEXT_VALUE_OFFSET - 1] = 0;
+		if ((bufp + NEXT_VALUE_OFFSET - 1) < (buf + count))
+			bufp[NEXT_VALUE_OFFSET - 1] = 0;
 	}
 	if (len < PANEL_CMD_MIN_TX_COUNT) {
 		pr_err("wrong input reg len\n");
@@ -1359,7 +1360,9 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 						(mdata->mdp_rev ==
 							MDSS_MDP_HW_REV_300) ||
 						(mdata->mdp_rev ==
-							MDSS_MDP_HW_REV_301)) {
+							MDSS_MDP_HW_REV_301) ||
+						(mdata->mdp_rev ==
+							MDSS_MDP_HW_REV_320)) {
 						ctrl_reg += 0x8;
 						value_reg += 0x8;
 					}

@@ -2160,12 +2160,16 @@ int arm_iommu_attach_device(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
 	int err;
+	int s1_bypass = 0;
 
 	err = __arm_iommu_attach_device(dev, mapping);
 	if (err)
 		return err;
 
-	set_dma_ops(dev, &iommu_ops);
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
+					&s1_bypass);
+	if (!s1_bypass)
+		set_dma_ops(dev, &iommu_ops);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(arm_iommu_attach_device);
@@ -2199,8 +2203,21 @@ static void __arm_iommu_detach_device(struct device *dev)
  */
 void arm_iommu_detach_device(struct device *dev)
 {
+	struct dma_iommu_mapping *mapping;
+	int s1_bypass = 0;
+
+	mapping = to_dma_iommu_mapping(dev);
+	if (!mapping) {
+		dev_warn(dev, "Not attached\n");
+		return;
+	}
+
 	__arm_iommu_detach_device(dev);
-	set_dma_ops(dev, NULL);
+
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
+					&s1_bypass);
+	if (!s1_bypass)
+		set_dma_ops(dev, NULL);
 }
 EXPORT_SYMBOL_GPL(arm_iommu_detach_device);
 

@@ -424,6 +424,7 @@
 		reset-names = "micro_iface_reset";
 		qcom,src-clock-rates = <100000000 200000000 576000000
 			600000000>;
+		qcom,micro-reset;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <790>;
 			qcom,plane-base = <715>;
@@ -573,9 +574,9 @@
 			0xaaa9aaa9
 			0xaaa9aaa9
 			0xaaa9aaa9>;
-		vbif-entries = <3>;
-		vbif-regs = <0x124 0xac 0xd0>;
-		vbif-settings = <0x3 0x40 0x1010>;
+		vbif-entries = <1>;
+		vbif-regs = <0x124>;
+		vbif-settings = <0x3>;
 		ds-entries = <17>;
 		ds-regs = <0x424 0x428 0x42c 0x430 0x434
 			0x438 0x43c 0x440 0x444 0x448 0x44c
@@ -653,9 +654,9 @@
 			0xaaa9aaa9
 			0xaaa9aaa9
 			0xaaa9aaa9>;
-		vbif-entries = <3>;
-		vbif-regs = <0x124 0xac 0xd0>;
-		vbif-settings = <0x3 0x40 0x1010>;
+		vbif-entries = <1>;
+		vbif-regs = <0x124>;
+		vbif-settings = <0x3>;
 		ds-entries = <17>;
 		ds-regs = <0x424 0x428 0x42c 0x430 0x434
 			0x438 0x43c 0x440 0x444 0x448 0x44c

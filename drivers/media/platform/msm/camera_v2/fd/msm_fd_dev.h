@@ -23,6 +23,8 @@
 #include <linux/msm_ion.h>
 #include "cam_soc_api.h"
 #include "cam_hw_ops.h"
+#include "msm_cpp.h"
+
 /* Maximum number of result buffers */
 #define MSM_FD_MAX_RESULT_BUFS 5
 /* Max number of clocks defined in device tree */
@@ -33,6 +35,18 @@
 #define MSM_FD_MAX_FACES_DETECTED 32
 /* Max number of regulators defined in device tree */
 #define MSM_FD_MAX_REGULATOR_NUM 3
+
+/* Conditional spin lock macro */
+#define MSM_FD_SPIN_LOCK(l, f) ({\
+	if (f) \
+		spin_lock(&l); \
+})
+
+/* Conditional spin unlock macro */
+#define MSM_FD_SPIN_UNLOCK(l, f) ({ \
+	if (f) \
+		spin_unlock(&l); \
+})
 
 /*
  * struct msm_fd_size - Structure contain FD size related values.
@@ -214,12 +228,14 @@ enum msm_fd_mem_resources {
  * @work_queue: Pointer to FD device IRQ bottom half workqueue.
  * @work: IRQ bottom half work struct.
  * @hw_halt_completion: Completes when face detection hw halt completes.
+ * @recovery_mode: Indicates if FD is in recovery mode
  */
 struct msm_fd_device {
 	u32 hw_revision;
 
 	struct mutex lock;
 	spinlock_t slock;
+	struct mutex recovery_lock;
 	int ref_count;
 
 	int irq_num;
@@ -248,6 +264,8 @@ struct msm_fd_device {
 	struct workqueue_struct *work_queue;
 	struct work_struct work;
 	struct completion hw_halt_completion;
+	int recovery_mode;
+	uint32_t clk_rate_idx;
 };
 
 #endif /* __MSM_FD_DEV_H__ */

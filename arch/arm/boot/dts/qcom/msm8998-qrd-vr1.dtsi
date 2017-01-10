@@ -100,6 +100,28 @@
 	pinctrl-0 = <&uart_console_active>;
 };
 
+&i2c_6 { /* BLSP1 QUP6 (NFC) */
+	status = "okay";
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 92 0x00>;
+		qcom,nq-ven = <&tlmm 12 0x00>;
+		qcom,nq-firm = <&tlmm 93 0x00>;
+		qcom,nq-clkreq = <&pm8998_gpios 21 0x00>;
+		qcom,nq-esepwr = <&tlmm 116 0x00>;
+		interrupt-parent = <&tlmm>;
+		qcom,clk-src = "BBCLK3";
+		interrupts = <92 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
+		clocks = <&clock_gcc clk_ln_bb_clk3_pin>;
+		clock-names = "ref_clk";
+	};
+};
+
 &pm8998_gpios {
 	/* GPIO 6 for Vol+ Key */
 	gpio@c500 {
@@ -109,6 +131,15 @@
 		qcom,vin-sel = <0>;
 		qcom,src-sel = <0>;
 		qcom,out-strength = <1>;
+	};
+
+	/* GPIO 21 (NFC_CLK_REQ) */
+	gpio@d400 {
+		qcom,mode = <0>;
+		qcom,vin-sel = <1>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		status = "okay";
 	};
 };
 
@@ -165,6 +196,7 @@
 
 &pmi8998_fg {
 	qcom,battery-data = <&qrd_batterydata>;
+	qcom,fg-jeita-thresholds = <0 5 55 55>;
 };
 
 &pmi8998_haptics {
@@ -271,4 +303,16 @@
 		qcom,btm-channel-number = <0x78>;
 		qcom,thermal-node;
 	};
+};
+
+&red_led {
+	/delete-property/ linux,default-trigger;
+};
+
+&green_led {
+	/delete-property/ linux,default-trigger;
+};
+
+&blue_led {
+	/delete-property/ linux,default-trigger;
 };

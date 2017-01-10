@@ -333,7 +333,7 @@ static inline void populate_buf_info(struct buffer_info *binfo,
 	binfo->timestamp.tv_sec = b->timestamp.tv_sec;
 	binfo->timestamp.tv_usec = b->timestamp.tv_usec;
 	dprintk(VIDC_DBG, "%s: fd[%d] = %d b->index = %d",
-			__func__, i, binfo->fd[0], b->index);
+			__func__, i, binfo->fd[i], b->index);
 }
 
 static inline void repopulate_v4l2_buffer(struct v4l2_buffer *b,
@@ -658,8 +658,12 @@ int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
 
 	for (i = 0; i < binfo->num_planes; i++) {
 		if (binfo->handle[i]) {
+			struct msm_smem smem = *binfo->handle[i];
+
+			smem.offset = (unsigned int)(binfo->buff_off[i]);
+			smem.size   = binfo->size[i];
 			rc = msm_comm_smem_cache_operations(inst,
-				binfo->handle[i], SMEM_CACHE_INVALIDATE);
+				&smem, SMEM_CACHE_INVALIDATE);
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"%s: Failed to clean caches: %d\n",
@@ -1243,14 +1247,13 @@ void *msm_vidc_open(int core_id, int session_type)
 
 	return inst;
 fail_init:
-	v4l2_fh_del(&inst->event_handler);
-	v4l2_fh_exit(&inst->event_handler);
-	vb2_queue_release(&inst->bufq[OUTPUT_PORT].vb2_bufq);
-
 	mutex_lock(&core->lock);
 	list_del(&inst->list);
 	mutex_unlock(&core->lock);
 
+	v4l2_fh_del(&inst->event_handler);
+	v4l2_fh_exit(&inst->event_handler);
+	vb2_queue_release(&inst->bufq[OUTPUT_PORT].vb2_bufq);
 fail_bufq_output:
 	vb2_queue_release(&inst->bufq[CAPTURE_PORT].vb2_bufq);
 fail_bufq_capture:

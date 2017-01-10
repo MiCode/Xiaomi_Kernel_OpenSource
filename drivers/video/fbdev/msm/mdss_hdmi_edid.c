@@ -2294,6 +2294,7 @@ int hdmi_edid_parser(void *input)
 	edid_buf += EDID_BLOCK_SIZE;
 
 	ieee_reg_id = hdmi_edid_extract_ieee_reg_id(edid_ctrl, edid_buf);
+	DEV_DBG("%s: ieee_reg_id = 0x%08x\n", __func__, ieee_reg_id);
 	if (ieee_reg_id == EDID_IEEE_REG_ID)
 		edid_ctrl->sink_mode = SINK_MODE_HDMI;
 	else
@@ -2388,7 +2389,7 @@ end:
 	return scaninfo;
 } /* hdmi_edid_get_sink_scaninfo */
 
-u32 hdmi_edid_get_sink_mode(void *input)
+static u32 hdmi_edid_get_sink_mode(void *input)
 {
 	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
 	bool sink_mode;
@@ -2406,6 +2407,22 @@ u32 hdmi_edid_get_sink_mode(void *input)
 
 	return sink_mode;
 } /* hdmi_edid_get_sink_mode */
+
+/**
+ * hdmi_edid_is_dvi_mode() - check if the dvi mode is set in the EDID
+ * @input: edid parser data
+ *
+ * This API returns true is the DVI mode bit in the EDID is set. This
+ * API can be used to check if the sink associated with the EDID data
+ * is a DVI sink or not
+ */
+bool hdmi_edid_is_dvi_mode(void *input)
+{
+	if (hdmi_edid_get_sink_mode(input))
+		return false;
+	else
+		return true;
+}
 
 /**
  * hdmi_edid_get_deep_color() - get deep color info supported by sink

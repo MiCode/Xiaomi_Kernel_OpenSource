@@ -102,6 +102,7 @@
 #define IS_DEFAULT_OUTPUT_BUF_INDEX(index) \
 	((index == DEFAULT_OUTPUT_BUF_INDEX) ? 1 : 0)
 
+static struct msm_cpp_vbif_data cpp_vbif;
 static int msm_cpp_buffer_ops(struct cpp_device *cpp_dev,
 	uint32_t buff_mgr_ops, uint32_t ids, void *arg);
 
@@ -121,6 +122,7 @@ static void msm_cpp_flush_queue_and_release_buffer(struct cpp_device *cpp_dev,
 static int msm_cpp_dump_frame_cmd(struct msm_cpp_frame_info_t *frame_info);
 static int msm_cpp_dump_addr(struct cpp_device *cpp_dev,
 	struct msm_cpp_frame_info_t *frame_info);
+static int32_t msm_cpp_reset_vbif_and_load_fw(struct cpp_device *cpp_dev);
 
 #if CONFIG_MSM_CPP_DBG
 #define CPP_DBG(fmt, args...) pr_err(fmt, ##args)
@@ -171,6 +173,26 @@ struct msm_cpp_timer_t {
 struct msm_cpp_timer_t cpp_timer;
 static void msm_cpp_set_vbif_reg_values(struct cpp_device *cpp_dev);
 
+
+void msm_cpp_vbif_register_error_handler(void *dev,
+	enum cpp_vbif_client client,
+	int (*client_vbif_error_handler)(void *, uint32_t))
+{
+	if (dev == NULL || client >= VBIF_CLIENT_MAX) {
+		pr_err("%s: Fail to register handler! dev = %p, client %d\n",
+			__func__, dev, client);
+		return;
+	}
+
+	if (client_vbif_error_handler != NULL) {
+		cpp_vbif.dev[client] = dev;
+		cpp_vbif.err_handler[client] = client_vbif_error_handler;
+	} else {
+		/* if handler = NULL, is unregister case */
+		cpp_vbif.dev[client] = NULL;
+		cpp_vbif.err_handler[client] = NULL;
+	}
+}
 static int msm_cpp_init_bandwidth_mgr(struct cpp_device *cpp_dev)
 {
 	int rc = 0;
@@ -755,6 +777,7 @@ static void msm_cpp_iommu_fault_handler(struct iommu_domain *domain,
 	struct msm_cpp_frame_info_t *processed_frame[MAX_CPP_PROCESSING_FRAME];
 	int32_t i = 0, queue_len = 0;
 	struct msm_device_queue *queue = NULL;
+	int32_t rc = 0;
 
 	if (token) {
 		cpp_dev = token;
@@ -765,7 +788,16 @@ static void msm_cpp_iommu_fault_handler(struct iommu_domain *domain,
 		}
 		mutex_lock(&cpp_dev->mutex);
 		tasklet_kill(&cpp_dev->cpp_tasklet);
-		cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
+		rc = cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
+		if (rc < 0) {
+			pr_err("load fw failure %d-retry\n", rc);
+			rc = msm_cpp_reset_vbif_and_load_fw(cpp_dev);
+			if (rc < 0) {
+				msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
+				mutex_unlock(&cpp_dev->mutex);
+				return;
+			}
+		}
 		queue = &cpp_timer.data.cpp_dev->processing_q;
 		queue_len = queue->len;
 		if (!queue_len) {
@@ -1022,11 +1054,16 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	if (cpp_dev->fw_name_bin) {
 		msm_camera_enable_irq(cpp_dev->irq, false);
 		rc = cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
-		msm_camera_enable_irq(cpp_dev->irq, true);
 		if (rc < 0) {
-			pr_err("%s: load firmware failure %d\n", __func__, rc);
-			goto pwr_collapse_reset;
+			pr_err("%s: load firmware failure %d-retry\n",
+				__func__, rc);
+			rc = msm_cpp_reset_vbif_and_load_fw(cpp_dev);
+			if (rc < 0) {
+				msm_camera_enable_irq(cpp_dev->irq, true);
+				goto pwr_collapse_reset;
+			}
 		}
+		msm_camera_enable_irq(cpp_dev->irq, true);
 		msm_camera_io_w_mb(0x7C8, cpp_dev->base +
 			MSM_CPP_MICRO_IRQGEN_MASK);
 		msm_camera_io_w_mb(0xFFFF, cpp_dev->base +
@@ -1038,6 +1075,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 
 pwr_collapse_reset:
 	msm_cpp_update_gdscr_status(cpp_dev, false);
+	msm_camera_unregister_irq(cpp_dev->pdev, cpp_dev->irq, cpp_dev);
 req_irq_fail:
 	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CPP,
 		CAM_AHB_SUSPEND_VOTE) < 0)
@@ -1081,7 +1119,7 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 {
 	uint32_t i;
 	uint32_t *ptr_bin = NULL;
-	int32_t rc = 0;
+	int32_t rc = 0, ret = 0;
 
 	if (!fw_name_bin) {
 		pr_err("%s:%d] invalid fw name", __func__, __LINE__);
@@ -1207,12 +1245,68 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	}
 
 vote:
-	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CPP,
+	ret = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CPP,
 			CAM_AHB_SVS_VOTE);
-	if (rc < 0)
+	if (ret < 0) {
 		pr_err("%s:%d: failed to vote for AHB\n", __func__, __LINE__);
+		rc = ret;
+	}
 end:
 	return rc;
+}
+
+int32_t msm_cpp_reset_vbif_clients(struct cpp_device *cpp_dev)
+{
+	uint32_t i;
+
+	pr_warn("%s: handle vbif hang...\n", __func__);
+	for (i = 0; i < VBIF_CLIENT_MAX; i++) {
+		if (cpp_dev->vbif_data->err_handler[i] == NULL)
+			continue;
+
+		cpp_dev->vbif_data->err_handler[i](
+			cpp_dev->vbif_data->dev[i], CPP_VBIF_ERROR_HANG);
+	}
+	return 0;
+}
+
+int32_t msm_cpp_reset_vbif_and_load_fw(struct cpp_device *cpp_dev)
+{
+	int32_t rc = 0;
+
+	msm_cpp_reset_vbif_clients(cpp_dev);
+
+	rc = cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
+	if (rc < 0)
+		pr_err("Reset and load fw failed %d\n", rc);
+
+	return rc;
+}
+
+int cpp_vbif_error_handler(void *dev, uint32_t vbif_error)
+{
+	struct cpp_device *cpp_dev = NULL;
+
+	if (dev == NULL || vbif_error >= CPP_VBIF_ERROR_MAX) {
+		pr_err("failed: dev %p, vbif error %d\n", dev, vbif_error);
+		return -EINVAL;
+	}
+
+	cpp_dev = (struct cpp_device *) dev;
+
+	/* MMSS_A_CPP_IRQ_STATUS_0 = 0x10 */
+	pr_err("%s: before reset halt... read MMSS_A_CPP_IRQ_STATUS_0 = 0x%x",
+		__func__, msm_camera_io_r(cpp_dev->cpp_hw_base + 0x10));
+
+	pr_err("%s: start reset bus bridge on FD + CPP!\n", __func__);
+	/* MMSS_A_CPP_RST_CMD_0 = 0x8,  firmware reset = 0x3DF77 */
+	msm_camera_io_w(0x3DF77, cpp_dev->cpp_hw_base + 0x8);
+
+	/* MMSS_A_CPP_IRQ_STATUS_0 = 0x10 */
+	pr_err("%s: after reset halt... read MMSS_A_CPP_IRQ_STATUS_0 = 0x%x",
+		__func__, msm_camera_io_r(cpp_dev->cpp_hw_base + 0x10));
+
+	return 0;
 }
 
 static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
@@ -1255,6 +1349,10 @@ static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	CPP_DBG("open %d %pK\n", i, &fh->vfh);
 	cpp_dev->cpp_open_cnt++;
+
+	msm_cpp_vbif_register_error_handler(cpp_dev,
+		VBIF_CLIENT_CPP, cpp_vbif_error_handler);
+
 	if (cpp_dev->cpp_open_cnt == 1) {
 		rc = cpp_init_hardware(cpp_dev);
 		if (rc < 0) {
@@ -1284,6 +1382,7 @@ static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 			rc = -ENOMEM;
 		}
 	}
+
 	mutex_unlock(&cpp_dev->mutex);
 	return 0;
 }
@@ -1383,6 +1482,9 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		}
 	}
 
+	/* unregister vbif error handler */
+	msm_cpp_vbif_register_error_handler(cpp_dev,
+		VBIF_CLIENT_CPP, NULL);
 	mutex_unlock(&cpp_dev->mutex);
 	return 0;
 }
@@ -1641,8 +1743,12 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 	rc = cpp_load_fw(cpp_timer.data.cpp_dev,
 		cpp_timer.data.cpp_dev->fw_name_bin);
 	if (rc) {
-		pr_warn("Firmware loading failed\n");
-		goto error;
+		pr_warn("Firmware loading failed-retry\n");
+		rc = msm_cpp_reset_vbif_and_load_fw(cpp_dev);
+		if (rc < 0) {
+			pr_err("Firmware loading failed\n");
+			goto error;
+		}
 	} else {
 		pr_debug("Firmware loading done\n");
 	}
@@ -2807,15 +2913,14 @@ static int msm_cpp_validate_input(unsigned int cmd, void *arg,
 		break;
 	default: {
 		if (ioctl_ptr == NULL) {
-			pr_err("Wrong ioctl_ptr %pK for cmd %u\n",
-				ioctl_ptr, cmd);
+			pr_err("Wrong ioctl_ptr for cmd %u\n", cmd);
 			return -EINVAL;
 		}
 
 		*ioctl_ptr = arg;
 		if ((*ioctl_ptr == NULL) ||
 			((*ioctl_ptr)->ioctl_ptr == NULL)) {
-			pr_err("Wrong arg %pK for cmd %u\n", arg, cmd);
+			pr_err("Error invalid ioctl argument cmd %u", cmd);
 			return -EINVAL;
 		}
 		break;
@@ -2926,11 +3031,14 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			msm_camera_enable_irq(cpp_dev->irq, false);
 			rc = cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
 			if (rc < 0) {
-				pr_err("%s: load firmware failure %d\n",
+				pr_err("%s: load firmware failure %d-retry\n",
 					__func__, rc);
-				enable_irq(cpp_dev->irq->start);
-				mutex_unlock(&cpp_dev->mutex);
-				return rc;
+				rc = msm_cpp_reset_vbif_and_load_fw(cpp_dev);
+				if (rc < 0) {
+					enable_irq(cpp_dev->irq->start);
+					mutex_unlock(&cpp_dev->mutex);
+					return rc;
+				}
 			}
 			rc = msm_cpp_fw_version(cpp_dev);
 			if (rc < 0) {
@@ -4195,6 +4303,8 @@ static int cpp_probe(struct platform_device *pdev)
 	spin_lock_init(&cpp_timer.data.processed_frame_lock);
 
 	cpp_dev->pdev = pdev;
+	memset(&cpp_vbif, 0, sizeof(struct msm_cpp_vbif_data));
+	cpp_dev->vbif_data = &cpp_vbif;
 
 	cpp_dev->camss_cpp_base =
 		msm_camera_get_reg_base(pdev, "camss_cpp", true);

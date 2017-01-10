@@ -1,0 +1,58 @@
+Qualcomm Technologies Inc Global Clock Debug Controller Binding
+---------------------------------------------------------------
+
+Required properties :
+- compatible:	shall contain the following:
+			"qcom,gcc-debug-sdm660"
+
+- reg:		shall contain global clock controller
+	        base register offset location and length.
+- reg-name:	"dbg_offset"
+- #clock-cells:	shall contain 1
+- qcom,cc-count: shall contain a non-zero value(min 1). This
+		 indicates the number of debug clock controllers
+		 available.
+- clocks:	XO clock phandle.
+- clock-names:  Name of the clock.
+- qcom,gcc:	The syscon phandle for GCC clock controller.
+
+Optional properties :
+In the case where "qcom,cc-count" is > 1, the below needs to be defined.
+- qcom,gpu : The syscon phandle for Graphics debug controller.
+- qcom,cpu : The syscon phandle for CPU debug controller.
+- qcom,mmss : The syscon phandle for Multimedia debug controller.
+
+Example:
+	clock_gcc: clock-controller@100000 {
+		compatible = "qcom,gcc-sdm660", "syscon";
+		....
+	};
+
+	cpu_debug: syscon@1791101c {
+		compatible = "syscon";
+		reg = <0x1791101c 0x4>;
+	};
+
+	gpu_debug: syscon@5065120 {
+		compatible = "syscon";
+		reg = <0x5065120 0x4>;
+	};
+
+	mmss_debug: syscon@c8c0900 {
+		compatible = "syscon";
+		reg = <0xc8c0900 0x4>;
+	};
+
+	clock_debug: qcom,cc-debug@62000 {
+		compatible = "qcom,gcc-debug-sdm660";
+		reg = <0x62000 0x4>;
+		reg-names = "cc_offset";
+		clocks = <&clock_rpmcc  RPM_XO_CLK_SRC>;
+		clock-names = "xo_clk_src";
+		qcom,cc-count = <4>;
+		qcom,gcc = <&clock_gcc>;
+		qcom,cpu = <&cpu_debug>;
+		qcom,gpu = <&gpu_debug>;
+		qcom,mmss = <&mmss_debug>;
+		#clock-cells = <1>;
+	};

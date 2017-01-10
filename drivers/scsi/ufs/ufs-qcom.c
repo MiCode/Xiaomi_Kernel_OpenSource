@@ -99,13 +99,10 @@ static int ufs_qcom_host_clk_get(struct device *dev,
 	int err = 0;
 
 	clk = devm_clk_get(dev, name);
-	if (IS_ERR(clk)) {
+	if (IS_ERR(clk))
 		err = PTR_ERR(clk);
-		dev_err(dev, "%s: failed to get %s err %d",
-				__func__, name, err);
-	} else {
+	else
 		*clk_out = clk;
-	}
 
 	return err;
 }
@@ -184,20 +181,29 @@ static int ufs_qcom_init_lane_clks(struct ufs_qcom_host *host)
 
 	err = ufs_qcom_host_clk_get(dev,
 			"rx_lane0_sync_clk", &host->rx_l0_sync_clk);
-	if (err)
+	if (err) {
+		dev_err(dev, "%s: failed to get rx_lane0_sync_clk, err %d",
+				__func__, err);
 		goto out;
+	}
 
 	err = ufs_qcom_host_clk_get(dev,
 			"tx_lane0_sync_clk", &host->tx_l0_sync_clk);
-	if (err)
+	if (err) {
+		dev_err(dev, "%s: failed to get tx_lane0_sync_clk, err %d",
+				__func__, err);
 		goto out;
+	}
 
 	/* In case of single lane per direction, don't read lane1 clocks */
 	if (host->hba->lanes_per_direction > 1) {
 		err = ufs_qcom_host_clk_get(dev, "rx_lane1_sync_clk",
 			&host->rx_l1_sync_clk);
-		if (err)
+		if (err) {
+			dev_err(dev, "%s: failed to get rx_lane1_sync_clk, err %d",
+					__func__, err);
 			goto out;
+		}
 
 		/* The tx lane1 clk could be muxed, hence keep this optional */
 		ufs_qcom_host_clk_get(dev, "tx_lane1_sync_clk",

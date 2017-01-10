@@ -1206,7 +1206,8 @@ static void __overlay_pipe_cleanup(struct msm_fb_data_type *mfd,
  * and cleaned up. Also cleanup of any pipe buffers after flip.
  */
 static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
-		struct list_head *destroy_pipes)
+		struct list_head *destroy_pipes,
+		bool locked)
 {
 	struct mdss_mdp_pipe *pipe, *tmp;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
@@ -1215,7 +1216,8 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 	bool skip_fetch_halt, pair_found;
 	struct mdss_mdp_data *buf, *tmpbuf;
 
-	mutex_lock(&mdp5_data->list_lock);
+	if (!locked)
+		mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry(pipe, destroy_pipes, list) {
 		pair_found = false;
 		skip_fetch_halt = false;
@@ -1292,7 +1294,8 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 				ctl->mixer_right->next_pipe_map &= ~pipe->ndx;
 		}
 	}
-	mutex_unlock(&mdp5_data->list_lock);
+	if (!locked)
+		mutex_unlock(&mdp5_data->list_lock);
 }
 
 void mdss_mdp_handoff_cleanup_pipes(struct msm_fb_data_type *mfd,
@@ -1928,8 +1931,7 @@ static void __restore_pipe(struct mdss_mdp_pipe *pipe)
 }
 
  /**
- * __crop_adjust_pipe_rect() - Adjust pipe roi for dual partial
- *   update feature.
+ * __adjust_pipe_rect() - Adjust pipe roi for dual partial update feature.
  * @pipe: pipe to check against.
  * @dual_roi: roi's for the dual partial roi.
  *
@@ -1937,53 +1939,54 @@ static void __restore_pipe(struct mdss_mdp_pipe *pipe)
  * by merging the two width aligned ROIs (first_roi and
  * second_roi) vertically. So, the y-offset of all the
  * pipes belonging to the second_roi needs to adjusted
- * accordingly. Also the cropping of the pipe's src/dst
- * rect has to be done with respect to the ROI the pipe
- * is intersecting with, before the adjustment.
+ * accordingly. Also check, if the pipe dest rect is
+ * totally within first or second ROI.
  */
-static int __crop_adjust_pipe_rect(struct mdss_mdp_pipe *pipe,
+static int __adjust_pipe_rect(struct mdss_mdp_pipe *pipe,
 		struct mdss_dsi_dual_pu_roi *dual_roi)
 {
 	u32 adjust_h;
-	u32 roi_y_pos;
 	int ret = 0;
+	struct mdss_rect res_rect;
 
 	if (mdss_rect_overlap_check(&pipe->dst, &dual_roi->first_roi)) {
-		mdss_mdp_crop_rect(&pipe->src, &pipe->dst,
-				&dual_roi->first_roi, false);
-		pipe->restore_roi = true;
+		mdss_mdp_intersect_rect(&res_rect, &pipe->dst,
+				&dual_roi->first_roi);
+		if (!mdss_rect_cmp(&res_rect, &pipe->dst)) {
+			ret = -EINVAL;
+			goto end;
+		}
 
 	} else if (mdss_rect_overlap_check(&pipe->dst, &dual_roi->second_roi)) {
-		mdss_mdp_crop_rect(&pipe->src, &pipe->dst,
-				&dual_roi->second_roi, false);
-		adjust_h =  dual_roi->second_roi.y;
-		roi_y_pos = dual_roi->first_roi.y + dual_roi->first_roi.h;
-
-		if (adjust_h > roi_y_pos) {
-			adjust_h = adjust_h - roi_y_pos;
-			pipe->dst.y -= adjust_h;
-		} else {
-			pr_err("wrong y-pos adjust_y:%d roi_y_pos:%d\n",
-				adjust_h, roi_y_pos);
+		mdss_mdp_intersect_rect(&res_rect, &pipe->dst,
+				&dual_roi->second_roi);
+		if (!mdss_rect_cmp(&res_rect, &pipe->dst)) {
 			ret = -EINVAL;
+			goto end;
 		}
+
+		adjust_h = dual_roi->second_roi.y -
+				(dual_roi->first_roi.y + dual_roi->first_roi.h);
+		pipe->dst.y -= adjust_h;
 		pipe->restore_roi = true;
 
 	} else {
 		ret = -EINVAL;
+		goto end;
 	}
 
-	pr_debug("crop/adjusted p:%d src:{%d,%d,%d,%d} dst:{%d,%d,%d,%d} r:%d\n",
+	pr_debug("adjusted p:%d src:{%d,%d,%d,%d} dst:{%d,%d,%d,%d} r:%d\n",
 		pipe->num, pipe->src.x, pipe->src.y,
 		pipe->src.w, pipe->src.h, pipe->dst.x,
 		pipe->dst.y, pipe->dst.w, pipe->dst.h,
 		pipe->restore_roi);
 
+end:
 	if (ret) {
-		pr_err("dual roi error p%d dst{%d,%d,%d,%d}",
-			pipe->num, pipe->dst.x, pipe->dst.y, pipe->dst.w,
-			pipe->dst.h);
-		pr_err(" roi1{%d,%d,%d,%d} roi2{%d,%d,%d,%d}\n",
+		pr_err("pipe:%d dst:{%d,%d,%d,%d} - not cropped for any PU ROI",
+			pipe->num, pipe->dst.x, pipe->dst.y,
+			pipe->dst.w, pipe->dst.h);
+		pr_err("ROI0:{%d,%d,%d,%d} ROI1:{%d,%d,%d,%d}\n",
 			dual_roi->first_roi.x, dual_roi->first_roi.y,
 			dual_roi->first_roi.w, dual_roi->first_roi.h,
 			dual_roi->second_roi.x, dual_roi->second_roi.y,
@@ -2106,7 +2109,7 @@ static void __validate_and_set_roi(struct msm_fb_data_type *mfd,
 			pipe->dst.y, pipe->dst.w, pipe->dst.h);
 
 		if (dual_roi->enabled) {
-			if (__crop_adjust_pipe_rect(pipe, dual_roi)) {
+			if (__adjust_pipe_rect(pipe, dual_roi)) {
 				skip_partial_update = true;
 				break;
 			}
@@ -2114,7 +2117,7 @@ static void __validate_and_set_roi(struct msm_fb_data_type *mfd,
 
 		if (!__is_roi_valid(pipe, &l_roi, &r_roi)) {
 			skip_partial_update = true;
-			pr_err("error. invalid pu config for pipe%d: %d,%d,%d,%d, dual_pu_roi:%d\n",
+			pr_err("error. invalid pu config for pipe:%d dst:{%d,%d,%d,%d} dual_pu_roi:%d\n",
 				pipe->num, pipe->dst.x, pipe->dst.y,
 				pipe->dst.w, pipe->dst.h,
 				dual_roi->enabled);
@@ -2207,6 +2210,13 @@ static int __overlay_secure_ctrl(struct msm_fb_data_type *mfd)
 			/*wait for ping pong done */
 			if (ctl->ops.wait_pingpong)
 				mdss_mdp_display_wait4pingpong(ctl, true);
+			/*
+			 * unmap the previous commit buffers before
+			 * transitioning to secure state
+			 */
+			mdss_mdp_overlay_cleanup(mfd,
+					&mdp5_data->pipes_destroy,
+					true);
 			ret = mdss_mdp_secure_session_ctrl(1,
 					MDP_SECURE_DISPLAY_OVERLAY_SESSION);
 			if (ret) {
@@ -2278,7 +2288,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	int ret = 0;
 	struct mdss_mdp_commit_cb commit_cb;
 
-	if (!ctl)
+	if (!ctl || !ctl->mixer_left)
 		return -ENODEV;
 
 	ATRACE_BEGIN(__func__);
@@ -2308,11 +2318,6 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	}
 
 	mutex_lock(&mdp5_data->list_lock);
-	ret = __overlay_secure_ctrl(mfd);
-	if (IS_ERR_VALUE(ret)) {
-		pr_err("secure operation failed %d\n", ret);
-		goto commit_fail;
-	}
 
 	if (!ctl->shared_lock)
 		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_BEGIN);
@@ -2320,21 +2325,27 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
 	mdss_mdp_check_ctl_reset_status(ctl);
-	__vsync_set_vsync_handler(mfd);
 	__validate_and_set_roi(mfd, data);
 
 	if (ctl->ops.wait_pingpong && mdp5_data->mdata->serialize_wait4pp)
 		mdss_mdp_display_wait4pingpong(ctl, true);
 
-	/*
-	 * Setup pipe in solid fill before unstaging,
-	 * to ensure no fetches are happening after dettach or reattach.
-	 */
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_cleanup, list) {
 		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_right);
 		pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
 		list_move(&pipe->list, &mdp5_data->pipes_destroy);
+	}
+
+	/*
+	 * go to secure state if required, this should be done
+	 * after moving the buffers from the previous commit to
+	 * destroy list
+	 */
+	ret = __overlay_secure_ctrl(mfd);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("secure operation failed %d\n", ret);
+		goto commit_fail;
 	}
 
 	/* call this function before any registers programming */
@@ -2362,6 +2373,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 			&commit_cb);
 		ATRACE_END("display_commit");
 	}
+	__vsync_set_vsync_handler(mfd);
 
 	/*
 	 * release the commit pending flag; we are releasing this flag
@@ -2405,7 +2417,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mdss_fb_update_notify_update(mfd);
 commit_fail:
 	ATRACE_BEGIN("overlay_cleanup");
-	mdss_mdp_overlay_cleanup(mfd, &mdp5_data->pipes_destroy);
+	mdss_mdp_overlay_cleanup(mfd, &mdp5_data->pipes_destroy, false);
 	ATRACE_END("overlay_cleanup");
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_FLUSHED);
@@ -3216,6 +3228,7 @@ int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
 		pr_warn("Unsupported FPS. Configuring to max_fps = %d\n",
 				pdata->panel_info.max_fps);
 		dfps = pdata->panel_info.max_fps;
+		dfps_data->fps = dfps;
 	}
 
 	dfps_update_panel_params(pdata, dfps_data);
@@ -5860,10 +5873,24 @@ __vsync_retire_get_fence(struct msm_sync_pt_data *sync_pt_data)
 static void __cwb_wq_handler(struct work_struct *cwb_work)
 {
 	struct mdss_mdp_cwb *cwb = NULL;
+	struct mdss_mdp_wb_data *cwb_data = NULL;
 
 	cwb = container_of(cwb_work, struct mdss_mdp_cwb, cwb_work);
 	blocking_notifier_call_chain(&cwb->notifier_head,
 			MDP_NOTIFY_FRAME_DONE, NULL);
+
+	/* free the buffer from cleanup queue */
+	mutex_lock(&cwb->queue_lock);
+	cwb_data = list_first_entry_or_null(&cwb->cleanup_queue,
+			struct mdss_mdp_wb_data, next);
+	 __list_del_entry(&cwb_data->next);
+	mutex_unlock(&cwb->queue_lock);
+	if (cwb_data == NULL) {
+		pr_err("no output buffer for cwb cleanup\n");
+		return;
+	}
+	mdss_mdp_data_free(&cwb_data->data, true, DMA_FROM_DEVICE);
+	kfree(cwb_data);
 }
 
 static int __vsync_set_vsync_handler(struct msm_fb_data_type *mfd)
@@ -6094,6 +6121,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mutex_init(&mdp5_data->cwb.queue_lock);
 	mutex_init(&mdp5_data->cwb.cwb_sync_pt_data.sync_mutex);
 	INIT_LIST_HEAD(&mdp5_data->cwb.data_queue);
+	INIT_LIST_HEAD(&mdp5_data->cwb.cleanup_queue);
 
 	snprintf(timeline_name, sizeof(timeline_name), "cwb%d", mfd->index);
 	mdp5_data->cwb.cwb_sync_pt_data.fence_name = "cwb-fence";

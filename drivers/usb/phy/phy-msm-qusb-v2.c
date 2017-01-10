@@ -50,6 +50,7 @@
 #define DPSE_INTERRUPT			BIT(0)
 
 #define QUSB2PHY_PORT_TUNE1		0x23c
+#define QUSB2PHY_TEST1			0x24C
 
 #define QUSB2PHY_1P2_VOL_MIN           1200000 /* uV */
 #define QUSB2PHY_1P2_VOL_MAX           1200000 /* uV */
@@ -600,7 +601,8 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				readl_relaxed(qphy->base +
 					QUSB2PHY_PLL_ANALOG_CONTROLS_TWO);
 
-			writel_relaxed(0x1b,
+			/* use CSR & switch to SE clk */
+			writel_relaxed(0xb,
 				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_TWO);
 
 			/* enable clock bypass */
@@ -629,6 +631,14 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 
 			writel_relaxed(intr_mask,
 				qphy->base + QUSB2PHY_INTR_CTRL);
+
+			/* enable phy auto-resume */
+			writel_relaxed(0x91,
+					qphy->base + QUSB2PHY_TEST1);
+			/* flush the previous write before next write */
+			wmb();
+			writel_relaxed(0x90,
+				qphy->base + QUSB2PHY_TEST1);
 
 			dev_dbg(phy->dev, "%s: intr_mask = %x\n",
 			__func__, intr_mask);
@@ -1047,6 +1057,9 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	ret = qusb_phy_regulator_init(qphy);
 	if (ret)
 		usb_remove_phy(&qphy->phy);
+
+	/* de-asseert clamp dig n to reduce leakage on 1p8 upon boot up */
+	writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
 
 	return ret;
 }

@@ -15,13 +15,15 @@ Required properties:
 -qcom,spss-fuse-bit: fuse relevant bit
 -qcom,spss-test-firmware-name: test firmware file name
 -qcom,spss-prod-firmware-name: production firmware file name
+-qcom,spss-debug-reg-addr: debug register physical address
 
 Example:
    qcom,spss_utils {
       compatible = "qcom,spss-utils";
 
-      qcom,spss-fuse-addr = <0x007841c4 0x4>;   /* spss test fuse physical address */
+      qcom,spss-fuse-addr = <0x007841c4>;   /* spss test fuse physical address */
       qcom,spss-fuse-bit = <27>;
       qcom,spss-test-firmware-name = "spss1t";  /* 8 chars max */
       qcom,spss-prod-firmware-name = "spss1p";  /* 8 chars max */
+      qcom,spss-debug-reg-addr = <0x01d06020>;
    };

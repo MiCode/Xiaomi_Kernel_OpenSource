@@ -701,7 +701,12 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			if (qphy->tcsr_clamp_dig_n)
 				writel_relaxed(0x0,
 					qphy->tcsr_clamp_dig_n);
-			qusb_phy_enable_power(qphy, false);
+			/* Do not disable power rails if there is vote for it */
+			if (!qphy->rm_pulldown)
+				qusb_phy_enable_power(qphy, false);
+			else
+				dev_dbg(phy->dev, "race with rm_pulldown. Keep ldo ON\n");
+
 			/*
 			 * Set put_into_high_z_state to true so next USB
 			 * cable connect, DPF_DMF request performs PHY
@@ -1087,6 +1092,10 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	ret = qusb_phy_regulator_init(qphy);
 	if (ret)
 		usb_remove_phy(&qphy->phy);
+
+	/* de-assert clamp dig n to reduce leakage on 1p8 upon boot up */
+	if (qphy->tcsr_clamp_dig_n)
+		writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
 
 	return ret;
 }

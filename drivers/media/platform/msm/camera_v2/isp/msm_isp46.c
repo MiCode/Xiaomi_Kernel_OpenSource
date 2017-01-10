@@ -1945,6 +1945,8 @@ struct msm_vfe_hardware_info vfe46_hw_info = {
 			.ahb_clk_cfg = NULL,
 			.set_halt_restart_mask =
 				msm_vfe46_set_halt_restart_mask,
+			.set_bus_err_ign_mask = NULL,
+			.get_bus_err_mask = NULL,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe46_get_stats_idx,

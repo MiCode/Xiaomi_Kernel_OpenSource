@@ -8017,11 +8017,10 @@ struct asm_eq_params {
 /*	Band cut equalizer effect.*/
 #define ASM_PARAM_EQ_BAND_CUT       6
 
-/* Voice get & set params */
-#define VOICE_CMD_SET_PARAM				0x0001133D
-#define VOICE_CMD_GET_PARAM				0x0001133E
-#define VOICE_EVT_GET_PARAM_ACK				0x00011008
-
+/* Get & set params */
+#define VSS_ICOMMON_CMD_SET_PARAM_V2	0x0001133D
+#define VSS_ICOMMON_CMD_GET_PARAM_V2	0x0001133E
+#define VSS_ICOMMON_RSP_GET_PARAM	0x00011008
 
 /** ID of the Bass Boost module.
     This module supports the following parameter IDs:

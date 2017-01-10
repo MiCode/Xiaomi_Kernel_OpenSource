@@ -2974,11 +2974,6 @@ struct usbpd *usbpd_create(struct device *parent)
 		goto destroy_wq;
 	}
 
-	pd->psy_nb.notifier_call = psy_changed;
-	ret = power_supply_reg_notifier(&pd->psy_nb);
-	if (ret)
-		goto put_psy;
-
 	/*
 	 * associate extcon with the parent dev as it could have a DT
 	 * node which will be useful for extcon_get_edev_by_phandle()
@@ -2987,26 +2982,26 @@ struct usbpd *usbpd_create(struct device *parent)
 	if (IS_ERR(pd->extcon)) {
 		usbpd_err(&pd->dev, "failed to allocate extcon device\n");
 		ret = PTR_ERR(pd->extcon);
-		goto unreg_psy;
+		goto put_psy;
 	}
 
 	pd->extcon->mutually_exclusive = usbpd_extcon_exclusive;
 	ret = devm_extcon_dev_register(parent, pd->extcon);
 	if (ret) {
 		usbpd_err(&pd->dev, "failed to register extcon device\n");
-		goto unreg_psy;
+		goto put_psy;
 	}
 
 	pd->vbus = devm_regulator_get(parent, "vbus");
 	if (IS_ERR(pd->vbus)) {
 		ret = PTR_ERR(pd->vbus);
-		goto unreg_psy;
+		goto put_psy;
 	}
 
 	pd->vconn = devm_regulator_get(parent, "vconn");
 	if (IS_ERR(pd->vconn)) {
 		ret = PTR_ERR(pd->vconn);
-		goto unreg_psy;
+		goto put_psy;
 	}
 
 	pd->vconn_is_external = device_property_present(parent,
@@ -3031,7 +3026,7 @@ struct usbpd *usbpd_create(struct device *parent)
 			&pd->dr_desc);
 	if (IS_ERR(pd->dual_role)) {
 		usbpd_err(&pd->dev, "could not register dual_role instance\n");
-		goto unreg_psy;
+		goto put_psy;
 	} else {
 		pd->dual_role->drv_data = pd;
 	}
@@ -3045,13 +3040,18 @@ struct usbpd *usbpd_create(struct device *parent)
 	INIT_LIST_HEAD(&pd->svid_handlers);
 	init_completion(&pd->swap_complete);
 
+	pd->psy_nb.notifier_call = psy_changed;
+	ret = power_supply_reg_notifier(&pd->psy_nb);
+	if (ret)
+		goto del_inst;
+
 	/* force read initial power_supply values */
 	psy_changed(&pd->psy_nb, PSY_EVENT_PROP_CHANGED, pd->usb_psy);
 
 	return pd;
 
-unreg_psy:
-	power_supply_unreg_notifier(&pd->psy_nb);
+del_inst:
+	list_del(&pd->instance);
 put_psy:
 	power_supply_put(pd->usb_psy);
 destroy_wq:

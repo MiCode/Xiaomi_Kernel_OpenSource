@@ -98,6 +98,8 @@ static unsigned long lowmem_count(struct shrinker *s,
 
 static atomic_t shift_adj = ATOMIC_INIT(0);
 static short adj_max_shift = 353;
+module_param_named(adj_max_shift, adj_max_shift, short,
+                   S_IRUGO | S_IWUSR);
 
 /* User knob to enable/disable adaptive lmk feature */
 static int enable_adaptive_lmk;
@@ -177,6 +179,11 @@ static int lmk_vmpressure_notifier(struct notifier_block *nb,
 			trace_almk_vmpressure(pressure, other_free, other_file);
 		}
 	} else if (atomic_read(&shift_adj)) {
+		other_file = global_page_state(NR_FILE_PAGES) + zcache_pages() -
+			global_page_state(NR_SHMEM) -
+			total_swapcache_pages();
+		other_free = global_page_state(NR_FREE_PAGES);
+
 		/*
 		 * shift_adj would have been set by a previous invocation
 		 * of notifier, which is not followed by a lowmem_shrink yet.

@@ -28,13 +28,13 @@ Optional properties for WLED:
 - qcom,vref-uv		: maximum reference voltage in uV.
 			  For pmi8994/8952/8996, supported values are from 300000 to 675000
 			  with a step size of 25000, the default value is 350000.
-			  For pmi8998/pm2falcon, supported values are from 60000 to 397500
+			  For pmi8998/pm660l, supported values are from 60000 to 397500
 			  with a step size of 22500, the default value is 127500.
 - qcom,switch-freq-khz	: switch frequency in khz. default is 800.
 - qcom,ovp-mv		: Over voltage protection threshold in mV. Default is
 			  29500. Supported values are:
 			  - 31000, 29500, 19400, 17800 for pmi8994/8952/8996.
-			  - 31100, 29600, 19600, 18100 for pmi8998/pm2falcon.
+			  - 31100, 29600, 19600, 18100 for pmi8998/pm660l.
 			  Should only be used if qcom,disp-type-amoled is not
 			  specified.
 - qcom,ilim-ma		: Current limit threshold in mA.
@@ -42,7 +42,7 @@ Optional properties for WLED:
 			  and AMOLED is 385mA.
 			  Supported values are:
 			  - 105, 385, 660, 980, 1150, 1420, 1700, 1980.
-			  For pmi8998/pm2falcon, default value for LCD is
+			  For pmi8998/pm660l, default value for LCD is
 			  970mA and AMOLED is 620mA.
 			  Supported values are:
 			  - 105, 280, 450, 620, 970, 1150, 1300, 1500.
@@ -81,7 +81,7 @@ Optional properties if 'qcom,disp-type-amoled' is mentioned in DT:
 - qcom,vref-psm-mv	: reference psm voltage in mv. default for amoled is 450.
 - qcom,avdd-mode-spmi: Boolean property to enable AMOLED_VOUT programming via SPMI. If not specified,
 			AMOLED_VOUT is programmed via S-wire. This can be specified only for newer
-			PMICs like pmi8998/pm2falcon.
+			PMICs like pmi8998/pm660l.
 - qcom,avdd-target-voltage-mv: The voltage required for AMOLED_VOUT. Accepted values are in the range
 				of 5650 to 7900 in steps of 150. Default value is 7600. Unit is in mV.
 				For old revisions, accepted values are: 7900, 7600, 7300, 6400, 6100,

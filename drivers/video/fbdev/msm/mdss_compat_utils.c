@@ -225,6 +225,7 @@ static struct mdp_input_layer *__create_layer_list(
 		layer->transp_mask = layer32->transp_mask;
 		layer->bg_color = layer32->bg_color;
 		layer->blend_op = layer32->blend_op;
+		layer->color_space = layer32->color_space;
 		layer->src_rect = layer32->src_rect;
 		layer->dst_rect = layer32->dst_rect;
 		layer->buffer = layer32->buffer;
@@ -312,6 +313,8 @@ static int __compat_atomic_commit(struct fb_info *info, unsigned int cmd,
 		ret = -EFAULT;
 		return ret;
 	}
+
+	memset(&commit, 0, sizeof(struct mdp_layer_commit));
 	__copy_atomic_commit_struct(&commit, &commit32);
 
 	if (commit32.commit_v1.output_layer) {
@@ -846,6 +849,7 @@ static int __from_user_pcc_coeff_v17(
 		return -EFAULT;
 	}
 
+	memset(&pcc_cfg_payload, 0, sizeof(pcc_cfg_payload));
 	pcc_cfg_payload.r.b = pcc_cfg_payload32.r.b;
 	pcc_cfg_payload.r.g = pcc_cfg_payload32.r.g;
 	pcc_cfg_payload.r.c = pcc_cfg_payload32.r.c;
@@ -1127,6 +1131,8 @@ static int __from_user_igc_lut_data_v17(
 		pr_err("failed to copy payload from user for igc\n");
 		return -EFAULT;
 	}
+
+	memset(&igc_cfg_payload, 0, sizeof(igc_cfg_payload));
 	igc_cfg_payload.c0_c1_data = compat_ptr(igc_cfg_payload_32.c0_c1_data);
 	igc_cfg_payload.c2_data = compat_ptr(igc_cfg_payload_32.c2_data);
 	igc_cfg_payload.len = igc_cfg_payload_32.len;
@@ -1261,6 +1267,7 @@ static int __from_user_pgc_lut_data_v1_7(
 		pr_err("failed to copy from user the pgc32 payload\n");
 		return -EFAULT;
 	}
+	memset(&pgc_cfg_payload, 0, sizeof(pgc_cfg_payload));
 	pgc_cfg_payload.c0_data = compat_ptr(pgc_cfg_payload_32.c0_data);
 	pgc_cfg_payload.c1_data = compat_ptr(pgc_cfg_payload_32.c1_data);
 	pgc_cfg_payload.c2_data = compat_ptr(pgc_cfg_payload_32.c2_data);
@@ -1470,6 +1477,7 @@ static int __from_user_hist_lut_data_v1_7(
 		return -EFAULT;
 	}
 
+	memset(&hist_lut_cfg_payload, 0, sizeof(hist_lut_cfg_payload));
 	hist_lut_cfg_payload.len = hist_lut_cfg_payload32.len;
 	hist_lut_cfg_payload.data = compat_ptr(hist_lut_cfg_payload32.data);
 
@@ -2024,6 +2032,7 @@ static int __from_user_pa_data_v1_7(
 		return -EFAULT;
 	}
 
+	memset(&pa_cfg_payload, 0, sizeof(pa_cfg_payload));
 	pa_cfg_payload.mode = pa_cfg_payload32.mode;
 	pa_cfg_payload.global_hue_adj = pa_cfg_payload32.global_hue_adj;
 	pa_cfg_payload.global_sat_adj = pa_cfg_payload32.global_sat_adj;
@@ -2280,6 +2289,8 @@ static int __from_user_gamut_cfg_data_v17(
 		pr_err("failed to copy the gamut payload from userspace\n");
 		return -EFAULT;
 	}
+
+	memset(&gamut_cfg_payload, 0, sizeof(gamut_cfg_payload));
 	gamut_cfg_payload.mode = gamut_cfg_payload32.mode;
 	for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
 		gamut_cfg_payload.tbl_size[i] =

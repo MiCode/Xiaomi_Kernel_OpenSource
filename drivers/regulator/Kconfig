@@ -835,6 +835,15 @@ config REGULATOR_QPNP_LCDB
 	  negative voltage bias for the LCD display panel. It also
 	  allows configurability for the various bias-voltage parameters.
 
+config REGULATOR_QPNP_OLEDB
+	depends on SPMI
+	tristate "Qualcomm Technologies, Inc QPNP OLEDB regulator support"
+	help
+	  This driver supports the OLEDB(AVDD bias) signal for AMOLED panel in Qualcomm
+	  Technologies, Inc QPNP PMIC. It exposes the OLED voltage configuration
+	  via the regulator framework. The configurable range of this bias is
+	  5V to 8.1V.
+
 config REGULATOR_SPM
 	bool "SPM regulator driver"
 	depends on SPMI
@@ -924,6 +933,17 @@ config REGULATOR_CPRH_KBSS
 	  CPRh controllers which monitor the two KBSS clusters each powered by
 	  independent voltage supplies. This driver reads both initial voltage
 	  and CPR target quotient values out of hardware fuses.
+
+config REGULATOR_CPR4_MMSS_LDO
+	bool "RBCPR3 regulator for MMSS LDO"
+	depends on OF
+	select REGULATOR_CPR3
+	help
+	  This driver supports Qualcomm Technologies, Inc. MMSS graphics
+	  processor specific features.  The MMSS CPR3 controller only uses one
+	  thread to monitor the MMSS LDO voltage requirements. This driver reads
+	  initial voltage values out of hardware fuses and CPR target quotient
+	  values out of device tree.
 
 config REGULATOR_KRYO
 	bool "Kryo regulator driver"

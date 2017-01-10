@@ -157,6 +157,15 @@ int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 }
 EXPORT_SYMBOL(msm_ion_do_cache_op);
 
+int msm_ion_do_cache_offset_op(
+		struct ion_client *client, struct ion_handle *handle,
+		void *vaddr, unsigned int offset, unsigned long len,
+		unsigned int cmd)
+{
+	return ion_do_cache_op(client, handle, vaddr, offset, len, cmd);
+}
+EXPORT_SYMBOL(msm_ion_do_cache_offset_op);
+
 static int ion_no_pages_cache_ops(struct ion_client *client,
 			struct ion_handle *handle,
 			void *vaddr,
@@ -305,13 +314,23 @@ static int ion_pages_cache_ops(struct ion_client *client,
 	};
 
 	for_each_sg(table->sgl, sg, table->nents, i) {
+		unsigned int sg_offset, sg_left, size = 0;
+
 		len += sg->length;
-		if (len < offset)
+		if (len <= offset)
 			continue;
 
-		__do_cache_ops(sg_page(sg), sg->offset, sg->length, op);
+		sg_left = len - offset;
+		sg_offset = sg->length - sg_left;
 
-		if (len > length + offset)
+		size = (length < sg_left) ? length : sg_left;
+
+		__do_cache_ops(sg_page(sg), sg_offset, size, op);
+
+		offset += size;
+		length -= size;
+
+		if (length == 0)
 			break;
 	}
 	return 0;

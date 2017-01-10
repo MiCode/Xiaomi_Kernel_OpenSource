@@ -933,17 +933,18 @@ int mdss_mdp_smp_handoff(struct mdss_data_type *mdata)
 		data = readl_relaxed(mdata->mdp_base +
 			MDSS_MDP_REG_SMP_ALLOC_W0 + off);
 		client_id = (data >> s) & 0xFF;
-		if (test_bit(i, mdata->mmb_alloc_map)) {
-			/*
-			 * Certain pipes may have a dedicated set of
-			 * SMP MMBs statically allocated to them. In
-			 * such cases, we do not need to do anything
-			 * here.
-			 */
-			pr_debug("smp mmb %d already assigned to pipe %d (client_id %d)\n"
-				, i, pipe ? pipe->num : -1, client_id);
-			continue;
-		}
+		if (i < ARRAY_SIZE(mdata->mmb_alloc_map))
+			if (test_bit(i, mdata->mmb_alloc_map)) {
+				/*
+				 * Certain pipes may have a dedicated set of
+				 * SMP MMBs statically allocated to them. In
+				 * such cases, we do not need to do anything
+				 * here.
+				 */
+				pr_debug("smp mmb %d already assigned to pipe %d (client_id %d)\n"
+					, i, pipe ? pipe->num : -1, client_id);
+				continue;
+			}
 
 		if (client_id) {
 			if (client_id != prev_id) {

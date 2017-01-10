@@ -1,0 +1,125 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "msm8998-v2.1-interposer-sdm660.dtsi"
+#include "msm8998-camera-sensor-mtp.dtsi"
+
+/ {
+	bluetooth: bt_wcn3990 {
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-core-supply = <&pm660_l9_pin_ctrl>;
+		qca,bt-vdd-pa-supply = <&pm660_l6_pin_ctrl>;
+		qca,bt-vdd-ldo-supply = <&pm660_l19_pin_ctrl>;
+		qca,bt-chip-pwd-supply = <&pm660l_bob_pin1>;
+		clocks = <&clock_gcc clk_rf_clk1>;
+		clock-names = "rf_clk1";
+
+		qca,bt-vdd-core-voltage-level = <1800000 1900000>;
+		qca,bt-vdd-pa-voltage-level = <1304000 1370000>;
+		qca,bt-vdd-ldo-voltage-level = <3312000 3400000>;
+		qca,bt-chip-pwd-voltage-level = <3600000 3600000>;
+
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-ldo-current-level = <1>; /* LPM/PFM */
+	};
+};
+
+&blsp1_uart3_hs {
+	status = "ok";
+};
+
+&uartblsp2dm1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
+};
+
+&ufsphy1 {
+	vdda-phy-supply = <&pm660l_l1>;
+	vdda-pll-supply = <&pm660_l1>;
+	vddp-ref-clk-supply = <&pm660_l1>;
+	vdda-phy-max-uv = <925000>;
+	vdda-phy-min-uv = <800000>;
+	vdda-phy-max-microamp = <51400>;
+	vdda-pll-max-microamp = <14600>;
+	vddp-ref-clk-max-microamp = <100>;
+	vddp-ref-clk-always-on;
+	status = "ok";
+};
+
+&ufs1 {
+	vdd-hba-supply = <&gdsc_ufs>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm660l_l4>;
+	vccq2-supply = <&pm660_l8>;
+	vcc-max-microamp = <500000>;
+	vccq2-max-microamp = <600000>;
+	status = "ok";
+};
+
+&ufs_ice {
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm660l_l5>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm660l_l2>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000
+				50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	cd-gpios = <&tlmm 95 0x0>;
+
+	status = "ok";
+};
+
+
+&i2c_5 {
+	status = "okay";
+	synaptics@20 {
+		compatible = "synaptics,dsx";
+		reg = <0x20>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <125 0x2008>;
+		avdd-supply = <&pm660l_l3>;
+		vdd-supply = <&pm660_l11>;
+		synaptics,vdd-voltage = <1880000 1880000>;
+		synaptics,avdd-voltage = <3000000 3008000>;
+		synaptics,vdd-current = <40000>;
+		synaptics,avdd-current = <20000>;
+		/* pins used by touchscreen */
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+			"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend1 &ts_reset_suspend1>;
+		pinctrl-2 = <&ts_release>;
+		synaptics,display-coords = <0 0 1439 2559>;
+		synaptics,panel-coords = <0 0 1439 2779>;
+		synaptics,irq-gpio = <&tlmm 125 0x2008>;
+		synaptics,reset-gpio = <&tlmm 89 0x0>;
+		synaptics,i2c-pull-up;
+		synaptics,disable-gpios;
+		synaptics,button-map = <139 172 158>;
+	};
+};

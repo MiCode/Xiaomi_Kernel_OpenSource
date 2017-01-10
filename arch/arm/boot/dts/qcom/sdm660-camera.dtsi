@@ -1,0 +1,846 @@
+/*
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,msm-cam@ca00000 {
+		compatible = "qcom,msm-cam";
+		reg = <0xca00000 0x4000>;
+		reg-names = "msm-cam";
+		status = "ok";
+		bus-vectors = "suspend", "svs", "nominal", "turbo";
+		qcom,bus-votes = <0 150000000 320000000 320000000>;
+	};
+
+	qcom,csiphy@c824000 {
+		cell-index = <0>;
+		compatible = "qcom,csiphy-v3.5", "qcom,csiphy";
+		reg = <0xc824000 0x1000>;
+		reg-names = "csiphy";
+		interrupts = <0 78 0>;
+		interrupt-names = "csiphy";
+		gdscr-supply = <&gdsc_camss_top>;
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "gdscr", "bimc_smmu";
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss CSI0_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI0_CLK>,
+			<&clock_mmss MMSS_CAMSS_CPHY_CSID0_CLK>,
+			<&clock_mmss CSI0PHYTIMER_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI0PHYTIMER_CLK>,
+			<&clock_mmss MMSS_CAMSS_ISPIF_AHB_CLK>,
+			<&clock_mmss CSIPHY_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSIPHY0_CLK>,
+			<&clock_mmss MMSS_CSIPHY_AHB2CRIF_CLK>;
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
+			"bmic_smmu_ahb", "bmic_smmu_axi",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"csi_src_clk", "csi_clk", "cphy_csid_clk",
+			"csiphy_timer_src_clk", "csiphy_timer_clk",
+			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk",
+			"csiphy_ahb2crif";
+		qcom,clock-rates = <0 0 0 0 0 0 384000000 0 0 269333333 0
+			0 384000000 0 0>;
+		status = "ok";
+	};
+
+	qcom,csiphy@c825000 {
+		cell-index = <1>;
+		compatible = "qcom,csiphy-v3.5", "qcom,csiphy";
+		reg = <0xc825000 0x1000>;
+		reg-names = "csiphy";
+		interrupts = <0 79 0>;
+		interrupt-names = "csiphy";
+		gdscr-supply = <&gdsc_camss_top>;
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "gdscr", "bimc_smmu";
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss CSI1_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI1_CLK>,
+			<&clock_mmss MMSS_CAMSS_CPHY_CSID1_CLK>,
+			<&clock_mmss CSI1PHYTIMER_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI1PHYTIMER_CLK>,
+			<&clock_mmss MMSS_CAMSS_ISPIF_AHB_CLK>,
+			<&clock_mmss CSIPHY_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSIPHY1_CLK>,
+			<&clock_mmss MMSS_CSIPHY_AHB2CRIF_CLK>;
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
+			"bmic_smmu_ahb", "bmic_smmu_axi",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"csi_src_clk", "csi_clk", "cphy_csid_clk",
+			"csiphy_timer_src_clk", "csiphy_timer_clk",
+			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk",
+			"csiphy_ahb2crif";
+		qcom,clock-rates = <0 0 0 0 0 0 384000000 0 0 269333333 0
+			0 384000000 0 0>;
+		status = "ok";
+	};
+
+	qcom,csiphy@c826000 {
+		cell-index = <2>;
+		compatible = "qcom,csiphy-v3.5", "qcom,csiphy";
+		reg = <0xc826000 0x1000>;
+		reg-names = "csiphy";
+		interrupts = <0 80 0>;
+		interrupt-names = "csiphy";
+		gdscr-supply = <&gdsc_camss_top>;
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "gdscr", "bimc_smmu";
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss CSI0_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI2_CLK>,
+			<&clock_mmss MMSS_CAMSS_CPHY_CSID2_CLK>,
+			<&clock_mmss CSI2PHYTIMER_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI2PHYTIMER_CLK>,
+			<&clock_mmss MMSS_CAMSS_ISPIF_AHB_CLK>,
+			<&clock_mmss CSIPHY_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSIPHY2_CLK>,
+			<&clock_mmss MMSS_CSIPHY_AHB2CRIF_CLK>;
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
+			"bmic_smmu_ahb", "bmic_smmu_axi",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"csi_src_clk", "csi_clk", "cphy_csid_clk",
+			"csiphy_timer_src_clk", "csiphy_timer_clk",
+			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk",
+			"csiphy_ahb2crif";
+		qcom,clock-rates = <0 0 0 0 0 0 384000000 0 0 269333333 0
+			0 384000000 0 0>;
+		status = "ok";
+	};
+
+	qcom,csid@ca30000  {
+		cell-index = <0>;
+		compatible = "qcom,csid-v5.0", "qcom,csid";
+		reg = <0xca30000 0x400>;
+		reg-names = "csid";
+		interrupts = <0 296 0>;
+		interrupt-names = "csid";
+		qcom,csi-vdd-voltage = <1200000>;
+		qcom,mipi-csi-vdd-supply = <&pm660_l1>;
+		gdscr-supply = <&gdsc_camss_top>;
+		vdd_sec-supply = <&pm660l_l1>;
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "vdd_sec", "gdscr", "bimc_smmu";
+		qcom,cam-vreg-min-voltage = <925000 0 0>;
+		qcom,cam-vreg-max-voltage = <925000 0 0>;
+		qcom,cam-vreg-op-mode = <0 0 0>;
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_ISPIF_AHB_CLK>,
+			<&clock_mmss CSI0_CLK_SRC>,
+			<&clock_mmss CSIPHY_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI0_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI0_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI0RDI_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI0PIX_CLK>,
+			<&clock_mmss MMSS_CAMSS_CPHY_CSID0_CLK>;
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
+			"bmic_smmu_ahb", "bmic_smmu_axi",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
+			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
+			"csi_pix_clk", "cphy_csid_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 384000000 384000000
+			0 0 0 0 0>;
+		status = "ok";
+	};
+
+	qcom,csid@ca30400 {
+		cell-index = <1>;
+		compatible = "qcom,csid-v5.0", "qcom,csid";
+		reg = <0xca30400 0x400>;
+		reg-names = "csid";
+		interrupts = <0 297 0>;
+		interrupt-names = "csid";
+		qcom,csi-vdd-voltage = <1200000>;
+		qcom,mipi-csi-vdd-supply = <&pm660_l1>;
+		gdscr-supply = <&gdsc_camss_top>;
+		vdd_sec-supply = <&pm660l_l1>;
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "vdd_sec", "gdscr", "bimc_smmu";
+		qcom,cam-vreg-min-voltage = <925000 0 0>;
+		qcom,cam-vreg-max-voltage = <925000 0 0>;
+		qcom,cam-vreg-op-mode = <0 0 0>;
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_ISPIF_AHB_CLK>,
+			<&clock_mmss CSI1_CLK_SRC>,
+			<&clock_mmss CSIPHY_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI1_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI1_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI1RDI_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI1PIX_CLK>,
+			<&clock_mmss MMSS_CAMSS_CPHY_CSID1_CLK>;
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
+			"bmic_smmu_ahb", "bmic_smmu_axi",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
+			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
+			"csi_pix_clk", "cphy_csid_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 256000000
+			 0 0 0 0 0>;
+		status = "ok";
+	};
+
+	qcom,csid@ca30800 {
+		cell-index = <2>;
+		compatible = "qcom,csid-v5.0", "qcom,csid";
+		reg = <0xca30800 0x400>;
+		reg-names = "csid";
+		interrupts = <0 298 0>;
+		interrupt-names = "csid";
+		qcom,csi-vdd-voltage = <1200000>;
+		qcom,mipi-csi-vdd-supply = <&pm660_l1>;
+		gdscr-supply = <&gdsc_camss_top>;
+		vdd_sec-supply = <&pm660l_l1>;
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "vdd_sec", "gdscr", "bimc_smmu";
+		qcom,cam-vreg-min-voltage = <925000 0 0>;
+		qcom,cam-vreg-max-voltage = <925000 0 0>;
+		qcom,cam-vreg-op-mode = <0 0 0>;
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_ISPIF_AHB_CLK>,
+			<&clock_mmss CSI2_CLK_SRC>,
+			<&clock_mmss CSIPHY_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI2_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI2_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI2RDI_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI2PIX_CLK>,
+			<&clock_mmss MMSS_CAMSS_CPHY_CSID2_CLK>;
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
+			"bmic_smmu_ahb", "bmic_smmu_axi",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
+			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
+			"csi_pix_clk", "cphy_csid_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 256000000
+			 0 0 0 0 0>;
+		status = "ok";
+	};
+
+	qcom,csid@ca30c00 {
+		cell-index = <3>;
+		compatible = "qcom,csid-v5.0", "qcom,csid";
+		reg = <0xca30c00 0x400>;
+		reg-names = "csid";
+		interrupts = <0 299 0>;
+		interrupt-names = "csid";
+		qcom,csi-vdd-voltage = <1200000>;
+		qcom,mipi-csi-vdd-supply = <&pm660_l1>;
+		gdscr-supply = <&gdsc_camss_top>;
+		vdd_sec-supply = <&pm660l_l1>;
+		bimc_smmu-supply = <&gdsc_bimc_smmu>;
+		qcom,cam-vreg-name = "vdd_sec", "gdscr", "bimc_smmu";
+		qcom,cam-vreg-min-voltage = <925000 0 0>;
+		qcom,cam-vreg-max-voltage = <925000 0 0>;
+		qcom,cam-vreg-op-mode = <0 0 0>;
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_ISPIF_AHB_CLK>,
+			<&clock_mmss CSI3_CLK_SRC>,
+			<&clock_mmss CSIPHY_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI3_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI3_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI3RDI_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI3PIX_CLK>,
+			<&clock_mmss MMSS_CAMSS_CPHY_CSID3_CLK>;
+		clock-names = "mmssnoc_axi", "mnoc_ahb",
+			"bmic_smmu_ahb", "bmic_smmu_axi",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
+			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
+			"csi_pix_clk", "cphy_csid_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 256000000
+			 0 0 0 0 0>;
+		status = "ok";
+	};
+
+	qcom,cam_smmu {
+		compatible = "qcom,msm-cam-smmu";
+		status = "ok";
+
+		msm_cam_smmu_cb1 {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&mmss_bimc_smmu 0xc00>,
+					<&mmss_bimc_smmu 0xc01>,
+					<&mmss_bimc_smmu 0xc02>,
+					<&mmss_bimc_smmu 0xc03>;
+			label = "vfe";
+			qcom,scratch-buf-support;
+		};
+
+		msm_cam_smmu_cb2 {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&mmss_bimc_smmu 0xa00>;
+			label = "cpp";
+		};
+
+		msm_cam_smmu_cb4 {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&mmss_bimc_smmu 0x800>;
+			label = "jpeg_enc0";
+		};
+
+		msm_cam_smmu_cb5 {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&mmss_bimc_smmu 0x801>;
+			label = "jpeg_dma";
+		};
+	};
+
+	qcom,cpp@ca04000 {
+		cell-index = <0>;
+		compatible = "qcom,cpp";
+		reg = <0xca04000 0x100>,
+			<0xca80000 0x3000>,
+			<0xca18000 0x3000>,
+			<0xc8c36D4 0x4>;
+		reg-names = "cpp", "cpp_vbif", "cpp_hw", "camss_cpp";
+		interrupts = <0 294 0>;
+		interrupt-names = "cpp";
+		smmu-vdd-supply = <&gdsc_bimc_smmu>;
+		camss-vdd-supply = <&gdsc_camss_top>;
+		vdd-supply = <&gdsc_cpp>;
+		qcom,vdd-names = "smmu-vdd", "camss-vdd", "vdd";
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss CPP_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CPP_CLK>,
+			<&clock_mmss MMSS_CAMSS_CPP_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_CPP_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_MICRO_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_CPP_VBIF_AHB_CLK>;
+		clock-names = "mmssnoc_axi_clk",
+			"mnoc_ahb_clk",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"cpp_src_clk",
+			"cpp_core_clk", "camss_cpp_ahb_clk",
+			"camss_cpp_axi_clk", "micro_iface_clk",
+			"mmss_smmu_axi_clk", "cpp_vbif_ahb_clk";
+		qcom,clock-rates = <0 0 0 0 200000000 200000000 0 0 0 0 0>;
+		qcom,min-clock-rate = <200000000>;
+		qcom,bus-master = <1>;
+		status = "ok";
+		qcom,msm-bus,name = "msm_camera_cpp";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<106 512 0 0>,
+			<106 512 0 0>;
+		qcom,msm-bus-vector-dyn-vote;
+		resets = <&clock_mmss CAMSS_MICRO_BCR>;
+		reset-names = "micro_iface_reset";
+		qcom,src-clock-rates = <120000000 256000000 384000000
+					480000000 540000000 576000000>;
+		qcom,cpp-fw-payload-info {
+			qcom,stripe-base = <790>;
+			qcom,plane-base = <715>;
+			qcom,stripe-size = <63>;
+			qcom,plane-size = <25>;
+			qcom,fe-ptr-off = <11>;
+			qcom,we-ptr-off = <23>;
+			qcom,ref-fe-ptr-off = <17>;
+			qcom,ref-we-ptr-off = <36>;
+			qcom,we-meta-ptr-off = <42>;
+			qcom,fe-mmu-pf-ptr-off = <7>;
+			qcom,ref-fe-mmu-pf-ptr-off = <10>;
+			qcom,we-mmu-pf-ptr-off = <13>;
+			qcom,dup-we-mmu-pf-ptr-off = <18>;
+			qcom,ref-we-mmu-pf-ptr-off = <23>;
+			qcom,set-group-buffer-len = <135>;
+			qcom,dup-frame-indicator-off = <70>;
+		};
+	};
+
+	qcom,ispif@ca31000 {
+		cell-index = <0>;
+		compatible = "qcom,ispif-v3.0", "qcom,ispif";
+		reg = <0xca31000 0xc00>,
+			<0xca00020 0x4>;
+		reg-names = "ispif", "csi_clk_mux";
+		interrupts = <0 309 0>;
+		interrupt-names = "ispif";
+		qcom,num-isps = <0x2>;
+		camss-vdd-supply = <&gdsc_camss_top>;
+		vfe0-vdd-supply = <&gdsc_vfe0>;
+		vfe1-vdd-supply = <&gdsc_vfe1>;
+		qcom,vdd-names = "camss-vdd", "vfe0-vdd",
+				"vfe1-vdd";
+		qcom,clock-cntl-support;
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_ISPIF_AHB_CLK>,
+			<&clock_mmss CSI0_CLK_SRC>,
+			<&clock_mmss CSI1_CLK_SRC>,
+			<&clock_mmss CSI2_CLK_SRC>,
+			<&clock_mmss CSI3_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI0RDI_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI1RDI_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI2RDI_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI3RDI_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI0PIX_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI1PIX_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI2PIX_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI3PIX_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI0_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI1_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI2_CLK>,
+			<&clock_mmss MMSS_CAMSS_CSI3_CLK>,
+			<&clock_mmss MMSS_CAMSS_VFE0_CLK>,
+			<&clock_mmss VFE0_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI_VFE0_CLK>,
+			<&clock_mmss MMSS_CAMSS_VFE1_CLK>,
+			<&clock_mmss VFE1_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI_VFE1_CLK>;
+		clock-names = "mmssnoc_axi", "mnoc_ahb_clk",
+			"camss_ahb_clk",
+			"camss_top_ahb_clk", "ispif_ahb_clk",
+			"csi0_src_clk", "csi1_src_clk",
+			"csi2_src_clk", "csi3_src_clk",
+			"csi0_rdi_clk", "csi1_rdi_clk",
+			"csi2_rdi_clk", "csi3_rdi_clk",
+			"csi0_pix_clk", "csi1_pix_clk",
+			"csi2_pix_clk", "csi3_pix_clk",
+			"camss_csi0_clk", "camss_csi1_clk",
+			"camss_csi2_clk", "camss_csi3_clk",
+			"camss_vfe_vfe0_clk",
+			"vfe0_clk_src", "camss_csi_vfe0_clk",
+			"camss_vfe_vfe1_clk",
+			"vfe1_clk_src", "camss_csi_vfe1_clk";
+		qcom,clock-rates = <0 0 0 0 0
+			0 0 0 0
+			0 0 0 0
+			0 0 0 0
+			0 0 0 0
+			0 0 0
+			0 0 0>;
+		qcom,clock-control = "INIT_RATE", "NO_SET_RATE",
+			"NO_SET_RATE", "NO_SET_RATE",
+			"NO_SET_RATE",
+			"INIT_RATE", "INIT_RATE",
+			"INIT_RATE", "INIT_RATE",
+			"NO_SET_RATE", "NO_SET_RATE",
+			"NO_SET_RATE", "NO_SET_RATE",
+			"NO_SET_RATE", "NO_SET_RATE",
+			"NO_SET_RATE", "NO_SET_RATE",
+			"NO_SET_RATE", "NO_SET_RATE",
+			"NO_SET_RATE", "NO_SET_RATE",
+			"NO_SET_RATE",
+			"INIT_RATE", "NO_SET_RATE",
+			"NO_SET_RATE",
+			"INIT_RATE", "NO_SET_RATE";
+		status = "ok";
+	};
+
+	vfe0: qcom,vfe0@ca10000 {
+		cell-index = <0>;
+		compatible = "qcom,vfe48";
+		reg = <0xca10000 0x4000>,
+			<0xca40000 0x3000>;
+		reg-names = "vfe", "vfe_vbif";
+		interrupts = <0 314 0>;
+		interrupt-names = "vfe";
+		vdd-supply = <&gdsc_vfe0>;
+		camss-vdd-supply = <&gdsc_camss_top>;
+		smmu-vdd-supply = <&gdsc_bimc_smmu>;
+		qcom,vdd-names = "vdd", "camss-vdd", "smmu-vdd";
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_VFE0_CLK>,
+			<&clock_mmss MMSS_CAMSS_VFE0_STREAM_CLK>,
+			<&clock_mmss MMSS_CAMSS_VFE0_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_VFE_VBIF_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_VFE_VBIF_AXI_CLK>,
+			<&clock_mmss VFE0_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI_VFE0_CLK>;
+		clock-names = "mmssnoc_axi", "mnoc_ahb_clk",
+			"bimc_smmu_ahb_clk", "bimc_smmu_axi_clk",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"camss_vfe_clk", "camss_vfe_stream_clk",
+			"camss_vfe_ahb_clk", "camss_vfe_vbif_ahb_clk",
+			"camss_vfe_vbif_axi_clk", "vfe_clk_src",
+			"camss_csi_vfe_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 0 0 0 0 256000000 0
+					0 0 0 0 0 0 0 0 0 0 0 480000000 0
+					0 0 0 0 0 0 0 0 0 0 0 576000000 0>;
+		status = "ok";
+		qos-entries = <8>;
+		qos-regs = <0x404 0x408 0x40c 0x410 0x414 0x418
+			0x41c 0x420>;
+		qos-settings = <0xaaa5aaa5
+			0xaaa5aaa5
+			0xaaa5aaa5
+			0xaa55aaa5
+			0xaa55aa55
+			0xaa55aa55
+			0xaa55aa55
+			0x0005aa55>;
+		vbif-entries = <3>;
+		vbif-regs = <0x124 0xac 0xd0>;
+		vbif-settings = <0x3 0x40 0x1010>;
+		ds-entries = <17>;
+		ds-regs = <0x424 0x428 0x42c 0x430 0x434
+			0x438 0x43c 0x440 0x444 0x448 0x44c
+			0x450 0x454 0x458 0x45c 0x460 0x464>;
+		ds-settings = <0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0x110>;
+		qcom,msm-bus,name = "msm_camera_vfe";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<29 512 0 0>,
+			<29 512 100000000 100000000>;
+		qcom,msm-bus-vector-dyn-vote;
+	};
+
+	vfe1: qcom,vfe1@ca14000 {
+		cell-index = <1>;
+		compatible = "qcom,vfe48";
+		reg = <0xca14000 0x4000>,
+			<0xca40000 0x3000>;
+		reg-names = "vfe", "vfe_vbif";
+		interrupts = <0 315 0>;
+		interrupt-names = "vfe";
+		vdd-supply = <&gdsc_vfe1>;
+		camss-vdd-supply = <&gdsc_camss_top>;
+		smmu-vdd-supply = <&gdsc_bimc_smmu>;
+		qcom,vdd-names = "vdd", "camss-vdd", "smmu-vdd";
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_VFE1_CLK>,
+			<&clock_mmss MMSS_CAMSS_VFE1_STREAM_CLK>,
+			<&clock_mmss MMSS_CAMSS_VFE1_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_VFE_VBIF_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_VFE_VBIF_AXI_CLK>,
+			<&clock_mmss VFE1_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CSI_VFE1_CLK>;
+		clock-names = "mmssnoc_axi", "mnoc_ahb_clk",
+			"bimc_smmu_ahb_clk", "bimc_smmu_axi_clk",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"camss_vfe_clk", "camss_vfe_stream_clk",
+			"camss_vfe_ahb_clk", "camss_vfe_vbif_ahb_clk",
+			"camss_vfe_vbif_axi_clk", "vfe_clk_src",
+			"camss_csi_vfe_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 0 0 0 0 256000000 0
+					0 0 0 0 0 0 0 0 0 0 0 480000000 0
+					0 0 0 0 0 0 0 0 0 0 0 576000000 0>;
+		status = "ok";
+		qos-entries = <8>;
+		qos-regs = <0x404 0x408 0x40c 0x410 0x414 0x418
+			0x41c 0x420>;
+		qos-settings = <0xaaa5aaa5
+			0xaaa5aaa5
+			0xaaa5aaa5
+			0xaa55aaa5
+			0xaa55aa55
+			0xaa55aa55
+			0xaa55aa55
+			0x0005aa55>;
+		vbif-entries = <3>;
+		vbif-regs = <0x124 0xac 0xd0>;
+		vbif-settings = <0x3 0x40 0x1010>;
+		ds-entries = <17>;
+		ds-regs = <0x424 0x428 0x42c 0x430 0x434
+			0x438 0x43c 0x440 0x444 0x448 0x44c
+			0x450 0x454 0x458 0x45c 0x460 0x464>;
+		ds-settings = <0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0xcccc1111
+			0x110>;
+		qcom,msm-bus,name = "msm_camera_vfe";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<29 512 0 0>,
+			<29 512 100000000 100000000>;
+		qcom,msm-bus-vector-dyn-vote;
+	};
+
+	qcom,vfe {
+		compatible = "qcom,vfe";
+		num_child = <2>;
+	};
+
+	cci: qcom,cci@ca0c000 {
+		cell-index = <0>;
+		compatible = "qcom,cci";
+		reg = <0xca0c000 0x4000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "cci";
+		interrupts = <0 295 0>;
+		interrupt-names = "cci";
+		status = "ok";
+		mmagic-supply = <&gdsc_bimc_smmu>;
+		gdscr-supply = <&gdsc_camss_top>;
+		qcom,cam-vreg-name = "mmagic", "gdscr";
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss CCI_CLK_SRC>,
+			<&clock_mmss MMSS_CAMSS_CCI_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_CCI_CLK>;
+		clock-names = "mmssnoc_axi", "mnoc_ahb", "smmu_ahb", "smmu_axi",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"cci_src_clk", "cci_ahb_clk", "camss_cci_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 19200000 0 0>,
+			<0 0 0 0 0 0 37500000 0 0>;
+		pinctrl-names = "cci_default", "cci_suspend";
+			pinctrl-0 = <&cci0_active &cci1_active>;
+			pinctrl-1 = <&cci0_suspend &cci1_suspend>;
+		gpios = <&tlmm 36 0>,
+			<&tlmm 37 0>,
+			<&tlmm 38 0>,
+			<&tlmm 39 0>;
+		qcom,gpio-tbl-num = <0 1 2 3>;
+		qcom,gpio-tbl-flags = <1 1 1 1>;
+		qcom,gpio-tbl-label = "CCI_I2C_DATA0",
+				      "CCI_I2C_CLK0",
+				      "CCI_I2C_DATA1",
+				      "CCI_I2C_CLK1";
+		i2c_freq_100Khz: qcom,i2c_standard_mode {
+			status = "disabled";
+		};
+		i2c_freq_400Khz: qcom,i2c_fast_mode {
+			status = "disabled";
+		};
+		i2c_freq_custom: qcom,i2c_custom_mode {
+			status = "disabled";
+		};
+		i2c_freq_1Mhz: qcom,i2c_fast_plus_mode {
+			status = "disabled";
+		};
+	};
+
+	qcom,jpeg@ca1c000 {
+		cell-index = <0>;
+		compatible = "qcom,jpeg";
+		reg = <0xca1c000 0x4000>,
+			<0xca60000 0x3000>;
+		reg-names = "jpeg_hw", "jpeg_vbif";
+		interrupts = <0 316 0>;
+		interrupt-names = "jpeg";
+		smmu-vdd-supply = <&gdsc_bimc_smmu>;
+		camss-vdd-supply = <&gdsc_camss_top>;
+		qcom,vdd-names = "smmu-vdd", "camss-vdd";
+		clock-names = "mmssnoc_axi",
+			"mmss_mnoc_ahb_clk",
+			"mmss_bimc_smmu_ahb_clk",
+			"mmss_bimc_smmu_axi_clk",
+			"mmss_camss_ahb_clk",
+			"mmss_camss_top_ahb_clk",
+			"core_clk",
+			"mmss_camss_jpeg_ahb_clk",
+			"mmss_camss_jpeg_axi_clk";
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_JPEG0_VOTE_CLK>,
+			<&clock_mmss MMSS_CAMSS_JPEG_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_JPEG_AXI_CLK >;
+		qcom,clock-rates = <0 0 0 0 0 0 480000000 0 0>;
+		qcom,vbif-reg-settings = <0x4 0x1>;
+		qcom,prefetch-reg-settings = <0x30c 0x1111>,
+			<0x318 0x31>,
+			<0x324 0x31>,
+			<0x330 0x31>,
+			<0x33c 0x0>;
+		qcom,msm-bus,name = "msm_camera_jpeg0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
+			<62 512 1920000 2880000>;
+		status = "ok";
+	};
+
+	qcom,jpeg@caa0000 {
+		cell-index = <3>;
+		compatible = "qcom,jpegdma";
+		reg = <0xcaa0000 0x4000>,
+			<0xca60000 0x3000>;
+		reg-names = "jpeg_hw", "jpeg_vbif";
+		interrupts = <0 304 0>;
+		interrupt-names = "jpeg";
+		smmu-vdd-supply = <&gdsc_bimc_smmu>;
+		camss-vdd-supply = <&gdsc_camss_top>;
+		qcom,vdd-names = "smmu-vdd", "camss-vdd";
+		clock-names = "mmssnoc_axi",
+			"mmss_mnoc_ahb_clk",
+			"mmss_bimc_smmu_ahb_clk",
+			"mmss_bimc_smmu_axi_clk",
+			"mmss_camss_ahb_clk",
+			"mmss_camss_top_ahb_clk",
+			"core_clk",
+			"mmss_camss_jpeg_ahb_clk",
+			"mmss_camss_jpeg_axi_clk";
+		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+			<&clock_mmss MMSS_MNOC_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
+			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
+			<&clock_mmss MMSS_CAMSS_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_TOP_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_JPEG0_DMA_VOTE_CLK>,
+			<&clock_mmss MMSS_CAMSS_JPEG_AHB_CLK>,
+			<&clock_mmss MMSS_CAMSS_JPEG_AXI_CLK>;
+		qcom,clock-rates = <0 0 0 0 0 0 480000000 0 0>;
+		qcom,vbif-reg-settings = <0x4 0x1>;
+		qcom,prefetch-reg-settings = <0x18c 0x11>,
+			<0x1a0 0x31>,
+			<0x1b0 0x31>;
+		qcom,msm-bus,name = "msm_camera_jpeg_dma";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
+			<62 512 1920000 2880000>;
+		qcom,max-ds-factor = <128>;
+		status = "ok";
+	};
+};
+
+&i2c_freq_100Khz {
+	qcom,hw-thigh = <201>;
+	qcom,hw-tlow = <174>;
+	qcom,hw-tsu-sto = <204>;
+	qcom,hw-tsu-sta = <231>;
+	qcom,hw-thd-dat = <22>;
+	qcom,hw-thd-sta = <162>;
+	qcom,hw-tbuf = <227>;
+	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <3>;
+	qcom,cci-clk-src = <37500000>;
+	status = "ok";
+};
+
+&i2c_freq_400Khz {
+	qcom,hw-thigh = <38>;
+	qcom,hw-tlow = <56>;
+	qcom,hw-tsu-sto = <40>;
+	qcom,hw-tsu-sta = <40>;
+	qcom,hw-thd-dat = <22>;
+	qcom,hw-thd-sta = <35>;
+	qcom,hw-tbuf = <62>;
+	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <3>;
+	qcom,cci-clk-src = <37500000>;
+	status = "ok";
+};
+
+&i2c_freq_custom {
+	qcom,hw-thigh = <38>;
+	qcom,hw-tlow = <56>;
+	qcom,hw-tsu-sto = <40>;
+	qcom,hw-tsu-sta = <40>;
+	qcom,hw-thd-dat = <22>;
+	qcom,hw-thd-sta = <35>;
+	qcom,hw-tbuf = <62>;
+	qcom,hw-scl-stretch-en = <1>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <3>;
+	qcom,cci-clk-src = <37500000>;
+	status = "ok";
+};
+
+&i2c_freq_1Mhz {
+	qcom,hw-thigh = <16>;
+	qcom,hw-tlow = <22>;
+	qcom,hw-tsu-sto = <17>;
+	qcom,hw-tsu-sta = <18>;
+	qcom,hw-thd-dat = <16>;
+	qcom,hw-thd-sta = <15>;
+	qcom,hw-tbuf = <24>;
+	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-trdhld = <3>;
+	qcom,hw-tsp = <3>;
+	qcom,cci-clk-src = <37500000>;
+	status = "ok";
+};

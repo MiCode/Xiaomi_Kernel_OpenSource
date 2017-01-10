@@ -1066,6 +1066,12 @@ struct ipa_wdi_in_params {
 #endif
 };
 
+enum ipa_upstream_type {
+	IPA_UPSTEAM_MODEM = 1,
+	IPA_UPSTEAM_WLAN,
+	IPA_UPSTEAM_MAX
+};
+
 /**
  * struct  ipa_wdi_out_params - information provided to WDI client
  * @uc_door_bell_pa: physical address of IPA uc doorbell

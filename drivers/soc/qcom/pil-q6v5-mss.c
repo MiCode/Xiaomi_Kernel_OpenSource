@@ -38,7 +38,7 @@
 
 #define MAX_VDD_MSS_UV		1150000
 #define PROXY_TIMEOUT_MS	10000
-#define MAX_SSR_REASON_LEN	81U
+#define MAX_SSR_REASON_LEN	130U
 #define STOP_ACK_TIMEOUT_MS	1000
 
 #define subsys_to_drv(d) container_of(d, struct modem_data, subsys_desc)
@@ -82,7 +82,7 @@ static irqreturn_t modem_err_fatal_intr_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 
 	pr_err("Fatal error on the modem.\n");
-	subsys_set_crash_status(drv->subsys, true);
+	subsys_set_crash_status(drv->subsys, CRASH_STATUS_ERR_FATAL);
 	restart_modem(drv);
 	return IRQ_HANDLED;
 }
@@ -193,7 +193,7 @@ static irqreturn_t modem_wdog_bite_intr_handler(int irq, void *dev_id)
 			!gpio_get_value(drv->subsys_desc.err_fatal_gpio))
 		panic("%s: System ramdump requested. Triggering device restart!\n",
 							__func__);
-	subsys_set_crash_status(drv->subsys, true);
+	subsys_set_crash_status(drv->subsys, CRASH_STATUS_WDOG_BITE);
 	restart_modem(drv);
 	return IRQ_HANDLED;
 }

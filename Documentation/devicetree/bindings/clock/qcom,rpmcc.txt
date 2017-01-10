@@ -13,7 +13,7 @@ Required properties :
 			"qcom,rpmcc-msm8916", "qcom,rpmcc"
 			"qcom,rpmcc-apq8064", "qcom,rpmcc"
 			"qcom,rpmcc-msm8996", "qcom,rpmcc"
-			"qcom,rpmcc-msmfalcon", "qcom,rpmcc"
+			"qcom,rpmcc-sdm660", "qcom,rpmcc"
 
 - #clock-cells : shall contain 1
 
@@ -38,7 +38,7 @@ Example:
 		};
 	};
 
-	The below are applicable for MSM8996 & MSMFalcon.
+	The below are applicable for MSM8996 & SDM660.
 
 	rpmcc: clock-controller {
 		compatible = "qcom,rpmcc-msm8996", "qcom,rpmcc";

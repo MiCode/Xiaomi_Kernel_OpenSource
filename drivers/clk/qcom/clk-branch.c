@@ -248,6 +248,73 @@ const struct clk_ops clk_branch2_ops = {
 };
 EXPORT_SYMBOL_GPL(clk_branch2_ops);
 
+static int clk_branch2_hw_ctl_set_rate(struct clk_hw *hw, unsigned long rate,
+		unsigned long parent_rate)
+{
+	/*
+	 * Make sure the branch clock has CLK_SET_RATE_PARENT flag,
+	 * and the RCG has FORCE_ENABLE_RCGR flag set.
+	 */
+	if (!(hw->init->flags & CLK_SET_RATE_PARENT)) {
+		pr_err("set rate would not get propagated to parent\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static unsigned long clk_branch2_hw_ctl_recalc_rate(struct clk_hw *hw,
+		unsigned long parent_rate)
+{
+	return parent_rate;
+}
+
+static int clk_branch2_hw_ctl_determine_rate(struct clk_hw *hw,
+		struct clk_rate_request *req)
+{
+	struct clk_hw *clkp;
+
+	clkp = __clk_get_hw(clk_get_parent(hw->clk));
+
+	req->best_parent_hw = clkp;
+	req->best_parent_rate = clk_round_rate(clkp->clk, req->rate);
+
+	return 0;
+}
+
+static int clk_branch2_hw_ctl_enable(struct clk_hw *hw)
+{
+	struct clk_hw *parent = __clk_get_hw(clk_get_parent(hw->clk));
+
+	/* The parent branch clock should have been prepared prior to this. */
+	if (!parent || (parent && !clk_hw_is_prepared(parent)))
+		return -EINVAL;
+
+	return clk_enable_regmap(hw);
+}
+
+static void clk_branch2_hw_ctl_disable(struct clk_hw *hw)
+{
+	struct clk_hw *parent = __clk_get_hw(clk_get_parent(hw->clk));
+
+	if (!parent)
+		return;
+
+	clk_disable_regmap(hw);
+}
+
+const struct clk_ops clk_branch2_hw_ctl_ops = {
+	.enable = clk_branch2_hw_ctl_enable,
+	.disable = clk_branch2_hw_ctl_disable,
+	.is_enabled = clk_is_enabled_regmap,
+	.set_rate = clk_branch2_hw_ctl_set_rate,
+	.recalc_rate = clk_branch2_hw_ctl_recalc_rate,
+	.determine_rate = clk_branch2_hw_ctl_determine_rate,
+	.set_flags = clk_branch_set_flags,
+	.list_registers = clk_branch2_list_registers,
+};
+EXPORT_SYMBOL_GPL(clk_branch2_hw_ctl_ops);
+
 static int clk_gate_toggle(struct clk_hw *hw, bool en)
 {
 	struct clk_gate2 *gt = to_clk_gate2(hw);

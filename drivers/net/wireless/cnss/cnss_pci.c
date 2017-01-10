@@ -2472,7 +2472,7 @@ void *cnss_pci_get_virt_ramdump_mem(unsigned long *size)
 void cnss_pci_device_crashed(void)
 {
 	if (penv && penv->subsys) {
-		subsys_set_crash_status(penv->subsys, true);
+		subsys_set_crash_status(penv->subsys, CRASH_STATUS_ERR_FATAL);
 		subsystem_restart_dev(penv->subsys);
 	}
 }
@@ -2491,7 +2491,7 @@ EXPORT_SYMBOL(cnss_get_virt_ramdump_mem);
 void cnss_device_crashed(void)
 {
 	if (penv && penv->subsys) {
-		subsys_set_crash_status(penv->subsys, true);
+		subsys_set_crash_status(penv->subsys, CRASH_STATUS_ERR_FATAL);
 		subsystem_restart_dev(penv->subsys);
 	}
 }

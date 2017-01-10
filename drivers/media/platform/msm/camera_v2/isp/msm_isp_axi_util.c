@@ -13,6 +13,7 @@
 #include <media/v4l2-subdev.h>
 #include <asm/div64.h>
 #include "msm_isp_util.h"
+#include "msm_isp_stats_util.h"
 #include "msm_isp_axi_util.h"
 #include "msm_isp48.h"
 
@@ -429,6 +430,13 @@ static void msm_isp_axi_reserve_wm(struct vfe_device *vfe_dev,
 			vfe_dev->pdev->id,
 			stream_info->stream_handle[vfe_idx], j);
 		stream_info->wm[vfe_idx][i] = j;
+		/* setup var to ignore bus error from RDI wm */
+		if (stream_info->stream_src >= RDI_INTF_0) {
+			if (vfe_dev->hw_info->vfe_ops.core_ops.
+				set_bus_err_ign_mask)
+				vfe_dev->hw_info->vfe_ops.core_ops.
+					set_bus_err_ign_mask(vfe_dev, j, 1);
+		}
 	}
 }
 
@@ -442,6 +450,13 @@ void msm_isp_axi_free_wm(struct vfe_device *vfe_dev,
 	for (i = 0; i < stream_info->num_planes; i++) {
 		axi_data->free_wm[stream_info->wm[vfe_idx][i]] = 0;
 		axi_data->num_used_wm--;
+		if (stream_info->stream_src >= RDI_INTF_0) {
+			if (vfe_dev->hw_info->vfe_ops.core_ops.
+				set_bus_err_ign_mask)
+				vfe_dev->hw_info->vfe_ops.core_ops.
+					set_bus_err_ign_mask(vfe_dev,
+						stream_info->wm[vfe_idx][i], 0);
+		}
 	}
 	if (stream_info->stream_src <= IDEAL_RAW)
 		axi_data->num_pix_stream++;
@@ -1748,7 +1763,7 @@ int msm_isp_cfg_offline_ping_pong_address(struct vfe_device *vfe_dev,
 		rc = vfe_dev->buf_mgr->ops->get_buf_by_index(
 			vfe_dev->buf_mgr, bufq_handle, buf_idx, &buf);
 		if (rc < 0 || !buf) {
-			pr_err("%s: No fetch buffer rc= %d buf= %p\n",
+			pr_err("%s: No fetch buffer rc= %d buf= %pK\n",
 				__func__, rc, buf);
 			return -EINVAL;
 		}
@@ -2181,6 +2196,7 @@ static void msm_isp_input_disable(struct vfe_device *vfe_dev, int cmd_type)
 		if (msm_vfe_is_vfe48(vfe_dev))
 			vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev,
 								0, 1);
+		vfe_dev->hw_info->vfe_ops.core_ops.init_hw_reg(vfe_dev);
 	}
 
 }
@@ -2753,12 +2769,11 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 		if (!update_vfes[k])
 			continue;
 		vfe_dev = update_vfes[k];
-		axi_data = &vfe_dev->axi_data;
-		if (axi_data->src_info[VFE_PIX_0].active == 0) {
-			vfe_dev->hw_info->vfe_ops.stats_ops.enable_module(
-				vfe_dev, 0xFF, 0);
-		}
+		/* make sure all stats are stopped if camif is stopped */
+		if (vfe_dev->axi_data.src_info[VFE_PIX_0].active == 0)
+			msm_isp_stop_all_stats_stream(vfe_dev);
 	}
+
 	for (i = 0; i < num_streams; i++) {
 		stream_info = streams[i];
 		spin_lock_irqsave(&stream_info->lock, flags);

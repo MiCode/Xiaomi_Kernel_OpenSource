@@ -450,7 +450,7 @@ static int ipa_open(struct inode *inode, struct file *filp)
 {
 	struct ipa_context *ctx = NULL;
 
-	IPADBG("ENTER\n");
+	IPADBG_LOW("ENTER\n");
 	ctx = container_of(inode->i_cdev, struct ipa_context, cdev);
 	filp->private_data = ctx;
 
@@ -2936,11 +2936,11 @@ static int ipa_get_clks(struct device *dev)
 
 void _ipa_enable_clks_v2_0(void)
 {
-	IPADBG("enabling gcc_ipa_clk\n");
+	IPADBG_LOW("enabling gcc_ipa_clk\n");
 	if (ipa_clk) {
 		clk_prepare(ipa_clk);
 		clk_enable(ipa_clk);
-		IPADBG("curr_ipa_clk_rate=%d", ipa_ctx->curr_ipa_clk_rate);
+		IPADBG_LOW("curr_ipa_clk_rate=%d", ipa_ctx->curr_ipa_clk_rate);
 		clk_set_rate(ipa_clk, ipa_ctx->curr_ipa_clk_rate);
 		ipa_uc_notify_clk_state(true);
 	} else {
@@ -3072,7 +3072,7 @@ void _ipa_disable_clks_v1_1(void)
 
 void _ipa_disable_clks_v2_0(void)
 {
-	IPADBG("disabling gcc_ipa_clk\n");
+	IPADBG_LOW("disabling gcc_ipa_clk\n");
 	ipa_suspend_apps_pipes(true);
 	ipa_sps_irq_control_all(false);
 	ipa_uc_notify_clk_state(false);
@@ -3093,7 +3093,7 @@ void _ipa_disable_clks_v2_0(void)
 */
 void ipa_disable_clks(void)
 {
-	IPADBG("disabling IPA clocks and bus voting\n");
+	IPADBG_LOW("disabling IPA clocks and bus voting\n");
 
 	ipa_ctx->ctrl->ipa_disable_clks();
 
@@ -3237,7 +3237,7 @@ void ipa2_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
 	ipa_ctx->ipa_active_clients.cnt++;
 	if (ipa_ctx->ipa_active_clients.cnt == 1)
 		ipa_enable_clks();
-	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
+	IPADBG_LOW("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
 	ipa_active_clients_unlock();
 }
 
@@ -3269,7 +3269,7 @@ int ipa2_inc_client_enable_clks_no_block(struct ipa_active_client_logging_info
 	ipa2_active_clients_log_inc(id, true);
 
 	ipa_ctx->ipa_active_clients.cnt++;
-	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
+	IPADBG_LOW("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
 bail:
 	ipa_active_clients_trylock_unlock(&flags);
 
@@ -3297,7 +3297,7 @@ void ipa2_dec_client_disable_clks(struct ipa_active_client_logging_info *id)
 	ipa_active_clients_lock();
 	ipa2_active_clients_log_dec(id, false);
 	ipa_ctx->ipa_active_clients.cnt--;
-	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
+	IPADBG_LOW("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
 	if (ipa_ctx->ipa_active_clients.cnt == 0) {
 		if (ipa_ctx->tag_process_before_gating) {
 			IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info,
@@ -3337,7 +3337,7 @@ void ipa_inc_acquire_wakelock(enum ipa_wakelock_ref_client ref_client)
 	ipa_ctx->wakelock_ref_cnt.cnt |= (1 << ref_client);
 	if (ipa_ctx->wakelock_ref_cnt.cnt)
 		__pm_stay_awake(&ipa_ctx->w_lock);
-	IPADBG("active wakelock ref cnt = %d client enum %d\n",
+	IPADBG_LOW("active wakelock ref cnt = %d client enum %d\n",
 		ipa_ctx->wakelock_ref_cnt.cnt, ref_client);
 	spin_unlock_irqrestore(&ipa_ctx->wakelock_ref_cnt.spinlock, flags);
 }
@@ -3358,7 +3358,7 @@ void ipa_dec_release_wakelock(enum ipa_wakelock_ref_client ref_client)
 		return;
 	spin_lock_irqsave(&ipa_ctx->wakelock_ref_cnt.spinlock, flags);
 	ipa_ctx->wakelock_ref_cnt.cnt &= ~(1 << ref_client);
-	IPADBG("active wakelock ref cnt = %d client enum %d\n",
+	IPADBG_LOW("active wakelock ref cnt = %d client enum %d\n",
 		ipa_ctx->wakelock_ref_cnt.cnt, ref_client);
 	if (ipa_ctx->wakelock_ref_cnt.cnt == 0)
 		__pm_relax(&ipa_ctx->w_lock);
@@ -3402,7 +3402,7 @@ int ipa2_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	enum ipa_voltage_level needed_voltage;
 	u32 clk_rate;
 
-	IPADBG("floor_voltage=%d, bandwidth_mbps=%u",
+	IPADBG_LOW("floor_voltage=%d, bandwidth_mbps=%u",
 					floor_voltage, bandwidth_mbps);
 
 	if (floor_voltage < IPA_VOLTAGE_UNSPECIFIED ||
@@ -3412,7 +3412,7 @@ int ipa2_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	}
 
 	if (ipa_ctx->enable_clock_scaling) {
-		IPADBG("Clock scaling is enabled\n");
+		IPADBG_LOW("Clock scaling is enabled\n");
 		if (bandwidth_mbps >=
 			ipa_ctx->ctrl->clock_scaling_bw_threshold_turbo)
 			needed_voltage = IPA_VOLTAGE_TURBO;
@@ -3422,7 +3422,7 @@ int ipa2_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 		else
 			needed_voltage = IPA_VOLTAGE_SVS;
 	} else {
-		IPADBG("Clock scaling is disabled\n");
+		IPADBG_LOW("Clock scaling is disabled\n");
 		needed_voltage = IPA_VOLTAGE_NOMINAL;
 	}
 
@@ -3444,13 +3444,13 @@ int ipa2_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	}
 
 	if (clk_rate == ipa_ctx->curr_ipa_clk_rate) {
-		IPADBG("Same voltage\n");
+		IPADBG_LOW("Same voltage\n");
 		return 0;
 	}
 
 	ipa_active_clients_lock();
 	ipa_ctx->curr_ipa_clk_rate = clk_rate;
-	IPADBG("setting clock rate to %u\n", ipa_ctx->curr_ipa_clk_rate);
+	IPADBG_LOW("setting clock rate to %u\n", ipa_ctx->curr_ipa_clk_rate);
 	if (ipa_ctx->ipa_active_clients.cnt > 0) {
 		clk_set_rate(ipa_clk, ipa_ctx->curr_ipa_clk_rate);
 		if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_VIRTUAL)
@@ -3458,10 +3458,10 @@ int ipa2_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 			    ipa_ctx->ipa_bus_hdl, ipa_get_bus_vote()))
 				WARN_ON(1);
 	} else {
-		IPADBG("clocks are gated, not setting rate\n");
+		IPADBG_LOW("clocks are gated, not setting rate\n");
 	}
 	ipa_active_clients_unlock();
-	IPADBG("Done\n");
+	IPADBG_LOW("Done\n");
 	return 0;
 }
 
@@ -3753,6 +3753,13 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		IPAERR(":kzalloc err.\n");
 		result = -ENOMEM;
 		goto fail_mem_ctx;
+	}
+
+	ipa_ctx->logbuf = ipc_log_context_create(IPA_IPC_LOG_PAGES, "ipa", 0);
+	if (ipa_ctx->logbuf == NULL) {
+		IPAERR("failed to get logbuf\n");
+		result = -ENOMEM;
+		goto fail_logbuf;
 	}
 
 	ipa_ctx->pdev = ipa_dev;
@@ -4289,6 +4296,8 @@ fail_bus_reg:
 fail_bind:
 	kfree(ipa_ctx->ctrl);
 fail_mem_ctrl:
+	ipc_log_context_destroy(ipa_ctx->logbuf);
+fail_logbuf:
 	kfree(ipa_ctx);
 	ipa_ctx = NULL;
 fail_mem_ctx:

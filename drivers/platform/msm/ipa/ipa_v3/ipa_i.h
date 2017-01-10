@@ -963,6 +963,10 @@ struct ipa3_uc_wdi_ctx {
 	struct IpaHwStatsWDIInfoData_t *wdi_uc_stats_mmio;
 	void *priv;
 	ipa_uc_ready_cb uc_ready_cb;
+	/* for AP+STA stats update */
+#ifdef IPA_WAN_MSG_IPv6_ADDR_GW_LEN
+	ipa_wdi_meter_notifier_cb stats_notify;
+#endif
 };
 
 /**
@@ -970,6 +974,7 @@ struct ipa3_uc_wdi_ctx {
  * @lock: lock for ensuring atomic operations
  * @res_granted: true if SPS requested IPA resource and IPA granted it
  * @res_rel_in_prog: true if releasing IPA resource is in progress
+ * @transport_pm_mutex: Mutex to protect the transport_pm functionality.
  */
 struct ipa3_transport_pm {
 	spinlock_t lock;
@@ -977,6 +982,7 @@ struct ipa3_transport_pm {
 	bool res_rel_in_prog;
 	atomic_t dec_clients;
 	atomic_t eot_activity;
+	struct mutex transport_pm_mutex;
 };
 
 /**
@@ -1674,6 +1680,7 @@ int ipa3_resume_wdi_pipe(u32 clnt_hdl);
 int ipa3_suspend_wdi_pipe(u32 clnt_hdl);
 int ipa3_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
 u16 ipa3_get_smem_restr_bytes(void);
+int ipa3_broadcast_wdi_quota_reach_ind(uint32_t fid, uint64_t num_bytes);
 int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 		ipa_notify_cb notify, void *priv, u8 hdr_len,
 		struct ipa_ntn_conn_out_params *outp);
@@ -1714,6 +1721,9 @@ enum ipacm_client_enum ipa3_get_client(int pipe_idx);
 
 bool ipa3_get_client_uplink(int pipe_idx);
 
+int ipa3_get_wlan_stats(struct ipa_get_wdi_sap_stats *wdi_sap_stats);
+
+int ipa3_set_wlan_quota(struct ipa_set_wifi_quota *wdi_quota);
 /*
  * IPADMA
  */
@@ -1909,6 +1919,9 @@ int ipa3_alloc_rule_id(struct idr *rule_ids);
 int ipa3_id_alloc(void *ptr);
 void *ipa3_id_find(u32 id);
 void ipa3_id_remove(u32 id);
+int ipa3_enable_force_clear(u32 request_id, bool throttle_source,
+	u32 source_pipe_bitmask);
+int ipa3_disable_force_clear(u32 request_id);
 
 int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 				  u32 bandwidth_mbps);

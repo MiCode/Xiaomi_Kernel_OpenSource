@@ -47,6 +47,25 @@ struct gadget_ipa_port {
 
 };
 
+struct ipa_function_bind_info {
+	struct usb_string *string_defs;
+	int data_str_idx;
+	struct usb_interface_descriptor *data_desc;
+	struct usb_endpoint_descriptor *fs_in_desc;
+	struct usb_endpoint_descriptor *fs_out_desc;
+	struct usb_endpoint_descriptor *fs_notify_desc;
+	struct usb_endpoint_descriptor *hs_in_desc;
+	struct usb_endpoint_descriptor *hs_out_desc;
+	struct usb_endpoint_descriptor *hs_notify_desc;
+	struct usb_endpoint_descriptor *ss_in_desc;
+	struct usb_endpoint_descriptor *ss_out_desc;
+	struct usb_endpoint_descriptor *ss_notify_desc;
+
+	struct usb_descriptor_header **fs_desc_hdr;
+	struct usb_descriptor_header **hs_desc_hdr;
+	struct usb_descriptor_header **ss_desc_hdr;
+};
+
 /* for configfs support */
 #define MAX_INST_NAME_LEN      40
 

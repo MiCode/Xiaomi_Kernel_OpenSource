@@ -110,6 +110,8 @@ struct mmc_request {
 	struct mmc_host		*host;
 	struct mmc_cmdq_req	*cmdq_req;
 	struct request *req;
+	ktime_t io_start;
+	int lat_hist_enabled;
 };
 
 struct mmc_bus_ops {

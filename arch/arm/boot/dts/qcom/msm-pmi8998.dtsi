@@ -155,6 +155,7 @@
 					   "usbin_i",
 					   "usbin_v";
 
+			qcom,boost-threshold-ua = <100000>;
 			qcom,wipower-max-uw = <5000000>;
 			dpdm-supply = <&qusb_phy0>;
 
@@ -321,6 +322,7 @@
 			qcom,pmic-revid = <&pmi8998_revid>;
 			io-channels = <&pmi8998_rradc 0>;
 			io-channel-names = "rradc_batt_id";
+			qcom,rradc-base = <0x4500>;
 			qcom,fg-esr-timer-awake = <96>;
 			qcom,fg-esr-timer-asleep = <256>;
 			qcom,cycle-counter-en;
@@ -605,7 +607,6 @@
 			qcom,sync-dly-us = <800>;
 			qcom,fs-curr-ua = <25000>;
 			qcom,cons-sync-write-delay-us = <1000>;
-			qcom,en-phase-stag;
 			qcom,led-strings-list = [00 01 02 03];
 			qcom,en-ext-pfet-sc-pro;
 			qcom,pmic-revid = <&pmi8998_revid>;

@@ -28,9 +28,8 @@
 #define FG_ADC_RR_SKIN_TEMP_MSB			0x51
 #define FG_ADC_RR_RR_ADC_CTL			0x52
 #define FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL_MASK	0x8
-#define FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL		BIT(3)
+#define FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL	BIT(3)
 #define FG_ADC_RR_ADC_LOG			0x53
-#define FG_ADC_RR_ADC_LOG_CLR_CTRL_MASK		0xFE
 #define FG_ADC_RR_ADC_LOG_CLR_CTRL		BIT(0)
 
 #define FG_ADC_RR_FAKE_BATT_LOW_LSB		0x58
@@ -40,6 +39,7 @@
 
 #define FG_ADC_RR_BATT_ID_CTRL			0x60
 #define FG_ADC_RR_BATT_ID_TRIGGER		0x61
+#define FG_ADC_RR_BATT_ID_TRIGGER_CTL		BIT(0)
 #define FG_ADC_RR_BATT_ID_STS			0x62
 #define FG_ADC_RR_BATT_ID_CFG			0x63
 #define FG_ADC_RR_BATT_ID_5_LSB			0x66
@@ -165,10 +165,10 @@
 
 #define FAB_ID_GF				0x30
 #define FAB_ID_SMIC				0x11
-#define FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV		1296794
-#define FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C	3858
-#define FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV	1339518
-#define FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C	3598
+#define FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV		1303168
+#define FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C	3784
+#define FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV	1338433
+#define FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C	3655
 #define FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC	25000
 #define FG_ADC_RR_CHG_THRESHOLD_SCALE		4
 
@@ -182,9 +182,11 @@
 #define FG_RR_ADC_COHERENT_CHECK_RETRY		5
 #define FG_RR_ADC_MAX_CONTINUOUS_BUFFER_LEN	16
 #define FG_RR_ADC_STS_CHANNEL_READING_MASK	0x3
+#define FG_RR_ADC_STS_CHANNEL_STS		0x2
 
-#define FG_RR_CONV_CONTINUOUS_TIME_MIN		80000
-#define FG_RR_CONV_CONTINUOUS_TIME_MAX		81000
+#define FG_RR_CONV_CONTINUOUS_TIME_MIN_US	50000
+#define FG_RR_CONV_CONTINUOUS_TIME_MAX_US	51000
+#define FG_RR_CONV_MAX_RETRY_CNT		50
 
 /*
  * The channel number is not a physical index in hardware,
@@ -570,40 +572,157 @@ static const struct rradc_channels rradc_chans[] = {
 			FG_ADC_RR_AUX_THERM_STS)
 };
 
+static int rradc_enable_continuous_mode(struct rradc_chip *chip)
+{
+	int rc = 0;
+
+	/* Clear channel log */
+	rc = rradc_masked_write(chip, FG_ADC_RR_ADC_LOG,
+			FG_ADC_RR_ADC_LOG_CLR_CTRL,
+			FG_ADC_RR_ADC_LOG_CLR_CTRL);
+	if (rc < 0) {
+		pr_err("log ctrl update to clear failed:%d\n", rc);
+		return rc;
+	}
+
+	rc = rradc_masked_write(chip, FG_ADC_RR_ADC_LOG,
+		FG_ADC_RR_ADC_LOG_CLR_CTRL, 0);
+	if (rc < 0) {
+		pr_err("log ctrl update to not clear failed:%d\n", rc);
+		return rc;
+	}
+
+	/* Switch to continuous mode */
+	rc = rradc_masked_write(chip, FG_ADC_RR_RR_ADC_CTL,
+		FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL_MASK,
+		FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL);
+	if (rc < 0) {
+		pr_err("Update to continuous mode failed:%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+static int rradc_disable_continuous_mode(struct rradc_chip *chip)
+{
+	int rc = 0;
+
+	/* Switch to non continuous mode */
+	rc = rradc_masked_write(chip, FG_ADC_RR_RR_ADC_CTL,
+			FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL_MASK, 0);
+	if (rc < 0) {
+		pr_err("Update to non-continuous mode failed:%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+static int rradc_check_status_ready_with_retry(struct rradc_chip *chip,
+		struct rradc_chan_prop *prop, u8 *buf, u16 status)
+{
+	int rc = 0, retry_cnt = 0, mask = 0;
+
+	switch (prop->channel) {
+	case RR_ADC_BATT_ID:
+		/* BATT_ID STS bit does not get set initially */
+		mask = FG_RR_ADC_STS_CHANNEL_STS;
+		break;
+	default:
+		mask = FG_RR_ADC_STS_CHANNEL_READING_MASK;
+		break;
+	}
+
+	while (((buf[0] & mask) != mask) &&
+			(retry_cnt < FG_RR_CONV_MAX_RETRY_CNT)) {
+		pr_debug("%s is not ready; nothing to read:0x%x\n",
+			rradc_chans[prop->channel].datasheet_name, buf[0]);
+		usleep_range(FG_RR_CONV_CONTINUOUS_TIME_MIN_US,
+				FG_RR_CONV_CONTINUOUS_TIME_MAX_US);
+		retry_cnt++;
+		rc = rradc_read(chip, status, buf, 1);
+		if (rc < 0) {
+			pr_err("status read failed:%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (retry_cnt >= FG_RR_CONV_MAX_RETRY_CNT)
+		rc = -ENODATA;
+
+	return rc;
+}
+
+static int rradc_read_channel_with_continuous_mode(struct rradc_chip *chip,
+			struct rradc_chan_prop *prop, u8 *buf)
+{
+	int rc = 0;
+	u16 status = 0;
+
+	rc = rradc_enable_continuous_mode(chip);
+	if (rc < 0) {
+		pr_err("Failed to switch to continuous mode\n");
+		return rc;
+	}
+
+	status = rradc_chans[prop->channel].sts;
+	rc = rradc_read(chip, status, buf, 1);
+	if (rc < 0) {
+		pr_err("status read failed:%d\n", rc);
+		return rc;
+	}
+
+	rc = rradc_check_status_ready_with_retry(chip, prop,
+						buf, status);
+	if (rc < 0) {
+		pr_err("Status read failed:%d\n", rc);
+		return rc;
+	}
+
+	rc = rradc_disable_continuous_mode(chip);
+	if (rc < 0) {
+		pr_err("Failed to switch to non continuous mode\n");
+		return rc;
+	}
+
+	return rc;
+}
+
 static int rradc_do_conversion(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 *data)
 {
-	int rc = 0, bytes_to_read = 0, retry = 0;
+	int rc = 0, bytes_to_read = 0;
 	u8 buf[6];
 	u16 offset = 0, batt_id_5 = 0, batt_id_15 = 0, batt_id_150 = 0;
 	u16 status = 0;
 
 	mutex_lock(&chip->lock);
 
-	if ((prop->channel != RR_ADC_BATT_ID) &&
-			(prop->channel != RR_ADC_CHG_HOT_TEMP) &&
-			(prop->channel != RR_ADC_CHG_TOO_HOT_TEMP) &&
-			(prop->channel != RR_ADC_SKIN_HOT_TEMP) &&
-			(prop->channel != RR_ADC_SKIN_TOO_HOT_TEMP) &&
-			(prop->channel != RR_ADC_USBIN_V)) {
-		/* BATT_ID STS bit does not get set initially */
-		status = rradc_chans[prop->channel].sts;
-		rc = rradc_read(chip, status, buf, 1);
+	switch (prop->channel) {
+	case RR_ADC_BATT_ID:
+		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
+				FG_ADC_RR_BATT_ID_TRIGGER_CTL,
+				FG_ADC_RR_BATT_ID_TRIGGER_CTL);
 		if (rc < 0) {
-			pr_err("status read failed:%d\n", rc);
+			pr_err("BATT_ID trigger set failed:%d\n", rc);
 			goto fail;
 		}
 
-		buf[0] &= FG_RR_ADC_STS_CHANNEL_READING_MASK;
-		if (buf[0] != FG_RR_ADC_STS_CHANNEL_READING_MASK) {
-			pr_debug("%s is not ready; nothing to read\n",
-				rradc_chans[prop->channel].datasheet_name);
-			rc = -ENODATA;
+		rc = rradc_read_channel_with_continuous_mode(chip, prop, buf);
+		if (rc < 0) {
+			pr_err("Error reading in continuous mode:%d\n", rc);
 			goto fail;
 		}
-	}
 
-	if (prop->channel == RR_ADC_USBIN_V) {
+		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
+				FG_ADC_RR_BATT_ID_TRIGGER_CTL, 0);
+		if (rc < 0) {
+			pr_err("BATT_ID trigger re-set failed:%d\n", rc);
+			goto fail;
+		}
+		break;
+	case RR_ADC_USBIN_V:
 		/* Force conversion every cycle */
 		rc = rradc_masked_write(chip, FG_ADC_RR_USB_IN_V_TRIGGER,
 				FG_ADC_RR_USB_IN_V_EVERY_CYCLE_MASK,
@@ -613,58 +732,9 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 			goto fail;
 		}
 
-		/* Clear channel log */
-		rc = rradc_masked_write(chip, FG_ADC_RR_ADC_LOG,
-				FG_ADC_RR_ADC_LOG_CLR_CTRL_MASK,
-				FG_ADC_RR_ADC_LOG_CLR_CTRL);
+		rc = rradc_read_channel_with_continuous_mode(chip, prop, buf);
 		if (rc < 0) {
-			pr_err("log ctrl update to clear failed:%d\n", rc);
-			goto fail;
-		}
-
-		rc = rradc_masked_write(chip, FG_ADC_RR_ADC_LOG,
-			FG_ADC_RR_ADC_LOG_CLR_CTRL_MASK, 0);
-		if (rc < 0) {
-			pr_err("log ctrl update to not clear failed:%d\n", rc);
-			goto fail;
-		}
-
-		/* Switch to continuous mode */
-		rc = rradc_masked_write(chip, FG_ADC_RR_RR_ADC_CTL,
-			FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL_MASK,
-			FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL);
-		if (rc < 0) {
-			pr_err("Update to continuous mode failed:%d\n", rc);
-			goto fail;
-		}
-
-		status = rradc_chans[prop->channel].sts;
-		rc = rradc_read(chip, status, buf, 1);
-		if (rc < 0) {
-			pr_err("status read failed:%d\n", rc);
-			goto fail;
-		}
-
-		buf[0] &= FG_RR_ADC_STS_CHANNEL_READING_MASK;
-		while ((buf[0] != FG_RR_ADC_STS_CHANNEL_READING_MASK) &&
-								(retry < 2)) {
-			pr_debug("%s is not ready; nothing to read\n",
-				rradc_chans[prop->channel].datasheet_name);
-			usleep_range(FG_RR_CONV_CONTINUOUS_TIME_MIN,
-					FG_RR_CONV_CONTINUOUS_TIME_MAX);
-			retry++;
-			rc = rradc_read(chip, status, buf, 1);
-			if (rc < 0) {
-				pr_err("status read failed:%d\n", rc);
-				goto fail;
-			}
-		}
-
-		/* Switch to non continuous mode */
-		rc = rradc_masked_write(chip, FG_ADC_RR_RR_ADC_CTL,
-				FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL_MASK, 0);
-		if (rc < 0) {
-			pr_err("Update to continuous mode failed:%d\n", rc);
+			pr_err("Error reading in continuous mode:%d\n", rc);
 			goto fail;
 		}
 
@@ -675,11 +745,29 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 			pr_err("Restore every cycle update failed:%d\n", rc);
 			goto fail;
 		}
+		break;
+	case RR_ADC_CHG_HOT_TEMP:
+	case RR_ADC_CHG_TOO_HOT_TEMP:
+	case RR_ADC_SKIN_HOT_TEMP:
+	case RR_ADC_SKIN_TOO_HOT_TEMP:
+		pr_debug("Read only the data registers\n");
+		break;
+	default:
+		status = rradc_chans[prop->channel].sts;
+		rc = rradc_read(chip, status, buf, 1);
+		if (rc < 0) {
+			pr_err("status read failed:%d\n", rc);
+			goto fail;
+		}
 
-		if (retry >= 2) {
+		rc = rradc_check_status_ready_with_retry(chip, prop,
+						buf, status);
+		if (rc < 0) {
+			pr_debug("Status read failed:%d\n", rc);
 			rc = -ENODATA;
 			goto fail;
 		}
+		break;
 	}
 
 	offset = rradc_chans[prop->channel].lsb;

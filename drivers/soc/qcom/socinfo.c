@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -535,11 +535,15 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* Hamster ID */
 	[306] = {MSM_CPU_HAMSTER, "MSMHAMSTER"},
 
-	/* falcon ID */
-	[317] = {MSM_CPU_FALCON, "MSMFALCON"},
+	/* 660 ID */
+	[317] = {MSM_CPU_660, "SDM660"},
+	[324] = {MSM_CPU_660, "SDA660"},
+	[325] = {MSM_CPU_660, "SDM658"},
+	[326] = {MSM_CPU_660, "SDA658"},
 
-	/* triton ID */
-	[318] = {MSM_CPU_TRITON, "MSMTRITON"},
+	/* 630 ID */
+	[318] = {MSM_CPU_630, "SDM630"},
+	[327] = {MSM_CPU_630, "SDA630"},
 
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -1207,13 +1211,29 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 306;
 		strlcpy(dummy_socinfo.build_id, "msmhamster - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msmfalcon()) {
+	} else if (early_machine_is_sdm660()) {
 		dummy_socinfo.id = 317;
-		strlcpy(dummy_socinfo.build_id, "msmfalcon - ",
+		strlcpy(dummy_socinfo.build_id, "sdm660 - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msmtriton()) {
+	} else if (early_machine_is_sda660()) {
+		dummy_socinfo.id = 324;
+		strlcpy(dummy_socinfo.build_id, "sda660 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sdm658()) {
+		dummy_socinfo.id = 325;
+		strlcpy(dummy_socinfo.build_id, "sdm658 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sda658()) {
+		dummy_socinfo.id = 326;
+		strlcpy(dummy_socinfo.build_id, "sda658 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sdm630()) {
 		dummy_socinfo.id = 318;
-		strlcpy(dummy_socinfo.build_id, "msmtriton - ",
+		strlcpy(dummy_socinfo.build_id, "sdm630 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sda630()) {
+		dummy_socinfo.id = 327;
+		strlcpy(dummy_socinfo.build_id, "sda630 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_apq8998()) {
 		dummy_socinfo.id = 319;

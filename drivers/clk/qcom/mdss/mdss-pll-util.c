@@ -16,7 +16,6 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/string.h>
-#include <linux/clk/msm-clock-generic.h>
 #include <linux/of_address.h>
 #include <linux/dma-mapping.h>
 #include <linux/vmalloc.h>

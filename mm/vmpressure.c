@@ -41,7 +41,7 @@
  * TODO: Make the window size depend on machine size, as we do for vmstat
  * thresholds. Currently we set it to 512 pages (2MB for 4KB pages).
  */
-static const unsigned long vmpressure_win = SWAP_CLUSTER_MAX * 16;
+static unsigned long vmpressure_win = SWAP_CLUSTER_MAX * 16;
 
 /*
  * These thresholds are used when we account memory pressure through
@@ -290,6 +290,29 @@ void vmpressure_memcg(gfp_t gfp, struct mem_cgroup *memcg,
 	schedule_work(&vmpr->work);
 }
 
+void calculate_vmpressure_win(void)
+{
+	long x;
+
+	x = global_page_state(NR_FILE_PAGES) -
+			global_page_state(NR_SHMEM) -
+			total_swapcache_pages() +
+			global_page_state(NR_FREE_PAGES);
+	if (x < 1)
+		x = 1;
+	/*
+	 * For low (free + cached), vmpressure window should be
+	 * small, and high for higher values of (free + cached).
+	 * But it should not be linear as well. This ensures
+	 * timely vmpressure notifications when system is under
+	 * memory pressure, and optimal number of events when
+	 * cached is high. The sqaure root function is empirically
+	 * found to serve the purpose.
+	 */
+	x = int_sqrt(x);
+	vmpressure_win = x;
+}
+
 void vmpressure_global(gfp_t gfp, unsigned long scanned,
 		unsigned long reclaimed)
 {
@@ -304,6 +327,9 @@ void vmpressure_global(gfp_t gfp, unsigned long scanned,
 		return;
 
 	spin_lock(&vmpr->sr_lock);
+	if (!vmpr->scanned)
+		calculate_vmpressure_win();
+
 	vmpr->scanned += scanned;
 	vmpr->reclaimed += reclaimed;
 

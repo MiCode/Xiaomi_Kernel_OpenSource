@@ -1,0 +1,69 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm-audio.dtsi"
+#include "sdm660-audio.dtsi"
+
+&pm660l_3 {
+	/delete-node/analog-codec;
+};
+
+&soc {
+	/delete-node/msm-sdw-codec@152c1000;
+	/delete-node/sound;
+};
+
+&slim_aud {
+	tasha_codec {
+		clocks = <&clock_audio clk_audio_pmi_clk>,
+			<&clock_audio clk_audio_ap_clk2>;
+	};
+	tavil_codec {
+		clocks = <&clock_audio_lnbb clk_audio_pmi_lnbb_clk>;
+	};
+};
+
+&tasha_hph_en0 {
+	/delete-property/pinctrl-0;
+	/delete-property/pinctrl-1;
+};
+
+&tasha_hph_en1 {
+	/delete-property/pinctrl-0;
+	/delete-property/pinctrl-1;
+};
+
+&clock_audio {
+	qcom,audio-ref-clk-gpio = <&pm660_gpios 3 0>;
+	clocks = <&clock_gcc clk_div_clk1>;
+	pinctrl-0 = <&spkr_i2s_clk_sleep>;
+	pinctrl-1 = <&spkr_i2s_clk_active>;
+};
+
+&clock_audio_lnbb {
+	clocks = <&clock_gcc clk_ln_bb_clk2>;
+};
+
+&wcd_rst_gpio {
+	qcom,cdc-rst-n-gpio = <&tlmm 64 0>;
+	pinctrl-0 = <&cdc_reset_active>;
+	pinctrl-1 = <&cdc_reset_sleep>;
+};
+
+&wcd9xxx_intc {
+	interrupt-parent = <&tlmm>;
+	qcom,gpio-connect = <&tlmm 54 0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&wcd_intr_default>;
+	/delete-property/interrupts;
+	/delete-property/interrupt-names;
+};

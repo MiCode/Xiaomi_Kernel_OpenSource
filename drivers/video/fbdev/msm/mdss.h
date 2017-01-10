@@ -159,12 +159,12 @@ enum mdss_hw_quirk {
 	MDSS_QUIRK_DSC_RIGHT_ONLY_PU,
 	MDSS_QUIRK_DSC_2SLICE_PU_THRPUT,
 	MDSS_QUIRK_DMA_BI_DIR,
-	MDSS_QUIRK_MIN_BUS_VOTE,
 	MDSS_QUIRK_FMT_PACK_PATTERN,
 	MDSS_QUIRK_NEED_SECURE_MAP,
 	MDSS_QUIRK_SRC_SPLIT_ALWAYS,
 	MDSS_QUIRK_MMSS_GDSC_COLLAPSE,
 	MDSS_QUIRK_MDP_CLK_SET_RATE,
+	MDSS_QUIRK_HDR_SUPPORT_ENABLED,
 	MDSS_QUIRK_MAX,
 };
 
@@ -370,6 +370,10 @@ struct mdss_data_type {
 
 	u32 rot_block_size;
 
+	/* HW RT  bus (AXI) */
+	u32 hw_rt_bus_hdl;
+	u32 hw_rt_bus_ref_cnt;
+
 	/* data bus (AXI) */
 	u32 bus_hdl;
 	u32 bus_ref_cnt;
@@ -390,6 +394,7 @@ struct mdss_data_type {
 	u32 ao_bw_uc_idx; /* active only idx */
 	struct msm_bus_scale_pdata *bus_scale_table;
 	struct msm_bus_scale_pdata *reg_bus_scale_table;
+	struct msm_bus_scale_pdata *hw_rt_bus_scale_table;
 	u32 max_bw_low;
 	u32 max_bw_high;
 	u32 max_bw_per_pipe;

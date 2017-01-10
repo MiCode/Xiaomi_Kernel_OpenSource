@@ -923,6 +923,8 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 	dm=		[DM] Allows early creation of a device-mapper device.
 			See Documentation/device-mapper/boot.txt.
 
+	dmasound=	[HW,OSS] Sound subsystem buff
+
 	dma_debug=off	If the kernel is compiled with DMA_API_DEBUG support,
 			this option disables the debugging code at boot.
 

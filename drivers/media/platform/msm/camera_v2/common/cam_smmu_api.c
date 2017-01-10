@@ -972,6 +972,11 @@ static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 	struct dma_buf_attachment *attach = NULL;
 	struct sg_table *table = NULL;
 
+	if (!paddr_ptr) {
+		rc = -EINVAL;
+		goto err_out;
+	}
+
 	/* allocate memory for each buffer information */
 	buf = dma_buf_get(ion_fd);
 	if (IS_ERR_OR_NULL(buf)) {
@@ -1097,11 +1102,11 @@ static int cam_smmu_map_secure_buffer_and_add_to_list(int idx,
 	}
 
 	if (table->sgl) {
-		CDBG("DMA buf: %p, device: %p, attach: %p, table: %p\n",
+		CDBG("DMA buf: %pK, device: %pK, attach: %pK, table: %pK\n",
 				(void *)buf,
 				(void *)iommu_cb_set.cb_info[idx].dev,
 				(void *)attach, (void *)table);
-		CDBG("table sgl: %p, rc: %d, dma_address: 0x%x\n",
+		CDBG("table sgl: %pK, rc: %d, dma_address: 0x%x\n",
 				(void *)table->sgl, rc,
 				(unsigned int)table->sgl->dma_address);
 	} else {
@@ -1134,7 +1139,7 @@ static int cam_smmu_map_secure_buffer_and_add_to_list(int idx,
 		rc = -ENOSPC;
 		goto err_mapping_info;
 	}
-	CDBG("dev = %p, paddr= %p, len = %u\n",
+	CDBG("dev = %pK, paddr= %pK, len = %u\n",
 			(void *)iommu_cb_set.cb_info[idx].dev,
 			(void *)*paddr_ptr, (unsigned int)*len_ptr);
 

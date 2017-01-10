@@ -175,6 +175,7 @@ enum {
 	VI_SENSE_2,
 	AUDIO_NOMINAL,
 	HPH_PA_DELAY,
+	CLSH_Z_CONFIG,
 };
 
 enum {
@@ -2241,6 +2242,7 @@ static int tavil_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 	u8 dem_inp;
 	int ret = 0;
 	struct tavil_dsd_config *dsd_conf = tavil->dsd_config;
+	uint32_t impedl = 0, impedr = 0;
 
 	dev_dbg(codec->dev, "%s wname: %s event: %d hph_mode: %d\n", __func__,
 		w->name, event, hph_mode);
@@ -2277,6 +2279,18 @@ static int tavil_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 			     WCD_CLSH_EVENT_PRE_DAC,
 			     WCD_CLSH_STATE_HPHL,
 			     hph_mode);
+
+		ret = tavil_mbhc_get_impedance(tavil->mbhc,
+					       &impedl, &impedr);
+		if (!ret) {
+			wcd_clsh_imped_config(codec, impedl, false);
+			set_bit(CLSH_Z_CONFIG, &tavil->status_mask);
+		} else {
+			dev_dbg(codec->dev, "%s: Failed to get mbhc impedance %d\n",
+				__func__, ret);
+			ret = 0;
+		}
+
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* 1000us required as per HW requirement */
@@ -2295,6 +2309,11 @@ static int tavil_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					    WCD934X_HPH_NEW_INT_RDAC_GAIN_CTL,
 					    0xF0, 0x0);
+
+		if (test_bit(CLSH_Z_CONFIG, &tavil->status_mask)) {
+			wcd_clsh_imped_config(codec, impedl, true);
+			clear_bit(CLSH_Z_CONFIG, &tavil->status_mask);
+		}
 		break;
 	default:
 		break;
@@ -5107,19 +5126,18 @@ static int tavil_amic_pwr_lvl_get(struct snd_kcontrol *kcontrol,
 				  struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	u16 amic_reg;
+	u16 amic_reg = 0;
 
 	if (!strcmp(kcontrol->id.name, "AMIC_1_2 PWR MODE"))
 		amic_reg = WCD934X_ANA_AMIC1;
 	if (!strcmp(kcontrol->id.name, "AMIC_3_4 PWR MODE"))
 		amic_reg = WCD934X_ANA_AMIC3;
-	else
-		goto ret;
 
-	ucontrol->value.integer.value[0] =
-		(snd_soc_read(codec, amic_reg) & WCD934X_AMIC_PWR_LVL_MASK) >>
-			     WCD934X_AMIC_PWR_LVL_SHIFT;
-ret:
+	if (amic_reg)
+		ucontrol->value.integer.value[0] =
+			(snd_soc_read(codec, amic_reg) &
+			 WCD934X_AMIC_PWR_LVL_MASK) >>
+			  WCD934X_AMIC_PWR_LVL_SHIFT;
 	return 0;
 }
 
@@ -5128,7 +5146,7 @@ static int tavil_amic_pwr_lvl_put(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	u32 mode_val;
-	u16 amic_reg;
+	u16 amic_reg = 0;
 
 	mode_val = ucontrol->value.enumerated.item[0];
 
@@ -5138,12 +5156,10 @@ static int tavil_amic_pwr_lvl_put(struct snd_kcontrol *kcontrol,
 		amic_reg = WCD934X_ANA_AMIC1;
 	if (!strcmp(kcontrol->id.name, "AMIC_3_4 PWR MODE"))
 		amic_reg = WCD934X_ANA_AMIC3;
-	else
-		goto ret;
 
-	snd_soc_update_bits(codec, amic_reg, WCD934X_AMIC_PWR_LVL_MASK,
-			    mode_val << WCD934X_AMIC_PWR_LVL_SHIFT);
-ret:
+	if (amic_reg)
+		snd_soc_update_bits(codec, amic_reg, WCD934X_AMIC_PWR_LVL_MASK,
+				    mode_val << WCD934X_AMIC_PWR_LVL_SHIFT);
 	return 0;
 }
 
@@ -8589,7 +8605,7 @@ static int tavil_handle_pdata(struct tavil_priv *tavil,
 	if (pdata->dmic_clk_drv ==
 	    WCD9XXX_DMIC_CLK_DRIVE_UNDEFINED) {
 		pdata->dmic_clk_drv = WCD934X_DMIC_CLK_DRIVE_DEFAULT;
-		dev_info(codec->dev,
+		dev_dbg(codec->dev,
 			 "%s: dmic_clk_strength invalid, default = %d\n",
 			 __func__, pdata->dmic_clk_drv);
 	}

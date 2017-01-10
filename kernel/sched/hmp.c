@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,11 +72,6 @@ inline void clear_ed_task(struct task_struct *p, struct rq *rq)
 {
 	if (p == rq->ed_task)
 		rq->ed_task = NULL;
-}
-
-inline void set_task_last_wake(struct task_struct *p, u64 wallclock)
-{
-	p->last_wake_ts = wallclock;
 }
 
 inline void set_task_last_switch_out(struct task_struct *p, u64 wallclock)
@@ -779,13 +774,6 @@ __read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 /* Temporarily disable window-stats activity on all cpus */
 unsigned int __read_mostly sched_disable_window_stats;
 
-/*
- * Major task runtime. If a task runs for more than sched_major_task_runtime
- * in a window, it's considered to be generating majority of workload
- * for this window. Prediction could be adjusted for such tasks.
- */
-__read_mostly unsigned int sched_major_task_runtime = 10000000;
-
 static unsigned int sync_cpu;
 
 struct related_thread_group *related_thread_groups[MAX_NUM_CGROUP_COLOC_ID];
@@ -961,6 +949,16 @@ sched_long_cpu_selection_threshold = 100 * NSEC_PER_MSEC;
 
 unsigned int __read_mostly sysctl_sched_restrict_cluster_spill;
 
+/*
+ * Scheduler tries to avoid waking up idle CPUs for tasks running
+ * in short bursts. If the task average burst is less than
+ * sysctl_sched_short_burst nanoseconds and it sleeps on an average
+ * for more than sysctl_sched_short_sleep nanoseconds, then the
+ * task is eligible for packing.
+ */
+unsigned int __read_mostly sysctl_sched_short_burst;
+unsigned int __read_mostly sysctl_sched_short_sleep = 1 * NSEC_PER_MSEC;
+
 static void
 _update_up_down_migrate(unsigned int *up_migrate, unsigned int *down_migrate)
 {
@@ -1009,9 +1007,6 @@ void set_hmp_defaults(void)
 		pct_to_real(sysctl_sched_spill_load_pct);
 
 	update_up_down_migrate();
-
-	sched_major_task_runtime =
-		mult_frac(sched_ravg_window, MAJOR_TASK_PCT, 100);
 
 	sched_init_task_load_windows =
 		div64_u64((u64)sysctl_sched_init_task_load_pct *
@@ -1465,7 +1460,20 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	int ret;
 	unsigned int old_val;
 	unsigned int *data = (unsigned int *)table->data;
-	int update_min_nice = 0;
+	int update_task_count = 0;
+
+	if (!sched_enable_hmp)
+		return 0;
+
+	/*
+	 * The policy mutex is acquired with cpu_hotplug.lock
+	 * held from cpu_up()->cpufreq_governor_interactive()->
+	 * sched_set_window(). So enforce the same order here.
+	 */
+	if (write && (data == &sysctl_sched_upmigrate_pct)) {
+		update_task_count = 1;
+		get_online_cpus();
+	}
 
 	mutex_lock(&policy_mutex);
 
@@ -1473,7 +1481,7 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 
 	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 
-	if (ret || !write || !sched_enable_hmp)
+	if (ret || !write)
 		goto done;
 
 	if (write && (old_val == *data))
@@ -1495,20 +1503,18 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	 * includes taking runqueue lock of all online cpus and re-initiatizing
 	 * their big counter values based on changed criteria.
 	 */
-	if ((data == &sysctl_sched_upmigrate_pct || update_min_nice)) {
-		get_online_cpus();
+	if (update_task_count)
 		pre_big_task_count_change(cpu_online_mask);
-	}
 
 	set_hmp_defaults();
 
-	if ((data == &sysctl_sched_upmigrate_pct || update_min_nice)) {
+	if (update_task_count)
 		post_big_task_count_change(cpu_online_mask);
-		put_online_cpus();
-	}
 
 done:
 	mutex_unlock(&policy_mutex);
+	if (update_task_count)
+		put_online_cpus();
 	return ret;
 }
 
@@ -1552,6 +1558,15 @@ void init_new_task_load(struct task_struct *p, bool idle_task)
 	INIT_LIST_HEAD(&p->grp_list);
 	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->cpu_cycles = 0;
+	p->ravg.curr_burst = 0;
+	/*
+	 * Initialize the avg_burst to twice the threshold, so that
+	 * a task would not be classified as short burst right away
+	 * after fork. It takes at least 6 sleep-wakeup cycles for
+	 * the avg_burst to go below the threshold.
+	 */
+	p->ravg.avg_burst = 2 * (u64)sysctl_sched_short_burst;
+	p->ravg.avg_sleep_time = 0;
 
 	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
 	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
@@ -1936,8 +1951,6 @@ scale_load_to_freq(u64 load, unsigned int src_freq, unsigned int dst_freq)
 	return div64_u64(load * (u64)src_freq, (u64)dst_freq);
 }
 
-#define HEAVY_TASK_SKIP 2
-#define HEAVY_TASK_SKIP_LIMIT 4
 /*
  * get_pred_busy - calculate predicted demand for a task on runqueue
  *
@@ -1965,7 +1978,7 @@ static u32 get_pred_busy(struct rq *rq, struct task_struct *p,
 	u32 *hist = p->ravg.sum_history;
 	u32 dmin, dmax;
 	u64 cur_freq_runtime = 0;
-	int first = NUM_BUSY_BUCKETS, final, skip_to;
+	int first = NUM_BUSY_BUCKETS, final;
 	u32 ret = runtime;
 
 	/* skip prediction for new tasks due to lack of history */
@@ -1985,36 +1998,6 @@ static u32 get_pred_busy(struct rq *rq, struct task_struct *p,
 
 	/* compute the bucket for prediction */
 	final = first;
-	if (first < HEAVY_TASK_SKIP_LIMIT) {
-		/* compute runtime at current CPU frequency */
-		cur_freq_runtime = mult_frac(runtime, max_possible_efficiency,
-					     rq->cluster->efficiency);
-		cur_freq_runtime = scale_load_to_freq(cur_freq_runtime,
-				max_possible_freq, rq->cluster->cur_freq);
-		/*
-		 * if the task runs for majority of the window, try to
-		 * pick higher buckets.
-		 */
-		if (cur_freq_runtime >= sched_major_task_runtime) {
-			int next = NUM_BUSY_BUCKETS;
-			/*
-			 * if there is a higher bucket that's consistently
-			 * hit, don't jump beyond that.
-			 */
-			for (i = start + 1; i <= HEAVY_TASK_SKIP_LIMIT &&
-			     i < NUM_BUSY_BUCKETS; i++) {
-				if (buckets[i] > CONSISTENT_THRES) {
-					next = i;
-					break;
-				}
-			}
-			skip_to = min(next, start + HEAVY_TASK_SKIP);
-			/* don't jump beyond HEAVY_TASK_SKIP_LIMIT */
-			skip_to = min(HEAVY_TASK_SKIP_LIMIT, skip_to);
-			/* don't go below first non-empty bucket, if any */
-			final = max(first, skip_to);
-		}
-	}
 
 	/* determine demand range for the predicted bucket */
 	if (final < 2) {
@@ -2738,12 +2721,14 @@ done:
 	trace_sched_update_history(rq, p, runtime, samples, event);
 }
 
-static void add_to_task_demand(struct rq *rq, struct task_struct *p, u64 delta)
+static u64 add_to_task_demand(struct rq *rq, struct task_struct *p, u64 delta)
 {
 	delta = scale_exec_time(delta, rq);
 	p->ravg.sum += delta;
 	if (unlikely(p->ravg.sum > sched_ravg_window))
 		p->ravg.sum = sched_ravg_window;
+
+	return delta;
 }
 
 /*
@@ -2796,13 +2781,14 @@ static void add_to_task_demand(struct rq *rq, struct task_struct *p, u64 delta)
  * IMPORTANT : Leave p->ravg.mark_start unchanged, as update_cpu_busy_time()
  * depends on it!
  */
-static void update_task_demand(struct task_struct *p, struct rq *rq,
+static u64 update_task_demand(struct task_struct *p, struct rq *rq,
 			       int event, u64 wallclock)
 {
 	u64 mark_start = p->ravg.mark_start;
 	u64 delta, window_start = rq->window_start;
 	int new_window, nr_full_windows;
 	u32 window_size = sched_ravg_window;
+	u64 runtime;
 
 	new_window = mark_start < window_start;
 	if (!account_busy_for_task_demand(p, event)) {
@@ -2816,7 +2802,7 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 			 * it is not necessary to account those.
 			 */
 			update_history(rq, p, p->ravg.sum, 1, event);
-		return;
+		return 0;
 	}
 
 	if (!new_window) {
@@ -2824,8 +2810,7 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 		 * The simple case - busy time contained within the existing
 		 * window.
 		 */
-		add_to_task_demand(rq, p, wallclock - mark_start);
-		return;
+		return add_to_task_demand(rq, p, wallclock - mark_start);
 	}
 
 	/*
@@ -2837,13 +2822,16 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 	window_start -= (u64)nr_full_windows * (u64)window_size;
 
 	/* Process (window_start - mark_start) first */
-	add_to_task_demand(rq, p, window_start - mark_start);
+	runtime = add_to_task_demand(rq, p, window_start - mark_start);
 
 	/* Push new sample(s) into task's demand history */
 	update_history(rq, p, p->ravg.sum, 1, event);
-	if (nr_full_windows)
-		update_history(rq, p, scale_exec_time(window_size, rq),
-			       nr_full_windows, event);
+	if (nr_full_windows) {
+		u64 scaled_window = scale_exec_time(window_size, rq);
+
+		update_history(rq, p, scaled_window, nr_full_windows, event);
+		runtime += nr_full_windows * scaled_window;
+	}
 
 	/*
 	 * Roll window_start back to current to process any remainder
@@ -2853,13 +2841,31 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 
 	/* Process (wallclock - window_start) next */
 	mark_start = window_start;
-	add_to_task_demand(rq, p, wallclock - mark_start);
+	runtime += add_to_task_demand(rq, p, wallclock - mark_start);
+
+	return runtime;
+}
+
+static inline void
+update_task_burst(struct task_struct *p, struct rq *rq, int event, int runtime)
+{
+	/*
+	 * update_task_demand() has checks for idle task and
+	 * exit task. The runtime may include the wait time,
+	 * so update the burst only for the cases where the
+	 * task is running.
+	 */
+	if (event == PUT_PREV_TASK || (event == TASK_UPDATE &&
+				rq->curr == p))
+		p->ravg.curr_burst += runtime;
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */
 void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime)
 {
+	u64 runtime;
+
 	if (!rq->window_start || sched_disable_window_stats ||
 	    p->ravg.mark_start == wallclock)
 		return;
@@ -2874,7 +2880,9 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 	}
 
 	update_task_rq_cpu_cycles(p, rq, event, wallclock, irqtime);
-	update_task_demand(p, rq, event, wallclock);
+	runtime = update_task_demand(p, rq, event, wallclock);
+	if (runtime)
+		update_task_burst(p, rq, event, runtime);
 	update_cpu_busy_time(p, rq, event, wallclock, irqtime);
 	update_task_pred_demand(rq, p, event);
 done:
@@ -2960,6 +2968,8 @@ void reset_task_stats(struct task_struct *p)
 	p->ravg.curr_window_cpu = curr_window_ptr;
 	p->ravg.prev_window_cpu = prev_window_ptr;
 
+	p->ravg.avg_burst = 2 * (u64)sysctl_sched_short_burst;
+
 	/* Retain EXITING_TASK marker */
 	p->ravg.sum_history[0] = sum;
 }
@@ -3029,6 +3039,7 @@ const char *sched_window_reset_reasons[] = {
 	"WINDOW_CHANGE",
 	"POLICY_CHANGE",
 	"HIST_SIZE_CHANGE",
+	"FREQ_AGGREGATE_CHANGE",
 };
 
 /* Called with IRQs enabled */
@@ -3855,7 +3866,7 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	struct migration_sum_data d;
 	int migrate_type;
 	int cpu = cpu_of(rq);
-	bool new_task = is_new_task(p);
+	bool new_task;
 	int i;
 
 	if (!sched_freq_aggregate)
@@ -3865,6 +3876,7 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	update_task_ravg(p, rq, TASK_UPDATE, wallclock, 0);
+	new_task = is_new_task(p);
 
 	/* cpu_time protected by related_thread_group_lock, grp->lock rq_lock */
 	cpu_time = _group_cpu_time(grp, cpu);
@@ -3959,6 +3971,8 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 
 	BUG_ON((s64)*src_curr_runnable_sum < 0);
 	BUG_ON((s64)*src_prev_runnable_sum < 0);
+	BUG_ON((s64)*src_nt_curr_runnable_sum < 0);
+	BUG_ON((s64)*src_nt_prev_runnable_sum < 0);
 }
 
 static inline struct group_cpu_time *
@@ -4460,6 +4474,20 @@ bool early_detection_notify(struct rq *rq, u64 wallclock)
 	}
 
 	return 0;
+}
+
+void update_avg_burst(struct task_struct *p)
+{
+	update_avg(&p->ravg.avg_burst, p->ravg.curr_burst);
+	p->ravg.curr_burst = 0;
+}
+
+void note_task_waking(struct task_struct *p, u64 wallclock)
+{
+	u64 sleep_time = wallclock - p->last_switch_out_ts;
+
+	p->last_wake_ts = wallclock;
+	update_avg(&p->ravg.avg_sleep_time, sleep_time);
 }
 
 #ifdef CONFIG_CGROUP_SCHED

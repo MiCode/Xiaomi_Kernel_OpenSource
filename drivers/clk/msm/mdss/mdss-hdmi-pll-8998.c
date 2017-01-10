@@ -494,7 +494,7 @@ static int hdmi_8998_pll_set_clk_rate(struct clk *c, unsigned long rate)
 	_W(pll, SYSCLK_EN_SEL, 0x37);
 	_W(pll, SYS_CLK_CTRL, 0x2);
 	_W(pll, CLK_ENABLE1, 0xE);
-	_W(pll, PLL_IVCO, 0xF);
+	_W(pll, PLL_IVCO, 0x7);
 	_W(pll, VCO_TUNE_CTRL, 0x0);
 	_W(pll, SVS_MODE_CLK_SEL, cfg.svs_mode_clk_sel);
 	_W(pll, CLK_SELECT, 0x30);
@@ -536,10 +536,10 @@ static int hdmi_8998_pll_set_clk_rate(struct clk *c, unsigned long rate)
 	_W(pll, PHY_TX_PRE_DRIVER_2(2), cfg.l2_pre_driver_2);
 	_W(pll, PHY_TX_PRE_DRIVER_2(3), cfg.l3_pre_driver_2);
 
-	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(0), 0x0);
+	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(0), 0x3);
 	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(1), 0x0);
 	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(2), 0x0);
-	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(3), 0x0);
+	_W(pll, PHY_TX_DRV_LVL_RES_CODE_OFFSET(3), 0x3);
 
 	_W(phy, PHY_MODE, cfg.phy_mode);
 
@@ -626,8 +626,6 @@ static int hdmi_8998_pll_enable(struct clk *c)
 	udelay(100);
 	_W(phy, PHY_CFG, 0x59);
 	udelay(100);
-
-	_W(phy, PHY_CLOCK, 0x6);
 
 	/* Ensure all registers are flushed to hardware */
 	wmb();

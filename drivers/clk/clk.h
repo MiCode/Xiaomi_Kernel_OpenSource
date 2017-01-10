@@ -23,6 +23,8 @@ void __clk_free_clk(struct clk *clk);
 
 /* Debugfs API to print the enabled clocks */
 void clock_debug_print_enabled(void);
+int clk_register_debug(struct clk_hw *hw, struct dentry *dentry);
+void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry);
 
 #else
 /* All these casts to avoid ifdefs in clkdev... */

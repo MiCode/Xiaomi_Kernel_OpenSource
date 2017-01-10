@@ -53,21 +53,12 @@ struct mdss_dp_attention_node {
 };
 
 #define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
-static u32 supported_modes[] = {
-	HDMI_VFRMT_640x480p60_4_3,
-	HDMI_VFRMT_720x480p60_4_3, HDMI_VFRMT_720x480p60_16_9,
-	HDMI_VFRMT_1280x720p60_16_9,
-	HDMI_VFRMT_1920x1080p60_16_9,
-	HDMI_VFRMT_3840x2160p24_16_9, HDMI_VFRMT_3840x2160p30_16_9,
-	HDMI_VFRMT_3840x2160p60_16_9,
-	HDMI_VFRMT_4096x2160p24_256_135, HDMI_VFRMT_4096x2160p30_256_135,
-	HDMI_VFRMT_4096x2160p60_256_135, HDMI_EVFRMT_4096x2160p24_16_9
-};
 
 static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv);
 static void mdss_dp_mainlink_push_idle(struct mdss_panel_data *pdata);
 static inline void mdss_dp_link_retraining(struct mdss_dp_drv_pdata *dp);
 static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp_drv);
+static void dp_send_events(struct mdss_dp_drv_pdata *dp, u32 events);
 
 static void mdss_dp_put_dt_clk_data(struct device *dev,
 	struct dss_module_power *module_power)
@@ -898,6 +889,11 @@ static int dp_get_cable_status(struct platform_device *pdev, u32 vote)
 	return hpd;
 }
 
+static bool mdss_dp_is_dvi_mode(struct mdss_dp_drv_pdata *dp)
+{
+	return hdmi_edid_is_dvi_mode(dp->panel_data.panel_info.edid_data);
+}
+
 static int dp_audio_info_setup(struct platform_device *pdev,
 	struct msm_ext_disp_audio_setup_params *params)
 {
@@ -998,7 +994,7 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 		return -EINVAL;
 	}
 
-	ret = hdmi_get_supported_mode(&timing, &dp_drv->ds_data, vic);
+	ret = hdmi_get_supported_mode(&timing, 0, vic);
 	pinfo = &dp_drv->panel_data.panel_info;
 
 	if (ret || !timing.supported || !pinfo) {
@@ -1206,16 +1202,20 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 
 		ret = mdss_dp_get_lane_mapping(dp_drv, dp_drv->orientation,
 				&ln_map);
-		if (ret)
+		if (ret) {
+			mutex_unlock(&dp_drv->train_mutex);
 			goto exit;
+		}
 
 		mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
 				dp_drv->orientation,
 				dp_drv->dpcd.max_lane_count);
 
 		ret = mdss_dp_enable_mainlink_clocks(dp_drv);
-		if (ret)
+		if (ret) {
+			mutex_unlock(&dp_drv->train_mutex);
 			goto exit;
+		}
 
 		mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
 
@@ -1225,6 +1225,15 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 
 		dp_drv->power_on = true;
 
+		if (dp_drv->psm_enabled) {
+			ret = mdss_dp_aux_send_psm_request(dp_drv, false);
+			if (ret) {
+				pr_err("Failed to exit low power mode, rc=%d\n",
+					ret);
+				goto exit;
+			}
+		}
+
 		ret = mdss_dp_train_main_link(dp_drv);
 
 		mutex_unlock(&dp_drv->train_mutex);
@@ -1233,7 +1242,6 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 	pr_debug("end\n");
 
 exit:
-	mutex_unlock(&dp_drv->train_mutex);
 	return ret;
 }
 
@@ -1293,6 +1301,15 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 
 	mdss_dp_configure_source_params(dp_drv, &ln_map);
 
+	if (dp_drv->psm_enabled) {
+		ret = mdss_dp_aux_send_psm_request(dp_drv, false);
+		if (ret) {
+			pr_err("Failed to exit low power mode, rc=%d\n", ret);
+			goto exit;
+		}
+	}
+
+
 link_training:
 	dp_drv->power_on = true;
 
@@ -1346,9 +1363,16 @@ static inline bool mdss_dp_is_link_training_requested(
 	return (dp->test_data.test_requested == TEST_LINK_TRAINING);
 }
 
+static inline bool mdss_dp_is_phy_test_pattern_requested(
+		struct mdss_dp_drv_pdata *dp)
+{
+	return (dp->test_data.test_requested == PHY_TEST_PATTERN);
+}
+
 static inline bool mdss_dp_soft_hpd_reset(struct mdss_dp_drv_pdata *dp)
 {
-	return mdss_dp_is_link_training_requested(dp) &&
+	return (mdss_dp_is_link_training_requested(dp) ||
+			mdss_dp_is_phy_test_pattern_requested(dp)) &&
 		dp->alt_mode.dp_status.hpd_irq;
 }
 
@@ -1372,6 +1396,7 @@ static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv)
 	wmb();
 	mdss_dp_disable_mainlink_clocks(dp_drv);
 	dp_drv->power_on = false;
+	dp_drv->sink_info_read = false;
 
 	mutex_unlock(&dp_drv->train_mutex);
 	complete_all(&dp_drv->irq_comp);
@@ -1419,6 +1444,8 @@ static int mdss_dp_off_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	dp_drv->dp_initialized = false;
 
 	dp_drv->power_on = false;
+	dp_drv->sink_info_read = false;
+
 	mdss_dp_ack_state(dp_drv, false);
 	mutex_unlock(&dp_drv->train_mutex);
 	pr_debug("DP off done\n");
@@ -1447,6 +1474,7 @@ static int mdss_dp_send_cable_notification(
 	struct mdss_dp_drv_pdata *dp, int val)
 {
 	int ret = 0;
+	u32 flags = 0;
 
 	if (!dp) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1454,9 +1482,12 @@ static int mdss_dp_send_cable_notification(
 		goto end;
 	}
 
-	if (dp && dp->ext_audio_data.intf_ops.hpd)
+	if (mdss_dp_is_dvi_mode(dp))
+		flags |= MSM_EXT_DISP_HPD_NO_AUDIO;
+
+	if (dp->ext_audio_data.intf_ops.hpd)
 		ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
-				dp->ext_audio_data.type, val);
+				dp->ext_audio_data.type, val, flags);
 
 end:
 	return ret;
@@ -1487,13 +1518,8 @@ static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 			panel_data);
 
-	dp_drv->ds_data.ds_registered = true;
-	dp_drv->ds_data.modes_num = ARRAY_SIZE(supported_modes);
-	dp_drv->ds_data.modes = supported_modes;
-
 	dp_drv->max_pclk_khz = DP_MAX_PIXEL_CLK_KHZ;
 	edid_init_data.kobj = dp_drv->kobj;
-	edid_init_data.ds_data = dp_drv->ds_data;
 	edid_init_data.max_pclk_khz = dp_drv->max_pclk_khz;
 
 	edid_data = hdmi_edid_init(&edid_init_data);
@@ -1526,7 +1552,7 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 			panel_data);
 
 	if (dp_drv->dp_initialized) {
-		pr_err("%s: host init done already\n", __func__);
+		pr_debug("%s: host init done already\n", __func__);
 		return 0;
 	}
 
@@ -1569,37 +1595,47 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	mdss_dp_phy_aux_setup(&dp_drv->phy_io);
 
 	mdss_dp_irq_enable(dp_drv);
-	pr_debug("irq enabled\n");
-	mdss_dp_dpcd_cap_read(dp_drv);
-
-	ret = mdss_dp_edid_read(dp_drv);
-	if (ret) {
-		pr_info("edid read error, setting default resolution\n");
-		mdss_dp_set_default_resolution(dp_drv);
-		goto edid_error;
-	}
-
-	pr_debug("edid_read success. buf_size=%d\n",
-				dp_drv->edid_buf_size);
-
-	ret = hdmi_edid_parser(dp_drv->panel_data.panel_info.edid_data);
-	if (ret) {
-		DEV_ERR("%s: edid parse failed\n", __func__);
-		goto edid_error;
-	}
-
-edid_error:
-	mdss_dp_update_cable_status(dp_drv, true);
-	mdss_dp_notify_clients(dp_drv, true);
 	dp_drv->dp_initialized = true;
 
-	return ret;
+	return 0;
 
 clk_error:
 	mdss_dp_regulator_ctrl(dp_drv, false);
 	mdss_dp_config_gpios(dp_drv, false);
 vreg_error:
 	return ret;
+}
+
+static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
+{
+	int ret;
+
+	if (dp->sink_info_read)
+		return 0;
+
+	mdss_dp_dpcd_cap_read(dp);
+
+	ret = mdss_dp_edid_read(dp);
+	if (ret) {
+		pr_debug("edid read error, setting default resolution\n");
+
+		mdss_dp_set_default_resolution(dp);
+		goto end;
+	}
+
+	ret = hdmi_edid_parser(dp->panel_data.panel_info.edid_data);
+	if (ret) {
+		pr_err("edid parse failed\n");
+		goto end;
+	}
+
+	dp->sink_info_read = true;
+end:
+	mdss_dp_update_cable_status(dp, true);
+	mdss_dp_notify_clients(dp, true);
+
+	return ret;
+
 }
 
 static int mdss_dp_check_params(struct mdss_dp_drv_pdata *dp, void *arg)
@@ -1618,7 +1654,7 @@ static int mdss_dp_check_params(struct mdss_dp_drv_pdata *dp, void *arg)
 			var_pinfo->xres, var_pinfo->yres,
 					pinfo->xres, pinfo->yres);
 
-	new_vic = hdmi_panel_get_vic(var_pinfo, &dp->ds_data);
+	new_vic = hdmi_panel_get_vic(var_pinfo, 0);
 
 	if ((new_vic < 0) || (new_vic > HDMI_VFRMT_MAX)) {
 		DEV_ERR("%s: invalid or not supported vic\n", __func__);
@@ -1661,6 +1697,8 @@ static void mdss_dp_hdcp_cb_work(struct work_struct *work)
 	switch (dp->hdcp_status) {
 	case HDCP_STATE_AUTHENTICATING:
 		pr_debug("start authenticaton\n");
+
+		dp->dpcd_version = dp->dpcd.minor | (dp->dpcd.major << 8);
 
 		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
 			rc = dp->hdcp.ops->authenticate(dp->hdcp.data);
@@ -1739,6 +1777,7 @@ static int mdss_dp_hdcp_init(struct mdss_panel_data *pdata)
 	hdcp_init_data.cb_data       = (void *)dp_drv;
 	hdcp_init_data.sec_access    = true;
 	hdcp_init_data.client_id     = HDCP_CLIENT_DP;
+	hdcp_init_data.version       = &dp_drv->dpcd_version;
 
 	dp_drv->hdcp.hdcp1 = hdcp_1x_init(&hdcp_init_data);
 	if (IS_ERR_OR_NULL(dp_drv->hdcp.hdcp1)) {
@@ -1833,13 +1872,191 @@ static ssize_t mdss_dp_sysfs_rda_s3d_mode(struct device *dev,
 	return ret;
 }
 
+static bool mdss_dp_is_test_ongoing(struct mdss_dp_drv_pdata *dp)
+{
+	return dp->hpd_irq_clients_notified;
+}
+
+/**
+ * mdss_dp_psm_config() - Downstream device uPacket RX Power Management
+ * @dp: Display Port Driver data
+ *
+ * Perform required steps to configure the uPacket RX of a downstream
+ * connected device in a power-save mode.
+ */
+static int mdss_dp_psm_config(struct mdss_dp_drv_pdata *dp, bool enable)
+{
+	int ret = 0;
+
+	if (!dp) {
+		pr_err("invalid data\n");
+		return -EINVAL;
+	}
+
+	if (dp->psm_enabled == enable) {
+		pr_debug("No change in psm requested\n");
+		goto end;
+	}
+
+	pr_debug("Power save mode %s requested\n", enable ? "entry" : "exit");
+
+	if (enable) {
+		ret = mdss_dp_aux_send_psm_request(dp, true);
+		if (ret)
+			goto end;
+
+		/*
+		 * If this configuration is requested as part of an
+		 * automated test, then HPD notification has already been
+		 * sent out. Just disable the main-link and turn off DP Tx.
+		 *
+		 * Otherwise, trigger a complete shutdown of the pipeline.
+		 */
+		if (mdss_dp_is_test_ongoing(dp)) {
+			mdss_dp_mainlink_push_idle(&dp->panel_data);
+			mdss_dp_off_irq(dp);
+		} else {
+			mdss_dp_notify_clients(dp, false);
+		}
+	} else {
+		/*
+		 * If this configuration is requested as part of an
+		 * automated test, then just perform a link retraining.
+		 *
+		 * Otherwise, re-initialize the host and setup the complete
+		 * pipeline from scratch by sending a connection notification
+		 * to user modules.
+		 */
+		if (mdss_dp_is_test_ongoing(dp)) {
+			mdss_dp_link_retraining(dp);
+		} else {
+			mdss_dp_host_init(&dp->panel_data);
+			mdss_dp_notify_clients(dp, true);
+		}
+	}
+
+end:
+	pr_debug("Power save mode %s %s\n",
+		dp->psm_enabled ? "entry" : "exit",
+		ret ? "failed" : "successful");
+
+	return ret;
+}
+
+static ssize_t mdss_dp_wta_psm(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int psm;
+	int rc;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid data\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	rc = kstrtoint(buf, 10, &psm);
+	if (rc) {
+		pr_err("kstrtoint failed. ret=%d\n", (int)ret);
+		goto end;
+	}
+
+	rc = mdss_dp_psm_config(dp, psm ? true : false);
+	if (rc) {
+		pr_err("failed to config Power Save Mode\n");
+		goto end;
+	}
+
+end:
+	return ret;
+}
+
+static ssize_t mdss_dp_rda_psm(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", dp->psm_enabled ? 1 : 0);
+	pr_debug("psm: %s\n", dp->psm_enabled ? "enabled" : "disabled");
+
+	return ret;
+}
+
+static ssize_t mdss_dp_wta_hpd(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int hpd;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid data\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	ret = kstrtoint(buf, 10, &hpd);
+	if (ret) {
+		pr_err("kstrtoint failed. ret=%d\n", (int)ret);
+		goto end;
+	}
+
+	dp->hpd = !!hpd;
+	pr_debug("hpd=%d\n", dp->hpd);
+
+	if (dp->hpd && dp->cable_connected) {
+		if (dp->alt_mode.current_state & DP_CONFIGURE_DONE) {
+			mdss_dp_host_init(&dp->panel_data);
+			mdss_dp_process_hpd_high(dp);
+		} else {
+			dp_send_events(dp, EV_USBPD_DISCOVER_MODES);
+		}
+	} else if (!dp->hpd && dp->power_on) {
+		mdss_dp_notify_clients(dp, false);
+	}
+end:
+	return ret;
+}
+
+static ssize_t mdss_dp_rda_hpd(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", dp->hpd);
+	pr_debug("hpd: %d\n", dp->hpd);
+
+	return ret;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO, mdss_dp_rda_connected, NULL);
 static DEVICE_ATTR(s3d_mode, S_IRUGO | S_IWUSR, mdss_dp_sysfs_rda_s3d_mode,
 	mdss_dp_sysfs_wta_s3d_mode);
+static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, mdss_dp_rda_hpd,
+	mdss_dp_wta_hpd);
+static DEVICE_ATTR(psm, S_IRUGO | S_IWUSR, mdss_dp_rda_psm,
+	mdss_dp_wta_psm);
+
 
 static struct attribute *mdss_dp_fs_attrs[] = {
 	&dev_attr_connected.attr,
 	&dev_attr_s3d_mode.attr,
+	&dev_attr_hpd.attr,
+	&dev_attr_psm.attr,
 	NULL,
 };
 
@@ -2306,8 +2523,9 @@ static void usbpd_connect_callback(struct usbpd_svid_handler *hdlr)
 	}
 
 	mdss_dp_update_cable_status(dp_drv, true);
-	dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
-	pr_debug("discover_mode event sent\n");
+
+	if (dp_drv->hpd)
+		dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
 }
 
 static void usbpd_disconnect_callback(struct usbpd_svid_handler *hdlr)
@@ -2489,6 +2707,57 @@ static int mdss_dp_process_link_training_request(struct mdss_dp_drv_pdata *dp)
 }
 
 /**
+ * mdss_dp_process_phy_test_pattern_request() - process new phy test requests
+ * @dp: Display Port Driver data
+ *
+ * This function will handle new phy test pattern requests that are initiated
+ * by the sink. The function will return 0 if a phy test pattern has been
+ * processed, otherwise it will return -EINVAL.
+ */
+static int mdss_dp_process_phy_test_pattern_request(
+		struct mdss_dp_drv_pdata *dp)
+{
+	u32 test_link_rate = 0, test_lane_count = 0;
+
+	if (!mdss_dp_is_phy_test_pattern_requested(dp))
+		return -EINVAL;
+
+	mdss_dp_send_test_response(dp);
+
+	test_link_rate = dp->test_data.test_link_rate;
+	test_lane_count = dp->test_data.test_lane_count;
+
+	pr_info("%s link rate = 0x%x, lane count = 0x%x\n",
+			mdss_dp_get_test_name(TEST_LINK_TRAINING),
+			test_link_rate, test_lane_count);
+
+	/**
+	 * Retrain the mainlink if there is a change in link rate or lane
+	 * count.
+	 */
+	if (mdss_dp_aux_is_link_rate_valid(test_link_rate) &&
+			mdss_dp_aux_is_lane_count_valid(test_lane_count) &&
+			((dp->dpcd.max_lane_count != test_lane_count) ||
+			(dp->link_rate != test_link_rate))) {
+
+		pr_info("updated link rate or lane count, retraining.\n");
+
+		dp->dpcd.max_lane_count = dp->test_data.test_lane_count;
+		dp->link_rate = dp->test_data.test_link_rate;
+
+		mdss_dp_link_retraining(dp);
+	}
+
+	mdss_dp_config_ctrl(dp);
+
+	mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(dp);
+
+	mdss_dp_phy_send_test_pattern(dp);
+
+	return 0;
+}
+
+/**
  * mdss_dp_process_downstream_port_status_change() - process port status changes
  * @dp: Display Port Driver data
  *
@@ -2536,6 +2805,9 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 	if (!ret)
 		goto exit;
 
+	ret = mdss_dp_process_phy_test_pattern_request(dp);
+	if (!ret)
+		goto exit;
 	pr_debug("done\n");
 exit:
 	mdss_dp_reset_test_data(dp);
@@ -2605,6 +2877,8 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		break;
 	case USBPD_SVDM_ATTENTION:
 		node = kzalloc(sizeof(*node), GFP_KERNEL);
+		if (!node)
+			return;
 		node->vdo = *vdos;
 
 		mutex_lock(&dp_drv->attention_lock);
@@ -2627,8 +2901,10 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		dp_drv->alt_mode.current_state |= DP_CONFIGURE_DONE;
 		pr_debug("Configure: config USBPD to DP done\n");
 
+		mdss_dp_host_init(&dp_drv->panel_data);
+
 		if (dp_drv->alt_mode.dp_status.hpd_high)
-			mdss_dp_host_init(&dp_drv->panel_data);
+			mdss_dp_process_hpd_high(dp_drv);
 		break;
 	default:
 		pr_err("unknown cmd: %d\n", cmd);
@@ -2676,12 +2952,12 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 
 	dp_drv->alt_mode.current_state |= DP_STATUS_DONE;
 
-	if (dp_drv->alt_mode.current_state & DP_CONFIGURE_DONE)
+	if (dp_drv->alt_mode.current_state & DP_CONFIGURE_DONE) {
 		mdss_dp_host_init(&dp_drv->panel_data);
-	else
+		mdss_dp_process_hpd_high(dp_drv);
+	} else {
 		dp_send_events(dp_drv, EV_USBPD_DP_CONFIGURE);
-
-	pr_debug("exit\n");
+	}
 }
 
 static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp)

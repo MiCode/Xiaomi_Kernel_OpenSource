@@ -65,11 +65,13 @@
 #define DIAG_CON_WCNSS		(0x0008)	/* Bit mask for WCNSS */
 #define DIAG_CON_SENSORS	(0x0010)	/* Bit mask for Sensors */
 #define DIAG_CON_WDSP (0x0020) /* Bit mask for WDSP */
+#define DIAG_CON_CDSP (0x0040)
 
 #define DIAG_CON_NONE		(0x0000)	/* Bit mask for No SS*/
 #define DIAG_CON_ALL		(DIAG_CON_APSS | DIAG_CON_MPSS \
 				| DIAG_CON_LPASS | DIAG_CON_WCNSS \
-				| DIAG_CON_SENSORS | DIAG_CON_WDSP)
+				| DIAG_CON_SENSORS | DIAG_CON_WDSP \
+				| DIAG_CON_CDSP)
 
 #define DIAG_STM_MODEM	0x01
 #define DIAG_STM_LPASS	0x02
@@ -77,6 +79,7 @@
 #define DIAG_STM_APPS	0x08
 #define DIAG_STM_SENSORS 0x10
 #define DIAG_STM_WDSP 0x20
+#define DIAG_STM_CDSP 0x40
 
 #define INVALID_PID		-1
 #define DIAG_CMD_FOUND		1
@@ -202,7 +205,8 @@
 #define PERIPHERAL_WCNSS	2
 #define PERIPHERAL_SENSORS	3
 #define PERIPHERAL_WDSP		4
-#define NUM_PERIPHERALS		5
+#define PERIPHERAL_CDSP		5
+#define NUM_PERIPHERALS		6
 #define APPS_DATA		(NUM_PERIPHERALS)
 
 /* Number of sessions possible in Memory Device Mode. +1 for Apps data */
@@ -469,6 +473,7 @@ struct diagchar_dev {
 	int ref_count;
 	int mask_clear;
 	struct mutex diag_maskclear_mutex;
+	struct mutex diag_notifier_mutex;
 	struct mutex diagchar_mutex;
 	struct mutex diag_file_mutex;
 	wait_queue_head_t wait_q;
@@ -628,6 +633,7 @@ void diag_cmd_remove_reg(struct diag_cmd_reg_entry_t *entry, uint8_t proc);
 void diag_cmd_remove_reg_by_pid(int pid);
 void diag_cmd_remove_reg_by_proc(int proc);
 int diag_cmd_chk_polling(struct diag_cmd_reg_entry_t *entry);
+int diag_mask_param(void);
 void diag_clear_masks(struct diag_md_session_t *info);
 
 void diag_record_stats(int type, int flag);

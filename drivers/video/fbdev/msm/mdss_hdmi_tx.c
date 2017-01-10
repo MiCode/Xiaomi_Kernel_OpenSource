@@ -64,8 +64,10 @@
 #define HDMI_TX_3_MAX_PCLK_RATE            297000
 #define HDMI_TX_4_MAX_PCLK_RATE            600000
 
-#define hdmi_tx_get_fd(x) (x ? hdmi_ctrl->feature_data[ffs(x) - 1] : 0)
-#define hdmi_tx_set_fd(x, y) {if (x) hdmi_ctrl->feature_data[ffs(x) - 1] = y; }
+#define hdmi_tx_get_fd(x) ((x && (ffs(x) > 0))  ? \
+			hdmi_ctrl->feature_data[ffs(x) - 1] : 0)
+#define hdmi_tx_set_fd(x, y) {if (x && (ffs(x) > 0)) \
+			hdmi_ctrl->feature_data[ffs(x) - 1] = y; }
 
 #define MAX_EDID_READ_RETRY	5
 
@@ -374,8 +376,7 @@ static void hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static inline u32 hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	return hdmi_edid_get_sink_mode(
-		hdmi_tx_get_fd(HDMI_TX_FEAT_EDID)) ? 0 : 1;
+	return hdmi_edid_is_dvi_mode(hdmi_tx_get_fd(HDMI_TX_FEAT_EDID));
 } /* hdmi_tx_is_dvi_mode */
 
 static inline bool hdmi_tx_is_panel_on(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -417,9 +418,15 @@ static inline void hdmi_tx_cec_device_suspend(struct hdmi_tx_ctrl *hdmi_ctrl)
 static inline void hdmi_tx_send_cable_notification(
 	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
 {
-	if (hdmi_ctrl && hdmi_ctrl->ext_audio_data.intf_ops.hpd)
+	if (hdmi_ctrl && hdmi_ctrl->ext_audio_data.intf_ops.hpd) {
+		u32 flags = 0;
+
+		if (hdmi_tx_is_dvi_mode(hdmi_ctrl))
+			flags |= MSM_EXT_DISP_HPD_NO_AUDIO;
+
 		hdmi_ctrl->ext_audio_data.intf_ops.hpd(hdmi_ctrl->ext_pdev,
-				hdmi_ctrl->ext_audio_data.type, val);
+				hdmi_ctrl->ext_audio_data.type, val, flags);
+	}
 }
 
 static inline void hdmi_tx_set_audio_switch_node(
@@ -2450,7 +2457,7 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 			hdmi_ctrl_reg |= BIT(2);
 
 		/* Set transmission mode to DVI based in EDID info */
-		if (!hdmi_edid_get_sink_mode(hdmi_tx_get_fd(HDMI_TX_FEAT_EDID)))
+		if (hdmi_edid_is_dvi_mode(hdmi_tx_get_fd(HDMI_TX_FEAT_EDID)))
 			hdmi_ctrl_reg &= ~BIT(1); /* DVI mode */
 
 		/*

@@ -44,6 +44,8 @@ extern int tavil_mbhc_hs_detect(struct snd_soc_codec *codec,
 extern void tavil_mbhc_deinit(struct snd_soc_codec *codec);
 extern int tavil_mbhc_post_ssr_init(struct wcd934x_mbhc *mbhc,
 				    struct snd_soc_codec *codec);
+extern int tavil_mbhc_get_impedance(struct wcd934x_mbhc *wcd934x_mbhc,
+				    uint32_t *zl, uint32_t *zr);
 #endif /* __WCD934X_MBHC_H__ */
 
 

@@ -36,6 +36,12 @@ First Level Node - FG Gen3 device
 	Definition: For details about IIO bindings see:
 		    Documentation/devicetree/bindings/iio/iio-bindings.txt
 
+- qcom,rradc-base
+	Usage:      required
+	Value type: <u32>
+	Definition: Should specify the base address of RR_ADC peripheral. This
+		    is used for reading certain peripheral registers under it.
+
 - qcom,fg-cutoff-voltage
 	Usage:      optional
 	Value type: <u32>
@@ -260,6 +266,52 @@ First Level Node - FG Gen3 device
 		    is specified to make it fully functional. Value has no
 		    unit. Allowed range is 0 to 62200 in micro units.
 
+- qcom,fg-rconn-mohms
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery connector resistance (Rconn) in milliohms. If Rconn
+		    is specified, then ESR to Rslow scaling factors will be
+		    updated to account it for an accurate ESR.
+
+- qcom,fg-esr-filter-switch-temp
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery temperature threshold below which low temperature
+		    ESR filter coefficients will be switched to normal
+		    temperature ESR filter coefficients. If this is not
+		    specified, then the default value used will be 100. Unit is
+		    in decidegC.
+
+- qcom,fg-esr-tight-filter-micro-pct
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value in micro percentage for ESR tight filter. If this is
+		    not specified, then a default value of 3907 (0.39 %) will
+		    be used. Lowest possible value is 1954 (0.19 %).
+
+- qcom,fg-esr-broad-filter-micro-pct
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value in micro percentage for ESR broad filter. If this is
+		    not specified, then a default value of 99610 (9.96 %) will
+		    be used. Lowest possible value is 1954 (0.19 %).
+
+- qcom,fg-esr-tight-lt-filter-micro-pct
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value in micro percentage for low temperature ESR tight
+		    filter. If this is not specified, then a default value of
+		    48829 (4.88 %) will be used. Lowest possible value is 1954
+		    (0.19 %).
+
+- qcom,fg-esr-broad-lt-filter-micro-pct
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value in micro percentage for low temperature ESR broad
+		    filter. If this is not specified, then a default value of
+		    148438 (14.84 %) will be used. Lowest possible value is
+		    1954 (0.19 %).
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
 ==========================================================
@@ -290,6 +342,7 @@ pmi8998_fg: qpnp,fg {
 	qcom,pmic-revid = <&pmi8998_revid>;
 	io-channels = <&pmi8998_rradc 3>;
 	io-channel-names = "rradc_batt_id";
+	qcom,rradc-base = <0x4500>;
 	qcom,ki-coeff-soc-dischg = <30 60 90>;
 	qcom,ki-coeff-med-dischg = <800 1000 1400>;
 	qcom,ki-coeff-hi-dischg = <1200 1500 2100>;

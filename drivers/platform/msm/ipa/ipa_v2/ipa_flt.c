@@ -209,7 +209,7 @@ static int ipa_generate_flt_hw_rule(enum ipa_ip_type ip,
 		}
 	}
 
-	IPADBG("en_rule 0x%x, action=%d, rt_idx=%d, uc=%d, retain_hdr=%d\n",
+	IPADBG_LOW("en_rule 0x%x, action=%d, rt_idx=%d, uc=%d, retain_hdr=%d\n",
 			en_rule,
 			hdr->u.hdr.action,
 			hdr->u.hdr.rt_tbl_idx,
@@ -601,7 +601,7 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip)
 
 	tbl = &ipa_ctx->glob_flt_tbl[ip];
 	if (tbl->prev_mem.phys_base) {
-		IPADBG("reaping glob flt tbl (prev) ip=%d\n", ip);
+		IPADBG_LOW("reaping glob flt tbl (prev) ip=%d\n", ip);
 		dma_free_coherent(ipa_ctx->pdev, tbl->prev_mem.size,
 				tbl->prev_mem.base, tbl->prev_mem.phys_base);
 		memset(&tbl->prev_mem, 0, sizeof(tbl->prev_mem));
@@ -609,7 +609,7 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip)
 
 	if (list_empty(&tbl->head_flt_rule_list)) {
 		if (tbl->curr_mem.phys_base) {
-			IPADBG("reaping glob flt tbl (curr) ip=%d\n", ip);
+			IPADBG_LOW("reaping glob flt tbl (curr) ip=%d\n", ip);
 			dma_free_coherent(ipa_ctx->pdev, tbl->curr_mem.size,
 					tbl->curr_mem.base,
 					tbl->curr_mem.phys_base);
@@ -620,7 +620,8 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip)
 	for (i = 0; i < ipa_ctx->ipa_num_pipes; i++) {
 		tbl = &ipa_ctx->flt_tbl[i][ip];
 		if (tbl->prev_mem.phys_base) {
-			IPADBG("reaping flt tbl (prev) pipe=%d ip=%d\n", i, ip);
+			IPADBG_LOW("reaping flt tbl");
+			IPADBG_LOW("(prev) pipe=%d ip=%d\n", i, ip);
 			dma_free_coherent(ipa_ctx->pdev, tbl->prev_mem.size,
 					tbl->prev_mem.base,
 					tbl->prev_mem.phys_base);
@@ -629,7 +630,8 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip)
 
 		if (list_empty(&tbl->head_flt_rule_list)) {
 			if (tbl->curr_mem.phys_base) {
-				IPADBG("reaping flt tbl (curr) pipe=%d ip=%d\n",
+				IPADBG_LOW("reaping flt tbl");
+				IPADBG_LOW("(curr) pipe=%d ip=%d\n",
 						i, ip);
 				dma_free_coherent(ipa_ctx->pdev,
 						tbl->curr_mem.size,
@@ -897,7 +899,7 @@ int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 
 	for (i = 0; i < 6; i++) {
 		if (ipa_ctx->skip_ep_cfg_shadow[i]) {
-			IPADBG("skip %d\n", i);
+			IPADBG_LOW("skip %d\n", i);
 			continue;
 		}
 
@@ -906,7 +908,7 @@ int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 			ipa2_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD) == i ||
 			(ipa2_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD) == i
 			&& ipa_ctx->modem_cfg_emb_pipe_flt)) {
-			IPADBG("skip %d\n", i);
+			IPADBG_LOW("skip %d\n", i);
 			continue;
 		}
 
@@ -932,12 +934,12 @@ int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 
 	for (i = 11; i < ipa_ctx->ipa_num_pipes; i++) {
 		if (ipa_ctx->skip_ep_cfg_shadow[i]) {
-			IPADBG("skip %d\n", i);
+			IPADBG_LOW("skip %d\n", i);
 			continue;
 		}
 		if (ipa2_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD) == i &&
 			ipa_ctx->modem_cfg_emb_pipe_flt) {
-			IPADBG("skip %d\n", i);
+			IPADBG_LOW("skip %d\n", i);
 			continue;
 		}
 		if (ip == IPA_IP_v4) {
@@ -1066,7 +1068,7 @@ static int __ipa_add_flt_rule(struct ipa_flt_tbl *tbl, enum ipa_ip_type ip,
 	}
 	*rule_hdl = id;
 	entry->id = id;
-	IPADBG("add flt rule rule_cnt=%d\n", tbl->rule_cnt);
+	IPADBG_LOW("add flt rule rule_cnt=%d\n", tbl->rule_cnt);
 
 	return 0;
 
@@ -1095,7 +1097,7 @@ static int __ipa_del_flt_rule(u32 rule_hdl)
 	entry->tbl->rule_cnt--;
 	if (entry->rt_tbl)
 		entry->rt_tbl->ref_cnt--;
-	IPADBG("del flt rule rule_cnt=%d\n", entry->tbl->rule_cnt);
+	IPADBG_LOW("del flt rule rule_cnt=%d\n", entry->tbl->rule_cnt);
 	entry->cookie = 0;
 	kmem_cache_free(ipa_ctx->flt_rule_cache, entry);
 
@@ -1176,7 +1178,7 @@ static int __ipa_add_global_flt_rule(enum ipa_ip_type ip,
 	}
 
 	tbl = &ipa_ctx->glob_flt_tbl[ip];
-	IPADBG("add global flt rule ip=%d\n", ip);
+	IPADBG_LOW("add global flt rule ip=%d\n", ip);
 
 	return __ipa_add_flt_rule(tbl, ip, rule, add_rear, rule_hdl);
 }
@@ -1203,7 +1205,7 @@ static int __ipa_add_ep_flt_rule(enum ipa_ip_type ip, enum ipa_client_type ep,
 		IPADBG("ep not connected ep_idx=%d\n", ipa_ep_idx);
 
 	tbl = &ipa_ctx->flt_tbl[ipa_ep_idx][ip];
-	IPADBG("add ep flt rule ip=%d ep=%d\n", ip, ep);
+	IPADBG_LOW("add ep flt rule ip=%d ep=%d\n", ip, ep);
 
 	return __ipa_add_flt_rule(tbl, ip, rule, add_rear, rule_hdl);
 }

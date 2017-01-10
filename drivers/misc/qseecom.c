@@ -80,6 +80,9 @@
 /* Encrypt/Decrypt Data Integrity Partition (DIP) for MDTP */
 #define SCM_MDTP_CIPHER_DIP		0x01
 
+/* Maximum Allowed Size (128K) of Data Integrity Partition (DIP) for MDTP */
+#define MAX_DIP			0x20000
+
 #define RPMB_SERVICE			0x2000
 #define SSD_SERVICE			0x3000
 
@@ -95,6 +98,7 @@
 #define QSEECOM_STATE_NOT_READY         0
 #define QSEECOM_STATE_SUSPEND           1
 #define QSEECOM_STATE_READY             2
+#define QSEECOM_ICE_FDE_KEY_SIZE_MASK   2
 
 /*
  * default ce info unit to 0 for
@@ -108,6 +112,15 @@
 enum qseecom_clk_definitions {
 	CLK_DFAB = 0,
 	CLK_SFPB,
+};
+
+enum qseecom_ice_key_size_type {
+	QSEECOM_ICE_FDE_KEY_SIZE_16_BYTE =
+		(0 << QSEECOM_ICE_FDE_KEY_SIZE_MASK),
+	QSEECOM_ICE_FDE_KEY_SIZE_32_BYTE =
+		(1 << QSEECOM_ICE_FDE_KEY_SIZE_MASK),
+	QSEE_ICE_FDE_KEY_SIZE_UNDEFINED =
+		(0xF << QSEECOM_ICE_FDE_KEY_SIZE_MASK),
 };
 
 enum qseecom_client_handle_type {
@@ -252,6 +265,7 @@ struct qseecom_control {
 	bool support_bus_scaling;
 	bool support_fde;
 	bool support_pfe;
+	bool fde_key_size;
 	uint32_t  cumulative_mode;
 	enum qseecom_bandwidth_request_mode  current_mode;
 	struct timer_list bw_scale_down_timer;
@@ -4607,6 +4621,40 @@ int qseecom_set_bandwidth(struct qseecom_handle *handle, bool high)
 }
 EXPORT_SYMBOL(qseecom_set_bandwidth);
 
+int qseecom_process_listener_from_smcinvoke(struct scm_desc *desc)
+{
+	struct qseecom_registered_app_list dummy_app_entry = { {0} };
+	struct qseecom_dev_handle dummy_private_data = {0};
+	struct qseecom_command_scm_resp resp;
+	int ret = 0;
+
+	if (!desc) {
+		pr_err("desc is NULL\n");
+		return -EINVAL;
+	}
+
+	resp.result = desc->ret[0];	/*req_cmd*/
+	resp.resp_type = desc->ret[1];	/*app_id*/
+	resp.data = desc->ret[2];	/*listener_id*/
+
+	dummy_private_data.client.app_id = desc->ret[1];
+	dummy_app_entry.app_id = desc->ret[1];
+
+	mutex_lock(&app_access_lock);
+	ret = __qseecom_process_reentrancy(&resp, &dummy_app_entry,
+					&dummy_private_data);
+	mutex_unlock(&app_access_lock);
+	if (ret)
+		pr_err("Failed to req cmd %d lsnr %d on app %d, ret = %d\n",
+			(int)desc->ret[0], (int)desc->ret[2],
+			(int)desc->ret[1], ret);
+	desc->ret[0] = resp.result;
+	desc->ret[1] = resp.resp_type;
+	desc->ret[2] = resp.data;
+	return ret;
+}
+EXPORT_SYMBOL(qseecom_process_listener_from_smcinvoke);
+
 static int qseecom_send_resp(void)
 {
 	qseecom.send_resp_flag = 1;
@@ -5693,6 +5741,11 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 		goto free_buf;
 	}
 
+	if (qseecom.fde_key_size)
+		flags |= QSEECOM_ICE_FDE_KEY_SIZE_32_BYTE;
+	else
+		flags |= QSEECOM_ICE_FDE_KEY_SIZE_16_BYTE;
+
 	generate_key_ireq.flags = flags;
 	generate_key_ireq.qsee_command_id = QSEOS_GENERATE_KEY;
 	memset((void *)generate_key_ireq.key_id,
@@ -5913,6 +5966,12 @@ static int qseecom_update_key_user_info(struct qseecom_dev_handle *data,
 	}
 
 	ireq.qsee_command_id = QSEOS_UPDATE_KEY_USERINFO;
+
+	if (qseecom.fde_key_size)
+		flags |= QSEECOM_ICE_FDE_KEY_SIZE_32_BYTE;
+	else
+		flags |= QSEECOM_ICE_FDE_KEY_SIZE_16_BYTE;
+
 	ireq.flags = flags;
 	memset(ireq.key_id, 0, QSEECOM_KEY_ID_SIZE);
 	memset((void *)ireq.current_hash32, 0, QSEECOM_HASH_SIZE);
@@ -6034,7 +6093,8 @@ static int qseecom_mdtp_cipher_dip(void __user *argp)
 		}
 
 		if (req.in_buf == NULL || req.out_buf == NULL ||
-			req.in_buf_size == 0 || req.out_buf_size == 0 ||
+			req.in_buf_size == 0 || req.in_buf_size > MAX_DIP ||
+			req.out_buf_size == 0 || req.out_buf_size > MAX_DIP ||
 				req.direction > 1) {
 				pr_err("invalid parameters\n");
 				ret = -EINVAL;
@@ -8346,6 +8406,9 @@ static int qseecom_probe(struct platform_device *pdev)
 						"qcom,commonlib64-loaded-by-uefi");
 		pr_debug("qseecom.commonlib64-loaded-by-uefi = 0x%x",
 				qseecom.commonlib64_loaded);
+		qseecom.fde_key_size =
+			of_property_read_bool((&pdev->dev)->of_node,
+						"qcom,fde-key-size");
 		qseecom.no_clock_support =
 				of_property_read_bool((&pdev->dev)->of_node,
 						"qcom,no-clock-support");

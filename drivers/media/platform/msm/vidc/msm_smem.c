@@ -513,10 +513,10 @@ static int ion_cache_operations(struct smem_client *client,
 			rc = -EINVAL;
 			goto cache_op_failed;
 		}
-		rc = msm_ion_do_cache_op(client->clnt,
+		rc = msm_ion_do_cache_offset_op(client->clnt,
 				(struct ion_handle *)mem->smem_priv,
-				0, (unsigned long)mem->size,
-				msm_cache_ops);
+				0, mem->offset,
+				(unsigned long)mem->size, msm_cache_ops);
 		if (rc) {
 			dprintk(VIDC_ERR,
 					"cache operation failed %d\n", rc);

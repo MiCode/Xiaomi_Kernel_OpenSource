@@ -30,13 +30,10 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 #define VFE47_8996V1_VERSION   0x70000000
-#define VFE48_SDM660_VERSION   0x80000003
 
 #define VFE47_BURST_LEN 3
-#define VFE48_SDM660_BURST_LEN 4
 #define VFE47_FETCH_BURST_LEN 3
 #define VFE47_STATS_BURST_LEN 3
-#define VFE48_SDM660_STATS_BURST_LEN 4
 #define VFE47_UB_SIZE_VFE0 2048
 #define VFE47_UB_SIZE_VFE1 1536
 #define VFE47_UB_STATS_SIZE 144
@@ -1523,6 +1520,8 @@ void msm_vfe47_update_camif_state(struct vfe_device *vfe_dev,
 		if ((vfe_dev->hvx_cmd > HVX_DISABLE) &&
 			(vfe_dev->hvx_cmd <= HVX_ROUND_TRIP))
 			msm_vfe47_configure_hvx(vfe_dev, 1);
+		else
+			msm_vfe47_configure_hvx(vfe_dev, 0);
 
 		bus_en =
 			((vfe_dev->axi_data.
@@ -1593,7 +1592,7 @@ void msm_vfe47_axi_cfg_wm_reg(
 {
 	uint32_t val;
 	int vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
-	uint32_t wm_base, burst_len;
+	uint32_t wm_base;
 
 	wm_base = VFE47_WM_BASE(stream_info->wm[vfe_idx][plane_idx]);
 	val = msm_camera_io_r(vfe_dev->vfe_base + wm_base + 0x14);
@@ -1611,11 +1610,7 @@ void msm_vfe47_axi_cfg_wm_reg(
 			output_height - 1);
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x1C);
 		/* WR_BUFFER_CFG */
-		if (vfe_dev->vfe_hw_version == VFE48_SDM660_VERSION)
-			burst_len = VFE48_SDM660_BURST_LEN;
-		else
-			burst_len = VFE47_BURST_LEN;
-		val = burst_len |
+		val = VFE47_BURST_LEN |
 			(stream_info->plane_cfg[vfe_idx][plane_idx].
 							output_height - 1) <<
 			2 |
@@ -2210,7 +2205,7 @@ void msm_vfe47_stats_clear_wm_reg(
 void msm_vfe47_stats_cfg_ub(struct vfe_device *vfe_dev)
 {
 	int i;
-	uint32_t ub_offset = 0, stats_burst_len;
+	uint32_t ub_offset = 0;
 	uint32_t ub_size[VFE47_NUM_STATS_TYPE] = {
 		16, /* MSM_ISP_STATS_HDR_BE */
 		16, /* MSM_ISP_STATS_BG */
@@ -2229,14 +2224,9 @@ void msm_vfe47_stats_cfg_ub(struct vfe_device *vfe_dev)
 	else
 		pr_err("%s: incorrect VFE device\n", __func__);
 
-	if (vfe_dev->vfe_hw_version == VFE48_SDM660_VERSION)
-		stats_burst_len = VFE48_SDM660_STATS_BURST_LEN;
-	else
-		stats_burst_len = VFE47_STATS_BURST_LEN;
-
 	for (i = 0; i < VFE47_NUM_STATS_TYPE; i++) {
 		ub_offset -= ub_size[i];
-		msm_camera_io_w(stats_burst_len << 30 |
+		msm_camera_io_w(VFE47_STATS_BURST_LEN << 30 |
 			ub_offset << 16 | (ub_size[i] - 1),
 			vfe_dev->vfe_base + VFE47_STATS_BASE(i) + 0x14);
 	}
@@ -2858,6 +2848,8 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 				msm_vfe47_start_fetch_engine_multi_pass,
 			.set_halt_restart_mask =
 				msm_vfe47_set_halt_restart_mask,
+			.set_bus_err_ign_mask = NULL,
+			.get_bus_err_mask = NULL,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe47_get_stats_idx,

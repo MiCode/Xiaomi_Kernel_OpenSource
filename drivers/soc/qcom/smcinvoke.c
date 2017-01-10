@@ -22,6 +22,8 @@
 #include <soc/qcom/scm.h>
 #include <asm/cacheflush.h>
 #include "smcinvoke_object.h"
+#include <soc/qcom/qseecomi.h>
+#include "../../misc/qseecom_kernel.h"
 
 #define SMCINVOKE_TZ_PARAM_ID		0x224
 #define SMCINVOKE_TZ_CMD		0x32000600
@@ -190,14 +192,20 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 
 	desc.arginfo = SMCINVOKE_TZ_PARAM_ID;
 	desc.args[0] = (uint64_t)virt_to_phys(in_buf);
-	desc.args[1] = in_buf_len;
+	desc.args[1] = inbuf_flush_size;
 	desc.args[2] = (uint64_t)virt_to_phys(out_buf);
-	desc.args[3] = out_buf_len;
+	desc.args[3] = outbuf_flush_size;
 
 	dmac_flush_range(in_buf, in_buf + inbuf_flush_size);
 	dmac_flush_range(out_buf, out_buf + outbuf_flush_size);
 
 	ret = scm_call2(SMCINVOKE_TZ_CMD, &desc);
+
+	/* process listener request */
+	if (!ret && (desc.ret[0] == QSEOS_RESULT_INCOMPLETE ||
+		desc.ret[0] == QSEOS_RESULT_BLOCKED_ON_LISTENER))
+		ret = qseecom_process_listener_from_smcinvoke(&desc);
+
 	*smcinvoke_result = (int32_t)desc.ret[1];
 	if (ret || desc.ret[1] || desc.ret[2] || desc.ret[0]) {
 		pr_err("SCM call failed with ret val = %d %d %d %d\n",
@@ -235,7 +243,7 @@ static int marshal_out(void *buf, uint32_t buf_size,
 			pr_err("%s: buffer overflow detected\n", __func__);
 			goto out;
 		}
-		if (copy_to_user((void __user *)(args_buf[i].b.addr),
+		if (copy_to_user((void __user *)(uintptr_t)(args_buf[i].b.addr),
 			(uint8_t *)(buf) + tz_args->b.offset,
 						tz_args->b.size)) {
 			pr_err("Error %d copying ctxt to user\n", ret);
@@ -320,7 +328,7 @@ static int marshal_in(const struct smcinvoke_cmd_req *req,
 		tz_args++;
 
 		if (copy_from_user(buf+offset,
-				(void __user *)(args_buf[i].b.addr),
+			(void __user *)(uintptr_t)(args_buf[i].b.addr),
 						args_buf[i].b.size))
 			goto out;
 
@@ -389,7 +397,7 @@ long smcinvoke_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 			}
 
 			ret = copy_from_user(args_buf,
-						(void __user *)(req.args),
+					(void __user *)(uintptr_t)(req.args),
 						nr_args * req.argsize);
 
 			if (ret) {
@@ -424,8 +432,8 @@ long smcinvoke_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 
 		ret = marshal_out(in_msg, inmsg_size, &req, args_buf);
 
-		ret |=  copy_to_user((void __user *)(req.args), args_buf,
-						nr_args * req.argsize);
+		ret |=  copy_to_user((void __user *)(uintptr_t)(req.args),
+					args_buf, nr_args * req.argsize);
 		ret |=  copy_to_user((void __user *)arg, &req, sizeof(req));
 		if (ret)
 			goto out;

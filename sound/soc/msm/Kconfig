@@ -108,7 +108,7 @@ config SND_SOC_CPE
 	 listen on codec.
 
 config SND_SOC_INT_CODEC
-	tristate "SoC Machine driver for MSMFALCON_INT"
+	tristate "SoC Machine driver for SDM660_INT"
 	depends on ARCH_QCOM
 	select SND_SOC_QDSP6V2
 	select SND_SOC_MSM_STUB
@@ -119,8 +119,9 @@ config SND_SOC_INT_CODEC
 	select MSM_QDSP6_PDR
 	select MSM_QDSP6_NOTIFIER
 	select MSM_QDSP6V2_CODECS
-	select SND_SOC_MSM_SWR
-	select SND_SOC_MSM8X16_WCD
+	select MSM_CDC_PINCTRL
+	select SND_SOC_MSM_SDW
+	select SND_SOC_SDM660_CDC
 	select QTI_PP
 	select DTS_SRS_TM
 	select DOLBY_DAP
@@ -128,8 +129,9 @@ config SND_SOC_INT_CODEC
 	select SND_HWDEP
 	select MSM_ULTRASOUND
 	select DTS_EAGLE
-	select SND_SOC_MSMFALCON_COMMON
+	select SND_SOC_SDM660_COMMON
 	select SND_SOC_COMPRESS
+	select PINCTRL_LPI
 	help
 	To add support for SoC audio on MSM_INT.
 	This will enable sound soc drivers which
@@ -138,7 +140,7 @@ config SND_SOC_INT_CODEC
 	DAI-links
 
 config SND_SOC_EXT_CODEC
-	tristate "SoC Machine driver for MSMFALCON_EXT"
+	tristate "SoC Machine driver for SDM660_EXT"
 	depends on ARCH_QCOM
 	select SND_SOC_QDSP6V2
 	select SND_SOC_MSM_STUB
@@ -162,8 +164,9 @@ config SND_SOC_EXT_CODEC
 	select SND_HWDEP
 	select MSM_ULTRASOUND
 	select DTS_EAGLE
-	select SND_SOC_MSMFALCON_COMMON
+	select SND_SOC_SDM660_COMMON
 	select SND_SOC_COMPRESS
+	select PINCTRL_LPI
 	help
 	To add support for SoC audio on MSM_EXT.
 	This will enable sound soc drivers which
@@ -230,13 +233,13 @@ config SND_SOC_MSM8998
 	 the machine driver and the corresponding
 	 DAI-links
 
-config SND_SOC_FALCON
-	tristate "SoC Machine driver for MSMFALCON boards"
-	depends on ARCH_MSMFALCON
+config SND_SOC_660
+	tristate "SoC Machine driver for SDM660 boards"
+	depends on ARCH_SDM660
 	select SND_SOC_INT_CODEC
 	select SND_SOC_EXT_CODEC
 	help
-	 To add support for SoC audio on MSMFALCON.
+	 To add support for SoC audio on SDM660.
 	 This will enable sound soc drivers which
 	 interfaces with DSP, also it will enable
 	 the machine driver and the corresponding

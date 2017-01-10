@@ -31,8 +31,8 @@ Required properties:
 	       should be "qcom,msmgold-tsens" for gold TSENS driver.
 	       should be "qcom,msm8998-tsens" for 8998 TSENS driver.
 	       should be "qcom,msmhamster-tsens" for hamster TSENS driver.
-	       should be "qcom,msmfalcon-tsens" for falcon TSENS driver.
-	       should be "qcom,msmtriton-tsens" for triton TSENS driver.
+	       should be "qcom,sdm660-tsens" for 660 TSENS driver.
+	       should be "qcom,sdm630-tsens" for 630 TSENS driver.
 	       The compatible property is used to identify the respective fusemap to use
 	       for the corresponding SoC.
 - reg : offset and length of the TSENS registers with associated property in reg-names
@@ -82,10 +82,13 @@ Optional properties:
 		total number of supported sensors with each controller instance.
 - qcom,valid-status-check: If property is present, check the VALID bit is set
 		before reporting the temperature data.
-- qcom,temp1-offset: If property is present, Use these offset values
+- qcom,temp1-offset: If flag is present, Use these offset values
 		to be added for 30 deg calib points.
-- qcom,temp2-offset: If property is present, Use these offset values
+- qcom,temp2-offset: If flag is present, Use these offset values
 		to be added for 120 deg calib points.
+- qcom,cycle-monitor: If flag is present, Use the value for cycle
+		completion monitoring.
+- qcom,wd-bark: If flag is present, Use the value for watchdog bark.
 
 Example:
 
