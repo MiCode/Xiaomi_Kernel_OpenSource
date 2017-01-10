@@ -1300,8 +1300,20 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	pr_debug("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
-	snd_soc_add_codec_controls(ana_cdc, msm_snd_controls,
+	ret = snd_soc_add_codec_controls(ana_cdc, msm_snd_controls,
 				   ARRAY_SIZE(msm_snd_controls));
+	if (ret < 0) {
+		pr_err("%s: add_codec_controls failed: %d\n",
+			__func__, ret);
+		return ret;
+	}
+	ret = snd_soc_add_codec_controls(ana_cdc, msm_common_snd_controls,
+				   msm_common_snd_controls_size());
+	if (ret < 0) {
+		pr_err("%s: add common snd controls failed: %d\n",
+			__func__, ret);
+		return ret;
+	}
 
 	snd_soc_dapm_new_controls(dapm, msm_int_dapm_widgets,
 				  ARRAY_SIZE(msm_int_dapm_widgets));
@@ -3033,7 +3045,7 @@ static int msm_internal_init(struct platform_device *pdev,
 			AFE_API_VERSION_I2S_CONFIG;
 	pdata->digital_cdc_core_clk.clk_id =
 			Q6AFE_LPASS_CLK_ID_INT_MCLK_0;
-	pdata->digital_cdc_core_clk.clk_freq_in_hz = 0;
+	pdata->digital_cdc_core_clk.clk_freq_in_hz = pdata->mclk_freq;
 	pdata->digital_cdc_core_clk.clk_attri =
 			Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO;
 	pdata->digital_cdc_core_clk.clk_root =

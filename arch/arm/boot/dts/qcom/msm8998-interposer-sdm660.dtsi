@@ -3068,6 +3068,7 @@
 
 &gdsc_cpp {
 	parent-supply = <&gdsc_camss_top>;
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 

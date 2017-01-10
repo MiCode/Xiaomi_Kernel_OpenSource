@@ -3228,6 +3228,7 @@ int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
 		pr_warn("Unsupported FPS. Configuring to max_fps = %d\n",
 				pdata->panel_info.max_fps);
 		dfps = pdata->panel_info.max_fps;
+		dfps_data->fps = dfps;
 	}
 
 	dfps_update_panel_params(pdata, dfps_data);
@@ -5872,10 +5873,24 @@ __vsync_retire_get_fence(struct msm_sync_pt_data *sync_pt_data)
 static void __cwb_wq_handler(struct work_struct *cwb_work)
 {
 	struct mdss_mdp_cwb *cwb = NULL;
+	struct mdss_mdp_wb_data *cwb_data = NULL;
 
 	cwb = container_of(cwb_work, struct mdss_mdp_cwb, cwb_work);
 	blocking_notifier_call_chain(&cwb->notifier_head,
 			MDP_NOTIFY_FRAME_DONE, NULL);
+
+	/* free the buffer from cleanup queue */
+	mutex_lock(&cwb->queue_lock);
+	cwb_data = list_first_entry_or_null(&cwb->cleanup_queue,
+			struct mdss_mdp_wb_data, next);
+	 __list_del_entry(&cwb_data->next);
+	mutex_unlock(&cwb->queue_lock);
+	if (cwb_data == NULL) {
+		pr_err("no output buffer for cwb cleanup\n");
+		return;
+	}
+	mdss_mdp_data_free(&cwb_data->data, true, DMA_FROM_DEVICE);
+	kfree(cwb_data);
 }
 
 static int __vsync_set_vsync_handler(struct msm_fb_data_type *mfd)
@@ -6106,6 +6121,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mutex_init(&mdp5_data->cwb.queue_lock);
 	mutex_init(&mdp5_data->cwb.cwb_sync_pt_data.sync_mutex);
 	INIT_LIST_HEAD(&mdp5_data->cwb.data_queue);
+	INIT_LIST_HEAD(&mdp5_data->cwb.cleanup_queue);
 
 	snprintf(timeline_name, sizeof(timeline_name), "cwb%d", mfd->index);
 	mdp5_data->cwb.cwb_sync_pt_data.fence_name = "cwb-fence";

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,6 +56,7 @@
 
 static int msm_ext_spk_control = 1;
 static struct wcd_mbhc_config *wcd_mbhc_cfg_ptr;
+bool codec_reg_done;
 
 struct msm_asoc_wcd93xx_codec {
 	void* (*get_afe_config_fn)(struct snd_soc_codec *codec,
@@ -1529,6 +1530,14 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		return ret;
 	}
 
+	ret = snd_soc_add_codec_controls(codec, msm_common_snd_controls,
+					 msm_common_snd_controls_size());
+	if (ret < 0) {
+		pr_err("%s: add_common_snd_controls failed: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
 	snd_soc_dapm_new_controls(dapm, msm_dapm_widgets,
 			ARRAY_SIZE(msm_dapm_widgets));
 
@@ -1722,6 +1731,7 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		}
 
 	}
+	codec_reg_done = true;
 done:
 	return 0;
 
@@ -1735,10 +1745,12 @@ EXPORT_SYMBOL(msm_audrx_init);
 /**
  * msm_ext_register_audio_notifier - register SSR notifier.
  */
-void msm_ext_register_audio_notifier(void)
+void msm_ext_register_audio_notifier(struct platform_device *pdev)
 {
 	int ret;
 
+	is_initial_boot = true;
+	spdev = pdev;
 	ret = audio_notifier_register("sdm660", AUDIO_NOTIFIER_ADSP_DOMAIN,
 				      &service_nb);
 	if (ret < 0)
@@ -1777,10 +1789,8 @@ int msm_ext_cdc_init(struct platform_device *pdev,
 		ret = -EPROBE_DEFER;
 		goto err;
 	}
-	spdev = pdev;
 	platform_set_drvdata(pdev, *card);
 	snd_soc_card_set_drvdata(*card, pdata);
-	is_initial_boot = true;
 	pdata->hph_en1_gpio = of_get_named_gpio(pdev->dev.of_node,
 						"qcom,hph-en1-gpio", 0);
 	if (!gpio_is_valid(pdata->hph_en1_gpio))

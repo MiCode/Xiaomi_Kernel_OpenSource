@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -774,13 +774,6 @@ __read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 /* Temporarily disable window-stats activity on all cpus */
 unsigned int __read_mostly sched_disable_window_stats;
 
-/*
- * Major task runtime. If a task runs for more than sched_major_task_runtime
- * in a window, it's considered to be generating majority of workload
- * for this window. Prediction could be adjusted for such tasks.
- */
-__read_mostly unsigned int sched_major_task_runtime = 10000000;
-
 static unsigned int sync_cpu;
 
 struct related_thread_group *related_thread_groups[MAX_NUM_CGROUP_COLOC_ID];
@@ -1014,9 +1007,6 @@ void set_hmp_defaults(void)
 		pct_to_real(sysctl_sched_spill_load_pct);
 
 	update_up_down_migrate();
-
-	sched_major_task_runtime =
-		mult_frac(sched_ravg_window, MAJOR_TASK_PCT, 100);
 
 	sched_init_task_load_windows =
 		div64_u64((u64)sysctl_sched_init_task_load_pct *
@@ -1470,7 +1460,20 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	int ret;
 	unsigned int old_val;
 	unsigned int *data = (unsigned int *)table->data;
-	int update_min_nice = 0;
+	int update_task_count = 0;
+
+	if (!sched_enable_hmp)
+		return 0;
+
+	/*
+	 * The policy mutex is acquired with cpu_hotplug.lock
+	 * held from cpu_up()->cpufreq_governor_interactive()->
+	 * sched_set_window(). So enforce the same order here.
+	 */
+	if (write && (data == &sysctl_sched_upmigrate_pct)) {
+		update_task_count = 1;
+		get_online_cpus();
+	}
 
 	mutex_lock(&policy_mutex);
 
@@ -1478,7 +1481,7 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 
 	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 
-	if (ret || !write || !sched_enable_hmp)
+	if (ret || !write)
 		goto done;
 
 	if (write && (old_val == *data))
@@ -1500,20 +1503,18 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	 * includes taking runqueue lock of all online cpus and re-initiatizing
 	 * their big counter values based on changed criteria.
 	 */
-	if ((data == &sysctl_sched_upmigrate_pct || update_min_nice)) {
-		get_online_cpus();
+	if (update_task_count)
 		pre_big_task_count_change(cpu_online_mask);
-	}
 
 	set_hmp_defaults();
 
-	if ((data == &sysctl_sched_upmigrate_pct || update_min_nice)) {
+	if (update_task_count)
 		post_big_task_count_change(cpu_online_mask);
-		put_online_cpus();
-	}
 
 done:
 	mutex_unlock(&policy_mutex);
+	if (update_task_count)
+		put_online_cpus();
 	return ret;
 }
 
@@ -1950,8 +1951,6 @@ scale_load_to_freq(u64 load, unsigned int src_freq, unsigned int dst_freq)
 	return div64_u64(load * (u64)src_freq, (u64)dst_freq);
 }
 
-#define HEAVY_TASK_SKIP 2
-#define HEAVY_TASK_SKIP_LIMIT 4
 /*
  * get_pred_busy - calculate predicted demand for a task on runqueue
  *
@@ -1979,7 +1978,7 @@ static u32 get_pred_busy(struct rq *rq, struct task_struct *p,
 	u32 *hist = p->ravg.sum_history;
 	u32 dmin, dmax;
 	u64 cur_freq_runtime = 0;
-	int first = NUM_BUSY_BUCKETS, final, skip_to;
+	int first = NUM_BUSY_BUCKETS, final;
 	u32 ret = runtime;
 
 	/* skip prediction for new tasks due to lack of history */
@@ -1999,36 +1998,6 @@ static u32 get_pred_busy(struct rq *rq, struct task_struct *p,
 
 	/* compute the bucket for prediction */
 	final = first;
-	if (first < HEAVY_TASK_SKIP_LIMIT) {
-		/* compute runtime at current CPU frequency */
-		cur_freq_runtime = mult_frac(runtime, max_possible_efficiency,
-					     rq->cluster->efficiency);
-		cur_freq_runtime = scale_load_to_freq(cur_freq_runtime,
-				max_possible_freq, rq->cluster->cur_freq);
-		/*
-		 * if the task runs for majority of the window, try to
-		 * pick higher buckets.
-		 */
-		if (cur_freq_runtime >= sched_major_task_runtime) {
-			int next = NUM_BUSY_BUCKETS;
-			/*
-			 * if there is a higher bucket that's consistently
-			 * hit, don't jump beyond that.
-			 */
-			for (i = start + 1; i <= HEAVY_TASK_SKIP_LIMIT &&
-			     i < NUM_BUSY_BUCKETS; i++) {
-				if (buckets[i] > CONSISTENT_THRES) {
-					next = i;
-					break;
-				}
-			}
-			skip_to = min(next, start + HEAVY_TASK_SKIP);
-			/* don't jump beyond HEAVY_TASK_SKIP_LIMIT */
-			skip_to = min(HEAVY_TASK_SKIP_LIMIT, skip_to);
-			/* don't go below first non-empty bucket, if any */
-			final = max(first, skip_to);
-		}
-	}
 
 	/* determine demand range for the predicted bucket */
 	if (final < 2) {
@@ -3897,7 +3866,7 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	struct migration_sum_data d;
 	int migrate_type;
 	int cpu = cpu_of(rq);
-	bool new_task = is_new_task(p);
+	bool new_task;
 	int i;
 
 	if (!sched_freq_aggregate)
@@ -3907,6 +3876,7 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	update_task_ravg(p, rq, TASK_UPDATE, wallclock, 0);
+	new_task = is_new_task(p);
 
 	/* cpu_time protected by related_thread_group_lock, grp->lock rq_lock */
 	cpu_time = _group_cpu_time(grp, cpu);
@@ -4001,6 +3971,8 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 
 	BUG_ON((s64)*src_curr_runnable_sum < 0);
 	BUG_ON((s64)*src_prev_runnable_sum < 0);
+	BUG_ON((s64)*src_nt_curr_runnable_sum < 0);
+	BUG_ON((s64)*src_nt_prev_runnable_sum < 0);
 }
 
 static inline struct group_cpu_time *

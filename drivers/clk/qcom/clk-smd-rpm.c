@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, Linaro Limited
- * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -55,6 +55,7 @@
 		.hw.init = &(struct clk_init_data){			      \
 			.ops = &clk_smd_rpm_ops,			      \
 			.name = #_name,					      \
+			.flags = CLK_ENABLE_HAND_OFF,			      \
 			.parent_names = (const char *[]){ "xo_board" },       \
 			.num_parents = 1,				      \
 		},							      \
@@ -72,6 +73,7 @@
 		.hw.init = &(struct clk_init_data){			      \
 			.ops = &clk_smd_rpm_ops,			      \
 			.name = #_active,				      \
+			.flags = CLK_ENABLE_HAND_OFF,			      \
 			.parent_names = (const char *[]){ "xo_board" },	      \
 			.num_parents = 1,				      \
 		},							      \
@@ -95,6 +97,7 @@
 		.hw.init = &(struct clk_init_data){			      \
 			.ops = &clk_smd_rpm_branch_ops,			      \
 			.name = #_name,					      \
+			.flags = CLK_ENABLE_HAND_OFF,			      \
 			.parent_names = (const char *[]){ "xo_board" },	      \
 			.num_parents = 1,				      \
 		},							      \
@@ -113,6 +116,7 @@
 		.hw.init = &(struct clk_init_data){			      \
 			.ops = &clk_smd_rpm_branch_ops,			      \
 			.name = #_active,				      \
+			.flags = CLK_ENABLE_HAND_OFF,			      \
 			.parent_names = (const char *[]){ "xo_board" },	      \
 			.num_parents = 1,				      \
 		},							      \
@@ -177,6 +181,8 @@ struct rpm_smd_clk_desc {
 
 static DEFINE_MUTEX(rpm_smd_clk_lock);
 
+static int clk_smd_rpm_prepare(struct clk_hw *hw);
+
 static int clk_smd_rpm_handoff(struct clk_hw *hw)
 {
 	int ret = 0;
@@ -197,6 +203,8 @@ static int clk_smd_rpm_handoff(struct clk_hw *hw)
 			r->rpm_clk_id, &req, 1);
 	if (ret)
 		return ret;
+
+	ret = clk_smd_rpm_prepare(hw);
 
 	return ret;
 }
@@ -462,12 +470,20 @@ static int clk_vote_bimc(struct clk_hw *hw, uint32_t rate)
 	return ret;
 }
 
+static int clk_smd_rpm_is_enabled(struct clk_hw *hw)
+{
+	struct clk_smd_rpm *r = to_clk_smd_rpm(hw);
+
+	return r->enabled;
+}
+
 static const struct clk_ops clk_smd_rpm_ops = {
 	.prepare	= clk_smd_rpm_prepare,
 	.unprepare	= clk_smd_rpm_unprepare,
 	.set_rate	= clk_smd_rpm_set_rate,
 	.round_rate	= clk_smd_rpm_round_rate,
 	.recalc_rate	= clk_smd_rpm_recalc_rate,
+	.is_enabled	= clk_smd_rpm_is_enabled,
 };
 
 static const struct clk_ops clk_smd_rpm_branch_ops = {
@@ -475,6 +491,7 @@ static const struct clk_ops clk_smd_rpm_branch_ops = {
 	.unprepare	= clk_smd_rpm_unprepare,
 	.round_rate	= clk_smd_rpm_round_rate,
 	.recalc_rate	= clk_smd_rpm_recalc_rate,
+	.is_enabled	= clk_smd_rpm_is_enabled,
 };
 
 /* msm8916 */
@@ -574,8 +591,6 @@ static DEFINE_CLK_VOTER(pnoc_msmbus_clk, pnoc_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_msmbus_a_clk, pnoc_a_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_pm_clk, pnoc_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_sps_clk, pnoc_clk, 0);
-static DEFINE_CLK_VOTER(mmssnoc_a_clk_cpu_vote, mmssnoc_axi_rpm_a_clk,
-							19200000);
 static DEFINE_CLK_VOTER(mmssnoc_a_cpu_clk, mmssnoc_axi_a_clk,
 							19200000);
 
@@ -650,7 +665,6 @@ static struct clk_hw *msm8996_clks[] = {
 	[CXO_OTG_CLK]		= &cxo_otg_clk.hw,
 	[CXO_PIL_LPASS_CLK]	= &cxo_pil_lpass_clk.hw,
 	[CXO_PIL_SSC_CLK]	= &cxo_pil_ssc_clk.hw,
-	[MMSSNOC_A_CLK_CPU_VOTE] = &mmssnoc_a_clk_cpu_vote.hw
 };
 
 static const struct rpm_smd_clk_desc rpm_clk_msm8996 = {
@@ -817,6 +831,17 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 			goto err;
 	}
 
+	for (i = (desc->num_rpm_clks + 1); i < num_clks; i++) {
+		if (!hw_clks[i]) {
+			clks[i] = ERR_PTR(-ENOENT);
+			continue;
+		}
+
+		ret = voter_clk_handoff(hw_clks[i]);
+		if (ret)
+			goto err;
+	}
+
 	ret = clk_smd_rpm_enable_scaling();
 	if (ret)
 		goto err;
@@ -851,8 +876,6 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 		/* Hold an active set vote for the pnoc_keepalive_a_clk */
 		clk_set_rate(pnoc_keepalive_a_clk.hw.clk, 19200000);
 		clk_prepare_enable(pnoc_keepalive_a_clk.hw.clk);
-
-		clk_prepare_enable(mmssnoc_a_clk_cpu_vote.hw.clk);
 	} else if (is_660) {
 		clk_prepare_enable(sdm660_cxo_a.hw.clk);
 

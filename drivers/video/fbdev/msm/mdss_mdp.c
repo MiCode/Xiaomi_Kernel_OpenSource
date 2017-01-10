@@ -2146,6 +2146,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->has_wb_ubwc = true;
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map);
+		mdss_set_quirk(mdata, MDSS_QUIRK_HDR_SUPPORT_ENABLED);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
@@ -2416,13 +2417,16 @@ static int mdss_mdp_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 	char *t = NULL;
 	char pan_intf_str[MDSS_MAX_PANEL_LEN];
 	int rc, i, panel_len;
-	char pan_name[MDSS_MAX_PANEL_LEN];
+	char pan_name[MDSS_MAX_PANEL_LEN] = {'\0'};
 
 	if (!pan_cfg)
 		return -EINVAL;
 
 	if (mdss_mdp_panel[0] == '0') {
+		pr_debug("panel name is not set\n");
 		pan_cfg->lk_cfg = false;
+		pan_cfg->pan_intf = MDSS_PANEL_INTF_INVALID;
+		return -EINVAL;
 	} else if (mdss_mdp_panel[0] == '1') {
 		pan_cfg->lk_cfg = true;
 	} else {
@@ -2432,7 +2436,7 @@ static int mdss_mdp_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 		return -EINVAL;
 	}
 
-	/* skip lk cfg and delimiter; ex: "0:" */
+	/* skip lk cfg and delimiter; ex: "1:" */
 	strlcpy(pan_name, &mdss_mdp_panel[2], MDSS_MAX_PANEL_LEN);
 	t = strnstr(pan_name, ":", MDSS_MAX_PANEL_LEN);
 	if (!t) {
@@ -2689,6 +2693,8 @@ ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" concurrent_writeback");
 	if (test_bit(MDSS_CAPS_AVR_SUPPORTED,  mdata->mdss_caps_map))
 		SPRINT(" avr");
+	if (mdss_has_quirk(mdata, MDSS_QUIRK_HDR_SUPPORT_ENABLED))
+		SPRINT(" hdr");
 	SPRINT("\n");
 #undef SPRINT
 
@@ -2814,7 +2820,10 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	struct resource *res;
 	int rc;
 	struct mdss_data_type *mdata;
-	bool display_on = false;
+	uint32_t intf_sel = 0;
+	uint32_t split_display = 0;
+	int num_of_display_on = 0;
+	int i = 0;
 
 	if (!pdev->dev.of_node) {
 		pr_err("MDP driver only supports device tree probe\n");
@@ -2941,7 +2950,6 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	 */
 	mdss_mdp_footswitch_ctrl_splash(true);
 	mdss_hw_rev_init(mdata);
-	display_on = true;
 
 	/*populate hw iomem base info from device tree*/
 	rc = mdss_mdp_parse_dt(pdev);
@@ -3010,10 +3018,34 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	 * clk/regulator votes else turn off clk/regulators because purpose
 	 * here is to get mdp_rev.
 	 */
-	display_on = (bool)readl_relaxed(mdata->mdp_base +
+	intf_sel = readl_relaxed(mdata->mdp_base +
 		MDSS_MDP_REG_DISP_INTF_SEL);
-	if (!display_on)
+	split_display = readl_relaxed(mdata->mdp_base +
+		MDSS_MDP_REG_SPLIT_DISPLAY_EN);
+	if (intf_sel != 0) {
+		for (i = 0; i < 4; i++)
+			num_of_display_on += ((intf_sel >> i*8) & 0x000000FF);
+
+		/*
+		 * For split display enabled - DSI0, DSI1 interfaces are
+		 * considered as single display. So decrement
+		 * 'num_of_display_on' by 1
+		 */
+		if (split_display)
+			num_of_display_on--;
+	}
+	if (!num_of_display_on) {
 		mdss_mdp_footswitch_ctrl_splash(false);
+	} else {
+		mdata->handoff_pending = true;
+		/*
+		 * If multiple displays are enabled in LK, ctrl_splash off will
+		 * be called multiple times during splash_cleanup. Need to
+		 * enable it symmetrically
+		*/
+		for (i = 1; i < num_of_display_on; i++)
+			mdss_mdp_footswitch_ctrl_splash(true);
+	}
 
 	mdp_intr_cb  = kcalloc(ARRAY_SIZE(mdp_irq_map),
 			sizeof(struct intr_callback), GFP_KERNEL);
@@ -3055,12 +3087,13 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		mdss_res->mdp_irq_export[0] = MDSS_MDP_INTR_WB_0_DONE |
 						MDSS_MDP_INTR_WB_1_DONE;
 
-	pr_info("mdss version = 0x%x, bootloader display is %s\n",
-		mdata->mdp_rev, display_on ? "on" : "off");
+	pr_info("mdss version = 0x%x, bootloader display is %s, num %d, intf_sel=0x%08x\n",
+		mdata->mdp_rev, num_of_display_on ? "on" : "off",
+		num_of_display_on, intf_sel);
 
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
-		if (display_on)
+		if (!num_of_display_on)
 			mdss_mdp_footswitch_ctrl_splash(false);
 
 		if (mdata->regulator_notif_register)
@@ -4799,6 +4832,14 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 			*ot_lim = 4;
 		else
 			*ot_lim = 6;
+		break;
+	case MDSS_MDP_HW_REV_320:
+		if ((res <= RES_1080p) && (params->frame_rate <= 30))
+			*ot_lim = 2;
+		else if ((res <= RES_1080p) && (params->frame_rate <= 60))
+			*ot_lim = 6;
+		else if ((res <= RES_UHD) && (params->frame_rate <= 30))
+			*ot_lim = 16;
 		break;
 	default:
 		if (res <= RES_1080p) {
