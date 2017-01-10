@@ -530,6 +530,8 @@ static bool arm_smmu_is_master_side_secure(struct arm_smmu_domain *smmu_domain);
 static bool arm_smmu_is_static_cb(struct arm_smmu_device *smmu);
 static bool arm_smmu_is_slave_side_secure(struct arm_smmu_domain *smmu_domain);
 static bool arm_smmu_has_secure_vmid(struct arm_smmu_domain *smmu_domain);
+static bool arm_smmu_is_iova_coherent(struct iommu_domain *domain,
+					dma_addr_t iova);
 
 static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain);
 
@@ -2664,6 +2666,23 @@ static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 	return ret;
 }
 
+static bool arm_smmu_is_iova_coherent(struct iommu_domain *domain,
+					 dma_addr_t iova)
+{
+	bool ret;
+	unsigned long flags;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+
+	if (!ops)
+		return false;
+
+	flags = arm_smmu_pgtbl_lock(smmu_domain);
+	ret = ops->is_iova_coherent(ops, iova);
+	arm_smmu_pgtbl_unlock(smmu_domain, flags);
+	return ret;
+}
+
 static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu)
 {
 	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
@@ -3311,6 +3330,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.tlbi_domain		= arm_smmu_tlbi_domain,
 	.enable_config_clocks	= arm_smmu_enable_config_clocks,
 	.disable_config_clocks	= arm_smmu_disable_config_clocks,
+	.is_iova_coherent	= arm_smmu_is_iova_coherent,
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
