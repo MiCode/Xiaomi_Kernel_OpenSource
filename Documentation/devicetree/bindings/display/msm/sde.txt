@@ -66,6 +66,11 @@ Required properties
 				from "mdp_phys" defined in reg property. The number
 				of offsets defined should reflect the number of
 				programmable interface blocks available in hardware.
+- qcom,sde-mixer-blend-op-off	Array of offset addresses for the available
+				blending stages. The offsets are relative to
+				qcom,sde-mixer-off.
+- qcom,sde-mixer-pair-mask	Array of mixer numbers that can be paired with
+				mixer number corresponding to the array index.
 
 Optional properties:
 - clock-rate:		List of clock rates in Hz.
@@ -310,6 +315,11 @@ Example:
     qcom,sde-cdm-off = <0x0007a200>;
     qcom,sde-dsc-off = <0x00081000 0x00081400>;
     qcom,sde-intf-max-prefetch-lines = <0x15 0x15 0x15 0x15>;
+
+    qcom,sde-mixer-pair-mask = <2 1 6 0 0 3>;
+    qcom,sde-mixer-blend-op-off = <0x20 0x38 0x50 0x68 0x80 0x98
+				    0xb0 0xc8 0xe0 0xf8 0x110>;
+
 
     qcom,sde-sspp-type = "vig", "vig", "vig",
 			      "vig", "rgb", "rgb",
