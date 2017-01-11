@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4575,7 +4575,8 @@ int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl, bool is_recovery)
 	if (mixer) {
 		mdss_mdp_pipe_reset(mixer, is_recovery);
 
-		if (is_dual_lm_single_display(ctl->mfd))
+		if (is_dual_lm_single_display(ctl->mfd) &&
+		    ctl->mixer_right)
 			mdss_mdp_pipe_reset(ctl->mixer_right, is_recovery);
 	}
 
