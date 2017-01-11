@@ -615,6 +615,7 @@ static enum power_supply_property smb2_usb_main_props[] = {
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
+	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
 	POWER_SUPPLY_PROP_FCC_DELTA,
 	/*
 	 * TODO move the TEMP and TEMP_MAX properties here,
@@ -646,6 +647,9 @@ static int smb2_usb_main_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
 		rc = smblib_get_prop_input_current_settled(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED:
+		rc = smblib_get_prop_input_voltage_settled(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_FCC_DELTA:
 		rc = smblib_get_prop_fcc_delta(chg, val);

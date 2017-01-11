@@ -376,6 +376,8 @@ int smblib_get_prop_pd_allowed(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_input_current_settled(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_input_voltage_settled(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_get_prop_pd_in_hard_reset(struct smb_charger *chg,
 			       union power_supply_propval *val);
 int smblib_get_pe_start(struct smb_charger *chg,

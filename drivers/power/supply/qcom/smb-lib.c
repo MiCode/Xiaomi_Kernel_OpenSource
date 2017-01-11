@@ -331,7 +331,6 @@ static const struct apsd_result *smblib_get_apsd_result(struct smb_charger *chg)
 	return result;
 }
 
-
 /********************
  * REGISTER SETTERS *
  ********************/
@@ -1993,6 +1992,39 @@ int smblib_get_prop_input_current_settled(struct smb_charger *chg,
 	return smblib_get_charge_param(chg, &chg->param.icl_stat, &val->intval);
 }
 
+#define HVDCP3_STEP_UV	200000
+int smblib_get_prop_input_voltage_settled(struct smb_charger *chg,
+						union power_supply_propval *val)
+{
+	const struct apsd_result *apsd_result = smblib_get_apsd_result(chg);
+	int rc, pulses;
+	u8 stat;
+
+	val->intval = MICRO_5V;
+	if (apsd_result == NULL) {
+		smblib_err(chg, "APSD result is NULL\n");
+		return 0;
+	}
+
+	switch (apsd_result->pst) {
+	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
+		rc = smblib_read(chg, QC_PULSE_COUNT_STATUS_REG, &stat);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't read QC_PULSE_COUNT rc=%d\n", rc);
+			return 0;
+		}
+		pulses = (stat & QC_PULSE_COUNT_MASK);
+		val->intval = MICRO_5V + HVDCP3_STEP_UV * pulses;
+		break;
+	default:
+		val->intval = MICRO_5V;
+		break;
+	}
+
+	return 0;
+}
+
 int smblib_get_prop_pd_in_hard_reset(struct smb_charger *chg,
 			       union power_supply_propval *val)
 {
@@ -2882,6 +2914,7 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 	u8 stat;
 	int pulses;
 
+	power_supply_changed(chg->usb_main_psy);
 	if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB_HVDCP) {
 		rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
 		if (rc < 0) {
@@ -2932,13 +2965,6 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 			smblib_set_opt_freq_buck(chg,
 				chg->chg_freq.freq_12V);
 	}
-}
-
-static void smblib_handle_adaptive_voltage_done(struct smb_charger *chg,
-						bool rising)
-{
-	smblib_dbg(chg, PR_INTERRUPT, "IRQ: adaptive-voltage-done %s\n",
-		   rising ? "rising" : "falling");
 }
 
 /* triggers when HVDCP 3.0 authentication has finished */
@@ -3085,9 +3111,6 @@ irqreturn_t smblib_handle_usb_source_change(int irq, void *data)
 
 	smblib_handle_hvdcp_3p0_auth_done(chg,
 		(bool)(stat & QC_AUTH_DONE_STATUS_BIT));
-
-	smblib_handle_adaptive_voltage_done(chg,
-		(bool)(stat & VADP_CHANGE_DONE_AFTER_AUTH_BIT));
 
 	smblib_handle_sdp_enumeration_done(chg,
 		(bool)(stat & ENUMERATION_DONE_BIT));
