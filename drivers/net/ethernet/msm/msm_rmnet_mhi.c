@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,6 +88,8 @@ struct rmnet_mhi_private {
 	struct sk_buff_head           rx_buffers;
 	atomic_t		      rx_pool_len;
 	u32			      mru;
+	u32			      max_mru;
+	u32			      max_mtu;
 	struct napi_struct            napi;
 	gfp_t                         allocation_flags;
 	uint32_t                      tx_buffers_max;
@@ -584,7 +586,10 @@ static int rmnet_mhi_stop(struct net_device *dev)
 
 static int rmnet_mhi_change_mtu(struct net_device *dev, int new_mtu)
 {
-	if (0 > new_mtu || MHI_MAX_MTU < new_mtu)
+	struct rmnet_mhi_private *rmnet_mhi_ptr =
+			*(struct rmnet_mhi_private **)netdev_priv(dev);
+
+	if (new_mtu < 0 || rmnet_mhi_ptr->max_mtu < new_mtu)
 		return -EINVAL;
 
 	dev->mtu = new_mtu;
@@ -667,11 +672,11 @@ static int rmnet_mhi_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 
 	switch (ext_cmd.extended_ioctl) {
 	case RMNET_IOCTL_SET_MRU:
-		if (!ext_cmd.u.data || ext_cmd.u.data > MHI_MAX_MRU) {
-			rmnet_log(rmnet_mhi_ptr,
-				  MSG_CRITICAL,
-				  "Can't set MRU, value %u is invalid\n",
-				  ext_cmd.u.data);
+		if (!ext_cmd.u.data ||
+		    ext_cmd.u.data > rmnet_mhi_ptr->max_mru) {
+			rmnet_log(rmnet_mhi_ptr, MSG_CRITICAL,
+				  "Can't set MRU, value:%u is invalid max:%u\n",
+				  ext_cmd.u.data, rmnet_mhi_ptr->max_mru);
 			return -EINVAL;
 		}
 		rmnet_log(rmnet_mhi_ptr,
@@ -1184,6 +1189,26 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 		goto probe_fail;
 	}
 
+	rc = of_property_read_u32(pdev->dev.of_node,
+				  "qcom,mhi-max-mru",
+				  &rmnet_mhi_ptr->max_mru);
+	if (likely(rc)) {
+		rmnet_log(rmnet_mhi_ptr, MSG_INFO,
+			  "max-mru not defined, setting to max %d\n",
+			  MHI_MAX_MRU);
+		rmnet_mhi_ptr->max_mru = MHI_MAX_MRU;
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+				  "qcom,mhi-max-mtu",
+				  &rmnet_mhi_ptr->max_mtu);
+	if (likely(rc)) {
+		rmnet_log(rmnet_mhi_ptr, MSG_INFO,
+			  "max-mtu not defined, setting to max %d\n",
+			  MHI_MAX_MTU);
+		rmnet_mhi_ptr->max_mtu = MHI_MAX_MTU;
+	}
+
 	client_info.dev = &pdev->dev;
 	client_info.node_name = "qcom,mhi";
 	client_info.mhi_client_cb = rmnet_mhi_cb;
@@ -1195,6 +1220,7 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 	if (rc == 0) {
 		rmnet_mhi_ptr->tx_channel = channel;
 		client_info.chan = channel;
+		client_info.max_payload = rmnet_mhi_ptr->max_mtu;
 
 		rc = mhi_register_channel(&rmnet_mhi_ptr->tx_client_handle,
 					  &client_info);
@@ -1214,6 +1240,7 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 				  &channel);
 	if (rc == 0) {
 		rmnet_mhi_ptr->rx_channel = channel;
+		client_info.max_payload = rmnet_mhi_ptr->max_mru;
 		client_info.chan = channel;
 		rc = mhi_register_channel(&rmnet_mhi_ptr->rx_client_handle,
 					  &client_info);
