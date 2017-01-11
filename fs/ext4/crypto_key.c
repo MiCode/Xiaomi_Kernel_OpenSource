@@ -182,6 +182,9 @@ retry:
 	case EXT4_ENCRYPTION_MODE_AES_256_CTS:
 		cipher_str = "cts(cbc(aes))";
 		break;
+	case EXT4_ENCRYPTION_MODE_AES_256_HEH:
+		cipher_str = "heh(aes)";
+		break;
 	default:
 		printk_once(KERN_WARNING
 			    "ext4: unsupported key mode %d (ino %u)\n",
