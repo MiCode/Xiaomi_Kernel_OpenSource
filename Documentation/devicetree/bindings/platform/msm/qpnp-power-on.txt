@@ -22,10 +22,14 @@ Required properties:
 
 Optional properties:
 - qcom,pon-dbc-delay		The debounce delay for the power-key interrupt
-				specified in us. The value ranges from 2 seconds
-				to 1/64 of a second. Possible values are -
-				- 2, 1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/64
-				- Intermediate value is rounded down to the
+				specified in us.
+				Possible values for GEN1 PON are:
+				15625, 31250, 62500, 125000, 250000, 500000,
+				1000000 and 2000000.
+				Possible values for GEN2 PON are:
+				62, 123, 245, 489, 977, 1954, 3907, 7813,
+				15625, 31250, 62500, 125000 and 250000.
+				Intermediate value is rounded down to the
 				nearest valid value.
 - qcom,pon_1 ...pon_n		These represent the child nodes which describe
 				the properties (reset, key) for each of the pon
