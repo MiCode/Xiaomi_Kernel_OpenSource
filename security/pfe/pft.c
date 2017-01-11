@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,12 +216,13 @@ static int __init pft_lsm_init(struct pft_device *dev)
 		ret = register_security(&pft_security_ops);
 		if (ret) {
 			pr_err("pft lsm registeration failed, ret=%d.\n", ret);
-			return 0;
+			return ret;
 		}
 		dev->is_chosen_lsm = true;
 		pr_debug("pft is the chosen lsm, registered successfully !\n");
 	} else {
-		pr_debug("pft is not the chosen lsm.\n");
+		pr_err("pft is not the chosen lsm.\n");
+		return -ENODEV;
 	}
 
 	return 0;

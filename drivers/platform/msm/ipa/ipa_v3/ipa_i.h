@@ -2020,4 +2020,5 @@ bool ipa3_is_msm_device(void);
 int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
 struct device *ipa3_get_pdev(void);
 void ipa3_enable_dcd(void);
+void ipa3_disable_prefetch(enum ipa_client_type client);
 #endif /* _IPA3_I_H_ */
