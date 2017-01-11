@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1062,6 +1062,14 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	plat_priv->device_id = pci_dev->device;
 	plat_priv->bus_priv = pci_priv;
 
+	ret = cnss_register_subsys(plat_priv);
+	if (ret)
+		goto reset_ctx;
+
+	ret = cnss_register_ramdump(plat_priv);
+	if (ret)
+		goto unregister_subsys;
+
 	res = platform_get_resource_byname(plat_priv->plat_dev, IORESOURCE_MEM,
 					   "smmu_iova_base");
 	if (res) {
@@ -1074,7 +1082,7 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		ret = cnss_pci_init_smmu(pci_priv);
 		if (ret) {
 			cnss_pr_err("Failed to init SMMU, err = %d\n", ret);
-			goto reset_ctx;
+			goto unregister_ramdump;
 		}
 	}
 
@@ -1124,6 +1132,10 @@ dereg_pci_event:
 deinit_smmu:
 	if (pci_priv->smmu_mapping)
 		cnss_pci_deinit_smmu(pci_priv);
+unregister_ramdump:
+	cnss_unregister_ramdump(plat_priv);
+unregister_subsys:
+	cnss_unregister_subsys(plat_priv);
 reset_ctx:
 	plat_priv->bus_priv = NULL;
 out:
@@ -1144,6 +1156,8 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	cnss_dereg_pci_event(pci_priv);
 	if (pci_priv->smmu_mapping)
 		cnss_pci_deinit_smmu(pci_priv);
+	cnss_unregister_ramdump(plat_priv);
+	cnss_unregister_subsys(plat_priv);
 	plat_priv->bus_priv = NULL;
 }
 
