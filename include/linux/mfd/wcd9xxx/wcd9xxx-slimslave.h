@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,6 +69,8 @@
 
 #define SB_PGD_RX_PORT_MULTI_CHANNEL_0(offset, port_num) \
 		(SB_PGD_PORT_BASE + offset + (4 * port_num))
+
+#define SB_PGD_PORT_TX_OR_UR_CFG(port)  (0x1F0 + port)
 
 /* slave port water mark level
  *   (0: 6bytes, 1: 9bytes, 2: 12 bytes, 3: 15 bytes)
