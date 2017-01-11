@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -376,7 +376,6 @@ struct msm_mmu *msm_smmu_new(struct device *dev,
 static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 	const struct msm_smmu_domain *domain)
 {
-	int disable_htw = 1;
 	int rc;
 
 	client->mmu_mapping = arm_iommu_create_mapping(&platform_bus_type,
@@ -386,13 +385,6 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 			"iommu create mapping failed for domain=%s\n",
 			domain->label);
 		return PTR_ERR(client->mmu_mapping);
-	}
-
-	rc = iommu_domain_set_attr(client->mmu_mapping->domain,
-			DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
-	if (rc) {
-		dev_err(client->dev, "couldn't disable coherent HTW\n");
-		goto error;
 	}
 
 	if (domain->secure) {
