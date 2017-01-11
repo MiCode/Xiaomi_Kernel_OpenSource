@@ -202,6 +202,41 @@ void cnss_wlan_pci_link_down(void)
 }
 EXPORT_SYMBOL(cnss_wlan_pci_link_down);
 
+int cnss_pci_link_down(struct device *dev)
+{
+	unsigned long flags;
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL!\n");
+		return -EINVAL;
+	}
+
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL!\n");
+		return -EINVAL;
+	}
+
+	if (pci_link_down_panic)
+		panic("cnss: PCI link is down!\n");
+
+	spin_lock_irqsave(&pci_link_down_lock, flags);
+	if (pci_priv->pci_link_down_ind) {
+		cnss_pr_dbg("PCI link down recovery is in progress, ignore!\n");
+		spin_unlock_irqrestore(&pci_link_down_lock, flags);
+		return -EINVAL;
+	}
+	pci_priv->pci_link_down_ind = true;
+	spin_unlock_irqrestore(&pci_link_down_lock, flags);
+
+	cnss_pr_err("PCI link down is detected by host driver, schedule recovery!\n");
+	cnss_schedule_recovery(dev, CNSS_REASON_LINK_DOWN);
+	return 0;
+}
+EXPORT_SYMBOL(cnss_pci_link_down);
+
 static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
