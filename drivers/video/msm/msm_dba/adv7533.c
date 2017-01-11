@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,6 +112,8 @@ struct adv7533 {
 	u32 hpd_irq_flags;
 	u32 switch_gpio;
 	u32 switch_flags;
+	u32 power_down_gpio;
+	u32 power_down_flags;
 	struct pinctrl *ts_pinctrl;
 	struct pinctrl_state *pinctrl_state_active;
 	struct pinctrl_state *pinctrl_state_suspend;
@@ -422,7 +424,6 @@ static int adv7533_program_i2c_addr(struct adv7533 *pdata)
 
 	return ret;
 }
-
 static void adv7533_parse_vreg_dt(struct device *dev,
 				struct dss_module_power *mp)
 {
@@ -616,10 +617,13 @@ static int adv7533_parse_dt(struct device *dev,
 		pdata->hpd_irq_gpio = of_get_named_gpio_flags(np,
 				"adi,hpd-irq-gpio", 0,
 				&pdata->hpd_irq_flags);
-
-		pdata->switch_gpio = of_get_named_gpio_flags(np,
-				"adi,switch-gpio", 0, &pdata->switch_flags);
 	}
+
+	pdata->power_down_gpio = of_get_named_gpio_flags(np,
+			"adi,power-down-gpio", 0, &pdata->power_down_flags);
+
+	pdata->switch_gpio = of_get_named_gpio_flags(np,
+			"adi,switch-gpio", 0, &pdata->switch_flags);
 
 end:
 	return ret;
@@ -669,6 +673,25 @@ static int adv7533_gpio_configure(struct adv7533 *pdata, bool on)
 			pr_warn("hpd irq gpio not provided\n");
 		}
 
+		if (gpio_is_valid(pdata->power_down_gpio)) {
+			ret = gpio_request(pdata->power_down_gpio,
+				"adv7533_power_down_gpio");
+			if (ret) {
+				pr_err("%d unable to request gpio [%d] ret=%d\n",
+					__LINE__, pdata->power_down_gpio, ret);
+				goto err_power_down_gpio;
+			}
+
+			ret = gpio_direction_output(pdata->power_down_gpio, 0);
+			if (ret) {
+				pr_err("unable to set dir for gpio [%d]\n",
+					pdata->power_down_gpio);
+				goto err_power_down_gpio;
+			}
+
+			gpio_set_value(pdata->power_down_gpio, 0);
+		}
+
 		if (gpio_is_valid(pdata->switch_gpio)) {
 			ret = gpio_request(pdata->switch_gpio,
 				"adv7533_switch_gpio");
@@ -696,6 +719,8 @@ static int adv7533_gpio_configure(struct adv7533 *pdata, bool on)
 			gpio_free(pdata->irq_gpio);
 		if (gpio_is_valid(pdata->hpd_irq_gpio))
 			gpio_free(pdata->hpd_irq_gpio);
+		if (gpio_is_valid(pdata->power_down_gpio))
+			gpio_free(pdata->power_down_gpio);
 		if (gpio_is_valid(pdata->switch_gpio))
 			gpio_free(pdata->switch_gpio);
 
@@ -705,6 +730,9 @@ static int adv7533_gpio_configure(struct adv7533 *pdata, bool on)
 err_switch_gpio:
 	if (gpio_is_valid(pdata->switch_gpio))
 		gpio_free(pdata->switch_gpio);
+err_power_down_gpio:
+	if (gpio_is_valid(pdata->power_down_gpio))
+		gpio_free(pdata->power_down_gpio);
 err_hpd_irq_gpio:
 	if (gpio_is_valid(pdata->hpd_irq_gpio))
 		gpio_free(pdata->hpd_irq_gpio);
