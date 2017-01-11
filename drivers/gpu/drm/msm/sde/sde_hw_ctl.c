@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,8 @@
 	(((lm) == LM_5) ? (0x024) : (((lm) - LM_0) * 0x004))
 #define   CTL_LAYER_EXT(lm)             \
 	(0x40 + (((lm) - LM_0) * 0x004))
+#define   CTL_LAYER_EXT2(lm)             \
+	(0x70 + (((lm) - LM_0) * 0x004))
 #define   CTL_TOP                       0x014
 #define   CTL_FLUSH                     0x018
 #define   CTL_START                     0x01C
@@ -126,6 +128,12 @@ static inline uint32_t sde_hw_ctl_get_bitmask_sspp(struct sde_hw_ctl *ctx,
 		break;
 	case SSPP_DMA1:
 		flushbits = BIT(12);
+		break;
+	case SSPP_DMA2:
+		flushbits = BIT(24);
+		break;
+	case SSPP_DMA3:
+		flushbits = BIT(25);
 		break;
 	case SSPP_CURSOR0:
 		flushbits = BIT(22);
@@ -273,7 +281,7 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	enum sde_lm lm, struct sde_hw_stage_cfg *stage_cfg, u32 index)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
-	u32 mixercfg, mixercfg_ext, mix, ext;
+	u32 mixercfg, mixercfg_ext, mix, ext, mixercfg_ext2;
 	int i, j;
 	u8 stages;
 	int pipes_per_stage;
@@ -293,6 +301,7 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 
 	mixercfg = BIT(24); /* always set BORDER_OUT */
 	mixercfg_ext = 0;
+	mixercfg_ext2 = 0;
 
 	for (i = 0; i <= stages; i++) {
 		/* overflow to ext register if 'i + 1 > 7' */
@@ -341,6 +350,14 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 				mixercfg |= mix << 21;
 				mixercfg_ext |= ext << 18;
 				break;
+			case SSPP_DMA2:
+				mix = (i + 1) & 0xf;
+				mixercfg_ext2 |= mix << 0;
+				break;
+			case SSPP_DMA3:
+				mix = (i + 1) & 0xf;
+				mixercfg_ext2 |= mix << 4;
+				break;
 			case SSPP_CURSOR0:
 				mixercfg_ext |= ((i + 1) & 0xF) << 20;
 				break;
@@ -355,6 +372,7 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 
 	SDE_REG_WRITE(c, CTL_LAYER(lm), mixercfg);
 	SDE_REG_WRITE(c, CTL_LAYER_EXT(lm), mixercfg_ext);
+	SDE_REG_WRITE(c, CTL_LAYER_EXT2(lm), mixercfg_ext2);
 }
 
 static void sde_hw_ctl_intf_cfg(struct sde_hw_ctl *ctx,
