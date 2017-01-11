@@ -54,7 +54,7 @@ static inline void adreno_llc_setup(struct kgsl_device *device)
 				gpudev->llc_configure_gpu_scid(adreno_dev);
 		}
 
-	if (adreno_dev->gpuhtw_llc_slice)
+	if (adreno_dev->gpuhtw_llc_slice && adreno_dev->gpuhtw_llc_slice_enable)
 		if (!llcc_slice_activate(adreno_dev->gpuhtw_llc_slice)) {
 			if (gpudev->llc_configure_gpuhtw_scid)
 				gpudev->llc_configure_gpuhtw_scid(adreno_dev);

@@ -399,6 +399,7 @@ struct adreno_gpu_core {
  * @gpu_llc_slice: GPU system cache slice descriptor
  * @gpu_llc_slice_enable: To enable the GPU system cache slice or not
  * @gpuhtw_llc_slice: GPU pagetables system cache slice descriptor
+ * @gpuhtw_llc_slice_enable: To enable the GPUHTW system cache slice or not
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -461,6 +462,7 @@ struct adreno_device {
 	void *gpu_llc_slice;
 	bool gpu_llc_slice_enable;
 	void *gpuhtw_llc_slice;
+	bool gpuhtw_llc_slice_enable;
 };
 
 /**
