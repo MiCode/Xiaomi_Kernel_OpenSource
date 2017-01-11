@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -326,6 +326,14 @@
 		qcom,hw-settle-time = <0>;
 		qcom,fast-avg-setup = <0>;
 	};
+};
+
+&cont_splash_mem {
+	status = "disabled";
+};
+
+&cont_splash_mem_hdmi {
+	status = "disabled";
 };
 
 &mdss_mdp {
