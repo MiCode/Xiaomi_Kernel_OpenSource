@@ -1083,6 +1083,12 @@ static inline void sched_ttwu_pending(void) { }
 #include "stats.h"
 #include "auto_group.h"
 
+enum sched_boost_policy {
+	SCHED_BOOST_NONE,
+	SCHED_BOOST_ON_BIG,
+	SCHED_BOOST_ON_ALL,
+};
+
 #ifdef CONFIG_SCHED_HMP
 
 #define WINDOW_STATS_RECENT		0
@@ -1164,12 +1170,6 @@ extern void add_new_task_to_grp(struct task_struct *new);
 extern unsigned int update_freq_aggregate_threshold(unsigned int threshold);
 extern void update_avg_burst(struct task_struct *p);
 extern void update_avg(u64 *avg, u64 sample);
-
-enum sched_boost_policy {
-	SCHED_BOOST_NONE,
-	SCHED_BOOST_ON_BIG,
-	SCHED_BOOST_ON_ALL,
-};
 
 #define NO_BOOST 0
 #define FULL_THROTTLE_BOOST 1
@@ -1521,6 +1521,16 @@ extern int alloc_related_thread_groups(void);
 struct hmp_sched_stats;
 struct related_thread_group;
 struct sched_cluster;
+
+static inline enum sched_boost_policy sched_boost_policy(void)
+{
+	return SCHED_BOOST_NONE;
+}
+
+static inline bool task_sched_boost(struct task_struct *p)
+{
+	return true;
+}
 
 static inline int got_boost_kick(void)
 {
