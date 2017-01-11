@@ -15,6 +15,10 @@
 / {
 };
 
+&blsp2_uart1_hs {
+	status = "ok";
+};
+
 &uartblsp1dm1 {
 	status = "ok";
 	pinctrl-names = "default";
