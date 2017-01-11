@@ -1852,8 +1852,10 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 		file->private_data = 0;
 	}
 bail:
-	if (err)
+	if (err) {
+		fastrpc_file_free(fl);
 		kfree(pfl);
+	}
 	return err;
 }
 
