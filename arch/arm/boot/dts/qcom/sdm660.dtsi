@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -490,7 +490,6 @@
 	};
 
 	wdog: qcom,wdt@17817000 {
-		status = "disabled";
 		compatible = "qcom,msm-watchdog";
 		reg = <0x17817000 0x1000>;
 		reg-names = "wdt-base";
@@ -499,6 +498,7 @@
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
+		qcom,scandump-size = <0x40000>;
 	};
 
 	qcom,sps {
