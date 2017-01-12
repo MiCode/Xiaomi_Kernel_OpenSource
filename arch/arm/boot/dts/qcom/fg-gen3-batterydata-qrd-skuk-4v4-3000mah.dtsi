@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,34 +11,36 @@
  */
 
 qcom,qrd_msm8998_skuk_3000mah {
+	/* QRD8997_ST1031GA_3000mAh_averaged_MasterSlave_Jan10th2017 */
 	qcom,max-voltage-uv = <4400000>;
 	qcom,fastchg-current-ma = <3000>;
 	qcom,batt-id-kohm = <68>;
 	qcom,battery-beta = <3380>;
-	qcom,battery-type = "qrd_msm8998_skuk_300mah";
-	qcom,checksum = <0x0F19>;
+	qcom,battery-type = "qrd8997_st1031ga_3000mah";
+	qcom,checksum = <0xD299>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.54";
 	qcom,fg-profile-data = [
-		 6F 1F B2 05
-		 6E 0A A3 FC
-		 8C 1D DB FD
-		 C2 12 AE 1D
-		 7E 18 00 23
-		 8D 45 B4 52
+		 70 1F B1 05
+		 6F 0A A1 FC
+		 8C 1D D7 FD
+		 C4 12 AC 1D
+		 7E 18 01 23
+		 8C 45 B6 52
 		 55 00 00 00
 		 0F 00 00 00
 		 00 00 92 C5
 		 95 CD A0 CA
-		 1F 00 0C 00
-		 56 F2 C3 EC
-		 7B 06 27 F3
+		 1F 00 08 00
+		 9F E3 C3 EC
+		 F7 FC 25 F3
 		 02 01 FF 12
-		 1C DA 21 3A
-		 1C 09 40 40
-		 07 00 05 00
+		 29 DC 1D 3A
+		 1C 06 09 20
+		 27 00 14 00
 		 AC 1F B4 05
 		 57 0A EF FC
-		 6A 1D 2E 00
-		 12 0B BA 14
+		 6A 1D E9 E2
+		 11 0B BB 14
 		 40 19 DC 22
 		 79 45 03 53
 		 53 00 00 00
@@ -48,12 +50,12 @@ qcom,qrd_msm8998_skuk_3000mah {
 		 1C 00 00 00
 		 56 F2 C3 EC
 		 A6 06 A2 F2
-		 96 06 C7 01
-		 8B EA CF 1A
-		 BA 33 08 33
+		 9A 06 CC 01
+		 8C EA CF 1A
+		 BA 33 CC FF
 		 07 10 00 00
 		 3A 0C 66 46
-		 1C 00 19 00
+		 1C 00 40 00
 		 98 01 0A FA
 		 FF 00 00 00
 		 00 00 00 00
