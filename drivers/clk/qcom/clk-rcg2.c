@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1063,7 +1063,8 @@ static int clk_dp_set_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long src_rate;
 	unsigned long num, den;
 	u32 mask = BIT(rcg->hid_width) - 1;
-	u32 hid_div;
+	u32 hid_div, cfg;
+	int i, num_parents = clk_hw_get_num_parents(hw);
 
 	src_rate = clk_get_rate(clk_hw_get_parent(hw)->clk);
 	if (src_rate <= 0) {
@@ -1081,7 +1082,17 @@ static int clk_dp_set_rate(struct clk_hw *hw, unsigned long rate,
 		return -EINVAL;
 	}
 
-	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &hid_div);
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &cfg);
+	hid_div = cfg;
+	cfg &= CFG_SRC_SEL_MASK;
+	cfg >>= CFG_SRC_SEL_SHIFT;
+
+	for (i = 0; i < num_parents; i++)
+		if (cfg == rcg->parent_map[i].cfg) {
+			f.src = rcg->parent_map[i].src;
+			break;
+		}
+
 	f.pre_div = hid_div;
 	f.pre_div >>= CFG_SRC_DIV_SHIFT;
 	f.pre_div &= mask;
