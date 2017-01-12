@@ -134,10 +134,7 @@ enum cnss_recovery_reason {
 
 extern int cnss_wlan_register_driver(struct cnss_wlan_driver *driver);
 extern void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver);
-extern void cnss_wlan_pci_link_down(void);
-extern void cnss_schedule_recovery_work(void);
 extern void cnss_device_crashed(void);
-extern void cnss_device_self_recovery(void);
 extern int cnss_pci_link_down(struct device *dev);
 extern void cnss_schedule_recovery(struct device *dev,
 				   enum cnss_recovery_reason reason);

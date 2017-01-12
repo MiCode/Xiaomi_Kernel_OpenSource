@@ -1242,48 +1242,6 @@ static void cnss_crash_shutdown(const struct subsys_desc *subsys_desc)
 	}
 }
 
-void cnss_device_self_recovery(void)
-{
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
-	struct cnss_subsys_info *subsys_info;
-
-	if (!plat_priv) {
-		cnss_pr_err("plat_priv is NULL!\n");
-		return;
-	}
-
-	if (!plat_priv->plat_dev) {
-		cnss_pr_err("plat_dev is NULL!\n");
-		return;
-	}
-
-	if (!plat_priv->driver_ops) {
-		cnss_pr_err("Driver is not registered yet!\n");
-		return;
-	}
-
-	if (plat_priv->driver_status == CNSS_RECOVERY) {
-		cnss_pr_err("Recovery is already in progress!\n");
-		return;
-	}
-
-	if (plat_priv->driver_status == CNSS_LOAD_UNLOAD) {
-		cnss_pr_err("Driver load or unload is in progress!\n");
-		return;
-	}
-
-	subsys_info = &plat_priv->subsys_info;
-	plat_priv->recovery_count++;
-	plat_priv->driver_status = CNSS_RECOVERY;
-	pm_stay_awake(&plat_priv->plat_dev->dev);
-	cnss_shutdown(&subsys_info->subsys_desc, false);
-	udelay(WLAN_RECOVERY_DELAY);
-	cnss_powerup(&subsys_info->subsys_desc);
-	pm_relax(&plat_priv->plat_dev->dev);
-	plat_priv->driver_status = CNSS_INITIALIZED;
-}
-EXPORT_SYMBOL(cnss_device_self_recovery);
-
 int cnss_self_recovery(struct device *dev,
 		       enum cnss_recovery_reason reason)
 {
@@ -1328,19 +1286,6 @@ int cnss_self_recovery(struct device *dev,
 	return 0;
 }
 EXPORT_SYMBOL(cnss_self_recovery);
-
-void cnss_recovery_work_handler(struct work_struct *recovery)
-{
-	cnss_device_self_recovery();
-}
-
-DECLARE_WORK(cnss_recovery_work, cnss_recovery_work_handler);
-
-void cnss_schedule_recovery_work(void)
-{
-	schedule_work(&cnss_recovery_work);
-}
-EXPORT_SYMBOL(cnss_schedule_recovery_work);
 
 void cnss_schedule_recovery(struct device *dev,
 			    enum cnss_recovery_reason reason)

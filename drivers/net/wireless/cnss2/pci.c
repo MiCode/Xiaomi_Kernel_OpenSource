@@ -168,40 +168,6 @@ out:
 	return ret;
 }
 
-void cnss_wlan_pci_link_down(void)
-{
-	unsigned long flags;
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
-	struct cnss_pci_data *pci_priv;
-
-	if (!plat_priv) {
-		cnss_pr_err("plat_priv is NULL!\n");
-		return;
-	}
-
-	pci_priv = plat_priv->bus_priv;
-	if (!pci_priv) {
-		cnss_pr_err("pci_priv is NULL!\n");
-		return;
-	}
-
-	if (pci_link_down_panic)
-		panic("cnss: PCI link is down!\n");
-
-	spin_lock_irqsave(&pci_link_down_lock, flags);
-	if (pci_priv->pci_link_down_ind) {
-		cnss_pr_dbg("PCI link down recovery is in progress, ignore!\n");
-		spin_unlock_irqrestore(&pci_link_down_lock, flags);
-		return;
-	}
-	pci_priv->pci_link_down_ind = true;
-	spin_unlock_irqrestore(&pci_link_down_lock, flags);
-
-	cnss_pr_err("PCI link down is detected by host driver, schedule recovery!\n");
-	cnss_schedule_recovery_work();
-}
-EXPORT_SYMBOL(cnss_wlan_pci_link_down);
-
 int cnss_pci_link_down(struct device *dev)
 {
 	unsigned long flags;
@@ -330,7 +296,7 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 
 		cnss_pr_err("PCI link down, schedule recovery!\n");
 		disable_irq(pci_dev->irq);
-		cnss_schedule_recovery_work();
+		cnss_schedule_recovery(&pci_dev->dev, CNSS_REASON_LINK_DOWN);
 		break;
 	case MSM_PCIE_EVENT_WAKEUP:
 		if (cnss_pci_get_monitor_wake_intr(pci_priv) &&
