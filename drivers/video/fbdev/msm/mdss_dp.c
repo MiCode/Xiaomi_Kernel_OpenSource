@@ -338,7 +338,25 @@ static int mdss_dp_clk_init(struct mdss_dp_drv_pdata *dp_drv,
 			goto ctrl_get_error;
 		}
 
+		dp_drv->pixel_clk_rcg = devm_clk_get(dev, "pixel_clk_rcg");
+		if (IS_ERR(dp_drv->pixel_clk_rcg)) {
+			pr_debug("%s: Unable to get DP pixel clk RCG\n",
+				__func__);
+			dp_drv->pixel_clk_rcg = NULL;
+		}
+
+		dp_drv->pixel_parent = devm_clk_get(dev,
+			"pixel_parent");
+		if (IS_ERR(dp_drv->pixel_parent)) {
+			pr_debug("%s: Unable to get DP pixel RCG parent\n",
+				__func__);
+			dp_drv->pixel_parent = NULL;
+		}
 	} else {
+		if (dp_drv->pixel_parent)
+			devm_clk_put(dev, dp_drv->pixel_parent);
+		if (dp_drv->pixel_clk_rcg)
+			devm_clk_put(dev, dp_drv->pixel_clk_rcg);
 		msm_dss_put_clk(ctrl_power_data->clk_config,
 					ctrl_power_data->num_clk);
 		msm_dss_put_clk(core_power_data->clk_config,
@@ -1257,6 +1275,9 @@ static void mdss_dp_set_clock_rate(struct mdss_dp_drv_pdata *dp,
 static int mdss_dp_enable_mainlink_clocks(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
+
+	if (dp->pixel_clk_rcg && dp->pixel_parent)
+		clk_set_parent(dp->pixel_clk_rcg, dp->pixel_parent);
 
 	mdss_dp_set_clock_rate(dp, "ctrl_link_clk",
 		(dp->link_rate * DP_LINK_RATE_MULTIPLIER) / DP_KHZ_TO_HZ);
