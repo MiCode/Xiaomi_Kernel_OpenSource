@@ -13,6 +13,12 @@
 #define _MSM_PCM_ROUTING_H
 #include <sound/apr_audio-v2.h>
 
+/*
+ * These names are used by HAL to specify the BE. If any changes are
+ * made to the string names or the max name length corresponding
+ * changes need to be made in the HAL to ensure they still match.
+ */
+#define LPASS_BE_NAME_MAX_LENGTH 24
 #define LPASS_BE_PRI_I2S_RX "PRIMARY_I2S_RX"
 #define LPASS_BE_PRI_I2S_TX "PRIMARY_I2S_TX"
 #define LPASS_BE_SLIMBUS_0_RX "SLIMBUS_0_RX"
@@ -470,8 +476,10 @@ void msm_pcm_routing_get_fedai_info(int fe_idx, int sess_type,
 void msm_pcm_routing_acquire_lock(void);
 void msm_pcm_routing_release_lock(void);
 
-void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
-			int acdb_dev_id, int sample_rate, int session_type);
+int msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int session_type,
+					     int be_id, int app_type,
+					     int acdb_dev_id, int sample_rate);
 int msm_pcm_routing_get_stream_app_type_cfg(int fedai_id, int session_type,
-			int *app_type, int *acdb_dev_id, int *sample_rate);
+					    int be_id, int *app_type,
+					    int *acdb_dev_id, int *sample_rate);
 #endif /*_MSM_PCM_H*/
