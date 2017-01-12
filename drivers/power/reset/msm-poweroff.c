@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,7 @@
 #include <linux/reboot.h>
 #include <linux/pm.h>
 #include <linux/delay.h>
-#include <linux/qpnp/power-on.h>
+#include <linux/input/qpnp-power-on.h>
 #include <linux/of_address.h>
 
 #include <asm/cacheflush.h>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,6 +88,7 @@ enum clk_osm_trace_packet_id {
 #define CORE_COUNT_VAL(val)			((val & GENMASK(18, 16)) >> 16)
 #define SINGLE_CORE					1
 #define MAX_CORE_COUNT					4
+#define DEBUG_REG_NUM					3
 
 #define ENABLE_REG					0x1004
 #define INDEX_REG					0x1150
@@ -321,6 +322,13 @@ static struct dentry *osm_debugfs_base;
 static struct regulator *vdd_pwrcl;
 static struct regulator *vdd_perfcl;
 
+const char *clk_panic_reg_names[] = {"WDOG_DOMAIN_PSTATE_STATUS",
+					"WDOG_PROGRAM_COUNTER",
+					"APM_STATUS"};
+
+const int clk_panic_reg_offsets[] = {WDOG_DOMAIN_PSTATE_STATUS,
+					WDOG_PROGRAM_COUNTER};
+
 static const struct regmap_config osm_qcom_regmap_config = {
 	.reg_bits       = 32,
 	.reg_stride     = 4,
@@ -336,6 +344,7 @@ struct clk_osm {
 	struct platform_device *vdd_dev;
 	void *vbases[NUM_BASES];
 	unsigned long pbases[NUM_BASES];
+	void __iomem *debug_regs[DEBUG_REG_NUM];
 	spinlock_t lock;
 
 	u32 cpu_reg_mask;
@@ -1365,6 +1374,64 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 	} else {
 		perfcl_clk.acd_init = false;
 	}
+
+	pwrcl_clk.debug_regs[0] = devm_ioremap(&pdev->dev,
+						pwrcl_clk.pbases[OSM_BASE] +
+						clk_panic_reg_offsets[0],
+						0x4);
+	if (!pwrcl_clk.debug_regs[0]) {
+		dev_err(&pdev->dev, "Failed to map %s debug register\n",
+						clk_panic_reg_names[0]);
+		return -ENOMEM;
+	}
+
+	pwrcl_clk.debug_regs[1] = devm_ioremap(&pdev->dev,
+						pwrcl_clk.pbases[OSM_BASE] +
+						clk_panic_reg_offsets[1],
+						0x4);
+	if (!pwrcl_clk.debug_regs[1]) {
+		dev_err(&pdev->dev, "Failed to map %s debug register\n",
+						clk_panic_reg_names[1]);
+		return -ENOMEM;
+	}
+
+	pwrcl_clk.debug_regs[2] = devm_ioremap(&pdev->dev,
+						pwrcl_clk.apm_ctrl_status,
+						0x4);
+	if (!pwrcl_clk.debug_regs[2]) {
+		dev_err(&pdev->dev, "Failed to map %s debug register\n",
+						clk_panic_reg_names[2]);
+		return -ENOMEM;
+	};
+
+	perfcl_clk.debug_regs[0] = devm_ioremap(&pdev->dev,
+						perfcl_clk.pbases[OSM_BASE] +
+						clk_panic_reg_offsets[0],
+						0x4);
+	if (!perfcl_clk.debug_regs[0]) {
+		dev_err(&pdev->dev, "Failed to map %s debug register\n",
+						clk_panic_reg_names[0]);
+		return -ENOMEM;
+	}
+
+	perfcl_clk.debug_regs[1] = devm_ioremap(&pdev->dev,
+						perfcl_clk.pbases[OSM_BASE] +
+						clk_panic_reg_offsets[1],
+						0x4);
+	if (!perfcl_clk.debug_regs[1]) {
+		dev_err(&pdev->dev, "Failed to map %s debug register\n",
+						clk_panic_reg_names[1]);
+		return -ENOMEM;
+	}
+
+	perfcl_clk.debug_regs[2] = devm_ioremap(&pdev->dev,
+						perfcl_clk.apm_ctrl_status,
+						0x4);
+	if (!perfcl_clk.debug_regs[2]) {
+		dev_err(&pdev->dev, "Failed to map %s debug register\n",
+						clk_panic_reg_names[2]);
+		return -ENOMEM;
+	};
 
 	vdd_pwrcl = devm_regulator_get(&pdev->dev, "vdd-pwrcl");
 	if (IS_ERR(vdd_pwrcl)) {
@@ -2859,36 +2926,16 @@ static int clk_osm_panic_callback(struct notifier_block *nfb,
 				  unsigned long event,
 				  void *data)
 {
-	void __iomem *virt_addr;
-	u32 value, reg;
+	int i;
+	u32 value;
 	struct clk_osm *c = container_of(nfb,
 					 struct clk_osm,
 					 panic_notifier);
 
-	reg = c->pbases[OSM_BASE] + WDOG_DOMAIN_PSTATE_STATUS;
-	virt_addr = ioremap(reg, 0x4);
-	if (virt_addr != NULL) {
-		value = readl_relaxed(virt_addr);
-		pr_err("DOM%d_PSTATE_STATUS[0x%08x]=0x%08x\n", c->cluster_num,
-		       reg, value);
-		iounmap(virt_addr);
-	}
-
-	reg = c->pbases[OSM_BASE] + WDOG_PROGRAM_COUNTER;
-	virt_addr = ioremap(reg, 0x4);
-	if (virt_addr != NULL) {
-		value = readl_relaxed(virt_addr);
-		pr_err("DOM%d_PROGRAM_COUNTER[0x%08x]=0x%08x\n", c->cluster_num,
-		       reg, value);
-		iounmap(virt_addr);
-	}
-
-	virt_addr = ioremap(c->apm_ctrl_status, 0x4);
-	if (virt_addr != NULL) {
-		value = readl_relaxed(virt_addr);
-		pr_err("APM_CTLER_STATUS_%d[0x%08x]=0x%08x\n", c->cluster_num,
-		       c->apm_ctrl_status, value);
-		iounmap(virt_addr);
+	for (i = 0; i < DEBUG_REG_NUM; i++) {
+		value = readl_relaxed(c->debug_regs[i]);
+		pr_err("%s_%d=0x%08x\n", clk_panic_reg_names[i],
+					 c->cluster_num, value);
 	}
 
 	return NOTIFY_OK;
@@ -3020,17 +3067,17 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 
 	clk_data->clk_num = num_clks;
 
+	rc = clk_osm_parse_dt_configs(pdev);
+	if (rc) {
+		dev_err(&pdev->dev, "Unable to parse device tree configurations\n");
+		return rc;
+	}
+
 	rc = clk_osm_resources_init(pdev);
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "resources init failed, rc=%d\n",
 									rc);
-		return rc;
-	}
-
-	rc = clk_osm_parse_dt_configs(pdev);
-	if (rc) {
-		dev_err(&pdev->dev, "Unable to parse device tree configurations\n");
 		return rc;
 	}
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1144,13 +1144,6 @@ static int smb2_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	rc = smblib_validate_initial_typec_legacy_status(chg);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't validate typec legacy status rc=%d\n",
-			rc);
-		return rc;
-	}
-
 	return rc;
 }
 
@@ -1913,6 +1906,12 @@ static int smb2_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
+	rc = smb2_init_hw(chip);
+	if (rc < 0) {
+		pr_err("Couldn't initialize hardware rc=%d\n", rc);
+		goto cleanup;
+	}
+
 	rc = smb2_init_dc_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize dc psy rc=%d\n", rc);
@@ -1942,12 +1941,6 @@ static int smb2_probe(struct platform_device *pdev)
 	rc = smb2_init_batt_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize batt psy rc=%d\n", rc);
-		goto cleanup;
-	}
-
-	rc = smb2_init_hw(chip);
-	if (rc < 0) {
-		pr_err("Couldn't initialize hardware rc=%d\n", rc);
 		goto cleanup;
 	}
 

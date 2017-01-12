@@ -1094,7 +1094,8 @@
 		reg-names = "osm", "pwrcl_pll", "perfcl_pll",
 			    "apcs_common", "perfcl_efuse";
 
-		/* ToDo: Add power and perf supply rails */
+		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
+		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
 
 		interrupts = <GIC_SPI 35 IRQ_TYPE_EDGE_RISING>,
 			     <GIC_SPI 36 IRQ_TYPE_EDGE_RISING>;
@@ -1159,19 +1160,6 @@
 		qcom,droop-fsm-en;
 		qcom,wfx-fsm-en;
 		qcom,pc-fsm-en;
-
-		qcom,pwrcl-apcs-mem-acc-cfg =
-			<0x179d1360 0x179d1364 0x179d1364>;
-		qcom,perfcl-apcs-mem-acc-cfg =
-			<0x179d1368 0x179d136C 0x179d1370>;
-		qcom,pwrcl-apcs-mem-acc-val =
-			<0x00000000 0x80000000 0x80000000>,
-			<0x00000000 0x00000000 0x00000000>,
-			<0x00000000 0x00000001 0x00000001>;
-		qcom,perfcl-apcs-mem-acc-val =
-			<0x00000000 0x00000000 0x80000000>,
-			<0x00000000 0x00000000 0x00000000>,
-			<0x00000000 0x00000000 0x00000001>;
 
 		clock-names = "aux_clk", "xo_a";
 		clocks = <&clock_gcc HMSS_GPLL0_CLK_SRC>,
