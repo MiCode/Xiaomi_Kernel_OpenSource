@@ -1171,6 +1171,11 @@ static int __validate_secure_display(struct mdss_overlay_private *mdp5_data)
 	pr_debug("pipe count:: secure display:%d non-secure:%d\n",
 		sd_pipes, nonsd_pipes);
 
+	if (mdss_get_sd_client_cnt() && !mdp5_data->sd_enabled) {
+		pr_err("Secure session already enabled for other client\n");
+		return -EINVAL;
+	}
+
 	mdp5_data->sd_transition_state = SD_TRANSITION_NONE;
 	if (!__is_sd_state_valid(sd_pipes, nonsd_pipes, panel_type,
 		mdp5_data->sd_enabled)) {
