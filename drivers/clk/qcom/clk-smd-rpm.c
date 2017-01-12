@@ -185,28 +185,7 @@ static int clk_smd_rpm_prepare(struct clk_hw *hw);
 
 static int clk_smd_rpm_handoff(struct clk_hw *hw)
 {
-	int ret = 0;
-	uint32_t value = cpu_to_le32(INT_MAX);
-	struct clk_smd_rpm *r = to_clk_smd_rpm(hw);
-	struct msm_rpm_kvp req = {
-		.key = cpu_to_le32(r->rpm_key),
-		.data = (void *)&value,
-		.length = sizeof(value),
-	};
-
-	ret = msm_rpm_send_message(QCOM_SMD_RPM_ACTIVE_STATE, r->rpm_res_type,
-			r->rpm_clk_id, &req, 1);
-	if (ret)
-		return ret;
-
-	ret = msm_rpm_send_message(QCOM_SMD_RPM_SLEEP_STATE, r->rpm_res_type,
-			r->rpm_clk_id, &req, 1);
-	if (ret)
-		return ret;
-
-	ret = clk_smd_rpm_prepare(hw);
-
-	return ret;
+	return clk_smd_rpm_prepare(hw);
 }
 
 static int clk_smd_rpm_set_rate_active(struct clk_smd_rpm *r,
@@ -282,11 +261,11 @@ static int clk_smd_rpm_prepare(struct clk_hw *hw)
 
 	mutex_lock(&rpm_smd_clk_lock);
 
-	/* Don't send requests to the RPM if the rate has not been set. */
-	if (!r->rate)
-		goto out;
-
 	to_active_sleep(r, r->rate, &this_rate, &this_sleep_rate);
+
+	/* Don't send requests to the RPM if the rate has not been set. */
+	if (this_rate == 0)
+		goto out;
 
 	/* Take peer clock's rate into account only if it's enabled. */
 	if (peer->enabled)
