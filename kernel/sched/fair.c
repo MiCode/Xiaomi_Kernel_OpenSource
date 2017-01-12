@@ -6571,17 +6571,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	struct sched_group *sg, *sg_target;
 	int target_max_cap = INT_MAX;
 	int target_cpu = task_cpu(p);
-	unsigned long task_util_boosted, new_util;
+	unsigned long task_util_boosted, new_util, curr_util = 0;
 	int i;
 	int cpu = smp_processor_id();
-
-	if (sysctl_sched_sync_hint_enable && sync && !cpu_overutilized(cpu)) {
-		int cpu = smp_processor_id();
-		cpumask_t search_cpus;
-		cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_online_mask);
-		if (cpumask_test_cpu(cpu, &search_cpus))
-			return cpu;
-	}
 
 	sd = rcu_dereference(per_cpu(sd_ea, task_cpu(p)));
 
@@ -6590,6 +6582,10 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 
 	sg = sd->groups;
 	sg_target = sg;
+
+	sync = sync && sysctl_sched_sync_hint_enable;
+	if (sync)
+		curr_util = boosted_task_util(cpu_rq(cpu)->curr);
 
 	if (sysctl_sched_is_big_little) {
 		unsigned long target_cpu_cap_idx = ULONG_MAX, cap_idx;
@@ -6629,6 +6625,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			 * accounting. However, the blocked utilization may be zero.
 			 */
 			new_util = cpu_util(i) + task_util_boosted;
+			if (sync && i == cpu)
+				new_util -= curr_util;
 			cap_idx = __find_new_capacity(new_util, sg_target->sge);
 
 			/*
@@ -6678,6 +6676,13 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			.dst_cpu	= target_cpu,
 			.task		= p,
 		};
+
+		if (sync) {
+			if (eenv.dst_cpu == cpu)
+				eenv.util_delta -= curr_util;
+			else if (eenv.src_cpu == cpu)
+				eenv.util_delta += curr_util;
+		}
 
 		/* Not enough spare capacity on previous cpu */
 		if (cpu_overutilized(task_cpu(p)))
