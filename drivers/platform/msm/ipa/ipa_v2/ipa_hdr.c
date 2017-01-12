@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -805,7 +805,8 @@ error:
 	return -EPERM;
 }
 
-static int __ipa_del_hdr_proc_ctx(u32 proc_ctx_hdl, bool release_hdr)
+static int __ipa_del_hdr_proc_ctx(u32 proc_ctx_hdl,
+	bool release_hdr, bool by_user)
 {
 	struct ipa_hdr_proc_ctx_entry *entry;
 	struct ipa_hdr_proc_ctx_tbl *htbl = &ipa_ctx->hdr_proc_ctx_tbl;
@@ -819,6 +820,14 @@ static int __ipa_del_hdr_proc_ctx(u32 proc_ctx_hdl, bool release_hdr)
 	IPADBG("del ctx proc cnt=%d ofst=%d\n",
 		htbl->proc_ctx_cnt, entry->offset_entry->offset);
 
+	if (by_user && entry->user_deleted) {
+		IPAERR("proc_ctx already deleted by user\n");
+		return -EINVAL;
+	}
+
+	if (by_user)
+		entry->user_deleted = true;
+
 	if (--entry->ref_cnt) {
 		IPADBG("proc_ctx_hdl %x ref_cnt %d\n",
 			proc_ctx_hdl, entry->ref_cnt);
@@ -826,7 +835,7 @@ static int __ipa_del_hdr_proc_ctx(u32 proc_ctx_hdl, bool release_hdr)
 	}
 
 	if (release_hdr)
-		__ipa_del_hdr(entry->hdr->id);
+		__ipa_del_hdr(entry->hdr->id, false);
 
 	/* move the offset entry to appropriate free list */
 	list_move(&entry->offset_entry->link,
@@ -843,7 +852,7 @@ static int __ipa_del_hdr_proc_ctx(u32 proc_ctx_hdl, bool release_hdr)
 }
 
 
-int __ipa_del_hdr(u32 hdr_hdl)
+int __ipa_del_hdr(u32 hdr_hdl, bool by_user)
 {
 	struct ipa_hdr_entry *entry;
 	struct ipa_hdr_tbl *htbl = &ipa_ctx->hdr_tbl;
@@ -854,7 +863,7 @@ int __ipa_del_hdr(u32 hdr_hdl)
 		return -EINVAL;
 	}
 
-	if (!entry || (entry->cookie != IPA_COOKIE)) {
+	if (entry->cookie != IPA_COOKIE) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
 	}
@@ -866,6 +875,14 @@ int __ipa_del_hdr(u32 hdr_hdl)
 		IPADBG("del hdr of sz=%d hdr_cnt=%d ofst=%d\n", entry->hdr_len,
 			htbl->hdr_cnt, entry->offset_entry->offset);
 
+	if (by_user && entry->user_deleted) {
+		IPAERR("hdr already deleted by user\n");
+		return -EINVAL;
+	}
+
+	if (by_user)
+		entry->user_deleted = true;
+
 	if (--entry->ref_cnt) {
 		IPADBG("hdr_hdl %x ref_cnt %d\n", hdr_hdl, entry->ref_cnt);
 		return 0;
@@ -876,7 +893,7 @@ int __ipa_del_hdr(u32 hdr_hdl)
 			entry->phys_base,
 			entry->hdr_len,
 			DMA_TO_DEVICE);
-		__ipa_del_hdr_proc_ctx(entry->proc_ctx->id, false);
+		__ipa_del_hdr_proc_ctx(entry->proc_ctx->id, false, false);
 	} else {
 		/* move the offset entry to appropriate free list */
 		list_move(&entry->offset_entry->link,
@@ -943,15 +960,16 @@ bail:
 }
 
 /**
- * ipa2_del_hdr() - Remove the specified headers from SW and optionally commit them
- * to IPA HW
+ * ipa2_del_hdr_by_user() - Remove the specified headers
+ * from SW and optionally commit them to IPA HW
  * @hdls:	[inout] set of headers to delete
+ * @by_user:	Operation requested by user?
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa2_del_hdr(struct ipa_ioc_del_hdr *hdls)
+int ipa2_del_hdr_by_user(struct ipa_ioc_del_hdr *hdls, bool by_user)
 {
 	int i;
 	int result = -EFAULT;
@@ -968,7 +986,7 @@ int ipa2_del_hdr(struct ipa_ioc_del_hdr *hdls)
 
 	mutex_lock(&ipa_ctx->lock);
 	for (i = 0; i < hdls->num_hdls; i++) {
-		if (__ipa_del_hdr(hdls->hdl[i].hdl)) {
+		if (__ipa_del_hdr(hdls->hdl[i].hdl, by_user)) {
 			IPAERR("failed to del hdr %i\n", i);
 			hdls->hdl[i].status = -1;
 		} else {
@@ -986,6 +1004,20 @@ int ipa2_del_hdr(struct ipa_ioc_del_hdr *hdls)
 bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return result;
+}
+
+/**
+ * ipa2_del_hdr() - Remove the specified headers from SW and optionally commit them
+ * to IPA HW
+ * @hdls:	[inout] set of headers to delete
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa2_del_hdr(struct ipa_ioc_del_hdr *hdls)
+{
+	return ipa2_del_hdr_by_user(hdls, false);
 }
 
 /**
@@ -1040,16 +1072,18 @@ bail:
 }
 
 /**
- * ipa2_del_hdr_proc_ctx() -
+ * ipa2_del_hdr_proc_ctx_by_user() -
  * Remove the specified processing context headers from SW and
  * optionally commit them to IPA HW.
  * @hdls:	[inout] set of processing context headers to delete
+ * @by_user:	Operation requested by user?
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa2_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
+int ipa2_del_hdr_proc_ctx_by_user(struct ipa_ioc_del_hdr_proc_ctx *hdls,
+	bool by_user)
 {
 	int i;
 	int result;
@@ -1068,7 +1102,7 @@ int ipa2_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
 
 	mutex_lock(&ipa_ctx->lock);
 	for (i = 0; i < hdls->num_hdls; i++) {
-		if (__ipa_del_hdr_proc_ctx(hdls->hdl[i].hdl, true)) {
+		if (__ipa_del_hdr_proc_ctx(hdls->hdl[i].hdl, true, by_user)) {
 			IPAERR("failed to del hdr %i\n", i);
 			hdls->hdl[i].status = -1;
 		} else {
@@ -1086,6 +1120,21 @@ int ipa2_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
 bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return result;
+}
+
+/**
+ * ipa2_del_hdr_proc_ctx() -
+ * Remove the specified processing context headers from SW and
+ * optionally commit them to IPA HW.
+ * @hdls:	[inout] set of processing context headers to delete
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa2_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
+{
+	return ipa2_del_hdr_proc_ctx_by_user(hdls, false);
 }
 
 /**
@@ -1316,7 +1365,7 @@ int __ipa_release_hdr(u32 hdr_hdl)
 {
 	int result = 0;
 
-	if (__ipa_del_hdr(hdr_hdl)) {
+	if (__ipa_del_hdr(hdr_hdl, false)) {
 		IPADBG("fail to del hdr %x\n", hdr_hdl);
 		result = -EFAULT;
 		goto bail;
@@ -1344,7 +1393,7 @@ int __ipa_release_hdr_proc_ctx(u32 proc_ctx_hdl)
 {
 	int result = 0;
 
-	if (__ipa_del_hdr_proc_ctx(proc_ctx_hdl, true)) {
+	if (__ipa_del_hdr_proc_ctx(proc_ctx_hdl, true, false)) {
 		IPADBG("fail to del hdr %x\n", proc_ctx_hdl);
 		result = -EFAULT;
 		goto bail;
