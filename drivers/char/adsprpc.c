@@ -67,6 +67,24 @@
 #define FASTRPC_LINK_CONNECTED    (0x3)
 #define FASTRPC_LINK_DISCONNECTING (0x7)
 
+#define PERF_KEYS "count:flush:map:copy:glink:getargs:putargs:invalidate:invoke"
+#define FASTRPC_STATIC_HANDLE_LISTENER (3)
+#define FASTRPC_STATIC_HANDLE_MAX (20)
+
+#define PERF_END (void)0
+
+#define PERF(enb, cnt, ff) \
+	{\
+		struct timespec startT = {0};\
+		if (enb) {\
+			getnstimeofday(&startT);\
+		} \
+		ff ;\
+		if (enb) {\
+			cnt += getnstimediff(&startT);\
+		} \
+	}
+
 static int fastrpc_glink_open(int cid);
 static void fastrpc_glink_close(void *chan, int cid);
 
@@ -233,6 +251,18 @@ struct fastrpc_mmap {
 	uintptr_t attr;
 };
 
+struct fastrpc_perf {
+	int64_t count;
+	int64_t flush;
+	int64_t map;
+	int64_t copy;
+	int64_t link;
+	int64_t getargs;
+	int64_t putargs;
+	int64_t invargs;
+	int64_t invoke;
+};
+
 struct fastrpc_file {
 	struct hlist_node hn;
 	spinlock_t hlock;
@@ -242,11 +272,13 @@ struct fastrpc_file {
 	struct fastrpc_session_ctx *sctx;
 	struct fastrpc_session_ctx *secsctx;
 	uint32_t mode;
+	uint32_t profile;
 	int tgid;
 	int cid;
 	int ssrcount;
 	int pd;
 	struct fastrpc_apps *apps;
+	struct fastrpc_perf perf;
 };
 
 static struct fastrpc_apps gfa;
@@ -277,6 +309,17 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.link.link_info.transport = "smem",
 	},
 };
+
+static inline int64_t getnstimediff(struct timespec *start)
+{
+	int64_t ns;
+	struct timespec ts, b;
+
+	getnstimeofday(&ts);
+	b = timespec_sub(ts, *start);
+	ns = timespec_to_ns(&b);
+	return ns;
+}
 
 static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 {
@@ -1008,6 +1051,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		ipage++;
 	}
 	/* map ion buffers */
+	PERF(ctx->fl->profile, ctx->fl->perf.map,
 	for (i = 0; i < inbufs + outbufs; ++i) {
 		struct fastrpc_mmap *map = ctx->maps[i];
 		uint64_t buf = ptr_to_uint64(lpra[i].buf.pv);
@@ -1044,6 +1088,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		}
 		rpra[i].buf.pv = buf;
 	}
+	PERF_END);
 	for (i = bufs; i < bufs + handles; ++i) {
 		struct fastrpc_mmap *map = ctx->maps[i];
 
@@ -1053,7 +1098,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	fdlist = (uint64_t *)&pages[bufs + handles];
 	for (i = 0; i < M_FDLIST; i++)
 		fdlist[i] = 0;
+
 	/* copy non ion buffers */
+	PERF(ctx->fl->profile, ctx->fl->perf.copy,
 	rlen = copylen - metalen;
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
@@ -1090,7 +1137,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		args = args + mlen;
 		rlen -= mlen;
 	}
+	PERF_END);
 
+	PERF(ctx->fl->profile, ctx->fl->perf.flush,
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
@@ -1103,13 +1152,18 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
 			uint64_to_ptr(rpra[i].buf.pv + rpra[i].buf.len));
 	}
+	PERF_END);
 	for (i = bufs; i < bufs + handles; i++) {
 		rpra[i].dma.fd = ctx->fds[i];
 		rpra[i].dma.len = (uint32_t)lpra[i].buf.len;
 		rpra[i].dma.offset = (uint32_t)(uintptr_t)lpra[i].buf.pv;
 	}
-	if (!ctx->fl->sctx->smmu.coherent)
+
+	if (!ctx->fl->sctx->smmu.coherent) {
+		PERF(ctx->fl->profile, ctx->fl->perf.flush,
 		dmac_flush_range((char *)rpra, (char *)rpra + ctx->used);
+		PERF_END);
+	}
  bail:
 	return err;
 }
@@ -1283,7 +1337,10 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	int cid = fl->cid;
 	int interrupted = 0;
 	int err = 0;
+	struct timespec invoket;
 
+	if (fl->profile)
+		getnstimeofday(&invoket);
 	if (!kernel) {
 		VERIFY(err, 0 == context_restore_interrupted(fl, inv,
 								&ctx));
@@ -1302,21 +1359,31 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		goto bail;
 
 	if (REMOTE_SCALARS_LENGTH(ctx->sc)) {
+		PERF(fl->profile, fl->perf.getargs,
 		VERIFY(err, 0 == get_args(kernel, ctx));
+		PERF_END);
 		if (err)
 			goto bail;
 	}
 
+	PERF(fl->profile, fl->perf.invargs,
 	if (!fl->sctx->smmu.coherent) {
 		inv_args_pre(ctx);
 		if (mode == FASTRPC_MODE_SERIAL)
 			inv_args(ctx);
 	}
+	PERF_END);
+
+	PERF(fl->profile, fl->perf.link,
 	VERIFY(err, 0 == fastrpc_invoke_send(ctx, kernel, invoke->handle));
+	PERF_END);
+
 	if (err)
 		goto bail;
+	PERF(fl->profile, fl->perf.invargs,
 	if (mode == FASTRPC_MODE_PARALLEL && !fl->sctx->smmu.coherent)
 		inv_args(ctx);
+	PERF_END);
  wait:
 	if (kernel)
 		wait_for_completion(&ctx->work);
@@ -1329,7 +1396,10 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	VERIFY(err, 0 == (err = ctx->retval));
 	if (err)
 		goto bail;
+
+	PERF(fl->profile, fl->perf.putargs,
 	VERIFY(err, 0 == put_args(kernel, ctx, invoke->pra));
+	PERF_END);
 	if (err)
 		goto bail;
  bail:
@@ -1339,6 +1409,14 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		context_free(ctx);
 	if (fl->ssrcount != fl->apps->channel[cid].ssrcount)
 		err = ECONNRESET;
+
+	if (fl->profile && !interrupted) {
+		if (invoke->handle != FASTRPC_STATIC_HANDLE_LISTENER)
+			fl->perf.invoke += getnstimediff(&invoket);
+		if (!(invoke->handle >= 0 &&
+			invoke->handle <= FASTRPC_STATIC_HANDLE_MAX))
+			fl->perf.count++;
+	}
 	return err;
 }
 
@@ -1885,6 +1963,8 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->tgid = current->tgid;
 	fl->apps = me;
 	fl->cid = cid;
+	memset(&fl->perf, 0, sizeof(fl->perf));
+
 	VERIFY(err, !fastrpc_session_alloc_locked(&me->channel[cid], 0,
 							&fl->sctx));
 	if (err)
@@ -1945,6 +2025,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		struct fastrpc_ioctl_mmap mmap;
 		struct fastrpc_ioctl_munmap munmap;
 		struct fastrpc_ioctl_init init;
+		struct fastrpc_ioctl_perf perf;
 	} p;
 	void *param = (char *)ioctl_param;
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
@@ -2000,10 +2081,35 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		case FASTRPC_MODE_SERIAL:
 			fl->mode = (uint32_t)ioctl_param;
 			break;
+		case FASTRPC_MODE_PROFILE:
+			fl->profile = (uint32_t)ioctl_param;
+			break;
 		default:
 			err = -ENOTTY;
 			break;
 		}
+		break;
+	case FASTRPC_IOCTL_GETPERF:
+		VERIFY(err, 0 == copy_from_user(&p.perf,
+					param, sizeof(p.perf)));
+		if (err)
+			goto bail;
+		p.perf.numkeys = sizeof(struct fastrpc_perf)/sizeof(int64_t);
+		if (p.perf.keys) {
+			char *keys = PERF_KEYS;
+
+			VERIFY(err, 0 == copy_to_user((char *)p.perf.keys,
+						 keys, strlen(keys)+1));
+			if (err)
+				goto bail;
+		}
+		if (p.perf.data) {
+			VERIFY(err, 0 == copy_to_user((int64_t *)p.perf.data,
+						 &fl->perf, sizeof(fl->perf)));
+		}
+		VERIFY(err, 0 == copy_to_user(param, &p.perf, sizeof(p.perf)));
+		if (err)
+			goto bail;
 		break;
 	case FASTRPC_IOCTL_GETINFO:
 		VERIFY(err, 0 == (err = fastrpc_get_info(fl, &info)));
