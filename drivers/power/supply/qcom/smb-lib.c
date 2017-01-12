@@ -532,7 +532,7 @@ static int smblib_notifier_call(struct notifier_block *nb,
 	if (!strcmp(psy->desc->name, "bms")) {
 		if (!chg->bms_psy)
 			chg->bms_psy = psy;
-		if (ev == PSY_EVENT_PROP_CHANGED && chg->batt_psy)
+		if (ev == PSY_EVENT_PROP_CHANGED)
 			schedule_work(&chg->bms_update_work);
 	}
 
@@ -640,6 +640,24 @@ static bool smblib_sysok_reason_usbin(struct smb_charger *chg)
 	}
 
 	return stat & SYSOK_REASON_USBIN_BIT;
+}
+
+void smblib_suspend_on_debug_battery(struct smb_charger *chg)
+{
+	int rc;
+	union power_supply_propval val;
+
+	rc = power_supply_get_property(chg->bms_psy,
+			POWER_SUPPLY_PROP_DEBUG_BATTERY, &val);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get debug battery prop rc=%d\n", rc);
+		return;
+	}
+
+	vote(chg->usb_suspend_votable, DEBUG_BOARD_VOTER, val.intval, 0);
+	vote(chg->dc_suspend_votable, DEBUG_BOARD_VOTER, val.intval, 0);
+	if (val.intval)
+		pr_info("Input suspended: Fake battery\n");
 }
 
 /*********************
@@ -3303,7 +3321,11 @@ static void bms_update_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						bms_update_work);
-	power_supply_changed(chg->batt_psy);
+
+	smblib_suspend_on_debug_battery(chg);
+
+	if (chg->batt_psy)
+		power_supply_changed(chg->batt_psy);
 }
 
 static void step_soc_req_work(struct work_struct *work)

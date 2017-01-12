@@ -2543,6 +2543,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SOC_REPORTING_READY:
 		pval->intval = chip->soc_reporting_ready;
 		break;
+	case POWER_SUPPLY_PROP_DEBUG_BATTERY:
+		pval->intval = is_debug_batt_id(chip);
+		break;
 	default:
 		pr_err("unsupported property %d\n", psp);
 		rc = -EINVAL;
@@ -2641,6 +2644,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
 	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
+	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 };
 
 static const struct power_supply_desc fg_psy_desc = {
@@ -2976,6 +2980,9 @@ enable_bmd:
 	rc = fg_batt_missing_config(chip, true);
 	if (rc < 0)
 		pr_err("Error in enabling BMD, rc=%d\n", rc);
+
+	if (chip->fg_psy)
+		power_supply_changed(chip->fg_psy);
 
 	return IRQ_HANDLED;
 }
