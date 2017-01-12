@@ -2127,6 +2127,124 @@ void mdss_dp_fill_link_cfg(struct mdss_dp_drv_pdata *ep)
 
 }
 
+/**
+ * mdss_dp_aux_config_sink_frame_crc() - enable/disable per frame CRC calc
+ * @dp: Display Port Driver data
+ * @enable: true - start CRC calculation, false - stop CRC calculation
+ *
+ * Program the sink DPCD register 0x270 to start/stop CRC calculation.
+ * This would take effect with the next frame.
+ */
+int mdss_dp_aux_config_sink_frame_crc(struct mdss_dp_drv_pdata *dp,
+	bool enable)
+{
+	int rlen;
+	struct edp_buf *rp;
+	u8 *bp;
+	u8 buf[4];
+	u8 crc_supported;
+	u32 const test_sink_addr = 0x270;
+	u32 const test_sink_misc_addr = 0x246;
+
+	if (dp->sink_crc.en == enable) {
+		pr_debug("sink crc already %s\n",
+			enable ? "enabled" : "disabled");
+		return 0;
+	}
+
+	rlen = dp_aux_read_buf(dp, test_sink_misc_addr, 1, 0);
+	if (rlen < 1) {
+		pr_err("failed to TEST_SINK_ADDR\n");
+		return -EPERM;
+	}
+	rp = &dp->rxp;
+	bp = rp->data;
+	crc_supported = bp[0] & BIT(5);
+	pr_debug("crc supported=%s\n", crc_supported ? "true" : "false");
+
+	if (!crc_supported) {
+		pr_err("sink does not support CRC generation\n");
+		return -EINVAL;
+	}
+
+	buf[0] = enable ? 1 : 0;
+	dp_aux_write_buf(dp, test_sink_addr, buf, BIT(0), 0);
+
+	if (!enable)
+		mdss_dp_reset_frame_crc_data(&dp->sink_crc);
+	dp->sink_crc.en = enable;
+	pr_debug("TEST_SINK_START (CRC calculation) %s\n",
+		enable ? "enabled" : "disabled");
+
+	return 0;
+}
+
+/**
+ * mdss_dp_aux_read_sink_frame_crc() - read frame CRC values from the sink
+ * @dp: Display Port Driver data
+ */
+int mdss_dp_aux_read_sink_frame_crc(struct mdss_dp_drv_pdata *dp)
+{
+	int rlen;
+	struct edp_buf *rp;
+	u8 *bp;
+	u32 addr, len;
+	struct mdss_dp_crc_data *crc = &dp->sink_crc;
+
+	addr = 0x270; /* TEST_SINK */
+	len = 1; /* one byte */
+	rlen = dp_aux_read_buf(dp, addr, len, 0);
+	if (rlen < len) {
+		pr_err("failed to read TEST SINK\n");
+		return -EPERM;
+	}
+	rp = &dp->rxp;
+	bp = rp->data;
+	if (!(bp[0] & BIT(0))) {
+		pr_err("Sink side CRC calculation not enabled, TEST_SINK=0x%08x\n",
+			(u32)bp[0]);
+		return -EINVAL;
+	}
+
+	addr = 0x240; /* TEST_CRC_R_Cr */
+	len = 2; /* 2 bytes */
+	rlen = dp_aux_read_buf(dp, addr, len, 0);
+	if (rlen < len) {
+		pr_err("failed to read TEST_CRC_R_Cr\n");
+		return -EPERM;
+	}
+	rp = &dp->rxp;
+	bp = rp->data;
+	crc->r_cr = bp[0] | (bp[1] << 8);
+
+	addr = 0x242; /* TEST_CRC_G_Y */
+	len = 2; /* 2 bytes */
+	rlen = dp_aux_read_buf(dp, addr, len, 0);
+	if (rlen < len) {
+		pr_err("failed to read TEST_CRC_G_Y\n");
+		return -EPERM;
+	}
+	rp = &dp->rxp;
+	bp = rp->data;
+	crc->g_y = bp[0] | (bp[1] << 8);
+
+	addr = 0x244; /* TEST_CRC_B_Cb */
+	len = 2; /* 2 bytes */
+	rlen = dp_aux_read_buf(dp, addr, len, 0);
+	if (rlen < len) {
+		pr_err("failed to read TEST_CRC_B_Cb\n");
+		return -EPERM;
+	}
+	rp = &dp->rxp;
+	bp = rp->data;
+	crc->b_cb = bp[0] | (bp[1] << 8);
+
+	pr_debug("r_cr=0x%08x\t g_y=0x%08x\t b_cb=0x%08x\n",
+		crc->r_cr, crc->g_y, crc->b_cb);
+
+	return 0;
+}
+
 void mdss_dp_aux_init(struct mdss_dp_drv_pdata *ep)
 {
 	mutex_init(&ep->aux_mutex);

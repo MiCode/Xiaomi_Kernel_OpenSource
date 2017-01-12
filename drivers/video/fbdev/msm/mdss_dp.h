@@ -406,6 +406,13 @@ struct mdss_dp_event_data {
 	spinlock_t event_lock;
 };
 
+struct mdss_dp_crc_data {
+	bool en;
+	u32 r_cr;
+	u32 g_y;
+	u32 b_cb;
+};
+
 struct mdss_dp_drv_pdata {
 	/* device driver */
 	int (*on) (struct mdss_panel_data *pdata);
@@ -446,6 +453,8 @@ struct mdss_dp_drv_pdata {
 	bool override_config;
 	u32 mask1;
 	u32 mask2;
+	struct mdss_dp_crc_data ctl_crc;
+	struct mdss_dp_crc_data sink_crc;
 
 	struct mdss_panel_data panel_data;
 	struct mdss_util_intf *mdss_util;
@@ -927,6 +936,17 @@ static inline char const *mdss_dp_notification_status_to_string(
 	}
 }
 
+static inline void mdss_dp_reset_frame_crc_data(struct mdss_dp_crc_data *crc)
+{
+	if (!crc)
+		return;
+
+	crc->r_cr = 0;
+	crc->g_y = 0;
+	crc->b_cb = 0;
+	crc->en = false;
+}
+
 void mdss_dp_phy_initialize(struct mdss_dp_drv_pdata *dp);
 
 void mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *dp);
@@ -955,5 +975,8 @@ bool mdss_dp_aux_is_lane_count_valid(u32 lane_count);
 int mdss_dp_aux_link_status_read(struct mdss_dp_drv_pdata *ep, int len);
 void mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(
 		struct mdss_dp_drv_pdata *dp);
+int mdss_dp_aux_read_sink_frame_crc(struct mdss_dp_drv_pdata *dp);
+int mdss_dp_aux_config_sink_frame_crc(struct mdss_dp_drv_pdata *dp,
+	bool enable);
 
 #endif /* MDSS_DP_H */

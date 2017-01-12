@@ -2307,6 +2307,84 @@ static ssize_t mdss_dp_rda_config(struct device *dev,
 	return ret;
 }
 
+static ssize_t mdss_dp_wta_frame_crc(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	u32 val;
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+	char const *ctl_crc_key = "ctl_crc_en=";
+	char const *sink_crc_key = "sink_crc_en=";
+	bool ctl_crc_en, sink_crc_en;
+
+	if (!dp) {
+		pr_err("invalid data\n");
+		goto end;
+	}
+
+	if (!dp->power_on) {
+		pr_err("DP controller not powered on\n");
+		goto end;
+	}
+
+	ret = mdss_dp_parse_config_value(buf, ctl_crc_key, &val);
+	if (ret) {
+		pr_debug("%s config not found\n", ctl_crc_key);
+		goto sink_crc;
+	}
+	ctl_crc_en = val ? true : false;
+	mdss_dp_config_ctl_frame_crc(dp, ctl_crc_en);
+
+sink_crc:
+	ret = mdss_dp_parse_config_value(buf, sink_crc_key, &val);
+	if (ret) {
+		pr_debug("%s config not found\n", sink_crc_key);
+		goto end;
+	}
+	sink_crc_en = val ? true : false;
+	mdss_dp_aux_config_sink_frame_crc(dp, sink_crc_en);
+
+end:
+	return count;
+}
+
+static ssize_t mdss_dp_print_crc_values(struct mdss_dp_drv_pdata *dp,
+	char *buf, ssize_t len)
+{
+	char line[] = "------------------------------";
+
+	mdss_dp_read_ctl_frame_crc(dp);
+	mdss_dp_aux_read_sink_frame_crc(dp);
+
+	return snprintf(buf, PAGE_SIZE,
+		"\t\t|R_Cr\t\t|G_y\t\t|B_Cb\n%s%s\nctl(%s)\t|0x%08x\t|0x%08x\t|0x%08x\nsink(%s)\t|0x%08x\t|0x%08x\t|0x%08x\n",
+		line, line, dp->ctl_crc.en ? "enabled" : "disabled",
+		dp->ctl_crc.r_cr, dp->ctl_crc.g_y, dp->ctl_crc.b_cb,
+		dp->sink_crc.en ? "enabled" : "disabled",
+		dp->sink_crc.r_cr, dp->sink_crc.g_y, dp->sink_crc.b_cb);
+}
+
+static ssize_t mdss_dp_rda_frame_crc(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	if (!dp->power_on) {
+		pr_err("DP controller not powered on\n");
+		return 0;
+	}
+
+	ret = mdss_dp_print_crc_values(dp, buf, PAGE_SIZE);
+
+	return ret;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO, mdss_dp_rda_connected, NULL);
 static DEVICE_ATTR(s3d_mode, S_IRUGO | S_IWUSR, mdss_dp_sysfs_rda_s3d_mode,
 	mdss_dp_sysfs_wta_s3d_mode);
@@ -2316,6 +2394,8 @@ static DEVICE_ATTR(psm, S_IRUGO | S_IWUSR, mdss_dp_rda_psm,
 	mdss_dp_wta_psm);
 static DEVICE_ATTR(config, S_IRUGO | S_IWUSR, mdss_dp_rda_config,
 	mdss_dp_wta_config);
+static DEVICE_ATTR(frame_crc, S_IRUGO | S_IWUSR, mdss_dp_rda_frame_crc,
+	mdss_dp_wta_frame_crc);
 
 static struct attribute *mdss_dp_fs_attrs[] = {
 	&dev_attr_connected.attr,
@@ -2323,6 +2403,7 @@ static struct attribute *mdss_dp_fs_attrs[] = {
 	&dev_attr_hpd.attr,
 	&dev_attr_psm.attr,
 	&dev_attr_config.attr,
+	&dev_attr_frame_crc.attr,
 	NULL,
 };
 

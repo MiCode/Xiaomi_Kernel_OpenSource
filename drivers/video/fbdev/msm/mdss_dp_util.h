@@ -74,6 +74,9 @@
 #define	MMSS_DP_AUDIO_TIMING_RBR_48		(0x00000494)
 #define	MMSS_DP_AUDIO_TIMING_HBR_48		(0x00000498)
 
+#define MMSS_DP_PSR_CRC_RG			(0x00000554)
+#define MMSS_DP_PSR_CRC_B			(0x00000558)
+
 #define	MMSS_DP_AUDIO_CFG			(0x00000600)
 #define	MMSS_DP_AUDIO_STATUS			(0x00000604)
 #define	MMSS_DP_AUDIO_PKT_CTRL			(0x00000608)
@@ -135,6 +138,8 @@
 #define	MMSS_DP_GENERIC1_7			(0x00000744)
 #define	MMSS_DP_GENERIC1_8			(0x00000748)
 #define	MMSS_DP_GENERIC1_9			(0x0000074C)
+
+#define MMSS_DP_TIMING_ENGINE_EN		(0x00000A10)
 
 /*DP PHY Register offsets */
 #define DP_PHY_REVISION_ID0                     (0x00000000)
@@ -321,5 +326,7 @@ void mdss_dp_set_safe_to_exit_level(struct dss_io_data *ctrl_io,
 		uint32_t lane_cnt);
 int mdss_dp_aux_read_rx_status(struct mdss_dp_drv_pdata *dp, u8 *rx_status);
 void mdss_dp_phy_send_test_pattern(struct mdss_dp_drv_pdata *dp);
+void mdss_dp_config_ctl_frame_crc(struct mdss_dp_drv_pdata *dp, bool enable);
+int mdss_dp_read_ctl_frame_crc(struct mdss_dp_drv_pdata *dp);
 
 #endif /* __DP_UTIL_H__ */

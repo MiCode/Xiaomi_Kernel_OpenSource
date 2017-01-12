@@ -202,6 +202,45 @@ void mdss_dp_configuration_ctrl(struct dss_io_data *ctrl_io, u32 data)
 	writel_relaxed(data, ctrl_io->base + DP_CONFIGURATION_CTRL);
 }
 
+void mdss_dp_config_ctl_frame_crc(struct mdss_dp_drv_pdata *dp, bool enable)
+{
+	if (dp->ctl_crc.en == enable) {
+		pr_debug("CTL crc already %s\n",
+			enable ? "enabled" : "disabled");
+		return;
+	}
+
+	writel_relaxed(BIT(8), dp->ctrl_io.base + MMSS_DP_TIMING_ENGINE_EN);
+	if (!enable)
+		mdss_dp_reset_frame_crc_data(&dp->ctl_crc);
+	dp->ctl_crc.en = enable;
+
+	pr_debug("CTL crc %s\n", enable ? "enabled" : "disabled");
+}
+
+int mdss_dp_read_ctl_frame_crc(struct mdss_dp_drv_pdata *dp)
+{
+	u32 data;
+	u32 crc_rg = 0;
+	struct mdss_dp_crc_data *crc = &dp->ctl_crc;
+
+	data = readl_relaxed(dp->ctrl_io.base + MMSS_DP_TIMING_ENGINE_EN);
+	if (!(data & BIT(8))) {
+		pr_debug("frame CRC calculation not enabled\n");
+		return -EPERM;
+	}
+
+	crc_rg = readl_relaxed(dp->ctrl_io.base + MMSS_DP_PSR_CRC_RG);
+	crc->r_cr = crc_rg & 0xFFFF;
+	crc->g_y = crc_rg >> 16;
+	crc->b_cb = readl_relaxed(dp->ctrl_io.base + MMSS_DP_PSR_CRC_B);
+
+	pr_debug("r_cr=0x%08x\t g_y=0x%08x\t b_cb=0x%08x\n",
+		crc->r_cr, crc->g_y, crc->b_cb);
+
+	return 0;
+}
+
 /* DP state controller*/
 void mdss_dp_state_ctrl(struct dss_io_data *ctrl_io, u32 data)
 {
