@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +96,7 @@
 				  <0x2c4 4>, <0x2ac 8>, <0x2b4 8>, <0x3a8 16>,
 				  <0x3b0 16>;
 		qcom,sde-qseed-type = "qseedv2";
+		qcom,sde-csc-type = "csc";
 		qcom,sde-mixer-linewidth = <2560>;
 		qcom,sde-sspp-linewidth = <2560>;
 		qcom,sde-mixer-blendstages = <0x7>;

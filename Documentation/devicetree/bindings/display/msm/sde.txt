@@ -102,10 +102,13 @@ Optional properties:
 - qcom,sde-sspp-scale-size:	A u32 value indicates the scaling block size on sspp.
 - qcom,sde-mixer-blendstages:	A u32 value indicates the max mixer blend stages for
 				alpha blending.
-- qcom,sde-qseed-type:		A string entry indiates qseed support on sspp and wb.
+- qcom,sde-qseed-type:		A string entry indicates qseed support on sspp and wb.
 				It supports "qssedv3" and "qseedv2" entries for qseed
 				type. By default "qseedv2" is used if this optional property
 				is not defined.
+- qcom,sde-csc-type:		A string entry indicates csc support on sspp and wb.
+				It supports "csc" and "csc-10bit" entries for csc
+				type.
 - qcom,sde-highest-bank-bit:	A u32 property to indicate GPU/Camera/Video highest memory
 				bank bit used for tile format buffers.
 - qcom,sde-panic-per-pipe:	Boolean property to indicate if panic signal

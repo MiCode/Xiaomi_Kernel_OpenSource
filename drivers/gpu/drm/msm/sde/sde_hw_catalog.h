@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -620,6 +620,7 @@ struct sde_perf_cfg {
  * @max_wb_linewidth   max writeback line width support.
  * @highest_bank_bit   highest memory bit setting for tile buffers.
  * @qseed_type         qseed2 or qseed3 support.
+ * @csc_type           csc or csc_10bit support.
  * @has_src_split      source split feature status
  * @has_cdp            Client driver prefetch feature status
  */
@@ -632,6 +633,7 @@ struct sde_mdss_cfg {
 	u32 max_wb_linewidth;
 	u32 highest_bank_bit;
 	u32 qseed_type;
+	u32 csc_type;
 	bool has_src_split;
 	bool has_cdp;
 

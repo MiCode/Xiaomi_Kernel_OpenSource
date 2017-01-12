@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +101,7 @@ enum sde_prop {
 	WB_LINEWIDTH,
 	BANK_BIT,
 	QSEED_TYPE,
+	CSC_TYPE,
 	PANIC_PER_PIPE,
 	CDP,
 	SRC_SPLIT,
@@ -268,6 +269,7 @@ static struct sde_prop_type sde_prop[] = {
 	{WB_LINEWIDTH, "qcom,sde-wb-linewidth", false, PROP_TYPE_U32},
 	{BANK_BIT, "qcom,sde-highest-bank-bit", false, PROP_TYPE_U32},
 	{QSEED_TYPE, "qcom,sde-qseed-type", false, PROP_TYPE_STRING},
+	{CSC_TYPE, "qcom,sde-csc-type", false, PROP_TYPE_STRING},
 	{PANIC_PER_PIPE, "qcom,sde-panic-per-pipe", false, PROP_TYPE_BOOL},
 	{CDP, "qcom,sde-has-cdp", false, PROP_TYPE_BOOL},
 	{SRC_SPLIT, "qcom,sde-has-src-split", false, PROP_TYPE_BOOL},
@@ -674,8 +676,15 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 	}
 
 	sblk->csc_blk.id = SDE_SSPP_CSC;
-	set_bit(SDE_SSPP_CSC, &sspp->features);
-	sblk->csc_blk.base = PROP_VALUE_ACCESS(prop_value, VIG_CSC_OFF, 0);
+	if (sde_cfg->csc_type == SDE_SSPP_CSC) {
+		set_bit(SDE_SSPP_CSC, &sspp->features);
+		sblk->csc_blk.base = PROP_VALUE_ACCESS(prop_value,
+							VIG_CSC_OFF, 0);
+	} else if (sde_cfg->csc_type == SDE_SSPP_CSC_10BIT) {
+		set_bit(SDE_SSPP_CSC_10BIT, &sspp->features);
+		sblk->csc_blk.base = PROP_VALUE_ACCESS(prop_value,
+							VIG_CSC_OFF, 0);
+	}
 
 	sblk->hsic_blk.id = SDE_SSPP_HSIC;
 	if (prop_exists[VIG_HSIC_PROP]) {
@@ -1821,6 +1830,12 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED3;
 	else if (!rc && !strcmp(type, "qseedv2"))
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED2;
+
+	rc = of_property_read_string(np, sde_prop[CSC_TYPE].prop_name, &type);
+	if (!rc && !strcmp(type, "csc"))
+		cfg->csc_type = SDE_SSPP_CSC;
+	else if (!rc && !strcmp(type, "csc-10bit"))
+		cfg->csc_type = SDE_SSPP_CSC_10BIT;
 
 	cfg->has_src_split = PROP_VALUE_ACCESS(prop_value, SRC_SPLIT, 0);
 end:
