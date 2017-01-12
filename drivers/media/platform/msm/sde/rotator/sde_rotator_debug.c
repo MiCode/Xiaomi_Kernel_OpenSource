@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -246,11 +246,13 @@ static void sde_rot_dump_vbif_debug_bus(u32 bus_dump_flag,
  * sde_rot_dump_reg - helper function for dumping rotator register set content
  * @dump_name - register set name
  * @reg_dump_flag - dumping flag controlling in-log/memory dump location
+ * @access - access type, sde registers or vbif registers
  * @addr - starting address offset for dumping
  * @len - range of the register set
  * @dump_mem - output buffer for memory dump location option
  */
-void sde_rot_dump_reg(const char *dump_name, u32 reg_dump_flag, u32 addr,
+void sde_rot_dump_reg(const char *dump_name, u32 reg_dump_flag,
+	enum sde_rot_regdump_access access, u32 addr,
 	int len, u32 **dump_mem)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
@@ -258,6 +260,7 @@ void sde_rot_dump_reg(const char *dump_name, u32 reg_dump_flag, u32 addr,
 	u32 *dump_addr = NULL;
 	phys_addr_t phys = 0;
 	int i;
+	void __iomem *base;
 
 	in_log = (reg_dump_flag & SDE_ROT_DBG_DUMP_IN_LOG);
 	in_mem = (reg_dump_flag & SDE_ROT_DBG_DUMP_IN_MEM);
@@ -285,14 +288,20 @@ void sde_rot_dump_reg(const char *dump_name, u32 reg_dump_flag, u32 addr,
 		}
 	}
 
+	base = mdata->sde_io.base;
+	/*
+	 * VBIF NRT base handling
+	 */
+	if (access == SDE_ROT_REGDUMP_VBIF)
+		base = mdata->vbif_nrt_io.base;
 
 	for (i = 0; i < len; i++) {
 		u32 x0, x4, x8, xc;
 
-		x0 = readl_relaxed(mdata->sde_io.base + addr+0x0);
-		x4 = readl_relaxed(mdata->sde_io.base + addr+0x4);
-		x8 = readl_relaxed(mdata->sde_io.base + addr+0x8);
-		xc = readl_relaxed(mdata->sde_io.base + addr+0xc);
+		x0 = readl_relaxed(base + addr+0x0);
+		x4 = readl_relaxed(base + addr+0x4);
+		x8 = readl_relaxed(base + addr+0x8);
+		xc = readl_relaxed(base + addr+0xc);
 
 		if (in_log)
 			pr_info("0x%08X : %08x %08x %08x %08x\n",
@@ -338,6 +347,7 @@ static void sde_rot_dump_reg_all(void)
 		} else {
 			sde_rot_dump_reg(head->name,
 					sde_rot_dbg_evtlog.enable_reg_dump,
+					head->access,
 					head->offset, head->len,
 					&sde_rot_dbg_evtlog.reg_dump_array[i]);
 		}

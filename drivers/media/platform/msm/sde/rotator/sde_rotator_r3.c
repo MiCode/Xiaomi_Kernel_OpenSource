@@ -226,6 +226,8 @@ static struct sde_rot_regdump sde_rot_r3_regdump[] = {
 		SDE_ROT_REGDUMP_WRITE },
 	{ "SDEROT_REGDMA_RAM", SDE_ROT_REGDMA_RAM_OFFSET, 0x2000,
 		SDE_ROT_REGDUMP_READ },
+	{ "SDEROT_VBIF_NRT", SDE_ROT_VBIF_NRT_OFFSET, 0x590,
+		SDE_ROT_REGDUMP_VBIF },
 };
 
 /* Invalid software timestamp value for initialization */
@@ -363,6 +365,11 @@ static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot)
 			REGDMA_CSR_REGDMA_INVALID_CMD_RAM_OFFSET),
 		SDE_ROTREG_READ(rot->mdss_base,
 			REGDMA_CSR_REGDMA_FSM_STATE));
+
+	SDEROT_ERR(
+		"UBWC decode status = %x, UBWC encode status = %x\n",
+		SDE_ROTREG_READ(rot->mdss_base, ROT_SSPP_UBWC_ERROR_STATUS),
+		SDE_ROTREG_READ(rot->mdss_base, ROT_WB_UBWC_ERROR_STATUS));
 }
 
 /**
@@ -1681,7 +1688,8 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	SDEROT_EVTLOG(ctx->timestamp, flags,
 			item->input.width, item->input.height,
 			item->output.width, item->output.height,
-			entry->src_buf.p[0].addr, entry->dst_buf.p[0].addr);
+			entry->src_buf.p[0].addr, entry->dst_buf.p[0].addr,
+			item->input.format, item->output.format);
 
 	if (mdata->default_ot_rd_limit) {
 		struct sde_mdp_set_ot_params ot_params;
