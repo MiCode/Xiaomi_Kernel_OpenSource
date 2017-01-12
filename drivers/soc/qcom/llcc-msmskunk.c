@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,24 +57,28 @@
 	}
 
 static struct llcc_slice_config msmskunk_data[] =  {
-	SCT_ENTRY("cpuss",       1, 1, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 1),
+	SCT_ENTRY("cpuss",       1, 1, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 1),
 	SCT_ENTRY("vidsc0",      2, 2, 512, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("vidsc1",      3, 3, 512, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("rotator",     4, 4, 800, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("voice",       5, 5, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("audio",       6, 6, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("modemhp",     7, 7, 1024, 2, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("modem",       8, 8, 1024, 0, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("modemhw",     9, 9, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("compute",     10, 10, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("gpuhtw",      11, 11, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("gpu",         12, 12, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("mmuhwt",      13, 13, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1),
-	SCT_ENTRY("sensor",      14, 14, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("compute_dma", 15, 15, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("display",     16, 16, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("videofw",     17, 17, 3072, 0, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("camerafw",    18, 18, 224, 0, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("rotator",     4, 4, 563, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("voice",       5, 5, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("audio",       6, 6, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("modemhp_grow", 7, 7, 1024, 2, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("modem",       8, 8, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("modemhw",     9, 9, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("compute",     10, 10, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("gpuhtw",      11, 11, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("gpu",         12, 12, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("mmuhwt",      13, 13, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1),
+	SCT_ENTRY("sensor",      14, 14, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("compute_dma", 15, 15, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("display",     16, 16, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("videofw",     17, 17, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("camerafw",    18, 18, 256, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("mss_tcm",     19, 19, 1024, 0, 0, 0x0,  0xf, 1, 0, 1, 1, 0),
+	SCT_ENTRY("modemhp_fix", 20, 20, 1024, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("modem_paging", 21, 21, 1024, 0, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("audiohw",     22, 22, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 };
 
 static int msmskunk_qcom_llcc_probe(struct platform_device *pdev)
