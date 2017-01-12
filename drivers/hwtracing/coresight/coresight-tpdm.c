@@ -1702,6 +1702,27 @@ static ssize_t tpdm_store_bc_sw_inc(struct device *dev,
 static DEVICE_ATTR(bc_sw_inc, 0644,
 		   tpdm_show_bc_sw_inc, tpdm_store_bc_sw_inc);
 
+static ssize_t tpdm_show_bc_msr(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned int i;
+	ssize_t len = 0;
+
+	if (!drvdata->msr_support)
+		return -EINVAL;
+
+	if (!test_bit(TPDM_DS_BC, drvdata->datasets))
+		return -EPERM;
+
+	for (i = 0; i < TPDM_BC_MAX_MSR; i++)
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%u 0x%x\n",
+				 i, drvdata->bc->msr[i]);
+
+	return len;
+}
+
 static ssize_t tpdm_store_bc_msr(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf,
@@ -1729,7 +1750,7 @@ static ssize_t tpdm_store_bc_msr(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(bc_msr, 0200, NULL, tpdm_store_bc_msr);
+static DEVICE_ATTR(bc_msr, 0644, tpdm_show_bc_msr, tpdm_store_bc_msr);
 
 static ssize_t tpdm_show_tc_capture_mode(struct device *dev,
 					 struct device_attribute *attr,
@@ -2576,6 +2597,27 @@ static ssize_t tpdm_store_tc_sw_inc(struct device *dev,
 static DEVICE_ATTR(tc_sw_inc, 0644,
 		   tpdm_show_tc_sw_inc, tpdm_store_tc_sw_inc);
 
+static ssize_t tpdm_show_tc_msr(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned int i;
+	ssize_t len = 0;
+
+	if (!drvdata->msr_support)
+		return -EINVAL;
+
+	if (!test_bit(TPDM_DS_TC, drvdata->datasets))
+		return -EPERM;
+
+	for (i = 0; i < TPDM_TC_MAX_MSR; i++)
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%u 0x%x\n",
+				 i, drvdata->tc->msr[i]);
+
+	return len;
+}
+
 static ssize_t tpdm_store_tc_msr(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf,
@@ -2603,7 +2645,7 @@ static ssize_t tpdm_store_tc_msr(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(tc_msr, 0200, NULL, tpdm_store_tc_msr);
+static DEVICE_ATTR(tc_msr, 0644, tpdm_show_tc_msr, tpdm_store_tc_msr);
 
 static ssize_t tpdm_show_dsb_mode(struct device *dev,
 				  struct device_attribute *attr,
@@ -3081,6 +3123,27 @@ static ssize_t tpdm_store_dsb_select_val(struct device *dev,
 static DEVICE_ATTR(dsb_select_val, 0644,
 		   tpdm_show_dsb_select_val, tpdm_store_dsb_select_val);
 
+static ssize_t tpdm_show_dsb_msr(struct device *dev,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned int i;
+	ssize_t len = 0;
+
+	if (!drvdata->msr_support)
+		return -EINVAL;
+
+	if (!test_bit(TPDM_DS_DSB, drvdata->datasets))
+		return -EPERM;
+
+	for (i = 0; i < TPDM_DSB_MAX_MSR; i++)
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%u 0x%x\n",
+				 i, drvdata->dsb->msr[i]);
+
+	return len;
+}
+
 static ssize_t tpdm_store_dsb_msr(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf,
@@ -3108,7 +3171,7 @@ static ssize_t tpdm_store_dsb_msr(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(dsb_msr, 0200, NULL, tpdm_store_dsb_msr);
+static DEVICE_ATTR(dsb_msr, 0644, tpdm_show_dsb_msr, tpdm_store_dsb_msr);
 
 static ssize_t tpdm_show_cmb_available_modes(struct device *dev,
 					     struct device_attribute *attr,
@@ -3545,6 +3608,28 @@ static ssize_t tpdm_store_cmb_trig_ts(struct device *dev,
 static DEVICE_ATTR(cmb_trig_ts, 0644,
 		   tpdm_show_cmb_trig_ts, tpdm_store_cmb_trig_ts);
 
+static ssize_t tpdm_show_cmb_msr(struct device *dev,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned int i;
+	ssize_t len = 0;
+
+	if (!drvdata->msr_support)
+		return -EINVAL;
+
+	if (!(test_bit(TPDM_DS_CMB, drvdata->datasets) ||
+	      test_bit(TPDM_DS_MCMB, drvdata->datasets)))
+		return -EPERM;
+
+	for (i = 0; i < TPDM_CMB_MAX_MSR; i++)
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%u 0x%x\n",
+				 i, drvdata->cmb->msr[i]);
+
+	return len;
+}
+
 static ssize_t tpdm_store_cmb_msr(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf,
@@ -3573,7 +3658,7 @@ static ssize_t tpdm_store_cmb_msr(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(cmb_msr, 0200, NULL, tpdm_store_cmb_msr);
+static DEVICE_ATTR(cmb_msr, 0644, tpdm_show_cmb_msr, tpdm_store_cmb_msr);
 
 static ssize_t tpdm_show_cmb_read_interface_state(struct device *dev,
 						  struct device_attribute *attr,
