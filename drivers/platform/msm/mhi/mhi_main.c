@@ -1788,11 +1788,10 @@ int mhi_register_device(struct mhi_device *mhi_device,
 	mhi_dev_ctxt->pcie_device = pci_dev;
 	mhi_dev_ctxt->mhi_pm_state = MHI_PM_DISABLE;
 	INIT_WORK(&mhi_dev_ctxt->process_m1_worker, process_m1_transition);
+	INIT_WORK(&mhi_dev_ctxt->st_thread_worker, mhi_state_change_worker);
 	mutex_init(&mhi_dev_ctxt->pm_lock);
 	rwlock_init(&mhi_dev_ctxt->pm_xfer_lock);
 	spin_lock_init(&mhi_dev_ctxt->dev_wake_lock);
-	tasklet_init(&mhi_dev_ctxt->ev_task, mhi_ctrl_ev_task,
-		     (unsigned long)mhi_dev_ctxt);
 	init_completion(&mhi_dev_ctxt->cmd_complete);
 	mhi_dev_ctxt->flags.link_up = 1;
 	core_info = &mhi_dev_ctxt->core;

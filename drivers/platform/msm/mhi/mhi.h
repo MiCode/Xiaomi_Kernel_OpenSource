@@ -349,6 +349,10 @@ struct mhi_ring {
 	u32 msi_enable_cntr;
 	spinlock_t ring_lock;
 	struct dma_pool *dma_pool;
+	struct tasklet_struct ev_task;
+	struct work_struct ev_worker;
+	struct mhi_device_ctxt *mhi_dev_ctxt;
+	int index;
 };
 
 enum MHI_CMD_STATUS {
@@ -469,7 +473,6 @@ struct mhi_counters {
 	u32 bb_used[MHI_MAX_CHANNELS];
 	atomic_t device_wake;
 	atomic_t outbound_acks;
-	atomic_t events_pending;
 	u32 *msi_counter;
 	u32 mhi_reset_cntr;
 	u32 link_down_cntr;
@@ -479,16 +482,10 @@ struct mhi_counters {
 struct mhi_flags {
 	u32 mhi_initialized;
 	u32 link_up;
-	int stop_threads;
-	u32 kill_threads;
-	u32 ev_thread_stopped;
-	u32 st_thread_stopped;
 	bool bb_required;
 };
 
 struct mhi_wait_queues {
-	wait_queue_head_t *mhi_event_wq;
-	wait_queue_head_t *state_change_event;
 	wait_queue_head_t *m0_event;
 	wait_queue_head_t *m3_event;
 	wait_queue_head_t *bhi_event;
@@ -547,9 +544,7 @@ struct mhi_device_ctxt {
 
 	struct mhi_client_handle *client_handle_list[MHI_MAX_CHANNELS];
 	struct mhi_event_ring_cfg *ev_ring_props;
-	struct task_struct *event_thread_handle;
-	struct task_struct *st_thread_handle;
-	struct tasklet_struct ev_task; /* Process control Events */
+	struct work_struct st_thread_worker;
 	struct work_struct process_m1_worker;
 	struct mhi_wait_queues mhi_ev_wq;
 	struct dev_mmio_info mmio_info;
@@ -609,10 +604,18 @@ struct mhi_event_ring_cfg {
 	u32 intmod;
 	enum MHI_CLIENT_CHANNEL chan;
 	u32 flags;
+	/*
+	 * Priority of event handling:
+	 * 0 = highest, handle events in isr (reserved for future)
+	 * 1 = handles event using tasklet
+	 * 2 = handles events using workerthread
+	 */
+	u32 priority;
 	enum MHI_RING_CLASS class;
 	enum MHI_EVENT_RING_STATE state;
 	irqreturn_t (*mhi_handler_ptr)(int , void *);
 };
+#define MHI_EV_PRIORITY_TASKLET (1)
 
 struct mhi_data_buf {
 	dma_addr_t bounce_buffer;
@@ -670,14 +673,13 @@ enum MHI_EVENT_CCS get_cmd_pkt(struct mhi_device_ctxt *mhi_dev_ctxt,
 				union mhi_cmd_pkt **cmd_pkt, u32 event_index);
 int parse_cmd_event(struct mhi_device_ctxt *ctxt,
 				union mhi_event_pkt *event, u32 event_index);
-int parse_event_thread(void *ctxt);
 int mhi_test_for_device_ready(
 					struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_test_for_device_reset(
 					struct mhi_device_ctxt *mhi_dev_ctxt);
 int validate_ring_el_addr(struct mhi_ring *ring, uintptr_t addr);
 int validate_ev_el_addr(struct mhi_ring *ring, uintptr_t addr);
-int mhi_state_change_thread(void *ctxt);
+void mhi_state_change_worker(struct work_struct *work);
 int mhi_init_state_transition(struct mhi_device_ctxt *mhi_dev_ctxt,
 					enum STATE_TRANSITION new_state);
 int mhi_wait_for_mdm(struct mhi_device_ctxt *mhi_dev_ctxt);
@@ -751,6 +753,9 @@ int set_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt);
 void mhi_set_m_state(struct mhi_device_ctxt *mhi_dev_ctxt,
 		     enum MHI_STATE new_state);
 const char *state_transition_str(enum STATE_TRANSITION state);
-void mhi_ctrl_ev_task(unsigned long data);
+void mhi_ev_task(unsigned long data);
+void process_event_ring(struct work_struct *work);
+int process_m0_transition(struct mhi_device_ctxt *mhi_dev_ctxt);
+int process_m3_transition(struct mhi_device_ctxt *mhi_dev_ctxt);
 
 #endif
