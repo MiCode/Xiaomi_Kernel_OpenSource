@@ -1993,7 +1993,7 @@ static ssize_t mdss_dp_rda_psm(struct device *dev,
 static ssize_t mdss_dp_wta_hpd(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	int hpd;
+	int hpd, rc;
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
 	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
 
@@ -2003,9 +2003,10 @@ static ssize_t mdss_dp_wta_hpd(struct device *dev,
 		goto end;
 	}
 
-	ret = kstrtoint(buf, 10, &hpd);
-	if (ret) {
-		pr_err("kstrtoint failed. ret=%d\n", (int)ret);
+	rc = kstrtoint(buf, 10, &hpd);
+	if (rc) {
+		pr_err("kstrtoint failed. ret=%d\n", rc);
+		ret = rc;
 		goto end;
 	}
 
