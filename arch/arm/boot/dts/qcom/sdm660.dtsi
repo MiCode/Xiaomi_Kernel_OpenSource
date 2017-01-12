@@ -491,7 +491,6 @@
 	};
 
 	wdog: qcom,wdt@17817000 {
-		status = "disabled";
 		compatible = "qcom,msm-watchdog";
 		reg = <0x17817000 0x1000>;
 		reg-names = "wdt-base";
@@ -500,6 +499,7 @@
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
+		qcom,scandump-size = <0x40000>;
 	};
 
 	qcom,sps {
