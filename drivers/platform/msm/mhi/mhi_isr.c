@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -125,8 +125,11 @@ static int mhi_process_event_ring(
 				"MHI STE received ring 0x%x State:%s\n",
 				ev_index, state_transition_str(new_state));
 
-			/* If transitioning to M1 schedule worker thread */
-			if (new_state == STATE_TRANSITION_M1) {
+			switch (new_state) {
+			case STATE_TRANSITION_M0:
+				process_m0_transition(mhi_dev_ctxt);
+				break;
+			case STATE_TRANSITION_M1:
 				write_lock_irqsave(&mhi_dev_ctxt->pm_xfer_lock,
 						   flags);
 				mhi_dev_ctxt->mhi_state =
@@ -140,9 +143,15 @@ static int mhi_process_event_ring(
 				write_unlock_irqrestore(&mhi_dev_ctxt->
 							pm_xfer_lock,
 							flags);
-			} else {
-				mhi_init_state_transition(mhi_dev_ctxt,
-							  new_state);
+				break;
+			case STATE_TRANSITION_M3:
+				process_m3_transition(mhi_dev_ctxt);
+				break;
+			default:
+				mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+					"Unsupported STE received ring 0x%x State:%s\n",
+					ev_index,
+					state_transition_str(new_state));
 			}
 			break;
 		}
@@ -207,84 +216,39 @@ static int mhi_process_event_ring(
 	return ret_val;
 }
 
-int parse_event_thread(void *ctxt)
+void mhi_ev_task(unsigned long data)
 {
-	struct mhi_device_ctxt *mhi_dev_ctxt = ctxt;
-	u32 i = 0;
-	int ret_val = 0;
-	int ret_val_process_event = 0;
-	atomic_t *ev_pen_ptr = &mhi_dev_ctxt->counters.events_pending;
-
-	/* Go through all event rings */
-	for (;;) {
-		ret_val =
-			wait_event_interruptible(
-				*mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq,
-				((atomic_read(
-				&mhi_dev_ctxt->counters.events_pending) > 0) &&
-					!mhi_dev_ctxt->flags.stop_threads) ||
-				mhi_dev_ctxt->flags.kill_threads ||
-				(mhi_dev_ctxt->flags.stop_threads &&
-				!mhi_dev_ctxt->flags.ev_thread_stopped));
-
-		switch (ret_val) {
-		case -ERESTARTSYS:
-			return 0;
-		default:
-			if (mhi_dev_ctxt->flags.kill_threads) {
-				mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-					"Caught exit signal, quitting\n");
-				return 0;
-			}
-			if (mhi_dev_ctxt->flags.stop_threads) {
-				mhi_dev_ctxt->flags.ev_thread_stopped = 1;
-				continue;
-			}
-			break;
-		}
-		mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "awake\n");
-		mhi_dev_ctxt->flags.ev_thread_stopped = 0;
-		atomic_dec(&mhi_dev_ctxt->counters.events_pending);
-		for (i = 1; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i) {
-			if (mhi_dev_ctxt->mhi_state == MHI_STATE_SYS_ERR) {
-				mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-					"SYS_ERR detected, not processing events\n");
-				atomic_set(&mhi_dev_ctxt->
-					   counters.events_pending,
-					   0);
-				break;
-			}
-			if (GET_EV_PROPS(EV_MANAGED,
-					mhi_dev_ctxt->ev_ring_props[i].flags)) {
-				ret_val_process_event =
-				    mhi_process_event_ring(mhi_dev_ctxt,
-						  i,
-						  mhi_dev_ctxt->
-						  ev_ring_props[i].nr_desc);
-				if (ret_val_process_event == -EINPROGRESS)
-					atomic_inc(ev_pen_ptr);
-			}
-		}
-		mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "sleep\n");
-	}
-}
-
-void mhi_ctrl_ev_task(unsigned long data)
-{
+	struct mhi_ring *mhi_ring = (struct mhi_ring *)data;
 	struct mhi_device_ctxt *mhi_dev_ctxt =
-		(struct mhi_device_ctxt *)data;
-	const unsigned CTRL_EV_RING = 0;
+		mhi_ring->mhi_dev_ctxt;
+	int ev_index = mhi_ring->index;
 	struct mhi_event_ring_cfg *ring_props =
-		&mhi_dev_ctxt->ev_ring_props[CTRL_EV_RING];
+		&mhi_dev_ctxt->ev_ring_props[ev_index];
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Enter\n");
-	/* Process control event ring */
-	mhi_process_event_ring(mhi_dev_ctxt,
-			       CTRL_EV_RING,
-			       ring_props->nr_desc);
-	enable_irq(MSI_TO_IRQ(mhi_dev_ctxt, CTRL_EV_RING));
-	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Exit\n");
+	/* Process event ring */
+	mhi_process_event_ring(mhi_dev_ctxt, ev_index, ring_props->nr_desc);
 
+	enable_irq(MSI_TO_IRQ(mhi_dev_ctxt, ev_index));
+	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Exit\n");
+}
+
+void process_event_ring(struct work_struct *work)
+{
+	struct mhi_ring *mhi_ring =
+		container_of(work, struct mhi_ring, ev_worker);
+	struct mhi_device_ctxt *mhi_dev_ctxt =
+		mhi_ring->mhi_dev_ctxt;
+	int ev_index = mhi_ring->index;
+	struct mhi_event_ring_cfg *ring_props =
+		&mhi_dev_ctxt->ev_ring_props[ev_index];
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Enter\n");
+	/* Process event ring */
+	mhi_process_event_ring(mhi_dev_ctxt, ev_index, ring_props->nr_desc);
+
+	enable_irq(MSI_TO_IRQ(mhi_dev_ctxt, ev_index));
+	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Exit\n");
 }
 
 struct mhi_result *mhi_poll(struct mhi_client_handle *client_handle)
@@ -332,19 +296,19 @@ irqreturn_t mhi_msi_handlr(int irq_number, void *dev_id)
 {
 	struct mhi_device_ctxt *mhi_dev_ctxt = dev_id;
 	int msi = IRQ_TO_MSI(mhi_dev_ctxt, irq_number);
+	struct mhi_ring *mhi_ring = &mhi_dev_ctxt->mhi_local_event_ctxt[msi];
+	struct mhi_event_ring_cfg *ring_props =
+		&mhi_dev_ctxt->ev_ring_props[msi];
 
 	mhi_dev_ctxt->counters.msi_counter[
 			IRQ_TO_MSI(mhi_dev_ctxt, irq_number)]++;
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Got MSI 0x%x\n", msi);
 	trace_mhi_msi(IRQ_TO_MSI(mhi_dev_ctxt, irq_number));
-
-	if (msi) {
-		atomic_inc(&mhi_dev_ctxt->counters.events_pending);
-		wake_up_interruptible(mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq);
-	} else  {
-		disable_irq_nosync(irq_number);
-		tasklet_schedule(&mhi_dev_ctxt->ev_task);
-	}
+	disable_irq_nosync(irq_number);
+	if (ring_props->priority <= MHI_EV_PRIORITY_TASKLET)
+		tasklet_schedule(&mhi_ring->ev_task);
+	else
+		schedule_work(&mhi_ring->ev_worker);
 
 	return IRQ_HANDLED;
 }
