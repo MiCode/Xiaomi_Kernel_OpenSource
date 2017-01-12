@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2091,7 +2091,7 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 	desc_offset = edid_blk1[0x02];
 	if (desc_offset < (EDID_BLOCK_SIZE - EDID_DTD_LEN)) {
 		i = 0;
-		while (!edid_blk1[desc_offset]) {
+		while ((i < 4) && edid_blk1[desc_offset]) {
 			hdmi_edid_detail_desc(edid_ctrl,
 				edid_blk1+desc_offset,
 				&video_format);
