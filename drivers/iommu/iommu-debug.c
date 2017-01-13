@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -758,7 +758,7 @@ static int iommu_debug_secure_profiling_show(struct seq_file *s, void *ignored)
 		DOMAIN_ATTR_SECURE_VMID,
 	};
 	int one = 1, secure_vmid = VMID_CP_PIXEL;
-	void *attr_values[] = { &one, &one, &secure_vmid };
+	void *attr_values[] = { &one, &secure_vmid };
 
 	iommu_debug_device_profiling(s, ddev->dev, attrs, attr_values,
 				     ARRAY_SIZE(attrs), sizes);
