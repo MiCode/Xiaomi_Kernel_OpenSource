@@ -2700,6 +2700,8 @@ static inline int alloc_related_thread_groups(void) { return 0; }
 #endif	/* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_SCHED_HMP
+#define energy_aware() false
+
 extern int is_big_task(struct task_struct *p);
 extern unsigned int pct_task_load(struct task_struct *p);
 extern void notify_migration(int src_cpu, int dest_cpu,
@@ -2755,6 +2757,11 @@ static inline bool is_short_burst_task(struct task_struct *p)
 	       p->ravg.avg_sleep_time > sysctl_sched_short_sleep;
 }
 #else
+static inline bool energy_aware(void)
+{
+	return sched_feat(ENERGY_AWARE);
+}
+
 static inline int pct_task_load(struct task_struct *p) { return 0; }
 
 static inline void notify_migration(int src_cpu, int dest_cpu,

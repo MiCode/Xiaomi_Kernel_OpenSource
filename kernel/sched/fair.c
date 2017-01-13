@@ -5329,11 +5329,6 @@ unsigned long capacity_curr_of(int cpu)
 	       >> SCHED_CAPACITY_SHIFT;
 }
 
-static inline bool energy_aware(void)
-{
-	return sched_feat(ENERGY_AWARE);
-}
-
 /*
  * Externally visible function. Let's keep the one above
  * so that the check is inlined/optimized in the sched paths.
