@@ -1694,6 +1694,9 @@ const struct address_space_operations f2fs_node_aops = {
 	.set_page_dirty	= f2fs_set_node_page_dirty,
 	.invalidatepage	= f2fs_invalidate_page,
 	.releasepage	= f2fs_release_page,
+#ifdef CONFIG_F2FS_MIGRATION
+	.migratepage    = f2fs_migrate_page,
+#endif
 };
 
 static struct free_nid *__lookup_free_nid_list(struct f2fs_nm_info *nm_i,
