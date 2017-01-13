@@ -1,7 +1,7 @@
 /*
  * MDSS MDP Interface (used by framebuffer core)
  *
- * Copyright (c) 2007-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2017, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -5059,6 +5059,7 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 {
 	int ret;
 	int active_cnt = 0;
+	bool footswitch_suspend = false;
 
 	if (!mdata->fs)
 		return;
@@ -5074,6 +5075,15 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 				if (ret)
 					pr_err("venus failed to enable\n");
 			}
+
+			/*
+			 * Advise RPM to not turn MMSS GDSC off, this will
+			 * ensure that GDSC off is maintained during Active
+			 * display and during Idle display
+			 */
+			if (mdss_has_quirk(mdata,
+					MDSS_QUIRK_MMSS_GDSC_COLLAPSE))
+				mdss_rpm_set_msg_ram(true);
 
 			ret = regulator_enable(mdata->fs);
 			if (ret)
@@ -5092,13 +5102,6 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 			active_cnt = atomic_read(&mdata->active_intf_cnt);
 			if (active_cnt != 0) {
 				/*
-				 * Advise RPM to not turn MMSS GDSC off during
-				 * idle case.
-				 */
-				if (mdss_has_quirk(mdata,
-						MDSS_QUIRK_MMSS_GDSC_COLLAPSE))
-					mdss_rpm_set_msg_ram(true);
-				/*
 				 * Turning off GDSC while overlays are still
 				 * active.
 				 */
@@ -5109,14 +5112,8 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 				pr_debug("idle pc. active overlays=%d\n",
 					active_cnt);
 			} else {
-				/*
-				 * Advise RPM to turn MMSS GDSC off during
-				 * suspend case
-				 */
-				if (mdss_has_quirk(mdata,
-						MDSS_QUIRK_MMSS_GDSC_COLLAPSE))
-					mdss_rpm_set_msg_ram(false);
 
+				footswitch_suspend = true;
 				mdss_mdp_cx_ctrl(mdata, false);
 				mdss_mdp_batfet_ctrl(mdata, false);
 				mdss_mdp_memory_retention_ctrl(
@@ -5129,6 +5126,19 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 			regulator_disable(mdata->fs);
 			if (mdata->venus)
 				regulator_disable(mdata->venus);
+
+			if (footswitch_suspend) {
+				/*
+				 * Advise RPM to turn MMSS GDSC off during
+				 * suspend case, do this after the MDSS GDSC
+				 * regulator OFF, so we can ensure that MMSS
+				 * GDSC will go OFF after the MDSS GDSC
+				 * regulator
+				 */
+				if (mdss_has_quirk(mdata,
+						MDSS_QUIRK_MMSS_GDSC_COLLAPSE))
+					mdss_rpm_set_msg_ram(false);
+			}
 		}
 		mdata->fs_ena = false;
 	}
