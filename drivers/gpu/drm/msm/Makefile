@@ -40,6 +40,8 @@ msm-y := \
 	mdp/mdp5/mdp5_smp.o \
 	sde/sde_crtc.o \
 	sde/sde_encoder.o \
+	sde/sde_encoder_phys_vid.o \
+	sde/sde_encoder_phys_cmd.o \
 	sde/sde_irq.o \
 	sde/sde_kms.o \
 	sde/sde_plane.o \
@@ -86,4 +88,5 @@ obj-$(CONFIG_DRM_MSM) += sde/sde_hw_catalog.o \
 	sde/sde_hw_mdp_util.o \
 	sde/sde_hw_sspp.o \
 	sde/sde_hw_wb.o \
-	sde/sde_hw_pingpong.o
+	sde/sde_hw_pingpong.o \
+	sde/sde_mdp_formats.o
