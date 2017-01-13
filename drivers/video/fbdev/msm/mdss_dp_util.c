@@ -1435,39 +1435,28 @@ void mdss_dp_phy_send_test_pattern(struct mdss_dp_drv_pdata *dp)
 		return;
 	}
 
-	/* Disable mainlink */
-	writel_relaxed(0x0, io->base + DP_MAINLINK_CTRL);
-
-	/* Reset mainlink */
-	mdss_dp_mainlink_reset(io);
-
-	/* Enable mainlink */
-	writel_relaxed(0x0, io->base + DP_MAINLINK_CTRL);
-
 	/* Initialize DP state control */
-	mdss_dp_state_ctrl(io, 0x00);
+	writel_relaxed(0x0, io->base + DP_STATE_CTRL);
 
 	pr_debug("phy_test_pattern_sel = %s\n",
 			mdss_dp_get_phy_test_pattern(phy_test_pattern_sel));
 
 	switch (phy_test_pattern_sel) {
 	case PHY_TEST_PATTERN_D10_2_NO_SCRAMBLING:
-		mdss_dp_state_ctrl(io, BIT(0));
+		writel_relaxed(0x1, io->base + DP_STATE_CTRL);
 		break;
 	case PHY_TEST_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT:
-		value = readl_relaxed(io->base +
-				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
 		value &= ~(1 << 16);
 		writel_relaxed(value, io->base +
 				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
-		value |= 0xFC;
+		value = 0xFC;
 		writel_relaxed(value, io->base +
 				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
 		writel_relaxed(0x2, io->base + DP_MAINLINK_LEVELS);
 		mdss_dp_state_ctrl(io, BIT(4));
 		break;
 	case PHY_TEST_PATTERN_PRBS7:
-		mdss_dp_state_ctrl(io, BIT(5));
+		writel_relaxed(0x20, io->base + DP_STATE_CTRL);
 		break;
 	case PHY_TEST_PATTERN_80_BIT_CUSTOM_PATTERN:
 		mdss_dp_state_ctrl(io, BIT(6));
@@ -1482,12 +1471,10 @@ void mdss_dp_phy_send_test_pattern(struct mdss_dp_drv_pdata *dp)
 				DP_TEST_80BIT_CUSTOM_PATTERN_REG2);
 		break;
 	case PHY_TEST_PATTERN_HBR2_CTS_EYE_PATTERN:
-		value = readl_relaxed(io->base +
-				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
-		value |= BIT(16);
+		value = BIT(16);
 		writel_relaxed(value, io->base +
 				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
-		value |= 0xFC;
+		value = 0xFC;
 		writel_relaxed(value, io->base +
 				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
 		writel_relaxed(0x2, io->base + DP_MAINLINK_LEVELS);
@@ -1498,4 +1485,8 @@ void mdss_dp_phy_send_test_pattern(struct mdss_dp_drv_pdata *dp)
 				phy_test_pattern_sel);
 		return;
 	}
+
+	value = 0x0;
+	value = readl_relaxed(io->base + DP_MAINLINK_READY);
+	pr_info("DP_MAINLINK_READY = 0x%x\n", value);
 }

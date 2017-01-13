@@ -62,6 +62,8 @@ static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp_drv);
 static void dp_send_events(struct mdss_dp_drv_pdata *dp, u32 events);
 static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 	enum notification_status status);
+static int mdss_dp_process_phy_test_pattern_request(
+		struct mdss_dp_drv_pdata *dp);
 
 static inline void mdss_dp_reset_test_data(struct mdss_dp_drv_pdata *dp)
 {
@@ -1275,6 +1277,9 @@ static int mdss_dp_setup_main_link(struct mdss_dp_drv_pdata *dp, bool train)
 	mdss_dp_aux_set_sink_power_state(dp, SINK_POWER_ON);
 	reinit_completion(&dp->video_comp);
 
+	if (mdss_dp_is_phy_test_pattern_requested(dp))
+		goto end;
+
 	if (!train)
 		goto send_video;
 
@@ -1335,7 +1340,8 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv, bool lt_needed)
 			 * link clock might have been adjusted as part of the
 			 * link maintenance.
 			 */
-			mdss_dp_disable_mainlink_clocks(dp_drv);
+			if (!mdss_dp_is_phy_test_pattern_requested(dp_drv))
+				mdss_dp_disable_mainlink_clocks(dp_drv);
 			ret = mdss_dp_enable_mainlink_clocks(dp_drv);
 			if (ret)
 				goto exit_loop;
@@ -1365,7 +1371,8 @@ exit_loop:
 	pr_debug("end\n");
 
 	/* Send a connect notification */
-	mdss_dp_notify_clients(dp_drv, NOTIFY_CONNECT_IRQ_HPD);
+	if (!mdss_dp_is_phy_test_pattern_requested(dp_drv))
+		mdss_dp_notify_clients(dp_drv, NOTIFY_CONNECT_IRQ_HPD);
 
 	return ret;
 }
@@ -1780,6 +1787,8 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 	if (dp->sink_info_read)
 		return 0;
 
+	pr_debug("start\n");
+
 	mdss_dp_dpcd_cap_read(dp);
 
 	ret = mdss_dp_edid_read(dp);
@@ -1787,19 +1796,35 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 		pr_debug("edid read error, setting default resolution\n");
 
 		mdss_dp_set_default_resolution(dp);
-		goto end;
+		goto notify;
 	}
 
 	ret = hdmi_edid_parser(dp->panel_data.panel_info.edid_data);
 	if (ret) {
 		pr_err("edid parse failed\n");
-		goto end;
+		goto notify;
 	}
 
 	dp->sink_info_read = true;
-end:
+
+notify:
+	/* Check if there is a PHY_TEST_PATTERN request when we get HPD high.
+	 * Update the DP driver with the test parameters including link rate,
+	 * lane count, voltage level, and pre-emphasis level. Do not notify
+	 * the userspace of the connection, just power on the DP controller
+	 * and mainlink with the new settings.
+	 */
+	if (mdss_dp_is_phy_test_pattern_requested(dp)) {
+		pr_info("PHY_TEST_PATTERN requested by sink\n");
+		mdss_dp_process_phy_test_pattern_request(dp);
+		pr_info("skip client notification\n");
+		goto end;
+	}
+
 	mdss_dp_notify_clients(dp, NOTIFY_CONNECT);
 
+end:
+	pr_debug("end\n");
 	return ret;
 
 }
@@ -2920,7 +2945,18 @@ static void usbpd_disconnect_callback(struct usbpd_svid_handler *hdlr)
 	pr_debug("cable disconnected\n");
 	mdss_dp_update_cable_status(dp_drv, false);
 	dp_drv->alt_mode.current_state = UNKNOWN_STATE;
-	mdss_dp_notify_clients(dp_drv, NOTIFY_DISCONNECT);
+
+	/**
+	 * Manually turn off the DP controller if we are in PHY
+	 * testing mode.
+	 */
+	if (mdss_dp_is_phy_test_pattern_requested(dp_drv)) {
+		pr_info("turning off DP controller for PHY testing\n");
+		mdss_dp_mainlink_push_idle(&dp_drv->panel_data);
+		mdss_dp_off_hpd(dp_drv);
+	} else {
+		mdss_dp_notify_clients(dp_drv, NOTIFY_DISCONNECT);
+	}
 }
 
 static int mdss_dp_validate_callback(u8 cmd,
@@ -3069,37 +3105,61 @@ static int mdss_dp_process_phy_test_pattern_request(
 	if (!mdss_dp_is_phy_test_pattern_requested(dp))
 		return -EINVAL;
 
-	mdss_dp_send_test_response(dp);
-
 	test_link_rate = dp->test_data.test_link_rate;
 	test_lane_count = dp->test_data.test_lane_count;
 
-	pr_info("%s link rate = 0x%x, lane count = 0x%x\n",
-			mdss_dp_get_test_name(TEST_LINK_TRAINING),
-			test_link_rate, test_lane_count);
-
-	/**
-	 * Retrain the mainlink if there is a change in link rate or lane
-	 * count.
-	 */
-	if (mdss_dp_aux_is_link_rate_valid(test_link_rate) &&
-			mdss_dp_aux_is_lane_count_valid(test_lane_count) &&
-			((dp->dpcd.max_lane_count != test_lane_count) ||
-			(dp->link_rate != test_link_rate))) {
-
-		pr_info("updated link rate or lane count, retraining.\n");
-
-		dp->dpcd.max_lane_count = dp->test_data.test_lane_count;
-		dp->link_rate = dp->test_data.test_link_rate;
-
-		mdss_dp_link_maintenance(dp, true);
+	if (!mdss_dp_aux_is_link_rate_valid(test_link_rate) ||
+		!mdss_dp_aux_is_lane_count_valid(test_lane_count)) {
+		pr_info("Invalid params: link rate = 0x%x, lane count = 0x%x\n",
+				test_link_rate, test_lane_count);
+		return -EINVAL;
 	}
 
-	mdss_dp_config_ctrl(dp);
+	pr_debug("start\n");
 
+	if (dp->power_on) {
+		pr_info("turning off DP controller for PHY testing\n");
+		mdss_dp_mainlink_push_idle(&dp->panel_data);
+		/*
+		 * The global reset will need DP link ralated clocks to be
+		 * running. Add the global reset just before disabling the
+		 * link clocks and core clocks.
+		 */
+		mdss_dp_ctrl_reset(&dp->ctrl_io);
+		mdss_dp_off_irq(dp);
+	}
+
+	/**
+	 * Set the timing information to 1920x1080p60. This resolution will be
+	 * used when enabling the pixel clock.
+	 */
+	dp_init_panel_info(dp, HDMI_VFRMT_1920x1080p60_16_9);
+
+	pr_info("Current: link rate = 0x%x, lane count = 0x%x\n",
+			dp->dpcd.max_lane_count,
+			dp->link_rate);
+
+	pr_info("Requested: link rate = 0x%x, lane count = 0x%x\n",
+			dp->test_data.test_link_rate,
+			dp->test_data.test_lane_count);
+
+	dp->dpcd.max_lane_count = dp->test_data.test_lane_count;
+	dp->link_rate = dp->test_data.test_link_rate;
+
+	mdss_dp_on_irq(dp, true);
+
+	/**
+	 * Read the updated values for voltage and pre-emphasis levels and
+	 * then program the DP controller PHY accordingly.
+	 */
+	mdss_dp_aux_parse_vx_px(dp);
 	mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(dp);
 
 	mdss_dp_phy_send_test_pattern(dp);
+
+	mdss_dp_send_test_response(dp);
+
+	pr_debug("end\n");
 
 	return 0;
 }
@@ -3206,6 +3266,8 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
 
+	pr_debug("start\n");
+
 	dp->hpd_irq_on = true;
 
 	mdss_dp_reset_test_data(dp);
@@ -3216,15 +3278,15 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 	if (!ret)
 		goto exit;
 
+	ret = mdss_dp_process_phy_test_pattern_request(dp);
+	if (!ret)
+		goto exit;
+
 	ret = mdss_dp_process_link_status_update(dp);
 	if (!ret)
 		goto exit;
 
 	ret = mdss_dp_process_downstream_port_status_change(dp);
-	if (!ret)
-		goto exit;
-
-	ret = mdss_dp_process_phy_test_pattern_request(dp);
 	if (!ret)
 		goto exit;
 
@@ -3297,6 +3359,7 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 	case DP_VDM_CONFIGURE:
 		dp_drv->alt_mode.current_state |= DP_CONFIGURE_DONE;
 		pr_debug("Configure: config USBPD to DP done\n");
+		mdss_dp_usbpd_ext_dp_status(&dp_drv->alt_mode.dp_status);
 
 		mdss_dp_host_init(&dp_drv->panel_data);
 
@@ -3333,6 +3396,16 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 
 		mdss_dp_notify_clients(dp_drv, NOTIFY_DISCONNECT);
 		pr_debug("Attention: Notified clients\n");
+
+		/**
+		 * Manually turn off the DP controller if we are in PHY
+		 * testing mode.
+		 */
+		if (mdss_dp_is_phy_test_pattern_requested(dp_drv)) {
+			pr_info("turning off DP controller for PHY testing\n");
+			mdss_dp_mainlink_push_idle(&dp_drv->panel_data);
+			mdss_dp_off_hpd(dp_drv);
+		}
 		return;
 	}
 
@@ -3351,6 +3424,7 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp)
 {
 	int i = 0;
+	pr_debug("start\n");
 
 	while (!list_empty_careful(&dp->attention_head)) {
 		struct mdss_dp_attention_node *node;
@@ -3371,8 +3445,11 @@ static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp)
 		dp->alt_mode.dp_status.response = vdo;
 		mdss_dp_usbpd_ext_dp_status(&dp->alt_mode.dp_status);
 		mdss_dp_process_attention(dp);
+
+		pr_debug("done processing item %d in the list\n", i);
 	};
 
+	pr_debug("exit\n");
 }
 
 static int mdss_dp_usbpd_setup(struct mdss_dp_drv_pdata *dp_drv)

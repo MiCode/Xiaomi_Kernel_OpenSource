@@ -1117,6 +1117,84 @@ bool mdss_dp_aux_is_lane_count_valid(u32 lane_count)
 		(lane_count == DP_LANE_COUNT_4);
 }
 
+int mdss_dp_aux_parse_vx_px(struct mdss_dp_drv_pdata *ep)
+{
+	char *bp;
+	char data;
+	struct edp_buf *rp;
+	int rlen;
+	int const param_len = 0x1;
+	int const addr1 = 0x206;
+	int const addr2 = 0x207;
+	int ret = 0;
+	u32 v0, p0, v1, p1, v2, p2, v3, p3;
+
+	pr_info("Parsing DPCP for updated voltage and pre-emphasis levels\n");
+
+	rlen = dp_aux_read_buf(ep, addr1, param_len, 0);
+	if (rlen < param_len) {
+		pr_err("failed reading lanes 0/1\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	pr_info("lanes 0/1 (Byte 0x206): 0x%x\n", data);
+
+	v0 = data & 0x3;
+	data = data >> 2;
+	p0 = data & 0x3;
+	data = data >> 2;
+
+	v1 = data & 0x3;
+	data = data >> 2;
+	p1 = data & 0x3;
+	data = data >> 2;
+
+	rlen = dp_aux_read_buf(ep, addr2, param_len, 0);
+	if (rlen < param_len) {
+		pr_err("failed reading lanes 2/3\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	rp = &ep->rxp;
+	bp = rp->data;
+	data = *bp++;
+
+	pr_info("lanes 2/3 (Byte 0x207): 0x%x\n", data);
+
+	v2 = data & 0x3;
+	data = data >> 2;
+	p2 = data & 0x3;
+	data = data >> 2;
+
+	v3 = data & 0x3;
+	data = data >> 2;
+	p3 = data & 0x3;
+	data = data >> 2;
+
+	pr_info("vx: 0=%d, 1=%d, 2=%d, 3=%d\n", v0, v1, v2, v3);
+	pr_info("px: 0=%d, 1=%d, 2=%d, 3=%d\n", p0, p1, p2, p3);
+
+	/**
+	 * Update the voltage and pre-emphasis levels as per DPCD request
+	 * vector.
+	 */
+	pr_info("Current: v_level = 0x%x, p_level = 0x%x\n",
+			ep->v_level, ep->p_level);
+	pr_info("Requested: v_level = 0x%x, p_level = 0x%x\n", v0, p0);
+	ep->v_level = v0;
+	ep->p_level = p0;
+
+	pr_info("Success\n");
+end:
+	return ret;
+}
+
 /**
  * dp_parse_link_training_params() - parses link training parameters from DPCD
  * @ep: Display Port Driver data
@@ -1232,7 +1310,6 @@ static int dp_parse_phy_test_params(struct mdss_dp_drv_pdata *ep)
 	int rlen;
 	int const param_len = 0x1;
 	int const phy_test_pattern_addr = 0x248;
-	int const dpcd_version_1_2 = 0x12;
 	int ret = 0;
 
 	rlen = dp_aux_read_buf(ep, phy_test_pattern_addr, param_len, 0);
@@ -1245,11 +1322,6 @@ static int dp_parse_phy_test_params(struct mdss_dp_drv_pdata *ep)
 	rp = &ep->rxp;
 	bp = rp->data;
 	data = *bp++;
-
-	if (ep->dpcd.major == dpcd_version_1_2)
-		data = data & 0x7;
-	else
-		data = data & 0x3;
 
 	ep->test_data.phy_test_pattern_sel = data;
 
@@ -1819,7 +1891,7 @@ char vm_voltage_swing[4][4] = {
 	{0xFF, 0xFF, 0xFF, 0xFF}  /* sw1, 1.2 v, optional */
 };
 
-static void dp_aux_set_voltage_and_pre_emphasis_lvl(
+void mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(
 		struct mdss_dp_drv_pdata *dp)
 {
 	u32 value0 = 0;
@@ -1856,45 +1928,13 @@ static void dp_aux_set_voltage_and_pre_emphasis_lvl(
 			QSERDES_TX1_OFFSET + TXn_TX_EMP_POST1_LVL,
 			value1);
 
-		pr_debug("value0=0x%x value1=0x%x",
+		pr_debug("host PHY settings: value0=0x%x value1=0x%x",
 						value0, value1);
 		dp_lane_set_write(dp, dp->v_level, dp->p_level);
 	}
 
 }
 
-/**
- * mdss_dp_aux_update_voltage_and_pre_emphasis_lvl() - updates DP PHY settings
- * @ep: Display Port Driver data
- *
- * Updates the DP PHY with the requested voltage swing and pre-emphasis
- * levels if they are different from the current settings.
- */
-void mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(
-		struct mdss_dp_drv_pdata *dp)
-{
-	int const num_bytes = 6;
-	struct dpcd_link_status *status = &dp->link_status;
-
-	/* Read link status for updated voltage and pre-emphasis levels. */
-	mdss_dp_aux_link_status_read(dp, num_bytes);
-
-	pr_info("Current: v_level = %d, p_level = %d\n",
-			dp->v_level, dp->p_level);
-	pr_info("Requested: v_level = %d, p_level = %d\n",
-			status->req_voltage_swing[0],
-			status->req_pre_emphasis[0]);
-
-	if ((status->req_voltage_swing[0] != dp->v_level) ||
-			(status->req_pre_emphasis[0] != dp->p_level)) {
-		dp->v_level = status->req_voltage_swing[0];
-		dp->p_level = status->req_pre_emphasis[0];
-
-		dp_aux_set_voltage_and_pre_emphasis_lvl(dp);
-	}
-
-	pr_debug("end\n");
-}
 static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 {
 	int tries, old_v_level;
@@ -1911,7 +1951,7 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 	dp_host_train_set(ep, 0x01); /* train_1 */
 	dp_cap_lane_rate_set(ep);
 	dp_train_pattern_set_write(ep, 0x21); /* train_1 */
-	dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
+	mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(ep);
 
 	tries = 0;
 	old_v_level = ep->v_level;
@@ -1942,7 +1982,7 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 		}
 
 		dp_sink_train_set_adjust(ep);
-		dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
+		mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(ep);
 	}
 
 	return ret;
@@ -1968,7 +2008,7 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 	wmb();
 
 	dp_host_train_set(ep, pattern);
-	dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
+	mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(ep);
 	dp_train_pattern_set_write(ep, pattern | 0x20);/* train_2 */
 
 	do  {
@@ -1989,7 +2029,7 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 		tries++;
 
 		dp_sink_train_set_adjust(ep);
-		dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
+		mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(ep);
 	} while (1);
 
 	return ret;

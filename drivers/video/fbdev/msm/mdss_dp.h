@@ -644,10 +644,10 @@ static inline char *mdss_dp_get_test_response(u32 test_response)
 
 enum test_type {
 	UNKNOWN_TEST		= 0,
-	TEST_LINK_TRAINING	= BIT(0),
-	TEST_VIDEO_PATTERN	= BIT(1),
-	PHY_TEST_PATTERN	= BIT(3),
-	TEST_EDID_READ		= BIT(2),
+	TEST_LINK_TRAINING	= 0x1,
+	TEST_VIDEO_PATTERN	= 0x2,
+	PHY_TEST_PATTERN	= 0x8,
+	TEST_EDID_READ		= 0x4,
 };
 
 static inline char *mdss_dp_get_test_name(u32 test_requested)
@@ -976,5 +976,6 @@ void mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(
 int mdss_dp_aux_read_sink_frame_crc(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_aux_config_sink_frame_crc(struct mdss_dp_drv_pdata *dp,
 	bool enable);
+int mdss_dp_aux_parse_vx_px(struct mdss_dp_drv_pdata *ep);
 
 #endif /* MDSS_DP_H */
