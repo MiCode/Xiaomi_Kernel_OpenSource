@@ -547,10 +547,10 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	/* IPA_3_5 */
 	[IPA_3_5][IPA_CLIENT_HSIC1_PROD]          = IPA_CLIENT_NOT_USED,
 	[IPA_3_5][IPA_CLIENT_WLAN1_PROD]          = {
-			7, IPA_v3_5_GROUP_UL_DL, true,
+			6, IPA_v3_5_GROUP_UL_DL, true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 7, 1, 12, 30, IPA_EE_UC } },
+			{ 6, 1, 8, 16, IPA_EE_UC } },
 	[IPA_3_5][IPA_CLIENT_HSIC2_PROD]          = IPA_CLIENT_NOT_USED,
 	[IPA_3_5][IPA_CLIENT_USB2_PROD]           = IPA_CLIENT_NOT_USED,
 	[IPA_3_5][IPA_CLIENT_HSIC3_PROD]          = IPA_CLIENT_NOT_USED,
@@ -593,11 +593,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{ 3, 0, 16, 32, IPA_EE_Q6 } },
-	[IPA_3_5][IPA_CLIENT_Q6_WAN_PROD]         = {
-			6, IPA_v3_5_GROUP_UL_DL, true,
-			IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP,
-			QMB_MASTER_SELECT_DDR,
-			{ 6, 4, 10, 30, IPA_EE_Q6 } },
+	[IPA_3_5][IPA_CLIENT_Q6_WAN_PROD]         = IPA_CLIENT_NOT_USED,
 	[IPA_3_5][IPA_CLIENT_Q6_CMD_PROD]	  = {
 			4, IPA_v3_5_GROUP_UL_DL, false,
 			IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP,
