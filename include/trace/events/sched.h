@@ -769,17 +769,17 @@ DECLARE_EVENT_CLASS(sched_task_util,
 
 DEFINE_EVENT(sched_task_util, sched_task_util_overutilzed,
 	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff),
-	TP_ARGS(p, task_cpu, task_util, nominated_cpu, task_cpu, ediff)
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff)
 );
 
 DEFINE_EVENT(sched_task_util, sched_task_util_energy_diff,
 	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff),
-	TP_ARGS(p, task_cpu, task_util, nominated_cpu, task_cpu, ediff)
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff)
 );
 
 DEFINE_EVENT(sched_task_util, sched_task_util_energy_aware,
 	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff),
-	TP_ARGS(p, task_cpu, task_util, nominated_cpu, task_cpu, ediff)
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff)
 );
 #endif
 

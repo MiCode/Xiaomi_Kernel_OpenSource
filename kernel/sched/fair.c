@@ -5390,7 +5390,7 @@ static inline int task_util(struct task_struct *p)
 {
 #ifdef CONFIG_SCHED_WALT
 	if (!walt_disabled && sysctl_sched_use_walt_task_util) {
-		unsigned long demand = p->ravg.demand;
+		u64 demand = p->ravg.demand;
 
 		return (demand << 10) / sched_ravg_window;
 	}
@@ -6574,12 +6574,19 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	struct sched_domain *sd;
 	struct sched_group *sg, *sg_target;
 	int target_max_cap = INT_MAX;
-	int target_cpu = task_cpu(p);
-	unsigned long task_util_boosted, curr_util = 0;
+	int target_cpu;
+	unsigned long task_util_boosted = 0, curr_util = 0;
 	long new_util;
 	int i;
-	int ediff;
+	int ediff = 0;
 	int cpu = smp_processor_id();
+	int min_util_cpu = -1;
+	int min_util_cpu_idle_idx = INT_MAX;
+	unsigned int min_util = UINT_MAX;
+	int cpu_idle_idx;
+	int min_idle_idx_cpu;
+	int min_idle_idx = INT_MAX;
+	unsigned int target_cpu_util = UINT_MAX;
 
 	sd = rcu_dereference(per_cpu(sd_ea, task_cpu(p)));
 
@@ -6593,10 +6600,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	if (sync)
 		curr_util = boosted_task_util(cpu_rq(cpu)->curr);
 
-	task_util_boosted = boosted_task_util(p);
 	if (sysctl_sched_is_big_little) {
-		unsigned long target_cpu_cap_idx = ULONG_MAX, cap_idx;
-
 		/*
 		 * Find group with sufficient capacity. We only get here if no cpu is
 		 * overutilized. We may end up overutilizing a cpu by adding the task,
@@ -6620,6 +6624,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			}
 		} while (sg = sg->next, sg != sd->groups);
 
+		target_cpu = -1;
+
+		task_util_boosted = boosted_task_util(p);
 		/* Find cpu with sufficient capacity */
 		for_each_cpu_and(i, tsk_cpus_allowed(p), sched_group_cpus(sg_target)) {
 			if (is_reserved(i))
@@ -6633,9 +6640,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			new_util = cpu_util(i) + task_util_boosted;
 			if (sync && i == cpu)
 				new_util -= curr_util;
-			cap_idx = __find_new_capacity(new_util, sg_target->sge);
 
-			trace_sched_cpu_util(p, i, new_util, 0, sync);
+			trace_sched_cpu_util(p, i, task_util_boosted, 0, sync);
 
 			/*
 			 * Ensure minimum capacity to grant the required boost.
@@ -6645,18 +6651,48 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			if (new_util > capacity_orig_of(i))
 				continue;
 
-			if (cap_idx < target_cpu_cap_idx) {
-				target_cpu = i;
-				target_cpu_cap_idx = cap_idx;
-			} else if (target_cpu != task_cpu(p) &&
-				   cap_idx == target_cpu_cap_idx) {
-				if (cpu_rq(i)->nr_running <
-				    cpu_rq(target_cpu)->nr_running) {
+			cpu_idle_idx = cpu_rq(i)->nr_running ? -1 :
+				       idle_get_state_idx(cpu_rq(i));
+
+			if (add_capacity_margin(new_util) <
+			    capacity_curr_of(i)) {
+				if (sysctl_sched_cstate_aware) {
+					if (cpu_idle_idx < min_idle_idx ||
+					    (cpu_idle_idx == min_idle_idx &&
+					     target_cpu_util > new_util)) {
+						min_idle_idx = cpu_idle_idx;
+						min_idle_idx_cpu = i;
+						target_cpu = i;
+						target_cpu_util = new_util;
+						continue;
+					}
+				} else if (cpu_rq(i)->nr_running) {
 					target_cpu = i;
-					target_cpu_cap_idx = cap_idx;
+					break;
 				}
 			}
 
+			/*
+			 * cpu has capacity at higher OPP, keep it as
+			 * fallback.
+			 */
+			if (new_util < min_util) {
+				min_util_cpu = i;
+				min_util = new_util;
+				min_util_cpu_idle_idx = cpu_idle_idx;
+			} else if (sysctl_sched_cstate_aware &&
+				   min_util == new_util &&
+				   cpu_idle_idx < min_util_cpu_idle_idx) {
+				min_util_cpu = i;
+				min_util_cpu_idle_idx = cpu_idle_idx;
+			}
+		}
+
+		if (target_cpu == -1) {
+			if (min_util_cpu != -1)
+				target_cpu = min_util_cpu;
+			else
+				target_cpu = task_cpu(p);
 		}
 	} else {
 		/*
@@ -6670,6 +6706,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		bool prefer_idle = 0;
 #endif
 		int tmp_target = find_best_target(p, boosted, prefer_idle);
+
+		target_cpu = task_cpu(p);
 		if (tmp_target >= 0) {
 			target_cpu = tmp_target;
 			if ((boosted || prefer_idle) && idle_cpu(target_cpu))
@@ -6702,21 +6740,34 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		if (__cpu_overutilized(task_cpu(p), task_util_boosted)) {
 			trace_sched_task_util_overutilzed(p, task_cpu(p),
 						task_util(p), target_cpu,
-						task_cpu(p), 0);
+						target_cpu, 0);
 			return target_cpu;
 		}
 
 		ediff = energy_diff(&eenv);
-		if (ediff >= 0) {
-			trace_sched_task_util_energy_diff(p, task_cpu(p),
-						task_util(p), target_cpu,
-						task_cpu(p), ediff);
-			return task_cpu(p);
+		if (!sysctl_sched_cstate_aware) {
+			if (ediff >= 0) {
+				trace_sched_task_util_energy_diff(p,
+						task_cpu(p), task_util(p),
+						target_cpu, task_cpu(p),
+						ediff);
+				return task_cpu(p);
+			}
+		} else {
+			cpu_idle_idx = cpu_rq(task_cpu(p))->nr_running ? -1 :
+				       idle_get_state_idx(cpu_rq(task_cpu(p)));
+			if (ediff > 0 || (ediff == 0 &&
+					  cpu_idle_idx <= min_idle_idx)) {
+				trace_sched_task_util_energy_diff(p,
+						task_cpu(p), task_util(p),
+						target_cpu, task_cpu(p), ediff);
+				return task_cpu(p);
+			}
 		}
 	}
 
 	trace_sched_task_util_energy_aware(p, task_cpu(p), task_util(p),
-					   target_cpu, target_cpu, 0);
+					   target_cpu, target_cpu, ediff);
 	return target_cpu;
 }
 

@@ -1782,9 +1782,17 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 }
 #endif
 
+extern unsigned int capacity_margin_freq;
+
+static inline unsigned long add_capacity_margin(unsigned long cpu_capacity)
+{
+	cpu_capacity  = cpu_capacity * capacity_margin_freq;
+	cpu_capacity /= SCHED_CAPACITY_SCALE;
+	return cpu_capacity;
+}
+
 #ifdef CONFIG_CPU_FREQ_GOV_SCHED
 #define capacity_max SCHED_CAPACITY_SCALE
-extern unsigned int capacity_margin_freq;
 extern struct static_key __sched_freq;
 
 static inline bool sched_freq(void)

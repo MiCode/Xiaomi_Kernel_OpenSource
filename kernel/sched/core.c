@@ -3253,17 +3253,9 @@ unsigned long long task_sched_runtime(struct task_struct *p)
 	return ns;
 }
 
-#ifdef CONFIG_CPU_FREQ_GOV_SCHED
-
 unsigned int capacity_margin_freq = 1280; /* ~20% margin */
 
-static inline
-unsigned long add_capacity_margin(unsigned long cpu_capacity)
-{
-	cpu_capacity  = cpu_capacity * capacity_margin_freq;
-	cpu_capacity /= SCHED_CAPACITY_SCALE;
-	return cpu_capacity;
-}
+#ifdef CONFIG_CPU_FREQ_GOV_SCHED
 
 static inline
 unsigned long sum_capacity_reqs(unsigned long cfs_cap,
