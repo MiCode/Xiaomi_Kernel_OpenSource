@@ -282,6 +282,10 @@ struct sde_wb_sub_blocks {
 	u32 maxlinewidth;
 };
 
+struct sde_mdss_base_cfg {
+	SDE_HW_BLK_INFO;
+};
+
 /* struct sde_mdp_cfg : MDP TOP-BLK instance info
  * @id:                index identifying this block
  * @base:              register base offset to mdss
@@ -410,6 +414,9 @@ struct sde_ad_cfg {
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
+
+	u32 mdss_count;
+	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];
 
 	u32 mdp_count;
 	struct sde_mdp_cfg mdp[MAX_BLOCKS];
