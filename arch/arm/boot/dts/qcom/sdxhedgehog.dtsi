@@ -24,6 +24,10 @@
 		clock-frequency = <19200000>;
 	};
 
+	aliases {
+		sdhc1 = &sdhc_1; /* SDC1 eMMC/SD/SDIO slot */
+	};
+
 };
 
 &tsens0 {
@@ -31,6 +35,15 @@
 };
 
 &soc {
+	/* SD card 2.95 V supply */
+	sdc_vreg: sdc_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "sdc_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&tlmm_pinmux 80 0>;
+	};
+
 	ipa_hw: qcom,ipa@07B00000 {
 		qcom,ipa-hw-ver = <12>; /* IPA core version = IPAv3.5 */
 		/delete-property/qcom,use-rg10-limitation-mitigation;
