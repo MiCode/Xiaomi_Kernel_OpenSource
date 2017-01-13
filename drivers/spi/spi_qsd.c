@@ -1442,9 +1442,9 @@ static inline void msm_spi_set_cs(struct spi_device *spi, bool set_flag)
 	u32 spi_ioc_orig;
 	int rc;
 
-	rc = pm_runtime_get_sync(dd->dev);
-	if (rc < 0) {
-		dev_err(dd->dev, "Failure during runtime get");
+	if (dd->suspended) {
+		dev_err(dd->dev, "%s: SPI operational state not valid %d\n",
+			__func__, dd->suspended);
 		return;
 	}
 
@@ -1470,8 +1470,6 @@ static inline void msm_spi_set_cs(struct spi_device *spi, bool set_flag)
 		writel_relaxed(spi_ioc, dd->base + SPI_IO_CONTROL);
 	if (dd->pdata->is_shared)
 		put_local_resources(dd);
-	pm_runtime_mark_last_busy(dd->dev);
-	pm_runtime_put_autosuspend(dd->dev);
 }
 
 static void reset_core(struct msm_spi *dd)
@@ -1655,23 +1653,16 @@ static int msm_spi_prepare_transfer_hardware(struct spi_master *master)
 	struct msm_spi	*dd = spi_master_get_devdata(master);
 	int resume_state = 0;
 
+	if (!pm_runtime_enabled(dd->dev)) {
+		dev_err(dd->dev, "Runtime PM not available\n");
+		resume_state = -EBUSY;
+		goto spi_finalize;
+	}
+
 	resume_state = pm_runtime_get_sync(dd->dev);
 	if (resume_state < 0)
 		goto spi_finalize;
 
-	/*
-	 * Counter-part of system-suspend when runtime-pm is not enabled.
-	 * This way, resume can be left empty and device will be put in
-	 * active mode only if client requests anything on the bus
-	 */
-	if (!pm_runtime_enabled(dd->dev))
-		resume_state = msm_spi_pm_resume_runtime(dd->dev);
-	if (resume_state < 0)
-		goto spi_finalize;
-	if (dd->suspended) {
-		resume_state = -EBUSY;
-		goto spi_finalize;
-	}
 	return 0;
 
 spi_finalize:
@@ -1682,6 +1673,11 @@ spi_finalize:
 static int msm_spi_unprepare_transfer_hardware(struct spi_master *master)
 {
 	struct msm_spi	*dd = spi_master_get_devdata(master);
+
+	if (!pm_runtime_enabled(dd->dev)) {
+		dev_err(dd->dev, "Runtime PM not available\n");
+		return -EBUSY;
+	}
 
 	pm_runtime_mark_last_busy(dd->dev);
 	pm_runtime_put_autosuspend(dd->dev);
@@ -2621,27 +2617,10 @@ resume_exit:
 #ifdef CONFIG_PM_SLEEP
 static int msm_spi_suspend(struct device *device)
 {
-	if (!pm_runtime_enabled(device) || !pm_runtime_suspended(device)) {
-		struct platform_device *pdev = to_platform_device(device);
-		struct spi_master *master = platform_get_drvdata(pdev);
-		struct msm_spi   *dd;
-
-		dev_dbg(device, "system suspend");
-		if (!master)
-			goto suspend_exit;
-		dd = spi_master_get_devdata(master);
-		if (!dd)
-			goto suspend_exit;
-		msm_spi_pm_suspend_runtime(device);
-
-		/*
-		 * set the device's runtime PM status to 'suspended'
-		 */
-		pm_runtime_disable(device);
-		pm_runtime_set_suspended(device);
-		pm_runtime_enable(device);
+	if (!pm_runtime_status_suspended(device)) {
+		dev_err(device, "Runtime not suspended, deny sys suspend");
+		return -EBUSY;
 	}
-suspend_exit:
 	return 0;
 }
 
