@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,8 +42,8 @@
 			"csi_src_clk", "csi_clk", "cphy_csid_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 256000000 0 0 200000000 0
-			0 256000000 0>;
+		qcom,clock-rates = <0 0 0 0 0 0 274290000 0 0 200000000 0
+			0 274290000 0>;
 		status = "ok";
 	};
 
@@ -77,8 +77,8 @@
 			"csi_src_clk", "csi_clk", "cphy_csid_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 256000000 0 0 200000000 0
-			0 256000000 0>;
+		qcom,clock-rates = <0 0 0 0 0 0 274290000 0 0 200000000 0
+			0 274290000 0>;
 		status = "ok";
 	};
 
@@ -112,8 +112,8 @@
 			"csi_src_clk", "csi_clk", "cphy_csid_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 256000000 0 0 200000000 0
-			0 256000000 0>;
+		qcom,clock-rates = <0 0 0 0 0 0 274290000 0 0 200000000 0
+			0 274290000 0>;
 		status = "ok";
 	};
 
