@@ -469,8 +469,6 @@ static void spcom_notify_state(void *handle, const void *priv, unsigned event)
 		 * This may happen upon remote SSR.
 		 */
 		pr_err("GLINK_REMOTE_DISCONNECTED, ch [%s].\n", ch->name);
-<<<<<<< HEAD
-=======
 
 		/*
 		 * Abort any blocking read() operation.
@@ -478,7 +476,6 @@ static void spcom_notify_state(void *handle, const void *priv, unsigned event)
 		 */
 		spcom_notify_rx_abort(NULL, ch, NULL);
 
->>>>>>> AU_LINUX_ANDROID_LA.UM.0.0.07.01.01.197.552
 		/*
 		 * after glink_close(),
 		 * expecting notify GLINK_LOCAL_DISCONNECTED
