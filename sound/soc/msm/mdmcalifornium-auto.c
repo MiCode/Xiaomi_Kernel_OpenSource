@@ -1764,12 +1764,12 @@ static int dummy_machine_remove(struct platform_device *pdev)
 }
 
 static struct platform_device dummy_machine_device = {
-	.name = "dummymachinedriver",
+	.name = "dummymachinedriverauto",
 };
 
 static struct platform_driver mdm_asoc_machine_dummy_driver = {
 	.driver = {
-		.name = "dummymachinedriver",
+		.name = "dummymachinedriverauto",
 		.owner = THIS_MODULE,
 	},
 	.probe = dummy_machine_probe,
