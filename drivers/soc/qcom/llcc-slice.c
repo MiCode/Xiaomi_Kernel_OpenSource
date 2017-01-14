@@ -187,7 +187,7 @@ static int llcc_update_act_ctrl(struct llcc_drv_data *drv, u32 sid,
 	timeout = jiffies + usecs_to_jiffies(LLCC_STATUS_READ_DELAY);
 	while (time_before(jiffies, timeout)) {
 		regmap_read(drv->llcc_map, status_reg, &slice_status);
-		if (slice_status & status)
+		if (!(slice_status & status))
 			return 0;
 	}
 
@@ -228,7 +228,7 @@ int llcc_slice_activate(struct llcc_slice_desc *desc)
 	act_ctrl_val |= ACT_CTRL_ACT_TRIG;
 
 	rc = llcc_update_act_ctrl(drv, desc->llcc_slice_id, act_ctrl_val,
-				  ACTIVATE);
+				  DEACTIVATE);
 
 	__set_bit(desc->llcc_slice_id, drv->llcc_slice_map);
 	mutex_unlock(&drv->slice_mutex);
@@ -270,7 +270,7 @@ int llcc_slice_deactivate(struct llcc_slice_desc *desc)
 	act_ctrl_val |= ACT_CTRL_ACT_TRIG;
 
 	rc = llcc_update_act_ctrl(drv, desc->llcc_slice_id, act_ctrl_val,
-				  DEACTIVATE);
+				  ACTIVATE);
 
 	__clear_bit(desc->llcc_slice_id, drv->llcc_slice_map);
 	mutex_unlock(&drv->slice_mutex);
