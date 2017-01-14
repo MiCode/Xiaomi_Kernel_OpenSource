@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -82,7 +82,12 @@ struct spi_miso { /* TLV for MISO line */
 
 #define CMD_GET_FW_VERSION	0x81
 #define CMD_CAN_SEND_FRAME	0x82
+#define CMD_CAN_ADD_FILTER	0x83
+#define CMD_CAN_REMOVE_FILTER	0x84
 #define CMD_CAN_RECEIVE_FRAME	0x85
+
+#define IOCTL_ADD_FRAME_FILTER		(SIOCDEVPRIVATE + 2)
+#define IOCTL_REMOVE_FRAME_FILTER	(SIOCDEVPRIVATE + 3)
 
 struct can_fw_resp {
 	u8 maj;
@@ -106,6 +111,12 @@ struct can_receive_frame {
 	u32 mid;
 	u8 dlc;
 	u8 data[];
+} __packed;
+
+struct can_add_filter_req {
+	u8 can_if;
+	u32 mid;
+	u32 mask;
 } __packed;
 
 static struct can_bittiming_const k61_bittiming_const = {
@@ -398,6 +409,44 @@ static void k61_send_can_frame(struct work_struct *ws)
 	kfree(tx_work);
 }
 
+static int k61_frame_filter(struct net_device *netdev,
+			    struct ifreq *ifr, int cmd)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+	struct can_add_filter_req *filter_request;
+	struct k61_can *priv_data;
+	struct k61_netdev_privdata *netdev_priv_data;
+	uint32_t *filter_req;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->k61_can;
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	filter_request = ifr->ifr_data;
+	req = (struct spi_mosi *)tx_buf;
+	if (IOCTL_ADD_FRAME_FILTER == cmd)
+		req->cmd = CMD_CAN_ADD_FILTER;
+	else
+		req->cmd = CMD_CAN_REMOVE_FILTER;
+
+	req->len = sizeof(uint32_t);
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	filter_req = (uint32_t *)req->data;
+	*filter_req = filter_request->mid;
+
+	ret = k61_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+	return ret;
+}
+
 static netdev_tx_t k61_netdev_start_xmit(
 		struct sk_buff *skb, struct net_device *netdev)
 {
@@ -421,10 +470,31 @@ static netdev_tx_t k61_netdev_start_xmit(
 	return NETDEV_TX_OK;
 }
 
+static int k61_netdev_do_ioctl(struct net_device *netdev,
+			       struct ifreq *ifr, int cmd)
+{
+	struct k61_can *priv_data;
+	struct k61_netdev_privdata *netdev_priv_data;
+	int ret = -EINVAL;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->k61_can;
+	LOGDI("k61_netdev_do_ioctl %x\n", cmd);
+
+	switch (cmd) {
+	case IOCTL_ADD_FRAME_FILTER:
+	case IOCTL_REMOVE_FRAME_FILTER:
+		ret = k61_frame_filter(netdev, ifr, cmd);
+		break;
+	}
+	return ret;
+}
+
 static const struct net_device_ops k61_netdev_ops = {
 		.ndo_open = k61_netdev_open,
 		.ndo_stop = k61_netdev_close,
 		.ndo_start_xmit = k61_netdev_start_xmit,
+		.ndo_do_ioctl = k61_netdev_do_ioctl,
 };
 
 static int k61_create_netdev(struct spi_device *spi,
