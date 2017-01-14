@@ -371,7 +371,7 @@ static int pmic_arb_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	if (rc)
 		return rc;
 
-	if (!(mode & S_IRUSR)) {
+	if (!(mode & 0400)) {
 		dev_err(&pa->spmic->dev,
 			"error: impermissible read from peripheral sid:%d addr:0x%x\n",
 			sid, addr);
@@ -434,7 +434,7 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	if (rc)
 		return rc;
 
-	if (!(mode & S_IWUSR)) {
+	if (!(mode & 0200)) {
 		dev_err(&pa->spmic->dev,
 			"error: impermissible write to peripheral sid:%d addr:0x%x\n",
 			sid, addr);
@@ -838,7 +838,7 @@ pmic_arb_ppid_to_apid_v1(struct spmi_pmic_arb *pa, u8 sid, u16 addr, u16 *apid)
 static int
 pmic_arb_mode_v1_v3(struct spmi_pmic_arb *pa, u8 sid, u16 addr, mode_t *mode)
 {
-	*mode = S_IRUSR | S_IWUSR;
+	*mode = 0600;
 	return 0;
 }
 
@@ -998,10 +998,10 @@ pmic_arb_mode_v2(struct spmi_pmic_arb *pa, u8 sid, u16 addr, mode_t *mode)
 		return rc;
 
 	*mode = 0;
-	*mode |= S_IRUSR;
+	*mode |= 0400;
 
 	if (pa->ee == pa->apid_data[apid].write_owner)
-		*mode |= S_IWUSR;
+		*mode |= 0200;
 	return 0;
 }
 
