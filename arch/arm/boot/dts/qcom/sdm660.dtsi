@@ -2379,5 +2379,9 @@
 	};
 };
 
+&blsp2_uart1_hs {
+	status = "ok";
+};
+
 #include "sdm660-mdss.dtsi"
 #include "sdm660-mdss-pll.dtsi"
