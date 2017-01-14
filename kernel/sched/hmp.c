@@ -2284,7 +2284,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	bool new_task;
 	struct related_thread_group *grp;
 	int cpu = rq->cpu;
-	u32 old_curr_window;
+	u32 old_curr_window = p->ravg.curr_window;
 
 	new_window = mark_start < window_start;
 	if (new_window) {
@@ -2345,8 +2345,6 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	 * task or exiting tasks.
 	 */
 	if (!is_idle_task(p) && !exiting_task(p)) {
-		old_curr_window = p->ravg.curr_window;
-
 		if (new_window)
 			rollover_task_window(p, full_window);
 	}
