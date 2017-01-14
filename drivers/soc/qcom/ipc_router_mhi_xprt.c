@@ -132,12 +132,11 @@ struct ipc_router_mhi_xprt {
 struct ipc_router_mhi_xprt_work {
 	struct ipc_router_mhi_xprt *mhi_xprtp;
 	enum MHI_CLIENT_CHANNEL chan_id;
-	struct work_struct work;
 };
 
 static void mhi_xprt_read_data(struct work_struct *work);
-static void mhi_xprt_enable_event(struct work_struct *work);
-static void mhi_xprt_disable_event(struct work_struct *work);
+static void mhi_xprt_enable_event(struct ipc_router_mhi_xprt_work *xprt_work);
+static void mhi_xprt_disable_event(struct ipc_router_mhi_xprt_work *xprt_work);
 
 /**
  * ipc_router_mhi_xprt_config - Config. Info. of each MHI XPRT
@@ -574,8 +573,6 @@ static int ipc_router_mhi_close(struct msm_ipc_router_xprt *xprt)
 	mhi_xprtp->ch_hndl.in_chan_enabled = false;
 	mutex_unlock(&mhi_xprtp->ch_hndl.state_lock);
 	flush_workqueue(mhi_xprtp->wq);
-	mhi_close_channel(mhi_xprtp->ch_hndl.in_handle);
-	mhi_close_channel(mhi_xprtp->ch_hndl.out_handle);
 	return 0;
 }
 
@@ -600,10 +597,8 @@ static void mhi_xprt_sft_close_done(struct msm_ipc_router_xprt *xprt)
  *
  * This work is scheduled when the MHI link to the peripheral is up.
  */
-static void mhi_xprt_enable_event(struct work_struct *work)
+static void mhi_xprt_enable_event(struct ipc_router_mhi_xprt_work *xprt_work)
 {
-	struct ipc_router_mhi_xprt_work *xprt_work =
-		container_of(work, struct ipc_router_mhi_xprt_work, work);
 	struct ipc_router_mhi_xprt *mhi_xprtp = xprt_work->mhi_xprtp;
 	int rc;
 	bool notify = false;
@@ -613,7 +608,7 @@ static void mhi_xprt_enable_event(struct work_struct *work)
 		if (rc) {
 			IPC_RTR_ERR("%s Failed to open chan 0x%x, rc %d\n",
 				__func__, mhi_xprtp->ch_hndl.out_chan_id, rc);
-			goto out_enable_event;
+			return;
 		}
 		mutex_lock(&mhi_xprtp->ch_hndl.state_lock);
 		mhi_xprtp->ch_hndl.out_chan_enabled = true;
@@ -625,7 +620,7 @@ static void mhi_xprt_enable_event(struct work_struct *work)
 		if (rc) {
 			IPC_RTR_ERR("%s Failed to open chan 0x%x, rc %d\n",
 				__func__, mhi_xprtp->ch_hndl.in_chan_id, rc);
-			goto out_enable_event;
+			return;
 		}
 		mutex_lock(&mhi_xprtp->ch_hndl.state_lock);
 		mhi_xprtp->ch_hndl.in_chan_enabled = true;
@@ -643,11 +638,11 @@ static void mhi_xprt_enable_event(struct work_struct *work)
 	}
 
 	if (xprt_work->chan_id != mhi_xprtp->ch_hndl.in_chan_id)
-		goto out_enable_event;
+		return;
 
 	rc = mhi_xprt_queue_in_buffers(mhi_xprtp, mhi_xprtp->ch_hndl.num_trbs);
 	if (rc > 0)
-		goto out_enable_event;
+		return;
 
 	IPC_RTR_ERR("%s: Could not queue one TRB atleast\n", __func__);
 	mutex_lock(&mhi_xprtp->ch_hndl.state_lock);
@@ -656,9 +651,6 @@ static void mhi_xprt_enable_event(struct work_struct *work)
 	if (notify)
 		msm_ipc_router_xprt_notify(&mhi_xprtp->xprt,
 				   IPC_ROUTER_XPRT_EVENT_CLOSE, NULL);
-	mhi_close_channel(mhi_xprtp->ch_hndl.in_handle);
-out_enable_event:
-	kfree(xprt_work);
 }
 
 /**
@@ -667,10 +659,8 @@ out_enable_event:
  *
  * This work is scheduled when the MHI link to the peripheral is down.
  */
-static void mhi_xprt_disable_event(struct work_struct *work)
+static void mhi_xprt_disable_event(struct ipc_router_mhi_xprt_work *xprt_work)
 {
-	struct ipc_router_mhi_xprt_work *xprt_work =
-		container_of(work, struct ipc_router_mhi_xprt_work, work);
 	struct ipc_router_mhi_xprt *mhi_xprtp = xprt_work->mhi_xprtp;
 	bool notify = false;
 
@@ -681,7 +671,6 @@ static void mhi_xprt_disable_event(struct work_struct *work)
 		mhi_xprtp->ch_hndl.out_chan_enabled = false;
 		mutex_unlock(&mhi_xprtp->ch_hndl.state_lock);
 		wake_up(&mhi_xprtp->write_wait_q);
-		mhi_close_channel(mhi_xprtp->ch_hndl.out_handle);
 	} else if (xprt_work->chan_id == mhi_xprtp->ch_hndl.in_chan_id) {
 		mutex_lock(&mhi_xprtp->ch_hndl.state_lock);
 		notify = mhi_xprtp->ch_hndl.out_chan_enabled &&
@@ -691,7 +680,6 @@ static void mhi_xprt_disable_event(struct work_struct *work)
 		/* Queue a read work to remove any partially read packets */
 		queue_work(mhi_xprtp->wq, &mhi_xprtp->read_work);
 		flush_workqueue(mhi_xprtp->wq);
-		mhi_close_channel(mhi_xprtp->ch_hndl.in_handle);
 	}
 
 	if (notify) {
@@ -702,7 +690,6 @@ static void mhi_xprt_disable_event(struct work_struct *work)
 		  __func__, mhi_xprtp->xprt.name);
 		wait_for_completion(&mhi_xprtp->sft_close_complete);
 	}
-	kfree(xprt_work);
 }
 
 /**
@@ -743,7 +730,7 @@ static void mhi_xprt_xfer_event(struct mhi_cb_info *cb_info)
 static void ipc_router_mhi_xprt_cb(struct mhi_cb_info *cb_info)
 {
 	struct ipc_router_mhi_xprt *mhi_xprtp;
-	struct ipc_router_mhi_xprt_work *xprt_work;
+	struct ipc_router_mhi_xprt_work xprt_work;
 
 	if (cb_info->result == NULL) {
 		IPC_RTR_ERR("%s: Result not available in cb_info\n", __func__);
@@ -751,30 +738,19 @@ static void ipc_router_mhi_xprt_cb(struct mhi_cb_info *cb_info)
 	}
 
 	mhi_xprtp = (struct ipc_router_mhi_xprt *)(cb_info->result->user_data);
+	xprt_work.mhi_xprtp = mhi_xprtp;
+	xprt_work.chan_id = cb_info->chan;
 	switch (cb_info->cb_reason) {
-	case MHI_CB_MHI_ENABLED:
 	case MHI_CB_MHI_SHUTDOWN:
 	case MHI_CB_SYS_ERROR:
-		xprt_work = kmalloc(sizeof(*xprt_work), GFP_KERNEL);
-		if (!xprt_work) {
-			IPC_RTR_ERR("%s: Couldn't handle %d event on %s\n",
-				__func__, cb_info->cb_reason,
-				mhi_xprtp->xprt_name);
-			return;
-		}
-		xprt_work->mhi_xprtp = mhi_xprtp;
-		xprt_work->chan_id = cb_info->chan;
-		if (cb_info->cb_reason == MHI_CB_MHI_ENABLED)
-			INIT_WORK(&xprt_work->work, mhi_xprt_enable_event);
-		else
-			INIT_WORK(&xprt_work->work, mhi_xprt_disable_event);
-		queue_work(mhi_xprtp->wq, &xprt_work->work);
+	case MHI_CB_MHI_DISABLED:
+		mhi_xprt_disable_event(&xprt_work);
+		break;
+	case MHI_CB_MHI_ENABLED:
+		mhi_xprt_enable_event(&xprt_work);
 		break;
 	case MHI_CB_XFER:
 		mhi_xprt_xfer_event(cb_info);
-		break;
-	case MHI_CB_MHI_DISABLED:
-		D("%s: Recv DISABLED cb on chan %d\n", __func__, cb_info->chan);
 		break;
 	default:
 		IPC_RTR_ERR("%s: Invalid cb reason %x\n",
