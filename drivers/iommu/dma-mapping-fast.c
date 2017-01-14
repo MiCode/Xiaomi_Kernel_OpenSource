@@ -25,6 +25,36 @@
 #define FAST_PAGE_MASK (~(PAGE_SIZE - 1))
 #define FAST_PTE_ADDR_MASK		((av8l_fast_iopte)0xfffffffff000)
 
+static pgprot_t __get_dma_pgprot(struct dma_attrs *attrs, pgprot_t prot,
+				 bool coherent)
+{
+	if (dma_get_attr(DMA_ATTR_STRONGLY_ORDERED, attrs))
+		return pgprot_noncached(prot);
+	else if (!coherent || dma_get_attr(DMA_ATTR_WRITE_COMBINE, attrs))
+		return pgprot_writecombine(prot);
+	return prot;
+}
+
+static int __get_iommu_pgprot(struct dma_attrs *attrs, int prot,
+			      bool coherent)
+{
+	if (!dma_get_attr(DMA_ATTR_EXEC_MAPPING, attrs))
+		prot |= IOMMU_NOEXEC;
+	if (dma_get_attr(DMA_ATTR_STRONGLY_ORDERED, attrs))
+		prot |= IOMMU_DEVICE;
+	if (coherent)
+		prot |= IOMMU_CACHE;
+
+	return prot;
+}
+
+static void fast_dmac_clean_range(struct dma_fast_smmu_mapping *mapping,
+				  void *start, void *end)
+{
+	if (!mapping->is_smmu_pt_coherent)
+		dmac_clean_range(start, end);
+}
+
 /*
  * Checks if the allocated range (ending at @end) covered the upcoming
  * stale bit.  We don't need to know exactly where the range starts since
@@ -282,11 +312,11 @@ static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 	int nptes = len >> FAST_PAGE_SHIFT;
 	bool skip_sync = dma_get_attr(DMA_ATTR_SKIP_CPU_SYNC, attrs);
 	int prot = __fast_dma_direction_to_prot(dir);
+	bool is_coherent = is_device_dma_coherent(dev);
 
-	if (dma_get_attr(DMA_ATTR_STRONGLY_ORDERED, attrs))
-		prot |= IOMMU_DEVICE;
+	prot = __get_iommu_pgprot(attrs, prot, is_coherent);
 
-	if (!skip_sync)
+	if (!skip_sync && !is_coherent)
 		__fast_dma_page_cpu_to_dev(phys_to_page(phys_to_map),
 					   offset_from_phys_to_map, size, dir);
 
@@ -302,8 +332,7 @@ static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 	if (unlikely(av8l_fast_map_public(pmd, phys_to_map, len, prot)))
 		goto fail_free_iova;
 
-	if (!skip_sync)		/* TODO: should ask SMMU if coherent */
-		dmac_clean_range(pmd, pmd + nptes);
+	fast_dmac_clean_range(mapping, pmd, pmd + nptes);
 
 	spin_unlock_irqrestore(&mapping->lock, flags);
 	return iova + offset_from_phys_to_map;
@@ -327,14 +356,14 @@ static void fast_smmu_unmap_page(struct device *dev, dma_addr_t iova,
 	int nptes = len >> FAST_PAGE_SHIFT;
 	struct page *page = phys_to_page((*pmd & FAST_PTE_ADDR_MASK));
 	bool skip_sync = dma_get_attr(DMA_ATTR_SKIP_CPU_SYNC, attrs);
+	bool is_coherent = is_device_dma_coherent(dev);
 
-	if (!skip_sync)
+	if (!skip_sync && !is_coherent)
 		__fast_dma_page_dev_to_cpu(page, offset, size, dir);
 
 	spin_lock_irqsave(&mapping->lock, flags);
 	av8l_fast_unmap_public(pmd, len);
-	if (!skip_sync)		/* TODO: should ask SMMU if coherent */
-		dmac_clean_range(pmd, pmd + nptes);
+	fast_dmac_clean_range(mapping, pmd, pmd + nptes);
 	__fast_smmu_free_iova(mapping, iova, len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 }
@@ -437,8 +466,11 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	struct sg_mapping_iter miter;
 	unsigned int count = ALIGN(size, SZ_4K) >> PAGE_SHIFT;
 	int prot = IOMMU_READ | IOMMU_WRITE; /* TODO: extract from attrs */
-	pgprot_t remap_prot = pgprot_writecombine(PAGE_KERNEL);
+	bool is_coherent = is_device_dma_coherent(dev);
+	pgprot_t remap_prot = __get_dma_pgprot(attrs, PAGE_KERNEL, is_coherent);
 	struct page **pages;
+
+	prot = __get_iommu_pgprot(attrs, prot, is_coherent);
 
 	*handle = DMA_ERROR_CODE;
 
@@ -454,7 +486,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 		goto out_free_pages;
 	}
 
-	if (!(prot & IOMMU_CACHE)) {
+	if (!is_coherent) {
 		/*
 		 * The CPU-centric flushing implied by SG_MITER_TO_SG isn't
 		 * sufficient here, so skip it by using the "wrong" direction.
@@ -488,7 +520,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 			/* TODO: unwind previously successful mappings */
 			goto out_free_iova;
 		}
-		dmac_clean_range(ptep, ptep + nptes);
+		fast_dmac_clean_range(mapping, ptep, ptep + nptes);
 		iova_iter += miter.length;
 	}
 	sg_miter_stop(&miter);
@@ -510,7 +542,7 @@ out_unmap:
 	spin_lock_irqsave(&mapping->lock, flags);
 	ptep = iopte_pmd_offset(mapping->pgtbl_pmds, dma_addr);
 	av8l_fast_unmap_public(ptep, size);
-	dmac_clean_range(ptep, ptep + count);
+	fast_dmac_clean_range(mapping, ptep, ptep + count);
 out_free_iova:
 	__fast_smmu_free_iova(mapping, dma_addr, size);
 	spin_unlock_irqrestore(&mapping->lock, flags);
@@ -543,7 +575,7 @@ static void fast_smmu_free(struct device *dev, size_t size,
 	ptep = iopte_pmd_offset(mapping->pgtbl_pmds, dma_handle);
 	spin_lock_irqsave(&mapping->lock, flags);
 	av8l_fast_unmap_public(ptep, size);
-	dmac_clean_range(ptep, ptep + count);
+	fast_dmac_clean_range(mapping, ptep, ptep + count);
 	__fast_smmu_free_iova(mapping, dma_handle, size);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 	__fast_smmu_free_pages(pages, count);
@@ -557,9 +589,10 @@ static int fast_smmu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 	unsigned long uaddr = vma->vm_start;
 	struct page **pages;
 	int i, nr_pages, ret = 0;
+	bool coherent = is_device_dma_coherent(dev);
 
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-
+	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot,
+					     coherent);
 	area = find_vm_area(cpu_addr);
 	if (!area)
 		return -EINVAL;
@@ -717,6 +750,10 @@ int fast_smmu_attach_device(struct device *dev,
 		return -EINVAL;
 	}
 	mapping->fast->pgtbl_pmds = info.pmds;
+
+	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT,
+				  &mapping->fast->is_smmu_pt_coherent))
+		return -EINVAL;
 
 	mapping->fast->notifier.notifier_call = fast_smmu_notify;
 	av8l_register_notify(&mapping->fast->notifier);
