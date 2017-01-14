@@ -43,6 +43,7 @@ msm-y := \
 	sde/sde_encoder_phys_vid.o \
 	sde/sde_encoder_phys_cmd.o \
 	sde/sde_irq.o \
+	sde/sde_kms_utils.o \
 	sde/sde_kms.o \
 	sde/sde_plane.o \
 	msm_atomic.o \
