@@ -1314,10 +1314,13 @@ static inline struct clk *mdss_mdp_get_clk(u32 clk_idx)
 static inline void mdss_update_sd_client(struct mdss_data_type *mdata,
 							bool status)
 {
-	if (status)
+	if (status) {
 		atomic_inc(&mdata->sd_client_count);
-	else
+	} else {
 		atomic_add_unless(&mdss_res->sd_client_count, -1, 0);
+		if (!atomic_read(&mdss_res->sd_client_count))
+			wake_up_all(&mdata->secure_waitq);
+	}
 }
 
 static inline void mdss_update_sc_client(struct mdss_data_type *mdata,

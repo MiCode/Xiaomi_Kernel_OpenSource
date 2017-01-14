@@ -22,6 +22,7 @@
 #include <linux/irqreturn.h>
 #include <linux/irqdomain.h>
 #include <linux/mdss_io_util.h>
+#include <linux/mdss_smmu_ext.h>
 
 #include <linux/msm-bus.h>
 #include <linux/file.h>
@@ -216,14 +217,14 @@ struct reg_bus_client {
 };
 
 struct mdss_smmu_client {
-	struct device *dev;
+	struct mdss_smmu_intf base;
 	struct dma_iommu_mapping *mmu_mapping;
 	struct dss_module_power mp;
 	struct reg_bus_client *reg_bus_clt;
 	bool domain_attached;
 	bool handoff_pending;
 	void __iomem *mmu_base;
-	int domain;
+	struct list_head _client;
 };
 
 struct mdss_mdp_qseed3_lut_tbl {
@@ -531,6 +532,8 @@ struct mdss_data_type {
 	struct mdss_mdp_destination_scaler *ds;
 	u32 sec_disp_en;
 	u32 sec_cam_en;
+	u32 sec_session_cnt;
+	wait_queue_head_t secure_waitq;
 };
 
 extern struct mdss_data_type *mdss_res;
@@ -573,6 +576,7 @@ struct mdss_util_intf {
 	int (*iommu_ctrl)(int enable);
 	void (*iommu_lock)(void);
 	void (*iommu_unlock)(void);
+	int (*secure_session_ctrl)(int enable);
 	void (*bus_bandwidth_ctrl)(int enable);
 	int (*bus_scale_set_quota)(int client, u64 ab_quota, u64 ib_quota);
 	int (*panel_intf_status)(u32 disp_num, u32 intf_type);

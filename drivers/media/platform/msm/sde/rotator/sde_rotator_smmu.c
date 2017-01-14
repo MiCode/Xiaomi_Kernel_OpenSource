@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,15 @@ struct sde_smmu_domain {
 	unsigned long start;
 	unsigned long size;
 };
+
+int sde_smmu_set_dma_direction(int dir)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+
+	return ((mdata->mdss_version == MDSS_MDP_HW_REV_320) ||
+	(mdata->mdss_version == MDSS_MDP_HW_REV_330)) ?
+		DMA_BIDIRECTIONAL : dir;
+}
 
 static inline bool sde_smmu_is_valid_domain_type(
 		struct sde_rot_data_type *mdata, int domain_type)
@@ -335,8 +344,8 @@ int sde_smmu_map_dma_buf(struct dma_buf *dma_buf,
 		return -EINVAL;
 	}
 
-	rc = msm_dma_map_sg_lazy(sde_smmu->dev, table->sgl, table->nents, dir,
-		dma_buf);
+	rc = msm_dma_map_sg_lazy(sde_smmu->dev, table->sgl, table->nents,
+		sde_smmu_set_dma_direction(dir), dma_buf);
 	if (rc != table->nents) {
 		SDEROT_ERR("dma map sg failed\n");
 		return -ENOMEM;
@@ -357,13 +366,46 @@ void sde_smmu_unmap_dma_buf(struct sg_table *table, int domain,
 		return;
 	}
 
-	msm_dma_unmap_sg(sde_smmu->dev, table->sgl, table->nents, dir,
-		 dma_buf);
+	msm_dma_unmap_sg(sde_smmu->dev, table->sgl, table->nents,
+		sde_smmu_set_dma_direction(dir), dma_buf);
 }
 
 static DEFINE_MUTEX(sde_smmu_ref_cnt_lock);
 
+static void sde_smmu_callback(struct mdss_smmu_intf *smmu)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+
+	if (!smmu)
+		return;
+
+	/* Copy mmu device info into sde private structure */
+	mdata->iommu_ctrl = smmu->iommu_ctrl;
+	mdata->wait_for_transition = smmu->wait_for_transition;
+	mdata->secure_session_ctrl = smmu->secure_session_ctrl;
+	if (smmu->is_secure) {
+		mdata->sde_smmu[SDE_IOMMU_DOMAIN_ROT_SECURE].dev = smmu->dev;
+		mdata->sde_smmu[SDE_IOMMU_DOMAIN_ROT_SECURE].domain =
+			SDE_IOMMU_DOMAIN_ROT_SECURE;
+	} else {
+		mdata->sde_smmu[SDE_IOMMU_DOMAIN_ROT_UNSECURE].dev = smmu->dev;
+		mdata->sde_smmu[SDE_IOMMU_DOMAIN_ROT_UNSECURE].domain =
+			SDE_IOMMU_DOMAIN_ROT_UNSECURE;
+	}
+
+	SDEROT_INFO("sde_smmu_callback registered domain: %d\n",
+		    smmu->is_secure);
+}
+
 int sde_smmu_ctrl(int enable)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+
+	return ((mdata->iommu_ctrl) ?
+		mdata->iommu_ctrl(enable) : -EINVAL);
+}
+
+static int _sde_smmu_ctrl(int enable)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	int rc = 0;
@@ -442,13 +484,24 @@ int sde_smmu_secure_ctrl(int enable)
 void sde_smmu_device_create(struct device *dev)
 {
 	struct device_node *parent, *child;
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	bool child_rot_sec = false;
+	bool child_rot_nsec = false;
 
 	parent = dev->of_node;
 	for_each_child_of_node(parent, child) {
-		if (of_device_is_compatible(child, SMMU_SDE_ROT_SEC))
+		if (of_device_is_compatible(child, SMMU_SDE_ROT_SEC)) {
 			of_platform_device_create(child, NULL, dev);
-		else if (of_device_is_compatible(child, SMMU_SDE_ROT_UNSEC))
+			child_rot_sec = true;
+		} else if (of_device_is_compatible(child, SMMU_SDE_ROT_UNSEC)) {
 			of_platform_device_create(child, NULL, dev);
+			child_rot_nsec = true;
+		}
+	}
+
+	if (!child_rot_sec || !child_rot_nsec) {
+		mdss_smmu_request_mappings(sde_smmu_callback);
+		mdata->callback_request = true;
 	}
 }
 
@@ -616,6 +669,8 @@ int sde_smmu_probe(struct platform_device *pdev)
 	sde_smmu_enable_power(sde_smmu, false);
 
 	sde_smmu->dev = dev;
+	mdata->iommu_ctrl = _sde_smmu_ctrl;
+
 	SDEROT_INFO(
 		"iommu v2 domain[%d] mapping and clk register successful!\n",
 			smmu_domain.domain);
