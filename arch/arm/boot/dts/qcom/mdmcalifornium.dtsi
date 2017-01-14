@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -605,6 +605,16 @@
 			qcom,mhi-ep-msi = <0>;
 			qcom,mhi-version = <0x1000000>;
 			qcom,mhi-use-gsi;
+	};
+
+	blsp1_uart1: serial@78af000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x78af000 0x200>;
+		interrupts = <0 107 0>;
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+		status = "disabled";
 	};
 
 	blsp1_uart2: serial@78b0000 {
