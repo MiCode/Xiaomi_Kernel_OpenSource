@@ -367,15 +367,16 @@ int cnss_wlan_enable(struct device *dev,
 		req.svc_cfg[i].pipe_num = config->ce_svc_cfg[i].pipe_num;
 	}
 
-	req.shadow_reg_valid = 1;
-	if (config->num_shadow_reg_cfg >
-	    QMI_WLFW_MAX_NUM_SHADOW_REG_V01)
-		req.shadow_reg_len = QMI_WLFW_MAX_NUM_SHADOW_REG_V01;
+	req.shadow_reg_v2_valid = 1;
+	if (config->num_shadow_reg_v2_cfg >
+	    QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01)
+		req.shadow_reg_v2_len = QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01;
 	else
-		req.shadow_reg_len = config->num_shadow_reg_cfg;
+		req.shadow_reg_v2_len = config->num_shadow_reg_v2_cfg;
 
-	memcpy(req.shadow_reg, config->shadow_reg_cfg,
-	       sizeof(struct wlfw_shadow_reg_cfg_s_v01) * req.shadow_reg_len);
+	memcpy(req.shadow_reg_v2, config->shadow_reg_v2_cfg,
+	       sizeof(struct wlfw_shadow_reg_v2_cfg_s_v01)
+	       * req.shadow_reg_v2_len);
 
 	ret = cnss_wlfw_wlan_cfg_send_sync(plat_priv, &req);
 	if (ret)
