@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -343,8 +343,14 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			}
 
 			if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
-				rc = gpio_direction_output(
-					ctrl_pdata->bklt_en_gpio, 1);
+
+				if (ctrl_pdata->bklt_en_gpio_invert)
+					rc = gpio_direction_output(
+						ctrl_pdata->bklt_en_gpio, 0);
+				else
+					rc = gpio_direction_output(
+						ctrl_pdata->bklt_en_gpio, 1);
+
 				if (rc) {
 					pr_err("%s: unable to set dir for bklt gpio\n",
 						__func__);
@@ -380,7 +386,12 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 		}
 	} else {
 		if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
-			gpio_set_value((ctrl_pdata->bklt_en_gpio), 0);
+
+			if (ctrl_pdata->bklt_en_gpio_invert)
+				gpio_set_value((ctrl_pdata->bklt_en_gpio), 1);
+			else
+				gpio_set_value((ctrl_pdata->bklt_en_gpio), 0);
+
 			gpio_free(ctrl_pdata->bklt_en_gpio);
 		}
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
