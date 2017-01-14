@@ -125,7 +125,7 @@ DECLARE_EVENT_CLASS(dwc3_log_request,
 		__entry->length = req->request.length;
 		__entry->status = req->request.status;
 	),
-	TP_printk("%s: req %p length %u/%u ==> %d",
+	TP_printk("%s: req %pK length %u/%u ==> %d",
 		__get_str(name), __entry->req, __entry->actual, __entry->length,
 		__entry->status
 	)
@@ -228,7 +228,7 @@ DECLARE_EVENT_CLASS(dwc3_log_trb,
 		__entry->size = trb->size;
 		__entry->ctrl = trb->ctrl;
 	),
-	TP_printk("%s: trb %p bph %08x bpl %08x size %08x ctrl %08x",
+	TP_printk("%s: trb %pK bph %08x bpl %08x size %08x ctrl %08x",
 		__get_str(name), __entry->trb, __entry->bph, __entry->bpl,
 		__entry->size, __entry->ctrl
 	)

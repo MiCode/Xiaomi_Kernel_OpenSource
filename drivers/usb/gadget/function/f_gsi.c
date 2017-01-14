@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -883,7 +883,7 @@ static int gsi_ctrl_dev_open(struct inode *ip, struct file *fp)
 						ctrl_device);
 
 	if (!c_port) {
-		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
+		log_event_err("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -906,7 +906,7 @@ static int gsi_ctrl_dev_release(struct inode *ip, struct file *fp)
 						ctrl_device);
 
 	if (!c_port) {
-		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
+		log_event_err("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -931,7 +931,7 @@ gsi_ctrl_dev_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 	log_event_dbg("%s: Enter %zu", __func__, count);
 
 	if (!c_port) {
-		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
+		log_event_err("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -1003,7 +1003,7 @@ static ssize_t gsi_ctrl_dev_write(struct file *fp, const char __user *buf,
 	log_event_dbg("Enter %zu", count);
 
 	if (!c_port || !req || !req->buf) {
-		log_event_err("%s: c_port %p req %p req->buf %p",
+		log_event_err("%s: c_port %pK req %pK req->buf %pK",
 			__func__, c_port, req, req ? req->buf : req);
 		return -ENODEV;
 	}
@@ -1063,7 +1063,7 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned cmd,
 	int val, ret = 0;
 
 	if (!c_port) {
-		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
+		log_event_err("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -1180,7 +1180,7 @@ static unsigned int gsi_ctrl_dev_poll(struct file *fp, poll_table *wait)
 	unsigned int mask = 0;
 
 	if (!c_port) {
-		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
+		log_event_err("%s: gsi ctrl port %pK", __func__, c_port);
 		return -ENODEV;
 	}
 
@@ -1297,7 +1297,7 @@ static void gsi_rndis_ipa_reset_trigger(struct f_gsi *rndis)
 	unsigned long flags;
 
 	if (!rndis) {
-		log_event_err("%s: gsi prot ctx is %p", __func__, rndis);
+		log_event_err("%s: gsi prot ctx is %pK", __func__, rndis);
 		return;
 	}
 
@@ -1318,7 +1318,7 @@ void gsi_rndis_flow_ctrl_enable(bool enable, struct rndis_params *param)
 	struct gsi_data_port *d_port;
 
 	if (!rndis) {
-		log_event_err("%s: gsi prot ctx is %p", __func__, rndis);
+		log_event_err("%s: gsi prot ctx is %pK", __func__, rndis);
 		return;
 	}
 
@@ -1522,7 +1522,7 @@ gsi_ctrl_set_ntb_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 	struct f_gsi *gsi = req->context;
 	struct gsi_ntb_info *ntb = NULL;
 
-	log_event_dbg("dev:%p", gsi);
+	log_event_dbg("dev:%pK", gsi);
 
 	req->context = NULL;
 	if (req->status || req->actual != req->length) {
@@ -2457,7 +2457,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		/* export host's Ethernet address in CDC format */
 		random_ether_addr(gsi->d_port.ipa_init_params.device_ethaddr);
 		random_ether_addr(gsi->d_port.ipa_init_params.host_ethaddr);
-		log_event_dbg("setting host_ethaddr=%pM, device_ethaddr = %pM",
+		log_event_dbg("setting host_ethaddr=%pKM, device_ethaddr = %pKM",
 		gsi->d_port.ipa_init_params.host_ethaddr,
 		gsi->d_port.ipa_init_params.device_ethaddr);
 		memcpy(gsi->ethaddr, &gsi->d_port.ipa_init_params.host_ethaddr,
@@ -2589,7 +2589,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		/* export host's Ethernet address in CDC format */
 		random_ether_addr(gsi->d_port.ipa_init_params.device_ethaddr);
 		random_ether_addr(gsi->d_port.ipa_init_params.host_ethaddr);
-		log_event_dbg("setting host_ethaddr=%pM, device_ethaddr = %pM",
+		log_event_dbg("setting host_ethaddr=%pKM, device_ethaddr = %pKM",
 		gsi->d_port.ipa_init_params.host_ethaddr,
 		gsi->d_port.ipa_init_params.device_ethaddr);
 
