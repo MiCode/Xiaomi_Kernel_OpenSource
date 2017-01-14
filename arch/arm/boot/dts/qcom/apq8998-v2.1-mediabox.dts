@@ -21,10 +21,6 @@
 	qcom,board-id = <8 1>;
 };
 
-&pil_modem {
-	status = "disabled";
-};
-
 &msm_ath10k_wlan {
 	status = "ok";
 };
