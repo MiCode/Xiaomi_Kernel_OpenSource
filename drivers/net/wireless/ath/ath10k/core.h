@@ -24,6 +24,7 @@
 #include <linux/pci.h>
 #include <linux/uuid.h>
 #include <linux/time.h>
+#include <soc/qcom/socinfo.h>
 
 #include "htt.h"
 #include "htc.h"
@@ -708,6 +709,7 @@ struct ath10k {
 	struct ieee80211_ops *ops;
 	struct device *dev;
 	u8 mac_addr[ETH_ALEN];
+	u8 base_mac_addr[ETH_ALEN];
 
 	enum ath10k_hw_rev hw_rev;
 	u16 dev_id;
