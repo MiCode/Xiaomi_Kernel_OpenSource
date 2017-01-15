@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -474,29 +474,7 @@ static int clk_rcg2_enable(struct clk_hw *hw)
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 
 	if (rcg->flags & FORCE_ENABLE_RCGR) {
-		if (!rcg->current_freq)
-			rcg->current_freq = cxo_f.freq;
-
-		if (rcg->current_freq == cxo_f.freq)
-			rcg->curr_index = 0;
-		else {
-			f = qcom_find_freq(rcg->freq_tbl, rcg->current_freq);
-			rcg->curr_index = qcom_find_src_index(hw,
-						rcg->parent_map, f->src);
-		}
-
-		ret = clk_enable_disable_prepare_unprepare(hw, rcg->curr_index,
-					rcg->new_index, true);
-		if (ret) {
-			pr_err("Failed to prepare_enable new and current sources\n");
-			return ret;
-		}
-
 		clk_rcg_set_force_enable(hw);
-
-		clk_enable_disable_prepare_unprepare(hw, rcg->curr_index,
-					rcg->new_index, false);
-
 		return ret;
 	}
 
@@ -563,8 +541,17 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 	int ret = 0;
 
 	/* Current frequency */
-	if (rcg->flags & FORCE_ENABLE_RCGR)
+	if (rcg->flags & FORCE_ENABLE_RCGR) {
 		rcg->current_freq = clk_get_rate(hw->clk);
+		if (rcg->current_freq == cxo_f.freq)
+			rcg->curr_index = 0;
+		else {
+			f = qcom_find_freq(rcg->freq_tbl, rcg->current_freq);
+			rcg->curr_index = qcom_find_src_index(hw,
+						rcg->parent_map, f->src);
+
+		}
+	}
 
 	/*
 	 * Return if the RCG is currently disabled. This configuration update
@@ -583,6 +570,13 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 	if (rcg->flags & FORCE_ENABLE_RCGR) {
 		rcg->new_index = qcom_find_src_index(hw,
 					rcg->parent_map, f->src);
+		ret = clk_enable_disable_prepare_unprepare(hw, rcg->curr_index,
+					rcg->new_index, true);
+		if (ret) {
+			pr_err("Failed to prepare_enable new & current src\n");
+			return ret;
+		}
+
 		ret = clk_rcg2_enable(hw);
 		if (ret) {
 			pr_err("Failed to enable rcg\n");
@@ -594,8 +588,11 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 	if (ret)
 		return ret;
 
-	if (rcg->flags & FORCE_ENABLE_RCGR)
+	if (rcg->flags & FORCE_ENABLE_RCGR) {
 		clk_rcg2_disable(hw);
+		clk_enable_disable_prepare_unprepare(hw, rcg->curr_index,
+					rcg->new_index, false);
+	}
 
 	return ret;
 }
