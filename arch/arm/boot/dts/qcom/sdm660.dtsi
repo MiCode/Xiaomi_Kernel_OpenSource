@@ -1967,7 +1967,7 @@
 		reg = <0x1de0000 0x20000>,
 			<0x1dc4000 0x24000>;
 		reg-names = "crypto-base","crypto-bam-base";
-		interrupts = <0 207 0>;
+		interrupts = <0 206 0>;
 		qcom,bam-pipe-pair = <1>;
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
@@ -1993,7 +1993,7 @@
 		reg = <0x1de0000 0x20000>,
 			 <0x1dc4000 0x24000>;
 		reg-names = "crypto-base","crypto-bam-base";
-		interrupts = <0 207 0>;
+		interrupts = <0 206 0>;
 		qcom,bam-pipe-pair = <2>;
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
@@ -2029,9 +2029,9 @@
 		hyplog-size-offset = <0x414>;
 	};
 
-	qcom_rng: qrng@794000 {
+	qcom_rng: qrng@793000 {
 		compatible = "qcom,msm-rng";
-		reg = <0x794000 0x1000>;
+		reg = <0x793000 0x1000>;
 		qcom,msm-rng-iface-clk;
 		qcom,no-qrng-config;
 		qcom,msm-bus,name = "msm-rng-noc";
