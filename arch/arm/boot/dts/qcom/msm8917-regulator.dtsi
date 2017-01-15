@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -372,7 +372,8 @@
 		qcom,override-acc-fuse-sel = <71 17 3 0>;
 		qcom,override-fuse-version-map = <1>,
 						 <2>,
-						 <3>;
+						 <3>,
+						 <4>;
 		qcom,override-corner1-addr-val-map =
 			/* 1st fuse version tuple matched */
 			/* SVS+ => SVS+ */
@@ -405,6 +406,17 @@
 			<(-1) (-1)>,
 			/* SVS+ => TURBO/NOM+ */
 			<  3 0x1041041>, <  4  0x1041>, <  3 0x0>,
+			<  4  0x0>,
+
+			/* 4th fuse version tuple matched */
+			/* SVS+ => SVS+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => NOM */
+			<  3 0x1041043>, <  4  0x1041>, <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => TURBO/NOM+ */
+			<  3 0x1041041>, <  4  0x1041>, <  3 0x1>,
 			<  4  0x0>;
 
 		qcom,override-corner2-addr-val-map =
@@ -430,7 +442,15 @@
 			/* NOM => NOM */
 			<(-1) (-1)>,     <(-1) (-1)>,
 			/* NOM => TURBO/NOM+ */
-			<  3 0x0>,       <  4  0x0>;
+			<  3 0x0>,       <  4  0x0>,
+
+			/* 4th fuse version tuple matched */
+			/* NOM => SVS+ */
+			<  3 0x30c30c3>, <  4  0x30c3>,
+			/* NOM => NOM */
+			<(-1) (-1)>,     <(-1) (-1)>,
+			/* NOM => TURBO/NOM+ */
+			<  3 0x1>,       <  4  0x0>;
 
 		qcom,override-corner3-addr-val-map =
 			/* 1st fuse version tuple matched */
@@ -458,6 +478,17 @@
 			/* 3rd fuse version tuple matched */
 			/* TURBO/NOM+ => SVS+ */
 			<  3 0x1041041>, <  4  0x1041>,	<  3 0x30c30c3>,
+			<  4  0x30c3>,
+			/* TURBO/NOM+ => NOM */
+			<  3 0x1041043>, <  4  0x1041>, <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* TURBO/NOM+ => TURBO/NOM+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+
+			/* 4th fuse version tuple matched */
+			/* TURBO/NOM+ => SVS+ */
+			<  3 0x1041041>, <  4  0x1041>, <  3 0x30c30c3>,
 			<  4  0x30c3>,
 			/* TURBO/NOM+ => NOM */
 			<  3 0x1041043>, <  4  0x1041>, <(-1) (-1)>,
