@@ -1607,9 +1607,14 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 			(timing.refresh_rate % 100) / 10,
 			timing.refresh_rate % 10);
 
-		rc = hdmi_get_video_id_code(&timing, NULL);
-		if (rc < 0)
-			rc = hdmi_set_resv_timing_info(&timing);
+		/*
+		 * Always add resolutions parsed from DTD in the reserved
+		 * timing info. This can avoid matching resolutions that have
+		 * a non-integral fps denominators with corresponding
+		 * resolutions that have an integral fps denominator.
+		 * For example - 640x480p@59.94Hz --> 640x480p@60Hz
+		 */
+		rc = hdmi_set_resv_timing_info(&timing);
 	} else {
 		rc = -EINVAL;
 	}
