@@ -356,7 +356,7 @@
 		qca,bt-vdd-pa-supply = <&pm660_l6_pin_ctrl>;
 		qca,bt-vdd-ldo-supply = <&pm660_l19_pin_ctrl>;
 		qca,bt-chip-pwd-supply = <&pm660l_bob_pin1>;
-		clocks = <&clock_rpmcc RPM_RF_CLK1>;
+		clocks = <&clock_rpmcc RPM_RF_CLK1_PIN>;
 		clock-names = "rf_clk1";
 
 		qca,bt-vdd-core-voltage-level = <1800000 1900000>;
