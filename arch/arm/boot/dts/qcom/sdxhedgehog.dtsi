@@ -188,5 +188,11 @@
 		qcom,master-en = <1>;    /* Enable GPIO */
 	};
 };
+
+&mss {
+	/delete-property/qcom,qdsp6v61-1-1;
+	qcom,qdsp6v62-1-4;
+};
+
 #include "sdxhedgehog-usb.dtsi"
 
