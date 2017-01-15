@@ -499,12 +499,14 @@ void dp_extract_edid_feature(struct edp_edid *edid, char *buf)
 			edid->dpm, edid->color_format);
 };
 
-char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt)
+char mdss_dp_gen_link_clk(struct mdss_dp_drv_pdata *dp)
 {
 	const u32 encoding_factx10 = 8;
 	const u32 ln_to_link_ratio = 10;
 	u32 min_link_rate, reminder = 0;
 	char calc_link_rate = 0;
+	struct mdss_panel_info *pinfo = &dp->panel_data.panel_info;
+	char lane_cnt = dp->dpcd.max_lane_count;
 
 	pr_debug("clk_rate=%llu, bpp= %d, lane_cnt=%d\n",
 	       pinfo->clk_rate, pinfo->bpp, lane_cnt);
@@ -543,6 +545,11 @@ char mdss_dp_gen_link_clk(struct mdss_panel_info *pinfo, char lane_cnt)
 		calc_link_rate = DP_LINK_RATE_540;
 	}
 
+	pr_debug("calc_link_rate=0x%x, Max rate supported by sink=0x%x\n",
+		dp->link_rate, dp->dpcd.max_link_rate);
+	if (calc_link_rate > dp->dpcd.max_link_rate)
+		calc_link_rate = dp->dpcd.max_link_rate;
+	pr_debug("calc_link_rate = 0x%x\n", calc_link_rate);
 	return calc_link_rate;
 }
 

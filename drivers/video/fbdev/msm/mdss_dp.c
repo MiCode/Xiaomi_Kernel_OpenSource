@@ -1399,12 +1399,7 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	if (dp_drv->new_vic && (dp_drv->new_vic != dp_drv->vic))
 		dp_init_panel_info(dp_drv, dp_drv->new_vic);
 
-	dp_drv->link_rate =
-		mdss_dp_gen_link_clk(&dp_drv->panel_data.panel_info,
-				dp_drv->dpcd.max_lane_count);
-
-	pr_debug("link_rate=0x%x, Max rate supported by sink=0x%x\n",
-			dp_drv->link_rate, dp_drv->dpcd.max_link_rate);
+	dp_drv->link_rate = mdss_dp_gen_link_clk(dp_drv);
 	if (!dp_drv->link_rate) {
 		pr_err("Unable to configure required link rate\n");
 		ret = -EINVAL;
@@ -1413,8 +1408,6 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 
 	mdss_dp_phy_share_lane_config(&dp_drv->phy_io, dp_drv->orientation,
 			dp_drv->dpcd.max_lane_count);
-
-	pr_debug("link_rate = 0x%x\n", dp_drv->link_rate);
 
 	ret = mdss_dp_enable_mainlink_clocks(dp_drv);
 	if (ret)
@@ -3141,8 +3134,7 @@ static bool mdss_dp_video_pattern_test_lt_needed(struct mdss_dp_drv_pdata *dp)
 	 *    2. Lane count changes
 	 * For now, assume that lane count is not going to change
 	 */
-	new_link_rate = mdss_dp_gen_link_clk(&dp->panel_data.panel_info,
-				dp->dpcd.max_lane_count);
+	new_link_rate = mdss_dp_gen_link_clk(dp);
 	pr_debug("new link rate = 0x%x, current link rate = 0x%x\n",
 		new_link_rate, dp->link_rate);
 	if (new_link_rate != dp->link_rate) {
