@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -554,6 +554,9 @@ int msm_hdmi_get_timing_info(
 		break;
 	case HDMI_VFRMT_3840x2160p60_64_27:
 		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_3840x2160p60_64_27);
+		break;
+	case HDMI_VFRMT_640x480p59_4_3:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_640x480p59_4_3);
 		break;
 	default:
 		ret = hdmi_get_resv_timing_info(mode, id);

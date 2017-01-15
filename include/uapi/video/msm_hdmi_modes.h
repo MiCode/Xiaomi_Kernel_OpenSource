@@ -234,7 +234,11 @@ struct msm_hdmi_mode_timing_info {
 #define HDMI_VFRMT_1920x1200p60_16_10	ETIII_OFF(8)
 #define ETIII_VFRMT_END			HDMI_VFRMT_1920x1200p60_16_10
 
-#define RESERVE_OFF(x)			(ETIII_VFRMT_END + x)
+#define MISC_VFRMT_OFF(x)		(ETIII_VFRMT_END + x)
+#define HDMI_VFRMT_640x480p59_4_3	MISC_VFRMT_OFF(1)
+#define MISC_VFRMT_END			HDMI_VFRMT_640x480p59_4_3
+
+#define RESERVE_OFF(x)			(MISC_VFRMT_END + x)
 
 #define HDMI_VFRMT_RESERVE1		RESERVE_OFF(1)
 #define HDMI_VFRMT_RESERVE2		RESERVE_OFF(2)
@@ -425,6 +429,11 @@ struct msm_hdmi_mode_timing_info {
 	{HDMI_VFRMT_3840x2160p60_64_27, 3840, 176, 88, 296, false,       \
 	 2160, 8, 10, 72, false, 594000, 60000, false, true, \
 		HDMI_RES_AR_64_27, 0}
+#define HDMI_VFRMT_640x480p59_4_3_TIMING                             \
+	{HDMI_VFRMT_640x480p59_4_3, 640, 16, 96, 48, true,       \
+	 480, 10, 2, 33, true, 25170, 59928, false, true, \
+		HDMI_RES_AR_4_3, 1}
+
 
 #define MSM_HDMI_MODES_SET_TIMING(LUT, MODE) do {		\
 	struct msm_hdmi_mode_timing_info mode = MODE##_TIMING;	\
@@ -508,6 +517,8 @@ do {	\
 			HDMI_VFRMT_3840x2160p50_64_27); \
 		MSM_HDMI_MODES_SET_TIMING(__lut,	\
 			HDMI_VFRMT_3840x2160p60_64_27); \
+		MSM_HDMI_MODES_SET_TIMING(__lut,	\
+			HDMI_VFRMT_640x480p59_4_3); \
 	}	\
 	if (__type & MSM_HDMI_MODES_XTND) {	\
 		MSM_HDMI_MODES_SET_TIMING(__lut,	\
