@@ -912,10 +912,11 @@
 	};
 
 	clock_audio: audio_ext_clk {
+		status = "disabled";
 		compatible = "qcom,audio-ref-clk";
 		qcom,audio-ref-clk-gpio = <&pm660_gpios 3 0>;
 		clock-names = "osr_clk";
-		clocks = <&clock_rpmcc AUDIO_PMI_CLK>;
+		clocks = <&clock_rpmcc RPM_DIV_CLK1>;
 		qcom,node_has_rpm_clock;
 		#clock-cells = <1>;
 		pinctrl-names = "sleep", "active";
@@ -926,18 +927,16 @@
 	clock_audio_lnbb: audio_ext_clk_lnbb {
 		compatible = "qcom,audio-ref-clk";
 		clock-names = "osr_clk";
-		clocks = <&clock_rpmcc AUDIO_PMIC_LNBB_CLK>;
+		clocks = <&clock_rpmcc RPM_LN_BB_CLK2>;
 		qcom,node_has_rpm_clock;
 		#clock-cells = <1>;
 	};
 
 	wcd_rst_gpio: msm_cdc_pinctrl@64 {
 		compatible = "qcom,msm-cdc-pinctrl";
-		qcom,cdc-rst-n-gpio = <&lpi_tlmm 24 0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&lpi_cdc_reset_active>;
 		pinctrl-1 = <&lpi_cdc_reset_sleep>;
+		qcom,lpi-gpios;
 	};
-
 };
-
