@@ -1597,6 +1597,7 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 		return;
 
 	if (state == KGSL_PWRFLAGS_OFF) {
+		return;
 		if (test_and_clear_bit(KGSL_PWRFLAGS_CLK_ON,
 			&pwr->power_flags)) {
 			trace_kgsl_clk(device, state,
@@ -2335,7 +2336,7 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 static void kgsl_pwrctrl_disable(struct kgsl_device *device)
 {
 	/* Order pwrrail/clk sequence based upon platform */
-	device->ftbl->regulator_disable(device);
+	//device->ftbl->regulator_disable(device);
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_OFF);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_OFF, KGSL_STATE_SLUMBER);
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_OFF);
