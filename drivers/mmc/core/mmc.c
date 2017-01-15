@@ -61,6 +61,7 @@ static const unsigned int tacc_mant[] = {
 		__res & __mask;						\
 	})
 
+static int mmc_switch_status(struct mmc_card *card, bool ignore_crc);
 /*
  * Given the decoded CSD structure, decode the raw CID to our CID structure.
  */
@@ -1064,9 +1065,11 @@ static int mmc_select_hs(struct mmc_card *card)
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			   EXT_CSD_HS_TIMING, EXT_CSD_TIMING_HS,
 			   card->ext_csd.generic_cmd6_time,
-			   true, true, true);
-	if (!err)
+			   true, false, true);
+	if (!err) {
 		mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
+		err = mmc_switch_status(card, false);
+	}
 
 	return err;
 }
@@ -1090,10 +1093,11 @@ static int mmc_select_hs_ddr(struct mmc_card *card)
 	ext_csd_bits = (bus_width == MMC_BUS_WIDTH_8) ?
 		EXT_CSD_DDR_BUS_WIDTH_8 : EXT_CSD_DDR_BUS_WIDTH_4;
 
-	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			EXT_CSD_BUS_WIDTH,
 			ext_csd_bits,
-			card->ext_csd.generic_cmd6_time);
+			card->ext_csd.generic_cmd6_time,
+			true, false, false);
 	if (err) {
 		pr_err("%s: switch to bus width %d ddr failed\n",
 			mmc_hostname(host), 1 << bus_width);
@@ -1136,19 +1140,21 @@ static int mmc_select_hs_ddr(struct mmc_card *card)
 	if (err)
 		err = __mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_330);
 
-	if (!err)
+	if (!err) {
 		mmc_set_timing(host, MMC_TIMING_MMC_DDR52);
+		err = mmc_switch_status(card, false);
+	}
 
 	return err;
 }
 
 /* Caller must hold re-tuning */
-static int mmc_switch_status(struct mmc_card *card)
+static int mmc_switch_status(struct mmc_card *card, bool ignore_crc)
 {
 	u32 status;
 	int err;
 
-	err = mmc_send_status(card, &status);
+	err = __mmc_send_status(card, &status, ignore_crc);
 	if (err)
 		return err;
 
@@ -1212,7 +1218,7 @@ static int mmc_select_hs400(struct mmc_card *card)
 	mmc_set_clock(host, max_dtr);
 
 	if (!send_status) {
-		err = mmc_switch_status(card);
+		err = mmc_switch_status(card, false);
 		if (err)
 			goto out_err;
 	}
@@ -1253,12 +1259,6 @@ static int mmc_select_hs400(struct mmc_card *card)
 	mmc_set_timing(host, MMC_TIMING_MMC_HS400);
 	mmc_set_bus_speed(card);
 
-	if (!send_status) {
-		err = mmc_switch_status(card);
-		if (err)
-			goto out_err;
-	}
-
 	if (card->ext_csd.strobe_support && host->ops->enhanced_strobe) {
 		mmc_host_clk_hold(host);
 		err = host->ops->enhanced_strobe(host);
@@ -1273,6 +1273,17 @@ static int mmc_select_hs400(struct mmc_card *card)
 		if (err)
 			pr_warn("%s: tuning execution failed\n",
 				mmc_hostname(host));
+	}
+
+	/*
+	 * Sending of CMD13 should be done after the host calibration
+	 * for enhanced_strobe or HS400 mode is completed.
+	 * Otherwise may see CMD13 timeouts or CRC errors.
+	 */
+	if (!send_status) {
+		err = mmc_switch_status(card, false);
+		if (err)
+			goto out_err;
 	}
 
 	return 0;
@@ -1314,7 +1325,7 @@ int mmc_hs400_to_hs200(struct mmc_card *card)
 	mmc_set_timing(host, MMC_TIMING_MMC_DDR52);
 
 	if (!send_status) {
-		err = mmc_switch_status(card);
+		err = mmc_switch_status(card, false);
 		if (err)
 			goto out_err;
 	}
@@ -1329,7 +1340,7 @@ int mmc_hs400_to_hs200(struct mmc_card *card)
 	mmc_set_timing(host, MMC_TIMING_MMC_HS);
 
 	if (!send_status) {
-		err = mmc_switch_status(card);
+		err = mmc_switch_status(card, false);
 		if (err)
 			goto out_err;
 	}
@@ -1346,7 +1357,7 @@ int mmc_hs400_to_hs200(struct mmc_card *card)
 	mmc_set_timing(host, MMC_TIMING_MMC_HS200);
 
 	if (!send_status) {
-		err = mmc_switch_status(card);
+		err = mmc_switch_status(card, false);
 		if (err)
 			goto out_err;
 	}
@@ -1425,7 +1436,12 @@ static int mmc_select_hs200(struct mmc_card *card)
 		old_timing = host->ios.timing;
 		mmc_set_timing(host, MMC_TIMING_MMC_HS200);
 		if (!send_status) {
-			err = mmc_switch_status(card);
+			/*
+			 * Since after switching to hs200, crc errors might
+			 * occur for commands send before tuning.
+			 * So ignore crc error for cmd13.
+			 */
+			err = mmc_switch_status(card, true);
 			/*
 			 * mmc_select_timing() assumes timing has not changed if
 			 * it is a switch error.
