@@ -56,14 +56,19 @@ struct mdss_dp_attention_node {
 
 static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv);
 static void mdss_dp_mainlink_push_idle(struct mdss_panel_data *pdata);
-static inline void mdss_dp_link_retraining(struct mdss_dp_drv_pdata *dp);
+static inline void mdss_dp_link_maintenance(struct mdss_dp_drv_pdata *dp,
+		bool lt_needed);
 static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp_drv);
 static void dp_send_events(struct mdss_dp_drv_pdata *dp, u32 events);
+static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
+	enum notification_status status);
 
 static inline void mdss_dp_reset_test_data(struct mdss_dp_drv_pdata *dp)
 {
 	dp->test_data = (const struct dpcd_test_request){ 0 };
 	dp->test_data.test_bit_depth = DP_TEST_BIT_DEPTH_UNKNOWN;
+	hdmi_edid_config_override(dp->panel_data.panel_info.edid_data,
+				false, 0);
 }
 
 static inline bool mdss_dp_is_link_status_updated(struct mdss_dp_drv_pdata *dp)
@@ -93,13 +98,6 @@ static inline bool mdss_dp_is_phy_test_pattern_requested(
 		struct mdss_dp_drv_pdata *dp)
 {
 	return (dp->test_data.test_requested == PHY_TEST_PATTERN);
-}
-
-static inline bool mdss_dp_soft_hpd_reset(struct mdss_dp_drv_pdata *dp)
-{
-	return (mdss_dp_is_link_training_requested(dp) ||
-			mdss_dp_is_phy_test_pattern_requested(dp)) &&
-		dp->alt_mode.dp_status.hpd_irq;
 }
 
 static void mdss_dp_put_dt_clk_data(struct device *dev,
@@ -884,7 +882,7 @@ void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *dp)
 	mdss_dp_configuration_ctrl(&dp->ctrl_io, data);
 }
 
-int mdss_dp_wait4train(struct mdss_dp_drv_pdata *dp_drv)
+static int mdss_dp_wait4video_ready(struct mdss_dp_drv_pdata *dp_drv)
 {
 	int ret = 0;
 
@@ -1257,8 +1255,9 @@ static void mdss_dp_configure_source_params(struct mdss_dp_drv_pdata *dp,
 }
 
 /**
- * mdss_dp_train_main_link() - initiates training of DP main link
+ * mdss_dp_setup_main_link() - initiates training of DP main link
  * @dp: Display Port Driver data
+ * @train: specify if link training should be done or not
  *
  * Initiates training of the DP main link and checks the state of the main
  * link after the training is complete.
@@ -1266,66 +1265,85 @@ static void mdss_dp_configure_source_params(struct mdss_dp_drv_pdata *dp,
  * Return: error code. -EINVAL if any invalid data or -EAGAIN if retraining
  * is required.
  */
-static int mdss_dp_train_main_link(struct mdss_dp_drv_pdata *dp)
+static int mdss_dp_setup_main_link(struct mdss_dp_drv_pdata *dp, bool train)
 {
 	int ret = 0;
 	int ready = 0;
 
 	pr_debug("enter\n");
+	mdss_dp_mainlink_ctrl(&dp->ctrl_io, true);
+	mdss_dp_aux_set_sink_power_state(dp, SINK_POWER_ON);
+	reinit_completion(&dp->video_comp);
+
+	if (!train)
+		goto send_video;
+
+	/*
+	 * As part of previous calls, DP controller state might have
+	 * transitioned to PUSH_IDLE. In order to start transmitting a link
+	 * training pattern, we have to first to a DP software reset.
+	 */
+	mdss_dp_ctrl_reset(&dp->ctrl_io);
 	ret = mdss_dp_link_train(dp);
 	if (ret)
 		goto end;
 
-	mdss_dp_wait4train(dp);
+send_video:
+	/*
+	 * Set up transfer unit values and set controller state to send
+	 * video.
+	 */
+	mdss_dp_setup_tr_unit(&dp->ctrl_io, dp->link_rate, dp->lane_cnt,
+		dp->vic, &dp->panel_data.panel_info);
+	mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);
 
+	mdss_dp_wait4video_ready(dp);
 	ready = mdss_dp_mainlink_ready(dp, BIT(0));
-
 	pr_debug("main link %s\n", ready ? "READY" : "NOT READY");
+
 end:
 	return ret;
 }
 
-static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
+static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv, bool lt_needed)
 {
 	int ret = 0;
 	struct lane_mapping ln_map;
 
 	/* wait until link training is completed */
-	pr_debug("enter\n");
+	pr_debug("enter, lt_needed=%s\n", lt_needed ? "true" : "false");
 
 	do {
-		if (ret == -EAGAIN) {
-			mdss_dp_mainlink_push_idle(&dp_drv->panel_data);
-			mdss_dp_off_irq(dp_drv);
-		}
+		if (ret == -EAGAIN)
+			mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, false);
 
 		mutex_lock(&dp_drv->train_mutex);
 
+		dp_init_panel_info(dp_drv, dp_drv->vic);
 		ret = mdss_dp_get_lane_mapping(dp_drv, dp_drv->orientation,
 				&ln_map);
-		if (ret) {
-			mutex_unlock(&dp_drv->train_mutex);
-			goto exit;
-		}
-
-		if (dp_drv->new_vic && (dp_drv->new_vic != dp_drv->vic))
-			dp_init_panel_info(dp_drv, dp_drv->new_vic);
+		if (ret)
+			goto exit_loop;
 
 		mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
 				dp_drv->orientation,
 				dp_drv->dpcd.max_lane_count);
 
-		ret = mdss_dp_enable_mainlink_clocks(dp_drv);
-		if (ret) {
-			mutex_unlock(&dp_drv->train_mutex);
-			goto exit;
+		if (lt_needed) {
+			/*
+			 * Diasable and re-enable the mainlink clock since the
+			 * link clock might have been adjusted as part of the
+			 * link maintenance.
+			 */
+			mdss_dp_disable_mainlink_clocks(dp_drv);
+			ret = mdss_dp_enable_mainlink_clocks(dp_drv);
+			if (ret)
+				goto exit_loop;
 		}
 
-		mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
+		mdss_dp_configure_source_params(dp_drv, &ln_map);
 
 		reinit_completion(&dp_drv->idle_comp);
-
-		mdss_dp_configure_source_params(dp_drv, &ln_map);
 
 		dp_drv->power_on = true;
 
@@ -1334,18 +1352,21 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv)
 			if (ret) {
 				pr_err("Failed to exit low power mode, rc=%d\n",
 					ret);
-				goto exit;
+				goto exit_loop;
 			}
 		}
 
-		ret = mdss_dp_train_main_link(dp_drv);
+		ret = mdss_dp_setup_main_link(dp_drv, lt_needed);
 
+exit_loop:
 		mutex_unlock(&dp_drv->train_mutex);
 	} while (ret == -EAGAIN);
 
 	pr_debug("end\n");
 
-exit:
+	/* Send a connect notification */
+	mdss_dp_notify_clients(dp_drv, NOTIFY_CONNECT_IRQ_HPD);
+
 	return ret;
 }
 
@@ -1399,8 +1420,6 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	if (ret)
 		goto exit;
 
-	mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
-
 	reinit_completion(&dp_drv->idle_comp);
 
 	mdss_dp_configure_source_params(dp_drv, &ln_map);
@@ -1417,7 +1436,7 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 link_training:
 	dp_drv->power_on = true;
 
-	while (-EAGAIN == mdss_dp_train_main_link(dp_drv))
+	while (-EAGAIN == mdss_dp_setup_main_link(dp_drv, true))
 		pr_debug("MAIN LINK TRAINING RETRY\n");
 
 	dp_drv->cont_splash = 0;
@@ -1463,17 +1482,13 @@ static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv)
 	pr_debug("start\n");
 
 	mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, false);
-
 	mdss_dp_audio_enable(&dp_drv->ctrl_io, false);
-
-	/* Make sure the DP main link is disabled before clk disable */
+	/* Make sure DP mainlink and audio engines are disabled */
 	wmb();
-	mdss_dp_disable_mainlink_clocks(dp_drv);
-	dp_drv->power_on = false;
-	dp_drv->sink_info_read = false;
 
-	dp_init_panel_info(dp_drv, HDMI_VFRMT_UNKNOWN);
+	mdss_dp_ack_state(dp_drv, false);
 	mutex_unlock(&dp_drv->train_mutex);
+
 	complete_all(&dp_drv->irq_comp);
 	pr_debug("end\n");
 
@@ -1523,6 +1538,7 @@ static int mdss_dp_off_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	dp_init_panel_info(dp_drv, HDMI_VFRMT_UNKNOWN);
 
 	mdss_dp_ack_state(dp_drv, false);
+	mdss_dp_reset_test_data(dp_drv);
 	mutex_unlock(&dp_drv->train_mutex);
 	pr_debug("DP off done\n");
 
@@ -1540,7 +1556,7 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
-	if (mdss_dp_soft_hpd_reset(dp))
+	if (dp->hpd_irq_on)
 		return mdss_dp_off_irq(dp);
 	else
 		return mdss_dp_off_hpd(dp);
@@ -1789,7 +1805,6 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 
 	dp->sink_info_read = true;
 end:
-	mdss_dp_update_cable_status(dp, true);
 	mdss_dp_notify_clients(dp, NOTIFY_CONNECT);
 
 	return ret;
@@ -2086,7 +2101,7 @@ static int mdss_dp_psm_config(struct mdss_dp_drv_pdata *dp, bool enable)
 		 * to user modules.
 		 */
 		if (mdss_dp_is_test_ongoing(dp)) {
-			mdss_dp_link_retraining(dp);
+			mdss_dp_link_maintenance(dp, true);
 		} else {
 			mdss_dp_host_init(&dp->panel_data);
 			mdss_dp_notify_clients(dp, NOTIFY_CONNECT);
@@ -2969,19 +2984,22 @@ static inline void mdss_dp_send_test_response(struct mdss_dp_drv_pdata *dp)
 }
 
 /**
- * mdss_dp_link_retraining() - initiates link retraining
+ * mdss_dp_link_maintenance() - initiates link maintenanace
  * @dp: Display Port Driver data
+ * @lt_needed: link retraining needed
  *
- * This function will initiate link retraining by first notifying
+ * This function will perform link maintenance by first notifying
  * DP clients and triggering DP shutdown, and then enabling DP after
- * notification is done successfully.
+ * notification is done successfully. It will perform link retraining
+ * if specified.
  */
-static inline void mdss_dp_link_retraining(struct mdss_dp_drv_pdata *dp)
+static inline void mdss_dp_link_maintenance(struct mdss_dp_drv_pdata *dp,
+		bool lt_needed)
 {
 	if (mdss_dp_notify_clients(dp, NOTIFY_DISCONNECT_IRQ_HPD))
 		return;
 
-	mdss_dp_on_irq(dp);
+	mdss_dp_on_irq(dp, lt_needed);
 }
 
 /**
@@ -3006,7 +3024,7 @@ static int mdss_dp_process_link_status_update(struct mdss_dp_drv_pdata *dp)
 			mdss_dp_aux_channel_eq_done(dp),
 			mdss_dp_aux_clock_recovery_done(dp));
 
-	mdss_dp_link_retraining(dp);
+	mdss_dp_link_maintenance(dp, true);
 
 	return 0;
 }
@@ -3037,7 +3055,7 @@ static int mdss_dp_process_link_training_request(struct mdss_dp_drv_pdata *dp)
 		dp->test_data.test_lane_count;
 	dp->link_rate = dp->test_data.test_link_rate;
 
-	mdss_dp_link_retraining(dp);
+	mdss_dp_link_maintenance(dp, true);
 
 	return 0;
 }
@@ -3081,7 +3099,7 @@ static int mdss_dp_process_phy_test_pattern_request(
 		dp->dpcd.max_lane_count = dp->test_data.test_lane_count;
 		dp->link_rate = dp->test_data.test_link_rate;
 
-		mdss_dp_link_retraining(dp);
+		mdss_dp_link_maintenance(dp, true);
 	}
 
 	mdss_dp_config_ctrl(dp);
@@ -3113,6 +3131,28 @@ static int mdss_dp_process_downstream_port_status_change(
 	return mdss_dp_edid_read(dp);
 }
 
+static bool mdss_dp_video_pattern_test_lt_needed(struct mdss_dp_drv_pdata *dp)
+{
+	char new_link_rate;
+
+	/*
+	 * Link re-training for video format change is only needed if:
+	 *    1. Link rate changes
+	 *    2. Lane count changes
+	 * For now, assume that lane count is not going to change
+	 */
+	new_link_rate = mdss_dp_gen_link_clk(&dp->panel_data.panel_info,
+				dp->dpcd.max_lane_count);
+	pr_debug("new link rate = 0x%x, current link rate = 0x%x\n",
+		new_link_rate, dp->link_rate);
+	if (new_link_rate != dp->link_rate) {
+		dp->link_rate = new_link_rate;
+		return true;
+	}
+
+	return false;
+}
+
 /**
  * mdss_dp_process_video_pattern_request() - process new video pattern request
  * @dp: Display Port Driver data
@@ -3125,6 +3165,11 @@ static int mdss_dp_process_downstream_port_status_change(
  */
 static int mdss_dp_process_video_pattern_request(struct mdss_dp_drv_pdata *dp)
 {
+	bool lt_needed;
+	struct hdmi_edid_override_data ov_data = {0, 0, 1,
+		HDMI_VFRMT_640x480p59_4_3};
+	bool ov_res = false;
+
 	if (!mdss_dp_is_video_pattern_requested(dp))
 		return -EINVAL;
 
@@ -3135,13 +3180,22 @@ static int mdss_dp_process_video_pattern_request(struct mdss_dp_drv_pdata *dp)
 		mdss_dp_test_video_pattern_to_string(
 			dp->test_data.test_video_pattern));
 
-	/* Send a disconnect notification */
-	mdss_dp_notify_clients(dp, NOTIFY_DISCONNECT_IRQ_HPD);
+	if (dp->test_data.test_h_width == 640) {
+		pr_debug("Set resolution to 640x480p59");
+		if (dp->vic != HDMI_VFRMT_640x480p59_4_3) {
+			ov_res = true;
+			dp->vic = HDMI_VFRMT_640x480p59_4_3;
+		}
+		hdmi_edid_config_override(dp->panel_data.panel_info.edid_data,
+			true, &ov_data);
+	}
 
-	mdss_dp_off_irq(dp);
+	dp_init_panel_info(dp, dp->vic);
+	lt_needed = ov_res | mdss_dp_video_pattern_test_lt_needed(dp);
 
-	/* Send a connect notification */
-	mdss_dp_notify_clients(dp, NOTIFY_CONNECT_IRQ_HPD);
+	pr_debug("Link training needed: %s", lt_needed ? "yes" : "no");
+
+	mdss_dp_link_maintenance(dp, lt_needed);
 
 	mdss_dp_send_test_response(dp);
 
@@ -3189,38 +3243,8 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 	pr_debug("done\n");
 
 exit:
-	return ret;
-}
-
-/**
- * mdss_dp_process_hpd_irq_low() - handle HPD IRQ transition to LOW
- * @dp: Display Port Driver data
- *
- * This function will handle the HPD IRQ state transitions from HIGH to LOW,
- * indicating the end of a test request.
- */
-static int mdss_dp_process_hpd_irq_low(struct mdss_dp_drv_pdata *dp)
-{
-	if (!dp->hpd_irq_on)
-		return -EINVAL;
-
-	pr_debug("enter: HPD IRQ low\n");
-
-	if (dp->hpd_notification_status == NOTIFY_CONNECT_IRQ_HPD) {
-		mdss_dp_notify_clients(dp, NOTIFY_DISCONNECT);
-	} else {
-		/* Clients already notified, so shudown interface directly */
-		mdss_dp_update_cable_status(dp, false);
-		mdss_dp_mainlink_push_idle(&dp->panel_data);
-		mdss_dp_off_hpd(dp);
-	}
-
 	dp->hpd_irq_on = false;
-
-	mdss_dp_reset_test_data(dp);
-
-	pr_debug("done\n");
-	return 0;
+	return ret;
 }
 
 static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
@@ -3295,9 +3319,6 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 
 static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 {
-	dp_drv->hpd_irq_toggled = dp_drv->hpd_irq_on !=
-		dp_drv->alt_mode.dp_status.hpd_irq;
-
 	if (dp_drv->alt_mode.dp_status.hpd_irq) {
 		pr_debug("Attention: hpd_irq high\n");
 
@@ -3307,9 +3328,6 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 		}
 
 		if (!mdss_dp_process_hpd_irq_high(dp_drv))
-			return;
-	} else if (dp_drv->hpd_irq_toggled) {
-		if (!mdss_dp_process_hpd_irq_low(dp_drv))
 			return;
 	}
 
@@ -3321,15 +3339,12 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 			dp_drv->hdcp.ops->off(dp_drv->hdcp.data);
 		}
 
-		mdss_dp_update_cable_status(dp_drv, false);
 		mdss_dp_notify_clients(dp_drv, NOTIFY_DISCONNECT);
 		pr_debug("Attention: Notified clients\n");
 		return;
 	}
 
 	pr_debug("Attention: HPD high\n");
-
-	mdss_dp_update_cable_status(dp_drv, true);
 
 	dp_drv->alt_mode.current_state |= DP_STATUS_DONE;
 
@@ -3444,6 +3459,11 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	mutex_init(&dp_drv->attention_lock);
 	mutex_init(&dp_drv->hdcp_mutex);
 	spin_lock_init(&dp_drv->lock);
+	mutex_init(&dp_drv->aux_mutex);
+	mutex_init(&dp_drv->train_mutex);
+	init_completion(&dp_drv->aux_comp);
+	init_completion(&dp_drv->idle_comp);
+	init_completion(&dp_drv->video_comp);
 
 	if (mdss_dp_usbpd_setup(dp_drv)) {
 		pr_err("Error usbpd setup!\n");

@@ -491,7 +491,6 @@ struct mdss_dp_drv_pdata {
 
 	/* aux */
 	struct completion aux_comp;
-	struct completion train_comp;
 	struct completion idle_comp;
 	struct completion video_comp;
 	struct completion irq_comp;
@@ -520,7 +519,6 @@ struct mdss_dp_drv_pdata {
 	char delay_start;
 	struct dp_statistic dp_stat;
 	bool hpd_irq_on;
-	bool hpd_irq_toggled;
 	u32 hpd_notification_status;
 
 	struct mdss_dp_event_data dp_event;

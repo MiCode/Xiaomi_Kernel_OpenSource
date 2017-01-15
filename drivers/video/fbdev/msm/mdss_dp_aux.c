@@ -1897,6 +1897,10 @@ static int dp_start_link_train_1(struct mdss_dp_drv_pdata *ep)
 
 	pr_debug("Entered++");
 
+	dp_write(ep->base + DP_STATE_CTRL, 0x0);
+	/* Make sure to clear the current pattern before starting a new one */
+	wmb();
+
 	dp_host_train_set(ep, 0x01); /* train_1 */
 	dp_cap_lane_rate_set(ep);
 	dp_train_pattern_set_write(ep, 0x21); /* train_1 */
@@ -1951,6 +1955,10 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 		pattern = 0x03;
 	else
 		pattern = 0x02;
+
+	dp_write(ep->base + DP_STATE_CTRL, 0x0);
+	/* Make sure to clear the current pattern before starting a new one */
+	wmb();
 
 	dp_host_train_set(ep, pattern);
 	dp_aux_set_voltage_and_pre_emphasis_lvl(ep);
@@ -2031,25 +2039,20 @@ int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 	ret = dp_aux_chan_ready(dp);
 	if (ret) {
 		pr_err("LINK Train failed: aux chan NOT ready\n");
-		complete(&dp->train_comp);
 		return ret;
 	}
-
-	dp_write(dp->base + DP_MAINLINK_CTRL, 0x1);
-
-	mdss_dp_aux_set_sink_power_state(dp, SINK_POWER_ON);
 
 	dp->v_level = 0; /* start from default level */
 	dp->p_level = 0;
 	mdss_dp_config_ctrl(dp);
 
 	mdss_dp_state_ctrl(&dp->ctrl_io, 0);
-	dp_clear_training_pattern(dp);
 
 	ret = dp_start_link_train_1(dp);
 	if (ret < 0) {
 		if (!dp_link_rate_down_shift(dp)) {
 			pr_debug("retry with lower rate\n");
+			dp_clear_training_pattern(dp);
 			return -EAGAIN;
 		} else {
 			pr_err("Training 1 failed\n");
@@ -2060,10 +2063,15 @@ int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 
 	pr_debug("Training 1 completed successfully\n");
 
+	dp_write(dp->base + DP_STATE_CTRL, 0x0);
+	/* Make sure to clear the current pattern before starting a new one */
+	wmb();
+
 	ret = dp_start_link_train_2(dp);
 	if (ret < 0) {
 		if (!dp_link_rate_down_shift(dp)) {
 			pr_debug("retry with lower rate\n");
+			dp_clear_training_pattern(dp);
 			return -EAGAIN;
 		} else {
 			pr_err("Training 2 failed\n");
@@ -2074,17 +2082,13 @@ int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp)
 
 	pr_debug("Training 2 completed successfully\n");
 
+	dp_write(dp->base + DP_STATE_CTRL, 0x0);
+	/* Make sure to clear the current pattern before starting a new one */
+	wmb();
+
 clear:
 	dp_clear_training_pattern(dp);
-	if (ret != -EINVAL) {
-		mdss_dp_setup_tr_unit(&dp->ctrl_io, dp->link_rate,
-					dp->lane_cnt, dp->vic,
-					&dp->panel_data.panel_info);
-		mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);
-		pr_debug("State_ctrl set to SEND_VIDEO\n");
-	}
 
-	complete(&dp->train_comp);
 	return ret;
 }
 
@@ -2247,13 +2251,9 @@ int mdss_dp_aux_read_sink_frame_crc(struct mdss_dp_drv_pdata *dp)
 
 void mdss_dp_aux_init(struct mdss_dp_drv_pdata *ep)
 {
-	mutex_init(&ep->aux_mutex);
-	mutex_init(&ep->train_mutex);
-	init_completion(&ep->aux_comp);
-	init_completion(&ep->train_comp);
-	init_completion(&ep->idle_comp);
-	init_completion(&ep->video_comp);
-	complete(&ep->train_comp); /* make non block at first time */
+	reinit_completion(&ep->aux_comp);
+	reinit_completion(&ep->idle_comp);
+	reinit_completion(&ep->video_comp);
 	complete(&ep->video_comp); /* make non block at first time */
 
 	dp_buf_init(&ep->txp, ep->txbuf, sizeof(ep->txbuf));
