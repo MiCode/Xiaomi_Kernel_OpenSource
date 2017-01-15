@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +101,10 @@ struct cnss_shadow_reg_cfg {
 	u16 reg_offset;
 };
 
+struct cnss_shadow_reg_v2_cfg {
+	u32 addr;
+};
+
 struct cnss_wlan_enable_cfg {
 	u32 num_ce_tgt_cfg;
 	struct cnss_ce_tgt_pipe_cfg *ce_tgt_cfg;
@@ -108,6 +112,8 @@ struct cnss_wlan_enable_cfg {
 	struct cnss_ce_svc_pipe_cfg *ce_svc_cfg;
 	u32 num_shadow_reg_cfg;
 	struct cnss_shadow_reg_cfg *shadow_reg_cfg;
+	u32 num_shadow_reg_v2_cfg;
+	struct cnss_shadow_reg_v2_cfg *shadow_reg_v2_cfg;
 };
 
 enum cnss_driver_mode {
