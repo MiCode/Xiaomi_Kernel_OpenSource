@@ -1723,6 +1723,17 @@ static int arm_smmu_restore_sec_cfg(struct arm_smmu_device *smmu)
 	return 0;
 }
 
+static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
+{
+	if (smmu_domain->attributes &
+			(1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT))
+		return true;
+	else if (smmu_domain->smmu && smmu_domain->smmu->dev)
+		return smmu_domain->smmu->dev->archdata.dma_coherent;
+	else
+		return false;
+}
+
 static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu,
 					struct arm_smmu_master_cfg *master_cfg)
@@ -1734,6 +1745,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	bool is_fast = smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST);
+	unsigned long quirks = 0;
 
 	if (smmu_domain->smmu)
 		goto out;
@@ -1810,8 +1822,12 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	smmu_domain->smmu = smmu;
 
+	if (is_iommu_pt_coherent(smmu_domain))
+		quirks |= IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT;
+
 	if (arm_smmu_is_slave_side_secure(smmu_domain)) {
 		smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
+			.quirks		= quirks,
 			.pgsize_bitmap	= arm_smmu_ops.pgsize_bitmap,
 			.arm_msm_secure_cfg = {
 				.sec_id = smmu->sec_id,
@@ -1822,6 +1838,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		fmt = ARM_MSM_SECURE;
 	} else {
 		smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
+			.quirks		= quirks,
 			.pgsize_bitmap	= arm_smmu_ops.pgsize_bitmap,
 			.ias		= ias,
 			.oas		= oas,
@@ -3112,6 +3129,17 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    & (1 << DOMAIN_ATTR_EARLY_MAP));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT:
+		if (!smmu_domain->smmu)
+			return -ENODEV;
+		*((int *)data) = is_iommu_pt_coherent(smmu_domain);
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT));
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -3233,6 +3261,26 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				smmu_domain->attributes &=
 					~(1 << DOMAIN_ATTR_EARLY_MAP);
 		}
+		break;
+	}
+	case DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT: {
+		int force_coherent = *((int *)data);
+
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+			  "cannot change force coherent attribute while attached\n");
+			ret = -EBUSY;
+			break;
+		}
+
+		if (force_coherent)
+			smmu_domain->attributes |=
+			    1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT;
+		else
+			smmu_domain->attributes &=
+			    ~(1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT);
+
+		ret = 0;
 		break;
 	}
 	default:

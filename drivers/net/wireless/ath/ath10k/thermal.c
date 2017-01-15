@@ -187,12 +187,12 @@ int ath10k_thermal_register(struct ath10k *ar)
 	/* Do not register hwmon device when temperature reading is not
 	 * supported by firmware
 	 */
-	if (ar->wmi.op_version != ATH10K_FW_WMI_OP_VERSION_10_2_4)
+	if (!(ar->wmi.ops->gen_pdev_get_temperature))
 		return 0;
 
 	/* Avoid linking error on devm_hwmon_device_register_with_groups, I
 	 * guess linux/hwmon.h is missing proper stubs. */
-	if (!config_enabled(CONFIG_HWMON))
+	if (!IS_REACHABLE(CONFIG_HWMON))
 		return 0;
 
 	hwmon_dev = devm_hwmon_device_register_with_groups(ar->dev,

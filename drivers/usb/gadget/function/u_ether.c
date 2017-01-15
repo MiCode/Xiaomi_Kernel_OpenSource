@@ -889,7 +889,7 @@ static int get_ether_addr_str(u8 dev_addr[ETH_ALEN], char *str, int len)
 	if (len < 18)
 		return -EINVAL;
 
-	snprintf(str, len, "%pM", dev_addr);
+	snprintf(str, len, "%pKM", dev_addr);
 	return 18;
 }
 
@@ -971,8 +971,8 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g,
 		free_netdev(net);
 		dev = ERR_PTR(status);
 	} else {
-		INFO(dev, "MAC %pM\n", net->dev_addr);
-		INFO(dev, "HOST MAC %pM\n", dev->host_mac);
+		INFO(dev, "MAC %pKM\n", net->dev_addr);
+		INFO(dev, "HOST MAC %pKM\n", dev->host_mac);
 
 		/*
 		 * two kinds of host-initiated state changes:
@@ -1040,7 +1040,7 @@ int gether_register_netdev(struct net_device *net)
 		dev_dbg(&g->dev, "register_netdev failed, %d\n", status);
 		return status;
 	} else {
-		INFO(dev, "HOST MAC %pM\n", dev->host_mac);
+		INFO(dev, "HOST MAC %pKM\n", dev->host_mac);
 
 		/* two kinds of host-initiated state changes:
 		 *  - iff DATA transfer is active, carrier is "on"
@@ -1056,7 +1056,7 @@ int gether_register_netdev(struct net_device *net)
 	if (status)
 		pr_warn("cannot set self ethernet address: %d\n", status);
 	else
-		INFO(dev, "MAC %pM\n", dev->dev_mac);
+		INFO(dev, "MAC %pKM\n", dev->dev_mac);
 
 	return status;
 }
@@ -1124,7 +1124,7 @@ int gether_get_host_addr_cdc(struct net_device *net, char *host_addr, int len)
 		return -EINVAL;
 
 	dev = netdev_priv(net);
-	snprintf(host_addr, len, "%pm", dev->host_mac);
+	snprintf(host_addr, len, "%pKm", dev->host_mac);
 
 	return strlen(host_addr);
 }

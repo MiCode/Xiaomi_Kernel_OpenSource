@@ -56,7 +56,12 @@ struct iommu_gather_ops {
  *                 page table walker.
  */
 struct io_pgtable_cfg {
+	/*
+	 * IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT: Set the page table as
+	 * coherent.
+	 */
 	#define IO_PGTABLE_QUIRK_ARM_NS	(1 << 0)	/* Set NS bit in PTEs */
+	#define IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT (1 << 1)
 	int				quirks;
 	unsigned long			pgsize_bitmap;
 	unsigned int			ias;

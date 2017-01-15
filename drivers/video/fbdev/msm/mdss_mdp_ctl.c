@@ -5834,10 +5834,10 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 				sctl->flush_bits = 0;
 				sctl_flush_bits = 0;
 			} else {
-				sctl_flush_bits = sctl->flush_bits;
+				sctl_flush_bits |= sctl->flush_bits;
 			}
 		}
-		ctl_flush_bits = ctl->flush_bits;
+		ctl_flush_bits |= ctl->flush_bits;
 		mutex_unlock(&ctl->flush_lock);
 	}
 	/*

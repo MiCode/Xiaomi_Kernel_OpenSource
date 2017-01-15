@@ -290,6 +290,16 @@ static dma_addr_t __arm_lpae_dma_addr(void *pages)
 	return (dma_addr_t)virt_to_phys(pages);
 }
 
+static inline void pgtable_dma_sync_single_for_device(
+				struct io_pgtable_cfg *cfg,
+				dma_addr_t addr, size_t size,
+				enum dma_data_direction dir)
+{
+	if (!(cfg->quirks & IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT))
+		dma_sync_single_for_device(cfg->iommu_dev, addr, size,
+								dir);
+}
+
 static void *__arm_lpae_alloc_pages(size_t size, gfp_t gfp,
 				    struct io_pgtable_cfg *cfg,
 					void *cookie)
@@ -340,7 +350,7 @@ static void __arm_lpae_set_pte(arm_lpae_iopte *ptep, arm_lpae_iopte pte,
 	*ptep = pte;
 
 	if (!selftest_running)
-		dma_sync_single_for_device(cfg->iommu_dev,
+		pgtable_dma_sync_single_for_device(cfg,
 					   __arm_lpae_dma_addr(ptep),
 					   sizeof(pte), DMA_TO_DEVICE);
 }
@@ -415,7 +425,7 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 
 		if (lvl == MAP_STATE_LVL) {
 			if (ms->pgtable)
-				dma_sync_single_for_device(cfg->iommu_dev,
+				pgtable_dma_sync_single_for_device(cfg,
 					__arm_lpae_dma_addr(ms->pte_start),
 					ms->num_pte * sizeof(*ptep),
 					DMA_TO_DEVICE);
@@ -433,7 +443,7 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 			 * mapping.  Flush out the previous page mappings.
 			 */
 			if (ms->pgtable)
-				dma_sync_single_for_device(cfg->iommu_dev,
+				pgtable_dma_sync_single_for_device(cfg,
 					__arm_lpae_dma_addr(ms->pte_start),
 					ms->num_pte * sizeof(*ptep),
 					DMA_TO_DEVICE);
@@ -603,7 +613,7 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 	}
 
 	if (ms.pgtable)
-		dma_sync_single_for_device(cfg->iommu_dev,
+		pgtable_dma_sync_single_for_device(cfg,
 			__arm_lpae_dma_addr(ms.pte_start),
 			ms.num_pte * sizeof(*ms.pte_start),
 			DMA_TO_DEVICE);
@@ -753,7 +763,7 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 		table += tl_offset;
 
 		memset(table, 0, table_len);
-		dma_sync_single_for_device(cfg->iommu_dev,
+		pgtable_dma_sync_single_for_device(cfg,
 					   __arm_lpae_dma_addr(table),
 					   table_len, DMA_TO_DEVICE);
 
@@ -994,7 +1004,7 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 		return NULL;
 
 	/* TCR */
-	if (cfg->iommu_dev && cfg->iommu_dev->archdata.dma_coherent)
+	if (cfg->quirks & IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT)
 		reg = (ARM_LPAE_TCR_SH_OS << ARM_LPAE_TCR_SH0_SHIFT) |
 			(ARM_LPAE_TCR_RGN_WBWA << ARM_LPAE_TCR_IRGN0_SHIFT) |
 			(ARM_LPAE_TCR_RGN_WBWA << ARM_LPAE_TCR_ORGN0_SHIFT);

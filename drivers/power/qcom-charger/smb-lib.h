@@ -52,6 +52,9 @@ enum print_reason {
 #define HVDCP_INDIRECT_VOTER		"HVDCP_INDIRECT_VOTER"
 #define MICRO_USB_VOTER			"MICRO_USB_VOTER"
 
+#define VCONN_MAX_ATTEMPTS	3
+#define OTG_MAX_ATTEMPTS	3
+
 enum smb_mode {
 	PARALLEL_MASTER = 0,
 	PARALLEL_SLAVE,
@@ -153,10 +156,12 @@ struct smb_charger {
 	struct smb_iio		iio;
 	int			*debug_mask;
 	enum smb_mode		mode;
+	bool			external_vconn;
 
 	/* locks */
 	struct mutex		write_lock;
 	struct mutex		ps_change_lock;
+	struct mutex		otg_overcurrent_lock;
 
 	/* power supplies */
 	struct power_supply		*batt_psy;
@@ -210,21 +215,21 @@ struct smb_charger {
 	int			pd_active;
 	bool			system_suspend_supported;
 	int			boost_threshold_ua;
-
 	int			system_temp_level;
 	int			thermal_levels;
 	int			*thermal_mitigation;
-
 	int			otg_cl_ua;
 	int			dcp_icl_ua;
-
 	int			fake_capacity;
-
 	bool			step_chg_enabled;
 	bool			is_hdc;
 	bool			chg_done;
 	bool			micro_usb_mode;
 	int			input_limited_fcc_ua;
+	bool			otg_en;
+	bool			vconn_en;
+	int			otg_attempts;
+	int			vconn_attempts;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -266,6 +271,7 @@ int smblib_vconn_regulator_disable(struct regulator_dev *rdev);
 int smblib_vconn_regulator_is_enabled(struct regulator_dev *rdev);
 
 irqreturn_t smblib_handle_debug(int irq, void *data);
+irqreturn_t smblib_handle_otg_overcurrent(int irq, void *data);
 irqreturn_t smblib_handle_chg_state_change(int irq, void *data);
 irqreturn_t smblib_handle_step_chg_state_change(int irq, void *data);
 irqreturn_t smblib_handle_step_chg_soc_update_fail(int irq, void *data);

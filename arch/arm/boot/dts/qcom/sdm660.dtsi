@@ -491,7 +491,6 @@
 	};
 
 	wdog: qcom,wdt@17817000 {
-		status = "disabled";
 		compatible = "qcom,msm-watchdog";
 		reg = <0x17817000 0x1000>;
 		reg-names = "wdt-base";
@@ -500,6 +499,7 @@
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
+		qcom,scandump-size = <0x40000>;
 	};
 
 	qcom,sps {
@@ -984,11 +984,12 @@
 	};
 
 	bwmon: qcom,cpu-bwmon {
-		compatible = "qcom,bimc-bwmon3";
+		compatible = "qcom,bimc-bwmon4";
 		reg = <0x01008000 0x300>, <0x01001000 0x200>;
 		reg-names = "base", "global_base";
 		interrupts = <0 183 4>;
 		qcom,mport = <0>;
+		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&cpubw>;
 	};
 
@@ -1177,16 +1178,8 @@
 
 	msm_cpufreq: qcom,msm-cpufreq {
 		compatible = "qcom,msm-cpufreq";
-		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
-				"cpu3_clk", "cpu4_clk", "cpu5_clk",
-				"cpu6_clk", "cpu7_clk";
+		clock-names = "cpu0_clk", "cpu4_clk";
 		clocks = <&clock_cpu PWRCL_CLK>,
-			 <&clock_cpu PWRCL_CLK>,
-			 <&clock_cpu PWRCL_CLK>,
-			 <&clock_cpu PWRCL_CLK>,
-			 <&clock_cpu PERFCL_CLK>,
-			 <&clock_cpu PERFCL_CLK>,
-			 <&clock_cpu PERFCL_CLK>,
 			 <&clock_cpu PERFCL_CLK>;
 
 		qcom,governor-per-policy;
@@ -1966,7 +1959,7 @@
 		reg = <0x1de0000 0x20000>,
 			<0x1dc4000 0x24000>;
 		reg-names = "crypto-base","crypto-bam-base";
-		interrupts = <0 207 0>;
+		interrupts = <0 206 0>;
 		qcom,bam-pipe-pair = <1>;
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
@@ -1992,7 +1985,7 @@
 		reg = <0x1de0000 0x20000>,
 			 <0x1dc4000 0x24000>;
 		reg-names = "crypto-base","crypto-bam-base";
-		interrupts = <0 207 0>;
+		interrupts = <0 206 0>;
 		qcom,bam-pipe-pair = <2>;
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
@@ -2028,9 +2021,9 @@
 		hyplog-size-offset = <0x414>;
 	};
 
-	qcom_rng: qrng@794000 {
+	qcom_rng: qrng@793000 {
 		compatible = "qcom,msm-rng";
-		reg = <0x794000 0x1000>;
+		reg = <0x793000 0x1000>;
 		qcom,msm-rng-iface-clk;
 		qcom,no-qrng-config;
 		qcom,msm-bus,name = "msm-rng-noc";
@@ -2384,6 +2377,10 @@
 			debounce-interval = <15>;
 		};
 	};
+};
+
+&blsp2_uart1_hs {
+	status = "ok";
 };
 
 #include "sdm660-mdss.dtsi"

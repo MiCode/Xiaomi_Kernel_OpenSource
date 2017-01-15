@@ -103,6 +103,7 @@ Optional properties:
 - qcom,platform-reset-gpio:		Specifies the panel reset gpio.
 - qcom,platform-te-gpio:		Specifies the gpio used for TE.
 - qcom,platform-bklight-en-gpio:	Specifies the gpio used to enable display back-light
+- qcom,platform-bklight-en-gpio-invert:	Invert the gpio used to enable display back-light
 - qcom,panel-mode-gpio:			Specifies the GPIO to select video/command/single-port/dual-port
 					mode of panel through gpio when it supports these modes.
 - pinctrl-names:			List of names to assign mdss pin states defined in pinctrl device node
@@ -267,6 +268,7 @@ Example:
 			qcom,platform-te-gpio = <&msmgpio 24 0>;
 			qcom,platform-enable-gpio = <&msmgpio 58 1>;
 			qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
+			qcom,platform-bklight-en-gpio-invert;
 			qcom,panel-mode-gpio = <&msmgpio 107 0>;
 			qcom,dsi-irq-line;
 			qcom,lane-map = "lane_map_3012";
