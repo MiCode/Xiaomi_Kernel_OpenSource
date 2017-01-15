@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2383,6 +2383,7 @@ static int msm_anlg_cdc_codec_enable_dig_clk(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMU:
 		msm_anlg_cdc_codec_enable_clock_block(codec, 1);
 		snd_soc_update_bits(codec, w->reg, 0x80, 0x80);
+		msm_anlg_cdc_boost_mode_sequence(codec, SPK_PMU);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (sdm660_cdc->rx_bias_count == 0)
@@ -4016,6 +4017,7 @@ int msm_anlg_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 	struct snd_info_entry *version_entry;
 	struct sdm660_cdc_priv *sdm660_cdc_priv;
 	struct snd_soc_card *card;
+	int ret;
 
 	if (!codec_root || !codec)
 		return -EINVAL;
@@ -4023,7 +4025,7 @@ int msm_anlg_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 	sdm660_cdc_priv = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
 	sdm660_cdc_priv->entry = snd_register_module_info(codec_root->module,
-							     "pmic_analog",
+							     "spmi0-03",
 							     codec_root);
 	if (!sdm660_cdc_priv->entry) {
 		dev_dbg(codec->dev, "%s: failed to create pmic_analog entry\n",
@@ -4050,6 +4052,16 @@ int msm_anlg_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 		return -ENOMEM;
 	}
 	sdm660_cdc_priv->version_entry = version_entry;
+	sdm660_cdc_priv->audio_ssr_nb.notifier_call =
+				sdm660_cdc_notifier_service_cb;
+	ret = audio_notifier_register("pmic_analog_cdc",
+				      AUDIO_NOTIFIER_ADSP_DOMAIN,
+				      &sdm660_cdc_priv->audio_ssr_nb);
+	if (ret < 0) {
+		pr_err("%s: Audio notifier register failed ret = %d\n",
+			__func__, ret);
+		return ret;
+	}
 	return 0;
 }
 EXPORT_SYMBOL(msm_anlg_codec_info_create_codec_entry);
@@ -4176,17 +4188,6 @@ static int msm_anlg_cdc_soc_probe(struct snd_soc_codec *codec)
 
 	/* Set initial cap mode */
 	msm_anlg_cdc_configure_cap(codec, false, false);
-	sdm660_cdc_priv->audio_ssr_nb.notifier_call =
-				sdm660_cdc_notifier_service_cb;
-	ret = audio_notifier_register("pmic_analog_cdc",
-				      AUDIO_NOTIFIER_ADSP_DOMAIN,
-				      &sdm660_cdc_priv->audio_ssr_nb);
-	if (ret < 0) {
-		pr_err("%s: Audio notifier register failed ret = %d\n",
-			__func__, ret);
-		wcd_mbhc_deinit(&sdm660_cdc_priv->mbhc);
-		return ret;
-	}
 	return 0;
 }
 
@@ -4586,6 +4587,8 @@ static int msm_anlg_cdc_probe(struct platform_device *pdev)
 	usleep_range(5, 6);
 
 	dev_set_drvdata(&pdev->dev, sdm660_cdc);
+	wcd9xxx_spmi_set_dev(pdev, 0);
+	wcd9xxx_spmi_set_dev(pdev, 1);
 	if (wcd9xxx_spmi_irq_init()) {
 		dev_err(&pdev->dev,
 			"%s: irq initialization failed\n", __func__);

@@ -9383,12 +9383,6 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 			   slimbus_8_rx_voice_mixer_controls,
 			   ARRAY_SIZE(slimbus_8_rx_voice_mixer_controls)),
 	/* port mixer */
-	SND_SOC_DAPM_MIXER("INT0_MI2S_RX Port Mixer",
-	SND_SOC_NOPM, 0, 0, int0_mi2s_rx_port_mixer_controls,
-	ARRAY_SIZE(int0_mi2s_rx_port_mixer_controls)),
-	SND_SOC_DAPM_MIXER("INT4_MI2S_RX Port Mixer",
-	SND_SOC_NOPM, 0, 0, int4_mi2s_rx_port_mixer_controls,
-	ARRAY_SIZE(int4_mi2s_rx_port_mixer_controls)),
 	SND_SOC_DAPM_MIXER("SLIMBUS_0_RX Port Mixer",
 	SND_SOC_NOPM, 0, 0, sbus_0_rx_port_mixer_controls,
 	ARRAY_SIZE(sbus_0_rx_port_mixer_controls)),
