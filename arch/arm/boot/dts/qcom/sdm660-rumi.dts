@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,7 +97,7 @@
 	/* device core power supply */
 	vdd-supply = <&pm660l_l5>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <15000 900000>;
+	qcom,vdd-current-level = <15000 800000>;
 
 	/* device communication power supply */
 	vdd-io-supply = <&pm660l_l2>;
@@ -113,8 +113,8 @@
 	interrupts = <0 1 2>;
 	#interrupt-cells = <1>;
 	interrupt-map-mask = <0xffffffff>;
-	interrupt-map = <0 &intc 0 125 0
-			1 &intc 0 221 0
+	interrupt-map = <0 &intc 0 0 125 0
+			1 &intc 0 0 221 0
 			2 &tlmm 54 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
 	cd-gpios = <&tlmm 54 0x1>;
