@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,14 +103,20 @@
 		compatible = "qcom,pmic-analog-codec";
 		reg = <0xf000 0x200>;
 		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x1 0xf0 0x0>,
-				<0x1 0xf0 0x1>,
-				<0x1 0xf0 0x2>,
-				<0x1 0xf0 0x3>,
-				<0x1 0xf0 0x4>,
-				<0x1 0xf0 0x5>,
-				<0x1 0xf0 0x6>,
-				<0x1 0xf0 0x7>;
+		interrupts = <0x3 0xf0 0x0 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x1 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x2 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x3 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x4 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x5 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x6 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x7 IRQ_TYPE_NONE>,
+				<0x3 0xf1 0x0 IRQ_TYPE_NONE>,
+				<0x3 0xf1 0x1 IRQ_TYPE_NONE>,
+				<0x3 0xf1 0x2 IRQ_TYPE_NONE>,
+				<0x3 0xf1 0x3 IRQ_TYPE_NONE>,
+				<0x3 0xf1 0x4 IRQ_TYPE_NONE>,
+				<0x3 0xf1 0x5 IRQ_TYPE_NONE>;
 		interrupt-names = "spk_cnp_int",
 				  "spk_clip_int",
 				  "spk_ocp_int",
@@ -118,7 +124,14 @@
 				  "but_rel_det",
 				  "but_press_det",
 				  "ins_rem_det",
-				  "mbhc_int";
+				  "mbhc_int",
+				  "ear_ocp_int",
+				  "hphr_ocp_int",
+				  "hphl_ocp_det",
+				  "ear_cnp_int",
+				  "hphr_cnp_int",
+				  "hphl_cnp_int";
+
 
 		cdc-vdda-cp-supply = <&pm660_s4>;
 		qcom,cdc-vdda-cp-voltage = <1900000 2050000>;
@@ -129,7 +142,7 @@
 		qcom,cdc-vdd-pa-current = <260000>;
 
 		cdc-vdd-mic-bias-supply = <&pm660l_l7>;
-		qcom,cdc-vdd-mic-bias-voltage = <3125000 3125000>;
+		qcom,cdc-vdd-mic-bias-voltage = <3088000 3088000>;
 		qcom,cdc-vdd-mic-bias-current = <5000>;
 
 		qcom,cdc-mclk-clk-rate = <9600000>;
@@ -139,21 +152,6 @@
 
 		qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
 
-		cdc_pdm_gpios: cdc_pdm_pinctrl {
-			compatible = "qcom,msm-cdc-pinctrl";
-			pinctrl-names = "aud_active", "aud_sleep";
-			pinctrl-0 = <&cdc_pdm_gpios_active>;
-			pinctrl-1 = <&cdc_pdm_gpios_sleep>;
-			qcom,lpi-gpios;
-		};
-
-		cdc_comp_gpios: cdc_comp_pinctrl {
-			compatible = "qcom,msm-cdc-pinctrl";
-			pinctrl-names = "aud_active", "aud_sleep";
-			pinctrl-0 = <&cdc_comp_gpios_active>;
-			pinctrl-1 = <&cdc_comp_gpios_sleep>;
-			qcom,lpi-gpios;
-		};
 		/*
 		 * Not marking address @ as driver searches this child
 		 * with name msm-dig-codec
@@ -161,47 +159,64 @@
 		msm_digital_codec: msm-dig-codec {
 			compatible = "qcom,msm-digital-codec";
 			reg = <0x152c0000 0x0>;
-			cdc_dmic_gpios: cdc_dmic_pinctrl {
-				compatible = "qcom,msm-cdc-pinctrl";
-				pinctrl-names = "aud_active", "aud_sleep";
-				pinctrl-0 = <&cdc_dmic12_gpios_active
-						&cdc_dmic34_gpios_active>;
-				pinctrl-1 = <&cdc_dmic12_gpios_sleep
-						&cdc_dmic34_gpios_sleep>;
-				qcom,lpi-gpios;
-			};
 		};
 	};
 };
 
 &soc {
+	cdc_pdm_gpios: cdc_pdm_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_pdm_gpios_active>;
+		pinctrl-1 = <&cdc_pdm_gpios_sleep>;
+		qcom,lpi-gpios;
+	};
+
+	cdc_comp_gpios: cdc_comp_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_comp_gpios_active>;
+		pinctrl-1 = <&cdc_comp_gpios_sleep>;
+		qcom,lpi-gpios;
+	};
+
+	cdc_dmic_gpios: cdc_dmic_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic12_gpios_active
+				&cdc_dmic34_gpios_active>;
+		pinctrl-1 = <&cdc_dmic12_gpios_sleep
+				&cdc_dmic34_gpios_sleep>;
+		qcom,lpi-gpios;
+	};
+
+	cdc_sdw_gpios: sdw_clk_data_pinctrl {
+	      compatible = "qcom,msm-cdc-pinctrl";
+	      pinctrl-names = "aud_active", "aud_sleep";
+	      pinctrl-0 = <&sdw_clk_active &sdw_data_active>;
+	      pinctrl-1 = <&sdw_clk_sleep &sdw_data_sleep>;
+	};
+
+	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
+	      compatible = "qcom,msm-cdc-pinctrl";
+	      pinctrl-names = "aud_active", "aud_sleep";
+	      pinctrl-0 = <&spkr_1_sd_n_active>;
+	      pinctrl-1 = <&spkr_1_sd_n_sleep>;
+	};
+
+	wsa_spkr_en2: wsa_spkr_en2_pinctrl {
+	      compatible = "qcom,msm-cdc-pinctrl";
+	      pinctrl-names = "aud_active", "aud_sleep";
+	      pinctrl-0 = <&spkr_2_sd_n_active>;
+	      pinctrl-1 = <&spkr_2_sd_n_sleep>;
+	};
+
 	msm_sdw_codec: msm-sdw-codec@152c1000 {
 		status = "disabled";
 		compatible = "qcom,msm-sdw-codec";
 		reg = <0x152c1000 0x0>;
 		interrupts = <0 161 0>;
 		interrupt-names = "swr_master_irq";
-
-		cdc_sdw_gpios: sdw_clk_data_pinctrl {
-		      compatible = "qcom,msm-cdc-pinctrl";
-		      pinctrl-names = "aud_active", "aud_sleep";
-		      pinctrl-0 = <&sdw_clk_active &sdw_data_active>;
-		      pinctrl-1 = <&sdw_clk_sleep &sdw_data_sleep>;
-		};
-
-		wsa_spkr_en1: wsa_spkr_en1_pinctrl {
-		      compatible = "qcom,msm-cdc-pinctrl";
-		      pinctrl-names = "aud_active", "aud_sleep";
-		      pinctrl-0 = <&spkr_1_sd_n_active>;
-		      pinctrl-1 = <&spkr_1_sd_n_sleep>;
-		};
-
-		wsa_spkr_en2: wsa_spkr_en2_pinctrl {
-		      compatible = "qcom,msm-cdc-pinctrl";
-		      pinctrl-names = "aud_active", "aud_sleep";
-		      pinctrl-0 = <&spkr_2_sd_n_active>;
-		      pinctrl-1 = <&spkr_2_sd_n_sleep>;
-		};
 
 		swr_master {
 			compatible = "qcom,swr-wcd";
