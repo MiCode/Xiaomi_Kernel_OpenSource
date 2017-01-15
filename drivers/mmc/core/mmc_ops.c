@@ -54,7 +54,7 @@ static const u8 tuning_blk_pattern_8bit[] = {
 	0xff, 0x77, 0x77, 0xff, 0x77, 0xbb, 0xdd, 0xee,
 };
 
-static inline int __mmc_send_status(struct mmc_card *card, u32 *status,
+int __mmc_send_status(struct mmc_card *card, u32 *status,
 				    bool ignore_crc)
 {
 	int err;
