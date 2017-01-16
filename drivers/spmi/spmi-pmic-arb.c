@@ -28,6 +28,7 @@
 /* PMIC Arbiter configuration registers */
 #define PMIC_ARB_VERSION		0x0000
 #define PMIC_ARB_VERSION_V2_MIN		0x20010000
+#define PMIC_ARB_VERSION_V3_MIN		0x30000000
 #define PMIC_ARB_INT_EN			0x0004
 
 /* PMIC Arbiter channel registers offsets */
@@ -151,7 +152,9 @@ struct spmi_pmic_arb {
 /**
  * pmic_arb_ver: version dependent functionality.
  *
- * @mode:	access rights to specified pmic peripheral.
+ * @ver_str:		version string.
+ * @ppid_to_apid:	finds the apid for a given ppid.
+ * @mode:		access rights to specified pmic peripheral.
  * @non_data_cmd:	on v1 issues an spmi non-data command.
  *			on v2 no HW support, returns -EOPNOTSUPP.
  * @offset:		on v1 offset of per-ee channel.
@@ -167,6 +170,7 @@ struct spmi_pmic_arb {
  *			on v2 offset of SPMI_PIC_IRQ_CLEARn.
  */
 struct pmic_arb_ver_ops {
+	const char *ver_str;
 	int (*ppid_to_apid)(struct spmi_pmic_arb *pa, u8 sid, u16 addr,
 			u8 *apid);
 	int (*mode)(struct spmi_pmic_arb *dev, u8 sid, u16 addr,
@@ -885,6 +889,11 @@ static u32 pmic_arb_owner_acc_status_v2(u8 m, u8 n)
 	return 0x100000 + 0x1000 * m + 0x4 * n;
 }
 
+static u32 pmic_arb_owner_acc_status_v3(u8 m, u8 n)
+{
+	return 0x200000 + 0x1000 * m + 0x4 * n;
+}
+
 static u32 pmic_arb_acc_enable_v1(u8 n)
 {
 	return 0x200 + 0x4 * n;
@@ -916,6 +925,7 @@ static u32 pmic_arb_irq_clear_v2(u8 n)
 }
 
 static const struct pmic_arb_ver_ops pmic_arb_v1 = {
+	.ver_str		= "v1",
 	.ppid_to_apid		= pmic_arb_ppid_to_apid_v1,
 	.mode			= pmic_arb_mode_v1,
 	.non_data_cmd		= pmic_arb_non_data_cmd_v1,
@@ -928,12 +938,26 @@ static const struct pmic_arb_ver_ops pmic_arb_v1 = {
 };
 
 static const struct pmic_arb_ver_ops pmic_arb_v2 = {
+	.ver_str		= "v2",
 	.ppid_to_apid		= pmic_arb_ppid_to_apid_v2,
 	.mode			= pmic_arb_mode_v2,
 	.non_data_cmd		= pmic_arb_non_data_cmd_v2,
 	.offset			= pmic_arb_offset_v2,
 	.fmt_cmd		= pmic_arb_fmt_cmd_v2,
 	.owner_acc_status	= pmic_arb_owner_acc_status_v2,
+	.acc_enable		= pmic_arb_acc_enable_v2,
+	.irq_status		= pmic_arb_irq_status_v2,
+	.irq_clear		= pmic_arb_irq_clear_v2,
+};
+
+static const struct pmic_arb_ver_ops pmic_arb_v3 = {
+	.ver_str		= "v3",
+	.ppid_to_apid		= pmic_arb_ppid_to_apid_v2,
+	.mode			= pmic_arb_mode_v2,
+	.non_data_cmd		= pmic_arb_non_data_cmd_v2,
+	.offset			= pmic_arb_offset_v2,
+	.fmt_cmd		= pmic_arb_fmt_cmd_v2,
+	.owner_acc_status	= pmic_arb_owner_acc_status_v3,
 	.acc_enable		= pmic_arb_acc_enable_v2,
 	.irq_status		= pmic_arb_irq_status_v2,
 	.irq_clear		= pmic_arb_irq_clear_v2,
@@ -952,7 +976,6 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	void __iomem *core;
 	u32 channel, ee, hw_ver;
 	int err;
-	bool is_v1;
 
 	ctrl = spmi_controller_alloc(&pdev->dev, sizeof(*pa));
 	if (!ctrl)
@@ -976,21 +999,21 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	}
 
 	hw_ver = readl_relaxed(core + PMIC_ARB_VERSION);
-	is_v1  = (hw_ver < PMIC_ARB_VERSION_V2_MIN);
 
-	dev_info(&ctrl->dev, "PMIC Arb Version-%d (0x%x)\n", (is_v1 ? 1 : 2),
-		hw_ver);
-
-	if (is_v1) {
+	if (hw_ver < PMIC_ARB_VERSION_V2_MIN) {
 		pa->ver_ops = &pmic_arb_v1;
 		pa->wr_base = core;
 		pa->rd_base = core;
 	} else {
 		pa->core = core;
-		pa->ver_ops = &pmic_arb_v2;
+
+		if (hw_ver < PMIC_ARB_VERSION_V3_MIN)
+			pa->ver_ops = &pmic_arb_v2;
+		else
+			pa->ver_ops = &pmic_arb_v3;
 
 		/* the apid to ppid table starts at PMIC_ARB_REG_CHNL(0) */
-		pa->max_periph =  (pa->core_size - PMIC_ARB_REG_CHNL(0)) / 4;
+		pa->max_periph = (pa->core_size - PMIC_ARB_REG_CHNL(0)) / 4;
 
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   "obsrvr");
@@ -1017,6 +1040,9 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 			goto err_put_ctrl;
 		}
 	}
+
+	dev_info(&ctrl->dev, "PMIC arbiter version %s (0x%x)\n",
+		 pa->ver_ops->ver_str, hw_ver);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "intr");
 	pa->intr = devm_ioremap_resource(&ctrl->dev, res);
