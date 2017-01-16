@@ -2591,7 +2591,11 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
 
 	speed = extcon_get_cable_state_(edev, EXTCON_USB_SPEED);
-	dwc->maximum_speed = (speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
+	/* Use default dwc->maximum_speed if extcon doesn't report speed. */
+	if (speed >= 0)
+		dwc->maximum_speed =
+			(speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
+
 	if (dwc->maximum_speed > dwc->max_hw_supp_speed)
 		dwc->maximum_speed = dwc->max_hw_supp_speed;
 
@@ -2634,7 +2638,11 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
 
 	speed = extcon_get_cable_state_(edev, EXTCON_USB_SPEED);
-	dwc->maximum_speed = (speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
+	/* Use default dwc->maximum_speed if extcon doesn't report speed. */
+	if (speed >= 0)
+		dwc->maximum_speed =
+			(speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
+
 	if (dwc->maximum_speed > dwc->max_hw_supp_speed)
 		dwc->maximum_speed = dwc->max_hw_supp_speed;
 
