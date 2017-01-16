@@ -224,9 +224,11 @@ static long esoc_dev_ioctl(struct file *file, unsigned int cmd,
 		clink_ops->notify(esoc_cmd, esoc_clink);
 		break;
 	case ESOC_GET_STATUS:
-		err = clink_ops->get_status(&status, esoc_clink);
-		if (err)
-			return err;
+		clink_ops->get_status(&status, esoc_clink);
+		put_user(status, (unsigned int __user *)uarg);
+		break;
+	case ESOC_GET_ERR_FATAL:
+		clink_ops->get_err_fatal(&status, esoc_clink);
 		put_user(status, (unsigned int __user *)uarg);
 		break;
 	case ESOC_WAIT_FOR_CRASH:
