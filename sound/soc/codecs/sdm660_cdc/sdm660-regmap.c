@@ -452,20 +452,8 @@ bool msm89xx_cdc_core_readable_reg(struct device *dev, unsigned int reg)
 bool msm89xx_cdc_core_volatile_reg(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
-	case MSM89XX_CDC_CORE_RX1_B1_CTL:
-	case MSM89XX_CDC_CORE_RX2_B1_CTL:
-	case MSM89XX_CDC_CORE_RX3_B1_CTL:
-	case MSM89XX_CDC_CORE_RX1_B6_CTL:
-	case MSM89XX_CDC_CORE_RX2_B6_CTL:
-	case MSM89XX_CDC_CORE_RX3_B6_CTL:
-	case MSM89XX_CDC_CORE_TX1_VOL_CTL_CFG:
-	case MSM89XX_CDC_CORE_TX2_VOL_CTL_CFG:
-	case MSM89XX_CDC_CORE_IIR1_COEF_B1_CTL:
-	case MSM89XX_CDC_CORE_IIR2_COEF_B1_CTL:
-	case MSM89XX_CDC_CORE_CLK_MCLK_CTL:
-	case MSM89XX_CDC_CORE_CLK_PDM_CTL:
-		return true;
+	/* cache bypass for initial version */
 	default:
-		return false;
+		return true;
 	}
 }
