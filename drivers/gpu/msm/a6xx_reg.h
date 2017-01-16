@@ -122,6 +122,8 @@
 
 /* HLSQ registers */
 #define A6XX_HLSQ_ADDR_MODE_CNTL            0xBE05
+#define A6XX_HLSQ_DBG_AHB_READ_APERTURE     0xC800
+#define A6XX_HLSQ_DBG_READ_SEL              0xD000
 
 /* VFD registers */
 #define A6XX_VFD_ADDR_MODE_CNTL             0xA601
