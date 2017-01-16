@@ -926,9 +926,7 @@ static int dp_get_cable_status(struct platform_device *pdev, u32 vote)
 		return -ENODEV;
 	}
 
-	mutex_lock(&dp_ctrl->pd_msg_mutex);
 	hpd = dp_ctrl->cable_connected;
-	mutex_unlock(&dp_ctrl->pd_msg_mutex);
 
 	return hpd;
 }
@@ -1574,8 +1572,10 @@ static int mdss_dp_send_cable_notification(
 		goto end;
 	}
 
-	if (mdss_dp_is_dvi_mode(dp))
-		flags |= MSM_EXT_DISP_HPD_NO_AUDIO;
+	flags |= MSM_EXT_DISP_HPD_VIDEO;
+
+	if (!mdss_dp_is_dvi_mode(dp))
+		flags |= MSM_EXT_DISP_HPD_AUDIO;
 
 	if (dp->ext_audio_data.intf_ops.hpd)
 		ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,

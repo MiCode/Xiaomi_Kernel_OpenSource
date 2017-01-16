@@ -1,6 +1,6 @@
 /* include/linux/msm_ext_display.h
  *
- * Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,11 +24,11 @@
 /**
  *  Flags to be used with the HPD operation of the external display
  *  interface:
- *  MSM_EXT_DISP_HPD_NO_AUDIO: audio will not be routed to external display
- *  MSM_EXT_DISP_HPD_NO_VIDEO: video will not be routed to external display
+ *  MSM_EXT_DISP_HPD_AUDIO: audio will be routed to external display
+ *  MSM_EXT_DISP_HPD_VIDEO: video will be routed to external display
  */
-#define MSM_EXT_DISP_HPD_NO_AUDIO BIT(0)
-#define MSM_EXT_DISP_HPD_NO_VIDEO BIT(1)
+#define MSM_EXT_DISP_HPD_AUDIO BIT(0)
+#define MSM_EXT_DISP_HPD_VIDEO BIT(1)
 
 /**
  * struct ext_disp_cable_notify - cable notify handler structure
