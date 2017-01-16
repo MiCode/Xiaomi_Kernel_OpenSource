@@ -108,6 +108,17 @@ module_param_named(
 	debug_mask, __debug_mask, int, 0600
 );
 
+irqreturn_t smb138x_handle_slave_chg_state_change(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb138x *chip = irq_data->parent_data;
+
+	if (chip->parallel_psy)
+		power_supply_changed(chip->parallel_psy);
+
+	return IRQ_HANDLED;
+}
+
 static int smb138x_parse_dt(struct smb138x *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -989,7 +1000,8 @@ static const struct smb138x_irq_info smb138x_irqs[] = {
 	},
 	{
 		.name		= "chg-state-change",
-		.handler	= smblib_handle_debug,
+		.handler	= smb138x_handle_slave_chg_state_change,
+		.wake		= true,
 	},
 	{
 		.name		= "step-chg-state-change",
