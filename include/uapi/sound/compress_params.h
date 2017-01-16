@@ -86,7 +86,8 @@
 #define SND_AUDIOCODEC_ALAC                  ((__u32) 0x00000010)
 #define SND_AUDIOCODEC_APE                   ((__u32) 0x00000011)
 #define SND_AUDIOCODEC_DSD                   ((__u32) 0x00000012)
-#define SND_AUDIOCODEC_MAX                   SND_AUDIOCODEC_DSD
+#define SND_AUDIOCODEC_APTX                  ((__u32) 0x00000013)
+#define SND_AUDIOCODEC_MAX                   SND_AUDIOCODEC_APTX
 
 /*
  * Profile and modes are listed with bit masks. This allows for a
@@ -380,6 +381,12 @@ struct snd_dec_wma {
 	__u32 avg_bit_rate;
 } __attribute__((packed, aligned(4)));
 
+struct snd_dec_aptx {
+	__u32 lap;
+	__u32 uap;
+	__u32 nap;
+};
+
 union snd_codec_options {
 	struct snd_enc_wma wma;
 	struct snd_enc_vorbis vorbis;
@@ -391,6 +398,7 @@ union snd_codec_options {
 	struct snd_dec_alac alac_dec;
 	struct snd_dec_ape ape_dec;
 	struct snd_dec_wma wma_dec;
+	struct snd_dec_aptx aptx_dec;
 } __attribute__((packed, aligned(4)));
 
 /** struct snd_codec_desc - description of codec capabilities
