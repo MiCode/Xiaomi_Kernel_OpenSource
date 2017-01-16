@@ -480,7 +480,7 @@ static irqreturn_t mdm_pblrdy_change(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int mdm_get_status(u32 *status, struct esoc_clink *esoc)
+static void mdm_get_status(u32 *status, struct esoc_clink *esoc)
 {
 	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc);
 
@@ -488,7 +488,16 @@ static int mdm_get_status(u32 *status, struct esoc_clink *esoc)
 		*status = 0;
 	else
 		*status = 1;
-	return 0;
+}
+
+static void mdm_get_err_fatal(u32 *status, struct esoc_clink *esoc)
+{
+	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc);
+
+	if (gpio_get_value(MDM_GPIO(mdm, MDM2AP_ERRFATAL)) == 0)
+		*status = 0;
+	else
+		*status = 1;
 }
 
 static void mdm_configure_debug(struct mdm_ctrl *mdm)
@@ -964,6 +973,7 @@ static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 static struct esoc_clink_ops mdm_cops = {
 	.cmd_exe = mdm_cmd_exe,
 	.get_status = mdm_get_status,
+	.get_err_fatal = mdm_get_err_fatal,
 	.notify = mdm_notify,
 };
 

@@ -83,11 +83,13 @@ struct esoc_clink {
  * struct esoc_clink_ops: Operations to control external soc
  * @cmd_exe: Execute control command
  * @get_status: Get current status, or response to previous command
+ * @get_err_fatal: Get status of err fatal signal
  * @notify_esoc: notify external soc of events
  */
 struct esoc_clink_ops {
 	int (*cmd_exe)(enum esoc_cmd cmd, struct esoc_clink *dev);
-	int (*get_status)(u32 *status, struct esoc_clink *dev);
+	void (*get_status)(u32 *status, struct esoc_clink *dev);
+	void (*get_err_fatal)(u32 *status, struct esoc_clink *dev);
 	void (*notify)(enum esoc_notify notify, struct esoc_clink *dev);
 };
 
