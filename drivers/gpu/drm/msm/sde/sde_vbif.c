@@ -12,6 +12,8 @@
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 
+#include <linux/debugfs.h>
+
 #include "sde_vbif.h"
 #include "sde_hw_vbif.h"
 #include "sde_trace.h"
@@ -207,3 +209,76 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 exit:
 	return;
 }
+
+#ifdef CONFIG_DEBUG_FS
+void sde_debugfs_vbif_destroy(struct sde_kms *sde_kms)
+{
+	debugfs_remove_recursive(sde_kms->debugfs_vbif);
+	sde_kms->debugfs_vbif = NULL;
+}
+
+int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root)
+{
+	char vbif_name[32];
+	struct dentry *debugfs_vbif;
+	int i, j;
+
+	sde_kms->debugfs_vbif = debugfs_create_dir("vbif",
+			sde_kms->debugfs_root);
+	if (!sde_kms->debugfs_vbif) {
+		SDE_ERROR("failed to create vbif debugfs\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
+		struct sde_vbif_cfg *vbif = &sde_kms->catalog->vbif[i];
+
+		snprintf(vbif_name, sizeof(vbif_name), "%d", vbif->id);
+
+		debugfs_vbif = debugfs_create_dir(vbif_name,
+				sde_kms->debugfs_vbif);
+
+		debugfs_create_u32("features", 0644, debugfs_vbif,
+			(u32 *)&vbif->features);
+
+		debugfs_create_u32("xin_halt_timeout", 0444, debugfs_vbif,
+			(u32 *)&vbif->xin_halt_timeout);
+
+		debugfs_create_u32("default_rd_ot_limit", 0444, debugfs_vbif,
+			(u32 *)&vbif->default_ot_rd_limit);
+
+		debugfs_create_u32("default_wr_ot_limit", 0444, debugfs_vbif,
+			(u32 *)&vbif->default_ot_wr_limit);
+
+		for (j = 0; j < vbif->dynamic_ot_rd_tbl.count; j++) {
+			struct sde_vbif_dynamic_ot_cfg *cfg =
+					&vbif->dynamic_ot_rd_tbl.cfg[j];
+
+			snprintf(vbif_name, sizeof(vbif_name),
+					"dynamic_ot_rd_%d_pps", j);
+			debugfs_create_u64(vbif_name, 0444, debugfs_vbif,
+					(u64 *)&cfg->pps);
+			snprintf(vbif_name, sizeof(vbif_name),
+					"dynamic_ot_rd_%d_ot_limit", j);
+			debugfs_create_u32(vbif_name, 0444, debugfs_vbif,
+					(u32 *)&cfg->ot_limit);
+		}
+
+		for (j = 0; j < vbif->dynamic_ot_wr_tbl.count; j++) {
+			struct sde_vbif_dynamic_ot_cfg *cfg =
+					&vbif->dynamic_ot_wr_tbl.cfg[j];
+
+			snprintf(vbif_name, sizeof(vbif_name),
+					"dynamic_ot_wr_%d_pps", j);
+			debugfs_create_u64(vbif_name, 0444, debugfs_vbif,
+					(u64 *)&cfg->pps);
+			snprintf(vbif_name, sizeof(vbif_name),
+					"dynamic_ot_wr_%d_ot_limit", j);
+			debugfs_create_u32(vbif_name, 0444, debugfs_vbif,
+					(u32 *)&cfg->ot_limit);
+		}
+	}
+
+	return 0;
+}
+#endif
