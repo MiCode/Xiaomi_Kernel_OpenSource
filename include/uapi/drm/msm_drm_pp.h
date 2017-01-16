@@ -117,4 +117,21 @@ struct drm_msm_3d_gamut {
 	__u32 scale_off[GAMUT_3D_SCALE_OFF_TBL_NUM][GAMUT_3D_SCALE_OFF_SZ];
 	struct drm_msm_3d_col col[GAMUT_3D_TBL_NUM][GAMUT_3D_MODE17_TBL_SZ];
 };
+
+#define PGC_TBL_LEN 512
+#define PGC_8B_ROUND (1 << 0)
+/**
+ * struct drm_msm_pgc_lut - pgc lut feature structure
+ * @flags: flags for the featue values can be:
+ *         - PGC_8B_ROUND
+ * @c0: color0 component lut
+ * @c1: color1 component lut
+ * @c2: color2 component lut
+ */
+struct drm_msm_pgc_lut {
+	__u64 flags;
+	__u32 c0[PGC_TBL_LEN];
+	__u32 c1[PGC_TBL_LEN];
+	__u32 c2[PGC_TBL_LEN];
+};
 #endif /* _MSM_DRM_PP_H_ */
