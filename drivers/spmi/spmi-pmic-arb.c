@@ -98,6 +98,12 @@ enum pmic_arb_cmd_op_code {
 
 struct pmic_arb_ver_ops;
 
+struct apid_data {
+	u16		ppid;
+	u8		owner;
+	u8		enabled_irq_mask;
+};
+
 /**
  * spmi_pmic_arb - SPMI PMIC Arbiter object
  *
@@ -115,7 +121,6 @@ struct pmic_arb_ver_ops;
  * @mapping_table:	in-memory copy of PPID -> APID mapping table.
  * @domain:		irq domain object for PMIC IRQ domain
  * @spmic:		SPMI controller object
- * @apid_to_ppid:	in-memory copy of APID -> PPID mapping table.
  * @ver_ops:		version dependent operations.
  * @ppid_to_apid	in-memory copy of PPID -> channel (APID) mapping table.
  *			v2 only.
@@ -138,11 +143,10 @@ struct spmi_pmic_arb {
 	DECLARE_BITMAP(mapping_table_valid, PMIC_ARB_MAX_PERIPHS);
 	struct irq_domain	*domain;
 	struct spmi_controller	*spmic;
-	u16			*apid_to_ppid;
 	const struct pmic_arb_ver_ops *ver_ops;
 	u16			*ppid_to_apid;
 	u16			last_apid;
-	u8			*apid_to_owner;
+	struct apid_data	apid_data[PMIC_ARB_MAX_PERIPHS];
 };
 
 /**
@@ -493,7 +497,7 @@ static void periph_interrupt(struct spmi_pmic_arb *pa, u8 apid)
 		id = ffs(status) - 1;
 		status &= ~BIT(id);
 		irq = irq_find_mapping(pa->domain,
-				       pa->apid_to_ppid[apid] << 16
+				       pa->apid_data[apid].ppid << 16
 				     | id << 8
 				     | apid);
 		generic_handle_irq(irq);
@@ -548,18 +552,25 @@ static void qpnpint_irq_mask(struct irq_data *d)
 	u8 apid = d->hwirq;
 	unsigned long flags;
 	u32 status;
-	u8 data;
+	u8 data = BIT(irq);
+	u8 prev_enabled_irq_mask;
 
-	raw_spin_lock_irqsave(&pa->lock, flags);
-	status = readl_relaxed(pa->intr + pa->ver_ops->acc_enable(apid));
-	if (status & SPMI_PIC_ACC_ENABLE_BIT) {
-		status = status & ~SPMI_PIC_ACC_ENABLE_BIT;
-		writel_relaxed(status, pa->intr +
-			       pa->ver_ops->acc_enable(apid));
+	prev_enabled_irq_mask = pa->apid_data[apid].enabled_irq_mask;
+	pa->apid_data[apid].enabled_irq_mask &= ~BIT(irq);
+
+	if (prev_enabled_irq_mask != 0 &&
+		pa->apid_data[apid].enabled_irq_mask == 0) {
+		raw_spin_lock_irqsave(&pa->lock, flags);
+		status = readl_relaxed(pa->intr
+				+ pa->ver_ops->acc_enable(apid));
+		if (status & SPMI_PIC_ACC_ENABLE_BIT) {
+			status = status & ~SPMI_PIC_ACC_ENABLE_BIT;
+			writel_relaxed(status, pa->intr +
+				       pa->ver_ops->acc_enable(apid));
+		}
+		raw_spin_unlock_irqrestore(&pa->lock, flags);
 	}
-	raw_spin_unlock_irqrestore(&pa->lock, flags);
 
-	data = BIT(irq);
 	qpnpint_spmi_write(d, QPNPINT_REG_EN_CLR, &data, 1);
 }
 
@@ -570,17 +581,25 @@ static void qpnpint_irq_unmask(struct irq_data *d)
 	u8 apid = d->hwirq;
 	unsigned long flags;
 	u32 status;
-	u8 data;
+	u8 data = BIT(irq);
+	u8 prev_enabled_irq_mask;
 
-	raw_spin_lock_irqsave(&pa->lock, flags);
-	status = readl_relaxed(pa->intr + pa->ver_ops->acc_enable(apid));
-	if (!(status & SPMI_PIC_ACC_ENABLE_BIT)) {
-		writel_relaxed(status | SPMI_PIC_ACC_ENABLE_BIT,
+	prev_enabled_irq_mask = pa->apid_data[apid].enabled_irq_mask;
+	pa->apid_data[apid].enabled_irq_mask &= ~BIT(irq);
+	pa->apid_data[apid].enabled_irq_mask |= BIT(irq);
+
+	if (prev_enabled_irq_mask == 0 &&
+		pa->apid_data[apid].enabled_irq_mask != 0) {
+		raw_spin_lock_irqsave(&pa->lock, flags);
+		status = readl_relaxed(pa->intr
+				+ pa->ver_ops->acc_enable(apid));
+		if (!(status & SPMI_PIC_ACC_ENABLE_BIT)) {
+			writel_relaxed(status | SPMI_PIC_ACC_ENABLE_BIT,
 				pa->intr + pa->ver_ops->acc_enable(apid));
+		}
+		raw_spin_unlock_irqrestore(&pa->lock, flags);
 	}
-	raw_spin_unlock_irqrestore(&pa->lock, flags);
 
-	data = BIT(irq);
 	qpnpint_spmi_write(d, QPNPINT_REG_EN_SET, &data, 1);
 }
 
@@ -755,7 +774,7 @@ pmic_arb_ppid_to_apid_v1(struct spmi_pmic_arb *pa, u8 sid, u16 addr, u8 *apid)
 				*apid = SPMI_MAPPING_BIT_IS_1_RESULT(data);
 				pa->ppid_to_apid[ppid]
 					= *apid | PMIC_ARB_CHAN_VALID;
-				pa->apid_to_ppid[*apid] = ppid;
+				pa->apid_data[*apid].ppid = ppid;
 				return 0;
 			}
 		} else {
@@ -765,7 +784,7 @@ pmic_arb_ppid_to_apid_v1(struct spmi_pmic_arb *pa, u8 sid, u16 addr, u8 *apid)
 				*apid = SPMI_MAPPING_BIT_IS_0_RESULT(data);
 				pa->ppid_to_apid[ppid]
 					= *apid | PMIC_ARB_CHAN_VALID;
-				pa->apid_to_ppid[*apid] = ppid;
+				pa->apid_data[*apid].ppid = ppid;
 				return 0;
 			}
 		}
@@ -802,7 +821,7 @@ static u16 pmic_arb_find_apid(struct spmi_pmic_arb *pa, u16 ppid)
 	for (apid = pa->last_apid; apid < pa->max_periph; apid++) {
 		regval = readl_relaxed(pa->cnfg +
 				      SPMI_OWNERSHIP_TABLE_REG(apid));
-		pa->apid_to_owner[apid] = SPMI_OWNERSHIP_PERIPH2OWNER(regval);
+		pa->apid_data[apid].owner = SPMI_OWNERSHIP_PERIPH2OWNER(regval);
 
 		offset = PMIC_ARB_REG_CHNL(apid);
 		if (offset >= pa->core_size)
@@ -814,7 +833,7 @@ static u16 pmic_arb_find_apid(struct spmi_pmic_arb *pa, u16 ppid)
 
 		id = (regval >> 8) & PMIC_ARB_PPID_MASK;
 		pa->ppid_to_apid[id] = apid | PMIC_ARB_CHAN_VALID;
-		pa->apid_to_ppid[apid] = id;
+		pa->apid_data[apid].ppid = id;
 		if (id == ppid) {
 			apid |= PMIC_ARB_CHAN_VALID;
 			break;
@@ -845,7 +864,6 @@ static int
 pmic_arb_mode_v2(struct spmi_pmic_arb *pa, u8 sid, u16 addr, mode_t *mode)
 {
 	u8 apid;
-	u8 owner;
 	int rc;
 
 	rc = pmic_arb_ppid_to_apid_v2(pa, sid, addr, &apid);
@@ -855,8 +873,7 @@ pmic_arb_mode_v2(struct spmi_pmic_arb *pa, u8 sid, u16 addr, mode_t *mode)
 	*mode = 0;
 	*mode |= 0400;
 
-	owner = pa->apid_to_owner[apid];
-	if (owner == pa->ee)
+	if (pa->ee == pa->apid_data[apid].owner)
 		*mode |= 0200;
 	return 0;
 }
@@ -1027,15 +1044,6 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 			err = -ENOMEM;
 			goto err_put_ctrl;
 		}
-
-		pa->apid_to_owner = devm_kcalloc(&ctrl->dev,
-						 pa->max_periph,
-						 sizeof(*pa->apid_to_owner),
-						 GFP_KERNEL);
-		if (!pa->apid_to_owner) {
-			err = -ENOMEM;
-			goto err_put_ctrl;
-		}
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "intr");
@@ -1086,14 +1094,6 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	}
 
 	pa->ee = ee;
-
-	pa->apid_to_ppid = devm_kcalloc(&ctrl->dev, PMIC_ARB_MAX_PERIPHS,
-					    sizeof(*pa->apid_to_ppid),
-					    GFP_KERNEL);
-	if (!pa->apid_to_ppid) {
-		err = -ENOMEM;
-		goto err_put_ctrl;
-	}
 
 	pa->mapping_table = devm_kcalloc(&ctrl->dev, PMIC_ARB_MAX_PERIPHS - 1,
 					sizeof(*pa->mapping_table), GFP_KERNEL);
