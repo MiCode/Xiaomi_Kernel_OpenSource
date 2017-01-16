@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -572,6 +572,7 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* Hedgehog IDs */
 	[314] = {SDX_CPU_HEDGEHOG, "SDXHEDGEHOG"},
+	[333] = {SDX_CPU_HEDGEHOG, "SDXHEDGEHOG"},
 
 	/*MSM8937 ID  */
 	[294] = {MSM_CPU_8937, "MSM8937"},
