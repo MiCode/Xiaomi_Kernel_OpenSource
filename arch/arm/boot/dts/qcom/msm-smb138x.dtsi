@@ -108,6 +108,12 @@
 					   "connector_temp_thr3",
 					   "charger_temp_max";
 
+			qcom,chgr@1000 {
+				reg = <0x1000 0x100>;
+				interrupts = <0x10 0x1 IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "chg-state-change";
+			};
+
 			qcom,chgr-misc@1600 {
 				reg = <0x1600 0x100>;
 				interrupts = <0x16 0x1 IRQ_TYPE_EDGE_RISING>,
