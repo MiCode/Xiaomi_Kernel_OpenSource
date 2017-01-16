@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -180,7 +180,7 @@ int esoc_clink_register_ssr(struct esoc_clink *esoc_clink)
 	snprintf(subsys_name, len, "esoc%d", esoc_clink->id);
 	esoc_clink->subsys.name = subsys_name;
 	esoc_clink->dev.of_node = esoc_clink->np;
-	esoc_clink->subsys.dev = &esoc_clink->dev;
+	esoc_clink->subsys.dev = &esoc_clink->pdev->dev;
 	esoc_clink->subsys_dev = subsys_register(&esoc_clink->subsys);
 	if (IS_ERR(esoc_clink->subsys_dev)) {
 		dev_err(&esoc_clink->dev, "failed to register ssr node\n");

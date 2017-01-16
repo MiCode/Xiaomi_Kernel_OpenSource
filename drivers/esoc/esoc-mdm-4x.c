@@ -747,6 +747,7 @@ static int mdm9x25_setup_hw(struct mdm_ctrl *mdm,
 		dev_err(mdm->dev, "cannot allocate esoc device\n");
 		return PTR_ERR(esoc);
 	}
+	esoc->pdev = pdev;
 	mdm->mdm_queue = alloc_workqueue("mdm_queue", 0, 0);
 	if (!mdm->mdm_queue) {
 		dev_err(mdm->dev, "could not create mdm_queue\n");
@@ -817,6 +818,7 @@ static int mdm9x35_setup_hw(struct mdm_ctrl *mdm,
 		dev_err(mdm->dev, "cannot allocate esoc device\n");
 		return PTR_ERR(esoc);
 	}
+	esoc->pdev = pdev;
 	mdm->mdm_queue = alloc_workqueue("mdm_queue", 0, 0);
 	if (!mdm->mdm_queue) {
 		dev_err(mdm->dev, "could not create mdm_queue\n");
@@ -905,6 +907,7 @@ static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 		dev_err(mdm->dev, "cannot allocate esoc device\n");
 		return PTR_ERR(esoc);
 	}
+	esoc->pdev = pdev;
 	mdm->mdm_queue = alloc_workqueue("mdm_queue", 0, 0);
 	if (!mdm->mdm_queue) {
 		dev_err(mdm->dev, "could not create mdm_queue\n");

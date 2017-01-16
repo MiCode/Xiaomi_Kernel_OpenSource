@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,7 @@ struct esoc_eng {
  * @link_name: name of the physical link.
  * @parent: parent device.
  * @dev: device for userspace interface.
+ * @pdev: platform device to interface with SSR driver.
  * @id: id of the external device.
  * @owner: owner of the device.
  * @clink_ops: control operations for the control link
@@ -64,6 +65,7 @@ struct esoc_clink {
 	const char *link_name;
 	struct device *parent;
 	struct device dev;
+	struct platform_device *pdev;
 	unsigned int id;
 	struct module *owner;
 	const struct esoc_clink_ops const *clink_ops;
