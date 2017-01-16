@@ -857,6 +857,7 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 		clk_prepare_enable(pnoc_keepalive_a_clk.hw.clk);
 	} else if (is_660) {
 		clk_prepare_enable(sdm660_cxo_a.hw.clk);
+		clk_prepare_enable(sdm660_ln_bb_clk2.hw.clk);
 
 		/* Hold an active set vote for the cnoc_periph resource */
 		clk_set_rate(cnoc_periph_keepalive_a_clk.hw.clk, 19200000);
