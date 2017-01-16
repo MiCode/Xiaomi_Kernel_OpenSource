@@ -690,7 +690,6 @@
 
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
-		status = "disabled";
 		qcom,sensor-id = <1>;
 		qcom,poll-ms = <100>;
 		qcom,therm-reset-temp = <115>;
