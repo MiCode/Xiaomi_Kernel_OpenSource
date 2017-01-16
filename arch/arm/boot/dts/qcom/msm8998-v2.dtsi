@@ -1272,6 +1272,7 @@
 &spss_utils {
 	qcom,spss-test-firmware-name = "spss2t";	/* 8 chars max */
 	qcom,spss-prod-firmware-name = "spss2p";	/* 8 chars max */
+	qcom,spss-hybr-firmware-name = "spss2h";	/* 8 chars max */
 };
 
 &ufs1 {
