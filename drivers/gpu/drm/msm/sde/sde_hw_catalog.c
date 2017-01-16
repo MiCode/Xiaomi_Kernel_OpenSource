@@ -155,6 +155,7 @@ enum {
 	TE2_LEN,
 	DSC_OFF,
 	DSC_LEN,
+	PP_SLAVE,
 	PP_PROP_MAX,
 };
 
@@ -347,6 +348,7 @@ static struct sde_prop_type pp_prop[] = {
 	{TE2_LEN, "qcom,sde-te2-size", false, PROP_TYPE_U32},
 	{DSC_OFF, "qcom,sde-dsc-off", false, PROP_TYPE_U32_ARRAY},
 	{DSC_LEN, "qcom,sde-dsc-size", false, PROP_TYPE_U32},
+	{PP_SLAVE, "qcom,sde-pp-slave", false, PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type cdm_prop[] = {
@@ -1722,6 +1724,9 @@ static int sde_pp_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 			set_bit(SDE_PINGPONG_TE2, &pp->features);
 			set_bit(SDE_PINGPONG_SPLIT, &pp->features);
 		}
+
+		if (PROP_VALUE_ACCESS(prop_value, PP_SLAVE, i))
+			set_bit(SDE_PINGPONG_SLAVE, &pp->features);
 
 		sblk->dsc.base = PROP_VALUE_ACCESS(prop_value, DSC_OFF, i);
 		if (sblk->dsc.base) {

@@ -291,8 +291,11 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 		/* stage config flush mask */
 		ctl->ops.update_pending_flush(ctl, mixer[i].flush_mask);
 
-		SDE_DEBUG("lm %d ctl %d add mask 0x%x to pending flush\n",
-			mixer[i].hw_lm->idx, ctl->idx, mixer[i].flush_mask);
+		SDE_DEBUG("lm %d, op_mode 0x%X, ctl %d, flush mask 0x%x\n",
+			mixer[i].hw_lm->idx - LM_0,
+			mixer[i].mixer_op_mode,
+			ctl->idx - CTL_0,
+			mixer[i].flush_mask);
 
 		ctl->ops.setup_blendstage(ctl, mixer[i].hw_lm->idx,
 			&sde_crtc->stage_cfg, i);
@@ -493,7 +496,7 @@ static void _sde_crtc_setup_mixer_for_encoder(
 		/* CTL may be <= LMs, if <, multiple LMs controlled by 1 CTL */
 		if (!sde_rm_get_hw(rm, &ctl_iter)) {
 			SDE_DEBUG("no ctl assigned to lm %d, using previous\n",
-					mixer->hw_lm->idx);
+					mixer->hw_lm->idx - LM_0);
 			mixer->hw_ctl = last_valid_ctl;
 		} else {
 			mixer->hw_ctl = (struct sde_hw_ctl *)ctl_iter.hw;
@@ -503,7 +506,7 @@ static void _sde_crtc_setup_mixer_for_encoder(
 		/* Shouldn't happen, mixers are always >= ctls */
 		if (!mixer->hw_ctl) {
 			SDE_ERROR("no valid ctls found for lm %d\n",
-					mixer->hw_lm->idx);
+					mixer->hw_lm->idx - LM_0);
 			return;
 		}
 
