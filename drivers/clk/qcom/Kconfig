@@ -168,3 +168,12 @@ config MSM_VIDEOCC_SDM845
 	  sdm845 devices.
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
+
+config CLOCK_QPNP_DIV
+	tristate "QPNP PMIC clkdiv driver"
+	depends on COMMON_CLK_QCOM && SPMI
+	help
+	  This driver supports the clkdiv functionality on the Qualcomm
+	  Technologies, Inc. QPNP PMIC. It configures the frequency of
+	  clkdiv outputs on the PMIC. These clocks are typically wired
+	  through alternate functions on gpio pins.

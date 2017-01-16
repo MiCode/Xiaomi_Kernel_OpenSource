@@ -1,0 +1,52 @@
+Qualcomm Technologies, Inc. QPNP clock divider (clkdiv)
+
+clkdiv configures the clock frequency of a set of outputs on the PMIC.
+These clocks are typically wired through alternate functions on
+gpio pins.
+
+=======================
+Supported Properties
+=======================
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: should be "qcom,qpnp-clkdiv".
+
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Addresses and sizes for the memory of this CLKDIV
+		    peripheral.
+
+- qcom,cxo-freq
+	Usage:      required
+	Value type: <u32>
+	Definition: The frequency of the crystal oscillator (CXO) clock in Hz.
+
+- qcom,clkdiv-id
+	Usage:      required
+	Value type: <u32>
+	Definition: Integer value specifies the hardware identifier of this
+		    CLKDIV peripheral.
+
+- qcom,clkdiv-init-freq
+	Usage:      optional
+	Value type: <u32>
+	Definition: Initial output frequency in Hz to configure for the CLKDIV
+		    peripheral. The initial frequency value should be less than
+		    or equal to CXO clock frequency and greater than or equal to
+		    CXO_freq/64.
+
+=======
+Example
+=======
+
+qcom,clkdiv@5b00 {
+	compatible = "qcom,qpnp-clkdiv";
+	reg = <0x5b00 0x100>;
+
+	qcom,cxo-freq = <19200000>;
+	qcom,clkdiv-id = <1>;
+	qcom,clkdiv-init-freq = <9600000>;
+};
