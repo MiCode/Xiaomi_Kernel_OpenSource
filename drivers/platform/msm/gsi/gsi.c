@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -362,8 +362,13 @@ static void gsi_process_chan(struct gsi_xfer_compl_evt *evt,
 	notify->chan_user_data = ch_ctx->props.chan_user_data;
 	notify->evt_id = evt->code;
 	notify->bytes_xfered = evt->len;
-	if (callback)
+	if (callback) {
+		if (atomic_read(&ch_ctx->poll_mode)) {
+			GSIERR("Calling client callback in polling mode\n");
+			WARN_ON(1);
+		}
 		ch_ctx->props.xfer_cb(notify);
+	}
 }
 
 static void gsi_process_evt_re(struct gsi_evt_ctx *ctx,
@@ -459,12 +464,12 @@ check_again:
 			ctx->ring.rp = rp;
 			while (ctx->ring.rp_local != rp) {
 				++cntr;
-				gsi_process_evt_re(ctx, &notify, true);
 				if (ctx->props.exclusive &&
 					atomic_read(&ctx->chan->poll_mode)) {
 					cntr = 0;
 					break;
 				}
+				gsi_process_evt_re(ctx, &notify, true);
 			}
 			gsi_ring_evt_doorbell(ctx);
 			if (cntr != 0)
