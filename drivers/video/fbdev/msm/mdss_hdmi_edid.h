@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,20 @@ struct hdmi_edid_hdr_data {
 	u32 min_luminance;
 };
 
+/*
+ * struct hdmi_override_data - Resolution Override Data
+ * @scramble - scrambler enable
+ * @sink_mode - 0 for DVI and 1 for HDMI
+ * @format - pixel format (refer to msm_hdmi_modes.h)
+ * @vic - resolution code
+ */
+struct hdmi_edid_override_data {
+	int scramble;
+	int sink_mode;
+	int format;
+	int vic;
+};
+
 int hdmi_edid_parser(void *edid_ctrl);
 u32 hdmi_edid_get_raw_data(void *edid_ctrl, u8 *buf, u32 size);
 u8 hdmi_edid_get_sink_scaninfo(void *edid_ctrl, u32 resolution);
@@ -63,5 +77,7 @@ u8 hdmi_edid_get_deep_color(void *edid_ctrl);
 u32 hdmi_edid_get_max_pclk(void *edid_ctrl);
 void hdmi_edid_get_hdr_data(void *edid_ctrl,
 		struct hdmi_edid_hdr_data **hdr_data);
+void hdmi_edid_config_override(void *input, bool enable,
+		struct hdmi_edid_override_data *data);
 
 #endif /* __HDMI_EDID_H__ */

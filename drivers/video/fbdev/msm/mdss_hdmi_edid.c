@@ -122,13 +122,6 @@ struct hdmi_edid_sink_caps {
 	bool ind_view_support;
 };
 
-struct hdmi_edid_override_data {
-	int scramble;
-	int sink_mode;
-	int format;
-	int vic;
-};
-
 struct hdmi_edid_ctrl {
 	u8 pt_scan_info;
 	u8 it_scan_info;
@@ -2596,6 +2589,31 @@ void hdmi_edid_set_video_resolution(void *input, u32 resolution, bool reset)
 		edid_ctrl->sink_data.disp_mode_list[0].rgb_support = true;
 	}
 } /* hdmi_edid_set_video_resolution */
+
+void hdmi_edid_config_override(void *input, bool enable,
+		struct hdmi_edid_override_data *data)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+	struct hdmi_edid_override_data *ov_data = &edid_ctrl->override_data;
+
+	if ((!edid_ctrl) || (enable && !data)) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	edid_ctrl->edid_override = enable;
+	pr_debug("EDID override %s\n", enable ? "enabled" : "disabled");
+
+	if (enable) {
+		ov_data->scramble = data->scramble;
+		ov_data->sink_mode = data->sink_mode;
+		ov_data->format = data->format;
+		ov_data->vic = data->vic;
+		pr_debug("%s: Override data: scramble=%d sink_mode=%d format=%d vic=%d\n",
+			__func__, ov_data->scramble, ov_data->sink_mode,
+			ov_data->format, ov_data->vic);
+	}
+}
 
 void hdmi_edid_deinit(void *input)
 {
