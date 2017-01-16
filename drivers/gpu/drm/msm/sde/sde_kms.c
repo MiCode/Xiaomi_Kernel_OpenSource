@@ -78,6 +78,101 @@ bool sde_is_custom_client(void)
 	return sdecustom;
 }
 
+#ifdef CONFIG_DEBUG_FS
+static int _sde_danger_signal_status(struct seq_file *s,
+		bool danger_status)
+{
+	struct sde_kms *kms = (struct sde_kms *)s->private;
+	struct msm_drm_private *priv;
+	struct sde_danger_safe_status status;
+	int i;
+
+	if (!kms || !kms->dev || !kms->dev->dev_private || !kms->hw_mdp) {
+		SDE_ERROR("invalid arg(s)\n");
+		return 0;
+	}
+
+	priv = kms->dev->dev_private;
+	memset(&status, 0, sizeof(struct sde_danger_safe_status));
+
+	sde_power_resource_enable(&priv->phandle, kms->core_client, true);
+	if (danger_status) {
+		seq_puts(s, "\nDanger signal status:\n");
+		if (kms->hw_mdp->ops.get_danger_status)
+			kms->hw_mdp->ops.get_danger_status(kms->hw_mdp,
+					&status);
+	} else {
+		seq_puts(s, "\nSafe signal status:\n");
+		if (kms->hw_mdp->ops.get_danger_status)
+			kms->hw_mdp->ops.get_danger_status(kms->hw_mdp,
+					&status);
+	}
+	sde_power_resource_enable(&priv->phandle, kms->core_client, false);
+
+	seq_printf(s, "MDP     :  0x%x\n", status.mdp);
+
+	for (i = SSPP_VIG0; i < SSPP_MAX; i++)
+		seq_printf(s, "SSPP%d   :  0x%x  \t", i - SSPP_VIG0,
+				status.sspp[i]);
+	seq_puts(s, "\n");
+
+	for (i = WB_0; i < WB_MAX; i++)
+		seq_printf(s, "WB%d     :  0x%x  \t", i - WB_0,
+				status.wb[i]);
+	seq_puts(s, "\n");
+
+	return 0;
+}
+
+#define DEFINE_SDE_DEBUGFS_SEQ_FOPS(__prefix)				\
+static int __prefix ## _open(struct inode *inode, struct file *file)	\
+{									\
+	return single_open(file, __prefix ## _show, inode->i_private);	\
+}									\
+static const struct file_operations __prefix ## _fops = {		\
+	.owner = THIS_MODULE,						\
+	.open = __prefix ## _open,					\
+	.release = single_release,					\
+	.read = seq_read,						\
+	.llseek = seq_lseek,						\
+}
+
+static int sde_debugfs_danger_stats_show(struct seq_file *s, void *v)
+{
+	return _sde_danger_signal_status(s, true);
+}
+DEFINE_SDE_DEBUGFS_SEQ_FOPS(sde_debugfs_danger_stats);
+
+static int sde_debugfs_safe_stats_show(struct seq_file *s, void *v)
+{
+	return _sde_danger_signal_status(s, false);
+}
+DEFINE_SDE_DEBUGFS_SEQ_FOPS(sde_debugfs_safe_stats);
+
+static void sde_debugfs_danger_destroy(struct sde_kms *sde_kms)
+{
+	debugfs_remove_recursive(sde_kms->debugfs_danger);
+	sde_kms->debugfs_danger = NULL;
+}
+
+static int sde_debugfs_danger_init(struct sde_kms *sde_kms,
+		struct dentry *parent)
+{
+	sde_kms->debugfs_danger = debugfs_create_dir("danger",
+			parent);
+	if (!sde_kms->debugfs_danger) {
+		SDE_ERROR("failed to create danger debugfs\n");
+		return -EINVAL;
+	}
+
+	debugfs_create_file("danger_status", 0644, sde_kms->debugfs_danger,
+			sde_kms, &sde_debugfs_danger_stats_fops);
+	debugfs_create_file("safe_status", 0644, sde_kms->debugfs_danger,
+			sde_kms, &sde_debugfs_safe_stats_fops);
+
+	return 0;
+}
+
 static int _sde_debugfs_show_regset32(struct seq_file *s, void *data)
 {
 	struct sde_debugfs_regset32 *regset;
@@ -197,6 +292,8 @@ static int _sde_debugfs_init(struct sde_kms *sde_kms)
 	if (!sde_kms->debugfs_debug)
 		SDE_ERROR("failed to create debugfs debug directory\n");
 
+	sde_debugfs_danger_init(sde_kms, sde_kms->debugfs_debug);
+
 	return 0;
 }
 
@@ -204,12 +301,25 @@ static void _sde_debugfs_destroy(struct sde_kms *sde_kms)
 {
 	/* don't need to NULL check debugfs_root */
 	if (sde_kms) {
+		sde_debugfs_danger_destroy(sde_kms);
 		debugfs_remove_recursive(sde_kms->debugfs_debug);
 		sde_kms->debugfs_debug = 0;
 		debugfs_remove_recursive(sde_kms->debugfs_root);
 		sde_kms->debugfs_root = 0;
 	}
 }
+#else
+static void sde_debugfs_danger_destroy(struct sde_kms *sde_kms,
+		struct dentry *parent)
+{
+}
+
+static int sde_debugfs_danger_init(struct sde_kms *sde_kms,
+		struct dentry *parent)
+{
+	return 0;
+}
+#endif
 
 static int sde_kms_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 {
