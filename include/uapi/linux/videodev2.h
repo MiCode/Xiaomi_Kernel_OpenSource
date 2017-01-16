@@ -2,6 +2,7 @@
  *  Video for Linux Two header file
  *
  *  Copyright (C) 1999-2012 the contributors
+ *  Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -492,6 +493,8 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_ARGB32  v4l2_fourcc('B', 'A', '2', '4') /* 32  ARGB-8-8-8-8  */
 #define V4L2_PIX_FMT_XRGB32  v4l2_fourcc('B', 'X', '2', '4') /* 32  XRGB-8-8-8-8  */
 
+#define V4L2_PIX_FMT_RGBA8888_UBWC   v4l2_fourcc('Q', 'R', 'G', 'B')
+
 /* Grey formats */
 #define V4L2_PIX_FMT_GREY    v4l2_fourcc('G', 'R', 'E', 'Y') /*  8  Greyscale     */
 #define V4L2_PIX_FMT_Y4      v4l2_fourcc('Y', '0', '4', ' ') /*  4  Greyscale     */
@@ -532,6 +535,11 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_NV61    v4l2_fourcc('N', 'V', '6', '1') /* 16  Y/CrCb 4:2:2  */
 #define V4L2_PIX_FMT_NV24    v4l2_fourcc('N', 'V', '2', '4') /* 24  Y/CbCr 4:4:4  */
 #define V4L2_PIX_FMT_NV42    v4l2_fourcc('N', 'V', '4', '2') /* 24  Y/CrCb 4:4:4  */
+
+/* UBWC 8-bit Y/CbCr 4:2:0  */
+#define V4L2_PIX_FMT_NV12_UBWC        v4l2_fourcc('Q', '1', '2', '8')
+/* UBWC 10-bit Y/CbCr 4:2:0 */
+#define V4L2_PIX_FMT_NV12_TP10_UBWC   v4l2_fourcc('Q', '1', '2', 'A')
 
 /* two non contiguous planes - one Y, one Cr + Cb interleaved  */
 #define V4L2_PIX_FMT_NV12M   v4l2_fourcc('N', 'M', '1', '2') /* 12  Y/CbCr 4:2:0  */
@@ -603,6 +611,8 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_VC1_ANNEX_G v4l2_fourcc('V', 'C', '1', 'G') /* SMPTE 421M Annex G compliant stream */
 #define V4L2_PIX_FMT_VC1_ANNEX_L v4l2_fourcc('V', 'C', '1', 'L') /* SMPTE 421M Annex L compliant stream */
 #define V4L2_PIX_FMT_VP8      v4l2_fourcc('V', 'P', '8', '0') /* VP8 */
+#define V4L2_PIX_FMT_VP9      v4l2_fourcc('V', 'P', '9', '0') /* VP9 */
+#define V4L2_PIX_FMT_HEVC v4l2_fourcc('H', 'E', 'V', 'C') /* for HEVC stream */
 
 /*  Vendor-specific formats   */
 #define V4L2_PIX_FMT_CPIA1    v4l2_fourcc('C', 'P', 'I', 'A') /* cpia1 YUV */
@@ -921,6 +931,17 @@ struct v4l2_buffer {
 #define V4L2_BUF_FLAG_TSTAMP_SRC_SOE		0x00010000
 /* mem2mem encoder/decoder */
 #define V4L2_BUF_FLAG_LAST			0x00100000
+/* Vendor extensions */
+#define V4L2_QCOM_BUF_FLAG_CODECCONFIG		0x00020000
+#define V4L2_QCOM_BUF_FLAG_EOSEQ		0x00040000
+#define V4L2_QCOM_BUF_TIMESTAMP_INVALID		0x00080000
+#define V4L2_QCOM_BUF_FLAG_DECODEONLY		0x00200000
+#define V4L2_QCOM_BUF_DATA_CORRUPT		0x00400000
+#define V4L2_QCOM_BUF_INPUT_UNSUPPORTED		0x01000000
+#define V4L2_QCOM_BUF_FLAG_EOS			0x02000000
+#define V4L2_QCOM_BUF_FLAG_READONLY		0x04000000
+#define V4L2_MSM_BUF_FLAG_DEFER			0x40000000
+#define V4L2_QCOM_BUF_FLAG_IDRFRAME		0x80000000
 
 /**
  * struct v4l2_exportbuffer - export of video buffer as DMABUF file descriptor
@@ -1794,6 +1815,8 @@ struct v4l2_encoder_cmd {
 #define V4L2_DEC_CMD_STOP        (1)
 #define V4L2_DEC_CMD_PAUSE       (2)
 #define V4L2_DEC_CMD_RESUME      (3)
+#define V4L2_QCOM_CMD_FLUSH      (4)
+#define V4L2_DEC_QCOM_CMD_RECONFIG_HINT  (5)
 
 /* Flags for V4L2_DEC_CMD_START */
 #define V4L2_DEC_CMD_START_MUTE_AUDIO	(1 << 0)
@@ -1804,6 +1827,9 @@ struct v4l2_encoder_cmd {
 /* Flags for V4L2_DEC_CMD_STOP */
 #define V4L2_DEC_CMD_STOP_TO_BLACK	(1 << 0)
 #define V4L2_DEC_CMD_STOP_IMMEDIATELY	(1 << 1)
+
+#define V4L2_QCOM_CMD_FLUSH_OUTPUT  (1 << 0)
+#define V4L2_QCOM_CMD_FLUSH_CAPTURE (1 << 1)
 
 /* Play format requirements (returned by the driver): */
 
@@ -2069,6 +2095,31 @@ struct v4l2_streamparm {
 #define V4L2_EVENT_SOURCE_CHANGE		5
 #define V4L2_EVENT_MOTION_DET			6
 #define V4L2_EVENT_PRIVATE_START		0x08000000
+
+#define V4L2_EVENT_BITDEPTH_FLAG	0x1
+#define V4L2_EVENT_PICSTRUCT_FLAG	0x2
+#define V4L2_EVENT_COLOUR_SPACE_FLAG    0x4
+
+#define V4L2_EVENT_MSM_VIDC_START	(V4L2_EVENT_PRIVATE_START + 0x00001000)
+#define V4L2_EVENT_MSM_VIDC_FLUSH_DONE	(V4L2_EVENT_MSM_VIDC_START + 1)
+#define V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_SUFFICIENT	\
+		(V4L2_EVENT_MSM_VIDC_START + 2)
+#define V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_INSUFFICIENT	\
+		(V4L2_EVENT_MSM_VIDC_START + 3)
+/*
+ * Bitdepth changed insufficient is deprecated now, however retaining
+ * to prevent changing the values of the other macros after bitdepth
+ */
+#define V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_BITDEPTH_CHANGED_INSUFFICIENT \
+		(V4L2_EVENT_MSM_VIDC_START + 4)
+#define V4L2_EVENT_MSM_VIDC_SYS_ERROR	(V4L2_EVENT_MSM_VIDC_START + 5)
+#define V4L2_EVENT_MSM_VIDC_RELEASE_BUFFER_REFERENCE \
+		(V4L2_EVENT_MSM_VIDC_START + 6)
+#define V4L2_EVENT_MSM_VIDC_RELEASE_UNQUEUED_BUFFER \
+		(V4L2_EVENT_MSM_VIDC_START + 7)
+#define V4L2_EVENT_MSM_VIDC_HW_OVERLOAD (V4L2_EVENT_MSM_VIDC_START + 8)
+#define V4L2_EVENT_MSM_VIDC_MAX_CLIENTS (V4L2_EVENT_MSM_VIDC_START + 9)
+#define V4L2_EVENT_MSM_VIDC_HW_UNSUPPORTED (V4L2_EVENT_MSM_VIDC_START + 10)
 
 /* Payload for V4L2_EVENT_VSYNC */
 struct v4l2_event_vsync {
