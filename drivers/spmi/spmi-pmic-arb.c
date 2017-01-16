@@ -101,7 +101,6 @@ struct pmic_arb_ver_ops;
 struct apid_data {
 	u16		ppid;
 	u8		owner;
-	u8		enabled_irq_mask;
 };
 
 /**
@@ -488,7 +487,6 @@ static void qpnpint_spmi_read(struct irq_data *d, u8 reg, void *buf, size_t len)
 
 static void cleanup_irq(struct spmi_pmic_arb *pa, u8 apid, int id)
 {
-	u32 status;
 	u16 ppid = pa->apid_data[apid].ppid;
 	u8 sid = ppid >> 8;
 	u8 per = ppid & 0xFF;
@@ -497,13 +495,7 @@ static void cleanup_irq(struct spmi_pmic_arb *pa, u8 apid, int id)
 
 	raw_spin_lock_irqsave(&pa->lock, flags);
 	writel_relaxed(irq_mask, pa->intr + pa->ver_ops->irq_clear(apid));
-	if (pa->apid_data[apid].enabled_irq_mask == 0) {
-		status
-		      = readl_relaxed(pa->intr + pa->ver_ops->acc_enable(apid));
-		status = status & ~SPMI_PIC_ACC_ENABLE_BIT;
-		writel_relaxed(status,
-				pa->intr + pa->ver_ops->acc_enable(apid));
-	}
+
 	raw_spin_unlock_irqrestore(&pa->lock, flags);
 
 	if (pmic_arb_write_cmd(pa->spmic, SPMI_CMD_EXT_WRITEL, sid,
@@ -584,29 +576,8 @@ static void qpnpint_irq_ack(struct irq_data *d)
 
 static void qpnpint_irq_mask(struct irq_data *d)
 {
-	struct spmi_pmic_arb *pa = irq_data_get_irq_chip_data(d);
 	u8 irq  = d->hwirq >> 8;
-	u8 apid = d->hwirq;
-	unsigned long flags;
-	u32 status;
 	u8 data = BIT(irq);
-	u8 prev_enabled_irq_mask;
-
-	prev_enabled_irq_mask = pa->apid_data[apid].enabled_irq_mask;
-	pa->apid_data[apid].enabled_irq_mask &= ~BIT(irq);
-
-	if (prev_enabled_irq_mask != 0 &&
-		pa->apid_data[apid].enabled_irq_mask == 0) {
-		raw_spin_lock_irqsave(&pa->lock, flags);
-		status = readl_relaxed(pa->intr
-				+ pa->ver_ops->acc_enable(apid));
-		if (status & SPMI_PIC_ACC_ENABLE_BIT) {
-			status = status & ~SPMI_PIC_ACC_ENABLE_BIT;
-			writel_relaxed(status, pa->intr +
-				       pa->ver_ops->acc_enable(apid));
-		}
-		raw_spin_unlock_irqrestore(&pa->lock, flags);
-	}
 
 	qpnpint_spmi_write(d, QPNPINT_REG_EN_CLR, &data, 1);
 }
@@ -617,25 +588,12 @@ static void qpnpint_irq_unmask(struct irq_data *d)
 	u8 irq  = d->hwirq >> 8;
 	u8 apid = d->hwirq;
 	unsigned long flags;
-	u32 status;
-	u8 prev_enabled_irq_mask;
 	u8 buf[2];
 
-	prev_enabled_irq_mask = pa->apid_data[apid].enabled_irq_mask;
-	pa->apid_data[apid].enabled_irq_mask &= ~BIT(irq);
-	pa->apid_data[apid].enabled_irq_mask |= BIT(irq);
-
-	if (prev_enabled_irq_mask == 0 &&
-		pa->apid_data[apid].enabled_irq_mask != 0) {
-		raw_spin_lock_irqsave(&pa->lock, flags);
-		status = readl_relaxed(pa->intr
-				+ pa->ver_ops->acc_enable(apid));
-		if (!(status & SPMI_PIC_ACC_ENABLE_BIT)) {
-			writel_relaxed(status | SPMI_PIC_ACC_ENABLE_BIT,
-				pa->intr + pa->ver_ops->acc_enable(apid));
-		}
-		raw_spin_unlock_irqrestore(&pa->lock, flags);
-	}
+	raw_spin_lock_irqsave(&pa->lock, flags);
+	writel_relaxed(SPMI_PIC_ACC_ENABLE_BIT,
+		pa->intr + pa->ver_ops->acc_enable(apid));
+	raw_spin_unlock_irqrestore(&pa->lock, flags);
 
 	qpnpint_spmi_read(d, QPNPINT_REG_EN_SET, &buf[0], 1);
 	if (!(buf[0] & BIT(irq))) {
