@@ -551,12 +551,18 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	unsigned long flags;
 	u32 i;
 
-	SDE_DEBUG("\n");
-
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
+
+	if (!crtc->state->enable) {
+		SDE_DEBUG("crtc%d -> enable %d, skip atomic_begin\n",
+				crtc->base.id, crtc->state->enable);
+		return;
+	}
+
+	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
 	sde_crtc = to_sde_crtc(crtc);
 	dev = crtc->dev;
@@ -613,7 +619,13 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 		return;
 	}
 
-	SDE_DEBUG("\n");
+	if (!crtc->state->enable) {
+		SDE_DEBUG("crtc%d -> enable %d, skip atomic_flush\n",
+				crtc->base.id, crtc->state->enable);
+		return;
+	}
+
+	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
 	sde_crtc = to_sde_crtc(crtc);
 
@@ -668,7 +680,7 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(state);
 
-	SDE_DEBUG("\n");
+	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
 	__drm_atomic_helper_crtc_destroy_state(crtc, state);
 
@@ -784,7 +796,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	}
 	sde_crtc = to_sde_crtc(crtc);
 
-	SDE_DEBUG("\n");
+	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
 	mutex_lock(&sde_crtc->crtc_lock);
 	if (atomic_read(&sde_crtc->vblank_refcount)) {
@@ -819,7 +831,7 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 		return;
 	}
 
-	SDE_DEBUG("\n");
+	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
 	sde_crtc = to_sde_crtc(crtc);
 	mixer = sde_crtc->mixers;
@@ -1018,7 +1030,7 @@ void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 
-	SDE_DEBUG("%s: cancel: %p", sde_crtc->name, file);
+	SDE_DEBUG("%s: cancel: %p\n", sde_crtc->name, file);
 	_sde_crtc_complete_flip(crtc, file);
 }
 
