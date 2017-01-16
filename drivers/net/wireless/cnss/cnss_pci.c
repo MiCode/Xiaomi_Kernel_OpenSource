@@ -29,7 +29,6 @@
 #include <linux/pm_qos.h>
 #include <linux/pm_runtime.h>
 #include <linux/esoc_client.h>
-#include <linux/pinctrl/consumer.h>
 #include <linux/firmware.h>
 #include <linux/dma-mapping.h>
 #include <linux/msm-bus.h>
@@ -123,7 +122,6 @@
 #define PCIE_ENABLE_DELAY	100
 #define WLAN_BOOTSTRAP_DELAY	10
 #define EVICT_BIN_MAX_SIZE      (512*1024)
-#define CNSS_PINCTRL_STATE_ACTIVE "default"
 
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
@@ -153,8 +151,6 @@ struct cnss_wlan_gpio_info {
 	bool state;
 	bool init;
 	bool prop;
-	struct pinctrl *pinctrl;
-	struct pinctrl_state *gpio_state_default;
 };
 
 struct cnss_wlan_vreg_info {
@@ -604,30 +600,6 @@ static int cnss_configure_wlan_en_gpio(bool state)
 	return ret;
 }
 
-static int cnss_pinctrl_init(struct cnss_wlan_gpio_info *gpio_info,
-			     struct platform_device *pdev)
-{
-	int ret;
-
-	gpio_info->pinctrl = devm_pinctrl_get(&pdev->dev);
-	if (IS_ERR_OR_NULL(gpio_info->pinctrl)) {
-		pr_err("%s: Failed to get pinctrl!\n", __func__);
-		return PTR_ERR(gpio_info->pinctrl);
-	}
-
-	gpio_info->gpio_state_default = pinctrl_lookup_state(gpio_info->pinctrl,
-		CNSS_PINCTRL_STATE_ACTIVE);
-	if (IS_ERR_OR_NULL(gpio_info->gpio_state_default)) {
-		pr_err("%s: Can not get active pin state!\n", __func__);
-		return PTR_ERR(gpio_info->gpio_state_default);
-	}
-
-	ret = pinctrl_select_state(gpio_info->pinctrl,
-				   gpio_info->gpio_state_default);
-
-	return ret;
-}
-
 static void cnss_disable_xtal_ldo(struct platform_device *pdev)
 {
 	struct cnss_wlan_vreg_info *info = &penv->vreg_info;
@@ -734,10 +706,6 @@ static int cnss_get_wlan_enable_gpio(
 			pr_err(
 			"can't get gpio %s ret %d", gpio_info->name, ret);
 	}
-
-	ret = cnss_pinctrl_init(gpio_info, pdev);
-	if (ret)
-		pr_debug("%s: pinctrl init failed!\n", __func__);
 
 	ret = cnss_wlan_gpio_init(gpio_info);
 	if (ret)
