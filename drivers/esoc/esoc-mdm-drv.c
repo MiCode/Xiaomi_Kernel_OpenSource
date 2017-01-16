@@ -306,6 +306,14 @@ static struct esoc_compat compat_table[] = {
 		.name = "MDM9x55",
 		.data = NULL,
 	},
+	{
+		.name = "MDM9x45",
+		.data = NULL,
+	},
+	{
+		.name = "APQ8096",
+		.data = NULL,
+	},
 };
 
 static struct esoc_drv esoc_ssr_drv = {
