@@ -38,5 +38,6 @@ obj-$(CONFIG_QCOM_A53) += clk-a53.o
 obj-$(CONFIG_QCOM_CLK_RPM) += clk-rpm.o
 obj-$(CONFIG_QCOM_CLK_SMD_RPM) += clk-smd-rpm.o
 obj-$(CONFIG_CLOCK_CPU_OSM) += clk-cpu-osm.o
+obj-$(CONFIG_CLOCK_QPNP_DIV) += clk-qpnp-div.o
 
 obj-y += mdss/
