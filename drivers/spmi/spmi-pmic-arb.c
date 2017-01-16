@@ -640,17 +640,6 @@ static void qpnpint_irq_unmask(struct irq_data *d)
 	qpnpint_spmi_write(d, QPNPINT_REG_EN_SET, &data, 1);
 }
 
-static void qpnpint_irq_enable(struct irq_data *d)
-{
-	u8 irq  = d->hwirq >> 8;
-	u8 data;
-
-	qpnpint_irq_unmask(d);
-
-	data = BIT(irq);
-	qpnpint_spmi_write(d, QPNPINT_REG_LATCHED_CLR, &data, 1);
-}
-
 static int qpnpint_irq_set_type(struct irq_data *d, unsigned int flow_type)
 {
 	struct spmi_pmic_arb_qpnpint_type type;
@@ -699,7 +688,6 @@ static int qpnpint_get_irqchip_state(struct irq_data *d,
 
 static struct irq_chip pmic_arb_irqchip = {
 	.name		= "pmic_arb",
-	.irq_enable	= qpnpint_irq_enable,
 	.irq_ack	= qpnpint_irq_ack,
 	.irq_mask	= qpnpint_irq_mask,
 	.irq_unmask	= qpnpint_irq_unmask,
