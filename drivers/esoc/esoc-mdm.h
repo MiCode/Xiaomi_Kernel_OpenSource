@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,8 @@
 #define MDM9x45_PCIE			"PCIe"
 #define MDM9x55_LABEL			"MDM9x55"
 #define MDM9x55_PCIE			"PCIe"
+#define APQ8096_LABEL			"APQ8096"
+#define APQ8096_PCIE			"PCIe"
 #define MDM2AP_STATUS_TIMEOUT_MS	120000L
 #define MDM_MODEM_TIMEOUT		3000
 #define DEF_RAMDUMP_TIMEOUT		120000
@@ -153,4 +155,5 @@ extern struct mdm_pon_ops mdm9x25_pon_ops;
 extern struct mdm_pon_ops mdm9x35_pon_ops;
 extern struct mdm_pon_ops mdm9x45_pon_ops;
 extern struct mdm_pon_ops mdm9x55_pon_ops;
+extern struct mdm_pon_ops apq8096_pon_ops;
 #endif
