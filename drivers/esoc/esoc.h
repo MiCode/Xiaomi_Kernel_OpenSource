@@ -49,6 +49,7 @@ struct esoc_eng {
  * @link_info: additional info about the physical link.
  * @parent: parent device.
  * @dev: device for userspace interface.
+ * @pdev: platform device to interface with SSR driver.
  * @id: id of the external device.
  * @owner: owner of the device.
  * @clink_ops: control operations for the control link
@@ -66,6 +67,7 @@ struct esoc_clink {
 	const char *link_info;
 	struct device *parent;
 	struct device dev;
+	struct platform_device *pdev;
 	unsigned int id;
 	struct module *owner;
 	const struct esoc_clink_ops const *clink_ops;
