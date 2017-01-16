@@ -38,4 +38,17 @@ int reg_dmav1_init_sspp_op_v4(int feature, enum sde_sspp idx);
  */
 void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg);
 
+/**
+ * reg_dmav1_setup_3d_gamutv4() - gamut v4 implementation using reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * reg_dmav1_setup_dspp_gc_v18() - gc v18 implementation using reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg);
 #endif /* _SDE_HW_REG_DMA_V1_COLOR_PROC_H */

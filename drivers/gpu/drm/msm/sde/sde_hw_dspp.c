@@ -67,6 +67,24 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 					reg_dmav1_setup_dspp_vlutv18;
 			}
 			break;
+		case SDE_DSPP_GAMUT:
+			if (c->cap->sblk->gamut.version ==
+					SDE_COLOR_PROCESS_VER(0x4, 0)) {
+				ret = reg_dmav1_init_dspp_op_v4(i, c->idx);
+				if (!ret)
+					c->ops.setup_gamut =
+						reg_dmav1_setup_dspp_3d_gamutv4;
+			}
+			break;
+		case SDE_DSPP_GC:
+			if (c->cap->sblk->gc.version ==
+					SDE_COLOR_PROCESS_VER(0x1, 8)) {
+				ret = reg_dmav1_init_dspp_op_v4(i, c->idx);
+				if (!ret)
+					c->ops.setup_gc =
+						reg_dmav1_setup_dspp_gcv18;
+			}
+			break;
 		default:
 			break;
 		}

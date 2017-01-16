@@ -67,7 +67,7 @@ static u32 ops_mem_size[REG_DMA_SETUP_OPS_MAX] = {
 	[REG_BLK_WRITE_INC] = sizeof(u32) * 2,
 	[REG_BLK_WRITE_MULTIPLE] = sizeof(u32) * 2,
 	[HW_BLK_SELECT] = sizeof(u32) * 2,
-	[REG_SINGLE_WRITE] = sizeof(u32)
+	[REG_SINGLE_WRITE] = sizeof(u32) * 2
 };
 
 static u32 queue_sel[DMA_CTL_QUEUE_MAX] = {
@@ -86,6 +86,7 @@ static u32 dspp_read_sel[DSPP_HIST_MAX] = {
 static u32 v1_supported[REG_DMA_FEATURES_MAX]  = {
 	[GAMUT] = GRP_VIG_HW_BLK_SELECT | GRP_DSPP_HW_BLK_SELECT,
 	[VLUT] = GRP_DSPP_HW_BLK_SELECT,
+	[GC] = GRP_DSPP_HW_BLK_SELECT,
 };
 
 static int validate_dma_cfg(struct sde_reg_dma_setup_ops_cfg *cfg);
@@ -216,7 +217,7 @@ static int write_multi_lut_reg(struct sde_reg_dma_setup_ops_cfg *cfg)
 	loc[0] = BLK_REG_WRITE_OPCODE;
 	loc[0] |= (cfg->blk_offset & MAX_RELATIVE_OFF);
 	loc[1] = (cfg->inc) ? 0 : BIT(31);
-	loc[1] |= (cfg->wrap_size & WRAP_MAX_SIZE) << 19;
+	loc[1] |= (cfg->wrap_size & WRAP_MAX_SIZE) << 16;
 	loc[1] |= ((SIZE_DWORD(cfg->data_size)) & MAX_DWORDS_SZ);
 	cfg->dma_buf->next_op_allowed = REG_WRITE_OP;
 	cfg->dma_buf->index += ops_mem_size[cfg->ops];
