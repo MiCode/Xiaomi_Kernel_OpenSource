@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,9 @@ static int mdm4x_do_first_power_on(struct mdm_ctrl *mdm)
 	struct device *dev = mdm->dev;
 
 	dev_dbg(dev, "Powering on modem for the first time\n");
+	if (mdm->esoc->auto_boot)
+		return 0;
+
 	mdm_toggle_soft_reset(mdm, false);
 	/* Add a delay to allow PON sequence to complete*/
 	msleep(50);
@@ -134,6 +137,9 @@ static int mdm9x55_power_down(struct mdm_ctrl *mdm)
 
 static void mdm4x_cold_reset(struct mdm_ctrl *mdm)
 {
+	if (!gpio_is_valid(MDM_GPIO(mdm, AP2MDM_SOFT_RESET)))
+		return;
+
 	dev_dbg(mdm->dev, "Triggering mdm cold reset");
 	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
 			!!mdm->soft_reset_inverted);

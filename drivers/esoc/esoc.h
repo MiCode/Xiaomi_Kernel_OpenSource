@@ -60,6 +60,9 @@ struct esoc_eng {
  * @subsys_desc: descriptor for subsystem restart
  * @subsys_dev: ssr device handle.
  * @np: device tree node for esoc_clink.
+ * @auto_boot: boots independently.
+ * @primary: primary esoc controls(reset/poweroff) all secondary
+ *	 esocs, but not	otherway around.
  */
 struct esoc_clink {
 	const char *name;
@@ -79,6 +82,8 @@ struct esoc_clink {
 	struct subsys_desc subsys;
 	struct subsys_device *subsys_dev;
 	struct device_node *np;
+	bool auto_boot;
+	bool primary;
 };
 
 /**
