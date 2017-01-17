@@ -726,7 +726,7 @@
 
 		clock-names = "osm";
 		clocks = <&clock_cpu PWRCL_CLK>;
-
+		qcom,cxip-lm-enable = <1>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 
