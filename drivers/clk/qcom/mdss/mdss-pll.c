@@ -227,6 +227,13 @@ static int mdss_pll_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, pll_res);
 
+	rc = of_property_read_u32(pdev->dev.of_node, "cell-index",
+			&pll_res->index);
+	if (rc) {
+		pr_err("Unable to get the cell-index rc=%d\n", rc);
+		pll_res->index = 0;
+	}
+
 	pll_base_reg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, "pll_base");
 	if (!pll_base_reg) {
