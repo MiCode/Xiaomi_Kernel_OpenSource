@@ -18,6 +18,9 @@
 #include <linux/gcd.h>
 #include "slim-msm.h"
 
+/* Pipe Number Offset Mask */
+#define P_OFF_MASK 0x3FC
+
 int msm_slim_rx_enqueue(struct msm_slim_ctrl *dev, u32 *buf, u8 len)
 {
 	spin_lock(&dev->rx_lock);
@@ -899,7 +902,7 @@ static int msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev, u32 pipe_reg)
 	}
 
 	/* Get the pipe indices for the message queues */
-	pipe_offset = (readl_relaxed(dev->base + pipe_reg) & 0xfc) >> 2;
+	pipe_offset = (readl_relaxed(dev->base + pipe_reg) & P_OFF_MASK) >> 2;
 	dev_dbg(dev->dev, "Message queue pipe offset %d\n", pipe_offset);
 
 	config->mode = SPS_MODE_SRC;
@@ -959,7 +962,7 @@ static int msm_slim_init_tx_msgq(struct msm_slim_ctrl *dev, u32 pipe_reg)
 	}
 
 	/* Get the pipe indices for the message queues */
-	pipe_offset = (readl_relaxed(dev->base + pipe_reg) & 0xfc) >> 2;
+	pipe_offset = (readl_relaxed(dev->base + pipe_reg) & P_OFF_MASK) >> 2;
 	pipe_offset += 1;
 	dev_dbg(dev->dev, "TX Message queue pipe offset %d\n", pipe_offset);
 
