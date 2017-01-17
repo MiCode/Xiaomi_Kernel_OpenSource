@@ -226,8 +226,8 @@ static int mdss_pll_probe(struct platform_device *pdev)
 			goto phy_io_error;
 		}
 	} else {
-		pll_res->phy_base = ioremap(pll_base_reg->start,
-						resource_size(pll_base_reg));
+		pll_res->phy_base = ioremap(phy_base_reg->start,
+						resource_size(phy_base_reg));
 		if (!pll_res->phy_base) {
 			pr_err("Unable to remap pll phy base resources\n");
 			rc = -ENOMEM;
