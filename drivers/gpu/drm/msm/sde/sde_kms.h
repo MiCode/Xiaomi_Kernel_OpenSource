@@ -397,13 +397,47 @@ void sde_kms_info_append_format(struct sde_kms_info *info,
 void sde_kms_info_stop(struct sde_kms_info *info);
 
 /**
- * sde_kms_rect_intersect() - find the intersecting region between two rects
- * @res: Intersecting region between the two rectangles
- * @rect1: first rectangle coordinates
- * @rect2: second rectangle coordinates
+ * sde_kms_rect_intersect - intersect two rectangles
+ * @r1: first rectangle
+ * @r2: scissor rectangle
+ * @result: result rectangle, all 0's on no intersection found
  */
-void sde_kms_rect_intersect(struct sde_rect *res,
-		const struct sde_rect *rect1, const struct sde_rect *rect2);
+void sde_kms_rect_intersect(const struct sde_rect *r1,
+		const struct sde_rect *r2,
+		struct sde_rect *result);
+
+/**
+ * sde_kms_rect_is_equal - compares two rects
+ * @r1: rect value to compare
+ * @r2: rect value to compare
+ *
+ * Returns 1 if the rects are same, 0 otherwise.
+ */
+static inline bool sde_kms_rect_is_equal(struct sde_rect *r1,
+		struct sde_rect *r2)
+{
+	if ((!r1 && r2) || (r1 && !r2))
+		return false;
+
+	if (!r1 && !r2)
+		return true;
+
+	return r1->x == r2->x && r1->y == r2->y && r1->w == r2->w &&
+			r1->h == r2->h;
+}
+
+/**
+ * sde_kms_rect_is_null - returns true if the width or height of a rect is 0
+ * @rect: rectangle to check for zero size
+ * @Return: True if width or height of rectangle is 0
+ */
+static inline bool sde_kms_rect_is_null(const struct sde_rect *r)
+{
+	if (!r)
+		return true;
+
+	return (!r->w || !r->h);
+}
 
 /**
  * Vblank enable/disable functions
