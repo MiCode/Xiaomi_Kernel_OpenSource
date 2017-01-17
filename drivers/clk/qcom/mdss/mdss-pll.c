@@ -20,7 +20,6 @@
 #include <linux/delay.h>
 #include <linux/iopoll.h>
 #include <linux/clk/msm-clock-generic.h>
-#include <mach/msm_iomap.h>
 
 #include "mdss-pll.h"
 #include "mdss-edp-pll.h"
