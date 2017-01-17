@@ -35,7 +35,7 @@
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
 
-#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+#ifdef CONFIG_PSENSOR_ONDEMAND_LTR553
 #include <linux/input/ltr553.h>
 #endif
 
@@ -287,7 +287,7 @@ static struct sensors_classdev ps_cdev = {
 };
 
 
-#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+#ifdef CONFIG_PSENSOR_ONDEMAND_LTR553
 static struct sensors_classdev *proximity_sensor_dev = NULL;
 #endif
 
@@ -479,7 +479,7 @@ static int ltr553_parse_dt(struct device *dev, struct ltr553_data *ltr)
 		return -EINVAL;
 	}
 	ltr->ps_wakeup_threshold = value;
-#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+#ifdef CONFIG_PSENSOR_ONDEMAND_LTR553
 	/* Prema Chand Alugu (premaca@gmail.com)
 	 *
 	 * FIXME: Have to check, if this change is effecting regular in-call
@@ -1424,7 +1424,7 @@ exit:
 	mutex_unlock(&ltr->ops_lock);
 }
 
-#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+#ifdef CONFIG_PSENSOR_ONDEMAND_LTR553
 int ltr553_ps_ondemand_state (void)
 {
 	struct ltr553_data *ltr = container_of(proximity_sensor_dev,
@@ -1558,7 +1558,7 @@ exit:
 
 	return (proximity_state);
 }
-#endif /* CONFIG_PSENSOR_ONDEMAND_STATE */
+#endif /* CONFIG_PSENSOR_ONDEMAND_LTR553 */
 
 static void ltr553_ps_enable_work(struct work_struct *work)
 {
@@ -2186,7 +2186,7 @@ static int ltr553_probe(struct i2c_client *client,
 
 	dev_dbg(&client->dev, "ltr553 successfully probed!\n");
 
-#ifdef CONFIG_PSENSOR_ONDEMAND_STATE
+#ifdef CONFIG_PSENSOR_ONDEMAND_LTR553
 	proximity_sensor_dev = &ltr->ps_cdev;
 #endif
 
