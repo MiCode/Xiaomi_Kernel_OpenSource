@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -510,11 +510,15 @@
 };
 
 /{
-	mtp_batterydata: qcom,battery-data {
+	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "fg-gen3-batterydata-itech-3000mah.dtsi"
 		#include "fg-gen3-batterydata-ascent-3450mah.dtsi"
 	};
+};
+
+&pmi8998_fg {
+	qcom,battery-data = <&qrd_batterydata>;
 };
 
 &mdss_mdp {
