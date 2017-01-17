@@ -158,6 +158,10 @@
 };
 
 &tlmm_pinmux {
+	/* Set these up as hogs */
+	pinctrl-names = "default";
+	pinctrl-0 = <&can_reset_gpio>;
+
 	periph_vreg_gpio: periph_vreg_gpio {
 		mux {
 			pins = "gpio9";
@@ -170,6 +174,7 @@
 		};
 	};
 
+
 	ntn_supply_gpio: ntn_supply_gpio {
 		mux {
 			pins = "gpio69";
@@ -180,6 +185,20 @@
 			pins = "gpio69";
 			drive-strength = <2>;
 			bias-disable;
+		};
+	};
+
+	can_reset_gpio: can_reset_gpio {
+		mux {
+			pins = "gpio89";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio89";
+			drive-strength = <2>;
+			output-high;
+			bias-pull-up;
 		};
 	};
 
