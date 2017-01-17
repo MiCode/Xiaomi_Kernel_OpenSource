@@ -239,7 +239,7 @@ int dsi_pll_lock_status(struct mdss_pll_resources *dsi_pll_res)
 	int pll_locked;
 
 	/* poll for PLL ready status */
-	if (readl_poll_timeout_noirq((dsi_pll_res->pll_base +
+	if (readl_poll_timeout_atomic((dsi_pll_res->pll_base +
 			DSI_PHY_PLL_UNIPHY_PLL_STATUS),
 			status,
 			((status & BIT(0)) == 1),
