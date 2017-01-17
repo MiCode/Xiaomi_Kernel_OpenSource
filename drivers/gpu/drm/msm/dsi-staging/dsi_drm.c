@@ -475,6 +475,18 @@ enum drm_mode_status dsi_conn_mode_valid(struct drm_connector *connector,
 	return MODE_OK;
 }
 
+int dsi_conn_pre_kickoff(struct drm_connector *connector,
+		void *display,
+		struct msm_display_kickoff_params *params)
+{
+	if (!connector || !display || !params) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	return dsi_display_pre_kickoff(display, params);
+}
+
 struct dsi_bridge *dsi_drm_bridge_init(struct dsi_display *display,
 				       struct drm_device *dev,
 				       struct drm_encoder *encoder)

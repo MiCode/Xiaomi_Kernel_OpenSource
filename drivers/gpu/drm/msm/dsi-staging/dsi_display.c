@@ -3027,6 +3027,12 @@ error:
 	return rc;
 }
 
+int dsi_display_pre_kickoff(struct dsi_display *display,
+		struct msm_display_kickoff_params *params)
+{
+	return 0;
+}
+
 int dsi_display_enable(struct dsi_display *display)
 {
 	int rc = 0;

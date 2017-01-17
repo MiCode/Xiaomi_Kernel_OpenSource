@@ -138,6 +138,18 @@ struct sde_connector_ops {
 	 * Return: Zero on success, -ERROR otherwise
 	 */
 	int (*soft_reset)(void *display);
+
+	/**
+	 * pre_kickoff - trigger display to program kickoff-time features
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display structure
+	 * @params: Parameter bundle of connector-stored information for
+	 *	kickoff-time programming into the display
+	 * Returns: Zero on success
+	 */
+	int (*pre_kickoff)(struct drm_connector *connector,
+			void *display,
+			struct msm_display_kickoff_params *params);
 };
 
 /**
@@ -253,12 +265,15 @@ struct sde_connector {
  * @out_fb: Pointer to output frame buffer, if applicable
  * @mmu_id: MMU ID for accessing frame buffer objects, if applicable
  * @property_values: Local cache of current connector property values
+ * @rois: Regions of interest structure for mapping CRTC to Connector output
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
 	struct drm_framebuffer *out_fb;
 	int mmu_id;
 	uint64_t property_values[CONNECTOR_PROP_COUNT];
+
+	struct msm_roi_mapping rois;
 };
 
 /**
@@ -402,6 +417,13 @@ void sde_connector_unregister_event(struct drm_connector *connector,
  */
 int sde_connector_register_custom_event(struct sde_kms *kms,
 		struct drm_connector *conn_drm, u32 event, bool en);
+
+/**
+ * sde_connector_pre_kickoff - trigger kickoff time feature programming
+ * @connector: Pointer to drm connector object
+ * Returns: Zero on success
+ */
+int sde_connector_pre_kickoff(struct drm_connector *connector);
 
 #endif /* _SDE_CONNECTOR_H_ */
 

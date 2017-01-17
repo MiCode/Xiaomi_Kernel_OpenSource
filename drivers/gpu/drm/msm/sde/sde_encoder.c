@@ -1241,6 +1241,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	struct sde_encoder_phys *phys;
 	bool needs_hw_reset = false;
 	unsigned int i;
+	int rc;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -1269,6 +1270,14 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 			if (phys && phys->ops.hw_reset)
 				phys->ops.hw_reset(phys);
 		}
+	}
+
+	if (sde_enc->cur_master && sde_enc->cur_master->connector) {
+		rc = sde_connector_pre_kickoff(sde_enc->cur_master->connector);
+		if (rc)
+			SDE_ERROR_ENC(sde_enc, "kickoff conn%d failed rc %d\n",
+					sde_enc->cur_master->connector->base.id,
+					rc);
 	}
 }
 
