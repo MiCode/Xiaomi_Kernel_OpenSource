@@ -99,6 +99,7 @@ int hr_oclk3_get_div(struct div_clk *clk);
 int ndiv_set_div(struct div_clk *clk, int div);
 int shadow_ndiv_set_div(struct div_clk *clk, int div);
 int ndiv_get_div(struct div_clk *clk);
+void __dsi_pll_disable(void __iomem *pll_base);
 
 int set_mdss_pixel_mux_sel(struct mux_clk *clk, int sel);
 int get_mdss_pixel_mux_sel(struct mux_clk *clk);
