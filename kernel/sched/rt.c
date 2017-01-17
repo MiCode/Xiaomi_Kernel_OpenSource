@@ -4,12 +4,13 @@
  */
 
 #include "sched.h"
+#include "walt.h"
 
 #include <linux/slab.h>
 #include <linux/irq_work.h>
 #include <trace/events/sched.h>
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 
 static void
 inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p)
@@ -37,6 +38,7 @@ fixup_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p,
 #ifdef CONFIG_SMP
 static int find_lowest_rq(struct task_struct *task);
 
+#ifdef CONFIG_SCHED_HMP
 static int
 select_task_rq_rt_hmp(struct task_struct *p, int cpu, int sd_flag, int flags)
 {
@@ -50,8 +52,9 @@ select_task_rq_rt_hmp(struct task_struct *p, int cpu, int sd_flag, int flags)
 
 	return cpu;
 }
+#endif /* CONFIG_SCHED_HMP */
 #endif /* CONFIG_SMP */
-#else  /* CONFIG_SCHED_HMP */
+#else  /* CONFIG_SCHED_WALT */
 
 static inline void
 inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
@@ -2563,7 +2566,7 @@ const struct sched_class rt_sched_class = {
 	.switched_to		= switched_to_rt,
 
 	.update_curr		= update_curr_rt,
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	.fixup_hmp_sched_stats	= fixup_hmp_sched_stats_rt,
 #endif
 };

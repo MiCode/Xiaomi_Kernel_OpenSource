@@ -1483,7 +1483,9 @@ struct ravg {
 	u32 sum_history[RAVG_HIST_SIZE_MAX];
 	u32 *curr_window_cpu, *prev_window_cpu;
 	u32 curr_window, prev_window;
+#ifdef CONFIG_SCHED_HMP
 	u64 curr_burst, avg_burst, avg_sleep_time;
+#endif
 	u16 active_windows;
 	u32 pred_demand;
 	u8 busy_buckets[NUM_BUSY_BUCKETS];
@@ -1659,7 +1661,7 @@ struct task_struct {
 	const struct sched_class *sched_class;
 	struct sched_entity se;
 	struct sched_rt_entity rt;
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	struct ravg ravg;
 	/*
 	 * 'init_load_pct' represents the initial task load assigned to children
@@ -2635,7 +2637,6 @@ extern int sched_set_window(u64 window_start, unsigned int window_size);
 extern unsigned long sched_get_busy(int cpu);
 extern void sched_get_cpus_busy(struct sched_load *busy,
 				const struct cpumask *query_cpus);
-extern void sched_set_io_is_busy(int val);
 extern int sched_set_boost(int enable);
 extern int sched_set_init_task_load(struct task_struct *p, int init_load_pct);
 extern u32 sched_get_init_task_load(struct task_struct *p);
@@ -2652,24 +2653,11 @@ extern void sched_set_cpu_cstate(int cpu, int cstate,
 			 int wakeup_energy, int wakeup_latency);
 extern void sched_set_cluster_dstate(const cpumask_t *cluster_cpus, int dstate,
 				int wakeup_energy, int wakeup_latency);
-extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
-extern u64 sched_ktime_clock(void);
 extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
 extern unsigned int sched_get_group_id(struct task_struct *p);
 
 #else /* CONFIG_SCHED_HMP */
 static inline void free_task_load_ptrs(struct task_struct *p) { }
-
-static inline u64 sched_ktime_clock(void)
-{
-	return 0;
-}
-
-static inline int
-register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
-{
-	return 0;
-}
 
 static inline int sched_set_window(u64 window_start, unsigned int window_size)
 {
@@ -2681,8 +2669,6 @@ static inline unsigned long sched_get_busy(int cpu)
 }
 static inline void sched_get_cpus_busy(struct sched_load *busy,
 				       const struct cpumask *query_cpus) {};
-
-static inline void sched_set_io_is_busy(int val) {};
 
 static inline int sched_set_boost(int enable)
 {
@@ -2707,6 +2693,22 @@ static inline void sched_set_cluster_dstate(const cpumask_t *cluster_cpus,
 {
 }
 #endif /* CONFIG_SCHED_HMP */
+
+#ifdef CONFIG_SCHED_WALT
+extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
+extern void sched_set_io_is_busy(int val);
+extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
+extern unsigned int sched_get_group_id(struct task_struct *p);
+extern int sched_set_init_task_load(struct task_struct *p, int init_load_pct);
+extern u32 sched_get_init_task_load(struct task_struct *p);
+#else
+static inline int
+register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
+{
+	return 0;
+}
+static inline void sched_set_io_is_busy(int val) {};
+#endif /* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_NO_HZ_COMMON
 void calc_load_enter_idle(void);
@@ -2962,7 +2964,7 @@ extern void wake_up_new_task(struct task_struct *tsk);
 #endif
 extern int sched_fork(unsigned long clone_flags, struct task_struct *p);
 extern void sched_dead(struct task_struct *p);
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 extern void sched_exit(struct task_struct *p);
 #else
 static inline void sched_exit(struct task_struct *p) { }

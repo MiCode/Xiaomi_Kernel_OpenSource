@@ -18,7 +18,7 @@ select_task_rq_stop(struct task_struct *p, int cpu, int sd_flag, int flags)
 }
 #endif /* CONFIG_SMP */
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 
 static void
 inc_hmp_sched_stats_stop(struct rq *rq, struct task_struct *p)
@@ -43,7 +43,7 @@ fixup_hmp_sched_stats_stop(struct rq *rq, struct task_struct *p,
 				      pred_demand_delta);
 }
 
-#else	/* CONFIG_SCHED_HMP */
+#else	/* CONFIG_SCHED_WALT */
 
 static inline void
 inc_hmp_sched_stats_stop(struct rq *rq, struct task_struct *p) { }
@@ -51,7 +51,7 @@ inc_hmp_sched_stats_stop(struct rq *rq, struct task_struct *p) { }
 static inline void
 dec_hmp_sched_stats_stop(struct rq *rq, struct task_struct *p) { }
 
-#endif	/* CONFIG_SCHED_HMP */
+#endif	/* CONFIG_SCHED_WALT */
 
 static void
 check_preempt_curr_stop(struct rq *rq, struct task_struct *p, int flags)
@@ -172,7 +172,7 @@ const struct sched_class stop_sched_class = {
 	.prio_changed		= prio_changed_stop,
 	.switched_to		= switched_to_stop,
 	.update_curr		= update_curr_stop,
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	.fixup_hmp_sched_stats	= fixup_hmp_sched_stats_stop,
 #endif
 };

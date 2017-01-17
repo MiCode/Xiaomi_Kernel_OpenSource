@@ -1506,7 +1506,7 @@ static const struct file_operations proc_pid_sched_wake_up_idle_operations = {
 
 #endif	/* CONFIG_SMP */
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 
 static int sched_init_task_load_show(struct seq_file *m, void *v)
 {
@@ -3062,7 +3062,7 @@ static const struct pid_entry tgid_base_stuff[] = {
 #ifdef CONFIG_SMP
 	REG("sched_wake_up_idle",      S_IRUGO|S_IWUSR, proc_pid_sched_wake_up_idle_operations),
 #endif
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	REG("sched_init_task_load",      S_IRUGO|S_IWUSR, proc_pid_sched_init_task_load_operations),
 	REG("sched_group_id",      S_IRUGO|S_IWUGO, proc_pid_sched_group_id_operations),
 #endif

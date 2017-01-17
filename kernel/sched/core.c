@@ -87,6 +87,7 @@
 #endif
 
 #include "sched.h"
+#include "walt.h"
 #include "../workqueue_internal.h"
 #include "../smpboot.h"
 #include "../time/tick-internal.h"
@@ -2353,7 +2354,6 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.nr_migrations		= 0;
 	p->se.vruntime			= 0;
 	INIT_LIST_HEAD(&p->se.group_node);
-	walt_init_new_task_load(p);
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	p->se.cfs_rq			= NULL;
@@ -2717,8 +2717,6 @@ void wake_up_new_task(struct task_struct *p)
 
 	add_new_task_to_grp(p);
 	raw_spin_lock_irqsave(&p->pi_lock, rf.flags);
-
-	walt_init_new_task_load(p);
 
 	p->state = TASK_RUNNING;
 #ifdef CONFIG_SMP
@@ -3366,8 +3364,6 @@ void scheduler_tick(void)
 	update_rq_clock(rq);
 	curr->sched_class->task_tick(rq, curr, 0);
 	cpu_load_update_active(rq);
-	walt_update_task_ravg(rq->curr, rq, TASK_UPDATE,
-			walt_ktime_clock(), 0);
 	calc_global_load_tick(rq);
 
 	wallclock = sched_ktime_clock();
@@ -8163,7 +8159,6 @@ void __init sched_init_smp(void)
 {
 	cpumask_var_t non_isolated_cpus;
 
-	walt_init_cpu_efficiency();
 	alloc_cpumask_var(&non_isolated_cpus, GFP_KERNEL);
 	alloc_cpumask_var(&fallback_doms, GFP_KERNEL);
 
@@ -8377,7 +8372,7 @@ void __init sched_init(void)
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 		rq->push_task = NULL;
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 		cpumask_set_cpu(i, &rq->freq_domain_cpumask);
 		rq->hmp_stats.cumulative_runnable_avg = 0;
 		rq->window_start = 0;
@@ -9646,7 +9641,7 @@ const u32 sched_prio_to_wmult[40] = {
  /*  15 */ 119304647, 148102320, 186737708, 238609294, 286331153,
 };
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 /*
  * sched_exit() - Set EXITING_TASK_MARKER in task's ravg.demand field
  *
@@ -9682,4 +9677,4 @@ void sched_exit(struct task_struct *p)
 	clear_ed_task(p, rq);
 	task_rq_unlock(rq, p, &rf);
 }
-#endif /* CONFIG_SCHED_HMP */
+#endif /* CONFIG_SCHED_WALT */

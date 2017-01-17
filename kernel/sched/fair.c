@@ -34,6 +34,7 @@
 
 #include "sched.h"
 #include "tune.h"
+#include "walt.h"
 #include <trace/events/sched.h>
 
 /* QHMP/Zone forward declarations */
@@ -42,8 +43,12 @@ struct lb_env;
 struct sd_lb_stats;
 struct sg_lb_stats;
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
+static void fixup_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p,
+				       u32 new_task_load, u32 new_pred_demand);
+#endif
 
+#ifdef CONFIG_SCHED_HMP
 #ifdef CONFIG_CFS_BANDWIDTH
 static void inc_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq,
 				 struct task_struct *p, int change_cra);
@@ -67,8 +72,6 @@ static inline void dec_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq,
 				 struct task_struct *p, int change_cra) { }
 #endif /* CONFIG_CFS_BANDWIDTH */
 
-static void fixup_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p,
-				       u32 new_task_load, u32 new_pred_demand);
 #ifdef CONFIG_SMP
 
 static struct rq *find_busiest_queue_hmp(struct lb_env *env,
@@ -145,8 +148,6 @@ unsigned int sysctl_sched_cstate_aware = 1;
 #ifdef CONFIG_SCHED_WALT
 unsigned int sysctl_sched_use_walt_cpu_util = 1;
 unsigned int sysctl_sched_use_walt_task_util = 1;
-__read_mostly unsigned int sysctl_sched_walt_cpu_high_irqload =
-    (10 * NSEC_PER_MSEC);
 #endif
 /*
  * The initial- and re-scaling of tunables is configurable
@@ -5828,7 +5829,7 @@ static inline int task_util(struct task_struct *p)
 #ifdef CONFIG_SCHED_WALT
 	if (!walt_disabled && sysctl_sched_use_walt_task_util) {
 		unsigned long demand = p->ravg.demand;
-		return (demand << 10) / walt_ravg_window;
+		return (demand << 10) / sched_ravg_window;
 	}
 #endif
 	return p->se.avg.util_avg;
@@ -6468,7 +6469,7 @@ static inline int find_best_target(struct task_struct *p, bool boosted, bool pre
 			continue;
 
 #ifdef CONFIG_SCHED_WALT
-		if (walt_cpu_high_irqload(i))
+		if (sched_cpu_high_irqload(i))
 			continue;
 #endif
 		/*
@@ -7333,7 +7334,9 @@ struct lb_env {
 
 	enum fbq_type		fbq_type;
 	struct list_head	tasks;
+#ifdef CONFIG_SCHED_HMP
 	enum sched_boost_policy	boost_policy;
+#endif
 };
 
 /*
@@ -7431,7 +7434,9 @@ static
 int can_migrate_task(struct task_struct *p, struct lb_env *env)
 {
 	int tsk_cache_hot;
+#ifdef CONFIG_SCHED_HMP
 	int twf, group_cpus;
+#endif
 
 	lockdep_assert_held(&env->src_rq->lock);
 
@@ -7478,6 +7483,7 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	/* Record that we found atleast one task that could run on dst_cpu */
 	env->flags &= ~LBF_ALL_PINNED;
 
+#ifdef CONFIG_SCHED_HMP
 	if (cpu_capacity(env->dst_cpu) > cpu_capacity(env->src_cpu)) {
 		if (nr_big_tasks(env->src_rq) && !is_big_task(p))
 			return 0;
@@ -7510,6 +7516,7 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 						 SCHED_CAPACITY_SCALE);
 	if (!twf && env->busiest_nr_running <= group_cpus)
 		return 0;
+#endif
 
 	if (task_running(env->src_rq, p)) {
 		schedstat_inc(p->se.statistics.nr_failed_migrations_running);
@@ -8963,7 +8970,9 @@ static int load_balance(int this_cpu, struct rq *this_rq,
 		.loop			= 0,
 		.busiest_nr_running     = 0,
 		.busiest_grp_capacity   = 0,
+#ifdef CONFIG_SCHED_HMP
 		.boost_policy		= sched_boost_policy(),
+#endif
 	};
 
 	/*
@@ -9419,7 +9428,9 @@ static int active_load_balance_cpu_stop(void *data)
 		.busiest_grp_capacity	= 0,
 		.flags			= 0,
 		.loop			= 0,
+#ifdef CONFIG_SCHED_HMP
 		.boost_policy		= sched_boost_policy(),
+#endif
 	};
 	bool moved = false;
 
@@ -10481,7 +10492,7 @@ const struct sched_class fair_sched_class = {
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	.task_change_group	= task_change_group_fair,
 #endif
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	.fixup_hmp_sched_stats	= fixup_hmp_sched_stats_fair,
 #endif
 };
@@ -10530,6 +10541,134 @@ __init void init_sched_fair_class(void)
 #endif /* SMP */
 
 }
+
+/* WALT sched implementation begins here */
+
+#if defined(CONFIG_SCHED_WALT) && defined(CONFIG_CFS_BANDWIDTH)
+static inline struct task_group *next_task_group(struct task_group *tg)
+{
+	tg = list_entry_rcu(tg->list.next, typeof(struct task_group), list);
+
+	return (&tg->list == &task_groups) ? NULL : tg;
+}
+
+/* Iterate over all cfs_rq in a cpu */
+#define for_each_cfs_rq(cfs_rq, tg, cpu)	\
+	for (tg = container_of(&task_groups, struct task_group, list);	\
+		((tg = next_task_group(tg)) && (cfs_rq = tg->cfs_rq[cpu]));)
+
+void reset_cfs_rq_hmp_stats(int cpu, int reset_cra)
+{
+	struct task_group *tg;
+	struct cfs_rq *cfs_rq;
+
+	rcu_read_lock();
+
+	for_each_cfs_rq(cfs_rq, tg, cpu)
+		reset_hmp_stats(&cfs_rq->hmp_stats, reset_cra);
+
+	rcu_read_unlock();
+}
+
+static inline int cfs_rq_throttled(struct cfs_rq *cfs_rq);
+
+static void inc_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq,
+	 struct task_struct *p, int change_cra);
+static void dec_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq,
+	 struct task_struct *p, int change_cra);
+
+/* Add task's contribution to a cpu' HMP statistics */
+void inc_hmp_sched_stats_fair(struct rq *rq,
+			struct task_struct *p, int change_cra)
+{
+	struct cfs_rq *cfs_rq;
+	struct sched_entity *se = &p->se;
+
+	/*
+	 * Although below check is not strictly required  (as
+	 * inc/dec_nr_big_task and inc/dec_cumulative_runnable_avg called
+	 * from inc_cfs_rq_hmp_stats() have similar checks), we gain a bit on
+	 * efficiency by short-circuiting for_each_sched_entity() loop when
+	 * sched_disable_window_stats
+	 */
+	if (sched_disable_window_stats)
+		return;
+
+	for_each_sched_entity(se) {
+		cfs_rq = cfs_rq_of(se);
+		inc_cfs_rq_hmp_stats(cfs_rq, p, change_cra);
+		if (cfs_rq_throttled(cfs_rq))
+			break;
+	}
+
+	/* Update rq->hmp_stats only if we didn't find any throttled cfs_rq */
+	if (!se)
+		inc_rq_hmp_stats(rq, p, change_cra);
+}
+
+static void fixup_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p,
+				       u32 new_task_load, u32 new_pred_demand)
+{
+	struct cfs_rq *cfs_rq;
+	struct sched_entity *se = &p->se;
+	s64 task_load_delta = (s64)new_task_load - task_load(p);
+	s64 pred_demand_delta = PRED_DEMAND_DELTA;
+
+	for_each_sched_entity(se) {
+		cfs_rq = cfs_rq_of(se);
+
+		fixup_cumulative_runnable_avg(&cfs_rq->hmp_stats, p,
+					      task_load_delta,
+					      pred_demand_delta);
+		fixup_nr_big_tasks(&cfs_rq->hmp_stats, p, task_load_delta);
+		if (cfs_rq_throttled(cfs_rq))
+			break;
+	}
+
+	/* Fix up rq->hmp_stats only if we didn't find any throttled cfs_rq */
+	if (!se) {
+		fixup_cumulative_runnable_avg(&rq->hmp_stats, p,
+					      task_load_delta,
+					      pred_demand_delta);
+		fixup_nr_big_tasks(&rq->hmp_stats, p, task_load_delta);
+	}
+}
+
+#elif defined(CONFIG_SCHED_WALT)
+
+inline void reset_cfs_rq_hmp_stats(int cpu, int reset_cra) { }
+
+static void
+fixup_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p,
+			   u32 new_task_load, u32 new_pred_demand)
+{
+	s64 task_load_delta = (s64)new_task_load - task_load(p);
+	s64 pred_demand_delta = PRED_DEMAND_DELTA;
+
+	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta,
+				      pred_demand_delta);
+	fixup_nr_big_tasks(&rq->hmp_stats, p, task_load_delta);
+}
+
+static inline int task_will_be_throttled(struct task_struct *p)
+{
+	return 0;
+}
+
+void inc_hmp_sched_stats_fair(struct rq *rq,
+			struct task_struct *p, int change_cra)
+{
+	inc_nr_big_task(&rq->hmp_stats, p);
+}
+
+#else
+
+static inline int task_will_be_throttled(struct task_struct *p)
+{
+	return 0;
+}
+
+#endif
 
 /* QHMP/Zone sched implementation begins here */
 
@@ -11221,128 +11360,6 @@ out:
 		env.reason, env.sync, env.need_idle, sbc_flag, target);
 	return target;
 }
-
-#ifdef CONFIG_CFS_BANDWIDTH
-
-static inline struct task_group *next_task_group(struct task_group *tg)
-{
-	tg = list_entry_rcu(tg->list.next, typeof(struct task_group), list);
-
-	return (&tg->list == &task_groups) ? NULL : tg;
-}
-
-/* Iterate over all cfs_rq in a cpu */
-#define for_each_cfs_rq(cfs_rq, tg, cpu)	\
-	for (tg = container_of(&task_groups, struct task_group, list);	\
-		((tg = next_task_group(tg)) && (cfs_rq = tg->cfs_rq[cpu]));)
-
-void reset_cfs_rq_hmp_stats(int cpu, int reset_cra)
-{
-	struct task_group *tg;
-	struct cfs_rq *cfs_rq;
-
-	rcu_read_lock();
-
-	for_each_cfs_rq(cfs_rq, tg, cpu)
-		reset_hmp_stats(&cfs_rq->hmp_stats, reset_cra);
-
-	rcu_read_unlock();
-}
-
-static inline int cfs_rq_throttled(struct cfs_rq *cfs_rq);
-
-static void inc_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq,
-	 struct task_struct *p, int change_cra);
-static void dec_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq,
-	 struct task_struct *p, int change_cra);
-
-/* Add task's contribution to a cpu' HMP statistics */
-void inc_hmp_sched_stats_fair(struct rq *rq,
-			struct task_struct *p, int change_cra)
-{
-	struct cfs_rq *cfs_rq;
-	struct sched_entity *se = &p->se;
-
-	/*
-	 * Although below check is not strictly required  (as
-	 * inc/dec_nr_big_task and inc/dec_cumulative_runnable_avg called
-	 * from inc_cfs_rq_hmp_stats() have similar checks), we gain a bit on
-	 * efficiency by short-circuiting for_each_sched_entity() loop when
-	 * sched_disable_window_stats
-	 */
-	if (sched_disable_window_stats)
-		return;
-
-	for_each_sched_entity(se) {
-		cfs_rq = cfs_rq_of(se);
-		inc_cfs_rq_hmp_stats(cfs_rq, p, change_cra);
-		if (cfs_rq_throttled(cfs_rq))
-			break;
-	}
-
-	/* Update rq->hmp_stats only if we didn't find any throttled cfs_rq */
-	if (!se)
-		inc_rq_hmp_stats(rq, p, change_cra);
-}
-
-static void fixup_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p,
-				       u32 new_task_load, u32 new_pred_demand)
-{
-	struct cfs_rq *cfs_rq;
-	struct sched_entity *se = &p->se;
-	s64 task_load_delta = (s64)new_task_load - task_load(p);
-	s64 pred_demand_delta = PRED_DEMAND_DELTA;
-
-	for_each_sched_entity(se) {
-		cfs_rq = cfs_rq_of(se);
-
-		fixup_cumulative_runnable_avg(&cfs_rq->hmp_stats, p,
-					      task_load_delta,
-					      pred_demand_delta);
-		fixup_nr_big_tasks(&cfs_rq->hmp_stats, p, task_load_delta);
-		if (cfs_rq_throttled(cfs_rq))
-			break;
-	}
-
-	/* Fix up rq->hmp_stats only if we didn't find any throttled cfs_rq */
-	if (!se) {
-		fixup_cumulative_runnable_avg(&rq->hmp_stats, p,
-					      task_load_delta,
-					      pred_demand_delta);
-		fixup_nr_big_tasks(&rq->hmp_stats, p, task_load_delta);
-	}
-}
-
-static int task_will_be_throttled(struct task_struct *p);
-
-#else	/* CONFIG_CFS_BANDWIDTH */
-
-inline void reset_cfs_rq_hmp_stats(int cpu, int reset_cra) { }
-
-static void
-fixup_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p,
-			   u32 new_task_load, u32 new_pred_demand)
-{
-	s64 task_load_delta = (s64)new_task_load - task_load(p);
-	s64 pred_demand_delta = PRED_DEMAND_DELTA;
-
-	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta,
-				      pred_demand_delta);
-	fixup_nr_big_tasks(&rq->hmp_stats, p, task_load_delta);
-}
-
-static inline int task_will_be_throttled(struct task_struct *p)
-{
-	return 0;
-}
-
-void inc_hmp_sched_stats_fair(struct rq *rq,
-			struct task_struct *p, int change_cra)
-{
-	inc_nr_big_task(&rq->hmp_stats, p);
-}
-
-#endif	/* CONFIG_CFS_BANDWIDTH */
 
 /*
  * Reset balance_interval at all sched_domain levels of given cpu, so that it
