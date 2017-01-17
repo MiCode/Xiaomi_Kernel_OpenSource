@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1634,6 +1634,9 @@ static int mpq_tspp_dmx_write_to_decoder(
 	if (dvb_dmx_is_video_feed(feed))
 		return mpq_dmx_process_video_packet(feed, buf);
 
+	if (dvb_dmx_is_audio_feed(feed))
+		return mpq_dmx_process_audio_packet(feed, buf);
+
 	if (dvb_dmx_is_pcr_feed(feed))
 		return mpq_dmx_process_pcr_packet(feed, buf);
 
@@ -1663,7 +1666,7 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 
 	caps->caps = DMX_CAP_PULL_MODE | DMX_CAP_VIDEO_DECODER_DATA |
 		DMX_CAP_TS_INSERTION | DMX_CAP_VIDEO_INDEXING |
-		DMX_CAP_AUTO_BUFFER_FLUSH;
+		DMX_CAP_AUDIO_DECODER_DATA | DMX_CAP_AUTO_BUFFER_FLUSH;
 	caps->recording_max_video_pids_indexed = 0;
 	caps->num_decoders = MPQ_ADAPTER_MAX_NUM_OF_INTERFACES;
 	caps->num_demux_devices = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
@@ -1753,6 +1756,8 @@ static int mpq_tspp_dmx_get_stc(struct dmx_demux *demux, unsigned int num,
 {
 	enum tspp_source source;
 	u32 tcr_counter;
+	u64 avtimer_stc = 0;
+	int tts_source = 0;
 
 	if (!demux || !stc || !base)
 		return -EINVAL;
@@ -1764,11 +1769,18 @@ static int mpq_tspp_dmx_get_stc(struct dmx_demux *demux, unsigned int num,
 	else
 		return -EINVAL;
 
-	tspp_get_ref_clk_counter(0, source, &tcr_counter);
+	if (tspp_get_tts_source(0, &tts_source) < 0)
+		tts_source = TSIF_TTS_TCR;
 
-	*stc = ((u64)tcr_counter) * 256; /* conversion to 27MHz */
-	*base = 300; /* divisor to get 90KHz clock from stc value */
-
+	if (tts_source != TSIF_TTS_LPASS_TIMER) {
+		tspp_get_ref_clk_counter(0, source, &tcr_counter);
+		*stc = ((u64)tcr_counter) * 256; /* conversion to 27MHz */
+		*base = 300; /* divisor to get 90KHz clock from stc value */
+	} else {
+		if (tspp_get_lpass_time_counter(0, source, &avtimer_stc) < 0)
+			return -EINVAL;
+		*stc = avtimer_stc;
+	}
 	return 0;
 }
 
@@ -1839,6 +1851,10 @@ static int mpq_tspp_dmx_init(
 
 	/* Extend dvb-demux debugfs with TSPP statistics. */
 	mpq_dmx_init_debugfs_entries(mpq_demux);
+
+	/* Get the TSIF TTS info */
+	if (tspp_get_tts_source(0, &mpq_demux->ts_packet_timestamp_source) < 0)
+		mpq_demux->ts_packet_timestamp_source = TSIF_TTS_TCR;
 
 	return 0;
 
