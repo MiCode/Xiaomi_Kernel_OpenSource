@@ -678,7 +678,11 @@ static int diag_mhi_register_ch(int id, struct diag_mhi_ch_t *ch)
 	atomic_set(&(ch->opened), 0);
 	ctxt = SET_CH_CTXT(id, ch->type);
 	ch->client_info.mhi_client_cb = mhi_notifier;
-	return mhi_register_channel(&ch->hdl, NULL);
+	ch->client_info.chan = ch->chan;
+	ch->client_info.dev = &driver->pdev->dev;
+	ch->client_info.node_name = "qcom,mhi";
+	ch->client_info.user_data = (void *)(uintptr_t)ctxt;
+	return mhi_register_channel(&ch->hdl, &ch->client_info);
 }
 
 int diag_mhi_init()

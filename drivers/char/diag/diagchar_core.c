@@ -22,6 +22,8 @@
 #include <linux/sched.h>
 #include <linux/ratelimit.h>
 #include <linux/timer.h>
+#include <linux/platform_device.h>
+#include <linux/msm_mhi.h>
 #ifdef CONFIG_DIAG_OVER_USB
 #include <linux/usb/usbdiag.h>
 #endif
@@ -3589,6 +3591,41 @@ static int diagchar_cleanup(void)
 	return 0;
 }
 
+static int diag_mhi_probe(struct platform_device *pdev)
+{
+	int ret;
+
+	if (!mhi_is_device_ready(&pdev->dev, "qcom,mhi"))
+		return -EPROBE_DEFER;
+	driver->pdev = pdev;
+	ret = diag_remote_init();
+	if (ret) {
+		diag_remote_exit();
+		return ret;
+	}
+	ret = diagfwd_bridge_init();
+	if (ret) {
+		diagfwd_bridge_exit();
+		return ret;
+	}
+	pr_debug("diag: mhi device is ready\n");
+	return 0;
+}
+
+static const struct of_device_id diag_mhi_table[] = {
+	{.compatible = "qcom,diag-mhi"},
+	{},
+};
+
+static struct platform_driver diag_mhi_driver = {
+	.probe = diag_mhi_probe,
+	.driver = {
+		.name = "DIAG MHI Platform",
+		.owner = THIS_MODULE,
+		.of_match_table = diag_mhi_table,
+	},
+};
+
 static int __init diagchar_init(void)
 {
 	dev_t dev;
@@ -3678,9 +3715,6 @@ static int __init diagchar_init(void)
 	ret = diag_masks_init();
 	if (ret)
 		goto fail;
-	ret = diag_remote_init();
-	if (ret)
-		goto fail;
 	ret = diag_mux_init();
 	if (ret)
 		goto fail;
@@ -3717,9 +3751,7 @@ static int __init diagchar_init(void)
 		goto fail;
 
 	pr_debug("diagchar initialized now");
-	ret = diagfwd_bridge_init();
-	if (ret)
-		diagfwd_bridge_exit();
+	platform_driver_register(&diag_mhi_driver);
 	return 0;
 
 fail:
@@ -3733,9 +3765,7 @@ fail:
 	diagfwd_cntl_exit();
 	diag_dci_exit();
 	diag_masks_exit();
-	diag_remote_exit();
 	return -1;
-
 }
 
 static void diagchar_exit(void)
