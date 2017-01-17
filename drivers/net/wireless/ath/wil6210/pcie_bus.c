@@ -187,6 +187,22 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		dev_err(dev, "wil_if_alloc failed: %d\n", rc);
 		return rc;
 	}
+
+	/* device supports 48 bit addresses */
+	rc = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(48));
+	if (rc) {
+		dev_err(dev, "dma_set_mask_and_coherent(48) failed: %d\n", rc);
+		rc = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+		if (rc) {
+			dev_err(dev,
+				"dma_set_mask_and_coherent(32) failed: %d\n",
+				rc);
+			goto if_free;
+		}
+	} else {
+		wil->use_extended_dma_addr = 1;
+	}
+
 	wil->pdev = pdev;
 	pci_set_drvdata(pdev, wil);
 	/* rollback to if_free */
