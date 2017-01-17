@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -704,7 +704,7 @@ struct diag_cmd_reg_entry_t *diag_cmd_search(
 
 	list_for_each_safe(start, temp, &driver->cmd_reg_list) {
 		item = list_entry(start, struct diag_cmd_reg_t, link);
-		if (item == NULL || &item->entry == NULL) {
+		if (&item->entry == NULL) {
 			pr_err("diag: In %s, unable to search command\n",
 			       __func__);
 			return NULL;
