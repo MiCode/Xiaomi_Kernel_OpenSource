@@ -787,7 +787,7 @@
 		cell-index = <1>;
 		compatible = "qcom,slim-ngd";
 		reg = <0x151c0000 0x2c000>,
-			<0x15180000 0x2e000>;
+			<0x15184000 0x2a000>;
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 163 0>, <0 164 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
@@ -800,7 +800,7 @@
 		cell-index = <3>;
 		compatible = "qcom,slim-ngd";
 		reg = <0x15240000 0x2c000>,
-			<0x15200000 0x24000>;
+			<0x15204000 0x20000>;
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 291 0>, <0 292 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
@@ -1095,7 +1095,6 @@
 
 	clock_cpu: qcom,clk-cpu-660@179c0000 {
 		compatible = "qcom,clk-cpu-osm";
-		status = "disabled";
 		reg = <0x179c0000 0x4000>, <0x17916000 0x1000>,
 		      <0x17816000 0x1000>, <0x179d1000 0x1000>,
 		      <0x00784130 0x8>;
@@ -1161,7 +1160,7 @@
 		qcom,apm-mode-ctl = <0x179d0004 0x179d0010>;
 		qcom,apm-ctrl-status = <0x179d000c 0x179d0018>;
 
-		qcom,apm-threshold-voltage = <832000>;
+		qcom,apm-threshold-voltage = <872000>;
 		qcom,boost-fsm-en;
 		qcom,safe-fsm-en;
 		qcom,ps-fsm-en;
