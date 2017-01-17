@@ -1040,6 +1040,10 @@
 			qcom,dump-node = <&L1_D_103>;
 			qcom,dump-id = <0x87>;
 		};
+		qcom,llcc_d_cache {
+			qcom,dump-node = <&llcc>;
+			qcom,dump-id = <0x121>;
+		};
 	};
 
 	kryo3xx-erp {
@@ -1064,6 +1068,7 @@
 			compatible = "qcom,msmskunk-llcc";
 			#cache-cells = <1>;
 			max-slices = <32>;
+			qcom,dump-size = <0x3c0000>;
 		};
 
 		qcom,llcc-erp {
