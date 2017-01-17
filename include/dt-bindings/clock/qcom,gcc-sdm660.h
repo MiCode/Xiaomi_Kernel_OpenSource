@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,7 +134,7 @@
 #define GPLL0_OUT_AUX2				119
 #define GPLL0_OUT_EARLY				120
 #define GPLL0_OUT_MAIN				121
-#define GPLL0_OUT_TEST				122
+#define GPLL0_AO				122
 #define GPLL1					123
 #define GPLL1_OUT_AUX				124
 #define GPLL1_OUT_AUX2				125

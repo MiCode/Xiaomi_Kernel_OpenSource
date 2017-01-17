@@ -76,6 +76,12 @@ static const char * const gcc_parent_names_1[] = {
 	"core_bi_pll_test_se",
 };
 
+static const char * const gcc_parent_names_ao_1[] = {
+	"cxo_a",
+	"gpll0_ao_out_main",
+	"core_bi_pll_test_se",
+};
+
 static const struct parent_map gcc_parent_map_2[] = {
 	{ P_XO, 0 },
 	{ P_GPLL0_OUT_MAIN, 1 },
@@ -189,14 +195,36 @@ static struct clk_fixed_factor xo = {
 	},
 };
 
+static unsigned int soft_vote_gpll0;
+
 static struct clk_alpha_pll gpll0_out_main = {
 	.offset = 0x0,
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
+	.flags = SUPPORTS_FSM_VOTE,
 	.clkr = {
 		.enable_reg = 0x52000,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpll0_out_main",
 			.parent_names = (const char *[]){ "xo" },
+			.num_parents = 1,
+			.ops = &clk_alpha_pll_ops,
+		},
+	},
+};
+
+static struct clk_alpha_pll gpll0_ao_out_main = {
+	.offset = 0x0,
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_CPU,
+	.flags = SUPPORTS_FSM_VOTE,
+	.clkr = {
+		.enable_reg = 0x52000,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gpll0_ao_out_main",
+			.parent_names = (const char *[]){ "cxo_a" },
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_ops,
 		},
@@ -718,7 +746,7 @@ static struct clk_rcg2 hmss_ahb_clk_src = {
 	.freq_tbl = ftbl_hmss_ahb_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "hmss_ahb_clk_src",
-		.parent_names = gcc_parent_names_1,
+		.parent_names = gcc_parent_names_ao_1,
 		.num_parents = 3,
 		.ops = &clk_rcg2_ops,
 		VDD_DIG_FMAX_MAP3_AO(
@@ -741,7 +769,7 @@ static struct clk_rcg2 hmss_gpll0_clk_src = {
 	.freq_tbl = ftbl_hmss_gpll0_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "hmss_gpll0_clk_src",
-		.parent_names = gcc_parent_names_1,
+		.parent_names = gcc_parent_names_ao_1,
 		.num_parents = 3,
 		.ops = &clk_rcg2_ops,
 		VDD_DIG_FMAX_MAP1_AO(
@@ -787,7 +815,7 @@ static struct clk_rcg2 hmss_rbcpr_clk_src = {
 	.freq_tbl = ftbl_hmss_rbcpr_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "hmss_rbcpr_clk_src",
-		.parent_names = gcc_parent_names_1,
+		.parent_names = gcc_parent_names_ao_1,
 		.num_parents = 3,
 		.ops = &clk_rcg2_ops,
 		VDD_DIG_FMAX_MAP2(
@@ -2699,6 +2727,7 @@ static struct clk_regmap *gcc_660_clocks[] = {
 	[GP2_CLK_SRC] = &gp2_clk_src.clkr,
 	[GP3_CLK_SRC] = &gp3_clk_src.clkr,
 	[GPLL0] = &gpll0_out_main.clkr,
+	[GPLL0_AO] = &gpll0_ao_out_main.clkr,
 	[GPLL1] = &gpll1_out_main.clkr,
 	[GPLL4] = &gpll4_out_main.clkr,
 	[HLOS1_VOTE_LPASS_ADSP_SMMU_CLK] = &hlos1_vote_lpass_adsp_smmu_clk.clkr,
