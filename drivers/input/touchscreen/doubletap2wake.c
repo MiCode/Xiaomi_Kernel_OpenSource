@@ -35,9 +35,16 @@
 #include <linux/hrtimer.h>
 #include <asm-generic/cputime.h>
 
+/* Make sure, that only one variant of LTR559/553 along with Ondemand sensor is
+ * enabled
+ */
 #ifdef CONFIG_PSENSOR_ONDEMAND_STATE
 #include <linux/input/ltr559.h>
 extern int ltr559_ps_ondemand_state (void);
+#endif
+#ifdef CONFIG_PSENSOR_ONDEMAND_LTR553
+#include <linux/input/ltr553.h>
+extern int ltr553_ps_ondemand_state (void);
 #endif
 
 /* uncomment since no touchscreen defines android touch, do that here */
@@ -76,6 +83,9 @@ int dt2w_sent_play_pause = 0;
 int dt2w_feather = 200, dt2w_feather_w = 1;
 #ifdef CONFIG_PSENSOR_ONDEMAND_STATE
 int dtw2_psensor_state = LTR559_ON_DEMAND_RESET;
+#endif
+#ifdef CONFIG_PSENSOR_ONDEMAND_LTR553
+int dtw2_psensor_state = LTR553_ON_DEMAND_RESET;
 #endif
 static cputime64_t tap_time_pre = 0;
 static int touch_x = 0, touch_y = 0, touch_nr = 0, x_pre = 0, y_pre = 0;
@@ -141,6 +151,17 @@ static void doubletap2wake_presspwr(struct work_struct * doubletap2wake_presspwr
 	DT2W_PRINFO("%s:%d -Proximity Sensor is not covered, dt2w can wakeup device\n",
 		__func__, __LINE__);
 #endif
+#ifdef CONFIG_PSENSOR_ONDEMAND_LTR553
+	if (dtw2_psensor_state == LTR553_ON_DEMAND_COVERED) {
+	    DT2W_PRINFO("%s:%d -Proximity Sensor is covered, dt2w is ignored\n",
+		    __func__, __LINE__);
+		dtw2_psensor_state = LTR553_ON_DEMAND_RESET;
+		return;
+	}
+	dtw2_psensor_state = LTR553_ON_DEMAND_RESET;
+	DT2W_PRINFO("%s:%d -Proximity Sensor is not covered, dt2w can wakeup device\n",
+		__func__, __LINE__);
+#endif
 
 	if (!mutex_trylock(&pwrkeyworklock))
                 return;
@@ -165,6 +186,15 @@ static void doubletap2wake_pwrtrigger(void) {
 	 * dt2w is actually performed.
 	 */
 	dtw2_psensor_state = ltr559_ps_ondemand_state();
+#endif
+#ifdef CONFIG_PSENSOR_ONDEMAND_LTR553
+	/*
+	 * Prema Chand Alugu (premaca@gmail.com)
+	 * check the proximity sensor on demand.
+	 * The returned state should be checked when the
+	 * dt2w is actually performed.
+	 */
+	dtw2_psensor_state = ltr553_ps_ondemand_state();
 #endif
 	schedule_work(&doubletap2wake_presspwr_work);
         return;
