@@ -85,6 +85,14 @@ static uint32_t get_wptr(struct msm_ringbuffer *ring)
 	return ring->cur - ring->start;
 }
 
+static uint32_t get_rptr(struct msm_ringbuffer *ring)
+{
+	struct msm_gpu *gpu = ring->gpu;
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	return adreno_gpu_read(adreno_gpu, REG_ADRENO_CP_RB_RPTR);
+}
+
 uint32_t adreno_last_fence(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
@@ -255,36 +263,38 @@ void adreno_dump(struct msm_gpu *gpu)
 	}
 }
 
-static uint32_t ring_freewords(struct msm_gpu *gpu)
+#define GSL_RB_NOP_SIZEDWORDS      2
+static bool ring_freewords(struct msm_gpu *gpu, uint32_t ndwords)
 {
 	uint32_t size = gpu->rb->size / 4;
 	uint32_t wptr = get_wptr(gpu->rb);
+	uint32_t rptr = get_rptr(gpu->rb);
 
-	return size - wptr - 1;
-}
+	if (rptr <= wptr) {
+		if ((wptr + ndwords) <=
+				(size - GSL_RB_NOP_SIZEDWORDS))
+			return true;
+		/*
+		 * There isn't enough space toward the end of ringbuffer. So
+		 * look for space from the beginning of ringbuffer upto the
+		 * read pointer.
+		 */
+		if (ndwords < rptr) {
+			OUT_RING(gpu->rb, cp_pkt7(CP_NOP, (size - wptr - 1)));
+			gpu->rb->cur = gpu->rb->start;
+			return true;
+		}
+	}
 
-/*
- * TODO next stage, remove wait on the tail of ring buffer.
- */
-static int rb_check_and_split(struct msm_gpu *gpu, uint32_t ndwords)
-{
-	uint32_t size = gpu->rb->size / 4;
-	uint32_t wptr = get_wptr(gpu->rb);
+	if ((wptr + ndwords) < rptr)
+		return true;
 
-	if ((wptr + ndwords) < size-1)
-		return 0;
-
-	OUT_RING(gpu->rb, cp_pkt7(CP_NOP, (size - wptr - 1)));
-	gpu->rb->cur = gpu->rb->start;
-	gpu->funcs->flush(gpu);
-	gpu->funcs->idle(gpu);
-	return 1;
+	return false;
 }
 
 void adreno_wait_ring(struct msm_gpu *gpu, uint32_t ndwords)
 {
-	rb_check_and_split(gpu, ndwords);
-	if (spin_until(ring_freewords(gpu) >= ndwords))
+	if (spin_until(ring_freewords(gpu, ndwords)))
 		DRM_ERROR("%s: timeout waiting for ringbuffer space\n",
 			  gpu->name);
 }
