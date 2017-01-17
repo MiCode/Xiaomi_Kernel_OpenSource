@@ -1877,6 +1877,13 @@ end:
 	return rc;
 }
 
+static inline bool dp_is_hdcp_enabled(struct mdss_dp_drv_pdata *dp_drv)
+{
+	return dp_drv->hdcp.feature_enabled &&
+		(dp_drv->hdcp.hdcp1_present || dp_drv->hdcp.hdcp2_present) &&
+		dp_drv->hdcp.ops;
+}
+
 static void mdss_dp_hdcp_cb_work(struct work_struct *work)
 {
 	struct mdss_dp_drv_pdata *dp;
@@ -1888,6 +1895,13 @@ static void mdss_dp_hdcp_cb_work(struct work_struct *work)
 
 	dp = container_of(dw, struct mdss_dp_drv_pdata, hdcp_cb_work);
 	base = dp->base;
+
+
+	if (dp->hdcp_status == HDCP_STATE_AUTHENTICATING &&
+	    mdss_dp_is_audio_pattern_requested(dp)) {
+		pr_debug("no hdcp for audio tests\n");
+		return;
+	}
 
 	hdcp_auth_state = (dp_read(base + DP_HDCP_STATUS) >> 20) & 0x3;
 
@@ -2428,6 +2442,50 @@ static ssize_t mdss_dp_rda_frame_crc(struct device *dev,
 	return ret;
 }
 
+static ssize_t mdss_dp_wta_hdcp_feature(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	u32 hdcp;
+	int rc;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid data\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	rc = kstrtoint(buf, 10, &hdcp);
+	if (rc) {
+		pr_err("kstrtoint failed. ret=%d\n", rc);
+		ret = rc;
+		goto end;
+	}
+
+	dp->hdcp.feature_enabled = !!hdcp;
+	pr_debug("hdcp=%d\n", dp->hdcp.feature_enabled);
+end:
+	return ret;
+}
+
+static ssize_t mdss_dp_rda_hdcp_feature(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", dp->hdcp.feature_enabled);
+	pr_debug("hdcp: %d\n", dp->hdcp.feature_enabled);
+
+	return ret;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO, mdss_dp_rda_connected, NULL);
 static DEVICE_ATTR(s3d_mode, S_IRUGO | S_IWUSR, mdss_dp_sysfs_rda_s3d_mode,
 	mdss_dp_sysfs_wta_s3d_mode);
@@ -2439,6 +2497,8 @@ static DEVICE_ATTR(config, S_IRUGO | S_IWUSR, mdss_dp_rda_config,
 	mdss_dp_wta_config);
 static DEVICE_ATTR(frame_crc, S_IRUGO | S_IWUSR, mdss_dp_rda_frame_crc,
 	mdss_dp_wta_frame_crc);
+static DEVICE_ATTR(hdcp_feature, S_IRUGO | S_IWUSR, mdss_dp_rda_hdcp_feature,
+	mdss_dp_wta_hdcp_feature);
 
 static struct attribute *mdss_dp_fs_attrs[] = {
 	&dev_attr_connected.attr,
@@ -2447,6 +2507,7 @@ static struct attribute *mdss_dp_fs_attrs[] = {
 	&dev_attr_psm.attr,
 	&dev_attr_config.attr,
 	&dev_attr_frame_crc.attr,
+	&dev_attr_hdcp_feature.attr,
 	NULL,
 };
 
@@ -2514,6 +2575,11 @@ static void mdss_dp_update_hdcp_info(struct mdss_dp_drv_pdata *dp)
 		return;
 	}
 
+	if (!dp->hdcp.feature_enabled) {
+		pr_debug("feature not enabled\n");
+		return;
+	}
+
 	/* check first if hdcp2p2 is supported */
 	fd = dp->hdcp.hdcp2;
 	if (fd)
@@ -2541,13 +2607,6 @@ static void mdss_dp_update_hdcp_info(struct mdss_dp_drv_pdata *dp)
 		dp->hdcp.data = NULL;
 		dp->hdcp.ops = NULL;
 	}
-}
-
-static inline bool dp_is_hdcp_enabled(struct mdss_dp_drv_pdata *dp_drv)
-{
-	return dp_drv->hdcp.feature_enabled &&
-		(dp_drv->hdcp.hdcp1_present || dp_drv->hdcp.hdcp2_present) &&
-		dp_drv->hdcp.ops;
 }
 
 static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
@@ -2887,7 +2946,7 @@ irqreturn_t dp_isr(int irq, void *ptr)
 			dp_aux_native_handler(dp, isr1);
 	}
 
-	if (dp->hdcp.ops && dp->hdcp.ops->isr) {
+	if (dp_is_hdcp_enabled(dp) && dp->hdcp.ops->isr) {
 		if (dp->hdcp.ops->isr(dp->hdcp.data))
 			pr_err("dp_hdcp_isr failed\n");
 	}
@@ -3188,6 +3247,11 @@ static int mdss_dp_process_audio_pattern_request(struct mdss_dp_drv_pdata *dp)
 	if (!mdss_dp_is_audio_pattern_requested(dp))
 		return -EINVAL;
 
+	if (dp_is_hdcp_enabled(dp) && dp->hdcp.ops->off) {
+		cancel_delayed_work(&dp->hdcp_cb_work);
+		dp->hdcp.ops->off(dp->hdcp.data);
+	}
+
 	pr_debug("sampling_rate=%s, channel_count=%d, pattern_type=%s\n",
 		mdss_dp_get_audio_sample_rate(
 			dp->test_data.test_audio_sampling_rate),
@@ -3438,7 +3502,7 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 	if (dp_drv->alt_mode.dp_status.hpd_irq) {
 		pr_debug("Attention: hpd_irq high\n");
 
-		if (dp_drv->hdcp.ops && dp_drv->hdcp.ops->cp_irq) {
+		if (dp_is_hdcp_enabled(dp_drv) && dp_drv->hdcp.ops->cp_irq) {
 			if (!dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data))
 				return;
 		}
