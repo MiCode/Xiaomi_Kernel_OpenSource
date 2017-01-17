@@ -2085,7 +2085,7 @@ static int sde_hw_rotator_validate_entry(struct sde_rot_mgr *mgr,
 		}
 	}
 
-	fmt = sde_get_format_params(item->input.format);
+	fmt = sde_get_format_params(item->output.format);
 	/*
 	 * Rotator downscale support max 4 times for UBWC format and
 	 * max 2 times for TP10/TP10_UBWC format
