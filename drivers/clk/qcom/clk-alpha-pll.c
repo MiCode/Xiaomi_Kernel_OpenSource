@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -301,7 +301,12 @@ static int clk_alpha_pll_enable(struct clk_hw *hw)
 		ret = clk_enable_regmap(hw);
 		if (ret)
 			return ret;
-		return wait_for_pll_enable(pll, PLL_ACTIVE_FLAG);
+		ret = wait_for_pll_enable(pll, PLL_ACTIVE_FLAG);
+		if (ret == 0) {
+			if (pll->flags & SUPPORTS_FSM_VOTE)
+				*pll->soft_vote |= (pll->soft_vote_mask);
+			return ret;
+		}
 	}
 
 	/* Skip if already enabled */
@@ -351,7 +356,13 @@ static void clk_alpha_pll_disable(struct clk_hw *hw)
 
 	/* If in FSM mode, just unvote it */
 	if (val & PLL_VOTE_FSM_ENA) {
-		clk_disable_regmap(hw);
+		if (pll->flags & SUPPORTS_FSM_VOTE) {
+			*pll->soft_vote &= ~(pll->soft_vote_mask);
+			if (!*pll->soft_vote)
+				clk_disable_regmap(hw);
+		} else
+			clk_disable_regmap(hw);
+
 		return;
 	}
 
