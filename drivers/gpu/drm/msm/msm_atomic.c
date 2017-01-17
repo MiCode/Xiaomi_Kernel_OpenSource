@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Copyright (C) 2014 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -429,11 +429,21 @@ static void complete_commit(struct msm_commit *commit)
 	commit_destroy(commit);
 }
 
+static int msm_atomic_commit_dispatch(struct drm_device *dev,
+		struct drm_atomic_state *state, struct msm_commit *commit);
+
 static void fence_cb(struct msm_fence_cb *cb)
 {
 	struct msm_commit *commit =
 			container_of(cb, struct msm_commit, fence_cb);
-	complete_commit(commit);
+	int ret = -EINVAL;
+
+	ret = msm_atomic_commit_dispatch(commit->dev, commit->state, commit);
+	if (ret) {
+		DRM_ERROR("%s: atomic commit failed\n", __func__);
+		drm_atomic_state_free(commit->state);
+		commit_destroy(commit);
+	}
 }
 
 static void _msm_drm_commit_work_cb(struct kthread_work *work)
@@ -624,13 +634,7 @@ int msm_atomic_commit(struct drm_device *dev,
 	 */
 
 	if (async) {
-		ret = msm_atomic_commit_dispatch(dev, state, commit);
-		if (ret) {
-			DRM_ERROR("%s: atomic commit failed\n", __func__);
-			drm_atomic_state_free(state);
-			commit_destroy(commit);
-			goto error;
-		}
+		msm_queue_fence_cb(dev, &commit->fence_cb, commit->fence);
 		return 0;
 	}
 
