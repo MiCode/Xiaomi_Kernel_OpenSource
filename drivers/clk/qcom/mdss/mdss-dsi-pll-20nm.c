@@ -96,7 +96,7 @@ static int dsi_pll_enable_seq_8994(struct mdss_pll_resources *dsi_pll_res)
 	 * Add necessary delays recommeded by hardware.
 	 */
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-				MMSS_DSI_PHY_PLL_PLLLOCK_CMP_EN, 0x0D);
+				MMSS_DSI_PHY_PLL_PLLLOCK_CMP_EN, 0x01);
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
 				MMSS_DSI_PHY_PLL_PLL_CNTRL, 0x07);
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
@@ -205,8 +205,8 @@ static struct dsi_pll_vco_clk mdss_dsi1_vco_clk_src = {
 
 static struct dsi_pll_vco_clk dsi_vco_clk_8994 = {
 	.ref_clk_rate = 19200000,
-	.min_rate = 1000000000,
-	.max_rate = 2000000000,
+	.min_rate = 300000000,
+	.max_rate = 1500000000,
 	.pll_en_seq_cnt = 1,
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_8994,
 	.c = {
@@ -218,8 +218,8 @@ static struct dsi_pll_vco_clk dsi_vco_clk_8994 = {
 
 static struct dsi_pll_vco_clk shadow_dsi_vco_clk_8994 = {
 	.ref_clk_rate = 19200000,
-	.min_rate = 1000000000,
-	.max_rate = 2000000000,
+	.min_rate = 300000000,
+	.max_rate = 1500000000,
 	.c = {
 		.dbg_name = "shadow_dsi_vco_clk_8994",
 		.ops = &shadow_clk_ops_dsi_vco,
