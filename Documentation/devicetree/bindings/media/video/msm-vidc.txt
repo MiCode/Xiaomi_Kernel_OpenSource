@@ -10,7 +10,6 @@ Required properties:
   of macroblocks per second. The load is a reflection of hardware capability
   rather than a performance guarantee. Performance is guaranteed only up to
   advertised capability of the chipset.
-- qcom,firmware-name : firmware file name to be downloaded.
 
 Optional properties:
 - reg : offset and length of the register set for the device.
@@ -24,22 +23,10 @@ Optional properties:
     supports mvc decoder = 0x00000003
     supports h264 encoder = 0x00000004
     supports h264 decoder = 0x0000000c
-    supports h263 encoder = 0x00000010
-    supports h263 decoder = 0x00000030
     supports mpeg1 encoder = 0x00000040
     supports mpeg1 decoder = 0x000000c0
     supports mpeg2 encoder = 0x00000100
     supports mpeg2 decoder = 0x00000300
-    supports mpeg4 encoder = 0x00000400
-    supports mpeg4 decoder = 0x00000c00
-    supports divx_311 encoder = 0x00001000
-    supports divx_311 decoder = 0x00003000
-    supports divx encoder = 0x00004000
-    supports divx decoder = 0x0000c000
-    supports vc1 encoder = 0x00010000
-    supports vc1 decoder = 0x00030000
-    supports spark encoder = 0x00040000
-    supports spark decoder = 0x000c0000
     supports vp6 encoder = 0x00100000
     supports vp6 decoder = 0x00300000
     supports vp7 encoder = 0x00400000
@@ -48,25 +35,12 @@ Optional properties:
     supports vp8 decoder = 0x03000000
     supports hevc encoder = 0x04000000
     supports hevc decoder = 0x0c000000
-    supports hevc_hybrid encoder = 0x10000000
-    supports hevc_hybrid decoder = 0x30000000
-- qcom,dcvs-tbl : specifies the parameter to configure DCVS algorithm. Video
-  instance load (in mbs/sec) and corresponding low and high threshold DCVS
-  load for supported codec formats.
-- qcom,dcvs-limit : specifies the minimum specifications required to kick in
-  DCVS algorithm. Min MBs per frame and the fps for encoder and decoder to
-  kick in DCVS.
-- qcom,imem-ab-tbl : video core frequency in Hz and corresponding imem ab value
-  in kbps. The imem ab value corresponds to the clock frequency at which imem
-  should operate for a particular video core frequency.
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
   The offsets are from the base offset specified in 'reg'. This is mainly
   used for QoS, VBIF, etc. presets for video.
 - qcom,qdss-presets : list of physical address and memory allocation size pairs.
   when fw_debug_mode is set as HFI_DEBUG_MODE_QDSS, all firmware messages will be
   written to QDSS memory.
-- qcom,imem-size: imem size required by hardware for optimum performance.
-  If imem is not present then there is no need to specify this property.
 - *-supply: A phandle pointing to the appropriate regulator. Number of
   regulators vary across targets.
 - clock-names: an array of clocks that the driver is supposed to be
@@ -90,8 +64,6 @@ Optional properties:
        represented in Q16 format.
 - qcom,sw-power-collapse = A bool indicating if video hardware core can be
   power collapsed in idle state.
-- qcom,slave-side-cp = A bool indicating the content protection mode for an
-  ongoing video session. It is true for targets where the mode is slave side.
 - qcom,never-unload-fw = A bool indicating if video firmware should be not be
   unloaded after all active sessions have closed.  Once a new session starts up
   after this, the firmware will be ready to go.  This should be set on platforms
@@ -99,8 +71,6 @@ Optional properties:
 - qcom,use-non-secure-pil = A bool indicating which type of pil to use to load
   the fw.
 - qcom,fw-bias = The address at which venus fw is loaded (manually).
-- qcom,enable-idle-indicator = A bool to enable video hardware to generate
-  idle message when it is in idle state.
 - qcom,enable-thermal-mitigation = A bool to enable thermal mitigation when
   thermal run away occurs.
 - qcom,hfi-version = The hfi packetization version supported by venus firmware.
@@ -204,22 +174,6 @@ Example:
 			<72000 133330000 0x0c000000>, /* HEVC decoder VGA 60fps   */
 			<36000 133330000 0x0c000000>, /* HEVC VGA 30 fps  */
 			<36000 133330000 0x01000414>; /* Legacy encoder VGA 30 fps   */
-		qcom,dcvs-tbl =
-			<972000 972000 19944000 0xffffffff>, /* Legacy decoder UHD 30fps */
-			<489600 489600   972000 0xffffffff>, /* Legacy decoder 1080p 60fps */
-			<244800 244800   489600 0xffffffff>, /* Legacy decoder 1080p 30fps */
-			<829440 489600   972000 0x55555555>; /* Legacy encoder DCI 24fps
-		qcom,dcvs-limit =
-			<32400 30>, /* Encoder UHD */
-			<14400 30>; /* Decoder WQHD */
-		qcom,imem-ab-tbl =
-			<75000000  1500000>, /* imem clk @ 75 Mhz  */
-			<150000000 1500000>, /* imem clk @ 75 Mhz  */
-			<355333333 2500000>, /* imem clk @ 170 Mhz */
-			<533000000 6000000>; /* imem clk @ 320 Mhz */
-
-		qcom,imem-size = <4096>;
-		qcom,firmware-name = "venus";
 		qcom,hfi-version = "3xx";
 		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>;
@@ -230,12 +184,10 @@ Example:
 		clock-names = "foo_clk", "bar_clk", "baz_clk";
 		qcom,clock-configs = <0x3 0x1 0x0>;
 		qcom,sw-power-collapse;
-		qcom,enable-idle-indicator;
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 						<0x1fe 0x2>;
 		qcom,enable-thermal-mitigation;
 		qcom,use-non-secure-pil;
-		qcom,slave-side-cp;
 		qcom,use_dynamic_bw_update;
 		qcom,fw-bias = <0xe000000>;
 		msm_vidc_cb1: msm_vidc_cb1 {
