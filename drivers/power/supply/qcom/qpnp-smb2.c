@@ -1322,7 +1322,22 @@ static int smb2_init_hw(struct smb2 *chip)
 		smblib_get_charge_param(chg, &chg->param.dc_icl,
 					&chip->dt.dc_icl_ua);
 
-	chg->otg_cl_ua = chip->dt.otg_cl_ua;
+	/* set a slower soft start setting for OTG */
+	rc = smblib_masked_write(chg, DC_ENG_SSUPPLY_CFG2_REG,
+				ENG_SSUPPLY_IVREF_OTG_SS_MASK, OTG_SS_SLOW);
+	if (rc < 0) {
+		pr_err("Couldn't set otg soft start rc=%d\n", rc);
+		return rc;
+	}
+
+	/* set OTG current limit */
+	rc = smblib_set_charge_param(chg, &chg->param.otg_cl,
+							chip->dt.otg_cl_ua);
+	if (rc < 0) {
+		pr_err("Couldn't set otg current limit rc=%d\n", rc);
+		return rc;
+	}
+
 	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
 	chg->boost_threshold_ua = chip->dt.boost_threshold_ua;
 
