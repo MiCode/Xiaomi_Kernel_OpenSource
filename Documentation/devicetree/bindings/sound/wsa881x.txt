@@ -1,0 +1,45 @@
+wsa881x Audio CODEC
+
+wsa881x Audio CODEC can support either Soundwire interface or I2C interface.
+In Soundwire mode, this codec will operate as soundwire slave device and
+uses soundwire framework to interact with soundwire master controller.
+The wsa881x device nodes will be represented as child nodes to soundwire
+master device node in the devicetree. Currently, the below devicetree
+bindings are for soundwire mode only and does not include I2C mode.
+
+Required properties:
+
+ - compatible : "qcom,wsa881x"
+ - reg : Unique device ID of soundwire slave device(48 bits).
+ - qcom,spkr-sd-n-gpio : shutdown gpio pin to keep wsa881x in low power mode.
+ - pinctrl-names : Pincntrl entries to configure the PDM gpio lines and
+		  cross connection switch gpio accordingly
+ - pinctrl-0 : This explains the active state of the shutdown gpio pin
+          to keep wsa881x in low power mode
+ - pinctrl-1 : This explains the suspend state of the shutdown gpio pin
+          to keep wsa881x in low power mode
+
+Optional properties:
+
+Example:
+
+wsa881x@32000 {
+	compatible = "qcom,wsa881x";
+	reg = <0x00 0x032000>;
+	qcom,spkr-sd-n-gpio = <&pmi8994_gpios 2 0>;
+	pinctrl-names = "wsa_spkr_sd_act",
+		"wsa_spkr_sd_sus";
+	pinctrl-0 = <&wsa_spkr_sd_act>;
+	pinctrl-1 = <&wsa_spkr_sd_sus>;
+};
+
+wsa881x@42000 {
+	compatible = "qcom,wsa881x";
+	reg = <0x00 0x042000>;
+	qcom,spkr-sd-n-gpio = <&pmi8994_gpios 3 0>;
+	pinctrl-names = "wsa_spkr_sd_act",
+		"wsa_spkr_sd_sus";
+	pinctrl-0 = <&wsa_spkr_sd_act>;
+	pinctrl-1 = <&wsa_spkr_sd_sus>;
+
+};

@@ -404,6 +404,12 @@ Required properties:
 
  - compatible :                            "qcom,wcd-dsp-glink"
 
+* msm_ext_disp_audio_codec_rx
+
+Required properties:
+
+ - compatible :                            "qcom,msm-ext-disp-audio-codec-rx"
+
 Example:
 
 	qcom,msm-pcm {
@@ -678,6 +684,10 @@ Example:
 
 	wcd_dsp_glink {
 		compatible = "qcom,wcd-dsp-glink";
+	};
+
+	msm_ext_disp_audio_codec_rx {
+		compatible = "qcom,msm-ext-disp-audio-codec-rx";
 	};
 
 
@@ -2342,4 +2352,36 @@ Example:
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
 		qcom,wsa-max-devs = <0>;
+	};
+
+* WCD DSP manager driver
+
+Required properties:
+- compatible : "qcom,wcd-dsp-mgr"
+- qcom,wdsp-components : This is phandle list containing the references to the
+			 components of the manager driver. Manager driver will
+			 register to component framework with these phandles.
+- qcom,img-filename : String property to provide the dsp image file name that is
+		     to be read from file system and downloaded to dsp memory
+Optional properties:
+- qcom,wdsp-cmpnt-dev-name : Property that manager driver will parse, but defined
+			     in the child's DT entry that is given to manager driver
+			     with phandle. This property will be used by the manager
+			     driver in case the manager driver cannot match child's
+			     of_node pointer to registered phandle.
+
+Example:
+
+	qcom,wcd-dsp-mgr {
+		compatible = "qcom,wcd-dsp-mgr";
+		qcom,wdsp-components = <&wcd934x_cdc 0>,
+				       <&wcd_spi_0 1>,
+				       <&glink_spi 2>;
+		qcom,img-filename = "cpe_9340";
+	};
+
+Example of child node that would have qcom,wdsp-cmpnt-dev-name property
+
+	wcd934x_cdc: tavil_codec {
+		qcom,wdsp-cmpnt-dev-name = "tavil_codec";
 	};

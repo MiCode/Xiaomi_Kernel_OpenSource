@@ -22,6 +22,7 @@ header-y += netfilter_ipv4/
 header-y += netfilter_ipv6/
 header-y += usb/
 header-y += wimax/
+header-y += mfd/
 header-y += msm_ipa.h
 genhdr-y += version.h
 

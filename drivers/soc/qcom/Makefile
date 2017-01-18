@@ -59,3 +59,4 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
        obj-y += ramdump.o
 endif
 obj-$(CONFIG_QCOM_COMMAND_DB) += cmd-db.o
+obj-$(CONFIG_WCD_DSP_GLINK) += wcd-dsp-glink.o
