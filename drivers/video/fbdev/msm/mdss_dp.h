@@ -450,6 +450,7 @@ struct mdss_dp_drv_pdata {
 	bool link_clks_on;
 	bool power_on;
 	bool sink_info_read;
+	u32 suspend_vic;
 	bool hpd;
 	bool psm_enabled;
 	bool audio_test_req;
