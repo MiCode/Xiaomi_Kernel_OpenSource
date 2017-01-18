@@ -9442,6 +9442,13 @@ out_unlock:
 
 	raw_spin_unlock(&busiest_rq->lock);
 
+	if (push_task) {
+		if (push_task_detached)
+			attach_one_task(target_rq, push_task);
+		put_task_struct(push_task);
+		clear_reserved(target_cpu);
+	}
+
 	if (p)
 		attach_one_task(target_rq, p);
 
