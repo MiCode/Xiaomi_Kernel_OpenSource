@@ -118,7 +118,6 @@ First Level Node - FG Gen3 device
 	Definition: Specifies the source of sense resistor.
 		    Allowed values are:
 		    0 - Rsense is from Battery FET
-		    1 - Rsense is external
 		    2 - Rsense is Battery FET and SMB
 		    Option 2 can be used only when a parallel charger is
 		    present. If this property is not specified, then the
