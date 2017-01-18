@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,8 +43,8 @@
 #define LPASS_INST_BASE		64
 #define WCNSS_INST_BASE		128
 #define SENSORS_INST_BASE	192
-#define WDSP_INST_BASE	256
-#define CDSP_INST_BASE  320
+#define CDSP_INST_BASE	256
+#define WDSP_INST_BASE  320
 
 #define INST_ID_CNTL		0
 #define INST_ID_CMD		1
