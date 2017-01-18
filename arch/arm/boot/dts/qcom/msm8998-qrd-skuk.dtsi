@@ -13,7 +13,6 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "msm8998-pinctrl.dtsi"
 #include "msm8998-audio.dtsi"
-#include "msm8998-camera-sensor-skuk.dtsi"
 
 / {
 	bluetooth: bt_wcn3990 {

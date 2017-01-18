@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,8 @@
 		_IOWR('R', 6, struct compat_fastrpc_ioctl_init)
 #define COMPAT_FASTRPC_IOCTL_INVOKE_ATTRS \
 		_IOWR('R', 7, struct compat_fastrpc_ioctl_invoke_attrs)
+#define COMPAT_FASTRPC_IOCTL_GETPERF \
+		_IOWR('R', 9, struct compat_fastrpc_ioctl_perf)
 
 struct compat_remote_buf {
 	compat_uptr_t pv;	/* buffer pointer */
@@ -81,6 +83,12 @@ struct compat_fastrpc_ioctl_init {
 	compat_uptr_t mem;	/* mem for the PD */
 	compat_int_t memlen;	/* mem length */
 	compat_int_t memfd;	/* ION fd for the mem */
+};
+
+struct compat_fastrpc_ioctl_perf {	/* kernel performance data */
+	compat_uptr_t  data;
+	compat_int_t numkeys;
+	compat_uptr_t keys;
 };
 
 static int compat_get_fastrpc_ioctl_invoke(
@@ -222,6 +230,21 @@ static int compat_get_fastrpc_ioctl_munmap(
 	return err;
 }
 
+static int compat_get_fastrpc_ioctl_perf(
+			struct compat_fastrpc_ioctl_perf __user *perf32,
+			struct fastrpc_ioctl_perf __user *perf)
+{
+	compat_uptr_t p;
+	int err;
+
+	err = get_user(p, &perf32->data);
+	err |= put_user(p, &perf->data);
+	err |= get_user(p, &perf32->keys);
+	err |= put_user(p, &perf->keys);
+
+	return err;
+}
+
 static int compat_get_fastrpc_ioctl_init(
 			struct compat_fastrpc_ioctl_init __user *init32,
 			struct fastrpc_ioctl_init __user *init)
@@ -356,6 +379,30 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 	case FASTRPC_IOCTL_SETMODE:
 		return filp->f_op->unlocked_ioctl(filp, cmd,
 						(unsigned long)compat_ptr(arg));
+	case COMPAT_FASTRPC_IOCTL_GETPERF:
+	{
+		struct compat_fastrpc_ioctl_perf __user *perf32;
+		struct fastrpc_ioctl_perf *perf;
+		compat_uint_t u;
+		long ret;
+
+		perf32 = compat_ptr(arg);
+		VERIFY(err, NULL != (perf = compat_alloc_user_space(
+							sizeof(*perf))));
+		if (err)
+			return -EFAULT;
+		VERIFY(err, 0 == compat_get_fastrpc_ioctl_perf(perf32,
+							perf));
+		if (err)
+			return err;
+		ret = filp->f_op->unlocked_ioctl(filp, FASTRPC_IOCTL_GETPERF,
+							(unsigned long)perf);
+		if (ret)
+			return ret;
+		err = get_user(u, &perf->numkeys);
+		err |= put_user(u, &perf32->numkeys);
+		return err;
+	}
 	default:
 		return -ENOIOCTLCMD;
 	}
