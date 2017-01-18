@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -914,8 +914,22 @@ const struct snd_soc_dapm_route tavil_audio_map[] = {
 	{"ANC OUT EAR Enable", "Switch", "ADC MUX11"},
 	{"RX INT0 MIX2", NULL, "ANC OUT EAR Enable"},
 
+	{"ANC OUT HPHL Enable", "Switch", "ADC MUX10"},
+	{"ANC OUT HPHL Enable", "Switch", "ADC MUX11"},
+	{"RX INT1 MIX2", NULL, "ANC OUT HPHL Enable"},
+
+	{"ANC OUT HPHR Enable", "Switch", "ADC MUX12"},
+	{"ANC OUT HPHR Enable", "Switch", "ADC MUX13"},
+	{"RX INT2 MIX2", NULL, "ANC OUT HPHR Enable"},
+
 	{"ANC EAR PA", NULL, "RX INT0 DAC"},
 	{"ANC EAR", NULL, "ANC EAR PA"},
+
+	{"ANC HPHL PA", NULL, "RX INT1 DAC"},
+	{"ANC HPHL", NULL, "ANC HPHL PA"},
+
+	{"ANC HPHR PA", NULL, "RX INT2 DAC"},
+	{"ANC HPHR", NULL, "ANC HPHR PA"},
 
 	{"ANC OUT EAR SPKR Enable", "Switch", "ADC MUX10"},
 	{"ANC OUT EAR SPKR Enable", "Switch", "ADC MUX11"},
