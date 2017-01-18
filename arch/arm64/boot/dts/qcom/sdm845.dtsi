@@ -1406,6 +1406,16 @@
 		qcom,ea-pc = <0x270>;
 	};
 
+	slim_qca: slim@17240000 {
+		cell-index = <3>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x17240000 0x2c000>,
+			<0x17204000 0x20000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 291 0>, <0 292 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+	};
+
 	eud: qcom,msm-eud@88e0000 {
 		compatible = "qcom,msm-eud";
 		interrupt-names = "eud_irq";
