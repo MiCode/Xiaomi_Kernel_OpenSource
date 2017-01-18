@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation.
+/* Copyright (c) 2016-2017 The Linux Foundation.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -17,7 +17,6 @@
 #include <linux/uaccess.h>
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
-#include <linux/list.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/errno.h>
@@ -34,14 +33,8 @@
 #define APR_MAXIMUM_NUM_OF_RETRIES 2
 
 struct apr_tx_buf {
-	struct list_head list;
 	struct apr_pkt_priv pkt_priv;
 	char buf[APR_MAX_BUF];
-};
-
-struct apr_buf_list {
-	struct list_head list;
-	spinlock_t lock;
 };
 
 struct link_state {
@@ -52,7 +45,6 @@ struct link_state {
 };
 
 static struct link_state link_state[APR_DEST_MAX];
-static struct apr_buf_list buf_list;
 
 static char *svc_names[APR_DEST_MAX][APR_CLIENT_MAX] = {
 	{
@@ -68,43 +60,36 @@ static char *svc_names[APR_DEST_MAX][APR_CLIENT_MAX] = {
 static struct apr_svc_ch_dev
 	apr_svc_ch[APR_DL_MAX][APR_DEST_MAX][APR_CLIENT_MAX];
 
-static struct apr_tx_buf *apr_get_free_buf(int len)
+static struct apr_tx_buf *apr_alloc_buf(int len)
 {
-	struct apr_tx_buf *tx_buf;
-	unsigned long flags;
 
 	if (len > APR_MAX_BUF) {
 		pr_err("%s: buf too large [%d]\n", __func__, len);
 		return ERR_PTR(-EINVAL);
 	}
 
-	spin_lock_irqsave(&buf_list.lock, flags);
-	if (list_empty(&buf_list.list)) {
-		spin_unlock_irqrestore(&buf_list.lock, flags);
-		pr_err("%s: No buf available\n", __func__);
-		return ERR_PTR(-ENOMEM);
+	return kzalloc(sizeof(struct apr_tx_buf), GFP_ATOMIC);
+}
+
+static void apr_free_buf(const void *ptr)
+{
+
+	struct apr_pkt_priv *apr_pkt_priv = (struct apr_pkt_priv *)ptr;
+	struct apr_tx_buf *tx_buf;
+
+	if (!apr_pkt_priv) {
+		pr_err("%s: Invalid apr_pkt_priv\n", __func__);
+		return;
 	}
 
-	tx_buf = list_first_entry(&buf_list.list, struct apr_tx_buf, list);
-	list_del(&tx_buf->list);
-	spin_unlock_irqrestore(&buf_list.lock, flags);
-
-	return tx_buf;
+	if (apr_pkt_priv->pkt_owner == APR_PKT_OWNER_DRIVER) {
+		tx_buf = container_of((void *)apr_pkt_priv,
+				      struct apr_tx_buf, pkt_priv);
+		pr_debug("%s: Freeing buffer %pK", __func__, tx_buf);
+		kfree(tx_buf);
+	}
 }
 
-static void apr_buf_add_tail(const void *buf)
-{
-	struct apr_tx_buf *list;
-	unsigned long flags;
-
-	if (!buf)
-		return;
-
-	spin_lock_irqsave(&buf_list.lock, flags);
-	list = container_of((void *)buf, struct apr_tx_buf, buf);
-	list_add_tail(&list->list, &buf_list.list);
-	spin_unlock_irqrestore(&buf_list.lock, flags);
-}
 
 static int __apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data,
 			   struct apr_pkt_priv *pkt_priv, int len)
@@ -137,7 +122,7 @@ int apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data,
 		return -EINVAL;
 
 	if (pkt_priv->pkt_owner == APR_PKT_OWNER_DRIVER) {
-		tx_buf = apr_get_free_buf(len);
+		tx_buf = apr_alloc_buf(len);
 		if (IS_ERR_OR_NULL(tx_buf)) {
 			rc = -EINVAL;
 			goto exit;
@@ -160,7 +145,7 @@ int apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data,
 	if (rc < 0) {
 		pr_err("%s: Unable to send the packet, rc:%d\n", __func__, rc);
 		if (pkt_priv->pkt_owner == APR_PKT_OWNER_DRIVER)
-			apr_buf_add_tail(pkt_data);
+			kfree(tx_buf);
 	}
 exit:
 	return rc;
@@ -189,39 +174,17 @@ void apr_tal_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 static void apr_tal_notify_tx_abort(void *handle, const void *priv,
 				    const void *pkt_priv)
 {
-	struct apr_pkt_priv *apr_pkt_priv_ptr =
-				(struct apr_pkt_priv *)pkt_priv;
-	struct apr_tx_buf *list_node;
-
-	if (!apr_pkt_priv_ptr) {
-		pr_err("%s: Invalid pkt_priv\n", __func__);
-		return;
-	}
-
-	pr_debug("%s: tx_abort received for apr_pkt_priv_ptr:%pK\n",
-		 __func__, apr_pkt_priv_ptr);
-
-	if (apr_pkt_priv_ptr->pkt_owner == APR_PKT_OWNER_DRIVER) {
-		list_node = container_of(apr_pkt_priv_ptr,
-					 struct apr_tx_buf, pkt_priv);
-		apr_buf_add_tail(list_node->buf);
-	}
+	pr_debug("%s: tx_abort received for pkt_priv:%pK\n",
+		 __func__, pkt_priv);
+	apr_free_buf(pkt_priv);
 }
 
 void apr_tal_notify_tx_done(void *handle, const void *priv,
 			    const void *pkt_priv, const void *ptr)
 {
-	struct apr_pkt_priv *apr_pkt_priv = (struct apr_pkt_priv *)pkt_priv;
-
-	if (!pkt_priv || !ptr) {
-		pr_err("%s: Invalid pkt_priv or ptr\n", __func__);
-		return;
-	}
-
-	pr_debug("%s: tx_done received\n", __func__);
-
-	if (apr_pkt_priv->pkt_owner == APR_PKT_OWNER_DRIVER)
-		apr_buf_add_tail(ptr);
+	pr_debug("%s: tx_done received for pkt_priv:%pK\n",
+		 __func__, pkt_priv);
+	apr_free_buf(pkt_priv);
 }
 
 bool apr_tal_notify_rx_intent_req(void *handle, const void *priv,
@@ -457,8 +420,6 @@ static struct glink_link_info lpass_link_info = {
 static int __init apr_tal_init(void)
 {
 	int i, j, k;
-	struct apr_tx_buf *buf;
-	struct list_head *ptr, *next;
 
 	for (i = 0; i < APR_DL_MAX; i++) {
 		for (j = 0; j < APR_DEST_MAX; j++) {
@@ -474,21 +435,6 @@ static int __init apr_tal_init(void)
 	for (i = 0; i < APR_DEST_MAX; i++)
 		init_waitqueue_head(&link_state[i].wait);
 
-	spin_lock_init(&buf_list.lock);
-	INIT_LIST_HEAD(&buf_list.list);
-	for (i = 0; i < APR_NUM_OF_TX_BUF; i++) {
-		buf = kzalloc(sizeof(struct apr_tx_buf), GFP_KERNEL);
-		if (!buf) {
-			pr_err("%s: Unable to allocate tx buf\n", __func__);
-			goto tx_buf_alloc_fail;
-		}
-
-		INIT_LIST_HEAD(&buf->list);
-		spin_lock(&buf_list.lock);
-		list_add_tail(&buf->list, &buf_list.list);
-		spin_unlock(&buf_list.lock);
-	}
-
 	link_state[APR_DEST_MODEM].link_state = GLINK_LINK_STATE_DOWN;
 	link_state[APR_DEST_MODEM].handle =
 		glink_register_link_state_cb(&mpss_link_info, NULL);
@@ -502,13 +448,5 @@ static int __init apr_tal_init(void)
 		pr_err("%s: Unable to register lpass link state\n", __func__);
 
 	return 0;
-
-tx_buf_alloc_fail:
-	list_for_each_safe(ptr, next, &buf_list.list) {
-		buf = list_entry(ptr, struct apr_tx_buf, list);
-		list_del(&buf->list);
-		kfree(buf);
-	}
-	return -ENOMEM;
 }
 device_initcall(apr_tal_init);
