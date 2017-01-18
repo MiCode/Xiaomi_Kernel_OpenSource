@@ -1591,6 +1591,17 @@ struct cfg80211_sched_scan_plan {
 };
 
 /**
+ * struct cfg80211_bss_select_adjust - BSS selection with RSSI adjustment.
+ *
+ * @band: band of BSS which should match for RSSI level adjustment.
+ * @delta: value of RSSI level adjustment.
+ */
+struct cfg80211_bss_select_adjust {
+	enum nl80211_band band;
+	s8 delta;
+};
+
+/**
  * struct cfg80211_sched_scan_request - scheduled scan request description
  *
  * @ssids: SSIDs to scan for (passed in the probe_reqs in active scans)
@@ -1620,6 +1631,16 @@ struct cfg80211_sched_scan_plan {
  *	be taken from the @mac_addr
  * @owner_nlportid: netlink portid of owner (if this should is a request
  *	owned by a particular socket)
+ * @relative_rssi_set: Indicates whether @relative_rssi is set or not.
+ * @relative_rssi: Relative RSSI threshold in dB to restrict scan result
+ *	reporting in connected state to cases where a matching BSS is determined
+ *	to have better or slightly worse RSSI than the current connected BSS.
+ *	The relative RSSI threshold values are ignored in disconnected state.
+ * @rssi_adjust: delta dB of RSSI preference to be given to the BSSs that belong
+ *	to the specified band while deciding whether a better BSS is reported
+ *	using @relative_rssi. If delta is a negative number, the BSSs that
+ *	belong to the specified band will be penalized by delta dB in relative
+ *	comparisions.
  */
 struct cfg80211_sched_scan_request {
 	struct cfg80211_ssid *ssids;
@@ -1635,6 +1656,10 @@ struct cfg80211_sched_scan_request {
 
 	u8 mac_addr[ETH_ALEN] __aligned(2);
 	u8 mac_addr_mask[ETH_ALEN] __aligned(2);
+
+	bool relative_rssi_set;
+	s8 relative_rssi;
+	struct cfg80211_bss_select_adjust rssi_adjust;
 
 	/* internal */
 	struct wiphy *wiphy;
@@ -1920,17 +1945,6 @@ struct cfg80211_ibss_params {
 	int mcast_rate[IEEE80211_NUM_BANDS];
 	struct ieee80211_ht_cap ht_capa;
 	struct ieee80211_ht_cap ht_capa_mask;
-};
-
-/**
- * struct cfg80211_bss_select_adjust - BSS selection with RSSI adjustment.
- *
- * @band: band of BSS which should match for RSSI level adjustment.
- * @delta: value of RSSI level adjustment.
- */
-struct cfg80211_bss_select_adjust {
-	enum ieee80211_band band;
-	s8 delta;
 };
 
 /**
