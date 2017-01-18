@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,10 +18,10 @@
 
 #include "pinctrl-msm.h"
 
-#define FUNCTION(fname)			                \
-	[msm_mux_##fname] = {		                \
+#define FUNCTION(fname)					\
+	[msm_mux_##fname] = {				\
 		.name = #fname,				\
-		.groups = fname##_groups,               \
+		.groups = fname##_groups,		\
 		.ngroups = ARRAY_SIZE(fname##_groups),	\
 	}
 
@@ -29,7 +29,7 @@
 #define SOUTH	0x00900000
 #define REG_SIZE 0x1000
 #define PINGROUP(id, base, f1, f2, f3, f4, f5, f6, f7, f8, f9)	\
-	{					        \
+	{						\
 		.name = "gpio" #id,			\
 		.pins = gpio##id##_pins,		\
 		.npins = (unsigned int)ARRAY_SIZE(gpio##id##_pins),	\
@@ -44,11 +44,11 @@
 			msm_mux_##f7,			\
 			msm_mux_##f8,			\
 			msm_mux_##f9			\
-		},				        \
+		},					\
 		.nfuncs = 10,				\
 		.ctl_reg = base + REG_SIZE * id,		\
 		.io_reg = base + 0x4 + REG_SIZE * id,		\
-		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,		\
+		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,	\
 		.intr_status_reg = base + 0xc + REG_SIZE * id,	\
 		.intr_target_reg = base + 0x8 + REG_SIZE * id,	\
 		.mux_bit = 2,			\
@@ -68,7 +68,7 @@
 	}
 
 #define SDC_QDSD_PINGROUP(pg_name, ctl, pull, drv)	\
-	{					        \
+	{						\
 		.name = #pg_name,			\
 		.pins = pg_name##_pins,			\
 		.npins = (unsigned int)ARRAY_SIZE(pg_name##_pins),	\
@@ -83,6 +83,31 @@
 		.oe_bit = -1,				\
 		.in_bit = -1,				\
 		.out_bit = -1,				\
+		.intr_enable_bit = -1,			\
+		.intr_status_bit = -1,			\
+		.intr_target_bit = -1,			\
+		.intr_raw_status_bit = -1,		\
+		.intr_polarity_bit = -1,		\
+		.intr_detection_bit = -1,		\
+		.intr_detection_width = -1,		\
+	}
+
+#define UFS_RESET(pg_name, offset)				\
+	{						\
+		.name = #pg_name,			\
+		.pins = pg_name##_pins,			\
+		.npins = (unsigned int)ARRAY_SIZE(pg_name##_pins),	\
+		.ctl_reg = offset,			\
+		.io_reg = offset + 0x4,			\
+		.intr_cfg_reg = 0,			\
+		.intr_status_reg = 0,			\
+		.intr_target_reg = 0,			\
+		.mux_bit = -1,				\
+		.pull_bit = 3,				\
+		.drv_bit = 0,				\
+		.oe_bit = -1,				\
+		.in_bit = -1,				\
+		.out_bit = 0,				\
 		.intr_enable_bit = -1,			\
 		.intr_status_bit = -1,			\
 		.intr_target_bit = -1,			\
@@ -499,7 +524,6 @@ enum msmskunk_functions {
 	msm_mux_reserved30,
 	msm_mux_qup11,
 	msm_mux_qup14,
-	msm_mux_reserved31,
 	msm_mux_phase_flag3,
 	msm_mux_reserved96,
 	msm_mux_ldo_en,
@@ -597,6 +621,7 @@ enum msmskunk_functions {
 	msm_mux_reserved147,
 	msm_mux_reserved148,
 	msm_mux_reserved149,
+	msm_mux_reserved31,
 	msm_mux_reserved32,
 	msm_mux_reserved33,
 	msm_mux_reserved34,
@@ -700,15 +725,6 @@ enum msmskunk_functions {
 	msm_mux_reserved79,
 	msm_mux_reserved80,
 	msm_mux_qup15,
-	msm_mux_reserved81,
-	msm_mux_reserved82,
-	msm_mux_reserved83,
-	msm_mux_reserved84,
-	msm_mux_pcie1_pwrfault,
-	msm_mux_qup5,
-	msm_mux_reserved85,
-	msm_mux_pcie1_mrl,
-	msm_mux_reserved86,
 	msm_mux_reserved87,
 	msm_mux_reserved88,
 	msm_mux_tsif1_clk,
@@ -733,6 +749,15 @@ enum msmskunk_functions {
 	msm_mux_vfr_1,
 	msm_mux_tgu_ch2,
 	msm_mux_reserved92,
+	msm_mux_reserved81,
+	msm_mux_reserved82,
+	msm_mux_reserved83,
+	msm_mux_reserved84,
+	msm_mux_pcie1_pwrfault,
+	msm_mux_qup5,
+	msm_mux_reserved85,
+	msm_mux_pcie1_mrl,
+	msm_mux_reserved86,
 	msm_mux_tsif2_clk,
 	msm_mux_sdc4_clk,
 	msm_mux_qup7,
@@ -1048,9 +1073,6 @@ static const char * const qup11_groups[] = {
 static const char * const qup14_groups[] = {
 	"gpio31", "gpio32", "gpio33", "gpio34",
 };
-static const char * const reserved31_groups[] = {
-	"gpio31",
-};
 static const char * const phase_flag3_groups[] = {
 	"gpio96",
 };
@@ -1342,6 +1364,9 @@ static const char * const reserved148_groups[] = {
 };
 static const char * const reserved149_groups[] = {
 	"gpio149", "gpio149",
+};
+static const char * const reserved31_groups[] = {
+	"gpio31",
 };
 static const char * const reserved32_groups[] = {
 	"gpio32",
@@ -1654,33 +1679,6 @@ static const char * const reserved80_groups[] = {
 static const char * const qup15_groups[] = {
 	"gpio81", "gpio82", "gpio83", "gpio84",
 };
-static const char * const reserved81_groups[] = {
-	"gpio81",
-};
-static const char * const reserved82_groups[] = {
-	"gpio82",
-};
-static const char * const reserved83_groups[] = {
-	"gpio83",
-};
-static const char * const reserved84_groups[] = {
-	"gpio84",
-};
-static const char * const pcie1_pwrfault_groups[] = {
-	"gpio85",
-};
-static const char * const qup5_groups[] = {
-	"gpio85", "gpio86", "gpio87", "gpio88",
-};
-static const char * const reserved85_groups[] = {
-	"gpio85",
-};
-static const char * const pcie1_mrl_groups[] = {
-	"gpio86",
-};
-static const char * const reserved86_groups[] = {
-	"gpio86",
-};
 static const char * const reserved87_groups[] = {
 	"gpio87",
 };
@@ -1752,6 +1750,33 @@ static const char * const tgu_ch2_groups[] = {
 };
 static const char * const reserved92_groups[] = {
 	"gpio92",
+};
+static const char * const reserved81_groups[] = {
+	"gpio81",
+};
+static const char * const reserved82_groups[] = {
+	"gpio82",
+};
+static const char * const reserved83_groups[] = {
+	"gpio83",
+};
+static const char * const reserved84_groups[] = {
+	"gpio84",
+};
+static const char * const pcie1_pwrfault_groups[] = {
+	"gpio85",
+};
+static const char * const qup5_groups[] = {
+	"gpio85", "gpio86", "gpio87", "gpio88",
+};
+static const char * const reserved85_groups[] = {
+	"gpio85",
+};
+static const char * const pcie1_mrl_groups[] = {
+	"gpio86",
+};
+static const char * const reserved86_groups[] = {
+	"gpio86",
 };
 static const char * const tsif2_clk_groups[] = {
 	"gpio93",
@@ -1885,7 +1910,6 @@ static const struct msm_function msmskunk_functions[] = {
 	FUNCTION(reserved30),
 	FUNCTION(qup11),
 	FUNCTION(qup14),
-	FUNCTION(reserved31),
 	FUNCTION(phase_flag3),
 	FUNCTION(reserved96),
 	FUNCTION(ldo_en),
@@ -1983,6 +2007,7 @@ static const struct msm_function msmskunk_functions[] = {
 	FUNCTION(reserved147),
 	FUNCTION(reserved148),
 	FUNCTION(reserved149),
+	FUNCTION(reserved31),
 	FUNCTION(reserved32),
 	FUNCTION(reserved33),
 	FUNCTION(reserved34),
@@ -2086,15 +2111,6 @@ static const struct msm_function msmskunk_functions[] = {
 	FUNCTION(reserved79),
 	FUNCTION(reserved80),
 	FUNCTION(qup15),
-	FUNCTION(reserved81),
-	FUNCTION(reserved82),
-	FUNCTION(reserved83),
-	FUNCTION(reserved84),
-	FUNCTION(pcie1_pwrfault),
-	FUNCTION(qup5),
-	FUNCTION(reserved85),
-	FUNCTION(pcie1_mrl),
-	FUNCTION(reserved86),
 	FUNCTION(reserved87),
 	FUNCTION(reserved88),
 	FUNCTION(tsif1_clk),
@@ -2119,6 +2135,15 @@ static const struct msm_function msmskunk_functions[] = {
 	FUNCTION(vfr_1),
 	FUNCTION(tgu_ch2),
 	FUNCTION(reserved92),
+	FUNCTION(reserved81),
+	FUNCTION(reserved82),
+	FUNCTION(reserved83),
+	FUNCTION(reserved84),
+	FUNCTION(pcie1_pwrfault),
+	FUNCTION(qup5),
+	FUNCTION(reserved85),
+	FUNCTION(pcie1_mrl),
+	FUNCTION(reserved86),
 	FUNCTION(tsif2_clk),
 	FUNCTION(sdc4_clk),
 	FUNCTION(qup7),
