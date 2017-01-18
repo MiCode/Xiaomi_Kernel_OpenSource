@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -5264,9 +5264,28 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 		retval = IRQ_HANDLED;
 	}
 
-	if ((intr_status & UFSHCD_UIC_PWR_MASK) && hba->uic_async_done) {
-		complete(hba->uic_async_done);
-		retval = IRQ_HANDLED;
+	if (intr_status & UFSHCD_UIC_PWR_MASK) {
+		if (hba->uic_async_done) {
+			complete(hba->uic_async_done);
+			retval = IRQ_HANDLED;
+		} else if (ufshcd_is_auto_hibern8_supported(hba)) {
+			/*
+			 * If uic_async_done flag is not set then this
+			 * is an Auto hibern8 err interrupt.
+			 * Perform a host reset followed by a full
+			 * link recovery.
+			 */
+			hba->ufshcd_state = UFSHCD_STATE_ERROR;
+			hba->force_host_reset = true;
+			dev_err(hba->dev, "%s: Auto Hibern8 %s failed - status: 0x%08x, upmcrs: 0x%08x\n",
+				__func__, (intr_status & UIC_HIBERNATE_ENTER) ?
+				"Enter" : "Exit",
+				intr_status, ufshcd_get_upmcrs(hba));
+			__ufshcd_print_host_regs(hba, true);
+			ufshcd_print_host_state(hba);
+			schedule_work(&hba->eh_work);
+			retval = IRQ_HANDLED;
+		}
 	}
 	return retval;
 }
@@ -5858,6 +5877,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 	int err = 0;
 	int tag;
 	bool needs_reset = false;
+	bool clks_enabled = false;
 
 	hba = container_of(work, struct ufs_hba, eh_work);
 
@@ -5866,6 +5886,22 @@ static void ufshcd_err_handler(struct work_struct *work)
 
 	if (hba->ufshcd_state == UFSHCD_STATE_RESET)
 		goto out;
+
+	/*
+	 * Make sure the clocks are ON before we proceed with err
+	 * handling. For the majority of cases err handler would be
+	 * run with clocks ON. There is a possibility that the err
+	 * handler was scheduled due to auto hibern8 error interrupt,
+	 * in which case the clocks could be gated or be in the
+	 * process of gating when the err handler runs.
+	 */
+	if (unlikely((hba->clk_gating.state != CLKS_ON) &&
+	    ufshcd_is_auto_hibern8_supported(hba))) {
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		ufshcd_hold(hba, false);
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		clks_enabled = true;
+	}
 
 	hba->ufshcd_state = UFSHCD_STATE_RESET;
 	ufshcd_set_eh_in_progress(hba);
@@ -6003,6 +6039,9 @@ skip_err_handling:
 	}
 
 	hba->silence_err_logs = false;
+
+	if (clks_enabled)
+		__ufshcd_release(hba, false);
 out:
 	ufshcd_clear_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
