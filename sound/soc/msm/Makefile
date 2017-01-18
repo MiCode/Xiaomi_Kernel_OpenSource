@@ -33,3 +33,7 @@ obj-$(CONFIG_SND_SOC_INT_CODEC) += snd-soc-int-codec.o
 snd-soc-ext-codec-objs := msmfalcon-external.o msmfalcon-ext-dai-links.o
 obj-$(CONFIG_SND_SOC_EXT_CODEC) += snd-soc-msmfalcon-common.o
 obj-$(CONFIG_SND_SOC_EXT_CODEC) += snd-soc-ext-codec.o
+
+# for MSMSKUNK sound card driver
+snd-soc-msmskunk-objs := msmskunk.o
+obj-$(CONFIG_SND_SOC_MSMSKUNK) += snd-soc-msmskunk.o

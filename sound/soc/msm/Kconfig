@@ -233,4 +233,32 @@ config SND_SOC_FALCON
 	 the machine driver and the corresponding
 	 DAI-links
 
+config SND_SOC_MSMSKUNK
+	tristate "SoC Machine driver for MSMSKUNK boards"
+	depends on ARCH_QCOM
+	select SND_SOC_COMPRESS
+	select SND_SOC_QDSP6V2
+	select SND_SOC_MSM_STUB
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_DYNAMIC_MINORS
+	select MSM_QDSP6_APRV2_GLINK
+	select MSM_QDSP6_SSR
+	select MSM_QDSP6_PDR
+	select MSM_QDSP6_NOTIFIER
+	select MSM_QDSP6V2_CODECS
+	select SND_SOC_WCD934X
+	select SND_SOC_WSA881X
+	select SND_SOC_MSM_HDMI_CODEC_RX
+	select DTS_SRS_TM
+	select QTI_PP
+	select MSM_ULTRASOUND
+	select DOLBY_DS2
+	select SND_HWDEP
+        select DTS_EAGLE
+	help
+	 To add support for SoC audio on MSMSKUNK.
+	 This enables sound soc drivers that interfaces
+	 with DSP. This also enables the machine driver
+	 and the corresponding DAI-links.
+
 endmenu
