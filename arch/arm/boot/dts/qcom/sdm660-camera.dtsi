@@ -24,8 +24,9 @@
 	qcom,csiphy@c824000 {
 		cell-index = <0>;
 		compatible = "qcom,csiphy-v3.5", "qcom,csiphy";
-		reg = <0xc824000 0x1000>;
-		reg-names = "csiphy";
+		reg = <0xc824000 0x1000>,
+				<0xca00120 0x4>;
+		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 78 0>;
 		interrupt-names = "csiphy";
 		gdscr-supply = <&gdsc_camss_top>;
@@ -61,8 +62,9 @@
 	qcom,csiphy@c825000 {
 		cell-index = <1>;
 		compatible = "qcom,csiphy-v3.5", "qcom,csiphy";
-		reg = <0xc825000 0x1000>;
-		reg-names = "csiphy";
+		reg = <0xc825000 0x1000>,
+				<0xca00124 0x4>;
+		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 79 0>;
 		interrupt-names = "csiphy";
 		gdscr-supply = <&gdsc_camss_top>;
@@ -98,8 +100,9 @@
 	qcom,csiphy@c826000 {
 		cell-index = <2>;
 		compatible = "qcom,csiphy-v3.5", "qcom,csiphy";
-		reg = <0xc826000 0x1000>;
-		reg-names = "csiphy";
+		reg = <0xc826000 0x1000>,
+				<0xca00128 0x4>;
+		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 80 0>;
 		interrupt-names = "csiphy";
 		gdscr-supply = <&gdsc_camss_top>;
