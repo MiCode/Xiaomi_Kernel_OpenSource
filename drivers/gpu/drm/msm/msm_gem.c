@@ -567,6 +567,10 @@ void msm_gem_move_to_active(struct drm_gem_object *obj,
 		struct msm_gpu *gpu, bool write, uint32_t fence)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct drm_device *dev = obj->dev;
+
+	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
+
 	msm_obj->gpu = gpu;
 	if (write)
 		msm_obj->write_fence = fence;

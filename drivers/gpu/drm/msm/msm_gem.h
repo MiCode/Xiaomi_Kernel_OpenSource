@@ -81,11 +81,14 @@ static inline uint32_t msm_gem_fence(struct msm_gem_object *msm_obj,
 		uint32_t op)
 {
 	uint32_t fence = 0;
+	struct drm_device *dev = msm_obj->base.dev;
 
+	mutex_lock(&dev->struct_mutex);
 	if (op & MSM_PREP_READ)
 		fence = msm_obj->write_fence;
 	if (op & MSM_PREP_WRITE)
 		fence = max(fence, msm_obj->read_fence);
+	mutex_unlock(&dev->struct_mutex);
 
 	return fence;
 }
