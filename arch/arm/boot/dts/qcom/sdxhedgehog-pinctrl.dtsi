@@ -668,12 +668,12 @@
 		i2s_mclk {
 			i2s_mclk_sleep: i2s_mclk_sleep {
 				mux {
-					pins = "gpio71";
+					pins = "gpio63";
 					function = "i2s_mclk";
 				};
 
 				config {
-					pins = "gpio71";
+					pins = "gpio63";
 					drive-strength = <2>;	/* 2 mA */
 					bias-pull-down;		/* PULL DOWN */
 				};
@@ -681,12 +681,12 @@
 
 			i2s_mclk_active: i2s_mclk_active {
 				mux {
-					pins = "gpio71";
+					pins = "gpio63";
 					function = "i2s_mclk";
 				};
 
 				config {
-					pins = "gpio71";
+					pins = "gpio63";
 					drive-strength = <8>;	/* 8 mA */
 					bias-disable;		/* NO PULL*/
 					output-high;

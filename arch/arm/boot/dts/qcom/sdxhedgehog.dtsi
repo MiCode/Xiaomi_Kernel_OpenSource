@@ -45,6 +45,41 @@
 		gpio = <&tlmm_pinmux 80 0>;
 	};
 
+	i2c_3: i2c@78B7000 { /* BLSP1 QUP3 */
+		wcd9xxx_codec@d{
+			qcom,cdc-reset-gpio = <&tlmm_pinmux 72 0>;
+			swr_master {
+				compatible = "qcom,swr-wcd";
+				#address-cells = <2>;
+				#size-cells = <0>;
+				wsa881x_211: wsa881x@20170211 {
+					compatible = "qcom,wsa881x";
+					reg = <0x00 0x20170211>;
+					qcom,spkr-sd-n-gpio =
+						<&tlmm_pinmux 76 0>;
+				};
+				wsa881x_212: wsa881x@20170212 {
+					compatible = "qcom,wsa881x";
+					reg = <0x00 0x20170212>;
+					qcom,spkr-sd-n-gpio =
+						<&tlmm_pinmux 76 0>;
+				};
+				wsa881x_213: wsa881x@20170213 {
+					compatible = "qcom,wsa881x";
+					reg = <0x00 0x20170213>;
+					qcom,spkr-sd-n-gpio =
+						<&tlmm_pinmux 76 0>;
+				};
+				wsa881x_214: wsa881x@20170214 {
+					compatible = "qcom,wsa881x";
+					reg = <0x00 0x20170214>;
+					qcom,spkr-sd-n-gpio =
+						<&tlmm_pinmux 76 0>;
+				};
+			};
+		};
+	};
+
 	ipa_hw: qcom,ipa@07B00000 {
 		qcom,ipa-hw-ver = <12>; /* IPA core version = IPAv3.5 */
 		/delete-property/qcom,use-rg10-limitation-mitigation;
@@ -74,6 +109,14 @@
 		qcom,wlan-ramdump-dynamic = <0x200000>;
 		qcom,is-antenna-shared;
 		status = "disabled";
+	};
+
+	wcd9xxx_intc: wcd9xxx-irq {
+		compatible = "qcom,wcd9xxx-irq";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-parent = <&tlmm_pinmux>;
+		qcom,gpio-connect = <&tlmm_pinmux 73 0>;
 	};
 };
 
