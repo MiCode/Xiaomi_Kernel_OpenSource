@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -499,6 +499,7 @@ static int vfe_probe(struct platform_device *pdev)
 	vfe_parent_dev->common_sd->common_data = &vfe_common_data;
 	memset(&vfe_common_data, 0, sizeof(vfe_common_data));
 	spin_lock_init(&vfe_common_data.common_dev_data_lock);
+	spin_lock_init(&vfe_common_data.common_dev_axi_lock);
 
 	of_property_read_u32(pdev->dev.of_node,
 		"num_child", &vfe_parent_dev->num_hw_sd);
