@@ -4875,4 +4875,48 @@ enum nl80211_sched_scan_plan {
 		__NL80211_SCHED_SCAN_PLAN_AFTER_LAST - 1
 };
 
+/**
+ * struct nl80211_bss_select_rssi_adjust - RSSI adjustment parameters.
+ *
+ * @band: band of BSS that must match for RSSI value adjustment.
+ * @delta: value used to adjust the RSSI value of matching BSS.
+ */
+struct nl80211_bss_select_rssi_adjust {
+	__u8 band;
+	__s8 delta;
+} __attribute__((packed));
+
+/**
+ * enum nl80211_bss_select_attr - attributes for bss selection.
+ *
+ * @__NL80211_BSS_SELECT_ATTR_INVALID: reserved.
+ * @NL80211_BSS_SELECT_ATTR_RSSI: Flag indicating only RSSI-based BSS selection
+ *	is requested.
+ * @NL80211_BSS_SELECT_ATTR_BAND_PREF: attribute indicating BSS
+ *	selection should be done such that the specified band is preferred.
+ *	When there are multiple BSS-es in the preferred band, the driver
+ *	shall use RSSI-based BSS selection as a second step. The value of
+ *	this attribute is according to &enum nl80211_band (u32).
+ * @NL80211_BSS_SELECT_ATTR_RSSI_ADJUST: When present the RSSI level for
+ *	BSS-es in the specified band is to be adjusted before doing
+ *	RSSI-based BSS selection. The attribute value is a packed structure
+ *	value as specified by &struct nl80211_bss_select_rssi_adjust.
+ * @NL80211_BSS_SELECT_ATTR_MAX: highest bss select attribute number.
+ * @__NL80211_BSS_SELECT_ATTR_AFTER_LAST: internal use.
+ *
+ * One and only one of these attributes are found within %NL80211_ATTR_BSS_SELECT
+ * for %NL80211_CMD_CONNECT. It specifies the required BSS selection behaviour
+ * which the driver shall use.
+ */
+enum nl80211_bss_select_attr {
+	__NL80211_BSS_SELECT_ATTR_INVALID,
+	NL80211_BSS_SELECT_ATTR_RSSI,
+	NL80211_BSS_SELECT_ATTR_BAND_PREF,
+	NL80211_BSS_SELECT_ATTR_RSSI_ADJUST,
+
+	/* keep last */
+	__NL80211_BSS_SELECT_ATTR_AFTER_LAST,
+	NL80211_BSS_SELECT_ATTR_MAX = __NL80211_BSS_SELECT_ATTR_AFTER_LAST - 1
+};
+
 #endif /* __LINUX_NL80211_H */
