@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3331,7 +3331,7 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 	struct regulator_init_data *init_data;
 	struct regulator_desc *rdesc = &labibb->ibb_vreg.rdesc;
 	struct regulator_config cfg = {};
-	u8 val, ibb_enable_ctl;
+	u8 val, ibb_enable_ctl, index;
 	u32 tmp;
 
 	if (!of_node) {
@@ -3460,11 +3460,11 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 			return rc;
 		}
 
-		labibb->ibb_vreg.pwrup_dly = ibb_pwrup_dly_table[
-					(val &
-					IBB_PWRUP_PWRDN_CTL_1_DLY1_MASK)];
-		labibb->ibb_vreg.pwrdn_dly =  ibb_pwrdn_dly_table[val &
-					IBB_PWRUP_PWRDN_CTL_1_DLY2_MASK];
+		index = (val & IBB_PWRUP_PWRDN_CTL_1_DLY1_MASK) >>
+				IBB_PWRUP_PWRDN_CTL_1_DLY1_SHIFT;
+		labibb->ibb_vreg.pwrup_dly = ibb_pwrup_dly_table[index];
+		index = val & IBB_PWRUP_PWRDN_CTL_1_DLY2_MASK;
+		labibb->ibb_vreg.pwrdn_dly =  ibb_pwrdn_dly_table[index];
 
 		labibb->ibb_vreg.vreg_enabled = 1;
 	} else {
