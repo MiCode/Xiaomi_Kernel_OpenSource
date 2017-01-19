@@ -579,6 +579,11 @@ static void wcd_clsh_set_hph_mode(struct snd_soc_codec *codec,
 static void wcd_clsh_set_flyback_vneg_ctl(struct snd_soc_codec *codec,
 					  bool enable)
 {
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
+
+	if (!TASHA_IS_2_0(wcd9xxx))
+		return;
+
 	if (enable) {
 		snd_soc_update_bits(codec, WCD9XXX_FLYBACK_VNEG_CTRL_1, 0xE0,
 				    0x00);
