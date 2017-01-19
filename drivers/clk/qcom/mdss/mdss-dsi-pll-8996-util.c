@@ -210,6 +210,7 @@ static void dsi_pll_start_8996(void __iomem *pll_base)
 {
 	pr_debug("start PLL at base=%p\n", pll_base);
 
+	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_VREF_CFG1, 0x10);
 	MDSS_PLL_REG_W(pll_base, DSIPHY_CMN_PLL_CNTRL, 1);
 }
 
