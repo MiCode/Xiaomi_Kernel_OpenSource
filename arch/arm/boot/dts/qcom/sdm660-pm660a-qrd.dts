@@ -23,3 +23,35 @@
 	qcom,board-id = <0x0012000b 0>;
 	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
 };
+
+&pm660a_oledb {
+	status = "okay";
+	qcom,oledb-default-voltage-mv = <6400>;
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_rm67195_amoled_fhd_cmd>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+	vdda-3p3-supply = <&pm660l_l6>;
+	qcom,platform-reset-gpio = <&tlmm 53 0>;
+	qcom,platform-te-gpio = <&tlmm 59 0>;
+};
+
+&dsi_rm67195_amoled_fhd_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <255>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+};
