@@ -718,8 +718,6 @@ __read_mostly unsigned int sysctl_sched_window_stats_policy =
 
 __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 
-unsigned int __read_mostly sysctl_sched_enable_colocation = 1;
-
 /*
  * Enable colocation and frequency aggregation for all threads in a process.
  * The children inherits the group id from the parent.
@@ -1292,14 +1290,12 @@ void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
 int preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
 {
 	struct related_thread_group *grp;
-	int rc = 0;
+	int rc = 1;
 
 	rcu_read_lock();
 
 	grp = task_related_thread_group(p);
-	if (!grp || !sysctl_sched_enable_colocation)
-		rc = 1;
-	else
+	if (grp)
 		rc = (grp->preferred_cluster == cluster);
 
 	rcu_read_unlock();
@@ -3751,7 +3747,7 @@ static struct sched_cluster *best_cluster(struct related_thread_group *grp,
 			return cluster;
 	}
 
-	return NULL;
+	return sched_cluster[0];
 }
 
 static void _set_preferred_cluster(struct related_thread_group *grp)
@@ -3761,12 +3757,6 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 	bool boost_on_big = sched_boost_policy() == SCHED_BOOST_ON_BIG;
 	bool group_boost = false;
 	u64 wallclock;
-
-	if (!sysctl_sched_enable_colocation) {
-		grp->last_update = sched_ktime_clock();
-		grp->preferred_cluster = NULL;
-		return;
-	}
 
 	if (list_empty(&grp->tasks))
 		return;
