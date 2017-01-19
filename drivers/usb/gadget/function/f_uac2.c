@@ -40,6 +40,10 @@
 #define USB_OUT_CLK_ID	5
 #define USB_IN_CLK_ID	6
 
+/* Sampling frequencies supported */
+int clk_frequencies[] = {44100, 48000};
+#define CLK_FREQ_ARR_SIZE	2
+
 #define CONTROL_ABSENT	0
 #define CONTROL_RDONLY	1
 #define CONTROL_RDWR	3
@@ -641,8 +645,8 @@ struct uac_clock_source_descriptor in_clk_src_desc = {
 
 	.bDescriptorSubtype = UAC2_CLOCK_SOURCE,
 	.bClockID = USB_IN_CLK_ID,
-	.bmAttributes = UAC_CLOCK_SOURCE_TYPE_INT_FIXED,
-	.bmControls = (CONTROL_RDONLY << CLK_FREQ_CTRL),
+	.bmAttributes = UAC_CLOCK_SOURCE_TYPE_INT_PROG,
+	.bmControls = (CONTROL_RDWR << CLK_FREQ_CTRL),
 	.bAssocTerminal = 0,
 };
 
@@ -653,8 +657,8 @@ struct uac_clock_source_descriptor out_clk_src_desc = {
 
 	.bDescriptorSubtype = UAC2_CLOCK_SOURCE,
 	.bClockID = USB_OUT_CLK_ID,
-	.bmAttributes = UAC_CLOCK_SOURCE_TYPE_INT_FIXED,
-	.bmControls = (CONTROL_RDONLY << CLK_FREQ_CTRL),
+	.bmAttributes = UAC_CLOCK_SOURCE_TYPE_INT_PROG,
+	.bmControls = (CONTROL_RDWR << CLK_FREQ_CTRL),
 	.bAssocTerminal = 0,
 };
 
@@ -998,6 +1002,23 @@ struct cntrl_range_lay3 {
 	__u32	dRES;
 } __packed;
 
+#define _CNTRL_RANGE_LAY3(n)	cntrl_range_lay3_##n
+#define CNTRL_RANGE_LAY3(n)	_CNTRL_RANGE_LAY3(n)
+
+/*
+ * Range Attributes
+ * 0 ---> dMIN,
+ * 1 ---> dMAX,
+ * 2 ---> dRES,
+ */
+#define DECLARE_CNTRL_RANGE_LAY3(n)				\
+struct CNTRL_RANGE_LAY3(n) {					\
+	__u16	wNumSubRanges;					\
+	__u32	dRangeAttrs[n][3];				\
+} __packed
+
+DECLARE_CNTRL_RANGE_LAY3(CLK_FREQ_ARR_SIZE);
+
 static inline void
 free_ep(struct uac2_rtd_params *prm, struct usb_ep *ep)
 {
@@ -1317,6 +1338,8 @@ in_rq_cur(struct usb_function *fn, const struct usb_ctrlrequest *cr)
 	p_srate = opts->p_srate;
 	c_srate = opts->c_srate;
 
+	pr_debug("%s: entity_id:%u\n p_srate:%d, c_srate:%d",
+			__func__, entity_id, p_srate, c_srate);
 	if (control_selector == UAC2_CS_CONTROL_SAM_FREQ) {
 		struct cntrl_cur_lay3 c;
 
@@ -1351,7 +1374,7 @@ in_rq_range(struct usb_function *fn, const struct usb_ctrlrequest *cr)
 	u16 w_value = le16_to_cpu(cr->wValue);
 	u8 entity_id = (w_index >> 8) & 0xff;
 	u8 control_selector = w_value >> 8;
-	struct cntrl_range_lay3 r;
+	struct CNTRL_RANGE_LAY3(CLK_FREQ_ARR_SIZE) r;
 	int value = -EOPNOTSUPP;
 	int p_srate, c_srate;
 
@@ -1359,20 +1382,22 @@ in_rq_range(struct usb_function *fn, const struct usb_ctrlrequest *cr)
 	p_srate = opts->p_srate;
 	c_srate = opts->c_srate;
 
+	pr_debug("%s: entity_id:%u\n", __func__, entity_id);
 	if (control_selector == UAC2_CS_CONTROL_SAM_FREQ) {
-		if (entity_id == USB_IN_CLK_ID)
-			r.dMIN = p_srate;
-		else if (entity_id == USB_OUT_CLK_ID)
-			r.dMIN = c_srate;
-		else
+		if (entity_id == USB_IN_CLK_ID || USB_OUT_CLK_ID) {
+			int i;
+
+			r.wNumSubRanges = CLK_FREQ_ARR_SIZE;
+			for (i = 0; i < CLK_FREQ_ARR_SIZE; i++) {
+				r.dRangeAttrs[i][0] = clk_frequencies[i];
+				r.dRangeAttrs[i][1] = r.dRangeAttrs[i][0];
+				r.dRangeAttrs[i][2] = 0;
+			}
+			value = min_t(unsigned, w_length, sizeof(r));
+			memcpy(req->buf, &r, value);
+		} else
 			return -EOPNOTSUPP;
 
-		r.dMAX = r.dMIN;
-		r.dRES = 0;
-		r.wNumSubRanges = 1;
-
-		value = min_t(unsigned, w_length, sizeof r);
-		memcpy(req->buf, &r, value);
 	} else {
 		dev_err(&uac2->pdev.dev,
 			"%s:%d control_selector=%d TODO!\n",
@@ -1393,15 +1418,73 @@ ac_rq_in(struct usb_function *fn, const struct usb_ctrlrequest *cr)
 		return -EOPNOTSUPP;
 }
 
+static void set_p_srate_complete(struct usb_ep *ep, struct usb_request *req)
+{
+	struct f_uac2_opts *opts = req->context;
+	u32 *buf = req->buf;
+	int i;
+
+	pr_debug("%s: p_srate:%u buf:%u\n", __func__, opts->p_srate, *buf);
+	for (i = 0; i < CLK_FREQ_ARR_SIZE; i++) {
+		if (clk_frequencies[i] == *buf) {
+			opts->p_srate = *buf;
+			break;
+		}
+	}
+
+	if (i == CLK_FREQ_ARR_SIZE)
+		pr_err("%s: Trying to set unsupported sampling rate %u\n",
+				__func__, *buf);
+}
+
+static void set_c_srate_complete(struct usb_ep *ep, struct usb_request *req)
+{
+	struct f_uac2_opts *opts = req->context;
+	u32 *buf = req->buf;
+	int i;
+
+	pr_debug("%s: c_srate:%u buf:%u\n", __func__, opts->c_srate, *buf);
+	for (i = 0; i < CLK_FREQ_ARR_SIZE; i++) {
+		if (clk_frequencies[i] == *buf) {
+			opts->c_srate = *buf;
+			break;
+		}
+	}
+
+	if (i == CLK_FREQ_ARR_SIZE)
+		pr_err("%s: Trying to set unsupported sampling rate %u\n",
+				__func__, *buf);
+}
+
 static int
 out_rq_cur(struct usb_function *fn, const struct usb_ctrlrequest *cr)
 {
+	struct usb_request *req = fn->config->cdev->req;
+	struct audio_dev *agdev = func_to_agdev(fn);
+	struct snd_uac2_chip *uac2 = &agdev->uac2;
+	struct f_uac2_opts *opts;
 	u16 w_length = le16_to_cpu(cr->wLength);
 	u16 w_value = le16_to_cpu(cr->wValue);
+	u16 w_index = le16_to_cpu(cr->wIndex);
+	u8 entity_id = (w_index >> 8) & 0xff;
 	u8 control_selector = w_value >> 8;
 
-	if (control_selector == UAC2_CS_CONTROL_SAM_FREQ)
+	opts = agdev_to_uac2_opts(agdev);
+	pr_debug("%s: entity_id: %u p_srate:%u c_srate:%u\n",
+		__func__, entity_id, opts->p_srate, opts->c_srate);
+	if (control_selector == UAC2_CS_CONTROL_SAM_FREQ) {
+		if (entity_id == USB_OUT_CLK_ID)
+			req->complete = set_c_srate_complete;
+		else if (entity_id == USB_IN_CLK_ID)
+			req->complete = set_p_srate_complete;
+
+		req->context = opts;
 		return w_length;
+	} else {
+		dev_err(&uac2->pdev.dev,
+			"%s:%d unsupported control_selector=%d\n",
+			__func__, __LINE__, control_selector);
+	}
 
 	return -EOPNOTSUPP;
 }
