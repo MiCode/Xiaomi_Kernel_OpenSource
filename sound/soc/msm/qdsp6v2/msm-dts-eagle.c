@@ -234,7 +234,8 @@ static s32 _volume_cmds_alloc1(s32 size)
 	if (_vol_cmds) {
 		_vol_cmds_d = kzalloc(_vol_cmd_cnt * sizeof(struct vol_cmds_d),
 					GFP_KERNEL);
-	}
+	} else
+		_vol_cmd_cnt = 0;
 	if (_vol_cmds_d)
 		return 0;
 	_volume_cmds_free();
@@ -1301,9 +1302,9 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 			if (((u32 *)_sec_blob[target[0]])[1] != target[1]) {
 				eagle_ioctl_dbg("%s: request new size for already allocated license index %u",
 					 __func__, target[0]);
-				kfree(_sec_blob[target[0]]);
-				_sec_blob[target[0]] = NULL;
 			}
+			kfree(_sec_blob[target[0]]);
+			_sec_blob[target[0]] = NULL;
 		}
 		eagle_ioctl_dbg("%s: allocating %u bytes for license index %u",
 				__func__, target[1], target[0]);
