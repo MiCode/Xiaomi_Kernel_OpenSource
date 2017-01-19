@@ -64,25 +64,3 @@
 &pm660l_wled {
 	qcom,led-strings-list = [00 01];
 };
-
-&tasha_snd {
-	qcom,model = "sdm660-tasha-skus-snd-card";
-	qcom,audio-routing =
-		"AIF4 VI", "MCLK",
-		"RX_BIAS", "MCLK",
-		"MADINPUT", "MCLK",
-		"AMIC2", "MIC BIAS2",
-		"MIC BIAS2", "Headset Mic",
-		"DMIC0", "MIC BIAS1",
-		"MIC BIAS1", "Digital Mic0",
-		"DMIC2", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic2",
-		"DMIC4", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic4",
-		"SpkrLeft IN", "SPK1 OUT";
-	qcom,msm-mbhc-hphl-swh = <1>;
-	/delete-property/ qcom,us-euro-gpios;
-	qcom,wsa-max-devs = <1>;
-	qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_213>;
-	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
-};
