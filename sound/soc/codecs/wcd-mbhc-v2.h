@@ -14,6 +14,7 @@
 
 #include <linux/wait.h>
 #include <linux/stringify.h>
+#include <linux/power_supply.h>
 #include "wcdcal-hwdep.h"
 
 #define TOMBAK_MBHC_NC	0
@@ -249,6 +250,15 @@ enum mbhc_moisture_rref {
 	R_184_KOHM,
 };
 
+struct usbc_ana_audio_config {
+	int usbc_en1_gpio;
+	int usbc_en2n_gpio;
+	int usbc_force_gpio;
+	struct device_node *usbc_en1_gpio_p; /* used by pinctrl API */
+	struct device_node *usbc_en2n_gpio_p; /* used by pinctrl API */
+	struct device_node *usbc_force_gpio_p; /* used by pinctrl API */
+};
+
 struct wcd_mbhc_config {
 	bool read_fw_bin;
 	void *calibration;
@@ -263,6 +273,8 @@ struct wcd_mbhc_config {
 	int mbhc_micbias;
 	int anc_micbias;
 	bool enable_anc_mic_detect;
+	u32 enable_usbc_analog;
+	struct usbc_ana_audio_config usbc_analog_cfg;
 };
 
 struct wcd_mbhc_intr {
@@ -443,6 +455,11 @@ struct wcd_mbhc {
 
 	unsigned long intr_status;
 	bool is_hph_ocp_pending;
+
+	int usbc_mode;
+	struct notifier_block psy_nb;
+	struct power_supply *usb_psy;
+	struct work_struct usbc_analog_work;
 };
 #define WCD_MBHC_CAL_SIZE(buttons, rload) ( \
 	sizeof(struct wcd_mbhc_general_cfg) + \
