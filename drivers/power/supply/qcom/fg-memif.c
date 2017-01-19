@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -544,7 +544,7 @@ static int fg_get_beat_count(struct fg_chip *chip, u8 *count)
 int fg_interleaved_mem_read(struct fg_chip *chip, u16 address, u8 offset,
 				u8 *val, int len)
 {
-	int rc = 0;
+	int rc = 0, ret;
 	u8 start_beat_count, end_beat_count, count = 0;
 	bool retry_once = false;
 
@@ -597,12 +597,16 @@ retry:
 	}
 out:
 	/* Release IMA access */
-	rc = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip),
+	ret = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip),
 				MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT, 0);
-	if (rc < 0) {
-		pr_err("failed to reset IMA access bit rc = %d\n", rc);
-		return rc;
+	if (ret < 0) {
+		pr_err("failed to reset IMA access bit ret = %d\n", ret);
+		return ret;
 	}
+
+	/* Return the error we got before releasing memory access */
+	if (rc < 0)
+		return rc;
 
 	if (retry_once) {
 		retry_once = false;
@@ -615,7 +619,7 @@ out:
 int fg_interleaved_mem_write(struct fg_chip *chip, u16 address, u8 offset,
 				u8 *val, int len, bool atomic_access)
 {
-	int rc = 0;
+	int rc = 0, ret;
 	u8 start_beat_count, end_beat_count, count = 0;
 
 	if (offset > 3) {
@@ -662,11 +666,14 @@ retry:
 			start_beat_count, end_beat_count);
 out:
 	/* Release IMA access */
-	rc = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip),
+	ret = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip),
 				MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT, 0);
-	if (rc < 0)
-		pr_err("failed to reset IMA access bit rc = %d\n", rc);
+	if (ret < 0) {
+		pr_err("failed to reset IMA access bit ret = %d\n", ret);
+		return ret;
+	}
 
+	/* Return the error we got before releasing memory access */
 	return rc;
 }
 
