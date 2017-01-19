@@ -301,7 +301,7 @@ enum hdmi_pll_freqs {
 	HDMI_PCLK_MAX
 };
 
-struct hdmi_14nm_phy_pll_reg_cfg {
+struct hdmi_8996_phy_pll_reg_cfg {
 	u32 tx_l0_tx_band;
 	u32 tx_l1_tx_band;
 	u32 tx_l2_tx_band;
@@ -355,7 +355,7 @@ static const u32 supported_freq_lut[HDMI_PCLK_MAX] = {
 	594000000
 };
 
-static const struct hdmi_14nm_phy_pll_reg_cfg reg_cfg_lut[HDMI_PCLK_MAX] = {
+static const struct hdmi_8996_phy_pll_reg_cfg reg_cfg_lut[HDMI_PCLK_MAX] = {
 
 	/* 25200 KHz */
 	{
@@ -737,12 +737,12 @@ static const struct hdmi_14nm_phy_pll_reg_cfg reg_cfg_lut[HDMI_PCLK_MAX] = {
 	},
 };
 
-static inline struct hdmi_pll_vco_clk *to_hdmi_14nm_vco_clk(struct clk *clk)
+static inline struct hdmi_pll_vco_clk *to_hdmi_8996_vco_clk(struct clk *clk)
 {
 	return container_of(clk, struct hdmi_pll_vco_clk, c);
 }
 
-static inline u64 hdmi_14nm_get_post_div_lt_2g(u64 bclk)
+static inline u64 hdmi_8996_get_post_div_lt_2g(u64 bclk)
 {
 	if (bclk >= HDMI_1334MHZ_BIT_CLK_HZ)
 		return 3;
@@ -760,7 +760,7 @@ static inline u64 hdmi_14nm_get_post_div_lt_2g(u64 bclk)
 	return HDMI_64B_ERR_VAL;
 }
 
-static inline u64 hdmi_14nm_get_coreclk_div_lt_2g(u64 bclk)
+static inline u64 hdmi_8996_get_coreclk_div_lt_2g(u64 bclk)
 {
 	if (bclk >= HDMI_1334MHZ_BIT_CLK_HZ)
 		return 1;
@@ -778,7 +778,7 @@ static inline u64 hdmi_14nm_get_coreclk_div_lt_2g(u64 bclk)
 	return HDMI_64B_ERR_VAL;
 }
 
-static inline u64 hdmi_14nm_get_coreclk_div_ratio(u64 clks_pll_divsel,
+static inline u64 hdmi_8996_get_coreclk_div_ratio(u64 clks_pll_divsel,
 						  u64 coreclk_div)
 {
 	if (clks_pll_divsel == 0)
@@ -789,7 +789,7 @@ static inline u64 hdmi_14nm_get_coreclk_div_ratio(u64 clks_pll_divsel,
 	return HDMI_64B_ERR_VAL;
 }
 
-static inline u64 hdmi_14nm_get_tx_band(u64 bclk)
+static inline u64 hdmi_8996_get_tx_band(u64 bclk)
 {
 	if (bclk >= HDMI_2000MHZ_BIT_CLK_HZ)
 		return 0;
@@ -803,7 +803,7 @@ static inline u64 hdmi_14nm_get_tx_band(u64 bclk)
 	return HDMI_64B_ERR_VAL;
 }
 
-static inline u64 hdmi_14nm_get_hsclk(u64 fdata)
+static inline u64 hdmi_8996_get_hsclk(u64 fdata)
 {
 	if (fdata >= 8000000000)
 		return 0;
@@ -817,7 +817,7 @@ static inline u64 hdmi_14nm_get_hsclk(u64 fdata)
 	return HDMI_64B_ERR_VAL;
 }
 
-static inline u64 hdmi_14nm_get_cpctrl(u64 frac_start, bool gen_ssc)
+static inline u64 hdmi_8996_get_cpctrl(u64 frac_start, bool gen_ssc)
 {
 	if ((frac_start != 0) ||
 	    (gen_ssc == true))
@@ -830,7 +830,7 @@ static inline u64 hdmi_14nm_get_cpctrl(u64 frac_start, bool gen_ssc)
 	return 0x23;
 }
 
-static inline u64 hdmi_14nm_get_rctrl(u64 frac_start, bool gen_ssc)
+static inline u64 hdmi_8996_get_rctrl(u64 frac_start, bool gen_ssc)
 {
 	if ((frac_start != 0) || (gen_ssc == true))
 		return 0x16;
@@ -838,7 +838,7 @@ static inline u64 hdmi_14nm_get_rctrl(u64 frac_start, bool gen_ssc)
 	return 0x10;
 }
 
-static inline u64 hdmi_14nm_get_cctrl(u64 frac_start, bool gen_ssc)
+static inline u64 hdmi_8996_get_cctrl(u64 frac_start, bool gen_ssc)
 {
 	if ((frac_start != 0) || (gen_ssc == true))
 		return 0x28;
@@ -846,7 +846,7 @@ static inline u64 hdmi_14nm_get_cctrl(u64 frac_start, bool gen_ssc)
 	return 0x1;
 }
 
-static inline u64 hdmi_14nm_get_integloop_gain(u64 frac_start, bool gen_ssc)
+static inline u64 hdmi_8996_get_integloop_gain(u64 frac_start, bool gen_ssc)
 {
 	if ((frac_start != 0) || (gen_ssc == true))
 		return 0x80;
@@ -854,7 +854,7 @@ static inline u64 hdmi_14nm_get_integloop_gain(u64 frac_start, bool gen_ssc)
 	return 0xC4;
 }
 
-static inline u64 hdmi_14nm_get_vco_tune(u64 fdata, u64 div)
+static inline u64 hdmi_8996_get_vco_tune(u64 fdata, u64 div)
 {
 	u64 vco_tune;
 
@@ -866,7 +866,7 @@ static inline u64 hdmi_14nm_get_vco_tune(u64 fdata, u64 div)
 	return vco_tune;
 }
 
-static inline u64 hdmi_14nm_get_pll_cmp(u64 pll_cmp_cnt, u64 core_clk)
+static inline u64 hdmi_8996_get_pll_cmp(u64 pll_cmp_cnt, u64 core_clk)
 {
 	u64 pll_cmp;
 	u64 rem;
@@ -880,8 +880,8 @@ static inline u64 hdmi_14nm_get_pll_cmp(u64 pll_cmp_cnt, u64 core_clk)
 	return pll_cmp;
 }
 
-static int hdmi_14nm_calculate(u32 pix_clk,
-			       struct hdmi_14nm_phy_pll_reg_cfg *cfg)
+static int hdmi_8996_calculate(u32 pix_clk,
+			       struct hdmi_8996_phy_pll_reg_cfg *cfg)
 {
 	int rc = -EINVAL;
 	u64 fdata, clk_divtx, tmds_clk;
@@ -914,16 +914,16 @@ static int hdmi_14nm_calculate(u32 pix_clk,
 	else
 		tmds_clk = bclk;
 
-	post_div_lt_2g = hdmi_14nm_get_post_div_lt_2g(bclk);
+	post_div_lt_2g = hdmi_8996_get_post_div_lt_2g(bclk);
 	if (post_div_lt_2g == HDMI_64B_ERR_VAL)
 		goto fail;
 
-	coreclk_div1_lt_2g = hdmi_14nm_get_coreclk_div_lt_2g(bclk);
+	coreclk_div1_lt_2g = hdmi_8996_get_coreclk_div_lt_2g(bclk);
 
-	core_clk_div_ratio = hdmi_14nm_get_coreclk_div_ratio(
+	core_clk_div_ratio = hdmi_8996_get_coreclk_div_ratio(
 				HDMI_CLKS_PLL_DIVSEL, HDMI_CORECLK_DIV);
 
-	tx_band = hdmi_14nm_get_tx_band(bclk);
+	tx_band = hdmi_8996_get_tx_band(bclk);
 	if (tx_band == HDMI_64B_ERR_VAL)
 		goto fail;
 
@@ -931,7 +931,7 @@ static int hdmi_14nm_calculate(u32 pix_clk,
 
 	if (bclk >= HDMI_2000MHZ_BIT_CLK_HZ) {
 		fdata = bclk;
-		hsclk = hdmi_14nm_get_hsclk(fdata);
+		hsclk = hdmi_8996_get_hsclk(fdata);
 		if (hsclk == HDMI_64B_ERR_VAL)
 			goto fail;
 
@@ -946,7 +946,7 @@ static int hdmi_14nm_calculate(u32 pix_clk,
 		vco_freq = bclk * (post_div_lt_2g * tx_band_div_ratio);
 		fdata = vco_freq;
 		do_div(fdata, post_div_lt_2g);
-		hsclk = hdmi_14nm_get_hsclk(fdata);
+		hsclk = hdmi_8996_get_hsclk(fdata);
 		if (hsclk == HDMI_64B_ERR_VAL)
 			goto fail;
 
@@ -968,15 +968,15 @@ static int hdmi_14nm_calculate(u32 pix_clk,
 	if (rem >= (pll_divisor >> 1))
 		frac_start++;
 
-	cpctrl = hdmi_14nm_get_cpctrl(frac_start, false);
-	rctrl = hdmi_14nm_get_rctrl(frac_start, false);
-	cctrl = hdmi_14nm_get_cctrl(frac_start, false);
-	integloop_gain = hdmi_14nm_get_integloop_gain(frac_start, false);
-	vco_tune = hdmi_14nm_get_vco_tune(fdata, post_div_gt_2g);
+	cpctrl = hdmi_8996_get_cpctrl(frac_start, false);
+	rctrl = hdmi_8996_get_rctrl(frac_start, false);
+	cctrl = hdmi_8996_get_cctrl(frac_start, false);
+	integloop_gain = hdmi_8996_get_integloop_gain(frac_start, false);
+	vco_tune = hdmi_8996_get_vco_tune(fdata, post_div_gt_2g);
 
 	core_clk = clk_divtx;
 	do_div(core_clk, core_clk_div_ratio);
-	pll_cmp = hdmi_14nm_get_pll_cmp(1024, core_clk);
+	pll_cmp = hdmi_8996_get_pll_cmp(1024, core_clk);
 
 	/* Debug dump */
 	pr_debug("%s: VCO freq: %llu\n", __func__, vco_freq);
@@ -1055,7 +1055,7 @@ static int hdmi_14nm_calculate(u32 pix_clk,
 	}
 
 	cfg->phy_mode = (bclk > HDMI_HIGH_FREQ_BIT_CLK_THRESHOLD) ? 0x10 : 0x0;
-	pr_debug("HDMI 14NM PLL: PLL Settings\n");
+	pr_debug("HDMI 8996 PLL: PLL Settings\n");
 	pr_debug("PLL PARAM: tx_l0_tx_band = 0x%x\n", cfg->tx_l0_tx_band);
 	pr_debug("PLL PARAM: tx_l1_tx_band = 0x%x\n", cfg->tx_l1_tx_band);
 	pr_debug("PLL PARAM: tx_l2_tx_band = 0x%x\n", cfg->tx_l2_tx_band);
@@ -1118,13 +1118,13 @@ fail:
 	return rc;
 }
 
-static int hdmi_14nm_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
+static int hdmi_8996_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 {
 	u32 i = 0;
 	int rc = 0;
-	struct hdmi_pll_vco_clk *vco = to_hdmi_14nm_vco_clk(c);
+	struct hdmi_pll_vco_clk *vco = to_hdmi_8996_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
-	struct hdmi_14nm_phy_pll_reg_cfg cfg = {0};
+	struct hdmi_8996_phy_pll_reg_cfg cfg = {0};
 
 	for (i = 0; i < HDMI_PCLK_MAX; i++) {
 		if ((supported_freq_lut[i] >= (tmds_clk - 2000)) &&
@@ -1138,7 +1138,7 @@ static int hdmi_14nm_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 		pr_debug("%s: pixel clock %d is not present in LUT\n", __func__,
 						       tmds_clk);
 
-		rc = hdmi_14nm_calculate(tmds_clk, &cfg);
+		rc = hdmi_8996_calculate(tmds_clk, &cfg);
 		if (rc) {
 			pr_err("%s: PLL calculation failed\n", __func__);
 			return rc;
@@ -1347,7 +1347,7 @@ static int hdmi_14nm_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 	return 0;
 }
 
-static int hdmi_14nm_phy_ready_status(struct mdss_pll_resources *io)
+static int hdmi_8996_phy_ready_status(struct mdss_pll_resources *io)
 {
 	u32 status;
 	int phy_ready = 0;
@@ -1379,7 +1379,7 @@ static int hdmi_14nm_phy_ready_status(struct mdss_pll_resources *io)
 	return phy_ready;
 }
 
-static int hdmi_14nm_pll_lock_status(struct mdss_pll_resources *io)
+static int hdmi_8996_pll_lock_status(struct mdss_pll_resources *io)
 {
 	u32 status;
 	int pll_locked = 0;
@@ -1410,10 +1410,10 @@ static int hdmi_14nm_pll_lock_status(struct mdss_pll_resources *io)
 	return pll_locked;
 }
 
-static int hdmi_14nm_vco_enable(struct clk *c)
+static int hdmi_8996_vco_enable(struct clk *c)
 {
 	int rc;
-	struct hdmi_pll_vco_clk *vco = to_hdmi_14nm_vco_clk(c);
+	struct hdmi_pll_vco_clk *vco = to_hdmi_8996_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
 
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x1);
@@ -1422,7 +1422,7 @@ static int hdmi_14nm_vco_enable(struct clk *c)
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x19);
 	udelay(1);
 
-	rc = hdmi_14nm_pll_lock_status(io);
+	rc = hdmi_8996_pll_lock_status(io);
 	if (!rc) {
 		pr_err("%s: PLL not locked\n", __func__);
 		return rc;
@@ -1448,7 +1448,7 @@ static int hdmi_14nm_vco_enable(struct clk *c)
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_SSC_STEP_SIZE2, 0x0);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_SSC_EN_CENTER, 0x2);
 
-	rc = hdmi_14nm_phy_ready_status(io);
+	rc = hdmi_8996_phy_ready_status(io);
 	if (!rc) {
 		pr_err("%s: PHY not READY\n", __func__);
 		return rc;
@@ -1463,9 +1463,9 @@ static int hdmi_14nm_vco_enable(struct clk *c)
 	return 0;
 }
 
-static int hdmi_14nm_vco_set_rate(struct clk *c, unsigned long rate)
+static int hdmi_8996_vco_set_rate(struct clk *c, unsigned long rate)
 {
-	struct hdmi_pll_vco_clk *vco = to_hdmi_14nm_vco_clk(c);
+	struct hdmi_pll_vco_clk *vco = to_hdmi_8996_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
 	void __iomem		*pll_base;
 	void __iomem		*phy_base;
@@ -1486,14 +1486,14 @@ static int hdmi_14nm_vco_set_rate(struct clk *c, unsigned long rate)
 
 	pr_debug("rate=%ld\n", rate);
 
-	rc = hdmi_14nm_phy_pll_set_clk_rate(c, rate);
+	rc = hdmi_8996_phy_pll_set_clk_rate(c, rate);
 	if (rc)
 		pr_err("%s: Failed to set clk rate\n", __func__);
 
 	mdss_pll_resource_enable(io, false);
 
 	if (set_power_dwn)
-		hdmi_14nm_vco_enable(c);
+		hdmi_8996_vco_enable(c);
 
 	vco->rate = rate;
 	vco->rate_set = true;
@@ -1501,14 +1501,14 @@ static int hdmi_14nm_vco_set_rate(struct clk *c, unsigned long rate)
 	return 0;
 }
 
-static unsigned long hdmi_14nm_vco_get_rate(struct clk *c)
+static unsigned long hdmi_8996_vco_get_rate(struct clk *c)
 {
 	unsigned long freq = 0;
 
 	return freq;
 }
 
-static long hdmi_14nm_vco_round_rate(struct clk *c, unsigned long rate)
+static long hdmi_8996_vco_round_rate(struct clk *c, unsigned long rate)
 {
 	unsigned long rrate = rate;
 
@@ -1517,16 +1517,16 @@ static long hdmi_14nm_vco_round_rate(struct clk *c, unsigned long rate)
 	return rrate;
 }
 
-static int hdmi_14nm_vco_prepare(struct clk *c)
+static int hdmi_8996_vco_prepare(struct clk *c)
 {
-	struct hdmi_pll_vco_clk *vco = to_hdmi_14nm_vco_clk(c);
+	struct hdmi_pll_vco_clk *vco = to_hdmi_8996_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
 	int ret = 0;
 
 	pr_debug("rate=%ld\n", vco->rate);
 
 	if (!vco->rate_set && vco->rate)
-		ret = hdmi_14nm_vco_set_rate(c, vco->rate);
+		ret = hdmi_8996_vco_set_rate(c, vco->rate);
 
 	if (!ret) {
 		ret = mdss_pll_resource_enable(io, true);
@@ -1537,9 +1537,9 @@ static int hdmi_14nm_vco_prepare(struct clk *c)
 	return ret;
 }
 
-static void hdmi_14nm_vco_unprepare(struct clk *c)
+static void hdmi_8996_vco_unprepare(struct clk *c)
 {
-	struct hdmi_pll_vco_clk *vco = to_hdmi_14nm_vco_clk(c);
+	struct hdmi_pll_vco_clk *vco = to_hdmi_8996_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
 
 	vco->rate_set = false;
@@ -1560,10 +1560,10 @@ static void hdmi_14nm_vco_unprepare(struct clk *c)
 	io->pll_on = false;
 }
 
-static enum handoff hdmi_14nm_vco_handoff(struct clk *c)
+static enum handoff hdmi_8996_vco_handoff(struct clk *c)
 {
 	enum handoff ret = HANDOFF_DISABLED_CLK;
-	struct hdmi_pll_vco_clk *vco = to_hdmi_14nm_vco_clk(c);
+	struct hdmi_pll_vco_clk *vco = to_hdmi_8996_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
 
 	if (is_gdsc_disabled(io))
@@ -1576,10 +1576,10 @@ static enum handoff hdmi_14nm_vco_handoff(struct clk *c)
 
 	io->handoff_resources = true;
 
-	if (hdmi_14nm_pll_lock_status(io)) {
-		if (hdmi_14nm_phy_ready_status(io)) {
+	if (hdmi_8996_pll_lock_status(io)) {
+		if (hdmi_8996_phy_ready_status(io)) {
 			io->pll_on = true;
-			c->rate = hdmi_14nm_vco_get_rate(c);
+			c->rate = hdmi_8996_vco_get_rate(c);
 			ret = HANDOFF_ENABLED_CLK;
 		} else {
 			io->handoff_resources = false;
@@ -1596,20 +1596,20 @@ static enum handoff hdmi_14nm_vco_handoff(struct clk *c)
 	return ret;
 }
 
-static const struct clk_ops hdmi_14nm_vco_clk_ops = {
-	.enable = hdmi_14nm_vco_enable,
-	.set_rate = hdmi_14nm_vco_set_rate,
-	.get_rate = hdmi_14nm_vco_get_rate,
-	.round_rate = hdmi_14nm_vco_round_rate,
-	.prepare = hdmi_14nm_vco_prepare,
-	.unprepare = hdmi_14nm_vco_unprepare,
-	.handoff = hdmi_14nm_vco_handoff,
+static const struct clk_ops hdmi_8996_vco_clk_ops = {
+	.enable = hdmi_8996_vco_enable,
+	.set_rate = hdmi_8996_vco_set_rate,
+	.get_rate = hdmi_8996_vco_get_rate,
+	.round_rate = hdmi_8996_vco_round_rate,
+	.prepare = hdmi_8996_vco_prepare,
+	.unprepare = hdmi_8996_vco_unprepare,
+	.handoff = hdmi_8996_vco_handoff,
 };
 
 static struct hdmi_pll_vco_clk hdmi_vco_clk = {
 	.c = {
-		.dbg_name = "hdmi_14nm_vco_clk",
-		.ops = &hdmi_14nm_vco_clk_ops,
+		.dbg_name = "hdmi_8996_vco_clk",
+		.ops = &hdmi_8996_vco_clk_ops,
 		CLK_INIT(hdmi_vco_clk.c),
 	},
 };
@@ -1618,7 +1618,7 @@ static struct clk_lookup hdmipllcc_8996[] = {
 	CLK_LIST(hdmi_vco_clk),
 };
 
-int hdmi_14nm_pll_clock_register(struct platform_device *pdev,
+int hdmi_8996_pll_clock_register(struct platform_device *pdev,
 				 struct mdss_pll_resources *pll_res)
 {
 	int rc = -ENOTSUPP;
