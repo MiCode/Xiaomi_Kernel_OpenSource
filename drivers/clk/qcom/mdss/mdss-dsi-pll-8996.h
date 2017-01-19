@@ -112,7 +112,6 @@ struct dsi_pll_input {
 };
 
 struct dsi_pll_output {
-	u32 clkbuflr_en;	/* reg: 0x041c, unknown */
 	u32 pll_txclk_en;	/* reg: 0x04c0 */
 	u32 dec_start;		/* reg: 0x0490 */
 	u32 div_frac_start;	/* reg: 0x04b4, 0x4b8, 0x04bc */
@@ -129,12 +128,6 @@ struct dsi_pll_output {
 	u32 pll_resetsm_cntrl2;	/* reg: 0x0430 */
 	u32 pll_resetsm_cntrl5;	/* reg: 0x043c */
 	u32 pll_kvco_code;		/* reg: 0x0458 */
-
-	u32 pll_ie_trim;	/* reg: 0x0400 */
-	u32 pll_ip_trim;	/* reg: 0x0404 */
-	u32 pll_iptat_trim;	/* reg: 0x0410 */
-
-	u32 pll_clkbuflr_en;	/* reg: 0x001c */
 
 	u32 cmn_clk_cfg0;	/* reg: 0x0010 */
 	u32 cmn_clk_cfg1;	/* reg: 0x0014 */
