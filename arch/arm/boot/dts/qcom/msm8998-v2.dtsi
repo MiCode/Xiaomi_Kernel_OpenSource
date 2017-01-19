@@ -44,6 +44,7 @@
 	qcom,acdextint0-val = <0x2cf9ae8 0x2cf9ae8>;
 	qcom,acdextint1-val = <0x2cf9afe 0x2cf9afe>;
 	qcom,acdautoxfer-val = <0x00000015 0x00000015>;
+	qcom,pwrcl-apcs-mem-acc-threshold-voltage = <852000>;
 	qcom,perfcl-apcs-mem-acc-threshold-voltage = <852000>;
 	qcom,apm-threshold-voltage = <800000>;
 
@@ -452,6 +453,8 @@
 	qcom,cpr-aging-ref-voltage = <1056000>;
 	qcom,apm-threshold-voltage = <800000>;
 	qcom,apm-hysteresis-voltage = <0>;
+	qcom,mem-acc-threshold-voltage = <852000>;
+	qcom,mem-acc-crossover-voltage = <852000>;
 };
 
 &apc0_pwrcl_vreg {
