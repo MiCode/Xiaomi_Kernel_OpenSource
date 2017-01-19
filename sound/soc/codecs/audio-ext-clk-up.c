@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -296,6 +296,8 @@ static struct audio_ext_pmi_clk audio_pmi_clk = {
 		.div = 1,
 		.hw.init = &(struct clk_init_data){
 			.name = "audio_ext_pmi_clk",
+			.parent_names = (const char *[]){ "div_clk1" },
+			.num_parents = 1,
 			.ops = &clk_dummy_ops,
 		},
 	},
@@ -308,6 +310,8 @@ static struct audio_ext_pmi_clk audio_pmi_lnbb_clk = {
 		.div = 1,
 		.hw.init = &(struct clk_init_data){
 			.name = "audio_ext_pmi_lnbb_clk",
+			.parent_names = (const char *[]){ "ln_bb_clk2" },
+			.num_parents = 1,
 			.ops = &clk_dummy_ops,
 		},
 	},
@@ -364,11 +368,14 @@ static struct audio_ext_lpass_mclk audio_lpass_mclk2 = {
 
 static struct clk_hw *audio_msm_hws[] = {
 	&audio_pmi_clk.fact.hw,
-	&audio_pmi_lnbb_clk.fact.hw,
 	&audio_ap_clk.fact.hw,
 	&audio_ap_clk2.fact.hw,
 	&audio_lpass_mclk.fact.hw,
 	&audio_lpass_mclk2.fact.hw,
+};
+
+static struct clk_hw *audio_msm_hws1[] = {
+	&audio_pmi_lnbb_clk.fact.hw,
 };
 
 static int audio_get_pinctrl(struct platform_device *pdev,
@@ -496,15 +503,31 @@ static int audio_ref_clk_probe(struct platform_device *pdev)
 	if (!clk_data->clks)
 		goto err_clk;
 
-	for (i = 0; i < ARRAY_SIZE(audio_msm_hws); i++) {
-		audio_clk = devm_clk_register(dev, audio_msm_hws[i]);
-		if (IS_ERR(audio_clk)) {
-			dev_err(&pdev->dev,
-				"%s: audio ref clock i = %d register failed\n",
-				__func__, i);
-			return PTR_ERR(audio_clk);
+
+	clk_gpio = of_get_named_gpio(pdev->dev.of_node,
+				     "qcom,audio-ref-clk-gpio", 0);
+	if (clk_gpio > 0) {
+		for (i = 0; i < ARRAY_SIZE(audio_msm_hws); i++) {
+			audio_clk = devm_clk_register(dev, audio_msm_hws[i]);
+			if (IS_ERR(audio_clk)) {
+				dev_err(&pdev->dev,
+					"%s: ref clock: %d register failed\n",
+					__func__, i);
+				return PTR_ERR(audio_clk);
+			}
+			clk_data->clks[i] = audio_clk;
 		}
-		clk_data->clks[i] = audio_clk;
+	} else {
+		for (i = 0; i < ARRAY_SIZE(audio_msm_hws1); i++) {
+			audio_clk = devm_clk_register(dev, audio_msm_hws1[i]);
+			if (IS_ERR(audio_clk)) {
+				dev_err(&pdev->dev,
+					"%s: ref clock: %d register failed\n",
+					__func__, i);
+				return PTR_ERR(audio_clk);
+			}
+			clk_data->clks[i] = audio_clk;
+		}
 	}
 
 	ret = of_clk_add_provider(pdev->dev.of_node,
