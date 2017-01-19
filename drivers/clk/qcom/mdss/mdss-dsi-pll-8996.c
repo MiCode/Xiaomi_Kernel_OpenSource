@@ -287,8 +287,8 @@ static struct clk_lookup mdss_dsi_pllcc_8996_1[] = {
 int dsi_pll_clock_register_8996(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
-	int rc;
-	static struct mdss_pll_resources *master_pll;
+	int rc, ndx;
+	struct dsi_pll_db *pdb;
 
 	if (!pdev || !pdev->dev.of_node) {
 		pr_err("Invalid input parameters\n");
@@ -300,27 +300,18 @@ int dsi_pll_clock_register_8996(struct platform_device *pdev,
 		return -EPROBE_DEFER;
 	}
 
-	pr_err("ndx=%d is_slave=%d\n", pll_res->index, pll_res->is_slave);
-
 	if (pll_res->index >= DSI_PLL_NUM) {
 		pr_err("pll ndx=%d is NOT supported\n", pll_res->index);
 		return -EINVAL;
 	}
 
-	if (!pll_res->is_slave) {
-		/* master at split display or stand alone */
-		pll_res->priv = &pll_db[pll_res->index];
-		master_pll = pll_res;	/* keep master pll */
-	} else {
-		/* slave pll */
-		if (!master_pll) {
-			pr_err("No match PLL master found for ndx=%d\n",
-							pll_res->index);
-			return -EINVAL;
-		}
-		master_pll->slave = pll_res;
-		return 0;	/* done for slave */
-	}
+	ndx = pll_res->index;
+	pdb = &pll_db[ndx];
+	pll_res->priv = pdb;
+	pdb->pll = pll_res;
+	ndx++;
+	ndx %= DSI_PLL_NUM;
+	pdb->next = &pll_db[ndx];
 
 	/* Set clock source operations */
 
