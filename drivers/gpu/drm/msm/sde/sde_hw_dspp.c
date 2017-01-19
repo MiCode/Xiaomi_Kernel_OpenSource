@@ -86,6 +86,12 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 				if (!ret)
 					c->ops.setup_gc =
 						reg_dmav1_setup_dspp_gcv18;
+				/** programming for v18 through ahb is same
+				 * as v17 hence assign v17 function
+				 */
+				else
+					c->ops.setup_gc =
+						sde_setup_dspp_gc_v1_7;
 			}
 			break;
 		default:
