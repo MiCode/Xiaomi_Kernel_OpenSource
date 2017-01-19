@@ -2068,7 +2068,7 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	icnss_pr_info("Modem went down, state: %lx\n", priv->state);
 
-	event_data = kzalloc(sizeof(*data), GFP_KERNEL);
+	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 
 	if (event_data == NULL)
 		return notifier_from_errno(-ENOMEM);
@@ -2143,7 +2143,7 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 	case SERVREG_NOTIF_SERVICE_STATE_DOWN_V01:
 		icnss_pr_info("Service down, data: 0x%p, state: 0x%lx\n", data,
 			      priv->state);
-		event_data = kzalloc(sizeof(*data), GFP_KERNEL);
+		event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 
 		if (event_data == NULL)
 			return notifier_from_errno(-ENOMEM);
