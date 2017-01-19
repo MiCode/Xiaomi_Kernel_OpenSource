@@ -1,0 +1,151 @@
+Qualcomm Technologies, Inc. QPNP Regulators
+
+qpnp-regulator is a regulator driver which supports regulators inside of PMICs
+that utilize the MSM SPMI implementation.
+
+Required properties:
+- compatible:      Must be "qcom,qpnp-regulator"
+- reg:             Specifies the SPMI address and size for this regulator device
+		   Note, this is the only property which can be used within a
+		   subnode.
+- regulator-name:  A string used as a descriptive name for regulator outputs
+- parent-supply:   phandle to the parent supply/regulator node
+
+Required structure:
+- A qcom,qpnp-regulator node must be a child of an spmi_device node.
+
+Optional properties:
+- interrupts:                  List of interrupts used by the regulator.
+- interrupt-names:             List of strings defining the names of the
+				interrupts in the 'interrupts' property 1-to-1.
+				Supported values are "ocp" for voltage switch
+				type regulators.  If an OCP interrupt is
+				specified, then the voltage switch will be
+				toggled off and back on when OCP triggers in
+				order to handle high in-rush current.
+- qcom,system-load:            Load in uA present on regulator that is not
+				captured by any consumer request
+- qcom,enable-time:            Time in us to delay after enabling the regulator
+- qcom,auto-mode-enable:       1 = Enable automatic hardware selection of
+				regulator mode (HPM vs LPM); not available on
+				boost type regulators
+			       0 = Disable auto mode selection
+- qcom,bypass-mode-enable:     1 = Enable bypass mode for an LDO type regulator
+				so that it acts like a switch and simply outputs
+				its input voltage
+			       0 = Do not enable bypass mode
+- qcom,ocp-enable:             1 = Allow over current protection (OCP) to be
+				enabled for voltage switch type regulators so
+				that they latch off automatically when over
+				current is detected.  OCP is enabled when in
+				HPM or auto mode.
+			       0 = Disable OCP
+- qcom,ocp-max-retries:        Maximum number of times to try toggling a voltage
+				switch off and back on as a result of
+				consecutive over current events.
+- qcom,ocp-retry-delay:        Time to delay in milliseconds between each
+				voltage switch toggle after an over current
+				event takes place.
+- qcom,pull-down-enable:       1 = Enable output pull down resistor when the
+				regulator is disabled
+			       0 = Disable pull down resistor
+- qcom,soft-start-enable:      1 = Enable soft start for LDO and voltage switch
+				type regulators so that output voltage slowly
+				ramps up when the regulator is enabled
+			       0 = Disable soft start
+- qcom,boost-current-limit:    This property sets the current limit of boost
+				type regulators; supported values are:
+					0 =  300 mA
+					1 =  600 mA
+					2 =  900 mA
+					3 = 1200 mA
+					4 = 1500 mA
+					5 = 1800 mA
+					6 = 2100 mA
+					7 = 2400 mA
+- qcom,pin-ctrl-enable:        Bit mask specifying which hardware pins should be
+				used to enable the regulator, if any; supported
+				bits are:
+					0 = ignore all hardware enable signals
+					BIT(0) = follow HW0_EN signal
+					BIT(1) = follow HW1_EN signal
+					BIT(2) = follow HW2_EN signal
+					BIT(3) = follow HW3_EN signal
+- qcom,pin-ctrl-hpm:           Bit mask specifying which hardware pins should be
+				used to force the regulator into high power
+				mode, if any; supported bits are:
+					0 = ignore all hardware enable signals
+					BIT(0) = follow HW0_EN signal
+					BIT(1) = follow HW1_EN signal
+					BIT(2) = follow HW2_EN signal
+					BIT(3) = follow HW3_EN signal
+					BIT(4) = follow PMIC awake state
+- qcom,vs-soft-start-strength: This property sets the soft start strength for
+				voltage switch type regulators; supported values
+				are:
+					0 = 0.05 uA
+					1 = 0.25 uA
+					2 = 0.55 uA
+					3 = 0.75 uA
+- qcom,hpm-enable:             1 = Enable high power mode (HPM), also referred
+				to as NPM.  HPM consumes more ground current
+				than LPM, but it can source significantly higher
+				load current.  HPM is not available on boost
+				type regulators.  For voltage switch type
+				regulators, HPM implies that over current
+				protection and soft start are active all the
+				time.  This configuration can be overwritten
+				by changing the regulator's mode dynamically.
+			       0 = Do not enable HPM
+- qcom,force-type: 	       Override the type and subtype register values. Useful for some
+				regulators that have invalid types advertised by the hardware.
+				The format is two unsigned integers of the form <type subtype>.
+
+Note, if a given optional qcom,* binding is not present, then the qpnp-regulator
+driver will leave that feature in the default hardware state.
+
+All properties specified within the core regulator framework can also be used.
+These bindings can be found in regulator.txt.
+
+Example:
+	qcom,spmi@fc4c0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+
+		qcom,pm8941@1 {
+			reg = <0x1>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			regulator@1400 {
+				regulator-name = "8941_s1";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-regulator";
+				reg = <0x1400 0x300>;
+				regulator-min-microvolt = <1300000>;
+				regulator-max-microvolt = <1400000>;
+
+				qcom,ctl@1400 {
+					reg = <0x1400 0x100>;
+				};
+				qcom,ps@1500 {
+					reg = <0x1500 0x100>;
+				};
+				qcom,freq@1600 {
+					reg = <0x1600 0x100>;
+				};
+			};
+
+			regulator@4000 {
+				regulator-name = "8941_l1";
+				reg = <0x4000 0x100>;
+				compatible = "qcom,qpnp-regulator";
+				regulator-min-microvolt = <1225000>;
+				regulator-max-microvolt = <1300000>;
+				qcom,pull-down-enable = <1>;
+			};
+		};
+	};
