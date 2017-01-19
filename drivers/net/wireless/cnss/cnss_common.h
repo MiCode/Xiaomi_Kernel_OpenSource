@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,18 @@
 
 /* max 20mhz channel count */
 #define CNSS_MAX_CH_NUM		45
+
+struct cnss_dev_platform_ops {
+	int (*request_bus_bandwidth)(int bandwidth);
+	void* (*get_virt_ramdump_mem)(unsigned long *size);
+	void (*device_self_recovery)(void);
+	void (*schedule_recovery_work)(void);
+	void (*device_crashed)(void);
+	u8 * (*get_wlan_mac_address)(uint32_t *num);
+	int (*set_wlan_mac_address)(const u8 *in, uint32_t len);
+	int (*power_up)(struct device *dev);
+	int (*power_down)(struct device *dev);
+};
 
 int cnss_pci_request_bus_bandwidth(int bandwidth);
 int cnss_sdio_request_bus_bandwidth(int bandwidth);

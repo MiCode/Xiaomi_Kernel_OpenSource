@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,7 +29,6 @@
 #include <linux/pm_qos.h>
 #include <linux/pm_runtime.h>
 #include <linux/esoc_client.h>
-#include <linux/pinctrl/consumer.h>
 #include <linux/firmware.h>
 #include <linux/dma-mapping.h>
 #include <linux/msm-bus.h>
@@ -123,7 +122,6 @@
 #define PCIE_ENABLE_DELAY	100
 #define WLAN_BOOTSTRAP_DELAY	10
 #define EVICT_BIN_MAX_SIZE      (512*1024)
-#define CNSS_PINCTRL_STATE_ACTIVE "default"
 
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
@@ -153,8 +151,6 @@ struct cnss_wlan_gpio_info {
 	bool state;
 	bool init;
 	bool prop;
-	struct pinctrl *pinctrl;
-	struct pinctrl_state *gpio_state_default;
 };
 
 struct cnss_wlan_vreg_info {
@@ -288,6 +284,7 @@ static struct cnss_data {
 	atomic_t auto_suspended;
 	bool monitor_wake_intr;
 	struct cnss_dual_wifi dual_wifi_info;
+	struct cnss_dev_platform_ops platform_ops;
 } *penv;
 
 static unsigned int pcie_link_down_panic;
@@ -603,30 +600,6 @@ static int cnss_configure_wlan_en_gpio(bool state)
 	return ret;
 }
 
-static int cnss_pinctrl_init(struct cnss_wlan_gpio_info *gpio_info,
-			     struct platform_device *pdev)
-{
-	int ret;
-
-	gpio_info->pinctrl = devm_pinctrl_get(&pdev->dev);
-	if (IS_ERR_OR_NULL(gpio_info->pinctrl)) {
-		pr_err("%s: Failed to get pinctrl!\n", __func__);
-		return PTR_ERR(gpio_info->pinctrl);
-	}
-
-	gpio_info->gpio_state_default = pinctrl_lookup_state(gpio_info->pinctrl,
-		CNSS_PINCTRL_STATE_ACTIVE);
-	if (IS_ERR_OR_NULL(gpio_info->gpio_state_default)) {
-		pr_err("%s: Can not get active pin state!\n", __func__);
-		return PTR_ERR(gpio_info->gpio_state_default);
-	}
-
-	ret = pinctrl_select_state(gpio_info->pinctrl,
-				   gpio_info->gpio_state_default);
-
-	return ret;
-}
-
 static void cnss_disable_xtal_ldo(struct platform_device *pdev)
 {
 	struct cnss_wlan_vreg_info *info = &penv->vreg_info;
@@ -733,10 +706,6 @@ static int cnss_get_wlan_enable_gpio(
 			pr_err(
 			"can't get gpio %s ret %d", gpio_info->name, ret);
 	}
-
-	ret = cnss_pinctrl_init(gpio_info, pdev);
-	if (ret)
-		pr_debug("%s: pinctrl init failed!\n", __func__);
 
 	ret = cnss_wlan_gpio_init(gpio_info);
 	if (ret)
@@ -1608,6 +1577,31 @@ int cnss_msm_pcie_enumerate(u32 rc_idx)
 }
 #endif
 
+static void cnss_pcie_set_platform_ops(struct device *dev)
+{
+	struct cnss_dev_platform_ops *pf_ops = &penv->platform_ops;
+
+	pf_ops->request_bus_bandwidth = cnss_pci_request_bus_bandwidth;
+	pf_ops->get_virt_ramdump_mem = cnss_pci_get_virt_ramdump_mem;
+	pf_ops->device_self_recovery = cnss_pci_device_self_recovery;
+	pf_ops->schedule_recovery_work = cnss_pci_schedule_recovery_work;
+	pf_ops->device_crashed = cnss_pci_device_crashed;
+	pf_ops->get_wlan_mac_address = cnss_pci_get_wlan_mac_address;
+	pf_ops->set_wlan_mac_address = cnss_pcie_set_wlan_mac_address;
+	pf_ops->power_up = cnss_pcie_power_up;
+	pf_ops->power_down = cnss_pcie_power_down;
+
+	dev->platform_data = pf_ops;
+}
+
+static void cnss_pcie_reset_platform_ops(struct device *dev)
+{
+	struct cnss_dev_platform_ops *pf_ops = &penv->platform_ops;
+
+	memset(pf_ops, 0, sizeof(struct cnss_dev_platform_ops));
+	dev->platform_data = NULL;
+}
+
 static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 			       const struct pci_device_id *id)
 {
@@ -1618,6 +1612,7 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 	struct codeswap_codeseg_info *cnss_seg_info = NULL;
 	struct device *dev = &pdev->dev;
 
+	cnss_pcie_set_platform_ops(dev);
 	penv->pdev = pdev;
 	penv->id = id;
 	penv->fw_available = false;
@@ -1726,6 +1721,7 @@ end_dma_alloc:
 err_unknown:
 err_pcie_suspend:
 smmu_init_fail:
+	cnss_pcie_reset_platform_ops(dev);
 	return ret;
 }
 
@@ -1737,6 +1733,7 @@ static void cnss_wlan_pci_remove(struct pci_dev *pdev)
 		return;
 
 	dev = &penv->pldev->dev;
+	cnss_pcie_reset_platform_ops(dev);
 	device_remove_file(dev, &dev_attr_wlan_setup);
 
 	if (penv->smmu_mapping)
