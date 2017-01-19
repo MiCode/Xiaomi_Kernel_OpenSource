@@ -47,6 +47,7 @@
 #include "ufs_quirks.h"
 #include "unipro.h"
 #include "ufs-debugfs.h"
+#include "ufs-qcom.h"
 
 #ifdef CONFIG_DEBUG_FS
 
