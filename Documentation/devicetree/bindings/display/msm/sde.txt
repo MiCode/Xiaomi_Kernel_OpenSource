@@ -109,6 +109,9 @@ Optional properties:
 				It supports "qssedv3" and "qseedv2" entries for qseed
 				type. By default "qseedv2" is used if this optional property
 				is not defined.
+- qcom,sde-csc-type:		A string entry indicates csc support on sspp and wb.
+				It supports "csc" and "csc-10bit" entries for csc
+				type.
 - qcom,sde-highest-bank-bit:	A u32 property to indicate GPU/Camera/Video highest memory
 				bank bit used for tile format buffers.
 - qcom,sde-panic-per-pipe:	Boolean property to indicate if panic signal
@@ -349,6 +352,7 @@ Example:
     qcom,sde-sspp-scale-size = <0x100>;
     qcom,sde-mixer-blendstages = <0x8>;
     qcom,sde-qseed-type = "qseedv2";
+    qcom,sde-csc-type = "csc-10bit";
     qcom,sde-highest-bank-bit = <15>;
     qcom,sde-has-mixer-gc;
     qcom,sde-sspp-max-rects = <1 1 1 1
