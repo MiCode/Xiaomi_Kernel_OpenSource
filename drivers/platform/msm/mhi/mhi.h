@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -348,6 +348,7 @@ struct mhi_ring {
 	u32 msi_disable_cntr;
 	u32 msi_enable_cntr;
 	spinlock_t ring_lock;
+	struct dma_pool *dma_pool;
 };
 
 enum MHI_CMD_STATUS {
@@ -446,9 +447,12 @@ struct mhi_state_work_queue {
 
 struct mhi_buf_info {
 	dma_addr_t bb_p_addr;
+	dma_addr_t pre_alloc_p_addr;
 	void *bb_v_addr;
+	void *pre_alloc_v_addr;
 	void *client_buf;
 	size_t buf_len;
+	size_t pre_alloc_len;
 	size_t filled_size;
 	enum dma_data_direction dir;
 	int bb_active;
@@ -479,6 +483,7 @@ struct mhi_flags {
 	u32 kill_threads;
 	u32 ev_thread_stopped;
 	u32 st_thread_stopped;
+	bool bb_required;
 };
 
 struct mhi_wait_queues {
