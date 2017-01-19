@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,6 +112,7 @@ static struct cnss_sdio_data {
 	struct pm_qos_request qos_request;
 	struct cnss_wlan_pinctrl_info pinctrl_info;
 	struct cnss_sdio_bus_bandwidth bus_bandwidth;
+	struct cnss_dev_platform_ops platform_ops;
 } *cnss_pdata;
 
 #define WLAN_RECOVERY_DELAY 1
@@ -685,6 +686,23 @@ int cnss_get_restart_level(void)
 }
 EXPORT_SYMBOL(cnss_get_restart_level);
 
+static void cnss_sdio_set_platform_ops(struct device *dev)
+{
+	struct cnss_dev_platform_ops *pf_ops = &cnss_pdata->platform_ops;
+
+	pf_ops->power_up = cnss_sdio_power_up;
+	pf_ops->power_down = cnss_sdio_power_down;
+	pf_ops->device_crashed = cnss_sdio_device_crashed;
+	pf_ops->get_virt_ramdump_mem = cnss_sdio_get_virt_ramdump_mem;
+	pf_ops->device_self_recovery = cnss_sdio_device_self_recovery;
+	pf_ops->get_wlan_mac_address = cnss_sdio_get_wlan_mac_address;
+	pf_ops->set_wlan_mac_address = cnss_sdio_set_wlan_mac_address;
+	pf_ops->schedule_recovery_work = cnss_sdio_schedule_recovery_work;
+	pf_ops->request_bus_bandwidth = cnss_sdio_request_bus_bandwidth;
+
+	dev->platform_data = pf_ops;
+}
+
 static int cnss_sdio_wlan_inserted(struct sdio_func *func,
 				   const struct sdio_device_id *id)
 {
@@ -700,6 +718,7 @@ static int cnss_sdio_wlan_inserted(struct sdio_func *func,
 	info->host = func->card->host;
 	info->id = id;
 	info->dev = &func->dev;
+	cnss_sdio_set_platform_ops(info->dev);
 
 	cnss_put_hw_resources(cnss_pdata->cnss_sdio_info.dev);
 
@@ -993,15 +1012,27 @@ int cnss_wlan_unregister_oob_irq_handler(void *pm_oob)
 }
 EXPORT_SYMBOL(cnss_wlan_unregister_oob_irq_handler);
 
+static void cnss_sdio_reset_platform_ops(void)
+{
+	struct cnss_dev_platform_ops *pf_ops = &cnss_pdata->platform_ops;
+	struct cnss_sdio_info *sdio_info = &cnss_pdata->cnss_sdio_info;
+
+	memset(pf_ops, 0, sizeof(struct cnss_dev_platform_ops));
+	if (sdio_info->dev)
+		sdio_info->dev->platform_data = NULL;
+}
+
 static int cnss_sdio_wlan_init(void)
 {
 	int error = 0;
 
 	error = sdio_register_driver(&cnss_ar6k_driver);
-	if (error)
+	if (error) {
+		cnss_sdio_reset_platform_ops();
 		pr_err("registered fail error=%d\n", error);
-	else
+	} else {
 		pr_debug("registered success\n");
+	}
 
 	return error;
 }
@@ -1011,6 +1042,7 @@ static void cnss_sdio_wlan_exit(void)
 	if (!cnss_pdata)
 		return;
 
+	cnss_sdio_reset_platform_ops();
 	sdio_unregister_driver(&cnss_ar6k_driver);
 }
 
