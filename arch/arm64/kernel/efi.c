@@ -28,7 +28,6 @@
 #include <linux/spinlock.h>
 
 #include <asm/cacheflush.h>
-#include <asm/cpufeature.h>
 #include <asm/efi.h>
 #include <asm/tlbflush.h>
 #include <asm/mmu_context.h>
