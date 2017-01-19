@@ -198,7 +198,8 @@ static void msm_ds2_dap_check_and_update_ramp_wait(int port_id, int copp_idx,
 	uint32_t param_payload_len = PARAM_PAYLOAD_SIZE * sizeof(uint32_t);
 	int rc = 0;
 
-	update_params_value = kzalloc(params_length, GFP_KERNEL);
+	update_params_value = kzalloc(params_length + param_payload_len,
+				      GFP_KERNEL);
 	if (!update_params_value) {
 		pr_err("%s: params memory alloc failed\n", __func__);
 		goto end;
