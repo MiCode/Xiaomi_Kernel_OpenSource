@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2937,6 +2937,20 @@ static int __afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	case AFE_PORT_ID_QUINARY_MI2S_RX:
 	case AFE_PORT_ID_QUINARY_MI2S_TX:
 	case AFE_PORT_ID_SENARY_MI2S_TX:
+	case AFE_PORT_ID_INT0_MI2S_RX:
+	case AFE_PORT_ID_INT0_MI2S_TX:
+	case AFE_PORT_ID_INT1_MI2S_RX:
+	case AFE_PORT_ID_INT1_MI2S_TX:
+	case AFE_PORT_ID_INT2_MI2S_RX:
+	case AFE_PORT_ID_INT2_MI2S_TX:
+	case AFE_PORT_ID_INT3_MI2S_RX:
+	case AFE_PORT_ID_INT3_MI2S_TX:
+	case AFE_PORT_ID_INT4_MI2S_RX:
+	case AFE_PORT_ID_INT4_MI2S_TX:
+	case AFE_PORT_ID_INT5_MI2S_RX:
+	case AFE_PORT_ID_INT5_MI2S_TX:
+	case AFE_PORT_ID_INT6_MI2S_RX:
+	case AFE_PORT_ID_INT6_MI2S_TX:
 		cfg_type = AFE_PARAM_ID_I2S_CONFIG;
 		break;
 	case HDMI_RX:
@@ -3316,6 +3330,34 @@ int afe_get_port_index(u16 port_id)
 		return IDX_AFE_PORT_ID_QUATERNARY_TDM_RX_7;
 	case AFE_PORT_ID_QUATERNARY_TDM_TX_7:
 		return IDX_AFE_PORT_ID_QUATERNARY_TDM_TX_7;
+	case AFE_PORT_ID_INT0_MI2S_RX:
+		return IDX_AFE_PORT_ID_INT0_MI2S_RX;
+	case AFE_PORT_ID_INT0_MI2S_TX:
+		return IDX_AFE_PORT_ID_INT0_MI2S_TX;
+	case AFE_PORT_ID_INT1_MI2S_RX:
+		return IDX_AFE_PORT_ID_INT1_MI2S_RX;
+	case AFE_PORT_ID_INT1_MI2S_TX:
+		return IDX_AFE_PORT_ID_INT1_MI2S_TX;
+	case AFE_PORT_ID_INT2_MI2S_RX:
+		return IDX_AFE_PORT_ID_INT2_MI2S_RX;
+	case AFE_PORT_ID_INT2_MI2S_TX:
+		return IDX_AFE_PORT_ID_INT2_MI2S_TX;
+	case AFE_PORT_ID_INT3_MI2S_RX:
+		return IDX_AFE_PORT_ID_INT3_MI2S_RX;
+	case AFE_PORT_ID_INT3_MI2S_TX:
+		return IDX_AFE_PORT_ID_INT3_MI2S_TX;
+	case AFE_PORT_ID_INT4_MI2S_RX:
+		return IDX_AFE_PORT_ID_INT4_MI2S_RX;
+	case AFE_PORT_ID_INT4_MI2S_TX:
+		return IDX_AFE_PORT_ID_INT4_MI2S_TX;
+	case AFE_PORT_ID_INT5_MI2S_RX:
+		return IDX_AFE_PORT_ID_INT5_MI2S_RX;
+	case AFE_PORT_ID_INT5_MI2S_TX:
+		return IDX_AFE_PORT_ID_INT5_MI2S_TX;
+	case AFE_PORT_ID_INT6_MI2S_RX:
+		return IDX_AFE_PORT_ID_INT6_MI2S_RX;
+	case AFE_PORT_ID_INT6_MI2S_TX:
+		return IDX_AFE_PORT_ID_INT6_MI2S_TX;
 	default:
 		pr_err("%s: port 0x%x\n", __func__, port_id);
 		return -EINVAL;

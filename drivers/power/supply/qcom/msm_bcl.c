@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -99,14 +99,14 @@ int msm_bcl_set_threshold(enum bcl_param param_type,
 {
 	int ret = 0;
 
-	if (!bcl[param_type] || !bcl[param_type]->registered) {
+	if (param_type >= BCL_PARAM_MAX || !bcl[param_type]
+		|| !bcl[param_type]->registered) {
 		pr_err("BCL not initialized\n");
 		return -EINVAL;
 	}
 	if ((!inp_thresh)
 		|| (inp_thresh->trip_value < 0)
 		|| (!inp_thresh->trip_notify)
-		|| (param_type >= BCL_PARAM_MAX)
 		|| (trip_type >= BCL_TRIP_MAX)) {
 		pr_err("Invalid Input\n");
 		return -EINVAL;
@@ -152,8 +152,8 @@ struct bcl_param_data *msm_bcl_register_param(enum bcl_param param_type,
 {
 	int ret = 0;
 
-	if (!bcl[param_type]
-		|| param_type >= BCL_PARAM_MAX || !param_ops || !name
+	if (param_type >= BCL_PARAM_MAX
+		|| !bcl[param_type] || !param_ops || !name
 		|| !param_ops->read || !param_ops->set_high_trip
 		|| !param_ops->get_high_trip || !param_ops->set_low_trip
 		|| !param_ops->get_low_trip || !param_ops->enable

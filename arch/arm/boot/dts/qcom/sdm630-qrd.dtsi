@@ -10,20 +10,15 @@
  * GNU General Public License for more details.
  */
 
-#include "sdm630.dtsi"
-
+#include "sdm660-pinctrl.dtsi"
 / {
-	model = "Qualcomm Technologies, Inc. SDA 630";
-	compatible = "qcom,sda630";
-	qcom,msm-id = <327 0x0>;
+};
+
+&uartblsp1dm1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
 };
 
 &soc {
-	qcom,rmnet-ipa {
-		status = "disabled";
-	};
-};
-
-&ipa_hw {
-	status = "disabled";
 };

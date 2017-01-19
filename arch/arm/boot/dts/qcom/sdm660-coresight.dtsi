@@ -1061,6 +1061,22 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
+	qpdi: qpdi@1fc1000 {
+		compatible = "qcom,coresight-qpdi";
+		reg = <0x01fc1000 0x4>;
+		reg-names = "qpdi-base";
+
+		coresight-name = "coresight-qpdi";
+
+		vdd-supply = <&pm660l_l5>;
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <15000 900000>;
+
+		vdd-io-supply = <&pm660l_l2>;
+		qcom,vdd-io-voltage-level = <1800000 2950000>;
+		qcom,vdd-io-current-level = <200 22000>;
+	};
+
 	funnel_qatb: funnel@6005000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b908>;

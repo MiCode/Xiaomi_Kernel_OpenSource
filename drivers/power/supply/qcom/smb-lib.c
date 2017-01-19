@@ -2010,7 +2010,7 @@ int smblib_set_prop_pd_current_max(struct smb_charger *chg,
 int smblib_set_prop_usb_current_max(struct smb_charger *chg,
 				    const union power_supply_propval *val)
 {
-	int rc;
+	int rc = 0;
 
 	if (!chg->pd_active) {
 		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
