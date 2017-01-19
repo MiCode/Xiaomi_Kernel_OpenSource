@@ -20,6 +20,8 @@ Optional Properties:
 	disconnect.
 - qcom,gpio-mode-sel: If present, specifies a gpio to switch to host mode if
 	value is 0 or device mode if 1.
+- qcom,disable-device-mode: If present then don't treat GPIO high as Vbus high.
+	And only notify host mode similar to ID line.
 
 Example:
 
