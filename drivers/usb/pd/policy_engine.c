@@ -1571,7 +1571,7 @@ static void usbpd_sm(struct work_struct *w)
 		if (ret) {
 			pd->caps_count++;
 
-			if (pd->caps_count == 5 && pd->current_dr == DR_DFP) {
+			if (pd->caps_count == 10 && pd->current_dr == DR_DFP) {
 				/* Likely not PD-capable, start host now */
 				start_usb_host(pd, true);
 			} else if (pd->caps_count >= PD_CAPS_COUNT) {
