@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,8 +31,6 @@
 
 #define MHI_DEV_NODE_NAME_LEN 13
 #define MHI_SOFTWARE_CLIENT_LIMIT 23
-#define TRE_TYPICAL_SIZE 0x1000
-#define TRE_MAX_SIZE 0xFFFF
 #define MHI_UCI_IPC_LOG_PAGES (25)
 
 #define MAX_NR_TRBS_PER_CHAN 10
@@ -331,8 +329,8 @@ static int mhi_uci_send_packet(struct mhi_client_handle **client_handle,
 		return 0;
 
 	for (i = 0; i < nr_avail_trbs; ++i) {
-		data_to_insert_now = min(data_left_to_insert,
-				TRE_MAX_SIZE);
+		data_to_insert_now = min_t(size_t, data_left_to_insert,
+				uci_handle->out_attr.max_packet_size);
 		if (is_uspace_buf) {
 			data_loc = kmalloc(data_to_insert_now, GFP_KERNEL);
 			if (NULL == data_loc) {
@@ -1231,6 +1229,7 @@ static int mhi_register_client(struct uci_client *mhi_client,
 	client_info.user_data = mhi_client;
 	client_info.mhi_client_cb = uci_xfer_cb;
 	client_info.chan = mhi_client->out_chan;
+	client_info.max_payload = mhi_client->out_attr.max_packet_size;
 	ret_val = mhi_register_channel(&mhi_client->out_handle, &client_info);
 	if (0 != ret_val)
 		uci_log(mhi_client->uci_ipc_log,
@@ -1243,6 +1242,7 @@ static int mhi_register_client(struct uci_client *mhi_client,
 		UCI_DBG_INFO,
 		"Registering chan %d\n",
 		mhi_client->in_chan);
+	client_info.max_payload = mhi_client->in_attr.max_packet_size;
 	client_info.chan = mhi_client->in_chan;
 	ret_val = mhi_register_channel(&mhi_client->in_handle, &client_info);
 	if (0 != ret_val)
