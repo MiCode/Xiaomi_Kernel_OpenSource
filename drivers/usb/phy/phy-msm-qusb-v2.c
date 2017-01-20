@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,8 @@
 #include <linux/regulator/machine.h>
 #include <linux/usb/phy.h>
 #include <linux/usb/msm_hsusb.h>
+#include <soc/qcom/scm.h>
+
 
 #define QUSB2PHY_PWR_CTRL1		0x210
 #define PWR_CTRL1_POWR_DOWN		BIT(0)
@@ -64,6 +66,8 @@
 #define QUSB2PHY_PLL_ANALOG_CONTROLS_ONE	0x0
 #define QUSB2PHY_PLL_ANALOG_CONTROLS_TWO	0x4
 
+#define QUSB2PHY_LVL_SHIFTER_CMD_ID	0x11
+
 unsigned int phy_tune1;
 module_param(phy_tune1, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(phy_tune1, "QUSB PHY v2 TUNE1");
@@ -97,6 +101,7 @@ struct qusb_phy {
 	bool			cable_connected;
 	bool			suspended;
 	bool			rm_pulldown;
+	bool			scm_lvl_shifter_update;
 
 	struct regulator_desc	dpdm_rdesc;
 	struct regulator_dev	*dpdm_rdev;
@@ -111,6 +116,23 @@ struct qusb_phy {
 	int			*emu_dcm_reset_seq;
 	int			emu_dcm_reset_seq_len;
 };
+
+
+static void qusb_phy_update_tcsr_level_shifter(struct qusb_phy *qphy, u32 val)
+{
+	int scm_ret, resp_ret;
+
+	dev_dbg(qphy->phy.dev, "%s(): update tcsr lvl shift value:%d\n",
+						__func__, val);
+	if (qphy->tcsr_clamp_dig_n) {
+		writel_relaxed(val, qphy->tcsr_clamp_dig_n);
+	} else if (qphy->scm_lvl_shifter_update) {
+		scm_ret = scm_call(SCM_SVC_BOOT, QUSB2PHY_LVL_SHIFTER_CMD_ID,
+				&val, sizeof(val), &resp_ret, sizeof(resp_ret));
+		dev_dbg(qphy->phy.dev, "%s(): scm_ret:%d resp_ret:%d\n",
+				__func__, scm_ret, resp_ret);
+	}
+}
 
 static void qusb_phy_reset(struct qusb_phy *qphy)
 {
@@ -602,7 +624,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(0x90,
 				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_ONE);
 
-			writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
+			qusb_phy_update_tcsr_level_shifter(qphy, 0x0);
 			/*
 			 * clamp needs asserted before
 			 * power/clocks can be turned off
@@ -634,7 +656,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			/* Makes sure that above write goes through */
 			wmb();
 		} else { /* Cable connect case */
-			writel_relaxed(0x1, qphy->tcsr_clamp_dig_n);
+			qusb_phy_update_tcsr_level_shifter(qphy, 0x1);
 
 			/*
 			 * clamp needs de-asserted before
@@ -767,13 +789,18 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						"tcsr_clamp_dig_n_1p8");
+						"tcsr_clamp_dig_n");
 	if (res) {
 		qphy->tcsr_clamp_dig_n = devm_ioremap_resource(dev, res);
 		if (IS_ERR(qphy->tcsr_clamp_dig_n)) {
-			dev_dbg(dev, "couldn't ioremap tcsr_clamp_dig_n\n");
-			return PTR_ERR(qphy->tcsr_clamp_dig_n);
+			dev_dbg(dev,
+			"couldn't ioremap tcsr_clamp_dig_n\n");
+			qphy->tcsr_clamp_dig_n = NULL;
 		}
+	} else {
+		qphy->scm_lvl_shifter_update =
+			of_property_read_bool(dev->of_node,
+				"qcom,secure-level-shifter-update");
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,

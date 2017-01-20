@@ -190,6 +190,9 @@ Optional properties:
    perform charger detection.
  - qcom,tune2-efuse-correction: The value to be adjusted from the higher nibble of TUNE2
    for improved rise/fall times.
+ - qcom,secure-level-shifter-update: To update level shifter using secure call.
+   tcsr_clamp_dig_n  property overrides secure-level-shifter-update
+   ie. if tcsr_clamp_dig_n is specified then the write is a non-secure write.
 
 Example:
 	qusb_phy: qusb@f9b39000 {
