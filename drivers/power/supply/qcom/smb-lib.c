@@ -1216,11 +1216,9 @@ static int _smblib_vbus_regulator_disable(struct regulator_dev *rdev)
 
 	if (!chg->external_vconn) {
 		rc = smblib_read(chg, RID_CC_CONTROL_7_0_REG, &stat);
-		if (rc < 0) {
+		if (rc < 0)
 			smblib_err(chg, "Couldn't read RID_CC_CONTROL_7_0 rc=%d\n",
 				   rc);
-			return rc;
-		}
 
 		/* check if VCONN is enabled on either CC pin */
 		if (stat & VCONN_EN_CC_MASK) {
@@ -1229,7 +1227,6 @@ static int _smblib_vbus_regulator_disable(struct regulator_dev *rdev)
 			if (rc < 0)
 				smblib_err(chg, "Couldn't disable VCONN rc=%d\n",
 					   rc);
-			return rc;
 		}
 	}
 
