@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -265,9 +265,9 @@
 					0x974 0x8d8 0x8dc 0x804 0x800
 					0x808>;
 		vdd-supply = <&pmdcalifornium_l4>;
-		core-supply = <&pmdcalifornium_l5>;
+		core-supply = <&pmdcalifornium_l1>;
 		qcom,vdd-voltage-level = <0 928000 928000>;
-		qcom,core-voltage-level = <0 1200000 1200000>;
+		qcom,core-voltage-level = <0 1224000 1224000>;
 		qcom,vbus-valid-override;
 
 		clocks = <&clock_gcc clk_gcc_usb3_aux_clk>,
