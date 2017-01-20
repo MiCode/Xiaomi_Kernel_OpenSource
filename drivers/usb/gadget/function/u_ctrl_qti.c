@@ -485,7 +485,7 @@ qti_ctrl_write(struct file *fp, const char __user *buf, size_t count,
 	port->copied_from_modem++;
 
 	spin_lock_irqsave(&port->lock, flags);
-	if (port && port->port_usb) {
+	if (port->port_usb) {
 		if (port->port_type == QTI_PORT_RMNET) {
 			g_rmnet = (struct grmnet *)port->port_usb;
 		} else {
