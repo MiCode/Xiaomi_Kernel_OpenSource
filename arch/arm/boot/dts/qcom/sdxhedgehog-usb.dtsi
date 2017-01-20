@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,10 +117,8 @@
 
 	qusb_phy: qusb@79000 {
 		compatible = "qcom,qusb2phy-v2";
-		reg = <0x79000 0x400>,
-			<0x01fcb24c 0x4>;
-		reg-names = "qusb_phy_base",
-				"tcsr_clamp_dig_n_1p8";
+		reg = <0x79000 0x400>;
+		reg-names = "qusb_phy_base";
 		qcom,efuse-bit-pos = <16>;
 		qcom,efuse-num-bits = <4>;
 		vdd-supply = <&pmdcalifornium_l4>;
@@ -138,6 +136,7 @@
 				0x00 0x21c /* imp_ctrl1 */
 				0x19 0xb4>; /* digital_timers_two */
 		phy_type = "utmi";
+		qcom,secure-level-shifter-update;
 		clocks = <&clock_gcc clk_ln_bb_clk>,
 			 <&clock_gcc clk_gcc_qusb_ref_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
