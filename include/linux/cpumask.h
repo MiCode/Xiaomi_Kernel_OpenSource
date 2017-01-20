@@ -118,7 +118,7 @@ extern struct cpumask __cpu_isolated_mask;
 #define cpu_possible(cpu)	((cpu) == 0)
 #define cpu_present(cpu)	((cpu) == 0)
 #define cpu_active(cpu)		((cpu) == 0)
-#define cpu_isolated(cpu)	((cpu) == 0)
+#define cpu_isolated(cpu)	((cpu) != 0)
 #endif
 
 /* verify cpu argument to cpumask_* operators */
