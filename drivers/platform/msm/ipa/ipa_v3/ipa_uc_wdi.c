@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1182,6 +1182,8 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	} else {
 		IPADBG("Skipping endpoint configuration.\n");
 	}
+
+	ipa3_enable_data_path(ipa_ep_idx);
 
 	out->clnt_hdl = ipa_ep_idx;
 
