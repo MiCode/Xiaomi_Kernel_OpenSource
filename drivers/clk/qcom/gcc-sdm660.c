@@ -818,7 +818,7 @@ static struct clk_rcg2 hmss_rbcpr_clk_src = {
 		.parent_names = gcc_parent_names_ao_1,
 		.num_parents = 3,
 		.ops = &clk_rcg2_ops,
-		VDD_DIG_FMAX_MAP2(
+		VDD_DIG_FMAX_MAP2_AO(
 				LOWER, 19200000,
 				NOMINAL, 50000000),
 	},
