@@ -228,7 +228,7 @@ int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 	spin_lock_irqsave(&dwc->lock, flags);
 	if (!dep->endpoint.desc) {
 		dwc3_trace(trace_dwc3_ep0,
-				"trying to queue request %p to disabled %s",
+				"trying to queue request %pK to disabled %s",
 				request, dep->name);
 		ret = -ESHUTDOWN;
 		goto out;
@@ -241,7 +241,7 @@ int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 	}
 
 	dwc3_trace(trace_dwc3_ep0,
-			"queueing request %p to %s length %d state '%s'",
+			"queueing request %pK to %s length %d state '%s'",
 			request, dep->name, request->length,
 			dwc3_ep0_state_string(dwc->ep0state));
 
