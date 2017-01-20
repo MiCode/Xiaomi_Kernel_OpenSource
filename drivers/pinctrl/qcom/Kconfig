@@ -88,6 +88,15 @@ config PINCTRL_MSMSKUNK
 	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
 	  Technologies Inc MSMSKUNK platform.
 
+config PINCTRL_SDMBAT
+	tristate "Qualcomm Technologies Inc SDMBAT pin controller driver"
+	depends on GPIOLIB && OF
+	select PINCTRL_MSM
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
+	  Technologies Inc SDMBAT platform.
+
 
 config PINCTRL_MSM8996
 	tristate "Qualcomm MSM8996 pin controller driver"
