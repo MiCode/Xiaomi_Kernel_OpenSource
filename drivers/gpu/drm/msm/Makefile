@@ -62,6 +62,7 @@ msm_drm-$(CONFIG_DRM_MSM_MDP4) += mdp/mdp4/mdp4_crtc.o \
 	mdp/mdp4/mdp4_lvds_connector.o \
 	mdp/mdp4/mdp4_irq.o \
 	mdp/mdp4/mdp4_kms.o \
+	mdp/mdp4/mdp4_dsi_encoder.o \
 	mdp/mdp4/mdp4_plane.o
 
 msm_drm-$(CONFIG_DRM_FBDEV_EMULATION) += msm_fbdev.o
@@ -133,12 +134,15 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_gem.o \
 	msm_gem_prime.o \
 	msm_gem_submit.o \
+	msm_gem_shrinker.o \
 	msm_gpu.o \
 	msm_iommu.o \
 	msm_smmu.o \
 	msm_perf.o \
 	msm_rd.o \
 	msm_ringbuffer.o \
-	msm_prop.o
+	msm_prop.o \
+	msm_fence.o \
+	msm_debugfs.o
 
 obj-$(CONFIG_DRM_MSM)	+= msm_drm.o

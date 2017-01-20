@@ -106,6 +106,8 @@ static inline
 struct msm_kms *mdp4_kms_init(struct drm_device *dev) { return NULL; };
 #endif
 struct msm_kms *mdp5_kms_init(struct drm_device *dev);
+int msm_mdss_init(struct drm_device *dev);
+void msm_mdss_destroy(struct drm_device *dev);
 struct msm_kms *sde_kms_init(struct drm_device *dev);
 
 /**

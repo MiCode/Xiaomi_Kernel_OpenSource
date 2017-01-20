@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Copyright (C) 2014 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -93,6 +93,8 @@ static void msm_atomic_wait_for_commit_done(
 	int i;
 
 	for_each_crtc_in_state(old_state, crtc, crtc_state, i) {
+		int private_flags;
+
 		if (!crtc->state->enable)
 			continue;
 
@@ -133,7 +135,8 @@ msm_disable_outputs(struct drm_device *dev, struct drm_atomic_state *old_state)
 			continue;
 
 		crtc_idx = drm_crtc_index(old_conn_state->crtc);
-		old_crtc_state = old_state->crtc_states[crtc_idx];
+		old_crtc_state = drm_atomic_get_existing_crtc_state(old_state,
+						    old_conn_state->crtc);
 
 		if (!old_crtc_state->active ||
 		    !drm_atomic_crtc_needs_modeset(old_conn_state->crtc->state))
