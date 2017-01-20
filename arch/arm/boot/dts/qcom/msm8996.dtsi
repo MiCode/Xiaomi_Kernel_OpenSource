@@ -1722,23 +1722,23 @@
 
 	mhi_uci_0: qcom,mhi-uci@0 {
 		compatible = "qcom,mhi-uci";
-		qcom,mhi-uci-channels = <0 0x1000>,
+		qcom,mhi-uci-channels = <0 0xffff>,
 					<1 0x1000>,
-					<2 0x1000>,
+					<2 0xffff>,
 					<3 0xffff>,
-					<10 0x1000>,
+					<10 0xffff>,
 					<11 0x1000>,
-					<14 0x1000>,
+					<14 0xffff>,
 					<15 0x1000>,
-					<16 0x1000>,
+					<16 0xffff>,
 					<17 0x1000>,
-					<18 0x1000>,
+					<18 0xffff>,
 					<19 0x1000>,
-					<22 0x1000>,
+					<22 0xffff>,
 					<23 0x1000>,
-					<24 0x1000>,
+					<24 0xffff>,
 					<25 0x1000>,
-					<32 0x1000>,
+					<32 0xffff>,
 					<33 0x1000>;
 		qcom,mhi-uci-ctrlchan = <18>;
 		qcom,mhi = <&mhi_0>;
