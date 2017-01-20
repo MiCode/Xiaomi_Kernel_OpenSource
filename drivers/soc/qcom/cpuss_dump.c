@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,6 +75,8 @@ static int cpuss_dump_probe(struct platform_device *pdev)
 
 		dump_data->addr = dump_addr;
 		dump_data->len = size;
+		scnprintf(dump_data->name, sizeof(dump_data->name),
+						 "KCPUSS%X", id);
 		dump_entry.id = id;
 		dump_entry.addr = virt_to_phys(dump_data);
 		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
