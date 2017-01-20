@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,7 +97,7 @@ static struct mpu9250_chip_config chip_config[] = {
 		.gyro_sample_rate = MPU9250_SAMPLE_RATE_200HZ,
 		.compass_enabled = false,
 		.compass_sample_rate = MPU9250_COMPASS_SAMPLE_RATE_100HZ,
-		.fifo_enabled = false,
+		.fifo_enabled = true,
 		.fifo_en_mask = BIT_TEMP_FIFO_EN
 						|BIT_GYRO_FIFO_EN
 						|BIT_ACCEL_FIFO_EN,
@@ -111,7 +111,7 @@ static struct mpu9250_chip_config chip_config[] = {
 		.gyro_sample_rate = MPU9250_SAMPLE_RATE_1000HZ,
 		.compass_enabled = false,
 		.compass_sample_rate = MPU9250_COMPASS_SAMPLE_RATE_100HZ,
-		.fifo_enabled = false,
+		.fifo_enabled = true,
 		.fifo_en_mask = BIT_TEMP_FIFO_EN
 						|BIT_GYRO_FIFO_EN
 						|BIT_ACCEL_FIFO_EN,
@@ -125,7 +125,7 @@ static struct mpu9250_chip_config chip_config[] = {
 		.gyro_sample_rate = MPU9250_SAMPLE_RATE_8000HZ,
 		.compass_enabled = false,
 		.compass_sample_rate = MPU9250_COMPASS_SAMPLE_RATE_100HZ,
-		.fifo_enabled = false,
+		.fifo_enabled = true,
 		.fifo_en_mask = BIT_TEMP_FIFO_EN
 						|BIT_GYRO_FIFO_EN
 						|BIT_ACCEL_FIFO_EN,
@@ -309,6 +309,26 @@ int inv_mpu9250_set_power_itg(struct inv_mpu9250_state *st, bool power_on)
 	return result;
 }
 
+int inv_mpu9250_get_interrupt_status(struct inv_mpu9250_state *st)
+{
+	int result = MPU_SUCCESS;
+	uint8_t value = 0;
+
+	if (!st)
+		return -MPU_READ_FAIL;
+
+	result = inv_mpu9250_read_reg(st, MPU9250_REG_INT_STATUS, &value);
+	if (result) {
+		dev_dbgerr("get interrupt status %d  failed\n", value);
+		return -MPU_READ_FAIL;
+	}
+
+	if (value & 0x10)
+		dev_dbgerr("interrupt status: fifo overflow interrupt\n");
+
+	return result;
+}
+
 static int inv_mpu9250_read_raw(struct iio_dev *indio_dev,
 			      struct iio_chan_spec const *chan,
 			      int *val,
@@ -411,6 +431,38 @@ static ssize_t inv_raw_data_show(struct device *dev,
 	return result;
 }
 
+static ssize_t fifo_cnt_threshold_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct inv_mpu9250_state *st = iio_priv(dev_to_iio_dev(dev));
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", st->fifo_cnt_threshold);
+}
+
+static ssize_t fifo_cnt_threshold_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int enum_config = 0;
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct inv_mpu9250_state *st = iio_priv(indio_dev);
+	struct reg_cfg *reg_cfg_info = NULL;
+
+	if (!st)
+		return -EINVAL;
+
+	if (kstrtoint(buf, 10, &enum_config))
+		return -EINVAL;
+
+	reg_cfg_info = &st->reg_cfg_info;
+
+	if ((enum_config > 140)
+		&& (reg_cfg_info->init_config <= INIT_1000HZ))
+		enum_config = st->fifo_cnt_threshold;
+
+	st->fifo_cnt_threshold = enum_config;
+	return count;
+}
+
 static ssize_t inv_inv_read_context_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -482,6 +534,14 @@ static const struct iio_chan_spec inv_mpu9250_channels[] = {
 
 static IIO_CONST_ATTR_SAMP_FREQ_AVAIL("200 1000 8000");
 static IIO_DEVICE_ATTR(inv_raw_data, S_IRUGO, inv_raw_data_show, NULL, 0);
+
+static IIO_DEVICE_ATTR(
+						inv_fifo_cnt_threshold,
+						S_IRUGO | S_IWUSR,
+						fifo_cnt_threshold_show,
+						fifo_cnt_threshold_store,
+						0);
+
 static IIO_DEVICE_ATTR(
 						inv_read_context,
 						S_IRUGO,
@@ -494,6 +554,7 @@ static IIO_DEV_ATTR_SAMP_FREQ(S_IRUGO | S_IWUSR, inv_select_config_show,
 static struct attribute *inv_attributes[] = {
 	&iio_dev_attr_inv_read_context.dev_attr.attr,
 	&iio_dev_attr_inv_raw_data.dev_attr.attr,
+	&iio_dev_attr_inv_fifo_cnt_threshold.dev_attr.attr,
 	&iio_dev_attr_sampling_frequency.dev_attr.attr,
 	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
 	NULL,
@@ -1522,6 +1583,7 @@ static int inv_mpu9250_probe(struct spi_device *spi)
 	st = iio_priv(indio_dev);
 	st->spi = spi;
 	spi->bits_per_word = 8;
+	st->fifo_cnt_threshold = 140;
 
 	result = of_populate_mpu9250_dt(st);
 	if (result) {
