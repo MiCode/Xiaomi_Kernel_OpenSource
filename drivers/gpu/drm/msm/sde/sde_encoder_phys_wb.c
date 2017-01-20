@@ -779,6 +779,7 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
 	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
+	struct sde_hw_intf_cfg *intf_cfg = &wb_enc->intf_cfg;
 
 	SDE_DEBUG("[wb:%d]\n", hw_wb->idx - WB_0);
 
@@ -786,6 +787,8 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 		SDE_ERROR("encoder is already disabled\n");
 		return;
 	}
+
+	memset(intf_cfg, 0, sizeof(struct sde_hw_intf_cfg));
 
 	if (wb_enc->frame_count != wb_enc->kickoff_count) {
 		SDE_DEBUG("[wait_for_done: wb:%d, frame:%u, kickoff:%u]\n",
@@ -798,6 +801,10 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 		SDE_DEBUG_DRIVER("[cdm_disable]\n");
 		phys_enc->hw_cdm->ops.disable(phys_enc->hw_cdm);
 	}
+
+	if (phys_enc->hw_ctl && phys_enc->hw_ctl->ops.setup_intf_cfg)
+		phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl,
+				intf_cfg);
 
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 }

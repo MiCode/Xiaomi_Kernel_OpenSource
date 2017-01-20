@@ -90,13 +90,25 @@ static inline uint32_t msm_gem_fence(struct msm_gem_object *msm_obj,
 	return fence;
 }
 
-#define MAX_CMDS 10
-
 /* Created per submit-ioctl, to track bo's and cmdstream bufs, etc,
  * associated with the cmdstream submission for synchronization (and
  * make it easier to unwind when things go wrong, etc).  This only
  * lasts for the duration of the submit-ioctl.
  */
+
+struct msm_submit_cmd {
+	uint32_t type;
+	uint32_t size;  /* in dwords */
+	uint32_t iova;
+	uint32_t idx;   /* cmdstream buffer idx in bos[] */
+};
+
+struct msm_submit_bos {
+	uint32_t flags;
+	struct msm_gem_object *obj;
+	uint32_t iova;
+};
+
 struct msm_gem_submit {
 	struct drm_device *dev;
 	struct msm_gpu *gpu;
@@ -107,17 +119,8 @@ struct msm_gem_submit {
 	bool valid;
 	unsigned int nr_cmds;
 	unsigned int nr_bos;
-	struct {
-		uint32_t type;
-		uint32_t size;  /* in dwords */
-		uint32_t iova;
-		uint32_t idx;   /* cmdstream buffer idx in bos[] */
-	} cmd[MAX_CMDS];
-	struct {
-		uint32_t flags;
-		struct msm_gem_object *obj;
-		uint32_t iova;
-	} bos[0];
+	struct msm_submit_cmd *cmd;
+	struct msm_submit_bos *bos;
 };
 
 #endif /* __MSM_GEM_H__ */

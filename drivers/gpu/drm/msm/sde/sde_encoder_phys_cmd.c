@@ -374,11 +374,21 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
+	struct sde_hw_intf_cfg intf_cfg = { 0 };
+	struct sde_hw_ctl *ctl = phys_enc->hw_ctl;
+	u32 flush_mask = 0;
 
 	DBG("intf %d, pp %d", cmd_enc->intf_idx, cmd_enc->hw_pp->idx);
 
 	if (WARN_ON(phys_enc->enable_state == SDE_ENC_DISABLED))
 		return;
+
+	if (WARN_ON(!phys_enc->hw_ctl->ops.setup_intf_cfg))
+		return;
+
+	phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl, &intf_cfg);
+	ctl->ops.get_bitmask_intf(ctl, &flush_mask, cmd_enc->intf_idx);
+	ctl->ops.update_pending_flush(ctl, flush_mask);
 
 	sde_encoder_phys_cmd_unregister_pp_irq(phys_enc,
 			cmd_enc->pp_tx_done_irq_idx);
