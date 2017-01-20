@@ -943,11 +943,13 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	a5xx_snapshot_debugbus(device, snapshot);
 
 	/* Preemption record */
-	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		kgsl_snapshot_add_section(device,
-			KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-			snapshot, snapshot_preemption_record,
-			&rb->preemption_desc);
+	if (adreno_is_preemption_enabled(adreno_dev)) {
+		FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+				snapshot, snapshot_preemption_record,
+				&rb->preemption_desc);
+		}
 	}
 
 }
