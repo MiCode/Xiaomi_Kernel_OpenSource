@@ -75,12 +75,11 @@
 			<&clock_gcc GCC_GPU_CFG_AHB_CLK>,
 			<&clock_gfx GPUCC_RBBMTIMER_CLK>,
 			<&clock_gcc GCC_GPU_BIMC_GFX_CLK>,
-			<&clock_gcc GCC_BIMC_GFX_CLK>,
 			<&clock_gcc GCC_GPU_BIMC_GFX_SRC_CLK>,
 			<&clock_gpu GPUCC_RBCPR_CLK>;
 
 		clock-names = "core_clk", "iface_clk", "rbbmtimer_clk",
-			"mem_clk", "alt_mem_iface_clk", "mem_iface_clk", "rbcpr_clk";
+			"mem_clk", "mem_iface_clk", "rbcpr_clk";
 
 		/* Bus Scale Settings */
 		qcom,gpubw-dev = <&gpubw>;
@@ -118,6 +117,7 @@
 
 		/* Quirks */
 		qcom,gpu-quirk-two-pass-use-wfi;
+		qcom,gpu-quirk-dp2clockgating-disable;
 		qcom,gpu-quirk-lmloadkill-disable;
 
 		/* Enable context aware freq. scaling */
