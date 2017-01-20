@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014,2016 Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014,2016-2017 Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -508,7 +508,7 @@ static void ghsic_data_start_io(struct gdata_port *port)
 	spin_lock_irqsave(&port->tx_lock, flags);
 	ep_in = port->in;
 	spin_unlock_irqrestore(&port->tx_lock, flags);
-	pr_debug("%s: ep_in:%p\n", __func__, ep_in);
+	pr_debug("%s: ep_in:%pK\n", __func__, ep_in);
 
 	if (!ep_in) {
 		spin_lock_irqsave(&port->rx_lock, flags);

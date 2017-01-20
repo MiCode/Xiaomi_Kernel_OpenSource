@@ -6,7 +6,7 @@
  * Copyright (C) 2008 Nokia Corporation
  * Copyright (C) 2009 Samsung Electronics
  *			Author: Michal Nazarewicz (mina86@mina86.com)
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -1234,7 +1234,7 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		gether_qc_get_macs(rndis_ipa_params.device_ethaddr,
 				rndis_ipa_params.host_ethaddr);
-		pr_debug("setting host_ethaddr=%pM, device_ethaddr=%pM\n",
+		pr_debug("setting host_ethaddr=%pKM, device_ethaddr=%pKM\n",
 			rndis_ipa_params.host_ethaddr,
 			rndis_ipa_params.device_ethaddr);
 		rndis_ipa_supported = true;
