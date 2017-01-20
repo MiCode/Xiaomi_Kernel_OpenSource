@@ -778,6 +778,7 @@ struct vfe_device {
 	/* before halt irq info */
 	uint32_t recovery_irq0_mask;
 	uint32_t recovery_irq1_mask;
+	uint32_t ms_frame_id;
 };
 
 struct vfe_parent_device {
