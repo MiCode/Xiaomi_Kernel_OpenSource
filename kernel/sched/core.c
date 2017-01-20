@@ -3309,6 +3309,8 @@ static void sched_freq_tick_walt(int cpu)
 	if (cpu_utilization <= capacity_curr)
 		return;
 
+	cpu_utilization = cpu_utilization * SCHED_CAPACITY_SCALE /
+			  capacity_orig_of(cpu);
 	/*
 	 * It is likely that the load is growing so we
 	 * keep the added margin in our request as an
