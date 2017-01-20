@@ -3663,6 +3663,9 @@ struct asm_multi_channel_pcm_enc_cfg_v2 {
 /* Enumeration for the raw AAC format. */
 #define ASM_MEDIA_FMT_AAC_FORMAT_FLAG_RAW    3
 
+/* Enumeration for the AAC LATM format. */
+#define ASM_MEDIA_FMT_AAC_FORMAT_FLAG_LATM   4
+
 #define ASM_MEDIA_FMT_AAC_AOT_LC             2
 #define ASM_MEDIA_FMT_AAC_AOT_SBR            5
 #define ASM_MEDIA_FMT_AAC_AOT_PS             29
