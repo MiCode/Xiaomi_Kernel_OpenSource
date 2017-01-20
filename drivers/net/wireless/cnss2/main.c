@@ -556,6 +556,14 @@ static void cnss_driver_event_work(struct work_struct *work)
 	spin_unlock_irqrestore(&plat_priv->event_lock, flags);
 }
 
+static void cnss_recovery_work_func(struct work_struct *work)
+{
+	struct cnss_recovery_work_t *ctx =
+		container_of(work, struct cnss_recovery_work_t, work);
+
+	cnss_self_recovery(ctx->dev, ctx->reason);
+}
+
 int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 			   enum cnss_driver_event_type type,
 			   bool sync, void *data)
@@ -1234,60 +1242,62 @@ static void cnss_crash_shutdown(const struct subsys_desc *subsys_desc)
 	}
 }
 
-void cnss_device_self_recovery(void)
+int cnss_self_recovery(struct device *dev,
+		       enum cnss_recovery_reason reason)
 {
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	struct cnss_subsys_info *subsys_info;
 
 	if (!plat_priv) {
 		cnss_pr_err("plat_priv is NULL!\n");
-		return;
+		return -EINVAL;
 	}
 
 	if (!plat_priv->plat_dev) {
 		cnss_pr_err("plat_dev is NULL!\n");
-		return;
+		return -EINVAL;
 	}
 
 	if (!plat_priv->driver_ops) {
 		cnss_pr_err("Driver is not registered yet!\n");
-		return;
+		return -EINVAL;
 	}
 
 	if (plat_priv->driver_status == CNSS_RECOVERY) {
 		cnss_pr_err("Recovery is already in progress!\n");
-		return;
+		return -EINVAL;
 	}
 
 	if (plat_priv->driver_status == CNSS_LOAD_UNLOAD) {
 		cnss_pr_err("Driver load or unload is in progress!\n");
-		return;
+		return -EINVAL;
 	}
 
 	subsys_info = &plat_priv->subsys_info;
 	plat_priv->recovery_count++;
 	plat_priv->driver_status = CNSS_RECOVERY;
-	pm_stay_awake(&plat_priv->plat_dev->dev);
+	pm_stay_awake(dev);
 	cnss_shutdown(&subsys_info->subsys_desc, false);
 	udelay(WLAN_RECOVERY_DELAY);
 	cnss_powerup(&subsys_info->subsys_desc);
-	pm_relax(&plat_priv->plat_dev->dev);
+	pm_relax(dev);
 	plat_priv->driver_status = CNSS_INITIALIZED;
-}
-EXPORT_SYMBOL(cnss_device_self_recovery);
 
-void cnss_recovery_work_handler(struct work_struct *recovery)
+	return 0;
+}
+EXPORT_SYMBOL(cnss_self_recovery);
+
+void cnss_schedule_recovery(struct device *dev,
+			    enum cnss_recovery_reason reason)
 {
-	cnss_device_self_recovery();
-}
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	struct cnss_recovery_work_t *work = &plat_priv->cnss_recovery_work;
 
-DECLARE_WORK(cnss_recovery_work, cnss_recovery_work_handler);
-
-void cnss_schedule_recovery_work(void)
-{
-	schedule_work(&cnss_recovery_work);
+	work->dev = dev;
+	work->reason = reason;
+	queue_work(plat_priv->event_wq, &work->work);
 }
-EXPORT_SYMBOL(cnss_schedule_recovery_work);
+EXPORT_SYMBOL(cnss_schedule_recovery);
 
 int cnss_register_subsys(struct cnss_plat_data *plat_priv)
 {
@@ -1554,7 +1564,7 @@ static int cnss_event_work_init(struct cnss_plat_data *plat_priv)
 {
 	spin_lock_init(&plat_priv->event_lock);
 	plat_priv->event_wq = alloc_workqueue("cnss_driver_event",
-					      WQ_UNBOUND, 1);
+					      0, 0);
 	if (!plat_priv->event_wq) {
 		cnss_pr_err("Failed to create event workqueue!\n");
 		return -EFAULT;
@@ -1562,6 +1572,8 @@ static int cnss_event_work_init(struct cnss_plat_data *plat_priv)
 
 	INIT_WORK(&plat_priv->event_work, cnss_driver_event_work);
 	INIT_LIST_HEAD(&plat_priv->event_list);
+	INIT_WORK(&plat_priv->cnss_recovery_work.work,
+		  cnss_recovery_work_func);
 	init_completion(&plat_priv->fw_ready_event);
 
 	return 0;

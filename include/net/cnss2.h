@@ -128,12 +128,19 @@ enum cnss_driver_mode {
 	CNSS_CALIBRATION,
 };
 
+enum cnss_recovery_reason {
+	CNSS_REASON_DEFAULT,
+	CNSS_REASON_LINK_DOWN,
+};
+
 extern int cnss_wlan_register_driver(struct cnss_wlan_driver *driver);
 extern void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver);
-extern void cnss_wlan_pci_link_down(void);
-extern void cnss_schedule_recovery_work(void);
 extern void cnss_device_crashed(void);
-extern void cnss_device_self_recovery(void);
+extern int cnss_pci_link_down(struct device *dev);
+extern void cnss_schedule_recovery(struct device *dev,
+				   enum cnss_recovery_reason reason);
+extern int cnss_self_recovery(struct device *dev,
+			      enum cnss_recovery_reason reason);
 extern void *cnss_get_virt_ramdump_mem(unsigned long *size);
 extern int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 					u32 target_type, u32 target_version);
