@@ -1734,14 +1734,14 @@ extern unsigned int walt_disabled;
  */
 static inline unsigned long __cpu_util(int cpu, int delta)
 {
-	unsigned long util = cpu_rq(cpu)->cfs.avg.util_avg;
+	u64 util = cpu_rq(cpu)->cfs.avg.util_avg;
 	unsigned long capacity = capacity_orig_of(cpu);
 
 #ifdef CONFIG_SCHED_WALT
 	if (!walt_disabled && sysctl_sched_use_walt_cpu_util) {
-		util = cpu_rq(cpu)->hmp_stats.cumulative_runnable_avg <<
-		       SCHED_CAPACITY_SHIFT;
-		do_div(util, sched_ravg_window);
+		util = cpu_rq(cpu)->hmp_stats.cumulative_runnable_avg;
+		util = div64_u64(util,
+				 sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 	}
 #endif
 	delta += util;
@@ -1765,13 +1765,14 @@ struct sched_walt_cpu_load {
 static inline unsigned long
 cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 {
-	unsigned long util = cpu_rq(cpu)->cfs.avg.util_avg;
+	u64 util = cpu_rq(cpu)->cfs.avg.util_avg;
 	unsigned long capacity = capacity_orig_of(cpu);
 
 #ifdef CONFIG_SCHED_WALT
 	if (!walt_disabled && sysctl_sched_use_walt_cpu_util) {
-		util = cpu_rq(cpu)->prev_runnable_sum << SCHED_CAPACITY_SHIFT;
-		do_div(util, sched_ravg_window);
+		util = cpu_rq(cpu)->prev_runnable_sum;
+		util = div64_u64(util,
+				 sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 
 		if (walt_load)
 			walt_load->prev_window_util = util;
