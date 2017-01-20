@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -444,13 +444,19 @@ static int sde_power_data_bus_parse(struct platform_device *pdev,
 	pdbus->bus_channels = 1;
 	rc = of_property_read_u32(pdev->dev.of_node,
 		"qcom,sde-dram-channels", &pdbus->bus_channels);
-	if (rc)
+	if (rc) {
 		pr_debug("number of channels property not specified\n");
+		rc = 0;
+	}
 
 	pdbus->nrt_axi_port_cnt = 0;
 	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,sde-num-nrt-paths",
 			&pdbus->nrt_axi_port_cnt);
+	if (rc) {
+		pr_debug("number of axi port property not specified\n");
+		rc = 0;
+	}
 
 	node = of_get_child_by_name(pdev->dev.of_node, "qcom,sde-data-bus");
 	if (node) {
