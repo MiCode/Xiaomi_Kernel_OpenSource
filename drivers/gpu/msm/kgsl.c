@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3617,6 +3617,9 @@ static inline bool _is_phys_bindable(struct kgsl_mem_entry *phys_entry,
 	if (!IS_ALIGNED(offset | size, kgsl_memdesc_get_pagesize(memdesc)))
 		return false;
 
+	if (offset + size < offset)
+		return false;
+
 	if (!(flags & KGSL_SPARSE_BIND_MULTIPLE_TO_PHYS) &&
 			offset + size > memdesc->size)
 		return false;
@@ -3744,7 +3747,7 @@ long kgsl_ioctl_sparse_bind(struct kgsl_device_private *dev_priv,
 			break;
 
 		/* Sanity check initial range */
-		if (obj.size == 0 ||
+		if (obj.size == 0 || obj.virtoffset + obj.size < obj.size ||
 			obj.virtoffset + obj.size > virt_entry->memdesc.size ||
 			!(IS_ALIGNED(obj.virtoffset | obj.size, pg_sz))) {
 			ret = -EINVAL;
