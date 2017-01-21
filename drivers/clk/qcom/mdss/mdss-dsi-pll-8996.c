@@ -464,7 +464,7 @@ static struct clk_lookup mdss_dsi_pllcc_8996_1[] = {
 int dsi_pll_clock_register_8996(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
-	int rc, ndx;
+	int rc = 0, ndx;
 	int const ssc_freq_default = 31500; /* default h/w recommended value */
 	int const ssc_ppm_default = 5000; /* default h/w recommended value */
 	struct dsi_pll_db *pdb;
