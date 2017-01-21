@@ -1025,7 +1025,7 @@ static struct mux_clk dsi0pll_pclk_src_mux = {
 	.c = {
 		.parent = &dsi0pll_post_bit_div.c,
 		.dbg_name = "dsi0pll_pclk_src_mux",
-		.ops = &clk_ops_gen_mux_dsi,
+		.ops = &clk_ops_gen_mux,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(dsi0pll_pclk_src_mux.c),
 	}
@@ -1162,7 +1162,7 @@ static struct mux_clk dsi1pll_pclk_src_mux = {
 	.c = {
 		.parent = &dsi1pll_post_bit_div.c,
 		.dbg_name = "dsi1pll_pclk_src_mux",
-		.ops = &clk_ops_gen_mux_dsi,
+		.ops = &clk_ops_gen_mux,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(dsi1pll_pclk_src_mux.c),
 	}
