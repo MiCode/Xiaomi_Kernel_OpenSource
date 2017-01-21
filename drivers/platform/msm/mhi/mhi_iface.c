@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -455,6 +455,10 @@ static int mhi_plat_probe(struct platform_device *pdev)
 		}
 		INIT_WORK(&bhi_ctxt->fw_load_work, bhi_firmware_download);
 	}
+
+	mhi_dev_ctxt->flags.bb_required =
+		of_property_read_bool(pdev->dev.of_node,
+				      "qcom,mhi-bb-required");
 
 	mhi_dev_ctxt->plat_dev = pdev;
 	platform_set_drvdata(pdev, mhi_dev_ctxt);

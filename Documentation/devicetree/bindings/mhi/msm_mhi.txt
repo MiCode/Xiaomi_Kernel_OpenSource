@@ -120,6 +120,13 @@ Main node properties:
   Value type: <u32>
   Definition: Segment size in bytes for each segment in bytes.
 
+- qcom,mhi-bb-required
+  Usage: optional
+  Value type: bool
+  Definition: Determine whether MHI device require bounce buffer
+	during active transfer.  If true, during channel open host
+	will pre-allocate transfer buffers.
+
 ========
 Example:
 ========

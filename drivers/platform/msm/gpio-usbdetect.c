@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,7 @@ struct gpio_usbdetect {
 	struct regulator	*vdd12;
 	int			gpio_usbdetect;
 	bool			notify_host_mode;
+	bool			disable_device_mode;
 };
 
 static int gpio_enable_ldos(struct gpio_usbdetect *usb, int on)
@@ -162,9 +163,11 @@ static irqreturn_t gpio_usbdetect_vbus_irq(int irq, void *data)
 		if (usb->notify_host_mode)
 			power_supply_set_usb_otg(usb->usb_psy, 0);
 
-		power_supply_set_supply_type(usb->usb_psy,
-					POWER_SUPPLY_TYPE_USB);
-		power_supply_set_present(usb->usb_psy, vbus);
+		if (!usb->disable_device_mode) {
+			power_supply_set_supply_type(usb->usb_psy,
+						POWER_SUPPLY_TYPE_USB);
+			power_supply_set_present(usb->usb_psy, vbus);
+		}
 	} else {
 		/* notify gpio_state = LOW as disconnect */
 		power_supply_set_supply_type(usb->usb_psy,
@@ -199,6 +202,8 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 	usb->usb_psy = usb_psy;
 	usb->notify_host_mode = of_property_read_bool(pdev->dev.of_node,
 					"qcom,notify-host-mode");
+	usb->disable_device_mode = of_property_read_bool(pdev->dev.of_node,
+					"qcom,disable-device-mode");
 	rc = gpio_enable_ldos(usb, 1);
 	if (rc)
 		return rc;

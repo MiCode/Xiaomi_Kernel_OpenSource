@@ -181,6 +181,8 @@ Optional properties :
 	which is used as a vote by driver to get max performance in perf mode.
 - qcom,default-mode-svs: Indicates USB system clock should run at SVS frequency.
 	User can bump it up using 'perf_mode' sysfs attribute for gadget.
+- qcom,vbus-low-as-hostmode: If present, specifies USB_VBUS to switch to host mode
+	if USB_VBUS is low or device mode if USB_VBUS is high.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {

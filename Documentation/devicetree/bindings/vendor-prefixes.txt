@@ -196,3 +196,4 @@ xlnx	Xilinx
 zyxel	ZyXEL Communications Corp.
 zarlink	Zarlink Semiconductor
 bosch-sensortec»    Bosch Sensortec GmbH
+lontium Lontium Semiconductor

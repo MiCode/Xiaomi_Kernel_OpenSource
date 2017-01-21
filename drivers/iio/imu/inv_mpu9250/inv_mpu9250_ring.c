@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,31 +94,16 @@ int inv_mpu9250_reset_fifo(struct iio_dev *indio_dev)
 		/* clear timestamps fifo */
 		inv_clear_kfifo(st);
 
-		/*enable fifo reading*/
-		reg_cfg_info->user_ctrl |= BIT_FIFO_EN;
-		if (inv_mpu9250_write_reg(st, st->reg->user_ctrl,
-						reg_cfg_info->user_ctrl)) {
-			dev_dbgerr("mpu disable fifo reading failed\n");
+		if (mpu9250_start_fifo(st)) {
+			dev_dbgerr("mpu disable interrupt failed\n");
 			return -MPU_FAIL;
 		}
+
 		/*enable the sensor output to FIFO*/
 		reg_cfg_info->fifo_enable |= config->fifo_en_mask;
 		if (inv_mpu9250_write_reg(st, st->reg->fifo_en,
 						reg_cfg_info->fifo_enable)) {
 			dev_dbgerr("mpu disable fifo_enable failed\n");
-			return -MPU_FAIL;
-		}
-
-		/* enable interrupt */
-		reg_cfg_info->int_en |= BIT_RAW_RDY_EN;
-		if (inv_mpu9250_write_reg(st, st->reg->int_enable,
-						reg_cfg_info->int_en)) {
-			dev_dbgerr("mpu write reg failed\n");
-			return -MPU_FAIL;
-		}
-
-		if (mpu9250_start_fifo(st)) {
-			dev_dbgerr("mpu disable interrupt failed\n");
 			return -MPU_FAIL;
 		}
 	}
@@ -149,11 +134,15 @@ static int inv_mpu9250_read_fifo(struct iio_dev *indio_dev)
 	struct inv_mpu9250_state *st = iio_priv(indio_dev);
 	struct mpu9250_chip_config *config = NULL;
 	struct reg_cfg *reg_cfg_info = NULL;
-	int read_count = 0, max_count = 0;
-	uint8_t value = 0, fifo_count = 0;
+	int ts_offset = 0, read_count = 0, max_count = 0;
+	int value = 0, fifo_count = 0;
+	uint8_t fifo_count_h = 0, fifo_count_l = 0;
 	int packet_read = 0, tmp_size = 0;
+	char data_push[24] = {0x0, 0x0};
 	char data[1024] = {0x0, 0x0};
+	int push_count = 0;
 	char *buf = NULL;
+	u64 *tmp;
 	s64 timestamp;
 
 	if (!st)
@@ -161,22 +150,38 @@ static int inv_mpu9250_read_fifo(struct iio_dev *indio_dev)
 
 	config = st->config;
 	reg_cfg_info = &st->reg_cfg_info;
-
+	memset(&data_push[0], 0x0, 24);
 	mutex_lock(&indio_dev->mlock);
-	if (config->fifo_enabled) {
 
+	if (mpu9250_debug_enable)
+		inv_mpu9250_get_interrupt_status(st);
+
+	if (config->fifo_enabled) {
 		/*read fifo count*/
 		result |= inv_mpu9250_read_reg(st,
-					st->reg->fifo_count_h, &value);
+					st->reg->fifo_count_h, &fifo_count_h);
 		result |= inv_mpu9250_read_reg(st,
-					st->reg->fifo_count_l, &fifo_count);
+					st->reg->fifo_count_l, &fifo_count_l);
 		if (result)
 			dev_dbgerr("mpu9250 read fifo failed\n");
 
-		fifo_count = (value << 8) | fifo_count;
+		fifo_count = (fifo_count_h << 8) | fifo_count_l;
 		read_count = fifo_count / st->fifo_packet_size;
+		push_count = read_count;
 		max_count = MPU9250_FIFO_SINGLE_READ_MAX_BYTES
 						/ st->fifo_packet_size;
+
+		if (fifo_count < st->fifo_cnt_threshold)
+			goto end_session;
+
+		/* fifo count can't be odd number, if it is odd, reset fifo*/
+		if (fifo_count & 1)
+			goto flush_fifo;
+
+	    /* Timestamp mismatch. */
+	    if (kfifo_len(&st->timestamps) >
+		fifo_count / st->fifo_packet_size + INV_MPU9250_TIME_STAMP_TOR)
+		inv_clear_kfifo(st);
 
 		buf = &data[0];
 		while (read_count) {
@@ -189,18 +194,24 @@ static int inv_mpu9250_read_fifo(struct iio_dev *indio_dev)
 							buf, tmp_size);
 			if (result) {
 				dev_dbgerr("mpu9250 read fifo failed\n");
-				break;
-			}
-			result = kfifo_out(&st->timestamps, &timestamp, 1);
-			/* when there is no timestamp, put timestamp as 0 */
-			if (0 == result)
-				timestamp = 0;
-
-			result = iio_push_to_buffers(indio_dev, buf);
-			if (result)
 				goto flush_fifo;
+			}
 
-			buf += tmp_size;
+			push_count = packet_read;
+			ts_offset = DIV_ROUND_UP(st->fifo_packet_size, 8);
+			while (push_count) {
+				memcpy(&data_push[0],
+						 buf, st->fifo_packet_size);
+				result = kfifo_out(&st->timestamps,
+						&timestamp, 1);
+				/* when there is no timestamp, put it as 0 */
+				if (0 == result)
+					timestamp = 0;
+				((int64_t *)data_push)[ts_offset] = timestamp;
+				iio_push_to_buffers(indio_dev, &data_push[0]);
+				push_count--;
+				buf += st->fifo_packet_size;
+			}
 			read_count = read_count - packet_read;
 		}
 	} else {
@@ -218,11 +229,13 @@ static int inv_mpu9250_read_fifo(struct iio_dev *indio_dev)
 		if (0 == result)
 			timestamp = 0;
 
-		result = iio_push_to_buffers(indio_dev, buf);
-		if (result)
-			goto flush_fifo;
+		memcpy(&data_push[0], buf, st->fifo_packet_size);
+		ts_offset = DIV_ROUND_UP(st->fifo_packet_size, 8);
+		((int64_t *)data_push)[ts_offset] = timestamp;
+		iio_push_to_buffers(indio_dev, &data_push[0]);
 	}
 
+end_session:
 	mutex_unlock(&indio_dev->mlock);
 	iio_trigger_notify_done(indio_dev->trig);
 	return MPU_SUCCESS;

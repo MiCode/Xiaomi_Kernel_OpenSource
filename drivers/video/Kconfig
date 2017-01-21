@@ -44,6 +44,19 @@ config VIDEOMODE_HELPERS
 config HDMI
 	bool
 
+config LT8912
+	tristate "LT8912 hdmi chip"
+	depends on I2C
+
+	help
+	lt8912 HDMI test.
+	Say Y here if you have a HDMI chip.
+
+	If unsure, say N.
+
+	To compile this driver as a module, choose M here: the
+	module will be called LT8912.
+
 if VT
 	source "drivers/video/console/Kconfig"
 endif

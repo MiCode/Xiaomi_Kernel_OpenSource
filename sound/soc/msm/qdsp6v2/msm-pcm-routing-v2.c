@@ -2322,6 +2322,11 @@ static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	struct snd_soc_dapm_update *update = NULL;
 
+	if (mux >= e->items) {
+		pr_err("%s: Invalid mux value %d\n", __func__, mux);
+		return -EINVAL;
+	}
+
 	mutex_lock(&routing_lock);
 	switch (ucontrol->value.integer.value[0]) {
 	case 0:
@@ -2495,6 +2500,11 @@ static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 	bool state = true;
 	uint16_t ext_ec_ref_port_id;
 	struct snd_soc_dapm_update *update = NULL;
+
+	if (mux >= e->items) {
+		pr_err("%s: Invalid mux value %d\n", __func__, mux);
+		return -EINVAL;
+	}
 
 	mutex_lock(&routing_lock);
 	msm_route_ext_ec_ref = ucontrol->value.integer.value[0];
@@ -10374,6 +10384,33 @@ static const struct snd_kcontrol_new device_pp_params_mixer_controls[] = {
 	msm_routing_put_device_pp_params_mixer),
 };
 
+static int msm_aptx_dec_license_control_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] =
+			core_get_license_status(ASM_MEDIA_FMT_APTX);
+	pr_debug("%s: status %ld\n", __func__,
+			ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_aptx_dec_license_control_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int32_t status = 0;
+
+	status = core_set_license(ucontrol->value.integer.value[0],
+				APTX_CLASSIC_DEC_LICENSE_ID);
+	pr_debug("%s: status %d\n", __func__, status);
+	return status;
+}
+
+static const struct snd_kcontrol_new aptx_dec_license_controls[] = {
+	SOC_SINGLE_EXT("APTX Dec License", SND_SOC_NOPM, 0,
+	0xFFFF, 0, msm_aptx_dec_license_control_get,
+	msm_aptx_dec_license_control_put),
+};
+
 static struct snd_pcm_ops msm_routing_pcm_ops = {
 	.hw_params	= msm_pcm_routing_hw_params,
 	.close          = msm_pcm_routing_close,
@@ -10431,6 +10468,9 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 
 	snd_soc_add_platform_controls(platform, msm_source_tracking_controls,
 				      ARRAY_SIZE(msm_source_tracking_controls));
+
+	snd_soc_add_platform_controls(platform, aptx_dec_license_controls,
+					ARRAY_SIZE(aptx_dec_license_controls));
 	return 0;
 }
 
