@@ -583,8 +583,10 @@ int dp_vco_prepare(struct clk *c)
 		mdss_pll_resource_enable(dp_pll_res, false);
 		pr_err("ndx=%d failed to enable dsi pll\n",
 					dp_pll_res->index);
+		goto error;
 	}
 
+	mdss_pll_resource_enable(dp_pll_res, false);
 error:
 	return rc;
 }
