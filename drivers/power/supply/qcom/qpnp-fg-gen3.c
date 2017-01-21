@@ -855,23 +855,50 @@ static const char *fg_get_battery_type(struct fg_chip *chip)
 	return DEFAULT_BATT_TYPE;
 }
 
-static int fg_get_batt_id(struct fg_chip *chip, int *val)
+static int fg_batt_missing_config(struct fg_chip *chip, bool enable)
 {
-	int rc, batt_id = -EINVAL;
+	int rc;
+
+	rc = fg_masked_write(chip, BATT_INFO_BATT_MISS_CFG(chip),
+			BM_FROM_BATT_ID_BIT, enable ? BM_FROM_BATT_ID_BIT : 0);
+	if (rc < 0)
+		pr_err("Error in writing to %04x, rc=%d\n",
+			BATT_INFO_BATT_MISS_CFG(chip), rc);
+	return rc;
+}
+
+static int fg_get_batt_id(struct fg_chip *chip)
+{
+	int rc, ret, batt_id = 0;
 
 	if (!chip->batt_id_chan)
 		return -EINVAL;
 
-	rc = iio_read_channel_processed(chip->batt_id_chan, &batt_id);
+	rc = fg_batt_missing_config(chip, false);
 	if (rc < 0) {
-		pr_err("Error in reading batt_id channel, rc:%d\n", rc);
+		pr_err("Error in disabling BMD, rc=%d\n", rc);
 		return rc;
 	}
 
-	fg_dbg(chip, FG_STATUS, "batt_id: %d\n", batt_id);
+	rc = iio_read_channel_processed(chip->batt_id_chan, &batt_id);
+	if (rc < 0) {
+		pr_err("Error in reading batt_id channel, rc:%d\n", rc);
+		goto out;
+	}
 
-	*val = batt_id;
-	return 0;
+	/* Wait for 200ms before enabling BMD again */
+	msleep(200);
+
+	fg_dbg(chip, FG_STATUS, "batt_id: %d\n", batt_id);
+	chip->batt_id_ohms = batt_id;
+out:
+	ret = fg_batt_missing_config(chip, true);
+	if (ret < 0) {
+		pr_err("Error in enabling BMD, ret=%d\n", ret);
+		return ret;
+	}
+
+	return rc;
 }
 
 static int fg_get_batt_profile(struct fg_chip *chip)
@@ -879,24 +906,16 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 	struct device_node *node = chip->dev->of_node;
 	struct device_node *batt_node, *profile_node;
 	const char *data;
-	int rc, len, batt_id;
+	int rc, len;
 
-	rc = fg_get_batt_id(chip, &batt_id);
-	if (rc < 0) {
-		pr_err("Error in getting batt_id rc:%d\n", rc);
-		return rc;
-	}
-
-	chip->batt_id_ohms = batt_id;
-	batt_id /= 1000;
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
 		pr_err("Batterydata not available\n");
 		return -ENXIO;
 	}
 
-	profile_node = of_batterydata_get_best_profile(batt_node, batt_id,
-				NULL);
+	profile_node = of_batterydata_get_best_profile(batt_node,
+				chip->batt_id_ohms / 1000, NULL);
 	if (IS_ERR(profile_node))
 		return PTR_ERR(profile_node);
 
@@ -946,6 +965,7 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 
 	chip->profile_available = true;
 	memcpy(chip->batt_profile, data, len);
+
 	return 0;
 }
 
@@ -1851,18 +1871,6 @@ static int fg_esr_fcc_config(struct fg_chip *chip)
 	fg_dbg(chip, FG_STATUS, "esr_fcc_ctrl_en set to %d\n",
 		chip->esr_fcc_ctrl_en);
 	return 0;
-}
-
-static int fg_batt_missing_config(struct fg_chip *chip, bool enable)
-{
-	int rc;
-
-	rc = fg_masked_write(chip, BATT_INFO_BATT_MISS_CFG(chip),
-			BM_FROM_BATT_ID_BIT, enable ? BM_FROM_BATT_ID_BIT : 0);
-	if (rc < 0)
-		pr_err("Error in writing to %04x, rc=%d\n",
-			BATT_INFO_BATT_MISS_CFG(chip), rc);
-	return rc;
 }
 
 static void fg_batt_avg_update(struct fg_chip *chip)
@@ -3142,9 +3150,10 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	rc = fg_batt_missing_config(chip, false);
+	rc = fg_get_batt_id(chip);
 	if (rc < 0) {
-		pr_err("Error in disabling BMD, rc=%d\n", rc);
+		chip->soc_reporting_ready = true;
+		pr_err("Error in getting battery id, rc:%d\n", rc);
 		return IRQ_HANDLED;
 	}
 
@@ -3152,18 +3161,11 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 	if (rc < 0) {
 		chip->soc_reporting_ready = true;
 		pr_err("Error in getting battery profile, rc:%d\n", rc);
-		goto enable_bmd;
+		return IRQ_HANDLED;
 	}
 
 	clear_battery_profile(chip);
 	schedule_delayed_work(&chip->profile_load_work, 0);
-
-enable_bmd:
-	/* Wait for 200ms before enabling BMD again */
-	msleep(200);
-	rc = fg_batt_missing_config(chip, true);
-	if (rc < 0)
-		pr_err("Error in enabling BMD, rc=%d\n", rc);
 
 	if (chip->fg_psy)
 		power_supply_changed(chip->fg_psy);
@@ -3571,16 +3573,6 @@ static int fg_parse_dt(struct fg_chip *chip)
 		return -EINVAL;
 	}
 
-	chip->batt_id_chan = iio_channel_get(chip->dev, "rradc_batt_id");
-	if (IS_ERR(chip->batt_id_chan)) {
-		if (PTR_ERR(chip->batt_id_chan) != -EPROBE_DEFER)
-			pr_err("batt_id_chan unavailable %ld\n",
-				PTR_ERR(chip->batt_id_chan));
-		rc = PTR_ERR(chip->batt_id_chan);
-		chip->batt_id_chan = NULL;
-		return rc;
-	}
-
 	if (of_get_available_child_count(node) == 0) {
 		dev_err(chip->dev, "No child nodes specified!\n");
 		return -ENXIO;
@@ -3624,13 +3616,6 @@ static int fg_parse_dt(struct fg_chip *chip)
 		return rc;
 	}
 	chip->rradc_base = base;
-
-	rc = fg_get_batt_profile(chip);
-	if (rc < 0) {
-		chip->soc_reporting_ready = true;
-		pr_warn("profile for batt_id=%dKOhms not found..using OTP, rc:%d\n",
-			chip->batt_id_ohms / 1000, rc);
-	}
 
 	/* Read all the optional properties below */
 	rc = of_property_read_u32(node, "qcom,fg-cutoff-voltage", &temp);
@@ -3867,10 +3852,13 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	rc = fg_parse_dt(chip);
-	if (rc < 0) {
-		dev_err(chip->dev, "Error in reading DT parameters, rc:%d\n",
-			rc);
+	chip->batt_id_chan = iio_channel_get(chip->dev, "rradc_batt_id");
+	if (IS_ERR(chip->batt_id_chan)) {
+		if (PTR_ERR(chip->batt_id_chan) != -EPROBE_DEFER)
+			pr_err("batt_id_chan unavailable %ld\n",
+				PTR_ERR(chip->batt_id_chan));
+		rc = PTR_ERR(chip->batt_id_chan);
+		chip->batt_id_chan = NULL;
 		return rc;
 	}
 
@@ -3879,6 +3867,13 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	if (IS_ERR(chip->awake_votable)) {
 		rc = PTR_ERR(chip->awake_votable);
 		return rc;
+	}
+
+	rc = fg_parse_dt(chip);
+	if (rc < 0) {
+		dev_err(chip->dev, "Error in reading DT parameters, rc:%d\n",
+			rc);
+		goto exit;
 	}
 
 	mutex_init(&chip->bus_lock);
@@ -3894,6 +3889,19 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->cycle_count_work, cycle_count_work);
 	INIT_DELAYED_WORK(&chip->batt_avg_work, batt_avg_work);
 	INIT_DELAYED_WORK(&chip->sram_dump_work, sram_dump_work);
+
+	rc = fg_get_batt_id(chip);
+	if (rc < 0) {
+		pr_err("Error in getting battery id, rc:%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_get_batt_profile(chip);
+	if (rc < 0) {
+		chip->soc_reporting_ready = true;
+		pr_warn("profile for batt_id=%dKOhms not found..using OTP, rc:%d\n",
+			chip->batt_id_ohms / 1000, rc);
+	}
 
 	rc = fg_memif_init(chip);
 	if (rc < 0) {
