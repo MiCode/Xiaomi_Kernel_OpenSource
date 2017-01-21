@@ -59,11 +59,18 @@
 #define TXn_SLEW_CNTL				0x0030
 #define TXn_INTERFACE_SELECT			0x0034
 
+#define TXn_RES_CODE_LANE_TX			0x003C
+#define TXn_RES_CODE_LANE_RX			0x0040
+#define TXn_RES_CODE_LANE_OFFSET_TX		0x0044
+#define TXn_RES_CODE_LANE_OFFSET_RX		0x0048
+
 #define TXn_DEBUG_BUS_SEL			0x0058
 #define TXn_TRANSCEIVER_BIAS_EN			0x005C
 #define TXn_HIGHZ_DRVR_EN			0x0060
 #define TXn_TX_POL_INV				0x0064
 #define TXn_PARRATE_REC_DETECT_IDLE_EN		0x0068
+
+#define TXn_LANE_MODE_1				0x008C
 
 #define TXn_TRAN_DRVR_EMP_EN			0x00C0
 #define TXn_TX_INTERFACE_MODE			0x00C4
@@ -149,8 +156,11 @@
 #define DP_PLL_POLL_TIMEOUT_US			10000
 
 #define DP_VCO_RATE_8100MHz			8100000000ULL
-#define DP_VCO_RATE_9720MHz			9720000000ULL
 #define DP_VCO_RATE_10800MHz			10800000000ULL
+
+#define DP_VCO_HSCLK_RATE_1620MHz		1620000000ULL
+#define DP_VCO_HSCLK_RATE_2700MHz		2700000000ULL
+#define DP_VCO_HSCLK_RATE_5400MHz		5400000000ULL
 
 int dp_vco_set_rate(struct clk *c, unsigned long rate);
 unsigned long dp_vco_get_rate(struct clk *c);
