@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -564,6 +564,14 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 	}
 
 	/* No lock needed here since ioctl lock protects 2 session from race */
+	/* reset master SOF which refer slave in increment_frame_id function
+	 *
+	 */
+	vfe_dev->common_data->ms_resource.master_sof_info.frame_id = 0;
+	vfe_dev->common_data->ms_resource.master_sof_info.mono_timestamp_ms = 0;
+	/* we have only 1 slave so reset it frame_id so that master will
+	 * not jump*/
+	vfe_dev->common_data->ms_resource.slave_sof_info[0].frame_id = 0;
 	if (src_info != NULL &&
 		dual_hw_ms_cmd->dual_hw_ms_type == MS_TYPE_MASTER) {
 		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
@@ -2130,6 +2138,7 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	long rc = 0;
 	int wm;
+	unsigned long flags;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 	ISP_DBG("%s E open_cnt %u\n", __func__, vfe_dev->vfe_open_cnt);
 	mutex_lock(&vfe_dev->realtime_mutex);
@@ -2143,6 +2152,27 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return -EINVAL;
 	}
 
+	/* reset master and slave mask in case daemon died */
+	if (vfe_dev->axi_data.src_info[VFE_PIX_0].dual_hw_ms_info.
+		dual_hw_ms_type == MS_TYPE_MASTER) {
+		spin_lock_irqsave(
+			&vfe_dev->common_data->common_dev_data_lock,
+			flags);
+		vfe_dev->common_data->ms_resource.master_active = 0;
+		spin_unlock_irqrestore(
+			&vfe_dev->common_data->common_dev_data_lock,
+			flags);
+	} else if (vfe_dev->axi_data.src_info[VFE_PIX_0].dual_hw_ms_info.
+			dual_hw_ms_type == MS_TYPE_SLAVE) {
+		spin_lock_irqsave(
+			&vfe_dev->common_data->common_dev_data_lock,
+			flags);
+		vfe_dev->common_data->ms_resource.slave_active_mask = 0;
+		vfe_dev->common_data->ms_resource.reserved_slave_mask = 0;
+		spin_unlock_irqrestore(
+			&vfe_dev->common_data->common_dev_data_lock,
+			flags);
+	}
 	if (vfe_dev->vfe_open_cnt > 1) {
 		vfe_dev->vfe_open_cnt--;
 		mutex_unlock(&vfe_dev->core_mutex);
