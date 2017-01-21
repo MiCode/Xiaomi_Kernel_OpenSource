@@ -509,7 +509,7 @@ static unsigned long dsi_pll_get_vco_rate(struct clk *c)
 		16);
 
 	/* OUTDIV_1:0 field is (log(outdiv, 2)) */
-	outdiv = MDSS_PLL_REG_R(pll->pll_base, PLL_OUTDIV);
+	outdiv = MDSS_PLL_REG_R(pll->pll_base, PLL_PLL_OUTDIV_RATE);
 	outdiv &= 0x3;
 	outdiv = 1 << outdiv;
 
@@ -521,12 +521,12 @@ static unsigned long dsi_pll_get_vco_rate(struct clk *c)
 	multiplier = 1 << 18;
 	pll_freq = dec * (ref_clk * 2);
 	tmp64 = (ref_clk * 2 * frac);
-	pll_freq += do_div(tmp64, multiplier);
+	pll_freq += div_u64(tmp64, multiplier);
 
-	vco_rate = do_div(pll_freq, outdiv);
+	vco_rate = div_u64(pll_freq, outdiv);
 
-	pr_debug("dec=0x%x\n, frac=0x%x, outdiv=%d, vco=%lu\n",
-		 dec, frac, outdiv, (unsigned long)vco_rate);
+	pr_debug("dec=0x%x, frac=0x%x, outdiv=%d, vco=%llu\n",
+		 dec, frac, outdiv, vco_rate);
 
 	(void)mdss_pll_resource_enable(pll, false);
 
