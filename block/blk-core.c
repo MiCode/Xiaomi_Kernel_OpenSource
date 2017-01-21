@@ -11,6 +11,12 @@
 /*
  * This handles all read/write requests to block devices
  */
+
+#ifdef CONFIG_BLOCK_PERF_FRAMEWORK
+#define DRIVER_NAME "Block"
+#define pr_fmt(fmt) DRIVER_NAME ": %s: " fmt, __func__
+#endif
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/backing-dev.h>
@@ -33,6 +39,12 @@
 #include <linux/ratelimit.h>
 #include <linux/pm_runtime.h>
 #include <linux/blk-cgroup.h>
+
+#ifdef CONFIG_BLOCK_PERF_FRAMEWORK
+#include <linux/ktime.h>
+#include <linux/spinlock.h>
+#include <linux/debugfs.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/block.h>
@@ -2111,6 +2123,456 @@ static inline struct task_struct *get_dirty_task(struct bio *bio)
 }
 #endif
 
+#ifdef CONFIG_BLOCK_PERF_FRAMEWORK
+#define BLK_PERF_SIZE (1024 * 15)
+#define BLK_PERF_HIST_SIZE (sizeof(u32) * BLK_PERF_SIZE)
+
+struct blk_perf_stats {
+	u32 *read_hist;
+	u32 *write_hist;
+	u32 *flush_hist;
+	int buffers_alloced;
+	ktime_t max_read_time;
+	ktime_t max_write_time;
+	ktime_t max_flush_time;
+	ktime_t min_write_time;
+	ktime_t min_read_time;
+	ktime_t min_flush_time;
+	ktime_t total_write_time;
+	ktime_t total_read_time;
+	u64 total_read_size;
+	u64 total_write_size;
+	spinlock_t lock;
+	int is_enabled;
+};
+
+static struct blk_perf_stats blk_perf;
+static struct dentry *blk_perf_debug_dir;
+
+static int alloc_histogram_buffers(void)
+{
+	int ret = 0;
+
+	if (!blk_perf.read_hist)
+		blk_perf.read_hist = kzalloc(BLK_PERF_HIST_SIZE, GFP_KERNEL);
+
+	if (!blk_perf.write_hist)
+		blk_perf.write_hist = kzalloc(BLK_PERF_HIST_SIZE, GFP_KERNEL);
+
+	if (!blk_perf.flush_hist)
+		blk_perf.flush_hist = kzalloc(BLK_PERF_HIST_SIZE, GFP_KERNEL);
+
+	if (!blk_perf.read_hist || !blk_perf.write_hist || !blk_perf.flush_hist)
+		ret = -ENOMEM;
+
+	if (!ret)
+		blk_perf.buffers_alloced = 1;
+	return ret;
+}
+
+static void clear_histogram_buffers(void)
+{
+	if (!blk_perf.buffers_alloced)
+		return;
+	memset(blk_perf.read_hist, 0, BLK_PERF_HIST_SIZE);
+	memset(blk_perf.write_hist, 0, BLK_PERF_HIST_SIZE);
+	memset(blk_perf.flush_hist, 0, BLK_PERF_HIST_SIZE);
+}
+
+static int enable_perf(void *data, u64 val)
+{
+	int ret;
+
+	if (!blk_perf.buffers_alloced)
+		ret = alloc_histogram_buffers();
+
+	if (ret)
+		return ret;
+
+	spin_lock(&blk_perf.lock);
+	blk_perf.is_enabled = val;
+	spin_unlock(&blk_perf.lock);
+	return 0;
+}
+
+static int is_perf_enabled(void *data, u64 *val)
+{
+	spin_lock(&blk_perf.lock);
+	*val = blk_perf.is_enabled;
+	spin_unlock(&blk_perf.lock);
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(enable_perf_fops, is_perf_enabled, enable_perf,
+			"%llu\n");
+
+static char *blk_debug_buffer;
+static u32 blk_debug_data_size;
+static DEFINE_MUTEX(blk_perf_debug_buffer_mutex);
+
+static ssize_t blk_perf_read(struct file *file, char __user *buf,
+			  size_t count, loff_t *file_pos)
+{
+	ssize_t ret = 0;
+
+	mutex_lock(&blk_perf_debug_buffer_mutex);
+	ret = simple_read_from_buffer(buf, count, file_pos, blk_debug_buffer,
+					blk_debug_data_size);
+	mutex_unlock(&blk_perf_debug_buffer_mutex);
+
+	return ret;
+}
+
+static int blk_debug_buffer_alloc(u32 buffer_size)
+{
+	int ret = 0;
+
+	mutex_lock(&blk_perf_debug_buffer_mutex);
+	if (blk_debug_buffer != NULL) {
+		pr_err("blk_debug_buffer is in use\n");
+		ret = -EBUSY;
+		goto end;
+	}
+	blk_debug_buffer = kzalloc(buffer_size, GFP_KERNEL);
+	if (!blk_debug_buffer)
+		ret = -ENOMEM;
+end:
+	mutex_unlock(&blk_perf_debug_buffer_mutex);
+	return ret;
+}
+
+static int blk_perf_close(struct inode *inode, struct file *file)
+{
+	mutex_lock(&blk_perf_debug_buffer_mutex);
+	blk_debug_data_size = 0;
+	kfree(blk_debug_buffer);
+	blk_debug_buffer = NULL;
+	mutex_unlock(&blk_perf_debug_buffer_mutex);
+	return 0;
+}
+
+static u32 fill_basic_perf_info(char *buffer, u32 buffer_size)
+{
+	u32 size = 0;
+
+	size += scnprintf(buffer + size, buffer_size - size, "\n");
+
+	spin_lock(&blk_perf.lock);
+	size += scnprintf(buffer + size, buffer_size - size,
+			  "max_read_time_ms: %llu\n",
+			  ktime_to_ms(blk_perf.max_read_time));
+
+	size += scnprintf(buffer + size, buffer_size - size,
+			  "min_read_time_ms: %llu\n",
+			  ktime_to_ms(blk_perf.min_read_time));
+
+	size += scnprintf(buffer + size, buffer_size - size,
+			  "total_read_time_ms: %llu\n",
+			  ktime_to_ms(blk_perf.total_read_time));
+
+	size += scnprintf(buffer + size, buffer_size - size,
+			  "total_read_size: %llu\n\n",
+			  blk_perf.total_read_size);
+
+	size += scnprintf(buffer + size, buffer_size - size,
+			  "max_write_time_ms: %llu\n",
+			  ktime_to_ms(blk_perf.max_write_time));
+
+	size += scnprintf(buffer + size, buffer_size - size,
+			  "min_write_time_ms: %llu\n",
+			  ktime_to_ms(blk_perf.min_write_time));
+
+	size += scnprintf(buffer + size, buffer_size - size,
+			  "total_write_time_ms: %llu\n",
+			  ktime_to_ms(blk_perf.total_write_time));
+
+	size += scnprintf(buffer + size, buffer_size - size,
+			  "total_write_size: %llu\n\n",
+			  blk_perf.total_write_size);
+
+	size += scnprintf(buffer + size, buffer_size - size,
+			  "max_flush_time_ms: %llu\n",
+			  ktime_to_ms(blk_perf.max_flush_time));
+
+	size += scnprintf(buffer + size, buffer_size - size,
+			  "min_flush_time_ms: %llu\n\n",
+			  ktime_to_ms(blk_perf.min_flush_time));
+
+	spin_unlock(&blk_perf.lock);
+
+	return size;
+}
+
+static int basic_perf_open(struct inode *inode, struct file *file)
+{
+	u32 buffer_size;
+	int ret;
+
+	buffer_size = BLK_PERF_HIST_SIZE;
+	ret = blk_debug_buffer_alloc(buffer_size);
+	if (ret)
+		return ret;
+
+	mutex_lock(&blk_perf_debug_buffer_mutex);
+	blk_debug_data_size = fill_basic_perf_info(blk_debug_buffer,
+						   buffer_size);
+	mutex_unlock(&blk_perf_debug_buffer_mutex);
+	return 0;
+}
+
+
+static const struct file_operations basic_perf_ops = {
+	.read = blk_perf_read,
+	.release = blk_perf_close,
+	.open = basic_perf_open,
+};
+
+static int hist_open_helper(void *hist_buf)
+{
+	int ret;
+
+	if (!blk_perf.buffers_alloced)
+		return -EINVAL;
+
+	ret = blk_debug_buffer_alloc(BLK_PERF_HIST_SIZE);
+	if (ret)
+		return ret;
+
+	spin_lock(&blk_perf.lock);
+	memcpy(blk_debug_buffer, hist_buf, BLK_PERF_HIST_SIZE);
+	spin_unlock(&blk_perf.lock);
+
+	mutex_lock(&blk_perf_debug_buffer_mutex);
+	blk_debug_data_size = BLK_PERF_HIST_SIZE;
+	mutex_unlock(&blk_perf_debug_buffer_mutex);
+	return 0;
+}
+
+static int write_hist_open(struct inode *inode, struct file *file)
+{
+	return hist_open_helper(blk_perf.write_hist);
+}
+
+static const struct file_operations write_hist_ops = {
+	.read = blk_perf_read,
+	.release = blk_perf_close,
+	.open = write_hist_open,
+};
+
+
+static int read_hist_open(struct inode *inode, struct file *file)
+{
+	return hist_open_helper(blk_perf.read_hist);
+}
+
+static const struct file_operations read_hist_ops = {
+	.read = blk_perf_read,
+	.release = blk_perf_close,
+	.open = read_hist_open,
+};
+
+static int flush_hist_open(struct inode *inode, struct file *file)
+{
+	return hist_open_helper(blk_perf.flush_hist);
+}
+
+static const struct file_operations flush_hist_ops = {
+	.read = blk_perf_read,
+	.release = blk_perf_close,
+	.open = flush_hist_open,
+};
+
+static void clear_perf_stats_helper(void)
+{
+	spin_lock(&blk_perf.lock);
+	blk_perf.max_write_time = ktime_set(0, 0);
+	blk_perf.max_read_time = ktime_set(0, 0);
+	blk_perf.max_flush_time = ktime_set(0, 0);
+	blk_perf.min_write_time = ktime_set(KTIME_MAX, 0);
+	blk_perf.min_read_time = ktime_set(KTIME_MAX, 0);
+	blk_perf.min_flush_time = ktime_set(KTIME_MAX, 0);
+	blk_perf.total_write_time = ktime_set(0, 0);
+	blk_perf.total_read_time = ktime_set(0, 0);
+	blk_perf.total_read_size = 0;
+	blk_perf.total_write_size = 0;
+	blk_perf.is_enabled = 0;
+	clear_histogram_buffers();
+	spin_unlock(&blk_perf.lock);
+}
+
+static int clear_perf_stats(void *data, u64 val)
+{
+	clear_perf_stats_helper();
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(clear_perf_stats_fops, NULL, clear_perf_stats,
+			"%llu\n");
+
+static void blk_debugfs_init(void)
+{
+	struct dentry *f_ent;
+
+	blk_perf_debug_dir = debugfs_create_dir("block_perf", NULL);
+	if (IS_ERR(blk_perf_debug_dir)) {
+		pr_err("Failed to create block_perf debug_fs directory\n");
+		return;
+	}
+
+	f_ent = debugfs_create_file("basic_perf", 0400, blk_perf_debug_dir,
+					NULL, &basic_perf_ops);
+	if (IS_ERR(f_ent)) {
+		pr_err("Failed to create debug_fs basic_perf file\n");
+		return;
+	}
+
+	f_ent = debugfs_create_file("write_hist", 0400, blk_perf_debug_dir,
+					NULL, &write_hist_ops);
+	if (IS_ERR(f_ent)) {
+		pr_err("Failed to create debug_fs write_hist file\n");
+		return;
+	}
+
+	f_ent = debugfs_create_file("read_hist", 0400, blk_perf_debug_dir,
+					NULL, &read_hist_ops);
+	if (IS_ERR(f_ent)) {
+		pr_err("Failed to create debug_fs read_hist file\n");
+		return;
+	}
+
+	f_ent = debugfs_create_file("flush_hist", 0400, blk_perf_debug_dir,
+					NULL, &flush_hist_ops);
+	if (IS_ERR(f_ent)) {
+		pr_err("Failed to create debug_fs flush_hist file\n");
+		return;
+	}
+
+	f_ent = debugfs_create_file("enable_perf", 0600, blk_perf_debug_dir,
+					NULL, &enable_perf_fops);
+	if (IS_ERR(f_ent)) {
+		pr_err("Failed to create debug_fs enable_perf file\n");
+		return;
+	}
+
+	f_ent = debugfs_create_file("clear_perf_stats", 0200,
+				     blk_perf_debug_dir, NULL,
+				     &clear_perf_stats_fops);
+	if (IS_ERR(f_ent)) {
+		pr_err("Failed to create debug_fs clear_perf_stats file\n");
+		return;
+	}
+}
+
+static void blk_init_perf(void)
+{
+	blk_debugfs_init();
+	spin_lock_init(&blk_perf.lock);
+
+	clear_perf_stats_helper();
+}
+
+
+static void set_submit_info(struct bio *bio, unsigned int count)
+{
+	ktime_t submit_time;
+
+	if (unlikely(blk_perf.is_enabled))  {
+		submit_time = ktime_get();
+		bio->submit_time.tv64 = submit_time.tv64;
+		bio->blk_sector_count = count;
+		return;
+	}
+
+	bio->submit_time.tv64 = 0;
+	bio->blk_sector_count = 0;
+}
+
+void blk_update_perf_read_write_stats(ktime_t bio_process_time, int is_write,
+					int count)
+{
+	u32 bio_process_time_ms;
+
+	bio_process_time_ms = ktime_to_ms(bio_process_time);
+	if (bio_process_time_ms >= BLK_PERF_SIZE)
+		bio_process_time_ms = BLK_PERF_SIZE - 1;
+
+	if (is_write) {
+		if (ktime_after(bio_process_time, blk_perf.max_write_time))
+			blk_perf.max_write_time = bio_process_time;
+
+		if (ktime_before(bio_process_time, blk_perf.min_write_time))
+			blk_perf.min_write_time = bio_process_time;
+		blk_perf.total_write_time =
+			ktime_add(blk_perf.total_write_time, bio_process_time);
+		blk_perf.total_write_size += count;
+		blk_perf.write_hist[bio_process_time_ms] += count;
+
+	} else {
+		if (ktime_after(bio_process_time, blk_perf.max_read_time))
+			blk_perf.max_read_time = bio_process_time;
+
+		if (ktime_before(bio_process_time, blk_perf.min_read_time))
+			blk_perf.min_read_time = bio_process_time;
+		blk_perf.total_read_time =
+			 ktime_add(blk_perf.total_read_time, bio_process_time);
+		blk_perf.total_read_size += count;
+		blk_perf.read_hist[bio_process_time_ms] += count;
+	}
+}
+void blk_update_perf_stats(struct bio *bio)
+{
+	ktime_t bio_process_time;
+	u32 bio_process_time_ms;
+	u32 count;
+
+	spin_lock(&blk_perf.lock);
+	if (likely(!blk_perf.is_enabled))
+		goto end;
+	if (!bio->submit_time.tv64)
+		goto end;
+	bio_process_time = ktime_sub(ktime_get(), bio->submit_time);
+
+	count = bio->blk_sector_count;
+
+	if (count) {
+		int is_write = 0;
+
+		if (bio->bi_rw & WRITE ||
+		    unlikely(bio->bi_rw & REQ_WRITE_SAME))
+			is_write = 1;
+
+		blk_update_perf_read_write_stats(bio_process_time, is_write,
+						 count);
+	} else {
+
+		bio_process_time_ms = ktime_to_ms(bio_process_time);
+		if (bio_process_time_ms >= BLK_PERF_SIZE)
+			bio_process_time_ms = BLK_PERF_SIZE - 1;
+
+		if (ktime_after(bio_process_time, blk_perf.max_flush_time))
+			blk_perf.max_flush_time = bio_process_time;
+
+		if (ktime_before(bio_process_time, blk_perf.min_flush_time))
+			blk_perf.min_flush_time = bio_process_time;
+
+		blk_perf.flush_hist[bio_process_time_ms] += 1;
+	}
+end:
+	spin_unlock(&blk_perf.lock);
+
+}
+#else
+static inline  void set_submit_info(struct bio *bio, unsigned int count)
+{
+	(void) bio;
+	(void) count;
+}
+
+static inline void blk_init_perf(void)
+{
+}
+#endif /* #ifdef CONFIG_BLOCK_PERF_FRAMEWORK */
+
 /**
  * submit_bio - submit a bio to the block device layer for I/O
  * @rw: whether to %READ or %WRITE, or maybe to %READA (read ahead)
@@ -2123,6 +2585,7 @@ static inline struct task_struct *get_dirty_task(struct bio *bio)
  */
 blk_qc_t submit_bio(int rw, struct bio *bio)
 {
+	unsigned int count = 0;
 	bio->bi_rw |= rw;
 
 	/*
@@ -2130,8 +2593,6 @@ blk_qc_t submit_bio(int rw, struct bio *bio)
 	 * go through the normal accounting stuff before submission.
 	 */
 	if (bio_has_data(bio)) {
-		unsigned int count;
-
 		if (unlikely(rw & REQ_WRITE_SAME))
 			count = bdev_logical_block_size(bio->bi_bdev) >> 9;
 		else
@@ -2158,6 +2619,7 @@ blk_qc_t submit_bio(int rw, struct bio *bio)
 		}
 	}
 
+	set_submit_info(bio, count);
 	return generic_make_request(bio);
 }
 EXPORT_SYMBOL(submit_bio);
@@ -3578,7 +4040,7 @@ int __init blk_dev_init(void)
 
 	blk_requestq_cachep = kmem_cache_create("blkdev_queue",
 			sizeof(struct request_queue), 0, SLAB_PANIC, NULL);
-
+	blk_init_perf();
 	return 0;
 }
 
