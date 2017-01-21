@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,7 +68,6 @@ v----------+----------v	  |	divsel_five	|    |	   divsel_ten	   |
 #include "mdss-dp-pll.h"
 #include "mdss-dp-pll-8998.h"
 
-static const struct clk_ops clk_ops_gen_mux_dp;
 static const struct clk_ops clk_ops_hsclk_divsel_clk_src_c;
 static const struct clk_ops clk_ops_vco_divided_clk_src_c;
 static const struct clk_ops clk_ops_link_2x_clk_div_c;
@@ -169,7 +168,7 @@ static struct mux_clk dp_link_2x_clk_mux = {
 	.c = {
 		.parent = &dp_link_2x_clk_divsel_five.c,
 		.dbg_name = "dp_link_2x_clk_mux",
-		.ops = &clk_ops_gen_mux_dp,
+		.ops = &clk_ops_gen_mux,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(dp_link_2x_clk_mux.c),
 	}
@@ -217,10 +216,6 @@ int dp_pll_clock_register_8998(struct platform_device *pdev,
 	vco_divided_clk_src.priv = pll_res;
 	dp_link_2x_clk_divsel_five.priv = pll_res;
 	dp_link_2x_clk_divsel_ten.priv = pll_res;
-
-	clk_ops_gen_mux_dp = clk_ops_gen_mux;
-	clk_ops_gen_mux_dp.round_rate = parent_round_rate;
-	clk_ops_gen_mux_dp.set_rate = parent_set_rate;
 
 	clk_ops_hsclk_divsel_clk_src_c = clk_ops_div;
 	clk_ops_hsclk_divsel_clk_src_c.prepare = mdss_pll_div_prepare;
