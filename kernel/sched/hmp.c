@@ -590,6 +590,7 @@ void update_cluster_topology(void)
 	 * cluster_head visible.
 	 */
 	move_list(&cluster_head, &new_head, false);
+	update_all_clusters_stats();
 }
 
 void init_clusters(void)
