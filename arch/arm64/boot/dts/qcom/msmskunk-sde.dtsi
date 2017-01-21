@@ -53,6 +53,8 @@
 
 		qcom,sde-sspp-xin-id = <0 4 8 12
 					1 5 9 13>;
+		qcom,sde-sspp-excl-rect = <1 1 1 1
+						1 1 1 1>;
 
 		qcom,sde-mixer-pair-mask = <2 1 6 0 0 3>;
 
@@ -74,5 +76,11 @@
 		qcom,sde-panic-per-pipe;
 		qcom,sde-has-cdp;
 		qcom,sde-has-src-split;
+		qcom,sde-has-dim-layer;
+
+		qcom,sde-sspp-vig-blocks {
+			qcom,sde-vig-csc-off = <0x1a00>;
+			qcom,sde-vig-qseed-off = <0xa00>;
+		};
 	};
 };
