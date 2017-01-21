@@ -54,6 +54,11 @@
 		qcom,sde-sspp-xin-id = <0 4 8 12
 					1 5 9 13>;
 
+		qcom,sde-mixer-pair-mask = <2 1 6 0 0 3>;
+
+		qcom,sde-mixer-blend-op-off = <0x20 0x38 0x50 0x68 0x80 0x98
+						0xb0 0xc8 0xe0 0xf8 0x110>;
+
 		/* offsets are relative to "mdp_phys + qcom,sde-off */
 		qcom,sde-sspp-clk-ctrl =
 				<0x2ac 0>, <0x2b4 0>, <0x2bc 0>, <0x2c4 0>,

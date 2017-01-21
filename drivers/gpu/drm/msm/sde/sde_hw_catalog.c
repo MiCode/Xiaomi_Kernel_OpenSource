@@ -192,6 +192,7 @@ enum {
 enum {
 	MIXER_OFF,
 	MIXER_LEN,
+	MIXER_PAIR_MASK,
 	MIXER_BLOCKS,
 	MIXER_PROP_MAX,
 };
@@ -199,6 +200,11 @@ enum {
 enum {
 	MIXER_GC_PROP,
 	MIXER_BLOCKS_PROP_MAX,
+};
+
+enum {
+	MIXER_BLEND_OP_OFF,
+	MIXER_BLEND_PROP_MAX,
 };
 
 enum {
@@ -309,9 +315,16 @@ static struct sde_prop_type ctl_prop[] = {
 	{HW_LEN, "qcom,sde-ctl-size", false, PROP_TYPE_U32},
 };
 
+struct sde_prop_type mixer_blend_prop[] = {
+	{MIXER_BLEND_OP_OFF, "qcom,sde-mixer-blend-op-off", true,
+		PROP_TYPE_U32_ARRAY},
+};
+
 static struct sde_prop_type mixer_prop[] = {
 	{MIXER_OFF, "qcom,sde-mixer-off", true, PROP_TYPE_U32_ARRAY},
 	{MIXER_LEN, "qcom,sde-mixer-size", false, PROP_TYPE_U32},
+	{MIXER_PAIR_MASK, "qcom,sde-mixer-pair-mask", true,
+		PROP_TYPE_U32_ARRAY},
 	{MIXER_BLOCKS, "qcom,sde-mixer-blocks", false, PROP_TYPE_NODE},
 };
 
@@ -1002,14 +1015,15 @@ end:
 static int sde_mixer_parse_dt(struct device_node *np,
 						struct sde_mdss_cfg *sde_cfg)
 {
-	int rc, prop_count[MIXER_PROP_MAX], i;
+	int rc, prop_count[MIXER_PROP_MAX], i, j;
 	int blocks_prop_count[MIXER_BLOCKS_PROP_MAX];
+	int blend_prop_count[MIXER_BLEND_PROP_MAX];
 	bool prop_exists[MIXER_PROP_MAX];
 	bool blocks_prop_exists[MIXER_BLOCKS_PROP_MAX];
+	bool blend_prop_exists[MIXER_BLEND_PROP_MAX];
 	struct sde_prop_value *prop_value = NULL, *blocks_prop_value = NULL;
-	u32 off_count, max_blendstages;
-	u32 blend_reg_base[] = {0x20, 0x50, 0x80, 0xb0, 0x230, 0x260, 0x290};
-	u32 lm_pair_mask[] = {LM_1, LM_0, LM_5, 0x0, 0x0, LM_2};
+	struct sde_prop_value *blend_prop_value = NULL;
+	u32 off_count, blend_off_count, max_blendstages, lm_pair_mask;
 	struct sde_lm_cfg *mixer;
 	struct sde_lm_sub_blks *sblk;
 	int pp_count, dspp_count;
@@ -1065,6 +1079,24 @@ static int sde_mixer_parse_dt(struct device_node *np,
 				blocks_prop_value);
 	}
 
+	/* get the blend_op register offsets */
+	blend_prop_value = kzalloc(MIXER_BLEND_PROP_MAX *
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!blend_prop_value) {
+		rc = -ENOMEM;
+		goto end;
+	}
+	rc = _validate_dt_entry(np, mixer_blend_prop,
+		ARRAY_SIZE(mixer_blend_prop), blend_prop_count,
+		&blend_off_count);
+	if (rc)
+		goto end;
+
+	rc = _read_dt_entry(np, mixer_blend_prop, ARRAY_SIZE(mixer_blend_prop),
+		blend_prop_count, blend_prop_exists, blend_prop_value);
+	if (rc)
+		goto end;
+
 	for (i = 0, pp_idx = 0, dspp_idx = 0; i < off_count; i++) {
 		mixer = sde_cfg->mixer + i;
 		sblk = kzalloc(sizeof(*sblk), GFP_KERNEL);
@@ -1081,14 +1113,19 @@ static int sde_mixer_parse_dt(struct device_node *np,
 		if (!prop_exists[MIXER_LEN])
 			mixer->len = DEFAULT_SDE_HW_BLOCK_LEN;
 
-		if (lm_pair_mask[i])
-			mixer->lm_pair_mask = 1 << lm_pair_mask[i];
+		lm_pair_mask = PROP_VALUE_ACCESS(prop_value,
+				MIXER_PAIR_MASK, i);
+		if (lm_pair_mask)
+			mixer->lm_pair_mask = 1 << lm_pair_mask;
 
 		sblk->maxblendstages = max_blendstages;
 		sblk->maxwidth = sde_cfg->max_mixer_width;
-		memcpy(sblk->blendstage_base, blend_reg_base, sizeof(u32) *
-			min_t(u32, MAX_BLOCKS, min_t(u32,
-			ARRAY_SIZE(blend_reg_base), max_blendstages)));
+
+		for (j = 0; j < blend_off_count; j++)
+			sblk->blendstage_base[j] =
+				PROP_VALUE_ACCESS(blend_prop_value,
+						MIXER_BLEND_OP_OFF, j);
+
 		if (sde_cfg->has_src_split)
 			set_bit(SDE_MIXER_SOURCESPLIT, &mixer->features);
 		if (sde_cfg->has_dim_layer)
@@ -1122,6 +1159,7 @@ static int sde_mixer_parse_dt(struct device_node *np,
 end:
 	kfree(prop_value);
 	kfree(blocks_prop_value);
+	kfree(blend_prop_value);
 	return rc;
 }
 
