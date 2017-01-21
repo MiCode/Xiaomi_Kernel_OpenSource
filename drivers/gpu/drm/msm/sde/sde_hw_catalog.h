@@ -92,6 +92,7 @@ enum {
  * @SDE_SSPP_PCC,            Color correction support
  * @SDE_SSPP_CURSOR,         SSPP can be used as a cursor layer
  * @SDE_SSPP_QOS,            SSPP support QoS control, danger/safe/creq
+ * @SDE_SSPP_EXCL_RECT,      SSPP supports exclusion rect
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -107,6 +108,7 @@ enum {
 	SDE_SSPP_PCC,
 	SDE_SSPP_CURSOR,
 	SDE_SSPP_QOS,
+	SDE_SSPP_EXCL_RECT,
 	SDE_SSPP_MAX
 };
 

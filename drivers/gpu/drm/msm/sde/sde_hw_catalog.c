@@ -121,6 +121,7 @@ enum {
 	SSPP_SCALE_SIZE,
 	SSPP_VIG_BLOCKS,
 	SSPP_RGB_BLOCKS,
+	SSPP_EXCL_RECT,
 	SSPP_PROP_MAX,
 };
 
@@ -284,6 +285,7 @@ static struct sde_prop_type sspp_prop[] = {
 	{SSPP_SCALE_SIZE, "qcom,sde-sspp-scale-size", false, PROP_TYPE_U32},
 	{SSPP_VIG_BLOCKS, "qcom,sde-sspp-vig-blocks", false, PROP_TYPE_NODE},
 	{SSPP_RGB_BLOCKS, "qcom,sde-sspp-rgb-blocks", false, PROP_TYPE_NODE},
+	{SSPP_EXCL_RECT, "qcom,sde-sspp-excl-rect", false, PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type vig_prop[] = {
@@ -909,6 +911,9 @@ static int sde_sspp_parse_dt(struct device_node *np,
 		sblk->creq_lut_nrt = DEFAULT_CREQ_LUT_NRT;
 		sblk->pixel_ram_size = DEFAULT_PIXEL_RAM_SIZE;
 		sblk->src_blk.len = PROP_VALUE_ACCESS(prop_value, SSPP_SIZE, 0);
+
+		if (PROP_VALUE_ACCESS(prop_value, SSPP_EXCL_RECT, i) == 1)
+			set_bit(SDE_SSPP_EXCL_RECT, &sspp->features);
 
 		for (j = 0; j < sde_cfg->mdp_count; j++) {
 			sde_cfg->mdp[j].clk_ctrls[sspp->clk_ctrl].reg_off =

@@ -47,6 +47,7 @@
 #define MDSS_MDP_OP_BWC_Q_MED              (2 << 1)
 
 #define SSPP_SRC_CONSTANT_COLOR            0x3c
+#define SSPP_EXCL_REC_CTL                  0x40
 #define SSPP_FETCH_CONFIG                  0x048
 #define SSPP_DANGER_LUT                    0x60
 #define SSPP_SAFE_LUT                      0x64
@@ -64,6 +65,8 @@
 #define SSPP_SW_PIX_EXT_C3_TB              0x124
 #define SSPP_SW_PIX_EXT_C3_REQ_PIXELS      0x128
 #define SSPP_UBWC_ERROR_STATUS             0x138
+#define SSPP_EXCL_REC_SIZE                 0x1B4
+#define SSPP_EXCL_REC_XY                   0x1B8
 #define SSPP_VIG_OP_MODE                   0x0
 #define SSPP_VIG_CSC_10_OP_MODE            0x0
 
@@ -737,6 +740,35 @@ static void sde_hw_sspp_setup_rects(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(c, SSPP_DECIMATION_CONFIG + idx, decimation);
 }
 
+/**
+ * _sde_hw_sspp_setup_excl_rect() - set exclusion rect configs
+ * @ctx: Pointer to pipe context
+ * @excl_rect: Exclusion rect configs
+ */
+static void _sde_hw_sspp_setup_excl_rect(struct sde_hw_pipe *ctx,
+		struct sde_rect *excl_rect)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 size, xy;
+	u32 idx;
+
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx) || !excl_rect)
+		return;
+
+	c = &ctx->hw;
+
+	xy = (excl_rect->y << 16) | (excl_rect->x);
+	size = (excl_rect->h << 16) | (excl_rect->w);
+
+	if (!size) {
+		SDE_REG_WRITE(c, SSPP_EXCL_REC_CTL + idx, 0);
+	} else {
+		SDE_REG_WRITE(c, SSPP_EXCL_REC_CTL + idx, BIT(0));
+		SDE_REG_WRITE(c, SSPP_EXCL_REC_SIZE + idx, size);
+		SDE_REG_WRITE(c, SSPP_EXCL_REC_XY + idx, xy);
+	}
+}
+
 static void sde_hw_sspp_setup_sourceaddress(struct sde_hw_pipe *ctx,
 		struct sde_hw_pipe_cfg *cfg)
 {
@@ -850,6 +882,10 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 		c->ops.setup_sourceaddress = sde_hw_sspp_setup_sourceaddress;
 		c->ops.setup_solidfill = sde_hw_sspp_setup_solidfill;
 	}
+
+	if (test_bit(SDE_SSPP_EXCL_RECT, &features))
+		c->ops.setup_excl_rect = _sde_hw_sspp_setup_excl_rect;
+
 	if (test_bit(SDE_SSPP_QOS, &features)) {
 		c->ops.setup_danger_safe_lut =
 			sde_hw_sspp_setup_danger_safe_lut;

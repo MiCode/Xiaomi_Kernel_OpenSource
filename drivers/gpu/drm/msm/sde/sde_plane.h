@@ -31,6 +31,7 @@
  * @property_blobs:	blob properties
  * @input_fence:	dereferenced input fence pointer
  * @stage:	assigned by crtc blender
+ * @excl_rect:	exclusion rect values
  * @dirty:	bitmask for which pipe h/w config functions need to be updated
  * @pending:	whether the current update is still pending
  */
@@ -40,6 +41,7 @@ struct sde_plane_state {
 	struct drm_property_blob *property_blobs[PLANE_PROP_BLOBCOUNT];
 	void *input_fence;
 	enum sde_stage stage;
+	struct sde_rect excl_rect;
 	uint32_t dirty;
 	bool pending;
 };
