@@ -2285,7 +2285,6 @@ reschedule:
 			      msecs_to_jiffies(BATT_AVG_POLL_PERIOD_MS));
 }
 
-#define DECI_TAU_SCALE		13
 #define HOURS_TO_SECONDS	3600
 #define OCV_SLOPE_UV		10869
 #define MILLI_UNIT		1000
@@ -2294,7 +2293,7 @@ static int fg_get_time_to_full(struct fg_chip *chip, int *val)
 {
 	int rc, ibatt_avg, vbatt_avg, rbatt, msoc, ocv_cc2cv, full_soc,
 		act_cap_uah;
-	s32 i_cc2cv, soc_cc2cv, ln_val;
+	s32 i_cc2cv, soc_cc2cv, ln_val, centi_tau_scale;
 	s64 t_predicted_cc = 0, t_predicted_cv = 0;
 
 	if (chip->bp.float_volt_uv <= 0) {
@@ -2417,15 +2416,20 @@ skip_cc_estimate:
 
 	/* CV estimate starts here */
 	if (chip->charge_type >= POWER_SUPPLY_CHARGE_TYPE_TAPER)
-		ln_val = ibatt_avg / abs(chip->dt.sys_term_curr_ma);
+		ln_val = ibatt_avg / (abs(chip->dt.sys_term_curr_ma) + 200);
 	else
-		ln_val = i_cc2cv / abs(chip->dt.sys_term_curr_ma);
+		ln_val = i_cc2cv / (abs(chip->dt.sys_term_curr_ma) + 200);
+
+	if (msoc < 95)
+		centi_tau_scale = 100;
+	else
+		centi_tau_scale = 20 * (100 - msoc);
 
 	fg_dbg(chip, FG_TTF, "ln_in=%d\n", ln_val);
 	rc = fg_lerp(fg_ln_table, ARRAY_SIZE(fg_ln_table), ln_val, &ln_val);
 	fg_dbg(chip, FG_TTF, "ln_out=%d\n", ln_val);
 	t_predicted_cv = div_s64((s64)act_cap_uah * rbatt, MICRO_UNIT);
-	t_predicted_cv = div_s64(t_predicted_cv * DECI_TAU_SCALE, 10);
+	t_predicted_cv = div_s64(t_predicted_cv * centi_tau_scale, 100);
 	t_predicted_cv = div_s64(t_predicted_cv * ln_val, MILLI_UNIT);
 	t_predicted_cv = div_s64(t_predicted_cv * HOURS_TO_SECONDS, MICRO_UNIT);
 	fg_dbg(chip, FG_TTF, "t_predicted_cv=%lld\n", t_predicted_cv);
