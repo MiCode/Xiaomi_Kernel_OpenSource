@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,6 +90,44 @@
 		qcom,dig-load = <15000>;
 		qcom,dig-vtg-min = <1800000>;
 		qcom,dig-vtg-max = <1800000>;
+	};
+
+	tlmm: pinctrl@1000000 {
+		ssusb_mode_sel: ssusb_mode_sel {
+			mux {
+				pins = "gpio61";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio61";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
+	};
+
+	usb_detect {
+		compatible = "qcom,gpio-usbdetect";
+		interrupt-names = "vbus_det_irq";
+		interrupt-parent = <&tlmm>;
+		interrupts = <61 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ssusb_mode_sel>;
+		qcom,notify-host-mode;
+		qcom,disable-device-mode;
+		qcom,gpio-mode-sel = <&tlmm 61 0>;
+	};
+};
+
+&spmi_bus {
+	qcom,pmi8950@2 {
+		pmi8950_charger: qcom,qpnp-smbcharger {
+			smbcharger_charger_otg: qcom,smbcharger-boost-otg {
+				status = "disabled";
+			};
+		};
 	};
 };
 
