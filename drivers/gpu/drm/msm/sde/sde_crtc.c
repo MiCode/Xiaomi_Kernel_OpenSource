@@ -156,15 +156,78 @@ static void _sde_crtc_setup_blend_cfg(struct sde_crtc_mixer *mixer,
 		format->alpha_enable, fg_alpha, bg_alpha, blend_op);
 }
 
+static void _sde_crtc_setup_dim_layer_cfg(struct drm_crtc *crtc,
+		struct sde_crtc *sde_crtc, struct sde_crtc_mixer *mixer,
+		struct sde_hw_dim_layer *dim_layer)
+{
+	struct sde_hw_mixer *lm;
+	struct sde_rect mixer_rect;
+	struct sde_hw_dim_layer split_dim_layer;
+	u32 mixer_width, mixer_height;
+	int i;
+
+	if (!dim_layer->rect.w || !dim_layer->rect.h) {
+		SDE_DEBUG("empty dim layer\n");
+		return;
+	}
+
+	mixer_width = get_crtc_split_width(crtc);
+	mixer_height = get_crtc_mixer_height(crtc);
+	mixer_rect = (struct sde_rect) {0, 0, mixer_width, mixer_height};
+
+	split_dim_layer.stage = dim_layer->stage;
+	split_dim_layer.color_fill = dim_layer->color_fill;
+
+	/*
+	 * traverse through the layer mixers attached to crtc and find the
+	 * intersecting dim layer rect in each LM and program accordingly.
+	 */
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		split_dim_layer.flags = dim_layer->flags;
+		mixer_rect.x = i * mixer_width;
+
+		sde_kms_rect_intersect(&split_dim_layer.rect, &mixer_rect,
+					&dim_layer->rect);
+		if (!split_dim_layer.rect.w && !split_dim_layer.rect.h) {
+			/*
+			 * no extra programming required for non-intersecting
+			 * layer mixers with INCLUSIVE dim layer
+			 */
+			if (split_dim_layer.flags
+					& SDE_DRM_DIM_LAYER_INCLUSIVE)
+				continue;
+
+			/*
+			 * program the other non-intersecting layer mixers with
+			 * INCLUSIVE dim layer of full size for uniformity
+			 * with EXCLUSIVE dim layer config.
+			 */
+			split_dim_layer.flags &= ~SDE_DRM_DIM_LAYER_EXCLUSIVE;
+			split_dim_layer.flags |= SDE_DRM_DIM_LAYER_INCLUSIVE;
+			split_dim_layer.rect = (struct sde_rect) {0, 0,
+						mixer_width, mixer_height};
+
+		} else {
+			split_dim_layer.rect.x = split_dim_layer.rect.x
+							- (i * mixer_width);
+		}
+
+		lm = mixer[i].hw_lm;
+		mixer[i].mixer_op_mode |= 1 << split_dim_layer.stage;
+		lm->ops.setup_dim_layer(lm, &split_dim_layer);
+	}
+}
+
 static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc, struct sde_crtc_mixer *mixer)
 {
 	struct drm_plane *plane;
-
+	struct sde_crtc_state *cstate;
 	struct sde_plane_state *pstate = NULL;
 	struct sde_format *format;
-	struct sde_hw_ctl *ctl = mixer->hw_ctl;
-	struct sde_hw_stage_cfg *stage_cfg = &sde_crtc->stage_cfg;
+	struct sde_hw_ctl *ctl;
+	struct sde_hw_mixer *lm;
+	struct sde_hw_stage_cfg *stage_cfg;
 
 	u32 flush_mask = 0, crtc_split_width;
 	uint32_t lm_idx = LEFT_MIXER, idx;
@@ -172,7 +235,16 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	bool lm_right = false;
 	int left_crtc_zpos_cnt[SDE_STAGE_MAX + 1] = {0};
 	int right_crtc_zpos_cnt[SDE_STAGE_MAX + 1] = {0};
+	int i;
 
+	if (!sde_crtc || !mixer) {
+		SDE_ERROR("invalid sde_crtc or mixer\n");
+		return;
+	}
+
+	ctl = mixer->hw_ctl;
+	lm = mixer->hw_lm;
+	stage_cfg = &sde_crtc->stage_cfg;
 	crtc_split_width = get_crtc_split_width(crtc);
 
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
@@ -246,6 +318,13 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 			}
 		}
 	}
+
+	if (lm && lm->ops.setup_dim_layer) {
+		cstate = to_sde_crtc_state(crtc->state);
+		for (i = 0; i < cstate->num_dim_layers; i++)
+			_sde_crtc_setup_dim_layer_cfg(crtc, sde_crtc,
+					mixer, &cstate->dim_layer[i]);
+	}
 }
 
 /**
@@ -278,6 +357,11 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 		if (mixer[i].hw_ctl->ops.clear_all_blendstages)
 			mixer[i].hw_ctl->ops.clear_all_blendstages(
 					mixer[i].hw_ctl);
+
+		/* clear dim_layer settings */
+		lm = mixer[i].hw_lm;
+		if (lm->ops.clear_dim_layer)
+			lm->ops.clear_dim_layer(lm);
 	}
 
 	/* initialize stage cfg */
@@ -430,6 +514,62 @@ static void _sde_crtc_set_input_fence_timeout(struct sde_crtc_state *cstate)
 	cstate->input_fence_timeout_ns =
 		sde_crtc_get_property(cstate, CRTC_PROP_INPUT_FENCE_TIMEOUT);
 	cstate->input_fence_timeout_ns *= NSEC_PER_MSEC;
+}
+
+/**
+ * _sde_crtc_set_dim_layer_v1 - copy dim layer settings from userspace
+ * @cstate:      Pointer to sde crtc state
+ * @user_ptr:    User ptr for sde_drm_dim_layer_v1 struct
+ */
+static void _sde_crtc_set_dim_layer_v1(struct sde_crtc_state *cstate,
+		void *usr_ptr)
+{
+	struct sde_drm_dim_layer_v1 dim_layer_v1;
+	struct sde_drm_dim_layer_cfg *user_cfg;
+	u32 count, i;
+
+	if (!cstate) {
+		SDE_ERROR("invalid cstate\n");
+		return;
+	}
+
+	if (!usr_ptr) {
+		SDE_DEBUG("dim layer data removed\n");
+		return;
+	}
+
+	if (copy_from_user(&dim_layer_v1, usr_ptr, sizeof(dim_layer_v1))) {
+		SDE_ERROR("failed to copy dim layer data\n");
+		return;
+	}
+
+	count = dim_layer_v1.num_layers;
+	if (!count || (count > SDE_MAX_DIM_LAYERS)) {
+		SDE_ERROR("invalid number of Dim Layers:%d", count);
+		return;
+	}
+
+	/* populate from user space */
+	cstate->num_dim_layers = count;
+	for (i = 0; i < count; i++) {
+		user_cfg = &dim_layer_v1.layer_cfg[i];
+		cstate->dim_layer[i].flags = user_cfg->flags;
+		cstate->dim_layer[i].stage = user_cfg->stage + SDE_STAGE_0;
+
+		cstate->dim_layer[i].rect.x = user_cfg->rect.x1;
+		cstate->dim_layer[i].rect.y = user_cfg->rect.y1;
+		cstate->dim_layer[i].rect.w = user_cfg->rect.x2 -
+						user_cfg->rect.x1 + 1;
+		cstate->dim_layer[i].rect.h = user_cfg->rect.y2 -
+						user_cfg->rect.y1 + 1;
+
+		cstate->dim_layer[i].color_fill = (struct sde_mdss_color) {
+				user_cfg->color_fill.color_0,
+				user_cfg->color_fill.color_1,
+				user_cfg->color_fill.color_2,
+				user_cfg->color_fill.color_3,
+		};
+	}
 }
 
 /**
@@ -889,6 +1029,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc;
 	struct plane_state pstates[SDE_STAGE_MAX * 2];
+	struct sde_crtc_state *cstate;
 
 	const struct drm_plane_state *pstate;
 	struct drm_plane *plane;
@@ -910,6 +1051,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	}
 
 	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(state);
 	mode = &state->adjusted_mode;
 	SDE_DEBUG("%s: check", sde_crtc->name);
 
@@ -930,6 +1072,18 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		pstates[cnt].drm_pstate = pstate;
 		pstates[cnt].stage = sde_plane_get_property(
 				pstates[cnt].sde_pstate, PLANE_PROP_ZPOS);
+
+		/* check dim layer stage with every plane */
+		for (i = 0; i < cstate->num_dim_layers; i++) {
+			if (pstates[cnt].stage == cstate->dim_layer[i].stage) {
+				SDE_ERROR("plane%d/dimlayer in same stage:%d\n",
+						plane->base.id,
+						cstate->dim_layer[i].stage);
+				rc = -EINVAL;
+				goto end;
+			}
+		}
+
 		cnt++;
 
 		if (CHECK_LAYER_BOUNDS(pstate->crtc_y, pstate->crtc_h,
@@ -940,6 +1094,28 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			SDE_ERROR("y:%d h:%d vdisp:%d x:%d w:%d hdisp:%d\n",
 				pstate->crtc_y, pstate->crtc_h, mode->vdisplay,
 				pstate->crtc_x, pstate->crtc_w, mode->hdisplay);
+			rc = -E2BIG;
+			goto end;
+		}
+	}
+
+	/* Check dim layer rect bounds and stage */
+	for (i = 0; i < cstate->num_dim_layers; i++) {
+		if ((CHECK_LAYER_BOUNDS(cstate->dim_layer[i].rect.y,
+			cstate->dim_layer[i].rect.h, mode->vdisplay)) ||
+		    (CHECK_LAYER_BOUNDS(cstate->dim_layer[i].rect.x,
+			cstate->dim_layer[i].rect.w, mode->hdisplay)) ||
+		    (cstate->dim_layer[i].stage >= SDE_STAGE_MAX) ||
+		    (!cstate->dim_layer[i].rect.w) ||
+		    (!cstate->dim_layer[i].rect.h)) {
+			SDE_ERROR("invalid dim_layer:{%d,%d,%d,%d}, stage:%d\n",
+					cstate->dim_layer[i].rect.x,
+					cstate->dim_layer[i].rect.y,
+					cstate->dim_layer[i].rect.w,
+					cstate->dim_layer[i].rect.h,
+					cstate->dim_layer[i].stage);
+			SDE_ERROR("display: %dx%d\n", mode->hdisplay,
+					mode->vdisplay);
 			rc = -E2BIG;
 			goto end;
 		}
@@ -1080,6 +1256,12 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
 		DRM_MODE_PROP_IMMUTABLE, CRTC_PROP_INFO);
+
+	if (catalog->has_dim_layer) {
+		msm_property_install_volatile_range(&sde_crtc->property_info,
+			"dim_layer_v1", 0x0, 0, ~0, 0, CRTC_PROP_DIM_LAYER_V1);
+	}
+
 	sde_kms_info_reset(info);
 
 	sde_kms_info_add_keyint(info, "hw_version", catalog->hwversion);
@@ -1126,8 +1308,17 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 		if (!ret) {
 			idx = msm_property_index(&sde_crtc->property_info,
 					property);
-			if (idx == CRTC_PROP_INPUT_FENCE_TIMEOUT)
+			switch (idx) {
+			case CRTC_PROP_INPUT_FENCE_TIMEOUT:
 				_sde_crtc_set_input_fence_timeout(cstate);
+				break;
+			case CRTC_PROP_DIM_LAYER_V1:
+				_sde_crtc_set_dim_layer_v1(cstate, (void *)val);
+				break;
+			default:
+				/* nothing to do */
+				break;
+			}
 		} else {
 			ret = sde_cp_crtc_set_property(crtc,
 					property, val);

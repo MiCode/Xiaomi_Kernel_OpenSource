@@ -112,6 +112,8 @@ struct sde_crtc {
  * @property_values: Current crtc property values
  * @input_fence_timeout_ns : Cached input fence timeout, in ns
  * @property_blobs: Reference pointers for blob properties
+ * @num_dim_layers: Number of dim layers
+ * @dim_layer: Dim layer configs
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -123,6 +125,8 @@ struct sde_crtc_state {
 	uint64_t property_values[CRTC_PROP_COUNT];
 	uint64_t input_fence_timeout_ns;
 	struct drm_property_blob *property_blobs[CRTC_PROP_COUNT];
+	uint32_t num_dim_layers;
+	struct sde_hw_dim_layer dim_layer[SDE_MAX_DIM_LAYERS];
 };
 
 #define to_sde_crtc_state(x) \
@@ -152,12 +156,23 @@ static inline uint32_t get_crtc_split_width(struct drm_crtc *crtc)
 	struct drm_display_mode *mode;
 	struct sde_crtc *sde_crtc;
 
-	if (!crtc)
+	if (!crtc || !crtc->state)
 		return 0;
 
 	sde_crtc = to_sde_crtc(crtc);
 	mode = &crtc->state->adjusted_mode;
 	return sde_crtc_mixer_width(sde_crtc, mode);
+}
+
+static inline uint32_t get_crtc_mixer_height(struct drm_crtc *crtc)
+{
+	struct drm_display_mode *mode;
+
+	if (!crtc || !crtc->state)
+		return 0;
+
+	mode = &crtc->state->adjusted_mode;
+	return mode->vdisplay;
 }
 
 /**

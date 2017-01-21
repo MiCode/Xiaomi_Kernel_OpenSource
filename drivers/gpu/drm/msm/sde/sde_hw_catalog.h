@@ -117,12 +117,14 @@ enum {
  * @SDE_MIXER_LAYER           Layer mixer layer blend configuration,
  * @SDE_MIXER_SOURCESPLIT     Layer mixer supports source-split configuration
  * @SDE_MIXER_GC              Gamma correction block
+ * @SDE_DIM_LAYER             Layer mixer supports dim layer
  * @SDE_MIXER_MAX             maximum value
  */
 enum {
 	SDE_MIXER_LAYER = 0x1,
 	SDE_MIXER_SOURCESPLIT,
 	SDE_MIXER_GC,
+	SDE_DIM_LAYER,
 	SDE_MIXER_MAX
 };
 
@@ -627,6 +629,7 @@ struct sde_mdss_cfg {
 	u32 csc_type;
 	bool has_src_split;
 	bool has_cdp;
+	bool has_dim_layer;
 
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];

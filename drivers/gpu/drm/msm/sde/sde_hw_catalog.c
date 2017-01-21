@@ -105,6 +105,7 @@ enum sde_prop {
 	PANIC_PER_PIPE,
 	CDP,
 	SRC_SPLIT,
+	DIM_LAYER,
 	SDE_PROP_MAX,
 };
 
@@ -268,6 +269,7 @@ static struct sde_prop_type sde_prop[] = {
 	{PANIC_PER_PIPE, "qcom,sde-panic-per-pipe", false, PROP_TYPE_BOOL},
 	{CDP, "qcom,sde-has-cdp", false, PROP_TYPE_BOOL},
 	{SRC_SPLIT, "qcom,sde-has-src-split", false, PROP_TYPE_BOOL},
+	{DIM_LAYER, "qcom,sde-has-dim-layer", false, PROP_TYPE_BOOL},
 };
 
 static struct sde_prop_type sspp_prop[] = {
@@ -1089,6 +1091,8 @@ static int sde_mixer_parse_dt(struct device_node *np,
 			ARRAY_SIZE(blend_reg_base), max_blendstages)));
 		if (sde_cfg->has_src_split)
 			set_bit(SDE_MIXER_SOURCESPLIT, &mixer->features);
+		if (sde_cfg->has_dim_layer)
+			set_bit(SDE_DIM_LAYER, &mixer->features);
 
 		if ((i < ROT_LM_OFFSET) || (i >= LINE_LM_OFFSET)) {
 			mixer->pingpong = pp_count > 0 ? pp_idx + PINGPONG_0
@@ -1832,6 +1836,7 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		cfg->csc_type = SDE_SSPP_CSC_10BIT;
 
 	cfg->has_src_split = PROP_VALUE_ACCESS(prop_value, SRC_SPLIT, 0);
+	cfg->has_dim_layer = PROP_VALUE_ACCESS(prop_value, DIM_LAYER, 0);
 end:
 	kfree(prop_value);
 	return rc;
