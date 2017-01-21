@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -340,7 +340,7 @@ static void fastrpc_mmap_add(struct fastrpc_mmap *map)
 }
 
 static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd, uintptr_t va,
-			ssize_t len, int mflags, struct fastrpc_mmap **ppmap)
+		ssize_t len, int mflags, int refs, struct fastrpc_mmap **ppmap)
 {
 	struct fastrpc_mmap *match = 0, *map;
 	struct hlist_node *n;
@@ -350,7 +350,8 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd, uintptr_t va,
 		if (va >= map->va &&
 			va + len <= map->va + map->len &&
 			map->fd == fd) {
-			map->refs++;
+			if (refs)
+				map->refs++;
 			match = map;
 			break;
 		}
@@ -469,7 +470,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	unsigned long flags;
 	int err = 0, vmid;
 
-	if (!fastrpc_mmap_find(fl, fd, va, len, mflags, ppmap))
+	if (!fastrpc_mmap_find(fl, fd, va, len, mflags, 1, ppmap))
 		return 0;
 	map = kzalloc(sizeof(*map), GFP_KERNEL);
 	VERIFY(err, !IS_ERR_OR_NULL(map));
@@ -1139,7 +1140,7 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 			if (!fdlist[i])
 				break;
 			if (!fastrpc_mmap_find(ctx->fl, (int)fdlist[i], 0, 0,
-						0, &mmap))
+						0, 0, &mmap))
 				fastrpc_mmap_free(mmap);
 		}
 	}
@@ -1554,7 +1555,7 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 	int err = 0;
 
 	if (!fastrpc_mmap_find(fl, ud->fd, (uintptr_t)ud->vaddrin, ud->size,
-			       ud->flags, &map))
+			       ud->flags, 1, &map))
 		return 0;
 
 	VERIFY(err, !fastrpc_mmap_create(fl, ud->fd, 0,
