@@ -1,0 +1,21 @@
+Qualcomm technologies inc audio devices for ALSA sound SoC
+
+* msm-compress-dsp
+
+Required properties:
+
+ - compatible : "qcom,msm-compress-dsp"
+
+Optional properties
+ - qcom,adsp-version:
+	This property can be used to specify the ADSP version/name.
+	Based on ADSP version, we decide if we have to use older
+	ADSP APIs or newer. Right now we are adding "MDSP 1.2" for
+	8909 purpose.If the ADSP version is anything other than this
+	we use new ADSP APIs.
+
+Example:
+
+        qcom,msm-compress-dsp {
+                compatible = "qcom,msm-compress-dsp";
+        };
