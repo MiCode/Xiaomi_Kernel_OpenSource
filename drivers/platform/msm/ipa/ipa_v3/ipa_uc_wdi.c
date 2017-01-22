@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -472,6 +472,9 @@ int ipa3_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 	RX_STATS(num_db);
 	RX_STATS(num_unexpected_db);
 	RX_STATS(num_pkts_in_dis_uninit_state);
+	RX_STATS(num_ic_inj_vdev_change);
+	RX_STATS(num_ic_inj_fw_desc_change);
+	RX_STATS(num_qmb_int_handled);
 	RX_STATS(reserved1);
 	RX_STATS(reserved2);
 
