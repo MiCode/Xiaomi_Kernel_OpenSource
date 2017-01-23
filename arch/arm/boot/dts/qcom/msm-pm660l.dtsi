@@ -404,5 +404,60 @@
 				regulator-max-microvolt = <6000000>;
 			};
 		};
+
+		pm660a_oledb: qpnp-oledb@e000 {
+		       compatible = "qcom,qpnp-oledb-regulator";
+		       #address-cells = <1>;
+		       #size-cells = <1>;
+		       reg = <0xe000 0x100>;
+
+		       label = "oledb";
+		       regulator-name = "regulator-oledb";
+		       regulator-min-microvolt = <5000000>;
+		       regulator-max-microvolt = <8100000>;
+
+		       qcom,swire-control;
+		       qcom,ext-pin-control;
+		       status = "disabled";
+		};
+
+		pm660a_labibb: qpnp-labibb-regulator {
+			compatible = "qcom,qpnp-labibb-regulator";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,pmic-revid = <&pm660l_revid>;
+			qcom,swire-control;
+			status = "disabled";
+
+			ibb_regulator: qcom,ibb@dc00 {
+				reg = <0xdc00 0x100>;
+				reg-names = "ibb_reg";
+				regulator-name = "ibb_reg";
+
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6300000>;
+
+				qcom,qpnp-ibb-min-voltage = <1400000>;
+				qcom,qpnp-ibb-step-size = <100000>;
+				qcom,qpnp-ibb-slew-rate = <2000000>;
+				qcom,qpnp-ibb-init-voltage = <4000000>;
+				qcom,qpnp-ibb-init-amoled-voltage = <4000000>;
+			};
+
+			lab_regulator: qcom,lab@de00 {
+				reg = <0xde00 0x100>;
+				reg-names = "lab";
+				regulator-name = "lab_reg";
+
+				regulator-min-microvolt = <4600000>;
+				regulator-max-microvolt = <6100000>;
+
+				qcom,qpnp-lab-min-voltage = <4600000>;
+				qcom,qpnp-lab-step-size = <100000>;
+				qcom,qpnp-lab-slew-rate = <5000>;
+				qcom,qpnp-lab-init-voltage = <4600000>;
+				qcom,qpnp-lab-init-amoled-voltage = <4600000>;
+			};
+		};
 	};
 };
