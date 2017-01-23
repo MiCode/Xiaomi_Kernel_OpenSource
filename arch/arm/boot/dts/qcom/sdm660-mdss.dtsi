@@ -370,6 +370,7 @@
 				"byte_clk_rcg", "pixel_clk_rcg",
 				"byte_intf_clk";
 
+			qcom,null-insertion-enabled;
 			qcom,platform-strength-ctrl = [ff 06
 							ff 06
 							ff 06
@@ -410,6 +411,7 @@
 				"byte_clk_rcg", "pixel_clk_rcg",
 				"byte_intf_clk";
 
+			qcom,null-insertion-enabled;
 			qcom,platform-strength-ctrl = [ff 06
 							ff 06
 							ff 06
