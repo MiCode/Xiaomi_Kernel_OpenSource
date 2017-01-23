@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 Qualcomm Atheros, Inc.
+ * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -566,6 +566,7 @@ static void wmi_evt_connect(struct wil6210_priv *wil, int id, void *d, int len)
 	    (wdev->iftype == NL80211_IFTYPE_P2P_CLIENT)) {
 		if (rc) {
 			netif_carrier_off(ndev);
+			wil6210_bus_request(wil, WIL_DEFAULT_BUS_REQUEST_KBPS);
 			wil_err(wil,
 				"%s: cfg80211_connect_result with failure\n",
 				__func__);
