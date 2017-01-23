@@ -1739,11 +1739,13 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 		return -EINVAL;
 	}
 
-	mdata->venus = devm_regulator_get_optional(&mdata->pdev->dev,
-		"gdsc-venus");
-	if (IS_ERR_OR_NULL(mdata->venus)) {
-		mdata->venus = NULL;
-		pr_debug("unable to get venus gdsc regulator\n");
+	mdata->core_gdsc = devm_regulator_get_optional(&mdata->pdev->dev,
+		"gdsc-core");
+	if (IS_ERR_OR_NULL(mdata->core_gdsc)) {
+		mdata->core_gdsc = NULL;
+		pr_err("unable to get core gdsc regulator\n");
+	} else {
+		pr_debug("core gdsc regulator found\n");
 	}
 
 	mdata->fs_ena = false;
@@ -2274,10 +2276,10 @@ void mdss_mdp_footswitch_ctrl_splash(int on)
 		if (on) {
 			mdata->handoff_pending = true;
 			pr_debug("Enable MDP FS for splash.\n");
-			if (mdata->venus) {
-				ret = regulator_enable(mdata->venus);
+			if (mdata->core_gdsc) {
+				ret = regulator_enable(mdata->core_gdsc);
 				if (ret)
-					pr_err("venus failed to enable\n");
+					pr_err("core_gdsc failed to enable\n");
 			}
 
 			ret = regulator_enable(mdata->fs);
@@ -2291,8 +2293,8 @@ void mdss_mdp_footswitch_ctrl_splash(int on)
 			mdss_bus_bandwidth_ctrl(false);
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 			regulator_disable(mdata->fs);
-			if (mdata->venus)
-				regulator_disable(mdata->venus);
+			if (mdata->core_gdsc)
+				regulator_disable(mdata->core_gdsc);
 			mdata->handoff_pending = false;
 		}
 	} else {
@@ -4915,10 +4917,10 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 	if (on) {
 		if (!mdata->fs_ena) {
 			pr_debug("Enable MDP FS\n");
-			if (mdata->venus) {
-				ret = regulator_enable(mdata->venus);
+			if (mdata->core_gdsc) {
+				ret = regulator_enable(mdata->core_gdsc);
 				if (ret)
-					pr_err("venus failed to enable\n");
+					pr_err("core_gdsc failed to enable\n");
 			}
 
 			/*
@@ -4969,8 +4971,8 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 			if (mdata->en_svs_high)
 				mdss_mdp_config_cx_voltage(mdata, false);
 			regulator_disable(mdata->fs);
-			if (mdata->venus)
-				regulator_disable(mdata->venus);
+			if (mdata->core_gdsc)
+				regulator_disable(mdata->core_gdsc);
 
 			if (footswitch_suspend) {
 				/*
