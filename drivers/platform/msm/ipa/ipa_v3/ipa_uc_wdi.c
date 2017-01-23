@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1353,6 +1353,33 @@ uc_timeout:
 	return result;
 }
 
+static int ipa3_wait_for_prod_empty(void)
+{
+	int i;
+	u32 rx_door_bell_value;
+
+	for (i = 0; i < IPA_UC_FINISH_MAX; i++) {
+		rx_door_bell_value = ipahal_read_reg_mn(
+			IPA_UC_MAILBOX_m_n,
+			IPA_HW_WDI_RX_MBOX_START_INDEX / 32,
+			IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
+		IPADBG("(%d)rx_DB(%u)rp(%u),comp_wp(%u)\n",
+			i,
+			rx_door_bell_value,
+			*ipa3_ctx->uc_ctx.rdy_ring_rp_va,
+			*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va);
+		if (*ipa3_ctx->uc_ctx.rdy_ring_rp_va !=
+			*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va) {
+			usleep_range(IPA_UC_WAIT_MIN_SLEEP,
+				IPA_UC_WAII_MAX_SLEEP);
+		} else {
+			return 0;
+		}
+	}
+
+	return -ETIME;
+}
+
 /**
  * ipa3_disable_wdi_pipe() - WDI client disable
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
@@ -1368,9 +1395,9 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 	union IpaHwWdiCommonChCmdData_t disable;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	u32 prod_hdl;
-	int i;
-	u32 rx_door_bell_value;
+
 	u32 source_pipe_bitmask = 0;
+	bool disable_force_clear = false;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -1406,16 +1433,8 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 	 * holb on IPA Producer pipe
 	 */
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
-		/* enable force clear */
 		IPADBG("Stopping PROD channel - hdl=%d clnt=%d\n",
 			clnt_hdl, ep->client);
-		source_pipe_bitmask = 1 <<
-				ipa3_get_ep_mapping(ep->client);
-		result = ipa3_enable_force_clear(clnt_hdl, false,
-			source_pipe_bitmask);
-		if (result)
-			goto uc_timeout;
-
 		/* remove delay on wlan-prod pipe*/
 		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
@@ -1439,30 +1458,34 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		 * rdy_comp_ring_wp_pa on WDI2.0
 		 */
 		if (ipa3_ctx->ipa_wdi2) {
-			for (i = 0; i < IPA_UC_FINISH_MAX; i++) {
-				rx_door_bell_value = ipahal_read_reg_mn(
-					IPA_UC_MAILBOX_m_n,
-					IPA_HW_WDI_RX_MBOX_START_INDEX/32,
-					IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
-				IPADBG("(%d)rx_DB(%u)rp(%u),comp_wp(%u)\n",
-					i,
-					rx_door_bell_value,
-					*ipa3_ctx->uc_ctx.rdy_ring_rp_va,
-					*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va);
-				if (*ipa3_ctx->uc_ctx.rdy_ring_rp_va !=
-					*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va) {
-					usleep_range(IPA_UC_WAIT_MIN_SLEEP,
-						IPA_UC_WAII_MAX_SLEEP);
+			result = ipa3_wait_for_prod_empty();
+			if (result) {
+				IPADBG("prod not empty\n");
+				/*
+				 * In case ipa_uc still haven't processed all
+				 * pending descriptors, ask modem to drain
+				 */
+				source_pipe_bitmask = 1 <<
+					ipa3_get_ep_mapping(ep->client);
+				result = ipa3_enable_force_clear(clnt_hdl,
+					false, source_pipe_bitmask);
+				if (result) {
+					IPAERR("failed to force clear %d\n",
+						result);
 				} else {
-					break;
+					disable_force_clear = true;
+				}
+
+				/*
+				 * In case ipa_uc still haven't processed all
+				 * pending descriptors, we have to assert
+				 */
+				result = ipa3_wait_for_prod_empty();
+				if (result) {
+					IPAERR("prod still not empty\n");
+					ipa_assert();
 				}
 			}
-			/*
-			 * In case ipa_uc still haven't processed all
-			 * pending descriptors, we have to assert
-			 */
-			if (i == IPA_UC_FINISH_MAX)
-				ipa_assert();
 		}
 	}
 
@@ -1482,8 +1505,8 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_delay = true;
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
-		/* disable force clear */
-		ipa3_disable_force_clear(clnt_hdl);
+		if (disable_force_clear)
+			ipa3_disable_force_clear(clnt_hdl);
 	}
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->uc_offload_state &= ~IPA_WDI_ENABLED;
