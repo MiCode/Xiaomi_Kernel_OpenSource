@@ -260,6 +260,7 @@ struct synaptics_rmi4_fwu_handle {
 	bool interrupt_flag;
 	bool polling_mode;
 	char product_id[SYNAPTICS_RMI4_PRODUCT_ID_SIZE + 1];
+	unsigned int full_update_size;
 	unsigned int image_size;
 	unsigned int data_pos;
 	unsigned char intr_mask;
@@ -299,6 +300,22 @@ static struct synaptics_rmi4_fwu_handle *fwu;
 DECLARE_COMPLETION(fwu_remove_complete);
 DEFINE_MUTEX(fwu_sysfs_mutex);
 
+/* Check offset + size <= bound.  1 if in bounds, 0 otherwise. */
+static bool in_bounds(unsigned long offset,
+		      unsigned long size,
+		      unsigned long bound)
+{
+	if (offset > bound || size > bound) {
+		pr_err("%s: %lu or %lu > %lu\n", __func__, offset, size, bound);
+		return 0;
+	}
+	if (offset > (bound - size)) {
+		pr_err("%s: %lu > %lu - %lu\n", __func__, offset, size, bound);
+		return 0;
+	}
+	return 1;
+}
+
 static unsigned int extract_uint(const unsigned char *ptr)
 {
 	return (unsigned int)ptr[0] +
@@ -335,11 +352,17 @@ static void synaptics_rmi4_update_debug_info(void)
 		pkg_id[3] << 8 | pkg_id[2], build_id);
 }
 
-static void parse_header(void)
+static int parse_header(void)
 {
 	struct image_content *img = &fwu->image_content;
 	struct image_header_data *data =
 		(struct image_header_data *)fwu->data_buffer;
+	if (fwu->full_update_size < sizeof(*data)) {
+		dev_err(&fwu->rmi4_data->i2c_client->dev,
+			"Provided update too small");
+		return -EINVAL;
+	}
+
 	img->checksum = extract_uint(data->file_checksum);
 	img->bootloader_version = data->bootloader_version;
 	img->image_size = extract_uint(data->firmware_size);
@@ -376,12 +399,29 @@ static void parse_header(void)
 		img->config_size);
 
 	/* get UI firmware offset */
-	if (img->image_size)
+	if (img->image_size) {
+		if (!in_bounds(FW_IMAGE_OFFSET, img->image_size,
+			       fwu->full_update_size)) {
+			dev_err(&fwu->rmi4_data->i2c_client->dev,
+				"%s: image size out of bounds\n",
+				__func__);
+			return -EINVAL;
+		}
 		img->firmware_data = fwu->data_buffer + FW_IMAGE_OFFSET;
+	}
 	/* get config offset*/
-	if (img->config_size)
+	if (img->config_size) {
+		// FW_IMAGE_OFFSET + image_size was ok as above
+		if (!in_bounds(FW_IMAGE_OFFSET + img->image_size,
+			       img->config_size, fwu->full_update_size)) {
+			dev_err(&fwu->rmi4_data->i2c_client->dev,
+				"%s: config size out of bounds\n",
+				__func__);
+			return -EINVAL;
+		}
 		img->config_data = fwu->data_buffer + FW_IMAGE_OFFSET +
 				img->image_size;
+	}
 	/* get lockdown offset*/
 	switch (img->bootloader_version) {
 	case 3:
@@ -400,6 +440,14 @@ static void parse_header(void)
 		img->lockdown_data = NULL;
 	}
 
+	if (img->lockdown_block_count * fwu->block_size > FW_IMAGE_OFFSET) {
+		dev_err(&fwu->rmi4_data->i2c_client->dev,
+			"%s: lockdown size too big\n",
+			__func__);
+		return -EINVAL;
+	}
+	if (fwu->full_update_size < FW_IMAGE_OFFSET)
+		return -EINVAL;
 	img->lockdown_data = fwu->data_buffer +
 				FW_IMAGE_OFFSET -
 				img->lockdown_block_count * fwu->block_size;
@@ -408,7 +456,7 @@ static void parse_header(void)
 	fwu->lockdown_data = img->lockdown_data;
 	fwu->config_data = img->config_data;
 	fwu->firmware_data = img->firmware_data;
-	return;
+	return 0;
 }
 
 static int fwu_read_f01_device_status(struct f01_device_status *status)
@@ -1290,8 +1338,8 @@ static int fwu_start_write_config(void)
 				"%s: write config from config file\n",
 				__func__);
 		fwu->config_data = fwu->data_buffer;
-	} else {
-		parse_header();
+	} else if (parse_header()) {
+		return -EINVAL;
 	}
 
 	pr_notice("%s: Start of write config process\n", __func__);
@@ -1358,7 +1406,8 @@ exit:
 
 static int fwu_start_write_lockdown(void)
 {
-	parse_header();
+	if (parse_header())
+		return -EINVAL;
 	return fwu_do_write_lockdown(true);
 }
 
@@ -1578,9 +1627,13 @@ static int fwu_start_reflash(void)
 				__func__, fw_entry->size);
 
 		fwu->data_buffer = fw_entry->data;
+		fwu->full_update_size = fw_entry->size;
 	}
 
-	parse_header();
+	if (parse_header()) {
+		retval = -EINVAL;
+		goto exit;
+	}
 	flash_area = fwu_go_nogo();
 
 	if (fwu->rmi4_data->sensor_sleep) {
@@ -2020,6 +2073,7 @@ static ssize_t fwu_sysfs_image_size_store(struct device *dev,
 	if (!mutex_trylock(&fwu_sysfs_mutex))
 		return -EBUSY;
 
+	fwu->full_update_size = size;
 	fwu->image_size = size;
 	fwu->data_pos = 0;
 

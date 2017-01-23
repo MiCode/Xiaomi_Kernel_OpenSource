@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,7 @@ bool use_app_setting = true;
 module_param(use_app_setting, bool, 0644);
 MODULE_PARM_DESC(use_app_setting, "control use of app specific settings");
 
-bool use_32bit_app_setting = true;
+bool use_32bit_app_setting = false;
 module_param(use_32bit_app_setting, bool, 0644);
 MODULE_PARM_DESC(use_32bit_app_setting, "control use of 32 bit app specific settings");
 

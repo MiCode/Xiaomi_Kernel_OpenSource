@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -183,6 +183,41 @@
 			qcom,scaling-factor = <1000>;
 		};
 	};
+
+	cpubw: qcom,cpubw {
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2270 /*  297.6 MHz */ >,	/*SVS */
+			<  2929 /*  384   MHz */ >,
+			<  4248 /*  556.8 MHz */ >,	/*SVS+*/
+			<  4541 /*  595.2 MHz */ >,	/*NOM*/
+			<  5126 /*  672   MHz */ >,	/*NOM+*/
+			<  5645 /*  740   MHz */ >;	/*TURBO*/
+	};
+
+	mincpubw: qcom,mincpubw {
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2270 /*  297.6 MHz */ >,
+			<  2929 /*  384   MHz */ >,
+			<  4248 /*  556.8 MHz */ >,
+			<  4541 /*  595.2 MHz */ >,
+			<  5126 /*  672   MHz */ >,
+			<  5645 /*  740   MHz */ >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		cpu-to-dev-map =
+			<  998400  4248 >,
+			< 1094400  4541 >,
+			< 1497600  5645 >;
+		};
+
+	};
+
 };
 
 &apc_vreg_corner {
@@ -205,14 +240,14 @@
 
 	qcom,cpr-init-voltage-adjustment =
 		<  0     0        0  >,
-		<10000   5000     0  >,
+		<15000  15000   25000>,
 		<  0     0        0  >,
 		<15000   5000     0  >,
 		<  0     0        0  >;
 
 	qcom,cpr-quotient-adjustment =
 		<(-19) (-28) (-19)>, /* SVSP(-10) NOM(-15) TUR(-10); KV(1.9) */
-		<(-9)  (-19)  (-9)>, /* SVSP(-5) NOM(-10) TUR(-5); KV(1.9) */
+		<0      0      19 >, /* SVSP(-5) NOM(-10) TUR(-5); KV(1.9) */
 		<(-38) (-28) (-38)>, /* SVSP(-20) NOM(-15) TUR(-20); KV(1.9) */
 		<0      0       0 >,
 		<0      0       0 >;

@@ -68,6 +68,7 @@ enum qseecom_qceos_cmd_id {
 	QSEOS_CLIENT_SEND_DATA_COMMAND_WHITELIST = 0x1C,
 	QSEOS_TEE_OPEN_SESSION_WHITELIST = 0x1D,
 	QSEOS_TEE_INVOKE_COMMAND_WHITELIST = 0x1E,
+	QSEOS_LISTENER_DATA_RSP_COMMAND_WHITELIST = 0x1F,
 	QSEOS_FSM_LTEOTA_REQ_CMD = 0x109,
 	QSEOS_FSM_LTEOTA_REQ_RSP_CMD = 0x110,
 	QSEOS_FSM_IKE_REQ_CMD = 0x203,
@@ -217,6 +218,16 @@ __packed struct qseecom_client_listener_data_irsp {
 	uint32_t qsee_cmd_id;
 	uint32_t listener_id;
 	uint32_t status;
+	uint32_t sglistinfo_ptr;
+	uint32_t sglistinfo_len;
+};
+
+__packed struct qseecom_client_listener_data_64bit_irsp {
+	uint32_t qsee_cmd_id;
+	uint32_t listener_id;
+	uint32_t status;
+	uint64_t sglistinfo_ptr;
+	uint32_t sglistinfo_len;
 };
 
 /*
@@ -702,5 +713,13 @@ __packed struct qseecom_continue_blocked_request_ireq {
 	TZ_SYSCALL_PARAM_TYPE_VAL, TZ_SYSCALL_PARAM_TYPE_BUF_RW,	\
 	TZ_SYSCALL_PARAM_TYPE_VAL, TZ_SYSCALL_PARAM_TYPE_BUF_RW,	\
 	TZ_SYSCALL_PARAM_TYPE_VAL)
+
+#define TZ_OS_LISTENER_RESPONSE_HANDLER_WITH_WHITELIST_ID \
+	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_QSEE_OS, TZ_SVC_LISTENER, 0x05)
+
+#define TZ_OS_LISTENER_RESPONSE_HANDLER_WITH_WHITELIST_PARAM_ID \
+	TZ_SYSCALL_CREATE_PARAM_ID_4( \
+	TZ_SYSCALL_PARAM_TYPE_VAL, TZ_SYSCALL_PARAM_TYPE_VAL, \
+	TZ_SYSCALL_PARAM_TYPE_BUF_RW, TZ_SYSCALL_PARAM_TYPE_VAL)
 
 #endif /* __QSEECOMI_H_ */
