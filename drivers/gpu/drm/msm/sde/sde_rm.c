@@ -169,7 +169,7 @@ bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 	blk_list = &rm->hw_blks[i->type];
 
 	if (i->blk && (&i->blk->list == blk_list)) {
-		SDE_ERROR("attempt resume iteration past last\n");
+		SDE_DEBUG("attempt resume iteration past last\n");
 		return false;
 	}
 
