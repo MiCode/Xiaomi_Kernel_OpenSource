@@ -1449,7 +1449,7 @@ void mdss_dp_phy_send_test_pattern(struct mdss_dp_drv_pdata *dp)
 		value &= ~(1 << 16);
 		writel_relaxed(value, io->base +
 				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
-		value = 0xFC;
+		value |= 0xFC;
 		writel_relaxed(value, io->base +
 				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
 		writel_relaxed(0x2, io->base + DP_MAINLINK_LEVELS);
@@ -1474,7 +1474,7 @@ void mdss_dp_phy_send_test_pattern(struct mdss_dp_drv_pdata *dp)
 		value = BIT(16);
 		writel_relaxed(value, io->base +
 				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
-		value = 0xFC;
+		value |= 0xFC;
 		writel_relaxed(value, io->base +
 				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
 		writel_relaxed(0x2, io->base + DP_MAINLINK_LEVELS);
