@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -232,8 +232,9 @@
 		cell-index = <0>;
 		compatible = "qcom,vfe40";
 		reg = <0x1b10000 0x1000>,
-			<0x1b40000 0x200>;
-		reg-names = "vfe", "vfe_vbif";
+			<0x1b40000 0x200>,
+			<0x00a4174 0x8>;
+		reg-names = "vfe", "vfe_vbif", "vfe_fuse";
 		interrupts = <0 57 0>;
 		interrupt-names = "vfe";
 		vdd-supply = <&gdsc_vfe>;
@@ -282,8 +283,9 @@
 		cell-index = <1>;
 		compatible = "qcom,vfe40";
 		reg = <0x1b14000 0x1000>,
-			<0x1ba0000 0x200>;
-		reg-names = "vfe", "vfe_vbif";
+			<0x1ba0000 0x200>,
+			<0x00a4174 0x8>;
+		reg-names = "vfe", "vfe_vbif", "vfe_fuse";
 		interrupts = <0 29 0>;
 		interrupt-names = "vfe";
 		vdd-supply = <&gdsc_vfe1>;
