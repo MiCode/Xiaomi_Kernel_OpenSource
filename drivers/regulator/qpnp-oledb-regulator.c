@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -152,6 +152,8 @@ struct qpnp_oledb {
 	struct qpnp_oledb_fast_precharge_ctl	fast_prechg_ctl;
 
 	u32					base;
+	u8					mod_enable;
+	u8					ext_pinctl_state;
 	int					current_voltage;
 	int					default_voltage;
 	int					vout_mv;
@@ -162,10 +164,8 @@ struct qpnp_oledb {
 	int					nlimit_enable;
 	int					sc_en;
 	int					sc_dbnc_time;
-	bool					mod_enable;
 	bool					swire_control;
 	bool					ext_pin_control;
-	bool					ext_pinctl_state;
 	bool					dynamic_ext_pinctl_config;
 	bool					pbs_control;
 };
@@ -292,12 +292,15 @@ static int qpnp_oledb_regulator_disable(struct regulator_dev *rdev)
 	 * Disable ext-pin-ctl after display-supply is turned off. This is to
 	 * avoid glitches on the external pin.
 	 */
-	if (oledb->ext_pin_control && oledb->dynamic_ext_pinctl_config) {
-		rc = qpnp_oledb_masked_write(oledb, oledb->base +
+	if (oledb->ext_pin_control) {
+		if (oledb->dynamic_ext_pinctl_config) {
+			rc = qpnp_oledb_masked_write(oledb, oledb->base +
 				 OLEDB_EXT_PIN_CTL, OLEDB_EXT_PIN_CTL_BIT, 0);
-		if (rc < 0) {
-			pr_err("Failed to write EXT_PIN_CTL rc=%d\n", rc);
-			return rc;
+			if (rc < 0) {
+				pr_err("Failed to write EXT_PIN_CTL rc=%d\n",
+									rc);
+				return rc;
+			}
 		}
 		pr_debug("ext-pin-ctrl mode disabled\n");
 	} else {
@@ -635,14 +638,14 @@ static int qpnp_oledb_hw_init(struct qpnp_oledb *oledb)
 	}
 
 	rc = qpnp_oledb_read(oledb, oledb->base + OLEDB_MODULE_ENABLE,
-				(u8 *)&oledb->mod_enable, 1);
+				&oledb->mod_enable, 1);
 	if (rc < 0) {
 		pr_err("Failed to read MODULE_ENABLE rc=%d\n", rc);
 		return rc;
 	}
 
 	rc = qpnp_oledb_read(oledb, oledb->base + OLEDB_EXT_PIN_CTL,
-					(u8 *)&oledb->ext_pinctl_state, 1);
+					&oledb->ext_pinctl_state, 1);
 	if (rc < 0) {
 		pr_err("Failed to read EXT_PIN_CTL rc=%d\n", rc);
 		return rc;
@@ -652,7 +655,12 @@ static int qpnp_oledb_hw_init(struct qpnp_oledb *oledb)
 	if (rc < 0)
 		return rc;
 
-	if (!((val & OLEDB_EXT_PIN_CTL_BIT) || oledb->mod_enable)) {
+	/*
+	 * Go through if the module is not enabled either through
+	 * external pin control or SPMI interface.
+	 */
+	if (!((oledb->ext_pinctl_state & OLEDB_EXT_PIN_CTL_BIT)
+				|| oledb->mod_enable)) {
 		if (oledb->warmup_delay != -EINVAL) {
 			for (i = 0; i < ARRAY_SIZE(oledb_warmup_dly_ns); i++) {
 				if (oledb->warmup_delay ==
