@@ -1107,18 +1107,18 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 	unsigned long flags;
 	int ret;
 
-	if (!port->port_usb->cdev) {
-		pr_err("!port->port_usb->cdev is NULL");
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (!port->port_usb || !port->port_usb->cdev) {
+		pr_err("port->port_usb or cdev is NULL");
 		goto exit;
 	}
 
 	if (!port->port_usb->cdev->gadget) {
-		pr_err("!port->port_usb->cdev->gadget is NULL");
+		pr_err("port->port_usb->cdev->gadget is NULL");
 		goto exit;
 	}
 
 	pr_debug("%s: resume started\n", __func__);
-	spin_lock_irqsave(&port->port_lock, flags);
 	gadget = port->port_usb->cdev->gadget;
 	if (!gadget) {
 		spin_unlock_irqrestore(&port->port_lock, flags);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -100,6 +100,9 @@ struct kc_entry {
 	 struct task_struct *thread_pending;
 
 	 enum pfk_kc_entry_state state;
+
+	 /* ref count for the number of requests in the HW queue for this key */
+	 int loaded_ref_cnt;
 	 int scm_error;
 };
 
@@ -520,6 +523,10 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 		if (entry_exists) {
 			kc_update_timestamp(entry);
 			entry->state = ACTIVE_ICE_LOADED;
+
+			if (async)
+				entry->loaded_ref_cnt++;
+
 			break;
 		}
 	case (FREE):
@@ -529,8 +536,17 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 			entry->scm_error = ret;
 			pr_err("%s: key load error (%d)\n", __func__, ret);
 		} else {
-			entry->state = ACTIVE_ICE_LOADED;
 			kc_update_timestamp(entry);
+			entry->state = ACTIVE_ICE_LOADED;
+
+			/*
+			 * only increase ref cnt for async calls,
+			 * sync calls from within work thread do not pass
+			 * requests further to HW
+			 */
+			if (async)
+				entry->loaded_ref_cnt++;
+
 		}
 		break;
 	case (ACTIVE_ICE_PRELOAD):
@@ -539,6 +555,10 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 		break;
 	case (ACTIVE_ICE_LOADED):
 		kc_update_timestamp(entry);
+
+		if (async)
+			entry->loaded_ref_cnt++;
+
 		break;
 	case(SCM_ERROR):
 		ret = entry->scm_error;
@@ -572,6 +592,8 @@ void pfk_kc_load_key_end(const unsigned char *key, size_t key_size,
 		const unsigned char *salt, size_t salt_size)
 {
 	struct kc_entry *entry = NULL;
+	struct task_struct *tmp_pending = NULL;
+	int ref_cnt = 0;
 
 	if (!kc_is_ready())
 		return;
@@ -591,14 +613,28 @@ void pfk_kc_load_key_end(const unsigned char *key, size_t key_size,
 	if (!entry) {
 		kc_spin_unlock();
 		pr_err("internal error, there should an entry to unlock\n");
+
 		return;
 	}
-	entry->state = INACTIVE;
+	ref_cnt = --entry->loaded_ref_cnt;
 
-	/* wake-up invalidation if it's waiting for the entry to be released */
-	if (entry->thread_pending) {
-		wake_up_process(entry->thread_pending);
-		entry->thread_pending = NULL;
+	if (ref_cnt < 0)
+		pr_err("internal error, ref count should never be negative\n");
+
+	if (!ref_cnt) {
+		entry->state = INACTIVE;
+		/*
+		 * wake-up invalidation if it's waiting
+		 * for the entry to be released
+		*/
+		if (entry->thread_pending) {
+			tmp_pending = entry->thread_pending;
+			entry->thread_pending = NULL;
+
+			kc_spin_unlock();
+			wake_up_process(tmp_pending);
+			return;
+		}
 	}
 
 	kc_spin_unlock();

@@ -39,6 +39,15 @@ struct bvec_iter {
 						   current bvec */
 };
 
+#ifdef CONFIG_BLOCK_PERF_FRAMEWORK
+/* Double declaration from ktime.h so as to not break the include dependency
+ * chain. Should be kept up to date.
+ */
+union blk_ktime {
+	s64	tv64;
+};
+#endif
+
 /*
  * main unit of I/O for the block layer and lower layers (ie drivers and
  * stacking drivers)
@@ -54,6 +63,10 @@ struct bio {
 
 	struct bvec_iter	bi_iter;
 
+#ifdef CONFIG_BLOCK_PERF_FRAMEWORK
+	union blk_ktime		submit_time;
+	unsigned int            blk_sector_count;
+#endif
 	/* Number of segments in this BIO after
 	 * physical address coalescing is performed.
 	 */

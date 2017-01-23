@@ -26,6 +26,7 @@
 				_IOWR('R', 7, struct fastrpc_ioctl_invoke_attrs)
 #define FASTRPC_IOCTL_GETINFO	_IOWR('R', 8, uint32_t)
 #define FASTRPC_IOCTL_GETPERF	_IOWR('R', 9, struct fastrpc_ioctl_perf)
+#define FASTRPC_IOCTL_INIT_ATTRS _IOWR('R', 10, struct fastrpc_ioctl_init_attrs)
 
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
@@ -156,6 +157,12 @@ struct fastrpc_ioctl_init {
 	uintptr_t __user mem;	/* mem for the PD */
 	int32_t memlen;		/* mem length */
 	int32_t memfd;		/* ION fd for the mem */
+};
+
+struct fastrpc_ioctl_init_attrs {
+		struct fastrpc_ioctl_init init;
+		int attrs;
+		int siglen;
 };
 
 struct fastrpc_ioctl_munmap {

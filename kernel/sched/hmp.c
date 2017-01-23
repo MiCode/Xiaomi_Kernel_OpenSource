@@ -590,6 +590,7 @@ void update_cluster_topology(void)
 	 * cluster_head visible.
 	 */
 	move_list(&cluster_head, &new_head, false);
+	update_all_clusters_stats();
 }
 
 void init_clusters(void)
@@ -718,8 +719,6 @@ __read_mostly unsigned int sysctl_sched_window_stats_policy =
 
 __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 
-unsigned int __read_mostly sysctl_sched_enable_colocation = 1;
-
 /*
  * Enable colocation and frequency aggregation for all threads in a process.
  * The children inherits the group id from the parent.
@@ -787,8 +786,6 @@ __read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 
 /* Temporarily disable window-stats activity on all cpus */
 unsigned int __read_mostly sched_disable_window_stats;
-
-static unsigned int sync_cpu;
 
 struct related_thread_group *related_thread_groups[MAX_NUM_CGROUP_COLOC_ID];
 static LIST_HEAD(active_related_thread_groups);
@@ -1292,14 +1289,12 @@ void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
 int preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
 {
 	struct related_thread_group *grp;
-	int rc = 0;
+	int rc = 1;
 
 	rcu_read_lock();
 
 	grp = task_related_thread_group(p);
-	if (!grp || !sysctl_sched_enable_colocation)
-		rc = 1;
-	else
+	if (grp)
 		rc = (grp->preferred_cluster == cluster);
 
 	rcu_read_unlock();
@@ -3015,30 +3010,26 @@ void mark_task_starting(struct task_struct *p)
 
 void set_window_start(struct rq *rq)
 {
-	int cpu = cpu_of(rq);
-	struct rq *sync_rq = cpu_rq(sync_cpu);
+	static int sync_cpu_available;
 
 	if (rq->window_start || !sched_enable_hmp)
 		return;
 
-	if (cpu == sync_cpu) {
+	if (!sync_cpu_available) {
 		rq->window_start = sched_ktime_clock();
+		sync_cpu_available = 1;
 	} else {
+		struct rq *sync_rq = cpu_rq(cpumask_any(cpu_online_mask));
+
 		raw_spin_unlock(&rq->lock);
 		double_rq_lock(rq, sync_rq);
-		rq->window_start = cpu_rq(sync_cpu)->window_start;
+		rq->window_start = sync_rq->window_start;
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
 		raw_spin_unlock(&sync_rq->lock);
 	}
 
 	rq->curr->ravg.mark_start = rq->window_start;
-}
-
-void migrate_sync_cpu(int cpu, int new_cpu)
-{
-	if (cpu == sync_cpu)
-		sync_cpu = new_cpu;
 }
 
 static void reset_all_task_stats(void)
@@ -3751,7 +3742,7 @@ static struct sched_cluster *best_cluster(struct related_thread_group *grp,
 			return cluster;
 	}
 
-	return NULL;
+	return sched_cluster[0];
 }
 
 static void _set_preferred_cluster(struct related_thread_group *grp)
@@ -3761,12 +3752,6 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 	bool boost_on_big = sched_boost_policy() == SCHED_BOOST_ON_BIG;
 	bool group_boost = false;
 	u64 wallclock;
-
-	if (!sysctl_sched_enable_colocation) {
-		grp->last_update = sched_ktime_clock();
-		grp->preferred_cluster = NULL;
-		return;
-	}
 
 	if (list_empty(&grp->tasks))
 		return;

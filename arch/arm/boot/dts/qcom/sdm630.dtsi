@@ -680,7 +680,7 @@
 		cell-index = <1>;
 		compatible = "qcom,slim-ngd";
 		reg = <0x151c0000 0x2c000>,
-			<0x15180000 0x2e000>;
+			<0x15184000 0x2a000>;
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 163 0>, <0 164 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
@@ -693,7 +693,7 @@
 		cell-index = <3>;
 		compatible = "qcom,slim-ngd";
 		reg = <0x15240000 0x2c000>,
-			<0x15200000 0x24000>;
+			<0x15204000 0x20000>;
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 291 0>, <0 292 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
@@ -868,6 +868,7 @@
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
 		qcom,modem-cfg-emb-pipe-flt;
+		qcom,ipa-wdi2;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <2>;

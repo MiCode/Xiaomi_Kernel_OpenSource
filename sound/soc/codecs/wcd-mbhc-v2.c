@@ -25,6 +25,7 @@
 #include <linux/input.h>
 #include <linux/firmware.h>
 #include <linux/completion.h>
+#include <linux/mfd/msm-cdc-pinctrl.h>
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include "wcd-mbhc-v2.h"
@@ -52,7 +53,7 @@
 
 #define WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS  50
 #define ANC_DETECT_RETRY_CNT 7
-#define WCD_MBHC_SPL_HS_CNT  1
+#define WCD_MBHC_SPL_HS_CNT  2
 
 static int det_extn_cable_en;
 module_param(det_extn_cable_en, int,
@@ -2132,6 +2133,22 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	if (mbhc->mbhc_cfg->moisture_en && mbhc->mbhc_cb->mbhc_moisture_config)
 		mbhc->mbhc_cb->mbhc_moisture_config(mbhc);
 
+	/*
+	 * For USB analog we need to override the switch configuration.
+	 * Also, disable hph_l pull-up current source as HS_DET_L is driven
+	 * by an external source
+	 */
+	if (mbhc->mbhc_cfg->enable_usbc_analog) {
+		mbhc->hphl_swh = 1;
+		mbhc->gnd_swh = 1;
+
+		if (mbhc->mbhc_cb->hph_pull_up_control)
+			mbhc->mbhc_cb->hph_pull_up_control(codec, I_OFF);
+		else
+			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HS_L_DET_PULL_UP_CTRL,
+						 0);
+	}
+
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPHL_PLUG_TYPE, mbhc->hphl_swh);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_GND_PLUG_TYPE, mbhc->gnd_swh);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_SW_HPH_LP_100K_TO_GND, 1);
@@ -2304,14 +2321,262 @@ int wcd_mbhc_set_keycode(struct wcd_mbhc *mbhc)
 	return result;
 }
 
-int wcd_mbhc_start(struct wcd_mbhc *mbhc,
-		       struct wcd_mbhc_config *mbhc_cfg)
+static int wcd_mbhc_usb_c_analog_setup_gpios(struct wcd_mbhc *mbhc,
+					     bool active)
 {
 	int rc = 0;
+	struct usbc_ana_audio_config *config =
+		&mbhc->mbhc_cfg->usbc_analog_cfg;
 
-	pr_debug("%s: enter\n", __func__);
+	dev_dbg(mbhc->codec->dev, "%s: setting GPIOs active = %d\n",
+		__func__, active);
+	if (active) {
+		if (config->usbc_en1_gpio_p) {
+			rc = msm_cdc_pinctrl_select_active_state(
+				config->usbc_en1_gpio_p);
+			/* delay required to allow the hw to stabilize */
+			usleep_range(1000, 1200);
+		}
+		if (rc == 0 && config->usbc_en2n_gpio_p) {
+			rc = msm_cdc_pinctrl_select_active_state(
+				config->usbc_en2n_gpio_p);
+			/* delay required to allow the hw to stabilize */
+			usleep_range(1000, 1200);
+		}
+		if (rc == 0 && config->usbc_force_gpio_p)
+			rc = msm_cdc_pinctrl_select_active_state(
+				config->usbc_force_gpio_p);
+		mbhc->usbc_mode = POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER;
+	} else {
+		/* no delay is required when disabling GPIOs */
+		if (config->usbc_en2n_gpio_p)
+			msm_cdc_pinctrl_select_sleep_state(
+				config->usbc_en2n_gpio_p);
+		if (config->usbc_en1_gpio_p)
+			msm_cdc_pinctrl_select_sleep_state(
+				config->usbc_en1_gpio_p);
+		if (config->usbc_force_gpio_p)
+			msm_cdc_pinctrl_select_sleep_state(
+				config->usbc_force_gpio_p);
+		mbhc->usbc_mode = POWER_SUPPLY_TYPEC_NONE;
+	}
+
+	return rc;
+}
+
+/* workqueue */
+static void wcd_mbhc_usbc_analog_work_fn(struct work_struct *work)
+{
+	struct wcd_mbhc *mbhc =
+		container_of(work, struct wcd_mbhc, usbc_analog_work);
+
+	wcd_mbhc_usb_c_analog_setup_gpios(mbhc,
+			mbhc->usbc_mode != POWER_SUPPLY_TYPEC_NONE);
+}
+
+/* this callback function is used to process PMI notification */
+static int wcd_mbhc_usb_c_event_changed(struct notifier_block *nb,
+					unsigned long evt, void *ptr)
+{
+	int ret;
+	union power_supply_propval mode;
+	struct wcd_mbhc *mbhc = container_of(nb, struct wcd_mbhc, psy_nb);
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	if (ptr != mbhc->usb_psy || evt != PSY_EVENT_PROP_CHANGED)
+		return 0;
+
+	ret = power_supply_get_property(mbhc->usb_psy,
+			POWER_SUPPLY_PROP_TYPEC_MODE, &mode);
+	if (ret) {
+		dev_err(codec->dev, "%s: Unable to read USB TYPEC_MODE: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	dev_dbg(codec->dev, "%s: USB change event received\n",
+		__func__);
+	dev_dbg(codec->dev, "%s: supply mode %d, expected %d\n", __func__,
+		mode.intval, POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER);
+
+	switch (mode.intval) {
+	case POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER:
+	case POWER_SUPPLY_TYPEC_NONE:
+		dev_dbg(codec->dev, "%s: usbc_mode: %d; mode.intval: %d\n",
+			__func__, mbhc->usbc_mode, mode.intval);
+
+		if (mbhc->usbc_mode == mode.intval)
+			break; /* filter notifications received before */
+		mbhc->usbc_mode = mode.intval;
+
+		dev_dbg(codec->dev, "%s: queueing usbc_analog_work\n",
+			__func__);
+		schedule_work(&mbhc->usbc_analog_work);
+		break;
+	default:
+		break;
+	}
+	return ret;
+}
+
+/* PMI registration code */
+static int wcd_mbhc_usb_c_analog_init(struct wcd_mbhc *mbhc)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	dev_dbg(mbhc->codec->dev, "%s: usb-c analog setup start\n", __func__);
+	INIT_WORK(&mbhc->usbc_analog_work, wcd_mbhc_usbc_analog_work_fn);
+
+	mbhc->usb_psy = power_supply_get_by_name("usb");
+	if (IS_ERR_OR_NULL(mbhc->usb_psy)) {
+		dev_err(codec->dev, "%s: could not get USB psy info\n",
+			__func__);
+		ret = -EPROBE_DEFER;
+		if (IS_ERR(mbhc->usb_psy))
+			ret = PTR_ERR(mbhc->usb_psy);
+		mbhc->usb_psy = NULL;
+		goto err;
+	}
+
+	ret = wcd_mbhc_usb_c_analog_setup_gpios(mbhc, false);
+	if (ret) {
+		dev_err(codec->dev, "%s: error while setting USBC ana gpios\n",
+			__func__);
+		goto err;
+	}
+
+	mbhc->psy_nb.notifier_call = wcd_mbhc_usb_c_event_changed;
+	mbhc->psy_nb.priority = 0;
+	ret = power_supply_reg_notifier(&mbhc->psy_nb);
+	if (ret) {
+		dev_err(codec->dev, "%s: power supply registration failed\n",
+			__func__);
+		goto err;
+	}
+
+	/*
+	* as part of the init sequence check if there is a connected
+	* USB C analog adapter
+	*/
+	dev_dbg(mbhc->codec->dev, "%s: verify if USB adapter is already inserted\n",
+		__func__);
+	ret = wcd_mbhc_usb_c_event_changed(&mbhc->psy_nb,
+					   PSY_EVENT_PROP_CHANGED,
+					   mbhc->usb_psy);
+
+err:
+	return ret;
+}
+
+static int wcd_mbhc_usb_c_analog_deinit(struct wcd_mbhc *mbhc)
+{
+	wcd_mbhc_usb_c_analog_setup_gpios(mbhc, false);
+
+	/* deregister from PMI */
+	power_supply_unreg_notifier(&mbhc->psy_nb);
+
+	return 0;
+}
+
+static int wcd_mbhc_init_gpio(struct wcd_mbhc *mbhc,
+			      struct wcd_mbhc_config *mbhc_cfg,
+			      const char *gpio_dt_str,
+			      int *gpio, struct device_node **gpio_dn)
+{
+	int rc = 0;
+	struct snd_soc_codec *codec = mbhc->codec;
+	struct snd_soc_card *card = codec->component.card;
+
+	dev_dbg(mbhc->codec->dev, "%s: gpio %s\n", __func__, gpio_dt_str);
+
+	*gpio_dn = of_parse_phandle(card->dev->of_node, gpio_dt_str, 0);
+
+	if (!(*gpio_dn)) {
+		*gpio = of_get_named_gpio(card->dev->of_node, gpio_dt_str, 0);
+		if (!gpio_is_valid(*gpio)) {
+			dev_err(card->dev, "%s, property %s not in node %s",
+				__func__, gpio_dt_str,
+				card->dev->of_node->full_name);
+			rc = -EINVAL;
+		}
+	}
+
+	return rc;
+}
+
+int wcd_mbhc_start(struct wcd_mbhc *mbhc, struct wcd_mbhc_config *mbhc_cfg)
+{
+	int rc = 0;
+	struct usbc_ana_audio_config *config;
+	struct snd_soc_codec *codec;
+	struct snd_soc_card *card;
+	const char *usb_c_dt = "qcom,msm-mbhc-usbc-audio-supported";
+
+	if (!mbhc || !mbhc_cfg)
+		return -EINVAL;
+
+	config = &mbhc_cfg->usbc_analog_cfg;
+	codec = mbhc->codec;
+	card = codec->component.card;
+
 	/* update the mbhc config */
 	mbhc->mbhc_cfg = mbhc_cfg;
+
+	dev_dbg(mbhc->codec->dev, "%s: enter\n", __func__);
+
+	/* check if USB C analog is defined on device tree */
+	mbhc_cfg->enable_usbc_analog = 0;
+	if (of_find_property(card->dev->of_node, usb_c_dt, NULL)) {
+		rc = of_property_read_u32(card->dev->of_node, usb_c_dt,
+				&mbhc_cfg->enable_usbc_analog);
+	}
+	if (mbhc_cfg->enable_usbc_analog == 0 || rc != 0) {
+		dev_info(card->dev,
+				"%s: %s in dt node is missing or false\n",
+				__func__, usb_c_dt);
+		dev_info(card->dev,
+			"%s: skipping USB c analog configuration\n", __func__);
+	}
+
+	/* initialize GPIOs */
+	if (mbhc_cfg->enable_usbc_analog) {
+		dev_dbg(mbhc->codec->dev, "%s: usbc analog enabled\n",
+				__func__);
+		rc = wcd_mbhc_init_gpio(mbhc, mbhc_cfg,
+				"qcom,usbc-analog-en1_gpio",
+				&config->usbc_en1_gpio,
+				&config->usbc_en1_gpio_p);
+		if (rc)
+			goto err;
+
+		rc = wcd_mbhc_init_gpio(mbhc, mbhc_cfg,
+				"qcom,usbc-analog-en2_n_gpio",
+				&config->usbc_en2n_gpio,
+				&config->usbc_en2n_gpio_p);
+		if (rc)
+			goto err;
+
+		if (of_find_property(card->dev->of_node,
+				     "qcom,usbc-analog-force_detect_gpio",
+				     NULL)) {
+			rc = wcd_mbhc_init_gpio(mbhc, mbhc_cfg,
+					"qcom,usbc-analog-force_detect_gpio",
+					&config->usbc_force_gpio,
+					&config->usbc_force_gpio_p);
+			if (rc)
+				goto err;
+		}
+
+		dev_dbg(mbhc->codec->dev, "%s: calling usb_c_analog_init\n",
+			__func__);
+		/* init PMI notifier */
+		rc = wcd_mbhc_usb_c_analog_init(mbhc);
+		if (rc) {
+			rc = EPROBE_DEFER;
+			goto err;
+		}
+	}
 
 	/* Set btn key code */
 	if ((!mbhc->is_btn_already_regd) && wcd_mbhc_set_keycode(mbhc))
@@ -2329,14 +2594,44 @@ int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 			pr_err("%s: Skipping to read mbhc fw, 0x%pK %pK\n",
 				 __func__, mbhc->mbhc_fw, mbhc->mbhc_cal);
 	}
-	pr_debug("%s: leave %d\n", __func__, rc);
+
+	return rc;
+err:
+	if (config->usbc_en1_gpio > 0) {
+		dev_dbg(card->dev, "%s free usb en1 gpio %d\n",
+			__func__, config->usbc_en1_gpio);
+		gpio_free(config->usbc_en1_gpio);
+		config->usbc_en1_gpio = 0;
+	}
+	if (config->usbc_en2n_gpio > 0) {
+		dev_dbg(card->dev, "%s free usb_en2 gpio %d\n",
+			__func__, config->usbc_en2n_gpio);
+		gpio_free(config->usbc_en2n_gpio);
+		config->usbc_en2n_gpio = 0;
+	}
+	if (config->usbc_force_gpio > 0) {
+		dev_dbg(card->dev, "%s free usb_force gpio %d\n",
+			__func__, config->usbc_force_gpio);
+		gpio_free(config->usbc_force_gpio);
+		config->usbc_force_gpio = 0;
+	}
+	if (config->usbc_en1_gpio_p)
+		of_node_put(config->usbc_en1_gpio_p);
+	if (config->usbc_en2n_gpio_p)
+		of_node_put(config->usbc_en2n_gpio_p);
+	if (config->usbc_force_gpio_p)
+		of_node_put(config->usbc_force_gpio_p);
+	dev_dbg(mbhc->codec->dev, "%s: leave %d\n", __func__, rc);
 	return rc;
 }
 EXPORT_SYMBOL(wcd_mbhc_start);
 
 void wcd_mbhc_stop(struct wcd_mbhc *mbhc)
 {
+	struct usbc_ana_audio_config *config = &mbhc->mbhc_cfg->usbc_analog_cfg;
+
 	pr_debug("%s: enter\n", __func__);
+
 	if (mbhc->current_plug != MBHC_PLUG_TYPE_NONE) {
 		if (mbhc->mbhc_cb && mbhc->mbhc_cb->skip_imped_detect)
 			mbhc->mbhc_cb->skip_imped_detect(mbhc->codec);
@@ -2358,6 +2653,25 @@ void wcd_mbhc_stop(struct wcd_mbhc *mbhc)
 		mbhc->mbhc_fw = NULL;
 		mbhc->mbhc_cal = NULL;
 	}
+
+	if (mbhc->mbhc_cfg->enable_usbc_analog) {
+		wcd_mbhc_usb_c_analog_deinit(mbhc);
+		/* free GPIOs */
+		if (config->usbc_en1_gpio > 0)
+			gpio_free(config->usbc_en1_gpio);
+		if (config->usbc_en2n_gpio > 0)
+			gpio_free(config->usbc_en2n_gpio);
+		if (config->usbc_force_gpio)
+			gpio_free(config->usbc_force_gpio);
+
+		if (config->usbc_en1_gpio_p)
+			of_node_put(config->usbc_en1_gpio_p);
+		if (config->usbc_en2n_gpio_p)
+			of_node_put(config->usbc_en2n_gpio_p);
+		if (config->usbc_force_gpio_p)
+			of_node_put(config->usbc_force_gpio_p);
+	}
+
 	pr_debug("%s: leave\n", __func__);
 }
 EXPORT_SYMBOL(wcd_mbhc_stop);

@@ -818,7 +818,7 @@ static struct clk_rcg2 hmss_rbcpr_clk_src = {
 		.parent_names = gcc_parent_names_ao_1,
 		.num_parents = 3,
 		.ops = &clk_rcg2_ops,
-		VDD_DIG_FMAX_MAP2(
+		VDD_DIG_FMAX_MAP2_AO(
 				LOWER, 19200000,
 				NOMINAL, 50000000),
 	},
@@ -1132,6 +1132,7 @@ static struct clk_rcg2 usb30_master_clk_src = {
 };
 
 static const struct freq_tbl ftbl_usb30_mock_utmi_clk_src[] = {
+	F(19200000, P_XO, 1, 0, 0),
 	F(40000000, P_PLL0_EARLY_DIV_CLK_SRC, 7.5, 0, 0),
 	F(60000000, P_GPLL0_OUT_MAIN, 10, 0, 0),
 	{ }
@@ -1763,19 +1764,6 @@ static struct clk_branch gcc_gpu_bimc_gfx_clk = {
 	},
 };
 
-static struct clk_branch gcc_gpu_bimc_gfx_src_clk = {
-	.halt_reg = 0x7100c,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x7100c,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_gpu_bimc_gfx_src_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_gpu_cfg_ahb_clk = {
 	.halt_reg = 0x71004,
 	.halt_check = BRANCH_VOTED,
@@ -1830,19 +1818,6 @@ static struct clk_branch gcc_gpu_gpll0_div_clk = {
 				"gpll0_out_early_div",
 			},
 			.num_parents = 1,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_gpu_snoc_dvm_gfx_clk = {
-	.halt_reg = 0x71018,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x71018,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_gpu_snoc_dvm_gfx_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2675,11 +2650,9 @@ static struct clk_regmap *gcc_660_clocks[] = {
 	[GCC_GP2_CLK] = &gcc_gp2_clk.clkr,
 	[GCC_GP3_CLK] = &gcc_gp3_clk.clkr,
 	[GCC_GPU_BIMC_GFX_CLK] = &gcc_gpu_bimc_gfx_clk.clkr,
-	[GCC_GPU_BIMC_GFX_SRC_CLK] = &gcc_gpu_bimc_gfx_src_clk.clkr,
 	[GCC_GPU_CFG_AHB_CLK] = &gcc_gpu_cfg_ahb_clk.clkr,
 	[GCC_GPU_GPLL0_CLK] = &gcc_gpu_gpll0_clk.clkr,
 	[GCC_GPU_GPLL0_DIV_CLK] = &gcc_gpu_gpll0_div_clk.clkr,
-	[GCC_GPU_SNOC_DVM_GFX_CLK] = &gcc_gpu_snoc_dvm_gfx_clk.clkr,
 	[GCC_HMSS_AHB_CLK] = &gcc_hmss_ahb_clk.clkr,
 	[GCC_HMSS_DVM_BUS_CLK] = &gcc_hmss_dvm_bus_clk.clkr,
 	[GCC_HMSS_RBCPR_CLK] = &gcc_hmss_rbcpr_clk.clkr,
@@ -2919,9 +2892,7 @@ static const char *const debug_mux_parent_names[] = {
 	"gcc_gp2_clk",
 	"gcc_gp3_clk",
 	"gcc_gpu_bimc_gfx_clk",
-	"gcc_gpu_bimc_gfx_src_clk",
 	"gcc_gpu_cfg_ahb_clk",
-	"gcc_gpu_snoc_dvm_gfx_clk",
 	"gcc_hmss_ahb_clk",
 	"gcc_hmss_dvm_bus_clk",
 	"gcc_hmss_rbcpr_clk",
@@ -3100,9 +3071,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 		{ "gcc_gp2_clk",			0x0E0 },
 		{ "gcc_gp3_clk",			0x0E1 },
 		{ "gcc_gpu_bimc_gfx_clk",		0x13F },
-		{ "gcc_gpu_bimc_gfx_src_clk",		0x13E },
 		{ "gcc_gpu_cfg_ahb_clk",		0x13B },
-		{ "gcc_gpu_snoc_dvm_gfx_clk",		0x141 },
 		{ "gcc_hmss_ahb_clk",			0x0BA },
 		{ "gcc_hmss_dvm_bus_clk",		0x0BF },
 		{ "gcc_hmss_rbcpr_clk",			0x0BC },

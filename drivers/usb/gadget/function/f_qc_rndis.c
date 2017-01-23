@@ -683,6 +683,7 @@ static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	/* we know alt == 0 */
 
+	opts = container_of(f->fi, struct f_rndis_qc_opts, func_inst);
 	if (intf == rndis->ctrl_id) {
 		if (rndis->notify->driver_data) {
 			VDBG(cdev, "reset rndis control %d\n", intf);

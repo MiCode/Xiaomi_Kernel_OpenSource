@@ -77,11 +77,9 @@
 #define GCC_GP2_CLK				62
 #define GCC_GP3_CLK				63
 #define GCC_GPU_BIMC_GFX_CLK			64
-#define GCC_GPU_BIMC_GFX_SRC_CLK		65
 #define GCC_GPU_CFG_AHB_CLK			66
 #define GCC_GPU_GPLL0_CLK			67
 #define GCC_GPU_GPLL0_DIV_CLK			68
-#define GCC_GPU_SNOC_DVM_GFX_CLK		69
 #define GCC_HMSS_AHB_CLK			70
 #define GCC_HMSS_DVM_BUS_CLK			71
 #define GCC_HMSS_RBCPR_CLK			72
