@@ -518,6 +518,11 @@ ath10k_rx_desc_get_l3_pad_bytes(struct ath10k_hw_params *hw,
 #define TARGET_TLV_NUM_MSDU_DESC		(1024 + 32)
 #define TARGET_TLV_NUM_WOW_PATTERNS		22
 
+/* Target specific defines for WMI-HL-1.0 firmware */
+#define TARGET_HL_10_TLV_NUM_PEERS		14
+#define TARGET_HL_10_TLV_AST_SKID_LIMIT		6
+#define TARGET_HL_10_TLV_NUM_WDS_ENTRIES	2
+
 /* Diagnostic Window */
 #define CE_DIAG_PIPE	7
 
