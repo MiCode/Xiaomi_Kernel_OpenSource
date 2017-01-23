@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		vdd-supply = <&gdsc_mdss>;
+		gdsc-core-supply = <&gdsc_bimc_smmu>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_mdp";
