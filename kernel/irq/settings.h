@@ -17,6 +17,7 @@ enum {
 	_IRQ_IS_POLLED		= IRQ_IS_POLLED,
 	_IRQ_DISABLE_UNLAZY	= IRQ_DISABLE_UNLAZY,
 	_IRQF_MODIFY_MASK	= IRQF_MODIFY_MASK,
+	_IRQ_AFFINITY_MANAGED	= IRQ_AFFINITY_MANAGED,
 };
 
 #define IRQ_PER_CPU		GOT_YOU_MORON
@@ -32,6 +33,7 @@ enum {
 #define IRQ_DISABLE_UNLAZY	GOT_YOU_MORON
 #undef IRQF_MODIFY_MASK
 #define IRQF_MODIFY_MASK	GOT_YOU_MORON
+#define IRQ_AFFINITY_MANAGED	GOT_YOU_MORON
 
 static inline void
 irq_settings_clr_and_set(struct irq_desc *desc, u32 clr, u32 set)
@@ -63,6 +65,16 @@ static inline void irq_settings_set_no_balancing(struct irq_desc *desc)
 static inline bool irq_settings_has_no_balance_set(struct irq_desc *desc)
 {
 	return desc->status_use_accessors & _IRQ_NO_BALANCING;
+}
+
+static inline void irq_settings_set_affinity_managed(struct irq_desc *desc)
+{
+	desc->status_use_accessors |= _IRQ_AFFINITY_MANAGED;
+}
+
+static inline bool irq_settings_has_affinity_managed_set(struct irq_desc *desc)
+{
+	return desc->status_use_accessors & _IRQ_AFFINITY_MANAGED;
 }
 
 static inline u32 irq_settings_get_trigger_mask(struct irq_desc *desc)
