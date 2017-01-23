@@ -47,7 +47,7 @@
 #define IPA_QMAP_HEADER_LENGTH (4)
 #define IPA_DL_CHECKSUM_LENGTH (8)
 #define IPA_NUM_DESC_PER_SW_TX (2)
-#define IPA_GENERIC_RX_POOL_SZ 1000
+#define IPA_GENERIC_RX_POOL_SZ 192
 #define IPA_UC_FINISH_MAX 6
 #define IPA_UC_WAIT_MIN_SLEEP 1000
 #define IPA_UC_WAII_MAX_SLEEP 1200
@@ -1174,6 +1174,7 @@ struct ipa_context {
 	u32 ipa_rx_min_timeout_usec;
 	u32 ipa_rx_max_timeout_usec;
 	u32 ipa_polling_iteration;
+	bool ipa_uc_monitor_holb;
 };
 
 /**
@@ -1229,6 +1230,7 @@ struct ipa_plat_drv_res {
 	bool tethered_flow_control;
 	u32 ipa_rx_polling_sleep_msec;
 	u32 ipa_polling_iteration;
+	bool ipa_uc_monitor_holb;
 };
 
 struct ipa_mem_partition {
