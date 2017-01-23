@@ -33,6 +33,7 @@ struct sde_cp_node {
 	struct list_head active_list;
 	struct list_head dirty_list;
 	bool is_dspp_feature;
+	u32 prop_blob_sz;
 };
 
 struct sde_cp_prop_attach {
@@ -253,6 +254,12 @@ static int sde_cp_enable_crtc_blob_property(struct drm_crtc *crtc,
 		DRM_ERROR("invalid blob id %lld\n", val);
 		return -EINVAL;
 	}
+	if (blob->length != prop_node->prop_blob_sz) {
+		DRM_ERROR("invalid blob len %zd exp %d feature %d\n",
+		    blob->length, prop_node->prop_blob_sz, prop_node->feature);
+		drm_property_unreference_blob(blob);
+		return -EINVAL;
+	}
 	/* Release refernce to existing payload of the property */
 	if (prop_node->blob_ptr)
 		drm_property_unreference_blob(prop_node->blob_ptr);
@@ -406,7 +413,7 @@ static void sde_cp_crtc_install_range_property(struct drm_crtc *crtc,
 }
 
 static void sde_cp_crtc_create_blob_property(struct drm_crtc *crtc, char *name,
-					     u32 feature)
+			u32 feature, u32 blob_sz)
 {
 	struct drm_property *prop;
 	struct sde_cp_node *prop_node = NULL;
@@ -440,6 +447,7 @@ static void sde_cp_crtc_create_blob_property(struct drm_crtc *crtc, char *name,
 
 	INIT_PROP_ATTACH(&prop_attach, crtc, prop, prop_node,
 				feature, val);
+	prop_node->prop_blob_sz = blob_sz;
 
 	sde_cp_crtc_prop_attach(&prop_attach);
 }
@@ -892,7 +900,7 @@ static void dspp_pcc_install_property(struct drm_crtc *crtc)
 	switch (version) {
 	case 1:
 		sde_cp_crtc_create_blob_property(crtc, feature_name,
-					SDE_CP_CRTC_DSPP_PCC);
+			SDE_CP_CRTC_DSPP_PCC, sizeof(struct drm_msm_pcc));
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);
@@ -987,7 +995,7 @@ static void lm_gc_install_property(struct drm_crtc *crtc)
 	switch (version) {
 	case 1:
 		sde_cp_crtc_create_blob_property(crtc, feature_name,
-			SDE_CP_CRTC_LM_GC);
+			SDE_CP_CRTC_LM_GC, sizeof(struct drm_msm_pgc_lut));
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);
@@ -1011,7 +1019,8 @@ static void dspp_gamut_install_property(struct drm_crtc *crtc)
 	switch (version) {
 	case 4:
 		sde_cp_crtc_create_blob_property(crtc, feature_name,
-					SDE_CP_CRTC_DSPP_GAMUT);
+			SDE_CP_CRTC_DSPP_GAMUT,
+			sizeof(struct drm_msm_3d_gamut));
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);
@@ -1035,7 +1044,7 @@ static void dspp_gc_install_property(struct drm_crtc *crtc)
 	switch (version) {
 	case 1:
 		sde_cp_crtc_create_blob_property(crtc, feature_name,
-					SDE_CP_CRTC_DSPP_GC);
+			SDE_CP_CRTC_DSPP_GC, sizeof(struct drm_msm_pgc_lut));
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);
