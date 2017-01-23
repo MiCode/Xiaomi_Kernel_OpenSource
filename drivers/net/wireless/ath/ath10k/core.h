@@ -666,6 +666,10 @@ enum ath10k_tx_pause_reason {
 	ATH10K_TX_PAUSE_MAX,
 };
 
+struct fw_flag {
+	u32 flags;
+};
+
 struct ath10k_fw_file {
 	const struct firmware *firmware;
 
@@ -925,6 +929,7 @@ struct ath10k {
 	u32 (*bus_read32)(void *ar, u32 offset);
 	spinlock_t ce_lock; /* lock for CE access */
 	void *ce_states;
+	struct fw_flag *fw_flags;
 	/* must be last */
 	u8 drv_priv[0] __aligned(sizeof(void *));
 };

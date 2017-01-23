@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
- * Copyright (c) 2011-2014 Qualcomm Atheros, Inc.
+ * Copyright (c) 2011-2014, 2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -1512,10 +1512,11 @@ ath10k_wmi_tlv_op_gen_start_scan(struct ath10k *ar,
 	cmd->ie_len = __cpu_to_le32(arg->ie_len);
 	cmd->num_probes = __cpu_to_le32(3);
 
-	/* FIXME: There are some scan flag inconsistencies across firmwares,
-	 * e.g. WMI-TLV inverts the logic behind the following flag.
-	 */
-	cmd->common.scan_ctrl_flags ^= __cpu_to_le32(WMI_SCAN_FILTER_PROBE_REQ);
+	if (QCA_REV_WCN3990(ar))
+		cmd->common.scan_ctrl_flags = ar->fw_flags->flags;
+	else
+		cmd->common.scan_ctrl_flags ^=
+			__cpu_to_le32(WMI_SCAN_FILTER_PROBE_REQ);
 
 	ptr += sizeof(*tlv);
 	ptr += sizeof(*cmd);
@@ -3646,6 +3647,7 @@ void ath10k_wmi_hl_1_0_attach(struct ath10k *ar)
 	ar->wmi.vdev_param = &wmi_tlv_vdev_param_map;
 	ar->wmi.pdev_param = &wmi_tlv_pdev_param_map;
 	ar->wmi.ops = &wmi_hl_1_0_ops;
+	ar->wmi.peer_flags = &wmi_tlv_peer_flags_map;
 }
 
 /* TLV init */
