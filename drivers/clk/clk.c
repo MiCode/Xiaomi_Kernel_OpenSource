@@ -2631,7 +2631,46 @@ do {							\
 		pr_info(fmt, ##__VA_ARGS__);		\
 } while (0)
 
-int clock_debug_print_clock(struct clk_core *c, struct seq_file *s)
+/*
+ * clock_debug_print_enabled_debug_suspend() - Print names of enabled clocks
+ * during suspend.
+ */
+static void clock_debug_print_enabled_debug_suspend(struct seq_file *s)
+{
+	struct clk_core *core;
+	int cnt = 0;
+
+	if (!mutex_trylock(&clk_debug_lock))
+		return;
+
+	clock_debug_output(s, 0, "Enabled clocks:\n");
+
+	hlist_for_each_entry(core, &clk_debug_list, debug_node) {
+		if (!core || !core->prepare_count)
+			continue;
+
+		if (core->vdd_class)
+			clock_debug_output(s, 0, " %s:%u:%u [%ld, %d]",
+					core->name, core->prepare_count,
+					core->enable_count, core->rate,
+					clk_find_vdd_level(core, core->rate));
+
+		else
+			clock_debug_output(s, 0, " %s:%u:%u [%ld]",
+					core->name, core->prepare_count,
+					core->enable_count, core->rate);
+		cnt++;
+	}
+
+	mutex_unlock(&clk_debug_lock);
+
+	if (cnt)
+		clock_debug_output(s, 0, "Enabled clock count: %d\n", cnt);
+	else
+		clock_debug_output(s, 0, "No clocks enabled.\n");
+}
+
+static int clock_debug_print_clock(struct clk_core *c, struct seq_file *s)
 {
 	char *start = "";
 	struct clk *clk;
@@ -3005,7 +3044,7 @@ void clock_debug_print_enabled(void)
 	if (likely(!debug_suspend))
 		return;
 
-	clock_debug_print_enabled_clocks(NULL);
+	clock_debug_print_enabled_debug_suspend(NULL);
 }
 EXPORT_SYMBOL_GPL(clock_debug_print_enabled);
 
