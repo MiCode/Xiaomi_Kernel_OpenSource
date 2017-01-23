@@ -669,14 +669,14 @@ static u32 ath10k_bus_pci_read32(struct ath10k *ar, u32 offset)
 	return val;
 }
 
-inline void ath10k_pci_write32(struct ath10k *ar, u32 offset, u32 value)
+inline void ath10k_pci_write32(void *ar, u32 offset, u32 value)
 {
 	struct ath10k_pci *ar_pci = ath10k_pci_priv(ar);
 
 	ar_pci->bus_ops->write32(ar, offset, value);
 }
 
-inline u32 ath10k_pci_read32(struct ath10k *ar, u32 offset)
+inline u32 ath10k_pci_read32(void *ar, u32 offset)
 {
 	struct ath10k_pci *ar_pci = ath10k_pci_priv(ar);
 
@@ -3246,6 +3246,16 @@ static int ath10k_pci_probe(struct pci_dev *pdev,
 	ar->id.subsystem_vendor = pdev->subsystem_vendor;
 	ar->id.subsystem_device = pdev->subsystem_device;
 
+	spin_lock_init(&ar_pci->ce_lock);
+	spin_lock_init(&ar_pci->ps_lock);
+
+	ar->bus_write32 = ath10k_pci_write32;
+	ar->bus_read32 = ath10k_pci_read32;
+	ar->ce_lock = ar_pci->ce_lock;
+	ar->ce_states = ar_pci->ce_states;
+
+	setup_timer(&ar_pci->rx_post_retry, ath10k_pci_rx_replenish_retry,
+		    (unsigned long)ar);
 	setup_timer(&ar_pci->ps_timer, ath10k_pci_ps_timer,
 		    (unsigned long)ar);
 
