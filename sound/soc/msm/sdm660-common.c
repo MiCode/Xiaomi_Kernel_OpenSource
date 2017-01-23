@@ -2907,7 +2907,7 @@ err:
 	}
 	devm_kfree(&pdev->dev, pdata);
 	if (pdata->snd_card_val != INT_SND_CARD)
-		msm_ext_cdc_deinit();
+		msm_ext_cdc_deinit(pdata);
 	return ret;
 }
 
@@ -2919,7 +2919,7 @@ static int msm_asoc_machine_remove(struct platform_device *pdev)
 	if (pdata->snd_card_val == INT_SND_CARD)
 		mutex_destroy(&pdata->cdc_int_mclk0_mutex);
 	else
-		msm_ext_cdc_deinit();
+		msm_ext_cdc_deinit(pdata);
 	msm_free_auxdev_mem(pdev);
 
 	gpio_free(pdata->us_euro_gpio);
