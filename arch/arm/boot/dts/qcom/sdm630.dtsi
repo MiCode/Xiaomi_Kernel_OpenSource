@@ -1911,6 +1911,8 @@
 #include "sdm660-camera.dtsi"
 #include "sdm630-pm.dtsi"
 #include "sdm660-vidc.dtsi"
+#include "sdm630-mdss.dtsi"
+#include "sdm630-mdss-pll.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";
