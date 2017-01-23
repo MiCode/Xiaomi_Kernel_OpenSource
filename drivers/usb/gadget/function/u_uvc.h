@@ -18,6 +18,24 @@
 
 #include <linux/usb/composite.h>
 
+/* module parameters specific to the Video streaming endpoint */
+#define USB_VIDEO_MODULE_PARAMETERS()					\
+	static unsigned int streaming_interval = 1;			\
+	module_param(streaming_interval, uint, S_IRUGO|S_IWUSR);	\
+	MODULE_PARM_DESC(streaming_interval, "1 - 16");			\
+									\
+	static unsigned int streaming_maxpacket = 1024;			\
+	module_param(streaming_maxpacket, uint, S_IRUGO|S_IWUSR);	\
+	MODULE_PARM_DESC(streaming_maxpacket, "1-1023 (FS), 1-3072 (hs/ss)"); \
+									\
+	static unsigned int streaming_maxburst;				\
+	module_param(streaming_maxburst, uint, S_IRUGO|S_IWUSR);	\
+	MODULE_PARM_DESC(streaming_maxburst, "0 - 15 (ss only)");	\
+									\
+	static unsigned int trace;					\
+	module_param(trace, uint, S_IRUGO|S_IWUSR);			\
+	MODULE_PARM_DESC(trace, "Trace level bitmask")
+
 #define to_f_uvc_opts(f)	container_of(f, struct f_uvc_opts, func_inst)
 
 struct f_uvc_opts {
