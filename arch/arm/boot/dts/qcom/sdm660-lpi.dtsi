@@ -157,51 +157,55 @@
 
 		cdc_dmic12_gpios_active: dmic12_gpios_active {
 			mux {
-				pins = "gpio26", "gpio27";
+				pins = "gpio26", "gpio28";
 				function = "func1";
 			};
 
 			config {
-				pins = "gpio26", "gpio27";
+				pins = "gpio26", "gpio28";
 				drive-strength = <8>;
+				output-high;
 			};
 		};
 
 		cdc_dmic12_gpios_sleep: dmic12_gpios_sleep {
 			mux {
-				pins = "gpio26", "gpio27";
+				pins = "gpio26", "gpio28";
 				function = "func1";
 			};
 
 			config {
-				pins = "gpio26", "gpio27";
+				pins = "gpio26", "gpio28";
 				drive-strength = <2>;
 				bias-disable;
+				output-low;
 			};
 		};
 
 		cdc_dmic34_gpios_active: dmic34_gpios_active {
 			mux {
-				pins = "gpio28", "gpio29";
+				pins = "gpio27", "gpio29";
 				function = "func1";
 			};
 
 			config {
-				pins = "gpio28", "gpio29";
+				pins = "gpio27", "gpio29";
 				drive-strength = <8>;
+				input-enable;
 			};
 		};
 
 		cdc_dmic34_gpios_sleep: dmic34_gpios_sleep {
 			mux {
-				pins = "gpio28", "gpio29";
+				pins = "gpio27", "gpio29";
 				function = "func1";
 			};
 
 			config {
-				pins = "gpio28", "gpio29";
+				pins = "gpio27", "gpio29";
 				drive-strength = <2>;
-				bias-disable;
+				pull-down;
+				input-enable;
 			};
 		};
 	};

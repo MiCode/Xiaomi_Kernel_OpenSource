@@ -94,6 +94,7 @@ static struct snd_soc_dai_driver msm_anlg_cdc_i2s_dai[];
 /* By default enable the internal speaker boost */
 static bool spkr_boost_en = true;
 static bool initial_boot = true;
+static bool is_ssr_en;
 
 static char on_demand_supply_name[][MAX_ON_DEMAND_SUPPLY_NAME_LENGTH] = {
 	"cdc-vdd-mic-bias",
@@ -4052,15 +4053,17 @@ int msm_anlg_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 		return -ENOMEM;
 	}
 	sdm660_cdc_priv->version_entry = version_entry;
-	sdm660_cdc_priv->audio_ssr_nb.notifier_call =
-				sdm660_cdc_notifier_service_cb;
-	ret = audio_notifier_register("pmic_analog_cdc",
-				      AUDIO_NOTIFIER_ADSP_DOMAIN,
-				      &sdm660_cdc_priv->audio_ssr_nb);
-	if (ret < 0) {
-		pr_err("%s: Audio notifier register failed ret = %d\n",
-			__func__, ret);
-		return ret;
+	if (is_ssr_en) {
+		sdm660_cdc_priv->audio_ssr_nb.notifier_call =
+					sdm660_cdc_notifier_service_cb;
+		ret = audio_notifier_register("pmic_analog_cdc",
+					      AUDIO_NOTIFIER_ADSP_DOMAIN,
+					      &sdm660_cdc_priv->audio_ssr_nb);
+		if (ret < 0) {
+			pr_err("%s: Audio notifier register failed ret = %d\n",
+				__func__, ret);
+			return ret;
+		}
 	}
 	return 0;
 }

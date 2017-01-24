@@ -7806,7 +7806,8 @@ static int msm_routing_put_stereo_to_custom_stereo_control(
 			continue;
 		if ((port_id != SLIMBUS_0_RX) &&
 		     (port_id != RT_PROXY_PORT_001_RX) &&
-			(port_id != AFE_PORT_ID_PRIMARY_MI2S_RX))
+			(port_id != AFE_PORT_ID_PRIMARY_MI2S_RX) &&
+			(port_id != AFE_PORT_ID_INT4_MI2S_RX))
 			continue;
 
 		for_each_set_bit(i, &msm_bedais[be_index].fe_sessions,
