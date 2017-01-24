@@ -160,6 +160,8 @@ struct msm_compr_audio {
 	uint32_t stream_available;
 	uint32_t next_stream;
 
+	uint32_t run_mode;
+
 	uint64_t marker_timestamp;
 
 	struct msm_compr_gapless_state gapless_state;
@@ -214,6 +216,34 @@ struct msm_compr_ch_map {
 static int msm_compr_send_dec_params(struct snd_compr_stream *cstream,
 				     struct msm_compr_dec_params *dec_params,
 				     int stream_id);
+
+static int msm_compr_set_render_mode(struct msm_compr_audio *prtd,
+				     uint32_t render_mode) {
+	int ret = -EINVAL;
+	struct audio_client *ac = prtd->audio_client;
+
+	pr_debug("%s, got render mode %u\n", __func__, render_mode);
+
+	if (render_mode == SNDRV_COMPRESS_RENDER_MODE_AUDIO_MASTER) {
+		render_mode = ASM_SESSION_MTMX_STRTR_PARAM_RENDER_DEFAULT;
+	} else if (render_mode == SNDRV_COMPRESS_RENDER_MODE_STC_MASTER) {
+		render_mode = ASM_SESSION_MTMX_STRTR_PARAM_RENDER_LOCAL_STC;
+		prtd->run_mode = ASM_SESSION_CMD_RUN_STARTIME_RUN_WITH_DELAY;
+	} else {
+		pr_err("%s, Invalid render mode %u\n", __func__,
+			render_mode);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ret = q6asm_send_mtmx_strtr_render_mode(ac, render_mode);
+	if (ret) {
+		pr_err("%s, Render mode can't be set error %d\n", __func__,
+			ret);
+	}
+exit:
+	return ret;
+}
 
 static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 				uint32_t volume_l, uint32_t volume_r)
@@ -1969,7 +1999,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			msm_compr_read_buffer(prtd);
 		}
 		/* issue RUN command for the stream */
-		q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
+		q6asm_run_nowait(prtd->audio_client, prtd->run_mode, 0, 0);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		spin_lock_irqsave(&prtd->lock, flags);
@@ -2053,7 +2083,8 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 				   prtd->gapless_state.gapless_transition);
 		if (!prtd->gapless_state.gapless_transition) {
 			atomic_set(&prtd->start, 1);
-			q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
+			q6asm_run_nowait(prtd->audio_client, prtd->run_mode,
+					 0, 0);
 		}
 		break;
 	case SND_COMPR_TRIGGER_PARTIAL_DRAIN:
@@ -2725,11 +2756,14 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 		return -EINVAL;
 	}
 
-	if (prtd->compr_passthr != LEGACY_PCM) {
+	if (((metadata->key == SNDRV_COMPRESS_ENCODER_PADDING) ||
+	     (metadata->key == SNDRV_COMPRESS_ENCODER_DELAY)) &&
+	     (prtd->compr_passthr != LEGACY_PCM)) {
 		pr_debug("%s: No trailing silence for compress_type[%d]\n",
 			__func__, prtd->compr_passthr);
 		return 0;
 	}
+
 	ac = prtd->audio_client;
 	if (metadata->key == SNDRV_COMPRESS_ENCODER_PADDING) {
 		pr_debug("%s, got encoder padding %u",
@@ -2739,6 +2773,8 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 		pr_debug("%s, got encoder delay %u",
 			 __func__, metadata->value[0]);
 		prtd->gapless_state.initial_samples_drop = metadata->value[0];
+	} else if (metadata->key == SNDRV_COMPRESS_RENDER_MODE) {
+		return msm_compr_set_render_mode(prtd, metadata->value[0]);
 	}
 
 	return 0;
