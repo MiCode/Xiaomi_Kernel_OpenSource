@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,24 +23,6 @@
 	"Qualcomm Technologies, Inc. MSM 8998 v2.1 SDM 660 Interposer QRD";
 	compatible = "qcom,msm8998-qrd", "qcom,msm8998", "qcom,qrd";
 	qcom,board-id = <0x03000b 0x80>;
-};
-
-&slim_aud {
-	tasha_codec {
-		/delete-property/cdc-vdd-buck-supply;
-		/delete-property/cdc-buck-sido-supply;
-		/delete-property/cdc-vdd-tx-h-supply;
-		/delete-property/cdc-vdd-rx-h-supply;
-		/delete-property/cdc-vddpx-1-supply;
-	};
-
-	tavil_codec {
-		/delete-property/cdc-vdd-buck-supply;
-		/delete-property/cdc-buck-sido-supply;
-		/delete-property/cdc-vdd-tx-h-supply;
-		/delete-property/cdc-vdd-rx-h-supply;
-		/delete-property/cdc-vddpx-1-supply;
-	};
 };
 
 &clock_gcc {
@@ -166,4 +148,26 @@
 
 &pm660l_wled {
 	qcom,led-strings-list = [00 01];
+};
+
+&tasha_snd {
+	qcom,model = "msmfalcon-tasha-skus-snd-card";
+	qcom,audio-routing =
+		"AIF4 VI", "MCLK",
+		"RX_BIAS", "MCLK",
+		"MADINPUT", "MCLK",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Headset Mic",
+		"DMIC0", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic0",
+		"DMIC2", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic2",
+		"DMIC4", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic4",
+		"SpkrLeft IN", "SPK1 OUT";
+	qcom,msm-mbhc-hphl-swh = <1>;
+	/delete-property/ qcom,us-euro-gpios;
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_213>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
 };

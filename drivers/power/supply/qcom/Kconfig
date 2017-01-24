@@ -1,9 +1,8 @@
-menu "Qualcomm Technologies Inc Charger and FG Drivers"
+menu "Qualcomm Technologies Inc Charger and Fuel Gauge support"
 
 config QPNP_SMBCHARGER
 	tristate "QPNP SMB Charger driver"
-	depends on SPMI
-	select POWER_SUPPLY
+	depends on MFD_SPMI_PMIC
 	help
 	  Say Y here to enable the dual path switch mode battery charger which
 	  supports USB detection and battery charging up to 3A.
@@ -12,8 +11,7 @@ config QPNP_SMBCHARGER
 
 config QPNP_FG
 	tristate "QPNP fuel gauge driver"
-	depends on SPMI
-	select POWER_SUPPLY
+	depends on MFD_SPMI_PMIC
 	help
 	  Say Y here to enable the Fuel Gauge driver. This adds support for
 	  battery fuel gauging and state of charge of battery connected to the
@@ -22,8 +20,7 @@ config QPNP_FG
 
 config QPNP_FG_GEN3
 	tristate "QPNP GEN3 fuel gauge driver"
-	depends on SPMI
-	select REGMAP_SPMI
+	depends on MFD_SPMI_PMIC
 	help
 	  Say Y here to enable the GEN3 Fuel Gauge driver. This adds support
 	  for battery fuel gauging and state of charge of battery connected to
@@ -33,7 +30,6 @@ config QPNP_FG_GEN3
 config SMB135X_CHARGER
 	tristate "SMB135X Battery Charger"
 	depends on I2C
-	select POWER_SUPPLY
 	help
 	  Say Y to include support for SMB135X Battery Charger.
 	  SMB135X is a dual path switching mode charger capable of charging
@@ -45,7 +41,6 @@ config SMB135X_CHARGER
 config SMB1351_USB_CHARGER
 	tristate "smb1351 usb charger (with VBUS detection)"
 	depends on I2C
-	select POWER_SUPPLY
 	help
 	 Say Y to enable support for the SMB1351 switching mode based charger.
 	 The driver supports charging control (enable/disable) and
@@ -65,7 +60,6 @@ config MSM_BCL_PERIPHERAL_CTL
 	bool "BCL driver to control the PMIC BCL peripheral"
 	depends on SPMI
 	depends on MSM_BCL_CTL
-	select POWER_SUPPLY
 	help
 	  Say Y here to enable this BCL PMIC peripheral driver. This driver
 	  provides routines to configure and monitor the BCL
@@ -83,14 +77,12 @@ config BATTERY_BCL
 config QPNP_SMB2
 	tristate "SMB2 Battery Charger"
 	depends on MFD_SPMI_PMIC
-	select POWER_SUPPLY
 	help
 	  Enables support for the SMB2 charging peripheral
 
 config SMB138X_CHARGER
 	tristate "SMB138X Battery Charger"
 	depends on MFD_I2C_PMIC
-	select POWER_SUPPLY
 	help
 	  Say Y to include support for SMB138X Battery Charger.
 	  SMB1380 is a dual phase 6A battery charger, and SMB1381 is a single
@@ -101,8 +93,7 @@ config SMB138X_CHARGER
 
 config QPNP_QNOVO
 	bool "QPNP QNOVO driver"
-	depends on SPMI
-	select POWER_SUPPLY
+	depends on MFD_SPMI_PMIC
 	help
 	  Say Y here to enable the Qnovo pulse charging engine. Qnovo driver
 	  accepts pulse parameters via sysfs entries and programs the hardware

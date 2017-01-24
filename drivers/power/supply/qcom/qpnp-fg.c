@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2081,7 +2081,7 @@ static void update_sram_data_work(struct work_struct *work)
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				update_sram_data.work);
-	int resched_ms, ret;
+	int resched_ms = SRAM_PERIOD_NO_ID_UPDATE_MS, ret;
 	bool tried_again = false;
 
 wait:
@@ -5961,7 +5961,19 @@ static ssize_t fg_memif_dfs_reg_write(struct file *file, const char __user *buf,
 	values = kbuf;
 
 	/* Parse the data in the buffer.  It should be a string of numbers */
-	while (sscanf(kbuf + pos, "%i%n", &data, &bytes_read) == 1) {
+	while ((pos < count) &&
+		sscanf(kbuf + pos, "%i%n", &data, &bytes_read) == 1) {
+		/*
+		 * We shouldn't be receiving a string of characters that
+		 * exceeds a size of 5 to keep this functionally correct.
+		 * Also, we should make sure that pos never gets overflowed
+		 * beyond the limit.
+		 */
+		if (bytes_read > 5 || bytes_read > INT_MAX - pos) {
+			cnt = 0;
+			ret = -EINVAL;
+			break;
+		}
 		pos += bytes_read;
 		values[cnt++] = data & 0xff;
 	}

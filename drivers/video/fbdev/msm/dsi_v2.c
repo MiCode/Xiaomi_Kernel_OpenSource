@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -231,6 +231,10 @@ static int dsi_parse_gpio(struct platform_device *pdev,
 	if (!gpio_is_valid(ctrl_pdata->bklt_en_gpio))
 		pr_err("%s:%d, bklt_en gpio not specified\n",
 						__func__, __LINE__);
+
+	ctrl_pdata->bklt_en_gpio_invert =
+			of_property_read_bool(ctrl_pdev->dev.of_node,
+				"qcom,platform-bklight-en-gpio-invert");
 
 	return 0;
 }

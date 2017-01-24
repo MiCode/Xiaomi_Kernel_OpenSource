@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -295,6 +295,7 @@ int32_t msm_camera_tz_ta_set_mode(uint32_t mode,
 	cmd_len = sizeof(struct msm_camera_tz_set_mode_req_t);
 	rsp_len = sizeof(struct msm_camera_tz_set_mode_rsp_t);
 
+	msm_camera_tz_lock();
 	rc = get_cmd_rsp_buffers(ta_qseecom_handle,
 		(void **)&cmd, &cmd_len, (void **)&rsp, &rsp_len);
 	if (!rc)  {
@@ -309,10 +310,12 @@ int32_t msm_camera_tz_ta_set_mode(uint32_t mode,
 			pr_err("%s:%d - Failed: rc=%d\n",
 				__func__, __LINE__,
 				rc);
+			msm_camera_tz_unlock();
 			return rc;
 		}
 		rc = rsp->rc;
 	}
+	msm_camera_tz_unlock();
 	CDBG("Done: rc=%d, Mode=0x%08X - %lluus\n",
 		rc, mode,
 		ktime_us_delta(ktime_get(), startTime));

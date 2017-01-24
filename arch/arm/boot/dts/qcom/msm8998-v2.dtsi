@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1001,7 +1001,7 @@
 
 &gfx_cpr {
 	compatible = "qcom,cpr4-msm8998-v2-mmss-regulator";
-	qcom,cpr-aging-ref-voltage = <1024000>;
+	qcom,cpr-aging-ref-voltage = <1088000>;
 };
 
 &gfx_vreg {
@@ -1016,13 +1016,13 @@
 
 	qcom,cpr-voltage-ceiling =
 		<716000 716000 772000 880000 908000 948000 1016000 1088000>,
-		<724000 724000 772000 832000 916000 968000 1024000 1024000>,
-		<724000 724000 772000 832000 916000 968000 1024000 1024000>,
-		<724000 724000 772000 832000 916000 968000 1024000 1024000>,
-		<724000 724000 772000 832000 916000 968000 1024000 1024000>,
-		<724000 724000 772000 832000 916000 968000 1024000 1024000>,
-		<724000 724000 772000 832000 916000 968000 1024000 1024000>,
-		<724000 724000 772000 832000 916000 968000 1024000 1024000>;
+		<724000 724000 772000 832000 916000 968000 1024000 1088000>,
+		<724000 724000 772000 832000 916000 968000 1024000 1088000>,
+		<724000 724000 772000 832000 916000 968000 1024000 1088000>,
+		<724000 724000 772000 832000 916000 968000 1024000 1088000>,
+		<724000 724000 772000 832000 916000 968000 1024000 1088000>,
+		<724000 724000 772000 832000 916000 968000 1024000 1088000>,
+		<724000 724000 772000 832000 916000 968000 1024000 1088000>;
 
 	qcom,cpr-voltage-floor =
 		<516000 516000 532000 584000 632000 672000 712000 756000>;
@@ -1195,7 +1195,7 @@
 &msm_gpu {
 	/* Updated chip ID */
 	qcom,chipid = <0x05040001>;
-	qcom,initial-pwrlevel = <5>;
+	qcom,initial-pwrlevel = <6>;
 
 	qcom,gpu-pwrlevels {
 		#address-cells = <1>;
@@ -1205,23 +1205,23 @@
 
 		qcom,gpu-pwrlevel@0 {
 			reg = <0>;
+			qcom,gpu-freq = <710000000>;
+			qcom,bus-freq = <12>;
+			qcom,bus-min = <12>;
+			qcom,bus-max = <12>;
+		};
+
+		qcom,gpu-pwrlevel@1 {
+			reg = <1>;
 			qcom,gpu-freq = <670000000>;
 			qcom,bus-freq = <12>;
 			qcom,bus-min = <11>;
 			qcom,bus-max = <12>;
 		};
 
-		qcom,gpu-pwrlevel@1 {
-			reg = <1>;
-			qcom,gpu-freq = <596000000>;
-			qcom,bus-freq = <11>;
-			qcom,bus-min = <9>;
-			qcom,bus-max = <12>;
-		};
-
 		qcom,gpu-pwrlevel@2 {
 			reg = <2>;
-			qcom,gpu-freq = <515000000>;
+			qcom,gpu-freq = <596000000>;
 			qcom,bus-freq = <11>;
 			qcom,bus-min = <9>;
 			qcom,bus-max = <12>;
@@ -1229,30 +1229,38 @@
 
 		qcom,gpu-pwrlevel@3 {
 			reg = <3>;
+			qcom,gpu-freq = <515000000>;
+			qcom,bus-freq = <11>;
+			qcom,bus-min = <9>;
+			qcom,bus-max = <12>;
+		};
+
+		qcom,gpu-pwrlevel@4 {
+			reg = <4>;
 			qcom,gpu-freq = <414000000>;
 			qcom,bus-freq = <9>;
 			qcom,bus-min = <8>;
 			qcom,bus-max = <11>;
 		};
 
-		qcom,gpu-pwrlevel@4 {
-			reg = <4>;
+		qcom,gpu-pwrlevel@5 {
+			reg = <5>;
 			qcom,gpu-freq = <342000000>;
 			qcom,bus-freq = <8>;
 			qcom,bus-min = <5>;
 			qcom,bus-max = <9>;
 		};
 
-		qcom,gpu-pwrlevel@5 {
-			reg = <5>;
+		qcom,gpu-pwrlevel@6 {
+			reg = <6>;
 			qcom,gpu-freq = <257000000>;
 			qcom,bus-freq = <5>;
 			qcom,bus-min = <3>;
 			qcom,bus-max = <8>;
 		};
 
-		qcom,gpu-pwrlevel@6 {
-			reg = <6>;
+		qcom,gpu-pwrlevel@7 {
+			reg = <7>;
 			qcom,gpu-freq = <27000000>;
 			qcom,bus-freq = <0>;
 			qcom,bus-min = <0>;
@@ -1264,6 +1272,7 @@
 &spss_utils {
 	qcom,spss-test-firmware-name = "spss2t";	/* 8 chars max */
 	qcom,spss-prod-firmware-name = "spss2p";	/* 8 chars max */
+	qcom,spss-hybr-firmware-name = "spss2h";	/* 8 chars max */
 };
 
 &ufs1 {

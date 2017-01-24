@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1043,7 +1043,7 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 	if (!d->subsys_desc.no_auth) {
 		rc = piltz_resc_init(pdev, d);
 		if (rc)
-			return -ENOENT;
+			return rc;
 
 		rc = of_property_read_u32(pdev->dev.of_node, "qcom,pas-id",
 								&d->pas_id);

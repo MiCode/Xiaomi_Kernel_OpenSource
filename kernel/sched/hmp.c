@@ -377,6 +377,7 @@ struct sched_cluster init_cluster = {
 	.dstate_wakeup_latency	=	0,
 	.exec_scale_factor	=	1024,
 	.notifier_sent		=	0,
+	.wake_up_idle		=	0,
 };
 
 static void update_all_clusters_stats(void)
@@ -675,6 +676,19 @@ int sched_set_static_cluster_pwr_cost(int cpu, unsigned int cost)
 unsigned int sched_get_static_cluster_pwr_cost(int cpu)
 {
 	return cpu_rq(cpu)->cluster->static_cluster_pwr_cost;
+}
+
+int sched_set_cluster_wake_idle(int cpu, unsigned int wake_idle)
+{
+	struct sched_cluster *cluster = cpu_rq(cpu)->cluster;
+
+	cluster->wake_up_idle = !!wake_idle;
+	return 0;
+}
+
+unsigned int sched_get_cluster_wake_idle(int cpu)
+{
+	return cpu_rq(cpu)->cluster->wake_up_idle;
 }
 
 /*
@@ -2227,6 +2241,27 @@ static inline void clear_top_tasks_table(u8 *table)
 	memset(table, 0, NUM_LOAD_INDICES * sizeof(u8));
 }
 
+static void rollover_top_tasks(struct rq *rq, bool full_window)
+{
+	u8 curr_table = rq->curr_table;
+	u8 prev_table = 1 - curr_table;
+	int curr_top = rq->curr_top;
+
+	clear_top_tasks_table(rq->top_tasks[prev_table]);
+	clear_top_tasks_bitmap(rq->top_tasks_bitmap[prev_table]);
+
+	if (full_window) {
+		curr_top = 0;
+		clear_top_tasks_table(rq->top_tasks[curr_table]);
+		clear_top_tasks_bitmap(
+				rq->top_tasks_bitmap[curr_table]);
+	}
+
+	rq->curr_table = prev_table;
+	rq->prev_top = curr_top;
+	rq->curr_top = 0;
+}
+
 static u32 empty_windows[NR_CPUS];
 
 static void rollover_task_window(struct task_struct *p, bool full_window)
@@ -2274,7 +2309,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	bool new_task;
 	struct related_thread_group *grp;
 	int cpu = rq->cpu;
-	u32 old_curr_window;
+	u32 old_curr_window = p->ravg.curr_window;
 
 	new_window = mark_start < window_start;
 	if (new_window) {
@@ -2335,8 +2370,6 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	 * task or exiting tasks.
 	 */
 	if (!is_idle_task(p) && !exiting_task(p)) {
-		old_curr_window = p->ravg.curr_window;
-
 		if (new_window)
 			rollover_task_window(p, full_window);
 	}
@@ -2344,29 +2377,18 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	if (flip_counters) {
 		u64 curr_sum = *curr_runnable_sum;
 		u64 nt_curr_sum = *nt_curr_runnable_sum;
-		u8 curr_table = rq->curr_table;
-		u8 prev_table = 1 - curr_table;
-		int curr_top = rq->curr_top;
 
-		clear_top_tasks_table(rq->top_tasks[prev_table]);
-		clear_top_tasks_bitmap(rq->top_tasks_bitmap[prev_table]);
-
-		if (prev_sum_reset) {
+		if (prev_sum_reset)
 			curr_sum = nt_curr_sum = 0;
-			curr_top = 0;
-			clear_top_tasks_table(rq->top_tasks[curr_table]);
-			clear_top_tasks_bitmap(
-					rq->top_tasks_bitmap[curr_table]);
-		}
 
 		*prev_runnable_sum = curr_sum;
 		*nt_prev_runnable_sum = nt_curr_sum;
 
 		*curr_runnable_sum = 0;
 		*nt_curr_runnable_sum = 0;
-		rq->curr_table = prev_table;
-		rq->prev_top = curr_top;
-		rq->curr_top = 0;
+
+		if (p_is_curr_task)
+			rollover_top_tasks(rq, full_window);
 	}
 
 	if (!account_busy_for_cpu_time(rq, p, irqtime, event))

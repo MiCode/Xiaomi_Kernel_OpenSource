@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2223,7 +2223,7 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 	},
 	{/* hw:x,35 */
 		.name = LPASS_BE_INT5_MI2S_TX,
-		.stream_name = "INT5_mi2s Capture",
+		.stream_name = "INT5 MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.12",
 		.platform_name = "msm-pcm-hostless",
 		.codec_name = "msm_sdw_codec",

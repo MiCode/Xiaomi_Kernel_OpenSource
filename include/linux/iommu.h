@@ -134,6 +134,8 @@ enum iommu_attr {
 	DOMAIN_ATTR_FAST,
 	DOMAIN_ATTR_PGTBL_INFO,
 	DOMAIN_ATTR_EARLY_MAP,
+	DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT,
+	DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
 	DOMAIN_ATTR_MAX,
 };
 
@@ -237,6 +239,7 @@ struct iommu_ops {
 #endif
 
 	unsigned long (*get_pgsize_bitmap)(struct iommu_domain *domain);
+	bool (*is_iova_coherent)(struct iommu_domain *domain, dma_addr_t iova);
 	unsigned long pgsize_bitmap;
 	void *priv;
 };
@@ -273,6 +276,8 @@ extern size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long io
 extern phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_addr_t iova);
 extern phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
 					   dma_addr_t iova);
+extern bool iommu_is_iova_coherent(struct iommu_domain *domain,
+				dma_addr_t iova);
 extern void iommu_set_fault_handler(struct iommu_domain *domain,
 			iommu_fault_handler_t handler, void *token);
 extern void iommu_trigger_fault(struct iommu_domain *domain,
@@ -501,6 +506,12 @@ static inline phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_ad
 
 static inline phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
 						  dma_addr_t iova)
+{
+	return 0;
+}
+
+static inline bool iommu_is_iova_coherent(struct iommu_domain *domain,
+					  dma_addr_t iova)
 {
 	return 0;
 }

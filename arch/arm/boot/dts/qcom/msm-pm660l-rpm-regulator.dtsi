@@ -43,8 +43,8 @@
 
 	rpm-regulator-smpb3 {
 		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "smpb";
-		qcom,resource-id = <3>;
+		qcom,resource-name = "rwcx";
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <1>;
 		status = "disabled";
 
@@ -58,8 +58,8 @@
 
 	rpm-regulator-smpb5 {
 		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "smpb";
-		qcom,resource-id = <5>;
+		qcom,resource-name = "rwmx";
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <1>;
 		status = "disabled";
 

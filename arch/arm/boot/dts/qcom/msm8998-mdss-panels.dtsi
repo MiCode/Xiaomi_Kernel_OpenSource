@@ -30,6 +30,7 @@
 #include "dsi-panel-sim-cmd.dtsi"
 #include "dsi-panel-sim-dualmipi-video.dtsi"
 #include "dsi-panel-sim-dualmipi-cmd.dtsi"
+#include "dsi-panel-s6e3ha3-amoled-dualmipi-wqhd-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -188,4 +189,10 @@
 	qcom,mdss-dsi-panel-timings = [00 16 05 05 09 0e 05 05 04 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x06>;
 	qcom,mdss-dsi-t-clk-pre = <0x22>;
+};
+
+&dsi_dual_s6e3ha3_amoled_cmd {
+	qcom,mdss-dsi-panel-timings = [00 1c 06 06 0b 10 06 07 05 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x07>;
+	qcom,mdss-dsi-t-clk-pre = <0x2a>;
 };

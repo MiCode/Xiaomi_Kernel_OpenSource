@@ -306,16 +306,56 @@ static ssize_t __ref store_sched_static_cluster_pwr_cost(struct device *dev,
 	return err;
 }
 
+static ssize_t show_sched_cluser_wake_idle(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	ssize_t rc;
+	int cpuid = cpu->dev.id;
+	unsigned int wake_up_idle;
+
+	wake_up_idle = sched_get_cluster_wake_idle(cpuid);
+
+	rc = scnprintf(buf, PAGE_SIZE-2, "%d\n", wake_up_idle);
+
+	return rc;
+}
+
+static ssize_t __ref store_sched_cluster_wake_idle(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	int err;
+	int cpuid = cpu->dev.id;
+	unsigned int wake_up_idle;
+
+	err = kstrtouint(strstrip((char *)buf), 0, &wake_up_idle);
+	if (err)
+		return err;
+
+	err = sched_set_cluster_wake_idle(cpuid, wake_up_idle);
+
+	if (err >= 0)
+		err = count;
+
+	return err;
+}
+
 static DEVICE_ATTR(sched_static_cpu_pwr_cost, 0644,
 					show_sched_static_cpu_pwr_cost,
 					store_sched_static_cpu_pwr_cost);
 static DEVICE_ATTR(sched_static_cluster_pwr_cost, 0644,
 					show_sched_static_cluster_pwr_cost,
 					store_sched_static_cluster_pwr_cost);
+static DEVICE_ATTR(sched_cluster_wake_up_idle, 0644,
+					show_sched_cluser_wake_idle,
+					store_sched_cluster_wake_idle);
 
 static struct attribute *hmp_sched_cpu_attrs[] = {
 	&dev_attr_sched_static_cpu_pwr_cost.attr,
 	&dev_attr_sched_static_cluster_pwr_cost.attr,
+	&dev_attr_sched_cluster_wake_up_idle.attr,
 	NULL
 };
 

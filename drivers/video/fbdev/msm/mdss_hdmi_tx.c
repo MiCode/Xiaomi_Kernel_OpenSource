@@ -1773,7 +1773,7 @@ static int hdmi_tx_read_edid(struct hdmi_tx_ctrl *hdmi_ctrl)
 			check_sum += ebuf[ndx];
 
 		if (check_sum & 0xFF) {
-			DEV_ERR("%s: checksome mismatch\n", __func__);
+			DEV_ERR("%s: checksum mismatch\n", __func__);
 			ret = -EINVAL;
 			goto end;
 		}
@@ -2328,6 +2328,8 @@ static void hdmi_tx_update_deep_color(struct hdmi_tx_ctrl *hdmi_ctrl)
 static void hdmi_tx_hpd_int_work(struct work_struct *work)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	int rc = -EINVAL;
+	int retry = MAX_EDID_READ_RETRY;
 
 	hdmi_ctrl = container_of(work, struct hdmi_tx_ctrl, hpd_int_work);
 	if (!hdmi_ctrl) {
@@ -2346,7 +2348,10 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 		hdmi_ctrl->hpd_state ? "CONNECT" : "DISCONNECT");
 
 	if (hdmi_ctrl->hpd_state) {
-		hdmi_tx_read_sink_info(hdmi_ctrl);
+		while (rc && retry--)
+			rc = hdmi_tx_read_sink_info(hdmi_ctrl);
+		if (!retry && rc)
+			pr_warn_ratelimited("%s: EDID read failed\n", __func__);
 		hdmi_tx_update_deep_color(hdmi_ctrl);
 
 		hdmi_tx_send_cable_notification(hdmi_ctrl, true);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -884,8 +884,8 @@ int ipa_init_hw(void)
 	ipa_write_reg(ipa_ctx->mmio, IPA_COMP_SW_RESET_OFST, 1);
 	ipa_write_reg(ipa_ctx->mmio, IPA_COMP_SW_RESET_OFST, 0);
 
-	/* enable IPA */
-	ipa_write_reg(ipa_ctx->mmio, IPA_COMP_CFG_OFST, 1);
+	/* enable IPA Bit:0, enable 2x fast clock Bit:4 */
+	ipa_write_reg(ipa_ctx->mmio, IPA_COMP_CFG_OFST, 0x11);
 
 	/* Read IPA version and make sure we have access to the registers */
 	ipa_version = ipa_read_reg(ipa_ctx->mmio, IPA_VERSION_OFST);
@@ -953,11 +953,39 @@ void ipa2_set_client(int index, enum ipacm_client_enum client, bool uplink)
 	}
 }
 
+/* ipa2_get_wlan_stats() - get ipa wifi stats
+ *
+ * Return value: success or failure
+ */
+int ipa2_get_wlan_stats(struct ipa_get_wdi_sap_stats *wdi_sap_stats)
+{
+	if (ipa_ctx->uc_wdi_ctx.stats_notify) {
+		ipa_ctx->uc_wdi_ctx.stats_notify(IPA_GET_WDI_SAP_STATS,
+			wdi_sap_stats);
+	} else {
+		IPAERR("uc_wdi_ctx.stats_notify not registered\n");
+		return -EFAULT;
+	}
+	return 0;
+}
+
+int ipa2_set_wlan_quota(struct ipa_set_wifi_quota *wdi_quota)
+{
+	if (ipa_ctx->uc_wdi_ctx.stats_notify) {
+		ipa_ctx->uc_wdi_ctx.stats_notify(IPA_SET_WIFI_QUOTA,
+			wdi_quota);
+	} else {
+		IPAERR("uc_wdi_ctx.stats_notify not registered\n");
+		return -EFAULT;
+	}
+	return 0;
+}
+
 /**
  * ipa2_get_client() - provide client mapping
  * @client: client type
  *
- * Return value: none
+ * Return value: client mapping enum
  */
 enum ipacm_client_enum ipa2_get_client(int pipe_idx)
 {
@@ -5030,6 +5058,8 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_suspend_wdi_pipe = ipa2_suspend_wdi_pipe;
 	api_ctrl->ipa_get_wdi_stats = ipa2_get_wdi_stats;
 	api_ctrl->ipa_get_smem_restr_bytes = ipa2_get_smem_restr_bytes;
+	api_ctrl->ipa_broadcast_wdi_quota_reach_ind =
+			ipa2_broadcast_wdi_quota_reach_ind;
 	api_ctrl->ipa_uc_wdi_get_dbpa = ipa2_uc_wdi_get_dbpa;
 	api_ctrl->ipa_uc_reg_rdyCB = ipa2_uc_reg_rdyCB;
 	api_ctrl->ipa_uc_dereg_rdyCB = ipa2_uc_dereg_rdyCB;

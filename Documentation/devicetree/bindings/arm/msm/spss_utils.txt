@@ -11,19 +11,25 @@ according to a dedicated fuse and the platform HW version.
 
 Required properties:
 -compatible : should be "qcom,spss_utils"
--qcom,spss-fuse-addr: fuse register physical address
--qcom,spss-fuse-bit: fuse relevant bit
+-qcom,spss-fuse1-addr: fuse1 register physical address
+-qcom,spss-fuse1-bit: fuse1 relevant bit
+-qcom,spss-fuse2-addr: fuse2 register physical address
+-qcom,spss-fuse2-bit: fuse2 relevant bit
 -qcom,spss-test-firmware-name: test firmware file name
 -qcom,spss-prod-firmware-name: production firmware file name
+-qcom,spss-hybr-firmware-name: hybrid firmware file name
 -qcom,spss-debug-reg-addr: debug register physical address
 
 Example:
    qcom,spss_utils {
       compatible = "qcom,spss-utils";
 
-      qcom,spss-fuse-addr = <0x007841c4>;   /* spss test fuse physical address */
-      qcom,spss-fuse-bit = <27>;
-      qcom,spss-test-firmware-name = "spss1t";  /* 8 chars max */
-      qcom,spss-prod-firmware-name = "spss1p";  /* 8 chars max */
+      qcom,spss-fuse1-addr = <0x007841c4>;
+      qcom,spss-fuse1-bit = <27>;
+      qcom,spss-fuse2-addr = <0x0078413c>;
+      qcom,spss-fuse2-bit = <31>;
+      qcom,spss-test-firmware-name = "spss2t";  /* 8 chars max */
+      qcom,spss-prod-firmware-name = "spss2p";  /* 8 chars max */
+      qcom,spss-hybr-firmware-name = "spss2h";  /* 8 chars max */
       qcom,spss-debug-reg-addr = <0x01d06020>;
    };

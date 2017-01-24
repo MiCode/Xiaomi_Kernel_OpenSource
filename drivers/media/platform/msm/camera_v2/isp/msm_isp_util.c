@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1794,6 +1794,7 @@ int msm_isp_process_overflow_irq(
 {
 	uint32_t overflow_mask;
 	uint32_t bus_err = 0;
+	unsigned long flags;
 
 	/* if there are no active streams - do not start recovery */
 	if (!vfe_dev->axi_data.num_active_stream)
@@ -1825,23 +1826,33 @@ int msm_isp_process_overflow_irq(
 		int i;
 		struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 
+		spin_lock_irqsave(
+			&vfe_dev->common_data->common_dev_data_lock, flags);
+
 		if (atomic_cmpxchg(&vfe_dev->error_info.overflow_state,
-				NO_OVERFLOW, OVERFLOW_DETECTED != NO_OVERFLOW))
+				NO_OVERFLOW, OVERFLOW_DETECTED)) {
+			spin_unlock_irqrestore(
+				 &vfe_dev->common_data->common_dev_data_lock,
+				 flags);
 			return 0;
+		}
 
 		if (vfe_dev->reset_pending == 1) {
-			pr_err("%s:%d failed: overflow %x during reset\n",
+			pr_err_ratelimited("%s:%d overflow %x during reset\n",
 				__func__, __LINE__, overflow_mask);
 			/* Clear overflow bits since reset is pending */
 			*irq_status1 &= ~overflow_mask;
+			spin_unlock_irqrestore(
+				 &vfe_dev->common_data->common_dev_data_lock,
+				 flags);
 			return 0;
 		}
-		pr_err("%s: vfe %d overflow mask %x, bus_error %x\n",
+		pr_err_ratelimited("%s: vfe %d overflowmask %x,bus_error %x\n",
 			__func__, vfe_dev->pdev->id, overflow_mask, bus_err);
 		for (i = 0; i < axi_data->hw_info->num_wm; i++) {
 			if (!axi_data->free_wm[i])
 				continue;
-			pr_err("%s: wm %d assigned to stream handle %x\n",
+			ISP_DBG("%s:wm %d assigned to stream handle %x\n",
 				__func__, i, axi_data->free_wm[i]);
 		}
 		vfe_dev->recovery_irq0_mask = vfe_dev->irq0_mask;
@@ -1880,6 +1891,9 @@ int msm_isp_process_overflow_irq(
 			msm_isp_send_event(vfe_dev,
 				ISP_EVENT_ERROR, &error_event);
 		}
+		spin_unlock_irqrestore(
+			&vfe_dev->common_data->common_dev_data_lock,
+			flags);
 		return 1;
 	}
 	return 0;

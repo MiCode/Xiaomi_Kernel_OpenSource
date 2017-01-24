@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1381,7 +1381,7 @@ static int qpnp_pin_debugfs_create(struct qpnp_pin_chip *q_chip)
 		return -ENODEV;
 	}
 
-	for (i = 0; i < of_get_child_count(pdev->dev.of_node); i++) {
+	for (i = 0; i < q_chip->gpio_chip.ngpio; i++) {
 		q_spec = qpnp_chip_gpio_get_spec(q_chip, i);
 		params = q_spec->params;
 		snprintf(pmic_pin, DEBUGFS_BUF_SIZE, "%u", q_spec->pmic_pin);

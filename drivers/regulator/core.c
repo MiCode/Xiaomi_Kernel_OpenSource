@@ -3900,38 +3900,34 @@ static struct class regulator_class = {
 
 #ifdef CONFIG_DEBUG_FS
 
-#define MAX_DEBUG_BUF_LEN 50
-
-static DEFINE_MUTEX(debug_buf_mutex);
-static char debug_buf[MAX_DEBUG_BUF_LEN];
-
 static int reg_debug_enable_set(void *data, u64 val)
 {
-	int err_info;
-	if (IS_ERR(data) || data == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(data));
-		return -ENOMEM;
+	struct regulator *regulator = data;
+	int ret;
+
+	if (val) {
+		ret = regulator_enable(regulator);
+		if (ret)
+			rdev_err(regulator->rdev, "enable failed, ret=%d\n",
+				ret);
+	} else {
+		ret = regulator_disable(regulator);
+		if (ret)
+			rdev_err(regulator->rdev, "disable failed, ret=%d\n",
+				ret);
 	}
 
-	if (val)
-		err_info = regulator_enable(data);
-	else
-		err_info = regulator_disable(data);
-
-	return err_info;
+	return ret;
 }
 
 static int reg_debug_enable_get(void *data, u64 *val)
 {
-	if (IS_ERR(data) || data == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(data));
-		return -ENOMEM;
-	}
+	struct regulator *regulator = data;
 
-	*val = regulator_is_enabled(data);
+	*val = regulator_is_enabled(regulator);
+
 	return 0;
 }
-
 DEFINE_SIMPLE_ATTRIBUTE(reg_enable_fops, reg_debug_enable_get,
 			reg_debug_enable_set, "%llu\n");
 
@@ -3940,13 +3936,13 @@ static int reg_debug_bypass_enable_get(void *data, u64 *val)
 	struct regulator *regulator = data;
 	struct regulator_dev *rdev = regulator->rdev;
 	bool enable = false;
-	int rc = 0;
+	int ret = 0;
 
 	mutex_lock(&rdev->mutex);
 	if (rdev->desc->ops->get_bypass) {
-		rc = rdev->desc->ops->get_bypass(rdev, &enable);
-		if (rc)
-			pr_err("get_bypass() failed, rc=%d\n", rc);
+		ret = rdev->desc->ops->get_bypass(rdev, &enable);
+		if (ret)
+			rdev_err(rdev, "get_bypass() failed, ret=%d\n", ret);
 	} else {
 		enable = (rdev->bypass_count == rdev->open_count
 			  - rdev->open_offset);
@@ -3955,7 +3951,7 @@ static int reg_debug_bypass_enable_get(void *data, u64 *val)
 
 	*val = enable;
 
-	return rc;
+	return ret;
 }
 
 static int reg_debug_bypass_enable_set(void *data, u64 val)
@@ -3975,155 +3971,133 @@ static int reg_debug_bypass_enable_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(reg_bypass_enable_fops, reg_debug_bypass_enable_get,
 			reg_debug_bypass_enable_set, "%llu\n");
 
-static int reg_debug_fdisable_set(void *data, u64 val)
+static int reg_debug_force_disable_set(void *data, u64 val)
 {
-	int err_info;
-	if (IS_ERR(data) || data == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(data));
-		return -ENOMEM;
+	struct regulator *regulator = data;
+	int ret = 0;
+
+	if (val > 0) {
+		ret = regulator_force_disable(regulator);
+		if (ret)
+			rdev_err(regulator->rdev, "force_disable failed, ret=%d\n",
+				ret);
 	}
 
-	if (val > 0)
-		err_info = regulator_force_disable(data);
-	else
-		err_info = 0;
-
-	return err_info;
+	return ret;
 }
+DEFINE_SIMPLE_ATTRIBUTE(reg_force_disable_fops, reg_debug_enable_get,
+			reg_debug_force_disable_set, "%llu\n");
 
-DEFINE_SIMPLE_ATTRIBUTE(reg_fdisable_fops, reg_debug_enable_get,
-			reg_debug_fdisable_set, "%llu\n");
+#define MAX_DEBUG_BUF_LEN 50
 
-static ssize_t reg_debug_volt_set(struct file *file, const char __user *buf,
-					size_t count, loff_t *ppos)
+static ssize_t reg_debug_voltage_write(struct file *file,
+			const char __user *ubuf, size_t count, loff_t *ppos)
 {
-	int err_info, filled;
-	int min, max = -1;
-	if (IS_ERR(file) || file == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(file));
-		return -ENOMEM;
-	}
+	struct regulator *regulator = file->private_data;
+	char buf[MAX_DEBUG_BUF_LEN];
+	int ret, filled;
+	int min_uV, max_uV = -1;
 
 	if (count < MAX_DEBUG_BUF_LEN) {
-		mutex_lock(&debug_buf_mutex);
-
-		if (copy_from_user(debug_buf, (void __user *) buf, count))
+		if (copy_from_user(buf, ubuf, count))
 			return -EFAULT;
 
-		debug_buf[count] = '\0';
-		filled = sscanf(debug_buf, "%d %d", &min, &max);
+		buf[count] = '\0';
+		filled = sscanf(buf, "%d %d", &min_uV, &max_uV);
 
-		mutex_unlock(&debug_buf_mutex);
-		/* check that user entered two numbers */
-		if (filled < 2 || min < 0 || max < min) {
-			pr_info("Error, correct format: 'echo \"min max\""
-				" > voltage");
-			return -ENOMEM;
-		} else {
-			err_info = regulator_set_voltage(file->private_data,
-							min, max);
+		/* Check that both min and max voltage were specified. */
+		if (filled < 2 || min_uV < 0 || max_uV < min_uV) {
+			rdev_err(regulator->rdev, "incorrect values specified: \"%s\"; should be: \"min_uV max_uV\"\n",
+				buf);
+			return -EINVAL;
+		}
+
+		ret = regulator_set_voltage(regulator, min_uV, max_uV);
+		if (ret) {
+			rdev_err(regulator->rdev, "set voltage(%d, %d) failed, ret=%d\n",
+				min_uV, max_uV, ret);
+			return ret;
 		}
 	} else {
-		pr_err("Error-Input voltage pair"
-				" string exceeds maximum buffer length");
-
-		return -ENOMEM;
+		rdev_err(regulator->rdev, "voltage request string exceeds maximum buffer size\n");
+		return -EINVAL;
 	}
 
 	return count;
 }
 
-static ssize_t reg_debug_volt_get(struct file *file, char __user *buf,
+static ssize_t reg_debug_voltage_read(struct file *file, char __user *ubuf,
 					size_t count, loff_t *ppos)
 {
-	int voltage, output, rc;
-	if (IS_ERR(file) || file == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(file));
-		return -ENOMEM;
-	}
+	struct regulator *regulator = file->private_data;
+	char buf[MAX_DEBUG_BUF_LEN];
+	int voltage, ret;
 
-	voltage = regulator_get_voltage(file->private_data);
-	mutex_lock(&debug_buf_mutex);
+	voltage = regulator_get_voltage(regulator);
 
-	output = snprintf(debug_buf, MAX_DEBUG_BUF_LEN-1, "%d\n", voltage);
-	rc = simple_read_from_buffer((void __user *) buf, output, ppos,
-					(void *) debug_buf, output);
+	ret = snprintf(buf, MAX_DEBUG_BUF_LEN - 1, "%d\n", voltage);
 
-	mutex_unlock(&debug_buf_mutex);
-
-	return rc;
+	return simple_read_from_buffer(ubuf, count, ppos, buf, ret);
 }
 
-static int reg_debug_volt_open(struct inode *inode, struct file *file)
+static int reg_debug_voltage_open(struct inode *inode, struct file *file)
 {
-	if (IS_ERR(file) || file == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(file));
-		return -ENOMEM;
-	}
-
 	file->private_data = inode->i_private;
+
 	return 0;
 }
 
-static const struct file_operations reg_volt_fops = {
-	.write	= reg_debug_volt_set,
-	.open   = reg_debug_volt_open,
-	.read	= reg_debug_volt_get,
+static const struct file_operations reg_voltage_fops = {
+	.write	= reg_debug_voltage_write,
+	.open   = reg_debug_voltage_open,
+	.read	= reg_debug_voltage_read,
 };
 
 static int reg_debug_mode_set(void *data, u64 val)
 {
-	int err_info;
-	if (IS_ERR(data) || data == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(data));
-		return -ENOMEM;
-	}
+	struct regulator *regulator = data;
+	unsigned int mode = val;
+	int ret;
 
-	err_info = regulator_set_mode(data, (unsigned int)val);
+	ret = regulator_set_mode(regulator, mode);
+	if (ret)
+		rdev_err(regulator->rdev, "set mode=%u failed, ret=%d\n",
+			mode, ret);
 
-	return err_info;
+	return ret;
 }
 
 static int reg_debug_mode_get(void *data, u64 *val)
 {
-	int err_info;
-	if (IS_ERR(data) || data == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(data));
-		return -ENOMEM;
+	struct regulator *regulator = data;
+	int mode;
+
+	mode = regulator_get_mode(regulator);
+	if (mode < 0) {
+		rdev_err(regulator->rdev, "get mode failed, ret=%d\n", mode);
+		return mode;
 	}
 
-	err_info = regulator_get_mode(data);
-
-	if (err_info < 0) {
-		pr_err("Regulator_get_mode returned an error!\n");
-		return -ENOMEM;
-	} else {
-		*val = err_info;
-		return 0;
-	}
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(reg_mode_fops, reg_debug_mode_get,
-			reg_debug_mode_set, "%llu\n");
-
-static int reg_debug_set_load(void *data, u64 val)
-{
-	int err_info;
-	if (IS_ERR(data) || data == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(data));
-		return -ENOMEM;
-	}
-
-	err_info = regulator_set_load(data, (unsigned int)val);
-
-	if (err_info < 0) {
-		pr_err("Regulator_set_optimum_mode returned an error!\n");
-		return err_info;
-	}
+	*val = mode;
 
 	return 0;
 }
+DEFINE_SIMPLE_ATTRIBUTE(reg_mode_fops, reg_debug_mode_get, reg_debug_mode_set,
+			"%llu\n");
 
+static int reg_debug_set_load(void *data, u64 val)
+{
+	struct regulator *regulator = data;
+	int load = val;
+	int ret;
+
+	ret = regulator_set_load(regulator, load);
+	if (ret)
+		rdev_err(regulator->rdev, "set load=%d failed, ret=%d\n",
+			load, ret);
+
+	return ret;
+}
 DEFINE_SIMPLE_ATTRIBUTE(reg_set_load_fops, reg_debug_mode_get,
 			reg_debug_set_load, "%llu\n");
 
@@ -4133,17 +4107,12 @@ static int reg_debug_consumers_show(struct seq_file *m, void *v)
 	struct regulator *reg;
 	char *supply_name;
 
-	if (!rdev) {
-		pr_err("regulator device missing");
-		return -EINVAL;
-	}
-
 	mutex_lock(&rdev->mutex);
 
 	/* Print a header if there are consumers. */
 	if (rdev->open_count)
-		seq_printf(m, "Device-Supply                    "
-			"EN    Min_uV   Max_uV  load_uA\n");
+		seq_printf(m, "%-32s EN    Min_uV   Max_uV  load_uA\n",
+			"Device-Supply");
 
 	list_for_each_entry(reg, &rdev->consumer_list, list) {
 		if (reg->supply_name)
@@ -4189,16 +4158,9 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 	struct device *parent = rdev->dev.parent;
 	const char *rname = rdev_get_name(rdev);
 	char name[NAME_MAX];
-	struct dentry *err_ptr = NULL;
-	struct regulator *reg;
-	const struct regulator_ops *reg_ops;
+	struct regulator *regulator;
+	const struct regulator_ops *ops;
 	mode_t mode;
-
-	if (IS_ERR(rdev) || rdev == NULL ||
-		IS_ERR(debugfs_root) || debugfs_root == NULL) {
-		pr_err("Error-Bad Function Input\n");
-		goto error;
-	}
 
 	/* Avoid duplicate debugfs directory names */
 	if (parent && rname == rdev->desc->name) {
@@ -4210,8 +4172,7 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 	rdev->debugfs = debugfs_create_dir(rname, debugfs_root);
 	if (!rdev->debugfs) {
 		rdev_warn(rdev, "Failed to create debugfs directory\n");
-		rdev->debugfs = NULL;
-		goto error;
+		return;
 	}
 
 	debugfs_create_u32("use_count", 0444, rdev->debugfs,
@@ -4223,100 +4184,58 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 	debugfs_create_file("consumers", 0444, rdev->debugfs, rdev,
 			    &reg_consumers_fops);
 
-	reg = regulator_get(NULL, rdev_get_name(rdev));
-	if (IS_ERR(reg) || reg == NULL) {
-		pr_err("Error-Bad Function Input\n");
-		goto error;
+	regulator = regulator_get(NULL, rdev_get_name(rdev));
+	if (IS_ERR(regulator)) {
+		rdev_err(rdev, "regulator get failed, ret=%ld\n",
+			PTR_ERR(regulator));
+		return;
 	}
-	rdev->debug_consumer = reg;
+	rdev->debug_consumer = regulator;
 
 	rdev->open_offset = 1;
-	reg_ops = rdev->desc->ops;
-	mode = S_IRUGO | S_IWUSR;
-	/* Enabled File */
-	if (mode)
-		err_ptr = debugfs_create_file("enable", mode, rdev->debugfs,
-						reg, &reg_enable_fops);
-	if (IS_ERR(err_ptr)) {
-		pr_err("Error-Could not create enable file\n");
-		goto error;
-	}
+	ops = rdev->desc->ops;
+
+	debugfs_create_file("enable", 0644, rdev->debugfs, regulator,
+				&reg_enable_fops);
+	if (ops->set_bypass)
+		debugfs_create_file("bypass", 0644, rdev->debugfs, regulator,
+					&reg_bypass_enable_fops);
 
 	mode = 0;
-	/* Bypass Enable File */
-	if (reg_ops->set_bypass)
-		mode = S_IWUSR | S_IRUGO;
-
+	if (ops->is_enabled)
+		mode |= 0444;
+	if (ops->disable)
+		mode |= 0200;
 	if (mode)
-		err_ptr = debugfs_create_file("bypass", mode,
-					      rdev->debugfs, reg,
-					      &reg_bypass_enable_fops);
-	if (IS_ERR(err_ptr)) {
-		pr_err("Error-Could not create bypass enable file\n");
-		goto error;
-	}
+		debugfs_create_file("force_disable", mode, rdev->debugfs,
+					regulator, &reg_force_disable_fops);
 
 	mode = 0;
-	/* Force-Disable File */
-	if (reg_ops->is_enabled)
-		mode |= S_IRUGO;
-	if (reg_ops->enable || reg_ops->disable)
-		mode |= S_IWUSR;
+	if (ops->get_voltage || ops->get_voltage_sel)
+		mode |= 0444;
+	if (ops->set_voltage || ops->set_voltage_sel)
+		mode |= 0200;
 	if (mode)
-		err_ptr = debugfs_create_file("force_disable", mode,
-					rdev->debugfs, reg, &reg_fdisable_fops);
-	if (IS_ERR(err_ptr)) {
-		pr_err("Error-Could not create force_disable file\n");
-		goto error;
-	}
+		debugfs_create_file("voltage", mode, rdev->debugfs, regulator,
+					&reg_voltage_fops);
 
 	mode = 0;
-	/* Voltage File */
-	if (reg_ops->get_voltage)
-		mode |= S_IRUGO;
-	if (reg_ops->set_voltage)
-		mode |= S_IWUSR;
+	if (ops->get_mode)
+		mode |= 0444;
+	if (ops->set_mode)
+		mode |= 0200;
 	if (mode)
-		err_ptr = debugfs_create_file("voltage", mode, rdev->debugfs,
-						reg, &reg_volt_fops);
-	if (IS_ERR(err_ptr)) {
-		pr_err("Error-Could not create voltage file\n");
-		goto error;
-	}
+		debugfs_create_file("mode", mode, rdev->debugfs, regulator,
+					&reg_mode_fops);
 
 	mode = 0;
-	/* Mode File */
-	if (reg_ops->get_mode)
-		mode |= S_IRUGO;
-	if (reg_ops->set_mode)
-		mode |= S_IWUSR;
+	if (ops->get_mode)
+		mode |= 0444;
+	if (ops->set_load || (ops->get_optimum_mode && ops->set_mode))
+		mode |= 0200;
 	if (mode)
-		err_ptr = debugfs_create_file("mode", mode, rdev->debugfs,
-						reg, &reg_mode_fops);
-	if (IS_ERR(err_ptr)) {
-		pr_err("Error-Could not create mode file\n");
-		goto error;
-	}
-
-	mode = 0;
-	/* Optimum Mode File */
-	if (reg_ops->get_mode)
-		mode |= S_IRUGO;
-	if (reg_ops->set_mode)
-		mode |= S_IWUSR;
-	if (mode)
-		err_ptr = debugfs_create_file("load", mode,
-				rdev->debugfs, reg, &reg_set_load_fops);
-	if (IS_ERR(err_ptr)) {
-		pr_err("Error-Could not create optimum_mode file\n");
-		goto error;
-	}
-
-	return;
-
-error:
-	rdev_deinit_debugfs(rdev);
-	return;
+		debugfs_create_file("load", mode, rdev->debugfs, regulator,
+					&reg_set_load_fops);
 }
 
 #else

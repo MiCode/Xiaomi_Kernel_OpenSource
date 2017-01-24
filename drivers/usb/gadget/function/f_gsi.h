@@ -93,6 +93,14 @@ enum connection_state {
 	STATE_SUSPENDED
 };
 
+enum gsi_ctrl_notify_state {
+	GSI_CTRL_NOTIFY_NONE,
+	GSI_CTRL_NOTIFY_CONNECT,
+	GSI_CTRL_NOTIFY_SPEED,
+	GSI_CTRL_NOTIFY_OFFLINE,
+	GSI_CTRL_NOTIFY_RESPONSE_AVAILABLE,
+};
+
 #define MAXQUEUELEN 128
 struct event_queue {
 	u8 event[MAXQUEUELEN];
@@ -107,9 +115,10 @@ struct gsi_ntb_info {
 };
 
 struct gsi_ctrl_pkt {
-	void			*buf;
-	int			len;
-	struct list_head	list;
+	void				*buf;
+	int				len;
+	enum gsi_ctrl_notify_state	type;
+	struct list_head		list;
 };
 
 struct gsi_function_bind_info {
@@ -147,22 +156,13 @@ struct gsi_function_bind_info {
 	u32 notify_buf_len;
 };
 
-enum gsi_ctrl_notify_state {
-	GSI_CTRL_NOTIFY_NONE,
-	GSI_CTRL_NOTIFY_CONNECT,
-	GSI_CTRL_NOTIFY_SPEED,
-	GSI_CTRL_NOTIFY_OFFLINE,
-	GSI_CTRL_NOTIFY_RESPONSE_AVAILABLE,
-};
-
 struct gsi_ctrl_port {
 	char name[GSI_CTRL_NAME_LEN];
 	struct miscdevice ctrl_device;
 
 	struct usb_ep *notify;
 	struct usb_request *notify_req;
-	int notify_state;
-	atomic_t notify_count;
+	bool notify_req_queued;
 
 	atomic_t ctrl_online;
 
@@ -184,6 +184,7 @@ struct gsi_ctrl_port {
 	unsigned copied_from_modem;
 	unsigned modem_to_host;
 	unsigned cpkt_drop_cnt;
+	unsigned get_encap_cnt;
 };
 
 struct gsi_data_port {
