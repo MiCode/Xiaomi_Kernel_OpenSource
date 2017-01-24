@@ -722,7 +722,7 @@ static int msm_disable_all_modes_commit(
 			goto fail;
 		}
 
-		plane_state->rotation = BIT(DRM_ROTATE_0);
+		plane_state->rotation = DRM_ROTATE_0;
 
 		plane->old_fb = plane->fb;
 		plane_mask |= 1 << drm_plane_index(plane);
