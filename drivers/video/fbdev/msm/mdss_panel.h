@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -293,6 +293,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DEEP_COLOR,
 	MDSS_EVENT_DISABLE_PANEL,
 	MDSS_EVENT_UPDATE_PANEL_PPM,
+	MDSS_EVENT_DSI_TIMING_DB_CTRL,
 	MDSS_EVENT_MAX,
 };
 

@@ -58,6 +58,7 @@
 #define MDSS_DSI_HW_REV_104_1           0x10040001      /* 8996   */
 #define MDSS_DSI_HW_REV_104_2           0x10040002      /* 8937   */
 #define MDSS_DSI_HW_REV_200		0x20000000	/* cobalt */
+#define MDSS_DSI_HW_REV_201		0x20010000	/* 660 */
 
 #define MDSS_DSI_HW_REV_STEP_0		0x0
 #define MDSS_DSI_HW_REV_STEP_1		0x1
