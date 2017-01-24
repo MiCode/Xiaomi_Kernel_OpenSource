@@ -139,8 +139,8 @@ conditions.
                   time. This should be a list of 2-tuples of the format:
                   <offset reg_value>.
 
-- qcom,bus-master-id : The master ID of the bus, if a bus vote is needed.
-                       See include/dt-bindings/msm/msm-bus-ids.h.
+Optional bus bindings as defined in
+Documentation/devicetree/bindings/arm/msm/msm_bus.txt may also be present.
 
 Example:
 
