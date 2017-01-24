@@ -730,6 +730,12 @@ static int msm_int_enable_dig_cdc_clk(struct snd_soc_codec *codec,
 			mutex_lock(&pdata->cdc_int_mclk0_mutex);
 			if (atomic_read(&pdata->int_mclk0_enabled) == false ||
 				int_mclk0_freq_chg) {
+				if (atomic_read(&pdata->int_mclk0_enabled)) {
+					pdata->digital_cdc_core_clk.enable = 0;
+					afe_set_lpass_clock_v2(
+						AFE_PORT_ID_INT0_MI2S_RX,
+						&pdata->digital_cdc_core_clk);
+				}
 				pdata->digital_cdc_core_clk.clk_freq_in_hz =
 							clk_freq_in_hz;
 				pdata->digital_cdc_core_clk.enable = 1;
@@ -1089,8 +1095,7 @@ static void update_int_mi2s_clk_val(int idx, int stream)
 	bit_per_sample =
 	    get_int_mi2s_bits_per_sample(int_mi2s_cfg[idx].bit_format);
 	int_mi2s_clk[idx].clk_freq_in_hz =
-	    (int_mi2s_cfg[idx].sample_rate * int_mi2s_cfg[idx].channels
-					* bit_per_sample);
+	    (int_mi2s_cfg[idx].sample_rate * 2 * bit_per_sample);
 }
 
 static int int_mi2s_set_sclk(struct snd_pcm_substream *substream, bool enable)
