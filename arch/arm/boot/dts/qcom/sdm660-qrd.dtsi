@@ -108,6 +108,18 @@
 &soc {
 };
 
+&pm660_gpios {
+	/* GPIO 11 for home key */
+	gpio@ca00 {
+		status = "ok";
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,out-strength = <1>;
+	};
+};
+
 &pm660l_gpios {
 	/* GPIO 7 for VOL_UP */
 	gpio@c600 {
@@ -166,6 +178,16 @@
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
+
+		home {
+			label = "home";
+			gpios = <&pm660_gpios 11 0x1>;
+			linux,input-type = <1>;
+			linux,code = <102>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
 	};
 
 	hbtp {
