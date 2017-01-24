@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3568,6 +3568,7 @@ bool msm_usb_bam_enable(enum usb_ctrl bam, bool bam_enable)
 		log_event_dbg("%s: USB BAM Registered\n", __func__);
 		msm_hw_bam_disable(0);
 	} else {
+		msm_hw_soft_reset();
 		msm_hw_bam_disable(1);
 		sps_device_reset(ctx->h_bam);
 		sps_deregister_bam_device(ctx->h_bam);
