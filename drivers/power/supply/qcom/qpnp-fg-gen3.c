@@ -3042,6 +3042,21 @@ static int fg_hw_init(struct fg_chip *chip)
 		}
 	}
 
+	/*
+	 * configure battery thermal coefficients c1,c2,c3
+	 * if its value is not zero.
+	 */
+	if (chip->dt.batt_therm_coeffs[0] > 0) {
+		rc = fg_write(chip, BATT_INFO_THERM_C1(chip),
+			chip->dt.batt_therm_coeffs, BATT_THERM_NUM_COEFFS);
+		if (rc < 0) {
+			pr_err("Error in writing battery thermal coefficients, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+
 	if (chip->dt.recharge_soc_thr > 0 && chip->dt.recharge_soc_thr < 100) {
 		rc = fg_set_recharge_soc(chip, chip->dt.recharge_soc_thr);
 		if (rc < 0) {
@@ -3811,6 +3826,18 @@ static int fg_parse_dt(struct fg_chip *chip)
 				chip->dt.jeita_thresholds, NUM_JEITA_LEVELS);
 		if (rc < 0)
 			pr_warn("Error reading Jeita thresholds, default values will be used rc:%d\n",
+				rc);
+	}
+
+	if (of_property_count_elems_of_size(node,
+		"qcom,battery-thermal-coefficients",
+		sizeof(u8)) == BATT_THERM_NUM_COEFFS) {
+		rc = of_property_read_u8_array(node,
+				"qcom,battery-thermal-coefficients",
+				chip->dt.batt_therm_coeffs,
+				BATT_THERM_NUM_COEFFS);
+		if (rc < 0)
+			pr_warn("Error reading battery thermal coefficients, rc:%d\n",
 				rc);
 	}
 

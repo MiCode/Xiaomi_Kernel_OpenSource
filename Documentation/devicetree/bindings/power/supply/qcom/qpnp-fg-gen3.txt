@@ -215,6 +215,12 @@ First Level Node - FG Gen3 device
 		    capacity learning cycle. If this is not specified, then
 		    the default value is 0. Unit is in decipercentage.
 
+- qcom,battery-thermal-coefficients
+	Usage:      optional
+	Value type: <u8>
+	Definition: Byte array of battery thermal coefficients.
+		    This should be exactly 3 bytes in length.
+
 - qcom,fg-jeita-hyst-temp
 	Usage:      optional
 	Value type: <u32>
@@ -377,6 +383,7 @@ pmi8998_fg: qpnp,fg {
 	qcom,ki-coeff-hi-dischg = <1200 1500 2100>;
 	qcom,slope-limit-temp-threshold = <100>;
 	qcom,slope-limit-coeffs = <10 11 12 13>;
+	qcom,battery-thermal-coefficients = [9d 50 ff];
 	status = "okay";
 
 	qcom,fg-batt-soc@4000 {

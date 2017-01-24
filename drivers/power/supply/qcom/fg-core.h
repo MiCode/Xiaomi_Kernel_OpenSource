@@ -73,6 +73,8 @@
 
 #define SLOPE_LIMIT_COEFF_MAX		31
 
+#define BATT_THERM_NUM_COEFFS		3
+
 /* Debug flag definitions */
 enum fg_debug_flag {
 	FG_IRQ			= BIT(0), /* Show interrupts */
@@ -251,6 +253,7 @@ struct fg_dt_props {
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_hi_dischg[KI_COEFF_SOC_LEVELS];
 	int	slope_limit_coeffs[SLOPE_LIMIT_NUM_COEFFS];
+	u8	batt_therm_coeffs[BATT_THERM_NUM_COEFFS];
 };
 
 /* parameters from battery profile */
