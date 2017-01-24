@@ -3329,10 +3329,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	 * TX14, TX15, TX16
 	 */
 	unsigned int rx_ch_tavil[WCD934X_RX_MAX] = {144, 145, 146, 147, 148,
-					    149, 150, 151};
+						    149, 150, 151};
 	unsigned int tx_ch_tavil[WCD934X_TX_MAX] = {128, 129, 130, 131, 132,
-					    134, 135, 136, 137, 138, 139,
-					    133, 140, 141, 142, 143};
+						    133, 134, 135, 136, 137,
+						    138, 139, 140, 141, 142,
+						    143};
 
 	pr_info("%s: dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
