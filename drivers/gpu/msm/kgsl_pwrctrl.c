@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,7 @@
 #define KGSL_PWRFLAGS_AXI_ON   2
 #define KGSL_PWRFLAGS_IRQ_ON   3
 #define KGSL_PWRFLAGS_RETENTION_ON  4
+#define KGSL_PWRFLAGS_RESTRICT_MAX_LEVEL_JUMP   6
 
 #define UPDATE_BUSY_VAL		1000000
 
@@ -343,6 +344,16 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	 * thermal limit, kick off the cycling.
 	 */
 	kgsl_pwrctrl_set_thermal_cycle(pwr, new_level);
+
+	/* Check any restriction over new level jump */
+	if (test_bit(KGSL_PWRFLAGS_RESTRICT_MAX_LEVEL_JUMP,
+		&device->pwrctrl.ctrl_flags)) {
+		if (new_level == 0 &&
+			old_level > device->pwrctrl.restrict_pwrlevel)
+			new_level = device->pwrctrl.restrict_pwrlevel;
+		else if (new_level == 0 && old_level == 0)
+			new_level = device->pwrctrl.restrict_pwrlevel;
+	}
 
 	if (new_level == old_level)
 		return;
@@ -2049,6 +2060,11 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pwr->power_flags = BIT(KGSL_PWRFLAGS_RETENTION_ON);
 
+	if (!of_property_read_u32(pdev->dev.of_node, "qcom,restrict-pwrlevel",
+				&pwr->restrict_pwrlevel))
+		device->pwrctrl.ctrl_flags |=
+			BIT(KGSL_PWRFLAGS_RESTRICT_MAX_LEVEL_JUMP);
+
 	if (pwr->num_pwrlevels == 0) {
 		KGSL_PWR_ERR(device, "No power levels are defined\n");
 		return -EINVAL;
@@ -2394,6 +2410,7 @@ static int _wake(struct kgsl_device *device)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int status = 0;
+	bool limit_max_pwrlevel = false;
 
 	switch (device->state) {
 	case KGSL_STATE_SUSPEND:
@@ -2416,6 +2433,16 @@ static int _wake(struct kgsl_device *device)
 		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
 		kgsl_pwrscale_wake(device);
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
+		/*
+		 * Check any restriction on max power level, clk_set_rate()
+		 * wil set based on the active_pwrlevel.
+		 */
+		if (test_bit(KGSL_PWRFLAGS_RESTRICT_MAX_LEVEL_JUMP,
+					&pwr->ctrl_flags) &&
+				(pwr->active_pwrlevel == 0)) {
+			pwr->active_pwrlevel = pwr->restrict_pwrlevel;
+			limit_max_pwrlevel = true;
+		}
 		/* fall through */
 	case KGSL_STATE_DEEP_NAP:
 		pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,
@@ -2441,7 +2468,10 @@ static int _wake(struct kgsl_device *device)
 		kgsl_pwrctrl_pwrlevel_change_settings(device, 0);
 		kgsl_pwrctrl_pwrlevel_change_settings(device, 1);
 		/* All settings for power level transitions are complete*/
-		pwr->previous_pwrlevel = pwr->active_pwrlevel;
+		if (limit_max_pwrlevel)
+			pwr->previous_pwrlevel = 0;
+		else
+			pwr->previous_pwrlevel = pwr->active_pwrlevel;
 		mod_timer(&device->idle_timer, jiffies +
 				device->pwrctrl.interval_timeout);
 		del_timer_sync(&device->pwrctrl.deep_nap_timer);
