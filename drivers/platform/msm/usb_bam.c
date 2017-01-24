@@ -26,6 +26,7 @@
 #include <linux/workqueue.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm_runtime.h>
+#include <linux/usb/msm_hsusb.h>
 
 #define USB_THRESHOLD 512
 #define USB_BAM_MAX_STR_LEN 50
@@ -3575,6 +3576,7 @@ bool msm_usb_bam_enable(enum usb_ctrl bam, bool bam_enable)
 		log_event_dbg("%s: USB BAM Registered\n", __func__);
 		msm_hw_bam_disable(0);
 	} else {
+		msm_hw_soft_reset();
 		msm_hw_bam_disable(1);
 		sps_device_reset(ctx->h_bam);
 		sps_deregister_bam_device(ctx->h_bam);
