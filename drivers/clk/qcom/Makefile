@@ -33,3 +33,4 @@ obj-$(CONFIG_MSM_MMCC_8960) += mmcc-msm8960.o
 obj-$(CONFIG_MSM_MMCC_8974) += mmcc-msm8974.o
 obj-$(CONFIG_MSM_MMCC_8996) += mmcc-msm8996.o
 obj-$(CONFIG_CLOCK_QPNP_DIV) += clk-qpnp-div.o
+obj-$(CONFIG_MSM_CLK_RPMH) += clk-rpmh.o

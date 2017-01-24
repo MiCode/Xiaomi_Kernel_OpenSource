@@ -177,3 +177,12 @@ config CLOCK_QPNP_DIV
 	  Technologies, Inc. QPNP PMIC. It configures the frequency of
 	  clkdiv outputs on the PMIC. These clocks are typically wired
 	  through alternate functions on gpio pins.
+
+config MSM_CLK_RPMH
+	tristate "RPMh Clock Driver"
+	depends on COMMON_CLK_QCOM && QTI_RPMH_API
+	help
+	  RPMh manages shared resources on some Qualcomm Technologies, Inc.
+	  SoCs. It accepts requests from other hardware subsystems via RSC.
+	  Say Y to support the clocks managed by RPMh VRM/ARC on platforms
+	  such as sdm845.
