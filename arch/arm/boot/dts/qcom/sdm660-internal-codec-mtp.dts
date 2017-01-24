@@ -27,5 +27,4 @@
 
 &int_codec {
 	qcom,model = "sdm660-snd-card-mtp";
-	status = "okay";
 };
