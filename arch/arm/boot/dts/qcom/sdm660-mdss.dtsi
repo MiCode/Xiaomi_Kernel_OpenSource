@@ -517,7 +517,7 @@
 			"rot_vbif_phys";
 
 		qcom,mdss-rot-mode = <1>;
-		qcom,mdss-highest-bank-bit = <0x2>;
+		qcom,mdss-highest-bank-bit = <0x1>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_rotator";
@@ -548,36 +548,6 @@
 
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <40>;
-
-		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
-			compatible = "qcom,smmu_sde_rot_unsec";
-			iommus = <&mmss_bimc_smmu 0xe00>;
-			gdsc-mdss-supply = <&gdsc_bimc_smmu>;
-
-			clocks = <&clock_rpmcc  MMSSNOC_AXI_CLK>,
-				<&clock_mmss MMSS_MNOC_AHB_CLK>,
-				<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
-				<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>;
-			clock-names = "mmss_noc_axi_clk",
-					"mmss_noc_ahb_clk",
-					"mmss_smmu_ahb_clk",
-					"mmss_smmu_axi_clk";
-		};
-
-		smmu_rot_sec: qcom,smmu_rot_sec_cb {
-			compatible = "qcom,smmu_sde_rot_sec";
-			iommus = <&mmss_bimc_smmu 0xe01>;
-			gdsc-mdss-supply = <&gdsc_bimc_smmu>;
-
-			clocks = <&clock_rpmcc  MMSSNOC_AXI_CLK>,
-				<&clock_mmss MMSS_MNOC_AHB_CLK>,
-				<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
-				<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>;
-			clock-names = "mmss_noc_axi_clk",
-					"mmss_noc_ahb_clk",
-					"mmss_smmu_ahb_clk",
-					"mmss_smmu_axi_clk";
-			      };
 	};
 
 };
