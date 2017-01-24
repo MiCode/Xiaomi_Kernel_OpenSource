@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4434,6 +4434,13 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 		goto end;
 	}
 
+	/*
+	 * reset the play_cnt, after the cmd_stop
+	 * this will ensure pipes are reconfiged
+	 * after every panel power state change
+	 */
+	ctl->play_cnt = 0;
+
 	if (mdss_panel_is_power_on(power_state)) {
 		pr_debug("panel is not off, leaving ctl power on\n");
 		goto end;
@@ -4449,8 +4456,6 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 	}
 
 	mdss_mdp_reset_mixercfg(ctl);
-
-	ctl->play_cnt = 0;
 
 end:
 	if (!ret) {

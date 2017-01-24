@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2726,7 +2726,8 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 		return -ENODEV;
 	}
 
-	if (mdss_fb_is_power_off(mfd)) {
+	if (mdss_fb_is_power_off(mfd) ||
+		mdss_fb_is_power_on_ulp(mfd)) {
 		pr_err("display interface is in off state fb:%d\n",
 			mfd->index);
 		return -EPERM;
