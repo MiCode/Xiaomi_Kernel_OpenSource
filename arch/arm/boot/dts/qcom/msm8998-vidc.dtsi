@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,7 @@
 
 		qcom,imem-size = <524288>; /* 512 kB */
 		qcom,max-hw-load = <2563200>; /* Full 4k @ 60 + 1080p @ 60 */
+		qcom,power-conf = <8294400>; /* WxH - 3840*2160 */
 		qcom,load-freq-tbl =
 			/* Encoders */
 			<972000 465000000 0x55555555>, /* 4k UHD @ 30 */
