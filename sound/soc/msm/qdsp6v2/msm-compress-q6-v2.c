@@ -392,7 +392,16 @@ static void compr_event_handler(uint32_t opcode,
 			       payload[3],
 			       payload[0],
 				prtd->byte_offset, prtd->copied_total, token);
-			atomic_set(&prtd->start, 0);
+
+			if (atomic_cmpxchg(&prtd->drain, 1, 0) &&
+			    prtd->last_buffer) {
+				pr_debug("%s: wake up on drain\n", __func__);
+				prtd->drain_ready = 1;
+				wake_up(&prtd->drain_wait);
+				prtd->last_buffer = 0;
+			} else {
+				atomic_set(&prtd->start, 0);
+			}
 		} else {
 			pr_debug("ASM_DATA_EVENT_WRITE_DONE_V2 offset %d, length %d\n",
 				 prtd->byte_offset, token);
