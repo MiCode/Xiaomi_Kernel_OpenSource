@@ -2073,7 +2073,6 @@ wait:
 		goto wait;
 	} else if (rc <= 0) {
 		pr_err("wait for soc_ready timed out rc=%d\n", rc);
-		goto out;
 	}
 
 	rc = fg_masked_write(chip, BATT_SOC_RESTART(chip), RESTART_GO_BIT, 0);
