@@ -131,7 +131,7 @@ static struct llcc_slice_desc *llcc_slice_get_entry(struct device *dev, int n)
 struct llcc_slice_desc *llcc_slice_getd(struct device *dev, const char *name)
 {
 	struct device_node *np = dev->of_node;
-	int index;
+	int index = 0;
 	const char *slice_name;
 	struct property *prop;
 
