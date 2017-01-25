@@ -1462,6 +1462,14 @@
 		qcom,use-sw-aead-algo;
 		qcom,use-sw-hmac-algo;
 	};
+
+	qcom_tzlog: tz-log@146bf720 {
+		compatible = "qcom,tz-log";
+		reg = <0x146bf720 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = <0x410>;
+		hyplog-size-offset = <0x414>;
+	};
 };
 
 #include "sdm630-ion.dtsi"
