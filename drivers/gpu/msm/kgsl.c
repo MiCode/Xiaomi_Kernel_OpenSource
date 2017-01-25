@@ -628,6 +628,8 @@ static void kgsl_context_detach(struct kgsl_context *context)
 	/* Remove the event group from the list */
 	kgsl_del_event_group(&context->events);
 
+	kgsl_sync_timeline_put(context->ktimeline);
+
 	kgsl_context_put(context);
 }
 
@@ -962,7 +964,7 @@ static void process_release_sync_sources(struct kgsl_process_private *private)
 		if (syncsource == NULL)
 			break;
 
-		kgsl_syncsource_put(syncsource);
+		kgsl_syncsource_cleanup(private, syncsource);
 		next = next + 1;
 	}
 }
@@ -1928,7 +1930,7 @@ static void gpuobj_free_fence_func(void *priv)
 static long gpuobj_free_on_fence(struct kgsl_device_private *dev_priv,
 		struct kgsl_mem_entry *entry, struct kgsl_gpuobj_free *param)
 {
-	struct kgsl_sync_fence_waiter *handle;
+	struct kgsl_sync_fence_cb *handle;
 	struct kgsl_gpu_event_fence event;
 	long ret;
 

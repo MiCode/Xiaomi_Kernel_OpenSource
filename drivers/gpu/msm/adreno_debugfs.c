@@ -136,11 +136,14 @@ static void sync_event_print(struct seq_file *s,
 				sync_event->context->id, sync_event->timestamp);
 		break;
 	}
-	case KGSL_CMD_SYNCPOINT_TYPE_FENCE:
-		seq_printf(s, "sync: [%pK] %s", sync_event->handle,
-		(sync_event->handle && sync_event->handle->fence)
-				? sync_event->handle->fence->name : "NULL");
+	case KGSL_CMD_SYNCPOINT_TYPE_FENCE: {
+		char fence_str[128];
+
+		kgsl_dump_fence(sync_event->handle,
+				fence_str, sizeof(fence_str));
+		seq_printf(s, "sync: [%pK] %s", sync_event->handle, fence_str);
 		break;
+	}
 	default:
 		seq_printf(s, "sync: type: %d", sync_event->type);
 		break;

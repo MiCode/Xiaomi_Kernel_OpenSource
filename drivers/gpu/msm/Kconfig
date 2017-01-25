@@ -9,7 +9,6 @@ config QCOM_KGSL
 	select DEVFREQ_GOV_PERFORMANCE
 	select DEVFREQ_GOV_QCOM_ADRENO_TZ
 	select DEVFREQ_GOV_QCOM_GPUBW_MON
-	select ONESHOT_SYNC if SYNC
 	---help---
 	  3D graphics driver for the Adreno family of GPUs from QTI.
 	  Required to use hardware accelerated OpenGL, compute and Vulkan
