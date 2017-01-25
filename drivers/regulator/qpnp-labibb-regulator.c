@@ -3407,7 +3407,8 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 	 * before by the bootloader.
 	 */
 	if (labibb->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE)
-		labibb->swire_control = val & IBB_ENABLE_CTL_SWIRE_RDY;
+		labibb->swire_control = ibb_enable_ctl &
+						IBB_ENABLE_CTL_SWIRE_RDY;
 
 	if (ibb_enable_ctl &
 		(IBB_ENABLE_CTL_SWIRE_RDY | IBB_ENABLE_CTL_MODULE_EN)) {
