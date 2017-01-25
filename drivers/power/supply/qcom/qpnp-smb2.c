@@ -219,6 +219,23 @@ static struct smb_params v1_params = {
 	},
 };
 
+static struct smb_params pm660_params = {
+	.freq_buck		= {
+		.name	= "buck switching frequency",
+		.reg	= FREQ_CLK_DIV_REG,
+		.min_u	= 600,
+		.max_u	= 1600,
+		.set_proc = smblib_set_chg_freq,
+	},
+	.freq_boost		= {
+		.name	= "boost switching frequency",
+		.reg	= FREQ_CLK_DIV_REG,
+		.min_u	= 600,
+		.max_u	= 1600,
+		.set_proc = smblib_set_chg_freq,
+	},
+};
+
 #define STEP_CHARGING_MAX_STEPS	5
 struct smb_dt_props {
 	int	fcc_ua;
@@ -1515,7 +1532,7 @@ static int smb2_init_hw(struct smb2 *chip)
 	return rc;
 }
 
-static int smb2_setup_wa_flags(struct smb2 *chip)
+static int smb2_chg_config_init(struct smb2 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
 	struct pmic_revid_data *pmic_rev_id;
@@ -1545,9 +1562,25 @@ static int smb2_setup_wa_flags(struct smb2 *chip)
 			chg->wa_flags |= QC_CHARGER_DETECTION_WA_BIT;
 		if (pmic_rev_id->rev4 == PMI8998_V2P0_REV4) /* PMI rev 2.0 */
 			chg->wa_flags |= TYPEC_CC2_REMOVAL_WA_BIT;
+		chg->chg_freq.freq_5V		= 600;
+		chg->chg_freq.freq_6V_8V	= 800;
+		chg->chg_freq.freq_9V		= 1000;
+		chg->chg_freq.freq_12V		= 1200;
+		chg->chg_freq.freq_removal	= 1000;
+		chg->chg_freq.freq_below_otg_threshold = 2000;
+		chg->chg_freq.freq_above_otg_threshold = 800;
 		break;
 	case PM660_SUBTYPE:
 		chip->chg.wa_flags |= BOOST_BACK_WA;
+		chg->param.freq_buck = pm660_params.freq_buck;
+		chg->param.freq_boost = pm660_params.freq_boost;
+		chg->chg_freq.freq_5V		= 600;
+		chg->chg_freq.freq_6V_8V	= 800;
+		chg->chg_freq.freq_9V		= 1050;
+		chg->chg_freq.freq_12V		= 1200;
+		chg->chg_freq.freq_removal	= 1050;
+		chg->chg_freq.freq_below_otg_threshold = 1600;
+		chg->chg_freq.freq_above_otg_threshold = 800;
 		break;
 	default:
 		pr_err("PMIC subtype %d not supported\n",
@@ -1936,10 +1969,10 @@ static int smb2_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	rc = smb2_setup_wa_flags(chip);
+	rc = smb2_chg_config_init(chip);
 	if (rc < 0) {
 		if (rc != -EPROBE_DEFER)
-			pr_err("Couldn't setup wa flags rc=%d\n", rc);
+			pr_err("Couldn't setup chg_config rc=%d\n", rc);
 		return rc;
 	}
 
