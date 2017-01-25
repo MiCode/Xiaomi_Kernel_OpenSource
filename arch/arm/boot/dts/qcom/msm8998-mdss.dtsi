@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -499,6 +499,9 @@
 		qcom,dp-usbpd-detection = <&pmi8998_pdphy>;
 
 		qcom,msm_ext_disp = <&msm_ext_disp>;
+
+		qcom,aux-cfg-settings = [00 13 00 10 0a 26 0a 03 8b 03];
+		qcom,logical2physical-lane-map = [02 03 01 00];
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;

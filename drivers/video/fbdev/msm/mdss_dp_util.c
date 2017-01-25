@@ -859,30 +859,34 @@ void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
 	pr_debug("dp_tu=0x%x\n", dp_tu);
 }
 
-void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io,
-				struct lane_mapping l_map)
+void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io, char *l_map)
 {
 	u8 bits_per_lane = 2;
-	u32 lane_map = ((l_map.lane0 << (bits_per_lane * 0))
-			    | (l_map.lane1 << (bits_per_lane * 1))
-			    | (l_map.lane2 << (bits_per_lane * 2))
-			    | (l_map.lane3 << (bits_per_lane * 3)));
+	u32 lane_map = ((l_map[0] << (bits_per_lane * 0))
+			    | (l_map[1] << (bits_per_lane * 1))
+			    | (l_map[2] << (bits_per_lane * 2))
+			    | (l_map[3] << (bits_per_lane * 3)));
 	pr_debug("%s: lane mapping reg = 0x%x\n", __func__, lane_map);
 	writel_relaxed(lane_map,
 		ctrl_io->base + DP_LOGICAL2PHYSCIAL_LANE_MAPPING);
 }
 
-void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io)
+void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io, u32 *aux_cfg)
 {
 	writel_relaxed(0x3d, phy_io->base + DP_PHY_PD_CTL);
-	writel_relaxed(0x13, phy_io->base + DP_PHY_AUX_CFG1);
-	writel_relaxed(0x10, phy_io->base + DP_PHY_AUX_CFG3);
-	writel_relaxed(0x0a, phy_io->base + DP_PHY_AUX_CFG4);
-	writel_relaxed(0x26, phy_io->base + DP_PHY_AUX_CFG5);
-	writel_relaxed(0x0a, phy_io->base + DP_PHY_AUX_CFG6);
-	writel_relaxed(0x03, phy_io->base + DP_PHY_AUX_CFG7);
-	writel_relaxed(0x8b, phy_io->base + DP_PHY_AUX_CFG8);
-	writel_relaxed(0x03, phy_io->base + DP_PHY_AUX_CFG9);
+
+	/* DP AUX CFG register programming */
+	writel_relaxed(aux_cfg[0], phy_io->base + DP_PHY_AUX_CFG0);
+	writel_relaxed(aux_cfg[1], phy_io->base + DP_PHY_AUX_CFG1);
+	writel_relaxed(aux_cfg[2], phy_io->base + DP_PHY_AUX_CFG2);
+	writel_relaxed(aux_cfg[3], phy_io->base + DP_PHY_AUX_CFG3);
+	writel_relaxed(aux_cfg[4], phy_io->base + DP_PHY_AUX_CFG4);
+	writel_relaxed(aux_cfg[5], phy_io->base + DP_PHY_AUX_CFG5);
+	writel_relaxed(aux_cfg[6], phy_io->base + DP_PHY_AUX_CFG6);
+	writel_relaxed(aux_cfg[7], phy_io->base + DP_PHY_AUX_CFG7);
+	writel_relaxed(aux_cfg[8], phy_io->base + DP_PHY_AUX_CFG8);
+	writel_relaxed(aux_cfg[9], phy_io->base + DP_PHY_AUX_CFG9);
+
 	writel_relaxed(0x1f, phy_io->base + DP_PHY_AUX_INTERRUPT_MASK);
 }
 
