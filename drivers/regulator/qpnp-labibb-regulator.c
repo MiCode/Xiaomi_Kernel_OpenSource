@@ -333,7 +333,7 @@ enum ibb_mode {
 	IBB_HW_SW_CONTROL,
 };
 
-static const int ibb_discharge_resistor_table[] = {
+static const int ibb_dischg_res_table[] = {
 	300,
 	64,
 	32,
@@ -946,38 +946,27 @@ static int qpnp_ibb_soft_start_ctl_v1(struct qpnp_labibb *labibb,
 
 	rc = of_property_read_u32(of_node, "qcom,qpnp-ibb-discharge-resistor",
 			&tmp);
+	if (!rc) {
+		for (val = 0; val < ARRAY_SIZE(ibb_dischg_res_table); val++) {
+			if (ibb_dischg_res_table[val] == tmp)
+				break;
+		}
 
-	if (rc < 0) {
-		pr_err("qcom,qpnp-ibb-discharge-resistor is missing, rc = %d\n",
-			rc);
-		return rc;
+		if (val == ARRAY_SIZE(ibb_dischg_res_table)) {
+			pr_err("Invalid value in qcom,qpnp-ibb-discharge-resistor\n");
+			return -EINVAL;
+		}
+
+		rc = qpnp_labibb_write(labibb, labibb->ibb_base +
+				REG_IBB_SOFT_START_CTL, &val, 1);
+		if (rc < 0) {
+			pr_err("write to register %x failed rc = %d\n",
+				REG_IBB_SOFT_START_CTL,	rc);
+			return rc;
+		}
 	}
 
-	if (labibb->mode == QPNP_LABIBB_AMOLED_MODE) {
-		/*
-		 * AMOLED mode needs ibb discharge resistor to be
-		 * configured for 300KOhm
-		 */
-		if (tmp < ibb_discharge_resistor_table[0])
-			tmp = ibb_discharge_resistor_table[0];
-	}
-
-	for (val = 0; val < ARRAY_SIZE(ibb_discharge_resistor_table); val++)
-		if (ibb_discharge_resistor_table[val] == tmp)
-			break;
-
-	if (val == ARRAY_SIZE(ibb_discharge_resistor_table)) {
-		pr_err("Invalid value in qcom,qpnp-ibb-discharge-resistor\n");
-		return -EINVAL;
-	}
-
-	rc = qpnp_labibb_write(labibb, labibb->ibb_base +
-			REG_IBB_SOFT_START_CTL, &val, 1);
-	if (rc < 0)
-		pr_err("write to register %x failed rc = %d\n",
-			REG_IBB_SOFT_START_CTL,	rc);
-
-	return rc;
+	return 0;
 }
 
 static int qpnp_ibb_soft_start_ctl_v2(struct qpnp_labibb *labibb,
