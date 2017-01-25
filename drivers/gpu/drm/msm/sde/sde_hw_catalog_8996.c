@@ -171,13 +171,13 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 			{.id = SSPP_VIG3, .base = 0x0000b000,
 			.features = VIG_17X_MASK, .sblk = &layer},
 
-			{.id = SSPP_RGB0, .base = 0x00015000,
+			{.id = SSPP_RGB0, .base = 0x00001500,
 			.features = RGB_17X_MASK, .sblk = &layer},
-			{.id = SSPP_RGB1, .base = 0x00017000,
+			{.id = SSPP_RGB1, .base = 0x00001700,
 			.features = RGB_17X_MASK, .sblk = &layer},
-			{.id = SSPP_RGB2, .base = 0x00019000,
+			{.id = SSPP_RGB2, .base = 0x00001900,
 			.features = RGB_17X_MASK, .sblk = &layer},
-			{.id = SSPP_RGB3, .base = 0x0001B000,
+			{.id = SSPP_RGB3, .base = 0x00001B00,
 			.features = RGB_17X_MASK, .sblk = &layer},
 
 			{.id = SSPP_DMA0, .base = 0x00025000,
