@@ -520,7 +520,8 @@ int cnss_wlfw_wlan_mode_send_sync(struct cnss_plat_data *plat_priv,
 
 	return 0;
 out:
-	CNSS_ASSERT(0);
+	if (mode != QMI_WLFW_OFF_V01)
+		CNSS_ASSERT(0);
 	return ret;
 }
 
