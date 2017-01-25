@@ -85,7 +85,6 @@ struct sde_hw_intf {
 	/* intf */
 	enum sde_intf idx;
 	const struct sde_intf_cfg *cap;
-	const struct sde_mdss_cfg *mdss;
 
 	/* ops */
 	struct sde_hw_intf_ops ops;
