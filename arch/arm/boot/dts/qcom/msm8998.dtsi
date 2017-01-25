@@ -1739,6 +1739,7 @@
 				"utmi_clk", "sleep_clk", "xo";
 
 		qcom,core-clk-rate = <120000000>;
+		qcom,core-clk-rate-hs = <60000000>;
 
 		resets = <&clock_gcc USB_30_BCR>;
 		reset-names = "core_reset";
