@@ -773,6 +773,7 @@ static bool is_debug_batt_id(struct fg_chip *chip)
 #define FULL_CAPACITY	100
 #define FULL_SOC_RAW	255
 #define DEBUG_BATT_SOC	67
+#define BATT_MISS_SOC	50
 #define EMPTY_SOC	0
 static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 {
@@ -780,6 +781,16 @@ static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 
 	if (is_debug_batt_id(chip)) {
 		*val = DEBUG_BATT_SOC;
+		return 0;
+	}
+
+	if (chip->fg_restarting) {
+		*val = chip->last_soc;
+		return 0;
+	}
+
+	if (chip->battery_missing) {
+		*val = BATT_MISS_SOC;
 		return 0;
 	}
 
@@ -2494,13 +2505,13 @@ static int fg_psy_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CAPACITY:
-		if (chip->fg_restarting)
-			pval->intval = chip->last_soc;
-		else
-			rc = fg_get_prop_capacity(chip, &pval->intval);
+		rc = fg_get_prop_capacity(chip, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		rc = fg_get_battery_voltage(chip, &pval->intval);
+		if (chip->battery_missing)
+			pval->intval = 3700000;
+		else
+			rc = fg_get_battery_voltage(chip, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = fg_get_battery_current(chip, &pval->intval);
