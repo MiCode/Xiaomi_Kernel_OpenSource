@@ -285,7 +285,8 @@ void mdss_dp_assert_phy_reset(struct dss_io_data *ctrl_io, bool assert);
 void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
 			u8 ln_cnt, u32 res, struct mdss_panel_info *pinfo);
 void mdss_dp_config_misc(struct mdss_dp_drv_pdata *dp, u32 bd, u32 cc);
-void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io, u32 *aux_cfg);
+void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io, u32 *aux_cfg,
+			u32 phy_reg_offset);
 void mdss_dp_hpd_configure(struct dss_io_data *ctrl_io, bool enable);
 void mdss_dp_aux_ctrl(struct dss_io_data *ctrl_io, bool enable);
 void mdss_dp_mainlink_ctrl(struct dss_io_data *ctrl_io, bool enable);
@@ -304,7 +305,7 @@ void mdss_dp_usbpd_ext_capabilities(struct usbpd_dp_capabilities *dp_cap);
 void mdss_dp_usbpd_ext_dp_status(struct usbpd_dp_status *dp_status);
 u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp);
 void mdss_dp_phy_share_lane_config(struct dss_io_data *phy_io,
-					u8 orientation, u8 ln_cnt);
+		u8 orientation, u8 ln_cnt, u32 phy_reg_offset);
 void mdss_dp_config_audio_acr_ctrl(struct dss_io_data *ctrl_io,
 						char link_rate);
 void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io, u32 num_of_channels);

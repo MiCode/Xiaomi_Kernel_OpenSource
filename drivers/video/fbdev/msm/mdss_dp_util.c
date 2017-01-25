@@ -871,23 +871,26 @@ void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io, char *l_map)
 		ctrl_io->base + DP_LOGICAL2PHYSCIAL_LANE_MAPPING);
 }
 
-void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io, u32 *aux_cfg)
+void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io, u32 *aux_cfg,
+		u32 phy_reg_offset)
 {
-	writel_relaxed(0x3d, phy_io->base + DP_PHY_PD_CTL);
+	void __iomem *adjusted_phy_io_base = phy_io->base + phy_reg_offset;
+
+	writel_relaxed(0x3d, adjusted_phy_io_base + DP_PHY_PD_CTL);
 
 	/* DP AUX CFG register programming */
-	writel_relaxed(aux_cfg[0], phy_io->base + DP_PHY_AUX_CFG0);
-	writel_relaxed(aux_cfg[1], phy_io->base + DP_PHY_AUX_CFG1);
-	writel_relaxed(aux_cfg[2], phy_io->base + DP_PHY_AUX_CFG2);
-	writel_relaxed(aux_cfg[3], phy_io->base + DP_PHY_AUX_CFG3);
-	writel_relaxed(aux_cfg[4], phy_io->base + DP_PHY_AUX_CFG4);
-	writel_relaxed(aux_cfg[5], phy_io->base + DP_PHY_AUX_CFG5);
-	writel_relaxed(aux_cfg[6], phy_io->base + DP_PHY_AUX_CFG6);
-	writel_relaxed(aux_cfg[7], phy_io->base + DP_PHY_AUX_CFG7);
-	writel_relaxed(aux_cfg[8], phy_io->base + DP_PHY_AUX_CFG8);
-	writel_relaxed(aux_cfg[9], phy_io->base + DP_PHY_AUX_CFG9);
+	writel_relaxed(aux_cfg[0], adjusted_phy_io_base + DP_PHY_AUX_CFG0);
+	writel_relaxed(aux_cfg[1], adjusted_phy_io_base + DP_PHY_AUX_CFG1);
+	writel_relaxed(aux_cfg[2], adjusted_phy_io_base + DP_PHY_AUX_CFG2);
+	writel_relaxed(aux_cfg[3], adjusted_phy_io_base + DP_PHY_AUX_CFG3);
+	writel_relaxed(aux_cfg[4], adjusted_phy_io_base + DP_PHY_AUX_CFG4);
+	writel_relaxed(aux_cfg[5], adjusted_phy_io_base + DP_PHY_AUX_CFG5);
+	writel_relaxed(aux_cfg[6], adjusted_phy_io_base + DP_PHY_AUX_CFG6);
+	writel_relaxed(aux_cfg[7], adjusted_phy_io_base + DP_PHY_AUX_CFG7);
+	writel_relaxed(aux_cfg[8], adjusted_phy_io_base + DP_PHY_AUX_CFG8);
+	writel_relaxed(aux_cfg[9], adjusted_phy_io_base + DP_PHY_AUX_CFG9);
 
-	writel_relaxed(0x1f, phy_io->base + DP_PHY_AUX_INTERRUPT_MASK);
+	writel_relaxed(0x1f, adjusted_phy_io_base + DP_PHY_AUX_INTERRUPT_MASK);
 }
 
 int mdss_dp_irq_setup(struct mdss_dp_drv_pdata *dp_drv)
@@ -1040,14 +1043,14 @@ u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp)
 }
 
 void mdss_dp_phy_share_lane_config(struct dss_io_data *phy_io,
-					u8 orientation, u8 ln_cnt)
+		u8 orientation, u8 ln_cnt, u32 phy_reg_offset)
 {
 	u32 info = 0x0;
 
 	info |= (ln_cnt & 0x0F);
 	info |= ((orientation & 0x0F) << 4);
 	pr_debug("Shared Info = 0x%x\n", info);
-	writel_relaxed(info, phy_io->base + DP_PHY_SPARE0);
+	writel_relaxed(info, phy_io->base + phy_reg_offset + DP_PHY_SPARE0);
 }
 
 void mdss_dp_config_audio_acr_ctrl(struct dss_io_data *ctrl_io, char link_rate)

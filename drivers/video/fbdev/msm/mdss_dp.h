@@ -462,6 +462,7 @@ struct mdss_dp_drv_pdata {
 	struct dss_io_data dp_cc_io;
 	struct dss_io_data qfprom_io;
 	struct dss_io_data hdcp_io;
+	u32 phy_reg_offset;
 	int base_size;
 	unsigned char *mmss_cc_base;
 	bool override_config;
