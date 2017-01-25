@@ -829,6 +829,30 @@ static void cnss_mhi_pm_runtime_put_noidle(struct pci_dev *pci_dev)
 	pm_runtime_put_noidle(&pci_dev->dev);
 }
 
+static char *mhi_dev_state_to_str(enum mhi_dev_ctrl state)
+{
+	switch (state) {
+	case MHI_DEV_CTRL_INIT:
+		return "INIT";
+	case MHI_DEV_CTRL_DE_INIT:
+		return "DEINIT";
+	case MHI_DEV_CTRL_POWER_ON:
+		return "POWER_ON";
+	case MHI_DEV_CTRL_POWER_OFF:
+		return "POWER_OFF";
+	case MHI_DEV_CTRL_SUSPEND:
+		return "SUSPEND";
+	case MHI_DEV_CTRL_RESUME:
+		return "RESUME";
+	case MHI_DEV_CTRL_RAM_DUMP:
+		return "RAM_DUMP";
+	case MHI_DEV_CTRL_NOTIFY_LINK_ERROR:
+		return "NOTIFY_LINK_ERROR";
+	default:
+		return "UNKNOWN";
+	}
+};
+
 static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -924,11 +948,13 @@ static int cnss_pci_check_mhi_state_bit(struct cnss_pci_data *pci_priv,
 			return 0;
 		break;
 	default:
-		cnss_pr_err("Unhandled MHI DEV state (%d)\n", mhi_dev_state);
+		cnss_pr_err("Unhandled MHI DEV state: %s(%d)\n",
+			    mhi_dev_state_to_str(mhi_dev_state), mhi_dev_state);
 	}
 
-	cnss_pr_err("Cannot set MHI DEV state (%d) in current MHI state (0x%lx)\n",
-		    mhi_dev_state, pci_priv->mhi_state);
+	cnss_pr_err("Cannot set MHI DEV state %s(%d) in current MHI state (0x%lx)\n",
+		    mhi_dev_state_to_str(mhi_dev_state), mhi_dev_state,
+		    pci_priv->mhi_state);
 
 	return -EINVAL;
 }
@@ -980,11 +1006,12 @@ int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 	if (ret)
 		goto out;
 
-	cnss_pr_dbg("Setting MHI DEV state (%d)\n", mhi_dev_state);
+	cnss_pr_dbg("Setting MHI DEV state: %s(%d)\n",
+		    mhi_dev_state_to_str(mhi_dev_state), mhi_dev_state);
 	ret = mhi_pm_control_device(&pci_priv->mhi_dev, mhi_dev_state);
 	if (ret) {
-		cnss_pr_err("Failed to set MHI DEV state (%d)\n",
-			    mhi_dev_state);
+		cnss_pr_err("Failed to set MHI DEV state: %s(%d)\n",
+			    mhi_dev_state_to_str(mhi_dev_state), mhi_dev_state);
 		goto out;
 	}
 
