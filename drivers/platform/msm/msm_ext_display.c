@@ -875,7 +875,7 @@ static void __exit msm_ext_disp_exit(void)
 	platform_driver_unregister(&this_driver);
 }
 
-module_init(msm_ext_disp_init);
+subsys_initcall(msm_ext_disp_init);
 module_exit(msm_ext_disp_exit);
 
 MODULE_LICENSE("GPL v2");
