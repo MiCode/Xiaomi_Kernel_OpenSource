@@ -53,7 +53,8 @@ struct msm_gem_object {
 	void *vaddr;
 
 	struct {
-		dma_addr_t iova;
+		// XXX
+		uint32_t iova;
 	} domain[NUM_DOMAINS];
 
 	/* normally (resv == &_resv) except for imported bo's */
