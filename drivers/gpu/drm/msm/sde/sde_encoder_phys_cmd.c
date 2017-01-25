@@ -591,18 +591,6 @@ static void sde_encoder_phys_cmd_get_hw_resources(
 	hw_res->intfs[cmd_enc->intf_idx - INTF_0] = INTF_MODE_CMD;
 }
 
-static int sde_encoder_phys_cmd_wait_for_commit_done(
-		struct sde_encoder_phys *phys_enc)
-{
-	/*
-	 * Since ctl_start "commits" the transaction to hardware, and the
-	 * tearcheck block takes it from there, there is no need to have a
-	 * separate wait for committed, a la wait-for-vsync in video mode
-	 */
-
-	return 0;
-}
-
 static void sde_encoder_phys_cmd_prepare_for_kickoff(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -629,6 +617,26 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 				phys_enc->hw_pp->idx - PINGPONG_0);
 		SDE_ERROR("failed wait_for_idle: %d\n", ret);
 	}
+}
+
+static int sde_encoder_phys_cmd_wait_for_commit_done(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_cmd *cmd_enc =
+			to_sde_encoder_phys_cmd(phys_enc);
+
+	if (cmd_enc->serialize_wait4pp)
+		sde_encoder_phys_cmd_prepare_for_kickoff(phys_enc);
+
+	/*
+	 * following statement is true serialize_wait4pp is false.
+	 *
+	 * Since ctl_start "commits" the transaction to hardware, and the
+	 * tearcheck block takes it from there, there is no need to have a
+	 * separate wait for committed, a la wait-for-vsync in video mode
+	 */
+
+	return 0;
 }
 
 static void sde_encoder_phys_cmd_init_ops(
