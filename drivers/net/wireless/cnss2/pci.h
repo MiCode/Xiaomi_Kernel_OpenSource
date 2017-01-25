@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,8 +33,8 @@ enum cnss_mhi_state {
 	CNSS_MHI_DEINIT,
 	CNSS_MHI_SUSPEND,
 	CNSS_MHI_RESUME,
-	CNSS_MHI_POWER_ON,
 	CNSS_MHI_POWER_OFF,
+	CNSS_MHI_POWER_ON,
 	CNSS_MHI_RAM_DUMP,
 	CNSS_MHI_NOTIFY_LINK_ERROR,
 };
