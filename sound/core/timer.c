@@ -1122,7 +1122,11 @@ static void snd_timer_proc_read(struct snd_info_entry *entry,
 
 	mutex_lock(&register_mutex);
 	list_for_each_entry(timer, &snd_timer_list, device_list) {
-		if (timer->card && timer->card->shutdown)
+		if (timer->card == NULL) {
+			pr_debug("%s: timer->card is NULL\n", __func__);
+			continue;
+		}
+		if (timer->card->shutdown)
 			continue;
 		switch (timer->tmr_class) {
 		case SNDRV_TIMER_CLASS_GLOBAL:
