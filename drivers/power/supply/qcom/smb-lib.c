@@ -39,7 +39,7 @@
 
 static bool is_secure(struct smb_charger *chg, int addr)
 {
-	if (addr == SHIP_MODE_REG)
+	if (addr == SHIP_MODE_REG || addr == FREQ_CLK_DIV_REG)
 		return true;
 	/* assume everything above 0xA0 is secure */
 	return (bool)((addr & 0xFF) >= 0xA0);
@@ -193,34 +193,6 @@ int smblib_get_usb_suspend(struct smb_charger *chg, int *suspend)
 	return rc;
 }
 
-#define FSW_600HZ_FOR_5V	600
-#define FSW_800HZ_FOR_6V_8V	800
-#define FSW_1MHZ_FOR_REMOVAL	1000
-#define FSW_1MHZ_FOR_9V		1000
-#define FSW_1P2MHZ_FOR_12V	1200
-static int smblib_set_opt_freq_buck(struct smb_charger *chg, int fsw_khz)
-{
-	union power_supply_propval pval = {0, };
-	int rc = 0;
-
-	rc = smblib_set_charge_param(chg, &chg->param.freq_buck, fsw_khz);
-	if (rc < 0)
-		dev_err(chg->dev, "Error in setting freq_buck rc=%d\n", rc);
-
-	if (chg->mode == PARALLEL_MASTER && chg->pl.psy) {
-		pval.intval = fsw_khz;
-		rc = power_supply_set_property(chg->pl.psy,
-				POWER_SUPPLY_PROP_BUCK_FREQ, &pval);
-		if (rc < 0) {
-			dev_err(chg->dev,
-				"Could not set parallel buck_freq rc=%d\n", rc);
-			return rc;
-		}
-	}
-
-	return rc;
-}
-
 struct apsd_result {
 	const char * const name;
 	const u8 bit;
@@ -325,6 +297,58 @@ static const struct apsd_result *smblib_get_apsd_result(struct smb_charger *chg)
  * REGISTER SETTERS *
  ********************/
 
+static int chg_freq_list[] = {
+	9600, 9600, 6400, 4800, 3800, 3200, 2700, 2400, 2100, 1900, 1700,
+	1600, 1500, 1400, 1300, 1200,
+};
+
+int smblib_set_chg_freq(struct smb_chg_param *param,
+				int val_u, u8 *val_raw)
+{
+	u8 i;
+
+	if (val_u > param->max_u || val_u < param->min_u)
+		return -EINVAL;
+
+	/* Charger FSW is the configured freqency / 2 */
+	val_u *= 2;
+	for (i = 0; i < ARRAY_SIZE(chg_freq_list); i++) {
+		if (chg_freq_list[i] == val_u)
+			break;
+	}
+	if (i == ARRAY_SIZE(chg_freq_list)) {
+		pr_err("Invalid frequency %d Hz\n", val_u / 2);
+		return -EINVAL;
+	}
+
+	*val_raw = i;
+
+	return 0;
+}
+
+static int smblib_set_opt_freq_buck(struct smb_charger *chg, int fsw_khz)
+{
+	union power_supply_propval pval = {0, };
+	int rc = 0;
+
+	rc = smblib_set_charge_param(chg, &chg->param.freq_buck, fsw_khz);
+	if (rc < 0)
+		dev_err(chg->dev, "Error in setting freq_buck rc=%d\n", rc);
+
+	if (chg->mode == PARALLEL_MASTER && chg->pl.psy) {
+		pval.intval = fsw_khz;
+		rc = power_supply_set_property(chg->pl.psy,
+				POWER_SUPPLY_PROP_BUCK_FREQ, &pval);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Could not set parallel buck_freq rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
 int smblib_set_charge_param(struct smb_charger *chg,
 			    struct smb_chg_param *param, int val_u)
 {
@@ -417,13 +441,13 @@ static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 
 	if (min_allowed_uv == MICRO_5V && max_allowed_uv == MICRO_5V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_5V;
-		smblib_set_opt_freq_buck(chg, FSW_600HZ_FOR_5V);
+		smblib_set_opt_freq_buck(chg, chg->chg_freq.freq_5V);
 	} else if (min_allowed_uv == MICRO_9V && max_allowed_uv == MICRO_9V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_9V;
-		smblib_set_opt_freq_buck(chg, FSW_1MHZ_FOR_9V);
+		smblib_set_opt_freq_buck(chg, chg->chg_freq.freq_9V);
 	} else if (min_allowed_uv == MICRO_12V && max_allowed_uv == MICRO_12V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_12V;
-		smblib_set_opt_freq_buck(chg, FSW_1P2MHZ_FOR_12V);
+		smblib_set_opt_freq_buck(chg, chg->chg_freq.freq_12V);
 	} else if (min_allowed_uv < MICRO_9V && max_allowed_uv <= MICRO_9V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_9V;
 	} else if (min_allowed_uv < MICRO_9V && max_allowed_uv <= MICRO_12V) {
@@ -2014,8 +2038,6 @@ int smblib_set_prop_usb_current_max(struct smb_charger *chg,
 	return rc;
 }
 
-#define FSW_2MHZ		2000
-#define FSW_800KHZ_RESET	800
 int smblib_set_prop_boost_current(struct smb_charger *chg,
 				    const union power_supply_propval *val)
 {
@@ -2023,7 +2045,8 @@ int smblib_set_prop_boost_current(struct smb_charger *chg,
 
 	rc = smblib_set_charge_param(chg, &chg->param.freq_boost,
 				val->intval <= chg->boost_threshold_ua ?
-				FSW_2MHZ : FSW_800KHZ_RESET);
+				chg->chg_freq.freq_below_otg_threshold :
+				chg->chg_freq.freq_above_otg_threshold);
 	if (rc < 0) {
 		dev_err(chg->dev, "Error in setting freq_boost rc=%d\n", rc);
 		return rc;
@@ -2655,7 +2678,8 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 
 	vbus_rising = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
 	smblib_set_opt_freq_buck(chg,
-		vbus_rising ? FSW_600HZ_FOR_5V : FSW_1MHZ_FOR_REMOVAL);
+		vbus_rising ? chg->chg_freq.freq_5V :
+			chg->chg_freq.freq_removal);
 
 	/* fetch the DPDM regulator */
 	if (!chg->dpdm_reg && of_get_property(chg->dev->of_node,
@@ -2761,16 +2785,20 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 
 		switch (stat & QC_2P0_STATUS_MASK) {
 		case QC_5V_BIT:
-			smblib_set_opt_freq_buck(chg, FSW_600HZ_FOR_5V);
+			smblib_set_opt_freq_buck(chg,
+					chg->chg_freq.freq_5V);
 			break;
 		case QC_9V_BIT:
-			smblib_set_opt_freq_buck(chg, FSW_1MHZ_FOR_9V);
+			smblib_set_opt_freq_buck(chg,
+					chg->chg_freq.freq_9V);
 			break;
 		case QC_12V_BIT:
-			smblib_set_opt_freq_buck(chg, FSW_1P2MHZ_FOR_12V);
+			smblib_set_opt_freq_buck(chg,
+					chg->chg_freq.freq_12V);
 			break;
 		default:
-			smblib_set_opt_freq_buck(chg, FSW_1MHZ_FOR_REMOVAL);
+			smblib_set_opt_freq_buck(chg,
+					chg->chg_freq.freq_removal);
 			break;
 		}
 	}
@@ -2785,14 +2813,17 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 		pulses = (stat & QC_PULSE_COUNT_MASK);
 
 		if (pulses < QC3_PULSES_FOR_6V)
-			smblib_set_opt_freq_buck(chg, FSW_600HZ_FOR_5V);
+			smblib_set_opt_freq_buck(chg,
+				chg->chg_freq.freq_5V);
 		else if (pulses < QC3_PULSES_FOR_9V)
-			smblib_set_opt_freq_buck(chg, FSW_800HZ_FOR_6V_8V);
+			smblib_set_opt_freq_buck(chg,
+				chg->chg_freq.freq_6V_8V);
 		else if (pulses < QC3_PULSES_FOR_12V)
-			smblib_set_opt_freq_buck(chg, FSW_1MHZ_FOR_9V);
+			smblib_set_opt_freq_buck(chg,
+				chg->chg_freq.freq_9V);
 		else
-			smblib_set_opt_freq_buck(chg, FSW_1P2MHZ_FOR_12V);
-
+			smblib_set_opt_freq_buck(chg,
+				chg->chg_freq.freq_12V);
 	}
 }
 
@@ -2993,7 +3024,8 @@ static void typec_sink_insertion(struct smb_charger *chg)
 
 static void typec_sink_removal(struct smb_charger *chg)
 {
-	smblib_set_charge_param(chg, &chg->param.freq_boost, FSW_800KHZ_RESET);
+	smblib_set_charge_param(chg, &chg->param.freq_boost,
+			chg->chg_freq.freq_above_otg_threshold);
 	chg->boost_current_ua = 0;
 }
 

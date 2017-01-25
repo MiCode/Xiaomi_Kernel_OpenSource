@@ -21,6 +21,7 @@
 #define USBIN_BASE	0x1300
 #define DCIN_BASE	0x1400
 #define MISC_BASE	0x1600
+#define CHGR_FREQ_BASE	0x1900
 
 #define PERPH_TYPE_OFFSET		0x04
 #define TYPE_MASK			GENMASK(7, 0)
@@ -1008,5 +1009,8 @@ enum {
 
 #define CFG_BUCKBOOST_FREQ_SELECT_BUCK_REG	(MISC_BASE + 0xA0)
 #define CFG_BUCKBOOST_FREQ_SELECT_BOOST_REG	(MISC_BASE + 0xA1)
+
+/* CHGR FREQ Peripheral registers */
+#define FREQ_CLK_DIV_REG			(CHGR_FREQ_BASE + 0x50)
 
 #endif /* __SMB2_CHARGER_REG_H */

@@ -104,6 +104,16 @@ struct smb_chg_param {
 				    u8 *val_raw);
 };
 
+struct smb_chg_freq {
+	unsigned int		freq_5V;
+	unsigned int		freq_6V_8V;
+	unsigned int		freq_9V;
+	unsigned int		freq_12V;
+	unsigned int		freq_removal;
+	unsigned int		freq_below_otg_threshold;
+	unsigned int		freq_above_otg_threshold;
+};
+
 struct smb_params {
 	struct smb_chg_param	fcc;
 	struct smb_chg_param	fv;
@@ -157,6 +167,7 @@ struct smb_charger {
 	int			*debug_mask;
 	enum smb_mode		mode;
 	bool			external_vconn;
+	struct smb_chg_freq	chg_freq;
 
 	/* locks */
 	struct mutex		write_lock;
@@ -261,6 +272,8 @@ int smblib_mapping_cc_delta_to_field_value(struct smb_chg_param *param,
 					   u8 val_raw);
 int smblib_mapping_cc_delta_from_field_value(struct smb_chg_param *param,
 					     int val_u, u8 *val_raw);
+int smblib_set_chg_freq(struct smb_chg_param *param,
+				int val_u, u8 *val_raw);
 
 int smblib_vbus_regulator_enable(struct regulator_dev *rdev);
 int smblib_vbus_regulator_disable(struct regulator_dev *rdev);
