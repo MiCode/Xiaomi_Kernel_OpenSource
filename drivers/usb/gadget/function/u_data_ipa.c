@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -183,7 +183,7 @@ void ipa_data_start_rx_tx(enum ipa_func_type func)
 	}
 
 	if (!port->rx_req || !port->tx_req) {
-		pr_err("%s: No request d->rx_req=%p, d->tx_req=%p", __func__,
+		pr_err("%s: No request d->rx_req=%pK, d->tx_req=%pK", __func__,
 			port->rx_req, port->tx_req);
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		return;
@@ -290,7 +290,7 @@ void ipa_data_disconnect(struct gadget_ipa_port *gp, enum ipa_func_type func)
 	unsigned long flags;
 	struct usb_gadget *gadget = NULL;
 
-	pr_debug("dev:%p port number:%d\n", gp, func);
+	pr_debug("dev:%pK port number:%d\n", gp, func);
 	if (func >= USB_IPA_NUM_FUNCS) {
 		pr_err("invalid ipa portno#%d\n", func);
 		return;
@@ -667,7 +667,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 	if (gport->in)
 		ipa_data_start_endless_xfer(port, true);
 
-	pr_debug("Connect workqueue done (port %p)", port);
+	pr_debug("Connect workqueue done (port %pK)", port);
 	return;
 
 disconnect_usb_bam_ipa_out:
@@ -717,7 +717,7 @@ int ipa_data_connect(struct gadget_ipa_port *gp, enum ipa_func_type func,
 	unsigned long flags;
 	int ret;
 
-	pr_debug("dev:%p port#%d src_connection_idx:%d dst_connection_idx:%d\n",
+	pr_debug("dev:%pK port#%d src_connection_idx:%d dst_connection_idx:%d\n",
 			gp, func, src_connection_idx, dst_connection_idx);
 
 	if (func >= USB_IPA_NUM_FUNCS) {
@@ -781,7 +781,7 @@ int ipa_data_connect(struct gadget_ipa_port *gp, enum ipa_func_type func,
 		port->port_usb->in->endless = true;
 		ret = usb_ep_enable(port->port_usb->in);
 		if (ret) {
-			pr_err("usb_ep_enable failed eptype:IN ep:%p",
+			pr_err("usb_ep_enable failed eptype:IN ep:%pK",
 						port->port_usb->in);
 			usb_ep_free_request(port->port_usb->in, port->tx_req);
 			port->tx_req = NULL;
@@ -794,7 +794,7 @@ int ipa_data_connect(struct gadget_ipa_port *gp, enum ipa_func_type func,
 		port->port_usb->out->endless = true;
 		ret = usb_ep_enable(port->port_usb->out);
 		if (ret) {
-			pr_err("usb_ep_enable failed eptype:OUT ep:%p",
+			pr_err("usb_ep_enable failed eptype:OUT ep:%pK",
 						port->port_usb->out);
 			usb_ep_free_request(port->port_usb->out, port->rx_req);
 			port->rx_req = NULL;
@@ -953,12 +953,12 @@ void ipa_data_suspend(struct gadget_ipa_port *gp, enum ipa_func_type func,
 		 */
 		if (gp->in) {
 			gp->in_ep_desc_backup = gp->in->desc;
-			pr_debug("in_ep_desc_backup = %p\n",
+			pr_debug("in_ep_desc_backup = %pK\n",
 				gp->in_ep_desc_backup);
 		}
 		if (gp->out) {
 			gp->out_ep_desc_backup = gp->out->desc;
-			pr_debug("out_ep_desc_backup = %p\n",
+			pr_debug("out_ep_desc_backup = %pK\n",
 				gp->out_ep_desc_backup);
 		}
 		ipa_data_disconnect(gp, func);
@@ -1040,7 +1040,7 @@ void ipa_data_resume(struct gadget_ipa_port *gp, enum ipa_func_type func,
 	u8 dst_connection_idx = 0;
 	enum usb_ctrl usb_bam_type;
 
-	pr_debug("dev:%p port number:%d\n", gp, func);
+	pr_debug("dev:%pK port number:%d\n", gp, func);
 
 	if (func >= USB_IPA_NUM_FUNCS) {
 		pr_err("invalid ipa portno#%d\n", func);
@@ -1066,7 +1066,7 @@ void ipa_data_resume(struct gadget_ipa_port *gp, enum ipa_func_type func,
 		/* Restore endpoint descriptors info. */
 		if (gp->in) {
 			gp->in->desc = gp->in_ep_desc_backup;
-			pr_debug("in_ep_desc_backup = %p\n",
+			pr_debug("in_ep_desc_backup = %pK\n",
 				gp->in_ep_desc_backup);
 			dst_connection_idx = usb_bam_get_connection_idx(
 				usb_bam_type, IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
@@ -1074,7 +1074,7 @@ void ipa_data_resume(struct gadget_ipa_port *gp, enum ipa_func_type func,
 		}
 		if (gp->out) {
 			gp->out->desc = gp->out_ep_desc_backup;
-			pr_debug("out_ep_desc_backup = %p\n",
+			pr_debug("out_ep_desc_backup = %pK\n",
 				gp->out_ep_desc_backup);
 			src_connection_idx = usb_bam_get_connection_idx(
 				usb_bam_type, IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
@@ -1107,18 +1107,18 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 	unsigned long flags;
 	int ret;
 
-	if (!port->port_usb->cdev) {
-		pr_err("!port->port_usb->cdev is NULL");
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (!port->port_usb || !port->port_usb->cdev) {
+		pr_err("port->port_usb or cdev is NULL");
 		goto exit;
 	}
 
 	if (!port->port_usb->cdev->gadget) {
-		pr_err("!port->port_usb->cdev->gadget is NULL");
+		pr_err("port->port_usb->cdev->gadget is NULL");
 		goto exit;
 	}
 
 	pr_debug("%s: resume started\n", __func__);
-	spin_lock_irqsave(&port->port_lock, flags);
 	gadget = port->port_usb->cdev->gadget;
 	if (!gadget) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
@@ -1174,7 +1174,7 @@ static int ipa_data_port_alloc(enum ipa_func_type func)
 
 	ipa_data_ports[func] = port;
 
-	pr_debug("port:%p with portno:%d allocated\n", port, func);
+	pr_debug("port:%pK with portno:%d allocated\n", port, func);
 	return 0;
 }
 

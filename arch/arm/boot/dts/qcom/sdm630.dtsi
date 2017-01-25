@@ -312,6 +312,7 @@
 	};
 };
 
+#include "sdm660-blsp.dtsi"
 #include "sdm630-smp2p.dtsi"
 #include "sdm630-coresight.dtsi"
 &soc {
@@ -341,6 +342,22 @@
 			     <1 3 0xf08>,
 			     <1 0 0xf08>;
 		clock-frequency = <19200000>;
+	};
+
+	dma_blsp1: qcom,sps-dma@0xc144000{ /* BLSP1 */
+		#dma-cells = <4>;
+		compatible = "qcom,sps-dma";
+		reg = <0xc144000 0x1F000>;
+		interrupts = <0 238 0>;
+		qcom,summing-threshold = <0x10>;
+	};
+
+	dma_blsp2: qcom,sps-dma@0xc184000{ /* BLSP2 */
+		#dma-cells = <4>;
+		compatible = "qcom,sps-dma";
+		reg = <0xc184000 0x1F000>;
+		interrupts = <0 239 0>;
+		qcom,summing-threshold = <0x10>;
 	};
 
 	restart@10ac000 {
@@ -659,6 +676,31 @@
 		clock-names = "core", "iface";
 	};
 
+	slim_aud: slim@151c0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x151c0000 0x2c000>,
+			<0x15184000 0x2a000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x7e0000>;
+		qcom,ea-pc = <0x260>;
+		status = "disabled";
+	};
+
+	slim_qca: slim@15240000 {
+		cell-index = <3>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x15240000 0x2c000>,
+			<0x15204000 0x20000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 291 0>, <0 292 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x1800>;
+		status = "disabled";
+	};
+
 	timer@17920000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -804,6 +846,73 @@
 		qcom,mmss = <&mmss_debug>;
 		qcom,gpu = <&gpu_debug>;
 		#clock-cells = <1>;
+	};
+
+	ipa_hw: qcom,ipa@14780000 {
+		compatible = "qcom,ipa";
+		reg = <0x14780000 0x4effc>, <0x14784000 0x26934>;
+		reg-names = "ipa-base", "bam-base";
+		interrupts = <0 333 0>,
+				<0 432 0>;
+		interrupt-names = "ipa-irq", "bam-irq";
+		qcom,ipa-hw-ver = <6>; /* IPA core version = IPAv2.6L */
+		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+		qcom,wan-rx-ring-size = <192>; /* IPA WAN-rx-ring-size*/
+		qcom,lan-rx-ring-size = <192>; /* IPA LAN-rx-ring-size*/
+		clocks = <&clock_rpmcc RPM_IPA_CLK>,
+			<&clock_rpmcc RPM_AGGR2_NOC_CLK>;
+		clock-names = "core_clk", "smmu_clk";
+		qcom,arm-smmu;
+		qcom,smmu-disable-htw;
+		qcom,smmu-s1-bypass;
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,modem-cfg-emb-pipe-flt;
+		qcom,ipa-wdi2;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		/* No vote */
+		<90 512 0 0>,
+		<1 676 0 0>,
+		/* SVS */
+		<90 512 80000 640000>,
+		<1 676 80000 80000>,
+		/* NOMINAL */
+		<90 512 206000 960000>,
+		<1 676 206000 160000>,
+		/* TURBO */
+		<90 512 206000 960000>,
+		<1 676 206000 160000>;
+		qcom,bus-vector-names = "MIN", "SVS", "PERF", "TURBO";
+		qcom,rx-polling-sleep-ms = <2>; /* Polling sleep interval */
+		qcom,ipa-polling-iteration = <5>; /* Polling Iteration */
+
+		ipa_smmu_ap: ipa_smmu_ap {
+			compatible = "qcom,ipa-smmu-ap-cb";
+			iommus = <&anoc2_smmu 0x19C0>;
+			qcom,iova-mapping = <0x10000000 0x40000000>;
+		};
+
+		ipa_smmu_wlan: ipa_smmu_wlan {
+			status = "disabled";
+			compatible = "qcom,ipa-smmu-wlan-cb";
+			iommus = <&anoc2_smmu 0x19C1>;
+		};
+
+		ipa_smmu_uc: ipa_smmu_uc {
+			compatible = "qcom,ipa-smmu-uc-cb";
+			iommus = <&anoc2_smmu 0x19C2>;
+			qcom,iova-mapping = <0x40000000 0x20000000>;
+		};
+	};
+
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-loaduC;
+		qcom,ipa-advertise-sg-support;
 	};
 
 	qcom,ipc-spinlock@1f40000 {

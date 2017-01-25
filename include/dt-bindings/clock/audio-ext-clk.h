@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,11 +15,11 @@
 
 /* Audio External Clocks */
 #define AUDIO_PMI_CLK		0
-#define AUDIO_PMIC_LNBB_CLK	1
-#define AUDIO_AP_CLK		2
-#define AUDIO_AP_CLK2		3
-#define AUDIO_LPASS_MCLK	4
-#define AUDIO_LPASS_MCLK2	5
+#define AUDIO_PMIC_LNBB_CLK	0
+#define AUDIO_AP_CLK		1
+#define AUDIO_AP_CLK2		2
+#define AUDIO_LPASS_MCLK	3
+#define AUDIO_LPASS_MCLK2	4
 
 #define clk_audio_ap_clk        0x9b5727cb
 #define clk_audio_pmi_clk       0xcbfe416d

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +66,8 @@
 #define MAX_BUFFERS_IN_HW 2
 
 #define MAX_VFE 2
+#define MAX_VFE_IRQ_DEBUG_DUMP_SIZE 10
+#define MAX_RECOVERY_THRESHOLD  5
 
 struct vfe_device;
 struct msm_vfe_axi_stream;
@@ -133,6 +135,8 @@ struct msm_isp_timestamp {
 };
 
 struct msm_vfe_irq_ops {
+	void (*read_and_clear_irq_status)(struct vfe_device *vfe_dev,
+		uint32_t *irq_status0, uint32_t *irq_status1);
 	void (*read_irq_status)(struct vfe_device *vfe_dev,
 		uint32_t *irq_status0, uint32_t *irq_status1);
 	void (*process_reg_update)(struct vfe_device *vfe_dev,
@@ -447,7 +451,7 @@ struct msm_vfe_axi_stream {
 
 	uint32_t runtime_num_burst_capture;
 	uint32_t runtime_output_format;
-	enum msm_stream_memory_input_t  memory_input;
+	enum msm_stream_rdi_input_type  rdi_input_type;
 	struct msm_isp_sw_framskip sw_skip;
 	uint8_t sw_ping_pong_bit;
 
@@ -525,6 +529,7 @@ struct msm_vfe_axi_shared_data {
 	uint16_t stream_handle_cnt;
 	uint32_t event_mask;
 	uint8_t enable_frameid_recovery;
+	uint8_t recovery_count;
 };
 
 struct msm_vfe_stats_hardware_info {
@@ -691,6 +696,26 @@ struct master_slave_resource_info {
 	enum msm_vfe_dual_cam_sync_mode dual_sync_mode;
 };
 
+struct msm_vfe_irq_debug_info {
+	uint32_t vfe_id;
+	struct msm_isp_timestamp ts;
+	uint32_t core_id;
+	uint32_t irq_status0[MAX_VFE];
+	uint32_t irq_status1[MAX_VFE];
+	uint32_t ping_pong_status[MAX_VFE];
+};
+
+struct msm_vfe_irq_dump {
+	spinlock_t common_dev_irq_dump_lock;
+	spinlock_t common_dev_tasklet_dump_lock;
+	uint8_t current_irq_index;
+	uint8_t current_tasklet_index;
+	struct msm_vfe_irq_debug_info
+		irq_debug[MAX_VFE_IRQ_DEBUG_DUMP_SIZE];
+	struct msm_vfe_irq_debug_info
+		tasklet_debug[MAX_VFE_IRQ_DEBUG_DUMP_SIZE];
+};
+
 struct msm_vfe_common_dev_data {
 	spinlock_t common_dev_data_lock;
 	struct dual_vfe_resource *dual_vfe_res;
@@ -698,6 +723,8 @@ struct msm_vfe_common_dev_data {
 	struct msm_vfe_axi_stream streams[VFE_AXI_SRC_MAX * MAX_VFE];
 	struct msm_vfe_stats_stream stats_streams[MSM_ISP_STATS_MAX * MAX_VFE];
 	struct mutex vfe_common_mutex;
+	/* Irq debug Info */
+	struct msm_vfe_irq_dump vfe_irq_dump;
 };
 
 struct msm_vfe_common_subdev {
@@ -790,8 +817,11 @@ struct vfe_device {
 	/* irq info */
 	uint32_t irq0_mask;
 	uint32_t irq1_mask;
-
 	uint32_t bus_err_ign_mask;
+	uint32_t recovery_irq0_mask;
+	uint32_t recovery_irq1_mask;
+	/* Store the buf_idx for pd stats RDI stream */
+	uint8_t pd_buf_idx;
 };
 
 struct vfe_parent_device {

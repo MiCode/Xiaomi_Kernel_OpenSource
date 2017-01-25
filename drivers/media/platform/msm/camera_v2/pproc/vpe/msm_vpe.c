@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1054,10 +1054,16 @@ static int vpe_reset(struct vpe_device *vpe_dev)
 	return rc;
 }
 
-static void vpe_update_scale_coef(struct vpe_device *vpe_dev, uint32_t *p)
+static int vpe_update_scale_coef(struct vpe_device *vpe_dev, uint32_t *p)
 {
 	uint32_t i, offset;
 	offset = *p;
+
+	if (offset > VPE_SCALE_COEFF_MAX_N-VPE_SCALE_COEFF_NUM) {
+		pr_err("%s: invalid offset %d passed in", __func__, offset);
+		return -EINVAL;
+	}
+
 	for (i = offset; i < (VPE_SCALE_COEFF_NUM + offset); i++) {
 		VPE_DBG("Setting scale table %d\n", i);
 		msm_camera_io_w(*(++p),
@@ -1065,6 +1071,8 @@ static void vpe_update_scale_coef(struct vpe_device *vpe_dev, uint32_t *p)
 		msm_camera_io_w(*(++p),
 			vpe_dev->base + VPE_SCALE_COEFF_MSBn(i));
 	}
+
+	return 0;
 }
 
 static void vpe_input_plane_config(struct vpe_device *vpe_dev, uint32_t *p)
@@ -1102,13 +1110,16 @@ static void vpe_operation_config(struct vpe_device *vpe_dev, uint32_t *p)
  */
 static void msm_vpe_transaction_setup(struct vpe_device *vpe_dev, void *data)
 {
-	int i;
+	int i, rc = 0;
 	void *iter = data;
 
 	vpe_mem_dump("vpe_transaction", data, VPE_TRANSACTION_SETUP_CONFIG_LEN);
 
 	for (i = 0; i < VPE_NUM_SCALER_TABLES; ++i) {
-		vpe_update_scale_coef(vpe_dev, (uint32_t *)iter);
+		rc = vpe_update_scale_coef(vpe_dev, (uint32_t *)iter);
+		if (rc != 0)
+			return;
+
 		iter += VPE_SCALER_CONFIG_LEN;
 	}
 	vpe_input_plane_config(vpe_dev, (uint32_t *)iter);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,6 +64,9 @@
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9040>;
 			};
+			L1_TLB_0: l1-tlb {
+				qcom,dump-size = <0x2000>;
+			};
 		};
 
 		CPU1: cpu@1 {
@@ -83,6 +86,9 @@
 			L1_D_1: l1-dcache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9040>;
+			};
+			L1_TLB_1: l1-tlb {
+				qcom,dump-size = <0x2000>;
 			};
 		};
 
@@ -104,6 +110,9 @@
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9040>;
 			};
+			L1_TLB_2: l1-tlb {
+				qcom,dump-size = <0x2000>;
+			};
 		};
 
 		CPU3: cpu@3 {
@@ -123,6 +132,9 @@
 			L1_D_3: l1-dcache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9040>;
+			};
+			L1_TLB_3: l1-tlb {
+				qcom,dump-size = <0x2000>;
 			};
 		};
 
@@ -148,6 +160,9 @@
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x12000>;
 			};
+			L1_TLB_100: l1-tlb {
+				qcom,dump-size = <0x4800>;
+			};
 		};
 
 		CPU5: cpu@101 {
@@ -167,6 +182,9 @@
 			L1_D_101: l1-dcache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x12000>;
+			};
+			L1_TLB_101: l1-tlb {
+				qcom,dump-size = <0x4800>;
 			};
 		};
 
@@ -188,6 +206,9 @@
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x12000>;
 			};
+			L1_TLB_102: l1-tlb {
+				qcom,dump-size = <0x4800>;
+			};
 		};
 
 		CPU7: cpu@103 {
@@ -207,6 +228,9 @@
 			L1_D_103: l1-dcache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x12000>;
+			};
+			L1_TLB_103: l1-tlb {
+				qcom,dump-size = <0x4800>;
 			};
 		};
 
@@ -262,34 +286,40 @@
 			reg = <0 0x85800000 0 0x3700000>;
 		};
 
-		pil_slpi_mem: pil_slpi_region@93800000 {
+		pil_ipa_gpu_mem: pil_ipa_gpu_region@95000000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93800000 0 0xf00000>;
+			reg = <0 0x95000000 0 0x100000>;
 		};
 
-		pil_video_mem: pil_video_region@93300000 {
+		pil_slpi_mem: pil_slpi_region@94100000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93300000 0 0x500000>;
+			reg = <0 0x94100000 0 0xf00000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@91900000 {
+		pil_video_mem: pil_video_region@93c00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x91900000 0 0x1a00000>;
+			reg = <0 0x93c00000 0 0x500000>;
 		};
 
-		modem_mem: modem_region@8ac00000 {
+		modem_mem: modem_region@8cc00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8ac00000 0 0x6d00000>;
+			reg = <0 0x8cc00000 0 0x7000000>;
+		};
+
+		pil_adsp_mem: pil_adsp_region@0x8b200000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x8b200000 0 0x1a00000>;
 		};
 
 		spss_mem: spss_region@8ab00000 { /* for SPSS-PIL */
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8ab00000 0 0x100000>;
+			reg = <0 0x8ab00000 0 0x700000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -1486,11 +1516,14 @@
 
 	spss_utils: qcom,spss_utils {
 		compatible = "qcom,spss-utils";
-		/* spss test fuse physical address */
-		qcom,spss-fuse-addr = <0x007841c4>;
-		qcom,spss-fuse-bit = <27>;
+		/* spss fuses physical address */
+		qcom,spss-fuse1-addr = <0x007841c4>;
+		qcom,spss-fuse1-bit = <27>;
+		qcom,spss-fuse2-addr = <0x0078413c>;
+		qcom,spss-fuse2-bit = <31>;
 		qcom,spss-test-firmware-name = "spss";    /* default name */
 		qcom,spss-prod-firmware-name = "spss1p";  /* 8 chars max */
+		qcom,spss-hybr-firmware-name = "spss1h";  /* 8 chars max */
 		qcom,spss-debug-reg-addr = <0x01d06020>;
 		status = "ok";
 	};
@@ -2171,37 +2204,42 @@
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor15";
 			qcom,scaling-factor = <10>;
+			qcom,alias-name = "modem_dsp";
 		};
 		sensor_information16: qcom,sensor-information-16 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor16";
-			qcom,alias-name = "pop_mem";
 			qcom,scaling-factor = <10>;
 		};
 		sensor_information17: qcom,sensor-information-17 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor17";
 			qcom,scaling-factor = <10>;
+			qcom,alias-name = "hvx";
 		};
 		sensor_information18: qcom,sensor-information-18 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor18";
 			qcom,scaling-factor = <10>;
+			qcom,alias-name = "camera";
 		};
 		sensor_information19: qcom,sensor-information-19 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor19";
 			qcom,scaling-factor = <10>;
+			qcom,alias-name = "multi_media_ss";
 		};
 		sensor_information20: qcom,sensor-information-20 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor20";
 			qcom,scaling-factor = <10>;
+			qcom,alias-name = "modem";
 		};
 		sensor_information21: qcom,sensor-information-21 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor21";
 			qcom,scaling-factor = <10>;
+			qcom,alias-name = "pop_mem";
 		};
 		sensor_information22: qcom,sensor-information-22 {
 			qcom,sensor-type =  "alarm";
@@ -2913,6 +2951,38 @@
 		qcom,l1_d_cache103 {
 			qcom,dump-node = <&L1_D_103>;
 			qcom,dump-id = <0x87>;
+		};
+		qcom,l1_tlb_dump0 {
+			qcom,dump-node = <&L1_TLB_0>;
+			qcom,dump-id = <0x20>;
+		};
+		qcom,l1_tlb_dump1 {
+			qcom,dump-node = <&L1_TLB_1>;
+			qcom,dump-id = <0x21>;
+		};
+		qcom,l1_tlb_dump2 {
+			qcom,dump-node = <&L1_TLB_2>;
+			qcom,dump-id = <0x22>;
+		};
+		qcom,l1_tlb_dump3 {
+			qcom,dump-node = <&L1_TLB_3>;
+			qcom,dump-id = <0x23>;
+		};
+		qcom,l1_tlb_dump100 {
+			qcom,dump-node = <&L1_TLB_100>;
+			qcom,dump-id = <0x24>;
+		};
+		qcom,l1_tlb_dump101 {
+			qcom,dump-node = <&L1_TLB_101>;
+			qcom,dump-id = <0x25>;
+		};
+		qcom,l1_tlb_dump102 {
+			qcom,dump-node = <&L1_TLB_102>;
+			qcom,dump-id = <0x26>;
+		};
+		qcom,l1_tlb_dump103 {
+			qcom,dump-node = <&L1_TLB_103>;
+			qcom,dump-id = <0x27>;
 		};
 	};
 

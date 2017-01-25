@@ -289,6 +289,8 @@ struct cpp_device {
 int msm_cpp_set_micro_clk(struct cpp_device *cpp_dev);
 int msm_update_freq_tbl(struct cpp_device *cpp_dev);
 int msm_cpp_get_clock_index(struct cpp_device *cpp_dev, const char *clk_name);
+int msm_cpp_get_regulator_index(struct cpp_device *cpp_dev,
+	const char *regulator_name);
 long msm_cpp_set_core_clk(struct cpp_device *cpp_dev, long rate, int idx);
 void msm_cpp_fetch_dt_params(struct cpp_device *cpp_dev);
 int msm_cpp_read_payload_params_from_dt(struct cpp_device *cpp_dev);

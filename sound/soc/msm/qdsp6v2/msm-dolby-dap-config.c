@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014,2016-2017, The Linux Foundation. All rights reserved.
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
 * only version 2 as published by the Free Software Foundation.
@@ -17,6 +17,10 @@
 #include <sound/q6core.h>
 
 #include "msm-dolby-dap-config.h"
+
+#ifndef DOLBY_PARAM_VCNB_MAX_LENGTH
+#define DOLBY_PARAM_VCNB_MAX_LENGTH 40
+#endif
 
 /* dolby endp based parameters */
 struct dolby_dap_endp_params_s {
@@ -799,7 +803,7 @@ int msm_dolby_dap_param_to_get_control_get(struct snd_kcontrol *kcontrol,
 			 __func__, copp_idx);
 		return -EINVAL;
 	}
-	params_value = kzalloc(params_length, GFP_KERNEL);
+	params_value = kzalloc(params_length + param_payload_len, GFP_KERNEL);
 	if (!params_value) {
 		pr_err("%s, params memory alloc failed\n", __func__);
 		return -ENOMEM;
@@ -818,8 +822,7 @@ int msm_dolby_dap_param_to_get_control_get(struct snd_kcontrol *kcontrol,
 			pr_err("%s: invalid param id to set", __func__);
 			rc = -EINVAL;
 		} else {
-			params_length = (dolby_dap_params_length[i] +
-						DOLBY_PARAM_PAYLOAD_SIZE) *
+			params_length = dolby_dap_params_length[i] *
 						sizeof(uint32_t);
 			rc = adm_get_params(port_id, copp_idx,
 					    DOLBY_BUNDLE_MODULE_ID,
@@ -896,6 +899,11 @@ int msm_dolby_dap_param_visualizer_control_get(struct snd_kcontrol *kcontrol,
 	uint32_t param_payload_len =
 		DOLBY_PARAM_PAYLOAD_SIZE * sizeof(uint32_t);
 	int port_id, copp_idx, idx;
+	if (length > DOLBY_PARAM_VCNB_MAX_LENGTH || length <= 0) {
+		pr_err("%s Incorrect VCNB length", __func__);
+		ucontrol->value.integer.value[0] = 0;
+		return -EINVAL;
+	}
 	for (idx = 0; idx < AFE_MAX_PORTS; idx++) {
 		port_id = dolby_dap_params_states.port_id[idx];
 		copp_idx = dolby_dap_params_states.copp_idx[idx];

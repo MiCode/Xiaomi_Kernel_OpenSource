@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1727,7 +1727,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 		writel(0x1, phy_select);
 	}
 
-	dev_info(&pdev->dev, "OTG regs = %p\n", motg->regs);
+	dev_info(&pdev->dev, "OTG regs = %pK\n", motg->regs);
 
 	motg->irq = platform_get_irq(pdev, 0);
 	if (motg->irq < 0) {

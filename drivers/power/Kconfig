@@ -521,9 +521,9 @@ config AXP20X_POWER
 	  AXP20x PMIC.
 
 source "drivers/power/reset/Kconfig"
+source "drivers/power/supply/Kconfig"
 
 endif # POWER_SUPPLY
 
 source "drivers/power/avs/Kconfig"
 source "drivers/power/qcom/Kconfig"
-source "drivers/power/qcom-charger/Kconfig"

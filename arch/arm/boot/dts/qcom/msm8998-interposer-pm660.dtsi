@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -244,4 +244,14 @@
 	/* remove sdm660 MMSS CPR Controller node */
 	/delete-node/cpr4-ctrl@05061000;
 	/delete-node/regulator@01fcf004;
+};
+
+&rpm_bus {
+	rpm-regulator-ldob9 {
+		qcom,resource-name = "rwsc";
+	};
+
+	rpm-regulator-ldob10 {
+		qcom,resource-name = "rwsm";
+	};
 };

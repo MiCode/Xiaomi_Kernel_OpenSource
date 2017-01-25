@@ -12,6 +12,11 @@
 
 #include "sdm660-pinctrl.dtsi"
 / {
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen3-batterydata-itech-3000mah.dtsi"
+		#include "fg-gen3-batterydata-ascent-3450mah.dtsi"
+	};
 };
 
 &uartblsp1dm1 {
@@ -20,5 +25,13 @@
 	pinctrl-0 = <&uart_console_active>;
 };
 
+&mem_client_3_size {
+	qcom,peripheral-size = <0x500000>;
+};
+
 &soc {
+};
+
+&pm660_fg {
+	qcom,battery-data = <&mtp_batterydata>;
 };

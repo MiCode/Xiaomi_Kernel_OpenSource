@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -281,6 +281,7 @@ struct ipa_rt_tbl {
  * @id: header entry id
  * @is_eth2_ofst_valid: is eth2_ofst field valid?
  * @eth2_ofst: offset to start of Ethernet-II/802.3 header
+ * @user_deleted: is the header deleted by the user?
  */
 struct ipa_hdr_entry {
 	struct list_head link;
@@ -298,6 +299,7 @@ struct ipa_hdr_entry {
 	int id;
 	u8 is_eth2_ofst_valid;
 	u16 eth2_ofst;
+	bool user_deleted;
 };
 
 /**
@@ -361,6 +363,7 @@ struct ipa_hdr_proc_ctx_add_hdr_cmd_seq {
  * @cookie: cookie used for validity check
  * @ref_cnt: reference counter of routing table
  * @id: processing context header entry id
+ * @user_deleted: is the hdr processing context deleted by the user?
  */
 struct ipa_hdr_proc_ctx_entry {
 	struct list_head link;
@@ -370,6 +373,7 @@ struct ipa_hdr_proc_ctx_entry {
 	u32 cookie;
 	u32 ref_cnt;
 	int id;
+	bool user_deleted;
 };
 
 /**
@@ -941,6 +945,10 @@ struct ipa_uc_wdi_ctx {
 	struct IpaHwStatsWDIInfoData_t *wdi_uc_stats_mmio;
 	void *priv;
 	ipa_uc_ready_cb uc_ready_cb;
+	/* for AP+STA stats update */
+#ifdef IPA_WAN_MSG_IPv6_ADDR_GW_LEN
+	ipa_wdi_meter_notifier_cb stats_notify;
+#endif
 };
 
 /**
@@ -1396,6 +1404,8 @@ int ipa2_add_hdr(struct ipa_ioc_add_hdr *hdrs);
 
 int ipa2_del_hdr(struct ipa_ioc_del_hdr *hdls);
 
+int ipa2_del_hdr_by_user(struct ipa_ioc_del_hdr *hdls, bool by_user);
+
 int ipa2_commit_hdr(void);
 
 int ipa2_reset_hdr(void);
@@ -1412,6 +1422,9 @@ int ipa2_copy_hdr(struct ipa_ioc_copy_hdr *copy);
 int ipa2_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs);
 
 int ipa2_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls);
+
+int ipa2_del_hdr_proc_ctx_by_user(struct ipa_ioc_del_hdr_proc_ctx *hdls,
+	bool by_user);
 
 /*
  * Routing
@@ -1524,6 +1537,7 @@ int ipa2_resume_wdi_pipe(u32 clnt_hdl);
 int ipa2_suspend_wdi_pipe(u32 clnt_hdl);
 int ipa2_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
 u16 ipa2_get_smem_restr_bytes(void);
+int ipa2_broadcast_wdi_quota_reach_ind(uint32_t fid, uint64_t num_bytes);
 int ipa2_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *inp,
 		ipa_notify_cb notify, void *priv, u8 hdr_len,
 		struct ipa_ntn_conn_out_params *outp);
@@ -1563,6 +1577,10 @@ void ipa2_set_client(int index, enum ipacm_client_enum client, bool uplink);
 enum ipacm_client_enum ipa2_get_client(int pipe_idx);
 
 bool ipa2_get_client_uplink(int pipe_idx);
+
+int ipa2_get_wlan_stats(struct ipa_get_wdi_sap_stats *wdi_sap_stats);
+
+int ipa2_set_wlan_quota(struct ipa_set_wifi_quota *wdi_quota);
 
 /*
  * IPADMA
@@ -1700,7 +1718,7 @@ int ipa2_active_clients_log_print_table(char *buf, int size);
 void ipa2_active_clients_log_clear(void);
 int ipa_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev);
 int __ipa_del_rt_rule(u32 rule_hdl);
-int __ipa_del_hdr(u32 hdr_hdl);
+int __ipa_del_hdr(u32 hdr_hdl, bool by_user);
 int __ipa_release_hdr(u32 hdr_hdl);
 int __ipa_release_hdr_proc_ctx(u32 proc_ctx_hdl);
 int _ipa_read_gen_reg_v1_1(char *buff, int max_len);

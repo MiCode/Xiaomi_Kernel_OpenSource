@@ -1372,6 +1372,7 @@ static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 			mutex_unlock(&cpp_dev->mutex);
 			return rc;
 		}
+
 		cpp_dev->state = CPP_STATE_IDLE;
 
 		CPP_DBG("Invoking msm_ion_client_create()\n");
@@ -2479,7 +2480,7 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	struct msm_buf_mngr_info buff_mgr_info, dup_buff_mgr_info;
 	int32_t in_fd;
 	int32_t num_output_bufs = 1;
-	int32_t stripe_base = 0;
+	uint32_t stripe_base = 0;
 	uint32_t stripe_size;
 	uint8_t tnr_enabled;
 	enum msm_camera_buf_mngr_buf_type buf_type =
@@ -2511,6 +2512,13 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	if (cpp_frame_msg[new_frame->msg_len - 1] !=
 		MSM_CPP_MSG_ID_TRAILER) {
 		pr_err("Invalid frame message\n");
+		return -EINVAL;
+	}
+
+	if (stripe_base == UINT_MAX || new_frame->num_strips >
+		(UINT_MAX - 1 - stripe_base) / stripe_size) {
+		pr_err("Invalid frame message,num_strips %d is large\n",
+			new_frame->num_strips);
 		return -EINVAL;
 	}
 
@@ -4177,27 +4185,22 @@ static  int msm_cpp_update_gdscr_status(struct cpp_device *cpp_dev,
 	bool status)
 {
 	int rc = 0;
-	int value = 0;
-
+	uint32_t msm_cpp_reg_idx;
 	if (!cpp_dev) {
 		pr_err("%s: cpp device invalid\n", __func__);
 		rc = -EINVAL;
 		goto end;
 	}
-
-	if (cpp_dev->camss_cpp_base) {
-		value = msm_camera_io_r(cpp_dev->camss_cpp_base);
-		pr_debug("value from camss cpp %x, status %d\n", value, status);
-		if (status) {
-			value &= CPP_GDSCR_SW_COLLAPSE_ENABLE;
-			value |= CPP_GDSCR_HW_CONTROL_ENABLE;
-		} else {
-			value |= CPP_GDSCR_HW_CONTROL_DISABLE;
-			value &= CPP_GDSCR_SW_COLLAPSE_DISABLE;
-		}
-		pr_debug("value %x after camss cpp mask\n", value);
-		msm_camera_io_w(value, cpp_dev->camss_cpp_base);
+	msm_cpp_reg_idx = msm_cpp_get_regulator_index(cpp_dev, "vdd");
+	if (msm_cpp_reg_idx < 0) {
+		pr_err(" Fail to regulator index\n");
+		return -EINVAL;
 	}
+	rc = msm_camera_regulator_set_mode(cpp_dev->cpp_vdd +
+		msm_cpp_reg_idx, 1, status);
+	if (rc < 0)
+		pr_err("update cpp gdscr status failed\n");
+
 end:
 	return rc;
 }
@@ -4305,14 +4308,6 @@ static int cpp_probe(struct platform_device *pdev)
 	cpp_dev->pdev = pdev;
 	memset(&cpp_vbif, 0, sizeof(struct msm_cpp_vbif_data));
 	cpp_dev->vbif_data = &cpp_vbif;
-
-	cpp_dev->camss_cpp_base =
-		msm_camera_get_reg_base(pdev, "camss_cpp", true);
-	if (!cpp_dev->camss_cpp_base) {
-		rc = -ENOMEM;
-		pr_err("failed to get camss_cpp_base\n");
-		goto camss_cpp_base_failed;
-	}
 
 	cpp_dev->base =
 		msm_camera_get_reg_base(pdev, "cpp", true);
@@ -4485,7 +4480,7 @@ vbif_base_failed:
 cpp_base_failed:
 	msm_camera_put_reg_base(pdev, cpp_dev->camss_cpp_base,
 		"camss_cpp", true);
-camss_cpp_base_failed:
+
 	kfree(cpp_dev);
 	return rc;
 }

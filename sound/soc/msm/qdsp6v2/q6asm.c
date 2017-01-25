@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1710,6 +1710,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_STREAM_CMD_OPEN_PUSH_MODE_READ:
 		case ASM_STREAM_CMD_OPEN_READWRITE_V2:
 		case ASM_STREAM_CMD_OPEN_LOOPBACK_V2:
+		case ASM_STREAM_CMD_OPEN_TRANSCODE_LOOPBACK:
 		case ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2:
 		case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
 		case ASM_DATA_CMD_REMOVE_INITIAL_SILENCE:
@@ -2877,6 +2878,7 @@ static int __q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
 		break;
 	case FORMAT_DSD:
 		open.dec_fmt_id = ASM_MEDIA_FMT_DSD;
+		break;
 	case FORMAT_G711_ALAW_FS:
 		open.dec_fmt_id = ASM_MEDIA_FMT_G711_ALAW_FS;
 		break;
@@ -2982,7 +2984,6 @@ int q6asm_open_read_write_v2(struct audio_client *ac, uint32_t rd_format,
 int q6asm_open_loopback_v2(struct audio_client *ac, uint16_t bits_per_sample)
 {
 	int rc = 0x00;
-	struct asm_stream_cmd_open_loopback_v2 open;
 
 	if (ac == NULL) {
 		pr_err("%s: APR handle NULL\n", __func__);
@@ -2994,29 +2995,67 @@ int q6asm_open_loopback_v2(struct audio_client *ac, uint16_t bits_per_sample)
 	}
 	pr_debug("%s: session[%d]\n", __func__, ac->session);
 
-	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
-	atomic_set(&ac->cmd_state, -1);
-	open.hdr.opcode = ASM_STREAM_CMD_OPEN_LOOPBACK_V2;
+	if (ac->perf_mode == LOW_LATENCY_PCM_MODE) {
+		struct asm_stream_cmd_open_transcode_loopback_t open;
 
-	open.mode_flags = 0;
-	open.src_endpointype = 0;
-	open.sink_endpointype = 0;
-	/* source endpoint : matrix */
-	open.postprocopo_id = q6asm_get_asm_topology_cal();
+		q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
+		atomic_set(&ac->cmd_state, -1);
+		open.hdr.opcode = ASM_STREAM_CMD_OPEN_TRANSCODE_LOOPBACK;
 
-	ac->app_type = q6asm_get_asm_app_type_cal();
-	ac->topology = open.postprocopo_id;
-	open.bits_per_sample = bits_per_sample;
-	open.reserved = 0;
+		open.mode_flags = 0;
+		open.src_endpoint_type = 0;
+		open.sink_endpoint_type = 0;
+		open.src_format_id = ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V2;
+		open.sink_format_id = ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V2;
+		/* source endpoint : matrix */
+		open.audproc_topo_id = q6asm_get_asm_topology_cal();
 
-	rc = apr_send_pkt(ac->apr, (uint32_t *) &open);
-	if (rc < 0) {
-		pr_err("%s: open failed op[0x%x]rc[%d]\n", __func__,
-				open.hdr.opcode, rc);
-		rc = -EINVAL;
-		goto fail_cmd;
+		ac->app_type = q6asm_get_asm_app_type_cal();
+		if (ac->perf_mode == LOW_LATENCY_PCM_MODE)
+			open.mode_flags |= ASM_LOW_LATENCY_STREAM_SESSION;
+		else
+			open.mode_flags |= ASM_LEGACY_STREAM_SESSION;
+		ac->topology = open.audproc_topo_id;
+		open.bits_per_sample = bits_per_sample;
+		open.reserved = 0;
+		pr_debug("%s: opening a transcode_loopback with mode_flags =[%d] session[%d]\n",
+				__func__, open.mode_flags, ac->session);
+
+		rc = apr_send_pkt(ac->apr, (uint32_t *) &open);
+		if (rc < 0) {
+			pr_err("%s: open failed op[0x%x]rc[%d]\n",
+					__func__, open.hdr.opcode, rc);
+			rc = -EINVAL;
+			goto fail_cmd;
+		}
+	} else {/*if(ac->perf_mode == LEGACY_PCM_MODE)*/
+		struct asm_stream_cmd_open_loopback_v2 open;
+
+		q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
+		atomic_set(&ac->cmd_state, -1);
+		open.hdr.opcode = ASM_STREAM_CMD_OPEN_LOOPBACK_V2;
+
+		open.mode_flags = 0;
+		open.src_endpointype = 0;
+		open.sink_endpointype = 0;
+		/* source endpoint : matrix */
+		open.postprocopo_id = q6asm_get_asm_topology_cal();
+
+		ac->app_type = q6asm_get_asm_app_type_cal();
+		ac->topology = open.postprocopo_id;
+		open.bits_per_sample = bits_per_sample;
+		open.reserved = 0;
+		pr_debug("%s: opening a loopback_v2 with mode_flags =[%d] session[%d]\n",
+				__func__, open.mode_flags, ac->session);
+
+		rc = apr_send_pkt(ac->apr, (uint32_t *) &open);
+		if (rc < 0) {
+			pr_err("%s: open failed op[0x%x]rc[%d]\n",
+					__func__, open.hdr.opcode, rc);
+			rc = -EINVAL;
+			goto fail_cmd;
+		}
 	}
-
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) >= 0), 5*HZ);
 	if (!rc) {

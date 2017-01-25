@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2798,6 +2798,9 @@ static int msm_gcc_8998_probe(struct platform_device *pdev)
 
 	/* This clock is used for all MMSSCC register access */
 	clk_prepare_enable(&gcc_mmss_noc_cfg_ahb_clk.c);
+
+	/* Keep bimc gfx clock port on all the time */
+	clk_prepare_enable(&gcc_bimc_gfx_clk.c);
 
 	/* This clock is used for all GPUCC register access */
 	clk_prepare_enable(&gcc_gpu_cfg_ahb_clk.c);

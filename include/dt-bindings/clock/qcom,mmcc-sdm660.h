@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -203,6 +203,7 @@
 #define VFE1_CLK_SRC                             188
 #define VIDEO_CORE_CLK_SRC                       189
 #define VSYNC_CLK_SRC                            190
+#define MMSS_MDSS_BYTE1_INTF_DIV_CLK             191
 
 #define BIMC_SMMU_GDSC                           0
 #define CAMSS_CPP_GDSC                           1

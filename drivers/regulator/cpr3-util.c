@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1203,21 +1203,21 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	if (rc)
 		return rc;
 
-	ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
-	if (IS_ERR(ctrl->vdd_regulator)) {
-		rc = PTR_ERR(ctrl->vdd_regulator);
-		if (rc != -EPROBE_DEFER) {
-			/* vdd-supply is optional for CPRh controllers. */
-			if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH) {
-				cpr3_debug(ctrl, "unable to request vdd regulator, rc=%d\n",
-					rc);
-				ctrl->vdd_regulator = NULL;
-				return 0;
-			}
-			cpr3_err(ctrl, "unable to request vdd regulator, rc=%d\n",
-				 rc);
+	if (of_find_property(ctrl->dev->of_node, "vdd-supply", NULL)) {
+		ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
+		if (IS_ERR(ctrl->vdd_regulator)) {
+			rc = PTR_ERR(ctrl->vdd_regulator);
+			if (rc != -EPROBE_DEFER)
+				cpr3_err(ctrl, "unable to request vdd regulator, rc=%d\n",
+					 rc);
+			return rc;
 		}
-		return rc;
+	} else if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH) {
+		/* vdd-supply is optional for CPRh controllers. */
+		ctrl->vdd_regulator = NULL;
+	} else {
+		cpr3_err(ctrl, "vdd supply is not defined\n");
+		return -ENODEV;
 	}
 
 	/*
@@ -1851,7 +1851,7 @@ static int cpr4_load_core_and_temp_adj(struct cpr3_regulator *vreg,
 	for (i = 0; i < sdelta->max_core_count; i++) {
 		for (j = 0, pos = 0; j < sdelta->temp_band_count; j++)
 			pos += scnprintf(buf + pos, buflen - pos, " %u",
-			 sdelta->table[i * sdelta->max_core_count + j]);
+			 sdelta->table[i * sdelta->temp_band_count + j]);
 		cpr3_debug(vreg, "sdelta[%d]:%s\n", i, buf);
 	}
 

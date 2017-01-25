@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -339,9 +339,10 @@ static unsigned long clk_debug_mux_measure_rate(struct clk_hw *hw)
 	struct clk_debug_mux *meas = to_clk_measure(hw);
 	struct measure_clk_data *data = meas->priv;
 
-	spin_lock_irqsave(&clk_reg_lock, flags);
 
 	clk_prepare_enable(data->cxo);
+
+	spin_lock_irqsave(&clk_reg_lock, flags);
 
 	/* Enable CXO/4 and RINGOSC branch. */
 	regmap_read(meas->regmap[GCC], data->xo_div4_cbcr, &gcc_xo4_reg);
@@ -376,9 +377,9 @@ static unsigned long clk_debug_mux_measure_rate(struct clk_hw *hw)
 		ret = (raw_count_full * multiplier);
 	}
 
-	clk_disable_unprepare(data->cxo);
-
 	spin_unlock_irqrestore(&clk_reg_lock, flags);
+
+	clk_disable_unprepare(data->cxo);
 
 	return ret;
 }

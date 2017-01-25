@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,31 +47,58 @@
 		cdc_pdm_gpios_active: cdc_pdm_gpios_active {
 			mux {
 				pins = "gpio18", "gpio19",
-					"gpio20", "gpio21",
-					"gpio23", "gpio25";
+					"gpio21", "gpio23",
+					"gpio25";
 				function = "func1";
 			};
 
 			config {
 				pins = "gpio18", "gpio19",
-					"gpio20", "gpio21",
-					"gpio23", "gpio25";
+					"gpio21", "gpio23",
+					"gpio25";
 				drive-strength = <8>;
+				output-high;
 			};
 		};
 
 		cdc_pdm_gpios_sleep: cdc_pdm_gpios_sleep {
 			mux {
 				pins = "gpio18", "gpio19",
-					"gpio20", "gpio21",
-					"gpio23", "gpio25";
+					"gpio21", "gpio23",
+					"gpio25";
 				function = "func1";
 			};
 
 			config {
 				pins = "gpio18", "gpio19",
-					"gpio20", "gpio21",
-					"gpio23", "gpio25";
+					"gpio21", "gpio23",
+					"gpio25";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_pdm_2_gpios_active: cdc_pdm_2_gpios_active {
+			mux {
+				pins = "gpio20";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <8>;
+			};
+		};
+
+		cdc_pdm_2_gpios_sleep: cdc_pdm_2_gpios_sleep {
+			mux {
+				pins = "gpio20";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio20";
 				drive-strength = <2>;
 				bias-disable;
 			};
@@ -105,12 +132,11 @@
 		lpi_cdc_reset_active: lpi_cdc_reset_active {
 			mux {
 				pins = "gpio24";
-				function = "func2";
+				function = "gpio";
 			};
 			config {
 				pins = "gpio24";
 				drive-strength = <16>;
-				bias-pull-down;
 				output-high;
 			};
 		};
@@ -118,7 +144,7 @@
 		lpi_cdc_reset_sleep: lpi_cdc_reset_sleep {
 			mux {
 				pins = "gpio24";
-				function = "func2";
+				function = "gpio";
 			};
 
 			config {

@@ -401,7 +401,7 @@ static void msm_vfe44_process_error_status(struct vfe_device *vfe_dev)
 	}
 }
 
-static void msm_vfe44_read_irq_status(struct vfe_device *vfe_dev,
+static void msm_vfe44_read_and_clear_irq_status(struct vfe_device *vfe_dev,
 	uint32_t *irq_status0, uint32_t *irq_status1)
 {
 	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x38);
@@ -427,6 +427,13 @@ static void msm_vfe44_read_irq_status(struct vfe_device *vfe_dev,
 		vfe_dev->error_info.violation_status =
 		msm_camera_io_r(vfe_dev->vfe_base + 0x48);
 
+}
+
+static void msm_vfe44_read_irq_status(struct vfe_device *vfe_dev,
+	 uint32_t *irq_status0, uint32_t *irq_status1)
+{
+	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x38);
+	*irq_status1 = msm_camera_io_r(vfe_dev->vfe_base + 0x3C);
 }
 
 static void msm_vfe44_process_reg_update(struct vfe_device *vfe_dev,
@@ -1341,8 +1348,8 @@ static int msm_vfe44_axi_halt(struct vfe_device *vfe_dev,
 static void msm_vfe44_axi_restart(struct vfe_device *vfe_dev,
 	uint32_t blocking, uint32_t enable_camif)
 {
-	msm_vfe44_config_irq(vfe_dev, 0x800000E0, 0xFFFFFF7E,
-			MSM_ISP_IRQ_ENABLE);
+	msm_vfe44_config_irq(vfe_dev, vfe_dev->recovery_irq0_mask,
+			vfe_dev->recovery_irq1_mask, MSM_ISP_IRQ_ENABLE);
 	msm_camera_io_w_mb(0x140000, vfe_dev->vfe_base + 0x318);
 
 	/* Start AXI */
@@ -1806,6 +1813,8 @@ struct msm_vfe_hardware_info vfe44_hw_info = {
 	.min_ib = 100000000,
 	.vfe_ops = {
 		.irq_ops = {
+			.read_and_clear_irq_status =
+				msm_vfe44_read_and_clear_irq_status,
 			.read_irq_status = msm_vfe44_read_irq_status,
 			.process_camif_irq = msm_vfe44_process_input_irq,
 			.process_reset_irq = msm_vfe44_process_reset_irq,

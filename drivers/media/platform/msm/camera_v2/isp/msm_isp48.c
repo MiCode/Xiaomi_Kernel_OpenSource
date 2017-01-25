@@ -26,6 +26,25 @@
 #include "cam_soc_api.h"
 
 #define MSM_VFE48_BUS_CLIENT_INIT 0xABAB
+#define VFE48_STATS_BURST_LEN 3
+#define VFE48_UB_SIZE_VFE 2048 /* 2048 * 256 bits = 64KB */
+#define VFE48_UB_STATS_SIZE 144
+#define MSM_ISP48_TOTAL_IMAGE_UB_VFE (VFE48_UB_SIZE_VFE - VFE48_UB_STATS_SIZE)
+
+
+static uint32_t stats_base_addr[] = {
+	0x1D4, /* HDR_BE */
+	0x254, /* BG(AWB_BG) */
+	0x214, /* BF */
+	0x1F4, /* HDR_BHIST */
+	0x294, /* RS */
+	0x2B4, /* CS */
+	0x2D4, /* IHIST */
+	0x274, /* BHIST (SKIN_BHIST) */
+	0x234, /* AEC_BG */
+};
+
+#define VFE48_STATS_BASE(idx) (stats_base_addr[idx])
 
 static struct msm_vfe_axi_hardware_info msm_vfe48_axi_hw_info = {
 	.num_wm = 7,
@@ -260,6 +279,40 @@ static void msm_vfe48_set_bus_err_ign_mask(struct vfe_device *vfe_dev,
 		vfe_dev->bus_err_ign_mask &= ~(1 << wm);
 }
 
+void msm_vfe48_stats_cfg_ub(struct vfe_device *vfe_dev)
+{
+	int i;
+	uint32_t ub_offset = 0, stats_burst_len;
+	uint32_t ub_size[VFE47_NUM_STATS_TYPE] = {
+		16, /* MSM_ISP_STATS_HDR_BE */
+		16, /* MSM_ISP_STATS_BG */
+		16, /* MSM_ISP_STATS_BF */
+		16, /* MSM_ISP_STATS_HDR_BHIST */
+		16, /* MSM_ISP_STATS_RS */
+		16, /* MSM_ISP_STATS_CS */
+		16, /* MSM_ISP_STATS_IHIST */
+		16, /* MSM_ISP_STATS_BHIST */
+		16, /* MSM_ISP_STATS_AEC_BG */
+	};
+
+	stats_burst_len = VFE48_STATS_BURST_LEN;
+	ub_offset = VFE48_UB_SIZE_VFE;
+
+	for (i = 0; i < VFE47_NUM_STATS_TYPE; i++) {
+		ub_offset -= ub_size[i];
+		msm_camera_io_w(stats_burst_len << 30 |
+			ub_offset << 16 | (ub_size[i] - 1),
+			vfe_dev->vfe_base + VFE48_STATS_BASE(i) + 0x14);
+	}
+}
+
+uint32_t msm_vfe48_get_ub_size(struct vfe_device *vfe_dev)
+{
+	return MSM_ISP48_TOTAL_IMAGE_UB_VFE;
+}
+
+
+
 struct msm_vfe_hardware_info vfe48_hw_info = {
 	.num_iommu_ctx = 1,
 	.num_iommu_secure_ctx = 0,
@@ -269,6 +322,8 @@ struct msm_vfe_hardware_info vfe48_hw_info = {
 	.min_ab = 100000000,
 	.vfe_ops = {
 		.irq_ops = {
+			.read_and_clear_irq_status =
+				msm_vfe47_read_and_clear_irq_status,
 			.read_irq_status = msm_vfe47_read_irq_status,
 			.process_camif_irq = msm_vfe47_process_input_irq,
 			.process_reset_irq = msm_vfe47_process_reset_irq,
@@ -307,7 +362,7 @@ struct msm_vfe_hardware_info vfe48_hw_info = {
 			.update_cgc_override =
 				msm_vfe47_axi_update_cgc_override,
 			.ub_reg_offset = msm_vfe47_ub_reg_offset,
-			.get_ub_size = msm_vfe47_get_ub_size,
+			.get_ub_size = msm_vfe48_get_ub_size,
 		},
 		.core_ops = {
 			.reg_update = msm_vfe47_reg_update,
@@ -345,7 +400,7 @@ struct msm_vfe_hardware_info vfe48_hw_info = {
 			.clear_wm_irq_mask = msm_vfe47_stats_clear_wm_irq_mask,
 			.cfg_wm_reg = msm_vfe47_stats_cfg_wm_reg,
 			.clear_wm_reg = msm_vfe47_stats_clear_wm_reg,
-			.cfg_ub = msm_vfe47_stats_cfg_ub,
+			.cfg_ub = msm_vfe48_stats_cfg_ub,
 			.enable_module = msm_vfe47_stats_enable_module,
 			.update_ping_pong_addr =
 				msm_vfe47_stats_update_ping_pong_addr,

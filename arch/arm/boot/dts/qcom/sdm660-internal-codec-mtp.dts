@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 
 #include "sdm660.dtsi"
 #include "sdm660-mtp.dtsi"
+#include "sdm660-internal-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM 660 PM660 + PM660L Int. Audio Codec MTP";
@@ -24,51 +25,7 @@
 			<0x0001001b 0x0201011a 0x0 0x0>;
 };
 
-&slim_aud {
-	status = "disabled";
-};
-
-&dai_slim {
-	status = "disabled";
-};
-
-&wcd9335 {
-	status = "disabled";
-};
-
-&wcd934x_cdc {
-	status = "disabled";
-};
-
-&clock_audio {
-	status = "disabled";
-};
-
-&wcd_rst_gpio {
-	status = "disabled";
-};
-
-&wcd9xxx_intc {
-	status = "disabled";
-};
-
-&tasha_snd {
-	status = "disabled";
-};
-
-&tavil_snd {
-	status = "disabled";
-};
-
 &int_codec {
 	qcom,model = "sdm660-snd-card-mtp";
-	status = "okay";
-};
-
-&pmic_analog_codec {
-	status = "okay";
-};
-
-&msm_sdw_codec {
 	status = "okay";
 };

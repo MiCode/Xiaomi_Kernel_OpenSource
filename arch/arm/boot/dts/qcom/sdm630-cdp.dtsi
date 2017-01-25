@@ -22,3 +22,7 @@
 
 &soc {
 };
+
+&pm660_charger {
+	qcom,batteryless-platform;
+};

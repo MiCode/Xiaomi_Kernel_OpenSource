@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2014, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2014, 2016-2017, The Linux Foundation. All rights
+ * reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -77,6 +78,7 @@ static int clock_debug_measure_get(void *data, u64 *val)
 	else
 		is_hw_gated = 0;
 
+	mutex_lock(&clock->prepare_lock);
 	ret = clk_set_parent(measure, clock);
 	if (!ret) {
 		/*
@@ -107,6 +109,7 @@ static int clock_debug_measure_get(void *data, u64 *val)
 	 */
 	meas_rate = clk_get_rate(clock);
 	sw_rate = clk_get_rate(measure->parent);
+	mutex_unlock(&clock->prepare_lock);
 	if (sw_rate && meas_rate >= (sw_rate * 2))
 		*val *= DIV_ROUND_CLOSEST(meas_rate, sw_rate);
 

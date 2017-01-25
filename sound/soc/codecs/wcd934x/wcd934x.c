@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1882,12 +1882,8 @@ static void tavil_codec_override(struct snd_soc_codec *codec, int mode,
 		switch (event) {
 		case SND_SOC_DAPM_PRE_PMU:
 		case SND_SOC_DAPM_POST_PMU:
-			if (!(snd_soc_read(codec,
-					WCD934X_CDC_RX2_RX_PATH_CTL) & 0x10) &&
-				(!(snd_soc_read(codec,
-					WCD934X_CDC_RX1_RX_PATH_CTL) & 0x10)))
-				snd_soc_update_bits(codec,
-					WCD9XXX_A_ANA_RX_SUPPLIES, 0x02, 0x02);
+			snd_soc_update_bits(codec,
+				WCD9XXX_A_ANA_RX_SUPPLIES, 0x02, 0x02);
 		break;
 		case SND_SOC_DAPM_POST_PMD:
 			snd_soc_update_bits(codec,
@@ -1923,10 +1919,14 @@ static int tavil_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		/*
 		 * 7ms sleep is required after PA is enabled as per
-		 * HW requirement
+		 * HW requirement. If compander is disabled, then
+		 * 20ms delay is needed.
 		 */
 		if (test_bit(HPH_PA_DELAY, &tavil->status_mask)) {
-			usleep_range(7000, 7100);
+			if (!tavil->comp_enabled[COMPANDER_2])
+				usleep_range(20000, 20100);
+			else
+				usleep_range(7000, 7100);
 			clear_bit(HPH_PA_DELAY, &tavil->status_mask);
 		}
 
@@ -1965,10 +1965,18 @@ static int tavil_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, WCD934X_HPH_R_TEST, 0x01, 0x00);
 		snd_soc_update_bits(codec, WCD934X_CDC_RX2_RX_PATH_CTL,
 				    0x10, 0x10);
+		snd_soc_update_bits(codec, WCD934X_CDC_RX2_RX_PATH_MIX_CTL,
+				    0x10, 0x10);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/* 5ms sleep is required after PA disable */
-		usleep_range(5000, 5100);
+		/*
+		 * 5ms sleep is required after PA disable. If compander is
+		 * disabled, then 20ms delay is needed after PA disable.
+		 */
+		if (!tavil->comp_enabled[COMPANDER_2])
+			usleep_range(20000, 20100);
+		else
+			usleep_range(5000, 5100);
 		tavil_codec_override(codec, tavil->hph_mode, event);
 		blocking_notifier_call_chain(&tavil->mbhc->notifier,
 					     WCD_EVENT_POST_HPHR_PA_OFF,
@@ -2008,10 +2016,14 @@ static int tavil_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		/*
 		 * 7ms sleep is required after PA is enabled as per
-		 * HW requirement
+		 * HW requirement. If compander is disabled, then
+		 * 20ms delay is needed.
 		 */
 		if (test_bit(HPH_PA_DELAY, &tavil->status_mask)) {
-			usleep_range(7000, 7100);
+			if (!tavil->comp_enabled[COMPANDER_1])
+				usleep_range(20000, 20100);
+			else
+				usleep_range(7000, 7100);
 			clear_bit(HPH_PA_DELAY, &tavil->status_mask);
 		}
 		snd_soc_update_bits(codec, WCD934X_HPH_L_TEST, 0x01, 0x01);
@@ -2049,10 +2061,18 @@ static int tavil_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, WCD934X_HPH_L_TEST, 0x01, 0x00);
 		snd_soc_update_bits(codec, WCD934X_CDC_RX1_RX_PATH_CTL,
 				    0x10, 0x10);
+		snd_soc_update_bits(codec, WCD934X_CDC_RX1_RX_PATH_MIX_CTL,
+				    0x10, 0x10);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/* 5ms sleep is required after PA disable */
-		usleep_range(5000, 5100);
+		/*
+		 * 5ms sleep is required after PA disable. If compander is
+		 * disabled, then 20ms delay is needed after PA disable.
+		 */
+		if (!tavil->comp_enabled[COMPANDER_1])
+			usleep_range(20000, 20100);
+		else
+			usleep_range(5000, 5100);
 		tavil_codec_override(codec, tavil->hph_mode, event);
 		blocking_notifier_call_chain(&tavil->mbhc->notifier,
 					     WCD_EVENT_POST_HPHL_PA_OFF,
@@ -5203,6 +5223,14 @@ static int tavil_mad_input_put(struct snd_kcontrol *kcontrol,
 	bool is_adc2_input = false;
 
 	tavil_mad_input = ucontrol->value.integer.value[0];
+
+	if (tavil_mad_input >= sizeof(tavil_conn_mad_text)/
+	    sizeof(tavil_conn_mad_text[0])) {
+		dev_err(codec->dev,
+			"%s: tavil_mad_input = %d out of bounds\n",
+			__func__, tavil_mad_input);
+		return -EINVAL;
+	}
 
 	if (strnstr(tavil_conn_mad_text[tavil_mad_input], "NOTUSED",
 				sizeof("NOTUSED"))) {

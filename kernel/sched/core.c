@@ -5859,7 +5859,7 @@ int sched_isolate_cpu(int cpu)
 	struct rq *rq = cpu_rq(cpu);
 	cpumask_t avail_cpus;
 	int ret_code = 0;
-	u64 start_time;
+	u64 start_time = 0;
 
 	if (trace_sched_isolate_enabled())
 		start_time = sched_clock();
@@ -5905,7 +5905,6 @@ int sched_isolate_cpu(int cpu)
 	smp_call_function_any(&avail_cpus, hrtimer_quiesce_cpu, &cpu, 1);
 	smp_call_function_any(&avail_cpus, timer_quiesce_cpu, &cpu, 1);
 
-	migrate_sync_cpu(cpu, cpumask_first(&avail_cpus));
 	stop_cpus(cpumask_of(cpu), do_isolation_work_cpu_stop, 0);
 
 	calc_load_migrate(rq);
@@ -5929,7 +5928,7 @@ int sched_unisolate_cpu_unlocked(int cpu)
 {
 	int ret_code = 0;
 	struct rq *rq = cpu_rq(cpu);
-	u64 start_time;
+	u64 start_time = 0;
 
 	if (trace_sched_isolate_enabled())
 		start_time = sched_clock();
@@ -6286,7 +6285,6 @@ migration_call(struct notifier_block *nfb, unsigned long action, void *hcpu)
 		sched_ttwu_pending();
 		/* Update our root-domain */
 		raw_spin_lock_irqsave(&rq->lock, flags);
-		migrate_sync_cpu(cpu, smp_processor_id());
 
 		if (rq->rd) {
 			BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));

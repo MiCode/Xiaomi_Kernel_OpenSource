@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,8 +43,8 @@
 
 	rpm-regulator-smpb3 {
 		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "smpb";
-		qcom,resource-id = <3>;
+		qcom,resource-name = "rwcx";
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <1>;
 		status = "disabled";
 
@@ -58,8 +58,8 @@
 
 	rpm-regulator-smpb5 {
 		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "smpb";
-		qcom,resource-id = <5>;
+		qcom,resource-name = "rwmx";
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <1>;
 		status = "disabled";
 
@@ -193,7 +193,7 @@
 
 	rpm-regulator-ldob9 {
 		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "rwsc";
+		qcom,resource-name = "rwlc";
 		qcom,resource-id = <0>;
 		qcom,regulator-type = <0>;
 		status = "disabled";
@@ -208,7 +208,7 @@
 
 	rpm-regulator-ldob10 {
 		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "rwsm";
+		qcom,resource-name = "rwlm";
 		qcom,resource-id = <0>;
 		qcom,regulator-type = <0>;
 		status = "disabled";

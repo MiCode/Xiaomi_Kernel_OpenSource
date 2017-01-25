@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -108,6 +108,7 @@ static const u32 lpi_offset[] = {
 	0x00000000,
 	0x00001000,
 	0x00002000,
+	0x00002010,
 	0x00003000,
 	0x00003010,
 	0x00004000,
@@ -592,7 +593,7 @@ static int lpi_pinctrl_probe(struct platform_device *pdev)
 		goto err_range;
 	}
 
-	lpi_dev_up = false;
+	lpi_dev_up = true;
 	ret = audio_notifier_register("lpi_tlmm", AUDIO_NOTIFIER_ADSP_DOMAIN,
 				      &service_nb);
 	if (ret < 0) {

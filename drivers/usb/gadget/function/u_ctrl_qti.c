@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,7 +112,7 @@ static void qti_ctrl_queue_notify(struct qti_ctrl_port *port)
 
 	spin_lock_irqsave(&port->lock, flags);
 	if (!port->is_open) {
-		pr_err("%s: rmnet ctrl file handler %p is not open",
+		pr_err("%s: rmnet ctrl file handler %pK is not open",
 			   __func__, port);
 		spin_unlock_irqrestore(&port->lock, flags);
 		return;
@@ -165,7 +165,7 @@ static int gqti_ctrl_send_cpkt_tomodem(enum qti_port_type qport,
 
 	/* drop cpkt if port is not open */
 	if (!port->is_open) {
-		pr_debug("rmnet file handler %p(index=%d) is not open",
+		pr_debug("rmnet file handler %pK(index=%d) is not open",
 		       port, port->index);
 		port->drp_cpkt_cnt++;
 		spin_unlock_irqrestore(&port->lock, flags);
@@ -206,7 +206,7 @@ int gqti_ctrl_connect(void *gr, enum qti_port_type qport, unsigned intf)
 	struct grmnet *g_rmnet = NULL;
 	unsigned long flags;
 
-	pr_debug("%s: port type:%d gadget:%p\n", __func__, qport, gr);
+	pr_debug("%s: port type:%d gadget:%pK\n", __func__, qport, gr);
 	if (qport >= QTI_NUM_PORTS) {
 		pr_err("%s: Invalid QTI port %d\n", __func__, qport);
 		return -ENODEV;
@@ -259,7 +259,7 @@ void gqti_ctrl_disconnect(void *gr, enum qti_port_type qport)
 	struct rmnet_ctrl_pkt	*cpkt;
 	struct grmnet *g_rmnet = NULL;
 
-	pr_debug("%s: gadget:%p\n", __func__, gr);
+	pr_debug("%s: gadget:%pK\n", __func__, gr);
 
 	if (qport >= QTI_NUM_PORTS) {
 		pr_err("%s: Invalid QTI port %d\n", __func__, qport);
@@ -485,7 +485,7 @@ qti_ctrl_write(struct file *fp, const char __user *buf, size_t count,
 	port->copied_from_modem++;
 
 	spin_lock_irqsave(&port->lock, flags);
-	if (port && port->port_usb) {
+	if (port->port_usb) {
 		if (port->port_type == QTI_PORT_RMNET) {
 			g_rmnet = (struct grmnet *)port->port_usb;
 		} else {
@@ -650,7 +650,7 @@ static int qti_ctrl_read_stats(struct seq_file *s, void *unused)
 			continue;
 		spin_lock_irqsave(&port->lock, flags);
 
-		seq_printf(s, "\n#PORT:%d port: %p\n", i, port);
+		seq_printf(s, "\n#PORT:%d port: %pK\n", i, port);
 		seq_printf(s, "name:			%s\n", port->name);
 		seq_printf(s, "host_to_modem:		%d\n",
 				port->host_to_modem);

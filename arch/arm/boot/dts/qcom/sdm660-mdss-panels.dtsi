@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,10 @@
 #include "dsi-panel-sim-dualmipi-video.dtsi"
 #include "dsi-panel-nt35597-truly-dualmipi-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-truly-dualmipi-wqxga-cmd.dtsi"
+#include "dsi-panel-nt36850-truly-dualmipi-wqhd-cmd.dtsi"
+#include "dsi-panel-sharp-dualmipi-wqxga-video.dtsi"
+#include "dsi-panel-nt35597-truly-dsc-wqxga-video.dtsi"
+#include "dsi-panel-nt35597-truly-dsc-wqxga-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -80,4 +84,40 @@
 		23 1e 07 08 05 03 04 a0
 		23 1e 07 08 05 03 04 a0
 		23 18 07 08 04 03 04 a0];
+};
+
+&dsi_dual_nt36850_truly_cmd {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1c 08 09 05 03 04 a0];
+	qcom,mdss-dsi-t-clk-post = <0x0e>;
+	qcom,mdss-dsi-t-clk-pre = <0x31>;
+};
+
+&dsi_dual_sharp_video {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 20 06 09 05 03 04 a0
+			23 20 06 09 05 03 04 a0
+			23 20 06 09 05 03 04 a0
+			23 20 06 09 05 03 04 a0
+			23 2e 06 08 05 03 04 a0];
+};
+
+&dsi_nt35597_truly_dsc_video {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [20 1d 05 07 03 03 04 a0
+		20 1d 05 07 03 03 04 a0
+		20 1d 05 07 03 03 04 a0
+		20 1d 05 07 03 03 04 a0
+		20 12 05 06 03 13 04 a0];
+	qcom,config-select = <&dsi_nt35597_truly_dsc_video_config2>;
+};
+
+&dsi_nt35597_truly_dsc_cmd {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [20 1d 05 07 03 03 04 a0
+		20 1d 05 07 03 03 04 a0
+		20 1d 05 07 03 03 04 a0
+		20 1d 05 07 03 03 04 a0
+		20 12 05 06 03 13 04 a0];
+	qcom,config-select = <&dsi_nt35597_truly_dsc_cmd_config2>;
 };
