@@ -113,4 +113,13 @@ config QPNP_REVID
 	  numbers in the kernel log along with the PMIC option status. The PMIC
 	  type is mapped to a QTI chip part number and logged as well.
 
+config MSM_MHI_DEV
+        tristate "Modem Device Interface Driver"
+	depends on EP_PCIE && IPA
+        help
+          This kernel module is used to interact with PCIe Root complex
+          supporting MHI protocol. MHI is a data transmission protocol
+          involving communication between a host and a device over shared
+          memory. MHI interacts with the IPA for supporting transfers
+	  on the HW accelerated channels between Host and device.
 endmenu
