@@ -419,6 +419,20 @@ config QCOM_SPMI_TEMP_ALARM
 	  real time die temperature if an ADC is present or an estimate of the
 	  temperature based upon the over temperature stage value.
 
+config THERMAL_QPNP
+	tristate "Qualcomm Technologies, Inc. QPNP PMIC Temperature Alarm"
+	depends on OF && SPMI
+	help
+	  This enables a thermal Sysfs driver for Qualcomm Technologies, Inc.
+	  QPNP PMIC devices. It shows up in Sysfs as a thermal zone with
+	  multiple trip points. The temperature reported by the thermal zone
+	  reflects the real time die temperature if an ADC is present or an
+	  estimate of the temperature based upon the over temperature stage
+	  value if no ADC is available. If allowed via compile time
+	  configuration; enabling the thermal zone device via the mode file
+	  results in shifting PMIC over temperature shutdown control from
+	  hardware to software.
+
 config GENERIC_ADC_THERMAL
 	tristate "Generic ADC based thermal sensor"
 	depends on IIO

@@ -988,6 +988,35 @@ config REGULATOR_MSM_GFX_LDO
 	  the higher ones by BHS. This driver allows for configuration of
 	  the rail between the LDO/BHS as well as the LDO voltage.
 
+config REGULATOR_QPNP_LABIBB
+	tristate "Qualcomm Technologies, Inc. QPNP LAB/IBB regulator support"
+	depends on SPMI
+	help
+	  This driver supports voltage regulators in Qualcomm Technologies, Inc.
+	  PMIC chips which comply with QPNP LAB/IBB regulators. QPNP LAB and IBB
+	  are SPMI based PMIC implementations. LAB regulator can be used as a
+	  regular positive boost regulator. IBB can be used as a regular
+	  negative boost regulator. LAB/IBB regulators can also be used
+	  together for LCD or AMOLED.
+
+config REGULATOR_QPNP_LCDB
+	tristate "Qualcomm Technologies, Inc. QPNP LCDB support"
+	depends on SPMI
+	help
+	  Supports the LCDB module in the Qualcomm Technologies, Inc.
+	  QPNP PMICs. Exposes regulators to control the positive and
+	  negative voltage bias for the LCD display panel. It also
+	  allows configurability for the various bias-voltage parameters.
+
+config REGULATOR_QPNP_OLEDB
+	tristate "Qualcomm Technologies, Inc. QPNP OLEDB regulator support"
+	depends on SPMI
+	help
+	  This driver supports the OLEDB (AVDD bias) signal for AMOLED panel in
+	  Qualcomm Technologies, Inc. QPNP PMICs. It exposes the OLED voltage
+	  configuration via the regulator framework. The configurable range of
+	  this bias is 5 V to 8.1 V.
+
 config REGULATOR_QPNP
 	tristate "Qualcomm Technologies, Inc. QPNP regulator support"
 	depends on SPMI

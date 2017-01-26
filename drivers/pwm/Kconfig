@@ -329,6 +329,16 @@ config PWM_PXA
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-pxa.
 
+config PWM_QPNP
+	tristate "Qualcomm Technologies, Inc. QPNP LPG/PWM support"
+	depends on SPMI
+	help
+	  This driver supports PWM/LPG devices in Qualcomm Technologies, Inc.
+	  PMIC chips which comply with QPNP.  QPNP is an SPMI based PMIC
+	  implementation.  These devices support Pulse Width Modulation output
+	  with user generated patterns. They share a lookup table with size of
+	  64 entries.
+
 config PWM_RCAR
 	tristate "Renesas R-Car PWM support"
 	depends on ARCH_RENESAS || COMPILE_TEST
