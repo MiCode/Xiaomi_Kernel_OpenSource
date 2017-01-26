@@ -1286,8 +1286,7 @@
 		compatible = "qcom,glink_ssr";
 		label = "modem";
 		qcom,edge = "mpss";
-		qcom,notify-edges = <&glink_lpass>, <&glink_dsps>, <&glink_rpm>,
-					<&glink_spss>;
+		qcom,notify-edges = <&glink_lpass>, <&glink_dsps>, <&glink_rpm>;
 		qcom,xprt = "smem";
 	};
 
@@ -1295,8 +1294,7 @@
 		compatible = "qcom,glink_ssr";
 		label = "adsp";
 		qcom,edge = "lpass";
-		qcom,notify-edges = <&glink_mpss>, <&glink_dsps>, <&glink_rpm>,
-					<&glink_spss>;
+		qcom,notify-edges = <&glink_mpss>, <&glink_dsps>, <&glink_rpm>;
 		qcom,xprt = "smem";
 	};
 
@@ -1304,8 +1302,7 @@
 		compatible = "qcom,glink_ssr";
 		label = "slpi";
 		qcom,edge = "dsps";
-		qcom,notify-edges = <&glink_mpss>, <&glink_lpass>, <&glink_rpm>,
-					<&glink_spss>;
+		qcom,notify-edges = <&glink_mpss>, <&glink_lpass>, <&glink_rpm>;
 		qcom,xprt = "smem";
 	};
 
