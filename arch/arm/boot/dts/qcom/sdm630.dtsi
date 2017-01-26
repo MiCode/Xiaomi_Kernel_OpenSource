@@ -15,6 +15,7 @@
 #include <dt-bindings/clock/qcom,gpu-sdm660.h>
 #include <dt-bindings/clock/qcom,mmcc-sdm660.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
+#include <dt-bindings/clock/audio-ext-clk.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 #include <dt-bindings/clock/qcom,cpu-osm.h>
@@ -1845,6 +1846,8 @@
 #include "msm-gdsc-660.dtsi"
 #include "sdm660-common.dtsi"
 #include "msm-arm-smmu-630.dtsi"
+#include "msm-audio.dtsi"
+#include "sdm660-audio.dtsi"
 #include "sdm660-camera.dtsi"
 #include "sdm630-pm.dtsi"
 #include "sdm660-vidc.dtsi"
