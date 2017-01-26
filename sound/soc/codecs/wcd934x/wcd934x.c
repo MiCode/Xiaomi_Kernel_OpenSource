@@ -2292,6 +2292,9 @@ static int tavil_codec_enable_lineout_pa(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
 	u16 lineout_vol_reg = 0, lineout_mix_vol_reg = 0;
+	u16 dsd_mute_reg = 0, dsd_clk_reg = 0;
+	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
+	struct tavil_dsd_config *dsd_conf = tavil->dsd_config;
 
 	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
 
@@ -2299,9 +2302,13 @@ static int tavil_codec_enable_lineout_pa(struct snd_soc_dapm_widget *w,
 		if (w->shift == 7) {
 			lineout_vol_reg = WCD934X_CDC_RX3_RX_PATH_CTL;
 			lineout_mix_vol_reg = WCD934X_CDC_RX3_RX_PATH_MIX_CTL;
+			dsd_mute_reg = WCD934X_CDC_DSD0_CFG2;
+			dsd_clk_reg = WCD934X_CDC_DSD0_PATH_CTL;
 		} else if (w->shift == 6) {
 			lineout_vol_reg = WCD934X_CDC_RX4_RX_PATH_CTL;
 			lineout_mix_vol_reg = WCD934X_CDC_RX4_RX_PATH_MIX_CTL;
+			dsd_mute_reg = WCD934X_CDC_DSD1_CFG2;
+			dsd_clk_reg = WCD934X_CDC_DSD1_PATH_CTL;
 		}
 	} else {
 		dev_err(codec->dev, "%s: Error enabling lineout PA\n",
@@ -2326,6 +2333,12 @@ static int tavil_codec_enable_lineout_pa(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					    lineout_mix_vol_reg,
 					    0x10, 0x00);
+		if (dsd_conf && (snd_soc_read(codec, dsd_clk_reg) & 0x01))
+			snd_soc_update_bits(codec, dsd_mute_reg, 0x04, 0x00);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		if (dsd_conf && (snd_soc_read(codec, dsd_clk_reg) & 0x01))
+			snd_soc_update_bits(codec, dsd_mute_reg, 0x04, 0x04);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/*
@@ -6818,6 +6831,16 @@ static const struct snd_kcontrol_new hphr_mixer[] = {
 			tavil_dsd_mixer_get, tavil_dsd_mixer_put),
 };
 
+static const struct snd_kcontrol_new lo1_mixer[] = {
+	SOC_SINGLE_EXT("DSD LO1 Switch", SND_SOC_NOPM, INTERP_LO1, 1, 0,
+			tavil_dsd_mixer_get, tavil_dsd_mixer_put),
+};
+
+static const struct snd_kcontrol_new lo2_mixer[] = {
+	SOC_SINGLE_EXT("DSD LO2 Switch", SND_SOC_NOPM, INTERP_LO2, 1, 0,
+			tavil_dsd_mixer_get, tavil_dsd_mixer_put),
+};
+
 static const struct snd_soc_dapm_widget tavil_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_IN_E("AIF1 PB", "AIF1 Playback", 0, SND_SOC_NOPM,
 		AIF1_PB, 0, tavil_codec_enable_slimrx,
@@ -6950,7 +6973,11 @@ static const struct snd_soc_dapm_widget tavil_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("RX INT2 MIX3", SND_SOC_NOPM, 0, 0, hphr_mixer,
 			   ARRAY_SIZE(hphr_mixer)),
 	SND_SOC_DAPM_MIXER("RX INT3 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT3 MIX3", SND_SOC_NOPM, 0, 0, lo1_mixer,
+			   ARRAY_SIZE(lo1_mixer)),
 	SND_SOC_DAPM_MIXER("RX INT4 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT4 MIX3", SND_SOC_NOPM, 0, 0, lo2_mixer,
+			   ARRAY_SIZE(lo2_mixer)),
 	SND_SOC_DAPM_MIXER("RX INT7 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER_E("RX INT7 CHAIN", SND_SOC_NOPM, 0, 0,
 		NULL, 0, tavil_codec_spk_boost_event,
@@ -7339,11 +7366,11 @@ static const struct snd_soc_dapm_widget tavil_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_E("LINEOUT1 PA", WCD934X_ANA_LO_1_2, 7, 0, NULL, 0,
 		tavil_codec_enable_lineout_pa,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_PGA_E("LINEOUT2 PA", WCD934X_ANA_LO_1_2, 6, 0, NULL, 0,
 		tavil_codec_enable_lineout_pa,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_PGA_E("ANC EAR PA", WCD934X_ANA_EAR, 7, 0, NULL, 0,
 		tavil_codec_enable_ear_pa, SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
