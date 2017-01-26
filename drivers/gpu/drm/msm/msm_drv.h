@@ -232,7 +232,6 @@ struct msm_display_info {
 struct msm_drm_event {
 	struct drm_pending_event base;
 	struct drm_event event;
-	struct drm_msm_event_req info;
 	u8 data[];
 };
 
@@ -325,6 +324,12 @@ struct msm_drm_private {
 	struct shrinker shrinker;
 
 	struct msm_vblank_ctrl vblank_ctrl;
+
+	/* task holding struct_mutex.. currently only used in submit path
+	 * to detect and reject faults from copy_from_user() for submit
+	 * ioctl.
+	 */
+	struct task_struct *struct_mutex_task;
 
 	/* list of clients waiting for events */
 	struct list_head client_event_list;

@@ -960,7 +960,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			ret = PTR_ERR(mmu);
 			SDE_ERROR("failed to init iommu id %d: rc: %d\n", i,
 					ret);
-			goto fail;
+			continue;
 		}
 
 		ret = mmu->funcs->attach(mmu, (const char **)iommu_ports,
@@ -968,7 +968,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 		if (ret) {
 			SDE_ERROR("failed to attach iommu %d: %d\n", i, ret);
 			mmu->funcs->destroy(mmu);
-			goto fail;
+			continue;
 		}
 
 		sde_kms->mmu_id[i] = msm_register_mmu(sde_kms->dev, mmu);

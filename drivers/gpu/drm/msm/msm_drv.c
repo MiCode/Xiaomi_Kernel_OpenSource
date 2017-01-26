@@ -17,6 +17,7 @@
  */
 
 #include <linux/of_address.h>
+#include <linux/kthread.h>
 #include "msm_drv.h"
 #include "msm_debugfs.h"
 #include "msm_fence.h"
@@ -222,8 +223,9 @@ static int vblank_ctrl_queue_work(struct msm_drm_private *priv,
 
 static int msm_drm_uninit(struct device *dev)
 {
-	struct msm_drm_private *priv = dev->dev_private;
-	struct platform_device *pdev = dev->platformdev;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct drm_device *ddev = platform_get_drvdata(pdev);
+	struct msm_drm_private *priv = ddev->dev_private;
 	struct msm_kms *kms = priv->kms;
 	struct msm_gpu *gpu = priv->gpu;
 	struct msm_vblank_ctrl *vbl_ctrl = &priv->vblank_ctrl;
@@ -242,6 +244,9 @@ static int msm_drm_uninit(struct device *dev)
 	msm_gem_shrinker_cleanup(ddev);
 
 	drm_kms_helper_poll_fini(ddev);
+
+	drm_mode_config_cleanup(ddev);
+	drm_vblank_cleanup(ddev);
 
 	drm_dev_unregister(ddev);
 
@@ -284,21 +289,25 @@ static int msm_drm_uninit(struct device *dev)
 	sde_power_client_destroy(&priv->phandle, priv->pclient);
 	sde_power_resource_deinit(pdev, &priv->phandle);
 
-	component_unbind_all(dev->dev, dev);
+	component_unbind_all(dev, ddev);
+
+	sde_power_client_destroy(&priv->phandle, priv->pclient);
+
+	sde_power_resource_deinit(pdev, &priv->phandle);
 
 	msm_mdss_destroy(ddev);
 
 	ddev->dev_private = NULL;
-	drm_dev_unref(ddev);
-
 	kfree(priv);
+
+	drm_dev_unref(ddev);
 
 	return 0;
 }
 
-#define KMS_MDP4 0
-#define KMS_MDP5 1
-#define KMS_SDE  2
+#define KMS_MDP4 4
+#define KMS_MDP5 5
+#define KMS_SDE  3
 
 static int get_mdp_ver(struct platform_device *pdev)
 {
@@ -425,32 +434,42 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	struct msm_kms *kms;
 	int ret;
 
+	ddev = drm_dev_alloc(drv, dev);
+	if (!ddev) {
+		dev_err(dev, "failed to allocate drm_device\n");
+		return -ENOMEM;
+	}
+
+	drm_mode_config_init(ddev);
+	platform_set_drvdata(pdev, ddev);
+	ddev->platformdev = pdev;
+
+	ret = drm_dev_register(ddev, 0);
+	if (ret)
+		goto fail;
+
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
-		drm_dev_unref(ddev);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto priv_alloc_fail;
 	}
 
 	ddev->dev_private = priv;
 	priv->dev = ddev;
 
+	ret = msm_mdss_init(ddev);
+	if (ret)
+		goto mdss_init_fail;
+
 	priv->wq = alloc_ordered_workqueue("msm_drm", 0);
-	init_waitqueue_head(&priv->fence_event);
+	priv->atomic_wq = alloc_ordered_workqueue("msm:atomic", 0);
 	init_waitqueue_head(&priv->pending_crtcs_event);
 
 	INIT_LIST_HEAD(&priv->client_event_list);
 	INIT_LIST_HEAD(&priv->inactive_list);
-	INIT_LIST_HEAD(&priv->fence_cbs);
 	INIT_LIST_HEAD(&priv->vblank_ctrl.event_list);
-	init_kthread_work(&priv->vblank_ctrl.work, vblank_ctrl_worker);
+	INIT_WORK(&priv->vblank_ctrl.work, vblank_ctrl_worker);
 	spin_lock_init(&priv->vblank_ctrl.lock);
-
-	drm_mode_config_init(dev);
-
-	priv->wq = alloc_ordered_workqueue("msm", 0);
-	priv->atomic_wq = alloc_ordered_workqueue("msm:atomic", 0);
-	init_waitqueue_head(&priv->fence_event);
-	init_waitqueue_head(&priv->pending_crtcs_event);
 
 	ret = sde_power_resource_init(pdev, &priv->phandle);
 	if (ret) {
@@ -466,30 +485,29 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	}
 
 	/* Bind all our sub-components: */
-	ret = msm_component_bind_all(dev->dev, dev);
+	ret = msm_component_bind_all(dev, ddev);
 	if (ret)
 		return ret;
-	}
 
 	ret = msm_init_vram(ddev);
 	if (ret)
 		goto fail;
 
-	ret = sde_evtlog_init(dev->primary->debugfs_root);
+	ret = sde_evtlog_init(ddev->primary->debugfs_root);
 	if (ret) {
-		dev_err(dev->dev, "failed to init evtlog: %d\n", ret);
+		dev_err(dev, "failed to init evtlog: %d\n", ret);
 		goto fail;
 	}
 
 	switch (get_mdp_ver(pdev)) {
 	case KMS_MDP4:
-		kms = mdp4_kms_init(dev);
+		kms = mdp4_kms_init(ddev);
 		break;
 	case KMS_MDP5:
-		kms = mdp5_kms_init(dev);
+		kms = mdp5_kms_init(ddev);
 		break;
 	case KMS_SDE:
-		kms = sde_kms_init(dev);
+		kms = sde_kms_init(ddev);
 		break;
 	default:
 		kms = ERR_PTR(-ENODEV);
@@ -504,10 +522,12 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		 * imx drm driver on iMX5
 		 */
 		priv->kms = NULL;
-		dev_err(dev->dev, "failed to load kms\n");
+		dev_err(dev, "failed to load kms\n");
 		ret = PTR_ERR(kms);
 		goto fail;
 	}
+	priv->kms = kms;
+	pm_runtime_enable(dev);
 
 	if (kms) {
 		ret = kms->funcs->hw_init(kms);
@@ -516,7 +536,6 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 			goto fail;
 		}
 	}
-
 	ddev->mode_config.funcs = &mode_config_funcs;
 
 	ret = drm_vblank_init(ddev, priv->num_crtcs);
@@ -527,7 +546,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 
 	if (kms) {
 		pm_runtime_get_sync(dev);
-		ret = drm_irq_install(ddev, kms->irq);
+		ret = drm_irq_install(ddev, platform_get_irq(pdev, 0));
 		pm_runtime_put_sync(dev);
 		if (ret < 0) {
 			dev_err(dev, "failed to install IRQ handler\n");
@@ -535,9 +554,6 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		}
 	}
 
-	ret = drm_dev_register(ddev, 0);
-	if (ret)
-		goto fail;
 
 	drm_mode_config_reset(ddev);
 
@@ -554,17 +570,22 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	if (kms && kms->funcs && kms->funcs->postinit) {
 		ret = kms->funcs->postinit(kms);
 		if (ret) {
-			dev_err(dev->dev, "kms post init failed: %d\n", ret);
+			pr_err("kms post init failed: %d\n", ret);
 			goto fail;
 		}
 	}
 
-	drm_kms_helper_poll_init(dev);
+	drm_kms_helper_poll_init(ddev);
 
 	return 0;
 
 fail:
 	msm_drm_uninit(dev);
+	return ret;
+mdss_init_fail:
+	kfree(priv);
+priv_alloc_fail:
+	drm_dev_unref(ddev);
 	return ret;
 }
 
@@ -1092,27 +1113,6 @@ static const struct dev_pm_ops msm_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(msm_pm_suspend, msm_pm_resume)
 };
 
-static int msm_drm_bind(struct device *dev)
-{
-	int ret;
-
-	ret = drm_platform_init(&msm_driver, to_platform_device(dev));
-	if (ret)
-		DRM_ERROR("drm_platform_init failed: %d\n", ret);
-
-	return ret;
-}
-
-static void msm_drm_unbind(struct device *dev)
-{
-	drm_put_dev(platform_get_drvdata(to_platform_device(dev)));
-}
-
-static const struct component_master_ops msm_drm_ops = {
-	.bind = msm_drm_bind,
-	.unbind = msm_drm_unbind,
-};
-
 /*
  * Componentized driver support:
  */
@@ -1196,11 +1196,64 @@ static int add_components_mdp(struct device *mdp_dev,
 
 static int compare_name_mdp(struct device *dev, void *data)
 {
+	return (strnstr(dev_name(dev), "mdp", strlen("mdp")) != NULL);
+}
+
+static int add_display_components(struct device *dev,
+				  struct component_match **matchptr)
+{
+	struct device *mdp_dev = NULL;
 	int ret;
 
-	ret = component_master_add_with_match(dev, &msm_drm_ops, match);
+	if (of_device_is_compatible(dev->of_node, "qcom,sde-kms")) {
+		struct device_node *np = dev->of_node;
+		unsigned int i;
+
+		for (i = 0; ; i++) {
+			struct device_node *node;
+
+			node = of_parse_phandle(np, "connectors", i);
+			if (!node)
+				break;
+
+			component_match_add(dev, matchptr, compare_of, node);
+		}
+		return 0;
+	}
+
+	/*
+	 * MDP5 based devices don't have a flat hierarchy. There is a top level
+	 * parent: MDSS, and children: MDP5, DSI, HDMI, eDP etc. Populate the
+	 * children devices, find the MDP5 node, and then add the interfaces
+	 * to our components list.
+	 */
+	if (of_device_is_compatible(dev->of_node, "qcom,mdss")) {
+		ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
+		if (ret) {
+			dev_err(dev, "failed to populate children devices\n");
+			return ret;
+		}
+
+		mdp_dev = device_find_child(dev, NULL, compare_name_mdp);
+		if (!mdp_dev) {
+			dev_err(dev, "failed to find MDSS MDP node\n");
+			of_platform_depopulate(dev);
+			return -ENODEV;
+		}
+
+		put_device(mdp_dev);
+
+		/* add the MDP component itself */
+		component_match_add(dev, matchptr, compare_of,
+				    mdp_dev->of_node);
+	} else {
+		/* MDP4 */
+		mdp_dev = dev;
+	}
+
+	ret = add_components_mdp(mdp_dev, matchptr);
 	if (ret)
-		DRM_ERROR("component add match failed: %d\n", ret);
+		of_platform_depopulate(dev);
 
 	return ret;
 }
@@ -1232,18 +1285,20 @@ static int add_gpu_components(struct device *dev,
 	return 0;
 }
 
-#else
-static int compare_dev(struct device *dev, void *data)
+static int msm_drm_bind(struct device *dev)
 {
 	return msm_drm_init(dev, &msm_driver);
 }
 
-static int msm_add_master_component(struct device *dev,
-					struct component_match *match)
+static void msm_drm_unbind(struct device *dev)
 {
 	msm_drm_uninit(dev);
 }
-#endif
+
+static const struct component_master_ops msm_drm_ops = {
+	.bind = msm_drm_bind,
+	.unbind = msm_drm_unbind,
+};
 
 /*
  * Platform driver:
@@ -1254,49 +1309,31 @@ static int msm_pdev_probe(struct platform_device *pdev)
 	int ret;
 	struct component_match *match = NULL;
 
-#ifdef CONFIG_OF
-	add_components(&pdev->dev, &match, "connectors");
-	add_components(&pdev->dev, &match, "gpus");
-#else
-	/* For non-DT case, it kinda sucks.  We don't actually have a way
-	 * to know whether or not we are waiting for certain devices (or if
-	 * they are simply not present).  But for non-DT we only need to
-	 * care about apq8064/apq8060/etc (all mdp4/a3xx):
-	 */
-	static const char * const devnames[] = {
-			"hdmi_msm.0", "kgsl-3d0.0",
-	};
-	int i;
-
-	DBG("Adding components..");
-
-	for (i = 0; i < ARRAY_SIZE(devnames); i++) {
-		struct device *dev;
-
 	ret = add_display_components(&pdev->dev, &match);
 	if (ret)
 		return ret;
 
-		component_match_add(&pdev->dev, &match, compare_dev, dev);
-	}
-#endif
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-	ret = msm_add_master_component(&pdev->dev, match);
+	ret = add_gpu_components(&pdev->dev, &match);
+	if (ret)
+		return ret;
 
-	return ret;
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	return component_master_add_with_match(&pdev->dev, &msm_drm_ops, match);
 }
 
 static int msm_pdev_remove(struct platform_device *pdev)
 {
-	msm_drm_unbind(&pdev->dev);
 	component_master_del(&pdev->dev, &msm_drm_ops);
+	of_platform_depopulate(&pdev->dev);
+
+	msm_drm_unbind(&pdev->dev);
 	return 0;
 }
 
 static const struct of_device_id dt_match[] = {
-	{ .compatible = "qcom,mdp" },      /* mdp4 */
-	{ .compatible = "qcom,mdss_mdp" }, /* mdp5 */
-	{ .compatible = "qcom,sde-kms" },  /* sde  */
+	{ .compatible = "qcom,mdp4", .data = (void *)4 },	/* MDP4 */
+	{ .compatible = "qcom,mdss", .data = (void *)5 },	/* MDP5 MDSS */
+	{ .compatible = "qcom,sde-kms", .data = (void *)3 },	/* sde */
 	{}
 };
 MODULE_DEVICE_TABLE(of, dt_match);
