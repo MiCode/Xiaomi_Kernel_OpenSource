@@ -6575,8 +6575,10 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	struct sched_group *sg, *sg_target;
 	int target_max_cap = INT_MAX;
 	int target_cpu = task_cpu(p);
-	unsigned long task_util_boosted, new_util, curr_util = 0;
+	unsigned long task_util_boosted, curr_util = 0;
+	long new_util;
 	int i;
+	int ediff;
 	int cpu = smp_processor_id();
 
 	sd = rcu_dereference(per_cpu(sd_ea, task_cpu(p)));
@@ -6632,6 +6634,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			if (sync && i == cpu)
 				new_util -= curr_util;
 			cap_idx = __find_new_capacity(new_util, sg_target->sge);
+
+			trace_sched_cpu_util(p, i, new_util, 0, sync);
 
 			/*
 			 * Ensure minimum capacity to grant the required boost.
@@ -6695,13 +6699,24 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		task_util_boosted = 0;
 #endif
 		/* Not enough spare capacity on previous cpu */
-		if (__cpu_overutilized(task_cpu(p), task_util_boosted))
+		if (__cpu_overutilized(task_cpu(p), task_util_boosted)) {
+			trace_sched_task_util_overutilzed(p, task_cpu(p),
+						task_util(p), target_cpu,
+						task_cpu(p), 0);
 			return target_cpu;
+		}
 
-		if (energy_diff(&eenv) >= 0)
+		ediff = energy_diff(&eenv);
+		if (ediff >= 0) {
+			trace_sched_task_util_energy_diff(p, task_cpu(p),
+						task_util(p), target_cpu,
+						task_cpu(p), ediff);
 			return task_cpu(p);
+		}
 	}
 
+	trace_sched_task_util_energy_aware(p, task_cpu(p), task_util(p),
+					   target_cpu, target_cpu, 0);
 	return target_cpu;
 }
 

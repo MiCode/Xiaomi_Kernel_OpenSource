@@ -696,6 +696,93 @@ TRACE_EVENT(sched_freq_alert,
 
 #endif	/* CONFIG_SCHED_HMP */
 
+#ifdef CONFIG_SMP
+TRACE_EVENT(sched_cpu_util,
+
+	TP_PROTO(struct task_struct *p, int cpu, int task_util, long spare_cap, int sync),
+
+	TP_ARGS(p, cpu, task_util, spare_cap, sync),
+
+	TP_STRUCT__entry(
+		__array(char, comm, TASK_COMM_LEN	)
+		__field(int, pid			)
+		__field(unsigned int, cpu			)
+		__field(int, task_util				)
+		__field(unsigned int, nr_running		)
+		__field(long, cpu_util			)
+		__field(unsigned int, capacity_curr		)
+		__field(unsigned int, capacity			)
+		__field(long, spare_cap				)
+		__field(int, sync				)
+		__field(int, idle_state				)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid			= p->pid;
+		__entry->cpu			= cpu;
+		__entry->task_util		= task_util;
+		__entry->nr_running		= cpu_rq(cpu)->nr_running;
+		__entry->cpu_util		= cpu_util(cpu);
+		__entry->capacity_curr		= capacity_curr_of(cpu);
+		__entry->capacity		= capacity_of(cpu);
+		__entry->spare_cap		= spare_cap;
+		__entry->sync			= sync;
+		__entry->idle_state		= idle_get_state_idx(cpu_rq(cpu));
+	),
+
+	TP_printk("comm=%s pid=%d cpu=%d task_util=%d nr_running=%d cpu_util=%ld capacity_curr=%u capacity=%u spare_capacity=%ld sync=%d idle_state=%d",
+		__entry->comm, __entry->pid, __entry->cpu, __entry->task_util, __entry->nr_running, __entry->cpu_util, __entry->capacity_curr, __entry->capacity, __entry->spare_cap, __entry->sync, __entry->idle_state)
+);
+
+DECLARE_EVENT_CLASS(sched_task_util,
+
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff),
+
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff),
+
+	TP_STRUCT__entry(
+		__array(char, comm, TASK_COMM_LEN	)
+		__field(int, pid			)
+		__field(int, task_cpu			)
+		__field(unsigned long, task_util	)
+		__field(unsigned long, cpu_util_freq	)
+		__field(int, nominated_cpu		)
+		__field(int, target_cpu			)
+		__field(int, ediff			)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid			= p->pid;
+		__entry->task_cpu		= task_cpu;
+		__entry->task_util		= task_util;
+		__entry->cpu_util_freq		= cpu_util_freq(target_cpu, NULL);
+		__entry->nominated_cpu		= nominated_cpu;
+		__entry->target_cpu		= target_cpu;
+		__entry->ediff		= ediff;
+	),
+
+	TP_printk("comm=%s pid=%d task_cpu=%d task_util=%lu nominated_cpu=%d target_cpu=%d energy_diff=%d",
+		__entry->comm, __entry->pid, __entry->task_cpu, __entry->task_util, __entry->nominated_cpu, __entry->target_cpu, __entry->ediff)
+);
+
+DEFINE_EVENT(sched_task_util, sched_task_util_overutilzed,
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, task_cpu, ediff)
+);
+
+DEFINE_EVENT(sched_task_util, sched_task_util_energy_diff,
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, task_cpu, ediff)
+);
+
+DEFINE_EVENT(sched_task_util, sched_task_util_energy_aware,
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, task_cpu, ediff)
+);
+#endif
+
 /*
  * Tracepoint for waking up a task:
  */
