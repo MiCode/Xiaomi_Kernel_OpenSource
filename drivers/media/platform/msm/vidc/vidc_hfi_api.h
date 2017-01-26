@@ -906,6 +906,23 @@ enum hal_capability {
 	HAL_CAPABILITY_LCU_SIZE,
 	HAL_CAPABILITY_HIER_P_HYBRID_NUM_ENH_LAYERS,
 	HAL_CAPABILITY_MBS_PER_SECOND_POWER_SAVE,
+	HAL_CAPABILITY_EXTRADATA,
+	HAL_CAPABILITY_PROFILE,
+	HAL_CAPABILITY_LEVEL,
+	HAL_CAPABILITY_I_FRAME_QP,
+	HAL_CAPABILITY_P_FRAME_QP,
+	HAL_CAPABILITY_B_FRAME_QP,
+	HAL_CAPABILITY_RATE_CONTROL_MODES,
+	HAL_CAPABILITY_BLUR_WIDTH,
+	HAL_CAPABILITY_BLUR_HEIGHT,
+	HAL_CAPABILITY_SLICE_DELIVERY_MODES,
+	HAL_CAPABILITY_SLICE_BYTE,
+	HAL_CAPABILITY_SLICE_MB,
+	HAL_CAPABILITY_SECURE,
+	HAL_CAPABILITY_MAX_NUM_B_FRAMES,
+	HAL_CAPABILITY_MAX_VIDEOCORES,
+	HAL_CAPABILITY_MAX_WORKMODES,
+	HAL_CAPABILITY_UBWC_CR_STATS,
 	HAL_UNUSED_CAPABILITY = 0x10000000,
 };
 
@@ -1300,6 +1317,23 @@ struct msm_vidc_capability {
 	struct hal_capability_supported lcu_size;
 	struct hal_capability_supported hier_p_hybrid;
 	struct hal_capability_supported mbs_per_sec_power_save;
+	struct hal_capability_supported extradata;
+	struct hal_capability_supported profile;
+	struct hal_capability_supported level;
+	struct hal_capability_supported i_qp;
+	struct hal_capability_supported p_qp;
+	struct hal_capability_supported b_qp;
+	struct hal_capability_supported rc_modes;
+	struct hal_capability_supported blur_width;
+	struct hal_capability_supported blur_height;
+	struct hal_capability_supported slice_delivery_mode;
+	struct hal_capability_supported slice_bytes;
+	struct hal_capability_supported slice_mbs;
+	struct hal_capability_supported secure;
+	struct hal_capability_supported max_num_b_frames;
+	struct hal_capability_supported max_video_cores;
+	struct hal_capability_supported max_work_modes;
+	struct hal_capability_supported ubwc_cr_stats;
 	struct hal_profile_level_supported profile_level;
 	struct hal_uncompressed_format_supported uncomp_format;
 	struct hal_interlace_format_supported HAL_format;

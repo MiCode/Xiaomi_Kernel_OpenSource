@@ -956,7 +956,6 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst = NULL;
-	struct vidc_hal_session_init_done *session_init_done = NULL;
 	struct msm_vidc_capability *capability = NULL;
 	struct hfi_device *hdev;
 	struct msm_vidc_core *core;
@@ -1009,26 +1008,16 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 
 	if (capability) {
 		dprintk(VIDC_DBG,
-			"%s: capabilities available for codec 0x%x, domain %#x\n",
+			"%s: capabilities for codec 0x%x, domain %#x\n",
 			__func__, capability->codec, capability->domain);
 		memcpy(&inst->capability, capability,
 			sizeof(struct msm_vidc_capability));
 	} else {
-		session_init_done = (struct vidc_hal_session_init_done *)
-				&response->data.session_init_done;
-		if (!session_init_done) {
-			dprintk(VIDC_ERR,
-				"%s: Failed to get valid response for session init\n",
-				__func__);
-			return;
-		}
-		capability = &session_init_done->capability;
-		dprintk(VIDC_DBG,
-			"%s: got capabilities for codec 0x%x, domain 0x%x\n",
-			__func__, capability->codec,
-			capability->domain);
-		memcpy(&inst->capability, capability,
-			sizeof(struct msm_vidc_capability));
+		dprintk(VIDC_ERR,
+			"Watch out : Some property may fail inst %pK\n", inst);
+		dprintk(VIDC_ERR,
+			"Caps N/A for codec 0x%x, domain %#x\n",
+			inst->capability.codec, inst->capability.domain);
 	}
 	inst->capability.pixelprocess_capabilities =
 		call_hfi_op(hdev, get_core_capabilities, hdev->hfi_device_data);
@@ -1038,13 +1027,39 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	print_cap("width", &inst->capability.width);
 	print_cap("height", &inst->capability.height);
 	print_cap("mbs_per_frame", &inst->capability.mbs_per_frame);
+	print_cap("mbs_per_sec", &inst->capability.mbs_per_sec);
 	print_cap("frame_rate", &inst->capability.frame_rate);
+	print_cap("bitrate", &inst->capability.bitrate);
+	print_cap("peak_bitrate", &inst->capability.peakbitrate);
 	print_cap("scale_x", &inst->capability.scale_x);
 	print_cap("scale_y", &inst->capability.scale_y);
 	print_cap("hier_p", &inst->capability.hier_p);
 	print_cap("ltr_count", &inst->capability.ltr_count);
+	print_cap("bframe", &inst->capability.bframe);
+	print_cap("secure_output2_threshold",
+		&inst->capability.secure_output2_threshold);
+	print_cap("hier_b", &inst->capability.hier_b);
+	print_cap("lcu_size", &inst->capability.lcu_size);
+	print_cap("hier_p_hybrid", &inst->capability.hier_p_hybrid);
 	print_cap("mbs_per_sec_low_power",
 		&inst->capability.mbs_per_sec_power_save);
+	print_cap("extradata", &inst->capability.extradata);
+	print_cap("profile", &inst->capability.profile);
+	print_cap("level", &inst->capability.level);
+	print_cap("i_qp", &inst->capability.i_qp);
+	print_cap("p_qp", &inst->capability.p_qp);
+	print_cap("b_qp", &inst->capability.b_qp);
+	print_cap("rc_modes", &inst->capability.rc_modes);
+	print_cap("blur_width", &inst->capability.blur_width);
+	print_cap("blur_height", &inst->capability.blur_height);
+	print_cap("slice_delivery_mode", &inst->capability.slice_delivery_mode);
+	print_cap("slice_bytes", &inst->capability.slice_bytes);
+	print_cap("slice_mbs", &inst->capability.slice_mbs);
+	print_cap("secure", &inst->capability.secure);
+	print_cap("max_num_b_frames", &inst->capability.max_num_b_frames);
+	print_cap("max_video_cores", &inst->capability.max_video_cores);
+	print_cap("max_work_modes", &inst->capability.max_work_modes);
+	print_cap("ubwc_cr_stats", &inst->capability.ubwc_cr_stats);
 
 	signal_session_msg_receipt(cmd, inst);
 	put_inst(inst);

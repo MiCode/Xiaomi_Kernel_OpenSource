@@ -25,7 +25,7 @@
 static enum vidc_status hfi_parse_init_done_properties(
 		struct msm_vidc_capability *capability,
 		u32 num_sessions, u8 *data_ptr, u32 num_properties,
-		u32 rem_bytes, u32 codec, u32 domain);
+		u32 rem_bytes);
 
 static enum vidc_status hfi_map_err_status(u32 hfi_err)
 {
@@ -485,6 +485,57 @@ enum hal_capability get_hal_cap_type(u32 capability_type)
 	case HFI_CAPABILITY_MBS_PER_SECOND_POWERSAVE:
 		hal_cap = HAL_CAPABILITY_MBS_PER_SECOND_POWER_SAVE;
 		break;
+	case HFI_CAPABILITY_EXTRADATA:
+		hal_cap = HAL_CAPABILITY_EXTRADATA;
+		break;
+	case HFI_CAPABILITY_PROFILE:
+		hal_cap = HAL_CAPABILITY_PROFILE;
+		break;
+	case HFI_CAPABILITY_LEVEL:
+		hal_cap = HAL_CAPABILITY_LEVEL;
+		break;
+	case HFI_CAPABILITY_I_FRAME_QP:
+		hal_cap = HAL_CAPABILITY_I_FRAME_QP;
+		break;
+	case HFI_CAPABILITY_P_FRAME_QP:
+		hal_cap = HAL_CAPABILITY_P_FRAME_QP;
+		break;
+	case HFI_CAPABILITY_B_FRAME_QP:
+		hal_cap = HAL_CAPABILITY_B_FRAME_QP;
+		break;
+	case HFI_CAPABILITY_RATE_CONTROL_MODES:
+		hal_cap = HAL_CAPABILITY_RATE_CONTROL_MODES;
+		break;
+	case HFI_CAPABILITY_BLUR_WIDTH:
+		hal_cap = HAL_CAPABILITY_BLUR_WIDTH;
+		break;
+	case HFI_CAPABILITY_BLUR_HEIGHT:
+		hal_cap = HAL_CAPABILITY_BLUR_HEIGHT;
+		break;
+	case HFI_CAPABILITY_SLICE_DELIVERY_MODES:
+		hal_cap = HAL_CAPABILITY_SLICE_DELIVERY_MODES;
+		break;
+	case HFI_CAPABILITY_SLICE_BYTE:
+		hal_cap = HAL_CAPABILITY_SLICE_BYTE;
+		break;
+	case HFI_CAPABILITY_SLICE_MB:
+		hal_cap = HAL_CAPABILITY_SLICE_MB;
+		break;
+	case HFI_CAPABILITY_SECURE:
+		hal_cap = HAL_CAPABILITY_SECURE;
+		break;
+	case HFI_CAPABILITY_MAX_NUM_B_FRAMES:
+		hal_cap = HAL_CAPABILITY_MAX_NUM_B_FRAMES;
+		break;
+	case HFI_CAPABILITY_MAX_VIDEOCORES:
+		hal_cap = HAL_CAPABILITY_MAX_VIDEOCORES;
+		break;
+	case HFI_CAPABILITY_MAX_WORKMODES:
+		hal_cap = HAL_CAPABILITY_MAX_WORKMODES;
+		break;
+	case HFI_CAPABILITY_UBWC_CR_STATS:
+		hal_cap = HAL_CAPABILITY_UBWC_CR_STATS;
+		break;
 	default:
 		dprintk(VIDC_DBG, "%s: unknown capablity %#x\n",
 			__func__, capability_type);
@@ -557,6 +608,57 @@ static inline void copy_cap_prop(
 		break;
 	case HFI_CAPABILITY_MBS_PER_SECOND_POWERSAVE:
 		out = &capability->mbs_per_sec_power_save;
+		break;
+	case HFI_CAPABILITY_EXTRADATA:
+		out = &capability->extradata;
+		break;
+	case HFI_CAPABILITY_PROFILE:
+		out = &capability->profile;
+		break;
+	case HFI_CAPABILITY_LEVEL:
+		out = &capability->level;
+		break;
+	case HFI_CAPABILITY_I_FRAME_QP:
+		out = &capability->i_qp;
+		break;
+	case HFI_CAPABILITY_P_FRAME_QP:
+		out = &capability->p_qp;
+		break;
+	case HFI_CAPABILITY_B_FRAME_QP:
+		out = &capability->b_qp;
+		break;
+	case HFI_CAPABILITY_RATE_CONTROL_MODES:
+		out = &capability->rc_modes;
+		break;
+	case HFI_CAPABILITY_BLUR_WIDTH:
+		out = &capability->blur_width;
+		break;
+	case HFI_CAPABILITY_BLUR_HEIGHT:
+		out = &capability->blur_height;
+		break;
+	case HFI_CAPABILITY_SLICE_DELIVERY_MODES:
+		out = &capability->slice_delivery_mode;
+		break;
+	case HFI_CAPABILITY_SLICE_BYTE:
+		out = &capability->slice_bytes;
+		break;
+	case HFI_CAPABILITY_SLICE_MB:
+		out = &capability->slice_mbs;
+		break;
+	case HFI_CAPABILITY_SECURE:
+		out = &capability->secure;
+		break;
+	case HFI_CAPABILITY_MAX_NUM_B_FRAMES:
+		out = &capability->max_num_b_frames;
+		break;
+	case HFI_CAPABILITY_MAX_VIDEOCORES:
+		out = &capability->max_video_cores;
+		break;
+	case HFI_CAPABILITY_MAX_WORKMODES:
+		out = &capability->max_work_modes;
+		break;
+	case HFI_CAPABILITY_UBWC_CR_STATS:
+		out = &capability->ubwc_cr_stats;
 		break;
 	default:
 		dprintk(VIDC_DBG, "%s: unknown capablity %#x\n",
@@ -634,44 +736,6 @@ static int hfi_fill_codec_info(u8 *data_ptr,
 	return size;
 }
 
-enum vidc_status hfi_process_session_init_done_prop_read(
-		struct hfi_msg_sys_session_init_done_packet *pkt,
-		struct vidc_hal_session_init_done *session_init_done)
-{
-	enum vidc_status status = VIDC_ERR_NONE;
-	struct msm_vidc_capability *capability = NULL;
-	u32 rem_bytes, num_properties;
-	u8 *data_ptr;
-
-	rem_bytes = pkt->size - sizeof(struct
-			hfi_msg_sys_session_init_done_packet) + sizeof(u32);
-	if (!rem_bytes) {
-		dprintk(VIDC_ERR, "%s: invalid property info\n", __func__);
-		return VIDC_ERR_FAIL;
-	}
-
-	status = hfi_map_err_status(pkt->error_type);
-	if (status) {
-		dprintk(VIDC_ERR, "%s: error status 0x%x\n", __func__, status);
-		return status;
-	}
-
-	data_ptr = (u8 *)&pkt->rg_property_data[0];
-	num_properties = pkt->num_properties;
-
-	capability = &session_init_done->capability;
-	status = hfi_parse_init_done_properties(
-			capability, 1, data_ptr, num_properties, rem_bytes,
-			vidc_get_hfi_codec(capability->codec),
-			vidc_get_hfi_domain(capability->domain));
-	if (status) {
-		dprintk(VIDC_ERR, "%s: parse status 0x%x\n", __func__, status);
-		return status;
-	}
-
-	return status;
-}
-
 static int copy_caps_to_sessions(struct hfi_capability_supported *cap,
 		u32 num_caps, struct msm_vidc_capability *capabilities,
 		u32 num_sessions, u32 codecs, u32 domain)
@@ -710,10 +774,11 @@ static int copy_caps_to_sessions(struct hfi_capability_supported *cap,
 static enum vidc_status hfi_parse_init_done_properties(
 		struct msm_vidc_capability *capabilities,
 		u32 num_sessions, u8 *data_ptr, u32 num_properties,
-		u32 rem_bytes, u32 codecs, u32 domain)
+		u32 rem_bytes)
 {
 	enum vidc_status status = VIDC_ERR_NONE;
 	u32 prop_id, next_offset;
+	u32 codecs, domain;
 
 	while (status == VIDC_ERR_NONE && num_properties &&
 			rem_bytes >= sizeof(u32)) {
@@ -885,7 +950,6 @@ enum vidc_status hfi_process_sys_init_done_prop_read(
 	enum vidc_status status = VIDC_ERR_NONE;
 	u32 rem_bytes, bytes_read, num_properties;
 	u8 *data_ptr;
-	u32 codecs = 0, domain = 0;
 
 	if (!pkt || !sys_init_done) {
 		dprintk(VIDC_ERR,
@@ -927,7 +991,7 @@ enum vidc_status hfi_process_sys_init_done_prop_read(
 	status = hfi_parse_init_done_properties(
 			sys_init_done->capabilities,
 			VIDC_MAX_SESSIONS, data_ptr, num_properties,
-			rem_bytes, codecs, domain);
+			rem_bytes);
 	if (status) {
 		dprintk(VIDC_ERR, "%s: parse status %#x\n",
 			__func__, status);
@@ -1203,11 +1267,6 @@ static int hfi_process_session_init_done(u32 device_id,
 	cmd_done.device_id = device_id;
 	cmd_done.session_id = (void *)(uintptr_t)pkt->session_id;
 	cmd_done.status = hfi_map_err_status(pkt->error_type);
-	if (!cmd_done.status) {
-		cmd_done.status = hfi_process_session_init_done_prop_read(
-			pkt, &session_init_done);
-	}
-
 	cmd_done.data.session_init_done = session_init_done;
 	cmd_done.size = sizeof(struct vidc_hal_session_init_done);
 
