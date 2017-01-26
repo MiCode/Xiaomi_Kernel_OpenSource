@@ -1637,7 +1637,8 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 static void a5xx_clk_set_options(struct adreno_device *adreno_dev,
 	const char *name, struct clk *clk)
 {
-	if (adreno_is_a540(adreno_dev)) {
+	/* Handle clock settings for GFX PSCBCs */
+	if (adreno_is_a540(adreno_dev) || adreno_is_a512(adreno_dev)) {
 		if (!strcmp(name, "mem_iface_clk")) {
 			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
 			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
