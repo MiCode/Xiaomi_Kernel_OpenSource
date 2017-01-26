@@ -385,6 +385,7 @@ int smblib_get_prop_slave_current_now(struct smb_charger *chg,
 int smblib_set_prop_ship_mode(struct smb_charger *chg,
 				const union power_supply_propval *val);
 void smblib_suspend_on_debug_battery(struct smb_charger *chg);
+int smblib_rerun_apsd_if_required(struct smb_charger *chg);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
