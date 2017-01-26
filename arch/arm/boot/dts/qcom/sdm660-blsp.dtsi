@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -518,9 +518,10 @@
 		clocks = <&clock_gcc GCC_BLSP2_UART1_APPS_CLK>,
 		    <&clock_gcc GCC_BLSP2_AHB_CLK>;
 		pinctrl-names = "sleep", "default";
-		pinctrl-0 = <&blsp2_uart1_sleep>;
-		pinctrl-1 = <&blsp2_uart1_active>;
-
+		pinctrl-0 = <&blsp2_uart1_tx_sleep>,
+			 <&blsp2_uart1_rxcts_sleep>, <&blsp2_uart1_rfr_sleep>;
+		pinctrl-1 = <&blsp2_uart1_tx_active>,
+			<&blsp2_uart1_rxcts_active>, <&blsp2_uart1_rfr_active>;
 		qcom,msm-bus,name = "buart3";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
