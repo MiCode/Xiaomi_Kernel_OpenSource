@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -318,12 +318,11 @@ static int kgsl_cma_alloc_secure(struct kgsl_device *device,
 
 static int kgsl_allocate_secure(struct kgsl_device *device,
 				struct kgsl_memdesc *memdesc,
-				struct kgsl_pagetable *pagetable,
 				uint64_t size) {
 	int ret;
 
 	if (MMU_FEATURE(&device->mmu, KGSL_MMU_HYP_SECURE_ALLOC))
-		ret = kgsl_sharedmem_page_alloc_user(memdesc, pagetable, size);
+		ret = kgsl_sharedmem_page_alloc_user(memdesc, size);
 	else
 		ret = kgsl_cma_alloc_secure(device, memdesc, size);
 
@@ -332,7 +331,6 @@ static int kgsl_allocate_secure(struct kgsl_device *device,
 
 int kgsl_allocate_user(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc,
-		struct kgsl_pagetable *pagetable,
 		uint64_t size, uint64_t flags)
 {
 	int ret;
@@ -340,12 +338,11 @@ int kgsl_allocate_user(struct kgsl_device *device,
 	memdesc->flags = flags;
 
 	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE)
-		ret = kgsl_sharedmem_alloc_contig(device, memdesc,
-				pagetable, size);
+		ret = kgsl_sharedmem_alloc_contig(device, memdesc, size);
 	else if (flags & KGSL_MEMFLAGS_SECURE)
-		ret = kgsl_allocate_secure(device, memdesc, pagetable, size);
+		ret = kgsl_allocate_secure(device, memdesc, size);
 	else
-		ret = kgsl_sharedmem_page_alloc_user(memdesc, pagetable, size);
+		ret = kgsl_sharedmem_page_alloc_user(memdesc, size);
 
 	return ret;
 }
@@ -681,7 +678,6 @@ static void kgsl_zero_pages(struct page **pages, unsigned int pcount)
 
 int
 kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
-			struct kgsl_pagetable *pagetable,
 			uint64_t size)
 {
 	int ret = 0;
@@ -713,7 +709,6 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 
 	len_alloc = PAGE_ALIGN(size) >> PAGE_SHIFT;
 
-	memdesc->pagetable = pagetable;
 	memdesc->ops = &kgsl_page_alloc_ops;
 
 	/*
@@ -854,10 +849,8 @@ void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 	if (memdesc == NULL || memdesc->size == 0)
 		return;
 
-	if (memdesc->gpuaddr) {
-		kgsl_mmu_unmap(memdesc->pagetable, memdesc);
-		kgsl_mmu_put_gpuaddr(memdesc->pagetable, memdesc);
-	}
+	/* Make sure the memory object has been unmapped */
+	kgsl_mmu_put_gpuaddr(memdesc);
 
 	if (memdesc->ops && memdesc->ops->free)
 		memdesc->ops->free(memdesc);
@@ -1037,8 +1030,7 @@ void kgsl_get_memory_usage(char *name, size_t name_size, uint64_t memflags)
 EXPORT_SYMBOL(kgsl_get_memory_usage);
 
 int kgsl_sharedmem_alloc_contig(struct kgsl_device *device,
-			struct kgsl_memdesc *memdesc,
-			struct kgsl_pagetable *pagetable, uint64_t size)
+			struct kgsl_memdesc *memdesc, uint64_t size)
 {
 	int result = 0;
 
@@ -1047,7 +1039,6 @@ int kgsl_sharedmem_alloc_contig(struct kgsl_device *device,
 		return -EINVAL;
 
 	memdesc->size = size;
-	memdesc->pagetable = pagetable;
 	memdesc->ops = &kgsl_cma_ops;
 	memdesc->dev = device->dev->parent;
 
@@ -1138,7 +1129,6 @@ static int kgsl_cma_alloc_secure(struct kgsl_device *device,
 {
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	int result = 0;
-	struct kgsl_pagetable *pagetable = device->mmu.securepagetable;
 	size_t aligned;
 
 	/* Align size to 1M boundaries */
@@ -1158,7 +1148,6 @@ static int kgsl_cma_alloc_secure(struct kgsl_device *device,
 			memdesc->priv &= ~KGSL_MEMDESC_GUARD_PAGE;
 
 	memdesc->size = aligned;
-	memdesc->pagetable = pagetable;
 	memdesc->ops = &kgsl_cma_ops;
 	memdesc->dev = iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE].dev;
 

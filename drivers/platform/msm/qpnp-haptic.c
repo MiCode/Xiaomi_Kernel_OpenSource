@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -350,6 +350,7 @@ struct qpnp_hap {
 	u8 lra_res_cal_period;
 	u8 sc_duration;
 	u8 ext_pwm_dtest_line;
+	bool vcc_pon_enabled;
 	bool state;
 	bool use_play_irq;
 	bool use_sc_irq;
@@ -1736,13 +1737,15 @@ static void qpnp_hap_worker(struct work_struct *work)
 	struct qpnp_hap *hap = container_of(work, struct qpnp_hap,
 					 work);
 	u8 val = 0x00;
-	int rc, reg_en;
+	int rc;
 
-	if (hap->vcc_pon) {
-		reg_en = regulator_enable(hap->vcc_pon);
-		if (reg_en)
-			pr_err("%s: could not enable vcc_pon regulator\n",
-				 __func__);
+	if (hap->vcc_pon && hap->state && !hap->vcc_pon_enabled) {
+		rc = regulator_enable(hap->vcc_pon);
+		if (rc < 0)
+			pr_err("%s: could not enable vcc_pon regulator rc=%d\n",
+				 __func__, rc);
+		else
+			hap->vcc_pon_enabled = true;
 	}
 
 	/* Disable haptics module if the duration of short circuit
@@ -1757,11 +1760,13 @@ static void qpnp_hap_worker(struct work_struct *work)
 		qpnp_hap_set(hap, hap->state);
 	}
 
-	if (hap->vcc_pon && !reg_en) {
+	if (hap->vcc_pon && !hap->state && hap->vcc_pon_enabled) {
 		rc = regulator_disable(hap->vcc_pon);
 		if (rc)
-			pr_err("%s: could not disable vcc_pon regulator\n",
-				 __func__);
+			pr_err("%s: could not disable vcc_pon regulator rc=%d\n",
+				 __func__, rc);
+		else
+			hap->vcc_pon_enabled = false;
 	}
 }
 
