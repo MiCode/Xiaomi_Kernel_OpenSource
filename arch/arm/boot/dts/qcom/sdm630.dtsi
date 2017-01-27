@@ -1018,6 +1018,158 @@
 		#clock-cells = <1>;
 	};
 
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "performance";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<  381  /*  100 MHz */ >,
+			<  572  /*  150 MHz */ >,
+			<  762  /*  200 MHz */ >,
+			<  1144 /*  300 MHz */ >,
+			<  1571 /*  412 MHz */ >,
+			<  2086 /*  547 MHz */ >,
+			<  2597 /*  681 MHz */ >,
+			<  2929 /*  768 MHz */ >,
+			<  3879 /* 1017 MHz */ >,
+			<  4943 /* 1296 MHz */ >,
+			<  5163 /* 1353 MHz */ >;
+	};
+
+	bwmon: qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon4";
+		reg = <0x01008000 0x300>, <0x01001000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 183 4>;
+		qcom,mport = <0>;
+		qcom,hw-timer-hz = <19200000>;
+		qcom,target-dev = <&cpubw>;
+	};
+
+	mincpubw: qcom,mincpubw {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<  381  /*  100 MHz */ >,
+			<  572  /*  150 MHz */ >,
+			<  762  /*  200 MHz */ >,
+			<  1144 /*  300 MHz */ >,
+			<  1571 /*  412 MHz */ >,
+			<  2086 /*  547 MHz */ >,
+			<  2597 /*  681 MHz */ >,
+			<  2929 /*  768 MHz */ >,
+			<  3879 /* 1017 MHz */ >,
+			<  4943 /* 1296 MHz */ >,
+			<  5163 /* 1353 MHz */ >;
+	};
+
+	memlat_cpu0: qcom,memlat-cpu0 {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<  381  /*  100 MHz */ >,
+			<  572  /*  150 MHz */ >,
+			<  762  /*  200 MHz */ >,
+			<  1144 /*  300 MHz */ >,
+			<  1571 /*  412 MHz */ >,
+			<  2086 /*  547 MHz */ >,
+			<  2597 /*  681 MHz */ >,
+			<  2929 /*  768 MHz */ >,
+			<  3879 /* 1017 MHz */ >,
+			<  4943 /* 1296 MHz */ >,
+			<  5163 /* 1353 MHz */ >;
+	};
+
+	memlat_cpu4: qcom,memlat-cpu4 {
+		compatible = "qcom,devbw";
+		governor = "powersave";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<  381  /*  100 MHz */ >,
+			<  572  /*  150 MHz */ >,
+			<  762  /*  200 MHz */ >,
+			<  1144 /*  300 MHz */ >,
+			<  1571 /*  412 MHz */ >,
+			<  2086 /*  547 MHz */ >,
+			<  2597 /*  681 MHz */ >,
+			<  2929 /*  768 MHz */ >,
+			<  3879 /* 1017 MHz */ >,
+			<  4943 /* 1296 MHz */ >,
+			<  5163 /* 1353 MHz */ >;
+	};
+
+	devfreq_memlat_0: qcom,arm-memlat-mon-0 {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,target-dev = <&memlat_cpu0>;
+		qcom,core-dev-table =
+			< 787200 762 >,
+			< 1344000 2086 >,
+			< 1670400 2929 >,
+			< 2150400 3879 >,
+			< 2380800 4943 >;
+	};
+
+	devfreq_memlat_4: qcom,arm-memlat-mon-4 {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,target-dev = <&memlat_cpu4>;
+		qcom,core-dev-table =
+			< 614400 762 >,
+			< 1536000 2929 >,
+			< 1728000 3879 >;
+	};
+
+	devfreq_cpufreq: devfreq-cpufreq {
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map-0 =
+				< 787200 762 >,
+				< 1344000 1571 >,
+				< 1881600 2929 >,
+				< 2380800 3879 >;
+			cpu-to-dev-map-4 =
+				< 614400 762 >,
+				< 1536000 1571 >,
+				< 1728000 3879 >;
+		};
+	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "cpu0_clk", "cpu4_clk";
+		clocks = <&clock_cpu PWRCL_CLK>,
+			 <&clock_cpu PERFCL_CLK>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table-0 =
+			<  787200 >,
+			< 1113600 >,
+			< 1344000 >,
+			< 1670400 >,
+			< 1881600 >,
+			< 2150400 >,
+			< 2380800 >,
+			< 2515000 >;
+
+		qcom,cpufreq-table-4 =
+			<  614400 >,
+			<  883200 >,
+			< 1094400 >,
+			< 1382400 >,
+			< 1536000 >,
+			< 1728000 >,
+			< 1843200 >,
+			< 2000000 >;
+	};
+
 	ipa_hw: qcom,ipa@14780000 {
 		compatible = "qcom,ipa";
 		reg = <0x14780000 0x4effc>, <0x14784000 0x26934>;
