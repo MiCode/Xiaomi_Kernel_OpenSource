@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1741,7 +1741,7 @@ static int fastrpc_session_alloc(struct fastrpc_channel_ctx *chan, int *session)
 		chan->session[0].dev = me->dev;
 		break;
 	case SMD_APPS_MODEM:
-		VERIFY(err, me->dev != NULL);
+		VERIFY(err, me->modem_cma_dev != NULL);
 		if (err)
 			goto bail;
 		chan->session[0].dev = me->modem_cma_dev;
