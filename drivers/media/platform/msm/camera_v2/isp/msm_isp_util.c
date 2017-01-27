@@ -1746,11 +1746,38 @@ void msm_isp_update_error_frame_count(struct vfe_device *vfe_dev)
 static int msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 {
 	int rc = vfe_dev->buf_mgr->pagefault_debug_disable;
+	uint32_t irq_status0, irq_status1;
+	uint32_t overflow_mask;
+	unsigned long irq_flags;
 
-	pr_err("%s:%d] VFE%d Handle Page fault!\n", __func__,
-		__LINE__,  vfe_dev->pdev->id);
-
-	msm_isp_halt_send_error(vfe_dev, ISP_EVENT_IOMMU_P_FAULT);
+	/* Check if any overflow bit is set */
+	vfe_dev->hw_info->vfe_ops.core_ops.
+		get_overflow_mask(&overflow_mask);
+	vfe_dev->hw_info->vfe_ops.irq_ops.
+		read_irq_status(vfe_dev, &irq_status0, &irq_status1);
+	overflow_mask &= irq_status1;
+	spin_lock_irqsave(
+		&vfe_dev->common_data->common_dev_data_lock, irq_flags);
+	if (overflow_mask ||
+		atomic_read(&vfe_dev->error_info.overflow_state) !=
+			NO_OVERFLOW) {
+		spin_unlock_irqrestore(
+			&vfe_dev->common_data->common_dev_data_lock, irq_flags);
+		pr_err_ratelimited("%s: overflow detected during IOMMU\n",
+			__func__);
+		/* Don't treat the Overflow + Page fault scenario as fatal.
+		 * Instead try to do a recovery. Using an existing event as
+		 * as opposed to creating a new event.
+		 */
+		msm_isp_halt_send_error(vfe_dev, ISP_EVENT_PING_PONG_MISMATCH);
+	} else {
+		spin_unlock_irqrestore(
+			&vfe_dev->common_data->common_dev_data_lock, irq_flags);
+		pr_err("%s:%d] VFE%d Handle Page fault! vfe_dev %pK\n",
+			__func__, __LINE__,  vfe_dev->pdev->id, vfe_dev);
+		vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 0);
+		msm_isp_halt_send_error(vfe_dev, ISP_EVENT_IOMMU_P_FAULT);
+	}
 
 	if (vfe_dev->buf_mgr->pagefault_debug_disable == 0) {
 		vfe_dev->buf_mgr->pagefault_debug_disable = 1;
@@ -1859,6 +1886,7 @@ int msm_isp_process_overflow_irq(
 		vfe_dev->recovery_irq1_mask = vfe_dev->irq1_mask;
 		vfe_dev->hw_info->vfe_ops.core_ops.
 				set_halt_restart_mask(vfe_dev);
+		vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 0);
 		/* mask off other vfe if dual vfe is used */
 		if (vfe_dev->is_split) {
 			int other_vfe_id;
@@ -1875,6 +1903,7 @@ int msm_isp_process_overflow_irq(
 			temp_vfe->recovery_irq1_mask = temp_vfe->irq1_mask;
 			temp_vfe->hw_info->vfe_ops.core_ops.
 				set_halt_restart_mask(temp_vfe);
+			temp_vfe->hw_info->vfe_ops.axi_ops.halt(temp_vfe, 0);
 		}
 
 		/* reset irq status so skip further process */
@@ -2143,7 +2172,8 @@ static void msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
 		if (vfe_dev->vfe_open_cnt > 0) {
 			atomic_set(&vfe_dev->error_info.overflow_state,
 				HALT_ENFORCED);
-			pr_err("%s: fault address is %lx\n", __func__, iova);
+			pr_err_ratelimited("%s: fault address is %lx\n",
+				__func__, iova);
 			msm_isp_process_iommu_page_fault(vfe_dev);
 		} else {
 			pr_err("%s: no handling, vfe open cnt = %d\n",
