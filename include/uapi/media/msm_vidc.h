@@ -382,4 +382,7 @@ enum msm_vidc_color_desc_flag {
 #define MSM_VIDC_PIC_STRUCT_MAYBE_INTERLACED 0x0
 #define MSM_VIDC_PIC_STRUCT_PROGRESSIVE 0x1
 
+/*default when layer ID isn't specified*/
+#define MSM_VIDC_ALL_LAYER_ID 0xFF
+
 #endif

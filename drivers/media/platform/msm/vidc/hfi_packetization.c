@@ -1331,60 +1331,44 @@ int create_pkt_cmd_session_set_property(
 			sizeof(struct hfi_h264_db_control);
 		break;
 	}
+	case HAL_CONFIG_VENC_FRAME_QP:
+	{
+		struct hfi_quantization *hfi;
+		struct hal_quantization *hal_quant =
+			(struct hal_quantization *) pdata;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VENC_SESSION_QP;
+		hfi = (struct hfi_quantization *) &pkt->rg_property_data[1];
+		hfi->qp_packed = hal_quant->qpi | hal_quant->qpp << 8 |
+			hal_quant->qpb << 16;
+		hfi->layer_id = hal_quant->layer_id;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_quantization);
+		break;
+	}
 	case HAL_PARAM_VENC_SESSION_QP_RANGE:
 	{
 		struct hfi_quantization_range *hfi;
 		struct hal_quantization_range *hal_range =
 			(struct hal_quantization_range *) pdata;
-		u32 min_qp, max_qp;
 
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_VENC_SESSION_QP_RANGE;
 		hfi = (struct hfi_quantization_range *)
 				&pkt->rg_property_data[1];
-
-		min_qp = hal_range->min_qp;
-		max_qp = hal_range->max_qp;
-
-		/*
-		 * We'll be packing in the qp, so make sure we
-		 * won't be losing data when masking
-		 */
-		if (min_qp > 0xff || max_qp > 0xff) {
-			dprintk(VIDC_ERR, "qp value out of range\n");
-			rc = -ERANGE;
-			break;
-		}
 
 		/*
 		 * When creating the packet, pack the qp value as
-		 * 0xiippbb, where ii = qp range for I-frames,
+		 * 0xbbppii, where ii = qp range for I-frames,
 		 * pp = qp range for P-frames, etc.
 		 */
-		hfi->min_qp.qp_packed = min_qp | min_qp << 8 | min_qp << 16;
-		hfi->min_qp.layer_id = hal_range->layer_id;
-		hfi->max_qp.qp_packed = max_qp | max_qp << 8 | max_qp << 16;
+		hfi->min_qp.qp_packed = hal_range->qpi_min |
+			hal_range->qpp_min << 8 |
+			hal_range->qpb_min << 16;
+		hfi->max_qp.qp_packed = hal_range->qpi_max |
+			hal_range->qpp_max << 8 |
+			hal_range->qpb_max << 16;
 		hfi->max_qp.layer_id = hal_range->layer_id;
-
-		pkt->size += sizeof(u32) +
-			sizeof(struct hfi_quantization_range);
-		break;
-	}
-	case HAL_PARAM_VENC_SESSION_QP_RANGE_PACKED:
-	{
-		struct hfi_quantization_range *hfi;
-		struct hal_quantization_range *hal_range =
-			(struct hal_quantization_range *) pdata;
-
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_SESSION_QP_RANGE;
-		hfi = (struct hfi_quantization_range *)
-				&pkt->rg_property_data[1];
-
-		hfi->min_qp.qp_packed = hal_range->min_qp;
 		hfi->min_qp.layer_id = hal_range->layer_id;
-		hfi->max_qp.qp_packed = hal_range->max_qp;
-		hfi->max_qp.layer_id = hal_range->layer_id;
 
 		pkt->size += sizeof(u32) +
 			sizeof(struct hfi_quantization_range);
