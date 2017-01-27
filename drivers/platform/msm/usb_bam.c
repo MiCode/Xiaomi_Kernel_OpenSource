@@ -3568,6 +3568,7 @@ bool msm_usb_bam_enable(enum usb_ctrl bam, bool bam_enable)
 		log_event_dbg("%s: USB BAM Registered\n", __func__);
 		msm_hw_bam_disable(0);
 	} else {
+		msm_hw_soft_reset();
 		msm_hw_bam_disable(1);
 		sps_device_reset(ctx->h_bam);
 		sps_deregister_bam_device(ctx->h_bam);
