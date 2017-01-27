@@ -2769,6 +2769,9 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 
 	hba = shost_priv(host);
 
+	if (!cmd || !cmd->request || !hba)
+		return -EINVAL;
+
 	tag = cmd->request->tag;
 	if (!ufshcd_valid_tag(hba, tag)) {
 		dev_err(hba->dev,
@@ -2854,13 +2857,12 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	ufshcd_vops_pm_qos_req_start(hba, cmd->request);
 
 	/* IO svc time latency histogram */
-	if (hba != NULL && cmd->request != NULL) {
-		if (hba->latency_hist_enabled &&
-		    (cmd->request->cmd_type == REQ_TYPE_FS)) {
-			cmd->request->lat_hist_io_start = ktime_get();
-			cmd->request->lat_hist_enabled = 1;
-		} else
-			cmd->request->lat_hist_enabled = 0;
+	if (hba->latency_hist_enabled &&
+	    (cmd->request->cmd_type == REQ_TYPE_FS)) {
+		cmd->request->lat_hist_io_start = ktime_get();
+		cmd->request->lat_hist_enabled = 1;
+	} else {
+		cmd->request->lat_hist_enabled = 0;
 	}
 
 	WARN_ON(hba->clk_gating.state != CLKS_ON);
