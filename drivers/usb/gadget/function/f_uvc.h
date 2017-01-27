@@ -58,15 +58,16 @@ static const struct uvc_camera_terminal_descriptor uvc_camera_terminal = {
 };
 
 static const struct uvc_processing_unit_descriptor uvc_processing = {
-	.bLength		= UVC_DT_PROCESSING_UNIT_SIZE(2),
+	.bLength		= UVC_DT_PROCESSING_UNIT_SIZE(3),
 	.bDescriptorType	= USB_DT_CS_INTERFACE,
 	.bDescriptorSubType	= UVC_VC_PROCESSING_UNIT,
 	.bUnitID		= 2,
 	.bSourceID		= 1,
 	.wMaxMultiplier		= cpu_to_le16(16*1024),
-	.bControlSize		= 2,
+	.bControlSize		= 3,
 	.bmControls[0]		= 64,
 	.bmControls[1]		= 16,
+	.bmControls[2]		= 1,
 	.iProcessing		= 0,
 };
 
@@ -250,8 +251,8 @@ static const struct UVC_FRAME_H264(1) uvc_frame_h264_1920p = {
 	.bFrameIndex		= 1,
 	.wWidth			= cpu_to_le16(3840),
 	.wHeight		= cpu_to_le16(1920),
-	.wSARwidth		= 0,
-	.wSARheight		= 0,
+	.wSARwidth		= 1,
+	.wSARheight		= 1,
 	.wProfile		= 0x6400,
 	.bLevelIDC		= 0x33,
 	.bmSupportedUsages	= 0x70003,
@@ -273,8 +274,8 @@ static const struct UVC_FRAME_H264(1) uvc_frame_h264_960p = {
 	.bFrameIndex		= 2,
 	.wWidth			= cpu_to_le16(1920),
 	.wHeight		= cpu_to_le16(960),
-	.wSARwidth		= 0,
-	.wSARheight		= 0,
+	.wSARwidth		= 1,
+	.wSARheight		= 1,
 	.wProfile		= 0x6400,
 	.bLevelIDC		= 0x28,
 	.bmSupportedUsages	= 0x70003,
