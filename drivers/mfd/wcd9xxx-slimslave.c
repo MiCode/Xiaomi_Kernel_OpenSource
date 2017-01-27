@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +62,10 @@ int wcd9xxx_init_slimslave(struct wcd9xxx *wcd9xxx, u8 wcd9xxx_pgd_la,
 		goto err;
 	}
 
+	if (!rx_num || rx_num > wcd9xxx->num_rx_port) {
+		pr_err("%s: invalid rx num %d\n", __func__, rx_num);
+		return -EINVAL;
+	}
 	if (wcd9xxx->rx_chs) {
 		wcd9xxx->num_rx_port = rx_num;
 		for (i = 0; i < rx_num; i++) {
@@ -84,6 +88,10 @@ int wcd9xxx_init_slimslave(struct wcd9xxx *wcd9xxx, u8 wcd9xxx_pgd_la,
 			wcd9xxx->num_rx_port);
 	}
 
+	if (!tx_num || tx_num > wcd9xxx->num_tx_port) {
+		pr_err("%s: invalid tx num %d\n", __func__, tx_num);
+		return -EINVAL;
+	}
 	if (wcd9xxx->tx_chs) {
 		wcd9xxx->num_tx_port = tx_num;
 		for (i = 0; i < tx_num; i++) {

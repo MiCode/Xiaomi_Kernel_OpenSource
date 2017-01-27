@@ -47,7 +47,7 @@
 #define IPA_QMAP_HEADER_LENGTH (4)
 #define IPA_DL_CHECKSUM_LENGTH (8)
 #define IPA_NUM_DESC_PER_SW_TX (2)
-#define IPA_GENERIC_RX_POOL_SZ 1000
+#define IPA_GENERIC_RX_POOL_SZ 192
 #define IPA_UC_FINISH_MAX 6
 #define IPA_UC_WAIT_MIN_SLEEP 1000
 #define IPA_UC_WAII_MAX_SLEEP 1200
@@ -281,6 +281,7 @@ struct ipa_rt_tbl {
  * @id: header entry id
  * @is_eth2_ofst_valid: is eth2_ofst field valid?
  * @eth2_ofst: offset to start of Ethernet-II/802.3 header
+ * @user_deleted: is the header deleted by the user?
  */
 struct ipa_hdr_entry {
 	struct list_head link;
@@ -298,6 +299,7 @@ struct ipa_hdr_entry {
 	int id;
 	u8 is_eth2_ofst_valid;
 	u16 eth2_ofst;
+	bool user_deleted;
 };
 
 /**
@@ -361,6 +363,7 @@ struct ipa_hdr_proc_ctx_add_hdr_cmd_seq {
  * @cookie: cookie used for validity check
  * @ref_cnt: reference counter of routing table
  * @id: processing context header entry id
+ * @user_deleted: is the hdr processing context deleted by the user?
  */
 struct ipa_hdr_proc_ctx_entry {
 	struct list_head link;
@@ -370,6 +373,7 @@ struct ipa_hdr_proc_ctx_entry {
 	u32 cookie;
 	u32 ref_cnt;
 	int id;
+	bool user_deleted;
 };
 
 /**
@@ -1170,6 +1174,7 @@ struct ipa_context {
 	u32 ipa_rx_min_timeout_usec;
 	u32 ipa_rx_max_timeout_usec;
 	u32 ipa_polling_iteration;
+	bool ipa_uc_monitor_holb;
 };
 
 /**
@@ -1225,6 +1230,7 @@ struct ipa_plat_drv_res {
 	bool tethered_flow_control;
 	u32 ipa_rx_polling_sleep_msec;
 	u32 ipa_polling_iteration;
+	bool ipa_uc_monitor_holb;
 };
 
 struct ipa_mem_partition {
@@ -1400,6 +1406,8 @@ int ipa2_add_hdr(struct ipa_ioc_add_hdr *hdrs);
 
 int ipa2_del_hdr(struct ipa_ioc_del_hdr *hdls);
 
+int ipa2_del_hdr_by_user(struct ipa_ioc_del_hdr *hdls, bool by_user);
+
 int ipa2_commit_hdr(void);
 
 int ipa2_reset_hdr(void);
@@ -1416,6 +1424,9 @@ int ipa2_copy_hdr(struct ipa_ioc_copy_hdr *copy);
 int ipa2_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs);
 
 int ipa2_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls);
+
+int ipa2_del_hdr_proc_ctx_by_user(struct ipa_ioc_del_hdr_proc_ctx *hdls,
+	bool by_user);
 
 /*
  * Routing
@@ -1709,7 +1720,7 @@ int ipa2_active_clients_log_print_table(char *buf, int size);
 void ipa2_active_clients_log_clear(void);
 int ipa_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev);
 int __ipa_del_rt_rule(u32 rule_hdl);
-int __ipa_del_hdr(u32 hdr_hdl);
+int __ipa_del_hdr(u32 hdr_hdl, bool by_user);
 int __ipa_release_hdr(u32 hdr_hdl);
 int __ipa_release_hdr_proc_ctx(u32 proc_ctx_hdl);
 int _ipa_read_gen_reg_v1_1(char *buff, int max_len);

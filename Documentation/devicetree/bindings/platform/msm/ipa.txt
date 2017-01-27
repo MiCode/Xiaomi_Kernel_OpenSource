@@ -81,6 +81,8 @@ memory allocation over a PCIe bridge
 - qcom,ipa-polling-iteration:	IPA Polling Iteration Count,default is 40.
 - qcom,ipa-tz-unlock-reg:       Register start addresses and ranges which
                                 need to be unlocked by TZ.
+- qcom,ipa-uc-monitor-holb:   	Boolean context flag to indicate whether
+                                monitoring of holb via IPA uc is required.
 
 IPA pipe sub nodes (A2 static pipes configurations):
 

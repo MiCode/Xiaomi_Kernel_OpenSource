@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1102,13 +1102,19 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 int qpnp_flash_led_prepare(struct led_trigger *trig, int options,
 					int *max_current)
 {
-	struct led_classdev *led_cdev = trigger_to_lcdev(trig);
+	struct led_classdev *led_cdev;
 	struct flash_switch_data *snode;
 	struct qpnp_flash_led *led;
 	int rc;
 
-	if (!led_cdev) {
+	if (!trig) {
 		pr_err("Invalid led_trigger provided\n");
+		return -EINVAL;
+	}
+
+	led_cdev = trigger_to_lcdev(trig);
+	if (!led_cdev) {
+		pr_err("Invalid led_cdev in trigger %s\n", trig->name);
 		return -EINVAL;
 	}
 
@@ -1569,6 +1575,7 @@ static int qpnp_flash_led_parse_and_register_switch(struct qpnp_flash_led *led,
 	snode->pdev = led->pdev;
 	snode->cdev.brightness_set = qpnp_flash_led_brightness_set;
 	snode->cdev.brightness_get = qpnp_flash_led_brightness_get;
+	snode->cdev.flags |= LED_KEEP_TRIGGER;
 	rc = led_classdev_register(&led->pdev->dev, &snode->cdev);
 	if (rc < 0) {
 		pr_err("Unable to register led switch node\n");

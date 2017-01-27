@@ -343,6 +343,11 @@
 			size = <0 0x2000000>;
 			linux,cma-default;
 		};
+
+		cont_splash_mem: splash_region@9d400000 {
+			reg = <0x0 0x9d400000 0x0 0x02400000>;
+			label = "cont_splash_mem";
+		};
 	};
 
 	bluetooth: bt_wcn3990 {
@@ -436,7 +441,6 @@
 		interrupt-controller;
 		#interrupt-cells = <4>;
 		cell-index = <0>;
-		qcom,not-wakeup; /* Needed until Full-boot-chain enabled */
 		status = "ok";
 	};
 
@@ -1011,19 +1015,19 @@
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
 		qcom,bw-tbl =
-			<   762 /*  100 MHz */ >,
-			<  1144 /*  150 MHz */ >,
-			<  1525 /*  200 MHz */ >,
-			<  2288 /*  300 MHz */ >,
-			<  3143 /*  412 MHz */ >,
-			<  4173 /*  547 MHz */ >,
-			<  5195 /*  681 MHz */ >,
-			<  5859 /*  768 MHz */ >,
-			<  7759 /* 1017 MHz */ >,
-			<  9887 /* 1296 MHz */ >,
-			< 10327 /* 1353 MHz */ >,
-			< 11863 /* 1555 MHz */ >,
-			< 13763 /* 1804 MHz */ >;
+			<  381  /*  100 MHz */ >,
+			<  572  /*  150 MHz */ >,
+			<  762  /*  200 MHz */ >,
+			<  1144 /*  300 MHz */ >,
+			<  1571 /*  412 MHz */ >,
+			<  2086 /*  547 MHz */ >,
+			<  2597 /*  681 MHz */ >,
+			<  2929 /*  768 MHz */ >,
+			<  3879 /* 1017 MHz */ >,
+			<  4943 /* 1296 MHz */ >,
+			<  5163 /* 1353 MHz */ >,
+			<  5931 /* 1555 MHz */ >,
+			<  6881 /* 1804 MHz */ >;
 	};
 
 	bwmon: qcom,cpu-bwmon {
@@ -1042,19 +1046,19 @@
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
 		qcom,bw-tbl =
-			<   762 /*  100 MHz */ >,
-			<  1144 /*  150 MHz */ >,
-			<  1525 /*  200 MHz */ >,
-			<  2288 /*  300 MHz */ >,
-			<  3143 /*  412 MHz */ >,
-			<  4173 /*  547 MHz */ >,
-			<  5195 /*  681 MHz */ >,
-			<  5859 /*  768 MHz */ >,
-			<  7759 /* 1017 MHz */ >,
-			<  9887 /* 1296 MHz */ >,
-			< 10327 /* 1353 MHz */ >,
-			< 11863 /* 1555 MHz */ >,
-			< 13763 /* 1804 MHz */ >;
+			<  381  /*  100 MHz */ >,
+			<  572  /*  150 MHz */ >,
+			<  762  /*  200 MHz */ >,
+			<  1144 /*  300 MHz */ >,
+			<  1571 /*  412 MHz */ >,
+			<  2086 /*  547 MHz */ >,
+			<  2597 /*  681 MHz */ >,
+			<  2929 /*  768 MHz */ >,
+			<  3879 /* 1017 MHz */ >,
+			<  4943 /* 1296 MHz */ >,
+			<  5163 /* 1353 MHz */ >,
+			<  5931 /* 1555 MHz */ >,
+			<  6881 /* 1804 MHz */ >;
 	};
 
 	memlat_cpu0: qcom,memlat-cpu0 {
@@ -1063,19 +1067,19 @@
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
 		qcom,bw-tbl =
-			<   762 /*  100 MHz */ >,
-			<  1144 /*  150 MHz */ >,
-			<  1525 /*  200 MHz */ >,
-			<  2288 /*  300 MHz */ >,
-			<  3143 /*  412 MHz */ >,
-			<  4173 /*  547 MHz */ >,
-			<  5195 /*  681 MHz */ >,
-			<  5859 /*  768 MHz */ >,
-			<  7759 /* 1017 MHz */ >,
-			<  9887 /* 1296 MHz */ >,
-			< 10327 /* 1353 MHz */ >,
-			< 11863 /* 1555 MHz */ >,
-			< 13763 /* 1804 MHz */ >;
+			<  381  /*  100 MHz */ >,
+			<  572  /*  150 MHz */ >,
+			<  762  /*  200 MHz */ >,
+			<  1144 /*  300 MHz */ >,
+			<  1571 /*  412 MHz */ >,
+			<  2086 /*  547 MHz */ >,
+			<  2597 /*  681 MHz */ >,
+			<  2929 /*  768 MHz */ >,
+			<  3879 /* 1017 MHz */ >,
+			<  4943 /* 1296 MHz */ >,
+			<  5163 /* 1353 MHz */ >,
+			<  5931 /* 1555 MHz */ >,
+			<  6881 /* 1804 MHz */ >;
 	};
 
 	memlat_cpu4: qcom,memlat-cpu4 {
@@ -1084,19 +1088,19 @@
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
 		qcom,bw-tbl =
-			<   762 /*  100 MHz */ >,
-			<  1144 /*  150 MHz */ >,
-			<  1525 /*  200 MHz */ >,
-			<  2288 /*  300 MHz */ >,
-			<  3143 /*  412 MHz */ >,
-			<  4173 /*  547 MHz */ >,
-			<  5195 /*  681 MHz */ >,
-			<  5859 /*  768 MHz */ >,
-			<  7759 /* 1017 MHz */ >,
-			<  9887 /* 1296 MHz */ >,
-			< 10327 /* 1353 MHz */ >,
-			< 11863 /* 1555 MHz */ >,
-			< 13763 /* 1804 MHz */ >;
+			<  381  /*  100 MHz */ >,
+			<  572  /*  150 MHz */ >,
+			<  762  /*  200 MHz */ >,
+			<  1144 /*  300 MHz */ >,
+			<  1571 /*  412 MHz */ >,
+			<  2086 /*  547 MHz */ >,
+			<  2597 /*  681 MHz */ >,
+			<  2929 /*  768 MHz */ >,
+			<  3879 /* 1017 MHz */ >,
+			<  4943 /* 1296 MHz */ >,
+			<  5163 /* 1353 MHz */ >,
+			<  5931 /* 1555 MHz */ >,
+			<  6881 /* 1804 MHz */ >;
 	};
 
 	devfreq_memlat_0: qcom,arm-memlat-mon-0 {
@@ -1104,9 +1108,9 @@
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,target-dev = <&memlat_cpu0>;
 		qcom,core-dev-table =
-			< 633600 1525 >,
-			< 1401600 4173 >,
-			< 1881600 7759 >;
+			< 633600 762 >,
+			< 1401600 2086 >,
+			< 1881600 3879 >;
 	};
 
 	devfreq_memlat_4: qcom,arm-memlat-mon-4 {
@@ -1114,25 +1118,25 @@
 		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,target-dev = <&memlat_cpu4>;
 		qcom,core-dev-table =
-			< 1113600 1525 >,
-			< 1401600 7759 >,
-			< 2150400 11863 >,
-			< 2457600 13763 >;
+			< 1113600 762 >,
+			< 1401600 3879 >,
+			< 2150400 5931 >,
+			< 2457600 6881 >;
 	};
 
 	devfreq_cpufreq: devfreq-cpufreq {
 		mincpubw-cpufreq {
 			target-dev = <&mincpubw>;
 			cpu-to-dev-map-0 =
-				< 633600 1525 >,
-				< 1401600 3143 >,
-				< 1881600 5859 >;
+				< 633600 762 >,
+				< 1401600 1571 >,
+				< 1881600 2929 >;
 			cpu-to-dev-map-4 =
-				< 1113600 1525 >,
-				< 1401600 4173 >,
-				< 1747200 5859 >,
-				< 2150400 7759 >,
-				< 2457600 13763 >;
+				< 1113600 762 >,
+				< 1401600 2086 >,
+				< 1747200 2929 >,
+				< 2150400 3879 >,
+				< 2457600 6881 >;
 		};
 	};
 
@@ -1276,8 +1280,10 @@
 			100000000 200000000 400000000 4294967295>;
 
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
-			 <&clock_gcc GCC_SDCC1_APPS_CLK>;
-		clock-names = "iface_clk", "core_clk";
+			 <&clock_gcc GCC_SDCC1_APPS_CLK>,
+			 <&clock_gcc GCC_SDCC1_ICE_CORE_CLK>;
+		clock-names = "iface_clk", "core_clk", "ice_core_clk";
+		qcom,ice-clk-rates = <300000000 150000000>;
 
 		status = "disabled";
 	};
@@ -1335,6 +1341,7 @@
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
 		qcom,modem-cfg-emb-pipe-flt;
+		qcom,ipa-wdi2;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <2>;
@@ -1500,7 +1507,7 @@
 	dcc: dcc@10b3000 {
 		compatible = "qcom,dcc";
 		reg = <0x10b3000 0x1000>,
-		      <0x10b4000 0x800>;
+		      <0x10b4000 0x2000>;
 		reg-names = "dcc-base", "dcc-ram-base";
 
 		clocks = <&clock_gcc GCC_DCC_AHB_CLK>;

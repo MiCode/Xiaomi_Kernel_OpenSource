@@ -1490,7 +1490,10 @@ static int smb2_setup_wa_flags(struct smb2 *chip)
 static int smb2_determine_initial_status(struct smb2 *chip)
 {
 	struct smb_irq_data irq_data = {chip, "determine-initial-status"};
+	struct smb_charger *chg = &chip->chg;
 
+	if (chg->bms_psy)
+		smblib_suspend_on_debug_battery(chg);
 	smblib_handle_usb_plugin(0, &irq_data);
 	smblib_handle_usb_typec_change(0, &irq_data);
 	smblib_handle_usb_source_change(0, &irq_data);

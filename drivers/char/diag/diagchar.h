@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -514,7 +514,7 @@ struct diagchar_dev {
 	struct list_head cmd_reg_list;
 	struct mutex cmd_reg_mutex;
 	uint32_t cmd_reg_count;
-	struct mutex diagfwd_channel_mutex;
+	struct mutex diagfwd_channel_mutex[NUM_PERIPHERALS];
 	/* Sizes that reflect memory pool sizes */
 	unsigned int poolsize;
 	unsigned int poolsize_hdlc;

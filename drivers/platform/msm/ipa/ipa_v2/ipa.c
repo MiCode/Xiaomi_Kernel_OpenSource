@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -733,7 +733,8 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa2_del_hdr((struct ipa_ioc_del_hdr *)param)) {
+		if (ipa2_del_hdr_by_user((struct ipa_ioc_del_hdr *)param,
+			true)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -1417,8 +1418,8 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa2_del_hdr_proc_ctx(
-			(struct ipa_ioc_del_hdr_proc_ctx *)param)) {
+		if (ipa2_del_hdr_proc_ctx_by_user(
+			(struct ipa_ioc_del_hdr_proc_ctx *)param, true)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -2715,7 +2716,7 @@ fail_schedule_delayed_work:
 	if (ipa_ctx->dflt_v4_rt_rule_hdl)
 		__ipa_del_rt_rule(ipa_ctx->dflt_v4_rt_rule_hdl);
 	if (ipa_ctx->excp_hdr_hdl)
-		__ipa_del_hdr(ipa_ctx->excp_hdr_hdl);
+		__ipa_del_hdr(ipa_ctx->excp_hdr_hdl, false);
 	ipa2_teardown_sys_pipe(ipa_ctx->clnt_hdl_cmd);
 fail_cmd:
 	return result;
@@ -2727,7 +2728,7 @@ static void ipa_teardown_apps_pipes(void)
 	ipa2_teardown_sys_pipe(ipa_ctx->clnt_hdl_data_in);
 	__ipa_del_rt_rule(ipa_ctx->dflt_v6_rt_rule_hdl);
 	__ipa_del_rt_rule(ipa_ctx->dflt_v4_rt_rule_hdl);
-	__ipa_del_hdr(ipa_ctx->excp_hdr_hdl);
+	__ipa_del_hdr(ipa_ctx->excp_hdr_hdl, false);
 	ipa2_teardown_sys_pipe(ipa_ctx->clnt_hdl_cmd);
 }
 
@@ -3773,6 +3774,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->ipa_wrapper_size = resource_p->ipa_mem_size;
 	ipa_ctx->ipa_hw_type = resource_p->ipa_hw_type;
 	ipa_ctx->ipa_hw_mode = resource_p->ipa_hw_mode;
+	ipa_ctx->ipa_uc_monitor_holb =
+		resource_p->ipa_uc_monitor_holb;
 	ipa_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
 	ipa_ctx->ipa_bam_remote_mode = resource_p->ipa_bam_remote_mode;
 	ipa_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
@@ -4315,6 +4318,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_pipe_mem_size = IPA_PIPE_MEM_SIZE;
 	ipa_drv_res->ipa_hw_type = 0;
 	ipa_drv_res->ipa_hw_mode = 0;
+	ipa_drv_res->ipa_uc_monitor_holb = false;
 	ipa_drv_res->ipa_bam_remote_mode = false;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->ipa_wdi2 = false;
@@ -4338,6 +4342,14 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	else
 		IPADBG(": found ipa_drv_res->ipa_hw_mode = %d",
 				ipa_drv_res->ipa_hw_mode);
+
+	/* Check ipa_uc_monitor_holb enabled or disabled */
+	ipa_drv_res->ipa_uc_monitor_holb =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,ipa-uc-monitor-holb");
+	IPADBG(": ipa uc monitor holb = %s\n",
+		ipa_drv_res->ipa_uc_monitor_holb
+		? "Enabled" : "Disabled");
 
 	/* Get IPA WAN / LAN RX  pool sizes */
 	result = of_property_read_u32(pdev->dev.of_node,

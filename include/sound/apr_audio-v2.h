@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -4263,6 +4263,9 @@ struct asm_multi_channel_pcm_enc_cfg_v2 {
 /* Enumeration for the raw AAC format. */
 #define ASM_MEDIA_FMT_AAC_FORMAT_FLAG_RAW    3
 
+/* Enumeration for the AAC LATM format. */
+#define ASM_MEDIA_FMT_AAC_FORMAT_FLAG_LATM   4
+
 #define ASM_MEDIA_FMT_AAC_AOT_LC             2
 #define ASM_MEDIA_FMT_AAC_AOT_SBR            5
 #define ASM_MEDIA_FMT_AAC_AOT_PS             29
@@ -5954,6 +5957,138 @@ struct asm_stream_cmd_open_loopback_v2 {
 	u16                    reserved;
 /* Reserved for future use. This field must be set to zero. */
 } __packed;
+
+
+#define ASM_STREAM_CMD_OPEN_TRANSCODE_LOOPBACK    0x00010DBA
+
+/* Bitmask for the stream's Performance mode. */
+#define ASM_BIT_MASK_STREAM_PERF_MODE_FLAG_IN_OPEN_TRANSCODE_LOOPBACK \
+	(0x70000000UL)
+
+/* Bit shift for the stream's Performance mode. */
+#define ASM_SHIFT_STREAM_PERF_MODE_FLAG_IN_OPEN_TRANSCODE_LOOPBACK    28
+
+/* Bitmask for the decoder converter enable flag. */
+#define ASM_BIT_MASK_DECODER_CONVERTER_FLAG    (0x00000078UL)
+
+/* Shift value for the decoder converter enable flag. */
+#define ASM_SHIFT_DECODER_CONVERTER_FLAG                              3
+
+/* Converter mode is None (Default). */
+#define ASM_CONVERTER_MODE_NONE                                       0
+
+/* Converter mode is DDP-to-DD. */
+#define ASM_DDP_DD_CONVERTER_MODE                                     1
+
+/*  Identifies a special converter mode where source and sink formats
+ *  are the same but postprocessing must applied. Therefore, Decode
+ *  @rarrow Re-encode is necessary.
+ */
+#define ASM_POST_PROCESS_CONVERTER_MODE                               2
+
+
+struct asm_stream_cmd_open_transcode_loopback_t {
+	struct apr_hdr         hdr;
+	u32                    mode_flags;
+/* Mode Flags specifies the performance mode in which this stream
+ * is to be opened.
+ * Supported values{for bits 30 to 28}(stream_perf_mode flag)
+ *
+ * #ASM_LEGACY_STREAM_SESSION -- This mode ensures backward
+ *       compatibility to the original behavior
+ *       of ASM_STREAM_CMD_OPEN_TRANSCODE_LOOPBACK
+ *
+ * #ASM_LOW_LATENCY_STREAM_SESSION -- Opens a loopback session by using
+ *  shortened buffers in low latency POPP
+ *  - Recommendation: Do not enable high latency algorithms. They might
+ *    negate the benefits of opening a low latency stream, and they
+ *    might also suffer quality degradation from unexpected jitter.
+ *  - This Low Latency mode is supported only for PCM In and PCM Out
+ *    loopbacks. An error is returned if Low Latency mode is opened for
+ *    other transcode loopback modes.
+ *  - To configure this subfield, use
+ *     ASM_BIT_MASK_STREAM_PERF_MODE_FLAG_IN_OPEN_TRANSCODE_LOOPBACK and
+ *     ASM_SHIFT_STREAM_PERF_MODE_FLAG_IN_OPEN_TRANSCODE_LOOPBACK.
+ *
+ * Supported values{for bits 6 to 3} (decoder-converter compatibility)
+ * #ASM_CONVERTER_MODE_NONE (0x0) -- Default
+ * #ASM_DDP_DD_CONVERTER_MODE (0x1)
+ * #ASM_POST_PROCESS_CONVERTER_MODE (0x2)
+ * 0x3-0xF -- Reserved for future use
+ * - Use #ASM_BIT_MASK_DECODER_CONVERTER_FLAG and
+ *        ASM_SHIFT_DECODER_CONVERTER_FLAG to set this bit
+ * All other bits are reserved; clients must set them to 0.
+ */
+
+	u32                    src_format_id;
+/* Specifies the media format of the input audio stream.
+ *
+ * Supported values
+ * - #ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V2
+ * - #ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V3
+ * - #ASM_MEDIA_FMT_DTS
+ * - #ASM_MEDIA_FMT_EAC3_DEC
+ * - #ASM_MEDIA_FMT_EAC3
+ * - #ASM_MEDIA_FMT_AC3_DEC
+ * - #ASM_MEDIA_FMT_AC3
+ */
+	u32                    sink_format_id;
+/* Specifies the media format of the output stream.
+ *
+ * Supported values
+ * - #ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V2
+ * - #ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V3
+ * - #ASM_MEDIA_FMT_DTS (not supported in Low Latency mode)
+ * - #ASM_MEDIA_FMT_EAC3_DEC (not supported in Low Latency mode)
+ * - #ASM_MEDIA_FMT_EAC3 (not supported in Low Latency mode)
+ * - #ASM_MEDIA_FMT_AC3_DEC (not supported in Low Latency mode)
+ * - #ASM_MEDIA_FMT_AC3 (not supported in Low Latency mode)
+ */
+
+	u32                    audproc_topo_id;
+/* Postprocessing topology ID, which specifies the topology (order of
+ *        processing) of postprocessing algorithms.
+ *
+ * Supported values
+ *    - #ASM_STREAM_POSTPROC_TOPO_ID_DEFAULT
+ *    - #ASM_STREAM_POSTPROC_TOPO_ID_PEAKMETER
+ *    - #ASM_STREAM_POSTPROC_TOPO_ID_MCH_PEAK_VOL
+ *    - #ASM_STREAM_POSTPROC_TOPO_ID_NONE
+ *  Topologies can be added through #ASM_CMD_ADD_TOPOLOGIES.
+ *  This field is ignored for the Converter mode, in which no
+ *  postprocessing is performed.
+ */
+
+	u16                    src_endpoint_type;
+/* Specifies the source endpoint that provides the input samples.
+ *
+ * Supported values
+ *  - 0 -- Tx device matrix or stream router (gateway to the hardware
+ *    ports)
+ *  - All other values are reserved
+ *  Clients must set this field to 0. Otherwise, an error is returned.
+ */
+
+	u16                    sink_endpoint_type;
+/*  Specifies the sink endpoint type.
+ *
+ *  Supported values
+ *  - 0 -- Rx device matrix or stream router (gateway to the hardware
+ *    ports)
+ *  - All other values are reserved
+ *   Clients must set this field to 0. Otherwise, an error is returned.
+ */
+
+	u16                    bits_per_sample;
+/*   Number of bits per sample processed by the ASM modules.
+ *   Supported values 16, 24
+ */
+
+	u16                    reserved;
+/*   This field must be set to 0.
+ */
+} __packed;
+
 
 #define ASM_STREAM_CMD_CLOSE             0x00010BCD
 #define ASM_STREAM_CMD_FLUSH             0x00010BCE
@@ -10032,4 +10167,21 @@ struct adm_param_fluence_sourcetracking_t {
 #define AUDPROC_PARAM_ID_AUDIOSPHERE_DESIGN_MULTICHANNEL_INPUT   0x0001091D
 
 #define AUDPROC_PARAM_ID_AUDIOSPHERE_OPERATING_INPUT_MEDIA_INFO  0x0001091E
+
+#define AUDPROC_MODULE_ID_VOICE_TX_SECNS   0x10027059
+#define AUDPROC_PARAM_IDX_SEC_PRIMARY_MIC_CH 0x10014444
+
+struct admx_sec_primary_mic_ch {
+	uint16_t version;
+	uint16_t reserved;
+	uint16_t sec_primary_mic_ch;
+	uint16_t reserved1;
+} __packed;
+
+
+struct adm_set_sec_primary_ch_params {
+	struct adm_cmd_set_pp_params_v5 params;
+	struct adm_param_data_v5 data;
+	struct admx_sec_primary_mic_ch sec_primary_mic_ch_data;
+} __packed;
 #endif /*_APR_AUDIO_V2_H_ */

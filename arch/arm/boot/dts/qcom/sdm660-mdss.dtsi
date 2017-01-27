@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -245,6 +245,9 @@
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
+			qcom,cont-splash-memory {
+				linux,contiguous-region = <&cont_splash_mem>;
+			};
 		};
 
 		mdss_fb1: qcom,mdss_fb_wfd {
@@ -367,6 +370,7 @@
 				"byte_clk_rcg", "pixel_clk_rcg",
 				"byte_intf_clk";
 
+			qcom,null-insertion-enabled;
 			qcom,platform-strength-ctrl = [ff 06
 							ff 06
 							ff 06
@@ -407,6 +411,7 @@
 				"byte_clk_rcg", "pixel_clk_rcg",
 				"byte_intf_clk";
 
+			qcom,null-insertion-enabled;
 			qcom,platform-strength-ctrl = [ff 06
 							ff 06
 							ff 06

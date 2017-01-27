@@ -772,13 +772,19 @@ static void tavil_mbhc_moisture_config(struct wcd_mbhc *mbhc)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
 
-	if (mbhc->moist_rref == R_OFF)
+	if ((mbhc->moist_rref == R_OFF) ||
+	    (mbhc->mbhc_cfg->enable_usbc_analog)) {
+		snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_2,
+				    0x0C, R_OFF << 2);
 		return;
+	}
 
 	/* Donot enable moisture detection if jack type is NC */
 	if (!mbhc->hphl_swh) {
 		dev_dbg(codec->dev, "%s: disable moisture detection for NC\n",
 			__func__);
+		snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_2,
+				    0x0C, R_OFF << 2);
 		return;
 	}
 

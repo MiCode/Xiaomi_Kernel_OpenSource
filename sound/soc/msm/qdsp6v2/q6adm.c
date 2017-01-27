@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -978,9 +978,10 @@ int adm_get_params_v2(int port_id, int copp_idx, uint32_t module_id,
 		      char *params, uint32_t client_id)
 {
 	struct adm_cmd_get_pp_params_v5 *adm_params = NULL;
-	int sz, rc = 0, i = 0;
+	int rc = 0, i = 0;
 	int port_idx, idx;
 	int *params_data = (int *)params;
+	uint64_t sz = 0;
 
 	port_id = afe_convert_virtual_to_portid(port_id);
 	port_idx = adm_validate_and_get_port_index(port_id);
@@ -989,7 +990,16 @@ int adm_get_params_v2(int port_id, int copp_idx, uint32_t module_id,
 		return -EINVAL;
 	}
 
-	sz = sizeof(struct adm_cmd_get_pp_params_v5) + params_length;
+	sz = (uint64_t)sizeof(struct adm_cmd_get_pp_params_v5) +
+				(uint64_t)params_length;
+	/*
+	 * Check if the value of "sz" (which is ultimately assigned to
+	 * "hdr.pkt_size") crosses U16_MAX.
+	 */
+	if (sz > U16_MAX) {
+		pr_err("%s: Invalid params_length\n", __func__);
+		return -EINVAL;
+	}
 	adm_params = kzalloc(sz, GFP_KERNEL);
 	if (!adm_params) {
 		pr_err("%s: adm params memory alloc failed", __func__);
@@ -3650,6 +3660,94 @@ int adm_set_mic_gain(int port_id, int copp_idx, int volume)
 	if (!rc) {
 		pr_err("%s: Mic Gain Set params timed out port = %#x\n",
 			 __func__, port_id);
+		rc = -EINVAL;
+		goto fail_cmd;
+	} else if (atomic_read(&this_adm.copp.stat
+				[port_idx][copp_idx]) > 0) {
+		pr_err("%s: DSP returned error[%s]\n",
+				__func__, adsp_err_get_err_str(
+				atomic_read(&this_adm.copp.stat
+				[port_idx][copp_idx])));
+		rc = adsp_err_get_lnx_err_code(
+				atomic_read(&this_adm.copp.stat
+					[port_idx][copp_idx]));
+		goto fail_cmd;
+	}
+	rc = 0;
+fail_cmd:
+	return rc;
+}
+
+int adm_send_set_multichannel_ec_primary_mic_ch(int port_id, int copp_idx,
+			int primary_mic_ch)
+{
+	struct adm_set_sec_primary_ch_params sec_primary_ch_params;
+	int rc = 0;
+	int sz, port_idx;
+
+	pr_debug("%s port_id 0x%x, copp_idx 0x%x, primary_mic_ch %d\n",
+			__func__, port_id,  copp_idx,  primary_mic_ch);
+	port_id = afe_convert_virtual_to_portid(port_id);
+	port_idx = adm_validate_and_get_port_index(port_id);
+	if (port_idx < 0) {
+		pr_err("%s: Invalid port_id 0x%x\n", __func__, port_id);
+		return -EINVAL;
+	}
+
+	if (copp_idx < 0 || copp_idx >= MAX_COPPS_PER_PORT) {
+		pr_err("%s: Invalid copp_idx 0x%x\n", __func__, copp_idx);
+		return -EINVAL;
+	}
+
+	sz = sizeof(struct adm_set_sec_primary_ch_params);
+
+	sec_primary_ch_params.params.hdr.hdr_field =
+			APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	sec_primary_ch_params.params.hdr.pkt_size = sz;
+	sec_primary_ch_params.params.hdr.src_svc = APR_SVC_ADM;
+	sec_primary_ch_params.params.hdr.src_domain = APR_DOMAIN_APPS;
+	sec_primary_ch_params.params.hdr.src_port = port_id;
+	sec_primary_ch_params.params.hdr.dest_svc = APR_SVC_ADM;
+	sec_primary_ch_params.params.hdr.dest_domain = APR_DOMAIN_ADSP;
+	sec_primary_ch_params.params.hdr.dest_port =
+			atomic_read(&this_adm.copp.id[port_idx][copp_idx]);
+	sec_primary_ch_params.params.hdr.token = port_idx << 16 | copp_idx;
+	sec_primary_ch_params.params.hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
+	sec_primary_ch_params.params.payload_addr_lsw = 0;
+	sec_primary_ch_params.params.payload_addr_msw = 0;
+	sec_primary_ch_params.params.mem_map_handle = 0;
+	sec_primary_ch_params.params.payload_size =
+			sizeof(struct adm_param_data_v5) +
+			sizeof(struct admx_sec_primary_mic_ch);
+	sec_primary_ch_params.data.module_id =
+			AUDPROC_MODULE_ID_VOICE_TX_SECNS;
+	sec_primary_ch_params.data.param_id =
+			AUDPROC_PARAM_IDX_SEC_PRIMARY_MIC_CH;
+	sec_primary_ch_params.data.param_size =
+			sizeof(struct admx_sec_primary_mic_ch);
+	sec_primary_ch_params.data.reserved = 0;
+	sec_primary_ch_params.sec_primary_mic_ch_data.version = 0;
+	sec_primary_ch_params.sec_primary_mic_ch_data.reserved = 0;
+	sec_primary_ch_params.sec_primary_mic_ch_data.sec_primary_mic_ch =
+			primary_mic_ch;
+	sec_primary_ch_params.sec_primary_mic_ch_data.reserved1 = 0;
+
+	atomic_set(&this_adm.copp.stat[port_idx][copp_idx], -1);
+	rc = apr_send_pkt(this_adm.apr, (uint32_t *)&sec_primary_ch_params);
+	if (rc < 0) {
+		pr_err("%s: Set params failed port = %#x\n",
+				__func__, port_id);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+	/* Wait for the callback */
+	rc = wait_event_timeout(this_adm.copp.wait[port_idx][copp_idx],
+		atomic_read(&this_adm.copp.stat[port_idx][copp_idx]) >= 0,
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (!rc) {
+		pr_err("%s: Mic Set params timed out port = %#x\n",
+				__func__, port_id);
 		rc = -EINVAL;
 		goto fail_cmd;
 	} else if (atomic_read(&this_adm.copp.stat

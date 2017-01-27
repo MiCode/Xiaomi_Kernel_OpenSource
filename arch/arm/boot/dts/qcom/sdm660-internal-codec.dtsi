@@ -50,6 +50,14 @@
 	status = "disabled";
 };
 
+&wdsp_mgr {
+	status = "disabled";
+};
+
+&wdsp_glink {
+	status = "disabled";
+};
+
 &glink_spi_xprt_wdsp {
 	status = "disabled";
 };

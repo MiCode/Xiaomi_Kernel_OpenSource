@@ -211,11 +211,11 @@
 		vcc_ana-supply = <&pm8998_l28>;
 		vcc_dig-supply = <&pm8998_l6>;
 		qcom,afe-load = <20000>;
-		qcom,afe-vtg-min = <2850000>;
-		qcom,afe-vtg-max = <3000000>;
+		qcom,afe-vtg-min = <3008000>;
+		qcom,afe-vtg-max = <3008000>;
 		qcom,dig-load = <40000>;
-		qcom,dig-vtg-min = <1800000>;
-		qcom,dig-vtg-max = <1800000>;
+		qcom,dig-vtg-min = <1808000>;
+		qcom,dig-vtg-max = <1808000>;
 		qcom,fb-resume-delay-us = <10000>;
 		qcom,afe-power-on-delay-us = <1000>;
 		qcom,afe-power-off-delay-us = <6>;
