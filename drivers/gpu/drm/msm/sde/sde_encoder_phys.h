@@ -236,6 +236,8 @@ struct sde_encoder_phys_vid {
  *			For CMD encoders, VBLANK is driven by the PP RD Done IRQ
  * @pp_tx_done_irq_idx:	IRQ signifying frame transmission to panel complete
  * @irq_cb:	interrupt callback
+ * @serialize_wait4pp: serialize wait4pp feature waits for pp_done interrupt
+ *                     after ctl_start instead of before next frame kickoff
  */
 struct sde_encoder_phys_cmd {
 	struct sde_encoder_phys base;
@@ -243,6 +245,7 @@ struct sde_encoder_phys_cmd {
 	int stream_sel;
 	int irq_idx[INTR_IDX_MAX];
 	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
+	bool serialize_wait4pp;
 };
 
 /**
