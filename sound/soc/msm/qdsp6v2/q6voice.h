@@ -16,7 +16,6 @@
 #include <linux/qdsp6v2/rtac.h>
 #include <linux/msm_ion.h>
 #include <sound/voice_params.h>
-#include <linux/power_supply.h>
 
 #define MAX_VOC_PKT_SIZE 642
 #define SESSION_NAME_LEN 20
@@ -1593,8 +1592,6 @@ struct voice_data {
 	struct incall_music_info music_info;
 
 	struct voice_rec_route_state rec_route_state;
-
-	struct power_supply *psy;
 };
 
 struct cal_mem {
@@ -1647,7 +1644,6 @@ struct common_data {
 
 	bool srvcc_rec_flag;
 	bool is_destroy_cvd;
-	bool is_vote_bms;
 	char cvd_version[CVD_VERSION_STRING_MAX_SIZE];
 	bool is_per_vocoder_cal_enabled;
 	bool is_sound_focus_resp_success;
@@ -1778,7 +1774,6 @@ int voc_update_amr_vocoder_rate(uint32_t session_id);
 int voc_disable_device(uint32_t session_id);
 int voc_enable_device(uint32_t session_id);
 void voc_set_destroy_cvd_flag(bool is_destroy_cvd);
-void voc_set_vote_bms_flag(bool is_vote_bms);
 int voc_disable_topology(uint32_t session_id, uint32_t disable);
 int voc_set_device_config(uint32_t session_id, uint8_t path_dir,
 			  uint8_t no_of_channels, uint32_t dev_port_id);
