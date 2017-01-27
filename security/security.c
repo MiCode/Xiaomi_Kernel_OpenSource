@@ -25,6 +25,7 @@
 #include <linux/mount.h>
 #include <linux/personality.h>
 #include <linux/backing-dev.h>
+#include <linux/pfk.h>
 #include <net/flow.h>
 
 #define MAX_LSM_EVM_XATTR	2
@@ -832,20 +833,14 @@ int security_file_open(struct file *file, const struct cred *cred)
 	return fsnotify_perm(file, MAY_OPEN);
 }
 
-int security_file_close(struct file *file)
-{
-	if (security_ops->file_close)
-		return security_ops->file_close(file);
-
-	return 0;
-}
-
 bool security_allow_merge_bio(struct bio *bio1, struct bio *bio2)
 {
-	if (security_ops->allow_merge_bio)
-		return security_ops->allow_merge_bio(bio1, bio2);
+	bool ret = pfk_allow_merge_bio(bio1, bio2);
 
-	return true;
+	if (security_ops->allow_merge_bio)
+		ret = ret && security_ops->allow_merge_bio(bio1, bio2);
+
+	return ret;
 }
 
 int security_task_create(unsigned long clone_flags)
