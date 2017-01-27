@@ -834,17 +834,6 @@ Example:
 Required properties:
 - compatible : "qcom,msm8974-audio-taiko"
 - qcom,model : The user-visible name of this sound card.
-- reg : Offset and length of the register region(s) for MI2S/PCM MUX
-- reg-names : Register region name(s) referenced in reg above
-	 Required register resource entries are:
-	 "lpaif_pri_mode_muxsel": Physical address of MUX to select between
-				  Primary PCM and Primary MI2S
-	 "lpaif_sec_mode_muxsel": Physical address of MUX to select between
-				  Secondary PCM and Secondary MI2S
-	 "lpaif_tert_mode_muxsel": Physical address of MUX to select between
-				   Primary PCM and Tertiary MI2S
-	 "lpaif_quat_mode_muxsel": Physical address of MUX to select between
-				   Secondary PCM and Quarternary MI2S
 - qcom,audio-routing : A list of the connections between audio components.
   Each entry is a pair of strings, the first being the connection's sink,
   the second being the connection's source.
@@ -882,6 +871,19 @@ Required properties:
 		    codec dai names should match to that of the phandle order given
 		    in "asoc-codec".
 Optional properties:
+- reg : Offset and length of the register region(s) for MI2S/PCM MUX.
+	Not applicable for all targets.
+- reg-names : Register region name(s) referenced in reg above.
+	      Not applicable for all targets.
+	 Required register resource entries are:
+	 "lpaif_pri_mode_muxsel": Physical address of MUX to select between
+				  Primary PCM and Primary MI2S
+	 "lpaif_sec_mode_muxsel": Physical address of MUX to select between
+				  Secondary PCM and Secondary MI2S
+	 "lpaif_tert_mode_muxsel": Physical address of MUX to select between
+				   Primary PCM and Tertiary MI2S
+	 "lpaif_quat_mode_muxsel": Physical address of MUX to select between
+				   Secondary PCM and Quarternary MI2S
 - qcom,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
 - qcom,ext-ult-spk-amp-gpio : GPIO for enabling of speaker path amplifier.
 
