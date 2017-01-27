@@ -881,12 +881,50 @@ done:
 
 static int wdsp_suspend(struct device *wdsp_dev)
 {
-	return 0;
+	struct wdsp_mgr_priv *wdsp;
+	int rc = 0, i;
+
+	if (!wdsp_dev) {
+		pr_err("%s: Invalid handle to device\n", __func__);
+		return -EINVAL;
+	}
+
+	wdsp = dev_get_drvdata(wdsp_dev);
+
+	for (i =  WDSP_CMPNT_TYPE_MAX - 1; i >= 0; i--) {
+		rc = wdsp_unicast_event(wdsp, i, WDSP_EVENT_SUSPEND, NULL);
+		if (rc < 0) {
+			WDSP_ERR(wdsp, "component %s failed to suspend\n",
+				WDSP_GET_CMPNT_TYPE_STR(i));
+			break;
+		}
+	}
+
+	return rc;
 }
 
 static int wdsp_resume(struct device *wdsp_dev)
 {
-	return 0;
+	struct wdsp_mgr_priv *wdsp;
+	int rc = 0, i;
+
+	if (!wdsp_dev) {
+		pr_err("%s: Invalid handle to device\n", __func__);
+		return -EINVAL;
+	}
+
+	wdsp = dev_get_drvdata(wdsp_dev);
+
+	for (i =  0; i < WDSP_CMPNT_TYPE_MAX; i++) {
+		rc = wdsp_unicast_event(wdsp, i, WDSP_EVENT_RESUME, NULL);
+		if (rc < 0) {
+			WDSP_ERR(wdsp, "component %s failed to resume\n",
+				WDSP_GET_CMPNT_TYPE_STR(i));
+			break;
+		}
+	}
+
+	return rc;
 }
 
 static struct wdsp_mgr_ops wdsp_ops = {
