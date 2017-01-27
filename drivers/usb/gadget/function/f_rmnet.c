@@ -383,7 +383,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 	enum usb_ctrl		usb_bam_type;
 	void			*net;
 
-	pr_debug("%s: ctrl xport: %s data xport: %s dev: %p portno: %d\n",
+	pr_debug("%s: ctrl xport: %s data xport: %s dev: %pK portno: %d\n",
 			__func__, xport_to_str(cxport), xport_to_str(dxport),
 			dev, dev->port_num);
 
@@ -504,7 +504,7 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 	enum transport_type	cxport = rmnet_ports[dev->port_num].ctrl_xport;
 	enum transport_type	dxport = rmnet_ports[dev->port_num].data_xport;
 
-	pr_debug("%s: ctrl xport: %s data xport: %s dev: %p portno: %d\n",
+	pr_debug("%s: ctrl xport: %s data xport: %s dev: %pK portno: %d\n",
 			__func__, xport_to_str(cxport), xport_to_str(dxport),
 			dev, dev->port_num);
 
@@ -601,7 +601,7 @@ static void frmnet_suspend(struct usb_function *f)
 	else
 		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
 
-	pr_debug("%s: data xport: %s dev: %p portno: %d remote_wakeup: %d\n",
+	pr_debug("%s: data xport: %s dev: %pK portno: %d remote_wakeup: %d\n",
 		__func__, xport_to_str(dxport),
 		dev, dev->port_num, remote_wakeup_allowed);
 
@@ -625,7 +625,7 @@ static void frmnet_suspend(struct usb_function *f)
 			 */
 			dev->in_ep_desc_backup  = dev->port.in->desc;
 			dev->out_ep_desc_backup  = dev->port.out->desc;
-			pr_debug("in_ep_desc_bkup = %p, out_ep_desc_bkup = %p",
+			pr_debug("in_ep_desc_bkup = %pK, out_ep_desc_bkup = %pK",
 			       dev->in_ep_desc_backup, dev->out_ep_desc_backup);
 			pr_debug("%s(): Disconnecting\n", __func__);
 			if (gadget_is_dwc3(f->config->cdev->gadget)) {
@@ -662,7 +662,7 @@ static void frmnet_resume(struct usb_function *f)
 	else
 		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
 
-	pr_debug("%s: data xport: %s dev: %p portno: %d remote_wakeup: %d\n",
+	pr_debug("%s: data xport: %s dev: %pK portno: %d remote_wakeup: %d\n",
 		__func__, xport_to_str(dxport),
 		dev, dev->port_num, remote_wakeup_allowed);
 
@@ -729,7 +729,7 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	int				ret;
 	struct list_head *cpkt;
 
-	pr_debug("%s:dev:%p port#%d\n", __func__, dev, dev->port_num);
+	pr_debug("%s:dev:%pK port#%d\n", __func__, dev, dev->port_num);
 
 	if (dev->notify->driver_data) {
 		pr_debug("%s: reset port:%d\n", __func__, dev->port_num);
@@ -795,7 +795,7 @@ static void frmnet_ctrl_response_available(struct f_rmnet *dev)
 	int				ret;
 	struct rmnet_ctrl_pkt	*cpkt;
 
-	pr_debug("%s:dev:%p portno#%d\n", __func__, dev, dev->port_num);
+	pr_debug("%s:dev:%pK portno#%d\n", __func__, dev, dev->port_num);
 
 	spin_lock_irqsave(&dev->lock, flags);
 	if (!atomic_read(&dev->online) || !req || !req->buf) {
@@ -844,7 +844,7 @@ static void frmnet_connect(struct grmnet *gr)
 	struct f_rmnet			*dev;
 
 	if (!gr) {
-		pr_err("%s: Invalid grmnet:%p\n", __func__, gr);
+		pr_err("%s: Invalid grmnet:%pK\n", __func__, gr);
 		return;
 	}
 
@@ -860,7 +860,7 @@ static void frmnet_disconnect(struct grmnet *gr)
 	int				status;
 
 	if (!gr) {
-		pr_err("%s: Invalid grmnet:%p\n", __func__, gr);
+		pr_err("%s: Invalid grmnet:%pK\n", __func__, gr);
 		return;
 	}
 
@@ -902,7 +902,7 @@ frmnet_send_cpkt_response(void *gr, void *buf, size_t len)
 	unsigned long		flags;
 
 	if (!gr || !buf) {
-		pr_err("%s: Invalid grmnet/buf, grmnet:%p buf:%p\n",
+		pr_err("%s: Invalid grmnet/buf, grmnet:%pK buf:%pK\n",
 				__func__, gr, buf);
 		return -ENODEV;
 	}
@@ -916,7 +916,7 @@ frmnet_send_cpkt_response(void *gr, void *buf, size_t len)
 
 	dev = port_to_rmnet(gr);
 
-	pr_debug("%s: dev:%p port#%d\n", __func__, dev, dev->port_num);
+	pr_debug("%s: dev:%pK port#%d\n", __func__, dev, dev->port_num);
 
 	if (!atomic_read(&dev->online) || !atomic_read(&dev->ctrl_online)) {
 		rmnet_free_ctrl_pkt(cpkt);
@@ -944,7 +944,7 @@ frmnet_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 		return;
 	}
 
-	pr_debug("%s: dev:%p port#%d\n", __func__, dev, dev->port_num);
+	pr_debug("%s: dev:%pK port#%d\n", __func__, dev, dev->port_num);
 
 	cdev = dev->cdev;
 
@@ -961,7 +961,7 @@ static void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
 	unsigned long		flags;
 	struct rmnet_ctrl_pkt	*cpkt;
 
-	pr_debug("%s: dev:%p port#%d\n", __func__, dev, dev->port_num);
+	pr_debug("%s: dev:%pK port#%d\n", __func__, dev, dev->port_num);
 
 	switch (status) {
 	case -ECONNRESET:
@@ -1030,7 +1030,7 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	u16				w_length = le16_to_cpu(ctrl->wLength);
 	int				ret = -EOPNOTSUPP;
 
-	pr_debug("%s:dev:%p port#%d\n", __func__, dev, dev->port_num);
+	pr_debug("%s:dev:%pK port#%d\n", __func__, dev, dev->port_num);
 
 	if (!atomic_read(&dev->online)) {
 		pr_warning("%s: usb cable is not connected\n", __func__);
@@ -1256,7 +1256,7 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 	struct usb_function	*f;
 	unsigned long		flags;
 
-	pr_debug("%s: usb config:%p\n", __func__, c);
+	pr_debug("%s: usb config:%pK\n", __func__, c);
 
 	if (portno >= nr_rmnet_ports) {
 		pr_err("%s: supporting ports#%u port_id:%u\n", __func__,

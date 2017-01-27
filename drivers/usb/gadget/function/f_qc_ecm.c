@@ -1133,7 +1133,7 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	if (ecm->xport != USB_GADGET_XPORT_BAM2BAM_IPA)
 		return status;
 
-	pr_debug("setting ecm_ipa, host_ethaddr=%pM, device_ethaddr=%pM",
+	pr_debug("setting ecm_ipa, host_ethaddr=%pKM, device_ethaddr=%pKM",
 			ipa_params.host_ethaddr, ipa_params.device_ethaddr);
 	status = ecm_ipa_init(&ipa_params);
 	if (status) {

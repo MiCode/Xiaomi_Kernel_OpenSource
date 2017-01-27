@@ -1234,7 +1234,7 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		gether_qc_get_macs(rndis_ipa_params.device_ethaddr,
 				rndis_ipa_params.host_ethaddr);
-		pr_debug("setting host_ethaddr=%pM, device_ethaddr=%pM\n",
+		pr_debug("setting host_ethaddr=%pKM, device_ethaddr=%pKM\n",
 			rndis_ipa_params.host_ethaddr,
 			rndis_ipa_params.device_ethaddr);
 		rndis_ipa_supported = true;
