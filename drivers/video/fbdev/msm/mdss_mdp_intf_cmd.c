@@ -2031,6 +2031,19 @@ static int __mdss_mdp_wait4pingpong(struct mdss_mdp_cmd_ctx *ctx)
 	return rc;
 }
 
+static void __clear_ping_pong_callback(struct mdss_mdp_ctl *ctl,
+		struct mdss_mdp_cmd_ctx *ctx)
+{
+	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_PING_PONG_COMP,
+		ctx->current_pp_num);
+	mdss_mdp_set_intr_callback_nosync(
+			MDSS_MDP_IRQ_TYPE_PING_PONG_COMP,
+			ctx->current_pp_num, NULL, NULL);
+	if (atomic_add_unless(&ctx->koff_cnt, -1, 0)
+		&& mdss_mdp_cmd_do_notifier(ctx))
+		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_TIMEOUT);
+}
+
 static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_cmd_ctx *ctx;
@@ -2047,7 +2060,7 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 	pdata = ctl->panel_data;
 
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctl->roi_bkup.w,
-			ctl->roi_bkup.h);
+			ctl->roi_bkup.h, pdata->panel_info.panel_dead);
 
 	pr_debug("%s: intf_num=%d ctx=%pK koff_cnt=%d\n", __func__,
 			ctl->intf_num, ctx, atomic_read(&ctx->koff_cnt));
@@ -2073,6 +2086,13 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 			mdss_mdp_cmd_pingpong_done(ctl);
 			local_irq_restore(flags);
 			rc = 1;
+		} else if (pdata->panel_info.panel_dead) {
+			/*
+			 * if panel is reported dead, no need to wait for
+			 * pingpong done, and don't report timeout
+			 */
+			MDSS_XLOG(0xdead);
+			__clear_ping_pong_callback(ctl, ctx);
 		}
 
 		rc = atomic_read(&ctx->koff_cnt) == 0;
@@ -2098,15 +2118,7 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 		ctx->pp_timeout_report_cnt++;
 		rc = -EPERM;
 
-		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_PING_PONG_COMP,
-			ctx->current_pp_num);
-		mdss_mdp_set_intr_callback_nosync(
-				MDSS_MDP_IRQ_TYPE_PING_PONG_COMP,
-				ctx->current_pp_num, NULL, NULL);
-		if (atomic_add_unless(&ctx->koff_cnt, -1, 0)
-			&& mdss_mdp_cmd_do_notifier(ctx))
-			mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_TIMEOUT);
-
+		__clear_ping_pong_callback(ctl, ctx);
 	} else {
 		rc = 0;
 		ctx->pp_timeout_report_cnt = 0;
