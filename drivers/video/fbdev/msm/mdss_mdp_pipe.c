@@ -2406,8 +2406,16 @@ bool mdss_mdp_is_amortizable_pipe(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_mixer *mixer, struct mdss_data_type *mdata)
 {
 	/* do not apply for rotator or WB */
-	return ((pipe->dst.y > mdata->prefill_data.ts_threshold) &&
-		(mixer->type == MDSS_MDP_MIXER_TYPE_INTF));
+	if (!((pipe->dst.y > mdata->prefill_data.ts_threshold) &&
+		(mixer->type == MDSS_MDP_MIXER_TYPE_INTF)))
+		return false;
+
+	/* do not apply for sdm660 in command mode */
+	if ((IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+		MDSS_MDP_HW_REV_320)) && !mixer->ctl->is_video_mode)
+		return false;
+
+	return true;
 }
 
 static inline void __get_ordered_rects(struct mdss_mdp_pipe *pipe,
