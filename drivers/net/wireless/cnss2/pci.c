@@ -394,6 +394,53 @@ out:
 	return ret;
 }
 
+static int cnss_pci_suspend_noirq(struct device *dev)
+{
+	int ret = 0;
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv;
+	struct cnss_wlan_driver *driver_ops;
+
+	if (!pci_priv)
+		goto out;
+
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
+		goto out;
+
+	driver_ops = plat_priv->driver_ops;
+	if (driver_ops && driver_ops->suspend_noirq)
+		ret = driver_ops->suspend_noirq(pci_dev);
+
+out:
+	return ret;
+}
+
+static int cnss_pci_resume_noirq(struct device *dev)
+{
+	int ret = 0;
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv;
+	struct cnss_wlan_driver *driver_ops;
+
+	if (!pci_priv)
+		goto out;
+
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
+		goto out;
+
+	driver_ops = plat_priv->driver_ops;
+	if (driver_ops && driver_ops->resume_noirq &&
+	    !pci_priv->pci_link_down_ind)
+		ret = driver_ops->resume_noirq(pci_dev);
+
+out:
+	return ret;
+}
+
 static int cnss_pci_runtime_suspend(struct device *dev)
 {
 	int ret = 0;
@@ -1171,6 +1218,8 @@ MODULE_DEVICE_TABLE(pci, cnss_pci_id_table);
 
 static const struct dev_pm_ops cnss_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(cnss_pci_suspend, cnss_pci_resume)
+	.suspend_noirq = cnss_pci_suspend_noirq,
+	.resume_noirq = cnss_pci_resume_noirq,
 	SET_RUNTIME_PM_OPS(cnss_pci_runtime_suspend, cnss_pci_runtime_resume,
 			   cnss_pci_runtime_idle)
 };
