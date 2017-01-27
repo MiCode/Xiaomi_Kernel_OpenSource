@@ -17,8 +17,15 @@
 		cell-index = <0>;
 		label = "wb_display";
 	};
+
+	sde_hdmi: qcom,hdmi-display {
+		compatible = "qcom,hdmi-display";
+		label = "sde_hdmi";
+		qcom,display-type = "secondary";
+	};
+
 };
 
-&mdss_mdp {
-	connectors = <&sde_wb>;
+&sde_kms {
+	connectors = <&sde_hdmi_tx &sde_hdmi &sde_wb>;
 };
