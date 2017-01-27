@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -326,7 +326,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 	int ret;
 	u32 source_vmlist[2] = {VMID_HLOS, VMID_MSS_MSA};
 	int dest_vmids[1] = {VMID_HLOS};
-	int dest_perms[1] = {PERM_READ|PERM_WRITE};
+	int dest_perms[1] = {PERM_READ|PERM_WRITE|PERM_EXEC};
 	struct notif_data *notifdata = NULL;
 
 	mutex_lock(&memsh_drv->mem_share);
