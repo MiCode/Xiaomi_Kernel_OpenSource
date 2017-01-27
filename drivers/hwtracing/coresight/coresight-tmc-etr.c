@@ -20,12 +20,407 @@
 #include "coresight-priv.h"
 #include "coresight-tmc.h"
 
-static void tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
+static void tmc_etr_sg_tbl_free(uint32_t *vaddr, uint32_t size, uint32_t ents)
+{
+	uint32_t i = 0, pte_n = 0, last_pte;
+	uint32_t *virt_st_tbl, *virt_pte;
+	void *virt_blk;
+	phys_addr_t phys_pte;
+	int total_ents = DIV_ROUND_UP(size, PAGE_SIZE);
+	int ents_per_blk = PAGE_SIZE/sizeof(uint32_t);
+
+	virt_st_tbl = vaddr;
+
+	while (i < total_ents) {
+		last_pte = ((i + ents_per_blk) > total_ents) ?
+			   total_ents : (i + ents_per_blk);
+		while (i < last_pte) {
+			virt_pte = virt_st_tbl + pte_n;
+
+			/* Do not go beyond number of entries allocated */
+			if (i == ents) {
+				free_page((unsigned long)virt_st_tbl);
+				return;
+			}
+
+			phys_pte = TMC_ETR_SG_ENT_TO_BLK(*virt_pte);
+			virt_blk = phys_to_virt(phys_pte);
+
+			if ((last_pte - i) > 1) {
+				free_page((unsigned long)virt_blk);
+				pte_n++;
+			} else if (last_pte == total_ents) {
+				free_page((unsigned long)virt_blk);
+				free_page((unsigned long)virt_st_tbl);
+			} else {
+				free_page((unsigned long)virt_st_tbl);
+				virt_st_tbl = (uint32_t *)virt_blk;
+				pte_n = 0;
+				break;
+			}
+			i++;
+		}
+	}
+}
+
+static void tmc_etr_sg_tbl_flush(uint32_t *vaddr, uint32_t size)
+{
+	uint32_t i = 0, pte_n = 0, last_pte;
+	uint32_t *virt_st_tbl, *virt_pte;
+	void *virt_blk;
+	phys_addr_t phys_pte;
+	int total_ents = DIV_ROUND_UP(size, PAGE_SIZE);
+	int ents_per_blk = PAGE_SIZE/sizeof(uint32_t);
+
+	virt_st_tbl = vaddr;
+	dmac_flush_range((void *)virt_st_tbl, (void *)virt_st_tbl + PAGE_SIZE);
+
+	while (i < total_ents) {
+		last_pte = ((i + ents_per_blk) > total_ents) ?
+			   total_ents : (i + ents_per_blk);
+		while (i < last_pte) {
+			virt_pte = virt_st_tbl + pte_n;
+			phys_pte = TMC_ETR_SG_ENT_TO_BLK(*virt_pte);
+			virt_blk = phys_to_virt(phys_pte);
+
+			dmac_flush_range(virt_blk, virt_blk + PAGE_SIZE);
+
+			if ((last_pte - i) > 1) {
+				pte_n++;
+			} else if (last_pte != total_ents) {
+				virt_st_tbl = (uint32_t *)virt_blk;
+				pte_n = 0;
+				break;
+			}
+			i++;
+		}
+	}
+}
+
+/*
+ * Scatter gather table layout in memory:
+ * 1. Table contains 32-bit entries
+ * 2. Each entry in the table points to 4K block of memory
+ * 3. Last entry in the table points to next table
+ * 4. (*) Based on mem_size requested, if there is no need for next level of
+ *    table, last entry in the table points directly to 4K block of memory.
+ *
+ *	   sg_tbl_num=0
+ *	|---------------|<-- drvdata->vaddr
+ *	|   blk_num=0   |
+ *	|---------------|
+ *	|   blk_num=1   |
+ *	|---------------|
+ *	|   blk_num=2   |
+ *	|---------------|	   sg_tbl_num=1
+ *	|(*)Nxt Tbl Addr|------>|---------------|
+ *	|---------------|       |   blk_num=3   |
+ *				|---------------|
+ *				|   blk_num=4   |
+ *				|---------------|
+ *				|   blk_num=5   |
+ *				|---------------|	   sg_tbl_num=2
+ *				|(*)Nxt Tbl Addr|------>|---------------|
+ *				|---------------|	|   blk_num=6   |
+ *							|---------------|
+ *							|   blk_num=7   |
+ *							|---------------|
+ *							|   blk_num=8   |
+ *							|---------------|
+ *							|               |End of
+ *							|---------------|-----
+ *									 Table
+ * For simplicity above diagram assumes following:
+ * a. mem_size = 36KB --> total_ents = 9
+ * b. ents_per_blk = 4
+ */
+
+static int tmc_etr_sg_tbl_alloc(struct tmc_drvdata *drvdata)
+{
+	int ret;
+	uint32_t i = 0, last_pte;
+	uint32_t *virt_pgdir, *virt_st_tbl;
+	void *virt_pte;
+	int total_ents = DIV_ROUND_UP(drvdata->size, PAGE_SIZE);
+	int ents_per_blk = PAGE_SIZE/sizeof(uint32_t);
+
+	virt_pgdir = (uint32_t *)get_zeroed_page(GFP_KERNEL);
+	if (!virt_pgdir)
+		return -ENOMEM;
+
+	virt_st_tbl = virt_pgdir;
+
+	while (i < total_ents) {
+		last_pte = ((i + ents_per_blk) > total_ents) ?
+			   total_ents : (i + ents_per_blk);
+		while (i < last_pte) {
+			virt_pte = (void *)get_zeroed_page(GFP_KERNEL);
+			if (!virt_pte) {
+				ret = -ENOMEM;
+				goto err;
+			}
+
+			if ((last_pte - i) > 1) {
+				*virt_st_tbl =
+				     TMC_ETR_SG_ENT(virt_to_phys(virt_pte));
+				virt_st_tbl++;
+			} else if (last_pte == total_ents) {
+				*virt_st_tbl =
+				     TMC_ETR_SG_LST_ENT(virt_to_phys(virt_pte));
+			} else {
+				*virt_st_tbl =
+				     TMC_ETR_SG_NXT_TBL(virt_to_phys(virt_pte));
+				virt_st_tbl = (uint32_t *)virt_pte;
+				break;
+			}
+			i++;
+		}
+	}
+
+	drvdata->vaddr = virt_pgdir;
+	drvdata->paddr = virt_to_phys(virt_pgdir);
+
+	/* Flush the dcache before proceeding */
+	tmc_etr_sg_tbl_flush((uint32_t *)drvdata->vaddr, drvdata->size);
+
+	dev_dbg(drvdata->dev, "%s: table starts at %#lx, total entries %d\n",
+		__func__, (unsigned long)drvdata->paddr, total_ents);
+
+	return 0;
+err:
+	tmc_etr_sg_tbl_free(virt_pgdir, drvdata->size, i);
+	return ret;
+}
+
+/*
+ * TMC read logic when scatter gather feature is enabled:
+ *
+ *	   sg_tbl_num=0
+ *	|---------------|<-- drvdata->vaddr
+ *	|   blk_num=0	|
+ *	| blk_num_rel=5	|
+ *	|---------------|
+ *	|   blk_num=1	|
+ *	| blk_num_rel=6	|
+ *	|---------------|
+ *	|   blk_num=2	|
+ *	| blk_num_rel=7	|
+ *	|---------------|	   sg_tbl_num=1
+ *	|  Next Table	|------>|---------------|
+ *	|  Addr		|	|   blk_num=3	|
+ *	|---------------|	| blk_num_rel=8	|
+ *				|---------------|
+ *		  4k Block Addr	|   blk_num=4	|
+ *		 |--------------| blk_num_rel=0	|
+ *		 |		|---------------|
+ *		 |		|   blk_num=5	|
+ *		 |		| blk_num_rel=1	|
+ *		 |		|---------------|	   sg_tbl_num=2
+ *	 |---------------|      |  Next Table	|------>|---------------|
+ *	 |		 |	|  Addr		|	|   blk_num=6	|
+ *	 |		 |	|---------------|	| blk_num_rel=2 |
+ *	 |    read_off	 |				|---------------|
+ *	 |		 |				|   blk_num=7	|
+ *	 |		 | ppos				| blk_num_rel=3	|
+ *	 |---------------|-----				|---------------|
+ *	 |		 |				|   blk_num=8	|
+ *	 |    delta_up	 |				| blk_num_rel=4	|
+ *	 |		 | RWP/drvdata->buf		|---------------|
+ *	 |---------------|-----------------		|		|
+ *	 |		 |   |				|		|End of
+ *	 |		 |   |				|---------------|-----
+ *	 |		 | drvdata->delta_bottom			 Table
+ *	 |		 |   |
+ *	 |_______________|  _|_
+ *	      4K Block
+ *
+ * For simplicity above diagram assumes following:
+ * a. mem_size = 36KB --> total_ents = 9
+ * b. ents_per_blk = 4
+ * c. RWP is on 5th block (blk_num = 5); so we have to start reading from RWP
+ *    position
+ */
+
+void tmc_etr_sg_compute_read(struct tmc_drvdata *drvdata, loff_t *ppos,
+			     char **bufpp, size_t *len)
+{
+	uint32_t i = 0, blk_num_rel = 0, read_len = 0;
+	uint32_t blk_num, sg_tbl_num, blk_num_loc, read_off;
+	uint32_t *virt_pte, *virt_st_tbl;
+	void *virt_blk;
+	phys_addr_t phys_pte = 0;
+	int total_ents = DIV_ROUND_UP(drvdata->size, PAGE_SIZE);
+	int ents_per_blk = PAGE_SIZE/sizeof(uint32_t);
+
+	/*
+	 * Find relative block number from ppos and reading offset
+	 * within block and find actual block number based on relative
+	 * block number
+	 */
+	if (drvdata->buf == drvdata->vaddr) {
+		blk_num = *ppos / PAGE_SIZE;
+		read_off = *ppos % PAGE_SIZE;
+	} else {
+		if (*ppos < drvdata->delta_bottom) {
+			read_off = PAGE_SIZE - drvdata->delta_bottom;
+		} else {
+			blk_num_rel = (*ppos / PAGE_SIZE) + 1;
+			read_off = (*ppos - drvdata->delta_bottom) % PAGE_SIZE;
+		}
+
+		blk_num = (drvdata->sg_blk_num + blk_num_rel) % total_ents;
+	}
+
+	virt_st_tbl = (uint32_t *)drvdata->vaddr;
+
+	/* Compute table index and block entry index within that table */
+	if (blk_num && (blk_num == (total_ents - 1)) &&
+			!(blk_num % (ents_per_blk - 1))) {
+		sg_tbl_num = blk_num / ents_per_blk;
+		blk_num_loc = ents_per_blk - 1;
+	} else {
+		sg_tbl_num = blk_num / (ents_per_blk - 1);
+		blk_num_loc = blk_num % (ents_per_blk - 1);
+	}
+
+	for (i = 0; i < sg_tbl_num; i++) {
+		virt_pte = virt_st_tbl + (ents_per_blk - 1);
+		phys_pte = TMC_ETR_SG_ENT_TO_BLK(*virt_pte);
+		virt_st_tbl = (uint32_t *)phys_to_virt(phys_pte);
+	}
+
+	virt_pte = virt_st_tbl + blk_num_loc;
+	phys_pte = TMC_ETR_SG_ENT_TO_BLK(*virt_pte);
+	virt_blk = phys_to_virt(phys_pte);
+
+	*bufpp = virt_blk + read_off;
+
+	if (*len > (PAGE_SIZE - read_off))
+		*len = PAGE_SIZE - read_off;
+
+	/*
+	 * When buffer is wrapped around and trying to read last relative
+	 * block (i.e. delta_up), compute len differently
+	 */
+	if (blk_num_rel && (blk_num == drvdata->sg_blk_num)) {
+		read_len = PAGE_SIZE - drvdata->delta_bottom - read_off;
+		if (*len > read_len)
+			*len = read_len;
+	}
+
+	dev_dbg_ratelimited(drvdata->dev,
+	"%s: read at %p, phys %pa len %zu blk %d, rel blk %d RWP blk %d\n",
+	 __func__, *bufpp, &phys_pte, *len, blk_num, blk_num_rel,
+	drvdata->sg_blk_num);
+}
+
+static void tmc_etr_sg_mem_reset(uint32_t *vaddr, uint32_t size)
+{
+	uint32_t i = 0, pte_n = 0, last_pte;
+	uint32_t *virt_st_tbl, *virt_pte;
+	void *virt_blk;
+	phys_addr_t phys_pte;
+	int total_ents = DIV_ROUND_UP(size, PAGE_SIZE);
+	int ents_per_blk = PAGE_SIZE/sizeof(uint32_t);
+
+	virt_st_tbl = vaddr;
+
+	while (i < total_ents) {
+		last_pte = ((i + ents_per_blk) > total_ents) ?
+			   total_ents : (i + ents_per_blk);
+		while (i < last_pte) {
+			virt_pte = virt_st_tbl + pte_n;
+			phys_pte = TMC_ETR_SG_ENT_TO_BLK(*virt_pte);
+			virt_blk = phys_to_virt(phys_pte);
+
+			if ((last_pte - i) > 1) {
+				memset(virt_blk, 0, PAGE_SIZE);
+				pte_n++;
+			} else if (last_pte == total_ents) {
+				memset(virt_blk, 0, PAGE_SIZE);
+			} else {
+				virt_st_tbl = (uint32_t *)virt_blk;
+				pte_n = 0;
+				break;
+			}
+			i++;
+		}
+	}
+
+	/* Flush the dcache before proceeding */
+	tmc_etr_sg_tbl_flush(vaddr, size);
+}
+
+static void tmc_etr_sg_rwp_pos(struct tmc_drvdata *drvdata, uint32_t rwp)
+{
+	uint32_t i = 0, pte_n = 0, last_pte;
+	uint32_t *virt_st_tbl, *virt_pte;
+	void *virt_blk;
+	bool found = false;
+	phys_addr_t phys_pte;
+	int total_ents = DIV_ROUND_UP(drvdata->size, PAGE_SIZE);
+	int ents_per_blk = PAGE_SIZE/sizeof(uint32_t);
+
+	virt_st_tbl = drvdata->vaddr;
+
+	while (i < total_ents) {
+		last_pte = ((i + ents_per_blk) > total_ents) ?
+			   total_ents : (i + ents_per_blk);
+		while (i < last_pte) {
+			virt_pte = virt_st_tbl + pte_n;
+			phys_pte = TMC_ETR_SG_ENT_TO_BLK(*virt_pte);
+
+			/*
+			 * When the trace buffer is full; RWP could be on any
+			 * 4K block from scatter gather table. Compute below -
+			 * 1. Block number where RWP is currently residing
+			 * 2. RWP position in that 4K block
+			 * 3. Delta offset from current RWP position to end of
+			 *    block.
+			 */
+			if (phys_pte <= rwp && rwp < (phys_pte + PAGE_SIZE)) {
+				virt_blk = phys_to_virt(phys_pte);
+				drvdata->sg_blk_num = i;
+				drvdata->buf = virt_blk + rwp - phys_pte;
+				drvdata->delta_bottom =
+					phys_pte + PAGE_SIZE - rwp;
+				found = true;
+				break;
+			}
+
+			if ((last_pte - i) > 1) {
+				pte_n++;
+			} else if (i < (total_ents - 1)) {
+				virt_blk = phys_to_virt(phys_pte);
+				virt_st_tbl = (uint32_t *)virt_blk;
+				pte_n = 0;
+				break;
+			}
+
+			i++;
+		}
+		if (found)
+			break;
+	}
+}
+
+static void tmc_etr_mem_reset(struct tmc_drvdata *drvdata)
+{
+	if (drvdata->vaddr) {
+		if (drvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
+			memset(drvdata->vaddr, 0, drvdata->size);
+		else
+			tmc_etr_sg_mem_reset((uint32_t *)drvdata->vaddr,
+					     drvdata->size);
+	}
+}
+
+void tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
 {
 	u32 axictl;
 
 	/* Zero out the memory to help with debug */
-	memset(drvdata->vaddr, 0, drvdata->size);
+	tmc_etr_mem_reset(drvdata);
 
 	CS_UNLOCK(drvdata->base);
 
@@ -38,7 +433,10 @@ static void tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
 	axictl = readl_relaxed(drvdata->base + TMC_AXICTL);
 	axictl |= TMC_AXICTL_WR_BURST_16;
 	writel_relaxed(axictl, drvdata->base + TMC_AXICTL);
-	axictl &= ~TMC_AXICTL_SCT_GAT_MODE;
+	if (drvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
+		axictl &= ~TMC_AXICTL_SCT_GAT_MODE;
+	else
+		axictl |= TMC_AXICTL_SCT_GAT_MODE;
 	writel_relaxed(axictl, drvdata->base + TMC_AXICTL);
 	axictl = (axictl &
 		  ~(TMC_AXICTL_PROT_CTL_B0 | TMC_AXICTL_PROT_CTL_B1)) |
@@ -78,6 +476,26 @@ static void tmc_etr_dump_hw(struct tmc_drvdata *drvdata)
 		drvdata->buf = drvdata->vaddr;
 		drvdata->len = rwp - drvdata->paddr;
 	}
+
+	if (drvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG) {
+		/* How much memory do we still have */
+		if (val & BIT(0))
+			drvdata->buf = drvdata->vaddr + rwp - drvdata->paddr;
+		else
+			drvdata->buf = drvdata->vaddr;
+	} else {
+		/*
+		 * Reset these variables before computing since we
+		 * rely on their values during tmc read
+		 */
+		drvdata->sg_blk_num = 0;
+		drvdata->delta_bottom = 0;
+
+		if (val & BIT(0))
+			tmc_etr_sg_rwp_pos(drvdata, rwp);
+		else
+			drvdata->buf = drvdata->vaddr;
+	}
 }
 
 static void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
@@ -101,13 +519,19 @@ static int tmc_etr_alloc_mem(struct tmc_drvdata *drvdata)
 	int ret;
 
 	if (!drvdata->vaddr) {
-		drvdata->vaddr = dma_zalloc_coherent(drvdata->dev,
-						     drvdata->size,
-						     &drvdata->paddr,
-						     GFP_KERNEL);
-		if (!drvdata->vaddr) {
-			ret = -ENOMEM;
-			goto err;
+		if (drvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG) {
+			drvdata->vaddr = dma_zalloc_coherent(drvdata->dev,
+							     drvdata->size,
+							     &drvdata->paddr,
+							     GFP_KERNEL);
+			if (!drvdata->vaddr) {
+				ret = -ENOMEM;
+				goto err;
+			}
+		} else {
+			ret = tmc_etr_sg_tbl_alloc(drvdata);
+			if (ret)
+				goto err;
 		}
 	}
 	/*
@@ -124,8 +548,13 @@ err:
 static void tmc_etr_free_mem(struct tmc_drvdata *drvdata)
 {
 	if (drvdata->vaddr) {
-		dma_free_coherent(drvdata->dev, drvdata->size,
-				  drvdata->vaddr, drvdata->paddr);
+		if (drvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
+			dma_free_coherent(drvdata->dev, drvdata->size,
+					  drvdata->vaddr, drvdata->paddr);
+		else
+			tmc_etr_sg_tbl_free((uint32_t *)drvdata->vaddr,
+				drvdata->size,
+				DIV_ROUND_UP(drvdata->size, PAGE_SIZE));
 		drvdata->vaddr = 0;
 		drvdata->paddr = 0;
 	}
@@ -168,9 +597,12 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
 		 * enabling tmc; the new selection will be honored from
 		 * next tmc enable session.
 		 */
-		if (drvdata->size != drvdata->mem_size)
+		if (drvdata->size != drvdata->mem_size ||
+		    drvdata->memtype != drvdata->mem_type) {
 			tmc_etr_free_mem(drvdata);
-
+			drvdata->size = drvdata->mem_size;
+			drvdata->memtype = drvdata->mem_type;
+		}
 		ret = tmc_etr_alloc_mem(drvdata);
 		if (ret) {
 			pm_runtime_put(drvdata->dev);
@@ -208,8 +640,6 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
 		drvdata->paddr = paddr;
 		drvdata->buf = drvdata->vaddr;
 	}
-
-	memset(drvdata->vaddr, 0, drvdata->size);
 
 	tmc_etr_enable_hw(drvdata);
 out:

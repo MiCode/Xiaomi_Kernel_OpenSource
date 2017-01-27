@@ -142,12 +142,19 @@ static ssize_t tmc_read(struct file *file, char __user *data, size_t len,
 		len = drvdata->len - *ppos;
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
-		if (bufp == (char *)(drvdata->vaddr + drvdata->size))
-			bufp = drvdata->vaddr;
-		else if (bufp > (char *)(drvdata->vaddr + drvdata->size))
-			bufp -= drvdata->size;
-		if ((bufp + len) > (char *)(drvdata->vaddr + drvdata->size))
-			len = (char *)(drvdata->vaddr + drvdata->size) - bufp;
+		if (drvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG) {
+			if (bufp == (char *)(drvdata->vaddr + drvdata->size))
+				bufp = drvdata->vaddr;
+			else if (bufp > (char *)(drvdata->vaddr +
+				 drvdata->size))
+				bufp -= drvdata->size;
+			if ((bufp + len) > (char *)(drvdata->vaddr +
+			     drvdata->size))
+				len = (char *)(drvdata->vaddr + drvdata->size) -
+				      bufp;
+		} else {
+			tmc_etr_sg_compute_read(drvdata, ppos, &bufp, &len);
+		}
 	}
 
 	if (copy_to_user(data, bufp, len)) {
@@ -302,6 +309,43 @@ static ssize_t mem_size_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(mem_size);
 
+static ssize_t mem_type_show(struct device *dev,
+			     struct device_attribute *attr,
+			     char *buf)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			str_tmc_etr_mem_type[drvdata->mem_type]);
+}
+
+static ssize_t mem_type_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf,
+			      size_t size)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	char str[10] = "";
+
+	if (strlen(buf) >= 10)
+		return -EINVAL;
+	if (sscanf(buf, "%10s", str) != 1)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->mem_lock);
+	if (!strcmp(str, str_tmc_etr_mem_type[TMC_ETR_MEM_TYPE_CONTIG]))
+		drvdata->mem_type = TMC_ETR_MEM_TYPE_CONTIG;
+	else if (!strcmp(str, str_tmc_etr_mem_type[TMC_ETR_MEM_TYPE_SG]))
+		drvdata->mem_type = TMC_ETR_MEM_TYPE_SG;
+	else
+		size = -EINVAL;
+
+	mutex_unlock(&drvdata->mem_lock);
+
+	return size;
+}
+static DEVICE_ATTR_RW(mem_type);
+
 static struct attribute *coresight_tmc_etf_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	NULL,
@@ -309,6 +353,7 @@ static struct attribute *coresight_tmc_etf_attrs[] = {
 
 static struct attribute *coresight_tmc_etr_attrs[] = {
 	&dev_attr_mem_size.attr,
+	&dev_attr_mem_type.attr,
 	&dev_attr_trigger_cntr.attr,
 	NULL,
 };
@@ -392,6 +437,8 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 			drvdata->size = SZ_1M;
 
 		drvdata->mem_size = drvdata->size;
+		drvdata->memtype  = TMC_ETR_MEM_TYPE_CONTIG;
+		drvdata->mem_type = drvdata->memtype;
 	} else {
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
 	}
