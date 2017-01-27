@@ -43,6 +43,13 @@
 			< 1017600 >,
 			< 1401600 >;
 	};
+
+	usb_detect {
+		compatible = "qcom,gpio-usbdetect";
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0x0d 0x0>;
+		interrupt-names = "vbus_det_irq";
+	};
 };
 
 &clock_gcc {
