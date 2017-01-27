@@ -1007,12 +1007,12 @@ static int set_ethernet_addr(struct r8152 *tp)
 	if (ret < 0) {
 		netif_err(tp, probe, dev, "Get ether addr fail\n");
 	} else if (!is_valid_ether_addr(sa.sa_data)) {
-		netif_err(tp, probe, dev, "Invalid ether addr %pM\n",
+		netif_err(tp, probe, dev, "Invalid ether addr %pKM\n",
 			  sa.sa_data);
 		eth_hw_addr_random(dev);
 		ether_addr_copy(sa.sa_data, dev->dev_addr);
 		ret = rtl8152_set_mac_address(dev, &sa);
-		netif_info(tp, probe, dev, "Random ether addr %pM\n",
+		netif_info(tp, probe, dev, "Random ether addr %pKM\n",
 			   sa.sa_data);
 	} else {
 		if (tp->version == RTL_VER_01)

@@ -1061,7 +1061,7 @@ static int smsc75xx_reset(struct usbnet *dev)
 		return ret;
 	}
 
-	netif_dbg(dev, ifup, dev->net, "MAC Address: %pM\n",
+	netif_dbg(dev, ifup, dev->net, "MAC Address: %pKM\n",
 		  dev->net->dev_addr);
 
 	ret = smsc75xx_read_reg(dev, HW_CFG, &buf);

@@ -908,7 +908,7 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
 		f5u011_rxmode(catc, catc->rxmode);
 	}
 	dev_dbg(dev, "Init done.\n");
-	printk(KERN_INFO "%s: %s USB Ethernet at usb-%s-%s, %pM.\n",
+	printk(KERN_INFO "%s: %s USB Ethernet at usb-%s-%s, %pKM.\n",
 	       netdev->name, (catc->is_f5u011) ? "Belkin F5U011" : "CATC EL1210A NetMate",
 	       usbdev->bus->bus_name, usbdev->devpath, netdev->dev_addr);
 	usb_set_intfdata(intf, catc);
