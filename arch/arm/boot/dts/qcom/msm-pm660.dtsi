@@ -497,6 +497,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			#io-channel-cells = <1>;
+			qcom,pmic-revid = <&pm660_revid>;
 		};
 
 		pm660_fg: qpnp,fg {
