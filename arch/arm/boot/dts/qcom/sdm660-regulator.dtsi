@@ -672,6 +672,9 @@
 		qcom,cpr-panic-reg-name-list =
 			"PWR_CPRH_STATUS", "APCLUS0_L2_SAW4_PMIC_STS";
 
+		qcom,cpr-enable;
+		qcom,cpr-hw-closed-loop;
+
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
@@ -707,6 +710,33 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-ro-scaling-factor =
+					<3600 3600 3830 2430 2520 2700 1790
+					 1760 1970 1880 2110 2010 2510 4900
+					 4370 4780>,
+					<3600 3600 3830 2430 2520 2700 1790
+					 1760 1970 1880 2110 2010 2510 4900
+					 4370 4780>,
+					<3600 3600 3830 2430 2520 2700 1790
+					 1760 1970 1880 2110 2010 2510 4900
+					 4370 4780>,
+					<3600 3600 3830 2430 2520 2700 1790
+					 1760 1970 1880 2110 2010 2510 4900
+					 4370 4780>,
+					<3600 3600 3830 2430 2520 2700 1790
+					 1760 1970 1880 2110 2010 2510 4900
+					 4370 4780>;
+
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					<13000 31000 27000 37000 21000>;
+
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
+					<0     0     0     0      8000>;
+
+				qcom,cpr-floor-to-ceiling-max-range =
+					<32000  32000  32000  40000  40000
+					 40000  40000  40000>;
 			};
 		};
 	};
@@ -746,6 +776,9 @@
 			<0x179c7aa4 0x17812c18>;
 		qcom,cpr-panic-reg-name-list =
 			"PERF_CPRH_STATUS", "APCLUS1_L2_SAW4_PMIC_STS";
+
+		qcom,cpr-enable;
+		qcom,cpr-hw-closed-loop;
 
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
@@ -788,6 +821,33 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-ro-scaling-factor =
+					<4040 4230 0000 2210 2560 2450 2230
+					 2220 2410 2300 2560 2470 1600 3120
+					 2620 2280>,
+					<4040 4230 0000 2210 2560 2450 2230
+					 2220 2410 2300 2560 2470 1600 3120
+					 2620 2280>,
+					<4040 4230 0000 2210 2560 2450 2230
+					 2220 2410 2300 2560 2470 1600 3120
+					 2620 2280>,
+					<4040 4230 0000 2210 2560 2450 2230
+					 2220 2410 2300 2560 2470 1600 3120
+					 2620 2280>,
+					<4040 4230 0000 2210 2560 2450 2230
+					 2220 2410 2300 2560 2470 1600 3120
+					 2620 2280>;
+
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					<31000 39000 53000 40000 29000>;
+
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
+					<0      3000 19000 23000 28000>;
+
+				qcom,cpr-floor-to-ceiling-max-range =
+					<40000  40000  40000  40000
+					 40000  40000  40000>;
 			};
 		};
 	};
