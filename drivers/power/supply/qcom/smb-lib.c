@@ -2315,6 +2315,12 @@ int smblib_reg_block_restore(struct smb_charger *chg,
 
 static struct reg_info cc2_detach_settings[] = {
 	{
+		.reg	= TYPE_C_CFG_REG,
+		.mask	= APSD_START_ON_CC_BIT,
+		.val	= 0,
+		.desc	= "TYPE_C_CFG_REG",
+	},
+	{
 		.reg	= TYPE_C_CFG_2_REG,
 		.mask	= TYPE_C_UFP_MODE_BIT | EN_TRY_SOURCE_MODE_BIT,
 		.val	= TYPE_C_UFP_MODE_BIT,
