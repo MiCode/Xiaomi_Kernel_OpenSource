@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,7 @@
 
 #define SAMPLING_RATE_8KHZ      8000
 #define SAMPLING_RATE_16KHZ     16000
+#define SAMPLING_RATE_24KHZ     24000
 #define SAMPLING_RATE_32KHZ     32000
 #define SAMPLING_RATE_48KHZ     48000
 #define SAMPLING_RATE_96KHZ     96000
@@ -54,6 +55,8 @@
 #define LPASS_AUDIO_CORE_LPAIF_QUAD_MODE_MUXSEL 0x0908D000
 #define MI2S_SLAVE_SEL 1
 #define MI2S_SLAVE_SEL_OFFSET 0
+
+#define APQ8096_I2C_BPS 16
 
 struct pinctrl_info {
 	struct pinctrl *pinctrl;
@@ -70,6 +73,9 @@ static struct platform_device *spdev;
 static int apq_mi2s_rx_ch = 2;
 static int apq_mi2s_tx_ch = 1;
 
+static int apq8096_i2c_tert_rate = SAMPLING_RATE_48KHZ;
+static int apq8096_i2c_quat_rate = SAMPLING_RATE_48KHZ;
+
 static const char *const pin_states[] = {"Disable", "active"};
 
 static const char *const auxpcm_rate_text[] = {"8000", "16000"};
@@ -77,10 +83,24 @@ static const struct soc_enum apq8096_i2c_auxpcm_enum[] = {
 		SOC_ENUM_SINGLE_EXT(2, auxpcm_rate_text),
 };
 
+static const char *const tert_i2c_rate_text[] = {"8000", "16000",
+						 "24000", "48000"};
+static const struct soc_enum apq8096_i2c_tert_enum[] = {
+		SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tert_i2c_rate_text),
+				    tert_i2c_rate_text),
+};
+
+static const char *const quat_i2c_rate_text[] = {"8000", "16000",
+						 "24000", "48000"};
+static const struct soc_enum apq8096_i2c_quat_enum[] = {
+		SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(quat_i2c_rate_text),
+				    quat_i2c_rate_text),
+};
+
 static struct afe_clk_set ter_mi2s_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
 	Q6AFE_LPASS_CLK_ID_TER_MI2S_EBIT,
-	Q6AFE_LPASS_IBIT_CLK_256_KHZ,
+	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
 	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
 	0,
@@ -89,7 +109,7 @@ static struct afe_clk_set ter_mi2s_clk = {
 static struct afe_clk_set quad_mi2s_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
 	Q6AFE_LPASS_CLK_ID_QUAD_MI2S_EBIT,
-	Q6AFE_LPASS_IBIT_CLK_256_KHZ,
+	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
 	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
 	0,
@@ -205,20 +225,6 @@ static int apq8096_i2c_auxpcm_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int apq_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
-				     struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *rate = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_RATE);
-	struct snd_interval *channels = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_CHANNELS);
-
-	pr_debug("%s: channel:%d\n", __func__, apq_mi2s_rx_ch);
-	rate->min = rate->max = SAMPLING_RATE_8KHZ;
-	channels->min = channels->max = apq_mi2s_rx_ch;
-	return 0;
-}
-
 static int apq_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				      struct snd_pcm_hw_params *params)
 {
@@ -234,17 +240,63 @@ static int apq_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-static int apq_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
-				     struct snd_pcm_hw_params *params)
+static int apq_mi2s_tert_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					       struct snd_pcm_hw_params *params)
 {
 	struct snd_interval *rate = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_RATE);
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	pr_debug("%s: channel:%d\n", __func__, apq_mi2s_tx_ch);
-	rate->min = rate->max = SAMPLING_RATE_8KHZ;
+	rate->min = rate->max = apq8096_i2c_tert_rate;
+	pr_debug("%s: rate:%d\n", __func__, apq8096_i2c_tert_rate);
+	channels->min = channels->max = apq_mi2s_rx_ch;
+	pr_debug("%s: channel:%d\n", __func__, apq_mi2s_rx_ch);
+	return 0;
+}
+
+static int apq_mi2s_tert_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					       struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	rate->min = rate->max = apq8096_i2c_tert_rate;
+	pr_debug("%s: rate:%d\n", __func__, apq8096_i2c_tert_rate);
 	channels->min = channels->max = apq_mi2s_tx_ch;
+	pr_debug("%s: channel:%d\n", __func__, apq_mi2s_tx_ch);
+	return 0;
+}
+
+static int apq_mi2s_quat_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					       struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	rate->min = rate->max = apq8096_i2c_quat_rate;
+	pr_debug("%s: rate:%d\n", __func__, apq8096_i2c_quat_rate);
+	channels->min = channels->max = apq_mi2s_rx_ch;
+	pr_debug("%s: channel:%d\n", __func__, apq_mi2s_rx_ch);
+	return 0;
+}
+
+static int apq_mi2s_quat_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					       struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	rate->min = rate->max = apq8096_i2c_quat_rate;
+	pr_err("%s: rate:%d\n", __func__, apq8096_i2c_quat_rate);
+	channels->min = channels->max = apq_mi2s_tx_ch;
+	pr_debug("%s: channel:%d\n", __func__, apq_mi2s_tx_ch);
 	return 0;
 }
 
@@ -258,6 +310,10 @@ static int apq8096_i2c_ter_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		 substream->name, substream->stream);
 
 	ter_mi2s_clk.enable = 1;
+	ter_mi2s_clk.clk_freq_in_hz = apq8096_i2c_tert_rate*
+				      apq_mi2s_rx_ch*
+				      APQ8096_I2C_BPS;
+
 	ret = afe_set_lpass_clock_v2(AFE_PORT_ID_TERTIARY_MI2S_TX,
 				&ter_mi2s_clk);
 	if (ret < 0) {
@@ -309,6 +365,9 @@ static int apq8096_i2c_quad_mi2s_snd_startup(
 		 substream->name, substream->stream);
 
 	quad_mi2s_clk.enable = 1;
+	quad_mi2s_clk.clk_freq_in_hz = apq8096_i2c_quat_rate*
+				       apq_mi2s_rx_ch*
+				       APQ8096_I2C_BPS;
 
 	ret = afe_set_lpass_clock_v2(AFE_PORT_ID_QUATERNARY_MI2S_TX,
 				&quad_mi2s_clk);
@@ -400,6 +459,62 @@ static const struct soc_enum apq_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, mi2s_tx_ch_text),
 };
 
+static int apq8096_i2c_tert_rate_get(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = apq8096_i2c_tert_rate;
+	return 0;
+}
+
+static int apq8096_i2c_tert_rate_put(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		apq8096_i2c_tert_rate = SAMPLING_RATE_8KHZ;
+		break;
+	case 1:
+		apq8096_i2c_tert_rate = SAMPLING_RATE_16KHZ;
+		break;
+	case 2:
+		apq8096_i2c_tert_rate = SAMPLING_RATE_24KHZ;
+		break;
+	case 3:
+	default:
+		apq8096_i2c_tert_rate = SAMPLING_RATE_48KHZ;
+		break;
+	}
+	return 0;
+}
+
+static int apq8096_i2c_quat_rate_get(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = apq8096_i2c_quat_rate;
+	return 0;
+}
+
+static int apq8096_i2c_quat_rate_put(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		apq8096_i2c_quat_rate = SAMPLING_RATE_8KHZ;
+		break;
+	case 1:
+		apq8096_i2c_quat_rate = SAMPLING_RATE_16KHZ;
+		break;
+	case 2:
+		apq8096_i2c_quat_rate = SAMPLING_RATE_24KHZ;
+		break;
+	case 3:
+	default:
+		apq8096_i2c_quat_rate = SAMPLING_RATE_48KHZ;
+		break;
+	}
+	return 0;
+}
+
 static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("AUX PCM SampleRate", apq8096_i2c_auxpcm_enum[0],
 			apq8096_i2c_auxpcm_rate_get,
@@ -410,6 +525,12 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("MI2S_TX Channels",   apq_snd_enum[1],
 				 apq_mi2s_tx_ch_get,
 				 apq_mi2s_tx_ch_put),
+	SOC_ENUM_EXT("TERT I2S SampleRate", apq8096_i2c_tert_enum[0],
+			apq8096_i2c_tert_rate_get,
+			apq8096_i2c_tert_rate_put),
+	SOC_ENUM_EXT("QUAT I2S SampleRate", apq8096_i2c_quat_enum[0],
+			apq8096_i2c_quat_rate_get,
+			apq8096_i2c_quat_rate_put),
 };
 
 static int apq_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
@@ -581,7 +702,7 @@ static struct snd_soc_dai_link apq8096_i2c_dai[] = {
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_TX,
-		.be_hw_params_fixup = apq_mi2s_tx_be_hw_params_fixup,
+		.be_hw_params_fixup = apq_mi2s_tert_tx_be_hw_params_fixup,
 		.ops = &apq8096_i2c_ter_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
@@ -595,7 +716,7 @@ static struct snd_soc_dai_link apq8096_i2c_dai[] = {
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_RX,
-		.be_hw_params_fixup = apq_mi2s_rx_be_hw_params_fixup,
+		.be_hw_params_fixup = apq_mi2s_tert_rx_be_hw_params_fixup,
 		.ops = &apq8096_i2c_ter_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
@@ -609,7 +730,7 @@ static struct snd_soc_dai_link apq8096_i2c_dai[] = {
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_TX,
-		.be_hw_params_fixup = apq_mi2s_tx_be_hw_params_fixup,
+		.be_hw_params_fixup = apq_mi2s_quat_tx_be_hw_params_fixup,
 		.ops = &apq8096_i2c_quad_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
@@ -624,7 +745,7 @@ static struct snd_soc_dai_link apq8096_i2c_dai[] = {
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
 		.init  = &apq_mi2s_audrx_init,
-		.be_hw_params_fixup = apq_mi2s_rx_be_hw_params_fixup,
+		.be_hw_params_fixup = apq_mi2s_quat_rx_be_hw_params_fixup,
 		.ops = &apq8096_i2c_quad_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
