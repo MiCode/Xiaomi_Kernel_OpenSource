@@ -1,4 +1,4 @@
-/*
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  * Copyright(C) 2016 Linaro Limited. All rights reserved.
  * Author: Mathieu Poirier <mathieu.poirier@linaro.org>
  *
@@ -96,6 +96,41 @@ static void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
 	CS_LOCK(drvdata->base);
 }
 
+static int tmc_etr_alloc_mem(struct tmc_drvdata *drvdata)
+{
+	int ret;
+
+	if (!drvdata->vaddr) {
+		drvdata->vaddr = dma_zalloc_coherent(drvdata->dev,
+						     drvdata->size,
+						     &drvdata->paddr,
+						     GFP_KERNEL);
+		if (!drvdata->vaddr) {
+			ret = -ENOMEM;
+			goto err;
+		}
+	}
+	/*
+	 * Need to reinitialize buf for each tmc enable session since it is
+	 * getting modified during tmc etr dump.
+	 */
+	drvdata->buf = drvdata->vaddr;
+	return 0;
+err:
+	dev_err(drvdata->dev, "etr ddr memory allocation failed\n");
+	return ret;
+}
+
+static void tmc_etr_free_mem(struct tmc_drvdata *drvdata)
+{
+	if (drvdata->vaddr) {
+		dma_free_coherent(drvdata->dev, drvdata->size,
+				  drvdata->vaddr, drvdata->paddr);
+		drvdata->vaddr = 0;
+		drvdata->paddr = 0;
+	}
+}
+
 static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
 {
 	int ret = 0;
@@ -123,10 +158,26 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
 		 * held.  As such allocate memory here and free it if a buffer
 		 * has already been allocated (from a previous session).
 		 */
-		vaddr = dma_alloc_coherent(drvdata->dev, drvdata->size,
-					   &paddr, GFP_KERNEL);
-		if (!vaddr)
-			return -ENOMEM;
+		mutex_lock(&drvdata->mem_lock);
+
+		/*
+		 * ETR DDR memory is not allocated until user enables
+		 * tmc at least once. If user specifies different ETR
+		 * DDR size than the default size or switches between
+		 * contiguous or scatter-gather memory type after
+		 * enabling tmc; the new selection will be honored from
+		 * next tmc enable session.
+		 */
+		if (drvdata->size != drvdata->mem_size)
+			tmc_etr_free_mem(drvdata);
+
+		ret = tmc_etr_alloc_mem(drvdata);
+		if (ret) {
+			pm_runtime_put(drvdata->dev);
+			mutex_unlock(&drvdata->mem_lock);
+			return ret;
+		}
+		mutex_unlock(&drvdata->mem_lock);
 
 		/* Let's try again */
 		spin_lock_irqsave(&drvdata->spinlock, flags);

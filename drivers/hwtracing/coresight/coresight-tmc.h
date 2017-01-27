@@ -122,6 +122,8 @@ struct tmc_drvdata {
 	local_t			mode;
 	enum tmc_config_type	config_type;
 	enum tmc_mem_intf_width	memwidth;
+	struct mutex		mem_lock;
+	u32			mem_size;
 	u32			trigger_cntr;
 };
 
