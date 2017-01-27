@@ -24,12 +24,13 @@
 
 /*--------------- Implementation -------------- */
 #if defined(CONFIG_ARCH_APQ8084) || defined(CONFIG_ARCH_MSM8916) || \
-	defined(CONFIG_ARCH_MSM8994) || defined(CONFIG_ARCH_MSM8909) || \
-	defined(CONFIG_ARCH_MSM8996)
+	defined(CONFIG_ARCH_MSM8953) || defined(CONFIG_ARCH_MSM8994) || \
+	defined(CONFIG_ARCH_MSM8909) || defined(CONFIG_ARCH_MSM8996)
 
 #include <soc/qcom/scm.h>
 
-#if defined(CONFIG_ARM64) || defined(CONFIG_ARCH_MSM8916)
+#if defined(CONFIG_ARM64) || defined(CONFIG_ARCH_MSM8916) || \
+	defined(CONFIG_ARCH_MSM8953)
 
 	#include <soc/qcom/qseecomi.h>
 	#include <linux/slab.h>
@@ -61,7 +62,8 @@
 static inline int smc_fastcall(void *fc_generic, size_t size)
 {
 #if defined(CONFIG_ARCH_APQ8084) || defined(CONFIG_ARCH_MSM8916) || \
-	defined(CONFIG_ARCH_MSM8994) || defined(CONFIG_ARCH_MSM8996)
+	defined(CONFIG_ARCH_MSM8953) || defined(CONFIG_ARCH_MSM8994) || \
+	defined(CONFIG_ARCH_MSM8996)
 	if (is_scm_armv8()) {
 		struct scm_desc desc = {0};
 		int ret;
@@ -124,7 +126,7 @@ static inline int smc_fastcall(void *fc_generic, size_t size)
  * Perform clock enable/disable for clock  "core_clk_src"
  */
 #if defined(CONFIG_ARCH_MSM8916) || defined(CONFIG_ARCH_MSM8909) || \
-	defined(CONFIG_ARCH_MSM8996)
+	defined(CONFIG_ARCH_MSM8953) || defined(CONFIG_ARCH_MSM8996)
 #define MC_DEVICE_PROPNAME "qcom,mcd"
 #if defined(MC_CRYPTO_CLOCK_MANAGEMENT)
 #define MC_CLOCK_CORESRC_PROPNAME "qcom,ce-opp-freq"
