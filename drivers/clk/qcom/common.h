@@ -15,6 +15,7 @@
 
 #include <linux/reset-controller.h>
 #include "clk-rcg.h"
+#include "../clk.h"
 
 struct platform_device;
 struct regmap_config;
