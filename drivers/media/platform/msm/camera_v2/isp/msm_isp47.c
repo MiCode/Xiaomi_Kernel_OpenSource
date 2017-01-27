@@ -53,8 +53,10 @@
 
 #ifdef CONFIG_MSM_CAMERA_AUTOMOTIVE
 #define UB_CFG_POLICY MSM_WM_UB_EQUAL_SLICING
+#define VFE47_NUM_WM 4
 #else
 #define UB_CFG_POLICY MSM_WM_UB_CFG_DEFAULT
+#define VFE47_NUM_WM 7
 #endif
 
 static uint32_t stats_base_addr[] = {
@@ -1790,7 +1792,7 @@ void msm_vfe47_cfg_axi_ub(struct vfe_device *vfe_dev,
 {
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 
-	axi_data->wm_ub_cfg_policy = MSM_WM_UB_CFG_DEFAULT;
+	axi_data->wm_ub_cfg_policy = UB_CFG_POLICY;
 	if (axi_data->wm_ub_cfg_policy == MSM_WM_UB_EQUAL_SLICING)
 		msm_vfe47_cfg_axi_ub_equal_slicing(vfe_dev);
 	else
@@ -2708,7 +2710,7 @@ void msm_vfe47_get_halt_restart_mask(uint32_t *irq0_mask,
 }
 
 static struct msm_vfe_axi_hardware_info msm_vfe47_axi_hw_info = {
-	.num_wm = 7,
+	.num_wm = VFE47_NUM_WM,
 	.num_comp_mask = 3,
 	.num_rdi = 3,
 	.num_rdi_master = 3,
