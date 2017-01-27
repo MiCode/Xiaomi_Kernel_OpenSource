@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -257,15 +257,9 @@ int cnss_wlfw_respond_mem_send_sync(struct cnss_plat_data *plat_priv)
 	cnss_pr_dbg("Sending respond memory message, state: 0x%lx\n",
 		    plat_priv->driver_state);
 
-	if (!fw_mem->va && fw_mem->size) {
-		fw_mem->va = dma_alloc_coherent(&plat_priv->plat_dev->dev,
-						fw_mem->size, &fw_mem->pa,
-						GFP_KERNEL);
-		if (!fw_mem->va) {
-			cnss_pr_err("Failed to allocate memory for FW, size: 0x%zx\n",
-				    fw_mem->size);
-			fw_mem->size = 0;
-		}
+	if (!fw_mem->pa || !fw_mem->size) {
+		cnss_pr_err("Memory for FW is not available!\n");
+		goto out;
 	}
 
 	cnss_pr_dbg("Memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx\n",
@@ -274,8 +268,8 @@ int cnss_wlfw_respond_mem_send_sync(struct cnss_plat_data *plat_priv)
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
-	req.addr = plat_priv->fw_mem.pa;
-	req.size = plat_priv->fw_mem.size;
+	req.addr = fw_mem->pa;
+	req.size = fw_mem->size;
 
 	req_desc.max_msg_len = WLFW_RESPOND_MEM_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_WLFW_RESPOND_MEM_REQ_V01;
@@ -676,25 +670,12 @@ err_create_handle:
 
 int cnss_wlfw_server_exit(struct cnss_plat_data *plat_priv)
 {
-	struct cnss_fw_mem *fw_mem;
-
 	if (!plat_priv)
 		return -ENODEV;
 
 	clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
 	clear_bit(CNSS_FW_MEM_READY, &plat_priv->driver_state);
 	clear_bit(CNSS_QMI_WLFW_CONNECTED, &plat_priv->driver_state);
-
-	fw_mem = &plat_priv->fw_mem;
-	if (fw_mem->va && fw_mem->size) {
-		cnss_pr_dbg("Freeing memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx\n",
-			    fw_mem->va, &fw_mem->pa, fw_mem->size);
-		dma_free_coherent(&plat_priv->plat_dev->dev, fw_mem->size,
-				  fw_mem->va, fw_mem->pa);
-		fw_mem->va = NULL;
-		fw_mem->pa = 0;
-		fw_mem->size = 0;
-	}
 
 	cnss_pr_info("QMI WLFW service disconnected, state: 0x%lx\n",
 		     plat_priv->driver_state);

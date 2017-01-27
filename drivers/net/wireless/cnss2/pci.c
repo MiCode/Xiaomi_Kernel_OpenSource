@@ -573,6 +573,43 @@ out:
 }
 EXPORT_SYMBOL(cnss_auto_resume);
 
+int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct cnss_fw_mem *fw_mem = &plat_priv->fw_mem;
+
+	if (!fw_mem->va && fw_mem->size) {
+		fw_mem->va = dma_alloc_coherent(&pci_priv->pci_dev->dev,
+						fw_mem->size, &fw_mem->pa,
+						GFP_KERNEL);
+		if (!fw_mem->va) {
+			cnss_pr_err("Failed to allocate memory for FW, size: 0x%zx\n",
+				    fw_mem->size);
+			fw_mem->size = 0;
+
+			return -ENOMEM;
+		}
+	}
+
+	return 0;
+}
+
+static void cnss_pci_free_fw_mem(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct cnss_fw_mem *fw_mem = &plat_priv->fw_mem;
+
+	if (fw_mem->va && fw_mem->size) {
+		cnss_pr_dbg("Freeing memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx\n",
+			    fw_mem->va, &fw_mem->pa, fw_mem->size);
+		dma_free_coherent(&pci_priv->pci_dev->dev, fw_mem->size,
+				  fw_mem->va, fw_mem->pa);
+		fw_mem->va = NULL;
+		fw_mem->pa = 0;
+		fw_mem->size = 0;
+	}
+}
+
 int cnss_pci_get_bar_info(struct cnss_pci_data *pci_priv, void __iomem **va,
 			  phys_addr_t *pa)
 {
@@ -1176,6 +1213,8 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
 	struct cnss_plat_data *plat_priv =
 		cnss_bus_dev_to_plat_priv(&pci_dev->dev);
+
+	cnss_pci_free_fw_mem(pci_priv);
 
 	if (pci_dev->device == QCA6290_DEVICE_ID) {
 		cnss_pci_unregister_mhi(pci_priv);
