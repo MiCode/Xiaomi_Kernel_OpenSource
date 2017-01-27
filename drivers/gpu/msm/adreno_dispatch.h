@@ -14,29 +14,7 @@
 #ifndef ____ADRENO_DISPATCHER_H
 #define ____ADRENO_DISPATCHER_H
 
-extern unsigned int adreno_disp_preempt_fair_sched;
 extern unsigned int adreno_drawobj_timeout;
-extern unsigned int adreno_dispatch_starvation_time;
-extern unsigned int adreno_dispatch_time_slice;
-
-/**
- * enum adreno_dispatcher_starve_timer_states - Starvation control states of
- * a RB
- * @ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT: Uninitialized, starvation control
- * is not operating
- * @ADRENO_DISPATCHER_RB_STARVE_TIMER_INIT: Starvation timer is initialized
- * and counting
- * @ADRENO_DISPATCHER_RB_STARVE_TIMER_ELAPSED: The starvation timer has elapsed
- * this state indicates that the RB is starved
- * @ADRENO_DISPATCHER_RB_STARVE_TIMER_SCHEDULED: RB is scheduled on the device
- * and will remain scheduled for a minimum time slice when in this state.
- */
-enum adreno_dispatcher_starve_timer_states {
-	ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT = 0,
-	ADRENO_DISPATCHER_RB_STARVE_TIMER_INIT = 1,
-	ADRENO_DISPATCHER_RB_STARVE_TIMER_ELAPSED = 2,
-	ADRENO_DISPATCHER_RB_STARVE_TIMER_SCHEDULED = 3,
-};
 
 /*
  * Maximum size of the dispatcher ringbuffer - the actual inflight size will be
@@ -78,9 +56,6 @@ struct adreno_dispatcher_drawqueue {
  * @work: work_struct to put the dispatcher in a work queue
  * @kobj: kobject for the dispatcher directory in the device sysfs node
  * @idle_gate: Gate to wait on for dispatcher to idle
- * @disp_preempt_fair_sched: If set then dispatcher will try to be fair to
- * starving RB's by scheduling them in and enforcing a minimum time slice
- * for every RB that is scheduled to run on the device
  */
 struct adreno_dispatcher {
 	struct mutex mutex;
@@ -94,7 +69,6 @@ struct adreno_dispatcher {
 	struct kthread_work work;
 	struct kobject kobj;
 	struct completion idle_gate;
-	unsigned int disp_preempt_fair_sched;
 };
 
 enum adreno_dispatcher_flags {

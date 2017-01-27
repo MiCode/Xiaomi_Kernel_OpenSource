@@ -250,8 +250,6 @@ int adreno_ringbuffer_start(struct adreno_device *adreno_dev,
 		rb->wptr = 0;
 		rb->_wptr = 0;
 		rb->wptr_preempt_end = 0xFFFFFFFF;
-		rb->starve_timer_state =
-			ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT;
 	}
 
 	/* start is specific GPU rb */

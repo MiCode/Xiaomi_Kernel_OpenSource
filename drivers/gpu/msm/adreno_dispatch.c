@@ -26,21 +26,6 @@
 
 #define DRAWQUEUE_NEXT(_i, _s) (((_i) + 1) % (_s))
 
-/* Time in ms after which the dispatcher tries to schedule an unscheduled RB */
-unsigned int adreno_dispatch_starvation_time = 2000;
-
-/* Amount of time in ms that a starved RB is permitted to execute for */
-unsigned int adreno_dispatch_time_slice = 25;
-
-/*
- * If set then dispatcher tries to schedule lower priority RB's after if they
- * have commands in their pipe and have been inactive for
- * _dispatch_starvation_time. Also, once an RB is schduled it will be allowed
- * to run for _dispatch_time_slice unless it's commands complete before
- * _dispatch_time_slice
- */
-unsigned int adreno_disp_preempt_fair_sched;
-
 /* Number of commands that can be queued in a context before it sleeps */
 static unsigned int _context_drawqueue_size = 50;
 
@@ -2180,12 +2165,6 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 				adreno_dev->cur_rb = hung_rb;
 			}
 		}
-		if (ADRENO_DISPATCHER_RB_STARVE_TIMER_ELAPSED ==
-			rb->starve_timer_state) {
-			adreno_put_gpu_halt(adreno_dev);
-			rb->starve_timer_state =
-			ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT;
-		}
 	}
 
 	if (dispatch_q && !adreno_drawqueue_is_empty(dispatch_q)) {
@@ -2762,12 +2741,6 @@ static DISPATCHER_UINT_ATTR(fault_throttle_time, 0644, 0,
 	_fault_throttle_time);
 static DISPATCHER_UINT_ATTR(fault_throttle_burst, 0644, 0,
 	_fault_throttle_burst);
-static DISPATCHER_UINT_ATTR(disp_preempt_fair_sched, 0644, 0,
-	adreno_disp_preempt_fair_sched);
-static DISPATCHER_UINT_ATTR(dispatch_time_slice, 0644, 0,
-	adreno_dispatch_time_slice);
-static DISPATCHER_UINT_ATTR(dispatch_starvation_time, 0644, 0,
-	adreno_dispatch_starvation_time);
 
 static struct attribute *dispatcher_attrs[] = {
 	&dispatcher_attr_inflight.attr,
@@ -2779,9 +2752,6 @@ static struct attribute *dispatcher_attrs[] = {
 	&dispatcher_attr_fault_detect_interval.attr,
 	&dispatcher_attr_fault_throttle_time.attr,
 	&dispatcher_attr_fault_throttle_burst.attr,
-	&dispatcher_attr_disp_preempt_fair_sched.attr,
-	&dispatcher_attr_dispatch_time_slice.attr,
-	&dispatcher_attr_dispatch_starvation_time.attr,
 	NULL,
 };
 
