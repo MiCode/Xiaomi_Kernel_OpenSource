@@ -952,6 +952,60 @@ static void print_cap(const char *type,
 		type, cap->min, cap->max, cap->step_size);
 }
 
+static int msm_vidc_comm_update_ctrl(struct msm_vidc_inst *inst,
+	u32 id, struct hal_capability_supported *capability)
+{
+	struct v4l2_ctrl *ctrl = NULL;
+	int rc = 0;
+
+	ctrl = v4l2_ctrl_find(&inst->ctrl_handler, id);
+	if (ctrl) {
+		v4l2_ctrl_modify_range(ctrl, capability->min,
+				capability->max, ctrl->step,
+				capability->min);
+		dprintk(VIDC_DBG,
+			"%s: Updated Range = %lld --> %lld Def value = %lld\n",
+			ctrl->name, ctrl->minimum, ctrl->maximum,
+			ctrl->default_value);
+	} else {
+		dprintk(VIDC_ERR,
+			"Failed to find Conrol %d\n", id);
+		rc = -EINVAL;
+	}
+
+	return rc;
+	}
+
+static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
+{
+	msm_vidc_comm_update_ctrl(inst,
+			V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE,
+			&inst->capability.hier_p_hybrid);
+	msm_vidc_comm_update_ctrl(inst,
+			V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS,
+			&inst->capability.hier_b);
+	msm_vidc_comm_update_ctrl(inst,
+			V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS,
+			&inst->capability.hier_p);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE,
+			&inst->capability.bitrate);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE_PEAK,
+			&inst->capability.peakbitrate);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_BLUR_WIDTH,
+			&inst->capability.blur_width);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_BLUR_HEIGHT,
+			&inst->capability.blur_height);
+	msm_vidc_comm_update_ctrl(inst,
+			V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES,
+			&inst->capability.slice_bytes);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB,
+			&inst->capability.slice_mbs);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT,
+			&inst->capability.ltr_count);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES,
+			&inst->capability.bframe);
+}
+
 static void handle_session_init_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
@@ -1062,6 +1116,13 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	print_cap("ubwc_cr_stats", &inst->capability.ubwc_cr_stats);
 
 	signal_session_msg_receipt(cmd, inst);
+
+	/*
+	 * Update controls after informing session_init_done to avoid
+	 * timeouts.
+	 */
+
+	msm_vidc_comm_update_ctrl_limits(inst);
 	put_inst(inst);
 }
 
@@ -5226,6 +5287,16 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		fps = fps + 1;
 	else if ((fps > 1) && (fps % 24 == 1 || fps % 15 == 1))
 		fps = fps - 1;
+
+	if (fps < inst->capability.frame_rate.min ||
+			fps > inst->capability.frame_rate.max) {
+		dprintk(VIDC_ERR,
+			"FPS is out of limits : fps = %d Min = %d, Max = %d\n",
+			fps, inst->capability.frame_rate.min,
+			inst->capability.frame_rate.max);
+		rc = -EINVAL;
+		goto exit;
+	}
 
 	if (inst->prop.fps != fps) {
 		dprintk(VIDC_PROF, "reported fps changed for %pK: %d->%d\n",

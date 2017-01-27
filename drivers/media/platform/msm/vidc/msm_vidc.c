@@ -123,6 +123,52 @@ int msm_vidc_enum_fmt(void *instance, struct v4l2_fmtdesc *f)
 }
 EXPORT_SYMBOL(msm_vidc_enum_fmt);
 
+static void msm_vidc_ctrl_get_range(struct v4l2_queryctrl *ctrl,
+	struct hal_capability_supported *capability)
+
+{
+	ctrl->maximum = capability->max;
+	ctrl->minimum = capability->min;
+}
+
+int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
+{
+	struct msm_vidc_inst *inst = instance;
+	int rc = 0;
+
+	if (!inst || !ctrl)
+		return -EINVAL;
+
+	switch (ctrl->id) {
+	case V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE:
+		msm_vidc_ctrl_get_range(ctrl,
+			&inst->capability.hier_p_hybrid);
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.hier_b);
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.hier_p);
+		break;
+	case  V4L2_CID_MPEG_VIDEO_BITRATE:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.bitrate);
+		break;
+	case V4L2_CID_MPEG_VIDEO_BITRATE_PEAK:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.peakbitrate);
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_BLUR_WIDTH:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.blur_width);
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_BLUR_HEIGHT:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.blur_height);
+		break;
+	default:
+		rc = -EINVAL;
+	}
+	return rc;
+}
+EXPORT_SYMBOL(msm_vidc_query_ctrl);
+
 int msm_vidc_s_fmt(void *instance, struct v4l2_format *f)
 {
 	struct msm_vidc_inst *inst = instance;
