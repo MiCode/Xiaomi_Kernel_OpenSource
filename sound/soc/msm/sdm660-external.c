@@ -48,8 +48,8 @@
 #define TLMM_LPI_GPIO22_CFG  0x15078040
 #define LPI_GPIO22_CFG_VAL 0x0000009
 
-#define TLMM_LPI_GPIO22_INOUT  0x15078044
-#define LPI_GPIO22_INOUT_VAL 0x00000000
+#define TLMM_LPI_GPIO22_INOUT  0x179D1318
+#define LPI_GPIO22_INOUT_VAL 0x0020000
 
 #define WSA8810_NAME_1 "wsa881x.20170211"
 #define WSA8810_NAME_2 "wsa881x.20170212"
@@ -66,16 +66,6 @@ struct msm_asoc_wcd93xx_codec {
 
 static struct msm_asoc_wcd93xx_codec msm_codec_fn;
 static struct platform_device *spdev;
-
-struct msm_snd_interrupt {
-	void __iomem *mpm_wakeup;
-	void __iomem *intr1_cfg_apps;
-	void __iomem *lpi_gpio_intr_cfg;
-	void __iomem *lpi_gpio_cfg;
-	void __iomem *lpi_gpio_inout;
-};
-
-static struct msm_snd_interrupt msm_snd_intr_lpi;
 
 static bool is_initial_boot;
 
@@ -1220,25 +1210,26 @@ static void msm_afe_clear_config(void)
 	afe_clear_config(AFE_SLIMBUS_SLAVE_CONFIG);
 }
 
-static void msm_snd_interrupt_config(void)
+static void msm_snd_interrupt_config(struct msm_asoc_mach_data *pdata)
 {
 	int val;
 
-	val = ioread32(msm_snd_intr_lpi.mpm_wakeup);
+	val = ioread32(pdata->msm_snd_intr_lpi.mpm_wakeup);
 	val |= LPI_GPIO_22_WAKEUP_VAL;
-	iowrite32(val, msm_snd_intr_lpi.mpm_wakeup);
+	iowrite32(val, pdata->msm_snd_intr_lpi.mpm_wakeup);
 
-	val = ioread32(msm_snd_intr_lpi.intr1_cfg_apps);
+	val = ioread32(pdata->msm_snd_intr_lpi.intr1_cfg_apps);
 	val &= ~(LPI_GPIO_22_INTR1_CFG_MASK);
 	val |= LPI_GPIO_22_INTR1_CFG_VAL;
-	iowrite32(val, msm_snd_intr_lpi.intr1_cfg_apps);
+	iowrite32(val, pdata->msm_snd_intr_lpi.intr1_cfg_apps);
 
 	iowrite32(LPI_GPIO_INTR_CFG1_VAL,
-			msm_snd_intr_lpi.lpi_gpio_intr_cfg);
+			pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg);
 	iowrite32(LPI_GPIO22_CFG_VAL,
-			msm_snd_intr_lpi.lpi_gpio_cfg);
-	iowrite32(LPI_GPIO22_INOUT_VAL,
-			msm_snd_intr_lpi.lpi_gpio_inout);
+			pdata->msm_snd_intr_lpi.lpi_gpio_cfg);
+	val = ioread32(pdata->msm_snd_intr_lpi.lpi_gpio_inout);
+	val |= LPI_GPIO22_INOUT_VAL;
+	iowrite32(val, pdata->msm_snd_intr_lpi.lpi_gpio_inout);
 }
 
 static int msm_adsp_power_up_config(struct snd_soc_codec *codec)
@@ -1246,7 +1237,10 @@ static int msm_adsp_power_up_config(struct snd_soc_codec *codec)
 	int ret = 0;
 	unsigned long timeout;
 	int adsp_ready = 0;
+	struct snd_soc_card *card = codec->component.card;
+	struct msm_asoc_mach_data *pdata;
 
+	pdata = snd_soc_card_get_drvdata(card);
 	timeout = jiffies +
 		msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
 
@@ -1269,7 +1263,7 @@ static int msm_adsp_power_up_config(struct snd_soc_codec *codec)
 		ret = -ETIMEDOUT;
 		goto err_fail;
 	}
-	msm_snd_interrupt_config();
+	msm_snd_interrupt_config(pdata);
 
 	ret = msm_afe_set_config(codec);
 	if (ret)
@@ -1837,15 +1831,15 @@ int msm_ext_cdc_init(struct platform_device *pdev,
 			ret);
 		ret = 0;
 	}
-	msm_snd_intr_lpi.mpm_wakeup =
+	pdata->msm_snd_intr_lpi.mpm_wakeup =
 			ioremap(TLMM_CENTER_MPM_WAKEUP_INT_EN_0, 4);
-	msm_snd_intr_lpi.intr1_cfg_apps =
+	pdata->msm_snd_intr_lpi.intr1_cfg_apps =
 			ioremap(TLMM_LPI_DIR_CONN_INTR1_CFG_APPS, 4);
-	msm_snd_intr_lpi.lpi_gpio_intr_cfg =
+	pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg =
 			ioremap(TLMM_LPI_GPIO_INTR_CFG1, 4);
-	msm_snd_intr_lpi.lpi_gpio_cfg =
+	pdata->msm_snd_intr_lpi.lpi_gpio_cfg =
 			ioremap(TLMM_LPI_GPIO22_CFG, 4);
-	msm_snd_intr_lpi.lpi_gpio_inout =
+	pdata->msm_snd_intr_lpi.lpi_gpio_inout =
 			ioremap(TLMM_LPI_GPIO22_INOUT, 4);
 err:
 	return ret;
@@ -1855,17 +1849,18 @@ EXPORT_SYMBOL(msm_ext_cdc_init);
 /**
  * msm_ext_cdc_deinit - external codec machine specific deinit.
  */
-void msm_ext_cdc_deinit(void)
+void msm_ext_cdc_deinit(struct msm_asoc_mach_data *pdata)
 {
-	if (msm_snd_intr_lpi.mpm_wakeup)
-		iounmap(msm_snd_intr_lpi.mpm_wakeup);
-	if (msm_snd_intr_lpi.intr1_cfg_apps)
-		iounmap(msm_snd_intr_lpi.intr1_cfg_apps);
-	if (msm_snd_intr_lpi.lpi_gpio_intr_cfg)
-		iounmap(msm_snd_intr_lpi.lpi_gpio_intr_cfg);
-	if (msm_snd_intr_lpi.lpi_gpio_cfg)
-		iounmap(msm_snd_intr_lpi.lpi_gpio_cfg);
-	if (msm_snd_intr_lpi.lpi_gpio_inout)
-		iounmap(msm_snd_intr_lpi.lpi_gpio_inout);
+	if (pdata->msm_snd_intr_lpi.mpm_wakeup)
+		iounmap(pdata->msm_snd_intr_lpi.mpm_wakeup);
+	if (pdata->msm_snd_intr_lpi.intr1_cfg_apps)
+		iounmap(pdata->msm_snd_intr_lpi.intr1_cfg_apps);
+	if (pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg)
+		iounmap(pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg);
+	if (pdata->msm_snd_intr_lpi.lpi_gpio_cfg)
+		iounmap(pdata->msm_snd_intr_lpi.lpi_gpio_cfg);
+	if (pdata->msm_snd_intr_lpi.lpi_gpio_inout)
+		iounmap(pdata->msm_snd_intr_lpi.lpi_gpio_inout);
+
 }
 EXPORT_SYMBOL(msm_ext_cdc_deinit);
