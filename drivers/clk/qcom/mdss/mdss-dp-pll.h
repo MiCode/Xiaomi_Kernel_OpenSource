@@ -8,23 +8,28 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
  */
 
+#ifndef __MDSS_DP_PLL_H
+#define __MDSS_DP_PLL_H
 
-/dts-v1/;
-
-#include "sdm660.dtsi"
-#include "sdm660-mtp.dtsi"
-#include "sdm660-internal-codec.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. SDM 660 PM660 + PM660L Int. Audio Codec MTP";
-	compatible = "qcom,sdm660-mtp", "qcom,sdm660", "qcom,mtp";
-	qcom,board-id = <8 1>;
-	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
-			<0x0001001b 0x0201011a 0x0 0x0>;
+struct dp_pll_vco_clk {
+	struct clk_hw hw;
+	unsigned long	rate;		/* current vco rate */
+	u64		min_rate;	/* min vco rate */
+	u64		max_rate;	/* max vco rate */
+	void		*priv;
 };
 
-&int_codec {
-	qcom,model = "sdm660-snd-card-mtp";
-};
+static inline struct dp_pll_vco_clk *to_dp_vco_hw(struct clk_hw *hw)
+{
+	return container_of(hw, struct dp_pll_vco_clk, hw);
+}
+
+int dp_pll_clock_register_14nm(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res);
+
+
+#endif /* __MDSS_DP_PLL_H */
+

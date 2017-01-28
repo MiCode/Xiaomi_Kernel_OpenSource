@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -421,8 +421,10 @@ static inline void hdmi_tx_send_cable_notification(
 	if (hdmi_ctrl && hdmi_ctrl->ext_audio_data.intf_ops.hpd) {
 		u32 flags = 0;
 
-		if (hdmi_tx_is_dvi_mode(hdmi_ctrl))
-			flags |= MSM_EXT_DISP_HPD_NO_AUDIO;
+		flags |= MSM_EXT_DISP_HPD_VIDEO;
+
+		if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
+			flags |= MSM_EXT_DISP_HPD_AUDIO;
 
 		hdmi_ctrl->ext_audio_data.intf_ops.hpd(hdmi_ctrl->ext_pdev,
 				hdmi_ctrl->ext_audio_data.type, val, flags);

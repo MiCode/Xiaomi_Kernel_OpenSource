@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -643,7 +643,8 @@ static int hdcp_1x_wait_for_hw_ready(struct hdcp_1x *hdcp)
 	/* Wait for HDCP keys to be checked and validated */
 	rc = readl_poll_timeout(io->base + reg_set->status, link0_status,
 				((link0_status >> reg_set->keys_offset) & 0x7)
-					== HDCP_KEYS_STATE_VALID,
+					== HDCP_KEYS_STATE_VALID ||
+				!hdcp_1x_state(HDCP_STATE_AUTHENTICATING),
 				HDCP_POLL_SLEEP_US, HDCP_POLL_TIMEOUT_US);
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("key not ready\n");
@@ -658,7 +659,8 @@ static int hdcp_1x_wait_for_hw_ready(struct hdcp_1x *hdcp)
 
 	/* Wait for An0 and An1 bit to be ready */
 	rc = readl_poll_timeout(io->base + reg_set->status, link0_status,
-				(link0_status & (BIT(8) | BIT(9))),
+				(link0_status & (BIT(8) | BIT(9))) ||
+				!hdcp_1x_state(HDCP_STATE_AUTHENTICATING),
 				HDCP_POLL_SLEEP_US, HDCP_POLL_TIMEOUT_US);
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("An not ready\n");
@@ -668,6 +670,9 @@ static int hdcp_1x_wait_for_hw_ready(struct hdcp_1x *hdcp)
 	/* As per hardware recommendations, wait before reading An */
 	msleep(20);
 error:
+	if (!hdcp_1x_state(HDCP_STATE_AUTHENTICATING))
+		rc = -EINVAL;
+
 	return rc;
 }
 
@@ -820,7 +825,8 @@ static int hdcp_1x_verify_r0(struct hdcp_1x *hdcp)
 
 	/* Wait for HDCP R0 computation to be completed */
 	rc = readl_poll_timeout(io->base + reg_set->status, link0_status,
-				link0_status & BIT(reg_set->r0_offset),
+				(link0_status & BIT(reg_set->r0_offset)) ||
+				!hdcp_1x_state(HDCP_STATE_AUTHENTICATING),
 				HDCP_POLL_SLEEP_US, HDCP_POLL_TIMEOUT_US);
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("R0 not ready\n");
@@ -862,10 +868,14 @@ static int hdcp_1x_verify_r0(struct hdcp_1x *hdcp)
 		DSS_REG_W(io, reg_set->data2_0, (((u32)buf[1]) << 8) | buf[0]);
 
 		rc = readl_poll_timeout(io->base + reg_set->status,
-			link0_status, link0_status & BIT(12),
+			link0_status, (link0_status & BIT(12)) ||
+			!hdcp_1x_state(HDCP_STATE_AUTHENTICATING),
 			r0_read_delay_us, r0_read_timeout_us);
 	} while (rc && --r0_retry);
 error:
+	if (!hdcp_1x_state(HDCP_STATE_AUTHENTICATING))
+		rc = -EINVAL;
+
 	return rc;
 }
 
@@ -1092,9 +1102,9 @@ static int hdcp_1x_write_ksv_fifo(struct hdcp_1x *hdcp)
 		 */
 		if (i && !((i + 1) % 64)) {
 			rc = readl_poll_timeout(io->base + reg_set->sha_status,
-						sha_status, sha_status & BIT(0),
-						HDCP_POLL_SLEEP_US,
-						HDCP_POLL_TIMEOUT_US);
+				sha_status, (sha_status & BIT(0)) ||
+				!hdcp_1x_state(HDCP_STATE_AUTHENTICATING),
+				HDCP_POLL_SLEEP_US, HDCP_POLL_TIMEOUT_US);
 			if (IS_ERR_VALUE(rc)) {
 				pr_err("block not done\n");
 				goto error;
@@ -1108,7 +1118,8 @@ static int hdcp_1x_write_ksv_fifo(struct hdcp_1x *hdcp)
 
 	/* Now wait for HDCP_SHA_COMP_DONE */
 	rc = readl_poll_timeout(io->base + reg_set->sha_status, sha_status,
-				sha_status & BIT(4),
+				(sha_status & BIT(4)) ||
+				!hdcp_1x_state(HDCP_STATE_AUTHENTICATING),
 				HDCP_POLL_SLEEP_US, HDCP_POLL_TIMEOUT_US);
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("V computation not done\n");
@@ -1117,13 +1128,17 @@ static int hdcp_1x_write_ksv_fifo(struct hdcp_1x *hdcp)
 
 	/* Wait for V_MATCHES */
 	rc = readl_poll_timeout(io->base + reg_set->status, status,
-				status & BIT(reg_set->v_offset),
+				(status & BIT(reg_set->v_offset)) ||
+				!hdcp_1x_state(HDCP_STATE_AUTHENTICATING),
 				HDCP_POLL_SLEEP_US, HDCP_POLL_TIMEOUT_US);
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("V mismatch\n");
 		rc = -EINVAL;
 	}
 error:
+	if (!hdcp_1x_state(HDCP_STATE_AUTHENTICATING))
+		rc = -EINVAL;
+
 	return rc;
 }
 
@@ -1273,8 +1288,6 @@ static void hdcp_1x_update_auth_status(struct hdcp_1x *hdcp)
 	if (hdcp_1x_state(HDCP_STATE_AUTHENTICATED)) {
 		hdcp_1x_cache_topology(hdcp);
 		hdcp_1x_notify_topology(hdcp);
-	} else {
-		hdcp1_set_enc(false);
 	}
 
 	if (hdcp->init_data.notify_status &&
@@ -1459,9 +1472,6 @@ void hdcp_1x_off(void *input)
 		return;
 	}
 
-	if (hdcp_1x_state(HDCP_STATE_AUTHENTICATED))
-		hdcp1_set_enc(false);
-
 	/*
 	 * Disable HDCP interrupts.
 	 * Also, need to set the state to inactive here so that any ongoing
@@ -1482,10 +1492,12 @@ void hdcp_1x_off(void *input)
 	 * No more reauthentiaction attempts will be scheduled since we
 	 * set the currect state to inactive.
 	 */
-	rc = cancel_delayed_work(&hdcp->hdcp_auth_work);
+	rc = cancel_delayed_work_sync(&hdcp->hdcp_auth_work);
 	if (rc)
 		pr_debug("%s: Deleted hdcp auth work\n",
 			HDCP_STATE_NAME);
+
+	hdcp1_set_enc(false);
 
 	reg = DSS_REG_R(io, reg_set->reset);
 	DSS_REG_W(io, reg_set->reset, reg | reg_set->reset_bit);

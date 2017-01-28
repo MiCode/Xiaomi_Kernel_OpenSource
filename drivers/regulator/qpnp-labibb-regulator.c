@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2643,7 +2643,8 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		return rc;
 	}
 
-	if (labibb->mode == QPNP_LABIBB_AMOLED_MODE) {
+	if (labibb->mode == QPNP_LABIBB_AMOLED_MODE &&
+		labibb->pmic_rev_id->pmic_subtype != PM660L_SUBTYPE) {
 		/*
 		 * default to 1.5 times current gain if
 		 * user doesn't specify the current-sense
@@ -2684,7 +2685,7 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 
 	val = (labibb->standalone) ? 0 : LAB_IBB_EN_RDY_EN;
 	rc = qpnp_labibb_sec_write(labibb, labibb->lab_base,
-			REG_LAB_IBB_EN_RDY, val);
+				REG_LAB_IBB_EN_RDY, val);
 
 	if (rc < 0) {
 		pr_err("qpnp_lab_sec_write register %x failed rc = %d\n",
@@ -3331,7 +3332,7 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 	struct regulator_init_data *init_data;
 	struct regulator_desc *rdesc = &labibb->ibb_vreg.rdesc;
 	struct regulator_config cfg = {};
-	u8 val, ibb_enable_ctl;
+	u8 val, ibb_enable_ctl, index;
 	u32 tmp;
 
 	if (!of_node) {
@@ -3460,11 +3461,11 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 			return rc;
 		}
 
-		labibb->ibb_vreg.pwrup_dly = ibb_pwrup_dly_table[
-					(val &
-					IBB_PWRUP_PWRDN_CTL_1_DLY1_MASK)];
-		labibb->ibb_vreg.pwrdn_dly =  ibb_pwrdn_dly_table[val &
-					IBB_PWRUP_PWRDN_CTL_1_DLY2_MASK];
+		index = (val & IBB_PWRUP_PWRDN_CTL_1_DLY1_MASK) >>
+				IBB_PWRUP_PWRDN_CTL_1_DLY1_SHIFT;
+		labibb->ibb_vreg.pwrup_dly = ibb_pwrup_dly_table[index];
+		index = val & IBB_PWRUP_PWRDN_CTL_1_DLY2_MASK;
+		labibb->ibb_vreg.pwrdn_dly =  ibb_pwrdn_dly_table[index];
 
 		labibb->ibb_vreg.vreg_enabled = 1;
 	} else {
@@ -3829,9 +3830,10 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 		}
 	}
 	dev_set_drvdata(&pdev->dev, labibb);
-	pr_info("LAB/IBB registered successfully, lab_vreg enable=%d ibb_vreg enable=%d\n",
+	pr_info("LAB/IBB registered successfully, lab_vreg enable=%d ibb_vreg enable=%d swire_control=%d\n",
 						labibb->lab_vreg.vreg_enabled,
-						labibb->ibb_vreg.vreg_enabled);
+						labibb->ibb_vreg.vreg_enabled,
+						labibb->swire_control);
 
 	return 0;
 

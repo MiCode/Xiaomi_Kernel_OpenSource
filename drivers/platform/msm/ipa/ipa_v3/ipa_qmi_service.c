@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,8 @@
 
 #define QMI_SEND_STATS_REQ_TIMEOUT_MS 5000
 #define QMI_SEND_REQ_TIMEOUT_MS 60000
+
+#define QMI_IPA_FORCE_CLEAR_DATAPATH_TIMEOUT_MS 1000
 
 static struct qmi_handle *ipa3_svc_handle;
 static void ipa3_a5_svc_recv_msg(struct work_struct *work);
@@ -713,7 +715,8 @@ int ipa3_qmi_enable_force_clear_datapath_send(
 			&req_desc,
 			req,
 			sizeof(*req),
-			&resp_desc, &resp, sizeof(resp), 0);
+			&resp_desc, &resp, sizeof(resp),
+			QMI_IPA_FORCE_CLEAR_DATAPATH_TIMEOUT_MS);
 	if (rc < 0) {
 		IPAWANERR("send req failed %d\n", rc);
 		return rc;
@@ -758,7 +761,8 @@ int ipa3_qmi_disable_force_clear_datapath_send(
 			&req_desc,
 			req,
 			sizeof(*req),
-			&resp_desc, &resp, sizeof(resp), 0);
+			&resp_desc, &resp, sizeof(resp),
+			QMI_IPA_FORCE_CLEAR_DATAPATH_TIMEOUT_MS);
 	if (rc < 0) {
 		IPAWANERR("send req failed %d\n", rc);
 		return rc;

@@ -11,6 +11,7 @@
  */
 
 #include "sdm660-pinctrl.dtsi"
+#include "sdm660-camera-sensor-cdp.dtsi"
 / {
 };
 

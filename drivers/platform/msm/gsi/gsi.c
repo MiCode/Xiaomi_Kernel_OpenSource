@@ -1591,14 +1591,20 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 		return -GSI_STATUS_INVALID_PARAMS;
 	}
 
-	if (props->evt_ring_hdl != ~0 &&
-		atomic_read(&gsi_ctx->evtr[props->evt_ring_hdl].chan_ref_cnt) &&
-		gsi_ctx->evtr[props->evt_ring_hdl].props.exclusive) {
-		GSIERR("evt ring=%lu already in exclusive use chan_hdl=%p\n",
-				props->evt_ring_hdl, chan_hdl);
-		return -GSI_STATUS_UNSUPPORTED_OP;
-	}
+	if (props->evt_ring_hdl != ~0) {
+		if (props->evt_ring_hdl >= GSI_EVT_RING_MAX) {
+			GSIERR("invalid evt ring=%lu\n", props->evt_ring_hdl);
+			return -GSI_STATUS_INVALID_PARAMS;
+		}
 
+		if (atomic_read(
+			&gsi_ctx->evtr[props->evt_ring_hdl].chan_ref_cnt) &&
+			gsi_ctx->evtr[props->evt_ring_hdl].props.exclusive) {
+			GSIERR("evt ring=%lu exclusively used by chan_hdl=%p\n",
+				props->evt_ring_hdl, chan_hdl);
+			return -GSI_STATUS_UNSUPPORTED_OP;
+		}
+	}
 
 	ctx = &gsi_ctx->chan[props->ch_id];
 	if (ctx->allocated) {

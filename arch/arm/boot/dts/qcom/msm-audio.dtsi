@@ -827,6 +827,7 @@
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <1>;
 		qcom,msm-mbhc-gnd-swh = <1>;
+		qcom,msm-micbias2-ext-cap;
 		qcom,msm-hs-micbias-type = "external";
 		qcom,us-euro-gpios = <&us_euro_gpio>;
 		qcom,cdc-pdm-gpios = <&cdc_pdm_gpios>;
@@ -928,7 +929,6 @@
 	};
 
 	clock_audio: audio_ext_clk {
-		status = "disabled";
 		compatible = "qcom,audio-ref-clk";
 		qcom,audio-ref-clk-gpio = <&pm660_gpios 3 0>;
 		clock-names = "osr_clk";

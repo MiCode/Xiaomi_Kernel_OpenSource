@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,7 +51,7 @@
 #define RPM_MAX_TOC_ENTRIES 20
 #define RPM_FIFO_ADDR_ALIGN_BYTES 3
 #define TRACER_PKT_FEATURE BIT(2)
-
+#define DEFERRED_CMDS_THRESHOLD 25
 /**
  * enum command_types - definition of the types of commands sent/received
  * @VERSION_CMD:		Version and feature set supported
@@ -181,6 +181,7 @@ struct mailbox_config_info {
  *				processing.
  * @deferred_cmds:		List of deferred commands that need to be
  *				processed in process context.
+ * @deferred_cmds_cnt:		Number of deferred commands in queue.
  * @num_pw_states:		Size of @ramp_time_us.
  * @ramp_time_us:		Array of ramp times in microseconds where array
  *				index position represents a power state.
@@ -218,6 +219,7 @@ struct edge_info {
 	bool in_ssr;
 	spinlock_t rx_lock;
 	struct list_head deferred_cmds;
+	uint32_t deferred_cmds_cnt;
 	uint32_t num_pw_states;
 	unsigned long *ramp_time_us;
 	struct mailbox_config_info *mailbox;
@@ -768,6 +770,7 @@ static bool queue_cmd(struct edge_info *einfo, void *cmd, void *data)
 	d_cmd->param2 = _cmd->param2;
 	d_cmd->data = data;
 	list_add_tail(&d_cmd->list_node, &einfo->deferred_cmds);
+	einfo->deferred_cmds_cnt++;
 	queue_kthread_work(&einfo->kworker, &einfo->kwork);
 	return true;
 }
@@ -877,10 +880,15 @@ static void __rx_worker(struct edge_info *einfo, bool atomic_ctx)
 		if (einfo->in_ssr)
 			break;
 
+		if (atomic_ctx && !einfo->intentless &&
+		    einfo->deferred_cmds_cnt >= DEFERRED_CMDS_THRESHOLD)
+			break;
+
 		if (!atomic_ctx && !list_empty(&einfo->deferred_cmds)) {
 			d_cmd = list_first_entry(&einfo->deferred_cmds,
 						struct deferred_cmd, list_node);
 			list_del(&d_cmd->list_node);
+			einfo->deferred_cmds_cnt--;
 			cmd.id = d_cmd->id;
 			cmd.param1 = d_cmd->param1;
 			cmd.param2 = d_cmd->param2;

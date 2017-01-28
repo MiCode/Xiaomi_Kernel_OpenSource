@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -370,6 +370,8 @@ static void dp_hdcp2p2_auth_failed(struct dp_hdcp2p2_ctrl *ctrl)
 
 	dp_hdcp2p2_set_interrupts(ctrl, false);
 
+	atomic_set(&ctrl->auth_state, HDCP_STATE_AUTH_FAIL);
+
 	/* notify DP about HDCP failure */
 	ctrl->init_data.notify_status(ctrl->init_data.cb_data,
 		HDCP_STATE_AUTH_FAIL);
@@ -625,6 +627,12 @@ static void dp_hdcp2p2_link_work(struct kthread_work *work)
 		return;
 	}
 
+	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_AUTH_FAIL ||
+		atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
+		pr_err("invalid hdcp state\n");
+		return;
+	}
+
 	cdata.context = ctrl->lib_ctx;
 
 	if (ctrl->sink_rx_status & ctrl->abort_mask) {
@@ -683,6 +691,13 @@ static int dp_hdcp2p2_cp_irq(void *input)
 	if (!ctrl) {
 		pr_err("invalid input\n");
 		return -EINVAL;
+	}
+
+	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_AUTH_FAIL ||
+		atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
+		pr_err("invalid hdcp state\n");
+		rc = -EINVAL;
+		goto error;
 	}
 
 	ctrl->sink_rx_status = 0;

@@ -1326,8 +1326,26 @@ int smblib_get_prop_batt_capacity(struct smb_charger *chg,
 int smblib_get_prop_batt_status(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
+	union power_supply_propval pval = {0, };
+	bool usb_online, dc_online;
 	u8 stat;
 	int rc;
+
+	rc = smblib_get_prop_usb_online(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get usb online property rc=%d\n",
+			rc);
+		return rc;
+	}
+	usb_online = (bool)pval.intval;
+
+	rc = smblib_get_prop_dc_online(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get dc online property rc=%d\n",
+			rc);
+		return rc;
+	}
+	dc_online = (bool)pval.intval;
 
 	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_1_REG, &stat);
 	if (rc < 0) {
@@ -1335,8 +1353,21 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 			rc);
 		return rc;
 	}
-
 	stat = stat & BATTERY_CHARGER_STATUS_MASK;
+
+	if (!usb_online && !dc_online) {
+		switch (stat) {
+		case TERMINATE_CHARGE:
+		case INHIBIT_CHARGE:
+			val->intval = POWER_SUPPLY_STATUS_FULL;
+			break;
+		default:
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+			break;
+		}
+		return rc;
+	}
+
 	switch (stat) {
 	case TRICKLE_CHARGE:
 	case PRE_CHARGE:

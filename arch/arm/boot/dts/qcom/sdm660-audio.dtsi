@@ -167,8 +167,8 @@
 	cdc_pdm_gpios: cdc_pdm_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&cdc_pdm_gpios_active>;
-		pinctrl-1 = <&cdc_pdm_gpios_sleep>;
+		pinctrl-0 = <&cdc_pdm_gpios_active &cdc_pdm_2_gpios_active>;
+		pinctrl-1 = <&cdc_pdm_gpios_sleep &cdc_pdm_2_gpios_sleep>;
 		qcom,lpi-gpios;
 	};
 

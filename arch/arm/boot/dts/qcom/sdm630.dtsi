@@ -908,6 +908,13 @@
 		};
 	};
 
+	qcom,rmtfs_sharedmem@0 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0 0x200000>;
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
+	};
+
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa";
 		qcom,rmnet-ipa-ssr;
@@ -1387,6 +1394,7 @@
 #include "msm-gdsc-660.dtsi"
 #include "sdm660-common.dtsi"
 #include "msm-arm-smmu-630.dtsi"
+#include "sdm660-camera.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";
