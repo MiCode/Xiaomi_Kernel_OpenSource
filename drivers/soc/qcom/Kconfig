@@ -625,6 +625,14 @@ config MSM_ADSP_LOADER
 	  for the platforms that use APRv2.
 	  Say M if you want to enable this module.
 
+config MSM_CDSP_LOADER
+	tristate "CDSP loader support"
+	help
+	  Enable CDSP image loader.
+	  The CDSP loader brings CDSP out of reset
+	  during boot.
+	  Say M if you want to enable this module.
+
 config MSM_PERFORMANCE
 	tristate "msm_performance driver to support perflock request"
 	help
