@@ -589,8 +589,8 @@ static ssize_t mdss_fb_get_panel_info(struct device *dev,
 			"primary_panel=%d\nis_pluggable=%d\ndisplay_id=%s\n"
 			"is_cec_supported=%d\nis_pingpong_split=%d\n"
 			"dfps_porch_mode=%d\npu_roi_cnt=%d\ndual_dsi=%d\n"
-			"is_hdr_enabled=%d\n"
-			"peak_brightness=%d\nblackness_level=%d\n"
+			"is_hdr_enabled=%d\npeak_brightness=%d\n"
+			"blackness_level=%d\naverage_brightness=%d\n"
 			"white_chromaticity_x=%d\nwhite_chromaticity_y=%d\n"
 			"red_chromaticity_x=%d\nred_chromaticity_y=%d\n"
 			"green_chromaticity_x=%d\ngreen_chromaticity_y=%d\n"
@@ -612,6 +612,7 @@ static ssize_t mdss_fb_get_panel_info(struct device *dev,
 			is_panel_split(mfd), pinfo->hdr_properties.hdr_enabled,
 			pinfo->hdr_properties.peak_brightness,
 			pinfo->hdr_properties.blackness_level,
+			pinfo->hdr_properties.avg_brightness,
 			pinfo->hdr_properties.display_primaries[0],
 			pinfo->hdr_properties.display_primaries[1],
 			pinfo->hdr_properties.display_primaries[2],

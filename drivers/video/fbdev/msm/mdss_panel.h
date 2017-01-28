@@ -754,6 +754,8 @@ struct mdss_panel_hdr_properties {
 
 	/* peak brightness supported by panel */
 	u32 peak_brightness;
+	/* average brightness supported by panel */
+	u32 avg_brightness;
 	/* Blackness level supported by panel */
 	u32 blackness_level;
 };
