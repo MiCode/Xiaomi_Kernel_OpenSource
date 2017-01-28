@@ -1507,7 +1507,7 @@
 	dcc: dcc@10b3000 {
 		compatible = "qcom,dcc";
 		reg = <0x10b3000 0x1000>,
-		      <0x10b4000 0x2000>;
+		      <0x10b4000 0x800>;
 		reg-names = "dcc-base", "dcc-ram-base";
 
 		clocks = <&clock_gcc GCC_DCC_AHB_CLK>;
