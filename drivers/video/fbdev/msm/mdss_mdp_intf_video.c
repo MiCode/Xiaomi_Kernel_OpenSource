@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1521,6 +1521,11 @@ exit_dfps:
 					pr_err("Error in dfps_wait: %d\n", rc);
 			}
 
+			/* Disable interface timing double buffer */
+			rc = mdss_mdp_ctl_intf_event(ctl,
+				MDSS_EVENT_DSI_TIMING_DB_CTRL,
+				(void *) (unsigned long) 0,
+				CTL_INTF_EVENT_FLAG_DEFAULT);
 		} else {
 			pr_err("intf %d panel, unknown FPS mode\n",
 							ctl->intf_num);
