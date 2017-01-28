@@ -16,7 +16,6 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 
-#define SDE_NONE                        0
 #define SDE_CSC_MATRIX_COEFF_SIZE	9
 #define SDE_CSC_CLAMP_SIZE		6
 #define SDE_CSC_BIAS_SIZE		3
@@ -58,7 +57,7 @@ enum sde_sspp_type {
 };
 
 enum sde_lm {
-	LM_0 = 1,
+	LM_0 = 0,
 	LM_1,
 	LM_2,
 	LM_3,
@@ -80,7 +79,7 @@ enum sde_stage {
 	SDE_STAGE_MAX
 };
 enum sde_dspp {
-	DSPP_0 = 1,
+	DSPP_0 = 0,
 	DSPP_1,
 	DSPP_2,
 	DSPP_3,
@@ -88,7 +87,7 @@ enum sde_dspp {
 };
 
 enum sde_ctl {
-	CTL_0 = 1,
+	CTL_0 = 0,
 	CTL_1,
 	CTL_2,
 	CTL_3,
@@ -97,23 +96,22 @@ enum sde_ctl {
 };
 
 enum sde_cdm {
-	CDM_0 = 1,
+	CDM_0 = 0,
 	CDM_1,
 	CDM_MAX
 };
 
 enum sde_pingpong {
-	PINGPONG_0 = 1,
+	PINGPONG_0 = 0,
 	PINGPONG_1,
 	PINGPONG_2,
 	PINGPONG_3,
 	PINGPONG_4,
-	PINGPONG_S0,
 	PINGPONG_MAX
 };
 
 enum sde_intf {
-	INTF_0 = 1,
+	INTF_0 = 0,
 	INTF_1,
 	INTF_2,
 	INTF_3,
@@ -153,24 +151,6 @@ enum sde_ad {
 	AD_0 = 0x1,
 	AD_1,
 	AD_MAX
-};
-
-enum sde_cwb {
-	CWB_0 = 0x1,
-	CWB_1,
-	CWB_2,
-	CWB_3,
-	CWB_MAX
-};
-
-enum sde_wd_timer {
-	WD_TIMER_0 = 0x1,
-	WD_TIMER_1,
-	WD_TIMER_2,
-	WD_TIMER_3,
-	WD_TIMER_4,
-	WD_TIMER_5,
-	WD_TIMER_MAX
 };
 
 /**
@@ -228,10 +208,12 @@ enum sde_mdp_fetch_type {
  * expected by the HW programming.
  */
 enum {
-	COLOR_1BIT = 0,
-	COLOR_5BIT = 1,
-	COLOR_6BIT = 2,
-	COLOR_8BIT = 3,
+	COLOR_4BIT,
+	COLOR_5BIT,
+	COLOR_6BIT,
+	COLOR_8BIT,
+	COLOR_ALPHA_1BIT = 0,
+	COLOR_ALPHA_4BIT = 1,
 };
 
 enum sde_alpha_blend_type {
@@ -240,26 +222,6 @@ enum sde_alpha_blend_type {
 	ALPHA_FG_PIXEL,
 	ALPHA_BG_PIXEL,
 	ALPHA_MAX
-};
-
-
-/**
- * enum sde_3d_blend_mode
- * Desribes how the 3d data is blended
- * @BLEND_3D_NONE      : 3d blending not enabled
- * @BLEND_3D_FRAME_INT : Frame interleaving
- * @BLEND_3D_H_ROW_INT : Horizontal row interleaving
- * @BLEND_3D_V_ROW_INT : vertical row interleaving
- * @BLEND_3D_COL_INT   : column interleaving
- * @BLEND_3D_MAX       :
- */
-enum sde_3d_blend_mode {
-	BLEND_3D_NONE = 0,
-	BLEND_3D_FRAME_INT,
-	BLEND_3D_H_ROW_INT,
-	BLEND_3D_V_ROW_INT,
-	BLEND_3D_COL_INT,
-	BLEND_3D_MAX
 };
 
 struct addr_info {

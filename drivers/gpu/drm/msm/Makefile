@@ -40,10 +40,7 @@ msm-y := \
 	mdp/mdp5/mdp5_smp.o \
 	sde/sde_crtc.o \
 	sde/sde_encoder.o \
-	sde/sde_encoder_phys_vid.o \
-	sde/sde_encoder_phys_cmd.o \
 	sde/sde_irq.o \
-	sde/sde_kms_utils.o \
 	sde/sde_kms.o \
 	sde/sde_plane.o \
 	msm_atomic.o \
@@ -54,7 +51,6 @@ msm-y := \
 	msm_gem_submit.o \
 	msm_gpu.o \
 	msm_iommu.o \
-	msm_smmu.o \
 	msm_perf.o \
 	msm_rd.o \
 	msm_ringbuffer.o
@@ -89,7 +85,4 @@ obj-$(CONFIG_DRM_MSM) += sde/sde_hw_catalog.o \
 	sde/sde_hw_mdp_util.o \
 	sde/sde_hw_sspp.o \
 	sde/sde_hw_wb.o \
-	sde/sde_hw_pingpong.o \
-	sde/sde_hw_mdp_top.o \
-	sde/sde_hw_interrupts.o \
-	sde/sde_mdp_formats.o
+	sde/sde_hw_pingpong.o

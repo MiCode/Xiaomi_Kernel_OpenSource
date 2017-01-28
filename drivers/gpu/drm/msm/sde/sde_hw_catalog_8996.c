@@ -146,10 +146,6 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 
 	/* Setup Register maps and defaults */
 	*cfg = (struct sde_mdss_cfg){
-		.mdss_count = 1,
-		.mdss = {
-			{.id = MDP_TOP, .base = 0x00000000, .features = 0}
-		},
 		.mdp_count = 1,
 		.mdp = {
 			{.id = MDP_TOP, .base = 0x00001000, .features = 0,
@@ -175,13 +171,13 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 			{.id = SSPP_VIG3, .base = 0x0000b000,
 			.features = VIG_17X_MASK, .sblk = &layer},
 
-			{.id = SSPP_RGB0, .base = 0x00015000,
+			{.id = SSPP_RGB0, .base = 0x00001500,
 			.features = RGB_17X_MASK, .sblk = &layer},
-			{.id = SSPP_RGB1, .base = 0x00017000,
+			{.id = SSPP_RGB1, .base = 0x00001700,
 			.features = RGB_17X_MASK, .sblk = &layer},
-			{.id = SSPP_RGB2, .base = 0x00019000,
+			{.id = SSPP_RGB2, .base = 0x00001900,
 			.features = RGB_17X_MASK, .sblk = &layer},
-			{.id = SSPP_RGB3, .base = 0x0001B000,
+			{.id = SSPP_RGB3, .base = 0x00001B00,
 			.features = RGB_17X_MASK, .sblk = &layer},
 
 			{.id = SSPP_DMA0, .base = 0x00025000,
@@ -248,17 +244,13 @@ static inline int set_cfg_1xx_init(struct sde_mdss_cfg *cfg)
 		.intf_count = 4,
 		.intf = {
 			{.id = INTF_0, .base = 0x0006B000,
-				.type = INTF_NONE, .controller_id = 0,
-				.prog_fetch_lines_worst_case = 21},
+				.type = INTF_NONE},
 			{.id = INTF_1, .base = 0x0006B800,
-				.type = INTF_DSI, .controller_id = 0,
-				.prog_fetch_lines_worst_case = 21},
+				.type = INTF_DSI},
 			{.id = INTF_2, .base = 0x0006C000,
-				.type = INTF_DSI, .controller_id = 1,
-				.prog_fetch_lines_worst_case = 21},
+				.type = INTF_DSI},
 			{.id = INTF_3, .base = 0x0006C800,
-				.type = INTF_HDMI, .controller_id = 0,
-				.prog_fetch_lines_worst_case = 21},
+				.type = INTF_HDMI},
 		},
 		.wb_count = 3,
 		.wb = {

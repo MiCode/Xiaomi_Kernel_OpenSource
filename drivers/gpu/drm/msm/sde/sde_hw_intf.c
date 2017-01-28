@@ -13,7 +13,6 @@
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_intf.h"
-#include "sde_hw_mdp_top.h"
 
 #define INTF_TIMING_ENGINE_EN           0x000
 #define INTF_CONFIG                     0x004
@@ -71,8 +70,7 @@ static struct sde_intf_cfg *_intf_offset(enum sde_intf intf,
 	int i;
 
 	for (i = 0; i < m->intf_count; i++) {
-		if ((intf == m->intf[i].id) &&
-		(m->intf[i].type != INTF_NONE)) {
+		if (intf == m->intf[i].id) {
 			b->base_off = addr;
 			b->blk_off = m->intf[i].base;
 			b->hwversion = m->hwversion;
@@ -160,13 +158,13 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 		(hsync_polarity << 0);  /* HSYNC Polarity */
 
 	if (!fmt->is_yuv)
-		panel_format = (fmt->bits[C0_G_Y] |
-				(fmt->bits[C1_B_Cb] << 2) |
-				(fmt->bits[C2_R_Cr] << 4) |
+		panel_format = (fmt->bits[0] |
+				(fmt->bits[1] << 2) |
+				(fmt->bits[2] << 4) |
 				(0x21 << 8));
 	 else
-		/* Interface treats all the pixel data in RGB888 format */
-		panel_format = (COLOR_8BIT |
+	/* Interface treats all the pixel data in RGB888 format */
+		panel_format |= (COLOR_8BIT      |
 				(COLOR_8BIT << 2) |
 				(COLOR_8BIT << 4) |
 				(0x21 << 8));
@@ -206,16 +204,10 @@ static void sde_hw_intf_enable_timing_engine(
 
 	/* Display interface select */
 	if (enable) {
-		/* top block */
-		struct sde_hw_mdp *mdp = sde_hw_mdptop_init(MDP_TOP,
-				c->base_off,
-				intf->mdss);
-		struct sde_hw_blk_reg_map *top = &mdp->hw;
+		intf_sel = SDE_REG_READ(c, DISP_INTF_SEL);
 
-		intf_sel = SDE_REG_READ(top, DISP_INTF_SEL);
-
-		intf_sel |= (intf->cap->type << ((intf->idx - INTF_0) * 8));
-		SDE_REG_WRITE(top, DISP_INTF_SEL,  intf_sel);
+		intf_sel |= (intf->cap->type << ((intf->idx) * 8));
+		SDE_REG_WRITE(c, DISP_INTF_SEL,  intf_sel);
 	}
 
 	SDE_REG_WRITE(c, INTF_TIMING_ENGINE_EN,
@@ -362,9 +354,8 @@ struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 		return ERR_PTR(-ENOMEM);
 
 	cfg = _intf_offset(idx, m, addr, &c->hw);
-	if (IS_ERR_OR_NULL(cfg)) {
+	if (!cfg) {
 		kfree(c);
-		pr_err("Error Panic\n");
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -373,7 +364,6 @@ struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 	 */
 	c->idx = idx;
 	c->cap = cfg;
-	c->mdss = m;
 	_setup_intf_ops(&c->ops, c->cap->features);
 
 	/*
@@ -381,9 +371,3 @@ struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 	 */
 	return c;
 }
-
-void sde_hw_intf_deinit(struct sde_hw_intf *intf)
-{
-	kfree(intf);
-}
-

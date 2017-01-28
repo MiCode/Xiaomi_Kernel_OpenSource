@@ -15,7 +15,6 @@
 
 #include "sde_hw_catalog.h"
 #include "sde_hw_mdss.h"
-#include "sde_hw_mdp_util.h"
 
 struct sde_hw_intf;
 
@@ -85,7 +84,6 @@ struct sde_hw_intf {
 	/* intf */
 	enum sde_intf idx;
 	const struct sde_intf_cfg *cap;
-	const struct sde_mdss_cfg *mdss;
 
 	/* ops */
 	struct sde_hw_intf_ops ops;
@@ -101,7 +99,5 @@ struct sde_hw_intf {
 struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,
 		void __iomem *addr,
 		struct sde_mdss_cfg *m);
-
-void sde_hw_intf_deinit(struct sde_hw_intf *intf);
 
 #endif /*_SDE_HW_INTF_H */
