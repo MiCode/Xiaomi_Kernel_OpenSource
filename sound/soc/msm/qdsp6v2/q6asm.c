@@ -2442,13 +2442,14 @@ EXPORT_SYMBOL(q6asm_open_read_v3);
  * @ac: Client session handle
  * @format: encoder format
  * @bits_per_sample: bit width of capture session
+ * @ts_mode: timestamp mode
  */
 int q6asm_open_read_v4(struct audio_client *ac, uint32_t format,
-			uint16_t bits_per_sample)
+			uint16_t bits_per_sample, bool ts_mode)
 {
 	return __q6asm_open_read(ac, format, bits_per_sample,
 				 PCM_MEDIA_FORMAT_V4 /*media fmt block ver*/,
-				 true/*ts_mode*/);
+				 ts_mode);
 }
 EXPORT_SYMBOL(q6asm_open_read_v4);
 
