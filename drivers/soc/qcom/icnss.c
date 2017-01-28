@@ -1661,10 +1661,8 @@ static int icnss_driver_event_server_arrive(void *data)
 	if (ret < 0)
 		goto err_setup_msa;
 
-	ret = wlfw_dynamic_feature_mask_send_sync_msg(penv,
-						      dynamic_feature_mask);
-	if (ret < 0)
-		goto err_setup_msa;
+	wlfw_dynamic_feature_mask_send_sync_msg(penv,
+						dynamic_feature_mask);
 
 	icnss_init_vph_monitor(penv);
 
