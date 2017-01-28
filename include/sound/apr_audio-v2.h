@@ -4976,8 +4976,8 @@ struct asm_amrwbplus_fmt_blk_v2 {
 
 } __packed;
 
-#define ASM_MEDIA_FMT_AC3			0x00010DEE
-#define ASM_MEDIA_FMT_EAC3			0x00010DEF
+#define ASM_MEDIA_FMT_AC3                    0x00010DEE
+#define ASM_MEDIA_FMT_EAC3                   0x00010DEF
 #define ASM_MEDIA_FMT_DTS                    0x00010D88
 #define ASM_MEDIA_FMT_MP2                    0x00010DE9
 #define ASM_MEDIA_FMT_FLAC                   0x00010C16
@@ -4985,7 +4985,6 @@ struct asm_amrwbplus_fmt_blk_v2 {
 #define ASM_MEDIA_FMT_VORBIS                 0x00010C15
 #define ASM_MEDIA_FMT_APE                    0x00012F32
 #define ASM_MEDIA_FMT_DSD                    0x00012F3E
-
 
 /* Media format ID for adaptive transform acoustic coding. This
  * ID is used by the #ASM_STREAM_CMD_OPEN_WRITE_COMPRESSED command
@@ -8991,6 +8990,31 @@ struct asm_dts_eagle_param {
 struct asm_dts_eagle_param_get {
 	struct apr_hdr	hdr;
 	struct asm_stream_cmd_get_pp_params_v2 param;
+} __packed;
+
+/* Opcode to set BT address and license for aptx decoder */
+#define APTX_DECODER_BT_ADDRESS 0x00013201
+#define APTX_CLASSIC_DEC_LICENSE_ID 0x00013202
+
+struct aptx_dec_bt_addr_cfg {
+	uint32_t lap;
+	uint32_t uap;
+	uint32_t nap;
+} __packed;
+
+struct aptx_dec_bt_dev_addr {
+	struct apr_hdr hdr;
+	struct asm_stream_cmd_set_encdec_param encdec;
+	struct aptx_dec_bt_addr_cfg bt_addr_cfg;
+} __packed;
+
+struct asm_aptx_dec_fmt_blk_v2 {
+	struct apr_hdr hdr;
+	struct asm_data_cmd_media_fmt_update_v2 fmtblk;
+	u32     sample_rate;
+/* Number of samples per second.
+ * Supported values: 44100 and 48000 Hz
+ */
 } __packed;
 
 /* LSM Specific */
