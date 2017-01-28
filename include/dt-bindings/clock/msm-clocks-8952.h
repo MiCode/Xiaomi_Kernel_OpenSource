@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -261,6 +261,7 @@
 #define clk_snoc_clk				0x2c341aa0
 #define clk_snoc_a_clk				0x8fcef2af
 #define clk_snoc_usb_a_clk			0x34b7821b
+#define clk_snoc_wcnss_a_clk			0xd3949ebc
 #define clk_snoc_usb_clk			0x29f9d73d
 #define clk_snoc_msmbus_clk			0xe6900bb6
 #define clk_snoc_msmbus_a_clk			0x5d4683bd
@@ -276,6 +277,7 @@
 #define clk_bimc_msmbus_clk			0xd212feea
 #define clk_bimc_msmbus_a_clk			0x71d1a499
 #define clk_bimc_usb_a_clk			0xea410834
+#define clk_bimc_wcnss_a_clk			0x5a6df715
 #define clk_bimc_usb_clk			0x9bd2b2bf
 #define clk_bimc_gpu_clk			0xd3e0a327
 #define clk_bimc_gpu_a_clk			0x67f0e9a5
