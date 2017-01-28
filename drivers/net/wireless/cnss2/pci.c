@@ -989,6 +989,7 @@ static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
 		break;
 	case MHI_DEV_CTRL_DE_INIT:
 		clear_bit(MHI_DEV_CTRL_INIT, &pci_priv->mhi_state);
+		break;
 	case MHI_DEV_CTRL_POWER_ON:
 		set_bit(MHI_DEV_CTRL_POWER_ON, &pci_priv->mhi_state);
 		break;
