@@ -3265,6 +3265,8 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 				(void *)&ctx->intf_mdp_callback,
 				CTL_INTF_EVENT_FLAG_DEFAULT);
 
+			mdss_mdp_tearcheck_enable(ctl, true);
+
 			ctx->intf_stopped = 0;
 			if (sctx)
 				sctx->intf_stopped = 0;
