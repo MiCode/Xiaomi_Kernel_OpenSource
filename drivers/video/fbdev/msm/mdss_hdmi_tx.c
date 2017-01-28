@@ -1610,14 +1610,18 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 		}
 
 		if (hdmi_tx_is_panel_on(hdmi_ctrl)) {
-			DEV_DBG("%s: Reauthenticating\n", __func__);
-			rc = hdmi_ctrl->hdcp_ops->reauthenticate(
-				hdmi_ctrl->hdcp_data);
-			if (rc)
-				DEV_ERR("%s: HDCP reauth failed. rc=%d\n",
-					__func__, rc);
+			pr_debug("%s: Reauthenticating\n", __func__);
+			if (hdmi_ctrl->hdcp_ops && hdmi_ctrl->hdcp_data) {
+				rc = hdmi_ctrl->hdcp_ops->reauthenticate(
+						hdmi_ctrl->hdcp_data);
+				if (rc)
+					pr_err("%s: HDCP reauth failed. rc=%d\n",
+						__func__, rc);
+			} else
+				pr_err("%s: NULL HDCP Ops and Data\n",
+					__func__);
 		} else {
-			DEV_DBG("%s: Not reauthenticating. Cable not conn\n",
+			pr_debug("%s: Not reauthenticating. Cable not conn\n",
 				__func__);
 		}
 
@@ -2284,7 +2288,8 @@ static void hdmi_tx_update_hdcp_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 		if (hdmi_ctrl->hdcp14_present) {
 			fd = hdmi_tx_get_fd(HDMI_TX_FEAT_HDCP);
-			ops = hdcp_1x_start(fd);
+			if (fd)
+				ops = hdcp_1x_start(fd);
 		}
 	}
 
