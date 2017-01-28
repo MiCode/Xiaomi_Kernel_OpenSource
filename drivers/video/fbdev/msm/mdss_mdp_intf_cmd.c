@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,8 +51,10 @@ struct mdss_mdp_cmd_ctx {
 	u32 current_pp_num;
 	/*
 	 * aux_pp_num will be set only when topology is using split-lm.
-	 * aux_pp_num will be used only when MDSS_QUIRK_DSC_RIGHT_ONLY_PU
-	 * quirk is set and on following partial updates.
+	 * aux_pp_num will be used
+	 * if right-only update on DUAL_LM_SINGLE_DISPLAY with 3D Mux
+	 * or if MDSS_QUIRK_DSC_RIGHT_ONLY_PU quirk is set
+	 * and on following partial updates.
 	 *
 	 * right-only update on DUAL_LM_SINGLE_DISPLAY with DSC_MERGE
 	 * right-only update on DUAL_LM_DUAL_DISPLAY with DSC
@@ -119,14 +121,32 @@ static int mdss_mdp_setup_vsync(struct mdss_mdp_cmd_ctx *ctx, bool enable);
 static bool __mdss_mdp_cmd_is_aux_pp_needed(struct mdss_data_type *mdata,
 	struct mdss_mdp_ctl *mctl)
 {
-	return (mdata && mctl && mctl->is_master &&
-		mdss_has_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU) &&
-		is_dsc_compression(&mctl->panel_data->panel_info) &&
-		((mctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) ||
-		 ((mctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) &&
-		  (mctl->panel_data->panel_info.dsc_enc_total == 1))) &&
-		!mctl->mixer_left->valid_roi &&
-		mctl->mixer_right->valid_roi);
+	bool mux3d, merge, quirk, rightonly;
+
+	if (!mdata || !mctl || !mctl->is_master)
+		return false;
+
+	/*
+	 * aux_pp_num will be used:
+	 * if right-only update on DUAL_LM_SINGLE_DISPLAY with 3D Mux
+	 * or if MDSS_QUIRK_DSC_RIGHT_ONLY_PU quirk is set
+	 * and on following partial updates.
+	 *
+	 * right-only update on DUAL_LM_SINGLE_DISPLAY with DSC_MERGE
+	 * right-only update on DUAL_LM_DUAL_DISPLAY with DSC
+	 */
+	mux3d = ((mctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) &&
+			(mctl->opmode & MDSS_MDP_CTL_OP_PACK_3D_ENABLE));
+	merge = ((mctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) &&
+			(mctl->panel_data->panel_info.dsc_enc_total == 1));
+	quirk = (mdss_has_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU) &&
+			is_dsc_compression(&mctl->panel_data->panel_info) &&
+			((mctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) ||
+			merge));
+	rightonly = !mctl->mixer_left->valid_roi &&
+			mctl->mixer_right->valid_roi;
+
+	return ((mux3d || quirk) && rightonly);
 }
 
 static bool __mdss_mdp_cmd_is_panel_power_off(struct mdss_mdp_cmd_ctx *ctx)
