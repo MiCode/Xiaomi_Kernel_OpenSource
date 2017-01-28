@@ -70,6 +70,10 @@
 	status = "disabled";
 };
 
+&int_codec {
+	status = "okay";
+};
+
 &pmic_analog_codec {
 	status = "okay";
 };
