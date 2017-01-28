@@ -236,6 +236,8 @@ int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 	unsigned long			flags;
 
 	int				ret;
+	enum dwc3_link_state		link_state;
+	u32				reg;
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	if (!dep->endpoint.desc) {
@@ -250,6 +252,18 @@ int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 	if (!list_empty(&dep->request_list)) {
 		ret = -EBUSY;
 		goto out;
+	}
+
+	/* if link stats is in L1 initiate  remote wakeup before queuing req */
+	if (dwc->speed != DWC3_DSTS_SUPERSPEED) {
+		link_state = dwc3_get_link_state(dwc);
+		/* in HS this link state is same as L1 */
+		if (link_state == DWC3_LINK_STATE_U2) {
+			dwc->l1_remote_wakeup_cnt++;
+			reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+			reg |= DWC3_DCTL_ULSTCHNG_RECOVERY;
+			dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+		}
 	}
 
 	dwc3_trace(trace_dwc3_ep0,
