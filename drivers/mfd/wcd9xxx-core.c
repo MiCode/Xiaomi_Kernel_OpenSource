@@ -505,6 +505,7 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 
 	mutex_init(&wcd9xxx->io_lock);
 	mutex_init(&wcd9xxx->xfer_lock);
+	mutex_init(&wcd9xxx->reset_lock);
 
 	ret = wcd9xxx_bringup(wcd9xxx->dev);
 	if (ret) {
@@ -583,6 +584,7 @@ err:
 err_bring_up:
 	mutex_destroy(&wcd9xxx->io_lock);
 	mutex_destroy(&wcd9xxx->xfer_lock);
+	mutex_destroy(&wcd9xxx->reset_lock);
 	return ret;
 }
 
@@ -595,6 +597,7 @@ static void wcd9xxx_device_exit(struct wcd9xxx *wcd9xxx)
 	wcd9xxx_core_res_deinit(&wcd9xxx->core_res);
 	mutex_destroy(&wcd9xxx->io_lock);
 	mutex_destroy(&wcd9xxx->xfer_lock);
+	mutex_destroy(&wcd9xxx->reset_lock);
 	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
 		slim_remove_device(wcd9xxx->slim_slave);
 }
@@ -1480,9 +1483,11 @@ static int wcd9xxx_slim_device_reset(struct slim_device *sldev)
 	if (wcd9xxx->dev_up)
 		return 0;
 
+	mutex_lock(&wcd9xxx->reset_lock);
 	ret = wcd9xxx_reset(wcd9xxx->dev);
 	if (ret)
 		dev_err(wcd9xxx->dev, "%s: Resetting Codec failed\n", __func__);
+	mutex_unlock(&wcd9xxx->reset_lock);
 
 	return ret;
 }
@@ -1490,6 +1495,7 @@ static int wcd9xxx_slim_device_reset(struct slim_device *sldev)
 static int wcd9xxx_slim_device_up(struct slim_device *sldev)
 {
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
+	int ret = 0;
 
 	if (!wcd9xxx) {
 		pr_err("%s: wcd9xxx is NULL\n", __func__);
@@ -1501,7 +1507,12 @@ static int wcd9xxx_slim_device_up(struct slim_device *sldev)
 		return 0;
 
 	wcd9xxx->dev_up = true;
-	return wcd9xxx_device_up(wcd9xxx);
+
+	mutex_lock(&wcd9xxx->reset_lock);
+	ret = wcd9xxx_device_up(wcd9xxx);
+	mutex_unlock(&wcd9xxx->reset_lock);
+
+	return ret;
 }
 
 static int wcd9xxx_slim_device_down(struct slim_device *sldev)
@@ -1519,10 +1530,14 @@ static int wcd9xxx_slim_device_down(struct slim_device *sldev)
 		return 0;
 
 	wcd9xxx->dev_up = false;
+
+	mutex_lock(&wcd9xxx->reset_lock);
 	if (wcd9xxx->dev_down)
 		wcd9xxx->dev_down(wcd9xxx);
 	wcd9xxx_irq_exit(&wcd9xxx->core_res);
 	wcd9xxx_reset_low(wcd9xxx->dev);
+	mutex_unlock(&wcd9xxx->reset_lock);
+
 	return 0;
 }
 
