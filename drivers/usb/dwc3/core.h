@@ -984,6 +984,8 @@ struct dwc3 {
 	unsigned                irq_event_count[MAX_INTR_STATS];
 	unsigned                irq_dbg_index;
 
+	unsigned long		l1_remote_wakeup_cnt;
+
 	wait_queue_head_t	wait_linkstate;
 	void			*dwc_ipc_log_ctxt;
 };
