@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 Qualcomm Atheros, Inc.
+ * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -39,6 +39,7 @@ extern bool debug_fw;
 #define WIL_FW_NAME "wil6210.fw" /* code */
 #define WIL_FW2_NAME "wil6210.brd" /* board & radio parameters */
 
+#define WIL_DEFAULT_BUS_REQUEST_KBPS 128000 /* ~1Gbps */
 #define WIL_MAX_BUS_REQUEST_KBPS 800000 /* ~6.1Gbps */
 
 /**
@@ -892,7 +893,7 @@ int wmi_aoa_meas(struct wil6210_priv *wil, const void *mac_addr, u8 chan,
 		 u8 type);
 int wmi_abort_scan(struct wil6210_priv *wil);
 void wil_abort_scan(struct wil6210_priv *wil, bool sync);
-
+void wil6210_bus_request(struct wil6210_priv *wil, u32 kbps);
 void wil6210_disconnect(struct wil6210_priv *wil, const u8 *bssid,
 			u16 reason_code, bool from_event);
 void wil_probe_client_flush(struct wil6210_priv *wil);
