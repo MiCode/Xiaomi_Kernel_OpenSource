@@ -24,9 +24,3 @@
 	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
 			<0x0001001b 0x0201011a 0x0 0x0>;
 };
-
-&int_codec {
-	status = "okay";
-	qcom,msm-hs-micbias-type = "internal";
-	qcom,msm-micbias2-ext-cap;
-};
