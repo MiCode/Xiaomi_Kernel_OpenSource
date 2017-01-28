@@ -722,8 +722,7 @@ static struct cal_block_data *msm_routing_find_topology_by_path(int path)
 
 static struct cal_block_data *msm_routing_find_topology(int path,
 							int app_type,
-							int acdb_id,
-							int sample_rate)
+							int acdb_id)
 {
 	struct list_head		*ptr, *next;
 	struct cal_block_data		*cal_block = NULL;
@@ -740,13 +739,12 @@ static struct cal_block_data *msm_routing_find_topology(int path,
 			cal_block->cal_info;
 		if ((cal_info->path == path)  &&
 			(cal_info->app_type == app_type) &&
-			(cal_info->acdb_id == acdb_id) &&
-			(cal_info->sample_rate == sample_rate)) {
+			(cal_info->acdb_id == acdb_id)) {
 			return cal_block;
 		}
 	}
-	pr_debug("%s: Can't find topology for path %d, app %d, acdb_id %d sample_rate %d defaulting to search by path\n",
-		__func__, path, app_type, acdb_id, sample_rate);
+	pr_debug("%s: Can't find topology for path %d, app %d, acdb_id %d defaulting to search by path\n",
+		__func__, path, app_type, acdb_id);
 	return msm_routing_find_topology_by_path(path);
 }
 
@@ -755,7 +753,7 @@ static int msm_routing_get_adm_topology(int path, int fedai_id,
 {
 	int				topology = NULL_COPP_TOPOLOGY;
 	struct cal_block_data		*cal_block = NULL;
-	int app_type = 0, acdb_dev_id = 0, sample_rate = 0;
+	int app_type = 0, acdb_dev_id = 0;
 	pr_debug("%s\n", __func__);
 
 	path = get_cal_path(path);
@@ -766,10 +764,8 @@ static int msm_routing_get_adm_topology(int path, int fedai_id,
 
 	app_type = fe_dai_app_type_cfg[fedai_id][session_type].app_type;
 	acdb_dev_id = fe_dai_app_type_cfg[fedai_id][session_type].acdb_dev_id;
-	sample_rate = fe_dai_app_type_cfg[fedai_id][session_type].sample_rate;
 
-	cal_block = msm_routing_find_topology(path, app_type,
-					      acdb_dev_id, sample_rate);
+	cal_block = msm_routing_find_topology(path, app_type, acdb_dev_id);
 	if (cal_block == NULL)
 		goto unlock;
 
