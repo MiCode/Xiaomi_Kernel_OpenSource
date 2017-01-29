@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1308,7 +1308,11 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 		debugfs_remove_recursive(inst->debugfs_root);
 
 		mutex_lock(&inst->pending_getpropq.lock);
-		WARN_ON(!list_empty(&inst->pending_getpropq.list));
+		if (!list_empty(&inst->pending_getpropq.list)) {
+			dprintk(VIDC_ERR,
+				"pending_getpropq not empty\n");
+			WARN_ON(VIDC_DBG_WARN_ENABLE);
+		}
 		mutex_unlock(&inst->pending_getpropq.lock);
 	}
 }
