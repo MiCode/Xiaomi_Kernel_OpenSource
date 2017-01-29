@@ -2507,6 +2507,23 @@ static struct device_node *mdss_dsi_get_fb_node_cb(struct platform_device *pdev)
 	return fb_node;
 }
 
+static void mdss_dsi_timing_db_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
+						int enable)
+{
+	if (!ctrl || !ctrl->timing_db_mode ||
+		(ctrl->shared_data->hw_rev < MDSS_DSI_HW_REV_201))
+		return;
+
+	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle,
+		  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_ON);
+	MIPI_OUTP((ctrl->ctrl_base + 0x1e8), enable);
+	wmb(); /* ensure timing db is disabled */
+	MIPI_OUTP((ctrl->ctrl_base + 0x1e4), enable);
+	wmb(); /* ensure timing flush is disabled */
+	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle,
+		  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_OFF);
+}
+
 static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
@@ -2679,6 +2696,9 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 				queue_delayed_work(ctrl_pdata->workq,
 					&ctrl_pdata->dba_work, HZ);
 		}
+		break;
+	case MDSS_EVENT_DSI_TIMING_DB_CTRL:
+		mdss_dsi_timing_db_ctrl(ctrl_pdata, (int)(unsigned long)arg);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);

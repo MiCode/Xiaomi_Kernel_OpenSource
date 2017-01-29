@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -281,7 +281,7 @@ struct mdss_data_type {
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
 	struct regulator *fs;
-	struct regulator *venus;
+	struct regulator *core_gdsc;
 	struct regulator *vdd_cx;
 	u32 vdd_cx_min_uv;
 	u32 vdd_cx_max_uv;

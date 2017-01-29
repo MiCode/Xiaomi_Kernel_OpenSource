@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1216,7 +1216,8 @@ static int sde_rotator_try_fmt_vid_cap(struct file *file,
 	config.output.format = f->fmt.pix.pixelformat;
 	config.output.width = f->fmt.pix.width;
 	config.output.height = f->fmt.pix.height;
-	ret = sde_rotator_verify_config(rot_dev->mgr, &config);
+	config.flags |= SDE_ROTATION_VERIFY_INPUT_ONLY;
+	ret = sde_rotator_verify_config_output(rot_dev->mgr, &config);
 	sde_rot_mgr_unlock(rot_dev->mgr);
 	if (ret) {
 		if ((config.output.width == f->fmt.pix.width) &&
@@ -1233,7 +1234,7 @@ static int sde_rotator_try_fmt_vid_cap(struct file *file,
 	}
 
 	sde_rotator_format_recalc(f);
-	return 0;
+	return ret;
 }
 
 /*
@@ -1263,7 +1264,7 @@ static int sde_rotator_try_fmt_vid_out(struct file *file,
 	config.input.width = f->fmt.pix.width;
 	config.input.height = f->fmt.pix.height;
 	config.flags |= SDE_ROTATION_VERIFY_INPUT_ONLY;
-	ret = sde_rotator_verify_config(rot_dev->mgr, &config);
+	ret = sde_rotator_verify_config_input(rot_dev->mgr, &config);
 	sde_rot_mgr_unlock(rot_dev->mgr);
 	if (ret) {
 		if ((config.input.width == f->fmt.pix.width) &&
@@ -1280,7 +1281,7 @@ static int sde_rotator_try_fmt_vid_out(struct file *file,
 	}
 
 	sde_rotator_format_recalc(f);
-	return 0;
+	return ret;
 }
 
 /*
@@ -1510,6 +1511,7 @@ static int sde_rotator_streamon(struct file *file,
 	if (vb2_is_streaming(vq)) {
 		sde_rot_mgr_lock(rot_dev->mgr);
 		sde_rotator_get_config_from_ctx(ctx, &config);
+		config.flags &= ~SDE_ROTATION_VERIFY_INPUT_ONLY;
 		ret = sde_rotator_session_config(rot_dev->mgr, ctx->private,
 				&config);
 		sde_rot_mgr_unlock(rot_dev->mgr);

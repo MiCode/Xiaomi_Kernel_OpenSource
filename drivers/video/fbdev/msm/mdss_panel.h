@@ -118,6 +118,11 @@ enum {
 };
 
 enum {
+	MDSS_PANEL_LOW_PERSIST_MODE_OFF = 0,
+	MDSS_PANEL_LOW_PERSIST_MODE_ON,
+};
+
+enum {
 	MODE_GPIO_NOT_VALID = 0,
 	MODE_SEL_DUAL_PORT,
 	MODE_SEL_SINGLE_PORT,
@@ -293,6 +298,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DEEP_COLOR,
 	MDSS_EVENT_DISABLE_PANEL,
 	MDSS_EVENT_UPDATE_PANEL_PPM,
+	MDSS_EVENT_DSI_TIMING_DB_CTRL,
 	MDSS_EVENT_MAX,
 };
 
@@ -748,6 +754,8 @@ struct mdss_panel_hdr_properties {
 
 	/* peak brightness supported by panel */
 	u32 peak_brightness;
+	/* average brightness supported by panel */
+	u32 avg_brightness;
 	/* Blackness level supported by panel */
 	u32 blackness_level;
 };
@@ -894,6 +902,9 @@ struct mdss_panel_info {
 	/* debugfs structure for the panel */
 	struct mdss_panel_debugfs_info *debugfs_info;
 
+	/* persistence mode on/off */
+	bool persist_mode;
+
 	/* stores initial adaptive variable refresh vtotal value */
 	u32 saved_avr_vtotal;
 
@@ -938,6 +949,7 @@ struct mdss_panel_timing {
 struct mdss_panel_data {
 	struct mdss_panel_info panel_info;
 	void (*set_backlight) (struct mdss_panel_data *pdata, u32 bl_level);
+	int (*apply_display_setting)(struct mdss_panel_data *pdata, u32 mode);
 	unsigned char *mmss_cc_base;
 
 	/**

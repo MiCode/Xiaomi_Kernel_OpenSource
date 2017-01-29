@@ -2478,6 +2478,11 @@ bool hdmi_edid_is_s3d_mode_supported(void *input, u32 video_mode, u32 s3d_mode)
 	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
 	struct hdmi_edid_sink_data *sink_data;
 
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return false;
+	}
+
 	sink_data = &edid_ctrl->sink_data;
 	for (i = 0; i < sink_data->num_of_elements; ++i) {
 		if (sink_data->disp_mode_list[i].video_format != video_mode)

@@ -722,8 +722,7 @@ static struct cal_block_data *msm_routing_find_topology_by_path(int path)
 
 static struct cal_block_data *msm_routing_find_topology(int path,
 							int app_type,
-							int acdb_id,
-							int sample_rate)
+							int acdb_id)
 {
 	struct list_head		*ptr, *next;
 	struct cal_block_data		*cal_block = NULL;
@@ -740,13 +739,12 @@ static struct cal_block_data *msm_routing_find_topology(int path,
 			cal_block->cal_info;
 		if ((cal_info->path == path)  &&
 			(cal_info->app_type == app_type) &&
-			(cal_info->acdb_id == acdb_id) &&
-			(cal_info->sample_rate == sample_rate)) {
+			(cal_info->acdb_id == acdb_id)) {
 			return cal_block;
 		}
 	}
-	pr_debug("%s: Can't find topology for path %d, app %d, acdb_id %d sample_rate %d defaulting to search by path\n",
-		__func__, path, app_type, acdb_id, sample_rate);
+	pr_debug("%s: Can't find topology for path %d, app %d, acdb_id %d defaulting to search by path\n",
+		__func__, path, app_type, acdb_id);
 	return msm_routing_find_topology_by_path(path);
 }
 
@@ -755,7 +753,7 @@ static int msm_routing_get_adm_topology(int path, int fedai_id,
 {
 	int				topology = NULL_COPP_TOPOLOGY;
 	struct cal_block_data		*cal_block = NULL;
-	int app_type = 0, acdb_dev_id = 0, sample_rate = 0;
+	int app_type = 0, acdb_dev_id = 0;
 	pr_debug("%s\n", __func__);
 
 	path = get_cal_path(path);
@@ -766,10 +764,8 @@ static int msm_routing_get_adm_topology(int path, int fedai_id,
 
 	app_type = fe_dai_app_type_cfg[fedai_id][session_type].app_type;
 	acdb_dev_id = fe_dai_app_type_cfg[fedai_id][session_type].acdb_dev_id;
-	sample_rate = fe_dai_app_type_cfg[fedai_id][session_type].sample_rate;
 
-	cal_block = msm_routing_find_topology(path, app_type,
-					      acdb_dev_id, sample_rate);
+	cal_block = msm_routing_find_topology(path, app_type, acdb_dev_id);
 	if (cal_block == NULL)
 		goto unlock;
 
@@ -4899,6 +4895,12 @@ static const struct snd_kcontrol_new mmul2_mixer_controls[] = {
 	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
 	SOC_SINGLE_EXT("SLIM_0_TX", MSM_BACKEND_DAI_SLIMBUS_0_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("SLIM_6_TX", MSM_BACKEND_DAI_SLIMBUS_6_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("SLIM_1_TX", MSM_BACKEND_DAI_SLIMBUS_1_TX,
 	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
 	SOC_SINGLE_EXT("QUIN_MI2S_TX", MSM_BACKEND_DAI_QUINARY_MI2S_TX,
@@ -10297,6 +10299,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MultiMedia3 Mixer", "QUAT_AUX_PCM_TX", "QUAT_AUX_PCM_TX"},
 	{"MultiMedia5 Mixer", "QUAT_AUX_PCM_TX", "QUAT_AUX_PCM_TX"},
 	{"MultiMedia2 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
+	{"MultiMedia2 Mixer", "SLIM_6_TX", "SLIMBUS_6_TX"},
+	{"MultiMedia2 Mixer", "SLIM_1_TX", "SLIMBUS_1_TX"},
 	{"MultiMedia2 Mixer", "SLIM_8_TX", "SLIMBUS_8_TX"},
 	{"MultiMedia1 Mixer", "SEC_MI2S_TX", "SEC_MI2S_TX"},
 	{"MultiMedia1 Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
@@ -12107,6 +12111,33 @@ static const struct snd_kcontrol_new device_pp_params_mixer_controls[] = {
 	msm_routing_put_device_pp_params_mixer),
 };
 
+static int msm_aptx_dec_license_control_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] =
+			core_get_license_status(ASM_MEDIA_FMT_APTX);
+	pr_debug("%s: status %ld\n", __func__,
+			ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_aptx_dec_license_control_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int32_t status = 0;
+
+	status = core_set_license(ucontrol->value.integer.value[0],
+				APTX_CLASSIC_DEC_LICENSE_ID);
+	pr_debug("%s: status %d\n", __func__, status);
+	return status;
+}
+
+static const struct snd_kcontrol_new aptx_dec_license_controls[] = {
+	SOC_SINGLE_EXT("APTX Dec License", SND_SOC_NOPM, 0,
+	0xFFFF, 0, msm_aptx_dec_license_control_get,
+	msm_aptx_dec_license_control_put),
+};
+
 static struct snd_pcm_ops msm_routing_pcm_ops = {
 	.hw_params	= msm_pcm_routing_hw_params,
 	.close          = msm_pcm_routing_close,
@@ -12159,6 +12190,9 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 				ARRAY_SIZE(msm_source_tracking_controls));
 	snd_soc_add_platform_controls(platform, adm_channel_config_controls,
 				ARRAY_SIZE(adm_channel_config_controls));
+
+	snd_soc_add_platform_controls(platform, aptx_dec_license_controls,
+					ARRAY_SIZE(aptx_dec_license_controls));
 	return 0;
 }
 
