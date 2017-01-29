@@ -137,6 +137,7 @@ struct sde_connector_ops {
  * @property_info: Private structure for generic property handling
  * @property_data: Array of private data for generic property handling
  * @blob_caps: Pointer to blob structure for 'capabilities' property
+ * @fb_kmap: true if kernel mapping of framebuffer is requested
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -157,6 +158,8 @@ struct sde_connector {
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[CONNECTOR_PROP_COUNT];
 	struct drm_property_blob *blob_caps;
+
+	bool fb_kmap;
 };
 
 /**
