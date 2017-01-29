@@ -1,0 +1,96 @@
+Qualcomm Technologies, Inc.
+
+mdss-dsi is the master DSI device which supports multiple DSI host controllers
+that are compatible with MIPI display serial interface specification.
+
+DSI Controller:
+Required properties:
+- compatible:           Should be "qcom,dsi-ctrl-hw-v<version>". Supported
+			versions include 1.4 and 2.0.
+			eg: qcom,dsi-ctrl-hw-v1.4, qcom,dsi-ctrl-hw-v2.0
+			And for dsi phy driver:
+			qcom,dsi-phy-v1.0, qcom,dsi-phy-v2.0, qcom,dsi-phy-v3.0,
+			qcom,dsi-phy-v4.0
+- reg:                  Base address and length of DSI controller's memory
+			mapped regions.
+- reg-names:            A list of strings that name the list of regs.
+			"dsi_ctrl" - DSI controller memory region.
+			"mmss_misc" - MMSS misc memory region.
+- cell-index:           Specifies the controller instance.
+- clocks:               Clocks required for DSI controller operation.
+- clock-names:          Names of the clocks corresponding to handles. Following
+			clocks are required:
+			"mdp_core_clk"
+			"iface_clk"
+			"core_mmss_clk"
+			"bus_clk"
+			"byte_clk"
+			"pixel_clk"
+			"core_clk"
+			"byte_clk_rcg"
+			"pixel_clk_rcg"
+- gdsc-supply:		phandle to gdsc regulator node.
+- vdda-supply:		phandle to vdda regulator node.
+- vcca-supply:		phandle to vcca regulator node.
+- interrupt-parent	phandle to the interrupt parent device node.
+- interrupts:		The interrupt signal from the DSI block.
+
+Bus Scaling Data:
+- qcom,msm-bus,name:		String property describing MDSS client.
+- qcom,msm-bus,num-cases:	This is the number of bus scaling use cases
+				defined in the vectors property. This must be
+				set to <2> for MDSS DSI driver where use-case 0
+				is used to remove BW votes from the system. Use
+				case 1 is used to generate bandwidth requestes
+				when sending command packets.
+- qcom,msm-bus,num-paths:	This represents number of paths in each bus
+				scaling usecase. This value depends on number of
+				AXI master ports dedicated to MDSS for
+				particular chipset.
+- qcom,msm-bus,vectors-KBps:	A series of 4 cell properties, with a format
+				of (src, dst, ab, ib) which is defined at
+				Documentation/devicetree/bindings/arm/msm/msm_bus.txt.
+				DSI driver should always set average bandwidth
+				(ab) to 0 and always use instantaneous
+				bandwidth(ib) values.
+
+Optional properties:
+- label:                  String to describe controller.
+- qcom,platform-te-gpio:  Specifies the gpio used for TE.
+- qcom,dsi-display-active: Current active display
+- qcom,dsi-ctrl: handle to dsi controller device
+- qcom,dsi-phy: handle to dsi phy device
+- qcom,dsi-manager:       Specifies dsi manager is present
+- qcom,dsi-display:       Specifies dsi display is present
+- qcom,hdmi-display:      Specifies hdmi is present
+- qcom,dp-display:        Specified dp is present
+- qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the
+					a particular "type" of DSI module. The module "types"
+					can be "core", "ctrl", and "phy". Within the same type,
+					there can be more than one instance of this binding,
+					in which case the entry would be appended with the
+					supply entry index.
+					e.g. qcom,ctrl-supply-entry@0
+					-- qcom,supply-name: name of the supply (vdd/vdda/vddio)
+					-- qcom,supply-min-voltage: minimum voltage level (uV)
+					-- qcom,supply-max-voltage: maximum voltage level (uV)
+					-- qcom,supply-enable-load: load drawn (uA) from enabled supply
+					-- qcom,supply-disable-load: load drawn (uA) from disabled supply
+					-- qcom,supply-pre-on-sleep: time to sleep (ms) before turning on
+					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
+					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
+					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+- qcom,mdss-mdp-transfer-time-us:	Specifies the dsi transfer time for command mode
+					panels in microseconds. Driver uses this number to adjust
+					the clock rate according to the expected transfer time.
+					Increasing this value would slow down the mdp processing
+					and can result in slower performance.
+					Decreasing this value can speed up the mdp processing,
+					but this can also impact power consumption.
+					As a rule this time should not be higher than the time
+					that would be expected with the processing at the
+					dsi link rate since anyways this would be the maximum
+					transfer time that could be achieved.
+					If ping pong split enabled, this time should not be higher
+					than two times the dsi link rate time.
+					If the property is not specified, then the default value is 14000 us.
