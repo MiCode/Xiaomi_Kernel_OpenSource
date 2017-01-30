@@ -6681,6 +6681,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	bool safe_to_pack = false;
 	unsigned int target_cpu_util = UINT_MAX;
 	long target_cpu_new_util_cum = LONG_MAX;
+	struct cpumask *rtg_target = NULL;
 	bool need_idle;
 	bool skip_ediff = false;
 
@@ -6698,6 +6699,15 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	need_idle = wake_to_idle(p);
 
 	if (sysctl_sched_is_big_little) {
+		struct related_thread_group *grp;
+
+		rcu_read_lock();
+		grp = task_related_thread_group(p);
+		rcu_read_unlock();
+
+		if (grp && grp->preferred_cluster)
+			rtg_target = &grp->preferred_cluster->cpus;
+
 		task_util_boosted = boosted_task_util(p);
 
 		/*
@@ -6720,9 +6730,22 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			    task_fits_max(p, max_cap_cpu)) {
 				sg_target = sg;
 
-				if (sync && curr_util >= task_util_boosted) {
+				if (rtg_target) {
+					/*
+					 * For tasks that belong to a related
+					 * thread group, select the preferred
+					 * cluster if the task can fit there,
+					 * otherwise select the cluster which
+					 * can fit the task.
+					 */
+					if (cpumask_test_cpu(max_cap_cpu,
+							     rtg_target))
+						break;
+					continue;
+				} else if (sync && curr_util >=
+					   task_util_boosted) {
 					if (cpumask_test_cpu(cpu,
-							     sched_group_cpus(sg))) {
+							sched_group_cpus(sg))) {
 						if (!cpumask_test_cpu(task_cpu(p),
 								      sched_group_cpus(sg)))
 							skip_ediff = true;
@@ -6886,6 +6909,20 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			.sync_cpu	= sync ? smp_processor_id() : -1,
 			.curr_util	= curr_util,
 		};
+
+		/*
+		 * If the previous CPU does not belong to the preferred_cluster,
+		 * there is no need to evaluate energy difference. We want
+		 * to migrate the task to the preferred cluster.
+		 *
+		 */
+		if (rtg_target && !cpumask_test_cpu(eenv.src_cpu, rtg_target)) {
+			trace_sched_task_util_colocated(p, task_cpu(p),
+						task_util(p),
+						cpumask_first(rtg_target),
+						target_cpu, 0, need_idle);
+			return target_cpu;
+		}
 
 #ifdef CONFIG_SCHED_WALT
 		if (walt_disabled || !sysctl_sched_use_walt_cpu_util)
@@ -7782,6 +7819,10 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	env->flags &= ~LBF_ALL_PINNED;
 
 #ifdef CONFIG_SCHED_WALT
+	if (env->flags & LBF_IGNORE_PREFERRED_CLUSTER_TASKS &&
+			 !preferred_cluster(cpu_rq(env->dst_cpu)->cluster, p))
+		return 0;
+
 	/* Don't detach task if it doesn't fit on the destination */
 	if (env->flags & LBF_IGNORE_BIG_TASKS &&
 		!task_fits_max(p, env->dst_cpu))
@@ -7805,10 +7846,6 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	 * one that actually fits.
 	 */
 	if (env->flags & LBF_IGNORE_BIG_TASKS && !twf)
-		return 0;
-
-	if (env->flags & LBF_IGNORE_PREFERRED_CLUSTER_TASKS &&
-	    !preferred_cluster(rq_cluster(cpu_rq(env->dst_cpu)), p))
 		return 0;
 
 	/*
