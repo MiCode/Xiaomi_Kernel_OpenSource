@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,8 +33,8 @@ enum cnss_mhi_state {
 	CNSS_MHI_DEINIT,
 	CNSS_MHI_SUSPEND,
 	CNSS_MHI_RESUME,
-	CNSS_MHI_POWER_ON,
 	CNSS_MHI_POWER_OFF,
+	CNSS_MHI_POWER_ON,
 	CNSS_MHI_RAM_DUMP,
 	CNSS_MHI_NOTIFY_LINK_ERROR,
 };
@@ -122,6 +122,7 @@ int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_resume_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_pci_init(struct cnss_plat_data *plat_priv);
 void cnss_pci_deinit(struct cnss_plat_data *plat_priv);
+int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv);
 int cnss_pci_get_bar_info(struct cnss_pci_data *pci_priv, void __iomem **va,
 			  phys_addr_t *pa);
 int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,

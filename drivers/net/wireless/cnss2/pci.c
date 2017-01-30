@@ -394,6 +394,53 @@ out:
 	return ret;
 }
 
+static int cnss_pci_suspend_noirq(struct device *dev)
+{
+	int ret = 0;
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv;
+	struct cnss_wlan_driver *driver_ops;
+
+	if (!pci_priv)
+		goto out;
+
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
+		goto out;
+
+	driver_ops = plat_priv->driver_ops;
+	if (driver_ops && driver_ops->suspend_noirq)
+		ret = driver_ops->suspend_noirq(pci_dev);
+
+out:
+	return ret;
+}
+
+static int cnss_pci_resume_noirq(struct device *dev)
+{
+	int ret = 0;
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv;
+	struct cnss_wlan_driver *driver_ops;
+
+	if (!pci_priv)
+		goto out;
+
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
+		goto out;
+
+	driver_ops = plat_priv->driver_ops;
+	if (driver_ops && driver_ops->resume_noirq &&
+	    !pci_priv->pci_link_down_ind)
+		ret = driver_ops->resume_noirq(pci_dev);
+
+out:
+	return ret;
+}
+
 static int cnss_pci_runtime_suspend(struct device *dev)
 {
 	int ret = 0;
@@ -572,6 +619,43 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(cnss_auto_resume);
+
+int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct cnss_fw_mem *fw_mem = &plat_priv->fw_mem;
+
+	if (!fw_mem->va && fw_mem->size) {
+		fw_mem->va = dma_alloc_coherent(&pci_priv->pci_dev->dev,
+						fw_mem->size, &fw_mem->pa,
+						GFP_KERNEL);
+		if (!fw_mem->va) {
+			cnss_pr_err("Failed to allocate memory for FW, size: 0x%zx\n",
+				    fw_mem->size);
+			fw_mem->size = 0;
+
+			return -ENOMEM;
+		}
+	}
+
+	return 0;
+}
+
+static void cnss_pci_free_fw_mem(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct cnss_fw_mem *fw_mem = &plat_priv->fw_mem;
+
+	if (fw_mem->va && fw_mem->size) {
+		cnss_pr_dbg("Freeing memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx\n",
+			    fw_mem->va, &fw_mem->pa, fw_mem->size);
+		dma_free_coherent(&pci_priv->pci_dev->dev, fw_mem->size,
+				  fw_mem->va, fw_mem->pa);
+		fw_mem->va = NULL;
+		fw_mem->pa = 0;
+		fw_mem->size = 0;
+	}
+}
 
 int cnss_pci_get_bar_info(struct cnss_pci_data *pci_priv, void __iomem **va,
 			  phys_addr_t *pa)
@@ -829,6 +913,30 @@ static void cnss_mhi_pm_runtime_put_noidle(struct pci_dev *pci_dev)
 	pm_runtime_put_noidle(&pci_dev->dev);
 }
 
+static char *mhi_dev_state_to_str(enum mhi_dev_ctrl state)
+{
+	switch (state) {
+	case MHI_DEV_CTRL_INIT:
+		return "INIT";
+	case MHI_DEV_CTRL_DE_INIT:
+		return "DEINIT";
+	case MHI_DEV_CTRL_POWER_ON:
+		return "POWER_ON";
+	case MHI_DEV_CTRL_POWER_OFF:
+		return "POWER_OFF";
+	case MHI_DEV_CTRL_SUSPEND:
+		return "SUSPEND";
+	case MHI_DEV_CTRL_RESUME:
+		return "RESUME";
+	case MHI_DEV_CTRL_RAM_DUMP:
+		return "RAM_DUMP";
+	case MHI_DEV_CTRL_NOTIFY_LINK_ERROR:
+		return "NOTIFY_LINK_ERROR";
+	default:
+		return "UNKNOWN";
+	}
+};
+
 static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -924,11 +1032,13 @@ static int cnss_pci_check_mhi_state_bit(struct cnss_pci_data *pci_priv,
 			return 0;
 		break;
 	default:
-		cnss_pr_err("Unhandled MHI DEV state (%d)\n", mhi_dev_state);
+		cnss_pr_err("Unhandled MHI DEV state: %s(%d)\n",
+			    mhi_dev_state_to_str(mhi_dev_state), mhi_dev_state);
 	}
 
-	cnss_pr_err("Cannot set MHI DEV state (%d) in current MHI state (0x%lx)\n",
-		    mhi_dev_state, pci_priv->mhi_state);
+	cnss_pr_err("Cannot set MHI DEV state %s(%d) in current MHI state (0x%lx)\n",
+		    mhi_dev_state_to_str(mhi_dev_state), mhi_dev_state,
+		    pci_priv->mhi_state);
 
 	return -EINVAL;
 }
@@ -942,6 +1052,7 @@ static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
 		break;
 	case MHI_DEV_CTRL_DE_INIT:
 		clear_bit(MHI_DEV_CTRL_INIT, &pci_priv->mhi_state);
+		break;
 	case MHI_DEV_CTRL_POWER_ON:
 		set_bit(MHI_DEV_CTRL_POWER_ON, &pci_priv->mhi_state);
 		break;
@@ -979,11 +1090,12 @@ int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 	if (ret)
 		goto out;
 
-	cnss_pr_dbg("Setting MHI DEV state (%d)\n", mhi_dev_state);
+	cnss_pr_dbg("Setting MHI DEV state: %s(%d)\n",
+		    mhi_dev_state_to_str(mhi_dev_state), mhi_dev_state);
 	ret = mhi_pm_control_device(&pci_priv->mhi_dev, mhi_dev_state);
 	if (ret) {
-		cnss_pr_err("Failed to set MHI DEV state (%d)\n",
-			    mhi_dev_state);
+		cnss_pr_err("Failed to set MHI DEV state: %s(%d)\n",
+			    mhi_dev_state_to_str(mhi_dev_state), mhi_dev_state);
 		goto out;
 	}
 
@@ -1149,6 +1261,8 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	struct cnss_plat_data *plat_priv =
 		cnss_bus_dev_to_plat_priv(&pci_dev->dev);
 
+	cnss_pci_free_fw_mem(pci_priv);
+
 	if (pci_dev->device == QCA6290_DEVICE_ID) {
 		cnss_pci_unregister_mhi(pci_priv);
 		cnss_pci_disable_msi(pci_priv);
@@ -1171,6 +1285,8 @@ MODULE_DEVICE_TABLE(pci, cnss_pci_id_table);
 
 static const struct dev_pm_ops cnss_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(cnss_pci_suspend, cnss_pci_resume)
+	.suspend_noirq = cnss_pci_suspend_noirq,
+	.resume_noirq = cnss_pci_resume_noirq,
 	SET_RUNTIME_PM_OPS(cnss_pci_runtime_suspend, cnss_pci_runtime_resume,
 			   cnss_pci_runtime_idle)
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -379,7 +379,7 @@ static void msm_hsic_start(void)
 		while (seq[0] >= 0 && seq_count > 0) {
 			val = readl_relaxed(mhsic->tlmm_regs + seq[0]);
 			val |= seq[1];
-			dev_dbg(mhsic->dev, "%s: writing %x to %p\n",
+			dev_dbg(mhsic->dev, "%s: writing %x to %pK\n",
 				__func__, val, mhsic->tlmm_regs + seq[0]);
 			writel_relaxed(val, mhsic->tlmm_regs + seq[0]);
 			seq += 2;
@@ -948,7 +948,7 @@ static int msm_hsic_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto error;
 	}
-	dev_info(&pdev->dev, "HSIC Peripheral regs = %p\n", mhsic->regs);
+	dev_info(&pdev->dev, "HSIC Peripheral regs = %pK\n", mhsic->regs);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res && pdata->tlmm_init_seq) {

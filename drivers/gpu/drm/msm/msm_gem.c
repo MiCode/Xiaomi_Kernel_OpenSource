@@ -854,7 +854,9 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 
 	size = PAGE_ALIGN(size);
 
+	mutex_lock(&dev->struct_mutex);
 	ret = msm_gem_new_impl(dev, size, MSM_BO_WC, &obj);
+	mutex_unlock(&dev->struct_mutex);
 	if (ret)
 		goto fail;
 

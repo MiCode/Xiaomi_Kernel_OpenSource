@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -891,14 +891,7 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 			 * instead SSR handler will control CPE.
 			 */
 			wcd_cpe_enable_cpe_clks(core, false);
-			/*
-			 * During BUS_DOWN event, possibly the
-			 * irq driver is under cleanup, do not request
-			 * cleanup of irqs here, rather cleanup irqs
-			 * once BUS_UP event is received.
-			 */
-			if (core->ssr_type != WCD_CPE_BUS_DOWN_EVENT)
-				wcd_cpe_cleanup_irqs(core);
+			wcd_cpe_cleanup_irqs(core);
 			goto done;
 		}
 
@@ -1149,7 +1142,6 @@ int wcd_cpe_ssr_event(void *core_handle,
 		break;
 
 	case WCD_CPE_BUS_UP_EVENT:
-		wcd_cpe_cleanup_irqs(core);
 		wcd_cpe_set_and_complete(core, WCD_CPE_BUS_READY);
 		/*
 		 * In case of bus up event ssr_type will be changed

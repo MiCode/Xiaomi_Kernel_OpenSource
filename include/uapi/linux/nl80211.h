@@ -10,6 +10,7 @@
  * Copyright 2008, 2009 Luis R. Rodriguez <lrodriguez@atheros.com>
  * Copyright 2008 Jouni Malinen <jouni.malinen@atheros.com>
  * Copyright 2008 Colin McCabe <colin@cozybit.com>
+ * Copyright 2015      Intel Deutschland GmbH
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -299,7 +300,15 @@
  *	partial scan results may be available
  *
  * @NL80211_CMD_START_SCHED_SCAN: start a scheduled scan at certain
- *	intervals, as specified by %NL80211_ATTR_SCHED_SCAN_INTERVAL.
+ *	intervals and certain number of cycles, as specified by
+ *	%NL80211_ATTR_SCHED_SCAN_PLANS. If %NL80211_ATTR_SCHED_SCAN_PLANS is
+ *	not specified and only %NL80211_ATTR_SCHED_SCAN_INTERVAL is specified,
+ *	scheduled scan will run in an infinite loop with the specified
+ *	interval. These attributes are mutually exculsive,
+ *	i.e. NL80211_ATTR_SCHED_SCAN_INTERVAL must not be passed if
+ *	NL80211_ATTR_SCHED_SCAN_PLANS is defined.
+ *	If for some reason scheduled scan is aborted by the driver, all scan
+ *	plans are canceled (including scan plans that did not start yet).
  *	Like with normal scans, if SSIDs (%NL80211_ATTR_SCAN_SSIDS)
  *	are passed, they are used in the probe requests.  For
  *	broadcast, a broadcast SSID must be passed (ie. an empty
@@ -4431,6 +4440,12 @@ enum nl80211_feature_flags {
  *	configuration (AP/mesh) with HT rates.
  * @NL80211_EXT_FEATURE_BEACON_RATE_VHT: Driver supports beacon rate
  *	configuration (AP/mesh) with VHT rates.
+ * @NL80211_EXT_FEATURE_FILS_STA: This driver supports Fast Initial Link Setup
+ *	with user space SME (NL80211_CMD_AUTHENTICATE) in station mode.
+ * @NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA: This driver supports randomized TA
+ *	in @NL80211_CMD_FRAME while not associated.
+ * @NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA_CONNECTED: This driver supports
+ *	randomized TA in @NL80211_CMD_FRAME while associated.
  *
  * @NUM_NL80211_EXT_FEATURES: number of extended features.
  * @MAX_NL80211_EXT_FEATURES: highest extended feature index.
@@ -4445,6 +4460,9 @@ enum nl80211_ext_feature_index {
 	NL80211_EXT_FEATURE_BEACON_RATE_LEGACY,
 	NL80211_EXT_FEATURE_BEACON_RATE_HT,
 	NL80211_EXT_FEATURE_BEACON_RATE_VHT,
+	NL80211_EXT_FEATURE_FILS_STA,
+	NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA,
+	NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA_CONNECTED,
 
 	/* add new features before the definition below */
 	NUM_NL80211_EXT_FEATURES,
@@ -4669,5 +4687,30 @@ enum nl80211_tdls_peer_capability {
 	NL80211_TDLS_PEER_VHT = 1<<1,
 	NL80211_TDLS_PEER_WMM = 1<<2,
 };
+
+/**
+ * enum nl80211_sched_scan_plan - scanning plan for scheduled scan
+ * @__NL80211_SCHED_SCAN_PLAN_INVALID: attribute number 0 is reserved
+ * @NL80211_SCHED_SCAN_PLAN_INTERVAL: interval between scan iterations. In
+ *	seconds (u32).
+ * @NL80211_SCHED_SCAN_PLAN_ITERATIONS: number of scan iterations in this
+ *	scan plan (u32). The last scan plan must not specify this attribute
+ *	because it will run infinitely. A value of zero is invalid as it will
+ *	make the scan plan meaningless.
+ * @NL80211_SCHED_SCAN_PLAN_MAX: highest scheduled scan plan attribute number
+ *	currently defined
+ * @__NL80211_SCHED_SCAN_PLAN_AFTER_LAST: internal use
+ */
+enum nl80211_sched_scan_plan {
+	__NL80211_SCHED_SCAN_PLAN_INVALID,
+	NL80211_SCHED_SCAN_PLAN_INTERVAL,
+	NL80211_SCHED_SCAN_PLAN_ITERATIONS,
+
+	/* keep last */
+	__NL80211_SCHED_SCAN_PLAN_AFTER_LAST,
+	NL80211_SCHED_SCAN_PLAN_MAX =
+		__NL80211_SCHED_SCAN_PLAN_AFTER_LAST - 1
+};
+
 
 #endif /* __LINUX_NL80211_H */

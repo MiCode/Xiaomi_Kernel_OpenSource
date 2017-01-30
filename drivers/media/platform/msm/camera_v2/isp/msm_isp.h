@@ -783,6 +783,7 @@ struct vfe_device {
 	uint32_t recovery_irq1_mask;
 	/* Store the buf_idx for pd stats RDI stream */
 	uint8_t pd_buf_idx;
+	uint32_t ms_frame_id;
 };
 
 struct vfe_parent_device {

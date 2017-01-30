@@ -193,7 +193,7 @@ the appropriate macros. */
 #define MSG_SSID_22			10350
 #define MSG_SSID_22_LAST		10377
 #define MSG_SSID_23			10400
-#define MSG_SSID_23_LAST		10415
+#define MSG_SSID_23_LAST		10416
 #define MSG_SSID_24			0xC000
 #define MSG_SSID_24_LAST		0xC063
 
@@ -836,6 +836,7 @@ static const uint32_t msg_bld_masks_22[] = {
 };
 
 static const uint32_t msg_bld_masks_23[] = {
+	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,

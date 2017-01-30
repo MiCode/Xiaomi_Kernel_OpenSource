@@ -99,7 +99,7 @@ config DEVFREQ_GOV_MSM_GPUBW_MON
 
 config ARMBW_HWMON
 	tristate "ARM PMU Bandwidth monitor hardware"
-	depends on ARCH_MSM8916 || ARCH_MSM8226 || ARCH_MSM8610
+	depends on ARCH_MSM8916 || ARCH_MSM8953 || ARCH_MSM8226 || ARCH_MSM8610
 	help
 	  The PMU present on these ARM cores allow for the use of counters to
 	  monitor the traffic coming from each core to the bus. It also has the

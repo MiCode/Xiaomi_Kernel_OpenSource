@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -185,7 +185,7 @@ static void ghsic_ctrl_connect_w(struct work_struct *w)
 	if (!port || !test_bit(CH_READY, &port->bridge_sts))
 		return;
 
-	pr_debug("%s: port:%p port type =%u\n", __func__, port, port->gtype);
+	pr_debug("%s: port:%pK port type =%u\n", __func__, port, port->gtype);
 
 	retval = ctrl_bridge_open(&port->brdg);
 	if (retval) {
@@ -482,7 +482,7 @@ static int gctrl_port_alloc(int portno, enum gadget_type gtype)
 
 	platform_driver_register(pdrv);
 
-	pr_debug("%s: port:%p portno:%d\n", __func__, port, portno);
+	pr_debug("%s: port:%pK portno:%d\n", __func__, port, portno);
 
 	return 0;
 }

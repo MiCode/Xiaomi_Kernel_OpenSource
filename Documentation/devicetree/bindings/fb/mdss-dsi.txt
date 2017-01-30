@@ -107,6 +107,8 @@ Optional properties:
 - qcom,platform-bklight-en-gpio:	Specifies the gpio used to enable display back-light
 - qcom,platform-mode-gpio:		Select video/command mode of panel through gpio when it supports
 					both modes.
+- qcom,platform-intf-mux-gpio:		Select dsi/external(hdmi) interface through gpio when it supports
+					either dsi or external interface.
 - pinctrl-names:			List of names to assign mdss pin states defined in pinctrl device node
 					Refer to pinctrl-bindings.txt
 - pinctrl-<0..n>:			Lists phandles each pointing to the pin configuration node within a pin
@@ -246,6 +248,7 @@ Example:
 			qcom,platform-enable-gpio = <&msmgpio 58 1>;
 			qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
 			qcom,platform-mode-gpio = <&msmgpio 7 0>;
+			qcom,platform-intf-mux-gpio = <&tlmm 115 0>;
 			qcom,dsi-irq-line;
 			qcom,lane-map = "lane_map_3012";
 			qcom,display-id = "primary";

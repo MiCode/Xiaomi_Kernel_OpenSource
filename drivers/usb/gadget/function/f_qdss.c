@@ -1,7 +1,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -482,13 +482,14 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_qdss  *qdss = func_to_qdss(f);
 	struct usb_gadget *gadget = c->cdev->gadget;
+	enum transport_type dxport = qdss_ports[qdss->port_num].data_xport;
 	int i;
 
 	pr_debug("qdss_unbind\n");
 
 	flush_workqueue(qdss->wq);
-	ipa_data_flush_workqueue();
-
+	if (dxport ==  USB_GADGET_XPORT_BAM2BAM_IPA)
+		ipa_data_flush_workqueue();
 
 	c->cdev->gadget->bam2bam_func_enabled = false;
 	clear_eps(f);
@@ -719,7 +720,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 	dxport = qdss_ports[qdss->port_num].data_xport;
 	ctrl_xport = qdss_ports[qdss->port_num].ctrl_xport;
 	port_num = qdss_ports[qdss->port_num].data_xport_num;
-	pr_debug("%s: data xport: %s dev: %p portno: %d\n",
+	pr_debug("%s: data xport: %s dev: %pK portno: %d\n",
 			__func__, xport_to_str(dxport),
 			qdss, qdss->port_num);
 	if (qdss->port_num >= nr_qdss_ports) {
@@ -825,7 +826,7 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	dxport = qdss_ports[qdss->port_num].data_xport;
 
-	pr_debug("qdss_set_alt qdss pointer = %p\n", qdss);
+	pr_debug("qdss_set_alt qdss pointer = %pK\n", qdss);
 
 	qdss->gadget = gadget;
 
@@ -1043,7 +1044,9 @@ static int qdss_bind_config(struct usb_configuration *c, unsigned char portno)
 		kfree(name);
 		kfree(qdss);
 	}
-	c->cdev->gadget->bam2bam_func_enabled = true;
+	if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA ||
+			dxport == USB_GADGET_XPORT_BAM2BAM)
+		c->cdev->gadget->bam2bam_func_enabled = true;
 
 	return status;
 }

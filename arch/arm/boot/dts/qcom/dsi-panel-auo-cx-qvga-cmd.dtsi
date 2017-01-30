@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,7 +65,7 @@
 			39 01 00 00 00 00 04 BA 03 03 03
 			39 01 00 00 00 00 04 BE 32 30 70
 			39 01 00 00 00 00 08 CF FF D4 95 E8 4F 00 04
-			15 01 00 00 00 00 02 35 01
+			15 01 00 00 00 00 02 35 00
 			15 01 00 00 00 00 02 36 00
 			15 01 00 00 00 00 02 C0 20
 			39 01 00 00 00 00 07 C2 17 17 17 17 17 0B
@@ -97,7 +97,6 @@
 		qcom,mdss-dsi-te-pin-select = <1>;
 		qcom,mdss-dsi-te-dcs-command = <1>;
 		qcom,mdss-dsi-te-using-te-pin;
-		qcom,mdss-dsi-te-check-enable;
 		qcom,mdss-dsi-panel-timings = [5F 12 0A 00 32 34 10 16 0F 03 04 00];
 		qcom,mdss-dsi-t-clk-post = <0x05>;
 		qcom,mdss-dsi-t-clk-pre = <0x11>;
@@ -107,5 +106,7 @@
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 20>;
+		/* clk = totlaH * totalV * bpp* 66fps */
+		qcom,mdss-dsi-panel-clockrate = <180905472>;
 	};
 };
