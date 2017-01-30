@@ -1095,13 +1095,12 @@ static struct snd_soc_codec_driver soc_codec_dev_wsa881x = {
 	.reg_cache_default = wsa881x_ana_reg_defaults,
 	.reg_word_size = 1,
 
-	.controls = wsa881x_snd_controls,
-	.num_controls = ARRAY_SIZE(wsa881x_snd_controls),
-
 	.component_driver = {
 		.probe	= wsa881x_probe,
 		.remove	= wsa881x_remove,
 
+		.controls = wsa881x_snd_controls,
+		.num_controls = ARRAY_SIZE(wsa881x_snd_controls),
 		.dapm_widgets = wsa881x_dapm_widgets,
 		.num_dapm_widgets = ARRAY_SIZE(wsa881x_dapm_widgets),
 		.dapm_routes = wsa881x_audio_map,

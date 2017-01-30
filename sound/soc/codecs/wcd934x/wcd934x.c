@@ -9058,12 +9058,12 @@ static struct regmap *tavil_get_regmap(struct device *dev)
 }
 
 static struct snd_soc_codec_driver soc_codec_dev_tavil = {
-	.controls = tavil_snd_controls,
-	.num_controls = ARRAY_SIZE(tavil_snd_controls),
 	.get_regmap = tavil_get_regmap,
 	.component_driver = {
 		.probe = tavil_soc_codec_probe,
 		.remove = tavil_soc_codec_remove,
+		.controls = tavil_snd_controls,
+		.num_controls = ARRAY_SIZE(tavil_snd_controls),
 		.dapm_widgets = tavil_dapm_widgets,
 		.num_dapm_widgets = ARRAY_SIZE(tavil_dapm_widgets),
 		.dapm_routes = tavil_audio_map,
