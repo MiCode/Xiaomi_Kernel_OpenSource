@@ -937,7 +937,12 @@ static int ath10k_wmi_tlv_op_pull_svc_rdy_ev(struct ath10k *ar,
 
 	ev = tb[WMI_TLV_TAG_STRUCT_SERVICE_READY_EVENT];
 	reg = tb[WMI_TLV_TAG_STRUCT_HAL_REG_CAPABILITIES];
-	svc_bmap = tb[WMI_TLV_TAG_ARRAY_UINT32];
+	if (QCA_REV_WCN3990(ar)) {
+		svc_bmap = (__le32 *)(skb->data +
+			WMI_TLV_TAG_STRUCT_HL_1_0_SVC_OFFSET);
+	} else {
+		svc_bmap = tb[WMI_TLV_TAG_ARRAY_UINT32];
+	}
 	mem_reqs = tb[WMI_TLV_TAG_ARRAY_STRUCT];
 
 	if (!ev || !reg || !svc_bmap || !mem_reqs) {

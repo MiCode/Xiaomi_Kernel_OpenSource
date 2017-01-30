@@ -889,6 +889,7 @@ enum wmi_tlv_tag {
 	WMI_TLV_TAG_STRUCT_SAP_OFL_DEL_STA_EVENT,
 	WMI_TLV_TAG_STRUCT_APFIND_CMD_PARAM,
 	WMI_TLV_TAG_STRUCT_APFIND_EVENT_HDR,
+	WMI_TLV_TAG_STRUCT_HL_1_0_SVC_OFFSET = 176,
 
 	WMI_TLV_TAG_MAX
 };
@@ -1358,6 +1359,14 @@ struct wmi_tlv_svc_rdy_ev {
 	__le32 max_num_scan_chans;
 	__le32 hw_bd_id; /* 0 means hw_bd_info is invalid */
 	struct wmi_tlv_hw_bd_info hw_bd_info[5];
+#ifdef CONFIG_ATH10K_SNOC
+	__le32 max_supported_macs;
+	__le32 wmi_fw_sub_feat_caps;
+	__le32 num_dbs_hw_modes;
+	__le32 txrx_chainmask;
+	__le32 default_dbs_hw_mode_index;
+	__le32 num_msdu_desc;
+#endif
 } __packed;
 
 struct wmi_tlv_rdy_ev {
