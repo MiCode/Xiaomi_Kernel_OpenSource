@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,7 @@
 	model = "Qualcomm Technologies, Inc. SDX HEDGEHOG MTP (eMMC)";
 	compatible = "qcom,sdxhedgehog-mtp", "qcom,sdxhedgehog",
 		     "qcom,mtp";
-	qcom,board-id = <8 0x00030000>;
+	qcom,board-id = <8 0x00030000>, <8 0x00030100>;
 
 	qcom,rmtfs_sharedmem@0 {
 		compatible = "qcom,sharedmem-uio";
