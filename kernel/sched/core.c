@@ -76,7 +76,6 @@
 #include <linux/frame.h>
 #include <linux/prefetch.h>
 #include <linux/irq.h>
-#include <linux/sched/core_ctl.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
@@ -3325,6 +3324,33 @@ static void sched_freq_tick(int cpu)
 static inline void sched_freq_tick(int cpu) { }
 #endif /* CONFIG_CPU_FREQ_GOV_SCHED */
 
+#ifdef CONFIG_SCHED_WALT
+static atomic64_t walt_irq_work_lastq_ws;
+
+static inline u64 walt_window_start_of(struct rq *rq)
+{
+	return rq->window_start;
+}
+
+static inline void run_walt_irq_work(u64 window_start, struct rq *rq)
+{
+	/* No HMP since that uses sched_get_cpus_busy */
+	if (rq->window_start != window_start &&
+		atomic_cmpxchg(&walt_irq_work_lastq_ws, window_start,
+			   rq->window_start) == window_start)
+		irq_work_queue(&rq->irq_work);
+}
+#else
+static inline u64 walt_window_start_of(struct rq *rq)
+{
+	return 0;
+}
+
+static inline void run_walt_irq_work(u64 window_start, struct rq *rq)
+{
+}
+#endif
+
 /*
  * This function gets called by the timer code, with HZ frequency.
  * We call it with interrupts disabled.
@@ -3338,10 +3364,17 @@ void scheduler_tick(void)
 	bool early_notif;
 	u32 old_load;
 	struct related_thread_group *grp;
+	u64 window_start;
 
 	sched_clock_tick();
 
 	raw_spin_lock(&rq->lock);
+
+	/*
+	 * Record current window_start. If after utra() below the window
+	 * has rolled over, schedule a load-reporting irq-work
+	 */
+	window_start = walt_window_start_of(rq);
 
 	old_load = task_load(curr);
 	set_window_start(rq);
@@ -3355,6 +3388,9 @@ void scheduler_tick(void)
 	cpu_load_update_active(rq);
 	calc_global_load_tick(rq);
 	cpufreq_update_util(rq, 0);
+
+	run_walt_irq_work(window_start, rq);
+
 	early_notif = early_detection_notify(rq, wallclock);
 
 	raw_spin_unlock(&rq->lock);
@@ -3379,8 +3415,6 @@ void scheduler_tick(void)
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
 
-	if (cpu == tick_do_timer_cpu)
-		core_ctl_check(wallclock);
 	sched_freq_tick(cpu);
 }
 
@@ -8362,6 +8396,7 @@ void __init sched_init(void)
 		rq->push_task = NULL;
 #ifdef CONFIG_SCHED_WALT
 		cpumask_set_cpu(i, &rq->freq_domain_cpumask);
+		init_irq_work(&rq->irq_work, walt_irq_work);
 		rq->hmp_stats.cumulative_runnable_avg = 0;
 		rq->window_start = 0;
 		rq->cum_window_start = 0;

@@ -482,15 +482,6 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &one_thousand,
 	},
 	{
-		.procname	= "sched_boost",
-		.data		= &sysctl_sched_boost,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= sched_boost_handler,
-		.extra1         = &zero,
-		.extra2		= &three,
-	},
-	{
 		.procname	= "sched_short_burst_ns",
 		.data		= &sysctl_sched_short_burst,
 		.maxlen		= sizeof(unsigned int),
@@ -545,6 +536,15 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "sched_boost",
+		.data		= &sysctl_sched_boost,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_boost_handler,
+		.extra1         = &zero,
+		.extra2		= &three,
 	},
 #endif
 	{

@@ -523,6 +523,23 @@ TRACE_EVENT(sched_migration_update_sum,
 		__entry->src_nt_cs, __entry->src_nt_ps, __entry->dst_nt_cs, __entry->dst_nt_ps)
 );
 
+TRACE_EVENT(sched_set_boost,
+
+	TP_PROTO(int type),
+
+	TP_ARGS(type),
+
+	TP_STRUCT__entry(
+		__field(int, type			)
+	),
+
+	TP_fast_assign(
+		__entry->type = type;
+	),
+
+	TP_printk("type %d", __entry->type)
+);
+
 #endif
 
 #ifdef CONFIG_SCHED_WALT
@@ -637,23 +654,6 @@ DEFINE_EVENT(sched_cpu_load, sched_cpu_load_wakeup,
 DEFINE_EVENT(sched_cpu_load, sched_cpu_load_cgroup,
 	TP_PROTO(struct rq *rq, int idle, u64 irqload, unsigned int power_cost, int temp),
 	TP_ARGS(rq, idle, irqload, power_cost, temp)
-);
-
-TRACE_EVENT(sched_set_boost,
-
-	TP_PROTO(int type),
-
-	TP_ARGS(type),
-
-	TP_STRUCT__entry(
-		__field(int, type			)
-	),
-
-	TP_fast_assign(
-		__entry->type = type;
-	),
-
-	TP_printk("type %d", __entry->type)
 );
 
 TRACE_EVENT(sched_reset_all_window_stats,
@@ -867,6 +867,16 @@ DECLARE_EVENT_CLASS(sched_task_util,
 
 	TP_printk("comm=%s pid=%d task_cpu=%d task_util=%lu nominated_cpu=%d target_cpu=%d energy_diff=%d need_idle=%d latency=%llu",
 		__entry->comm, __entry->pid, __entry->task_cpu, __entry->task_util, __entry->nominated_cpu, __entry->target_cpu, __entry->ediff, __entry->need_idle, __entry->latency)
+);
+
+DEFINE_EVENT(sched_task_util, sched_task_util_bias_to_waker,
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle)
+);
+
+DEFINE_EVENT(sched_task_util, sched_task_util_colocated,
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle)
 );
 
 DEFINE_EVENT(sched_task_util, sched_task_util_overutilzed,
