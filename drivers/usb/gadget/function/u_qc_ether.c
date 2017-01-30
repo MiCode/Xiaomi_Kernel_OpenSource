@@ -317,8 +317,8 @@ int gether_qc_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 		dev_dbg(&g->dev, "register_netdev failed, %d\n", status);
 		free_netdev(net);
 	} else {
-		INFO(dev, "MAC %pM\n", net->dev_addr);
-		INFO(dev, "HOST MAC %pM\n", dev->host_mac);
+		INFO(dev, "MAC %pKM\n", net->dev_addr);
+		INFO(dev, "HOST MAC %pKM\n", dev->host_mac);
 
 	}
 

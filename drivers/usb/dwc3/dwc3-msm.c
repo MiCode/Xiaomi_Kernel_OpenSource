@@ -670,7 +670,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	spin_lock_irqsave(&dwc->lock, flags);
 	if (!dep->endpoint.desc) {
 		dev_err(mdwc->dev,
-			"%s: trying to queue request %p to disabled ep %s\n",
+			"%s: trying to queue request %pK to disabled ep %s\n",
 			__func__, request, ep->name);
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -EPERM;
@@ -707,7 +707,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 
 	if (dep->number == 0 || dep->number == 1) {
 		dev_err(mdwc->dev,
-			"%s: trying to queue dbm request %p to control ep %s\n",
+			"%s: trying to queue dbm request %pK to control ep %s\n",
 			__func__, request, ep->name);
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -EPERM;
@@ -716,7 +716,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	if (dep->busy_slot != dep->free_slot || !list_empty(&dep->request_list)
 					 || !list_empty(&dep->req_queued)) {
 		dev_err(mdwc->dev,
-			"%s: trying to queue dbm request %p tp ep %s\n",
+			"%s: trying to queue dbm request %pK tp ep %s\n",
 			__func__, request, ep->name);
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -EPERM;
@@ -739,7 +739,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	list_add_tail(&req_complete->list_item, &mdwc->req_complete_list);
 	request->complete = dwc3_msm_req_complete_func;
 
-	dev_vdbg(dwc->dev, "%s: queing request %p to ep %s length %d\n",
+	dev_vdbg(dwc->dev, "%s: queing request %pK to ep %s length %d\n",
 			__func__, request, ep->name, request->length);
 	size = dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTSIZ(0));
 	dbm_event_buffer_config(mdwc->dbm,
@@ -925,7 +925,7 @@ static void gsi_ring_in_db(struct usb_ep *ep, struct usb_gsi_request *request)
 		dev_dbg(mdwc->dev, "Failed to get GSI DBL address MSB\n");
 
 	offset = dwc3_trb_dma_offset(dep, &dep->trb_pool[num_trbs-1]);
-	dev_dbg(mdwc->dev, "Writing link TRB addr: %pa to %p (%x)\n",
+	dev_dbg(mdwc->dev, "Writing link TRB addr: %pKa to %pK (%x)\n",
 	&offset, gsi_dbl_address_lsb, dbl_lo_addr);
 
 	writel_relaxed(offset, gsi_dbl_address_lsb);
