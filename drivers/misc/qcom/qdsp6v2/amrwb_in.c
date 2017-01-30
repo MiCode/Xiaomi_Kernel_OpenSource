@@ -63,8 +63,8 @@ static long amrwb_in_ioctl_shared(struct file *file,
 			enc_cfg->dtx_enable);
 
 		if (rc < 0) {
-			pr_err("%s:session id %d: cmd amrwb media format block",
-				"failed\n", __func__, audio->ac->session);
+			pr_err("%s:session id %d: cmd amrwb media format block failed\n",
+				__func__, audio->ac->session);
 			break;
 		}
 		if (audio->feedback == NON_TUNNEL_MODE) {
@@ -73,8 +73,8 @@ static long amrwb_in_ioctl_shared(struct file *file,
 				audio->pcm_cfg.channel_count);
 
 			if (rc < 0) {
-				pr_err("%s:session id %d: media format block",
-				"failed\n", __func__, audio->ac->session);
+				pr_err("%s:session id %d: media format block failed\n",
+				__func__, audio->ac->session);
 				break;
 			}
 		}
@@ -86,8 +86,8 @@ static long amrwb_in_ioctl_shared(struct file *file,
 			audio->enabled = 1;
 		} else {
 			audio->enabled = 0;
-			pr_err("%s:session id %d: Audio Start procedure failed",
-				"rc=%d\n", __func__, audio->ac->session, rc);
+			pr_err("%s:session id %d: Audio Start procedure failed rc=%d\n",
+				__func__, audio->ac->session, rc);
 			break;
 		}
 		while (cnt++ < audio->str_cfg.buffer_count)
@@ -101,8 +101,8 @@ static long amrwb_in_ioctl_shared(struct file *file,
 		pr_debug("%s:AUDIO_STOP\n", __func__);
 		rc = audio_in_disable(audio);
 		if (rc  < 0) {
-			pr_err("%s:session id %d: Audio Stop procedure failed",
-				"rc=%d\n", __func__, audio->ac->session, rc);
+			pr_err("%s:session id %d: Audio Stop procedure failed rc=%d\n",
+				__func__, audio->ac->session, rc);
 			break;
 		}
 		break;
@@ -311,8 +311,8 @@ static int amrwb_in_open(struct inode *inode, struct file *file)
 				(void *)audio);
 
 	if (!audio->ac) {
-		pr_err("%s:audio[%pK]: Could not allocate memory for audio",
-			"client\n", __func__, audio);
+		pr_err("%s:audio[%pK]: Could not allocate memory for audio client\n",
+			__func__, audio);
 		kfree(audio->enc_cfg);
 		kfree(audio);
 		return -ENOMEM;
@@ -345,8 +345,8 @@ static int amrwb_in_open(struct inode *inode, struct file *file)
 		/* register for tx overflow (valid for tunnel mode only) */
 		rc = q6asm_reg_tx_overflow(audio->ac, 0x01);
 		if (rc < 0) {
-			pr_err("%s:session id %d: TX Overflow registration",
-				"failed rc=%d\n", __func__, audio->ac->session,
+			pr_err("%s:session id %d: TX Overflow registration failed rc=%d\n",
+				__func__, audio->ac->session,
 				rc);
 			rc = -ENODEV;
 			goto fail;

@@ -108,8 +108,8 @@ static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 					aac_mode,
 					enc_cfg->stream_format);
 		if (rc < 0) {
-			pr_err("%s:session id %d: cmd media format block",
-				"failed\n", __func__, audio->ac->session);
+			pr_err("%s:session id %d: cmd media format block failed\n",
+				__func__, audio->ac->session);
 			break;
 		}
 		if (audio->feedback == NON_TUNNEL_MODE) {
@@ -117,8 +117,8 @@ static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 						audio->pcm_cfg.sample_rate,
 						audio->pcm_cfg.channel_count);
 			if (rc < 0) {
-				pr_err("%s:session id %d: media format block",
-				"failed\n", __func__, audio->ac->session);
+				pr_err("%s:session id %d: media format block failed\n",
+				__func__, audio->ac->session);
 				break;
 			}
 		}
@@ -127,8 +127,8 @@ static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 			audio->enabled = 1;
 		} else {
 			audio->enabled = 0;
-			pr_err("%s:session id %d: Audio Start procedure",
-			"failed rc=%d\n", __func__, audio->ac->session, rc);
+			pr_err("%s:session id %d: Audio Start procedure failed rc=%d\n",
+				__func__, audio->ac->session, rc);
 			break;
 		}
 		while (cnt++ < audio->str_cfg.buffer_count)
@@ -142,8 +142,8 @@ static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 				audio->ac->session);
 		rc = audio_in_disable(audio);
 		if (rc  < 0) {
-			pr_err("%s:session id %d: Audio Stop procedure failed",
-				"rc=%d\n", __func__, audio->ac->session, rc);
+			pr_err("%s:session id %d: Audio Stop procedure failed rc=%d\n",
+				__func__, audio->ac->session, rc);
 			break;
 		}
 		break;
@@ -182,8 +182,8 @@ static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 		case 0x03:
 			cfg->stream_format = AUDIO_AAC_FORMAT_RAW;
 		}
-		pr_debug("%s:session id %d: Get-aac-cfg: format=%d sr=%d",
-			"bitrate=%d\n", __func__, audio->ac->session,
+		pr_debug("%s:session id %d: Get-aac-cfg: format=%d sr=%d bitrate=%d\n",
+			__func__, audio->ac->session,
 			cfg->stream_format, cfg->sample_rate, cfg->bit_rate);
 		break;
 	}
@@ -256,8 +256,7 @@ static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 		enc_cfg->sample_rate = cfg->sample_rate;
 		enc_cfg->channels = cfg->channels;
 		enc_cfg->bit_rate = cfg->bit_rate;
-		pr_debug("%s:session id %d: Set-aac-cfg:SR= 0x%x ch=0x%x",
-			"bitrate=0x%x, format(adts/raw) = %d\n",
+		pr_debug("%s:session id %d: Set-aac-cfg:SR= 0x%x ch=0x%x bitrate=0x%x, format(adts/raw) = %d\n",
 			__func__, audio->ac->session, enc_cfg->sample_rate,
 			enc_cfg->channels, enc_cfg->bit_rate,
 			enc_cfg->stream_format);
@@ -286,8 +285,8 @@ static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 		if ((audio_aac_cfg->sbr_on_flag == 1) ||
 			 (audio_aac_cfg->sbr_ps_on_flag == 1)) {
 			if (enc_cfg->sample_rate < 24000) {
-				pr_err("%s: ERROR in setting samplerate = %d",
-					"\n", __func__, enc_cfg->sample_rate);
+				pr_err("%s: ERROR in setting samplerate = %d\n",
+					__func__, enc_cfg->sample_rate);
 				rc = -EINVAL;
 				break;
 			}
@@ -606,8 +605,8 @@ static int aac_in_open(struct inode *inode, struct file *file)
 							(void *)audio);
 
 	if (!audio->ac) {
-		pr_err("%s: Could not allocate memory for",
-				"audio client\n", __func__);
+		pr_err("%s: Could not allocate memory for audio client\n",
+			__func__);
 		kfree(audio->enc_cfg);
 		kfree(audio->codec_cfg);
 		kfree(audio);
@@ -645,8 +644,8 @@ static int aac_in_open(struct inode *inode, struct file *file)
 		/* register for tx overflow (valid for tunnel mode only) */
 		rc = q6asm_reg_tx_overflow(audio->ac, 0x01);
 		if (rc < 0) {
-			pr_err("%s:session id %d: TX Overflow registration",
-				"failed rc=%d\n", __func__,
+			pr_err("%s:session id %d: TX Overflow registration failed rc=%d\n",
+				__func__,
 				audio->ac->session, rc);
 			rc = -ENODEV;
 			goto fail;
