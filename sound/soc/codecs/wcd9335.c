@@ -12294,9 +12294,8 @@ int tasha_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 
 	tasha = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
-	tasha->entry = snd_register_module_info(codec_root->module,
-						"tasha",
-						codec_root);
+	tasha->entry = snd_info_create_subdir(codec_root->module,
+					      "tasha", codec_root);
 	if (!tasha->entry) {
 		dev_dbg(codec->dev, "%s: failed to create wcd9335 entry\n",
 			__func__);
