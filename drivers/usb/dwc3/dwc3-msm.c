@@ -3257,7 +3257,7 @@ static void dwc3_pm_qos_update_latency(struct dwc3_msm *mdwc, s32 latency)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 #endif
 
-	if (latency == last_vote || latency == 0)
+	if (latency == last_vote || !mdwc->pm_qos_latency)
 		return;
 
 	pr_debug("%s: latency updated to: %d\n", __func__, latency);
