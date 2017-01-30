@@ -142,7 +142,7 @@ static void grmnet_ctrl_smd_read_w(struct work_struct *w)
 				(c->ch == 0)));
 
 			if (read_avail < 0 || c->ch == 0) {
-				pr_err("%s:smd read_avail failure:%d or channel closed ch=%p",
+				pr_err("%s:smd read_avail failure:%d or channel closed ch=%pK",
 					   __func__, read_avail, c->ch);
 				kfree(buf);
 				return;
@@ -435,7 +435,7 @@ int gsmd_ctrl_connect(struct grmnet *gr, int port_num)
 	struct smd_ch_info	*c;
 	unsigned long		flags;
 
-	pr_debug("%s: grmnet:%p port#%d\n", __func__, gr, port_num);
+	pr_debug("%s: grmnet:%pK port#%d\n", __func__, gr, port_num);
 
 	if (!is_legal_port_num(port_num)) {
 		pr_err("%s: Invalid port_num#%d\n", __func__, port_num);
@@ -491,7 +491,7 @@ void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 	struct rmnet_ctrl_pkt	*cpkt;
 	int clear_bits;
 
-	pr_debug("%s: grmnet:%p port#%d\n", __func__, gr, port_num);
+	pr_debug("%s: grmnet:%pK port#%d\n", __func__, gr, port_num);
 
 	if (!is_legal_port_num(port_num)) {
 		pr_err("%s: Invalid port_num#%d\n", __func__, port_num);
@@ -646,7 +646,7 @@ static int grmnet_ctrl_smd_port_alloc(int portno)
 	pdrv->driver.name = c->name;
 	pdrv->driver.owner = THIS_MODULE;
 
-	pr_debug("%s: port:%p portno:%d\n", __func__, port, portno);
+	pr_debug("%s: port:%pK portno:%d\n", __func__, port, portno);
 
 	return 0;
 }
@@ -735,7 +735,7 @@ static ssize_t gsmd_ctrl_read_stats(struct file *file, char __user *ubuf,
 		c = &port->ctrl_ch;
 
 		temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
-				"#PORT:%d port:%p ctrl_ch:%p#\n"
+				"#PORT:%d port:%pK ctrl_ch:%pK#\n"
 				"to_usbhost: %lu\n"
 				"to_modem:   %lu\n"
 				"DTR:        %s\n"
