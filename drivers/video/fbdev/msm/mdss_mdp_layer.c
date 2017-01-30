@@ -2853,7 +2853,8 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 		return -ENODEV;
 	}
 
-	if (mdss_fb_is_power_off(mfd)) {
+	if (mdss_fb_is_power_off(mfd) ||
+		mdss_fb_is_power_on_ulp(mfd)) {
 		pr_err("display interface is in off state fb:%d\n",
 			mfd->index);
 		return -EPERM;
