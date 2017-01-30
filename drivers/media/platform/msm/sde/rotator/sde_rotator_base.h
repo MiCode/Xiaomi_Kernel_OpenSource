@@ -27,6 +27,10 @@
 #define MDSS_MDP_HW_REV_320	0x30020000  /* sdm660 */
 #define MDSS_MDP_HW_REV_330	0x30030000  /* sdm630 */
 
+/* XIN mapping */
+#define XIN_SSPP	0
+#define XIN_WRITEBACK	1
+
 struct sde_mult_factor {
 	uint32_t numer;
 	uint32_t denom;
@@ -165,11 +169,16 @@ struct sde_rot_data_type {
 	u32 *vbif_nrt_qos;
 	u32 npriority_lvl;
 
+	u32 *vbif_xin_id;
+	u32 nxid;
+
 	int iommu_attached;
 	int iommu_ref_cnt;
 	int (*iommu_ctrl)(int enable);
 	int (*secure_session_ctrl)(int enable);
 	int (*wait_for_transition)(int state, int request);
+	void (*vbif_reg_lock)(void);
+	void (*vbif_reg_unlock)(void);
 	struct sde_rot_vbif_debug_bus *nrt_vbif_dbg_bus;
 	u32 nrt_vbif_dbg_bus_size;
 
