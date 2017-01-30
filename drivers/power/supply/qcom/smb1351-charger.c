@@ -1414,6 +1414,7 @@ static enum power_supply_property smb1351_parallel_properties[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+	POWER_SUPPLY_PROP_PARALLEL_MODE,
 };
 
 static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
@@ -1666,6 +1667,12 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 				smb1351_is_input_current_limited(chip) ? 1 : 0;
 		else
 			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_PARALLEL_MODE:
+		if (chip->parallel_charger_present)
+			val->intval = POWER_SUPPLY_PARALLEL_USBIN_USBIN;
+		else
+			val->intval = POWER_SUPPLY_PARALLEL_NONE;
 		break;
 	default:
 		return -EINVAL;

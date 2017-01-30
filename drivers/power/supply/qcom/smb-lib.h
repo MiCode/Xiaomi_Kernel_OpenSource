@@ -32,7 +32,6 @@ enum print_reason {
 #define DCP_VOTER			"DCP_VOTER"
 #define USB_PSY_VOTER			"USB_PSY_VOTER"
 #define PL_TAPER_WORK_RUNNING_VOTER	"PL_TAPER_WORK_RUNNING_VOTER"
-#define PARALLEL_PSY_VOTER		"PARALLEL_PSY_VOTER"
 #define PL_INDIRECT_VOTER		"PL_INDIRECT_VOTER"
 #define USBIN_I_VOTER			"USBIN_I_VOTER"
 #define USBIN_V_VOTER			"USBIN_V_VOTER"
@@ -128,9 +127,6 @@ struct smb_params {
 
 struct parallel_params {
 	struct power_supply	*psy;
-	int			slave_pct;
-	int			taper_pct;
-	int			slave_fcc_ua;
 };
 
 struct smb_iio {
@@ -170,6 +166,7 @@ struct smb_charger {
 	struct power_supply		*dc_psy;
 	struct power_supply		*bms_psy;
 	struct power_supply_desc	usb_psy_desc;
+	struct power_supply		*usb_main_psy;
 
 	/* notifiers */
 	struct notifier_block	nb;
@@ -202,11 +199,9 @@ struct smb_charger {
 
 	/* work */
 	struct work_struct	bms_update_work;
-	struct work_struct	pl_detect_work;
 	struct work_struct	rdstd_cc2_detach_work;
 	struct delayed_work	hvdcp_detect_work;
 	struct delayed_work	ps_change_timeout_work;
-	struct delayed_work	pl_taper_work;
 	struct delayed_work	step_soc_req_work;
 	struct delayed_work	clear_hdc_work;
 
@@ -226,7 +221,6 @@ struct smb_charger {
 	bool			is_hdc;
 	bool			chg_done;
 	bool			micro_usb_mode;
-	int			input_limited_fcc_ua;
 	bool			otg_en;
 	bool			vconn_en;
 	int			otg_attempts;
@@ -240,6 +234,8 @@ struct smb_charger {
 	/* extcon for VBUS / ID notification to USB for uUSB */
 	struct extcon_dev	*extcon;
 	bool			usb_ever_removed;
+
+	int			icl_reduction_ua;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -386,6 +382,8 @@ int smblib_set_prop_ship_mode(struct smb_charger *chg,
 				const union power_supply_propval *val);
 void smblib_suspend_on_debug_battery(struct smb_charger *chg);
 int smblib_rerun_apsd_if_required(struct smb_charger *chg);
+int smblib_get_prop_fcc_delta(struct smb_charger *chg,
+			       union power_supply_propval *val);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

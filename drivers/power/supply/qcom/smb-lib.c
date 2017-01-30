@@ -39,7 +39,6 @@
 
 static bool is_secure(struct smb_charger *chg, int addr)
 {
-
 	if (addr == SHIP_MODE_REG)
 		return true;
 	/* assume everything above 0xA0 is secure */
@@ -150,36 +149,6 @@ static int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 
 	*cc_delta_ua = -cc_minus_ua;
 	return 0;
-}
-
-static void smblib_split_fcc(struct smb_charger *chg, int total_ua,
-			     int *master_ua, int *slave_ua)
-{
-	int rc, jeita_cc_delta_ua, step_cc_delta_ua, effective_total_ua,
-		slave_limited_ua, hw_cc_delta_ua = 0;
-
-	rc = smblib_get_step_cc_delta(chg, &step_cc_delta_ua);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get step cc delta rc=%d\n", rc);
-		step_cc_delta_ua = 0;
-	} else {
-		hw_cc_delta_ua = step_cc_delta_ua;
-	}
-
-	rc = smblib_get_jeita_cc_delta(chg, &jeita_cc_delta_ua);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get jeita cc delta rc=%d\n", rc);
-		jeita_cc_delta_ua = 0;
-	} else if (jeita_cc_delta_ua < 0) {
-		/* HW will take the min between JEITA and step charge */
-		hw_cc_delta_ua = min(hw_cc_delta_ua, jeita_cc_delta_ua);
-	}
-
-	effective_total_ua = max(0, total_ua + hw_cc_delta_ua);
-	slave_limited_ua = min(effective_total_ua, chg->input_limited_fcc_ua);
-	*slave_ua = (slave_limited_ua * chg->pl.slave_pct) / 100;
-	*slave_ua = (*slave_ua * chg->pl.taper_pct) / 100;
-	*master_ua = max(0, total_ua - *slave_ua);
 }
 
 /********************
@@ -536,10 +505,8 @@ static int smblib_notifier_call(struct notifier_block *nb,
 			schedule_work(&chg->bms_update_work);
 	}
 
-	if (!chg->pl.psy && !strcmp(psy->desc->name, "parallel")) {
+	if (!chg->pl.psy && !strcmp(psy->desc->name, "usb-parallel"))
 		chg->pl.psy = psy;
-		schedule_work(&chg->pl_detect_work);
-	}
 
 	return NOTIFY_OK;
 }
@@ -600,8 +567,6 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	/* reset both usbin current and voltage votes */
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
-	/* reset taper_end voter here */
-	vote(chg->pl_disable_votable, TAPER_END_VOTER, false, 0);
 
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
 
@@ -727,84 +692,6 @@ static int smblib_fcc_max_vote_callback(struct votable *votable, void *data,
 	struct smb_charger *chg = data;
 
 	return vote(chg->fcc_votable, FCC_MAX_RESULT_VOTER, true, fcc_ua);
-}
-
-static int smblib_fcc_vote_callback(struct votable *votable, void *data,
-			int total_fcc_ua, const char *client)
-{
-	struct smb_charger *chg = data;
-	union power_supply_propval pval = {0, };
-	int rc, master_fcc_ua = total_fcc_ua, slave_fcc_ua = 0;
-
-	if (total_fcc_ua < 0)
-		return 0;
-
-	if (chg->mode == PARALLEL_MASTER
-		&& !get_effective_result_locked(chg->pl_disable_votable)) {
-		smblib_split_fcc(chg, total_fcc_ua, &master_fcc_ua,
-				 &slave_fcc_ua);
-
-		/*
-		 * parallel charger is not disabled, implying that
-		 * chg->pl.psy exists
-		 */
-		pval.intval = slave_fcc_ua;
-		rc = power_supply_set_property(chg->pl.psy,
-				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
-		if (rc < 0) {
-			smblib_err(chg, "Could not set parallel fcc, rc=%d\n",
-				rc);
-			return rc;
-		}
-
-		chg->pl.slave_fcc_ua = slave_fcc_ua;
-	}
-
-	rc = smblib_set_charge_param(chg, &chg->param.fcc, master_fcc_ua);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't set master fcc rc=%d\n", rc);
-		return rc;
-	}
-
-	smblib_dbg(chg, PR_PARALLEL, "master_fcc=%d slave_fcc=%d distribution=(%d/%d)\n",
-		   master_fcc_ua, slave_fcc_ua,
-		   (master_fcc_ua * 100) / total_fcc_ua,
-		   (slave_fcc_ua * 100) / total_fcc_ua);
-
-	return 0;
-}
-
-#define PARALLEL_FLOAT_VOLTAGE_DELTA_UV 50000
-static int smblib_fv_vote_callback(struct votable *votable, void *data,
-			int fv_uv, const char *client)
-{
-	struct smb_charger *chg = data;
-	union power_supply_propval pval = {0, };
-	int rc = 0;
-
-	if (fv_uv < 0) {
-		smblib_dbg(chg, PR_MISC, "No Voter\n");
-		return 0;
-	}
-
-	rc = smblib_set_charge_param(chg, &chg->param.fv, fv_uv);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't set floating voltage rc=%d\n", rc);
-		return rc;
-	}
-
-	if (chg->mode == PARALLEL_MASTER && chg->pl.psy) {
-		pval.intval = fv_uv + PARALLEL_FLOAT_VOLTAGE_DELTA_UV;
-		rc = power_supply_set_property(chg->pl.psy,
-				POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
-		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't set float on parallel rc=%d\n", rc);
-			return rc;
-		}
-	}
-
-	return 0;
 }
 
 #define USBIN_25MA	25000
@@ -943,35 +830,6 @@ static int smblib_awake_vote_callback(struct votable *votable, void *data,
 		pm_stay_awake(chg->dev);
 	else
 		pm_relax(chg->dev);
-
-	return 0;
-}
-
-static int smblib_pl_disable_vote_callback(struct votable *votable, void *data,
-			int pl_disable, const char *client)
-{
-	struct smb_charger *chg = data;
-	union power_supply_propval pval = {0, };
-	int rc;
-
-	if (chg->mode != PARALLEL_MASTER || !chg->pl.psy)
-		return 0;
-
-	chg->pl.taper_pct = 100;
-	rerun_election(chg->fv_votable);
-	rerun_election(chg->fcc_votable);
-
-	pval.intval = pl_disable;
-	rc = power_supply_set_property(chg->pl.psy,
-			POWER_SUPPLY_PROP_INPUT_SUSPEND, &pval);
-	if (rc < 0) {
-		smblib_err(chg,
-			"Couldn't change slave suspend state rc=%d\n", rc);
-		return rc;
-	}
-
-	smblib_dbg(chg, PR_PARALLEL, "parallel charging %s\n",
-		   pl_disable ? "disabled" : "enabled");
 
 	return 0;
 }
@@ -2359,6 +2217,39 @@ int smblib_set_prop_ship_mode(struct smb_charger *chg,
 	return rc;
 }
 
+/************************
+ * USB MAIN PSY GETTERS *
+ ************************/
+int smblib_get_prop_fcc_delta(struct smb_charger *chg,
+			       union power_supply_propval *val)
+{
+	int rc, jeita_cc_delta_ua, step_cc_delta_ua, hw_cc_delta_ua = 0;
+
+	rc = smblib_get_step_cc_delta(chg, &step_cc_delta_ua);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get step cc delta rc=%d\n", rc);
+		step_cc_delta_ua = 0;
+	} else {
+		hw_cc_delta_ua = step_cc_delta_ua;
+	}
+
+	rc = smblib_get_jeita_cc_delta(chg, &jeita_cc_delta_ua);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get jeita cc delta rc=%d\n", rc);
+		jeita_cc_delta_ua = 0;
+	} else if (jeita_cc_delta_ua < 0) {
+		/* HW will take the min between JEITA and step charge */
+		hw_cc_delta_ua = min(hw_cc_delta_ua, jeita_cc_delta_ua);
+	}
+
+	val->intval = hw_cc_delta_ua;
+	return 0;
+}
+
+/************************
+ * USB MAIN PSY SETTERS *
+ ************************/
+
 int smblib_reg_block_update(struct smb_charger *chg,
 				struct reg_info *entry)
 {
@@ -2623,35 +2514,6 @@ unlock:
 	return IRQ_HANDLED;
 }
 
-static void smblib_pl_handle_chg_state_change(struct smb_charger *chg, u8 stat)
-{
-	bool pl_enabled;
-
-	if (chg->mode != PARALLEL_MASTER)
-		return;
-
-	pl_enabled = !get_effective_result_locked(chg->pl_disable_votable);
-	switch (stat) {
-	case FAST_CHARGE:
-	case FULLON_CHARGE:
-		vote(chg->pl_disable_votable, CHG_STATE_VOTER, false, 0);
-		break;
-	case TAPER_CHARGE:
-		if (pl_enabled) {
-			cancel_delayed_work_sync(&chg->pl_taper_work);
-			schedule_delayed_work(&chg->pl_taper_work, 0);
-		}
-		break;
-	case TERMINATE_CHARGE:
-	case INHIBIT_CHARGE:
-	case DISABLE_CHARGE:
-		vote(chg->pl_disable_votable, TAPER_END_VOTER, false, 0);
-		break;
-	default:
-		break;
-	}
-}
-
 irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -2669,7 +2531,6 @@ irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
 	}
 
 	stat = stat & BATTERY_CHARGER_STATUS_MASK;
-	smblib_pl_handle_chg_state_change(chg, stat);
 	power_supply_changed(chg->batt_psy);
 	return IRQ_HANDLED;
 }
@@ -2819,16 +2680,15 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 }
 
 #define USB_WEAK_INPUT_UA	1400000
-#define EFFICIENCY_PCT		80
 irqreturn_t smblib_handle_icl_change(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
-	int rc, icl_ua;
+	int rc, settled_ua;
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 
-	rc = smblib_get_charge_param(chg, &chg->param.icl_stat, &icl_ua);
+	rc = smblib_get_charge_param(chg, &chg->param.icl_stat, &settled_ua);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't get ICL status rc=%d\n", rc);
 		return IRQ_HANDLED;
@@ -2837,15 +2697,10 @@ irqreturn_t smblib_handle_icl_change(int irq, void *data)
 	if (chg->mode != PARALLEL_MASTER)
 		return IRQ_HANDLED;
 
-	chg->input_limited_fcc_ua = div64_s64(
-			(s64)icl_ua * MICRO_5V * EFFICIENCY_PCT,
-			(s64)get_effective_result(chg->fv_votable) * 100);
-
-	if (!get_effective_result(chg->pl_disable_votable))
-		rerun_election(chg->fcc_votable);
+	power_supply_changed(chg->usb_main_psy);
 
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER,
-		icl_ua >= USB_WEAK_INPUT_UA, 0);
+		settled_ua >= USB_WEAK_INPUT_UA, 0);
 
 	return IRQ_HANDLED;
 }
@@ -3067,12 +2922,9 @@ static void typec_source_removal(struct smb_charger *chg)
 {
 	int rc;
 
-	vote(chg->pl_disable_votable, TYPEC_SRC_VOTER, true, 0);
 	/* reset both usbin current and voltage votes */
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
-	/* reset taper_end voter here */
-	vote(chg->pl_disable_votable, TAPER_END_VOTER, false, 0);
 
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
 
@@ -3105,7 +2957,6 @@ static void typec_source_removal(struct smb_charger *chg)
 
 static void typec_source_insertion(struct smb_charger *chg)
 {
-	vote(chg->pl_disable_votable, TYPEC_SRC_VOTER, false, 0);
 }
 
 static void typec_sink_insertion(struct smb_charger *chg)
@@ -3439,58 +3290,6 @@ static void step_soc_req_work(struct work_struct *work)
 	step_charge_soc_update(chg, pval.intval);
 }
 
-static void smblib_pl_detect_work(struct work_struct *work)
-{
-	struct smb_charger *chg = container_of(work, struct smb_charger,
-						pl_detect_work);
-
-	vote(chg->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);
-}
-
-#define MINIMUM_PARALLEL_FCC_UA		500000
-#define PL_TAPER_WORK_DELAY_MS		100
-#define TAPER_RESIDUAL_PCT		75
-static void smblib_pl_taper_work(struct work_struct *work)
-{
-	struct smb_charger *chg = container_of(work, struct smb_charger,
-						pl_taper_work.work);
-	union power_supply_propval pval = {0, };
-	int rc;
-
-	smblib_dbg(chg, PR_PARALLEL, "starting parallel taper work\n");
-	if (chg->pl.slave_fcc_ua < MINIMUM_PARALLEL_FCC_UA) {
-		smblib_dbg(chg, PR_PARALLEL, "parallel taper is done\n");
-		vote(chg->pl_disable_votable, TAPER_END_VOTER, true, 0);
-		goto done;
-	}
-
-	rc = smblib_get_prop_batt_charge_type(chg, &pval);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get batt charge type rc=%d\n", rc);
-		goto done;
-	}
-
-	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
-		smblib_dbg(chg, PR_PARALLEL, "master is taper charging; reducing slave FCC\n");
-		vote(chg->awake_votable, PL_TAPER_WORK_RUNNING_VOTER, true, 0);
-		/* Reduce the taper percent by 25 percent */
-		chg->pl.taper_pct = chg->pl.taper_pct
-					* TAPER_RESIDUAL_PCT / 100;
-		rerun_election(chg->fcc_votable);
-		schedule_delayed_work(&chg->pl_taper_work,
-				msecs_to_jiffies(PL_TAPER_WORK_DELAY_MS));
-		return;
-	}
-
-	/*
-	 * Master back to Fast Charge, get out of this round of taper reduction
-	 */
-	smblib_dbg(chg, PR_PARALLEL, "master is fast charging; waiting for next taper\n");
-
-done:
-	vote(chg->awake_votable, PL_TAPER_WORK_RUNNING_VOTER, false, 0);
-}
-
 static void clear_hdc_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
@@ -3595,19 +3394,15 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
-	chg->fcc_votable = create_votable("FCC", VOTE_MIN,
-					smblib_fcc_vote_callback,
-					chg);
-	if (IS_ERR(chg->fcc_votable)) {
-		rc = PTR_ERR(chg->fcc_votable);
+	chg->fcc_votable = find_votable("FCC");
+	if (!chg->fcc_votable) {
+		rc = -EPROBE_DEFER;
 		return rc;
 	}
 
-	chg->fv_votable = create_votable("FV", VOTE_MAX,
-					smblib_fv_vote_callback,
-					chg);
-	if (IS_ERR(chg->fv_votable)) {
-		rc = PTR_ERR(chg->fv_votable);
+	chg->fv_votable = find_votable("FV");
+	if (!chg->fv_votable) {
+		rc = -EPROBE_DEFER;
 		return rc;
 	}
 
@@ -3650,13 +3445,12 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
-	chg->pl_disable_votable = create_votable("PL_DISABLE", VOTE_SET_ANY,
-					smblib_pl_disable_vote_callback,
-					chg);
-	if (IS_ERR(chg->pl_disable_votable)) {
-		rc = PTR_ERR(chg->pl_disable_votable);
+	chg->pl_disable_votable = find_votable("PL_DISABLE");
+	if (!chg->pl_disable_votable) {
+		rc = -EPROBE_DEFER;
 		return rc;
 	}
+	vote(chg->pl_disable_votable, PL_INDIRECT_VOTER, true, 0);
 
 	chg->chg_disable_votable = create_votable("CHG_DISABLE", VOTE_SET_ANY,
 					smblib_chg_disable_vote_callback,
@@ -3714,10 +3508,6 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->dc_suspend_votable);
 	if (chg->fcc_max_votable)
 		destroy_votable(chg->fcc_max_votable);
-	if (chg->fcc_votable)
-		destroy_votable(chg->fcc_votable);
-	if (chg->fv_votable)
-		destroy_votable(chg->fv_votable);
 	if (chg->usb_icl_votable)
 		destroy_votable(chg->usb_icl_votable);
 	if (chg->dc_icl_votable)
@@ -3728,8 +3518,6 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->pd_allowed_votable);
 	if (chg->awake_votable)
 		destroy_votable(chg->awake_votable);
-	if (chg->pl_disable_votable)
-		destroy_votable(chg->pl_disable_votable);
 	if (chg->chg_disable_votable)
 		destroy_votable(chg->chg_disable_votable);
 	if (chg->pl_enable_votable_indirect)
@@ -3759,10 +3547,8 @@ int smblib_init(struct smb_charger *chg)
 	mutex_init(&chg->write_lock);
 	mutex_init(&chg->otg_overcurrent_lock);
 	INIT_WORK(&chg->bms_update_work, bms_update_work);
-	INIT_WORK(&chg->pl_detect_work, smblib_pl_detect_work);
 	INIT_WORK(&chg->rdstd_cc2_detach_work, rdstd_cc2_detach_work);
 	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
-	INIT_DELAYED_WORK(&chg->pl_taper_work, smblib_pl_taper_work);
 	INIT_DELAYED_WORK(&chg->step_soc_req_work, step_soc_req_work);
 	INIT_DELAYED_WORK(&chg->clear_hdc_work, clear_hdc_work);
 	chg->fake_capacity = -EINVAL;
@@ -3784,10 +3570,7 @@ int smblib_init(struct smb_charger *chg)
 		}
 
 		chg->bms_psy = power_supply_get_by_name("bms");
-		chg->pl.psy = power_supply_get_by_name("parallel");
-		if (chg->pl.psy)
-			vote(chg->pl_disable_votable, PARALLEL_PSY_VOTER,
-			     false, 0);
+		chg->pl.psy = power_supply_get_by_name("usb-parallel");
 
 		break;
 	case PARALLEL_SLAVE:
