@@ -9028,7 +9028,7 @@ err:
 	return ret;
 }
 
-static int tavil_soc_codec_remove(struct snd_soc_component *component)
+static void tavil_soc_codec_remove(struct snd_soc_component *component)
 {
 	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct wcd9xxx *control;
@@ -9046,8 +9046,6 @@ static int tavil_soc_codec_remove(struct snd_soc_component *component)
 	/* Deinitialize MBHC module */
 	tavil_mbhc_deinit(codec);
 	tavil->mbhc = NULL;
-
-	return 0;
 }
 
 static struct regmap *tavil_get_regmap(struct device *dev)
