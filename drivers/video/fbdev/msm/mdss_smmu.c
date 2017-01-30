@@ -845,6 +845,8 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	}
 
 	mdss_smmu->base.iommu_ctrl = mdata->mdss_util->iommu_ctrl;
+	mdss_smmu->base.reg_lock = mdata->mdss_util->vbif_reg_lock;
+	mdss_smmu->base.reg_unlock = mdata->mdss_util->vbif_reg_unlock;
 	mdss_smmu->base.secure_session_ctrl =
 		mdata->mdss_util->secure_session_ctrl;
 	mdss_smmu->base.wait_for_transition = mdss_smmu_secure_wait;

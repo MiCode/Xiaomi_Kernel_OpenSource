@@ -784,6 +784,19 @@ int mdss_update_reg_bus_vote(struct reg_bus_client *bus_client, u32 usecase_ndx)
 }
 #endif
 
+void mdss_mdp_vbif_reg_lock(void)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	mutex_lock(&mdata->reg_lock);
+}
+
+void mdss_mdp_vbif_reg_unlock(void)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	mutex_unlock(&mdata->reg_lock);
+}
 
 static int mdss_mdp_intr2index(u32 intr_type, u32 intf_num)
 {
@@ -2868,6 +2881,8 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mdss_res->mdss_util->bus_bandwidth_ctrl = mdss_bus_bandwidth_ctrl;
 	mdss_res->mdss_util->panel_intf_type = mdss_panel_intf_type;
 	mdss_res->mdss_util->panel_intf_status = mdss_panel_get_intf_status;
+	mdss_res->mdss_util->vbif_reg_lock = mdss_mdp_vbif_reg_lock;
+	mdss_res->mdss_util->vbif_reg_unlock = mdss_mdp_vbif_reg_unlock;
 
 	rc = msm_dss_ioremap_byname(pdev, &mdata->mdss_io, "mdp_phys");
 	if (rc) {
