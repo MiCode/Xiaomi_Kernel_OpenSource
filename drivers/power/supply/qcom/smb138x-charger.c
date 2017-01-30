@@ -409,11 +409,12 @@ static enum power_supply_property smb138x_parallel_props[] = {
 	POWER_SUPPLY_PROP_PIN_ENABLED,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
-	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CHARGER_TEMP,
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 	POWER_SUPPLY_PROP_MODEL_NAME,
+	POWER_SUPPLY_PROP_PARALLEL_MODE,
 };
 
 static int smb138x_parallel_get_prop(struct power_supply *psy,
@@ -447,7 +448,7 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_get_charge_param(chg, &chg->param.fv, &val->intval);
 		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		rc = smblib_get_charge_param(chg, &chg->param.fcc,
 					     &val->intval);
 		break;
@@ -462,6 +463,9 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_MODEL_NAME:
 		val->strval = "smb138x";
+		break;
+	case POWER_SUPPLY_PROP_PARALLEL_MODE:
+		val->intval = POWER_SUPPLY_PARALLEL_MID_MID;
 		break;
 	default:
 		pr_err("parallel power supply get prop %d not supported\n",
@@ -516,7 +520,7 @@ static int smb138x_parallel_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fv, val->intval);
 		break;
-	case POWER_SUPPLY_PROP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fcc, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_BUCK_FREQ:
