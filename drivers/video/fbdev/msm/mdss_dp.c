@@ -1691,6 +1691,19 @@ static void mdss_dp_set_default_resolution(struct mdss_dp_drv_pdata *dp)
 			DEFAULT_VIDEO_RESOLUTION, true);
 }
 
+static void mdss_dp_set_default_link_parameters(struct mdss_dp_drv_pdata *dp)
+{
+	const int default_max_link_rate = 0x6;
+	const int default_max_lane_count = 1;
+
+	dp->dpcd.max_lane_count =  default_max_lane_count;
+	dp->dpcd.max_link_rate =  default_max_link_rate;
+
+	pr_debug("max_link_rate = 0x%x, max_lane_count= 0x%x\n",
+			dp->dpcd.max_link_rate,
+			dp->dpcd.max_lane_count);
+}
+
 static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 {
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
@@ -1896,12 +1909,16 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 		pr_debug("edid read error, setting default resolution\n");
 
 		mdss_dp_set_default_resolution(dp);
+		mdss_dp_set_default_link_parameters(dp);
 		goto notify;
 	}
 
 	ret = hdmi_edid_parser(dp->panel_data.panel_info.edid_data);
 	if (ret) {
-		pr_err("edid parse failed\n");
+		pr_err("edid parse failed, setting default resolution\n");
+
+		mdss_dp_set_default_resolution(dp);
+		mdss_dp_set_default_link_parameters(dp);
 		goto notify;
 	}
 
