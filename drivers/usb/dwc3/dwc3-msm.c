@@ -2723,6 +2723,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
 	struct device	*dev = &pdev->dev;
+	union power_supply_propval pval = {0};
 	struct dwc3_msm *mdwc;
 	struct dwc3	*dwc;
 	struct resource *res;
@@ -3016,10 +3017,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	 */
 	mdwc->lpm_flags = MDWC3_POWER_COLLAPSE | MDWC3_SS_PHY_SUSPEND;
 	atomic_set(&dwc->in_lpm, 1);
-	pm_runtime_set_suspended(mdwc->dev);
 	pm_runtime_set_autosuspend_delay(mdwc->dev, 1000);
 	pm_runtime_use_autosuspend(mdwc->dev);
-	pm_runtime_enable(mdwc->dev);
 	device_init_wakeup(mdwc->dev, 1);
 
 	if (of_property_read_bool(node, "qcom,disable-dev-mode-pm"))
@@ -3036,17 +3035,31 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		mdwc->pm_qos_latency = 0;
 	}
 
+	mdwc->usb_psy = power_supply_get_by_name("usb");
+	if (!mdwc->usb_psy) {
+		dev_warn(mdwc->dev, "Could not get usb power_supply\n");
+		pval.intval = -EINVAL;
+	} else {
+		power_supply_get_property(mdwc->usb_psy,
+			POWER_SUPPLY_PROP_PRESENT, &pval);
+	}
+
 	/* Update initial VBUS/ID state from extcon */
 	if (mdwc->extcon_vbus && extcon_get_cable_state_(mdwc->extcon_vbus,
 							EXTCON_USB))
 		dwc3_msm_vbus_notifier(&mdwc->vbus_nb, true, mdwc->extcon_vbus);
-	if (mdwc->extcon_id && extcon_get_cable_state_(mdwc->extcon_id,
+	else if (mdwc->extcon_id && extcon_get_cable_state_(mdwc->extcon_id,
 							EXTCON_USB_HOST))
 		dwc3_msm_id_notifier(&mdwc->id_nb, true, mdwc->extcon_id);
+	else if (!pval.intval) {
+		/* USB cable is not connected */
+		schedule_delayed_work(&mdwc->sm_work, 0);
+	} else {
+		if (pval.intval > 0)
+			dev_info(mdwc->dev, "charger detection in progress\n");
+	}
 
 	device_create_file(&pdev->dev, &dev_attr_mode);
-
-	schedule_delayed_work(&mdwc->sm_work, 0);
 
 	host_mode = usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST;
 	if (!dwc->is_drd && host_mode) {
@@ -3538,13 +3551,25 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	/* Check OTG state */
 	switch (mdwc->otg_state) {
 	case OTG_STATE_UNDEFINED:
-		/* Do nothing if no cable connected */
+		/* put controller and phy in suspend if no cable connected */
 		if (test_bit(ID, &mdwc->inputs) &&
-				!test_bit(B_SESS_VLD, &mdwc->inputs))
+				!test_bit(B_SESS_VLD, &mdwc->inputs)) {
+			dbg_event(0xFF, "undef_id_!bsv", 0);
+			pm_runtime_set_active(mdwc->dev);
+			pm_runtime_enable(mdwc->dev);
+			pm_runtime_get_noresume(mdwc->dev);
+			dwc3_msm_resume(mdwc);
+			pm_runtime_put_sync(mdwc->dev);
+			dbg_event(0xFF, "Undef NoUSB",
+				atomic_read(&mdwc->dev->power.usage_count));
+			mdwc->otg_state = OTG_STATE_B_IDLE;
 			break;
+		}
 
 		dbg_event(0xFF, "Exit UNDEF", 0);
 		mdwc->otg_state = OTG_STATE_B_IDLE;
+		pm_runtime_set_suspended(mdwc->dev);
+		pm_runtime_enable(mdwc->dev);
 		/* fall-through */
 	case OTG_STATE_B_IDLE:
 		if (!test_bit(ID, &mdwc->inputs)) {
