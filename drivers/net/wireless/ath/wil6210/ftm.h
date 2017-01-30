@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -96,7 +96,7 @@ enum qca_wlan_vendor_attr_loc {
 	QCA_WLAN_VENDOR_ATTR_AOA_TYPE = 23,
 	QCA_WLAN_VENDOR_ATTR_LOC_ANTENNA_ARRAY_MASK = 24,
 	QCA_WLAN_VENDOR_ATTR_AOA_MEAS_RESULT = 25,
-	QCA_WLAN_VENDOR_ATTR_FREQ = 26,
+	QCA_WLAN_VENDOR_ATTR_FREQ = 28,
 	/* keep last */
 	QCA_WLAN_VENDOR_ATTR_LOC_AFTER_LAST,
 	QCA_WLAN_VENDOR_ATTR_LOC_MAX = QCA_WLAN_VENDOR_ATTR_LOC_AFTER_LAST - 1,
