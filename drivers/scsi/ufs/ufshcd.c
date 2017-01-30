@@ -4141,17 +4141,17 @@ int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba, u64 wait_timeout_us)
 
 	ufshcd_hold_all(hba);
 	spin_lock_irqsave(hba->host->host_lock, flags);
-	if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL) {
-		ret = -EBUSY;
-		goto out;
-	}
-
 	/*
 	 * Wait for all the outstanding tasks/transfer requests.
 	 * Verify by checking the doorbell registers are clear.
 	 */
 	start = ktime_get();
 	do {
+		if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL) {
+			ret = -EBUSY;
+			goto out;
+		}
+
 		tm_doorbell = ufshcd_readl(hba, REG_UTP_TASK_REQ_DOOR_BELL);
 		tr_doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 		if (!tm_doorbell && !tr_doorbell) {
