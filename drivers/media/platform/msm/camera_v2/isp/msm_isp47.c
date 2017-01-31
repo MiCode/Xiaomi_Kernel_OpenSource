@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1492,6 +1492,26 @@ void msm_vfe47_configure_hvx(struct vfe_device *vfe_dev,
 	uint8_t is_stream_on)
 {
 	uint32_t val;
+	int rc = 0;
+
+	if (vfe_dev->buf_mgr->secure_enable == SECURE_MODE) {
+		pr_err("%s: Cannot configure hvx, secure_mode: %d\n",
+			__func__,
+			vfe_dev->buf_mgr->secure_enable);
+		return;
+	}
+	if (!vfe_dev->hvx_clk) {
+		pr_err("%s: no stream_clk\n", __func__);
+		return;
+	}
+	rc = msm_camera_clk_enable(&vfe_dev->pdev->dev, vfe_dev->hvx_clk_info,
+			vfe_dev->hvx_clk, vfe_dev->num_hvx_clk, is_stream_on);
+	if (rc) {
+		pr_err("%s: stream_clk enable failed, enable: %u\n",
+			__func__,
+			is_stream_on);
+		return;
+	}
 	if (is_stream_on == 1) {
 		/* Enable HVX */
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
@@ -2472,11 +2492,38 @@ int msm_vfe47_update_bandwidth(
 int msm_vfe47_get_clks(struct vfe_device *vfe_dev)
 {
 	int i, rc;
+	struct clk *stream_clk;
+	struct msm_cam_clk_info clk_info;
 
 	rc = msm_camera_get_clk_info(vfe_dev->pdev, &vfe_dev->vfe_clk_info,
 			&vfe_dev->vfe_clk, &vfe_dev->num_clk);
 	if (rc)
 		return rc;
+
+	for (i = 0; i < vfe_dev->num_clk; i++) {
+		if (strcmp(vfe_dev->vfe_clk_info[i].clk_name,
+				"camss_vfe_stream_clk") == 0) {
+			stream_clk = vfe_dev->vfe_clk[i];
+			clk_info = vfe_dev->vfe_clk_info[i];
+			vfe_dev->num_hvx_clk = 1;
+			vfe_dev->num_norm_clk = vfe_dev->num_clk - 1;
+			break;
+		}
+	}
+	if (i >= vfe_dev->num_clk)
+		pr_err("%s: cannot find camss_vfe_stream_clk\n", __func__);
+	else {
+		/* Switch stream_clk to the last element*/
+		for (; i < vfe_dev->num_clk - 1; i++) {
+			vfe_dev->vfe_clk[i] = vfe_dev->vfe_clk[i+1];
+			vfe_dev->vfe_clk_info[i] = vfe_dev->vfe_clk_info[i+1];
+		}
+		vfe_dev->vfe_clk_info[vfe_dev->num_clk-1] = clk_info;
+		vfe_dev->vfe_clk[vfe_dev->num_clk-1] = stream_clk;
+		vfe_dev->hvx_clk_info =
+			&vfe_dev->vfe_clk_info[vfe_dev->num_clk-1];
+		vfe_dev->hvx_clk = &vfe_dev->vfe_clk[vfe_dev->num_clk-1];
+	}
 
 	for (i = 0; i < vfe_dev->num_clk; i++) {
 		if (strcmp(vfe_dev->vfe_clk_info[i].clk_name,
@@ -2492,13 +2539,17 @@ void msm_vfe47_put_clks(struct vfe_device *vfe_dev)
 			&vfe_dev->vfe_clk, vfe_dev->num_clk);
 
 	vfe_dev->num_clk = 0;
+	vfe_dev->hvx_clk = NULL;
+	vfe_dev->hvx_clk_info = NULL;
+	vfe_dev->num_hvx_clk = 0;
+	vfe_dev->num_norm_clk = 0;
 }
 
 int msm_vfe47_enable_clks(struct vfe_device *vfe_dev, int enable)
 {
 	return msm_camera_clk_enable(&vfe_dev->pdev->dev,
 			vfe_dev->vfe_clk_info,
-			vfe_dev->vfe_clk, vfe_dev->num_clk, enable);
+			vfe_dev->vfe_clk, vfe_dev->num_norm_clk, enable);
 }
 
 int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)

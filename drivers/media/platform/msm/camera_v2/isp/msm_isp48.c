@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -189,12 +189,18 @@ static void msm_vfe48_put_clks(struct vfe_device *vfe_dev)
 
 	vfe_dev->num_clk = 0;
 	vfe_dev->num_rates = 0;
+	vfe_dev->hvx_clk = NULL;
+	vfe_dev->hvx_clk_info = NULL;
+	vfe_dev->num_hvx_clk = 0;
+	vfe_dev->num_norm_clk = 0;
 }
 
 static int msm_vfe48_get_clks(struct vfe_device *vfe_dev)
 {
 	int rc;
-	int i;
+	int i, j;
+	struct clk *stream_clk;
+	struct msm_cam_clk_info clk_info;
 
 	rc = msm_camera_get_clk_info_and_rates(vfe_dev->pdev,
 			&vfe_dev->vfe_clk_info, &vfe_dev->vfe_clk,
@@ -204,6 +210,34 @@ static int msm_vfe48_get_clks(struct vfe_device *vfe_dev)
 
 	if (rc)
 		return rc;
+	vfe_dev->num_norm_clk = vfe_dev->num_clk;
+	for (i = 0; i < vfe_dev->num_clk; i++) {
+		if (strcmp(vfe_dev->vfe_clk_info[i].clk_name,
+				"camss_vfe_stream_clk") == 0) {
+			stream_clk = vfe_dev->vfe_clk[i];
+			clk_info = vfe_dev->vfe_clk_info[i];
+			vfe_dev->num_hvx_clk = 1;
+			vfe_dev->num_norm_clk = vfe_dev->num_clk - 1;
+			break;
+		}
+	}
+	if (i >= vfe_dev->num_clk)
+		pr_err("%s: cannot find camss_vfe_stream_clk\n", __func__);
+	else {
+		/* Switch stream_clk to the last element*/
+		for (; i < vfe_dev->num_clk - 1; i++) {
+			vfe_dev->vfe_clk[i] = vfe_dev->vfe_clk[i+1];
+			vfe_dev->vfe_clk_info[i] = vfe_dev->vfe_clk_info[i+1];
+			for (j = 0; j < MSM_VFE_MAX_CLK_RATES; j++)
+				vfe_dev->vfe_clk_rates[j][i] =
+					vfe_dev->vfe_clk_rates[j][i+1];
+		}
+		vfe_dev->vfe_clk_info[vfe_dev->num_clk-1] = clk_info;
+		vfe_dev->vfe_clk[vfe_dev->num_clk-1] = stream_clk;
+		vfe_dev->hvx_clk_info =
+			&vfe_dev->vfe_clk_info[vfe_dev->num_clk-1];
+		vfe_dev->hvx_clk = &vfe_dev->vfe_clk[vfe_dev->num_clk-1];
+	}
 
 	for (i = 0; i < vfe_dev->num_clk; i++) {
 		if (strcmp(vfe_dev->vfe_clk_info[i].clk_name,
