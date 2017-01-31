@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -195,7 +195,7 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 		if (rc < 0)
 			msm_isp_halt_send_error(vfe_dev,
-				ISP_EVENT_BUF_FATAL_ERROR);
+				ISP_EVENT_PING_PONG_MISMATCH);
 		return rc;
 	}
 
@@ -224,6 +224,11 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 	stats_event->stats_buf_idxs
 		[stream_info->stats_type] =
 		done_buf->buf_idx;
+
+	stats_event->pd_stats_idx = 0xF;
+	if (stream_info->stats_type == MSM_ISP_STATS_BF)
+		stats_event->pd_stats_idx = vfe_dev->pd_buf_idx;
+
 	if (comp_stats_type_mask == NULL) {
 		stats_event->stats_mask =
 			1 << stream_info->stats_type;

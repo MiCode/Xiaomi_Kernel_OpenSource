@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2003-2005,2008 David Brownell
  * Copyright (C) 2008 Nokia Corporation
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1134,7 +1134,7 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	if (ecm->xport != USB_GADGET_XPORT_BAM2BAM_IPA)
 		return status;
 
-	pr_debug("setting ecm_ipa, host_ethaddr=%pM, device_ethaddr=%pM",
+	pr_debug("setting ecm_ipa, host_ethaddr=%pKM, device_ethaddr=%pKM",
 			ipa_params.host_ethaddr, ipa_params.device_ethaddr);
 	status = ecm_ipa_init(&ipa_params);
 	if (status) {

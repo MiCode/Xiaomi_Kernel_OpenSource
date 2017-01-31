@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 
 #include "sdm660.dtsi"
 #include "sdm660-cdp.dtsi"
+#include "sdm660-external-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM 660 PM660 + PM660L CDP";
@@ -22,4 +23,14 @@
 	qcom,board-id = <1 0>;
 	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
 			<0x0001001b 0x0201011a 0x0 0x0>;
+};
+
+&tavil_snd {
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+};
+
+&tasha_snd {
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
 };

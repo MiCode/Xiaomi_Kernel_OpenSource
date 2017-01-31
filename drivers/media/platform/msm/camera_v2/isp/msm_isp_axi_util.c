@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -558,6 +558,7 @@ static int msm_isp_composite_irq(struct vfe_device *vfe_dev,
 {
 	/* interrupt recv on same vfe w/o recv on other vfe */
 	if (stream_info->composite_irq[irq] & (1 << vfe_dev->pdev->id)) {
+		msm_isp_dump_ping_pong_mismatch(vfe_dev);
 		pr_err("%s: irq %d out of sync for dual vfe on vfe %d\n",
 			__func__, irq, vfe_dev->pdev->id);
 		return -EINVAL;
@@ -920,6 +921,37 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 	}
 }
 
+static void msm_isp_update_pd_stats_idx(struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src)
+{
+	struct msm_vfe_axi_stream *pd_stream_info = NULL;
+	uint32_t pingpong_status = 0, pingpong_bit = 0;
+	struct msm_isp_buffer *done_buf = NULL;
+	int vfe_idx = -1;
+
+	if (frame_src < VFE_RAW_0 || frame_src >  VFE_RAW_2)
+		return;
+
+	pd_stream_info = msm_isp_get_stream_common_data(vfe_dev,
+		RDI_INTF_0 + frame_src - VFE_RAW_0);
+
+	if (pd_stream_info && (pd_stream_info->state == ACTIVE) &&
+		(pd_stream_info->rdi_input_type ==
+		MSM_CAMERA_RDI_PDAF)) {
+		vfe_idx = msm_isp_get_vfe_idx_for_stream(
+				vfe_dev, pd_stream_info);
+		pingpong_status = vfe_dev->hw_info->vfe_ops.axi_ops.
+					get_pingpong_status(vfe_dev);
+		pingpong_bit = ((pingpong_status >>
+			pd_stream_info->wm[vfe_idx][0]) & 0x1);
+		done_buf = pd_stream_info->buf[pingpong_bit];
+		if (done_buf)
+			vfe_dev->pd_buf_idx = done_buf->buf_idx;
+		else
+			vfe_dev->pd_buf_idx = 0xF;
+	}
+}
+
 void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	enum msm_vfe_input_src frame_src, struct msm_isp_timestamp *ts)
 {
@@ -954,9 +986,8 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 			vfe_dev->isp_raw2_debug++;
 		}
 
-		ISP_DBG("%s: vfe %d frame_src %d frame id: %u\n", __func__,
-			vfe_dev->pdev->id, frame_src,
-			vfe_dev->axi_data.src_info[frame_src].frame_id);
+		ISP_DBG("%s: vfe %d frame_src %d\n", __func__,
+			vfe_dev->pdev->id, frame_src);
 
 		/*
 		 * Cannot support dual_cam and framedrop same time in union.
@@ -1001,6 +1032,12 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 		if (frame_src == VFE_PIX_0)
 			msm_isp_check_for_output_error(vfe_dev, ts,
 					&event_data.u.sof_info);
+		/*
+		 * Get and store the buf idx for PD stats
+		 * this is to send the PD stats buffer address
+		 * in BF stats done.
+		 */
+		msm_isp_update_pd_stats_idx(vfe_dev, frame_src);
 		break;
 
 	default:
@@ -1173,7 +1210,7 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		return rc;
 	}
 
-	stream_info->memory_input = stream_cfg_cmd->memory_input;
+	stream_info->rdi_input_type = stream_cfg_cmd->rdi_input_type;
 	vfe_dev->reg_update_requested &=
 		~(BIT(SRC_TO_INTF(stream_info->stream_src)));
 
@@ -1604,7 +1641,23 @@ void msm_isp_halt_send_error(struct vfe_device *vfe_dev, uint32_t event)
 	struct msm_isp_event_data error_event;
 	struct msm_vfe_axi_halt_cmd halt_cmd;
 	struct vfe_device *temp_dev = NULL;
+	uint32_t irq_status0 = 0, irq_status1 = 0;
 
+	if (atomic_read(&vfe_dev->error_info.overflow_state) !=
+		NO_OVERFLOW)
+		/* Recovery is already in Progress */
+		return;
+
+	if (event == ISP_EVENT_PING_PONG_MISMATCH &&
+		vfe_dev->axi_data.recovery_count < MAX_RECOVERY_THRESHOLD) {
+		pr_err("%s: ping pong mismatch on vfe%d recovery count %d\n",
+			__func__, vfe_dev->pdev->id,
+			vfe_dev->axi_data.recovery_count);
+		msm_isp_process_overflow_irq(vfe_dev,
+			&irq_status0, &irq_status1, 1);
+		vfe_dev->axi_data.recovery_count++;
+		return;
+	}
 	memset(&halt_cmd, 0, sizeof(struct msm_vfe_axi_halt_cmd));
 	memset(&error_event, 0, sizeof(struct msm_isp_event_data));
 	halt_cmd.stop_camif = 1;
@@ -3772,6 +3825,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 			(~(pingpong_status >>
 			stream_info->wm[vfe_idx][i]) & 0x1)) {
 			spin_unlock_irqrestore(&stream_info->lock, flags);
+			msm_isp_dump_ping_pong_mismatch(vfe_dev);
 			pr_err("%s: Write master ping pong mismatch. Status: 0x%x %x\n",
 				__func__, pingpong_status,
 				stream_info->stream_src);
@@ -3793,7 +3847,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 		if (rc < 0)
 			msm_isp_halt_send_error(vfe_dev,
-					ISP_EVENT_BUF_FATAL_ERROR);
+					ISP_EVENT_PING_PONG_MISMATCH);
 		return;
 	}
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +34,6 @@
 			label = "fab-a2noc";
 			qcom,fab-dev;
 			qcom,base-name = "a2noc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <16384>;
@@ -44,16 +43,16 @@
 			qcom,node-qos-clks {
 				clock-names =
 				"clk-ipa-clk",
-				"clk-sdcc1-ahb-no-rate",
-				"clk-sdcc2-ahb-no-rate",
-				"clk-blsp1-ahb-no-rate",
-				"clk-blsp2-ahb-no-rate";
+				"clk-ufs-axi-clk",
+				"clk-aggre2-ufs-axi-no-rate",
+				"clk-aggre2-usb3-axi-cfg-no-rate",
+				"clk-cfg-noc-usb2-axi-no-rate";
 				clocks =
 				<&clock_rpmcc RPM_IPA_CLK>,
-				<&clock_gcc GCC_SDCC1_AHB_CLK>,
-				<&clock_gcc GCC_SDCC2_AHB_CLK>,
-				<&clock_gcc GCC_BLSP1_AHB_CLK>,
-				<&clock_gcc GCC_BLSP2_AHB_CLK>;
+				<&clock_gcc GCC_UFS_AXI_CLK>,
+				<&clock_gcc GCC_AGGRE2_UFS_AXI_CLK>,
+				<&clock_gcc GCC_AGGRE2_USB3_AXI_CLK>,
+				<&clock_gcc GCC_CFG_NOC_USB2_AXI_CLK>;
 			};
 		};
 
@@ -63,7 +62,6 @@
 			qcom,fab-dev;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
-			qcom,bypass-qos-prg;
 			qcom,util-fact = <153>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpmcc BIMC_MSMBUS_CLK>,
@@ -75,7 +73,6 @@
 			label = "fab-cnoc";
 			qcom,fab-dev;
 			qcom,base-name = "cnoc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpmcc CNOC_MSMBUS_CLK>,
@@ -87,7 +84,6 @@
 			label = "fab-gnoc";
 			qcom,virt-dev;
 			qcom,base-name = "gnoc-base";
-			qcom,bypass-qos-prg;
 		};
 
 		fab_mnoc: fab-mnoc {
@@ -95,7 +91,6 @@
 			label = "fab-mnoc";
 			qcom,fab-dev;
 			qcom,base-name = "mnoc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <20480>;
@@ -103,27 +98,13 @@
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
 				<&clock_rpmcc MMSSNOC_AXI_A_CLK>;
-			clk-camss-ahb-no-rate-supply =
-					<&gdsc_camss_top>;
-			clk-video-ahb-no-rate-supply =
-					<&gdsc_venus>;
-			clk-video-axi-no-rate-supply =
-					<&gdsc_venus>;
 			qcom,node-qos-clks {
 				clock-names =
 				"clk-mmssnoc-axi-no-rate",
-				"clk-noc-cfg-ahb-no-rate",
-				"clk-mnoc-ahb-no-rate",
-				"clk-camss-ahb-no-rate",
-				"clk-video-ahb-no-rate",
-				"clk-video-axi-no-rate";
+				"clk-mmss-noc-cfg-ahb-no-rate";
 				clocks =
 				<&clock_rpmcc MMSSNOC_AXI_CLK>,
-				<&clock_gcc GCC_MMSS_NOC_CFG_AHB_CLK>,
-				<&clock_mmss MMSS_MNOC_AHB_CLK>,
-				<&clock_mmss MMSS_CAMSS_AHB_CLK>,
-				<&clock_mmss MMSS_VIDEO_AHB_CLK>,
-				<&clock_mmss MMSS_VIDEO_AXI_CLK>;
+				<&clock_gcc GCC_MMSS_NOC_CFG_AHB_CLK>;
 			};
 		};
 
@@ -132,7 +113,6 @@
 			label = "fab-snoc";
 			qcom,fab-dev;
 			qcom,base-name = "snoc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <24576>;
@@ -146,7 +126,6 @@
 			label = "fab-mnoc-ahb";
 			qcom,fab-dev;
 			qcom,base-name = "mmnoc-ahb-base";
-			qcom,bypass-qos-prg;
 			qcom,setrate-only-clk;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
@@ -483,18 +462,6 @@
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,vrail-comp = <50>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP0>;
-			clk-mdss-axi-no-rate-supply =
-					<&gdsc_mdss>;
-			clk-mdss-ahb-no-rate-supply =
-					<&gdsc_mdss>;
-			qcom,node-qos-clks {
-				clock-names =
-				"clk-mdss-ahb-no-rate",
-				"clk-mdss-axi-no-rate";
-				clocks =
-				<&clock_mmss MMSS_MDSS_AHB_CLK>,
-				<&clock_mmss MMSS_MDSS_AXI_CLK>;
-			};
 		};
 
 		mas_mdp_p1: mas-mdp-p1 {

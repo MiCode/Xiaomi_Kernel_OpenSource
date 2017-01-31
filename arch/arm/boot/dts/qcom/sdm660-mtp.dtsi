@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,11 @@
 #include "sdm660-pinctrl.dtsi"
 #include "sdm660-camera-sensor-mtp.dtsi"
 / {
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen3-batterydata-itech-3000mah.dtsi"
+		#include "fg-gen3-batterydata-ascent-3450mah.dtsi"
+	};
 };
 
 &uartblsp1dm1 {
@@ -88,6 +93,27 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
+&dsi_dual_sharp_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt35597_truly_dsc_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt35597_truly_dsc_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
 &sdhc_1 {
 	/* device core power supply */
 	vdd-supply = <&pm660l_l4>;
@@ -118,7 +144,7 @@
 	/* device core power supply */
 	vdd-supply = <&pm660l_l5>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <15000 900000>;
+	qcom,vdd-current-level = <15000 800000>;
 
 	/* device communication power supply */
 	vdd-io-supply = <&pm660l_l2>;
@@ -134,8 +160,8 @@
 	interrupts = <0 1 2>;
 	#interrupt-cells = <1>;
 	interrupt-map-mask = <0xffffffff>;
-	interrupt-map = <0 &intc 0 125 0
-			1 &intc 0 221 0
+	interrupt-map = <0 &intc 0 0 125 0
+			1 &intc 0 0 221 0
 			2 &tlmm 54 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
 	cd-gpios = <&tlmm 54 0x1>;
@@ -155,4 +181,8 @@
 
 &mem_client_3_size {
 	qcom,peripheral-size = <0x500000>;
+};
+
+&pm660_fg {
+	qcom,battery-data = <&mtp_batterydata>;
 };

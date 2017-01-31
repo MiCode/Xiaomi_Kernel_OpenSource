@@ -3,7 +3,7 @@ config DRM_MSM
 	tristate "MSM DRM"
 	depends on DRM
 	depends on ARCH_QCOM || (ARM && COMPILE_TEST)
-	depends on OF && COMMON_CLK
+	depends on OF
 	select REGULATOR
 	select DRM_KMS_HELPER
 	select DRM_PANEL

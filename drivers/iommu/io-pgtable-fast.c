@@ -196,7 +196,7 @@ int av8l_fast_map_public(av8l_fast_iopte *ptep, phys_addr_t paddr, size_t size,
 		| AV8L_FAST_PTE_TYPE_PAGE
 		| AV8L_FAST_PTE_AF
 		| AV8L_FAST_PTE_nG
-		| AV8L_FAST_PTE_SH_IS;
+		| AV8L_FAST_PTE_SH_OS;
 
 	if (prot & IOMMU_DEVICE)
 		pte |= (AV8L_FAST_MAIR_ATTR_IDX_DEV
@@ -428,9 +428,14 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 	cfg->pgsize_bitmap = SZ_4K;
 
 	/* TCR */
-	reg = (AV8L_FAST_TCR_SH_IS << AV8L_FAST_TCR_SH0_SHIFT) |
-	      (AV8L_FAST_TCR_RGN_NC << AV8L_FAST_TCR_IRGN0_SHIFT) |
-	      (AV8L_FAST_TCR_RGN_NC << AV8L_FAST_TCR_ORGN0_SHIFT);
+	if (cfg->quirks & IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT)
+		reg = (AV8L_FAST_TCR_SH_OS << AV8L_FAST_TCR_SH0_SHIFT) |
+			(AV8L_FAST_TCR_RGN_WBWA << AV8L_FAST_TCR_IRGN0_SHIFT) |
+			(AV8L_FAST_TCR_RGN_WBWA << AV8L_FAST_TCR_ORGN0_SHIFT);
+	else
+		reg = (AV8L_FAST_TCR_SH_OS << AV8L_FAST_TCR_SH0_SHIFT) |
+			(AV8L_FAST_TCR_RGN_NC << AV8L_FAST_TCR_IRGN0_SHIFT) |
+			(AV8L_FAST_TCR_RGN_NC << AV8L_FAST_TCR_ORGN0_SHIFT);
 
 	reg |= AV8L_FAST_TCR_TG0_4K;
 
@@ -567,6 +572,7 @@ static int __init av8l_fast_positive_testing(void)
 	av8l_fast_iopte *pmds;
 
 	cfg = (struct io_pgtable_cfg) {
+		.quirks = 0,
 		.tlb = &dummy_tlb_ops,
 		.ias = 32,
 		.oas = 32,

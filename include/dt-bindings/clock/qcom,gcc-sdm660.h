@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,11 +77,9 @@
 #define GCC_GP2_CLK				62
 #define GCC_GP3_CLK				63
 #define GCC_GPU_BIMC_GFX_CLK			64
-#define GCC_GPU_BIMC_GFX_SRC_CLK		65
 #define GCC_GPU_CFG_AHB_CLK			66
 #define GCC_GPU_GPLL0_CLK			67
 #define GCC_GPU_GPLL0_DIV_CLK			68
-#define GCC_GPU_SNOC_DVM_GFX_CLK		69
 #define GCC_HMSS_AHB_CLK			70
 #define GCC_HMSS_DVM_BUS_CLK			71
 #define GCC_HMSS_RBCPR_CLK			72
@@ -134,7 +132,7 @@
 #define GPLL0_OUT_AUX2				119
 #define GPLL0_OUT_EARLY				120
 #define GPLL0_OUT_MAIN				121
-#define GPLL0_OUT_TEST				122
+#define GPLL0_AO				122
 #define GPLL1					123
 #define GPLL1_OUT_AUX				124
 #define GPLL1_OUT_AUX2				125

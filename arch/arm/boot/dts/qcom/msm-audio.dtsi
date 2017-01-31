@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+&spi_7 {
+	status = "okay";
+};
 
 &soc {
 	pcm0: qcom,msm-pcm {
@@ -59,6 +63,18 @@
 	cpe3: qcom,msm-cpe-lsm@3 {
 		compatible = "qcom,msm-cpe-lsm";
 		qcom,msm-cpe-lsm-id = <3>;
+	};
+
+	wdsp_mgr: qcom,wcd-dsp-mgr {
+		compatible = "qcom,wcd-dsp-mgr";
+		qcom,wdsp-components = <&wcd934x_cdc 0>,
+				       <&wcd_spi_0 1>,
+				       <&glink_spi_xprt_wdsp 2>;
+		qcom,img-filename = "cpe_9340";
+	};
+
+	wdsp_glink: qcom,wcd-dsp-glink {
+		compatible = "qcom,wcd-dsp-glink";
 	};
 
 	compress: qcom,msm-compress-dsp {
@@ -912,10 +928,11 @@
 	};
 
 	clock_audio: audio_ext_clk {
+		status = "disabled";
 		compatible = "qcom,audio-ref-clk";
 		qcom,audio-ref-clk-gpio = <&pm660_gpios 3 0>;
 		clock-names = "osr_clk";
-		clocks = <&clock_rpmcc AUDIO_PMI_CLK>;
+		clocks = <&clock_rpmcc RPM_DIV_CLK1>;
 		qcom,node_has_rpm_clock;
 		#clock-cells = <1>;
 		pinctrl-names = "sleep", "active";
@@ -926,18 +943,16 @@
 	clock_audio_lnbb: audio_ext_clk_lnbb {
 		compatible = "qcom,audio-ref-clk";
 		clock-names = "osr_clk";
-		clocks = <&clock_rpmcc AUDIO_PMIC_LNBB_CLK>;
+		clocks = <&clock_rpmcc RPM_LN_BB_CLK2>;
 		qcom,node_has_rpm_clock;
 		#clock-cells = <1>;
 	};
 
 	wcd_rst_gpio: msm_cdc_pinctrl@64 {
 		compatible = "qcom,msm-cdc-pinctrl";
-		qcom,cdc-rst-n-gpio = <&lpi_tlmm 24 0>;
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&lpi_cdc_reset_active>;
 		pinctrl-1 = <&lpi_cdc_reset_sleep>;
+		qcom,lpi-gpios;
 	};
-
 };
-

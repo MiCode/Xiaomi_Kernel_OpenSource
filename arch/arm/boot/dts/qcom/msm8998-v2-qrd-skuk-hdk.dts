@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,9 +15,102 @@
 
 #include "msm8998-v2.dtsi"
 #include "msm8998-qrd-skuk.dtsi"
+#include "msm8998-camera-sensor-skuk.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8998 SKUK HDK";
 	compatible = "qcom,msm8998-qrd", "qcom,msm8998", "qcom,qrd";
 	qcom,board-id = <0x06000b 0x10>;
+};
+
+&pmx_mdss {
+	mdss_dsi_active: mdss_dsi_active {
+		mux {
+			pins = "gpio52", "gpio94";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio52", "gpio94";
+			drive-strength = <8>; /* 8 mA */
+			bias-disable = <0>; /* no pull */
+		};
+	};
+
+	mdss_dsi_suspend: mdss_dsi_suspend {
+		mux {
+			pins = "gpio52", "gpio94";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio52", "gpio94";
+			drive-strength = <2>; /* 2 mA */
+			bias-pull-down; /* pull down */
+		};
+	};
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "split_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual_s6e3ha3_amoled_cmd>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-enable-gpio = <&tlmm 52 0>;
+	qcom,platform-reset-gpio = <&tlmm 94 0>;
+	qcom,platform-bklight-en-gpio = <&pmi8998_gpios 1 0>;
+	qcom,platform-bklight-en-gpio-invert;
+};
+
+&mdss_dsi1 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual_s6e3ha3_amoled_cmd>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-enable-gpio = <&tlmm 52 0>;
+	qcom,platform-reset-gpio = <&tlmm 94 0>;
+	qcom,platform-bklight-en-gpio = <&pmi8998_gpios 1 0>;
+	qcom,platform-bklight-en-gpio-invert;
+};
+
+&pmi8998_wled {
+	qcom,disp-type-amoled;
+};
+
+&labibb {
+	status = "ok";
+	qcom,qpnp-labibb-mode = "amoled";
+	qcom,swire-control;
+};
+
+&pmi8998_gpios {
+	/* GPIO 1 for WLED power enable */
+	gpio@c000 {
+		qcom,mode = <1>;
+		qcom,output-type = <0>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <0>;
+		qcom,out-strength = <1>;
+		qcom,src-sel = <0>;
+		qcom,invert = <0>;
+		qcom,master-en = <1>;
+		status = "okay";
+	};
+};
+
+&dsi_dual_s6e3ha3_amoled_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <255>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -815,7 +815,7 @@ static int msm_dig_cdc_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 		}
 		snd_soc_update_bits(codec,
 			MSM89XX_CDC_CORE_TX1_DMIC_CTL + (dmic - 1) * 0x20,
-			0x07, 0x01);
+			0x07, 0x02);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		(*dmic_clk_cnt)--;
@@ -1132,7 +1132,7 @@ int msm_dig_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 	msm_dig = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
 	msm_dig->entry = snd_register_module_info(codec_root->module,
-						  "msm_digital",
+						  "msm_digital_codec",
 						  codec_root);
 	if (!msm_dig->entry) {
 		dev_dbg(codec->dev, "%s: failed to create msm_digital entry\n",
@@ -1202,9 +1202,8 @@ static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 			return ret;
 		}
 	}
-	if (msm_dig_cdc->get_cdc_version)
-		dig_cdc->version = msm_dig_cdc->get_cdc_version(
-							msm_dig_cdc->handle);
+	/* Assign to DRAX_CDC for initial version */
+	dig_cdc->version = DRAX_CDC;
 	registered_digcodec = codec;
 	return 0;
 }
@@ -1557,16 +1556,18 @@ static const struct snd_soc_dapm_widget msm_dig_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("RX1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX2 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 
-	SND_SOC_DAPM_MIXER_E("RX1 CHAIN", MSM89XX_CDC_CORE_RX1_B6_CTL,
-			     MSM89XX_RX1, 0, NULL, 0,
+	SND_SOC_DAPM_MIXER_E("RX1 CHAIN", SND_SOC_NOPM,
+			     0, 0, NULL, 0,
 			     msm_dig_cdc_codec_enable_rx_chain,
 			     SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MIXER_E("RX2 CHAIN", MSM89XX_CDC_CORE_RX2_B6_CTL,
-		MSM89XX_RX2, 0, NULL, 0,
-		msm_dig_cdc_codec_enable_rx_chain, SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MIXER_E("RX3 CHAIN", MSM89XX_CDC_CORE_RX3_B6_CTL,
-		MSM89XX_RX3, 0, NULL, 0,
-		msm_dig_cdc_codec_enable_rx_chain, SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MIXER_E("RX2 CHAIN", SND_SOC_NOPM,
+			     0, 0, NULL, 0,
+			     msm_dig_cdc_codec_enable_rx_chain,
+			     SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MIXER_E("RX3 CHAIN", SND_SOC_NOPM,
+			     0, 0, NULL, 0,
+			     msm_dig_cdc_codec_enable_rx_chain,
+			     SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("RX1 MIX1 INP1", SND_SOC_NOPM, 0, 0,
 		&rx_mix1_inp1_mux),

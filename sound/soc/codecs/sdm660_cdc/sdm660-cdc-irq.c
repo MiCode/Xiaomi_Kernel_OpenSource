@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,7 @@
 #include <linux/bitops.h>
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/of_irq.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
@@ -83,7 +84,7 @@ struct wcd9xxx_spmi_map {
 	uint8_t mask[NUM_IRQ_REGS];
 	int linuxirq[MAX_NUM_IRQS];
 	irq_handler_t handler[MAX_NUM_IRQS];
-	struct spmi_device *spmi[NUM_IRQ_REGS];
+	struct platform_device *spmi[NUM_IRQ_REGS];
 	struct snd_soc_codec *codec;
 
 	enum wcd9xxx_spmi_pm_state pm_state;
@@ -99,22 +100,6 @@ struct wcd9xxx_spmi_map map;
 void wcd9xxx_spmi_enable_irq(int irq)
 {
 	pr_debug("%s: irqno =%d\n", __func__, irq);
-	if ((irq >= 0) && (irq <= 7)) {
-		snd_soc_update_bits(map.codec,
-				MSM89XX_PMIC_DIGITAL_INT_EN_CLR,
-				(0x01 << irq), 0x00);
-		snd_soc_update_bits(map.codec,
-				MSM89XX_PMIC_DIGITAL_INT_EN_SET,
-				(0x01 << irq), (0x01 << irq));
-	}
-	if ((irq > 7) && (irq <= 15)) {
-		snd_soc_update_bits(map.codec,
-				MSM89XX_PMIC_ANALOG_INT_EN_CLR,
-				(0x01 << (irq - 8)), 0x00);
-		snd_soc_update_bits(map.codec,
-				MSM89XX_PMIC_ANALOG_INT_EN_SET,
-				(0x01 << (irq - 8)), (0x01 << (irq - 8)));
-	}
 
 	if (!(map.mask[BIT_BYTE(irq)] & (BYTE_BIT_MASK(irq))))
 		return;
@@ -128,23 +113,6 @@ void wcd9xxx_spmi_enable_irq(int irq)
 void wcd9xxx_spmi_disable_irq(int irq)
 {
 	pr_debug("%s: irqno =%d\n", __func__, irq);
-	if ((irq >= 0) && (irq <= 7)) {
-		snd_soc_update_bits(map.codec,
-				MSM89XX_PMIC_DIGITAL_INT_EN_SET,
-				(0x01 << (irq)), 0x00);
-		snd_soc_update_bits(map.codec,
-				MSM89XX_PMIC_DIGITAL_INT_EN_CLR,
-				(0x01 << irq), (0x01 << irq));
-	}
-
-	if ((irq > 7) && (irq <= 15)) {
-		snd_soc_update_bits(map.codec,
-				MSM89XX_PMIC_ANALOG_INT_EN_SET,
-				(0x01 << (irq - 8)), 0x00);
-		snd_soc_update_bits(map.codec,
-				MSM89XX_PMIC_ANALOG_INT_EN_CLR,
-				(0x01 << (irq - 8)), (0x01 << (irq - 8)));
-	}
 
 	if (map.mask[BIT_BYTE(irq)] & (BYTE_BIT_MASK(irq)))
 		return;
@@ -160,6 +128,10 @@ int wcd9xxx_spmi_request_irq(int irq, irq_handler_t handler,
 {
 	int rc;
 	unsigned long irq_flags;
+
+	map.linuxirq[irq] =
+		platform_get_irq_byname(map.spmi[BIT_BYTE(irq)],
+					irq_names[irq]);
 
 	if (strcmp(name, "mbhc sw intr"))
 		irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
@@ -414,7 +386,7 @@ void wcd9xxx_spmi_set_codec(struct snd_soc_codec *codec)
 	map.codec = codec;
 }
 
-void wcd9xxx_spmi_set_dev(struct spmi_device *spmi, int i)
+void wcd9xxx_spmi_set_dev(struct platform_device *spmi, int i)
 {
 	if (i < NUM_IRQ_REGS)
 		map.spmi[i] = spmi;

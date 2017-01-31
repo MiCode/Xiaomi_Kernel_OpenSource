@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -251,8 +251,9 @@ static long wan_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 
-		if (rmnet_ipa_query_tethering_stats(NULL, true)) {
-			IPAWANERR("WAN_IOC_QUERY_TETHER_STATS failed\n");
+		if (rmnet_ipa_reset_tethering_stats(
+				(struct wan_ioctl_reset_tether_stats *)param)) {
+			IPAWANERR("WAN_IOC_RESET_TETHER_STATS failed\n");
 			retval = -EFAULT;
 			break;
 		}

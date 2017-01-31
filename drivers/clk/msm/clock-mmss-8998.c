@@ -527,6 +527,7 @@ static struct clk_freq_tbl ftbl_csiphy_clk_src[] = {
 static struct clk_freq_tbl ftbl_csiphy_clk_src_vq[] = {
 	F_MM(  164570000,  mmpll10_pll_out, 3.5,    0,     0),
 	F_MM(  256000000,   mmpll4_pll_out,   3,    0,     0),
+	F_MM(  274290000,   mmpll7_pll_out, 3.5,    0,     0),
 	F_MM(  300000000,     mmsscc_gpll0,   2,    0,     0),
 	F_MM(  384000000,   mmpll4_pll_out,   2,    0,     0),
 	F_END

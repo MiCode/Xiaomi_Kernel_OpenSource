@@ -254,6 +254,7 @@
 		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <90>;
 		qcom,eeprom-src = <&eeprom1>;
+		qcom,actuator-src = <&actuator1>;
 		cam_vdig-supply = <&pm8998_lvs1>;
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pmi8998_bob>;

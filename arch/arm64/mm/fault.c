@@ -39,6 +39,7 @@
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
 #include <asm/edac.h>
+#include <soc/qcom/scm.h>
 
 #include <trace/events/exception.h>
 
@@ -408,6 +409,23 @@ no_context:
 	return 0;
 }
 
+static int do_tlb_conf_fault(unsigned long addr,
+				unsigned int esr,
+				struct pt_regs *regs)
+{
+#define SCM_TLB_CONFLICT_CMD	0x1B
+	struct scm_desc desc = {
+		.args[0] = addr,
+		.arginfo = SCM_ARGS(1),
+	};
+
+	if (scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_MP, SCM_TLB_CONFLICT_CMD),
+						&desc))
+		return 1;
+
+	return 0;
+}
+
 /*
  * First Level Translation Fault Handler
  *
@@ -499,7 +517,7 @@ static struct fault_info {
 	{ do_bad,		SIGBUS,  0,		"unknown 45"			},
 	{ do_bad,		SIGBUS,  0,		"unknown 46"			},
 	{ do_bad,		SIGBUS,  0,		"unknown 47"			},
-	{ do_bad,		SIGBUS,  0,		"TLB conflict abort"		},
+	{ do_tlb_conf_fault,	SIGBUS,  0,		"TLB conflict abort"		},
 	{ do_bad,		SIGBUS,  0,		"unknown 49"			},
 	{ do_bad,		SIGBUS,  0,		"unknown 50"			},
 	{ do_bad,		SIGBUS,  0,		"unknown 51"			},

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -168,13 +168,16 @@ int rmnet_ipa_poll_tethering_stats(struct wan_ioctl_poll_tethering_stats *data);
 
 int rmnet_ipa_set_data_quota(struct wan_ioctl_set_data_quota *data);
 
-void ipa_broadcast_quota_reach_ind(uint32_t mux_id);
+void ipa_broadcast_quota_reach_ind(uint32_t mux_id,
+	enum ipa_upstream_type upstream_type);
 
 int rmnet_ipa_set_tether_client_pipe(struct wan_ioctl_set_tether_client_pipe
 	*data);
 
 int rmnet_ipa_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 	bool reset);
+
+int rmnet_ipa_reset_tethering_stats(struct wan_ioctl_reset_tether_stats *data);
 
 int ipa_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
 	struct ipa_get_data_stats_resp_msg_v01 *resp);
@@ -268,7 +271,21 @@ static inline int rmnet_ipa_set_data_quota(
 	return -EPERM;
 }
 
-static inline void ipa_broadcast_quota_reach_ind(uint32_t mux_id) { }
+static inline void ipa_broadcast_quota_reach_ind
+(
+	uint32_t mux_id,
+	enum ipa_upstream_type upstream_type)
+{
+}
+
+static int rmnet_ipa_reset_tethering_stats
+(
+	struct wan_ioctl_reset_tether_stats *data
+)
+{
+	return -EPERM;
+
+}
 
 static inline int ipa_qmi_get_data_stats(
 	struct ipa_get_data_stats_req_msg_v01 *req,

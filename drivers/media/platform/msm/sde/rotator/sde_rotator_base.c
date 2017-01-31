@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,7 +76,10 @@ u32 sde_apply_comp_ratio_factor(u32 quota,
 
 #define RES_1080p		(1088*1920)
 #define RES_UHD		(3840*2160)
+#define RES_WQXGA		(2560*1600)
 #define XIN_HALT_TIMEOUT_US	0x4000
+#define MDSS_MDP_HW_REV_320	0x30020000  /* sdm660 */
+#define MDSS_MDP_HW_REV_330	0x30030000  /* sdm630 */
 
 static int sde_mdp_wait_for_xin_halt(u32 xin_id)
 {
@@ -174,15 +177,32 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 	SDEROT_DBG("w:%d h:%d fps:%d pixfmt:%8.8x yuv:%d res:%d rd:%d\n",
 		width, height, fps, pixfmt, is_yuv, res, is_rd);
 
-	if (!is_yuv)
-		goto exit;
+	switch (mdata->mdss_version) {
+	case MDSS_MDP_HW_REV_320:
+	case MDSS_MDP_HW_REV_330:
+		if ((res <= RES_1080p) && (fps <= 30) && is_yuv)
+			ot_lim = 2;
+		else if ((res <= RES_1080p) && (fps <= 60) && is_yuv)
+			ot_lim = 4;
+		else if ((res <= RES_UHD) && (fps <= 30) && is_yuv)
+			ot_lim = 8;
+		else if ((res <= RES_WQXGA) && (fps <= 60) && is_yuv)
+			ot_lim = 4;
+		else if ((res <= RES_WQXGA) && (fps <= 60))
+			ot_lim = 16;
+		break;
+	default:
+		if (is_yuv) {
+			if ((res <= RES_1080p) && (fps <= 30))
+				ot_lim = 2;
+			else if ((res <= RES_1080p) && (fps <= 60))
+				ot_lim = 4;
+			else if ((res <= RES_UHD) && (fps <= 30))
+				ot_lim = 8;
+		}
+		break;
+	}
 
-	if ((res <= RES_1080p) && (fps <= 30))
-		ot_lim = 2;
-	else if ((res <= RES_1080p) && (fps <= 60))
-		ot_lim = 4;
-	else if ((res <= RES_UHD) && (fps <= 30))
-		ot_lim = 8;
 
 exit:
 	SDEROT_DBG("ot_lim=%d\n", ot_lim);

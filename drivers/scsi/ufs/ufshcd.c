@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -48,6 +48,7 @@
 #include "ufshci.h"
 #include "ufs_quirks.h"
 #include "ufs-debugfs.h"
+#include "ufs-qcom.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ufs.h>
@@ -1344,7 +1345,8 @@ start:
 		hba->clk_gating.state = REQ_CLKS_ON;
 		trace_ufshcd_clk_gating(dev_name(hba->dev),
 			hba->clk_gating.state);
-		schedule_work(&hba->clk_gating.ungate_work);
+		queue_work(hba->clk_gating.ungating_workq,
+				&hba->clk_gating.ungate_work);
 		/*
 		 * fall through to check if we should wait for this
 		 * work to be done or not.
@@ -1617,6 +1619,7 @@ static enum hrtimer_restart ufshcd_clkgate_hrtimer_handler(
 static void ufshcd_init_clk_gating(struct ufs_hba *hba)
 {
 	struct ufs_clk_gating *gating = &hba->clk_gating;
+	char wq_name[sizeof("ufs_clk_ungating_00")];
 
 	hba->clk_gating.state = CLKS_ON;
 
@@ -1644,6 +1647,10 @@ static void ufshcd_init_clk_gating(struct ufs_hba *hba)
 	 */
 	hrtimer_init(&gating->gate_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	gating->gate_hrtimer.function = ufshcd_clkgate_hrtimer_handler;
+
+	snprintf(wq_name, ARRAY_SIZE(wq_name), "ufs_clk_ungating_%d",
+			hba->host->host_no);
+	hba->clk_gating.ungating_workq = create_singlethread_workqueue(wq_name);
 
 	gating->is_enabled = true;
 
@@ -1707,6 +1714,7 @@ static void ufshcd_exit_clk_gating(struct ufs_hba *hba)
 	device_remove_file(hba->dev, &hba->clk_gating.enable_attr);
 	ufshcd_cancel_gate_work(hba);
 	cancel_work_sync(&hba->clk_gating.ungate_work);
+	destroy_workqueue(hba->clk_gating.ungating_workq);
 }
 
 static void ufshcd_set_auto_hibern8_timer(struct ufs_hba *hba, u32 delay)
@@ -2877,11 +2885,11 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 				"%s: failed to compose upiu %d\n",
 				__func__, err);
 
-			lrbp->cmd = NULL;
-			clear_bit_unlock(tag, &hba->lrb_in_use);
-			ufshcd_release_all(hba);
-			ufshcd_vops_pm_qos_req_end(hba, cmd->request, true);
-			goto out;
+		lrbp->cmd = NULL;
+		clear_bit_unlock(tag, &hba->lrb_in_use);
+		ufshcd_release_all(hba);
+		ufshcd_vops_pm_qos_req_end(hba, cmd->request, true);
+		goto out;
 	}
 
 	err = ufshcd_map_sg(lrbp);
@@ -5257,9 +5265,28 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 		retval = IRQ_HANDLED;
 	}
 
-	if ((intr_status & UFSHCD_UIC_PWR_MASK) && hba->uic_async_done) {
-		complete(hba->uic_async_done);
-		retval = IRQ_HANDLED;
+	if (intr_status & UFSHCD_UIC_PWR_MASK) {
+		if (hba->uic_async_done) {
+			complete(hba->uic_async_done);
+			retval = IRQ_HANDLED;
+		} else if (ufshcd_is_auto_hibern8_supported(hba)) {
+			/*
+			 * If uic_async_done flag is not set then this
+			 * is an Auto hibern8 err interrupt.
+			 * Perform a host reset followed by a full
+			 * link recovery.
+			 */
+			hba->ufshcd_state = UFSHCD_STATE_ERROR;
+			hba->force_host_reset = true;
+			dev_err(hba->dev, "%s: Auto Hibern8 %s failed - status: 0x%08x, upmcrs: 0x%08x\n",
+				__func__, (intr_status & UIC_HIBERNATE_ENTER) ?
+				"Enter" : "Exit",
+				intr_status, ufshcd_get_upmcrs(hba));
+			__ufshcd_print_host_regs(hba, true);
+			ufshcd_print_host_state(hba);
+			schedule_work(&hba->eh_work);
+			retval = IRQ_HANDLED;
+		}
 	}
 	return retval;
 }
@@ -5851,6 +5878,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 	int err = 0;
 	int tag;
 	bool needs_reset = false;
+	bool clks_enabled = false;
 
 	hba = container_of(work, struct ufs_hba, eh_work);
 
@@ -5859,6 +5887,22 @@ static void ufshcd_err_handler(struct work_struct *work)
 
 	if (hba->ufshcd_state == UFSHCD_STATE_RESET)
 		goto out;
+
+	/*
+	 * Make sure the clocks are ON before we proceed with err
+	 * handling. For the majority of cases err handler would be
+	 * run with clocks ON. There is a possibility that the err
+	 * handler was scheduled due to auto hibern8 error interrupt,
+	 * in which case the clocks could be gated or be in the
+	 * process of gating when the err handler runs.
+	 */
+	if (unlikely((hba->clk_gating.state != CLKS_ON) &&
+	    ufshcd_is_auto_hibern8_supported(hba))) {
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		ufshcd_hold(hba, false);
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		clks_enabled = true;
+	}
 
 	hba->ufshcd_state = UFSHCD_STATE_RESET;
 	ufshcd_set_eh_in_progress(hba);
@@ -5996,6 +6040,9 @@ skip_err_handling:
 	}
 
 	hba->silence_err_logs = false;
+
+	if (clks_enabled)
+		__ufshcd_release(hba, false);
 out:
 	ufshcd_clear_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
@@ -8897,6 +8944,35 @@ static inline void ufshcd_add_sysfs_nodes(struct ufs_hba *hba)
 	ufshcd_add_spm_lvl_sysfs_nodes(hba);
 }
 
+static void ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
+{
+	bool suspend = false;
+	unsigned long flags;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (hba->clk_scaling.is_allowed) {
+		hba->clk_scaling.is_allowed = false;
+		suspend = true;
+	}
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	/**
+	 * Scaling may be scheduled before, hence make sure it
+	 * doesn't race with shutdown
+	 */
+	if (ufshcd_is_clkscaling_supported(hba)) {
+		device_remove_file(hba->dev, &hba->clk_scaling.enable_attr);
+		cancel_work_sync(&hba->clk_scaling.suspend_work);
+		cancel_work_sync(&hba->clk_scaling.resume_work);
+		if (suspend)
+			ufshcd_suspend_clkscaling(hba);
+	}
+
+	/* Unregister so that devfreq_monitor can't race with shutdown */
+	if (hba->devfreq)
+		devfreq_remove_device(hba->devfreq);
+}
+
 /**
  * ufshcd_shutdown - shutdown routine
  * @hba: per adapter instance
@@ -8914,16 +8990,14 @@ int ufshcd_shutdown(struct ufs_hba *hba)
 
 	pm_runtime_get_sync(hba->dev);
 	ufshcd_hold_all(hba);
-	/**
-	 * (1) Set state to shutting down
-	 * (2) Acquire the lock to stop any more requests
-	 * (3) Suspend clock scaling
-	 * (4) Wait for all issued requests to complete
-	 */
 	ufshcd_mark_shutdown_ongoing(hba);
+	ufshcd_shutdown_clkscaling(hba);
+	/**
+	 * (1) Acquire the lock to stop any more requests
+	 * (2) Wait for all issued requests to complete
+	 */
 	ufshcd_get_write_lock(hba);
 	ufshcd_scsi_block_requests(hba);
-	ufshcd_suspend_clkscaling(hba);
 	ret = ufshcd_wait_for_doorbell_clr(hba, U64_MAX);
 	if (ret)
 		dev_err(hba->dev, "%s: waiting for DB clear: failed: %d\n",
@@ -9365,10 +9439,6 @@ static void ufshcd_clk_scaling_resume_work(struct work_struct *work)
 	struct ufs_hba *hba = container_of(work, struct ufs_hba,
 					   clk_scaling.resume_work);
 	unsigned long irq_flags;
-
-	/* Let's not resume scaling if shutdown is ongoing */
-	if (ufshcd_is_shutdown_ongoing(hba))
-		return;
 
 	spin_lock_irqsave(hba->host->host_lock, irq_flags);
 	if (!hba->clk_scaling.is_suspended) {

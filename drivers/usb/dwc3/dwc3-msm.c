@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -723,7 +723,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	list_add_tail(&req_complete->list_item, &mdwc->req_complete_list);
 	request->complete = dwc3_msm_req_complete_func;
 
-	dev_vdbg(dwc->dev, "%s: queing request %p to ep %s length %d\n",
+	dev_vdbg(dwc->dev, "%s: queing request %pK to ep %s length %d\n",
 			__func__, request, ep->name, request->length);
 	size = dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTSIZ(0));
 	dbm_event_buffer_config(mdwc->dbm,
@@ -908,7 +908,7 @@ static void gsi_ring_in_db(struct usb_ep *ep, struct usb_gsi_request *request)
 		dev_dbg(mdwc->dev, "Failed to get GSI DBL address MSB\n");
 
 	offset = dwc3_trb_dma_offset(dep, &dep->trb_pool[num_trbs-1]);
-	dev_dbg(mdwc->dev, "Writing link TRB addr: %pa to %p (%x)\n",
+	dev_dbg(mdwc->dev, "Writing link TRB addr: %pa to %pK (%x)\n",
 	&offset, gsi_dbl_address_lsb, dbl_lo_addr);
 
 	writel_relaxed(offset, gsi_dbl_address_lsb);
@@ -2574,7 +2574,7 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
 
 	speed = extcon_get_cable_state_(edev, EXTCON_USB_SPEED);
-	dwc->maximum_speed = (speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
+	dwc->maximum_speed = (speed <= 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
 
 	if (mdwc->id_state != id) {
 		mdwc->id_state = id;
@@ -2615,7 +2615,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
 
 	speed = extcon_get_cable_state_(edev, EXTCON_USB_SPEED);
-	dwc->maximum_speed = (speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
+	dwc->maximum_speed = (speed <= 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
 
 	mdwc->vbus_active = event;
 	if (dwc->is_drd && !mdwc->in_restart) {

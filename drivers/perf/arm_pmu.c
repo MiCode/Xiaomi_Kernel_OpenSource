@@ -1051,6 +1051,10 @@ int arm_pmu_device_probe(struct platform_device *pdev,
 
 	pmu->plat_device = pdev;
 
+	ret = cpu_pmu_init(pmu);
+	if (ret)
+		goto out_free;
+
 	if (node && (of_id = of_match_node(of_table, pdev->dev.of_node))) {
 		init_fn = of_id->data;
 
@@ -1073,12 +1077,8 @@ int arm_pmu_device_probe(struct platform_device *pdev,
 
 	if (ret) {
 		pr_info("%s: failed to probe PMU!\n", of_node_full_name(node));
-		goto out_free;
+		goto out_destroy;
 	}
-
-	ret = cpu_pmu_init(pmu);
-	if (ret)
-		goto out_free;
 
 	ret = perf_pmu_register(&pmu->pmu, pmu->name, -1);
 	if (ret)

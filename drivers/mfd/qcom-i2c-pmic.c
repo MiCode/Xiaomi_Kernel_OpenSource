@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -467,12 +467,29 @@ static int i2c_pmic_parse_dt(struct i2c_pmic *chip)
 	return rc;
 }
 
+#define MAX_I2C_RETRIES	3
+static int i2c_pmic_read(struct regmap *map, unsigned int reg, void *val,
+			size_t val_count)
+{
+	int rc, retries = 0;
+
+	do {
+		rc = regmap_bulk_read(map, reg, val, val_count);
+	} while (rc == -ENOTCONN && retries++ < MAX_I2C_RETRIES);
+
+	if (retries > 1)
+		pr_err("i2c_pmic_read failed for %d retries, rc = %d\n",
+			retries - 1, rc);
+
+	return rc;
+}
+
 static int i2c_pmic_determine_initial_status(struct i2c_pmic *chip)
 {
 	int rc, i;
 
 	for (i = 0; i < chip->num_periphs; i++) {
-		rc = regmap_bulk_read(chip->regmap,
+		rc = i2c_pmic_read(chip->regmap,
 				chip->periph[i].addr | INT_SET_TYPE_OFFSET,
 				chip->periph[i].cached, IRQ_MAX_REGS);
 		if (rc < 0) {

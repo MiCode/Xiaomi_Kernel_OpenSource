@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -863,6 +863,9 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 		if (prtd->codec_param.codec.format ==
 					SND_AUDIOSTREAMFORMAT_MP4ADTS)
 			aac_cfg.format = 0x0;
+		else if (prtd->codec_param.codec.format ==
+					SND_AUDIOSTREAMFORMAT_MP4LATM)
+			aac_cfg.format = 0x04;
 		else
 			aac_cfg.format = 0x03;
 		aac_cfg.ch_cfg = prtd->num_channels;

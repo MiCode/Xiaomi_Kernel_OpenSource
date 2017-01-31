@@ -590,6 +590,9 @@ static void armv8pmu_idle_update(struct arm_pmu *cpu_pmu)
 
 	hw_events = this_cpu_ptr(cpu_pmu->hw_events);
 
+	if (!hw_events)
+		return;
+
 	for (idx = 0; idx < cpu_pmu->num_events; ++idx) {
 
 		if (!test_bit(idx, hw_events->used_mask))

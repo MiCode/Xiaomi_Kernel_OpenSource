@@ -177,6 +177,11 @@ Required properties:
 
  - compatible : "qcom,msm-pcm-loopback"
 
+Optional properties:
+
+ - qcom,msm-pcm-loopback-low-latency : Flag indicating whether
+   the device node is of type low latency.
+
 * msm-dai-q6
 
 [First Level Nodes]
@@ -413,6 +418,11 @@ Example:
 		compatible = "qcom,msm-pcm-dsp";
 		qcom,msm-pcm-dsp-id = <1>;
 		qcom,msm-pcm-low-latency;
+	};
+
+	qcom,msm-pcm-loopback-low-latency {
+		compatible = "qcom,msm-pcm-loopback";
+		qcom,msm-pcm-loopback-low-latency;
 	};
 
         qcom,msm-pcm-routing {
@@ -1663,6 +1673,10 @@ mclk frequency needs to be configured for internal and external PA.
 - qcom,cdc-comp-gpios : phandle for compander gpios.
 - qcom,cdc-dmic-gpios : phandle for Digital mic clk and data gpios.
 - qcom,cdc-sdw-gpios : phandle for soundwire clk and data gpios.
+- qcom,msm-mbhc-moist-cfg: This property is used to set moisture detection
+		threshold values for different codecs. First parameter is V(voltage)
+		second one is i(current), third one is r (resistance). Depending on the
+		codec set corresponding element in array and set others to 0.
 
 Example:
 	 sound {
@@ -1671,6 +1685,7 @@ Example:
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-mbhc-moist-cfg = <1>, <3>, <0>;
 		qcom,msm-hs-micbias-type = "internal";
 		qcom,msm-micbias1-ext-cap;
 		qcom,audio-routing =
@@ -2116,13 +2131,15 @@ Example:
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
-				<&afe>, <&lsm>, <&routing>, <&compr>;
+				<&afe>, <&lsm>, <&routing>, <&compr>,
+				<&loopback1>;
 		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
 				"msm-pcm-dsp.2", "msm-voip-dsp",
 				"msm-pcm-voice", "msm-pcm-loopback",
 				"msm-compress-dsp", "msm-pcm-hostless",
 				"msm-pcm-afe", "msm-lsm-client",
-				"msm-pcm-routing", "msm-compr-dsp";
+				"msm-pcm-routing", "msm-compr-dsp",
+				"msm-pcm-loopback.1";
 		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>,
 				<&dai_mi2s>, <&dai_mi2s_quat>,
 				<&afe_pcm_rx>, <&afe_pcm_tx>,
@@ -2329,6 +2346,11 @@ Optional properties:
 - qcom,wsa-devs : List of phandles for all possible WSA881x devices supported for the target
 - qcom,wsa-aux-dev-prefix : Name prefix with Left/Right configuration for WSA881x device
 - qcom,wcn-btfm : Property to specify if WCN BT/FM chip is used for the target
+- qcom,msm-mbhc-usbc-audio-supported : Property to specify if analog audio feature is
+				       enabled or not.
+- qcom,usbc-analog-en1_gpio : EN1 GPIO to enable USB type-C analog audio
+- qcom,usbc-analog-en2_n_gpio : EN2 GPIO to enable USB type-C analog audio
+- qcom,usbc-analog-force_detect_gpio : Force detect GPIO to enable USB type-C analog audio
 
 Example:
 
@@ -2402,6 +2424,10 @@ Example:
 				<&wsa881x_213>, <&wsa881x_214>;
 		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrLeft",
 					  "SpkrRight", "SpkrLeft";
+		qcom,msm-mbhc-usbc-audio-supported = <1>;
+		qcom,usbc-analog-en1_gpio = <&wcd_usbc_analog_en1_gpio>;
+		qcom,usbc-analog-en2_n_gpio = <&wcd_usbc_analog_en2n_gpio>;
+		qcom,usbc-analog-force_detect_gpio = <&wcd_usbc_analog_f_gpio>;
 	};
 
 * MSMSTUB ASoC Machine driver

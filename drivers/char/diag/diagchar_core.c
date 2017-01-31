@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -441,8 +441,10 @@ static void diag_close_logging_process(const int pid)
 	driver->mask_clear = 1;
 	mutex_unlock(&driver->diag_maskclear_mutex);
 
+	mutex_lock(&driver->diagchar_mutex);
 	session_peripheral_mask = session_info->peripheral_mask;
 	diag_md_session_close(session_info);
+	mutex_unlock(&driver->diagchar_mutex);
 	for (i = 0; i < NUM_MD_SESSIONS; i++)
 		if (MD_PERIPHERAL_MASK(i) & session_peripheral_mask)
 			diag_mux_close_peripheral(DIAG_LOCAL_PROC, i);
@@ -716,7 +718,7 @@ struct diag_cmd_reg_entry_t *diag_cmd_search(
 
 	list_for_each_safe(start, temp, &driver->cmd_reg_list) {
 		item = list_entry(start, struct diag_cmd_reg_t, link);
-		if (item == NULL || &item->entry == NULL) {
+		if (&item->entry == NULL) {
 			pr_err("diag: In %s, unable to search command\n",
 			       __func__);
 			return NULL;

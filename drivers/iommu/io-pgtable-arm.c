@@ -109,6 +109,7 @@
 #define ARM_LPAE_PTE_AP_RW		(((arm_lpae_iopte)1) << 6)
 #define ARM_LPAE_PTE_AP_PRIV_RO		(((arm_lpae_iopte)2) << 6)
 #define ARM_LPAE_PTE_AP_RO		(((arm_lpae_iopte)3) << 6)
+#define ARM_LPAE_PTE_ATTRINDX_MASK	0x7
 #define ARM_LPAE_PTE_ATTRINDX_SHIFT	2
 #define ARM_LPAE_PTE_nG			(((arm_lpae_iopte)1) << 11)
 
@@ -289,6 +290,16 @@ static dma_addr_t __arm_lpae_dma_addr(void *pages)
 	return (dma_addr_t)virt_to_phys(pages);
 }
 
+static inline void pgtable_dma_sync_single_for_device(
+				struct io_pgtable_cfg *cfg,
+				dma_addr_t addr, size_t size,
+				enum dma_data_direction dir)
+{
+	if (!(cfg->quirks & IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT))
+		dma_sync_single_for_device(cfg->iommu_dev, addr, size,
+								dir);
+}
+
 static void *__arm_lpae_alloc_pages(size_t size, gfp_t gfp,
 				    struct io_pgtable_cfg *cfg,
 					void *cookie)
@@ -339,7 +350,7 @@ static void __arm_lpae_set_pte(arm_lpae_iopte *ptep, arm_lpae_iopte pte,
 	*ptep = pte;
 
 	if (!selftest_running)
-		dma_sync_single_for_device(cfg->iommu_dev,
+		pgtable_dma_sync_single_for_device(cfg,
 					   __arm_lpae_dma_addr(ptep),
 					   sizeof(pte), DMA_TO_DEVICE);
 }
@@ -414,7 +425,7 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 
 		if (lvl == MAP_STATE_LVL) {
 			if (ms->pgtable)
-				dma_sync_single_for_device(cfg->iommu_dev,
+				pgtable_dma_sync_single_for_device(cfg,
 					__arm_lpae_dma_addr(ms->pte_start),
 					ms->num_pte * sizeof(*ptep),
 					DMA_TO_DEVICE);
@@ -432,7 +443,7 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 			 * mapping.  Flush out the previous page mappings.
 			 */
 			if (ms->pgtable)
-				dma_sync_single_for_device(cfg->iommu_dev,
+				pgtable_dma_sync_single_for_device(cfg,
 					__arm_lpae_dma_addr(ms->pte_start),
 					ms->num_pte * sizeof(*ptep),
 					DMA_TO_DEVICE);
@@ -602,7 +613,7 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 	}
 
 	if (ms.pgtable)
-		dma_sync_single_for_device(cfg->iommu_dev,
+		pgtable_dma_sync_single_for_device(cfg,
 			__arm_lpae_dma_addr(ms.pte_start),
 			ms.num_pte * sizeof(*ms.pte_start),
 			DMA_TO_DEVICE);
@@ -752,7 +763,7 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 		table += tl_offset;
 
 		memset(table, 0, table_len);
-		dma_sync_single_for_device(cfg->iommu_dev,
+		pgtable_dma_sync_single_for_device(cfg,
 					   __arm_lpae_dma_addr(table),
 					   table_len, DMA_TO_DEVICE);
 
@@ -813,39 +824,91 @@ static size_t arm_lpae_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 	return unmapped;
 }
 
-static phys_addr_t arm_lpae_iova_to_phys(struct io_pgtable_ops *ops,
-					 unsigned long iova)
+static int arm_lpae_iova_to_pte(struct arm_lpae_io_pgtable *data,
+				unsigned long iova, int *plvl_ret,
+				arm_lpae_iopte *ptep_ret)
 {
-	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
 	arm_lpae_iopte pte, *ptep = data->pgd;
-	int lvl = ARM_LPAE_START_LVL(data);
+	*plvl_ret = ARM_LPAE_START_LVL(data);
+	*ptep_ret = 0;
 
 	do {
 		/* Valid IOPTE pointer? */
 		if (!ptep)
-			return 0;
+			return -EINVAL;
 
 		/* Grab the IOPTE we're interested in */
-		pte = *(ptep + ARM_LPAE_LVL_IDX(iova, lvl, data));
+		pte = *(ptep + ARM_LPAE_LVL_IDX(iova, *plvl_ret, data));
 
 		/* Valid entry? */
 		if (!pte)
-			return 0;
+			return -EINVAL;
 
 		/* Leaf entry? */
-		if (iopte_leaf(pte,lvl))
+		if (iopte_leaf(pte, *plvl_ret))
 			goto found_translation;
 
 		/* Take it to the next level */
 		ptep = iopte_deref(pte, data);
-	} while (++lvl < ARM_LPAE_MAX_LEVELS);
+	} while (++(*plvl_ret) < ARM_LPAE_MAX_LEVELS);
 
 	/* Ran out of page tables to walk */
-	return 0;
+	return -EINVAL;
 
 found_translation:
-	iova &= ((1 << ARM_LPAE_LVL_SHIFT(lvl, data)) - 1);
-	return ((phys_addr_t)iopte_to_pfn(pte,data) << data->pg_shift) | iova;
+	*ptep_ret = pte;
+	return 0;
+}
+
+static phys_addr_t arm_lpae_iova_to_phys(struct io_pgtable_ops *ops,
+					 unsigned long iova)
+{
+	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
+	arm_lpae_iopte pte;
+	int lvl;
+	phys_addr_t phys = 0;
+
+	if (!arm_lpae_iova_to_pte(data, iova, &lvl, &pte)) {
+		iova &= ((1 << ARM_LPAE_LVL_SHIFT(lvl, data)) - 1);
+		phys = ((phys_addr_t)iopte_to_pfn(pte, data)
+				<< data->pg_shift) | iova;
+	}
+
+	return phys;
+}
+
+static bool __arm_lpae_is_iova_coherent(struct arm_lpae_io_pgtable *data,
+				    arm_lpae_iopte *ptep)
+{
+	if (data->iop.fmt == ARM_64_LPAE_S1 ||
+	    data->iop.fmt == ARM_32_LPAE_S1) {
+		int attr_idx = (*ptep & (ARM_LPAE_PTE_ATTRINDX_MASK <<
+					ARM_LPAE_PTE_ATTRINDX_SHIFT)) >>
+					ARM_LPAE_PTE_ATTRINDX_SHIFT;
+		if ((attr_idx == ARM_LPAE_MAIR_ATTR_IDX_CACHE) &&
+		    ((*ptep & ARM_LPAE_PTE_SH_IS) ||
+		     (*ptep & ARM_LPAE_PTE_SH_OS)))
+			return true;
+	} else {
+		if (*ptep & ARM_LPAE_PTE_MEMATTR_OIWB)
+			return true;
+	}
+
+	return false;
+}
+
+static bool arm_lpae_is_iova_coherent(struct io_pgtable_ops *ops,
+					 unsigned long iova)
+{
+	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
+	arm_lpae_iopte pte;
+	int lvl;
+	bool ret = false;
+
+	if (!arm_lpae_iova_to_pte(data, iova, &lvl, &pte))
+		ret = __arm_lpae_is_iova_coherent(data, &pte);
+
+	return ret;
 }
 
 static void arm_lpae_restrict_pgsizes(struct io_pgtable_cfg *cfg)
@@ -925,6 +988,7 @@ arm_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg)
 		.map_sg		= arm_lpae_map_sg,
 		.unmap		= arm_lpae_unmap,
 		.iova_to_phys	= arm_lpae_iova_to_phys,
+		.is_iova_coherent = arm_lpae_is_iova_coherent,
 	};
 
 	return data;
@@ -940,7 +1004,7 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 		return NULL;
 
 	/* TCR */
-	if (cfg->iommu_dev && cfg->iommu_dev->archdata.dma_coherent)
+	if (cfg->quirks & IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT)
 		reg = (ARM_LPAE_TCR_SH_OS << ARM_LPAE_TCR_SH0_SHIFT) |
 			(ARM_LPAE_TCR_RGN_WBWA << ARM_LPAE_TCR_IRGN0_SHIFT) |
 			(ARM_LPAE_TCR_RGN_WBWA << ARM_LPAE_TCR_ORGN0_SHIFT);

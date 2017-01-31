@@ -1,7 +1,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -569,7 +569,7 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	struct usb_qdss_ch *ch = &qdss->ch;
 	int ret = 0;
 
-	pr_debug("qdss_set_alt qdss pointer = %p\n", qdss);
+	pr_debug("qdss_set_alt qdss pointer = %pK\n", qdss);
 	qdss->gadget = gadget;
 
 	if (alt != 0)

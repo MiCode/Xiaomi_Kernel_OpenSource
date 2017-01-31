@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2202,7 +2202,7 @@ static void tasha_mbhc_moisture_config(struct wcd_mbhc *mbhc)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
 
-	if (TASHA_MBHC_MOISTURE_VREF == V_OFF)
+	if (mbhc->moist_vref == V_OFF)
 		return;
 
 	/* Donot enable moisture detection if jack type is NC */
@@ -2213,8 +2213,8 @@ static void tasha_mbhc_moisture_config(struct wcd_mbhc *mbhc)
 	}
 
 	snd_soc_update_bits(codec, WCD9335_MBHC_CTL_2,
-			    0x0C, TASHA_MBHC_MOISTURE_VREF << 2);
-	tasha_mbhc_hph_l_pull_up_control(codec, TASHA_MBHC_MOISTURE_IREF);
+			    0x0C, mbhc->moist_vref << 2);
+	tasha_mbhc_hph_l_pull_up_control(codec, mbhc->moist_iref);
 }
 
 static const struct wcd_mbhc_cb mbhc_cb = {

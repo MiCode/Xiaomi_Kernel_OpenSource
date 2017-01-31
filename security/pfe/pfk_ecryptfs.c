@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,56 +92,18 @@ bool pfk_is_ecryptfs_type(const struct inode *inode)
 	return true;
 }
 
-static int pfk_ecryptfs_inode_alloc_security(struct inode *inode)
-{
-	struct inode_security_struct *i_sec = NULL;
-
-	if (inode == NULL)
-		return -EINVAL;
-
-	i_sec = kzalloc(sizeof(*i_sec), GFP_KERNEL);
-
-	if (i_sec == NULL)
-		return -ENOMEM;
-
-	inode->i_security = i_sec;
-
-	return 0;
-}
-
-static void pfk_ecryptfs_inode_free_security(struct inode *inode)
-{
-	if (inode == NULL)
-		return;
-
-	kzfree(inode->i_security);
-}
-
-static struct security_hook_list pfk_ecryptfs_hooks[] = {
-	LSM_HOOK_INIT(inode_alloc_security, pfk_ecryptfs_inode_alloc_security),
-	LSM_HOOK_INIT(inode_free_security, pfk_ecryptfs_inode_free_security),
-};
-
 /*
- *  pfk_ecryptfs_lsm_init() - makes sure either se-linux or pfk_ecryptfs are
- *  registered as security module.
+ *  pfk_ecryptfs_lsm_init() - makes sure either se-linux is
+ *  registered as security module as it is required by pfk_ecryptfs.
  *
  *  This is required because ecryptfs uses a field inside security struct in
  *  inode to store its info
  */
 static int __init pfk_ecryptfs_lsm_init(void)
 {
-	/* Check if PFK is the chosen lsm via security_module_enable() */
-	if (security_module_enable("pfk_ecryptfs")) {
-		security_add_hooks(pfk_ecryptfs_hooks,
-			ARRAY_SIZE(pfk_ecryptfs_hooks));
-		pr_debug("pfk_ecryptfs is the chosen lsm, registered successfully !\n");
-	} else {
-		pr_debug("pfk_ecryptfs is not the chosen lsm.\n");
-		if (!selinux_is_enabled()) {
-			pr_err("se linux is not enabled.\n");
-			return -ENODEV;
-		}
+	if (!selinux_is_enabled()) {
+		pr_err("PFE eCryptfs requires se linux to be enabled\n");
+		return -ENODEV;
 	}
 
 	return 0;

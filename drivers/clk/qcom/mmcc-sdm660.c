@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2372,7 +2372,7 @@ static struct clk_branch mmss_mdss_byte0_intf_clk = {
 				"mmss_mdss_byte0_intf_div_clk",
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2426,10 +2426,32 @@ static struct clk_branch mmss_mdss_byte1_intf_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "mmss_mdss_byte1_intf_clk",
 			.parent_names = (const char *[]){
-				"byte1_clk_src",
+				"mmss_mdss_byte1_intf_div_clk",
 			},
 			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
 			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_regmap_div mmss_mdss_byte1_intf_div_clk = {
+	.reg = 0x2380,
+	.shift = 0,
+	.width = 2,
+	/*
+	 * NOTE: Op does not work for div-3. Current assumption is that div-3
+	 * is not a recommended setting for this divider.
+	 */
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "mmss_mdss_byte1_intf_div_clk",
+			.parent_names = (const char *[]){
+					"byte1_clk_src",
+			},
+			.num_parents = 1,
+			.ops = &clk_regmap_div_ops,
+			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
 		},
 	},
 };
@@ -2952,6 +2974,7 @@ static struct clk_regmap *mmcc_660_clocks[] = {
 	[VFE1_CLK_SRC] = &vfe1_clk_src.clkr,
 	[VIDEO_CORE_CLK_SRC] = &video_core_clk_src.clkr,
 	[VSYNC_CLK_SRC] = &vsync_clk_src.clkr,
+	[MMSS_MDSS_BYTE1_INTF_DIV_CLK] = &mmss_mdss_byte1_intf_div_clk.clkr,
 };
 
 static const struct qcom_reset_map mmcc_660_resets[] = {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +98,7 @@
 		qcom,gpubw-dev = <&gpubw>;
 		qcom,bus-control;
 		qcom,msm-bus,name = "grp3d";
+		qcom,bus-width = <32>;
 		qcom,msm-bus,num-cases = <13>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =

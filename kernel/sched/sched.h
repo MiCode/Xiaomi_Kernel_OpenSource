@@ -389,6 +389,7 @@ struct sched_cluster {
 	int dstate, dstate_wakeup_latency, dstate_wakeup_energy;
 	unsigned int static_cluster_pwr_cost;
 	int notifier_sent;
+	bool wake_up_idle;
 };
 
 extern unsigned long all_cluster_ids[];
@@ -1054,6 +1055,12 @@ static inline void sched_ttwu_pending(void) { }
 #include "stats.h"
 #include "auto_group.h"
 
+enum sched_boost_policy {
+	SCHED_BOOST_NONE,
+	SCHED_BOOST_ON_BIG,
+	SCHED_BOOST_ON_ALL,
+};
+
 #ifdef CONFIG_SCHED_HMP
 
 #define WINDOW_STATS_RECENT		0
@@ -1116,7 +1123,6 @@ extern void clear_boost_kick(int cpu);
 extern void clear_hmp_request(int cpu);
 extern void mark_task_starting(struct task_struct *p);
 extern void set_window_start(struct rq *rq);
-extern void migrate_sync_cpu(int cpu, int new_cpu);
 extern void update_cluster_topology(void);
 extern void note_task_waking(struct task_struct *p, u64 wallclock);
 extern void set_task_last_switch_out(struct task_struct *p, u64 wallclock);
@@ -1137,12 +1143,6 @@ extern void add_new_task_to_grp(struct task_struct *new);
 extern unsigned int update_freq_aggregate_threshold(unsigned int threshold);
 extern void update_avg_burst(struct task_struct *p);
 extern void update_avg(u64 *avg, u64 sample);
-
-enum sched_boost_policy {
-	SCHED_BOOST_NONE,
-	SCHED_BOOST_ON_BIG,
-	SCHED_BOOST_ON_ALL,
-};
 
 #define NO_BOOST 0
 #define FULL_THROTTLE_BOOST 1
@@ -1495,6 +1495,16 @@ struct hmp_sched_stats;
 struct related_thread_group;
 struct sched_cluster;
 
+static inline enum sched_boost_policy sched_boost_policy(void)
+{
+	return SCHED_BOOST_NONE;
+}
+
+static inline bool task_sched_boost(struct task_struct *p)
+{
+	return true;
+}
+
 static inline int got_boost_kick(void)
 {
 	return 0;
@@ -1514,7 +1524,6 @@ static inline void clear_boost_kick(int cpu) { }
 static inline void clear_hmp_request(int cpu) { }
 static inline void mark_task_starting(struct task_struct *p) { }
 static inline void set_window_start(struct rq *rq) { }
-static inline void migrate_sync_cpu(int cpu, int new_cpu) {}
 static inline void init_clusters(void) {}
 static inline void update_cluster_topology(void) { }
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }

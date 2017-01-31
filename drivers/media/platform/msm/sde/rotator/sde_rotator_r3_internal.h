@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,8 @@ struct sde_hw_rot_sspp_cfg {
 	struct sde_mdp_data          *data;
 	u32                           img_width;
 	u32                           img_height;
+	u32                           fps;
+	u64                           bw;
 };
 
 
@@ -93,6 +95,8 @@ struct sde_hw_rot_wb_cfg {
 	u32                             img_height;
 	u32                             v_downscale_factor;
 	u32                             h_downscale_factor;
+	u32                             fps;
+	u64                             bw;
 };
 
 
@@ -214,6 +218,7 @@ struct sde_hw_rotator_context {
 	u32    last_regdma_timestamp;
 	dma_addr_t ts_addr;
 	bool   is_secure;
+	bool   is_traffic_shaping;
 };
 
 /**

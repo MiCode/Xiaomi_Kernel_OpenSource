@@ -192,6 +192,7 @@ dtb-$(CONFIG_ARCH_SDM630) += sdm630-rumi.dtb \
 	sdm630-pm660a-cdp.dtb \
 	sdm630-pm660a-mtp.dtb \
 	sdm630-pm660a-rcm.dtb \
+	sdm630-pm660a-qrd.dtb \
 	sdm630-internal-codec-pm660a-cdp.dtb \
 	sdm630-internal-codec-pm660a-mtp.dtb \
 	sdm630-internal-codec-pm660a-rcm.dtb \

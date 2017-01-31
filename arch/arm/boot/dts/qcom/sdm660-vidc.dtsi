@@ -26,6 +26,7 @@
 		qcom,hfi = "venus";
 		qcom,hfi-version = "3xx";
 		qcom,firmware-name = "venus";
+		qcom,never-unload-fw;
 		qcom,sw-power-collapse;
 		qcom,reg-presets =
 			<0x80010 0x001f001f>,

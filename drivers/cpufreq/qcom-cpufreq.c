@@ -3,7 +3,7 @@
  * MSM architecture cpufreq driver
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2017, The Linux Foundation. All rights reserved.
  * Author: Mike A. Chan <mikechan@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -390,8 +390,10 @@ static int __init msm_cpufreq_probe(struct platform_device *pdev)
 	for_each_possible_cpu(cpu) {
 		snprintf(clk_name, sizeof(clk_name), "cpu%d_clk", cpu);
 		c = devm_clk_get(dev, clk_name);
-		if (IS_ERR(c))
+		if (cpu == 0 && IS_ERR(c))
 			return PTR_ERR(c);
+		else if (IS_ERR(c))
+			c = cpu_clk[cpu-1];
 		cpu_clk[cpu] = c;
 	}
 	hotplug_ready = true;

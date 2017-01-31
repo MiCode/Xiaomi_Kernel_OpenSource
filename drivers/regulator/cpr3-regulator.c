@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4440,6 +4440,14 @@ static int cpr3_regulator_disable(struct regulator_dev *rdev)
 		if (rc) {
 			cpr3_err(ctrl, "regulator_disable(system) failed, rc=%d\n",
 				rc);
+			goto done;
+		}
+		if (ctrl->support_ldo300_vreg) {
+			rc = regulator_set_voltage(ctrl->system_regulator, 0,
+						INT_MAX);
+			if (rc)
+				cpr3_err(ctrl, "failed to set voltage on system rc=%d\n",
+					rc);
 			goto done;
 		}
 	}

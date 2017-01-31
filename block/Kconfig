@@ -33,7 +33,7 @@ config LBDAF
 	  This option is required to support the full capacity of large
 	  (2TB+) block devices, including RAID, disk, Network Block Device,
 	  Logical Volume Manager (LVM) and loopback.
-	
+
 	  This option also enables support for single files larger than
 	  2TB.
 
@@ -110,6 +110,13 @@ config BLK_CMDLINE_PARSER
 	partitions on a block device.
 
 	See Documentation/block/cmdline-partition.txt for more information.
+
+config BLOCK_PERF_FRAMEWORK
+	bool "Enable Block device performance measurement framework"
+	default n
+	---help---
+	Enabling this option allows you to measure the performance at the
+	block layer.
 
 menu "Partition Types"
 

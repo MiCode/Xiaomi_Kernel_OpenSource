@@ -32,6 +32,7 @@ int mmc_switch_status_error(struct mmc_host *host, u32 status);
 int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 		unsigned int timeout_ms, bool use_busy_signal, bool send_status,
 		bool ignore_crc);
-
+int __mmc_send_status(struct mmc_card *card, u32 *status,
+				    bool ignore_crc);
 #endif
 

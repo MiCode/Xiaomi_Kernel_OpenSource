@@ -377,6 +377,7 @@ struct sched_cluster init_cluster = {
 	.dstate_wakeup_latency	=	0,
 	.exec_scale_factor	=	1024,
 	.notifier_sent		=	0,
+	.wake_up_idle		=	0,
 };
 
 static void update_all_clusters_stats(void)
@@ -589,6 +590,7 @@ void update_cluster_topology(void)
 	 * cluster_head visible.
 	 */
 	move_list(&cluster_head, &new_head, false);
+	update_all_clusters_stats();
 }
 
 void init_clusters(void)
@@ -677,6 +679,19 @@ unsigned int sched_get_static_cluster_pwr_cost(int cpu)
 	return cpu_rq(cpu)->cluster->static_cluster_pwr_cost;
 }
 
+int sched_set_cluster_wake_idle(int cpu, unsigned int wake_idle)
+{
+	struct sched_cluster *cluster = cpu_rq(cpu)->cluster;
+
+	cluster->wake_up_idle = !!wake_idle;
+	return 0;
+}
+
+unsigned int sched_get_cluster_wake_idle(int cpu)
+{
+	return cpu_rq(cpu)->cluster->wake_up_idle;
+}
+
 /*
  * sched_window_stats_policy and sched_ravg_hist_size have a 'sysctl' copy
  * associated with them. This is required for atomic update of those variables
@@ -703,8 +718,6 @@ __read_mostly unsigned int sysctl_sched_window_stats_policy =
 #define SCHED_ACCOUNT_WAIT_TIME 1
 
 __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
-
-unsigned int __read_mostly sysctl_sched_enable_colocation = 1;
 
 /*
  * Enable colocation and frequency aggregation for all threads in a process.
@@ -773,8 +786,6 @@ __read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 
 /* Temporarily disable window-stats activity on all cpus */
 unsigned int __read_mostly sched_disable_window_stats;
-
-static unsigned int sync_cpu;
 
 struct related_thread_group *related_thread_groups[MAX_NUM_CGROUP_COLOC_ID];
 static LIST_HEAD(active_related_thread_groups);
@@ -1278,14 +1289,12 @@ void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
 int preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
 {
 	struct related_thread_group *grp;
-	int rc = 0;
+	int rc = 1;
 
 	rcu_read_lock();
 
 	grp = task_related_thread_group(p);
-	if (!grp || !sysctl_sched_enable_colocation)
-		rc = 1;
-	else
+	if (grp)
 		rc = (grp->preferred_cluster == cluster);
 
 	rcu_read_unlock();
@@ -2227,6 +2236,27 @@ static inline void clear_top_tasks_table(u8 *table)
 	memset(table, 0, NUM_LOAD_INDICES * sizeof(u8));
 }
 
+static void rollover_top_tasks(struct rq *rq, bool full_window)
+{
+	u8 curr_table = rq->curr_table;
+	u8 prev_table = 1 - curr_table;
+	int curr_top = rq->curr_top;
+
+	clear_top_tasks_table(rq->top_tasks[prev_table]);
+	clear_top_tasks_bitmap(rq->top_tasks_bitmap[prev_table]);
+
+	if (full_window) {
+		curr_top = 0;
+		clear_top_tasks_table(rq->top_tasks[curr_table]);
+		clear_top_tasks_bitmap(
+				rq->top_tasks_bitmap[curr_table]);
+	}
+
+	rq->curr_table = prev_table;
+	rq->prev_top = curr_top;
+	rq->curr_top = 0;
+}
+
 static u32 empty_windows[NR_CPUS];
 
 static void rollover_task_window(struct task_struct *p, bool full_window)
@@ -2274,7 +2304,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	bool new_task;
 	struct related_thread_group *grp;
 	int cpu = rq->cpu;
-	u32 old_curr_window;
+	u32 old_curr_window = p->ravg.curr_window;
 
 	new_window = mark_start < window_start;
 	if (new_window) {
@@ -2335,8 +2365,6 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	 * task or exiting tasks.
 	 */
 	if (!is_idle_task(p) && !exiting_task(p)) {
-		old_curr_window = p->ravg.curr_window;
-
 		if (new_window)
 			rollover_task_window(p, full_window);
 	}
@@ -2344,29 +2372,18 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	if (flip_counters) {
 		u64 curr_sum = *curr_runnable_sum;
 		u64 nt_curr_sum = *nt_curr_runnable_sum;
-		u8 curr_table = rq->curr_table;
-		u8 prev_table = 1 - curr_table;
-		int curr_top = rq->curr_top;
 
-		clear_top_tasks_table(rq->top_tasks[prev_table]);
-		clear_top_tasks_bitmap(rq->top_tasks_bitmap[prev_table]);
-
-		if (prev_sum_reset) {
+		if (prev_sum_reset)
 			curr_sum = nt_curr_sum = 0;
-			curr_top = 0;
-			clear_top_tasks_table(rq->top_tasks[curr_table]);
-			clear_top_tasks_bitmap(
-					rq->top_tasks_bitmap[curr_table]);
-		}
 
 		*prev_runnable_sum = curr_sum;
 		*nt_prev_runnable_sum = nt_curr_sum;
 
 		*curr_runnable_sum = 0;
 		*nt_curr_runnable_sum = 0;
-		rq->curr_table = prev_table;
-		rq->prev_top = curr_top;
-		rq->curr_top = 0;
+
+		if (p_is_curr_task)
+			rollover_top_tasks(rq, full_window);
 	}
 
 	if (!account_busy_for_cpu_time(rq, p, irqtime, event))
@@ -2993,30 +3010,26 @@ void mark_task_starting(struct task_struct *p)
 
 void set_window_start(struct rq *rq)
 {
-	int cpu = cpu_of(rq);
-	struct rq *sync_rq = cpu_rq(sync_cpu);
+	static int sync_cpu_available;
 
 	if (rq->window_start || !sched_enable_hmp)
 		return;
 
-	if (cpu == sync_cpu) {
+	if (!sync_cpu_available) {
 		rq->window_start = sched_ktime_clock();
+		sync_cpu_available = 1;
 	} else {
+		struct rq *sync_rq = cpu_rq(cpumask_any(cpu_online_mask));
+
 		raw_spin_unlock(&rq->lock);
 		double_rq_lock(rq, sync_rq);
-		rq->window_start = cpu_rq(sync_cpu)->window_start;
+		rq->window_start = sync_rq->window_start;
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
 		raw_spin_unlock(&sync_rq->lock);
 	}
 
 	rq->curr->ravg.mark_start = rq->window_start;
-}
-
-void migrate_sync_cpu(int cpu, int new_cpu)
-{
-	if (cpu == sync_cpu)
-		sync_cpu = new_cpu;
 }
 
 static void reset_all_task_stats(void)
@@ -3340,6 +3353,7 @@ skip_early:
 			busy[i].prev_load = div64_u64(sched_ravg_window,
 							NSEC_PER_USEC);
 			busy[i].new_task_load = 0;
+			busy[i].predicted_load = 0;
 			goto exit_early;
 		}
 
@@ -3728,7 +3742,7 @@ static struct sched_cluster *best_cluster(struct related_thread_group *grp,
 			return cluster;
 	}
 
-	return NULL;
+	return sched_cluster[0];
 }
 
 static void _set_preferred_cluster(struct related_thread_group *grp)
@@ -3738,12 +3752,6 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 	bool boost_on_big = sched_boost_policy() == SCHED_BOOST_ON_BIG;
 	bool group_boost = false;
 	u64 wallclock;
-
-	if (!sysctl_sched_enable_colocation) {
-		grp->last_update = sched_ktime_clock();
-		grp->preferred_cluster = NULL;
-		return;
-	}
 
 	if (list_empty(&grp->tasks))
 		return;

@@ -175,27 +175,9 @@ static int __uhid_report_queue_and_wait(struct uhid_device *uhid,
 	uhid_queue(uhid, ev);
 	spin_unlock_irqrestore(&uhid->qlock, flags);
 
-	/*
-	 * Assumption: report_lock and devlock are both locked. So unlock
-	 * before sleeping.
-	 */
-	mutex_unlock(&uhid->report_lock);
-	mutex_unlock(&uhid->devlock);
 	ret = wait_event_interruptible_timeout(uhid->report_wait,
 				!uhid->report_running || !uhid->running,
 				5 * HZ);
-	ret = mutex_lock_interruptible(&uhid->devlock);
-	if (ret)
-		return ret;
-	ret = mutex_lock_interruptible(&uhid->report_lock);
-	if (ret) {
-		/*
-		 * Failed to lock, unlock previous mutex before exiting
-		 * this function.
-		 */
-		mutex_unlock(&uhid->devlock);
-		return ret;
-	}
 	if (!ret || !uhid->running || uhid->report_running)
 		ret = -EIO;
 	else if (ret < 0)

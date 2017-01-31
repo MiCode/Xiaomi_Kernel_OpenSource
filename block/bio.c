@@ -31,6 +31,8 @@
 
 #include <trace/events/block.h>
 
+#include "blk.h"
+
 /*
  * Test patch to inline a certain number of bi_io_vec's inside the bio
  * itself, to shrink a bio data allocation from two mempool calls to one
@@ -1765,8 +1767,10 @@ void bio_endio(struct bio *bio)
 			bio_put(bio);
 			bio = parent;
 		} else {
-			if (bio->bi_end_io)
+			if (bio->bi_end_io) {
+				blk_update_perf_stats(bio);
 				bio->bi_end_io(bio);
+			}
 			bio = NULL;
 		}
 	}

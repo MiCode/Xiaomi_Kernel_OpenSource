@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/blkdev.h>
+#include <linux/spinlock.h>
 #include <crypto/ice.h>
 
 #include "ufs-qcom-ice.h"
@@ -168,6 +169,7 @@ out:
 
 static void ufs_qcom_ice_cfg_work(struct work_struct *work)
 {
+	unsigned long flags;
 	struct ice_data_setting ice_set;
 	struct ufs_qcom_host *qcom_host =
 		container_of(work, struct ufs_qcom_host, ice_cfg_work);
@@ -185,12 +187,17 @@ static void ufs_qcom_ice_cfg_work(struct work_struct *work)
 	qcom_host->ice.vops->config_start(qcom_host->ice.pdev,
 		qcom_host->req_pending, &ice_set, false);
 
+	spin_lock_irqsave(&qcom_host->ice_work_lock, flags);
+	qcom_host->req_pending = NULL;
+	spin_unlock_irqrestore(&qcom_host->ice_work_lock, flags);
+
 	/*
 	 * Resume with requests processing. We assume config_start has been
 	 * successful, but even if it wasn't we still must resume in order to
 	 * allow for the request to be retried.
 	 */
 	ufshcd_scsi_unblock_requests(qcom_host->hba);
+
 }
 
 /**
@@ -246,6 +253,7 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 	struct ice_data_setting ice_set;
 	char cmd_op = cmd->cmnd[0];
 	int err;
+	unsigned long flags;
 
 	if (!qcom_host->ice.pdev || !qcom_host->ice.vops) {
 		dev_dbg(qcom_host->hba->dev, "%s: ice device is not enabled\n",
@@ -272,14 +280,36 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 				dev_dbg(qcom_host->hba->dev,
 					"%s: scheduling task for ice setup\n",
 					__func__);
-				qcom_host->req_pending = cmd->request;
-				if (schedule_work(&qcom_host->ice_cfg_work))
+
+				spin_lock_irqsave(
+					&qcom_host->ice_work_lock, flags);
+
+				if (!qcom_host->req_pending) {
 					ufshcd_scsi_block_requests(
 						qcom_host->hba);
+					qcom_host->req_pending = cmd->request;
+					if (!schedule_work(
+						&qcom_host->ice_cfg_work)) {
+						qcom_host->req_pending = NULL;
+
+						spin_unlock_irqrestore(
+						&qcom_host->ice_work_lock,
+						flags);
+
+						ufshcd_scsi_unblock_requests(
+							qcom_host->hba);
+						return err;
+					}
+				}
+
+				spin_unlock_irqrestore(
+					&qcom_host->ice_work_lock, flags);
+
 			} else {
-				dev_err(qcom_host->hba->dev,
-					"%s: error in ice_vops->config %d\n",
-					__func__, err);
+				if (err != -EBUSY)
+					dev_err(qcom_host->hba->dev,
+						"%s: error in ice_vops->config %d\n",
+						__func__, err);
 			}
 
 			return err;
@@ -320,6 +350,7 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 	unsigned int bypass = 0;
 	struct request *req;
 	char cmd_op;
+	unsigned long flags;
 
 	if (!qcom_host->ice.pdev || !qcom_host->ice.vops) {
 		dev_dbg(dev, "%s: ice device is not enabled\n", __func__);
@@ -365,12 +396,43 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 			 * request processing.
 			 */
 			if (err == -EAGAIN) {
-				qcom_host->req_pending = req;
-				if (schedule_work(&qcom_host->ice_cfg_work))
+
+				dev_dbg(qcom_host->hba->dev,
+					"%s: scheduling task for ice setup\n",
+					__func__);
+
+				spin_lock_irqsave(
+					&qcom_host->ice_work_lock, flags);
+
+				if (!qcom_host->req_pending) {
 					ufshcd_scsi_block_requests(
+						qcom_host->hba);
+					qcom_host->req_pending = cmd->request;
+					if (!schedule_work(
+						&qcom_host->ice_cfg_work)) {
+						qcom_host->req_pending = NULL;
+
+						spin_unlock_irqrestore(
+						&qcom_host->ice_work_lock,
+						flags);
+
+						ufshcd_scsi_unblock_requests(
 							qcom_host->hba);
+						return err;
+					}
+				}
+
+				spin_unlock_irqrestore(
+					&qcom_host->ice_work_lock, flags);
+
+			} else {
+				if (err != -EBUSY)
+					dev_err(qcom_host->hba->dev,
+						"%s: error in ice_vops->config %d\n",
+						__func__, err);
 			}
-			goto out;
+
+			return err;
 		}
 	}
 

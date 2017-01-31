@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,4 +22,67 @@
 	qcom,board-id = <0x1000b 0>;
 	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
 			<0x0001001b 0x0201011a 0x0 0x0>;
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_fb0 {
+	qcom,mdss-mixer-swap;
+};
+
+&mdss_dsi {
+	hw-config = "split_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt36850_truly_cmd>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-reset-gpio = <&tlmm 53 0>;
+	qcom,platform-te-gpio = <&tlmm 59 0>;
+};
+
+&mdss_dsi1 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt36850_truly_cmd>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-reset-gpio = <&tlmm 53 0>;
+	qcom,platform-te-gpio = <&tlmm 59 0>;
+};
+
+&dsi_dual_nt36850_truly_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&pm660l_wled {
+	qcom,led-strings-list = [00 01];
+};
+
+&tasha_snd {
+	qcom,model = "sdm660-tasha-skus-snd-card";
+	qcom,audio-routing =
+		"AIF4 VI", "MCLK",
+		"RX_BIAS", "MCLK",
+		"MADINPUT", "MCLK",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Headset Mic",
+		"DMIC0", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic0",
+		"DMIC2", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic2",
+		"DMIC4", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic4",
+		"SpkrLeft IN", "SPK1 OUT";
+	qcom,msm-mbhc-hphl-swh = <1>;
+	/delete-property/ qcom,us-euro-gpios;
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_213>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
 };

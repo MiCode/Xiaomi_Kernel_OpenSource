@@ -1,0 +1,103 @@
+menu "Qualcomm Technologies Inc Charger and Fuel Gauge support"
+
+config QPNP_SMBCHARGER
+	tristate "QPNP SMB Charger driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable the dual path switch mode battery charger which
+	  supports USB detection and battery charging up to 3A.
+	  The driver also offers relevant information to userspace via the
+	  power supply framework.
+
+config QPNP_FG
+	tristate "QPNP fuel gauge driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable the Fuel Gauge driver. This adds support for
+	  battery fuel gauging and state of charge of battery connected to the
+	  fuel gauge. The state of charge is reported through a BMS power
+	  supply property and also sends uevents when the capacity is updated.
+
+config QPNP_FG_GEN3
+	tristate "QPNP GEN3 fuel gauge driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable the GEN3 Fuel Gauge driver. This adds support
+	  for battery fuel gauging and state of charge of battery connected to
+	  the fuel gauge. The state of charge is reported through a BMS power
+	  supply property and also sends uevents when the capacity is updated.
+
+config SMB135X_CHARGER
+	tristate "SMB135X Battery Charger"
+	depends on I2C
+	help
+	  Say Y to include support for SMB135X Battery Charger.
+	  SMB135X is a dual path switching mode charger capable of charging
+	  the battery with 3Amps of current.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  A charger status change triggers an IRQ via the device STAT pin.
+
+config SMB1351_USB_CHARGER
+	tristate "smb1351 usb charger (with VBUS detection)"
+	depends on I2C
+	help
+	 Say Y to enable support for the SMB1351 switching mode based charger.
+	 The driver supports charging control (enable/disable) and
+	 charge-current limiting. It also provides USB VBUS detection and
+	 notification support. The driver controls SMB1351 via I2C and
+	 supports device-tree interface.
+
+config MSM_BCL_CTL
+	bool "BCL Framework driver"
+	help
+	  Say Y here to enable this BCL Framework driver. This driver provides
+	  interface, which can be used by the BCL h/w drivers to implement the
+	  basic functionalities. This framework abstracts the underlying
+	  hardware for the top level modules.
+
+config MSM_BCL_PERIPHERAL_CTL
+	bool "BCL driver to control the PMIC BCL peripheral"
+	depends on SPMI
+	depends on MSM_BCL_CTL
+	help
+	  Say Y here to enable this BCL PMIC peripheral driver. This driver
+	  provides routines to configure and monitor the BCL
+	  PMIC peripheral.
+
+config BATTERY_BCL
+	tristate "Battery Current Limit driver"
+	depends on THERMAL_MONITOR
+	help
+	  Say Y here to enable support for battery current limit
+	  device. The BCL driver will poll BMS if
+	  thermal daemon enables BCL.
+	  It will notify thermal daemon if IBat crosses Imax threshold.
+
+config QPNP_SMB2
+	tristate "SMB2 Battery Charger"
+	depends on MFD_SPMI_PMIC
+	help
+	  Enables support for the SMB2 charging peripheral
+
+config SMB138X_CHARGER
+	tristate "SMB138X Battery Charger"
+	depends on MFD_I2C_PMIC
+	help
+	  Say Y to include support for SMB138X Battery Charger.
+	  SMB1380 is a dual phase 6A battery charger, and SMB1381 is a single
+	  phase 5A battery charger.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  A charger status change triggers an IRQ via the device STAT pin.
+
+config QPNP_QNOVO
+	bool "QPNP QNOVO driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here to enable the Qnovo pulse charging engine. Qnovo driver
+	  accepts pulse parameters via sysfs entries and programs the hardware
+	  module. It also allows userspace code to read diagnostics of voltage
+	  and current measured during certain phases of the pulses.
+
+endmenu

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1301,7 +1301,7 @@
 			mdss_te_active: mdss_te_active {
 				mux {
 					pins = "gpio59";
-					function = "mdp_vsync_p";
+					function = "mdp_vsync";
 				};
 				config {
 					pins = "gpio59";
@@ -1313,7 +1313,7 @@
 			mdss_te_suspend: mdss_te_suspend {
 				mux {
 					pins = "gpio59";
-					function = "mdp_vsync_p";
+					function = "mdp_vsync";
 				};
 				config {
 					pins = "gpio59";

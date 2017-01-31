@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -102,6 +102,12 @@ int adm_connect_afe_port(int mode, int session_id, int port_id);
 
 void adm_ec_ref_rx_id(int  port_id);
 
+void adm_num_ec_ref_rx_chans(int num_chans);
+
+void adm_ec_ref_rx_bit_width(int bit_width);
+
+void adm_ec_ref_rx_sampling_rate(int sampling_rate);
+
 int adm_get_lowlatency_copp_id(int port_id);
 
 int adm_set_multi_ch_map(char *channel_map, int path);
@@ -129,6 +135,11 @@ int adm_set_volume(int port_id, int copp_idx, int volume);
 
 int adm_set_softvolume(int port_id, int copp_idx,
 		       struct audproc_softvolume_params *softvol_param);
+
+int adm_set_mic_gain(int port_id, int copp_idx, int volume);
+
+int adm_send_set_multichannel_ec_primary_mic_ch(int port_id, int copp_idx,
+				int primary_mic_ch);
 
 int adm_param_enable(int port_id, int copp_idx, int module_id,  int enable);
 

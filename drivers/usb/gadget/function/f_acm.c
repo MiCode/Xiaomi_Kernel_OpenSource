@@ -702,7 +702,7 @@ fail:
 	if (acm->notify_req)
 		gs_free_req(acm->notify, acm->notify_req);
 
-	ERROR(cdev, "%s/%p: can't bind, err %d\n", f->name, f, status);
+	ERROR(cdev, "%s/%pK: can't bind, err %d\n", f->name, f, status);
 
 	return status;
 }

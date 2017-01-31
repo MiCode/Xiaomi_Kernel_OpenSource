@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,7 +37,7 @@
 		qcom,temp-alarm@2400 {
 			compatible = "qcom,qpnp-temp-alarm";
 			reg = <0x2400 0x100>;
-			interrupts = <0x0 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupts = <0x2 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
 			label = "pm660l_tz";
 		};
 

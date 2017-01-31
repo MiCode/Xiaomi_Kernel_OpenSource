@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -247,9 +247,6 @@ static struct clk_rcg2 rbcpr_clk_src = {
 		.parent_names = gpucc_parent_names_0,
 		.num_parents = 4,
 		.ops = &clk_rcg2_ops,
-		VDD_DIG_FMAX_MAP2(
-			MIN, 19200000,
-			NOMINAL, 50000000),
 	},
 };
 
@@ -317,15 +314,13 @@ static struct clk_branch gpucc_rbcpr_clk = {
 };
 
 static struct clk_regmap *gpucc_660_clocks[] = {
-	[GFX3D_CLK_SRC] = &gfx3d_clk_src.clkr,
 	[GPU_PLL0_PLL] = &gpu_pll0_pll_out_main.clkr,
 	[GPU_PLL1_PLL] = &gpu_pll1_pll_out_main.clkr,
-	[GPUCC_CXO_CLK] = &gpucc_cxo_clk.clkr,
+	[GFX3D_CLK_SRC] = &gfx3d_clk_src.clkr,
 	[GPUCC_GFX3D_CLK] = &gpucc_gfx3d_clk.clkr,
 	[GPUCC_RBBMTIMER_CLK] = &gpucc_rbbmtimer_clk.clkr,
-	[GPUCC_RBCPR_CLK] = &gpucc_rbcpr_clk.clkr,
 	[RBBMTIMER_CLK_SRC] = &rbbmtimer_clk_src.clkr,
-	[RBCPR_CLK_SRC] = &rbcpr_clk_src.clkr,
+	[GPUCC_CXO_CLK] = &gpucc_cxo_clk.clkr,
 };
 
 static const struct regmap_config gpucc_660_regmap_config = {
@@ -411,13 +406,25 @@ static int gpucc_660_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct regmap *regmap;
+	struct resource *res;
+	void __iomem *base;
 	bool is_630 = 0;
 
-	regmap = qcom_cc_map(pdev, &gpucc_660_desc);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res == NULL) {
+		dev_err(&pdev->dev, "Failed to get resources\n");
+		return -EINVAL;
+	}
+
+	base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (IS_ERR(base))
+		return PTR_ERR(base);
+
+	regmap = devm_regmap_init_mmio(&pdev->dev, base, gpucc_660_desc.config);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	/* CX Regulator for RBBMTimer and RBCPR clock */
+	/* CX Regulator for RBBMTimer clock */
 	vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig_gfx");
 	if (IS_ERR(vdd_dig.regulator[0])) {
 		if (!(PTR_ERR(vdd_dig.regulator[0]) == -EPROBE_DEFER))
@@ -489,10 +496,71 @@ static int __init gpucc_660_init(void)
 {
 	return platform_driver_register(&gpucc_660_driver);
 }
-core_initcall_sync(gpucc_660_init);
+arch_initcall(gpucc_660_init);
 
 static void __exit gpucc_660_exit(void)
 {
 	platform_driver_unregister(&gpucc_660_driver);
 }
 module_exit(gpucc_660_exit);
+
+/* GPU RBCPR Clocks */
+static struct clk_regmap *gpucc_rbcpr_660_clocks[] = {
+	[RBCPR_CLK_SRC] = &rbcpr_clk_src.clkr,
+	[GPUCC_RBCPR_CLK] = &gpucc_rbcpr_clk.clkr,
+};
+
+static const struct qcom_cc_desc gpu_660_desc = {
+	.config = &gpucc_660_regmap_config,
+	.clks = gpucc_rbcpr_660_clocks,
+	.num_clks = ARRAY_SIZE(gpucc_rbcpr_660_clocks),
+};
+
+static const struct of_device_id gpucc_rbcpr_660_match_table[] = {
+	{ .compatible = "qcom,gpu-sdm660" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, gpucc_rbcpr_660_match_table);
+
+static int gpu_660_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	struct regmap *regmap;
+
+	regmap = qcom_cc_map(pdev, &gpu_660_desc);
+	if (IS_ERR(regmap))
+		return PTR_ERR(regmap);
+
+	ret = qcom_cc_really_probe(pdev, &gpu_660_desc, regmap);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register GPU RBCPR clocks\n");
+		return ret;
+	}
+
+
+	dev_info(&pdev->dev, "Registered GPU RBCPR clocks\n");
+
+	return ret;
+}
+
+static struct platform_driver gpu_660_driver = {
+	.probe		= gpu_660_probe,
+	.driver		= {
+		.name	= "gpu-sdm660",
+		.of_match_table = gpucc_rbcpr_660_match_table,
+	},
+};
+
+static int __init gpu_660_init(void)
+{
+	return platform_driver_register(&gpu_660_driver);
+}
+core_initcall(gpu_660_init);
+
+static void __exit gpu_660_exit(void)
+{
+	platform_driver_unregister(&gpu_660_driver);
+}
+module_exit(gpu_660_exit);
+

@@ -5,7 +5,8 @@ Required properties :
 - compatible : shall contain only one of the following:
 
 			"qcom,gpucc-sdm660",
-			"qcom,gpucc-sdm630"
+			"qcom,gpucc-sdm630",
+			"qcom,gpu-sdm660",
 
 - reg : shall contain base register location and length
 - #clock-cells : shall contain 1
@@ -17,7 +18,15 @@ Optional properties :
 Example:
 	clock-controller@4000000 {
 		compatible = "qcom,gpucc-sdm660";
-		reg = <<0x5065000 0x10000>;
+		reg = <0x5065000 0x10000>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+		#power-domain-cells = <1>;
+	};
+
+	gpu-clock-controller@4000000 {
+		compatible = "qcom,gpu-sdm660";
+		reg = <0x5065000 0x10000>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 		#power-domain-cells = <1>;

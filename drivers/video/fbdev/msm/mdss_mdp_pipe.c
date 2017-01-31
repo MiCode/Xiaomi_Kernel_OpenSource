@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2461,7 +2461,8 @@ static u32 __get_ts_count(struct mdss_mdp_pipe *pipe,
 		if (pipe &&
 		    pipe->multirect.mode == MDSS_MDP_PIPE_MULTIRECT_SERIAL) {
 			__get_ordered_rects(pipe, &low_pipe, &high_pipe);
-			ts_ypos = high_pipe->dst.y - low_pipe->dst.y - 1;
+			ts_ypos = high_pipe->dst.y -
+				(low_pipe->dst.y + low_pipe->dst.h) - 1;
 			rate_factor = TS_CLK / fps;
 			ts_count = mult_frac(ts_ypos, rate_factor, v_total);
 			MDSS_XLOG(ts_ypos, rate_factor, ts_count);
@@ -2535,7 +2536,7 @@ static u32 __get_ts_bytes(struct mdss_mdp_pipe *pipe,
 		/* calculate ts bytes as the sum of both rects */
 		ts_bytes_low = __calc_ts_bytes(&low_pipe->src, fps,
 			low_pipe->src_fmt->bpp);
-		ts_bytes_high = __calc_ts_bytes(&low_pipe->src, fps,
+		ts_bytes_high = __calc_ts_bytes(&high_pipe->src, fps,
 			high_pipe->src_fmt->bpp);
 
 		ts_bytes = ts_bytes_low + ts_bytes_high;

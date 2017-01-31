@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,7 @@
  *
  * The SP daemon needs to load different SPSS images based on:
  *
- * 1. Test/Production key used to sign the SPSS image (read fuse).
+ * 1. Test/Production key used to sign the SPSS image (read fuses).
  * 2. SPSS HW version (selected via Device Tree).
  *
  */
@@ -43,10 +43,17 @@
 /* driver name */
 #define DEVICE_NAME	"spss-utils"
 
-static bool is_test_fuse_set;
+enum spss_firmware_type {
+	SPSS_FW_TYPE_TEST = 't',
+	SPSS_FW_TYPE_PROD = 'p',
+	SPSS_FW_TYPE_HYBRID = 'h',
+};
+
+static enum spss_firmware_type firmware_type = SPSS_FW_TYPE_TEST;
 static const char *test_firmware_name;
 static const char *prod_firmware_name;
-static const char *firmware_name;
+static const char *hybr_firmware_name;
+static const char *firmware_name = "NA";
 static struct device *spss_dev;
 static u32 spss_debug_reg_addr; /* SP_SCSR_MBn_SP2CL_GPm(n,m) */
 
@@ -97,10 +104,19 @@ static ssize_t test_fuse_state_show(struct device *dev,
 		return -EINVAL;
 	}
 
-	if (is_test_fuse_set)
+	switch (firmware_type) {
+	case SPSS_FW_TYPE_TEST:
 		ret = snprintf(buf, PAGE_SIZE, "%s", "test");
-	else
+		break;
+	case SPSS_FW_TYPE_PROD:
 		ret = snprintf(buf, PAGE_SIZE, "%s", "prod");
+		break;
+	case SPSS_FW_TYPE_HYBRID:
+		ret = snprintf(buf, PAGE_SIZE, "%s", "hybrid");
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	return ret;
 }
@@ -198,11 +214,16 @@ static int spss_create_sysfs(struct device *dev)
 static int spss_parse_dt(struct device_node *node)
 {
 	int ret;
-	u32 spss_fuse_addr = 0;
-	u32 spss_fuse_bit = 0;
-	u32 spss_fuse_mask = 0;
-	void __iomem *spss_fuse_reg = NULL;
-	u32 val = 0;
+	u32 spss_fuse1_addr = 0;
+	u32 spss_fuse1_bit = 0;
+	u32 spss_fuse1_mask = 0;
+	void __iomem *spss_fuse1_reg = NULL;
+	u32 spss_fuse2_addr = 0;
+	u32 spss_fuse2_bit = 0;
+	u32 spss_fuse2_mask = 0;
+	void __iomem *spss_fuse2_reg = NULL;
+	u32 val1 = 0;
+	u32 val2 = 0;
 
 	ret = of_property_read_string(node, "qcom,spss-test-firmware-name",
 		&test_firmware_name);
@@ -218,40 +239,80 @@ static int spss_parse_dt(struct device_node *node)
 		return -EFAULT;
 	}
 
-	ret = of_property_read_u32(node, "qcom,spss-fuse-addr",
-		&spss_fuse_addr);
+	ret = of_property_read_string(node, "qcom,spss-hybr-firmware-name",
+		&hybr_firmware_name);
 	if (ret < 0) {
-		pr_err("can't get fuse addr.\n");
+		pr_err("can't get prod fw name.\n");
 		return -EFAULT;
 	}
 
-	ret = of_property_read_u32(node, "qcom,spss-fuse-bit",
-		&spss_fuse_bit);
+	ret = of_property_read_u32(node, "qcom,spss-fuse1-addr",
+		&spss_fuse1_addr);
 	if (ret < 0) {
-		pr_err("can't get fuse bit.\n");
+		pr_err("can't get fuse1 addr.\n");
 		return -EFAULT;
 	}
 
-	spss_fuse_mask = BIT(spss_fuse_bit);
-
-	pr_debug("spss_fuse_addr [0x%x] , spss_fuse_bit [%d] .\n",
-		(int) spss_fuse_addr, (int) spss_fuse_bit);
-
-	spss_fuse_reg = ioremap_nocache(spss_fuse_addr, sizeof(u32));
-
-	if (!spss_fuse_reg) {
-		pr_err("can't map fuse addr.\n");
+	ret = of_property_read_u32(node, "qcom,spss-fuse2-addr",
+		&spss_fuse2_addr);
+	if (ret < 0) {
+		pr_err("can't get fuse2 addr.\n");
 		return -EFAULT;
 	}
 
-	val = readl_relaxed(spss_fuse_reg);
+	ret = of_property_read_u32(node, "qcom,spss-fuse1-bit",
+		&spss_fuse1_bit);
+	if (ret < 0) {
+		pr_err("can't get fuse1 bit.\n");
+		return -EFAULT;
+	}
 
-	pr_debug("spss fuse register value [0x%x].\n", (int) val);
+	ret = of_property_read_u32(node, "qcom,spss-fuse2-bit",
+		&spss_fuse2_bit);
+	if (ret < 0) {
+		pr_err("can't get fuse2 bit.\n");
+		return -EFAULT;
+	}
 
-	if (val & spss_fuse_mask)
-		is_test_fuse_set = true;
 
-	iounmap(spss_fuse_reg);
+	spss_fuse1_mask = BIT(spss_fuse1_bit);
+	spss_fuse2_mask = BIT(spss_fuse2_bit);
+
+	pr_debug("spss fuse1 addr [0x%x] bit [%d] .\n",
+		(int) spss_fuse1_addr, (int) spss_fuse1_bit);
+	pr_debug("spss fuse2 addr [0x%x] bit [%d] .\n",
+		(int) spss_fuse2_addr, (int) spss_fuse2_bit);
+
+	spss_fuse1_reg = ioremap_nocache(spss_fuse1_addr, sizeof(u32));
+	spss_fuse2_reg = ioremap_nocache(spss_fuse2_addr, sizeof(u32));
+
+	if (!spss_fuse1_reg) {
+		pr_err("can't map fuse1 addr.\n");
+		return -EFAULT;
+	}
+	if (!spss_fuse2_reg) {
+		pr_err("can't map fuse2 addr.\n");
+		return -EFAULT;
+	}
+
+	val1 = readl_relaxed(spss_fuse1_reg);
+	val2 = readl_relaxed(spss_fuse2_reg);
+
+	pr_debug("spss fuse1 value [0x%08x].\n", (int) val1);
+	pr_debug("spss fuse2 value [0x%08x].\n", (int) val2);
+
+	pr_debug("spss fuse1 mask [0x%08x].\n", (int) spss_fuse1_mask);
+	pr_debug("spss fuse2 mask [0x%08x].\n", (int) spss_fuse2_mask);
+
+	if (val1 & spss_fuse1_mask)
+		firmware_type = SPSS_FW_TYPE_TEST;
+	else if (val2 & spss_fuse2_mask)
+		firmware_type = SPSS_FW_TYPE_PROD;
+	else
+		firmware_type = SPSS_FW_TYPE_HYBRID;
+
+	iounmap(spss_fuse1_reg);
+	iounmap(spss_fuse2_reg);
 
 	ret = of_property_read_u32(node, "qcom,spss-debug-reg-addr",
 		&spss_debug_reg_addr);
@@ -299,10 +360,19 @@ static int spss_probe(struct platform_device *pdev)
 		return -EFAULT;
 	}
 
-	if (is_test_fuse_set)
+	switch (firmware_type) {
+	case SPSS_FW_TYPE_TEST:
 		firmware_name = test_firmware_name;
-	else
+		break;
+	case SPSS_FW_TYPE_PROD:
 		firmware_name = prod_firmware_name;
+		break;
+	case SPSS_FW_TYPE_HYBRID:
+		firmware_name = hybr_firmware_name;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	ret = subsystem_set_fwname("spss", firmware_name);
 	if (ret < 0) {
@@ -339,7 +409,7 @@ static int __init spss_init(void)
 {
 	int ret = 0;
 
-	pr_info("spss-utils driver Ver 1.1 18-Sep-2016.\n");
+	pr_info("spss-utils driver Ver 1.2 13-Jan-2017.\n");
 
 	ret = platform_driver_register(&spss_driver);
 	if (ret)

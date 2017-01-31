@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,6 +92,14 @@
 	.vdd_class = &vdd_dig_ao,		\
 	.rate_max = (unsigned long[VDD_DIG_NUM]) {	\
 		[VDD_DIG_##l1] = (f1),		\
+	},					\
+	.num_rate_max = VDD_DIG_NUM
+
+#define VDD_DIG_FMAX_MAP2_AO(l1, f1, l2, f2)	 \
+	.vdd_class = &vdd_dig_ao,		\
+	.rate_max = (unsigned long[VDD_DIG_NUM]) {	\
+		[VDD_DIG_##l1] = (f1),		\
+		[VDD_DIG_##l2] = (f2),		\
 	},					\
 	.num_rate_max = VDD_DIG_NUM
 

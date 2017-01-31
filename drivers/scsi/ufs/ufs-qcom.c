@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1981,6 +1981,8 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	/* Make a two way bind between the qcom host and the hba */
 	host->hba = hba;
+	spin_lock_init(&host->ice_work_lock);
+
 	ufshcd_set_variant(hba, host);
 
 	err = ufs_qcom_ice_get_dev(host);

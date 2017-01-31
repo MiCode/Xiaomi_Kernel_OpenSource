@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -215,7 +215,7 @@ static void send_ind_ack(struct work_struct *work)
 	if (QMI_RESP_BIT_SHIFT(resp.resp.result) != QMI_RESULT_SUCCESS_V01)
 		pr_err("QMI request failed 0x%x\n",
 			QMI_RESP_BIT_SHIFT(resp.resp.error));
-	pr_debug("Indication ACKed for transid %d, service %s, instance %d!\n",
+	pr_info("Indication ACKed for transid %d, service %s, instance %d!\n",
 		data->ind_msg.transaction_id, data->ind_msg.service_path,
 		data->instance_id);
 }
@@ -240,7 +240,7 @@ static void root_service_service_ind_cb(struct qmi_handle *handle,
 		return;
 	}
 
-	pr_debug("Indication received from %s, state: 0x%x, trans-id: %d\n",
+	pr_info("Indication received from %s, state: 0x%x, trans-id: %d\n",
 		ind_msg.service_name, ind_msg.curr_state,
 		ind_msg.transaction_id);
 
@@ -336,11 +336,13 @@ static void root_service_service_arrive(struct work_struct *work)
 	int rc;
 	int curr_state;
 
+	mutex_lock(&qmi_client_release_lock);
 	/* Create a Local client port for QMI communication */
 	data->clnt_handle = qmi_handle_create(root_service_clnt_notify, work);
 	if (!data->clnt_handle) {
 		pr_err("QMI client handle alloc failed (instance-id: %d)\n",
 							data->instance_id);
+		mutex_unlock(&qmi_client_release_lock);
 		return;
 	}
 
@@ -353,9 +355,11 @@ static void root_service_service_arrive(struct work_struct *work)
 							data->instance_id, rc);
 		qmi_handle_destroy(data->clnt_handle);
 		data->clnt_handle = NULL;
+		mutex_unlock(&qmi_client_release_lock);
 		return;
 	}
 	data->service_connected = true;
+	mutex_unlock(&qmi_client_release_lock);
 	pr_info("Connection established between QMI handle and %d service\n",
 							data->instance_id);
 	/* Register for indication messages about service */

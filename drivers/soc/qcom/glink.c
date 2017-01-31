@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -582,6 +582,9 @@ static bool glink_core_remote_close_common(struct channel_ctx *ctx, bool safe)
 	}
 	ctx->rcid = 0;
 
+	ctx->int_req_ack = false;
+	complete_all(&ctx->int_req_ack_complete);
+	complete_all(&ctx->int_req_complete);
 	if (ctx->local_open_state != GLINK_CHANNEL_CLOSED &&
 		ctx->local_open_state != GLINK_CHANNEL_CLOSING) {
 		if (ctx->notify_state)
@@ -598,9 +601,6 @@ static bool glink_core_remote_close_common(struct channel_ctx *ctx, bool safe)
 			"Did not send GLINK_REMOTE_DISCONNECTED",
 			"local state is already CLOSED");
 
-	ctx->int_req_ack = false;
-	complete_all(&ctx->int_req_ack_complete);
-	complete_all(&ctx->int_req_complete);
 	ch_purge_intent_lists(ctx);
 
 	return is_fully_closed;

@@ -532,7 +532,7 @@
 		compatible = "qcom,cpr4-sdm660-mmss-ldo-regulator";
 		reg = <0x05061000 0x4000>, <0x00784000 0x1000>;
 		reg-names = "cpr_ctrl", "fuse_base";
-		clocks = <&clock_gfx GPUCC_RBCPR_CLK>,
+		clocks = <&clock_gpu GPUCC_RBCPR_CLK>,
 			 <&clock_rpmcc RPM_CNOC_CLK>;
 		clock-names = "core_clk", "bus_clk";
 		interrupts = <GIC_SPI 285 IRQ_TYPE_EDGE_RISING>;

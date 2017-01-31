@@ -530,6 +530,8 @@ static bool arm_smmu_is_master_side_secure(struct arm_smmu_domain *smmu_domain);
 static bool arm_smmu_is_static_cb(struct arm_smmu_device *smmu);
 static bool arm_smmu_is_slave_side_secure(struct arm_smmu_domain *smmu_domain);
 static bool arm_smmu_has_secure_vmid(struct arm_smmu_domain *smmu_domain);
+static bool arm_smmu_is_iova_coherent(struct iommu_domain *domain,
+					dma_addr_t iova);
 
 static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain);
 
@@ -1721,6 +1723,17 @@ static int arm_smmu_restore_sec_cfg(struct arm_smmu_device *smmu)
 	return 0;
 }
 
+static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
+{
+	if (smmu_domain->attributes &
+			(1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT))
+		return true;
+	else if (smmu_domain->smmu && smmu_domain->smmu->dev)
+		return smmu_domain->smmu->dev->archdata.dma_coherent;
+	else
+		return false;
+}
+
 static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu,
 					struct arm_smmu_master_cfg *master_cfg)
@@ -1732,6 +1745,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	bool is_fast = smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST);
+	unsigned long quirks = 0;
 
 	if (smmu_domain->smmu)
 		goto out;
@@ -1808,8 +1822,12 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	smmu_domain->smmu = smmu;
 
+	if (is_iommu_pt_coherent(smmu_domain))
+		quirks |= IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT;
+
 	if (arm_smmu_is_slave_side_secure(smmu_domain)) {
 		smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
+			.quirks		= quirks,
 			.pgsize_bitmap	= arm_smmu_ops.pgsize_bitmap,
 			.arm_msm_secure_cfg = {
 				.sec_id = smmu->sec_id,
@@ -1820,6 +1838,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		fmt = ARM_MSM_SECURE;
 	} else {
 		smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
+			.quirks		= quirks,
 			.pgsize_bitmap	= arm_smmu_ops.pgsize_bitmap,
 			.ias		= ias,
 			.oas		= oas,
@@ -2664,6 +2683,23 @@ static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 	return ret;
 }
 
+static bool arm_smmu_is_iova_coherent(struct iommu_domain *domain,
+					 dma_addr_t iova)
+{
+	bool ret;
+	unsigned long flags;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+
+	if (!ops)
+		return false;
+
+	flags = arm_smmu_pgtbl_lock(smmu_domain);
+	ret = ops->is_iova_coherent(ops, iova);
+	arm_smmu_pgtbl_unlock(smmu_domain, flags);
+	return ret;
+}
+
 static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu)
 {
 	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
@@ -3093,6 +3129,17 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    & (1 << DOMAIN_ATTR_EARLY_MAP));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT:
+		if (!smmu_domain->smmu)
+			return -ENODEV;
+		*((int *)data) = is_iommu_pt_coherent(smmu_domain);
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT));
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -3216,6 +3263,26 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		}
 		break;
 	}
+	case DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT: {
+		int force_coherent = *((int *)data);
+
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+			  "cannot change force coherent attribute while attached\n");
+			ret = -EBUSY;
+			break;
+		}
+
+		if (force_coherent)
+			smmu_domain->attributes |=
+			    1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT;
+		else
+			smmu_domain->attributes &=
+			    ~(1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT);
+
+		ret = 0;
+		break;
+	}
 	default:
 		ret = -ENODEV;
 		break;
@@ -3311,6 +3378,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.tlbi_domain		= arm_smmu_tlbi_domain,
 	.enable_config_clocks	= arm_smmu_enable_config_clocks,
 	.disable_config_clocks	= arm_smmu_disable_config_clocks,
+	.is_iova_coherent	= arm_smmu_is_iova_coherent,
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
@@ -3463,8 +3531,10 @@ static int arm_smmu_init_clocks(struct arm_smmu_device *smmu)
 	smmu->num_clocks =
 		of_property_count_strings(dev->of_node, "clock-names");
 
-	if (smmu->num_clocks < 1)
+	if (smmu->num_clocks < 1) {
+		smmu->num_clocks = 0;
 		return 0;
+	}
 
 	smmu->clocks = devm_kzalloc(
 		dev, sizeof(*smmu->clocks) * smmu->num_clocks,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -241,10 +241,10 @@
 			};
 			port@2 {
 				reg = <5>;
-				funnel_in1_in_tpda_mss: endpoint {
+				funnel_in1_in_modem_etm0: endpoint {
 					slave-mode;
 					remote-endpoint =
-					    <&tpda_mss_out_funnel_in1>;
+					    <&modem_etm0_out_funnel_in1>;
 				};
 			};
 			port@3 {
@@ -1061,6 +1061,22 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
+	qpdi: qpdi@1fc1000 {
+		compatible = "qcom,coresight-qpdi";
+		reg = <0x01fc1000 0x4>;
+		reg-names = "qpdi-base";
+
+		coresight-name = "coresight-qpdi";
+
+		vdd-supply = <&pm660l_l5>;
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <15000 900000>;
+
+		vdd-io-supply = <&pm660l_l2>;
+		qcom,vdd-io-voltage-level = <1800000 2950000>;
+		qcom,vdd-io-current-level = <200 22000>;
+	};
+
 	funnel_qatb: funnel@6005000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b908>;
@@ -1112,17 +1128,19 @@
 		coresight-name = "coresight-tpda";
 
 		qcom,tpda-atid = <65>;
-		qcom,bc-elem-size = <7 32>,
-				    <9 32>;
-		qcom,tc-elem-size = <3 32>,
-				    <6 32>,
-				    <9 32>;
-		qcom,dsb-elem-size = <7 32>,
-				     <9 32>;
-		qcom,cmb-elem-size = <3 32>,
-				     <4 32>,
+		qcom,bc-elem-size = <8 32>,
+				    <10 32>;
+		qcom,tc-elem-size = <4 32>,
+				    <7 32>,
+				    <10 32>;
+		qcom,dsb-elem-size = <2 32>,
+				     <8 32>,
+				     <10 32>,
+				     <11 32>;
+		qcom,cmb-elem-size = <4 32>,
 				     <5 32>,
-				     <9 64>;
+				     <6 32>,
+				     <10 64>;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -1209,7 +1227,7 @@
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b908>;
 
-		reg = <0x71c40000 0x1000>;
+		reg = <0x7140000 0x1000>;
 		reg-names = "funnel-base";
 
 		coresight-name = "coresight-funnel-gpu-dl";
@@ -1409,7 +1427,7 @@
 		coresight-name = "coresight-tpda-apss";
 
 		qcom,tpda-atid = <66>;
-		qcom,dsb-elem-size = <0 128>;
+		qcom,dsb-elem-size = <0 32>;
 
 		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
 			 <&clock_rpmcc RPM_QDSS_A_CLK>;
@@ -1474,9 +1492,9 @@
 			#size-cells = <0>;
 			port@0 {
 				reg = <0>;
-				tpda_mss_out_funnel_in1: endpoint {
+				tpda_mss_out_funnel_dlct: endpoint {
 					remote-endpoint =
-						<&funnel_in1_in_tpda_mss>;
+						<&funnel_dlct_in_tpda_mss>;
 				};
 			};
 			port@1 {
@@ -1636,10 +1654,10 @@
 			};
 			port@5 {
 				reg = <2>;
-				funnel_dlct_in_modem_etm0: endpoint {
+				funnel_dlct_in_tpda_mss: endpoint {
 					slave-mode;
 					remote-endpoint =
-						<&modem_etm0_out_funnel_dlct>;
+						<&tpda_mss_out_funnel_dlct>;
 				};
 			};
 		};
@@ -1712,8 +1730,8 @@
 		qcom,inst-id = <2>;
 
 		port{
-			modem_etm0_out_funnel_dlct: endpoint {
-				remote-endpoint = <&funnel_dlct_in_modem_etm0>;
+			modem_etm0_out_funnel_in1: endpoint {
+				remote-endpoint = <&funnel_in1_in_modem_etm0>;
 			};
 		};
 	};

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -668,6 +668,62 @@
 			};
 		};
 
+		/* USB C analog configuration */
+		wcd_usbc_analog_en1 {
+			wcd_usbc_analog_en1_idle: wcd_usbc_ana_en1_idle {
+				mux {
+					pins = "gpio59";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio59";
+					drive-strength = <2>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+
+			wcd_usbc_analog_en1_active: wcd_usbc_ana_en1_active {
+				mux {
+					pins = "gpio59";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio59";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		wcd_usbc_analog_en2n {
+			wcd_usbc_analog_en2n_idle: wcd_usbc_ana_en2n_idle {
+				mux {
+					pins = "gpio60";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio60";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+
+			wcd_usbc_analog_en2n_active: wcd_usbc_ana_en2n_active {
+				mux {
+					pins = "gpio60";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio60";
+					drive-strength = <2>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+		};
 
 		cdc_reset_ctrl {
 			cdc_reset_sleep: cdc_reset_sleep {
