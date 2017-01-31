@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,7 +45,7 @@ enum {
 
 static int qpnp_vreg_debug_mask;
 module_param_named(
-	debug_mask, qpnp_vreg_debug_mask, int, S_IRUSR | S_IWUSR
+	debug_mask, qpnp_vreg_debug_mask, int, 0600
 );
 
 #define vreg_err(vreg, fmt, ...) \
@@ -302,7 +302,7 @@ struct qpnp_voltage_range {
 	int					step_uV;
 	int					set_point_min_uV;
 	int					set_point_max_uV;
-	unsigned				n_voltages;
+	unsigned int				n_voltages;
 	u8					range_sel;
 };
 
@@ -313,7 +313,7 @@ struct qpnp_voltage_range {
 struct qpnp_voltage_set_points {
 	struct qpnp_voltage_range		*range;
 	int					count;
-	unsigned				n_voltages;
+	unsigned int				n_voltages;
 };
 
 struct qpnp_regulator_mapping {
@@ -381,7 +381,7 @@ struct qpnp_regulator {
 { \
 	.range	= _ranges, \
 	.count	= ARRAY_SIZE(_ranges), \
-};
+}
 
 /*
  * These tables contain the physically available PMIC regulator voltage setpoint
@@ -730,7 +730,7 @@ static int qpnp_regulator_common_disable(struct regulator_dev *rdev)
  */
 static int qpnp_regulator_select_voltage_same_range(struct qpnp_regulator *vreg,
 		int min_uV, int max_uV, int *range_sel, int *voltage_sel,
-		unsigned *selector)
+		unsigned int *selector)
 {
 	struct qpnp_voltage_range *range = NULL;
 	int uV = min_uV;
@@ -781,9 +781,9 @@ static int qpnp_regulator_select_voltage_same_range(struct qpnp_regulator *vreg,
 			    (uV - vreg->set_points->range[i].set_point_min_uV)
 				/ vreg->set_points->range[i].step_uV;
 			break;
-		} else {
-			*selector += vreg->set_points->range[i].n_voltages;
 		}
+
+		*selector += vreg->set_points->range[i].n_voltages;
 	}
 
 	if (*selector >= vreg->set_points->n_voltages)
@@ -794,7 +794,7 @@ static int qpnp_regulator_select_voltage_same_range(struct qpnp_regulator *vreg,
 
 static int qpnp_regulator_select_voltage(struct qpnp_regulator *vreg,
 		int min_uV, int max_uV, int *range_sel, int *voltage_sel,
-		unsigned *selector)
+		unsigned int *selector)
 {
 	struct qpnp_voltage_range *range;
 	int uV = min_uV;
@@ -872,7 +872,7 @@ static int qpnp_regulator_delay_for_slewing(struct qpnp_regulator *vreg,
 }
 
 static int qpnp_regulator_common_set_voltage(struct regulator_dev *rdev,
-		int min_uV, int max_uV, unsigned *selector)
+		int min_uV, int max_uV, unsigned int *selector)
 {
 	struct qpnp_regulator *vreg = rdev_get_drvdata(rdev);
 	int rc, range_sel, voltage_sel, voltage_old = 0;
@@ -958,7 +958,7 @@ static int qpnp_regulator_common_get_voltage(struct regulator_dev *rdev)
 }
 
 static int qpnp_regulator_single_range_set_voltage(struct regulator_dev *rdev,
-		int min_uV, int max_uV, unsigned *selector)
+		int min_uV, int max_uV, unsigned int *selector)
 {
 	struct qpnp_regulator *vreg = rdev_get_drvdata(rdev);
 	int rc, range_sel, voltage_sel;
@@ -995,7 +995,7 @@ static int qpnp_regulator_single_range_get_voltage(struct regulator_dev *rdev)
 }
 
 static int qpnp_regulator_ult_lo_smps_set_voltage(struct regulator_dev *rdev,
-		int min_uV, int max_uV, unsigned *selector)
+		int min_uV, int max_uV, unsigned int *selector)
 {
 	struct qpnp_regulator *vreg = rdev_get_drvdata(rdev);
 	int rc, range_sel, voltage_sel;
@@ -1065,7 +1065,7 @@ static int qpnp_regulator_ult_lo_smps_get_voltage(struct regulator_dev *rdev)
 }
 
 static int qpnp_regulator_common_list_voltage(struct regulator_dev *rdev,
-			unsigned selector)
+			unsigned int selector)
 {
 	struct qpnp_regulator *vreg = rdev_get_drvdata(rdev);
 	int uV = 0;
@@ -1079,16 +1079,16 @@ static int qpnp_regulator_common_list_voltage(struct regulator_dev *rdev,
 			uV = selector * vreg->set_points->range[i].step_uV
 				+ vreg->set_points->range[i].set_point_min_uV;
 			break;
-		} else {
-			selector -= vreg->set_points->range[i].n_voltages;
 		}
+
+		selector -= vreg->set_points->range[i].n_voltages;
 	}
 
 	return uV;
 }
 
 static int qpnp_regulator_common2_set_voltage(struct regulator_dev *rdev,
-		int min_uV, int max_uV, unsigned *selector)
+		int min_uV, int max_uV, unsigned int *selector)
 {
 	struct qpnp_regulator *vreg = rdev_get_drvdata(rdev);
 	int rc, range_sel, voltage_sel, voltage_old = 0;
@@ -1280,8 +1280,6 @@ static void qpnp_regulator_vs_ocp_work(struct work_struct *work)
 		= container_of(dwork, struct qpnp_regulator, ocp_work);
 
 	qpnp_regulator_vs_clear_ocp(vreg);
-
-	return;
 }
 
 static irqreturn_t qpnp_regulator_vs_ocp_isr(int irq, void *data)
@@ -1418,8 +1416,7 @@ static void qpnp_vreg_show_state(struct regulator_dev *rdev,
 		pc_mode_label[5] =
 		     mode_reg & QPNP_COMMON_MODE_FOLLOW_HW_EN0_MASK ? '0' : '_';
 
-		pr_info("%s %-11s: %s, v=%7d uV, mode=%s, pc_en=%s, "
-			"alt_mode=%s\n",
+		pr_info("%s %-11s: %s, v=%7d uV, mode=%s, pc_en=%s, alt_mode=%s\n",
 			action_label, vreg->rdesc.name, enable_label, uV,
 			mode_label, pc_enable_label, pc_mode_label);
 		break;
@@ -1440,8 +1437,7 @@ static void qpnp_vreg_show_state(struct regulator_dev *rdev,
 		pc_mode_label[6] =
 		     mode_reg & QPNP_COMMON_MODE_FOLLOW_HW_EN0_MASK ? '0' : '_';
 
-		pr_info("%s %-11s: %s, v=%7d uV, mode=%s, pc_en=%s, "
-			"alt_mode=%s\n",
+		pr_info("%s %-11s: %s, v=%7d uV, mode=%s, pc_en=%s, alt_mode=%s\n",
 			action_label, vreg->rdesc.name, enable_label, uV,
 			mode_label, pc_enable_label, pc_mode_label);
 		break;
@@ -2165,7 +2161,7 @@ static int qpnp_regulator_get_dt_config(struct platform_device *pdev,
 	return rc;
 }
 
-static struct of_device_id spmi_match_table[];
+static const struct of_device_id spmi_match_table[];
 
 #define MAX_NAME_LEN	127
 
@@ -2256,8 +2252,6 @@ static int qpnp_regulator_probe(struct platform_device *pdev)
 	reg_name = kzalloc(strnlen(pdata->init_data.constraints.name,
 				MAX_NAME_LEN) + 1, GFP_KERNEL);
 	if (!reg_name) {
-		dev_err(&pdev->dev, "%s: Can't allocate regulator name\n",
-			__func__);
 		kfree(vreg);
 		return -ENOMEM;
 	}
@@ -2362,7 +2356,7 @@ static int qpnp_regulator_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id spmi_match_table[] = {
+static const struct of_device_id spmi_match_table[] = {
 	{ .compatible = QPNP_REGULATOR_DRIVER_NAME, },
 	{}
 };
@@ -2422,8 +2416,7 @@ int __init qpnp_regulator_init(void)
 
 	if (has_registered)
 		return 0;
-	else
-		has_registered = true;
+	has_registered = true;
 
 	qpnp_regulator_set_point_init();
 

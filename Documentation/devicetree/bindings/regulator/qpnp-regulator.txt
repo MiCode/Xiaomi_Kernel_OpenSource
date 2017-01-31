@@ -1,4 +1,4 @@
-Qualcomm QPNP Regulators
+Qualcomm Technologies, Inc. QPNP Regulators
 
 qpnp-regulator is a regulator driver which supports regulators inside of PMICs
 that utilize the MSM SPMI implementation.

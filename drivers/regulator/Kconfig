@@ -807,13 +807,14 @@ config REGULATOR_RPM_SMD
 	  application processor over SMD.
 
 config REGULATOR_QPNP
+	tristate "Qualcomm Technologies, Inc. QPNP regulator support"
 	depends on SPMI
-	tristate "Qualcomm QPNP regulator support"
 	help
-	  This driver supports voltage regulators in Qualcomm PMIC chips which
-	  comply with QPNP.  QPNP is a SPMI based PMIC implementation.  These
-	  chips provide several different varieties of LDO and switching
-	  regulators.  They also provide voltage switches and boost regulators.
+	  This driver supports voltage regulators in Qualcomm Technologies, Inc.
+	  PMIC chips which comply with QPNP.  QPNP is a SPMI based PMIC
+	  implementation.  These chips provide several different varieties of
+	  LDO and switching regulators.  They also provide voltage switches and
+	  boost regulators.
 
 config REGULATOR_QPNP_LABIBB
 	depends on SPMI
