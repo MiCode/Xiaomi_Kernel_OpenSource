@@ -211,6 +211,39 @@ void sdhci_msm_ice_cfg_reset(struct sdhci_host *host, u32 slot)
 		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_3_n + 16 * slot);
 }
 
+static
+void sdhci_msm_ice_update_cfg(struct sdhci_host *host, u64 lba,
+			u32 slot, unsigned int bypass, short key_index)
+{
+	unsigned int ctrl_info_val = 0;
+
+	/* Configure ICE index */
+	ctrl_info_val =
+		(key_index &
+		 MASK_SDHCI_MSM_ICE_CTRL_INFO_KEY_INDEX)
+		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_KEY_INDEX;
+
+	/* Configure data unit size of transfer request */
+	ctrl_info_val |=
+		(SDHCI_MSM_ICE_TR_DATA_UNIT_512_B &
+		 MASK_SDHCI_MSM_ICE_CTRL_INFO_CDU)
+		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_CDU;
+
+	/* Configure ICE bypass mode */
+	ctrl_info_val |=
+		(bypass & MASK_SDHCI_MSM_ICE_CTRL_INFO_BYPASS)
+		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_BYPASS;
+
+	writel_relaxed((lba & 0xFFFFFFFF),
+		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_1_n + 16 * slot);
+	writel_relaxed(((lba >> 32) & 0xFFFFFFFF),
+		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_2_n + 16 * slot);
+	writel_relaxed(ctrl_info_val,
+		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_3_n + 16 * slot);
+	/* Ensure ICE registers are configured before issuing SDHCI request */
+	mb();
+}
+
 int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 			u32 slot)
 {
@@ -219,7 +252,6 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 	int err = 0;
 	struct ice_data_setting ice_set;
 	sector_t lba = 0;
-	unsigned int ctrl_info_val = 0;
 	unsigned int bypass = SDHCI_MSM_ICE_ENABLE_BYPASS;
 	struct request *req;
 
@@ -262,32 +294,8 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 				ice_set.crypto_data.key_index);
 	}
 
-	/* Configure ICE index */
-	ctrl_info_val =
-		(ice_set.crypto_data.key_index &
-		 MASK_SDHCI_MSM_ICE_CTRL_INFO_KEY_INDEX)
-		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_KEY_INDEX;
-
-	/* Configure data unit size of transfer request */
-	ctrl_info_val |=
-		(SDHCI_MSM_ICE_TR_DATA_UNIT_512_B &
-		 MASK_SDHCI_MSM_ICE_CTRL_INFO_CDU)
-		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_CDU;
-
-	/* Configure ICE bypass mode */
-	ctrl_info_val |=
-		(bypass & MASK_SDHCI_MSM_ICE_CTRL_INFO_BYPASS)
-		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_BYPASS;
-
-	writel_relaxed((lba & 0xFFFFFFFF),
-		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_1_n + 16 * slot);
-	writel_relaxed(((lba >> 32) & 0xFFFFFFFF),
-		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_2_n + 16 * slot);
-	writel_relaxed(ctrl_info_val,
-		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_3_n + 16 * slot);
-
-	/* Ensure ICE registers are configured before issuing SDHCI request */
-	mb();
+	sdhci_msm_ice_update_cfg(host, lba, slot, bypass,
+				ice_set.crypto_data.key_index);
 	return 0;
 }
 
