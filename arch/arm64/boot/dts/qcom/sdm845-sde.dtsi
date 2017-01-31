@@ -18,16 +18,22 @@
 		reg-names = "mdp_phys",
 			"vbif_phys";
 
-		clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
+		clocks =
+			<&clock_gcc GCC_DISP_AHB_CLK>,
+			<&clock_gcc GCC_DISP_AXI_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_AXI_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_MDP_CLK_SRC>,
-			<&clock_dispcc DISP_CC_MDSS_MDP_CLK>;
-		clock-names = "iface_clk", "bus_clk",
-			"core_clk_src", "core_clk";
-		clock-rate = <0 0 300000000 300000000>;
-		clock-max-rate = <0 0 430000000 430000000>;
+			<&clock_dispcc DISP_CC_MDSS_VSYNC_CLK_SRC>,
+			<&clock_dispcc DISP_CC_MDSS_MDP_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_VSYNC_CLK>;
+		clock-names = "gcc_iface", "gcc_bus",
+			"iface_clk", "bus_clk", "core_clk_src",
+			"vsync_clk_src", "core_clk", "vsync_clk";
+		clock-rate = <0 0 0 0 300000000 0 300000000 0 0>;
+		clock-max-rate = <0 0 0 0 430000000 0 430000000 0 0>;
 
-		mdp-vdd-supply = <&mdss_core_gdsc>;
+		sde-vdd-supply = <&mdss_core_gdsc>;
 
 		/* interrupt config */
 		interrupt-parent = <&intc>;
@@ -142,7 +148,7 @@
 
 			qcom,platform-supply-entry@0 {
 				reg = <0>;
-				qcom,supply-name = "mdp-vdd";
+				qcom,supply-name = "sde-vdd";
 				qcom,supply-min-voltage = <0>;
 				qcom,supply-max-voltage = <0>;
 				qcom,supply-enable-load = <0>;
@@ -184,6 +190,11 @@
 		qcom,sde-rsc-version = <1>;
 
 		vdd-supply = <&mdss_core_gdsc>;
+		clocks = <&clock_dispcc DISP_CC_MDSS_RSCC_AHB_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_RSCC_VSYNC_CLK>;
+		clock-names = "iface_clk", "vsync_clk";
+		clock-rate = <0 0>;
+
 		qcom,sde-dram-channels = <2>;
 
 		/* data and reg bus scale settings */
