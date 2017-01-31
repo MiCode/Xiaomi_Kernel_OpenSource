@@ -183,6 +183,9 @@ Optional properties :
 	User can bump it up using 'perf_mode' sysfs attribute for gadget.
 - qcom,vbus-low-as-hostmode: If present, specifies USB_VBUS to switch to host mode
 	if USB_VBUS is low or device mode if USB_VBUS is high.
+- qcom,usbeth-reset-gpio: If present then an external usb-to-eth is connected to
+	the USB host controller and its RESET_N signal is connected to this
+	usbeth-reset-gpio GPIO. It should be driven LOW to RESET the usb-to-eth.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {

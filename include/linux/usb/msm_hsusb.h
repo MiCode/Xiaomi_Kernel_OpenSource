@@ -285,6 +285,7 @@ enum usb_id_state {
 		for improving data performance.
  * @bool enable_sdp_typec_current_limit: Indicates whether type-c current for
 		sdp charger to be limited.
+ * @usbeth_reset_gpio: Gpio used for external usb-to-eth reset.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -321,6 +322,7 @@ struct msm_otg_platform_data {
 	bool enable_phy_id_pullup;
 	int usb_id_gpio;
 	int hub_reset_gpio;
+	int usbeth_reset_gpio;
 	int switch_sel_gpio;
 	bool phy_dvdd_always_on;
 	bool emulation;
