@@ -309,7 +309,7 @@ struct usbpd {
 	spinlock_t		rx_lock;
 
 	u32			received_pdos[7];
-	int			src_cap_id;
+	u16			src_cap_id;
 	u8			selected_pdo;
 	u8			requested_pdo;
 	u32			rdo;	/* can be either source or sink */
@@ -1551,9 +1551,9 @@ static void usbpd_sm(struct work_struct *w)
 		pd->hard_reset_recvd = false;
 		pd->caps_count = 0;
 		pd->hard_reset_count = 0;
-		pd->src_cap_id = 0;
 		pd->requested_voltage = 0;
 		pd->requested_current = 0;
+		pd->selected_pdo = pd->requested_pdo = 0;
 		memset(&pd->received_pdos, 0, sizeof(pd->received_pdos));
 		rx_msg_cleanup(pd);
 
@@ -1621,8 +1621,12 @@ static void usbpd_sm(struct work_struct *w)
 				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
 		pd->in_pr_swap = false;
+		pd->in_explicit_contract = false;
+		pd->selected_pdo = pd->requested_pdo = 0;
+		pd->rdo = 0;
 		rx_msg_cleanup(pd);
 		reset_vdm_state(pd);
+		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 
 		if (pd->current_pr == PR_SINK) {
 			usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
@@ -1845,8 +1849,10 @@ static void usbpd_sm(struct work_struct *w)
 
 		pd_send_hard_reset(pd);
 		pd->in_explicit_contract = false;
+		pd->rdo = 0;
 		rx_msg_cleanup(pd);
 		reset_vdm_state(pd);
+		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 
 		pd->current_state = PE_SRC_TRANSITION_TO_DEFAULT;
 		kick_sm(pd, PS_HARD_RESET_TIME);
@@ -2166,7 +2172,10 @@ static void usbpd_sm(struct work_struct *w)
 
 		pd_send_hard_reset(pd);
 		pd->in_explicit_contract = false;
+		pd->selected_pdo = pd->requested_pdo = 0;
+		pd->rdo = 0;
 		reset_vdm_state(pd);
+		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
 		break;
 
