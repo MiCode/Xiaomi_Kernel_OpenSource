@@ -898,7 +898,7 @@ static void apm_debugfs_init(struct msm_apm_ctrl_dev *ctrl_dev)
 		return;
 	}
 
-	temp = debugfs_create_file("supply", S_IRUGO, ctrl_dev->debugfs,
+	temp = debugfs_create_file("supply", 0444, ctrl_dev->debugfs,
 				   ctrl_dev, &apm_supply_fops);
 	if (IS_ERR_OR_NULL(temp)) {
 		pr_err("supply mode creation failed\n");
@@ -932,7 +932,7 @@ static void apm_debugfs_base_remove(void)
 
 #endif
 
-static struct of_device_id msm_apm_match_table[] = {
+static const struct of_device_id msm_apm_match_table[] = {
 	{
 		.compatible = "qcom,msm-apm",
 		.data = (void *)(uintptr_t)MSM8996_ID,
@@ -967,10 +967,8 @@ static int msm_apm_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	ctrl = devm_kzalloc(dev, sizeof(*ctrl), GFP_KERNEL);
-	if (!ctrl) {
-		dev_err(dev, "MSM APM controller memory allocation failed\n");
+	if (!ctrl)
 		return -ENOMEM;
-	}
 
 	INIT_LIST_HEAD(&ctrl->list);
 	spin_lock_init(&ctrl->lock);
