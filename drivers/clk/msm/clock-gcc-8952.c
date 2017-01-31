@@ -1299,6 +1299,7 @@ static struct rcg_clk jpeg0_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_camss_mclk0_2_clk[] = {
+	F( 19200000,	xo,	1,	0,	0),
 	F( 24000000,	gpll6,	1,	1,	45),
 	F( 66670000,	gpll0,	12,	0,	0),
 	F_END
