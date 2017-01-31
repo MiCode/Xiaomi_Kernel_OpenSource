@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1402,7 +1402,7 @@ static int cpr4_apss_regulator_remove(struct platform_device *pdev)
 	return cpr3_regulator_unregister(ctrl);
 }
 
-static struct of_device_id cpr4_regulator_match_table[] = {
+static const struct of_device_id cpr4_regulator_match_table[] = {
 	{ .compatible = "qcom,cpr4-msm8953-apss-regulator", },
 	{}
 };

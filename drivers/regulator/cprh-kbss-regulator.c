@@ -2007,7 +2007,7 @@ static int cprh_kbss_regulator_resume(struct platform_device *pdev)
 }
 
 /* Data corresponds to the SoC revision */
-static struct of_device_id cprh_regulator_match_table[] = {
+static const struct of_device_id cprh_regulator_match_table[] = {
 	{
 		.compatible =  "qcom,cprh-msm8998-v1-kbss-regulator",
 		.data = (void *)(uintptr_t)MSM8998_V1_SOC_ID,

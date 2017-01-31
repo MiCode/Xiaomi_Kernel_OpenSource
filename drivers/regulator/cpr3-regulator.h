@@ -36,9 +36,9 @@ struct cpr3_thread;
  * from 0 to 63.  bit_start must be less than or equal to bit_end.
  */
 struct cpr3_fuse_param {
-	unsigned		row;
-	unsigned		bit_start;
-	unsigned		bit_end;
+	unsigned int		row;
+	unsigned int		bit_start;
+	unsigned int		bit_end;
 };
 
 /* Each CPR3 sensor has 16 ring oscillators */
@@ -1021,7 +1021,6 @@ static inline int cpr3_limit_open_loop_voltages(struct cpr3_regulator *vreg)
 static inline void cpr3_open_loop_voltage_as_ceiling(
 			struct cpr3_regulator *vreg)
 {
-	return;
 }
 
 static inline int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg)
@@ -1031,7 +1030,6 @@ static inline int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg)
 
 static inline void cpr3_print_quots(struct cpr3_regulator *vreg)
 {
-	return;
 }
 
 static inline int cpr3_adjust_fused_open_loop_voltages(
