@@ -757,7 +757,8 @@ struct dwc3_scratchpad_array {
  * @nr_scratch: number of scratch buffers
  * @num_event_buffers: calculated number of event buffers
  * @u1u2: only used on revisions <1.83a for workaround
- * @maximum_speed: maximum speed requested (mainly for testing purposes)
+ * @maximum_speed: maximum speed to operate as requested by sw
+ * @max_hw_supp_speed: maximum speed supported by hw design
  * @revision: revision register contents
  * @dr_mode: requested mode of operation
  * @usb2_phy: pointer to USB2 PHY
@@ -888,6 +889,7 @@ struct dwc3 {
 	u32			u1;
 	u32			u1u2;
 	u32			maximum_speed;
+	u32			max_hw_supp_speed;
 
 	/*
 	 * All 3.1 IP version constants are greater than the 3.0 IP
