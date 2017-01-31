@@ -660,6 +660,39 @@ void smblib_suspend_on_debug_battery(struct smb_charger *chg)
 		pr_info("Input suspended: Fake battery\n");
 }
 
+int smblib_rerun_apsd_if_required(struct smb_charger *chg)
+{
+	const struct apsd_result *apsd_result;
+	union power_supply_propval val;
+	int rc;
+
+	rc = smblib_get_prop_usb_present(chg, &val);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get usb present rc = %d\n", rc);
+		return rc;
+	}
+
+	if (!val.intval)
+		return 0;
+
+	apsd_result = smblib_get_apsd_result(chg);
+	if ((apsd_result->pst == POWER_SUPPLY_TYPE_UNKNOWN)
+		|| (apsd_result->pst == POWER_SUPPLY_TYPE_USB)) {
+		/* rerun APSD */
+		pr_info("Reruning APSD type = %s at bootup\n",
+				apsd_result->name);
+		rc = smblib_masked_write(chg, CMD_APSD_REG,
+					APSD_RERUN_BIT,
+					APSD_RERUN_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't rerun APSD rc = %d\n", rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
 /*********************
  * VOTABLE CALLBACKS *
  *********************/
@@ -2345,6 +2378,12 @@ int smblib_reg_block_restore(struct smb_charger *chg,
 }
 
 static struct reg_info cc2_detach_settings[] = {
+	{
+		.reg	= TYPE_C_CFG_REG,
+		.mask	= APSD_START_ON_CC_BIT,
+		.val	= 0,
+		.desc	= "TYPE_C_CFG_REG",
+	},
 	{
 		.reg	= TYPE_C_CFG_2_REG,
 		.mask	= TYPE_C_UFP_MODE_BIT | EN_TRY_SOURCE_MODE_BIT,

@@ -184,6 +184,7 @@ enum ath10k_fw_wmi_op_version {
 	ATH10K_FW_WMI_OP_VERSION_TLV = 4,
 	ATH10K_FW_WMI_OP_VERSION_10_2_4 = 5,
 	ATH10K_FW_WMI_OP_VERSION_10_4 = 6,
+	ATH10K_FW_WMI_OP_VERSION_HL_1_0 = 7,
 
 	/* keep last */
 	ATH10K_FW_WMI_OP_VERSION_MAX,
@@ -524,6 +525,11 @@ ath10k_rx_desc_get_l3_pad_bytes(struct ath10k_hw_params *hw,
 #define TARGET_TLV_NUM_TIDS			((TARGET_TLV_NUM_PEERS) * 2)
 #define TARGET_TLV_NUM_MSDU_DESC		(1024 + 32)
 #define TARGET_TLV_NUM_WOW_PATTERNS		22
+
+/* Target specific defines for WMI-HL-1.0 firmware */
+#define TARGET_HL_10_TLV_NUM_PEERS		14
+#define TARGET_HL_10_TLV_AST_SKID_LIMIT		6
+#define TARGET_HL_10_TLV_NUM_WDS_ENTRIES	2
 
 /* Diagnostic Window */
 #define CE_DIAG_PIPE	7

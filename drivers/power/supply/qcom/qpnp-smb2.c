@@ -1214,6 +1214,8 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+	smblib_rerun_apsd_if_required(chg);
+
 	/* clear the ICL override if it is set */
 	if (stat & ICL_OVERRIDE_LATCH_BIT) {
 		rc = smblib_write(chg, CMD_APSD_REG, ICL_OVERRIDE_BIT);
@@ -1820,6 +1822,8 @@ static int smb2_probe(struct platform_device *pdev)
 	struct smb_charger *chg;
 	int rc = 0;
 	u8 stat;
+	union power_supply_propval val;
+	int usb_present, batt_present, batt_health, batt_charge_type;
 
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
@@ -1943,7 +1947,37 @@ static int smb2_probe(struct platform_device *pdev)
 
 	smb2_create_debugfs(chip);
 
-	pr_info("QPNP SMB2 probed successfully\n");
+	rc = smblib_get_prop_usb_present(chg, &val);
+	if (rc < 0) {
+		pr_err("Couldn't get usb present rc=%d\n", rc);
+		goto cleanup;
+	}
+	usb_present = val.intval;
+
+	rc = smblib_get_prop_batt_present(chg, &val);
+	if (rc < 0) {
+		pr_err("Couldn't get batt present rc=%d\n", rc);
+		goto cleanup;
+	}
+	batt_present = val.intval;
+
+	rc = smblib_get_prop_batt_health(chg, &val);
+	if (rc < 0) {
+		pr_err("Couldn't get batt health rc=%d\n", rc);
+		goto cleanup;
+	}
+	batt_health = val.intval;
+
+	rc = smblib_get_prop_batt_charge_type(chg, &val);
+	if (rc < 0) {
+		pr_err("Couldn't get batt charge type rc=%d\n", rc);
+		goto cleanup;
+	}
+	batt_charge_type = val.intval;
+
+	pr_info("QPNP SMB2 probed successfully usb:present=%d type=%d batt:present = %d health = %d charge = %d\n",
+		usb_present, chg->usb_psy_desc.type,
+		batt_present, batt_health, batt_charge_type);
 	return rc;
 
 cleanup:
@@ -1987,6 +2021,10 @@ static void smb2_shutdown(struct platform_device *pdev)
 	smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
 				HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT, 0);
 	smblib_write(chg, CMD_HVDCP_2_REG, FORCE_5V_BIT);
+
+	/* force enable APSD */
+	smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+				 AUTO_SRC_DETECT_BIT, AUTO_SRC_DETECT_BIT);
 }
 
 static const struct of_device_id match_table[] = {

@@ -173,9 +173,18 @@ static void ufs_qcom_ice_cfg_work(struct work_struct *work)
 	struct ice_data_setting ice_set;
 	struct ufs_qcom_host *qcom_host =
 		container_of(work, struct ufs_qcom_host, ice_cfg_work);
+	struct request *req_pending = NULL;
 
-	if (!qcom_host->ice.vops->config_start || !qcom_host->req_pending)
+	if (!qcom_host->ice.vops->config_start)
 		return;
+
+	spin_lock_irqsave(&qcom_host->ice_work_lock, flags);
+	req_pending = qcom_host->req_pending;
+	if (!req_pending) {
+		spin_unlock_irqrestore(&qcom_host->ice_work_lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&qcom_host->ice_work_lock, flags);
 
 	/*
 	 * config_start is called again as previous attempt returned -EAGAIN,
@@ -263,6 +272,10 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 
 	if (qcom_host->ice.vops->config_start) {
 		memset(&ice_set, 0, sizeof(ice_set));
+
+		spin_lock_irqsave(
+			&qcom_host->ice_work_lock, flags);
+
 		err = qcom_host->ice.vops->config_start(qcom_host->ice.pdev,
 			cmd->request, &ice_set, true);
 		if (err) {
@@ -281,13 +294,11 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 					"%s: scheduling task for ice setup\n",
 					__func__);
 
-				spin_lock_irqsave(
-					&qcom_host->ice_work_lock, flags);
-
 				if (!qcom_host->req_pending) {
 					ufshcd_scsi_block_requests(
 						qcom_host->hba);
 					qcom_host->req_pending = cmd->request;
+
 					if (!schedule_work(
 						&qcom_host->ice_cfg_work)) {
 						qcom_host->req_pending = NULL;
@@ -302,9 +313,6 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 					}
 				}
 
-				spin_unlock_irqrestore(
-					&qcom_host->ice_work_lock, flags);
-
 			} else {
 				if (err != -EBUSY)
 					dev_err(qcom_host->hba->dev,
@@ -312,8 +320,13 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 						__func__, err);
 			}
 
+			spin_unlock_irqrestore(&qcom_host->ice_work_lock,
+				flags);
+
 			return err;
 		}
+
+		spin_unlock_irqrestore(&qcom_host->ice_work_lock, flags);
 
 		if (ufs_qcom_is_data_cmd(cmd_op, true))
 			*enable = !ice_set.encr_bypass;
@@ -380,8 +393,13 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 		return -EINVAL;
 	}
 
-	memset(&ice_set, 0, sizeof(ice_set));
+
 	if (qcom_host->ice.vops->config_start) {
+		memset(&ice_set, 0, sizeof(ice_set));
+
+		spin_lock_irqsave(
+			&qcom_host->ice_work_lock, flags);
+
 		err = qcom_host->ice.vops->config_start(qcom_host->ice.pdev,
 							req, &ice_set, true);
 		if (err) {
@@ -401,9 +419,6 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 					"%s: scheduling task for ice setup\n",
 					__func__);
 
-				spin_lock_irqsave(
-					&qcom_host->ice_work_lock, flags);
-
 				if (!qcom_host->req_pending) {
 					ufshcd_scsi_block_requests(
 						qcom_host->hba);
@@ -422,9 +437,6 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 					}
 				}
 
-				spin_unlock_irqrestore(
-					&qcom_host->ice_work_lock, flags);
-
 			} else {
 				if (err != -EBUSY)
 					dev_err(qcom_host->hba->dev,
@@ -432,8 +444,14 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 						__func__, err);
 			}
 
+			spin_unlock_irqrestore(
+				&qcom_host->ice_work_lock, flags);
+
 			return err;
 		}
+
+		spin_unlock_irqrestore(
+			&qcom_host->ice_work_lock, flags);
 	}
 
 	cmd_op = cmd->cmnd[0];

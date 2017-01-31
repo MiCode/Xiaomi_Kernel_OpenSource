@@ -48,8 +48,8 @@
 #define TLMM_LPI_GPIO22_CFG  0x15078040
 #define LPI_GPIO22_CFG_VAL 0x0000009
 
-#define TLMM_LPI_GPIO22_INOUT  0x15078044
-#define LPI_GPIO22_INOUT_VAL 0x00000000
+#define TLMM_LPI_GPIO22_INOUT  0x179D1318
+#define LPI_GPIO22_INOUT_VAL 0x0020000
 
 #define WSA8810_NAME_1 "wsa881x.20170211"
 #define WSA8810_NAME_2 "wsa881x.20170212"
@@ -1227,8 +1227,9 @@ static void msm_snd_interrupt_config(struct msm_asoc_mach_data *pdata)
 			pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg);
 	iowrite32(LPI_GPIO22_CFG_VAL,
 			pdata->msm_snd_intr_lpi.lpi_gpio_cfg);
-	iowrite32(LPI_GPIO22_INOUT_VAL,
-			pdata->msm_snd_intr_lpi.lpi_gpio_inout);
+	val = ioread32(pdata->msm_snd_intr_lpi.lpi_gpio_inout);
+	val |= LPI_GPIO22_INOUT_VAL;
+	iowrite32(val, pdata->msm_snd_intr_lpi.lpi_gpio_inout);
 }
 
 static int msm_adsp_power_up_config(struct snd_soc_codec *codec)
@@ -1511,6 +1512,17 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 					     134, 135, 136, 137, 138, 139,
 					     140, 141, 142, 143};
 
+	/* Tavil Codec SLIMBUS configuration
+	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7, RX8
+	 * TX1, TX2, TX3, TX4, TX5, TX6, TX7, TX8, TX9, TX10, TX11, TX12, TX13
+	 * TX14, TX15, TX16
+	 */
+	unsigned int rx_ch_tavil[WCD934X_RX_MAX] = {144, 145, 146, 147, 148,
+					    149, 150, 151};
+	unsigned int tx_ch_tavil[WCD934X_TX_MAX] = {128, 129, 130, 131, 132,
+					    133, 134, 135, 136, 137, 138,
+					    139, 140, 141, 142, 143};
+
 	pr_debug("%s: dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
 	rtd->pmdown_time = 0;
@@ -1571,14 +1583,11 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "EAR");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT1");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT2");
-	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT3");
-	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT4");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC2");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC3");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC4");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC5");
-	snd_soc_dapm_ignore_suspend(dapm, "AMIC6");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC0");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC2");
@@ -1586,21 +1595,33 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC4");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC5");
 	snd_soc_dapm_ignore_suspend(dapm, "ANC EAR");
-	snd_soc_dapm_ignore_suspend(dapm, "ANC HEADPHONE");
 	snd_soc_dapm_ignore_suspend(dapm, "SPK1 OUT");
 	snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
 	snd_soc_dapm_ignore_suspend(dapm, "HPHL");
 	snd_soc_dapm_ignore_suspend(dapm, "HPHR");
-	snd_soc_dapm_ignore_suspend(dapm, "ANC HPHL");
-	snd_soc_dapm_ignore_suspend(dapm, "ANC HPHR");
-	snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT1");
-	snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT2");
 	snd_soc_dapm_ignore_suspend(dapm, "AIF4 VI");
 	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT");
 
+	if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
+		snd_soc_dapm_ignore_suspend(dapm, "LINEOUT3");
+		snd_soc_dapm_ignore_suspend(dapm, "LINEOUT4");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHL");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHR");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT1");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT2");
+	}
+
 	snd_soc_dapm_sync(dapm);
-	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
-				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
+
+	if (!strcmp(dev_name(codec_dai->dev), "tavil_codec")) {
+		snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch_tavil),
+					tx_ch_tavil, ARRAY_SIZE(rx_ch_tavil),
+					rx_ch_tavil);
+	} else {
+		snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
+					tx_ch, ARRAY_SIZE(rx_ch),
+					rx_ch);
+	}
 
 	if (!strcmp(dev_name(codec_dai->dev), "tavil_codec")) {
 		msm_codec_fn.get_afe_config_fn = tavil_get_afe_config;

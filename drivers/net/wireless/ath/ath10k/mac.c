@@ -3899,16 +3899,12 @@ void __ath10k_scan_finish(struct ath10k *ar)
 		break;
 	case ATH10K_SCAN_RUNNING:
 	case ATH10K_SCAN_ABORTING:
-		if (!ar->scan.is_roc) {
-			struct cfg80211_scan_info info = {
-				.aborted = (ar->scan.state ==
-					    ATH10K_SCAN_ABORTING),
-			};
-
-			ieee80211_scan_completed(ar->hw, &info);
-		} else if (ar->scan.roc_notify) {
+		if (!ar->scan.is_roc)
+			ieee80211_scan_completed(ar->hw,
+						 (ar->scan.state ==
+						  ATH10K_SCAN_ABORTING));
+		else if (ar->scan.roc_notify)
 			ieee80211_remain_on_channel_expired(ar->hw);
-		}
 		/* fall through */
 	case ATH10K_SCAN_STARTING:
 		ar->scan.state = ATH10K_SCAN_IDLE;
@@ -7959,6 +7955,7 @@ int ath10k_mac_register(struct ath10k *ar)
 		ar->hw->wiphy->interface_modes |= BIT(NL80211_IFTYPE_ADHOC);
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_TLV:
+	case ATH10K_FW_WMI_OP_VERSION_HL_1_0:
 		if (test_bit(WMI_SERVICE_ADAPTIVE_OCS, ar->wmi.svc_map)) {
 			ar->hw->wiphy->iface_combinations =
 				ath10k_tlv_qcs_if_comb;

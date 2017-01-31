@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -417,6 +417,45 @@ done:
 }
 
 /**
+ * cpr4_sdm660_mmss_adjust_target_quotients() - adjust the target quotients for
+ *		each corner according to device tree values and fuse values
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_sdm660_mmss_adjust_target_quotients(struct cpr3_regulator *vreg)
+{
+	struct cpr4_sdm660_mmss_fuses *fuse = vreg->platform_fuses;
+	const struct cpr3_fuse_param (*offset_param)[2];
+	int *volt_offset;
+	int i, fuse_len, rc = 0;
+
+	volt_offset = kcalloc(vreg->fuse_corner_count, sizeof(*volt_offset),
+				GFP_KERNEL);
+	if (!volt_offset)
+		return -ENOMEM;
+
+	offset_param = sdm660_mmss_offset_voltage_param;
+	for (i = 0; i < vreg->fuse_corner_count; i++) {
+		fuse_len = offset_param[i][0].bit_end + 1
+			   - offset_param[i][0].bit_start;
+		volt_offset[i] = cpr3_convert_open_loop_voltage_fuse(
+			0, SDM660_MMSS_OFFSET_FUSE_STEP_VOLT,
+			fuse->offset_voltage[i], fuse_len);
+		if (volt_offset[i])
+			cpr3_info(vreg, "fuse_corner[%d] offset=%7d uV\n",
+				i, volt_offset[i]);
+	}
+
+	rc = cpr3_adjust_target_quotients(vreg, volt_offset);
+	if (rc)
+		cpr3_err(vreg, "adjust target quotients failed, rc=%d\n", rc);
+
+	kfree(volt_offset);
+	return rc;
+}
+
+/**
  * cpr4_mmss_print_settings() - print out MMSS CPR configuration settings into
  *		the kernel log for debugging purposes
  * @vreg:		Pointer to the CPR3 regulator
@@ -485,6 +524,13 @@ static int cpr4_mmss_init_thread(struct cpr3_thread *thread)
 	rc = cpr4_mmss_parse_corner_data(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to read CPR corner data from device tree, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = cpr4_sdm660_mmss_adjust_target_quotients(vreg);
+	if (rc) {
+		cpr3_err(vreg, "unable to adjust target quotients, rc=%d\n",
 			rc);
 		return rc;
 	}

@@ -2452,6 +2452,11 @@ static bool ufs_qcom_testbus_cfg_is_ok(struct ufs_qcom_host *host)
 	return true;
 }
 
+/*
+ * The caller of this function must make sure that the controller
+ * is out of runtime suspend and appropriate clocks are enabled
+ * before accessing.
+ */
 int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 {
 	int reg;
@@ -2522,8 +2527,6 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	}
 	mask <<= offset;
 
-	pm_runtime_get_sync(host->hba->dev);
-	ufshcd_hold(host->hba, false);
 	ufshcd_rmwl(host->hba, TEST_BUS_SEL,
 		    (u32)host->testbus.select_major << 19,
 		    REG_UFS_CFG1);
@@ -2536,8 +2539,6 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	 * committed before returning.
 	 */
 	mb();
-	ufshcd_release(host->hba, false);
-	pm_runtime_put_sync(host->hba->dev);
 
 	return 0;
 }

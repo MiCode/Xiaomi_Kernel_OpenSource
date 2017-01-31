@@ -46,11 +46,20 @@ struct ath10k_ce_pipe;
 #define CE_DESC_FLAGS_META_DATA_MASK ar->hw_values->ce_desc_meta_data_mask
 #define CE_DESC_FLAGS_META_DATA_LSB  ar->hw_values->ce_desc_meta_data_lsb
 
+#ifndef CONFIG_ATH10K_SNOC
 struct ce_desc {
 	__le32 addr;
 	__le16 nbytes;
 	__le16 flags; /* %CE_DESC_FLAGS_ */
 };
+#else
+struct ce_desc {
+	__le64 addr;
+	u16 nbytes; /* length in register map */
+	u16 flags; /* fw_metadata_high */
+	u32 toeplitz_hash_result;
+};
+#endif
 
 struct ath10k_ce_ring {
 	/* Number of entries in this ring; must be power of 2 */

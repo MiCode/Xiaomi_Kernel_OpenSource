@@ -2490,8 +2490,14 @@ static void handle_exception(struct fsg_common *common)
 
 	case FSG_STATE_CONFIG_CHANGE:
 		do_set_interface(common, common->new_fsg);
-		if (common->new_fsg)
+		if (common->new_fsg) {
+			/*
+			 * make sure delayed_status flag updated when set_alt
+			 * returned.
+			 */
+			msleep(200);
 			usb_composite_setup_continue(common->cdev);
+		}
 		break;
 
 	case FSG_STATE_EXIT:
