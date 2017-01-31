@@ -38,6 +38,20 @@ int sde_core_irq_postinstall(struct sde_kms *sde_kms);
 void sde_core_irq_uninstall(struct sde_kms *sde_kms);
 
 /**
+ * sde_core_irq_domain_add - Add core IRQ domain for SDE
+ * @sde_kms:		SDE handle
+ * @return:		none
+ */
+int sde_core_irq_domain_add(struct sde_kms *sde_kms);
+
+/**
+ * sde_core_irq_domain_fini - uninstall core IRQ domain
+ * @sde_kms:		SDE handle
+ * @return:		0 if success; error code otherwise
+ */
+int sde_core_irq_domain_fini(struct sde_kms *sde_kms);
+
+/**
  * sde_core_irq - core IRQ handler
  * @sde_kms:		SDE handle
  * @return:		interrupt handling status
