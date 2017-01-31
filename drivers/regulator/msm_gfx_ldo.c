@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,7 +42,7 @@
 #define LDO_VREF_SET_REG		0x18
 #define UPDATE_VREF_BIT			BIT(31)
 #define SEL_RST_BIT			BIT(16)
-#define VREF_VAL_MASK			GENMASK(6 , 0)
+#define VREF_VAL_MASK			GENMASK(6, 0)
 
 #define PWRSWITCH_CTRL_REG		0x1C
 #define LDO_CLAMP_IO_BIT		BIT(31)
@@ -95,9 +95,9 @@ enum voltage_handling {
 };
 
 struct fuse_param {
-	unsigned		row;
-	unsigned		bit_start;
-	unsigned		bit_end;
+	unsigned int		row;
+	unsigned int		bit_start;
+	unsigned int		bit_end;
 };
 
 struct ldo_config {
@@ -665,7 +665,7 @@ static int switch_mode_to_bhs(struct msm_gfx_ldo *ldo_vreg)
 }
 
 static int msm_gfx_ldo_set_corner(struct regulator_dev *rdev,
-		int corner, int corner_max, unsigned *selector)
+		int corner, int corner_max, unsigned int *selector)
 {
 	struct msm_gfx_ldo *ldo_vreg  = rdev_get_drvdata(rdev);
 	int rc = 0, mem_acc_corner, new_uv;
@@ -860,7 +860,7 @@ fail:
 }
 
 static int msm_gfx_ldo_set_voltage(struct regulator_dev *rdev,
-		int new_uv, int max_uv, unsigned *selector)
+		int new_uv, int max_uv, unsigned int *selector)
 {
 	struct msm_gfx_ldo *ldo_vreg = rdev_get_drvdata(rdev);
 	int rc = 0;
@@ -1444,22 +1444,22 @@ static void msm_gfx_ldo_debugfs_init(struct msm_gfx_ldo *ldo_vreg)
 		return;
 	}
 
-	temp = debugfs_create_file("debug_info", S_IRUGO, ldo_vreg->debugfs,
+	temp = debugfs_create_file("debug_info", 0444, ldo_vreg->debugfs,
 					ldo_vreg, &msm_gfx_ldo_debug_info_fops);
 	if (IS_ERR_OR_NULL(temp)) {
 		pr_err("debug_info node creation failed\n");
 		return;
 	}
 
-	temp = debugfs_create_file("ldo_voltage", S_IRUGO | S_IWUSR,
-			ldo_vreg->debugfs, ldo_vreg, &ldo_voltage_fops);
+	temp = debugfs_create_file("ldo_voltage", 0644, ldo_vreg->debugfs,
+					ldo_vreg, &ldo_voltage_fops);
 	if (IS_ERR_OR_NULL(temp)) {
 		pr_err("ldo_voltage node creation failed\n");
 		return;
 	}
 
-	temp = debugfs_create_file("ldo_mode_disable", S_IRUGO | S_IWUSR,
-			ldo_vreg->debugfs, ldo_vreg, &ldo_mode_disable_fops);
+	temp = debugfs_create_file("ldo_mode_disable", 0644, ldo_vreg->debugfs,
+					ldo_vreg, &ldo_mode_disable_fops);
 	if (IS_ERR_OR_NULL(temp)) {
 		pr_err("ldo_mode_disable node creation failed\n");
 		return;
