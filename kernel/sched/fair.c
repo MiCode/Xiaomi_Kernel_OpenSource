@@ -4679,7 +4679,6 @@ static inline void hrtick_update(struct rq *rq)
 #endif
 
 #ifdef CONFIG_SMP
-static bool cpu_overutilized(int cpu);
 static unsigned long capacity_orig_of(int cpu);
 static unsigned long cpu_util(int cpu);
 static inline unsigned long boosted_cpu_util(int cpu);
@@ -5918,7 +5917,7 @@ static bool __cpu_overutilized(int cpu, int delta)
 	       ((cpu_util(cpu) + delta) * capacity_margin);
 }
 
-static bool cpu_overutilized(int cpu)
+bool cpu_overutilized(int cpu)
 {
 	return __cpu_overutilized(cpu, 0);
 }

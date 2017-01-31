@@ -1884,7 +1884,7 @@ retry:
 			 * double count rt task load.
 			 */
 			util = cpu_util(cpu);
-			if (!cpu_rq(cpu)->rd->overutilized) {
+			if (!cpu_overutilized(cpu)) {
 				if (best_cpu_util > util ||
 				    (best_cpu_util == util &&
 				     cpu == task_cpu(task))) {
