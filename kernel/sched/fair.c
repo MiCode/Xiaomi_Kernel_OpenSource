@@ -5348,6 +5348,8 @@ struct energy_env {
 	int			dst_cpu;
 	int			energy;
 	int			payoff;
+	int			sync_cpu;
+	unsigned long		curr_util;
 	struct task_struct	*task;
 	struct {
 		int before;
@@ -5450,6 +5452,9 @@ unsigned long group_max_util(struct energy_env *eenv)
 
 	for_each_cpu(i, sched_group_cpus(eenv->sg_cap)) {
 		delta = calc_util_delta(eenv, i);
+		/* substract sync_cpu's rq->curr util to discount its cost */
+		if (eenv->sync_cpu == i)
+			delta -= eenv->curr_util;
 		max_util = max(max_util, __cpu_util(i, delta));
 	}
 
@@ -5474,6 +5479,9 @@ long group_norm_util(struct energy_env *eenv, struct sched_group *sg)
 
 	for_each_cpu(i, sched_group_cpus(sg)) {
 		delta = calc_util_delta(eenv, i);
+		/* substract sync_cpu's rq->curr util to discount its cost */
+		if (eenv->sync_cpu == i)
+			delta -= eenv->curr_util;
 		util_sum += __cpu_norm_util(i, capacity, delta);
 	}
 
@@ -5654,6 +5662,7 @@ static inline int __energy_diff(struct energy_env *eenv)
 		.nrg		= { 0, 0, 0, 0},
 		.cap		= { 0, 0, 0 },
 		.task		= eenv->task,
+		.sync_cpu       = eenv->sync_cpu,
 	};
 
 	if (eenv->src_cpu == eenv->dst_cpu)
@@ -6601,8 +6610,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	sg_target = sg;
 
 	sync = sync && sysctl_sched_sync_hint_enable;
-	if (sync)
-		curr_util = boosted_task_util(cpu_rq(cpu)->curr);
+	curr_util = boosted_task_util(cpu_rq(cpu)->curr);
 
 	if (sysctl_sched_is_big_little) {
 		/*
@@ -6645,7 +6653,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			if (sync && i == cpu)
 				new_util -= curr_util;
 
-			trace_sched_cpu_util(p, i, task_util_boosted, 0, sync);
+			trace_sched_cpu_util(p, i, task_util_boosted,
+					     curr_util, sync);
 
 			/*
 			 * Ensure minimum capacity to grant the required boost.
@@ -6725,14 +6734,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			.src_cpu	= task_cpu(p),
 			.dst_cpu	= target_cpu,
 			.task		= p,
+			.sync_cpu	= sync ? smp_processor_id() : -1,
+			.curr_util	= curr_util,
 		};
-
-		if (sync) {
-			if (eenv.dst_cpu == cpu)
-				eenv.util_delta -= curr_util;
-			else if (eenv.src_cpu == cpu)
-				eenv.util_delta += curr_util;
-		}
 
 #ifdef CONFIG_SCHED_WALT
 		if (walt_disabled || !sysctl_sched_use_walt_cpu_util)
