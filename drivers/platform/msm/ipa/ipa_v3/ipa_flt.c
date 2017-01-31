@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -438,7 +438,7 @@ static bool ipa_flt_skip_pipe_config(int pipe)
 		return true;
 	}
 
-	if ((ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD) == pipe
+	if ((ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD) == pipe
 		&& ipa3_ctx->modem_cfg_emb_pipe_flt)) {
 		IPADBG_LOW("skip %d\n", pipe);
 		return true;
