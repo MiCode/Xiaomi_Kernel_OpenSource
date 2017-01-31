@@ -601,7 +601,7 @@ void pm_qos_add_request(struct pm_qos_request *req,
 			struct cpumask *mask;
 
 			if (!desc)
-				break;
+				return;
 
 			mask = desc->irq_data.common->affinity;
 
