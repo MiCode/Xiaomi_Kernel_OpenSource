@@ -811,6 +811,9 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 	priv = dev->dev_private;
 	catalog = sde_kms->catalog;
 
+	ret = sde_core_irq_domain_add(sde_kms);
+	if (ret)
+		goto fail_irq;
 	/*
 	 * Query for underlying display drivers, and create connectors,
 	 * bridges and encoders for them.
@@ -869,6 +872,8 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 	return 0;
 fail:
 	_sde_kms_drm_obj_destroy(sde_kms);
+fail_irq:
+	sde_core_irq_domain_fini(sde_kms);
 	return ret;
 }
 
@@ -1219,6 +1224,14 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto perf_err;
 	}
 
+	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
+	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
+		rc = PTR_ERR(sde_kms->hw_intr);
+		SDE_ERROR("hw_intr init failed: %d\n", rc);
+		sde_kms->hw_intr = NULL;
+		goto hw_intr_init_err;
+	}
+
 	/*
 	 * _sde_kms_drm_obj_init should create the DRM related objects
 	 * i.e. CRTCs, planes, encoders, connectors and so forth
@@ -1244,21 +1257,12 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	 */
 	dev->mode_config.allow_fb_modifiers = true;
 
-	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
-	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
-		rc = PTR_ERR(sde_kms->hw_intr);
-		SDE_ERROR("hw_intr init failed: %d\n", rc);
-		sde_kms->hw_intr = NULL;
-		goto hw_intr_init_err;
-	}
-
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 	return 0;
 
-hw_intr_init_err:
-	_sde_kms_drm_obj_destroy(sde_kms);
 drm_obj_init_err:
 	sde_core_perf_destroy(&sde_kms->perf);
+hw_intr_init_err:
 perf_err:
 power_error:
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
