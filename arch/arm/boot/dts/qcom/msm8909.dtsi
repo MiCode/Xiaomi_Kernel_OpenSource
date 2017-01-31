@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -692,7 +692,8 @@
 			<0x0A08040c 0x00000008>,
 			<0x0A0120a8 0x00000008>,
 			<0x0A012448 0x00000008>,
-			<0x0A080c00 0x00000001>;
+			<0x0A080c00 0x00000001>,
+			<0x0005E000 0x00000064>;
 
 		reg-names = "wcnss_mmio", "wcnss_fiq",
 			    "pronto_phy_base", "riva_phy_base",
@@ -700,7 +701,8 @@
 			    "pronto_ccpu_base", "pronto_saw2_base",
 			    "wlan_tx_phy_aborts","wlan_brdg_err_source",
 			    "wlan_tx_status", "alarms_txctl",
-			    "alarms_tactl", "pronto_mcu_base";
+			    "alarms_tactl", "pronto_mcu_base",
+			    "pronto_qfuse";
 
 		interrupts = <0 145 0 0 146 0>;
 		interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
@@ -749,6 +751,7 @@
 		qcom,wlan-rx-buff-count = <512>;
 		qcom,has-autodetect-xo;
 		qcom,is-pronto-v3;
+		qcom,is-dual-band-disabled;
 		qcom,is-pronto-vadc;
 		qcom,has-pronto-hw;
 		qcom,wcnss-adc_tm = <&pm8909_adc_tm>;

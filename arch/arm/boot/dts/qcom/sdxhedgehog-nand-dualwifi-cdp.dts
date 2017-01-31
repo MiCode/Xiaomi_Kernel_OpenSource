@@ -18,7 +18,7 @@
 	model = "Qualcomm Technologies, Inc. SDX HEDGEHOG CDP - DWIFI";
 	compatible = "qcom,sdxhedgehog-cdp", "qcom,sdxhedgehog",
 		     "qcom,cdp";
-	qcom,board-id = <1 0x2>;
+	qcom,board-id = <1 0x2>, <1 0x102>;
 };
 
 &qnand_1 {

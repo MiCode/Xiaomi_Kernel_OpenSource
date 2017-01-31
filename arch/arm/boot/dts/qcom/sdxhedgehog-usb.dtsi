@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,10 +37,11 @@
 		qcom,usb-dbm = <&dbm_1p5>;
 
 		qcom,msm-bus,name = "usb3";
-		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-cases = <3>;
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
 					<61 512 0 0>, <61 676 0 0>,
+					<61 512 0 680000>, <61 676 0 2400>,
 					<61 512 0 680000>, <61 676 0 2400>;
 		qcom,lpm-to-suspend-delay-ms = <2000>;
 
@@ -117,10 +118,8 @@
 
 	qusb_phy: qusb@79000 {
 		compatible = "qcom,qusb2phy-v2";
-		reg = <0x79000 0x400>,
-			<0x01fcb24c 0x4>;
-		reg-names = "qusb_phy_base",
-				"tcsr_clamp_dig_n_1p8";
+		reg = <0x79000 0x400>;
+		reg-names = "qusb_phy_base";
 		qcom,efuse-bit-pos = <16>;
 		qcom,efuse-num-bits = <4>;
 		vdd-supply = <&pmdcalifornium_l4>;
@@ -138,6 +137,7 @@
 				0x00 0x21c /* imp_ctrl1 */
 				0x19 0xb4>; /* digital_timers_two */
 		phy_type = "utmi";
+		qcom,secure-level-shifter-update;
 		clocks = <&clock_gcc clk_ln_bb_clk>,
 			 <&clock_gcc clk_gcc_qusb_ref_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
@@ -265,9 +265,9 @@
 					0x974 0x8d8 0x8dc 0x804 0x800
 					0x808>;
 		vdd-supply = <&pmdcalifornium_l4>;
-		core-supply = <&pmdcalifornium_l5>;
+		core-supply = <&pmdcalifornium_l1>;
 		qcom,vdd-voltage-level = <0 928000 928000>;
-		qcom,core-voltage-level = <0 1200000 1200000>;
+		qcom,core-voltage-level = <0 1224000 1224000>;
 		qcom,vbus-valid-override;
 
 		clocks = <&clock_gcc clk_gcc_usb3_aux_clk>,
