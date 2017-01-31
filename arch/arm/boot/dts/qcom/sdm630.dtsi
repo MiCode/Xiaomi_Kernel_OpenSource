@@ -1521,6 +1521,7 @@
 #include "sdm660-common.dtsi"
 #include "msm-arm-smmu-630.dtsi"
 #include "sdm660-camera.dtsi"
+#include "sdm630-pm.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";
