@@ -1053,13 +1053,41 @@ static int smblib_apsd_disable_vote_callback(struct votable *votable,
 	struct smb_charger *chg = data;
 	int rc;
 
-	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-				 AUTO_SRC_DETECT_BIT,
-				 apsd_disable ? 0 : AUTO_SRC_DETECT_BIT);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't %s APSD rc=%d\n",
-			apsd_disable ? "disable" : "enable", rc);
-		return rc;
+	if (apsd_disable) {
+		/* Don't run APSD on CC debounce when APSD is disabled */
+		rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
+							APSD_START_ON_CC_BIT,
+							0);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't disable APSD_START_ON_CC rc=%d\n",
+									rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+							AUTO_SRC_DETECT_BIT,
+							0);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't disable APSD rc=%d\n", rc);
+			return rc;
+		}
+	} else {
+		rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+							AUTO_SRC_DETECT_BIT,
+							AUTO_SRC_DETECT_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't enable APSD rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
+							APSD_START_ON_CC_BIT,
+							APSD_START_ON_CC_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't enable APSD_START_ON_CC rc=%d\n",
+									rc);
+			return rc;
+		}
 	}
 
 	return 0;
