@@ -164,7 +164,7 @@
 		};
 	};
 
-	sound-tavil {
+	snd_934x: sound-tavil {
 		compatible = "qcom,msm8998-asoc-snd-tavil";
 		qcom,model = "msm8998-tavil-snd-card";
 		qcom,ext-disp-audio-rx;
