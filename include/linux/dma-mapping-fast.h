@@ -36,8 +36,6 @@ struct dma_fast_smmu_mapping {
 
 	spinlock_t	lock;
 	struct notifier_block notifier;
-
-	int		is_smmu_pt_coherent;
 };
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST

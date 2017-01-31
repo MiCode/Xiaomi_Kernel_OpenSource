@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -199,6 +199,8 @@ static struct security_hook_list pft_hooks[] = {
 	LSM_HOOK_INIT(file_open, pft_file_open),
 	LSM_HOOK_INIT(file_permission, pft_file_permission),
 	LSM_HOOK_INIT(file_close, pft_file_close),
+
+	LSM_HOOK_INIT(allow_merge_bio, pft_allow_merge_bio),
 };
 
 static int __init pft_lsm_init(struct pft_device *dev)
@@ -209,8 +211,7 @@ static int __init pft_lsm_init(struct pft_device *dev)
 		dev->is_chosen_lsm = true;
 		pr_debug("pft is the chosen lsm, registered successfully !\n");
 	} else {
-		pr_err("pft is not the chosen lsm\n");
-		return -ENODEV;
+		pr_debug("pft is not the chosen lsm.\n");
 	}
 
 	return 0;

@@ -1222,18 +1222,12 @@ static void smem_init_security_partition(struct smem_toc_entry *entry,
 		LOG_ERR("Smem partition %d cached heap exceeds size\n", num);
 		BUG();
 	}
-	if (is_comm_partition) {
-		if (hdr->host0 == SMEM_COMM_HOST
-			&& hdr->host1 == SMEM_COMM_HOST) {
-			comm_partition.partition_num = num;
-			comm_partition.offset = entry->offset;
-			comm_partition.size_cacheline = entry->size_cacheline;
-			SMEM_INFO("Common Partition %d offset:%x\n", num,
-							entry->offset);
-		} else {
-			LOG_ERR("Smem Comm partition hosts don't match TOC\n");
-			WARN_ON(1);
-		}
+	if (hdr->host0 == SMEM_COMM_HOST && hdr->host1 == SMEM_COMM_HOST) {
+		comm_partition.partition_num = num;
+		comm_partition.offset = entry->offset;
+		comm_partition.size_cacheline = entry->size_cacheline;
+		SMEM_INFO("Common Partition %d offset:%x\n", num,
+						entry->offset);
 		return;
 	}
 	if (hdr->host0 != SMEM_APPS && hdr->host1 != SMEM_APPS) {

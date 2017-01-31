@@ -17,13 +17,3 @@
 	compatible = "qcom,sda630";
 	qcom,msm-id = <327 0x0>;
 };
-
-&soc {
-	qcom,rmnet-ipa {
-		status = "disabled";
-	};
-};
-
-&ipa_hw {
-	status = "disabled";
-};

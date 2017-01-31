@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,7 +48,6 @@
 #define MSM_LIMITS_ALGO_MODE_ENABLE	0x454E424C
 
 #define MSM_LIMITS_HI_THRESHOLD		0x48494748
-#define MSM_LIMITS_LOW_THRESHOLD        0x4C4F5700
 #define MSM_LIMITS_ARM_THRESHOLD	0x41524D00
 
 #define MSM_LIMITS_CLUSTER_0		0x6370302D
@@ -58,7 +57,6 @@
 
 #define MSM_LIMITS_HIGH_THRESHOLD_VAL	95000
 #define MSM_LIMITS_ARM_THRESHOLD_VAL	65000
-#define MSM_LIMITS_LOW_THRESHOLD_OFFSET 500
 #define MSM_LIMITS_POLLING_DELAY_MS	10
 #define MSM_LIMITS_CLUSTER_0_REQ	0x179C1B04
 #define MSM_LIMITS_CLUSTER_1_REQ	0x179C3B04
@@ -229,8 +227,7 @@ static int lmh_activate_trip(struct thermal_zone_device *dev,
 		int trip, enum thermal_trip_activation_mode mode)
 {
 	struct msm_lmh_dcvs_hw *hw = dev->devdata;
-	uint32_t enable, temp;
-	int ret = 0;
+	uint32_t enable, temp, thresh;
 
 	enable = (mode == THERMAL_TRIP_ACTIVATION_ENABLED) ? 1 : 0;
 	if (!enable) {
@@ -243,35 +240,12 @@ static int lmh_activate_trip(struct thermal_zone_device *dev,
 			hw->temp_limits[LIMITS_TRIP_HI])
 		return -EINVAL;
 
+	thresh = (trip == LIMITS_TRIP_LO) ? MSM_LIMITS_ARM_THRESHOLD :
+			MSM_LIMITS_HI_THRESHOLD;
 	temp = hw->temp_limits[trip];
-	switch (trip) {
-	case LIMITS_TRIP_LO:
-		ret =  msm_lmh_dcvs_write(hw->affinity,
-				MSM_LIMITS_SUB_FN_THERMAL,
-				MSM_LIMITS_ARM_THRESHOLD, temp);
-		break;
-	case LIMITS_TRIP_HI:
-		/*
-		 * The high threshold should be atleast greater than the
-		 * low threshold offset
-		 */
-		if (temp < MSM_LIMITS_LOW_THRESHOLD_OFFSET)
-			return -EINVAL;
-		ret =  msm_lmh_dcvs_write(hw->affinity,
-				MSM_LIMITS_SUB_FN_THERMAL,
-				MSM_LIMITS_HI_THRESHOLD, temp);
-		if (ret)
-			break;
-		ret =  msm_lmh_dcvs_write(hw->affinity,
-				MSM_LIMITS_SUB_FN_THERMAL,
-				MSM_LIMITS_LOW_THRESHOLD, temp -
-				MSM_LIMITS_LOW_THRESHOLD_OFFSET);
-		break;
-	default:
-		return -EINVAL;
-	}
 
-	return ret;
+	return msm_lmh_dcvs_write(hw->affinity, MSM_LIMITS_SUB_FN_THERMAL,
+				thresh, temp);
 }
 
 static int lmh_get_trip_temp(struct thermal_zone_device *dev,

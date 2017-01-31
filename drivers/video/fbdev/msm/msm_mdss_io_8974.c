@@ -16,8 +16,6 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/clk/msm-clk.h>
-#include <linux/iopoll.h>
-#include <linux/kthread.h>
 
 #include "mdss_dsi.h"
 #include "mdss_dp.h"
@@ -427,20 +425,6 @@ static void mdss_dsi_ctrl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0000);
 	udelay(100);
 	wmb();	/* maek sure reset cleared */
-}
-
-int mdss_dsi_phy_pll_reset_status(struct mdss_dsi_ctrl_pdata *ctrl)
-{
-	int rc;
-	u32 val;
-	u32 const sleep_us = 10, timeout_us = 100;
-
-	pr_debug("%s: polling for RESETSM_READY_STATUS.CORE_READY\n",
-		__func__);
-	rc = readl_poll_timeout(ctrl->phy_io.base + 0x4cc, val,
-		(val & 0x1), sleep_us, timeout_us);
-
-	return rc;
 }
 
 static void mdss_dsi_phy_sw_reset_sub(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -947,11 +931,8 @@ static void mdss_dsi_8996_phy_power_off(
 {
 	int ln;
 	void __iomem *base;
-	u32 data;
 
-	/* Turn off PLL power */
-	data = MIPI_INP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0);
-	MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, data & ~BIT(7));
+	MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0x7f);
 
 	/* 4 lanes + clk lane configuration */
 	for (ln = 0; ln < 5; ln++) {
@@ -1007,7 +988,6 @@ static void mdss_dsi_8996_phy_power_on(
 	void __iomem *base;
 	struct mdss_dsi_phy_ctrl *pd;
 	char *ip;
-	u32 data;
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
 
@@ -1027,10 +1007,6 @@ static void mdss_dsi_8996_phy_power_on(
 	}
 
 	mdss_dsi_8996_phy_regulator_enable(ctrl);
-
-	/* Turn on PLL power */
-	data = MIPI_INP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0);
-	MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, data | BIT(7));
 }
 
 static void mdss_dsi_phy_power_on(
@@ -1134,7 +1110,6 @@ static void mdss_dsi_8996_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 			mdss_dsi_8996_pll_source_standalone(ctrl);
 	}
 
-	MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0x7f);
 	wmb(); /* make sure registers committed */
 }
 
