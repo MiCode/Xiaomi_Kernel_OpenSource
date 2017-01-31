@@ -229,6 +229,9 @@ config USB_F_CDEV
 config USB_F_QDSS
 	tristate
 
+config USB_F_CCID
+	tristate
+
 choice
 	tristate "USB Gadget Drivers"
 	default USB_ETH
@@ -561,6 +564,14 @@ config USB_CONFIGFS_F_QDSS
 	depends on USB_CONFIGFS
 	help
 	  USB QDSS function driver to get hwtracing related data over USB.
+
+config USB_CONFIGFS_F_CCID
+	bool "USB CCID function"
+	select USB_F_CCID
+	depends on USB_CONFIGFS
+	help
+	  USB CCID function driver creats transport layer between the
+	  userspace CCID component and the Windows Host.
 
 source "drivers/usb/gadget/legacy/Kconfig"
 
