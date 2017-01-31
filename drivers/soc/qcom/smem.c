@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015,2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -367,7 +367,7 @@ static void *__smem_get_entry_secure(unsigned id,
 	uint32_t a_hdr_size;
 	int rc;
 
-	SMEM_DBG("%s(%u, %u, %u, %u, %d, %d)\n", __func__, id, *size, to_proc,
+	SMEM_DBG("%s(%u, %u, %u, %d, %d)\n", __func__, id, to_proc,
 					flags, skip_init_check, use_rspinlock);
 
 	if (!skip_init_check && !smem_initialized_check())
@@ -788,7 +788,7 @@ EXPORT_SYMBOL(smem_alloc);
 void *smem_get_entry(unsigned id, unsigned *size, unsigned to_proc,
 								unsigned flags)
 {
-	SMEM_DBG("%s(%u, %u, %u, %u)\n", __func__, id, *size, to_proc, flags);
+	SMEM_DBG("%s(%u, %u, %u)\n", __func__, id, to_proc, flags);
 
 	/*
 	 * Handle the circular dependecy between SMEM and software implemented
