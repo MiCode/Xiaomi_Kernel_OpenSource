@@ -645,6 +645,10 @@ int q6asm_send_mtmx_strtr_window(struct audio_client *ac,
 int q6asm_send_mtmx_strtr_render_mode(struct audio_client *ac,
 		uint32_t render_mode);
 
+/* Configure DSP clock recovery mode */
+int q6asm_send_mtmx_strtr_clk_rec_mode(struct audio_client *ac,
+		uint32_t clk_rec_mode);
+
 /* Retrieve the current DSP path delay */
 int q6asm_get_path_delay(struct audio_client *ac);
 
