@@ -30,6 +30,10 @@
 	qcom,peripheral-size = <0x500000>;
 };
 
+&pm660l_wled {
+	qcom,led-strings-list = [01 02];
+};
+
 &soc {
 };
 
