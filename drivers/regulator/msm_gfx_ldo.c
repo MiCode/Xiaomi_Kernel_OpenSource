@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -186,6 +186,7 @@ static const int msm8953_fuse_ref_volt[MSM8953_LDO_FUSE_CORNERS] = {
 enum {
 	MSM8953_SOC_ID,
 	SDM660_SOC_ID,
+	SDM630_SOC_ID,
 };
 
 static int convert_open_loop_voltage_fuse(int ref_volt, int step_volt,
@@ -1519,6 +1520,10 @@ static const struct of_device_id msm_gfx_ldo_match_table[] = {
 		.compatible = "qcom,sdm660-gfx-ldo",
 		.data = (void *)(uintptr_t)SDM660_SOC_ID,
 	},
+	{
+		.compatible = "qcom,sdm630-gfx-ldo",
+		.data = (void *)(uintptr_t)SDM630_SOC_ID,
+	},
 	{}
 };
 
@@ -1573,6 +1578,7 @@ static int msm_gfx_ldo_probe(struct platform_device *pdev)
 		}
 		break;
 	case SDM660_SOC_ID:
+	case SDM630_SOC_ID:
 		ldo_vreg->ldo_init_config = sdm660_ldo_config;
 		ldo_vreg->ops_type = VOLTAGE;
 		init_data->constraints.valid_ops_mask

@@ -8,8 +8,9 @@ This document describes the bindings that apply for the GFX LDO regulator.
 - compatible
 	Usage:      required
 	Value type: <string>
-	Definition: should be "qcom,msm8953-gfx-ldo" for MSM8953 and
-		    "qcom,sdm660-gfx-ldo" for SDM660
+	Definition: should be "qcom,msm8953-gfx-ldo" for MSM8953,
+		    "qcom,sdm660-gfx-ldo" for SDM660 and "qcom,sdm630-gfx-ldo"
+		    for SDM630.
 
 - reg
 	Usage:      required
