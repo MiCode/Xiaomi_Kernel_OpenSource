@@ -24,3 +24,15 @@
 	qcom,board-id = <8 0>;
 	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
 };
+
+&mdss_dsi0 {
+	oledb-supply = <&pm660a_oledb>;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+};
+
+&mdss_dsi1 {
+	oledb-supply = <&pm660a_oledb>;
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+};
