@@ -75,6 +75,7 @@ enum {
 #define HAVE_CBC_DONE 1
 #define HAVE_WCNSS_RX_BUFF_COUNT 1
 #define HAVE_WCNSS_SNOC_HIGH_FREQ_VOTING 1
+#define HAVE_WCNSS_5G_DISABLE 1
 #define WLAN_MAC_ADDR_SIZE (6)
 #define WLAN_RF_REG_ADDR_START_OFFSET	0x3
 #define WLAN_RF_REG_DATA_START_OFFSET	0xf
@@ -134,6 +135,7 @@ void wcnss_riva_dump_pmic_regs(void);
 int wcnss_xo_auto_detect_enabled(void);
 u32 wcnss_get_wlan_rx_buff_count(void);
 int wcnss_wlan_iris_xo_mode(void);
+int wcnss_wlan_dual_band_disabled(void);
 void wcnss_flush_work(struct work_struct *work);
 void wcnss_flush_delayed_work(struct delayed_work *dwork);
 void wcnss_init_work(struct work_struct *work , void *callbackptr);
