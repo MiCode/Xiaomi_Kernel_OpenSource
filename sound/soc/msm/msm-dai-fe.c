@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,7 +110,7 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 				    SNDRV_PCM_FMTBIT_S24_LE |
 				    SNDRV_PCM_FMTBIT_S24_3LE),
 			.channels_min = 1,
-			.channels_max = 4,
+			.channels_max = 8,
 			.rate_min =     8000,
 			.rate_max =     48000,
 		},
