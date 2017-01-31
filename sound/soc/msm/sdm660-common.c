@@ -2909,9 +2909,9 @@ err:
 		gpio_free(pdata->hph_en0_gpio);
 		pdata->hph_en0_gpio = 0;
 	}
-	devm_kfree(&pdev->dev, pdata);
 	if (pdata->snd_card_val != INT_SND_CARD)
 		msm_ext_cdc_deinit(pdata);
+	devm_kfree(&pdev->dev, pdata);
 	return ret;
 }
 
