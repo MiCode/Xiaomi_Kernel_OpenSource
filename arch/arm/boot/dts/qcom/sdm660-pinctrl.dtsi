@@ -369,6 +369,68 @@
 			};
 		};
 
+		nfc {
+			nfc_int_active: nfc_int_active {
+				/* active state */
+				mux {
+					/* GPIO 28 NFC Read Interrupt */
+					pins = "gpio28";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio28";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_int_suspend: nfc_int_suspend {
+				/* sleep state */
+				mux {
+					/* GPIO 28 NFC Read Interrupt */
+					pins = "gpio28";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio28";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_enable_active: nfc_enable_active {
+				/* active state */
+				mux {
+					/* 29: NFC ENABLE 31:ESE Enable */
+					pins = "gpio29", "gpio31";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio29", "gpio31";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_enable_suspend: nfc_enable_suspend {
+				/* sleep state */
+				mux {
+					/* 29: NFC ENABLE 31:ESE Enable */
+					pins = "gpio29", "gpio31";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio29", "gpio31";
+					drive-strength = <2>; /* 2 MA */
+					bias-disable;
+				};
+			};
+		};
+
 		i2c_7 {
 			i2c_7_active: i2c_7_active {
 				mux {
