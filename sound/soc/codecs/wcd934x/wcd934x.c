@@ -8095,13 +8095,8 @@ static struct snd_soc_dai_driver tavil_dai[] = {
 
 static void tavil_codec_power_gate_digital_core(struct tavil_priv *tavil)
 {
-	struct snd_soc_codec *codec = tavil->codec;
-
-	if (!codec)
-		return;
-
 	mutex_lock(&tavil->power_lock);
-	dev_dbg(codec->dev, "%s: Entering power gating function, %d\n",
+	dev_dbg(tavil->dev, "%s: Entering power gating function, %d\n",
 		__func__, tavil->power_active_ref);
 
 	if (tavil->power_active_ref > 0)
@@ -8110,16 +8105,16 @@ static void tavil_codec_power_gate_digital_core(struct tavil_priv *tavil)
 	wcd9xxx_set_power_state(tavil->wcd9xxx,
 			WCD_REGION_POWER_COLLAPSE_BEGIN,
 			WCD9XXX_DIG_CORE_REGION_1);
-	snd_soc_update_bits(codec, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
-			0x04, 0x04);
-	snd_soc_update_bits(codec, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
-			0x01, 0x00);
-	snd_soc_update_bits(codec, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
-			0x02, 0x00);
+	regmap_update_bits(tavil->wcd9xxx->regmap,
+			   WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x04, 0x04);
+	regmap_update_bits(tavil->wcd9xxx->regmap,
+			   WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x01, 0x00);
+	regmap_update_bits(tavil->wcd9xxx->regmap,
+			   WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x02, 0x00);
 	wcd9xxx_set_power_state(tavil->wcd9xxx, WCD_REGION_POWER_DOWN,
 				WCD9XXX_DIG_CORE_REGION_1);
 exit:
-	dev_dbg(codec->dev, "%s: Exiting power gating function, %d\n",
+	dev_dbg(tavil->dev, "%s: Exiting power gating function, %d\n",
 		__func__, tavil->power_active_ref);
 	mutex_unlock(&tavil->power_lock);
 }
@@ -8128,34 +8123,32 @@ static void tavil_codec_power_gate_work(struct work_struct *work)
 {
 	struct tavil_priv *tavil;
 	struct delayed_work *dwork;
-	struct snd_soc_codec *codec;
 
 	dwork = to_delayed_work(work);
 	tavil = container_of(dwork, struct tavil_priv, power_gate_work);
-	codec = tavil->codec;
-
-	if (!codec)
-		return;
 
 	tavil_codec_power_gate_digital_core(tavil);
 }
 
 /* called under power_lock acquisition */
-static int tavil_dig_core_remove_power_collapse(struct snd_soc_codec *codec)
+static int tavil_dig_core_remove_power_collapse(struct tavil_priv *tavil)
 {
-	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
-
-	snd_soc_write(codec, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x5);
-	snd_soc_write(codec, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
-	snd_soc_update_bits(codec, WCD934X_CODEC_RPM_RST_CTL, 0x02, 0x00);
-	snd_soc_update_bits(codec, WCD934X_CODEC_RPM_RST_CTL, 0x02, 0x02);
-	snd_soc_write(codec, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
+	regmap_write(tavil->wcd9xxx->regmap,
+		     WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x05);
+	regmap_write(tavil->wcd9xxx->regmap,
+		     WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x07);
+	regmap_update_bits(tavil->wcd9xxx->regmap,
+			   WCD934X_CODEC_RPM_RST_CTL, 0x02, 0x00);
+	regmap_update_bits(tavil->wcd9xxx->regmap,
+			   WCD934X_CODEC_RPM_RST_CTL, 0x02, 0x02);
+	regmap_write(tavil->wcd9xxx->regmap,
+		     WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x03);
 
 	wcd9xxx_set_power_state(tavil->wcd9xxx,
 			WCD_REGION_POWER_COLLAPSE_REMOVE,
 			WCD9XXX_DIG_CORE_REGION_1);
-	regcache_mark_dirty(codec->component.regmap);
-	regcache_sync_region(codec->component.regmap,
+	regcache_mark_dirty(tavil->wcd9xxx->regmap);
+	regcache_sync_region(tavil->wcd9xxx->regmap,
 			     WCD934X_DIG_CORE_REG_MIN,
 			     WCD934X_DIG_CORE_REG_MAX);
 
@@ -8165,7 +8158,6 @@ static int tavil_dig_core_remove_power_collapse(struct snd_soc_codec *codec)
 static int tavil_dig_core_power_collapse(struct tavil_priv *tavil,
 					 int req_state)
 {
-	struct snd_soc_codec *codec;
 	int cur_state;
 
 	/* Exit if feature is disabled */
@@ -8186,10 +8178,6 @@ static int tavil_dig_core_power_collapse(struct tavil_priv *tavil,
 		goto unlock_mutex;
 	}
 
-	codec = tavil->codec;
-	if (!codec)
-		goto unlock_mutex;
-
 	if (req_state == POWER_COLLAPSE) {
 		if (tavil->power_active_ref == 0) {
 			schedule_delayed_work(&tavil->power_gate_work,
@@ -8207,7 +8195,7 @@ static int tavil_dig_core_power_collapse(struct tavil_priv *tavil,
 						tavil->wcd9xxx,
 						WCD9XXX_DIG_CORE_REGION_1);
 			if (cur_state == WCD_REGION_POWER_DOWN) {
-				tavil_dig_core_remove_power_collapse(codec);
+				tavil_dig_core_remove_power_collapse(tavil);
 			} else {
 				mutex_unlock(&tavil->power_lock);
 				cancel_delayed_work_sync(
