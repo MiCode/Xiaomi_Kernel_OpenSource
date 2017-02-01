@@ -93,6 +93,9 @@ struct sde_hw_mixer {
 
 	/* ops */
 	struct sde_hw_lm_ops ops;
+
+	/* store mixer info specific to display */
+	struct sde_hw_mixer_cfg cfg;
 };
 
 /**

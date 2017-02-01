@@ -462,12 +462,20 @@ struct sde_mdss_color {
  * @len: Length of the payload.
  * @ctl: control pointer associated with dspp/lm.
  * @last_feature: last feature that will be set.
+ * @num_of_mixers: number of layer mixers for the display.
+ * @mixer_info: mixer info pointer associated with lm.
+ * @displayv: height of the display.
+ * @displayh: width of the display.
  */
 struct sde_hw_cp_cfg {
 	void *payload;
 	u32 len;
 	void *ctl;
 	u32 last_feature;
+	u32 num_of_mixers;
+	void *mixer_info;
+	u32 displayv;
+	u32 displayh;
 };
 
 /**

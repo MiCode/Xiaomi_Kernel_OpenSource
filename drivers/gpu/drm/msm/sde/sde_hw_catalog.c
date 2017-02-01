@@ -1668,6 +1668,7 @@ static int sde_dspp_parse_dt(struct device_node *np,
 					blocks_prop_exists, blocks_prop_value);
 
 		sblk->ad.id = SDE_DSPP_AD;
+		sde_cfg->ad_count = ad_off_count;
 		if (ad_prop_value && (i < ad_off_count) &&
 		    ad_prop_exists[AD_OFF]) {
 			sblk->ad.base = PROP_VALUE_ACCESS(ad_prop_value,
