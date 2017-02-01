@@ -93,6 +93,7 @@ struct smb_dt_props {
 	int	usb_icl_ua;
 	int	dc_icl_ua;
 	int	chg_temp_max_mdegc;
+	int	connector_temp_max_mdegc;
 };
 
 struct smb138x {
@@ -141,6 +142,12 @@ static int smb138x_parse_dt(struct smb138x *chip)
 				&chip->dt.chg_temp_max_mdegc);
 	if (rc < 0)
 		chip->dt.chg_temp_max_mdegc = 80000;
+
+	rc = of_property_read_u32(node,
+				"qcom,connector-temp-max-mdegc",
+				&chip->dt.chg_temp_max_mdegc);
+	if (rc < 0)
+		chip->dt.connector_temp_max_mdegc = 105000;
 
 	return 0;
 }
@@ -672,6 +679,8 @@ static int smb138x_init_vconn_regulator(struct smb138x *chip)
  * HARDWARE INITIALIZATION *
  ***************************/
 
+#define MDEGC_3		3000
+#define MDEGC_15	15000
 static int smb138x_init_slave_hw(struct smb138x *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -771,6 +780,26 @@ static int smb138x_init_slave_hw(struct smb138x *chip)
 		return rc;
 	}
 
+	rc = iio_write_channel_processed(chg->iio.connector_temp_thr1_chan,
+				chip->dt.connector_temp_max_mdegc);
+	if (rc < 0) {
+		pr_err("Couldn't set connector temp threshold1 rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = iio_write_channel_processed(chg->iio.connector_temp_thr2_chan,
+				chip->dt.connector_temp_max_mdegc + MDEGC_3);
+	if (rc < 0) {
+		pr_err("Couldn't set connector temp threshold2 rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = iio_write_channel_processed(chg->iio.connector_temp_thr3_chan,
+				chip->dt.connector_temp_max_mdegc + MDEGC_15);
+	if (rc < 0) {
+		pr_err("Couldn't set connector temp threshold3 rc=%d\n", rc);
+		return rc;
+	}
 	return 0;
 }
 
@@ -1274,6 +1303,27 @@ static int smb138x_slave_probe(struct smb138x *chip)
 	chg->iio.temp_max_chan = iio_channel_get(chg->dev, "charger_temp_max");
 	if (IS_ERR(chg->iio.temp_max_chan)) {
 		rc = PTR_ERR(chg->iio.temp_max_chan);
+		goto cleanup;
+	}
+
+	chg->iio.connector_temp_thr1_chan = iio_channel_get(chg->dev,
+							"connector_temp_thr1");
+	if (IS_ERR(chg->iio.connector_temp_thr1_chan)) {
+		rc = PTR_ERR(chg->iio.connector_temp_thr1_chan);
+		goto cleanup;
+	}
+
+	chg->iio.connector_temp_thr2_chan = iio_channel_get(chg->dev,
+							"connector_temp_thr2");
+	if (IS_ERR(chg->iio.connector_temp_thr2_chan)) {
+		rc = PTR_ERR(chg->iio.connector_temp_thr2_chan);
+		goto cleanup;
+	}
+
+	chg->iio.connector_temp_thr3_chan = iio_channel_get(chg->dev,
+							"connector_temp_thr3");
+	if (IS_ERR(chg->iio.connector_temp_thr3_chan)) {
+		rc = PTR_ERR(chg->iio.connector_temp_thr3_chan);
 		goto cleanup;
 	}
 
