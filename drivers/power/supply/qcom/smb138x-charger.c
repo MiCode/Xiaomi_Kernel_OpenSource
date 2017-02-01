@@ -800,6 +800,14 @@ static int smb138x_init_slave_hw(struct smb138x *chip)
 		pr_err("Couldn't set connector temp threshold3 rc=%d\n", rc);
 		return rc;
 	}
+
+	rc = smblib_write(chg, THERMREG_SRC_CFG_REG,
+						THERMREG_SKIN_ADC_SRC_EN_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't enable connector thermreg source rc=%d\n", rc);
+		return rc;
+	}
+
 	return 0;
 }
 
