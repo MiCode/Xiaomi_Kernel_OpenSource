@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2553,16 +2553,19 @@ u32 ipahal_get_low_rule_id(void)
  * @hash_hdr_size: SRAM buf size of the hash tbls hdr. Used for space check
  * @nhash_hdr_size: SRAM buf size of the nhash tbls hdr. Used for space check
  * @mem: mem object that points to DMA mem representing the hdr structure
+ * @atomic: should DMA allocation be executed with atomic flag
  */
 int ipahal_rt_generate_empty_img(u32 tbls_num, u32 hash_hdr_size,
-	u32 nhash_hdr_size, struct ipa_mem_buffer *mem)
+	u32 nhash_hdr_size, struct ipa_mem_buffer *mem, bool atomic)
 {
 	int i;
 	u64 addr;
 	struct ipahal_fltrt_obj *obj;
+	int flag;
 
 	IPAHAL_DBG("Entry\n");
 
+	flag = atomic ? GFP_ATOMIC : GFP_KERNEL;
 	obj = &ipahal_fltrt_objs[ipahal_ctx->hw_type];
 
 	if (!tbls_num || !nhash_hdr_size || !mem) {
@@ -2589,7 +2592,7 @@ int ipahal_rt_generate_empty_img(u32 tbls_num, u32 hash_hdr_size,
 
 	mem->size = tbls_num * obj->tbl_hdr_width;
 	mem->base = dma_alloc_coherent(ipahal_ctx->ipa_pdev, mem->size,
-		&mem->phys_base, GFP_KERNEL);
+		&mem->phys_base, flag);
 	if (!mem->base) {
 		IPAHAL_ERR("fail to alloc DMA buff of size %d\n", mem->size);
 		return -ENOMEM;
@@ -2615,18 +2618,22 @@ int ipahal_rt_generate_empty_img(u32 tbls_num, u32 hash_hdr_size,
  *  should be: bit0->EP0, bit1->EP1
  *  If bitmap is zero -> create tbl without bitmap entry
  * @mem: mem object that points to DMA mem representing the hdr structure
+ * @atomic: should DMA allocation be executed with atomic flag
  */
 int ipahal_flt_generate_empty_img(u32 tbls_num, u32 hash_hdr_size,
-	u32 nhash_hdr_size, u64 ep_bitmap, struct ipa_mem_buffer *mem)
+	u32 nhash_hdr_size, u64 ep_bitmap, struct ipa_mem_buffer *mem,
+	bool atomic)
 {
 	int flt_spc;
 	u64 flt_bitmap;
 	int i;
 	u64 addr;
 	struct ipahal_fltrt_obj *obj;
+	int flag;
 
 	IPAHAL_DBG("Entry - ep_bitmap 0x%llx\n", ep_bitmap);
 
+	flag = atomic ? GFP_ATOMIC : GFP_KERNEL;
 	obj = &ipahal_fltrt_objs[ipahal_ctx->hw_type];
 
 	if (!tbls_num || !nhash_hdr_size || !mem) {
@@ -2667,7 +2674,7 @@ int ipahal_flt_generate_empty_img(u32 tbls_num, u32 hash_hdr_size,
 	if (ep_bitmap)
 		mem->size += obj->tbl_hdr_width;
 	mem->base = dma_alloc_coherent(ipahal_ctx->ipa_pdev, mem->size,
-		&mem->phys_base, GFP_KERNEL);
+		&mem->phys_base, flag);
 	if (!mem->base) {
 		IPAHAL_ERR("fail to alloc DMA buff of size %d\n", mem->size);
 		return -ENOMEM;
