@@ -476,18 +476,18 @@ config QCOM_COMMAND_DB
 	  Command DB queries shared memory by key string for shared system
 	  resources
 
-config MSM_QDSP6_APRV2
-        bool "Audio QDSP6 APRv2 support"
-        depends on MSM_SMD
+config MSM_QDSP6_APRV2_GLINK
+        bool "Audio QDSP6 APRv2 Over Glink support"
+	depends on MSM_GLINK
         help
           Enable APRv2 IPC protocol support between
           application processor and QDSP6. APR is
           used by audio driver to configure QDSP6's
           ASM, ADM and AFE.
 
-config MSM_QDSP6_APRV3
-	bool "Audio QDSP6 APRv3 support"
-	depends on MSM_SMD
+config MSM_QDSP6_APRV3_GLINK
+	bool "Audio QDSP6 APRv3 Over Glink support"
+	depends on MSM_GLINK
 	help
 	  Enable APRv3 IPC protocol support between
 	  application processor and QDSP6. APR is
@@ -497,7 +497,7 @@ config MSM_QDSP6_APRV3
 config MSM_ADSP_LOADER
 	tristate "ADSP loader support"
 	select SND_SOC_MSM_APRV2_INTF
-	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3
+	depends on MSM_QDSP6_APRV2_GLINK || MSM_QDSP6_APRV3_GLINK
 	help
 	  Enable ADSP image loader.
 	  The ADSP loader brings ADSP out of reset
@@ -506,7 +506,7 @@ config MSM_ADSP_LOADER
 
 config MSM_AVTIMER
 	tristate "Avtimer Driver"
-	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3
+	depends on MSM_QDSP6_APRV2_GLINK || MSM_QDSP6_APRV3_GLINK
 	help
 		This driver gets the Q6 out of power collapsed state and
 		exposes ioctl control to read avtimer tick.
