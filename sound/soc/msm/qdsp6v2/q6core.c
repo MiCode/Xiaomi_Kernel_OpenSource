@@ -19,7 +19,6 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/qdsp6v2/apr.h>
-#include <soc/qcom/smd.h>
 #include <sound/q6core.h>
 #include <sound/audio_cal_utils.h>
 
