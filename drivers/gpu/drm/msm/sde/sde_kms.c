@@ -37,6 +37,7 @@
 #include "sde_encoder.h"
 #include "sde_plane.h"
 #include "sde_crtc.h"
+#include "sde_reg_dma.h"
 
 #define CREATE_TRACE_POINTS
 #include "sde_trace.h"
@@ -1041,6 +1042,13 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		SDE_DEBUG("VBIF NRT is not defined");
 	}
 
+	sde_kms->reg_dma = msm_ioremap(dev->platformdev, "regdma_phys",
+			"REG_DMA");
+	if (IS_ERR(sde_kms->reg_dma)) {
+		sde_kms->reg_dma = NULL;
+		SDE_DEBUG("REG_DMA is not defined");
+	}
+
 	sde_kms->core_client = sde_power_client_create(&priv->phandle, "core");
 	if (IS_ERR_OR_NULL(sde_kms->core_client)) {
 		rc = PTR_ERR(sde_kms->core_client);
@@ -1065,6 +1073,14 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		rc = PTR_ERR(sde_kms->catalog);
 		SDE_ERROR("catalog init failed: %d\n", rc);
 		sde_kms->catalog = NULL;
+		goto power_error;
+	}
+
+	/* Initialize reg dma block which is a singleton */
+	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
+			sde_kms->dev);
+	if (rc) {
+		SDE_ERROR("failed: reg dma init failed\n");
 		goto power_error;
 	}
 
