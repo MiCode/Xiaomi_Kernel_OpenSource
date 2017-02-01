@@ -341,6 +341,7 @@ void close_ch_worker(struct work_struct *work)
 	if (WARN_ON(!ss_info->cb_data))
 		return;
 	kfree(ss_info->cb_data);
+	ss_info->cb_data = NULL;
 	kfree(close_work);
 }
 
