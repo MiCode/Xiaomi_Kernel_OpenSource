@@ -1885,6 +1885,9 @@ retry:
 			 */
 			util = cpu_util(cpu);
 			if (!cpu_overutilized(cpu)) {
+				if (sched_cpu_high_irqload(cpu))
+					continue;
+
 				if (best_cpu_util > util ||
 				    (best_cpu_util == util &&
 				     cpu == task_cpu(task))) {

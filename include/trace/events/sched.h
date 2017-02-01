@@ -715,6 +715,8 @@ TRACE_EVENT(sched_cpu_util,
 		__field(unsigned long, curr_util		)
 		__field(int, sync				)
 		__field(int, idle_state				)
+		__field(unsigned int, irqload		)
+		__field(int, high_irqload		)
 	),
 
 	TP_fast_assign(
@@ -729,10 +731,12 @@ TRACE_EVENT(sched_cpu_util,
 		__entry->curr_util		= curr_util;
 		__entry->sync			= sync;
 		__entry->idle_state		= idle_get_state_idx(cpu_rq(cpu));
+		__entry->irqload		= sched_irqload(cpu);
+		__entry->high_irqload		= sched_cpu_high_irqload(cpu);
 	),
 
-	TP_printk("comm=%s pid=%d cpu=%d task_util=%d nr_running=%d cpu_util=%ld capacity_curr=%u capacity=%u curr_util=%ld sync=%d idle_state=%d",
-		__entry->comm, __entry->pid, __entry->cpu, __entry->task_util, __entry->nr_running, __entry->cpu_util, __entry->capacity_curr, __entry->capacity, __entry->curr_util, __entry->sync, __entry->idle_state)
+	TP_printk("comm=%s pid=%d cpu=%d task_util=%d nr_running=%d cpu_util=%ld capacity_curr=%u capacity=%u curr_util=%ld sync=%d idle_state=%d irqload=%u high_irqload=%u",
+		__entry->comm, __entry->pid, __entry->cpu, __entry->task_util, __entry->nr_running, __entry->cpu_util, __entry->capacity_curr, __entry->capacity, __entry->curr_util, __entry->sync, __entry->idle_state, __entry->irqload, __entry->high_irqload)
 );
 
 DECLARE_EVENT_CLASS(sched_task_util,

@@ -6655,6 +6655,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			trace_sched_cpu_util(p, i, task_util_boosted,
 					     curr_util, sync);
 
+			if (sched_cpu_high_irqload(cpu))
+				continue;
+
 			/*
 			 * Ensure minimum capacity to grant the required boost.
 			 * The target CPU can be already at a capacity level higher
