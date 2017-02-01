@@ -3342,9 +3342,9 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 				struct snd_soc_component, list_aux);
 		if (!strcmp(aux_comp->name, WSA8810_NAME_1) ||
 		    !strcmp(aux_comp->name, WSA8810_NAME_2)) {
-			tavil_set_spkr_mode(rtd->codec, SPKR_MODE_1);
+			tavil_set_spkr_mode(rtd->codec, WCD934X_SPKR_MODE_1);
 			tavil_set_spkr_gain_offset(rtd->codec,
-						RX_GAIN_OFFSET_M1P5_DB);
+					WCD934X_RX_GAIN_OFFSET_M1P5_DB);
 		}
 	}
 	card = rtd->card->snd_card;
