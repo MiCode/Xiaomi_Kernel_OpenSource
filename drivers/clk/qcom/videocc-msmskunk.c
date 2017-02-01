@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,8 +68,8 @@ static struct pll_vco fabia_vco[] = {
 };
 
 static const struct pll_config video_pll0_config = {
-	.l = 0x15,
-	.frac = 0xaab,
+	.l = 0x10,
+	.frac = 0xaaab,
 };
 
 static struct clk_alpha_pll video_pll0 = {
@@ -85,8 +85,8 @@ static struct clk_alpha_pll video_pll0 = {
 			.ops = &clk_fabia_pll_ops,
 			VDD_CX_FMAX_MAP5(
 				MIN, 200000000,
-				LOW, 660000000,
-				LOW_L1, 1212000000,
+				LOW, 640000000,
+				LOW_L1, 760000000,
 				NOMINAL, 1332000000,
 				HIGH, 1599000000),
 
@@ -95,10 +95,10 @@ static struct clk_alpha_pll video_pll0 = {
 };
 
 static const struct freq_tbl ftbl_video_cc_venus_clk_src[] = {
-	F(101000000, P_VIDEO_PLL0_OUT_MAIN, 4, 0, 0),
-	F(202000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
-	F(269333333, P_VIDEO_PLL0_OUT_MAIN, 1.5, 0, 0),
-	F(404000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
+	F(100000000, P_VIDEO_PLL0_OUT_MAIN, 4, 0, 0),
+	F(200000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(320000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
+	F(380000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(444000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(533000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	{ }
@@ -120,8 +120,8 @@ static struct clk_rcg2 video_cc_venus_clk_src = {
 		VDD_CX_FMAX_MAP6(
 			MIN, 100000000,
 			LOWER, 200000000,
-			LOW, 330000000,
-			LOW_L1, 404000000,
+			LOW, 320000000,
+			LOW_L1, 380000000,
 			NOMINAL, 444000000,
 			HIGH, 533000000),
 	},
