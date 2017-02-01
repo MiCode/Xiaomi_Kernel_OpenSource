@@ -1356,33 +1356,6 @@ uc_timeout:
 	return result;
 }
 
-static int ipa3_wait_for_prod_empty(void)
-{
-	int i;
-	u32 rx_door_bell_value;
-
-	for (i = 0; i < IPA_UC_FINISH_MAX; i++) {
-		rx_door_bell_value = ipahal_read_reg_mn(
-			IPA_UC_MAILBOX_m_n,
-			IPA_HW_WDI_RX_MBOX_START_INDEX / 32,
-			IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
-		IPADBG("(%d)rx_DB(%u)rp(%u),comp_wp(%u)\n",
-			i,
-			rx_door_bell_value,
-			*ipa3_ctx->uc_ctx.rdy_ring_rp_va,
-			*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va);
-		if (*ipa3_ctx->uc_ctx.rdy_ring_rp_va !=
-			*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va) {
-			usleep_range(IPA_UC_WAIT_MIN_SLEEP,
-				IPA_UC_WAII_MAX_SLEEP);
-		} else {
-			return 0;
-		}
-	}
-
-	return -ETIME;
-}
-
 /**
  * ipa3_disable_wdi_pipe() - WDI client disable
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
@@ -1398,9 +1371,6 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 	union IpaHwWdiCommonChCmdData_t disable;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	u32 prod_hdl;
-
-	u32 source_pipe_bitmask = 0;
-	bool disable_force_clear = false;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -1456,40 +1426,6 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		usleep_range(IPA_UC_POLL_SLEEP_USEC * IPA_UC_POLL_SLEEP_USEC,
 			IPA_UC_POLL_SLEEP_USEC * IPA_UC_POLL_SLEEP_USEC);
 
-		/*
-		 * checking rdy_ring_rp_pa matches the
-		 * rdy_comp_ring_wp_pa on WDI2.0
-		 */
-		if (ipa3_ctx->ipa_wdi2) {
-			result = ipa3_wait_for_prod_empty();
-			if (result) {
-				IPADBG("prod not empty\n");
-				/*
-				 * In case ipa_uc still haven't processed all
-				 * pending descriptors, ask modem to drain
-				 */
-				source_pipe_bitmask = 1 <<
-					ipa3_get_ep_mapping(ep->client);
-				result = ipa3_enable_force_clear(clnt_hdl,
-					false, source_pipe_bitmask);
-				if (result) {
-					IPAERR("failed to force clear %d\n",
-						result);
-				} else {
-					disable_force_clear = true;
-				}
-
-				/*
-				 * In case ipa_uc still haven't processed all
-				 * pending descriptors, we have to assert
-				 */
-				result = ipa3_wait_for_prod_empty();
-				if (result) {
-					IPAERR("prod still not empty\n");
-					ipa_assert();
-				}
-			}
-		}
 	}
 
 	disable.params.ipa_pipe_number = clnt_hdl;
@@ -1508,8 +1444,6 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_delay = true;
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
-		if (disable_force_clear)
-			ipa3_disable_force_clear(clnt_hdl);
 	}
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->uc_offload_state &= ~IPA_WDI_ENABLED;
@@ -1595,6 +1529,9 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 	struct ipa3_ep_context *ep;
 	union IpaHwWdiCommonChCmdData_t suspend;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+	u32 source_pipe_bitmask = 0;
+	bool disable_force_clear = false;
+	struct ipahal_ep_cfg_ctrl_scnd ep_ctrl_scnd = { 0 };
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -1619,6 +1556,31 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 	suspend.params.ipa_pipe_number = clnt_hdl;
 
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		/*
+		 * For WDI 2.0 need to ensure pipe will be empty before suspend
+		 * as IPA uC will fail to suspend the pipe otherwise.
+		 */
+		if (ipa3_ctx->ipa_wdi2) {
+			source_pipe_bitmask = 1 <<
+					ipa3_get_ep_mapping(ep->client);
+			result = ipa3_enable_force_clear(clnt_hdl,
+				false, source_pipe_bitmask);
+			if (result) {
+				/*
+				 * assuming here modem SSR, AP can remove
+				 * the delay in this case
+				 */
+				IPAERR("failed to force clear %d\n", result);
+				IPAERR("remove delay from SCND reg\n");
+				ep_ctrl_scnd.endp_delay = false;
+				ipahal_write_reg_n_fields(
+					IPA_ENDP_INIT_CTRL_SCND_n, clnt_hdl,
+					&ep_ctrl_scnd);
+			} else {
+				disable_force_clear = true;
+			}
+		}
+
 		IPADBG("Post suspend event first for IPA Producer\n");
 		IPADBG("Client: %d clnt_hdl: %d\n", ep->client, clnt_hdl);
 		result = ipa3_uc_send_cmd(suspend.raw32b,
@@ -1662,6 +1624,9 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 			goto uc_timeout;
 		}
 	}
+
+	if (disable_force_clear)
+		ipa3_disable_force_clear(clnt_hdl);
 
 	ipa3_ctx->tag_process_before_gating = true;
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
