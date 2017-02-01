@@ -1786,15 +1786,20 @@ static inline unsigned long cpu_util_cum(int cpu, int delta)
 	return (delta >= capacity) ? capacity : delta;
 }
 
+#ifdef CONFIG_SCHED_WALT
+u64 freq_policy_load(struct rq *rq, u64 load);
+#endif
+
 static inline unsigned long
 cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 {
-	u64 util = cpu_rq(cpu)->cfs.avg.util_avg;
+	struct rq *rq = cpu_rq(cpu);
+	u64 util = rq->cfs.avg.util_avg;
 	unsigned long capacity = capacity_orig_of(cpu);
 
 #ifdef CONFIG_SCHED_WALT
 	if (!walt_disabled && sysctl_sched_use_walt_cpu_util) {
-		util = cpu_rq(cpu)->prev_runnable_sum;
+		util = freq_policy_load(rq, rq->prev_runnable_sum);
 		util = div64_u64(util,
 				 sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 
