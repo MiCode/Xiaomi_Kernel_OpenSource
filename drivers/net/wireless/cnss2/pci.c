@@ -222,6 +222,7 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
 	int atomic_ctx = 1;
+	int s1_bypass = 1;
 
 	dev = &pci_priv->pci_dev->dev;
 
@@ -239,6 +240,15 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 				    &atomic_ctx);
 	if (ret) {
 		pr_err("Failed to set SMMU atomic_ctx attribute, err = %d\n",
+		       ret);
+		goto release_mapping;
+	}
+
+	ret = iommu_domain_set_attr(mapping->domain,
+				    DOMAIN_ATTR_S1_BYPASS,
+				    &s1_bypass);
+	if (ret) {
+		pr_err("Failed to set SMMU s1_bypass attribute, err = %d\n",
 		       ret);
 		goto release_mapping;
 	}
