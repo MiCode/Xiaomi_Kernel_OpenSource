@@ -1955,6 +1955,29 @@ int smblib_get_pe_start(struct smb_charger *chg,
 	return 0;
 }
 
+int smblib_get_prop_connector_therm_zone(struct smb_charger *chg,
+						union power_supply_propval *val)
+{
+	int rc, i;
+	u8 stat;
+
+	rc = smblib_read(chg, TEMP_RANGE_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read TEMP_RANGE_STATUS_REG rc=%d\n",
+									rc);
+		return rc;
+	}
+
+	i = fls((stat & TEMP_RANGE_MASK) >> TEMP_RANGE_SHIFT) - 1;
+	if (i < 0) {
+		smblib_err(chg, "TEMP_RANGE is invalid\n");
+		return -EINVAL;
+	}
+
+	val->intval = i;
+	return 0;
+}
+
 /*******************
  * USB PSY SETTERS *
  * *****************/
