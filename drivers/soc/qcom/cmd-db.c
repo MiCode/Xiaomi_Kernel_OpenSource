@@ -15,6 +15,7 @@
 #define MAX_SLV_ID		8
 #define SLAVE_ID_MASK		0x7
 #define SLAVE_ID_SHIFT		16
+#define CMD_DB_STANDALONE_MASK BIT(0)
 
 /**
  * struct entry_header: header for each entry in cmddb
@@ -271,6 +272,17 @@ enum cmd_db_hw_type cmd_db_read_slave_id(const char *id)
 }
 EXPORT_SYMBOL(cmd_db_read_slave_id);
 
+int cmd_db_is_standalone(void)
+{
+	int ret = cmd_db_ready();
+
+	if (!ret)
+		return !!(cmd_db_header->reserved & CMD_DB_STANDALONE_MASK);
+
+	return ret;
+}
+EXPORT_SYMBOL(cmd_db_is_standalone);
+
 static int cmd_db_dev_probe(struct platform_device *pdev)
 {
 	struct reserved_mem *rmem;
@@ -293,6 +305,9 @@ static int cmd_db_dev_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Invalid Command DB Magic\n");
 		return -EINVAL;
 	}
+
+	if (cmd_db_is_standalone() == 1)
+		pr_info("Command DB is initialized in standalone mode.\n");
 
 	return 0;
 }
