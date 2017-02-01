@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #define CMD_DB_MAGIC 0x0C0330DBUL
 #define SLAVE_ID_MASK 0x7
 #define SLAVE_ID_SHIFT 16
+#define CMD_DB_STANDALONE_MASK BIT(0)
 
 struct entry_header {
 	uint64_t res_id;
@@ -220,6 +221,14 @@ int cmd_db_ready(void)
 	return cmd_db_status;
 }
 
+int cmd_db_is_standalone(void)
+{
+	if (cmd_db_status < 0)
+		return cmd_db_status;
+
+	return !!(cmd_db_header->reserved & CMD_DB_STANDALONE_MASK);
+}
+
 int cmd_db_get_slave_id(const char *resource_id)
 {
 	int ret;
@@ -259,6 +268,10 @@ static int cmd_db_dev_probe(struct platform_device *pdev)
 	}
 	cmd_db_status = 0;
 	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+
+	if (cmd_db_is_standalone() == 1)
+		pr_info("Command DB is initialized in standalone mode.\n");
+
 failed:
 	return cmd_db_status;
 }
