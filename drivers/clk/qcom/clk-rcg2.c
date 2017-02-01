@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -410,6 +410,15 @@ static int clk_rcg2_enable(struct clk_hw *hw)
 	f = qcom_find_freq(rcg->freq_tbl, rate);
 	if (!f)
 		return -EINVAL;
+
+	/*
+	 * If CXO is not listed as a supported frequency in the frequency
+	 * table, the above API would return the lowest supported frequency
+	 * instead. This will lead to incorrect configuration of the RCG.
+	 * Check if the RCG rate is CXO and configure it accordingly.
+	 */
+	if (rate == cxo_f.freq)
+		f = &cxo_f;
 
 	clk_rcg2_set_force_enable(hw);
 	clk_rcg2_configure(rcg, f);
