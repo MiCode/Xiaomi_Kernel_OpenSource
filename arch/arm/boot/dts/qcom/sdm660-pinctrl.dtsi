@@ -692,7 +692,7 @@
 				config {
 					pins = "gpio24";
 					drive-strength = <2>;
-					bias-pull-down;
+					bias-bus-hold;
 				};
 			};
 
@@ -704,8 +704,8 @@
 
 				config {
 					pins = "gpio24";
-					drive-strength = <16>;
-					bias-disable;
+					drive-strength = <2>;
+					bias-bus-hold;
 				};
 			};
 		};
@@ -719,8 +719,8 @@
 
 				config {
 					pins = "gpio25";
-					drive-strength = <2>;
-					bias-pull-down;
+					drive-strength = <4>;
+					bias-bus-hold;
 				};
 			};
 
@@ -732,8 +732,8 @@
 
 				config {
 					pins = "gpio25";
-					drive-strength = <16>;
-					bias-disable;
+					drive-strength = <4>;
+					bias-bus-hold;
 				};
 			};
 		};
