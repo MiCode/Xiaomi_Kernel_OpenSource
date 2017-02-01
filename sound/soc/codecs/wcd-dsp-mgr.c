@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -362,7 +362,7 @@ static int wdsp_load_each_segment(struct wdsp_mgr_priv *wdsp,
 	ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_TRANSPORT,
 				 WDSP_EVENT_DLOAD_SECTION,
 				 &img_section);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		WDSP_ERR(wdsp,
 			 "Failed, err = %d for base_addr = 0x%x split_fname = %s, load_addr = 0x%x, size = 0x%zx",
 			 ret, wdsp->base_addr, seg->split_fname,
@@ -396,7 +396,7 @@ static int wdsp_download_segments(struct wdsp_mgr_priv *wdsp,
 
 	ret = wdsp_get_segment_list(ctl->cdev, wdsp->img_fname,
 				    type, wdsp->seg_list, &wdsp->base_addr);
-	if (IS_ERR_VALUE(ret) ||
+	if (ret < 0 ||
 	    list_empty(wdsp->seg_list)) {
 		WDSP_ERR(wdsp, "Error %d to get image segments for type %d",
 			 ret, type);
@@ -411,7 +411,7 @@ static int wdsp_download_segments(struct wdsp_mgr_priv *wdsp,
 	/* Go through the list of segments and download one by one */
 	list_for_each_entry(seg, wdsp->seg_list, list) {
 		ret = wdsp_load_each_segment(wdsp, seg);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			wdsp_broadcast_event_downseq(wdsp,
 						     WDSP_EVENT_DLOAD_FAILED,
 						     NULL);
@@ -440,7 +440,7 @@ static int wdsp_init_and_dload_code_sections(struct wdsp_mgr_priv *wdsp)
 	if (!is_initialized) {
 		/* Components are not initialized yet, initialize them */
 		ret = wdsp_init_components(wdsp);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			WDSP_ERR(wdsp, "INIT failed, err = %d", ret);
 			goto done;
 		}
@@ -449,7 +449,7 @@ static int wdsp_init_and_dload_code_sections(struct wdsp_mgr_priv *wdsp)
 
 	/* Download the read-execute sections of image */
 	ret = wdsp_download_segments(wdsp, WDSP_ELF_FLAG_RE);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		WDSP_ERR(wdsp, "Error %d to download code sections", ret);
 		goto done;
 	}
@@ -469,7 +469,7 @@ static void wdsp_load_fw_image(struct work_struct *work)
 	}
 
 	ret = wdsp_init_and_dload_code_sections(wdsp);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		WDSP_ERR(wdsp, "dload code sections failed, err = %d", ret);
 }
 
@@ -486,7 +486,7 @@ static int wdsp_enable_dsp(struct wdsp_mgr_priv *wdsp)
 
 	/* Download the read-write sections of image */
 	ret = wdsp_download_segments(wdsp, WDSP_ELF_FLAG_WRITE);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		WDSP_ERR(wdsp, "Data section download failed, err = %d", ret);
 		goto done;
 	}
@@ -495,7 +495,7 @@ static int wdsp_enable_dsp(struct wdsp_mgr_priv *wdsp)
 
 	ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_CONTROL,
 				 WDSP_EVENT_DO_BOOT, NULL);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		WDSP_ERR(wdsp, "Failed to boot dsp, err = %d", ret);
 		WDSP_CLEAR_STATUS(wdsp, WDSP_STATUS_DATA_DLOADED);
 		goto done;
@@ -536,7 +536,7 @@ static int wdsp_disable_dsp(struct wdsp_mgr_priv *wdsp)
 	wdsp_broadcast_event_downseq(wdsp, WDSP_EVENT_PRE_SHUTDOWN, NULL);
 	ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_CONTROL,
 				 WDSP_EVENT_DO_SHUTDOWN, NULL);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		WDSP_ERR(wdsp, "Failed to shutdown dsp, err = %d", ret);
 		goto done;
 	}
@@ -650,7 +650,7 @@ static void wdsp_collect_ramdumps(struct wdsp_mgr_priv *wdsp)
 	ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_TRANSPORT,
 				 WDSP_EVENT_READ_SECTION,
 				 &img_section);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		WDSP_ERR(wdsp, "Failed to read dumps, size 0x%zx at addr 0x%x",
 			 img_section.size, img_section.addr);
 		goto err_read_dumps;
@@ -661,7 +661,7 @@ static void wdsp_collect_ramdumps(struct wdsp_mgr_priv *wdsp)
 	rd_seg.v_address = wdsp->dump_data.rd_v_addr;
 
 	ret = do_ramdump(wdsp->dump_data.rd_dev, &rd_seg, 1);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		WDSP_ERR(wdsp, "do_ramdump failed with error %d", ret);
 
 err_read_dumps:
@@ -689,7 +689,7 @@ static void wdsp_ssr_work_fn(struct work_struct *work)
 		wdsp_collect_ramdumps(wdsp);
 		ret = wdsp_unicast_event(wdsp, WDSP_CMPNT_CONTROL,
 					 WDSP_EVENT_DO_SHUTDOWN, NULL);
-		if (IS_ERR_VALUE(ret))
+		if (ret < 0)
 			WDSP_ERR(wdsp, "Failed WDSP shutdown, err = %d", ret);
 
 		wdsp_broadcast_event_downseq(wdsp, WDSP_EVENT_POST_SHUTDOWN,
@@ -724,7 +724,7 @@ static void wdsp_ssr_work_fn(struct work_struct *work)
 	}
 
 	ret = wdsp_init_and_dload_code_sections(wdsp);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		WDSP_ERR(wdsp, "Failed to dload code sections err = %d",
 			 ret);
 		goto done;
@@ -834,7 +834,7 @@ static int wdsp_signal_handler(struct device *wdsp_dev,
 		break;
 	}
 
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		WDSP_ERR(wdsp, "handling signal %d failed with error %d",
 			 signal, ret);
 	WDSP_MGR_MUTEX_UNLOCK(wdsp, wdsp->api_mutex);
@@ -870,7 +870,7 @@ static int wdsp_vote_for_dsp(struct device *wdsp_dev,
 			ret = wdsp_disable_dsp(wdsp);
 	}
 
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		WDSP_DBG(wdsp, "wdsp %s failed, err = %d",
 			 vote ? "enable" : "disable", ret);
 
@@ -925,7 +925,7 @@ static int wdsp_mgr_bind(struct device *dev)
 		dev_info(dev, "%s: create_ramdump_device failed\n", __func__);
 
 	ret = component_bind_all(dev, wdsp->ops);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		WDSP_ERR(wdsp, "component_bind_all failed %d\n", ret);
 
 	/* Make sure all components registered ops */
@@ -1027,7 +1027,7 @@ static int wdsp_mgr_parse_dt_entries(struct wdsp_mgr_priv *wdsp)
 
 	ret = of_property_read_string(dev->of_node, "qcom,img-filename",
 				      &wdsp->img_fname);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		WDSP_ERR(wdsp, "Reading property %s failed, error = %d",
 			 "qcom,img-filename", ret);
 		return ret;
@@ -1100,7 +1100,7 @@ static int wdsp_mgr_probe(struct platform_device *pdev)
 
 	ret = component_master_add_with_match(mdev, &wdsp_master_ops,
 					      wdsp->match);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		WDSP_ERR(wdsp, "Failed to add master, err = %d", ret);
 		goto err_master_add;
 	}

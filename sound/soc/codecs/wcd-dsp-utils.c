@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,7 +76,7 @@ static int wdsp_add_segment_to_list(struct device *dev,
 	snprintf(seg->split_fname, sizeof(seg->split_fname),
 		 "%s.b%02d", img_fname, phdr_idx);
 	ret = request_firmware(&seg->split_fw, seg->split_fname, dev);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(dev, "%s: firmware %s not found\n",
 			__func__, seg->split_fname);
 		goto bad_seg;
@@ -162,7 +162,7 @@ int wdsp_get_segment_list(struct device *dev,
 
 	snprintf(mdt_name, sizeof(mdt_name), "%s.mdt", img_fname);
 	ret = request_firmware(&fw, mdt_name, dev);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(dev, "%s: firmware %s not found\n",
 			__func__, mdt_name);
 		goto done;
@@ -205,7 +205,7 @@ int wdsp_get_segment_list(struct device *dev,
 		if (segment_match) {
 			ret = wdsp_add_segment_to_list(dev, img_fname, phdr,
 						       phdr_idx, seg_list);
-			if (IS_ERR_VALUE(ret)) {
+			if (ret < 0) {
 				wdsp_flush_segment_list(seg_list);
 				goto bad_elf;
 			}

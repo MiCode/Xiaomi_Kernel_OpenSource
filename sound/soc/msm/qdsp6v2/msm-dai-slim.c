@@ -130,8 +130,7 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 					 SLIM_REQ_DEFAULT, dai_data->ch_cnt,
 					 &(dma_data->ph),
 					 sizeof(dma_data->ph));
-
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(&sdev->dev,
 				"%s:alloc mgrport failed rc %d\n",
 				__func__, rc);
@@ -141,7 +140,7 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 		rc = slim_config_mgrports(sdev, &(dma_data->ph),
 					  dai_data->ch_cnt,
 					  &(dai_data->port_cfg));
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(&sdev->dev,
 				"%s: config mgrport failed rc %d\n",
 				__func__, rc);
@@ -152,7 +151,7 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 			rc = slim_connect_sink(sdev,
 					       &dma_data->ph, 1,
 					       dai_data->chan_h[i]);
-			if (IS_ERR_VALUE(rc)) {
+			if (rc < 0) {
 				dev_err(&sdev->dev,
 					"%s: slim_connect_sink failed, ch = %d, err = %d\n",
 					__func__, i, rc);
@@ -163,7 +162,7 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 		rc = slim_control_ch(sdev,
 				     dai_data->grph,
 				     SLIM_CH_ACTIVATE, true);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(&sdev->dev,
 				"%s: slim activate ch failed, err = %d\n",
 				__func__, rc);
@@ -182,7 +181,7 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 		rc = slim_control_ch(sdev,
 				     dai_data->grph,
 				     SLIM_CH_REMOVE, true);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(&sdev->dev,
 				"%s: slim activate ch failed, err = %d\n",
 				__func__, rc);
@@ -191,7 +190,7 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 
 		rc = slim_dealloc_mgrports(sdev,
 					   &dma_data->ph, 1);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(&sdev->dev,
 				"%s: dealloc mgrport failed, err = %d\n",
 				__func__, rc);
@@ -206,7 +205,7 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 err_done:
 	rc1 = slim_dealloc_mgrports(sdev,
 				   &dma_data->ph, 1);
-	if (IS_ERR_VALUE(rc1))
+	if (rc1 < 0)
 		dev_err(&sdev->dev,
 			"%s: dealloc mgrport failed, err = %d\n",
 			__func__, rc1);
@@ -596,8 +595,7 @@ static int msm_dai_slim_dev_probe(struct slim_device *sdev)
 
 	rc = snd_soc_register_component(&sdev->dev, &msm_dai_slim_component,
 					msm_slim_dais, NUM_SLIM_DAIS);
-
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(dev, "%s: failed to register DAI, err = %d\n",
 			__func__, rc);
 		goto err_reg_comp;

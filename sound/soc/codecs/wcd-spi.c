@@ -314,7 +314,7 @@ static int wcd_spi_write_multi(struct spi_device *spi,
 	xfer->len = xfer_len;
 
 	ret = spi_sync(spi, &wcd_spi->msg1);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(&spi->dev,
 			"%s: Failed, addr = 0x%x, len = %zd\n",
 			__func__, remote_addr, len);
@@ -342,7 +342,7 @@ static int wcd_spi_transfer_split(struct spi_device *spi,
 		else
 			ret = wcd_spi_read_single(spi, addr,
 						  (u32 *)data);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(&spi->dev,
 				"%s: %s fail iter(%d) start-word addr (0x%x)\n",
 				__func__, wcd_spi_xfer_req_str(xfer_req),
@@ -365,7 +365,7 @@ static int wcd_spi_transfer_split(struct spi_device *spi,
 		else
 			ret = wcd_spi_read_multi(spi, addr, data,
 						 WCD_SPI_RW_MULTI_MAX_LEN);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(&spi->dev,
 				"%s: %s fail iter(%d) max-write addr (0x%x)\n",
 				__func__, wcd_spi_xfer_req_str(xfer_req),
@@ -390,7 +390,7 @@ static int wcd_spi_transfer_split(struct spi_device *spi,
 			ret = wcd_spi_write_multi(spi, addr, data, to_xfer);
 		else
 			ret = wcd_spi_read_multi(spi, addr, data, to_xfer);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(&spi->dev,
 				"%s: %s fail write addr (0x%x), size (0x%x)\n",
 				__func__, wcd_spi_xfer_req_str(xfer_req),
@@ -410,7 +410,7 @@ static int wcd_spi_transfer_split(struct spi_device *spi,
 			ret = wcd_spi_write_single(spi, addr, (*((u32 *)data)));
 		else
 			ret = wcd_spi_read_single(spi, addr,  (u32 *) data);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(&spi->dev,
 				"%s: %s fail iter(%d) end-write addr (0x%x)\n",
 				__func__, wcd_spi_xfer_req_str(xfer_req),
@@ -479,7 +479,7 @@ static int wcd_spi_cmd_rdsr(struct spi_device *spi,
 	rx_xfer->len = sizeof(status);
 
 	ret = spi_sync(spi, &wcd_spi->msg2);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(&spi->dev, "%s: RDSR failed, err = %d\n",
 			__func__, ret);
 		goto done;
@@ -500,21 +500,21 @@ static int wcd_spi_clk_enable(struct spi_device *spi)
 	u32 rd_status;
 
 	ret = wcd_spi_cmd_nop(spi);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(&spi->dev, "%s: NOP1 failed, err = %d\n",
 			__func__, ret);
 		goto done;
 	}
 
 	ret = wcd_spi_cmd_clkreq(spi);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(&spi->dev, "%s: CLK_REQ failed, err = %d\n",
 			__func__, ret);
 		goto done;
 	}
 
 	ret = wcd_spi_cmd_nop(spi);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(&spi->dev, "%s: NOP2 failed, err = %d\n",
 			__func__, ret);
 		goto done;
@@ -543,7 +543,7 @@ static int wcd_spi_clk_disable(struct spi_device *spi)
 	int ret;
 
 	ret = wcd_spi_write_single(spi, WCD_SPI_ADDR_IPC_CTL_HOST, 0x01);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(&spi->dev, "%s: Failed, err = %d\n",
 			__func__, ret);
 	else
@@ -612,7 +612,7 @@ static int wcd_spi_clk_ctrl(struct spi_device *spi,
 				msecs_to_jiffies(WCD_SPI_CLK_OFF_TIMER_MS));
 		} else {
 			ret = wcd_spi_clk_disable(spi);
-			if (IS_ERR_VALUE(ret))
+			if (ret < 0)
 				dev_err(&spi->dev,
 					"%s: Failed to disable clk err = %d\n",
 					__func__, ret);
@@ -635,11 +635,11 @@ static int wcd_spi_init(struct spi_device *spi)
 
 	ret = wcd_spi_clk_ctrl(spi, WCD_SPI_CLK_ENABLE,
 			       WCD_SPI_CLK_FLAG_IMMEDIATE);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		goto done;
 
 	ret = wcd_spi_cmd_wr_en(spi);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		goto err_wr_en;
 
 	/*
@@ -677,7 +677,7 @@ static void wcd_spi_clk_work(struct work_struct *work)
 
 	WCD_SPI_MUTEX_LOCK(spi, wcd_spi->clk_mutex);
 	ret = wcd_spi_clk_disable(spi);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(&spi->dev,
 			"%s: Failed to disable clk, err = %d\n",
 			__func__, ret);
@@ -735,7 +735,7 @@ static int wcd_spi_data_xfer(struct spi_device *spi,
 	/* Request for clock */
 	ret = wcd_spi_clk_ctrl(spi, WCD_SPI_CLK_ENABLE,
 			       WCD_SPI_CLK_FLAG_IMMEDIATE);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(&spi->dev, "%s: clk enable failed %d\n",
 			__func__, ret);
 		goto done;
@@ -743,7 +743,7 @@ static int wcd_spi_data_xfer(struct spi_device *spi,
 
 	/* Perform the transaction */
 	ret = __wcd_spi_data_xfer(spi, msg, req);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(&spi->dev,
 			"%s: Failed %s, addr = 0x%x, size = 0x%zx, err = %d\n",
 			__func__, wcd_spi_xfer_req_str(req),
@@ -752,7 +752,7 @@ static int wcd_spi_data_xfer(struct spi_device *spi,
 	/* Release the clock even if xfer failed */
 	ret1 = wcd_spi_clk_ctrl(spi, WCD_SPI_CLK_DISABLE,
 				WCD_SPI_CLK_FLAG_DELAYED);
-	if (IS_ERR_VALUE(ret1))
+	if (ret1 < 0)
 		dev_err(&spi->dev, "%s: clk disable failed %d\n",
 			__func__, ret1);
 done:
@@ -823,7 +823,7 @@ static int wdsp_spi_dload_section(struct spi_device *spi,
 	msg.len = sec->size;
 
 	ret = __wcd_spi_data_xfer(spi, &msg, WCD_SPI_XFER_WRITE);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(&spi->dev, "%s: fail addr (0x%x) size (0x%zx)\n",
 			__func__, msg.remote_addr, msg.len);
 	return ret;
@@ -844,7 +844,7 @@ static int wdsp_spi_read_section(struct spi_device *spi, void *data)
 		__func__, msg.remote_addr, msg.len);
 
 	ret = wcd_spi_data_xfer(spi, &msg, WCD_SPI_XFER_READ);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(&spi->dev, "%s: fail addr (0x%x) size (0x%zx)\n",
 			__func__, msg.remote_addr, msg.len);
 	return ret;
@@ -865,7 +865,7 @@ static int wdsp_spi_event_handler(struct device *dev, void *priv_data,
 	case WDSP_EVENT_PRE_DLOAD_DATA:
 		ret = wcd_spi_clk_ctrl(spi, WCD_SPI_CLK_ENABLE,
 				       WCD_SPI_CLK_FLAG_IMMEDIATE);
-		if (IS_ERR_VALUE(ret))
+		if (ret < 0)
 			dev_err(&spi->dev, "%s: clk_req failed %d\n",
 				__func__, ret);
 		break;
@@ -876,7 +876,7 @@ static int wdsp_spi_event_handler(struct device *dev, void *priv_data,
 
 		ret = wcd_spi_clk_ctrl(spi, WCD_SPI_CLK_DISABLE,
 				       WCD_SPI_CLK_FLAG_IMMEDIATE);
-		if (IS_ERR_VALUE(ret))
+		if (ret < 0)
 			dev_err(&spi->dev, "%s: clk unvote failed %d\n",
 				__func__, ret);
 		break;
@@ -1054,7 +1054,7 @@ static ssize_t wcd_spi_debugfs_mem_read(struct file *file, char __user *ubuf,
 	msg.flags = 0;
 
 	ret = wcd_spi_data_read(spi, &msg);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(&spi->dev,
 			"%s: Failed to read %zu bytes from addr 0x%x\n",
 			__func__, buf_size, msg.remote_addr);
@@ -1175,7 +1175,7 @@ static int wdsp_spi_init(struct device *dev, void *priv_data)
 	int ret;
 
 	ret = wcd_spi_init(spi);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(&spi->dev, "%s: Init failed, err = %d\n",
 			__func__, ret);
 	return ret;
@@ -1281,7 +1281,7 @@ static int wcd_spi_probe(struct spi_device *spi)
 	ret = of_property_read_u32(spi->dev.of_node,
 				   "qcom,mem-base-addr",
 				   &wcd_spi->mem_base_addr);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(&spi->dev, "%s: Missing %s DT entry",
 			__func__, "qcom,mem-base-addr");
 		goto err_ret;

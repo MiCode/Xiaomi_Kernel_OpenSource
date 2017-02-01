@@ -1067,7 +1067,7 @@ static int int_mi2s_set_sclk(struct snd_pcm_substream *substream, bool enable)
 	int index;
 
 	port_id = int_mi2s_get_port_id(rtd->dai_link->be_id);
-	if (IS_ERR_VALUE(port_id)) {
+	if (port_id < 0) {
 		dev_err(rtd->card->dev, "%s: Invalid port_id\n", __func__);
 		ret = port_id;
 		goto done;

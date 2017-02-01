@@ -1119,7 +1119,7 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		if (session->lab_enable) {
 			rc = msm_cpe_lab_buf_alloc(substream,
 						   session, dma_data);
-			if (IS_ERR_VALUE(rc)) {
+			if (rc < 0) {
 				dev_err(rtd->dev,
 					"%s: lab buffer alloc failed, err = %d\n",
 					__func__, rc);
@@ -1138,7 +1138,7 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 						   &substream->dma_buffer);
 			rc = lsm_ops->lsm_lab_control(cpe->core_handle,
 					session, true);
-			if (IS_ERR_VALUE(rc)) {
+			if (rc < 0) {
 				dev_err(rtd->dev,
 					"%s: Lab Enable Failed rc %d\n",
 					__func__, rc);
@@ -1152,7 +1152,7 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			 * the lab buffer.
 			 */
 			rc = msm_cpe_lsm_lab_stop(substream);
-			if (IS_ERR_VALUE(rc)) {
+			if (rc < 0) {
 				dev_err(rtd->dev,
 					"%s: LAB stop failed, error = %d\n",
 					__func__, rc);
@@ -1164,7 +1164,7 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			 */
 			rc = msm_cpe_lab_buf_dealloc(substream,
 						     session, dma_data);
-			if (IS_ERR_VALUE(rc)) {
+			if (rc < 0) {
 				dev_err(rtd->dev,
 					"%s: lab buffer free failed, err = %d\n",
 					__func__, rc);
@@ -1289,7 +1289,7 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			 */
 			rc = msm_cpe_lab_buf_dealloc(substream,
 						session, dma_data);
-			if (IS_ERR_VALUE(rc))
+			if (rc < 0)
 				dev_err(rtd->dev,
 					"%s: lab buffer free failed, err = %d\n",
 					__func__, rc);

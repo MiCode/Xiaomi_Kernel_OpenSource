@@ -4350,29 +4350,27 @@ static int wcd9xxx_init_and_calibrate(struct wcd9xxx_mbhc *mbhc)
 	snd_soc_update_bits(codec, WCD9XXX_A_MBHC_HPH, 0x01, 0x01);
 	INIT_WORK(&mbhc->correct_plug_swch, wcd9xxx_correct_swch_plug);
 
-	if (!IS_ERR_VALUE(ret)) {
-		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_OCP_CTL, 0x10,
-				    0x10);
-		wcd9xxx_enable_irq(mbhc->resmgr->core_res,
-				   mbhc->intr_ids->hph_left_ocp);
-		wcd9xxx_enable_irq(mbhc->resmgr->core_res,
-				   mbhc->intr_ids->hph_right_ocp);
+	snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_OCP_CTL, 0x10,
+			    0x10);
+	wcd9xxx_enable_irq(mbhc->resmgr->core_res,
+			   mbhc->intr_ids->hph_left_ocp);
+	wcd9xxx_enable_irq(mbhc->resmgr->core_res,
+			   mbhc->intr_ids->hph_right_ocp);
 
-		/* Initialize mechanical mbhc */
-		ret = wcd9xxx_setup_jack_detect_irq(mbhc);
+	/* Initialize mechanical mbhc */
+	ret = wcd9xxx_setup_jack_detect_irq(mbhc);
 
-		if (!ret && mbhc->mbhc_cfg->gpio) {
-			/* Requested with IRQF_DISABLED */
-			enable_irq(mbhc->mbhc_cfg->gpio_irq);
+	if (!ret && mbhc->mbhc_cfg->gpio) {
+		/* Requested with IRQF_DISABLED */
+		enable_irq(mbhc->mbhc_cfg->gpio_irq);
 
-			/* Bootup time detection */
-			wcd9xxx_swch_irq_handler(mbhc);
-		} else if (!ret && mbhc->mbhc_cfg->insert_detect) {
-			pr_debug("%s: Setting up codec own insert detection\n",
-				 __func__);
-			/* Setup for insertion detection */
-			wcd9xxx_insert_detect_setup(mbhc, true);
-		}
+		/* Bootup time detection */
+		wcd9xxx_swch_irq_handler(mbhc);
+	} else if (!ret && mbhc->mbhc_cfg->insert_detect) {
+		pr_debug("%s: Setting up codec own insert detection\n",
+			 __func__);
+		/* Setup for insertion detection */
+		wcd9xxx_insert_detect_setup(mbhc, true);
 	}
 
 	pr_debug("%s: leave\n", __func__);

@@ -56,8 +56,7 @@ static int msm_ext_disp_edid_ctl_info(struct snd_kcontrol *kcontrol,
 
 	rc = codec_data->ext_disp_ops.get_audio_edid_blk(
 				codec_data->ext_disp_core_pdev, &edid_blk);
-
-	if (!IS_ERR_VALUE(rc)) {
+	if (rc >= 0) {
 		uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
 		uinfo->count = edid_blk.audio_data_blk_size +
 			edid_blk.spk_alloc_data_blk_size;
@@ -84,7 +83,7 @@ static int msm_ext_disp_edid_get(struct snd_kcontrol *kcontrol,
 
 	rc = codec_data->ext_disp_ops.get_audio_edid_blk(
 			codec_data->ext_disp_core_pdev, &edid_blk);
-	if (!IS_ERR_VALUE(rc)) {
+	if (rc >= 0) {
 		memcpy(ucontrol->value.bytes.data,
 		       edid_blk.audio_data_blk,
 		       edid_blk.audio_data_blk_size);
@@ -121,7 +120,7 @@ static int msm_ext_disp_audio_type_get(struct snd_kcontrol *kcontrol,
 
 	cable_state = codec_data->ext_disp_ops.cable_status(
 				   codec_data->ext_disp_core_pdev, 1);
-	if (IS_ERR_VALUE(cable_state)) {
+	if (cable_state < 0) {
 		dev_err(codec->dev, "%s: Error retrieving cable state from ext_disp, err:%d\n",
 			__func__, cable_state);
 		rc = cable_state;
@@ -139,7 +138,7 @@ static int msm_ext_disp_audio_type_get(struct snd_kcontrol *kcontrol,
 
 	disp_type = codec_data->ext_disp_ops.get_intf_id(
 						codec_data->ext_disp_core_pdev);
-	if (!IS_ERR_VALUE(disp_type)) {
+	if (disp_type >= 0) {
 		switch (disp_type) {
 		case EXT_DISPLAY_TYPE_DP:
 			ucontrol->value.integer.value[0] = 2;
@@ -205,7 +204,7 @@ static int msm_ext_disp_audio_codec_rx_dai_startup(
 	codec_data->cable_status =
 		codec_data->ext_disp_ops.cable_status(
 		codec_data->ext_disp_core_pdev, 1);
-	if (IS_ERR_VALUE(codec_data->cable_status)) {
+	if (codec_data->cable_status < 0) {
 		dev_err(dai->dev,
 			"%s() ext disp core is not ready (ret val = %d)\n",
 			__func__, codec_data->cable_status);
@@ -241,7 +240,7 @@ static int msm_ext_disp_audio_codec_rx_dai_hw_params(
 		return -EINVAL;
 	}
 
-	if (IS_ERR_VALUE(codec_data->cable_status)) {
+	if (codec_data->cable_status < 0) {
 		dev_err_ratelimited(dai->dev,
 			"%s() ext disp core is not ready (ret val = %d)\n",
 			__func__, codec_data->cable_status);
@@ -300,7 +299,7 @@ static int msm_ext_disp_audio_codec_rx_dai_hw_params(
 
 	rc = codec_data->ext_disp_ops.audio_info_setup(
 			codec_data->ext_disp_core_pdev, &audio_setup_params);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err_ratelimited(dai->dev,
 			"%s() ext disp core is not ready, rc: %d\n",
 			__func__, rc);
@@ -327,7 +326,7 @@ static void msm_ext_disp_audio_codec_rx_dai_shutdown(
 
 	rc = codec_data->ext_disp_ops.cable_status(
 			codec_data->ext_disp_core_pdev, 0);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(dai->dev,
 			"%s: ext disp core had problems releasing audio flag\n",
 			__func__);

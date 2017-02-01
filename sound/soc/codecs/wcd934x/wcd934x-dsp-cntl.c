@@ -110,7 +110,7 @@ static ssize_t wdsp_boot_store(struct wcd_dsp_cntl *cntl,
 	else
 		ret = -EINVAL;
 
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(cntl->codec->dev,
 			"%s: failed to %s dsp\n", __func__,
 			vote ? "enable" : "disable");
@@ -356,7 +356,7 @@ static int wcd_cntl_cpe_fll_ctrl(struct wcd_dsp_cntl *cntl,
 
 	if (enable) {
 		ret = wcd_cntl_cpe_fll_calibrate(cntl);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(codec->dev,
 				"%s: cpe_fll_cal failed, err = %d\n",
 				__func__, ret);
@@ -395,7 +395,7 @@ static int wcd_cntl_clocks_enable(struct wcd_dsp_cntl *cntl)
 	else
 		ret = -EINVAL;
 
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(codec->dev,
 			"%s: Failed to enable cdc clk, err = %d\n",
 			__func__, ret);
@@ -404,7 +404,7 @@ static int wcd_cntl_clocks_enable(struct wcd_dsp_cntl *cntl)
 
 	/* Configure and Enable CPE FLL clock */
 	ret = wcd_cntl_cpe_fll_ctrl(cntl, true);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(codec->dev,
 			"%s: Failed to enable cpe clk, err = %d\n",
 			__func__, ret);
@@ -443,7 +443,7 @@ static int wcd_cntl_clocks_disable(struct wcd_dsp_cntl *cntl)
 
 	/* Disable CPE FLL clock */
 	ret = wcd_cntl_cpe_fll_ctrl(cntl, false);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(codec->dev,
 			"%s: Failed to disable cpe clk, err = %d\n",
 			__func__, ret);
@@ -705,7 +705,7 @@ static irqreturn_t wcd_cntl_ipc_irq(int irq, void *data)
 	else
 		ret = -EINVAL;
 
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(cntl->codec->dev,
 			"%s: Failed to handle irq %d\n", __func__, irq);
 
@@ -737,7 +737,7 @@ static irqreturn_t wcd_cntl_err_irq(int irq, void *data)
 		arg.dump_size = WCD_934X_RAMDUMP_SIZE;
 		ret = cntl->m_ops->signal_handler(cntl->m_dev, WDSP_ERR_INTR,
 						  &arg);
-		if (IS_ERR_VALUE(ret))
+		if (ret < 0)
 			dev_err(cntl->codec->dev,
 				"%s: Failed to handle fatal irq 0x%x\n",
 				__func__, status & cntl->irqs.fatal_irqs);
@@ -771,7 +771,7 @@ static int wcd_control_handler(struct device *dev, void *priv_data,
 		wcd_cntl_cpar_ctrl(cntl, false);
 		/* Disable all the clocks */
 		ret = wcd_cntl_clocks_disable(cntl);
-		if (IS_ERR_VALUE(ret))
+		if (ret < 0)
 			dev_err(codec->dev,
 				"%s: Failed to disable clocks, err = %d\n",
 				__func__, ret);
@@ -782,7 +782,7 @@ static int wcd_control_handler(struct device *dev, void *priv_data,
 
 		/* Enable all the clocks */
 		ret = wcd_cntl_clocks_enable(cntl);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(codec->dev,
 				"%s: Failed to enable clocks, err = %d\n",
 				__func__, ret);
@@ -801,7 +801,7 @@ static int wcd_control_handler(struct device *dev, void *priv_data,
 	case WDSP_EVENT_DO_BOOT:
 
 		ret = wcd_cntl_do_boot(cntl);
-		if (IS_ERR_VALUE(ret))
+		if (ret < 0)
 			dev_err(codec->dev,
 				"%s: WDSP boot failed, err = %d\n",
 				__func__, ret);
@@ -829,7 +829,7 @@ static int wcd_cntl_sysfs_init(char *dir, struct wcd_dsp_cntl *cntl)
 
 	ret = kobject_init_and_add(&cntl->wcd_kobj, &wcd_cntl_ktype,
 				   kernel_kobj, dir);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(codec->dev,
 			"%s: Failed to add kobject %s, err = %d\n",
 			__func__, dir, ret);
@@ -837,7 +837,7 @@ static int wcd_cntl_sysfs_init(char *dir, struct wcd_dsp_cntl *cntl)
 	}
 
 	ret = sysfs_create_file(&cntl->wcd_kobj, &cntl_attr_boot.attr);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(codec->dev,
 			"%s: Failed to add wdsp_boot sysfs entry to %s\n",
 			__func__, dir);
@@ -919,7 +919,7 @@ static ssize_t wcd_miscdev_write(struct file *filep, const char __user *ubuf,
 	}
 
 	ret = copy_from_user(val, ubuf, count);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(cntl->codec->dev,
 			"%s: copy_from_user failed, err = %d\n",
 			__func__, ret);
@@ -998,7 +998,7 @@ static int wcd_control_init(struct device *dev, void *priv_data)
 				  cntl->irqs.cpe_ipc1_irq,
 				  wcd_cntl_ipc_irq, "CPE IPC1",
 				  cntl);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(codec->dev,
 			"%s: Failed to request cpe ipc irq, err = %d\n",
 			__func__, ret);
@@ -1026,7 +1026,7 @@ static int wcd_control_init(struct device *dev, void *priv_data)
 
 	/* Enable all the clocks */
 	ret = wcd_cntl_clocks_enable(cntl);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(codec->dev, "%s: Failed to enable clocks, err = %d\n",
 			__func__, ret);
 		goto err_clk_enable;
@@ -1118,7 +1118,7 @@ static int wcd_ctrl_component_bind(struct device *dev,
 	}
 
 	ret = wcd_cntl_miscdev_create(cntl);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(dev, "%s: misc dev register failed, err = %d\n",
 			__func__, ret);
 		goto done;
@@ -1127,7 +1127,7 @@ static int wcd_ctrl_component_bind(struct device *dev,
 	snprintf(wcd_cntl_dir_name, WCD_CNTL_DIR_NAME_LEN_MAX,
 		 "%s%d", "wdsp", cntl->dsp_instance);
 	ret = wcd_cntl_sysfs_init(wcd_cntl_dir_name, cntl);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(dev, "%s: sysfs_init failed, err = %d\n",
 			__func__, ret);
 		goto err_sysfs_init;
@@ -1154,7 +1154,7 @@ static int wcd_ctrl_component_bind(struct device *dev,
 	entry->c.ops = &wdsp_ssr_entry_ops;
 	entry->private_data = cntl;
 	ret = snd_info_register(entry);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(dev, "%s: Failed to register entry %s, err = %d\n",
 			__func__, proc_name, ret);
 		snd_info_free_entry(entry);
@@ -1233,7 +1233,7 @@ int wcd_dsp_ssr_event(struct wcd_dsp_cntl *cntl, enum cdc_ssr_event event)
 		ret = cntl->m_ops->signal_handler(cntl->m_dev,
 						  WDSP_CDC_DOWN_SIGNAL,
 						  NULL);
-		if (IS_ERR_VALUE(ret))
+		if (ret < 0)
 			dev_err(cntl->codec->dev,
 				"%s: WDSP_CDC_DOWN_SIGNAL failed, err = %d\n",
 				__func__, ret);
@@ -1243,7 +1243,7 @@ int wcd_dsp_ssr_event(struct wcd_dsp_cntl *cntl, enum cdc_ssr_event event)
 		ret = cntl->m_ops->signal_handler(cntl->m_dev,
 						  WDSP_CDC_UP_SIGNAL,
 						  NULL);
-		if (IS_ERR_VALUE(ret))
+		if (ret < 0)
 			dev_err(cntl->codec->dev,
 				"%s: WDSP_CDC_UP_SIGNAL failed, err = %d\n",
 				__func__, ret);

@@ -112,7 +112,7 @@ int audio_pdr_service_deregister(void *service_handle,
 
 	ret = service_notif_unregister_notifier(
 		service_handle, nb);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		pr_err("%s: Failed to deregister service ret %d\n",
 			__func__, ret);
 done:
@@ -135,7 +135,7 @@ static int __init audio_pdr_late_init(void)
 		audio_pdr_services[AUDIO_PDR_DOMAIN_ADSP].client_name,
 		audio_pdr_services[AUDIO_PDR_DOMAIN_ADSP].service_name,
 		&audio_pdr_locator_nb);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		pr_err("%s get_service_location failed ret %d\n",
 			__func__, ret);
 		srcu_notifier_call_chain(&audio_pdr_cb_list,

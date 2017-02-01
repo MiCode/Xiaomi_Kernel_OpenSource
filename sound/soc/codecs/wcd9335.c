@@ -1768,7 +1768,7 @@ static int tasha_mbhc_micb_adjust_voltage(struct snd_soc_codec *codec,
 	cur_vout_ctl = micb_val & 0x3F;
 
 	req_vout_ctl = wcd9335_get_micb_vout_ctl_val(req_volt);
-	if (IS_ERR_VALUE(req_vout_ctl))
+	if (req_vout_ctl < 0)
 		return -EINVAL;
 	if (cur_vout_ctl == req_vout_ctl)
 		return 0;
@@ -12846,9 +12846,8 @@ static int tasha_handle_pdata(struct tasha_priv *tasha,
 	vout_ctl_2 = wcd9335_get_micb_vout_ctl_val(pdata->micbias.micb2_mv);
 	vout_ctl_3 = wcd9335_get_micb_vout_ctl_val(pdata->micbias.micb3_mv);
 	vout_ctl_4 = wcd9335_get_micb_vout_ctl_val(pdata->micbias.micb4_mv);
-
-	if (IS_ERR_VALUE(vout_ctl_1) || IS_ERR_VALUE(vout_ctl_2) ||
-	    IS_ERR_VALUE(vout_ctl_3) || IS_ERR_VALUE(vout_ctl_4)) {
+	if (vout_ctl_1 < 0 || vout_ctl_2 < 0 ||
+	    vout_ctl_3 < 0 || vout_ctl_4 < 0) {
 		rc = -EINVAL;
 		goto done;
 	}
@@ -13469,7 +13468,7 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = tasha_handle_pdata(tasha, pdata);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(codec->dev, "%s: invalid pdata\n", __func__);
 
 	/* MBHC Init */
@@ -13576,7 +13575,7 @@ static int tasha_codec_probe(struct snd_soc_component *component)
 
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = tasha_handle_pdata(tasha, pdata);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		pr_err("%s: bad pdata\n", __func__);
 		goto err;
 	}

@@ -2921,7 +2921,7 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	case MSM_BACKEND_DAI_HDMI_RX:
 	case MSM_BACKEND_DAI_DISPLAY_PORT_RX:
 		idx = msm_ext_disp_get_idx_from_beid(dai_link->id);
-		if (IS_ERR_VALUE(idx)) {
+		if (idx < 0) {
 			pr_err("%s: Incorrect ext disp idx %d\n",
 			       __func__, idx);
 			rc = idx;
@@ -3824,7 +3824,7 @@ static int msm_aux_pcm_snd_startup(struct snd_pcm_substream *substream)
 			ret = -EINVAL;
 		}
 	}
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		auxpcm_intf_conf[index].ref_cnt--;
 
 	mutex_unlock(&auxpcm_intf_conf[index].lock);
@@ -3952,7 +3952,7 @@ static int msm_mi2s_set_sclk(struct snd_pcm_substream *substream, bool enable)
 	int index = cpu_dai->id;
 
 	port_id = msm_get_port_id(rtd->dai_link->id);
-	if (IS_ERR_VALUE(port_id)) {
+	if (port_id < 0) {
 		dev_err(rtd->card->dev, "%s: Invalid port_id\n", __func__);
 		ret = port_id;
 		goto done;
@@ -4006,7 +4006,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	mutex_lock(&mi2s_intf_conf[index].lock);
 	if (++mi2s_intf_conf[index].ref_cnt == 1) {
 		ret = msm_mi2s_set_sclk(substream, true);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(rtd->card->dev,
 				"%s: afe lpass clock failed to enable MI2S clock, err:%d\n",
 				__func__, ret);
@@ -4028,17 +4028,17 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		if (!mi2s_intf_conf[index].msm_is_mi2s_master)
 			fmt = SND_SOC_DAIFMT_CBM_CFM;
 		ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			pr_err("%s: set fmt cpu dai failed for MI2S (%d), err:%d\n",
 				__func__, index, ret);
 			goto clk_off;
 		}
 	}
 clk_off:
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		msm_mi2s_set_sclk(substream, false);
 clean_up:
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		mi2s_intf_conf[index].ref_cnt--;
 	mutex_unlock(&mi2s_intf_conf[index].lock);
 done:
