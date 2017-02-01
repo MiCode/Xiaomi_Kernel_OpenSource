@@ -21,6 +21,9 @@
 
 #define BL_NODE_NAME_SIZE 32
 
+/* Autorefresh will occur after FRAME_CNT frames. Large values are unlikely */
+#define AUTOREFRESH_MAX_FRAME_CNT 6
+
 #define SDE_DEBUG_CONN(c, fmt, ...) SDE_DEBUG("conn%d " fmt,\
 		(c) ? (c)->base.base.id : -1, ##__VA_ARGS__)
 
@@ -989,6 +992,10 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 
 	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
 			0x0, 0, INR_OPEN_MAX, 0, CONNECTOR_PROP_RETIRE_FENCE);
+
+	msm_property_install_range(&c_conn->property_info, "autorefresh",
+			0x0, 0, AUTOREFRESH_MAX_FRAME_CNT, 0,
+			CONNECTOR_PROP_AUTOREFRESH);
 
 	/* enum/bitmask properties */
 	msm_property_install_enum(&c_conn->property_info, "topology_name",
