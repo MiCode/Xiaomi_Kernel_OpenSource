@@ -143,8 +143,8 @@ static int cnss_vreg_on(struct cnss_plat_data *plat_priv)
 		}
 
 		if (vreg_info->load_ua) {
-			ret = regulator_set_optimum_mode(vreg_info->reg,
-							 vreg_info->load_ua);
+			ret = regulator_set_load(vreg_info->reg,
+						 vreg_info->load_ua);
 
 			if (ret < 0) {
 				cnss_pr_err("Failed to set load for regulator %s, load: %u, err = %d\n",
@@ -174,7 +174,7 @@ static int cnss_vreg_on(struct cnss_plat_data *plat_priv)
 
 			regulator_disable(vreg_info->reg);
 			if (vreg_info->load_ua)
-				regulator_set_optimum_mode(vreg_info->reg, 0);
+				regulator_set_load(vreg_info->reg, 0);
 			if (vreg_info->min_uv != 0 && vreg_info->max_uv != 0)
 				regulator_set_voltage(vreg_info->reg, 0,
 						      vreg_info->max_uv);
@@ -212,7 +212,7 @@ static int cnss_vreg_off(struct cnss_plat_data *plat_priv)
 				    vreg_info->name, ret);
 
 		if (vreg_info->load_ua) {
-			ret = regulator_set_optimum_mode(vreg_info->reg, 0);
+			ret = regulator_set_load(vreg_info->reg, 0);
 			if (ret < 0)
 				cnss_pr_err("Failed to set load for regulator %s, err = %d\n",
 					    vreg_info->name, ret);

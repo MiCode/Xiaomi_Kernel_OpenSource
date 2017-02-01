@@ -221,7 +221,6 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 	int ret = 0;
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
-	int disable_htw = 1;
 	int atomic_ctx = 1;
 
 	dev = &pci_priv->pci_dev->dev;
@@ -233,15 +232,6 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 		ret = PTR_ERR(mapping);
 		cnss_pr_err("Failed to create SMMU mapping, err = %d\n", ret);
 		goto out;
-	}
-
-	ret = iommu_domain_set_attr(mapping->domain,
-				    DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				    &disable_htw);
-	if (ret) {
-		cnss_pr_err("Failed to set SMMU disable_htw attribute, err = %d\n",
-			    ret);
-		goto release_mapping;
 	}
 
 	ret = iommu_domain_set_attr(mapping->domain,
@@ -1529,8 +1519,8 @@ MODULE_DEVICE_TABLE(pci, cnss_pci_id_table);
 
 static const struct dev_pm_ops cnss_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(cnss_pci_suspend, cnss_pci_resume)
-	.suspend_noirq = cnss_pci_suspend_noirq,
-	.resume_noirq = cnss_pci_resume_noirq,
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(cnss_pci_suspend_noirq,
+				      cnss_pci_resume_noirq)
 	SET_RUNTIME_PM_OPS(cnss_pci_runtime_suspend, cnss_pci_runtime_resume,
 			   cnss_pci_runtime_idle)
 };
