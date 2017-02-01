@@ -2793,8 +2793,8 @@ static int __afe_port_start(u16 port_id, union afe_port_config *afe_config,
 
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
 		(port_id == RT_PROXY_DAI_002_TX)) {
-		pr_debug("%s: before incrementing pcm_afe_instance %d",
-			" port_id 0x%x\n", __func__,
+		pr_debug("%s: before incrementing pcm_afe_instance %d port_id 0x%x\n",
+			__func__,
 			pcm_afe_instance[port_id & 0x1], port_id);
 		port_id = VIRTUAL_ID_TO_PORTID(port_id);
 		pcm_afe_instance[port_id & 0x1]++;
@@ -2802,8 +2802,8 @@ static int __afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	}
 	if ((port_id == RT_PROXY_DAI_002_RX) ||
 			(port_id == RT_PROXY_DAI_001_TX)) {
-		pr_debug("%s: before incrementing proxy_afe_instance %d",
-			" port_id 0x%x\n", __func__,
+		pr_debug("%s: before incrementing proxy_afe_instance %d port_id 0x%x\n",
+			__func__,
 			proxy_afe_instance[port_id & 0x1], port_id);
 
 		if (!afe_close_done[port_id & 0x1]) {

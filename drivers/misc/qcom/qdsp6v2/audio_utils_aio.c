@@ -315,8 +315,8 @@ void audio_aio_async_out_flush(struct q6audio_aio *audio)
 	spin_lock_irqsave(&audio->dsp_lock, flags);
 
 	if (audio->eos_flag && (audio->eos_write_payload.aio_buf.buf_addr)) {
-		pr_debug("%s[%pK]: EOS followed by flush received,acknowledge",
-			"eos i/p buffer immediately\n", __func__, audio);
+		pr_debug("%s[%pK]: EOS followed by flush received,acknowledge eos i/p buffer immediately\n",
+			__func__, audio);
 		audio_aio_post_event(audio, AUDIO_EVENT_WRITE_DONE,
 				audio->eos_write_payload);
 		memset(&audio->eos_write_payload, 0,
@@ -780,8 +780,8 @@ static long audio_aio_process_event_req_common(struct q6audio_aio *audio,
 	 * Once EOS indicated
 	 */
 	if (audio->eos_rsp && !list_empty(&audio->in_queue)) {
-		pr_debug("%s[%pK]:Send flush command to release read buffers",
-			"held up in DSP\n", __func__, audio);
+		pr_debug("%s[%pK]:Send flush command to release read buffers held up in DSP\n",
+			__func__, audio);
 		mutex_lock(&audio->lock);
 		audio_aio_flush(audio);
 		mutex_unlock(&audio->lock);
