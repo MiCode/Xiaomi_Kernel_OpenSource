@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,6 +9,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include <dt-bindings/clock/qcom,gcc-sdm660.h>
+#include <dt-bindings/clock/qcom,gpu-sdm660.h>
+#include <dt-bindings/clock/qcom,rpmcc.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 &rpm_bus {
 	rpm-regulator-smpa4 {
@@ -488,10 +493,144 @@
 /* Stub regulators */
 / {
 	/* GFX Supply */
-	gfx_vreg_corner: regulator-gfx-corner {
+	gfx_stub_vreg: regulator-gfx-stub {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "gfx_corner";
+		regulator-name = "gfx_stub_corner";
+		regulator-min-microvolt = <400000>;
+		regulator-max-microvolt = <1070000>;
+	};
+};
+
+&soc {
+	/* MEM ACC regulators */
+	gfx_mem_acc_vreg: regulator@01fcf004 {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x01fcf004 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "gfx_mem_acc_corner";
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <7>;
+		regulator-max-microvolt = <2>;
+
+		qcom,corner-acc-map = <0x1 0x0>;
+		qcom,acc-sel-l1-bit-pos = <0>;
+		qcom,acc-sel-l1-bit-size = <1>;
+	};
+
+	gfx_ldo_vreg: ldo@0506e000 {
+		compatible = "qcom,sdm660-gfx-ldo";
+		reg = <0x0506e000 0x34>;
+		reg-names = "ldo_addr";
+		regulator-name = "msm_gfx_ldo";
+		regulator-min-microvolt = <400000>;
+		regulator-max-microvolt = <925000>;
+	};
+
+/* CPR controller regulators */
+	/* MMSS CPR Controller node */
+	gfx_cpr: cpr4-ctrl@05061000 {
+		compatible = "qcom,cpr4-sdm660-mmss-ldo-regulator";
+		reg = <0x05061000 0x4000>, <0x00784000 0x1000>;
+		reg-names = "cpr_ctrl", "fuse_base";
+		clocks = <&clock_gpu GPUCC_RBCPR_CLK>,
+			 <&clock_rpmcc RPM_CNOC_CLK>;
+		clock-names = "core_clk", "bus_clk";
+		interrupts = <GIC_SPI 285 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "cpr";
+		qcom,cpr-ctrl-name = "gfx";
+
+
+		qcom,cpr-sensor-time = <1000>;
+		qcom,cpr-loop-time = <5000000>;
+		qcom,cpr-idle-cycles = <15>;
+		qcom,cpr-step-quot-init-min = <12>;
+		qcom,cpr-step-quot-init-max = <14>;
+		qcom,cpr-count-mode = <0>;		/* All at once */
+		qcom,cpr-count-repeat = <14>;
+
+		vdd-supply = <&gfx_stub_vreg>;
+		mem-acc-supply = <&gfx_mem_acc_vreg>;
+		system-supply = <&pm660l_s3_level>; /* vdd_cx */
+		qcom,voltage-step = <5000>;
+		vdd-thread0-ldo-supply = <&gfx_ldo_vreg>;
+
+		thread@0 {
+			qcom,cpr-thread-id = <0>;
+			qcom,cpr-consecutive-up = <0>;
+			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-up-threshold = <2>;
+			qcom,cpr-down-threshold = <2>;
+
+			gfx_vreg_corner: regulator {
+				regulator-name = "gfx_corner";
+				regulator-min-microvolt = <1>;
+				regulator-max-microvolt = <7>;
+
+				qcom,cpr-fuse-corners = <6>;
+				qcom,cpr-fuse-combos = <8>;
+				qcom,cpr-corners = <7>;
+
+				qcom,cpr-corner-fmax-map = <1 2 3 4 5 6>;
+
+				qcom,cpr-voltage-ceiling =
+					<585000  645000  725000  790000
+					 870000  925000 1070000>;
+				qcom,cpr-voltage-floor =
+					<504000  504000  596000  652000
+					 712000  744000 1070000>;
+
+				qcom,mem-acc-voltage = <1 1 1 2 2 2 2>;
+				qcom,system-voltage =
+					<RPM_SMD_REGULATOR_LEVEL_LOW_SVS>,
+					<RPM_SMD_REGULATOR_LEVEL_LOW_SVS>,
+					<RPM_SMD_REGULATOR_LEVEL_SVS>,
+					<RPM_SMD_REGULATOR_LEVEL_SVS_PLUS>,
+					<RPM_SMD_REGULATOR_LEVEL_NOM>,
+					<RPM_SMD_REGULATOR_LEVEL_NOM_PLUS>,
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+
+				qcom,corner-frequencies =
+					<160000000 240000000 370000000
+					 465000000 588000000 647000000
+					 775000000>;
+
+				qcom,cpr-target-quotients =
+					<0    0    0    0     0    0  174  167
+					294  292  303  313    0    0    0    0>,
+					<0    0    0    0     0    0  263  247
+					413  397  415  412    0    0    0    0>,
+					<0    0    0    0     0    0  375  354
+					554  519  573  554    0    0    0    0>,
+					<0    0    0    0     0    0  412  380
+					597  562  612  591    0    0    0    0>,
+					<0    0    0    0     0    0  513  476
+					722  680  738  718    0    0    0    0>,
+					<0    0    0    0     0    0  595  553
+					811  768  837  811    0    0    0    0>,
+					<0    0    0    0     0    0    0    0
+					 0    0    0    0     0    0    0    0>;
+
+				qcom,cpr-ro-scaling-factor =
+					<  0    0    0    0   0    0 1790 1760
+					1990 1900 2140 2020   0    0    0    0>,
+					<  0    0    0    0   0    0 1790 1760
+					1990 1900 2140 2020   0    0    0    0>,
+					<  0    0    0    0   0    0 1790 1760
+					1990 1900 2140 2020   0    0    0    0>,
+					<  0    0    0    0   0    0 1790 1760
+					1990 1900 2140 2020   0    0    0    0>,
+					<  0    0    0    0   0    0 1790 1760
+					1990 1900 2140 2020   0    0    0    0>,
+					<  0    0    0    0   0    0 1790 1760
+					1990 1900 2140 2020   0    0    0    0>,
+					<  0    0    0    0   0    0 1790 1760
+					1990 1900 2140 2020   0    0    0    0>;
+
+				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+				qcom,cpr-corner-allow-ldo-mode =
+					<0 0 0 0 0 0 0>;
+				qcom,cpr-corner-allow-closed-loop =
+					<0 0 0 0 0 0 0>;
+			};
+		};
 	};
 };
