@@ -200,12 +200,6 @@
 #define GPLL1							182
 #define GPLL1_OUT_MAIN						183
 
-/* RPMh controlled clocks */
-#define RPMH_CXO_CLK						0
-#define RPMH_CXO_A_CLK						1
-#define RPMH_QDSS_CLK						2
-#define RPMH_QDSS_A_CLK						3
-
 /* GCC reset clocks */
 #define GCC_GPU_BCR						0
 #define GCC_MMSS_BCR						1
