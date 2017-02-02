@@ -1074,7 +1074,7 @@ static int wsa881x_probe(struct snd_soc_component *component)
 	return 0;
 }
 
-static int wsa881x_remove(struct snd_soc_component *component)
+static void wsa881x_remove(struct snd_soc_component *component)
 {
 	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct wsa881x_pdata *wsa881x = snd_soc_codec_get_drvdata(codec);
@@ -1084,7 +1084,6 @@ static int wsa881x_remove(struct snd_soc_component *component)
 
 	mutex_destroy(&wsa881x->bg_lock);
 	mutex_destroy(&wsa881x->res_lock);
-	return 0;
 }
 
 static struct snd_soc_codec_driver soc_codec_dev_wsa881x = {
