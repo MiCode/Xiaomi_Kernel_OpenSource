@@ -1233,9 +1233,6 @@ out:
 #define MEM_INTF_IMA_EXP_STS		0x55
 #define MEM_INTF_IMA_HW_STS		0x56
 #define MEM_INTF_IMA_BYTE_EN		0x60
-#define IMA_ADDR_STBL_ERR		BIT(7)
-#define IMA_WR_ACS_ERR			BIT(6)
-#define IMA_RD_ACS_ERR			BIT(5)
 #define IMA_IACS_CLR			BIT(2)
 #define IMA_IACS_RDY			BIT(1)
 static int fg_run_iacs_clear_sequence(struct fg_chip *chip)
@@ -1286,10 +1283,18 @@ static int fg_run_iacs_clear_sequence(struct fg_chip *chip)
 	return rc;
 }
 
-static int fg_check_ima_exception(struct fg_chip *chip)
+#define IACS_ERR_BIT		BIT(0)
+#define XCT_ERR_BIT		BIT(1)
+#define DATA_RD_ERR_BIT		BIT(3)
+#define DATA_WR_ERR_BIT		BIT(4)
+#define ADDR_BURST_WRAP_BIT	BIT(5)
+#define ADDR_RNG_ERR_BIT	BIT(6)
+#define ADDR_SRC_ERR_BIT	BIT(7)
+static int fg_check_ima_exception(struct fg_chip *chip, bool check_hw_sts)
 {
 	int rc = 0, ret = 0;
 	u8 err_sts = 0, exp_sts = 0, hw_sts = 0;
+	bool run_err_clr_seq = false;
 
 	rc = fg_read(chip, &err_sts,
 			chip->mem_base + MEM_INTF_IMA_ERR_STS, 1);
@@ -1298,25 +1303,49 @@ static int fg_check_ima_exception(struct fg_chip *chip)
 		return rc;
 	}
 
-	if (err_sts & (IMA_ADDR_STBL_ERR | IMA_WR_ACS_ERR | IMA_RD_ACS_ERR)) {
-		rc = fg_read(chip, &exp_sts,
-				chip->mem_base + MEM_INTF_IMA_EXP_STS, 1);
-		if (rc) {
-			pr_err("Error in reading IMA_EXP_STS, rc=%d\n", rc);
-			return rc;
+	rc = fg_read(chip, &exp_sts,
+			chip->mem_base + MEM_INTF_IMA_EXP_STS, 1);
+	if (rc) {
+		pr_err("Error in reading IMA_EXP_STS, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_read(chip, &hw_sts,
+			chip->mem_base + MEM_INTF_IMA_HW_STS, 1);
+	if (rc) {
+		pr_err("Error in reading IMA_HW_STS, rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_info_once("Initial ima_err_sts=%x ima_exp_sts=%x ima_hw_sts=%x\n",
+		err_sts, exp_sts, hw_sts);
+
+	if (fg_debug_mask & (FG_MEM_DEBUG_READS | FG_MEM_DEBUG_WRITES))
+		pr_info("ima_err_sts=%x ima_exp_sts=%x ima_hw_sts=%x\n",
+			err_sts, exp_sts, hw_sts);
+
+	if (check_hw_sts) {
+		/*
+		 * Lower nibble should be equal to upper nibble before SRAM
+		 * transactions begins from SW side. If they are unequal, then
+		 * the error clear sequence should be run irrespective of IMA
+		 * exception errors.
+		 */
+		if ((hw_sts & 0x0F) != hw_sts >> 4) {
+			pr_err("IMA HW not in correct state, hw_sts=%x\n",
+				hw_sts);
+			run_err_clr_seq = true;
 		}
+	}
 
-		rc = fg_read(chip, &hw_sts,
-				chip->mem_base + MEM_INTF_IMA_HW_STS, 1);
-		if (rc) {
-			pr_err("Error in reading IMA_HW_STS, rc=%d\n", rc);
-			return rc;
-		}
+	if (exp_sts & (IACS_ERR_BIT | XCT_ERR_BIT | DATA_RD_ERR_BIT |
+		DATA_WR_ERR_BIT | ADDR_BURST_WRAP_BIT | ADDR_RNG_ERR_BIT |
+		ADDR_SRC_ERR_BIT)) {
+		pr_err("IMA exception bit set, exp_sts=%x\n", exp_sts);
+		run_err_clr_seq = true;
+	}
 
-		pr_err("IMA access failed ima_err_sts=%x ima_exp_sts=%x ima_hw_sts=%x\n",
-				err_sts, exp_sts, hw_sts);
-		rc = err_sts;
-
+	if (run_err_clr_seq) {
 		ret = fg_run_iacs_clear_sequence(chip);
 		if (!ret)
 			return -EAGAIN;
@@ -1486,7 +1515,7 @@ static int fg_check_iacs_ready(struct fg_chip *chip)
 			pr_err("Couldn't check FG ALG status, rc=%d\n",
 				rc);
 		/* perform IACS_CLR sequence */
-		fg_check_ima_exception(chip);
+		fg_check_ima_exception(chip, false);
 		return -EBUSY;
 	}
 
@@ -1545,12 +1574,13 @@ static int __fg_interleaved_mem_write(struct fg_chip *chip, u8 *val,
 
 		rc = fg_check_iacs_ready(chip);
 		if (rc) {
-			pr_debug("IACS_RDY failed rc=%d\n", rc);
+			pr_err("IACS_RDY failed post write to address %x offset %d rc=%d\n",
+				address, offset, rc);
 			return rc;
 		}
 
 		/* check for error condition */
-		rc = fg_check_ima_exception(chip);
+		rc = fg_check_ima_exception(chip, false);
 		if (rc) {
 			pr_err("IMA transaction failed rc=%d", rc);
 			return rc;
@@ -1591,12 +1621,13 @@ static int __fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 
 		rc = fg_check_iacs_ready(chip);
 		if (rc) {
-			pr_debug("IACS_RDY failed rc=%d\n", rc);
+			pr_err("IACS_RDY failed post read for address %x offset %d rc=%d\n",
+				address, offset, rc);
 			return rc;
 		}
 
 		/* check for error condition */
-		rc = fg_check_ima_exception(chip);
+		rc = fg_check_ima_exception(chip, false);
 		if (rc) {
 			pr_err("IMA transaction failed rc=%d", rc);
 			return rc;
@@ -1674,7 +1705,8 @@ static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 
 	rc = fg_check_iacs_ready(chip);
 	if (rc) {
-		pr_debug("IACS_RDY failed rc=%d\n", rc);
+		pr_err("IACS_RDY failed before setting address: %x offset: %d rc=%d\n",
+			address, offset, rc);
 		return rc;
 	}
 
@@ -1687,7 +1719,8 @@ static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 
 	rc = fg_check_iacs_ready(chip);
 	if (rc)
-		pr_debug("IACS_RDY failed rc=%d\n", rc);
+		pr_err("IACS_RDY failed after setting address: %x offset: %d rc=%d\n",
+			address, offset, rc);
 
 	return rc;
 }
@@ -1698,7 +1731,7 @@ static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 static int fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 						int len, int offset)
 {
-	int rc = 0, orig_address = address;
+	int rc = 0, ret, orig_address = address;
 	u8 start_beat_count, end_beat_count, count = 0;
 	bool retry = false;
 
@@ -1779,9 +1812,14 @@ retry:
 	}
 out:
 	/* Release IMA access */
-	rc = fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_REQ_ACCESS, 0, 1);
-	if (rc)
-		pr_err("failed to reset IMA access bit rc = %d\n", rc);
+	ret = fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_REQ_ACCESS, 0, 1);
+	if (ret)
+		pr_err("failed to reset IMA access bit ret = %d\n", ret);
+
+	if (rc) {
+		mutex_unlock(&chip->rw_lock);
+		goto exit;
+	}
 
 	if (retry) {
 		retry = false;
@@ -1797,7 +1835,7 @@ exit:
 static int fg_interleaved_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 							int len, int offset)
 {
-	int rc = 0, orig_address = address;
+	int rc = 0, ret, orig_address = address;
 	u8 count = 0;
 
 	if (chip->fg_shutdown)
@@ -1842,9 +1880,9 @@ retry:
 
 out:
 	/* Release IMA access */
-	rc = fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_REQ_ACCESS, 0, 1);
-	if (rc)
-		pr_err("failed to reset IMA access bit rc = %d\n", rc);
+	ret = fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_REQ_ACCESS, 0, 1);
+	if (ret)
+		pr_err("failed to reset IMA access bit ret = %d\n", ret);
 
 	mutex_unlock(&chip->rw_lock);
 	fg_relax(&chip->memif_wakeup_source);
@@ -8465,7 +8503,7 @@ out:
 #define ANA_MINOR		0x2
 #define ANA_MAJOR		0x3
 #define IACS_INTR_SRC_SLCT	BIT(3)
-static int fg_setup_memif_offset(struct fg_chip *chip)
+static int fg_memif_init(struct fg_chip *chip)
 {
 	int rc;
 	u8 dig_major;
@@ -8501,6 +8539,13 @@ static int fg_setup_memif_offset(struct fg_chip *chip)
 			IACS_INTR_SRC_SLCT, 1);
 		if (rc) {
 			pr_err("failed to configure interrupt source %d\n", rc);
+			return rc;
+		}
+
+		/* check for error condition */
+		rc = fg_check_ima_exception(chip, true);
+		if (rc) {
+			pr_err("Error in clearing IMA exception rc=%d", rc);
 			return rc;
 		}
 	}
@@ -8772,7 +8817,7 @@ static int fg_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
-	rc = fg_setup_memif_offset(chip);
+	rc = fg_memif_init(chip);
 	if (rc) {
 		pr_err("Unable to setup mem_if offsets rc=%d\n", rc);
 		goto of_init_fail;
