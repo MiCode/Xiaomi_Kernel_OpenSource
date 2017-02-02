@@ -296,16 +296,17 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.link.link_info.transport = "smem",
 	},
 	{
-		.name = "sdsprpc-smd",
-		.subsys = "slpi",
-		.link.link_info.edge = "dsps",
-		.link.link_info.transport = "smem",
-	},
-	{
 		.name = "mdsprpc-smd",
 		.subsys = "modem",
 		.link.link_info.edge = "mpss",
 		.link.link_info.transport = "smem",
+	},
+	{
+		.name = "sdsprpc-smd",
+		.subsys = "slpi",
+		.link.link_info.edge = "dsps",
+		.link.link_info.transport = "smem",
+		.vmid = VMID_SSC_Q6,
 	},
 	{
 		.name = "cdsprpc-smd",
@@ -1425,6 +1426,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	return err;
 }
 
+static int fastrpc_channel_open(struct fastrpc_file *fl);
 static int fastrpc_init_process(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init_attrs *uproc)
 {
@@ -1434,6 +1436,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	struct smq_phy_page pages[1];
 	struct fastrpc_mmap *file = 0, *mem = 0;
 
+	VERIFY(err, !fastrpc_channel_open(fl));
+	if (err)
+		goto bail;
 	if (init->flags == FASTRPC_INIT_ATTACH) {
 		remote_arg_t ra[1];
 		int tgid = current->tgid;
@@ -1536,6 +1541,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	remote_arg_t ra[1];
 	int tgid = 0;
 
+	VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
 	VERIFY(err, fl->apps->channel[fl->cid].chan != 0);
 	if (err)
 		goto bail;
@@ -2075,42 +2083,20 @@ static const struct file_operations debugfs_fops = {
 	.open = fastrpc_debugfs_open,
 	.read = fastrpc_debugfs_read,
 };
-
-static int fastrpc_device_open(struct inode *inode, struct file *filp)
+static int fastrpc_channel_open(struct fastrpc_file *fl)
 {
-	int cid = MINOR(inode->i_rdev);
-	struct dentry *debugfs_file;
-	int err = 0;
 	struct fastrpc_apps *me = &gfa;
-	struct fastrpc_file *fl = 0;
-
-	VERIFY(err, fl = kzalloc(sizeof(*fl), GFP_KERNEL));
-	if (err)
-		return err;
-
-	filp->private_data = fl;
+	int cid, err = 0;
 
 	mutex_lock(&me->smd_mutex);
 
-	debugfs_file = debugfs_create_file(current->comm, 0644, debugfs_root,
-						fl, &debugfs_fops);
-	context_list_ctor(&fl->clst);
-	spin_lock_init(&fl->hlock);
-	INIT_HLIST_HEAD(&fl->maps);
-	INIT_HLIST_HEAD(&fl->bufs);
-	INIT_HLIST_NODE(&fl->hn);
-	fl->tgid = current->tgid;
-	fl->apps = me;
-	fl->cid = cid;
-	if (debugfs_file != NULL)
-		fl->debugfs_file = debugfs_file;
-	memset(&fl->perf, 0, sizeof(fl->perf));
-
-	VERIFY(err, !fastrpc_session_alloc_locked(&me->channel[cid], 0,
-							&fl->sctx));
+	VERIFY(err, fl && fl->sctx);
 	if (err)
 		goto bail;
-	fl->cid = cid;
+	cid = fl->cid;
+	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
 	fl->ssrcount = me->channel[cid].ssrcount;
 	if ((kref_get_unless_zero(&me->channel[cid].kref) == 0) ||
 	    (me->channel[cid].chan == 0)) {
@@ -2134,25 +2120,58 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 						me->channel[cid].ssrcount;
 		}
 	}
-	spin_lock(&me->hlock);
-	hlist_add_head(&fl->hn, &me->drivers);
-	spin_unlock(&me->hlock);
 
 bail:
 	mutex_unlock(&me->smd_mutex);
-
-	if (err)
-		fastrpc_device_release(inode, filp);
 	return err;
+}
+
+static int fastrpc_device_open(struct inode *inode, struct file *filp)
+{
+	int err = 0;
+	struct fastrpc_file *fl = 0;
+	struct fastrpc_apps *me = &gfa;
+
+	VERIFY(err, fl = kzalloc(sizeof(*fl), GFP_KERNEL));
+	if (err)
+		return err;
+
+	context_list_ctor(&fl->clst);
+	spin_lock_init(&fl->hlock);
+	INIT_HLIST_HEAD(&fl->maps);
+	INIT_HLIST_HEAD(&fl->bufs);
+	INIT_HLIST_NODE(&fl->hn);
+	fl->tgid = current->tgid;
+	fl->apps = me;
+	fl->mode = FASTRPC_MODE_SERIAL;
+	fl->cid = -1;
+	filp->private_data = fl;
+	spin_lock(&me->hlock);
+	hlist_add_head(&fl->hn, &me->drivers);
+	spin_unlock(&me->hlock);
+	return 0;
 }
 
 static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 {
 	int err = 0;
+	uint32_t cid;
 
-	VERIFY(err, fl && fl->sctx);
+	VERIFY(err, fl != 0);
 	if (err)
 		goto bail;
+	if (fl->cid == -1) {
+		cid = *info;
+		VERIFY(err, cid < NUM_CHANNELS);
+		if (err)
+			goto bail;
+		fl->cid = cid;
+		fl->ssrcount = fl->apps->channel[cid].ssrcount;
+		VERIFY(err, !fastrpc_session_alloc_locked(
+				&fl->apps->channel[cid], 0, &fl->sctx));
+		if (err)
+			goto bail;
+	}
 	*info = (fl->sctx->smmu.enabled ? 1 : 0);
 bail:
 	return err;
@@ -2253,6 +2272,9 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			goto bail;
 		break;
 	case FASTRPC_IOCTL_GETINFO:
+	    VERIFY(err, 0 == copy_from_user(&info, param, sizeof(info)));
+		if (err)
+			goto bail;
 		VERIFY(err, 0 == (err = fastrpc_get_info(fl, &info)));
 		if (err)
 			goto bail;
@@ -2492,6 +2514,7 @@ static struct platform_driver fastrpc_driver = {
 static int __init fastrpc_device_init(void)
 {
 	struct fastrpc_apps *me = &gfa;
+	struct device *dev = 0;
 	int err = 0, i;
 
 	memset(me, 0, sizeof(*me));
@@ -2508,7 +2531,7 @@ static int __init fastrpc_device_init(void)
 	cdev_init(&me->cdev, &fops);
 	me->cdev.owner = THIS_MODULE;
 	VERIFY(err, 0 == cdev_add(&me->cdev, MKDEV(MAJOR(me->dev_no), 0),
-				NUM_CHANNELS));
+				1));
 	if (err)
 		goto cdev_init_bail;
 	me->class = class_create(THIS_MODULE, "fastrpc");
@@ -2516,15 +2539,14 @@ static int __init fastrpc_device_init(void)
 	if (err)
 		goto class_create_bail;
 	me->compat = (fops.compat_ioctl == NULL) ? 0 : 1;
+	dev = device_create(me->class, NULL,
+				MKDEV(MAJOR(me->dev_no), 0),
+				NULL, gcinfo[0].name);
+	VERIFY(err, !IS_ERR_OR_NULL(dev));
+	if (err)
+		goto device_create_bail;
 	for (i = 0; i < NUM_CHANNELS; i++) {
-		if (!gcinfo[i].name)
-			continue;
-		me->channel[i].dev = device_create(me->class, NULL,
-					MKDEV(MAJOR(me->dev_no), i),
-					NULL, gcinfo[i].name);
-		VERIFY(err, !IS_ERR(me->channel[i].dev));
-		if (err)
-			goto device_create_bail;
+		me->channel[i].dev = dev;
 		me->channel[i].ssrcount = 0;
 		me->channel[i].prevssrcount = 0;
 		me->channel[i].nb.notifier_call = fastrpc_restart_notifier_cb;
@@ -2541,12 +2563,12 @@ static int __init fastrpc_device_init(void)
 	return 0;
 device_create_bail:
 	for (i = 0; i < NUM_CHANNELS; i++) {
-		if (IS_ERR_OR_NULL(me->channel[i].dev))
-			continue;
-		device_destroy(me->class, MKDEV(MAJOR(me->dev_no), i));
-		subsys_notif_unregister_notifier(me->channel[i].handle,
-						&me->channel[i].nb);
+		if (me->channel[i].handle)
+			subsys_notif_unregister_notifier(me->channel[i].handle,
+							&me->channel[i].nb);
 	}
+	if (!IS_ERR_OR_NULL(dev))
+		device_destroy(me->class, MKDEV(MAJOR(me->dev_no), 0));
 	class_destroy(me->class);
 class_create_bail:
 	cdev_del(&me->cdev);
