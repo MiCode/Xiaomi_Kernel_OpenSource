@@ -8021,9 +8021,8 @@ int tavil_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 
 	tavil = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
-	tavil->entry = snd_register_module_info(codec_root->module,
-						"tavil",
-						codec_root);
+	tavil->entry = snd_info_create_subdir(codec_root->module,
+					      "tavil", codec_root);
 	if (!tavil->entry) {
 		dev_dbg(codec->dev, "%s: failed to create wcd934x entry\n",
 			__func__);

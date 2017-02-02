@@ -253,9 +253,9 @@ int wsa881x_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 	snprintf(name, sizeof(name), "%s.%x", "wsa881x",
 		 (u32)wsa881x->swr_slave->addr);
 
-	wsa881x->entry = snd_register_module_info(codec_root->module,
-						  (const char *)name,
-						  codec_root);
+	wsa881x->entry = snd_info_create_subdir(codec_root->module,
+						(const char *)name,
+						codec_root);
 	if (!wsa881x->entry) {
 		dev_dbg(codec->dev, "%s: failed to create wsa881x entry\n",
 			__func__);
