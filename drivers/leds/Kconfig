@@ -591,11 +591,10 @@ config LEDS_QPNP
 	tristate "Support for QPNP LEDs"
 	depends on LEDS_CLASS && SPMI
 	help
-	  This driver supports the leds functionality of Qualcomm PNP PMIC.  It
-	  includes RGB Leds, WLED and Flash Led.
-
-	  To compile this driver as a module, choose M here: the module will
-	  be called leds-qpnp.
+	  This driver supports the LED functionality of Qualcomm Technologies,
+	  Inc. QPNP PMICs.  It primarily supports controlling tri-color RGB
+	  LEDs in both PWM and light pattern generator (LPG) modes.  For older
+	  PMICs, it also supports WLEDs and flash LEDs.
 
 config LEDS_QPNP_FLASH
 	tristate "Support for QPNP Flash LEDs"
