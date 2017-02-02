@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -773,7 +773,7 @@ static const struct dev_pm_ops qpnp_tm_pm_ops = {
 #define QPNP_TM_PM_OPS	NULL
 #endif
 
-static struct of_device_id qpnp_tm_match_table[] = {
+static const struct of_device_id qpnp_tm_match_table[] = {
 	{ .compatible = QPNP_TM_DRIVER_NAME, },
 	{}
 };

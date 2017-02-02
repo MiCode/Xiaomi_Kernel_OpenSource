@@ -1,8 +1,9 @@
-Qualcomm QPNP Temperature Alarm
+Qualcomm Technologies, Inc. QPNP Temperature Alarm
 
-QPNP temperature alarm peripherals are found inside of Qualcomm PMIC chips that
-utilize the MSM SPMI implementation.  These peripherals provide an interrupt
-signal and status register to identify high PMIC die temperature.
+QPNP temperature alarm peripherals are found inside of Qualcomm Technologies,
+Inc. PMIC chips that utilize the MSM SPMI implementation.  These peripherals
+provide an interrupt signal and status register to identify high PMIC die
+temperature.
 
 Required properties:
 - compatible:      Must be "qcom,qpnp-temp-alarm".
