@@ -146,7 +146,8 @@ enum icnss_debug_quirks {
 	FW_REJUVENATE_ENABLE,
 };
 
-#define ICNSS_QUIRKS_DEFAULT		BIT(VBATT_DISABLE)
+#define ICNSS_QUIRKS_DEFAULT		(BIT(VBATT_DISABLE) | \
+					 BIT(FW_REJUVENATE_ENABLE))
 
 unsigned long quirks = ICNSS_QUIRKS_DEFAULT;
 module_param(quirks, ulong, 0600);
@@ -1469,7 +1470,7 @@ static int wlfw_dynamic_feature_mask_send_sync_msg(struct icnss_priv *priv,
 
 	if (!test_bit(FW_REJUVENATE_ENABLE, &quirks)) {
 		icnss_pr_dbg("FW rejuvenate is disabled from quirks\n");
-		dynamic_feature_mask &= ~QMI_WLFW_FW_REJUVENATE_V01;
+		return 0;
 	}
 
 	icnss_pr_dbg("Sending dynamic feature mask request, val 0x%llx, state: 0x%lx\n",
