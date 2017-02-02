@@ -167,11 +167,11 @@ static struct fg_sram_param pmi8998_v1_sram_params[] = {
 		fg_decode_default),
 	PARAM(FULL_SOC, FULL_SOC_WORD, FULL_SOC_OFFSET, 2, 1, 1, 0, NULL,
 		fg_decode_default),
-	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_WORD, VOLTAGE_PRED_OFFSET, 2, 244141,
-		1000, 0, NULL, fg_decode_voltage_15b),
-	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 244141, 1000, 0, NULL,
+	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_WORD, VOLTAGE_PRED_OFFSET, 2, 1000,
+		244141, 0, NULL, fg_decode_voltage_15b),
+	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 1000, 244141, 0, NULL,
 		fg_decode_voltage_15b),
-	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 244141, 1000, 0, NULL,
+	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 1000, 244141, 0, NULL,
 		fg_decode_value_16b),
 	PARAM(ALG_FLAGS, ALG_FLAGS_WORD, ALG_FLAGS_OFFSET, 1, 1, 1, 0, NULL,
 		fg_decode_default),
@@ -188,8 +188,8 @@ static struct fg_sram_param pmi8998_v1_sram_params[] = {
 		-2500, fg_encode_voltage, NULL),
 	PARAM(VBATT_LOW, VBATT_LOW_WORD, VBATT_LOW_OFFSET, 1, 100000, 390625,
 		-2500, fg_encode_voltage, NULL),
-	PARAM(VBATT_FULL, VBATT_FULL_WORD, VBATT_FULL_OFFSET, 2, 1000000,
-		244141, 0, fg_encode_voltage, NULL),
+	PARAM(VBATT_FULL, VBATT_FULL_WORD, VBATT_FULL_OFFSET, 2, 1000,
+		244141, 0, fg_encode_voltage, fg_decode_voltage_15b),
 	PARAM(SYS_TERM_CURR, SYS_TERM_CURR_WORD, SYS_TERM_CURR_OFFSET, 3,
 		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(CHG_TERM_CURR, CHG_TERM_CURR_WORD, CHG_TERM_CURR_OFFSET, 1,
@@ -227,11 +227,11 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		fg_decode_default),
 	PARAM(FULL_SOC, FULL_SOC_WORD, FULL_SOC_OFFSET, 2, 1, 1, 0, NULL,
 		fg_decode_default),
-	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_WORD, VOLTAGE_PRED_OFFSET, 2, 244141,
-		1000, 0, NULL, fg_decode_voltage_15b),
-	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 244141, 1000, 0, NULL,
+	PARAM(VOLTAGE_PRED, VOLTAGE_PRED_WORD, VOLTAGE_PRED_OFFSET, 2, 1000,
+		244141, 0, NULL, fg_decode_voltage_15b),
+	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 1000, 244141, 0, NULL,
 		fg_decode_voltage_15b),
-	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 244141, 1000, 0, NULL,
+	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 1000, 244141, 0, NULL,
 		fg_decode_value_16b),
 	PARAM(ALG_FLAGS, ALG_FLAGS_WORD, ALG_FLAGS_OFFSET, 1, 1, 1, 0, NULL,
 		fg_decode_default),
@@ -250,8 +250,8 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		15625, -2000, fg_encode_voltage, NULL),
 	PARAM(FLOAT_VOLT, FLOAT_VOLT_v2_WORD, FLOAT_VOLT_v2_OFFSET, 1, 1000,
 		15625, -2000, fg_encode_voltage, NULL),
-	PARAM(VBATT_FULL, VBATT_FULL_WORD, VBATT_FULL_OFFSET, 2, 1000000,
-		244141, 0, fg_encode_voltage, NULL),
+	PARAM(VBATT_FULL, VBATT_FULL_WORD, VBATT_FULL_OFFSET, 2, 1000,
+		244141, 0, fg_encode_voltage, fg_decode_voltage_15b),
 	PARAM(SYS_TERM_CURR, SYS_TERM_CURR_WORD, SYS_TERM_CURR_OFFSET, 3,
 		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(CHG_TERM_CURR, CHG_TERM_CURR_v2_WORD, CHG_TERM_CURR_v2_OFFSET, 1,
@@ -374,7 +374,7 @@ static int fg_decode_voltage_15b(struct fg_sram_param *sp,
 				enum fg_sram_param_id id, int value)
 {
 	value &= VOLTAGE_15BIT_MASK;
-	sp[id].value = div_u64((u64)value * sp[id].numrtr, sp[id].denmtr);
+	sp[id].value = div_u64((u64)value * sp[id].denmtr, sp[id].numrtr);
 	pr_debug("id: %d raw value: %x decoded value: %x\n", id, value,
 		sp[id].value);
 	return sp[id].value;
@@ -383,7 +383,7 @@ static int fg_decode_voltage_15b(struct fg_sram_param *sp,
 static int fg_decode_cc_soc(struct fg_sram_param *sp,
 				enum fg_sram_param_id id, int value)
 {
-	sp[id].value = div_s64((s64)value * sp[id].numrtr, sp[id].denmtr);
+	sp[id].value = div_s64((s64)value * sp[id].denmtr, sp[id].numrtr);
 	sp[id].value = sign_extend32(sp[id].value, 31);
 	pr_debug("id: %d raw value: %x decoded value: %x\n", id, value,
 		sp[id].value);
@@ -393,7 +393,7 @@ static int fg_decode_cc_soc(struct fg_sram_param *sp,
 static int fg_decode_value_16b(struct fg_sram_param *sp,
 				enum fg_sram_param_id id, int value)
 {
-	sp[id].value = div_u64((u64)(u16)value * sp[id].numrtr, sp[id].denmtr);
+	sp[id].value = div_u64((u64)(u16)value * sp[id].denmtr, sp[id].numrtr);
 	pr_debug("id: %d raw value: %x decoded value: %x\n", id, value,
 		sp[id].value);
 	return sp[id].value;
@@ -1680,6 +1680,29 @@ static int fg_rconn_config(struct fg_chip *chip)
 	return 0;
 }
 
+static int fg_set_constant_chg_voltage(struct fg_chip *chip, int volt_uv)
+{
+	u8 buf[2];
+	int rc;
+
+	if (volt_uv <= 0 || volt_uv > 15590000) {
+		pr_err("Invalid voltage %d\n", volt_uv);
+		return -EINVAL;
+	}
+
+	fg_encode(chip->sp, FG_SRAM_VBATT_FULL, volt_uv, buf);
+
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_VBATT_FULL].addr_word,
+		chip->sp[FG_SRAM_VBATT_FULL].addr_byte, buf,
+		chip->sp[FG_SRAM_VBATT_FULL].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing vbatt_full, rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int fg_set_recharge_soc(struct fg_chip *chip, int recharge_soc)
 {
 	u8 buf;
@@ -2733,6 +2756,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_DEBUG_BATTERY:
 		pval->intval = is_debug_batt_id(chip);
 		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
+		rc = fg_get_sram_prop(chip, FG_SRAM_VBATT_FULL, &pval->intval);
+		break;
 	default:
 		pr_err("unsupported property %d\n", psp);
 		rc = -EINVAL;
@@ -2750,6 +2776,7 @@ static int fg_psy_set_property(struct power_supply *psy,
 				  const union power_supply_propval *pval)
 {
 	struct fg_chip *chip = power_supply_get_drvdata(psy);
+	int rc = 0;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
@@ -2760,12 +2787,14 @@ static int fg_psy_set_property(struct power_supply *psy,
 				pval->intval);
 			return -EINVAL;
 		}
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
+		rc = fg_set_constant_chg_voltage(chip, pval->intval);
 		break;
 	default:
 		break;
 	}
 
-	return 0;
+	return rc;
 }
 
 static int fg_property_is_writeable(struct power_supply *psy,
@@ -2773,6 +2802,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
 		return 1;
 	default:
 		break;
@@ -2832,6 +2862,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
 	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 };
 
 static const struct power_supply_desc fg_psy_desc = {
@@ -2885,15 +2916,10 @@ static int fg_hw_init(struct fg_chip *chip)
 	}
 
 	if (chip->bp.vbatt_full_mv > 0) {
-		fg_encode(chip->sp, FG_SRAM_VBATT_FULL, chip->bp.vbatt_full_mv,
-			buf);
-		rc = fg_sram_write(chip, chip->sp[FG_SRAM_VBATT_FULL].addr_word,
-			chip->sp[FG_SRAM_VBATT_FULL].addr_byte, buf,
-			chip->sp[FG_SRAM_VBATT_FULL].len, FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing vbatt_full, rc=%d\n", rc);
+		rc = fg_set_constant_chg_voltage(chip,
+				chip->bp.vbatt_full_mv * 1000);
+		if (rc < 0)
 			return rc;
-		}
 	}
 
 	fg_encode(chip->sp, FG_SRAM_CHG_TERM_CURR, chip->dt.chg_term_curr_ma,
