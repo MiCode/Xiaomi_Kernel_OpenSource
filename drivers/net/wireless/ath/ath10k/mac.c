@@ -2798,11 +2798,13 @@ static void ath10k_bss_disassoc(struct ieee80211_hw *hw,
 
 	arvif->def_wep_key_idx = -1;
 
-	ret = ath10k_mac_vif_recalc_txbf(ar, vif, vht_cap);
-	if (ret) {
-		ath10k_warn(ar, "failed to recalc txbf for vdev %i: %d\n",
-			    arvif->vdev_id, ret);
-		return;
+	if (!QCA_REV_WCN3990(ar)) {
+		ret = ath10k_mac_vif_recalc_txbf(ar, vif, vht_cap);
+		if (ret) {
+			ath10k_warn(ar, "failed to recalc txbf for vdev %i: %d\n",
+				    arvif->vdev_id, ret);
+			return;
+		}
 	}
 
 	arvif->is_up = false;
@@ -7987,8 +7989,10 @@ int ath10k_mac_register(struct ath10k *ar)
 		goto err_free;
 	}
 
-	if (!test_bit(ATH10K_FLAG_RAW_MODE, &ar->dev_flags))
-		ar->hw->netdev_features = NETIF_F_HW_CSUM;
+	if (!QCA_REV_WCN3990(ar)) {
+		if (!test_bit(ATH10K_FLAG_RAW_MODE, &ar->dev_flags))
+			ar->hw->netdev_features = NETIF_F_HW_CSUM;
+	}
 
 	if (IS_ENABLED(CONFIG_ATH10K_DFS_CERTIFIED)) {
 		/* Init ath dfs pattern detector */
