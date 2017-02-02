@@ -123,7 +123,6 @@
 		qcom,pm-qos-wakeup-latency = <349>;
 
 		/* Quirks */
-		qcom,gpu-quirk-two-pass-use-wfi;
 		qcom,gpu-quirk-dp2clockgating-disable;
 		qcom,gpu-quirk-lmloadkill-disable;
 
