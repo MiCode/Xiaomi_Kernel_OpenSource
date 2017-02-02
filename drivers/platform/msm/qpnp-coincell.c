@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -244,7 +244,7 @@ static int qpnp_coincell_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id qpnp_coincell_match_table[] = {
+static const struct of_device_id qpnp_coincell_match_table[] = {
 	{ .compatible = QPNP_COINCELL_DRIVER_NAME, },
 	{}
 };

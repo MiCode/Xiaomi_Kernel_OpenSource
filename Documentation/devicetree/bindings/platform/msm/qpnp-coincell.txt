@@ -1,4 +1,4 @@
-Qualcomm QPNP Coincell - coincell battery charger devices
+Qualcomm Technologies, Inc. QPNP Coincell - coincell battery charger devices
 
 Required properties:
 - compatible:      Must be "qcom,qpnp-coincell".
