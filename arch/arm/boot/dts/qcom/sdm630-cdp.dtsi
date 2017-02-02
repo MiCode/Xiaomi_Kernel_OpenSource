@@ -21,6 +21,10 @@
 	pinctrl-0 = <&uart_console_active>;
 };
 
+&pm660l_wled {
+	qcom,led-strings-list = [01 02];
+};
+
 &soc {
 };
 
