@@ -1679,7 +1679,7 @@ static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 		 * clear, then return an error instead of waiting for it again.
 		 */
 		if  (time_count > 4) {
-			pr_err("Waited for 1.5 seconds polling RIF_MEM_ACCESS_REQ\n");
+			pr_err("Waited for ~16ms polling RIF_MEM_ACCESS_REQ\n");
 			return -ETIMEDOUT;
 		}
 
@@ -1765,9 +1765,17 @@ static int fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 			len, address, offset);
 
 retry:
+	if (count >= RETRY_COUNT) {
+		pr_err("Retried reading 3 times\n");
+		retry = false;
+		goto out;
+	}
+
 	rc = fg_interleaved_mem_config(chip, val, address, offset, len, 0);
 	if (rc) {
 		pr_err("failed to configure SRAM for IMA rc = %d\n", rc);
+		retry = true;
+		count++;
 		goto out;
 	}
 
@@ -1776,18 +1784,21 @@ retry:
 			chip->mem_base + MEM_INTF_FG_BEAT_COUNT, 1);
 	if (rc) {
 		pr_err("failed to read beat count rc=%d\n", rc);
+		retry = true;
+		count++;
 		goto out;
 	}
 
 	/* read data */
 	rc = __fg_interleaved_mem_read(chip, val, address, offset, len);
 	if (rc) {
+		count++;
 		if ((rc == -EAGAIN) && (count < RETRY_COUNT)) {
-			count++;
 			pr_err("IMA access failed retry_count = %d\n", count);
 			goto retry;
 		} else {
 			pr_err("failed to read SRAM address rc = %d\n", rc);
+			retry = true;
 			goto out;
 		}
 	}
@@ -1797,6 +1808,8 @@ retry:
 			chip->mem_base + MEM_INTF_FG_BEAT_COUNT, 1);
 	if (rc) {
 		pr_err("failed to read beat count rc=%d\n", rc);
+		retry = true;
+		count++;
 		goto out;
 	}
 
@@ -1809,6 +1822,7 @@ retry:
 		if (fg_debug_mask & FG_MEM_DEBUG_READS)
 			pr_info("Beat count do not match - retry transaction\n");
 		retry = true;
+		count++;
 	}
 out:
 	/* Release IMA access */
@@ -1816,17 +1830,12 @@ out:
 	if (ret)
 		pr_err("failed to reset IMA access bit ret = %d\n", ret);
 
-	if (rc) {
-		mutex_unlock(&chip->rw_lock);
-		goto exit;
-	}
-
 	if (retry) {
 		retry = false;
 		goto retry;
 	}
-	mutex_unlock(&chip->rw_lock);
 
+	mutex_unlock(&chip->rw_lock);
 exit:
 	fg_relax(&chip->memif_wakeup_source);
 	return rc;
@@ -1837,6 +1846,7 @@ static int fg_interleaved_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 {
 	int rc = 0, ret, orig_address = address;
 	u8 count = 0;
+	bool retry = false;
 
 	if (chip->fg_shutdown)
 		return -EINVAL;
@@ -1859,21 +1869,30 @@ static int fg_interleaved_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 			len, address, offset);
 
 retry:
+	if (count >= RETRY_COUNT) {
+		pr_err("Retried writing 3 times\n");
+		retry = false;
+		goto out;
+	}
+
 	rc = fg_interleaved_mem_config(chip, val, address, offset, len, 1);
 	if (rc) {
-		pr_err("failed to xonfigure SRAM for IMA rc = %d\n", rc);
+		pr_err("failed to configure SRAM for IMA rc = %d\n", rc);
+		retry = true;
+		count++;
 		goto out;
 	}
 
 	/* write data */
 	rc = __fg_interleaved_mem_write(chip, val, address, offset, len);
 	if (rc) {
+		count++;
 		if ((rc == -EAGAIN) && (count < RETRY_COUNT)) {
-			count++;
 			pr_err("IMA access failed retry_count = %d\n", count);
 			goto retry;
 		} else {
 			pr_err("failed to write SRAM address rc = %d\n", rc);
+			retry = true;
 			goto out;
 		}
 	}
@@ -1883,6 +1902,11 @@ out:
 	ret = fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_REQ_ACCESS, 0, 1);
 	if (ret)
 		pr_err("failed to reset IMA access bit ret = %d\n", ret);
+
+	if (retry) {
+		retry = false;
+		goto retry;
+	}
 
 	mutex_unlock(&chip->rw_lock);
 	fg_relax(&chip->memif_wakeup_source);
