@@ -13767,12 +13767,12 @@ static struct regmap *tasha_get_regmap(struct device *dev)
 }
 
 static struct snd_soc_codec_driver soc_codec_dev_tasha = {
-	.controls = tasha_snd_controls,
-	.num_controls = ARRAY_SIZE(tasha_snd_controls),
 	.get_regmap = tasha_get_regmap,
 	.component_driver = {
 		.probe = tasha_codec_probe,
 		.remove = tasha_codec_remove,
+		.controls = tasha_snd_controls,
+		.num_controls = ARRAY_SIZE(tasha_snd_controls),
 		.dapm_widgets = tasha_dapm_widgets,
 		.num_dapm_widgets = ARRAY_SIZE(tasha_dapm_widgets),
 		.dapm_routes = audio_map,

@@ -432,8 +432,10 @@ static struct snd_soc_dai_driver msm_ext_disp_audio_codec_rx_dais[] = {
 static struct snd_soc_codec_driver msm_ext_disp_audio_codec_rx_soc_driver = {
 	.probe = msm_ext_disp_audio_codec_rx_probe,
 	.remove =  msm_ext_disp_audio_codec_rx_remove,
-	.controls = msm_ext_disp_codec_rx_controls,
-	.num_controls = ARRAY_SIZE(msm_ext_disp_codec_rx_controls),
+	.component_driver = {
+		.controls = msm_ext_disp_codec_rx_controls,
+		.num_controls = ARRAY_SIZE(msm_ext_disp_codec_rx_controls),
+	},
 };
 
 static int msm_ext_disp_audio_codec_rx_plat_probe(

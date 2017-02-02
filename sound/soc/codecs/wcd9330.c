@@ -9011,12 +9011,12 @@ static struct regmap *tomtom_get_regmap(struct device *dev)
 }
 
 static struct snd_soc_codec_driver soc_codec_dev_tomtom = {
-	.controls = tomtom_snd_controls,
-	.num_controls = ARRAY_SIZE(tomtom_snd_controls),
 	.get_regmap = tomtom_get_regmap,
 	.component_driver = {
 		.probe = tomtom_codec_probe,
 		.remove = tomtom_codec_remove,
+		.controls = tomtom_snd_controls,
+		.num_controls = ARRAY_SIZE(tomtom_snd_controls),
 		.dapm_widgets = tomtom_dapm_widgets,
 		.num_dapm_widgets = ARRAY_SIZE(tomtom_dapm_widgets),
 		.dapm_routes = audio_map,
