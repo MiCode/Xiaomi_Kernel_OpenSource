@@ -217,6 +217,7 @@
 		reg = <0x152c1000 0x0>;
 		interrupts = <0 161 0>;
 		interrupt-names = "swr_master_irq";
+		qcom,cdc-sdw-gpios = <&cdc_sdw_gpios>;
 
 		swr_master {
 			compatible = "qcom,swr-wcd";
