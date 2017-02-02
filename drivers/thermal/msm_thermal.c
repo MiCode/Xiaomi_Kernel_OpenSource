@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3554,6 +3554,12 @@ static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
 
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_UP_PREPARE:
+		/*
+		 * Apply LMH freq cap vote, which was requested when the
+		 * core was offline.
+		 */
+		if (lmh_dcvs_available)
+			msm_lmh_dcvs_update(cpu);
 		if (!cpumask_test_and_set_cpu(cpu, cpus_previously_online))
 			pr_debug("Total prev cores online tracked %u\n",
 				cpumask_weight(cpus_previously_online));
