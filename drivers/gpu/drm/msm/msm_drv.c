@@ -535,6 +535,15 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	priv->kms = kms;
 	pm_runtime_enable(dev);
 
+	if (kms) {
+		ret = kms->funcs->hw_init(kms);
+		if (ret) {
+			dev_err(dev, "kms hw init failed: %d\n", ret);
+			goto fail;
+		}
+	}
+	ddev->mode_config.funcs = &mode_config_funcs;
+
 	for (i = 0; i < priv->num_crtcs; i++) {
 		priv->disp_thread[i].crtc_id = priv->crtcs[i]->base.id;
 		kthread_init_worker(&priv->disp_thread[i].worker);
@@ -556,15 +565,6 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 			goto fail;
 		}
 	}
-
-	if (kms) {
-		ret = kms->funcs->hw_init(kms);
-		if (ret) {
-			dev_err(dev, "kms hw init failed: %d\n", ret);
-			goto fail;
-		}
-	}
-	ddev->mode_config.funcs = &mode_config_funcs;
 
 	ret = drm_vblank_init(ddev, priv->num_crtcs);
 	if (ret < 0) {
