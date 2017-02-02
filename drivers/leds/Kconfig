@@ -619,11 +619,10 @@ config LEDS_QPNP_WLED
 	tristate "Support for QPNP WLED"
 	depends on LEDS_CLASS && SPMI
 	help
-	  This driver supports the WLED (White LED) functionality of
-	  Qualcomm Technologies PNP PMIC. WLED is used for display backlight.
-
-	  To compile this driver as a module, choose M here: the module will
-	  be called leds-qpnp-wled.
+	  This driver supports the WLED (White LED) functionality of Qualcomm
+	  Technologies, Inc. QPNP PMICs.  WLED is used for LCD backlight with
+	  variable brightness.  It also supports outputting the Avdd supply for
+	  AMOLED displays.
 
 config LEDS_SYSCON
 	bool "LED support for LEDs on system controllers"
