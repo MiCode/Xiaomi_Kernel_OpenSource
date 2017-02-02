@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,7 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
-#include <dt-bindings/clock/audio-ext-clk.h>
+#include <dt-bindings/clock/qcom,audio-ext-clk.h>
 #include <sound/q6afe-v2.h>
 
 enum audio_clk_mux {
