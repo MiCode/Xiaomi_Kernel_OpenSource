@@ -163,7 +163,7 @@ snd-soc-wcd9330-objs := wcd9330.o wcd9330-tables.o
 snd-soc-wcd9335-objs := wcd9335.o
 snd-soc-wcd934x-objs := wcd934x.o
 snd-soc-wcd9xxx-objs := wcd9xxx-resmgr.o wcd9xxx-mbhc.o wcd9xxx-common.o wcdcal-hwdep.o
-snd-soc-wcd9xxx-v2-objs := wcd9xxx-common-v2.o wcd9xxx-resmgr-v2.o
+snd-soc-wcd9xxx-v2-objs := wcd9xxx-common-v2.o wcd9xxx-resmgr-v2.o wcdcal-hwdep.o
 ifeq ($(CONFIG_COMMON_CLK_MSM), y)
 	audio-ext-clock-objs := audio-ext-clk.o
 endif
