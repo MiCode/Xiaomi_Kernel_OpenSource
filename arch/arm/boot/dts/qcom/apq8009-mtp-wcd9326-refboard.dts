@@ -93,3 +93,9 @@
 	qcom,hsusb-otg-mode = <3>;
 	vbus_otg-supply = <&smb1360_otg_supply>;
 };
+
+&mdss_fb0 {
+	/delete-node/ qcom,cont-splash-memory;
+};
+
+/delete-node/ &cont_splash_mem;
