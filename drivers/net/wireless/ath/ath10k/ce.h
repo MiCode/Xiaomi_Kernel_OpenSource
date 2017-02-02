@@ -239,6 +239,8 @@ void ath10k_ce_per_engine_service_any(struct ath10k *ar);
 void ath10k_ce_per_engine_service(struct ath10k *ar, unsigned int ce_id);
 int ath10k_ce_disable_interrupts(struct ath10k *ar);
 void ath10k_ce_enable_interrupts(struct ath10k *ar);
+void ath10k_ce_disable_per_ce_interrupts(struct ath10k *ar, unsigned int ce_id);
+void ath10k_ce_enable_per_ce_interrupts(struct ath10k *ar, unsigned int ce_id);
 
 /* ce_attr.flags values */
 /* Use NonSnooping PCIe accesses? */
