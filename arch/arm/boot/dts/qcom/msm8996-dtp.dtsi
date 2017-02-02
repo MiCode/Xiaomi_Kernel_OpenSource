@@ -11,7 +11,7 @@
  */
 
 #include "msm8996-pinctrl.dtsi"
-#include "msm8996-mdss-panels.dtsi"
+#include "msm8996-sde-display.dtsi"
 #include "msm8996-camera-sensor-dtp.dtsi"
 #include "msm8996-wsa881x.dtsi"
 
@@ -465,10 +465,6 @@
 
 &mdss_hdmi_tx {
 	status = "disabled";
-};
-
-&mdss_dsi {
-	hw-config = "split_dsi";
 };
 
 &mdss_dsi0 {
