@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -289,7 +289,7 @@ static int fg_check_iacs_ready(struct fg_chip *chip)
 	}
 
 	if (!tries) {
-		pr_err("IACS_RDY not set\n");
+		pr_err("IACS_RDY not set, opr_sts: %d\n", ima_opr_sts);
 		/* check for error condition */
 		rc = fg_clear_ima_errors_if_any(chip, false);
 		if (rc < 0) {
@@ -544,9 +544,9 @@ static int fg_get_beat_count(struct fg_chip *chip, u8 *count)
 int fg_interleaved_mem_read(struct fg_chip *chip, u16 address, u8 offset,
 				u8 *val, int len)
 {
-	int rc = 0;
+	int rc = 0, ret;
 	u8 start_beat_count, end_beat_count, count = 0;
-	bool retry_once = false;
+	bool retry = false;
 
 	if (offset > 3) {
 		pr_err("offset too large %d\n", offset);
@@ -554,10 +554,18 @@ int fg_interleaved_mem_read(struct fg_chip *chip, u16 address, u8 offset,
 	}
 
 retry:
+	if (count >= RETRY_COUNT) {
+		pr_err("Tried %d times\n", RETRY_COUNT);
+		retry = false;
+		goto out;
+	}
+
 	rc = fg_interleaved_mem_config(chip, val, address, offset, len,
 					FG_READ);
 	if (rc < 0) {
 		pr_err("failed to configure SRAM for IMA rc = %d\n", rc);
+		count++;
+		retry = true;
 		goto out;
 	}
 
@@ -565,18 +573,21 @@ retry:
 	rc = fg_get_beat_count(chip, &start_beat_count);
 	if (rc < 0) {
 		pr_err("failed to read beat count rc=%d\n", rc);
+		count++;
+		retry = true;
 		goto out;
 	}
 
 	/* read data */
 	rc = __fg_interleaved_mem_read(chip, address, offset, val, len);
 	if (rc < 0) {
-		if ((rc == -EAGAIN) && (count < RETRY_COUNT)) {
-			count++;
+		count++;
+		if (rc == -EAGAIN) {
 			pr_err("IMA access failed retry_count = %d\n", count);
 			goto retry;
 		}
 		pr_err("failed to read SRAM address rc = %d\n", rc);
+		retry = true;
 		goto out;
 	}
 
@@ -584,28 +595,31 @@ retry:
 	rc = fg_get_beat_count(chip, &end_beat_count);
 	if (rc < 0) {
 		pr_err("failed to read beat count rc=%d\n", rc);
+		count++;
+		retry = true;
 		goto out;
 	}
 
 	fg_dbg(chip, FG_SRAM_READ, "Start beat_count = %x End beat_count = %x\n",
 		start_beat_count, end_beat_count);
 
-	if (start_beat_count != end_beat_count && !retry_once) {
+	if (start_beat_count != end_beat_count) {
 		fg_dbg(chip, FG_SRAM_READ, "Beat count(%d/%d) do not match - retry transaction\n",
 			start_beat_count, end_beat_count);
-		retry_once = true;
+		count++;
+		retry = true;
 	}
 out:
 	/* Release IMA access */
-	rc = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip),
+	ret = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip),
 				MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT, 0);
-	if (rc < 0) {
-		pr_err("failed to reset IMA access bit rc = %d\n", rc);
-		return rc;
+	if (rc < 0 && ret < 0) {
+		pr_err("failed to reset IMA access bit ret = %d\n", ret);
+		return ret;
 	}
 
-	if (retry_once) {
-		retry_once = false;
+	if (retry) {
+		retry = false;
 		goto retry;
 	}
 
@@ -615,8 +629,9 @@ out:
 int fg_interleaved_mem_write(struct fg_chip *chip, u16 address, u8 offset,
 				u8 *val, int len, bool atomic_access)
 {
-	int rc = 0;
+	int rc = 0, ret;
 	u8 start_beat_count, end_beat_count, count = 0;
+	bool retry = false;
 
 	if (offset > 3) {
 		pr_err("offset too large %d\n", offset);
@@ -624,10 +639,18 @@ int fg_interleaved_mem_write(struct fg_chip *chip, u16 address, u8 offset,
 	}
 
 retry:
+	if (count >= RETRY_COUNT) {
+		pr_err("Tried %d times\n", RETRY_COUNT);
+		retry = false;
+		goto out;
+	}
+
 	rc = fg_interleaved_mem_config(chip, val, address, offset, len,
 					FG_WRITE);
 	if (rc < 0) {
 		pr_err("failed to configure SRAM for IMA rc = %d\n", rc);
+		count++;
+		retry = true;
 		goto out;
 	}
 
@@ -635,18 +658,21 @@ retry:
 	rc = fg_get_beat_count(chip, &start_beat_count);
 	if (rc < 0) {
 		pr_err("failed to read beat count rc=%d\n", rc);
+		count++;
+		retry = true;
 		goto out;
 	}
 
 	/* write data */
 	rc = __fg_interleaved_mem_write(chip, address, offset, val, len);
 	if (rc < 0) {
+		count++;
 		if ((rc == -EAGAIN) && (count < RETRY_COUNT)) {
-			count++;
 			pr_err("IMA access failed retry_count = %d\n", count);
 			goto retry;
 		}
 		pr_err("failed to write SRAM address rc = %d\n", rc);
+		retry = true;
 		goto out;
 	}
 
@@ -654,6 +680,8 @@ retry:
 	rc = fg_get_beat_count(chip, &end_beat_count);
 	if (rc < 0) {
 		pr_err("failed to read beat count rc=%d\n", rc);
+		count++;
+		retry = true;
 		goto out;
 	}
 
@@ -662,11 +690,19 @@ retry:
 			start_beat_count, end_beat_count);
 out:
 	/* Release IMA access */
-	rc = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip),
+	ret = fg_masked_write(chip, MEM_IF_MEM_INTF_CFG(chip),
 				MEM_ACCESS_REQ_BIT | IACS_SLCT_BIT, 0);
-	if (rc < 0)
-		pr_err("failed to reset IMA access bit rc = %d\n", rc);
+	if (rc < 0 && ret < 0) {
+		pr_err("failed to reset IMA access bit ret = %d\n", ret);
+		return ret;
+	}
 
+	if (retry) {
+		retry = false;
+		goto retry;
+	}
+
+	/* Return the error we got before releasing memory access */
 	return rc;
 }
 
