@@ -925,11 +925,15 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 			"qcom,enable-midframe-timer")) {
 		kgsl_midframe = kzalloc(
 				sizeof(struct kgsl_midframe_info), GFP_KERNEL);
-		hrtimer_init(&kgsl_midframe->timer,
-				CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-		kgsl_midframe->timer.function =
-				kgsl_pwrscale_midframe_timer;
-		kgsl_midframe->device = device;
+		if (kgsl_midframe) {
+			hrtimer_init(&kgsl_midframe->timer,
+					CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+			kgsl_midframe->timer.function =
+					kgsl_pwrscale_midframe_timer;
+			kgsl_midframe->device = device;
+		} else
+			KGSL_PWR_ERR(device,
+				"Failed to enable-midframe-timer feature\n");
 	}
 
 	/*
