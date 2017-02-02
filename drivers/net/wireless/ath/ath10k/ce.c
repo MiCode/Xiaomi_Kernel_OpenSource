@@ -298,10 +298,22 @@ int ath10k_ce_send_nolock(struct ath10k_ce_pipe *ce_state,
 
 	if (flags & CE_SEND_FLAG_GATHER)
 		desc_flags |= CE_DESC_FLAGS_GATHER;
+
 	if (flags & CE_SEND_FLAG_BYTE_SWAP)
 		desc_flags |= CE_DESC_FLAGS_BYTE_SWAP;
 
-	sdesc.addr   = __cpu_to_le32(buffer);
+	if (QCA_REV_WCN3990(ar)) {
+		flags |= upper_32_bits(buffer) & CE_DESC_FLAGS_GET_MASK;
+		sdesc.addr_lo = __cpu_to_le32(buffer);
+		sdesc.addr_hi = flags;
+		if (flags & CE_SEND_FLAG_GATHER)
+			sdesc.addr_hi |= CE_WCN3990_DESC_FLAGS_GATHER;
+		else
+			sdesc.addr_hi &= ~CE_WCN3990_DESC_FLAGS_GATHER;
+	} else {
+		sdesc.addr   = __cpu_to_le32(buffer);
+	}
+
 	sdesc.nbytes = __cpu_to_le16(nbytes);
 	sdesc.flags  = __cpu_to_le16(desc_flags);
 
@@ -410,7 +422,13 @@ int __ath10k_ce_rx_post_buf(struct ath10k_ce_pipe *pipe, void *ctx,
 	    CE_RING_DELTA(nentries_mask, write_index, sw_index - 1) == 0)
 		return -ENOSPC;
 
-	desc->addr = __cpu_to_le32(paddr);
+	if (QCA_REV_WCN3990(ar)) {
+		desc->addr = paddr;
+		desc->addr &= CE_DESC_37BIT_ADDR_MASK;
+	} else {
+		desc->addr = __cpu_to_le32(paddr);
+	}
+
 	desc->nbytes = 0;
 
 	dest_ring->per_transfer_context[write_index] = ctx;
