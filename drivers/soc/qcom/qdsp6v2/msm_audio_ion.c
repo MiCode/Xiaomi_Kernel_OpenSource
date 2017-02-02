@@ -207,7 +207,7 @@ int msm_audio_ion_import(const char *name, struct ion_client **client,
 	/* name should be audio_acdb_client or Audio_Dec_Client,
 	 * bufsz should be 0 and fd shouldn't be 0 as of now
 	 */
-	*handle = ion_import_dma_buf(*client, fd);
+	*handle = ion_import_dma_buf_fd(*client, fd);
 	pr_debug("%s: DMA Buf name=%s, fd=%d handle=%pK\n", __func__,
 							name, fd, *handle);
 	if (IS_ERR_OR_NULL((void *) (*handle))) {
@@ -403,7 +403,7 @@ int msm_audio_ion_import_legacy(const char *name, struct ion_client *client,
 	 * name should be audio_acdb_client or Audio_Dec_Client,
 	 * bufsz should be 0 and fd shouldn't be 0 as of now
 	 */
-	*handle = ion_import_dma_buf(client, fd);
+	*handle = ion_import_dma_buf_fd(client, fd);
 	pr_debug("%s: DMA Buf name=%s, fd=%d handle=%pK\n", __func__,
 							name, fd, *handle);
 	if (IS_ERR_OR_NULL((void *)(*handle))) {
