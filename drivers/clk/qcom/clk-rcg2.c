@@ -1064,17 +1064,10 @@ static int clk_dp_set_rate_and_parent(struct clk_hw *hw, unsigned long rate,
 }
 
 static int clk_dp_determine_rate(struct clk_hw *hw,
-				struct clk_rate_request *req)
+		struct clk_rate_request *req)
 {
-	if (!hw)
-		return -EINVAL;
-
-	if (!clk_hw_get_parent(hw)) {
-		pr_err("Missing the parent for the DP RCG\n");
-		return -EINVAL;
-	}
-
-	req->best_parent_rate = clk_get_rate(clk_hw_get_parent(hw)->clk);
+	req->best_parent_rate = clk_hw_round_rate(req->best_parent_hw,
+							req->best_parent_rate);
 	return 0;
 }
 
