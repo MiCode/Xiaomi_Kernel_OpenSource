@@ -29,7 +29,6 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/scm.h>
 #include <sound/apr_audio-v2.h>
-#include <soc/qcom/smd.h>
 #include <linux/qdsp6v2/apr.h>
 #include <linux/qdsp6v2/apr_tal.h>
 #include <linux/qdsp6v2/dsp_debug.h>

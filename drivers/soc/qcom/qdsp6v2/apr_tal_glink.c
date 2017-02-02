@@ -27,7 +27,6 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
-#include <soc/qcom/smd.h>
 #include <soc/qcom/glink.h>
 #include <linux/qdsp6v2/apr_tal.h>
 
