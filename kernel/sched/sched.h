@@ -1083,7 +1083,6 @@ enum sched_boost_policy {
 extern struct mutex policy_mutex;
 extern unsigned int sched_ravg_window;
 extern unsigned int sched_disable_window_stats;
-extern unsigned int sched_enable_hmp;
 extern unsigned int max_possible_freq;
 extern unsigned int min_max_freq;
 extern unsigned int pct_task_load(struct task_struct *p);
@@ -1127,7 +1126,6 @@ extern void update_cluster_topology(void);
 extern void note_task_waking(struct task_struct *p, u64 wallclock);
 extern void set_task_last_switch_out(struct task_struct *p, u64 wallclock);
 extern void init_clusters(void);
-extern int __init set_sched_enable_hmp(char *str);
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
@@ -1257,7 +1255,7 @@ inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 {
 	u32 task_load;
 
-	if (!sched_enable_hmp || sched_disable_window_stats)
+	if (sched_disable_window_stats)
 		return;
 
 	task_load = sched_disable_window_stats ? 0 : p->ravg.demand;
@@ -1272,7 +1270,7 @@ dec_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 {
 	u32 task_load;
 
-	if (!sched_enable_hmp || sched_disable_window_stats)
+	if (sched_disable_window_stats)
 		return;
 
 	task_load = sched_disable_window_stats ? 0 : p->ravg.demand;
@@ -1290,7 +1288,7 @@ fixup_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 			      struct task_struct *p, s64 task_load_delta,
 			      s64 pred_demand_delta)
 {
-	if (!sched_enable_hmp || sched_disable_window_stats)
+	if (sched_disable_window_stats)
 		return;
 
 	stats->cumulative_runnable_avg += task_load_delta;
@@ -1667,7 +1665,6 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 
 static inline void add_new_task_to_grp(struct task_struct *new) {}
 
-#define sched_enable_hmp 0
 #define PRED_DEMAND_DELTA (0)
 
 static inline void
