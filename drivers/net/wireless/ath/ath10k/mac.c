@@ -7989,8 +7989,10 @@ int ath10k_mac_register(struct ath10k *ar)
 		goto err_free;
 	}
 
-	if (!test_bit(ATH10K_FLAG_RAW_MODE, &ar->dev_flags))
-		ar->hw->netdev_features = NETIF_F_HW_CSUM;
+	if (!QCA_REV_WCN3990(ar)) {
+		if (!test_bit(ATH10K_FLAG_RAW_MODE, &ar->dev_flags))
+			ar->hw->netdev_features = NETIF_F_HW_CSUM;
+	}
 
 	if (IS_ENABLED(CONFIG_ATH10K_DFS_CERTIFIED)) {
 		/* Init ath dfs pattern detector */
