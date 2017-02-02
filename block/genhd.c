@@ -611,7 +611,7 @@ void add_disk(struct gendisk *disk)
 	disk_alloc_events(disk);
 
 	/* Register BDI before referencing it from bdev */
-	bdi = &disk->queue->backing_dev_info;
+	bdi = disk->queue->backing_dev_info;
 	bdi_register_owner(bdi, disk_to_dev(disk));
 
 	blk_register_region(disk_devt(disk), disk->minors, NULL,
@@ -663,7 +663,7 @@ void del_gendisk(struct gendisk *disk)
 		 * Unregister bdi before releasing device numbers (as they can
 		 * get reused and we'd get clashes in sysfs).
 		 */
-		bdi_unregister(&disk->queue->backing_dev_info);
+		bdi_unregister(disk->queue->backing_dev_info);
 		blk_unregister_queue(disk);
 	} else {
 		WARN_ON(1);
