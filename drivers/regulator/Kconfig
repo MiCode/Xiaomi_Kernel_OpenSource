@@ -837,13 +837,13 @@ config REGULATOR_QPNP_LCDB
 	  allows configurability for the various bias-voltage parameters.
 
 config REGULATOR_QPNP_OLEDB
+	tristate "Qualcomm Technologies, Inc. QPNP OLEDB regulator support"
 	depends on SPMI
-	tristate "Qualcomm Technologies, Inc QPNP OLEDB regulator support"
 	help
-	  This driver supports the OLEDB(AVDD bias) signal for AMOLED panel in Qualcomm
-	  Technologies, Inc QPNP PMIC. It exposes the OLED voltage configuration
-	  via the regulator framework. The configurable range of this bias is
-	  5V to 8.1V.
+	  This driver supports the OLEDB (AVDD bias) signal for AMOLED panel in
+	  Qualcomm Technologies, Inc. QPNP PMICs. It exposes the OLED voltage
+	  configuration via the regulator framework. The configurable range of
+	  this bias is 5 V to 8.1 V.
 
 config REGULATOR_SPM
 	bool "SPM regulator driver"

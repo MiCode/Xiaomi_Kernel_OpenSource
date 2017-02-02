@@ -327,7 +327,7 @@ static int qpnp_oledb_regulator_is_enabled(struct regulator_dev *rdev)
 }
 
 static int qpnp_oledb_regulator_set_voltage(struct regulator_dev *rdev,
-				int min_uV, int max_uV, unsigned *selector)
+				int min_uV, int max_uV, unsigned int *selector)
 {
 	u8 val;
 	int rc = 0;
