@@ -1145,7 +1145,7 @@ static int msm_compr_configure_dsp_for_playback
 		}
 		prtd->gapless_state.stream_opened[stream_index] = 1;
 
-		pr_debug("%s: BE id %d\n", __func__, soc_prtd->dai_link->be_id);
+		pr_debug("%s: BE id %d\n", __func__, soc_prtd->dai_link->id);
 		ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->id,
 				ac->perf_mode,
 				prtd->session_id,
