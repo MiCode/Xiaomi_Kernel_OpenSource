@@ -777,6 +777,7 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	/* don't perform flush/start operations for slave encoders */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+		enum sde_rm_topology_name topology = SDE_RM_TOPOLOGY_UNKNOWN;
 
 		if (!phys || phys->enable_state == SDE_ENC_DISABLED)
 			continue;
@@ -785,7 +786,14 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 		if (!ctl)
 			continue;
 
-		set_bit(i, sde_enc->frame_busy_mask);
+		if (phys->connector)
+			topology = sde_connector_get_topology_name(
+					phys->connector);
+
+		/* don't wait on ppsplit slaves, they dont register irqs */
+		if (!(topology == SDE_RM_TOPOLOGY_PPSPLIT &&
+				phys->split_role == ENC_ROLE_SLAVE))
+			set_bit(i, sde_enc->frame_busy_mask);
 
 		if (!phys->ops.needs_single_flush ||
 				!phys->ops.needs_single_flush(phys))
