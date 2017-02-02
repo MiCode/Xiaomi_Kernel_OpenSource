@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,15 @@ struct sde_connector_ops {
 	 */
 	int (*post_init)(struct drm_connector *connector,
 			void *info,
+			void *display);
+
+	/**
+	 * pre_deinit - perform additional deinitialization steps
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display handle
+	 * Returns: Zero on success
+	 */
+	int (*pre_deinit)(struct drm_connector *connector,
 			void *display);
 
 	/**
