@@ -2702,8 +2702,6 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 					"qcom,cdc-pdm-gpios", 0);
 		pdata->comp_gpio_p = of_parse_phandle(pdev->dev.of_node,
 					"qcom,cdc-comp-gpios", 0);
-		pdata->sdw_gpio_p = of_parse_phandle(pdev->dev.of_node,
-					"qcom,cdc-sdw-gpios", 0);
 		pdata->dmic_gpio_p = of_parse_phandle(pdev->dev.of_node,
 					"qcom,cdc-dmic-gpios", 0);
 		pdata->ext_spk_gpio_p = of_parse_phandle(pdev->dev.of_node,

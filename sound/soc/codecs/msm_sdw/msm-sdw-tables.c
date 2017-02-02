@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -105,6 +105,7 @@ const u8 msm_sdw_page_map[MSM_SDW_MAX_REGISTER] = {
 	[MSM_SDW_TOP_TOP_CFG1] = 0xd,
 	[MSM_SDW_TOP_RX_I2S_CTL] = 0xd,
 	[MSM_SDW_TOP_TX_I2S_CTL] = 0xd,
+	[MSM_SDW_TOP_I2S_CLK] = 0xd,
 	[MSM_SDW_TOP_RX7_PATH_INPUT0_MUX] = 0xd,
 	[MSM_SDW_TOP_RX7_PATH_INPUT1_MUX] = 0xd,
 	[MSM_SDW_TOP_RX8_PATH_INPUT0_MUX] = 0xd,
