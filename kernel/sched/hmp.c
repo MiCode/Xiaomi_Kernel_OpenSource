@@ -2786,7 +2786,7 @@ static u64 update_task_demand(struct task_struct *p, struct rq *rq,
 }
 
 static inline void
-update_task_burst(struct task_struct *p, struct rq *rq, int event, int runtime)
+update_task_burst(struct task_struct *p, struct rq *rq, int event, u64 runtime)
 {
 	/*
 	 * update_task_demand() has checks for idle task and
