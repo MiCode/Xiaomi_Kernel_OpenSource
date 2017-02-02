@@ -266,6 +266,9 @@ static void *usbpd_ipc_log;
 #define ID_HDR_VID		0x05c6 /* qcom */
 #define PROD_VDO_PID		0x0a00 /* TBD */
 
+static bool check_vsafe0v = true;
+module_param(check_vsafe0v, bool, S_IRUSR | S_IWUSR);
+
 static int min_sink_current = 900;
 module_param(min_sink_current, int, S_IRUSR | S_IWUSR);
 
@@ -1439,6 +1442,41 @@ static void vconn_swap(struct usbpd *pd)
 	}
 }
 
+static int enable_vbus(struct usbpd *pd)
+{
+	union power_supply_propval val = {0};
+	int count = 100;
+	int ret;
+
+	if (!check_vsafe0v)
+		goto enable_reg;
+
+	/*
+	 * Check to make sure there's no lingering charge on
+	 * VBUS before enabling it as a source. If so poll here
+	 * until it goes below VSafe0V (0.8V) before proceeding.
+	 */
+	while (count--) {
+		ret = power_supply_get_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
+		if (ret || val.intval <= 800000)
+			break;
+		usleep_range(20000, 30000);
+	}
+
+	if (count < 99)
+		msleep(100);	/* need to wait an additional tCCDebounce */
+
+enable_reg:
+	ret = regulator_enable(pd->vbus);
+	if (ret)
+		usbpd_err(&pd->dev, "Unable to enable vbus (%d)\n", ret);
+	else
+		pd->vbus_enabled = true;
+
+	return ret;
+}
+
 static inline void rx_msg_cleanup(struct usbpd *pd)
 {
 	struct rx_msg *msg, *tmp;
@@ -1599,12 +1637,7 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->current_pr == PR_SINK) {
 			usbpd_set_state(pd, PE_SNK_STARTUP);
 		} else if (pd->current_pr == PR_SRC) {
-			ret = regulator_enable(pd->vbus);
-			if (ret)
-				usbpd_err(&pd->dev, "Unable to enable vbus\n");
-			else
-				pd->vbus_enabled = true;
-
+			enable_vbus(pd);
 			if (!pd->vconn_enabled &&
 					pd->typec_mode ==
 					POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE) {
@@ -1776,11 +1809,7 @@ static void usbpd_sm(struct work_struct *w)
 		msleep(SRC_RECOVER_TIME);
 
 		pd->vbus_enabled = false;
-		ret = regulator_enable(pd->vbus);
-		if (ret)
-			usbpd_err(&pd->dev, "Unable to enable vbus\n");
-		else
-			pd->vbus_enabled = true;
+		enable_vbus(pd);
 
 		if (pd->vconn_enabled) {
 			ret = regulator_enable(pd->vconn);
@@ -2203,12 +2232,7 @@ static void usbpd_sm(struct work_struct *w)
 		/* fall-through */
 
 	case PE_PRS_SNK_SRC_SOURCE_ON:
-		ret = regulator_enable(pd->vbus);
-		if (ret)
-			usbpd_err(&pd->dev, "Unable to enable vbus\n");
-		else
-			pd->vbus_enabled = true;
-
+		enable_vbus(pd);
 		msleep(200); /* allow time VBUS ramp-up, must be < tNewSrc */
 
 		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
