@@ -339,22 +339,23 @@ config GPIO_PXA
 	  Say yes here to support the PXA GPIO device
 
 config GPIO_QPNP_PIN
+	tristate "Qualcomm Technologies, Inc. QPNP GPIO support"
 	depends on SPMI
-	tristate "Qualcomm QPNP gpio support"
 	help
-	  Say 'y' here to include support for the Qualcomm QPNP gpio
-	  driver. This driver supports Device Tree and allows a
-	  device_node to be registered as a gpio-controller. It
-	  does not handle gpio interrupts directly, they are handled
-	  via the spmi arbiter interrupt driver.
+	  Say 'y' here to include support for the Qualcomm Technologies, Inc.
+	  QPNP GPIO driver.  This driver supports Device Tree and allows a
+	  device_node to be registered as a gpio-controller.  It does not handle
+	  GPIO interrupts directly; they are handled via the SPMI arbiter
+	  interrupt driver.
 
 config GPIO_QPNP_PIN_DEBUG
-	depends on GPIO_QPNP_PIN
-	depends on DEBUG_FS
-	bool "Qualcomm QPNP GPIO debug support"
+	bool "Qualcomm Technologies, Inc. QPNP GPIO debug support"
+	depends on GPIO_QPNP_PIN && DEBUG_FS
 	help
-	  Say 'y' here to include debug support for the Qualcomm
-	  QPNP gpio driver.
+	  Say 'y' here to include debug support for the Qualcomm Technologies,
+	  Inc. QPNP GPIO driver.  This provides a userspace debug interface to
+	  get and set all of the supported features of PMIC GPIO and MPP pins
+	  including those which are managed by the gpio framework.
 
 config GPIO_RCAR
 	tristate "Renesas R-Car GPIO"
