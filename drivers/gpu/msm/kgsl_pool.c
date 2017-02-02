@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -299,6 +299,7 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 	struct page *p = NULL;
 	int order = get_order(*page_size);
 	int pool_idx;
+	size_t size = 0;
 
 	if ((pages == NULL) || pages_len < (*page_size >> PAGE_SHIFT))
 		return -EINVAL;
@@ -311,11 +312,8 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 		if (page == NULL) {
 			/* Retry with lower order pages */
 			if (order > 0) {
-				size_t size = PAGE_SIZE << --order;
-				*page_size = kgsl_get_page_size(size,
-							ilog2(size));
-				*align = ilog2(*page_size);
-				return -EAGAIN;
+				size = PAGE_SIZE << --order;
+				goto eagain;
 
 			} else
 				return -ENOMEM;
@@ -325,8 +323,25 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 	}
 
 	pool = _kgsl_get_pool_from_order(order);
-	if (pool == NULL)
-		return -EINVAL;
+	if (pool == NULL) {
+		/* Retry with lower order pages */
+		if (order > 0) {
+			size = PAGE_SIZE << --order;
+			goto eagain;
+		} else {
+			/*
+			 * Fall back to direct allocation in case
+			 * pool with zero order is not present
+			 */
+			gfp_t gfp_mask = kgsl_gfp_mask(order);
+
+			page = alloc_pages(gfp_mask, order);
+			if (page == NULL)
+				return -ENOMEM;
+			_kgsl_pool_zero_page(page, order);
+			goto done;
+		}
+	}
 
 	pool_idx = kgsl_pool_idx_lookup(order);
 	page = _kgsl_pool_get_page(pool);
@@ -337,10 +352,9 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 
 		/* Only allocate non-reserved memory for certain pools */
 		if (!pool->allocation_allowed && pool_idx > 0) {
-			*page_size = PAGE_SIZE <<
+			size = PAGE_SIZE <<
 					kgsl_pools[pool_idx-1].pool_order;
-			*align = ilog2(*page_size);
-			return -EAGAIN;
+			goto eagain;
 		}
 
 		page = alloc_pages(gfp_mask, order);
@@ -348,10 +362,9 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 		if (!page) {
 			if (pool_idx > 0) {
 				/* Retry with lower order pages */
-				*page_size = PAGE_SIZE <<
+				size = PAGE_SIZE <<
 					kgsl_pools[pool_idx-1].pool_order;
-				*align = ilog2(*page_size);
-				return -EAGAIN;
+				goto eagain;
 			} else
 				return -ENOMEM;
 		}
@@ -367,6 +380,12 @@ done:
 	}
 
 	return pcount;
+
+eagain:
+	*page_size = kgsl_get_page_size(size,
+			ilog2(size));
+	*align = ilog2(*page_size);
+	return -EAGAIN;
 }
 
 void kgsl_pool_free_page(struct page *page)
