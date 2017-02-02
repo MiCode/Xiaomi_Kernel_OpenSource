@@ -3632,7 +3632,7 @@ static void sdhci_cmdq_clear_set_dumpregs(struct mmc_host *mmc, bool set)
 		host->ops->clear_set_dumpregs(host, set);
 }
 static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
-		struct mmc_request *mrq, u32 slot)
+		struct mmc_request *mrq, u32 slot, u64 *ice_ctx)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
 	int err = 0;
@@ -3651,7 +3651,8 @@ static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
 	}
 
 	if (host->ops->crypto_engine_cmdq_cfg) {
-		err = host->ops->crypto_engine_cmdq_cfg(host, mrq, slot, NULL);
+		err = host->ops->crypto_engine_cmdq_cfg(host, mrq,
+				slot, ice_ctx);
 		if (err) {
 			pr_err("%s: failed to configure crypto\n",
 					mmc_hostname(host->mmc));
@@ -3722,7 +3723,7 @@ static void sdhci_cmdq_clear_set_dumpregs(struct mmc_host *mmc, bool set)
 
 }
 static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
-		struct mmc_request *mrq, u32 slot)
+		struct mmc_request *mrq, u32 slot, u64 *ice_ctx)
 {
 	return 0;
 }
