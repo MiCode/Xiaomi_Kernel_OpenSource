@@ -292,6 +292,55 @@ const char *__window_print(struct trace_seq *p, const u32 *buf, int buf_len)
 
 	return ret;
 }
+
+static inline s64 __rq_update_sum(struct rq *rq, bool curr, bool new)
+{
+	if (curr)
+		if (new)
+			return rq->nt_curr_runnable_sum;
+		else
+			return rq->curr_runnable_sum;
+	else
+		if (new)
+			return rq->nt_prev_runnable_sum;
+		else
+			return rq->prev_runnable_sum;
+}
+
+static inline s64 __grp_update_sum(struct rq *rq, bool curr, bool new)
+{
+	if (curr)
+		if (new)
+			return rq->grp_time.nt_curr_runnable_sum;
+		else
+			return rq->grp_time.curr_runnable_sum;
+	else
+		if (new)
+			return rq->grp_time.nt_prev_runnable_sum;
+		else
+			return rq->grp_time.prev_runnable_sum;
+}
+
+static inline s64
+__get_update_sum(struct rq *rq, enum migrate_types migrate_type,
+		 bool src, bool new, bool curr)
+{
+	switch (migrate_type) {
+	case RQ_TO_GROUP:
+		if (src)
+			return __rq_update_sum(rq, curr, new);
+		else
+			return __grp_update_sum(rq, curr, new);
+	case GROUP_TO_RQ:
+		if (src)
+			return __grp_update_sum(rq, curr, new);
+		else
+			return __rq_update_sum(rq, curr, new);
+	default:
+		WARN_ON_ONCE(1);
+		return -1;
+	}
+}
 #endif
 
 TRACE_EVENT(sched_update_task_ravg,
@@ -534,17 +583,13 @@ TRACE_EVENT(sched_update_pred_demand,
 
 TRACE_EVENT(sched_migration_update_sum,
 
-	TP_PROTO(struct task_struct *p, enum migrate_types migrate_type, struct migration_sum_data *d),
+	TP_PROTO(struct task_struct *p, enum migrate_types migrate_type, struct rq *rq),
 
-	TP_ARGS(p, migrate_type, d),
+	TP_ARGS(p, migrate_type, rq),
 
 	TP_STRUCT__entry(
 		__field(int,		tcpu			)
 		__field(int,		pid			)
-		__field(	u64,	cs			)
-		__field(	u64,	ps			)
-		__field(	s64,	nt_cs			)
-		__field(	s64,	nt_ps			)
 		__field(enum migrate_types,	migrate_type	)
 		__field(	s64,	src_cs			)
 		__field(	s64,	src_ps			)
@@ -560,30 +605,22 @@ TRACE_EVENT(sched_migration_update_sum,
 		__entry->tcpu		= task_cpu(p);
 		__entry->pid		= p->pid;
 		__entry->migrate_type	= migrate_type;
-		__entry->src_cs		= d->src_rq ?
-						d->src_rq->curr_runnable_sum :
-						d->src_cpu_time->curr_runnable_sum;
-		__entry->src_ps		= d->src_rq ?
-						d->src_rq->prev_runnable_sum :
-						d->src_cpu_time->prev_runnable_sum;
-		__entry->dst_cs		= d->dst_rq ?
-						d->dst_rq->curr_runnable_sum :
-						d->dst_cpu_time->curr_runnable_sum;
-		__entry->dst_ps		= d->dst_rq ?
-						d->dst_rq->prev_runnable_sum :
-						d->dst_cpu_time->prev_runnable_sum;
-		__entry->src_nt_cs		= d->src_rq ?
-						d->src_rq->nt_curr_runnable_sum :
-						d->src_cpu_time->nt_curr_runnable_sum;
-		__entry->src_nt_ps		= d->src_rq ?
-						d->src_rq->nt_prev_runnable_sum :
-						d->src_cpu_time->nt_prev_runnable_sum;
-		__entry->dst_nt_cs		= d->dst_rq ?
-						d->dst_rq->nt_curr_runnable_sum :
-						d->dst_cpu_time->nt_curr_runnable_sum;
-		__entry->dst_nt_ps		= d->dst_rq ?
-						d->dst_rq->nt_prev_runnable_sum :
-						d->dst_cpu_time->nt_prev_runnable_sum;
+		__entry->src_cs		= __get_update_sum(rq, migrate_type,
+							   true, false, true);
+		__entry->src_ps		= __get_update_sum(rq, migrate_type,
+							   true, false, false);
+		__entry->dst_cs		= __get_update_sum(rq, migrate_type,
+							   false, false, true);
+		__entry->dst_ps		= __get_update_sum(rq, migrate_type,
+							   false, false, false);
+		__entry->src_nt_cs	= __get_update_sum(rq, migrate_type,
+							   true, true, true);
+		__entry->src_nt_ps	= __get_update_sum(rq, migrate_type,
+							   true, true, false);
+		__entry->dst_nt_cs	= __get_update_sum(rq, migrate_type,
+							   false, true, true);
+		__entry->dst_nt_ps	= __get_update_sum(rq, migrate_type,
+							   false, true, false);
 	),
 
 	TP_printk("pid %d task_cpu %d migrate_type %s src_cs %llu src_ps %llu dst_cs %lld dst_ps %lld src_nt_cs %llu src_nt_ps %llu dst_nt_cs %lld dst_nt_ps %lld",
