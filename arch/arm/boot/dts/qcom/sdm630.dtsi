@@ -596,7 +596,7 @@
 	};
 
 	mitigation_profile4: qcom,limit_info-4 {
-		qcom,temperature-sensor = <&sensor_information1>;
+		qcom,temperature-sensor = <&sensor_information7>;
 		qcom,hotplug-mitigation-enable;
 	};
 
