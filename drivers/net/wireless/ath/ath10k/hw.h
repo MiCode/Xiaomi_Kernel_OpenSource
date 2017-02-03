@@ -128,6 +128,10 @@ enum qca9377_chip_id_rev {
 #define QCA4019_HW_1_0_BOARD_DATA_FILE "board.bin"
 #define QCA4019_HW_1_0_PATCH_LOAD_ADDR  0x1234
 
+/* WCN3990 1.0 definitions */
+#define WCN3990_HW_1_0_DEV_VERSION     ATH10K_HW_WCN3990
+#define WCN3990_HW_1_0_FW_DIR          "/etc/firmware"
+
 #define ATH10K_FW_API2_FILE		"firmware-2.bin"
 #define ATH10K_FW_API3_FILE		"firmware-3.bin"
 
@@ -434,6 +438,7 @@ struct ath10k_hw_ops {
 
 extern const struct ath10k_hw_ops qca988x_ops;
 extern const struct ath10k_hw_ops qca99x0_ops;
+extern const struct ath10k_hw_ops wcn3990_ops;
 
 static inline int
 ath10k_rx_desc_get_l3_pad_bytes(struct ath10k_hw_params *hw,
