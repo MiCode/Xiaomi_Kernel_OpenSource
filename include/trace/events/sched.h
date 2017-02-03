@@ -699,9 +699,9 @@ TRACE_EVENT(sched_freq_alert,
 #ifdef CONFIG_SMP
 TRACE_EVENT(sched_cpu_util,
 
-	TP_PROTO(struct task_struct *p, int cpu, int task_util, unsigned long curr_util, int sync),
+	TP_PROTO(struct task_struct *p, int cpu, int task_util, unsigned long curr_util, unsigned long new_cum_util, int sync),
 
-	TP_ARGS(p, cpu, task_util, curr_util, sync),
+	TP_ARGS(p, cpu, task_util, curr_util, new_cum_util, sync),
 
 	TP_STRUCT__entry(
 		__array(char, comm, TASK_COMM_LEN	)
@@ -710,6 +710,8 @@ TRACE_EVENT(sched_cpu_util,
 		__field(int, task_util				)
 		__field(unsigned int, nr_running		)
 		__field(long, cpu_util			)
+		__field(long, cpu_util_cum			)
+		__field(long, new_cum_util			)
 		__field(unsigned int, capacity_curr		)
 		__field(unsigned int, capacity			)
 		__field(unsigned long, curr_util		)
@@ -717,6 +719,7 @@ TRACE_EVENT(sched_cpu_util,
 		__field(int, idle_state				)
 		__field(unsigned int, irqload		)
 		__field(int, high_irqload		)
+		__field(int, task_in_cum_demand		)
 	),
 
 	TP_fast_assign(
@@ -726,6 +729,9 @@ TRACE_EVENT(sched_cpu_util,
 		__entry->task_util		= task_util;
 		__entry->nr_running		= cpu_rq(cpu)->nr_running;
 		__entry->cpu_util		= cpu_util(cpu);
+		__entry->cpu_util_cum		= cpu_util_cum(cpu, 0);
+		__entry->new_cum_util		= new_cum_util;
+		__entry->task_in_cum_demand	= task_in_cum_window_demand(cpu_rq(cpu), p);
 		__entry->capacity_curr		= capacity_curr_of(cpu);
 		__entry->capacity		= capacity_of(cpu);
 		__entry->curr_util		= curr_util;
@@ -735,8 +741,8 @@ TRACE_EVENT(sched_cpu_util,
 		__entry->high_irqload		= sched_cpu_high_irqload(cpu);
 	),
 
-	TP_printk("comm=%s pid=%d cpu=%d task_util=%d nr_running=%d cpu_util=%ld capacity_curr=%u capacity=%u curr_util=%ld sync=%d idle_state=%d irqload=%u high_irqload=%u",
-		__entry->comm, __entry->pid, __entry->cpu, __entry->task_util, __entry->nr_running, __entry->cpu_util, __entry->capacity_curr, __entry->capacity, __entry->curr_util, __entry->sync, __entry->idle_state, __entry->irqload, __entry->high_irqload)
+	TP_printk("comm=%s pid=%d cpu=%d task_util=%d nr_running=%d cpu_util=%ld cpu_util_cum=%ld new_cum_util=%ld task_in_cum=%d capacity_curr=%u capacity=%u curr_util=%ld sync=%d idle_state=%d irqload=%u high_irqload=%u",
+		__entry->comm, __entry->pid, __entry->cpu, __entry->task_util, __entry->nr_running, __entry->cpu_util, __entry->cpu_util_cum, __entry->new_cum_util, __entry->task_in_cum_demand, __entry->capacity_curr, __entry->capacity, __entry->curr_util, __entry->sync, __entry->idle_state, __entry->irqload, __entry->high_irqload)
 );
 
 DECLARE_EVENT_CLASS(sched_task_util,

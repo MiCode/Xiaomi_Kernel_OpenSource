@@ -5379,7 +5379,7 @@ struct energy_env {
  */
 static unsigned long __cpu_norm_util(int cpu, unsigned long capacity, int delta)
 {
-	int util = __cpu_util(cpu, delta);
+	int util = cpu_util_cum(cpu, delta);
 
 	if (util >= capacity)
 		return SCHED_CAPACITY_SCALE;
@@ -5404,7 +5404,7 @@ static int calc_util_delta(struct energy_env *eenv, int cpu)
 #ifdef CONFIG_SCHED_WALT
 	if (cpu == eenv->src_cpu) {
 		if (!walt_disabled && sysctl_sched_use_walt_task_util &&
-		     eenv->task->state == TASK_WAKING) {
+		    !task_in_cum_window_demand(cpu_rq(cpu), eenv->task)) {
 			if (eenv->util_delta == 0)
 				/*
 				 * energy before - calculate energy cost when
@@ -5454,7 +5454,7 @@ unsigned long group_max_util(struct energy_env *eenv)
 		/* substract sync_cpu's rq->curr util to discount its cost */
 		if (eenv->sync_cpu == i)
 			delta -= eenv->curr_util;
-		max_util = max(max_util, __cpu_util(i, delta));
+		max_util = max(max_util, cpu_util_cum(i, delta));
 	}
 
 	return max_util;
@@ -6588,7 +6588,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	int target_max_cap = INT_MAX;
 	int target_cpu;
 	unsigned long task_util_boosted = 0, curr_util = 0;
-	long new_util;
+	long new_util, new_util_cum;
 	int i;
 	int ediff = 0;
 	int cpu = smp_processor_id();
@@ -6649,11 +6649,19 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			 * accounting. However, the blocked utilization may be zero.
 			 */
 			new_util = cpu_util(i) + task_util_boosted;
+
+			if (task_in_cum_window_demand(cpu_rq(i), p))
+				new_util_cum = cpu_util_cum(i, 0) +
+					       task_util_boosted - task_util(p);
+			else
+				new_util_cum = cpu_util_cum(i, 0) +
+					       task_util_boosted;
+
 			if (sync && i == cpu)
 				new_util -= curr_util;
 
-			trace_sched_cpu_util(p, i, task_util_boosted,
-					     curr_util, sync);
+			trace_sched_cpu_util(p, i, task_util_boosted, curr_util,
+					     new_util_cum, sync);
 
 			if (sched_cpu_high_irqload(cpu))
 				continue;
@@ -6669,7 +6677,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			cpu_idle_idx = cpu_rq(i)->nr_running ? -1 :
 				       idle_get_state_idx(cpu_rq(i));
 
-			if (add_capacity_margin(new_util) <
+			if (add_capacity_margin(new_util_cum) <
 			    capacity_curr_of(i)) {
 				if (sysctl_sched_cstate_aware) {
 					if (cpu_idle_idx < min_idle_idx ||
