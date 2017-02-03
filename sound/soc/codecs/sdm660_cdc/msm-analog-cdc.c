@@ -3989,7 +3989,7 @@ static ssize_t msm_anlg_codec_version_read(struct snd_info_entry *entry,
 
 	switch (get_codec_version(sdm660_cdc_priv)) {
 	case DRAX_CDC:
-	    len = snprintf(buffer, sizeof(buffer), "DRAX_CDC_1_0\n");
+	    len = snprintf(buffer, sizeof(buffer), "DRAX-CDC_1_0\n");
 	    break;
 	default:
 	    len = snprintf(buffer, sizeof(buffer), "VER_UNDEFINED\n");
