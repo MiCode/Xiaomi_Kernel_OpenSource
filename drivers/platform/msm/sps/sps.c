@@ -2169,7 +2169,7 @@ int sps_register_bam_device(const struct sps_bam_props *bam_props,
 	bam = kzalloc(sizeof(*bam), GFP_KERNEL);
 	if (bam == NULL) {
 		SPS_ERR(sps,
-			"sps:Unable to allocate BAM device state: size is %d",
+			"sps:Unable to allocate BAM device state: size is %zu",
 			sizeof(*bam));
 		goto exit_err;
 	}
