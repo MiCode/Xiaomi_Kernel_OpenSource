@@ -2316,7 +2316,7 @@ static struct snd_soc_dai_link msm_int_be_dai[] = {
 		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
 			ASYNC_DPCM_SND_SOC_HW_PARAMS,
 		.be_id = MSM_BACKEND_DAI_INT3_MI2S_TX,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
 		.ops = &msm_int_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
