@@ -3483,15 +3483,15 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	if (!muxsel) {
 		dev_err(&pdev->dev, "MUX addr invalid for QUIN PCM\n");
 		ret = -ENODEV;
-		goto err;
-	}
-	pdata->vaddr_gpio_mux_qui_pcm_sec_mode_ctl =
-		ioremap(muxsel->start, resource_size(muxsel));
-	if (pdata->vaddr_gpio_mux_qui_pcm_sec_mode_ctl == NULL) {
-		pr_err("%s ioremap failure for muxsel virt addr\n",
+	} else {
+		pdata->vaddr_gpio_mux_qui_pcm_sec_mode_ctl =
+			ioremap(muxsel->start, resource_size(muxsel));
+		if (pdata->vaddr_gpio_mux_qui_pcm_sec_mode_ctl == NULL) {
+			pr_err("%s ioremap failure for muxsel virt addr\n",
 				__func__);
-		ret = -ENOMEM;
-		goto err;
+			ret = -ENOMEM;
+			goto err;
+		}
 	}
 
 	muxsel = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -3499,15 +3499,15 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	if (!muxsel) {
 		dev_err(&pdev->dev, "MUX addr invalid for EXT CLK CTL\n");
 		ret = -ENODEV;
-		goto err;
-	}
-	pdata->vaddr_gpio_mux_mic_ext_clk_ctl =
-		ioremap(muxsel->start, resource_size(muxsel));
-	if (pdata->vaddr_gpio_mux_mic_ext_clk_ctl == NULL) {
-		pr_err("%s ioremap failure for muxsel virt addr\n",
+	} else {
+		pdata->vaddr_gpio_mux_mic_ext_clk_ctl =
+			ioremap(muxsel->start, resource_size(muxsel));
+		if (pdata->vaddr_gpio_mux_mic_ext_clk_ctl == NULL) {
+			pr_err("%s ioremap failure for muxsel virt addr\n",
 				__func__);
-		ret = -ENOMEM;
-		goto err;
+			ret = -ENOMEM;
+			goto err;
+		}
 	}
 
 	muxsel = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -3515,15 +3515,15 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	if (!muxsel) {
 		dev_err(&pdev->dev, "MUX addr invalid for SEC TLMM CTL\n");
 		ret = -ENODEV;
-		goto err;
-	}
-	pdata->vaddr_gpio_mux_sec_tlmm_ctl =
-		ioremap(muxsel->start, resource_size(muxsel));
-	if (pdata->vaddr_gpio_mux_sec_tlmm_ctl == NULL) {
-		pr_err("%s ioremap failure for muxsel virt addr\n",
+	} else {
+		pdata->vaddr_gpio_mux_sec_tlmm_ctl =
+			ioremap(muxsel->start, resource_size(muxsel));
+		if (pdata->vaddr_gpio_mux_sec_tlmm_ctl == NULL) {
+			pr_err("%s ioremap failure for muxsel virt addr\n",
 				__func__);
-		ret = -ENOMEM;
-		goto err;
+			ret = -ENOMEM;
+			goto err;
+		}
 	}
 
 	pdev->id = 0;
