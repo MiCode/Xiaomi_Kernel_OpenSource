@@ -237,9 +237,9 @@
 	};
 };
 
-&spi_2 {
-	status = "disabled";
-	spi-max-frequency = <19200000>;
+&spi_4 {
+	status = "ok";
+	/delete-property/ qcom,use-bam;
 };
 
 &usb3 {
