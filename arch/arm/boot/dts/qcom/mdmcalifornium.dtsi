@@ -400,7 +400,7 @@
 
 		linux,pci-domain = <0>;
 
-		qcom,phy-ver = <0x10>;
+		qcom,pcie-phy-ver = <0x10>;
 		qcom,use-19p2mhz-aux-clk;
 
 		qcom,msm-bus,name = "pcie0";
