@@ -24,6 +24,7 @@ config ARCH_MDM9640
 	select MSM_DEVFREQ_DEVBW
 	select MSM_RPM_LOG
 	select MSM_RPM_STATS_LOG
+	select ARM_HAS_SG_CHAIN
 
 config ARCH_MDM9607
        bool "MDM9607"
@@ -44,6 +45,7 @@ config ARCH_MDM9607
        select MSM_DEVFREQ_DEVBW
        select MSM_BIMC_BWMON
        select DEVFREQ_GOV_MSM_BW_HWMON
+       select ARM_HAS_SG_CHAIN
 
 config ARCH_MDMCALIFORNIUM
 	bool "MDMCALIFORNIUM"
