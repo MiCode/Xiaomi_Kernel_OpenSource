@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2297,7 +2297,7 @@ struct lsm_params_info_32 {
 	u32 param_id;
 	u32 param_size;
 	compat_uptr_t param_data;
-	enum LSM_PARAM_TYPE param_type;
+	uint32_t param_type;
 };
 
 struct snd_lsm_module_params_32 {

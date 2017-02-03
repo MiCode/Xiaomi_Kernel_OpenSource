@@ -3029,7 +3029,7 @@ err_ret:
 
 static int wcd_cpe_set_one_param(void *core_handle,
 	struct cpe_lsm_session *session, struct lsm_params_info *p_info,
-	void *data, enum LSM_PARAM_TYPE param_type)
+	void *data, uint32_t param_type)
 {
 	struct wcd_cpe_core *core = core_handle;
 	int rc = 0;
@@ -3081,13 +3081,13 @@ static int wcd_cpe_set_one_param(void *core_handle,
 		break;
 	default:
 		pr_err("%s: wrong param_type 0x%x\n",
-			__func__, p_info->param_type);
+			__func__, param_type);
 	}
 
 	if (rc)
 		dev_err(core->dev,
 			"%s: send_param(%d) failed, err %d\n",
-			 __func__, p_info->param_type, rc);
+			 __func__, param_type, rc);
 	return rc;
 }
 
