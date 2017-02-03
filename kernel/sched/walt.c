@@ -239,7 +239,7 @@ void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
 __read_mostly unsigned int sched_freq_aggregate = 1;
 
 static void
-update_window_start(struct rq *rq, u64 wallclock)
+update_window_start(struct rq *rq, u64 wallclock, int event)
 {
 	s64 delta;
 	int nr_windows;
@@ -256,6 +256,10 @@ update_window_start(struct rq *rq, u64 wallclock)
 
 	nr_windows = div64_u64(delta, sched_ravg_window);
 	rq->window_start += (u64)nr_windows * (u64)sched_ravg_window;
+
+	rq->cum_window_demand = rq->hmp_stats.cumulative_runnable_avg;
+	if (event == PUT_PREV_TASK)
+		rq->cum_window_demand += rq->curr->ravg.demand;
 }
 
 int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
@@ -658,6 +662,11 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 			 wallclock, 0);
 
 	update_task_cpu_cycles(p, new_cpu);
+
+	if (__task_in_cum_window_demand(src_rq, p)) {
+		dec_cum_window_demand(src_rq, p);
+		inc_cum_window_demand(dest_rq, p, p->ravg.demand);
+	}
 
 	new_task = is_new_task(p);
 	/* Protected by rq_lock */
@@ -1485,10 +1494,13 @@ static void update_history(struct rq *rq, struct task_struct *p,
 	int ridx, widx;
 	u32 max = 0, avg, demand, pred_demand;
 	u64 sum = 0;
+	u64 prev_demand;
 
 	/* Ignore windows where task had no activity */
 	if (!runtime || is_idle_task(p) || exiting_task(p) || !samples)
 		goto done;
+
+	prev_demand = p->ravg.demand;
 
 	/* Push new 'runtime' value onto stack */
 	widx = sched_ravg_hist_size - 1;
@@ -1534,6 +1546,9 @@ static void update_history(struct rq *rq, struct task_struct *p,
 
 	p->ravg.demand = demand;
 	p->ravg.pred_demand = pred_demand;
+
+	if (__task_in_cum_window_demand(rq, p))
+		inc_cum_window_demand(rq, p, p->ravg.demand - prev_demand);
 
 done:
 	trace_sched_update_history(rq, p, runtime, samples, event);
@@ -1728,7 +1743,7 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 
 	lockdep_assert_held(&rq->lock);
 
-	update_window_start(rq, wallclock);
+	update_window_start(rq, wallclock, event);
 
 	if (!p->ravg.mark_start) {
 		update_task_cpu_cycles(p, cpu_of(rq));

@@ -2194,6 +2194,9 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 		notif_required = true;
 	}
 
+	if (!__task_in_cum_window_demand(cpu_rq(cpu), p))
+		inc_cum_window_demand(cpu_rq(cpu), p, task_load(p));
+
 	note_task_waking(p, wallclock);
 #endif /* CONFIG_SMP */
 
@@ -2266,6 +2269,8 @@ static void try_to_wake_up_local(struct task_struct *p, struct pin_cookie cookie
 
 		update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 		update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
+		if (!__task_in_cum_window_demand(rq, p))
+			inc_cum_window_demand(rq, p, task_load(p));
 		cpufreq_update_util(rq, 0);
 		ttwu_activate(rq, p, ENQUEUE_WAKEUP);
 		note_task_waking(p, wallclock);
@@ -2353,6 +2358,8 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.prev_sum_exec_runtime	= 0;
 	p->se.nr_migrations		= 0;
 	p->se.vruntime			= 0;
+	p->last_sleep_ts		= 0;
+
 	INIT_LIST_HEAD(&p->se.group_node);
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -3680,6 +3687,9 @@ static void __sched notrace __schedule(bool preempt)
 
 	wallclock = sched_ktime_clock();
 	if (likely(prev != next)) {
+		if (!prev->on_rq)
+			prev->last_sleep_ts = wallclock;
+
 		update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
 		update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
 		cpufreq_update_util(rq, 0);
@@ -8354,6 +8364,7 @@ void __init sched_init(void)
 		cpumask_set_cpu(i, &rq->freq_domain_cpumask);
 		rq->hmp_stats.cumulative_runnable_avg = 0;
 		rq->window_start = 0;
+		rq->cum_window_start = 0;
 		rq->hmp_stats.nr_big_tasks = 0;
 		rq->hmp_flags = 0;
 		rq->cur_irqload = 0;
@@ -8395,6 +8406,7 @@ void __init sched_init(void)
 
 			clear_top_tasks_bitmap(rq->top_tasks_bitmap[j]);
 		}
+		rq->cum_window_demand = 0;
 #endif
 		INIT_LIST_HEAD(&rq->cfs_tasks);
 
@@ -9647,6 +9659,7 @@ void sched_exit(struct task_struct *p)
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	dequeue_task(rq, p, 0);
 	reset_task_stats(p);
+	dec_cum_window_demand(rq, p);
 	p->ravg.mark_start = wallclock;
 	p->ravg.sum_history[0] = EXITING_TASK_MARKER;
 	free_task_load_ptrs(p);

@@ -773,6 +773,7 @@ struct rq {
 
 	int cstate, wakeup_latency, wakeup_energy;
 	u64 window_start;
+	s64 cum_window_start;
 	u64 load_reported_window;
 	unsigned long hmp_flags;
 
@@ -788,6 +789,7 @@ struct rq {
 	u64 prev_runnable_sum;
 	u64 nt_curr_runnable_sum;
 	u64 nt_prev_runnable_sum;
+	u64 cum_window_demand;
 	struct group_cpu_time grp_time;
 	struct load_subtractions load_subs[NUM_TRACKED_WINDOWS];
 	DECLARE_BITMAP_ARRAY(top_tasks_bitmap,
@@ -2598,6 +2600,31 @@ static inline void clear_reserved(int cpu)
 	clear_bit(CPU_RESERVED, &rq->hmp_flags);
 }
 
+static inline bool
+__task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
+{
+	return (p->on_rq || p->last_sleep_ts >= rq->window_start);
+}
+
+static inline bool
+task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
+{
+	return cpu_of(rq) == task_cpu(p) && __task_in_cum_window_demand(rq, p);
+}
+
+static inline void
+dec_cum_window_demand(struct rq *rq, struct task_struct *p)
+{
+	rq->cum_window_demand -= p->ravg.demand;
+	WARN_ON_ONCE(rq->cum_window_demand < 0);
+}
+
+static inline void
+inc_cum_window_demand(struct rq *rq, struct task_struct *p, s64 delta)
+{
+	rq->cum_window_demand += delta;
+}
+
 #else	/* CONFIG_SCHED_WALT */
 
 struct hmp_sched_stats;
@@ -2707,6 +2734,18 @@ static inline int alloc_related_thread_groups(void) { return 0; }
 #define trace_sched_cpu_load_lb(...)
 #define trace_sched_cpu_load_cgroup(...)
 #define trace_sched_cpu_load_wakeup(...)
+
+static inline bool
+__task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
+{
+	return 0;
+}
+
+static inline void
+dec_cum_window_demand(struct rq *rq, struct task_struct *p) { }
+
+static inline void
+inc_cum_window_demand(struct rq *rq, struct task_struct *p, s64 delta) { }
 
 #endif	/* CONFIG_SCHED_WALT */
 
