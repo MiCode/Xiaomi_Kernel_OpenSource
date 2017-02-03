@@ -42,6 +42,7 @@ struct pl_data {
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;
 	struct votable		*pl_disable_votable;
+	struct votable		*pl_awake_votable;
 	struct work_struct	status_change_work;
 	struct delayed_work	pl_taper_work;
 	struct power_supply	*main_psy;
@@ -212,7 +213,7 @@ static void pl_taper_work(struct work_struct *work)
 	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
 		pl_dbg(chip, PR_PARALLEL, "master is taper charging; reducing slave FCC\n");
 
-		__pm_stay_awake(chip->pl_ws);
+		vote(chip->pl_awake_votable, TAPER_END_VOTER, true, 0);
 		/* Reduce the taper percent by 25 percent */
 		chip->taper_pct = chip->taper_pct * TAPER_RESIDUAL_PCT / 100;
 		rerun_election(chip->fcc_votable);
@@ -229,7 +230,7 @@ static void pl_taper_work(struct work_struct *work)
 	pl_dbg(chip, PR_PARALLEL, "master is fast charging; waiting for next taper\n");
 
 done:
-	__pm_relax(chip->pl_ws);
+	vote(chip->pl_awake_votable, TAPER_END_VOTER, false, 0);
 }
 
 /*********
@@ -422,6 +423,20 @@ static int pl_disable_vote_callback(struct votable *votable,
 	pl_dbg(chip, PR_PARALLEL, "parallel charging %s\n",
 		   pl_disable ? "disabled" : "enabled");
 
+	return 0;
+}
+
+static int pl_awake_vote_callback(struct votable *votable,
+			void *data, int awake, const char *client)
+{
+	struct pl_data *chip = data;
+
+	if (awake)
+		__pm_stay_awake(chip->pl_ws);
+	else
+		__pm_relax(chip->pl_ws);
+
+	pr_debug("client: %s awake: %d\n", client, awake);
 	return 0;
 }
 
@@ -672,6 +687,14 @@ static int pl_init(void)
 	vote(chip->pl_disable_votable, TAPER_END_VOTER, false, 0);
 	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, true, 0);
 
+	chip->pl_awake_votable = create_votable("PL_AWAKE", VOTE_SET_ANY,
+					pl_awake_vote_callback,
+					chip);
+	if (IS_ERR(chip->pl_awake_votable)) {
+		rc = PTR_ERR(chip->pl_disable_votable);
+		goto destroy_votable;
+	}
+
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->pl_taper_work, pl_taper_work);
 
@@ -702,6 +725,7 @@ static int pl_init(void)
 unreg_notifier:
 	power_supply_unreg_notifier(&chip->nb);
 destroy_votable:
+	destroy_votable(chip->pl_awake_votable);
 	destroy_votable(chip->pl_disable_votable);
 	destroy_votable(chip->fv_votable);
 	destroy_votable(chip->fcc_votable);
@@ -717,6 +741,7 @@ static void pl_deinit(void)
 	struct pl_data *chip = the_chip;
 
 	power_supply_unreg_notifier(&chip->nb);
+	destroy_votable(chip->pl_awake_votable);
 	destroy_votable(chip->pl_disable_votable);
 	destroy_votable(chip->fv_votable);
 	destroy_votable(chip->fcc_votable);
