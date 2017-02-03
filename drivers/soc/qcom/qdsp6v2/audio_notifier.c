@@ -224,7 +224,7 @@ static int audio_notifer_dereg_service(int service, int domain)
 		ret = -EINVAL;
 		goto done;
 	}
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		pr_err("%s: deregister failed for service %s, ret %d\n",
 			__func__, service_data[service][domain].name, ret);
 		goto done;
@@ -260,7 +260,7 @@ static int audio_notifer_reg_client_service(struct client_data *client_data,
 		goto done;
 	}
 
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		pr_err("%s: service registration failed on service %s for client %s\n",
 			__func__, service_data[service][domain].name,
 			client_data->client_name);
@@ -329,7 +329,7 @@ static int audio_notifer_reg_client(struct client_data *client_data)
 				service_data[service][domain].name);
 
 		ret = audio_notifer_reg_client_service(client_data, service);
-		if (IS_ERR_VALUE(ret))
+		if (ret < 0)
 			pr_err("%s: client %s failed to register on service %s",
 				__func__, client_data->client_name,
 				service_data[service][domain].name);
@@ -361,7 +361,7 @@ static int audio_notifer_dereg_client(struct client_data *client_data)
 		goto done;
 	}
 
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		pr_err("%s: deregister failed for client %s on service %s, ret %d\n",
 			__func__, client_data->client_name,
 			service_data[service][domain].name, ret);
@@ -370,7 +370,7 @@ static int audio_notifer_dereg_client(struct client_data *client_data)
 
 	ret = srcu_notifier_chain_unregister(&service_data[service][domain].
 					     client_nb_list, client_data->nb);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		pr_err("%s: srcu_notifier_chain_unregister failed, ret %d\n",
 			__func__, ret);
 		goto done;
@@ -397,7 +397,7 @@ static void audio_notifer_reg_all_clients(void)
 		client_data = list_entry(ptr,
 			struct client_data, list);
 		ret = audio_notifer_reg_client(client_data);
-		if (IS_ERR_VALUE(ret))
+		if (ret < 0)
 			pr_err("%s: audio_notifer_reg_client failed for client %s, ret %d\n",
 				__func__, client_data->client_name,
 				ret);
@@ -468,7 +468,7 @@ static int audio_notifer_service_cb(unsigned long opcode,
 	service_data[service][domain].state = notifier_opcode;
 	ret = srcu_notifier_call_chain(&service_data[service][domain].
 		client_nb_list, notifier_opcode, &data);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		pr_err("%s: srcu_notifier_call_chain returned %d, service %s, opcode 0x%lx\n",
 			__func__, ret, service_data[service][domain].name,
 			notifier_opcode);
@@ -570,7 +570,7 @@ int audio_notifier_register(char *client_name, int domain,
 
 	mutex_lock(&notifier_mutex);
 	ret = audio_notifer_reg_client(client_data);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		mutex_unlock(&notifier_mutex);
 		pr_err("%s: audio_notifer_reg_client for client %s failed ret = %d\n",
 			__func__, client_data->client_name,
@@ -610,7 +610,7 @@ static int __init audio_notifier_init(void)
 	int ret;
 
 	ret = audio_pdr_register(&pdr_nb);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		pr_debug("%s: PDR register failed, ret = %d, disable service\n",
 			__func__, ret);
 		audio_notifer_disable_service(AUDIO_NOTIFIER_PDR_SERVICE);

@@ -234,7 +234,7 @@ static bool wdsp_glink_notify_rx_intent_req(void *handle, const void *priv,
 
 	mutex_lock(&ch->mutex);
 	rc = glink_queue_rx_intent(ch->handle, ch, req_size);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(wpriv->dev, "%s: Failed to queue rx intent, rc = %d\n",
 			__func__, rc);
 		mutex_unlock(&ch->mutex);
@@ -309,7 +309,7 @@ static void wdsp_glink_notify_state(void *handle, const void *priv,
 				ch->ch_cfg.intents_size[i]);
 			ret = glink_queue_rx_intent(ch->handle, ch,
 						    ch->ch_cfg.intents_size[i]);
-			if (IS_ERR_VALUE(ret))
+			if (ret < 0)
 				dev_warn(wpriv->dev, "%s: Failed to queue intent %d of size %d\n",
 					 __func__, i,
 					 ch->ch_cfg.intents_size[i]);
@@ -317,7 +317,7 @@ static void wdsp_glink_notify_state(void *handle, const void *priv,
 
 		ret = glink_qos_latency(ch->handle, ch->ch_cfg.latency_in_us,
 					QOS_PKT_SIZE);
-		if (IS_ERR_VALUE(ret))
+		if (ret < 0)
 			dev_warn(wpriv->dev, "%s: Failed to request qos %d for ch %s\n",
 				__func__, ch->ch_cfg.latency_in_us,
 				ch->ch_cfg.name);
@@ -362,7 +362,7 @@ static int wdsp_glink_close_ch(struct wdsp_glink_ch *ch)
 	mutex_lock(&wpriv->glink_mutex);
 	if (ch->handle) {
 		ret = glink_close(ch->handle);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(wpriv->dev, "%s: glink_close is failed, ret = %d\n",
 				 __func__, ret);
 		} else {
@@ -447,7 +447,7 @@ static int wdsp_glink_open_all_ch(struct wdsp_glink_priv *wpriv)
 	for (i = 0; i < wpriv->no_of_channels; i++) {
 		if (wpriv->ch && wpriv->ch[i]) {
 			ret = wdsp_glink_open_ch(wpriv->ch[i]);
-			if (IS_ERR_VALUE(ret))
+			if (ret < 0)
 				goto err_open;
 		}
 	}
@@ -627,7 +627,7 @@ static void wdsp_glink_tx_buf_work(struct work_struct *work)
 		ret = glink_tx(ch->handle, tx_buf,
 			       cpkt->payload, cpkt->payload_size,
 			       GLINK_TX_REQ_INTENT);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(wpriv->dev, "%s: glink tx failed, ret = %d\n",
 				__func__, ret);
 			/*
@@ -774,7 +774,7 @@ static ssize_t wdsp_glink_write(struct file *file, const char __user *buf,
 	case WDSP_REG_PKT:
 		ret = wdsp_glink_ch_info_init(wpriv,
 					(struct wdsp_reg_pkt *)wpkt->payload);
-		if (IS_ERR_VALUE(ret))
+		if (ret < 0)
 			dev_err(wpriv->dev, "%s: glink register failed, ret = %d\n",
 				__func__, ret);
 		kfree(tx_buf);
@@ -1009,7 +1009,7 @@ static int wdsp_glink_probe(struct platform_device *pdev)
 
 	ret = alloc_chrdev_region(&wdev->dev_num, 0, MINOR_NUMBER_COUNT,
 				  WDSP_GLINK_DRIVER_NAME);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(&pdev->dev, "%s: Failed to alloc char dev, err = %d\n",
 			__func__, ret);
 		goto err_chrdev;
@@ -1034,7 +1034,7 @@ static int wdsp_glink_probe(struct platform_device *pdev)
 
 	cdev_init(&wdev->cdev, &wdsp_glink_fops);
 	ret = cdev_add(&wdev->cdev, wdev->dev_num, MINOR_NUMBER_COUNT);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(&pdev->dev, "%s: Failed to register char dev, err = %d\n",
 			__func__, ret);
 		goto err_cdev_add;

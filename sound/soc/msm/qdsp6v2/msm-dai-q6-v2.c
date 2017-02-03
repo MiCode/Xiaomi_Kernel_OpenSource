@@ -771,11 +771,11 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 			__func__, dai->id);
 
 	rc = afe_close(aux_dai_data->rx_pid); /* can block */
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		dev_err(dai->dev, "fail to close PCM_RX  AFE port\n");
 
 	rc = afe_close(aux_dai_data->tx_pid);
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		dev_err(dai->dev, "fail to close AUX PCM TX port\n");
 
 	msm_dai_q6_auxpcm_set_clk(aux_dai_data, aux_dai_data->rx_pid, false);
@@ -826,7 +826,7 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 			__func__, dai->id);
 
 	rc = afe_q6_interface_prepare();
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(dai->dev, "fail to open AFE APR\n");
 		goto fail;
 	}
@@ -978,10 +978,10 @@ static int msm_dai_q6_dai_auxpcm_remove(struct snd_soc_dai *dai)
 	if (test_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status) ||
 	    test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status)) {
 		rc = afe_close(aux_dai_data->rx_pid); /* can block */
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to close AUXPCM RX AFE port\n");
 		rc = afe_close(aux_dai_data->tx_pid);
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to close AUXPCM TX AFE port\n");
 		clear_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status);
 		clear_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status);
@@ -1273,8 +1273,7 @@ static void msm_dai_q6_spdif_shutdown(struct snd_pcm_substream *substream,
 	}
 
 	rc = afe_close(dai->id);
-
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		dev_err(dai->dev, "fail to close AFE port\n");
 
 	pr_debug("%s: dai_data->status_mask = %ld\n", __func__,
@@ -1290,14 +1289,10 @@ static int msm_dai_q6_spdif_prepare(struct snd_pcm_substream *substream,
 	struct msm_dai_q6_spdif_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	int rc = 0;
 
-	if (IS_ERR_VALUE(rc)) {
-		dev_err(dai->dev, "%s: clk_config failed", __func__);
-		return rc;
-	}
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		rc = afe_spdif_port_start(dai->id, &dai_data->spdif_port,
 				dai_data->rate);
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to open AFE port 0x%x\n",
 					dai->id);
 		else
@@ -1372,8 +1367,7 @@ static int msm_dai_q6_spdif_dai_remove(struct snd_soc_dai *dai)
 	/* If AFE port is still up, close it */
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		rc = afe_close(dai->id); /* can block */
-
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to close AFE port\n");
 
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
@@ -1441,7 +1435,7 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 			rc = afe_port_start(dai->id, &dai_data->port_config,
 						dai_data->rate);
 		}
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to open AFE port 0x%x\n",
 				dai->id);
 		else
@@ -1808,8 +1802,7 @@ static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		pr_debug("%s: stop pseudo port:%d\n", __func__,  dai->id);
 		rc = afe_close(dai->id); /* can block */
-
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to close AFE port\n");
 		pr_debug("%s: dai_data->status_mask = %ld\n", __func__,
 			*dai_data->status_mask);
@@ -2374,7 +2367,7 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 				 dai_data));
 		break;
 	}
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		dev_err(dai->dev, "%s: err add config ctl, DAI = %s\n",
 			__func__, dai->name);
 
@@ -2393,8 +2386,7 @@ static int msm_dai_q6_dai_remove(struct snd_soc_dai *dai)
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		pr_debug("%s: stop pseudo port:%d\n", __func__,  dai->id);
 		rc = afe_close(dai->id); /* can block */
-
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to close AFE port\n");
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
 	}
@@ -3381,8 +3373,7 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 		kcontrol = snd_ctl_new1(ctrl,
 					&mi2s_dai_data->rx_dai.mi2s_dai_data);
 		rc = snd_ctl_add(dai->component->card->snd_card, kcontrol);
-
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(dai->dev, "%s: err add RX fmt ctl DAI = %s\n",
 				__func__, dai->name);
 			goto rtn;
@@ -3409,8 +3400,7 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				snd_ctl_new1(ctrl,
 				&mi2s_dai_data->tx_dai.mi2s_dai_data));
-
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			if (kcontrol)
 				snd_ctl_remove(dai->component->card->snd_card,
 						kcontrol);
@@ -3434,7 +3424,7 @@ static int msm_dai_q6_dai_mi2s_remove(struct snd_soc_dai *dai)
 	if (test_bit(STATUS_PORT_STARTED,
 		     mi2s_dai_data->rx_dai.mi2s_dai_data.status_mask)) {
 		rc = afe_close(MI2S_RX); /* can block */
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to close MI2S_RX port\n");
 		clear_bit(STATUS_PORT_STARTED,
 			  mi2s_dai_data->rx_dai.mi2s_dai_data.status_mask);
@@ -3442,7 +3432,7 @@ static int msm_dai_q6_dai_mi2s_remove(struct snd_soc_dai *dai)
 	if (test_bit(STATUS_PORT_STARTED,
 		     mi2s_dai_data->tx_dai.mi2s_dai_data.status_mask)) {
 		rc = afe_close(MI2S_TX); /* can block */
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to close MI2S_TX port\n");
 		clear_bit(STATUS_PORT_STARTED,
 			  mi2s_dai_data->tx_dai.mi2s_dai_data.status_mask);
@@ -3597,8 +3587,7 @@ static int msm_dai_q6_mi2s_prepare(struct snd_pcm_substream *substream,
 		 */
 		rc = afe_port_start(port_id, &dai_data->port_config,
 				    dai_data->rate);
-
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to open AFE port 0x%x\n",
 				dai->id);
 		else
@@ -3819,7 +3808,7 @@ static void msm_dai_q6_mi2s_shutdown(struct snd_pcm_substream *substream,
 
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		rc = afe_close(port_id);
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to close AFE port\n");
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
 	}
@@ -4292,8 +4281,7 @@ static int msm_dai_q6_mi2s_platform_data_validation(
 
 	rc = msm_dai_q6_mi2s_get_lineconfig(mi2s_pdata->rx_sd_lines,
 					    &sd_line, &ch_cnt);
-
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(&pdev->dev, "invalid MI2S RX sd line config\n");
 		goto rtn;
 	}
@@ -4310,8 +4298,7 @@ static int msm_dai_q6_mi2s_platform_data_validation(
 	}
 	rc = msm_dai_q6_mi2s_get_lineconfig(mi2s_pdata->tx_sd_lines,
 					    &sd_line, &ch_cnt);
-
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(&pdev->dev, "invalid MI2S TX sd line config\n");
 		goto rtn;
 	}
@@ -4411,13 +4398,12 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 
 	rc = msm_dai_q6_mi2s_platform_data_validation(pdev,
 			&msm_dai_q6_mi2s_dai[mi2s_intf]);
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		goto free_dai_data;
 
 	rc = snd_soc_register_component(&pdev->dev, &msm_q6_mi2s_dai_component,
 	&msm_dai_q6_mi2s_dai[mi2s_intf], 1);
-
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		goto err_register;
 	return 0;
 
@@ -5771,8 +5757,7 @@ static int msm_dai_q6_dai_tdm_probe(struct snd_soc_dai *dai)
 					tdm_dai_data);
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 data_format_kcontrol);
-
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(dai->dev, "%s: err add data format ctrl DAI = %s\n",
 				__func__, dai->name);
 			goto rtn;
@@ -5784,8 +5769,7 @@ static int msm_dai_q6_dai_tdm_probe(struct snd_soc_dai *dai)
 					tdm_dai_data);
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 header_type_kcontrol);
-
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			if (data_format_kcontrol)
 				snd_ctl_remove(dai->component->card->snd_card,
 					data_format_kcontrol);
@@ -5800,8 +5784,7 @@ static int msm_dai_q6_dai_tdm_probe(struct snd_soc_dai *dai)
 					tdm_dai_data);
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 header_kcontrol);
-
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			if (header_type_kcontrol)
 				snd_ctl_remove(dai->component->card->snd_card,
 					header_type_kcontrol);
@@ -5842,7 +5825,7 @@ static int msm_dai_q6_dai_tdm_remove(struct snd_soc_dai *dai)
 	/* If AFE port is still up, close it */
 	if (test_bit(STATUS_PORT_STARTED, tdm_dai_data->status_mask)) {
 		rc = afe_close(dai->id); /* can block */
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(dai->dev, "%s: fail to close AFE port 0x%x\n",
 				__func__, dai->id);
 		}
@@ -5853,13 +5836,13 @@ static int msm_dai_q6_dai_tdm_remove(struct snd_soc_dai *dai)
 		if (atomic_read(group_ref) == 0) {
 			rc = afe_port_group_enable(group_id,
 				NULL, false);
-			if (IS_ERR_VALUE(rc)) {
+			if (rc < 0) {
 				dev_err(dai->dev, "fail to disable AFE group 0x%x\n",
 					group_id);
 			}
 			rc = msm_dai_q6_tdm_set_clk(tdm_dai_data,
 				dai->id, false);
-			if (IS_ERR_VALUE(rc)) {
+			if (rc < 0) {
 				dev_err(dai->dev, "%s: fail to disable AFE clk 0x%x\n",
 					__func__, dai->id);
 			}
@@ -6307,14 +6290,14 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 			 */
 			rc = msm_dai_q6_tdm_set_clk(dai_data,
 				dai->id, true);
-			if (IS_ERR_VALUE(rc)) {
+			if (rc < 0) {
 				dev_err(dai->dev, "%s: fail to enable AFE clk 0x%x\n",
 					__func__, dai->id);
 				goto rtn;
 			}
 			rc = afe_port_group_enable(group_id,
 				&dai_data->group_cfg, true);
-			if (IS_ERR_VALUE(rc)) {
+			if (rc < 0) {
 				dev_err(dai->dev, "%s: fail to enable AFE group 0x%x\n",
 					__func__, group_id);
 				goto rtn;
@@ -6323,7 +6306,7 @@ static int msm_dai_q6_tdm_prepare(struct snd_pcm_substream *substream,
 
 		rc = afe_tdm_port_start(dai->id, &dai_data->port_cfg,
 			dai_data->rate);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			if (atomic_read(group_ref) == 0) {
 				afe_port_group_enable(group_id,
 					NULL, false);
@@ -6371,7 +6354,7 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		rc = afe_close(dai->id);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			dev_err(dai->dev, "%s: fail to close AFE port 0x%x\n",
 				__func__, dai->id);
 		}
@@ -6382,13 +6365,13 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 		if (atomic_read(group_ref) == 0) {
 			rc = afe_port_group_enable(group_id,
 				NULL, false);
-			if (IS_ERR_VALUE(rc)) {
+			if (rc < 0) {
 				dev_err(dai->dev, "%s: fail to disable AFE group 0x%x\n",
 					__func__, group_id);
 			}
 			rc = msm_dai_q6_tdm_set_clk(dai_data,
 				dai->id, false);
-			if (IS_ERR_VALUE(rc)) {
+			if (rc < 0) {
 				dev_err(dai->dev, "%s: fail to disable AFE clk 0x%x\n",
 					__func__, dai->id);
 			}

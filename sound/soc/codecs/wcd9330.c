@@ -5765,8 +5765,7 @@ static void tomtom_set_rxsb_port_format(struct snd_pcm_hw_params *params,
 
 	list_for_each_entry(ch, &cdc_dai->wcd9xxx_ch_list, list) {
 		port = wcd9xxx_get_slave_port(ch->ch_num);
-
-		if (IS_ERR_VALUE(port) ||
+		if (port < 0 ||
 		    !TOMTOM_VALIDATE_RX_SBPORT_RANGE(port)) {
 			dev_warn(codec->dev,
 				 "%s: invalid port ID %d returned for RX DAI\n",
@@ -5825,8 +5824,7 @@ static void tomtom_set_tx_sb_port_format(struct snd_pcm_hw_params *params,
 
 	list_for_each_entry(ch, &cdc_dai->wcd9xxx_ch_list, list) {
 		port = wcd9xxx_get_slave_port(ch->ch_num);
-
-		if (IS_ERR_VALUE(port) ||
+		if (port < 0 ||
 		    !TOMTOM_VALIDATE_TX_SBPORT_RANGE(port)) {
 			dev_warn(codec->dev,
 				 "%s: invalid port ID %d returned for TX DAI\n",
@@ -7300,8 +7298,7 @@ static int tomtom_handle_pdata(struct tomtom_priv *tomtom)
 				      pdata->micbias.cfilt2_mv);
 	k3 = wcd9xxx_resmgr_get_k_val(&tomtom->resmgr,
 				      pdata->micbias.cfilt3_mv);
-
-	if (IS_ERR_VALUE(k1) || IS_ERR_VALUE(k2) || IS_ERR_VALUE(k3)) {
+	if (k1 < 0 || k2 < 0 || k3 < 0) {
 		rc = -EINVAL;
 		goto done;
 	}
@@ -8467,7 +8464,7 @@ static int tomtom_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	snd_soc_cache_sync(codec);
 
 	ret = tomtom_handle_pdata(tomtom);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		pr_err("%s: bad pdata\n", __func__);
 
 	tomtom_init_slim_slave_cfg(codec);
@@ -8875,7 +8872,7 @@ static int tomtom_codec_probe(struct snd_soc_component *component)
 	tomtom_codec_init_reg(codec);
 
 	ret = tomtom_handle_pdata(tomtom);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		pr_err("%s: bad pdata\n", __func__);
 		goto err_hwdep;
 	}

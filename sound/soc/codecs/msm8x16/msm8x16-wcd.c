@@ -1487,7 +1487,7 @@ static struct msm8x16_wcd_pdata *msm8x16_wcd_populate_dt_pdata(
 		return NULL;
 
 	static_cnt = of_property_count_strings(dev->of_node, static_prop_name);
-	if (IS_ERR_VALUE(static_cnt)) {
+	if (static_cnt < 0) {
 		dev_err(dev, "%s: Failed to get static supplies %d\n", __func__,
 			static_cnt);
 		ret = -EINVAL;
@@ -1496,7 +1496,7 @@ static struct msm8x16_wcd_pdata *msm8x16_wcd_populate_dt_pdata(
 
 	/* On-demand supply list is an optional property */
 	ond_cnt = of_property_count_strings(dev->of_node, ond_prop_name);
-	if (IS_ERR_VALUE(ond_cnt))
+	if (ond_cnt < 0)
 		ond_cnt = 0;
 
 	WARN_ON(static_cnt <= 0 || ond_cnt < 0);

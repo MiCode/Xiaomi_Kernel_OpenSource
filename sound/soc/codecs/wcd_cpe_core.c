@@ -176,7 +176,7 @@ static int wcd_cpe_get_sfr_dump(struct wcd_cpe_core *core)
 		__func__, core->sfr_buf_size);
 
 	rc = cpe_svc_ramdump(core->cpe_handle, &dump_seg);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(core->dev,
 			"%s: Failed to read cpe sfr_dump, err = %d\n",
 			__func__, rc);
@@ -216,7 +216,7 @@ static int wcd_cpe_collect_ramdump(struct wcd_cpe_core *core)
 		__func__);
 
 	rc = cpe_svc_ramdump(core->cpe_handle, &dump_seg);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(core->dev,
 			"%s: Failed to read CPE ramdump, err = %d\n",
 			__func__, rc);
@@ -473,7 +473,7 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
 	wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	snprintf(mdt_name, sizeof(mdt_name), "%s.mdt", core->fname);
 	ret = request_firmware(&fw, mdt_name, core->dev);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(core->dev, "firmware %s not found\n", mdt_name);
 		return ret;
 	}
@@ -491,7 +491,7 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
 	if (load_type == ELF_FLAG_EXECUTE) {
 		/* Reset CPE first */
 		ret = cpe_svc_reset(core->cpe_handle);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(core->dev,
 				"%s: Failed to reset CPE with error %d\n",
 				__func__, ret);
@@ -534,7 +534,7 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
 		if (load_segment) {
 			ret = wcd_cpe_load_each_segment(core,
 						phdr_idx, phdr);
-			if (IS_ERR_VALUE(ret)) {
+			if (ret < 0) {
 				dev_err(core->dev,
 					"Failed to load segment %d, aborting img dload\n",
 					phdr_idx);
@@ -666,7 +666,7 @@ static irqreturn_t svass_engine_irq(int irq, void *data)
 	}
 
 	ret = cpe_svc_process_irq(core->cpe_handle, CPE_IRQ_OUTBOX_IRQ);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(core->dev,
 			"%s: Error processing irq from cpe_Services\n",
 			__func__);
@@ -822,7 +822,7 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 	if (enable) {
 		/* Reset CPE first */
 		ret = cpe_svc_reset(core->cpe_handle);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(core->dev,
 				"%s: CPE Reset failed, error = %d\n",
 				__func__, ret);
@@ -850,7 +850,7 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 		}
 
 		ret = wcd_cpe_enable_cpe_clks(core, true);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(core->dev,
 				"%s: CPE clk enable failed, err = %d\n",
 				__func__, ret);
@@ -859,7 +859,7 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 
 		ret = cpe_svc_boot(core->cpe_handle,
 				   core->cpe_debug_mode);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(core->dev,
 				"%s: Failed to boot CPE\n",
 				__func__);
@@ -899,7 +899,7 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 		}
 
 		ret = cpe_svc_shutdown(core->cpe_handle);
-		if (IS_ERR_VALUE(ret)) {
+		if (ret < 0) {
 			dev_err(core->dev,
 				"%s: CPE shutdown failed, error %d\n",
 				__func__, ret);
@@ -1036,7 +1036,7 @@ static void wcd_cpe_ssr_work(struct work_struct *work)
 
 	if (core->cpe_users > 0) {
 		rc = cpe_svc_process_irq(core->cpe_handle, irq);
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			/*
 			 * Even if process_irq fails,
 			 * wait for cpe to move to offline state
@@ -1826,7 +1826,7 @@ static ssize_t cpe_ftm_test_trigger(struct file *file,
 
 	/* Enable the clks for cpe */
 	ret = wcd_cpe_enable_cpe_clks(core, true);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(core->dev,
 			"%s: CPE clk enable failed, err = %d\n",
 			__func__, ret);
@@ -1835,7 +1835,7 @@ static ssize_t cpe_ftm_test_trigger(struct file *file,
 
 	/* Get the CPE_STATUS */
 	ret = cpe_svc_ftm_test(core->cpe_handle, &cpe_ftm_test_status);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(core->dev,
 			"%s: CPE FTM test failed, err = %d\n",
 			__func__, ret);
@@ -1847,7 +1847,7 @@ static ssize_t cpe_ftm_test_trigger(struct file *file,
 
 	/* Disable the clks for cpe */
 	ret = wcd_cpe_enable_cpe_clks(core, false);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(core->dev,
 			"%s: CPE clk disable failed, err = %d\n",
 			__func__, ret);
@@ -2007,7 +2007,7 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 
 	core_d = core;
 	ret = wcd_cpe_cal_init(core);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(core->dev,
 			"%s: CPE calibration init failed, err = %d\n",
 			__func__, ret);

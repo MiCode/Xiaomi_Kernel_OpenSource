@@ -517,7 +517,7 @@ static int  __init avtimer_init(void)
 	s32 rc;
 
 	rc = platform_driver_register(&dev_avtimer_driver);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		pr_err("%s: platform_driver_register failed\n", __func__);
 		goto error_platform_driver;
 	}

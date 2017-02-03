@@ -1044,7 +1044,7 @@ static int tavil_codec_enable_anc(struct snd_soc_dapm_widget *w,
 		} else {
 			filename = "WCD934X/WCD934X_anc.bin";
 			ret = request_firmware(&fw, filename, codec->dev);
-			if (IS_ERR_VALUE(ret)) {
+			if (ret < 0) {
 				dev_err(codec->dev, "%s: Failed to acquire ANC data: %d\n",
 					__func__, ret);
 				return ret;
@@ -2564,7 +2564,7 @@ static int __tavil_codec_enable_mad(struct snd_soc_codec *codec, bool enable)
 		snd_soc_update_bits(codec, WCD934X_SOC_MAD_AUDIO_CTL_2,
 				    0x03, 0x03);
 		rc = tavil_codec_config_mad(codec);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			snd_soc_update_bits(codec, WCD934X_SOC_MAD_AUDIO_CTL_2,
 					    0x03, 0x00);
 			goto done;
@@ -2629,7 +2629,7 @@ static int tavil_codec_cpe_mad_ctl(struct snd_soc_dapm_widget *w,
 
 		snd_soc_update_bits(codec, WCD934X_CPE_SS_SVA_CFG, 0x20, 0x20);
 		rc = __tavil_codec_enable_mad(codec, true);
-		if (IS_ERR_VALUE(rc)) {
+		if (rc < 0) {
 			tavil->mad_switch_cnt--;
 			goto done;
 		}
@@ -4136,7 +4136,7 @@ int tavil_mbhc_micb_adjust_voltage(struct snd_soc_codec *codec,
 	cur_vout_ctl = micb_val & 0x3F;
 
 	req_vout_ctl = wcd934x_get_micb_vout_ctl_val(req_volt);
-	if (IS_ERR_VALUE(req_vout_ctl)) {
+	if (req_vout_ctl < 0) {
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -8538,9 +8538,8 @@ static int tavil_handle_pdata(struct tavil_priv *tavil,
 	vout_ctl_2 = wcd934x_get_micb_vout_ctl_val(pdata->micbias.micb2_mv);
 	vout_ctl_3 = wcd934x_get_micb_vout_ctl_val(pdata->micbias.micb3_mv);
 	vout_ctl_4 = wcd934x_get_micb_vout_ctl_val(pdata->micbias.micb4_mv);
-
-	if (IS_ERR_VALUE(vout_ctl_1) || IS_ERR_VALUE(vout_ctl_2) ||
-	    IS_ERR_VALUE(vout_ctl_3) || IS_ERR_VALUE(vout_ctl_4)) {
+	if (vout_ctl_1 < 0 || vout_ctl_2 < 0 ||
+	    vout_ctl_3 < 0 || vout_ctl_4 < 0) {
 		rc = -EINVAL;
 		goto done;
 	}
@@ -8822,7 +8821,7 @@ static int tavil_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = tavil_handle_pdata(tavil, pdata);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		dev_err(codec->dev, "%s: invalid pdata\n", __func__);
 
 	/* Initialize MBHC module */
@@ -8906,7 +8905,7 @@ static int tavil_soc_codec_probe(struct snd_soc_component *component)
 
 	ret = wcd_cal_create_hwdep(tavil->fw_data,
 				   WCD9XXX_CODEC_HWDEP_NODE, codec);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(codec->dev, "%s hwdep failed %d\n", __func__, ret);
 		goto err_hwdep;
 	}
@@ -8926,7 +8925,7 @@ static int tavil_soc_codec_probe(struct snd_soc_component *component)
 
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = tavil_handle_pdata(tavil, pdata);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		dev_err(codec->dev, "%s: bad pdata\n", __func__);
 		goto err_hwdep;
 	}
@@ -9316,7 +9315,7 @@ static void tavil_codec_add_spi_device(struct tavil_priv *tavil,
 	/* Read the master bus num from DT node */
 	rc = of_property_read_u32(node, "qcom,master-bus-num",
 				  &prop_value);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(tavil->dev, "%s: prop %s not found in node %s",
 			__func__, "qcom,master-bus-num", node->full_name);
 		goto done;
@@ -9348,7 +9347,7 @@ static void tavil_codec_add_spi_device(struct tavil_priv *tavil,
 
 	rc = of_property_read_u32(node, "qcom,chip-select",
 				  &prop_value);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(tavil->dev, "%s: prop %s not found in node %s",
 			__func__, "qcom,chip-select", node->full_name);
 		goto err_dt_parse;
@@ -9357,7 +9356,7 @@ static void tavil_codec_add_spi_device(struct tavil_priv *tavil,
 
 	rc = of_property_read_u32(node, "qcom,max-frequency",
 				  &prop_value);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(tavil->dev, "%s: prop %s not found in node %s",
 			__func__, "qcom,max-frequency", node->full_name);
 		goto err_dt_parse;
@@ -9367,7 +9366,7 @@ static void tavil_codec_add_spi_device(struct tavil_priv *tavil,
 	spi->dev.of_node = node;
 
 	rc = spi_add_device(spi);
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		dev_err(tavil->dev, "%s: spi_add_device failed\n", __func__);
 		goto err_dt_parse;
 	}

@@ -222,8 +222,7 @@ static void msm_dai_q6_hdmi_shutdown(struct snd_pcm_substream *substream,
 	}
 
 	rc = afe_close(dai->id); /* can block */
-
-	if (IS_ERR_VALUE(rc))
+	if (rc < 0)
 		dev_err(dai->dev, "fail to close AFE port\n");
 
 	pr_debug("%s: dai_data->status_mask = %ld\n", __func__,
@@ -246,7 +245,7 @@ static int msm_dai_q6_hdmi_prepare(struct snd_pcm_substream *substream,
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		rc = afe_port_start(dai->id, &dai_data->port_config,
 				    dai_data->rate);
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to open AFE port %x\n",
 				dai->id);
 		else
@@ -351,8 +350,7 @@ static int msm_dai_q6_hdmi_dai_remove(struct snd_soc_dai *dai)
 	/* If AFE port is still up, close it */
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		rc = afe_close(dai->id); /* can block */
-
-		if (IS_ERR_VALUE(rc))
+		if (rc < 0)
 			dev_err(dai->dev, "fail to close AFE port\n");
 
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);

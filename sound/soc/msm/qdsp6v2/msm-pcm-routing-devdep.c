@@ -157,7 +157,7 @@ int msm_pcm_routing_hwdep_new(struct snd_soc_pcm_runtime *runtime,
 			__func__, msm_bedais[dai_link->id].name);
 		return rc;
 	}
-	if (IS_ERR_VALUE(rc)) {
+	if (rc < 0) {
 		pr_err("%s: hwdep intf failed to create %s rc %d\n", __func__,
 			msm_bedais[dai_link->id].name, rc);
 		return rc;
