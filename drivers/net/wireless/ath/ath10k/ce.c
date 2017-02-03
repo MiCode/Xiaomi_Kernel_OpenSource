@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
- * Copyright (c) 2011-2013 Qualcomm Atheros, Inc.
+ * Copyright (c) 2011-2013, 2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -88,6 +88,20 @@ static inline u32 ath10k_ce_src_ring_read_index_get(struct ath10k *ar,
 						    u32 ce_ctrl_addr)
 {
 	return ar->bus_read32(ar, ce_ctrl_addr + CURRENT_SRRI_ADDRESS);
+}
+
+static inline void ath10k_ce_shadow_src_ring_write_index_set(struct ath10k *ar,
+							     u32 ce_ctrl_addr,
+							     unsigned int n)
+{
+	ar->bus_write32(ar, shadow_sr_wr_ind_addr(ar, ce_ctrl_addr), n);
+}
+
+static inline void ath10k_ce_shadow_dest_ring_write_index_set(struct ath10k *ar,
+							      u32 ce_ctrl_addr,
+							      unsigned int n)
+{
+	ar->bus_write32(ar, shadow_dst_wr_ind_addr(ar, ce_ctrl_addr), n);
 }
 
 static inline void ath10k_ce_src_ring_base_addr_set(struct ath10k *ar,
@@ -259,6 +273,72 @@ static inline void ath10k_ce_engine_int_status_clear(struct ath10k *ar,
 	ar->bus_write32(ar, ce_ctrl_addr + HOST_IS_ADDRESS, mask);
 }
 
+u32 shadow_sr_wr_ind_addr(struct ath10k *ar, u32 ctrl_addr)
+{
+	u32 addr = 0;
+	u32 ce = COPY_ENGINE_ID(ctrl_addr);
+
+	switch (ce) {
+	case 0:
+		addr = SHADOW_VALUE0;
+		break;
+	case 3:
+		addr = SHADOW_VALUE3;
+		break;
+	case 4:
+		addr = SHADOW_VALUE4;
+		break;
+	case 5:
+		addr = SHADOW_VALUE5;
+		break;
+	case 7:
+		addr = SHADOW_VALUE7;
+		break;
+	default:
+		ath10k_err(ar, "invalid CE ctrl_addr (CE=%d)", ce);
+		WARN_ON(1);
+	}
+	return addr;
+}
+
+u32 shadow_dst_wr_ind_addr(struct ath10k *ar, u32 ctrl_addr)
+{
+	u32 addr = 0;
+	u32 ce = COPY_ENGINE_ID(ctrl_addr);
+
+	switch (ce) {
+	case 1:
+		addr = SHADOW_VALUE13;
+		break;
+	case 2:
+		addr = SHADOW_VALUE14;
+		break;
+	case 5:
+		addr = SHADOW_VALUE17;
+		break;
+	case 7:
+		addr = SHADOW_VALUE19;
+		break;
+	case 8:
+		addr = SHADOW_VALUE20;
+		break;
+	case 9:
+		addr = SHADOW_VALUE21;
+		break;
+	case 10:
+		addr = SHADOW_VALUE22;
+		break;
+	case 11:
+		addr = SHADOW_VALUE23;
+		break;
+	default:
+		ath10k_err(ar, "invalid CE ctrl_addr (CE=%d)", ce);
+		WARN_ON(1);
+	}
+
+	return addr;
+}
+
 /*
  * Guts of ath10k_ce_send, used by both ath10k_ce_send and
  * ath10k_ce_sendlist_send.
@@ -325,8 +405,14 @@ int ath10k_ce_send_nolock(struct ath10k_ce_pipe *ce_state,
 	write_index = CE_RING_IDX_INCR(nentries_mask, write_index);
 
 	/* WORKAROUND */
-	if (!(flags & CE_SEND_FLAG_GATHER))
-		ath10k_ce_src_ring_write_index_set(ar, ctrl_addr, write_index);
+	if (!(flags & CE_SEND_FLAG_GATHER)) {
+		if (QCA_REV_WCN3990(ar))
+			ath10k_ce_shadow_src_ring_write_index_set(ar, ctrl_addr,
+								  write_index);
+		else
+			ath10k_ce_src_ring_write_index_set(ar, ctrl_addr,
+							   write_index);
+	}
 
 	src_ring->write_index = write_index;
 exit:
@@ -957,6 +1043,24 @@ ath10k_ce_alloc_src_ring(struct ath10k *ar, unsigned int ce_id,
 			src_ring->base_addr_ce_space_unaligned,
 			CE_DESC_RING_ALIGN);
 
+	src_ring->shadow_base_unaligned = kzalloc(
+					  nentries * sizeof(struct ce_desc),
+					  GFP_KERNEL);
+
+	if (!src_ring->shadow_base_unaligned) {
+		dma_free_coherent(ar->dev,
+				  (nentries * sizeof(struct ce_desc) +
+				   CE_DESC_RING_ALIGN),
+				   src_ring->base_addr_owner_space_unaligned,
+				   base_addr);
+		kfree(src_ring);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	src_ring->shadow_base = (struct ce_desc *)PTR_ALIGN(
+				src_ring->shadow_base_unaligned,
+				CE_DESC_RING_ALIGN);
+
 	return src_ring;
 }
 
@@ -1135,6 +1239,7 @@ void ath10k_ce_free_pipe(struct ath10k *ar, int ce_id)
 			((struct ath10k_ce_pipe *)ar->ce_states + ce_id);
 
 	if (ce_state->src_ring) {
+		kfree(ce_state->src_ring->shadow_base_unaligned);
 		dma_free_coherent(ar->dev,
 				  (ce_state->src_ring->nentries *
 				   sizeof(struct ce_desc) +
