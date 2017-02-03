@@ -501,21 +501,21 @@ static void handle_main_charge_type(struct pl_data *chip)
 		return;
 	}
 
-	/* handle fast/taper charge entry */
-	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER
-			|| pval.intval == POWER_SUPPLY_CHARGE_TYPE_FAST) {
-		pl_dbg(chip, PR_PARALLEL, "chg_state enabling parallel\n");
-		vote(chip->pl_disable_votable, CHG_STATE_VOTER, false, 0);
-		chip->charge_type = pval.intval;
-		return;
-	}
-
 	/* handle taper charge entry */
 	if (chip->charge_type == POWER_SUPPLY_CHARGE_TYPE_FAST
 		&& (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER)) {
 		chip->charge_type = pval.intval;
 		pl_dbg(chip, PR_PARALLEL, "taper entry scheduling work\n");
 		schedule_delayed_work(&chip->pl_taper_work, 0);
+		return;
+	}
+
+	/* handle fast/taper charge entry */
+	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER
+			|| pval.intval == POWER_SUPPLY_CHARGE_TYPE_FAST) {
+		pl_dbg(chip, PR_PARALLEL, "chg_state enabling parallel\n");
+		vote(chip->pl_disable_votable, CHG_STATE_VOTER, false, 0);
+		chip->charge_type = pval.intval;
 		return;
 	}
 
