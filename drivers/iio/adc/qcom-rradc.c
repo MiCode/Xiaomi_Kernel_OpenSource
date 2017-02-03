@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -165,10 +165,19 @@
 
 #define FAB_ID_GF				0x30
 #define FAB_ID_SMIC				0x11
+#define FAB_ID_660_GF				0x0
+#define FAB_ID_660_TSMC				0x2
+#define FAB_ID_660_MX				0x3
 #define FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV		1303168
 #define FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C	3784
 #define FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV	1338433
 #define FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C	3655
+#define FG_ADC_RR_CHG_TEMP_660_GF_OFFSET_UV	1309001
+#define FG_RR_CHG_TEMP_660_GF_SLOPE_UV_PER_C	3403
+#define FG_ADC_RR_CHG_TEMP_660_SMIC_OFFSET_UV	1295898
+#define FG_RR_CHG_TEMP_660_SMIC_SLOPE_UV_PER_C	3596
+#define FG_ADC_RR_CHG_TEMP_660_MGNA_OFFSET_UV	1314779
+#define FG_RR_CHG_TEMP_660_MGNA_SLOPE_UV_PER_C	3496
 #define FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC	25000
 #define FG_ADC_RR_CHG_THRESHOLD_SCALE		4
 
@@ -388,23 +397,70 @@ static int rradc_post_process_die_temp(struct rradc_chip *chip,
 	return 0;
 }
 
+static int rradc_get_660_fab_coeff(struct rradc_chip *chip,
+		int64_t *offset, int64_t *slope)
+{
+	switch (chip->pmic_fab_id->fab_id) {
+	case FAB_ID_660_GF:
+		*offset = FG_ADC_RR_CHG_TEMP_660_GF_OFFSET_UV;
+		*slope = FG_RR_CHG_TEMP_660_GF_SLOPE_UV_PER_C;
+		break;
+	case FAB_ID_660_TSMC:
+		*offset = FG_ADC_RR_CHG_TEMP_660_SMIC_OFFSET_UV;
+		*slope = FG_RR_CHG_TEMP_660_SMIC_SLOPE_UV_PER_C;
+		break;
+	default:
+		*offset = FG_ADC_RR_CHG_TEMP_660_MGNA_OFFSET_UV;
+		*slope = FG_RR_CHG_TEMP_660_MGNA_SLOPE_UV_PER_C;
+	}
+
+	return 0;
+}
+
+static int rradc_get_8998_fab_coeff(struct rradc_chip *chip,
+		int64_t *offset, int64_t *slope)
+{
+	switch (chip->pmic_fab_id->fab_id) {
+	case FAB_ID_GF:
+		*offset = FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV;
+		*slope = FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C;
+		break;
+	case FAB_ID_SMIC:
+		*offset = FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV;
+		*slope = FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int rradc_post_process_chg_temp_hot(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 adc_code,
 			int *result_millidegc)
 {
 	int64_t uv = 0, offset = 0, slope = 0;
+	int rc = 0;
 
 	if (chip->revid_dev_node) {
-		switch (chip->pmic_fab_id->fab_id) {
-		case FAB_ID_GF:
-			offset = FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV;
-			slope = FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C;
+		switch (chip->pmic_fab_id->pmic_subtype) {
+		case PM660_SUBTYPE:
+			rc = rradc_get_660_fab_coeff(chip, &offset, &slope);
+			if (rc < 0) {
+				pr_err("Unable to get fab id coefficients\n");
+				return -EINVAL;
+			}
 			break;
-		case FAB_ID_SMIC:
-			offset = FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV;
-			slope = FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C;
+		case PMI8998_SUBTYPE:
+			rc = rradc_get_8998_fab_coeff(chip, &offset, &slope);
+			if (rc < 0) {
+				pr_err("Unable to get fab id coefficients\n");
+				return -EINVAL;
+			}
 			break;
 		default:
+			pr_err("No PMIC subtype found\n");
 			return -EINVAL;
 		}
 	} else {
@@ -444,18 +500,26 @@ static int rradc_post_process_chg_temp(struct rradc_chip *chip,
 			int *result_millidegc)
 {
 	int64_t uv = 0, offset = 0, slope = 0;
+	int rc = 0;
 
 	if (chip->revid_dev_node) {
-		switch (chip->pmic_fab_id->fab_id) {
-		case FAB_ID_GF:
-			offset = FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV;
-			slope = FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C;
+		switch (chip->pmic_fab_id->pmic_subtype) {
+		case PM660_SUBTYPE:
+			rc = rradc_get_660_fab_coeff(chip, &offset, &slope);
+			if (rc < 0) {
+				pr_err("Unable to get fab id coefficients\n");
+				return -EINVAL;
+			}
 			break;
-		case FAB_ID_SMIC:
-			offset = FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV;
-			slope = FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C;
+		case PMI8998_SUBTYPE:
+			rc = rradc_get_8998_fab_coeff(chip, &offset, &slope);
+			if (rc < 0) {
+				pr_err("Unable to get fab id coefficients\n");
+				return -EINVAL;
+			}
 			break;
 		default:
+			pr_err("No PMIC subtype found\n");
 			return -EINVAL;
 		}
 	} else {
