@@ -3106,7 +3106,7 @@ static inline u64 freq_policy_load(struct rq *rq, u64 load)
 	case FREQ_REPORT_CPU_LOAD:
 		break;
 	default:
-		WARN_ON_ONCE(1);
+		break;
 	}
 
 	return load;

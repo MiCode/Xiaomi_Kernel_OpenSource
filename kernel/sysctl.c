@@ -128,6 +128,9 @@ static int __maybe_unused four = 4;
 static unsigned long one_ul = 1;
 static int one_hundred = 100;
 static int one_thousand = 1000;
+#ifdef CONFIG_SCHED_HMP
+static int max_freq_reporting_policy = FREQ_REPORT_INVALID_POLICY - 1;
+#endif
 #ifdef CONFIG_PRINTK
 static int ten_thousand = 10000;
 #endif
@@ -297,6 +300,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &zero,
+		.extra2		= &max_freq_reporting_policy,
 	},
 	{
 		.procname	= "sched_freq_inc_notify",
