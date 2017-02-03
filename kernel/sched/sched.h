@@ -2303,7 +2303,6 @@ extern unsigned int  __read_mostly sched_load_granule;
 
 extern u64 sched_ktime_clock(void);
 extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
-extern void clear_boost_kick(int cpu);
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern int update_preferred_cluster(struct related_thread_group *grp,
 			struct task_struct *p, u32 old_load);
@@ -2649,6 +2648,8 @@ extern void update_cpu_cluster_capacity(const cpumask_t *cpus);
 
 extern unsigned long thermal_cap(int cpu);
 
+extern void clear_hmp_request(int cpu);
+
 #else	/* CONFIG_SCHED_WALT */
 
 struct hmp_sched_stats;
@@ -2659,8 +2660,6 @@ static inline bool task_sched_boost(struct task_struct *p)
 {
 	return true;
 }
-
-static inline void clear_boost_kick(int cpu) { }
 
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 
@@ -2780,6 +2779,8 @@ static inline unsigned long thermal_cap(int cpu)
 }
 #endif
 
+static inline void clear_hmp_request(int cpu) { }
+
 #endif	/* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_SCHED_HMP
@@ -2789,7 +2790,6 @@ extern int is_big_task(struct task_struct *p);
 extern unsigned int pct_task_load(struct task_struct *p);
 extern void notify_migration(int src_cpu, int dest_cpu,
 			bool src_cpu_dead, struct task_struct *p);
-extern void clear_hmp_request(int cpu);
 extern void note_task_waking(struct task_struct *p, u64 wallclock);
 extern void
 check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
@@ -2837,6 +2837,8 @@ static inline bool is_short_burst_task(struct task_struct *p)
 	return p->ravg.avg_burst < sysctl_sched_short_burst &&
 	       p->ravg.avg_sleep_time > sysctl_sched_short_sleep;
 }
+
+extern void clear_boost_kick(int cpu);
 #else
 static inline bool energy_aware(void)
 {
@@ -2847,8 +2849,6 @@ static inline int pct_task_load(struct task_struct *p) { return 0; }
 
 static inline void notify_migration(int src_cpu, int dest_cpu,
 			bool src_cpu_dead, struct task_struct *p) { }
-
-static inline void clear_hmp_request(int cpu) { }
 
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
 
@@ -2909,4 +2909,5 @@ inc_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p) { }
 static inline void
 dec_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p) { }
 
+static inline void clear_boost_kick(int cpu) { }
 #endif /* CONFIG_SCHED_HMP */

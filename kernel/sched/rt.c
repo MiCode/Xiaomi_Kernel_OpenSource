@@ -1902,6 +1902,9 @@ retry:
 			 */
 			util = cpu_util(cpu);
 			if (!cpu_overutilized(cpu)) {
+				if (cpu_isolated(cpu))
+					continue;
+
 				if (sched_cpu_high_irqload(cpu))
 					continue;
 

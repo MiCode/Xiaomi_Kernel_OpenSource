@@ -6331,7 +6331,7 @@ static int select_idle_core(struct task_struct *p, struct sched_domain *sd, int 
 				idle = false;
 		}
 
-		if (idle)
+		if (!cpu_isolated(cpu) && idle)
 			return core;
 	}
 
@@ -6355,6 +6355,8 @@ static int select_idle_smt(struct task_struct *p, struct sched_domain *sd, int t
 
 	for_each_cpu(cpu, cpu_smt_mask(target)) {
 		if (!cpumask_test_cpu(cpu, tsk_cpus_allowed(p)))
+			continue;
+		if (cpu_isolated(cpu))
 			continue;
 		if (idle_cpu(cpu))
 			return cpu;
@@ -6408,6 +6410,8 @@ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, int t
 	for_each_cpu_wrap(cpu, sched_domain_span(sd), target, wrap) {
 		if (!cpumask_test_cpu(cpu, tsk_cpus_allowed(p)))
 			continue;
+		if (cpu_isolated(cpu))
+			continue;
 		if (idle_cpu(cpu))
 			break;
 	}
@@ -6433,13 +6437,14 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
 	int best_idle_capacity = INT_MAX;
 
 	if (!sysctl_sched_cstate_aware) {
-		if (idle_cpu(target))
+		if (idle_cpu(target) && !cpu_isolated(target))
 			return target;
 
 		/*
 		 * If the prevous cpu is cache affine and idle, don't be stupid.
 		 */
-		if (i != target && cpus_share_cache(i, target) && idle_cpu(i))
+		if (i != target && cpus_share_cache(i, target) &&
+				idle_cpu(i) && !cpu_isolated(i))
 			return i;
 
 		sd = rcu_dereference(per_cpu(sd_llc, target));
@@ -6477,6 +6482,10 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
 					int idle_idx = idle_get_state_idx(rq);
 					unsigned long new_usage = boosted_task_util(p);
 					unsigned long capacity_orig = capacity_orig_of(i);
+
+					if (cpu_isolated(i))
+						continue;
+
 					if (new_usage > capacity_orig || !idle_cpu(i))
 						goto next;
 
@@ -6491,6 +6500,9 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
 				}
 			} else {
 				for_each_cpu(i, sched_group_cpus(sg)) {
+					if (cpu_isolated(i))
+						continue;
+
 					if (i == target || !idle_cpu(i))
 						goto next;
 				}
@@ -6707,6 +6719,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	long target_cpu_new_util_cum = LONG_MAX;
 	struct cpumask *rtg_target = NULL;
 	bool wake_on_sibling = false;
+	int isolated_candidate = -1;
 	bool need_idle;
 	bool skip_ediff = false;
 
@@ -6752,8 +6765,23 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		 * point.
 		 */
 		do {
+			int max_cap_cpu;
+			cpumask_t avail_cpus;
+
+			/* Are all CPUs isolated in this group? */
+			if (unlikely(!sg->group_weight))
+				continue;
+
+			/* Can this task run on any CPUs of this group? */
+			cpumask_and(&avail_cpus, sched_group_cpus(sg),
+							tsk_cpus_allowed(p));
+			cpumask_andnot(&avail_cpus, &avail_cpus,
+							cpu_isolated_mask);
+			if (cpumask_empty(&avail_cpus))
+				continue;
+
 			/* Assuming all cpus are the same in group */
-			int max_cap_cpu = group_first_cpu(sg);
+			max_cap_cpu = group_first_cpu(sg);
 
 			/*
 			 * Assume smaller max capacity means more energy-efficient.
@@ -6801,7 +6829,16 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 
 		/* Find cpu with sufficient capacity */
 		for_each_cpu_and(i, tsk_cpus_allowed(p), sched_group_cpus(sg_target)) {
+			if (cpu_isolated(i))
+				continue;
+
+			if (isolated_candidate == -1)
+				isolated_candidate = i;
+
 			if (is_reserved(i))
+				continue;
+
+			if (sched_cpu_high_irqload(cpu))
 				continue;
 
 			/*
@@ -6823,9 +6860,6 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 
 			trace_sched_cpu_util(p, i, task_util_boosted, curr_util,
 					     new_util_cum, sync);
-
-			if (sched_cpu_high_irqload(cpu))
-				continue;
 
 			/*
 			 * Ensure minimum capacity to grant the required boost.
@@ -6920,6 +6954,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 					  targeted_cpus))) {
 			if (likely(min_util_cpu != -1))
 				target_cpu = min_util_cpu;
+			else if (cpu_isolated(task_cpu(p)) &&
+					isolated_candidate != -1)
+				target_cpu = isolated_candidate;
 			else
 				target_cpu = task_cpu(p);
 		}
@@ -6951,7 +6988,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		return target_cpu;
 	}
 
-	if (target_cpu != task_cpu(p)) {
+	if (target_cpu != task_cpu(p) && !cpu_isolated(task_cpu(p))) {
 		struct energy_env eenv = {
 			.util_delta	= task_util(p),
 			.src_cpu	= task_cpu(p),

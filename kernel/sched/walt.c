@@ -298,6 +298,29 @@ void sched_account_irqstart(int cpu, struct task_struct *curr, u64 wallclock)
 	}
 }
 
+void clear_hmp_request(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+	unsigned long flags;
+
+	clear_boost_kick(cpu);
+	clear_reserved(cpu);
+	if (rq->push_task) {
+		struct task_struct *push_task = NULL;
+
+		raw_spin_lock_irqsave(&rq->lock, flags);
+		if (rq->push_task) {
+			clear_reserved(rq->push_cpu);
+			push_task = rq->push_task;
+			rq->push_task = NULL;
+		}
+		rq->active_balance = 0;
+		raw_spin_unlock_irqrestore(&rq->lock, flags);
+		if (push_task)
+			put_task_struct(push_task);
+	}
+}
+
 void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock)
 {
