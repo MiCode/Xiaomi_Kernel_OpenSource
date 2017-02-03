@@ -156,9 +156,6 @@ void sched_boost_parse_dt(void)
 	struct device_node *sn;
 	const char *boost_policy;
 
-	if (!sched_enable_hmp)
-		return;
-
 	sn = of_find_node_by_path("/sched-hmp");
 	if (!sn)
 		return;
@@ -174,9 +171,6 @@ void sched_boost_parse_dt(void)
 int sched_set_boost(int type)
 {
 	int ret = 0;
-
-	if (!sched_enable_hmp)
-		return -EINVAL;
 
 	mutex_lock(&boost_mutex);
 
@@ -196,9 +190,6 @@ int sched_boost_handler(struct ctl_table *table, int write,
 	int ret;
 	unsigned int *data = (unsigned int *)table->data;
 	unsigned int old_val;
-
-	if (!sched_enable_hmp)
-		return -EINVAL;
 
 	mutex_lock(&boost_mutex);
 

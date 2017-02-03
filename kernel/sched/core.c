@@ -3025,8 +3025,9 @@ void sched_exec(void)
 	unsigned long flags;
 	int dest_cpu, curr_cpu;
 
-	if (sched_enable_hmp)
-		return;
+#ifdef CONFIG_SCHED_HMP
+	return;
+#endif
 
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
 	curr_cpu = task_cpu(p);
@@ -8215,8 +8216,9 @@ void __init sched_init(void)
 	int i, j;
 	unsigned long alloc_size = 0, ptr;
 
-	if (sched_enable_hmp)
-		pr_info("HMP scheduling enabled.\n");
+#ifdef CONFIG_SCHED_HMP
+	pr_info("HMP scheduling enabled.\n");
+#endif
 
 	BUG_ON(num_possible_cpus() > BITS_PER_LONG);
 

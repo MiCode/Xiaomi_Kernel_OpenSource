@@ -3332,9 +3332,9 @@ void _inc_hmp_sched_stats_fair(struct rq *rq,
 	 * inc/dec_nr_big_task and inc/dec_cumulative_runnable_avg called
 	 * from inc_cfs_rq_hmp_stats() have similar checks), we gain a bit on
 	 * efficiency by short-circuiting for_each_sched_entity() loop when
-	 * !sched_enable_hmp || sched_disable_window_stats
+	 * sched_disable_window_stats
 	 */
-	if (!sched_enable_hmp || sched_disable_window_stats)
+	if (sched_disable_window_stats)
 		return;
 
 	for_each_sched_entity(se) {
@@ -3357,7 +3357,7 @@ _dec_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p, int change_cra)
 	struct sched_entity *se = &p->se;
 
 	/* See comment on efficiency in _inc_hmp_sched_stats_fair */
-	if (!sched_enable_hmp || sched_disable_window_stats)
+	if (sched_disable_window_stats)
 		return;
 
 	for_each_sched_entity(se) {
@@ -3482,8 +3482,7 @@ static inline int migration_needed(struct task_struct *p, int cpu)
 	int nice;
 	struct related_thread_group *grp;
 
-	if (!sched_enable_hmp || p->state != TASK_RUNNING ||
-	    p->nr_cpus_allowed == 1)
+	if (p->state != TASK_RUNNING || p->nr_cpus_allowed == 1)
 		return 0;
 
 	/* No need to migrate task that is about to be throttled */
@@ -7024,8 +7023,9 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 	int want_affine = 0;
 	int sync = wake_flags & WF_SYNC;
 
-	if (sched_enable_hmp)
-		return select_best_cpu(p, prev_cpu, 0, sync);
+#ifdef CONFIG_SCHED_HMP
+	return select_best_cpu(p, prev_cpu, 0, sync);
+#endif
 
 	if (sd_flag & SD_BALANCE_WAKE)
 		want_affine = (!wake_wide(p) && task_fits_max(p, cpu) &&
@@ -9313,8 +9313,9 @@ static struct rq *find_busiest_queue(struct lb_env *env,
 	unsigned long busiest_load = 0, busiest_capacity = 1;
 	int i;
 
-	if (sched_enable_hmp)
-		return find_busiest_queue_hmp(env, group);
+#ifdef CONFIG_SCHED_HMP
+	return find_busiest_queue_hmp(env, group);
+#endif
 
 	for_each_cpu_and(i, sched_group_cpus(group), env->cpus) {
 		unsigned long capacity, wl;
@@ -10120,8 +10121,9 @@ static inline int find_new_ilb(int type)
 {
 	int ilb;
 
-	if (sched_enable_hmp)
-		return find_new_hmp_ilb(type);
+#ifdef CONFIG_SCHED_HMP
+	return find_new_hmp_ilb(type);
+#endif
 
 	ilb = cpumask_first(nohz.idle_cpus_mask);
 
@@ -10496,8 +10498,9 @@ static inline int _nohz_kick_needed(struct rq *rq, int cpu, int *type)
 	if (likely(!atomic_read(&nohz.nr_cpus)))
 		return 0;
 
-	if (sched_enable_hmp)
-		return _nohz_kick_needed_hmp(rq, cpu, type);
+#ifdef CONFIG_SCHED_HMP
+	return _nohz_kick_needed_hmp(rq, cpu, type);
+#endif
 
 	if (time_before(now, nohz.next_balance))
 		return 0;
