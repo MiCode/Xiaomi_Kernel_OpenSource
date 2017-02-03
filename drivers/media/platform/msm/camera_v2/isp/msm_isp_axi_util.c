@@ -3281,19 +3281,14 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		vfe_dev->pdev->id, frame_id, frame_src);
 
 	/*
-	 * If PIX stream is active then RDI path uses SOF frame ID of PIX
-	 * In case of standalone RDI streaming, SOF are used from
-	 * individual intf.
-	 */
-	/*
 	 * If frame_id = 1 then no eof check is needed
 	 */
-	if (((vfe_dev->axi_data.src_info[VFE_PIX_0].active) && ((frame_id !=
+	if (((frame_src == VFE_PIX_0) && ((frame_id !=
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id + vfe_dev->
 		axi_data.src_info[VFE_PIX_0].sof_counter_step) ||
 		(frame_id <= vfe_dev->
 		axi_data.src_info[VFE_PIX_0].eof_id + 1))) ||
-		((!vfe_dev->axi_data.src_info[VFE_PIX_0].active) && (frame_id !=
+		((frame_src != VFE_PIX_0) && (frame_id !=
 		vfe_dev->axi_data.src_info[frame_src].frame_id + vfe_dev->
 		axi_data.src_info[frame_src].sof_counter_step)) ||
 		stream_info->undelivered_request_cnt >= MAX_BUFFERS_IN_HW) {
