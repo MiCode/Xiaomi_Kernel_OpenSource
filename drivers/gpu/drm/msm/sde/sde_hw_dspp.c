@@ -74,6 +74,9 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 				if (!ret)
 					c->ops.setup_gamut =
 						reg_dmav1_setup_dspp_3d_gamutv4;
+				else
+					c->ops.setup_gamut =
+						sde_setup_dspp_3d_gamutv4;
 			}
 			break;
 		case SDE_DSPP_GC:
