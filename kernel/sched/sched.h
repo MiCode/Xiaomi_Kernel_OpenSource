@@ -1799,7 +1799,9 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 
 #ifdef CONFIG_SCHED_WALT
 	if (!walt_disabled && sysctl_sched_use_walt_cpu_util) {
-		util = freq_policy_load(rq, rq->prev_runnable_sum);
+		util = rq->prev_runnable_sum +
+		       rq->grp_time.prev_runnable_sum;
+		util = freq_policy_load(rq, util);
 		util = div64_u64(util,
 				 sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 
