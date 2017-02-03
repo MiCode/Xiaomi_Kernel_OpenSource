@@ -51,6 +51,10 @@ static void dspp_ad_install_property(struct drm_crtc *crtc);
 
 static void dspp_vlut_install_property(struct drm_crtc *crtc);
 
+static void dspp_gamut_install_property(struct drm_crtc *crtc);
+
+static void dspp_gc_install_property(struct drm_crtc *crtc);
+
 typedef void (*dspp_prop_install_func_t)(struct drm_crtc *crtc);
 
 static dspp_prop_install_func_t dspp_prop_install_func[SDE_DSPP_MAX];
@@ -61,6 +65,8 @@ do { \
 	func[SDE_DSPP_HSIC] = dspp_hsic_install_property; \
 	func[SDE_DSPP_AD] = dspp_ad_install_property; \
 	func[SDE_DSPP_VLUT] = dspp_vlut_install_property; \
+	func[SDE_DSPP_GAMUT] = dspp_gamut_install_property; \
+	func[SDE_DSPP_GC] = dspp_gc_install_property; \
 } while (0)
 
 typedef void (*lm_prop_install_func_t)(struct drm_crtc *crtc);
@@ -454,7 +460,7 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 	for (i = 0; i < num_mixers && !ret; i++) {
 		hw_lm = sde_crtc->mixers[i].hw_lm;
 		hw_dspp = sde_crtc->mixers[i].hw_dspp;
-
+		hw_cfg.ctl = sde_crtc->mixers[i].hw_ctl;
 		switch (prop_node->feature) {
 		case SDE_CP_CRTC_DSPP_VLUT:
 			if (!hw_dspp || !hw_dspp->ops.setup_vlut) {
@@ -982,6 +988,54 @@ static void lm_gc_install_property(struct drm_crtc *crtc)
 	case 1:
 		sde_cp_crtc_create_blob_property(crtc, feature_name,
 			SDE_CP_CRTC_LM_GC);
+		break;
+	default:
+		DRM_ERROR("version %d not supported\n", version);
+		break;
+	}
+}
+
+static void dspp_gamut_install_property(struct drm_crtc *crtc)
+{
+	char feature_name[256];
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
+	u32 version;
+
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+
+	version = catalog->dspp[0].sblk->gamut.version >> 16;
+	snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
+		"SDE_DSPP_GAMUT_V", version);
+	switch (version) {
+	case 4:
+		sde_cp_crtc_create_blob_property(crtc, feature_name,
+					SDE_CP_CRTC_DSPP_GAMUT);
+		break;
+	default:
+		DRM_ERROR("version %d not supported\n", version);
+		break;
+	}
+}
+
+static void dspp_gc_install_property(struct drm_crtc *crtc)
+{
+	char feature_name[256];
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
+	u32 version;
+
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+
+	version = catalog->dspp[0].sblk->gc.version >> 16;
+	snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
+		"SDE_DSPP_GC_V", version);
+	switch (version) {
+	case 1:
+		sde_cp_crtc_create_blob_property(crtc, feature_name,
+					SDE_CP_CRTC_DSPP_GC);
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);
