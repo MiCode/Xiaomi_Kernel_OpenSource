@@ -957,6 +957,24 @@ static int tadc_init_hw(struct tadc_chip *chip)
 	chip->chans[TADC_DIE_TEMP].thr[2].addr_hi =
 					TADC_CMP_THR3_CH3_CMP_HI_REG(chip);
 
+	rc = tadc_write(chip, TADC_CMP_THR1_CMP_REG(chip), 0);
+	if (rc < 0) {
+		pr_err("Couldn't enable hardware triggers rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = tadc_write(chip, TADC_CMP_THR2_CMP_REG(chip), 0);
+	if (rc < 0) {
+		pr_err("Couldn't enable hardware triggers rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = tadc_write(chip, TADC_CMP_THR3_CMP_REG(chip), 0);
+	if (rc < 0) {
+		pr_err("Couldn't enable hardware triggers rc=%d\n", rc);
+		return rc;
+	}
+
 	/* enable all temperature hardware triggers */
 	rc = tadc_write(chip, TADC_HWTRIG_CONV_CH_EN_REG(chip),
 							BIT(TADC_THERM1) |
