@@ -135,7 +135,10 @@ qcom,floor-bw:		Represents the floor bandwidth below which this master
 			KBytes/s.
 qcom,ff:		The fudge factor used by clients when voting for
 			bandwidth from the node.
-
+qcom,bcm-name:		The name used to fetch details about the bcm device from
+			the command DB driver.
+qcom,drv-id:		The DRV id associated with the RSC, used to differentiate
+			between RSCS owned by different execution environments.
 
 
 Example:
