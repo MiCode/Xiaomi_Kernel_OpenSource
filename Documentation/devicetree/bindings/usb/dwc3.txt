@@ -60,6 +60,7 @@ Optional properties:
  - snps,num-normal-evt-buffs: If present, specifies number of normal event buffers. Default is 1.
  - snps,num-gsi-evt-buffs: If present, specifies number of GSI based hardware accelerated event buffers.
 	1 event buffer is needed per h/w accelerated endpoint.
+ - xhci-imod-value: Interrupt moderation interval for host mode (in increments of 250nsec).
 
 This is usually a subnode to DWC3 glue to which it is connected.
 
@@ -74,4 +75,5 @@ dwc3@4a030000 {
 	tx-fifo-resize;
 	snps,usb3-u1u2-disable;
 	snps,num-gsi-evt-buffs = <0x2>;
+	xhci-imod-value = <4000>;
 };
