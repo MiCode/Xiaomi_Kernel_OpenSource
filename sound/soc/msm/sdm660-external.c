@@ -48,8 +48,8 @@
 #define TLMM_LPI_GPIO22_CFG  0x15078040
 #define LPI_GPIO22_CFG_VAL 0x0000009
 
-#define TLMM_LPI_GPIO22_INOUT  0x15078044
-#define LPI_GPIO22_INOUT_VAL 0x00000000
+#define TLMM_LPI_GPIO22_INOUT  0x179D1318
+#define LPI_GPIO22_INOUT_VAL 0x0020000
 
 #define WSA8810_NAME_1 "wsa881x.20170211"
 #define WSA8810_NAME_2 "wsa881x.20170212"
@@ -66,16 +66,6 @@ struct msm_asoc_wcd93xx_codec {
 
 static struct msm_asoc_wcd93xx_codec msm_codec_fn;
 static struct platform_device *spdev;
-
-struct msm_snd_interrupt {
-	void __iomem *mpm_wakeup;
-	void __iomem *intr1_cfg_apps;
-	void __iomem *lpi_gpio_intr_cfg;
-	void __iomem *lpi_gpio_cfg;
-	void __iomem *lpi_gpio_inout;
-};
-
-static struct msm_snd_interrupt msm_snd_intr_lpi;
 
 static bool is_initial_boot;
 
@@ -1220,25 +1210,26 @@ static void msm_afe_clear_config(void)
 	afe_clear_config(AFE_SLIMBUS_SLAVE_CONFIG);
 }
 
-static void msm_snd_interrupt_config(void)
+static void msm_snd_interrupt_config(struct msm_asoc_mach_data *pdata)
 {
 	int val;
 
-	val = ioread32(msm_snd_intr_lpi.mpm_wakeup);
+	val = ioread32(pdata->msm_snd_intr_lpi.mpm_wakeup);
 	val |= LPI_GPIO_22_WAKEUP_VAL;
-	iowrite32(val, msm_snd_intr_lpi.mpm_wakeup);
+	iowrite32(val, pdata->msm_snd_intr_lpi.mpm_wakeup);
 
-	val = ioread32(msm_snd_intr_lpi.intr1_cfg_apps);
+	val = ioread32(pdata->msm_snd_intr_lpi.intr1_cfg_apps);
 	val &= ~(LPI_GPIO_22_INTR1_CFG_MASK);
 	val |= LPI_GPIO_22_INTR1_CFG_VAL;
-	iowrite32(val, msm_snd_intr_lpi.intr1_cfg_apps);
+	iowrite32(val, pdata->msm_snd_intr_lpi.intr1_cfg_apps);
 
 	iowrite32(LPI_GPIO_INTR_CFG1_VAL,
-			msm_snd_intr_lpi.lpi_gpio_intr_cfg);
+			pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg);
 	iowrite32(LPI_GPIO22_CFG_VAL,
-			msm_snd_intr_lpi.lpi_gpio_cfg);
-	iowrite32(LPI_GPIO22_INOUT_VAL,
-			msm_snd_intr_lpi.lpi_gpio_inout);
+			pdata->msm_snd_intr_lpi.lpi_gpio_cfg);
+	val = ioread32(pdata->msm_snd_intr_lpi.lpi_gpio_inout);
+	val |= LPI_GPIO22_INOUT_VAL;
+	iowrite32(val, pdata->msm_snd_intr_lpi.lpi_gpio_inout);
 }
 
 static int msm_adsp_power_up_config(struct snd_soc_codec *codec)
@@ -1246,7 +1237,10 @@ static int msm_adsp_power_up_config(struct snd_soc_codec *codec)
 	int ret = 0;
 	unsigned long timeout;
 	int adsp_ready = 0;
+	struct snd_soc_card *card = codec->component.card;
+	struct msm_asoc_mach_data *pdata;
 
+	pdata = snd_soc_card_get_drvdata(card);
 	timeout = jiffies +
 		msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
 
@@ -1269,7 +1263,7 @@ static int msm_adsp_power_up_config(struct snd_soc_codec *codec)
 		ret = -ETIMEDOUT;
 		goto err_fail;
 	}
-	msm_snd_interrupt_config();
+	msm_snd_interrupt_config(pdata);
 
 	ret = msm_afe_set_config(codec);
 	if (ret)
@@ -1518,6 +1512,17 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 					     134, 135, 136, 137, 138, 139,
 					     140, 141, 142, 143};
 
+	/* Tavil Codec SLIMBUS configuration
+	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7, RX8
+	 * TX1, TX2, TX3, TX4, TX5, TX6, TX7, TX8, TX9, TX10, TX11, TX12, TX13
+	 * TX14, TX15, TX16
+	 */
+	unsigned int rx_ch_tavil[WCD934X_RX_MAX] = {144, 145, 146, 147, 148,
+					    149, 150, 151};
+	unsigned int tx_ch_tavil[WCD934X_TX_MAX] = {128, 129, 130, 131, 132,
+					    133, 134, 135, 136, 137, 138,
+					    139, 140, 141, 142, 143};
+
 	pr_debug("%s: dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
 	rtd->pmdown_time = 0;
@@ -1578,14 +1583,11 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "EAR");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT1");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT2");
-	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT3");
-	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT4");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC2");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC3");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC4");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC5");
-	snd_soc_dapm_ignore_suspend(dapm, "AMIC6");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC0");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC2");
@@ -1593,21 +1595,33 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC4");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC5");
 	snd_soc_dapm_ignore_suspend(dapm, "ANC EAR");
-	snd_soc_dapm_ignore_suspend(dapm, "ANC HEADPHONE");
 	snd_soc_dapm_ignore_suspend(dapm, "SPK1 OUT");
 	snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
 	snd_soc_dapm_ignore_suspend(dapm, "HPHL");
 	snd_soc_dapm_ignore_suspend(dapm, "HPHR");
-	snd_soc_dapm_ignore_suspend(dapm, "ANC HPHL");
-	snd_soc_dapm_ignore_suspend(dapm, "ANC HPHR");
-	snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT1");
-	snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT2");
 	snd_soc_dapm_ignore_suspend(dapm, "AIF4 VI");
 	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT");
 
+	if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
+		snd_soc_dapm_ignore_suspend(dapm, "LINEOUT3");
+		snd_soc_dapm_ignore_suspend(dapm, "LINEOUT4");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHL");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHR");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT1");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT2");
+	}
+
 	snd_soc_dapm_sync(dapm);
-	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
-				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
+
+	if (!strcmp(dev_name(codec_dai->dev), "tavil_codec")) {
+		snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch_tavil),
+					tx_ch_tavil, ARRAY_SIZE(rx_ch_tavil),
+					rx_ch_tavil);
+	} else {
+		snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
+					tx_ch, ARRAY_SIZE(rx_ch),
+					rx_ch);
+	}
 
 	if (!strcmp(dev_name(codec_dai->dev), "tavil_codec")) {
 		msm_codec_fn.get_afe_config_fn = tavil_get_afe_config;
@@ -1817,15 +1831,15 @@ int msm_ext_cdc_init(struct platform_device *pdev,
 			ret);
 		ret = 0;
 	}
-	msm_snd_intr_lpi.mpm_wakeup =
+	pdata->msm_snd_intr_lpi.mpm_wakeup =
 			ioremap(TLMM_CENTER_MPM_WAKEUP_INT_EN_0, 4);
-	msm_snd_intr_lpi.intr1_cfg_apps =
+	pdata->msm_snd_intr_lpi.intr1_cfg_apps =
 			ioremap(TLMM_LPI_DIR_CONN_INTR1_CFG_APPS, 4);
-	msm_snd_intr_lpi.lpi_gpio_intr_cfg =
+	pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg =
 			ioremap(TLMM_LPI_GPIO_INTR_CFG1, 4);
-	msm_snd_intr_lpi.lpi_gpio_cfg =
+	pdata->msm_snd_intr_lpi.lpi_gpio_cfg =
 			ioremap(TLMM_LPI_GPIO22_CFG, 4);
-	msm_snd_intr_lpi.lpi_gpio_inout =
+	pdata->msm_snd_intr_lpi.lpi_gpio_inout =
 			ioremap(TLMM_LPI_GPIO22_INOUT, 4);
 err:
 	return ret;
@@ -1835,17 +1849,18 @@ EXPORT_SYMBOL(msm_ext_cdc_init);
 /**
  * msm_ext_cdc_deinit - external codec machine specific deinit.
  */
-void msm_ext_cdc_deinit(void)
+void msm_ext_cdc_deinit(struct msm_asoc_mach_data *pdata)
 {
-	if (msm_snd_intr_lpi.mpm_wakeup)
-		iounmap(msm_snd_intr_lpi.mpm_wakeup);
-	if (msm_snd_intr_lpi.intr1_cfg_apps)
-		iounmap(msm_snd_intr_lpi.intr1_cfg_apps);
-	if (msm_snd_intr_lpi.lpi_gpio_intr_cfg)
-		iounmap(msm_snd_intr_lpi.lpi_gpio_intr_cfg);
-	if (msm_snd_intr_lpi.lpi_gpio_cfg)
-		iounmap(msm_snd_intr_lpi.lpi_gpio_cfg);
-	if (msm_snd_intr_lpi.lpi_gpio_inout)
-		iounmap(msm_snd_intr_lpi.lpi_gpio_inout);
+	if (pdata->msm_snd_intr_lpi.mpm_wakeup)
+		iounmap(pdata->msm_snd_intr_lpi.mpm_wakeup);
+	if (pdata->msm_snd_intr_lpi.intr1_cfg_apps)
+		iounmap(pdata->msm_snd_intr_lpi.intr1_cfg_apps);
+	if (pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg)
+		iounmap(pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg);
+	if (pdata->msm_snd_intr_lpi.lpi_gpio_cfg)
+		iounmap(pdata->msm_snd_intr_lpi.lpi_gpio_cfg);
+	if (pdata->msm_snd_intr_lpi.lpi_gpio_inout)
+		iounmap(pdata->msm_snd_intr_lpi.lpi_gpio_inout);
+
 }
 EXPORT_SYMBOL(msm_ext_cdc_deinit);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -421,8 +421,10 @@ static inline void hdmi_tx_send_cable_notification(
 	if (hdmi_ctrl && hdmi_ctrl->ext_audio_data.intf_ops.hpd) {
 		u32 flags = 0;
 
-		if (hdmi_tx_is_dvi_mode(hdmi_ctrl))
-			flags |= MSM_EXT_DISP_HPD_NO_AUDIO;
+		flags |= MSM_EXT_DISP_HPD_VIDEO;
+
+		if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
+			flags |= MSM_EXT_DISP_HPD_AUDIO;
 
 		hdmi_ctrl->ext_audio_data.intf_ops.hpd(hdmi_ctrl->ext_pdev,
 				hdmi_ctrl->ext_audio_data.type, val, flags);
@@ -1608,14 +1610,18 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 		}
 
 		if (hdmi_tx_is_panel_on(hdmi_ctrl)) {
-			DEV_DBG("%s: Reauthenticating\n", __func__);
-			rc = hdmi_ctrl->hdcp_ops->reauthenticate(
-				hdmi_ctrl->hdcp_data);
-			if (rc)
-				DEV_ERR("%s: HDCP reauth failed. rc=%d\n",
-					__func__, rc);
+			pr_debug("%s: Reauthenticating\n", __func__);
+			if (hdmi_ctrl->hdcp_ops && hdmi_ctrl->hdcp_data) {
+				rc = hdmi_ctrl->hdcp_ops->reauthenticate(
+						hdmi_ctrl->hdcp_data);
+				if (rc)
+					pr_err("%s: HDCP reauth failed. rc=%d\n",
+						__func__, rc);
+			} else
+				pr_err("%s: NULL HDCP Ops and Data\n",
+					__func__);
 		} else {
-			DEV_DBG("%s: Not reauthenticating. Cable not conn\n",
+			pr_debug("%s: Not reauthenticating. Cable not conn\n",
 				__func__);
 		}
 
@@ -2282,7 +2288,8 @@ static void hdmi_tx_update_hdcp_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 		if (hdmi_ctrl->hdcp14_present) {
 			fd = hdmi_tx_get_fd(HDMI_TX_FEAT_HDCP);
-			ops = hdcp_1x_start(fd);
+			if (fd)
+				ops = hdcp_1x_start(fd);
 		}
 	}
 
@@ -2325,6 +2332,31 @@ static void hdmi_tx_update_deep_color(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 }
 
+static void hdmi_tx_update_hdr_info(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	struct mdss_panel_info *pinfo = &hdmi_ctrl->panel_data.panel_info;
+	struct mdss_panel_hdr_properties *hdr_prop = &pinfo->hdr_properties;
+	struct hdmi_edid_hdr_data *hdr_data = NULL;
+
+	/* CEA-861.3 4.2 */
+	hdr_prop->hdr_enabled = hdmi_tx_is_hdr_supported(hdmi_ctrl);
+	/* no display primaries in EDID, so skip it */
+	memset(hdr_prop->display_primaries, 0,
+		sizeof(hdr_prop->display_primaries));
+
+	hdmi_edid_get_hdr_data(hdmi_tx_get_fd(HDMI_TX_FEAT_EDID), &hdr_data);
+
+	if (hdr_prop->hdr_enabled) {
+		hdr_prop->peak_brightness = hdr_data->max_luminance * 10000;
+		if (hdr_data->avg_luminance != 0)
+			hdr_prop->avg_brightness = 50 *
+				(BIT(0) << (int)(hdr_data->avg_luminance / 32));
+		hdr_prop->blackness_level = (hdr_data->min_luminance *
+					hdr_data->min_luminance *
+					hdr_data->max_luminance * 100) / 65025;
+	}
+}
+
 static void hdmi_tx_hpd_int_work(struct work_struct *work)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
@@ -2353,6 +2385,7 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 		if (!retry && rc)
 			pr_warn_ratelimited("%s: EDID read failed\n", __func__);
 		hdmi_tx_update_deep_color(hdmi_ctrl);
+		hdmi_tx_update_hdr_info(hdmi_ctrl);
 
 		hdmi_tx_send_cable_notification(hdmi_ctrl, true);
 	} else {

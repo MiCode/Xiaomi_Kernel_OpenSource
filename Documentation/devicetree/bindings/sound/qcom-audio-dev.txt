@@ -1649,6 +1649,7 @@ Optional properties:
 capacitor mode.
 - qcom,msm-micbias2-ext-cap : Boolean. Enable micbias2 external
 capacitor mode.
+- qcom,wsa-disable : Boolean. Disables WSA speaker dailinks from sound node.
 - qcom,msm-spk-ext-pa : GPIO which enables external speaker pa.
 - qcom,msm-mclk-freq : This property is used to inform machine driver about
 mclk frequency needs to be configured for internal and external PA.
@@ -1685,6 +1686,7 @@ Example:
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,wsa-disable;
 		qcom,msm-mbhc-moist-cfg = <1>, <3>, <0>;
 		qcom,msm-hs-micbias-type = "internal";
 		qcom,msm-micbias1-ext-cap;

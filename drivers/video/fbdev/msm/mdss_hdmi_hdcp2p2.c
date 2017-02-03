@@ -689,7 +689,6 @@ static void hdmi_hdcp2p2_recv_msg(struct hdmi_hdcp2p2_ctrl *ctrl)
 
 	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
 		pr_err("hdcp is off\n");
-		rc = -EINVAL;
 		goto exit;
 	}
 	hdmi_ddc_config(ddc_ctrl);

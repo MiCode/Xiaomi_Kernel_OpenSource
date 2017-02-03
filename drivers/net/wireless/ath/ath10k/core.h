@@ -74,6 +74,7 @@ struct ath10k;
 enum ath10k_bus {
 	ATH10K_BUS_PCI,
 	ATH10K_BUS_AHB,
+	ATH10K_BUS_SNOC,
 };
 
 static inline const char *ath10k_bus_str(enum ath10k_bus bus)
@@ -83,6 +84,8 @@ static inline const char *ath10k_bus_str(enum ath10k_bus bus)
 		return "pci";
 	case ATH10K_BUS_AHB:
 		return "ahb";
+	case ATH10K_BUS_SNOC:
+		return "snoc";
 	}
 
 	return "unknown";
@@ -778,7 +781,7 @@ struct ath10k {
 	} scan;
 
 	struct {
-		struct ieee80211_supported_band sbands[NUM_NL80211_BANDS];
+		struct ieee80211_supported_band sbands[IEEE80211_NUM_BANDS];
 	} mac;
 
 	/* should never be NULL; needed for regular htt rx */
@@ -912,6 +915,10 @@ struct ath10k {
 	struct net_device napi_dev;
 	struct napi_struct napi;
 
+	void (*bus_write32)(void *ar, u32 offset, u32 value);
+	u32 (*bus_read32)(void *ar, u32 offset);
+	spinlock_t ce_lock; /* lock for CE access */
+	void *ce_states;
 	/* must be last */
 	u8 drv_priv[0] __aligned(sizeof(void *));
 };

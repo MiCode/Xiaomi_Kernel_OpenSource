@@ -263,11 +263,11 @@ static inline struct ath10k_pci *ath10k_pci_priv(struct ath10k *ar)
 /* Wait up to this many Ms for a Diagnostic Access CE operation to complete */
 #define DIAG_ACCESS_CE_TIMEOUT_MS 10
 
-void ath10k_pci_write32(struct ath10k *ar, u32 offset, u32 value);
+void ath10k_pci_write32(void *ar, u32 offset, u32 value);
 void ath10k_pci_soc_write32(struct ath10k *ar, u32 addr, u32 val);
 void ath10k_pci_reg_write32(struct ath10k *ar, u32 addr, u32 val);
 
-u32 ath10k_pci_read32(struct ath10k *ar, u32 offset);
+u32 ath10k_pci_read32(void *ar, u32 offset);
 u32 ath10k_pci_soc_read32(struct ath10k *ar, u32 addr);
 u32 ath10k_pci_reg_read32(struct ath10k *ar, u32 addr);
 

@@ -8821,13 +8821,8 @@ static int tavil_post_reset_cb(struct wcd9xxx *wcd9xxx)
 				WCD9XXX_DIG_CORE_REGION_1);
 
 	mutex_lock(&tavil->codec_mutex);
-	/*
-	 * Codec hardware by default comes up in SVS mode.
-	 * Initialize the svs_ref_cnt to 1 to reflect the hardware
-	 * state in the driver.
-	 */
-	tavil->svs_ref_cnt = 1;
 
+	tavil_vote_svs(tavil, true);
 	tavil_slimbus_slave_port_cfg.slave_dev_intfdev_la =
 				control->slim_slave->laddr;
 	tavil_slimbus_slave_port_cfg.slave_dev_pgd_la =
@@ -8835,16 +8830,8 @@ static int tavil_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	tavil_init_slim_slave_cfg(codec);
 	snd_soc_card_change_online_state(codec->component.card, 1);
 
-	/* Class-H Init */
-	wcd_clsh_init(&tavil->clsh_d);
-	/* Default HPH Mode to Class-H LOHiFi */
-	tavil->hph_mode = CLS_H_LOHIFI;
-
 	for (i = 0; i < TAVIL_MAX_MICBIAS; i++)
 		tavil->micb_ref[i] = 0;
-
-	for (i = 0; i < COMPANDER_MAX; i++)
-		tavil->comp_enabled[i] = 0;
 
 	dev_dbg(codec->dev, "%s: MCLK Rate = %x\n",
 		__func__, control->mclk_rate);

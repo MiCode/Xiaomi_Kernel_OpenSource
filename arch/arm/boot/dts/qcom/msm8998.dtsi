@@ -1736,6 +1736,7 @@
 				"utmi_clk", "sleep_clk", "xo";
 
 		qcom,core-clk-rate = <120000000>;
+		qcom,core-clk-rate-hs = <60000000>;
 
 		resets = <&clock_gcc USB_30_BCR>;
 		reset-names = "core_reset";
@@ -2240,7 +2241,7 @@
 		};
 		sensor_information22: qcom,sensor-information-22 {
 			qcom,sensor-type =  "alarm";
-			qcom,sensor-name = "pm8994_tz";
+			qcom,sensor-name = "pm8998_tz";
 			qcom,scaling-factor = <1000>;
 		};
 		sensor_information23: qcom,sensor-information-23 {

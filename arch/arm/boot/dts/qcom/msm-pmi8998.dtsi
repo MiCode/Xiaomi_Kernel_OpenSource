@@ -534,7 +534,6 @@
 
 				qcom,qpnp-ibb-soft-start = <1000>;
 
-				qcom,qpnp-ibb-discharge-resistor = <32>;
 				qcom,qpnp-ibb-lab-pwrup-delay = <8000>;
 				qcom,qpnp-ibb-lab-pwrdn-delay = <8000>;
 				qcom,qpnp-ibb-en-discharge;

@@ -125,6 +125,12 @@ DESTINATION SCALER FLAG CONFIGURATION
  */
 #define MDP_DESTSCALER_ENHANCER_UPDATE	0x4
 
+/*
+ * Indicating a partial update to panel ROI. ROI can be
+ * applied anytime when Destination scaler is enabled.
+ */
+#define MDP_DESTSCALER_ROI_ENABLE	0x8
+
 /**********************************************************************
 VALIDATE/COMMIT FLAG CONFIGURATION
 **********************************************************************/
@@ -405,6 +411,12 @@ struct mdp_destination_scaler_data {
 	 * A userspace pointer points to struct mdp_scale_data_v2.
 	 */
 	uint64_t	__user scale;
+
+	/*
+	 * Panel ROI is used when partial update is required in
+	 * current commit call.
+	 */
+	struct mdp_rect	panel_roi;
 };
 
 /*

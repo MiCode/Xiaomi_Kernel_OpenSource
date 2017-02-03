@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,6 +118,9 @@ size_t get_cal_info_size(int32_t cal_type)
 		break;
 	case AFE_SIDETONE_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_sidetone);
+		break;
+	case AFE_SIDETONE_IIR_CAL_TYPE:
+		size = sizeof(struct audio_cal_info_sidetone_iir);
 		break;
 	case LSM_CUST_TOPOLOGY_CAL_TYPE:
 		size = 0;
@@ -264,6 +267,9 @@ size_t get_user_cal_type_size(int32_t cal_type)
 		break;
 	case AFE_SIDETONE_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_sidetone);
+		break;
+	case AFE_SIDETONE_IIR_CAL_TYPE:
+		size = sizeof(struct audio_cal_type_sidetone_iir);
 		break;
 	case LSM_CUST_TOPOLOGY_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_basic);

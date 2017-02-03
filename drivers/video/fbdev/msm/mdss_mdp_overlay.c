@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1930,6 +1930,39 @@ static void __restore_pipe(struct mdss_mdp_pipe *pipe)
 	pipe->restore_roi = false;
 }
 
+static void __restore_dest_scaler_roi(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
+	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+
+	if (is_dest_scaling_pu_enable(ctl->mixer_left)) {
+		ctl->mixer_left->ds->panel_roi.x = 0;
+		ctl->mixer_left->ds->panel_roi.y = 0;
+		ctl->mixer_left->ds->panel_roi.w = get_panel_xres(pinfo);
+		ctl->mixer_left->ds->panel_roi.h = get_panel_yres(pinfo);
+
+		if ((ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) &&
+				sctl) {
+			if (ctl->panel_data->next)
+				pinfo = &ctl->panel_data->next->panel_info;
+			sctl->mixer_left->ds->panel_roi.x = 0;
+			sctl->mixer_left->ds->panel_roi.y = 0;
+			sctl->mixer_left->ds->panel_roi.w =
+				get_panel_xres(pinfo);
+			sctl->mixer_left->ds->panel_roi.h =
+				get_panel_yres(pinfo);
+		} else if (ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) {
+			ctl->mixer_right->ds->panel_roi.x =
+				get_panel_xres(pinfo);
+			ctl->mixer_right->ds->panel_roi.y = 0;
+			ctl->mixer_right->ds->panel_roi.w =
+				get_panel_xres(pinfo);
+			ctl->mixer_right->ds->panel_roi.h =
+				get_panel_yres(pinfo);
+		}
+	}
+}
+
  /**
  * __adjust_pipe_rect() - Adjust pipe roi for dual partial update feature.
  * @pipe: pipe to check against.
@@ -2145,6 +2178,9 @@ set_roi:
 			}
 			dual_roi->enabled = false;
 		}
+
+		if (pinfo->partial_update_enabled)
+			__restore_dest_scaler_roi(ctl);
 	}
 
 	pr_debug("after processing: %s l_roi:-> %d %d %d %d r_roi:-> %d %d %d %d, dual_pu_roi:%d\n",

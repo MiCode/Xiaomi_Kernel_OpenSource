@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -413,7 +413,13 @@ void sde_rotator_remove_request(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *private,
 	struct sde_rot_entry_container *req);
 
-int sde_rotator_verify_config(struct sde_rot_mgr *rot_dev,
+int sde_rotator_verify_config_all(struct sde_rot_mgr *rot_dev,
+	struct sde_rotation_config *config);
+
+int sde_rotator_verify_config_input(struct sde_rot_mgr *rot_dev,
+	struct sde_rotation_config *config);
+
+int sde_rotator_verify_config_output(struct sde_rot_mgr *rot_dev,
 	struct sde_rotation_config *config);
 
 int sde_rotator_validate_request(struct sde_rot_mgr *rot_dev,

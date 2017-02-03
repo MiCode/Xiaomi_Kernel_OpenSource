@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -200,6 +200,45 @@ int mdss_dp_mainlink_ready(struct mdss_dp_drv_pdata *dp, u32 which)
 void mdss_dp_configuration_ctrl(struct dss_io_data *ctrl_io, u32 data)
 {
 	writel_relaxed(data, ctrl_io->base + DP_CONFIGURATION_CTRL);
+}
+
+void mdss_dp_config_ctl_frame_crc(struct mdss_dp_drv_pdata *dp, bool enable)
+{
+	if (dp->ctl_crc.en == enable) {
+		pr_debug("CTL crc already %s\n",
+			enable ? "enabled" : "disabled");
+		return;
+	}
+
+	writel_relaxed(BIT(8), dp->ctrl_io.base + MMSS_DP_TIMING_ENGINE_EN);
+	if (!enable)
+		mdss_dp_reset_frame_crc_data(&dp->ctl_crc);
+	dp->ctl_crc.en = enable;
+
+	pr_debug("CTL crc %s\n", enable ? "enabled" : "disabled");
+}
+
+int mdss_dp_read_ctl_frame_crc(struct mdss_dp_drv_pdata *dp)
+{
+	u32 data;
+	u32 crc_rg = 0;
+	struct mdss_dp_crc_data *crc = &dp->ctl_crc;
+
+	data = readl_relaxed(dp->ctrl_io.base + MMSS_DP_TIMING_ENGINE_EN);
+	if (!(data & BIT(8))) {
+		pr_debug("frame CRC calculation not enabled\n");
+		return -EPERM;
+	}
+
+	crc_rg = readl_relaxed(dp->ctrl_io.base + MMSS_DP_PSR_CRC_RG);
+	crc->r_cr = crc_rg & 0xFFFF;
+	crc->g_y = crc_rg >> 16;
+	crc->b_cb = readl_relaxed(dp->ctrl_io.base + MMSS_DP_PSR_CRC_B);
+
+	pr_debug("r_cr=0x%08x\t g_y=0x%08x\t b_cb=0x%08x\n",
+		crc->r_cr, crc->g_y, crc->b_cb);
+
+	return 0;
 }
 
 /* DP state controller*/
@@ -735,7 +774,9 @@ void mdss_dp_timing_cfg(struct dss_io_data *ctrl_io,
 
 	data = pinfo->lcdc.v_pulse_width;
 	data <<= 16;
+	data |= (pinfo->lcdc.v_active_low << 31);
 	data |= pinfo->lcdc.h_pulse_width;
+	data |= (pinfo->lcdc.h_active_low << 15);
 	/* DP_HSYNC_VSYNC_WIDTH_POLARITY */
 	writel_relaxed(data, ctrl_io->base + DP_HSYNC_VSYNC_WIDTH_POLARITY);
 
@@ -765,28 +806,15 @@ void mdss_dp_sw_config_msa(struct dss_io_data *ctrl_io,
 	writel_relaxed(nvid, ctrl_io->base + DP_SOFTWARE_NVID);
 }
 
-void mdss_dp_config_misc_settings(struct dss_io_data *ctrl_io,
-					struct mdss_panel_info *pinfo)
+void mdss_dp_config_misc(struct mdss_dp_drv_pdata *dp, u32 bd, u32 cc)
 {
-	u32 bpp = pinfo->bpp;
-	u32 misc_val = 0x0;
+	u32 misc_val = cc;
 
-	switch (bpp) {
-	case 18:
-		misc_val |= (0x0 << 5);
-		break;
-	case 30:
-		misc_val |= (0x2 << 5);
-		break;
-	case 24:
-	default:
-		misc_val |= (0x1 << 5);
-	}
-
+	misc_val |= (bd << 5);
 	misc_val |= BIT(0); /* Configure clock to synchronous mode */
 
 	pr_debug("Misc settings = 0x%x\n", misc_val);
-	writel_relaxed(misc_val, ctrl_io->base + DP_MISC1_MISC0);
+	writel_relaxed(misc_val, dp->ctrl_io.base + DP_MISC1_MISC0);
 }
 
 void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
@@ -1113,7 +1141,8 @@ static u8 mdss_dp_calculate_parity_byte(u32 data)
 	return parityByte;
 }
 
-static void mdss_dp_audio_setup_audio_stream_sdp(struct dss_io_data *ctrl_io)
+static void mdss_dp_audio_setup_audio_stream_sdp(struct dss_io_data *ctrl_io,
+		u32 num_of_channels)
 {
 	u32 value = 0;
 	u32 new_value = 0;
@@ -1131,7 +1160,7 @@ static void mdss_dp_audio_setup_audio_stream_sdp(struct dss_io_data *ctrl_io)
 
 	/* Config header and parity byte 2 */
 	value = readl_relaxed(ctrl_io->base + MMSS_DP_AUDIO_STREAM_1);
-	new_value = 0x0;
+	new_value = value;
 	parity_byte = mdss_dp_calculate_parity_byte(new_value);
 	value |= ((new_value << HEADER_BYTE_2_BIT)
 			| (parity_byte << PARITY_BYTE_2_BIT));
@@ -1141,7 +1170,7 @@ static void mdss_dp_audio_setup_audio_stream_sdp(struct dss_io_data *ctrl_io)
 
 	/* Config header and parity byte 3 */
 	value = readl_relaxed(ctrl_io->base + MMSS_DP_AUDIO_STREAM_1);
-	new_value = 0x01;
+	new_value = num_of_channels - 1;
 	parity_byte = mdss_dp_calculate_parity_byte(new_value);
 	value |= ((new_value << HEADER_BYTE_3_BIT)
 			| (parity_byte << PARITY_BYTE_3_BIT));
@@ -1179,7 +1208,7 @@ static void mdss_dp_audio_setup_audio_timestamp_sdp(struct dss_io_data *ctrl_io)
 
 	/* Config header and parity byte 3 */
 	value = readl_relaxed(ctrl_io->base + MMSS_DP_AUDIO_TIMESTAMP_1);
-	new_value = (0x0 | (0x12 << 2));
+	new_value = (0x0 | (0x11 << 2));
 	parity_byte = mdss_dp_calculate_parity_byte(new_value);
 	value |= ((new_value << HEADER_BYTE_3_BIT)
 			| (parity_byte << PARITY_BYTE_3_BIT));
@@ -1216,7 +1245,7 @@ static void mdss_dp_audio_setup_audio_infoframe_sdp(struct dss_io_data *ctrl_io)
 
 	/* Config header and parity byte 3 */
 	value = readl_relaxed(ctrl_io->base + MMSS_DP_AUDIO_INFOFRAME_1);
-	new_value = (0x0 | (0x12 << 2));
+	new_value = (0x0 | (0x11 << 2));
 	parity_byte = mdss_dp_calculate_parity_byte(new_value);
 	value |= ((new_value << HEADER_BYTE_3_BIT)
 			| (parity_byte << PARITY_BYTE_3_BIT));
@@ -1309,7 +1338,7 @@ static void mdss_dp_audio_setup_isrc_sdp(struct dss_io_data *ctrl_io)
 	writel_relaxed(0x0, ctrl_io->base + MMSS_DP_AUDIO_ISRC_4);
 }
 
-void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io)
+void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io, u32 num_of_channels)
 {
 	u32 sdp_cfg = 0;
 	u32 sdp_cfg2 = 0;
@@ -1335,7 +1364,7 @@ void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io)
 
 	writel_relaxed(sdp_cfg2, ctrl_io->base + MMSS_DP_SDP_CFG2);
 
-	mdss_dp_audio_setup_audio_stream_sdp(ctrl_io);
+	mdss_dp_audio_setup_audio_stream_sdp(ctrl_io, num_of_channels);
 	mdss_dp_audio_setup_audio_timestamp_sdp(ctrl_io);
 	mdss_dp_audio_setup_audio_infoframe_sdp(ctrl_io);
 	mdss_dp_audio_setup_copy_management_sdp(ctrl_io);
@@ -1366,7 +1395,7 @@ void mdss_dp_set_safe_to_exit_level(struct dss_io_data *ctrl_io,
 	}
 
 	mainlink_levels = readl_relaxed(ctrl_io->base + DP_MAINLINK_LEVELS);
-	mainlink_levels &= 0xFF0;
+	mainlink_levels &= 0xFE0;
 	mainlink_levels |= safe_to_exit_level;
 
 	pr_debug("mainlink_level = 0x%x, safe_to_exit_level = 0x%x\n",
@@ -1406,28 +1435,17 @@ void mdss_dp_phy_send_test_pattern(struct mdss_dp_drv_pdata *dp)
 		return;
 	}
 
-	/* Disable mainlink */
-	writel_relaxed(0x0, io->base + DP_MAINLINK_CTRL);
-
-	/* Reset mainlink */
-	mdss_dp_mainlink_reset(io);
-
-	/* Enable mainlink */
-	writel_relaxed(0x0, io->base + DP_MAINLINK_CTRL);
-
 	/* Initialize DP state control */
-	mdss_dp_state_ctrl(io, 0x00);
+	writel_relaxed(0x0, io->base + DP_STATE_CTRL);
 
 	pr_debug("phy_test_pattern_sel = %s\n",
 			mdss_dp_get_phy_test_pattern(phy_test_pattern_sel));
 
 	switch (phy_test_pattern_sel) {
 	case PHY_TEST_PATTERN_D10_2_NO_SCRAMBLING:
-		mdss_dp_state_ctrl(io, BIT(0));
+		writel_relaxed(0x1, io->base + DP_STATE_CTRL);
 		break;
 	case PHY_TEST_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT:
-		value = readl_relaxed(io->base +
-				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
 		value &= ~(1 << 16);
 		writel_relaxed(value, io->base +
 				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
@@ -1438,7 +1456,7 @@ void mdss_dp_phy_send_test_pattern(struct mdss_dp_drv_pdata *dp)
 		mdss_dp_state_ctrl(io, BIT(4));
 		break;
 	case PHY_TEST_PATTERN_PRBS7:
-		mdss_dp_state_ctrl(io, BIT(5));
+		writel_relaxed(0x20, io->base + DP_STATE_CTRL);
 		break;
 	case PHY_TEST_PATTERN_80_BIT_CUSTOM_PATTERN:
 		mdss_dp_state_ctrl(io, BIT(6));
@@ -1453,9 +1471,7 @@ void mdss_dp_phy_send_test_pattern(struct mdss_dp_drv_pdata *dp)
 				DP_TEST_80BIT_CUSTOM_PATTERN_REG2);
 		break;
 	case PHY_TEST_PATTERN_HBR2_CTS_EYE_PATTERN:
-		value = readl_relaxed(io->base +
-				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
-		value |= BIT(16);
+		value = BIT(16);
 		writel_relaxed(value, io->base +
 				DP_HBR2_COMPLIANCE_SCRAMBLER_RESET);
 		value |= 0xFC;
@@ -1469,4 +1485,8 @@ void mdss_dp_phy_send_test_pattern(struct mdss_dp_drv_pdata *dp)
 				phy_test_pattern_sel);
 		return;
 	}
+
+	value = 0x0;
+	value = readl_relaxed(io->base + DP_MAINLINK_READY);
+	pr_info("DP_MAINLINK_READY = 0x%x\n", value);
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,9 +29,14 @@
 			   <GIC_SPI 367 IRQ_TYPE_EDGE_RISING>,
 			   <GIC_SPI 368 IRQ_TYPE_EDGE_RISING>,
 			   <GIC_SPI 369 IRQ_TYPE_EDGE_RISING>;
-		clocks = <&clock_gcc clk_aggre1_noc_clk>;
-		clock-names = "smmu_aggre1_noc_clk";
-		#clock-cells = <1>;
+		qcom,msm-bus,name = "smmu-bus-client-anoc1";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		/* aggre1_noc_clk */
+		qcom,msm-bus,vectors-KBps =
+				<84 10062 0 0>,
+				<84 10062 0 1000>;
 	};
 
 	anoc2_smmu: arm,smmu-anoc2@16c0000 {
@@ -52,9 +57,14 @@
 			   <GIC_SPI 463 IRQ_TYPE_EDGE_RISING>,
 			   <GIC_SPI 464 IRQ_TYPE_EDGE_RISING>,
 			   <GIC_SPI 465 IRQ_TYPE_EDGE_RISING>;
-		clocks = <&clock_gcc clk_aggre2_noc_clk>;
-		clock-names = "smmu_aggre2_noc_clk";
-		#clock-cells = <1>;
+		qcom,msm-bus,name = "smmu-bus-client-anoc2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		/* aggre2_noc_clk */
+		qcom,msm-bus,vectors-KBps =
+				<117 10065 0 0>,
+				<117 10065 0 1000>;
 	};
 
 	lpass_q6_smmu: arm,smmu-lpass_q6@5100000 {
@@ -116,15 +126,20 @@
 			   <GIC_SPI 272 IRQ_TYPE_LEVEL_HIGH>;
 		vdd-supply = <&gdsc_bimc_smmu>;
 		clocks = <&clock_mmss clk_mmss_mnoc_ahb_clk>,
-			<&clock_gcc clk_mmssnoc_axi_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
 		clock-names = "mmss_mnoc_ahb_clk",
-			"mmssnoc_axi_clk",
 			"mmss_bimc_smmu_ahb_clk",
 			"mmss_bimc_smmu_axi_clk";
 		#clock-cells = <1>;
-		qcom,bus-master-id = <MSM_BUS_MNOC_BIMC_MAS>;
+		qcom,msm-bus,name = "smmu-bus-client-mmss";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <2>;
+		/* ahb_clk_src, mmssnoc_axi_clk */
+		qcom,msm-bus,vectors-KBps =
+				<102 722 0 0>, <29 512 0 0>,
+				<102 722 0 1000>, <29 512 0 1000>;
 	};
 
 	kgsl_smmu: arm,smmu-kgsl@5040000 {

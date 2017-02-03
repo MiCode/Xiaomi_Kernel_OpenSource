@@ -19,6 +19,7 @@ Required properties :
   and reset lines used by this controller.
 - reset-names: reset signal name strings sorted in the same order as the resets
   property.
+- qcom,core-clk-rate: clock frequency to be set for USB master clock.
 
 Optional properties :
 - reg: Additional registers
@@ -54,7 +55,8 @@ Optional properties :
 - qcom,disable-dev-mode-pm: If present, it disables PM runtime functionality for device mode.
 - qcom,disable-host-mode-pm: If present, it disables XHCI PM runtime functionality when USB
   host mode is used.
-- qcom,core-clk-rate: If present, indicates clock frequency to be set for USB master clock.
+- qcom,core-clk-rate-hs: If present, indicates min core clock frequency required to support
+  hs speed.
 - extcon: phandles to external connector devices. First phandle should point to
 	  external connector, which provide "USB" cable events, the second
 	  should point to external connector device, which provide "USB-HOST"

@@ -184,6 +184,7 @@ enum ath10k_fw_wmi_op_version {
 	ATH10K_FW_WMI_OP_VERSION_TLV = 4,
 	ATH10K_FW_WMI_OP_VERSION_10_2_4 = 5,
 	ATH10K_FW_WMI_OP_VERSION_10_4 = 6,
+	ATH10K_FW_WMI_OP_VERSION_HL_1_0 = 7,
 
 	/* keep last */
 	ATH10K_FW_WMI_OP_VERSION_MAX,
@@ -224,12 +225,14 @@ enum ath10k_hw_rev {
 	ATH10K_HW_QCA9377,
 	ATH10K_HW_QCA4019,
 	ATH10K_HW_QCA9887,
+	ATH10K_HW_WCN3990,
 };
 
 struct ath10k_hw_regs {
 	u32 rtc_soc_base_address;
 	u32 rtc_wmac_base_address;
 	u32 soc_core_base_address;
+	u32 soc_global_reset_address;
 	u32 ce_wrapper_base_address;
 	u32 ce0_base_address;
 	u32 ce1_base_address;
@@ -239,6 +242,10 @@ struct ath10k_hw_regs {
 	u32 ce5_base_address;
 	u32 ce6_base_address;
 	u32 ce7_base_address;
+	u32 ce8_base_address;
+	u32 ce9_base_address;
+	u32 ce10_base_address;
+	u32 ce11_base_address;
 	u32 soc_reset_control_si0_rst_mask;
 	u32 soc_reset_control_ce_rst_mask;
 	u32 soc_chip_id_address;
@@ -256,6 +263,7 @@ extern const struct ath10k_hw_regs qca988x_regs;
 extern const struct ath10k_hw_regs qca6174_regs;
 extern const struct ath10k_hw_regs qca99x0_regs;
 extern const struct ath10k_hw_regs qca4019_regs;
+extern const struct ath10k_hw_regs wcn3990_regs;
 
 struct ath10k_hw_values {
 	u32 rtc_state_val_on;
@@ -271,6 +279,7 @@ extern const struct ath10k_hw_values qca6174_values;
 extern const struct ath10k_hw_values qca99x0_values;
 extern const struct ath10k_hw_values qca9888_values;
 extern const struct ath10k_hw_values qca4019_values;
+extern const struct ath10k_hw_values wcn3990_values;
 
 void ath10k_hw_fill_survey_time(struct ath10k *ar, struct survey_info *survey,
 				u32 cc, u32 rcc, u32 cc_prev, u32 rcc_prev);
@@ -283,6 +292,7 @@ void ath10k_hw_fill_survey_time(struct ath10k *ar, struct survey_info *survey,
 #define QCA_REV_9984(ar) ((ar)->hw_rev == ATH10K_HW_QCA9984)
 #define QCA_REV_9377(ar) ((ar)->hw_rev == ATH10K_HW_QCA9377)
 #define QCA_REV_40XX(ar) ((ar)->hw_rev == ATH10K_HW_QCA4019)
+#define QCA_REV_WCN3990(ar) ((ar)->hw_rev == ATH10K_HW_WCN3990)
 
 /* Known peculiarities:
  *  - raw appears in nwifi decap, raw and nwifi appear in ethernet decap
@@ -515,6 +525,11 @@ ath10k_rx_desc_get_l3_pad_bytes(struct ath10k_hw_params *hw,
 #define TARGET_TLV_NUM_TIDS			((TARGET_TLV_NUM_PEERS) * 2)
 #define TARGET_TLV_NUM_MSDU_DESC		(1024 + 32)
 #define TARGET_TLV_NUM_WOW_PATTERNS		22
+
+/* Target specific defines for WMI-HL-1.0 firmware */
+#define TARGET_HL_10_TLV_NUM_PEERS		14
+#define TARGET_HL_10_TLV_AST_SKID_LIMIT		6
+#define TARGET_HL_10_TLV_NUM_WDS_ENTRIES	2
 
 /* Diagnostic Window */
 #define CE_DIAG_PIPE	7

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,5 +38,12 @@
 #define SHADOW_N2_DIV_1_CLK       21
 #define SHADOW_POST_N1_DIV_1_CLK  22
 #define SHADOW_VCO_CLK_1_CLK      23
+
+/* DP PLL clocks */
+#define DP_VCO_CLK                  0
+#define DP_LINK_2X_CLK_DIVSEL_FIVE  1
+#define DP_VCO_DIVSEL_FOUR_CLK_SRC  2
+#define DP_VCO_DIVSEL_TWO_CLK_SRC   3
+#define DP_VCO_DIVIDED_CLK_SRC_MUX  4
 
 #endif

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,8 +27,6 @@
 
 #define SNAPSHOT_OBJ_BUFSIZE 64
 
-#define SNAPSHOT_OBJ_TYPE_IB 0
-
 /* Used to print error message if an IB has too many objects in it */
 static int ib_max_objs;
 
@@ -53,8 +51,7 @@ static inline int adreno_rb_ctxtswitch(struct adreno_device *adreno_dev,
 }
 
 /* Push a new buffer object onto the list */
-static void push_object(int type,
-	struct kgsl_process_private *process,
+void kgsl_snapshot_push_object(struct kgsl_process_private *process,
 	uint64_t gpuaddr, uint64_t dwords)
 {
 	int index;
@@ -101,7 +98,6 @@ static void push_object(int type,
 	}
 
 	/* Put it on the list of things to parse */
-	objbuf[objbufptr].type = type;
 	objbuf[objbufptr].gpuaddr = gpuaddr;
 	objbuf[objbufptr].size = dwords << 2;
 	objbuf[objbufptr++].entry = entry;
@@ -112,8 +108,7 @@ static void push_object(int type,
  * to be dumped
  */
 
-static int find_object(int type, uint64_t gpuaddr,
-		struct kgsl_process_private *process)
+static int find_object(uint64_t gpuaddr, struct kgsl_process_private *process)
 {
 	int index;
 
@@ -131,14 +126,12 @@ static int find_object(int type, uint64_t gpuaddr,
  * @snapshot: The snapshot data.
  * @process: The process to which the IB belongs
  * @ib_obj_list: List of the IB objects
- * @ib2base: IB2 base address at time of the fault
  *
  * Returns 0 on success else error code
  */
 static int snapshot_freeze_obj_list(struct kgsl_snapshot *snapshot,
 		struct kgsl_process_private *process,
-		struct adreno_ib_object_list *ib_obj_list,
-		uint64_t ib2base)
+		struct adreno_ib_object_list *ib_obj_list)
 {
 	int ret = 0;
 	struct adreno_ib_object *ib_objs;
@@ -163,21 +156,15 @@ static int snapshot_freeze_obj_list(struct kgsl_snapshot *snapshot,
 		}
 
 		if (freeze) {
-			/* Save current IB2 statically */
-			if (ib2base == ib_objs->gpuaddr) {
-				push_object(SNAPSHOT_OBJ_TYPE_IB,
-				process, ib_objs->gpuaddr, ib_objs->size >> 2);
+			temp_ret = kgsl_snapshot_get_object(snapshot,
+					    process, ib_objs->gpuaddr,
+					    ib_objs->size,
+					    ib_objs->snapshot_obj_type);
+			if (temp_ret < 0) {
+				if (ret >= 0)
+					ret = temp_ret;
 			} else {
-				temp_ret = kgsl_snapshot_get_object(snapshot,
-					process, ib_objs->gpuaddr,
-					ib_objs->size,
-					ib_objs->snapshot_obj_type);
-				if (temp_ret < 0) {
-					if (ret >= 0)
-						ret = temp_ret;
-				} else {
-					snapshot_frozen_objsize += temp_ret;
-				}
+				snapshot_frozen_objsize += temp_ret;
 			}
 		}
 	}
@@ -203,8 +190,7 @@ static inline void parse_ib(struct kgsl_device *device,
 	 * list
 	 */
 	if (gpuaddr == snapshot->ib1base) {
-		push_object(SNAPSHOT_OBJ_TYPE_IB, process,
-			gpuaddr, dwords);
+		kgsl_snapshot_push_object(process, gpuaddr, dwords);
 		return;
 	}
 
@@ -213,7 +199,8 @@ static inline void parse_ib(struct kgsl_device *device,
 		return;
 
 	if (-E2BIG == adreno_ib_create_object_list(device, process,
-				gpuaddr, dwords, &ib_obj_list))
+				gpuaddr, dwords, snapshot->ib2base,
+				&ib_obj_list))
 		ib_max_objs = 1;
 
 	if (ib_obj_list)
@@ -559,8 +546,7 @@ void kgsl_snapshot_add_active_ib_obj_list(struct kgsl_device *device,
 	int index = -ENOENT;
 
 	if (!snapshot->ib1dumped)
-		index = find_object(SNAPSHOT_OBJ_TYPE_IB, snapshot->ib1base,
-				snapshot->process);
+		index = find_object(snapshot->ib1base, snapshot->process);
 
 	/* only do this for IB1 because the IB2's are part of IB1 objects */
 	if ((index != -ENOENT) &&
@@ -569,19 +555,19 @@ void kgsl_snapshot_add_active_ib_obj_list(struct kgsl_device *device,
 					objbuf[index].entry->priv,
 					objbuf[index].gpuaddr,
 					objbuf[index].size >> 2,
+					snapshot->ib2base,
 					&ib_obj_list))
 			ib_max_objs = 1;
 		if (ib_obj_list) {
 			/* freeze the IB objects in the IB */
 			snapshot_freeze_obj_list(snapshot,
 					objbuf[index].entry->priv,
-					ib_obj_list, snapshot->ib2base);
+					ib_obj_list);
 			adreno_ib_destroy_obj_list(ib_obj_list);
 		}
 	} else {
 		/* Get the IB2 index from parsed object */
-		index = find_object(SNAPSHOT_OBJ_TYPE_IB, snapshot->ib2base,
-				snapshot->process);
+		index = find_object(snapshot->ib2base, snapshot->process);
 
 		if (index != -ENOENT)
 			parse_ib(device, snapshot, snapshot->process,
@@ -624,6 +610,7 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 	struct adreno_ib_object_list *ib_obj_list;
 	struct kgsl_snapshot *snapshot;
 	struct kgsl_snapshot_object *obj;
+	struct kgsl_memdesc *memdesc;
 
 	if (meta == NULL || meta->snapshot == NULL || meta->obj == NULL) {
 		KGSL_CORE_ERR("snapshot: bad metadata");
@@ -631,13 +618,18 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 	}
 	snapshot = meta->snapshot;
 	obj = meta->obj;
+	memdesc = &obj->entry->memdesc;
+
+	/* If size is zero get it from the medesc size */
+	if (!obj->size)
+		obj->size = (memdesc->size - (obj->gpuaddr - memdesc->gpuaddr));
 
 	if (remain < (obj->size + sizeof(*header))) {
 		KGSL_CORE_ERR("snapshot: Not enough memory for the ib\n");
 		return 0;
 	}
 
-	src = kgsl_gpuaddr_to_vaddr(&obj->entry->memdesc, obj->gpuaddr);
+	src = kgsl_gpuaddr_to_vaddr(memdesc, obj->gpuaddr);
 	if (src == NULL) {
 		KGSL_DRV_ERR(device,
 			"snapshot: Unable to map GPU memory object 0x%016llX into the kernel\n",
@@ -653,13 +645,14 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 		if (-E2BIG == adreno_ib_create_object_list(device,
 				obj->entry->priv,
 				obj->gpuaddr, obj->size >> 2,
+				snapshot->ib2base,
 				&ib_obj_list))
 			ib_max_objs = 1;
 		if (ib_obj_list) {
 			/* freeze the IB objects in the IB */
 			snapshot_freeze_obj_list(snapshot,
 						obj->entry->priv,
-						ib_obj_list, meta->ib2base);
+						ib_obj_list);
 			adreno_ib_destroy_obj_list(ib_obj_list);
 		}
 	}
@@ -688,26 +681,18 @@ static void dump_object(struct kgsl_device *device, int obj,
 {
 	struct snapshot_ib_meta meta;
 
-	switch (objbuf[obj].type) {
-	case SNAPSHOT_OBJ_TYPE_IB:
-		meta.snapshot = snapshot;
-		meta.obj = &objbuf[obj];
-		meta.ib1base = snapshot->ib1base;
-		meta.ib1size = snapshot->ib1size;
-		meta.ib2base = snapshot->ib2base;
-		meta.ib2size = snapshot->ib2size;
+	meta.snapshot = snapshot;
+	meta.obj = &objbuf[obj];
+	meta.ib1base = snapshot->ib1base;
+	meta.ib1size = snapshot->ib1size;
+	meta.ib2base = snapshot->ib2base;
+	meta.ib2size = snapshot->ib2size;
 
-		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_IB_V2,
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_IB_V2,
 			snapshot, snapshot_ib, &meta);
-		if (objbuf[obj].entry) {
-			kgsl_memdesc_unmap(&(objbuf[obj].entry->memdesc));
-			kgsl_mem_entry_put(objbuf[obj].entry);
-		}
-		break;
-	default:
-		KGSL_CORE_ERR("snapshot: Invalid snapshot object type: %d\n",
-			objbuf[obj].type);
-		break;
+	if (objbuf[obj].entry) {
+		kgsl_memdesc_unmap(&(objbuf[obj].entry->memdesc));
+		kgsl_mem_entry_put(objbuf[obj].entry);
 	}
 }
 
@@ -909,10 +894,10 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	 * figure how often this really happens.
 	 */
 
-	if (-ENOENT == find_object(SNAPSHOT_OBJ_TYPE_IB, snapshot->ib1base,
-			snapshot->process) && snapshot->ib1size) {
-		push_object(SNAPSHOT_OBJ_TYPE_IB, snapshot->process,
-			snapshot->ib1base, snapshot->ib1size);
+	if (-ENOENT == find_object(snapshot->ib1base, snapshot->process) &&
+			snapshot->ib1size) {
+		kgsl_snapshot_push_object(snapshot->process, snapshot->ib1base,
+				snapshot->ib1size);
 		KGSL_CORE_ERR(
 		"CP_IB1_BASE not found in the ringbuffer.Dumping %x dwords of the buffer.\n",
 		snapshot->ib1size);
@@ -926,10 +911,9 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	 * correct size.
 	 */
 
-	if (-ENOENT == find_object(SNAPSHOT_OBJ_TYPE_IB, snapshot->ib2base,
-		snapshot->process)) {
-		push_object(SNAPSHOT_OBJ_TYPE_IB, snapshot->process,
-			snapshot->ib2base, snapshot->ib2size);
+	if (-ENOENT == find_object(snapshot->ib2base, snapshot->process)) {
+		kgsl_snapshot_push_object(snapshot->process, snapshot->ib2base,
+				snapshot->ib2size);
 	}
 
 	/*

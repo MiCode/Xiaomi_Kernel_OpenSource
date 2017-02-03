@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -768,8 +768,12 @@ int ipa_uc_monitor_holb(enum ipa_client_type ipa_client, bool enable)
 	int ep_idx;
 	int ret;
 
-	/* HOLB monitoring is applicable only to 2.6L. */
-	if (ipa_ctx->ipa_hw_type != IPA_HW_v2_6L) {
+	/*
+	 * HOLB monitoring is applicable to 2.6L.
+	 * And also could be enabled from dtsi node.
+	 */
+	if (ipa_ctx->ipa_hw_type != IPA_HW_v2_6L ||
+		!ipa_ctx->ipa_uc_monitor_holb) {
 		IPADBG("Not applicable on this target\n");
 		return 0;
 	}

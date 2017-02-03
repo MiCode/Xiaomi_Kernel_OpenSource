@@ -730,6 +730,12 @@ static int msm_int_enable_dig_cdc_clk(struct snd_soc_codec *codec,
 			mutex_lock(&pdata->cdc_int_mclk0_mutex);
 			if (atomic_read(&pdata->int_mclk0_enabled) == false ||
 				int_mclk0_freq_chg) {
+				if (atomic_read(&pdata->int_mclk0_enabled)) {
+					pdata->digital_cdc_core_clk.enable = 0;
+					afe_set_lpass_clock_v2(
+						AFE_PORT_ID_INT0_MI2S_RX,
+						&pdata->digital_cdc_core_clk);
+				}
 				pdata->digital_cdc_core_clk.clk_freq_in_hz =
 							clk_freq_in_hz;
 				pdata->digital_cdc_core_clk.enable = 1;
@@ -1089,8 +1095,7 @@ static void update_int_mi2s_clk_val(int idx, int stream)
 	bit_per_sample =
 	    get_int_mi2s_bits_per_sample(int_mi2s_cfg[idx].bit_format);
 	int_mi2s_clk[idx].clk_freq_in_hz =
-	    (int_mi2s_cfg[idx].sample_rate * int_mi2s_cfg[idx].channels
-					* bit_per_sample);
+	    (int_mi2s_cfg[idx].sample_rate * 2 * bit_per_sample);
 }
 
 static int int_mi2s_set_sclk(struct snd_pcm_substream *substream, bool enable)
@@ -2222,21 +2227,6 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.codec_name = "snd-soc-dummy",
 	},
 	{/* hw:x,35 */
-		.name = LPASS_BE_INT5_MI2S_TX,
-		.stream_name = "INT5 MI2S Capture",
-		.cpu_dai_name = "msm-dai-q6-mi2s.12",
-		.platform_name = "msm-pcm-hostless",
-		.codec_name = "msm_sdw_codec",
-		.codec_dai_name = "msm_sdw_vifeedback",
-		.be_id = MSM_BACKEND_DAI_INT5_MI2S_TX,
-		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
-		.ops = &msm_sdw_mi2s_be_ops,
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ignore_suspend = 1,
-		.dpcm_capture = 1,
-		.ignore_pmdown_time = 1,
-	},
-	{/* hw:x,36 */
 		.name = "Primary MI2S_RX Hostless",
 		.stream_name = "Primary MI2S_RX Hostless",
 		.cpu_dai_name = "PRI_MI2S_RX_HOSTLESS",
@@ -2253,7 +2243,7 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
-	{/* hw:x,37 */
+	{/* hw:x,36 */
 		.name = "Secondary MI2S_RX Hostless",
 		.stream_name = "Secondary MI2S_RX Hostless",
 		.cpu_dai_name = "SEC_MI2S_RX_HOSTLESS",
@@ -2270,7 +2260,7 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
-	{/* hw:x,38 */
+	{/* hw:x,37 */
 		.name = "Tertiary MI2S_RX Hostless",
 		.stream_name = "Tertiary MI2S_RX Hostless",
 		.cpu_dai_name = "TERT_MI2S_RX_HOSTLESS",
@@ -2287,7 +2277,7 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
-	{/* hw:x,39 */
+	{/* hw:x,38 */
 		.name = "INT0 MI2S_RX Hostless",
 		.stream_name = "INT0 MI2S_RX Hostless",
 		.cpu_dai_name = "INT0_MI2S_RX_HOSTLESS",
@@ -2304,6 +2294,28 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
+};
+
+
+static struct snd_soc_dai_link msm_int_wsa_dai[] = {
+	{/* hw:x,39 */
+		.name = LPASS_BE_INT5_MI2S_TX,
+		.stream_name = "INT5_mi2s Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.12",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "msm_sdw_codec",
+		.codec_dai_name = "msm_sdw_vifeedback",
+		.be_id = MSM_BACKEND_DAI_INT5_MI2S_TX,
+		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
+		.ops = &msm_sdw_mi2s_be_ops,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.dpcm_capture = 1,
+		.ignore_pmdown_time = 1,
+	},
+};
+
+static struct snd_soc_dai_link msm_int_be_dai[] = {
 	/* Backend I2S DAI Links */
 	{
 		.name = LPASS_BE_INT0_MI2S_RX,
@@ -2336,21 +2348,6 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.be_id = MSM_BACKEND_DAI_INT3_MI2S_TX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ops = &msm_int_mi2s_be_ops,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = LPASS_BE_INT4_MI2S_RX,
-		.stream_name = "INT4 MI2S Playback",
-		.cpu_dai_name = "msm-dai-q6-mi2s.11",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm_sdw_codec",
-		.codec_dai_name = "msm_sdw_i2s_rx1",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.be_id = MSM_BACKEND_DAI_INT4_MI2S_RX,
-		.init = &msm_sdw_audrx_init,
-		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
-		.ops = &msm_sdw_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
 	{
@@ -2893,11 +2890,32 @@ static struct snd_soc_dai_link msm_wcn_be_dai_links[] = {
 	},
 };
 
+static struct snd_soc_dai_link msm_wsa_be_dai_links[] = {
+	{
+		.name = LPASS_BE_INT4_MI2S_RX,
+		.stream_name = "INT4 MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.11",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm_sdw_codec",
+		.codec_dai_name = "msm_sdw_i2s_rx1",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_INT4_MI2S_RX,
+		.init = &msm_sdw_audrx_init,
+		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
+		.ops = &msm_sdw_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+};
+
 static struct snd_soc_dai_link msm_int_dai_links[
 ARRAY_SIZE(msm_int_dai) +
+ARRAY_SIZE(msm_int_wsa_dai) +
+ARRAY_SIZE(msm_int_be_dai) +
 ARRAY_SIZE(msm_mi2s_be_dai_links) +
 ARRAY_SIZE(msm_auxpcm_be_dai_links)+
-ARRAY_SIZE(msm_wcn_be_dai_links)];
+ARRAY_SIZE(msm_wcn_be_dai_links) +
+ARRAY_SIZE(msm_wsa_be_dai_links)];
 
 static struct snd_soc_card sdm660_card = {
 	/* snd_soc_card_sdm660 */
@@ -2960,6 +2978,16 @@ static struct snd_soc_card *msm_int_populate_sndcard_dailinks(
 	len1 = ARRAY_SIZE(msm_int_dai);
 	memcpy(msm_int_dai_links, msm_int_dai, sizeof(msm_int_dai));
 	dailink = msm_int_dai_links;
+	if (!of_property_read_bool(dev->of_node,
+				  "qcom,wsa-disable")) {
+		memcpy(dailink + len1,
+		       msm_int_wsa_dai,
+		       sizeof(msm_int_wsa_dai));
+		len1 += ARRAY_SIZE(msm_int_wsa_dai);
+	}
+	memcpy(dailink + len1, msm_int_be_dai, sizeof(msm_int_be_dai));
+	len1 += ARRAY_SIZE(msm_int_be_dai);
+
 	if (of_property_read_bool(dev->of_node,
 				  "qcom,mi2s-audio-intf")) {
 		memcpy(dailink + len1,
@@ -2981,6 +3009,12 @@ static struct snd_soc_card *msm_int_populate_sndcard_dailinks(
 		       msm_wcn_be_dai_links,
 		       sizeof(msm_wcn_be_dai_links));
 		len1 += ARRAY_SIZE(msm_wcn_be_dai_links);
+	}
+	if (!of_property_read_bool(dev->of_node, "qcom,wsa-disable")) {
+		memcpy(dailink + len1,
+		       msm_wsa_be_dai_links,
+		       sizeof(msm_wsa_be_dai_links));
+		len1 += ARRAY_SIZE(msm_wsa_be_dai_links);
 	}
 	card->dai_link = dailink;
 	card->num_links = len1;

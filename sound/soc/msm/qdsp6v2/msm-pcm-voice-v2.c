@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -390,6 +390,33 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 	return ret;
 }
 
+static int msm_voice_sidetone_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int ret;
+	bool sidetone_enable = ucontrol->value.integer.value[0];
+	uint32_t session_id = ALL_SESSION_VSID;
+
+	if (sidetone_enable < 0) {
+		pr_err("%s: Invalid arguments sidetone enable %d\n",
+			 __func__, sidetone_enable);
+		ret = -EINVAL;
+		return ret;
+	}
+	ret = voc_set_afe_sidetone(session_id, sidetone_enable);
+	pr_debug("%s: AFE Sidetone enable=%d session_id=0x%x ret=%d\n",
+		 __func__, sidetone_enable, session_id, ret);
+	return ret;
+}
+
+static int msm_voice_sidetone_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+
+	ucontrol->value.integer.value[0] = voc_get_afe_sidetone();
+	return 0;
+}
+
 static int msm_voice_gain_put(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
@@ -632,6 +659,9 @@ static struct snd_kcontrol_new msm_voice_controls[] = {
 		.info	= msm_voice_cvd_version_info,
 		.get	= msm_voice_cvd_version_get,
 	},
+	SOC_SINGLE_MULTI_EXT("Voice Sidetone Enable", SND_SOC_NOPM, 0, 1, 0, 1,
+			     msm_voice_sidetone_get, msm_voice_sidetone_put),
+
 };
 
 static struct snd_pcm_ops msm_pcm_ops = {
