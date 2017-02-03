@@ -505,7 +505,7 @@ static int smblib_notifier_call(struct notifier_block *nb,
 			schedule_work(&chg->bms_update_work);
 	}
 
-	if (!chg->pl.psy && !strcmp(psy->desc->name, "usb-parallel"))
+	if (!chg->pl.psy && !strcmp(psy->desc->name, "parallel"))
 		chg->pl.psy = psy;
 
 	return NOTIFY_OK;
@@ -3570,8 +3570,7 @@ int smblib_init(struct smb_charger *chg)
 		}
 
 		chg->bms_psy = power_supply_get_by_name("bms");
-		chg->pl.psy = power_supply_get_by_name("usb-parallel");
-
+		chg->pl.psy = power_supply_get_by_name("parallel");
 		break;
 	case PARALLEL_SLAVE:
 		break;

@@ -82,7 +82,7 @@ enum {
 static void split_settled(struct pl_data *chip)
 {
 	int slave_icl_pct;
-	int slave_ua;
+	int slave_ua = 0;
 	union power_supply_propval pval = {0, };
 	int rc;
 
@@ -94,10 +94,8 @@ static void split_settled(struct pl_data *chip)
 	if (chip->pl_mode != POWER_SUPPLY_PARALLEL_USBIN_USBIN)
 		return;
 
-	if (chip->main_psy)
+	if (!chip->main_psy)
 		return;
-
-	slave_ua = 0;
 
 	if (!get_effective_result_locked(chip->pl_disable_votable)) {
 		/* read the aicl settled value */
@@ -375,15 +373,17 @@ static int pl_disable_vote_callback(struct votable *votable,
 	if (!pl_disable) { /* enable */
 		rerun_election(chip->fv_votable);
 		rerun_election(chip->fcc_votable);
-
-		if (chip->pl_psy) {
-			pval.intval = 0;
-			rc = power_supply_set_property(chip->pl_psy,
-					POWER_SUPPLY_PROP_INPUT_SUSPEND, &pval);
-			if (rc < 0)
-				pr_err("Couldn't change slave suspend state rc=%d\n",
-					rc);
-		}
+		/*
+		 * Enable will be called with a valid pl_psy always. The
+		 * PARALLEL_PSY_VOTER keeps it disabled unless a pl_psy
+		 * is seen.
+		 */
+		pval.intval = 0;
+		rc = power_supply_set_property(chip->pl_psy,
+				POWER_SUPPLY_PROP_INPUT_SUSPEND, &pval);
+		if (rc < 0)
+			pr_err("Couldn't change slave suspend state rc=%d\n",
+				rc);
 
 		if (chip->pl_mode == POWER_SUPPLY_PARALLEL_USBIN_USBIN)
 			split_settled(chip);
@@ -406,6 +406,7 @@ static int pl_disable_vote_callback(struct votable *votable,
 		if (chip->pl_mode == POWER_SUPPLY_PARALLEL_USBIN_USBIN)
 			split_settled(chip);
 
+		/* pl_psy may be NULL while in the disable branch */
 		if (chip->pl_psy) {
 			pval.intval = 1;
 			rc = power_supply_set_property(chip->pl_psy,
