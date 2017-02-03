@@ -1946,20 +1946,33 @@ static int compute_max_possible_capacity(struct sched_cluster *cluster)
 	return capacity;
 }
 
+static void acquire_rq_locks_irqsave(const cpumask_t *cpus,
+				     unsigned long *flags)
+{
+	int cpu;
+
+	local_irq_save(*flags);
+	for_each_cpu(cpu, cpus)
+		raw_spin_lock(&cpu_rq(cpu)->lock);
+}
+
+static void release_rq_locks_irqrestore(const cpumask_t *cpus,
+					unsigned long *flags)
+{
+	int cpu;
+
+	for_each_cpu(cpu, cpus)
+		raw_spin_unlock(&cpu_rq(cpu)->lock);
+	local_irq_restore(*flags);
+}
+
 static void update_min_max_capacity(void)
 {
 	unsigned long flags;
-	int i;
 
-	local_irq_save(flags);
-	for_each_possible_cpu(i)
-		raw_spin_lock(&cpu_rq(i)->lock);
-
+	acquire_rq_locks_irqsave(cpu_possible_mask, &flags);
 	__update_min_max_capacity();
-
-	for_each_possible_cpu(i)
-		raw_spin_unlock(&cpu_rq(i)->lock);
-	local_irq_restore(flags);
+	release_rq_locks_irqrestore(cpu_possible_mask, &flags);
 }
 
 unsigned int max_power_cost = 1;
@@ -2022,8 +2035,9 @@ static void update_all_clusters_stats(void)
 {
 	struct sched_cluster *cluster;
 	u64 highest_mpc = 0, lowest_mpc = U64_MAX;
+	unsigned long flags;
 
-	pre_big_task_count_change(cpu_possible_mask);
+	acquire_rq_locks_irqsave(cpu_possible_mask, &flags);
 
 	for_each_sched_cluster(cluster) {
 		u64 mpc;
@@ -2049,7 +2063,7 @@ static void update_all_clusters_stats(void)
 
 	__update_min_max_capacity();
 	sched_update_freq_max_load(cpu_possible_mask);
-	post_big_task_count_change(cpu_possible_mask);
+	release_rq_locks_irqrestore(cpu_possible_mask, &flags);
 }
 
 void update_cluster_topology(void)
