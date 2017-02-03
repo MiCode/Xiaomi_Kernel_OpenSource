@@ -2644,6 +2644,10 @@ inc_cum_window_demand(struct rq *rq, struct task_struct *p, s64 delta)
 	rq->cum_window_demand += delta;
 }
 
+extern void update_cpu_cluster_capacity(const cpumask_t *cpus);
+
+extern unsigned long thermal_cap(int cpu);
+
 #else	/* CONFIG_SCHED_WALT */
 
 struct hmp_sched_stats;
@@ -2766,6 +2770,15 @@ dec_cum_window_demand(struct rq *rq, struct task_struct *p) { }
 static inline void
 inc_cum_window_demand(struct rq *rq, struct task_struct *p, s64 delta) { }
 
+static inline void update_cpu_cluster_capacity(const cpumask_t *cpus) { }
+
+#ifdef CONFIG_SMP
+static inline unsigned long thermal_cap(int cpu)
+{
+	return cpu_rq(cpu)->cpu_capacity_orig;
+}
+#endif
+
 #endif	/* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_SCHED_HMP
@@ -2817,8 +2830,6 @@ dec_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
 
 	BUG_ON(stats->nr_big_tasks < 0);
 }
-
-extern void update_cpu_cluster_capacity(const cpumask_t *cpus);
 
 static inline bool is_short_burst_task(struct task_struct *p)
 {
@@ -2896,8 +2907,5 @@ inc_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p) { }
 
 static inline void
 dec_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p) { }
-
-static inline void
-update_cpu_cluster_capacity(const cpumask_t *cpus) { }
 
 #endif /* CONFIG_SCHED_HMP */

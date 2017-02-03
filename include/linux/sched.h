@@ -2681,9 +2681,6 @@ static inline int sched_update_freq_max_load(const cpumask_t *cpumask)
 	return 0;
 }
 
-static inline void sched_update_cpu_freq_min_max(const cpumask_t *cpus,
-					u32 fmin, u32 fmax) { }
-
 static inline void
 sched_set_cpu_cstate(int cpu, int cstate, int wakeup_energy, int wakeup_latency)
 {
@@ -2702,6 +2699,8 @@ extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
 extern unsigned int sched_get_group_id(struct task_struct *p);
 extern int sched_set_init_task_load(struct task_struct *p, int init_load_pct);
 extern u32 sched_get_init_task_load(struct task_struct *p);
+extern void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin,
+					  u32 fmax);
 #else
 static inline int
 register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
@@ -2709,6 +2708,13 @@ register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
 	return 0;
 }
 static inline void sched_set_io_is_busy(int val) {};
+#endif /* CONFIG_SCHED_WALT */
+
+#ifndef CONFIG_SCHED_WALT
+#ifndef CONFIG_SCHED_HMP
+static inline void sched_update_cpu_freq_min_max(const cpumask_t *cpus,
+					u32 fmin, u32 fmax) { }
+#endif /* CONFIG_SCHED_HMP */
 #endif /* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_NO_HZ_COMMON

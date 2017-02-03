@@ -2122,6 +2122,8 @@ void init_clusters(void)
 	INIT_LIST_HEAD(&cluster_head);
 }
 
+static unsigned long cpu_max_table_freq[NR_CPUS];
+
 static int cpufreq_notifier_policy(struct notifier_block *nb,
 		unsigned long val, void *data)
 {
@@ -2146,6 +2148,9 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	min_max_freq = min(min_max_freq, policy->cpuinfo.max_freq);
 	BUG_ON(!min_max_freq);
 	BUG_ON(!policy->max);
+
+	for_each_cpu(i, &policy_cluster)
+		cpu_max_table_freq[i] = policy->cpuinfo.max_freq;
 
 	for_each_cpu(i, &policy_cluster) {
 		cluster = cpu_rq(i)->cluster;
@@ -2630,6 +2635,94 @@ int sync_cgroup_colocation(struct task_struct *p, bool insert)
 	return __sched_set_group_id(p, grp_id);
 }
 #endif
+
+void update_cpu_cluster_capacity(const cpumask_t *cpus)
+{
+	int i;
+	struct sched_cluster *cluster;
+	struct cpumask cpumask;
+	unsigned long flags;
+
+	cpumask_copy(&cpumask, cpus);
+	acquire_rq_locks_irqsave(cpu_possible_mask, &flags);
+
+	for_each_cpu(i, &cpumask) {
+		cluster = cpu_rq(i)->cluster;
+		cpumask_andnot(&cpumask, &cpumask, &cluster->cpus);
+
+		cluster->capacity = compute_capacity(cluster);
+		cluster->load_scale_factor = compute_load_scale_factor(cluster);
+	}
+
+	__update_min_max_capacity();
+
+	release_rq_locks_irqrestore(cpu_possible_mask, &flags);
+}
+
+static unsigned long max_cap[NR_CPUS];
+static unsigned long thermal_cap_cpu[NR_CPUS];
+
+unsigned long thermal_cap(int cpu)
+{
+	return thermal_cap_cpu[cpu] ?: cpu_rq(cpu)->cpu_capacity_orig;
+}
+
+unsigned long do_thermal_cap(int cpu, unsigned long thermal_max_freq)
+{
+	struct sched_domain *sd;
+	struct sched_group *sg;
+	struct rq *rq = cpu_rq(cpu);
+	int nr_cap_states;
+
+	if (!max_cap[cpu]) {
+		rcu_read_lock();
+		sd = rcu_dereference(per_cpu(sd_ea, cpu));
+		if (!sd || !sd->groups || !sd->groups->sge ||
+		    !sd->groups->sge->cap_states) {
+			rcu_read_unlock();
+			return rq->cpu_capacity_orig;
+		}
+		sg = sd->groups;
+		nr_cap_states = sg->sge->nr_cap_states;
+		max_cap[cpu] = sg->sge->cap_states[nr_cap_states - 1].cap;
+		rcu_read_unlock();
+	}
+
+	if (cpu_max_table_freq[cpu] &&
+	    unlikely(thermal_max_freq && thermal_max_freq
+		!= cpu_max_table_freq[cpu])) {
+		return div64_ul(thermal_max_freq * max_cap[cpu],
+				cpu_max_table_freq[cpu]);
+	} else {
+		return rq->cpu_capacity_orig;
+	}
+}
+
+static DEFINE_SPINLOCK(cpu_freq_min_max_lock);
+void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin, u32 fmax)
+{
+	struct cpumask cpumask;
+	struct sched_cluster *cluster;
+	int i, update_capacity = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&cpu_freq_min_max_lock, flags);
+	cpumask_copy(&cpumask, cpus);
+
+	for_each_cpu(i, &cpumask)
+		thermal_cap_cpu[i] = do_thermal_cap(i, fmax);
+
+	for_each_cpu(i, &cpumask) {
+		cluster = cpu_rq(i)->cluster;
+		cpumask_andnot(&cpumask, &cpumask, &cluster->cpus);
+		update_capacity += (cluster->max_mitigated_freq != fmax);
+		cluster->max_mitigated_freq = fmax;
+	}
+	spin_unlock_irqrestore(&cpu_freq_min_max_lock, flags);
+
+	if (update_capacity)
+		update_cpu_cluster_capacity(cpus);
+}
 
 /*
  * Task's cpu usage is accounted in:
