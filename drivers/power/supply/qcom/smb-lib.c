@@ -505,7 +505,7 @@ static int smblib_notifier_call(struct notifier_block *nb,
 			schedule_work(&chg->bms_update_work);
 	}
 
-	if (!chg->pl.psy && !strcmp(psy->desc->name, "usb-parallel"))
+	if (!chg->pl.psy && !strcmp(psy->desc->name, "parallel"))
 		chg->pl.psy = psy;
 
 	return NOTIFY_OK;
@@ -3366,6 +3366,25 @@ static int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
 
+	chg->fcc_votable = find_votable("FCC");
+	if (!chg->fcc_votable) {
+		rc = -EPROBE_DEFER;
+		return rc;
+	}
+
+	chg->fv_votable = find_votable("FV");
+	if (!chg->fv_votable) {
+		rc = -EPROBE_DEFER;
+		return rc;
+	}
+
+	chg->pl_disable_votable = find_votable("PL_DISABLE");
+	if (!chg->pl_disable_votable) {
+		rc = -EPROBE_DEFER;
+		return rc;
+	}
+	vote(chg->pl_disable_votable, PL_INDIRECT_VOTER, true, 0);
+
 	chg->usb_suspend_votable = create_votable("USB_SUSPEND", VOTE_SET_ANY,
 					smblib_usb_suspend_vote_callback,
 					chg);
@@ -3387,18 +3406,6 @@ static int smblib_create_votables(struct smb_charger *chg)
 					chg);
 	if (IS_ERR(chg->fcc_max_votable)) {
 		rc = PTR_ERR(chg->fcc_max_votable);
-		return rc;
-	}
-
-	chg->fcc_votable = find_votable("FCC");
-	if (!chg->fcc_votable) {
-		rc = -EPROBE_DEFER;
-		return rc;
-	}
-
-	chg->fv_votable = find_votable("FV");
-	if (!chg->fv_votable) {
-		rc = -EPROBE_DEFER;
 		return rc;
 	}
 
@@ -3440,13 +3447,6 @@ static int smblib_create_votables(struct smb_charger *chg)
 		rc = PTR_ERR(chg->awake_votable);
 		return rc;
 	}
-
-	chg->pl_disable_votable = find_votable("PL_DISABLE");
-	if (!chg->pl_disable_votable) {
-		rc = -EPROBE_DEFER;
-		return rc;
-	}
-	vote(chg->pl_disable_votable, PL_INDIRECT_VOTER, true, 0);
 
 	chg->chg_disable_votable = create_votable("CHG_DISABLE", VOTE_SET_ANY,
 					smblib_chg_disable_vote_callback,
@@ -3566,8 +3566,7 @@ int smblib_init(struct smb_charger *chg)
 		}
 
 		chg->bms_psy = power_supply_get_by_name("bms");
-		chg->pl.psy = power_supply_get_by_name("usb-parallel");
-
+		chg->pl.psy = power_supply_get_by_name("parallel");
 		break;
 	case PARALLEL_SLAVE:
 		break;
