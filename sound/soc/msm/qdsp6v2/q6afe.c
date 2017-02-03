@@ -1366,6 +1366,7 @@ static int afe_send_port_topology_id(u16 port_id)
 	}
 
 	this_afe.topology[index] = topology_id;
+	rtac_update_afe_topology(port_id);
 done:
 	pr_debug("%s: AFE set topology id 0x%x  enable for port 0x%x ret %d\n",
 			__func__, topology_id, port_id, ret);
