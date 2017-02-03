@@ -403,6 +403,7 @@ static int msm_afe_lb_vol_ctrl;
 static int msm_afe_sec_mi2s_lb_vol_ctrl;
 static int msm_afe_tert_mi2s_lb_vol_ctrl;
 static int msm_afe_quat_mi2s_lb_vol_ctrl;
+static int msm_afe_slimbus_7_lb_vol_ctrl;
 static int msm_afe_slimbus_8_lb_vol_ctrl;
 static const DECLARE_TLV_DB_LINEAR(fm_rx_vol_gain, 0, INT_RX_VOL_MAX_STEPS);
 static const DECLARE_TLV_DB_LINEAR(afe_lb_vol_gain, 0, INT_RX_VOL_MAX_STEPS);
@@ -473,6 +474,29 @@ static int msm_qti_pp_set_tert_mi2s_lb_vol_mixer(struct snd_kcontrol *kcontrol,
 			  ucontrol->value.integer.value[0]);
 	msm_afe_tert_mi2s_lb_vol_ctrl = ucontrol->value.integer.value[0];
 	return 0;
+}
+
+static int msm_qti_pp_get_slimbus_7_lb_vol_mixer(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = msm_afe_slimbus_7_lb_vol_ctrl;
+	return 0;
+}
+
+static int msm_qti_pp_set_slimbus_7_lb_vol_mixer(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = afe_loopback_gain(SLIMBUS_7_TX,
+				ucontrol->value.integer.value[0]);
+
+	if (ret)
+		pr_err("%s: failed to set LB vol for SLIMBUS_7_TX, err %d\n",
+			__func__, ret);
+	else
+		msm_afe_slimbus_7_lb_vol_ctrl =
+				ucontrol->value.integer.value[0];
+
+	return ret;
 }
 
 static int msm_qti_pp_get_slimbus_8_lb_vol_mixer(struct snd_kcontrol *kcontrol,
@@ -857,6 +881,14 @@ static const struct snd_kcontrol_new tert_mi2s_lb_vol_mixer_controls[] = {
 	msm_qti_pp_set_tert_mi2s_lb_vol_mixer, afe_lb_vol_gain),
 };
 
+static const struct snd_kcontrol_new slimbus_7_lb_vol_mixer_controls[] = {
+	SOC_SINGLE_EXT_TLV("SLIMBUS_7 LOOPBACK Volume", SND_SOC_NOPM, 0,
+				INT_RX_VOL_GAIN, 0,
+				msm_qti_pp_get_slimbus_7_lb_vol_mixer,
+				msm_qti_pp_set_slimbus_7_lb_vol_mixer,
+				afe_lb_vol_gain),
+};
+
 static const struct snd_kcontrol_new slimbus_8_lb_vol_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("SLIMBUS_8 LOOPBACK Volume", SND_SOC_NOPM, 0,
 	INT_RX_VOL_GAIN, 0, msm_qti_pp_get_slimbus_8_lb_vol_mixer,
@@ -1060,6 +1092,9 @@ void msm_qti_pp_add_controls(struct snd_soc_platform *platform)
 
 	snd_soc_add_platform_controls(platform, tert_mi2s_lb_vol_mixer_controls,
 			ARRAY_SIZE(tert_mi2s_lb_vol_mixer_controls));
+
+	snd_soc_add_platform_controls(platform, slimbus_7_lb_vol_mixer_controls,
+			ARRAY_SIZE(slimbus_7_lb_vol_mixer_controls));
 
 	snd_soc_add_platform_controls(platform, slimbus_8_lb_vol_mixer_controls,
 			ARRAY_SIZE(slimbus_8_lb_vol_mixer_controls));
