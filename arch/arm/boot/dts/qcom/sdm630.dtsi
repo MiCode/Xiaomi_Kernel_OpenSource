@@ -1589,3 +1589,7 @@
 &gdsc_gpu_cx {
 	status = "ok";
 };
+
+&blsp2_uart1_hs {
+	status = "ok";
+};
