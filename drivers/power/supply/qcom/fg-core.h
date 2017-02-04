@@ -369,6 +369,7 @@ struct fg_log_buffer {
 /* transaction parameters */
 struct fg_trans {
 	struct fg_chip		*chip;
+	struct mutex		fg_dfs_lock; /* Prevent thread concurrency */
 	struct fg_log_buffer	*log;
 	u32			cnt;
 	u16			addr;

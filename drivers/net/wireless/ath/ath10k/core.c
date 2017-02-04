@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
- * Copyright (c) 2011-2013 Qualcomm Atheros, Inc.
+ * Copyright (c) 2011-2013, 2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -1797,43 +1797,45 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode,
 	lockdep_assert_held(&ar->conf_mutex);
 
 	clear_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags);
+	if (!ar->qmi.is_qmi) {
+		ar->running_fw = fw;
 
-	ar->running_fw = fw;
+		ath10k_bmi_start(ar);
 
-	ath10k_bmi_start(ar);
-
-	if (ath10k_init_configure_target(ar)) {
-		status = -EINVAL;
-		goto err;
-	}
-
-	status = ath10k_download_cal_data(ar);
-	if (status)
-		goto err;
-
-	/* Some of of qca988x solutions are having global reset issue
-	 * during target initialization. Bypassing PLL setting before
-	 * downloading firmware and letting the SoC run on REF_CLK is
-	 * fixing the problem. Corresponding firmware change is also needed
-	 * to set the clock source once the target is initialized.
-	 */
-	if (test_bit(ATH10K_FW_FEATURE_SUPPORTS_SKIP_CLOCK_INIT,
-		     ar->running_fw->fw_file.fw_features)) {
-		status = ath10k_bmi_write32(ar, hi_skip_clock_init, 1);
-		if (status) {
-			ath10k_err(ar, "could not write to skip_clock_init: %d\n",
-				   status);
+		if (ath10k_init_configure_target(ar)) {
+			status = -EINVAL;
 			goto err;
 		}
+
+		status = ath10k_download_cal_data(ar);
+		if (status)
+			goto err;
+
+		/* Some of of qca988x solutions are having global reset issue
+		 * during target initialization. Bypassing PLL setting before
+		 * downloading firmware and letting the SoC run on REF_CLK is
+		 * fixing the problem. Corresponding firmware change is also
+		 * needed to set the clock source once the target is
+		 * initialized.
+		 */
+		if (test_bit(ATH10K_FW_FEATURE_SUPPORTS_SKIP_CLOCK_INIT,
+			     ar->running_fw->fw_file.fw_features)) {
+			status = ath10k_bmi_write32(ar, hi_skip_clock_init, 1);
+			if (status) {
+				ath10k_err(ar, "skip_clock_init failed: %d\n",
+					   status);
+				goto err;
+			}
+		}
+
+		status = ath10k_download_fw(ar);
+		if (status)
+			goto err;
+
+		status = ath10k_init_uart(ar);
+		if (status)
+			goto err;
 	}
-
-	status = ath10k_download_fw(ar);
-	if (status)
-		goto err;
-
-	status = ath10k_init_uart(ar);
-	if (status)
-		goto err;
 
 	ar->htc.htc_ops.target_send_suspend_complete =
 		ath10k_send_suspend_complete;
@@ -1844,9 +1846,11 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode,
 		goto err;
 	}
 
-	status = ath10k_bmi_done(ar);
-	if (status)
-		goto err;
+	if (!ar->qmi.is_qmi) {
+		status = ath10k_bmi_done(ar);
+		if (status)
+			goto err;
+	}
 
 	status = ath10k_wmi_attach(ar);
 	if (status) {
@@ -1968,10 +1972,13 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode,
 	 * possible to implicitly make it correct by creating a dummy vdev and
 	 * then deleting it.
 	 */
-	status = ath10k_core_reset_rx_filter(ar);
-	if (status) {
-		ath10k_err(ar, "failed to reset rx filter: %d\n", status);
-		goto err_hif_stop;
+	if (!QCA_REV_WCN3990(ar)) {
+		status = ath10k_core_reset_rx_filter(ar);
+		if (status) {
+			ath10k_err(ar, "failed to reset rx filter: %d\n",
+				   status);
+			goto err_hif_stop;
+		}
 	}
 
 	/* If firmware indicates Full Rx Reorder support it must be used in a
@@ -2076,58 +2083,62 @@ static int ath10k_core_probe_fw(struct ath10k *ar)
 		return ret;
 	}
 
-	memset(&target_info, 0, sizeof(target_info));
-	ret = ath10k_bmi_get_target_info(ar, &target_info);
-	if (ret) {
-		ath10k_err(ar, "could not get target info (%d)\n", ret);
-		goto err_power_down;
+	if (!ar->qmi.is_qmi) {
+		memset(&target_info, 0, sizeof(target_info));
+		ret = ath10k_bmi_get_target_info(ar, &target_info);
+		if (ret) {
+			ath10k_err(ar, "could not get target info (%d)\n", ret);
+			goto err_power_down;
+		}
+
+		ar->target_version = target_info.version;
+		ar->hw->wiphy->hw_version = target_info.version;
+
+		ret = ath10k_init_hw_params(ar);
+		if (ret) {
+			ath10k_err(ar, "could not get hw params (%d)\n", ret);
+			goto err_power_down;
+		}
+
+		ret = ath10k_core_fetch_firmware_files(ar);
+		if (ret) {
+			ath10k_err(ar, "could not fetch firmware files (%d)\n",
+				   ret);
+			goto err_power_down;
+		}
+
+		BUILD_BUG_ON(sizeof(ar->hw->wiphy->fw_version) !=
+				 sizeof(ar->normal_mode_fw.fw_file.fw_version));
+		memcpy(ar->hw->wiphy->fw_version,
+		       ar->normal_mode_fw.fw_file.fw_version,
+		       sizeof(ar->hw->wiphy->fw_version));
+
+		ath10k_debug_print_hwfw_info(ar);
+
+		ret = ath10k_core_pre_cal_download(ar);
+		if (ret) {
+			/* pre calibration data download is not necessary
+			 * for all the chipsets. Ignore failures and continue.
+			 */
+			ath10k_dbg(ar, ATH10K_DBG_BOOT,
+				   "could not load pre cal data: %d\n", ret);
+		}
+
+		ret = ath10k_core_get_board_id_from_otp(ar);
+		if (ret && ret != -EOPNOTSUPP) {
+			ath10k_err(ar, "failed to get board id from otp: %d\n",
+				   ret);
+			goto err_free_firmware_files;
+		}
+
+		ret = ath10k_core_fetch_board_file(ar);
+		if (ret) {
+			ath10k_err(ar, "failed to fetch board file: %d\n", ret);
+			goto err_free_firmware_files;
+		}
+
+		ath10k_debug_print_board_info(ar);
 	}
-
-	ar->target_version = target_info.version;
-	ar->hw->wiphy->hw_version = target_info.version;
-
-	ret = ath10k_init_hw_params(ar);
-	if (ret) {
-		ath10k_err(ar, "could not get hw params (%d)\n", ret);
-		goto err_power_down;
-	}
-
-	ret = ath10k_core_fetch_firmware_files(ar);
-	if (ret) {
-		ath10k_err(ar, "could not fetch firmware files (%d)\n", ret);
-		goto err_power_down;
-	}
-
-	BUILD_BUG_ON(sizeof(ar->hw->wiphy->fw_version) !=
-		     sizeof(ar->normal_mode_fw.fw_file.fw_version));
-	memcpy(ar->hw->wiphy->fw_version, ar->normal_mode_fw.fw_file.fw_version,
-	       sizeof(ar->hw->wiphy->fw_version));
-
-	ath10k_debug_print_hwfw_info(ar);
-
-	ret = ath10k_core_pre_cal_download(ar);
-	if (ret) {
-		/* pre calibration data download is not necessary
-		 * for all the chipsets. Ignore failures and continue.
-		 */
-		ath10k_dbg(ar, ATH10K_DBG_BOOT,
-			   "could not load pre cal data: %d\n", ret);
-	}
-
-	ret = ath10k_core_get_board_id_from_otp(ar);
-	if (ret && ret != -EOPNOTSUPP) {
-		ath10k_err(ar, "failed to get board id from otp: %d\n",
-			   ret);
-		goto err_free_firmware_files;
-	}
-
-	ret = ath10k_core_fetch_board_file(ar);
-	if (ret) {
-		ath10k_err(ar, "failed to fetch board file: %d\n", ret);
-		goto err_free_firmware_files;
-	}
-
-	ath10k_debug_print_board_info(ar);
 
 	ret = ath10k_core_init_firmware_features(ar);
 	if (ret) {
@@ -2136,11 +2147,14 @@ static int ath10k_core_probe_fw(struct ath10k *ar)
 		goto err_free_firmware_files;
 	}
 
-	ret = ath10k_swap_code_seg_init(ar, &ar->normal_mode_fw.fw_file);
-	if (ret) {
-		ath10k_err(ar, "failed to initialize code swap segment: %d\n",
-			   ret);
-		goto err_free_firmware_files;
+	if (!ar->qmi.is_qmi) {
+		ret = ath10k_swap_code_seg_init(ar,
+						&ar->normal_mode_fw.fw_file);
+		if (ret) {
+			ath10k_err(ar, "failed to init code swap segment: %d\n",
+				   ret);
+			goto err_free_firmware_files;
+		}
 	}
 
 	mutex_lock(&ar->conf_mutex);
@@ -2308,6 +2322,12 @@ struct ath10k *ath10k_core_create(size_t priv_size, struct device *dev,
 	case ATH10K_HW_QCA4019:
 		ar->regs = &qca4019_regs;
 		ar->hw_values = &qca4019_values;
+		break;
+	case ATH10K_HW_WCN3990:
+		ar->regs = &wcn3990_regs;
+		ar->hw_values = &wcn3990_values;
+		ar->qmi.is_qmi = true;
+		ar->fw_flags = &wcn3990_fw_flags;
 		break;
 	default:
 		ath10k_err(ar, "unsupported core hardware revision %d\n",

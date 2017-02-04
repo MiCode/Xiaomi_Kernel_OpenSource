@@ -178,6 +178,11 @@ static int dwc3_core_reset(struct dwc3 *dwc)
 
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
 	reg &= ~DWC3_GUSB3PIPECTL_DELAYP1TRANS;
+
+	/* core exits U1/U2/U3 only in PHY power state P1/P2/P3 respectively */
+	if (dwc->revision <= DWC3_REVISION_310A)
+		reg |= DWC3_GUSB3PIPECTL_UX_EXIT_IN_PX;
+
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_RESET_EVENT, 0);
@@ -659,8 +664,10 @@ int dwc3_core_init(struct dwc3 *dwc)
 	/* Handle USB2.0-only core configuration */
 	if (DWC3_GHWPARAMS3_SSPHY_IFC(dwc->hwparams.hwparams3) ==
 			DWC3_GHWPARAMS3_SSPHY_IFC_DIS) {
-		if (dwc->maximum_speed == USB_SPEED_SUPER)
-			dwc->maximum_speed = USB_SPEED_HIGH;
+		if (dwc->max_hw_supp_speed == USB_SPEED_SUPER) {
+			dwc->max_hw_supp_speed = USB_SPEED_HIGH;
+			dwc->maximum_speed = dwc->max_hw_supp_speed;
+		}
 	}
 
 	ret = dwc3_core_reset(dwc);
@@ -1084,6 +1091,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	hird_threshold = 12;
 
 	dwc->maximum_speed = usb_get_maximum_speed(dev);
+	dwc->max_hw_supp_speed = dwc->maximum_speed;
 	dwc->dr_mode = usb_get_dr_mode(dev);
 
 	dwc->has_lpm_erratum = device_property_read_bool(dev,
@@ -1157,6 +1165,7 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	if (pdata) {
 		dwc->maximum_speed = pdata->maximum_speed;
+		dwc->max_hw_supp_speed = dwc->maximum_speed;
 		dwc->has_lpm_erratum = pdata->has_lpm_erratum;
 		if (pdata->lpm_nyet_threshold)
 			lpm_nyet_threshold = pdata->lpm_nyet_threshold;
@@ -1190,7 +1199,7 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	/* default to superspeed if no maximum_speed passed */
 	if (dwc->maximum_speed == USB_SPEED_UNKNOWN)
-		dwc->maximum_speed = USB_SPEED_SUPER;
+		dwc->max_hw_supp_speed = dwc->maximum_speed = USB_SPEED_SUPER;
 
 	dwc->lpm_nyet_threshold = lpm_nyet_threshold;
 	dwc->tx_de_emphasis = tx_de_emphasis;

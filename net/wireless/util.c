@@ -1080,7 +1080,7 @@ static u32 cfg80211_calculate_bitrate_vht(struct rate_info *rate)
 		   58500000,
 		   65000000,
 		   78000000,
-		   0,
+		   86500000,
 		},
 		{  13500000,
 		   27000000,

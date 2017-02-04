@@ -30,7 +30,9 @@
 #include "dsi-panel-sharp-dualmipi-1080p-120hz.dtsi"
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
 #include "dsi-panel-sharp-dsc-4k-video.dtsi"
+#include "dsi-panel-toshiba-720p-video.dtsi"
 #include "dsi-panel-sharp-dsc-4k-cmd.dtsi"
+#include "dsi-panel-jdi-1080p-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -126,6 +128,16 @@
 			qcom,supply-enable-load = <62000>;
 			qcom,supply-disable-load = <80>;
 			qcom,supply-post-on-sleep = <20>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3000000>;
+			qcom,supply-enable-load = <857000>;
+			qcom,supply-disable-load = <0>;
+			qcom,supply-post-on-sleep = <0>;
 		};
 	};
 };

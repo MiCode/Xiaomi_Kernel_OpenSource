@@ -293,7 +293,7 @@
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 			reusable;
 			alignment = <0x0 0x400000>;
-			size = <0x0 0x400000>;
+			size = <0x0 0xa00000>;
 		};
 
 		qseecom_mem: qseecom_region {
@@ -956,6 +956,41 @@
 		qcom,mpu-enabled;
 	};
 
+	qcom,msm-adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
+	};
+
+	qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-adsp";
+		qcom,fastrpc-glink;
+
+		qcom,msm_fastrpc_compute_cb1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 3>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb2 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 7>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb3 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 8>;
+			dma-coherent;
+		};
+		qcom,msm_fastrpc_compute_cb4 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 9>;
+			dma-coherent;
+		};
+	};
+
 	dcc: dcc@10b3000 {
 		compatible = "qcom,dcc";
 		reg = <0x10b3000 0x1000>,
@@ -1521,6 +1556,7 @@
 #include "sdm660-common.dtsi"
 #include "msm-arm-smmu-630.dtsi"
 #include "sdm660-camera.dtsi"
+#include "sdm630-pm.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";

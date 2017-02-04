@@ -58,6 +58,52 @@ out:
 	return ice_vops;
 }
 
+static
+void sdhci_msm_enable_ice_hci(struct sdhci_host *host, bool enable)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	u32 config = 0;
+	u32 ice_cap = 0;
+
+	/*
+	 * Enable the cryptographic support inside SDHC.
+	 * This is a global config which needs to be enabled
+	 * all the time.
+	 * Only when it it is enabled, the ICE_HCI capability
+	 * will get reflected in CQCAP register.
+	 */
+	config = readl_relaxed(host->ioaddr + HC_VENDOR_SPECIFIC_FUNC4);
+
+	if (enable)
+		config &= ~DISABLE_CRYPTO;
+	else
+		config |= DISABLE_CRYPTO;
+	writel_relaxed(config, host->ioaddr + HC_VENDOR_SPECIFIC_FUNC4);
+
+	/*
+	 * CQCAP register is in different register space from above
+	 * ice global enable register. So a mb() is required to ensure
+	 * above write gets completed before reading the CQCAP register.
+	 */
+	mb();
+
+	/*
+	 * Check if ICE HCI capability support is present
+	 * If present, enable it.
+	 */
+	ice_cap = readl_relaxed(msm_host->cryptoio + ICE_CQ_CAPABILITIES);
+	if (ice_cap & ICE_HCI_SUPPORT) {
+		config = readl_relaxed(msm_host->cryptoio + ICE_CQ_CONFIG);
+
+		if (enable)
+			config |= CRYPTO_GENERAL_ENABLE;
+		else
+			config &= ~CRYPTO_GENERAL_ENABLE;
+		writel_relaxed(config, msm_host->cryptoio + ICE_CQ_CONFIG);
+	}
+}
+
 int sdhci_msm_ice_get_dev(struct sdhci_host *host)
 {
 	struct device *sdhc_dev;
@@ -96,6 +142,37 @@ int sdhci_msm_ice_get_dev(struct sdhci_host *host)
 	return 0;
 }
 
+static
+int sdhci_msm_ice_pltfm_init(struct sdhci_msm_host *msm_host)
+{
+	struct resource *ice_memres = NULL;
+	struct platform_device *pdev = msm_host->pdev;
+	int err = 0;
+
+	if (!msm_host->ice_hci_support)
+		goto out;
+	/*
+	 * ICE HCI registers are present in cmdq register space.
+	 * So map the cmdq mem for accessing ICE HCI registers.
+	 */
+	ice_memres = platform_get_resource_byname(pdev,
+						IORESOURCE_MEM, "cmdq_mem");
+	if (!ice_memres) {
+		dev_err(&pdev->dev, "Failed to get iomem resource for ice\n");
+		err = -EINVAL;
+		goto out;
+	}
+	msm_host->cryptoio = devm_ioremap(&pdev->dev,
+					ice_memres->start,
+					resource_size(ice_memres));
+	if (!msm_host->cryptoio) {
+		dev_err(&pdev->dev, "Failed to remap registers\n");
+		err = -ENOMEM;
+	}
+out:
+	return err;
+}
+
 int sdhci_msm_ice_init(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -103,6 +180,13 @@ int sdhci_msm_ice_init(struct sdhci_host *host)
 	int err = 0;
 
 	if (msm_host->ice.vops->init) {
+		err = sdhci_msm_ice_pltfm_init(msm_host);
+		if (err)
+			goto out;
+
+		if (msm_host->ice_hci_support)
+			sdhci_msm_enable_ice_hci(host, true);
+
 		err = msm_host->ice.vops->init(msm_host->ice.pdev,
 					msm_host,
 					sdhci_msm_ice_error_cb);
@@ -110,6 +194,8 @@ int sdhci_msm_ice_init(struct sdhci_host *host)
 			pr_err("%s: ice init err %d\n",
 				mmc_hostname(host->mmc), err);
 			sdhci_msm_ice_print_regs(host);
+			if (msm_host->ice_hci_support)
+				sdhci_msm_enable_ice_hci(host, false);
 			goto out;
 		}
 		msm_host->ice.state = SDHCI_MSM_ICE_STATE_ACTIVE;
@@ -125,60 +211,47 @@ void sdhci_msm_ice_cfg_reset(struct sdhci_host *host, u32 slot)
 		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_3_n + 16 * slot);
 }
 
-int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
-			u32 slot)
+static
+int sdhci_msm_ice_get_cfg(struct sdhci_msm_host *msm_host, struct request *req,
+			unsigned int *bypass, short *key_index)
 {
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int err = 0;
 	struct ice_data_setting ice_set;
-	sector_t lba = 0;
-	unsigned int ctrl_info_val = 0;
-	unsigned int bypass = SDHCI_MSM_ICE_ENABLE_BYPASS;
-	struct request *req;
 
-	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
-		pr_err("%s: ice is in invalid state %d\n",
-			mmc_hostname(host->mmc), msm_host->ice.state);
-		return -EINVAL;
-	}
-
-	BUG_ON(!mrq);
 	memset(&ice_set, 0, sizeof(struct ice_data_setting));
-	req = mrq->req;
-	if (req) {
-		lba = req->__sector;
-		if (msm_host->ice.vops->config_start) {
-			err = msm_host->ice.vops->config_start(
-							msm_host->ice.pdev,
-							req, &ice_set, false);
-			if (err) {
-				pr_err("%s: ice config failed %d\n",
-						mmc_hostname(host->mmc), err);
-				return err;
-			}
+	if (msm_host->ice.vops->config_start) {
+		err = msm_host->ice.vops->config_start(
+						msm_host->ice.pdev,
+						req, &ice_set, false);
+		if (err) {
+			pr_err("%s: ice config failed %d\n",
+					mmc_hostname(msm_host->mmc), err);
+			return err;
 		}
-		/* if writing data command */
-		if (rq_data_dir(req) == WRITE)
-			bypass = ice_set.encr_bypass ?
-					SDHCI_MSM_ICE_ENABLE_BYPASS :
-					SDHCI_MSM_ICE_DISABLE_BYPASS;
-		/* if reading data command */
-		else if (rq_data_dir(req) == READ)
-			bypass = ice_set.decr_bypass ?
-					SDHCI_MSM_ICE_ENABLE_BYPASS :
-					SDHCI_MSM_ICE_DISABLE_BYPASS;
-		pr_debug("%s: %s: slot %d encr_bypass %d bypass %d decr_bypass %d key_index %d\n",
-				mmc_hostname(host->mmc),
-				(rq_data_dir(req) == WRITE) ? "WRITE" : "READ",
-				slot, ice_set.encr_bypass, bypass,
-				ice_set.decr_bypass,
-				ice_set.crypto_data.key_index);
 	}
+	/* if writing data command */
+	if (rq_data_dir(req) == WRITE)
+		*bypass = ice_set.encr_bypass ?
+				SDHCI_MSM_ICE_ENABLE_BYPASS :
+				SDHCI_MSM_ICE_DISABLE_BYPASS;
+	/* if reading data command */
+	else if (rq_data_dir(req) == READ)
+		*bypass = ice_set.decr_bypass ?
+				SDHCI_MSM_ICE_ENABLE_BYPASS :
+				SDHCI_MSM_ICE_DISABLE_BYPASS;
+	*key_index = ice_set.crypto_data.key_index;
+	return err;
+}
+
+static
+void sdhci_msm_ice_update_cfg(struct sdhci_host *host, u64 lba,
+			u32 slot, unsigned int bypass, short key_index)
+{
+	unsigned int ctrl_info_val = 0;
 
 	/* Configure ICE index */
 	ctrl_info_val =
-		(ice_set.crypto_data.key_index &
+		(key_index &
 		 MASK_SDHCI_MSM_ICE_CTRL_INFO_KEY_INDEX)
 		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_KEY_INDEX;
 
@@ -199,9 +272,145 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_2_n + 16 * slot);
 	writel_relaxed(ctrl_info_val,
 		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_3_n + 16 * slot);
-
 	/* Ensure ICE registers are configured before issuing SDHCI request */
 	mb();
+}
+
+static inline
+void sdhci_msm_ice_hci_update_cmdq_cfg(u64 dun, unsigned int bypass,
+				short key_index, u64 *ice_ctx)
+{
+	/*
+	 * The naming convention got changed between ICE2.0 and ICE3.0
+	 * registers fields. Below is the equivalent names for
+	 * ICE3.0 Vs ICE2.0:
+	 *   Data Unit Number(DUN) == Logical Base address(LBA)
+	 *   Crypto Configuration index (CCI) == Key Index
+	 *   Crypto Enable (CE) == !BYPASS
+	 */
+	 if (ice_ctx)
+		*ice_ctx = DATA_UNIT_NUM(dun) |
+			CRYPTO_CONFIG_INDEX(key_index) |
+			CRYPTO_ENABLE(!bypass);
+}
+
+static
+void sdhci_msm_ice_hci_update_noncq_cfg(struct sdhci_host *host,
+		u64 dun, unsigned int bypass, short key_index)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	unsigned int crypto_params = 0;
+	/*
+	 * The naming convention got changed between ICE2.0 and ICE3.0
+	 * registers fields. Below is the equivalent names for
+	 * ICE3.0 Vs ICE2.0:
+	 *   Data Unit Number(DUN) == Logical Base address(LBA)
+	 *   Crypto Configuration index (CCI) == Key Index
+	 *   Crypto Enable (CE) == !BYPASS
+	 */
+	/* Configure ICE bypass mode */
+	crypto_params |=
+		(!bypass & MASK_SDHCI_MSM_ICE_HCI_PARAM_CE)
+			<< OFFSET_SDHCI_MSM_ICE_HCI_PARAM_CE;
+	/* Configure Crypto Configure Index (CCI) */
+	crypto_params |= (key_index &
+			 MASK_SDHCI_MSM_ICE_HCI_PARAM_CCI)
+			 << OFFSET_SDHCI_MSM_ICE_HCI_PARAM_CCI;
+
+	writel_relaxed((crypto_params & 0xFFFFFFFF),
+		msm_host->cryptoio + ICE_NONCQ_CRYPTO_PARAMS);
+
+	/* Update DUN */
+	writel_relaxed((dun & 0xFFFFFFFF),
+		msm_host->cryptoio + ICE_NONCQ_CRYPTO_DUN);
+	/* Ensure ICE registers are configured before issuing SDHCI request */
+	mb();
+}
+
+int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
+			u32 slot)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int err = 0;
+	short key_index = 0;
+	sector_t lba = 0;
+	unsigned int bypass = SDHCI_MSM_ICE_ENABLE_BYPASS;
+	struct request *req;
+
+	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
+		pr_err("%s: ice is in invalid state %d\n",
+			mmc_hostname(host->mmc), msm_host->ice.state);
+		return -EINVAL;
+	}
+
+	WARN_ON(!mrq);
+	if (!mrq)
+		return -EINVAL;
+	req = mrq->req;
+	if (req) {
+		lba = req->__sector;
+		err = sdhci_msm_ice_get_cfg(msm_host, req, &bypass, &key_index);
+		if (err)
+			return err;
+		pr_debug("%s: %s: slot %d bypass %d key_index %d\n",
+				mmc_hostname(host->mmc),
+				(rq_data_dir(req) == WRITE) ? "WRITE" : "READ",
+				slot, bypass, key_index);
+	}
+
+	if (msm_host->ice_hci_support) {
+		/* For ICE HCI / ICE3.0 */
+		sdhci_msm_ice_hci_update_noncq_cfg(host, lba, bypass,
+						key_index);
+	} else {
+		/* For ICE versions earlier to ICE3.0 */
+		sdhci_msm_ice_update_cfg(host, lba, slot, bypass, key_index);
+	}
+	return 0;
+}
+
+int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
+			struct mmc_request *mrq, u32 slot, u64 *ice_ctx)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int err = 0;
+	short key_index;
+	sector_t lba = 0;
+	unsigned int bypass = SDHCI_MSM_ICE_ENABLE_BYPASS;
+	struct request *req;
+
+	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
+		pr_err("%s: ice is in invalid state %d\n",
+			mmc_hostname(host->mmc), msm_host->ice.state);
+		return -EINVAL;
+	}
+
+	WARN_ON(!mrq);
+	if (!mrq)
+		return -EINVAL;
+	req = mrq->req;
+	if (req) {
+		lba = req->__sector;
+		err = sdhci_msm_ice_get_cfg(msm_host, req, &bypass, &key_index);
+		if (err)
+			return err;
+		pr_debug("%s: %s: slot %d bypass %d key_index %d\n",
+				mmc_hostname(host->mmc),
+				(rq_data_dir(req) == WRITE) ? "WRITE" : "READ",
+				slot, bypass, key_index);
+	}
+
+	if (msm_host->ice_hci_support) {
+		/* For ICE HCI / ICE3.0 */
+		sdhci_msm_ice_hci_update_cmdq_cfg(lba, bypass, key_index,
+						ice_ctx);
+	} else {
+		/* For ICE versions earlier to ICE3.0 */
+		sdhci_msm_ice_update_cfg(host, lba, slot, bypass, key_index);
+	}
 	return 0;
 }
 
@@ -226,6 +435,10 @@ int sdhci_msm_ice_reset(struct sdhci_host *host)
 			return err;
 		}
 	}
+
+	/* If ICE HCI support is present then re-enable it */
+	if (msm_host->ice_hci_support)
+		sdhci_msm_enable_ice_hci(host, true);
 
 	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
 		pr_err("%s: ice is in invalid state after reset %d\n",

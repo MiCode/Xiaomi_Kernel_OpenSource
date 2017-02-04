@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -669,7 +669,7 @@ int wcd9xxx_reset(struct device *dev)
 		return -EINVAL;
 	}
 
-	value = msm_cdc_get_gpio_state(wcd9xxx->wcd_rst_np);
+	value = msm_cdc_pinctrl_get_state(wcd9xxx->wcd_rst_np);
 	if (value > 0) {
 		wcd9xxx->avoid_cdc_rstlow = 1;
 		return 0;

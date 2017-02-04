@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014,2016 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -165,7 +165,11 @@ uint32_t mdp_get_formats(uint32_t *pixel_formats, uint32_t max_formats,
 	return i;
 }
 
-const struct msm_format *mdp_get_format(struct msm_kms *kms, uint32_t format)
+const struct msm_format *mdp_get_format(
+		struct msm_kms *kms,
+		uint32_t format,
+		const uint64_t *modifiers,
+		uint32_t modifiers_len)
 {
 	int i;
 	for (i = 0; i < ARRAY_SIZE(formats); i++) {

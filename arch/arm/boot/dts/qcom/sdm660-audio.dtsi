@@ -89,7 +89,7 @@
 
 		wcd_spi_0: wcd_spi {
 			compatible = "qcom,wcd-spi-v2";
-			qcom,master-bus-num = <10>;
+			qcom,master-bus-num = <7>;
 			qcom,chip-select = <0>;
 			qcom,max-frequency = <24000000>;
 			qcom,mem-base-addr = <0x100000>;
@@ -217,6 +217,7 @@
 		reg = <0x152c1000 0x0>;
 		interrupts = <0 161 0>;
 		interrupt-names = "swr_master_irq";
+		qcom,cdc-sdw-gpios = <&cdc_sdw_gpios>;
 
 		swr_master {
 			compatible = "qcom,swr-wcd";
@@ -227,24 +228,28 @@
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x20170211>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
+				qcom,cache-always;
 			};
 
 			wsa881x_212_en: wsa881x_en@20170212 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x20170212>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
+				qcom,cache-always;
 			};
 
 			wsa881x_213_en: wsa881x_en@21170213 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x21170213>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
+				qcom,cache-always;
 			};
 
 			wsa881x_214_en: wsa881x_en@21170214 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x21170214>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
+				qcom,cache-always;
 			};
 		};
 	};
