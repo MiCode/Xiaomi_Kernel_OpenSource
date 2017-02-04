@@ -324,6 +324,7 @@ struct fg_chip {
 	struct mutex		bus_lock;
 	struct mutex		sram_rw_lock;
 	struct mutex		batt_avg_lock;
+	struct mutex		charge_full_lock;
 	u32			batt_soc_base;
 	u32			batt_info_base;
 	u32			mem_if_base;
@@ -337,6 +338,9 @@ struct fg_chip {
 	int			last_soc;
 	int			last_batt_temp;
 	int			health;
+	int			maint_soc;
+	int			delta_soc;
+	int			last_msoc;
 	bool			profile_available;
 	bool			profile_loaded;
 	bool			battery_missing;

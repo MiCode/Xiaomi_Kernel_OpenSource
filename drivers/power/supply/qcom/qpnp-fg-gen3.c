@@ -694,6 +694,20 @@ static int fg_get_msoc_raw(struct fg_chip *chip, int *val)
 	return 0;
 }
 
+#define FULL_CAPACITY	100
+#define FULL_SOC_RAW	255
+static int fg_get_msoc(struct fg_chip *chip, int *msoc)
+{
+	int rc;
+
+	rc = fg_get_msoc_raw(chip, msoc);
+	if (rc < 0)
+		return rc;
+
+	*msoc = DIV_ROUND_CLOSEST(*msoc * FULL_CAPACITY, FULL_SOC_RAW);
+	return 0;
+}
+
 static bool is_batt_empty(struct fg_chip *chip)
 {
 	u8 status;
@@ -715,7 +729,7 @@ static bool is_batt_empty(struct fg_chip *chip)
 		return false;
 	}
 
-	rc = fg_get_msoc_raw(chip, &msoc);
+	rc = fg_get_msoc(chip, &msoc);
 	if (!rc)
 		pr_warn("batt_soc_rt_sts: %x vbatt: %d uV msoc:%d\n", status,
 			vbatt_uv, msoc);
@@ -780,8 +794,6 @@ static bool is_debug_batt_id(struct fg_chip *chip)
 	return false;
 }
 
-#define FULL_CAPACITY	100
-#define FULL_SOC_RAW	255
 #define DEBUG_BATT_SOC	67
 #define BATT_MISS_SOC	50
 #define EMPTY_SOC	0
@@ -814,11 +826,14 @@ static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 		return 0;
 	}
 
-	rc = fg_get_msoc_raw(chip, &msoc);
+	rc = fg_get_msoc(chip, &msoc);
 	if (rc < 0)
 		return rc;
 
-	*val = DIV_ROUND_CLOSEST(msoc * FULL_CAPACITY, FULL_SOC_RAW);
+	if (chip->delta_soc > 0)
+		*val = chip->maint_soc;
+	else
+		*val = msoc;
 	return 0;
 }
 
@@ -1449,6 +1464,7 @@ static int fg_charge_full_update(struct fg_chip *chip)
 	if (!batt_psy_initialized(chip))
 		return 0;
 
+	mutex_lock(&chip->charge_full_lock);
 	if (!chip->charge_done && chip->bsoc_delta_irq_en) {
 		disable_irq_wake(fg_irqs[BSOC_DELTA_IRQ].irq);
 		disable_irq_nosync(fg_irqs[BSOC_DELTA_IRQ].irq);
@@ -1463,7 +1479,7 @@ static int fg_charge_full_update(struct fg_chip *chip)
 		&prop);
 	if (rc < 0) {
 		pr_err("Error in getting battery health, rc=%d\n", rc);
-		return rc;
+		goto out;
 	}
 
 	chip->health = prop.intval;
@@ -1473,15 +1489,15 @@ static int fg_charge_full_update(struct fg_chip *chip)
 	rc = fg_get_sram_prop(chip, FG_SRAM_BATT_SOC, &bsoc);
 	if (rc < 0) {
 		pr_err("Error in getting BATT_SOC, rc=%d\n", rc);
-		return rc;
+		goto out;
 	}
 
 	/* We need 2 most significant bytes here */
 	bsoc = (u32)bsoc >> 16;
-	rc = fg_get_prop_capacity(chip, &msoc);
+	rc = fg_get_msoc(chip, &msoc);
 	if (rc < 0) {
-		pr_err("Error in getting capacity, rc=%d\n", rc);
-		return rc;
+		pr_err("Error in getting msoc, rc=%d\n", rc);
+		goto out;
 	}
 
 	fg_dbg(chip, FG_STATUS, "msoc: %d bsoc: %x health: %d status: %d full: %d\n",
@@ -1500,16 +1516,30 @@ static int fg_charge_full_update(struct fg_chip *chip)
 			if (rc < 0) {
 				pr_err("Error in reducing recharge voltage, rc=%d\n",
 					rc);
-				return rc;
+				goto out;
 			}
 		} else {
 			fg_dbg(chip, FG_STATUS, "Terminated charging @ SOC%d\n",
 				msoc);
 		}
 	} else if ((bsoc >> 8) <= recharge_soc && chip->charge_full) {
-		fg_dbg(chip, FG_STATUS, "bsoc: %d recharge_soc: %d\n",
-			bsoc >> 8, recharge_soc);
+		chip->delta_soc = FULL_CAPACITY - msoc;
+
+		/*
+		 * We're spreading out the delta SOC over every 10% change
+		 * in monotonic SOC. We cannot spread more than 9% in the
+		 * range of 0-100 skipping the first 10%.
+		 */
+		if (chip->delta_soc > 9) {
+			chip->delta_soc = 0;
+			chip->maint_soc = 0;
+		} else {
+			chip->maint_soc = FULL_CAPACITY;
+			chip->last_msoc = msoc;
+		}
+
 		chip->charge_full = false;
+
 		/*
 		 * Raise the recharge voltage so that VBAT_LT_RECHG signal
 		 * will be asserted soon as battery SOC had dropped below
@@ -1520,14 +1550,16 @@ static int fg_charge_full_update(struct fg_chip *chip)
 		if (rc < 0) {
 			pr_err("Error in setting recharge voltage, rc=%d\n",
 				rc);
-			return rc;
+			goto out;
 		}
+		fg_dbg(chip, FG_STATUS, "bsoc: %d recharge_soc: %d delta_soc: %d\n",
+			bsoc >> 8, recharge_soc, chip->delta_soc);
 	} else {
-		return 0;
+		goto out;
 	}
 
 	if (!chip->charge_full)
-		return 0;
+		goto out;
 
 	/*
 	 * During JEITA conditions, charge_full can happen early. FULL_SOC
@@ -1538,18 +1570,20 @@ static int fg_charge_full_update(struct fg_chip *chip)
 			FG_IMA_ATOMIC);
 	if (rc < 0) {
 		pr_err("failed to write full_soc rc=%d\n", rc);
-		return rc;
+		goto out;
 	}
 
 	rc = fg_sram_write(chip, MONOTONIC_SOC_WORD, MONOTONIC_SOC_OFFSET,
 			full_soc, 2, FG_IMA_ATOMIC);
 	if (rc < 0) {
 		pr_err("failed to write monotonic_soc rc=%d\n", rc);
-		return rc;
+		goto out;
 	}
 
 	fg_dbg(chip, FG_STATUS, "Set charge_full to true @ soc %d\n", msoc);
-	return 0;
+out:
+	mutex_unlock(&chip->charge_full_lock);
+	return rc;
 }
 
 #define RCONN_CONFIG_BIT	BIT(0)
@@ -1663,13 +1697,12 @@ static int fg_adjust_recharge_soc(struct fg_chip *chip)
 	if (is_input_present(chip) && !chip->recharge_soc_adjusted
 		&& chip->charge_done) {
 		/* Get raw monotonic SOC for calculation */
-		rc = fg_get_msoc_raw(chip, &msoc);
+		rc = fg_get_msoc(chip, &msoc);
 		if (rc < 0) {
 			pr_err("Error in getting msoc, rc=%d\n", rc);
 			return rc;
 		}
 
-		msoc = DIV_ROUND_CLOSEST(msoc * FULL_CAPACITY, FULL_SOC_RAW);
 		/* Adjust the recharge_soc threshold */
 		new_recharge_soc = msoc - (FULL_CAPACITY - recharge_soc);
 	} else if (chip->recharge_soc_adjusted && (!is_input_present(chip)
@@ -2577,6 +2610,48 @@ static int fg_get_time_to_empty(struct fg_chip *chip, int *val)
 	return 0;
 }
 
+static int fg_update_maint_soc(struct fg_chip *chip)
+{
+	int rc = 0, msoc;
+
+	mutex_lock(&chip->charge_full_lock);
+	if (chip->delta_soc <= 0)
+		goto out;
+
+	rc = fg_get_msoc(chip, &msoc);
+	if (rc < 0) {
+		pr_err("Error in getting msoc, rc=%d\n", rc);
+		goto out;
+	}
+
+	if (msoc > chip->maint_soc) {
+		/*
+		 * When the monotonic SOC goes above maintenance SOC, we should
+		 * stop showing the maintenance SOC.
+		 */
+		chip->delta_soc = 0;
+		chip->maint_soc = 0;
+	} else if (msoc <= chip->last_msoc) {
+		/* MSOC is decreasing. Decrease maintenance SOC as well */
+		chip->maint_soc -= 1;
+		if (!(msoc % 10)) {
+			/*
+			 * Reduce the maintenance SOC additionally by 1 whenever
+			 * it crosses a SOC multiple of 10.
+			 */
+			chip->maint_soc -= 1;
+			chip->delta_soc -= 1;
+		}
+	}
+
+	fg_dbg(chip, FG_IRQ, "msoc: %d last_msoc: %d maint_soc: %d delta_soc: %d\n",
+		msoc, chip->last_msoc, chip->maint_soc, chip->delta_soc);
+	chip->last_msoc = msoc;
+out:
+	mutex_unlock(&chip->charge_full_lock);
+	return rc;
+}
+
 /* PSY CALLBACKS STAY HERE */
 
 static int fg_psy_get_property(struct power_supply *psy,
@@ -3183,6 +3258,10 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	rc = fg_adjust_ki_coeff_dischg(chip);
 	if (rc < 0)
 		pr_err("Error in adjusting ki_coeff_dischg, rc=%d\n", rc);
+
+	rc = fg_update_maint_soc(chip);
+	if (rc < 0)
+		pr_err("Error in updating maint_soc, rc=%d\n", rc);
 
 	if (batt_psy_initialized(chip))
 		power_supply_changed(chip->batt_psy);
@@ -3807,6 +3886,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	mutex_init(&chip->cyc_ctr.lock);
 	mutex_init(&chip->cl.lock);
 	mutex_init(&chip->batt_avg_lock);
+	mutex_init(&chip->charge_full_lock);
 	init_completion(&chip->soc_update);
 	init_completion(&chip->soc_ready);
 	INIT_DELAYED_WORK(&chip->profile_load_work, profile_load_work);
