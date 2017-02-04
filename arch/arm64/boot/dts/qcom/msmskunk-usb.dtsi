@@ -41,6 +41,9 @@
 		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
 			"utmi_clk", "sleep_clk", "cfg_ahb_clk", "xo";
 
+		qcom,core-clk-rate = <133333333>;
+		qcom,core-clk-rate-hs = <66666667>;
+
 		resets = <&clock_gcc GCC_USB30_PRIM_BCR>;
 		reset-names = "core_reset";
 
