@@ -2,7 +2,7 @@
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -70,7 +70,7 @@ static struct usb_interface_descriptor intf_desc = {
 	.bNumEndpoints      =	2,
 	.bInterfaceClass    =	0xFF,
 	.bInterfaceSubClass =	0xFF,
-	.bInterfaceProtocol =	0xFF,
+	.bInterfaceProtocol =	0x30,
 };
 
 static struct usb_endpoint_descriptor hs_bulk_in_desc = {
