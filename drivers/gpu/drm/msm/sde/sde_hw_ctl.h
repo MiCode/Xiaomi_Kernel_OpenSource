@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
 #include "sde_hw_catalog.h"
+#include "sde_hw_sspp.h"
 
 /**
  * sde_ctl_mode_sel: Interface mode selection
@@ -30,10 +31,13 @@ enum sde_ctl_mode_sel {
 struct sde_hw_ctl;
 /**
  * struct sde_hw_stage_cfg - blending stage cfg
- * @stage
+ * @stage : SSPP_ID at each stage
+ * @multirect_index: index of the rectangle of SSPP.
  */
 struct sde_hw_stage_cfg {
 	enum sde_sspp stage[CRTC_DUAL_MIXERS][SDE_STAGE_MAX][PIPES_PER_STAGE];
+	enum sde_sspp_multirect_index multirect_index[CRTC_DUAL_MIXERS]
+					[SDE_STAGE_MAX][PIPES_PER_STAGE];
 };
 
 /**

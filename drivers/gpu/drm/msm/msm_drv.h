@@ -64,7 +64,7 @@ struct msm_fence_cb;
 
 #define NUM_DOMAINS    4    /* one for KMS, then one per gpu core (?) */
 #define MAX_CRTCS      8
-#define MAX_PLANES     12
+#define MAX_PLANES     20
 #define MAX_ENCODERS   8
 #define MAX_BRIDGES    8
 #define MAX_CONNECTORS 8

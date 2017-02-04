@@ -716,8 +716,12 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 	struct msm_drm_private *priv;
 	struct sde_mdss_cfg *catalog;
 
-	int primary_planes_idx, i, ret;
-	int max_crtc_count, max_plane_count;
+	int primary_planes_idx = 0, i, ret;
+	int max_crtc_count;
+
+	u32 sspp_id[MAX_PLANES];
+	u32 master_plane_id[MAX_PLANES];
+	u32 num_virt_planes = 0;
 
 	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev) {
 		SDE_ERROR("invalid sde_kms\n");
@@ -736,11 +740,9 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 		(void)_sde_kms_setup_displays(dev, priv, sde_kms);
 
 	max_crtc_count = min(catalog->mixer_count, priv->num_encoders);
-	max_plane_count = min_t(u32, catalog->sspp_count, MAX_PLANES);
 
 	/* Create the planes */
-	primary_planes_idx = 0;
-	for (i = 0; i < max_plane_count; i++) {
+	for (i = 0; i < catalog->sspp_count; i++) {
 		bool primary = true;
 
 		if (catalog->sspp[i].features & BIT(SDE_SSPP_CURSOR)
@@ -748,7 +750,7 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 			primary = false;
 
 		plane = sde_plane_init(dev, catalog->sspp[i].id, primary,
-				(1UL << max_crtc_count) - 1);
+				(1UL << max_crtc_count) - 1, 0);
 		if (IS_ERR(plane)) {
 			SDE_ERROR("sde_plane_init failed\n");
 			ret = PTR_ERR(plane);
@@ -758,6 +760,27 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 
 		if (primary)
 			primary_planes[primary_planes_idx++] = plane;
+
+		if (sde_hw_sspp_multirect_enabled(&catalog->sspp[i]) &&
+			sde_is_custom_client()) {
+			int priority =
+				catalog->sspp[i].sblk->smart_dma_priority;
+			sspp_id[priority - 1] = catalog->sspp[i].id;
+			master_plane_id[priority - 1] = plane->base.id;
+			num_virt_planes++;
+		}
+	}
+
+	/* Initialize smart DMA virtual planes */
+	for (i = 0; i < num_virt_planes; i++) {
+		plane = sde_plane_init(dev, sspp_id[i], false,
+			(1UL << max_crtc_count) - 1, master_plane_id[i]);
+		if (IS_ERR(plane)) {
+			SDE_ERROR("sde_plane for virtual SSPP init failed\n");
+			ret = PTR_ERR(plane);
+			goto fail;
+		}
+		priv->planes[priv->num_planes++] = plane;
 	}
 
 	max_crtc_count = min(max_crtc_count, primary_planes_idx);

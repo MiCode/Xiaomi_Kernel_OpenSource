@@ -93,6 +93,8 @@ enum {
  * @SDE_SSPP_CURSOR,         SSPP can be used as a cursor layer
  * @SDE_SSPP_QOS,            SSPP support QoS control, danger/safe/creq
  * @SDE_SSPP_EXCL_RECT,      SSPP supports exclusion rect
+ * @SDE_SSPP_SMART_DMA_V1,   SmartDMA 1.0 support
+ * @SDE_SSPP_SMART_DMA_V2,   SmartDMA 2.0 support
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -109,6 +111,8 @@ enum {
 	SDE_SSPP_CURSOR,
 	SDE_SSPP_QOS,
 	SDE_SSPP_EXCL_RECT,
+	SDE_SSPP_SMART_DMA_V1,
+	SDE_SSPP_SMART_DMA_V2,
 	SDE_SSPP_MAX
 };
 
@@ -317,6 +321,7 @@ struct sde_format_extended {
  * @creq_vblank: creq priority during vertical blanking
  * @danger_vblank: danger priority during vertical blanking
  * @pixel_ram_size: size of latency hiding and de-tiling buffer in bytes
+ * @smart_dma_priority: hw priority of rect1 of multirect pipe
  * @src_blk:
  * @scaler_blk:
  * @csc_blk:
@@ -342,6 +347,7 @@ struct sde_sspp_sub_blks {
 	u32 maxupscale;
 	u32 maxhdeciexp; /* max decimation is 2^value */
 	u32 maxvdeciexp; /* max decimation is 2^value */
+	u32 smart_dma_priority;
 	struct sde_src_blk src_blk;
 	struct sde_scaler_blk scaler_blk;
 	struct sde_pp_blk csc_blk;
@@ -627,6 +633,7 @@ struct sde_reg_dma_cfg {
  * @highest_bank_bit   highest memory bit setting for tile buffers.
  * @qseed_type         qseed2 or qseed3 support.
  * @csc_type           csc or csc_10bit support.
+ * @smart_dma_rev      Supported version of SmartDMA feature.
  * @has_src_split      source split feature status
  * @has_cdp            Client driver prefetch feature status
  */
@@ -640,6 +647,7 @@ struct sde_mdss_cfg {
 	u32 highest_bank_bit;
 	u32 qseed_type;
 	u32 csc_type;
+	u32 smart_dma_rev;
 	bool has_src_split;
 	bool has_cdp;
 	bool has_dim_layer;
@@ -721,4 +729,13 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev);
  */
 void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg);
 
+/**
+ * sde_hw_sspp_multirect_enabled - check multirect enabled for the sspp
+ * @cfg:          pointer to sspp cfg
+ */
+static inline bool sde_hw_sspp_multirect_enabled(const struct sde_sspp_cfg *cfg)
+{
+	return test_bit(SDE_SSPP_SMART_DMA_V1, &cfg->features) ||
+			 test_bit(SDE_SSPP_SMART_DMA_V2, &cfg->features);
+}
 #endif /* _SDE_HW_CATALOG_H */

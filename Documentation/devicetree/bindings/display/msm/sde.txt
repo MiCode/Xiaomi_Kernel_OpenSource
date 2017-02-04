@@ -147,12 +147,17 @@ Optional properties:
 				indicating the danger luts on sspp.
 - qcom,sde-sspp-safe-lut:	A 3 cell property, with a format of <linear, tile, nrt>,
 				indicating the safe luts on sspp.
-- qcom,sde-sspp-max-rects:	Array of u32 values indicating maximum rectangles supported
-				on each sspp. This property is for multirect feature support.
-				Number of offsets defined should match the number of
-				offsets defined in property: qcom,sde-sspp-off.
 - qcom,sde-sspp-excl-rect:	Array of u32 values indicating exclusion rectangle
 				support on each sspp.
+- qcom,sde-sspp-smart-dma-priority:	Array of u32 values indicating hw pipe
+					priority of secondary rectangles when smart dma
+					is supported. Number of priority values should
+					match the number of offsets defined in
+					qcom,sde-sspp-off node. Zero indicates no support
+					for smart dma for the sspp.
+- qcom,sde-smart-dma-rev:	A string entry indicating the smart dma version
+				supported on the device. Supported entries are
+				"smart_dma_v1" and "smart_dma_v2".
 - qcom,sde-intf-type:		Array of string provides the interface type information.
 				Possible string values
 					"dsi" - dsi display interface
@@ -385,6 +390,11 @@ Example:
 				1 1 1 1
 				1 1
 				1 1>;
+    qcom,sde-sspp-smart-dma-priority = <0 0 0 0
+					0 0 0 0
+					0 0
+					1 2>;
+    qcom,sde-smart-dma-rev = "smart_dma_v2";
     qcom,sde-te-off = <0x100>;
     qcom,sde-te2-off = <0x100>;
     qcom,sde-te-size = <0xffff>;

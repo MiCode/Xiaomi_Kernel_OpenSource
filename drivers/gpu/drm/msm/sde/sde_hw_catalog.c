@@ -46,9 +46,6 @@
 /* default hardware block size if dtsi entry is not present */
 #define DEFAULT_SDE_HW_BLOCK_LEN 0x100
 
-/* default rects for multi rect case */
-#define DEFAULT_SDE_SSPP_MAX_RECTS 1
-
 /* total number of intf - dp, dsi, hdmi */
 #define INTF_COUNT			3
 
@@ -106,6 +103,7 @@ enum sde_prop {
 	CDP,
 	SRC_SPLIT,
 	DIM_LAYER,
+	SMART_DMA_REV,
 	SDE_PROP_MAX,
 };
 
@@ -118,11 +116,11 @@ enum {
 	SSPP_CLK_STATUS,
 	SSPP_DANGER,
 	SSPP_SAFE,
-	SSPP_MAX_RECTS,
 	SSPP_SCALE_SIZE,
 	SSPP_VIG_BLOCKS,
 	SSPP_RGB_BLOCKS,
 	SSPP_EXCL_RECT,
+	SSPP_SMART_DMA,
 	SSPP_PROP_MAX,
 };
 
@@ -283,6 +281,7 @@ static struct sde_prop_type sde_prop[] = {
 	{CDP, "qcom,sde-has-cdp", false, PROP_TYPE_BOOL},
 	{SRC_SPLIT, "qcom,sde-has-src-split", false, PROP_TYPE_BOOL},
 	{DIM_LAYER, "qcom,sde-has-dim-layer", false, PROP_TYPE_BOOL},
+	{SMART_DMA_REV, "qcom,sde-smart-dma-rev", false, PROP_TYPE_STRING},
 };
 
 static struct sde_prop_type sspp_prop[] = {
@@ -296,11 +295,12 @@ static struct sde_prop_type sspp_prop[] = {
 		PROP_TYPE_BIT_OFFSET_ARRAY},
 	{SSPP_DANGER, "qcom,sde-sspp-danger-lut", false, PROP_TYPE_U32_ARRAY},
 	{SSPP_SAFE, "qcom,sde-sspp-safe-lut", false, PROP_TYPE_U32_ARRAY},
-	{SSPP_MAX_RECTS, "qcom,sde-sspp-max-rects", false, PROP_TYPE_U32_ARRAY},
 	{SSPP_SCALE_SIZE, "qcom,sde-sspp-scale-size", false, PROP_TYPE_U32},
 	{SSPP_VIG_BLOCKS, "qcom,sde-sspp-vig-blocks", false, PROP_TYPE_NODE},
 	{SSPP_RGB_BLOCKS, "qcom,sde-sspp-rgb-blocks", false, PROP_TYPE_NODE},
 	{SSPP_EXCL_RECT, "qcom,sde-sspp-excl-rect", false, PROP_TYPE_U32_ARRAY},
+	{SSPP_SMART_DMA, "qcom,sde-sspp-smart-dma-priority", false,
+		PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type vig_prop[] = {
@@ -900,6 +900,13 @@ static int sde_sspp_parse_dt(struct device_node *np,
 		sblk->maxlinewidth = sde_cfg->max_sspp_linewidth;
 
 		set_bit(SDE_SSPP_SRC, &sspp->features);
+
+		sblk->smart_dma_priority =
+			PROP_VALUE_ACCESS(prop_value, SSPP_SMART_DMA, i);
+
+		if (sblk->smart_dma_priority && sde_cfg->smart_dma_rev)
+			set_bit(sde_cfg->smart_dma_rev, &sspp->features);
+
 		sblk->src_blk.id = SDE_SSPP_SRC;
 
 		of_property_read_string_index(np,
@@ -1815,7 +1822,7 @@ end:
 
 static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 {
-	int rc, len, prop_count[SDE_PROP_MAX];
+	int rc, dma_rc, len, prop_count[SDE_PROP_MAX];
 	struct sde_prop_value *prop_value = NULL;
 	bool prop_exists[SDE_PROP_MAX];
 	const char *type;
@@ -1889,6 +1896,20 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		cfg->csc_type = SDE_SSPP_CSC;
 	else if (!rc && !strcmp(type, "csc-10bit"))
 		cfg->csc_type = SDE_SSPP_CSC_10BIT;
+
+	/*
+	 * Current SDE support only Smart DMA 2.0.
+	 * No support for Smart DMA 1.0 yet.
+	 */
+	cfg->smart_dma_rev = 0;
+	dma_rc = of_property_read_string(np, sde_prop[SMART_DMA_REV].prop_name,
+			&type);
+	if (!dma_rc && !strcmp(type, "smart_dma_v2")) {
+		cfg->smart_dma_rev = SDE_SSPP_SMART_DMA_V2;
+	} else if (!dma_rc && !strcmp(type, "smart_dma_v1")) {
+		SDE_ERROR("smart dma 1.0 is not supported in SDE\n");
+		cfg->smart_dma_rev = 0;
+	}
 
 	cfg->has_src_split = PROP_VALUE_ACCESS(prop_value, SRC_SPLIT, 0);
 	cfg->has_dim_layer = PROP_VALUE_ACCESS(prop_value, DIM_LAYER, 0);

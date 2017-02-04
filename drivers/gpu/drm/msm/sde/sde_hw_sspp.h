@@ -50,6 +50,28 @@ enum {
 	SDE_SSPP_COMP_MAX
 };
 
+/**
+ * SDE_SSPP_RECT_SOLO - multirect disabled
+ * SDE_SSPP_RECT_0 - rect0 of a multirect pipe
+ * SDE_SSPP_RECT_1 - rect1 of a multirect pipe
+ *
+ * Note: HW supports multirect with either RECT0 or
+ * RECT1. Considering no benefit of such configs over
+ * SOLO mode and to keep the plane management simple,
+ * we dont support single rect multirect configs.
+ */
+enum sde_sspp_multirect_index {
+	SDE_SSPP_RECT_SOLO = 0,
+	SDE_SSPP_RECT_0,
+	SDE_SSPP_RECT_1,
+};
+
+enum sde_sspp_multirect_mode {
+	SDE_SSPP_MULTIRECT_NONE = 0,
+	SDE_SSPP_MULTIRECT_PARALLEL,
+	SDE_SSPP_MULTIRECT_TIME_MX,
+};
+
 enum {
 	SDE_FRAME_LINEAR,
 	SDE_FRAME_TILE_A4X,
@@ -252,6 +274,8 @@ struct sde_hw_scaler3_cfg {
  *              4: Read 1 line/pixel drop 3  lines/pixels
  *              8: Read 1 line/pixel drop 7 lines/pixels
  *              16: Read 1 line/pixel drop 15 line/pixels
+ * @index:     index of the rectangle of SSPP
+ * @mode:      parallel or time multiplex multirect mode
  */
 struct sde_hw_pipe_cfg {
 	struct sde_hw_fmt_layout layout;
@@ -259,6 +283,8 @@ struct sde_hw_pipe_cfg {
 	struct sde_rect dst_rect;
 	u8 horz_decimation;
 	u8 vert_decimation;
+	enum sde_sspp_multirect_index index;
+	enum sde_sspp_multirect_mode mode;
 };
 
 /**
@@ -292,37 +318,45 @@ struct sde_hw_sspp_ops {
 	 * @ctx: Pointer to pipe context
 	 * @cfg: Pointer to pipe config structure
 	 * @flags: Extra flags for format config
+	 * @index: rectangle index in multirect
 	 */
 	void (*setup_format)(struct sde_hw_pipe *ctx,
-			const struct sde_format *fmt, u32 flags);
+			const struct sde_format *fmt, u32 flags,
+			enum sde_sspp_multirect_index index);
 
 	/**
 	 * setup_rects - setup pipe ROI rectangles
 	 * @ctx: Pointer to pipe context
 	 * @cfg: Pointer to pipe config structure
 	 * @pe_ext: Pointer to pixel ext settings
+	 * @index: rectangle index in multirect
 	 * @scale_cfg: Pointer to scaler settings
 	 */
 	void (*setup_rects)(struct sde_hw_pipe *ctx,
 			struct sde_hw_pipe_cfg *cfg,
 			struct sde_hw_pixel_ext *pe_ext,
+			enum sde_sspp_multirect_index index,
 			void *scale_cfg);
 
 	/**
 	 * setup_excl_rect - setup pipe exclusion rectangle
 	 * @ctx: Pointer to pipe context
 	 * @excl_rect: Pointer to exclclusion rect structure
+	 * @index: rectangle index in multirect
 	 */
 	void (*setup_excl_rect)(struct sde_hw_pipe *ctx,
-			struct sde_rect *excl_rect);
+			struct sde_rect *excl_rect,
+			enum sde_sspp_multirect_index index);
 
 	/**
 	 * setup_sourceaddress - setup pipe source addresses
 	 * @ctx: Pointer to pipe context
 	 * @cfg: Pointer to pipe config structure
+	 * @index: rectangle index in multirect
 	 */
 	void (*setup_sourceaddress)(struct sde_hw_pipe *ctx,
-			struct sde_hw_pipe_cfg *cfg);
+			struct sde_hw_pipe_cfg *cfg,
+			enum sde_sspp_multirect_index index);
 
 	/**
 	 * setup_csc - setup color space coversion
@@ -336,8 +370,21 @@ struct sde_hw_sspp_ops {
 	 * @ctx: Pointer to pipe context
 	 * @const_color: Fill color value
 	 * @flags: Pipe flags
+	 * @index: rectangle index in multirect
 	 */
-	void (*setup_solidfill)(struct sde_hw_pipe *ctx, u32 color);
+	void (*setup_solidfill)(struct sde_hw_pipe *ctx, u32 color,
+			enum sde_sspp_multirect_index index);
+
+	/**
+	 * setup_multirect - setup multirect configuration
+	 * @ctx: Pointer to pipe context
+	 * @index: rectangle index in multirect
+	 * @mode: parallel fetch / time multiplex multirect mode
+	 */
+
+	void (*setup_multirect)(struct sde_hw_pipe *ctx,
+			enum sde_sspp_multirect_index index,
+			enum sde_sspp_multirect_mode mode);
 
 	/**
 	 * setup_sharpening - setup sharpening

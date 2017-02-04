@@ -33,6 +33,8 @@
  * @stage:	assigned by crtc blender
  * @excl_rect:	exclusion rect values
  * @dirty:	bitmask for which pipe h/w config functions need to be updated
+ * @multirect_index: index of the rectangle of SSPP
+ * @multirect_mode: parallel or time multiplex multirect mode
  * @pending:	whether the current update is still pending
  */
 struct sde_plane_state {
@@ -43,7 +45,19 @@ struct sde_plane_state {
 	enum sde_stage stage;
 	struct sde_rect excl_rect;
 	uint32_t dirty;
+	uint32_t multirect_index;
+	uint32_t multirect_mode;
 	bool pending;
+};
+
+/**
+ * struct sde_multirect_plane_states: Defines multirect pair of drm plane states
+ * @r0: drm plane configured on rect 0
+ * @r1: drm plane configured on rect 1
+ */
+struct sde_multirect_plane_states {
+	const struct drm_plane_state *r0;
+	const struct drm_plane_state *r1;
 };
 
 #define to_sde_plane_state(x) \
@@ -66,6 +80,14 @@ struct sde_plane_state {
 enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
 
 /**
+ * is_sde_plane_virtual - check for virtual plane
+ * @plane: Pointer to DRM plane object
+ * returns: true - if the plane is virtual
+ *          false - if the plane is primary
+ */
+bool is_sde_plane_virtual(struct drm_plane *plane);
+
+/**
  * sde_plane_flush - final plane operations before commit flush
  * @plane: Pointer to drm plane structure
  */
@@ -77,10 +99,22 @@ void sde_plane_flush(struct drm_plane *plane);
  * @pipe:  sde hardware pipe identifier
  * @primary_plane: true if this pipe is primary plane for crtc
  * @possible_crtcs: bitmask of crtc that can be attached to the given pipe
+ * @master_plane_id: primary plane id of a multirect pipe. 0 value passed for
+ *                   a regular plane initialization. A non-zero primary plane
+ *                   id will be passed for a virtual pipe initialization.
+ *
  */
 struct drm_plane *sde_plane_init(struct drm_device *dev,
 		uint32_t pipe, bool primary_plane,
-		unsigned long possible_crtcs);
+		unsigned long possible_crtcs, u32 master_plane_id);
+
+/**
+ * sde_plane_validate_multirecti_v2 - validate the multirect planes
+ *				      against hw limitations
+ * @plane: drm plate states of the multirect pair
+ */
+
+int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane);
 
 /**
  * sde_plane_wait_input_fence - wait for input fence object

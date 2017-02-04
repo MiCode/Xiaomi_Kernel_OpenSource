@@ -20,6 +20,8 @@
 	(0x40 + (((lm) - LM_0) * 0x004))
 #define   CTL_LAYER_EXT2(lm)             \
 	(0x70 + (((lm) - LM_0) * 0x004))
+#define   CTL_LAYER_EXT3(lm)             \
+	(0xA0 + (((lm) - LM_0) * 0x004))
 #define   CTL_TOP                       0x014
 #define   CTL_FLUSH                     0x018
 #define   CTL_START                     0x01C
@@ -281,7 +283,8 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	enum sde_lm lm, struct sde_hw_stage_cfg *stage_cfg, u32 index)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
-	u32 mixercfg, mixercfg_ext, mix, ext, mixercfg_ext2;
+	u32 mixercfg = 0, mixercfg_ext = 0, mix, ext;
+	u32 mixercfg_ext2 = 0, mixercfg_ext3 = 0;
 	int i, j;
 	u8 stages;
 	int pipes_per_stage;
@@ -300,8 +303,6 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 		pipes_per_stage = 1;
 
 	mixercfg = BIT(24); /* always set BORDER_OUT */
-	mixercfg_ext = 0;
-	mixercfg_ext2 = 0;
 
 	for (i = 0; i <= stages; i++) {
 		/* overflow to ext register if 'i + 1 > 7' */
@@ -309,22 +310,41 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 		ext = i >= 7;
 
 		for (j = 0 ; j < pipes_per_stage; j++) {
+			enum sde_sspp_multirect_index rect_index =
+				stage_cfg->multirect_index[index][i][j];
+
 			switch (stage_cfg->stage[index][i][j]) {
 			case SSPP_VIG0:
-				mixercfg |= mix << 0;
-				mixercfg_ext |= ext << 0;
+				if (rect_index == SDE_SSPP_RECT_1) {
+					mixercfg_ext3 |= ((i + 1) & 0xF) << 0;
+				} else {
+					mixercfg |= mix << 0;
+					mixercfg_ext |= ext << 0;
+				}
 				break;
 			case SSPP_VIG1:
-				mixercfg |= mix << 3;
-				mixercfg_ext |= ext << 2;
+				if (rect_index == SDE_SSPP_RECT_1) {
+					mixercfg_ext3 |= ((i + 1) & 0xF) << 4;
+				} else {
+					mixercfg |= mix << 3;
+					mixercfg_ext |= ext << 2;
+				}
 				break;
 			case SSPP_VIG2:
-				mixercfg |= mix << 6;
-				mixercfg_ext |= ext << 4;
+				if (rect_index == SDE_SSPP_RECT_1) {
+					mixercfg_ext3 |= ((i + 1) & 0xF) << 8;
+				} else {
+					mixercfg |= mix << 6;
+					mixercfg_ext |= ext << 4;
+				}
 				break;
 			case SSPP_VIG3:
-				mixercfg |= mix << 26;
-				mixercfg_ext |= ext << 6;
+				if (rect_index == SDE_SSPP_RECT_1) {
+					mixercfg_ext3 |= ((i + 1) & 0xF) << 12;
+				} else {
+					mixercfg |= mix << 26;
+					mixercfg_ext |= ext << 6;
+				}
 				break;
 			case SSPP_RGB0:
 				mixercfg |= mix << 9;
@@ -343,20 +363,36 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 				mixercfg_ext |= ext << 14;
 				break;
 			case SSPP_DMA0:
-				mixercfg |= mix << 18;
-				mixercfg_ext |= ext << 16;
+				if (rect_index == SDE_SSPP_RECT_1) {
+					mixercfg_ext2 |= ((i + 1) & 0xF) << 8;
+				} else {
+					mixercfg |= mix << 18;
+					mixercfg_ext |= ext << 16;
+				}
 				break;
 			case SSPP_DMA1:
-				mixercfg |= mix << 21;
-				mixercfg_ext |= ext << 18;
+				if (rect_index == SDE_SSPP_RECT_1) {
+					mixercfg_ext2 |= ((i + 1) & 0xF) << 12;
+				} else {
+					mixercfg |= mix << 21;
+					mixercfg_ext |= ext << 18;
+				}
 				break;
 			case SSPP_DMA2:
-				mix = (i + 1) & 0xf;
-				mixercfg_ext2 |= mix << 0;
+				if (rect_index == SDE_SSPP_RECT_1) {
+					mixercfg_ext2 |= ((i + 1) & 0xF) << 16;
+				} else {
+					mix |= (i + 1) & 0xF;
+					mixercfg_ext2 |= mix << 0;
+				}
 				break;
 			case SSPP_DMA3:
-				mix = (i + 1) & 0xf;
-				mixercfg_ext2 |= mix << 4;
+				if (rect_index == SDE_SSPP_RECT_1) {
+					mixercfg_ext2 |= ((i + 1) & 0xF) << 20;
+				} else {
+					mix |= (i + 1) & 0xF;
+					mixercfg_ext2 |= mix << 4;
+				}
 				break;
 			case SSPP_CURSOR0:
 				mixercfg_ext |= ((i + 1) & 0xF) << 20;
@@ -373,6 +409,7 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	SDE_REG_WRITE(c, CTL_LAYER(lm), mixercfg);
 	SDE_REG_WRITE(c, CTL_LAYER_EXT(lm), mixercfg_ext);
 	SDE_REG_WRITE(c, CTL_LAYER_EXT2(lm), mixercfg_ext2);
+	SDE_REG_WRITE(c, CTL_LAYER_EXT3(lm), mixercfg_ext3);
 }
 
 static void sde_hw_ctl_intf_cfg(struct sde_hw_ctl *ctx,

@@ -270,6 +270,9 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 
 		stage_cfg->stage[lm_idx][pstate->stage][idx] =
 							sde_plane_pipe(plane);
+		stage_cfg->multirect_index
+				[lm_idx][pstate->stage][idx] =
+				pstate->multirect_index;
 		mixer[lm_idx].flush_mask |= flush_mask;
 
 		SDE_DEBUG("crtc %d stage:%d - plane %d sspp %d fb %d\n",
@@ -300,6 +303,9 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 			idx = right_crtc_zpos_cnt[pstate->stage]++;
 			stage_cfg->stage[RIGHT_MIXER][pstate->stage][idx] =
 							sde_plane_pipe(plane);
+			stage_cfg->multirect_index
+				[RIGHT_MIXER][pstate->stage][idx] =
+				pstate->multirect_index;
 			mixer[RIGHT_MIXER].flush_mask |= flush_mask;
 
 			/* blend config update */
@@ -1156,8 +1162,8 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 struct plane_state {
 	struct sde_plane_state *sde_pstate;
 	const struct drm_plane_state *drm_pstate;
-
 	int stage;
+	u32 pipe_id;
 };
 
 static int pstate_cmp(const void *a, const void *b)
@@ -1182,7 +1188,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
 	struct sde_crtc *sde_crtc;
-	struct plane_state pstates[SDE_STAGE_MAX * 2];
+	struct plane_state pstates[SDE_STAGE_MAX * 4];
 	struct sde_crtc_state *cstate;
 
 	const struct drm_plane_state *pstate;
@@ -1190,8 +1196,12 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	struct drm_display_mode *mode;
 
 	int cnt = 0, rc = 0, mixer_width, i, z_pos;
+
 	int left_crtc_zpos_cnt[SDE_STAGE_MAX] = {0};
 	int right_crtc_zpos_cnt[SDE_STAGE_MAX] = {0};
+	struct sde_multirect_plane_states multirect_plane[SDE_STAGE_MAX * 2];
+	int multirect_count = 0;
+	const struct drm_plane_state *pipe_staged[SSPP_MAX];
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -1208,6 +1218,8 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	cstate = to_sde_crtc_state(state);
 	mode = &state->adjusted_mode;
 	SDE_DEBUG("%s: check", sde_crtc->name);
+
+	memset(pipe_staged, 0, sizeof(pipe_staged));
 
 	mixer_width = sde_crtc_mixer_width(sde_crtc, mode);
 
@@ -1226,6 +1238,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		pstates[cnt].drm_pstate = pstate;
 		pstates[cnt].stage = sde_plane_get_property(
 				pstates[cnt].sde_pstate, PLANE_PROP_ZPOS);
+		pstates[cnt].pipe_id = sde_plane_pipe(plane);
 
 		/* check dim layer stage with every plane */
 		for (i = 0; i < cstate->num_dim_layers; i++) {
@@ -1236,6 +1249,17 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 				rc = -EINVAL;
 				goto end;
 			}
+		}
+
+		if (pipe_staged[pstates[cnt].pipe_id]) {
+			multirect_plane[multirect_count].r0 =
+				pipe_staged[pstates[cnt].pipe_id];
+			multirect_plane[multirect_count].r1 = pstate;
+			multirect_count++;
+
+			pipe_staged[pstates[cnt].pipe_id] = NULL;
+		} else {
+			pipe_staged[pstates[cnt].pipe_id] = pstate;
 		}
 
 		cnt++;
@@ -1249,6 +1273,15 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 				pstate->crtc_y, pstate->crtc_h, mode->vdisplay,
 				pstate->crtc_x, pstate->crtc_w, mode->hdisplay);
 			rc = -E2BIG;
+			goto end;
+		}
+	}
+
+	for (i = 1; i < SSPP_MAX; i++) {
+		if (pipe_staged[i] &&
+			is_sde_plane_virtual(pipe_staged[i]->plane)) {
+			SDE_ERROR("invalid use of virtual plane: %d\n",
+					pipe_staged[i]->plane->base.id);
 			goto end;
 		}
 	}
@@ -1300,7 +1333,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			goto end;
 		} else if (pstates[i].drm_pstate->crtc_x < mixer_width) {
 			if (left_crtc_zpos_cnt[z_pos] == 2) {
-				SDE_ERROR("> 2 plane @ stage%d on left\n",
+				SDE_ERROR("> 2 planes @ stage %d on left\n",
 					z_pos);
 				rc = -EINVAL;
 				goto end;
@@ -1308,7 +1341,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			left_crtc_zpos_cnt[z_pos]++;
 		} else {
 			if (right_crtc_zpos_cnt[z_pos] == 2) {
-				SDE_ERROR("> 2 plane @ stage%d on right\n",
+				SDE_ERROR("> 2 planes @ stage %d on right\n",
 					z_pos);
 				rc = -EINVAL;
 				goto end;
@@ -1317,6 +1350,17 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		}
 		pstates[i].sde_pstate->stage = z_pos + SDE_STAGE_0;
 		SDE_DEBUG("%s: zpos %d", sde_crtc->name, z_pos);
+	}
+
+	for (i = 0; i < multirect_count; i++) {
+		if (sde_plane_validate_multirect_v2(&multirect_plane[i])) {
+			SDE_ERROR(
+			"multirect validation failed for planes (%d - %d)\n",
+					multirect_plane[i].r0->plane->base.id,
+					multirect_plane[i].r1->plane->base.id);
+			rc = -EINVAL;
+			break;
+		}
 	}
 
 end:
@@ -1427,6 +1471,16 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 		sde_kms_info_add_keystr(info, "qseed_type", "qseed2");
 	if (catalog->qseed_type == SDE_SSPP_SCALER_QSEED3)
 		sde_kms_info_add_keystr(info, "qseed_type", "qseed3");
+
+	if (sde_is_custom_client()) {
+		if (catalog->smart_dma_rev == SDE_SSPP_SMART_DMA_V1)
+			sde_kms_info_add_keystr(info,
+					"smart_dma_rev", "smart_dma_v1");
+		if (catalog->smart_dma_rev == SDE_SSPP_SMART_DMA_V2)
+			sde_kms_info_add_keystr(info,
+					"smart_dma_rev", "smart_dma_v2");
+	}
+
 	sde_kms_info_add_keyint(info, "has_src_split", catalog->has_src_split);
 	msm_property_set_blob(&sde_crtc->property_info, &sde_crtc->blob_info,
 			info->data, info->len, CRTC_PROP_INFO);
