@@ -1324,7 +1324,7 @@ continue_unlock:
 	return last_page;
 }
 
-static int __write_node_page(struct page *page, bool atomic,
+static int __write_node_page(struct page *page, bool atomic, bool *submitted,
 				struct writeback_control *wbc)
 {
 	struct f2fs_sb_info *sbi = F2FS_P_SB(page);
@@ -1337,6 +1337,7 @@ static int __write_node_page(struct page *page, bool atomic,
 		.op_flags = wbc_to_write_flags(wbc),
 		.page = page,
 		.encrypted_page = NULL,
+		.submitted = false,
 	};
 
 	trace_f2fs_writepage(page, NODE);
@@ -1378,13 +1379,19 @@ static int __write_node_page(struct page *page, bool atomic,
 	dec_page_count(sbi, F2FS_DIRTY_NODES);
 	up_read(&sbi->node_write);
 
-	if (wbc->for_reclaim)
+	if (wbc->for_reclaim) {
 		f2fs_submit_merged_bio_cond(sbi, NULL, page, 0, NODE, WRITE);
+		submitted = NULL;
+	}
 
 	unlock_page(page);
 
-	if (unlikely(f2fs_cp_error(sbi)))
+	if (unlikely(f2fs_cp_error(sbi))) {
 		f2fs_submit_merged_bio(sbi, NODE, WRITE);
+		submitted = NULL;
+	}
+	if (submitted)
+		*submitted = fio.submitted;
 
 	return 0;
 
@@ -1396,7 +1403,7 @@ redirty_out:
 static int f2fs_write_node_page(struct page *page,
 				struct writeback_control *wbc)
 {
-	return __write_node_page(page, false, wbc);
+	return __write_node_page(page, false, NULL, wbc);
 }
 
 int fsync_node_pages(struct f2fs_sb_info *sbi, struct inode *inode,
@@ -1430,6 +1437,7 @@ retry:
 
 		for (i = 0; i < nr_pages; i++) {
 			struct page *page = pvec.pages[i];
+			bool submitted = false;
 
 			if (unlikely(f2fs_cp_error(sbi))) {
 				f2fs_put_page(last_page, 0);
@@ -1479,12 +1487,13 @@ continue_unlock:
 				goto continue_unlock;
 
 			ret = __write_node_page(page, atomic &&
-						page == last_page, wbc);
+						page == last_page,
+						&submitted, wbc);
 			if (ret) {
 				unlock_page(page);
 				f2fs_put_page(last_page, 0);
 				break;
-			} else {
+			} else if (submitted) {
 				nwritten++;
 			}
 
@@ -1540,6 +1549,7 @@ next_step:
 
 		for (i = 0; i < nr_pages; i++) {
 			struct page *page = pvec.pages[i];
+			bool submitted = false;
 
 			if (unlikely(f2fs_cp_error(sbi))) {
 				pagevec_release(&pvec);
@@ -1593,9 +1603,10 @@ continue_unlock:
 			set_fsync_mark(page, 0);
 			set_dentry_mark(page, 0);
 
-			if (NODE_MAPPING(sbi)->a_ops->writepage(page, wbc))
+			ret = __write_node_page(page, false, &submitted, wbc);
+			if (ret)
 				unlock_page(page);
-			else
+			else if (submitted)
 				nwritten++;
 
 			if (--wbc->nr_to_write == 0)
