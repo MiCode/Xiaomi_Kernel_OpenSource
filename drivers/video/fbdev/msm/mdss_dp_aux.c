@@ -876,10 +876,10 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 	int rlen, ret = 0;
 	int edid_blk = 0, blk_num = 0, retries = 10;
 	bool edid_parsing_done = false;
-	const u8 cea_tag = 0x02, start_ext_blk = 0x1;
+	const u8 cea_tag = 0x02;
 	u32 const segment_addr = 0x30;
 	u32 checksum = 0;
-	char segment = 0x1;
+	u8 offset[] = {0x0, 0x80};
 
 	ret = dp_aux_chan_ready(dp);
 	if (ret) {
@@ -895,26 +895,56 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 	 */
 	dp_sink_parse_test_request(dp);
 
-	do {
-		rlen = dp_aux_read_buf_retry(dp, EDID_START_ADDRESS +
-				(blk_num * EDID_BLOCK_SIZE),
+	while (retries) {
+		u8 *offset_p;
+		u8 segment;
+
+		/*
+		 * Write the segment first.
+		 * Segment = 0, for blocks 0 and 1
+		 * Segment = 1, for blocks 2 and 3
+		 * Segment = 2, for blocks 3 and 4
+		 * and so on ...
+		 */
+		segment = blk_num >> 1;
+		dp_aux_write_buf_retry(dp, segment_addr, &segment, 1, 1, false);
+
+		/*
+		 * Write the offset of the desired EDID block to be read.
+		 * For even blocks, offset = 0x0
+		 * For odd blocks, offset = 0x80
+		 */
+		if (blk_num % 2)
+			offset_p = &offset[1];
+		else
+			offset_p = &offset[0];
+		dp_aux_write_buf_retry(dp, EDID_START_ADDRESS, offset_p, 1, 1,
+				false);
+
+		rlen = dp_aux_read_buf_retry(dp, EDID_START_ADDRESS,
 				EDID_BLOCK_SIZE, 1, false);
 		if (rlen != EDID_BLOCK_SIZE) {
-			pr_err("Read failed. rlen=%d\n", rlen);
+			pr_err("Read failed. rlen=%s\n",
+				mdss_dp_get_aux_error(rlen));
+			mdss_dp_phy_aux_update_config(dp, PHY_AUX_CFG1);
+			retries--;
 			continue;
 		}
-
 		pr_debug("blk_num=%d, rlen=%d\n", blk_num, rlen);
 
 		if (dp_edid_is_valid_header(rp->data)) {
 			ret = dp_edid_buf_error(rp->data, rp->len);
 			if (ret) {
 				pr_err("corrupt edid block detected\n");
+				mdss_dp_phy_aux_update_config(dp, PHY_AUX_CFG1);
+				retries--;
 				continue;
 			}
 
 			if (edid_parsing_done) {
+				pr_debug("block 0 parsed already\n");
 				blk_num++;
+				retries--;
 				continue;
 			}
 
@@ -928,6 +958,12 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 				rp->data);
 
 			edid_parsing_done = true;
+		} else if (!edid_parsing_done) {
+			pr_debug("Invalid edid block 0 header\n");
+			/* Retry block 0 with adjusted phy aux settings */
+			mdss_dp_phy_aux_update_config(dp, PHY_AUX_CFG1);
+			retries--;
+			continue;
 		} else {
 			edid_blk++;
 			blk_num++;
@@ -948,13 +984,9 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 		checksum = rp->data[rp->len - 1];
 
 		/* break if no more extension blocks present */
-		if (edid_blk == dp->edid.ext_block_cnt)
+		if (edid_blk >= dp->edid.ext_block_cnt)
 			break;
-
-		/* write segment number to read block 3 onwards */
-		if (edid_blk == start_ext_blk)
-			dp_aux_write_buf(dp, segment_addr, &segment, 1, 1);
-	} while (retries--);
+	}
 
 	if (dp->test_data.test_requested == TEST_EDID_READ) {
 		pr_debug("sending checksum %d\n", checksum);
