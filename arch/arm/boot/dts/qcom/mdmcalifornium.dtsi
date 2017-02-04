@@ -604,7 +604,7 @@
 			qcom,mhi-ifc-id = <0x030217cb>;
 			qcom,mhi-ep-msi = <0>;
 			qcom,mhi-version = <0x1000000>;
-			qcom,mhi-use-gsi;
+			qcom,use-ipa-software-channel;
 	};
 
 	blsp1_uart1: serial@78af000 {
