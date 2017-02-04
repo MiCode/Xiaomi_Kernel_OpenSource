@@ -1630,7 +1630,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		fds[2] = 0;
 		ioctl.inv.handle = 1;
 
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(7, 3, 0);
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(8, 3, 0);
 		ioctl.inv.pra = ra;
 		ioctl.fds = 0;
 		ioctl.attrs = 0;
