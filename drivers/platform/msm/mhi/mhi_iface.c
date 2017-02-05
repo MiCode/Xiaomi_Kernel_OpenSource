@@ -189,6 +189,7 @@ static int mhi_pci_probe(struct pci_dev *pcie_device,
 	mhi_dev_ctxt->mhi_pm_state = MHI_PM_DISABLE;
 	INIT_WORK(&mhi_dev_ctxt->process_m1_worker, process_m1_transition);
 	INIT_WORK(&mhi_dev_ctxt->st_thread_worker, mhi_state_change_worker);
+	INIT_WORK(&mhi_dev_ctxt->process_sys_err_worker, mhi_sys_err_worker);
 	mutex_init(&mhi_dev_ctxt->pm_lock);
 	rwlock_init(&mhi_dev_ctxt->pm_xfer_lock);
 	spin_lock_init(&mhi_dev_ctxt->dev_wake_lock);
