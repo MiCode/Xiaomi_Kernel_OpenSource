@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,7 @@
 #define MSM_MHI_H
 #include <linux/types.h>
 #include <linux/device.h>
+#include <linux/scatterlist.h>
 
 #define MHI_DMA_MASK       0xFFFFFFFFFFULL
 #define MHI_MAX_MTU        0xFFFF
@@ -77,6 +78,7 @@ enum MHI_CB_REASON {
 	MHI_CB_MHI_ENABLED,
 	MHI_CB_MHI_SHUTDOWN,
 	MHI_CB_SYS_ERROR,
+	MHI_CB_RDDM,
 };
 
 enum MHI_FLAGS {
@@ -128,16 +130,22 @@ struct __packed bhi_vec_entry {
  * @dev: device node points to of_node
  * @pdev: pci device node
  * @resource: bar memory space and IRQ resources
+ * @support_rddm: this device support ramdump collection
+ * @rddm_size: size of ramdump buffer in bytes to allocate
  * @pm_runtime_get: fp for bus masters rpm pm_runtime_get
  * @pm_runtime_noidle: fp for bus masters rpm pm_runtime_noidle
+ * @status_cb: fp for MHI status change notifications
  * @mhi_dev_ctxt: private data for host
  */
 struct mhi_device {
 	struct device *dev;
 	struct pci_dev *pci_dev;
 	struct resource resources[2];
+	bool support_rddm;
+	size_t rddm_size;
 	int (*pm_runtime_get)(struct pci_dev *pci_dev);
-	void (*pm_runtime_noidle)(struct pci_dev *pci_dev);
+	void (*pm_runtime_put_noidle)(struct pci_dev *pci_dev);
+	void (*status_cb)(enum MHI_CB_REASON, void *priv);
 	struct mhi_device_ctxt *mhi_dev_ctxt;
 };
 
@@ -148,8 +156,14 @@ enum mhi_dev_ctrl {
 	MHI_DEV_CTRL_RESUME,
 	MHI_DEV_CTRL_POWER_OFF,
 	MHI_DEV_CTRL_POWER_ON,
-	MHI_DEV_CTRL_RAM_DUMP,
+	MHI_DEV_CTRL_RDDM,
+	MHI_DEV_CTRL_RDDM_KERNEL_PANIC,
 	MHI_DEV_CTRL_NOTIFY_LINK_ERROR,
+};
+
+enum mhi_rddm_segment {
+	MHI_RDDM_FW_SEGMENT,
+	MHI_RDDM_RD_SEGMENT,
 };
 
 /**
@@ -173,7 +187,7 @@ bool mhi_is_device_ready(const struct device const *dev,
  */
 int mhi_register_device(struct mhi_device *mhi_device,
 			const char *node_name,
-			unsigned long user_data);
+			void *user_data);
 
 /**
  * mhi_pm_control_device - power management control api
@@ -183,6 +197,15 @@ int mhi_register_device(struct mhi_device *mhi_device,
  */
 int mhi_pm_control_device(struct mhi_device *mhi_device,
 			  enum mhi_dev_ctrl ctrl);
+
+/**
+ * mhi_xfer_rddm - transfer rddm segment to bus master
+ * @mhi_device: registered device structure
+ * @seg: scatterlist pointing to segments
+ * @Return: # of segments, 0 if no segment available
+ */
+int mhi_xfer_rddm(struct mhi_device *mhi_device, enum mhi_rddm_segment seg,
+		  struct scatterlist **sg_list);
 
 /**
  * mhi_deregister_channel - de-register callbacks from MHI
