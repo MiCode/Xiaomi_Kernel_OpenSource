@@ -99,7 +99,11 @@ struct htt_data_tx_desc_frag {
 } __packed;
 
 struct htt_msdu_ext_desc {
+#ifdef CONFIG_ATH10K_SNOC
+	__le32 tso_flag[5];
+#else
 	__le32 tso_flag[3];
+#endif
 	__le16 ip_identification;
 	u8 flags;
 	u8 reserved;
@@ -167,7 +171,12 @@ struct htt_data_tx_desc {
 	__le16 flags1; /* %HTT_DATA_TX_DESC_FLAGS1_ */
 	__le16 len;
 	__le16 id;
+#ifdef CONFIG_ATH10K_SNOC
+	__le32 frags_paddr_lo;
+	__le32 frags_paddr_hi;
+#else
 	__le32 frags_paddr;
+#endif
 	union {
 		__le32 peerid;
 		struct {
@@ -201,8 +210,15 @@ enum htt_rx_ring_flags {
 #define HTT_RX_RING_SIZE_MAX 2048
 
 struct htt_rx_ring_setup_ring {
+#ifdef CONFIG_ATH10K_SNOC
+	__le32 fw_idx_shadow_reg_paddr_low;
+	__le32 fw_idx_shadow_reg_paddr_high;
+	__le32 rx_ring_base_paddr_low;
+	__le32 rx_ring_base_paddr_high;
+#else
 	__le32 fw_idx_shadow_reg_paddr;
 	__le32 rx_ring_base_paddr;
+#endif
 	__le16 rx_ring_len; /* in 4-byte words */
 	__le16 rx_ring_bufsize; /* rx skb size - in bytes */
 	__le16 flags; /* %HTT_RX_RING_FLAGS_ */
@@ -523,6 +539,8 @@ struct htt_rx_indication_hdr {
 #define HTT_RX_INDICATION_INFO2_VHT_SIG_A1_LSB  0
 #define HTT_RX_INDICATION_INFO2_SERVICE_MASK    0xFF000000
 #define HTT_RX_INDICATION_INFO2_SERVICE_LSB     24
+
+#define HTT_WCN3990_PADDR_MASK 0x1F
 
 enum htt_rx_legacy_rate {
 	HTT_RX_OFDM_48 = 0,
@@ -846,7 +864,12 @@ struct htt_rx_offload_ind {
 } __packed;
 
 struct htt_rx_in_ord_msdu_desc {
+#ifdef CONFIG_ATH10K_SNOC
+	__le32 msdu_paddr_lo;
+	__le32 msdu_paddr_hi;
+#else
 	__le32 msdu_paddr;
+#endif
 	__le16 msdu_len;
 	u8 fw_desc;
 	u8 reserved;
@@ -1346,11 +1369,20 @@ struct htt_q_state_conf {
 	u8 pad[2];
 } __packed;
 
+struct bank_base_addr {
+	__le32 low;
+	__le32 high;
+};
+
 struct htt_frag_desc_bank_cfg {
 	u8 info; /* HTT_FRAG_DESC_BANK_CFG_INFO_ */
 	u8 num_banks;
 	u8 desc_size;
+#ifdef CONFIG_ATH10K_SNOC
+	struct bank_base_addr bank_base_addrs[HTT_FRAG_DESC_BANK_MAX];
+#else
 	__le32 bank_base_addrs[HTT_FRAG_DESC_BANK_MAX];
+#endif
 	struct htt_frag_desc_bank_id bank_id[HTT_FRAG_DESC_BANK_MAX];
 	struct htt_q_state_conf q_state;
 } __packed;
@@ -1599,7 +1631,11 @@ struct ath10k_htt {
 		 * rx buffers the host SW provides for the MAC HW to
 		 * fill.
 		 */
+#ifdef CONFIG_ATH10K_SNOC
+		__le64 *paddrs_ring;
+#else
 		__le32 *paddrs_ring;
+#endif
 
 		/*
 		 * Base address of ring, as a "physical" device address

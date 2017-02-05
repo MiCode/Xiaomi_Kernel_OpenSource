@@ -3143,5 +3143,31 @@
 				};
 			};
 		};
+
+		sdc2_cd_on_mediabox: sdc2_cd_on_mediabox {
+			mux {
+				pins = "gpio86";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio86";
+				bias-pull-up;           /* pull up */
+				drive-strength = <2>;   /* 2 MA */
+			};
+		};
+
+		sdc2_cd_off_mediabox: sdc2_cd_off_mediabox {
+			mux {
+				pins = "gpio86";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio86";
+				bias-pull-up;           /* pull up */
+				drive-strength = <2>;   /* 2 MA */
+			};
+		};
 	};
 };

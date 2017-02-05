@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,36 @@ static inline void *u64_to_ptr(uint64_t address)
 	return (void *)(uintptr_t)address;
 }
 
+static inline struct mdp_destination_scaler_data *__dest_scaler_next(
+		struct mdp_destination_scaler_data *ds_data, int ds_count)
+{
+	struct mdp_destination_scaler_data *ds_data_r = ds_data;
+	size_t offset;
+
+	/*
+	 * Advanced to next ds_data structure from commit if
+	 * there is more than 1 for source split usecase.
+	 */
+	if (ds_count > 1) {
+		ds_data_r = ds_data + 1;
+
+		/*
+		 * To check for binary compatibility with old user mode
+		 * driver which does not have ROI support in destination
+		 * scalar.
+		 */
+		if ((ds_data_r->dest_scaler_ndx != 1) &&
+				(ds_data_r->lm_height != ds_data->lm_height)) {
+			offset = offsetof(struct mdp_destination_scaler_data,
+					panel_roi);
+			ds_data_r = (struct mdp_destination_scaler_data *)(
+					(void *)ds_data + offset);
+		}
+	}
+
+	return ds_data_r;
+}
+
 static void mdss_mdp_disable_destination_scaler_setup(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_data_type *mdata = ctl->mdata;
@@ -94,6 +124,9 @@ static void mdss_mdp_disable_destination_scaler_setup(struct mdss_mdp_ctl *ctl)
 			ctl->mixer_right->roi = (struct mdss_rect) { 0, 0,
 				ctl->mixer_right->width,
 				ctl->mixer_right->height };
+			if (split_ctl)
+				split_ctl->mixer_left->roi =
+					ctl->mixer_right->roi;
 
 			/*
 			 * Disable destination scaler by resetting the control
@@ -143,6 +176,46 @@ static void mdss_mdp_disable_destination_scaler_setup(struct mdss_mdp_ctl *ctl)
 	}
 }
 
+static int __dest_scaler_panel_roi_update(
+		struct mdp_destination_scaler_data *ds_data,
+		struct mdss_mdp_destination_scaler *ds)
+{
+	if (ds_data->flags & MDP_DESTSCALER_ROI_ENABLE) {
+		/*
+		 * Updating PANEL ROI info, used in partial update
+		 */
+		if ((ds_data->panel_roi.w > ds->scaler.dst_width) ||
+				(ds_data->panel_roi.h >
+				 ds->scaler.dst_height) ||
+				(ds_data->panel_roi.w == 0) ||
+				(ds_data->panel_roi.h == 0)) {
+			pr_err("Invalid panel ROI parameter for dest-scaler-%d: [%d %d %d %d]\n",
+					ds_data->dest_scaler_ndx,
+					ds_data->panel_roi.x,
+					ds_data->panel_roi.y,
+					ds_data->panel_roi.w,
+					ds_data->panel_roi.h);
+			ds->flags &= ~DS_PU_ENABLE;
+			return -EINVAL;
+		}
+		ds->panel_roi.x = ds_data->panel_roi.x;
+		ds->panel_roi.y = ds_data->panel_roi.y;
+		ds->panel_roi.w = ds_data->panel_roi.w;
+		ds->panel_roi.h = ds_data->panel_roi.h;
+		ds->flags |= DS_PU_ENABLE;
+		pr_debug("dest-scaler[%d] panel_roi update: [%d,%d,%d,%d]\n",
+				ds->num,
+				ds_data->panel_roi.x, ds_data->panel_roi.y,
+				ds_data->panel_roi.w, ds_data->panel_roi.h);
+		MDSS_XLOG(ds->num, ds_data->panel_roi.x, ds_data->panel_roi.y,
+				ds_data->panel_roi.w, ds_data->panel_roi.h);
+	} else {
+		ds->flags &= ~DS_PU_ENABLE;
+	}
+
+	return 0;
+}
+
 static int __dest_scaler_data_setup(struct mdp_destination_scaler_data *ds_data,
 		struct mdss_mdp_destination_scaler *ds,
 		u32 max_input_width, u32 max_output_width)
@@ -187,6 +260,9 @@ static int __dest_scaler_data_setup(struct mdp_destination_scaler_data *ds_data,
 		ds->src_width = ds_data->lm_width;
 		ds->src_height = ds_data->lm_height;
 	}
+
+	if (__dest_scaler_panel_roi_update(ds_data, ds))
+		return -EINVAL;
 
 	if (ds_data->flags == 0) {
 		pr_debug("Disabling destination scaler-%d\n",
@@ -235,13 +311,7 @@ static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
 		}
 
 		if (ctl->mixer_right && ctl->mixer_right->ds) {
-			/*
-			 * Advanced to next ds_data structure from commit if
-			 * there is more than 1 for split display usecase.
-			 */
-			if (ds_count > 1)
-				ds_data++;
-
+			ds_data = __dest_scaler_next(ds_data, ds_count);
 			pinfo = &ctl->panel_data->panel_info;
 			if ((ds_data->lm_width > get_panel_xres(pinfo)) ||
 				(ds_data->lm_height >  get_panel_yres(pinfo)) ||
@@ -317,20 +387,26 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 	int ret = 0;
 	struct mdss_data_type *mdata;
 	struct mdss_mdp_ctl *ctl;
+	struct mdss_mdp_ctl *sctl;
 	struct mdss_mdp_destination_scaler *ds_left  = NULL;
 	struct mdss_mdp_destination_scaler *ds_right = NULL;
 	struct mdss_panel_info *pinfo;
 	u32 scaler_width, scaler_height;
+	struct mdp_destination_scaler_data *ds_data_r = NULL;
 
 	if (ds_data) {
 		mdata = mfd_to_mdata(mfd);
 		ctl   = mfd_to_ctl(mfd);
+		sctl  = mdss_mdp_get_split_ctl(ctl);
 
 		if (ctl->mixer_left)
 			ds_left = ctl->mixer_left->ds;
 
 		if (ctl->mixer_right)
 			ds_right = ctl->mixer_right->ds;
+
+		if (sctl && sctl->mixer_left && ds_right)
+			sctl->mixer_left->ds = ds_right;
 
 		switch (ds_mode) {
 		case DS_DUAL_MODE:
@@ -346,12 +422,27 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 			if (ret)
 				goto reset_mixer;
 
-			ret = __dest_scaler_data_setup(&ds_data[1], ds_right,
+			ds_data_r = __dest_scaler_next(ds_data, 2);
+			ret = __dest_scaler_data_setup(ds_data_r, ds_right,
 					mdata->max_dest_scaler_input_width -
 					MDSS_MDP_DS_OVERFETCH_SIZE,
 					mdata->max_dest_scaler_output_width);
 			if (ret)
 				goto reset_mixer;
+
+			if ((ds_right->flags & DS_PU_ENABLE) && sctl) {
+				pinfo = &ctl->panel_data->panel_info;
+				if (ds_right->panel_roi.x >=
+						get_panel_xres(pinfo)) {
+					ds_right->panel_roi.x -=
+						get_panel_xres(pinfo);
+				} else {
+					pr_err("SCTL DS right roi.x:%d < left panel width:%d\n",
+							ds_right->panel_roi.x,
+							get_panel_xres(pinfo));
+					goto reset_mixer;
+				}
+			}
 
 			ds_left->flags  &= ~(DS_LEFT|DS_RIGHT);
 			ds_left->flags  |= DS_DUAL_MODE;
@@ -377,6 +468,17 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 			if (ret)
 				goto reset_mixer;
 
+			/*
+			 * For Partial update usecase, it is possible switching
+			 * from Left+Right mode to Left only mode. So make sure
+			 * cleanup the DS_RIGHT flags.
+			 */
+			if (ds_right) {
+				ds_right->flags &=
+					~(DS_DUAL_MODE|DS_ENABLE|DS_PU_ENABLE);
+				ds_right->flags |= DS_VALIDATE;
+			}
+
 			MDSS_XLOG(ds_left->num, ds_left->src_width,
 					ds_left->src_height, ds_left->flags);
 			break;
@@ -395,6 +497,26 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 					mdata->max_dest_scaler_output_width);
 			if (ret)
 				goto reset_mixer;
+
+			if (ds_left) {
+				ds_left->flags &=
+					~(DS_DUAL_MODE|DS_ENABLE|DS_PU_ENABLE);
+				ds_left->flags |= DS_VALIDATE;
+			}
+
+			if ((ds_right->flags & DS_PU_ENABLE) && sctl) {
+				pinfo = &ctl->panel_data->panel_info;
+				if (ds_right->panel_roi.x >=
+						get_panel_xres(pinfo)) {
+					ds_right->panel_roi.x -=
+						get_panel_xres(pinfo);
+				} else {
+					pr_err("SCTL DS-right-only roi.x:%d < Left panel width:%d\n",
+							ds_right->panel_roi.x,
+							get_panel_xres(pinfo));
+					goto reset_mixer;
+				}
+			}
 
 			MDSS_XLOG(ds_right->num, ds_right->src_width,
 					ds_right->src_height, ds_right->flags);
@@ -418,11 +540,11 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 	pinfo = &ctl->panel_data->panel_info;
 	scaler_width = 0;
 	scaler_height = 0;
-	if (ds_left && ds_left->flags) {
+	if (ds_left && (ds_left->flags & DS_ENABLE)) {
 		scaler_width += ds_left->scaler.dst_width;
 		scaler_height = ds_left->scaler.dst_height;
 	}
-	if (ds_right && ds_right->flags) {
+	if (ds_right && (ds_right->flags & DS_ENABLE)) {
 		scaler_width += ds_right->scaler.dst_width;
 		scaler_height = ds_right->scaler.dst_height;
 	}
@@ -1674,7 +1796,12 @@ static int __validate_secure_session(struct mdss_overlay_private *mdp5_data)
 	pr_debug("pipe count:: secure display:%d non-secure:%d secure-vid:%d,secure-cam:%d\n",
 		sd_pipes, nonsd_pipes, secure_vid_pipes, secure_cam_pipes);
 
-	if ((sd_pipes || mdss_get_sd_client_cnt()) &&
+	if (mdss_get_sd_client_cnt() && !mdp5_data->sd_enabled) {
+		pr_err("Secure session already enabled for other client\n");
+		return -EINVAL;
+	}
+
+	if ((sd_pipes) &&
 		(nonsd_pipes || secure_vid_pipes ||
 		secure_cam_pipes)) {
 		pr_err("non-secure layer validation request during secure display session\n");
@@ -2726,7 +2853,8 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 		return -ENODEV;
 	}
 
-	if (mdss_fb_is_power_off(mfd)) {
+	if (mdss_fb_is_power_off(mfd) ||
+		mdss_fb_is_power_on_ulp(mfd)) {
 		pr_err("display interface is in off state fb:%d\n",
 			mfd->index);
 		return -EPERM;

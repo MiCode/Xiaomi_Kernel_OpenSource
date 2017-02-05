@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -334,6 +334,7 @@ struct wcd9xxx {
 	struct slim_device *slim_slave;
 	struct mutex io_lock;
 	struct mutex xfer_lock;
+	struct mutex reset_lock;
 	u8 version;
 
 	int reset_gpio;

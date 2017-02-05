@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,7 @@
 #define FORMAT_G711_MLAW_FS 0x001b
 #define FORMAT_DTS          0x001c
 #define FORMAT_DSD          0x001d
+#define FORMAT_APTX         0x001e
 
 #define ENCDEC_SBCBITRATE   0x0001
 #define ENCDEC_IMMEDIATE_DECODE 0x0002
@@ -270,7 +271,7 @@ int q6asm_open_read_v3(struct audio_client *ac, uint32_t format,
 		       uint16_t bits_per_sample);
 
 int q6asm_open_read_v4(struct audio_client *ac, uint32_t format,
-		       uint16_t bits_per_sample);
+		       uint16_t bits_per_sample, bool ts_mode);
 
 int q6asm_open_write(struct audio_client *ac, uint32_t format
 		/*, uint16_t bits_per_sample*/);
@@ -552,6 +553,9 @@ int q6asm_media_format_block_ape(struct audio_client *ac,
 int q6asm_media_format_block_dsd(struct audio_client *ac,
 			struct asm_dsd_cfg *cfg, int stream_id);
 
+int q6asm_stream_media_format_block_aptx_dec(struct audio_client *ac,
+						uint32_t sr, int stream_id);
+
 int q6asm_ds1_set_endp_params(struct audio_client *ac,
 				int param_id, int param_value);
 
@@ -573,6 +577,10 @@ int q6asm_dts_eagle_set(struct audio_client *ac, int param_id, uint32_t size,
 			void *data, struct param_outband *po, int m_id);
 int q6asm_dts_eagle_get(struct audio_client *ac, int param_id, uint32_t size,
 			void *data, struct param_outband *po, int m_id);
+
+/* Send aptx decoder BT address */
+int q6asm_set_aptx_dec_bt_addr(struct audio_client *ac,
+				struct aptx_dec_bt_addr_cfg *cfg);
 
 /* Set SoftPause Params */
 int q6asm_set_softpause(struct audio_client *ac,

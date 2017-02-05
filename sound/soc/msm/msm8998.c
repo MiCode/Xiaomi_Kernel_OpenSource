@@ -3329,10 +3329,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	 * TX14, TX15, TX16
 	 */
 	unsigned int rx_ch_tavil[WCD934X_RX_MAX] = {144, 145, 146, 147, 148,
-					    149, 150, 151};
+						    149, 150, 151};
 	unsigned int tx_ch_tavil[WCD934X_TX_MAX] = {128, 129, 130, 131, 132,
-					    134, 135, 136, 137, 138, 139,
-					    133, 140, 141, 142, 143};
+						    133, 134, 135, 136, 137,
+						    138, 139, 140, 141, 142,
+						    143};
 
 	pr_info("%s: dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
@@ -4982,6 +4983,22 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA6,
+	},
+	{
+		.name = "USB Audio Hostless",
+		.stream_name = "USB Audio Hostless",
+		.cpu_dai_name = "USBAUDIO_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
 	},
 };
 

@@ -1512,7 +1512,7 @@ static int clk_osm_setup_hw_table(struct clk_osm *c)
 {
 	struct osm_entry *entry = c->osm_table;
 	int i;
-	u32 freq_val, volt_val, override_val, spare_val;
+	u32 freq_val = 0, volt_val = 0, override_val = 0, spare_val = 0;
 	u32 table_entry_offset, last_spare, last_virtual_corner = 0;
 
 	for (i = 0; i < OSM_TABLE_SIZE; i++) {
@@ -2472,14 +2472,19 @@ static u64 clk_osm_get_cpu_cycle_counter(int cpu)
 static void populate_opp_table(struct platform_device *pdev)
 {
 	int cpu;
+	struct device *cpu_dev;
 
 	for_each_possible_cpu(cpu) {
 		if (logical_cpu_to_clk(cpu) == pwrcl_clk.hw.clk) {
-			WARN(add_opp(&pwrcl_clk, get_cpu_device(cpu)),
+			cpu_dev = get_cpu_device(cpu);
+			if (cpu_dev)
+				WARN(add_opp(&pwrcl_clk, cpu_dev),
 			     "Failed to add OPP levels for power cluster\n");
 		}
 		if (logical_cpu_to_clk(cpu) == perfcl_clk.hw.clk) {
-			WARN(add_opp(&perfcl_clk, get_cpu_device(cpu)),
+			cpu_dev = get_cpu_device(cpu);
+			if (cpu_dev)
+				WARN(add_opp(&perfcl_clk, cpu_dev),
 			     "Failed to add OPP levels for perf cluster\n");
 		}
 	}
@@ -2543,13 +2548,15 @@ static ssize_t debugfs_trace_method_set(struct file *file,
 					const char __user *buf,
 					size_t count, loff_t *ppos)
 {
-	struct clk_osm *c = file->private_data;
+	struct clk_osm *c;
 	u32 val;
 
 	if (IS_ERR(file) || file == NULL) {
 		pr_err("input error %ld\n", PTR_ERR(file));
 		return -EINVAL;
 	}
+
+	c = file->private_data;
 
 	if (!c) {
 		pr_err("invalid clk_osm handle\n");
@@ -2593,13 +2600,15 @@ static ssize_t debugfs_trace_method_set(struct file *file,
 static ssize_t debugfs_trace_method_get(struct file *file, char __user *buf,
 					size_t count, loff_t *ppos)
 {
-	struct clk_osm *c = file->private_data;
+	struct clk_osm *c;
 	int len, rc;
 
 	if (IS_ERR(file) || file == NULL) {
 		pr_err("input error %ld\n", PTR_ERR(file));
 		return -EINVAL;
 	}
+
+	c = file->private_data;
 
 	if (!c) {
 		pr_err("invalid clk_osm handle\n");
@@ -3023,7 +3032,7 @@ static unsigned long perfcl_boot_rate = 1747200000;
 
 static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 {
-	int rc, cpu, i;
+	int rc = 0, cpu, i;
 	int speedbin = 0, pvs_ver = 0;
 	u32 pte_efuse;
 	int num_clks = ARRAY_SIZE(osm_qcom_clk_hws);

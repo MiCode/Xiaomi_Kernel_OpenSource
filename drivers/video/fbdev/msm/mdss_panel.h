@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -115,6 +115,11 @@ enum {
 	MDSS_PANEL_BLANK_BLANK = 0,
 	MDSS_PANEL_BLANK_UNBLANK,
 	MDSS_PANEL_BLANK_LOW_POWER,
+};
+
+enum {
+	MDSS_PANEL_LOW_PERSIST_MODE_OFF = 0,
+	MDSS_PANEL_LOW_PERSIST_MODE_ON,
 };
 
 enum {
@@ -293,6 +298,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DEEP_COLOR,
 	MDSS_EVENT_DISABLE_PANEL,
 	MDSS_EVENT_UPDATE_PANEL_PPM,
+	MDSS_EVENT_DSI_TIMING_DB_CTRL,
 	MDSS_EVENT_MAX,
 };
 
@@ -372,9 +378,11 @@ struct lcd_panel_info {
 	u32 h_back_porch;
 	u32 h_front_porch;
 	u32 h_pulse_width;
+	u32 h_active_low;
 	u32 v_back_porch;
 	u32 v_front_porch;
 	u32 v_pulse_width;
+	u32 v_active_low;
 	u32 border_clr;
 	u32 underflow_clr;
 	u32 hsync_skew;
@@ -746,6 +754,8 @@ struct mdss_panel_hdr_properties {
 
 	/* peak brightness supported by panel */
 	u32 peak_brightness;
+	/* average brightness supported by panel */
+	u32 avg_brightness;
 	/* Blackness level supported by panel */
 	u32 blackness_level;
 };
@@ -892,6 +902,9 @@ struct mdss_panel_info {
 	/* debugfs structure for the panel */
 	struct mdss_panel_debugfs_info *debugfs_info;
 
+	/* persistence mode on/off */
+	bool persist_mode;
+
 	/* stores initial adaptive variable refresh vtotal value */
 	u32 saved_avr_vtotal;
 
@@ -936,6 +949,7 @@ struct mdss_panel_timing {
 struct mdss_panel_data {
 	struct mdss_panel_info panel_info;
 	void (*set_backlight) (struct mdss_panel_data *pdata, u32 bl_level);
+	int (*apply_display_setting)(struct mdss_panel_data *pdata, u32 mode);
 	unsigned char *mmss_cc_base;
 
 	/**

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,8 +25,10 @@
 #include "sound/wcd-dsp-glink.h"
 
 #define WDSP_GLINK_DRIVER_NAME "wcd-dsp-glink"
-#define WDSP_MAX_WRITE_SIZE (512 * 1024)
+#define WDSP_MAX_WRITE_SIZE (256 * 1024)
 #define WDSP_MAX_READ_SIZE (4 * 1024)
+#define WDSP_MAX_NO_OF_INTENTS (20)
+#define WDSP_MAX_NO_OF_CHANNELS (10)
 
 #define MINOR_NUMBER_COUNT 1
 #define WDSP_EDGE "wdsp"
@@ -532,15 +534,30 @@ static int wdsp_glink_ch_info_init(struct wdsp_glink_priv *wpriv,
 	payload = (u8 *)pkt->payload;
 	no_of_channels = pkt->no_of_channels;
 
+	if (no_of_channels > WDSP_MAX_NO_OF_CHANNELS) {
+		dev_info(wpriv->dev, "%s: no_of_channels = %d are limited to %d\n",
+			 __func__, no_of_channels, WDSP_MAX_NO_OF_CHANNELS);
+		no_of_channels = WDSP_MAX_NO_OF_CHANNELS;
+	}
 	ch = kcalloc(no_of_channels, sizeof(struct wdsp_glink_ch *),
 		     GFP_KERNEL);
 	if (!ch) {
 		ret = -ENOMEM;
 		goto done;
 	}
+	wpriv->ch = ch;
+	wpriv->no_of_channels = no_of_channels;
 
 	for (i = 0; i < no_of_channels; i++) {
 		ch_cfg = (struct wdsp_glink_ch_cfg *)payload;
+
+		if (ch_cfg->no_of_intents > WDSP_MAX_NO_OF_INTENTS) {
+			dev_err(wpriv->dev, "%s: Invalid no_of_intents = %d\n",
+				__func__, ch_cfg->no_of_intents);
+			ret = -EINVAL;
+			goto err_ch_mem;
+		}
+
 		ch_cfg_size = sizeof(struct wdsp_glink_ch_cfg) +
 					(sizeof(u32) * ch_cfg->no_of_intents);
 		ch_size = sizeof(struct wdsp_glink_ch) +
@@ -564,8 +581,6 @@ static int wdsp_glink_ch_info_init(struct wdsp_glink_priv *wpriv,
 		INIT_WORK(&ch[i]->lcl_ch_cls_wrk, wdsp_glink_lcl_ch_cls_wrk);
 		init_waitqueue_head(&ch[i]->ch_connect_wait);
 	}
-	wpriv->ch = ch;
-	wpriv->no_of_channels = no_of_channels;
 
 	INIT_WORK(&wpriv->ch_open_cls_wrk, wdsp_glink_ch_open_cls_wrk);
 
@@ -746,15 +761,17 @@ static ssize_t wdsp_glink_write(struct file *file, const char __user *buf,
 		goto done;
 	}
 
-	dev_dbg(wpriv->dev, "%s: count = %zd\n", __func__, count);
-
-	if (count > WDSP_MAX_WRITE_SIZE) {
-		dev_info(wpriv->dev, "%s: count = %zd is more than WDSP_MAX_WRITE_SIZE\n",
+	if ((count < sizeof(struct wdsp_write_pkt)) ||
+	    (count > WDSP_MAX_WRITE_SIZE)) {
+		dev_err(wpriv->dev, "%s: Invalid count = %zd\n",
 			__func__, count);
-		count = WDSP_MAX_WRITE_SIZE;
+		ret = -EINVAL;
+		goto done;
 	}
 
-	tx_buf_size = count + sizeof(struct wdsp_glink_tx_buf);
+	dev_dbg(wpriv->dev, "%s: count = %zd\n", __func__, count);
+
+	tx_buf_size = WDSP_MAX_WRITE_SIZE + sizeof(struct wdsp_glink_tx_buf);
 	tx_buf = kzalloc(tx_buf_size, GFP_KERNEL);
 	if (!tx_buf) {
 		ret = -ENOMEM;
@@ -772,6 +789,13 @@ static ssize_t wdsp_glink_write(struct file *file, const char __user *buf,
 	wpkt = (struct wdsp_write_pkt *)tx_buf->buf;
 	switch (wpkt->pkt_type) {
 	case WDSP_REG_PKT:
+		if (count <= (sizeof(struct wdsp_write_pkt) +
+			      sizeof(struct wdsp_reg_pkt))) {
+			dev_err(wpriv->dev, "%s: Invalid reg pkt size = %zd\n",
+				__func__, count);
+			ret = -EINVAL;
+			goto free_buf;
+		}
 		ret = wdsp_glink_ch_info_init(wpriv,
 					(struct wdsp_reg_pkt *)wpkt->payload);
 		if (IS_ERR_VALUE(ret))
@@ -794,6 +818,13 @@ static ssize_t wdsp_glink_write(struct file *file, const char __user *buf,
 		kfree(tx_buf);
 		break;
 	case WDSP_CMD_PKT:
+		if (count <= (sizeof(struct wdsp_write_pkt) +
+			      sizeof(struct wdsp_cmd_pkt))) {
+			dev_err(wpriv->dev, "%s: Invalid cmd pkt size = %zd\n",
+				__func__, count);
+			ret = -EINVAL;
+			goto free_buf;
+		}
 		mutex_lock(&wpriv->glink_mutex);
 		if (wpriv->glink_state.link_state == GLINK_LINK_STATE_DOWN) {
 			mutex_unlock(&wpriv->glink_mutex);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -275,6 +275,8 @@ static int clk_branch2_hw_ctl_determine_rate(struct clk_hw *hw,
 	struct clk_hw *clkp;
 
 	clkp = __clk_get_hw(clk_get_parent(hw->clk));
+	if (!clkp)
+		return -EINVAL;
 
 	req->best_parent_hw = clkp;
 	req->best_parent_rate = clk_round_rate(clkp->clk, req->rate);

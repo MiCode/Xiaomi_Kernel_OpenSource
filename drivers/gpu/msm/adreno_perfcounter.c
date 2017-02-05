@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -638,6 +638,9 @@ static void _perfcounter_enable_vbif_pwr(struct adreno_device *adreno_dev,
 static void _power_counter_enable_alwayson(struct adreno_device *adreno_dev,
 				struct adreno_perfcounters *counters)
 {
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
+		return;
+
 	kgsl_regwrite(KGSL_DEVICE(adreno_dev),
 		A5XX_GPMU_ALWAYS_ON_COUNTER_RESET, 1);
 	counters->groups[KGSL_PERFCOUNTER_GROUP_ALWAYSON_PWR].regs[0].value = 0;
@@ -673,6 +676,9 @@ static void _power_counter_enable_default(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_perfcount_register *reg;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
+		return;
 
 	reg = &counters->groups[group].regs[counter];
 	kgsl_regwrite(device, reg->select, countable);
@@ -926,6 +932,9 @@ static uint64_t _perfcounter_read_pwrcntr(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_perfcount_register *reg;
 	unsigned int lo = 0, hi = 0;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
+		return 0;
 
 	reg = &group->regs[counter];
 

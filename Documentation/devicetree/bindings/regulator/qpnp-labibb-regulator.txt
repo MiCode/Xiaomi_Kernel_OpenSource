@@ -203,10 +203,11 @@ IBB subnode required properties:
 - qcom,qpnp-ibb-init-lcd-voltage: 	The default output voltage when IBB regulator
 					is configured in lcd mode.
 
+IBB subnode optional properties:
+
 - qcom,qpnp-ibb-discharge-resistor:	The discharge resistor in Kilo Ohms which
 					controls the soft start time. Supported values
 					are 300, 64, 32 and 16.
-IBB subnode optional properties:
 
 - qcom,qpnp-ibb-slew-rate:	The time (in us) taken by the regulator to change
 				voltage value in one step. This property is not

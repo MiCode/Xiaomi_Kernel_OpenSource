@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -310,6 +310,7 @@ struct msm_fb_data_type {
 	bool allow_bl_update;
 	u32 bl_level_scaled;
 	struct mutex bl_lock;
+	struct mutex mdss_sysfs_lock;
 	bool ipc_resume;
 
 	struct platform_device *pdev;
@@ -426,6 +427,12 @@ static inline bool mdss_fb_is_power_on_lp(struct msm_fb_data_type *mfd)
 {
 	return mdss_panel_is_power_on_lp(mfd->panel_power_state);
 }
+
+static inline bool mdss_fb_is_power_on_ulp(struct msm_fb_data_type *mfd)
+{
+	return mdss_panel_is_power_on_ulp(mfd->panel_power_state);
+}
+
 
 static inline bool mdss_fb_is_hdmi_primary(struct msm_fb_data_type *mfd)
 {

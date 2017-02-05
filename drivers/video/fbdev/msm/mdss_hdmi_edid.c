@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -120,13 +120,6 @@ struct hdmi_edid_sink_caps {
 	bool osd_disparity;
 	bool dual_view_support;
 	bool ind_view_support;
-};
-
-struct hdmi_edid_override_data {
-	int scramble;
-	int sink_mode;
-	int format;
-	int vic;
 };
 
 struct hdmi_edid_ctrl {
@@ -1607,9 +1600,14 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 			(timing.refresh_rate % 100) / 10,
 			timing.refresh_rate % 10);
 
-		rc = hdmi_get_video_id_code(&timing, NULL);
-		if (rc < 0)
-			rc = hdmi_set_resv_timing_info(&timing);
+		/*
+		 * Always add resolutions parsed from DTD in the reserved
+		 * timing info. This can avoid matching resolutions that have
+		 * a non-integral fps denominators with corresponding
+		 * resolutions that have an integral fps denominator.
+		 * For example - 640x480p@59.94Hz --> 640x480p@60Hz
+		 */
+		rc = hdmi_set_resv_timing_info(&timing);
 	} else {
 		rc = -EINVAL;
 	}
@@ -1983,7 +1981,6 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 {
 	u8 i = 0, offset = 0, std_blk = 0;
 	u32 video_format = HDMI_VFRMT_640x480p60_4_3;
-	u32 has480p = false;
 	u8 len = 0;
 	u8 num_of_cea_blocks;
 	u8 *data_buf;
@@ -2046,9 +2043,6 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 				video_format == HDMI_VFRMT_2880x576p50_16_9 ||
 				video_format == HDMI_VFRMT_1920x1250i50_16_9)
 				has50hz_mode = true;
-
-			if (video_format == HDMI_VFRMT_640x480p60_4_3)
-				has480p = true;
 		}
 	}
 
@@ -2066,9 +2060,6 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 
 			hdmi_edid_add_sink_video_format(edid_ctrl,
 				video_format);
-
-			if (video_format == HDMI_VFRMT_640x480p60_4_3)
-				has480p = true;
 
 			/* Make a note of the preferred video format */
 			if (i == 0)
@@ -2091,7 +2082,7 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 	desc_offset = edid_blk1[0x02];
 	if (desc_offset < (EDID_BLOCK_SIZE - EDID_DTD_LEN)) {
 		i = 0;
-		while (!edid_blk1[desc_offset]) {
+		while ((i < 4) && edid_blk1[desc_offset]) {
 			hdmi_edid_detail_desc(edid_ctrl,
 				edid_blk1+desc_offset,
 				&video_format);
@@ -2103,8 +2094,6 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 
 				hdmi_edid_add_sink_video_format(edid_ctrl,
 					video_format);
-				if (video_format == HDMI_VFRMT_640x480p60_4_3)
-					has480p = true;
 
 				/* Make a note of the preferred video format */
 				if (i == 0) {
@@ -2192,15 +2181,6 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 		if (!rc)
 			pr_debug("%s: 3D formats in VSD\n", __func__);
 	}
-
-	/*
-	 * Need to add default 640 by 480 timings, in case not described
-	 * in the EDID structure.
-	 * All DTV sink devices should support this mode
-	 */
-	if (!has480p)
-		hdmi_edid_add_sink_video_format(edid_ctrl,
-			HDMI_VFRMT_640x480p60_4_3);
 } /* hdmi_edid_get_display_mode */
 
 u32 hdmi_edid_get_raw_data(void *input, u8 *buf, u32 size)
@@ -2498,6 +2478,11 @@ bool hdmi_edid_is_s3d_mode_supported(void *input, u32 video_mode, u32 s3d_mode)
 	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
 	struct hdmi_edid_sink_data *sink_data;
 
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return false;
+	}
+
 	sink_data = &edid_ctrl->sink_data;
 	for (i = 0; i < sink_data->num_of_elements; ++i) {
 		if (sink_data->disp_mode_list[i].video_format != video_mode)
@@ -2609,6 +2594,31 @@ void hdmi_edid_set_video_resolution(void *input, u32 resolution, bool reset)
 		edid_ctrl->sink_data.disp_mode_list[0].rgb_support = true;
 	}
 } /* hdmi_edid_set_video_resolution */
+
+void hdmi_edid_config_override(void *input, bool enable,
+		struct hdmi_edid_override_data *data)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+	struct hdmi_edid_override_data *ov_data = &edid_ctrl->override_data;
+
+	if ((!edid_ctrl) || (enable && !data)) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	edid_ctrl->edid_override = enable;
+	pr_debug("EDID override %s\n", enable ? "enabled" : "disabled");
+
+	if (enable) {
+		ov_data->scramble = data->scramble;
+		ov_data->sink_mode = data->sink_mode;
+		ov_data->format = data->format;
+		ov_data->vic = data->vic;
+		pr_debug("%s: Override data: scramble=%d sink_mode=%d format=%d vic=%d\n",
+			__func__, ov_data->scramble, ov_data->sink_mode,
+			ov_data->format, ov_data->vic);
+	}
+}
 
 void hdmi_edid_deinit(void *input)
 {
