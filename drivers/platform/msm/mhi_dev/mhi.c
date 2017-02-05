@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1897,7 +1897,7 @@ static void mhi_dev_enable(struct work_struct *work)
 		return;
 	}
 
-	if (mhi->config_iatu)
+	if (mhi_ctx->config_iatu)
 		enable_irq(mhi_ctx->mhi_irq);
 }
 
@@ -1961,20 +1961,11 @@ static int get_device_tree_data(struct platform_device *pdev)
 	}
 
 	mhi->ipa_uc_mbox_erdb = res_mem->start;
-
-	mhi->mhi_irq = platform_get_irq_byname(pdev, "mhi-device-inta");
-	if (mhi->mhi_irq < 0) {
-		pr_err("Invalid MHI device interrupt\n");
-		rc = mhi->mhi_irq;
-		return rc;
-	}
-
 	mhi_ctx = mhi;
 
 	rc = of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,mhi-ifc-id",
 				&mhi_ctx->ifc_id);
-
 	if (rc) {
 		pr_err("qcom,mhi-ifc-id does not exist.\n");
 		return rc;
@@ -2011,6 +2002,16 @@ static int get_device_tree_data(struct platform_device *pdev)
 			return rc;
 		}
 	}
+
+	if (mhi->config_iatu) {
+		mhi->mhi_irq = platform_get_irq_byname(pdev, "mhi-device-inta");
+		if (mhi->mhi_irq < 0) {
+			pr_err("Invalid MHI device interrupt\n");
+			rc = mhi->mhi_irq;
+			return rc;
+		}
+	}
+
 
 	return 0;
 }
@@ -2178,14 +2179,16 @@ static int mhi_dev_probe(struct platform_device *pdev)
 	/* All set, notify the host */
 	mhi_dev_sm_set_ready();
 
-	rc = devm_request_irq(&pdev->dev, mhi_ctx->mhi_irq, mhi_dev_isr,
+	if (mhi_ctx->config_iatu) {
+		rc = devm_request_irq(&pdev->dev, mhi_ctx->mhi_irq, mhi_dev_isr,
 			IRQF_TRIGGER_HIGH, "mhi_isr", mhi_ctx);
-	if (rc) {
-		dev_err(&pdev->dev, "request mhi irq failed %d\n", rc);
-		return -EINVAL;
-	}
+		if (rc) {
+			dev_err(&pdev->dev, "request mhi irq failed %d\n", rc);
+			return -EINVAL;
+		}
 
-	disable_irq(mhi_ctx->mhi_irq);
+		disable_irq(mhi_ctx->mhi_irq);
+	}
 
 	return 0;
 }
