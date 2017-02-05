@@ -653,7 +653,8 @@ static void sde_encoder_phys_cmd_get_hw_resources(
 }
 
 static void sde_encoder_phys_cmd_prepare_for_kickoff(
-		struct sde_encoder_phys *phys_enc)
+		struct sde_encoder_phys *phys_enc,
+		struct sde_encoder_kickoff_params *params)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
@@ -687,7 +688,7 @@ static int sde_encoder_phys_cmd_wait_for_commit_done(
 			to_sde_encoder_phys_cmd(phys_enc);
 
 	if (cmd_enc->serialize_wait4pp)
-		sde_encoder_phys_cmd_prepare_for_kickoff(phys_enc);
+		sde_encoder_phys_cmd_prepare_for_kickoff(phys_enc, NULL);
 
 	/*
 	 * following statement is true serialize_wait4pp is false.

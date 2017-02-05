@@ -165,6 +165,27 @@ static struct sde_kms *_sde_plane_get_kms(struct drm_plane *plane)
 	return to_sde_kms(priv->kms);
 }
 
+/**
+ * _sde_plane_get_crtc_state - obtain crtc state attached to given plane state
+ * @pstate: Pointer to drm plane state
+ * return: Pointer to crtc state if success; pointer error, otherwise
+ */
+static struct drm_crtc_state *_sde_plane_get_crtc_state(
+		struct drm_plane_state *pstate)
+{
+	struct drm_crtc_state *cstate;
+
+	if (!pstate || !pstate->crtc)
+		return NULL;
+
+	if (pstate->state)
+		cstate = drm_atomic_get_crtc_state(pstate->state, pstate->crtc);
+	else
+		cstate = pstate->crtc->state;
+
+	return cstate;
+}
+
 static bool sde_plane_enabled(struct drm_plane_state *state)
 {
 	return state && state->fb && state->crtc;
@@ -1193,7 +1214,7 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 }
 
 /**
- * sde_plane_rot_calc_perfill - calculate rotator start prefill
+ * sde_plane_rot_calc_prefill - calculate rotator start prefill
  * @plane: Pointer to drm plane
  * return: prefill time in line
  */
@@ -1225,8 +1246,8 @@ static u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
 		return 0;
 	}
 
-	/* if rstate->out_fb_format is TP10, then block size is 96 */
-
+	sde_format_get_block_size(rstate->out_fb_format, &blocksize,
+			&blocksize);
 	prefill_line = blocksize + sde_kms->catalog->sbuf_headroom;
 
 	SDE_DEBUG("plane%d prefill:%u\n", plane->base.id, prefill_line);
@@ -1442,12 +1463,21 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 	struct sde_plane_state *pstate = to_sde_plane_state(state);
 	struct sde_plane_rot_state *rstate = &pstate->rot;
 	struct sde_hw_rot_cmd *rot_cmd;
+	struct drm_crtc_state *cstate;
+	struct sde_crtc_state *sde_cstate;
 	int ret, i;
 
 	if (!plane || !state || !state->fb || !rstate->rot_hw) {
 		SDE_ERROR("invalid parameters\n");
 		return -EINVAL;
 	}
+
+	cstate = _sde_plane_get_crtc_state(state);
+	if (IS_ERR_OR_NULL(cstate)) {
+		SDE_ERROR("invalid crtc state %ld\n", PTR_ERR(cstate));
+		return -EINVAL;
+	}
+	sde_cstate = to_sde_crtc_state(cstate);
 
 	rot_cmd = &rstate->rot_cmd;
 
@@ -1460,6 +1490,8 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 	rot_cmd->hflip = rstate->hflip;
 	rot_cmd->vflip = rstate->vflip;
 	rot_cmd->secure = state->fb->flags & DRM_MODE_FB_SECURE ? true : false;
+	rot_cmd->prefill_bw = sde_crtc_get_property(sde_cstate,
+			CRTC_PROP_ROT_PREFILL_BW);
 	rot_cmd->dst_writeback = psde->sbuf_writeback;
 
 	if (sde_crtc_get_intf_mode(state->crtc) == INTF_MODE_VIDEO)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,6 +74,7 @@ struct intf_status {
  *  Assumption is these functions will be called after clocks are enabled
  * @ setup_timing_gen : programs the timing engine
  * @ setup_prog_fetch : enables/disables the programmable fetch logic
+ * @ setup_rot_start  : enables/disables the rotator start trigger
  * @ enable_timing: enable/disable timing engine
  * @ get_status: returns if timing engine is enabled or not
  * @ setup_misr: enables/disables MISR in HW register
@@ -85,6 +86,9 @@ struct sde_hw_intf_ops {
 			const struct sde_format *fmt);
 
 	void (*setup_prg_fetch)(struct sde_hw_intf *intf,
+			const struct intf_prog_fetch *fetch);
+
+	void (*setup_rot_start)(struct sde_hw_intf *intf,
 			const struct intf_prog_fetch *fetch);
 
 	void (*enable_timing)(struct sde_hw_intf *intf,

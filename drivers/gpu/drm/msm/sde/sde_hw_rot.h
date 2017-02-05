@@ -49,6 +49,7 @@ enum sde_hw_rot_cmd_type {
  * @secure: true if image content is in secure domain
  * @video_mode: true if rotator is feeding into video interface
  * @clkrate : clock rate in Hz
+ * @prefill_bw: prefill bandwidth in Bps (video mode only)
  * @src_iova: source i/o virtual address
  * @src_len: source i/o buffer length
  * @src_planes: source plane number
@@ -84,6 +85,7 @@ struct sde_hw_rot_cmd {
 	bool secure;
 	bool video_mode;
 	u64 clkrate;
+	u64 prefill_bw;
 	dma_addr_t src_iova[4];
 	u32 src_len[4];
 	u32 src_planes;

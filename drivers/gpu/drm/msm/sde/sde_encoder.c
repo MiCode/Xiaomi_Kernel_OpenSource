@@ -1203,7 +1203,8 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
 }
 
-void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
+void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
+		struct sde_encoder_kickoff_params *params)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
@@ -1224,7 +1225,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
 		phys = sde_enc->phys_encs[i];
 		if (phys) {
 			if (phys->ops.prepare_for_kickoff)
-				phys->ops.prepare_for_kickoff(phys);
+				phys->ops.prepare_for_kickoff(phys, params);
 			if (phys->enable_state == SDE_ENC_ERR_NEEDS_HW_RESET)
 				needs_hw_reset = true;
 		}

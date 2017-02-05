@@ -557,6 +557,8 @@ static int sde_hw_rot_commit(struct sde_hw_rot *hw, struct sde_hw_rot_cmd *data,
 	rot_cmd.vflip = data->vflip;
 	rot_cmd.secure = data->secure;
 	rot_cmd.clkrate = data->clkrate;
+	rot_cmd.data_bw = 0;
+	rot_cmd.prefill_bw = data->prefill_bw;
 	rot_cmd.src_width = data->src_width;
 	rot_cmd.src_height = data->src_height;
 	rot_cmd.src_rect_x = data->src_rect_x;

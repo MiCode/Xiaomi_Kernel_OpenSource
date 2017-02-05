@@ -134,6 +134,7 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_CORE_CLK,
 	CRTC_PROP_CORE_AB,
 	CRTC_PROP_CORE_IB,
+	CRTC_PROP_ROT_PREFILL_BW,
 
 	/* total # of properties */
 	CRTC_PROP_COUNT

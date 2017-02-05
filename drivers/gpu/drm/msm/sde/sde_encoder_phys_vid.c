@@ -211,6 +211,54 @@ static void programmable_fetch_config(struct sde_encoder_phys *phys_enc,
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 }
 
+/*
+ * programmable_rot_fetch_config: Programs ROT to prefetch lines by offsetting
+ *	the start of fetch into the vertical front porch for cases where the
+ *	vsync pulse width and vertical back porch time is insufficient
+ *
+ *	Gets # of lines to pre-fetch, then calculate VSYNC counter value.
+ *	HW layer requires VSYNC counter of first pixel of tgt VFP line.
+ * @phys_enc: Pointer to physical encoder
+ * @rot_fetch_lines: number of line to prefill, or 0 to disable
+ */
+static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
+		u64 rot_fetch_lines)
+{
+	struct sde_encoder_phys_vid *vid_enc =
+		to_sde_encoder_phys_vid(phys_enc);
+	struct intf_prog_fetch f = { 0 };
+	struct intf_timing_params *timing = &vid_enc->timing_params;
+	u32 vfp_fetch_lines = 0;
+	u32 horiz_total = 0;
+	u32 vert_total = 0;
+	u32 rot_fetch_start_vsync_counter = 0;
+	unsigned long lock_flags;
+
+	if (WARN_ON_ONCE(!vid_enc->hw_intf->ops.setup_rot_start))
+		return;
+
+	vfp_fetch_lines = programmable_fetch_get_num_lines(vid_enc, timing);
+	if (vfp_fetch_lines && rot_fetch_lines) {
+		vert_total = get_vertical_total(timing);
+		horiz_total = get_horizontal_total(timing);
+		if (vert_total >= (vfp_fetch_lines + rot_fetch_lines)) {
+			rot_fetch_start_vsync_counter =
+			    (vert_total - vfp_fetch_lines - rot_fetch_lines) *
+			    horiz_total + 1;
+			f.enable = 1;
+			f.fetch_start = rot_fetch_start_vsync_counter;
+		}
+	}
+
+	SDE_DEBUG_VIDENC(vid_enc,
+		"rot_fetch_lines %llu rot_fetch_start_vsync_counter %u\n",
+		rot_fetch_lines, rot_fetch_start_vsync_counter);
+
+	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+	vid_enc->hw_intf->ops.setup_rot_start(vid_enc->hw_intf, &f);
+	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+}
+
 static bool sde_encoder_phys_vid_mode_fixup(
 		struct sde_encoder_phys *phys_enc,
 		const struct drm_display_mode *mode,
@@ -281,6 +329,8 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	programmable_fetch_config(phys_enc, &timing_params);
+
+	vid_enc->timing_params = timing_params;
 }
 
 static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
@@ -655,14 +705,15 @@ static int sde_encoder_phys_vid_wait_for_commit_done(
 }
 
 static void sde_encoder_phys_vid_prepare_for_kickoff(
-		struct sde_encoder_phys *phys_enc)
+		struct sde_encoder_phys *phys_enc,
+		struct sde_encoder_kickoff_params *params)
 {
 	struct sde_encoder_phys_vid *vid_enc;
 	struct sde_hw_ctl *ctl;
 	int rc;
 
-	if (!phys_enc) {
-		SDE_ERROR("invalid encoder\n");
+	if (!phys_enc || !params) {
+		SDE_ERROR("invalid encoder/parameters\n");
 		return;
 	}
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
@@ -681,6 +732,8 @@ static void sde_encoder_phys_vid_prepare_for_kickoff(
 				ctl->idx, rc);
 		SDE_DBG_DUMP("panic");
 	}
+
+	programmable_rot_fetch_config(phys_enc, params->inline_rotate_prefill);
 }
 
 static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)

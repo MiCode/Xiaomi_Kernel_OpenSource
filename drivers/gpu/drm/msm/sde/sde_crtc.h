@@ -202,6 +202,7 @@ struct sde_crtc {
  * @cur_perf: current performance state
  * @new_perf: new performance state
  * @sbuf_cfg: stream buffer configuration
+ * @sbuf_prefill_line: number of line for inline rotator prefetch
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -221,6 +222,7 @@ struct sde_crtc_state {
 	struct sde_core_perf_params cur_perf;
 	struct sde_core_perf_params new_perf;
 	struct sde_ctl_sbuf_cfg sbuf_cfg;
+	u64 sbuf_prefill_line;
 };
 
 #define to_sde_crtc_state(x) \

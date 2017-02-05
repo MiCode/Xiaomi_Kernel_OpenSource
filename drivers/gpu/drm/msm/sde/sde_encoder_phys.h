@@ -141,7 +141,8 @@ struct sde_encoder_phys_ops {
 			struct drm_connector_state *conn_state);
 	int (*control_vblank_irq)(struct sde_encoder_phys *enc, bool enable);
 	int (*wait_for_commit_done)(struct sde_encoder_phys *phys_enc);
-	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc);
+	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc,
+			struct sde_encoder_kickoff_params *params);
 	void (*handle_post_kickoff)(struct sde_encoder_phys *phys_enc);
 	void (*trigger_start)(struct sde_encoder_phys *phys_enc);
 	bool (*needs_single_flush)(struct sde_encoder_phys *phys_enc);
@@ -238,12 +239,16 @@ static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
  * @irq_idx:	IRQ interface lookup index
  * @irq_cb:	interrupt callback
  * @hw_intf:	Hardware interface to the intf registers
+ * @timing_params: Current timing parameter
+ * @rot_prefill_line: number of line to prefill for inline rotation; 0 disable
  */
 struct sde_encoder_phys_vid {
 	struct sde_encoder_phys base;
 	int irq_idx[INTR_IDX_MAX];
 	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
 	struct sde_hw_intf *hw_intf;
+	struct intf_timing_params timing_params;
+	u64 rot_prefill_line;
 };
 
 /**
