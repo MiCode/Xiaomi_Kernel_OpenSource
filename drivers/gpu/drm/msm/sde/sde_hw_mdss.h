@@ -93,6 +93,7 @@ enum sde_hw_blk_type {
 	SDE_HW_BLK_INTF,
 	SDE_HW_BLK_WB,
 	SDE_HW_BLK_DSC,
+	SDE_HW_BLK_ROT,
 	SDE_HW_BLK_MAX,
 };
 
@@ -275,6 +276,11 @@ enum sde_iommu_domain {
 	SDE_IOMMU_DOMAIN_UNSECURE,
 	SDE_IOMMU_DOMAIN_SECURE,
 	SDE_IOMMU_DOMAIN_MAX
+};
+
+enum sde_rot {
+	ROT_0 = 1,
+	ROT_MAX
 };
 
 /**
@@ -462,6 +468,7 @@ struct sde_mdss_color {
 #define SDE_DBG_MASK_TOP      (1 << 9)
 #define SDE_DBG_MASK_VBIF     (1 << 10)
 #define SDE_DBG_MASK_DSC      (1 << 11)
+#define SDE_DBG_MASK_ROT      (1 << 12)
 
 /**
  * struct sde_hw_cp_cfg: hardware dspp/lm feature payload.

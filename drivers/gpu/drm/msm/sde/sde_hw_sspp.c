@@ -93,6 +93,11 @@
 #define SSPP_QOS_CTRL_CREQ_VBLANK_MASK     0x3
 #define SSPP_QOS_CTRL_CREQ_VBLANK_OFF      20
 
+#define SSPP_SYS_CACHE_MODE                0x1BC
+#define SSPP_SBUF_STATUS_PLANE0            0x1C0
+#define SSPP_SBUF_STATUS_PLANE1            0x1C4
+#define SSPP_SBUF_STATUS_PLANE_EMPTY       BIT(16)
+
 /* SDE_SSPP_SCALER_QSEED2 */
 #define SCALE_CONFIG                       0x04
 #define COMP0_3_PHASE_STEP_X               0x10
@@ -994,6 +999,45 @@ static void sde_hw_sspp_setup_qos_ctrl(struct sde_hw_pipe *ctx,
 	SDE_REG_WRITE(&ctx->hw, SSPP_QOS_CTRL + idx, qos_ctrl);
 }
 
+static void sde_hw_sspp_setup_sys_cache(struct sde_hw_pipe *ctx,
+		struct sde_hw_pipe_sc_cfg *cfg)
+{
+	u32 idx, val;
+
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
+		return;
+
+	if (!cfg)
+		return;
+
+	val = ((cfg->op_mode & 0x3) << 18) |
+			((cfg->rd_en & 0x1) << 15) |
+			((cfg->rd_scid & 0x1f) << 8) |
+			((cfg->rd_noallocate & 0x1) << 4) |
+			((cfg->rd_op_type & 0xf) << 0);
+
+	SDE_REG_WRITE(&ctx->hw, SSPP_SYS_CACHE_MODE + idx, val);
+}
+
+static void sde_hw_sspp_get_sbuf_status(struct sde_hw_pipe *ctx,
+		struct sde_hw_pipe_sbuf_status *status)
+{
+	u32 idx, val;
+
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
+		return;
+
+	if (!status)
+		return;
+
+	val = SDE_REG_READ(&ctx->hw, SSPP_SBUF_STATUS_PLANE0 + idx);
+	status->empty[0] = val & SSPP_SBUF_STATUS_PLANE_EMPTY ? true : false;
+	status->rd_ptr[0] = val & 0xffff;
+	val = SDE_REG_READ(&ctx->hw, SSPP_SBUF_STATUS_PLANE1 + idx);
+	status->empty[1] = val & SSPP_SBUF_STATUS_PLANE_EMPTY ? true : false;
+	status->rd_ptr[1] = val & 0xffff;
+}
+
 static void _setup_layer_ops(struct sde_hw_pipe *c,
 		unsigned long features)
 {
@@ -1046,6 +1090,11 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 			(SDE_COLOR_PROCESS_VER(0x1, 0x7)))
 			c->ops.setup_pa_memcolor =
 				sde_setup_pipe_pa_memcol_v1_7;
+	}
+
+	if (test_bit(SDE_SSPP_SBUF, &features)) {
+		c->ops.setup_sys_cache = sde_hw_sspp_setup_sys_cache;
+		c->ops.get_sbuf_status = sde_hw_sspp_get_sbuf_status;
 	}
 }
 

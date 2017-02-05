@@ -21,6 +21,7 @@
 #include <drm/drm_crtc.h>
 #include <linux/debugfs.h>
 #include <linux/of_irq.h>
+#include <linux/dma-buf.h>
 
 #include "msm_drv.h"
 #include "msm_mmu.h"
@@ -806,6 +807,253 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 fail:
 	_sde_kms_drm_obj_destroy(sde_kms);
 	return ret;
+}
+
+/**
+ * struct sde_kms_fbo_fb - framebuffer creation list
+ * @list: list of framebuffer attached to framebuffer object
+ * @fb: Pointer to framebuffer attached to framebuffer object
+ */
+struct sde_kms_fbo_fb {
+	struct list_head list;
+	struct drm_framebuffer *fb;
+};
+
+struct drm_framebuffer *sde_kms_fbo_create_fb(struct drm_device *dev,
+		struct sde_kms_fbo *fbo)
+{
+	struct drm_framebuffer *fb = NULL;
+	struct sde_kms_fbo_fb *fbo_fb;
+	struct drm_mode_fb_cmd2 mode_cmd = {0};
+	u32 base_offset = 0;
+	int i, ret;
+
+	if (!dev) {
+		SDE_ERROR("invalid drm device node\n");
+		return NULL;
+	}
+
+	fbo_fb = kzalloc(sizeof(struct sde_kms_fbo_fb), GFP_KERNEL);
+	if (!fbo_fb)
+		return NULL;
+
+	mode_cmd.pixel_format = fbo->pixel_format;
+	mode_cmd.width = fbo->width;
+	mode_cmd.height = fbo->height;
+	mode_cmd.flags = fbo->flags;
+
+	for (i = 0; i < fbo->nplane; i++) {
+		mode_cmd.offsets[i] = base_offset;
+		mode_cmd.pitches[i] = fbo->layout.plane_pitch[i];
+		mode_cmd.modifier[i] = fbo->modifier[i];
+		base_offset += fbo->layout.plane_size[i];
+		SDE_DEBUG("offset[%d]:%x\n", i, mode_cmd.offsets[i]);
+	}
+
+	fb = msm_framebuffer_init(dev, &mode_cmd, fbo->bo);
+	if (IS_ERR(fb)) {
+		ret = PTR_ERR(fb);
+		fb = NULL;
+		SDE_ERROR("failed to allocate fb %d\n", ret);
+		goto fail;
+	}
+
+	/* need to take one reference for gem object */
+	for (i = 0; i < fbo->nplane; i++)
+		drm_gem_object_reference(fbo->bo[i]);
+
+	SDE_DEBUG("register private fb:%d\n", fb->base.id);
+
+	INIT_LIST_HEAD(&fbo_fb->list);
+	fbo_fb->fb = fb;
+	drm_framebuffer_reference(fbo_fb->fb);
+	list_add_tail(&fbo_fb->list, &fbo->fb_list);
+
+	return fb;
+
+fail:
+	kfree(fbo_fb);
+	return NULL;
+}
+
+static void sde_kms_fbo_destroy(struct sde_kms_fbo *fbo)
+{
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	struct drm_device *dev;
+	struct sde_kms_fbo_fb *curr, *next;
+	int i;
+
+	if (!fbo) {
+		SDE_ERROR("invalid drm device node\n");
+		return;
+	}
+	dev = fbo->dev;
+
+	if (!dev || !dev->dev_private) {
+		SDE_ERROR("invalid drm device node\n");
+		return;
+	}
+	priv = dev->dev_private;
+
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms handle\n");
+		return;
+	}
+	sde_kms = to_sde_kms(priv->kms);
+
+	SDE_DEBUG("%dx%d@%c%c%c%c/%llx/%x\n", fbo->width, fbo->height,
+			fbo->pixel_format >> 0, fbo->pixel_format >> 8,
+			fbo->pixel_format >> 16, fbo->pixel_format >> 24,
+			fbo->modifier[0], fbo->flags);
+
+	list_for_each_entry_safe(curr, next, &fbo->fb_list, list) {
+		SDE_DEBUG("unregister private fb:%d\n", curr->fb->base.id);
+		drm_framebuffer_unregister_private(curr->fb);
+		drm_framebuffer_unreference(curr->fb);
+		list_del(&curr->list);
+		kfree(curr);
+	}
+
+	for (i = 0; i < fbo->layout.num_planes; i++) {
+		if (fbo->bo[i]) {
+			mutex_lock(&dev->struct_mutex);
+			drm_gem_object_unreference(fbo->bo[i]);
+			mutex_unlock(&dev->struct_mutex);
+			fbo->bo[i] = NULL;
+		}
+	}
+
+	if (fbo->dma_buf) {
+		dma_buf_put(fbo->dma_buf);
+		fbo->dma_buf = NULL;
+	}
+
+	for (i = 0; i < fbo->layout.num_planes; i++) {
+		if (fbo->bo[i]) {
+			mutex_lock(&dev->struct_mutex);
+			drm_gem_object_unreference(fbo->bo[i]);
+			mutex_unlock(&dev->struct_mutex);
+			fbo->bo[i] = NULL;
+		}
+	}
+}
+
+struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
+		u32 height, u32 pixel_format, u64 modifier[4], u32 flags)
+{
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	struct sde_kms_fbo *fbo;
+	int i, ret;
+
+	if (!dev || !dev->dev_private) {
+		SDE_ERROR("invalid drm device node\n");
+		return NULL;
+	}
+	priv = dev->dev_private;
+
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms handle\n");
+		return NULL;
+	}
+	sde_kms = to_sde_kms(priv->kms);
+
+	SDE_DEBUG("%dx%d@%c%c%c%c/%llx/%x\n", width, height,
+			pixel_format >> 0, pixel_format >> 8,
+			pixel_format >> 16, pixel_format >> 24,
+			modifier[0], flags);
+
+	fbo = kzalloc(sizeof(struct sde_kms_fbo), GFP_KERNEL);
+	if (!fbo)
+		return NULL;
+
+	atomic_set(&fbo->refcount, 0);
+	INIT_LIST_HEAD(&fbo->fb_list);
+	fbo->dev = dev;
+	fbo->width = width;
+	fbo->height = height;
+	fbo->pixel_format = pixel_format;
+	fbo->flags = flags;
+	for (i = 0; i < ARRAY_SIZE(fbo->modifier); i++)
+		fbo->modifier[i] = modifier[i];
+	fbo->nplane = drm_format_num_planes(fbo->pixel_format);
+	fbo->fmt = sde_get_sde_format_ext(fbo->pixel_format, fbo->modifier,
+			fbo->nplane);
+	if (!fbo->fmt) {
+		ret = -EINVAL;
+		SDE_ERROR("failed to find pixel format\n");
+		goto done;
+	}
+
+	ret = sde_format_get_plane_sizes(fbo->fmt, fbo->width, fbo->height,
+			&fbo->layout);
+	if (ret) {
+		SDE_ERROR("failed to get plane sizes\n");
+		goto done;
+	}
+
+	/* allocate backing buffer object */
+	mutex_lock(&dev->struct_mutex);
+	fbo->bo[0] = msm_gem_new(dev, fbo->layout.total_size,
+			MSM_BO_SCANOUT | MSM_BO_WC);
+	if (IS_ERR(fbo->bo[0])) {
+		mutex_unlock(&dev->struct_mutex);
+		SDE_ERROR("failed to new gem buffer\n");
+		ret = PTR_ERR(fbo->bo[0]);
+		fbo->bo[0] = NULL;
+		goto done;
+	}
+
+	for (i = 1; i < fbo->layout.num_planes; i++) {
+		fbo->bo[i] = fbo->bo[0];
+		drm_gem_object_reference(fbo->bo[i]);
+	}
+	mutex_unlock(&dev->struct_mutex);
+
+done:
+	if (ret) {
+		sde_kms_fbo_destroy(fbo);
+		kfree(fbo);
+		fbo = NULL;
+	} else {
+		sde_kms_fbo_reference(fbo);
+	}
+
+	return fbo;
+}
+
+int sde_kms_fbo_reference(struct sde_kms_fbo *fbo)
+{
+	if (!fbo) {
+		SDE_ERROR("invalid parameters\n");
+		return -EINVAL;
+	}
+
+	SDE_DEBUG("%pS refcount:%d\n", __builtin_return_address(0),
+			atomic_read(&fbo->refcount));
+
+	atomic_inc(&fbo->refcount);
+
+	return 0;
+}
+
+void sde_kms_fbo_unreference(struct sde_kms_fbo *fbo)
+{
+	if (!fbo) {
+		SDE_ERROR("invalid parameters\n");
+		return;
+	}
+
+	SDE_DEBUG("%pS refcount:%d\n", __builtin_return_address(0),
+			atomic_read(&fbo->refcount));
+
+	if (!atomic_read(&fbo->refcount)) {
+		SDE_ERROR("invalid refcount\n");
+		return;
+	} else if (atomic_dec_return(&fbo->refcount) == 0) {
+		sde_kms_fbo_destroy(fbo);
+	}
 }
 
 static int sde_kms_postinit(struct msm_kms *kms)

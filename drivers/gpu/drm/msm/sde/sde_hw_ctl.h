@@ -28,6 +28,20 @@ enum sde_ctl_mode_sel {
 	SDE_CTL_MODE_SEL_CMD
 };
 
+/**
+ * sde_ctl_rot_op_mode - inline rotation mode
+ * SDE_CTL_ROT_OP_MODE_OFFLINE: offline rotation
+ * SDE_CTL_ROT_OP_MODE_RESERVED: reserved
+ * SDE_CTL_ROT_OP_MODE_INLINE_SYNC: inline rotation synchronous mode
+ * SDE_CTL_ROT_OP_MODE_INLINE_ASYNC: inline rotation asynchronous mode
+ */
+enum sde_ctl_rot_op_mode {
+	SDE_CTL_ROT_OP_MODE_OFFLINE,
+	SDE_CTL_ROT_OP_MODE_RESERVED,
+	SDE_CTL_ROT_OP_MODE_INLINE_SYNC,
+	SDE_CTL_ROT_OP_MODE_INLINE_ASYNC,
+};
+
 struct sde_hw_ctl;
 /**
  * struct sde_hw_stage_cfg - blending stage cfg
@@ -57,6 +71,14 @@ struct sde_hw_intf_cfg {
 };
 
 /**
+ * struct sde_ctl_sbuf_cfg - control for stream buffer configuration
+ * @rot_op_mode: rotator operation mode
+ */
+struct sde_ctl_sbuf_cfg {
+	enum sde_ctl_rot_op_mode rot_op_mode;
+};
+
+/**
  * struct sde_hw_ctl_ops - Interface to the wb Hw driver functions
  * Assumption is these functions will be called after clocks are enabled
  */
@@ -67,6 +89,13 @@ struct sde_hw_ctl_ops {
 	 * @ctx       : ctl path ctx pointer
 	 */
 	void (*trigger_start)(struct sde_hw_ctl *ctx);
+
+	/**
+	 * kickoff rotator operation for Sw controlled interfaces
+	 * DSI cmd mode and WB interface are SW controlled
+	 * @ctx       : ctl path ctx pointer
+	 */
+	void (*trigger_rot_start)(struct sde_hw_ctl *ctx);
 
 	/**
 	 * Clear the value of the cached pending_flush_mask
@@ -140,6 +169,10 @@ struct sde_hw_ctl_ops {
 		u32 *flushbits,
 		enum sde_wb blk);
 
+	int (*get_bitmask_rot)(struct sde_hw_ctl *ctx,
+		u32 *flushbits,
+		enum sde_rot blk);
+
 	/**
 	 * Set all blend stages to disabled
 	 * @ctx       : ctl path ctx pointer
@@ -154,6 +187,9 @@ struct sde_hw_ctl_ops {
 	 */
 	void (*setup_blendstage)(struct sde_hw_ctl *ctx,
 		enum sde_lm lm, struct sde_hw_stage_cfg *cfg, u32 index);
+
+	void (*setup_sbuf_cfg)(struct sde_hw_ctl *ctx,
+		struct sde_ctl_sbuf_cfg *cfg);
 };
 
 /**

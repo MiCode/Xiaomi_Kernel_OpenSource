@@ -22,7 +22,74 @@
 #include <drm/drm_crtc.h>
 
 #include "msm_prop.h"
+#include "sde_kms.h"
 #include "sde_hw_mdss.h"
+#include "sde_hw_rot.h"
+#include "sde_hw_sspp.h"
+
+/**
+ * struct sde_plane_rot_state - state of pre-sspp rotator stage
+ * @sequence_id: sequence identifier, incremented per state duplication
+ * @rot_hw: Pointer to rotator hardware driver
+ * @rot90: true if rotation of 90 degree is required
+ * @hflip: true if horizontal flip is required
+ * @vflip: true if vertical flip is required
+ * @mmu_id: iommu identifier for input/output buffers
+ * @rot_cmd: rotator configuration command
+ * @nplane: total number of drm plane attached to rotator
+ * @in_fb: input fb attached to rotator
+ * @in_rotation: input rotation property of rotator stage
+ * @in_rot_rect: input rectangle of the rotator in plane fb coordinate
+ * @out_rotation: output rotation property of rotator stage
+ * @out_rot_rect: output rectangle of the rotator in plane fb coordinate
+ * @out_src_rect: output rectangle of the plane source in plane fb coordinate
+ * @out_src_x: output src_x of rotator stage in rotator output fb coordinate
+ * @out_src_y: output src y of rotator stage in rotator output fb coordinate
+ * @out_src_w: output src w of rotator stage in rotator output fb ooordinate
+ * @out_src_h: output src h of rotator stage in rotator output fb coordinate
+ * @out_fb_width: output framebuffer width of rotator stage
+ * @out_fb_height: output framebuffer height of rotator stage
+ * @out_fb_pixel_format: output framebuffer pixel format of rotator stage
+ * @out_fb_modifier: output framebuffer modifier of rotator stage
+ * @out_fb_flags: output framebuffer flags of rotator stage
+ * @out_sbuf: true if output streaming buffer is required
+ * @out_fb_format: Pointer to output framebuffer format of rotator stage
+ * @out_fb: Pointer to output drm framebuffer of rotator stage
+ * @out_fbo: framebuffer object of output streaming buffer
+ * @out_xpos: relative horizontal position of the plane (0 - leftmost)
+ */
+struct sde_plane_rot_state {
+	u32 sequence_id;
+	struct sde_hw_rot *rot_hw;
+	bool rot90;
+	bool hflip;
+	bool vflip;
+	u32 mmu_id;
+	struct sde_hw_rot_cmd rot_cmd;
+	int nplane;
+	/* input */
+	struct drm_framebuffer *in_fb;
+	struct drm_rect in_rot_rect;
+	u32 in_rotation;
+	/* output */
+	struct drm_rect out_rot_rect;
+	struct drm_rect out_src_rect;
+	u32 out_rotation;
+	u32 out_src_x;
+	u32 out_src_y;
+	u32 out_src_w;
+	u32 out_src_h;
+	u32 out_fb_width;
+	u32 out_fb_height;
+	u32 out_fb_pixel_format;
+	u64 out_fb_modifier[4];
+	u32 out_fb_flags;
+	bool out_sbuf;
+	const struct sde_format *out_fb_format;
+	struct drm_framebuffer *out_fb;
+	struct sde_kms_fbo *out_fbo;
+	int out_xpos;
+};
 
 /**
  * struct sde_plane_state: Define sde extension of drm plane state object
@@ -48,6 +115,10 @@ struct sde_plane_state {
 	uint32_t multirect_index;
 	uint32_t multirect_mode;
 	bool pending;
+
+	/* @sc_cfg: system_cache configuration */
+	struct sde_hw_pipe_sc_cfg sc_cfg;
+	struct sde_plane_rot_state rot;
 };
 
 /**
@@ -86,6 +157,23 @@ enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
  *          false - if the plane is primary
  */
 bool is_sde_plane_virtual(struct drm_plane *plane);
+
+/**
+ * sde_plane_get_ctl_flush - get control flush mask
+ * @plane:   Pointer to DRM plane object
+ * @ctl: Pointer to control hardware
+ * @flush: Pointer to updated flush mask
+ */
+void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
+		u32 *flush);
+
+/**
+ * sde_plane_is_sbuf_mode - return status of stream buffer mode
+ * @plane:   Pointer to DRM plane object
+ * @prefill: Pointer to updated prefill in stream buffer mode (optional)
+ * Returns: true if plane is in stream buffer mode
+ */
+bool sde_plane_is_sbuf_mode(struct drm_plane *plane, u32 *prefill);
 
 /**
  * sde_plane_flush - final plane operations before commit flush

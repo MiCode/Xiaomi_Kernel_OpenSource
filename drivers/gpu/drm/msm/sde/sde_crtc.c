@@ -260,6 +260,8 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	int left_crtc_zpos_cnt[SDE_STAGE_MAX + 1] = {0};
 	int right_crtc_zpos_cnt[SDE_STAGE_MAX + 1] = {0};
 	int i;
+	bool sbuf_mode = false;
+	u32 prefill = 0;
 
 	if (!sde_crtc || !mixer) {
 		SDE_ERROR("invalid sde_crtc or mixer\n");
@@ -275,8 +277,10 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 
 		pstate = to_sde_plane_state(plane->state);
 
-		flush_mask = ctl->ops.get_bitmask_sspp(ctl,
-							sde_plane_pipe(plane));
+		if (sde_plane_is_sbuf_mode(plane, &prefill))
+			sbuf_mode = true;
+
+		sde_plane_get_ctl_flush(plane, ctl, &flush_mask);
 
 		/* always stage plane on either left or right lm */
 		if (plane->state->crtc_x >= crtc_split_width) {
@@ -354,6 +358,19 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		for (i = 0; i < cstate->num_dim_layers; i++)
 			_sde_crtc_setup_dim_layer_cfg(crtc, sde_crtc,
 					mixer, &cstate->dim_layer[i]);
+	}
+
+	if (ctl->ops.setup_sbuf_cfg) {
+		cstate = to_sde_crtc_state(crtc->state);
+		if (!sbuf_mode) {
+			cstate->sbuf_cfg.rot_op_mode =
+					SDE_CTL_ROT_OP_MODE_OFFLINE;
+		} else {
+			cstate->sbuf_cfg.rot_op_mode =
+					SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
+		}
+
+		ctl->ops.setup_sbuf_cfg(ctl, &cstate->sbuf_cfg);
 	}
 }
 

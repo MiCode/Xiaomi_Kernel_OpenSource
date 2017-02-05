@@ -24,6 +24,7 @@
 #include "sde_encoder.h"
 #include "sde_connector.h"
 #include "sde_hw_dsc.h"
+#include "sde_hw_rot.h"
 
 #define RESERVED_BY_OTHER(h, r) \
 	((h)->rsvp && ((h)->rsvp->enc_id != (r)->enc_id))
@@ -225,6 +226,9 @@ static void _sde_rm_hw_destroy(enum sde_hw_blk_type type, void *hw)
 	case SDE_HW_BLK_DSC:
 		sde_hw_dsc_destroy(hw);
 		break;
+	case SDE_HW_BLK_ROT:
+		sde_hw_rot_destroy(hw);
+		break;
 	case SDE_HW_BLK_SSPP:
 		/* SSPPs are not managed by the resource manager */
 	case SDE_HW_BLK_TOP:
@@ -317,6 +321,10 @@ static int _sde_rm_hw_blk_create(
 		hw = sde_hw_dsc_init(id, mmio, cat);
 		name = "dsc";
 		break;
+	case SDE_HW_BLK_ROT:
+		hw = sde_hw_rot_init(id, mmio, cat);
+		name = "rot";
+		break;
 	case SDE_HW_BLK_SSPP:
 		/* SSPPs are not managed by the resource manager */
 	case SDE_HW_BLK_TOP:
@@ -367,6 +375,8 @@ int sde_rm_init(struct sde_rm *rm,
 	INIT_LIST_HEAD(&rm->rsvps);
 	for (type = 0; type < SDE_HW_BLK_MAX; type++)
 		INIT_LIST_HEAD(&rm->hw_blks[type]);
+
+	rm->dev = dev;
 
 	/* Some of the sub-blocks require an mdptop to be created */
 	rm->hw_mdp = sde_hw_mdptop_init(MDP_TOP, mmio, cat);
@@ -452,6 +462,15 @@ int sde_rm_init(struct sde_rm *rm,
 				cat->wb[i].id, &cat->wb[i]);
 		if (rc) {
 			SDE_ERROR("failed: wb hw not available\n");
+			goto fail;
+		}
+	}
+
+	for (i = 0; i < cat->rot_count; i++) {
+		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_ROT,
+				cat->rot[i].id, &cat->rot[i]);
+		if (rc) {
+			SDE_ERROR("failed: rot hw not available\n");
 			goto fail;
 		}
 	}

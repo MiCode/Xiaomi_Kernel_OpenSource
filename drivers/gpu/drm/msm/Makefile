@@ -2,6 +2,7 @@ ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-stagi
 ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
 ccflags-y += -Idrivers/gpu/drm/msm/sde
+ccflags-y += -Idrivers/media/platform/msm/sde/rotator
 
 msm_drm-y := \
 	hdmi/hdmi.o \
@@ -128,10 +129,12 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	sde/sde_hw_util.o \
 	sde/sde_hw_sspp.o \
 	sde/sde_hw_wb.o \
+	sde/sde_hw_rot.o \
 	sde/sde_hw_pingpong.o \
 	sde/sde_hw_top.o \
 	sde/sde_hw_interrupts.o \
 	sde/sde_hw_vbif.o \
+	sde/sde_hw_blk.o \
 	sde/sde_formats.o \
 	sde_power_handle.o \
 	sde/sde_hw_color_processing_v1_7.o \

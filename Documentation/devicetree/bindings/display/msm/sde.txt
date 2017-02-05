@@ -279,6 +279,9 @@ Bus Scaling Subnodes:
 - qcom,sde-data-bus:		Property to provide Bus scaling for data bus access for
 				mdss blocks.
 
+- qcom,sde-inline-rotator:	A 2 cell property, with format of (rotator phandle,
+				instance id), of inline rotator device.
+
 Bus Scaling Data:
 - qcom,msm-bus,name:		String property describing client name.
 - qcom,msm-bus,num-cases:	This is the number of Bus Scaling use cases
@@ -491,6 +494,8 @@ Example:
     qcom,msm-hdmi-audio-rx {
         compatible = "qcom,msm-hdmi-audio-codec-rx";
     };
+
+    qcom,sde-inline-rotator = <&mdss_rotator 0>;
 
     qcom,platform-supply-entries {
        #address-cells = <1>;
