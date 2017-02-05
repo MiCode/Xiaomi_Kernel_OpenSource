@@ -127,6 +127,8 @@
 		qcom,sde-vbif-size = <0x1040>;
 		qcom,sde-vbif-id = <0>;
 
+		qcom,sde-inline-rotator = <&mdss_rotator 0>;
+
 		qcom,sde-sspp-vig-blocks {
 			qcom,sde-vig-csc-off = <0x1a00>;
 			qcom,sde-vig-qseed-off = <0xa00>;
@@ -204,6 +206,8 @@
 		reg-names = "mdp_phys",
 			"rot_vbif_phys";
 
+		#list-cells = <1>;
+
 		qcom,mdss-rot-mode = <1>;
 		qcom,mdss-highest-bank-bit = <0x2>;
 
@@ -237,6 +241,11 @@
 
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;
+
+		qcom,mdss-sbuf-headroom = <20>;
+
+		cache-slice-names = "rotator";
+		cache-slices = <&llcc 4>;
 
 		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
 			compatible = "qcom,smmu_sde_rot_unsec";
