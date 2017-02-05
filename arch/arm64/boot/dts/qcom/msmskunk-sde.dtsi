@@ -55,6 +55,8 @@
 					1 5 9 13>;
 		qcom,sde-sspp-excl-rect = <1 1 1 1
 						1 1 1 1>;
+		qcom,sde-sspp-smart-dma-priority = <5 6 7 8 1 2 3 4>;
+		qcom,sde-smart-dma-rev = "smart_dma_v2";
 
 		qcom,sde-mixer-pair-mask = <2 1 6 0 0 3>;
 
