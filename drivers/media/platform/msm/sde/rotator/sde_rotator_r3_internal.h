@@ -200,9 +200,16 @@ struct sde_dbg_buf {
  * struct sde_hw_rotator_context : Each rotator context ties to each priority
  * queue. Max number of concurrent contexts in regdma is limited to regdma
  * ram segment size allocation. Each rotator context can be any priority. A
- * incrementatl timestamp is used to identify and assigne to each context.
+ * incremental timestamp is used to identify and assigned to each context.
+ * @list: list of pending context
+ * @sbuf_mode: true if stream buffer is requested
+ * @start_ctrl: start control register update value
+ * @sys_cache_mode: sys cache mode register update value
+ * @op_mode: rot top op mode selection
+ * @last_entry: pointer to last configured entry (for debugging purposes)
  */
 struct sde_hw_rotator_context {
+	struct list_head list;
 	struct sde_hw_rotator *rot;
 	struct sde_rot_hw_resource *hwres;
 	enum   sde_rot_queue_prio q_id;
@@ -219,6 +226,11 @@ struct sde_hw_rotator_context {
 	dma_addr_t ts_addr;
 	bool   is_secure;
 	bool   is_traffic_shaping;
+	bool   sbuf_mode;
+	u32    start_ctrl;
+	u32    sys_cache_mode;
+	u32    op_mode;
+	struct sde_rot_entry *last_entry;
 };
 
 /**
@@ -234,6 +246,15 @@ struct sde_hw_rotator_resource_info {
  * struct sde_hw_rotator : Rotator description
  * @hw:           mdp register mapped offset
  * @ops:          pointer to operations possible for the rotator HW
+ * @sbuf_headroom: stream buffer headroom in lines
+ * @sbuf_ctx: list of active sbuf context in FIFO order
+ * @vid_trigger: video mode trigger select
+ * @cmd_trigger: command mode trigger select
+ * @inpixfmts: array of supported input pixel formats forucc
+ * @num_inpixfmt: size of the supported input pixel format array
+ * @outpixfmts: array of supported output pixel formats in fourcc
+ * @num_outpixfmt: size of the supported output pixel formats array
+ * @downscale_caps: capability string of scaling
  */
 struct sde_hw_rotator {
 	/* base */
@@ -271,6 +292,7 @@ struct sde_hw_rotator {
 	void *swts_buffer;
 
 	u32    highest_bank;
+	u32    sbuf_headroom;
 
 	spinlock_t rotctx_lock;
 	spinlock_t rotisr_lock;
@@ -278,6 +300,17 @@ struct sde_hw_rotator {
 	bool    dbgmem;
 	bool reset_hw_ts;
 	u32 last_hw_ts;
+	u32 koff_timeout;
+	u32 vid_trigger;
+	u32 cmd_trigger;
+
+	struct list_head sbuf_ctx[ROT_QUEUE_MAX];
+
+	u32 *inpixfmts;
+	u32 num_inpixfmt;
+	u32 *outpixfmts;
+	u32 num_outpixfmt;
+	const char *downscale_caps;
 };
 
 /**
@@ -349,15 +382,17 @@ static inline void sde_hw_rotator_put_regdma_segment(
  */
 static inline void sde_hw_rotator_put_ctx(struct sde_hw_rotator_context *ctx)
 {
-	 struct sde_hw_rotator *rot = ctx->rot;
-	 u32 idx = sde_hw_rotator_get_regdma_ctxidx(ctx);
-	 unsigned long flags;
+	struct sde_hw_rotator *rot = ctx->rot;
+	u32 idx = sde_hw_rotator_get_regdma_ctxidx(ctx);
+	unsigned long flags;
 
-	 spin_lock_irqsave(&rot->rotisr_lock, flags);
-	 rot->rotCtx[ctx->q_id][idx] = ctx;
-	 spin_unlock_irqrestore(&rot->rotisr_lock, flags);
+	spin_lock_irqsave(&rot->rotisr_lock, flags);
+	rot->rotCtx[ctx->q_id][idx] = ctx;
+	if (ctx->sbuf_mode)
+		list_add_tail(&rot->sbuf_ctx[ctx->q_id], &ctx->list);
+	spin_unlock_irqrestore(&rot->rotisr_lock, flags);
 
-	 SDEROT_DBG("rotCtx[%d][%d] <== ctx:%p | session-id:%d\n",
+	SDEROT_DBG("rotCtx[%d][%d] <== ctx:%p | session-id:%d\n",
 			 ctx->q_id, idx, ctx, ctx->session_id);
 }
 
@@ -367,15 +402,17 @@ static inline void sde_hw_rotator_put_ctx(struct sde_hw_rotator_context *ctx)
  */
 static inline void sde_hw_rotator_clr_ctx(struct sde_hw_rotator_context *ctx)
 {
-	 struct sde_hw_rotator *rot = ctx->rot;
-	 u32 idx = sde_hw_rotator_get_regdma_ctxidx(ctx);
-	 unsigned long flags;
+	struct sde_hw_rotator *rot = ctx->rot;
+	u32 idx = sde_hw_rotator_get_regdma_ctxidx(ctx);
+	unsigned long flags;
 
-	 spin_lock_irqsave(&rot->rotisr_lock, flags);
-	 rot->rotCtx[ctx->q_id][idx] = NULL;
-	 spin_unlock_irqrestore(&rot->rotisr_lock, flags);
+	spin_lock_irqsave(&rot->rotisr_lock, flags);
+	rot->rotCtx[ctx->q_id][idx] = NULL;
+	if (ctx->sbuf_mode)
+		list_del_init(&ctx->list);
+	spin_unlock_irqrestore(&rot->rotisr_lock, flags);
 
-	 SDEROT_DBG("rotCtx[%d][%d] <== null | session-id:%d\n",
+	SDEROT_DBG("rotCtx[%d][%d] <== null | session-id:%d\n",
 			 ctx->q_id, idx, ctx->session_id);
 }
 

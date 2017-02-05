@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,30 @@ int sde_rotator_r3_create_debugfs(struct sde_rot_mgr *mgr,
 	if (!debugfs_create_bool("dbgmem", 0644,
 			debugfs_root, &hw_data->dbgmem)) {
 		SDEROT_ERR("fail create dbgmem\n");
+		return -EINVAL;
+	}
+
+	if (!debugfs_create_u32("koff_timeout", 0644,
+			debugfs_root, &hw_data->koff_timeout)) {
+		SDEROT_ERR("fail create koff_timeout\n");
+		return -EINVAL;
+	}
+
+	if (!debugfs_create_u32("vid_trigger", 0644,
+			debugfs_root, &hw_data->vid_trigger)) {
+		SDEROT_ERR("fail create vid_trigger\n");
+		return -EINVAL;
+	}
+
+	if (!debugfs_create_u32("cmd_trigger", 0644,
+			debugfs_root, &hw_data->cmd_trigger)) {
+		SDEROT_ERR("fail create cmd_trigger\n");
+		return -EINVAL;
+	}
+
+	if (!debugfs_create_u32("sbuf_headroom", 0644,
+			debugfs_root, &hw_data->sbuf_headroom)) {
+		SDEROT_ERR("fail create sbuf_headroom\n");
 		return -EINVAL;
 	}
 

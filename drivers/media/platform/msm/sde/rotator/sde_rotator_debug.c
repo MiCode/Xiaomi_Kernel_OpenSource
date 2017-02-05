@@ -1283,6 +1283,13 @@ struct dentry *sde_rotator_create_debugfs(
 		return NULL;
 	}
 
+	if (!debugfs_create_u32("disable_syscache", 0644,
+			debugfs_root, &rot_dev->disable_syscache)) {
+		SDEROT_ERR("fail create disable_syscache\n");
+		debugfs_remove_recursive(debugfs_root);
+		return NULL;
+	}
+
 	if (!debugfs_create_u32("streamoff_timeout", 0644,
 			debugfs_root, &rot_dev->streamoff_timeout)) {
 		SDEROT_ERR("fail create streamoff_timeout\n");

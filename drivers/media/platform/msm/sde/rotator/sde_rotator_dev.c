@@ -27,6 +27,7 @@
 #include <media/videobuf2-v4l2.h>
 #include <media/v4l2-mem2mem.h>
 
+#include "sde_rotator_inline.h"
 #include "sde_rotator_base.h"
 #include "sde_rotator_core.h"
 #include "sde_rotator_dev.h"
@@ -845,24 +846,26 @@ static int sde_rotator_queue_init(void *priv, struct vb2_queue *src_vq,
 }
 
 /*
- * sde_rotator_open - Rotator device open method.
- * @file: Pointer to file struct.
+ * sde_rotator_ctx_open - Rotator device open method.
+ * @rot_dev: Pointer to rotator device structure
+ * @file: Pointer to file struct (optional)
+ * return: Pointer rotator context if success; ptr error code, otherwise.
  */
-static int sde_rotator_open(struct file *file)
+struct sde_rotator_ctx *sde_rotator_ctx_open(
+		struct sde_rotator_device *rot_dev, struct file *file)
 {
-	struct sde_rotator_device *rot_dev = video_drvdata(file);
-	struct video_device *video = video_devdata(file);
+	struct video_device *video = file ? video_devdata(file) : NULL;
 	struct sde_rotator_ctx *ctx;
 	struct v4l2_ctrl_handler *ctrl_handler;
 	char name[32];
 	int i, ret;
 
 	if (atomic_read(&rot_dev->mgr->device_suspended))
-		return -EPERM;
+		return ERR_PTR(-EPERM);
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 
 	if (mutex_lock_interruptible(&rot_dev->lock)) {
 		ret = -ERESTARTSYS;
@@ -870,6 +873,7 @@ static int sde_rotator_open(struct file *file)
 	}
 
 	ctx->rot_dev = rot_dev;
+	ctx->file = file;
 
 	/* Set context defaults */
 	ctx->session_id = rot_dev->session_id++;
@@ -910,15 +914,17 @@ static int sde_rotator_open(struct file *file)
 		list_add_tail(&request->list, &ctx->retired_list);
 	}
 
-	v4l2_fh_init(&ctx->fh, video);
-	file->private_data = &ctx->fh;
-	v4l2_fh_add(&ctx->fh);
+	if (ctx->file) {
+		v4l2_fh_init(&ctx->fh, video);
+		file->private_data = &ctx->fh;
+		v4l2_fh_add(&ctx->fh);
 
-	ctx->fh.m2m_ctx = v4l2_m2m_ctx_init(rot_dev->m2m_dev,
-		ctx, sde_rotator_queue_init);
-	if (IS_ERR_OR_NULL(ctx->fh.m2m_ctx)) {
-		ret = PTR_ERR(ctx->fh.m2m_ctx);
-		goto error_m2m_init;
+		ctx->fh.m2m_ctx = v4l2_m2m_ctx_init(rot_dev->m2m_dev,
+			ctx, sde_rotator_queue_init);
+		if (IS_ERR_OR_NULL(ctx->fh.m2m_ctx)) {
+			ret = PTR_ERR(ctx->fh.m2m_ctx);
+			goto error_m2m_init;
+		}
 	}
 
 	ret = kobject_init_and_add(&ctx->kobj, &sde_rotator_fs_ktype,
@@ -963,33 +969,34 @@ static int sde_rotator_open(struct file *file)
 	sde_rot_mgr_unlock(rot_dev->mgr);
 
 	/* Create control */
-	ctrl_handler = &ctx->ctrl_handler;
-	v4l2_ctrl_handler_init(ctrl_handler, 4);
-	v4l2_ctrl_new_std(ctrl_handler,
+	if (ctx->file) {
+		ctrl_handler = &ctx->ctrl_handler;
+		v4l2_ctrl_handler_init(ctrl_handler, 4);
+		v4l2_ctrl_new_std(ctrl_handler,
 			&sde_rotator_ctrl_ops, V4L2_CID_HFLIP, 0, 1, 1, 0);
-	v4l2_ctrl_new_std(ctrl_handler,
+		v4l2_ctrl_new_std(ctrl_handler,
 			&sde_rotator_ctrl_ops, V4L2_CID_VFLIP, 0, 1, 1, 0);
-	v4l2_ctrl_new_std(ctrl_handler,
+		v4l2_ctrl_new_std(ctrl_handler,
 			&sde_rotator_ctrl_ops, V4L2_CID_ROTATE, 0, 270, 90, 0);
-	v4l2_ctrl_new_custom(ctrl_handler,
+		v4l2_ctrl_new_custom(ctrl_handler,
 			&sde_rotator_ctrl_secure, NULL);
-	v4l2_ctrl_new_custom(ctrl_handler,
+		v4l2_ctrl_new_custom(ctrl_handler,
 			&sde_rotator_ctrl_secure_camera, NULL);
-	if (ctrl_handler->error) {
-		ret = ctrl_handler->error;
-		v4l2_ctrl_handler_free(ctrl_handler);
-		goto error_ctrl_handler;
+		if (ctrl_handler->error) {
+			ret = ctrl_handler->error;
+			v4l2_ctrl_handler_free(ctrl_handler);
+			goto error_ctrl_handler;
+		}
+		ctx->fh.ctrl_handler = ctrl_handler;
+		v4l2_ctrl_handler_setup(ctrl_handler);
 	}
-	ctx->fh.ctrl_handler = ctrl_handler;
-	v4l2_ctrl_handler_setup(ctrl_handler);
-
 	mutex_unlock(&rot_dev->lock);
 
 	SDEDEV_DBG(ctx->rot_dev->dev, "SDE v4l2 rotator open success\n");
 
 	ATRACE_BEGIN(ctx->kobj.name);
 
-	return 0;
+	return ctx;
 error_ctrl_handler:
 error_open_session:
 	sde_rot_mgr_unlock(rot_dev->mgr);
@@ -1001,23 +1008,26 @@ error_create_sysfs:
 	kobject_put(&ctx->kobj);
 error_kobj_init:
 error_m2m_init:
-	v4l2_fh_del(&ctx->fh);
-	v4l2_fh_exit(&ctx->fh);
+	if (ctx->file) {
+		v4l2_fh_del(&ctx->fh);
+		v4l2_fh_exit(&ctx->fh);
+	}
 	mutex_unlock(&rot_dev->lock);
 error_lock:
 	kfree(ctx);
-	return ret;
+	return ERR_PTR(ret);
 }
 
 /*
- * sde_rotator_release - Rotator device release method.
- * @file: Pointer to file struct.
+ * sde_rotator_ctx_release - Rotator device release method.
+ * @ctx: Pointer rotator context.
+ * @file: Pointer to file struct (optional)
+ * return: 0 if success; error code, otherwise
  */
-static int sde_rotator_release(struct file *file)
+static int sde_rotator_ctx_release(struct sde_rotator_ctx *ctx,
+		struct file *file)
 {
-	struct sde_rotator_device *rot_dev = video_drvdata(file);
-	struct sde_rotator_ctx *ctx =
-			sde_rotator_ctx_from_fh(file->private_data);
+	struct sde_rotator_device *rot_dev = ctx->rot_dev;
 	u32 session_id = ctx->session_id;
 	struct list_head *curr, *next;
 
@@ -1025,10 +1035,14 @@ static int sde_rotator_release(struct file *file)
 
 	SDEDEV_DBG(rot_dev->dev, "release s:%d\n", session_id);
 	mutex_lock(&rot_dev->lock);
-	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
-	SDEDEV_DBG(rot_dev->dev, "release streams s:%d\n", session_id);
-	v4l2_m2m_streamoff(file, ctx->fh.m2m_ctx, V4L2_BUF_TYPE_VIDEO_OUTPUT);
-	v4l2_m2m_streamoff(file, ctx->fh.m2m_ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
+	if (ctx->file) {
+		v4l2_ctrl_handler_free(&ctx->ctrl_handler);
+		SDEDEV_DBG(rot_dev->dev, "release streams s:%d\n", session_id);
+		v4l2_m2m_streamoff(file, ctx->fh.m2m_ctx,
+				V4L2_BUF_TYPE_VIDEO_OUTPUT);
+		v4l2_m2m_streamoff(file, ctx->fh.m2m_ctx,
+				V4L2_BUF_TYPE_VIDEO_CAPTURE);
+	}
 	mutex_unlock(&rot_dev->lock);
 	SDEDEV_DBG(rot_dev->dev, "release submit work s:%d\n", session_id);
 	list_for_each_safe(curr, next, &ctx->pending_list) {
@@ -1058,9 +1072,11 @@ static int sde_rotator_release(struct file *file)
 	destroy_workqueue(ctx->work_queue.rot_work_queue);
 	sysfs_remove_group(&ctx->kobj, &sde_rotator_fs_attr_group);
 	kobject_put(&ctx->kobj);
-	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
-	v4l2_fh_del(&ctx->fh);
-	v4l2_fh_exit(&ctx->fh);
+	if (ctx->file) {
+		v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
+		v4l2_fh_del(&ctx->fh);
+		v4l2_fh_exit(&ctx->fh);
+	}
 	kfree(ctx->vbinfo_out);
 	kfree(ctx->vbinfo_cap);
 	kfree(ctx);
@@ -1115,6 +1131,7 @@ static void sde_rotator_retire_request(struct sde_rotator_request *request)
 	ctx = request->ctx;
 
 	request->req = NULL;
+	request->committed = false;
 	spin_lock(&ctx->list_lock);
 	list_del_init(&request->list);
 	list_add_tail(&request->list, &ctx->retired_list);
@@ -1122,6 +1139,519 @@ static void sde_rotator_retire_request(struct sde_rotator_request *request)
 
 	SDEROT_DBG("retire request s:%d.%d\n",
 				ctx->session_id, ctx->retired_sequence_id);
+}
+
+/*
+ * sde_rotator_is_request_retired - Return true if given request already expired
+ * @request: Pointer to rotator request
+ */
+static bool sde_rotator_is_request_retired(struct sde_rotator_request *request)
+{
+	struct sde_rotator_ctx *ctx;
+	struct sde_rot_entry_container *req;
+	u32 sequence_id;
+	s32 retire_delta;
+
+	if (!request || !request->ctx || !request->req ||
+			!request->req->entries || !request->req->count)
+		return true;
+
+	ctx = request->ctx;
+	req = request->req;
+	sequence_id = req->entries[req->count - 1].item.sequence_id;
+
+	retire_delta = (s32) (ctx->retired_sequence_id - sequence_id);
+
+	SDEROT_DBG("sequence:%u/%u\n", sequence_id, ctx->retired_sequence_id);
+
+	return retire_delta >= 0;
+}
+
+/*
+ * sde_rotator_inline_open - open inline rotator session
+ * @pdev: Pointer to rotator platform device
+ * @video_mode: true if video mode is requested
+ * return: Pointer to new rotator session context
+ */
+void *sde_rotator_inline_open(struct platform_device *pdev)
+{
+	struct sde_rotator_device *rot_dev;
+	struct sde_rotator_ctx *ctx;
+	int rc;
+
+	if (!pdev) {
+		SDEROT_ERR("invalid platform device\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rot_dev = (struct sde_rotator_device *) platform_get_drvdata(pdev);
+	if (!rot_dev) {
+		SDEROT_ERR("invalid rotator device\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	ctx = sde_rotator_ctx_open(rot_dev, NULL);
+	if (IS_ERR_OR_NULL(ctx)) {
+		rc = PTR_ERR(ctx);
+		SDEROT_ERR("failed to open rotator context %d\n", rc);
+		goto rotator_open_error;
+	}
+
+	ctx->slice = llcc_slice_getd(rot_dev->dev, "rotator");
+	if (IS_ERR(ctx->slice)) {
+		rc = PTR_ERR(ctx->slice);
+		SDEROT_ERR("failed to get system cache %d\n", rc);
+		goto slice_getd_error;
+	}
+
+	if (!rot_dev->disable_syscache) {
+		rc = llcc_slice_activate(ctx->slice);
+		if (rc) {
+			SDEROT_ERR("failed to activate slice %d\n", rc);
+			goto activate_error;
+		}
+		SDEROT_DBG("scid %d size %zukb\n",
+				llcc_get_slice_id(ctx->slice),
+				llcc_get_slice_size(ctx->slice));
+	} else {
+		SDEROT_DBG("syscache bypassed\n");
+	}
+
+	SDEROT_EVTLOG(ctx->session_id, llcc_get_slice_id(ctx->slice),
+			llcc_get_slice_size(ctx->slice),
+			rot_dev->disable_syscache);
+
+	return ctx;
+
+activate_error:
+	llcc_slice_putd(ctx->slice);
+	ctx->slice = NULL;
+slice_getd_error:
+	sde_rotator_ctx_release(ctx, NULL);
+rotator_open_error:
+	return ERR_PTR(rc);
+}
+EXPORT_SYMBOL(sde_rotator_inline_open);
+
+int sde_rotator_inline_release(void *handle)
+{
+	struct sde_rotator_device *rot_dev;
+	struct sde_rotator_ctx *ctx;
+
+	if (!handle) {
+		SDEROT_ERR("invalid rotator ctx\n");
+		return -EINVAL;
+	}
+
+	ctx = handle;
+	rot_dev = ctx->rot_dev;
+
+	if (!rot_dev) {
+		SDEROT_ERR("invalid rotator device\n");
+		return -EINVAL;
+	}
+
+	if (ctx->slice) {
+		if (!rot_dev->disable_syscache)
+			llcc_slice_deactivate(ctx->slice);
+		llcc_slice_putd(ctx->slice);
+		ctx->slice = NULL;
+	}
+
+	SDEROT_EVTLOG(ctx->session_id);
+
+	return sde_rotator_ctx_release(ctx, NULL);
+}
+EXPORT_SYMBOL(sde_rotator_inline_release);
+
+/*
+ * sde_rotator_inline_get_dst_pixfmt - determine output pixel format
+ * @pdev: Pointer to platform device
+ * @src_pixfmt: input pixel format
+ * @dst_pixfmt: Pointer to output pixel format (output)
+ * return: 0 if success; error code otherwise
+ */
+int sde_rotator_inline_get_dst_pixfmt(struct platform_device *pdev,
+		u32 src_pixfmt, u32 *dst_pixfmt)
+{
+	return sde_rot_get_base_tilea5x_pixfmt(src_pixfmt, dst_pixfmt);
+}
+EXPORT_SYMBOL(sde_rotator_inline_get_dst_pixfmt);
+
+/*
+ * sde_rotator_inline_get_downscale_caps - get scaling capability
+ * @pdev: Pointer to platform device
+ * @caps: string buffer for capability
+ * @len: length of string buffer
+ * return: length of capability string
+ */
+int sde_rotator_inline_get_downscale_caps(struct platform_device *pdev,
+		char *caps, int len)
+{
+	struct sde_rotator_device *rot_dev;
+	int rc;
+
+	if (!pdev) {
+		SDEROT_ERR("invalid platform device\n");
+		return -EINVAL;
+	}
+
+	rot_dev = (struct sde_rotator_device *) platform_get_drvdata(pdev);
+	if (!rot_dev || !rot_dev->mgr) {
+		SDEROT_ERR("invalid rotator device\n");
+		return -EINVAL;
+	}
+
+	sde_rot_mgr_lock(rot_dev->mgr);
+	rc = sde_rotator_get_downscale_caps(rot_dev->mgr, caps, len);
+	sde_rot_mgr_unlock(rot_dev->mgr);
+
+	return rc;
+}
+EXPORT_SYMBOL(sde_rotator_inline_get_downscale_caps);
+
+/*
+ * sde_rotator_inline_get_pixfmt_caps - get pixel format capability
+ * @pdev: Pointer to platform device
+ * @pixfmt: array of pixel format buffer
+ * @len: length of pixel format buffer
+ * return: length of pixel format capability if success; error code otherwise
+ */
+int sde_rotator_inline_get_pixfmt_caps(struct platform_device *pdev,
+		bool input, u32 *pixfmts, int len)
+{
+	struct sde_rotator_device *rot_dev;
+	u32 i, pixfmt;
+
+	if (!pdev) {
+		SDEROT_ERR("invalid platform device\n");
+		return -EINVAL;
+	}
+
+	rot_dev = (struct sde_rotator_device *) platform_get_drvdata(pdev);
+	if (!rot_dev || !rot_dev->mgr) {
+		SDEROT_ERR("invalid rotator device\n");
+		return -EINVAL;
+	}
+
+	sde_rot_mgr_lock(rot_dev->mgr);
+	for (i = 0;; i++) {
+		pixfmt = sde_rotator_get_pixfmt(rot_dev->mgr, i, input);
+		if (!pixfmt)
+			break;
+		if (pixfmts && i < len)
+			pixfmts[i] = pixfmt;
+	}
+	sde_rot_mgr_unlock(rot_dev->mgr);
+
+	return i;
+}
+EXPORT_SYMBOL(sde_rotator_inline_get_pixfmt_caps);
+
+/*
+ * sde_rotator_inline_commit - commit given rotator command
+ * @handle: Pointer to rotator context
+ * @cmd: Pointer to rotator command
+ * @cmd_type: command type - validate/prepare/commit/cleanup
+ * return: 0 if success; error code otherwise
+ */
+int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
+		enum sde_rotator_inline_cmd_type cmd_type)
+{
+	struct sde_rotator_ctx *ctx;
+	struct sde_rotator_device *rot_dev;
+	struct sde_rotator_request *request = NULL;
+	struct sde_rot_entry_container *req = NULL;
+	ktime_t *ts;
+	u32 flags = 0;
+	int i, ret;
+
+	if (!handle || !cmd) {
+		SDEROT_ERR("invalid rotator handle/cmd\n");
+		return -EINVAL;
+	}
+
+	ctx = handle;
+	rot_dev = ctx->rot_dev;
+
+	if (!rot_dev) {
+		SDEROT_ERR("invalid rotator device\n");
+		return -EINVAL;
+	}
+
+	SDEROT_DBG(
+		"s:%d.%u src:(%u,%u,%u,%u)/%ux%u/%c%c%c%c dst:(%u,%u,%u,%u)/%c%c%c%c r:%d f:%d/%d s:%d fps:%u wb:%d vid:%d cmd:%d\n",
+		ctx->session_id, cmd->sequence_id,
+		cmd->src_rect_x, cmd->src_rect_y,
+		cmd->src_rect_w, cmd->src_rect_h,
+		cmd->src_width, cmd->src_height,
+		cmd->src_pixfmt >> 0, cmd->src_pixfmt >> 8,
+		cmd->src_pixfmt >> 16, cmd->src_pixfmt >> 24,
+		cmd->dst_rect_x, cmd->dst_rect_y,
+		cmd->dst_rect_w, cmd->dst_rect_h,
+		cmd->dst_pixfmt >> 0, cmd->dst_pixfmt >> 8,
+		cmd->dst_pixfmt >> 16, cmd->dst_pixfmt >> 24,
+		cmd->rot90, cmd->hflip, cmd->vflip, cmd->secure, cmd->fps,
+		cmd->dst_writeback, cmd->video_mode, cmd_type);
+
+	sde_rot_mgr_lock(rot_dev->mgr);
+
+	if (cmd_type == SDE_ROTATOR_INLINE_CMD_VALIDATE ||
+			cmd_type == SDE_ROTATOR_INLINE_CMD_COMMIT) {
+
+		struct sde_rotation_item item;
+		struct sde_rotator_statistics *stats = &rot_dev->stats;
+		int scid = llcc_get_slice_id(ctx->slice);
+
+		/* allocate slot for timestamp */
+		ts = stats->ts[stats->count++ % SDE_ROTATOR_NUM_EVENTS];
+
+		if (cmd->rot90)
+			flags |= SDE_ROTATION_90;
+		if (cmd->hflip)
+			flags |= SDE_ROTATION_FLIP_LR;
+		if (cmd->vflip)
+			flags |= SDE_ROTATION_FLIP_UD;
+		if (cmd->secure)
+			flags |= SDE_ROTATION_SECURE;
+
+		/* fill in item work structure */
+		memset(&item, 0, sizeof(struct sde_rotation_item));
+		item.flags = flags | SDE_ROTATION_EXT_IOVA;
+		item.trigger = cmd->video_mode ? SDE_ROTATOR_TRIGGER_VIDEO :
+				SDE_ROTATOR_TRIGGER_COMMAND;
+		item.session_id = ctx->session_id;
+		item.sequence_id = cmd->sequence_id;
+		item.src_rect.x = cmd->src_rect_x;
+		item.src_rect.y = cmd->src_rect_y;
+		item.src_rect.w = cmd->src_rect_w;
+		item.src_rect.h = cmd->src_rect_h;
+		item.input.width = cmd->src_width;
+		item.input.height = cmd->src_height;
+		item.input.format = cmd->src_pixfmt;
+
+		for (i = 0; i < SDE_ROTATOR_INLINE_PLANE_MAX; i++) {
+			item.input.planes[i].addr = cmd->src_addr[i];
+			item.input.planes[i].len = cmd->src_len[i];
+			item.input.planes[i].fd = -1;
+		}
+		item.input.plane_count = cmd->src_planes;
+		item.input.comp_ratio.numer = 1;
+		item.input.comp_ratio.denom = 1;
+
+		item.output.width = cmd->dst_rect_x + cmd->dst_rect_w;
+		item.output.height = cmd->dst_rect_y + cmd->dst_rect_h;
+		item.dst_rect.x = cmd->dst_rect_x;
+		item.dst_rect.y = cmd->dst_rect_y;
+		item.dst_rect.w = cmd->dst_rect_w;
+		item.dst_rect.h = cmd->dst_rect_h;
+		item.output.sbuf = true;
+		item.output.scid = scid;
+		item.output.writeback = cmd->dst_writeback;
+		item.output.format = cmd->dst_pixfmt;
+
+		for (i = 0; i < SDE_ROTATOR_INLINE_PLANE_MAX; i++) {
+			item.output.planes[i].addr = cmd->dst_addr[i];
+			item.output.planes[i].len = cmd->dst_len[i];
+			item.output.planes[i].fd = -1;
+		}
+		item.output.plane_count = cmd->dst_planes;
+		item.output.comp_ratio.numer = 1;
+		item.output.comp_ratio.denom = 1;
+		item.sequence_id = ++(ctx->commit_sequence_id);
+		item.ts = ts;
+
+		req = sde_rotator_req_init(rot_dev->mgr, ctx->private,
+				&item, 1, 0);
+		if (IS_ERR_OR_NULL(req)) {
+			SDEROT_ERR("fail allocate request s:%d\n",
+					ctx->session_id);
+			ret = -ENOMEM;
+			goto error_init_request;
+		}
+	}
+
+	if (cmd_type == SDE_ROTATOR_INLINE_CMD_VALIDATE) {
+		struct sde_rotation_config rotcfg;
+
+		memset(&rotcfg, 0, sizeof(struct sde_rotation_config));
+		rotcfg.flags = flags;
+		rotcfg.frame_rate = cmd->fps;
+		rotcfg.session_id = ctx->session_id;
+		rotcfg.input.width = cmd->src_rect_w;
+		rotcfg.input.height = cmd->src_rect_h;
+		rotcfg.input.format = cmd->src_pixfmt;
+		rotcfg.input.comp_ratio.numer = 1;
+		rotcfg.input.comp_ratio.denom = 1;
+		rotcfg.output.width = cmd->dst_rect_w;
+		rotcfg.output.height = cmd->dst_rect_h;
+		rotcfg.output.format = cmd->dst_pixfmt;
+		rotcfg.output.comp_ratio.numer = 1;
+		rotcfg.output.comp_ratio.denom = 1;
+		rotcfg.output.sbuf = true;
+
+		if (memcmp(&rotcfg, &ctx->rotcfg, sizeof(rotcfg))) {
+			ret = sde_rotator_session_config(rot_dev->mgr,
+					ctx->private, &rotcfg);
+			if (ret) {
+				SDEROT_ERR("fail session config s:%d\n",
+						ctx->session_id);
+				goto error_session_config;
+			}
+
+			ctx->rotcfg = rotcfg;
+		}
+
+		ret = sde_rotator_validate_request(rot_dev->mgr, ctx->private,
+				req);
+		if (ret) {
+			SDEROT_ERR("fail validate request s:%d\n",
+					ctx->session_id);
+			goto error_validate_request;
+		}
+
+		devm_kfree(rot_dev->dev, req);
+		req = NULL;
+
+	} else if (cmd_type == SDE_ROTATOR_INLINE_CMD_COMMIT) {
+
+		request = list_first_entry_or_null(&ctx->retired_list,
+				struct sde_rotator_request, list);
+		if (!request) {
+			/* should not happen */
+			ret = -ENOMEM;
+			SDEROT_ERR("no free request s:%d\n", ctx->session_id);
+			goto error_retired_list;
+		}
+
+		request->req = req;
+
+		spin_lock(&ctx->list_lock);
+		list_del_init(&request->list);
+		list_add_tail(&request->list, &ctx->pending_list);
+		spin_unlock(&ctx->list_lock);
+
+		ts = req->entries[0].item.ts;
+		if (ts) {
+			ts[SDE_ROTATOR_TS_SRCQB] = ktime_get();
+			ts[SDE_ROTATOR_TS_DSTQB] = ktime_get();
+			ts[SDE_ROTATOR_TS_FENCE] = ktime_get();
+		} else {
+			SDEROT_ERR("invalid stats timestamp\n");
+		}
+		req->retireq = ctx->work_queue.rot_work_queue;
+		req->retire_work = &request->retire_work;
+
+		trace_rot_entry_fence(
+			ctx->session_id, cmd->sequence_id,
+			req->entries[0].item.wb_idx,
+			req->entries[0].item.flags,
+			req->entries[0].item.input.format,
+			req->entries[0].item.input.width,
+			req->entries[0].item.input.height,
+			req->entries[0].item.src_rect.x,
+			req->entries[0].item.src_rect.y,
+			req->entries[0].item.src_rect.w,
+			req->entries[0].item.src_rect.h,
+			req->entries[0].item.output.format,
+			req->entries[0].item.output.width,
+			req->entries[0].item.output.height,
+			req->entries[0].item.dst_rect.x,
+			req->entries[0].item.dst_rect.y,
+			req->entries[0].item.dst_rect.w,
+			req->entries[0].item.dst_rect.h);
+
+		ret = sde_rotator_handle_request_common(
+				rot_dev->mgr, ctx->private, req);
+		if (ret) {
+			SDEROT_ERR("fail handle request s:%d\n",
+					ctx->session_id);
+			goto error_handle_request;
+		}
+
+		sde_rotator_commit_request(rot_dev->mgr, ctx->private, req);
+
+		request->committed = true;
+
+		/* save request in private handle */
+		cmd->priv_handle = request;
+
+	} else if (cmd_type == SDE_ROTATOR_INLINE_CMD_CLEANUP) {
+		if (!cmd->priv_handle) {
+			ret = -EINVAL;
+			SDEROT_ERR("invalid private handle\n");
+			goto error_invalid_handle;
+		}
+
+		request = cmd->priv_handle;
+		req = request->req;
+
+		if (request->committed) {
+			/* wait until request is finished */
+			sde_rot_mgr_unlock(rot_dev->mgr);
+			ret = wait_event_timeout(ctx->wait_queue,
+				sde_rotator_is_request_retired(request),
+				msecs_to_jiffies(rot_dev->streamoff_timeout));
+			if (!ret)
+				SDEROT_ERR("timeout w/o retire s:%d\n",
+						ctx->session_id);
+			else if (ret == 1)
+				SDEROT_ERR("timeout w/ retire s:%d\n",
+						ctx->session_id);
+
+			sde_rot_mgr_lock(rot_dev->mgr);
+		}
+
+		sde_rotator_req_finish(rot_dev->mgr, ctx->private, req);
+		sde_rotator_retire_request(request);
+	}
+
+	sde_rot_mgr_unlock(rot_dev->mgr);
+	return 0;
+
+error_handle_request:
+	sde_rotator_update_retire_sequence(request);
+	sde_rotator_retire_request(request);
+error_retired_list:
+error_validate_request:
+error_session_config:
+	devm_kfree(rot_dev->dev, req);
+error_invalid_handle:
+error_init_request:
+	sde_rot_mgr_unlock(rot_dev->mgr);
+	return ret;
+}
+EXPORT_SYMBOL(sde_rotator_inline_commit);
+
+/*
+ * sde_rotator_open - Rotator device open method.
+ * @file: Pointer to file struct.
+ */
+static int sde_rotator_open(struct file *file)
+{
+	struct sde_rotator_device *rot_dev = video_drvdata(file);
+	struct sde_rotator_ctx *ctx;
+	int ret = 0;
+
+	ctx = sde_rotator_ctx_open(rot_dev, file);
+	if (IS_ERR_OR_NULL(ctx)) {
+		SDEDEV_DBG(rot_dev->dev, "failed to open %d\n", ret);
+		ret = PTR_ERR(ctx);
+	}
+
+	return ret;
+}
+
+/*
+ * sde_rotator_release - Rotator device release method.
+ * @file: Pointer to file struct.
+ */
+static int sde_rotator_release(struct file *file)
+{
+	struct sde_rotator_ctx *ctx =
+			sde_rotator_ctx_from_fh(file->private_data);
+
+	return sde_rotator_ctx_release(ctx, file);
 }
 
 /*
@@ -1625,6 +2155,7 @@ static int sde_rotator_streamon(struct file *file,
 				ctx->session_id, buf_type, ret);
 			return ret;
 		}
+		ctx->rotcfg = config;
 	}
 
 	ret = v4l2_m2m_streamon(file, ctx->fh.m2m_ctx, buf_type);
@@ -2125,7 +2656,9 @@ static void sde_rotator_retire_handler(struct work_struct *work)
 		return;
 	}
 
-	if (rot_dev->early_submit) {
+	if (!ctx->file) {
+		sde_rotator_update_retire_sequence(request);
+	} else if (rot_dev->early_submit) {
 		if (IS_ERR_OR_NULL(request->req)) {
 			/* fail pending request or something wrong */
 			SDEDEV_ERR(rot_dev->dev,
@@ -2469,7 +3002,7 @@ static void sde_rotator_device_run(void *priv)
 		src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 		if (!src_buf || !dst_buf) {
 			SDEDEV_ERR(rot_dev->dev,
-				"null buffer in device run s:%d sb:%p db:%p\n",
+				"null buffer in device run s:%d sb:%pK db:%pK\n",
 				ctx->session_id,
 				src_buf, dst_buf);
 			goto error_empty_buffer;

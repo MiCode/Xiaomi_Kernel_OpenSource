@@ -129,6 +129,8 @@ struct sde_mdp_format_params *sde_get_format_params(u32 format);
 
 int sde_rot_get_ubwc_micro_dim(u32 format, u16 *w, u16 *h);
 
+int sde_rot_get_base_tilea5x_pixfmt(u32 src_pixfmt, u32 *dst_pixfmt);
+
 static inline bool sde_mdp_is_tilea4x_format(struct sde_mdp_format_params *fmt)
 {
 	return fmt && (fmt->frame_format == SDE_MDP_FMT_TILE_A4X);

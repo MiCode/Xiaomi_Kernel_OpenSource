@@ -62,6 +62,9 @@
 /* secure camera operation*/
 #define SDE_ROTATION_SECURE_CAMERA	0x40000
 
+/* use client mapped i/o virtual address */
+#define SDE_ROTATION_EXT_IOVA		0x80000
+
 /**********************************************************************
  * configuration structures
  **********************************************************************/
@@ -72,12 +75,14 @@
  * @height: height of buffer region to be processed
  * @format: pixel format of buffer
  * @comp_ratio: compression ratio for the session
+ * @sbuf: true if buffer is streaming buffer
  */
 struct sde_rotation_buf_info {
 	uint32_t width;
 	uint32_t height;
 	uint32_t format;
 	struct sde_mult_factor comp_ratio;
+	bool sbuf;
 };
 
 /*
@@ -121,9 +126,18 @@ enum sde_rotator_clk_type {
 	SDE_ROTATOR_CLK_MAX
 };
 
+enum sde_rotator_trigger {
+	SDE_ROTATOR_TRIGGER_IMMEDIATE,
+	SDE_ROTATOR_TRIGGER_VIDEO,
+	SDE_ROTATOR_TRIGGER_COMMAND,
+};
+
 struct sde_rotation_item {
 	/* rotation request flag */
 	uint32_t	flags;
+
+	/* rotation trigger mode */
+	uint32_t	trigger;
 
 	/* Source crop rectangle */
 	struct sde_rect	src_rect;
@@ -233,6 +247,26 @@ struct sde_rot_entry_container {
 struct sde_rot_mgr;
 struct sde_rot_file_private;
 
+/*
+ * struct sde_rot_entry - rotation entry
+ * @item: rotation item
+ * @commit_work: work descriptor for commit handler
+ * @done_work: work descriptor for done handler
+ * @commitq: pointer to commit handler rotator queue
+ * @fenceq: pointer to fence signaling rotator queue
+ * @doneq: pointer to done handler rotator queue
+ * @request: pointer to containing request
+ * @src_buf: descriptor of source buffer
+ * @dst_buf: descriptor of destination buffer
+ * @input_fence: pointer to input fence for when input content is available
+ * @output_fence: pointer to output fence for when output content is available
+ * @output_signaled: true if output fence of this entry has been signaled
+ * @dnsc_factor_w: calculated width downscale factor for this entry
+ * @dnsc_factor_w: calculated height downscale factor for this entry
+ * @perf: pointer to performance configuration associated with this entry
+ * @work_assigned: true if this item is assigned to h/w queue/unit
+ * @private: pointer to controlling session context
+ */
 struct sde_rot_entry {
 	struct sde_rotation_item item;
 	struct work_struct commit_work;
@@ -258,6 +292,18 @@ struct sde_rot_entry {
 	struct sde_rot_file_private *private;
 };
 
+/*
+ * struct sde_rot_perf - rotator session performance configuration
+ * @list: list of performance configuration under one session
+ * @config: current rotation configuration
+ * @clk_rate: current clock rate in Hz
+ * @bw: current bandwidth in byte per second
+ * @work_dis_lock: serialization lock for updating work distribution (not used)
+ * @work_distribution: work distribution among multiple hardware queue/unit
+ * @last_wb_idx: last queue/unit index, used to account for pre-distributed work
+ * @rdot_limit: read OT limit of this session
+ * @wrot_limit: write OT limit of this session
+ */
 struct sde_rot_perf {
 	struct list_head list;
 	struct sde_rotation_config config;
@@ -270,6 +316,14 @@ struct sde_rot_perf {
 	u32 wrot_limit;
 };
 
+/*
+ * struct sde_rot_file_private - rotator manager per session context
+ * @list: list of all session context
+ * @req_list: list of rotation request for this session
+ * @perf_list: list of performance configuration for this session (only one)
+ * @mgr: pointer to the controlling rotator manager
+ * @fenceq: pointer to rotator queue to signal when entry is done
+ */
 struct sde_rot_file_private {
 	struct list_head list;
 	struct list_head req_list;
@@ -278,6 +332,13 @@ struct sde_rot_file_private {
 	struct sde_rot_queue *fenceq;
 };
 
+/*
+ * struct sde_rot_bus_data_type - rotator bus scaling configuration
+ * @bus_cale_pdata: pointer to bus scaling configuration table
+ * @bus_hdl: msm bus scaling handle
+ * @curr_bw_uc_idx; current usecase index into configuration table
+ * @curr_quota_val: current bandwidth request in byte per second
+ */
 struct sde_rot_bus_data_type {
 	struct msm_bus_scale_pdata *bus_scale_pdata;
 	u32 bus_hdl;
@@ -285,6 +346,35 @@ struct sde_rot_bus_data_type {
 	u64 curr_quota_val;
 };
 
+/*
+ * struct sde_rot_mgr - core rotator manager
+ * @lock: serialization lock to rotator manager functions
+ * @device_suspended: 0 if device is not suspended; non-zero suspended
+ * @pdev: pointer to controlling platform device
+ * @device: pointer to controlling device
+ * @queue_count: number of hardware queue/unit available
+ * @commitq: array of rotator commit queue corresponding to hardware queue
+ * @doneq: array of rotator done queue corresponding to hardware queue
+ * @file_list: list of all sessions managed by rotator manager
+ * @pending_close_bw_vote: bandwidth of closed sessions with pending work
+ * @data_bus: data bus configuration state
+ * @reg_bus: register bus configuration state
+ * @module_power: power/clock configuration state
+ * @regulator_enable: true if foot switch is enabled; false otherwise
+ * @res_ref_cnt: reference count of how many times resource is requested
+ * @rot_enable_clk_cnt: reference count of how many times clock is requested
+ * @rot_clk: array of rotator and periphery clocks
+ * @num_rot_clk: size of the rotator clock array
+ * @rdot_limit: current read OT limit
+ * @wrot_limit: current write OT limit
+ * @hwacquire_timeout: maximum wait time for hardware availability in msec
+ * @pixel_per_clk: rotator hardware performance in pixel for clock
+ * @fudge_factor: fudge factor for clock calculation
+ * @overhead: software overhead for offline rotation in msec
+ * @sbuf_ctx: pointer to sbuf session context
+ * @ops_xxx: function pointers of rotator HAL layer
+ * @hw_data: private handle of rotator HAL layer
+ */
 struct sde_rot_mgr {
 	struct mutex lock;
 	atomic_t device_suspended;
@@ -325,6 +415,8 @@ struct sde_rot_mgr {
 	struct sde_mult_factor fudge_factor;
 	struct sde_mult_factor overhead;
 
+	struct sde_rot_file_private *sbuf_ctx;
+
 	int (*ops_config_hw)(struct sde_rot_hw_resource *hw,
 			struct sde_rot_entry *entry);
 	int (*ops_kickoff_entry)(struct sde_rot_hw_resource *hw,
@@ -351,6 +443,8 @@ struct sde_rot_mgr {
 			bool input);
 	int (*ops_hw_is_valid_pixfmt)(struct sde_rot_mgr *mgr, u32 pixfmt,
 			bool input);
+	int (*ops_hw_get_downscale_caps)(struct sde_rot_mgr *mgr, char *caps,
+			int len);
 
 	void *hw_data;
 };
@@ -369,6 +463,15 @@ static inline u32 sde_rotator_get_pixfmt(struct sde_rot_mgr *mgr,
 {
 	if (mgr && mgr->ops_hw_get_pixfmt)
 		return mgr->ops_hw_get_pixfmt(mgr, index, input);
+
+	return 0;
+}
+
+static inline int sde_rotator_get_downscale_caps(struct sde_rot_mgr *mgr,
+		char *caps, int len)
+{
+	if (mgr && mgr->ops_hw_get_downscale_caps)
+		return mgr->ops_hw_get_downscale_caps(mgr, caps, len);
 
 	return 0;
 }
@@ -506,6 +609,18 @@ int sde_rotator_handle_request_common(struct sde_rot_mgr *rot_dev,
  * return: 0 if success; error code otherwise
  */
 void sde_rotator_queue_request(struct sde_rot_mgr *rot_dev,
+	struct sde_rot_file_private *ctx,
+	struct sde_rot_entry_container *req);
+
+/*
+ * sde_rotator_commit_request - queue/schedule the given request and wait
+ *	until h/w commit
+ * @rot_dev: Pointer to rotator device
+ * @private: Pointer to rotator manager per file context
+ * @req: Pointer to rotation request
+ * return: 0 if success; error code otherwise
+ */
+void sde_rotator_commit_request(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *ctx,
 	struct sde_rot_entry_container *req);
 

@@ -777,3 +777,93 @@ int sde_rot_get_ubwc_micro_dim(u32 format, u16 *w, u16 *h)
 
 	return 0;
 }
+
+/*
+ * sde_rot_get_tilea5x_pixfmt - get base a5x tile format of given source format
+ * @src_pixfmt: source pixel format to be converted
+ * @dst_pixfmt: pointer to base a5x tile pixel format
+ * return: 0 if success; error code otherwise
+ */
+int sde_rot_get_base_tilea5x_pixfmt(u32 src_pixfmt, u32 *dst_pixfmt)
+{
+	int rc = 0;
+
+	if (!dst_pixfmt) {
+		SDEROT_ERR("invalid parameters\n");
+		return -EINVAL;
+	}
+
+	switch (src_pixfmt) {
+	case SDE_PIX_FMT_Y_CBCR_H2V2:
+	case SDE_PIX_FMT_Y_CBCR_H2V2_UBWC:
+	case SDE_PIX_FMT_Y_CBCR_H2V2_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_Y_CBCR_H2V2_TILE;
+		break;
+	case SDE_PIX_FMT_Y_CRCB_H2V2:
+	case SDE_PIX_FMT_Y_CRCB_H2V2_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_Y_CRCB_H2V2_TILE;
+		break;
+	case SDE_PIX_FMT_RGBA_8888:
+	case SDE_PIX_FMT_RGBA_8888_UBWC:
+	case SDE_PIX_FMT_RGBA_8888_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_RGBA_8888_TILE;
+		break;
+	case SDE_PIX_FMT_RGBX_8888:
+	case SDE_PIX_FMT_RGBX_8888_UBWC:
+	case SDE_PIX_FMT_RGBX_8888_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_RGBX_8888_TILE;
+		break;
+	case SDE_PIX_FMT_ARGB_8888:
+	case SDE_PIX_FMT_ARGB_8888_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_ARGB_8888_TILE;
+		break;
+	case SDE_PIX_FMT_XRGB_8888:
+	case SDE_PIX_FMT_XRGB_8888_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_XRGB_8888_TILE;
+		break;
+	case SDE_PIX_FMT_ABGR_8888:
+	case SDE_PIX_FMT_ABGR_8888_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_ABGR_8888_TILE;
+		break;
+	case SDE_PIX_FMT_XBGR_8888:
+	case SDE_PIX_FMT_XBGR_8888_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_XBGR_8888_TILE;
+		break;
+	case SDE_PIX_FMT_ARGB_2101010:
+	case SDE_PIX_FMT_ARGB_2101010_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_ARGB_2101010_TILE;
+		break;
+	case SDE_PIX_FMT_XRGB_2101010:
+	case SDE_PIX_FMT_XRGB_2101010_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_XRGB_2101010_TILE;
+		break;
+	case SDE_PIX_FMT_ABGR_2101010:
+	case SDE_PIX_FMT_ABGR_2101010_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_ABGR_2101010_TILE;
+		break;
+	case SDE_PIX_FMT_XBGR_2101010:
+	case SDE_PIX_FMT_XBGR_2101010_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_XBGR_2101010_TILE;
+		break;
+	case SDE_PIX_FMT_BGRA_1010102:
+	case SDE_PIX_FMT_BGRA_1010102_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_BGRA_1010102_TILE;
+		break;
+	case SDE_PIX_FMT_BGRX_1010102:
+	case SDE_PIX_FMT_BGRX_1010102_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_BGRX_1010102_TILE;
+		break;
+	case SDE_PIX_FMT_Y_CBCR_H2V2_TP10:
+	case SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC:
+		*dst_pixfmt = SDE_PIX_FMT_Y_CBCR_H2V2_TP10;
+		break;
+	default:
+		SDEROT_ERR("invalid src pixel format %c%c%c%c\n",
+				src_pixfmt >> 0, src_pixfmt >> 8,
+				src_pixfmt >> 16, src_pixfmt >> 24);
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}

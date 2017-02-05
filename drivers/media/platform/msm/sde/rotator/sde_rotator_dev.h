@@ -21,6 +21,8 @@
 #include <linux/iommu.h>
 #include <linux/dma-buf.h>
 #include <linux/msm-bus.h>
+#include <linux/platform_device.h>
+#include <linux/soc/qcom/llcc-qcom.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-ctrls.h>
@@ -89,6 +91,7 @@ struct sde_rotator_vbinfo {
  * @retire_work: retire work structure
  * @request: Pointer to core layer rotator manager request
  * @ctx: Pointer to parent context
+ * @committed: true if request committed to hardware
  */
 struct sde_rotator_request {
 	struct list_head list;
@@ -96,12 +99,14 @@ struct sde_rotator_request {
 	struct work_struct retire_work;
 	struct sde_rot_entry_container *req;
 	struct sde_rotator_ctx *ctx;
+	bool committed;
 };
 
 /*
  * struct sde_rotator_ctx - Structure contains per open file handle context.
  * @kobj: kernel object of this context
  * @rot_dev: Pointer to rotator device.
+ * @file: Pointer to device file handle
  * @fh: V4l2 file handle.
  * @ctrl_handler: control handler
  * @format_cap: Current capture format.
@@ -122,16 +127,19 @@ struct sde_rotator_request {
  * @wait_queue: Wait queue for signaling end of job
  * @work_queue: work queue for submit and retire processing
  * @private: Pointer to session private information
+ * @slice: Pointer to system cache slice descriptor
  * @commit_sequence_id: last committed sequence id
  * @retired_sequence_id: last retired sequence id
  * @list_lock: lock for pending/retired list
  * @pending_list: list of pending request
  * @retired_list: list of retired/free request
  * @requests: static allocation of free requests
+ * @rotcfg: current core rotation configuration
  */
 struct sde_rotator_ctx {
 	struct kobject kobj;
 	struct sde_rotator_device *rot_dev;
+	struct file *file;
 	struct v4l2_fh fh;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_format format_cap;
@@ -153,12 +161,14 @@ struct sde_rotator_ctx {
 	wait_queue_head_t wait_queue;
 	struct sde_rot_queue work_queue;
 	struct sde_rot_file_private *private;
+	struct llcc_slice_desc *slice;
 	u32 commit_sequence_id;
 	u32 retired_sequence_id;
 	spinlock_t list_lock;
 	struct list_head pending_list;
 	struct list_head retired_list;
 	struct sde_rotator_request requests[SDE_ROTATOR_REQUEST_MAX];
+	struct sde_rotation_config rotcfg;
 };
 
 /*
@@ -183,6 +193,7 @@ struct sde_rotator_statistics {
  * @pdev: Pointer to platform device.
  * @drvdata: Pointer to driver data.
  * @early_submit: flag enable job submission in ready state.
+ * @disable_syscache: true to disable system cache
  * @mgr: Pointer to core rotator manager.
  * @mdata: Pointer to common rotator data/resource.
  * @session_id: Next context session identifier
@@ -203,6 +214,7 @@ struct sde_rotator_device {
 	struct platform_device *pdev;
 	const void *drvdata;
 	u32 early_submit;
+	u32 disable_syscache;
 	struct sde_rot_mgr *mgr;
 	struct sde_rot_data_type *mdata;
 	u32 session_id;
