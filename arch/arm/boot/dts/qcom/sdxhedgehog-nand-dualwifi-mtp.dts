@@ -49,3 +49,11 @@
 
 	status = "ok";
 };
+
+&cnss_pcie {
+	qcom,is-dual-wifi-enabled;
+};
+
+&cnss_sdio {
+	status = "ok";
+};
