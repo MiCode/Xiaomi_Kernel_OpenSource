@@ -129,6 +129,40 @@ static int mdss_dp_is_clk_prefix(const char *clk_prefix, const char *clk_name)
 	return !strncmp(clk_name, clk_prefix, strlen(clk_prefix));
 }
 
+static int mdss_dp_parse_prop(struct platform_device *pdev,
+			struct mdss_dp_drv_pdata *dp_drv)
+{
+	int len = 0, i = 0;
+	const char *data;
+
+	data = of_get_property(pdev->dev.of_node,
+		"qcom,aux-cfg-settings", &len);
+	if ((!data) || (len != AUX_CFG_LEN)) {
+		pr_err("%s:%d, Unable to read DP AUX CFG settings",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < len; i++)
+		dp_drv->aux_cfg[i] = data[i];
+
+	data = of_get_property(pdev->dev.of_node,
+		"qcom,logical2physical-lane-map", &len);
+	if ((!data) || (len != DP_MAX_PHY_LN)) {
+		pr_debug("%s:%d, lane mapping not defined, use default",
+			__func__, __LINE__);
+		dp_drv->l_map[DP_PHY_LN0] = DP_ML0;
+		dp_drv->l_map[DP_PHY_LN1] = DP_ML1;
+		dp_drv->l_map[DP_PHY_LN2] = DP_ML2;
+		dp_drv->l_map[DP_PHY_LN3] = DP_ML3;
+	} else {
+		for (i = 0; i < len; i++)
+			dp_drv->l_map[i] = data[i];
+	}
+
+	return 0;
+}
+
 static int mdss_dp_init_clk_power_data(struct device *dev,
 		struct mdss_dp_drv_pdata *pdata)
 {
@@ -1151,10 +1185,9 @@ static inline void mdss_dp_ack_state(struct mdss_dp_drv_pdata *dp, int val)
  * given usb plug orientation.
  */
 static int mdss_dp_get_lane_mapping(struct mdss_dp_drv_pdata *dp,
-		enum plug_orientation orientation,
-		struct lane_mapping *lane_map)
+		enum plug_orientation orientation, char *lane_map)
 {
-	int ret = 0;
+	int ret = 0, i = 0, j = 0;
 
 	pr_debug("enter: orientation = %d\n", orientation);
 
@@ -1164,22 +1197,35 @@ static int mdss_dp_get_lane_mapping(struct mdss_dp_drv_pdata *dp,
 		goto exit;
 	}
 
-	/* Set the default lane mapping */
-	lane_map->lane0 = 2;
-	lane_map->lane1 = 3;
-	lane_map->lane2 = 1;
-	lane_map->lane3 = 0;
-
+	/* For flip case, swap phy lanes with ML0 and ML3, ML1 and ML2 */
 	if (orientation == ORIENTATION_CC2) {
-		lane_map->lane0 = 1;
-		lane_map->lane1 = 0;
-		lane_map->lane2 = 2;
-		lane_map->lane3 = 3;
+		for (i = 0; i < DP_MAX_PHY_LN; i++) {
+			if (dp->l_map[i] == DP_ML0) {
+				for (j = 0; j < DP_MAX_PHY_LN; j++) {
+					if (dp->l_map[j] == DP_ML3) {
+						lane_map[i] = DP_ML3;
+						lane_map[j] = DP_ML0;
+						break;
+					}
+				}
+			} else if (dp->l_map[i] == DP_ML1) {
+				for (j = 0; j < DP_MAX_PHY_LN; j++) {
+					if (dp->l_map[j] == DP_ML2) {
+						lane_map[i] = DP_ML2;
+						lane_map[j] = DP_ML1;
+						break;
+					}
+				}
+			}
+		}
+	} else {
+		/* Normal orientation */
+		for (i = 0; i < DP_MAX_PHY_LN; i++)
+			lane_map[i] = dp->l_map[i];
 	}
 
 	pr_debug("lane0 = %d, lane1 = %d, lane2 =%d, lane3 =%d\n",
-			lane_map->lane0, lane_map->lane1, lane_map->lane2,
-			lane_map->lane3);
+		lane_map[0], lane_map[1], lane_map[2], lane_map[3]);
 
 exit:
 	return ret;
@@ -1248,9 +1294,9 @@ static void mdss_dp_disable_mainlink_clocks(struct mdss_dp_drv_pdata *dp_drv)
  * configuration, output format and sink/panel timing information.
  */
 static void mdss_dp_configure_source_params(struct mdss_dp_drv_pdata *dp,
-		struct lane_mapping *lane_map)
+		char *lane_map)
 {
-	mdss_dp_ctrl_lane_mapping(&dp->ctrl_io, *lane_map);
+	mdss_dp_ctrl_lane_mapping(&dp->ctrl_io, lane_map);
 	mdss_dp_fill_link_cfg(dp);
 	mdss_dp_mainlink_ctrl(&dp->ctrl_io, true);
 	mdss_dp_config_ctrl(dp);
@@ -1318,7 +1364,7 @@ end:
 static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv, bool lt_needed)
 {
 	int ret = 0;
-	struct lane_mapping ln_map;
+	char ln_map[4];
 
 	/* wait until link training is completed */
 	pr_debug("enter, lt_needed=%s\n", lt_needed ? "true" : "false");
@@ -1331,13 +1377,14 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv, bool lt_needed)
 
 		dp_init_panel_info(dp_drv, dp_drv->vic);
 		ret = mdss_dp_get_lane_mapping(dp_drv, dp_drv->orientation,
-				&ln_map);
+				ln_map);
 		if (ret)
 			goto exit_loop;
 
 		mdss_dp_phy_share_lane_config(&dp_drv->phy_io,
 				dp_drv->orientation,
-				dp_drv->dpcd.max_lane_count);
+				dp_drv->dpcd.max_lane_count,
+				dp_drv->phy_reg_offset);
 
 		if (lt_needed) {
 			/*
@@ -1352,7 +1399,7 @@ static int mdss_dp_on_irq(struct mdss_dp_drv_pdata *dp_drv, bool lt_needed)
 				goto exit_loop;
 		}
 
-		mdss_dp_configure_source_params(dp_drv, &ln_map);
+		mdss_dp_configure_source_params(dp_drv, ln_map);
 
 		reinit_completion(&dp_drv->idle_comp);
 
@@ -1385,7 +1432,7 @@ exit_loop:
 int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 {
 	int ret = 0;
-	struct lane_mapping ln_map;
+	char ln_map[4];
 
 	/* wait until link training is completed */
 	mutex_lock(&dp_drv->train_mutex);
@@ -1404,7 +1451,7 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	}
 	mdss_dp_hpd_configure(&dp_drv->ctrl_io, true);
 
-	ret = mdss_dp_get_lane_mapping(dp_drv, dp_drv->orientation, &ln_map);
+	ret = mdss_dp_get_lane_mapping(dp_drv, dp_drv->orientation, ln_map);
 	if (ret)
 		goto exit;
 
@@ -1419,7 +1466,7 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	}
 
 	mdss_dp_phy_share_lane_config(&dp_drv->phy_io, dp_drv->orientation,
-			dp_drv->dpcd.max_lane_count);
+			dp_drv->dpcd.max_lane_count, dp_drv->phy_reg_offset);
 
 	ret = mdss_dp_enable_mainlink_clocks(dp_drv);
 	if (ret)
@@ -1427,7 +1474,7 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 
 	reinit_completion(&dp_drv->idle_comp);
 
-	mdss_dp_configure_source_params(dp_drv, &ln_map);
+	mdss_dp_configure_source_params(dp_drv, ln_map);
 
 	if (dp_drv->psm_enabled) {
 		ret = mdss_dp_aux_send_psm_request(dp_drv, false);
@@ -1689,7 +1736,8 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	       mdss_dp_get_ctrl_hw_version(&dp_drv->ctrl_io),
 	       mdss_dp_get_phy_hw_version(&dp_drv->phy_io));
 
-	mdss_dp_phy_aux_setup(&dp_drv->phy_io);
+	mdss_dp_phy_aux_setup(&dp_drv->phy_io, dp_drv->aux_cfg,
+			dp_drv->phy_reg_offset);
 
 	mdss_dp_irq_enable(dp_drv);
 	dp_drv->dp_initialized = true;
@@ -2743,6 +2791,11 @@ static int mdss_retrieve_dp_ctrl_resources(struct platform_device *pdev,
 		return rc;
 	}
 
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,phy-register-offset", &dp_drv->phy_reg_offset);
+	if (rc)
+		dp_drv->phy_reg_offset = 0;
+
 	rc = msm_dss_ioremap_byname(pdev, &dp_drv->tcsr_reg_io,
 					"tcsr_regs");
 	if (rc) {
@@ -3700,6 +3753,13 @@ static int mdss_dp_probe(struct platform_device *pdev)
 				&pdev->dev, true);
 	if (ret) {
 		DEV_ERR("clk_init failed.ret=%d\n",
+				ret);
+		goto probe_err;
+	}
+
+	ret = mdss_dp_parse_prop(pdev, dp_drv);
+	if (ret) {
+		DEV_ERR("DP properties parsing failed.ret=%d\n",
 				ret);
 		goto probe_err;
 	}
