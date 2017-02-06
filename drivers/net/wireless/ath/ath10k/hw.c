@@ -164,6 +164,37 @@ const struct ath10k_hw_regs wcn3990_regs = {
 	.pcie_intr_fw_mask			= 0x00100000,
 };
 
+struct ath10k_hw_ce_regs wcn3990_ce_regs = {
+	.sr_base_addr		= 0x00000000,
+	.sr_size_addr		= 0x00000008,
+	.dr_base_addr		= 0x0000000c,
+	.dr_size_addr		= 0x00000014,
+	.misc_ie_addr		= 0x00000034,
+	.sr_wr_index_addr	= 0x0000003c,
+	.dst_wr_index_addr	= 0x00000040,
+	.current_srri_addr	= 0x00000044,
+	.current_drri_addr	= 0x00000048,
+	.ddr_addr_for_rri_low	= 0x00000004,
+	.ddr_addr_for_rri_high	= 0x00000008,
+	.ce_rri_low		= 0x0024C004,
+	.ce_rri_high		= 0x0024C008,
+	.host_ie_addr		= 0x0000002c,
+};
+
+struct ath10k_hw_ce_regs qcax_ce_regs = {
+	.sr_base_addr		= 0x00000000,
+	.sr_size_addr		= 0x00000004,
+	.dr_base_addr		= 0x00000008,
+	.dr_size_addr		= 0x0000000c,
+	.ce_cmd_addr		= 0x00000018,
+	.misc_ie_addr		= 0x00000034,
+	.sr_wr_index_addr	= 0x0000003c,
+	.dst_wr_index_addr	= 0x00000040,
+	.current_srri_addr	= 0x00000044,
+	.current_drri_addr	= 0x00000048,
+	.host_ie_addr		= 0x0000002c,
+};
+
 const struct ath10k_hw_values qca988x_values = {
 	.rtc_state_val_on		= 3,
 	.ce_count			= 8,

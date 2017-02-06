@@ -268,6 +268,27 @@ extern const struct ath10k_hw_regs qca99x0_regs;
 extern const struct ath10k_hw_regs qca4019_regs;
 extern const struct ath10k_hw_regs wcn3990_regs;
 
+struct ath10k_hw_ce_regs {
+	u32 sr_base_addr;
+	u32 sr_size_addr;
+	u32 dr_base_addr;
+	u32 dr_size_addr;
+	u32 ce_cmd_addr;
+	u32 misc_ie_addr;
+	u32 sr_wr_index_addr;
+	u32 dst_wr_index_addr;
+	u32 current_srri_addr;
+	u32 current_drri_addr;
+	u32 ddr_addr_for_rri_low;
+	u32 ddr_addr_for_rri_high;
+	u32 ce_rri_low;
+	u32 ce_rri_high;
+	u32 host_ie_addr;
+};
+
+extern struct ath10k_hw_ce_regs wcn3990_ce_regs;
+extern struct ath10k_hw_ce_regs qcax_ce_regs;
+
 extern struct fw_flag wcn3990_fw_flags;
 
 struct ath10k_hw_values {
