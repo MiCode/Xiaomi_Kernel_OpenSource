@@ -3840,18 +3840,33 @@ probe_err:
 
 void *mdss_dp_get_hdcp_data(struct device *dev)
 {
-	struct mdss_dp_drv_pdata *dp_drv = NULL;
+	struct mdss_dp_drv_pdata *dp;
+	struct msm_fb_data_type *mfd;
+	struct mdss_panel_data *pd;
+	struct fb_info *fbi = dev_get_drvdata(dev);
 
-	if (!dev) {
-		pr_err("%s:Invalid input\n", __func__);
-		return NULL;
+	if (!fbi) {
+		pr_err("invalid fbi\n");
+		goto error;
 	}
-	dp_drv = dev_get_drvdata(dev);
-	if (!dp_drv) {
-		pr_err("%s:Invalid dp driver\n", __func__);
-		return NULL;
+
+	mfd = (struct msm_fb_data_type *)fbi->par;
+	if (!mfd) {
+		pr_err("invalid mfd\n");
+		goto error;
 	}
-	return dp_drv->hdcp.data;
+
+	pd = dev_get_platdata(&mfd->pdev->dev);
+	if (!pd) {
+		pr_err("invalid panel_data\n");
+		goto error;
+	}
+
+	dp = container_of(pd, struct mdss_dp_drv_pdata, panel_data);
+
+	return dp->hdcp.data;
+error:
+	return NULL;
 }
 
 static inline bool dp_is_stream_shareable(struct mdss_dp_drv_pdata *dp_drv)
