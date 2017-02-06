@@ -196,19 +196,23 @@
 };
 
 &dsi_nt35695b_truly_fhd_video {
-	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 07 08 05 03 04 a0
-		23 1e 07 08 05 03 04 a0
-		23 1e 07 08 05 03 04 a0
-		23 1e 07 08 05 03 04 a0
-		23 18 07 08 04 03 04 a0];
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1e 08 09 05 03 04 a0
+		24 1e 08 09 05 03 04 a0
+		24 1e 08 09 05 03 04 a0
+		24 1e 08 09 05 03 04 a0
+		24 1a 08 09 05 03 04 a0];
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 };
 
 &dsi_nt35695b_truly_fhd_cmd {
-	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 07 08 05 03 04 a0
-		23 1e 07 08 05 03 04 a0
-		23 1e 07 08 05 03 04 a0
-		23 1e 07 08 05 03 04 a0
-		23 18 07 08 04 03 04 a0];
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1e 08 09 05 03 04 a0
+		24 1e 08 09 05 03 04 a0
+		24 1e 08 09 05 03 04 a0
+		24 1e 08 09 05 03 04 a0
+		24 1a 08 09 05 03 04 a0];
 };
 
 &dsi_truly_1080_vid {
