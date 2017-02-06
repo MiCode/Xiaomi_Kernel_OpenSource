@@ -489,6 +489,10 @@ struct mdss_dp_drv_pdata {
 	struct edp_edid edid;
 	struct dpcd_cap dpcd;
 
+	/* DP Pixel clock RCG and PLL parent */
+	struct clk *pixel_clk_rcg;
+	struct clk *pixel_parent;
+
 	/* regulators */
 	struct dss_module_power power_data[DP_MAX_PM];
 	struct dp_pinctrl_res pin_res;
