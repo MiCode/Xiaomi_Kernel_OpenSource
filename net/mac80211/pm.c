@@ -132,7 +132,7 @@ int __ieee80211_suspend(struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan)
 					IEEE80211_MAX_QUEUE_MAP,
 					IEEE80211_QUEUE_STOP_REASON_SUSPEND,
 					false);
-			local->wowlan = false;
+			return err;
 		} else {
 			goto suspend;
 		}
