@@ -774,13 +774,17 @@ static int smblib_usb_icl_vote_callback(struct votable *votable, void *data,
 	if (chg->usb_psy_desc.type != POWER_SUPPLY_TYPE_USB) {
 		if (client) {
 			rc = smblib_set_charge_param(chg, &chg->param.usb_icl,
-					icl_ua);
+					icl_ua - chg->icl_reduction_ua);
 			if (rc < 0) {
 				smblib_err(chg, "Couldn't set HC ICL rc=%d\n",
 					rc);
 				return rc;
 			}
 		}
+
+		smblib_dbg(chg, PR_PARALLEL,
+				"icl_ua=%d icl_reduction=%d\n",
+				icl_ua, chg->icl_reduction_ua);
 		goto out;
 	}
 
