@@ -615,19 +615,6 @@ int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
 	return 0;
 }
 
-int __init set_sched_enable_hmp(char *str)
-{
-	int enable_hmp = 0;
-
-	get_option(&str, &enable_hmp);
-
-	sched_enable_hmp = !!enable_hmp;
-
-	return 0;
-}
-
-early_param("sched_enable_hmp", set_sched_enable_hmp);
-
 /* Clear any HMP scheduler related requests pending from or on cpu */
 void clear_hmp_request(int cpu)
 {
@@ -868,9 +855,6 @@ unsigned int max_task_load(void)
 {
 	return sched_ravg_window;
 }
-
-/* Use this knob to turn on or off HMP-aware task placement logic */
-unsigned int __read_mostly sched_enable_hmp;
 
 /* A cpu can no longer accommodate more tasks if:
  *
@@ -1244,7 +1228,7 @@ unlock:
 
 void inc_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
 {
-	if (!sched_enable_hmp || sched_disable_window_stats)
+	if (sched_disable_window_stats)
 		return;
 
 	if (is_big_task(p))
@@ -1253,7 +1237,7 @@ void inc_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
 
 void dec_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
 {
-	if (!sched_enable_hmp || sched_disable_window_stats)
+	if (sched_disable_window_stats)
 		return;
 
 	if (is_big_task(p))
@@ -1322,7 +1306,7 @@ void fixup_nr_big_tasks(struct hmp_sched_stats *stats,
 	u64 new_task_load;
 	u64 old_task_load;
 
-	if (!sched_enable_hmp || sched_disable_window_stats)
+	if (sched_disable_window_stats)
 		return;
 
 	old_task_load = scale_load_to_cpu(task_load(p), task_cpu(p));
@@ -1432,9 +1416,6 @@ int sched_window_update_handler(struct ctl_table *table, int write,
 	unsigned int *data = (unsigned int *)table->data;
 	unsigned int old_val;
 
-	if (!sched_enable_hmp)
-		return -EINVAL;
-
 	mutex_lock(&policy_mutex);
 
 	old_val = *data;
@@ -1469,9 +1450,6 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	unsigned int old_val;
 	unsigned int *data = (unsigned int *)table->data;
 	int update_task_count = 0;
-
-	if (!sched_enable_hmp)
-		return 0;
 
 	/*
 	 * The policy mutex is acquired with cpu_hotplug.lock
@@ -1748,9 +1726,6 @@ static int send_notification(struct rq *rq, int check_pred, int check_groups)
 	unsigned long flags;
 	int rc = 0;
 	u64 group_load = 0, new_load  = 0;
-
-	if (!sched_enable_hmp)
-		return 0;
 
 	if (check_pred) {
 		u64 prev = rq->old_busy_time;
@@ -2960,7 +2935,7 @@ void set_window_start(struct rq *rq)
 {
 	static int sync_cpu_available;
 
-	if (rq->window_start || !sched_enable_hmp)
+	if (rq->window_start)
 		return;
 
 	if (!sync_cpu_available) {
@@ -3539,7 +3514,7 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	bool new_task;
 	struct related_thread_group *grp;
 
-	if (!sched_enable_hmp || (!p->on_rq && p->state != TASK_WAKING))
+	if (!p->on_rq && p->state != TASK_WAKING)
 		return;
 
 	if (exiting_task(p)) {
@@ -4245,9 +4220,6 @@ int __weak register_cpu_pwr_stats_ready_notifier(struct notifier_block *nb)
 static int register_sched_callback(void)
 {
 	int ret;
-
-	if (!sched_enable_hmp)
-		return 0;
 
 	ret = cpufreq_register_notifier(&notifier_policy_block,
 						CPUFREQ_POLICY_NOTIFIER);

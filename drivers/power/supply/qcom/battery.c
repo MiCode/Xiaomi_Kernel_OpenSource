@@ -42,6 +42,7 @@ struct pl_data {
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;
 	struct votable		*pl_disable_votable;
+	struct votable		*pl_awake_votable;
 	struct work_struct	status_change_work;
 	struct delayed_work	pl_taper_work;
 	struct power_supply	*main_psy;
@@ -82,7 +83,7 @@ enum {
 static void split_settled(struct pl_data *chip)
 {
 	int slave_icl_pct;
-	int slave_ua;
+	int slave_ua = 0;
 	union power_supply_propval pval = {0, };
 	int rc;
 
@@ -94,10 +95,8 @@ static void split_settled(struct pl_data *chip)
 	if (chip->pl_mode != POWER_SUPPLY_PARALLEL_USBIN_USBIN)
 		return;
 
-	if (chip->main_psy)
+	if (!chip->main_psy)
 		return;
-
-	slave_ua = 0;
 
 	if (!get_effective_result_locked(chip->pl_disable_votable)) {
 		/* read the aicl settled value */
@@ -214,7 +213,7 @@ static void pl_taper_work(struct work_struct *work)
 	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER) {
 		pl_dbg(chip, PR_PARALLEL, "master is taper charging; reducing slave FCC\n");
 
-		__pm_stay_awake(chip->pl_ws);
+		vote(chip->pl_awake_votable, TAPER_END_VOTER, true, 0);
 		/* Reduce the taper percent by 25 percent */
 		chip->taper_pct = chip->taper_pct * TAPER_RESIDUAL_PCT / 100;
 		rerun_election(chip->fcc_votable);
@@ -231,7 +230,7 @@ static void pl_taper_work(struct work_struct *work)
 	pl_dbg(chip, PR_PARALLEL, "master is fast charging; waiting for next taper\n");
 
 done:
-	__pm_relax(chip->pl_ws);
+	vote(chip->pl_awake_votable, TAPER_END_VOTER, false, 0);
 }
 
 /*********
@@ -375,15 +374,17 @@ static int pl_disable_vote_callback(struct votable *votable,
 	if (!pl_disable) { /* enable */
 		rerun_election(chip->fv_votable);
 		rerun_election(chip->fcc_votable);
-
-		if (chip->pl_psy) {
-			pval.intval = 0;
-			rc = power_supply_set_property(chip->pl_psy,
-					POWER_SUPPLY_PROP_INPUT_SUSPEND, &pval);
-			if (rc < 0)
-				pr_err("Couldn't change slave suspend state rc=%d\n",
-					rc);
-		}
+		/*
+		 * Enable will be called with a valid pl_psy always. The
+		 * PARALLEL_PSY_VOTER keeps it disabled unless a pl_psy
+		 * is seen.
+		 */
+		pval.intval = 0;
+		rc = power_supply_set_property(chip->pl_psy,
+				POWER_SUPPLY_PROP_INPUT_SUSPEND, &pval);
+		if (rc < 0)
+			pr_err("Couldn't change slave suspend state rc=%d\n",
+				rc);
 
 		if (chip->pl_mode == POWER_SUPPLY_PARALLEL_USBIN_USBIN)
 			split_settled(chip);
@@ -406,6 +407,7 @@ static int pl_disable_vote_callback(struct votable *votable,
 		if (chip->pl_mode == POWER_SUPPLY_PARALLEL_USBIN_USBIN)
 			split_settled(chip);
 
+		/* pl_psy may be NULL while in the disable branch */
 		if (chip->pl_psy) {
 			pval.intval = 1;
 			rc = power_supply_set_property(chip->pl_psy,
@@ -421,6 +423,20 @@ static int pl_disable_vote_callback(struct votable *votable,
 	pl_dbg(chip, PR_PARALLEL, "parallel charging %s\n",
 		   pl_disable ? "disabled" : "enabled");
 
+	return 0;
+}
+
+static int pl_awake_vote_callback(struct votable *votable,
+			void *data, int awake, const char *client)
+{
+	struct pl_data *chip = data;
+
+	if (awake)
+		__pm_stay_awake(chip->pl_ws);
+	else
+		__pm_relax(chip->pl_ws);
+
+	pr_debug("client: %s awake: %d\n", client, awake);
 	return 0;
 }
 
@@ -500,21 +516,21 @@ static void handle_main_charge_type(struct pl_data *chip)
 		return;
 	}
 
-	/* handle fast/taper charge entry */
-	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER
-			|| pval.intval == POWER_SUPPLY_CHARGE_TYPE_FAST) {
-		pl_dbg(chip, PR_PARALLEL, "chg_state enabling parallel\n");
-		vote(chip->pl_disable_votable, CHG_STATE_VOTER, false, 0);
-		chip->charge_type = pval.intval;
-		return;
-	}
-
 	/* handle taper charge entry */
 	if (chip->charge_type == POWER_SUPPLY_CHARGE_TYPE_FAST
 		&& (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER)) {
 		chip->charge_type = pval.intval;
 		pl_dbg(chip, PR_PARALLEL, "taper entry scheduling work\n");
 		schedule_delayed_work(&chip->pl_taper_work, 0);
+		return;
+	}
+
+	/* handle fast/taper charge entry */
+	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER
+			|| pval.intval == POWER_SUPPLY_CHARGE_TYPE_FAST) {
+		pl_dbg(chip, PR_PARALLEL, "chg_state enabling parallel\n");
+		vote(chip->pl_disable_votable, CHG_STATE_VOTER, false, 0);
+		chip->charge_type = pval.intval;
 		return;
 	}
 
@@ -671,6 +687,14 @@ static int pl_init(void)
 	vote(chip->pl_disable_votable, TAPER_END_VOTER, false, 0);
 	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, true, 0);
 
+	chip->pl_awake_votable = create_votable("PL_AWAKE", VOTE_SET_ANY,
+					pl_awake_vote_callback,
+					chip);
+	if (IS_ERR(chip->pl_awake_votable)) {
+		rc = PTR_ERR(chip->pl_disable_votable);
+		goto destroy_votable;
+	}
+
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->pl_taper_work, pl_taper_work);
 
@@ -701,6 +725,7 @@ static int pl_init(void)
 unreg_notifier:
 	power_supply_unreg_notifier(&chip->nb);
 destroy_votable:
+	destroy_votable(chip->pl_awake_votable);
 	destroy_votable(chip->pl_disable_votable);
 	destroy_votable(chip->fv_votable);
 	destroy_votable(chip->fcc_votable);
@@ -716,6 +741,7 @@ static void pl_deinit(void)
 	struct pl_data *chip = the_chip;
 
 	power_supply_unreg_notifier(&chip->nb);
+	destroy_votable(chip->pl_awake_votable);
 	destroy_votable(chip->pl_disable_votable);
 	destroy_votable(chip->fv_votable);
 	destroy_votable(chip->fcc_votable);

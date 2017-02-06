@@ -138,11 +138,6 @@ struct ath10k_bmi {
 	bool done_sent;
 };
 
-struct ath10k_qmi {
-	bool fw_ready;
-	bool is_qmi;
-};
-
 struct ath10k_mem_chunk {
 	void *vaddr;
 	dma_addr_t paddr;
@@ -745,7 +740,6 @@ struct ath10k {
 	const struct ath10k_hw_regs *regs;
 	const struct ath10k_hw_values *hw_values;
 	struct ath10k_bmi bmi;
-	struct ath10k_qmi qmi;
 	struct ath10k_wmi wmi;
 	struct ath10k_htc htc;
 	struct ath10k_htt htt;
@@ -930,6 +924,8 @@ struct ath10k {
 	spinlock_t ce_lock; /* lock for CE access */
 	void *ce_states;
 	struct fw_flag *fw_flags;
+	/* set for bmi chip sets */
+	bool is_bmi;
 	/* must be last */
 	u8 drv_priv[0] __aligned(sizeof(void *));
 };
