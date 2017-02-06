@@ -367,6 +367,13 @@
 			#clock-cells = <1>;
 		};
 
+		reboot {
+			compatible = "hisilicon,hi3660-reboot";
+			pmu-regmap = <&pmuctrl>;
+			sctrl-regmap = <&sctrl>;
+			reboot-offset = <0x4>;
+		};
+
 		iomcu: iomcu@ffd7e000 {
 			compatible = "hisilicon,hi3660-iomcu", "syscon";
 			reg = <0x0 0xffd7e000 0x0 0x1000>;
