@@ -272,6 +272,44 @@ exit:
 	return ret;
 }
 
+static int msm_compr_set_render_window(struct audio_client *ac,
+		uint32_t ws_lsw, uint32_t ws_msw,
+		uint32_t we_lsw, uint32_t we_msw)
+{
+	int ret = -EINVAL;
+	struct asm_session_mtmx_strtr_param_window_v2_t asm_mtmx_strtr_window;
+	uint32_t param_id;
+
+	pr_debug("%s, ws_lsw 0x%x ws_msw 0x%x we_lsw 0x%x we_ms 0x%x\n",
+		 __func__, ws_lsw, ws_msw, we_lsw, we_msw);
+
+	memset(&asm_mtmx_strtr_window, 0,
+	       sizeof(struct asm_session_mtmx_strtr_param_window_v2_t));
+	asm_mtmx_strtr_window.window_lsw = ws_lsw;
+	asm_mtmx_strtr_window.window_msw = ws_msw;
+	param_id = ASM_SESSION_MTMX_STRTR_PARAM_RENDER_WINDOW_START_V2;
+	ret = q6asm_send_mtmx_strtr_window(ac, &asm_mtmx_strtr_window,
+					   param_id);
+	if (ret) {
+		pr_err("%s, start window can't be set error %d\n", __func__,
+			ret);
+		goto exit;
+	}
+
+	asm_mtmx_strtr_window.window_lsw = we_lsw;
+	asm_mtmx_strtr_window.window_msw = we_msw;
+	param_id = ASM_SESSION_MTMX_STRTR_PARAM_RENDER_WINDOW_END_V2;
+	ret = q6asm_send_mtmx_strtr_window(ac, &asm_mtmx_strtr_window,
+					   param_id);
+	if (ret) {
+		pr_err("%s, end window can't be set error %d\n", __func__,
+			ret);
+	}
+
+exit:
+	return ret;
+}
+
 static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 				uint32_t volume_l, uint32_t volume_r)
 {
@@ -2804,6 +2842,13 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 		return msm_compr_set_render_mode(prtd, metadata->value[0]);
 	} else if (metadata->key == SNDRV_COMPRESS_CLK_REC_MODE) {
 		return msm_compr_set_clk_rec_mode(ac, metadata->value[0]);
+	} else if (metadata->key == SNDRV_COMPRESS_RENDER_WINDOW) {
+		return msm_compr_set_render_window(
+				ac,
+				metadata->value[0],
+				metadata->value[1],
+				metadata->value[2],
+				metadata->value[3]);
 	}
 
 	return 0;
