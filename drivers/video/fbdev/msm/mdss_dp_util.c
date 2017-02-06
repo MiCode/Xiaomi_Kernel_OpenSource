@@ -1058,8 +1058,6 @@ void mdss_dp_config_audio_acr_ctrl(struct dss_io_data *ctrl_io, char link_rate)
 	u32 acr_ctrl = 0;
 	u32 select = 0;
 
-	acr_ctrl = readl_relaxed(ctrl_io->base + MMSS_DP_AUDIO_ACR_CTRL);
-
 	switch (link_rate) {
 	case DP_LINK_RATE_162:
 		select = 0;
