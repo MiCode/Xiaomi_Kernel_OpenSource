@@ -12,10 +12,16 @@
 
 #ifndef __MDSS_PLL_H
 #define __MDSS_PLL_H
-
-#include <linux/mdss_io_util.h>
-#include <linux/clk/msm-clock-generic.h>
+#include <linux/sde_io_util.h>
+#include <linux/clk-provider.h>
 #include <linux/io.h>
+#include <linux/clk.h>
+#include <linux/clkdev.h>
+#include <linux/regmap.h>
+#include "../clk-regmap.h"
+#include "../clk-regmap-divider.h"
+#include "../clk-regmap-mux.h"
+
 
 #define MDSS_PLL_REG_W(base, offset, data)	\
 				writel_relaxed((data), (base) + (offset))
@@ -30,7 +36,7 @@
 			(base) + (offset))
 
 enum {
-	MDSS_DSI_PLL_8998,
+	MDSS_DSI_PLL_10NM,
 	MDSS_UNKNOWN_PLL,
 };
 
@@ -193,20 +199,24 @@ static inline bool is_gdsc_disabled(struct mdss_pll_resources *pll_res)
 		(!(readl_relaxed(pll_res->gdsc_base) & BIT(0)))) ? false : true;
 }
 
-static inline int mdss_pll_div_prepare(struct clk *c)
+static inline int mdss_pll_div_prepare(struct clk_hw *hw)
 {
-	struct div_clk *div = to_div_clk(c);
+	struct clk_hw *parent_hw = clk_hw_get_parent(hw);
 	/* Restore the divider's value */
-	return div->ops->set_div(div, div->data.div);
+	return hw->init->ops->set_rate(hw, clk_hw_get_rate(hw),
+				clk_hw_get_rate(parent_hw));
 }
 
-static inline int mdss_set_mux_sel(struct mux_clk *clk, int sel)
+static inline int mdss_set_mux_sel(void *context, unsigned int reg,
+					unsigned int val)
 {
 	return 0;
 }
 
-static inline int mdss_get_mux_sel(struct mux_clk *clk)
+static inline int mdss_get_mux_sel(void *context, unsigned int reg,
+					unsigned int *val)
 {
+	*val = 0;
 	return 0;
 }
 
