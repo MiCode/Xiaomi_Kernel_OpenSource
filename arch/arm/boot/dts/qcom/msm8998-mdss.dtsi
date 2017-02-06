@@ -21,6 +21,7 @@
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		vdd-supply = <&gdsc_mdss>;
+		gdsc-core-supply = <&gdsc_bimc_smmu>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_mdp";
