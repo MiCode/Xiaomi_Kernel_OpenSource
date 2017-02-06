@@ -51,6 +51,7 @@
 			reg = <0x0 0x100>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile0>;
+			qcom,ea = <&ea0>;
 			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
@@ -75,6 +76,7 @@
 			reg = <0x0 0x101>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile1>;
+			qcom,ea = <&ea1>;
 			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
 			L1_I_101: l1-icache {
@@ -93,6 +95,7 @@
 			reg = <0x0 0x102>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile2>;
+			qcom,ea = <&ea2>;
 			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
 			L1_I_102: l1-icache {
@@ -111,6 +114,7 @@
 			reg = <0x0 0x103>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile3>;
+			qcom,ea = <&ea3>;
 			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
 			L1_I_103: l1-icache {
@@ -129,6 +133,7 @@
 			reg = <0x0 0x0>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,ea = <&ea4>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
@@ -153,6 +158,7 @@
 			reg = <0x0 0x1>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,ea = <&ea5>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
 			L1_I_1: l1-icache {
@@ -171,6 +177,7 @@
 			reg = <0x0 0x2>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,ea = <&ea6>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
 			L1_I_2: l1-icache {
@@ -189,6 +196,7 @@
 			reg = <0x0 0x3>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,ea = <&ea7>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
 			L1_I_3: l1-icache {
@@ -659,6 +667,45 @@
 			qcom,vph-high-threshold-uv = <3500000>;
 			qcom,vph-low-threshold-uv = <3300000>;
 			qcom,soc-low-threshold = <10>;
+		};
+	};
+
+	qcom,msm-core@780000 {
+		compatible = "qcom,apss-core-ea";
+		reg = <0x780000 0x1000>;
+		qcom,low-hyst-temp = <10>;
+		qcom,high-hyst-temp = <5>;
+
+		ea0: ea0 {
+			sensor = <&sensor_information3>;
+		};
+
+		ea1: ea1 {
+			sensor = <&sensor_information4>;
+		};
+
+		ea2: ea2 {
+			sensor = <&sensor_information5>;
+		};
+
+		ea3: ea3 {
+			sensor = <&sensor_information6>;
+		};
+
+		ea4: ea4 {
+			sensor = <&sensor_information7>;
+		};
+
+		ea5: ea5 {
+			sensor = <&sensor_information7>;
+		};
+
+		ea6: ea6 {
+			sensor = <&sensor_information7>;
+		};
+
+		ea7: ea7 {
+			sensor = <&sensor_information7>;
 		};
 	};
 
