@@ -1339,7 +1339,7 @@ static int wlfw_athdiag_read_send_sync_msg(struct icnss_priv *priv,
 		goto out;
 	}
 
-	if (!resp->data_valid || resp->data_len <= data_len) {
+	if (!resp->data_valid || resp->data_len < data_len) {
 		icnss_pr_err("Athdiag read data is invalid, data_valid = %u, data_len = %u\n",
 			     resp->data_valid, resp->data_len);
 		ret = -EINVAL;
