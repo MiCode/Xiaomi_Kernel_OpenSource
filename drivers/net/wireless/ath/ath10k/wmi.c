@@ -8233,9 +8233,6 @@ int ath10k_wmi_attach(struct ath10k *ar)
 	case ATH10K_FW_WMI_OP_VERSION_TLV:
 		ath10k_wmi_tlv_attach(ar);
 		break;
-	case ATH10K_FW_WMI_OP_VERSION_HL_1_0:
-		ath10k_wmi_hl_1_0_attach(ar);
-		break;
 	case ATH10K_FW_WMI_OP_VERSION_UNSET:
 	case ATH10K_FW_WMI_OP_VERSION_MAX:
 		ath10k_err(ar, "unsupported WMI op version: %d\n",
