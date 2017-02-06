@@ -52,6 +52,8 @@
 
 /* default stream buffer headroom in lines */
 #define DEFAULT_SBUF_HEADROOM	20
+#define DEFAULT_UBWC_MALSIZE	1
+#define DEFAULT_UBWC_SWIZZLE	1
 
 /* Macro for constructing the REGDMA command */
 #define SDE_REGDMA_WRITE(p, off, data) \
@@ -877,6 +879,12 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 			SDE_ROT_SSPP_FETCH_CONFIG_RESET_VALUE |
 			((rot->highest_bank & 0x3) << 18));
 
+	if (test_bit(SDE_CAPS_UBWC_2, mdata->sde_caps_map))
+		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_UBWC_STATIC_CTRL, BIT(31) |
+				((ctx->rot->ubwc_malsize & 0x3) << 8) |
+				((ctx->rot->highest_bank & 0x3) << 4) |
+				((ctx->rot->ubwc_swizzle & 0x1) << 0));
+
 	/* setup source buffer plane security status */
 	if (flags & (SDE_ROT_FLAG_SECURE_OVERLAY_SESSION |
 			SDE_ROT_FLAG_SECURE_CAMERA_SESSION)) {
@@ -1008,6 +1016,12 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 	/* write config setup for bank configuration */
 	SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_WRITE_CONFIG,
 			(ctx->rot->highest_bank & 0x3) << 8);
+
+	if (test_bit(SDE_CAPS_UBWC_2, mdata->sde_caps_map))
+		SDE_REGDMA_WRITE(wrptr, ROT_WB_UBWC_STATIC_CTRL,
+				((ctx->rot->ubwc_malsize & 0x3) << 8) |
+				((ctx->rot->highest_bank & 0x3) << 4) |
+				((ctx->rot->ubwc_swizzle & 0x1) << 0));
 
 	if (test_bit(SDE_CAPS_SBUF_1, mdata->sde_caps_map))
 		SDE_REGDMA_WRITE(wrptr, ROT_WB_SYS_CACHE_MODE,
@@ -2212,6 +2226,7 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 		SDEROT_DBG("Supporting sys cache inline rotation\n");
 		set_bit(SDE_CAPS_MIN_BUS_VOTE,  mdata->sde_caps_map);
 		set_bit(SDE_CAPS_SBUF_1,  mdata->sde_caps_map);
+		set_bit(SDE_CAPS_UBWC_2,  mdata->sde_caps_map);
 		rot->inpixfmts = sde_hw_rotator_v4_inpixfmts;
 		rot->num_inpixfmt = ARRAY_SIZE(sde_hw_rotator_v4_inpixfmts);
 		rot->outpixfmts = sde_hw_rotator_v4_outpixfmts;
@@ -2736,6 +2751,26 @@ static int sde_hw_rotator_parse_dt(struct sde_hw_rotator *hw_data,
 	} else {
 		SDEROT_DBG("set highest bank bit to %d\n", data);
 		hw_data->highest_bank = data;
+	}
+
+	ret = of_property_read_u32(dev->dev.of_node,
+			"qcom,sde-ubwc-malsize", &data);
+	if (ret) {
+		ret = 0;
+		hw_data->ubwc_malsize = DEFAULT_UBWC_MALSIZE;
+	} else {
+		SDEROT_DBG("set ubwc malsize to %d\n", data);
+		hw_data->ubwc_malsize = data;
+	}
+
+	ret = of_property_read_u32(dev->dev.of_node,
+			"qcom,sde-ubwc_swizzle", &data);
+	if (ret) {
+		ret = 0;
+		hw_data->ubwc_swizzle = DEFAULT_UBWC_SWIZZLE;
+	} else {
+		SDEROT_DBG("set ubwc swizzle to %d\n", data);
+		hw_data->ubwc_swizzle = data;
 	}
 
 	ret = of_property_read_u32(dev->dev.of_node,

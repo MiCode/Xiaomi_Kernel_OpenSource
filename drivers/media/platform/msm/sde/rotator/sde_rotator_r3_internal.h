@@ -248,6 +248,9 @@ struct sde_hw_rotator_resource_info {
  * struct sde_hw_rotator : Rotator description
  * @hw:           mdp register mapped offset
  * @ops:          pointer to operations possible for the rotator HW
+ * @highest_bank: highest bank size of memory
+ * @ubwc_malsize: ubwc minimum allowable length
+ * @ubwc_swizzle: ubwc swizzle enable
  * @sbuf_headroom: stream buffer headroom in lines
  * @solid_fill: true if solid fill is requested
  * @constant_color: solid fill constant color
@@ -296,6 +299,8 @@ struct sde_hw_rotator {
 	void *swts_buffer;
 
 	u32    highest_bank;
+	u32    ubwc_malsize;
+	u32    ubwc_swizzle;
 	u32    sbuf_headroom;
 	u32    solid_fill;
 	u32    constant_color;
