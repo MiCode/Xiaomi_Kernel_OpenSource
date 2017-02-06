@@ -8969,7 +8969,7 @@ err_nomem_slimch:
 	devm_kfree(codec->dev, tomtom);
 	return ret;
 }
-static void tomtom_codec_remove(struct snd_soc_component *component)
+static int tomtom_codec_remove(struct snd_soc_component *component)
 {
 	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
@@ -8997,6 +8997,7 @@ static void tomtom_codec_remove(struct snd_soc_component *component)
 	tomtom->spkdrv2_reg = NULL;
 
 	devm_kfree(codec->dev, tomtom);
+	return 0;
 }
 
 static struct regmap *tomtom_get_regmap(struct device *dev)
