@@ -34,6 +34,7 @@
 #define PL_TAPER_EARLY_BAD_VOTER	"PL_TAPER_EARLY_BAD_VOTER"
 #define PARALLEL_PSY_VOTER		"PARALLEL_PSY_VOTER"
 #define PL_HW_ABSENT_VOTER		"PL_HW_ABSENT_VOTER"
+#define PL_VOTER			"PL_VOTER"
 
 struct pl_data {
 	int			pl_mode;
@@ -50,8 +51,9 @@ struct pl_data {
 	struct power_supply	*main_psy;
 	struct power_supply	*pl_psy;
 	struct power_supply	*batt_psy;
-	int			settled_ua;
 	int			charge_type;
+	int			main_settled_ua;
+	int			pl_settled_ua;
 	struct class		qcom_batt_class;
 	struct wakeup_source	*pl_ws;
 	struct notifier_block	nb;
@@ -85,7 +87,7 @@ enum {
 static void split_settled(struct pl_data *chip)
 {
 	int slave_icl_pct;
-	int slave_ua = 0;
+	int slave_ua = 0, main_settled_ua = 0;
 	union power_supply_propval pval = {0, };
 	int rc;
 
@@ -108,10 +110,11 @@ static void split_settled(struct pl_data *chip)
 			pr_err("Couldn't get aicl settled value rc=%d\n", rc);
 			return;
 		}
-		chip->settled_ua = pval.intval;
+		main_settled_ua = pval.intval;
 		/* slave gets 10 percent points less for ICL */
 		slave_icl_pct = max(0, chip->slave_pct - 10);
-		slave_ua = (chip->settled_ua * slave_icl_pct) / 100;
+		slave_ua = ((main_settled_ua + chip->pl_settled_ua)
+						* slave_icl_pct) / 100;
 	}
 
 	/* ICL_REDUCTION on main could be 0mA when pl is disabled */
@@ -131,6 +134,11 @@ static void split_settled(struct pl_data *chip)
 		pr_err("Couldn't set parallel icl, rc=%d\n", rc);
 		return;
 	}
+
+	/* main_settled_ua represents the total capability of adapter */
+	if (!chip->main_settled_ua)
+		chip->main_settled_ua = main_settled_ua;
+	chip->pl_settled_ua = slave_ua;
 }
 
 static ssize_t version_show(struct class *c, struct class_attribute *attr,
@@ -379,8 +387,9 @@ static int pl_disable_vote_callback(struct votable *votable,
 	union power_supply_propval pval = {0, };
 	int rc;
 
-	chip->settled_ua = 0;
 	chip->taper_pct = 100;
+	chip->main_settled_ua = 0;
+	chip->pl_settled_ua = 0;
 
 	if (!pl_disable) { /* enable */
 		rc = power_supply_get_property(chip->pl_psy,
@@ -561,6 +570,7 @@ static void handle_main_charge_type(struct pl_data *chip)
 	chip->charge_type = pval.intval;
 }
 
+#define MIN_ICL_CHANGE_DELTA_UA		300000
 static void handle_settled_aicl_split(struct pl_data *chip)
 {
 	union power_supply_propval pval = {0, };
@@ -579,10 +589,11 @@ static void handle_settled_aicl_split(struct pl_data *chip)
 			pr_err("Couldn't get aicl settled value rc=%d\n", rc);
 			return;
 		}
-		if (chip->settled_ua != pval.intval) {
-			chip->settled_ua = pval.intval;
+
+		/* If ICL change is small skip splitting */
+		if (abs((chip->main_settled_ua - chip->pl_settled_ua)
+				- pval.intval) > MIN_ICL_CHANGE_DELTA_UA)
 			split_settled(chip);
-		}
 	}
 }
 
