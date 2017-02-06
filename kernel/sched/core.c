@@ -3416,8 +3416,6 @@ void scheduler_tick(void)
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
 
-	if (cpu == tick_do_timer_cpu)
-		core_ctl_check(wallclock);
 	sched_freq_tick(cpu);
 }
 
