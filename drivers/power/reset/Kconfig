@@ -94,7 +94,7 @@ config POWER_RESET_GPIO_RESTART
 	  create a binding in your devicetree.
 
 config POWER_RESET_HISI
-	bool "Hisilicon power-off driver"
+	tristate "Hisilicon power-off driver"
 	depends on ARCH_HISI
 	help
 	  Reboot support for Hisilicon boards.
