@@ -275,6 +275,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		mutex_lock(&this_afe.cal_data[AFE_CUST_TOPOLOGY_CAL]->lock);
 		this_afe.set_custom_topology = 1;
 		mutex_unlock(&this_afe.cal_data[AFE_CUST_TOPOLOGY_CAL]->lock);
+		rtac_clear_mapping(AFE_RTAC_CAL);
 
 		if (this_afe.apr) {
 			apr_reset(this_afe.apr);
