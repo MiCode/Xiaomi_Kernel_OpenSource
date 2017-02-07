@@ -444,6 +444,11 @@ struct adm_param_data_v5 {
 	 */
 } __packed;
 
+#define ASM_STREAM_CMD_REGISTER_PP_EVENTS 0x00013213
+#define ASM_STREAM_PP_EVENT 0x00013214
+#define DSP_STREAM_CMD "ADSP Stream Cmd"
+#define DSP_STREAM_CALLBACK "ADSP Stream Callback Event"
+
 /* set customized mixing on matrix mixer */
 #define ADM_CMD_SET_PSPD_MTMX_STRTR_PARAMS_V5                        0x00010344
 struct adm_cmd_set_pspd_mtmx_strtr_params_v5 {

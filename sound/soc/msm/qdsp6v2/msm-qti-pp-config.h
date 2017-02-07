@@ -13,7 +13,17 @@
 #define _MSM_QTI_PP_H_
 
 #include <sound/soc.h>
-
+int msm_adsp_inform_mixer_ctl(struct snd_soc_pcm_runtime *rtd,
+			const char *mixer_ctl_name,
+			uint32_t *payload);
+int msm_adsp_stream_cmd_info(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_info *uinfo);
+int msm_adsp_stream_callback_put(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol);
+int msm_adsp_stream_callback_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol);
+int msm_adsp_stream_callback_info(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_info *uinfo);
 #ifdef CONFIG_QTI_PP
 void msm_qti_pp_send_eq_values(int fedai_id);
 int msm_qti_pp_send_stereo_to_custom_stereo_cmd(int port_id, int copp_idx,

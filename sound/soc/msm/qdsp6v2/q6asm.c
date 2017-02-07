@@ -1091,6 +1091,65 @@ fail:
 	return NULL;
 }
 
+int q6asm_send_stream_cmd(struct audio_client *ac, uint32_t opcode,
+			void *param, uint32_t params_length)
+{
+	char *asm_params = NULL;
+	struct apr_hdr hdr;
+	int sz, rc;
+
+	if (!param || !ac) {
+		pr_err("%s: %s is NULL\n", __func__,
+			(!param) ? "param" : "ac");
+		rc = -EINVAL;
+		goto done;
+	}
+
+	sz = sizeof(struct apr_hdr) + params_length;
+	asm_params = kzalloc(sz, GFP_KERNEL);
+	if (!asm_params) {
+		rc = -ENOMEM;
+		goto done;
+	}
+
+	q6asm_add_hdr_async(ac, &hdr, sizeof(struct apr_hdr) +
+		params_length, TRUE);
+	atomic_set(&ac->cmd_state_pp, -1);
+	hdr.opcode = opcode;
+	memcpy(asm_params, &hdr, sizeof(struct apr_hdr));
+	memcpy(asm_params + sizeof(struct apr_hdr),
+		param, params_length);
+	rc = apr_send_pkt(ac->apr, (uint32_t *) asm_params);
+	if (rc < 0) {
+		pr_err("%s: audio adsp pp register failed\n", __func__);
+		rc = -EINVAL;
+		goto fail_send_param;
+	}
+
+	rc = wait_event_timeout(ac->cmd_wait,
+				(atomic_read(&ac->cmd_state_pp) >= 0), 1 * HZ);
+	if (!rc) {
+		pr_err("%s: timeout, adsp pp register\n", __func__);
+		rc = -ETIMEDOUT;
+		goto fail_send_param;
+	}
+
+	if (atomic_read(&ac->cmd_state_pp) > 0) {
+		pr_err("%s: DSP returned error[%s] adsp pp register\n",
+				__func__, adsp_err_get_err_str(
+				atomic_read(&ac->cmd_state_pp)));
+		rc = adsp_err_get_lnx_err_code(
+				atomic_read(&ac->cmd_state_pp));
+		goto fail_send_param;
+	}
+
+	rc = 0;
+fail_send_param:
+	kfree(asm_params);
+done:
+	return rc;
+}
+
 struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 {
 	struct audio_client *ac;
@@ -1608,6 +1667,8 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	int32_t  ret = 0;
 	union asm_token_struct asm_token;
 	uint8_t buf_index;
+	char *pp_event_package = NULL;
+	uint32_t payload_size = 0;
 
 	if (ac == NULL) {
 		pr_err("%s: ac NULL\n", __func__);
@@ -1790,6 +1851,17 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 							data->payload_size);
 			}
 			break;
+		case ASM_STREAM_CMD_REGISTER_PP_EVENTS:
+			pr_debug("%s: ASM_STREAM_CMD_REGISTER_PP_EVENTS session %d opcode 0x%x token 0x%x src %d dest %d\n",
+				__func__, ac->session,
+				data->opcode, data->token,
+				data->src_port, data->dest_port);
+			if (payload[1] != 0)
+				pr_err("%s: ASM get param error = %d, resuming\n",
+					__func__, payload[1]);
+			atomic_set(&ac->cmd_state_pp, payload[1]);
+			wake_up(&ac->cmd_wait);
+			break;
 		default:
 			pr_debug("%s: command[0x%x] not expecting rsp\n",
 							__func__, payload[0]);
@@ -1961,6 +2033,26 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	case ASM_SESSION_CMDRSP_GET_MTMX_STRTR_PARAMS_V2:
 		q6asm_process_mtmx_get_param_rsp(ac, (void *) payload);
 		break;
+	case ASM_STREAM_PP_EVENT:
+		pr_debug("%s: ASM_STREAM_PP_EVENT payload[0][0x%x] payload[1][0x%x]",
+				 __func__, payload[0], payload[1]);
+		/* repack payload for asm_stream_pp_event
+		 * package is composed of size + actual payload
+		 */
+		payload_size = data->payload_size;
+		pp_event_package =
+			kzalloc(payload_size + sizeof(payload_size),
+				GFP_ATOMIC);
+		if (!pp_event_package)
+			return -ENOMEM;
+		memcpy((void *)pp_event_package,
+			&payload_size, sizeof(payload_size));
+		memcpy((void *)pp_event_package + sizeof(payload_size),
+				data->payload, payload_size);
+		ac->cb(data->opcode, data->token,
+			(void *)pp_event_package, ac->priv);
+		kfree(pp_event_package);
+		return 0;
 	case ASM_SESSION_CMDRSP_GET_PATH_DELAY_V2:
 		pr_debug("%s: ASM_SESSION_CMDRSP_GET_PATH_DELAY_V2 session %d status 0x%x msw %u lsw %u\n",
 				__func__, ac->session, payload[0], payload[2],
