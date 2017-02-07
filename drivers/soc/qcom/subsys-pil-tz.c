@@ -917,7 +917,7 @@ static irqreturn_t subsys_stop_ack_intr_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void check_pbl_done(struct pil_tz_data *d)
+static void clear_pbl_done(struct pil_tz_data *d)
 {
 	uint32_t err_value;
 
@@ -944,17 +944,18 @@ static void check_pbl_done(struct pil_tz_data *d)
 	__raw_writel(BIT(d->bits_arr[PBL_DONE]), d->irq_clear);
 }
 
-static void check_err_ready(struct pil_tz_data *d)
+static void clear_err_ready(struct pil_tz_data *d)
 {
-	uint32_t err_value;
-
-	err_value =  __raw_readl(d->err_status_spare);
-	if (!err_value) {
-		pr_debug("Subsystem error services up received from %s!\n",
+	pr_debug("Subsystem error services up received from %s\n",
 							d->subsys_desc.name);
-		__raw_writel(BIT(d->bits_arr[ERR_READY]), d->irq_clear);
-		complete_err_ready(d->subsys);
-	} else if (err_value == 0x44554d50) {
+	__raw_writel(BIT(d->bits_arr[ERR_READY]), d->irq_clear);
+	complete_err_ready(d->subsys);
+}
+
+static void clear_wdog(struct pil_tz_data *d)
+{
+	/* Check crash status to know if device is restarting*/
+	if (!subsys_get_crash_status(d->subsys)) {
 		pr_err("wdog bite received from %s!\n", d->subsys_desc.name);
 		__raw_writel(BIT(d->bits_arr[ERR_READY]), d->irq_clear);
 		subsys_set_crash_status(d->subsys, true);
@@ -966,17 +967,21 @@ static void check_err_ready(struct pil_tz_data *d)
 static irqreturn_t subsys_generic_handler(int irq, void *dev_id)
 {
 	struct pil_tz_data *d = subsys_to_data(dev_id);
-	uint32_t status_val;
+	uint32_t status_val, err_value;
 
-	if (subsys_get_crash_status(d->subsys))
-		return IRQ_HANDLED;
-
+	err_value =  __raw_readl(d->err_status_spare);
 	status_val = __raw_readl(d->irq_status);
 
-	if (status_val & BIT(d->bits_arr[ERR_READY]))
-		check_err_ready(d);
-	else if (status_val & BIT(d->bits_arr[PBL_DONE]))
-		check_pbl_done(d);
+	if ((status_val & BIT(d->bits_arr[ERR_READY])) && !err_value)
+		clear_err_ready(d);
+
+	if ((status_val & BIT(d->bits_arr[ERR_READY])) &&
+					err_value == 0x44554d50)
+		clear_wdog(d);
+
+	if (status_val & BIT(d->bits_arr[PBL_DONE]))
+		clear_pbl_done(d);
+
 	return IRQ_HANDLED;
 }
 
