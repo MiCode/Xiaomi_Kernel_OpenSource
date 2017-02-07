@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  * Copyright (C) 2006-2007 Adam Belay <abelay@novell.com>
  * Copyright (C) 2009 Intel Corporation
  *
@@ -1485,7 +1485,7 @@ static int lpm_cpuidle_select(struct cpuidle_driver *drv,
 	idx = cpu_power_select(dev, cluster->cpu);
 
 	if (idx < 0)
-		return -EPERM;
+		return 0;
 
 	return idx;
 }
