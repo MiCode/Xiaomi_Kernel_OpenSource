@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1048,9 +1048,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_PERF_MODE,
 		.name = "Set Encoder performance mode",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = V4L2_MPEG_VIDC_VIDEO_PERF_MAX_QUALITY,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_PERF_UNINIT,
 		.maximum = V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE,
-		.default_value = V4L2_MPEG_VIDC_VIDEO_PERF_MAX_QUALITY,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_PERF_UNINIT,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -1666,9 +1666,10 @@ static int msm_venc_toggle_hier_p(struct msm_vidc_inst *inst, int layers)
 
 static inline int msm_venc_power_save_mode_enable(struct msm_vidc_inst *inst)
 {
-	u32 rc = 0;
-	u32 prop_id = 0, power_save_min = 0, power_save_max = 0, inst_load = 0;
+	u32 rc = 0, height = 0, width = 0;
+	u32 prop_id = 0, hq_max = 0, power_conf = 0, inst_load = 0;
 	void *pdata = NULL;
+	bool set_by_client = false, enable_low_power = false;
 	struct hfi_device *hdev = NULL;
 	enum hal_perf_mode venc_mode;
 	enum load_calc_quirks quirks = LOAD_CALC_IGNORE_TURBO_LOAD |
@@ -1679,20 +1680,38 @@ static inline int msm_venc_power_save_mode_enable(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	inst_load = msm_comm_get_inst_load(inst, quirks);
-	power_save_min = inst->capability.mbs_per_sec_power_save.min;
-	power_save_max = inst->capability.mbs_per_sec_power_save.max;
-
-	if (!power_save_min || !power_save_max)
-		return rc;
-
 	hdev = inst->core->device;
-	if (inst_load >= power_save_min && inst_load <= power_save_max) {
+	inst_load = msm_comm_get_inst_load(inst, quirks);
+	hq_max = inst->capability.mbs_per_sec.max;
+	power_conf = inst->core->resources.power_conf;
+	height = inst->prop.height[CAPTURE_PORT];
+	width = inst->prop.width[CAPTURE_PORT];
+
+	switch (msm_comm_g_ctrl_for_id(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_PERF_MODE)) {
+		case V4L2_MPEG_VIDC_VIDEO_PERF_MAX_QUALITY:
+		case V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE:
+			set_by_client = true;
+			break;
+	}
+
+	if (inst_load > hq_max) {
+		dprintk(VIDC_INFO, "Setting low power w.r.t core limitation\n");
+		enable_low_power = true;
+	} else if (!set_by_client) {
+		if (power_conf && width * height >= power_conf) {
+			dprintk(VIDC_INFO,
+				"Setting low power w.r.t system power recommendation\n");
+			enable_low_power = true;
+		}
+	}
+
+	if (enable_low_power) {
 		prop_id = HAL_CONFIG_VENC_PERF_MODE;
 		venc_mode = HAL_PERF_MODE_POWER_SAVE;
 		pdata = &venc_mode;
 		rc = call_hfi_op(hdev, session_set_property,
-				(void *)inst->session, prop_id, pdata);
+			(void *)inst->session, prop_id, pdata);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"%s: Failed to set power save mode for inst: %pK\n",
@@ -1758,6 +1777,7 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct msm_vidc_inst *inst;
 	int rc = 0;
+	struct vb2_buf_entry *temp, *next;
 	if (!q || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %pK\n", q);
 		return -EINVAL;
@@ -1795,6 +1815,19 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	}
 
 stream_start_failed:
+	if (rc) {
+		mutex_lock(&inst->pendingq.lock);
+		list_for_each_entry_safe(temp, next, &inst->pendingq.list,
+			list) {
+			if (temp->vb->type == q->type) {
+				vb2_buffer_done(temp->vb,
+					VB2_BUF_STATE_QUEUED);
+				list_del(&temp->list);
+				kfree(temp);
+			}
+		}
+		mutex_unlock(&inst->pendingq.lock);
+	}
 	return rc;
 }
 
@@ -3143,7 +3176,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		}
 		pdata = &venc_mode;
-
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS:
 		if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC) {
