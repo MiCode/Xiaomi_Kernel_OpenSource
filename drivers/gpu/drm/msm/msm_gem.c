@@ -457,27 +457,6 @@ int msm_gem_get_iova(struct drm_gem_object *obj, int id, uint32_t *iova)
 	return ret;
 }
 
-int msm_gem_get_iova_in_domain(struct drm_gem_object *obj, int domian,
-	uint32_t *iova)
-{
-	struct msm_drm_private *priv = obj->dev->dev_private;
-	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	int id;
-	int ret = -1;
-
-	mutex_lock(&obj->dev->struct_mutex);
-	for (id = 0; id < ARRAY_SIZE(msm_obj->domain); id++) {
-		struct msm_mmu *mmu = priv->mmus[id];
-
-		if (mmu->domain == domian) {
-			ret = msm_gem_get_iova_locked(obj, id, iova);
-			break;
-		}
-	}
-	mutex_unlock(&obj->dev->struct_mutex);
-	return ret;
-}
-
 /* get iova without taking a reference, used in places where you have
  * already done a 'msm_gem_get_iova()'.
  */
@@ -567,11 +546,15 @@ void msm_gem_move_to_active(struct drm_gem_object *obj,
 		struct msm_gpu *gpu, bool write, uint32_t fence)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct drm_device *dev = obj->dev;
+
+	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
+
 	msm_obj->gpu = gpu;
 	if (write)
-		msm_obj->write_fence = fence;
+		msm_obj->write_timestamp = fence;
 	else
-		msm_obj->read_fence = fence;
+		msm_obj->read_timestamp = fence;
 	list_del_init(&msm_obj->mm_list);
 	list_add_tail(&msm_obj->mm_list, &gpu->active_list);
 }
@@ -585,8 +568,8 @@ void msm_gem_move_to_inactive(struct drm_gem_object *obj)
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
 	msm_obj->gpu = NULL;
-	msm_obj->read_fence = 0;
-	msm_obj->write_fence = 0;
+	msm_obj->read_timestamp = 0;
+	msm_obj->write_timestamp = 0;
 	list_del_init(&msm_obj->mm_list);
 	list_add_tail(&msm_obj->mm_list, &priv->inactive_list);
 }
@@ -627,7 +610,7 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 	seq_printf(m, "%08x: %c(r=%u,w=%u) %2d (%2d) %08llx %p %zu\n",
 			msm_obj->flags, is_active(msm_obj) ? 'A' : 'I',
-			msm_obj->read_fence, msm_obj->write_fence,
+			msm_obj->read_timestamp, msm_obj->write_timestamp,
 			obj->name, obj->refcount.refcount.counter,
 			off, msm_obj->vaddr, obj->size);
 }

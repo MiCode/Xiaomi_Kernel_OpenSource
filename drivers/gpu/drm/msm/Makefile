@@ -51,7 +51,6 @@ msm-y := \
 	msm_gem_prime.o \
 	msm_gem_submit.o \
 	msm_gpu.o \
-	msm_iommu.o \
 	msm_smmu.o \
 	msm_perf.o \
 	msm_rd.o \
@@ -64,7 +63,8 @@ msm-y := \
 ifneq ($(CONFIG_QCOM_KGSL),y)
 msm-y += adreno/adreno_device.o \
 	adreno/adreno_gpu.o \
-	adreno/a5xx_gpu.o
+	adreno/a5xx_gpu.o \
+	adreno/adreno_perfcounter.o
 endif
 
 msm-$(CONFIG_DRM_MSM_HDCP) += hdmi/hdmi_hdcp.o
