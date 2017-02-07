@@ -40,7 +40,6 @@ enum print_reason {
 #define CHG_STATE_VOTER			"CHG_STATE_VOTER"
 #define TYPEC_SRC_VOTER			"TYPEC_SRC_VOTER"
 #define TAPER_END_VOTER			"TAPER_END_VOTER"
-#define FCC_MAX_RESULT_VOTER		"FCC_MAX_RESULT_VOTER"
 #define THERMAL_DAEMON_VOTER		"THERMAL_DAEMON_VOTER"
 #define CC_DETACHED_VOTER		"CC_DETACHED_VOTER"
 #define HVDCP_TIMEOUT_VOTER		"HVDCP_TIMEOUT_VOTER"
@@ -202,7 +201,6 @@ struct smb_charger {
 	/* votables */
 	struct votable		*usb_suspend_votable;
 	struct votable		*dc_suspend_votable;
-	struct votable		*fcc_max_votable;
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;
 	struct votable		*usb_icl_votable;

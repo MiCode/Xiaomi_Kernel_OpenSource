@@ -766,14 +766,6 @@ static int smblib_dc_suspend_vote_callback(struct votable *votable, void *data,
 	return smblib_set_dc_suspend(chg, (bool)suspend);
 }
 
-static int smblib_fcc_max_vote_callback(struct votable *votable, void *data,
-			int fcc_ua, const char *client)
-{
-	struct smb_charger *chg = data;
-
-	return vote(chg->fcc_votable, FCC_MAX_RESULT_VOTER, true, fcc_ua);
-}
-
 #define USBIN_25MA	25000
 #define USBIN_100MA	100000
 #define USBIN_150MA	150000
@@ -3763,14 +3755,6 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
-	chg->fcc_max_votable = create_votable("FCC_MAX", VOTE_MAX,
-					smblib_fcc_max_vote_callback,
-					chg);
-	if (IS_ERR(chg->fcc_max_votable)) {
-		rc = PTR_ERR(chg->fcc_max_votable);
-		return rc;
-	}
-
 	chg->usb_icl_votable = create_votable("USB_ICL", VOTE_MIN,
 					smblib_usb_icl_vote_callback,
 					chg);
@@ -3864,8 +3848,6 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->usb_suspend_votable);
 	if (chg->dc_suspend_votable)
 		destroy_votable(chg->dc_suspend_votable);
-	if (chg->fcc_max_votable)
-		destroy_votable(chg->fcc_max_votable);
 	if (chg->usb_icl_votable)
 		destroy_votable(chg->usb_icl_votable);
 	if (chg->dc_icl_votable)
