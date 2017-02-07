@@ -290,6 +290,10 @@
 					  "msg-tx-failed",
 					  "msg-tx-discarded",
 					  "msg-rx-discarded";
+
+			qcom,default-sink-caps = <5000 3000>, /* 5V @ 3A */
+						 <9000 3000>, /* 9V @ 3A */
+						 <12000 2250>; /* 12V @ 2.25A */
 		};
 
 		bcl@4200 {
