@@ -707,74 +707,6 @@ static int copy_caps_to_sessions(struct hfi_capability_supported *cap,
 	return 0;
 }
 
-static int copy_alloc_mode_to_sessions(
-		struct hfi_buffer_alloc_mode_supported *prop,
-		struct msm_vidc_capability *capabilities,
-		u32 num_sessions, u32 codecs, u32 domain)
-{
-	u32 i = 0, j = 0;
-	struct msm_vidc_capability *capability;
-	u32 sess_codec;
-	u32 sess_domain;
-
-	/*
-	 * iterate over num_sessions and copy all the entries
-	 * to matching sessions.
-	 */
-	for (i = 0; i < num_sessions; i++) {
-		sess_codec = 0;
-		sess_domain = 0;
-		capability = &capabilities[i];
-
-		if (capability->codec)
-			sess_codec =
-				vidc_get_hfi_codec(capability->codec);
-		if (capability->domain)
-			sess_domain =
-				vidc_get_hfi_domain(capability->domain);
-
-		if (!(sess_codec & codecs && sess_domain & domain))
-			continue;
-
-		for (j = 0; j < prop->num_entries; j++) {
-			if (prop->buffer_type == HFI_BUFFER_OUTPUT ||
-				prop->buffer_type == HFI_BUFFER_OUTPUT2) {
-				switch (prop->rg_data[j]) {
-				case HFI_BUFFER_MODE_STATIC:
-					capability->alloc_mode_out |=
-						HAL_BUFFER_MODE_STATIC;
-					break;
-				case HFI_BUFFER_MODE_RING:
-					capability->alloc_mode_out |=
-						HAL_BUFFER_MODE_RING;
-					break;
-				case HFI_BUFFER_MODE_DYNAMIC:
-					capability->alloc_mode_out |=
-						HAL_BUFFER_MODE_DYNAMIC;
-					break;
-				}
-			} else if (prop->buffer_type == HFI_BUFFER_INPUT) {
-				switch (prop->rg_data[j]) {
-				case HFI_BUFFER_MODE_STATIC:
-					capability->alloc_mode_in |=
-						HAL_BUFFER_MODE_STATIC;
-					break;
-				case HFI_BUFFER_MODE_RING:
-					capability->alloc_mode_in |=
-						HAL_BUFFER_MODE_RING;
-					break;
-				case HFI_BUFFER_MODE_DYNAMIC:
-					capability->alloc_mode_in |=
-						HAL_BUFFER_MODE_DYNAMIC;
-					break;
-				}
-			}
-		}
-	}
-
-	return 0;
-}
-
 static enum vidc_status hfi_parse_init_done_properties(
 		struct msm_vidc_capability *capabilities,
 		u32 num_sessions, u8 *data_ptr, u32 num_properties,
@@ -913,13 +845,6 @@ static enum vidc_status hfi_parse_init_done_properties(
 			num_properties--;
 			break;
 		}
-		case HFI_PROPERTY_PARAM_INTERLACE_FORMAT_SUPPORTED:
-		{
-			next_offset +=
-				sizeof(struct hfi_interlace_format_supported);
-			num_properties--;
-			break;
-		}
 		case HFI_PROPERTY_PARAM_NAL_STREAM_FORMAT_SUPPORTED:
 		{
 			next_offset +=
@@ -933,39 +858,10 @@ static enum vidc_status hfi_parse_init_done_properties(
 			num_properties--;
 			break;
 		}
-		case HFI_PROPERTY_PARAM_MAX_SEQUENCE_HEADER_SIZE:
-		{
-			next_offset += sizeof(u32);
-			num_properties--;
-			break;
-		}
 		case HFI_PROPERTY_PARAM_VENC_INTRA_REFRESH:
 		{
 			next_offset +=
 				sizeof(struct hfi_intra_refresh);
-			num_properties--;
-			break;
-		}
-		case HFI_PROPERTY_PARAM_BUFFER_ALLOC_MODE_SUPPORTED:
-		{
-			struct hfi_buffer_alloc_mode_supported *prop =
-				(struct hfi_buffer_alloc_mode_supported *)
-				(data_ptr + next_offset);
-
-			if (prop->num_entries >= 32) {
-				dprintk(VIDC_ERR,
-					"%s - num_entries: %d from f/w seems suspect\n",
-					__func__, prop->num_entries);
-				break;
-			}
-			next_offset +=
-				sizeof(struct hfi_buffer_alloc_mode_supported) -
-				sizeof(u32) + prop->num_entries * sizeof(u32);
-
-			copy_alloc_mode_to_sessions(prop,
-					capabilities, num_sessions,
-					codecs, domain);
-
 			num_properties--;
 			break;
 		}
@@ -1752,42 +1648,6 @@ static int hfi_process_session_abort_done(u32 device_id,
 	return 0;
 }
 
-static int hfi_process_session_get_seq_hdr_done(
-		u32 device_id,
-		struct hfi_msg_session_get_sequence_header_done_packet *pkt,
-		struct msm_vidc_cb_info *info)
-{
-	struct msm_vidc_cb_data_done data_done = {0};
-
-	if (!pkt || pkt->size !=
-		sizeof(struct
-		hfi_msg_session_get_sequence_header_done_packet)) {
-		dprintk(VIDC_ERR, "%s: bad packet/packet size\n",
-			__func__);
-		return -E2BIG;
-	}
-
-	dprintk(VIDC_DBG, "RECEIVED:SESSION_GET_SEQ_HDR_DONE[%#x]\n",
-			pkt->session_id);
-
-	data_done.device_id = device_id;
-	data_done.size = sizeof(struct msm_vidc_cb_data_done);
-	data_done.session_id = (void *)(uintptr_t)pkt->session_id;
-	data_done.status = hfi_map_err_status(pkt->error_type);
-	data_done.output_done.packet_buffer1 =
-		(ion_phys_addr_t)pkt->sequence_header;
-	data_done.output_done.filled_len1 = pkt->header_len;
-	dprintk(VIDC_INFO, "seq_hdr: %#x, Length: %d\n",
-			pkt->sequence_header, pkt->header_len);
-
-	*info = (struct msm_vidc_cb_info) {
-		.response_type =  HAL_SESSION_GET_SEQ_HDR_DONE,
-		.response.data = data_done,
-	};
-
-	return 0;
-}
-
 static void hfi_process_sys_get_prop_image_version(
 		struct hfi_msg_sys_property_info_packet *pkt)
 {
@@ -1932,9 +1792,6 @@ int hfi_process_msg_packet(u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr,
 		break;
 	case HFI_MSG_SYS_RELEASE_RESOURCE:
 		pkt_func = (pkt_func_def)hfi_process_sys_rel_resource_done;
-		break;
-	case HFI_MSG_SESSION_GET_SEQUENCE_HEADER_DONE:
-		pkt_func = (pkt_func_def) hfi_process_session_get_seq_hdr_done;
 		break;
 	case HFI_MSG_SESSION_RELEASE_BUFFERS_DONE:
 		pkt_func = (pkt_func_def)hfi_process_session_rel_buf_done;

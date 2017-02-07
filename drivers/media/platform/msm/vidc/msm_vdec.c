@@ -51,7 +51,6 @@ static const char *const mpeg_video_output_order[] = {
 };
 static const char *const mpeg_vidc_video_alloc_mode_type[] = {
 	"Buffer Allocation Static",
-	"Buffer Allocation Ring Buffer",
 	"Buffer Allocation Dynamic Buffer"
 };
 
@@ -1298,7 +1297,6 @@ static int msm_vdec_queue_setup(
 	default:
 		dprintk(VIDC_ERR, "Invalid q type = %d\n", q->type);
 		rc = -EINVAL;
-		break;
 	}
 exit:
 	return rc;
@@ -1663,12 +1661,10 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->capability.height.max = DEFAULT_HEIGHT;
 	inst->capability.width.min = MIN_SUPPORTED_WIDTH;
 	inst->capability.width.max = DEFAULT_WIDTH;
-	inst->capability.alloc_mode_in = HAL_BUFFER_MODE_STATIC;
-	inst->capability.alloc_mode_out = HAL_BUFFER_MODE_STATIC;
 	inst->capability.secure_output2_threshold.min = 0;
 	inst->capability.secure_output2_threshold.max = 0;
 	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
-	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
+	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_DYNAMIC;
 	inst->prop.fps = DEFAULT_FPS;
 	inst->operating_rate = 0;
 	memcpy(&inst->fmts[OUTPUT_PORT], &vdec_formats[2],
@@ -1929,7 +1925,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	void *pdata = NULL;
 	struct hfi_device *hdev;
 	struct hal_extradata_enable extra;
-	struct hal_buffer_alloc_mode alloc_mode;
 	struct hal_multi_stream multi_stream;
 	struct v4l2_ctrl *temp_ctrl = NULL;
 	struct hal_profile_level profile_level;
@@ -2084,16 +2079,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					"Failed setting OUTPUT2 size : %d\n",
 					rc);
 
-			alloc_mode.buffer_mode =
-				inst->buffer_mode_set[CAPTURE_PORT];
-			alloc_mode.buffer_type = HAL_BUFFER_OUTPUT2;
-			rc = call_hfi_op(hdev, session_set_property,
-				inst->session, HAL_PARAM_BUFFER_ALLOC_MODE,
-				&alloc_mode);
-			if (rc)
-				dprintk(VIDC_ERR,
-					"Failed to set alloc_mode on OUTPUT2: %d\n",
-					rc);
 			break;
 		default:
 			dprintk(VIDC_ERR,

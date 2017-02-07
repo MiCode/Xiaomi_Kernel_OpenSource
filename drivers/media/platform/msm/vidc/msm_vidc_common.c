@@ -3708,20 +3708,6 @@ static void log_frame(struct msm_vidc_inst *inst, struct vidc_frame_data *data,
 			"Failed to scale bus. Performance might be impacted\n");
 }
 
-static int request_seq_header(struct msm_vidc_inst *inst,
-		struct vidc_frame_data *data)
-{
-	struct vidc_seq_hdr seq_hdr = {
-		.seq_hdr = data->device_addr,
-		.seq_hdr_len = data->alloc_len,
-	};
-
-	dprintk(VIDC_DBG, "Requesting sequence header in %pa\n",
-			&seq_hdr.seq_hdr);
-	return call_hfi_op(inst->core->device, session_get_seq_hdr,
-			inst->session, &seq_hdr);
-}
-
 /*
  * Attempts to queue `vb` to hardware.  If, for various reasons, the buffer
  * cannot be queued to hardware, the buffer will be staged for commit in the
@@ -3861,18 +3847,6 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb)
 	if (batch_mode) {
 		int ftb_index = 0, c = 0;
 
-		for (c = 0; atomic_read(&inst->seq_hdr_reqs) > 0; ++c) {
-			rc = request_seq_header(inst, &ftbs.data[c]);
-			if (rc) {
-				dprintk(VIDC_ERR,
-						"Failed requesting sequence header: %d\n",
-						rc);
-				goto err_bad_input;
-			}
-
-			atomic_dec(&inst->seq_hdr_reqs);
-		}
-
 		ftb_index = c;
 		rc = call_hfi_op(hdev, session_process_batch, inst->session,
 				etbs.count, etbs.data,
@@ -3916,18 +3890,6 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb)
 
 	if (!batch_mode && ftbs.count) {
 		int c = 0;
-
-		for (c = 0; atomic_read(&inst->seq_hdr_reqs) > 0; ++c) {
-			rc = request_seq_header(inst, &ftbs.data[c]);
-			if (rc) {
-				dprintk(VIDC_ERR,
-						"Failed requesting sequence header: %d\n",
-						rc);
-				goto err_bad_input;
-			}
-
-			atomic_dec(&inst->seq_hdr_reqs);
-		}
 
 		for (; c < ftbs.count; ++c) {
 			struct vidc_frame_data *frame_data = &ftbs.data[c];

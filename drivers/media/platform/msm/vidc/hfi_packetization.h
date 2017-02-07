@@ -23,8 +23,7 @@
 	((q)->pkt_ops->op(args)) : 0)
 
 enum hfi_packetization_type {
-	HFI_PACKETIZATION_LEGACY,
-	HFI_PACKETIZATION_3XX,
+	HFI_PACKETIZATION_4XX,
 };
 
 struct hfi_packetization_ops {
@@ -74,12 +73,6 @@ struct hfi_packetization_ops {
 	int (*session_ftb)(struct hfi_cmd_session_fill_buffer_packet *pkt,
 		struct hal_session *session,
 		struct vidc_frame_data *output_frame);
-	int (*session_parse_seq_header)(
-		struct hfi_cmd_session_parse_sequence_header_packet *pkt,
-		struct hal_session *session, struct vidc_seq_hdr *seq_hdr);
-	int (*session_get_seq_hdr)(
-		struct hfi_cmd_session_get_sequence_header_packet *pkt,
-		struct hal_session *session, struct vidc_seq_hdr *seq_hdr);
 	int (*session_get_buf_req)(
 		struct hfi_cmd_session_get_property_packet *pkt,
 		struct hal_session *session);

@@ -292,7 +292,6 @@ struct msm_vidc_inst {
 	struct msm_vidc_capability capability;
 	u32 buffer_size_limit;
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
-	atomic_t seq_hdr_reqs;
 	struct v4l2_ctrl **ctrls;
 	bool dcvs_mode;
 	enum msm_vidc_pixel_depth bit_depth;
