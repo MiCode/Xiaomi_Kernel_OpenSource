@@ -4985,8 +4985,8 @@ dma_addr_t xhci_get_sec_event_ring_dma_addr(struct usb_hcd *hcd,
 {
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 
-	if (intr_num > xhci->max_interrupters) {
-		xhci_err(xhci, "intr num %d > max intrs %d\n", intr_num,
+	if (intr_num >= xhci->max_interrupters) {
+		xhci_err(xhci, "intr num %d >= max intrs %d\n", intr_num,
 			xhci->max_interrupters);
 		return 0;
 	}
