@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -655,7 +655,7 @@ static void __tpdm_enable(struct tpdm_drvdata *drvdata)
 }
 
 static int tpdm_enable(struct coresight_device *csdev,
-		       struct perf_event_attr *attr,  u32 mode)
+		       struct perf_event *event, u32 mode)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 	int ret;
@@ -731,7 +731,8 @@ static void __tpdm_disable(struct tpdm_drvdata *drvdata)
 	TPDM_LOCK(drvdata);
 }
 
-static void tpdm_disable(struct coresight_device *csdev)
+static void tpdm_disable(struct coresight_device *csdev,
+			 struct perf_event *event)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
