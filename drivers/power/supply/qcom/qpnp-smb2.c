@@ -1889,6 +1889,7 @@ static int smb2_request_interrupt(struct smb2 *chip,
 	irq_data->parent_data = chip;
 	irq_data->name = irq_name;
 	irq_data->storm_data = smb2_irqs[irq_index].storm_data;
+	mutex_init(&irq_data->storm_data.storm_lock);
 
 	rc = devm_request_threaded_irq(chg->dev, irq, NULL,
 					smb2_irqs[irq_index].handler,

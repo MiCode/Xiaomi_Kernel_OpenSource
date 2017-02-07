@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,7 @@ bool is_storming(struct storm_watch *data)
 	if (data->storm_period_ms <= 0)
 		return false;
 
+	mutex_lock(&data->storm_lock);
 	curr_kt = ktime_get_boottime();
 	delta_kt = ktime_sub(curr_kt, data->last_kt);
 
@@ -53,5 +54,13 @@ bool is_storming(struct storm_watch *data)
 	}
 
 	data->last_kt = curr_kt;
+	mutex_unlock(&data->storm_lock);
 	return is_storming;
+}
+
+void reset_storm_count(struct storm_watch *data)
+{
+	mutex_lock(&data->storm_lock);
+	data->storm_count = 0;
+	mutex_unlock(&data->storm_lock);
 }

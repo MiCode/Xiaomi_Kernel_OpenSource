@@ -1197,6 +1197,7 @@ static int smb138x_request_interrupt(struct smb138x *chip,
 	irq_data->parent_data = chip;
 	irq_data->name = irq_name;
 	irq_data->storm_data = smb138x_irqs[irq_index].storm_data;
+	mutex_init(&irq_data->storm_data.storm_lock);
 
 	rc = devm_request_threaded_irq(chg->dev, irq, NULL,
 					smb138x_irqs[irq_index].handler,
