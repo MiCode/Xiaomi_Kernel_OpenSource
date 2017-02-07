@@ -163,6 +163,24 @@ Second Level Nodes - Regulator Interfaces
 		    regulator.  Supported values are RPMH_REGULATOR_LEVEL_*
 		    (i.e. 1 to ~513).
 
+- qcom,min-dropout-voltage
+	Usage:      optional; VRM regulators only
+	Value type: <u32>
+	Definition: Specifies the minimum voltage in microvolts that the parent
+		    supply regulator must output above the output of this
+		    regulator.  It is only meaningful if the property
+		    <regulator-name>-parent-supply has been specified in the
+		    first level node.
+
+- qcom,min-dropout-voltage-level
+	Usage:      optional; ARC regulators only
+	Value type: <u32>
+	Definition: Specifies the minimum voltage level difference that the
+		    parent supply regulator must output above the output of this
+		    regulator.  It is only meaningful if the property
+		    <regulator-name>-parent-supply has been specified in the
+		    first level node.
+
 ========
 Examples
 ========
