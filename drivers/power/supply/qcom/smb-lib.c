@@ -151,6 +151,31 @@ static int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 	return 0;
 }
 
+int smblib_icl_override(struct smb_charger *chg, bool override)
+{
+	int rc;
+	bool override_status;
+	u8 stat;
+
+	rc = smblib_read(chg, APSD_RESULT_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read APSD_RESULT_STATUS_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+	override_status = (bool)(stat & ICL_OVERRIDE_LATCH_BIT);
+
+	if (override != override_status) {
+		rc = smblib_masked_write(chg, CMD_APSD_REG,
+				ICL_OVERRIDE_BIT, ICL_OVERRIDE_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't override ICL rc=%d\n", rc);
+			return rc;
+		}
+	}
+	return 0;
+}
+
 /********************
  * REGISTER GETTERS *
  ********************/
@@ -728,19 +753,33 @@ static int smblib_usb_icl_vote_callback(struct votable *votable, void *data,
 {
 	struct smb_charger *chg = data;
 	int rc = 0;
-	bool suspend = (icl_ua < USBIN_25MA);
+	bool suspend, override;
 	u8 icl_options = 0;
+
+	override = true;
+	/* remove override if no voters or type = SDP or CDP */
+	if (client == NULL
+		|| chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB
+		|| chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB_CDP)
+		override = false;
+
+	suspend = false;
+	if (client && (icl_ua < USBIN_25MA))
+		suspend = true;
 
 	if (suspend)
 		goto out;
 
 	if (chg->usb_psy_desc.type != POWER_SUPPLY_TYPE_USB) {
-		rc = smblib_set_charge_param(chg, &chg->param.usb_icl, icl_ua);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't set HC ICL rc=%d\n", rc);
-			return rc;
+		if (client) {
+			rc = smblib_set_charge_param(chg, &chg->param.usb_icl,
+					icl_ua);
+			if (rc < 0) {
+				smblib_err(chg, "Couldn't set HC ICL rc=%d\n",
+					rc);
+				return rc;
+			}
 		}
-
 		goto out;
 	}
 
@@ -769,10 +808,14 @@ static int smblib_usb_icl_vote_callback(struct votable *votable, void *data,
 	}
 
 out:
+	if (override)
+		icl_options |= USBIN_MODE_CHG_BIT;
+
 	rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
-			CFG_USB3P0_SEL_BIT | USB51_MODE_BIT, icl_options);
+		CFG_USB3P0_SEL_BIT | USB51_MODE_BIT | USBIN_MODE_CHG_BIT,
+		icl_options);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't set ICL opetions rc=%d\n", rc);
+		smblib_err(chg, "Couldn't set ICL options rc=%d\n", rc);
 		return rc;
 	}
 
@@ -780,6 +823,12 @@ out:
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't %s input rc=%d\n",
 			suspend ? "suspend" : "resume", rc);
+		return rc;
+	}
+
+	rc = smblib_icl_override(chg, override);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't set ICL override rc=%d\n", rc);
 		return rc;
 	}
 
@@ -2162,38 +2211,6 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			smblib_err(chg, "Couldn't unvote USB_PSY rc=%d\n", rc);
 			return rc;
 		}
-
-		rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
-				USBIN_MODE_CHG_BIT, USBIN_MODE_CHG_BIT);
-		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't change USB mode rc=%d\n", rc);
-			return rc;
-		}
-
-		rc = smblib_masked_write(chg, CMD_APSD_REG,
-				ICL_OVERRIDE_BIT, ICL_OVERRIDE_BIT);
-		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't override APSD rc=%d\n", rc);
-			return rc;
-		}
-	} else {
-		rc = smblib_masked_write(chg, CMD_APSD_REG,
-				ICL_OVERRIDE_BIT, 0);
-		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't override APSD rc=%d\n", rc);
-			return rc;
-		}
-
-		rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
-				USBIN_MODE_CHG_BIT, 0);
-		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't change USB mode rc=%d\n", rc);
-			return rc;
-		}
 	}
 
 	/* CC pin selection s/w override in PD session; h/w otherwise. */
@@ -2803,17 +2820,16 @@ static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 		if (get_effective_result(chg->pd_disallowed_votable_indirect))
 			/* could be a legacy cable, try doing hvdcp */
 			try_rerun_apsd_for_hvdcp(chg);
+
+		/*
+		 * HVDCP detection timeout done
+		 * If adapter is not QC2.0/QC3.0 - it is a plain old DCP.
+		 */
+		if (!qc_charger && (apsd_result->bit & DCP_CHARGER_BIT))
+			/* enforce DCP ICL if specified */
+			vote(chg->usb_icl_votable, DCP_VOTER,
+				chg->dcp_icl_ua != -EINVAL, chg->dcp_icl_ua);
 	}
-	/*
-	 * HVDCP detection timeout done
-	 * If adapter is not QC2.0/QC3.0 - it is a plain old DCP.
-	 * Otherwise if adapter is QC2.0/QC3.0 wait for authentication
-	 * to complete.
-	 */
-	if (!qc_charger && (apsd_result->bit & DCP_CHARGER_BIT))
-		/* enforce DCP ICL if specified */
-		vote(chg->usb_icl_votable, DCP_VOTER,
-			chg->dcp_icl_ua != -EINVAL, chg->dcp_icl_ua);
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: smblib_handle_hvdcp_check_timeout %s\n",
 		   rising ? "rising" : "falling");
