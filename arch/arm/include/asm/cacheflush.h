@@ -539,4 +539,13 @@ static inline void secure_flush_area(const void *addr, size_t size)
 	outer_flush_range(phys, phys + size);
 }
 
+#ifdef CONFIG_FREE_PAGES_RDONLY
+#define mark_addr_rdonly(a)     set_memory_ro((unsigned long)a, 1)
+#define mark_addr_rdwrite(a)    set_memory_rw((unsigned long)a, 1)
+#else
+#define mark_addr_rdonly(a)
+#define mark_addr_rdwrite(a)
+#endif
+
+
 #endif
