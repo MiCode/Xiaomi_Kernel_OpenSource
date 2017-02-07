@@ -1777,6 +1777,7 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct msm_vidc_inst *inst;
 	int rc = 0;
+	struct vb2_buf_entry *temp, *next;
 	if (!q || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %pK\n", q);
 		return -EINVAL;
@@ -1814,6 +1815,19 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	}
 
 stream_start_failed:
+	if (rc) {
+		mutex_lock(&inst->pendingq.lock);
+		list_for_each_entry_safe(temp, next, &inst->pendingq.list,
+			list) {
+			if (temp->vb->type == q->type) {
+				vb2_buffer_done(temp->vb,
+					VB2_BUF_STATE_QUEUED);
+				list_del(&temp->list);
+				kfree(temp);
+			}
+		}
+		mutex_unlock(&inst->pendingq.lock);
+	}
 	return rc;
 }
 
