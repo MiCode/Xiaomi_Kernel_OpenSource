@@ -342,6 +342,10 @@
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,cti-gpio-trigout = <4>;
+		pinctrl-names = "cti-trigout-pctrl";
+		pinctrl-0 = <&trigout_a>;
 	};
 
 	cti3: cti@813000 {
