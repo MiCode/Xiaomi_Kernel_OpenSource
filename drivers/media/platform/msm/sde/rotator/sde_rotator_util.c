@@ -210,6 +210,32 @@ static int sde_mdp_get_a5x_plane_size(struct sde_mdp_format_params *fmt,
 		ps->ystride[3] = ALIGN(DIV_ROUND_UP(width / 2, 16), 64);
 		ps->plane_size[3] = ALIGN(ps->ystride[3] *
 			ALIGN(DIV_ROUND_UP(height / 2, 8), 16), 4096);
+	} else if (sde_mdp_is_p010_format(fmt)) {
+		ps->num_planes = 2;
+		/* Y bitstream stride and plane size */
+		ps->ystride[0] = ALIGN(width * 2, 256);
+		ps->plane_size[0] = ALIGN(ps->ystride[0] * ALIGN(height, 16),
+					4096);
+
+		/* CbCr bitstream stride and plane size */
+		ps->ystride[1] = ALIGN(width * 2, 256);
+		ps->plane_size[1] = ALIGN(ps->ystride[1] *
+			ALIGN(height / 2, 16), 4096);
+
+		if (!sde_mdp_is_ubwc_format(fmt))
+			goto done;
+
+		ps->num_planes += 2;
+
+		/* Y meta data stride and plane size */
+		ps->ystride[2] = ALIGN(DIV_ROUND_UP(width, 32), 64);
+		ps->plane_size[2] = ALIGN(ps->ystride[2] *
+			ALIGN(DIV_ROUND_UP(height, 4), 16), 4096);
+
+		/* CbCr meta data stride and plane size */
+		ps->ystride[3] = ALIGN(DIV_ROUND_UP(width / 2, 16), 64);
+		ps->plane_size[3] = ALIGN(ps->ystride[3] *
+			ALIGN(DIV_ROUND_UP(height / 2, 4), 16), 4096);
 	} else if (sde_mdp_is_tp10_format(fmt)) {
 		u32 yWidth   = sde_mdp_general_align(width, 192);
 		u32 yHeight  = ALIGN(height, 16);
