@@ -36,6 +36,8 @@
 #define AUX_CMD_MAX		16
 #define AUX_CMD_I2C_MAX		128
 
+#define AUX_CFG_LEN	10
+
 #define EDP_PORT_MAX		1
 #define EDP_SINK_CAP_LEN	16
 
@@ -460,6 +462,7 @@ struct mdss_dp_drv_pdata {
 	struct dss_io_data dp_cc_io;
 	struct dss_io_data qfprom_io;
 	struct dss_io_data hdcp_io;
+	u32 phy_reg_offset;
 	int base_size;
 	unsigned char *mmss_cc_base;
 	bool override_config;
@@ -485,6 +488,10 @@ struct mdss_dp_drv_pdata {
 	u32 edid_buf_size;
 	struct edp_edid edid;
 	struct dpcd_cap dpcd;
+
+	/* DP Pixel clock RCG and PLL parent */
+	struct clk *pixel_clk_rcg;
+	struct clk *pixel_parent;
 
 	/* regulators */
 	struct dss_module_power power_data[DP_MAX_PM];
@@ -536,6 +543,10 @@ struct mdss_dp_drv_pdata {
 	struct mdss_dp_event_data dp_event;
 	struct task_struct *ev_thread;
 
+	/* dt settings */
+	char l_map[4];
+	u32 aux_cfg[AUX_CFG_LEN];
+
 	struct workqueue_struct *workq;
 	struct delayed_work hdcp_cb_work;
 	spinlock_t lock;
@@ -552,6 +563,21 @@ struct mdss_dp_drv_pdata {
 	struct dpcd_sink_count sink_count;
 
 	struct list_head attention_head;
+};
+
+enum dp_phy_lane_num {
+	DP_PHY_LN0 = 0,
+	DP_PHY_LN1 = 1,
+	DP_PHY_LN2 = 2,
+	DP_PHY_LN3 = 3,
+	DP_MAX_PHY_LN = 4,
+};
+
+enum dp_mainlink_lane_num {
+	DP_ML0 = 0,
+	DP_ML1 = 1,
+	DP_ML2 = 2,
+	DP_ML3 = 3,
 };
 
 enum dp_lane_count {

@@ -910,9 +910,6 @@ static const struct snd_kcontrol_new msm_sdw_controls[] = {
 	SOC_ENUM_EXT("INT4_MI2S_RX SampleRate", int4_mi2s_rx_sample_rate,
 			int_mi2s_sample_rate_get,
 			int_mi2s_sample_rate_put),
-	SOC_ENUM_EXT("INT4_MI2S_RX SampleRate", int4_mi2s_rx_sample_rate,
-			int_mi2s_sample_rate_get,
-			int_mi2s_sample_rate_put),
 	SOC_ENUM_EXT("INT4_MI2S_RX Channels", int4_mi2s_rx_chs,
 			int_mi2s_ch_get, int_mi2s_ch_put),
 	SOC_ENUM_EXT("VI_FEED_TX Channels", int5_mi2s_tx_chs,
@@ -2316,7 +2313,7 @@ static struct snd_soc_dai_link msm_int_be_dai[] = {
 		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
 			ASYNC_DPCM_SND_SOC_HW_PARAMS,
 		.be_id = MSM_BACKEND_DAI_INT3_MI2S_TX,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
 		.ops = &msm_int_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
