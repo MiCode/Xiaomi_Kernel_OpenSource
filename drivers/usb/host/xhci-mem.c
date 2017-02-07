@@ -1912,7 +1912,7 @@ int xhci_sec_event_ring_cleanup(struct usb_hcd *hcd, unsigned int intr_num)
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 	struct device	*dev = xhci_to_hcd(xhci)->self.sysdev;
 
-	if (intr_num > xhci->max_interrupters) {
+	if (intr_num >= xhci->max_interrupters) {
 		xhci_err(xhci, "invalid secondary interrupter num %d\n",
 			intr_num);
 		return -EINVAL;
@@ -1943,7 +1943,7 @@ void xhci_event_ring_cleanup(struct xhci_hcd *xhci)
 	unsigned int i;
 
 	/* sec event ring clean up */
-	for (i = 1; i <= xhci->max_interrupters; i++)
+	for (i = 1; i < xhci->max_interrupters; i++)
 		xhci_sec_event_ring_cleanup(xhci_to_hcd(xhci), i);
 
 	kfree(xhci->sec_ir_set);
@@ -2535,7 +2535,7 @@ int xhci_sec_event_ring_setup(struct usb_hcd *hcd, unsigned int intr_num)
 
 	if ((xhci->xhc_state & XHCI_STATE_HALTED) || !xhci->sec_ir_set
 		|| !xhci->sec_event_ring || !xhci->sec_erst ||
-		intr_num > xhci->max_interrupters) {
+		intr_num >= xhci->max_interrupters) {
 		xhci_err(xhci,
 		"%s:state %x ir_set %pK evt_ring %pK erst %pK intr# %d\n",
 		__func__, xhci->xhc_state, xhci->sec_ir_set,
