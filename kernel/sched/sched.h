@@ -2898,16 +2898,5 @@ static inline void update_avg_burst(struct task_struct *p) { }
 static inline void set_task_last_switch_out(struct task_struct *p,
 					    u64 wallclock) { }
 
-static inline unsigned int nr_eligible_big_tasks(int cpu)
-{
-	return 0;
-}
-
-static inline void
-inc_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p) { }
-
-static inline void
-dec_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p) { }
-
 static inline void clear_boost_kick(int cpu) { }
 #endif /* CONFIG_SCHED_HMP */

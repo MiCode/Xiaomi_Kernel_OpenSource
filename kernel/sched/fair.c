@@ -125,6 +125,10 @@ static inline bool update_sd_pick_busiest_active_balance(struct lb_env *env,
 
 #endif /* CONFIG_SCHED_HMP */
 
+#ifdef CONFIG_SCHED_WALT
+static inline bool task_fits_max(struct task_struct *p, int cpu);
+#endif
+
 /*
  * Targeted preemption latency for CPU-bound tasks:
  * (default: 6ms * (1 + ilog(ncpus)), units: nanoseconds)
@@ -4758,6 +4762,9 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 
 	if (!se) {
 		add_nr_running(rq, 1);
+#ifdef CONFIG_SCHED_WALT
+		p->misfit = !task_fits_max(p, rq->cpu);
+#endif
 		inc_rq_hmp_stats(rq, p, 1);
 	}
 
@@ -10572,6 +10579,10 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 {
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &curr->se;
+#ifdef CONFIG_SMP
+	bool old_misfit = curr->misfit;
+	bool misfit;
+#endif
 
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
@@ -10587,7 +10598,13 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 		trace_sched_overutilized(true);
 	}
 
-	rq->misfit_task = !task_fits_max(curr, rq->cpu);
+	misfit = !task_fits_max(curr, rq->cpu);
+	rq->misfit_task = misfit;
+
+	if (old_misfit != misfit) {
+		adjust_nr_big_tasks(&rq->hmp_stats, 1, misfit);
+		curr->misfit = misfit;
+	}
 #endif
 
 }

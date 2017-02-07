@@ -62,6 +62,47 @@ extern struct sched_cluster init_cluster;
 
 extern void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
+
+extern unsigned int nr_eligible_big_tasks(int cpu);
+
+#ifndef CONFIG_SCHED_HMP
+static inline void
+inc_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
+{
+	if (sched_disable_window_stats)
+		return;
+
+	if (p->misfit)
+		stats->nr_big_tasks++;
+}
+
+static inline void
+dec_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
+{
+	if (sched_disable_window_stats)
+		return;
+
+	if (p->misfit)
+		stats->nr_big_tasks--;
+
+	BUG_ON(stats->nr_big_tasks < 0);
+}
+#endif
+
+static inline void
+adjust_nr_big_tasks(struct hmp_sched_stats *stats, int delta, bool inc)
+{
+	struct rq *rq = container_of(stats, struct rq, hmp_stats);
+
+	if (sched_disable_window_stats)
+		return;
+
+	sched_update_nr_prod(cpu_of(rq), 0, true);
+	stats->nr_big_tasks += inc ? delta : -delta;
+
+	BUG_ON(stats->nr_big_tasks < 0);
+}
+
 static inline void
 inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 				 struct task_struct *p)
@@ -262,6 +303,25 @@ static inline void inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 {
 }
 
+static inline unsigned int nr_eligible_big_tasks(int cpu)
+{
+	return 0;
+}
+
+static inline void adjust_nr_big_tasks(struct hmp_sched_stats *stats,
+		int delta, bool inc)
+{
+}
+
+static inline void inc_nr_big_task(struct hmp_sched_stats *stats,
+		struct task_struct *p)
+{
+}
+
+static inline void dec_nr_big_task(struct hmp_sched_stats *stats,
+		struct task_struct *p)
+{
+}
 static inline void dec_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 		 struct task_struct *p)
 {

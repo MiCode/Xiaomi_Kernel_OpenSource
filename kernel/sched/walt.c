@@ -183,7 +183,7 @@ void dec_rq_hmp_stats(struct rq *rq, struct task_struct *p, int change_cra)
 
 void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
 {
-	stats->nr_big_tasks = 0;
+	stats->nr_big_tasks = 0; /* never happens on EAS */
 	if (reset_cra) {
 		stats->cumulative_runnable_avg = 0;
 		stats->pred_demands_sum = 0;
@@ -296,6 +296,22 @@ void sched_account_irqstart(int cpu, struct task_struct *curr, u64 wallclock)
 		update_task_cpu_cycles(curr, cpu);
 		raw_spin_unlock(&rq->lock);
 	}
+}
+
+/*
+ * Return total number of tasks "eligible" to run on highest capacity cpu
+ *
+ * This is simply nr_big_tasks for cpus which are not of max_capacity and
+ * nr_running for cpus of max_capacity
+ */
+unsigned int nr_eligible_big_tasks(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	if (cpu_max_possible_capacity(cpu) != max_possible_capacity)
+		return rq->hmp_stats.nr_big_tasks;
+
+	return rq->nr_running;
 }
 
 void clear_hmp_request(int cpu)
@@ -1835,6 +1851,7 @@ void init_new_task_load(struct task_struct *p, bool idle_task)
 	p->ravg.pred_demand = 0;
 	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
 		p->ravg.sum_history[i] = init_load_windows;
+	p->misfit = false;
 }
 
 void reset_task_stats(struct task_struct *p)
