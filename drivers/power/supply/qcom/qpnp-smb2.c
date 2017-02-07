@@ -1738,7 +1738,7 @@ static struct smb_irq_info smb2_irqs[] = {
 	},
 	[USBIN_UV_IRQ] = {
 		.name		= "usbin-uv",
-		.handler	= smblib_handle_debug,
+		.handler	= smblib_handle_usbin_uv,
 	},
 	[USBIN_OV_IRQ] = {
 		.name		= "usbin-ov",
