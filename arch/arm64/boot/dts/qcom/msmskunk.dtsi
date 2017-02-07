@@ -1595,3 +1595,4 @@
 #include "msm-arm-smmu-skunk.dtsi"
 #include "msmskunk-ion.dtsi"
 #include "msmskunk-smp2p.dtsi"
+#include "msmskunk-camera.dtsi"
