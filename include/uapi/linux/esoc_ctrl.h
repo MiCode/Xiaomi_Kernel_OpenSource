@@ -3,11 +3,11 @@
 
 #define ESOC_CODE		0xCC
 
-#define ESOC_CMD_EXE		_IOW(ESOC_CODE, 1, u32)
-#define ESOC_WAIT_FOR_REQ	_IOR(ESOC_CODE, 2, u32)
-#define ESOC_NOTIFY		_IOW(ESOC_CODE, 3, u32)
-#define ESOC_GET_STATUS		_IOR(ESOC_CODE, 4, u32)
-#define ESOC_WAIT_FOR_CRASH	_IOR(ESOC_CODE, 6, u32)
+#define ESOC_CMD_EXE		_IOW(ESOC_CODE, 1, unsigned int)
+#define ESOC_WAIT_FOR_REQ	_IOR(ESOC_CODE, 2, unsigned int)
+#define ESOC_NOTIFY		_IOW(ESOC_CODE, 3, unsigned int)
+#define ESOC_GET_STATUS		_IOR(ESOC_CODE, 4, unsigned int)
+#define ESOC_WAIT_FOR_CRASH	_IOR(ESOC_CODE, 6, unsigned int)
 #define ESOC_REG_REQ_ENG	_IO(ESOC_CODE, 7)
 #define ESOC_REG_CMD_ENG	_IO(ESOC_CODE, 8)
 
