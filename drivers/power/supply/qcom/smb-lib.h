@@ -357,6 +357,7 @@ irqreturn_t smblib_handle_step_chg_soc_update_request(int irq, void *data);
 irqreturn_t smblib_handle_batt_temp_changed(int irq, void *data);
 irqreturn_t smblib_handle_batt_psy_changed(int irq, void *data);
 irqreturn_t smblib_handle_usb_psy_changed(int irq, void *data);
+irqreturn_t smblib_handle_usbin_uv(int irq, void *data);
 irqreturn_t smblib_handle_usb_plugin(int irq, void *data);
 irqreturn_t smblib_handle_usb_source_change(int irq, void *data);
 irqreturn_t smblib_handle_icl_change(int irq, void *data);

@@ -2801,6 +2801,21 @@ irqreturn_t smblib_handle_usb_psy_changed(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t smblib_handle_usbin_uv(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+	struct storm_watch *wdata;
+
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
+	if (!chg->irq_info[SWITCH_POWER_OK_IRQ].irq_data)
+		return IRQ_HANDLED;
+
+	wdata = &chg->irq_info[SWITCH_POWER_OK_IRQ].irq_data->storm_data;
+	reset_storm_count(wdata);
+	return IRQ_HANDLED;
+}
+
 irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
