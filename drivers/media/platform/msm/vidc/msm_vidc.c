@@ -720,6 +720,7 @@ int msm_vidc_release_buffers(void *instance, int buffer_type)
 	struct buffer_info *bi, *dummy;
 	struct v4l2_buffer buffer_info;
 	struct v4l2_plane plane[VIDEO_MAX_PLANES];
+	struct vb2_buf_entry *temp, *next;
 	int i, rc = 0;
 
 	if (!inst)
@@ -807,6 +808,15 @@ free_and_unmap:
 		}
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
+
+	mutex_lock(&inst->pendingq.lock);
+	list_for_each_entry_safe(temp, next, &inst->pendingq.list, list) {
+		if (temp->vb->type == buffer_type) {
+			list_del(&temp->list);
+			kfree(temp);
+		}
+	}
+	mutex_unlock(&inst->pendingq.lock);
 	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_release_buffers);
