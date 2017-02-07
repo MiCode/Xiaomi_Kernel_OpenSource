@@ -535,12 +535,12 @@
 
 		mdss_cs_active: mdss_cs_active {
 			mux {
-				pins = "gpio21";
+				pins = "gpio13";
 				function = "ebi2_lcd";
 			};
 
 			config {
-				pins = "gpio21";
+				pins = "gpio13";
 				drive-strength = <10>; /* 10 mA */
 				bias-disable; /* NO pull */
 			};
@@ -548,12 +548,12 @@
 
 		mdss_cs_sleep: mdss_cs_sleep {
 			mux {
-				pins = "gpio21";
+				pins = "gpio13";
 				function = "ebi2_lcd";
 			};
 
 			config {
-				pins = "gpio21";
+				pins = "gpio13";
 				drive-strength = <2>; /* 2 mA */
 				bias-disable; /* NO pull */
 			};
@@ -561,12 +561,12 @@
 
 		mdss_te_active: mdss_te_active {
 			mux {
-				pins = "gpio22";
+				pins = "gpio14";
 				function = "ebi2_lcd";
 			};
 
 			config {
-				pins = "gpio22";
+				pins = "gpio14";
 				drive-strength = <10>; /* 10 mA */
 				bias-disable; /* NO pull */
 			};
@@ -574,12 +574,12 @@
 
 		mdss_te_sleep: mdss_te_sleep {
 			mux {
-				pins = "gpio22";
+				pins = "gpio14";
 				function = "ebi2_lcd";
 			};
 
 			config {
-				pins = "gpio22";
+				pins = "gpio14";
 				drive-strength = <2>; /* 2 mA */
 				bias-disable; /* NO pull */
 			};
@@ -587,12 +587,12 @@
 
 		mdss_rs_active: mdss_rs_active {
 			mux {
-				pins = "gpio23";
+				pins = "gpio15";
 				function = "ebi2_lcd";
 			};
 
 			config {
-				pins = "gpio23";
+				pins = "gpio15";
 				drive-strength = <10>; /* 10 mA */
 				bias-disable; /* NO pull */
 			};
@@ -600,12 +600,12 @@
 
 		mdss_rs_sleep: mdss_rs_sleep {
 			mux {
-				pins = "gpio23";
+				pins = "gpio15";
 				function = "ebi2_lcd";
 			};
 
 			config {
-				pins = "gpio23";
+				pins = "gpio15";
 				drive-strength = <2>; /* 2 mA */
 				bias-disable; /* NO pull */
 			};
@@ -613,12 +613,12 @@
 
 		mdss_ad_active: mdss_ad_active {
 			mux {
-				pins = "gpio20";
+				pins = "gpio12";
 				function = "ebi2_a";
 			};
 
 			config {
-				pins = "gpio20";
+				pins = "gpio12";
 				drive-strength = <10>; /* 10 mA */
 				bias-disable; /* NO pull */
 			};
@@ -626,12 +626,12 @@
 
 		mdss_ad_sleep: mdss_ad_sleep {
 			mux {
-				pins = "gpio20";
+				pins = "gpio12";
 				function = "ebi2_a";
 			};
 
 			config {
-				pins = "gpio20";
+				pins = "gpio12";
 				drive-strength = <2>; /* 2 mA */
 				bias-disable; /* NO pull */
 			};
@@ -639,12 +639,12 @@
 
 		mdss_bl_active: mdss_bl_active {
 			mux {
-				pins = "gpio68";
+				pins = "gpio57";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio68";
+				pins = "gpio57";
 				drive-strength = <10>; /* 10 mA */
 				bias-disable; /* NO pull */
 				output-high;
@@ -653,12 +653,12 @@
 
 		mdss_bl_sleep: mdss_bl_sleep {
 			mux {
-				pins = "gpio68";
+				pins = "gpio57";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio68";
+				pins = "gpio57";
 				drive-strength = <2>; /* 2 mA */
 				bias-disable; /* NO pull */
 				output-low;
