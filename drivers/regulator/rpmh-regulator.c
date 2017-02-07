@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1245,6 +1245,11 @@ static int rpmh_regulator_load_default_parameters(struct rpmh_vreg *vreg)
 				return -EINVAL;
 			}
 		}
+
+		prop = "qcom,min-dropout-voltage-level";
+		rc = of_property_read_u32(vreg->of_node, prop, &temp);
+		if (!rc)
+			vreg->rdesc.min_dropout_uV = temp;
 	} else if (type == RPMH_REGULATOR_TYPE_VRM) {
 		prop = "qcom,init-enable";
 		rc = of_property_read_u32(vreg->of_node, prop, &temp);
@@ -1293,6 +1298,11 @@ static int rpmh_regulator_load_default_parameters(struct rpmh_vreg *vreg)
 						RPMH_REGULATOR_REG_VRM_HEADROOM,
 						temp / 1000);
 		}
+
+		prop = "qcom,min-dropout-voltage";
+		rc = of_property_read_u32(vreg->of_node, prop, &temp);
+		if (!rc)
+			vreg->rdesc.min_dropout_uV = temp;
 	}
 
 	return 0;
