@@ -311,7 +311,7 @@ static void mdss_dp_calc_tu_parameters(u8 link_rate, u8 ln_cnt,
 	bool n_err_neg, nn_err_neg;
 	u8 hblank_margin = 16;
 
-	u8 tu_size, tu_size_desired, tu_size_minus1;
+	u8 tu_size, tu_size_desired = 0, tu_size_minus1;
 	int valid_boundary_link;
 	u64 resulting_valid;
 	u64 total_valid;

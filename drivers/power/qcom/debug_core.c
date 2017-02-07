@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -288,8 +288,8 @@ static const struct file_operations msm_core_ptable_ops = {
 
 int msm_core_debug_init(void)
 {
-	struct dentry *dir;
-	struct dentry *file;
+	struct dentry *dir = NULL;
+	struct dentry *file = NULL;
 	int i;
 
 	msm_core_data = get_cpu_pwr_stats();
