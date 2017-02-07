@@ -13,6 +13,7 @@
 #ifndef __SMB2_CHARGER_H
 #define __SMB2_CHARGER_H
 #include <linux/types.h>
+#include <linux/interrupt.h>
 #include <linux/irqreturn.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/consumer.h>
@@ -76,6 +77,57 @@ enum {
 	QC_CHARGER_DETECTION_WA_BIT	= BIT(0),
 	BOOST_BACK_WA			= BIT(1),
 	TYPEC_CC2_REMOVAL_WA_BIT	= BIT(2),
+};
+
+enum smb_irq_index {
+	CHG_ERROR_IRQ = 0,
+	CHG_STATE_CHANGE_IRQ,
+	STEP_CHG_STATE_CHANGE_IRQ,
+	STEP_CHG_SOC_UPDATE_FAIL_IRQ,
+	STEP_CHG_SOC_UPDATE_REQ_IRQ,
+	OTG_FAIL_IRQ,
+	OTG_OVERCURRENT_IRQ,
+	OTG_OC_DIS_SW_STS_IRQ,
+	TESTMODE_CHANGE_DET_IRQ,
+	BATT_TEMP_IRQ,
+	BATT_OCP_IRQ,
+	BATT_OV_IRQ,
+	BATT_LOW_IRQ,
+	BATT_THERM_ID_MISS_IRQ,
+	BATT_TERM_MISS_IRQ,
+	USBIN_COLLAPSE_IRQ,
+	USBIN_LT_3P6V_IRQ,
+	USBIN_UV_IRQ,
+	USBIN_OV_IRQ,
+	USBIN_PLUGIN_IRQ,
+	USBIN_SRC_CHANGE_IRQ,
+	USBIN_ICL_CHANGE_IRQ,
+	TYPE_C_CHANGE_IRQ,
+	DCIN_COLLAPSE_IRQ,
+	DCIN_LT_3P6V_IRQ,
+	DCIN_UV_IRQ,
+	DCIN_OV_IRQ,
+	DCIN_PLUGIN_IRQ,
+	DIV2_EN_DG_IRQ,
+	DCIN_ICL_CHANGE_IRQ,
+	WDOG_SNARL_IRQ,
+	WDOG_BARK_IRQ,
+	AICL_FAIL_IRQ,
+	AICL_DONE_IRQ,
+	HIGH_DUTY_CYCLE_IRQ,
+	INPUT_CURRENT_LIMIT_IRQ,
+	TEMPERATURE_CHANGE_IRQ,
+	SWITCH_POWER_OK_IRQ,
+	SMB_IRQ_MAX,
+};
+
+struct smb_irq_info {
+	const char			*name;
+	const irq_handler_t		handler;
+	const bool			wake;
+	const struct storm_watch	storm_data;
+	struct smb_irq_data		*irq_data;
+	int				irq;
 };
 
 static const unsigned int smblib_extcon_cable[] = {
@@ -166,6 +218,7 @@ struct smb_charger {
 	struct device		*dev;
 	char			*name;
 	struct regmap		*regmap;
+	struct smb_irq_info	*irq_info;
 	struct smb_params	param;
 	struct smb_iio		iio;
 	int			*debug_mask;
