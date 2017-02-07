@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,6 +84,8 @@ enum ipahal_reg_name {
 	IPA_QSB_MAX_READS,
 	IPA_TX_CFG,
 	IPA_IDLE_INDICATION_CFG,
+	IPA_DPS_SEQUENCER_FIRST,
+	IPA_HPS_SEQUENCER_FIRST,
 	IPA_REG_MAX,
 };
 
