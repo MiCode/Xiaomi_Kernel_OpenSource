@@ -4066,7 +4066,7 @@ static int ipa3_trigger_fw_loading_mdms(void)
 
 	IPADBG("FWs are available for loading\n");
 
-	result = ipa3_load_fws(fw);
+	result = ipa3_load_fws(fw, ipa3_res.transport_mem_base);
 	if (result) {
 		IPAERR("IPA FWs loading has failed\n");
 		release_firmware(fw);
