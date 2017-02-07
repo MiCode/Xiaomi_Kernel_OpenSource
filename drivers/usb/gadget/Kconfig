@@ -227,6 +227,9 @@ config USB_F_DIAG
 config USB_F_CDEV
 	tristate
 
+config USB_F_CCID
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -527,6 +530,14 @@ config USB_CONFIGFS_F_CDEV
 	depends on USB_CONFIGFS
 	help
 	  Generic USB serial character function driver to support DUN/NMEA.
+
+config USB_CONFIGFS_F_CCID
+	bool "USB CCID function"
+	select USB_F_CCID
+	depends on USB_CONFIGFS
+	help
+	  USB CCID function driver creates transport layer between the
+	  userspace CCID component and the Windows Host.
 
 choice
 	tristate "USB Gadget Drivers"
