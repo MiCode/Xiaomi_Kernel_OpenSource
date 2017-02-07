@@ -798,6 +798,13 @@ void mdss_mdp_vbif_reg_unlock(void)
 	mutex_unlock(&mdata->reg_lock);
 }
 
+bool mdss_mdp_handoff_pending(void)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	return mdata->handoff_pending;
+}
+
 static int mdss_mdp_intr2index(u32 intr_type, u32 intf_num)
 {
 	int i;
@@ -2883,6 +2890,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mdss_res->mdss_util->panel_intf_status = mdss_panel_get_intf_status;
 	mdss_res->mdss_util->vbif_reg_lock = mdss_mdp_vbif_reg_lock;
 	mdss_res->mdss_util->vbif_reg_unlock = mdss_mdp_vbif_reg_unlock;
+	mdss_res->mdss_util->mdp_handoff_pending = mdss_mdp_handoff_pending;
 
 	rc = msm_dss_ioremap_byname(pdev, &mdata->mdss_io, "mdp_phys");
 	if (rc) {

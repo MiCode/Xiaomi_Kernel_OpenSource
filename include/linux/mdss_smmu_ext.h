@@ -33,6 +33,7 @@ struct mdss_smmu_intf {
 	int (*wait_for_transition)(int state, int request);
 	void (*reg_lock)(void);
 	void (*reg_unlock)(void);
+	bool (*handoff_pending)(void);
 };
 
 typedef void (*msm_smmu_handler_t) (struct mdss_smmu_intf *smmu);

@@ -385,6 +385,8 @@ static void sde_smmu_callback(struct mdss_smmu_intf *smmu)
 	mdata->vbif_reg_unlock = smmu->reg_unlock;
 	mdata->wait_for_transition = smmu->wait_for_transition;
 	mdata->secure_session_ctrl = smmu->secure_session_ctrl;
+	mdata->handoff_pending = smmu->handoff_pending;
+
 	if (smmu->is_secure) {
 		mdata->sde_smmu[SDE_IOMMU_DOMAIN_ROT_SECURE].dev = smmu->dev;
 		mdata->sde_smmu[SDE_IOMMU_DOMAIN_ROT_SECURE].domain =
