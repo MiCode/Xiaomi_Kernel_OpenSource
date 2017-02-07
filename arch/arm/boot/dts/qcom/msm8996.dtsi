@@ -2061,10 +2061,11 @@
 		interrupt-names = "hs_phy_irq", "pwr_event_irq";
 
 		qcom,msm-bus,name = "usb-hs";
-		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-cases = <3>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 					<87 512 0 0>,
+					<87 512 60000 960000>,
 					<87 512 60000 960000>;
 
 		clocks = <&clock_gcc clk_gcc_usb20_master_clk>,
