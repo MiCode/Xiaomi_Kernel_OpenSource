@@ -183,7 +183,7 @@
 };
 
 &cnss_pcie {
-	wlan-en-gpio = <&pmdcalifornium_gpios 8 0>;
+	wlan-en-gpio = <&tlmm_pinmux 74 0>;
 };
 
 &pmdcalifornium_gpios {
