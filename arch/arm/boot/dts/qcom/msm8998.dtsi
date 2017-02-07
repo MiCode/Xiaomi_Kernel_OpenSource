@@ -3041,7 +3041,7 @@
 
 	};
 
-	msm_ath10k_wlan: qcom,msm_ath10k_wlan@18000000 {
+	msm_ath10k_wlan: qcom,msm_ath10k_wlan {
 		status = "disabled";
 		compatible = "qcom,wcn3990-wifi";
 		interrupts =
