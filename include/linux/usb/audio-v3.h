@@ -21,6 +21,10 @@
 
 #include <linux/types.h>
 
+#define UAC3_MIXER_UNIT_V3	0x05
+#define UAC3_FEATURE_UNIT_V3	0x07
+#define UAC3_CLOCK_SOURCE	0x0b
+
 #define BADD_MAXPSIZE_SYNC_MONO_16	0x0060
 #define BADD_MAXPSIZE_SYNC_MONO_24	0x0090
 #define BADD_MAXPSIZE_SYNC_STEREO_16	0x00c0
@@ -39,10 +43,12 @@
 
 #define BADD_SAMPLING_RATE	48000
 
-#define NUM_CHANNELS_MONO		1
-#define NUM_CHANNELS_STEREO		2
-#define BADD_CH_CONFIG_MONO		0
-#define BADD_CH_CONFIG_STEREO		3
+#define NUM_CHANNELS_MONO	1
+#define NUM_CHANNELS_STEREO	2
+#define BADD_CH_CONFIG_MONO	0
+#define BADD_CH_CONFIG_STEREO	3
+#define CLUSTER_ID_MONO		0x0001
+#define CLUSTER_ID_STEREO	0x0002
 
 #define FULL_ADC_PROFILE	0x01
 
@@ -68,5 +74,99 @@
 
 #define UAC_BIDIR_TERMINAL_HEADSET	0x0402
 #define UAC_BIDIR_TERMINAL_SPEAKERPHONE	0x0403
+
+#define NUM_BADD_DESCS		7
+
+struct uac3_input_terminal_descriptor {
+	__u8 bLength;
+	__u8 bDescriptorType;
+	__u8 bDescriptorSubtype;
+	__u8 bTerminalID;
+	__u16 wTerminalType;
+	__u8 bAssocTerminal;
+	__u8 bCSourceID;
+	__u32 bmControls;
+	__u16 wClusterDescrID;
+	__u16 wExTerminalDescrID;
+	__u16 wConnectorsDescrID;
+	__u16 wTerminalDescrStr;
+} __packed;
+
+#define UAC3_DT_INPUT_TERMINAL_SIZE	0x14
+
+extern struct uac3_input_terminal_descriptor badd_baif_in_term_desc;
+extern struct uac3_input_terminal_descriptor badd_baof_in_term_desc;
+
+struct uac3_output_terminal_descriptor {
+	__u8 bLength;
+	__u8 bDescriptorType;
+	__u8 bDescriptorSubtype;
+	__u8 bTerminalID;
+	__u16 wTerminalType;
+	__u8 bAssocTerminal;
+	__u8 bSourceID;
+	__u8 bCSourceID;
+	__u32 bmControls;
+	__u16 wExTerminalDescrID;
+	__u16 wConnectorsDescrID;
+	__u16 wTerminalDescrStr;
+} __packed;
+
+#define UAC3_DT_OUTPUT_TERMINAL_SIZE	0x13
+
+extern struct uac3_output_terminal_descriptor badd_baif_out_term_desc;
+extern struct uac3_output_terminal_descriptor badd_baof_out_term_desc;
+
+extern __u8 monoControls[];
+extern __u8 stereoControls[];
+extern __u8 badd_mu_src_ids[];
+
+struct uac3_mixer_unit_descriptor {
+	__u8 bLength;
+	__u8 bDescriptorType;
+	__u8 bDescriptorSubtype;
+	__u8 bUnitID;
+	__u8 bNrInPins;
+	__u8 *baSourceID;
+	__u16 wClusterDescrID;
+	__u8 bmMixerControls;
+	__u32 bmControls;
+	__u16 wMixerDescrStr;
+} __packed;
+
+#define UAC3_DT_MIXER_UNIT_SIZE		0x10
+
+extern struct uac3_mixer_unit_descriptor badd_baiof_mu_desc;
+
+struct uac3_feature_unit_descriptor {
+	__u8 bLength;
+	__u8 bDescriptorType;
+	__u8 bDescriptorSubtype;
+	__u8 bUnitID;
+	__u8 bSourceID;
+	__u8 *bmaControls;
+	__u16 wFeatureDescrStr;
+} __packed;
+
+extern struct uac3_feature_unit_descriptor badd_baif_fu_desc;
+extern struct uac3_feature_unit_descriptor badd_baof_fu_desc;
+extern struct uac3_feature_unit_descriptor badd_baiof_fu_desc;
+
+struct uac3_clock_source_descriptor {
+	__u8 bLength;
+	__u8 bDescriptorType;
+	__u8 bDescriptorSubtype;
+	__u8 bClockID;
+	__u8 bmAttributes;
+	__u32 bmControls;
+	__u8 bReferenceTerminal;
+	__u16 wClockSourceStr;
+} __packed;
+
+#define UAC3_DT_CLOCK_SRC_SIZE		0x0c
+
+extern struct uac3_clock_source_descriptor badd_clock_desc;
+
+extern void *badd_desc_list[];
 
 #endif /* __LINUX_USB_AUDIO_V3_H */
