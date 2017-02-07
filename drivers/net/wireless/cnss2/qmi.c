@@ -259,6 +259,7 @@ int cnss_wlfw_respond_mem_send_sync(struct cnss_plat_data *plat_priv)
 
 	if (!fw_mem->pa || !fw_mem->size) {
 		cnss_pr_err("Memory for FW is not available!\n");
+		ret = -ENOMEM;
 		goto out;
 	}
 

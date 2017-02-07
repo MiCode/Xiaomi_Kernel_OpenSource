@@ -1601,14 +1601,20 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 		return -GSI_STATUS_INVALID_PARAMS;
 	}
 
-	if (props->evt_ring_hdl != ~0 &&
-		atomic_read(&gsi_ctx->evtr[props->evt_ring_hdl].chan_ref_cnt) &&
-		gsi_ctx->evtr[props->evt_ring_hdl].props.exclusive) {
-		GSIERR("evt ring=%lu already in exclusive use chan_hdl=%p\n",
-				props->evt_ring_hdl, chan_hdl);
-		return -GSI_STATUS_UNSUPPORTED_OP;
-	}
+	if (props->evt_ring_hdl != ~0) {
+		if (props->evt_ring_hdl >= GSI_EVT_RING_MAX) {
+			GSIERR("invalid evt ring=%lu\n", props->evt_ring_hdl);
+			return -GSI_STATUS_INVALID_PARAMS;
+		}
 
+		if (atomic_read(
+			&gsi_ctx->evtr[props->evt_ring_hdl].chan_ref_cnt) &&
+			gsi_ctx->evtr[props->evt_ring_hdl].props.exclusive) {
+			GSIERR("evt ring=%lu exclusively used by chan_hdl=%p\n",
+				props->evt_ring_hdl, chan_hdl);
+			return -GSI_STATUS_UNSUPPORTED_OP;
+		}
+	}
 
 	ctx = &gsi_ctx->chan[props->ch_id];
 	if (ctx->allocated) {
@@ -2741,6 +2747,16 @@ int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size, enum gsi_ver ver)
 
 }
 EXPORT_SYMBOL(gsi_enable_fw);
+
+void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
+		unsigned long *size)
+{
+	if (base_offset)
+		*base_offset = GSI_GSI_INST_RAM_BASE_OFFS;
+	if (size)
+		*size = GSI_GSI_INST_RAM_SIZE;
+}
+EXPORT_SYMBOL(gsi_get_inst_ram_offset_and_size);
 
 static int msm_gsi_probe(struct platform_device *pdev)
 {

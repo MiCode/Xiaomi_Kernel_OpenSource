@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -281,7 +281,7 @@
 		pinctrl-1 = <&spi_3_sleep>;
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
-			 <&clock_gcc clk_gcc_blsp1_qup2_spi_apps_clk>;
+			 <&clock_gcc clk_gcc_blsp1_qup3_spi_apps_clk>;
 		status = "disabled";
 	};
 
@@ -306,7 +306,7 @@
 		pinctrl-1 = <&spi_4_sleep>;
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
-			 <&clock_gcc clk_gcc_blsp1_qup3_spi_apps_clk>;
+			 <&clock_gcc clk_gcc_blsp1_qup4_spi_apps_clk>;
 		status = "disabled";
 	};
 

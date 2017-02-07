@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,6 +76,7 @@ enum msm_dump_data_ids {
 	MSM_DUMP_DATA_OCMEM = 0xE0,
 	MSM_DUMP_DATA_CNSS_WLAN = 0xE1,
 	MSM_DUMP_DATA_WIGIG = 0xE2,
+	MSM_DUMP_DATA_CNSS_WLAN_V2 = 0xE3,
 	MSM_DUMP_DATA_PMIC = 0xE4,
 	MSM_DUMP_DATA_DBGUI_REG = 0xE5,
 	MSM_DUMP_DATA_DCC_REG = 0xE6,

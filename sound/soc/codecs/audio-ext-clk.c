@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -454,20 +454,37 @@ err:
 	return -EINVAL;
 }
 
-static void audio_ref_update_afe_mclk_id(const char *ptr)
+static void audio_ref_update_afe_mclk_id(const char *ptr, enum clk_mux mux)
 {
+	uint32_t *clk_id;
+
+	switch (mux) {
+	case AP_CLK2:
+		clk_id = &clk2_config.clk_id;
+		break;
+	case LPASS_MCLK:
+		clk_id = &digital_cdc_core_clk.clk_id;
+		break;
+	case LPASS_MCLK2:
+		clk_id = &lpass_default2.clk_id;
+		break;
+	default:
+		pr_err("%s Not a valid MUX ID: %d\n", __func__, mux);
+		return;
+	}
+
 	if (!strcmp(ptr, "pri_mclk")) {
 		pr_debug("%s: updating the mclk id with primary mclk\n",
 				__func__);
-		clk2_config.clk_id = Q6AFE_LPASS_CLK_ID_MCLK_1;
+		*clk_id = Q6AFE_LPASS_CLK_ID_MCLK_1;
 	} else if (!strcmp(ptr, "sec_mclk")) {
 		pr_debug("%s: updating the mclk id with secondary mclk\n",
 				__func__);
-		clk2_config.clk_id = Q6AFE_LPASS_CLK_ID_MCLK_2;
+		*clk_id = Q6AFE_LPASS_CLK_ID_MCLK_2;
 	} else {
 		pr_debug("%s: updating the mclk id with default\n", __func__);
 	}
-	pr_debug("%s: clk_id = 0x%x\n", __func__, clk2_config.clk_id);
+	pr_debug("%s: clk_id = 0x%x\n", __func__, *clk_id);
 }
 
 static int audio_ref_clk_probe(struct platform_device *pdev)
@@ -487,15 +504,29 @@ static int audio_ref_clk_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "%s: qcom,lpass-clock is undefined\n",
 				__func__);
 
+
+	ret = of_property_read_string(pdev->dev.of_node,
+				mclk_id, &mclk_str);
+	if (ret)
+		dev_dbg(&pdev->dev, "%s:of read string %s not present %d\n",
+				__func__, mclk_id, ret);
+
 	ret = of_property_read_u32(pdev->dev.of_node,
 			"qcom,codec-mclk-clk-freq",
 			&mclk_freq);
 	if (!ret && (mclk_freq == 12288000 || audio_lpass_mclk.lpass_clock)) {
+		digital_cdc_core_clk.clk_freq_in_hz = mclk_freq;
+
 		ret = of_property_read_u32(pdev->dev.of_node, "reg",
 				&lpass_csr_gpio_mux_spkrctl_reg);
 		if (!ret) {
 			audio_lpass_mclk.lpass_csr_gpio_mux_spkrctl_vaddr =
 				ioremap(lpass_csr_gpio_mux_spkrctl_reg, 4);
+		}
+
+		if (mclk_str) {
+			audio_ref_update_afe_mclk_id(mclk_str, LPASS_MCLK);
+			audio_ref_update_afe_mclk_id(mclk_str, LPASS_MCLK2);
 		}
 
 		ret = audio_get_pinctrl(pdev, LPASS_MCLK);
@@ -516,14 +547,8 @@ static int audio_ref_clk_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = of_property_read_string(pdev->dev.of_node,
-				mclk_id, &mclk_str);
-	if (ret)
-		dev_dbg(&pdev->dev, "%s:of read string %s not present %d\n",
-				__func__, mclk_id, ret);
-
 	if (mclk_str)
-		audio_ref_update_afe_mclk_id(mclk_str);
+		audio_ref_update_afe_mclk_id(mclk_str, AP_CLK2);
 
 	clk_gpio = of_get_named_gpio(pdev->dev.of_node,
 				     "qcom,audio-ref-clk-gpio", 0);

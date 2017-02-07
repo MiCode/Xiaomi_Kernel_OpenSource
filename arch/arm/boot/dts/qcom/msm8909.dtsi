@@ -142,6 +142,13 @@
 			size = <0 0x400000>;
 		};
 
+		adsp_mem: adsp_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x400000>;
+		};
+
 		cont_splash_mem: splash_region@83000000 {
 			reg = <0x0 0x83000000 0x0 0xc00000>;
 		};
@@ -1495,9 +1502,9 @@
 		compatible = "qcom,msm-audio-ion";
 	};
 
-	qcom,adsprpc-mem {
-		compatible = "qcom,msm-adsprpc-mem-region";
-		memory-region = <&modem_adsp_mem>;
+	qcom,mdsprpc-mem {
+		compatible = "qcom,msm-mdsprpc-mem-region";
+		memory-region = <&adsp_mem>;
 	};
 
 	qcom,msm-adsp-loader {

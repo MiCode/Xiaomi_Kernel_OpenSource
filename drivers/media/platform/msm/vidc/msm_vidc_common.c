@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/bitops.h>
 #include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/boot_stats.h>
 #include <asm/div64.h>
 #include "msm_vidc_common.h"
 #include "vidc_hfi_api.h"
@@ -1986,6 +1987,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	enum hal_buffer buffer_type;
 	int extra_idx = 0;
 	int64_t time_usec = 0;
+	static int first_enc_frame = 1;
 
 	if (!response) {
 		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
@@ -2114,6 +2116,11 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 				(u8 *)vb->v4l2_planes[extra_idx].m.userptr,
 				vb->v4l2_planes[extra_idx].bytesused,
 				vb->v4l2_planes[extra_idx].length);
+		}
+		if (first_enc_frame == 1) {
+			boot_stats_init();
+			pr_debug("KPI: First Encoded frame received\n");
+			first_enc_frame++;
 		}
 		dprintk(VIDC_DBG,
 		"Got fbd from hal: device_addr: %pa, alloc: %d, filled: %d, offset: %d, ts: %lld, flags: %#x, crop: %d %d %d %d, pic_type: %#x, mark_data: %#x\n",
