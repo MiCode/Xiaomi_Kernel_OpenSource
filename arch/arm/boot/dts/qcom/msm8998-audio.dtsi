@@ -183,6 +183,7 @@
 			    "lpaif_quat_mode_muxsel";
 
 		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"MADINPUT", "MCLK",
 			"hifi amp", "LINEOUT1",
