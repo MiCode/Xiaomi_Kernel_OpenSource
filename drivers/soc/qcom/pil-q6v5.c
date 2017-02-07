@@ -435,7 +435,7 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 	mb();
 	udelay(1);
 
-	if (drv->qdsp6v62_1_2 || drv->qdsp6v62_1_5) {
+	if (drv->qdsp6v62_1_2 || drv->qdsp6v62_1_5 || drv->qdsp6v62_1_4) {
 		for (i = BHS_CHECK_MAX_LOOPS; i > 0; i--) {
 			if (readl_relaxed(drv->reg_base + QDSP6V62SS_BHS_STATUS)
 			    & QDSP6v55_BHS_EN_REST_ACK)
@@ -536,7 +536,7 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 			udelay(1);
 		}
 	} else if (drv->qdsp6v61_1_1 || drv->qdsp6v62_1_2 ||
-						drv->qdsp6v62_1_5) {
+			drv->qdsp6v62_1_4 || drv->qdsp6v62_1_5) {
 		/* Deassert QDSP6 compiler memory clamp */
 		val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
 		val &= ~QDSP6v55_CLAMP_QMC_MEM;
@@ -550,7 +550,7 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 		val = readl_relaxed(drv->reg_base +
 				QDSP6V6SS_MEM_PWR_CTL);
 
-		if (drv->qdsp6v62_1_5)
+		if (drv->qdsp6v62_1_4 || drv->qdsp6v62_1_5)
 			i = 29;
 		else
 			i = 28;
@@ -720,6 +720,9 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 
 	drv->qdsp6v62_1_2 = of_property_read_bool(pdev->dev.of_node,
 						"qcom,qdsp6v62-1-2");
+
+	drv->qdsp6v62_1_4 = of_property_read_bool(pdev->dev.of_node,
+						"qcom,qdsp6v62-1-4");
 
 	drv->qdsp6v62_1_5 = of_property_read_bool(pdev->dev.of_node,
 						"qcom,qdsp6v62-1-5");
