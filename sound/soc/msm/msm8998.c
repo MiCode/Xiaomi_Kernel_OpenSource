@@ -514,6 +514,8 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.key_code[7] = 0,
 	.linein_th = 5000,
 	.moisture_en = true,
+	.anc_micbias = MIC_BIAS_2,
+	.enable_anc_mic_detect = false,
 };
 
 static struct snd_soc_dapm_route wcd_audio_paths_tasha[] = {
@@ -6816,14 +6818,19 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 			pdev->dev.of_node->full_name);
 		dev_dbg(&pdev->dev, "Jack type properties set to default");
 	} else {
-		if (!strcmp(mbhc_audio_jack_type, "4-pole-jack"))
+		if (!strcmp(mbhc_audio_jack_type, "4-pole-jack")) {
+			wcd_mbhc_cfg.enable_anc_mic_detect = false;
 			dev_dbg(&pdev->dev, "This hardware has 4 pole jack");
-		else if (!strcmp(mbhc_audio_jack_type, "5-pole-jack"))
+		} else if (!strcmp(mbhc_audio_jack_type, "5-pole-jack")) {
+			wcd_mbhc_cfg.enable_anc_mic_detect = true;
 			dev_dbg(&pdev->dev, "This hardware has 5 pole jack");
-		else if (!strcmp(mbhc_audio_jack_type, "6-pole-jack"))
+		} else if (!strcmp(mbhc_audio_jack_type, "6-pole-jack")) {
+			wcd_mbhc_cfg.enable_anc_mic_detect = true;
 			dev_dbg(&pdev->dev, "This hardware has 6 pole jack");
-		else
+		} else {
+			wcd_mbhc_cfg.enable_anc_mic_detect = false;
 			dev_dbg(&pdev->dev, "Unknown value, set to default");
+		}
 	}
 	/*
 	 * Parse US-Euro gpio info from DT. Report no error if us-euro
