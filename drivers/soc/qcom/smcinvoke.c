@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -207,12 +207,11 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 		ret = qseecom_process_listener_from_smcinvoke(&desc);
 
 	*smcinvoke_result = (int32_t)desc.ret[1];
-	if (ret || desc.ret[1] || desc.ret[2] || desc.ret[0]) {
+	if (ret || desc.ret[1] || desc.ret[2] || desc.ret[0])
 		pr_err("SCM call failed with ret val = %d %d %d %d\n",
 						ret, (int)desc.ret[0],
 				(int)desc.ret[1], (int)desc.ret[2]);
-		ret = ret | desc.ret[0] | desc.ret[1] | desc.ret[2];
-	}
+
 	dmac_inv_range(in_buf, in_buf + inbuf_flush_size);
 	dmac_inv_range(out_buf, out_buf + outbuf_flush_size);
 	return ret;
