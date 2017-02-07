@@ -696,6 +696,7 @@
 		qcom,auxpcm-audio-intf;
 		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
 		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"MADINPUT", "MCLK",
 			"AMIC2", "MIC BIAS2",
