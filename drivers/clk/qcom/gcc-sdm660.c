@@ -2816,6 +2816,9 @@ static int gcc_660_probe(struct platform_device *pdev)
 	/* This clock is used for all GPUCC register access */
 	clk_prepare_enable(gcc_gpu_cfg_ahb_clk.clkr.hw.clk);
 
+	/* Keep bimc gfx clock port on all the time */
+	clk_prepare_enable(gcc_bimc_gfx_clk.clkr.hw.clk);
+
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
 	return ret;
