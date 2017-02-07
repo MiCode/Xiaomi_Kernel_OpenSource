@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,7 +39,7 @@ static int bhi_alloc_bhie_xfer(struct mhi_device_ctxt *mhi_dev_ctxt,
 {
 	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
 	struct device *dev = &mhi_dev_ctxt->plat_dev->dev;
-	const u32 align = bhi_ctxt->alignment - 1;
+	const phys_addr_t align = bhi_ctxt->alignment - 1;
 	size_t seg_size = bhi_ctxt->firmware_info.segment_size;
 	/* We need one additional entry for Vector Table */
 	int segments = DIV_ROUND_UP(size, seg_size) + 1;
@@ -112,7 +112,7 @@ static int bhi_alloc_pbl_xfer(struct mhi_device_ctxt *mhi_dev_ctxt,
 			      size_t size)
 {
 	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
-	const u32 align_len = bhi_ctxt->alignment;
+	const phys_addr_t align_len = bhi_ctxt->alignment;
 	size_t alloc_size = size + (align_len - 1);
 	struct device *dev = &mhi_dev_ctxt->plat_dev->dev;
 
