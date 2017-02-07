@@ -1352,12 +1352,9 @@ static int smb2_init_hw(struct smb2 *chip)
 	smblib_rerun_apsd_if_required(chg);
 
 	/* clear the ICL override if it is set */
-	if (stat & ICL_OVERRIDE_LATCH_BIT) {
-		rc = smblib_write(chg, CMD_APSD_REG, ICL_OVERRIDE_BIT);
-		if (rc < 0) {
-			pr_err("Couldn't disable ICL override rc=%d\n", rc);
-			return rc;
-		}
+	if (smblib_icl_override(chg, false) < 0) {
+		pr_err("Couldn't disable ICL override rc=%d\n", rc);
+		return rc;
 	}
 
 	/* votes must be cast before configuring software control */
