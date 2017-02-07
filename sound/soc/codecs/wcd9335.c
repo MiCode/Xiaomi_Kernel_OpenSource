@@ -13740,7 +13740,7 @@ err:
 	return ret;
 }
 
-static void tasha_codec_remove(struct snd_soc_component *component)
+static int tasha_codec_remove(struct snd_soc_component *component)
 {
 	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
@@ -13753,6 +13753,8 @@ static void tasha_codec_remove(struct snd_soc_component *component)
 	tasha_cleanup_irqs(tasha);
 	/* Cleanup MBHC */
 	/* Cleanup resmgr */
+
+	return 0;
 }
 
 static struct regmap *tasha_get_regmap(struct device *dev)
