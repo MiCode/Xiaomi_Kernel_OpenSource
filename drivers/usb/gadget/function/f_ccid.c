@@ -17,8 +17,11 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/fs.h>
+#include <linux/module.h>
 #include <linux/usb/ccid_desc.h>
+#include <linux/usb/composite.h>
 #include <linux/miscdevice.h>
+#include <linux/uaccess.h>
 
 #include "f_ccid.h"
 
@@ -26,6 +29,9 @@
 #define BULK_OUT_BUFFER_SIZE sizeof(struct ccid_bulk_out_header)
 #define CTRL_BUF_SIZE	4
 #define FUNCTION_NAME	"ccid"
+#define MAX_INST_NAME_LEN	40
+#define CCID_CTRL_DEV_NAME	"ccid_ctrl"
+#define CCID_BULK_DEV_NAME	"ccid_bulk"
 #define CCID_NOTIFY_INTERVAL	5
 #define CCID_NOTIFY_MAXPACKET	4
 
@@ -38,6 +44,7 @@ struct ccid_ctrl_dev {
 	wait_queue_head_t tx_wait_q;
 	unsigned char buf[CTRL_BUF_SIZE];
 	int tx_ctrl_done;
+	struct miscdevice ccid_ctrl_device;
 };
 
 struct ccid_bulk_dev {
@@ -49,11 +56,16 @@ struct ccid_bulk_dev {
 	struct usb_request *rx_req;
 	int rx_done;
 	struct list_head tx_idle;
+	struct miscdevice ccid_bulk_device;
+};
+
+struct ccid_opts {
+	struct usb_function_instance func_inst;
+	struct f_ccid *ccid;
 };
 
 struct f_ccid {
 	struct usb_function function;
-	struct usb_composite_dev *cdev;
 	int ifc_id;
 	spinlock_t lock;
 	atomic_t online;
@@ -67,9 +79,15 @@ struct f_ccid {
 	int dtr_state;
 };
 
-static struct f_ccid *_ccid_dev;
-static struct miscdevice ccid_bulk_device;
-static struct miscdevice ccid_ctrl_device;
+static inline struct f_ccid *ctrl_dev_to_ccid(struct ccid_ctrl_dev *d)
+{
+	return container_of(d, struct f_ccid, ctrl_dev);
+}
+
+static inline struct f_ccid *bulk_dev_to_ccid(struct ccid_bulk_dev *d)
+{
+	return container_of(d, struct f_ccid, bulk_dev);
+}
 
 /* Interface Descriptor: */
 static struct usb_interface_descriptor ccid_interface_desc = {
@@ -232,7 +250,7 @@ static void ccid_notify_complete(struct usb_ep *ep, struct usb_request *req)
 
 static void ccid_bulk_complete_in(struct usb_ep *ep, struct usb_request *req)
 {
-	struct f_ccid *ccid_dev = _ccid_dev;
+	struct f_ccid *ccid_dev = req->context;
 	struct ccid_bulk_dev *bulk_dev = &ccid_dev->bulk_dev;
 
 	if (req->status != 0)
@@ -244,9 +262,8 @@ static void ccid_bulk_complete_in(struct usb_ep *ep, struct usb_request *req)
 
 static void ccid_bulk_complete_out(struct usb_ep *ep, struct usb_request *req)
 {
-	struct f_ccid *ccid_dev = _ccid_dev;
+	struct f_ccid *ccid_dev = req->context;
 	struct ccid_bulk_dev *bulk_dev = &ccid_dev->bulk_dev;
-
 	if (req->status != 0)
 		atomic_set(&bulk_dev->error, 1);
 
@@ -378,7 +395,7 @@ ccid_function_set_alt(struct usb_function *f, unsigned int intf,
 		unsigned int alt)
 {
 	struct f_ccid *ccid_dev = func_to_ccid(f);
-	struct usb_composite_dev *cdev = ccid_dev->cdev;
+	struct usb_composite_dev *cdev = f->config->cdev;
 	struct ccid_bulk_dev *bulk_dev = &ccid_dev->bulk_dev;
 	struct usb_request *req;
 	int ret = 0;
@@ -570,8 +587,10 @@ ep_auto_in_fail:
 
 static int ccid_bulk_open(struct inode *ip, struct file *fp)
 {
-	struct f_ccid *ccid_dev = _ccid_dev;
-	struct ccid_bulk_dev *bulk_dev = &ccid_dev->bulk_dev;
+	struct ccid_bulk_dev *bulk_dev =  container_of(fp->private_data,
+						struct ccid_bulk_dev,
+						ccid_bulk_device);
+	struct f_ccid *ccid_dev = bulk_dev_to_ccid(bulk_dev);
 	unsigned long flags;
 
 	pr_debug("ccid_bulk_open\n");
@@ -734,7 +753,7 @@ static ssize_t ccid_bulk_write(struct file *fp, const char __user *buf,
 		goto done;
 	}
 
-	if (atomic_read(&bulk_dev->error)) {
+	if (!req || atomic_read(&bulk_dev->error)) {
 		pr_err(" %s dev->error\n", __func__);
 		r = -EIO;
 		goto done;
@@ -784,12 +803,6 @@ static const struct file_operations ccid_bulk_fops = {
 	.release = ccid_bulk_release,
 };
 
-static struct miscdevice ccid_bulk_device = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = "ccid_bulk",
-	.fops = &ccid_bulk_fops,
-};
-
 static int ccid_bulk_device_init(struct f_ccid *dev)
 {
 	int ret;
@@ -799,7 +812,11 @@ static int ccid_bulk_device_init(struct f_ccid *dev)
 	init_waitqueue_head(&bulk_dev->write_wq);
 	INIT_LIST_HEAD(&bulk_dev->tx_idle);
 
-	ret = misc_register(&ccid_bulk_device);
+	bulk_dev->ccid_bulk_device.name = CCID_BULK_DEV_NAME;
+	bulk_dev->ccid_bulk_device.fops = &ccid_bulk_fops;
+	bulk_dev->ccid_bulk_device.minor = MISC_DYNAMIC_MINOR;
+
+	ret = misc_register(&bulk_dev->ccid_bulk_device);
 	if (ret) {
 		pr_err("%s: failed to register misc device\n", __func__);
 		return ret;
@@ -810,8 +827,10 @@ static int ccid_bulk_device_init(struct f_ccid *dev)
 
 static int ccid_ctrl_open(struct inode *inode, struct file *fp)
 {
-	struct f_ccid *ccid_dev =  _ccid_dev;
-	struct ccid_ctrl_dev *ctrl_dev = &ccid_dev->ctrl_dev;
+	struct ccid_ctrl_dev *ctrl_dev =  container_of(fp->private_data,
+						struct ccid_ctrl_dev,
+						ccid_ctrl_device);
+	struct f_ccid *ccid_dev = ctrl_dev_to_ccid(ctrl_dev);
 	unsigned long flags;
 
 	if (!atomic_read(&ccid_dev->online)) {
@@ -915,12 +934,6 @@ static const struct file_operations ccid_ctrl_fops = {
 	.unlocked_ioctl	= ccid_ctrl_ioctl,
 };
 
-static struct miscdevice ccid_ctrl_device = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = "ccid_ctrl",
-	.fops = &ccid_ctrl_fops,
-};
-
 static int ccid_ctrl_device_init(struct f_ccid *dev)
 {
 	int ret;
@@ -929,7 +942,11 @@ static int ccid_ctrl_device_init(struct f_ccid *dev)
 	INIT_LIST_HEAD(&ctrl_dev->tx_q);
 	init_waitqueue_head(&ctrl_dev->tx_wait_q);
 
-	ret = misc_register(&ccid_ctrl_device);
+	ctrl_dev->ccid_ctrl_device.name = CCID_CTRL_DEV_NAME;
+	ctrl_dev->ccid_ctrl_device.fops = &ccid_ctrl_fops;
+	ctrl_dev->ccid_ctrl_device.minor = MISC_DYNAMIC_MINOR;
+
+	ret = misc_register(&ctrl_dev->ccid_ctrl_device);
 	if (ret) {
 		pr_err("%s: failed to register misc device\n", __func__);
 		return ret;
@@ -938,12 +955,15 @@ static int ccid_ctrl_device_init(struct f_ccid *dev)
 	return 0;
 }
 
-static int ccid_bind_config(struct usb_configuration *c)
+static void ccid_free_func(struct usb_function *f)
 {
-	struct f_ccid *ccid_dev = _ccid_dev;
+	pr_debug("%s\n", __func__);
+}
 
+static int ccid_bind_config(struct f_ccid *ccid_dev)
+{
 	pr_debug("ccid_bind_config\n");
-	ccid_dev->cdev = c->cdev;
+
 	ccid_dev->function.name = FUNCTION_NAME;
 	ccid_dev->function.fs_descriptors = ccid_fs_descs;
 	ccid_dev->function.hs_descriptors = ccid_hs_descs;
@@ -952,21 +972,22 @@ static int ccid_bind_config(struct usb_configuration *c)
 	ccid_dev->function.set_alt = ccid_function_set_alt;
 	ccid_dev->function.setup = ccid_function_setup;
 	ccid_dev->function.disable = ccid_function_disable;
+	ccid_dev->function.free_func = ccid_free_func;
 
-	return usb_add_function(c, &ccid_dev->function);
-
+	return 0;
 }
 
-static int ccid_setup(void)
+static struct f_ccid *ccid_setup(void)
 {
 	struct f_ccid  *ccid_dev;
 	int ret;
 
 	ccid_dev = kzalloc(sizeof(*ccid_dev), GFP_KERNEL);
-	if (!ccid_dev)
-		return -ENOMEM;
+	if (!ccid_dev) {
+		ret = -ENOMEM;
+		goto error;
+	}
 
-	_ccid_dev = ccid_dev;
 	spin_lock_init(&ccid_dev->lock);
 
 	ret = ccid_ctrl_device_init(ccid_dev);
@@ -982,18 +1003,103 @@ static int ccid_setup(void)
 		goto err_bulk_init;
 	}
 
-	return 0;
+	return ccid_dev;
 err_bulk_init:
-	misc_deregister(&ccid_ctrl_device);
+	misc_deregister(&ccid_dev->ctrl_dev.ccid_ctrl_device);
 err_ctrl_init:
 	kfree(ccid_dev);
+error:
 	pr_err("ccid gadget driver failed to initialize\n");
-	return ret;
+	return ERR_PTR(ret);
 }
 
-static void ccid_cleanup(void)
+static inline struct ccid_opts *to_ccid_opts(struct config_item *item)
 {
-	misc_deregister(&ccid_bulk_device);
-	misc_deregister(&ccid_ctrl_device);
-	kfree(_ccid_dev);
+	return container_of(to_config_group(item), struct ccid_opts,
+			    func_inst.group);
 }
+
+static void ccid_attr_release(struct config_item *item)
+{
+	struct ccid_opts *opts = to_ccid_opts(item);
+
+	usb_put_function_instance(&opts->func_inst);
+}
+
+static struct configfs_item_operations ccid_item_ops = {
+	.release        = ccid_attr_release,
+};
+
+static struct config_item_type ccid_func_type = {
+	.ct_item_ops    = &ccid_item_ops,
+	.ct_owner       = THIS_MODULE,
+};
+
+static int ccid_set_inst_name(struct usb_function_instance *fi,
+	const char *name)
+{
+	int name_len;
+	struct f_ccid *ccid;
+	struct ccid_opts *opts = container_of(fi, struct ccid_opts, func_inst);
+
+	name_len = strlen(name) + 1;
+	if (name_len > MAX_INST_NAME_LEN)
+		return -ENAMETOOLONG;
+
+	ccid = ccid_setup();
+	if (IS_ERR(ccid))
+		return PTR_ERR(ccid);
+
+	opts->ccid = ccid;
+
+	return 0;
+}
+
+static void ccid_free_inst(struct usb_function_instance *f)
+{
+	struct ccid_opts *opts = container_of(f, struct ccid_opts, func_inst);
+
+	if (!opts->ccid)
+		return;
+
+	misc_deregister(&opts->ccid->ctrl_dev.ccid_ctrl_device);
+	misc_deregister(&opts->ccid->bulk_dev.ccid_bulk_device);
+
+	kfree(opts->ccid);
+	kfree(opts);
+}
+
+
+static struct usb_function_instance *ccid_alloc_inst(void)
+{
+	struct ccid_opts *opts;
+
+	opts = kzalloc(sizeof(*opts), GFP_KERNEL);
+	if (!opts)
+		return ERR_PTR(-ENOMEM);
+
+	opts->func_inst.set_inst_name = ccid_set_inst_name;
+	opts->func_inst.free_func_inst = ccid_free_inst;
+	config_group_init_type_name(&opts->func_inst.group, "",
+				    &ccid_func_type);
+
+	return &opts->func_inst;
+}
+
+static struct usb_function *ccid_alloc(struct usb_function_instance *fi)
+{
+	struct ccid_opts *opts;
+	int ret;
+
+	opts = container_of(fi, struct ccid_opts, func_inst);
+
+	ret = ccid_bind_config(opts->ccid);
+	if (ret)
+		return ERR_PTR(ret);
+
+	return &opts->ccid->function;
+}
+
+DECLARE_USB_FUNCTION_INIT(ccid, ccid_alloc_inst, ccid_alloc);
+MODULE_DESCRIPTION("USB CCID function Driver");
+MODULE_LICENSE("GPL v2");
