@@ -878,6 +878,8 @@ static int cam_smmu_detach_device(int idx)
 
 static int cam_smmu_attach_sec_cpp(int idx)
 {
+	int32_t rc = 0;
+
 	/*
 	 * When switching to secure, detach CPP NS, do scm call
 	 * with CPP SID and no need of attach again, because
@@ -889,8 +891,12 @@ static int cam_smmu_attach_sec_cpp(int idx)
 		return -EINVAL;
 	}
 
-	msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_SECURE,
+	rc = msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_SECURE,
 		MSM_CAMERA_TZ_HW_BLOCK_CPP);
+	if (rc != 0) {
+		pr_err("fail to set secure mode for cpp, rc %d", rc);
+		return rc;
+	}
 
 	iommu_cb_set.cb_info[idx].state = CAM_SMMU_ATTACH;
 
@@ -899,8 +905,14 @@ static int cam_smmu_attach_sec_cpp(int idx)
 
 static int cam_smmu_detach_sec_cpp(int idx)
 {
-	msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_NON_SECURE,
+	int32_t rc = 0;
+
+	rc = msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_NON_SECURE,
 		MSM_CAMERA_TZ_HW_BLOCK_CPP);
+	if (rc != 0) {
+		pr_err("fail to switch to non secure mode for cpp, rc %d", rc);
+		return rc;
+	}
 
 	iommu_cb_set.cb_info[idx].state = CAM_SMMU_DETACH;
 
@@ -917,6 +929,8 @@ static int cam_smmu_detach_sec_cpp(int idx)
 
 static int cam_smmu_attach_sec_vfe_ns_stats(int idx)
 {
+	int32_t rc = 0;
+
 	/*
 	 *When switching to secure, for secure pixel and non-secure stats
 	 *localizing scm/attach of non-secure SID's in attach secure
@@ -933,16 +947,26 @@ static int cam_smmu_attach_sec_vfe_ns_stats(int idx)
 		}
 	}
 
-	msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_SECURE,
+	rc = msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_SECURE,
 		MSM_CAMERA_TZ_HW_BLOCK_ISP);
+	if (rc != 0) {
+		pr_err("fail to set secure mode for vfe, rc %d", rc);
+		return rc;
+	}
 
 	return 0;
 }
 
 static int cam_smmu_detach_sec_vfe_ns_stats(int idx)
 {
-	msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_NON_SECURE,
+	int32_t rc = 0;
+
+	rc = msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_NON_SECURE,
 		MSM_CAMERA_TZ_HW_BLOCK_ISP);
+	if (rc != 0) {
+		pr_err("fail to switch to non secure mode for vfe, rc %d", rc);
+		return rc;
+	}
 
 	/*
 	 *While exiting from secure mode for secure pixel and non-secure stats,
