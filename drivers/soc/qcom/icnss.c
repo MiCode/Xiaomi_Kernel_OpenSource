@@ -1724,19 +1724,21 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 
 out:
 	icnss_hw_power_off(priv);
-	penv->ops = NULL;
 	return ret;
 }
 
-static int icnss_call_driver_reinit(struct icnss_priv *priv)
+static int icnss_pd_restart_complete(struct icnss_priv *priv)
 {
-	int ret = 0;
+	int ret;
+
+	clear_bit(ICNSS_PD_RESTART, &priv->state);
+	icnss_pm_relax(priv);
 
 	if (!priv->ops || !priv->ops->reinit)
 		goto out;
 
 	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
-		goto out;
+		goto call_probe;
 
 	icnss_pr_dbg("Calling driver reinit state: 0x%lx\n", priv->state);
 
@@ -1751,18 +1753,14 @@ static int icnss_call_driver_reinit(struct icnss_priv *priv)
 	}
 
 out:
-	clear_bit(ICNSS_PD_RESTART, &priv->state);
-
-	icnss_pm_relax(priv);
-
 	return 0;
+
+call_probe:
+	return icnss_call_driver_probe(priv);
 
 out_power_off:
 	icnss_hw_power_off(priv);
 
-	clear_bit(ICNSS_PD_RESTART, &priv->state);
-
-	icnss_pm_relax(priv);
 	return ret;
 }
 
@@ -1787,7 +1785,7 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 	}
 
 	if (test_bit(ICNSS_PD_RESTART, &penv->state))
-		ret = icnss_call_driver_reinit(penv);
+		ret = icnss_pd_restart_complete(penv);
 	else
 		ret = icnss_call_driver_probe(penv);
 
