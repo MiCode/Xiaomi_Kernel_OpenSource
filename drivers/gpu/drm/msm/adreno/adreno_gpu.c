@@ -2,7 +2,7 @@
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
- * Copyright (c) 2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014,2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -383,6 +383,8 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		return ret;
 	}
 
+	adreno_perfcounter_start(adreno_gpu);
+
 	return 0;
 }
 
@@ -400,4 +402,41 @@ void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 	if (gpu->pfp_bo)
 		msm_gem_free_object(gpu->pfp_bo);
 	msm_gpu_cleanup(&gpu->base);
+}
+
+int adreno_perfcounter_read(struct msm_gpu *gpu,
+	struct drm_perfcounter_read_group __user *reads, unsigned int count)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	return adreno_perfcounter_read_group(adreno_gpu, reads, count);
+}
+
+int adreno_perfcounter_query(struct msm_gpu *gpu, unsigned int groupid,
+	unsigned int __user *countables, unsigned int count,
+		unsigned int *max_counters)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	return adreno_perfcounter_query_group(adreno_gpu, groupid,
+		&countables, count, &max_counters);
+}
+
+int adreno_perfcounter_msm_get(struct msm_gpu *gpu, unsigned int groupid,
+	unsigned int countable, unsigned int *offset, unsigned int *offset_hi,
+		unsigned int flags)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	return adreno_perfcounter_get(adreno_gpu, groupid, countable,
+		&offset, &offset_hi, flags);
+}
+
+int adreno_perfcounter_msm_put(struct msm_gpu *gpu, unsigned int groupid,
+	unsigned int countable, unsigned int flags)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	return adreno_perfcounter_put(adreno_gpu, groupid,
+		countable, flags);
 }

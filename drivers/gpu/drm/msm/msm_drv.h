@@ -367,8 +367,6 @@ uint64_t msm_gem_mmap_offset(struct drm_gem_object *obj);
 int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 		uint32_t *iova);
 int msm_gem_get_iova(struct drm_gem_object *obj, int id, uint32_t *iova);
-int msm_gem_get_iova_in_domain(struct drm_gem_object *obj,
-		int domian, uint32_t *iova);
 uint32_t msm_gem_iova(struct drm_gem_object *obj, int id);
 struct page **msm_gem_get_pages(struct drm_gem_object *obj);
 void msm_gem_put_pages(struct drm_gem_object *obj);
