@@ -563,58 +563,39 @@ static void tmc_etr_free_mem(struct tmc_drvdata *drvdata)
 static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
 {
 	int ret = 0;
-	bool used = false;
 	long val;
 	unsigned long flags;
-	void __iomem *vaddr = NULL;
-	dma_addr_t paddr;
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
 	 /* This shouldn't be happening */
 	if (WARN_ON(mode != CS_MODE_SYSFS))
 		return -EINVAL;
 
+	mutex_lock(&drvdata->mem_lock);
+
 	/*
-	 * If we don't have a buffer release the lock and allocate memory.
-	 * Otherwise keep the lock and move along.
+	 * ETR DDR memory is not allocated until user enables
+	 * tmc at least once. If user specifies different ETR
+	 * DDR size than the default size or switches between
+	 * contiguous or scatter-gather memory type after
+	 * enabling tmc; the new selection will be honored from
+	 * next tmc enable session.
 	 */
-	spin_lock_irqsave(&drvdata->spinlock, flags);
-	if (!drvdata->vaddr) {
-		spin_unlock_irqrestore(&drvdata->spinlock, flags);
-
-		/*
-		 * Contiguous  memory can't be allocated while a spinlock is
-		 * held.  As such allocate memory here and free it if a buffer
-		 * has already been allocated (from a previous session).
-		 */
-		mutex_lock(&drvdata->mem_lock);
-
-		/*
-		 * ETR DDR memory is not allocated until user enables
-		 * tmc at least once. If user specifies different ETR
-		 * DDR size than the default size or switches between
-		 * contiguous or scatter-gather memory type after
-		 * enabling tmc; the new selection will be honored from
-		 * next tmc enable session.
-		 */
-		if (drvdata->size != drvdata->mem_size ||
-		    drvdata->memtype != drvdata->mem_type) {
-			tmc_etr_free_mem(drvdata);
-			drvdata->size = drvdata->mem_size;
-			drvdata->memtype = drvdata->mem_type;
-		}
-		ret = tmc_etr_alloc_mem(drvdata);
-		if (ret) {
-			pm_runtime_put(drvdata->dev);
-			mutex_unlock(&drvdata->mem_lock);
-			return ret;
-		}
-		mutex_unlock(&drvdata->mem_lock);
-
-		/* Let's try again */
-		spin_lock_irqsave(&drvdata->spinlock, flags);
+	if (drvdata->size != drvdata->mem_size ||
+	    drvdata->memtype != drvdata->mem_type) {
+		tmc_etr_free_mem(drvdata);
+		drvdata->size = drvdata->mem_size;
+		drvdata->memtype = drvdata->mem_type;
 	}
+	ret = tmc_etr_alloc_mem(drvdata);
+	if (ret) {
+		pm_runtime_put(drvdata->dev);
+		mutex_unlock(&drvdata->mem_lock);
+		return ret;
+	}
+	mutex_unlock(&drvdata->mem_lock);
 
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->reading) {
 		ret = -EBUSY;
 		goto out;
@@ -629,25 +610,9 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
 	if (val == CS_MODE_SYSFS)
 		goto out;
 
-	/*
-	 * If drvdata::buf == NULL, use the memory allocated above.
-	 * Otherwise a buffer still exists from a previous session, so
-	 * simply use that.
-	 */
-	if (drvdata->buf == NULL) {
-		used = true;
-		drvdata->vaddr = vaddr;
-		drvdata->paddr = paddr;
-		drvdata->buf = drvdata->vaddr;
-	}
-
 	tmc_etr_enable_hw(drvdata);
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
-
-	/* Free memory outside the spinlock if need be */
-	if (!used && vaddr)
-		dma_free_coherent(drvdata->dev, drvdata->size, vaddr, paddr);
 
 	if (!ret)
 		dev_info(drvdata->dev, "TMC-ETR enabled\n");
