@@ -16,6 +16,7 @@
 #include <linux/iio/consumer.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/driver.h>
+#include <linux/qpnp/qpnp-revid.h>
 #include <linux/input/qpnp-power-on.h>
 #include <linux/irq.h>
 #include "smb-lib.h"
@@ -156,11 +157,24 @@ int smblib_icl_override(struct smb_charger *chg, bool override)
 	int rc;
 	bool override_status;
 	u8 stat;
+	u16 reg;
 
-	rc = smblib_read(chg, APSD_RESULT_STATUS_REG, &stat);
+	switch (chg->smb_version) {
+	case PMI8998_SUBTYPE:
+		reg = APSD_RESULT_STATUS_REG;
+		break;
+	case PM660_SUBTYPE:
+		reg = AICL_STATUS_REG;
+		break;
+	default:
+		smblib_dbg(chg, PR_MISC, "Unknown chip version=%x\n",
+				chg->smb_version);
+		return -EINVAL;
+	}
+
+	rc = smblib_read(chg, reg, &stat);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't read APSD_RESULT_STATUS_REG rc=%d\n",
-				rc);
+		smblib_err(chg, "Couldn't read reg=%x rc=%d\n", reg, rc);
 		return rc;
 	}
 	override_status = (bool)(stat & ICL_OVERRIDE_LATCH_BIT);
@@ -640,6 +654,19 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't un-vote for USB ICL rc=%d\n", rc);
+
+	/* clear USB ICL vote for DCP_VOTER */
+	rc = vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
+	if (rc < 0)
+		smblib_err(chg,
+			"Couldn't un-vote DCP from USB ICL rc=%d\n", rc);
+
+	/* clear USB ICL vote for PL_USBIN_USBIN_VOTER */
+	rc = vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, false, 0);
+	if (rc < 0)
+		smblib_err(chg,
+			"Couldn't un-vote PL_USBIN_USBIN from USB ICL rc=%d\n",
+			rc);
 }
 
 static bool smblib_sysok_reason_usbin(struct smb_charger *chg)
@@ -2203,12 +2230,19 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			return rc;
 		}
 
-		/* remove DCP_VOTER */
+		/* clear USB ICL vote for DCP_VOTER */
 		rc = vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't unvote DCP rc=%d\n", rc);
-			return rc;
-		}
+		if (rc < 0)
+			smblib_err(chg,
+				"Couldn't un-vote DCP from USB ICL rc=%d\n",
+				rc);
+
+		/* clear USB ICL vote for PL_USBIN_USBIN_VOTER */
+		rc = vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, false, 0);
+		if (rc < 0)
+			smblib_err(chg,
+					"Couldn't un-vote PL_USBIN_USBIN from USB ICL rc=%d\n",
+					rc);
 
 		/* remove USB_PSY_VOTER */
 		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
@@ -2254,39 +2288,6 @@ int smblib_set_prop_ship_mode(struct smb_charger *chg,
 
 	return rc;
 }
-
-/************************
- * USB MAIN PSY GETTERS *
- ************************/
-int smblib_get_prop_fcc_delta(struct smb_charger *chg,
-			       union power_supply_propval *val)
-{
-	int rc, jeita_cc_delta_ua, step_cc_delta_ua, hw_cc_delta_ua = 0;
-
-	rc = smblib_get_step_cc_delta(chg, &step_cc_delta_ua);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get step cc delta rc=%d\n", rc);
-		step_cc_delta_ua = 0;
-	} else {
-		hw_cc_delta_ua = step_cc_delta_ua;
-	}
-
-	rc = smblib_get_jeita_cc_delta(chg, &jeita_cc_delta_ua);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get jeita cc delta rc=%d\n", rc);
-		jeita_cc_delta_ua = 0;
-	} else if (jeita_cc_delta_ua < 0) {
-		/* HW will take the min between JEITA and step charge */
-		hw_cc_delta_ua = min(hw_cc_delta_ua, jeita_cc_delta_ua);
-	}
-
-	val->intval = hw_cc_delta_ua;
-	return 0;
-}
-
-/************************
- * USB MAIN PSY SETTERS *
- ************************/
 
 int smblib_reg_block_update(struct smb_charger *chg,
 				struct reg_info *entry)
@@ -2461,6 +2462,155 @@ int smblib_set_prop_pd_in_hard_reset(struct smb_charger *chg,
 	}
 
 	return rc;
+}
+
+/************************
+ * USB MAIN PSY GETTERS *
+ ************************/
+int smblib_get_prop_fcc_delta(struct smb_charger *chg,
+			       union power_supply_propval *val)
+{
+	int rc, jeita_cc_delta_ua, step_cc_delta_ua, hw_cc_delta_ua = 0;
+
+	rc = smblib_get_step_cc_delta(chg, &step_cc_delta_ua);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get step cc delta rc=%d\n", rc);
+		step_cc_delta_ua = 0;
+	} else {
+		hw_cc_delta_ua = step_cc_delta_ua;
+	}
+
+	rc = smblib_get_jeita_cc_delta(chg, &jeita_cc_delta_ua);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get jeita cc delta rc=%d\n", rc);
+		jeita_cc_delta_ua = 0;
+	} else if (jeita_cc_delta_ua < 0) {
+		/* HW will take the min between JEITA and step charge */
+		hw_cc_delta_ua = min(hw_cc_delta_ua, jeita_cc_delta_ua);
+	}
+
+	val->intval = hw_cc_delta_ua;
+	return 0;
+}
+
+/************************
+ * USB MAIN PSY SETTERS *
+ ************************/
+
+#define SDP_CURRENT_MA			500000
+#define CDP_CURRENT_MA			1500000
+#define DCP_CURRENT_MA			1500000
+#define HVDCP_CURRENT_MA		3000000
+#define TYPEC_DEFAULT_CURRENT_MA	900000
+#define TYPEC_MEDIUM_CURRENT_MA		1500000
+#define TYPEC_HIGH_CURRENT_MA		3000000
+static int smblib_get_charge_current(struct smb_charger *chg,
+				int *total_current_ua)
+{
+	const struct apsd_result *apsd_result = smblib_update_usb_type(chg);
+	union power_supply_propval val = {0, };
+	int rc, typec_source_rd, current_ua;
+	bool non_compliant;
+	u8 stat5;
+
+	rc = smblib_read(chg, TYPE_C_STATUS_5_REG, &stat5);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read TYPE_C_STATUS_5 rc=%d\n", rc);
+		return rc;
+	}
+	non_compliant = stat5 & TYPEC_NONCOMP_LEGACY_CABLE_STATUS_BIT;
+
+	/* get settled ICL */
+	rc = smblib_get_prop_input_current_settled(chg, &val);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get settled ICL rc=%d\n", rc);
+		return rc;
+	}
+
+	typec_source_rd = smblib_get_prop_ufp_mode(chg);
+
+	/* QC 2.0/3.0 adapter */
+	if (apsd_result->bit & (QC_3P0_BIT | QC_2P0_BIT)) {
+		*total_current_ua = HVDCP_CURRENT_MA;
+		return 0;
+	}
+
+	if (non_compliant) {
+		switch (apsd_result->bit) {
+		case CDP_CHARGER_BIT:
+			current_ua = CDP_CURRENT_MA;
+			break;
+		case DCP_CHARGER_BIT:
+		case OCP_CHARGER_BIT:
+		case FLOAT_CHARGER_BIT:
+			current_ua = DCP_CURRENT_MA;
+			break;
+		default:
+			current_ua = 0;
+			break;
+		}
+
+		*total_current_ua = max(current_ua, val.intval);
+		return 0;
+	}
+
+	switch (typec_source_rd) {
+	case POWER_SUPPLY_TYPEC_SOURCE_DEFAULT:
+		switch (apsd_result->bit) {
+		case CDP_CHARGER_BIT:
+			current_ua = CDP_CURRENT_MA;
+			break;
+		case DCP_CHARGER_BIT:
+		case OCP_CHARGER_BIT:
+		case FLOAT_CHARGER_BIT:
+			current_ua = chg->default_icl_ua;
+			break;
+		default:
+			current_ua = 0;
+			break;
+		}
+		break;
+	case POWER_SUPPLY_TYPEC_SOURCE_MEDIUM:
+		current_ua = TYPEC_MEDIUM_CURRENT_MA;
+		break;
+	case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
+		current_ua = TYPEC_HIGH_CURRENT_MA;
+		break;
+	case POWER_SUPPLY_TYPEC_NON_COMPLIANT:
+	case POWER_SUPPLY_TYPEC_NONE:
+	default:
+		current_ua = 0;
+		break;
+	}
+
+	*total_current_ua = max(current_ua, val.intval);
+	return 0;
+}
+
+int smblib_set_icl_reduction(struct smb_charger *chg, int reduction_ua)
+{
+	int current_ua, rc;
+
+	if (reduction_ua == 0) {
+		chg->icl_reduction_ua = 0;
+		vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, false, 0);
+	} else {
+		/*
+		 * No usb_icl voter means we are defaulting to hw chosen
+		 * max limit. We need a vote from s/w to enforce the reduction.
+		 */
+		if (get_effective_result(chg->usb_icl_votable) == -EINVAL) {
+			rc = smblib_get_charge_current(chg, &current_ua);
+			if (rc < 0) {
+				pr_err("Failed to get ICL rc=%d\n", rc);
+				return rc;
+			}
+			vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, true,
+					current_ua);
+		}
+	}
+
+	return rerun_election(chg->usb_icl_votable);
 }
 
 /************************
@@ -2988,6 +3138,13 @@ static void typec_source_removal(struct smb_charger *chg)
 	if (rc < 0)
 		smblib_err(chg,
 			"Couldn't un-vote DCP from USB ICL rc=%d\n", rc);
+
+	/* clear USB ICL vote for PL_USBIN_USBIN_VOTER */
+	rc = vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, false, 0);
+	if (rc < 0)
+		smblib_err(chg,
+			"Couldn't un-vote PL_USBIN_USBIN from USB ICL rc=%d\n",
+			rc);
 }
 
 static void typec_source_insertion(struct smb_charger *chg)
