@@ -864,20 +864,40 @@ static int _sde_crtc_set_lm_roi(struct drm_crtc *crtc,
 	lm_bounds = &crtc_state->lm_bounds[lm_idx];
 	lm_roi = &crtc_state->lm_roi[lm_idx];
 
-	if (!sde_kms_rect_is_null(crtc_roi)) {
-		sde_kms_rect_intersect(crtc_roi, lm_bounds, lm_roi);
-		if (sde_kms_rect_is_null(lm_roi)) {
-			SDE_ERROR("unsupported R/L only partial update\n");
-			return -EINVAL;
-		}
-	} else {
+	if (sde_kms_rect_is_null(crtc_roi))
 		memcpy(lm_roi, lm_bounds, sizeof(*lm_roi));
-	}
+	else
+		sde_kms_rect_intersect(crtc_roi, lm_bounds, lm_roi);
 
 	SDE_DEBUG("%s: lm%d roi (%d,%d,%d,%d)\n", sde_crtc->name, lm_idx,
 			lm_roi->x, lm_roi->y, lm_roi->w, lm_roi->h);
 
+	/* if any dimension is zero, clear all dimensions for clarity */
+	if (sde_kms_rect_is_null(lm_roi))
+		memset(lm_roi, 0, sizeof(*lm_roi));
+
 	return 0;
+}
+
+static u32 _sde_crtc_get_displays_affected(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *crtc_state;
+	u32 disp_bitmask = 0;
+	int i;
+
+	sde_crtc = to_sde_crtc(crtc);
+	crtc_state = to_sde_crtc_state(state);
+
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		if (!sde_kms_rect_is_null(&crtc_state->lm_roi[i]))
+			disp_bitmask |= BIT(i);
+	}
+
+	SDE_DEBUG("affected displays 0x%x\n", disp_bitmask);
+
+	return disp_bitmask;
 }
 
 static int _sde_crtc_check_rois_centered_and_symmetric(struct drm_crtc *crtc,
@@ -885,34 +905,41 @@ static int _sde_crtc_check_rois_centered_and_symmetric(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *crtc_state;
-	const struct sde_rect *roi_prv, *roi_cur;
-	int lm_idx;
+	const struct sde_rect *roi[CRTC_DUAL_MIXERS];
 
 	if (!crtc || !state)
 		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+	crtc_state = to_sde_crtc_state(state);
+
+	if (sde_crtc->num_mixers == 1)
+		return 0;
+
+	if (sde_crtc->num_mixers > CRTC_DUAL_MIXERS) {
+		SDE_ERROR("%s: unsupported number of mixers: %d\n",
+				sde_crtc->name, sde_crtc->num_mixers);
+		return -EINVAL;
+	}
 
 	/*
 	 * On certain HW, ROIs must be centered on the split between LMs,
 	 * and be of equal width.
 	 */
+	roi[0] = &crtc_state->lm_roi[0];
+	roi[1] = &crtc_state->lm_roi[1];
 
-	sde_crtc = to_sde_crtc(crtc);
-	crtc_state = to_sde_crtc_state(state);
+	/* if one of the roi is null it's a left/right-only update */
+	if (sde_kms_rect_is_null(roi[0]) || sde_kms_rect_is_null(roi[1]))
+		return 0;
 
-	roi_prv = &crtc_state->lm_roi[0];
-	for (lm_idx = 1; lm_idx < sde_crtc->num_mixers; lm_idx++) {
-		roi_cur = &crtc_state->lm_roi[lm_idx];
-
-		/* check lm rois are equal width & first roi ends at 2nd roi */
-		if (((roi_prv->x + roi_prv->w) != roi_cur->x) ||
-				(roi_prv->w != roi_cur->w)) {
-			SDE_ERROR("%s: roi lm%d x %d w %d lm%d x %d w %d\n",
-					sde_crtc->name,
-					lm_idx-1, roi_prv->x, roi_prv->w,
-					lm_idx, roi_cur->x, roi_cur->w);
-			return -EINVAL;
-		}
-		roi_prv = roi_cur;
+	/* check lm rois are equal width & first roi ends at 2nd roi */
+	if (roi[0]->x + roi[0]->w != roi[1]->x || roi[0]->w != roi[1]->w) {
+		SDE_ERROR(
+			"%s: rois not centered and symmetric: roi0 x %d w %d roi1 x %d w %d\n",
+				sde_crtc->name, roi[0]->x, roi[0]->w,
+				roi[1]->x, roi[1]->w);
+		return -EINVAL;
 	}
 
 	return 0;
@@ -1188,12 +1215,20 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
  */
 static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 {
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct sde_crtc_mixer *mixer = sde_crtc->mixers;
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *sde_crtc_state;
+	struct sde_crtc_mixer *mixer;
 	struct sde_hw_ctl *ctl;
 	struct sde_hw_mixer *lm;
 
 	int i;
+
+	if (!crtc)
+		return;
+
+	sde_crtc = to_sde_crtc(crtc);
+	sde_crtc_state = to_sde_crtc_state(crtc->state);
+	mixer = sde_crtc->mixers;
 
 	SDE_DEBUG("%s\n", sde_crtc->name);
 
@@ -1225,8 +1260,18 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 	_sde_crtc_blend_setup_mixer(crtc, sde_crtc, mixer);
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		const struct sde_rect *lm_roi = &sde_crtc_state->lm_roi[i];
+
 		ctl = mixer[i].hw_ctl;
 		lm = mixer[i].hw_lm;
+
+		if (sde_kms_rect_is_null(lm_roi)) {
+			SDE_DEBUG(
+				"%s: lm%d leave ctl%d mask 0 since null roi\n",
+					sde_crtc->name, lm->idx - LM_0,
+					ctl->idx - CTL_0);
+			continue;
+		}
 
 		lm->ops.setup_alpha_out(lm, mixer[i].mixer_op_mode);
 
@@ -1912,6 +1957,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		 * If so, it may delay and flush at an irq event (e.g. ppdone)
 		 */
 		params.inline_rotate_prefill = cstate->sbuf_prefill_line;
+		params.affected_displays = _sde_crtc_get_displays_affected(crtc,
+				crtc->state);
 		sde_encoder_prepare_for_kickoff(encoder, &params);
 	}
 

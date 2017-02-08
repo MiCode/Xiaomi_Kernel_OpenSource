@@ -21,12 +21,12 @@
 #define SDE_DEBUG_CMDENC(e, fmt, ...) SDE_DEBUG("enc%d intf%d " fmt, \
 		(e) && (e)->base.parent ? \
 		(e)->base.parent->base.id : -1, \
-		(e) ? (e)->intf_idx - INTF_0 : -1, ##__VA_ARGS__)
+		(e) ? (e)->base.intf_idx - INTF_0 : -1, ##__VA_ARGS__)
 
 #define SDE_ERROR_CMDENC(e, fmt, ...) SDE_ERROR("enc%d intf%d " fmt, \
 		(e) && (e)->base.parent ? \
 		(e)->base.parent->base.id : -1, \
-		(e) ? (e)->intf_idx - INTF_0 : -1, ##__VA_ARGS__)
+		(e) ? (e)->base.intf_idx - INTF_0 : -1, ##__VA_ARGS__)
 
 #define to_sde_encoder_phys_cmd(x) \
 	container_of(x, struct sde_encoder_phys_cmd, base)
@@ -56,6 +56,46 @@ static bool sde_encoder_phys_cmd_mode_fixup(
 		SDE_DEBUG_CMDENC(to_sde_encoder_phys_cmd(phys_enc), "\n");
 	return true;
 }
+
+static void _sde_encoder_phys_cmd_update_flush_mask(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_cmd *cmd_enc =
+			to_sde_encoder_phys_cmd(phys_enc);
+	struct sde_hw_ctl *ctl;
+	u32 flush_mask = 0;
+
+	ctl = phys_enc->hw_ctl;
+	if (!ctl || !ctl->ops.get_bitmask_intf ||
+			!ctl->ops.update_pending_flush)
+		return;
+
+	ctl->ops.get_bitmask_intf(ctl, &flush_mask, phys_enc->intf_idx);
+	ctl->ops.update_pending_flush(ctl, flush_mask);
+
+	SDE_DEBUG_CMDENC(cmd_enc, "update pending flush ctl %d flush_mask %x\n",
+			ctl->idx - CTL_0, flush_mask);
+}
+
+static void _sde_encoder_phys_cmd_update_intf_cfg(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_cmd *cmd_enc =
+			to_sde_encoder_phys_cmd(phys_enc);
+	struct sde_hw_ctl *ctl;
+	struct sde_hw_intf_cfg intf_cfg = { 0 };
+
+	ctl = phys_enc->hw_ctl;
+	if (!ctl || !ctl->ops.setup_intf_cfg)
+		return;
+
+	intf_cfg.intf = phys_enc->intf_idx;
+	intf_cfg.intf_mode_sel = SDE_CTL_MODE_SEL_CMD;
+	intf_cfg.stream_sel = cmd_enc->stream_sel;
+	intf_cfg.mode_3d = sde_encoder_helper_get_3d_blend_mode(phys_enc);
+	ctl->ops.setup_intf_cfg(ctl, &intf_cfg);
+}
+
 
 static void sde_encoder_phys_cmd_mode_set(
 		struct sde_encoder_phys *phys_enc,
@@ -296,7 +336,7 @@ static int sde_encoder_phys_cmd_register_irq(struct sde_encoder_phys *phys_enc,
 	}
 
 	idx_lookup = (intr_type == SDE_IRQ_TYPE_INTF_UNDER_RUN) ?
-			cmd_enc->intf_idx : phys_enc->hw_pp->idx;
+			phys_enc->intf_idx : phys_enc->hw_pp->idx;
 	cmd_enc->irq_idx[idx] = sde_core_irq_idx_lookup(phys_enc->sde_kms,
 			intr_type, idx_lookup);
 	if (cmd_enc->irq_idx[idx] < 0) {
@@ -513,12 +553,11 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	phys_enc->hw_pp->ops.enable_tearcheck(phys_enc->hw_pp, tc_enable);
 }
 
-static void sde_encoder_phys_cmd_pingpong_config(
+static void _sde_encoder_phys_cmd_pingpong_config(
 		struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
-	struct sde_hw_intf_cfg intf_cfg = { 0 };
 
 	if (!phys_enc || !phys_enc->hw_ctl ||
 			!phys_enc->hw_ctl->ops.setup_intf_cfg) {
@@ -530,13 +569,7 @@ static void sde_encoder_phys_cmd_pingpong_config(
 			phys_enc->hw_pp->idx - PINGPONG_0);
 	drm_mode_debug_printmodeline(&phys_enc->cached_mode);
 
-	intf_cfg.intf = cmd_enc->intf_idx;
-	intf_cfg.intf_mode_sel = SDE_CTL_MODE_SEL_CMD;
-	intf_cfg.stream_sel = cmd_enc->stream_sel;
-	intf_cfg.mode_3d = sde_encoder_helper_get_3d_blend_mode(phys_enc);
-
-	phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl, &intf_cfg);
-
+	_sde_encoder_phys_cmd_update_intf_cfg(phys_enc);
 	sde_encoder_phys_cmd_tearcheck_config(phys_enc);
 }
 
@@ -567,17 +600,15 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 		return;
 	}
 
-	sde_encoder_helper_split_config(phys_enc, cmd_enc->intf_idx);
+	sde_encoder_helper_split_config(phys_enc, phys_enc->intf_idx);
 
-	sde_encoder_phys_cmd_pingpong_config(phys_enc);
+	_sde_encoder_phys_cmd_pingpong_config(phys_enc);
 
 	ctl = phys_enc->hw_ctl;
-	ctl->ops.get_bitmask_intf(ctl, &flush_mask, cmd_enc->intf_idx);
+	ctl->ops.get_bitmask_intf(ctl, &flush_mask, phys_enc->intf_idx);
 	ctl->ops.update_pending_flush(ctl, flush_mask);
-	phys_enc->enable_state = SDE_ENC_ENABLED;
 
-	SDE_DEBUG_CMDENC(cmd_enc, "update pending flush ctl %d flush_mask %x\n",
-			ctl->idx - CTL_0, flush_mask);
+	phys_enc->enable_state = SDE_ENC_ENABLED;
 }
 
 static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
@@ -639,7 +670,7 @@ static void sde_encoder_phys_cmd_get_hw_resources(
 		return;
 	}
 	SDE_DEBUG_CMDENC(cmd_enc, "\n");
-	hw_res->intfs[cmd_enc->intf_idx - INTF_0] = INTF_MODE_CMD;
+	hw_res->intfs[phys_enc->intf_idx - INTF_0] = INTF_MODE_CMD;
 }
 
 static void sde_encoder_phys_cmd_prepare_for_kickoff(
@@ -691,6 +722,26 @@ static int sde_encoder_phys_cmd_wait_for_commit_done(
 	return 0;
 }
 
+static void sde_encoder_phys_cmd_update_split_role(
+		struct sde_encoder_phys *phys_enc,
+		enum sde_enc_split_role role)
+{
+	struct sde_encoder_phys_cmd *cmd_enc =
+		to_sde_encoder_phys_cmd(phys_enc);
+	enum sde_enc_split_role old_role = phys_enc->split_role;
+
+	SDE_DEBUG_CMDENC(cmd_enc, "old role %d new role %d\n",
+			old_role, role);
+
+	phys_enc->split_role = role;
+	if (role == ENC_ROLE_SKIP || role == old_role)
+		return;
+
+	sde_encoder_helper_split_config(phys_enc, phys_enc->intf_idx);
+	_sde_encoder_phys_cmd_pingpong_config(phys_enc);
+	_sde_encoder_phys_cmd_update_flush_mask(phys_enc);
+}
+
 static void sde_encoder_phys_cmd_init_ops(
 		struct sde_encoder_phys_ops *ops)
 {
@@ -708,6 +759,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->needs_single_flush = sde_encoder_phys_cmd_needs_single_flush;
 	ops->hw_reset = sde_encoder_helper_hw_reset;
 	ops->irq_control = sde_encoder_phys_cmd_irq_control;
+	ops->update_split_role = sde_encoder_phys_cmd_update_split_role;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(
@@ -735,8 +787,6 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 		goto fail_mdp_init;
 	}
 	phys_enc->hw_mdptop = hw_mdp;
-
-	cmd_enc->intf_idx = p->intf_idx;
 	phys_enc->intf_idx = p->intf_idx;
 
 	sde_encoder_phys_cmd_init_ops(&phys_enc->ops);

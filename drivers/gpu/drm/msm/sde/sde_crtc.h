@@ -248,9 +248,9 @@ struct sde_crtc_respool {
  * @num_connectors: Number of associated drm connectors
  * @intf_mode     : Interface mode of the primary connector
  * @rsc_client    : sde rsc client when mode is valid
- * @lm_bounds     : LM boundaries based on current mode full resolution, no ROI.
- *                  Origin top left of CRTC.
  * @crtc_roi      : Current CRTC ROI. Possibly sub-rectangle of mode.
+ *                  Origin top left of CRTC.
+ * @lm_bounds     : LM boundaries based on current mode full resolution, no ROI.
  *                  Origin top left of CRTC.
  * @lm_roi        : Current LM ROI, possibly sub-rectangle of mode.
  *                  Origin top left of CRTC.
@@ -274,8 +274,8 @@ struct sde_crtc_state {
 	struct sde_rsc_client *rsc_client;
 	bool rsc_update;
 
-	struct sde_rect lm_bounds[CRTC_DUAL_MIXERS];
 	struct sde_rect crtc_roi;
+	struct sde_rect lm_bounds[CRTC_DUAL_MIXERS];
 	struct sde_rect lm_roi[CRTC_DUAL_MIXERS];
 	struct msm_roi_list user_roi_list;
 

@@ -41,11 +41,13 @@
  * @ENC_ROLE_SOLO:	This is the one and only panel. This encoder is master.
  * @ENC_ROLE_MASTER:	This encoder is the master of a split panel config.
  * @ENC_ROLE_SLAVE:	This encoder is not the master of a split panel config.
+ * @ENC_ROLE_SKIP:	This encoder is not participating in kickoffs
  */
 enum sde_enc_split_role {
 	ENC_ROLE_SOLO,
 	ENC_ROLE_MASTER,
-	ENC_ROLE_SLAVE
+	ENC_ROLE_SLAVE,
+	ENC_ROLE_SKIP
 };
 
 /**
@@ -118,6 +120,7 @@ struct sde_encoder_virt_ops {
  * @hw_reset:			Issue HW recovery such as CTL reset and clear
  *				SDE_ENC_ERR_NEEDS_HW_RESET state
  * @irq_control:		Handler to enable/disable all the encoder IRQs
+ * @update_split_role:		Update the split role of the phys enc
  */
 
 struct sde_encoder_phys_ops {
@@ -152,6 +155,8 @@ struct sde_encoder_phys_ops {
 	u32 (*collect_misr)(struct sde_encoder_phys *phys_enc);
 	void (*hw_reset)(struct sde_encoder_phys *phys_enc);
 	void (*irq_control)(struct sde_encoder_phys *phys, bool enable);
+	void (*update_split_role)(struct sde_encoder_phys *phys_enc,
+			enum sde_enc_split_role role);
 };
 
 /**
@@ -265,7 +270,6 @@ struct sde_encoder_phys_vid {
  */
 struct sde_encoder_phys_cmd {
 	struct sde_encoder_phys base;
-	int intf_idx;
 	int stream_sel;
 	int irq_idx[INTR_IDX_MAX];
 	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
