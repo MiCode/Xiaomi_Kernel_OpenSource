@@ -60,7 +60,7 @@ static ssize_t power_supply_show_property(struct device *dev,
 		"Unknown", "Good", "Overheat", "Dead", "Over voltage",
 		"Unspecified failure", "Cold", "Watchdog timer expire",
 		"Safety timer expire",
-		"Warm", "Cool"
+		"Warm", "Cool", "Hot"
 	};
 	static char *technology_text[] = {
 		"Unknown", "NiMH", "Li-ion", "Li-poly", "LiFe", "NiCd",
@@ -124,6 +124,12 @@ static ssize_t power_supply_show_property(struct device *dev,
 	else if (off == POWER_SUPPLY_PROP_TYPEC_POWER_ROLE)
 		return snprintf(buf, PAGE_SIZE,
 					"%s\n", typec_pr_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_DIE_HEALTH)
+		return snprintf(buf, PAGE_SIZE,
+					"%s\n", health_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_CONNECTOR_HEALTH)
+		return snprintf(buf, PAGE_SIZE,
+					"%s\n", health_text[value.intval]);
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
 		return sprintf(buf, "%s\n", value.strval);
 
@@ -296,6 +302,8 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(parallel_mode),
 	POWER_SUPPLY_ATTR(ctm_current_max),
 	POWER_SUPPLY_ATTR(connector_therm_zone),
+	POWER_SUPPLY_ATTR(die_health),
+	POWER_SUPPLY_ATTR(connector_health),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */
