@@ -869,6 +869,11 @@ DECLARE_EVENT_CLASS(sched_task_util,
 		__entry->comm, __entry->pid, __entry->task_cpu, __entry->task_util, __entry->nominated_cpu, __entry->target_cpu, __entry->ediff, __entry->need_idle, __entry->latency)
 );
 
+DEFINE_EVENT(sched_task_util, sched_task_util_bias_to_waker,
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle)
+);
+
 DEFINE_EVENT(sched_task_util, sched_task_util_colocated,
 	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
 	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle)
