@@ -826,3 +826,27 @@ out:
 
 	return res;
 }
+
+/**
+ * pfk_kc_clear_on_reset() - clear the table and remove all keys from ICE
+ * The assumption is that at this point we don't have any pending transactions
+ * Also, there is no need to clear keys from ICE
+ *
+ * Return 0 on success, error otherwise
+ *
+ */
+void pfk_kc_clear_on_reset(void)
+{
+	struct kc_entry *entry = NULL;
+	int i = 0;
+
+	if (!kc_is_ready())
+		return;
+
+	kc_spin_lock();
+	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
+		entry = kc_entry_at_index(i);
+		kc_clear_entry(entry);
+	}
+	kc_spin_unlock();
+}
