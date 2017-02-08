@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015,2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,7 +52,7 @@ static int compat_get_qseecom_load_img_req(
 	compat_ulong_t img_len;
 	compat_long_t ifd_data_fd;
 	compat_ulong_t app_arch;
-	compat_int_t app_id;
+	compat_uint_t app_id;
 
 	err = get_user(mdt_len, &data32->mdt_len);
 	err |= put_user(mdt_len, &data->mdt_len);
@@ -164,7 +164,7 @@ static int compat_get_qseecom_qseos_app_load_query(
 {
 	int err = 0;
 	unsigned int i;
-	compat_int_t app_id;
+	compat_uint_t app_id;
 	char app_name;
 	compat_ulong_t app_arch;
 
