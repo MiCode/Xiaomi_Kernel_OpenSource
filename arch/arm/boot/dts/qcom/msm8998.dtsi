@@ -1750,7 +1750,7 @@
 			tx-fifo-resize;
 			snps,nominal-elastic-buffer;
 			snps,disable-clk-gating;
-			snps,hird_thresh = <0x10>;
+			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,num-gsi-evt-buffs = <0x3>;
 		};
 
