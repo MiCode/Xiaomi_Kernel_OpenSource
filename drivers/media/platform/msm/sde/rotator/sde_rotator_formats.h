@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,10 +124,34 @@ static inline bool sde_mdp_is_linear_format(struct sde_mdp_format_params *fmt)
 	return fmt && (fmt->frame_format == SDE_MDP_FMT_LINEAR);
 }
 
+static inline bool sde_mdp_is_nv12_format(struct sde_mdp_format_params *fmt)
+{
+	return fmt && (fmt->fetch_planes == SDE_MDP_PLANE_PSEUDO_PLANAR) &&
+			(fmt->chroma_sample == SDE_MDP_CHROMA_420);
+}
+
+static inline bool sde_mdp_is_nv12_8b_format(struct sde_mdp_format_params *fmt)
+{
+	return fmt && sde_mdp_is_nv12_format(fmt) &&
+			(fmt->pixel_mode == SDE_MDP_PIXEL_NORMAL);
+}
+
+static inline bool sde_mdp_is_nv12_10b_format(struct sde_mdp_format_params *fmt)
+{
+	return fmt && sde_mdp_is_nv12_format(fmt) &&
+			(fmt->pixel_mode == SDE_MDP_PIXEL_10BIT);
+}
+
 static inline bool sde_mdp_is_tp10_format(struct sde_mdp_format_params *fmt)
 {
-	return fmt && ((fmt->format == SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC) ||
-			(fmt->format == SDE_PIX_FMT_Y_CBCR_H2V2_TP10));
+	return fmt && sde_mdp_is_nv12_10b_format(fmt) &&
+			fmt->unpack_tight;
+}
+
+static inline bool sde_mdp_is_p010_format(struct sde_mdp_format_params *fmt)
+{
+	return fmt && sde_mdp_is_nv12_10b_format(fmt) &&
+			!fmt->unpack_tight;
 }
 
 static inline bool sde_mdp_is_yuv_format(struct sde_mdp_format_params *fmt)
