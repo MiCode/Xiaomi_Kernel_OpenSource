@@ -2320,44 +2320,6 @@ void __dl_clear_params(struct task_struct *p)
 	dl_se->dl_yielded = 0;
 }
 
-#ifdef CONFIG_SCHED_HMP
-/*
- * sched_exit() - Set EXITING_TASK_MARKER in task's ravg.demand field
- *
- * Stop accounting (exiting) task's future cpu usage
- *
- * We need this so that reset_all_windows_stats() can function correctly.
- * reset_all_window_stats() depends on do_each_thread/for_each_thread task
- * iterators to reset *all* task's statistics. Exiting tasks however become
- * invisible to those iterators. sched_exit() is called on a exiting task prior
- * to being removed from task_list, which will let reset_all_window_stats()
- * function correctly.
- */
-void sched_exit(struct task_struct *p)
-{
-	struct rq_flags rf;
-	struct rq *rq;
-	u64 wallclock;
-
-	sched_set_group_id(p, 0);
-
-	rq = task_rq_lock(p, &rf);
-
-	/* rq->curr == p */
-	wallclock = sched_ktime_clock();
-	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
-	dequeue_task(rq, p, 0);
-	reset_task_stats(p);
-	p->ravg.mark_start = wallclock;
-	p->ravg.sum_history[0] = EXITING_TASK_MARKER;
-	free_task_load_ptrs(p);
-
-	enqueue_task(rq, p, 0);
-	clear_ed_task(p, rq);
-	task_rq_unlock(rq, p, &rf);
-}
-#endif /* CONFIG_SCHED_HMP */
-
 /*
  * Perform scheduler related setup for a newly forked process p.
  * p is forked by current.
@@ -9464,3 +9426,41 @@ const u32 sched_prio_to_wmult[40] = {
  /*  10 */  39045157,  49367440,  61356676,  76695844,  95443717,
  /*  15 */ 119304647, 148102320, 186737708, 238609294, 286331153,
 };
+
+#ifdef CONFIG_SCHED_HMP
+/*
+ * sched_exit() - Set EXITING_TASK_MARKER in task's ravg.demand field
+ *
+ * Stop accounting (exiting) task's future cpu usage
+ *
+ * We need this so that reset_all_windows_stats() can function correctly.
+ * reset_all_window_stats() depends on do_each_thread/for_each_thread task
+ * iterators to reset *all* task's statistics. Exiting tasks however become
+ * invisible to those iterators. sched_exit() is called on a exiting task prior
+ * to being removed from task_list, which will let reset_all_window_stats()
+ * function correctly.
+ */
+void sched_exit(struct task_struct *p)
+{
+	struct rq_flags rf;
+	struct rq *rq;
+	u64 wallclock;
+
+	sched_set_group_id(p, 0);
+
+	rq = task_rq_lock(p, &rf);
+
+	/* rq->curr == p */
+	wallclock = sched_ktime_clock();
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
+	dequeue_task(rq, p, 0);
+	reset_task_stats(p);
+	p->ravg.mark_start = wallclock;
+	p->ravg.sum_history[0] = EXITING_TASK_MARKER;
+	free_task_load_ptrs(p);
+
+	enqueue_task(rq, p, 0);
+	clear_ed_task(p, rq);
+	task_rq_unlock(rq, p, &rf);
+}
+#endif /* CONFIG_SCHED_HMP */

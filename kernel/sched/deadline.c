@@ -18,6 +18,41 @@
 
 #include <linux/slab.h>
 
+#ifdef CONFIG_SCHED_HMP
+
+static void
+inc_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p)
+{
+	inc_cumulative_runnable_avg(&rq->hmp_stats, p);
+}
+
+static void
+dec_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p)
+{
+	dec_cumulative_runnable_avg(&rq->hmp_stats, p);
+}
+
+static void
+fixup_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p,
+			 u32 new_task_load, u32 new_pred_demand)
+{
+	s64 task_load_delta = (s64)new_task_load - task_load(p);
+	s64 pred_demand_delta = PRED_DEMAND_DELTA;
+
+	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta,
+				      pred_demand_delta);
+}
+
+#else	/* CONFIG_SCHED_HMP */
+
+static inline void
+inc_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p) { }
+
+static inline void
+dec_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p) { }
+
+#endif	/* CONFIG_SCHED_HMP */
+
 struct dl_bandwidth def_dl_bandwidth;
 
 static inline struct task_struct *dl_task_of(struct sched_dl_entity *dl_se)
@@ -819,41 +854,6 @@ static inline void inc_dl_deadline(struct dl_rq *dl_rq, u64 deadline) {}
 static inline void dec_dl_deadline(struct dl_rq *dl_rq, u64 deadline) {}
 
 #endif /* CONFIG_SMP */
-
-#ifdef CONFIG_SCHED_HMP
-
-static void
-inc_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p)
-{
-	inc_cumulative_runnable_avg(&rq->hmp_stats, p);
-}
-
-static void
-dec_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p)
-{
-	dec_cumulative_runnable_avg(&rq->hmp_stats, p);
-}
-
-static void
-fixup_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p,
-			 u32 new_task_load, u32 new_pred_demand)
-{
-	s64 task_load_delta = (s64)new_task_load - task_load(p);
-	s64 pred_demand_delta = PRED_DEMAND_DELTA;
-
-	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta,
-				      pred_demand_delta);
-}
-
-#else	/* CONFIG_SCHED_HMP */
-
-static inline void
-inc_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p) { }
-
-static inline void
-dec_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p) { }
-
-#endif	/* CONFIG_SCHED_HMP */
 
 static inline
 void inc_dl_tasks(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)

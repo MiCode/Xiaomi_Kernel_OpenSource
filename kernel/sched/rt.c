@@ -9,6 +9,58 @@
 #include <linux/irq_work.h>
 #include <trace/events/sched.h>
 
+#ifdef CONFIG_SCHED_HMP
+
+static void
+inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p)
+{
+	inc_cumulative_runnable_avg(&rq->hmp_stats, p);
+}
+
+static void
+dec_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p)
+{
+	dec_cumulative_runnable_avg(&rq->hmp_stats, p);
+}
+
+static void
+fixup_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p,
+			 u32 new_task_load, u32 new_pred_demand)
+{
+	s64 task_load_delta = (s64)new_task_load - task_load(p);
+	s64 pred_demand_delta = PRED_DEMAND_DELTA;
+
+	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta,
+				      pred_demand_delta);
+}
+
+#ifdef CONFIG_SMP
+static int find_lowest_rq(struct task_struct *task);
+
+static int
+select_task_rq_rt_hmp(struct task_struct *p, int cpu, int sd_flag, int flags)
+{
+	int target;
+
+	rcu_read_lock();
+	target = find_lowest_rq(p);
+	if (target != -1)
+		cpu = target;
+	rcu_read_unlock();
+
+	return cpu;
+}
+#endif /* CONFIG_SMP */
+#else  /* CONFIG_SCHED_HMP */
+
+static inline void
+inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
+
+static inline void
+dec_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
+
+#endif	/* CONFIG_SCHED_HMP */
+
 int sched_rr_timeslice = RR_TIMESLICE;
 
 static int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun);
@@ -1197,41 +1249,6 @@ void dec_rt_group(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq) {}
 
 #endif /* CONFIG_RT_GROUP_SCHED */
 
-#ifdef CONFIG_SCHED_HMP
-
-static void
-inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p)
-{
-	inc_cumulative_runnable_avg(&rq->hmp_stats, p);
-}
-
-static void
-dec_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p)
-{
-	dec_cumulative_runnable_avg(&rq->hmp_stats, p);
-}
-
-static void
-fixup_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p,
-			 u32 new_task_load, u32 new_pred_demand)
-{
-	s64 task_load_delta = (s64)new_task_load - task_load(p);
-	s64 pred_demand_delta = PRED_DEMAND_DELTA;
-
-	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta,
-				      pred_demand_delta);
-}
-
-#else	/* CONFIG_SCHED_HMP */
-
-static inline void
-inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
-
-static inline void
-dec_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
-
-#endif	/* CONFIG_SCHED_HMP */
-
 static inline
 unsigned int rt_se_nr_running(struct sched_rt_entity *rt_se)
 {
@@ -1466,22 +1483,6 @@ static void yield_task_rt(struct rq *rq)
 
 #ifdef CONFIG_SMP
 static int find_lowest_rq(struct task_struct *task);
-
-#ifdef CONFIG_SCHED_HMP
-static int
-select_task_rq_rt_hmp(struct task_struct *p, int cpu, int sd_flag, int flags)
-{
-	int target;
-
-	rcu_read_lock();
-	target = find_lowest_rq(p);
-	if (target != -1)
-		cpu = target;
-	rcu_read_unlock();
-
-	return cpu;
-}
-#endif /* CONFIG_SCHED_HMP */
 
 static int
 select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)

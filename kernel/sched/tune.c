@@ -10,6 +10,24 @@ unsigned int sysctl_sched_cfs_boost __read_mostly;
 
 #ifdef CONFIG_CGROUP_SCHEDTUNE
 
+#ifdef CONFIG_SCHED_HMP
+struct schedtune;
+static inline void init_sched_boost(struct schedtune *st);
+static void schedtune_attach(struct cgroup_taskset *tset);
+static u64 sched_boost_override_read(struct cgroup_subsys_state *css,
+				     struct cftype *cft);
+static int sched_boost_override_write(struct cgroup_subsys_state *css,
+				     struct cftype *cft, u64 override);
+static u64 sched_boost_enabled_read(struct cgroup_subsys_state *css,
+				    struct cftype *cft);
+static int sched_boost_enabled_write(struct cgroup_subsys_state *css,
+				     struct cftype *cft, u64 enable);
+static u64 sched_colocate_read(struct cgroup_subsys_state *css,
+			       struct cftype *cft);
+static int sched_colocate_write(struct cgroup_subsys_state *css,
+				struct cftype *cft, u64 colocate);
+#endif /* CONFIG_SCHED_HMP */
+
 /*
  * EAS scheduler tunables for task groups.
  */
@@ -131,121 +149,6 @@ struct boost_groups {
 /* Boost groups affecting each CPU in the system */
 DEFINE_PER_CPU(struct boost_groups, cpu_boost_groups);
 
-#ifdef CONFIG_SCHED_HMP
-static inline void init_sched_boost(struct schedtune *st)
-{
-	st->sched_boost_no_override = false;
-	st->sched_boost_enabled = true;
-	st->sched_boost_enabled_backup = st->sched_boost_enabled;
-	st->colocate = false;
-	st->colocate_update_disabled = false;
-}
-
-bool same_schedtune(struct task_struct *tsk1, struct task_struct *tsk2)
-{
-	return task_schedtune(tsk1) == task_schedtune(tsk2);
-}
-
-void update_cgroup_boost_settings(void)
-{
-	int i;
-
-	for (i = 0; i < BOOSTGROUPS_COUNT; i++) {
-		if (!allocated_group[i])
-			break;
-
-		if (allocated_group[i]->sched_boost_no_override)
-			continue;
-
-		allocated_group[i]->sched_boost_enabled = false;
-	}
-}
-
-void restore_cgroup_boost_settings(void)
-{
-	int i;
-
-	for (i = 0; i < BOOSTGROUPS_COUNT; i++) {
-		if (!allocated_group[i])
-			break;
-
-		allocated_group[i]->sched_boost_enabled =
-			allocated_group[i]->sched_boost_enabled_backup;
-	}
-}
-
-bool task_sched_boost(struct task_struct *p)
-{
-	struct schedtune *st = task_schedtune(p);
-
-	return st->sched_boost_enabled;
-}
-
-static u64
-sched_boost_override_read(struct cgroup_subsys_state *css,
-			struct cftype *cft)
-{
-	struct schedtune *st = css_st(css);
-
-	return st->sched_boost_no_override;
-}
-
-static int sched_boost_override_write(struct cgroup_subsys_state *css,
-			struct cftype *cft, u64 override)
-{
-	struct schedtune *st = css_st(css);
-
-	st->sched_boost_no_override = !!override;
-
-	return 0;
-}
-
-static u64 sched_boost_enabled_read(struct cgroup_subsys_state *css,
-			struct cftype *cft)
-{
-	struct schedtune *st = css_st(css);
-
-	return st->sched_boost_enabled;
-}
-
-static int sched_boost_enabled_write(struct cgroup_subsys_state *css,
-			struct cftype *cft, u64 enable)
-{
-	struct schedtune *st = css_st(css);
-
-	st->sched_boost_enabled = !!enable;
-	st->sched_boost_enabled_backup = st->sched_boost_enabled;
-
-	return 0;
-}
-
-static u64 sched_colocate_read(struct cgroup_subsys_state *css,
-			struct cftype *cft)
-{
-	struct schedtune *st = css_st(css);
-
-	return st->colocate;
-}
-
-static int sched_colocate_write(struct cgroup_subsys_state *css,
-			struct cftype *cft, u64 colocate)
-{
-	struct schedtune *st = css_st(css);
-
-	if (st->colocate_update_disabled)
-		return -EPERM;
-
-	st->colocate = !!colocate;
-	st->colocate_update_disabled = true;
-	return 0;
-}
-
-#else /* CONFIG_SCHED_HMP */
-
-static inline void init_sched_boost(struct schedtune *st) { }
-
-#endif /* CONFIG_SCHED_HMP */
-
 static u64
 boost_read(struct cgroup_subsys_state *css, struct cftype *cft)
 {
@@ -268,22 +171,6 @@ boost_write(struct cgroup_subsys_state *css, struct cftype *cft,
 		sysctl_sched_cfs_boost = boost;
 
 	return 0;
-}
-
-static void schedtune_attach(struct cgroup_taskset *tset)
-{
-	struct task_struct *task;
-	struct cgroup_subsys_state *css;
-	struct schedtune *st;
-	bool colocate;
-
-	cgroup_taskset_first(tset, &css);
-	st = css_st(css);
-
-	colocate = st->colocate;
-
-	cgroup_taskset_for_each(task, css, tset)
-		sync_cgroup_colocation(task, colocate);
 }
 
 static struct cftype files[] = {
@@ -423,3 +310,135 @@ sysctl_sched_cfs_boost_handler(struct ctl_table *table, int write,
 	return 0;
 }
 
+/* QHMP/Zone implementation s*/
+
+static void schedtune_attach(struct cgroup_taskset *tset)
+{
+	struct task_struct *task;
+	struct cgroup_subsys_state *css;
+	struct schedtune *st;
+	bool colocate;
+
+	cgroup_taskset_first(tset, &css);
+	st = css_st(css);
+
+	colocate = st->colocate;
+
+	cgroup_taskset_for_each(task, css, tset)
+		sync_cgroup_colocation(task, colocate);
+}
+
+#ifdef CONFIG_SCHED_HMP
+static inline void init_sched_boost(struct schedtune *st)
+{
+	st->sched_boost_no_override = false;
+	st->sched_boost_enabled = true;
+	st->sched_boost_enabled_backup = st->sched_boost_enabled;
+	st->colocate = false;
+	st->colocate_update_disabled = false;
+}
+
+bool same_schedtune(struct task_struct *tsk1, struct task_struct *tsk2)
+{
+	return task_schedtune(tsk1) == task_schedtune(tsk2);
+}
+
+void update_cgroup_boost_settings(void)
+{
+	int i;
+
+	for (i = 0; i < BOOSTGROUPS_COUNT; i++) {
+		if (!allocated_group[i])
+			break;
+
+		if (allocated_group[i]->sched_boost_no_override)
+			continue;
+
+		allocated_group[i]->sched_boost_enabled = false;
+	}
+}
+
+void restore_cgroup_boost_settings(void)
+{
+	int i;
+
+	for (i = 0; i < BOOSTGROUPS_COUNT; i++) {
+		if (!allocated_group[i])
+			break;
+
+		allocated_group[i]->sched_boost_enabled =
+			allocated_group[i]->sched_boost_enabled_backup;
+	}
+}
+
+bool task_sched_boost(struct task_struct *p)
+{
+	struct schedtune *st = task_schedtune(p);
+
+	return st->sched_boost_enabled;
+}
+
+static u64
+sched_boost_override_read(struct cgroup_subsys_state *css,
+			struct cftype *cft)
+{
+	struct schedtune *st = css_st(css);
+
+	return st->sched_boost_no_override;
+}
+
+static int sched_boost_override_write(struct cgroup_subsys_state *css,
+			struct cftype *cft, u64 override)
+{
+	struct schedtune *st = css_st(css);
+
+	st->sched_boost_no_override = !!override;
+
+	return 0;
+}
+
+static u64 sched_boost_enabled_read(struct cgroup_subsys_state *css,
+			struct cftype *cft)
+{
+	struct schedtune *st = css_st(css);
+
+	return st->sched_boost_enabled;
+}
+
+static int sched_boost_enabled_write(struct cgroup_subsys_state *css,
+			struct cftype *cft, u64 enable)
+{
+	struct schedtune *st = css_st(css);
+
+	st->sched_boost_enabled = !!enable;
+	st->sched_boost_enabled_backup = st->sched_boost_enabled;
+
+	return 0;
+}
+
+static u64 sched_colocate_read(struct cgroup_subsys_state *css,
+			struct cftype *cft)
+{
+	struct schedtune *st = css_st(css);
+
+	return st->colocate;
+}
+
+static int sched_colocate_write(struct cgroup_subsys_state *css,
+			struct cftype *cft, u64 colocate)
+{
+	struct schedtune *st = css_st(css);
+
+	if (st->colocate_update_disabled)
+		return -EPERM;
+
+	st->colocate = !!colocate;
+	st->colocate_update_disabled = true;
+	return 0;
+}
+
+#else /* CONFIG_SCHED_HMP */
+
+static inline void init_sched_boost(struct schedtune *st) { }
+
+#endif /* CONFIG_SCHED_HMP */
