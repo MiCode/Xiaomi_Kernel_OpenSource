@@ -637,7 +637,7 @@ static int smb2_usb_main_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_fcc_delta(chg, val);
 		break;
 	default:
-		pr_err("get prop %d is not supported in usb-main\n", psp);
+		pr_debug("get prop %d is not supported in usb-main\n", psp);
 		rc = -EINVAL;
 		break;
 	}
