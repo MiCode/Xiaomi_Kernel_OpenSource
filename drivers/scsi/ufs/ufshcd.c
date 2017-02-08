@@ -8079,13 +8079,6 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		if (ufshcd_scsi_add_wlus(hba))
 			goto out;
 
-		/* Enable auto hibern8 if supported, after full host and
-		 * device initialization.
-		 */
-		if (ufshcd_is_auto_hibern8_supported(hba))
-			ufshcd_set_auto_hibern8_timer(hba,
-					      hba->hibern8_on_idle.delay_ms);
-
 		/* Initialize devfreq after UFS device is detected */
 		if (ufshcd_is_clkscaling_supported(hba)) {
 			memcpy(&hba->clk_scaling.saved_pwr_info.info,
@@ -8112,6 +8105,13 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		pm_runtime_put_sync(hba->dev);
 	}
 
+	/*
+	 * Enable auto hibern8 if supported, after full host and
+	 * device initialization.
+	 */
+	if (ufshcd_is_auto_hibern8_supported(hba))
+		ufshcd_set_auto_hibern8_timer(hba,
+				      hba->hibern8_on_idle.delay_ms);
 out:
 	/*
 	 * If we failed to initialize the device or the device is not
