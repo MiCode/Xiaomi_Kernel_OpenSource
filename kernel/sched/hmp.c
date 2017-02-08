@@ -711,7 +711,7 @@ __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 unsigned int __read_mostly sysctl_sched_enable_thread_grouping;
 
 
-__read_mostly unsigned int sysctl_sched_new_task_windows = 5;
+#define SCHED_NEW_TASK_WINDOWS 5
 
 #define SCHED_FREQ_ACCOUNT_WAIT_TIME 0
 
@@ -1842,7 +1842,7 @@ static int account_busy_for_cpu_time(struct rq *rq, struct task_struct *p,
 
 static inline bool is_new_task(struct task_struct *p)
 {
-	return p->ravg.active_windows < sysctl_sched_new_task_windows;
+	return p->ravg.active_windows < SCHED_NEW_TASK_WINDOWS;
 }
 
 #define INC_STEP 8
