@@ -20,6 +20,7 @@
 
 #include <stddef.h>
 #include <drm/drm.h>
+#include <drm/sde_drm.h>
 
 /* Please note that modifications to all structs defined here are
  * subject to backwards-compatibility constraints:
@@ -196,6 +197,39 @@ struct drm_msm_wait_fence {
 	struct drm_msm_timespec timeout;   /* in */
 };
 
+/**
+ * struct drm_msm_event_req - Payload to event enable/disable ioctls.
+ * @object_id: DRM object id. Ex: for crtc pass crtc id.
+ * @object_type: DRM object type. Ex: for crtc set it to DRM_MODE_OBJECT_CRTC.
+ * @event: Event for which notification is being enabled/disabled.
+ *         Ex: for Histogram set - DRM_EVENT_HISTOGRAM.
+ * @client_context: Opaque pointer that will be returned during event response
+ *                  notification.
+ * @index: Object index(ex: crtc index), optional for user-space to set.
+ *         Driver will override value based on object_id and object_type.
+ */
+struct drm_msm_event_req {
+	__u32 object_id;
+	__u32 object_type;
+	__u32 event;
+	__u64 client_context;
+	__u32 index;
+};
+
+/**
+ * struct drm_msm_event_resp - payload returned when read is called for
+ *                            custom notifications.
+ * @base: Event type and length of complete notification payload.
+ * @info: Contains information about DRM that which raised this event.
+ * @data: Custom payload that driver returns for event type.
+ *        size of data = base.length - (sizeof(base) + sizeof(info))
+ */
+struct drm_msm_event_resp {
+	struct drm_event base;
+	struct drm_msm_event_req info;
+	__u8 data[];
+};
+
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
 #define DRM_MSM_SET_PARAM              0x01
@@ -206,7 +240,18 @@ struct drm_msm_wait_fence {
 #define DRM_MSM_GEM_CPU_FINI           0x05
 #define DRM_MSM_GEM_SUBMIT             0x06
 #define DRM_MSM_WAIT_FENCE             0x07
-#define DRM_MSM_NUM_IOCTLS             0x08
+#define DRM_SDE_WB_CONFIG              0x08
+#define DRM_MSM_REGISTER_EVENT         0x09
+#define DRM_MSM_DEREGISTER_EVENT       0x0A
+#define DRM_MSM_NUM_IOCTLS             0x0B
+
+/**
+ * Currently DRM framework supports only VSYNC event.
+ * Starting the custom events at 0xff to provide space for DRM
+ * framework to add new events.
+ */
+#define DRM_EVENT_HISTOGRAM 0xff
+#define DRM_EVENT_AD 0x100
 
 #define DRM_IOCTL_MSM_GET_PARAM        DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GET_PARAM, struct drm_msm_param)
 #define DRM_IOCTL_MSM_GEM_NEW          DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_NEW, struct drm_msm_gem_new)
@@ -215,5 +260,10 @@ struct drm_msm_wait_fence {
 #define DRM_IOCTL_MSM_GEM_CPU_FINI     DRM_IOW (DRM_COMMAND_BASE + DRM_MSM_GEM_CPU_FINI, struct drm_msm_gem_cpu_fini)
 #define DRM_IOCTL_MSM_GEM_SUBMIT       DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_SUBMIT, struct drm_msm_gem_submit)
 #define DRM_IOCTL_MSM_WAIT_FENCE       DRM_IOW (DRM_COMMAND_BASE + DRM_MSM_WAIT_FENCE, struct drm_msm_wait_fence)
-
+#define DRM_IOCTL_SDE_WB_CONFIG \
+	DRM_IOW((DRM_COMMAND_BASE + DRM_SDE_WB_CONFIG), struct sde_drm_wb_cfg)
+#define DRM_IOCTL_MSM_REGISTER_EVENT   DRM_IOW((DRM_COMMAND_BASE + \
+			DRM_MSM_REGISTER_EVENT), struct drm_msm_event_req)
+#define DRM_IOCTL_MSM_DEREGISTER_EVENT DRM_IOW((DRM_COMMAND_BASE + \
+			DRM_MSM_DEREGISTER_EVENT), struct drm_msm_event_req)
 #endif /* __MSM_DRM_H__ */

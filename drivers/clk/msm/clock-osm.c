@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -83,6 +83,7 @@ enum clk_osm_trace_packet_id {
 #define VERSION_REG 0x0
 
 #define OSM_TABLE_SIZE 40
+#define MAX_VIRTUAL_CORNER (OSM_TABLE_SIZE - 1)
 #define MAX_CLUSTER_CNT 2
 #define CORE_COUNT_VAL(val) ((val & GENMASK(18, 16)) >> 16)
 #define SINGLE_CORE 1
@@ -1662,6 +1663,14 @@ static int clk_osm_resolve_crossover_corners(struct clk_osm *c,
 				break;
 			}
 		}
+
+		/*
+		 * This assumes the OSM table uses corners
+		 * 0 to MAX_VIRTUAL_CORNER - 1.
+		 */
+		if (!c->mem_acc_threshold_vc)
+			c->mem_acc_threshold_vc =
+				MAX_VIRTUAL_CORNER;
 	}
 
 	return 0;
@@ -3232,9 +3241,10 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = clk_osm_resolve_crossover_corners(&pwrcl_clk, pdev, NULL);
+	rc = clk_osm_resolve_crossover_corners(&pwrcl_clk, pdev,
+			       "qcom,pwrcl-apcs-mem-acc-threshold-voltage");
 	if (rc)
-		dev_info(&pdev->dev, "No APM crossover corner programmed\n");
+		dev_info(&pdev->dev, "No MEM-ACC crossover corner programmed\n");
 
 	rc = clk_osm_resolve_crossover_corners(&perfcl_clk, pdev,
 				"qcom,perfcl-apcs-mem-acc-threshold-voltage");

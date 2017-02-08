@@ -10,8 +10,9 @@ Properties:
 	Usage:      required
 	Value type: <string>
 	Definition: must be "qcom,cpu-clock-osm-msm8998-v1",
-		    "qcom,cpu-clock-osm-msm8998-v2" or
-		    "qcom,clk-cpu-osm".
+		    "qcom,cpu-clock-osm-msm8998-v2",
+		    "qcom,clk-cpu-osm" or
+		    "qcom,clk-cpu-osm-sdm630".
 
 - reg
 	Usage:      required
@@ -280,6 +281,16 @@ Properties:
 		    is of length 3 corresponding to the mem-acc values per
 		    performance mode with a total of 4 tuples corresponding
 		    to each supported performance mode.
+
+- qcom,pwrcl-apcs-mem-acc-threshold-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the highest MEM ACC threshold voltage in
+		    microvolts for the Power cluster.  This voltage is
+		    used to determine which MEM ACC setting is used for the
+		    highest frequencies.  If specified, the voltage must match
+		    the MEM ACC threshold voltage specified for the
+		    corresponding CPRh device.
 
 - qcom,perfcl-apcs-mem-acc-val
 	Usage:      required if qcom,osm-no-tz is specified

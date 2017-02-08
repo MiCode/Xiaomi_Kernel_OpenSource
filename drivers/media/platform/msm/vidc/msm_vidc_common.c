@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1087,7 +1087,8 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		rc = msm_comm_g_ctrl_for_id(inst,
 			V4L2_CID_MPEG_VIDC_VIDEO_CONTINUE_DATA_TRANSFER);
 
-		if (!IS_ERR_VALUE(rc) && rc == true) {
+		if ((!IS_ERR_VALUE(rc) && rc == true) ||
+				is_thumbnail_session(inst)) {
 			event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
 
 			if (msm_comm_get_stream_output_mode(inst) ==

@@ -7361,7 +7361,7 @@ int q6asm_async_write(struct audio_client *ac,
 	}
 
 	q6asm_stream_add_hdr_async(
-			ac, &write.hdr, sizeof(write), FALSE, ac->stream_id);
+			ac, &write.hdr, sizeof(write), TRUE, ac->stream_id);
 	port = &ac->port[IN];
 	ab = &port->buf[port->dsp_buf];
 
@@ -7522,7 +7522,7 @@ int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 				   0, /* Stream ID is NA */
 				   port->dsp_buf,
 				   0, /* Direction flag is NA */
-				   WAIT_CMD);
+				   NO_WAIT_CMD);
 		write.hdr.opcode = ASM_DATA_CMD_WRITE_V2;
 		write.buf_addr_lsw = lower_32_bits(ab->phys);
 		write.buf_addr_msw = msm_audio_populate_upper_32_bits(ab->phys);
@@ -7601,7 +7601,7 @@ int q6asm_write_nolock(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 				   0, /* Stream ID is NA */
 				   port->dsp_buf,
 				   0, /* Direction flag is NA */
-				   WAIT_CMD);
+				   NO_WAIT_CMD);
 
 		write.hdr.opcode = ASM_DATA_CMD_WRITE_V2;
 		write.buf_addr_lsw = lower_32_bits(ab->phys);
@@ -8049,7 +8049,7 @@ static int __q6asm_cmd_nowait(struct audio_client *ac, int cmd,
 				   stream_id,
 				   0, /* Buffer index is NA */
 				   0, /* Direction flag is NA */
-				   WAIT_CMD);
+				   NO_WAIT_CMD);
 
 	pr_debug("%s: token = 0x%x, stream_id  %d, session 0x%x\n",
 			__func__, hdr.token, stream_id, ac->session);
@@ -8113,7 +8113,7 @@ int __q6asm_send_meta_data(struct audio_client *ac, uint32_t stream_id,
 		return -EINVAL;
 	}
 	pr_debug("%s: session[%d]\n", __func__, ac->session);
-	q6asm_stream_add_hdr_async(ac, &silence.hdr, sizeof(silence), FALSE,
+	q6asm_stream_add_hdr_async(ac, &silence.hdr, sizeof(silence), TRUE,
 			stream_id);
 
 	/*
@@ -8127,7 +8127,7 @@ int __q6asm_send_meta_data(struct audio_client *ac, uint32_t stream_id,
 				   stream_id,
 				   0, /* Buffer index is NA */
 				   0, /* Direction flag is NA */
-				   WAIT_CMD);
+				   NO_WAIT_CMD);
 	pr_debug("%s: token = 0x%x, stream_id  %d, session 0x%x\n",
 			__func__, silence.hdr.token, stream_id, ac->session);
 
@@ -8343,14 +8343,17 @@ int q6asm_get_apr_service_id(int session_id)
 
 int q6asm_get_asm_topology(int session_id)
 {
-	int topology;
+	int topology = -EINVAL;
 
 	if (session_id <= 0 || session_id > ASM_ACTIVE_STREAMS_ALLOWED) {
 		pr_err("%s: invalid session_id = %d\n", __func__, session_id);
-		topology = -EINVAL;
 		goto done;
 	}
-
+	if (session[session_id] == NULL) {
+		pr_err("%s: session not created for session id = %d\n",
+		       __func__, session_id);
+		goto done;
+	}
 	topology = session[session_id]->topology;
 done:
 	return topology;
@@ -8358,14 +8361,17 @@ done:
 
 int q6asm_get_asm_app_type(int session_id)
 {
-	int app_type;
+	int app_type = -EINVAL;
 
 	if (session_id <= 0 || session_id > ASM_ACTIVE_STREAMS_ALLOWED) {
 		pr_err("%s: invalid session_id = %d\n", __func__, session_id);
-		app_type = -EINVAL;
 		goto done;
 	}
-
+	if (session[session_id] == NULL) {
+		pr_err("%s: session not created for session id = %d\n",
+		       __func__, session_id);
+		goto done;
+	}
 	app_type = session[session_id]->app_type;
 done:
 	return app_type;

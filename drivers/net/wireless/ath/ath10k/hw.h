@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
- * Copyright (c) 2011-2013 Qualcomm Atheros, Inc.
+ * Copyright (c) 2011-2013,2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -127,6 +127,10 @@ enum qca9377_chip_id_rev {
 #define QCA4019_HW_1_0_FW_DIR          ATH10K_FW_DIR "/QCA4019/hw1.0"
 #define QCA4019_HW_1_0_BOARD_DATA_FILE "board.bin"
 #define QCA4019_HW_1_0_PATCH_LOAD_ADDR  0x1234
+
+/* WCN3990 1.0 definitions */
+#define WCN3990_HW_1_0_DEV_VERSION     ATH10K_HW_WCN3990
+#define WCN3990_HW_1_0_FW_DIR          "/etc/firmware"
 
 #define ATH10K_FW_API2_FILE		"firmware-2.bin"
 #define ATH10K_FW_API3_FILE		"firmware-3.bin"
@@ -264,6 +268,8 @@ extern const struct ath10k_hw_regs qca6174_regs;
 extern const struct ath10k_hw_regs qca99x0_regs;
 extern const struct ath10k_hw_regs qca4019_regs;
 extern const struct ath10k_hw_regs wcn3990_regs;
+
+extern struct fw_flag wcn3990_fw_flags;
 
 struct ath10k_hw_values {
 	u32 rtc_state_val_on;
@@ -432,6 +438,7 @@ struct ath10k_hw_ops {
 
 extern const struct ath10k_hw_ops qca988x_ops;
 extern const struct ath10k_hw_ops qca99x0_ops;
+extern const struct ath10k_hw_ops wcn3990_ops;
 
 static inline int
 ath10k_rx_desc_get_l3_pad_bytes(struct ath10k_hw_params *hw,

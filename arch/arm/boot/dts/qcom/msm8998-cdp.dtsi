@@ -331,7 +331,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
-&dsi_jdi_1080_vid {
+&dsi_jdi_1080p_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;

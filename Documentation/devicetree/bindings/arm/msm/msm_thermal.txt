@@ -105,7 +105,9 @@ Optional properties
 - clock-names:          The list of clocks needed for thermal module. Must be
 			- "osm" for LMH DCVS
 - clocks:               The phandle to the clocks.
-
+- qcom,cxip-lm-enable:  If this optional property is defined with a non zero value,
+			it enables CXIP_LM hardware feature. If value is zero,
+			it disables CXIP_LM hardware feature.
 Optional child nodes
 - qcom,pmic-opt-curr-temp: Threshold temperature for requesting optimum current (request
 			dual phase) for rails with PMIC, in degC. If this property exists,

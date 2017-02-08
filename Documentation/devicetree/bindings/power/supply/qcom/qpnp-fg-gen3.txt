@@ -99,10 +99,10 @@ First Level Node - FG Gen3 device
 - qcom,fg-delta-soc-thr
 	Usage:      optional
 	Value type: <u32>
-	Definition: Percentage of monotonic SOC increase upon which the delta
-		    SOC interrupt will be triggered. If this property is not
-		    specified, then the default value will be 1. Possible
-		    values are in the range of 0 to 12.
+	Definition: Percentage of SOC increase upon which the delta monotonic &
+		    battery SOC interrupts will be triggered. If this property
+		    is not specified, then the default value will be 1.
+		    Possible values are in the range of 0 to 12.
 
 - qcom,fg-recharge-soc-thr
 	Usage:      optional
@@ -156,12 +156,12 @@ First Level Node - FG Gen3 device
 
 - qcom,cycle-counter-en
 	Usage:      optional
-	Value type: <bool>
+	Value type: <empty>
 	Definition: Enables the cycle counter feature.
 
 - qcom,fg-force-load-profile
 	Usage:      optional
-	Value type: <bool>
+	Value type: <empty>
 	Definition: If set, battery profile will be force loaded if the profile
 		    loaded earlier by bootloader doesn't match with the profile
 		    available in the device tree.
@@ -229,13 +229,13 @@ First Level Node - FG Gen3 device
 	Definition: Battery temperature delta interrupt threshold. Possible
 		    values are: 2, 4, 6 and 10. Unit is in Kelvin.
 
-- qcom,hold-soc-while-full:
+- qcom,hold-soc-while-full
 	Usage:      optional
-	Value type: <bool>
+	Value type: <empty>
 	Definition: A boolean property that when defined holds SOC at 100% when
 		    the battery is full.
 
-- qcom,ki-coeff-soc-dischg:
+- qcom,ki-coeff-soc-dischg
 	Usage:      optional
 	Value type: <prop-encoded-array>
 	Definition: Array of monotonic SOC threshold values to change the ki
@@ -243,7 +243,7 @@ First Level Node - FG Gen3 device
 		    This should be defined in the ascending order and in the
 		    range of 0-100. Array limit is set to 3.
 
-- qcom,ki-coeff-med-dischg:
+- qcom,ki-coeff-med-dischg
 	Usage:      optional
 	Value type: <prop-encoded-array>
 	Definition: Array of ki coefficient values for medium discharge current
@@ -254,7 +254,7 @@ First Level Node - FG Gen3 device
 		    is specified to make it fully functional. Value has no
 		    unit. Allowed range is 0 to 62200 in micro units.
 
-- qcom,ki-coeff-hi-dischg:
+- qcom,ki-coeff-hi-dischg
 	Usage:      optional
 	Value type: <prop-encoded-array>
 	Definition: Array of ki coefficient values for high discharge current
@@ -310,6 +310,15 @@ First Level Node - FG Gen3 device
 		    filter. If this is not specified, then a default value of
 		    148438 (14.84 %) will be used. Lowest possible value is
 		    1954 (0.19 %).
+
+- qcom,fg-auto-recharge-soc
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property when defined will configure automatic
+		    recharge SOC threshold. If not specified, automatic
+		    recharge voltage threshold will be configured. This has
+		    to be configured in conjunction with the charger side
+		    configuration for proper functionality.
 
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
