@@ -148,6 +148,7 @@ struct msm_vidc_format {
 	int num_planes;
 	int type;
 	u32 (*get_frame_size)(int plane, u32 height, u32 width);
+	bool defer_outputs;
 };
 
 struct msm_vidc_drv {

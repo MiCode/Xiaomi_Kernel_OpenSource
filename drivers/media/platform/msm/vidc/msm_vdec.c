@@ -504,6 +504,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
+		.defer_outputs = false,
 	},
 	{
 		.name = "Mpeg2",
@@ -512,6 +513,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
+		.defer_outputs = false,
 	},
 	{
 		.name = "H263",
@@ -520,6 +522,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
+		.defer_outputs = false,
 	},
 	{
 		.name = "VC1",
@@ -528,6 +531,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
+		.defer_outputs = false,
 	},
 	{
 		.name = "VC1 SP",
@@ -536,6 +540,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
+		.defer_outputs = false,
 	},
 	{
 		.name = "H264",
@@ -544,6 +549,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
+		.defer_outputs = false,
 	},
 	{
 		.name = "H264_MVC",
@@ -552,6 +558,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
+		.defer_outputs = false,
 	},
 	{
 		.name = "HEVC",
@@ -560,6 +567,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
+		.defer_outputs = false,
 	},
 	{
 		.name = "VP8",
@@ -568,6 +576,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
+		.defer_outputs = false,
 	},
 	{
 		.name = "VP9",
@@ -576,6 +585,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed_full_yuv,
 		.type = OUTPUT_PORT,
+		.defer_outputs = true,
 	},
 };
 
@@ -1767,7 +1777,7 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 			case V4L2_MPEG_VIDC_VIDEO_DPB_COLOR_FMT_NONE:
 				if (!msm_comm_g_ctrl_for_id(inst, control.id)) {
 					rc = msm_comm_release_output_buffers(
-						inst);
+						inst, false);
 					if (rc)
 						dprintk(VIDC_ERR,
 							"%s Release output buffers failed\n",
