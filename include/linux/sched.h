@@ -2640,7 +2640,6 @@ extern int sched_set_window(u64 window_start, unsigned int window_size);
 extern unsigned long sched_get_busy(int cpu);
 extern void sched_get_cpus_busy(struct sched_load *busy,
 				const struct cpumask *query_cpus);
-extern int sched_set_boost(int enable);
 extern int sched_set_init_task_load(struct task_struct *p, int init_load_pct);
 extern u32 sched_get_init_task_load(struct task_struct *p);
 extern int sched_set_static_cpu_pwr_cost(int cpu, unsigned int cost);
@@ -2673,11 +2672,6 @@ static inline unsigned long sched_get_busy(int cpu)
 static inline void sched_get_cpus_busy(struct sched_load *busy,
 				       const struct cpumask *query_cpus) {};
 
-static inline int sched_set_boost(int enable)
-{
-	return -EINVAL;
-}
-
 static inline int sched_update_freq_max_load(const cpumask_t *cpumask)
 {
 	return 0;
@@ -2703,6 +2697,7 @@ extern int sched_set_init_task_load(struct task_struct *p, int init_load_pct);
 extern u32 sched_get_init_task_load(struct task_struct *p);
 extern void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin,
 					  u32 fmax);
+extern int sched_set_boost(int enable);
 #else
 static inline int
 register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
@@ -2710,6 +2705,11 @@ register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
 	return 0;
 }
 static inline void sched_set_io_is_busy(int val) {};
+
+static inline int sched_set_boost(int enable)
+{
+	return -EINVAL;
+}
 #endif /* CONFIG_SCHED_WALT */
 
 #ifndef CONFIG_SCHED_WALT

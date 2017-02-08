@@ -523,6 +523,23 @@ TRACE_EVENT(sched_migration_update_sum,
 		__entry->src_nt_cs, __entry->src_nt_ps, __entry->dst_nt_cs, __entry->dst_nt_ps)
 );
 
+TRACE_EVENT(sched_set_boost,
+
+	TP_PROTO(int type),
+
+	TP_ARGS(type),
+
+	TP_STRUCT__entry(
+		__field(int, type			)
+	),
+
+	TP_fast_assign(
+		__entry->type = type;
+	),
+
+	TP_printk("type %d", __entry->type)
+);
+
 #endif
 
 #ifdef CONFIG_SCHED_WALT
@@ -637,23 +654,6 @@ DEFINE_EVENT(sched_cpu_load, sched_cpu_load_wakeup,
 DEFINE_EVENT(sched_cpu_load, sched_cpu_load_cgroup,
 	TP_PROTO(struct rq *rq, int idle, u64 irqload, unsigned int power_cost, int temp),
 	TP_ARGS(rq, idle, irqload, power_cost, temp)
-);
-
-TRACE_EVENT(sched_set_boost,
-
-	TP_PROTO(int type),
-
-	TP_ARGS(type),
-
-	TP_STRUCT__entry(
-		__field(int, type			)
-	),
-
-	TP_fast_assign(
-		__entry->type = type;
-	),
-
-	TP_printk("type %d", __entry->type)
 );
 
 TRACE_EVENT(sched_reset_all_window_stats,

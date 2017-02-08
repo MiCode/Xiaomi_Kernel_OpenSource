@@ -2650,6 +2650,11 @@ extern unsigned long thermal_cap(int cpu);
 
 extern void clear_hmp_request(int cpu);
 
+extern int got_boost_kick(void);
+extern void clear_boost_kick(int cpu);
+extern enum sched_boost_policy sched_boost_policy(void);
+extern void sched_boost_parse_dt(void);
+
 #else	/* CONFIG_SCHED_WALT */
 
 struct hmp_sched_stats;
@@ -2781,6 +2786,20 @@ static inline unsigned long thermal_cap(int cpu)
 
 static inline void clear_hmp_request(int cpu) { }
 
+static inline int got_boost_kick(void)
+{
+	return 0;
+}
+
+static inline void clear_boost_kick(int cpu) { }
+
+static inline enum sched_boost_policy sched_boost_policy(void)
+{
+	return SCHED_BOOST_NONE;
+}
+
+static inline void sched_boost_parse_dt(void) { }
+
 #endif	/* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_SCHED_HMP
@@ -2793,7 +2812,6 @@ extern void notify_migration(int src_cpu, int dest_cpu,
 extern void note_task_waking(struct task_struct *p, u64 wallclock);
 extern void
 check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
-extern int got_boost_kick(void);
 extern void clear_ed_task(struct task_struct *p, struct rq *rq);
 extern void fixup_nr_big_tasks(struct hmp_sched_stats *stats,
 					struct task_struct *p, s64 delta);
@@ -2802,8 +2820,6 @@ extern unsigned int power_cost(int cpu, u64 demand);
 extern unsigned int cpu_temp(int cpu);
 extern void pre_big_task_count_change(const struct cpumask *cpus);
 extern void post_big_task_count_change(const struct cpumask *cpus);
-extern enum sched_boost_policy sched_boost_policy(void);
-extern void sched_boost_parse_dt(void);
 extern void set_hmp_defaults(void);
 extern void update_avg_burst(struct task_struct *p);
 extern void set_task_last_switch_out(struct task_struct *p, u64 wallclock);
@@ -2838,7 +2854,6 @@ static inline bool is_short_burst_task(struct task_struct *p)
 	       p->ravg.avg_sleep_time > sysctl_sched_short_sleep;
 }
 
-extern void clear_boost_kick(int cpu);
 #else
 static inline bool energy_aware(void)
 {
@@ -2854,11 +2869,6 @@ static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
 
 static inline void
 check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups) { }
-
-static inline int got_boost_kick(void)
-{
-	return 0;
-}
 
 static inline void clear_ed_task(struct task_struct *p, struct rq *rq) { }
 
@@ -2884,13 +2894,6 @@ static inline void pre_big_task_count_change(const struct cpumask *cpus) { }
 
 static inline void post_big_task_count_change(const struct cpumask *cpus) { }
 
-static inline enum sched_boost_policy sched_boost_policy(void)
-{
-	return SCHED_BOOST_NONE;
-}
-
-static inline void sched_boost_parse_dt(void) { }
-
 static inline void set_hmp_defaults(void) { }
 
 static inline void update_avg_burst(struct task_struct *p) { }
@@ -2898,5 +2901,4 @@ static inline void update_avg_burst(struct task_struct *p) { }
 static inline void set_task_last_switch_out(struct task_struct *p,
 					    u64 wallclock) { }
 
-static inline void clear_boost_kick(int cpu) { }
 #endif /* CONFIG_SCHED_HMP */
