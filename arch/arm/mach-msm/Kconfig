@@ -47,8 +47,8 @@ config ARCH_MDM9607
        select DEVFREQ_GOV_MSM_BW_HWMON
        select ARM_HAS_SG_CHAIN
 
-config ARCH_MDMCALIFORNIUM
-	bool "MDMCALIFORNIUM"
+config ARCH_MDM9650
+	bool "MDM9650"
 	select ARM_GIC
 	select CPU_V7
 	select REGULATOR

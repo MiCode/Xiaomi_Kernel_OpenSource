@@ -1,0 +1,85 @@
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "mdm9650.dtsi"
+#include "mdm9650-pinctrl.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MDM 9650 RUMI";
+	compatible = "qcom,mdm9650-rumi",
+		   "qcom,mdm9650", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};
+
+&blsp1_uart3 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_console_active>;
+};
+
+&clock_gcc {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_cpu {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_debug {
+	status = "disabled";
+};
+
+&gdsc_usb30 {
+	compatible = "regulator-fixed";
+};
+
+&gdsc_pcie {
+	compatible = "regulator-fixed";
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+&usb3 {
+	qcom,disable-dev-mode-pm;
+	dwc3@8a00000 {
+		maximum-speed = "high-speed";
+	};
+};
+
+&qusb_phy {
+	reg = <0x00079000 0x180>,
+	      <0x08a0cd00 0x40>;
+	reg-names = "qusb_phy_base",
+		    "emu_phy_base";
+	qcom,emulation;
+	qcom,qusb-phy-init-seq = <0x19 0x404
+				0x20 0x414
+				0x79 0x410
+				0x00 0x418
+				0x99 0x404
+				0x04 0x408
+				0xd9 0x404>;
+	qcom,emu-dcm-reset-seq = <0x100000 0x20
+				0x0 0x20
+				0x1e0 0x20
+				0x5 0x14>;
+};
+
+&ssphy {
+	compatible =  "usb-nop-xceiv";
+};

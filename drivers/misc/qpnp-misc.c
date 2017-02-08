@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014,2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,7 +72,7 @@ enum qpnp_misc_version_name {
 	PM8941,
 	PM8226,
 	PMA8084,
-	PMDCALIFORNIUM,
+	PMD9650,
 };
 
 static struct qpnp_misc_version irq_support_version[] = {
@@ -80,7 +80,7 @@ static struct qpnp_misc_version irq_support_version[] = {
 	{0x01, 0x02}, /* PM8941 */
 	{0x07, 0x00}, /* PM8226 */
 	{0x09, 0x00}, /* PMA8084 */
-	{0x16, 0x00}, /* PMDCALIFORNIUM */
+	{0x16, 0x00}, /* PMD9650 */
 };
 
 static int qpnp_write_byte(struct spmi_device *spmi, u16 addr, u8 val)
@@ -195,7 +195,7 @@ static int qpnp_misc_config(struct qpnp_misc_dev *mdev)
 	version_name = get_qpnp_misc_version_name(mdev);
 
 	switch (version_name) {
-	case PMDCALIFORNIUM:
+	case PMD9650:
 		if (mdev->pwm_sel > 0 && mdev->enable_gp_driver) {
 			rc = qpnp_write_byte(mdev->spmi,
 				mdev->resource->start + REG_PWM_SEL,

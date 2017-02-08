@@ -22,7 +22,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <dt-bindings/clock/msm-clocks-8996.h>
-#include <dt-bindings/clock/msm-clocks-californium.h>
+#include <dt-bindings/clock/msm-clocks-9650.h>
 #include <sound/q6afe-v2.h>
 
 enum clk_mux {
