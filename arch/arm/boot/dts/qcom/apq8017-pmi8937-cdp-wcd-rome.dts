@@ -469,3 +469,9 @@
 		};
 	};
 };
+
+&mdss_fb0 {
+	/delete-node/ qcom,cont-splash-memory;
+};
+
+/delete-node/ &cont_splash_mem;
