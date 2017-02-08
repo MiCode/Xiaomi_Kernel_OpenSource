@@ -534,6 +534,7 @@
 
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa3";
+		qcom,rmnet-ipa-ssr;
 	};
 
 	ipa_hw: qcom,ipa@07B00000 {
