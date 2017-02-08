@@ -1156,31 +1156,40 @@ static int cnss_shutdown(const struct subsys_desc *subsys_desc, bool force_stop)
 	return ret;
 }
 
+static int cnss_qca6174_ramdump(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+	struct cnss_ramdump_info *ramdump_info;
+	struct ramdump_segment segment;
+
+	ramdump_info = &plat_priv->ramdump_info;
+	if (!ramdump_info->ramdump_size)
+		return -EINVAL;
+
+	memset(&segment, 0, sizeof(segment));
+	segment.v_address = ramdump_info->ramdump_va;
+	segment.size = ramdump_info->ramdump_size;
+	ret = do_ramdump(ramdump_info->ramdump_dev, &segment, 1);
+
+	return ret;
+}
+
 static int cnss_ramdump(int enable, const struct subsys_desc *subsys_desc)
 {
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = dev_get_drvdata(subsys_desc->dev);
-	struct cnss_ramdump_info *ramdump_info;
-	struct ramdump_segment segment;
 
 	if (!plat_priv) {
 		cnss_pr_err("plat_priv is NULL!\n");
 		return -ENODEV;
 	}
 
-	ramdump_info = &plat_priv->ramdump_info;
-	if (!ramdump_info->ramdump_size)
-		return -EINVAL;
-
 	if (!enable)
 		return 0;
 
 	switch (plat_priv->device_id) {
 	case QCA6174_DEVICE_ID:
-		memset(&segment, 0, sizeof(segment));
-		segment.v_address = ramdump_info->ramdump_va;
-		segment.size = ramdump_info->ramdump_size;
-		ret = do_ramdump(ramdump_info->ramdump_dev, &segment, 1);
+		ret = cnss_qca6174_ramdump(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
 		break;
