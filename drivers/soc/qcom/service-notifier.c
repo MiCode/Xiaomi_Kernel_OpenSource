@@ -229,6 +229,7 @@ static void root_service_service_ind_cb(struct qmi_handle *handle,
 	struct msg_desc ind_desc;
 	struct qmi_servreg_notif_state_updated_ind_msg_v01 ind_msg = {
 					QMI_STATE_MIN_VAL, "", 0xFFFF };
+	enum pd_subsys_state state = USER_PD_STATE_CHANGE;
 	int rc;
 
 	ind_desc.msg_id = SERVREG_NOTIF_STATE_UPDATED_IND_MSG;
@@ -256,7 +257,7 @@ static void root_service_service_ind_cb(struct qmi_handle *handle,
 		mutex_lock(&notif_add_lock);
 		mutex_lock(&service_list_lock);
 		rc = service_notif_queue_notification(service_notif,
-						ind_msg.curr_state, NULL);
+					ind_msg.curr_state, &state);
 		if (rc & NOTIFY_STOP_MASK)
 			pr_err("Notifier callback aborted for %s with error %d\n",
 						ind_msg.service_name, rc);
@@ -373,6 +374,7 @@ static void root_service_service_arrive(struct work_struct *work)
 	mutex_lock(&service_list_lock);
 	list_for_each_entry(service_notif, &service_list, list) {
 		if (service_notif->instance_id == data->instance_id) {
+			enum pd_subsys_state state = ROOT_PD_UP;
 			rc = register_notif_listener(service_notif, data,
 								&curr_state);
 			if (rc) {
@@ -380,7 +382,7 @@ static void root_service_service_arrive(struct work_struct *work)
 					service_notif->service_path, rc);
 			} else {
 				rc = service_notif_queue_notification(
-					service_notif, curr_state, NULL);
+					service_notif, curr_state, &state);
 				if (rc & NOTIFY_STOP_MASK)
 					pr_err("Notifier callback aborted for %s error:%d\n",
 					service_notif->service_path, rc);
@@ -434,7 +436,7 @@ static void root_service_exit_work(struct work_struct *work)
 {
 	struct qmi_client_info *data = container_of(work,
 					struct qmi_client_info, svc_exit);
-	root_service_service_exit(data, UNKNOWN);
+	root_service_service_exit(data, ROOT_PD_DOWN);
 }
 
 static int service_event_notify(struct notifier_block *this,
@@ -466,14 +468,24 @@ static int ssr_event_notify(struct notifier_block *this,
 	struct qmi_client_info *info = container_of(this,
 					struct qmi_client_info, ssr_notifier);
 	struct notif_data *notif = data;
+	enum pd_subsys_state state;
+
 	switch (code) {
 	case	SUBSYS_BEFORE_SHUTDOWN:
-		pr_debug("Root PD DOWN(SSR notification), crashed?%d\n",
+		pr_debug("Root PD DOWN(SSR notification), state:%d\n",
 						notif->crashed);
-		if (notif->crashed)
-			root_service_service_exit(info, CRASHED);
-		else
-			root_service_service_exit(info, SHUTDOWN);
+		switch (notif->crashed) {
+		case CRASH_STATUS_ERR_FATAL:
+			state = ROOT_PD_ERR_FATAL;
+			break;
+		case CRASH_STATUS_WDOG_BITE:
+			state = ROOT_PD_WDOG_BITE;
+			break;
+		default:
+			state = ROOT_PD_SHUTDOWN;
+			break;
+		}
+		root_service_service_exit(info, state);
 		break;
 	default:
 		break;
