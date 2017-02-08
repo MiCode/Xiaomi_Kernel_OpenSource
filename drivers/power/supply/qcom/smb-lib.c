@@ -2027,10 +2027,10 @@ int smblib_get_pe_start(struct smb_charger *chg,
 	return 0;
 }
 
-int smblib_get_prop_connector_therm_zone(struct smb_charger *chg,
+int smblib_get_prop_die_health(struct smb_charger *chg,
 						union power_supply_propval *val)
 {
-	int rc, i;
+	int rc;
 	u8 stat;
 
 	rc = smblib_read(chg, TEMP_RANGE_STATUS_REG, &stat);
@@ -2040,13 +2040,24 @@ int smblib_get_prop_connector_therm_zone(struct smb_charger *chg,
 		return rc;
 	}
 
-	i = fls((stat & TEMP_RANGE_MASK) >> TEMP_RANGE_SHIFT) - 1;
-	if (i < 0) {
-		smblib_err(chg, "TEMP_RANGE is invalid\n");
-		return -EINVAL;
+	/* TEMP_RANGE bits are mutually exclusive */
+	switch (stat & TEMP_RANGE_MASK) {
+	case TEMP_BELOW_RANGE_BIT:
+		val->intval = POWER_SUPPLY_HEALTH_COOL;
+		break;
+	case TEMP_WITHIN_RANGE_BIT:
+		val->intval = POWER_SUPPLY_HEALTH_WARM;
+		break;
+	case TEMP_ABOVE_RANGE_BIT:
+		val->intval = POWER_SUPPLY_HEALTH_HOT;
+		break;
+	case ALERT_LEVEL_BIT:
+		val->intval = POWER_SUPPLY_HEALTH_OVERHEAT;
+		break;
+	default:
+		val->intval = POWER_SUPPLY_HEALTH_UNKNOWN;
 	}
 
-	val->intval = i;
 	return 0;
 }
 

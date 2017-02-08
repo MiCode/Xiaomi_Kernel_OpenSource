@@ -825,7 +825,6 @@ enum {
 #define THERM_REG_ACTIVE_BIT			BIT(6)
 #define TLIM_BIT				BIT(5)
 #define TEMP_RANGE_MASK				GENMASK(4, 1)
-#define TEMP_RANGE_SHIFT			1
 #define ALERT_LEVEL_BIT				BIT(4)
 #define TEMP_ABOVE_RANGE_BIT			BIT(3)
 #define TEMP_WITHIN_RANGE_BIT			BIT(2)
