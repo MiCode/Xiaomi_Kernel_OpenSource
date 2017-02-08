@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -696,7 +696,11 @@ static struct dma_fast_smmu_mapping *__fast_smmu_create_mapping_sized(
 	fast->num_4k_pages = size >> FAST_PAGE_SHIFT;
 	fast->bitmap_size = BITS_TO_LONGS(fast->num_4k_pages) * sizeof(long);
 
-	fast->bitmap = kzalloc(fast->bitmap_size, GFP_KERNEL);
+	fast->bitmap = kzalloc(fast->bitmap_size, GFP_KERNEL | __GFP_NOWARN |
+								__GFP_NORETRY);
+	if (!fast->bitmap)
+		fast->bitmap = vzalloc(fast->bitmap_size);
+
 	if (!fast->bitmap)
 		goto err2;
 
@@ -780,7 +784,7 @@ void fast_smmu_detach_device(struct device *dev,
 	dev->archdata.mapping = NULL;
 	set_dma_ops(dev, NULL);
 
-	kfree(mapping->fast->bitmap);
+	kvfree(mapping->fast->bitmap);
 	kfree(mapping->fast);
 }
 EXPORT_SYMBOL(fast_smmu_detach_device);
