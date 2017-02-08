@@ -432,7 +432,7 @@ static enum power_supply_property smb138x_parallel_props[] = {
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
-	POWER_SUPPLY_PROP_CONNECTOR_THERM_ZONE,
+	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 };
 
 static int smb138x_parallel_get_prop(struct power_supply *psy,
@@ -485,8 +485,8 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
 		val->intval = POWER_SUPPLY_PARALLEL_MID_MID;
 		break;
-	case POWER_SUPPLY_PROP_CONNECTOR_THERM_ZONE:
-		rc = smblib_get_prop_connector_therm_zone(chg, val);
+	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
+		rc = smblib_get_prop_die_health(chg, val);
 		break;
 	default:
 		pr_err("parallel power supply get prop %d not supported\n",

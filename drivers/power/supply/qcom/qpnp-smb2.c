@@ -833,6 +833,7 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_DONE,
 	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
 	POWER_SUPPLY_PROP_SET_SHIP_MODE,
+	POWER_SUPPLY_PROP_DIE_HEALTH,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -908,6 +909,9 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
 		/* Not in ship mode as long as device is active */
 		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_DIE_HEALTH:
+		rc = smblib_get_prop_die_health(chg, val);
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
