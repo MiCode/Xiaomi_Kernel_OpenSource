@@ -804,7 +804,6 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 	u32 dbr_set = 0;
 
 	status = cmdq_readl(cq_host, CQIS);
-	cmdq_writel(cq_host, status, CQIS);
 
 	if (!status && !err)
 		return IRQ_NONE;
@@ -827,6 +826,17 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 		if (ret)
 			pr_err("%s: %s: halt failed ret=%d\n",
 					mmc_hostname(mmc), __func__, ret);
+
+		/*
+		 * Clear the CQIS after halting incase of error. This is done
+		 * because if CQIS is cleared before halting, the CQ will
+		 * continue with issueing commands for rest of requests with
+		 * Doorbell rung. This will overwrite the Resp Arg register.
+		 * So CQ must be halted first and then CQIS cleared incase
+		 * of error
+		 */
+		cmdq_writel(cq_host, status, CQIS);
+
 		cmdq_dumpregs(cq_host);
 
 		if (!err_info) {
@@ -915,13 +925,15 @@ skip_cqterri:
 
 			mrq->cmdq_req->resp_err = true;
 			pr_err("%s: Response error (0x%08x) from card !!!",
-				mmc_hostname(mmc), status);
+				mmc_hostname(mmc), cmdq_readl(cq_host, CQCRA));
 		} else {
 			mrq->cmdq_req->resp_idx = cmdq_readl(cq_host, CQCRI);
 			mrq->cmdq_req->resp_arg = cmdq_readl(cq_host, CQCRA);
 		}
 
 		cmdq_finish_data(mmc, tag);
+	} else {
+		cmdq_writel(cq_host, status, CQIS);
 	}
 
 	if (status & CQIS_TCC) {
