@@ -22,6 +22,7 @@
 			<1 10 0xf08>,
 			<1 11 0xf08>;
 		clock-frequency = <19200000>;
+		status = "disabled";
 	};
 
 	aliases {
