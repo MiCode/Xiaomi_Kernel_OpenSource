@@ -2145,7 +2145,7 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 		if (event_data == NULL)
 			return notifier_from_errno(-ENOMEM);
 
-		if (state == NULL || *state != SHUTDOWN)
+		if (state == NULL || *state != ROOT_PD_SHUTDOWN)
 			event_data->crashed = true;
 
 		icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
