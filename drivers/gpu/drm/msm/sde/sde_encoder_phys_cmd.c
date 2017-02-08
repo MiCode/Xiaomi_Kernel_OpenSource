@@ -615,7 +615,8 @@ static void _sde_encoder_phys_cmd_pingpong_config(
 			phys_enc->hw_pp->idx - PINGPONG_0);
 	drm_mode_debug_printmodeline(&phys_enc->cached_mode);
 
-	_sde_encoder_phys_cmd_update_intf_cfg(phys_enc);
+	if (!_sde_encoder_phys_is_ppsplit_slave(phys_enc))
+		_sde_encoder_phys_cmd_update_intf_cfg(phys_enc);
 	sde_encoder_phys_cmd_tearcheck_config(phys_enc);
 }
 
@@ -832,15 +833,28 @@ static void sde_encoder_phys_cmd_update_split_role(
 		struct sde_encoder_phys *phys_enc,
 		enum sde_enc_split_role role)
 {
-	struct sde_encoder_phys_cmd *cmd_enc =
-		to_sde_encoder_phys_cmd(phys_enc);
-	enum sde_enc_split_role old_role = phys_enc->split_role;
+	struct sde_encoder_phys_cmd *cmd_enc;
+	enum sde_enc_split_role old_role;
+	bool is_ppsplit;
+
+	if (!phys_enc)
+		return;
+
+	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
+	old_role = phys_enc->split_role;
+	is_ppsplit = _sde_encoder_phys_is_ppsplit(phys_enc);
+
+	phys_enc->split_role = role;
 
 	SDE_DEBUG_CMDENC(cmd_enc, "old role %d new role %d\n",
 			old_role, role);
 
-	phys_enc->split_role = role;
-	if (role == ENC_ROLE_SKIP || role == old_role)
+	/*
+	 * ppsplit solo needs to reprogram because intf may have swapped without
+	 * role changing on left-only, right-only back-to-back commits
+	 */
+	if (!(is_ppsplit && role == ENC_ROLE_SOLO) &&
+			(role == old_role || role == ENC_ROLE_SKIP))
 		return;
 
 	sde_encoder_helper_split_config(phys_enc, phys_enc->intf_idx);

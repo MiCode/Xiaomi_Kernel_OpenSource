@@ -854,9 +854,24 @@ static u32 _sde_crtc_get_displays_affected(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	crtc_state = to_sde_crtc_state(state);
 
-	for (i = 0; i < sde_crtc->num_mixers; i++) {
-		if (!sde_kms_rect_is_null(&crtc_state->lm_roi[i]))
-			disp_bitmask |= BIT(i);
+	/* pingpong split: one ROI, one LM, two physical displays */
+	if (crtc_state->is_ppsplit) {
+		u32 lm_split_width = crtc_state->lm_bounds[0].w / 2;
+		struct sde_rect *roi = &crtc_state->lm_roi[0];
+
+		if (sde_kms_rect_is_null(roi))
+			disp_bitmask = 0;
+		else if ((u32)roi->x + (u32)roi->w <= lm_split_width)
+			disp_bitmask = BIT(0);		/* left only */
+		else if (roi->x >= lm_split_width)
+			disp_bitmask = BIT(1);		/* right only */
+		else
+			disp_bitmask = BIT(0) | BIT(1); /* left and right */
+	} else {
+		for (i = 0; i < sde_crtc->num_mixers; i++) {
+			if (!sde_kms_rect_is_null(&crtc_state->lm_roi[i]))
+				disp_bitmask |= BIT(i);
+		}
 	}
 
 	SDE_DEBUG("affected displays 0x%x\n", disp_bitmask);
@@ -877,9 +892,6 @@ static int _sde_crtc_check_rois_centered_and_symmetric(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	crtc_state = to_sde_crtc_state(state);
 
-	if (sde_crtc->num_mixers == 1)
-		return 0;
-
 	if (sde_crtc->num_mixers > CRTC_DUAL_MIXERS) {
 		SDE_ERROR("%s: unsupported number of mixers: %d\n",
 				sde_crtc->name, sde_crtc->num_mixers);
@@ -887,9 +899,41 @@ static int _sde_crtc_check_rois_centered_and_symmetric(struct drm_crtc *crtc,
 	}
 
 	/*
-	 * On certain HW, ROIs must be centered on the split between LMs,
-	 * and be of equal width.
+	 * If using pingpong split: one ROI, one LM, two physical displays
+	 * then the ROI must be centered on the panel split boundary and
+	 * be of equal width across the split.
 	 */
+	if (crtc_state->is_ppsplit) {
+		u16 panel_split_width;
+		u32 display_mask;
+
+		roi[0] = &crtc_state->lm_roi[0];
+
+		if (sde_kms_rect_is_null(roi[0]))
+			return 0;
+
+		display_mask = _sde_crtc_get_displays_affected(crtc, state);
+		if (display_mask != (BIT(0) | BIT(1)))
+			return 0;
+
+		panel_split_width = crtc_state->lm_bounds[0].w / 2;
+		if (roi[0]->x + roi[0]->w / 2 != panel_split_width) {
+			SDE_ERROR("%s: roi x %d w %d split %d\n",
+					sde_crtc->name, roi[0]->x, roi[0]->w,
+					panel_split_width);
+			return -EINVAL;
+		}
+
+		return 0;
+	}
+
+	/*
+	 * On certain HW, if using 2 LM, ROIs must be split evenly between the
+	 * LMs and be of equal width.
+	 */
+	if (sde_crtc->num_mixers == 1)
+		return 0;
+
 	roi[0] = &crtc_state->lm_roi[0];
 	roi[1] = &crtc_state->lm_roi[1];
 
@@ -1761,6 +1805,23 @@ static void _sde_crtc_setup_mixers(struct drm_crtc *crtc)
 	mutex_unlock(&sde_crtc->crtc_lock);
 }
 
+static void _sde_crtc_setup_is_ppsplit(struct drm_crtc_state *state)
+{
+	int i;
+	struct sde_crtc_state *cstate;
+
+	cstate = to_sde_crtc_state(state);
+
+	cstate->is_ppsplit = false;
+	for (i = 0; i < cstate->num_connectors; i++) {
+		struct drm_connector *conn = cstate->connectors[i];
+
+		if (sde_connector_get_topology_name(conn) ==
+				SDE_RM_TOPOLOGY_PPSPLIT)
+			cstate->is_ppsplit = true;
+	}
+}
+
 static void _sde_crtc_setup_lm_bounds(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
@@ -1825,6 +1886,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	if (!sde_crtc->num_mixers) {
 		_sde_crtc_setup_mixers(crtc);
+		_sde_crtc_setup_is_ppsplit(crtc->state);
 		_sde_crtc_setup_lm_bounds(crtc, crtc->state);
 	}
 
@@ -2539,6 +2601,7 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	mixer_width = sde_crtc_mixer_width(sde_crtc, mode);
 
+	_sde_crtc_setup_is_ppsplit(state);
 	_sde_crtc_setup_lm_bounds(crtc, state);
 
 	 /* get plane state for all drm planes associated with crtc state */

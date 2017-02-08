@@ -123,8 +123,11 @@ enum sde_enc_rc_states {
  * @cur_master:		Pointer to the current master in this mode. Optimization
  *			Only valid after enable. Cleared as disable.
  * @hw_pp		Handle to the pingpong blocks used for the display. No.
- *                      pingpong blocks can be different than num_phys_encs.
+ *			pingpong blocks can be different than num_phys_encs.
  * @hw_dsc:		Array of DSC block handles used for the display.
+ * @intfs_swapped	Whether or not the phys_enc interfaces have been swapped
+ *			for partial update right-only cases, such as pingpong
+ *			split where virtual pingpong does not generate IRQs
  * @crtc_vblank_cb:	Callback into the upper layer / CRTC for
  *			notification of the VBLANK
  * @crtc_vblank_cb_data:	Data from upper layer for VBLANK notification
@@ -170,6 +173,8 @@ struct sde_encoder_virt {
 	struct sde_encoder_phys *cur_master;
 	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
 	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC];
+
+	bool intfs_swapped;
 
 	void (*crtc_vblank_cb)(void *);
 	void *crtc_vblank_cb_data;
@@ -356,7 +361,22 @@ void sde_encoder_helper_split_config(
 
 	sde_enc = to_sde_encoder_virt(phys_enc->parent);
 	hw_mdptop = phys_enc->hw_mdptop;
-	cfg.en = phys_enc->split_role != ENC_ROLE_SOLO;
+
+	/**
+	 * disable split modes since encoder will be operating in as the only
+	 * encoder, either for the entire use case in the case of, for example,
+	 * single DSI, or for this frame in the case of left/right only partial
+	 * update.
+	 */
+	if (phys_enc->split_role == ENC_ROLE_SOLO) {
+		if (hw_mdptop->ops.setup_split_pipe)
+			hw_mdptop->ops.setup_split_pipe(hw_mdptop, &cfg);
+		if (hw_mdptop->ops.setup_pp_split)
+			hw_mdptop->ops.setup_pp_split(hw_mdptop, &cfg);
+		return;
+	}
+
+	cfg.en = true;
 	cfg.mode = phys_enc->intf_mode;
 	cfg.intf = interface;
 
@@ -370,8 +390,7 @@ void sde_encoder_helper_split_config(
 	else
 		cfg.pp_split_slave = INTF_MAX;
 
-	if (phys_enc->split_role != ENC_ROLE_SLAVE) {
-		/* master/solo encoder */
+	if (phys_enc->split_role == ENC_ROLE_MASTER) {
 		SDE_DEBUG_ENC(sde_enc, "enable %d\n", cfg.en);
 
 		if (hw_mdptop->ops.setup_split_pipe)
@@ -1892,6 +1911,65 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
 }
 
+static void _sde_encoder_ppsplit_swap_intf_for_right_only_update(
+		struct drm_encoder *drm_enc,
+		unsigned long *affected_displays,
+		int num_active_phys)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct sde_encoder_phys *master;
+	enum sde_rm_topology_name topology;
+	bool is_right_only;
+
+	if (!drm_enc || !affected_displays)
+		return;
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	master = sde_enc->cur_master;
+	if (!master || !master->connector)
+		return;
+
+	topology = sde_connector_get_topology_name(master->connector);
+	if (topology != SDE_RM_TOPOLOGY_PPSPLIT)
+		return;
+
+	/*
+	 * For pingpong split, the slave pingpong won't generate IRQs. For
+	 * right-only updates, we can't swap pingpongs, or simply swap the
+	 * master/slave assignment, we actually have to swap the interfaces
+	 * so that the master physical encoder will use a pingpong/interface
+	 * that generates irqs on which to wait.
+	 */
+	is_right_only = !test_bit(0, affected_displays) &&
+			test_bit(1, affected_displays);
+
+	if (is_right_only && !sde_enc->intfs_swapped) {
+		/* right-only update swap interfaces */
+		swap(sde_enc->phys_encs[0]->intf_idx,
+				sde_enc->phys_encs[1]->intf_idx);
+		sde_enc->intfs_swapped = true;
+	} else if (!is_right_only && sde_enc->intfs_swapped) {
+		/* left-only or full update, swap back */
+		swap(sde_enc->phys_encs[0]->intf_idx,
+				sde_enc->phys_encs[1]->intf_idx);
+		sde_enc->intfs_swapped = false;
+	}
+
+	SDE_DEBUG_ENC(sde_enc,
+			"right_only %d swapped %d phys0->intf%d, phys1->intf%d\n",
+			is_right_only, sde_enc->intfs_swapped,
+			sde_enc->phys_encs[0]->intf_idx - INTF_0,
+			sde_enc->phys_encs[1]->intf_idx - INTF_0);
+	SDE_EVT32(DRMID(drm_enc), is_right_only, sde_enc->intfs_swapped,
+			sde_enc->phys_encs[0]->intf_idx - INTF_0,
+			sde_enc->phys_encs[1]->intf_idx - INTF_0,
+			*affected_displays);
+
+	/* ppsplit always uses master since ppslave invalid for irqs*/
+	if (num_active_phys == 1)
+		*affected_displays = BIT(0);
+}
+
 static void _sde_encoder_update_master(struct drm_encoder *drm_enc,
 		struct sde_encoder_kickoff_params *params)
 {
@@ -1913,6 +1991,10 @@ static void _sde_encoder_update_master(struct drm_encoder *drm_enc,
 
 	SDE_DEBUG_ENC(sde_enc, "affected_displays 0x%lx num_active_phys %d\n",
 			params->affected_displays, num_active_phys);
+
+	/* for left/right only update, ppsplit master switches interface */
+	_sde_encoder_ppsplit_swap_intf_for_right_only_update(drm_enc,
+			&params->affected_displays, num_active_phys);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		enum sde_enc_split_role prv_role, new_role;
@@ -1943,6 +2025,9 @@ static void _sde_encoder_update_master(struct drm_encoder *drm_enc,
 		SDE_DEBUG_ENC(sde_enc, "pp %d role prv %d new %d active %d\n",
 				phys->hw_pp->idx - PINGPONG_0, prv_role,
 				phys->split_role, active);
+		SDE_EVT32(DRMID(drm_enc), params->affected_displays,
+				phys->hw_pp->idx - PINGPONG_0, prv_role,
+				phys->split_role, active, num_active_phys);
 	}
 }
 
