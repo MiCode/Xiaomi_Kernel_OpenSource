@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -345,7 +345,12 @@ av8l_fast_prepopulate_pgtables(struct av8l_fast_io_pgtable *data,
 	int i, j, pg = 0;
 	struct page **pages, *page;
 
-	pages = kmalloc(sizeof(*pages) * NUM_PGTBL_PAGES, GFP_KERNEL);
+	pages = kmalloc(sizeof(*pages) * NUM_PGTBL_PAGES, __GFP_NOWARN |
+							__GFP_NORETRY);
+
+	if (!pages)
+		pages = vmalloc(sizeof(*pages) * NUM_PGTBL_PAGES);
+
 	if (!pages)
 		return -ENOMEM;
 
@@ -414,7 +419,7 @@ err_free_pages:
 	for (i = 0; i < pg; ++i)
 		__free_page(pages[i]);
 err_free_pages_arr:
-	kfree(pages);
+	kvfree(pages);
 	return -ENOMEM;
 }
 
@@ -512,7 +517,7 @@ static void av8l_fast_free_pgtable(struct io_pgtable *iop)
 	vunmap(data->pmds);
 	for (i = 0; i < NUM_PGTBL_PAGES; ++i)
 		__free_page(data->pages[i]);
-	kfree(data->pages);
+	kvfree(data->pages);
 	kfree(data);
 }
 
