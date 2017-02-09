@@ -79,8 +79,6 @@ u32 sde_apply_comp_ratio_factor(u32 quota,
 #define RES_UHD		(3840*2160)
 #define RES_WQXGA		(2560*1600)
 #define XIN_HALT_TIMEOUT_US	0x4000
-#define MDSS_MDP_HW_REV_320	0x30020000  /* sdm660 */
-#define MDSS_MDP_HW_REV_330	0x30030000  /* sdm630 */
 
 static int sde_mdp_wait_for_xin_halt(u32 xin_id)
 {
