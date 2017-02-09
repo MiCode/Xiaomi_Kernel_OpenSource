@@ -2157,8 +2157,14 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HS_L_DET_PULL_UP_COMP_CTRL, 1);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 1);
 
-	/* Insertion debounce set to 96ms */
-	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_INSREM_DBNC, 6);
+	if (mbhc->mbhc_cfg->enable_usbc_analog) {
+		/* Insertion debounce set to 48ms */
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_INSREM_DBNC, 4);
+	} else {
+		/* Insertion debounce set to 96ms */
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_INSREM_DBNC, 6);
+	}
+
 	/* Button Debounce set to 16ms */
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_DBNC, 2);
 
@@ -2327,22 +2333,28 @@ static int wcd_mbhc_usb_c_analog_setup_gpios(struct wcd_mbhc *mbhc,
 	int rc = 0;
 	struct usbc_ana_audio_config *config =
 		&mbhc->mbhc_cfg->usbc_analog_cfg;
+	union power_supply_propval pval;
 
 	dev_dbg(mbhc->codec->dev, "%s: setting GPIOs active = %d\n",
 		__func__, active);
+
+	memset(&pval, 0, sizeof(pval));
+
 	if (active) {
-		if (config->usbc_en1_gpio_p) {
+		pval.intval = POWER_SUPPLY_TYPEC_PR_SOURCE;
+		if (power_supply_set_property(mbhc->usb_psy,
+				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &pval))
+			dev_info(mbhc->codec->dev, "%s: force PR_SOURCE mode unsuccessful\n",
+				 __func__);
+		else
+			mbhc->usbc_force_pr_mode = true;
+
+		if (config->usbc_en1_gpio_p)
 			rc = msm_cdc_pinctrl_select_active_state(
 				config->usbc_en1_gpio_p);
-			/* delay required to allow the hw to stabilize */
-			usleep_range(1000, 1200);
-		}
-		if (rc == 0 && config->usbc_en2n_gpio_p) {
+		if (rc == 0 && config->usbc_en2n_gpio_p)
 			rc = msm_cdc_pinctrl_select_active_state(
 				config->usbc_en2n_gpio_p);
-			/* delay required to allow the hw to stabilize */
-			usleep_range(1000, 1200);
-		}
 		if (rc == 0 && config->usbc_force_gpio_p)
 			rc = msm_cdc_pinctrl_select_active_state(
 				config->usbc_force_gpio_p);
@@ -2358,6 +2370,17 @@ static int wcd_mbhc_usb_c_analog_setup_gpios(struct wcd_mbhc *mbhc,
 		if (config->usbc_force_gpio_p)
 			msm_cdc_pinctrl_select_sleep_state(
 				config->usbc_force_gpio_p);
+
+		if (mbhc->usbc_force_pr_mode) {
+			pval.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
+			if (power_supply_set_property(mbhc->usb_psy,
+				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &pval))
+				dev_info(mbhc->codec->dev, "%s: force PR_DUAL mode unsuccessful\n",
+					 __func__);
+
+			mbhc->usbc_force_pr_mode = false;
+		}
+
 		mbhc->usbc_mode = POWER_SUPPLY_TYPEC_NONE;
 	}
 
