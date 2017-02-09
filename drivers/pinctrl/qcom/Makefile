@@ -16,3 +16,4 @@ obj-$(CONFIG_PINCTRL_QCOM_SPMI_PMIC) += pinctrl-spmi-mpp.o
 obj-$(CONFIG_PINCTRL_QCOM_SSBI_PMIC) += pinctrl-ssbi-gpio.o
 obj-$(CONFIG_PINCTRL_QCOM_SSBI_PMIC) += pinctrl-ssbi-mpp.o
 obj-$(CONFIG_PINCTRL_MSMSKUNK) += pinctrl-msmskunk.o
+obj-$(CONFIG_PINCTRL_SDMBAT) += pinctrl-sdmbat.o
