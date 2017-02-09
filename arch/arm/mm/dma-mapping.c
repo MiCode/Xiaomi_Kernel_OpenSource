@@ -28,6 +28,7 @@
 #include <linux/vmalloc.h>
 #include <linux/sizes.h>
 #include <linux/cma.h>
+#include <linux/dma-mapping-fast.h>
 
 #include <asm/memory.h>
 #include <asm/highmem.h>
@@ -2336,6 +2337,7 @@ arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, u64 size)
 		goto err4;
 
 	kref_init(&mapping->kref);
+	mapping->ops = &iommu_ops;
 	return mapping;
 err4:
 	kfree(mapping->bitmaps[0]);
@@ -2351,8 +2353,14 @@ EXPORT_SYMBOL_GPL(arm_iommu_create_mapping);
 static void release_iommu_mapping(struct kref *kref)
 {
 	int i;
+	int is_fast = 0;
+
 	struct dma_iommu_mapping *mapping =
 		container_of(kref, struct dma_iommu_mapping, kref);
+
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
+	if (is_fast)
+		fast_smmu_release_mapping(kref);
 
 	iommu_domain_free(mapping->domain);
 	for (i = 0; i < mapping->nr_bitmaps; i++)
@@ -2419,7 +2427,14 @@ int arm_iommu_attach_device(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
 	int err;
-	int s1_bypass = 0;
+	int s1_bypass = 0, is_fast = 0;
+
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
+	if (is_fast) {
+		err = fast_smmu_init_mapping(dev, mapping);
+		if (err)
+			return err;
+	}
 
 	err = __arm_iommu_attach_device(dev, mapping);
 	if (err)
@@ -2428,7 +2443,7 @@ int arm_iommu_attach_device(struct device *dev,
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
 					&s1_bypass);
 	if (!s1_bypass)
-		set_dma_ops(dev, &iommu_ops);
+		set_dma_ops(dev, mapping->ops);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(arm_iommu_attach_device);
