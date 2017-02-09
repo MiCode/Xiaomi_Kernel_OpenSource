@@ -1394,6 +1394,7 @@
 			     <0 424 0>,   /* CE10 */
 			     <0 425 0>;   /* CE11 */
 		qcom,wlan-msa-memory = <0x100000>;
+		qcom,smmu-s1-bypass;
 	};
 
 	qcom,lpass@15700000 {
