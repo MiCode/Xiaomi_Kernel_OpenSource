@@ -1198,7 +1198,7 @@ usb_function *rndis_qc_bind_config_vendor(struct usb_function_instance *fi,
 	/* export host's Ethernet address in CDC format */
 	random_ether_addr(rndis_ipa_params.host_ethaddr);
 	random_ether_addr(rndis_ipa_params.device_ethaddr);
-	pr_debug("setting host_ethaddr=%pKM, device_ethaddr=%pKM\n",
+	pr_debug("setting host_ethaddr=%pM, device_ethaddr=%pM\n",
 		rndis_ipa_params.host_ethaddr,
 		rndis_ipa_params.device_ethaddr);
 	rndis_ipa_supported = true;
