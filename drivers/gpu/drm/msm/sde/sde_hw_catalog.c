@@ -1886,16 +1886,24 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		cfg->mdp[0].highest_bank_bit = DEFAULT_SDE_HIGHEST_BANK_BIT;
 
 	rc = of_property_read_string(np, sde_prop[QSEED_TYPE].prop_name, &type);
-	if (!rc && !strcmp(type, "qseedv3"))
+	if (!rc && !strcmp(type, "qseedv3")) {
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED3;
-	else if (!rc && !strcmp(type, "qseedv2"))
+	} else if (!rc && !strcmp(type, "qseedv2")) {
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED2;
+	} else if (rc) {
+		SDE_DEBUG("invalid QSEED configuration\n");
+		rc = 0;
+	}
 
 	rc = of_property_read_string(np, sde_prop[CSC_TYPE].prop_name, &type);
-	if (!rc && !strcmp(type, "csc"))
+	if (!rc && !strcmp(type, "csc")) {
 		cfg->csc_type = SDE_SSPP_CSC;
-	else if (!rc && !strcmp(type, "csc-10bit"))
+	} else if (!rc && !strcmp(type, "csc-10bit")) {
 		cfg->csc_type = SDE_SSPP_CSC_10BIT;
+	} else if (rc) {
+		SDE_DEBUG("invalid csc configuration\n");
+		rc = 0;
+	}
 
 	/*
 	 * Current SDE support only Smart DMA 2.0.
