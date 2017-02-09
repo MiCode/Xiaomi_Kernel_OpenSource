@@ -2330,10 +2330,6 @@ static int adreno_dispatch_process_drawqueue(struct adreno_device *adreno_dev,
 	if (adreno_drawqueue_is_empty(drawqueue))
 		return count;
 
-	/* Don't update the drawqueue timeout if we are about to preempt out */
-	if (!adreno_in_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE))
-		return count;
-
 	/* Don't update the drawqueue timeout if it isn't active */
 	if (!drawqueue_is_current(drawqueue))
 		return count;
