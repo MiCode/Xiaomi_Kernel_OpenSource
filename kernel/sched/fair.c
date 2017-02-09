@@ -10768,11 +10768,18 @@ struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 {
 	struct sched_cluster *next = NULL;
 	int i;
+	struct cpumask search_cpus;
 
 	while (!bitmap_empty(env->backup_list, num_clusters)) {
 		next = next_candidate(env->backup_list, 0, num_clusters);
 		__clear_bit(next->id, env->backup_list);
-		for_each_cpu_and(i, &env->p->cpus_allowed, &next->cpus) {
+
+		cpumask_and(&search_cpus, tsk_cpus_allowed(env->p),
+						&next->cpus);
+		cpumask_and(&search_cpus, &search_cpus, cpu_active_mask);
+		cpumask_andnot(&search_cpus, &search_cpus, cpu_isolated_mask);
+
+		for_each_cpu(i, &search_cpus) {
 			trace_sched_cpu_load_wakeup(cpu_rq(i), idle_cpu(i),
 			sched_irqload(i), power_cost(i, task_load(env->p) +
 					cpu_cravg_sync(i, env->sync)), 0);
