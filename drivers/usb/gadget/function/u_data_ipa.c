@@ -402,6 +402,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 
 	if (!port->port_usb) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
+		usb_gadget_autopm_put_async(port->gadget);
 		pr_err("%s(): port_usb is NULL.\n", __func__);
 		return;
 	}
