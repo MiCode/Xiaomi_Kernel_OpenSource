@@ -606,14 +606,14 @@ config LEDS_QPNP_FLASH
 	  independent channels.
 
 config LEDS_QPNP_FLASH_V2
-        tristate "Support for QPNP V2 Flash LEDs"
-        depends on LEDS_CLASS && MFD_SPMI_PMIC
-        help
-          This driver supports the leds functionality of Qualcomm Technologies
-          PNP PMIC.  It includes Flash Led.
-
-          To compile this driver as a module, choose M here: the module will
-          be called leds-qpnp-flash-v2.
+	tristate "Support for QPNP V2 Flash LEDs"
+	depends on LEDS_CLASS && MFD_SPMI_PMIC && !LEDS_QPNP_FLASH
+	help
+	  This driver supports the flash V2 LED functionality of Qualcomm
+	  Technologies, Inc. QPNP PMICs.  This driver supports PMICs starting
+	  from PMI8998.  It can configure the flash LED target current for
+	  several independent channels.  It also supports various over current
+	  and over temperature mitigation features.
 
 config LEDS_QPNP_WLED
 	tristate "Support for QPNP WLED"
