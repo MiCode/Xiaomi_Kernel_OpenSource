@@ -904,7 +904,14 @@
 		#reset-cells = <1>;
 	};
 
-	clock_gfx: clock-controller@5065000 {
+	clock_gpu: clock-controller@5065000 {
+		compatible = "qcom,gpu-sdm660";
+		reg = <0x5065000 0x10000>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_gfx: gfx@5065000 {
 		compatible = "qcom,gpucc-sdm630";
 		reg = <0x5065000 0x10000>;
 		vdd_dig_gfx-supply = <&pm660l_s3_level>;
