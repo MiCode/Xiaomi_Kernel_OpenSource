@@ -1245,6 +1245,7 @@ int gsi_dealloc_evt_ring(unsigned long evt_ring_hdl)
 	}
 
 	mutex_lock(&gsi_ctx->mlock);
+	reinit_completion(&ctx->compl);
 	val = (((evt_ring_hdl << GSI_EE_n_EV_CH_CMD_CHID_SHFT) &
 			GSI_EE_n_EV_CH_CMD_CHID_BMSK) |
 		((op << GSI_EE_n_EV_CH_CMD_OPCODE_SHFT) &
@@ -1339,6 +1340,7 @@ int gsi_reset_evt_ring(unsigned long evt_ring_hdl)
 	}
 
 	mutex_lock(&gsi_ctx->mlock);
+	reinit_completion(&ctx->compl);
 	val = (((evt_ring_hdl << GSI_EE_n_EV_CH_CMD_CHID_SHFT) &
 			GSI_EE_n_EV_CH_CMD_CHID_BMSK) |
 		((op << GSI_EE_n_EV_CH_CMD_OPCODE_SHFT) &
@@ -1796,7 +1798,7 @@ int gsi_start_channel(unsigned long chan_hdl)
 	}
 
 	mutex_lock(&gsi_ctx->mlock);
-	init_completion(&ctx->compl);
+	reinit_completion(&ctx->compl);
 
 	gsi_ctx->ch_dbg[chan_hdl].ch_start++;
 	val = (((chan_hdl << GSI_EE_n_GSI_CH_CMD_CHID_SHFT) &
@@ -1854,7 +1856,7 @@ int gsi_stop_channel(unsigned long chan_hdl)
 	}
 
 	mutex_lock(&gsi_ctx->mlock);
-	init_completion(&ctx->compl);
+	reinit_completion(&ctx->compl);
 
 	gsi_ctx->ch_dbg[chan_hdl].ch_stop++;
 	val = (((chan_hdl << GSI_EE_n_GSI_CH_CMD_CHID_SHFT) &
@@ -1923,7 +1925,7 @@ int gsi_stop_db_channel(unsigned long chan_hdl)
 	}
 
 	mutex_lock(&gsi_ctx->mlock);
-	init_completion(&ctx->compl);
+	reinit_completion(&ctx->compl);
 
 	gsi_ctx->ch_dbg[chan_hdl].ch_db_stop++;
 	val = (((chan_hdl << GSI_EE_n_GSI_CH_CMD_CHID_SHFT) &
@@ -1989,7 +1991,7 @@ int gsi_reset_channel(unsigned long chan_hdl)
 	mutex_lock(&gsi_ctx->mlock);
 
 reset:
-	init_completion(&ctx->compl);
+	reinit_completion(&ctx->compl);
 	gsi_ctx->ch_dbg[chan_hdl].ch_reset++;
 	val = (((chan_hdl << GSI_EE_n_GSI_CH_CMD_CHID_SHFT) &
 			GSI_EE_n_GSI_CH_CMD_CHID_BMSK) |
@@ -2055,7 +2057,7 @@ int gsi_dealloc_channel(unsigned long chan_hdl)
 	}
 
 	mutex_lock(&gsi_ctx->mlock);
-	init_completion(&ctx->compl);
+	reinit_completion(&ctx->compl);
 
 	gsi_ctx->ch_dbg[chan_hdl].ch_de_alloc++;
 	val = (((chan_hdl << GSI_EE_n_GSI_CH_CMD_CHID_SHFT) &
