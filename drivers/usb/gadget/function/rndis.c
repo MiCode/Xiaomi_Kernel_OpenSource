@@ -816,6 +816,7 @@ int rndis_msg_parser(struct rndis_params *params, u8 *buf)
 	case RNDIS_MSG_INIT:
 		pr_debug("%s: RNDIS_MSG_INIT\n",
 			__func__);
+		tmp++; /* to get RequestID */
 		major = get_unaligned_le32(tmp++);
 		minor = get_unaligned_le32(tmp++);
 		max_transfer_size = get_unaligned_le32(tmp++);
