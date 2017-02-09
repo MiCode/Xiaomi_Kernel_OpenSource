@@ -2872,22 +2872,20 @@ irqreturn_t smblib_handle_icl_change(int irq, void *data)
 	struct smb_charger *chg = irq_data->parent_data;
 	int rc, settled_ua;
 
-	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
-
 	rc = smblib_get_charge_param(chg, &chg->param.icl_stat, &settled_ua);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't get ICL status rc=%d\n", rc);
 		return IRQ_HANDLED;
 	}
 
-	if (chg->mode != PARALLEL_MASTER)
-		return IRQ_HANDLED;
+	if (chg->mode == PARALLEL_MASTER) {
+		power_supply_changed(chg->usb_main_psy);
+		vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER,
+					settled_ua >= USB_WEAK_INPUT_UA, 0);
+	}
 
-	power_supply_changed(chg->usb_main_psy);
-
-	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER,
-		settled_ua >= USB_WEAK_INPUT_UA, 0);
-
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s icl_settled=%d\n",
+						irq_data->name, settled_ua);
 	return IRQ_HANDLED;
 }
 
