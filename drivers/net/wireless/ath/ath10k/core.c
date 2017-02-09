@@ -1536,6 +1536,7 @@ static void ath10k_core_restart(struct work_struct *work)
 	struct ath10k *ar = container_of(work, struct ath10k, restart_work);
 
 	set_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags);
+	ath10k_gen_set_base_mac_addr(ar, ar->base_mac_addr);
 
 	/* Place a barrier to make sure the compiler doesn't reorder
 	 * CRASH_FLUSH and calling other functions.

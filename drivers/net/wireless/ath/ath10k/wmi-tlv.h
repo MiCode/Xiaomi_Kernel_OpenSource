@@ -1849,4 +1849,9 @@ struct wmi_tlv_mgmt_tx_cmd {
 	__le16 data_tag;
 	u8 buf[0];
 } __packed;
+
+struct wmi_tlv_mac_addr_cmd {
+	__le32 pdev_id;
+	struct wmi_mac_addr mac_addr;
+} __packed;
 #endif
