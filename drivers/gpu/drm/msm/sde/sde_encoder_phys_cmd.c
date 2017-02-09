@@ -220,6 +220,7 @@ static int sde_encoder_phys_cmd_register_irq(struct sde_encoder_phys *phys_enc,
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
+	int idx_lookup = 0;
 	int ret = 0;
 
 	if (!phys_enc) {
@@ -227,8 +228,10 @@ static int sde_encoder_phys_cmd_register_irq(struct sde_encoder_phys *phys_enc,
 		return -EINVAL;
 	}
 
+	idx_lookup = (intr_type == SDE_IRQ_TYPE_INTF_UNDER_RUN) ?
+			cmd_enc->intf_idx : phys_enc->hw_pp->idx;
 	cmd_enc->irq_idx[idx] = sde_core_irq_idx_lookup(phys_enc->sde_kms,
-			intr_type, phys_enc->hw_pp->idx);
+			intr_type, idx_lookup);
 	if (cmd_enc->irq_idx[idx] < 0) {
 		SDE_ERROR_CMDENC(cmd_enc,
 			"failed to lookup IRQ index for %s with pp=%d\n",
