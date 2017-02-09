@@ -19,6 +19,7 @@
 #include "ipahal_reg_i.h"
 
 static const char *ipareg_name_to_str[IPA_REG_MAX] = {
+	__stringify(IPA_CLKON_CFG),
 	__stringify(IPA_ROUTE),
 	__stringify(IPA_IRQ_STTS_EE_n),
 	__stringify(IPA_IRQ_EN_EE_n),
@@ -858,6 +859,18 @@ static void ipareg_construct_endp_init_hdr_n(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_HDR_n_HDR_LEN_BMSK);
 }
 
+static void ipareg_construct_clkon_cfg(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipahal_reg_clkon_cfg *clkon_cfg;
+
+	clkon_cfg = (struct ipahal_reg_clkon_cfg *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, clkon_cfg->cgc_open_misc,
+		IPA_CLKON_CFG_CGC_OPEN_MISC_SHFT,
+		IPA_CLKON_CFG_CGC_OPEN_MISC_BMSK);
+}
+
 static void ipareg_construct_route(enum ipahal_reg_name reg,
 	const void *fields, u32 *val)
 {
@@ -1159,6 +1172,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 
 
 	/* IPAv3.1 */
+	[IPA_HW_v3_1][IPA_CLKON_CFG] = {
+		ipareg_construct_clkon_cfg, ipareg_parse_dummy,
+		0x00000044, 0},
 	[IPA_HW_v3_1][IPA_IRQ_SUSPEND_INFO_EE_n] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00003030, 0x1000},

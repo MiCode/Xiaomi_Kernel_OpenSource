@@ -22,6 +22,7 @@
  *	array as well.
  */
 enum ipahal_reg_name {
+	IPA_CLKON_CFG,
 	IPA_ROUTE,
 	IPA_IRQ_STTS_EE_n,
 	IPA_IRQ_EN_EE_n,
@@ -87,6 +88,14 @@ enum ipahal_reg_name {
 	IPA_DPS_SEQUENCER_FIRST,
 	IPA_HPS_SEQUENCER_FIRST,
 	IPA_REG_MAX,
+};
+
+/*
+ * struct ipahal_reg_clkon_cfg - IPA clock on configuration register
+ * @cgc_open_misc: clock gating needs for MISC
+ */
+struct ipahal_reg_clkon_cfg {
+	u32 cgc_open_misc;
 };
 
 /*
