@@ -321,6 +321,25 @@
 			size = <0x0 0x5c00000>;
 		};
 	};
+
+	bluetooth: bt_wcn3990 {
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-core-supply = <&pm660_l9_pin_ctrl>;
+		qca,bt-vdd-pa-supply = <&pm660_l6_pin_ctrl>;
+		qca,bt-vdd-ldo-supply = <&pm660_l19_pin_ctrl>;
+		qca,bt-chip-pwd-supply = <&pm660l_bob_pin1>;
+		clocks = <&clock_rpmcc RPM_RF_CLK1_PIN>;
+		clock-names = "rf_clk1";
+
+		qca,bt-vdd-core-voltage-level = <1800000 1900000>;
+		qca,bt-vdd-pa-voltage-level = <1304000 1370000>;
+		qca,bt-vdd-ldo-voltage-level = <3312000 3400000>;
+		qca,bt-chip-pwd-voltage-level = <3600000 3600000>;
+
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-ldo-current-level = <1>; /* LPM/PFM */
+	};
 };
 
 #include "sdm660-blsp.dtsi"
