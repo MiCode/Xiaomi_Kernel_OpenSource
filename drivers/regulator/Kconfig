@@ -817,12 +817,12 @@ config REGULATOR_QPNP
 	  boost regulators.
 
 config REGULATOR_QPNP_LABIBB
+	tristate "Qualcomm Technologies, Inc. QPNP LAB/IBB regulator support"
 	depends on SPMI
-	tristate "Qualcomm Technologies, Inc QPNP LAB/IBB regulator support"
 	help
-	  This driver supports voltage regulators in Qualcomm Technologies, Inc
+	  This driver supports voltage regulators in Qualcomm Technologies, Inc.
 	  PMIC chips which comply with QPNP LAB/IBB regulators. QPNP LAB and IBB
-	  are SPMI based PMIC implementation. LAB regulator can be used as a
+	  are SPMI based PMIC implementations. LAB regulator can be used as a
 	  regular positive boost regulator. IBB can be used as a regular
 	  negative boost regulator. LAB/IBB regulators can also be used
 	  together for LCD or AMOLED.
