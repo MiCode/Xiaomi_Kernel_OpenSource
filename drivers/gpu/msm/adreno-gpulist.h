@@ -299,4 +299,20 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.num_protected_regs = 0x20,
 		.busy_mask = 0xFFFFFFFE,
 	},
+	{
+		.gpurev = ADRENO_REV_A508,
+		.core = 5,
+		.major = 0,
+		.minor = 8,
+		.patchid = ANY_ID,
+		.features = ADRENO_PREEMPTION | ADRENO_64BIT |
+			ADRENO_CONTENT_PROTECTION | ADRENO_CPZ_RETENTION,
+		.pm4fw_name = "a530_pm4.fw",
+		.pfpfw_name = "a530_pfp.fw",
+		.zap_name = "a508_zap",
+		.gpudev = &adreno_a5xx_gpudev,
+		.gmem_size = (SZ_128K + SZ_8K),
+		.num_protected_regs = 0x20,
+		.busy_mask = 0xFFFFFFFE,
+	},
 };
