@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,17 +96,17 @@ int mhi_dev_cache_ring(struct mhi_dev_ring *ring, uint32_t wr_offset)
 	mhi_ctx = ring->mhi_dev;
 
 	if (ring->wr_offset == wr_offset) {
-		mhi_log(MHI_MSG_INFO,
+		mhi_log(MHI_MSG_VERBOSE,
 			"nothing to cache for ring %d, local wr_ofst %d\n",
 			ring->id, ring->wr_offset);
-		mhi_log(MHI_MSG_INFO,
+		mhi_log(MHI_MSG_VERBOSE,
 			"new wr_offset %d\n", wr_offset);
 		return 0;
 	}
 
 	old_offset = ring->wr_offset;
 
-	mhi_log(MHI_MSG_ERROR,
+	mhi_log(MHI_MSG_VERBOSE,
 			"caching - rng size :%d local ofst:%d new ofst: %d\n",
 			(uint32_t) ring->ring_size, old_offset,
 			ring->wr_offset);
@@ -119,12 +119,12 @@ int mhi_dev_cache_ring(struct mhi_dev_ring *ring, uint32_t wr_offset)
 	if (ring->id >= mhi_ctx->ev_ring_start &&
 		ring->id < (mhi_ctx->ev_ring_start +
 				mhi_ctx->cfg.event_rings)) {
-		mhi_log(MHI_MSG_ERROR,
+		mhi_log(MHI_MSG_VERBOSE,
 				"not caching event ring %d\n", ring->id);
 		return 0;
 	}
 
-	mhi_log(MHI_MSG_ERROR, "caching ring %d, start %d, end %d\n",
+	mhi_log(MHI_MSG_VERBOSE, "caching ring %d, start %d, end %d\n",
 			ring->id, old_offset, wr_offset);
 
 	if (mhi_dev_fetch_ring_elements(ring, old_offset, wr_offset)) {
@@ -156,7 +156,7 @@ int mhi_dev_update_wr_offset(struct mhi_dev_ring *ring)
 			pr_err("%s: CMD DB read failed\n", __func__);
 			return rc;
 		}
-		mhi_log(MHI_MSG_ERROR,
+		mhi_log(MHI_MSG_VERBOSE,
 			"ring %d wr_offset from db 0x%x\n",
 			ring->id, (uint32_t) wr_offset);
 		break;
@@ -173,7 +173,7 @@ int mhi_dev_update_wr_offset(struct mhi_dev_ring *ring)
 			pr_err("%s: CH DB read failed\n", __func__);
 			return rc;
 		}
-		mhi_log(MHI_MSG_ERROR,
+		mhi_log(MHI_MSG_VERBOSE,
 			"ring %d wr_offset from db 0x%x\n",
 			ring->id, (uint32_t) wr_offset);
 		break;
@@ -207,7 +207,7 @@ int mhi_dev_process_ring_element(struct mhi_dev_ring *ring, uint32_t offset)
 	if (ring->ring_cb)
 		ring->ring_cb(ring->mhi_dev, el, (void *)ring);
 	else
-		mhi_log(MHI_MSG_INFO, "No callback registered for ring %d\n",
+		mhi_log(MHI_MSG_ERROR, "No callback registered for ring %d\n",
 				ring->id);
 
 	return 0;
@@ -248,7 +248,7 @@ int mhi_dev_process_ring(struct mhi_dev_ring *ring)
 			return rc;
 		}
 
-		mhi_log(MHI_MSG_ERROR,
+		mhi_log(MHI_MSG_VERBOSE,
 			"Processing ring (%d) rd_offset:%d, wr_offset:%d\n",
 			ring->id, ring->rd_offset, ring->wr_offset);
 
@@ -279,7 +279,7 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 	mhi_dev_update_wr_offset(ring);
 
 	if ((ring->rd_offset + 1) % ring->ring_size == ring->wr_offset) {
-		mhi_log(MHI_MSG_INFO, "ring full to insert element\n");
+		mhi_log(MHI_MSG_VERBOSE, "ring full to insert element\n");
 		return -EINVAL;
 	}
 
@@ -305,9 +305,9 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 	host_addr.virt_addr = element;
 	host_addr.size = sizeof(union mhi_dev_ring_element_type);
 
-	mhi_log(MHI_MSG_INFO, "adding element to ring (%d)\n", ring->id);
-	mhi_log(MHI_MSG_INFO, "rd_ofset %d\n", ring->rd_offset);
-	mhi_log(MHI_MSG_INFO, "type %d\n", element->generic.type);
+	mhi_log(MHI_MSG_VERBOSE, "adding element to ring (%d)\n", ring->id);
+	mhi_log(MHI_MSG_VERBOSE, "rd_ofset %d\n", ring->rd_offset);
+	mhi_log(MHI_MSG_VERBOSE, "type %d\n", element->generic.type);
 
 	mhi_dev_write_to_host(ring->mhi_dev, &host_addr);
 
@@ -377,7 +377,7 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 			return rc;
 	}
 
-	mhi_log(MHI_MSG_ERROR, "ctx ring_base:0x%x, rp:0x%x, wp:0x%x\n",
+	mhi_log(MHI_MSG_VERBOSE, "ctx ring_base:0x%x, rp:0x%x, wp:0x%x\n",
 			(uint32_t)ring->ring_ctx->generic.rbase,
 			(uint32_t)ring->ring_ctx->generic.rp,
 			(uint32_t)ring->ring_ctx->generic.wp);
