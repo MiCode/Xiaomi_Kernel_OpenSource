@@ -2183,6 +2183,21 @@ static int mdss_dsi_check_params(struct mdss_dsi_ctrl_pdata *ctrl, void *arg)
 	return rc;
 }
 
+static void mdss_dsi_avr_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
+		int enabled)
+{
+	u32 data = MIPI_INP((ctrl_pdata->ctrl_base) + 0x10);
+
+	/* DSI_VIDEO_MODE_CTRL */
+	if (enabled)
+		data |= BIT(29); /* AVR_SUPPORT_ENABLED */
+	else
+		data &= ~BIT(29);
+
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x10, data);
+	MDSS_XLOG(ctrl_pdata->ndx, enabled, data);
+}
+
 static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 {
 	int rc = 0;
@@ -2699,6 +2714,9 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_DSI_TIMING_DB_CTRL:
 		mdss_dsi_timing_db_ctrl(ctrl_pdata, (int)(unsigned long)arg);
+		break;
+	case MDSS_EVENT_AVR_MODE:
+		mdss_dsi_avr_config(ctrl_pdata, (int)(unsigned long) arg);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);
