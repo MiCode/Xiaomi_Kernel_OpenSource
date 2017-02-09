@@ -828,11 +828,11 @@ config REGULATOR_QPNP_LABIBB
 	  together for LCD or AMOLED.
 
 config REGULATOR_QPNP_LCDB
+	tristate "Qualcomm Technologies, Inc. QPNP LCDB support"
 	depends on SPMI
-	tristate "Qualcomm Technologies, Inc QPNP LCDB support"
 	help
-	  Supports the LCDB module in the Qualcomm Technologies, Inc
-	  QPNP PMIC. Exposes regulators to control the positive and
+	  Supports the LCDB module in the Qualcomm Technologies, Inc.
+	  QPNP PMICs. Exposes regulators to control the positive and
 	  negative voltage bias for the LCD display panel. It also
 	  allows configurability for the various bias-voltage parameters.
 
