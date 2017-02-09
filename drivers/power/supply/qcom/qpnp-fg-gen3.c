@@ -1785,39 +1785,41 @@ static int fg_esr_filter_config(struct fg_chip *chip, int batt_temp)
 
 	/*
 	 * If battery temperature is lesser than 10 C (default), then apply the
-	 * normal ESR tight and broad filter values to ESR low temperature tight
-	 * and broad filters. If battery temperature is higher than 10 C, then
-	 * apply back the low temperature ESR filter coefficients to ESR low
-	 * temperature tight and broad filters.
+	 * ESR low temperature tight and broad filter values to ESR room
+	 * temperature tight and broad filters. If battery temperature is higher
+	 * than 10 C, then apply back the room temperature ESR filter
+	 * coefficients to ESR room temperature tight and broad filters.
 	 */
 	if (batt_temp > chip->dt.esr_flt_switch_temp
 		&& chip->esr_flt_cold_temp_en) {
 		fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER,
-			chip->dt.esr_tight_lt_flt_upct, &esr_tight_lt_flt);
-		fg_encode(chip->sp, FG_SRAM_ESR_BROAD_FILTER,
-			chip->dt.esr_broad_lt_flt_upct, &esr_broad_lt_flt);
-	} else if (batt_temp <= chip->dt.esr_flt_switch_temp
-			&& !chip->esr_flt_cold_temp_en) {
-		fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER,
 			chip->dt.esr_tight_flt_upct, &esr_tight_lt_flt);
 		fg_encode(chip->sp, FG_SRAM_ESR_BROAD_FILTER,
 			chip->dt.esr_broad_flt_upct, &esr_broad_lt_flt);
+	} else if (batt_temp <= chip->dt.esr_flt_switch_temp
+			&& !chip->esr_flt_cold_temp_en) {
+		fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER,
+			chip->dt.esr_tight_lt_flt_upct, &esr_tight_lt_flt);
+		fg_encode(chip->sp, FG_SRAM_ESR_BROAD_FILTER,
+			chip->dt.esr_broad_lt_flt_upct, &esr_broad_lt_flt);
 		cold_temp = true;
 	} else {
 		return 0;
 	}
 
-	rc = fg_sram_write(chip, ESR_FILTER_WORD,
-			ESR_UPD_TIGHT_LOW_TEMP_OFFSET, &esr_tight_lt_flt, 1,
-			FG_IMA_DEFAULT);
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_TIGHT_FILTER].addr_word,
+			chip->sp[FG_SRAM_ESR_TIGHT_FILTER].addr_byte,
+			&esr_tight_lt_flt,
+			chip->sp[FG_SRAM_ESR_TIGHT_FILTER].len, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error in writing ESR LT tight filter, rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = fg_sram_write(chip, ESR_FILTER_WORD,
-			ESR_UPD_BROAD_LOW_TEMP_OFFSET, &esr_broad_lt_flt, 1,
-			FG_IMA_DEFAULT);
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_BROAD_FILTER].addr_word,
+			chip->sp[FG_SRAM_ESR_BROAD_FILTER].addr_byte,
+			&esr_broad_lt_flt,
+			chip->sp[FG_SRAM_ESR_BROAD_FILTER].len, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error in writing ESR LT broad filter, rc=%d\n", rc);
 		return rc;
