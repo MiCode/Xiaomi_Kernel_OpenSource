@@ -5940,6 +5940,10 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 	if (capacity == max_capacity)
 		return true;
 
+	if (sched_boost_policy() == SCHED_BOOST_ON_BIG &&
+					task_sched_boost(p))
+		return false;
+
 	return __task_fits(p, cpu, 0);
 }
 
@@ -6729,6 +6733,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	int isolated_candidate = -1;
 	bool need_idle;
 	bool skip_ediff = false;
+	enum sched_boost_policy placement_boost = task_sched_boost(p) ?
+				sched_boost_policy() : SCHED_BOOST_NONE;
 
 	sd = rcu_dereference(per_cpu(sd_ea, task_cpu(p)));
 
@@ -6847,6 +6853,20 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 
 			if (sched_cpu_high_irqload(cpu))
 				continue;
+
+			/*
+			 * Since this code is inside sched_is_big_little,
+			 * we are going to assume that boost policy is
+			 * SCHED_BOOST_ON_BIG.
+			 */
+			if (placement_boost != SCHED_BOOST_NONE) {
+				new_util = cpu_util(i);
+				if (new_util < min_util) {
+					min_util_cpu = i;
+					min_util = new_util;
+				}
+				continue;
+			}
 
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
@@ -9431,7 +9451,7 @@ static int need_active_balance(struct lb_env *env)
 
 	if ((env->idle != CPU_NOT_IDLE) &&
 	    (capacity_orig_of(env->src_cpu) < capacity_orig_of(env->dst_cpu)) &&
-	    env->src_rq->cfs.h_nr_running == 1 && env->src_rq->misfit_task)
+	    env->src_rq->misfit_task)
 		return 1;
 
 	return unlikely(sd->nr_balance_failed >
