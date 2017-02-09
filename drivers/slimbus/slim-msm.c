@@ -1429,7 +1429,7 @@ static void msm_slim_qmi_notify(struct qmi_handle *handle,
 
 	switch (event) {
 	case QMI_RECV_MSG:
-		queue_kthread_work(&qmi->kworker, &qmi->kwork);
+		kthread_queue_work(&qmi->kworker, &qmi->kwork);
 		break;
 	default:
 		break;
@@ -1522,7 +1522,7 @@ int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master)
 	struct qmi_handle *handle;
 	struct slimbus_select_inst_req_msg_v01 req;
 
-	init_kthread_worker(&dev->qmi.kworker);
+	kthread_init_worker(&dev->qmi.kworker);
 
 	dev->qmi.task = kthread_run(kthread_worker_fn,
 			&dev->qmi.kworker, "msm_slim_qmi_clnt%d", dev->ctrl.nr);
@@ -1532,7 +1532,7 @@ int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master)
 		return -ENOMEM;
 	}
 
-	init_kthread_work(&dev->qmi.kwork, msm_slim_qmi_recv_msg);
+	kthread_init_work(&dev->qmi.kwork, msm_slim_qmi_recv_msg);
 
 	handle = qmi_handle_create(msm_slim_qmi_notify, dev);
 	if (!handle) {
@@ -1574,7 +1574,7 @@ qmi_select_instance_failed:
 qmi_connect_to_service_failed:
 	qmi_handle_destroy(handle);
 qmi_handle_create_failed:
-	flush_kthread_worker(&dev->qmi.kworker);
+	kthread_flush_worker(&dev->qmi.kworker);
 	kthread_stop(dev->qmi.task);
 	dev->qmi.task = NULL;
 	return rc;
@@ -1585,7 +1585,7 @@ void msm_slim_qmi_exit(struct msm_slim_ctrl *dev)
 	if (!dev->qmi.handle || !dev->qmi.task)
 		return;
 	qmi_handle_destroy(dev->qmi.handle);
-	flush_kthread_worker(&dev->qmi.kworker);
+	kthread_flush_worker(&dev->qmi.kworker);
 	kthread_stop(dev->qmi.task);
 	dev->qmi.task = NULL;
 	dev->qmi.handle = NULL;
