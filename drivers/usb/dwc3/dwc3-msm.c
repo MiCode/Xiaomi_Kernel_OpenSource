@@ -3281,6 +3281,11 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 			pval.intval = 0;
 			power_supply_set_property(mdwc->usb_psy,
 					POWER_SUPPLY_PROP_BOOST_CURRENT, &pval);
+
+			/* set rate back to default core clk rate */
+			clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
+			dev_dbg(mdwc->dev, "set core clk rate %ld\n",
+				mdwc->core_clk_rate);
 			mdwc->max_rh_port_speed = USB_SPEED_UNKNOWN;
 		}
 	}
