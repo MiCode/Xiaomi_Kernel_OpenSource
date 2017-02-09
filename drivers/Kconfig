@@ -58,6 +58,8 @@ source "drivers/soundwire/Kconfig"
 
 source "drivers/spi/Kconfig"
 
+source "drivers/slimbus/Kconfig"
+
 source "drivers/spmi/Kconfig"
 
 source "drivers/hsi/Kconfig"
