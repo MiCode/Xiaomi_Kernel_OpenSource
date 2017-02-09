@@ -2082,19 +2082,6 @@ static struct clk_branch gcc_rx1_usb2_clkref_clk = {
 	},
 };
 
-static struct clk_branch gcc_rx2_qlink_clkref_clk = {
-	.halt_reg = 0x88034,
-	.halt_check = BRANCH_HALT_VOTED,
-	.clkr = {
-		.enable_reg = 0x88034,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_rx2_qlink_clkref_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_sdcc1_ahb_clk = {
 	.halt_reg = 0x16008,
 	.halt_check = BRANCH_HALT,
@@ -2671,7 +2658,6 @@ static struct clk_regmap *gcc_660_clocks[] = {
 	[GCC_QSPI_SER_CLK] = &gcc_qspi_ser_clk.clkr,
 	[GCC_RX0_USB2_CLKREF_CLK] = &gcc_rx0_usb2_clkref_clk.clkr,
 	[GCC_RX1_USB2_CLKREF_CLK] = &gcc_rx1_usb2_clkref_clk.clkr,
-	[GCC_RX2_QLINK_CLKREF_CLK] = &gcc_rx2_qlink_clkref_clk.clkr,
 	[GCC_SDCC1_AHB_CLK] = &gcc_sdcc1_ahb_clk.clkr,
 	[GCC_SDCC1_APPS_CLK] = &gcc_sdcc1_apps_clk.clkr,
 	[GCC_SDCC1_ICE_CORE_CLK] = &gcc_sdcc1_ice_core_clk.clkr,
