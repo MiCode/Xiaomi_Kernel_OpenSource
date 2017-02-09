@@ -29,6 +29,7 @@
 #include <linux/sizes.h>
 #include <linux/cma.h>
 #include <linux/msm_dma_iommu_mapping.h>
+#include <linux/dma-mapping-fast.h>
 
 #include <asm/memory.h>
 #include <asm/highmem.h>
@@ -2285,6 +2286,11 @@ int arm_iommu_attach_device(struct device *dev,
 {
 	int err;
 	int s1_bypass = 0;
+	int is_fast = 0;
+
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
+	if (is_fast)
+		return fast_smmu_attach_device(dev, mapping);
 
 	err = __arm_iommu_attach_device(dev, mapping);
 	if (err)
@@ -2301,6 +2307,7 @@ EXPORT_SYMBOL_GPL(arm_iommu_attach_device);
 static void __arm_iommu_detach_device(struct device *dev)
 {
 	struct dma_iommu_mapping *mapping;
+	int is_fast;
 
 	mapping = to_dma_iommu_mapping(dev);
 	if (!mapping) {
@@ -2310,6 +2317,9 @@ static void __arm_iommu_detach_device(struct device *dev)
 
 	if (msm_dma_unmap_all_for_dev(dev))
 		dev_warn(dev, "IOMMU detach with outstanding mappings\n");
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
+	if (is_fast)
+		return fast_smmu_detach_device(dev, mapping);
 
 	iommu_detach_device(mapping->domain, dev);
 	kref_put(&mapping->kref, release_iommu_mapping);
