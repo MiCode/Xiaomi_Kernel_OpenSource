@@ -1170,9 +1170,9 @@ int slim_bulk_msg_write(struct slim_device *sb, u8 mt, u8 mc,
 			struct slim_val_inf msgs[], int n,
 			int (*comp_cb)(void *ctx, int err), void *ctx)
 {
-	int i, ret;
+	int i, ret = 0;
 
-	if (!sb || !sb->ctrl || !msgs)
+	if (!sb || !sb->ctrl || !msgs || n <= 0)
 		return -EINVAL;
 	if (!sb->ctrl->xfer_bulk_wr) {
 		pr_warn("controller does not support bulk WR, serializing");
