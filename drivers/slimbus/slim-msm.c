@@ -534,6 +534,7 @@ void msm_slim_tx_msg_return(struct msm_slim_ctrl *dev, int err)
 		return;
 	}
 	while (!ret) {
+		memset(&iovec, 0, sizeof(iovec));
 		ret = sps_get_iovec(pipe, &iovec);
 		addr = DESC_FULL_ADDR(iovec.flags, iovec.addr);
 		if (ret || addr == 0) {
