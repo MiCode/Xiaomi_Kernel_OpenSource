@@ -762,6 +762,10 @@ struct vfe_device {
 	uint32_t **vfe_clk_rates;
 	size_t num_clk;
 	size_t num_rates;
+	struct clk **hvx_clk;
+	struct msm_cam_clk_info *hvx_clk_info;
+	size_t num_hvx_clk;
+	size_t num_norm_clk;
 	enum cam_ahb_clk_vote ahb_vote;
 
 	/* Sync variables*/
