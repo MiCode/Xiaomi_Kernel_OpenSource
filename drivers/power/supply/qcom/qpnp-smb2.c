@@ -412,6 +412,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
 	POWER_SUPPLY_PROP_BOOST_CURRENT,
 	POWER_SUPPLY_PROP_PE_START,
+	POWER_SUPPLY_PROP_CTM_CURRENT_MAX,
 };
 
 static int smb2_usb_get_prop(struct power_supply *psy,
@@ -497,6 +498,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PE_START:
 		rc = smblib_get_pe_start(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
+		val->intval = get_client_vote(chg->usb_icl_votable, CTM_VOTER);
+		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -545,6 +549,10 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_BOOST_CURRENT:
 		rc = smblib_set_prop_boost_current(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
+		rc = vote(chg->usb_icl_votable, CTM_VOTER,
+						val->intval >= 0, val->intval);
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -560,6 +568,7 @@ static int smb2_usb_prop_is_writeable(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
+	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
 		return 1;
 	default:
 		break;
