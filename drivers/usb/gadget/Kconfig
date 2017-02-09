@@ -230,6 +230,9 @@ config USB_F_CDEV
 config USB_F_CCID
 	tristate
 
+config USB_F_GSI
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -538,6 +541,13 @@ config USB_CONFIGFS_F_CCID
 	help
 	  USB CCID function driver creates transport layer between the
 	  userspace CCID component and the Windows Host.
+
+config USB_CONFIGFS_F_GSI
+	bool "USB GSI function"
+	select USB_F_GSI
+	depends on USB_CONFIGFS
+	help
+	  Generic function driver to support h/w acceleration to IPA over GSI.
 
 choice
 	tristate "USB Gadget Drivers"
