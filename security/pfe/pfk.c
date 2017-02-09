@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -475,6 +475,18 @@ bool pfk_allow_merge_bio(const struct bio *bio1, const struct bio *bio2)
 
 	return (*(pfk_allow_merge_bio_ftable[which_pfe1]))(bio1, bio2,
 		inode1, inode2);
+}
+/**
+ * Flush key table on storage core reset. During core reset key configuration
+ * is lost in ICE. We need to flash the cache, so that the keys will be
+ * reconfigured again for every subsequent transaction
+ */
+void pfk_clear_on_reset(void)
+{
+	if (!pfk_is_ready())
+		return;
+
+	pfk_kc_clear_on_reset();
 }
 
 module_init(pfk_init);
