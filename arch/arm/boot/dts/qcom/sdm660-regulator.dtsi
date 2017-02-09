@@ -547,6 +547,7 @@
 		qcom,cpr-step-quot-init-max = <14>;
 		qcom,cpr-count-mode = <0>;		/* All at once */
 		qcom,cpr-count-repeat = <14>;
+		qcom,cpr-reset-step-quot-loop-en;
 
 		vdd-supply = <&gfx_stub_vreg>;
 		mem-acc-supply = <&gfx_mem_acc_vreg>;
@@ -664,6 +665,7 @@
 		qcom,voltage-step = <4000>;
 		qcom,voltage-base = <400000>;
 		qcom,cpr-saw-use-unit-mV;
+		qcom,cpr-reset-step-quot-loop-en;
 
 		qcom,cpr-panic-reg-addr-list =
 			<0x179cbaa4 0x17912c18>;
@@ -738,6 +740,7 @@
 		qcom,voltage-step = <4000>;
 		qcom,voltage-base = <400000>;
 		qcom,cpr-saw-use-unit-mV;
+		qcom,cpr-reset-step-quot-loop-en;
 
 		qcom,cpr-panic-reg-addr-list =
 			<0x179c7aa4 0x17812c18>;
