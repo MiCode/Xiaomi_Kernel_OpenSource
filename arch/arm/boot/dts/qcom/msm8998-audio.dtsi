@@ -31,7 +31,7 @@
 		qcom,clk-div = <27>;
 	};
 
-	sound-9335 {
+	snd_9335: sound-9335 {
 		compatible = "qcom,msm8998-asoc-snd-tasha";
 		qcom,model = "msm8998-tasha-snd-card";
 		qcom,ext-disp-audio-rx;
