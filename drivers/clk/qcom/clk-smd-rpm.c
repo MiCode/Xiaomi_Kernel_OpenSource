@@ -570,6 +570,10 @@ static DEFINE_CLK_VOTER(pnoc_msmbus_clk, pnoc_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_msmbus_a_clk, pnoc_a_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_pm_clk, pnoc_clk, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_sps_clk, pnoc_clk, 0);
+static DEFINE_CLK_VOTER(aggre2_noc_msmbus_clk, aggre2_noc_clk, LONG_MAX);
+static DEFINE_CLK_VOTER(aggre2_noc_msmbus_a_clk, aggre2_noc_a_clk, LONG_MAX);
+static DEFINE_CLK_VOTER(aggre2_noc_usb_clk, aggre2_noc_clk, 19200000);
+static DEFINE_CLK_VOTER(aggre2_noc_smmu_clk, aggre2_noc_clk, 1000);
 
 /* Voter Branch clocks */
 static DEFINE_CLK_BRANCH_VOTER(cxo_dwc3_clk, cxo);
@@ -738,6 +742,10 @@ static struct clk_hw *sdm660_clks[] = {
 	[CXO_PIL_LPASS_CLK]	= &cxo_pil_lpass_clk.hw,
 	[CXO_PIL_CDSP_CLK]	= &cxo_pil_cdsp_clk.hw,
 	[CNOC_PERIPH_KEEPALIVE_A_CLK] = &cnoc_periph_keepalive_a_clk.hw,
+	[AGGR2_NOC_MSMBUS_CLK]	= &aggre2_noc_msmbus_clk.hw,
+	[AGGR2_NOC_MSMBUS_A_CLK] = &aggre2_noc_msmbus_a_clk.hw,
+	[AGGR2_NOC_SMMU_CLK]	= &aggre2_noc_smmu_clk.hw,
+	[AGGR2_NOC_USB_CLK]	= &aggre2_noc_usb_clk.hw,
 };
 
 static const struct rpm_smd_clk_desc rpm_clk_sdm660 = {
