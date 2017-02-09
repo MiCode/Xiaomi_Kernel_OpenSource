@@ -3075,11 +3075,10 @@ void qlt_abort_cmd(struct qla_tgt_cmd *cmd)
 {
 	struct qla_tgt *tgt = cmd->tgt;
 	struct scsi_qla_host *vha = tgt->vha;
-	struct se_cmd *se_cmd = &cmd->se_cmd;
 
 	ql_dbg(ql_dbg_tgt_mgt, vha, 0xf014,
 	    "qla_target(%d): terminating exchange for aborted cmd=%p "
-	    "(se_cmd=%p, tag=%llu)", vha->vp_idx, cmd, &cmd->se_cmd,
+	    "(se_cmd=%p, tag=%d)", vha->vp_idx, cmd, &cmd->se_cmd,
 	    cmd->tag);
 
 	cmd->state = QLA_TGT_STATE_ABORTED;
