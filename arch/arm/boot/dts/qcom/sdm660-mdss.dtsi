@@ -494,7 +494,7 @@
 		qcom,aux-cfg-settings = [00 13 00 00 0a 28 0a 03 b7 03];
 		qcom,logical2physical-lane-map = [00 01 02 03];
 		qcom,phy-register-offset = <0x4>;
-		qcom,max-pclk-frequency-khz = <593470>;
+		qcom,max-pclk-frequency-khz = <300000>;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
