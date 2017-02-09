@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,6 +85,15 @@ static int msm_ext_disp_edid_get(struct snd_kcontrol *kcontrol,
 	rc = codec_data->ext_disp_ops.get_audio_edid_blk(
 			codec_data->ext_disp_core_pdev, &edid_blk);
 	if (!IS_ERR_VALUE(rc)) {
+		if (sizeof(ucontrol->value.bytes.data) <
+			  (edid_blk.audio_data_blk_size +
+			   edid_blk.spk_alloc_data_blk_size)) {
+			dev_err(codec->dev,
+				"%s: Not enough memory to copy EDID data\n",
+				__func__);
+			return -ENOMEM;
+		}
+
 		memcpy(ucontrol->value.bytes.data,
 		       edid_blk.audio_data_blk,
 		       edid_blk.audio_data_blk_size);
