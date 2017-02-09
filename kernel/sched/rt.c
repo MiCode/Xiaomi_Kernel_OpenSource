@@ -273,8 +273,12 @@ static void pull_rt_task(struct rq *this_rq);
 
 static inline bool need_pull_rt_task(struct rq *rq, struct task_struct *prev)
 {
-	/* Try to pull RT tasks here if we lower this rq's prio */
-	return rq->rt.highest_prio.curr > prev->prio;
+	/*
+	 * Try to pull RT tasks here if we lower this rq's prio and cpu is not
+	 * isolated
+	 */
+	return rq->rt.highest_prio.curr > prev->prio &&
+	       !cpu_isolated(cpu_of(rq));
 }
 
 static inline int rt_overloaded(struct rq *rq)
@@ -1736,8 +1740,14 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	int prev_cpu = task_cpu(task);
 	u64 cpu_load, min_load = ULLONG_MAX;
 	int i;
-	int restrict_cluster = sched_boost() ? 0 :
-				sysctl_sched_restrict_cluster_spill;
+	int restrict_cluster;
+	int boost_on_big;
+	int pack_task, wakeup_latency, least_wakeup_latency = INT_MAX;
+
+	boost_on_big = sched_boost() == FULL_THROTTLE_BOOST &&
+			sched_boost_policy() == SCHED_BOOST_ON_BIG;
+
+	restrict_cluster = sysctl_sched_restrict_cluster_spill;
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
@@ -1749,6 +1759,8 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	if (!cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask))
 		return best_cpu; /* No targets found */
 
+	pack_task = is_short_burst_task(task);
+
 	/*
 	 * At this point we have built a mask of cpus representing the
 	 * lowest priority tasks in the system.  Now we want to elect
@@ -1756,7 +1768,12 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	 */
 
 	for_each_sched_cluster(cluster) {
+		if (boost_on_big && cluster->capacity != max_possible_capacity)
+			continue;
+
 		cpumask_and(&candidate_mask, &cluster->cpus, lowest_mask);
+		cpumask_andnot(&candidate_mask, &candidate_mask,
+			       cpu_isolated_mask);
 
 		if (cpumask_empty(&candidate_mask))
 			continue;
@@ -1769,6 +1786,20 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 			if (!restrict_cluster)
 				cpu_load = scale_load_to_cpu(cpu_load, i);
 
+			if (pack_task) {
+				wakeup_latency = cpu_rq(i)->wakeup_latency;
+
+				if (wakeup_latency > least_wakeup_latency)
+					continue;
+
+				if (wakeup_latency < least_wakeup_latency) {
+					least_wakeup_latency = wakeup_latency;
+					min_load = cpu_load;
+					best_cpu = i;
+					continue;
+				}
+			}
+
 			if (cpu_load < min_load ||
 				(cpu_load == min_load &&
 				(i == prev_cpu || (best_cpu != prev_cpu &&
@@ -1777,6 +1808,7 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 				best_cpu = i;
 			}
 		}
+
 		if (restrict_cluster && best_cpu != -1)
 			break;
 	}
@@ -2339,7 +2371,8 @@ static void switched_from_rt(struct rq *rq, struct task_struct *p)
 	 * we may need to handle the pulling of RT tasks
 	 * now.
 	 */
-	if (!task_on_rq_queued(p) || rq->rt.rt_nr_running)
+	if (!task_on_rq_queued(p) || rq->rt.rt_nr_running ||
+		cpu_isolated(cpu_of(rq)))
 		return;
 
 	queue_pull_task(rq);

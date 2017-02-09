@@ -13,6 +13,7 @@
 
 #include <linux/mm.h>
 #include <linux/cpu.h>
+#include <linux/device.h>
 #include <linux/nmi.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -95,6 +96,7 @@ static u64 __read_mostly sample_period;
 static DEFINE_PER_CPU(unsigned long, watchdog_touch_ts);
 static DEFINE_PER_CPU(struct task_struct *, softlockup_watchdog);
 static DEFINE_PER_CPU(struct hrtimer, watchdog_hrtimer);
+static DEFINE_PER_CPU(unsigned int, watchdog_en);
 static DEFINE_PER_CPU(bool, softlockup_touch_sync);
 static DEFINE_PER_CPU(bool, soft_watchdog_warn);
 static DEFINE_PER_CPU(unsigned long, hrtimer_interrupts);
@@ -584,9 +586,13 @@ static void watchdog_set_prio(unsigned int policy, unsigned int prio)
 	sched_setscheduler(current, policy, &param);
 }
 
-static void watchdog_enable(unsigned int cpu)
+void watchdog_enable(unsigned int cpu)
 {
 	struct hrtimer *hrtimer = raw_cpu_ptr(&watchdog_hrtimer);
+	unsigned int *enabled = raw_cpu_ptr(&watchdog_en);
+
+	if (*enabled)
+		return;
 
 	/* kick off the timer for the hardlockup detector */
 	hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -602,16 +608,40 @@ static void watchdog_enable(unsigned int cpu)
 	/* initialize timestamp */
 	watchdog_set_prio(SCHED_FIFO, MAX_RT_PRIO - 1);
 	__touch_watchdog();
+
+	/*
+	 * Need to ensure above operations are observed by other CPUs before
+	 * indicating that timer is enabled. This is to synchronize core
+	 * isolation and hotplug. Core isolation will wait for this flag to be
+	 * set.
+	 */
+	mb();
+	*enabled = 1;
 }
 
-static void watchdog_disable(unsigned int cpu)
+void watchdog_disable(unsigned int cpu)
 {
 	struct hrtimer *hrtimer = raw_cpu_ptr(&watchdog_hrtimer);
+	unsigned int *enabled = raw_cpu_ptr(&watchdog_en);
+
+	if (!*enabled)
+		return;
 
 	watchdog_set_prio(SCHED_NORMAL, 0);
 	hrtimer_cancel(hrtimer);
 	/* disable the perf event */
 	watchdog_nmi_disable(cpu);
+
+	/*
+	 * No need for barrier here since disabling the watchdog is
+	 * synchronized with hotplug lock
+	 */
+	*enabled = 0;
+}
+
+bool watchdog_configured(unsigned int cpu)
+{
+	return *per_cpu_ptr(&watchdog_en, cpu);
 }
 
 static void watchdog_cleanup(unsigned int cpu, bool online)

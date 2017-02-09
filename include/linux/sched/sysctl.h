@@ -18,11 +18,19 @@ extern unsigned int sysctl_sched_latency;
 extern unsigned int sysctl_sched_min_granularity;
 extern unsigned int sysctl_sched_wakeup_granularity;
 extern unsigned int sysctl_sched_child_runs_first;
-extern unsigned int sysctl_sched_wake_to_idle;
 
 #ifdef CONFIG_SCHED_HMP
+
+enum freq_reporting_policy {
+	FREQ_REPORT_MAX_CPU_LOAD_TOP_TASK,
+	FREQ_REPORT_CPU_LOAD,
+	FREQ_REPORT_TOP_TASK,
+	FREQ_REPORT_INVALID_POLICY
+};
+
 extern int sysctl_sched_freq_inc_notify;
 extern int sysctl_sched_freq_dec_notify;
+extern unsigned int sysctl_sched_freq_reporting_policy;
 extern unsigned int sysctl_sched_window_stats_policy;
 extern unsigned int sysctl_sched_ravg_hist_size;
 extern unsigned int sysctl_sched_cpu_high_irqload;
@@ -31,18 +39,22 @@ extern unsigned int sysctl_sched_spill_nr_run;
 extern unsigned int sysctl_sched_spill_load_pct;
 extern unsigned int sysctl_sched_upmigrate_pct;
 extern unsigned int sysctl_sched_downmigrate_pct;
+extern unsigned int sysctl_sched_group_upmigrate_pct;
+extern unsigned int sysctl_sched_group_downmigrate_pct;
 extern unsigned int sysctl_early_detection_duration;
 extern unsigned int sysctl_sched_boost;
 extern unsigned int sysctl_sched_small_wakee_task_load_pct;
 extern unsigned int sysctl_sched_big_waker_task_load_pct;
 extern unsigned int sysctl_sched_select_prev_cpu_us;
-extern unsigned int sysctl_sched_enable_colocation;
 extern unsigned int sysctl_sched_restrict_cluster_spill;
 extern unsigned int sysctl_sched_new_task_windows;
 extern unsigned int sysctl_sched_pred_alert_freq;
 extern unsigned int sysctl_sched_freq_aggregate;
 extern unsigned int sysctl_sched_enable_thread_grouping;
 extern unsigned int sysctl_sched_freq_aggregate_threshold_pct;
+extern unsigned int sysctl_sched_prefer_sync_wakee_to_waker;
+extern unsigned int sysctl_sched_short_burst;
+extern unsigned int sysctl_sched_short_sleep;
 #endif /* CONFIG_SCHED_HMP */
 
 enum sched_tunable_scaling {
@@ -92,6 +104,22 @@ extern int sysctl_sched_rt_runtime;
 
 #ifdef CONFIG_CFS_BANDWIDTH
 extern unsigned int sysctl_sched_cfs_bandwidth_slice;
+#endif
+
+#ifdef CONFIG_SCHED_TUNE
+extern unsigned int sysctl_sched_cfs_boost;
+int sysctl_sched_cfs_boost_handler(struct ctl_table *table, int write,
+				   void __user *buffer, size_t *length,
+				   loff_t *ppos);
+static inline unsigned int get_sysctl_sched_cfs_boost(void)
+{
+	return sysctl_sched_cfs_boost;
+}
+#else
+static inline unsigned int get_sysctl_sched_cfs_boost(void)
+{
+	return 0;
+}
 #endif
 
 #ifdef CONFIG_SCHED_AUTOGROUP

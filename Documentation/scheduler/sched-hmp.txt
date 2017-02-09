@@ -43,6 +43,7 @@ CONTENTS
    8.8 sched_get_busy
    8.9 sched_freq_alert
    8.10 sched_set_boost
+9. Device Tree bindings
 
 ===============
 1. INTRODUCTION
@@ -724,6 +725,16 @@ d. /proc/sys/kernel/sched_select_prev_cpu_us
 	Default value of sched_select_prev_cpu_us is 2000 (2ms).  This can be
 	turned off by setting it to 0.
 
+e. /proc/sys/kernel/sched_short_burst_ns
+	This threshold controls whether a task is considered as "short-burst"
+	or not. "short-burst" tasks are eligible for packing to avoid overhead
+	associated with waking up an idle CPU. "non-idle" CPUs which are not
+	loaded with IRQs and can accommodate the waking task without exceeding
+	spill limits are considered. The ties are broken with load followed
+	by previous CPU. This tunable does not affect cluster selection.
+	It only affects CPU selection in a given cluster. This packing is
+	skipped for tasks that are eligible for "wake-up-idle" and "boost".
+
 **** 5.2.4 Wakeup Logic for Task "p"
 
 Wakeup task placement logic is as follows:
@@ -1220,6 +1231,23 @@ This tunable is a percentage.  Configure the minimum demand of big sync waker
 task.  Scheduler places small wakee tasks woken up by big sync waker on the
 waker's cluster.
 
+*** 7.19 sched_prefer_sync_wakee_to_waker
+
+Appears at: /proc/sys/kernel/sched_prefer_sync_wakee_to_waker
+
+Default value: 0
+
+The default sync wakee policy has a preference to select an idle CPU in the
+waker cluster compared to the waker CPU running only 1 task. By selecting
+an idle CPU, it eliminates the chance of waker migrating to a different CPU
+after the wakee preempts it. This policy is also not susceptible to the
+incorrect "sync" usage i.e the waker does not goto sleep after waking up
+the wakee.
+
+However LPM exit latency associated with an idle CPU outweigh the above
+benefits on some targets. When this knob is turned on, the waker CPU is
+selected if it has only 1 runnable task.
+
 =========================
 8. HMP SCHEDULER TRACE POINTS
 =========================
@@ -1430,3 +1458,10 @@ Logged when boost settings are being changed
 <task>-0     [004] d.h4 12700.711489: sched_set_boost: ref_count=1
 
 - ref_count: A non-zero value indicates boost is in effect
+
+========================
+9. Device Tree bindings
+========================
+
+The device tree bindings for the HMP scheduler are defined in
+Documentation/devicetree/bindings/sched/sched_hmp.txt
