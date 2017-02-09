@@ -2427,7 +2427,7 @@ static ssize_t mdss_dp_wta_hpd(struct device *dev,
 		} else {
 			dp_send_events(dp, EV_USBPD_DISCOVER_MODES);
 		}
-	} else if (!dp->hpd && dp->power_on) {
+	} else if (!dp->hpd) {
 		mdss_dp_notify_clients(dp, NOTIFY_DISCONNECT);
 	}
 end:
