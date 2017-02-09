@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1232,7 +1232,7 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 	scnprintf(kvreg_name_buf, MAX_VREG_NAME_SIZE,
 		"vdd-thread%d-ldo-supply", id);
 
-	if (!of_find_property(ctrl->dev->of_node, kvreg_name_buf , NULL))
+	if (!of_find_property(ctrl->dev->of_node, kvreg_name_buf, NULL))
 		return 0;
 	else if (!of_find_property(node, "qcom,ldo-min-headroom-voltage", NULL))
 		return 0;
@@ -1675,7 +1675,7 @@ static int cpr3_hmss_regulator_resume(struct platform_device *pdev)
 }
 
 /* Data corresponds to the SoC revision */
-static struct of_device_id cpr_regulator_match_table[] = {
+static const struct of_device_id cpr_regulator_match_table[] = {
 	{
 		.compatible = "qcom,cpr3-msm8996-v1-hmss-regulator",
 		.data = (void *)(uintptr_t)1

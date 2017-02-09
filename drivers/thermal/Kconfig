@@ -406,19 +406,18 @@ config INTEL_PCH_THERMAL
 	  programmable trip points and other information.
 
 config THERMAL_QPNP
-	tristate "Qualcomm Plug-and-Play PMIC Temperature Alarm"
-	depends on THERMAL
-	depends on OF
-	depends on SPMI
+	tristate "Qualcomm Technologies, Inc. QPNP PMIC Temperature Alarm"
+	depends on OF && SPMI
 	help
-	  This enables a thermal Sysfs driver for Qualcomm plug-and-play (QPNP)
-	  PMIC devices. It shows up in Sysfs as a thermal zone with multiple
-	  trip points. The temperature reported by the thermal zone reflects the
-	  real time die temperature if an ADC is present or an estimate of the
-	  temperature based upon the over temperature stage value if no ADC is
-	  available. If allowed via compile time configuration; enabling the
-	  thermal zone device via the mode file results in shifting PMIC over
-	  temperature shutdown control from hardware to software.
+	  This enables a thermal Sysfs driver for Qualcomm Technologies, Inc.
+	  QPNP PMIC devices. It shows up in Sysfs as a thermal zone with
+	  multiple trip points. The temperature reported by the thermal zone
+	  reflects the real time die temperature if an ADC is present or an
+	  estimate of the temperature based upon the over temperature stage
+	  value if no ADC is available. If allowed via compile time
+	  configuration; enabling the thermal zone device via the mode file
+	  results in shifting PMIC over temperature shutdown control from
+	  hardware to software.
 
 config THERMAL_QPNP_ADC_TM
 	tristate "Qualcomm 8974 Thermal Monitor ADC Driver"
