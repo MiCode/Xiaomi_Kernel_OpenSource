@@ -385,6 +385,8 @@ static int smb2_parse_dt(struct smb2 *chip)
 
 	chg->micro_usb_mode = of_property_read_bool(node, "qcom,micro-usb");
 
+	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
+
 	return 0;
 }
 
@@ -1339,7 +1341,6 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
-	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
 	chg->boost_threshold_ua = chip->dt.boost_threshold_ua;
 
 	rc = smblib_read(chg, APSD_RESULT_STATUS_REG, &stat);
@@ -1368,8 +1369,6 @@ static int smb2_init_hw(struct smb2 *chip)
 		DEFAULT_VOTER, true, chip->dt.fcc_ua);
 	vote(chg->fv_votable,
 		DEFAULT_VOTER, true, chip->dt.fv_uv);
-	vote(chg->usb_icl_votable,
-		DCP_VOTER, true, chip->dt.usb_icl_ua);
 	vote(chg->dc_icl_votable,
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
 	vote(chg->hvdcp_disable_votable_indirect, DEFAULT_VOTER,

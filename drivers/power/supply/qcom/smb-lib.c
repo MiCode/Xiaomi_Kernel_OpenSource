@@ -1996,11 +1996,11 @@ int smblib_set_prop_usb_current_max(struct smb_charger *chg,
 				true, val->intval);
 	} else if (chg->system_suspend_supported) {
 		if (val->intval <= USBIN_25MA)
-			rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
-					true, val->intval);
+			rc = vote(chg->usb_icl_votable,
+				PD_SUSPEND_SUPPORTED_VOTER, true, val->intval);
 		else
-			rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
-					false, 0);
+			rc = vote(chg->usb_icl_votable,
+				PD_SUSPEND_SUPPORTED_VOTER, false, 0);
 	}
 	return rc;
 }
@@ -2137,7 +2137,11 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 				"Couldn't enable vconn on CC line rc=%d\n", rc);
 			return rc;
 		}
-
+		/*
+		 * Enforce 500mA for PD until the real vote comes in later.
+		 * It is guaranteed that pd_active is set prior to
+		 * pd_current_max
+		 */
 		rc = vote(chg->usb_icl_votable, PD_VOTER, true, USBIN_500MA);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
@@ -2145,10 +2149,17 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			return rc;
 		}
 
+		/* remove DCP_VOTER */
 		rc = vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
 		if (rc < 0) {
-			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
-					rc);
+			smblib_err(chg, "Couldn't unvote DCP rc=%d\n", rc);
+			return rc;
+		}
+
+		/* remove USB_PSY_VOTER */
+		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't unvote USB_PSY rc=%d\n", rc);
 			return rc;
 		}
 
@@ -2168,14 +2179,6 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			return rc;
 		}
 	} else {
-		rc = vote(chg->usb_icl_votable, DCP_VOTER, true,
-				chg->dcp_icl_ua);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
-					rc);
-			return rc;
-		}
-
 		rc = smblib_masked_write(chg, CMD_APSD_REG,
 				ICL_OVERRIDE_BIT, 0);
 		if (rc < 0) {
@@ -2791,6 +2794,8 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 					      bool rising, bool qc_charger)
 {
+	const struct apsd_result *apsd_result = smblib_update_usb_type(chg);
+
 	/* Hold off PD only until hvdcp 2.0 detection timeout */
 	if (rising) {
 		vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
@@ -2799,6 +2804,16 @@ static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 			/* could be a legacy cable, try doing hvdcp */
 			try_rerun_apsd_for_hvdcp(chg);
 	}
+	/*
+	 * HVDCP detection timeout done
+	 * If adapter is not QC2.0/QC3.0 - it is a plain old DCP.
+	 * Otherwise if adapter is QC2.0/QC3.0 wait for authentication
+	 * to complete.
+	 */
+	if (!qc_charger && (apsd_result->bit & DCP_CHARGER_BIT))
+		/* enforce DCP ICL if specified */
+		vote(chg->usb_icl_votable, DCP_VOTER,
+			chg->dcp_icl_ua != -EINVAL, chg->dcp_icl_ua);
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: smblib_handle_hvdcp_check_timeout %s\n",
 		   rising ? "rising" : "falling");
@@ -2927,12 +2942,19 @@ static void typec_source_removal(struct smb_charger *chg)
 	/* clear USB ICL vote for PD_VOTER */
 	rc = vote(chg->usb_icl_votable, PD_VOTER, false, 0);
 	if (rc < 0)
-		smblib_err(chg, "Couldn't un-vote for USB ICL rc=%d\n", rc);
+		smblib_err(chg, "Couldn't un-vote PD from USB ICL rc=%d\n", rc);
 
 	/* clear USB ICL vote for USB_PSY_VOTER */
 	rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 	if (rc < 0)
-		smblib_err(chg, "Couldn't un-vote for USB ICL rc=%d\n", rc);
+		smblib_err(chg,
+			"Couldn't un-vote USB_PSY from USB ICL rc=%d\n", rc);
+
+	/* clear USB ICL vote for DCP_VOTER */
+	rc = vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
+	if (rc < 0)
+		smblib_err(chg,
+			"Couldn't un-vote DCP from USB ICL rc=%d\n", rc);
 }
 
 static void typec_source_insertion(struct smb_charger *chg)
