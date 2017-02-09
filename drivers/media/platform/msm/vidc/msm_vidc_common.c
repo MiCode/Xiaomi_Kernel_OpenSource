@@ -278,21 +278,29 @@ enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 	}
 }
 
-static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
+static int msm_comm_get_mbs_per_frame(struct msm_vidc_inst *inst)
 {
 	int output_port_mbs, capture_port_mbs;
-	int rc;
-	u32 fps;
-	struct v4l2_control ctrl;
 
 	output_port_mbs = inst->in_reconfig ?
 			NUM_MBS_PER_FRAME(inst->reconfig_width,
 				inst->reconfig_height) :
 			NUM_MBS_PER_FRAME(inst->prop.width[OUTPUT_PORT],
 				inst->prop.height[OUTPUT_PORT]);
-
 	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
 		inst->prop.height[CAPTURE_PORT]);
+
+	return max(output_port_mbs, capture_port_mbs);
+}
+
+static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
+{
+	int rc;
+	u32 fps;
+	struct v4l2_control ctrl;
+	int mb_per_frame;
+
+	mb_per_frame = msm_comm_get_mbs_per_frame(inst);
 
 	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE;
 	rc = msm_comm_g_ctrl(inst, &ctrl);
@@ -302,10 +310,10 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 		 * Check if operating rate is less than fps.
 		 * If Yes, then use fps to scale the clocks
 		*/
-		fps = max(fps, inst->prop.fps);
-		return max(output_port_mbs, capture_port_mbs) * fps;
+		fps = fps > inst->prop.fps ? fps : inst->prop.fps;
+		return (mb_per_frame * fps);
 	} else
-		return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
+		return (mb_per_frame * inst->prop.fps);
 }
 
 int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
@@ -4879,6 +4887,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct msm_vidc_core *core;
+	int mbs_per_frame = 0;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
@@ -4923,14 +4932,21 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 				rc = -ENOTSUPP;
 		}
 
-		if (!rc && inst->prop.height[CAPTURE_PORT]
-			* inst->prop.width[CAPTURE_PORT] >
-			capability->width.max * capability->height.max) {
+		if (!rc && inst->prop.height[CAPTURE_PORT] >
+			capability->height.max) {
 			dprintk(VIDC_ERR,
-			"Unsupported WxH = (%u)x(%u), max supported is - (%u)x(%u)\n",
-			inst->prop.width[CAPTURE_PORT],
-			inst->prop.height[CAPTURE_PORT],
-			capability->width.max, capability->height.max);
+				"Unsupported height = %u supported max height = %u",
+				inst->prop.height[CAPTURE_PORT],
+				capability->height.max);
+				rc = -ENOTSUPP;
+		}
+
+		mbs_per_frame = msm_comm_get_mbs_per_frame(inst);
+		if (!rc && mbs_per_frame > capability->mbs_per_frame.max) {
+			dprintk(VIDC_ERR,
+			"Unsupported mbs per frame = %u, max supported is - %u\n",
+			mbs_per_frame,
+			capability->mbs_per_frame.max);
 			rc = -ENOTSUPP;
 		}
 	}
