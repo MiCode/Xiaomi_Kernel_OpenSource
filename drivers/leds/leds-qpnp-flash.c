@@ -222,11 +222,13 @@ struct flash_led_platform_data {
 };
 
 struct qpnp_flash_led_buffer {
-	struct mutex debugfs_lock; /* Prevent thread concurrency */
-	size_t rpos;
-	size_t wpos;
-	size_t len;
-	char data[0];
+	struct		mutex debugfs_lock; /* Prevent thread concurrency */
+	size_t		rpos;
+	size_t		wpos;
+	size_t		len;
+	struct		qpnp_flash_led *led;
+	u32		buffer_cnt;
+	char		data[0];
 };
 
 /*
@@ -244,10 +246,8 @@ struct qpnp_flash_led {
 	struct workqueue_struct		*ordered_workq;
 	struct qpnp_vadc_chip		*vadc_dev;
 	struct mutex			flash_led_lock;
-	struct qpnp_flash_led_buffer	*log;
 	struct dentry			*dbgfs_root;
 	int				num_leds;
-	u32				buffer_cnt;
 	u16				base;
 	u16				current_addr;
 	u16				current2_addr;
@@ -279,10 +279,10 @@ static int flash_led_dbgfs_file_open(struct qpnp_flash_led *led,
 	log->wpos = 0;
 	log->len = logbufsize - sizeof(*log);
 	mutex_init(&log->debugfs_lock);
-	led->log = log;
+	log->led = led;
 
-	led->buffer_cnt = 1;
-	file->private_data = led;
+	log->buffer_cnt = 1;
+	file->private_data = log;
 
 	return 0;
 }
@@ -296,12 +296,12 @@ static int flash_led_dfs_open(struct inode *inode, struct file *file)
 
 static int flash_led_dfs_close(struct inode *inode, struct file *file)
 {
-	struct qpnp_flash_led *led = file->private_data;
+	struct qpnp_flash_led_buffer *log = file->private_data;
 
-	if (led && led->log) {
+	if (log) {
 		file->private_data = NULL;
-		mutex_destroy(&led->log->debugfs_lock);
-		kfree(led->log);
+		mutex_destroy(&log->debugfs_lock);
+		kfree(log);
 	}
 
 	return 0;
@@ -330,15 +330,21 @@ static int print_to_log(struct qpnp_flash_led_buffer *log,
 
 static ssize_t flash_led_dfs_latched_reg_read(struct file *fp, char __user *buf,
 					size_t count, loff_t *ppos) {
-	struct qpnp_flash_led *led = fp->private_data;
-	struct qpnp_flash_led_buffer *log = led->log;
+	struct qpnp_flash_led_buffer *log = fp->private_data;
+	struct qpnp_flash_led *led;
 	u8 val;
 	int rc = 0;
 	size_t len;
 	size_t ret;
 
+	if (!log) {
+		pr_err("error: file private data is NULL\n");
+		return -EFAULT;
+	}
+	led = log->led;
+
 	mutex_lock(&log->debugfs_lock);
-	if ((log->rpos >= log->wpos && led->buffer_cnt == 0) ||
+	if ((log->rpos >= log->wpos && log->buffer_cnt == 0) ||
 			((log->len - log->wpos) < MIN_BUFFER_WRITE_LEN))
 		goto unlock_mutex;
 
@@ -350,7 +356,7 @@ static ssize_t flash_led_dfs_latched_reg_read(struct file *fp, char __user *buf,
 				INT_LATCHED_STS(led->base), rc);
 		goto unlock_mutex;
 	}
-	led->buffer_cnt--;
+	log->buffer_cnt--;
 
 	rc = print_to_log(log, "0x%05X ", INT_LATCHED_STS(led->base));
 	if (rc == 0)
@@ -385,18 +391,24 @@ unlock_mutex:
 
 static ssize_t flash_led_dfs_fault_reg_read(struct file *fp, char __user *buf,
 					size_t count, loff_t *ppos) {
-	struct qpnp_flash_led *led = fp->private_data;
-	struct qpnp_flash_led_buffer *log = led->log;
+	struct qpnp_flash_led_buffer *log = fp->private_data;
+	struct qpnp_flash_led *led;
 	int rc = 0;
 	size_t len;
 	size_t ret;
 
+	if (!log) {
+		pr_err("error: file private data is NULL\n");
+		return -EFAULT;
+	}
+	led = log->led;
+
 	mutex_lock(&log->debugfs_lock);
-	if ((log->rpos >= log->wpos && led->buffer_cnt == 0) ||
+	if ((log->rpos >= log->wpos && log->buffer_cnt == 0) ||
 			((log->len - log->wpos) < MIN_BUFFER_WRITE_LEN))
 		goto unlock_mutex;
 
-	led->buffer_cnt--;
+	log->buffer_cnt--;
 
 	rc = print_to_log(log, "0x%05X ", FLASH_LED_FAULT_STATUS(led->base));
 	if (rc == 0)
@@ -438,10 +450,17 @@ static ssize_t flash_led_dfs_fault_reg_enable(struct file *file,
 	int data;
 	size_t ret = 0;
 
-	struct qpnp_flash_led *led = file->private_data;
+	struct qpnp_flash_led_buffer *log = file->private_data;
+	struct qpnp_flash_led *led;
 	char *kbuf;
 
-	mutex_lock(&led->log->debugfs_lock);
+	if (!log) {
+		pr_err("error: file private data is NULL\n");
+		return -EFAULT;
+	}
+	led = log->led;
+
+	mutex_lock(&log->debugfs_lock);
 	kbuf = kmalloc(count + 1, GFP_KERNEL);
 	if (!kbuf) {
 		ret = -ENOMEM;
@@ -476,7 +495,7 @@ static ssize_t flash_led_dfs_fault_reg_enable(struct file *file,
 free_buf:
 	kfree(kbuf);
 unlock_mutex:
-	mutex_unlock(&led->log->debugfs_lock);
+	mutex_unlock(&log->debugfs_lock);
 	return ret;
 }
 
@@ -488,10 +507,17 @@ static ssize_t flash_led_dfs_dbg_enable(struct file *file,
 	int cnt = 0;
 	int data;
 	size_t ret = 0;
-	struct qpnp_flash_led *led = file->private_data;
+	struct qpnp_flash_led_buffer *log = file->private_data;
+	struct qpnp_flash_led *led;
 	char *kbuf;
 
-	mutex_lock(&led->log->debugfs_lock);
+	if (!log) {
+		pr_err("error: file private data is NULL\n");
+		return -EFAULT;
+	}
+	led = log->led;
+
+	mutex_lock(&log->debugfs_lock);
 	kbuf = kmalloc(count + 1, GFP_KERNEL);
 	if (!kbuf) {
 		ret = -ENOMEM;
@@ -525,7 +551,7 @@ static ssize_t flash_led_dfs_dbg_enable(struct file *file,
 free_buf:
 	kfree(kbuf);
 unlock_mutex:
-	mutex_unlock(&led->log->debugfs_lock);
+	mutex_unlock(&log->debugfs_lock);
 	return ret;
 }
 
