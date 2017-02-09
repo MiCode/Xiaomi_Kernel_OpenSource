@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,6 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#define pr_fmt(fmt) "TADC: %s: " fmt, __func__
 
 #include <linux/iio/iio.h>
 #include <linux/interrupt.h>
@@ -101,8 +103,16 @@ enum tadc_chan_id {
 	TADC_BATT_P,
 	TADC_INPUT_P,
 	TADC_THERM1_THR1,
+	TADC_THERM1_THR2,
+	TADC_THERM1_THR3,
+	TADC_THERM1_THR4,
 	TADC_THERM2_THR1,
+	TADC_THERM2_THR2,
+	TADC_THERM2_THR3,
 	TADC_DIE_TEMP_THR1,
+	TADC_DIE_TEMP_THR2,
+	TADC_DIE_TEMP_THR3,
+	TADC_CHAN_ID_MAX,
 };
 
 #define TADC_CHAN(_name, _type, _channel, _info_mask)	\
@@ -164,19 +174,39 @@ static const struct iio_chan_spec tadc_iio_chans[] = {
 	[TADC_INPUT_P]		= TADC_POWER_CHAN(
 					"input", TADC_INPUT_P),
 	[TADC_THERM1_THR1]	= TADC_THERM_CHAN(
-					"batt_hot", TADC_THERM1_THR1),
+					"batt_warm", TADC_THERM1_THR1),
+	[TADC_THERM1_THR2]	= TADC_THERM_CHAN(
+					"batt_cool", TADC_THERM1_THR2),
+	[TADC_THERM1_THR3]	= TADC_THERM_CHAN(
+					"batt_cold", TADC_THERM1_THR3),
+	[TADC_THERM1_THR4]	= TADC_THERM_CHAN(
+					"batt_hot", TADC_THERM1_THR4),
 	[TADC_THERM2_THR1]	= TADC_THERM_CHAN(
-					"skin_hot", TADC_THERM2_THR1),
+					"skin_lb", TADC_THERM2_THR1),
+	[TADC_THERM2_THR2]	= TADC_THERM_CHAN(
+					"skin_ub", TADC_THERM2_THR2),
+	[TADC_THERM2_THR3]	= TADC_THERM_CHAN(
+					"skin_rst", TADC_THERM2_THR3),
 	[TADC_DIE_TEMP_THR1]	= TADC_THERM_CHAN(
-					"die_hot", TADC_DIE_TEMP_THR1),
+					"die_lb", TADC_DIE_TEMP_THR1),
+	[TADC_DIE_TEMP_THR2]	= TADC_THERM_CHAN(
+					"die_ub", TADC_DIE_TEMP_THR2),
+	[TADC_DIE_TEMP_THR3]	= TADC_THERM_CHAN(
+					"die_rst", TADC_DIE_TEMP_THR3),
+};
+
+struct tadc_therm_thr {
+	int	addr_lo;
+	int	addr_hi;
 };
 
 struct tadc_chan_data {
-	s32 scale;
-	s32 offset;
-	u32 rbias;
-	const struct tadc_pt *table;
-	size_t tablesize;
+	s32			scale;
+	s32			offset;
+	u32			rbias;
+	const struct tadc_pt	*table;
+	size_t			tablesize;
+	struct tadc_therm_thr	thr[4];
 };
 
 struct tadc_chip {
@@ -186,6 +216,7 @@ struct tadc_chip {
 	u32			tadc_cmp_base;
 	struct tadc_chan_data	chans[TADC_NUM_CH];
 	struct completion	eoc_complete;
+	struct mutex		write_lock;
 };
 
 struct tadc_pt {
@@ -238,14 +269,24 @@ static const struct tadc_pt tadc_therm_3450b_68k[] = {
 	{ 1712127,	-40000 },
 };
 
-static int tadc_read(struct tadc_chip *chip, u16 reg, u8 *val,
-		     size_t val_count)
+static bool tadc_is_reg_locked(struct tadc_chip *chip, u16 reg)
+{
+	if ((reg & 0xFF00) == chip->tadc_cmp_base)
+		return true;
+
+	if (reg == TADC_HWTRIG_CONV_CH_EN_REG(chip))
+		return true;
+
+	return false;
+}
+
+static int tadc_read(struct tadc_chip *chip, u16 reg, u8 *val, size_t count)
 {
 	int rc = 0;
 
-	rc = regmap_bulk_read(chip->regmap, reg, val, val_count);
+	rc = regmap_bulk_read(chip->regmap, reg, val, count);
 	if (rc < 0)
-		pr_err("Couldn't read %04x rc=%d\n", reg, rc);
+		pr_err("Couldn't read 0x%04x rc=%d\n", reg, rc);
 
 	return rc;
 }
@@ -254,57 +295,108 @@ static int tadc_write(struct tadc_chip *chip, u16 reg, u8 data)
 {
 	int rc = 0;
 
-	rc = regmap_write(chip->regmap, reg, data);
-	if (rc < 0)
-		pr_err("Couldn't write %02x to %04x rc=%d\n",
-		       data, reg, rc);
+	mutex_lock(&chip->write_lock);
+	if (tadc_is_reg_locked(chip, reg)) {
+		rc = regmap_write(chip->regmap, (reg & 0xFF00) | 0xD0, 0xA5);
+		if (rc < 0) {
+			pr_err("Couldn't unlock secure register rc=%d\n", rc);
+			goto unlock;
+		}
+	}
 
+	rc = regmap_write(chip->regmap, reg, data);
+	if (rc < 0) {
+		pr_err("Couldn't write 0x%02x to 0x%04x rc=%d\n",
+								data, reg, rc);
+		goto unlock;
+	}
+
+unlock:
+	mutex_unlock(&chip->write_lock);
+	return rc;
+}
+static int tadc_bulk_write(struct tadc_chip *chip, u16 reg, u8 *data,
+								size_t count)
+{
+	int rc = 0, i;
+
+	mutex_lock(&chip->write_lock);
+	for (i = 0; i < count; ++i, ++reg) {
+		if (tadc_is_reg_locked(chip, reg)) {
+			rc = regmap_write(chip->regmap,
+						(reg & 0xFF00) | 0xD0, 0xA5);
+			if (rc < 0) {
+				pr_err("Couldn't unlock secure register rc=%d\n",
+								rc);
+				goto unlock;
+			}
+		}
+
+		rc = regmap_write(chip->regmap, reg, data[i]);
+		if (rc < 0) {
+			pr_err("Couldn't write 0x%02x to 0x%04x rc=%d\n",
+							data[i], reg, rc);
+			goto unlock;
+		}
+	}
+
+unlock:
+	mutex_unlock(&chip->write_lock);
 	return rc;
 }
 
-static int tadc_lerp(const struct tadc_pt *pts, size_t tablesize, s32 input,
-		     s32 *output)
+static int tadc_lerp(const struct tadc_pt *pts, size_t size, bool inv,
+							s32 input, s32 *output)
 {
 	int i;
 	s64 temp;
+	bool ascending;
 
 	if (pts == NULL) {
 		pr_err("Table is NULL\n");
 		return -EINVAL;
 	}
 
-	if (tablesize < 1) {
+	if (size < 1) {
 		pr_err("Table has no entries\n");
 		return -ENOENT;
 	}
 
-	if (tablesize == 1) {
-		*output = pts[0].y;
+	if (size == 1) {
+		*output = inv ? pts[0].x : pts[0].y;
 		return 0;
 	}
 
-	if (pts[0].x > pts[1].x) {
-		pr_err("Table is not in acending order\n");
-		return -EINVAL;
-	}
-
-	if (input <= pts[0].x) {
-		*output = pts[0].y;
+	ascending = inv ? (pts[0].y < pts[1].y) : (pts[0].x < pts[1].x);
+	if (ascending ? (input <= (inv ? pts[0].y : pts[0].x)) :
+			(input >= (inv ? pts[0].y : pts[0].x))) {
+		*output = inv ? pts[0].x : pts[0].y;
 		return 0;
 	}
 
-	if (input >= pts[tablesize - 1].x) {
-		*output = pts[tablesize - 1].y;
+	if (ascending ? (input >= (inv ? pts[size - 1].y : pts[size - 1].x)) :
+			(input <= (inv ? pts[size - 1].y : pts[size - 1].x))) {
+		*output = inv ? pts[size - 1].x : pts[size - 1].y;
 		return 0;
 	}
 
-	for (i = 1; i < tablesize; i++)
-		if (input <= pts[i].x)
+	for (i = 1; i < size; i++)
+		if (ascending ? (input <= (inv ? pts[i].y : pts[i].x)) :
+				(input >= (inv ? pts[i].y : pts[i].x)))
 			break;
 
-	temp = (s64)(pts[i].y - pts[i - 1].y) * (s64)(input - pts[i - 1].x);
-	temp = div_s64(temp, pts[i].x - pts[i - 1].x);
-	*output = temp + pts[i - 1].y;
+	if (inv) {
+		temp = (s64)(pts[i].x - pts[i - 1].x) *
+						(s64)(input - pts[i - 1].y);
+		temp = div_s64(temp, pts[i].y - pts[i - 1].y);
+		*output = temp + pts[i - 1].x;
+	} else {
+		temp = (s64)(pts[i].y - pts[i - 1].y) *
+						(s64)(input - pts[i - 1].x);
+		temp = div_s64(temp, pts[i].x - pts[i - 1].x);
+		*output = temp + pts[i - 1].y;
+	}
+
 	return 0;
 }
 
@@ -321,15 +413,32 @@ static int tadc_lerp(const struct tadc_pt *pts, size_t tablesize, s32 input,
  * Combine these equations and solve for Rtherm
  * Rtherm = (ADC * Rbias) / (1024 - ADC)
  */
-static int tadc_process_therm(const struct tadc_chan_data *chan_data,
-			      s16 adc, s32 *result)
+static int tadc_get_processed_therm(const struct tadc_chan_data *chan_data,
+							s16 adc, s32 *result)
 {
-	s64 rtherm;
+	s32 rtherm;
 
-	rtherm = (s64)adc * (s64)chan_data->rbias;
-	rtherm = div_s64(rtherm, TADC_RESOLUTION - adc);
-	return tadc_lerp(chan_data->table, chan_data->tablesize, rtherm,
-			 result);
+	rtherm = div_s64((s64)adc * chan_data->rbias, TADC_RESOLUTION - adc);
+	return tadc_lerp(chan_data->table, chan_data->tablesize, false, rtherm,
+									result);
+}
+
+static int tadc_get_raw_therm(const struct tadc_chan_data *chan_data,
+							int mdegc, int *result)
+{
+	int rc;
+	s32 rtherm;
+
+	rc = tadc_lerp(chan_data->table, chan_data->tablesize, true, mdegc,
+								&rtherm);
+	if (rc < 0) {
+		pr_err("Couldn't interpolate %d\n rc=%d", mdegc, rc);
+		return rc;
+	}
+
+	*result = div64_s64((s64)rtherm * TADC_RESOLUTION,
+						(s64)chan_data->rbias + rtherm);
+	return 0;
 }
 
 static int tadc_read_channel(struct tadc_chip *chip, u16 address, int *adc)
@@ -339,12 +448,31 @@ static int tadc_read_channel(struct tadc_chip *chip, u16 address, int *adc)
 
 	rc = tadc_read(chip, address, val, ARRAY_SIZE(val));
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't read channel rc=%d\n", rc);
+		pr_err("Couldn't read channel rc=%d\n", rc);
 		return rc;
 	}
 
-	*adc = (s16)(val[0] | val[1] << BITS_PER_BYTE);
-	return 0;
+	/* the 10th bit is the sign bit for all channels */
+	*adc = sign_extend32(val[0] | val[1] << BITS_PER_BYTE, 10);
+	return rc;
+}
+
+static int tadc_write_channel(struct tadc_chip *chip, u16 address, int adc)
+{
+	u8 val[2];
+	int rc;
+
+	/* the 10th bit is the sign bit for all channels */
+	adc = sign_extend32(adc, 10);
+	val[0] = (u8)adc;
+	val[1] = (u8)(adc >> BITS_PER_BYTE);
+	rc = tadc_bulk_write(chip, address, val, 2);
+	if (rc < 0) {
+		pr_err("Couldn't write to channel rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
 }
 
 #define CONVERSION_TIMEOUT_MS 100
@@ -356,8 +484,7 @@ static int tadc_do_conversion(struct tadc_chip *chip, u8 channels, s16 *adc)
 
 	rc = tadc_read(chip, TADC_MBG_ERR_REG(chip), val, 1);
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't read mbg error status rc=%d\n",
-			rc);
+		pr_err("Couldn't read mbg error status rc=%d\n", rc);
 		return rc;
 	}
 
@@ -368,8 +495,7 @@ static int tadc_do_conversion(struct tadc_chip *chip, u8 channels, s16 *adc)
 
 	rc = tadc_write(chip, TADC_CONV_REQ_REG(chip), channels);
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't write conversion request rc=%d\n",
-			rc);
+		pr_err("Couldn't write conversion request rc=%d\n", rc);
 		return rc;
 	}
 
@@ -379,21 +505,19 @@ static int tadc_do_conversion(struct tadc_chip *chip, u8 channels, s16 *adc)
 	if (timeleft == 0) {
 		rc = tadc_read(chip, TADC_SW_CH_CONV_REG(chip), val, 1);
 		if (rc < 0) {
-			dev_err(chip->dev, "Couldn't read conversion status rc=%d\n",
-				rc);
+			pr_err("Couldn't read conversion status rc=%d\n", rc);
 			return rc;
 		}
 
 		if (val[0] != channels) {
-			dev_err(chip->dev, "Conversion timed out\n");
+			pr_err("Conversion timed out\n");
 			return -ETIMEDOUT;
 		}
 	}
 
 	rc = tadc_read(chip, TADC_CH1_ADC_LO_REG(chip), val, ARRAY_SIZE(val));
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't read adc channels rc=%d\n",
-			rc);
+		pr_err("Couldn't read adc channels rc=%d\n", rc);
 		return rc;
 	}
 
@@ -404,84 +528,102 @@ static int tadc_do_conversion(struct tadc_chip *chip, u8 channels, s16 *adc)
 }
 
 static int tadc_read_raw(struct iio_dev *indio_dev,
-			 struct iio_chan_spec const *chan, int *val, int *val2,
-			 long mask)
+		struct iio_chan_spec const *chan, int *val, int *val2,
+		long mask)
 {
 	struct tadc_chip *chip = iio_priv(indio_dev);
-	const struct tadc_chan_data *chan_data = &chip->chans[chan->channel];
-	int rc = 0, offset = 0, scale, scale2, scale_type;
+	struct tadc_chan_data *chan_data = NULL;
+	int rc, offset = 0, scale, scale2, scale_type;
 	s16 adc[TADC_NUM_CH];
 
 	switch (chan->channel) {
 	case TADC_THERM1_THR1:
+	case TADC_THERM1_THR2:
+	case TADC_THERM1_THR3:
+	case TADC_THERM1_THR4:
 		chan_data = &chip->chans[TADC_THERM1];
 		break;
 	case TADC_THERM2_THR1:
+	case TADC_THERM2_THR2:
+	case TADC_THERM2_THR3:
 		chan_data = &chip->chans[TADC_THERM2];
 		break;
 	case TADC_DIE_TEMP_THR1:
+	case TADC_DIE_TEMP_THR2:
+	case TADC_DIE_TEMP_THR3:
 		chan_data = &chip->chans[TADC_DIE_TEMP];
 		break;
 	default:
+		if (chan->channel >= ARRAY_SIZE(chip->chans)) {
+			pr_err("Channel %d is out of bounds\n", chan->channel);
+			return -EINVAL;
+		}
+
+		chan_data = &chip->chans[chan->channel];
 		break;
 	}
+
+	if (!chan_data)
+		return -EINVAL;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		switch (chan->channel) {
 		case TADC_THERM1_THR1:
-			rc = tadc_read_channel(chip,
-				TADC_CMP_THR1_CH1_CMP_LO_REG(chip), val);
-			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't read THERM1 threshold rc=%d\n",
-					rc);
-				return rc;
-			}
-			break;
 		case TADC_THERM2_THR1:
-			rc = tadc_read_channel(chip,
-				TADC_CMP_THR1_CH2_CMP_LO_REG(chip), val);
-			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't read THERM2 threshold rc=%d\n",
-					rc);
-				return rc;
-			}
-			break;
 		case TADC_DIE_TEMP_THR1:
 			rc = tadc_read_channel(chip,
-				TADC_CMP_THR1_CH3_CMP_LO_REG(chip), val);
-			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't read DIE_TEMP threshold rc=%d\n",
-					rc);
-				return rc;
-			}
+					chan_data->thr[0].addr_lo, val);
+			break;
+		case TADC_THERM1_THR2:
+		case TADC_THERM2_THR2:
+		case TADC_DIE_TEMP_THR2:
+			rc = tadc_read_channel(chip,
+					chan_data->thr[1].addr_lo, val);
+			break;
+		case TADC_THERM1_THR3:
+		case TADC_THERM2_THR3:
+		case TADC_DIE_TEMP_THR3:
+			rc = tadc_read_channel(chip,
+					chan_data->thr[2].addr_lo, val);
+			break;
+		case TADC_THERM1_THR4:
+			rc = tadc_read_channel(chip,
+					chan_data->thr[3].addr_lo, val);
 			break;
 		default:
 			rc = tadc_do_conversion(chip, BIT(chan->channel), adc);
-			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't read channel %d\n",
-					chan->channel);
-				return rc;
-			}
-			*val = adc[chan->channel];
+			if (rc >= 0)
+				*val = adc[chan->channel];
 			break;
 		}
+
+		if (rc < 0) {
+			pr_err("Couldn't read channel %d\n", chan->channel);
+			return rc;
+		}
+
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
 		switch (chan->channel) {
 		case TADC_THERM1:
 		case TADC_THERM2:
 		case TADC_THERM1_THR1:
+		case TADC_THERM1_THR2:
+		case TADC_THERM1_THR3:
+		case TADC_THERM1_THR4:
 		case TADC_THERM2_THR1:
+		case TADC_THERM2_THR2:
+		case TADC_THERM2_THR3:
 			rc = tadc_read_raw(indio_dev, chan, val, NULL,
-					   IIO_CHAN_INFO_RAW);
+							IIO_CHAN_INFO_RAW);
 			if (rc < 0)
 				return rc;
 
-			rc = tadc_process_therm(chan_data, *val, val);
+			rc = tadc_get_processed_therm(chan_data, *val, val);
 			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't process 0x%04x from channel %d rc=%d\n",
-					*val, chan->channel, rc);
+				pr_err("Couldn't process 0x%04x from channel %d rc=%d\n",
+						*val, chan->channel, rc);
 				return rc;
 			}
 			break;
@@ -489,7 +631,8 @@ static int tadc_read_raw(struct iio_dev *indio_dev,
 			rc = tadc_do_conversion(chip,
 				BIT(TADC_BATT_I) | BIT(TADC_BATT_V), adc);
 			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't read battery current and voltage channels\n");
+				pr_err("Couldn't read battery current and voltage channels rc=%d\n",
+									rc);
 				return rc;
 			}
 
@@ -499,7 +642,8 @@ static int tadc_read_raw(struct iio_dev *indio_dev,
 			rc = tadc_do_conversion(chip,
 				BIT(TADC_INPUT_I) | BIT(TADC_INPUT_V), adc);
 			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't read input current and voltage channels\n");
+				pr_err("Couldn't read input current and voltage channels rc=%d\n",
+									rc);
 				return rc;
 			}
 
@@ -507,13 +651,13 @@ static int tadc_read_raw(struct iio_dev *indio_dev,
 			break;
 		default:
 			rc = tadc_read_raw(indio_dev, chan, val, NULL,
-					   IIO_CHAN_INFO_RAW);
+							IIO_CHAN_INFO_RAW);
 			if (rc < 0)
 				return rc;
 
 			/* offset is optional */
 			rc = tadc_read_raw(indio_dev, chan, &offset, NULL,
-				      IIO_CHAN_INFO_OFFSET);
+							IIO_CHAN_INFO_OFFSET);
 			if (rc < 0)
 				return rc;
 
@@ -525,18 +669,20 @@ static int tadc_read_raw(struct iio_dev *indio_dev,
 				break;
 			case IIO_VAL_FRACTIONAL:
 				*val = div_s64((s64)*val * scale + offset,
-					       scale2);
+									scale2);
 				break;
 			default:
 				return -EINVAL;
 			}
 			break;
 		}
+
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->channel) {
 		case TADC_DIE_TEMP:
 		case TADC_DIE_TEMP_THR1:
+		case TADC_DIE_TEMP_THR2:
 			*val = chan_data->scale;
 			return IIO_VAL_INT;
 		case TADC_BATT_I:
@@ -548,13 +694,133 @@ static int tadc_read_raw(struct iio_dev *indio_dev,
 			*val2 = TADC_RESOLUTION;
 			return IIO_VAL_FRACTIONAL;
 		}
+
 		return -EINVAL;
 	case IIO_CHAN_INFO_OFFSET:
 		*val = chan_data->offset;
 		return IIO_VAL_INT;
 	}
+
 	return -EINVAL;
 }
+
+static int tadc_write_raw(struct iio_dev *indio_dev,
+		struct iio_chan_spec const *chan, int val, int val2,
+		long mask)
+{
+	struct tadc_chip *chip = iio_priv(indio_dev);
+	const struct tadc_chan_data *chan_data;
+	int rc, raw;
+	s32 rem;
+
+	switch (chan->channel) {
+	case TADC_THERM1_THR1:
+	case TADC_THERM1_THR2:
+	case TADC_THERM1_THR3:
+	case TADC_THERM1_THR4:
+		chan_data = &chip->chans[TADC_THERM1];
+		break;
+	case TADC_THERM2_THR1:
+	case TADC_THERM2_THR2:
+	case TADC_THERM2_THR3:
+		chan_data = &chip->chans[TADC_THERM2];
+		break;
+	case TADC_DIE_TEMP_THR1:
+	case TADC_DIE_TEMP_THR2:
+	case TADC_DIE_TEMP_THR3:
+		chan_data = &chip->chans[TADC_DIE_TEMP];
+		break;
+	default:
+		if (chan->channel >= ARRAY_SIZE(chip->chans)) {
+			pr_err("Channel %d is out of bounds\n", chan->channel);
+			return -EINVAL;
+		}
+
+		chan_data = &chip->chans[chan->channel];
+		break;
+	}
+
+	if (!chan_data)
+		return -EINVAL;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_PROCESSED:
+		switch (chan->channel) {
+		case TADC_THERM1_THR1:
+		case TADC_THERM1_THR2:
+		case TADC_THERM1_THR3:
+		case TADC_THERM1_THR4:
+		case TADC_THERM2_THR1:
+		case TADC_THERM2_THR2:
+		case TADC_THERM2_THR3:
+			rc = tadc_get_raw_therm(chan_data, val, &raw);
+			if (rc < 0) {
+				pr_err("Couldn't get raw value rc=%d\n", rc);
+				return rc;
+			}
+			break;
+		case TADC_DIE_TEMP_THR1:
+		case TADC_DIE_TEMP_THR2:
+		case TADC_DIE_TEMP_THR3:
+			/* DIV_ROUND_CLOSEST does not like negative numbers */
+			raw = div_s64_rem(val - chan_data->offset,
+							chan_data->scale, &rem);
+			if (abs(rem) >= abs(chan_data->scale / 2))
+				raw++;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		rc = tadc_write_raw(indio_dev, chan, raw, 0,
+							IIO_CHAN_INFO_RAW);
+		if (rc < 0) {
+			pr_err("Couldn't write raw rc=%d\n", rc);
+			return rc;
+		}
+
+		break;
+	case IIO_CHAN_INFO_RAW:
+		switch (chan->channel) {
+		case TADC_THERM1_THR1:
+		case TADC_THERM2_THR1:
+		case TADC_DIE_TEMP_THR1:
+			rc = tadc_write_channel(chip,
+					chan_data->thr[0].addr_lo, val);
+			break;
+		case TADC_THERM1_THR2:
+		case TADC_THERM2_THR2:
+		case TADC_DIE_TEMP_THR2:
+			rc = tadc_write_channel(chip,
+					chan_data->thr[1].addr_lo, val);
+			break;
+		case TADC_THERM1_THR3:
+		case TADC_THERM2_THR3:
+		case TADC_DIE_TEMP_THR3:
+			rc = tadc_write_channel(chip,
+					chan_data->thr[2].addr_lo, val);
+			break;
+		case TADC_THERM1_THR4:
+			rc = tadc_write_channel(chip,
+					chan_data->thr[3].addr_lo, val);
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		if (rc < 0) {
+			pr_err("Couldn't write channel %d\n", chan->channel);
+			return rc;
+		}
+
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 
 static irqreturn_t handle_eoc(int irq, void *dev_id)
 {
@@ -587,72 +853,144 @@ static int tadc_parse_dt(struct tadc_chip *chip)
 	for_each_available_child_of_node(node, child) {
 		rc = of_property_read_u32(child, "reg", &chan_id);
 		if (rc < 0) {
-			dev_err(chip->dev, "Couldn't find channel for %s rc=%d",
-				child->name, rc);
+			pr_err("Couldn't find channel for %s rc=%d",
+							child->name, rc);
 			return rc;
 		}
 
 		if (chan_id > TADC_NUM_CH - 1) {
-			dev_err(chip->dev, "Channel %d is out of range [0, %d]\n",
-				chan_id, TADC_NUM_CH - 1);
+			pr_err("Channel %d is out of range [0, %d]\n",
+						chan_id, TADC_NUM_CH - 1);
 			return -EINVAL;
 		}
 
 		chan_data = &chip->chans[chan_id];
-		switch (chan_id) {
-		case TADC_THERM1:
-		case TADC_THERM2:
+		if (chan_id == TADC_THERM1 || chan_id == TADC_THERM2) {
 			rc = of_property_read_u32(child,
 					"qcom,rbias", &chan_data->rbias);
 			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't read qcom,rbias rc=%d\n",
-					rc);
+				pr_err("Couldn't read qcom,rbias rc=%d\n", rc);
 				return rc;
 			}
 
 			rc = of_property_read_u32(child,
 					"qcom,beta-coefficient", &beta);
 			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't read qcom,beta-coefficient rc=%d\n",
-					rc);
+				pr_err("Couldn't read qcom,beta-coefficient rc=%d\n",
+									rc);
 				return rc;
 			}
 
 			rc = of_property_read_u32(child,
 					"qcom,rtherm-at-25degc", &rtherm);
 			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't read qcom,rtherm-at-25degc rc=%d\n",
+				pr_err("Couldn't read qcom,rtherm-at-25degc rc=%d\n",
 					rc);
 				return rc;
 			}
 
 			rc = tadc_set_therm_table(chan_data, beta, rtherm);
 			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't set therm table rc=%d\n",
-					rc);
+				pr_err("Couldn't set therm table rc=%d\n", rc);
 				return rc;
 			}
-			break;
-		default:
+		} else {
 			rc = of_property_read_s32(child, "qcom,scale",
-						  &chan_data->scale);
+							&chan_data->scale);
 			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't read scale rc=%d\n",
-					rc);
+				pr_err("Couldn't read scale rc=%d\n", rc);
 				return rc;
 			}
 
 			of_property_read_s32(child, "qcom,offset",
-					     &chan_data->offset);
-			break;
+							&chan_data->offset);
 		}
 	}
 
 	return rc;
 }
 
+static int tadc_init_hw(struct tadc_chip *chip)
+{
+	int rc;
+
+	chip->chans[TADC_THERM1].thr[0].addr_lo =
+					TADC_CMP_THR1_CH1_CMP_LO_REG(chip);
+	chip->chans[TADC_THERM1].thr[0].addr_hi =
+					TADC_CMP_THR1_CH1_CMP_HI_REG(chip);
+	chip->chans[TADC_THERM1].thr[1].addr_lo =
+					TADC_CMP_THR2_CH1_CMP_LO_REG(chip);
+	chip->chans[TADC_THERM1].thr[1].addr_hi =
+					TADC_CMP_THR2_CH1_CMP_HI_REG(chip);
+	chip->chans[TADC_THERM1].thr[2].addr_lo =
+					TADC_CMP_THR3_CH1_CMP_LO_REG(chip);
+	chip->chans[TADC_THERM1].thr[2].addr_hi =
+					TADC_CMP_THR3_CH1_CMP_HI_REG(chip);
+	chip->chans[TADC_THERM1].thr[3].addr_lo =
+					TADC_CMP_THR4_CH1_CMP_LO_REG(chip);
+	chip->chans[TADC_THERM1].thr[3].addr_hi =
+					TADC_CMP_THR4_CH1_CMP_HI_REG(chip);
+
+	chip->chans[TADC_THERM2].thr[0].addr_lo =
+					TADC_CMP_THR1_CH2_CMP_LO_REG(chip);
+	chip->chans[TADC_THERM2].thr[0].addr_hi =
+					TADC_CMP_THR1_CH2_CMP_HI_REG(chip);
+	chip->chans[TADC_THERM2].thr[1].addr_lo =
+					TADC_CMP_THR2_CH2_CMP_LO_REG(chip);
+	chip->chans[TADC_THERM2].thr[1].addr_hi =
+					TADC_CMP_THR2_CH2_CMP_HI_REG(chip);
+	chip->chans[TADC_THERM2].thr[2].addr_lo =
+					TADC_CMP_THR3_CH2_CMP_LO_REG(chip);
+	chip->chans[TADC_THERM2].thr[2].addr_hi =
+					TADC_CMP_THR3_CH2_CMP_HI_REG(chip);
+
+	chip->chans[TADC_DIE_TEMP].thr[0].addr_lo =
+					TADC_CMP_THR1_CH3_CMP_LO_REG(chip);
+	chip->chans[TADC_DIE_TEMP].thr[0].addr_hi =
+					TADC_CMP_THR1_CH3_CMP_HI_REG(chip);
+	chip->chans[TADC_DIE_TEMP].thr[1].addr_lo =
+					TADC_CMP_THR2_CH3_CMP_LO_REG(chip);
+	chip->chans[TADC_DIE_TEMP].thr[1].addr_hi =
+					TADC_CMP_THR2_CH3_CMP_HI_REG(chip);
+	chip->chans[TADC_DIE_TEMP].thr[2].addr_lo =
+					TADC_CMP_THR3_CH3_CMP_LO_REG(chip);
+	chip->chans[TADC_DIE_TEMP].thr[2].addr_hi =
+					TADC_CMP_THR3_CH3_CMP_HI_REG(chip);
+
+	rc = tadc_write(chip, TADC_CMP_THR1_CMP_REG(chip), 0);
+	if (rc < 0) {
+		pr_err("Couldn't enable hardware triggers rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = tadc_write(chip, TADC_CMP_THR2_CMP_REG(chip), 0);
+	if (rc < 0) {
+		pr_err("Couldn't enable hardware triggers rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = tadc_write(chip, TADC_CMP_THR3_CMP_REG(chip), 0);
+	if (rc < 0) {
+		pr_err("Couldn't enable hardware triggers rc=%d\n", rc);
+		return rc;
+	}
+
+	/* enable all temperature hardware triggers */
+	rc = tadc_write(chip, TADC_HWTRIG_CONV_CH_EN_REG(chip),
+							BIT(TADC_THERM1) |
+							BIT(TADC_THERM2) |
+							BIT(TADC_DIE_TEMP));
+	if (rc < 0) {
+		pr_err("Couldn't enable hardware triggers rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static const struct iio_info tadc_info = {
 	.read_raw		= &tadc_read_raw,
+	.write_raw		= &tadc_write_raw,
 	.driver_module		= THIS_MODULE,
 };
 
@@ -661,7 +999,7 @@ static int tadc_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct iio_dev *indio_dev;
 	struct tadc_chip *chip;
-	int rc = 0, irq;
+	int rc, irq;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*chip));
 	if (!indio_dev)
@@ -673,11 +1011,12 @@ static int tadc_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "reg", &chip->tadc_base);
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't read base address rc=%d\n", rc);
+		pr_err("Couldn't read base address rc=%d\n", rc);
 		return rc;
 	}
 	chip->tadc_cmp_base = chip->tadc_base + 0x100;
 
+	mutex_init(&chip->write_lock);
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
 		pr_err("Couldn't get regmap\n");
@@ -690,6 +1029,12 @@ static int tadc_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = tadc_init_hw(chip);
+	if (rc < 0) {
+		pr_err("Couldn't initialize hardware rc=%d\n", rc);
+		return rc;
+	}
+
 	irq = of_irq_get_byname(node, "eoc");
 	if (irq < 0) {
 		pr_err("Couldn't get eoc irq rc=%d\n", irq);
@@ -697,7 +1042,7 @@ static int tadc_probe(struct platform_device *pdev)
 	}
 
 	rc = devm_request_threaded_irq(chip->dev, irq, NULL, handle_eoc,
-				       IRQF_ONESHOT, "eoc", chip);
+						IRQF_ONESHOT, "eoc", chip);
 	if (rc < 0) {
 		pr_err("Couldn't request irq %d rc=%d\n", irq, rc);
 		return rc;
@@ -711,10 +1056,12 @@ static int tadc_probe(struct platform_device *pdev)
 	indio_dev->num_channels = ARRAY_SIZE(tadc_iio_chans);
 
 	rc = devm_iio_device_register(chip->dev, indio_dev);
-	if (rc < 0)
-		dev_err(chip->dev, "Couldn't register IIO device rc=%d\n", rc);
+	if (rc < 0) {
+		pr_err("Couldn't register IIO device rc=%d\n", rc);
+		return rc;
+	}
 
-	return rc;
+	return 0;
 }
 
 static int tadc_remove(struct platform_device *pdev)

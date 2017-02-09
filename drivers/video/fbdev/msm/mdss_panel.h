@@ -265,6 +265,10 @@ struct mdss_intf_recovery {
  *				Argument provided is bits per pixel (8/10/12)
  * @MDSS_EVENT_UPDATE_PANEL_PPM: update pixel clock by input PPM.
  *				Argument provided is parts per million.
+ * @MDSS_EVENT_AVR_MODE: Setup DSI Video mode to support AVR based on the
+ *			avr mode passed as argument
+ *			0 - disable AVR support
+ *			1 - enable AVR support
  */
 enum mdss_intf_events {
 	MDSS_EVENT_RESET = 1,
@@ -299,6 +303,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DISABLE_PANEL,
 	MDSS_EVENT_UPDATE_PANEL_PPM,
 	MDSS_EVENT_DSI_TIMING_DB_CTRL,
+	MDSS_EVENT_AVR_MODE,
 	MDSS_EVENT_MAX,
 };
 

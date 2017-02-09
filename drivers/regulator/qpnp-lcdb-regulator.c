@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -863,7 +863,7 @@ static int qpnp_lcdb_ldo_regulator_is_enabled(struct regulator_dev *rdev)
 }
 
 static int qpnp_lcdb_ldo_regulator_set_voltage(struct regulator_dev *rdev,
-				int min_uV, int max_uV, unsigned *selector)
+				int min_uV, int max_uV, unsigned int *selector)
 {
 	int rc = 0;
 	struct qpnp_lcdb *lcdb  = rdev_get_drvdata(rdev);
@@ -934,7 +934,7 @@ static int qpnp_lcdb_ncp_regulator_is_enabled(struct regulator_dev *rdev)
 }
 
 static int qpnp_lcdb_ncp_regulator_set_voltage(struct regulator_dev *rdev,
-				int min_uV, int max_uV, unsigned *selector)
+				int min_uV, int max_uV, unsigned int *selector)
 {
 	int rc = 0;
 	struct qpnp_lcdb *lcdb  = rdev_get_drvdata(rdev);

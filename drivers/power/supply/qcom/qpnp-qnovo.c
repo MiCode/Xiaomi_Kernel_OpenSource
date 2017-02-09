@@ -110,8 +110,7 @@ struct qnovo_dt_props {
 };
 
 enum {
-	QNOVO_ERASE_OFFSET_WA_BIT	= BIT(0),
-	QNOVO_NO_ERR_STS_BIT		= BIT(1),
+	QNOVO_NO_ERR_STS_BIT		= BIT(0),
 };
 
 struct chg_props {
@@ -315,7 +314,6 @@ static int qnovo_check_chg_version(struct qnovo *chip)
 
 	if ((chip->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE)
 		   && (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4)) {
-		chip->wa_flags |= QNOVO_ERASE_OFFSET_WA_BIT;
 		chip->wa_flags |= QNOVO_NO_ERR_STS_BIT;
 	}
 
@@ -447,6 +445,8 @@ static struct param_info params[] = {
 		.num_regs		= 1,
 		.reg_to_unit_multiplier	= 1,
 		.reg_to_unit_divider	= 1,
+		.min_val		= 0,
+		.max_val		= 255,
 		.units_str		= "pulses",
 	},
 	[VLIM1] = {
@@ -1187,7 +1187,7 @@ static int qnovo_hw_init(struct qnovo *chip)
 	u8 iadc_offset_external, iadc_offset_internal;
 	u8 iadc_gain_external, iadc_gain_internal;
 	u8 vadc_offset, vadc_gain;
-	u8 buf[2] = {0, 0};
+	u8 val;
 
 	vote(chip->disable_votable, USER_VOTER, 1, 0);
 
@@ -1241,13 +1241,39 @@ static int qnovo_hw_init(struct qnovo *chip)
 	chip->v_gain_mega = 1000000000 + (s64)vadc_gain * GAIN_LSB_FACTOR;
 	chip->v_gain_mega = div_s64(chip->v_gain_mega, 1000);
 
-	if (chip->wa_flags & QNOVO_ERASE_OFFSET_WA_BIT) {
-		rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_0, buf, 2);
-		if (rc < 0) {
-			pr_err("Couldn't erase offset rc = %d\n", rc);
-			return rc;
-		}
+	val = 0;
+	rc = qnovo_write(chip, QNOVO_STRM_CTRL, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write iadc bitsteam control rc = %d\n", rc);
+		return rc;
 	}
+
+	rc = qnovo_read(chip, QNOVO_TR_IADC_OFFSET_0, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't read iadc offset rc = %d\n", rc);
+		return rc;
+	}
+
+	val *= -1;
+	rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_0, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write iadc offset rc = %d\n", rc);
+		return rc;
+	}
+
+	rc = qnovo_read(chip, QNOVO_TR_IADC_OFFSET_1, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't read iadc offset rc = %d\n", rc);
+		return rc;
+	}
+
+	val *= -1;
+	rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_1, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write iadc offset rc = %d\n", rc);
+		return rc;
+	}
+
 	return 0;
 }
 

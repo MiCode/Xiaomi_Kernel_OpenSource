@@ -1,4 +1,4 @@
-Qualcomm Technologies Memory Accelerator
+Qualcomm Technologies, Inc. Memory Accelerator
 
 Memory accelerator configures the power-mode (corner) for the
 accelerator.

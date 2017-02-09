@@ -2365,7 +2365,7 @@ static int qpnp_lab_regulator_is_enabled(struct regulator_dev *rdev)
 }
 
 static int qpnp_lab_regulator_set_voltage(struct regulator_dev *rdev,
-				int min_uV, int max_uV, unsigned *selector)
+				int min_uV, int max_uV, unsigned int *selector)
 {
 	int rc, new_uV;
 	u8 val;
@@ -3282,7 +3282,7 @@ static int qpnp_ibb_regulator_is_enabled(struct regulator_dev *rdev)
 }
 
 static int qpnp_ibb_regulator_set_voltage(struct regulator_dev *rdev,
-				int min_uV, int max_uV, unsigned *selector)
+				int min_uV, int max_uV, unsigned int *selector)
 {
 	int rc = 0;
 
@@ -3648,12 +3648,10 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 	u8 type, revision;
 	int rc = 0;
 
-	labibb = devm_kzalloc(&pdev->dev,
-			sizeof(struct qpnp_labibb), GFP_KERNEL);
-	if (labibb == NULL) {
-		pr_err("labibb allocation failed.\n");
+	labibb = devm_kzalloc(&pdev->dev, sizeof(*labibb), GFP_KERNEL);
+	if (labibb == NULL)
 		return -ENOMEM;
-	}
+
 	labibb->regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!labibb->regmap) {
 		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
@@ -3849,7 +3847,7 @@ static int qpnp_labibb_regulator_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id spmi_match_table[] = {
+static const struct of_device_id spmi_match_table[] = {
 	{ .compatible = QPNP_LABIBB_REGULATOR_DRIVER_NAME, },
 	{ },
 };

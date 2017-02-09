@@ -106,6 +106,9 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 static void mdss_mdp_fetch_end_config(struct mdss_mdp_video_ctx *ctx,
 		struct mdss_mdp_ctl *ctl);
 
+static void mdss_mdp_video_timegen_flush(struct mdss_mdp_ctl *ctl,
+		struct mdss_mdp_video_ctx *sctx);
+
 static void early_wakeup_dfps_update_work(struct work_struct *work);
 
 static int mdss_mdp_video_avr_ctrl(struct mdss_mdp_ctl *ctl, bool enable);
@@ -411,6 +414,8 @@ static void mdss_mdp_video_avr_vtotal_setup(struct mdss_mdp_ctl *ctl,
 					struct mdss_mdp_video_ctx *ctx)
 {
 	struct mdss_data_type *mdata = ctl->mdata;
+	struct mdss_mdp_ctl *sctl = NULL;
+	struct mdss_mdp_video_ctx *sctx = NULL;
 
 	if (test_bit(MDSS_CAPS_AVR_SUPPORTED, mdata->mdss_caps_map)) {
 		struct mdss_panel_data *pdata = ctl->panel_data;
@@ -434,6 +439,17 @@ static void mdss_mdp_video_avr_vtotal_setup(struct mdss_mdp_ctl *ctl,
 		}
 
 		mdp_video_write(ctx, MDSS_MDP_REG_INTF_AVR_VTOTAL, avr_vtotal);
+
+		/*
+		 * Make sure config goes through
+		 */
+		wmb();
+
+		sctl = mdss_mdp_get_split_ctl(ctl);
+		if (sctl)
+			sctx = (struct mdss_mdp_video_ctx *)
+				sctl->intf_ctx[MASTER_CTX];
+		mdss_mdp_video_timegen_flush(ctl, ctx);
 
 		MDSS_XLOG(pinfo->min_fps, pinfo->default_fps, avr_vtotal);
 	}
@@ -461,8 +477,9 @@ static int mdss_mdp_video_avr_trigger_setup(struct mdss_mdp_ctl *ctl)
 }
 
 static void mdss_mdp_video_avr_ctrl_setup(struct mdss_mdp_video_ctx *ctx,
-		struct mdss_mdp_avr_info *avr_info, bool is_master, bool enable)
+		struct mdss_mdp_ctl *ctl, bool is_master, bool enable)
 {
+	struct mdss_mdp_avr_info *avr_info = &ctl->avr_info;
 	u32 avr_ctrl = 0;
 	u32 avr_mode = 0;
 
@@ -475,8 +492,17 @@ static void mdss_mdp_video_avr_ctrl_setup(struct mdss_mdp_video_ctx *ctx,
 	if (avr_mode == MDSS_MDP_AVR_ONE_SHOT)
 		avr_mode |= (1 << 8);
 
-	if (is_master)
+	if (is_master) {
 		mdp_video_write(ctx, MDSS_MDP_REG_INTF_AVR_CONTROL, avr_ctrl);
+
+		/*
+		 * When AVR is enabled, need to setup DSI Video mode control
+		 */
+		mdss_mdp_ctl_intf_event(ctl,
+				MDSS_EVENT_AVR_MODE,
+				(void *)(unsigned long) avr_ctrl,
+				CTL_INTF_EVENT_FLAG_DEFAULT);
+	}
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_AVR_MODE, avr_mode);
 
@@ -1435,7 +1461,6 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 			}
 
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-
 			/*
 			 * Need to disable AVR during DFPS update period.
 			 * Next commit will restore the AVR settings.
@@ -1844,6 +1869,7 @@ static void mdss_mdp_handoff_programmable_fetch(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_video_ctx *ctx)
 {
 	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
+
 	u32 fetch_start_handoff, v_total_handoff, h_total_handoff;
 	pinfo->prg_fet = 0;
 	if (mdp_video_read(ctx, MDSS_MDP_REG_INTF_CONFIG) & BIT(31)) {
@@ -2269,7 +2295,7 @@ static int mdss_mdp_video_avr_ctrl(struct mdss_mdp_ctl *ctl, bool enable)
 		pr_err("invalid master ctx\n");
 		return -EINVAL;
 	}
-	mdss_mdp_video_avr_ctrl_setup(ctx, &ctl->avr_info, ctl->is_master,
+	mdss_mdp_video_avr_ctrl_setup(ctx, ctl, ctl->is_master,
 			enable);
 
 	if (is_pingpong_split(ctl->mfd)) {
@@ -2278,7 +2304,7 @@ static int mdss_mdp_video_avr_ctrl(struct mdss_mdp_ctl *ctl, bool enable)
 			pr_err("invalid slave ctx\n");
 			return -EINVAL;
 		}
-		mdss_mdp_video_avr_ctrl_setup(sctx, &ctl->avr_info, false,
+		mdss_mdp_video_avr_ctrl_setup(sctx, ctl, false,
 				enable);
 	}
 

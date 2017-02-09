@@ -24,6 +24,7 @@ enum print_reason {
 	PR_REGISTER	= BIT(1),
 	PR_MISC		= BIT(2),
 	PR_PARALLEL	= BIT(3),
+	PR_OTG		= BIT(4),
 };
 
 #define DEFAULT_VOTER			"DEFAULT_VOTER"
@@ -135,6 +136,9 @@ struct smb_iio {
 	struct iio_channel	*usbin_i_chan;
 	struct iio_channel	*usbin_v_chan;
 	struct iio_channel	*batt_i_chan;
+	struct iio_channel	*connector_temp_thr1_chan;
+	struct iio_channel	*connector_temp_thr2_chan;
+	struct iio_channel	*connector_temp_thr3_chan;
 };
 
 struct reg_info {
@@ -158,7 +162,7 @@ struct smb_charger {
 	/* locks */
 	struct mutex		write_lock;
 	struct mutex		ps_change_lock;
-	struct mutex		otg_overcurrent_lock;
+	struct mutex		otg_oc_lock;
 
 	/* power supplies */
 	struct power_supply		*batt_psy;
@@ -204,6 +208,9 @@ struct smb_charger {
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	step_soc_req_work;
 	struct delayed_work	clear_hdc_work;
+	struct work_struct	otg_oc_work;
+	struct work_struct	vconn_oc_work;
+	struct delayed_work	otg_ss_done_work;
 
 	/* cached status */
 	int			voltage_min_uv;
@@ -214,7 +221,6 @@ struct smb_charger {
 	int			system_temp_level;
 	int			thermal_levels;
 	int			*thermal_mitigation;
-	int			otg_cl_ua;
 	int			dcp_icl_ua;
 	int			fake_capacity;
 	bool			step_chg_enabled;
@@ -360,6 +366,8 @@ int smblib_get_prop_charger_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_charger_temp_max(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_connector_therm_zone(struct smb_charger *chg,
+			       union power_supply_propval *val);
 int smblib_set_prop_pd_current_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_usb_current_max(struct smb_charger *chg,

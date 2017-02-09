@@ -52,6 +52,18 @@ Charger specific properties:
   Value type: <u32>
   Definition: Specifies the DC input current limit in micro-amps.
 
+- qcom,charger-temp-max-mdegc
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the maximum charger temperature in milli-degrees
+	      Celsius. If unspecified a default of 80000 will be used.
+
+- qcom,connector-temp-max-mdegc
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the maximum connector temperature in milli-degrees
+	      Celsius. If unspecified a default value of 105000 will be used.
+
 - io-channels
   Usage:      optional
   Value type: List of <phandle u32>

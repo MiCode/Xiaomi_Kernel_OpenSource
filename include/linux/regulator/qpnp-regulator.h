@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,8 +158,8 @@ enum qpnp_boost_current_limit {
 struct qpnp_regulator_platform_data {
 	struct regulator_init_data		init_data;
 	int					pull_down_enable;
-	unsigned				pin_ctrl_enable;
-	unsigned				pin_ctrl_hpm;
+	unsigned int				pin_ctrl_enable;
+	unsigned int				pin_ctrl_hpm;
 	int					system_load;
 	int					enable_time;
 	int					ocp_enable;

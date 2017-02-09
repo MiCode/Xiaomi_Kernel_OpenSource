@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -918,15 +918,16 @@ static ssize_t qpnp_hap_wf_samp_store(struct device *dev,
 	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
 	struct qpnp_hap *hap = container_of(timed_dev, struct qpnp_hap,
 					 timed_dev);
-	int data;
+	int data, rc;
 
 	if (index < 0 || index >= QPNP_HAP_WAV_SAMP_LEN) {
 		dev_err(dev, "Invalid sample index(%d)\n", index);
 		return -EINVAL;
 	}
 
-	if (sscanf(buf, "%x", &data) != 1)
-		return -EINVAL;
+	rc = kstrtoint(buf, 16, &data);
+	if (rc)
+		return rc;
 
 	if (data < 0 || data > 0xff) {
 		dev_err(dev, "Invalid sample wf_%d (%d)\n", index, data);
@@ -1032,8 +1033,9 @@ static ssize_t qpnp_hap_wf_rep_store(struct device *dev,
 	int data, rc, temp;
 	u8 reg;
 
-	if (sscanf(buf, "%d", &data) != 1)
-		return -EINVAL;
+	rc = kstrtoint(buf, 10, &data);
+	if (rc)
+		return rc;
 
 	if (data < QPNP_HAP_WAV_REP_MIN)
 		data = QPNP_HAP_WAV_REP_MIN;
@@ -1078,8 +1080,9 @@ static ssize_t qpnp_hap_wf_s_rep_store(struct device *dev,
 	int data, rc, temp;
 	u8 reg;
 
-	if (sscanf(buf, "%d", &data) != 1)
-		return -EINVAL;
+	rc = kstrtoint(buf, 10, &data);
+	if (rc)
+		return rc;
 
 	if (data < QPNP_HAP_WAV_S_REP_MIN)
 		data = QPNP_HAP_WAV_S_REP_MIN;
@@ -1290,51 +1293,25 @@ static ssize_t qpnp_hap_ramp_test_data_show(struct device *dev,
 
 /* sysfs attributes */
 static struct device_attribute qpnp_hap_attrs[] = {
-	__ATTR(wf_s0, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_wf_s0_show,
-			qpnp_hap_wf_s0_store),
-	__ATTR(wf_s1, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_wf_s1_show,
-			qpnp_hap_wf_s1_store),
-	__ATTR(wf_s2, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_wf_s2_show,
-			qpnp_hap_wf_s2_store),
-	__ATTR(wf_s3, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_wf_s3_show,
-			qpnp_hap_wf_s3_store),
-	__ATTR(wf_s4, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_wf_s4_show,
-			qpnp_hap_wf_s4_store),
-	__ATTR(wf_s5, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_wf_s5_show,
-			qpnp_hap_wf_s5_store),
-	__ATTR(wf_s6, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_wf_s6_show,
-			qpnp_hap_wf_s6_store),
-	__ATTR(wf_s7, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_wf_s7_show,
-			qpnp_hap_wf_s7_store),
-	__ATTR(wf_update, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_wf_update_show,
-			qpnp_hap_wf_update_store),
-	__ATTR(wf_rep, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_wf_rep_show,
-			qpnp_hap_wf_rep_store),
-	__ATTR(wf_s_rep, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_wf_s_rep_show,
-			qpnp_hap_wf_s_rep_store),
-	__ATTR(play_mode, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_play_mode_show,
-			qpnp_hap_play_mode_store),
-	__ATTR(dump_regs, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_dump_regs_show,
-			NULL),
-	__ATTR(ramp_test, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_ramp_test_data_show,
-			qpnp_hap_ramp_test_data_store),
-	__ATTR(min_max_test, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_hap_min_max_test_data_show,
-			qpnp_hap_min_max_test_data_store),
+	__ATTR(wf_s0, 0664, qpnp_hap_wf_s0_show, qpnp_hap_wf_s0_store),
+	__ATTR(wf_s1, 0664, qpnp_hap_wf_s1_show, qpnp_hap_wf_s1_store),
+	__ATTR(wf_s2, 0664, qpnp_hap_wf_s2_show, qpnp_hap_wf_s2_store),
+	__ATTR(wf_s3, 0664, qpnp_hap_wf_s3_show, qpnp_hap_wf_s3_store),
+	__ATTR(wf_s4, 0664, qpnp_hap_wf_s4_show, qpnp_hap_wf_s4_store),
+	__ATTR(wf_s5, 0664, qpnp_hap_wf_s5_show, qpnp_hap_wf_s5_store),
+	__ATTR(wf_s6, 0664, qpnp_hap_wf_s6_show, qpnp_hap_wf_s6_store),
+	__ATTR(wf_s7, 0664, qpnp_hap_wf_s7_show, qpnp_hap_wf_s7_store),
+	__ATTR(wf_update, 0664, qpnp_hap_wf_update_show,
+		qpnp_hap_wf_update_store),
+	__ATTR(wf_rep, 0664, qpnp_hap_wf_rep_show, qpnp_hap_wf_rep_store),
+	__ATTR(wf_s_rep, 0664, qpnp_hap_wf_s_rep_show, qpnp_hap_wf_s_rep_store),
+	__ATTR(play_mode, 0664, qpnp_hap_play_mode_show,
+		qpnp_hap_play_mode_store),
+	__ATTR(dump_regs, 0664, qpnp_hap_dump_regs_show, NULL),
+	__ATTR(ramp_test, 0664, qpnp_hap_ramp_test_data_show,
+		qpnp_hap_ramp_test_data_store),
+	__ATTR(min_max_test, 0664, qpnp_hap_min_max_test_data_show,
+		qpnp_hap_min_max_test_data_store),
 };
 
 static void calculate_lra_code(struct qpnp_hap *hap)
@@ -1420,13 +1397,13 @@ static enum hrtimer_restart detect_auto_res_error(struct hrtimer *timer)
 	if (val & AUTO_RES_ERR_BIT) {
 		schedule_work(&hap->auto_res_err_work);
 		return HRTIMER_NORESTART;
-	} else {
-		update_lra_frequency(hap);
-		currtime  = ktime_get();
-		hrtimer_forward(&hap->auto_res_err_poll_timer, currtime,
-				ktime_set(0, POLL_TIME_AUTO_RES_ERR_NS));
-		return HRTIMER_RESTART;
 	}
+
+	update_lra_frequency(hap);
+	currtime  = ktime_get();
+	hrtimer_forward(&hap->auto_res_err_poll_timer, currtime,
+			ktime_set(0, POLL_TIME_AUTO_RES_ERR_NS));
+	return HRTIMER_RESTART;
 }
 
 static void correct_auto_res_error(struct work_struct *auto_res_err_work)
@@ -1595,19 +1572,23 @@ int qpnp_hap_play_byte(u8 data, bool on)
 		return rc;
 
 	if (!on) {
-		/* set the pwm back to original duty for normal operations */
-		/* this is not required if standard interface is not used */
+		/*
+		 * Set the pwm back to original duty for normal operations.
+		 * This is not required if standard interface is not used.
+		 */
 		rc = pwm_config(hap->pwm_info.pwm_dev,
 				hap->pwm_info.duty_us * NSEC_PER_USEC,
 				hap->pwm_info.period_us * NSEC_PER_USEC);
 		return rc;
 	}
 
-	/* pwm values range from 0x00 to 0xff. The range from 0x00 to 0x7f
-	   provides a postive amplitude in the sin wave form for 0 to 100%.
-	   The range from 0x80 to 0xff provides a negative amplitude in the
-	   sin wave form for 0 to 100%. Here the duty percentage is calculated
-	   based on the incoming data to accommodate this. */
+	/*
+	 * pwm values range from 0x00 to 0xff. The range from 0x00 to 0x7f
+	 * provides a postive amplitude in the sin wave form for 0 to 100%.
+	 * The range from 0x80 to 0xff provides a negative amplitude in the
+	 * sin wave form for 0 to 100%. Here the duty percentage is calculated
+	 * based on the incoming data to accommodate this.
+	 */
 	if (data <= QPNP_HAP_EXT_PWM_PEAK_DATA)
 		duty_percent = QPNP_HAP_EXT_PWM_HALF_DUTY +
 			((data * QPNP_HAP_EXT_PWM_DATA_FACTOR) / 100);
@@ -1675,6 +1656,7 @@ static int qpnp_hap_get_time(struct timed_output_dev *dev)
 
 	if (hrtimer_active(&hap->hap_timer)) {
 		ktime_t r = hrtimer_get_remaining(&hap->hap_timer);
+
 		return (int)ktime_to_us(r);
 	} else {
 		return 0;
@@ -1709,6 +1691,7 @@ static enum hrtimer_restart qpnp_hap_test_timer(struct hrtimer *timer)
 static int qpnp_haptic_suspend(struct device *dev)
 {
 	struct qpnp_hap *hap = dev_get_drvdata(dev);
+
 	hrtimer_cancel(&hap->hap_timer);
 	cancel_work_sync(&hap->work);
 	/* turn-off haptic */
@@ -1845,9 +1828,11 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 	if (rc)
 		return rc;
 
-	/* Configure RATE_CFG1 and RATE_CFG2 registers */
-	/* Note: For ERM these registers act as play rate and
-	   for LRA these represent resonance period */
+	/*
+	 * Configure RATE_CFG1 and RATE_CFG2 registers.
+	 * Note: For ERM these registers act as play rate and
+	 * for LRA these represent resonance period
+	 */
 	if (hap->wave_play_rate_us < QPNP_HAP_WAV_PLAY_RATE_US_MIN)
 		hap->wave_play_rate_us = QPNP_HAP_WAV_PLAY_RATE_US_MIN;
 	else if (hap->wave_play_rate_us > QPNP_HAP_WAV_PLAY_RATE_US_MAX)
@@ -2314,7 +2299,7 @@ static int qpnp_haptic_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id spmi_match_table[] = {
+static const struct of_device_id spmi_match_table[] = {
 	{ .compatible = "qcom,qpnp-haptic", },
 	{ },
 };
