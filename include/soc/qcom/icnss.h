@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -104,7 +104,7 @@ extern int icnss_ce_request_irq(unsigned int ce_id,
 	irqreturn_t (*handler)(int, void *),
 	unsigned long flags, const char *name, void *ctx);
 extern int icnss_get_ce_id(int irq);
-extern int icnss_set_fw_debug_mode(bool enable_fw_log);
+extern int icnss_set_fw_log_mode(uint8_t fw_log_mode);
 extern int icnss_athdiag_read(struct device *dev, uint32_t offset,
 			      uint32_t mem_type, uint32_t data_len,
 			      uint8_t *output);
@@ -124,5 +124,9 @@ extern int icnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 *ch_count,
 extern int icnss_wlan_set_dfs_nol(const void *info, u16 info_len);
 extern int icnss_wlan_get_dfs_nol(void *info, u16 info_len);
 extern bool icnss_is_qmi_disable(void);
+extern bool icnss_is_fw_ready(void);
+extern int icnss_set_wlan_mac_address(const u8 *in, const uint32_t len);
+extern u8 *icnss_get_wlan_mac_address(struct device *dev, uint32_t *num);
+extern int icnss_trigger_recovery(struct device *dev);
 
 #endif /* _ICNSS_WLAN_H_ */
