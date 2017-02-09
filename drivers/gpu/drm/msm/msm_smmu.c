@@ -29,12 +29,18 @@ struct msm_smmu_client {
 	struct device *dev;
 	struct dma_iommu_mapping *mmu_mapping;
 	bool domain_attached;
+	const struct msm_smmu_domain *domain;
 };
 
 struct msm_smmu {
 	struct msm_mmu base;
 	struct device *client_dev;
 	struct msm_smmu_client *client;
+	struct list_head list;
+	atomic_long_t mapped;
+	uint64_t fault_addr;
+	struct drm_mm va_mm;
+	struct list_head iova;
 };
 
 struct msm_smmu_domain {
@@ -221,7 +227,6 @@ static int msm_smmu_map_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 	return 0;
 }
 
-
 static void msm_smmu_unmap_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 			struct dma_buf *dma_buf, int dir)
 {
@@ -268,7 +273,7 @@ static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
 		.va_size = SZ_4G,
 		.secure = true,
 	},
-	[MSM_SMMU_DOMAIN_GPU] = {
+	[MSM_SMMU_DOMAIN_GPU_UNSECURE] = {
 		.label = "gpu",
 		.va_start = SZ_16M,
 		.va_size = 0xFFFFFFFF - SZ_16M,
@@ -285,7 +290,7 @@ static const struct of_device_id msm_smmu_dt_match[] = {
 	{ .compatible = "qcom,smmu_nrt_sec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_SECURE] },
 	{ .compatible = "qcom,kgsl-smmu-v2",
-		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_GPU] },
+		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_GPU_UNSECURE] },
 	{}
 };
 MODULE_DEVICE_TABLE(of, msm_smmu_dt_match);
@@ -298,6 +303,7 @@ static struct device *msm_smmu_device_create(struct device *dev,
 	struct platform_device *pdev;
 	int i;
 	const char *compat = NULL;
+	int rc;
 
 	for (i = 0; i < ARRAY_SIZE(msm_smmu_dt_match); i++) {
 		if (msm_smmu_dt_match[i].data == &msm_smmu_domains[domain]) {
@@ -313,8 +319,7 @@ static struct device *msm_smmu_device_create(struct device *dev,
 	DRM_INFO("found domain %d compat: %s\n", domain, compat);
 
 	if ((domain == MSM_SMMU_DOMAIN_UNSECURE) ||
-		(domain == MSM_SMMU_DOMAIN_GPU)) {
-		int rc;
+		(domain == MSM_SMMU_DOMAIN_GPU_UNSECURE)) {
 
 		smmu->client = devm_kzalloc(dev,
 				sizeof(struct msm_smmu_client), GFP_KERNEL);
@@ -352,12 +357,21 @@ static struct device *msm_smmu_device_create(struct device *dev,
 	return &pdev->dev;
 }
 
-struct msm_mmu *msm_smmu_new(struct device *dev,
-		enum msm_mmu_domain_type domain)
+struct msm_mmu *msm_smmu_new(struct drm_device *drm_dev,
+	struct device *dev, enum msm_mmu_domain_type domain)
 {
 	struct msm_smmu *smmu;
 	struct device *client_dev;
 	struct msm_smmu_client *client;
+	struct msm_drm_private *dpriv = drm_dev->dev_private;
+	static uint32_t name[MSM_SMMU_DOMAIN_MAX] = {
+		MSM_MMU_UNSECURE,
+		MSM_MMU_NRT_UNSECURE,
+		MSM_MMU_SECURE,
+		MSM_MMU_NRT_SECURE,
+		MSM_MMU_GPU_UNSECURE,
+		MSM_MMU_GPU_SECURE
+	};
 
 	smmu = kzalloc(sizeof(*smmu), GFP_KERNEL);
 	if (!smmu)
@@ -370,13 +384,21 @@ struct msm_mmu *msm_smmu_new(struct device *dev,
 	}
 
 	smmu->client_dev = client_dev;
-	msm_mmu_init(&smmu->base, dev, &funcs);
-	smmu->base.domain = domain;
 
+	smmu->fault_addr = ~0ULL;
+
+	INIT_LIST_HEAD(&smmu->iova);
+	atomic_long_set(&smmu->mapped, 0);
+
+	msm_mmu_init(&smmu->base, drm_dev, dev, name[domain], &funcs);
 	client = msm_smmu_to_client(smmu);
-	if (client)
-		iommu_set_fault_handler(client->mmu_mapping->domain,
-					msm_smmu_fault_handler, dev);
+	iommu_set_fault_handler(client->mmu_mapping->domain,
+			msm_smmu_fault_handler, dev);
+
+	drm_mm_init(&smmu->va_mm, client->domain->va_start,
+		client->domain->va_size);
+
+	dpriv->mmus[domain] = &smmu->base;
 
 	return &smmu->base;
 }
@@ -413,10 +435,7 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 			goto error;
 		}
 	}
-
-	DRM_INFO("Created domain %s [%zx,%zx] secure=%d\n",
-			domain->label, domain->va_start, domain->va_size,
-			domain->secure);
+	client->domain = domain;
 
 	return 0;
 

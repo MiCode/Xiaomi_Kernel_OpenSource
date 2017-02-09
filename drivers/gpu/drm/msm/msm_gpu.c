@@ -452,11 +452,19 @@ static void retire_submits(struct msm_gpu *gpu, uint32_t fence)
 	}
 }
 
+static inline uint32_t get_retired_timestamp(struct msm_gpu *gpu)
+{
+	/* For global timestamp, the last retired timestamp
+	 * is the fence of recently completed GPU commands. */
+	return gpu->funcs->last_fence(gpu);
+}
+
 static void retire_worker(struct work_struct *work)
 {
 	struct msm_gpu *gpu = container_of(work, struct msm_gpu, retire_work);
 	struct drm_device *dev = gpu->dev;
 	uint32_t fence = gpu->funcs->last_fence(gpu);
+	uint32_t retired_timestamp = get_retired_timestamp(gpu);
 
 	msm_update_fence(gpu->dev, fence);
 
@@ -470,8 +478,8 @@ static void retire_worker(struct work_struct *work)
 		obj = list_first_entry(&gpu->active_list,
 				struct msm_gem_object, mm_list);
 
-		if ((obj->read_fence <= fence) &&
-				(obj->write_fence <= fence)) {
+		if ((obj->read_timestamp <= retired_timestamp) &&
+				(obj->write_timestamp <= retired_timestamp)) {
 			/* move to inactive: */
 			msm_gem_move_to_inactive(&obj->base);
 			msm_gem_put_iova(&obj->base, gpu->id);
@@ -725,7 +733,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	iommu_domain = iommu_domain_alloc(&platform_bus_type);
 	if (!IS_ERR_OR_NULL(iommu_domain)) {
 		dev_info(drm->dev, "%s: using IOMMU\n", name);
-		gpu->mmu = msm_smmu_new(iommu_dev, MSM_SMMU_DOMAIN_GPU);
+		gpu->mmu = msm_smmu_new(drm, iommu_dev,
+				MSM_SMMU_DOMAIN_GPU_UNSECURE);
 		if (IS_ERR(gpu->mmu)) {
 			ret = PTR_ERR(gpu->mmu);
 			dev_err(drm->dev,

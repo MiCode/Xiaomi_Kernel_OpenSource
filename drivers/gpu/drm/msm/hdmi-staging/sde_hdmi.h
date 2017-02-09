@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,32 @@ struct sde_hdmi_ctrl {
 };
 
 /**
+ * struct hdmi_panel_dba - HDMI DBA panel information
+ * @dba_panel:          Indicate if it's DBA panel
+ * @bridge_name:        Bridge chip name
+ * @bridge_instance:    Bridge chip instance.
+ */
+struct hdmi_panel_dba {
+	bool dba_panel;
+	const char *bridge_name;
+	int bridge_instance;
+};
+
+/**
+ * struct sde_hdmi_panel - hdmi panel information
+ * @head:             Head of the list.
+ * @mode:             DRM mode info.
+ * @name:             Name of the panel.
+ * @dba_config:       DBA related information.
+ */
+struct sde_hdmi_panel {
+	struct list_head head;
+	struct drm_display_mode mode;
+	const char *name;
+	struct hdmi_panel_dba dba_config;
+};
+
+/**
  * struct sde_hdmi - hdmi display information
  * @pdev:             Pointer to platform device.
  * @drm_dev:          DRM device associated with the display.
@@ -69,8 +95,8 @@ struct sde_hdmi_ctrl {
  * @display_lock:     Mutex for sde_hdmi interface.
  * @ctrl:             Controller information for HDMI display.
  * @non_pluggable:    If HDMI display is non pluggable
- * @num_of_modes:     Number of modes supported by display if non pluggable.
- * @mode_list:        Mode list if non pluggable.
+ * @num_of_panels:    Number of panels defined in dtsi.
+ * @panel_list:       Panel list, refer to struct sde_hdmi_panel.
  * @is_tpg_enabled:   TPG state.
  * @hpd_work:         HPD work structure.
  * @root:             Debug fs root entry.
@@ -87,8 +113,8 @@ struct sde_hdmi {
 	struct sde_hdmi_ctrl ctrl;
 
 	bool non_pluggable;
-	u32 num_of_modes;
-	struct list_head mode_list;
+	u32 num_of_panels;
+	struct list_head panel_list;
 	bool is_tpg_enabled;
 
 	struct work_struct hpd_work;

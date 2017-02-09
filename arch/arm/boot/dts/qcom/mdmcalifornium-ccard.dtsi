@@ -154,6 +154,7 @@
 		startup-delay-us = <100>;
 		gpio = <&tlmm_pinmux 99 0>;
 		enable-active-high;
+		regulator-always-on;
 	};
 };
 
@@ -362,13 +363,11 @@
 	lsm330-gyro@6a {
 		compatible = "st,lsm330-gyro";
 		reg = <0x6a>;
-		vdd-supply = <&gyro_vreg>;
 	};
 
 	lsm330-accel@1d {
 		compatible = "st,lsm330-accel";
 		reg = <0x1d>;
-		vdd-supply = <&gyro_vreg>;
 	};
 };
 

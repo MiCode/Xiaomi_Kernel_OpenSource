@@ -2,7 +2,7 @@
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
- * Copyright (c) 2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014,2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -23,7 +23,7 @@
 #include <linux/firmware.h>
 
 #include "msm_gpu.h"
-
+#include "adreno_perfcounter.h"
 #include "adreno_common.xml.h"
 #include "adreno_pm4.xml.h"
 
@@ -228,6 +228,8 @@ struct adreno_gpu {
 	 * code (a3xx_gpu.c) and stored in this common location.
 	 */
 	const unsigned int *reg_offsets;
+
+	struct adreno_perfcounters *perfcounters;
 };
 #define to_adreno_gpu(x) container_of(x, struct adreno_gpu, base)
 
@@ -329,6 +331,16 @@ void adreno_idle(struct msm_gpu *gpu);
 #ifdef CONFIG_DEBUG_FS
 void adreno_show(struct msm_gpu *gpu, struct seq_file *m);
 #endif
+int adreno_perfcounter_read(struct msm_gpu *gpu,
+	struct drm_perfcounter_read_group __user *reads, unsigned int count);
+int adreno_perfcounter_query(struct msm_gpu *gpu, unsigned int groupid,
+	unsigned int __user *countables, unsigned int count,
+	unsigned int *max_counters);
+int adreno_perfcounter_msm_get(struct msm_gpu *gpu, unsigned int groupid,
+	unsigned int countable, unsigned int *offset, unsigned int *offset_hi,
+	unsigned int flags);
+int adreno_perfcounter_msm_put(struct msm_gpu *gpu, unsigned int groupid,
+	unsigned int countable, unsigned int flags);
 void adreno_dump_info(struct msm_gpu *gpu);
 void adreno_dump(struct msm_gpu *gpu);
 void adreno_wait_ring(struct msm_gpu *gpu, uint32_t ndwords);

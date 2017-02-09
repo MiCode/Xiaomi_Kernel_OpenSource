@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -26,6 +26,7 @@
 #include "sde_kms.h"
 #include "msm_drv.h"
 #include "sde_hdmi.h"
+#include "dba_bridge.h"
 
 static DEFINE_MUTEX(sde_hdmi_list_lock);
 static LIST_HEAD(sde_hdmi_list);
@@ -45,6 +46,8 @@ static LIST_HEAD(sde_hdmi_list);
 #define HDMI_SCDC_ERR_DET_2_L           0x54
 #define HDMI_SCDC_ERR_DET_2_H           0x55
 #define HDMI_SCDC_ERR_DET_CHECKSUM      0x56
+
+#define HDMI_DBA_CLIENT_NAME "hdmi"
 
 static const struct of_device_id sde_hdmi_dt_match[] = {
 	{.compatible = "qcom,hdmi-display"},
@@ -909,7 +912,8 @@ int sde_hdmi_connector_get_modes(struct drm_connector *connector, void *display)
 	struct sde_hdmi *hdmi_display = (struct sde_hdmi *)display;
 	struct hdmi *hdmi;
 	struct edid *edid;
-	struct drm_display_mode *mode, *m;
+	struct drm_display_mode *m;
+	struct sde_hdmi_panel *panel;
 	uint32_t hdmi_ctrl;
 	int ret = 0;
 
@@ -923,16 +927,18 @@ int sde_hdmi_connector_get_modes(struct drm_connector *connector, void *display)
 
 	hdmi = hdmi_display->ctrl.ctrl;
 	if (hdmi_display->non_pluggable) {
-		list_for_each_entry(mode, &hdmi_display->mode_list, head) {
-			m = drm_mode_duplicate(connector->dev, mode);
+		list_for_each_entry(panel, &hdmi_display->panel_list, head) {
+			m = drm_mode_duplicate(connector->dev, &panel->mode);
 			if (!m) {
 				SDE_ERROR("failed to add hdmi mode %dx%d\n",
-					mode->hdisplay, mode->vdisplay);
+					panel->mode.hdisplay,
+					panel->mode.vdisplay);
 				break;
 			}
 			drm_mode_probed_add(connector, m);
 		}
-		ret = hdmi_display->num_of_modes;
+		/* Only one hardcoded mode if it's non pluggable */
+		ret = 1;
 	} else {
 		/* Read EDID */
 		hdmi_ctrl = hdmi_read(hdmi, REG_HDMI_CTRL);
@@ -1054,70 +1060,72 @@ int sde_hdmi_unbind(struct sde_hdmi *display)
 	return 0;
 }
 
-static int _sde_hdmi_parse_dt_modes(struct device_node *np,
+static int _sde_hdmi_parse_dt_panels(struct device_node *np,
 					struct list_head *head,
-					u32 *num_of_modes)
+					u32 *num_of_panels)
 {
 	int rc = 0;
-	struct drm_display_mode *mode, *n;
-	u32 mode_count = 0;
+	struct sde_hdmi_panel *panel, *n;
+	u32 panel_count = 0;
 	struct device_node *node = NULL;
-	struct device_node *root_node = NULL;
-	const char *name;
 	u32 h_front_porch, h_pulse_width, h_back_porch;
 	u32 v_front_porch, v_pulse_width, v_back_porch;
 	bool h_active_high, v_active_high;
 	u32 flags = 0;
+	int size, i;
 
 	SDE_DEBUG("\n");
 
-	root_node = of_get_child_by_name(np, "qcom,customize-modes");
-	if (!root_node) {
-		root_node = of_parse_phandle(np, "qcom,customize-modes", 0);
-		if (!root_node) {
-			DRM_INFO("No entry present for qcom,customize-modes");
+	if (!of_get_property(np, "qcom,display-panel", &size)) {
+		SDE_DEBUG("no qcom,display-panel defined\n");
+		return rc;
+	}
+	panel_count = size / sizeof(int);
+	for (i = 0; i < panel_count; i++) {
+		node = of_parse_phandle(np, "qcom,display-panel", i);
+		if (!node) {
+			SDE_ERROR("of_parse display-panel failed\n");
+			rc = -ENODEV;
 			goto end;
 		}
-	}
-	for_each_child_of_node(root_node, node) {
-		mode = kzalloc(sizeof(*mode), GFP_KERNEL);
-		if (!mode) {
+		panel = kzalloc(sizeof(*panel), GFP_KERNEL);
+		if (!panel) {
 			SDE_ERROR("Out of memory\n");
 			rc =  -ENOMEM;
 			goto end;
 		}
-		mode_count++;
-		list_add_tail(&mode->head, head);
-		rc = of_property_read_string(node, "qcom,mode-name",
-						&name);
+		list_add_tail(&panel->head, head);
+		rc = of_property_read_string(node, "qcom,mdss-panel-name",
+				&panel->name);
 		if (rc) {
-			SDE_ERROR("failed to read qcom,mode-name, rc=%d\n", rc);
+			SDE_ERROR("failed to read qcom,mdss-panel-name,rc=%d\n",
+					rc);
 			goto end;
 		}
-		strlcpy(mode->name, name, DRM_DISPLAY_MODE_LEN);
+		strlcpy(panel->mode.name, panel->name, DRM_DISPLAY_MODE_LEN);
 
-		rc = of_property_read_u32(node, "qcom,mode-h-active",
-						&mode->hdisplay);
+		rc = of_property_read_u32(node, "qcom,mdss-panel-width",
+						&panel->mode.hdisplay);
 		if (rc) {
-			SDE_ERROR("failed to read h-active, rc=%d\n", rc);
+			SDE_ERROR("failed to read panel-width, rc=%d\n", rc);
 			goto end;
 		}
 
-		rc = of_property_read_u32(node, "qcom,mode-h-front-porch",
+		rc = of_property_read_u32(node, "qcom,mdss-panel-h-front-porch",
 						&h_front_porch);
 		if (rc) {
 			SDE_ERROR("failed to read h-front-porch, rc=%d\n", rc);
 			goto end;
 		}
 
-		rc = of_property_read_u32(node, "qcom,mode-h-pulse-width",
+		rc = of_property_read_u32(node, "qcom,mdss-panel-h-pulse-width",
 						&h_pulse_width);
 		if (rc) {
 			SDE_ERROR("failed to read h-pulse-width, rc=%d\n", rc);
 			goto end;
 		}
 
-		rc = of_property_read_u32(node, "qcom,mode-h-back-porch",
+		rc = of_property_read_u32(node, "qcom,mdss-panel-h-back-porch",
 						&h_back_porch);
 		if (rc) {
 			SDE_ERROR("failed to read h-back-porch, rc=%d\n", rc);
@@ -1125,30 +1133,30 @@ static int _sde_hdmi_parse_dt_modes(struct device_node *np,
 		}
 
 		h_active_high = of_property_read_bool(node,
-						"qcom,mode-h-active-high");
+					"qcom,mdss-panel-h-active-high");
 
-		rc = of_property_read_u32(node, "qcom,mode-v-active",
-						&mode->vdisplay);
+		rc = of_property_read_u32(node, "qcom,mdss-panel-height",
+						&panel->mode.vdisplay);
 		if (rc) {
-			SDE_ERROR("failed to read v-active, rc=%d\n", rc);
+			SDE_ERROR("failed to read panel-height, rc=%d\n", rc);
 			goto end;
 		}
 
-		rc = of_property_read_u32(node, "qcom,mode-v-front-porch",
+		rc = of_property_read_u32(node, "qcom,mdss-panel-v-front-porch",
 						&v_front_porch);
 		if (rc) {
 			SDE_ERROR("failed to read v-front-porch, rc=%d\n", rc);
 			goto end;
 		}
 
-		rc = of_property_read_u32(node, "qcom,mode-v-pulse-width",
+		rc = of_property_read_u32(node, "qcom,mdss-panel-v-pulse-width",
 						&v_pulse_width);
 		if (rc) {
 			SDE_ERROR("failed to read v-pulse-width, rc=%d\n", rc);
 			goto end;
 		}
 
-		rc = of_property_read_u32(node, "qcom,mode-v-back-porch",
+		rc = of_property_read_u32(node, "qcom,mdss-panel-v-back-porch",
 						&v_back_porch);
 		if (rc) {
 			SDE_ERROR("failed to read v-back-porch, rc=%d\n", rc);
@@ -1156,28 +1164,35 @@ static int _sde_hdmi_parse_dt_modes(struct device_node *np,
 		}
 
 		v_active_high = of_property_read_bool(node,
-						"qcom,mode-v-active-high");
+					"qcom,mdss-panel-v-active-high");
 
-		rc = of_property_read_u32(node, "qcom,mode-refersh-rate",
-						&mode->vrefresh);
+		rc = of_property_read_u32(node, "qcom,mdss-panel-framerate",
+						&panel->mode.vrefresh);
 		if (rc) {
 			SDE_ERROR("failed to read refersh-rate, rc=%d\n", rc);
 			goto end;
 		}
 
-		rc = of_property_read_u32(node, "qcom,mode-clock-in-khz",
-						&mode->clock);
-		if (rc) {
-			SDE_ERROR("failed to read clock, rc=%d\n", rc);
-			goto end;
-		}
+		/* optional properties */
+		of_property_read_u32(node,
+				"qcom,mdss-panel-physical-width-dimension",
+				&panel->mode.width_mm);
+		of_property_read_u32(node,
+				"qcom,mdss-panel-physical-height-dimension",
+				&panel->mode.height_mm);
 
-		mode->hsync_start = mode->hdisplay + h_front_porch;
-		mode->hsync_end = mode->hsync_start + h_pulse_width;
-		mode->htotal = mode->hsync_end + h_back_porch;
-		mode->vsync_start = mode->vdisplay + v_front_porch;
-		mode->vsync_end = mode->vsync_start + v_pulse_width;
-		mode->vtotal = mode->vsync_end + v_back_porch;
+		panel->mode.hsync_start = panel->mode.hdisplay +
+						h_front_porch;
+		panel->mode.hsync_end = panel->mode.hsync_start +
+						h_pulse_width;
+		panel->mode.htotal = panel->mode.hsync_end + h_back_porch;
+		panel->mode.vsync_start = panel->mode.vdisplay +
+						v_front_porch;
+		panel->mode.vsync_end = panel->mode.vsync_start +
+						v_pulse_width;
+		panel->mode.vtotal = panel->mode.vsync_end + v_back_porch;
+		panel->mode.clock = panel->mode.htotal * panel->mode.vtotal *
+					panel->mode.vrefresh / 1000;
 		if (h_active_high)
 			flags |= DRM_MODE_FLAG_PHSYNC;
 		else
@@ -1186,22 +1201,59 @@ static int _sde_hdmi_parse_dt_modes(struct device_node *np,
 			flags |= DRM_MODE_FLAG_PVSYNC;
 		else
 			flags |= DRM_MODE_FLAG_NVSYNC;
-		mode->flags = flags;
-		SDE_DEBUG("mode[%d] h[%d,%d,%d,%d] v[%d,%d,%d,%d] %d %xH %d\n",
-			mode_count - 1, mode->hdisplay, mode->hsync_start,
-			mode->hsync_end, mode->htotal, mode->vdisplay,
-			mode->vsync_start, mode->vsync_end, mode->vtotal,
-			mode->vrefresh, mode->flags, mode->clock);
+		panel->mode.flags = flags;
+		SDE_DEBUG("panel[%d] h[%d,%d,%d,%d] v[%d,%d,%d,%d] %d %xH %d\n",
+			i, panel->mode.hdisplay, panel->mode.hsync_start,
+			panel->mode.hsync_end, panel->mode.htotal,
+			panel->mode.vdisplay, panel->mode.vsync_start,
+			panel->mode.vsync_end, panel->mode.vtotal,
+			panel->mode.vrefresh, panel->mode.flags,
+			panel->mode.clock);
+
+		panel->dba_config.dba_panel = of_property_read_bool(node,
+					"qcom,dba-panel");
+		of_property_read_string(node, "qcom,bridge-name",
+					&panel->dba_config.bridge_name);
+		SDE_DEBUG("is_dba_panel=%d bridge_name=%s\n",
+			panel->dba_config.dba_panel,
+			(panel->dba_config.bridge_name) ?
+			(panel->dba_config.bridge_name) : "NULL");
 	}
 
-	if (num_of_modes)
-		*num_of_modes = mode_count;
+	if (of_get_property(np, "qcom,bridge-index", &size)) {
+		if (size / sizeof(int) != panel_count) {
+			SDE_ERROR("bridge id s=%lu is not same as count=%u\n",
+				size / sizeof(int), panel_count);
+			rc = -EINVAL;
+			goto end;
+		}
+		i = 0;
+		list_for_each_entry(panel, head, head) {
+			rc = of_property_read_u32_index(
+				np, "qcom,bridge-index", i,
+				&(panel->dba_config.bridge_instance));
+			if (rc) {
+				SDE_ERROR(
+					"read bridge-index error,i=%d rc=%d\n",
+					i, rc);
+				rc = -ENODEV;
+				goto end;
+			} else {
+				SDE_DEBUG("panel[%d] bridge_instance=%d\n", i,
+					panel->dba_config.bridge_instance);
+			}
+			i++;
+		}
+	}
+
+	if (num_of_panels)
+		*num_of_panels = panel_count;
 
 end:
-	if (rc && mode_count) {
-		list_for_each_entry_safe(mode, n, head, head) {
-			list_del(&mode->head);
-			kfree(mode);
+	if (rc && panel_count) {
+		list_for_each_entry_safe(panel, n, head, head) {
+			list_del(&panel->head);
+			kfree(panel);
 		}
 	}
 
@@ -1225,10 +1277,10 @@ static int _sde_hdmi_parse_dt(struct device_node *node,
 	display->non_pluggable = of_property_read_bool(node,
 						"qcom,non-pluggable");
 
-	rc = _sde_hdmi_parse_dt_modes(node, &display->mode_list,
-					&display->num_of_modes);
+	rc = _sde_hdmi_parse_dt_panels(node, &display->panel_list,
+					&display->num_of_panels);
 	if (rc)
-		SDE_ERROR("parse_dt_modes failed rc=%d\n", rc);
+		SDE_ERROR("parse_dt_panels failed rc=%d\n", rc);
 
 	return rc;
 }
@@ -1249,7 +1301,7 @@ static int _sde_hdmi_dev_probe(struct platform_device *pdev)
 	if (!display)
 		return -ENOMEM;
 
-	INIT_LIST_HEAD(&display->mode_list);
+	INIT_LIST_HEAD(&display->panel_list);
 	rc = _sde_hdmi_parse_dt(pdev->dev.of_node, display);
 	if (rc) {
 		SDE_ERROR("parse dt failed, rc=%d\n", rc);
@@ -1273,7 +1325,7 @@ static int _sde_hdmi_dev_remove(struct platform_device *pdev)
 {
 	struct sde_hdmi *display;
 	struct sde_hdmi *pos, *tmp;
-	struct drm_display_mode *mode, *n;
+	struct sde_hdmi_panel *panel, *n;
 
 	if (!pdev) {
 		SDE_ERROR("Invalid device\n");
@@ -1291,9 +1343,9 @@ static int _sde_hdmi_dev_remove(struct platform_device *pdev)
 	}
 	mutex_unlock(&sde_hdmi_list_lock);
 
-	list_for_each_entry_safe(mode, n, &display->mode_list, head) {
-		list_del(&mode->head);
-		kfree(mode);
+	list_for_each_entry_safe(panel, n, &display->panel_list, head) {
+		list_del(&panel->head);
+		kfree(panel);
 	}
 
 	platform_set_drvdata(pdev, NULL);
@@ -1312,10 +1364,14 @@ static struct platform_driver sde_hdmi_driver = {
 
 int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 {
-	int rc = 0;
+	int rc = 0, i;
 	struct msm_drm_private *priv = NULL;
 	struct hdmi *hdmi;
 	struct platform_device *pdev;
+	struct sde_hdmi_panel *panel;
+	struct dba_bridge_init init_data;
+	struct drm_bridge *precede_bridge;
+	struct drm_bridge *dba_bridge;
 
 	DBG("");
 	if (!display || !display->drm_dev || !enc) {
@@ -1341,12 +1397,39 @@ int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 
 	hdmi_audio_infoframe_init(&hdmi->audio.infoframe);
 
+	/* hdmi native drm_bridge */
 	hdmi->bridge = sde_hdmi_bridge_init(hdmi);
 	if (IS_ERR(hdmi->bridge)) {
 		rc = PTR_ERR(hdmi->bridge);
 		SDE_ERROR("failed to create HDMI bridge: %d\n", rc);
 		hdmi->bridge = NULL;
 		goto error;
+	}
+	enc->bridge = hdmi->bridge;
+	priv->bridges[priv->num_bridges++] = hdmi->bridge;
+	precede_bridge = hdmi->bridge;
+
+	/* hdmi dba drm_bridge */
+	list_for_each_entry(panel, &display->panel_list, head) {
+		if (!panel->dba_config.dba_panel)
+			continue;
+		memset(&init_data, 0x00, sizeof(init_data));
+		init_data.client_name = HDMI_DBA_CLIENT_NAME;
+		init_data.chip_name = panel->dba_config.bridge_name;
+		init_data.id = panel->dba_config.bridge_instance;
+		init_data.display = display;
+		init_data.precede_bridge = precede_bridge;
+		init_data.panel_count = display->num_of_panels;
+		dba_bridge = dba_bridge_init(display->drm_dev, enc,
+						&init_data);
+		if (IS_ERR_OR_NULL(dba_bridge)) {
+			rc = PTR_ERR(dba_bridge);
+			SDE_ERROR("[%s:%d] dba brige init failed, %d\n",
+				init_data.chip_name, init_data.id, rc);
+			goto error;
+		}
+		priv->bridges[priv->num_bridges++] = dba_bridge;
+		precede_bridge = dba_bridge;
 	}
 
 	hdmi->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
@@ -1365,8 +1448,6 @@ int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 		goto error;
 	}
 
-	enc->bridge = hdmi->bridge;
-	priv->bridges[priv->num_bridges++] = hdmi->bridge;
 
 	mutex_unlock(&display->display_lock);
 	return 0;
@@ -1377,18 +1458,44 @@ error:
 		hdmi_bridge_destroy(hdmi->bridge);
 		hdmi->bridge = NULL;
 	}
+	for (i = 1; i < MAX_BRIDGES; i++) {
+		dba_bridge_cleanup(priv->bridges[i]);
+		priv->bridges[i] = NULL;
+	}
 	mutex_unlock(&display->display_lock);
 	return rc;
 }
 
 int sde_hdmi_drm_deinit(struct sde_hdmi *display)
 {
-	int rc = 0;
+	int rc = 0, i;
+	struct msm_drm_private *priv = NULL;
+	struct hdmi *hdmi;
 
-	if (!display) {
-		SDE_ERROR("Invalid params\n");
+	if (!display || !display->drm_dev) {
+		SDE_ERROR("Invalid params display=%pK\n", display);
 		return -EINVAL;
 	}
+
+	mutex_lock(&display->display_lock);
+	priv = display->drm_dev->dev_private;
+	hdmi = display->ctrl.ctrl;
+
+	if (!priv || !hdmi) {
+		SDE_ERROR("priv=%pK or hdmi=%pK is NULL\n", priv, hdmi);
+		mutex_unlock(&display->display_lock);
+		return -EINVAL;
+	}
+
+	if (hdmi->bridge) {
+		hdmi_bridge_destroy(hdmi->bridge);
+		hdmi->bridge = NULL;
+	}
+	for (i = 1; i < MAX_BRIDGES; i++) {
+		dba_bridge_cleanup(priv->bridges[i]);
+		priv->bridges[i] = NULL;
+	}
+	mutex_unlock(&display->display_lock);
 
 	return rc;
 }

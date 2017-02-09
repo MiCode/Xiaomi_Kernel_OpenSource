@@ -595,8 +595,7 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 	mdelay(16);
 
 	if (config->platform.iommu) {
-		mmu = msm_smmu_new(&pdev->dev,
-				MSM_SMMU_DOMAIN_UNSECURE);
+		mmu = msm_smmu_new(dev, &pdev->dev, MSM_SMMU_DOMAIN_UNSECURE);
 		if (IS_ERR(mmu)) {
 			ret = PTR_ERR(mmu);
 			dev_err(dev->dev, "failed to init iommu: %d\n", ret);
