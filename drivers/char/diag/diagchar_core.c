@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3513,7 +3513,9 @@ static int __init diagchar_init(void)
 	ret = diagchar_setup_cdev(dev);
 	if (ret)
 		goto fail;
-
+	mutex_init(&driver->diag_id_mutex);
+	INIT_LIST_HEAD(&driver->diag_id_list);
+	diag_add_diag_id_to_list(DIAG_ID_APPS, "APPS");
 	pr_debug("diagchar initialized now");
 	ret = diagfwd_bridge_init();
 	if (ret)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,7 +46,7 @@
 #define DIAG_CTRL_MSG_DCI_HANDSHAKE_PKT		29
 #define DIAG_CTRL_MSG_PD_STATUS			30
 #define DIAG_CTRL_MSG_TIME_SYNC_PKT		31
-
+#define DIAG_CTRL_MSG_DIAGID	33
 /*
  * Feature Mask Definitions: Feature mask is used to specify Diag features
  * supported by the Apps processor
@@ -67,6 +67,7 @@
 #define F_DIAG_MASK_CENTRALIZATION		11
 #define F_DIAG_SOCKETS_ENABLED			13
 #define F_DIAG_DCI_EXTENDED_HEADER_SUPPORT	14
+#define F_DIAG_DIAGID_SUPPORT	15
 
 #define ENABLE_SEPARATE_CMDRSP	1
 #define DISABLE_SEPARATE_CMDRSP	0
@@ -261,7 +262,16 @@ struct diag_ctrl_set_wq_val {
 	uint8_t low_wm_val;
 } __packed;
 
+struct diag_ctrl_diagid {
+	uint32_t pkt_id;
+	uint32_t len;
+	uint32_t version;
+	uint32_t diag_id;
+	char process_name[30];
+} __packed;
+
 int diagfwd_cntl_init(void);
+int diag_add_diag_id_to_list(uint8_t diag_id, char *process_name);
 void diagfwd_cntl_channel_init(void);
 void diagfwd_cntl_exit(void);
 void diag_cntl_channel_open(struct diagfwd_info *p_info);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -448,6 +448,7 @@ static void diag_send_feature_mask_update(uint8_t peripheral)
 	DIAG_SET_FEATURE_MASK(F_DIAG_LOG_ON_DEMAND_APPS);
 	DIAG_SET_FEATURE_MASK(F_DIAG_STM);
 	DIAG_SET_FEATURE_MASK(F_DIAG_DCI_EXTENDED_HEADER_SUPPORT);
+	DIAG_SET_FEATURE_MASK(F_DIAG_DIAGID_SUPPORT);
 	if (driver->supports_separate_cmdrsp)
 		DIAG_SET_FEATURE_MASK(F_DIAG_REQ_RSP_SUPPORT);
 	if (driver->supports_apps_hdlc_encoding)

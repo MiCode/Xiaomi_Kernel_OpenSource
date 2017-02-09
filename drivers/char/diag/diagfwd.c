@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -650,6 +650,55 @@ int diag_process_time_sync_query_cmd(unsigned char *src_buf, int src_len,
 	return write_len;
 }
 
+int diag_process_diag_id_query_cmd(unsigned char *src_buf, int src_len,
+				      unsigned char *dest_buf, int dest_len)
+{
+	int write_len = 0;
+	struct diag_cmd_diag_id_query_req_t *req = NULL;
+	struct diag_cmd_diag_id_query_rsp_t rsp;
+	struct list_head *start;
+	struct list_head *temp;
+	struct diag_id_tbl_t *item = NULL;
+	int rsp_len = 0;
+	int num_entries = 0;
+	uint8_t process_name_len = 0;
+
+	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
+		pr_err("diag: Invalid input in %s, src_buf:%pK, src_len:%d, dest_buf:%pK, dest_len:%d\n",
+			__func__, src_buf, src_len, dest_buf, dest_len);
+		return -EINVAL;
+	}
+	req = (struct diag_cmd_diag_id_query_req_t *) src_buf;
+	rsp.header.cmd_code = req->header.cmd_code;
+	rsp.header.subsys_id = req->header.subsys_id;
+	rsp.header.subsys_cmd_code = req->header.subsys_cmd_code;
+	rsp.version = req->version;
+	rsp.entry.process_name = NULL;
+	rsp.entry.len = 0;
+	rsp.entry.diag_id = 0;
+	write_len = sizeof(rsp.header) + sizeof(rsp.version) +
+			sizeof(rsp.num_entries);
+	rsp_len = write_len;
+	mutex_lock(&driver->diag_id_mutex);
+	list_for_each_safe(start, temp, &driver->diag_id_list) {
+		item = list_entry(start, struct diag_id_tbl_t, link);
+		memcpy(dest_buf + write_len, &item->diag_id,
+			sizeof(item->diag_id));
+		write_len = write_len + sizeof(item->diag_id);
+		process_name_len = strlen(item->process_name) + 1;
+		memcpy(dest_buf + write_len, &process_name_len,
+			sizeof(process_name_len));
+		write_len = write_len + sizeof(process_name_len);
+		memcpy(dest_buf + write_len, item->process_name,
+			strlen(item->process_name) + 1);
+		write_len = write_len + strlen(item->process_name) + 1;
+		num_entries++;
+	}
+	mutex_unlock(&driver->diag_id_mutex);
+	rsp.num_entries = num_entries;
+	memcpy(dest_buf, &rsp, rsp_len);
+	return  write_len;
+}
 int diag_process_time_sync_switch_cmd(unsigned char *src_buf, int src_len,
 				      unsigned char *dest_buf, int dest_len)
 {
@@ -987,6 +1036,17 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 		(*(buf+1) == DIAG_SS_DIAG) &&
 		(*(uint16_t *)(buf+2) == DIAG_SET_TIME_API)) {
 		write_len = diag_process_time_sync_switch_cmd(buf, len,
+							driver->apps_rsp_buf,
+							DIAG_MAX_RSP_SIZE);
+		if (write_len > 0)
+			diag_send_rsp(driver->apps_rsp_buf, write_len);
+		return 0;
+	}
+	/* Check for diag id command */
+	else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
+		(*(buf+1) == DIAG_SS_DIAG) &&
+		(*(uint16_t *)(buf+2) == DIAG_GET_DIAG_ID)) {
+		write_len = diag_process_diag_id_query_cmd(buf, len,
 							driver->apps_rsp_buf,
 							DIAG_MAX_RSP_SIZE);
 		if (write_len > 0)

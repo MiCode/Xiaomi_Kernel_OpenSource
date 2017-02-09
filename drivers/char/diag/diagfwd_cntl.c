@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 
 /* tracks which peripheral is undergoing SSR */
 static uint16_t reg_dirty;
+static uint8_t diag_id = DIAG_ID_APPS;
 static void diag_notify_md_client(uint8_t peripheral, int data);
 
 static void diag_mask_update_work_fn(struct work_struct *work)
@@ -648,6 +649,88 @@ static void process_build_mask_report(uint8_t *buf, uint32_t len,
 	}
 }
 
+int diag_add_diag_id_to_list(uint8_t diag_id, char *process_name)
+{
+	struct diag_id_tbl_t *new_item = NULL;
+
+	if (!process_name || diag_id == 0)
+		return -EINVAL;
+
+	new_item = kzalloc(sizeof(struct diag_id_tbl_t), GFP_KERNEL);
+	if (!new_item)
+		return -ENOMEM;
+	kmemleak_not_leak(new_item);
+	new_item->process_name = kzalloc(strlen(process_name), GFP_KERNEL);
+	if (!new_item->process_name) {
+		kfree(new_item);
+		new_item = NULL;
+		return -ENOMEM;
+	}
+	kmemleak_not_leak(new_item->process_name);
+	new_item->diag_id = diag_id;
+	strlcpy(new_item->process_name, process_name, strlen(process_name) + 1);
+	INIT_LIST_HEAD(&new_item->link);
+	mutex_lock(&driver->diag_id_mutex);
+	list_add_tail(&new_item->link, &driver->diag_id_list);
+	mutex_unlock(&driver->diag_id_mutex);
+	return 0;
+}
+
+int diag_query_diag_id(char *process_name, uint8_t *diag_id)
+{
+	struct list_head *start;
+	struct list_head *temp;
+	struct diag_id_tbl_t *item = NULL;
+
+	if (!process_name || !diag_id)
+		return -EINVAL;
+
+	mutex_lock(&driver->diag_id_mutex);
+	list_for_each_safe(start, temp, &driver->diag_id_list) {
+		item = list_entry(start, struct diag_id_tbl_t, link);
+		if (strcmp(item->process_name, process_name) == 0) {
+			*diag_id = item->diag_id;
+			mutex_unlock(&driver->diag_id_mutex);
+			return 1;
+		}
+	}
+	mutex_unlock(&driver->diag_id_mutex);
+	return 0;
+}
+static void process_diagid(uint8_t *buf, uint32_t len,
+				      uint8_t peripheral)
+{
+	struct diag_ctrl_diagid *header = NULL;
+	struct diag_ctrl_diagid ctrl_pkt;
+	char *process_name = NULL;
+	int err = 0;
+	uint8_t local_diag_id = 0;
+
+	if (!buf || len == 0 || peripheral >= NUM_PERIPHERALS)
+		return;
+	header = (struct diag_ctrl_diagid *)buf;
+	process_name = (char *)&header->process_name;
+	if (diag_query_diag_id(process_name, &local_diag_id))
+		ctrl_pkt.diag_id = local_diag_id;
+	else {
+		diag_id++;
+		diag_add_diag_id_to_list(diag_id, process_name);
+		ctrl_pkt.diag_id = diag_id;
+	}
+	ctrl_pkt.pkt_id = DIAG_CTRL_MSG_DIAGID;
+	ctrl_pkt.version = 1;
+	strlcpy((char *)&ctrl_pkt.process_name, process_name,
+		strlen(process_name) + 1);
+	ctrl_pkt.len = sizeof(ctrl_pkt.diag_id) + sizeof(ctrl_pkt.version) +
+			strlen(process_name) + 1;
+	err = diagfwd_write(peripheral, TYPE_CNTL, &ctrl_pkt, ctrl_pkt.len +
+				sizeof(ctrl_pkt.pkt_id) + sizeof(ctrl_pkt.len));
+	if (err && err != -ENODEV) {
+		pr_err("diag: Unable to send diag id  ctrl packet to peripheral %d, err: %d\n",
+		       peripheral, err);
+	}
+}
+
 void diag_cntl_process_read_data(struct diagfwd_info *p_info, void *buf,
 				 int len)
 {
@@ -699,6 +782,10 @@ void diag_cntl_process_read_data(struct diagfwd_info *p_info, void *buf,
 		case DIAG_CTRL_MSG_PD_STATUS:
 			process_pd_status(ptr, ctrl_pkt->len,
 						p_info->peripheral);
+			break;
+		case DIAG_CTRL_MSG_DIAGID:
+			process_diagid(ptr, ctrl_pkt->len,
+						   p_info->peripheral);
 			break;
 		default:
 			pr_debug("diag: Control packet %d not supported\n",

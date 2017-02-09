@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -125,6 +125,7 @@
 #define DIAG_EXT_MOBILE_ID	0x06
 #define DIAG_GET_TIME_API	0x21B
 #define DIAG_SET_TIME_API	0x21C
+#define DIAG_GET_DIAG_ID	0x222
 #define DIAG_SWITCH_COMMAND	0x081B
 #define DIAG_BUFFERING_MODE	0x080C
 
@@ -257,6 +258,14 @@
 #define DIAG_CNTL_TYPE		2
 #define DIAG_DCI_TYPE		3
 
+/*
+ * List of diag ids
+ * 0 is reserved for unknown diag id, 1 for apps, diag ids
+ * for remaining pds are assigned dynamically.
+ */
+#define DIAG_ID_UNKNOWN		0
+#define DIAG_ID_APPS		1
+
 /* List of remote processor supported */
 enum remote_procs {
 	MDM = 1,
@@ -276,6 +285,29 @@ struct diag_cmd_ext_mobile_rsp_t {
 	uint8_t padding[3];
 	uint32_t family;
 	uint32_t chip_id;
+} __packed;
+
+struct diag_cmd_diag_id_query_req_t {
+	struct diag_pkt_header_t header;
+	uint8_t version;
+} __packed;
+
+struct diag_id_tbl_t {
+	struct list_head link;
+	uint8_t diag_id;
+	char *process_name;
+} __packed;
+struct diag_id_t {
+	uint8_t diag_id;
+	uint8_t len;
+	char *process_name;
+} __packed;
+
+struct diag_cmd_diag_id_query_rsp_t {
+	struct diag_pkt_header_t header;
+	uint8_t version;
+	uint8_t num_entries;
+	struct diag_id_t entry;
 } __packed;
 
 struct diag_cmd_time_sync_query_req_t {
@@ -511,6 +543,8 @@ struct diagchar_dev {
 	int dci_state;
 	struct workqueue_struct *diag_dci_wq;
 	struct list_head cmd_reg_list;
+	struct list_head diag_id_list;
+	struct mutex diag_id_mutex;
 	struct mutex cmd_reg_mutex;
 	uint32_t cmd_reg_count;
 	struct mutex diagfwd_channel_mutex;
