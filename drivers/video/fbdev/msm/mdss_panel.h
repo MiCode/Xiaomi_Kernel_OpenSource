@@ -1012,13 +1012,11 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info)
 	case MIPI_CMD_PANEL:
 		frame_rate = panel_info->mipi.frame_rate;
 		break;
-	case DP_PANEL:
-		frame_rate = panel_info->edp.frame_rate;
-		break;
 	case WRITEBACK_PANEL:
 		frame_rate = DEFAULT_FRAME_RATE;
 		break;
 	case DTV_PANEL:
+	case DP_PANEL:
 		if (panel_info->dynamic_fps) {
 			frame_rate = panel_info->lcdc.frame_rate / 1000;
 			if (panel_info->lcdc.frame_rate % 1000)
