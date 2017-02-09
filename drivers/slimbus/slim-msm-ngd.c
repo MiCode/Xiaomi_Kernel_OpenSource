@@ -1707,8 +1707,10 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	}
 	dev->wr_comp = kzalloc(sizeof(struct completion *) * MSM_TX_BUFS,
 				GFP_KERNEL);
-	if (!dev->wr_comp)
-		return -ENOMEM;
+	if (!dev->wr_comp) {
+		ret = -ENOMEM;
+		goto err_nobulk;
+	}
 
 	/* typical txn numbers and size used in bulk operation */
 	dev->bulk.buf_sz = SLIM_MAX_TXNS * 8;
