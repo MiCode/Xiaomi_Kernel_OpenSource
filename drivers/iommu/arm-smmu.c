@@ -3599,6 +3599,14 @@ static const struct of_device_id arm_smmu_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, arm_smmu_of_match);
 
+
+static int arm_smmu_of_iommu_configure_fixup(struct device *dev, void *data)
+{
+	if (!dev->iommu_fwspec)
+		of_iommu_configure(dev, dev->of_node);
+	return 0;
+}
+
 static int qsmmuv500_tbu_register(struct device *dev, void *data);
 static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 {
@@ -3725,6 +3733,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, smmu);
 	arm_smmu_device_reset(smmu);
 	arm_smmu_power_off(smmu->pwr);
+
+	/* bus_set_iommu depends on this. */
+	bus_for_each_dev(&platform_bus_type, NULL, NULL,
+			 arm_smmu_of_iommu_configure_fixup);
 
 	/* Oh, for a proper bus abstraction */
 	if (!iommu_present(&platform_bus_type))
