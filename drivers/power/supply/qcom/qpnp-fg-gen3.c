@@ -2316,7 +2316,8 @@ static void sram_dump_work(struct work_struct *work)
 					    sram_dump_work.work);
 	u8 buf[FG_SRAM_LEN];
 	int rc;
-	s64 timestamp_ms;
+	s64 timestamp_ms, quotient;
+	s32 remainder;
 
 	rc = fg_sram_read(chip, 0, 0, buf, FG_SRAM_LEN, FG_IMA_DEFAULT);
 	if (rc < 0) {
@@ -2325,12 +2326,14 @@ static void sram_dump_work(struct work_struct *work)
 	}
 
 	timestamp_ms = ktime_to_ms(ktime_get_boottime());
-	fg_dbg(chip, FG_STATUS, "SRAM Dump Started at %lld.%lld\n",
-		timestamp_ms / 1000, timestamp_ms % 1000);
+	quotient = div_s64_rem(timestamp_ms, 1000, &remainder);
+	fg_dbg(chip, FG_STATUS, "SRAM Dump Started at %lld.%d\n",
+		quotient, remainder);
 	dump_sram(buf, 0, FG_SRAM_LEN);
 	timestamp_ms = ktime_to_ms(ktime_get_boottime());
-	fg_dbg(chip, FG_STATUS, "SRAM Dump done at %lld.%lld\n",
-		timestamp_ms / 1000, timestamp_ms % 1000);
+	quotient = div_s64_rem(timestamp_ms, 1000, &remainder);
+	fg_dbg(chip, FG_STATUS, "SRAM Dump done at %lld.%d\n",
+		quotient, remainder);
 resched:
 	schedule_delayed_work(&chip->sram_dump_work,
 			msecs_to_jiffies(fg_sram_dump_period_ms));
