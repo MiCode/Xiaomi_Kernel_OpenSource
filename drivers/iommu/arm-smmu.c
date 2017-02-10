@@ -3870,8 +3870,6 @@ IOMMU_OF_DECLARE(arm_mmu400, "arm,mmu-400", arm_smmu_of_init);
 IOMMU_OF_DECLARE(arm_mmu401, "arm,mmu-401", arm_smmu_of_init);
 IOMMU_OF_DECLARE(arm_mmu500, "arm,mmu-500", arm_smmu_of_init);
 IOMMU_OF_DECLARE(cavium_smmuv2, "cavium,smmu-v2", arm_smmu_of_init);
-IOMMU_OF_DECLARE(qcom_smmuv2, "qcom,smmu-v2", arm_smmu_of_init);
-IOMMU_OF_DECLARE(qcom_mmu500, "qcom,qsmmu-v500", arm_smmu_of_init);
 
 #define DEBUG_SID_HALT_REG		0x0
 #define DEBUG_SID_HALT_VAL		(0x1 << 16)
