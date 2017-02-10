@@ -817,7 +817,7 @@ static ssize_t current_show(struct class *c, struct class_attribute *attr,
 	}
 
 	comp_val_nA = div_s64(regval_nA * gain, 1000000) + offset_nA;
-	comp_val_uA = comp_val_nA / 1000;
+	comp_val_uA = div_s64(comp_val_nA, 1000);
 
 	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
 			comp_val_uA, params[i].units_str);
@@ -848,7 +848,7 @@ static ssize_t voltage_show(struct class *c, struct class_attribute *attr,
 	gain = chip->v_gain_mega;
 
 	comp_val_nV = div_s64(regval_nV * gain, 1000000) + offset_nV;
-	comp_val_uV = comp_val_nV / 1000;
+	comp_val_uV = div_s64(comp_val_nV, 1000);
 
 	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
 				comp_val_uV, params[i].units_str);
