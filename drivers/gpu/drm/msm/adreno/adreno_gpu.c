@@ -136,6 +136,11 @@ void adreno_recover(struct msm_gpu *gpu)
 	struct msm_ringbuffer *ring;
 	int ret, i;
 
+	/*
+	 * XXX pm-runtime??  we *need* the device to be off after this
+	 * so maybe continuing to call ->pm_suspend/resume() is better?
+	 */
+
 	gpu->funcs->pm_suspend(gpu);
 
 	/* reset ringbuffer(s): */
@@ -155,13 +160,11 @@ void adreno_recover(struct msm_gpu *gpu)
 
 	gpu->funcs->pm_resume(gpu);
 
-	disable_irq(gpu->irq);
-	ret = gpu->funcs->hw_init(gpu);
+	ret = msm_gpu_hw_init(gpu);
 	if (ret) {
 		dev_err(dev->dev, "gpu hw init failed: %d\n", ret);
 		/* hmm, oh well? */
 	}
-	enable_irq(gpu->irq);
 }
 
 void adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
@@ -520,6 +523,10 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	if (ret)
 		return ret;
 
+	pm_runtime_set_autosuspend_delay(&pdev->dev, DRM_MSM_INACTIVE_PERIOD);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
 	ret = request_firmware(&adreno_gpu->pm4, adreno_gpu->info->pm4fw, drm->dev);
 	if (ret) {
 		dev_err(drm->dev, "failed to load %s PM4 firmware: %d\n",
@@ -535,12 +542,18 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	return ret;
 }
 
-void adreno_gpu_cleanup(struct adreno_gpu *gpu)
+void adreno_gpu_cleanup(struct adreno_gpu *adreno_gpu)
 {
-	release_firmware(gpu->pm4);
-	release_firmware(gpu->pfp);
+	struct msm_gpu *gpu = &adreno_gpu->base;
+	struct drm_device *dev = gpu->dev;
+	struct msm_drm_private *priv = dev->dev_private;
+	struct platform_device *pdev = priv->gpu_pdev;
 
-	msm_gpu_cleanup(&gpu->base);
+	release_firmware(adreno_gpu->pm4);
+	release_firmware(adreno_gpu->pfp);
+
+	pm_runtime_disable(&pdev->dev);
+	msm_gpu_cleanup(gpu);
 }
 
 static void adreno_snapshot_os(struct msm_gpu *gpu,
