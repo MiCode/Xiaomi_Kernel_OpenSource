@@ -170,6 +170,7 @@ enum rndis_ipa_operation {
  * This callback shall be called by the Netdev once the Netdev internal
  * state is changed to RNDIS_IPA_CONNECTED_AND_UP
  * @xmit_error_delayed_work: work item for cases where IPA driver Tx fails
+ * @state_lock: used to protect the state variable.
  */
 struct rndis_ipa_dev {
 	struct net_device *net;
@@ -197,6 +198,7 @@ struct rndis_ipa_dev {
 	u8 device_ethaddr[ETH_ALEN];
 	void (*device_ready_notify)(void);
 	struct delayed_work xmit_error_delayed_work;
+	spinlock_t state_lock; /* Spinlock for the state variable.*/
 };
 
 /**
@@ -504,6 +506,8 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 	memset(rndis_ipa_ctx, 0, sizeof(*rndis_ipa_ctx));
 	RNDIS_IPA_DEBUG("rndis_ipa_ctx (private)=%p\n", rndis_ipa_ctx);
 
+	spin_lock_init(&rndis_ipa_ctx->state_lock);
+
 	rndis_ipa_ctx->net = net;
 	rndis_ipa_ctx->tx_filter = false;
 	rndis_ipa_ctx->rx_filter = false;
@@ -643,6 +647,7 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 	struct rndis_ipa_dev *rndis_ipa_ctx = private;
 	int next_state;
 	int result;
+	unsigned long flags;
 
 	RNDIS_IPA_LOG_ENTRY();
 
@@ -656,12 +661,15 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 	RNDIS_IPA_DEBUG("max_xfer_sz_to_host=%d\n",
 			max_xfer_size_bytes_to_host);
 
+	spin_lock_irqsave(&rndis_ipa_ctx->state_lock, flags);
 	next_state = rndis_ipa_next_state(rndis_ipa_ctx->state,
 		RNDIS_IPA_CONNECT);
 	if (next_state == RNDIS_IPA_INVALID) {
+		spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
 		RNDIS_IPA_ERROR("use init()/disconnect() before connect()\n");
 		return -EPERM;
 	}
+	spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
 
 	if (usb_to_ipa_hdl >= IPA_CLIENT_MAX) {
 		RNDIS_IPA_ERROR("usb_to_ipa_hdl(%d) - not valid ipa handle\n",
@@ -710,7 +718,17 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 	}
 	RNDIS_IPA_DEBUG("netif_carrier_on() was called\n");
 
+	spin_lock_irqsave(&rndis_ipa_ctx->state_lock, flags);
+	next_state = rndis_ipa_next_state(rndis_ipa_ctx->state,
+					  RNDIS_IPA_CONNECT);
+	if (next_state == RNDIS_IPA_INVALID) {
+		spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
+		RNDIS_IPA_ERROR("use init()/disconnect() before connect()\n");
+		return -EPERM;
+	}
 	rndis_ipa_ctx->state = next_state;
+	spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
+
 	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
 	if (next_state == RNDIS_IPA_CONNECTED_AND_UP)
@@ -747,18 +765,25 @@ static int rndis_ipa_open(struct net_device *net)
 {
 	struct rndis_ipa_dev *rndis_ipa_ctx;
 	int next_state;
+	unsigned long flags;
 
 	RNDIS_IPA_LOG_ENTRY();
 
 	rndis_ipa_ctx = netdev_priv(net);
 
+	spin_lock_irqsave(&rndis_ipa_ctx->state_lock, flags);
+
 	next_state = rndis_ipa_next_state(rndis_ipa_ctx->state, RNDIS_IPA_OPEN);
 	if (next_state == RNDIS_IPA_INVALID) {
+		spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
 		RNDIS_IPA_ERROR("can't bring driver up before initialize\n");
 		return -EPERM;
 	}
 
 	rndis_ipa_ctx->state = next_state;
+
+	spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
+
 	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
 
@@ -1091,19 +1116,26 @@ static int rndis_ipa_stop(struct net_device *net)
 {
 	struct rndis_ipa_dev *rndis_ipa_ctx = netdev_priv(net);
 	int next_state;
+	unsigned long flags;
 
 	RNDIS_IPA_LOG_ENTRY();
 
+	spin_lock_irqsave(&rndis_ipa_ctx->state_lock, flags);
+
 	next_state = rndis_ipa_next_state(rndis_ipa_ctx->state, RNDIS_IPA_STOP);
 	if (next_state == RNDIS_IPA_INVALID) {
+		spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
 		RNDIS_IPA_DEBUG("can't do network interface down without up\n");
 		return -EPERM;
 	}
 
+	rndis_ipa_ctx->state = next_state;
+
+	spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
+
 	netif_stop_queue(net);
 	pr_info("RNDIS_IPA NetDev queue is stopped\n");
 
-	rndis_ipa_ctx->state = next_state;
 	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
 	RNDIS_IPA_LOG_EXIT();
@@ -1132,18 +1164,23 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 	int next_state;
 	int outstanding_dropped_pkts;
 	int retval;
+	unsigned long flags;
 
 	RNDIS_IPA_LOG_ENTRY();
 
 	NULL_CHECK_RETVAL(rndis_ipa_ctx);
 	RNDIS_IPA_DEBUG("private=0x%p\n", private);
 
+	spin_lock_irqsave(&rndis_ipa_ctx->state_lock, flags);
+
 	next_state = rndis_ipa_next_state(rndis_ipa_ctx->state,
 		RNDIS_IPA_DISCONNECT);
 	if (next_state == RNDIS_IPA_INVALID) {
+		spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
 		RNDIS_IPA_ERROR("can't disconnect before connect\n");
 		return -EPERM;
 	}
+	spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
 
 	if (rndis_ipa_ctx->during_xmit_error) {
 		RNDIS_IPA_DEBUG("canceling xmit-error delayed work\n");
@@ -1171,7 +1208,17 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 	}
 	RNDIS_IPA_DEBUG("RM was successfully destroyed\n");
 
+	spin_lock_irqsave(&rndis_ipa_ctx->state_lock, flags);
+	next_state = rndis_ipa_next_state(rndis_ipa_ctx->state,
+					  RNDIS_IPA_DISCONNECT);
+	if (next_state == RNDIS_IPA_INVALID) {
+		spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
+		RNDIS_IPA_ERROR("can't disconnect before connect\n");
+		return -EPERM;
+	}
 	rndis_ipa_ctx->state = next_state;
+	spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
+
 	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
 	pr_info("RNDIS_IPA NetDev pipes disconnected (%d outstanding clr)\n",
@@ -1210,6 +1257,7 @@ void rndis_ipa_cleanup(void *private)
 	struct rndis_ipa_dev *rndis_ipa_ctx = private;
 	int next_state;
 	int retval;
+	unsigned long flags;
 
 	RNDIS_IPA_LOG_ENTRY();
 
@@ -1220,12 +1268,16 @@ void rndis_ipa_cleanup(void *private)
 		return;
 	}
 
+	spin_lock_irqsave(&rndis_ipa_ctx->state_lock, flags);
 	next_state = rndis_ipa_next_state(rndis_ipa_ctx->state,
 		RNDIS_IPA_CLEANUP);
 	if (next_state == RNDIS_IPA_INVALID) {
+		spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
 		RNDIS_IPA_ERROR("use disconnect()before clean()\n");
 		return;
 	}
+	spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
+
 	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
 	retval = rndis_ipa_deregister_properties(rndis_ipa_ctx->net->name);
@@ -1248,7 +1300,16 @@ void rndis_ipa_cleanup(void *private)
 	unregister_netdev(rndis_ipa_ctx->net);
 	RNDIS_IPA_DEBUG("netdev unregistered\n");
 
+	spin_lock_irqsave(&rndis_ipa_ctx->state_lock, flags);
+	next_state = rndis_ipa_next_state(rndis_ipa_ctx->state,
+					  RNDIS_IPA_CLEANUP);
+	if (next_state == RNDIS_IPA_INVALID) {
+		spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
+		RNDIS_IPA_ERROR("use disconnect()before clean()\n");
+		return;
+	}
 	rndis_ipa_ctx->state = next_state;
+	spin_unlock_irqrestore(&rndis_ipa_ctx->state_lock, flags);
 	free_netdev(rndis_ipa_ctx->net);
 	pr_info("RNDIS_IPA NetDev was cleaned\n");
 
