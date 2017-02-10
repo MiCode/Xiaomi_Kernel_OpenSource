@@ -251,7 +251,7 @@
 	spi@7575000 { /* BLSP1 QUP1 - SPI1 */
 		pinctrl-0 = <&spi_0_active>;
 		pinctrl-1 = <&spi_0_sleep>;
-		status = "ok";
+		status = "disabled";
 		mpu9250-spi@0 {
 			compatible = "invn,mpu9250";
 			reg = <0>;
@@ -259,7 +259,7 @@
 			invn,mpu9250-irq = <&tlmm 79 0>;
 			spi-cpol;
 			spi-cpha;
-			status = "ok";
+			status = "disabled";
 		};
 	};
 
