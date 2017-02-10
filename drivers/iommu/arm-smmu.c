@@ -2223,14 +2223,18 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
+#define MAX_MAP_SG_BATCH_SIZE (SZ_4M)
 static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 			   struct scatterlist *sg, unsigned int nents, int prot)
 {
 	int ret;
-	size_t size;
+	size_t size, batch_size, size_to_unmap = 0;
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+	unsigned int idx_start, idx_end;
+	struct scatterlist *sg_start, *sg_end;
+	unsigned long __saved_iova_start;
 
 	if (!ops)
 		return -ENODEV;
@@ -2239,17 +2243,45 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	if (ret)
 		return ret;
 
-	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
-	ret = ops->map_sg(ops, iova, sg, nents, prot, &size);
-	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+	__saved_iova_start = iova;
+	idx_start = idx_end = 0;
+	sg_start = sg_end = sg;
+	while (idx_end < nents) {
+		batch_size = sg_end->length;
+		sg_end = sg_next(sg_end);
+		idx_end++;
+		while ((idx_end < nents) &&
+		       (batch_size + sg_end->length < MAX_MAP_SG_BATCH_SIZE)) {
 
-	if (!ret)
-		arm_smmu_unmap(domain, iova, size);
+			batch_size += sg_end->length;
+			sg_end = sg_next(sg_end);
+			idx_end++;
+		}
 
-	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
+		spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
+		ret = ops->map_sg(ops, iova, sg_start, idx_end - idx_start,
+				  prot, &size);
+		spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+		/* Returns 0 on error */
+		if (!ret) {
+			size_to_unmap = iova + size - __saved_iova_start;
+			goto out;
+		}
+
+		iova += batch_size;
+		idx_start = idx_end;
+		sg_start = sg_end;
+	}
+
+out:
 	arm_smmu_assign_table(smmu_domain);
 
-	return ret;
+	if (size_to_unmap) {
+		arm_smmu_unmap(domain, __saved_iova_start, size_to_unmap);
+		iova = __saved_iova_start;
+	}
+	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
+	return iova - __saved_iova_start;
 }
 
 static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
