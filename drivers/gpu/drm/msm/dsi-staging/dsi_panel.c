@@ -1970,6 +1970,52 @@ error:
 	return rc;
 }
 
+static int dsi_panel_parse_hdr_config(struct dsi_panel *panel,
+				     struct device_node *of_node)
+{
+
+	int rc = 0;
+	struct drm_panel_hdr_properties *hdr_prop;
+
+	hdr_prop = &panel->hdr_props;
+	hdr_prop->hdr_enabled = of_property_read_bool(of_node,
+		"qcom,mdss-dsi-panel-hdr-enabled");
+
+	if (hdr_prop->hdr_enabled) {
+		rc = of_property_read_u32_array(of_node,
+				"qcom,mdss-dsi-panel-hdr-color-primaries",
+				hdr_prop->display_primaries,
+				DISPLAY_PRIMARIES_MAX);
+		if (rc) {
+			pr_err("%s:%d, Unable to read color primaries,rc:%u",
+					__func__, __LINE__, rc);
+			hdr_prop->hdr_enabled = false;
+			return rc;
+		}
+
+		rc = of_property_read_u32(of_node,
+			"qcom,mdss-dsi-panel-peak-brightness",
+			&(hdr_prop->peak_brightness));
+		if (rc) {
+			pr_err("%s:%d, Unable to read hdr brightness, rc:%u",
+				__func__, __LINE__, rc);
+			hdr_prop->hdr_enabled = false;
+			return rc;
+		}
+
+		rc = of_property_read_u32(of_node,
+			"qcom,mdss-dsi-panel-blackness-level",
+			&(hdr_prop->blackness_level));
+		if (rc) {
+			pr_err("%s:%d, Unable to read hdr brightness, rc:%u",
+				__func__, __LINE__, rc);
+			hdr_prop->hdr_enabled = false;
+			return rc;
+		}
+	}
+	return 0;
+}
+
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node)
 {
@@ -2070,6 +2116,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	rc = dsi_panel_parse_jitter_config(panel, of_node);
 	if (rc)
 		pr_err("failed to parse panel jitter config, rc=%d\n", rc);
+
+	rc = dsi_panel_parse_hdr_config(panel, of_node);
+	if (rc)
+		pr_err("failed to parse hdr config, rc=%d\n", rc);
 
 	panel->panel_of_node = of_node;
 	drm_panel_init(&panel->drm_panel);
