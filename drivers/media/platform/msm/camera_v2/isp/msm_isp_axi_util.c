@@ -39,13 +39,13 @@ static int msm_isp_axi_create_stream(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd,
 	struct msm_vfe_axi_stream *stream_info)
 {
-	uint32_t i;
+	uint32_t i = 0;
 	int rc = 0;
 
 	if (stream_info->state != AVAILABLE) {
-		pr_err("%s:%d invalid state %d expected %d for src %d\n",
+		pr_err("%s:%d invalid state %d expected %d\n",
 			__func__, __LINE__, stream_info->state,
-			AVAILABLE, i);
+			AVAILABLE);
 		return -EINVAL;
 	}
 
