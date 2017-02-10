@@ -387,6 +387,8 @@ static int smb2_parse_dt(struct smb2 *chip)
 
 	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
 
+	chg->suspend_input_on_debug_batt = of_property_read_bool(node,
+					"qcom,suspend-input-on-debug-batt");
 	return 0;
 }
 
