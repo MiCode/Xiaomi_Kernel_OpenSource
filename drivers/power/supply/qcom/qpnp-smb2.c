@@ -368,6 +368,8 @@ static int smb2_parse_dt(struct smb2 *chip)
 
 	chg->micro_usb_mode = of_property_read_bool(node, "qcom,micro-usb");
 
+	chg->suspend_input_on_debug_batt = of_property_read_bool(node,
+					"qcom,suspend-input-on-debug-batt");
 	return 0;
 }
 
