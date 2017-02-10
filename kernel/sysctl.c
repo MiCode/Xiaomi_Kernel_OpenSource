@@ -449,13 +449,6 @@ static struct ctl_table kern_table[] = {
 		.proc_handler   = proc_dointvec,
 	},
 	{
-		.procname       = "sched_new_task_windows",
-		.data           = &sysctl_sched_new_task_windows,
-		.maxlen         = sizeof(unsigned int),
-		.mode           = 0644,
-		.proc_handler   = sched_window_update_handler,
-	},
-	{
 		.procname	= "sched_pred_alert_freq",
 		.data		= &sysctl_sched_pred_alert_freq,
 		.maxlen		= sizeof(unsigned int),
