@@ -64,6 +64,17 @@
 		interrupts = <0x0 0x0d 0x0>;
 		interrupt-names = "vbus_det_irq";
 	};
+
+	cnss_sdio: qcom,cnss_sdio {
+		compatible = "qcom,cnss_sdio";
+		subsys-name = "AR6320_SDIO";
+		vdd-wlan-supply = <&rome_vreg>;
+		vdd-wlan-xtal-supply = <&pmdcalifornium_l5>;
+		vdd-wlan-io-supply = <&pmdcalifornium_l6>;
+		qcom,wlan-ramdump-dynamic = <0x200000>;
+		qcom,is-antenna-shared;
+		status = "disabled";
+	};
 };
 
 &clock_gcc {
