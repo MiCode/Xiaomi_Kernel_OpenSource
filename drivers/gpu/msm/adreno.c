@@ -80,6 +80,9 @@ static struct adreno_device device_3d0 = {
 		.pwrscale = KGSL_PWRSCALE_INIT(&adreno_tz_data),
 		.name = DEVICE_3D0_NAME,
 		.id = KGSL_DEVICE_3D0,
+		.gmu = {
+			.load_mode = TCM_BOOT,
+		},
 		.pwrctrl = {
 			.irq_name = "kgsl_3d0_irq",
 		},
@@ -865,6 +868,7 @@ static struct {
 			"qcom,gpu-quirk-dp2clockgating-disable" },
 	 { ADRENO_QUIRK_DISABLE_LMLOADKILL,
 			"qcom,gpu-quirk-lmloadkill-disable" },
+	{ ADRENO_QUIRK_HFI_USE_REG, "qcom,gpu-quirk-hfi-use-reg" },
 };
 
 static int adreno_of_get_power(struct adreno_device *adreno_dev,
@@ -872,6 +876,7 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct device_node *node = pdev->dev.of_node;
+	struct resource *res;
 	int i;
 	unsigned int timeout;
 
@@ -888,6 +893,22 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 		if (of_property_read_bool(node, adreno_quirks[i].prop))
 			adreno_dev->quirks |= adreno_quirks[i].quirk;
 	}
+
+	/* Get starting physical address of device registers */
+	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+					   device->iomemname);
+	if (res == NULL) {
+		KGSL_DRV_ERR(device, "platform_get_resource_byname failed\n");
+		return -EINVAL;
+	}
+	if (res->start == 0 || resource_size(res) == 0) {
+		KGSL_DRV_ERR(device, "dev %d invalid register region\n",
+			device->id);
+		return -EINVAL;
+	}
+
+	device->reg_phys = res->start;
+	device->reg_len = resource_size(res);
 
 	if (adreno_of_get_pwrlevels(adreno_dev, node))
 		return -EINVAL;
@@ -982,6 +1003,17 @@ static int adreno_probe(struct platform_device *pdev)
 
 	status = adreno_of_get_power(adreno_dev, pdev);
 	if (status) {
+		device->pdev = NULL;
+		return status;
+	}
+
+	/*
+	 * Probe/init GMU after initial gpu power probe
+	 * Another part of GPU power probe in platform_probe
+	 * needs GMU initialized.
+	 */
+	status = gmu_probe(device);
+	if (status != 0 && status != -ENXIO) {
 		device->pdev = NULL;
 		return status;
 	}
@@ -1141,6 +1173,8 @@ static int adreno_remove(struct platform_device *pdev)
 	adreno_perfcounter_close(adreno_dev);
 	kgsl_device_platform_remove(device);
 
+	gmu_remove(device);
+
 	if (test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv)) {
 		kgsl_free_global(device, &adreno_dev->pwron_fixup);
 		clear_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv);
@@ -1229,7 +1263,7 @@ static int adreno_init(struct kgsl_device *device)
 	adreno_fault_detect_init(adreno_dev);
 
 	/* Power down the device */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 
 	if (gpudev->init != NULL)
 		gpudev->init(adreno_dev);
@@ -2478,6 +2512,47 @@ static void adreno_regwrite(struct kgsl_device *device,
 	__raw_writel(value, reg);
 }
 
+static void adreno_gmu_regwrite(struct kgsl_device *device,
+				unsigned int offsetwords,
+				unsigned int value)
+{
+	void __iomem *reg;
+	struct gmu_device *gmu = &device->gmu;
+
+	offsetwords -= gmu->gmu2gpu_offset;
+
+	trace_kgsl_regwrite(device, offsetwords, value);
+
+	reg = gmu->reg_virt + (offsetwords << 2);
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, reg);
+}
+
+static void adreno_gmu_regread(struct kgsl_device *device,
+				unsigned int offsetwords,
+				unsigned int *value)
+{
+	void __iomem *reg;
+	struct gmu_device *gmu = &device->gmu;
+
+	offsetwords -= gmu->gmu2gpu_offset;
+
+	reg = gmu->reg_virt + (offsetwords << 2);
+
+	*value = __raw_readl(reg);
+
+	/*
+	 * ensure this read finishes before the next one.
+	 * i.e. act like normal readl()
+	 */
+	rmb();
+}
+
 /**
  * adreno_waittimestamp - sleep while waiting for the specified timestamp
  * @device - pointer to a KGSL device structure
@@ -2848,6 +2923,8 @@ static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
 	.regwrite = adreno_regwrite,
+	.gmu_regread = adreno_gmu_regread,
+	.gmu_regwrite = adreno_gmu_regwrite,
 	.idle = adreno_idle,
 	.isidle = adreno_isidle,
 	.suspend_context = adreno_suspend_context,

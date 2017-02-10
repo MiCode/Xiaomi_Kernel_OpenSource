@@ -176,6 +176,9 @@ GPU Quirks:
 - qcom,gpu-quirk-lmloadkill-disable:
 				Use register setting to disable local memory(LM) feature
 				to avoid corner case error
+- qcom,gpu-quirk-hfi-use-reg:
+				Use registers to replace DCVS HFI message to avoid GMU failure
+				to access system memory during IFPC
 
 KGSL Memory Pools:
 - qcom,gpu-mempools:		Container for sets of GPU mempools.Multiple sets

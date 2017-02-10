@@ -1227,6 +1227,55 @@ TRACE_EVENT(kgsl_clock_throttling,
 	)
 );
 
+DECLARE_EVENT_CLASS(gmu_oob_template,
+	TP_PROTO(unsigned int mask),
+	TP_ARGS(mask),
+	TP_STRUCT__entry(
+		__field(unsigned int, mask)
+	),
+	TP_fast_assign(
+		__entry->mask = mask;
+	),
+	TP_printk("mask=0x%08x", __entry->mask)
+);
+
+DEFINE_EVENT(gmu_oob_template, kgsl_gmu_oob_set,
+	TP_PROTO(unsigned int mask),
+	TP_ARGS(mask)
+);
+
+DEFINE_EVENT(gmu_oob_template, kgsl_gmu_oob_clear,
+	TP_PROTO(unsigned int mask),
+	TP_ARGS(mask)
+);
+
+DECLARE_EVENT_CLASS(hfi_msg_template,
+	TP_PROTO(unsigned int id, unsigned int size, unsigned int seqnum),
+	TP_ARGS(id, size, seqnum),
+	TP_STRUCT__entry(
+		__field(unsigned int, id)
+		__field(unsigned int, size)
+		__field(unsigned int, seq)
+	),
+	TP_fast_assign(
+		__entry->id = id;
+		__entry->size = size;
+		__entry->seq = seqnum;
+	),
+	TP_printk("id=0x%x size=0x%x seqnum=0x%x",
+		__entry->id, __entry->size, __entry->seq)
+);
+
+DEFINE_EVENT(hfi_msg_template, kgsl_hfi_send,
+	TP_PROTO(unsigned int id, unsigned int size, unsigned int seqnum),
+	TP_ARGS(id, size, seqnum)
+);
+
+DEFINE_EVENT(hfi_msg_template, kgsl_hfi_receive,
+	TP_PROTO(unsigned int id, unsigned int size, unsigned int seqnum),
+	TP_ARGS(id, size, seqnum)
+);
+
 #endif /* _KGSL_TRACE_H */
 
 /* This part must be outside protection */

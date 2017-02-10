@@ -26,6 +26,7 @@
 #include "kgsl_snapshot.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_drawobj.h"
+#include "kgsl_gmu.h"
 
 #define KGSL_IOCTL_FUNC(_cmd, _func) \
 	[_IOC_NR((_cmd))] = \
@@ -118,6 +119,10 @@ struct kgsl_functable {
 	int (*init)(struct kgsl_device *device);
 	int (*start)(struct kgsl_device *device, int priority);
 	int (*stop)(struct kgsl_device *device);
+	void (*gmu_regread)(struct kgsl_device *device,
+		unsigned int offsetwords, unsigned int *value);
+	void (*gmu_regwrite)(struct kgsl_device *device,
+		unsigned int offsetwords, unsigned int value);
 	int (*getproperty)(struct kgsl_device *device,
 		unsigned int type, void __user *value,
 		size_t sizebytes);
@@ -250,6 +255,7 @@ struct kgsl_device {
 	const char *shadermemname;
 
 	struct kgsl_mmu mmu;
+	struct gmu_device gmu;
 	struct completion hwaccess_gate;
 	struct completion halt_gate;
 	const struct kgsl_functable *ftbl;
@@ -531,6 +537,24 @@ static inline void kgsl_regwrite(struct kgsl_device *device,
 				 unsigned int value)
 {
 	device->ftbl->regwrite(device, offsetwords, value);
+}
+
+static inline void kgsl_gmu_regread(struct kgsl_device *device,
+				unsigned int offsetwords,
+				unsigned int *value)
+{
+	if (device->ftbl->gmu_regread)
+		device->ftbl->gmu_regread(device, offsetwords, value);
+	else
+		*value = 0xDEADBEEF;
+}
+
+static inline void kgsl_gmu_regwrite(struct kgsl_device *device,
+				 unsigned int offsetwords,
+				 unsigned int value)
+{
+	if (device->ftbl->gmu_regwrite)
+		device->ftbl->gmu_regwrite(device, offsetwords, value);
 }
 
 static inline void kgsl_regrmw(struct kgsl_device *device,

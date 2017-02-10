@@ -112,6 +112,14 @@
 #define ADRENO_CPZ_RETENTION BIT(10)
 /* The core has soft fault detection available */
 #define ADRENO_SOFT_FAULT_DETECT BIT(11)
+/* The GMU supports RPMh for power management*/
+#define ADRENO_RPMH BIT(12)
+/* The GMU supports IFPC power management*/
+#define ADRENO_IFPC BIT(13)
+/* The GMU supports HW based NAP */
+#define ADRENO_HW_NAP BIT(14)
+/* The GMU supports min voltage*/
+#define ADRENO_MIN_VOLT BIT(15)
 
 /*
  * Adreno GPU quirks - control bits for various workarounds
@@ -129,6 +137,8 @@
 #define ADRENO_QUIRK_DISABLE_RB_DP2CLOCKGATING BIT(4)
 /* Disable local memory(LM) feature to avoid corner case error */
 #define ADRENO_QUIRK_DISABLE_LMLOADKILL BIT(5)
+/* Allow HFI to use registers to send message to GMU */
+#define ADRENO_QUIRK_HFI_USE_REG BIT(6)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -607,6 +617,21 @@ enum adreno_regs {
 	ADRENO_REG_VBIF_XIN_HALT_CTRL0,
 	ADRENO_REG_VBIF_XIN_HALT_CTRL1,
 	ADRENO_REG_VBIF_VERSION,
+	ADRENO_REG_GMU_AO_INTERRUPT_EN,
+	ADRENO_REG_GMU_HOST_INTERRUPT_CLR,
+	ADRENO_REG_GMU_HOST_INTERRUPT_STATUS,
+	ADRENO_REG_GMU_HOST_INTERRUPT_MASK,
+	ADRENO_REG_GMU_PWR_COL_KEEPALIVE,
+	ADRENO_REG_GMU_AHB_FENCE_STATUS,
+	ADRENO_REG_GMU_RPMH_POWER_STATE,
+	ADRENO_REG_GMU_HFI_CTRL_STATUS,
+	ADRENO_REG_GMU_HFI_VERSION_INFO,
+	ADRENO_REG_GMU_HFI_SFR_ADDR,
+	ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
+	ADRENO_REG_GMU_GMU2HOST_INTR_INFO,
+	ADRENO_REG_GMU_HOST2GMU_INTR_SET,
+	ADRENO_REG_GMU_HOST2GMU_INTR_CLR,
+	ADRENO_REG_GMU_HOST2GMU_INTR_RAW_INFO,
 	ADRENO_REG_REGISTER_MAX,
 };
 
@@ -821,6 +846,16 @@ struct adreno_gpudev {
 	void (*llc_configure_gpu_scid)(struct adreno_device *adreno_dev);
 	void (*llc_configure_gpuhtw_scid)(struct adreno_device *adreno_dev);
 	void (*llc_enable_overrides)(struct adreno_device *adreno_dev);
+	void (*pre_reset)(struct adreno_device *);
+	int (*oob_set)(struct adreno_device *adreno_dev, unsigned int set_mask,
+				unsigned int check_mask,
+				unsigned int clear_mask);
+	void (*oob_clear)(struct adreno_device *adreno_dev,
+				unsigned int clear_mask);
+	bool (*hw_isidle)(struct adreno_device *);
+	int (*rpmh_gpu_pwrctrl)(struct adreno_device *, unsigned int ops,
+				unsigned int arg1, unsigned int arg2);
+	bool (*gmu_isidle)(struct adreno_device *);
 };
 
 /**
@@ -1169,6 +1204,42 @@ static inline unsigned int adreno_getreg(struct adreno_device *adreno_dev,
 	if (!adreno_checkreg_off(adreno_dev, offset_name))
 		return ADRENO_REG_REGISTER_MAX;
 	return gpudev->reg_offsets->offsets[offset_name];
+}
+
+/*
+ * adreno_read_gmureg() - Read a GMU register by getting its offset from the
+ * offset array defined in gpudev node
+ * @adreno_dev:		Pointer to the the adreno device
+ * @offset_name:	The register enum that is to be read
+ * @val:		Register value read is placed here
+ */
+static inline void adreno_read_gmureg(struct adreno_device *adreno_dev,
+				enum adreno_regs offset_name, unsigned int *val)
+{
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	if (adreno_checkreg_off(adreno_dev, offset_name))
+		kgsl_gmu_regread(KGSL_DEVICE(adreno_dev),
+				gpudev->reg_offsets->offsets[offset_name], val);
+	else
+		*val = 0xDEADBEEF;
+}
+
+/*
+ * adreno_write_gmureg() - Write a GMU register by getting its offset from the
+ * offset array defined in gpudev node
+ * @adreno_dev:		Pointer to the the adreno device
+ * @offset_name:	The register enum that is to be written
+ * @val:		Value to write
+ */
+static inline void adreno_write_gmureg(struct adreno_device *adreno_dev,
+				enum adreno_regs offset_name, unsigned int val)
+{
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	if (adreno_checkreg_off(adreno_dev, offset_name))
+		kgsl_gmu_regwrite(KGSL_DEVICE(adreno_dev),
+				gpudev->reg_offsets->offsets[offset_name], val);
 }
 
 /*

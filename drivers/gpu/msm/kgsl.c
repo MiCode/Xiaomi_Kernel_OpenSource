@@ -4541,24 +4541,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	if (status)
 		goto error;
 
-	/* Get starting physical address of device registers */
-	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
-					   device->iomemname);
-	if (res == NULL) {
-		KGSL_DRV_ERR(device, "platform_get_resource_byname failed\n");
-		status = -EINVAL;
-		goto error_pwrctrl_close;
-	}
-	if (res->start == 0 || resource_size(res) == 0) {
-		KGSL_DRV_ERR(device, "dev %d invalid register region\n",
-			device->id);
-		status = -EINVAL;
-		goto error_pwrctrl_close;
-	}
-
-	device->reg_phys = res->start;
-	device->reg_len = resource_size(res);
-
 	/*
 	 * Check if a shadermemname is defined, and then get shader memory
 	 * details including shader memory starting physical address
