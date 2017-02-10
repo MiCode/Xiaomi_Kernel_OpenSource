@@ -1052,6 +1052,7 @@ struct ipa3cm_client_info {
 struct ipa3_smp2p_info {
 	u32 out_base_id;
 	u32 in_base_id;
+	bool ipa_clk_on;
 	bool res_sent;
 };
 
@@ -2024,6 +2025,7 @@ int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats);
 int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map);
 int ipa3_smmu_map_peer_buff(u64 iova, phys_addr_t phys_addr,
 	u32 size, bool map);
+void ipa3_reset_freeze_vote(void);
 struct dentry *ipa_debugfs_get_root(void);
 bool ipa3_is_msm_device(void);
 int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
