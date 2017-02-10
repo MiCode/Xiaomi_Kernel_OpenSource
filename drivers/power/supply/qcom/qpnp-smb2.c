@@ -664,8 +664,7 @@ static int smb2_usb_main_set_prop(struct power_supply *psy,
 		rc = smblib_set_charge_param(chg, &chg->param.fv, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_ICL_REDUCTION:
-		chg->icl_reduction_ua = val->intval;
-		rc = rerun_election(chg->usb_icl_votable);
+		rc = smblib_set_icl_reduction(chg, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fcc, val->intval);
@@ -1317,9 +1316,10 @@ static int smb2_init_hw(struct smb2 *chip)
 	if (chip->dt.fv_uv < 0)
 		smblib_get_charge_param(chg, &chg->param.fv, &chip->dt.fv_uv);
 
+	smblib_get_charge_param(chg, &chg->param.usb_icl,
+				&chg->default_icl_ua);
 	if (chip->dt.usb_icl_ua < 0)
-		smblib_get_charge_param(chg, &chg->param.usb_icl,
-					&chip->dt.usb_icl_ua);
+		chip->dt.usb_icl_ua = chg->default_icl_ua;
 
 	if (chip->dt.dc_icl_ua < 0)
 		smblib_get_charge_param(chg, &chg->param.dc_icl,
@@ -1581,6 +1581,7 @@ static int smb2_chg_config_init(struct smb2 *chip)
 
 	switch (pmic_rev_id->pmic_subtype) {
 	case PMI8998_SUBTYPE:
+		chip->chg.smb_version = PMI8998_SUBTYPE;
 		chip->chg.wa_flags |= BOOST_BACK_WA;
 		if (pmic_rev_id->rev4 == PMI8998_V1P1_REV4) /* PMI rev 1.1 */
 			chg->wa_flags |= QC_CHARGER_DETECTION_WA_BIT;
@@ -1595,6 +1596,7 @@ static int smb2_chg_config_init(struct smb2 *chip)
 		chg->chg_freq.freq_above_otg_threshold = 800;
 		break;
 	case PM660_SUBTYPE:
+		chip->chg.smb_version = PM660_SUBTYPE;
 		chip->chg.wa_flags |= BOOST_BACK_WA;
 		chg->param.freq_buck = pm660_params.freq_buck;
 		chg->param.freq_boost = pm660_params.freq_boost;

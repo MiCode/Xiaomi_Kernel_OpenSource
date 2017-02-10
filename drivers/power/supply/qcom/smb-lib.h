@@ -31,6 +31,7 @@ enum print_reason {
 #define USER_VOTER			"USER_VOTER"
 #define PD_VOTER			"PD_VOTER"
 #define DCP_VOTER			"DCP_VOTER"
+#define PL_USBIN_USBIN_VOTER		"PL_USBIN_USBIN_VOTER"
 #define USB_PSY_VOTER			"USB_PSY_VOTER"
 #define PL_TAPER_WORK_RUNNING_VOTER	"PL_TAPER_WORK_RUNNING_VOTER"
 #define PL_INDIRECT_VOTER		"PL_INDIRECT_VOTER"
@@ -171,6 +172,7 @@ struct smb_charger {
 	enum smb_mode		mode;
 	bool			external_vconn;
 	struct smb_chg_freq	chg_freq;
+	int			smb_version;
 
 	/* locks */
 	struct mutex		write_lock;
@@ -244,6 +246,7 @@ struct smb_charger {
 	bool			vconn_en;
 	int			otg_attempts;
 	int			vconn_attempts;
+	int			default_icl_ua;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -408,6 +411,7 @@ int smblib_rerun_apsd_if_required(struct smb_charger *chg);
 int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 			       union power_supply_propval *val);
 int smblib_icl_override(struct smb_charger *chg, bool override);
+int smblib_set_icl_reduction(struct smb_charger *chg, int reduction_ua);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
