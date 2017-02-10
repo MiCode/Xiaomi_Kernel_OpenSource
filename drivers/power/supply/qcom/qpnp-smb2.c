@@ -385,6 +385,8 @@ static int smb2_parse_dt(struct smb2 *chip)
 
 	chg->micro_usb_mode = of_property_read_bool(node, "qcom,micro-usb");
 
+	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
+
 	return 0;
 }
 
@@ -1338,7 +1340,6 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
-	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
 	chg->boost_threshold_ua = chip->dt.boost_threshold_ua;
 
 	rc = smblib_read(chg, APSD_RESULT_STATUS_REG, &stat);
@@ -1350,12 +1351,9 @@ static int smb2_init_hw(struct smb2 *chip)
 	smblib_rerun_apsd_if_required(chg);
 
 	/* clear the ICL override if it is set */
-	if (stat & ICL_OVERRIDE_LATCH_BIT) {
-		rc = smblib_write(chg, CMD_APSD_REG, ICL_OVERRIDE_BIT);
-		if (rc < 0) {
-			pr_err("Couldn't disable ICL override rc=%d\n", rc);
-			return rc;
-		}
+	if (smblib_icl_override(chg, false) < 0) {
+		pr_err("Couldn't disable ICL override rc=%d\n", rc);
+		return rc;
 	}
 
 	/* votes must be cast before configuring software control */
@@ -1367,8 +1365,6 @@ static int smb2_init_hw(struct smb2 *chip)
 		DEFAULT_VOTER, true, chip->dt.fcc_ua);
 	vote(chg->fv_votable,
 		DEFAULT_VOTER, true, chip->dt.fv_uv);
-	vote(chg->usb_icl_votable,
-		DCP_VOTER, true, chip->dt.usb_icl_ua);
 	vote(chg->dc_icl_votable,
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
 	vote(chg->hvdcp_disable_votable_indirect, DEFAULT_VOTER,

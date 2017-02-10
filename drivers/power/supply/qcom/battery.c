@@ -33,6 +33,7 @@
 #define TAPER_END_VOTER			"TAPER_END_VOTER"
 #define PL_TAPER_EARLY_BAD_VOTER	"PL_TAPER_EARLY_BAD_VOTER"
 #define PARALLEL_PSY_VOTER		"PARALLEL_PSY_VOTER"
+#define PL_HW_ABSENT_VOTER		"PL_HW_ABSENT_VOTER"
 
 struct pl_data {
 	int			pl_mode;
@@ -44,6 +45,7 @@ struct pl_data {
 	struct votable		*pl_disable_votable;
 	struct votable		*pl_awake_votable;
 	struct work_struct	status_change_work;
+	struct work_struct	pl_disable_forever_work;
 	struct delayed_work	pl_taper_work;
 	struct power_supply	*main_psy;
 	struct power_supply	*pl_psy;
@@ -361,6 +363,15 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	return 0;
 }
 
+static void pl_disable_forever_work(struct work_struct *work)
+{
+	struct pl_data *chip = container_of(work,
+			struct pl_data, pl_disable_forever_work);
+
+	/* Disable Parallel charger forever */
+	vote(chip->pl_disable_votable, PL_HW_ABSENT_VOTER, true, 0);
+}
+
 static int pl_disable_vote_callback(struct votable *votable,
 		void *data, int pl_disable, const char *client)
 {
@@ -372,6 +383,18 @@ static int pl_disable_vote_callback(struct votable *votable,
 	chip->taper_pct = 100;
 
 	if (!pl_disable) { /* enable */
+		rc = power_supply_get_property(chip->pl_psy,
+				POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
+		if (rc == -ENODEV) {
+			/*
+			 * -ENODEV is returned only if parallel chip
+			 * is not present in the system.
+			 * Disable parallel charger forever.
+			 */
+			schedule_work(&chip->pl_disable_forever_work);
+			return rc;
+		}
+
 		rerun_election(chip->fv_votable);
 		rerun_election(chip->fcc_votable);
 		/*
@@ -697,6 +720,7 @@ static int pl_init(void)
 
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->pl_taper_work, pl_taper_work);
+	INIT_WORK(&chip->pl_disable_forever_work, pl_disable_forever_work);
 
 	rc = pl_register_notifier(chip);
 	if (rc < 0) {
