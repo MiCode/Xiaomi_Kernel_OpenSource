@@ -64,6 +64,11 @@ ifneq ($(hostprogs-y)$(hostprogs-m)$(hostlibs-y)$(hostlibs-m)$(hostcxxlibs-y)$(h
 include scripts/Makefile.host
 endif
 
+# Do not include host rules unless needed
+ifneq ($(dtbo-y),)
+include scripts/Makefile.dtbo
+endif
+
 ifneq ($(KBUILD_SRC),)
 # Create output directory if not already present
 _dummy := $(shell [ -d $(obj) ] || mkdir -p $(obj))
