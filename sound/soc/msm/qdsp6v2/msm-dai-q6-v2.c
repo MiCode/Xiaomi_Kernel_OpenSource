@@ -2077,6 +2077,42 @@ static int msm_dai_q6_usb_audio_cfg_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_dai_q6_usb_audio_endian_cfg_put(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+	u32 val = ucontrol->value.integer.value[0];
+
+	if (dai_data) {
+		dai_data->port_config.usb_audio.endian = val;
+		pr_debug("%s: endian = 0x%x\n",  __func__,
+				 dai_data->port_config.usb_audio.endian);
+	} else {
+		pr_err("%s: dai_data is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int msm_dai_q6_usb_audio_endian_cfg_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+
+	if (dai_data) {
+		ucontrol->value.integer.value[0] =
+			 dai_data->port_config.usb_audio.endian;
+		pr_debug("%s: endian = 0x%x\n",  __func__,
+				 dai_data->port_config.usb_audio.endian);
+	} else {
+		pr_err("%s: dai_data is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int  msm_dai_q6_afe_enc_cfg_info(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_info *uinfo)
 {
@@ -2327,9 +2363,15 @@ static const struct snd_kcontrol_new usb_audio_cfg_controls[] = {
 	SOC_SINGLE_EXT("USB_AUDIO_RX dev_token", 0, 0, UINT_MAX, 0,
 			msm_dai_q6_usb_audio_cfg_get,
 			msm_dai_q6_usb_audio_cfg_put),
+	SOC_SINGLE_EXT("USB_AUDIO_RX endian", 0, 0, 1, 0,
+			msm_dai_q6_usb_audio_endian_cfg_get,
+			msm_dai_q6_usb_audio_endian_cfg_put),
 	SOC_SINGLE_EXT("USB_AUDIO_TX dev_token", 0, 0, UINT_MAX, 0,
 			msm_dai_q6_usb_audio_cfg_get,
 			msm_dai_q6_usb_audio_cfg_put),
+	SOC_SINGLE_EXT("USB_AUDIO_TX endian", 0, 0, 1, 0,
+			msm_dai_q6_usb_audio_endian_cfg_get,
+			msm_dai_q6_usb_audio_endian_cfg_put),
 };
 
 static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
@@ -2401,10 +2443,16 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(&usb_audio_cfg_controls[0],
 				 dai_data));
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(&usb_audio_cfg_controls[1],
+				 dai_data));
 		break;
 	case AFE_PORT_ID_USB_TX:
 		rc = snd_ctl_add(dai->component->card->snd_card,
-				 snd_ctl_new1(&usb_audio_cfg_controls[1],
+				 snd_ctl_new1(&usb_audio_cfg_controls[2],
+				 dai_data));
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(&usb_audio_cfg_controls[3],
 				 dai_data));
 		break;
 	}
