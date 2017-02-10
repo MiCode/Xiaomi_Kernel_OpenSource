@@ -1500,6 +1500,8 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 	rot_cmd->secure = state->fb->flags & DRM_MODE_FB_SECURE ? true : false;
 	rot_cmd->prefill_bw = sde_crtc_get_property(sde_cstate,
 			CRTC_PROP_ROT_PREFILL_BW);
+	rot_cmd->clkrate = sde_crtc_get_property(sde_cstate,
+			CRTC_PROP_ROT_CLK);
 	rot_cmd->dst_writeback = psde->sbuf_writeback;
 
 	if (sde_crtc_get_intf_mode(state->crtc) == INTF_MODE_VIDEO)

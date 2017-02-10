@@ -1733,9 +1733,21 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA,
 			CRTC_PROP_CORE_IB);
 	msm_property_install_range(&sde_crtc->property_info,
+			"mem_ab", 0x0, 0, U64_MAX,
+			SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
+			CRTC_PROP_MEM_AB);
+	msm_property_install_range(&sde_crtc->property_info,
+			"mem_ib", 0x0, 0, U64_MAX,
+			SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
+			CRTC_PROP_MEM_IB);
+	msm_property_install_range(&sde_crtc->property_info,
 			"rot_prefill_bw", 0, 0, U64_MAX,
 			catalog->perf.max_bw_high * 1000ULL,
 			CRTC_PROP_ROT_PREFILL_BW);
+	msm_property_install_range(&sde_crtc->property_info,
+			"rot_clk", 0, 0, U64_MAX,
+			sde_kms->perf.max_core_clk_rate,
+			CRTC_PROP_ROT_CLK);
 
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
 		DRM_MODE_PROP_IMMUTABLE, CRTC_PROP_INFO);
