@@ -31,6 +31,8 @@
 #define FG_MEM_INFO_PMI8998		0x0D
 
 /* SRAM address and offset in ascending order */
+#define SLOPE_LIMIT_WORD		3
+#define SLOPE_LIMIT_OFFSET		0
 #define CUTOFF_VOLT_WORD		5
 #define CUTOFF_VOLT_OFFSET		0
 #define SYS_TERM_CURR_WORD		6
@@ -220,6 +222,8 @@ static struct fg_sram_param pmi8998_v1_sram_params[] = {
 		1, 512, 1000000, 0, fg_encode_default, NULL),
 	PARAM(ESR_BROAD_FILTER, ESR_FILTER_WORD, ESR_UPD_BROAD_OFFSET,
 		1, 512, 1000000, 0, fg_encode_default, NULL),
+	PARAM(SLOPE_LIMIT, SLOPE_LIMIT_WORD, SLOPE_LIMIT_OFFSET, 1, 8192, 1000,
+		0, fg_encode_default, NULL),
 };
 
 static struct fg_sram_param pmi8998_v2_sram_params[] = {
@@ -286,6 +290,8 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		1, 512, 1000000, 0, fg_encode_default, NULL),
 	PARAM(ESR_BROAD_FILTER, ESR_FILTER_WORD, ESR_UPD_BROAD_OFFSET,
 		1, 512, 1000000, 0, fg_encode_default, NULL),
+	PARAM(SLOPE_LIMIT, SLOPE_LIMIT_WORD, SLOPE_LIMIT_OFFSET, 1, 8192, 1000,
+		0, fg_encode_default, NULL),
 };
 
 static struct fg_alg_flag pmi8998_v1_alg_flags[] = {
@@ -1770,6 +1776,48 @@ static int fg_adjust_recharge_soc(struct fg_chip *chip)
 	return 0;
 }
 
+static int fg_slope_limit_config(struct fg_chip *chip, int batt_temp)
+{
+	enum slope_limit_status status;
+	int rc;
+	u8 buf;
+
+	if (!chip->slope_limit_en)
+		return 0;
+
+	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING ||
+		chip->charge_status == POWER_SUPPLY_STATUS_FULL) {
+		if (batt_temp < chip->dt.slope_limit_temp)
+			status = LOW_TEMP_CHARGE;
+		else
+			status = HIGH_TEMP_CHARGE;
+	} else {
+		if (batt_temp < chip->dt.slope_limit_temp)
+			status = LOW_TEMP_DISCHARGE;
+		else
+			status = HIGH_TEMP_DISCHARGE;
+	}
+
+	if (chip->slope_limit_sts == status)
+		return 0;
+
+	fg_encode(chip->sp, FG_SRAM_SLOPE_LIMIT,
+		chip->dt.slope_limit_coeffs[status], &buf);
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_SLOPE_LIMIT].addr_word,
+			chip->sp[FG_SRAM_SLOPE_LIMIT].addr_byte, &buf,
+			chip->sp[FG_SRAM_SLOPE_LIMIT].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in configuring slope_limit coefficient, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	chip->slope_limit_sts = status;
+	fg_dbg(chip, FG_STATUS, "Slope limit status: %d value: %x\n", status,
+		buf);
+	return 0;
+}
+
 static int fg_esr_filter_config(struct fg_chip *chip, int batt_temp)
 {
 	u8 esr_tight_lt_flt, esr_broad_lt_flt;
@@ -1918,7 +1966,7 @@ static void status_change_work(struct work_struct *work)
 	struct fg_chip *chip = container_of(work,
 			struct fg_chip, status_change_work);
 	union power_supply_propval prop = {0, };
-	int rc;
+	int rc, batt_temp;
 
 	if (!batt_psy_initialized(chip)) {
 		fg_dbg(chip, FG_STATUS, "Charger not available?!\n");
@@ -1970,6 +2018,14 @@ static void status_change_work(struct work_struct *work)
 	rc = fg_esr_fcc_config(chip);
 	if (rc < 0)
 		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
+
+	rc = fg_get_battery_temp(chip, &batt_temp);
+	if (!rc) {
+		rc = fg_slope_limit_config(chip, batt_temp);
+		if (rc < 0)
+			pr_err("Error in configuring slope limiter rc:%d\n",
+				rc);
+	}
 
 	fg_batt_avg_update(chip);
 
@@ -3221,6 +3277,10 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	if (rc < 0)
 		pr_err("Error in configuring ESR filter rc:%d\n", rc);
 
+	rc = fg_slope_limit_config(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring slope limiter rc:%d\n", rc);
+
 	if (!batt_psy_initialized(chip)) {
 		chip->last_batt_temp = batt_temp;
 		return IRQ_HANDLED;
@@ -3455,6 +3515,40 @@ static int fg_register_interrupts(struct fg_chip *chip)
 		}
 	}
 
+	return 0;
+}
+
+static int fg_parse_slope_limit_coefficients(struct fg_chip *chip)
+{
+	struct device_node *node = chip->dev->of_node;
+	int rc, i;
+
+	rc = of_property_read_u32(node, "qcom,slope-limit-temp-threshold",
+			&chip->dt.slope_limit_temp);
+	if (rc < 0)
+		return 0;
+
+	rc = of_property_count_elems_of_size(node, "qcom,slope-limit-coeffs",
+			sizeof(u32));
+	if (rc != SLOPE_LIMIT_NUM_COEFFS)
+		return -EINVAL;
+
+	rc = of_property_read_u32_array(node, "qcom,slope-limit-coeffs",
+			chip->dt.slope_limit_coeffs, SLOPE_LIMIT_NUM_COEFFS);
+	if (rc < 0) {
+		pr_err("Error in reading qcom,slope-limit-coeffs, rc=%d\n", rc);
+		return rc;
+	}
+
+	for (i = 0; i < SLOPE_LIMIT_NUM_COEFFS; i++) {
+		if (chip->dt.slope_limit_coeffs[i] > SLOPE_LIMIT_COEFF_MAX ||
+			chip->dt.slope_limit_coeffs[i] < 0) {
+			pr_err("Incorrect slope limit coefficient\n");
+			return -EINVAL;
+		}
+	}
+
+	chip->slope_limit_en = true;
 	return 0;
 }
 
@@ -3846,6 +3940,11 @@ static int fg_parse_dt(struct fg_chip *chip)
 		chip->dt.esr_broad_lt_flt_upct = DEFAULT_ESR_BROAD_LT_FLT_UPCT;
 	else
 		chip->dt.esr_broad_lt_flt_upct = temp;
+
+	rc = fg_parse_slope_limit_coefficients(chip);
+	if (rc < 0)
+		pr_err("Error in parsing slope limit coeffs, rc=%d\n", rc);
+
 	return 0;
 }
 
