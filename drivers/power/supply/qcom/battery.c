@@ -303,6 +303,19 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 	if (!chip->main_psy)
 		return 0;
 
+	if (chip->batt_psy) {
+		rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CURRENT_QNOVO,
+			&pval);
+		if (rc < 0) {
+			pr_err("Couldn't get qnovo fcc, rc=%d\n", rc);
+			return rc;
+		}
+
+		if (pval.intval != -EINVAL)
+			total_fcc_ua = pval.intval;
+	}
+
 	if (chip->pl_mode == POWER_SUPPLY_PARALLEL_NONE
 	    || get_effective_result_locked(chip->pl_disable_votable)) {
 		pval.intval = total_fcc_ua;
@@ -348,6 +361,7 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	struct pl_data *chip = data;
 	union power_supply_propval pval = {0, };
 	int rc = 0;
+	int effective_fv_uv = fv_uv;
 
 	if (fv_uv < 0)
 		return 0;
@@ -355,7 +369,21 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	if (!chip->main_psy)
 		return 0;
 
-	pval.intval = fv_uv;
+	if (chip->batt_psy) {
+		rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_QNOVO,
+			&pval);
+		if (rc < 0) {
+			pr_err("Couldn't get qnovo fv, rc=%d\n", rc);
+			return rc;
+		}
+
+		if (pval.intval != -EINVAL)
+			effective_fv_uv = pval.intval;
+	}
+
+	pval.intval = effective_fv_uv;
+
 	rc = power_supply_set_property(chip->main_psy,
 			POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
 	if (rc < 0) {
@@ -364,7 +392,7 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	}
 
 	if (chip->pl_mode != POWER_SUPPLY_PARALLEL_NONE) {
-		pval.intval = fv_uv + PARALLEL_FLOAT_VOLTAGE_DELTA_UV;
+		pval.intval += PARALLEL_FLOAT_VOLTAGE_DELTA_UV;
 		rc = power_supply_set_property(chip->pl_psy,
 				POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
 		if (rc < 0) {
@@ -519,9 +547,9 @@ static bool is_parallel_available(struct pl_data *chip)
 		return false;
 	}
 	/*
-	 * Note that pl_mode only be udpated to anything other than a _NONE
+	 * Note that pl_mode will be updated to anything other than a _NONE
 	 * only after pl_psy is found. IOW pl_mode != _NONE implies that
-	 * pl_psy is present and valid
+	 * pl_psy is present and valid.
 	 */
 	chip->pl_mode = pval.intval;
 	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);

@@ -258,6 +258,10 @@ struct smb_charger {
 	bool			usb_ever_removed;
 
 	int			icl_reduction_ua;
+
+	/* qnovo */
+	int			qnovo_fcc_ua;
+	int			qnovo_fv_uv;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);

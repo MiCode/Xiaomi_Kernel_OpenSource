@@ -900,8 +900,14 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = get_client_vote(chg->fv_votable, DEFAULT_VOTER);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
+		val->intval = chg->qnovo_fv_uv;
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = smblib_get_prop_batt_current_now(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
+		val->intval = chg->qnovo_fcc_ua;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		rc = smblib_get_prop_batt_temp(chg, val);
@@ -958,6 +964,14 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		vote(chg->fv_votable, DEFAULT_VOTER, true, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
+		chg->qnovo_fv_uv = val->intval;
+		rc = rerun_election(chg->fv_votable);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
+		chg->qnovo_fcc_ua = val->intval;
+		rc = rerun_election(chg->fcc_votable);
 		break;
 	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
 		/* Not in ship mode as long as the device is active */
