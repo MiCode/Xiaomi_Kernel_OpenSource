@@ -245,6 +245,7 @@ struct smb_charger {
 	bool			micro_usb_mode;
 	bool			otg_en;
 	bool			vconn_en;
+	bool			suspend_input_on_debug_batt;
 	int			otg_attempts;
 	int			vconn_attempts;
 	int			default_icl_ua;

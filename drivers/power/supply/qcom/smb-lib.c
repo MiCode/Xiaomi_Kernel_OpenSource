@@ -689,6 +689,9 @@ void smblib_suspend_on_debug_battery(struct smb_charger *chg)
 	int rc;
 	union power_supply_propval val;
 
+	if (!chg->suspend_input_on_debug_batt)
+		return;
+
 	rc = power_supply_get_property(chg->bms_psy,
 			POWER_SUPPLY_PROP_DEBUG_BATTERY, &val);
 	if (rc < 0) {
