@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -94,6 +94,10 @@ enum debug_cc {
  *		Incase the recursive debug mux does not have a enable bit,
  *		0xFF should be used to indicate the same, otherwise global
  *		enable bit would be used.
+ * @post_div_mask: indicates the post div mask to be used at debug/recursive
+ *		   debug mux.
+ * @post_div_val: indicates the post div value to be used at debug/recursive
+ *		  debug mux.
  */
 struct clk_src {
 	const char  *parents;
@@ -103,6 +107,8 @@ struct clk_src {
 	u32 mask;
 	u32 shift;
 	u32 en_mask;
+	u32 post_div_mask;
+	u32 post_div_val;
 };
 
 #define MUX_SRC_LIST(...) \
@@ -123,6 +129,7 @@ struct clk_src {
  *			controller debug mux.
  * @debug_offset:	Start of debug mux offset.
  * @hw:			handle between common and hardware-specific interfaces.
+ * @multiplier:		internally used by debug mux as post div multiplier.
  */
 struct clk_debug_mux {
 	struct clk_src *parent;
@@ -134,6 +141,9 @@ struct clk_debug_mux {
 	u32 mask;
 	u32 debug_offset;
 	struct clk_hw hw;
+
+	/* internal */
+	u32 multiplier;
 };
 
 #define BM(msb, lsb) (((((uint32_t)-1) << (31-msb)) >> (31-msb+lsb)) << lsb)
