@@ -396,13 +396,13 @@ static const struct sde_format sde_format_map[] = {
 
 	PLANAR_YUV_FMT(YUV420,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
-		C0_G_Y, C1_B_Cb, C2_R_Cr,
+		C2_R_Cr, C1_B_Cb, C0_G_Y,
 		false, SDE_CHROMA_420, 1, SDE_FORMAT_FLAG_YUV,
 		SDE_FETCH_LINEAR, 3),
 
 	PLANAR_YUV_FMT(YVU420,
 		0, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
-		C0_G_Y, C2_R_Cr, C1_B_Cb,
+		C1_B_Cb, C2_R_Cr, C0_G_Y,
 		false, SDE_CHROMA_420, 1, SDE_FORMAT_FLAG_YUV,
 		SDE_FETCH_LINEAR, 3),
 };
