@@ -255,3 +255,13 @@ config USB_LINK_LAYER_TEST
 	  This driver is for generating specific traffic for Super Speed Link
 	  Layer Test Device. Say Y only when you want to conduct USB Super Speed
 	  Link Layer Test for host controllers.
+
+config USB_QTI_KS_BRIDGE
+	tristate "USB QTI kick start bridge"
+	depends on USB
+	help
+	  Say Y here if you have a QTI modem device connected via USB that
+	  will be bridged in kernel space. This driver works as a bridge to pass
+	  boot images, ram-dumps and efs sync.
+	  To compile this driver as a module, choose M here: the module
+	  will be called ks_bridge. If unsure, choose N.
