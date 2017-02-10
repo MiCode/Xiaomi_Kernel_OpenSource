@@ -45,6 +45,11 @@
 #define MIN_SUPPORTED_WIDTH 32
 #define MIN_SUPPORTED_HEIGHT 32
 #define DEFAULT_FPS 15
+#define MIN_NUM_OUTPUT_BUFFERS 1
+#define MIN_NUM_CAPTURE_BUFFERS 1
+#define MAX_NUM_OUTPUT_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
+#define MAX_NUM_CAPTURE_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
+
 
 /* Maintains the number of FTB's between each FBD over a window */
 #define DCVS_FTB_WINDOW 32
@@ -145,7 +150,6 @@ struct msm_vidc_format {
 	char name[MAX_NAME_LENGTH];
 	u8 description[32];
 	u32 fourcc;
-	int num_planes;
 	int type;
 	u32 (*get_frame_size)(int plane, u32 height, u32 width);
 	bool defer_outputs;
@@ -175,7 +179,8 @@ struct session_prop {
 struct buf_queue {
 	struct vb2_queue vb2_bufq;
 	struct mutex lock;
-	unsigned int	plane_sizes[VB2_MAX_PLANES];
+	unsigned int plane_sizes[VB2_MAX_PLANES];
+	int num_planes;
 };
 
 enum profiling_points {

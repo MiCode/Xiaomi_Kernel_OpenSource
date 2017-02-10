@@ -22,10 +22,8 @@ int msm_vdec_ctrl_init(struct msm_vidc_inst *inst,
 	const struct v4l2_ctrl_ops *ctrl_ops);
 int msm_vdec_enum_fmt(void *instance, struct v4l2_fmtdesc *f);
 int msm_vdec_s_fmt(void *instance, struct v4l2_format *f);
-int msm_vdec_g_fmt(void *instance, struct v4l2_format *f);
 int msm_vdec_s_ctrl(void *instance, struct v4l2_ctrl *ctrl);
 int msm_vdec_g_ctrl(void *instance, struct v4l2_ctrl *ctrl);
 int msm_vdec_s_ext_ctrl(void *instance, struct v4l2_ext_controls *a);
-struct vb2_ops *msm_vdec_get_vb2q_ops(void);
 
 #endif

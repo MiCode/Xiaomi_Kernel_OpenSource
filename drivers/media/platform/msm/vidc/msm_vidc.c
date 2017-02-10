@@ -187,15 +187,55 @@ EXPORT_SYMBOL(msm_vidc_s_fmt);
 int msm_vidc_g_fmt(void *instance, struct v4l2_format *f)
 {
 	struct msm_vidc_inst *inst = instance;
+	int i, rc = 0, color_format = 0;
+	enum vidc_ports port;
+	u32 num_planes;
 
-	if (!inst || !f)
+	if (!inst || !f) {
+		dprintk(VIDC_ERR,
+			"Invalid input, inst = %pK, format = %pK\n", inst, f);
 		return -EINVAL;
+	}
+	if (inst->in_reconfig) {
+		inst->prop.height[OUTPUT_PORT] = inst->reconfig_height;
+		inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
+	}
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_g_fmt(instance, f);
-	else if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_g_fmt(instance, f);
-	return -EINVAL;
+	port = f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
+		OUTPUT_PORT : CAPTURE_PORT;
+
+	f->fmt.pix_mp.pixelformat = inst->fmts[port].fourcc;
+	f->fmt.pix_mp.height = inst->prop.height[port];
+	f->fmt.pix_mp.width = inst->prop.width[port];
+	num_planes = f->fmt.pix_mp.num_planes = inst->bufq[port].num_planes;
+	for (i = 0; i < num_planes; ++i)
+		f->fmt.pix_mp.plane_fmt[i].sizeimage =
+			inst->bufq[port].plane_sizes[i];
+	switch (inst->fmts[port].fourcc) {
+	case V4L2_PIX_FMT_NV12:
+		color_format = COLOR_FMT_NV12;
+		break;
+	case V4L2_PIX_FMT_NV12_UBWC:
+		color_format = COLOR_FMT_NV12_UBWC;
+		break;
+	case V4L2_PIX_FMT_NV12_TP10_UBWC:
+		color_format = COLOR_FMT_NV12_BPP10_UBWC;
+		break;
+	default:
+		dprintk(VIDC_DBG,
+			"Invalid : g_fmt called on %s port with Invalid fourcc 0x%x\n",
+			port == OUTPUT_PORT ? "OUTPUT" : "CAPTURE",
+			inst->fmts[port].fourcc);
+		goto exit;
+	}
+
+	f->fmt.pix_mp.plane_fmt[0].bytesperline = VENUS_Y_STRIDE(color_format,
+			inst->prop.width[port]);
+	f->fmt.pix_mp.plane_fmt[0].reserved[0] = VENUS_Y_SCANLINES(color_format,
+			inst->prop.height[port]);
+
+exit:
+	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_g_fmt);
 
@@ -769,7 +809,7 @@ static bool valid_v4l2_buffer(struct v4l2_buffer *b,
 								MAX_PORT_NUM;
 
 	return port != MAX_PORT_NUM &&
-		inst->fmts[port].num_planes == b->length;
+		inst->bufq[port].num_planes == b->length;
 }
 
 int msm_vidc_release_buffers(void *instance, int buffer_type)
@@ -1062,6 +1102,435 @@ static const struct vb2_mem_ops msm_vidc_vb2_mem_ops = {
 	.put_userptr = vidc_put_userptr,
 };
 
+
+static void msm_vidc_cleanup_buffer(struct vb2_buffer *vb)
+{
+	int rc = 0;
+	struct buf_queue *q = NULL;
+	struct msm_vidc_inst *inst = NULL;
+
+	if (!vb) {
+		dprintk(VIDC_ERR, "%s : Invalid vb pointer %pK",
+			__func__, vb);
+		return;
+	}
+
+	inst = vb2_get_drv_priv(vb->vb2_queue);
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s : Invalid inst pointer",
+			__func__);
+		return;
+	}
+
+	q = msm_comm_get_vb2q(inst, vb->type);
+	if (!q) {
+		dprintk(VIDC_ERR,
+			"%s : Failed to find buffer queue for type = %d\n",
+			__func__, vb->type);
+		return;
+	}
+
+	if (q->vb2_bufq.streaming) {
+		dprintk(VIDC_DBG, "%d PORT is streaming\n",
+			vb->type);
+		return;
+	}
+
+	rc = msm_vidc_release_buffers(inst,
+		vb->type);
+	if (rc)
+		dprintk(VIDC_ERR, "%s : Failed to release buffers : %d\n",
+			__func__, rc);
+}
+
+static int set_buffer_count(struct msm_vidc_inst *inst,
+	int host_count, int act_count, enum hal_buffer type)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct hal_buffer_count_actual buf_count;
+
+	hdev = inst->core->device;
+
+	buf_count.buffer_type = type;
+	buf_count.buffer_count_actual = act_count;
+	buf_count.buffer_count_min_host = host_count;
+	rc = call_hfi_op(hdev, session_set_property,
+		inst->session, HAL_PARAM_BUFFER_COUNT_ACTUAL, &buf_count);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to set actual buffer count %d for buffer type %d\n",
+			act_count, type);
+	return rc;
+}
+
+static int msm_vidc_queue_setup(struct vb2_queue *q,
+	unsigned int *num_buffers, unsigned int *num_planes,
+	unsigned int sizes[], struct device *alloc_devs[])
+{
+	struct msm_vidc_inst *inst;
+	int i, rc = 0;
+	struct hal_buffer_requirements *bufreq;
+	enum hal_buffer buffer_type;
+
+	if (!q || !num_buffers || !num_planes
+		|| !sizes || !q->drv_priv) {
+		dprintk(VIDC_ERR, "Invalid input, q = %pK, %pK, %pK\n",
+			q, num_buffers, num_planes);
+		return -EINVAL;
+	}
+	inst = q->drv_priv;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	switch (q->type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE: {
+		bufreq = get_buff_req_buffer(inst,
+			HAL_BUFFER_INPUT);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed : No buffer requirements : %x\n",
+				HAL_BUFFER_INPUT);
+			return -EINVAL;
+		}
+		if (*num_buffers < bufreq->buffer_count_actual) {
+			dprintk(VIDC_ERR,
+				"Invalid parameters : Req = %d Act = %d\n",
+				*num_buffers, bufreq->buffer_count_actual);
+			return -EINVAL;
+		}
+		*num_planes = inst->bufq[OUTPUT_PORT].num_planes;
+		if (*num_buffers < MIN_NUM_OUTPUT_BUFFERS ||
+			*num_buffers > MAX_NUM_OUTPUT_BUFFERS)
+			*num_buffers = MIN_NUM_OUTPUT_BUFFERS;
+		for (i = 0; i < *num_planes; i++)
+			sizes[i] = inst->bufq[OUTPUT_PORT].plane_sizes[i];
+
+		bufreq->buffer_count_actual = *num_buffers;
+		rc = set_buffer_count(inst, bufreq->buffer_count_min_host,
+			*num_buffers, HAL_BUFFER_INPUT);
+		}
+
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
+		buffer_type = msm_comm_get_hal_output_buffer(inst);
+		bufreq = get_buff_req_buffer(inst,
+			buffer_type);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed : No buffer requirements : %x\n",
+				buffer_type);
+			return -EINVAL;
+		}
+		if (*num_buffers < bufreq->buffer_count_actual) {
+			dprintk(VIDC_ERR,
+				"Invalid parameters : Req = %d Act = %d\n",
+				*num_buffers, bufreq->buffer_count_actual);
+			return -EINVAL;
+		}
+		*num_planes = inst->bufq[CAPTURE_PORT].num_planes;
+		if (*num_buffers < MIN_NUM_CAPTURE_BUFFERS ||
+			*num_buffers > MAX_NUM_CAPTURE_BUFFERS)
+			*num_buffers = MIN_NUM_CAPTURE_BUFFERS;
+
+		for (i = 0; i < *num_planes; i++)
+			sizes[i] = inst->bufq[CAPTURE_PORT].plane_sizes[i];
+
+		bufreq->buffer_count_actual = *num_buffers;
+		rc = set_buffer_count(inst, bufreq->buffer_count_min_host,
+			*num_buffers, buffer_type);
+		}
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid q type = %d\n", q->type);
+		rc = -EINVAL;
+		break;
+	}
+	return rc;
+}
+
+static inline int msm_vidc_decide_core_and_power_mode(
+	struct msm_vidc_inst *inst)
+{
+	dprintk(VIDC_DBG,
+		"Core selection is not yet implemented for inst = %pK\n",
+			inst);
+	return 0;
+}
+static inline int msm_vidc_verify_buffer_counts(struct msm_vidc_inst *inst)
+{
+	int rc = 0, i = 0;
+
+	for (i = 0; i < HAL_BUFFER_MAX; i++) {
+		struct hal_buffer_requirements *req = &inst->buff_req.buffer[i];
+
+		dprintk(VIDC_DBG, "Verifying Buffer : %d\n", req->buffer_type);
+		if (!req ||
+			req->buffer_count_actual < req->buffer_count_min_host ||
+			req->buffer_count_min_host < req->buffer_count_min) {
+			dprintk(VIDC_ERR, "Invalid data : Counts mismatch\n");
+			dprintk(VIDC_ERR,
+				"Min Count = %d ", req->buffer_count_min);
+			dprintk(VIDC_ERR,
+				"Min Host Count = %d ",
+					req->buffer_count_min_host);
+			dprintk(VIDC_ERR,
+				"Min Actual Count = %d\n",
+					req->buffer_count_actual);
+			rc = -EINVAL;
+			break;
+		}
+	}
+	return rc;
+}
+
+static inline int start_streaming(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct hal_buffer_size_minimum b;
+	struct vb2_buf_entry *temp, *next;
+
+	hdev = inst->core->device;
+
+	/* Check if current session is under HW capability */
+	rc = msm_vidc_check_session_supported(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"This session is not supported %pK\n", inst);
+		goto fail_start;
+	}
+
+	/* Assign Core and LP mode for current session */
+	rc = msm_vidc_decide_core_and_power_mode(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"This session can't be submitted to HW%pK\n", inst);
+		goto fail_start;
+	}
+
+
+	if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY) {
+		b.buffer_type = HAL_BUFFER_OUTPUT2;
+	} else {
+		b.buffer_type = HAL_BUFFER_OUTPUT;
+	}
+
+	b.buffer_size = inst->bufq[CAPTURE_PORT].plane_sizes[0];
+	rc = call_hfi_op(hdev, session_set_property,
+			inst->session, HAL_PARAM_BUFFER_SIZE_MINIMUM,
+			&b);
+
+	rc = msm_comm_try_get_bufreqs(inst);
+
+	/* Check if current session is under HW capability */
+	rc = msm_vidc_verify_buffer_counts(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"This session has mis-match buffer counts%pK\n", inst);
+		goto fail_start;
+	}
+
+	rc = msm_comm_set_scratch_buffers(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"Failed to set scratch buffers: %d\n", rc);
+		goto fail_start;
+	}
+	rc = msm_comm_set_persist_buffers(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"Failed to set persist buffers: %d\n", rc);
+		goto fail_start;
+	}
+
+	if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY) {
+		rc = msm_comm_set_output_buffers(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to set output buffers: %d\n", rc);
+			goto fail_start;
+		}
+	}
+
+	/*
+	 * For seq_changed_insufficient, driver should set session_continue
+	 * to firmware after the following sequence
+	 * - driver raises insufficient event to v4l2 client
+	 * - all output buffers have been flushed and freed
+	 * - v4l2 client queries buffer requirements and splits/combines OPB-DPB
+	 * - v4l2 client sets new set of buffers to firmware
+	 * - v4l2 client issues CONTINUE to firmware to resume decoding of
+	 *   submitted ETBs.
+	 */
+	if (inst->in_reconfig) {
+		dprintk(VIDC_DBG, "send session_continue after reconfig\n");
+		rc = call_hfi_op(hdev, session_continue,
+				(void *) inst->session);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s - failed to send session_continue\n",
+				__func__);
+			goto fail_start;
+		}
+	}
+	inst->in_reconfig = false;
+
+	msm_comm_scale_clocks_and_bus(inst);
+
+	rc = msm_comm_try_state(inst, MSM_VIDC_START_DONE);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to move inst: %pK to start done state\n", inst);
+		goto fail_start;
+	}
+	msm_dcvs_init_load(inst);
+	if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY) {
+		rc = msm_comm_queue_output_buffers(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to queue output buffers: %d\n", rc);
+			goto fail_start;
+		}
+	}
+
+fail_start:
+	if (rc) {
+		mutex_lock(&inst->pendingq.lock);
+		list_for_each_entry_safe(temp, next, &inst->pendingq.list,
+				list) {
+			vb2_buffer_done(temp->vb,
+					VB2_BUF_STATE_QUEUED);
+			list_del(&temp->list);
+			kfree(temp);
+		}
+		mutex_unlock(&inst->pendingq.lock);
+	}
+	return rc;
+}
+
+
+static int msm_vidc_start_streaming(struct vb2_queue *q, unsigned int count)
+{
+	struct msm_vidc_inst *inst;
+	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!q || !q->drv_priv) {
+		dprintk(VIDC_ERR, "Invalid input, q = %pK\n", q);
+		return -EINVAL;
+	}
+	inst = q->drv_priv;
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+	dprintk(VIDC_DBG, "Streamon called on: %d capability for inst: %pK\n",
+		q->type, inst);
+	switch (q->type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		if (inst->bufq[CAPTURE_PORT].vb2_bufq.streaming)
+			rc = start_streaming(inst);
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		if (inst->bufq[OUTPUT_PORT].vb2_bufq.streaming)
+			rc = start_streaming(inst);
+		break;
+	default:
+		dprintk(VIDC_ERR, "Queue type is not supported: %d\n", q->type);
+		rc = -EINVAL;
+		goto stream_start_failed;
+	}
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Streamon failed on: %d capability for inst: %pK\n",
+			q->type, inst);
+		goto stream_start_failed;
+	}
+
+	rc = msm_comm_qbuf(inst, NULL);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"Failed to commit buffers queued before STREAM_ON to hardware: %d\n",
+				rc);
+		goto stream_start_failed;
+	}
+
+stream_start_failed:
+	return rc;
+}
+
+static inline int stop_streaming(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+
+	rc = msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to move inst: %pK to state %d\n",
+				inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
+	return rc;
+}
+
+static void msm_vidc_stop_streaming(struct vb2_queue *q)
+{
+	struct msm_vidc_inst *inst;
+	int rc = 0;
+
+	if (!q || !q->drv_priv) {
+		dprintk(VIDC_ERR, "Invalid input, q = %pK\n", q);
+		return;
+	}
+
+	inst = q->drv_priv;
+	dprintk(VIDC_DBG, "Streamoff called on: %d capability\n", q->type);
+	switch (q->type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		if (!inst->bufq[CAPTURE_PORT].vb2_bufq.streaming)
+			rc = stop_streaming(inst);
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		if (!inst->bufq[OUTPUT_PORT].vb2_bufq.streaming)
+			rc = stop_streaming(inst);
+		break;
+	default:
+		dprintk(VIDC_ERR,
+			"Q-type is not supported: %d\n", q->type);
+		rc = -EINVAL;
+		break;
+	}
+
+	msm_comm_scale_clocks_and_bus(inst);
+
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed STOP Streaming inst = %pK on cap = %d\n",
+			inst, q->type);
+}
+
+static void msm_vidc_buf_queue(struct vb2_buffer *vb)
+{
+	int rc = msm_comm_qbuf(vb2_get_drv_priv(vb->vb2_queue), vb);
+
+	if (rc)
+		dprintk(VIDC_ERR, "Failed to queue buffer: %d\n", rc);
+}
+
+static const struct vb2_ops msm_vidc_vb2q_ops = {
+	.queue_setup = msm_vidc_queue_setup,
+	.start_streaming = msm_vidc_start_streaming,
+	.buf_queue = msm_vidc_buf_queue,
+	.buf_cleanup = msm_vidc_cleanup_buffer,
+	.stop_streaming = msm_vidc_stop_streaming,
+};
+
 static inline int vb2_bufq_init(struct msm_vidc_inst *inst,
 		enum v4l2_buf_type type, enum session_type sess)
 {
@@ -1079,11 +1548,8 @@ static inline int vb2_bufq_init(struct msm_vidc_inst *inst,
 	q->type = type;
 	q->io_modes = VB2_MMAP | VB2_USERPTR;
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+	q->ops = &msm_vidc_vb2q_ops;
 
-	if (sess == MSM_VIDC_DECODER)
-		q->ops = msm_vdec_get_vb2q_ops();
-	else if (sess == MSM_VIDC_ENCODER)
-		q->ops = msm_venc_get_vb2q_ops();
 	q->mem_ops = &msm_vidc_vb2_mem_ops;
 	q->drv_priv = inst;
 	q->allow_zero_bytesused = 1;
@@ -1214,9 +1680,152 @@ static int msm_vidc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 	return rc;
 }
 
+static int set_actual_buffer_count(struct msm_vidc_inst *inst,
+	int count, enum hal_buffer type)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct hal_buffer_count_actual buf_count;
+
+	hdev = inst->core->device;
+
+	buf_count.buffer_type = type;
+	buf_count.buffer_count_min_host = count;
+	buf_count.buffer_count_actual = count;
+	rc = call_hfi_op(hdev, session_set_property,
+		inst->session, HAL_PARAM_BUFFER_COUNT_ACTUAL,
+		&buf_count);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to set actual count %d for buffer type %d\n",
+			count, type);
+	return rc;
+}
+
+
+static int msm_vdec_get_count(struct msm_vidc_inst *inst,
+	struct v4l2_ctrl *ctrl)
+{
+	int rc = 0;
+	struct hal_buffer_requirements *bufreq, *newreq;
+	enum hal_buffer buffer_type;
+
+	if (ctrl->id == V4L2_CID_MIN_BUFFERS_FOR_OUTPUT) {
+		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_INPUT);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed to find bufreqs for buffer type = %d\n",
+					HAL_BUFFER_INPUT);
+			return 0;
+		}
+		if (inst->bufq[OUTPUT_PORT].vb2_bufq.streaming) {
+			ctrl->val = bufreq->buffer_count_min_host;
+			return 0;
+		}
+		if (ctrl->val > bufreq->buffer_count_min_host) {
+			dprintk(VIDC_DBG,
+				"Interesting : Usually shouldn't happen\n");
+			bufreq->buffer_count_min_host = ctrl->val;
+		}
+		rc = set_actual_buffer_count(inst, ctrl->val,
+			HAL_BUFFER_INPUT);
+		return rc;
+
+	} else if (ctrl->id == V4L2_CID_MIN_BUFFERS_FOR_CAPTURE) {
+		int count = 0;
+
+		buffer_type = msm_comm_get_hal_output_buffer(inst);
+		bufreq = get_buff_req_buffer(inst,
+			buffer_type);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed to find bufreqs for buffer type = %d\n",
+					buffer_type);
+			return 0;
+		}
+		if (inst->bufq[CAPTURE_PORT].vb2_bufq.streaming) {
+			if (ctrl->val != bufreq->buffer_count_min_host)
+				return -EINVAL;
+			else
+				return 0;
+		}
+		count = bufreq->buffer_count_min_host;
+
+		if (inst->in_reconfig) {
+			rc = msm_comm_try_get_bufreqs(inst);
+			newreq = get_buff_req_buffer(inst,
+				buffer_type);
+			if (!newreq) {
+				dprintk(VIDC_ERR,
+					"Failed to find new bufreqs = %d\n",
+					buffer_type);
+				return 0;
+			}
+			newreq->buffer_count_min_host = count =
+				newreq->buffer_count_min +
+				msm_dcvs_get_extra_buff_count(inst);
+		}
+		if (!inst->in_reconfig &&
+			inst->state < MSM_VIDC_LOAD_RESOURCES_DONE) {
+			dprintk(VIDC_DBG, "Clients will correct this\n");
+			rc = set_actual_buffer_count(inst, ctrl->val,
+				buffer_type);
+			bufreq->buffer_count_min_host = ctrl->val;
+			return 0;
+		}
+		bufreq->buffer_count_min_host = ctrl->val = count;
+		rc = set_actual_buffer_count(inst, ctrl->val,
+			buffer_type);
+
+		return rc;
+	}
+	return -EINVAL;
+}
+
 static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
-	return 0;
+	int rc = 0;
+
+	/*
+	 * HACK: unlock the control prior to querying the hardware.  Otherwise
+	 * lower level code that attempts to do g_ctrl() will end up deadlocking
+	 * us.
+	 */
+	v4l2_ctrl_unlock(ctrl);
+
+	switch (ctrl->id) {
+
+	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+		ctrl->val = inst->profile;
+	break;
+
+	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+		ctrl->val = inst->level;
+	break;
+
+	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
+		ctrl->val = inst->entropy_mode;
+	break;
+
+	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
+	case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
+		rc = msm_vdec_get_count(inst, ctrl);
+		break;
+	default:
+		/*
+		 * Other controls aren't really volatile, shouldn't need to
+		 * modify ctrl->value
+		 */
+		break;
+	}
+	v4l2_ctrl_lock(ctrl);
+
+	return rc;
 }
 
 static int msm_vidc_op_g_volatile_ctrl(struct v4l2_ctrl *ctrl)

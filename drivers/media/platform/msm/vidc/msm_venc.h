@@ -22,9 +22,7 @@ int msm_venc_ctrl_init(struct msm_vidc_inst *inst,
 	const struct v4l2_ctrl_ops *ctrl_ops);
 int msm_venc_enum_fmt(void *instance, struct v4l2_fmtdesc *f);
 int msm_venc_s_fmt(void *instance, struct v4l2_format *f);
-int msm_venc_g_fmt(void *instance, struct v4l2_format *f);
 int msm_venc_s_ctrl(void *instance, struct v4l2_ctrl *ctrl);
 int msm_venc_s_ext_ctrl(void *instance, struct v4l2_ext_controls *a);
-struct vb2_ops *msm_venc_get_vb2q_ops(void);
 
 #endif

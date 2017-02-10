@@ -251,6 +251,7 @@ struct hfi_batch_info {
 struct hfi_buffer_count_actual {
 	u32 buffer_type;
 	u32 buffer_count_actual;
+	u32 buffer_count_min_host;
 };
 
 struct hfi_buffer_size_minimum {
@@ -262,8 +263,8 @@ struct hfi_buffer_requirements {
 	u32 buffer_type;
 	u32 buffer_size;
 	u32 buffer_region_size;
-	u32 buffer_hold_count;
 	u32 buffer_count_min;
+	u32 buffer_count_min_host;
 	u32 buffer_count_actual;
 	u32 contiguous;
 	u32 buffer_alignment;

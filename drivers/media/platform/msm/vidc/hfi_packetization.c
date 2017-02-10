@@ -1069,6 +1069,7 @@ int create_pkt_cmd_session_set_property(
 		hfi = (struct hfi_buffer_count_actual *)
 			&pkt->rg_property_data[1];
 		hfi->buffer_count_actual = prop->buffer_count_actual;
+		hfi->buffer_count_min_host = prop->buffer_count_min_host;
 
 		buffer_type = get_hfi_buffer(prop->buffer_type);
 		if (buffer_type)

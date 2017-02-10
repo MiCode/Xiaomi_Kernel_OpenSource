@@ -607,6 +607,7 @@ struct hal_enable {
 struct hal_buffer_count_actual {
 	enum hal_buffer buffer_type;
 	u32 buffer_count_actual;
+	u32 buffer_count_min_host;
 };
 
 struct hal_buffer_size_minimum {
@@ -826,8 +827,8 @@ struct hal_buffer_requirements {
 	enum hal_buffer buffer_type;
 	u32 buffer_size;
 	u32 buffer_region_size;
-	u32 buffer_hold_count;
 	u32 buffer_count_min;
+	u32 buffer_count_min_host;
 	u32 buffer_count_actual;
 	u32 contiguous;
 	u32 buffer_alignment;
