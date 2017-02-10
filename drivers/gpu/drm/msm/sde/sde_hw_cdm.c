@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,19 +54,6 @@ static u32 cosite_v_coeff[] = {0x00080004};
  * Vertical coefficients for offsite chroma downscale
  */
 static u32 offsite_v_coeff[] = {0x00060002};
-
-/* Limited Range rgb2yuv coeff with clamp and bias values for CSC 10 module */
-static struct sde_csc_cfg rgb2yuv_cfg = {
-	{
-		0x0083, 0x0102, 0x0032,
-		0x1fb5, 0x1f6c, 0x00e1,
-		0x00e1, 0x1f45, 0x1fdc
-	},
-	{ 0x00, 0x00, 0x00 },
-	{ 0x0040, 0x0200, 0x0200 },
-	{ 0x000, 0x3ff, 0x000, 0x3ff, 0x000, 0x3ff },
-	{ 0x040, 0x3ac, 0x040, 0x3c0, 0x040, 0x3c0 },
-};
 
 static struct sde_cdm_cfg *_cdm_offset(enum sde_cdm cdm,
 		struct sde_mdss_cfg *m,
@@ -326,12 +313,6 @@ struct sde_hw_cdm *sde_hw_cdm_init(enum sde_cdm idx,
 	c->cdm_hw_cap = cfg;
 	_setup_cdm_ops(&c->ops, c->cdm_hw_cap->features);
 	c->hw_mdp = hw_mdp;
-
-	/*
-	 * Perform any default initialization for the chroma down module
-	 * @setup default csc coefficients
-	 */
-	sde_hw_cdm_setup_csc_10bit(c, &rgb2yuv_cfg);
 
 	return c;
 }
