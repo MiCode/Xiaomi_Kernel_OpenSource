@@ -1981,6 +1981,7 @@ static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
 		if (err)
 			goto bail;
 		chan->session[0].dev = me->dev;
+		chan->session[0].smmu.dev = me->dev;
 	}
 
 	*session = &chan->session[idx];
