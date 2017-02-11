@@ -1,0 +1,11 @@
+menu "Miscellaneous Qualcomm Technologies, Inc. power support"
+
+config MSM_APM
+	bool "Qualcomm Technologies, Inc. platform specific APM driver"
+	help
+	  Platform specific driver to manage the power source of
+	  memory arrays. Interfaces with regulator drivers to ensure
+	  SRAM Vmin requirements are met across different performance
+	  levels.
+
+endmenu

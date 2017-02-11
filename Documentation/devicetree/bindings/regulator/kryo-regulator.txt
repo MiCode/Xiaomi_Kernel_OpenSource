@@ -1,0 +1,151 @@
+Qualcomm Technologies, Inc. Kryo Regulator
+
+The Kryo regulator device is designed for QTI's application processor cores
+that can draw power from a common power rail via a block head switch (BHS)
+or from a configurable LDO when certain power constraints are met. By using
+Kryo regulators, the CPU subsystem is capable of selecting LDO or BHS modes
+for each cluster.
+
+=================
+First Level Nodes
+=================
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: must be "qcom,kryo-regulator"
+
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Specifies addresses and sizes for the memory mapped regions of the
+		    power gate and LDO registers per cluster and per shared power rail
+		    domain. The third address must correspond to the register space
+		    containing the CPU subsystem HW revision register.
+
+- reg-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Identifies the reg property entries. Must contain the following
+		    strings: "pm-apc", "pm-apcc", and "apcs-csr".
+
+- qcom,ldo-default-voltage
+	Usage:      required
+	Value type: <u32>
+	Definition: The default value for LDO voltage in microvolts. Must be
+		    between 520000 uV and 865000 uV.
+
+- qcom,retention-voltage
+	Usage:      required
+	Value type: <u32>
+	Definition: The value for retention voltage in microvolts. Must be
+		    between 520000 and 865000 uV.
+
+- qcom,ldo-headroom-voltage
+	Usage:      required
+	Value type: <u32>
+	Definition: Voltage in microvolts required between the VDD_APCC voltage supply
+		    and the LDO output in order for the LDO to be operational.
+
+- qcom,vref-functional-step-voltage
+	Usage:      required
+	Value type: <u32>
+	Definition: The voltage change in microvolts for each step in the
+		    functional LDO set point.
+
+- qcom,vref-functional-min-voltage
+	Usage:      required
+	Value type: <u32>
+	Definition: The minimum configurable functional LDO voltage in microvolts.
+
+- qcom,vref-retention-step-voltage
+	Usage:      required
+	Value type: <u32>
+	Definition: The voltage change in microvolts for each step in the
+		    retention LDO set point.
+
+- qcom,vref-retention-min-voltage
+	Usage:      required
+	Value type: <u32>
+	Definition: The minimum configurable retention LDO voltage in microvolts.
+
+- qcom,ldo-config-init
+	Usage:      required
+	Value type: <u32>
+	Definition: Initialization value used to configure the Kryo LDO hardware.
+
+- qcom,apm-config-init
+	Usage:      required
+	Value type: <u32>
+	Definition: Initialization value used to configure the Kryo APM hardware.
+
+- qcom,cluster-num
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of the cluster this regulator controls.
+
+==================
+Second Level Nodes
+==================
+The second level node represents a regulator which enables control of LDO retention
+mode per Kryo regulator device. This second level node is required.
+
+The following regulator framework properties must be specified for both first and
+second level nodes: regulator-name, regulator-min-microvolt, and regulator-max-microvolt.
+
+Additional core regulator framework properties may also be used. For a full list of
+supported bindings refer to Documentation/devicetree/bindings/regulator/regulator.txt.
+
+=======
+Example
+=======
+
+	kryo0_vreg: regulator@99a2000 {
+		compatible = "qcom,kryo-regulator";
+		regulator-name = "kryo0";
+		reg = <0x99a2000 0x1000>, <0x99e0000 0x1000>,
+		      <0x9820000 0x1000>;
+		reg-names = "pm-apc", "pm-apcc", "apcs-csr";
+		regulator-min-microvolt = <520000>;
+		regulator-max-microvolt = <865000>;
+		qcom,ldo-default-voltage = <750000>;
+		qcom,retention-voltage = <520000>;
+		qcom,ldo-headroom-voltage = <150000>;
+		qcom,vref-functional-step-voltage = <4100>;
+		qcom,vref-functional-min-voltage = <299000>;
+		qcom,vref-retention-step-voltage = <4554>;
+		qcom,vref-retention-min-voltage = <332000>;
+		qcom,ldo-config-init = <0xf1f0e471>;
+		qcom,apm-config-init = <0x0>;
+		qcom,cluster-num = <0>;
+		kryo0_retention_vreg: regulator {
+			regulator-name = "kryo0-retention";
+			regulator-min-microvolt = <332000>;
+			regulator-max-microvolt = <865000>;
+		};
+	};
+
+	kryo1_vreg: regulator@99d2000 {
+		compatible = "qcom,kryo-regulator";
+		regulator-name = "kryo1";
+		reg = <0x99d2000 0x1000>, <0x99e0000 0x1000>,
+		      <0x9820000 0x1000>;
+		reg-names = "pm-apc", "pm-apcc", "apcs-csr";
+		regulator-min-microvolt = <520000>;
+		regulator-max-microvolt = <865000>;
+		qcom,ldo-default-voltage = <750000>;
+		qcom,retention-voltage = <520000>;
+		qcom,ldo-headroom-voltage = <150000>;
+		qcom,vref-functional-step-voltage = <4063>;
+		qcom,vref-functional-min-voltage = <296000>;
+		qcom,vref-retention-step-voltage = <4554>;
+		qcom,vref-retention-min-voltage = <332000>;
+		qcom,ldo-config-init = <0xf1f0e471>;
+		qcom,apm-config-init = <0x0>;
+		qcom,cluster-num = <1>;
+		kryo1_retention_vreg: regulator {
+			regulator-name = "kryo1-retention";
+			regulator-min-microvolt = <332000>;
+			regulator-max-microvolt = <865000>;
+		};
+	};
