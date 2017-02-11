@@ -1909,7 +1909,7 @@ int ath10k_debug_start(struct ath10k *ar)
 			ath10k_warn(ar, "failed to disable pktlog: %d\n", ret);
 	}
 
-	if (ar->debug.nf_cal_period) {
+	if (ar->debug.nf_cal_period && !QCA_REV_WCN3990(ar)) {
 		ret = ath10k_wmi_pdev_set_param(ar,
 						ar->wmi.pdev_param->cal_period,
 						ar->debug.nf_cal_period);
@@ -1926,7 +1926,8 @@ void ath10k_debug_stop(struct ath10k *ar)
 {
 	lockdep_assert_held(&ar->conf_mutex);
 
-	ath10k_debug_cal_data_fetch(ar);
+	if (!QCA_REV_WCN3990(ar))
+		ath10k_debug_cal_data_fetch(ar);
 
 	/* Must not use _sync to avoid deadlock, we do that in
 	 * ath10k_debug_destroy(). The check for htt_stats_mask is to avoid
@@ -2419,14 +2420,17 @@ int ath10k_debug_register(struct ath10k *ar)
 	debugfs_create_file("fw_dbglog", S_IRUSR | S_IWUSR,
 			    ar->debug.debugfs_phy, ar, &fops_fw_dbglog);
 
-	debugfs_create_file("cal_data", S_IRUSR, ar->debug.debugfs_phy,
-			    ar, &fops_cal_data);
+	if (!QCA_REV_WCN3990(ar)) {
+		debugfs_create_file("cal_data", S_IRUSR, ar->debug.debugfs_phy,
+				    ar, &fops_cal_data);
+
+		debugfs_create_file("nf_cal_period", S_IRUSR | S_IWUSR,
+				    ar->debug.debugfs_phy, ar,
+				    &fops_nf_cal_period);
+	}
 
 	debugfs_create_file("ani_enable", S_IRUSR | S_IWUSR,
 			    ar->debug.debugfs_phy, ar, &fops_ani_enable);
-
-	debugfs_create_file("nf_cal_period", S_IRUSR | S_IWUSR,
-			    ar->debug.debugfs_phy, ar, &fops_nf_cal_period);
 
 	if (IS_ENABLED(CONFIG_ATH10K_DFS_CERTIFIED)) {
 		debugfs_create_file("dfs_simulate_radar", S_IWUSR,
