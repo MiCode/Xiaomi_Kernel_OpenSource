@@ -98,6 +98,7 @@ static DEFINE_SPINLOCK(mdss_mdp_intr_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
 static DEFINE_MUTEX(mdp_iommu_ref_cnt_lock);
 static DEFINE_MUTEX(mdp_fs_idle_pc_lock);
+static DEFINE_MUTEX(mdp_sec_ref_cnt_lock);
 
 static struct mdss_panel_intf pan_types[] = {
 	{"dsi", MDSS_PANEL_INTF_DSI},
@@ -783,6 +784,19 @@ int mdss_update_reg_bus_vote(struct reg_bus_client *bus_client, u32 usecase_ndx)
 }
 #endif
 
+void mdss_mdp_vbif_reg_lock(void)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	mutex_lock(&mdata->reg_lock);
+}
+
+void mdss_mdp_vbif_reg_unlock(void)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	mutex_unlock(&mdata->reg_lock);
+}
 
 static int mdss_mdp_intr2index(u32 intr_type, u32 intf_num)
 {
@@ -2145,6 +2159,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
 		mdss_set_quirk(mdata, MDSS_QUIRK_MMSS_GDSC_COLLAPSE);
 		mdss_set_quirk(mdata, MDSS_QUIRK_MDP_CLK_SET_RATE);
+		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
 		mdata->has_wb_ubwc = true;
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map);
@@ -2851,6 +2866,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mdata->reg_bus_clist);
 	atomic_set(&mdata->sd_client_count, 0);
 	atomic_set(&mdata->active_intf_cnt, 0);
+	init_waitqueue_head(&mdata->secure_waitq);
 
 	mdss_res->mdss_util = mdss_get_util_intf();
 	if (mdss_res->mdss_util == NULL) {
@@ -2865,6 +2881,8 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mdss_res->mdss_util->bus_bandwidth_ctrl = mdss_bus_bandwidth_ctrl;
 	mdss_res->mdss_util->panel_intf_type = mdss_panel_intf_type;
 	mdss_res->mdss_util->panel_intf_status = mdss_panel_get_intf_status;
+	mdss_res->mdss_util->vbif_reg_lock = mdss_mdp_vbif_reg_lock;
+	mdss_res->mdss_util->vbif_reg_unlock = mdss_mdp_vbif_reg_unlock;
 
 	rc = msm_dss_ioremap_byname(pdev, &mdata->mdss_io, "mdp_phys");
 	if (rc) {
@@ -5169,6 +5187,27 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 	int ret = 0;
 	uint32_t sid_info;
 	struct scm_desc desc;
+	bool changed = false;
+
+	mutex_lock(&mdp_sec_ref_cnt_lock);
+
+	if (enable) {
+		if (mdata->sec_session_cnt == 0)
+			changed = true;
+		mdata->sec_session_cnt++;
+	} else {
+		if (mdata->sec_session_cnt != 0) {
+			mdata->sec_session_cnt--;
+			if (mdata->sec_session_cnt == 0)
+				changed = true;
+		} else {
+			pr_warn("%s: ref_count is not balanced\n",
+				__func__);
+		}
+	}
+
+	if (!changed)
+		goto end;
 
 	if (test_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map)) {
 		/*
@@ -5192,7 +5231,8 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 				desc.args[3] = VMID_CP_CAMERA_PREVIEW;
 				mdata->sec_cam_en = 1;
 			} else {
-				return 0;
+				ret = 0;
+				goto end;
 			}
 
 			/* detach smmu contexts */
@@ -5200,7 +5240,8 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 			if (ret) {
 				pr_err("Error while detaching smmu contexts ret = %d\n",
 					ret);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 
 			/* let the driver think smmu is still attached */
@@ -5212,7 +5253,8 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 			if (ret) {
 				pr_err("Error scm_call MEM_PROTECT_SD_CTRL(%u) ret=%dm resp=%x\n",
 						enable, ret, resp);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 			resp = desc.ret[0];
 
@@ -5245,7 +5287,8 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 			if (ret) {
 				pr_err("Error while attaching smmu contexts ret = %d\n",
 					ret);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 		}
 		MDSS_XLOG(enable);
@@ -5268,10 +5311,11 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 		pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x\n",
 				enable, ret, resp);
 	}
-	if (ret)
-		return ret;
 
-	return resp;
+end:
+	mutex_unlock(&mdp_sec_ref_cnt_lock);
+	return ret;
+
 }
 
 static inline int mdss_mdp_suspend_sub(struct mdss_data_type *mdata)
