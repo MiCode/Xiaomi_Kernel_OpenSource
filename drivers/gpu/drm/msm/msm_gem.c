@@ -97,12 +97,13 @@ static struct page **get_pages(struct drm_gem_object *obj)
 
 		msm_obj->pages = p;
 
-		/* For non-cached buffers, ensure the new pages are clean
-		 * because display controller, GPU, etc. are not coherent:
+		/*
+		 * Make sure to flush the CPU cache for newly allocated memory
+		 * so we don't get ourselves into trouble with a dirty cache
 		 */
 		if (msm_obj->flags & (MSM_BO_WC|MSM_BO_UNCACHED))
-			dma_map_sg(dev->dev, msm_obj->sgt->sgl,
-					msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
+			dma_sync_sg_for_device(dev->dev, msm_obj->sgt->sgl,
+				msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
 	}
 
 	return msm_obj->pages;
@@ -113,12 +114,6 @@ static void put_pages(struct drm_gem_object *obj)
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 
 	if (msm_obj->pages) {
-		/* For non-cached buffers, ensure the new pages are clean
-		 * because display controller, GPU, etc. are not coherent:
-		 */
-		if (msm_obj->flags & (MSM_BO_WC|MSM_BO_UNCACHED))
-			dma_unmap_sg(obj->dev->dev, msm_obj->sgt->sgl,
-					msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
 		sg_free_table(msm_obj->sgt);
 		kfree(msm_obj->sgt);
 
@@ -307,9 +302,14 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 					DRM_ERROR("Unable to map dma buf\n");
 					return ret;
 				}
+			} else {
+				ret = mmu->funcs->map_sg(mmu, msm_obj->sgt,
+					DMA_BIDIRECTIONAL);
 			}
-			msm_obj->domain[id].iova =
-				sg_dma_address(msm_obj->sgt->sgl);
+
+			if (!ret)
+				msm_obj->domain[id].iova =
+					sg_dma_address(msm_obj->sgt->sgl);
 		} else {
 			WARN_ONCE(1, "physical address being used\n");
 			msm_obj->domain[id].iova = physaddr(obj);
@@ -535,7 +535,9 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 				mmu->funcs->unmap_dma_buf(mmu, msm_obj->sgt,
 						obj->import_attach->dmabuf,
 						DMA_BIDIRECTIONAL);
-			}
+			} else
+				 mmu->funcs->unmap_sg(mmu, msm_obj->sgt,
+					DMA_BIDIRECTIONAL);
 		}
 	}
 
