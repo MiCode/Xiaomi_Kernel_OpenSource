@@ -104,12 +104,14 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
 	return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
 }
 
-int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
+int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type,
+		    unsigned int flags)
 {
 	union bpf_attr attr = {
 		.target_fd = target_fd,
 		.attach_bpf_fd = prog_fd,
 		.attach_type = type,
+		.attach_flags  = flags;
 	};
 
 	return syscall(__NR_bpf, BPF_PROG_ATTACH, &attr, sizeof(attr));
