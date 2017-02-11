@@ -399,6 +399,7 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 		ctl   = mfd_to_ctl(mfd);
 		sctl  = mdss_mdp_get_split_ctl(ctl);
 
+		mutex_lock(&ctl->ds_lock);
 		if (ctl->mixer_left)
 			ds_left = ctl->mixer_left->ds;
 
@@ -412,6 +413,7 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 		case DS_DUAL_MODE:
 			if (!ds_left || !ds_right) {
 				pr_err("Cannot support DUAL mode dest scaling\n");
+				mutex_unlock(&ctl->ds_lock);
 				return -EINVAL;
 			}
 
@@ -457,6 +459,7 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 		case DS_LEFT:
 			if (!ds_left) {
 				pr_err("LM in ctl does not support Destination Scaler\n");
+				mutex_unlock(&ctl->ds_lock);
 				return -EINVAL;
 			}
 			ds_left->flags &= ~(DS_DUAL_MODE|DS_RIGHT);
@@ -486,6 +489,7 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 		case DS_RIGHT:
 			if (!ds_right) {
 				pr_err("Cannot setup DS_RIGHT because only single DS assigned to ctl\n");
+				mutex_unlock(&ctl->ds_lock);
 				return -EINVAL;
 			}
 
@@ -522,7 +526,6 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 					ds_right->src_height, ds_right->flags);
 			break;
 		}
-
 	} else {
 		pr_err("NULL destionation scaler data\n");
 		return -EFAULT;
@@ -559,6 +562,7 @@ static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
 		goto reset_mixer;
 	}
 
+	mutex_unlock(&ctl->ds_lock);
 	return ret;
 
 reset_mixer:
@@ -592,6 +596,7 @@ reset_mixer:
 				ctl->mixer_right->height);
 	}
 
+	mutex_unlock(&ctl->ds_lock);
 	return ret;
 }
 

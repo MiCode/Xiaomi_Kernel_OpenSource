@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -391,6 +391,24 @@ void add_popp(u32 dev_idx, u32 port_id, u32 popp_id)
 		rtac_adm_data.device[dev_idx].num_of_popp - 1].app_type);
 done:
 	return;
+}
+
+void rtac_update_afe_topology(u32 port_id)
+{
+	u32 i = 0;
+
+	mutex_lock(&rtac_adm_mutex);
+	for (i = 0; i < rtac_adm_data.num_of_dev; i++) {
+		if (rtac_adm_data.device[i].afe_port == port_id) {
+			rtac_adm_data.device[i].afe_topology =
+						afe_get_topology(port_id);
+			pr_debug("%s: port_id = 0x%x topology_id = 0x%x copp_id = %d\n",
+				 __func__, port_id,
+				 rtac_adm_data.device[i].afe_topology,
+				 rtac_adm_data.device[i].copp);
+		}
+	}
+	mutex_unlock(&rtac_adm_mutex);
 }
 
 void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id,

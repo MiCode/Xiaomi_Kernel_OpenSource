@@ -2186,6 +2186,7 @@
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor12";
 			qcom,scaling-factor = <10>;
+			qcom,alias-name = "gpu_1";
 		};
 		sensor_information13: qcom,sensor-information-13 {
 			qcom,sensor-type = "tsens";

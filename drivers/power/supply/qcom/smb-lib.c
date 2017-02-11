@@ -39,7 +39,7 @@
 
 static bool is_secure(struct smb_charger *chg, int addr)
 {
-	if (addr == SHIP_MODE_REG)
+	if (addr == SHIP_MODE_REG || addr == FREQ_CLK_DIV_REG)
 		return true;
 	/* assume everything above 0xA0 is secure */
 	return (bool)((addr & 0xFF) >= 0xA0);
@@ -151,6 +151,31 @@ static int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 	return 0;
 }
 
+int smblib_icl_override(struct smb_charger *chg, bool override)
+{
+	int rc;
+	bool override_status;
+	u8 stat;
+
+	rc = smblib_read(chg, APSD_RESULT_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read APSD_RESULT_STATUS_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+	override_status = (bool)(stat & ICL_OVERRIDE_LATCH_BIT);
+
+	if (override != override_status) {
+		rc = smblib_masked_write(chg, CMD_APSD_REG,
+				ICL_OVERRIDE_BIT, ICL_OVERRIDE_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't override ICL rc=%d\n", rc);
+			return rc;
+		}
+	}
+	return 0;
+}
+
 /********************
  * REGISTER GETTERS *
  ********************/
@@ -189,34 +214,6 @@ int smblib_get_usb_suspend(struct smb_charger *chg, int *suspend)
 		return rc;
 	}
 	*suspend = temp & USBIN_SUSPEND_BIT;
-
-	return rc;
-}
-
-#define FSW_600HZ_FOR_5V	600
-#define FSW_800HZ_FOR_6V_8V	800
-#define FSW_1MHZ_FOR_REMOVAL	1000
-#define FSW_1MHZ_FOR_9V		1000
-#define FSW_1P2MHZ_FOR_12V	1200
-static int smblib_set_opt_freq_buck(struct smb_charger *chg, int fsw_khz)
-{
-	union power_supply_propval pval = {0, };
-	int rc = 0;
-
-	rc = smblib_set_charge_param(chg, &chg->param.freq_buck, fsw_khz);
-	if (rc < 0)
-		dev_err(chg->dev, "Error in setting freq_buck rc=%d\n", rc);
-
-	if (chg->mode == PARALLEL_MASTER && chg->pl.psy) {
-		pval.intval = fsw_khz;
-		rc = power_supply_set_property(chg->pl.psy,
-				POWER_SUPPLY_PROP_BUCK_FREQ, &pval);
-		if (rc < 0) {
-			dev_err(chg->dev,
-				"Could not set parallel buck_freq rc=%d\n", rc);
-			return rc;
-		}
-	}
 
 	return rc;
 }
@@ -325,6 +322,58 @@ static const struct apsd_result *smblib_get_apsd_result(struct smb_charger *chg)
  * REGISTER SETTERS *
  ********************/
 
+static int chg_freq_list[] = {
+	9600, 9600, 6400, 4800, 3800, 3200, 2700, 2400, 2100, 1900, 1700,
+	1600, 1500, 1400, 1300, 1200,
+};
+
+int smblib_set_chg_freq(struct smb_chg_param *param,
+				int val_u, u8 *val_raw)
+{
+	u8 i;
+
+	if (val_u > param->max_u || val_u < param->min_u)
+		return -EINVAL;
+
+	/* Charger FSW is the configured freqency / 2 */
+	val_u *= 2;
+	for (i = 0; i < ARRAY_SIZE(chg_freq_list); i++) {
+		if (chg_freq_list[i] == val_u)
+			break;
+	}
+	if (i == ARRAY_SIZE(chg_freq_list)) {
+		pr_err("Invalid frequency %d Hz\n", val_u / 2);
+		return -EINVAL;
+	}
+
+	*val_raw = i;
+
+	return 0;
+}
+
+static int smblib_set_opt_freq_buck(struct smb_charger *chg, int fsw_khz)
+{
+	union power_supply_propval pval = {0, };
+	int rc = 0;
+
+	rc = smblib_set_charge_param(chg, &chg->param.freq_buck, fsw_khz);
+	if (rc < 0)
+		dev_err(chg->dev, "Error in setting freq_buck rc=%d\n", rc);
+
+	if (chg->mode == PARALLEL_MASTER && chg->pl.psy) {
+		pval.intval = fsw_khz;
+		rc = power_supply_set_property(chg->pl.psy,
+				POWER_SUPPLY_PROP_BUCK_FREQ, &pval);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Could not set parallel buck_freq rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
 int smblib_set_charge_param(struct smb_charger *chg,
 			    struct smb_chg_param *param, int val_u)
 {
@@ -417,13 +466,13 @@ static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 
 	if (min_allowed_uv == MICRO_5V && max_allowed_uv == MICRO_5V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_5V;
-		smblib_set_opt_freq_buck(chg, FSW_600HZ_FOR_5V);
+		smblib_set_opt_freq_buck(chg, chg->chg_freq.freq_5V);
 	} else if (min_allowed_uv == MICRO_9V && max_allowed_uv == MICRO_9V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_9V;
-		smblib_set_opt_freq_buck(chg, FSW_1MHZ_FOR_9V);
+		smblib_set_opt_freq_buck(chg, chg->chg_freq.freq_9V);
 	} else if (min_allowed_uv == MICRO_12V && max_allowed_uv == MICRO_12V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_12V;
-		smblib_set_opt_freq_buck(chg, FSW_1P2MHZ_FOR_12V);
+		smblib_set_opt_freq_buck(chg, chg->chg_freq.freq_12V);
 	} else if (min_allowed_uv < MICRO_9V && max_allowed_uv <= MICRO_9V) {
 		allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_9V;
 	} else if (min_allowed_uv < MICRO_9V && max_allowed_uv <= MICRO_12V) {
@@ -567,6 +616,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	/* reset both usbin current and voltage votes */
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
+	vote(chg->pl_disable_votable, PL_DISABLE_HVDCP_VOTER, true, 0);
 
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
 
@@ -704,19 +754,37 @@ static int smblib_usb_icl_vote_callback(struct votable *votable, void *data,
 {
 	struct smb_charger *chg = data;
 	int rc = 0;
-	bool suspend = (icl_ua < USBIN_25MA);
+	bool suspend, override;
 	u8 icl_options = 0;
+
+	override = true;
+	/* remove override if no voters or type = SDP or CDP */
+	if (client == NULL
+		|| chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB
+		|| chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB_CDP)
+		override = false;
+
+	suspend = false;
+	if (client && (icl_ua < USBIN_25MA))
+		suspend = true;
 
 	if (suspend)
 		goto out;
 
 	if (chg->usb_psy_desc.type != POWER_SUPPLY_TYPE_USB) {
-		rc = smblib_set_charge_param(chg, &chg->param.usb_icl, icl_ua);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't set HC ICL rc=%d\n", rc);
-			return rc;
+		if (client) {
+			rc = smblib_set_charge_param(chg, &chg->param.usb_icl,
+					icl_ua - chg->icl_reduction_ua);
+			if (rc < 0) {
+				smblib_err(chg, "Couldn't set HC ICL rc=%d\n",
+					rc);
+				return rc;
+			}
 		}
 
+		smblib_dbg(chg, PR_PARALLEL,
+				"icl_ua=%d icl_reduction=%d\n",
+				icl_ua, chg->icl_reduction_ua);
 		goto out;
 	}
 
@@ -745,10 +813,14 @@ static int smblib_usb_icl_vote_callback(struct votable *votable, void *data,
 	}
 
 out:
+	if (override)
+		icl_options |= USBIN_MODE_CHG_BIT;
+
 	rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
-			CFG_USB3P0_SEL_BIT | USB51_MODE_BIT, icl_options);
+		CFG_USB3P0_SEL_BIT | USB51_MODE_BIT | USBIN_MODE_CHG_BIT,
+		icl_options);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't set ICL opetions rc=%d\n", rc);
+		smblib_err(chg, "Couldn't set ICL options rc=%d\n", rc);
 		return rc;
 	}
 
@@ -756,6 +828,12 @@ out:
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't %s input rc=%d\n",
 			suspend ? "suspend" : "resume", rc);
+		return rc;
+	}
+
+	rc = smblib_icl_override(chg, override);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't set ICL override rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1972,17 +2050,15 @@ int smblib_set_prop_usb_current_max(struct smb_charger *chg,
 				true, val->intval);
 	} else if (chg->system_suspend_supported) {
 		if (val->intval <= USBIN_25MA)
-			rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
-					true, val->intval);
+			rc = vote(chg->usb_icl_votable,
+				PD_SUSPEND_SUPPORTED_VOTER, true, val->intval);
 		else
-			rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
-					false, 0);
+			rc = vote(chg->usb_icl_votable,
+				PD_SUSPEND_SUPPORTED_VOTER, false, 0);
 	}
 	return rc;
 }
 
-#define FSW_2MHZ		2000
-#define FSW_800KHZ_RESET	800
 int smblib_set_prop_boost_current(struct smb_charger *chg,
 				    const union power_supply_propval *val)
 {
@@ -1990,7 +2066,8 @@ int smblib_set_prop_boost_current(struct smb_charger *chg,
 
 	rc = smblib_set_charge_param(chg, &chg->param.freq_boost,
 				val->intval <= chg->boost_threshold_ua ?
-				FSW_2MHZ : FSW_800KHZ_RESET);
+				chg->chg_freq.freq_below_otg_threshold :
+				chg->chg_freq.freq_above_otg_threshold);
 	if (rc < 0) {
 		dev_err(chg->dev, "Error in setting freq_boost rc=%d\n", rc);
 		return rc;
@@ -2114,7 +2191,11 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 				"Couldn't enable vconn on CC line rc=%d\n", rc);
 			return rc;
 		}
-
+		/*
+		 * Enforce 500mA for PD until the real vote comes in later.
+		 * It is guaranteed that pd_active is set prior to
+		 * pd_current_max
+		 */
 		rc = vote(chg->usb_icl_votable, PD_VOTER, true, USBIN_500MA);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
@@ -2122,50 +2203,17 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			return rc;
 		}
 
+		/* remove DCP_VOTER */
 		rc = vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
 		if (rc < 0) {
-			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
-					rc);
+			smblib_err(chg, "Couldn't unvote DCP rc=%d\n", rc);
 			return rc;
 		}
 
-		rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
-				USBIN_MODE_CHG_BIT, USBIN_MODE_CHG_BIT);
+		/* remove USB_PSY_VOTER */
+		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't change USB mode rc=%d\n", rc);
-			return rc;
-		}
-
-		rc = smblib_masked_write(chg, CMD_APSD_REG,
-				ICL_OVERRIDE_BIT, ICL_OVERRIDE_BIT);
-		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't override APSD rc=%d\n", rc);
-			return rc;
-		}
-	} else {
-		rc = vote(chg->usb_icl_votable, DCP_VOTER, true,
-				chg->dcp_icl_ua);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't vote for USB ICL rc=%d\n",
-					rc);
-			return rc;
-		}
-
-		rc = smblib_masked_write(chg, CMD_APSD_REG,
-				ICL_OVERRIDE_BIT, 0);
-		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't override APSD rc=%d\n", rc);
-			return rc;
-		}
-
-		rc = smblib_masked_write(chg, USBIN_ICL_OPTIONS_REG,
-				USBIN_MODE_CHG_BIT, 0);
-		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't change USB mode rc=%d\n", rc);
+			smblib_err(chg, "Couldn't unvote USB_PSY rc=%d\n", rc);
 			return rc;
 		}
 	}
@@ -2581,7 +2629,8 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 
 	vbus_rising = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
 	smblib_set_opt_freq_buck(chg,
-		vbus_rising ? FSW_600HZ_FOR_5V : FSW_1MHZ_FOR_REMOVAL);
+		vbus_rising ? chg->chg_freq.freq_5V :
+			chg->chg_freq.freq_removal);
 
 	/* fetch the DPDM regulator */
 	if (!chg->dpdm_reg && of_get_property(chg->dev->of_node,
@@ -2687,16 +2736,20 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 
 		switch (stat & QC_2P0_STATUS_MASK) {
 		case QC_5V_BIT:
-			smblib_set_opt_freq_buck(chg, FSW_600HZ_FOR_5V);
+			smblib_set_opt_freq_buck(chg,
+					chg->chg_freq.freq_5V);
 			break;
 		case QC_9V_BIT:
-			smblib_set_opt_freq_buck(chg, FSW_1MHZ_FOR_9V);
+			smblib_set_opt_freq_buck(chg,
+					chg->chg_freq.freq_9V);
 			break;
 		case QC_12V_BIT:
-			smblib_set_opt_freq_buck(chg, FSW_1P2MHZ_FOR_12V);
+			smblib_set_opt_freq_buck(chg,
+					chg->chg_freq.freq_12V);
 			break;
 		default:
-			smblib_set_opt_freq_buck(chg, FSW_1MHZ_FOR_REMOVAL);
+			smblib_set_opt_freq_buck(chg,
+					chg->chg_freq.freq_removal);
 			break;
 		}
 	}
@@ -2711,14 +2764,17 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 		pulses = (stat & QC_PULSE_COUNT_MASK);
 
 		if (pulses < QC3_PULSES_FOR_6V)
-			smblib_set_opt_freq_buck(chg, FSW_600HZ_FOR_5V);
+			smblib_set_opt_freq_buck(chg,
+				chg->chg_freq.freq_5V);
 		else if (pulses < QC3_PULSES_FOR_9V)
-			smblib_set_opt_freq_buck(chg, FSW_800HZ_FOR_6V_8V);
+			smblib_set_opt_freq_buck(chg,
+				chg->chg_freq.freq_6V_8V);
 		else if (pulses < QC3_PULSES_FOR_12V)
-			smblib_set_opt_freq_buck(chg, FSW_1MHZ_FOR_9V);
+			smblib_set_opt_freq_buck(chg,
+				chg->chg_freq.freq_9V);
 		else
-			smblib_set_opt_freq_buck(chg, FSW_1P2MHZ_FOR_12V);
-
+			smblib_set_opt_freq_buck(chg,
+				chg->chg_freq.freq_12V);
 	}
 }
 
@@ -2751,6 +2807,9 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 	if (chg->mode == PARALLEL_MASTER)
 		vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, true, 0);
 
+	/* QC authentication done, parallel charger can be enabled now */
+	vote(chg->pl_disable_votable, PL_DISABLE_HVDCP_VOTER, false, 0);
+
 	/* the APSD done handler will set the USB supply type */
 	apsd_result = smblib_get_apsd_result(chg);
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: hvdcp-3p0-auth-done rising; %s detected\n",
@@ -2760,6 +2819,8 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 					      bool rising, bool qc_charger)
 {
+	const struct apsd_result *apsd_result = smblib_update_usb_type(chg);
+
 	/* Hold off PD only until hvdcp 2.0 detection timeout */
 	if (rising) {
 		vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
@@ -2767,6 +2828,24 @@ static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 		if (get_effective_result(chg->pd_disallowed_votable_indirect))
 			/* could be a legacy cable, try doing hvdcp */
 			try_rerun_apsd_for_hvdcp(chg);
+
+		/*
+		 * HVDCP detection timeout done
+		 * If adapter is not QC2.0/QC3.0 - it is a plain old DCP.
+		 */
+		if (!qc_charger && (apsd_result->bit & DCP_CHARGER_BIT))
+			/* enforce DCP ICL if specified */
+			vote(chg->usb_icl_votable, DCP_VOTER,
+				chg->dcp_icl_ua != -EINVAL, chg->dcp_icl_ua);
+		/*
+		 * If adapter is not QC2.0/QC3.0 remove vote for parallel
+		 * disable.
+		 * Otherwise if adapter is QC2.0/QC3.0 wait for authentication
+		 * to complete.
+		 */
+		if (!qc_charger)
+			vote(chg->pl_disable_votable, PL_DISABLE_HVDCP_VOTER,
+					false, 0);
 	}
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: smblib_handle_hvdcp_check_timeout %s\n",
@@ -2892,12 +2971,19 @@ static void typec_source_removal(struct smb_charger *chg)
 	/* clear USB ICL vote for PD_VOTER */
 	rc = vote(chg->usb_icl_votable, PD_VOTER, false, 0);
 	if (rc < 0)
-		smblib_err(chg, "Couldn't un-vote for USB ICL rc=%d\n", rc);
+		smblib_err(chg, "Couldn't un-vote PD from USB ICL rc=%d\n", rc);
 
 	/* clear USB ICL vote for USB_PSY_VOTER */
 	rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 	if (rc < 0)
-		smblib_err(chg, "Couldn't un-vote for USB ICL rc=%d\n", rc);
+		smblib_err(chg,
+			"Couldn't un-vote USB_PSY from USB ICL rc=%d\n", rc);
+
+	/* clear USB ICL vote for DCP_VOTER */
+	rc = vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
+	if (rc < 0)
+		smblib_err(chg,
+			"Couldn't un-vote DCP from USB ICL rc=%d\n", rc);
 }
 
 static void typec_source_insertion(struct smb_charger *chg)
@@ -2915,7 +3001,8 @@ static void typec_sink_insertion(struct smb_charger *chg)
 
 static void typec_sink_removal(struct smb_charger *chg)
 {
-	smblib_set_charge_param(chg, &chg->param.freq_boost, FSW_800KHZ_RESET);
+	smblib_set_charge_param(chg, &chg->param.freq_boost,
+			chg->chg_freq.freq_above_otg_threshold);
 	chg->boost_current_ua = 0;
 }
 
@@ -2925,6 +3012,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER, true, 0);
 	vote(chg->pd_disallowed_votable_indirect, LEGACY_CABLE_VOTER, true, 0);
 	vote(chg->pd_disallowed_votable_indirect, VBUS_CC_SHORT_VOTER, true, 0);
+	vote(chg->pl_disable_votable, PL_DISABLE_HVDCP_VOTER, true, 0);
 
 	/* reset votes from vbus_cc_short */
 	vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER,
@@ -3482,6 +3570,7 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 	vote(chg->pl_disable_votable, PL_INDIRECT_VOTER, true, 0);
+	vote(chg->pl_disable_votable, PL_DISABLE_HVDCP_VOTER, true, 0);
 
 	chg->usb_suspend_votable = create_votable("USB_SUSPEND", VOTE_SET_ANY,
 					smblib_usb_suspend_vote_callback,

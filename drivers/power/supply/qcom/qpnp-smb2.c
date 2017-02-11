@@ -219,6 +219,23 @@ static struct smb_params v1_params = {
 	},
 };
 
+static struct smb_params pm660_params = {
+	.freq_buck		= {
+		.name	= "buck switching frequency",
+		.reg	= FREQ_CLK_DIV_REG,
+		.min_u	= 600,
+		.max_u	= 1600,
+		.set_proc = smblib_set_chg_freq,
+	},
+	.freq_boost		= {
+		.name	= "boost switching frequency",
+		.reg	= FREQ_CLK_DIV_REG,
+		.min_u	= 600,
+		.max_u	= 1600,
+		.set_proc = smblib_set_chg_freq,
+	},
+};
+
 #define STEP_CHARGING_MAX_STEPS	5
 struct smb_dt_props {
 	int	fcc_ua;
@@ -367,6 +384,8 @@ static int smb2_parse_dt(struct smb2 *chip)
 						"qcom,auto-recharge-soc");
 
 	chg->micro_usb_mode = of_property_read_bool(node, "qcom,micro-usb");
+
+	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
 
 	return 0;
 }
@@ -1321,7 +1340,6 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
-	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
 	chg->boost_threshold_ua = chip->dt.boost_threshold_ua;
 
 	rc = smblib_read(chg, APSD_RESULT_STATUS_REG, &stat);
@@ -1333,12 +1351,9 @@ static int smb2_init_hw(struct smb2 *chip)
 	smblib_rerun_apsd_if_required(chg);
 
 	/* clear the ICL override if it is set */
-	if (stat & ICL_OVERRIDE_LATCH_BIT) {
-		rc = smblib_write(chg, CMD_APSD_REG, ICL_OVERRIDE_BIT);
-		if (rc < 0) {
-			pr_err("Couldn't disable ICL override rc=%d\n", rc);
-			return rc;
-		}
+	if (smblib_icl_override(chg, false) < 0) {
+		pr_err("Couldn't disable ICL override rc=%d\n", rc);
+		return rc;
 	}
 
 	/* votes must be cast before configuring software control */
@@ -1350,8 +1365,6 @@ static int smb2_init_hw(struct smb2 *chip)
 		DEFAULT_VOTER, true, chip->dt.fcc_ua);
 	vote(chg->fv_votable,
 		DEFAULT_VOTER, true, chip->dt.fv_uv);
-	vote(chg->usb_icl_votable,
-		DCP_VOTER, true, chip->dt.usb_icl_ua);
 	vote(chg->dc_icl_votable,
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
 	vote(chg->hvdcp_disable_votable_indirect, DEFAULT_VOTER,
@@ -1366,6 +1379,18 @@ static int smb2_init_hw(struct smb2 *chip)
 			chg->micro_usb_mode, 0);
 	vote(chg->hvdcp_enable_votable, MICRO_USB_VOTER,
 			chg->micro_usb_mode, 0);
+
+	/*
+	 * AICL configuration:
+	 * start from min and AICL ADC disable
+	 */
+	rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
+			USBIN_AICL_START_AT_MAX_BIT
+				| USBIN_AICL_ADC_EN_BIT, 0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't configure AICL rc=%d\n", rc);
+		return rc;
+	}
 
 	/* Configure charge enable for software control; active high */
 	rc = smblib_masked_write(chg, CHGR_CFG2_REG,
@@ -1530,7 +1555,7 @@ static int smb2_init_hw(struct smb2 *chip)
 	return rc;
 }
 
-static int smb2_setup_wa_flags(struct smb2 *chip)
+static int smb2_chg_config_init(struct smb2 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
 	struct pmic_revid_data *pmic_rev_id;
@@ -1560,9 +1585,25 @@ static int smb2_setup_wa_flags(struct smb2 *chip)
 			chg->wa_flags |= QC_CHARGER_DETECTION_WA_BIT;
 		if (pmic_rev_id->rev4 == PMI8998_V2P0_REV4) /* PMI rev 2.0 */
 			chg->wa_flags |= TYPEC_CC2_REMOVAL_WA_BIT;
+		chg->chg_freq.freq_5V		= 600;
+		chg->chg_freq.freq_6V_8V	= 800;
+		chg->chg_freq.freq_9V		= 1000;
+		chg->chg_freq.freq_12V		= 1200;
+		chg->chg_freq.freq_removal	= 1000;
+		chg->chg_freq.freq_below_otg_threshold = 2000;
+		chg->chg_freq.freq_above_otg_threshold = 800;
 		break;
 	case PM660_SUBTYPE:
 		chip->chg.wa_flags |= BOOST_BACK_WA;
+		chg->param.freq_buck = pm660_params.freq_buck;
+		chg->param.freq_boost = pm660_params.freq_boost;
+		chg->chg_freq.freq_5V		= 600;
+		chg->chg_freq.freq_6V_8V	= 800;
+		chg->chg_freq.freq_9V		= 1050;
+		chg->chg_freq.freq_12V		= 1200;
+		chg->chg_freq.freq_removal	= 1050;
+		chg->chg_freq.freq_below_otg_threshold = 1600;
+		chg->chg_freq.freq_above_otg_threshold = 800;
 		break;
 	default:
 		pr_err("PMIC subtype %d not supported\n",
@@ -1951,10 +1992,10 @@ static int smb2_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	rc = smb2_setup_wa_flags(chip);
+	rc = smb2_chg_config_init(chip);
 	if (rc < 0) {
 		if (rc != -EPROBE_DEFER)
-			pr_err("Couldn't setup wa flags rc=%d\n", rc);
+			pr_err("Couldn't setup chg_config rc=%d\n", rc);
 		return rc;
 	}
 

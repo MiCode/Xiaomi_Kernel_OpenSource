@@ -2339,6 +2339,11 @@ static int mdss_dp_parse_config_value(char const *buf, char const *name,
 	if (buf1) {
 		buf1 = buf1 + strlen(name);
 		token = strsep(&buf1, " ");
+		if (!token) {
+			pr_err("strsep failed\n");
+			ret = -EINVAL;
+			goto end;
+		}
 		ret = kstrtou32(token, 10, val);
 		if (ret) {
 			pr_err("kstrtoint failed. ret=%d\n", (int)ret);

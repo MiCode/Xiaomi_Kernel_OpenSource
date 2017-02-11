@@ -17,6 +17,16 @@
 #define ICNSS_MAX_IRQ_REGISTRATIONS    12
 #define ICNSS_MAX_TIMESTAMP_LEN        32
 
+enum icnss_uevent {
+	ICNSS_UEVENT_FW_READY,
+	ICNSS_UEVENT_FW_CRASHED,
+};
+
+struct icnss_uevent_data {
+	enum icnss_uevent uevent;
+	void *data;
+};
+
 struct icnss_driver_ops {
 	char *name;
 	int (*probe)(struct device *dev);
@@ -28,6 +38,7 @@ struct icnss_driver_ops {
 	int (*pm_resume)(struct device *dev);
 	int (*suspend_noirq)(struct device *dev);
 	int (*resume_noirq)(struct device *dev);
+	int (*uevent)(struct device *dev, struct icnss_uevent_data *uevent);
 };
 
 

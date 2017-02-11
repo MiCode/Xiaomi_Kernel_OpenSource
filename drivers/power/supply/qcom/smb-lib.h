@@ -52,6 +52,8 @@ enum print_reason {
 #define HVDCP_INDIRECT_VOTER		"HVDCP_INDIRECT_VOTER"
 #define MICRO_USB_VOTER			"MICRO_USB_VOTER"
 #define DEBUG_BOARD_VOTER		"DEBUG_BOARD_VOTER"
+#define PD_SUSPEND_SUPPORTED_VOTER	"PD_SUSPEND_SUPPORTED_VOTER"
+#define PL_DISABLE_HVDCP_VOTER		"PL_DISABLE_HVDCP_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
@@ -103,6 +105,16 @@ struct smb_chg_param {
 	int		(*set_proc)(struct smb_chg_param *param,
 				    int val_u,
 				    u8 *val_raw);
+};
+
+struct smb_chg_freq {
+	unsigned int		freq_5V;
+	unsigned int		freq_6V_8V;
+	unsigned int		freq_9V;
+	unsigned int		freq_12V;
+	unsigned int		freq_removal;
+	unsigned int		freq_below_otg_threshold;
+	unsigned int		freq_above_otg_threshold;
 };
 
 struct smb_params {
@@ -158,6 +170,7 @@ struct smb_charger {
 	int			*debug_mask;
 	enum smb_mode		mode;
 	bool			external_vconn;
+	struct smb_chg_freq	chg_freq;
 
 	/* locks */
 	struct mutex		write_lock;
@@ -264,6 +277,8 @@ int smblib_mapping_cc_delta_to_field_value(struct smb_chg_param *param,
 					   u8 val_raw);
 int smblib_mapping_cc_delta_from_field_value(struct smb_chg_param *param,
 					     int val_u, u8 *val_raw);
+int smblib_set_chg_freq(struct smb_chg_param *param,
+				int val_u, u8 *val_raw);
 
 int smblib_vbus_regulator_enable(struct regulator_dev *rdev);
 int smblib_vbus_regulator_disable(struct regulator_dev *rdev);
@@ -392,6 +407,7 @@ void smblib_suspend_on_debug_battery(struct smb_charger *chg);
 int smblib_rerun_apsd_if_required(struct smb_charger *chg);
 int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 			       union power_supply_propval *val);
+int smblib_icl_override(struct smb_charger *chg, bool override);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

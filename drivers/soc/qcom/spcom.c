@@ -276,6 +276,7 @@ static void spcom_notify_rx_abort(void *handle, const void *priv,
 				  const void *pkt_priv);
 static struct spcom_channel *spcom_find_channel_by_name(const char *name);
 static int spcom_unlock_ion_buf(struct spcom_channel *ch, int fd);
+static void spcom_rx_abort_pending_server(void);
 
 /**
  * spcom_is_ready() - driver is initialized and ready.
@@ -381,6 +382,9 @@ static void spcom_link_state_notif_cb(struct glink_link_state_cb_info *cb_info,
 			pr_err("failed to find channel [%s].\n", ch_name);
 		else
 			spcom_unlock_ion_buf(ch, SPCOM_ION_FD_UNLOCK_ALL);
+
+		pr_debug("Rx-Abort pending servers.\n");
+		spcom_rx_abort_pending_server();
 		break;
 	default:
 		pr_err("unknown link_state [%d].\n", cb_info->link_state);
@@ -546,7 +550,7 @@ static void spcom_notify_rx_abort(void *handle, const void *priv,
 
 	pr_debug("ch [%s] pending rx aborted.\n", ch->name);
 
-	if (spcom_is_channel_connected(ch) && (!ch->rx_abort)) {
+	if (spcom_is_channel_open(ch) && (!ch->rx_abort)) {
 		ch->rx_abort = true;
 		complete_all(&ch->rx_done);
 	}
@@ -949,6 +953,13 @@ static int spcom_get_next_request_size(struct spcom_channel *ch)
 
 	pr_debug("Wait for Rx Done, ch [%s].\n", ch->name);
 	wait_for_completion(&ch->rx_done);
+
+	/* Check Rx Abort on SP reset */
+	if (ch->rx_abort) {
+		pr_err("rx aborted.\n");
+		goto exit_error;
+	}
+
 	if (ch->actual_rx_size <= 0) {
 		pr_err("invalid rx size [%d] ch [%s].\n",
 		       ch->actual_rx_size, ch->name);
@@ -972,6 +983,27 @@ exit_error:
 	return -EFAULT;
 
 
+}
+
+/**
+ * spcom_rx_abort_pending_server() - abort pending server rx on SSR.
+ *
+ * Server that is waiting for request, but has no client connected,
+ * will not get RX-ABORT or REMOTE-DISCONNECT notification,
+ * that should cancel the server pending rx operation.
+ */
+static void spcom_rx_abort_pending_server(void)
+{
+	int i;
+
+	for (i = 0 ; i < ARRAY_SIZE(spcom_dev->channels); i++) {
+		struct spcom_channel *ch = &spcom_dev->channels[i];
+
+		if (ch->is_server) {
+			pr_debug("rx-abort server on ch [%s].\n", ch->name);
+			spcom_notify_rx_abort(NULL, ch, NULL);
+		}
+	}
 }
 
 /*======================================================================*/
@@ -1944,8 +1976,8 @@ static int spcom_handle_read(struct spcom_channel *ch,
 {
 	if (size == SPCOM_GET_NEXT_REQUEST_SIZE) {
 		pr_debug("get next request size, ch [%s].\n", ch->name);
-		size = spcom_handle_get_req_size(ch, buf, size);
 		ch->is_server = true;
+		size = spcom_handle_get_req_size(ch, buf, size);
 	} else {
 		pr_debug("get request/response, ch [%s].\n", ch->name);
 		size = spcom_handle_read_req_resp(ch, buf, size);

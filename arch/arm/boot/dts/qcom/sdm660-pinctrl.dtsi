@@ -49,16 +49,17 @@
 			};
 		};
 
-		trigout_b: trigout_b {
+		trigout_a: trigout_a {
 			mux {
-				pins = "gpio12";
-				function = "qdss_cti1_b";
+				pins = "gpio49";
+				function = "qdss_cti_trig_out_a";
 			};
 
 			config {
-				pins = "gpio12";
-				drive-strength = <16>;
+				pins = "gpio49";
+				drive-strength = <2>;
 				bias-disable;
+				output-low;
 			};
 		};
 

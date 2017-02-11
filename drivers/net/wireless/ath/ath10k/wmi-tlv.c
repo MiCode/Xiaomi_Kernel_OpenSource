@@ -3174,6 +3174,33 @@ ath10k_wmi_tlv_op_gen_wow_del_pattern(struct ath10k *ar, u32 vdev_id,
 }
 
 static struct sk_buff *
+ath10k_wmi_tlv_op_gen_set_base_mac_addr(struct ath10k *ar, u32 pdev_id,
+					u8 *mac_addr)
+{
+	struct wmi_tlv_mac_addr_cmd *cmd;
+	struct wmi_tlv *tlv;
+	struct sk_buff *skb;
+	size_t len;
+
+	len = sizeof(*tlv) + sizeof(*cmd);
+	skb = ath10k_wmi_alloc_skb(ar, len);
+	if (!skb)
+		return ERR_PTR(-ENOMEM);
+
+	tlv = (struct wmi_tlv *)skb->data;
+	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_PDEV_SET_BASE_MACADDR_CMD);
+	tlv->len = __cpu_to_le16(sizeof(*cmd));
+	cmd = (void *)tlv->value;
+
+	cmd->pdev_id = __cpu_to_le32(pdev_id);
+	ether_addr_copy(cmd->mac_addr.addr, mac_addr);
+
+	ath10k_dbg(ar, ATH10K_DBG_WMI, "wmi tlv set_base_mac addr pdev_id %d mac addr %pM\n",
+		   cmd->pdev_id, cmd->mac_addr.addr);
+	return skb;
+}
+
+static struct sk_buff *
 ath10k_wmi_tlv_op_gen_adaptive_qcs(struct ath10k *ar, bool enable)
 {
 	struct wmi_tlv_adaptive_qcs *cmd;
@@ -3719,6 +3746,7 @@ static const struct wmi_ops wmi_hl_1_0_ops = {
 	.gen_tdls_peer_update = ath10k_wmi_tlv_op_gen_tdls_peer_update,
 	.gen_adaptive_qcs = ath10k_wmi_tlv_op_gen_adaptive_qcs,
 	.fw_stats_fill = ath10k_wmi_main_op_fw_stats_fill,
+	.gen_set_pdev_mac_addr = ath10k_wmi_tlv_op_gen_set_base_mac_addr,
 };
 
 void ath10k_wmi_hl_1_0_attach(struct ath10k *ar)

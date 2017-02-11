@@ -534,6 +534,10 @@
 	status = "ok";
 };
 
+&snd_9335 {
+	qcom,mbhc-audio-jack-type = "6-pole-jack";
+};
+
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";
