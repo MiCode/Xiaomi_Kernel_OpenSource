@@ -1,0 +1,230 @@
+QPNP OLEDB (AMOLED AVDD Bias) Regulator
+
+QPNP OLEDB module provides AVDD voltage bias to the AMOLED display panel.
+The supported voltage range is 5V to 8.1V.
+
+This document describes the bindings for QPNP OLEDB module.
+
+=======================
+Required Node Structure
+=======================
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: should be "qcom,qpnp-oledb-regulator".
+
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition:  Base address of the OLEDB SPMI peripheral.
+
+- label
+	Usage:      required
+	Value type: <string>
+	Definition: A string used to describe the bias type(oledb).
+
+- regulator-name
+	Usage:      required
+	Value type: <string>
+	Definition: A string used to describe the regulator.
+
+- regulator-min-microvolt
+	Usage:      required
+	Value type: <u32>
+	Definition: Minimum voltage (in uV) supported by the bias (5000000uV).
+
+- regulator-max-microvolt
+	Usage:      required
+	Value type: <u32>
+	Definition: Maximum voltage (in uV) supported by the bias (8100000uV).
+
+- qcom,swire-control
+	Usage:      optional
+	Value type: <bool>
+	Definition: Enables the voltage programming through SWIRE signal.
+
+ qcom,ext-pin-control
+	Usage:      optional
+	Value type: <bool>
+	Definition: Configures the OLED module to be enabled by a external pin.
+
+ qcom,dynamic-ext-pinctl-config
+	Usage:      optional
+	Value type: <bool>
+	Definition:  Used to dynamically enable/disable the OLEDB module
+		     using external pin to avoid the glitches on the voltage
+		     rail.  This property is applicable only if qcom,ext-pin-ctl
+		     property is specified and it is specific to PM660A.
+
+ qcom,pbs-control
+	Usage:      optional
+	Value type: <bool>
+	Definition: PMIC PBS logic directly configures the output voltage update
+		    and pull down control.
+
+ qcom,oledb-init-voltage-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: Sets the AVDD bias voltage (in mV) when the module is
+		    already enabled. Applicable only if the qcom,swire-control
+		    property is not specified. Supported values are from 5.0V
+		    to 8.1V with a step of 100mV.
+
+qcom,oledb-default-voltage-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: Sets the default AVDD bias voltage (in mV) before module
+		    enable. Supported values are from 5.0V to 8.1V with the
+		    step of 100mV.
+
+qcom,bias-gen-warmup-delay-ns
+	Usage:      optional
+	Value type: <u32>
+	Definition: Bias generator warm-up time (ns). Supported values are
+		    6700, 13300, 267000, 534000.
+
+qcom,peak-curr-limit-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Peak current limit (in mA). Supported values are 115, 265,
+		    415, 570, 720, 870, 1020, 1170.
+
+qcom,pull-down-enable
+	Usage:      optional
+	Value type: <u32>
+	Definition: Pull down configuration of OLEDB.
+		    1 - Enable pull-down
+		    0 - Disable pull-down
+
+qcom,negative-curr-limit-enable
+	Usage:      optional
+	Value type: <u32>
+	Definition: negative current limit enable/disable.
+			1 = enable negative current limit
+			0 = disable negative current limit
+
+qcom,negative-curr-limit-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Negative current limit (in mA). Supported values are
+		    170, 300, 420, 550.
+
+qcom,enable-short-circuit
+	Usage:      optional
+	Value type: <u32>
+	Definition: Short circuit protection enable/disable.
+			1 = enable short circuit protection
+			0 = disable short circuit protection
+
+qcom,short-circuit-dbnc-time
+	usage:      optional
+	Value type: <u32>
+	Definitioan: Short circuit debounce time (in Fsw). Supported
+		     values are 2, 4, 8, 16.
+
+Fast precharge properties:
+-------------------------
+
+qcom,fast-precharge-ppulse-enable
+	usage:      optional
+	Value type: <u32>
+	Definitioan: Fast precharge pfet pulsing enable/disable.
+			1 = enable fast precharge pfet pulsing
+			0 = disable fast precharge pfet pulsing
+
+qcom,precharge-debounce-time-ms
+	usage:      optional
+	Value type: <u32>
+	Definitioan: Fast precharge debounce time (in ms). Supported
+		     values are 1, 2, 4, 8.
+
+qcom,precharge-pulse-period-us
+	usage:      optional
+	Value type: <u32>
+	Definitioan: Fast precharge pulse period (in us). Supported
+		     values are 3, 6, 9, 12.
+
+qcom,precharge-pulse-on-time-us
+	usage:      optional
+	Value type: <u32>
+	Definitioan: Fast precharge pulse on time (in ns). Supported
+		     values are 1200, 1800, 2400, 3000.
+
+Pulse Skip Modulation (PSM) properties:
+--------------------------------------
+
+qcom,psm-enable
+	Usage:      optional
+	Value type: <u32>
+	Definition: Pulse Skip Modulation mode.
+		    1 - Enable PSM mode
+		    0 - Disable PSM mode
+
+qcom,psm-hys-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: PSM hysterysis voltage (in mV).
+		    Supported values are 13mV and 26mV.
+
+qcom,psm-vref-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: Reference voltage(in mV) control for PSM comparator.
+		    Supported values are 440, 510, 580, 650, 715, 780, 850,
+		    and 920.
+
+Pulse Frequency Modulation (PFM) properties:
+-------------------------------------------
+
+qcom,pfm-enable
+	Usage:      optional
+	Value type: <u32>
+	Definition: Pulse Frequency Modulation mode.
+		    1 - Enable PFM mode
+		    0 - Disable PFM mode
+
+qcom,pfm-hys-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: PFM hysterysis voltage (in mV).
+		    Supported values are 13mV and 26mV.
+
+qcom,pfm-curr-limit-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: PFM current limit (in mA).
+		    Supported values are 130, 200, 270, 340.
+
+qcom,pfm-off-time-ns
+	Usage:      optional
+	Value type: <u32>
+	Definition: NFET off time at PFM (in ns).
+		    Supported values are 110, 240, 350, 480.
+
+=======
+Example
+=======
+
+pm660a_oledb: qpnp-oledb@e000 {
+	compatible = "qcom,qpnp-oledb-regulator";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	reg = <0xe000 0x100>;
+
+	label = "oledb";
+	regulator-name = "regulator-oledb";
+	regulator-min-microvolt = <5000000>;
+	regulator-max-microvolt = <8100000>;
+
+	qcom,swire-control;
+	qcom,ext-pin-control;
+
+	qcom,oledb-default-voltage-mv = <5000>;
+	qcom,bias-gen-warmup-delay-ns = <6700>;
+	qcom,pull-down-enable = <1>;
+	qcom,peak-curr-limit-ma = <570>;
+
+	qcom, enable-psm = <1>;
+	qcom,psm-hys-mv = <13>;
+};

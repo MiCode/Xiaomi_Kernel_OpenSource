@@ -659,6 +659,43 @@ config LEDS_MLXCPLD
 	  This option enabled support for the LEDs on the Mellanox
 	  boards. Say Y to enabled these.
 
+config LEDS_QPNP
+	tristate "Support for QPNP LEDs"
+	depends on LEDS_CLASS && SPMI
+	help
+	  This driver supports the LED functionality of Qualcomm Technologies,
+	  Inc. QPNP PMICs.  It primarily supports controlling tri-color RGB
+	  LEDs in both PWM and light pattern generator (LPG) modes.  For older
+	  PMICs, it also supports WLEDs and flash LEDs.
+
+config LEDS_QPNP_FLASH
+	tristate "Support for QPNP Flash LEDs"
+	depends on LEDS_CLASS && SPMI
+	help
+	  This driver supports the flash LED functionality of Qualcomm
+	  Technologies, Inc. QPNP PMICs.  This driver supports PMICs up through
+	  PM8994.  It can configure the flash LED target current for several
+	  independent channels.
+
+config LEDS_QPNP_FLASH_V2
+	tristate "Support for QPNP V2 Flash LEDs"
+	depends on LEDS_CLASS && MFD_SPMI_PMIC && !LEDS_QPNP_FLASH
+	help
+	  This driver supports the flash V2 LED functionality of Qualcomm
+	  Technologies, Inc. QPNP PMICs.  This driver supports PMICs starting
+	  from PMI8998.  It can configure the flash LED target current for
+	  several independent channels.  It also supports various over current
+	  and over temperature mitigation features.
+
+config LEDS_QPNP_WLED
+	tristate "Support for QPNP WLED"
+	depends on LEDS_CLASS && SPMI
+	help
+	  This driver supports the WLED (White LED) functionality of Qualcomm
+	  Technologies, Inc. QPNP PMICs.  WLED is used for LCD backlight with
+	  variable brightness.  It also supports outputting the Avdd supply for
+	  AMOLED displays.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
