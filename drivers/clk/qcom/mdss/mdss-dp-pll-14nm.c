@@ -62,6 +62,7 @@ v----------+----------v	  |	divsel_two	|    |	   divsel_four	   |
 #include "mdss-dp-pll-14nm.h"
 
 static struct dp_pll_db dp_pdb;
+static struct clk_ops mux_clk_ops;
 
 static struct regmap_config dp_pll_14nm_cfg = {
 	.reg_bits	= 32,
@@ -137,6 +138,47 @@ static struct clk_fixed_factor dp_vco_divsel_four_clk_src = {
 	},
 };
 
+static int clk_mux_determine_rate(struct clk_hw *hw,
+				     struct clk_rate_request *req)
+{
+	int ret = 0;
+
+	ret = __clk_mux_determine_rate_closest(hw, req);
+	if (ret)
+		return ret;
+
+	/* Set the new parent of mux if there is a new valid parent */
+	if (hw->clk && req->best_parent_hw->clk)
+		clk_set_parent(hw->clk, req->best_parent_hw->clk);
+
+	return 0;
+}
+
+
+static unsigned long mux_recalc_rate(struct clk_hw *hw,
+					unsigned long parent_rate)
+{
+	struct clk *div_clk = NULL, *vco_clk = NULL;
+	struct dp_pll_vco_clk *vco = NULL;
+
+	div_clk = clk_get_parent(hw->clk);
+	if (!div_clk)
+		return 0;
+
+	vco_clk = clk_get_parent(div_clk);
+	if (!vco_clk)
+		return 0;
+
+	vco = to_dp_vco_hw(__clk_get_hw(vco_clk));
+	if (!vco)
+		return 0;
+
+	if (vco->rate == DP_VCO_HSCLK_RATE_5400MHZDIV1000)
+		return (vco->rate / 4);
+	else
+		return (vco->rate / 2);
+}
+
 static struct clk_regmap_mux dp_vco_divided_clk_src_mux = {
 	.reg = 0x64,
 	.shift = 0,
@@ -149,7 +191,7 @@ static struct clk_regmap_mux dp_vco_divided_clk_src_mux = {
 				(const char *[]){"dp_vco_divsel_two_clk_src",
 					"dp_vco_divsel_four_clk_src"},
 			.num_parents = 2,
-			.ops = &clk_regmap_mux_closest_ops,
+			.ops = &mux_clk_ops,
 			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
 		},
 	},
@@ -202,6 +244,9 @@ int dp_pll_clock_register_14nm(struct platform_device *pdev,
 	regmap = devm_regmap_init(&pdev->dev, &dp_pixel_mux_regmap_ops,
 			pll_res, &dp_pll_14nm_cfg);
 	dp_vco_divided_clk_src_mux.clkr.regmap = regmap;
+	mux_clk_ops = clk_regmap_mux_closest_ops;
+	mux_clk_ops.determine_rate = clk_mux_determine_rate;
+	mux_clk_ops.recalc_rate = mux_recalc_rate;
 
 	dp_vco_clk.priv = pll_res;
 
