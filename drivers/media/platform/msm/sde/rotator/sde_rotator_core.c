@@ -1257,8 +1257,12 @@ static int sde_rotator_calc_perf(struct sde_rot_mgr *mgr,
 				(mgr->overhead.denom - max_fps *
 				mgr->overhead.numer));
 
+	/* use client provided clock if specified */
+	if (config->flags & SDE_ROTATION_EXT_PERF)
+		perf->clk_rate = config->clk_rate;
+
 	/*
-	 * check for Override clock calcualtion
+	 * check for Override clock calculation
 	 */
 	if (rot_dev->min_rot_clk > perf->clk_rate)
 		perf->clk_rate = rot_dev->min_rot_clk;
@@ -1281,6 +1285,10 @@ static int sde_rotator_calc_perf(struct sde_rot_mgr *mgr,
 	 */
 	if (rot_dev->min_bw > perf->bw)
 		perf->bw = rot_dev->min_bw;
+
+	/* use client provided bandwidth if specified */
+	if (config->flags & SDE_ROTATION_EXT_PERF)
+		perf->bw = config->data_bw;
 
 	perf->rdot_limit = sde_mdp_get_ot_limit(
 			config->input.width, config->input.height,

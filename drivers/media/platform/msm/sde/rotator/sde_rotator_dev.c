@@ -1380,7 +1380,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 	}
 
 	SDEROT_DBG(
-		"s:%d.%u src:(%u,%u,%u,%u)/%ux%u/%c%c%c%c dst:(%u,%u,%u,%u)/%c%c%c%c r:%d f:%d/%d s:%d fps:%u wb:%d vid:%d cmd:%d\n",
+		"s:%d.%u src:(%u,%u,%u,%u)/%ux%u/%c%c%c%c dst:(%u,%u,%u,%u)/%c%c%c%c r:%d f:%d/%d s:%d fps:%u clk:%llu bw:%llu wb:%d vid:%d cmd:%d\n",
 		ctx->session_id, cmd->sequence_id,
 		cmd->src_rect_x, cmd->src_rect_y,
 		cmd->src_rect_w, cmd->src_rect_h,
@@ -1392,7 +1392,20 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		cmd->dst_pixfmt >> 0, cmd->dst_pixfmt >> 8,
 		cmd->dst_pixfmt >> 16, cmd->dst_pixfmt >> 24,
 		cmd->rot90, cmd->hflip, cmd->vflip, cmd->secure, cmd->fps,
+		cmd->clkrate, cmd->data_bw,
 		cmd->dst_writeback, cmd->video_mode, cmd_type);
+	SDEROT_EVTLOG(ctx->session_id, cmd->sequence_id,
+		cmd->src_rect_x, cmd->src_rect_y,
+		cmd->src_rect_w, cmd->src_rect_h,
+		cmd->src_width, cmd->src_height,
+		cmd->src_pixfmt,
+		cmd->dst_rect_x, cmd->dst_rect_y,
+		cmd->dst_rect_w, cmd->dst_rect_h,
+		cmd->dst_pixfmt,
+		cmd->rot90, cmd->hflip, cmd->vflip, cmd->secure, cmd->fps,
+		cmd->clkrate, cmd->data_bw,
+		cmd->dst_writeback, cmd->video_mode, cmd_type);
+
 
 	sde_rot_mgr_lock(rot_dev->mgr);
 
@@ -1414,6 +1427,8 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 			flags |= SDE_ROTATION_FLIP_UD;
 		if (cmd->secure)
 			flags |= SDE_ROTATION_SECURE;
+
+		flags |= SDE_ROTATION_EXT_PERF;
 
 		/* fill in item work structure */
 		memset(&item, 0, sizeof(struct sde_rotation_item));
@@ -1478,6 +1493,8 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		memset(&rotcfg, 0, sizeof(struct sde_rotation_config));
 		rotcfg.flags = flags;
 		rotcfg.frame_rate = cmd->fps;
+		rotcfg.clk_rate = cmd->clkrate;
+		rotcfg.data_bw = cmd->data_bw;
 		rotcfg.session_id = ctx->session_id;
 		rotcfg.input.width = cmd->src_rect_w;
 		rotcfg.input.height = cmd->src_rect_h;

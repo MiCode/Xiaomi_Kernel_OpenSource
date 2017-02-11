@@ -65,6 +65,9 @@
 /* use client mapped i/o virtual address */
 #define SDE_ROTATION_EXT_IOVA		0x80000
 
+/* use client provided clock/bandwidth parameters */
+#define SDE_ROTATION_EXT_PERF		0x100000
+
 /**********************************************************************
  * configuration structures
  **********************************************************************/
@@ -91,6 +94,8 @@ struct sde_rotation_buf_info {
  * @input: input buffer information
  * @output: output buffer information
  * @frame_rate: session frame rate in fps
+ * @clk_rate: requested rotator clock rate if SDE_ROTATION_EXT_PERF is set
+ * @data_bw: requested data bus bandwidth if SDE_ROTATION_EXT_PERF is set
  * @flags: configuration flags, e.g. rotation angle, flip, etc...
  */
 struct sde_rotation_config {
@@ -98,6 +103,8 @@ struct sde_rotation_config {
 	struct sde_rotation_buf_info	input;
 	struct sde_rotation_buf_info	output;
 	uint32_t	frame_rate;
+	uint64_t	clk_rate;
+	uint64_t	data_bw;
 	uint32_t	flags;
 };
 
