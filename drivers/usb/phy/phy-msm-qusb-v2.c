@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,7 @@
 #define DPSE_INTERRUPT			BIT(0)
 
 #define QUSB2PHY_PORT_TUNE1		0x23c
+#define QUSB2PHY_TEST1			0x24C
 
 #define QUSB2PHY_1P8_VOL_MIN           1800000 /* uV */
 #define QUSB2PHY_1P8_VOL_MAX           1800000 /* uV */
@@ -556,12 +557,20 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				readl_relaxed(qphy->base +
 					QUSB2PHY_PLL_ANALOG_CONTROLS_TWO);
 
-			writel_relaxed(0x1b,
+			writel_relaxed(0x0b,
 				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_TWO);
 
 			/* enable clock bypass */
 			writel_relaxed(0x90,
 				qphy->base + QUSB2PHY_PLL_ANALOG_CONTROLS_ONE);
+
+			/* Enable auto-resume */
+			writel_relaxed(0x91,
+				qphy->base + QUSB2PHY_TEST1);
+
+			/* arm auto-resume */
+			writel_relaxed(0x90,
+				qphy->base + QUSB2PHY_TEST1);
 
 			/* Disable all interrupts */
 			writel_relaxed(0x00,
