@@ -327,7 +327,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 	int ret;
 	u32 source_vmlist[2] = {VMID_HLOS, VMID_MSS_MSA};
 	int dest_vmids[1] = {VMID_HLOS};
-	int dest_perms[1] = {PERM_READ|PERM_WRITE};
+	int dest_perms[1] = {PERM_READ|PERM_WRITE|PERM_EXEC};
 	struct notif_data *notifdata = NULL;
 
 	mutex_lock(&memsh_drv->mem_share);
