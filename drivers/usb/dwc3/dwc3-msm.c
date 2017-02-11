@@ -213,6 +213,8 @@ struct dwc3_msm {
 	struct notifier_block	vbus_nb;
 	struct notifier_block	id_nb;
 
+	struct notifier_block	host_nb;
+
 	int			pwr_event_irq;
 	atomic_t                in_p3;
 	unsigned int		lpm_to_suspend_delay;
@@ -3095,6 +3097,53 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int dwc3_msm_host_notifier(struct notifier_block *nb,
+	unsigned long event, void *ptr)
+{
+	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, host_nb);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	struct usb_device *udev = ptr;
+	union power_supply_propval pval;
+	unsigned int max_power;
+
+	if (event != USB_DEVICE_ADD && event != USB_DEVICE_REMOVE)
+		return NOTIFY_DONE;
+
+	if (!mdwc->usb_psy) {
+		mdwc->usb_psy = power_supply_get_by_name("usb");
+		if (!mdwc->usb_psy)
+			return NOTIFY_DONE;
+	}
+
+	/*
+	 * For direct-attach devices, new udev is direct child of root hub
+	 * i.e. dwc -> xhci -> root_hub -> udev
+	 * root_hub's udev->parent==NULL, so traverse struct device hierarchy
+	 */
+	if (udev->parent && !udev->parent->parent &&
+			udev->dev.parent->parent == &dwc->xhci->dev) {
+		if (event == USB_DEVICE_ADD && udev->actconfig) {
+			if (udev->speed >= USB_SPEED_SUPER)
+				max_power = udev->actconfig->desc.bMaxPower * 8;
+			else
+				max_power = udev->actconfig->desc.bMaxPower * 2;
+			dev_dbg(mdwc->dev, "%s configured bMaxPower:%d (mA)\n",
+					dev_name(&udev->dev), max_power);
+
+			/* inform PMIC of max power so it can optimize boost */
+			pval.intval = max_power * 1000;
+			power_supply_set_property(mdwc->usb_psy,
+					POWER_SUPPLY_PROP_BOOST_CURRENT, &pval);
+		} else {
+			pval.intval = 0;
+			power_supply_set_property(mdwc->usb_psy,
+					POWER_SUPPLY_PROP_BOOST_CURRENT, &pval);
+		}
+	}
+
+	return NOTIFY_DONE;
+}
+
 #define VBUS_REG_CHECK_DELAY	(msecs_to_jiffies(1000))
 
 /**
@@ -3152,6 +3201,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
 
+		mdwc->host_nb.notifier_call = dwc3_msm_host_notifier;
+		usb_register_notify(&mdwc->host_nb);
+
 		/*
 		 * FIXME If micro A cable is disconnected during system suspend,
 		 * xhci platform device will be removed before runtime pm is
@@ -3170,6 +3222,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
 			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
 			pm_runtime_put_sync(mdwc->dev);
+			usb_unregister_notify(&mdwc->host_nb);
 			return ret;
 		}
 
@@ -3202,6 +3255,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
 		mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
 		platform_device_del(dwc->xhci);
+		usb_unregister_notify(&mdwc->host_nb);
 
 		/*
 		 * Perform USB hardware RESET (both core reset and DBM reset)
