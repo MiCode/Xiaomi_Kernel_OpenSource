@@ -16,7 +16,6 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/power_supply.h>
-#include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/qpnp/qpnp-revid.h>
@@ -387,6 +386,8 @@ static int smb2_parse_dt(struct smb2 *chip)
 
 	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
 
+	chg->suspend_input_on_debug_batt = of_property_read_bool(node,
+					"qcom,suspend-input-on-debug-batt");
 	return 0;
 }
 
@@ -412,6 +413,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
 	POWER_SUPPLY_PROP_BOOST_CURRENT,
 	POWER_SUPPLY_PROP_PE_START,
+	POWER_SUPPLY_PROP_CTM_CURRENT_MAX,
 };
 
 static int smb2_usb_get_prop(struct power_supply *psy,
@@ -497,6 +499,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PE_START:
 		rc = smblib_get_pe_start(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
+		val->intval = get_client_vote(chg->usb_icl_votable, CTM_VOTER);
+		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -545,6 +550,10 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_BOOST_CURRENT:
 		rc = smblib_set_prop_boost_current(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
+		rc = vote(chg->usb_icl_votable, CTM_VOTER,
+						val->intval >= 0, val->intval);
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -558,7 +567,9 @@ static int smb2_usb_prop_is_writeable(struct power_supply *psy,
 		enum power_supply_property psp)
 {
 	switch (psp) {
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
+	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
 		return 1;
 	default:
 		break;
@@ -603,6 +614,7 @@ static enum power_supply_property smb2_usb_main_props[] = {
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
+	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
 	POWER_SUPPLY_PROP_FCC_DELTA,
 	/*
 	 * TODO move the TEMP and TEMP_MAX properties here,
@@ -635,6 +647,9 @@ static int smb2_usb_main_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
 		rc = smblib_get_prop_input_current_settled(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED:
+		rc = smblib_get_prop_input_voltage_settled(chg, val);
+		break;
 	case POWER_SUPPLY_PROP_FCC_DELTA:
 		rc = smblib_get_prop_fcc_delta(chg, val);
 		break;
@@ -663,8 +678,7 @@ static int smb2_usb_main_set_prop(struct power_supply *psy,
 		rc = smblib_set_charge_param(chg, &chg->param.fv, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_ICL_REDUCTION:
-		chg->icl_reduction_ua = val->intval;
-		rc = rerun_election(chg->usb_icl_votable);
+		rc = smblib_set_icl_reduction(chg, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fcc, val->intval);
@@ -825,7 +839,6 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
-	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED,
@@ -833,6 +846,7 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_DONE,
 	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
 	POWER_SUPPLY_PROP_SET_SHIP_MODE,
+	POWER_SUPPLY_PROP_DIE_HEALTH,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -885,12 +899,14 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = get_client_vote(chg->fv_votable, DEFAULT_VOTER);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
+		val->intval = chg->qnovo_fv_uv;
+		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = smblib_get_prop_batt_current_now(chg, val);
 		break;
-	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		val->intval = get_client_vote(chg->fcc_max_votable,
-					      DEFAULT_VOTER);
+	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
+		val->intval = chg->qnovo_fcc_ua;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		rc = smblib_get_prop_batt_temp(chg, val);
@@ -908,6 +924,9 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
 		/* Not in ship mode as long as device is active */
 		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_DIE_HEALTH:
+		rc = smblib_get_prop_die_health(chg, val);
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
@@ -945,8 +964,13 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		vote(chg->fv_votable, DEFAULT_VOTER, true, val->intval);
 		break;
-	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		vote(chg->fcc_max_votable, DEFAULT_VOTER, true, val->intval);
+	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
+		chg->qnovo_fv_uv = val->intval;
+		rc = rerun_election(chg->fv_votable);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
+		chg->qnovo_fcc_ua = val->intval;
+		rc = rerun_election(chg->fcc_votable);
 		break;
 	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
 		/* Not in ship mode as long as the device is active */
@@ -1316,9 +1340,10 @@ static int smb2_init_hw(struct smb2 *chip)
 	if (chip->dt.fv_uv < 0)
 		smblib_get_charge_param(chg, &chg->param.fv, &chip->dt.fv_uv);
 
+	smblib_get_charge_param(chg, &chg->param.usb_icl,
+				&chg->default_icl_ua);
 	if (chip->dt.usb_icl_ua < 0)
-		smblib_get_charge_param(chg, &chg->param.usb_icl,
-					&chip->dt.usb_icl_ua);
+		chip->dt.usb_icl_ua = chg->default_icl_ua;
 
 	if (chip->dt.dc_icl_ua < 0)
 		smblib_get_charge_param(chg, &chg->param.dc_icl,
@@ -1361,7 +1386,7 @@ static int smb2_init_hw(struct smb2 *chip)
 		DEFAULT_VOTER, chip->dt.no_battery, 0);
 	vote(chg->dc_suspend_votable,
 		DEFAULT_VOTER, chip->dt.no_battery, 0);
-	vote(chg->fcc_max_votable,
+	vote(chg->fcc_votable,
 		DEFAULT_VOTER, true, chip->dt.fcc_ua);
 	vote(chg->fv_votable,
 		DEFAULT_VOTER, true, chip->dt.fv_uv);
@@ -1580,6 +1605,7 @@ static int smb2_chg_config_init(struct smb2 *chip)
 
 	switch (pmic_rev_id->pmic_subtype) {
 	case PMI8998_SUBTYPE:
+		chip->chg.smb_version = PMI8998_SUBTYPE;
 		chip->chg.wa_flags |= BOOST_BACK_WA;
 		if (pmic_rev_id->rev4 == PMI8998_V1P1_REV4) /* PMI rev 1.1 */
 			chg->wa_flags |= QC_CHARGER_DETECTION_WA_BIT;
@@ -1594,6 +1620,7 @@ static int smb2_chg_config_init(struct smb2 *chip)
 		chg->chg_freq.freq_above_otg_threshold = 800;
 		break;
 	case PM660_SUBTYPE:
+		chip->chg.smb_version = PM660_SUBTYPE;
 		chip->chg.wa_flags |= BOOST_BACK_WA;
 		chg->param.freq_buck = pm660_params.freq_buck;
 		chg->param.freq_boost = pm660_params.freq_boost;
@@ -1640,180 +1667,172 @@ static int smb2_determine_initial_status(struct smb2 *chip)
  * INTERRUPT REGISTRATION *
  **************************/
 
-struct smb2_irq_info {
-	const char			*name;
-	const irq_handler_t		handler;
-	const bool			wake;
-	const struct storm_watch	storm_data;
-	int				irq;
-};
-
-static struct smb2_irq_info smb2_irqs[] = {
+static struct smb_irq_info smb2_irqs[] = {
 /* CHARGER IRQs */
-	{
+	[CHG_ERROR_IRQ] = {
 		.name		= "chg-error",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[CHG_STATE_CHANGE_IRQ] = {
 		.name		= "chg-state-change",
 		.handler	= smblib_handle_chg_state_change,
 		.wake		= true,
 	},
-	{
+	[STEP_CHG_STATE_CHANGE_IRQ] = {
 		.name		= "step-chg-state-change",
 		.handler	= smblib_handle_step_chg_state_change,
 		.wake		= true,
 	},
-	{
+	[STEP_CHG_SOC_UPDATE_FAIL_IRQ] = {
 		.name		= "step-chg-soc-update-fail",
 		.handler	= smblib_handle_step_chg_soc_update_fail,
 		.wake		= true,
 	},
-	{
+	[STEP_CHG_SOC_UPDATE_REQ_IRQ] = {
 		.name		= "step-chg-soc-update-request",
 		.handler	= smblib_handle_step_chg_soc_update_request,
 		.wake		= true,
 	},
 /* OTG IRQs */
-	{
+	[OTG_FAIL_IRQ] = {
 		.name		= "otg-fail",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[OTG_OVERCURRENT_IRQ] = {
 		.name		= "otg-overcurrent",
 		.handler	= smblib_handle_otg_overcurrent,
 	},
-	{
+	[OTG_OC_DIS_SW_STS_IRQ] = {
 		.name		= "otg-oc-dis-sw-sts",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[TESTMODE_CHANGE_DET_IRQ] = {
 		.name		= "testmode-change-detect",
 		.handler	= smblib_handle_debug,
 	},
 /* BATTERY IRQs */
-	{
+	[BATT_TEMP_IRQ] = {
 		.name		= "bat-temp",
 		.handler	= smblib_handle_batt_temp_changed,
 	},
-	{
+	[BATT_OCP_IRQ] = {
 		.name		= "bat-ocp",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_OV_IRQ] = {
 		.name		= "bat-ov",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_LOW_IRQ] = {
 		.name		= "bat-low",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_THERM_ID_MISS_IRQ] = {
 		.name		= "bat-therm-or-id-missing",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_TERM_MISS_IRQ] = {
 		.name		= "bat-terminal-missing",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
 /* USB INPUT IRQs */
-	{
+	[USBIN_COLLAPSE_IRQ] = {
 		.name		= "usbin-collapse",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[USBIN_LT_3P6V_IRQ] = {
 		.name		= "usbin-lt-3p6v",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[USBIN_UV_IRQ] = {
 		.name		= "usbin-uv",
-		.handler	= smblib_handle_debug,
+		.handler	= smblib_handle_usbin_uv,
 	},
-	{
+	[USBIN_OV_IRQ] = {
 		.name		= "usbin-ov",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[USBIN_PLUGIN_IRQ] = {
 		.name		= "usbin-plugin",
 		.handler	= smblib_handle_usb_plugin,
 		.wake		= true,
 	},
-	{
+	[USBIN_SRC_CHANGE_IRQ] = {
 		.name		= "usbin-src-change",
 		.handler	= smblib_handle_usb_source_change,
 		.wake		= true,
 	},
-	{
+	[USBIN_ICL_CHANGE_IRQ] = {
 		.name		= "usbin-icl-change",
 		.handler	= smblib_handle_icl_change,
 		.wake		= true,
 	},
-	{
+	[TYPE_C_CHANGE_IRQ] = {
 		.name		= "type-c-change",
 		.handler	= smblib_handle_usb_typec_change,
 		.wake		= true,
 	},
 /* DC INPUT IRQs */
-	{
+	[DCIN_COLLAPSE_IRQ] = {
 		.name		= "dcin-collapse",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_LT_3P6V_IRQ] = {
 		.name		= "dcin-lt-3p6v",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_UV_IRQ] = {
 		.name		= "dcin-uv",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_OV_IRQ] = {
 		.name		= "dcin-ov",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_PLUGIN_IRQ] = {
 		.name		= "dcin-plugin",
 		.handler	= smblib_handle_dc_plugin,
 		.wake		= true,
 	},
-	{
+	[DIV2_EN_DG_IRQ] = {
 		.name		= "div2-en-dg",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_ICL_CHANGE_IRQ] = {
 		.name		= "dcin-icl-change",
 		.handler	= smblib_handle_debug,
 	},
 /* MISCELLANEOUS IRQs */
-	{
+	[WDOG_SNARL_IRQ] = {
 		.name		= "wdog-snarl",
 		.handler	= NULL,
 	},
-	{
+	[WDOG_BARK_IRQ] = {
 		.name		= "wdog-bark",
 		.handler	= NULL,
 	},
-	{
+	[AICL_FAIL_IRQ] = {
 		.name		= "aicl-fail",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[AICL_DONE_IRQ] = {
 		.name		= "aicl-done",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[HIGH_DUTY_CYCLE_IRQ] = {
 		.name		= "high-duty-cycle",
 		.handler	= smblib_handle_high_duty_cycle,
 		.wake		= true,
 	},
-	{
+	[INPUT_CURRENT_LIMIT_IRQ] = {
 		.name		= "input-current-limiting",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[TEMPERATURE_CHANGE_IRQ] = {
 		.name		= "temperature-change",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[SWITCH_POWER_OK_IRQ] = {
 		.name		= "switcher-power-ok",
 		.handler	= smblib_handle_switcher_power_ok,
 		.storm_data	= {true, 1000, 3},
@@ -1861,6 +1880,7 @@ static int smb2_request_interrupt(struct smb2 *chip,
 	irq_data->parent_data = chip;
 	irq_data->name = irq_name;
 	irq_data->storm_data = smb2_irqs[irq_index].storm_data;
+	mutex_init(&irq_data->storm_data.storm_lock);
 
 	rc = devm_request_threaded_irq(chg->dev, irq, NULL,
 					smb2_irqs[irq_index].handler,
@@ -1871,6 +1891,7 @@ static int smb2_request_interrupt(struct smb2 *chip,
 	}
 
 	smb2_irqs[irq_index].irq = irq;
+	smb2_irqs[irq_index].irq_data = irq_data;
 	if (smb2_irqs[irq_index].wake)
 		enable_irq_wake(irq);
 
@@ -1984,6 +2005,7 @@ static int smb2_probe(struct platform_device *pdev)
 	chg->param = v1_params;
 	chg->debug_mask = &__debug_mask;
 	chg->mode = PARALLEL_MASTER;
+	chg->irq_info = smb2_irqs;
 	chg->name = "PMI";
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);

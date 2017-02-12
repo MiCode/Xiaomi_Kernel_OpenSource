@@ -14,7 +14,6 @@
 
 #include <linux/device.h>
 #include <linux/iio/consumer.h>
-#include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -107,6 +106,17 @@ static int __debug_mask;
 module_param_named(
 	debug_mask, __debug_mask, int, S_IRUSR | S_IWUSR
 );
+
+irqreturn_t smb138x_handle_slave_chg_state_change(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb138x *chip = irq_data->parent_data;
+
+	if (chip->parallel_psy)
+		power_supply_changed(chip->parallel_psy);
+
+	return IRQ_HANDLED;
+}
 
 static int smb138x_parse_dt(struct smb138x *chip)
 {
@@ -432,7 +442,7 @@ static enum power_supply_property smb138x_parallel_props[] = {
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
-	POWER_SUPPLY_PROP_CONNECTOR_THERM_ZONE,
+	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 };
 
 static int smb138x_parallel_get_prop(struct power_supply *psy,
@@ -485,8 +495,8 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
 		val->intval = POWER_SUPPLY_PARALLEL_MID_MID;
 		break;
-	case POWER_SUPPLY_PROP_CONNECTOR_THERM_ZONE:
-		rc = smblib_get_prop_connector_therm_zone(chg, val);
+	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
+		rc = smblib_get_prop_die_health(chg, val);
 		break;
 	default:
 		pr_err("parallel power supply get prop %d not supported\n",
@@ -974,170 +984,164 @@ static int smb138x_determine_initial_status(struct smb138x *chip)
  * INTERRUPT REGISTRATION *
  **************************/
 
-struct smb138x_irq_info {
-	const char			*name;
-	const irq_handler_t		handler;
-	const bool			wake;
-	const struct storm_watch	storm_data;
-};
-
-static const struct smb138x_irq_info smb138x_irqs[] = {
+static struct smb_irq_info smb138x_irqs[] = {
 /* CHARGER IRQs */
-	{
+	[CHG_ERROR_IRQ] = {
 		.name		= "chg-error",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[CHG_STATE_CHANGE_IRQ] = {
 		.name		= "chg-state-change",
-		.handler	= smblib_handle_debug,
+		.handler	= smb138x_handle_slave_chg_state_change,
+		.wake		= true,
 	},
-	{
+	[STEP_CHG_STATE_CHANGE_IRQ] = {
 		.name		= "step-chg-state-change",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[STEP_CHG_SOC_UPDATE_FAIL_IRQ] = {
 		.name		= "step-chg-soc-update-fail",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[STEP_CHG_SOC_UPDATE_REQ_IRQ] = {
 		.name		= "step-chg-soc-update-request",
 		.handler	= smblib_handle_debug,
 	},
 /* OTG IRQs */
-	{
+	[OTG_FAIL_IRQ] = {
 		.name		= "otg-fail",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[OTG_OVERCURRENT_IRQ] = {
 		.name		= "otg-overcurrent",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[OTG_OC_DIS_SW_STS_IRQ] = {
 		.name		= "otg-oc-dis-sw-sts",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[TESTMODE_CHANGE_DET_IRQ] = {
 		.name		= "testmode-change-detect",
 		.handler	= smblib_handle_debug,
 	},
 /* BATTERY IRQs */
-	{
+	[BATT_TEMP_IRQ] = {
 		.name		= "bat-temp",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_OCP_IRQ] = {
 		.name		= "bat-ocp",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_OV_IRQ] = {
 		.name		= "bat-ov",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_LOW_IRQ] = {
 		.name		= "bat-low",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_THERM_ID_MISS_IRQ] = {
 		.name		= "bat-therm-or-id-missing",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_TERM_MISS_IRQ] = {
 		.name		= "bat-terminal-missing",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
 /* USB INPUT IRQs */
-	{
+	[USBIN_COLLAPSE_IRQ] = {
 		.name		= "usbin-collapse",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[USBIN_LT_3P6V_IRQ] = {
 		.name		= "usbin-lt-3p6v",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[USBIN_UV_IRQ] = {
 		.name		= "usbin-uv",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[USBIN_OV_IRQ] = {
 		.name		= "usbin-ov",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[USBIN_PLUGIN_IRQ] = {
 		.name		= "usbin-plugin",
 		.handler	= smblib_handle_usb_plugin,
 	},
-	{
+	[USBIN_SRC_CHANGE_IRQ] = {
 		.name		= "usbin-src-change",
 		.handler	= smblib_handle_usb_source_change,
 	},
-	{
+	[USBIN_ICL_CHANGE_IRQ] = {
 		.name		= "usbin-icl-change",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[TYPE_C_CHANGE_IRQ] = {
 		.name		= "type-c-change",
 		.handler	= smblib_handle_usb_typec_change,
 	},
 /* DC INPUT IRQs */
-	{
+	[DCIN_COLLAPSE_IRQ] = {
 		.name		= "dcin-collapse",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_LT_3P6V_IRQ] = {
 		.name		= "dcin-lt-3p6v",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_UV_IRQ] = {
 		.name		= "dcin-uv",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_OV_IRQ] = {
 		.name		= "dcin-ov",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_PLUGIN_IRQ] = {
 		.name		= "dcin-plugin",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DIV2_EN_DG_IRQ] = {
 		.name		= "div2-en-dg",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_ICL_CHANGE_IRQ] = {
 		.name		= "dcin-icl-change",
 		.handler	= smblib_handle_debug,
 	},
 /* MISCELLANEOUS IRQs */
-	{
+	[WDOG_SNARL_IRQ] = {
 		.name		= "wdog-snarl",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[WDOG_BARK_IRQ] = {
 		.name		= "wdog-bark",
 		.handler	= smblib_handle_wdog_bark,
 		.wake		= true,
 	},
-	{
+	[AICL_FAIL_IRQ] = {
 		.name		= "aicl-fail",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[AICL_DONE_IRQ] = {
 		.name		= "aicl-done",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[HIGH_DUTY_CYCLE_IRQ] = {
 		.name		= "high-duty-cycle",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[INPUT_CURRENT_LIMIT_IRQ] = {
 		.name		= "input-current-limiting",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[TEMPERATURE_CHANGE_IRQ] = {
 		.name		= "temperature-change",
 		.handler	= smb138x_handle_temperature_change,
 	},
-	{
+	[SWITCH_POWER_OK_IRQ] = {
 		.name		= "switcher-power-ok",
 		.handler	= smblib_handle_debug,
 	},
@@ -1185,6 +1189,7 @@ static int smb138x_request_interrupt(struct smb138x *chip,
 	irq_data->parent_data = chip;
 	irq_data->name = irq_name;
 	irq_data->storm_data = smb138x_irqs[irq_index].storm_data;
+	mutex_init(&irq_data->storm_data.storm_lock);
 
 	rc = devm_request_threaded_irq(chg->dev, irq, NULL,
 					smb138x_irqs[irq_index].handler,
@@ -1398,6 +1403,7 @@ static int smb138x_probe(struct platform_device *pdev)
 
 	chip->chg.dev = &pdev->dev;
 	chip->chg.debug_mask = &__debug_mask;
+	chip->chg.irq_info = smb138x_irqs;
 	chip->chg.name = "SMB";
 
 	chip->chg.regmap = dev_get_regmap(chip->chg.dev->parent, NULL);

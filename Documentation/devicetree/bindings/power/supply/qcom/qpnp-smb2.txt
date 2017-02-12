@@ -163,6 +163,12 @@ Charger specific properties:
   Definition: Boolean flag which indicates that the platform only support
 		micro usb port.
 
+- qcom,suspend-input-on-debug-batt
+  Usage:      optional
+  Value type: <empty>
+  Definition: Boolean flag which when present enables intput suspend for
+		debug battery.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================

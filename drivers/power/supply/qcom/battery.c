@@ -247,12 +247,11 @@ done:
  *  FCC  *
 **********/
 #define EFFICIENCY_PCT	80
-#define MICRO_5V	5000000
 static void split_fcc(struct pl_data *chip, int total_ua,
 			int *master_ua, int *slave_ua)
 {
 	int rc, effective_total_ua, slave_limited_ua, hw_cc_delta_ua = 0,
-		    aicl_settled_ua, input_limited_fcc_ua;
+		icl_ua, adapter_uv, bcl_ua;
 	union power_supply_propval pval = {0, };
 
 	rc = power_supply_get_property(chip->main_psy,
@@ -262,24 +261,30 @@ static void split_fcc(struct pl_data *chip, int total_ua,
 	else
 		hw_cc_delta_ua = pval.intval;
 
-	input_limited_fcc_ua = INT_MAX;
+	bcl_ua = INT_MAX;
 	if (chip->pl_mode == POWER_SUPPLY_PARALLEL_MID_MID) {
 		rc = power_supply_get_property(chip->main_psy,
-				       POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
-				       &pval);
-		if (rc < 0)
-			aicl_settled_ua = 0;
-		else
-			aicl_settled_ua = pval.intval;
+			       POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't get aicl settled value rc=%d\n", rc);
+			return;
+		}
+		icl_ua = pval.intval;
 
-		input_limited_fcc_ua = div64_s64(
-			(s64)aicl_settled_ua * MICRO_5V * EFFICIENCY_PCT,
-			(s64)get_effective_result(chip->fv_votable)
-			* 100);
+		rc = power_supply_get_property(chip->main_psy,
+			       POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED, &pval);
+		if (rc < 0) {
+			pr_err("Couldn't get adaptive voltage rc=%d\n", rc);
+			return;
+		}
+		adapter_uv = pval.intval;
+
+		bcl_ua = div64_s64((s64)icl_ua * adapter_uv * EFFICIENCY_PCT,
+			(s64)get_effective_result(chip->fv_votable) * 100);
 	}
 
 	effective_total_ua = max(0, total_ua + hw_cc_delta_ua);
-	slave_limited_ua = min(effective_total_ua, input_limited_fcc_ua);
+	slave_limited_ua = min(effective_total_ua, bcl_ua);
 	*slave_ua = (slave_limited_ua * chip->slave_pct) / 100;
 	*slave_ua = (*slave_ua * chip->taper_pct) / 100;
 	*master_ua = max(0, total_ua - *slave_ua);
@@ -297,6 +302,19 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 
 	if (!chip->main_psy)
 		return 0;
+
+	if (chip->batt_psy) {
+		rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CURRENT_QNOVO,
+			&pval);
+		if (rc < 0) {
+			pr_err("Couldn't get qnovo fcc, rc=%d\n", rc);
+			return rc;
+		}
+
+		if (pval.intval != -EINVAL)
+			total_fcc_ua = pval.intval;
+	}
 
 	if (chip->pl_mode == POWER_SUPPLY_PARALLEL_NONE
 	    || get_effective_result_locked(chip->pl_disable_votable)) {
@@ -343,6 +361,7 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	struct pl_data *chip = data;
 	union power_supply_propval pval = {0, };
 	int rc = 0;
+	int effective_fv_uv = fv_uv;
 
 	if (fv_uv < 0)
 		return 0;
@@ -350,7 +369,21 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	if (!chip->main_psy)
 		return 0;
 
-	pval.intval = fv_uv;
+	if (chip->batt_psy) {
+		rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_QNOVO,
+			&pval);
+		if (rc < 0) {
+			pr_err("Couldn't get qnovo fv, rc=%d\n", rc);
+			return rc;
+		}
+
+		if (pval.intval != -EINVAL)
+			effective_fv_uv = pval.intval;
+	}
+
+	pval.intval = effective_fv_uv;
+
 	rc = power_supply_set_property(chip->main_psy,
 			POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
 	if (rc < 0) {
@@ -359,7 +392,7 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	}
 
 	if (chip->pl_mode != POWER_SUPPLY_PARALLEL_NONE) {
-		pval.intval = fv_uv + PARALLEL_FLOAT_VOLTAGE_DELTA_UV;
+		pval.intval += PARALLEL_FLOAT_VOLTAGE_DELTA_UV;
 		rc = power_supply_set_property(chip->pl_psy,
 				POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
 		if (rc < 0) {
@@ -514,9 +547,9 @@ static bool is_parallel_available(struct pl_data *chip)
 		return false;
 	}
 	/*
-	 * Note that pl_mode only be udpated to anything other than a _NONE
+	 * Note that pl_mode will be updated to anything other than a _NONE
 	 * only after pl_psy is found. IOW pl_mode != _NONE implies that
-	 * pl_psy is present and valid
+	 * pl_psy is present and valid.
 	 */
 	chip->pl_mode = pval.intval;
 	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);

@@ -633,4 +633,207 @@
 			};
 		};
 	};
+
+	/* APC0 CPR Controller node for Silver cluster */
+	apc0_cpr: cprh-ctrl@179c8000 {
+		compatible = "qcom,cprh-sdm630-kbss-regulator";
+		reg = <0x179c8000 0x4000>, <0x00784000 0x1000>;
+		reg-names = "cpr_ctrl", "fuse_base";
+		clocks = <&clock_gcc GCC_HMSS_RBCPR_CLK>;
+		clock-names = "core_clk";
+		qcom,cpr-ctrl-name = "apc0";
+		qcom,cpr-controller-id = <0>;
+
+		qcom,cpr-sensor-time = <1000>;
+		qcom,cpr-loop-time = <5000000>;
+		qcom,cpr-idle-cycles = <15>;
+		qcom,cpr-up-down-delay-time = <3000>;
+		qcom,cpr-step-quot-init-min = <12>;
+		qcom,cpr-step-quot-init-max = <14>;
+		qcom,cpr-count-mode = <0>;		/* All at once */
+		qcom,cpr-count-repeat = <14>;
+		qcom,cpr-down-error-step-limit = <1>;
+		qcom,cpr-up-error-step-limit = <1>;
+		qcom,cpr-corner-switch-delay-time = <1042>;
+		qcom,cpr-voltage-settling-time = <1760>;
+
+		qcom,apm-threshold-voltage = <872000>;
+		qcom,apm-crossover-voltage = <872000>;
+		qcom,apm-hysteresis-voltage = <20000>;
+		qcom,voltage-step = <4000>;
+		qcom,voltage-base = <400000>;
+		qcom,cpr-saw-use-unit-mV;
+
+		qcom,cpr-panic-reg-addr-list =
+			<0x179cbaa4 0x17912c18>;
+		qcom,cpr-panic-reg-name-list =
+			"PWR_CPRH_STATUS", "APCLUS0_L2_SAW4_PMIC_STS";
+
+		thread@0 {
+			qcom,cpr-thread-id = <0>;
+			qcom,cpr-consecutive-up = <0>;
+			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-up-threshold = <2>;
+			qcom,cpr-down-threshold = <2>;
+
+			apc0_pwrcl_vreg: regulator {
+				regulator-name = "apc0_pwrcl_corner";
+				regulator-min-microvolt = <1>;
+				regulator-max-microvolt = <8>;
+
+				qcom,cpr-fuse-corners = <4>;
+				qcom,cpr-fuse-combos = <24>;
+				qcom,cpr-speed-bins = <3>;
+				qcom,cpr-speed-bin-corners = <8 8 8>;
+				qcom,cpr-corners = <8>;
+				qcom,cpr-corner-fmax-map = <2 4 5 8>;
+
+				qcom,cpr-voltage-ceiling =
+					<724000  724000  724000  788000  868000
+					 924000  988000 1068000>;
+
+				qcom,cpr-voltage-floor =
+					<588000  588000  596000  652000  712000
+					 744000  784000  844000>;
+
+				qcom,corner-frequencies =
+					<300000000  614400000  883200000
+					1094400000 1382400000 1536000000
+					1728000000 1843200000>;
+
+				qcom,allow-voltage-interpolation;
+				qcom,allow-quotient-interpolation;
+				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+			};
+		};
+	};
+
+	/* APC1 CPR Controller node for Gold cluster */
+	apc1_cpr: cprh-ctrl@179c4000 {
+		compatible = "qcom,cprh-sdm630-kbss-regulator";
+		reg = <0x179c4000 0x4000>, <0x00784000 0x1000>;
+		reg-names = "cpr_ctrl", "fuse_base";
+		clocks = <&clock_gcc GCC_HMSS_RBCPR_CLK>;
+		clock-names = "core_clk";
+		qcom,cpr-ctrl-name = "apc1";
+		qcom,cpr-controller-id = <1>;
+
+		qcom,cpr-sensor-time = <1000>;
+		qcom,cpr-loop-time = <5000000>;
+		qcom,cpr-idle-cycles = <15>;
+		qcom,cpr-up-down-delay-time = <3000>;
+		qcom,cpr-step-quot-init-min = <12>;
+		qcom,cpr-step-quot-init-max = <14>;
+		qcom,cpr-count-mode = <0>;		/* All at once */
+		qcom,cpr-count-repeat = <14>;
+		qcom,cpr-down-error-step-limit = <1>;
+		qcom,cpr-up-error-step-limit = <1>;
+		qcom,cpr-corner-switch-delay-time = <1042>;
+		qcom,cpr-voltage-settling-time = <1760>;
+
+		qcom,apm-threshold-voltage = <872000>;
+		qcom,apm-crossover-voltage = <872000>;
+		qcom,apm-hysteresis-voltage = <20000>;
+		qcom,voltage-step = <4000>;
+		qcom,voltage-base = <400000>;
+		qcom,cpr-saw-use-unit-mV;
+
+		qcom,cpr-panic-reg-addr-list =
+			<0x179c7aa4 0x17812c18>;
+		qcom,cpr-panic-reg-name-list =
+			"PERF_CPRH_STATUS", "APCLUS1_L2_SAW4_PMIC_STS";
+
+		thread@0 {
+			qcom,cpr-thread-id = <0>;
+			qcom,cpr-consecutive-up = <0>;
+			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-up-threshold = <2>;
+			qcom,cpr-down-threshold = <2>;
+
+			apc1_perfcl_vreg: regulator {
+				regulator-name = "apc1_perfcl_corner";
+				regulator-min-microvolt = <1>;
+				regulator-max-microvolt = <11>;
+
+				qcom,cpr-fuse-corners = <4>;
+				qcom,cpr-fuse-combos = <24>;
+				qcom,cpr-speed-bins = <3>;
+				qcom,cpr-speed-bin-corners = <10 10 11>;
+				qcom,cpr-corners =
+					/* Speed bin 0 */
+					<10 10 10 10 10 10 10 10>,
+
+					/* Speed bin 1 */
+					<10 10 10 10 10 10 10 10>,
+
+					/* Speed bin 2 */
+					<11 11 11 11 11 11 11 11>;
+
+				qcom,cpr-corner-fmax-map =
+					/* Speed bin 0 */
+					<2 4 6 10>,
+
+					/* Speed bin 1 */
+					<2 4 6 10>,
+
+					/* Speed bin 2 */
+					<2 4 6 11>;
+
+				qcom,cpr-voltage-ceiling =
+					/* Speed bin 0 */
+					<724000  724000  724000  788000
+					 868000  868000  924000  988000
+					 988000 1068000>,
+
+					/* Speed bin 1 */
+					<724000  724000  724000  788000
+					 868000  868000  924000  988000
+					 988000 1068000>,
+
+					/* Speed bin 2 */
+					<724000  724000  724000  788000
+					 868000  868000  924000  988000
+					 988000 1068000 1140000>;
+
+				qcom,cpr-voltage-floor =
+					/* Speed bin 0 */
+					<588000  588000  596000  652000
+					 712000  712000  744000  784000
+					 784000  844000>,
+
+					/* Speed bin 1 */
+					<588000  588000  596000  652000
+					 712000  712000  744000  784000
+					 784000  844000>,
+
+					/* Speed bin 2 */
+					<588000  588000  596000  652000
+					 712000  712000  744000  784000
+					 784000  844000  900000>;
+
+				qcom,corner-frequencies =
+					/* Speed bin 0 */
+					<300000000   787200000 1113600000
+					 1344000000 1516800000 1670400000
+					 1881600000 2016000000 2150400000
+					 2380800000>,
+
+					/* Speed bin 1 */
+					<300000000   787200000 1113600000
+					 1344000000 1516800000 1670400000
+					 1881600000 2016000000 2150400000
+					 2208000000>,
+
+					/* Speed bin 2 */
+					<300000000   787200000 1113600000
+					 1344000000 1516800000 1670400000
+					 1881600000 2016000000 2150400000
+					 2208000000 2515200000>;
+
+				qcom,allow-voltage-interpolation;
+				qcom,allow-quotient-interpolation;
+				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+			};
+		};
+	};
 };

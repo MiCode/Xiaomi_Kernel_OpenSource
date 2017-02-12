@@ -712,6 +712,7 @@
 		qcom,synchronous-cluster-map = <0 4 &CPU4 &CPU5 &CPU6 &CPU7>,
 						<1 4 &CPU0 &CPU1 &CPU2 &CPU3>;
 
+		qcom,cxip-lm-enable = <0>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 
@@ -1111,8 +1112,8 @@
 			<   883200000 0x0404002e 0x04250025 0x1 3 >,
 			<  1094400000 0x04040039 0x052e002e 0x2 4 >,
 			<  1382400000 0x04040048 0x07390039 0x2 5 >,
-			<  1536000000 0x04040050 0x08400040 0x3 6 >,
-			<  1728000000 0x0404005a 0x09480048 0x3 7 >,
+			<  1536000000 0x04040050 0x08400040 0x2 6 >,
+			<  1728000000 0x0404005a 0x09480048 0x2 7 >,
 			<  1843200000 0x04040060 0x094c004c 0x3 8 >;
 
 		qcom,perfcl-speedbin0-v0 =
@@ -1122,9 +1123,9 @@
 			<  1344000000 0x04040046 0x07380038 0x2 4 >,
 			<  1516800000 0x0404004f 0x073f003f 0x2 5 >,
 			<  1670400000 0x04040057 0x08450045 0x2 6 >,
-			<  1881600000 0x04040062 0x094e004e 0x3 7 >,
-			<  2016000000 0x04040069 0x0a540054 0x3 8 >,
-			<  2150400000 0x04040070 0x0b590059 0x3 9 >,
+			<  1881600000 0x04040062 0x094e004e 0x2 7 >,
+			<  2016000000 0x04040069 0x0a540054 0x2 8 >,
+			<  2150400000 0x04040070 0x0b590059 0x2 9 >,
 			<  2380800000 0x0404007c 0x0c630063 0x3 10 >;
 
 		qcom,perfcl-speedbin1-v0 =
@@ -1134,9 +1135,9 @@
 			<  1344000000 0x04040046 0x07380038 0x2 4 >,
 			<  1516800000 0x0404004f 0x073f003f 0x2 5 >,
 			<  1670400000 0x04040057 0x08450045 0x2 6 >,
-			<  1881600000 0x04040062 0x094e004e 0x3 7 >,
-			<  2016000000 0x04040069 0x0a540054 0x3 8 >,
-			<  2150400000 0x04040070 0x0b590059 0x3 8 >,
+			<  1881600000 0x04040062 0x094e004e 0x2 7 >,
+			<  2016000000 0x04040069 0x0a540054 0x2 8 >,
+			<  2150400000 0x04040070 0x0b590059 0x2 8 >,
 			<  2208000000 0x04040073 0x0b5c005c 0x3 10 >;
 
 		qcom,perfcl-speedbin2-v0 =
@@ -1146,9 +1147,9 @@
 			<  1344000000 0x04040046 0x07380038 0x2 4 >,
 			<  1516800000 0x0404004f 0x073f003f 0x2 5 >,
 			<  1670400000 0x04040057 0x08450045 0x2 6 >,
-			<  1881600000 0x04040062 0x094e004e 0x3 7 >,
-			<  2016000000 0x04040069 0x0a540054 0x3 8 >,
-			<  2150400000 0x04040070 0x0b590059 0x3 9 >,
+			<  1881600000 0x04040062 0x094e004e 0x2 7 >,
+			<  2016000000 0x04040069 0x0a540054 0x2 8 >,
+			<  2150400000 0x04040070 0x0b590059 0x2 9 >,
 			<  2380800000 0x0404007c 0x0c630063 0x3 10 >,
 			<  2515200000 0x04040083 0x0d680068 0x3 11 >;
 
@@ -1915,6 +1916,8 @@
 #include "sdm660-camera.dtsi"
 #include "sdm630-pm.dtsi"
 #include "sdm660-vidc.dtsi"
+#include "sdm630-mdss.dtsi"
+#include "sdm630-mdss-pll.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";
@@ -1985,4 +1988,31 @@
 
 &blsp2_uart1_hs {
 	status = "ok";
+};
+
+&soc {
+	gpio_keys {
+		status = "okay";
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
+		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-1 = <&gpio_key_suspend>;
+
+		camera_focus {
+			label = "camera_focus";
+			gpios = <&tlmm 64 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x210>;
+			debounce-interval = <15>;
+		};
+
+		camera_snapshot {
+			label = "camera_snapshot";
+			gpios = <&tlmm 113 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x2fe>;
+			debounce-interval = <15>;
+		};
+	};
 };

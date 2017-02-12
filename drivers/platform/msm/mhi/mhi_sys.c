@@ -53,16 +53,16 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 	*offp = (u32)(*offp) % MHI_MAX_CHANNELS;
 
 	while (!valid_chan) {
-		client_handle = mhi_dev_ctxt->client_handle_list[*offp];
 		if (*offp == (MHI_MAX_CHANNELS - 1))
 			msleep(1000);
 		if (!VALID_CHAN_NR(*offp) ||
 		    !cc_list[*offp].mhi_trb_ring_base_addr ||
-		    !client_handle) {
+		    !mhi_dev_ctxt->client_handle_list[*offp]) {
 			*offp += 1;
 			*offp = (u32)(*offp) % MHI_MAX_CHANNELS;
 			continue;
 		}
+		client_handle = mhi_dev_ctxt->client_handle_list[*offp];
 		valid_chan = 1;
 	}
 

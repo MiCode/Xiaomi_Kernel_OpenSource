@@ -1,0 +1,49 @@
+Device-Tree bindings for input/gpio_keys.c keyboard driver
+
+Required properties:
+	- compatible = "gpio-keys";
+
+Optional properties:
+	- input-name: input name of the device.
+	- autorepeat: Boolean, Enable auto repeat feature of Linux input subsystem.
+	- pinctrl-names : This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+			It should specify the names of the configs that pinctrl can install in drive.
+
+			Following are the pinctrl configs that can be installed:
+			"gpio_ts_active" : Active configuration of pins, this should specify active
+			config defined in pin groups of interrupt and reset gpio.
+			"gpio_ts_suspend" : Disabled configuration of pins, this should specify sleep
+			config defined in pin groups of interrupt and reset gpio.
+
+Each button (key) is represented as a sub-node of "gpio-keys":
+Subnode properties:
+
+	- gpios: OF device-tree gpio specification.
+	- label: Descriptive name of the key.
+	- linux,code: Keycode to emit.
+
+Optional subnode-properties:
+	- linux,input-type: Specify event type this button/key generates.
+	  If not specified defaults to <1> == EV_KEY.
+	- debounce-interval: Debouncing interval time in milliseconds.
+	  If not specified defaults to 5.
+	- gpio-key,wakeup: Boolean, button can wake-up the system.
+
+Example nodes:
+
+gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		autorepeat;
+		input-name = "gpio-keys";
+		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
+		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-1 = <&gpio_key_suspend>;
+		button@21 {
+			label = "GPIO Key UP";
+			linux,code = <103>;
+			gpios = <&gpio1 0 1>;
+		};
+};
