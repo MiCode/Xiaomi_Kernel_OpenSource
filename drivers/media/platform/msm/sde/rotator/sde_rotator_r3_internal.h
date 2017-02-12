@@ -85,6 +85,7 @@ struct sde_hw_rot_sspp_cfg {
  *  @dest_rect: dest ROI, caller takes into account the different operations
  *              such as decimation, flip etc to program this field
  *  @addr:      destination surface address
+ *  @prefill_bw: prefill bandwidth in Bps
  */
 struct sde_hw_rot_wb_cfg {
 	struct sde_mdp_format_params   *fmt;
@@ -97,6 +98,7 @@ struct sde_hw_rot_wb_cfg {
 	u32                             h_downscale_factor;
 	u32                             fps;
 	u64                             bw;
+	u64                             prefill_bw;
 };
 
 

@@ -1420,6 +1420,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		item.flags = flags | SDE_ROTATION_EXT_IOVA;
 		item.trigger = cmd->video_mode ? SDE_ROTATOR_TRIGGER_VIDEO :
 				SDE_ROTATOR_TRIGGER_COMMAND;
+		item.prefill_bw = cmd->prefill_bw;
 		item.session_id = ctx->session_id;
 		item.sequence_id = cmd->sequence_id;
 		item.src_rect.x = cmd->src_rect_x;

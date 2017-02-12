@@ -42,6 +42,7 @@ enum sde_rotator_inline_cmd_type {
  * @hflip: horizontal flip prior to rotation
  * @vflip: vertical flip prior to rotation
  * @secure: true if buffer is in secure domain
+ * @prefill_bw: prefill bandwidth in Bps
  * @src_addr: source i/o buffer virtual address
  * @src_len: source i/o buffer length
  * @src_planes: source plane number
@@ -71,6 +72,7 @@ struct sde_rotator_inline_cmd {
 	bool hflip;
 	bool vflip;
 	bool secure;
+	u64 prefill_bw;
 	dma_addr_t src_addr[SDE_ROTATOR_INLINE_PLANE_MAX];
 	u32 src_len[SDE_ROTATOR_INLINE_PLANE_MAX];
 	u32 src_planes;
