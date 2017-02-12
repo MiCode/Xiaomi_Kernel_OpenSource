@@ -316,16 +316,10 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane);
 void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
 
 /**
- * sde_crtc_get_intf_mode - get interface mode of the given crtc
+ * sde_crtc_get_intf_mode - get primary interface mode of the given crtc
  * @crtc: Pointert to crtc
  */
-static inline enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc)
-{
-	struct sde_crtc_state *cstate =
-			crtc ? to_sde_crtc_state(crtc->state) : NULL;
-
-	return cstate ? cstate->intf_mode : INTF_MODE_NONE;
-}
+enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc);
 
 /**
  * sde_crtc_get_client_type - check the crtc type- rt, nrt, rsc, etc.

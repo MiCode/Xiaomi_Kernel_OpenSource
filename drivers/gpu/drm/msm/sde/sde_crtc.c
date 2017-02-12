@@ -467,12 +467,6 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 			sde_connector_prepare_fence(conn);
 		}
 
-	if (cstate->num_connectors > 0 && cstate->connectors[0]->encoder)
-		cstate->intf_mode = sde_encoder_get_intf_mode(
-				cstate->connectors[0]->encoder);
-	else
-		cstate->intf_mode = INTF_MODE_NONE;
-
 	/* prepare main output fence */
 	sde_fence_prepare(&sde_crtc->output_fence);
 }
@@ -512,6 +506,22 @@ static void _sde_crtc_complete_flip(struct drm_crtc *crtc,
 		}
 	}
 	spin_unlock_irqrestore(&dev->event_lock, flags);
+}
+
+enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc)
+{
+	struct drm_encoder *encoder;
+
+	if (!crtc || !crtc->dev) {
+		SDE_ERROR("invalid crtc\n");
+		return INTF_MODE_NONE;
+	}
+
+	drm_for_each_encoder(encoder, crtc->dev)
+		if (encoder->crtc == crtc)
+			return sde_encoder_get_intf_mode(encoder);
+
+	return INTF_MODE_NONE;
 }
 
 static void sde_crtc_vblank_cb(void *data)
@@ -2021,7 +2031,7 @@ static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 
 	seq_printf(s, "num_connectors: %d\n", cstate->num_connectors);
 	seq_printf(s, "client type: %d\n", sde_crtc_get_client_type(crtc));
-	seq_printf(s, "intf_mode: %d\n", cstate->intf_mode);
+	seq_printf(s, "intf_mode: %d\n", sde_crtc_get_intf_mode(crtc));
 	seq_printf(s, "bw_ctl: %llu\n", cstate->cur_perf.bw_ctl);
 	seq_printf(s, "core_clk_rate: %u\n", cstate->cur_perf.core_clk_rate);
 	seq_printf(s, "max_per_pipe_ib: %llu\n",
