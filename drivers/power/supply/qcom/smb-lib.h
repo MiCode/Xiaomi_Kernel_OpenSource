@@ -252,7 +252,6 @@ struct smb_charger {
 	struct regulator	*dpdm_reg;
 
 	/* votables */
-	struct votable		*usb_suspend_votable;
 	struct votable		*dc_suspend_votable;
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;

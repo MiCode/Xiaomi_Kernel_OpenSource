@@ -827,8 +827,6 @@ static int smb138x_init_hw(struct smb138x *chip)
 	int rc = 0;
 
 	/* votes must be cast before configuring software control */
-	vote(chg->usb_suspend_votable,
-		DEFAULT_VOTER, chip->dt.suspend_input, 0);
 	vote(chg->dc_suspend_votable,
 		DEFAULT_VOTER, chip->dt.suspend_input, 0);
 	vote(chg->fcc_votable,
