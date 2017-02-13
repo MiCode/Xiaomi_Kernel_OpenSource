@@ -1451,7 +1451,6 @@ static int msm_anlg_cdc_codec_enable_clock_block(struct snd_soc_codec *codec,
 	} else {
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_DIGITAL_CDC_TOP_CLK_CTL, 0x0C, 0x00);
-		msm_anlg_cdc_dig_notifier_call(codec, DIG_CDC_EVENT_CLK_OFF);
 	}
 	return 0;
 }
@@ -3498,18 +3497,24 @@ static const struct snd_soc_dapm_widget msm_anlg_cdc_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("AMIC1"),
 	SND_SOC_DAPM_INPUT("AMIC2"),
 	SND_SOC_DAPM_INPUT("AMIC3"),
-	SND_SOC_DAPM_INPUT("PDM_IN_RX1"),
-	SND_SOC_DAPM_INPUT("PDM_IN_RX2"),
-	SND_SOC_DAPM_INPUT("PDM_IN_RX3"),
+	SND_SOC_DAPM_AIF_IN("PDM_IN_RX1", "PDM Playback",
+		0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN("PDM_IN_RX2", "PDM Playback",
+		0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN("PDM_IN_RX3", "PDM Playback",
+		0, SND_SOC_NOPM, 0, 0),
 
 	SND_SOC_DAPM_OUTPUT("EAR"),
 	SND_SOC_DAPM_OUTPUT("WSA_SPK OUT"),
 	SND_SOC_DAPM_OUTPUT("HEADPHONE"),
 	SND_SOC_DAPM_OUTPUT("SPK_OUT"),
 	SND_SOC_DAPM_OUTPUT("LINEOUT"),
-	SND_SOC_DAPM_OUTPUT("ADC1_OUT"),
-	SND_SOC_DAPM_OUTPUT("ADC2_OUT"),
-	SND_SOC_DAPM_OUTPUT("ADC3_OUT"),
+	SND_SOC_DAPM_AIF_OUT("ADC1_OUT", "PDM Capture",
+		0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("ADC2_OUT", "PDM Capture",
+		0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("ADC3_OUT", "PDM Capture",
+		0, SND_SOC_NOPM, 0, 0),
 };
 
 static const struct sdm660_cdc_reg_mask_val msm_anlg_cdc_reg_defaults[] = {
