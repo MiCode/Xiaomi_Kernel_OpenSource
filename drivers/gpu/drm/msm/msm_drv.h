@@ -2,6 +2,8 @@
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
+ * Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
  * the Free Software Foundation.
@@ -58,7 +60,7 @@ struct msm_rd_state;
 struct msm_perf_state;
 struct msm_gem_submit;
 
-#define NUM_DOMAINS    4    /* one for KMS, then one per gpu core (?) */
+#define NUM_DOMAINS    6    /* four for KMS, then two for GPU */
 #define MAX_CRTCS      8
 #define MAX_PLANES     12
 #define MAX_ENCODERS   8
