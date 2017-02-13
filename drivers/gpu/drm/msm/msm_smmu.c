@@ -105,7 +105,7 @@ static void msm_smmu_detach(struct msm_mmu *mmu, const char **names, int cnt)
 }
 
 static int msm_smmu_map(struct msm_mmu *mmu, uint32_t iova,
-		struct sg_table *sgt, unsigned len, int prot)
+		struct sg_table *sgt, int prot)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
@@ -173,7 +173,7 @@ static void msm_smmu_unmap_sg(struct msm_mmu *mmu, struct sg_table *sgt,
 }
 
 static int msm_smmu_unmap(struct msm_mmu *mmu, uint32_t iova,
-		struct sg_table *sgt, unsigned len)
+		struct sg_table *sgt)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
