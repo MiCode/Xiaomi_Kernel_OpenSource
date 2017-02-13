@@ -5318,8 +5318,8 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 		pr_err("failed to get the hist data, sum = %d\n", sum);
 		ret = sum;
 	} else if (expect_sum && sum != expect_sum) {
-		pr_err("hist error: bin sum incorrect! (%d/%d)\n",
-			sum, expect_sum);
+		pr_err_ratelimited("hist error: bin sum incorrect! (%d/%d)\n",
+					sum, expect_sum);
 		ret = -EINVAL;
 	}
 hist_collect_exit:
@@ -5389,8 +5389,8 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			ret = pp_hist_collect(hist, hists[i], ctl_base,
 				exp_sum, DSPP);
 			if (ret)
-				pr_err("hist error: dspp[%d] collect %d\n",
-					dspp_num, ret);
+				pr_err_ratelimited("hist error: dspp[%d] collect %d\n",
+							dspp_num, ret);
 		}
 		/* state of dspp histogram blocks attached to logical display
 		 * should be changed atomically to idle. This will ensure that
