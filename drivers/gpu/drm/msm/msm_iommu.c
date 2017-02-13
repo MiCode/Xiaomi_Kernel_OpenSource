@@ -15,6 +15,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/of_platform.h>
 #include "msm_drv.h"
 #include "msm_mmu.h"
 
@@ -34,7 +35,42 @@ static int msm_fault_handler(struct iommu_domain *iommu, struct device *dev,
 static int msm_iommu_attach(struct msm_mmu *mmu, const char **names, int cnt)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
-	return iommu_attach_device(iommu->domain, mmu->dev);
+	int i;
+
+	/* See if there is a iommus member in the current device.  If not, look
+	 * for the names and see if there is one in there.
+	 */
+
+	if (of_find_property(mmu->dev->of_node, "iommus", NULL))
+		return iommu_attach_device(iommu->domain, mmu->dev);
+
+	/* Look through the list of names for a target */
+	for (i = 0; i < cnt; i++) {
+		struct device_node *node =
+			of_find_node_by_name(mmu->dev->of_node, names[i]);
+
+		if (!node)
+			continue;
+
+		if (of_find_property(node, "iommus", NULL)) {
+			struct platform_device *pdev;
+
+			/* Get the platform device for the node */
+			of_platform_populate(node->parent, NULL, NULL,
+				mmu->dev);
+
+			pdev = of_find_device_by_node(node);
+
+			if (!pdev)
+				continue;
+
+			mmu->dev = &pdev->dev;
+			return iommu_attach_device(iommu->domain, mmu->dev);
+		}
+	}
+
+	dev_err(mmu->dev, "Couldn't find a IOMMU device\n");
+	return -ENODEV;
 }
 
 static void msm_iommu_detach(struct msm_mmu *mmu, const char **names, int cnt)

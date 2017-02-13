@@ -344,8 +344,7 @@ void adreno_wait_ring(struct msm_gpu *gpu, uint32_t ndwords)
 }
 
 static const char *iommu_ports[] = {
-		"gfx3d_user", "gfx3d_priv",
-		"gfx3d1_user", "gfx3d1_priv",
+		"gfx3d_user",
 };
 
 int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
