@@ -681,6 +681,14 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		goto fail;
 	}
 
+#ifdef CONFIG_SMP
+	gpu->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
+	gpu->pm_qos_req_dma.irq = gpu->irq;
+#endif
+
+	pm_qos_add_request(&gpu->pm_qos_req_dma, PM_QOS_CPU_DMA_LATENCY,
+			PM_QOS_DEFAULT_VALUE);
+
 	bs_init(gpu);
 
 	return 0;

@@ -19,6 +19,7 @@
 #define __MSM_GPU_H__
 
 #include <linux/clk.h>
+#include <linux/pm_qos.h>
 #include <linux/regulator/consumer.h>
 
 #include "msm_drv.h"
@@ -102,6 +103,8 @@ struct msm_gpu {
 	struct regulator *gpu_reg, *gpu_cx;
 	struct clk *ebi1_clk, *grp_clks[6];
 	uint32_t fast_rate, slow_rate, bus_freq;
+
+	struct pm_qos_request pm_qos_req_dma;
 
 #ifdef DOWNSTREAM_CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *bus_scale_table;
