@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1186,7 +1186,7 @@ static int dsi_ctrl_buffer_deinit(struct dsi_ctrl *dsi_ctrl)
 int dsi_ctrl_buffer_init(struct dsi_ctrl *dsi_ctrl)
 {
 	int rc = 0;
-	u32 iova = 0;
+	u64 iova = 0;
 
 	dsi_ctrl->tx_cmd_buf = msm_gem_new(dsi_ctrl->drm_dev,
 					   SZ_4K,

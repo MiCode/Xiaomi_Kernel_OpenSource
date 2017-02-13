@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015,2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -836,7 +836,7 @@ static int dsi_tx_buf_alloc(struct msm_dsi_host *msm_host, int size)
 {
 	struct drm_device *dev = msm_host->dev;
 	int ret;
-	u32 iova;
+	u64 iova;
 
 	mutex_lock(&dev->struct_mutex);
 	msm_host->tx_gem_obj = msm_gem_new(dev, size, MSM_BO_UNCACHED);
@@ -974,7 +974,7 @@ static int dsi_long_read_resp(u8 *buf, const struct mipi_dsi_msg *msg)
 static int dsi_cmd_dma_tx(struct msm_dsi_host *msm_host, int len)
 {
 	int ret;
-	u32 iova;
+	uint64_t iova;
 	bool triggered;
 
 	ret = msm_gem_get_iova(msm_host->tx_gem_obj, 0, &iova);
@@ -1750,11 +1750,12 @@ int msm_dsi_host_cmd_rx(struct mipi_dsi_host *host,
 	return ret;
 }
 
-void msm_dsi_host_cmd_xfer_commit(struct mipi_dsi_host *host, u32 iova, u32 len)
+void msm_dsi_host_cmd_xfer_commit(struct mipi_dsi_host *host, u64 iova, u32 len)
 {
 	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
 
-	dsi_write(msm_host, REG_DSI_DMA_BASE, iova);
+	/* FIXME: Verify that the iova < 32 bits? */
+	dsi_write(msm_host, REG_DSI_DMA_BASE, lower_32_bits(iova));
 	dsi_write(msm_host, REG_DSI_DMA_LEN, len);
 	dsi_write(msm_host, REG_DSI_TRIG_DMA, 1);
 

@@ -97,11 +97,11 @@ int msm_framebuffer_prepare(struct drm_framebuffer *fb,
 {
 	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
 	int ret, i, n = drm_format_num_planes(fb->pixel_format);
-	uint32_t iova;
+	uint64_t iova;
 
 	for (i = 0; i < n; i++) {
 		ret = msm_gem_get_iova(msm_fb->planes[i], aspace, &iova);
-		DBG("FB[%u]: iova[%d]: %08x (%d)", fb->base.id, i, iova, ret);
+		DBG("FB[%u]: iova[%d]: %08llx (%d)", fb->base.id, i, iova, ret);
 		if (ret)
 			return ret;
 	}
@@ -119,13 +119,20 @@ void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
 		msm_gem_put_iova(msm_fb->planes[i], aspace);
 }
 
+/* FIXME: Leave this as a uint32_t and just return the lower 32 bits? */
 uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace, int plane)
 {
 	struct msm_framebuffer *msm_fb = to_msm_framebuffer(fb);
+	uint64_t iova;
+
 	if (!msm_fb->planes[plane])
 		return 0;
-	return msm_gem_iova(msm_fb->planes[plane], aspace) + fb->offsets[plane];
+
+	iova = msm_gem_iova(msm_fb->planes[plane], aspace) + fb->offsets[plane];
+
+	/* FIXME: Make sure it is < 32 bits */
+	return lower_32_bits(iova);
 }
 
 struct drm_gem_object *msm_framebuffer_bo(struct drm_framebuffer *fb, int plane)

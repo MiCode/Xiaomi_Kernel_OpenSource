@@ -85,7 +85,7 @@ static int msm_fbdev_create(struct drm_fb_helper *helper,
 	struct drm_framebuffer *fb = NULL;
 	struct fb_info *fbi = NULL;
 	struct drm_mode_fb_cmd2 mode_cmd = {0};
-	uint32_t paddr;
+	uint64_t paddr;
 	int ret, size;
 
 	DBG("create fbdev: %dx%d@%d (%dx%d)", sizes->surface_width,
@@ -160,11 +160,12 @@ static int msm_fbdev_create(struct drm_fb_helper *helper,
 	drm_fb_helper_fill_fix(fbi, fb->pitches[0], fb->depth);
 	drm_fb_helper_fill_var(fbi, helper, sizes->fb_width, sizes->fb_height);
 
-	dev->mode_config.fb_base = paddr;
+	/* FIXME: Verify paddr < 32 bits? */
+	dev->mode_config.fb_base = lower_32_bits(paddr);
 
 	fbi->screen_base = msm_gem_vaddr_locked(fbdev->bo);
 	fbi->screen_size = fbdev->bo->size;
-	fbi->fix.smem_start = paddr;
+	fbi->fix.smem_start = lower_32_bits(paddr);
 	fbi->fix.smem_len = fbdev->bo->size;
 
 	DBG("par=%p, %dx%d", fbi->par, fbi->var.xres, fbi->var.yres);

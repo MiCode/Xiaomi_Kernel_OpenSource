@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015,2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,7 +89,7 @@ int msm_dsi_manager_phy_enable(int id,
 		u32 *clk_pre, u32 *clk_post);
 void msm_dsi_manager_phy_disable(int id);
 int msm_dsi_manager_cmd_xfer(int id, const struct mipi_dsi_msg *msg);
-bool msm_dsi_manager_cmd_xfer_trigger(int id, u32 iova, u32 len);
+bool msm_dsi_manager_cmd_xfer_trigger(int id, u64 iova, u32 len);
 int msm_dsi_manager_register(struct msm_dsi *msm_dsi);
 void msm_dsi_manager_unregister(struct msm_dsi *msm_dsi);
 
@@ -143,7 +143,7 @@ int msm_dsi_host_cmd_tx(struct mipi_dsi_host *host,
 int msm_dsi_host_cmd_rx(struct mipi_dsi_host *host,
 					const struct mipi_dsi_msg *msg);
 void msm_dsi_host_cmd_xfer_commit(struct mipi_dsi_host *host,
-					u32 iova, u32 len);
+					u64 iova, u32 len);
 int msm_dsi_host_enable(struct mipi_dsi_host *host);
 int msm_dsi_host_disable(struct mipi_dsi_host *host);
 int msm_dsi_host_power_on(struct mipi_dsi_host *host);

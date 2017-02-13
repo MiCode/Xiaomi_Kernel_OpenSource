@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015,2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -774,7 +774,7 @@ restore_host0:
 	return ret;
 }
 
-bool msm_dsi_manager_cmd_xfer_trigger(int id, u32 iova, u32 len)
+bool msm_dsi_manager_cmd_xfer_trigger(int id, u64 iova, u32 len)
 {
 	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(id);
 	struct msm_dsi *msm_dsi0 = dsi_mgr_get_dsi(DSI_0);

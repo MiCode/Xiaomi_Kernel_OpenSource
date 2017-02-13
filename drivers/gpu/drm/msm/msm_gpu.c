@@ -528,7 +528,7 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 		WARN_ON(is_active(msm_obj) && (msm_obj->gpu != gpu));
 
 		if (!is_active(msm_obj)) {
-			uint32_t iova;
+			uint64_t iova;
 
 			/* ring takes a reference to the bo and iova: */
 			drm_gem_object_reference(&msm_obj->base);
