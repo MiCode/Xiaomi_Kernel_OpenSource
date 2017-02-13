@@ -946,8 +946,7 @@ static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
 
 		mmu = sde_kms->aspace[i]->mmu;
 
-		mmu->funcs->detach(mmu, (const char **)iommu_ports,
-				ARRAY_SIZE(iommu_ports));
+		mmu->funcs->detach(mmu);
 		msm_gem_address_space_destroy(sde_kms->aspace[i]);
 
 		sde_kms->aspace[i] = NULL;

@@ -625,8 +625,7 @@ void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 	msm_gpu_cleanup(&gpu->base);
 
 	if (aspace) {
-		aspace->mmu->funcs->detach(aspace->mmu,
-			iommu_ports, ARRAY_SIZE(iommu_ports));
+		aspace->mmu->funcs->detach(aspace->mmu);
 		msm_gem_address_space_destroy(aspace);
 	}
 }

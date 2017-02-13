@@ -17,13 +17,7 @@
 
 #include <linux/of_platform.h>
 #include "msm_drv.h"
-#include "msm_mmu.h"
-
-struct msm_iommu {
-	struct msm_mmu base;
-	struct iommu_domain *domain;
-};
-#define to_msm_iommu(x) container_of(x, struct msm_iommu, base)
+#include "msm_iommu.h"
 
 static int msm_fault_handler(struct iommu_domain *iommu, struct device *dev,
 		unsigned long iova, int flags, void *arg)
@@ -32,9 +26,9 @@ static int msm_fault_handler(struct iommu_domain *iommu, struct device *dev,
 	return 0;
 }
 
-static int msm_iommu_attach(struct msm_mmu *mmu, const char **names, int cnt)
+static int _attach_iommu_device(struct msm_mmu *mmu,
+		struct iommu_domain *domain, const char **names, int cnt)
 {
-	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	int i;
 
 	/* See if there is a iommus member in the current device.  If not, look
@@ -42,7 +36,7 @@ static int msm_iommu_attach(struct msm_mmu *mmu, const char **names, int cnt)
 	 */
 
 	if (of_find_property(mmu->dev->of_node, "iommus", NULL))
-		return iommu_attach_device(iommu->domain, mmu->dev);
+		return iommu_attach_device(domain, mmu->dev);
 
 	/* Look through the list of names for a target */
 	for (i = 0; i < cnt; i++) {
@@ -65,7 +59,7 @@ static int msm_iommu_attach(struct msm_mmu *mmu, const char **names, int cnt)
 				continue;
 
 			mmu->dev = &pdev->dev;
-			return iommu_attach_device(iommu->domain, mmu->dev);
+			return iommu_attach_device(domain, mmu->dev);
 		}
 	}
 
@@ -73,7 +67,67 @@ static int msm_iommu_attach(struct msm_mmu *mmu, const char **names, int cnt)
 	return -ENODEV;
 }
 
-static void msm_iommu_detach(struct msm_mmu *mmu, const char **names, int cnt)
+static int msm_iommu_attach(struct msm_mmu *mmu, const char **names, int cnt)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+	int val = 1, ret;
+
+	/* Hope springs eternal */
+	iommu->allow_dynamic = true;
+
+	/* per-instance pagetables need TTBR1 support in the IOMMU driver */
+	ret = iommu_domain_set_attr(iommu->domain,
+		DOMAIN_ATTR_ENABLE_TTBR1, &val);
+	if (ret)
+		iommu->allow_dynamic = false;
+
+	/* Attach the device to the domain */
+	ret = _attach_iommu_device(mmu, iommu->domain, names, cnt);
+	if (ret)
+		return ret;
+
+	/*
+	 * Get the context bank for the base domain; this will be shared with
+	 * the children.
+	 */
+	iommu->cb = -1;
+	if (iommu_domain_get_attr(iommu->domain, DOMAIN_ATTR_CONTEXT_BANK,
+		&iommu->cb))
+		iommu->allow_dynamic = false;
+
+	return 0;
+}
+
+static int msm_iommu_attach_dynamic(struct msm_mmu *mmu, const char **names,
+		int cnt)
+{
+	static unsigned int procid;
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+	int ret;
+	unsigned int id;
+
+	/* Assign a unique procid for the domain to cut down on TLB churn */
+	id = ++procid;
+
+	iommu_domain_set_attr(iommu->domain, DOMAIN_ATTR_PROCID, &id);
+
+	ret = iommu_attach_device(iommu->domain, mmu->dev);
+	if (ret)
+		return ret;
+
+	/*
+	 * Get the TTBR0 and the CONTEXTIDR - these will be used by the GPU to
+	 * switch the pagetable on its own.
+	 */
+	iommu_domain_get_attr(iommu->domain, DOMAIN_ATTR_TTBR0,
+		&iommu->ttbr0);
+	iommu_domain_get_attr(iommu->domain, DOMAIN_ATTR_CONTEXTIDR,
+		&iommu->contextidr);
+
+	return 0;
+}
+
+static void msm_iommu_detach(struct msm_mmu *mmu)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	iommu_detach_device(iommu->domain, mmu->dev);
@@ -160,7 +214,16 @@ static const struct msm_mmu_funcs funcs = {
 		.destroy = msm_iommu_destroy,
 };
 
-struct msm_mmu *msm_iommu_new(struct device *dev, struct iommu_domain *domain)
+static const struct msm_mmu_funcs dynamic_funcs = {
+		.attach = msm_iommu_attach_dynamic,
+		.detach = msm_iommu_detach,
+		.map = msm_iommu_map,
+		.unmap = msm_iommu_unmap,
+		.destroy = msm_iommu_destroy,
+};
+
+struct msm_mmu *_msm_iommu_new(struct device *dev, struct iommu_domain *domain,
+		const struct msm_mmu_funcs *funcs)
 {
 	struct msm_iommu *iommu;
 
@@ -169,8 +232,54 @@ struct msm_mmu *msm_iommu_new(struct device *dev, struct iommu_domain *domain)
 		return ERR_PTR(-ENOMEM);
 
 	iommu->domain = domain;
-	msm_mmu_init(&iommu->base, dev, &funcs);
+	msm_mmu_init(&iommu->base, dev, funcs);
 	iommu_set_fault_handler(domain, msm_fault_handler, dev);
 
 	return &iommu->base;
+}
+struct msm_mmu *msm_iommu_new(struct device *dev, struct iommu_domain *domain)
+{
+	return _msm_iommu_new(dev, domain, &funcs);
+}
+
+/*
+ * Given a base domain that is attached to a IOMMU device try to create a
+ * dynamic domain that is also attached to the same device but allocates a new
+ * pagetable. This is used to allow multiple pagetables to be attached to the
+ * same device.
+ */
+struct msm_mmu *msm_iommu_new_dynamic(struct msm_mmu *base)
+{
+	struct msm_iommu *base_iommu = to_msm_iommu(base);
+	struct iommu_domain *domain;
+	struct msm_mmu *mmu;
+	int ret, val = 1;
+
+	/* Don't continue if the base domain didn't have the support we need */
+	if (!base || base_iommu->allow_dynamic == false)
+		return ERR_PTR(-EOPNOTSUPP);
+
+	domain = iommu_domain_alloc(&platform_bus_type);
+	if (!domain)
+		return ERR_PTR(-ENODEV);
+
+	mmu = _msm_iommu_new(base->dev, domain, &dynamic_funcs);
+
+	if (IS_ERR(mmu)) {
+		if (domain)
+			iommu_domain_free(domain);
+		return mmu;
+	}
+
+	ret = iommu_domain_set_attr(domain, DOMAIN_ATTR_DYNAMIC, &val);
+	if (ret) {
+		msm_iommu_destroy(mmu);
+		return ERR_PTR(ret);
+	}
+
+	/* Set the context bank to match the base domain */
+	iommu_domain_set_attr(domain, DOMAIN_ATTR_CONTEXT_BANK,
+		&base_iommu->cb);
+
+	return mmu;
 }

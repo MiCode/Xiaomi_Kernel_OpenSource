@@ -86,7 +86,7 @@ static int msm_smmu_attach(struct msm_mmu *mmu, const char **names, int cnt)
 	return 0;
 }
 
-static void msm_smmu_detach(struct msm_mmu *mmu, const char **names, int cnt)
+static void msm_smmu_detach(struct msm_mmu *mmu)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
