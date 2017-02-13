@@ -17,6 +17,7 @@
 
 
 #include "msm_drv.h"
+#include "msm_gem.h"
 #include "msm_mmu.h"
 #include "mdp4_kms.h"
 
@@ -151,9 +152,22 @@ static long mdp4_round_pixclk(struct msm_kms *kms, unsigned long rate,
 	}
 }
 
-static const char * const iommu_ports[] = {
-	"mdp_port0_cb0", "mdp_port1_cb0",
-};
+static void mdp4_preclose(struct msm_kms *kms, struct drm_file *file)
+{
+	struct mdp4_kms *mdp4_kms = to_mdp4_kms(to_mdp_kms(kms));
+	struct msm_drm_private *priv = mdp4_kms->dev->dev_private;
+	unsigned int i;
+	struct msm_gem_address_space *aspace = mdp4_kms->aspace;
+
+	for (i = 0; i < priv->num_crtcs; i++)
+		mdp4_crtc_cancel_pending_flip(priv->crtcs[i], file);
+
+	if (aspace) {
+		aspace->mmu->funcs->detach(aspace->mmu,
+				iommu_ports, ARRAY_SIZE(iommu_ports));
+		msm_gem_address_space_destroy(aspace);
+	}
+}
 
 static void mdp4_destroy(struct msm_kms *kms)
 {
@@ -442,6 +456,7 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 	struct msm_kms *kms = NULL;
 	struct msm_mmu *mmu;
 	int irq, ret;
+	struct msm_gem_address_space *aspace;
 
 	mdp4_kms = kzalloc(sizeof(*mdp4_kms), GFP_KERNEL);
 	if (!mdp4_kms) {
@@ -531,12 +546,16 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 	mdelay(16);
 
 	if (config->iommu) {
-		mmu = msm_iommu_new(&pdev->dev, config->iommu);
-		if (IS_ERR(mmu)) {
-			ret = PTR_ERR(mmu);
+		aspace = msm_gem_address_space_create(&pdev->dev,
+				config->iommu, "mdp4");
+		if (IS_ERR(aspace)) {
+			ret = PTR_ERR(aspace);
 			goto fail;
 		}
-		ret = mmu->funcs->attach(mmu, iommu_ports,
+
+		mdp4_kms->aspace = aspace;
+
+		ret = aspace->mmu->funcs->attach(aspace->mmu, iommu_ports,
 				ARRAY_SIZE(iommu_ports));
 		if (ret)
 			goto fail;
@@ -545,10 +564,10 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 	} else {
 		dev_info(dev->dev, "no iommu, fallback to phys "
 				"contig buffers for scanout\n");
-		mmu = NULL;
+		aspace = NULL;
 	}
 
-	mdp4_kms->id = msm_register_mmu(dev, mmu);
+	mdp4_kms->id = msm_register_address_space(dev, aspace);
 	if (mdp4_kms->id < 0) {
 		ret = mdp4_kms->id;
 		dev_err(dev->dev, "failed to register mdp4 iommu: %d\n", ret);
