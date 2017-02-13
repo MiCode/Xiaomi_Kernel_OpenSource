@@ -1777,7 +1777,13 @@ static int msm_pdev_probe(struct platform_device *pdev)
 		component_match_add(&pdev->dev, &match, compare_dev, dev);
 	}
 #endif
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	/* on all devices that I am aware of, iommu's which cna map
+	 * any address the cpu can see are used:
+	 */
+	ret = dma_set_mask_and_coherent(&pdev->dev, ~0);
+	if (ret)
+		return ret;
+
 	ret = msm_add_master_component(&pdev->dev, match);
 
 	return ret;
