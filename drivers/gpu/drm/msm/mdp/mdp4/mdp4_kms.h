@@ -45,6 +45,7 @@ struct mdp4_kms {
 	struct clk *pclk;
 	struct clk *lut_clk;
 	struct clk *axi_clk;
+	struct msm_gem_address_space *aspace;
 
 	struct mdp_irq error_handler;
 
