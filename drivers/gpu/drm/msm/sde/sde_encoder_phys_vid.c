@@ -570,16 +570,22 @@ static void sde_encoder_phys_vid_get_hw_resources(
 	hw_res->intfs[vid_enc->hw_intf->idx - INTF_0] = INTF_MODE_VIDEO;
 }
 
-static int sde_encoder_phys_vid_wait_for_commit_done(
-		struct sde_encoder_phys *phys_enc)
+static int sde_encoder_phys_vid_wait_for_vblank(
+		struct sde_encoder_phys *phys_enc, bool notify)
 {
 	struct sde_encoder_phys_vid *vid_enc =
 			to_sde_encoder_phys_vid(phys_enc);
 	u32 irq_status;
 	int ret;
 
-	if (!sde_encoder_phys_vid_is_master(phys_enc))
+	if (!sde_encoder_phys_vid_is_master(phys_enc)) {
+		/* always signal done for slave video encoder */
+		if (notify && phys_enc->parent_ops.handle_frame_done)
+			phys_enc->parent_ops.handle_frame_done(
+					phys_enc->parent, phys_enc,
+					SDE_ENCODER_FRAME_EVENT_DONE);
 		return 0;
+	}
 
 	if (phys_enc->enable_state != SDE_ENC_ENABLED) {
 		SDE_ERROR("encoder not enabled\n");
@@ -603,6 +609,10 @@ static int sde_encoder_phys_vid_wait_for_commit_done(
 			SDE_EVT32(DRMID(phys_enc->parent),
 					vid_enc->hw_intf->idx - INTF_0);
 			SDE_DEBUG_VIDENC(vid_enc, "done, irq not triggered\n");
+			if (notify && phys_enc->parent_ops.handle_frame_done)
+				phys_enc->parent_ops.handle_frame_done(
+						phys_enc->parent, phys_enc,
+						SDE_ENCODER_FRAME_EVENT_DONE);
 			sde_encoder_phys_vid_vblank_irq(vid_enc,
 					INTR_IDX_VSYNC);
 			ret = 0;
@@ -610,13 +620,31 @@ static int sde_encoder_phys_vid_wait_for_commit_done(
 			SDE_EVT32(DRMID(phys_enc->parent),
 					vid_enc->hw_intf->idx - INTF_0);
 			SDE_ERROR_VIDENC(vid_enc, "kickoff timed out\n");
+			if (notify && phys_enc->parent_ops.handle_frame_done)
+				phys_enc->parent_ops.handle_frame_done(
+						phys_enc->parent, phys_enc,
+						SDE_ENCODER_FRAME_EVENT_ERROR);
 			ret = -ETIMEDOUT;
 		}
 	} else {
+		if (notify && phys_enc->parent_ops.handle_frame_done)
+			phys_enc->parent_ops.handle_frame_done(
+					phys_enc->parent, phys_enc,
+					SDE_ENCODER_FRAME_EVENT_DONE);
 		ret = 0;
 	}
 
 	return 0;
+}
+
+static int sde_encoder_phys_vid_wait_for_commit_done(
+		struct sde_encoder_phys *phys_enc)
+{
+	int ret;
+
+	ret = sde_encoder_phys_vid_wait_for_vblank(phys_enc, true);
+
+	return ret;
 }
 
 static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
@@ -662,7 +690,7 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 	 * scanout buffer) don't latch properly..
 	 */
 	if (sde_encoder_phys_vid_is_master(phys_enc)) {
-		ret = sde_encoder_phys_vid_wait_for_commit_done(phys_enc);
+		ret = sde_encoder_phys_vid_wait_for_vblank(phys_enc, false);
 		if (ret) {
 			atomic_set(&phys_enc->pending_kickoff_cnt, 0);
 			SDE_ERROR_VIDENC(vid_enc,
