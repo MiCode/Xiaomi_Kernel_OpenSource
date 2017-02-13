@@ -1405,15 +1405,15 @@ static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
 	int i;
 
 	for (i = ARRAY_SIZE(sde_kms->mmu_id) - 1; i >= 0; i--) {
-		if (!sde_kms->mmu[i])
+		mmu = sde_kms->aspace[i]->mmu;
+
+		if (!mmu)
 			continue;
 
-		mmu = sde_kms->mmu[i];
-		msm_unregister_mmu(sde_kms->dev, mmu);
 		mmu->funcs->detach(mmu, (const char **)iommu_ports,
 				ARRAY_SIZE(iommu_ports));
-		mmu->funcs->destroy(mmu);
-		sde_kms->mmu[i] = 0;
+		msm_gem_address_space_destroy(sde_kms->aspace[i]);
+
 		sde_kms->mmu_id[i] = 0;
 	}
 
@@ -1426,6 +1426,8 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 	int i, ret;
 
 	for (i = 0; i < MSM_SMMU_DOMAIN_MAX; i++) {
+		struct msm_gem_address_space *aspace;
+
 		mmu = msm_smmu_new(sde_kms->dev->dev, i);
 		if (IS_ERR(mmu)) {
 			ret = PTR_ERR(mmu);
@@ -1434,25 +1436,35 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			continue;
 		}
 
+		aspace = msm_gem_smmu_address_space_create(sde_kms->dev->dev,
+			mmu, "sde");
+		if (IS_ERR(aspace)) {
+			ret = PTR_ERR(aspace);
+			mmu->funcs->destroy(mmu);
+			goto fail;
+		}
+
+		sde_kms->aspace[i] = aspace;
+
 		ret = mmu->funcs->attach(mmu, (const char **)iommu_ports,
 				ARRAY_SIZE(iommu_ports));
 		if (ret) {
 			SDE_ERROR("failed to attach iommu %d: %d\n", i, ret);
-			mmu->funcs->destroy(mmu);
-			continue;
+			msm_gem_address_space_destroy(aspace);
+			goto fail;
 		}
 
-		sde_kms->mmu_id[i] = msm_register_mmu(sde_kms->dev, mmu);
+		sde_kms->mmu_id[i] = msm_register_address_space(sde_kms->dev,
+			aspace);
 		if (sde_kms->mmu_id[i] < 0) {
 			ret = sde_kms->mmu_id[i];
 			SDE_ERROR("failed to register sde iommu %d: %d\n",
 					i, ret);
 			mmu->funcs->detach(mmu, (const char **)iommu_ports,
 					ARRAY_SIZE(iommu_ports));
+			msm_gem_address_space_destroy(aspace);
 			goto fail;
 		}
-
-		sde_kms->mmu[i] = mmu;
 	}
 
 	return 0;

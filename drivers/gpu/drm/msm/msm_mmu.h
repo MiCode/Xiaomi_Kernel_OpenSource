@@ -21,7 +21,6 @@
 #include <linux/iommu.h>
 
 struct msm_mmu;
-struct msm_gpu;
 
 enum msm_mmu_domain_type {
 	MSM_SMMU_DOMAIN_UNSECURE,
@@ -61,7 +60,6 @@ static inline void msm_mmu_init(struct msm_mmu *mmu, struct device *dev,
 }
 
 struct msm_mmu *msm_iommu_new(struct device *dev, struct iommu_domain *domain);
-struct msm_mmu *msm_gpummu_new(struct device *dev, struct msm_gpu *gpu);
 struct msm_mmu *msm_smmu_new(struct device *dev,
 	enum msm_mmu_domain_type domain);
 

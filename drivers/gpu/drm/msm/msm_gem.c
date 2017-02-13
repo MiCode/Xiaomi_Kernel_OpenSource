@@ -26,6 +26,11 @@
 #include "msm_gpu.h"
 #include "msm_mmu.h"
 
+static void *get_dmabuf_ptr(struct drm_gem_object *obj)
+{
+	return (obj && obj->import_attach) ? obj->import_attach->dmabuf : NULL;
+}
+
 static dma_addr_t physaddr(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
@@ -296,8 +301,8 @@ put_iova(struct drm_gem_object *obj)
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
 	for (id = 0; id < ARRAY_SIZE(msm_obj->domain); id++) {
-		msm_gem_unmap_vma(priv->aspace[id],
-				&msm_obj->domain[id], msm_obj->sgt);
+		msm_gem_unmap_vma(priv->aspace[id], &msm_obj->domain[id],
+			msm_obj->sgt, get_dmabuf_ptr(obj));
 	}
 }
 
@@ -323,10 +328,10 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 
 		if (iommu_present(&platform_bus_type)) {
 			ret = msm_gem_map_vma(priv->aspace[id],
-					&msm_obj->domain[id],
-					msm_obj->sgt, obj->size >> PAGE_SHIFT);
+				&msm_obj->domain[id], msm_obj->sgt,
+				get_dmabuf_ptr(obj),
+				msm_obj->flags);
 		} else {
-			WARN_ONCE(1, "physical address being used\n");
 			msm_obj->domain[id].iova = physaddr(obj);
 		}
 	}
@@ -697,7 +702,8 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 
 	if (obj->import_attach) {
 		if (msm_obj->vaddr)
-			dma_buf_vunmap(obj->import_attach->dmabuf, msm_obj->vaddr);
+			dma_buf_vunmap(obj->import_attach->dmabuf,
+				msm_obj->vaddr);
 
 		/* Don't drop the pages for imported dmabuf, as they are not
 		 * ours, just free the array we allocated:

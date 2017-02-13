@@ -171,6 +171,9 @@ static void mdp4_preclose(struct msm_kms *kms, struct drm_file *file)
 
 static void mdp4_destroy(struct msm_kms *kms)
 {
+	struct device *dev = mdp4_kms->dev->dev;
+	struct msm_gem_address_space *aspace = mdp4_kms->aspace;
+
 	struct mdp4_kms *mdp4_kms = to_mdp4_kms(to_mdp_kms(kms));
 	struct device *dev = mdp4_kms->dev->dev;
 	struct msm_mmu *mmu = mdp4_kms->mmu;
@@ -186,6 +189,12 @@ static void mdp4_destroy(struct msm_kms *kms)
 
 	if (mdp4_kms->rpm_enabled)
 		pm_runtime_disable(dev);
+
+	if (aspace) {
+		aspace->mmu->funcs->detach(aspace->mmu,
+				iommu_ports, ARRAY_SIZE(iommu_ports));
+		msm_gem_address_space_destroy(aspace);
+	}
 
 	kfree(mdp4_kms);
 }
@@ -454,7 +463,6 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 	struct mdp4_platform_config *config = mdp4_get_config(pdev);
 	struct mdp4_kms *mdp4_kms;
 	struct msm_kms *kms = NULL;
-	struct msm_mmu *mmu;
 	int irq, ret;
 	struct msm_gem_address_space *aspace;
 
@@ -546,8 +554,15 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 	mdelay(16);
 
 	if (config->iommu) {
+		struct msm_mmu *mmu = msm_iommu_new(&pdev->dev, config->iommu);
+
+		if (IS_ERR(mmu)) {
+			ret = PTR_ERR(mmu);
+			goto fail;
+		}
+
 		aspace = msm_gem_address_space_create(&pdev->dev,
-				config->iommu, "mdp4");
+				mmu, "mdp4", 0x1000, 0xffffffff);
 		if (IS_ERR(aspace)) {
 			ret = PTR_ERR(aspace);
 			goto fail;
@@ -618,5 +633,13 @@ static struct mdp4_platform_config *mdp4_get_config(struct platform_device *dev)
 	config.max_clk = 266667000;
 	config.iommu = iommu_domain_alloc(&platform_bus_type);
 
+#else
+	if (cpu_is_apq8064())
+		config.max_clk = 266667000;
+	else
+		config.max_clk = 200000000;
+
+	config.iommu = msm_get_iommu_domain(DISPLAY_READ_DOMAIN);
+#endif
 	return &config;
 }

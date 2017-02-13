@@ -642,24 +642,24 @@ int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool nonblock);
 
 void msm_gem_submit_free(struct msm_gem_submit *submit);
-static inline int msm_register_mmu(struct drm_device *dev,
-		struct msm_mmu *mmu) {
-	return -ENODEV;
-}
-static inline void msm_unregister_mmu(struct drm_device *dev,
-		struct msm_mmu *mmu) {
-}
 int msm_register_address_space(struct drm_device *dev,
 		struct msm_gem_address_space *aspace);
-
 void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, struct sg_table *sgt);
+		struct msm_gem_vma *vma, struct sg_table *sgt,
+		void *priv);
 int msm_gem_map_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, struct sg_table *sgt, int npages);
-
+		struct msm_gem_vma *vma, struct sg_table *sgt,
+		void *priv, unsigned int flags);
 void msm_gem_address_space_destroy(struct msm_gem_address_space *aspace);
+
+/* For GPU and legacy display */
 struct msm_gem_address_space *
 msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
+		const char *name);
+
+/* For SDE  display */
+struct msm_gem_address_space *
+msm_gem_smmu_address_space_create(struct device *dev, struct msm_mmu *mmu,
 		const char *name);
 
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
