@@ -46,8 +46,8 @@ Optional property:
 		 BAM pipe is not available to receive data from slimbus
  - qcom,apps-ch-pipes: This value represents BAM pipe-mask used by application
 		 processor for data channels. If this property is not defined,
-		 default mask of 0x3F000000 is used indicating apps can use 6
-		 pipes from 24-29.
+		 default mask of 0 is used indicating that application
+		 processor does not use BAM pipes for data channels.
  - qcom,ea-pc: This value represents product code (PC) field of enumeration
 		 address (EA) for the QTI slimbus controller hardware.
 		 This value is needed if data-channels originating from apps
