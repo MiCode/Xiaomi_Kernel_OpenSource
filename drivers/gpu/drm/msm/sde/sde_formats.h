@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #define _SDE_FORMATS_H
 
 #include <drm/drm_fourcc.h>
+#include "msm_gem.h"
 #include "sde_hw_mdss.h"
 
 /**
@@ -76,7 +77,7 @@ int sde_format_check_modified_format(
 /**
  * sde_format_populate_layout - populate the given format layout based on
  *                     mmu, fb, and format found in the fb
- * @mmu_id:            mmu id handle
+ * @aspace:            address space pointer
  * @fb:                framebuffer pointer
  * @fmtl:              format layout structure to populate
  *
@@ -84,14 +85,14 @@ int sde_format_check_modified_format(
  *         are the same as before or 0 if new addresses were populated
  */
 int sde_format_populate_layout(
-		int mmu_id,
+		struct msm_gem_address_space *aspace,
 		struct drm_framebuffer *fb,
 		struct sde_hw_fmt_layout *fmtl);
 
 /**
  * sde_format_populate_layout_with_roi - populate the given format layout
  *                     based on mmu, fb, roi, and format found in the fb
- * @mmu_id:            mmu id handle
+ * @aspace:            mmu id handle
  * @fb:                framebuffer pointer
  * @roi:               region of interest (optional)
  * @fmtl:              format layout structure to populate
@@ -99,7 +100,7 @@ int sde_format_populate_layout(
  * Return: error code on failure, 0 on success
  */
 int sde_format_populate_layout_with_roi(
-		int mmu_id,
+		struct msm_gem_address_space *aspace,
 		struct drm_framebuffer *fb,
 		struct sde_rect *roi,
 		struct sde_hw_fmt_layout *fmtl);

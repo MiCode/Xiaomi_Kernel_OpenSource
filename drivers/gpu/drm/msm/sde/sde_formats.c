@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -630,7 +630,7 @@ static int _sde_format_get_plane_sizes(
 }
 
 static int _sde_format_populate_addrs_ubwc(
-		int mmu_id,
+		struct msm_gem_address_space *aspace,
 		struct drm_framebuffer *fb,
 		struct sde_hw_fmt_layout *layout)
 {
@@ -641,7 +641,7 @@ static int _sde_format_populate_addrs_ubwc(
 		return -EINVAL;
 	}
 
-	base_addr = msm_framebuffer_iova(fb, mmu_id, 0);
+	base_addr = msm_framebuffer_iova(fb, aspace, 0);
 	if (!base_addr) {
 		DRM_ERROR("failed to retrieve base addr\n");
 		return -EFAULT;
@@ -711,7 +711,7 @@ static int _sde_format_populate_addrs_ubwc(
 }
 
 static int _sde_format_populate_addrs_linear(
-		int mmu_id,
+		struct msm_gem_address_space *aspace,
 		struct drm_framebuffer *fb,
 		struct sde_hw_fmt_layout *layout)
 {
@@ -728,7 +728,7 @@ static int _sde_format_populate_addrs_linear(
 
 	/* Populate addresses for simple formats here */
 	for (i = 0; i < layout->num_planes; ++i) {
-		layout->plane_addr[i] = msm_framebuffer_iova(fb, mmu_id, i);
+		layout->plane_addr[i] = msm_framebuffer_iova(fb, aspace, i);
 		if (!layout->plane_addr[i]) {
 			DRM_ERROR("failed to retrieve base addr\n");
 			return -EFAULT;
@@ -739,7 +739,7 @@ static int _sde_format_populate_addrs_linear(
 }
 
 int sde_format_populate_layout(
-		int mmu_id,
+		struct msm_gem_address_space *aspace,
 		struct drm_framebuffer *fb,
 		struct sde_hw_fmt_layout *layout)
 {
@@ -770,9 +770,9 @@ int sde_format_populate_layout(
 
 	/* Populate the addresses given the fb */
 	if (SDE_FORMAT_IS_UBWC(layout->format))
-		ret = _sde_format_populate_addrs_ubwc(mmu_id, fb, layout);
+		ret = _sde_format_populate_addrs_ubwc(aspace, fb, layout);
 	else
-		ret = _sde_format_populate_addrs_linear(mmu_id, fb, layout);
+		ret = _sde_format_populate_addrs_linear(aspace, fb, layout);
 
 	/* check if anything changed */
 	if (!ret && !memcmp(plane_addr, layout->plane_addr, sizeof(plane_addr)))
@@ -814,14 +814,14 @@ static void _sde_format_calc_offset_linear(struct sde_hw_fmt_layout *source,
 }
 
 int sde_format_populate_layout_with_roi(
-		int mmu_id,
+		struct msm_gem_address_space *aspace,
 		struct drm_framebuffer *fb,
 		struct sde_rect *roi,
 		struct sde_hw_fmt_layout *layout)
 {
 	int ret;
 
-	ret = sde_format_populate_layout(mmu_id, fb, layout);
+	ret = sde_format_populate_layout(aspace, fb, layout);
 	if (ret || !roi)
 		return ret;
 

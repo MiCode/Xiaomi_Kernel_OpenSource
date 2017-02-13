@@ -940,17 +940,17 @@ static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
 	struct msm_mmu *mmu;
 	int i;
 
-	for (i = ARRAY_SIZE(sde_kms->mmu_id) - 1; i >= 0; i--) {
-		mmu = sde_kms->aspace[i]->mmu;
-
-		if (!mmu)
+	for (i = ARRAY_SIZE(sde_kms->aspace) - 1; i >= 0; i--) {
+		if (!sde_kms->aspace[i])
 			continue;
+
+		mmu = sde_kms->aspace[i]->mmu;
 
 		mmu->funcs->detach(mmu, (const char **)iommu_ports,
 				ARRAY_SIZE(iommu_ports));
 		msm_gem_address_space_destroy(sde_kms->aspace[i]);
 
-		sde_kms->mmu_id[i] = 0;
+		sde_kms->aspace[i] = NULL;
 	}
 
 	return 0;
@@ -991,17 +991,6 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			goto fail;
 		}
 
-		sde_kms->mmu_id[i] = msm_register_address_space(sde_kms->dev,
-			aspace);
-		if (sde_kms->mmu_id[i] < 0) {
-			ret = sde_kms->mmu_id[i];
-			SDE_ERROR("failed to register sde iommu %d: %d\n",
-					i, ret);
-			mmu->funcs->detach(mmu, (const char **)iommu_ports,
-					ARRAY_SIZE(iommu_ports));
-			msm_gem_address_space_destroy(aspace);
-			goto fail;
-		}
 	}
 
 	return 0;

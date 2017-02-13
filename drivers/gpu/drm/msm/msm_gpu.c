@@ -474,7 +474,7 @@ static void retire_worker(struct work_struct *work)
 				(obj->write_fence <= fence)) {
 			/* move to inactive: */
 			msm_gem_move_to_inactive(&obj->base);
-			msm_gem_put_iova(&obj->base, gpu->id);
+			msm_gem_put_iova(&obj->base, gpu->aspace);
 			drm_gem_object_unreference(&obj->base);
 		} else {
 			break;
@@ -533,7 +533,7 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 			/* ring takes a reference to the bo and iova: */
 			drm_gem_object_reference(&msm_obj->base);
 			msm_gem_get_iova_locked(&msm_obj->base,
-					submit->gpu->id, &iova);
+					submit->gpu->aspace, &iova);
 		}
 
 		if (submit->bos[i].flags & MSM_SUBMIT_BO_READ)
@@ -667,8 +667,6 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	} else {
 		dev_info(drm->dev, "%s: no IOMMU, fallback to VRAM carveout!\n", name);
 	}
-	gpu->id = msm_register_address_space(drm, gpu->aspace);
-
 
 	/* Create ringbuffer: */
 	mutex_lock(&drm->struct_mutex);
@@ -707,7 +705,7 @@ void msm_gpu_cleanup(struct msm_gpu *gpu)
 
 	if (gpu->rb) {
 		if (gpu->rb_iova)
-			msm_gem_put_iova(gpu->rb->bo, gpu->id);
+			msm_gem_put_iova(gpu->rb->bo, gpu->aspace);
 		msm_ringbuffer_destroy(gpu->rb);
 	}
 }

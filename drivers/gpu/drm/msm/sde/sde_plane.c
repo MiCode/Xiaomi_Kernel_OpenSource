@@ -86,7 +86,7 @@ enum sde_plane_qos {
 struct sde_plane {
 	struct drm_plane base;
 
-	int mmu_id;
+	struct msm_gem_address_space *aspace;
 
 	struct mutex lock;
 
@@ -580,7 +580,7 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 		return;
 	}
 
-	ret = sde_format_populate_layout(psde->mmu_id, fb, &pipe_cfg->layout);
+	ret = sde_format_populate_layout(psde->aspace, fb, &pipe_cfg->layout);
 	if (ret == -EAGAIN)
 		SDE_DEBUG_PLANE(psde, "not updating same src addrs\n");
 	else if (ret)
@@ -1285,7 +1285,7 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 		return 0;
 
 	SDE_DEBUG_PLANE(psde, "FB[%u]\n", fb->base.id);
-	return msm_framebuffer_prepare(fb, psde->mmu_id);
+	return msm_framebuffer_prepare(fb, psde->aspace);
 }
 
 static void sde_plane_cleanup_fb(struct drm_plane *plane,
@@ -1294,11 +1294,11 @@ static void sde_plane_cleanup_fb(struct drm_plane *plane,
 	struct drm_framebuffer *fb = old_state ? old_state->fb : NULL;
 	struct sde_plane *psde = plane ? to_sde_plane(plane) : NULL;
 
-	if (!fb)
+	if (!fb || !psde)
 		return;
 
 	SDE_DEBUG_PLANE(psde, "FB[%u]\n", fb->base.id);
-	msm_framebuffer_cleanup(fb, psde->mmu_id);
+	msm_framebuffer_cleanup(fb, psde->aspace);
 }
 
 static void _sde_plane_atomic_check_mode_changed(struct sde_plane *psde,
@@ -2384,7 +2384,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	/* cache local stuff for later */
 	plane = &psde->base;
 	psde->pipe = pipe;
-	psde->mmu_id = kms->mmu_id[MSM_SMMU_DOMAIN_UNSECURE];
+	psde->aspace = kms->aspace[MSM_SMMU_DOMAIN_UNSECURE];
 
 	/* initialize underlying h/w driver */
 	psde->pipe_hw = sde_hw_sspp_init(pipe, kms->mmio, kms->catalog);

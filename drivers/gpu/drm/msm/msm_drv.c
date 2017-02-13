@@ -38,20 +38,6 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_commit = msm_atomic_commit,
 };
 
-int msm_register_address_space(struct drm_device *dev,
-		struct msm_gem_address_space *aspace)
-{
-	struct msm_drm_private *priv = dev->dev_private;
-	int idx = priv->num_aspaces++;
-
-	if (WARN_ON(idx >= ARRAY_SIZE(priv->aspace)))
-		return -EINVAL;
-
-	priv->aspace[idx] = aspace;
-
-	return idx;
-}
-
 #ifdef CONFIG_DRM_MSM_REGISTER_LOGGING
 static bool reglog = false;
 MODULE_PARM_DESC(reglog, "Enable register read/write logging");

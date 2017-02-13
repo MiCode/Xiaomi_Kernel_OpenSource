@@ -273,20 +273,61 @@ uint64_t msm_gem_mmap_offset(struct drm_gem_object *obj)
 	return offset;
 }
 
+static void obj_remove_domain(struct msm_gem_vma *domain)
+{
+	if (domain) {
+		list_del(&domain->list);
+		kfree(domain);
+	}
+}
+
 static void
 put_iova(struct drm_gem_object *obj)
 {
 	struct drm_device *dev = obj->dev;
-	struct msm_drm_private *priv = obj->dev->dev_private;
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	int id;
+	struct msm_gem_vma *domain, *tmp;
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
-	for (id = 0; id < ARRAY_SIZE(msm_obj->domain); id++) {
-		msm_gem_unmap_vma(priv->aspace[id], &msm_obj->domain[id],
-			msm_obj->sgt, get_dmabuf_ptr(obj));
+	list_for_each_entry_safe(domain, tmp, &msm_obj->domains, list) {
+		if (iommu_present(&platform_bus_type)) {
+			msm_gem_unmap_vma(domain->aspace, domain,
+				msm_obj->sgt, get_dmabuf_ptr(obj));
+		}
+
+		obj_remove_domain(domain);
 	}
+}
+
+static struct msm_gem_vma *obj_add_domain(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace)
+{
+	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct msm_gem_vma *domain = kzalloc(sizeof(*domain), GFP_KERNEL);
+
+	if (!domain)
+		return ERR_PTR(-ENOMEM);
+
+	domain->aspace = aspace;
+
+	list_add_tail(&domain->list, &msm_obj->domains);
+
+	return domain;
+}
+
+static struct msm_gem_vma *obj_get_domain(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace)
+{
+	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct msm_gem_vma *domain;
+
+	list_for_each_entry(domain, &msm_obj->domains, list) {
+		if (domain->aspace == aspace)
+			return domain;
+	}
+
+	return NULL;
 }
 
 /* should be called under struct_mutex.. although it can be called
@@ -296,49 +337,64 @@ put_iova(struct drm_gem_object *obj)
  * That means when I do eventually need to add support for unpinning
  * the refcnt counter needs to be atomic_t.
  */
-int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
-		uint32_t *iova)
+int msm_gem_get_iova_locked(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace, uint32_t *iova)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct page **pages;
+	struct msm_gem_vma *domain;
 	int ret = 0;
 
-	if (!msm_obj->domain[id].iova) {
-		struct msm_drm_private *priv = obj->dev->dev_private;
-		struct page **pages = get_pages(obj);
+	if (!iommu_present(&platform_bus_type)) {
+		pages = get_pages(obj);
 
 		if (IS_ERR(pages))
 			return PTR_ERR(pages);
 
-		if (iommu_present(&platform_bus_type)) {
-			ret = msm_gem_map_vma(priv->aspace[id],
-				&msm_obj->domain[id], msm_obj->sgt,
-				get_dmabuf_ptr(obj));
-		} else
-			msm_obj->domain[id].iova = physaddr(obj);
+		*iova = physaddr(obj);
+		return 0;
+	}
+
+	domain = obj_get_domain(obj, aspace);
+
+	if (!domain) {
+		domain = obj_add_domain(obj, aspace);
+		if (IS_ERR(domain))
+			return PTR_ERR(domain);
+
+		pages = get_pages(obj);
+		if (IS_ERR(pages)) {
+			obj_remove_domain(domain);
+			return PTR_ERR(pages);
+		}
+
+		ret = msm_gem_map_vma(aspace, domain, msm_obj->sgt,
+			get_dmabuf_ptr(obj));
 	}
 
 	if (!ret)
-		*iova = msm_obj->domain[id].iova;
+		*iova = domain->iova;
+	else
+		obj_remove_domain(domain);
 
 	return ret;
 }
 
 /* get iova, taking a reference.  Should have a matching put */
-int msm_gem_get_iova(struct drm_gem_object *obj, int id, uint32_t *iova)
+int msm_gem_get_iova(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace, uint32_t *iova)
 {
-	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct msm_gem_vma *domain;
 	int ret;
 
-	/* this is safe right now because we don't unmap until the
-	 * bo is deleted:
-	 */
-	if (msm_obj->domain[id].iova) {
-		*iova = msm_obj->domain[id].iova;
+	domain = obj_get_domain(obj, aspace);
+	if (domain) {
+		*iova = domain->iova;
 		return 0;
 	}
 
 	mutex_lock(&obj->dev->struct_mutex);
-	ret = msm_gem_get_iova_locked(obj, id, iova);
+	ret = msm_gem_get_iova_locked(obj, aspace, iova);
 	mutex_unlock(&obj->dev->struct_mutex);
 	return ret;
 }
@@ -346,14 +402,18 @@ int msm_gem_get_iova(struct drm_gem_object *obj, int id, uint32_t *iova)
 /* get iova without taking a reference, used in places where you have
  * already done a 'msm_gem_get_iova()'.
  */
-uint32_t msm_gem_iova(struct drm_gem_object *obj, int id)
+uint32_t msm_gem_iova(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace)
 {
-	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	WARN_ON(!msm_obj->domain[id].iova);
-	return msm_obj->domain[id].iova;
+	struct msm_gem_vma *domain = obj_get_domain(obj, aspace);
+
+	WARN_ON(!domain);
+
+	return domain ? domain->iova : 0;
 }
 
-void msm_gem_put_iova(struct drm_gem_object *obj, int id)
+void msm_gem_put_iova(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace)
 {
 	// XXX TODO ..
 	// NOTE: probably don't need a _locked() version.. we wouldn't
@@ -487,9 +547,8 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 {
 	struct drm_device *dev = obj->dev;
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	struct msm_drm_private *priv = obj->dev->dev_private;
+	struct msm_gem_vma *domain;
 	uint64_t off = drm_vma_node_start(&obj->vma_node);
-	int id;
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 	seq_printf(m, "%08x: %c(r=%u,w=%u) %2d (%2d) %08llx %p\t",
@@ -498,8 +557,9 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 			obj->name, obj->refcount.refcount.counter,
 			off, msm_obj->vaddr);
 
-	for (id = 0; id < priv->num_aspaces; id++)
-		seq_printf(m, " %08llx", msm_obj->domain[id].iova);
+	/* FIXME: we need to print the address space here too */
+	list_for_each_entry(domain, &msm_obj->domains, list)
+		seq_printf(m, " %08llx", domain->iova);
 
 	seq_puts(m, "\n");
 }
@@ -618,8 +678,12 @@ static int msm_gem_new_impl(struct drm_device *dev,
 	if (!msm_obj)
 		return -ENOMEM;
 
-	if (use_vram)
-		msm_obj->vram_node = &msm_obj->domain[0].node;
+	if (use_vram) {
+		struct msm_gem_vma *domain = obj_add_domain(&msm_obj->base, 0);
+
+		if (!IS_ERR(domain))
+			msm_obj->vram_node = &domain->node;
+	}
 
 	msm_obj->flags = flags;
 
@@ -627,6 +691,8 @@ static int msm_gem_new_impl(struct drm_device *dev,
 	reservation_object_init(msm_obj->resv);
 
 	INIT_LIST_HEAD(&msm_obj->submit_entry);
+	INIT_LIST_HEAD(&msm_obj->domains);
+
 	list_add_tail(&msm_obj->mm_list, &priv->inactive_list);
 
 	*obj = &msm_obj->base;
