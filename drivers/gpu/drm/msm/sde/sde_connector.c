@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -526,23 +526,17 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		goto error_cleanup_conn;
 	}
 
-	rc = drm_connector_register(&c_conn->base);
-	if (rc) {
-		SDE_ERROR("failed to register drm connector, %d\n", rc);
-		goto error_cleanup_fence;
-	}
-
 	rc = drm_mode_connector_attach_encoder(&c_conn->base, encoder);
 	if (rc) {
 		SDE_ERROR("failed to attach encoder to connector, %d\n", rc);
-		goto error_unregister_conn;
+		goto error_cleanup_fence;
 	}
 
 	if (c_conn->ops.set_backlight) {
 		rc = sde_backlight_setup(&c_conn->base);
 		if (rc) {
 			pr_err("failed to setup backlight, rc=%d\n", rc);
-			goto error_unregister_conn;
+			goto error_cleanup_fence;
 		}
 	}
 
@@ -557,7 +551,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		if (!info) {
 			SDE_ERROR("failed to allocate info buffer\n");
 			rc = -ENOMEM;
-			goto error_unregister_conn;
+			goto error_cleanup_fence;
 		}
 
 		sde_kms_info_reset(info);
@@ -565,7 +559,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		if (rc) {
 			SDE_ERROR("post-init failed, %d\n", rc);
 			kfree(info);
-			goto error_unregister_conn;
+			goto error_cleanup_fence;
 		}
 
 		msm_property_install_blob(&c_conn->property_info,
@@ -611,8 +605,6 @@ error_destroy_property:
 	if (c_conn->blob_caps)
 		drm_property_unreference_blob(c_conn->blob_caps);
 	msm_property_destroy(&c_conn->property_info);
-error_unregister_conn:
-	drm_connector_unregister(&c_conn->base);
 error_cleanup_fence:
 	sde_fence_deinit(&c_conn->retire_fence);
 error_cleanup_conn:

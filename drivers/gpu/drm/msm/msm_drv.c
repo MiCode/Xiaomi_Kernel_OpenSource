@@ -258,7 +258,10 @@ static int msm_drm_uninit(struct device *dev)
 	drm_mode_config_cleanup(ddev);
 	drm_vblank_cleanup(ddev);
 
-	drm_dev_unregister(ddev);
+	if (priv->registered) {
+		drm_dev_unregister(ddev);
+		priv->registered = false;
+	}
 
 #ifdef CONFIG_DRM_FBDEV_EMULATION
 	if (fbdev && priv->fbdev)
@@ -297,8 +300,6 @@ static int msm_drm_uninit(struct device *dev)
 	sde_power_resource_deinit(pdev, &priv->phandle);
 
 	component_unbind_all(dev, ddev);
-
-	sde_power_client_destroy(&priv->phandle, priv->pclient);
 
 	sde_power_resource_deinit(pdev, &priv->phandle);
 
@@ -457,10 +458,6 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	platform_set_drvdata(pdev, ddev);
 	ddev->platformdev = pdev;
 
-	ret = drm_dev_register(ddev, 0);
-	if (ret)
-		goto fail;
-
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
 		ret = -ENOMEM;
@@ -592,6 +589,10 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		}
 	}
 
+	ret = drm_dev_register(ddev, 0);
+	if (ret)
+		goto fail;
+	priv->registered = true;
 
 	drm_mode_config_reset(ddev);
 

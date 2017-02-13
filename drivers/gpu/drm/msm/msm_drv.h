@@ -346,6 +346,9 @@ struct msm_drm_private {
 
 	/* list of clients waiting for events */
 	struct list_head client_event_list;
+
+	/* whether registered and drm_dev_unregister should be called */
+	bool registered;
 };
 
 struct msm_format {
