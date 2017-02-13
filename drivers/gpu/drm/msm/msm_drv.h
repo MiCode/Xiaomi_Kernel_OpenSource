@@ -411,6 +411,9 @@ void msm_gem_address_space_destroy(struct msm_gem_address_space *aspace);
 struct msm_gem_address_space *
 msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
 		const char *name);
+struct msm_gem_address_space *
+msm_gem_address_space_create_instance(struct msm_mmu *parent, const char *name,
+		uint64_t start, uint64_t end);
 
 /* For SDE  display */
 struct msm_gem_address_space *

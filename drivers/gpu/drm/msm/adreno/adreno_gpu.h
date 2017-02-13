@@ -95,6 +95,8 @@ const struct adreno_info *adreno_info(struct adreno_rev rev);
 struct adreno_rbmemptrs {
 	volatile uint32_t rptr[MSM_GPU_MAX_RINGS];
 	volatile uint32_t fence[MSM_GPU_MAX_RINGS];
+	volatile uint64_t ttbr0[MSM_GPU_MAX_RINGS];
+	volatile unsigned int contextidr[MSM_GPU_MAX_RINGS];
 };
 
 struct adreno_gpu {

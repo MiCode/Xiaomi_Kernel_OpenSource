@@ -23,6 +23,8 @@
 #include "sde_wb.h"
 
 #define TEARDOWN_DEADLOCK_RETRY_MAX 5
+#include "msm_gem.h"
+#include "msm_mmu.h"
 
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
@@ -552,33 +554,65 @@ static void load_gpu(struct drm_device *dev)
 }
 #endif
 
-static int msm_open(struct drm_device *dev, struct drm_file *file)
+static struct msm_file_private *setup_pagetable(struct msm_drm_private *priv)
 {
 	struct msm_file_private *ctx;
 
+	if (!priv || !priv->gpu)
+		return NULL;
+
+	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	if (!ctx)
+		return ERR_PTR(-ENOMEM);
+
+	ctx->aspace = msm_gem_address_space_create_instance(
+		priv->gpu->aspace->mmu, "gpu", 0x100000000, 0x1ffffffff);
+
+	if (IS_ERR(ctx->aspace)) {
+		int ret = PTR_ERR(ctx->aspace);
+
+		/*
+		 * If dynamic domains are not supported, everybody uses the
+		 * same pagetable
+		 */
+		if (ret != -EOPNOTSUPP) {
+			kfree(ctx);
+			return ERR_PTR(ret);
+		}
+
+		ctx->aspace = priv->gpu->aspace;
+	}
+
+	ctx->aspace->mmu->funcs->attach(ctx->aspace->mmu, NULL, 0);
+	return ctx;
+}
+
+static int msm_open(struct drm_device *dev, struct drm_file *file)
+{
+	struct msm_file_private *ctx = NULL;
+	struct msm_drm_private *priv;
+	struct msm_kms *kms;
+
+	if (!dev || !dev->dev_private)
+		return -ENODEV;
+
+	priv = dev->dev_private;
 	/* For now, load gpu on open.. to avoid the requirement of having
 	 * firmware in the initrd.
 	 */
 	load_gpu(dev);
 
-	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
-	if (!ctx)
-		return -ENOMEM;
-
-	if (dev && dev->dev_private) {
-		struct msm_drm_private *priv = dev->dev_private;
-		struct msm_kms *kms;
-
-		if (priv) {
-			ctx->aspace = priv->gpu->aspace;
-			kms = priv->kms;
-
-			if (kms && kms->funcs && kms->funcs->postopen)
-				kms->funcs->postopen(kms, file);
-		}
-	}
+	ctx = setup_pagetable(priv);
+	if (IS_ERR(ctx))
+		return PTR_ERR(ctx);
 
 	file->driver_priv = ctx;
+
+	kms = priv->kms;
+
+	if (kms && kms->funcs && kms->funcs->postopen)
+		kms->funcs->postopen(kms, file);
+
 	return 0;
 }
 
@@ -599,6 +633,13 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 
 	if (kms && kms->funcs && kms->funcs->postclose)
 		kms->funcs->postclose(kms, file);
+
+	mutex_lock(&dev->struct_mutex);
+	if (ctx && ctx->aspace && ctx->aspace != priv->gpu->aspace) {
+		ctx->aspace->mmu->funcs->detach(ctx->aspace->mmu);
+		msm_gem_address_space_destroy(ctx->aspace);
+	}
+	mutex_unlock(&dev->struct_mutex);
 
 	kfree(ctx);
 }

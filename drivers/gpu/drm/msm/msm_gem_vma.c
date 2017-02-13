@@ -218,3 +218,16 @@ msm_gem_address_space_destroy(struct msm_gem_address_space *aspace)
 
 	kfree(aspace);
 }
+
+/* Create a new dynamic instance */
+struct msm_gem_address_space *
+msm_gem_address_space_create_instance(struct msm_mmu *parent, const char *name,
+		uint64_t start, uint64_t end)
+{
+	struct msm_mmu *child = msm_iommu_new_dynamic(parent);
+
+	if (IS_ERR(child))
+		return (struct msm_gem_address_space *) child;
+
+	return msm_gem_address_space_new(child, name, start, end);
+}

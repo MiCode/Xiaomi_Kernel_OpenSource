@@ -12,6 +12,7 @@
  */
 
 #include "msm_gem.h"
+#include "msm_iommu.h"
 #include "a5xx_gpu.h"
 
 static void *alloc_kernel_bo(struct drm_device *drm, struct msm_gpu *gpu,
@@ -172,6 +173,17 @@ void a5xx_preempt_trigger(struct msm_gpu *gpu)
 	a5xx_gpu->preempt[ring->id]->wptr = get_wptr(ring);
 	spin_unlock_irqrestore(&ring->lock, flags);
 
+	/* Do read barrier to make sure we have updated pagetable info */
+	rmb();
+
+	/* Set the SMMU info for the preemption */
+	if (a5xx_gpu->smmu_info) {
+		a5xx_gpu->smmu_info->ttbr0 =
+			adreno_gpu->memptrs->ttbr0[ring->id];
+		a5xx_gpu->smmu_info->contextidr =
+			adreno_gpu->memptrs->contextidr[ring->id];
+	}
+
 	/* Set the address of the incoming preemption record */
 	gpu_write64(gpu, REG_A5XX_CP_CONTEXT_SWITCH_RESTORE_ADDR_LO,
 		REG_A5XX_CP_CONTEXT_SWITCH_RESTORE_ADDR_HI,
@@ -247,9 +259,10 @@ void a5xx_preempt_hw_init(struct msm_gpu *gpu)
 		}
 	}
 
-	/* Write a 0 to signal that we aren't switching pagetables */
+	/* Tell the CP where to find the smmu_info buffer */
 	gpu_write64(gpu, REG_A5XX_CP_CONTEXT_SWITCH_SMMU_INFO_LO,
-		REG_A5XX_CP_CONTEXT_SWITCH_SMMU_INFO_HI, 0);
+		REG_A5XX_CP_CONTEXT_SWITCH_SMMU_INFO_HI,
+		a5xx_gpu->smmu_info_iova);
 
 	/* Reset the preemption state */
 	set_preempt_state(a5xx_gpu, PREEMPT_NONE);
@@ -309,6 +322,13 @@ void a5xx_preempt_fini(struct msm_gpu *gpu)
 
 		a5xx_gpu->preempt_bo[i] = NULL;
 	}
+
+	if (a5xx_gpu->smmu_info_bo) {
+		if (a5xx_gpu->smmu_info_iova)
+			msm_gem_put_iova(a5xx_gpu->smmu_info_bo, gpu->aspace);
+		drm_gem_object_unreference_unlocked(a5xx_gpu->smmu_info_bo);
+		a5xx_gpu->smmu_info_bo = NULL;
+	}
 }
 
 void a5xx_preempt_init(struct msm_gpu *gpu)
@@ -316,6 +336,9 @@ void a5xx_preempt_init(struct msm_gpu *gpu)
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
 	struct msm_ringbuffer *ring;
+	struct a5xx_smmu_info *ptr;
+	struct drm_gem_object *bo;
+	uint64_t iova;
 	int i;
 
 	/* No preemption if we only have one ring */
@@ -326,18 +349,35 @@ void a5xx_preempt_init(struct msm_gpu *gpu)
 		if (!ring)
 			continue;
 
-		if (preempt_init_ring(a5xx_gpu, ring)) {
-			/*
-			 * On any failure our adventure is over. Clean up and
-			 * set nr_rings to 1 to force preemption off
-			 */
-			a5xx_preempt_fini(gpu);
-			gpu->nr_rings = 1;
+		if (preempt_init_ring(a5xx_gpu, ring))
+			goto fail;
+	}
 
-			return;
-		}
+	if (msm_iommu_allow_dynamic(gpu->aspace->mmu)) {
+		ptr = alloc_kernel_bo(gpu->dev, gpu,
+			sizeof(struct a5xx_smmu_info),
+			MSM_BO_UNCACHED | MSM_BO_PRIVILEGED,
+			&bo, &iova);
+
+		if (IS_ERR(ptr))
+			goto fail;
+
+		ptr->magic = A5XX_SMMU_INFO_MAGIC;
+
+		a5xx_gpu->smmu_info_bo = bo;
+		a5xx_gpu->smmu_info_iova = iova;
+		a5xx_gpu->smmu_info = ptr;
 	}
 
 	setup_timer(&a5xx_gpu->preempt_timer, a5xx_preempt_timer,
 		(unsigned long) a5xx_gpu);
+
+	return;
+fail:
+	/*
+	 * On any failure our adventure is over. Clean up and
+	 * set nr_rings to 1 to force preemption off
+	 */
+	a5xx_preempt_fini(gpu);
+	gpu->nr_rings = 1;
 }

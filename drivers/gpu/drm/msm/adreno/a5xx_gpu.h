@@ -53,6 +53,9 @@ struct a5xx_gpu {
 	atomic_t preempt_state;
 	struct timer_list preempt_timer;
 
+	struct a5xx_smmu_info *smmu_info;
+	struct drm_gem_object *smmu_info_bo;
+	uint64_t smmu_info_iova;
 };
 
 #define to_a5xx_gpu(x) container_of(x, struct a5xx_gpu, base)
@@ -133,6 +136,20 @@ struct a5xx_preempt_record {
  */
 #define A5XX_PREEMPT_COUNTER_SIZE (16 * 4)
 
+/*
+ * This is a global structure that the preemption code uses to switch in the
+ * pagetable for the preempted process - the code switches in whatever we
+ * after preempting in a new ring.
+ */
+struct a5xx_smmu_info {
+	uint32_t  magic;
+	uint32_t  _pad4;
+	uint64_t  ttbr0;
+	uint32_t  asid;
+	uint32_t  contextidr;
+};
+
+#define A5XX_SMMU_INFO_MAGIC 0x3618CDA3UL
 
 int a5xx_power_init(struct msm_gpu *gpu);
 void a5xx_gpmu_ucode_init(struct msm_gpu *gpu);
