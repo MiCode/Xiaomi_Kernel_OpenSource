@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -250,8 +250,9 @@ static int a5xx_gpmu_init(struct msm_gpu *gpu)
 
 	gpu->funcs->flush(gpu, ring);
 
+	/* This is "fatal" because the CP is left in a bad state */
 	if (!a5xx_idle(gpu, ring)) {
-		DRM_ERROR("%s: Unable to load GPMU firmware. GPMU will not be active\n",
+		DRM_ERROR("%s: Unable to load GPMU firmwaren",
 			gpu->name);
 		return -EINVAL;
 	}
@@ -268,18 +269,18 @@ static int a5xx_gpmu_init(struct msm_gpu *gpu)
 	 * won't have advanced power collapse.
 	 */
 	if (spin_usecs(gpu, 25, REG_A5XX_GPMU_GENERAL_0, 0xFFFFFFFF,
-		0xBABEFACE))
+		0xBABEFACE)) {
 		DRM_ERROR("%s: GPMU firmware initialization timed out\n",
 			gpu->name);
+		return 0;
+	}
 
 	if (!adreno_is_a530(adreno_gpu)) {
 		u32 val = gpu_read(gpu, REG_A5XX_GPMU_GENERAL_1);
 
-		if (val) {
+		if (val)
 			DRM_ERROR("%s: GPMU firmare initialization failed: %d\n",
 				gpu->name, val);
-			return -EIO;
-		}
 	}
 
 	/* FIXME: Clear GPMU interrupts? */
