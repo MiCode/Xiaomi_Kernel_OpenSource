@@ -1236,13 +1236,24 @@ static int msm_ioctl_wait_fence(struct drm_device *dev, void *data,
 		struct drm_file *file)
 {
 	struct drm_msm_wait_fence *args = data;
-	ktime_t timeout = to_ktime(args->timeout);
+	ktime_t timeout;
+
 
 	if (args->pad) {
 		DRM_ERROR("invalid pad: %08x\n", args->pad);
 		return -EINVAL;
 	}
 
+	/*
+	 * Special case - if the user passes a timeout of 0.0 just return the
+	 * current fence status (0 for retired, -EBUSY for active) with no
+	 * accompanying kernel logs. This can be a poor man's way of
+	 * determining the status of a fence.
+	 */
+	if (args->timeout.tv_sec == 0 && args->timeout.tv_nsec == 0)
+		return msm_wait_fence(dev, args->fence, NULL, true);
+
+	timeout = to_ktime(args->timeout);
 	return msm_wait_fence(dev, args->fence, &timeout, true);
 }
 
