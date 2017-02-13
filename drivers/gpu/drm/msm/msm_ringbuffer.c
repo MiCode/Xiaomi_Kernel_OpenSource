@@ -43,6 +43,7 @@ struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id)
 
 	ring->start = msm_gem_vaddr_locked(ring->bo);
 	ring->end   = ring->start + (MSM_GPU_RINGBUFFER_SZ >> 2);
+	ring->next  = ring->start;
 	ring->cur   = ring->start;
 
 	return ring;

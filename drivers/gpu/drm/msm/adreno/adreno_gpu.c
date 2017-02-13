@@ -153,6 +153,7 @@ void adreno_recover(struct msm_gpu *gpu)
 			continue;
 
 		ring->cur = ring->start;
+		ring->next = ring->start;
 
 		/* reset completed fence seqno, discard anything pending: */
 		adreno_gpu->memptrs->fence[ring->id] =
@@ -259,12 +260,15 @@ void adreno_flush(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	uint32_t wptr;
 
+	/* Copy the shadow to the actual register */
+	ring->cur = ring->next;
+
 	/*
 	 * Mask the wptr value that we calculate to fit in the HW range. This is
 	 * to account for the possibility that the last command fit exactly into
 	 * the ringbuffer and rb->next hasn't wrapped to zero yet
 	 */
-	wptr = get_wptr(ring) % (MSM_GPU_RINGBUFFER_SZ >> 2);
+	wptr = (ring->cur - ring->start) % (MSM_GPU_RINGBUFFER_SZ >> 2);
 
 	/* ensure writes to ringbuffer have hit system memory: */
 	mb();
@@ -390,7 +394,8 @@ static uint32_t ring_freewords(struct msm_ringbuffer *ring)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(ring->gpu);
 	uint32_t size = MSM_GPU_RINGBUFFER_SZ >> 2;
-	uint32_t wptr = get_wptr(ring);
+	/* Use ring->next to calculate free size */
+	uint32_t wptr = ring->next - ring->start;
 	uint32_t rptr = get_rptr(adreno_gpu, ring);
 	return (rptr + (size - 1) - wptr) % size;
 }
