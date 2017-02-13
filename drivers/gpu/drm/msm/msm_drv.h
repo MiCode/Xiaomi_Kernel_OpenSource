@@ -408,7 +408,8 @@ void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
 		void *priv);
 int msm_gem_map_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt,
-		void *priv);
+		void *priv, unsigned int flags);
+
 void msm_gem_address_space_destroy(struct msm_gem_address_space *aspace);
 
 /* For GPU and legacy display */

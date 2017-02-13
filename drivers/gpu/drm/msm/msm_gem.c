@@ -330,6 +330,10 @@ static struct msm_gem_vma *obj_get_domain(struct drm_gem_object *obj,
 	return NULL;
 }
 
+#ifndef IOMMU_PRIV
+#define IOMMU_PRIV 0
+#endif
+
 /* should be called under struct_mutex.. although it can be called
  * from atomic context without struct_mutex to acquire an extra
  * iova ref if you know one is already held.
@@ -369,7 +373,7 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj,
 		}
 
 		ret = msm_gem_map_vma(aspace, domain, msm_obj->sgt,
-			get_dmabuf_ptr(obj));
+			get_dmabuf_ptr(obj), msm_obj->flags);
 	}
 
 	if (!ret)

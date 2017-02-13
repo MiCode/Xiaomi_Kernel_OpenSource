@@ -26,7 +26,7 @@
 
 struct msm_gem_aspace_ops {
 	int (*map)(struct msm_gem_address_space *, struct msm_gem_vma *,
-		struct sg_table *sgt, void *priv);
+		struct sg_table *sgt, void *priv, unsigned int flags);
 
 	void (*unmap)(struct msm_gem_address_space *, struct msm_gem_vma *,
 		struct sg_table *sgt, void *priv);

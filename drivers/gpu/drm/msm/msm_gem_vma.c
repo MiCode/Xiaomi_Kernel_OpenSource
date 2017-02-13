@@ -39,7 +39,7 @@ static void smmu_aspace_unmap_vma(struct msm_gem_address_space *aspace,
 
 static int smmu_aspace_map_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt,
-		void *priv)
+		void *priv, unsigned int flags)
 {
 	struct dma_buf *buf = priv;
 	int ret;
@@ -107,13 +107,20 @@ static void iommu_aspace_unmap_vma(struct msm_gem_address_space *aspace,
 }
 
 static int iommu_aspace_map_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, struct sg_table *sgt,
-		void *priv)
+		struct msm_gem_vma *vma, struct sg_table *sgt, void *priv,
+		unsigned int flags)
 {
 	struct msm_iommu_aspace *local = to_iommu_aspace(aspace);
 	size_t size = 0;
 	struct scatterlist *sg;
-	int ret = 0, i;
+	int ret, i;
+	int iommu_flags = IOMMU_READ;
+
+	if (!(flags & MSM_BO_GPU_READONLY))
+		iommu_flags |= IOMMU_WRITE;
+
+	if (flags & MSM_BO_PRIVILEGED)
+		iommu_flags |= IOMMU_PRIV;
 
 	if (WARN_ON(drm_mm_node_allocated(&vma->node)))
 		return 0;
@@ -129,8 +136,8 @@ static int iommu_aspace_map_vma(struct msm_gem_address_space *aspace,
 	vma->iova = vma->node.start << PAGE_SHIFT;
 
 	if (aspace->mmu)
-		ret = aspace->mmu->funcs->map(aspace->mmu, vma->iova,
-			sgt, IOMMU_READ | IOMMU_WRITE);
+		ret = aspace->mmu->funcs->map(aspace->mmu, vma->iova, sgt,
+			iommu_flags);
 
 	return ret;
 }
@@ -174,10 +181,10 @@ msm_gem_address_space_new(struct msm_mmu *mmu, const char *name,
 
 int msm_gem_map_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt,
-		void *priv)
+		void *priv, unsigned int flags)
 {
 	if (aspace && aspace->ops->map)
-		return aspace->ops->map(aspace, vma, sgt, priv);
+		return aspace->ops->map(aspace, vma, sgt, priv, flags);
 
 	return -EINVAL;
 }
