@@ -26,6 +26,47 @@ static int msm_fault_handler(struct iommu_domain *iommu, struct device *dev,
 	return 0;
 }
 
+/*
+ * Get and enable the IOMMU clocks so that we can make
+ * sure they stay on the entire duration so that we can
+ * safely change the pagetable from the GPU
+ */
+static void _get_iommu_clocks(struct msm_mmu *mmu, struct platform_device *pdev)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+	struct device *dev;
+	struct property *prop;
+	const char *name;
+	int i = 0;
+
+	if (WARN_ON(!pdev))
+		return;
+
+	dev = &pdev->dev;
+
+	iommu->nr_clocks =
+		of_property_count_strings(dev->of_node, "clock-names");
+
+	if (iommu->nr_clocks < 0) {
+		iommu->nr_clocks = 0;
+		return;
+	}
+
+	if (WARN_ON(iommu->nr_clocks > ARRAY_SIZE(iommu->clocks)))
+		iommu->nr_clocks = ARRAY_SIZE(iommu->clocks);
+
+	of_property_for_each_string(dev->of_node, "clock-names", prop, name) {
+		if (i == iommu->nr_clocks)
+			break;
+
+		iommu->clocks[i] =  clk_get(dev, name);
+		if (iommu->clocks[i])
+			clk_prepare_enable(iommu->clocks[i]);
+
+		i++;
+	}
+}
+
 static int _attach_iommu_device(struct msm_mmu *mmu,
 		struct iommu_domain *domain, const char **names, int cnt)
 {
@@ -58,7 +99,11 @@ static int _attach_iommu_device(struct msm_mmu *mmu,
 			if (!pdev)
 				continue;
 
+			_get_iommu_clocks(mmu,
+				of_find_device_by_node(node->parent));
+
 			mmu->dev = &pdev->dev;
+
 			return iommu_attach_device(domain, mmu->dev);
 		}
 	}
@@ -128,6 +173,19 @@ static int msm_iommu_attach_dynamic(struct msm_mmu *mmu, const char **names,
 }
 
 static void msm_iommu_detach(struct msm_mmu *mmu)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+	int i;
+
+	iommu_detach_device(iommu->domain, mmu->dev);
+
+	for (i = 0; i < iommu->nr_clocks; i++) {
+		if (iommu->clocks[i])
+			clk_disable(iommu->clocks[i]);
+	}
+}
+
+static void msm_iommu_detach_dynamic(struct msm_mmu *mmu)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	iommu_detach_device(iommu->domain, mmu->dev);
@@ -216,7 +274,7 @@ static const struct msm_mmu_funcs funcs = {
 
 static const struct msm_mmu_funcs dynamic_funcs = {
 		.attach = msm_iommu_attach_dynamic,
-		.detach = msm_iommu_detach,
+		.detach = msm_iommu_detach_dynamic,
 		.map = msm_iommu_map,
 		.unmap = msm_iommu_unmap,
 		.destroy = msm_iommu_destroy,

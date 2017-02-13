@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,9 @@ struct msm_iommu {
 	phys_addr_t ttbr0;
 	uint32_t contextidr;
 	bool allow_dynamic;
+
+	struct clk *clocks[5];
+	int nr_clocks;
 };
 #define to_msm_iommu(x) container_of(x, struct msm_iommu, base)
 
