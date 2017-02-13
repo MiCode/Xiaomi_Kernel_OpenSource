@@ -46,8 +46,9 @@
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <1 2 2 2>;
-		qcom,vbif-settings = <0x00ac 0x00000040>,
-				     <0x00d0 0x00001010>; /* v1 only */
+		qcom,mdss-vbif-qos-nrt-setting = <1 1 1 1>;
+		qcom,vbif-settings = <0x00ac 0x00008040>,
+				     <0x00d0 0x00002828>;
 
 		qcom,mdss-has-panic-ctrl;
 		qcom,mdss-per-pipe-panic-luts = <0x000f>,
@@ -127,7 +128,7 @@
 				    <0x012ac 0xc0000ccc>,
 				    <0x012b4 0xc0000ccc>,
 				    <0x012bc 0x00cccccc>,
-				    <0x012c4 0x000000cc>,
+				    <0x012c4 0x0000cccc>,
 				    <0x013a8 0x0cccc0c0>,
 				    <0x013b0 0xccccc0c0>,
 				    <0x013b8 0xcccc0000>,
@@ -355,6 +356,7 @@
 
 			qcom,timing-db-mode;
 			wqhd-vddio-supply = <&pm660_l11>;
+			vdda-3p3-supply = <&pm660l_l6>;
 			lab-supply = <&lcdb_ldo_vreg>;
 			ibb-supply = <&lcdb_ncp_vreg>;
 			qcom,mdss-mdp = <&mdss_mdp>;

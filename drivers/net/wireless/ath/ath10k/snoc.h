@@ -106,7 +106,7 @@ struct ath10k_target_info {
  * @is_driver_probed: flag to indicate driver state
  */
 struct ath10k_snoc {
-	struct device *dev;
+	struct platform_device *dev;
 	struct ath10k *ar;
 	void __iomem *mem;
 	dma_addr_t mem_pa;
@@ -118,6 +118,7 @@ struct ath10k_snoc {
 	spinlock_t ce_lock;
 	struct ath10k_ce_pipe ce_states[CE_COUNT_MAX];
 	struct timer_list rx_post_retry;
+	u32 ce_irqs[CE_COUNT_MAX];
 	u32 *vaddr_rri_on_ddr;
 	bool is_driver_probed;
 };

@@ -39,6 +39,8 @@ struct sde_mdp_set_ot_params {
 	u32 reg_off_vbif_lim_conf;
 	u32 reg_off_mdp_clk_ctrl;
 	u32 bit_off_mdp_clk_ctrl;
+	char __iomem *rotsts_base;
+	u32 rotsts_busy_mask;
 };
 
 enum sde_bus_vote_type {

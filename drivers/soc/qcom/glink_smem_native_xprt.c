@@ -678,10 +678,15 @@ static void process_rx_data(struct edge_info *einfo, uint16_t cmd_id,
 	} else if (intent->data == NULL) {
 		if (einfo->intentless) {
 			intent->data = kmalloc(cmd.frag_size, GFP_ATOMIC);
-			if (!intent->data)
+			if (!intent->data) {
 				err = true;
-			else
+				GLINK_ERR(
+				"%s: atomic alloc fail ch %d liid %d size %d\n",
+						__func__, rcid, intent_id,
+						cmd.frag_size);
+			} else {
 				intent->intent_size = cmd.frag_size;
+			}
 		} else {
 			GLINK_ERR(
 				"%s: intent for ch %d liid %d has no data buff\n",

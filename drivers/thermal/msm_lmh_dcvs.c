@@ -68,6 +68,8 @@
 	_max = (_val) & 0x3FF; \
 	_max *= 19200; \
 } while (0)
+#define FREQ_KHZ_TO_HZ(_val) ((_val) * 1000)
+#define FREQ_HZ_TO_KHZ(_val) ((_val) / 1000)
 
 enum lmh_hw_trips {
 	LIMITS_TRIP_LO,
@@ -114,6 +116,7 @@ static uint32_t msm_lmh_mitigation_notify(struct msm_lmh_dcvs_hw *hw)
 	uint32_t max_limit = 0, val = 0;
 	struct device *cpu_dev = NULL;
 	unsigned long freq_val;
+	struct dev_pm_opp *opp_entry;
 
 	val = readl_relaxed(hw->osm_hw_reg);
 	dcvsh_get_frequency(val, max_limit);
@@ -124,11 +127,23 @@ static uint32_t msm_lmh_mitigation_notify(struct msm_lmh_dcvs_hw *hw)
 		goto notify_exit;
 	}
 
-	freq_val = max_limit;
+	freq_val = FREQ_KHZ_TO_HZ(max_limit);
 	rcu_read_lock();
-	dev_pm_opp_find_freq_floor(cpu_dev, &freq_val);
+	opp_entry = dev_pm_opp_find_freq_floor(cpu_dev, &freq_val);
+	/*
+	 * Hardware mitigation frequency can be lower than the lowest
+	 * possible CPU frequency. In that case freq floor call will
+	 * fail with -ERANGE and we need to match to the lowest
+	 * frequency using freq_ceil.
+	 */
+	if (IS_ERR(opp_entry) && PTR_ERR(opp_entry) == -ERANGE) {
+		opp_entry = dev_pm_opp_find_freq_ceil(cpu_dev, &freq_val);
+		if (IS_ERR(opp_entry))
+			dev_err(cpu_dev, "frequency:%lu. opp error:%ld\n",
+					freq_val, PTR_ERR(opp_entry));
+	}
 	rcu_read_unlock();
-	max_limit = freq_val;
+	max_limit = FREQ_HZ_TO_KHZ(freq_val);
 
 	sched_update_cpu_freq_min_max(&hw->core_map, 0, max_limit);
 	trace_lmh_dcvs_freq(cpumask_first(&hw->core_map), max_limit);

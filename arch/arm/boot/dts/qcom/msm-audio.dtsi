@@ -593,16 +593,6 @@
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
 		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
-
-		reg = <0x1508a000 0x4>,
-		      <0x1508b000 0x4>,
-		      <0x1508c000 0x4>,
-		      <0x1508d000 0x4>;
-		reg-names = "lpaif_pri_mode_muxsel",
-			    "lpaif_sec_mode_muxsel",
-			    "lpaif_tert_mode_muxsel",
-			    "lpaif_quat_mode_muxsel";
-
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
@@ -705,16 +695,6 @@
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
 		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
-
-		reg = <0x1508a000 0x4>,
-		      <0x1508b000 0x4>,
-		      <0x1508c000 0x4>,
-		      <0x1508d000 0x4>;
-		reg-names = "lpaif_pri_mode_muxsel",
-			    "lpaif_sec_mode_muxsel",
-			    "lpaif_tert_mode_muxsel",
-			    "lpaif_quat_mode_muxsel";
-
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"MADINPUT", "MCLK",
@@ -810,21 +790,10 @@
 		status = "disabled";
 		compatible = "qcom,sdm660-asoc-snd";
 		qcom,model = "sdm660-snd-card";
-		qcom,wsa-disable;
 		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
 		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
-
-		reg = <0x1508a000 0x4>,
-		      <0x1508b000 0x4>,
-		      <0x1508c000 0x4>,
-		      <0x1508d000 0x4>;
-		reg-names = "lpaif_pri_mode_muxsel",
-			    "lpaif_sec_mode_muxsel",
-			    "lpaif_tert_mode_muxsel",
-			    "lpaif_quat_mode_muxsel";
-
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <1>;
 		qcom,msm-mbhc-gnd-swh = <1>;
@@ -834,7 +803,6 @@
 		qcom,cdc-pdm-gpios = <&cdc_pdm_gpios>;
 		qcom,cdc-comp-gpios = <&cdc_comp_gpios>;
 		qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
-		qcom,cdc-sdw-gpios = <&cdc_sdw_gpios>;
 		qcom,audio-routing =
 			"RX_BIAS", "INT_MCLK0",
 			"SPK_RX_BIAS", "INT_MCLK0",

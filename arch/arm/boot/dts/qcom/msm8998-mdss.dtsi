@@ -127,7 +127,7 @@
 				    <0x012ac 0xc0000ccc>,
 				    <0x012b4 0xc0000ccc>,
 				    <0x012bc 0x00cccccc>,
-				    <0x012c4 0x000000cc>,
+				    <0x012c4 0x0000cccc>,
 				    <0x013a8 0x0cccc0c0>,
 				    <0x013b0 0xccccc0c0>,
 				    <0x013b8 0xcccc0000>,
@@ -500,6 +500,9 @@
 		qcom,dp-usbpd-detection = <&pmi8998_pdphy>;
 
 		qcom,msm_ext_disp = <&msm_ext_disp>;
+
+		qcom,aux-cfg-settings = [00 13 00 10 0a 26 0a 03 8b 03];
+		qcom,logical2physical-lane-map = [02 03 01 00];
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;

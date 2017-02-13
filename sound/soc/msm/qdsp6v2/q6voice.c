@@ -3990,6 +3990,10 @@ static int voice_send_cvp_media_fmt_info_cmd(struct voice_data *v)
 {
 	int ret;
 
+	ret = voice_send_cvp_device_channels_cmd(v);
+	if (ret < 0)
+		goto done;
+
 	if (voice_get_cvd_int_version(common.cvd_version) >=
 	    CVD_INT_VERSION_2_3) {
 		ret = voice_send_cvp_media_format_cmd(v, RX_PATH);
@@ -4002,8 +4006,6 @@ static int voice_send_cvp_media_fmt_info_cmd(struct voice_data *v)
 
 		if (common.ec_ref_ext)
 			ret = voice_send_cvp_media_format_cmd(v, EC_REF_PATH);
-	} else {
-		ret = voice_send_cvp_device_channels_cmd(v);
 	}
 
 done:

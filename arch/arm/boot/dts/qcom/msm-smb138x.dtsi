@@ -57,8 +57,8 @@
 
 			die_temp@2 {
 				reg = <2>;
-				qcom,scale = <(-1032)>;
-				qcom,offset = <344125>;
+				qcom,scale = <(-1306)>;
+				qcom,offset = <397904>;
 			};
 
 			batt_i@3 {

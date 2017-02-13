@@ -160,21 +160,11 @@ enum {
 	PCM_I2S_SEL_MAX,
 };
 
-struct mi2s_aux_pcm_common_conf {
-	struct mutex lock;
-	void *pcm_i2s_sel_vt_addr;
-};
-
 struct mi2s_conf {
 	struct mutex lock;
 	u32 ref_cnt;
 	u32 msm_is_mi2s_master;
 	u32 msm_is_ext_mclk;
-};
-
-struct auxpcm_conf {
-	struct mutex lock;
-	u32 ref_cnt;
 };
 
 static u32 mi2s_ebit_clk[MI2S_MAX] = {
@@ -383,11 +373,7 @@ static struct afe_clk_set mi2s_mclk[MI2S_MAX] = {
 	}
 };
 
-
-
-static struct mi2s_aux_pcm_common_conf mi2s_auxpcm_conf[PCM_I2S_SEL_MAX];
 static struct mi2s_conf mi2s_intf_conf[MI2S_MAX];
-static struct auxpcm_conf auxpcm_intf_conf[AUX_PCM_MAX];
 
 static int proxy_rx_ch_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
@@ -1945,46 +1931,14 @@ EXPORT_SYMBOL(msm_common_be_hw_params_fixup);
  */
 int msm_aux_pcm_snd_startup(struct snd_pcm_substream *substream)
 {
-	int ret = 0;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	int index = cpu_dai->id - 1;
-	return ret = 0;
 
 	dev_dbg(rtd->card->dev,
 		"%s: substream = %s  stream = %d, dai name %s, dai ID %d\n",
 		__func__, substream->name, substream->stream,
-		cpu_dai->name, cpu_dai->id);
+		rtd->cpu_dai->name, rtd->cpu_dai->id);
 
-	if (index < PRIM_AUX_PCM || index > QUAT_AUX_PCM) {
-		ret = -EINVAL;
-		dev_err(rtd->card->dev,
-			"%s: CPU DAI id (%d) out of range\n",
-			__func__, cpu_dai->id);
-		goto done;
-	}
-
-	mutex_lock(&auxpcm_intf_conf[index].lock);
-	if (++auxpcm_intf_conf[index].ref_cnt == 1) {
-		if (mi2s_auxpcm_conf[index].pcm_i2s_sel_vt_addr != NULL) {
-			mutex_lock(&mi2s_auxpcm_conf[index].lock);
-			iowrite32(1,
-				mi2s_auxpcm_conf[index].pcm_i2s_sel_vt_addr);
-			mutex_unlock(&mi2s_auxpcm_conf[index].lock);
-		} else {
-			dev_err(rtd->card->dev,
-				"%s lpaif_tert_muxsel_virt_addr is NULL\n",
-				__func__);
-			ret = -EINVAL;
-		}
-	}
-	if (IS_ERR_VALUE(ret))
-		auxpcm_intf_conf[index].ref_cnt--;
-
-	mutex_unlock(&auxpcm_intf_conf[index].lock);
-
-done:
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(msm_aux_pcm_snd_startup);
 
@@ -1996,36 +1950,12 @@ EXPORT_SYMBOL(msm_aux_pcm_snd_startup);
 void msm_aux_pcm_snd_shutdown(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	int index = rtd->cpu_dai->id - 1;
 
 	dev_dbg(rtd->card->dev,
 		"%s: substream = %s  stream = %d, dai name %s, dai ID %d\n",
 		__func__,
 		substream->name, substream->stream,
 		rtd->cpu_dai->name, rtd->cpu_dai->id);
-
-	if (index < PRIM_AUX_PCM || index > QUAT_AUX_PCM) {
-		dev_err(rtd->card->dev,
-			"%s: CPU DAI id (%d) out of range\n",
-			__func__, rtd->cpu_dai->id);
-		return;
-	}
-
-	mutex_lock(&auxpcm_intf_conf[index].lock);
-	if (--auxpcm_intf_conf[index].ref_cnt == 0) {
-		if (mi2s_auxpcm_conf[index].pcm_i2s_sel_vt_addr != NULL) {
-			mutex_lock(&mi2s_auxpcm_conf[index].lock);
-			iowrite32(0,
-				mi2s_auxpcm_conf[index].pcm_i2s_sel_vt_addr);
-			mutex_unlock(&mi2s_auxpcm_conf[index].lock);
-		} else {
-			dev_err(rtd->card->dev,
-				"%s lpaif_tert_muxsel_virt_addr is NULL\n",
-				__func__);
-			auxpcm_intf_conf[index].ref_cnt++;
-		}
-	}
-	mutex_unlock(&auxpcm_intf_conf[index].lock);
 }
 EXPORT_SYMBOL(msm_aux_pcm_snd_shutdown);
 
@@ -2185,18 +2115,6 @@ int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 				"%s: afe lpass clock failed to enable MI2S clock, err:%d\n",
 				__func__, ret);
 			goto clean_up;
-		}
-		if (mi2s_auxpcm_conf[index].pcm_i2s_sel_vt_addr != NULL) {
-			mutex_lock(&mi2s_auxpcm_conf[index].lock);
-			iowrite32(0,
-				mi2s_auxpcm_conf[index].pcm_i2s_sel_vt_addr);
-			mutex_unlock(&mi2s_auxpcm_conf[index].lock);
-		} else {
-			dev_err(rtd->card->dev,
-				"%s lpaif_muxsel_virt_addr is NULL for dai %d\n",
-				__func__, index);
-			ret = -EINVAL;
-			goto clk_off;
 		}
 		ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
 		if (IS_ERR_VALUE(ret)) {
@@ -2683,40 +2601,14 @@ static void msm_free_auxdev_mem(struct platform_device *pdev)
 
 static void i2s_auxpcm_init(struct platform_device *pdev)
 {
-	struct resource *muxsel;
 	int count;
 	u32 mi2s_master_slave[MI2S_MAX];
 	u32 mi2s_ext_mclk[MI2S_MAX];
 	int ret;
-	char *str[PCM_I2S_SEL_MAX] = {
-		"lpaif_pri_mode_muxsel",
-		"lpaif_sec_mode_muxsel",
-		"lpaif_tert_mode_muxsel",
-		"lpaif_quat_mode_muxsel"
-	};
 
 	for (count = 0; count < MI2S_MAX; count++) {
 		mutex_init(&mi2s_intf_conf[count].lock);
 		mi2s_intf_conf[count].ref_cnt = 0;
-	}
-
-	for (count = 0; count < AUX_PCM_MAX; count++) {
-		mutex_init(&auxpcm_intf_conf[count].lock);
-		auxpcm_intf_conf[count].ref_cnt = 0;
-	}
-
-	for (count = 0; count < PCM_I2S_SEL_MAX; count++) {
-		mutex_init(&mi2s_auxpcm_conf[count].lock);
-		mi2s_auxpcm_conf[count].pcm_i2s_sel_vt_addr = NULL;
-	}
-
-	for (count = 0; count < PCM_I2S_SEL_MAX; count++) {
-		muxsel = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						      str[count]);
-		if (muxsel) {
-			mi2s_auxpcm_conf[count].pcm_i2s_sel_vt_addr
-				= ioremap(muxsel->start, resource_size(muxsel));
-		}
 	}
 
 	ret = of_property_read_u32_array(pdev->dev.of_node,
@@ -2743,17 +2635,6 @@ static void i2s_auxpcm_init(struct platform_device *pdev)
 			mi2s_intf_conf[count].msm_is_ext_mclk =
 				mi2s_ext_mclk[count];
 	}
-}
-
-static void i2s_auxpcm_deinit(void)
-{
-	int count;
-
-	for (count = 0; count < PCM_I2S_SEL_MAX; count++)
-		if (mi2s_auxpcm_conf[count].pcm_i2s_sel_vt_addr !=
-			NULL)
-			iounmap(
-			mi2s_auxpcm_conf[count].pcm_i2s_sel_vt_addr);
 }
 
 static const struct of_device_id sdm660_asoc_machine_of_match[]  = {
@@ -2821,8 +2702,6 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 					"qcom,cdc-pdm-gpios", 0);
 		pdata->comp_gpio_p = of_parse_phandle(pdev->dev.of_node,
 					"qcom,cdc-comp-gpios", 0);
-		pdata->sdw_gpio_p = of_parse_phandle(pdev->dev.of_node,
-					"qcom,cdc-sdw-gpios", 0);
 		pdata->dmic_gpio_p = of_parse_phandle(pdev->dev.of_node,
 					"qcom,cdc-dmic-gpios", 0);
 		pdata->ext_spk_gpio_p = of_parse_phandle(pdev->dev.of_node,
@@ -2909,9 +2788,9 @@ err:
 		gpio_free(pdata->hph_en0_gpio);
 		pdata->hph_en0_gpio = 0;
 	}
-	devm_kfree(&pdev->dev, pdata);
 	if (pdata->snd_card_val != INT_SND_CARD)
 		msm_ext_cdc_deinit(pdata);
+	devm_kfree(&pdev->dev, pdata);
 	return ret;
 }
 
@@ -2929,7 +2808,6 @@ static int msm_asoc_machine_remove(struct platform_device *pdev)
 	gpio_free(pdata->us_euro_gpio);
 	gpio_free(pdata->hph_en1_gpio);
 	gpio_free(pdata->hph_en0_gpio);
-	i2s_auxpcm_deinit();
 	snd_soc_unregister_card(card);
 	return 0;
 }

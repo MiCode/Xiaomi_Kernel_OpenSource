@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -392,6 +392,7 @@ enum {
 #define ADM_PP_PARAM_LATENCY_ID			1
 #define ADM_PP_PARAM_LATENCY_BIT		2
 #define BE_DAI_PORT_SESSIONS_IDX_MAX		4
+#define BE_DAI_FE_SESSIONS_IDX_MAX		2
 
 struct msm_pcm_routing_evt {
 	void (*event_func)(enum msm_pcm_routing_event, void *);
@@ -401,7 +402,9 @@ struct msm_pcm_routing_evt {
 struct msm_pcm_routing_bdai_data {
 	u16 port_id; /* AFE port ID */
 	u8 active; /* track if this backend is enabled */
-	unsigned long fe_sessions; /* Front-end sessions */
+
+	/* Front-end sessions */
+	unsigned long fe_sessions[BE_DAI_FE_SESSIONS_IDX_MAX];
 	/*
 	 * Track Tx BE ports -> Rx BE ports.
 	 * port_sessions[0] used to track BE 0 to BE 63.
@@ -415,7 +418,7 @@ struct msm_pcm_routing_bdai_data {
 	unsigned int  channel;
 	unsigned int  format;
 	unsigned int  adm_override_ch;
-	u32 compr_passthr_mode;
+	u32 passthr_mode;
 	char *name;
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +50,22 @@ MODULE_PARM_DESC(dump_pkt_tx, "Dump packets exiting egress handler");
 long gro_flush_time __read_mostly = 10000L;
 module_param(gro_flush_time, long, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(gro_flush_time, "Flush GRO when spaced more than this");
+
+unsigned int gro_min_byte_thresh __read_mostly = 7500;
+module_param(gro_min_byte_thresh, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(gro_min_byte_thresh, "Min byte thresh to change flush time");
+
+unsigned int dynamic_gro_on __read_mostly = 1;
+module_param(dynamic_gro_on, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(dynamic_gro_on, "Toggle to turn on dynamic gro logic");
+
+unsigned int upper_flush_time __read_mostly = 15000;
+module_param(upper_flush_time, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(upper_flush_time, "Upper limit on flush time");
+
+unsigned int upper_byte_limit __read_mostly = 10500;
+module_param(upper_byte_limit, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(upper_byte_limit, "Upper byte limit");
 
 #define RMNET_DATA_IP_VERSION_4 0x40
 #define RMNET_DATA_IP_VERSION_6 0x60
@@ -233,7 +249,8 @@ static int rmnet_check_skb_can_gro(struct sk_buff *skb)
  * ratio.
  */
 static void rmnet_optional_gro_flush(struct napi_struct *napi,
-				     struct rmnet_logical_ep_conf_s *ep)
+				     struct rmnet_logical_ep_conf_s *ep,
+					 unsigned int skb_size)
 {
 	struct timespec curr_time, diff;
 
@@ -242,12 +259,58 @@ static void rmnet_optional_gro_flush(struct napi_struct *napi,
 
 	if (unlikely(ep->flush_time.tv_sec == 0)) {
 		getnstimeofday(&ep->flush_time);
+		ep->flush_byte_count = 0;
 	} else {
 		getnstimeofday(&(curr_time));
 		diff = timespec_sub(curr_time, ep->flush_time);
-		if ((diff.tv_sec > 0) || (diff.tv_nsec > gro_flush_time)) {
+		ep->flush_byte_count += skb_size;
+
+		if (dynamic_gro_on) {
+			if ((!(diff.tv_sec > 0) || diff.tv_nsec <=
+					gro_flush_time) &&
+					ep->flush_byte_count >=
+					gro_min_byte_thresh) {
+				/* Processed many bytes in a small time window.
+				 * No longer need to flush so often and we can
+				 * increase our byte limit
+				 */
+				gro_flush_time = upper_flush_time;
+				gro_min_byte_thresh = upper_byte_limit;
+			} else if ((diff.tv_sec > 0 ||
+					diff.tv_nsec > gro_flush_time) &&
+					ep->flush_byte_count <
+					gro_min_byte_thresh) {
+				/* We have not hit our time limit and we are not
+				 * receive many bytes. Demote ourselves to the
+				 * lowest limits and flush
+				 */
+				napi_gro_flush(napi, false);
+				getnstimeofday(&ep->flush_time);
+				ep->flush_byte_count = 0;
+				gro_flush_time = 10000L;
+				gro_min_byte_thresh = 7500L;
+			} else if ((diff.tv_sec > 0 ||
+					diff.tv_nsec > gro_flush_time) &&
+					ep->flush_byte_count >=
+					gro_min_byte_thresh) {
+				/* Above byte and time limt, therefore we can
+				 * move/maintain our limits to be the max
+				 * and flush
+				 */
+				napi_gro_flush(napi, false);
+				getnstimeofday(&ep->flush_time);
+				ep->flush_byte_count = 0;
+				gro_flush_time = upper_flush_time;
+				gro_min_byte_thresh = upper_byte_limit;
+			}
+			/* else, below time limit and below
+			 * byte thresh, so change nothing
+			 */
+		} else if (diff.tv_sec > 0 ||
+				diff.tv_nsec >= gro_flush_time) {
 			napi_gro_flush(napi, false);
 			getnstimeofday(&ep->flush_time);
+			ep->flush_byte_count = 0;
 		}
 	}
 }
@@ -267,6 +330,7 @@ static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 {
 	struct napi_struct *napi = NULL;
 	gro_result_t gro_res;
+	unsigned int skb_size;
 
 	trace___rmnet_deliver_skb(skb);
 	switch (ep->rmnet_mode) {
@@ -290,9 +354,12 @@ static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 			    (skb->dev->features & NETIF_F_GRO)) {
 				napi = get_current_napi_context();
 				if (napi != NULL) {
+					skb_size = skb->len;
 					gro_res = napi_gro_receive(napi, skb);
 					trace_rmnet_gro_downlink(gro_res);
-					rmnet_optional_gro_flush(napi, ep);
+					rmnet_optional_gro_flush(
+								napi, ep,
+								skb_size);
 				} else {
 					WARN_ONCE(1, "current napi is NULL\n");
 					netif_receive_skb(skb);

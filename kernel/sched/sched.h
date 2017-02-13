@@ -366,6 +366,13 @@ struct load_subtractions {
 	u64 new_subs;
 };
 
+struct group_cpu_time {
+	u64 curr_runnable_sum;
+	u64 prev_runnable_sum;
+	u64 nt_curr_runnable_sum;
+	u64 nt_prev_runnable_sum;
+};
+
 struct sched_cluster {
 	raw_spinlock_t load_lock;
 	struct list_head list;
@@ -407,12 +414,6 @@ struct related_thread_group {
 	struct sched_cluster *preferred_cluster;
 	struct rcu_head rcu;
 	u64 last_update;
-	struct group_cpu_time __percpu *cpu_time;	/* one per cluster */
-};
-
-struct migration_sum_data {
-	struct rq *src_rq, *dst_rq;
-	struct group_cpu_time *src_cpu_time, *dst_cpu_time;
 };
 
 extern struct list_head cluster_head;
@@ -776,6 +777,7 @@ struct rq {
 	u64 prev_runnable_sum;
 	u64 nt_curr_runnable_sum;
 	u64 nt_prev_runnable_sum;
+	struct group_cpu_time grp_time;
 	struct load_subtractions load_subs[NUM_TRACKED_WINDOWS];
 	DECLARE_BITMAP_ARRAY(top_tasks_bitmap,
 			NUM_TRACKED_WINDOWS, NUM_LOAD_INDICES);
@@ -1069,10 +1071,6 @@ enum sched_boost_policy {
 #define WINDOW_STATS_AVG		3
 #define WINDOW_STATS_INVALID_POLICY	4
 
-#define FREQ_REPORT_MAX_CPU_LOAD_TOP_TASK	0
-#define FREQ_REPORT_CPU_LOAD			1
-#define FREQ_REPORT_TOP_TASK			2
-
 #define SCHED_UPMIGRATE_MIN_NICE 15
 #define EXITING_TASK_MARKER	0xdeaddead
 
@@ -1083,7 +1081,6 @@ enum sched_boost_policy {
 extern struct mutex policy_mutex;
 extern unsigned int sched_ravg_window;
 extern unsigned int sched_disable_window_stats;
-extern unsigned int sched_enable_hmp;
 extern unsigned int max_possible_freq;
 extern unsigned int min_max_freq;
 extern unsigned int pct_task_load(struct task_struct *p);
@@ -1127,7 +1124,6 @@ extern void update_cluster_topology(void);
 extern void note_task_waking(struct task_struct *p, u64 wallclock);
 extern void set_task_last_switch_out(struct task_struct *p, u64 wallclock);
 extern void init_clusters(void);
-extern int __init set_sched_enable_hmp(char *str);
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
@@ -1257,7 +1253,7 @@ inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 {
 	u32 task_load;
 
-	if (!sched_enable_hmp || sched_disable_window_stats)
+	if (sched_disable_window_stats)
 		return;
 
 	task_load = sched_disable_window_stats ? 0 : p->ravg.demand;
@@ -1272,7 +1268,7 @@ dec_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 {
 	u32 task_load;
 
-	if (!sched_enable_hmp || sched_disable_window_stats)
+	if (sched_disable_window_stats)
 		return;
 
 	task_load = sched_disable_window_stats ? 0 : p->ravg.demand;
@@ -1290,7 +1286,7 @@ fixup_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 			      struct task_struct *p, s64 task_load_delta,
 			      s64 pred_demand_delta)
 {
-	if (!sched_enable_hmp || sched_disable_window_stats)
+	if (sched_disable_window_stats)
 		return;
 
 	stats->cumulative_runnable_avg += task_load_delta;
@@ -1349,14 +1345,6 @@ check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
 
 extern void notify_migration(int src_cpu, int dest_cpu,
 			bool src_cpu_dead, struct task_struct *p);
-
-struct group_cpu_time {
-	u64 curr_runnable_sum;
-	u64 prev_runnable_sum;
-	u64 nt_curr_runnable_sum;
-	u64 nt_prev_runnable_sum;
-	u64 window_start;
-};
 
 /* Is frequency of two cpus synchronized with each other? */
 static inline int same_freq_domain(int src_cpu, int dst_cpu)
@@ -1667,7 +1655,6 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 
 static inline void add_new_task_to_grp(struct task_struct *new) {}
 
-#define sched_enable_hmp 0
 #define PRED_DEMAND_DELTA (0)
 
 static inline void

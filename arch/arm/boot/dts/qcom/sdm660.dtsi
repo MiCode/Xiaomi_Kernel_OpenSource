@@ -315,7 +315,7 @@
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 			reusable;
 			alignment = <0x0 0x400000>;
-			size = <0x0 0x400000>;
+			size = <0x0 0xa00000>;
 		};
 
 		qseecom_mem: qseecom_region {
@@ -356,7 +356,7 @@
 		qca,bt-vdd-pa-supply = <&pm660_l6_pin_ctrl>;
 		qca,bt-vdd-ldo-supply = <&pm660_l19_pin_ctrl>;
 		qca,bt-chip-pwd-supply = <&pm660l_bob_pin1>;
-		clocks = <&clock_rpmcc RPM_RF_CLK1>;
+		clocks = <&clock_rpmcc RPM_RF_CLK1_PIN>;
 		clock-names = "rf_clk1";
 
 		qca,bt-vdd-core-voltage-level = <1800000 1900000>;
@@ -562,6 +562,8 @@
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
 		interrupts = <0 184 0>, <0 430 0>;
 		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		qcom,client-id = <0 1 2 3 4 5 6 7 8 9 10 11 12 13>;
+		qcom,sensor-id = <0 10 11 4 5 6 7 8 13 1 3 12 9 2>;
 		qcom,sensors = <14>;
 		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200
 					3200 3200 3200 3200 3200 3200>;
@@ -726,7 +728,7 @@
 
 		clock-names = "osm";
 		clocks = <&clock_cpu PWRCL_CLK>;
-
+		qcom,cxip-lm-enable = <1>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 
@@ -1231,7 +1233,6 @@
 		qcom,governor-per-policy;
 
 		qcom,cpufreq-table-0 =
-			<  300000 >,
 			<  633600 >,
 			<  902400 >,
 			< 1113600 >,
@@ -1241,7 +1242,6 @@
 			< 1843200 >;
 
 		qcom,cpufreq-table-4 =
-			<  300000 >,
 			< 1113600 >,
 			< 1401600 >,
 			< 1747200 >,
@@ -1249,6 +1249,51 @@
 			< 2150400 >,
 			< 2208000 >,
 			< 2457600 >;
+	};
+
+	ufs_ice: ufsice@1db0000 {
+		compatible = "qcom,ice";
+		reg = <0x1db0000 0x8000>;
+		qcom,enable-ice-clk;
+		clock-names = "ufs_core_clk", "bus_clk",
+				"iface_clk", "ice_core_clk";
+		clocks = <&clock_gcc GCC_UFS_AXI_CLK>,
+			 <&clock_gcc GCC_UFS_CLKREF_CLK>,
+			 <&clock_gcc GCC_UFS_AHB_CLK>,
+			 <&clock_gcc GCC_UFS_ICE_CORE_CLK>;
+		qcom,op-freq-hz = <0>, <0>, <0>, <300000000>;
+		vdd-hba-supply = <&gdsc_ufs>;
+		qcom,msm-bus,name = "ufs_ice_noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<1 650 0 0>,    /* No vote */
+				<1 650 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN",
+					"MAX";
+		qcom,instance-type = "ufs";
+	};
+
+	sdcc1_ice: sdcc1ice@c0c8000 {
+		compatible = "qcom,ice";
+		reg = <0xc0c8000 0x8000>;
+		qcom,enable-ice-clk;
+		clock-names = "ice_core_clk_src", "ice_core_clk",
+				"bus_clk", "iface_clk";
+		clocks = <&clock_gcc SDCC1_ICE_CORE_CLK_SRC>,
+			 <&clock_gcc GCC_SDCC1_ICE_CORE_CLK>,
+			 <&clock_gcc GCC_SDCC1_APPS_CLK>,
+			 <&clock_gcc GCC_SDCC1_AHB_CLK>;
+		qcom,op-freq-hz = <300000000>, <0>, <0>, <0>;
+		qcom,msm-bus,name = "sdcc_ice_noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<78 512 0 0>,    /* No vote */
+			<78 512 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN",
+					"MAX";
+		qcom,instance-type = "sdcc";
 	};
 
 	sdhc_1: sdhci@c0c4000 {
@@ -1261,6 +1306,7 @@
 
 		qcom,bus-width = <8>;
 		qcom,large-address-bus;
+		sdhc-msm-crypto = <&sdcc1_ice>;
 
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
@@ -1342,6 +1388,7 @@
 		qcom,use-ipa-tethering-bridge;
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,ipa-wdi2;
+		qcom,use-dma-zone;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <2>;
@@ -1511,7 +1558,7 @@
 	dcc: dcc@10b3000 {
 		compatible = "qcom,dcc";
 		reg = <0x10b3000 0x1000>,
-		      <0x10b4000 0x2000>;
+		      <0x10b4000 0x800>;
 		reg-names = "dcc-base", "dcc-ram-base";
 
 		clocks = <&clock_gcc GCC_DCC_AHB_CLK>;
@@ -2129,6 +2176,7 @@
 		interrupts = <0 265 0>;
 		phys = <&ufsphy1>;
 		phy-names = "ufsphy";
+		ufs-qcom-crypto = <&ufs_ice>;
 
 		clock-names =
 			"core_clk",

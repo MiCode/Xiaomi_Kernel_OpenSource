@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -31,7 +32,9 @@
 #include <linux/iommu.h>
 #include <linux/types.h>
 #include <linux/of_graph.h>
+#include <linux/mdss_io_util.h>
 #include <asm/sizes.h>
+#include <linux/kthread.h>
 
 #ifndef CONFIG_OF
 #include <mach/board.h>
@@ -48,6 +51,12 @@
 #include <drm/msm_drm.h>
 #include <drm/drm_gem.h>
 
+#include "sde_power_handle.h"
+
+#define GET_MAJOR_REV(rev)		((rev) >> 28)
+#define GET_MINOR_REV(rev)		(((rev) >> 16) & 0xFFF)
+#define GET_STEP_REV(rev)		((rev) & 0xFFFF)
+
 struct msm_kms;
 struct msm_gpu;
 struct msm_mmu;
@@ -55,7 +64,12 @@ struct msm_rd_state;
 struct msm_perf_state;
 struct msm_gem_submit;
 
-#define NUM_DOMAINS 2    /* one for KMS, then one per gpu core (?) */
+#define NUM_DOMAINS    4    /* one for KMS, then one per gpu core (?) */
+#define MAX_CRTCS      8
+#define MAX_PLANES     12
+#define MAX_ENCODERS   8
+#define MAX_BRIDGES    8
+#define MAX_CONNECTORS 8
 
 struct msm_file_private {
 	/* currently we don't do anything useful with this.. but when
@@ -66,21 +80,180 @@ struct msm_file_private {
 };
 
 enum msm_mdp_plane_property {
-	PLANE_PROP_ZPOS,
+	/* blob properties, always put these first */
+	PLANE_PROP_SCALER_V1,
+	PLANE_PROP_SCALER_V2,
+	PLANE_PROP_CSC_V1,
+	PLANE_PROP_INFO,
+	PLANE_PROP_SCALER_LUT_ED,
+	PLANE_PROP_SCALER_LUT_CIR,
+	PLANE_PROP_SCALER_LUT_SEP,
+	PLANE_PROP_SKIN_COLOR,
+	PLANE_PROP_SKY_COLOR,
+	PLANE_PROP_FOLIAGE_COLOR,
+
+	/* # of blob properties */
+	PLANE_PROP_BLOBCOUNT,
+
+	/* range properties */
+	PLANE_PROP_ZPOS = PLANE_PROP_BLOBCOUNT,
 	PLANE_PROP_ALPHA,
-	PLANE_PROP_PREMULTIPLIED,
-	PLANE_PROP_MAX_NUM
+	PLANE_PROP_COLOR_FILL,
+	PLANE_PROP_H_DECIMATE,
+	PLANE_PROP_V_DECIMATE,
+	PLANE_PROP_INPUT_FENCE,
+	PLANE_PROP_HUE_ADJUST,
+	PLANE_PROP_SATURATION_ADJUST,
+	PLANE_PROP_VALUE_ADJUST,
+	PLANE_PROP_CONTRAST_ADJUST,
+
+	/* enum/bitmask properties */
+	PLANE_PROP_ROTATION,
+	PLANE_PROP_BLEND_OP,
+	PLANE_PROP_SRC_CONFIG,
+
+	/* total # of properties */
+	PLANE_PROP_COUNT
+};
+
+enum msm_mdp_crtc_property {
+	CRTC_PROP_INFO,
+
+	/* # of blob properties */
+	CRTC_PROP_BLOBCOUNT,
+
+	/* range properties */
+	CRTC_PROP_INPUT_FENCE_TIMEOUT = CRTC_PROP_BLOBCOUNT,
+	CRTC_PROP_OUTPUT_FENCE,
+	CRTC_PROP_OUTPUT_FENCE_OFFSET,
+	CRTC_PROP_CORE_CLK,
+	CRTC_PROP_CORE_AB,
+	CRTC_PROP_CORE_IB,
+
+	/* total # of properties */
+	CRTC_PROP_COUNT
+};
+
+enum msm_mdp_conn_property {
+	/* blob properties, always put these first */
+	CONNECTOR_PROP_SDE_INFO,
+
+	/* # of blob properties */
+	CONNECTOR_PROP_BLOBCOUNT,
+
+	/* range properties */
+	CONNECTOR_PROP_OUT_FB = CONNECTOR_PROP_BLOBCOUNT,
+	CONNECTOR_PROP_RETIRE_FENCE,
+	CONNECTOR_PROP_DST_X,
+	CONNECTOR_PROP_DST_Y,
+	CONNECTOR_PROP_DST_W,
+	CONNECTOR_PROP_DST_H,
+
+	/* enum/bitmask properties */
+	CONNECTOR_PROP_TOPOLOGY_NAME,
+	CONNECTOR_PROP_TOPOLOGY_CONTROL,
+
+	/* total # of properties */
+	CONNECTOR_PROP_COUNT
 };
 
 struct msm_vblank_ctrl {
-	struct work_struct work;
+	struct kthread_work work;
 	struct list_head event_list;
 	spinlock_t lock;
+};
+
+#define MAX_H_TILES_PER_DISPLAY 2
+
+/**
+ * enum msm_display_compression - compression method used for pixel stream
+ * @MSM_DISPLAY_COMPRESS_NONE:     Pixel data is not compressed
+ * @MSM_DISPLAY_COMPRESS_DSC:      DSC compresison is used
+ * @MSM_DISPLAY_COMPRESS_FBC:      FBC compression is used
+ */
+enum msm_display_compression {
+	MSM_DISPLAY_COMPRESS_NONE,
+	MSM_DISPLAY_COMPRESS_DSC,
+	MSM_DISPLAY_COMPRESS_FBC,
+};
+
+/**
+ * enum msm_display_caps - features/capabilities supported by displays
+ * @MSM_DISPLAY_CAP_VID_MODE:           Video or "active" mode supported
+ * @MSM_DISPLAY_CAP_CMD_MODE:           Command mode supported
+ * @MSM_DISPLAY_CAP_HOT_PLUG:           Hot plug detection supported
+ * @MSM_DISPLAY_CAP_EDID:               EDID supported
+ */
+enum msm_display_caps {
+	MSM_DISPLAY_CAP_VID_MODE	= BIT(0),
+	MSM_DISPLAY_CAP_CMD_MODE	= BIT(1),
+	MSM_DISPLAY_CAP_HOT_PLUG	= BIT(2),
+	MSM_DISPLAY_CAP_EDID		= BIT(3),
+};
+
+/**
+ * struct msm_display_info - defines display properties
+ * @intf_type:          DRM_MODE_CONNECTOR_ display type
+ * @capabilities:       Bitmask of display flags
+ * @num_of_h_tiles:     Number of horizontal tiles in case of split interface
+ * @h_tile_instance:    Controller instance used per tile. Number of elements is
+ *                      based on num_of_h_tiles
+ * @is_connected:       Set to true if display is connected
+ * @width_mm:           Physical width
+ * @height_mm:          Physical height
+ * @max_width:          Max width of display. In case of hot pluggable display
+ *                      this is max width supported by controller
+ * @max_height:         Max height of display. In case of hot pluggable display
+ *                      this is max height supported by controller
+ * @compression:        Compression supported by the display
+ */
+struct msm_display_info {
+	int intf_type;
+	uint32_t capabilities;
+
+	uint32_t num_of_h_tiles;
+	uint32_t h_tile_instance[MAX_H_TILES_PER_DISPLAY];
+
+	bool is_connected;
+
+	unsigned int width_mm;
+	unsigned int height_mm;
+
+	uint32_t max_width;
+	uint32_t max_height;
+
+	enum msm_display_compression compression;
+};
+
+/**
+ * struct msm_drm_event - defines custom event notification struct
+ * @base: base object required for event notification by DRM framework.
+ * @event: event object required for event notification by DRM framework.
+ * @info: contains information of DRM object for which events has been
+ *        requested.
+ * @data: memory location which contains response payload for event.
+ */
+struct msm_drm_event {
+	struct drm_pending_event base;
+	struct drm_event event;
+	struct drm_msm_event_req info;
+	u8 data[];
+};
+
+/* Commit thread specific structure */
+struct msm_drm_commit {
+	struct drm_device *dev;
+	struct task_struct *thread;
+	unsigned int crtc_id;
+	struct kthread_worker worker;
 };
 
 struct msm_drm_private {
 
 	struct msm_kms *kms;
+
+	struct sde_power_handle phandle;
+	struct sde_power_client *pclient;
 
 	/* subordinate devices, if present: */
 	struct platform_device *gpu_pdev;
@@ -128,22 +301,29 @@ struct msm_drm_private {
 	struct msm_mmu *mmus[NUM_DOMAINS];
 
 	unsigned int num_planes;
-	struct drm_plane *planes[8];
+	struct drm_plane *planes[MAX_PLANES];
 
 	unsigned int num_crtcs;
-	struct drm_crtc *crtcs[8];
+	struct drm_crtc *crtcs[MAX_CRTCS];
+
+	struct msm_drm_commit disp_thread[MAX_CRTCS];
 
 	unsigned int num_encoders;
-	struct drm_encoder *encoders[8];
+	struct drm_encoder *encoders[MAX_ENCODERS];
 
 	unsigned int num_bridges;
-	struct drm_bridge *bridges[8];
+	struct drm_bridge *bridges[MAX_BRIDGES];
 
 	unsigned int num_connectors;
-	struct drm_connector *connectors[8];
+	struct drm_connector *connectors[MAX_CONNECTORS];
 
 	/* Properties */
-	struct drm_property *plane_property[PLANE_PROP_MAX_NUM];
+	struct drm_property *plane_property[PLANE_PROP_COUNT];
+	struct drm_property *crtc_property[CRTC_PROP_COUNT];
+	struct drm_property *conn_property[CONNECTOR_PROP_COUNT];
+
+	/* Color processing properties for the crtc */
+	struct drm_property **cp_property;
 
 	/* VRAM carveout, used when no IOMMU: */
 	struct {
@@ -156,6 +336,9 @@ struct msm_drm_private {
 	} vram;
 
 	struct msm_vblank_ctrl vblank_ctrl;
+
+	/* list of clients waiting for events */
+	struct list_head client_event_list;
 };
 
 struct msm_format {
@@ -176,12 +359,11 @@ void __msm_fence_worker(struct work_struct *work);
 		(_cb)->func = _func;                         \
 	} while (0)
 
-int msm_atomic_check(struct drm_device *dev,
-		     struct drm_atomic_state *state);
 int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool async);
 
 int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu);
+void msm_unregister_mmu(struct drm_device *dev, struct msm_mmu *mmu);
 
 int msm_wait_fence(struct drm_device *dev, uint32_t fence,
 		ktime_t *timeout, bool interruptible);
@@ -264,6 +446,15 @@ enum msm_dsi_encoder_id {
 	MSM_DSI_CMD_ENCODER_ID = 1,
 	MSM_DSI_ENCODER_NUM = 2
 };
+
+/* *
+ * msm_send_crtc_notification - notify user-space clients of crtc events.
+ * @crtc: crtc that is generating the event.
+ * @event: event that needs to be notified.
+ * @payload: payload for the event.
+ */
+void msm_send_crtc_notification(struct drm_crtc *crtc,
+		struct drm_event *event, u8 *payload);
 #ifdef CONFIG_DRM_MSM_DSI
 void __init msm_dsi_register(void);
 void __exit msm_dsi_unregister(void);
@@ -301,6 +492,7 @@ static inline void msm_rd_dump_submit(struct msm_gem_submit *submit) {}
 
 void __iomem *msm_ioremap(struct platform_device *pdev, const char *name,
 		const char *dbgname);
+void msm_iounmap(struct platform_device *dev, void __iomem *addr);
 void msm_writel(u32 data, void __iomem *addr);
 u32 msm_readl(const void __iomem *addr);
 
@@ -330,6 +522,5 @@ static inline int align_pitch(int width, int bpp)
 
 /* for conditionally setting boolean flag(s): */
 #define COND(bool, val) ((bool) ? (val) : 0)
-
 
 #endif /* __MSM_DRV_H__ */

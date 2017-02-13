@@ -27,6 +27,7 @@ Required properties
 - qcom,aux-en-gpio:			Specifies the aux-channel enable gpio.
 - qcom,aux-sel-gpio:			Specifies the aux-channel select gpio.
 - qcom,usbplug-cc-gpio:			Specifies the usbplug orientation gpio.
+- qcom,aux-cfg-settings:		An array that specifies the DP AUX configuration settings.
 
 Optional properties:
 - qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the
@@ -51,6 +52,8 @@ Optional properties:
 - pinctrl-<0..n>:			Lists phandles each pointing to the pin configuration node within a pin
 					controller. These pin configurations are installed in the pinctrl
 					device node. Refer to pinctrl-bindings.txt
+- qcom,logical2physical-lane-map:	An array that specifies the DP logical to physical lane map setting.
+- qcom,phy-register-offset:		An integer specifying the offset value of DP PHY register space.
 
 Example:
 	mdss_dp_ctrl: qcom,dp_ctrl@c990000 {
@@ -82,6 +85,10 @@ Example:
 			"core_mdp_core_clk", "core_alt_iface_clk",
 			"core_aux_clk", "core_cfg_ahb_clk", "ctrl_link_clk",
 			"ctrl_link_iface_clk", "ctrl_crypto_clk", "ctrl_pixel_clk";
+
+		qcom,aux-cfg-settings = [00 13 00 10 0a 26 0a 03 8b 03];
+		qcom,logical2physical-lane-map = [02 03 01 00];
+		qcom,phy-register-offset = <0x4>;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;

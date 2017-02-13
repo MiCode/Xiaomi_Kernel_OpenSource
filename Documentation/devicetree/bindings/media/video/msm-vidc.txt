@@ -132,6 +132,9 @@ value is typically max(latencies of every cluster at all power levels) + 1
   memory, performance etc.
 - qcom,debug-timeout = A bool indicating that FW errors such as SYS_ERROR,
   SESSION_ERROR and timeouts will be treated as Fatal.
+- qcom,power-conf = Indicates the value at which or beyond, a video session
+  is configured in low power mode to have power benefits. Value is defined
+  interms of HxW of the video session beyond which power benefit is desired.
 
 [Second level nodes]
 Context Banks
@@ -226,6 +229,7 @@ Example:
 		qcom,qdss-presets = <0xFC307000 0x1000>,
 			<0xFC322000 0x1000>;
 		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
+		qcom,power-conf = <8294400>; /* WxH - 3840*2160 */
 		qcom,never-unload-fw;
 		clock-names = "foo_clk", "bar_clk", "baz_clk";
 		qcom,clock-configs = <0x3 0x1 0x0>;

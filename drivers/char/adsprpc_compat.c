@@ -391,6 +391,10 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 							sizeof(*info))));
 		if (err)
 			return -EFAULT;
+		err = get_user(u, info32);
+		err |= put_user(u, info);
+		if (err)
+			return err;
 		ret = filp->f_op->unlocked_ioctl(filp, FASTRPC_IOCTL_GETINFO,
 							(unsigned long)info);
 		if (ret)

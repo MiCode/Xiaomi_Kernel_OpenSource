@@ -539,35 +539,6 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 	return 0;
 }
 
-static int msm_config_sdw_gpio(bool enable, struct snd_soc_codec *codec)
-{
-	struct snd_soc_card *card = codec->component.card;
-	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
-	int ret = 0;
-
-	pr_debug("%s: %s SDW Clk/Data Gpios\n", __func__,
-		enable ? "Enable" : "Disable");
-
-	if (enable) {
-		ret = msm_cdc_pinctrl_select_active_state(pdata->sdw_gpio_p);
-		if (ret) {
-			pr_err("%s: gpio set cannot be activated %s\n",
-				__func__, "sdw_pin");
-			goto done;
-		}
-	} else {
-		ret = msm_cdc_pinctrl_select_sleep_state(pdata->sdw_gpio_p);
-		if (ret) {
-			pr_err("%s: gpio set cannot be de-activated %s\n",
-				__func__, "sdw_pin");
-			goto done;
-		}
-	}
-
-done:
-	return ret;
-}
-
 static int int_mi2s_get_idx_from_beid(int32_t be_id)
 {
 	int idx = 0;
@@ -936,9 +907,6 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 static const struct snd_kcontrol_new msm_sdw_controls[] = {
 	SOC_ENUM_EXT("INT4_MI2S_RX Format", int4_mi2s_rx_format,
 		     int_mi2s_bit_format_get, int_mi2s_bit_format_put),
-	SOC_ENUM_EXT("INT4_MI2S_RX SampleRate", int4_mi2s_rx_sample_rate,
-			int_mi2s_sample_rate_get,
-			int_mi2s_sample_rate_put),
 	SOC_ENUM_EXT("INT4_MI2S_RX SampleRate", int4_mi2s_rx_sample_rate,
 			int_mi2s_sample_rate_get,
 			int_mi2s_sample_rate_put),
@@ -1386,7 +1354,6 @@ static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT_SDW");
 
 	snd_soc_dapm_sync(dapm);
-	msm_sdw_gpio_cb(msm_config_sdw_gpio, codec);
 	card = rtd->card->snd_card;
 	if (!codec_root)
 		codec_root = snd_register_module_info(card->module, "codecs",
@@ -2346,7 +2313,7 @@ static struct snd_soc_dai_link msm_int_be_dai[] = {
 		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
 			ASYNC_DPCM_SND_SOC_HW_PARAMS,
 		.be_id = MSM_BACKEND_DAI_INT3_MI2S_TX,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.be_hw_params_fixup = int_mi2s_be_hw_params_fixup,
 		.ops = &msm_int_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},

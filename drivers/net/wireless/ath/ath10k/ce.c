@@ -298,10 +298,22 @@ int ath10k_ce_send_nolock(struct ath10k_ce_pipe *ce_state,
 
 	if (flags & CE_SEND_FLAG_GATHER)
 		desc_flags |= CE_DESC_FLAGS_GATHER;
+
 	if (flags & CE_SEND_FLAG_BYTE_SWAP)
 		desc_flags |= CE_DESC_FLAGS_BYTE_SWAP;
 
-	sdesc.addr   = __cpu_to_le32(buffer);
+	if (QCA_REV_WCN3990(ar)) {
+		flags |= upper_32_bits(buffer) & CE_DESC_FLAGS_GET_MASK;
+		sdesc.addr_lo = __cpu_to_le32(buffer);
+		sdesc.addr_hi = flags;
+		if (flags & CE_SEND_FLAG_GATHER)
+			sdesc.addr_hi |= CE_WCN3990_DESC_FLAGS_GATHER;
+		else
+			sdesc.addr_hi &= ~CE_WCN3990_DESC_FLAGS_GATHER;
+	} else {
+		sdesc.addr   = __cpu_to_le32(buffer);
+	}
+
 	sdesc.nbytes = __cpu_to_le16(nbytes);
 	sdesc.flags  = __cpu_to_le16(desc_flags);
 
@@ -410,7 +422,13 @@ int __ath10k_ce_rx_post_buf(struct ath10k_ce_pipe *pipe, void *ctx,
 	    CE_RING_DELTA(nentries_mask, write_index, sw_index - 1) == 0)
 		return -ENOSPC;
 
-	desc->addr = __cpu_to_le32(paddr);
+	if (QCA_REV_WCN3990(ar)) {
+		desc->addr = paddr;
+		desc->addr &= CE_DESC_37BIT_ADDR_MASK;
+	} else {
+		desc->addr = __cpu_to_le32(paddr);
+	}
+
 	desc->nbytes = 0;
 
 	dest_ring->per_transfer_context[write_index] = ctx;
@@ -735,8 +753,12 @@ void ath10k_ce_per_engine_service_any(struct ath10k *ar)
 {
 	int ce_id;
 	u32 intr_summary;
+	struct ath10k_ce_pipe *ce_state;
 
-	intr_summary = CE_INTERRUPT_SUMMARY(ar);
+	if (ar->target_version == ATH10K_HW_WCN3990)
+		intr_summary = 0xFFF;
+	else
+		intr_summary = CE_INTERRUPT_SUMMARY(ar);
 
 	for (ce_id = 0; intr_summary && (ce_id < CE_COUNT); ce_id++) {
 		if (intr_summary & (1 << ce_id))
@@ -745,8 +767,11 @@ void ath10k_ce_per_engine_service_any(struct ath10k *ar)
 			/* no intr pending on this CE */
 			continue;
 
-		ath10k_ce_per_engine_service(ar, ce_id);
+		ce_state = ((struct ath10k_ce_pipe *)ar->ce_states + ce_id);
+		if (ce_state->send_cb || ce_state->recv_cb)
+			ath10k_ce_per_engine_service(ar, ce_id);
 	}
+
 }
 
 /*
@@ -796,6 +821,26 @@ void ath10k_ce_enable_interrupts(struct ath10k *ar)
 	for (ce_id = 0; ce_id < CE_COUNT - 1; ce_id++)
 		ath10k_ce_per_engine_handler_adjust(
 			((struct ath10k_ce_pipe *)ar->ce_states + ce_id));
+}
+
+void ath10k_ce_enable_per_ce_interrupts(struct ath10k *ar, unsigned int ce_id)
+{
+	u32 offset;
+	u32 ctrl_addr = ath10k_ce_base_address(ar, ce_id);
+
+	offset = HOST_IE_ADDRESS + ctrl_addr;
+	ar->bus_write32(ar, offset, 1);
+	ar->bus_read32(ar, offset);
+}
+
+void ath10k_ce_disable_per_ce_interrupts(struct ath10k *ar, unsigned int ce_id)
+{
+	u32 offset;
+	u32 ctrl_addr = ath10k_ce_base_address(ar, ce_id);
+
+	offset = HOST_IE_ADDRESS + ctrl_addr;
+	ar->bus_write32(ar, offset, 0);
+	ar->bus_read32(ar, offset);
 }
 
 static int ath10k_ce_init_src_ring(struct ath10k *ar,

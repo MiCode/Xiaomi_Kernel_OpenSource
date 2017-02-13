@@ -3025,8 +3025,9 @@ void sched_exec(void)
 	unsigned long flags;
 	int dest_cpu, curr_cpu;
 
-	if (sched_enable_hmp)
-		return;
+#ifdef CONFIG_SCHED_HMP
+	return;
+#endif
 
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
 	curr_cpu = task_cpu(p);
@@ -8215,8 +8216,9 @@ void __init sched_init(void)
 	int i, j;
 	unsigned long alloc_size = 0, ptr;
 
-	if (sched_enable_hmp)
-		pr_info("HMP scheduling enabled.\n");
+#ifdef CONFIG_SCHED_HMP
+	pr_info("HMP scheduling enabled.\n");
+#endif
 
 	BUG_ON(num_possible_cpus() > BITS_PER_LONG);
 
@@ -8362,6 +8364,7 @@ void __init sched_init(void)
 		rq->cluster = &init_cluster;
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
+		memset(&rq->grp_time, 0, sizeof(struct group_cpu_time));
 		rq->old_busy_time = 0;
 		rq->old_estimated_time = 0;
 		rq->old_busy_time_group = 0;

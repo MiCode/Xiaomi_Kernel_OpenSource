@@ -11,6 +11,89 @@
  */
 
 &soc {
+	ufsphy1: ufsphy@1da7000 {
+		compatible = "qcom,ufs-phy-qmp-v3-660";
+		reg = <0x1da7000 0xdb8>;
+		reg-names = "phy_mem";
+		#phy-cells = <0>;
+		clock-names = "ref_clk_src",
+			"ref_clk",
+			"ref_aux_clk";
+		clocks = <&clock_rpmcc RPM_LN_BB_CLK1>,
+			<&clock_gcc GCC_UFS_CLKREF_CLK>,
+			<&clock_gcc GCC_UFS_PHY_AUX_CLK>;
+		status = "disabled";
+	};
+
+	ufs1: ufshc@1da4000 {
+		compatible = "qcom,ufshc";
+		reg = <0x1da4000 0x3000>;
+		interrupts = <0 265 0>;
+		phys = <&ufsphy1>;
+		phy-names = "ufsphy";
+
+		clock-names =
+			"core_clk",
+			"bus_aggr_clk",
+			"iface_clk",
+			"core_clk_unipro",
+			"core_clk_ice",
+			"ref_clk",
+			"tx_lane0_sync_clk",
+			"rx_lane0_sync_clk";
+		clocks =
+			<&clock_gcc GCC_UFS_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE2_UFS_AXI_CLK>,
+			<&clock_gcc GCC_UFS_AHB_CLK>,
+			<&clock_gcc GCC_UFS_UNIPRO_CORE_CLK>,
+			<&clock_gcc GCC_UFS_ICE_CORE_CLK>,
+			<&clock_rpmcc RPM_LN_BB_CLK1>,
+			<&clock_gcc GCC_UFS_TX_SYMBOL_0_CLK>,
+			<&clock_gcc GCC_UFS_RX_SYMBOL_0_CLK>;
+		freq-table-hz =
+			<50000000 200000000>,
+			<0 0>,
+			<0 0>,
+			<37500000 150000000>,
+			<75000000 300000000>,
+			<0 0>,
+			<0 0>,
+			<0 0>;
+
+		lanes-per-direction = <1>;
+
+		qcom,msm-bus,name = "ufs1";
+		qcom,msm-bus,num-cases = <12>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		<95 512 0 0>, <1 650 0 0>,          /* No vote */
+		<95 512 922 0>, <1 650 1000 0>,     /* PWM G1 */
+		<95 512 1844 0>, <1 650 1000 0>,    /* PWM G2 */
+		<95 512 3688 0>, <1 650 1000 0>,    /* PWM G3 */
+		<95 512 7376 0>, <1 650 1000 0>,    /* PWM G4 */
+		<95 512 127796 0>, <1 650 1000 0>,  /* HS G1 RA */
+		<95 512 255591 0>, <1 650 1000 0>,  /* HS G2 RA */
+		<95 512 2097152 0>, <1 650 102400 0>,  /* HS G3 RA */
+		<95 512 149422 0>, <1 650 1000 0>,  /* HS G1 RB */
+		<95 512 298189 0>, <1 650 1000 0>,  /* HS G2 RB */
+		<95 512 2097152 0>, <1 650 102400 0>,  /* HS G3 RB */
+		<95 512 7643136 0>, <1 650 307200 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN",
+		"PWM_G1_L1", "PWM_G2_L1", "PWM_G3_L1", "PWM_G4_L1",
+		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
+		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
+		"MAX";
+
+		qcom,pm-qos-cpu-groups = <0x0F 0xF0>;
+		qcom,pm-qos-cpu-group-latency-us = <26 26>;
+		qcom,pm-qos-default-cpu = <0>;
+
+		resets = <&clock_gcc GCC_UFS_BCR>;
+		reset-names = "core_reset";
+
+		status = "disabled";
+	};
+
 	usb3: ssusb@a800000 {
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0x0a800000 0xfc100>,

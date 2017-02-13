@@ -1237,13 +1237,15 @@ static int sde_rotator_calc_perf(struct sde_rot_mgr *mgr,
 
 	perf->rdot_limit = sde_mdp_get_ot_limit(
 			config->input.width, config->input.height,
-			config->input.format, max_fps, true);
+			config->input.format, config->frame_rate, true);
 	perf->wrot_limit = sde_mdp_get_ot_limit(
 			config->input.width, config->input.height,
-			config->input.format, max_fps, false);
+			config->input.format, config->frame_rate, false);
 
 	SDEROT_DBG("clk:%lu, rdBW:%d, wrBW:%d, rdOT:%d, wrOT:%d\n",
 			perf->clk_rate, read_bw, write_bw, perf->rdot_limit,
+			perf->wrot_limit);
+	SDEROT_EVTLOG(perf->clk_rate, read_bw, write_bw, perf->rdot_limit,
 			perf->wrot_limit);
 	return 0;
 }

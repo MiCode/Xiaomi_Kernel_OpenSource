@@ -479,7 +479,7 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		rc = smblib_get_pe_start(chg, val);
 		break;
 	default:
-		pr_err("get prop %d is not supported\n", psp);
+		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
 		break;
 	}
@@ -569,6 +569,118 @@ static int smb2_init_usb_psy(struct smb2 *chip)
 	if (IS_ERR(chg->usb_psy)) {
 		pr_err("Couldn't register USB power supply\n");
 		return PTR_ERR(chg->usb_psy);
+	}
+
+	return 0;
+}
+
+/*****************************
+ * USB MAIN PSY REGISTRATION *
+ *****************************/
+
+static enum power_supply_property smb2_usb_main_props[] = {
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_ICL_REDUCTION,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+	POWER_SUPPLY_PROP_TYPE,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
+	POWER_SUPPLY_PROP_FCC_DELTA,
+	/*
+	 * TODO move the TEMP and TEMP_MAX properties here,
+	 * and update the thermal balancer to look here
+	 */
+};
+
+static int smb2_usb_main_get_prop(struct power_supply *psy,
+		enum power_supply_property psp,
+		union power_supply_propval *val)
+{
+	struct smb2 *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		rc = smblib_get_charge_param(chg, &chg->param.fv, &val->intval);
+		break;
+	case POWER_SUPPLY_PROP_ICL_REDUCTION:
+		val->intval = chg->icl_reduction_ua;
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		rc = smblib_get_charge_param(chg, &chg->param.fcc,
+							&val->intval);
+		break;
+	case POWER_SUPPLY_PROP_TYPE:
+		val->intval = POWER_SUPPLY_TYPE_MAIN;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
+		rc = smblib_get_prop_input_current_settled(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_FCC_DELTA:
+		rc = smblib_get_prop_fcc_delta(chg, val);
+		break;
+	default:
+		pr_err("get prop %d is not supported in usb-main\n", psp);
+		rc = -EINVAL;
+		break;
+	}
+	if (rc < 0) {
+		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		return -ENODATA;
+	}
+	return 0;
+}
+
+static int smb2_usb_main_set_prop(struct power_supply *psy,
+		enum power_supply_property psp,
+		const union power_supply_propval *val)
+{
+	struct smb2 *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		rc = smblib_set_charge_param(chg, &chg->param.fv, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_ICL_REDUCTION:
+		chg->icl_reduction_ua = val->intval;
+		rc = rerun_election(chg->usb_icl_votable);
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		rc = smblib_set_charge_param(chg, &chg->param.fcc, val->intval);
+		break;
+	default:
+		pr_err("set prop %d is not supported\n", psp);
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+static const struct power_supply_desc usb_main_psy_desc = {
+	.name		= "main",
+	.type		= POWER_SUPPLY_TYPE_MAIN,
+	.properties	= smb2_usb_main_props,
+	.num_properties	= ARRAY_SIZE(smb2_usb_main_props),
+	.get_property	= smb2_usb_main_get_prop,
+	.set_property	= smb2_usb_main_set_prop,
+};
+
+static int smb2_init_usb_main_psy(struct smb2 *chip)
+{
+	struct power_supply_config usb_main_cfg = {};
+	struct smb_charger *chg = &chip->chg;
+
+	usb_main_cfg.drv_data = chip;
+	usb_main_cfg.of_node = chg->dev->of_node;
+	chg->usb_main_psy = devm_power_supply_register(chg->dev,
+						  &usb_main_psy_desc,
+						  &usb_main_cfg);
+	if (IS_ERR(chg->usb_main_psy)) {
+		pr_err("Couldn't register USB main power supply\n");
+		return PTR_ERR(chg->usb_main_psy);
 	}
 
 	return 0;
@@ -701,7 +813,6 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_STEP_CHARGING_STEP,
 	POWER_SUPPLY_PROP_CHARGE_DONE,
 	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
-	POWER_SUPPLY_PROP_PARALLEL_PERCENT,
 	POWER_SUPPLY_PROP_SET_SHIP_MODE,
 };
 
@@ -775,9 +886,6 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		val->intval = get_client_vote(chg->pl_disable_votable,
 					      USER_VOTER);
 		break;
-	case POWER_SUPPLY_PROP_PARALLEL_PERCENT:
-		val->intval = chg->pl.slave_pct;
-		break;
 	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
 		/* Not in ship mode as long as device is active */
 		val->intval = 0;
@@ -815,12 +923,6 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
 		vote(chg->pl_disable_votable, USER_VOTER, (bool)val->intval, 0);
 		break;
-	case POWER_SUPPLY_PROP_PARALLEL_PERCENT:
-		if (val->intval < 0 || val->intval > 100)
-			return -EINVAL;
-		chg->pl.slave_pct = val->intval;
-		rerun_election(chg->fcc_votable);
-		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		vote(chg->fv_votable, DEFAULT_VOTER, true, val->intval);
 		break;
@@ -848,7 +950,6 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_CAPACITY:
 	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
-	case POWER_SUPPLY_PROP_PARALLEL_PERCENT:
 		return 1;
 	default:
 		break;
@@ -1226,12 +1327,6 @@ static int smb2_init_hw(struct smb2 *chip)
 	}
 
 	/* votes must be cast before configuring software control */
-	vote(chg->pl_disable_votable,
-		PL_INDIRECT_VOTER, true, 0);
-	vote(chg->pl_disable_votable,
-		CHG_STATE_VOTER, true, 0);
-	vote(chg->pl_disable_votable,
-		PARALLEL_PSY_VOTER, true, 0);
 	vote(chg->usb_suspend_votable,
 		DEFAULT_VOTER, chip->dt.no_battery, 0);
 	vote(chg->dc_suspend_votable,
@@ -1821,7 +1916,6 @@ static int smb2_probe(struct platform_device *pdev)
 	struct smb2 *chip;
 	struct smb_charger *chg;
 	int rc = 0;
-	u8 stat;
 	union power_supply_propval val;
 	int usb_present, batt_present, batt_health, batt_charge_type;
 
@@ -1912,20 +2006,12 @@ static int smb2_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	rc = smblib_read(chg, SHDN_CMD_REG, &stat);
+	rc = smb2_init_usb_main_psy(chip);
 	if (rc < 0) {
-		pr_err("Couldn't read MISC_SHDN_CMD_REG rc=%d\n", rc);
-		return rc;
+		pr_err("Couldn't initialize usb psy rc=%d\n", rc);
+		goto cleanup;
 	}
 
-	if (stat) {
-		pr_err("bad charger part; faking USB insertion\n");
-		chip->bad_part = true;
-		power_supply_changed(chg->usb_psy);
-		return 0;
-	}
-
-	chg->pl.slave_pct = 50;
 	rc = smb2_init_batt_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize batt psy rc=%d\n", rc);

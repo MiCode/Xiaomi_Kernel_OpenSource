@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -162,7 +162,7 @@ struct wcd_cpe_lsm_ops {
 	int (*lsm_set_one_param)(void *core_handle,
 			struct cpe_lsm_session *session,
 			struct lsm_params_info *p_info,
-			void *data, enum LSM_PARAM_TYPE param_type);
+			void *data, uint32_t param_type);
 	void (*lsm_get_snd_model_offset)
 		(void *core_handle, struct cpe_lsm_session *,
 		 size_t *offset);

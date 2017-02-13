@@ -146,7 +146,8 @@ enum icnss_debug_quirks {
 	FW_REJUVENATE_ENABLE,
 };
 
-#define ICNSS_QUIRKS_DEFAULT		BIT(VBATT_DISABLE)
+#define ICNSS_QUIRKS_DEFAULT		(BIT(VBATT_DISABLE) | \
+					 BIT(FW_REJUVENATE_ENABLE))
 
 unsigned long quirks = ICNSS_QUIRKS_DEFAULT;
 module_param(quirks, ulong, 0600);
@@ -1234,7 +1235,7 @@ out:
 	return ret;
 }
 
-static int wlfw_ini_send_sync_msg(bool enable_fw_log)
+static int wlfw_ini_send_sync_msg(uint8_t fw_log_mode)
 {
 	int ret;
 	struct wlfw_ini_req_msg_v01 req;
@@ -1244,14 +1245,14 @@ static int wlfw_ini_send_sync_msg(bool enable_fw_log)
 	if (!penv || !penv->wlfw_clnt)
 		return -ENODEV;
 
-	icnss_pr_dbg("Sending ini sync request, state: 0x%lx, fw_log: %d\n",
-		     penv->state, enable_fw_log);
+	icnss_pr_dbg("Sending ini sync request, state: 0x%lx, fw_log_mode: %d\n",
+		     penv->state, fw_log_mode);
 
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
 	req.enablefwlog_valid = 1;
-	req.enablefwlog = enable_fw_log;
+	req.enablefwlog = fw_log_mode;
 
 	req_desc.max_msg_len = WLFW_INI_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_WLFW_INI_REQ_V01;
@@ -1266,14 +1267,14 @@ static int wlfw_ini_send_sync_msg(bool enable_fw_log)
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		icnss_pr_err("Send INI req failed fw_log: %d, ret: %d\n",
-			     enable_fw_log, ret);
+		icnss_pr_err("Send INI req failed fw_log_mode: %d, ret: %d\n",
+			     fw_log_mode, ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		icnss_pr_err("QMI INI request rejected, fw_log:%d result:%d error:%d\n",
-			     enable_fw_log, resp.resp.result, resp.resp.error);
+		icnss_pr_err("QMI INI request rejected, fw_log_mode:%d result:%d error:%d\n",
+			     fw_log_mode, resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
 	}
@@ -1469,7 +1470,7 @@ static int wlfw_dynamic_feature_mask_send_sync_msg(struct icnss_priv *priv,
 
 	if (!test_bit(FW_REJUVENATE_ENABLE, &quirks)) {
 		icnss_pr_dbg("FW rejuvenate is disabled from quirks\n");
-		dynamic_feature_mask &= ~QMI_WLFW_FW_REJUVENATE_V01;
+		return 0;
 	}
 
 	icnss_pr_dbg("Sending dynamic feature mask request, val 0x%llx, state: 0x%lx\n",
@@ -2517,21 +2518,19 @@ int icnss_get_soc_info(struct icnss_soc_info *info)
 }
 EXPORT_SYMBOL(icnss_get_soc_info);
 
-int icnss_set_fw_debug_mode(bool enable_fw_log)
+int icnss_set_fw_log_mode(uint8_t fw_log_mode)
 {
 	int ret;
 
-	icnss_pr_dbg("%s FW debug mode",
-		     enable_fw_log ? "Enalbing" : "Disabling");
+	icnss_pr_dbg("FW log mode: %u\n", fw_log_mode);
 
-	ret = wlfw_ini_send_sync_msg(enable_fw_log);
+	ret = wlfw_ini_send_sync_msg(fw_log_mode);
 	if (ret)
-		icnss_pr_err("Fail to send ini, ret = %d, fw_log: %d\n", ret,
-		       enable_fw_log);
-
+		icnss_pr_err("Fail to send ini, ret = %d, fw_log_mode: %u\n",
+			     ret, fw_log_mode);
 	return ret;
 }
-EXPORT_SYMBOL(icnss_set_fw_debug_mode);
+EXPORT_SYMBOL(icnss_set_fw_log_mode);
 
 int icnss_athdiag_read(struct device *dev, uint32_t offset,
 		       uint32_t mem_type, uint32_t data_len,

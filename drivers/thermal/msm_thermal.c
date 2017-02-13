@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,7 @@
 #include <linux/suspend.h>
 #include <linux/uaccess.h>
 #include <linux/uio_driver.h>
+#include <linux/io.h>
 
 #include <asm/cacheflush.h>
 
@@ -87,6 +88,20 @@
 #define DEVM_NAME_MAX 30
 #define HOTPLUG_RETRY_INTERVAL_MS 100
 #define UIO_VERSION "1.0"
+
+#define CXIP_LM_BASE_ADDRESS      0x1FE5000
+#define CXIP_LM_ADDRESS_SIZE      0x68
+#define CXIP_LM_VOTE_STATUS       0x40
+#define CXIP_LM_BYPASS            0x44
+#define CXIP_LM_VOTE_CLEAR        0x48
+#define CXIP_LM_VOTE_SET          0x4c
+#define CXIP_LM_FEATURE_EN        0x50
+#define CXIP_LM_DISABLE_VAL       0x0
+#define CXIP_LM_BYPASS_VAL        0xFF00
+#define CXIP_LM_THERM_VOTE_VAL    0x80
+#define CXIP_LM_THERM_SENS_ID     8
+#define CXIP_LM_THERM_SENS_HIGH   90
+#define CXIP_LM_THERM_SENS_LOW    75
 
 #define VALIDATE_AND_SET_MASK(_node, _key, _mask, _cpu) \
 	do { \
@@ -179,6 +194,7 @@ static bool gfx_warm_phase_ctrl_enabled;
 static bool cx_phase_ctrl_enabled;
 static bool vdd_mx_enabled;
 static bool therm_reset_enabled;
+static bool cxip_lm_enabled;
 static bool online_core;
 static bool cluster_info_probed;
 static bool cluster_info_nodes_called;
@@ -207,6 +223,7 @@ static bool tsens_temp_print;
 static uint32_t bucket;
 static cpumask_t throttling_mask;
 static int tsens_scaling_factor = SENSOR_SCALING_FACTOR;
+static void *cxip_lm_reg_base;
 
 static LIST_HEAD(devices_list);
 static LIST_HEAD(thresholds_list);
@@ -301,6 +318,7 @@ enum msm_thresh_list {
 	MSM_GFX_PHASE_CTRL_HOT,
 	MSM_OCR,
 	MSM_VDD_MX_RESTRICTION,
+	MSM_THERM_CXIP_LM,
 	MSM_LIST_MAX_NR,
 };
 
@@ -494,6 +512,9 @@ static ssize_t thermal_config_debugfs_write(struct file *file,
 				pr_debug("Remove voting to %s\n", #name);     \
 		}                                                             \
 	} while (0)
+
+#define CXIP_LM_CLIENTS_STATUS()                                        \
+	readl_relaxed(cxip_lm_reg_base + CXIP_LM_VOTE_STATUS)
 
 static void uio_init(struct platform_device *pdev)
 {
@@ -2895,6 +2916,76 @@ static void therm_reset_notify(struct therm_threshold *thresh_data)
 					thresh_data->threshold);
 }
 
+static void cxip_lm_therm_vote_apply(bool vote)
+{
+	static bool prev_vote;
+
+	if (prev_vote == vote)
+		return;
+
+	prev_vote = vote;
+	writel_relaxed(CXIP_LM_THERM_VOTE_VAL,
+		cxip_lm_reg_base +
+		(vote ? CXIP_LM_VOTE_SET : CXIP_LM_VOTE_CLEAR));
+
+	pr_debug("%s vote for cxip_lm. Agg.vote:0x%x\n",
+		vote ? "Applied" : "Cleared", CXIP_LM_CLIENTS_STATUS());
+}
+
+static int do_cxip_lm(void)
+{
+	int temp = 0, ret = 0;
+
+	if (!cxip_lm_enabled)
+		return ret;
+
+	ret = therm_get_temp(
+		thresh[MSM_THERM_CXIP_LM].thresh_list->sensor_id,
+		thresh[MSM_THERM_CXIP_LM].thresh_list->id_type,
+		&temp);
+	if (ret) {
+		pr_err("Unable to read TSENS sensor:%d, err:%d\n",
+			thresh[MSM_THERM_CXIP_LM].thresh_list->sensor_id, ret);
+		return ret;
+	}
+
+	if (temp >= CXIP_LM_THERM_SENS_HIGH)
+		cxip_lm_therm_vote_apply(true);
+	else if (temp <= CXIP_LM_THERM_SENS_LOW)
+		cxip_lm_therm_vote_apply(false);
+
+	return ret;
+}
+
+static void therm_cxip_lm_notify(struct therm_threshold *trig_thresh)
+{
+	if (!cxip_lm_enabled)
+		return;
+
+	if (!trig_thresh) {
+		pr_err("Invalid input\n");
+		return;
+	}
+
+	switch (trig_thresh->trip_triggered) {
+	case THERMAL_TRIP_CONFIGURABLE_HI:
+		cxip_lm_therm_vote_apply(true);
+		break;
+	case THERMAL_TRIP_CONFIGURABLE_LOW:
+		cxip_lm_therm_vote_apply(false);
+		break;
+	default:
+		pr_err("Invalid trip type\n");
+		break;
+	}
+
+	if (trig_thresh->cur_state != trig_thresh->trip_triggered) {
+		sensor_mgr_set_threshold(trig_thresh->sensor_id,
+					trig_thresh->threshold);
+		trig_thresh->cur_state = trig_thresh->trip_triggered;
+	}
+}
+
 static void retry_hotplug(struct work_struct *work)
 {
 	mutex_lock(&core_control_mutex);
@@ -3524,6 +3615,7 @@ static void check_temp(struct work_struct *work)
 		goto reschedule;
 	}
 	do_core_control(temp);
+	do_cxip_lm();
 	do_vdd_mx();
 	do_psm();
 	do_gfx_phase_cond();
@@ -3554,6 +3646,12 @@ static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
 
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_UP_PREPARE:
+		/*
+		 * Apply LMH freq cap vote, which was requested when the
+		 * core was offline.
+		 */
+		if (lmh_dcvs_available)
+			msm_lmh_dcvs_update(cpu);
 		if (!cpumask_test_and_set_cpu(cpu, cpus_previously_online))
 			pr_debug("Total prev cores online tracked %u\n",
 				cpumask_weight(cpus_previously_online));
@@ -4553,6 +4651,13 @@ static void thermal_monitor_init(void)
 	if (vdd_mx_enabled &&
 		!(convert_to_zone_id(&thresh[MSM_VDD_MX_RESTRICTION])))
 		therm_set_threshold(&thresh[MSM_VDD_MX_RESTRICTION]);
+
+	if (cxip_lm_enabled &&
+		!(convert_to_zone_id(&thresh[MSM_THERM_CXIP_LM]))) {
+		/* To handle if temp > HIGH */
+		do_cxip_lm();
+		therm_set_threshold(&thresh[MSM_THERM_CXIP_LM]);
+	}
 
 init_exit:
 	return;
@@ -6223,6 +6328,74 @@ fetch_mitig_exit:
 	return err;
 }
 
+static void thermal_cxip_lm_disable(void)
+{
+	THERM_MITIGATION_DISABLE(cxip_lm_enabled, MSM_THERM_CXIP_LM);
+	cxip_lm_therm_vote_apply(false);
+}
+
+static int probe_cxip_lm(struct device_node *node,
+		struct msm_thermal_data *data,
+		struct platform_device *pdev)
+{
+	char *key = NULL;
+	int ret = 0;
+	u32 val = 0;
+
+	key = "qcom,cxip-lm-enable";
+	ret = of_property_read_u32(node, key, &val);
+	if (ret) {
+		cxip_lm_enabled = false;
+		return -EINVAL;
+	}
+	cxip_lm_enabled = val ? true : false;
+
+	cxip_lm_reg_base = devm_ioremap(&pdev->dev,
+				CXIP_LM_BASE_ADDRESS, CXIP_LM_ADDRESS_SIZE);
+	if (!cxip_lm_reg_base) {
+		pr_err("cxip_lm reg remap failed\n");
+		ret = -ENOMEM;
+		goto PROBE_CXIP_LM_EXIT;
+	}
+
+	/* If it is disable request, disable and exit */
+	if (!cxip_lm_enabled) {
+		writel_relaxed(CXIP_LM_DISABLE_VAL,
+			cxip_lm_reg_base + CXIP_LM_FEATURE_EN);
+		devm_ioremap_release(&pdev->dev, cxip_lm_reg_base);
+		return 0;
+	};
+
+	/* Set bypass clients bits */
+	writel_relaxed(CXIP_LM_BYPASS_VAL, cxip_lm_reg_base + CXIP_LM_BYPASS);
+
+	ret = sensor_mgr_init_threshold(&thresh[MSM_THERM_CXIP_LM],
+		CXIP_LM_THERM_SENS_ID, CXIP_LM_THERM_SENS_HIGH,
+		CXIP_LM_THERM_SENS_LOW, therm_cxip_lm_notify);
+	if (ret) {
+		pr_err("cxip_lm sensor init failed\n");
+		goto PROBE_CXIP_LM_EXIT;
+	}
+
+	snprintf(mit_config[MSM_THERM_CXIP_LM].config_name,
+		MAX_DEBUGFS_CONFIG_LEN, "cxip_lm");
+	mit_config[MSM_THERM_CXIP_LM].disable_config
+		= thermal_cxip_lm_disable;
+
+PROBE_CXIP_LM_EXIT:
+	if (ret) {
+		if (cxip_lm_reg_base)
+			devm_ioremap_release(&pdev->dev,
+				cxip_lm_reg_base);
+		dev_info(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s err=%d. KTM continues\n",
+			__func__, node->full_name, key, ret);
+		cxip_lm_enabled = false;
+	}
+
+	return ret;
+}
+
 static void probe_sensor_info(struct device_node *node,
 		struct msm_thermal_data *data, struct platform_device *pdev)
 {
@@ -6991,6 +7164,19 @@ static void thermal_phase_ctrl_config_read(struct seq_file *m, void *data)
 			msm_thermal_info.gfx_sensor);
 }
 
+static void thermal_cxip_lm_config_read(struct seq_file *m, void *data)
+{
+	if (cxip_lm_enabled) {
+		seq_puts(m, "\n-----CX IPEAK LM-----\n");
+		seq_printf(m, "threshold:%d degC\n",
+				CXIP_LM_THERM_SENS_HIGH);
+		seq_printf(m, "threshold clear:%d degC\n",
+				CXIP_LM_THERM_SENS_LOW);
+		seq_printf(m, "tsens sensor:tsens_tz_sensor%d\n",
+				CXIP_LM_THERM_SENS_ID);
+	}
+}
+
 static void thermal_disable_all_mitigation(void)
 {
 	thermal_cpu_freq_mit_disable();
@@ -7003,6 +7189,7 @@ static void thermal_disable_all_mitigation(void)
 	thermal_cx_phase_ctrl_mit_disable();
 	thermal_gfx_phase_warm_ctrl_mit_disable();
 	thermal_gfx_phase_crit_ctrl_mit_disable();
+	thermal_cxip_lm_disable();
 }
 
 static void enable_config(int config_id)
@@ -7028,6 +7215,9 @@ static void enable_config(int config_id)
 		break;
 	case MSM_VDD_MX_RESTRICTION:
 		vdd_mx_enabled = 1;
+		break;
+	case MSM_THERM_CXIP_LM:
+		cxip_lm_enabled = 1;
 		break;
 	case MSM_LIST_MAX_NR + HOTPLUG_CONFIG:
 		hotplug_enabled = 1;
@@ -7132,6 +7322,7 @@ static int thermal_config_debugfs_read(struct seq_file *m, void *data)
 	thermal_psm_config_read(m, data);
 	thermal_ocr_config_read(m, data);
 	thermal_phase_ctrl_config_read(m, data);
+	thermal_cxip_lm_config_read(m, data);
 
 	return 0;
 }
@@ -7220,6 +7411,7 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	probe_cx_phase_ctrl(node, &data, pdev);
 	probe_gfx_phase_ctrl(node, &data, pdev);
 	probe_therm_reset(node, &data, pdev);
+	probe_cxip_lm(node, &data, pdev);
 	update_cpu_topology(&pdev->dev);
 	ret = fetch_cpu_mitigaiton_info(&data, pdev);
 	if (ret) {
@@ -7298,6 +7490,11 @@ static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 			sensor_mgr_remove_threshold(
 				&thresh[MSM_VDD_MX_RESTRICTION]);
 			kfree(thresh[MSM_VDD_MX_RESTRICTION].thresh_list);
+		}
+		if (cxip_lm_enabled) {
+			sensor_mgr_remove_threshold(
+				&thresh[MSM_THERM_CXIP_LM]);
+			kfree(thresh[MSM_THERM_CXIP_LM].thresh_list);
 		}
 		kfree(thresh);
 		thresh = NULL;

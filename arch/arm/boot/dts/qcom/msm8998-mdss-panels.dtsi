@@ -174,7 +174,7 @@
 	qcom,mdss-dsi-t-clk-pre = <0x22>;
 };
 
-&dsi_jdi_1080_vid {
+&dsi_jdi_1080p_video {
 	qcom,mdss-dsi-panel-timings = [00 1a 06 06 0a 11 05 07 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x07>;
 	qcom,mdss-dsi-t-clk-pre = <0x28>;

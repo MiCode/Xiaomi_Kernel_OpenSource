@@ -13,7 +13,9 @@
 &mdss_mdp {
 	dsi_sharp_1080_cmd: qcom,mdss_dsi_sharp_1080p_cmd {
 		qcom,mdss-dsi-panel-name = "sharp 1080p cmd mode dsi panel";
+		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
 		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
+		qcom,mdss-dsi-panel-destination = "display_1";
 		qcom,mdss-dsi-panel-framerate = <60>;
 		qcom,mdss-dsi-panel-clockrate = <850000000>;
 		qcom,mdss-dsi-virtual-channel-id = <0>;

@@ -628,6 +628,7 @@ Example:
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = < 15>;
+		qcom,mdss-brightness-max-level = <255>;
 		qcom,mdss-dsi-interleave-mode = <0>;
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
 		qcom,mdss-dsi-te-check-enable;

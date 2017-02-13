@@ -18,11 +18,13 @@
 #define CQVER		0x00
 /* capabilities */
 #define CQCAP		0x04
+#define CQCAP_CS	(1 << 28)
 /* configuration */
 #define CQCFG		0x08
 #define CQ_DCMD		0x00001000
 #define CQ_TASK_DESC_SZ 0x00000100
 #define CQ_ENABLE	0x00000001
+#define CQ_ICE_ENABLE	0x00000002
 
 /* control */
 #define CQCTL		0x0C
@@ -144,6 +146,9 @@
 #define CQ_VENDOR_CFG	0x100
 #define CMDQ_SEND_STATUS_TRIGGER (1 << 31)
 
+#define CQ_TASK_DESC_TASK_PARAMS_SIZE	8
+#define CQ_TASK_DESC_ICE_PARAMS_SIZE	8
+
 struct task_history {
 	u64 task;
 	bool is_dcmd;
@@ -161,6 +166,7 @@ struct cmdq_host {
 	u32 dcmd_slot;
 	u32 caps;
 #define CMDQ_TASK_DESC_SZ_128 0x1
+#define CMDQ_CAP_CRYPTO_SUPPORT 0x2
 
 	u32 quirks;
 #define CMDQ_QUIRK_SHORT_TXFR_DESC_SZ 0x1
@@ -208,7 +214,7 @@ struct cmdq_host_ops {
 	void (*enhanced_strobe_mask)(struct mmc_host *mmc, bool set);
 	int (*reset)(struct mmc_host *mmc);
 	int (*crypto_cfg)(struct mmc_host *mmc, struct mmc_request *mrq,
-				u32 slot);
+				u32 slot, u64 *ice_ctx);
 	void (*crypto_cfg_reset)(struct mmc_host *mmc, unsigned int slot);
 	void (*post_cqe_halt)(struct mmc_host *mmc);
 };

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
- * Copyright (c) 2011-2014 Qualcomm Atheros, Inc.
+ * Copyright (c) 2011-2014, 2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -22,6 +22,7 @@
 #define WMI_TLV_CMD_UNSUPPORTED 0
 #define WMI_TLV_PDEV_PARAM_UNSUPPORTED 0
 #define WMI_TLV_VDEV_PARAM_UNSUPPORTED 0
+#define WMI_TX_DL_FRM_LEN	64
 
 enum wmi_tlv_grp_id {
 	WMI_TLV_GRP_START = 0x3,
@@ -132,6 +133,7 @@ enum wmi_tlv_cmd_id {
 	WMI_TLV_PRB_REQ_FILTER_RX_CMDID,
 	WMI_TLV_MGMT_TX_CMDID,
 	WMI_TLV_PRB_TMPL_CMDID,
+	WMI_TLV_MGMT_TX_SEND_CMD,
 	WMI_TLV_ADDBA_CLEAR_RESP_CMDID = WMI_TLV_CMD(WMI_TLV_GRP_BA_NEG),
 	WMI_TLV_ADDBA_SEND_CMDID,
 	WMI_TLV_ADDBA_STATUS_CMDID,
@@ -891,6 +893,8 @@ enum wmi_tlv_tag {
 	WMI_TLV_TAG_STRUCT_APFIND_EVENT_HDR,
 	WMI_TLV_TAG_STRUCT_HL_1_0_SVC_OFFSET = 176,
 
+	WMI_TLV_TAG_STRUCT_MGMT_TX_CMD = 0x1A6,
+
 	WMI_TLV_TAG_MAX
 };
 
@@ -1152,6 +1156,8 @@ wmi_hl_1_0_svc_map(const __le32 *in, unsigned long *out, size_t len)
 	       WMI_SERVICE_FORCE_FW_HANG, len);
 	SVCMAP(WMI_HL_10_SERVICE_RX_FULL_REORDER,
 	       WMI_SERVICE_RX_FULL_REORDER, len);
+	SVCMAP(WMI_HL_10_SERVICE_MGMT_TX_WMI,
+	       WMI_SERVICE_MGMT_TX_WMI, len);
 }
 
 static inline void
@@ -1827,4 +1833,20 @@ struct wmi_tlv_tx_pause_ev {
 
 void ath10k_wmi_tlv_attach(struct ath10k *ar);
 void ath10k_wmi_hl_1_0_attach(struct ath10k *ar);
+struct wmi_tlv_mgmt_tx_hdr {
+	__le32 vdev_id;
+	__le32 desc_id;
+	__le32 chanfreq;
+	__le32 paddr_lo;
+	__le32 paddr_hi;
+	__le32 frame_len;
+	__le32 buf_len;
+} __packed;
+
+struct wmi_tlv_mgmt_tx_cmd {
+	struct wmi_tlv_mgmt_tx_hdr hdr;
+	__le16 data_len;
+	__le16 data_tag;
+	u8 buf[0];
+} __packed;
 #endif

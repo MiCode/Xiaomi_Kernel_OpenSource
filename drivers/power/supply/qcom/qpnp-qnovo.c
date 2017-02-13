@@ -630,6 +630,7 @@ static ssize_t enable_show(struct class *c, struct class_attribute *attr,
 	int val;
 
 	val = get_client_vote(chip->disable_votable, USER_VOTER);
+	val = !val;
 	return snprintf(ubuf, PAGE_SIZE, "%d\n", val);
 }
 

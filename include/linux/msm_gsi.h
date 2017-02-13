@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1040,6 +1040,19 @@ int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
  */
 int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size);
 
+/**
+ * gsi_get_inst_ram_offset_and_size - Peripheral should call this function
+ * to get instruction RAM base address offset and size. Peripheral typically
+ * uses this info to load GSI FW into the IRAM.
+ *
+ * @base_offset:[OUT] - IRAM base offset address
+ * @size:	[OUT] - IRAM size
+
+ * @Return none
+ */
+void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
+		unsigned long *size);
+
 /*
  * Here is a typical sequence of calls
  *
@@ -1227,9 +1240,15 @@ static inline int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
+
 static inline int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
+		unsigned long *size)
+{
 }
 #endif
 #endif

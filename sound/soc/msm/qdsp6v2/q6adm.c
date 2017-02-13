@@ -2574,7 +2574,6 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	return copp_idx;
 }
 
-
 void adm_copp_mfc_cfg(int port_id, int copp_idx, int dst_sample_rate)
 {
 	struct audproc_mfc_output_media_fmt mfc_cfg;
@@ -2677,8 +2676,43 @@ fail_cmd:
 	return;
 }
 
+static void route_set_opcode_matrix_id(
+			struct adm_cmd_matrix_map_routings_v5 **route_addr,
+			int path, uint32_t passthr_mode)
+{
+	struct adm_cmd_matrix_map_routings_v5 *route = *route_addr;
 
-int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode)
+	switch (path) {
+	case ADM_PATH_PLAYBACK:
+		route->hdr.opcode = ADM_CMD_MATRIX_MAP_ROUTINGS_V5;
+		route->matrix_id = ADM_MATRIX_ID_AUDIO_RX;
+		break;
+	case ADM_PATH_LIVE_REC:
+		if (passthr_mode == LISTEN) {
+			route->hdr.opcode =
+				ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5;
+			route->matrix_id = ADM_MATRIX_ID_LISTEN_TX;
+			break;
+		}
+		/* fall through to set matrix id for non-listen case */
+	case ADM_PATH_NONLIVE_REC:
+		route->hdr.opcode = ADM_CMD_MATRIX_MAP_ROUTINGS_V5;
+		route->matrix_id = ADM_MATRIX_ID_AUDIO_TX;
+		break;
+	case ADM_PATH_COMPRESSED_RX:
+		route->hdr.opcode = ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5;
+		route->matrix_id = ADM_MATRIX_ID_COMPRESSED_AUDIO_RX;
+		break;
+	default:
+		pr_err("%s: Wrong path set[%d]\n", __func__, path);
+		break;
+	}
+	pr_debug("%s: opcode 0x%x, matrix id %d\n",
+		 __func__, route->hdr.opcode, route->matrix_id);
+}
+
+int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode,
+			uint32_t passthr_mode)
 {
 	struct adm_cmd_matrix_map_routings_v5	*route;
 	struct adm_session_map_node_v5 *node;
@@ -2711,32 +2745,9 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode)
 	route->hdr.dest_domain = APR_DOMAIN_ADSP;
 	route->hdr.dest_port = 0; /* Ignored */;
 	route->hdr.token = 0;
-	if (path == ADM_PATH_COMPRESSED_RX) {
-		pr_debug("%s: ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5 0x%x\n",
-			 __func__, ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5);
-		route->hdr.opcode = ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5;
-	} else {
-		pr_debug("%s: DM_CMD_MATRIX_MAP_ROUTINGS_V5 0x%x\n",
-			 __func__, ADM_CMD_MATRIX_MAP_ROUTINGS_V5);
-		route->hdr.opcode = ADM_CMD_MATRIX_MAP_ROUTINGS_V5;
-	}
 	route->num_sessions = 1;
+	route_set_opcode_matrix_id(&route, path, passthr_mode);
 
-	switch (path) {
-	case ADM_PATH_PLAYBACK:
-		route->matrix_id = ADM_MATRIX_ID_AUDIO_RX;
-		break;
-	case ADM_PATH_LIVE_REC:
-	case ADM_PATH_NONLIVE_REC:
-		route->matrix_id = ADM_MATRIX_ID_AUDIO_TX;
-		break;
-	case ADM_PATH_COMPRESSED_RX:
-		route->matrix_id = ADM_MATRIX_ID_COMPRESSED_AUDIO_RX;
-		break;
-	default:
-		pr_err("%s: Wrong path set[%d]\n", __func__, path);
-		break;
-	}
 	payload = ((u8 *)matrix_map +
 			sizeof(struct adm_cmd_matrix_map_routings_v5));
 	node = (struct adm_session_map_node_v5 *)payload;

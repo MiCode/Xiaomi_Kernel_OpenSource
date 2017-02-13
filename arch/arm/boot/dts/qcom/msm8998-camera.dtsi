@@ -51,8 +51,8 @@
 			"csi_src_clk", "csi_clk", "cphy_csid_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 256000000 0 0 200000000 0
-			0 256000000 0>;
+		qcom,clock-rates = <0 0 0 0 0 0 274290000 0 0 200000000 0
+			0 274290000 0>;
 		status = "ok";
 	};
 
@@ -86,8 +86,8 @@
 			"csi_src_clk", "csi_clk", "cphy_csid_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 256000000 0 0 200000000 0
-			0 256000000 0>;
+		qcom,clock-rates = <0 0 0 0 0 0 274290000 0 0 200000000 0
+			0 274290000 0>;
 		status = "ok";
 	};
 
@@ -121,8 +121,8 @@
 			"csi_src_clk", "csi_clk", "cphy_csid_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 256000000 0 0 200000000 0
-			0 256000000 0>;
+		qcom,clock-rates = <0 0 0 0 0 0 274290000 0 0 200000000 0
+			0 274290000 0>;
 		status = "ok";
 	};
 
@@ -159,7 +159,7 @@
 			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
 			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
 			"csi_pix_clk", "cphy_csid_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 256000000
+		qcom,clock-rates = <0 0 0 0 0 0 0 274290000 274290000
 			0 0 0 0 0>;
 		status = "ok";
 	};
@@ -197,7 +197,7 @@
 			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
 			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
 			"csi_pix_clk", "cphy_csid_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 256000000
+		qcom,clock-rates = <0 0 0 0 0 0 0 274290000 274290000
 			 0 0 0 0 0>;
 		status = "ok";
 	};
@@ -235,7 +235,7 @@
 			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
 			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
 			"csi_pix_clk", "cphy_csid_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 256000000
+		qcom,clock-rates = <0 0 0 0 0 0 0 274290000 274290000
 			 0 0 0 0 0>;
 		status = "ok";
 	};
@@ -273,7 +273,7 @@
 			"ispif_ahb_clk", "csi_src_clk", "csiphy_clk_src",
 			"csi_clk", "csi_ahb_clk", "csi_rdi_clk",
 			"csi_pix_clk", "cphy_csid_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 256000000
+		qcom,clock-rates = <0 0 0 0 0 0 0 274290000 274290000
 			 0 0 0 0 0>;
 		status = "ok";
 	};

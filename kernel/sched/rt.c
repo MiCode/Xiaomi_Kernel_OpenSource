@@ -1406,6 +1406,7 @@ static void yield_task_rt(struct rq *rq)
 #ifdef CONFIG_SMP
 static int find_lowest_rq(struct task_struct *task);
 
+#ifdef CONFIG_SCHED_HMP
 static int
 select_task_rq_rt_hmp(struct task_struct *p, int cpu, int sd_flag, int flags)
 {
@@ -1419,6 +1420,7 @@ select_task_rq_rt_hmp(struct task_struct *p, int cpu, int sd_flag, int flags)
 
 	return cpu;
 }
+#endif
 
 static int
 select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
@@ -1426,8 +1428,9 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 	struct task_struct *curr;
 	struct rq *rq;
 
-	if (sched_enable_hmp)
-		return select_task_rq_rt_hmp(p, cpu, sd_flag, flags);
+#ifdef CONFIG_SCHED_HMP
+	return select_task_rq_rt_hmp(p, cpu, sd_flag, flags);
+#endif
 
 	/* For anything but wake ups, just return the task_cpu */
 	if (sd_flag != SD_BALANCE_WAKE && sd_flag != SD_BALANCE_FORK)
@@ -1796,14 +1799,6 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 
 	return best_cpu;
 }
-
-#else	/* CONFIG_SCHED_HMP */
-
-static int find_lowest_rq_hmp(struct task_struct *task)
-{
-	return -1;
-}
-
 #endif	/* CONFIG_SCHED_HMP */
 
 static int find_lowest_rq(struct task_struct *task)
@@ -1813,8 +1808,9 @@ static int find_lowest_rq(struct task_struct *task)
 	int this_cpu = smp_processor_id();
 	int cpu      = task_cpu(task);
 
-	if (sched_enable_hmp)
-		return find_lowest_rq_hmp(task);
+#ifdef CONFIG_SCHED_HMP
+	return find_lowest_rq_hmp(task);
+#endif
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))

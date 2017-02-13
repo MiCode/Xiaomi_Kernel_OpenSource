@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #include <linux/io.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
+#include <linux/mfd/msm-cdc-pinctrl.h>
 #include <linux/printk.h>
 #include <linux/debugfs.h>
 #include <linux/bitops.h>
@@ -50,13 +51,15 @@
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static struct snd_soc_dai_driver msm_sdw_dai[];
 static bool initial_boot = true;
+static bool is_ssr_en;
+static bool skip_irq = true;
 
 static int msm_sdw_config_ear_spkr_gain(struct snd_soc_codec *codec,
 					int event, int gain_reg);
 static int msm_sdw_config_compander(struct snd_soc_codec *, int, int);
-static int msm_sdw_mclk_enable(struct snd_soc_codec *codec,
+static int msm_sdw_mclk_enable(struct msm_sdw_priv *msm_sdw,
 			       int mclk_enable, bool dapm);
-static int msm_int_enable_sdw_cdc_clk(struct snd_soc_codec *codec,
+static int msm_int_enable_sdw_cdc_clk(struct msm_sdw_priv *msm_sdw,
 				      int enable, bool dapm);
 
 enum {
@@ -199,39 +202,10 @@ static int msm_enable_sdw_npl_clk(struct msm_sdw_priv *msm_sdw, int enable)
 	return ret;
 }
 
-/**
- * msm_sdw_gpio_cb - Register callback by machine driver for sdw gpio.
- *
- * @sdw_cdc_gpio_fn: Function pointer to trigger for enable/disable sdw gpios.
- * @codec: sdw codec instance.
- *
- */
-void msm_sdw_gpio_cb(
-	int (*sdw_cdc_gpio_fn)(bool enable, struct snd_soc_codec *codec),
-	struct snd_soc_codec *codec)
-{
-	struct msm_sdw_priv *msm_sdw;
-
-	if (!codec) {
-		pr_err("%s:NULL codec pointer!\n", __func__);
-		return;
-	}
-	msm_sdw = snd_soc_codec_get_drvdata(codec);
-	msm_sdw->sdw_cdc_gpio_fn = sdw_cdc_gpio_fn;
-}
-EXPORT_SYMBOL(msm_sdw_gpio_cb);
-
-static int msm_int_enable_sdw_cdc_clk(struct snd_soc_codec *codec,
+static int msm_int_enable_sdw_cdc_clk(struct msm_sdw_priv *msm_sdw,
 				      int enable, bool dapm)
 {
 	int ret = 0;
-	struct msm_sdw_priv *msm_sdw;
-
-	if (!codec) {
-		pr_err("%s:NULL codec pointer\n", __func__);
-		return -EINVAL;
-	}
-	msm_sdw = snd_soc_codec_get_drvdata(codec);
 
 	mutex_lock(&msm_sdw->cdc_int_mclk1_mutex);
 	dev_dbg(msm_sdw->dev, "%s: enable %d mclk1 ref counter %d\n",
@@ -297,7 +271,6 @@ static void msm_disable_int_mclk1(struct work_struct *work)
 	dev_dbg(msm_sdw->dev, "%s: mclk1_enabled %d mclk1_rsc_ref %d\n",
 		__func__, msm_sdw->int_mclk1_enabled,
 		msm_sdw->int_mclk1_rsc_ref);
-
 	if (msm_sdw->int_mclk1_enabled == true
 			&& msm_sdw->int_mclk1_rsc_ref == 0) {
 		dev_dbg(msm_sdw->dev, "Disable the mclk1\n");
@@ -321,29 +294,23 @@ static int msm_int_mclk1_event(struct snd_soc_dapm_widget *w,
 	struct msm_sdw_priv *msm_sdw = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
-	mutex_lock(&msm_sdw->cdc_int_mclk1_mutex);
 	dev_dbg(msm_sdw->dev, "%s: event = %d\n", __func__, event);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		/* enable the codec mclk config */
-		msm_int_enable_sdw_cdc_clk(codec, 1, true);
-		msm_sdw_mclk_enable(codec, 1, true);
-		if (msm_sdw->sdw_cdc_gpio_fn)
-			msm_sdw->sdw_cdc_gpio_fn(true, codec);
+		msm_int_enable_sdw_cdc_clk(msm_sdw, 1, true);
+		msm_sdw_mclk_enable(msm_sdw, 1, true);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* disable the codec mclk config */
-		if (msm_sdw->sdw_cdc_gpio_fn)
-			msm_sdw->sdw_cdc_gpio_fn(false, codec);
-		msm_sdw_mclk_enable(codec, 0, true);
-		msm_int_enable_sdw_cdc_clk(codec, 0, true);
+		msm_sdw_mclk_enable(msm_sdw, 0, true);
+		msm_int_enable_sdw_cdc_clk(msm_sdw, 0, true);
 		break;
 	default:
 		dev_err(msm_sdw->dev,
 			"%s: invalid DAPM event %d\n", __func__, event);
 		ret = -EINVAL;
 	}
-	mutex_unlock(&msm_sdw->cdc_int_mclk1_mutex);
 	return ret;
 }
 
@@ -353,7 +320,8 @@ static int msm_sdw_ahb_write_device(struct msm_sdw_priv *msm_sdw,
 	u32 temp = (u32)(*value) & 0x000000FF;
 
 	if (!msm_sdw->dev_up) {
-		dev_dbg(msm_sdw->dev, "%s: q6 not ready\n", __func__);
+		dev_err_ratelimited(msm_sdw->dev, "%s: q6 not ready\n",
+				    __func__);
 		return 0;
 	}
 
@@ -367,7 +335,8 @@ static int msm_sdw_ahb_read_device(struct msm_sdw_priv *msm_sdw,
 	u32 temp;
 
 	if (!msm_sdw->dev_up) {
-		dev_dbg(msm_sdw->dev, "%s: q6 not ready\n", __func__);
+		dev_err_ratelimited(msm_sdw->dev, "%s: q6 not ready\n",
+				    __func__);
 		return 0;
 	}
 
@@ -454,6 +423,8 @@ static int __msm_sdw_reg_write(struct msm_sdw_priv *msm_sdw, unsigned short reg,
 					       &((u8 *)src)[i]);
 unlock_exit:
 	mutex_unlock(&msm_sdw->cdc_int_mclk1_mutex);
+	dev_dbg(msm_sdw->dev, "Write 0x%x val 0x%02x\n",
+				reg, (u32)(*(u32 *)src));
 
 	return ret;
 }
@@ -592,6 +563,9 @@ static int msm_sdwm_handle_irq(void *handle,
 	}
 	msm_sdw = (struct msm_sdw_priv *) handle;
 
+	if (skip_irq)
+		return ret;
+
 	if (action) {
 		ret = request_threaded_irq(msm_sdw->sdw_irq, NULL,
 					   swrm_irq_handler,
@@ -634,6 +608,55 @@ static void msm_sdw_codec_hd2_control(struct snd_soc_codec *codec,
 	}
 }
 
+static int msm_sdw_enable_swr(struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+	struct msm_sdw_priv *msm_sdw;
+	int i, ch_cnt;
+
+	msm_sdw = snd_soc_codec_get_drvdata(codec);
+
+	if (!msm_sdw->nr)
+		return 0;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if (!(strnstr(w->name, "RX4", sizeof("RX4 MIX"))) &&
+		    !msm_sdw->rx_4_count)
+			msm_sdw->rx_4_count++;
+		if (!(strnstr(w->name, "RX5", sizeof("RX5 MIX"))) &&
+		    !msm_sdw->rx_5_count)
+			msm_sdw->rx_5_count++;
+		ch_cnt = msm_sdw->rx_4_count + msm_sdw->rx_5_count;
+
+		for (i = 0; i < msm_sdw->nr; i++) {
+			swrm_wcd_notify(msm_sdw->sdw_ctrl_data[i].sdw_pdev,
+					SWR_DEVICE_UP, NULL);
+			swrm_wcd_notify(msm_sdw->sdw_ctrl_data[i].sdw_pdev,
+					SWR_SET_NUM_RX_CH, &ch_cnt);
+		}
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		if (!(strnstr(w->name, "RX4", sizeof("RX4 MIX"))) &&
+		    msm_sdw->rx_4_count)
+			msm_sdw->rx_4_count--;
+		if (!(strnstr(w->name, "RX5", sizeof("RX5 MIX"))) &&
+		    msm_sdw->rx_5_count)
+			msm_sdw->rx_5_count--;
+		ch_cnt = msm_sdw->rx_4_count + msm_sdw->rx_5_count;
+
+		for (i = 0; i < msm_sdw->nr; i++)
+			swrm_wcd_notify(msm_sdw->sdw_ctrl_data[i].sdw_pdev,
+					SWR_SET_NUM_RX_CH, &ch_cnt);
+		break;
+	}
+	dev_dbg(msm_sdw->dev, "%s: current swr ch cnt: %d\n",
+		__func__, msm_sdw->rx_4_count + msm_sdw->rx_5_count);
+
+	return 0;
+}
+
 static int msm_sdw_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 					     struct snd_kcontrol *kcontrol,
 					     int event)
@@ -643,7 +666,6 @@ static int msm_sdw_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 	u16 gain_reg;
 	u16 reg;
 	int val;
-	int i, ch_cnt;
 	int offset_val = 0;
 
 	dev_dbg(codec->dev, "%s %d %s\n", __func__, event, w->name);
@@ -665,21 +687,6 @@ static int msm_sdw_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, reg, 0x10, 0x10);
 		msm_sdw_codec_hd2_control(codec, reg, event);
 		snd_soc_update_bits(codec, reg, 1 << 0x5, 1 << 0x5);
-		/* Reset if needed */
-		if (!(strcmp(w->name, "RX INT4 INTERP")) &&
-		    !msm_sdw->rx_4_count)
-			msm_sdw->rx_4_count++;
-		if (!(strcmp(w->name, "RX INT5 INTERP")) &&
-		    !msm_sdw->rx_5_count)
-			msm_sdw->rx_5_count++;
-		ch_cnt = msm_sdw->rx_4_count + msm_sdw->rx_5_count;
-
-		for (i = 0; i < msm_sdw->nr; i++) {
-			swrm_wcd_notify(msm_sdw->sdw_ctrl_data[i].sdw_pdev,
-					SWR_DEVICE_UP, NULL);
-			swrm_wcd_notify(msm_sdw->sdw_ctrl_data[i].sdw_pdev,
-					SWR_SET_NUM_RX_CH, &ch_cnt);
-		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		msm_sdw_config_compander(codec, w->shift, event);
@@ -705,6 +712,7 @@ static int msm_sdw_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 		val += offset_val;
 		snd_soc_write(codec, gain_reg, val);
 		msm_sdw_config_ear_spkr_gain(codec, event, gain_reg);
+		snd_soc_update_bits(codec, reg, 0x10, 0x00);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec, reg, 1 << 0x5, 0 << 0x5);
@@ -733,17 +741,6 @@ static int msm_sdw_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 			snd_soc_write(codec, gain_reg, val);
 		}
 		msm_sdw_config_ear_spkr_gain(codec, event, gain_reg);
-		if (!(strcmp(w->name, "RX INT4 INTERP")) &&
-		    msm_sdw->rx_4_count)
-			msm_sdw->rx_4_count--;
-		if (!(strcmp(w->name, "RX INT5 INTERP")) &&
-		    msm_sdw->rx_5_count)
-			msm_sdw->rx_5_count--;
-		ch_cnt = msm_sdw->rx_4_count + msm_sdw->rx_5_count;
-
-		for (i = 0; i < msm_sdw->nr; i++)
-			swrm_wcd_notify(msm_sdw->sdw_ctrl_data[i].sdw_pdev,
-					SWR_SET_NUM_RX_CH, &ch_cnt);
 		break;
 	};
 
@@ -989,39 +986,35 @@ static int msm_sdw_vi_feed_mixer_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int msm_sdw_mclk_enable(struct snd_soc_codec *codec,
+static int msm_sdw_mclk_enable(struct msm_sdw_priv *msm_sdw,
 			       int mclk_enable, bool dapm)
 {
-	struct msm_sdw_priv *msm_sdw;
-
-	if (!codec) {
-		pr_err("%s:NULL codec pointer\n", __func__);
-		return -EINVAL;
-	}
-	msm_sdw = snd_soc_codec_get_drvdata(codec);
-
-	mutex_lock(&msm_sdw->cdc_int_mclk1_mutex);
-	dev_dbg(codec->dev, "%s: mclk_enable = %u, dapm = %d\n",
-		__func__, mclk_enable, dapm);
+	dev_dbg(msm_sdw->dev, "%s: mclk_enable = %u, dapm = %d clk_users= %d\n",
+		__func__, mclk_enable, dapm, msm_sdw->sdw_mclk_users);
 	if (mclk_enable) {
-		snd_soc_update_bits(codec,
-				MSM_SDW_CLK_RST_CTRL_FS_CNT_CONTROL,
-				0x01, 0x01);
-		snd_soc_update_bits(codec,
+		msm_sdw->sdw_mclk_users++;
+		if (msm_sdw->sdw_mclk_users == 1) {
+			regmap_update_bits(msm_sdw->regmap,
+					MSM_SDW_CLK_RST_CTRL_FS_CNT_CONTROL,
+					0x01, 0x01);
+			regmap_update_bits(msm_sdw->regmap,
 				MSM_SDW_CLK_RST_CTRL_MCLK_CONTROL,
 				0x01, 0x01);
-		/* 9.6MHz MCLK, set value 0x00 if other frequency */
-		snd_soc_update_bits(codec,
+			/* 9.6MHz MCLK, set value 0x00 if other frequency */
+			regmap_update_bits(msm_sdw->regmap,
 				MSM_SDW_TOP_FREQ_MCLK, 0x01, 0x01);
+		}
 	} else {
-		snd_soc_update_bits(codec,
-				MSM_SDW_CLK_RST_CTRL_FS_CNT_CONTROL,
-				0x01, 0x00);
-		snd_soc_update_bits(codec,
-				MSM_SDW_CLK_RST_CTRL_MCLK_CONTROL,
-				0x01, 0x00);
+		msm_sdw->sdw_mclk_users--;
+		if (msm_sdw->sdw_mclk_users == 0) {
+			regmap_update_bits(msm_sdw->regmap,
+					MSM_SDW_CLK_RST_CTRL_FS_CNT_CONTROL,
+					0x01, 0x00);
+			regmap_update_bits(msm_sdw->regmap,
+					MSM_SDW_CLK_RST_CTRL_MCLK_CONTROL,
+					0x01, 0x00);
+		}
 	}
-	mutex_unlock(&msm_sdw->cdc_int_mclk1_mutex);
 	return 0;
 }
 EXPORT_SYMBOL(msm_sdw_mclk_enable);
@@ -1193,10 +1186,13 @@ static int msm_sdw_swrm_clock(void *handle, bool enable)
 	if (enable) {
 		msm_sdw->sdw_clk_users++;
 		if (msm_sdw->sdw_clk_users == 1) {
-			msm_enable_sdw_npl_clk(msm_sdw, true);
+			msm_int_enable_sdw_cdc_clk(msm_sdw, 1, true);
+			msm_sdw_mclk_enable(msm_sdw, 1, true);
 			regmap_update_bits(msm_sdw->regmap,
-				MSM_SDW_CLK_RST_CTRL_SWR_CONTROL,
-				0x01, 0x01);
+				MSM_SDW_CLK_RST_CTRL_SWR_CONTROL, 0x01, 0x01);
+			msm_enable_sdw_npl_clk(msm_sdw, true);
+			msm_cdc_pinctrl_select_active_state(
+							msm_sdw->sdw_gpio_p);
 		}
 	} else {
 		msm_sdw->sdw_clk_users--;
@@ -1204,7 +1200,10 @@ static int msm_sdw_swrm_clock(void *handle, bool enable)
 			regmap_update_bits(msm_sdw->regmap,
 				MSM_SDW_CLK_RST_CTRL_SWR_CONTROL,
 				0x01, 0x00);
+			msm_sdw_mclk_enable(msm_sdw, 0, true);
+			msm_int_enable_sdw_cdc_clk(msm_sdw, 0, true);
 			msm_enable_sdw_npl_clk(msm_sdw, false);
+			msm_cdc_pinctrl_select_sleep_state(msm_sdw->sdw_gpio_p);
 		}
 	}
 	dev_dbg(msm_sdw->dev, "%s: swrm clock users %d\n",
@@ -1319,7 +1318,7 @@ static ssize_t msm_sdw_codec_version_read(struct snd_info_entry *entry,
 
 	switch (msm_sdw->version) {
 	case MSM_SDW_VERSION_1_0:
-	    len = snprintf(buffer, sizeof(buffer), "MSM_SDW_CDC_1_0\n");
+	    len = snprintf(buffer, sizeof(buffer), "SDW-CDC_1_0\n");
 	    break;
 	default:
 	    len = snprintf(buffer, sizeof(buffer), "VER_UNDEFINED\n");
@@ -1355,10 +1354,10 @@ int msm_sdw_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 	msm_sdw = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
 	msm_sdw->entry = snd_register_module_info(codec_root->module,
-						  "msm_sdw",
+						  "152c1000.msm-sdw-codec",
 						  codec_root);
 	if (!msm_sdw->entry) {
-		dev_dbg(codec->dev, "%s: failed to create msm_sdw entry\n",
+		dev_err(codec->dev, "%s: failed to create msm_sdw entry\n",
 			__func__);
 		return -ENOMEM;
 	}
@@ -1367,7 +1366,7 @@ int msm_sdw_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 						   "version",
 						   msm_sdw->entry);
 	if (!version_entry) {
-		dev_dbg(codec->dev, "%s: failed to create msm_sdw version entry\n",
+		dev_err(codec->dev, "%s: failed to create msm_sdw version entry\n",
 			__func__);
 		return -ENOMEM;
 	}
@@ -1485,14 +1484,18 @@ static const struct snd_soc_dapm_widget msm_sdw_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("AIF1_VI_SDW Mixer", SND_SOC_NOPM, AIF1_SDW_VIFEED,
 		0, aif1_vi_mixer, ARRAY_SIZE(aif1_vi_mixer)),
 
-	SND_SOC_DAPM_MUX("RX4 MIX1 INP1", SND_SOC_NOPM, 0, 0,
-		&rx4_mix1_inp1_mux),
-	SND_SOC_DAPM_MUX("RX4 MIX1 INP2", SND_SOC_NOPM, 0, 0,
-		&rx4_mix1_inp2_mux),
-	SND_SOC_DAPM_MUX("RX5 MIX1 INP1", SND_SOC_NOPM, 0, 0,
-		&rx5_mix1_inp1_mux),
-	SND_SOC_DAPM_MUX("RX5 MIX1 INP2", SND_SOC_NOPM, 0, 0,
-		&rx5_mix1_inp2_mux),
+	SND_SOC_DAPM_MUX_E("RX4 MIX1 INP1", SND_SOC_NOPM, 0, 0,
+		&rx4_mix1_inp1_mux, msm_sdw_enable_swr,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX4 MIX1 INP2", SND_SOC_NOPM, 0, 0,
+		&rx4_mix1_inp2_mux, msm_sdw_enable_swr,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX5 MIX1 INP1", SND_SOC_NOPM, 0, 0,
+		&rx5_mix1_inp1_mux, msm_sdw_enable_swr,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX5 MIX1 INP2", SND_SOC_NOPM, 0, 0,
+		&rx5_mix1_inp2_mux, msm_sdw_enable_swr,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MIXER("RX4 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX5 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 
@@ -1588,6 +1591,24 @@ static const struct msm_sdw_reg_mask_val msm_sdw_reg_init[] = {
 	{MSM_SDW_BOOST1_BOOST_CFG1, 0x3F, 0x12},
 	{MSM_SDW_BOOST1_BOOST_CFG2, 0x1C, 0x08},
 	{MSM_SDW_COMPANDER8_CTL7, 0x1E, 0x18},
+	{MSM_SDW_BOOST0_BOOST_CTL, 0x70, 0x50},
+	{MSM_SDW_BOOST1_BOOST_CTL, 0x70, 0x50},
+	{MSM_SDW_RX7_RX_PATH_CFG1, 0x08, 0x08},
+	{MSM_SDW_RX8_RX_PATH_CFG1, 0x08, 0x08},
+	{MSM_SDW_TOP_TOP_CFG1, 0x02, 0x02},
+	{MSM_SDW_TOP_TOP_CFG1, 0x01, 0x01},
+	{MSM_SDW_TX9_SPKR_PROT_PATH_CFG0, 0x01, 0x01},
+	{MSM_SDW_TX10_SPKR_PROT_PATH_CFG0, 0x01, 0x01},
+	{MSM_SDW_TX11_SPKR_PROT_PATH_CFG0, 0x01, 0x01},
+	{MSM_SDW_TX12_SPKR_PROT_PATH_CFG0, 0x01, 0x01},
+	{MSM_SDW_COMPANDER7_CTL3, 0x80, 0x80},
+	{MSM_SDW_COMPANDER8_CTL3, 0x80, 0x80},
+	{MSM_SDW_COMPANDER7_CTL7, 0x01, 0x01},
+	{MSM_SDW_COMPANDER8_CTL7, 0x01, 0x01},
+	{MSM_SDW_RX7_RX_PATH_CFG0, 0x01, 0x01},
+	{MSM_SDW_RX8_RX_PATH_CFG0, 0x01, 0x01},
+	{MSM_SDW_RX7_RX_PATH_MIX_CFG, 0x01, 0x01},
+	{MSM_SDW_RX8_RX_PATH_MIX_CFG, 0x01, 0x01},
 };
 
 static void msm_sdw_init_reg(struct snd_soc_codec *codec)
@@ -1654,14 +1675,17 @@ static int msm_sdw_codec_probe(struct snd_soc_codec *codec)
 	msm_sdw->spkr_gain_offset = RX_GAIN_OFFSET_0_DB;
 	msm_sdw_init_reg(codec);
 	msm_sdw->version = MSM_SDW_VERSION_1_0;
-	msm_sdw->dev_up = true;
-	msm_sdw->service_nb.notifier_call = msm_sdw_notifier_service_cb;
-	ret = audio_notifier_register("msm_sdw", AUDIO_NOTIFIER_ADSP_DOMAIN,
-				      &msm_sdw->service_nb);
-	if (ret < 0)
-		dev_err(msm_sdw->dev,
-			"%s: Audio notifier register failed ret = %d\n",
-			__func__, ret);
+
+	if (is_ssr_en) {
+		msm_sdw->service_nb.notifier_call = msm_sdw_notifier_service_cb;
+		ret = audio_notifier_register("msm_sdw",
+					AUDIO_NOTIFIER_ADSP_DOMAIN,
+					&msm_sdw->service_nb);
+		if (ret < 0)
+			dev_err(msm_sdw->dev,
+				"%s: Audio notifier register failed ret = %d\n",
+				__func__, ret);
+	}
 
 	return 0;
 }
@@ -1801,15 +1825,11 @@ static int msm_sdw_probe(struct platform_device *pdev)
 	if (!msm_sdw)
 		return -ENOMEM;
 	dev_set_drvdata(&pdev->dev, msm_sdw);
+	msm_sdw->dev_up = true;
 
 	msm_sdw->dev = &pdev->dev;
 	INIT_WORK(&msm_sdw->msm_sdw_add_child_devices_work,
 		  msm_sdw_add_child_devices);
-	mutex_init(&msm_sdw->sdw_read_lock);
-	mutex_init(&msm_sdw->sdw_write_lock);
-	mutex_init(&msm_sdw->sdw_clk_lock);
-
-	mutex_init(&msm_sdw->codec_mutex);
 	msm_sdw->sdw_plat_data.handle = (void *) msm_sdw;
 	msm_sdw->sdw_plat_data.read = msm_sdw_swrm_read;
 	msm_sdw->sdw_plat_data.write = msm_sdw_swrm_write;
@@ -1823,6 +1843,9 @@ static int msm_sdw_probe(struct platform_device *pdev)
 			__func__, "reg");
 		goto err_sdw_cdc;
 	}
+
+	msm_sdw->sdw_gpio_p = of_parse_phandle(pdev->dev.of_node,
+					"qcom,cdc-sdw-gpios", 0);
 	msm_sdw->sdw_base = ioremap(msm_sdw->sdw_base_addr,
 				    MSM_SDW_MAX_REGISTER);
 	msm_sdw->read_dev = __msm_sdw_reg_read;
@@ -1873,6 +1896,11 @@ static int msm_sdw_probe(struct platform_device *pdev)
 			  msm_disable_int_mclk1);
 	mutex_init(&msm_sdw->cdc_int_mclk1_mutex);
 	mutex_init(&msm_sdw->sdw_npl_clk_mutex);
+	mutex_init(&msm_sdw->io_lock);
+	mutex_init(&msm_sdw->sdw_read_lock);
+	mutex_init(&msm_sdw->sdw_write_lock);
+	mutex_init(&msm_sdw->sdw_clk_lock);
+	mutex_init(&msm_sdw->codec_mutex);
 	schedule_work(&msm_sdw->msm_sdw_add_child_devices_work);
 
 	dev_dbg(&pdev->dev, "%s: msm_sdw driver probe done\n", __func__);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -607,8 +607,6 @@ static void wcd_cntl_do_shutdown(struct wcd_dsp_cntl *cntl)
 	/* Disable WDOG */
 	snd_soc_update_bits(codec, WCD934X_CPE_SS_WDOG_CFG,
 			    0x3F, 0x01);
-	snd_soc_update_bits(codec, WCD934X_CODEC_RPM_CLK_MCLK_CFG,
-			    0x04, 0x00);
 
 	/* Put WDSP in reset state */
 	snd_soc_update_bits(codec, WCD934X_CPE_SS_CPE_CTL,
@@ -633,11 +631,7 @@ static int wcd_cntl_do_boot(struct wcd_dsp_cntl *cntl)
 	if (cntl->debug_mode) {
 		snd_soc_update_bits(codec, WCD934X_CPE_SS_WDOG_CFG,
 				    0x3F, 0x01);
-		snd_soc_update_bits(codec, WCD934X_CODEC_RPM_CLK_MCLK_CFG,
-				    0x04, 0x00);
 	} else {
-		snd_soc_update_bits(codec, WCD934X_CODEC_RPM_CLK_MCLK_CFG,
-				    0x04, 0x04);
 		snd_soc_update_bits(codec, WCD934X_CPE_SS_WDOG_CFG,
 				    0x3F, 0x21);
 	}

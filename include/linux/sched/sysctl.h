@@ -45,6 +45,14 @@ extern unsigned int sysctl_sched_initial_task_util;
 extern unsigned int sysctl_sched_cstate_aware;
 
 #ifdef CONFIG_SCHED_HMP
+
+enum freq_reporting_policy {
+	FREQ_REPORT_MAX_CPU_LOAD_TOP_TASK,
+	FREQ_REPORT_CPU_LOAD,
+	FREQ_REPORT_TOP_TASK,
+	FREQ_REPORT_INVALID_POLICY
+};
+
 extern int sysctl_sched_freq_inc_notify;
 extern int sysctl_sched_freq_dec_notify;
 extern unsigned int sysctl_sched_freq_reporting_policy;

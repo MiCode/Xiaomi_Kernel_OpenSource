@@ -965,8 +965,9 @@ static struct clk_rcg2 dp_pixel_clk_src = {
 		.parent_names = mmcc_parent_names_6,
 		.num_parents = 4,
 		.ops = &clk_dp_ops,
+		.flags = CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT,
 		VDD_DIG_FMAX_MAP3(
-			LOWER, 148380,
+			LOWER, 154000,
 			LOW, 296740,
 			NOMINAL, 593470),
 	},

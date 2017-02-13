@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1414,6 +1414,7 @@ static enum power_supply_property smb1351_parallel_properties[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+	POWER_SUPPLY_PROP_PARALLEL_MODE,
 };
 
 static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
@@ -1666,6 +1667,12 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 				smb1351_is_input_current_limited(chip) ? 1 : 0;
 		else
 			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_PARALLEL_MODE:
+		if (chip->parallel_charger_present)
+			val->intval = POWER_SUPPLY_PARALLEL_USBIN_USBIN;
+		else
+			val->intval = POWER_SUPPLY_PARALLEL_NONE;
 		break;
 	default:
 		return -EINVAL;
@@ -3158,8 +3165,8 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, chip);
 
-	chip->parallel_psy_d.name = "usb-parallel";
-	chip->parallel_psy_d.type = POWER_SUPPLY_TYPE_USB_PARALLEL;
+	chip->parallel_psy_d.name = "parallel";
+	chip->parallel_psy_d.type = POWER_SUPPLY_TYPE_PARALLEL;
 	chip->parallel_psy_d.get_property = smb1351_parallel_get_property;
 	chip->parallel_psy_d.set_property = smb1351_parallel_set_property;
 	chip->parallel_psy_d.properties	= smb1351_parallel_properties;

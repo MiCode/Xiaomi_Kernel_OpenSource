@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -308,6 +308,9 @@ static int coresight_build_paths(struct coresight_device *csdev,
 {
 	int i, ret = -EINVAL;
 	struct coresight_connection *conn;
+
+	if (!csdev)
+		return ret;
 
 	list_add(&csdev->path_link, path);
 

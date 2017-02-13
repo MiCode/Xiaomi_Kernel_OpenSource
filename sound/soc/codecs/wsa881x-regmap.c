@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,6 +216,9 @@ static bool wsa881x_readable_register(struct device *dev, unsigned int reg)
 
 static bool wsa881x_volatile_register(struct device *dev, unsigned int reg)
 {
+	if (cache_always)
+		return false;
+
 	switch (reg) {
 	case WSA881X_CHIP_ID0:
 	case WSA881X_CHIP_ID1:

@@ -1111,6 +1111,16 @@ static int clk_dp_set_rate_and_parent(struct clk_hw *hw, unsigned long rate,
 	return clk_dp_set_rate(hw, rate, parent_rate);
 }
 
+static int clk_dp_determine_rate(struct clk_hw *hw,
+				    struct clk_rate_request *req)
+{
+	req->best_parent_rate = clk_hw_round_rate(req->best_parent_hw,
+							req->best_parent_rate);
+	req->rate = req->rate;
+
+	return 0;
+}
+
 const struct clk_ops clk_dp_ops = {
 	.is_enabled = clk_rcg2_is_enabled,
 	.get_parent = clk_rcg2_get_parent,
@@ -1118,7 +1128,7 @@ const struct clk_ops clk_dp_ops = {
 	.recalc_rate = clk_rcg2_recalc_rate,
 	.set_rate = clk_dp_set_rate,
 	.set_rate_and_parent = clk_dp_set_rate_and_parent,
-	.determine_rate = clk_pixel_determine_rate,
+	.determine_rate = clk_dp_determine_rate,
 	.list_registers = clk_rcg2_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_dp_ops);

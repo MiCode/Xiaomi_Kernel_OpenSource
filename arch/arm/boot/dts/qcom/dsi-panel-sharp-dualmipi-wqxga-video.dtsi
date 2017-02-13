@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,7 @@
 		qcom,mdss-dsi-border-color = <0>;
 		qcom,mdss-dsi-on-command = [05 01 00 00 a0 00 02 11 00
 			05 01 00 00 02 00 02 29 00];
-		qcom,mdss-dsi-off-command = [05 01 00 00 02 00 02 28 00
+		qcom,mdss-dsi-pre-off-command = [05 01 00 00 02 00 02 28 00
 				 05 01 00 00 a0 00 02 10 00];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";

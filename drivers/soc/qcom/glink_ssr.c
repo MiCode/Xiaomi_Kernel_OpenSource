@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -339,6 +339,7 @@ void close_ch_worker(struct work_struct *work)
 
 	BUG_ON(!ss_info->cb_data);
 	kfree(ss_info->cb_data);
+	ss_info->cb_data = NULL;
 	kfree(close_work);
 }
 

@@ -64,3 +64,5 @@ usb_f_qcrndis-y			:= f_qc_rndis.o u_data_ipa.o
 obj-$(CONFIG_USB_F_QCRNDIS)	+= usb_f_qcrndis.o
 usb_f_rmnet_bam-y		:= f_rmnet.o u_ctrl_qti.o
 obj-$(CONFIG_USB_F_RMNET_BAM)   += usb_f_rmnet_bam.o
+usb_f_ccid-y			:= f_ccid.o
+obj-$(CONFIG_USB_F_CCID)   	+= usb_f_ccid.o

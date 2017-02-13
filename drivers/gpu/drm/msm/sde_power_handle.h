@@ -1,0 +1,229 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
+
+#ifndef _SDE_POWER_HANDLE_H_
+#define _SDE_POWER_HANDLE_H_
+
+#define MAX_CLIENT_NAME_LEN 128
+
+#define SDE_POWER_HANDLE_DATA_BUS_IB_QUOTA 2000000000
+#define SDE_POWER_HANDLE_DATA_BUS_AB_QUOTA 2000000000
+
+/**
+ * mdss_bus_vote_type: register bus vote type
+ * VOTE_INDEX_DISABLE: removes the client vote
+ * VOTE_INDEX_LOW: keeps the lowest vote for register bus
+ * VOTE_INDEX_MAX: invalid
+ */
+enum mdss_bus_vote_type {
+	VOTE_INDEX_DISABLE,
+	VOTE_INDEX_LOW,
+	VOTE_INDEX_MAX,
+};
+
+/**
+ * enum sde_power_handle_data_bus_client - type of axi bus clients
+ * @SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT: core real-time bus client
+ * @SDE_POWER_HANDLE_DATA_BUS_CLIENT_NRT: core non-real-time bus client
+ * @SDE_POWER_HANDLE_DATA_BUS_CLIENT_MAX: maximum number of bus client type
+ */
+enum sde_power_handle_data_bus_client {
+	SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT,
+	SDE_POWER_HANDLE_DATA_BUS_CLIENT_NRT,
+	SDE_POWER_HANDLE_DATA_BUS_CLIENT_MAX
+};
+
+/**
+ * struct sde_power_client: stores the power client for sde driver
+ * @name:	name of the client
+ * @usecase_ndx: current regs bus vote type
+ * @refcount:	current refcount if multiple modules are using same
+ *              same client for enable/disable. Power module will
+ *              aggregate the refcount and vote accordingly for this
+ *              client.
+ * @id:		assigned during create. helps for debugging.
+ * @list:	list to attach power handle master list
+ * @ab:         arbitrated bandwidth for each bus client
+ * @ib:         instantaneous bandwidth for each bus client
+ */
+struct sde_power_client {
+	char name[MAX_CLIENT_NAME_LEN];
+	short usecase_ndx;
+	short refcount;
+	u32 id;
+	struct list_head list;
+	u64 ab[SDE_POWER_HANDLE_DATA_BUS_CLIENT_MAX];
+	u64 ib[SDE_POWER_HANDLE_DATA_BUS_CLIENT_MAX];
+};
+
+/**
+ * struct sde_power_data_handle: power handle struct for data bus
+ * @data_bus_scale_table: pointer to bus scaling table
+ * @data_bus_hdl: current data bus handle
+ * @axi_port_cnt: number of rt axi ports
+ * @nrt_axi_port_cnt: number of nrt axi ports
+ * @bus_channels: number of memory bus channels
+ * @curr_bw_uc_idx: current use case index of data bus
+ * @ao_bw_uc_idx: active only use case index of data bus
+ * @bus_ref_cnt: reference count of data bus enable request
+ * @handoff_pending: True to indicate if bootloader hand-over is pending
+ */
+struct sde_power_data_bus_handle {
+	struct msm_bus_scale_pdata *data_bus_scale_table;
+	u32 data_bus_hdl;
+	u32 axi_port_cnt;
+	u32 nrt_axi_port_cnt;
+	u32 bus_channels;
+	u32 curr_bw_uc_idx;
+	u32 ao_bw_uc_idx;
+	u32 bus_ref_cnt;
+	int handoff_pending;
+};
+
+/**
+ * struct sde_power_handle: power handle main struct
+ * @mp:		module power for clock and regulator
+ * @client_clist: master list to store all clients
+ * @phandle_lock: lock to synchronize the enable/disable
+ * @dev: pointer to device structure
+ * @usecase_ndx: current usecase index
+ * @reg_bus_hdl: current register bus handle
+ * @data_bus_handle: context structure for data bus control
+ */
+struct sde_power_handle {
+	struct dss_module_power mp;
+	struct list_head power_client_clist;
+	struct mutex phandle_lock;
+	struct device *dev;
+	u32 current_usecase_ndx;
+	u32 reg_bus_hdl;
+	struct sde_power_data_bus_handle data_bus_handle;
+};
+
+/**
+ * sde_power_resource_init() - initializes the sde power handle
+ * @pdev:   platform device to search the power resources
+ * @pdata:  power handle to store the power resources
+ *
+ * Return: error code.
+ */
+int sde_power_resource_init(struct platform_device *pdev,
+	struct sde_power_handle *pdata);
+
+/**
+ * sde_power_resource_deinit() - release the sde power handle
+ * @pdev:   platform device for power resources
+ * @pdata:  power handle containing the resources
+ *
+ * Return: error code.
+ */
+void sde_power_resource_deinit(struct platform_device *pdev,
+	struct sde_power_handle *pdata);
+
+/**
+ * sde_power_client_create() - create the client on power handle
+ * @pdata:  power handle containing the resources
+ * @client_name: new client name for registration
+ *
+ * Return: error code.
+ */
+struct sde_power_client *sde_power_client_create(struct sde_power_handle *pdata,
+	char *client_name);
+
+/**
+ * sde_power_client_destroy() - destroy the client on power handle
+ * @pdata:  power handle containing the resources
+ * @client_name: new client name for registration
+ *
+ * Return: none
+ */
+void sde_power_client_destroy(struct sde_power_handle *phandle,
+	struct sde_power_client *client);
+
+/**
+ * sde_power_resource_enable() - enable/disable the power resources
+ * @pdata:  power handle containing the resources
+ * @client: client information to enable/disable its vote
+ * @enable: boolean request for enable/disable
+ *
+ * Return: error code.
+ */
+int sde_power_resource_enable(struct sde_power_handle *pdata,
+	struct sde_power_client *pclient, bool enable);
+
+/**
+ * sde_power_clk_set_rate() - set the clock rate
+ * @pdata:  power handle containing the resources
+ * @clock_name: clock name which needs rate update.
+ * @rate:       Requested rate.
+ *
+ * Return: error code.
+ */
+int sde_power_clk_set_rate(struct sde_power_handle *pdata, char *clock_name,
+	u64 rate);
+
+/**
+ * sde_power_clk_get_rate() - get the clock rate
+ * @pdata:  power handle containing the resources
+ * @clock_name: clock name to get the rate
+ *
+ * Return: current clock rate
+ */
+u64 sde_power_clk_get_rate(struct sde_power_handle *pdata, char *clock_name);
+
+/**
+ * sde_power_clk_get_max_rate() - get the maximum clock rate
+ * @pdata:  power handle containing the resources
+ * @clock_name: clock name to get the max rate.
+ *
+ * Return: maximum clock rate or 0 if not found.
+ */
+u64 sde_power_clk_get_max_rate(struct sde_power_handle *pdata,
+		char *clock_name);
+
+/**
+ * sde_power_clk_get_clk() - get the clock
+ * @pdata:  power handle containing the resources
+ * @clock_name: clock name to get the clk pointer.
+ *
+ * Return: Pointer to clock
+ */
+struct clk *sde_power_clk_get_clk(struct sde_power_handle *phandle,
+		char *clock_name);
+
+/**
+ * sde_power_data_bus_set_quota() - set data bus quota for power client
+ * @phandle:  power handle containing the resources
+ * @client: client information to set quota
+ * @bus_client: real-time or non-real-time bus client
+ * @ab_quota: arbitrated bus bandwidth
+ * @ib_quota: instantaneous bus bandwidth
+ *
+ * Return: zero if success, or error code otherwise
+ */
+int sde_power_data_bus_set_quota(struct sde_power_handle *phandle,
+		struct sde_power_client *pclient,
+		int bus_client, u64 ab_quota, u64 ib_quota);
+
+/**
+ * sde_power_data_bus_bandwidth_ctrl() - control data bus bandwidth enable
+ * @phandle:  power handle containing the resources
+ * @client: client information to bandwidth control
+ * @enable: true to enable bandwidth for data base
+ *
+ * Return: none
+ */
+void sde_power_data_bus_bandwidth_ctrl(struct sde_power_handle *phandle,
+		struct sde_power_client *pclient, int enable);
+
+#endif /* _SDE_POWER_HANDLE_H_ */

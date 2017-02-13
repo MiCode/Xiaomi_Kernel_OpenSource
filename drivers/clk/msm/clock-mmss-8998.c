@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -263,6 +263,7 @@ static struct clk_freq_tbl ftbl_csi_clk_src[] = {
 static struct clk_freq_tbl ftbl_csi_clk_src_vq[] = {
 	F_MM( 164571429, mmpll10_pll_out,  3.5,    0,     0),
 	F_MM( 256000000,  mmpll4_pll_out,    3,    0,     0),
+	F_MM( 274290000,  mmpll7_pll_out,  3.5,    0,     0),
 	F_MM( 300000000,    mmsscc_gpll0,    2,    0,     0),
 	F_MM( 384000000,  mmpll4_pll_out,    2,    0,     0),
 	F_MM( 576000000, mmpll10_pll_out,    1,    0,     0),
