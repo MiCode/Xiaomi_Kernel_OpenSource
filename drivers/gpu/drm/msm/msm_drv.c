@@ -1124,6 +1124,17 @@ static int msm_ioctl_gem_cpu_fini(struct drm_device *dev, void *data,
 	return ret;
 }
 
+static int msm_ioctl_gem_info_iova(struct drm_device *dev,
+		struct drm_gem_object *obj, uint64_t *iova)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+
+	if (!priv->gpu)
+		return -EINVAL;
+
+	return msm_gem_get_iova(obj, priv->gpu->aspace, iova);
+}
+
 static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 		struct drm_file *file)
 {
@@ -1131,14 +1142,22 @@ static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 	struct drm_gem_object *obj;
 	int ret = 0;
 
-	if (args->pad)
+	if (args->flags & ~MSM_INFO_FLAGS)
 		return -EINVAL;
 
 	obj = drm_gem_object_lookup(dev, file, args->handle);
 	if (!obj)
 		return -ENOENT;
 
-	args->offset = msm_gem_mmap_offset(obj);
+	if (args->flags & MSM_INFO_IOVA) {
+		uint64_t iova;
+
+		ret = msm_ioctl_gem_info_iova(dev, obj, &iova);
+		if (!ret)
+			args->offset = iova;
+	} else {
+		args->offset = msm_gem_mmap_offset(obj);
+	}
 
 	drm_gem_object_unreference_unlocked(obj);
 
