@@ -565,16 +565,20 @@ static int msm_open(struct drm_device *dev, struct drm_file *file)
 	if (!ctx)
 		return -ENOMEM;
 
-	file->driver_priv = ctx;
-
 	if (dev && dev->dev_private) {
 		struct msm_drm_private *priv = dev->dev_private;
 		struct msm_kms *kms;
 
-		kms = priv->kms;
-		if (kms && kms->funcs && kms->funcs->postopen)
-			kms->funcs->postopen(kms, file);
+		if (priv) {
+			ctx->aspace = priv->gpu->aspace;
+			kms = priv->kms;
+
+			if (kms && kms->funcs && kms->funcs->postopen)
+				kms->funcs->postopen(kms, file);
+		}
 	}
+
+	file->driver_priv = ctx;
 	return 0;
 }
 
@@ -595,11 +599,6 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 
 	if (kms && kms->funcs && kms->funcs->postclose)
 		kms->funcs->postclose(kms, file);
-
-	mutex_lock(&dev->struct_mutex);
-	if (ctx == priv->lastctx)
-		priv->lastctx = NULL;
-	mutex_unlock(&dev->struct_mutex);
 
 	kfree(ctx);
 }

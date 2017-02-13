@@ -170,11 +170,9 @@ void adreno_recover(struct msm_gpu *gpu)
 	enable_irq(gpu->irq);
 }
 
-int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
-		struct msm_file_private *ctx)
+int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
-	struct msm_drm_private *priv = gpu->dev->dev_private;
 	struct msm_ringbuffer *ring = gpu->rb[submit->ring];
 	unsigned i, ibs = 0;
 
@@ -184,8 +182,6 @@ int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 			/* ignore IB-targets */
 			break;
 		case MSM_SUBMIT_CMD_CTX_RESTORE_BUF:
-			/* ignore if there has not been a ctx switch: */
-			if (priv->lastctx == ctx)
 				break;
 		case MSM_SUBMIT_CMD_BUF:
 			OUT_PKT3(ring, adreno_is_a430(adreno_gpu) ?

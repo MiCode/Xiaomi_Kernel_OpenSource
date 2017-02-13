@@ -301,7 +301,7 @@ static void recover_worker(struct work_struct *work)
 
 		/* replay the remaining submits for all rings: */
 		list_for_each_entry(submit, &gpu->submit_list, node) {
-			gpu->funcs->submit(gpu, submit, NULL);
+			gpu->funcs->submit(gpu, submit);
 		}
 	}
 	mutex_unlock(&dev->struct_mutex);
@@ -525,8 +525,7 @@ void msm_gpu_retire(struct msm_gpu *gpu)
 }
 
 /* add bo's to gpu's ring, and kick gpu: */
-int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
-		struct msm_file_private *ctx)
+int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 {
 	struct drm_device *dev = gpu->dev;
 	struct msm_drm_private *priv = dev->dev_private;
@@ -561,7 +560,7 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 			/* ring takes a reference to the bo and iova: */
 			drm_gem_object_reference(&msm_obj->base);
 			msm_gem_get_iova_locked(&msm_obj->base,
-					submit->gpu->aspace, &iova);
+					submit->aspace, &iova);
 		}
 
 		if (submit->bos[i].flags & MSM_SUBMIT_BO_READ)
@@ -571,8 +570,7 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 			msm_gem_move_to_active(&msm_obj->base, gpu, true, submit->fence);
 	}
 
-	ret = gpu->funcs->submit(gpu, submit, ctx);
-	priv->lastctx = ctx;
+	ret = gpu->funcs->submit(gpu, submit);
 
 	hangcheck_timer_reset(gpu);
 

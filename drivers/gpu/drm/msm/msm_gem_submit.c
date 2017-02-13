@@ -34,7 +34,7 @@ static inline void __user *to_user_ptr(u64 address)
 }
 
 static struct msm_gem_submit *submit_create(struct drm_device *dev,
-		struct msm_gpu *gpu, int nr)
+		struct msm_gem_address_space *aspace, int nr)
 {
 	struct msm_gem_submit *submit;
 	int sz = sizeof(*submit) + (nr * sizeof(submit->bos[0]));
@@ -42,7 +42,7 @@ static struct msm_gem_submit *submit_create(struct drm_device *dev,
 	submit = kmalloc(sz, GFP_TEMPORARY | __GFP_NOWARN | __GFP_NORETRY);
 	if (submit) {
 		submit->dev = dev;
-		submit->gpu = gpu;
+		submit->aspace = aspace;
 
 		/* initially, until copy_from_user() and bo lookup succeeds: */
 		submit->nr_bos = 0;
@@ -142,7 +142,7 @@ static void submit_unlock_unpin_bo(struct msm_gem_submit *submit, int i)
 	struct msm_gem_object *msm_obj = submit->bos[i].obj;
 
 	if (submit->bos[i].flags & BO_PINNED)
-		msm_gem_put_iova(&msm_obj->base, submit->gpu->aspace);
+		msm_gem_put_iova(&msm_obj->base, submit->aspace);
 
 	if (submit->bos[i].flags & BO_LOCKED)
 		ww_mutex_unlock(&msm_obj->resv->lock);
@@ -181,7 +181,7 @@ retry:
 
 		/* if locking succeeded, pin bo: */
 		ret = msm_gem_get_iova_locked(&msm_obj->base,
-				submit->gpu->aspace, &iova);
+				submit->aspace, &iova);
 
 		/* this would break the logic in the fail path.. there is no
 		 * reason for this to happen, but just to be on the safe side
@@ -361,7 +361,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 
 	mutex_lock(&dev->struct_mutex);
 
-	submit = submit_create(dev, gpu, args->nr_bos);
+	submit = submit_create(dev, ctx->aspace, args->nr_bos);
 	if (!submit) {
 		ret = -ENOMEM;
 		goto out;
@@ -440,7 +440,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		(args->flags & MSM_SUBMIT_RING_MASK) >> MSM_SUBMIT_RING_SHIFT,
 		0, gpu->nr_rings - 1);
 
-	ret = msm_gpu_submit(gpu, submit, ctx);
+	ret = msm_gpu_submit(gpu, submit);
 
 	args->fence = submit->fence;
 

@@ -215,8 +215,7 @@ uint32_t adreno_last_fence(struct msm_gpu *gpu, struct msm_ringbuffer *ring);
 uint32_t adreno_submitted_fence(struct msm_gpu *gpu,
 		struct msm_ringbuffer *ring);
 void adreno_recover(struct msm_gpu *gpu);
-int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
-		struct msm_file_private *ctx);
+int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit);
 void adreno_flush(struct msm_gpu *gpu, struct msm_ringbuffer *ring);
 bool adreno_idle(struct msm_gpu *gpu, struct msm_ringbuffer *ring);
 #ifdef CONFIG_DEBUG_FS

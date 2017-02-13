@@ -74,11 +74,7 @@ struct msm_gem_vma;
 #define MAX_CONNECTORS 8
 
 struct msm_file_private {
-	/* currently we don't do anything useful with this.. but when
-	 * per-context address spaces are supported we'd keep track of
-	 * the context's page-tables here.
-	 */
-	int dummy;
+	struct msm_gem_address_space *aspace;
 };
 
 enum msm_mdp_plane_property {
@@ -278,7 +274,6 @@ struct msm_drm_private {
 
 	/* when we have more than one 'msm_gpu' these need to be an array: */
 	struct msm_gpu *gpu;
-	struct msm_file_private *lastctx;
 
 	struct drm_fb_helper *fbdev;
 
