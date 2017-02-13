@@ -100,7 +100,7 @@ struct msm_gpu {
 
 	/* Power Control: */
 	struct regulator *gpu_reg, *gpu_cx;
-	struct clk *ebi1_clk, *grp_clks[6];
+	struct clk *ebi1_clk, *grp_clks[7];
 	uint32_t fast_rate, slow_rate, bus_freq;
 
 	struct pm_qos_request pm_qos_req_dma;

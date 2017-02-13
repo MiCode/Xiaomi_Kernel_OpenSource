@@ -22,7 +22,7 @@
 #include "msm_mmu.h"
 
 #define RB_SIZE    SZ_32K
-#define RB_BLKSIZE 16
+#define RB_BLKSIZE 32
 
 int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value)
 {
@@ -54,9 +54,6 @@ int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value)
 	}
 }
 
-#define rbmemptr(adreno_gpu, member)  \
-	((adreno_gpu)->memptrs_iova + offsetof(struct adreno_rbmemptrs, member))
-
 int adreno_hw_init(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
@@ -78,12 +75,12 @@ int adreno_hw_init(struct msm_gpu *gpu)
 			AXXX_CP_RB_CNTL_BLKSZ(ilog2(RB_BLKSIZE / 8)) |
 			(adreno_is_a430(adreno_gpu) ? AXXX_CP_RB_CNTL_NO_UPDATE : 0));
 
-	/* Setup ringbuffer address: */
-	adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_BASE, gpu->rb_iova);
+	/* Setup ringbuffer address */
+	adreno_gpu_write64(adreno_gpu, REG_ADRENO_CP_RB_BASE,
+		REG_ADRENO_CP_RB_BASE_HI, gpu->rb_iova);
 
-	if (!adreno_is_a430(adreno_gpu))
-		adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_RPTR_ADDR,
-						rbmemptr(adreno_gpu, rptr));
+	adreno_gpu_write64(adreno_gpu, REG_ADRENO_CP_RB_RPTR_ADDR,
+		REG_ADRENO_CP_RB_RPTR_ADDR_HI, rbmemptr(adreno_gpu, rptr));
 
 	return 0;
 }
@@ -367,6 +364,7 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	adreno_gpu->gmem = adreno_gpu->info->gmem;
 	adreno_gpu->revn = adreno_gpu->info->revn;
 	adreno_gpu->rev = config->rev;
+	adreno_gpu->quirks = config->quirks;
 
 	gpu->fast_rate = config->fast_rate;
 	gpu->slow_rate = config->slow_rate;

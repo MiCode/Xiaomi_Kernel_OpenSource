@@ -52,7 +52,8 @@ ifneq ($(CONFIG_QCOM_KGSL),y)
 msm_drm-y += adreno/adreno_device.o \
 	adreno/adreno_gpu.o \
 	adreno/a3xx_gpu.o \
-	adreno/a4xx_gpu.o
+	adreno/a4xx_gpu.o \
+	adreno/a5xx_gpu.o
 endif
 
 msm_drm-$(CONFIG_DRM_MSM_MDP4) += mdp/mdp4/mdp4_crtc.o \

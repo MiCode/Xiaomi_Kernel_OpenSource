@@ -562,8 +562,8 @@ static irqreturn_t irq_handler(int irq, void *data)
 }
 
 static const char *clk_names[] = {
-		"src_clk", "core_clk", "iface_clk", "mem_clk", "mem_iface_clk",
-		"alt_mem_iface_clk",
+		"src_clk", "core_clk", "iface_clk", "rbbmtimer_clk",
+		"mem_clk", "mem_iface_clk", "alt_mem_iface_clk",
 };
 
 int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
