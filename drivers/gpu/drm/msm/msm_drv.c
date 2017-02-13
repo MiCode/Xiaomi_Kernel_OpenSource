@@ -942,7 +942,7 @@ int msm_wait_fence(struct drm_device *dev, uint32_t fence,
 	int ret;
 
 	if (!priv->gpu)
-		return 0;
+		return -ENXIO;
 
 	if (fence > priv->gpu->submitted_fence) {
 		DRM_ERROR("waiting on invalid fence: %u (of %u)\n",

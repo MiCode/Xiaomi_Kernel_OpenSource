@@ -353,6 +353,8 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		return -EINVAL;
 
 	gpu = priv->gpu;
+	if (!gpu)
+		return -ENXIO;
 
 	if (args->nr_cmds > MAX_CMDS)
 		return -EINVAL;
