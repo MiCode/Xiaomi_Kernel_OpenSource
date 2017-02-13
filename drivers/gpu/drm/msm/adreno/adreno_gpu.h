@@ -148,6 +148,9 @@ struct adreno_platform_config {
 	__ret;                                             \
 })
 
+#define GPU_OF_NODE(_g) \
+	(((struct msm_drm_private *) \
+	  ((_g)->dev->dev_private))->gpu_pdev->dev.of_node)
 
 static inline bool adreno_is_a3xx(struct adreno_gpu *gpu)
 {

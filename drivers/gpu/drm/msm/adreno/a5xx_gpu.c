@@ -463,6 +463,9 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 		REG_A5XX_RBBM_SECVID_TSB_TRUSTED_BASE_HI, 0x00000000);
 	gpu_write(gpu, REG_A5XX_RBBM_SECVID_TSB_TRUSTED_SIZE, 0x00000000);
 
+	/* Load the GPMU firmware before starting the HW init */
+	a5xx_gpmu_ucode_init(gpu);
+
 	ret = adreno_hw_init(gpu);
 	if (ret)
 		return ret;
@@ -477,6 +480,10 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 	/* Clear ME_HALT to start the micro engine */
 	gpu_write(gpu, REG_A5XX_CP_PFP_ME_CNTL, 0);
 	ret = a5xx_me_init(gpu);
+	if (ret)
+		return ret;
+
+	ret = a5xx_power_init(gpu);
 	if (ret)
 		return ret;
 
@@ -533,6 +540,12 @@ static void a5xx_destroy(struct msm_gpu *gpu)
 		if (a5xx_gpu->pfp_iova)
 			msm_gem_put_iova(a5xx_gpu->pfp_bo, gpu->aspace);
 		drm_gem_object_unreference_unlocked(a5xx_gpu->pfp_bo);
+	}
+
+	if (a5xx_gpu->gpmu_bo) {
+		if (a5xx_gpu->gpmu_iova)
+			msm_gem_put_iova(a5xx_gpu->gpmu_bo, gpu->aspace);
+		drm_gem_object_unreference_unlocked(a5xx_gpu->gpmu_bo);
 	}
 
 	adreno_gpu_cleanup(adreno_gpu);
@@ -777,11 +790,55 @@ static void a5xx_dump(struct msm_gpu *gpu)
 
 static int a5xx_pm_resume(struct msm_gpu *gpu)
 {
-	return msm_gpu_pm_resume(gpu);
+	int ret;
+
+	/* Turn on the core power */
+	ret = msm_gpu_pm_resume(gpu);
+	if (ret)
+		return ret;
+
+	/* Turn the RBCCU domain first to limit the chances of voltage droop */
+	gpu_write(gpu, REG_A5XX_GPMU_RBCCU_POWER_CNTL, 0x778000);
+
+	/* Wait 3 usecs before polling */
+	udelay(3);
+
+	ret = spin_usecs(gpu, 20, REG_A5XX_GPMU_RBCCU_PWR_CLK_STATUS,
+		(1 << 20), (1 << 20));
+	if (ret) {
+		DRM_ERROR("%s: timeout waiting for RBCCU GDSC enable: %X\n",
+			gpu->name,
+			gpu_read(gpu, REG_A5XX_GPMU_RBCCU_PWR_CLK_STATUS));
+		return ret;
+	}
+
+	/* Turn on the SP domain */
+	gpu_write(gpu, REG_A5XX_GPMU_SP_POWER_CNTL, 0x778000);
+	ret = spin_usecs(gpu, 20, REG_A5XX_GPMU_SP_PWR_CLK_STATUS,
+		(1 << 20), (1 << 20));
+	if (ret)
+		DRM_ERROR("%s: timeout waiting for SP GDSC enable\n",
+			gpu->name);
+
+	return ret;
 }
 
 static int a5xx_pm_suspend(struct msm_gpu *gpu)
 {
+	/* Clear the VBIF pipe before shutting down */
+
+	gpu_write(gpu, REG_A5XX_VBIF_XIN_HALT_CTRL0, 0xF);
+	spin_until((gpu_read(gpu, REG_A5XX_VBIF_XIN_HALT_CTRL1) & 0xF) == 0xF);
+
+	gpu_write(gpu, REG_A5XX_VBIF_XIN_HALT_CTRL0, 0);
+
+	/*
+	 * Reset the VBIF before power collapse to avoid issue with FIFO
+	 * entries
+	 */
+	gpu_write(gpu, REG_A5XX_RBBM_BLOCK_SW_RESET_CMD, 0x003C0000);
+	gpu_write(gpu, REG_A5XX_RBBM_BLOCK_SW_RESET_CMD, 0x00000000);
+
 	return msm_gpu_pm_suspend(gpu);
 }
 
@@ -826,6 +883,65 @@ static const struct adreno_gpu_funcs funcs = {
 	.get_timestamp = a5xx_get_timestamp,
 };
 
+/* Read the limits management leakage from the efuses */
+static void a530_efuse_leakage(struct platform_device *pdev,
+		struct adreno_gpu *adreno_gpu, void *base,
+		size_t size)
+{
+	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
+	unsigned int row0, row2;
+	unsigned int leakage_pwr_on, coeff;
+
+	if (size < 0x148)
+		return;
+
+	/* Leakage */
+	row0 = readl_relaxed(base + 0x134);
+	row2 = readl_relaxed(base + 0x144);
+
+	/* Read barrier to get the previous two reads */
+	rmb();
+
+	/* Get the leakage coefficient from device tree */
+	if (of_property_read_u32(pdev->dev.of_node,
+		"qcom,base-leakage-coefficent", &coeff))
+		return;
+
+	leakage_pwr_on = ((row2 >> 2) & 0xFF) * (1 << (row0 >> 1) & 0x03);
+	a5xx_gpu->lm_leakage = (leakage_pwr_on << 16) |
+		((leakage_pwr_on * coeff) / 100);
+}
+
+/* Read target specific configuration from the efuses */
+static void a5xx_efuses_read(struct platform_device *pdev,
+		struct adreno_gpu *adreno_gpu)
+{
+	struct adreno_platform_config *config = pdev->dev.platform_data;
+	const struct adreno_info *info = adreno_info(config->rev);
+	struct resource *res;
+	void *base;
+
+	/*
+	 * The adreno_gpu->revn mechanism isn't set up yet so we need to check
+	 * it directly here
+	 */
+	if (info->revn != 530)
+		return;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+		"qfprom_memory");
+	if (!res)
+		return;
+
+	base = ioremap(res->start, resource_size(res));
+	if (!base)
+		return;
+
+	a530_efuse_leakage(pdev, adreno_gpu, base, resource_size(res));
+
+	iounmap(base);
+}
+
 struct msm_gpu *a5xx_gpu_init(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
@@ -850,6 +966,11 @@ struct msm_gpu *a5xx_gpu_init(struct drm_device *dev)
 	a5xx_gpu->pdev = pdev;
 	adreno_gpu->registers = a5xx_registers;
 	adreno_gpu->reg_offsets = a5xx_register_offsets;
+
+	a5xx_gpu->lm_leakage = 0x4E001A;
+
+	/* Check the efuses for some configuration */
+	a5xx_efuses_read(pdev, adreno_gpu);
 
 	ret = adreno_gpu_init(dev, pdev, adreno_gpu, &funcs);
 	if (ret) {
