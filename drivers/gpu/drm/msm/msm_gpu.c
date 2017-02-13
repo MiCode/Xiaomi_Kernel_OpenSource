@@ -90,19 +90,18 @@ static int disable_pwrrail(struct msm_gpu *gpu)
 
 static int enable_clk(struct msm_gpu *gpu)
 {
-	struct clk *rate_clk = NULL;
+	uint32_t rate = gpu->gpufreq[gpu->active_level];
 	int i;
 
-	/* NOTE: kgsl_pwrctrl_clk() ignores grp_clks[0].. */
-	for (i = ARRAY_SIZE(gpu->grp_clks) - 1; i > 0; i--) {
-		if (gpu->grp_clks[i]) {
-			clk_prepare(gpu->grp_clks[i]);
-			rate_clk = gpu->grp_clks[i];
-		}
-	}
+	clk_set_rate(gpu->grp_clks[0], rate);
 
-	if (rate_clk && gpu->fast_rate)
-		clk_set_rate(rate_clk, gpu->fast_rate);
+	if (gpu->grp_clks[3])
+		clk_set_rate(gpu->grp_clks[3], 19200000);
+
+	/* NOTE: kgsl_pwrctrl_clk() ignores grp_clks[0].. */
+	for (i = ARRAY_SIZE(gpu->grp_clks) - 1; i > 0; i--)
+		if (gpu->grp_clks[i])
+			clk_prepare(gpu->grp_clks[i]);
 
 	for (i = ARRAY_SIZE(gpu->grp_clks) - 1; i > 0; i--)
 		if (gpu->grp_clks[i])
@@ -113,24 +112,19 @@ static int enable_clk(struct msm_gpu *gpu)
 
 static int disable_clk(struct msm_gpu *gpu)
 {
-	struct clk *rate_clk = NULL;
+	uint32_t rate = gpu->gpufreq[gpu->nr_pwrlevels - 1];
 	int i;
 
 	/* NOTE: kgsl_pwrctrl_clk() ignores grp_clks[0].. */
-	for (i = ARRAY_SIZE(gpu->grp_clks) - 1; i > 0; i--) {
-		if (gpu->grp_clks[i]) {
+	for (i = ARRAY_SIZE(gpu->grp_clks) - 1; i > 0; i--)
+		if (gpu->grp_clks[i])
 			clk_disable(gpu->grp_clks[i]);
-			rate_clk = gpu->grp_clks[i];
-		}
-	}
-
-	if (rate_clk && gpu->slow_rate)
-		clk_set_rate(rate_clk, gpu->slow_rate);
 
 	for (i = ARRAY_SIZE(gpu->grp_clks) - 1; i > 0; i--)
 		if (gpu->grp_clks[i])
 			clk_unprepare(gpu->grp_clks[i]);
 
+	clk_set_rate(gpu->grp_clks[0], rate);
 	return 0;
 }
 
@@ -138,8 +132,9 @@ static int enable_axi(struct msm_gpu *gpu)
 {
 	if (gpu->ebi1_clk)
 		clk_prepare_enable(gpu->ebi1_clk);
-	if (gpu->bus_freq)
-		bs_set(gpu, gpu->bus_freq);
+
+	if (gpu->busfreq[gpu->active_level])
+		bs_set(gpu, gpu->busfreq[gpu->active_level]);
 	return 0;
 }
 
@@ -147,7 +142,8 @@ static int disable_axi(struct msm_gpu *gpu)
 {
 	if (gpu->ebi1_clk)
 		clk_disable_unprepare(gpu->ebi1_clk);
-	if (gpu->bus_freq)
+
+	if (gpu->busfreq[gpu->active_level])
 		bs_set(gpu, 0);
 	return 0;
 }
@@ -626,6 +622,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		if (IS_ERR(gpu->grp_clks[i]))
 			gpu->grp_clks[i] = NULL;
 	}
+
+	gpu->grp_clks[0] = gpu->grp_clks[1];
 
 	gpu->ebi1_clk = devm_clk_get(&pdev->dev, "bus_clk");
 	DBG("ebi1_clk: %p", gpu->ebi1_clk);

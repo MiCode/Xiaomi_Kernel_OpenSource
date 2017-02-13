@@ -114,6 +114,7 @@ static void a5xx_lm_setup(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
+	uint32_t rate = gpu->gpufreq[gpu->active_level];
 	uint32_t tsens = 0;
 	uint32_t lm_limit = 6000;
 	uint32_t max_power = 0;
@@ -160,8 +161,8 @@ static void a5xx_lm_setup(struct msm_gpu *gpu)
 	gpu_write(gpu, AGC_MSG_PAYLOAD(0), max_power);
 	gpu_write(gpu, AGC_MSG_PAYLOAD(1), 1);
 
-	gpu_write(gpu, AGC_MSG_PAYLOAD(2), _get_mvolts(gpu, gpu->fast_rate));
-	gpu_write(gpu, AGC_MSG_PAYLOAD(3), gpu->fast_rate / 1000000);
+	gpu_write(gpu, AGC_MSG_PAYLOAD(2), _get_mvolts(gpu, rate));
+	gpu_write(gpu, AGC_MSG_PAYLOAD(3), rate / 1000000);
 
 	gpu_write(gpu, AGC_MSG_PAYLOAD_SIZE, 4 * sizeof(uint32_t));
 	gpu_write(gpu, AGC_INIT_MSG_MAGIC, AGC_INIT_MSG_VALUE);

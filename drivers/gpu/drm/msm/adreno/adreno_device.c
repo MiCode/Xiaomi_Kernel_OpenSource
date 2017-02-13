@@ -184,22 +184,19 @@ static void set_gpu_pdev(struct drm_device *dev,
 	priv->gpu_pdev = pdev;
 }
 
-static const struct {
-	const char *str;
-	uint32_t flag;
-} quirks[] = {
-	{ "qcom,gpu-quirk-two-pass-use-wfi", ADRENO_QUIRK_TWO_PASS_USE_WFI },
-	{ "qcom,gpu-quirk-fault-detect-mask", ADRENO_QUIRK_FAULT_DETECT_MASK },
-};
-
 static int adreno_bind(struct device *dev, struct device *master, void *data)
 {
 	static struct adreno_platform_config config = {};
-	struct device_node *child, *node = dev->of_node;
-	u32 val;
-	int ret, i;
+	uint32_t val = 0;
+	int ret;
 
-	ret = of_property_read_u32(node, "qcom,chipid", &val);
+	/*
+	 * Read the chip ID from the device tree at bind time - we use this
+	 * information to load the correct functions. All the rest of the
+	 * (extensive) device tree probing should happen in the GPU specific
+	 * code
+	 */
+	ret = of_property_read_u32(dev->of_node, "qcom,chipid", &val);
 	if (ret) {
 		dev_err(dev, "could not find chipid: %d\n", ret);
 		return ret;
@@ -207,33 +204,6 @@ static int adreno_bind(struct device *dev, struct device *master, void *data)
 
 	config.rev = ADRENO_REV((val >> 24) & 0xff,
 			(val >> 16) & 0xff, (val >> 8) & 0xff, val & 0xff);
-
-	/* find clock rates: */
-	config.fast_rate = 0;
-	config.slow_rate = ~0;
-	for_each_child_of_node(node, child) {
-		if (of_device_is_compatible(child, "qcom,gpu-pwrlevels")) {
-			struct device_node *pwrlvl;
-			for_each_child_of_node(child, pwrlvl) {
-				ret = of_property_read_u32(pwrlvl, "qcom,gpu-freq", &val);
-				if (ret) {
-					dev_err(dev, "could not find gpu-freq: %d\n", ret);
-					return ret;
-				}
-				config.fast_rate = max(config.fast_rate, val);
-				config.slow_rate = min(config.slow_rate, val);
-			}
-		}
-	}
-
-	if (!config.fast_rate) {
-		dev_err(dev, "could not find clk rates\n");
-		return -ENXIO;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(quirks); i++)
-		if (of_property_read_bool(node, quirks[i].str))
-			config.quirks |= quirks[i].flag;
 
 	dev->platform_data = &config;
 	set_gpu_pdev(dev_get_drvdata(master), to_platform_device(dev));

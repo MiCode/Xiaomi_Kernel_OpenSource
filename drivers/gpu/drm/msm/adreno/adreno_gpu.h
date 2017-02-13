@@ -121,17 +121,13 @@ struct adreno_gpu {
 	const unsigned int *reg_offsets;
 
 	uint32_t quirks;
+	uint32_t speed_bin;
 };
 #define to_adreno_gpu(x) container_of(x, struct adreno_gpu, base)
 
 /* platform config data (ie. from DT, or pdata) */
 struct adreno_platform_config {
 	struct adreno_rev rev;
-	uint32_t fast_rate, slow_rate, bus_freq;
-#ifdef DOWNSTREAM_CONFIG_MSM_BUS_SCALING
-	struct msm_bus_scale_pdata *bus_scale_table;
-#endif
-	uint32_t quirks;
 };
 
 #define ADRENO_IDLE_TIMEOUT msecs_to_jiffies(1000)

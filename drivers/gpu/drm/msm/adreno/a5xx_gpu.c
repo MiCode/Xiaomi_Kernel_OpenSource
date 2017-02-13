@@ -998,6 +998,26 @@ static void a530_efuse_leakage(struct platform_device *pdev,
 		((leakage_pwr_on * coeff) / 100);
 }
 
+/* Read the speed bin from the efuses */
+static void a530_efuse_bin(struct platform_device *pdev,
+		struct adreno_gpu *adreno_gpu, void *base,
+		size_t size)
+{
+	uint32_t speed_bin[3];
+	uint32_t val;
+
+	if (of_property_read_u32_array(pdev->dev.of_node,
+		"qcom,gpu-speed-bin", speed_bin, 3))
+		return;
+
+	if (size < speed_bin[0] + 4)
+		return;
+
+	val = readl_relaxed(base + speed_bin[0]);
+
+	adreno_gpu->speed_bin = (val & speed_bin[1]) >> speed_bin[2];
+}
+
 /* Read target specific configuration from the efuses */
 static void a5xx_efuses_read(struct platform_device *pdev,
 		struct adreno_gpu *adreno_gpu)
@@ -1023,6 +1043,7 @@ static void a5xx_efuses_read(struct platform_device *pdev,
 	if (!base)
 		return;
 
+	a530_efuse_bin(pdev, adreno_gpu, base, resource_size(res));
 	a530_efuse_leakage(pdev, adreno_gpu, base, resource_size(res));
 
 	iounmap(base);
