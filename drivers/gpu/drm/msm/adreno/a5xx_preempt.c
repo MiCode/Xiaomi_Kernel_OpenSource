@@ -46,6 +46,10 @@ static void *alloc_kernel_bo(struct drm_device *drm, struct msm_gpu *gpu,
 	if (iova)
 		*iova = _iova;
 
+	pr_err("[%ps] buffer size %x, iova [%llx : %llx]\n",
+		__builtin_return_address(0), size,
+		_iova, _iova+size-1);
+
 	return ptr;
 out:
 	drm_gem_object_unreference_unlocked(_bo);

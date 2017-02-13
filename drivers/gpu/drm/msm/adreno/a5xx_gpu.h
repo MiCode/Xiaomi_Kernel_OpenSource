@@ -167,6 +167,7 @@ static inline int spin_usecs(struct msm_gpu *gpu, uint32_t usecs,
 	return -ETIMEDOUT;
 }
 
+void a5xx_set_hwcg(struct msm_gpu *gpu, bool state);
 bool a5xx_idle(struct msm_gpu *gpu, struct msm_ringbuffer *ring);
 
 void a5xx_preempt_init(struct msm_gpu *gpu);

@@ -302,22 +302,25 @@ static const struct {
 	{REG_A5XX_RBBM_CLOCK_DELAY_VFD, 0x00002222}
 };
 
-static void a5xx_enable_hwcg(struct msm_gpu *gpu)
+void a5xx_set_hwcg(struct msm_gpu *gpu, bool state)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(a5xx_hwcg); i++)
-		gpu_write(gpu, a5xx_hwcg[i].offset, a5xx_hwcg[i].value);
+		gpu_write(gpu, a5xx_hwcg[i].offset,
+			state ? a5xx_hwcg[i].value : 0);
 
 	/* There are a few additional registers just for A540 */
 	if (adreno_is_a540(adreno_gpu)) {
-		gpu_write(gpu, REG_A5XX_RBBM_CLOCK_DELAY_GPMU, 0x770);
-		gpu_write(gpu, REG_A5XX_RBBM_CLOCK_HYST_GPMU, 0x004);
+		gpu_write(gpu, REG_A5XX_RBBM_CLOCK_DELAY_GPMU,
+			state  ? 0x770 : 0);
+		gpu_write(gpu, REG_A5XX_RBBM_CLOCK_HYST_GPMU,
+			state ? 0x004 : 0);
 	}
 
-	gpu_write(gpu, REG_A5XX_RBBM_CLOCK_CNTL, 0xAAA8AA00);
-	gpu_write(gpu, REG_A5XX_RBBM_ISDB_CNT, 0x182);
+	gpu_write(gpu, REG_A5XX_RBBM_CLOCK_CNTL, state ? 0xAAA8AA00 : 0);
+	gpu_write(gpu, REG_A5XX_RBBM_ISDB_CNT, state ? 0x182 : 0x180);
 }
 
 static int a5xx_me_init(struct msm_gpu *gpu)
@@ -637,7 +640,7 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 	gpu_write(gpu, REG_A5XX_RBBM_AHB_CNTL1, 0xA6FFFFFF);
 
 	/* Enable HWCG */
-	a5xx_enable_hwcg(gpu);
+	a5xx_set_hwcg(gpu, true);
 
 	gpu_write(gpu, REG_A5XX_RBBM_AHB_CNTL2, 0x0000003F);
 
