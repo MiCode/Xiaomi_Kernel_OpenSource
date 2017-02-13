@@ -1734,7 +1734,8 @@ static void ath10k_htt_rx_delba(struct ath10k *ar, struct htt_resp *resp)
 	spin_unlock_bh(&ar->data_lock);
 }
 
-static int ath10k_htt_rx_extract_amsdu(struct sk_buff_head *list,
+static int ath10k_htt_rx_extract_amsdu(struct ath10k *ar,
+				       struct sk_buff_head *list,
 				       struct sk_buff_head *amsdu)
 {
 	struct sk_buff *msdu;
@@ -1754,6 +1755,9 @@ static int ath10k_htt_rx_extract_amsdu(struct sk_buff_head *list,
 		    __cpu_to_le32(RX_MSDU_END_INFO0_LAST_MSDU))
 			break;
 	}
+
+	if (QCA_REV_WCN3990(ar))
+		return 0;
 
 	msdu = skb_peek_tail(amsdu);
 	rxd = (void *)msdu->data - sizeof(*rxd);
@@ -1897,7 +1901,7 @@ static int ath10k_htt_rx_in_ord_ind(struct ath10k *ar, struct sk_buff *skb)
 
 	while (!skb_queue_empty(&list)) {
 		__skb_queue_head_init(&amsdu);
-		ret = ath10k_htt_rx_extract_amsdu(&list, &amsdu);
+		ret = ath10k_htt_rx_extract_amsdu(ar, &list, &amsdu);
 		switch (ret) {
 		case 0:
 			/* Note: The in-order indication may report interleaved
