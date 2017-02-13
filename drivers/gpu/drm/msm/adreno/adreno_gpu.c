@@ -549,6 +549,15 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	adreno_gpu_config.va_start = SZ_16M;
 	adreno_gpu_config.va_end = 0xffffffff;
 
+	if (adreno_gpu->revn >= 500) {
+		/* 5XX targets use a 64 bit region */
+		adreno_gpu_config.va_start = 0x800000000;
+		adreno_gpu_config.va_end = 0x8ffffffff;
+	} else {
+		adreno_gpu_config.va_start = 0x300000;
+		adreno_gpu_config.va_end = 0xffffffff;
+	}
+
 	adreno_gpu_config.nr_rings = nr_rings;
 
 	ret = msm_gpu_init(drm, pdev, &adreno_gpu->base, &funcs->base,
