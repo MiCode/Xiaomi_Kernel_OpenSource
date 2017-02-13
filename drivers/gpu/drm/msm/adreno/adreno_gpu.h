@@ -24,6 +24,10 @@
 
 #include "msm_gpu.h"
 
+/* arrg, somehow fb.h is getting pulled in: */
+#undef ROP_COPY
+#undef ROP_XOR
+
 #include "adreno_common.xml.h"
 #include "adreno_pm4.xml.h"
 
