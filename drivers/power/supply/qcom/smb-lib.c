@@ -629,7 +629,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	/* reset both usbin current and voltage votes */
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
-	vote(chg->pl_disable_votable, PL_DISABLE_HVDCP_VOTER, true, 0);
+	vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, true, 0);
 
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
 
@@ -2288,6 +2288,16 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			smblib_err(chg, "Couldn't unvote USB_PSY rc=%d\n", rc);
 			return rc;
 		}
+
+		/* pd active set, parallel charger can be enabled now */
+		rc = vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER,
+				false, 0);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't unvote PL_DELAY_HVDCP_VOTER rc=%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	/* CC pin selection s/w override in PD session; h/w otherwise. */
@@ -3003,7 +3013,7 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 		vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, true, 0);
 
 	/* QC authentication done, parallel charger can be enabled now */
-	vote(chg->pl_disable_votable, PL_DISABLE_HVDCP_VOTER, false, 0);
+	vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, false, 0);
 
 	/* the APSD done handler will set the USB supply type */
 	apsd_result = smblib_get_apsd_result(chg);
@@ -3039,7 +3049,7 @@ static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 		 * to complete.
 		 */
 		if (!qc_charger)
-			vote(chg->pl_disable_votable, PL_DISABLE_HVDCP_VOTER,
+			vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER,
 					false, 0);
 	}
 
@@ -3081,9 +3091,13 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 		break;
 	case OCP_CHARGER_BIT:
 	case FLOAT_CHARGER_BIT:
-		/* if not DCP then no hvdcp timeout happens. Enable pd here */
+		/*
+		 * if not DCP then no hvdcp timeout happens. Enable
+		 * pd/parallel here.
+		 */
 		vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
 				false, 0);
+		vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, false, 0);
 		break;
 	case DCP_CHARGER_BIT:
 		if (chg->wa_flags & QC_CHARGER_DETECTION_WA_BIT)
@@ -3215,7 +3229,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER, true, 0);
 	vote(chg->pd_disallowed_votable_indirect, LEGACY_CABLE_VOTER, true, 0);
 	vote(chg->pd_disallowed_votable_indirect, VBUS_CC_SHORT_VOTER, true, 0);
-	vote(chg->pl_disable_votable, PL_DISABLE_HVDCP_VOTER, true, 0);
+	vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, true, 0);
 
 	/* reset votes from vbus_cc_short */
 	vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER,
@@ -3773,7 +3787,7 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 	vote(chg->pl_disable_votable, PL_INDIRECT_VOTER, true, 0);
-	vote(chg->pl_disable_votable, PL_DISABLE_HVDCP_VOTER, true, 0);
+	vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, true, 0);
 
 	chg->usb_suspend_votable = create_votable("USB_SUSPEND", VOTE_SET_ANY,
 					smblib_usb_suspend_vote_callback,
