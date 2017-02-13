@@ -48,10 +48,14 @@
 #define MSM_SDW_VERSION_1_0 0x0001
 #define MSM_SDW_VERSION_ENTRY_SIZE 32
 
+/*
+ * 200 Milliseconds sufficient for DSP bring up in the modem
+ * after Sub System Restart
+ */
+#define ADSP_STATE_READY_TIMEOUT_MS 200
+
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static struct snd_soc_dai_driver msm_sdw_dai[];
-static bool initial_boot = true;
-static bool is_ssr_en;
 static bool skip_irq = true;
 
 static int msm_sdw_config_ear_spkr_gain(struct snd_soc_codec *codec,
@@ -1629,6 +1633,8 @@ static int msm_sdw_notifier_service_cb(struct notifier_block *nb,
 	struct msm_sdw_priv *msm_sdw = container_of(nb,
 						    struct msm_sdw_priv,
 						    service_nb);
+	bool adsp_ready = false;
+	unsigned long timeout;
 
 	pr_debug("%s: Service opcode 0x%lx\n", __func__, opcode);
 
@@ -1641,15 +1647,34 @@ static int msm_sdw_notifier_service_cb(struct notifier_block *nb,
 					SWR_DEVICE_DOWN, NULL);
 		break;
 	case AUDIO_NOTIFIER_SERVICE_UP:
-		if (initial_boot) {
-			initial_boot = false;
-			break;
+		if (!q6core_is_adsp_ready()) {
+			dev_dbg(msm_sdw->dev, "ADSP isn't ready\n");
+			timeout = jiffies +
+				  msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
+			while (!time_after(jiffies, timeout)) {
+				if (!q6core_is_adsp_ready()) {
+					dev_dbg(msm_sdw->dev,
+						"ADSP isn't ready\n");
+				} else {
+					dev_dbg(msm_sdw->dev,
+						"ADSP is ready\n");
+					adsp_ready = true;
+					goto powerup;
+				}
+			}
+		} else {
+			adsp_ready = true;
+			dev_dbg(msm_sdw->dev, "%s: DSP is ready\n", __func__);
 		}
-		msm_sdw->dev_up = true;
-		msm_sdw_init_reg(msm_sdw->codec);
-		regcache_mark_dirty(msm_sdw->regmap);
-		regcache_sync(msm_sdw->regmap);
-		msm_sdw_set_spkr_mode(msm_sdw->codec, msm_sdw->spkr_mode);
+powerup:
+		if (adsp_ready) {
+			msm_sdw->dev_up = true;
+			msm_sdw_init_reg(msm_sdw->codec);
+			regcache_mark_dirty(msm_sdw->regmap);
+			regcache_sync(msm_sdw->regmap);
+			msm_sdw_set_spkr_mode(msm_sdw->codec,
+					      msm_sdw->spkr_mode);
+		}
 		break;
 	default:
 		break;
@@ -1676,17 +1701,14 @@ static int msm_sdw_codec_probe(struct snd_soc_codec *codec)
 	msm_sdw_init_reg(codec);
 	msm_sdw->version = MSM_SDW_VERSION_1_0;
 
-	if (is_ssr_en) {
-		msm_sdw->service_nb.notifier_call = msm_sdw_notifier_service_cb;
-		ret = audio_notifier_register("msm_sdw",
-					AUDIO_NOTIFIER_ADSP_DOMAIN,
-					&msm_sdw->service_nb);
-		if (ret < 0)
-			dev_err(msm_sdw->dev,
-				"%s: Audio notifier register failed ret = %d\n",
-				__func__, ret);
-	}
-
+	msm_sdw->service_nb.notifier_call = msm_sdw_notifier_service_cb;
+	ret = audio_notifier_register("msm_sdw",
+				AUDIO_NOTIFIER_ADSP_DOMAIN,
+				&msm_sdw->service_nb);
+	if (ret < 0)
+		dev_err(msm_sdw->dev,
+			"%s: Audio notifier register failed ret = %d\n",
+			__func__, ret);
 	return 0;
 }
 
