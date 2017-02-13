@@ -32,6 +32,9 @@
 #include "adreno_pm4.xml.h"
 
 #define REG_ADRENO_DEFINE(_offset, _reg) [_offset] = (_reg) + 1
+#define REG_SKIP ~0
+#define REG_ADRENO_SKIP(_offset) [_offset] = REG_SKIP
+
 /**
  * adreno_regs: List of registers that are used in across all
  * 3D devices. Each device type has different offset value for the same
@@ -39,70 +42,13 @@
  * and are indexed by the enumeration values defined in this enum
  */
 enum adreno_regs {
-	REG_ADRENO_CP_DEBUG,
-	REG_ADRENO_CP_ME_RAM_WADDR,
-	REG_ADRENO_CP_ME_RAM_DATA,
-	REG_ADRENO_CP_PFP_UCODE_DATA,
-	REG_ADRENO_CP_PFP_UCODE_ADDR,
-	REG_ADRENO_CP_WFI_PEND_CTR,
 	REG_ADRENO_CP_RB_BASE,
+	REG_ADRENO_CP_RB_BASE_HI,
 	REG_ADRENO_CP_RB_RPTR_ADDR,
+	REG_ADRENO_CP_RB_RPTR_ADDR_HI,
 	REG_ADRENO_CP_RB_RPTR,
 	REG_ADRENO_CP_RB_WPTR,
-	REG_ADRENO_CP_PROTECT_CTRL,
-	REG_ADRENO_CP_ME_CNTL,
 	REG_ADRENO_CP_RB_CNTL,
-	REG_ADRENO_CP_IB1_BASE,
-	REG_ADRENO_CP_IB1_BUFSZ,
-	REG_ADRENO_CP_IB2_BASE,
-	REG_ADRENO_CP_IB2_BUFSZ,
-	REG_ADRENO_CP_TIMESTAMP,
-	REG_ADRENO_CP_ME_RAM_RADDR,
-	REG_ADRENO_CP_ROQ_ADDR,
-	REG_ADRENO_CP_ROQ_DATA,
-	REG_ADRENO_CP_MERCIU_ADDR,
-	REG_ADRENO_CP_MERCIU_DATA,
-	REG_ADRENO_CP_MERCIU_DATA2,
-	REG_ADRENO_CP_MEQ_ADDR,
-	REG_ADRENO_CP_MEQ_DATA,
-	REG_ADRENO_CP_HW_FAULT,
-	REG_ADRENO_CP_PROTECT_STATUS,
-	REG_ADRENO_SCRATCH_ADDR,
-	REG_ADRENO_SCRATCH_UMSK,
-	REG_ADRENO_SCRATCH_REG2,
-	REG_ADRENO_RBBM_STATUS,
-	REG_ADRENO_RBBM_PERFCTR_CTL,
-	REG_ADRENO_RBBM_PERFCTR_LOAD_CMD0,
-	REG_ADRENO_RBBM_PERFCTR_LOAD_CMD1,
-	REG_ADRENO_RBBM_PERFCTR_LOAD_CMD2,
-	REG_ADRENO_RBBM_PERFCTR_PWR_1_LO,
-	REG_ADRENO_RBBM_INT_0_MASK,
-	REG_ADRENO_RBBM_INT_0_STATUS,
-	REG_ADRENO_RBBM_AHB_ERROR_STATUS,
-	REG_ADRENO_RBBM_PM_OVERRIDE2,
-	REG_ADRENO_RBBM_AHB_CMD,
-	REG_ADRENO_RBBM_INT_CLEAR_CMD,
-	REG_ADRENO_RBBM_SW_RESET_CMD,
-	REG_ADRENO_RBBM_CLOCK_CTL,
-	REG_ADRENO_RBBM_AHB_ME_SPLIT_STATUS,
-	REG_ADRENO_RBBM_AHB_PFP_SPLIT_STATUS,
-	REG_ADRENO_VPC_DEBUG_RAM_SEL,
-	REG_ADRENO_VPC_DEBUG_RAM_READ,
-	REG_ADRENO_VSC_SIZE_ADDRESS,
-	REG_ADRENO_VFD_CONTROL_0,
-	REG_ADRENO_VFD_INDEX_MAX,
-	REG_ADRENO_SP_VS_PVT_MEM_ADDR_REG,
-	REG_ADRENO_SP_FS_PVT_MEM_ADDR_REG,
-	REG_ADRENO_SP_VS_OBJ_START_REG,
-	REG_ADRENO_SP_FS_OBJ_START_REG,
-	REG_ADRENO_PA_SC_AA_CONFIG,
-	REG_ADRENO_SQ_GPR_MANAGEMENT,
-	REG_ADRENO_SQ_INST_STORE_MANAGMENT,
-	REG_ADRENO_TP0_CHICKEN,
-	REG_ADRENO_RBBM_RBBM_CTL,
-	REG_ADRENO_UCHE_INVALIDATE0,
-	REG_ADRENO_RBBM_PERFCTR_LOAD_VALUE_LO,
-	REG_ADRENO_RBBM_PERFCTR_LOAD_VALUE_HI,
 	REG_ADRENO_REGISTER_MAX,
 };
 
@@ -313,7 +259,7 @@ OUT_PKT7(struct msm_ringbuffer *ring, uint8_t opcode, uint16_t cnt)
 }
 
 /*
- * adreno_checkreg_off() - Checks the validity of a register enum
+ * adreno_reg_check() - Checks the validity of a register enum
  * @gpu:		Pointer to struct adreno_gpu
  * @offset_name:	The register enum that is checked
  */
@@ -324,6 +270,16 @@ static inline bool adreno_reg_check(struct adreno_gpu *gpu,
 			!gpu->reg_offsets[offset_name]) {
 		BUG();
 	}
+
+	/*
+	 * REG_SKIP is a special value that tell us that the register in
+	 * question isn't implemented on target but don't trigger a BUG(). This
+	 * is used to cleanly implement adreno_gpu_write64() and
+	 * adreno_gpu_read64() in a generic fashion
+	 */
+	if (gpu->reg_offsets[offset_name] == REG_SKIP)
+		return false;
+
 	return true;
 }
 
