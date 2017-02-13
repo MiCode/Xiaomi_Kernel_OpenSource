@@ -249,17 +249,6 @@
 #define RESUME_RETRY			(0 << 0)
 #define RESUME_TERMINATE		(1 << 0)
 
-#define TTBCR2_SEP_SHIFT		15
-#define TTBCR2_SEP_UPSTREAM		(0x7 << TTBCR2_SEP_SHIFT)
-
-#define TTBCR2_SEP_31			0
-#define TTBCR2_SEP_35			1
-#define TTBCR2_SEP_39			2
-#define TTBCR2_SEP_41			3
-#define TTBCR2_SEP_43			4
-#define TTBCR2_SEP_47			5
-#define TTBCR2_SEP_NOSIGN		7
-
 #define TTBRn_ASID_SHIFT		48
 
 #define FSR_MULTI			(1 << 31)
@@ -1614,7 +1603,6 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 		writel_relaxed(reg, cb_base + ARM_SMMU_CB_TTBCR);
 		if (smmu->version > ARM_SMMU_V1) {
 			reg = pgtbl_cfg->arm_lpae_s1_cfg.tcr >> 32;
-			reg |= TTBCR2_SEP_UPSTREAM;
 			writel_relaxed(reg, cb_base + ARM_SMMU_CB_TTBCR2);
 		}
 	} else {
@@ -1745,7 +1733,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	bool is_fast = smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST);
-	unsigned long quirks = 0;
+	unsigned long quirks =
+		smmu_domain->attributes & (1 << DOMAIN_ATTR_ENABLE_TTBR1) ?
+			IO_PGTABLE_QUIRK_ARM_TTBR1 : 0;
 
 	if (smmu_domain->smmu)
 		goto out;
@@ -1837,6 +1827,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		};
 		fmt = ARM_MSM_SECURE;
 	} else {
+
 		smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
 			.quirks		= quirks,
 			.pgsize_bitmap	= arm_smmu_ops.pgsize_bitmap,
@@ -3140,6 +3131,12 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			& (1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_ENABLE_TTBR1:
+		*((int *)data) = !!(smmu_domain->attributes
+					& (1 << DOMAIN_ATTR_ENABLE_TTBR1));
+		ret = 0;
+		break;
+
 	default:
 		ret = -ENODEV;
 		break;
@@ -3283,6 +3280,12 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		ret = 0;
 		break;
 	}
+	case DOMAIN_ATTR_ENABLE_TTBR1:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_ENABLE_TTBR1;
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
