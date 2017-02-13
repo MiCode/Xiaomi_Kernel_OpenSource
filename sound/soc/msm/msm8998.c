@@ -2876,7 +2876,6 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		break;
 
 	case MSM_BACKEND_DAI_SLIMBUS_4_TX:
-	case MSM_BACKEND_DAI_SLIMBUS_TX_VI:
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
 			       SNDRV_PCM_FORMAT_S32_LE);
 		rate->min = rate->max = SAMPLING_RATE_8KHZ;
@@ -3669,8 +3668,7 @@ static int msm_snd_hw_params(struct snd_pcm_substream *substream,
 		/* For <codec>_tx3 case */
 		else if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_1_TX)
 			user_set_tx_ch = slim_tx_cfg[1].channels;
-		else if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_4_TX ||
-			dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_TX_VI)
+		else if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_4_TX)
 			user_set_tx_ch = msm_vi_feed_tx_ch;
 		else
 			user_set_tx_ch = tx_ch_cnt;
@@ -5695,22 +5693,6 @@ static struct snd_soc_dai_link msm_tasha_be_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 	},
-	/* Slimbus VI Recording */
-	{
-		.name = LPASS_BE_SLIMBUS_TX_VI,
-		.stream_name = "Slimbus VI Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.20233",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tasha_codec",
-		.codec_dai_name = "tasha_vifeedback",
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_TX_VI,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
-		.ops = &msm_be_ops,
-		.ignore_suspend = 1,
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.ignore_pmdown_time = 1,
-	},
 };
 
 static struct snd_soc_dai_link msm_tavil_be_dai_links[] = {
@@ -5882,23 +5864,6 @@ static struct snd_soc_dai_link msm_tavil_be_dai_links[] = {
 		/* dai link has playback support */
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
-	},
-
-	/* Slimbus VI Recording */
-	{
-		.name = LPASS_BE_SLIMBUS_TX_VI,
-		.stream_name = "Slimbus VI Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.20233",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tavil_codec",
-		.codec_dai_name = "tavil_vifeedback",
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_TX_VI,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
-		.ops = &msm_be_ops,
-		.ignore_suspend = 1,
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.ignore_pmdown_time = 1,
 	},
 };
 
