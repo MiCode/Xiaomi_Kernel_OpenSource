@@ -559,7 +559,7 @@
 			"camss_vfe_ahb_clk", "camss_vfe_vbif_ahb_clk",
 			"camss_vfe_vbif_axi_clk", "vfe_clk_src",
 			"camss_csi_vfe_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 0 0 0 0 0 480000000 0
+		qcom,clock-rates = <0 0 0 0 0 0 0 0 0 0 0 384000000 0
 					0 0 0 0 0 0 0 0 0 0 0 576000000 0
 					0 0 0 0 0 0 0 0 0 0 0 600000000 0>;
 		status = "ok";
@@ -639,7 +639,7 @@
 			"camss_vfe_ahb_clk", "camss_vfe_vbif_ahb_clk",
 			"camss_vfe_vbif_axi_clk", "vfe_clk_src",
 			"camss_csi_vfe_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 0 0 0 0 0 480000000 0
+		qcom,clock-rates = <0 0 0 0 0 0 0 0 0 0 0 384000000 0
 					0 0 0 0 0 0 0 0 0 0 0 576000000 0
 					0 0 0 0 0 0 0 0 0 0 0 600000000 0>;
 		status = "ok";
