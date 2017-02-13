@@ -400,7 +400,7 @@ static void _sde_hdmi_connector_irq(struct sde_hdmi *sde_hdmi)
 
 	if ((hpd_int_ctrl & HDMI_HPD_INT_CTRL_INT_EN) &&
 			(hpd_int_status & HDMI_HPD_INT_STATUS_INT)) {
-		bool detected = !!(hpd_int_status &
+		sde_hdmi->connected = !!(hpd_int_status &
 					HDMI_HPD_INT_STATUS_CABLE_DETECTED);
 
 		/* ack & disable (temporarily) HPD events: */
@@ -412,7 +412,7 @@ static void _sde_hdmi_connector_irq(struct sde_hdmi *sde_hdmi)
 
 		/* detect disconnect if we are connected or visa versa: */
 		hpd_int_ctrl = HDMI_HPD_INT_CTRL_INT_EN;
-		if (!detected)
+		if (!sde_hdmi->connected)
 			hpd_int_ctrl |= HDMI_HPD_INT_CTRL_INT_CONNECT;
 		hdmi_write(hdmi, REG_HDMI_HPD_INT_CTRL, hpd_int_ctrl);
 
@@ -451,6 +451,7 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 {
 	int rc = 0;
 	struct sde_hdmi *hdmi_display = (struct sde_hdmi *)display;
+	struct hdmi *hdmi = hdmi_display->ctrl.ctrl;
 
 	if (!display || !info) {
 		SDE_ERROR("display=%p or info=%p is NULL\n", display, info);
@@ -463,11 +464,15 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 	info->num_of_h_tiles = 1;
 	info->h_tile_instance[0] = 0;
 	info->is_connected = true;
-	if (hdmi_display->non_pluggable)
+	if (hdmi_display->non_pluggable) {
 		info->capabilities = MSM_DISPLAY_CAP_VID_MODE;
-	else
+		hdmi_display->connected = true;
+		hdmi->hdmi_mode = true;
+	} else {
 		info->capabilities = MSM_DISPLAY_CAP_HOT_PLUG |
 				MSM_DISPLAY_CAP_EDID | MSM_DISPLAY_CAP_VID_MODE;
+	}
+	info->is_connected = hdmi_display->connected;
 	info->max_width = 1920;
 	info->max_height = 1080;
 	info->compression = MSM_DISPLAY_COMPRESS_NONE;
