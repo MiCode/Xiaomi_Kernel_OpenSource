@@ -155,6 +155,8 @@ static int disable_axi(struct msm_gpu *gpu)
 int msm_gpu_pm_resume(struct msm_gpu *gpu)
 {
 	struct drm_device *dev = gpu->dev;
+	struct msm_drm_private *priv = dev->dev_private;
+	struct platform_device *pdev = priv->gpu_pdev;
 	int ret;
 
 	DBG("%s: active_cnt=%d", gpu->name, gpu->active_cnt);
@@ -166,6 +168,8 @@ int msm_gpu_pm_resume(struct msm_gpu *gpu)
 
 	if (WARN_ON(gpu->active_cnt <= 0))
 		return -EINVAL;
+
+	WARN_ON(pm_runtime_get_sync(&pdev->dev) < 0);
 
 	ret = enable_pwrrail(gpu);
 	if (ret)
@@ -185,6 +189,8 @@ int msm_gpu_pm_resume(struct msm_gpu *gpu)
 int msm_gpu_pm_suspend(struct msm_gpu *gpu)
 {
 	struct drm_device *dev = gpu->dev;
+	struct msm_drm_private *priv = dev->dev_private;
+	struct platform_device *pdev = priv->gpu_pdev;
 	int ret;
 
 	DBG("%s: active_cnt=%d", gpu->name, gpu->active_cnt);
@@ -209,6 +215,7 @@ int msm_gpu_pm_suspend(struct msm_gpu *gpu)
 	if (ret)
 		return ret;
 
+	pm_runtime_put(&pdev->dev);
 	return 0;
 }
 
@@ -685,6 +692,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		goto fail;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+
 	ret = get_clocks(pdev, gpu);
 	if (ret)
 		goto fail;
@@ -776,11 +785,15 @@ fail:
 			msm_ringbuffer_destroy(gpu->rb[i]);
 	}
 
+	pm_runtime_disable(&pdev->dev);
 	return ret;
 }
 
 void msm_gpu_cleanup(struct msm_gpu *gpu)
 {
+	struct drm_device *dev = gpu->dev;
+	struct msm_drm_private *priv = dev->dev_private;
+	struct platform_device *pdev = priv->gpu_pdev;
 	int i;
 
 	DBG("%s", gpu->name);
@@ -800,4 +813,5 @@ void msm_gpu_cleanup(struct msm_gpu *gpu)
 	}
 
 	msm_snapshot_destroy(gpu, gpu->snapshot);
+	pm_runtime_disable(&pdev->dev);
 }
