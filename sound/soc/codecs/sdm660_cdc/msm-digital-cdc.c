@@ -74,6 +74,7 @@ static int msm_digcdc_clock_control(bool flag)
 
 	pdata = snd_soc_card_get_drvdata(registered_digcodec->component.card);
 
+	mutex_lock(&pdata->cdc_int_mclk0_mutex);
 	if (flag) {
 		if (atomic_read(&pdata->int_mclk0_enabled) == false) {
 			pdata->digital_cdc_core_clk.enable = 1;
@@ -83,6 +84,7 @@ static int msm_digcdc_clock_control(bool flag)
 			if (ret < 0) {
 				pr_err("%s:failed to enable the MCLK\n",
 				       __func__);
+				mutex_unlock(&pdata->cdc_int_mclk0_mutex);
 				return ret;
 			}
 			pr_debug("enabled digital codec core clk\n");
@@ -94,6 +96,7 @@ static int msm_digcdc_clock_control(bool flag)
 		dev_dbg(registered_digcodec->dev,
 			"disable MCLK, workq to disable set already\n");
 	}
+	mutex_unlock(&pdata->cdc_int_mclk0_mutex);
 	return 0;
 }
 
