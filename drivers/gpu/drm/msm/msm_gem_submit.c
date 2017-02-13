@@ -349,7 +349,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	/* for now, we just have 3d pipe.. eventually this would need to
 	 * be more clever to dispatch to appropriate gpu module:
 	 */
-	if (args->pipe != MSM_PIPE_3D0)
+	if (MSM_PIPE_ID(args->flags) != MSM_PIPE_3D0)
 		return -EINVAL;
 
 	gpu = priv->gpu;
@@ -434,6 +434,11 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	}
 
 	submit->nr_cmds = i;
+
+	/* Clamp the user submitted ring to the range of available rings */
+	submit->ring = clamp_t(uint32_t,
+		(args->flags & MSM_SUBMIT_RING_MASK) >> MSM_SUBMIT_RING_SHIFT,
+		0, gpu->nr_rings - 1);
 
 	ret = msm_gpu_submit(gpu, submit, ctx);
 

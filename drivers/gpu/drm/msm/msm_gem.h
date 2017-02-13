@@ -121,6 +121,7 @@ struct msm_gem_submit {
 	struct list_head bo_list;
 	struct ww_acquire_ctx ticket;
 	uint32_t fence;
+	int ring;
 	bool valid;
 	unsigned int nr_cmds;
 	unsigned int nr_bos;

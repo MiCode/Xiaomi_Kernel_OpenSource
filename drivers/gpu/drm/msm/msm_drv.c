@@ -939,14 +939,23 @@ int msm_wait_fence(struct drm_device *dev, uint32_t fence,
 		ktime_t *timeout , bool interruptible)
 {
 	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_gpu *gpu = priv->gpu;
+	int index = FENCE_RING(fence);
+	uint32_t submitted;
 	int ret;
 
-	if (!priv->gpu)
+	if (!gpu)
 		return -ENXIO;
 
-	if (fence > priv->gpu->submitted_fence) {
+	if (index > MSM_GPU_MAX_RINGS || index >= gpu->nr_rings ||
+		!gpu->rb[index])
+		return -EINVAL;
+
+	submitted = gpu->funcs->submitted_fence(gpu, gpu->rb[index]);
+
+	if (fence > submitted) {
 		DRM_ERROR("waiting on invalid fence: %u (of %u)\n",
-				fence, priv->gpu->submitted_fence);
+			fence, submitted);
 		return -EINVAL;
 	}
 
@@ -976,7 +985,7 @@ int msm_wait_fence(struct drm_device *dev, uint32_t fence,
 
 		if (ret == 0) {
 			DBG("timeout waiting for fence: %u (completed: %u)",
-					fence, priv->completed_fence);
+					fence, priv->completed_fence[index]);
 			ret = -ETIMEDOUT;
 		} else if (ret != -ERESTARTSYS) {
 			ret = 0;
@@ -990,12 +999,13 @@ int msm_queue_fence_cb(struct drm_device *dev,
 		struct msm_fence_cb *cb, uint32_t fence)
 {
 	struct msm_drm_private *priv = dev->dev_private;
+	int index = FENCE_RING(fence);
 	int ret = 0;
 
 	mutex_lock(&dev->struct_mutex);
 	if (!list_empty(&cb->work.entry)) {
 		ret = -EINVAL;
-	} else if (fence > priv->completed_fence) {
+	} else if (fence > priv->completed_fence[index]) {
 		cb->fence = fence;
 		list_add_tail(&cb->work.entry, &priv->fence_cbs);
 	} else {
@@ -1010,21 +1020,21 @@ int msm_queue_fence_cb(struct drm_device *dev,
 void msm_update_fence(struct drm_device *dev, uint32_t fence)
 {
 	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_fence_cb *cb, *tmp;
+	int index = FENCE_RING(fence);
+
+	if (index >= MSM_GPU_MAX_RINGS)
+		return;
 
 	mutex_lock(&dev->struct_mutex);
-	priv->completed_fence = max(fence, priv->completed_fence);
+	priv->completed_fence[index] = max(fence, priv->completed_fence[index]);
 
-	while (!list_empty(&priv->fence_cbs)) {
-		struct msm_fence_cb *cb;
-
-		cb = list_first_entry(&priv->fence_cbs,
-				struct msm_fence_cb, work.entry);
-
-		if (cb->fence > priv->completed_fence)
-			break;
-
-		list_del_init(&cb->work.entry);
-		queue_work(priv->wq, &cb->work);
+	list_for_each_entry_safe(cb, tmp, &priv->fence_cbs, work.entry) {
+		if (COMPARE_FENCE_LTE(cb->fence,
+			priv->completed_fence[index])) {
+			list_del_init(&cb->work.entry);
+			queue_work(priv->wq, &cb->work);
+		}
 	}
 
 	mutex_unlock(&dev->struct_mutex);

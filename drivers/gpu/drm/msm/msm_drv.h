@@ -250,6 +250,8 @@ struct msm_drm_commit {
 	struct kthread_worker worker;
 };
 
+#define MSM_GPU_MAX_RINGS 1
+
 struct msm_drm_private {
 
 	struct msm_kms *kms;
@@ -280,7 +282,9 @@ struct msm_drm_private {
 
 	struct drm_fb_helper *fbdev;
 
-	uint32_t next_fence, completed_fence;
+	uint32_t next_fence[MSM_GPU_MAX_RINGS];
+	uint32_t completed_fence[MSM_GPU_MAX_RINGS];
+
 	wait_queue_head_t fence_event;
 
 	struct msm_rd_state *rd;
@@ -350,6 +354,31 @@ struct msm_drm_private {
 struct msm_format {
 	uint32_t pixel_format;
 };
+
+/*
+ * Some GPU targets can support multiple ringbuffers and preempt between them.
+ * In order to do this without massive API changes we will steal two bits from
+ * the top of the fence and use them to identify the ringbuffer, (0x00000001 for
+ * riug 0, 0x40000001 for ring 1, 0x50000001 for ring 2, etc). If you are going
+ * to do a fence comparision you have to make sure you are only comparing
+ * against fences from the same ring, but since fences within a ringbuffer are
+ * still contigious you can still use straight comparisons (i.e 0x40000001 is
+ * older than 0x40000002). Mathmatically there will be 0x3FFFFFFF timestamps
+ * per ring or ~103 days of 120 interrupts per second (two interrupts per frame
+ * at 60 FPS).
+ */
+#define FENCE_RING(_fence) ((_fence >> 30) & 3)
+#define FENCE(_ring, _fence) ((((_ring) & 3) << 30) | ((_fence) & 0x3FFFFFFF))
+
+static inline bool COMPARE_FENCE_LTE(uint32_t a, uint32_t b)
+{
+	return ((FENCE_RING(a) == FENCE_RING(b)) && a <= b);
+}
+
+static inline bool COMPARE_FENCE_LT(uint32_t a, uint32_t b)
+{
+	return ((FENCE_RING(a) == FENCE_RING(b)) && a < b);
+}
 
 /* callback from wq once fence has passed: */
 struct msm_fence_cb {
@@ -529,7 +558,8 @@ u32 msm_readl(const void __iomem *addr);
 static inline bool fence_completed(struct drm_device *dev, uint32_t fence)
 {
 	struct msm_drm_private *priv = dev->dev_private;
-	return priv->completed_fence >= fence;
+
+	return priv->completed_fence[FENCE_RING(fence)] >= fence;
 }
 
 static inline int align_pitch(int width, int bpp)
