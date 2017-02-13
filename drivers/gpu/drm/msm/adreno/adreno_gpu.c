@@ -528,6 +528,7 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		const struct adreno_gpu_funcs *funcs, int nr_rings)
 {
 	struct adreno_platform_config *config = pdev->dev.platform_data;
+	struct msm_gpu_config adreno_gpu_config  = { 0 };
 	struct msm_gpu *gpu = &adreno_gpu->base;
 	struct msm_mmu *mmu;
 	int ret;
@@ -541,9 +542,17 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	/* Get the rest of the target configuration from the device tree */
 	adreno_of_parse(pdev, gpu);
 
+	adreno_gpu_config.ioname = "kgsl_3d0_reg_memory";
+	adreno_gpu_config.irqname = "kgsl_3d0_irq";
+	adreno_gpu_config.nr_rings = nr_rings;
+
+	adreno_gpu_config.va_start = SZ_16M;
+	adreno_gpu_config.va_end = 0xffffffff;
+
+	adreno_gpu_config.nr_rings = nr_rings;
+
 	ret = msm_gpu_init(drm, pdev, &adreno_gpu->base, &funcs->base,
-			adreno_gpu->info->name, "kgsl_3d0_reg_memory", "kgsl_3d0_irq",
-			nr_rings);
+			adreno_gpu->info->name, &adreno_gpu_config);
 	if (ret)
 		return ret;
 

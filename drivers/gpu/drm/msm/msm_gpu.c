@@ -596,11 +596,10 @@ static const char *clk_names[] = {
 
 int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		struct msm_gpu *gpu, const struct msm_gpu_funcs *funcs,
-		const char *name, const char *ioname, const char *irqname,
-		int nr_rings)
+		const char *name, struct msm_gpu_config *config)
 {
 	struct iommu_domain *iommu;
-	int i, ret;
+	int i, ret, nr_rings;
 
 	if (WARN_ON(gpu->num_perfcntrs > ARRAY_SIZE(gpu->last_cntrs)))
 		gpu->num_perfcntrs = ARRAY_SIZE(gpu->last_cntrs);
@@ -627,14 +626,14 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	BUG_ON(ARRAY_SIZE(clk_names) != ARRAY_SIZE(gpu->grp_clks));
 
 	/* Map registers: */
-	gpu->mmio = msm_ioremap(pdev, ioname, name);
+	gpu->mmio = msm_ioremap(pdev, config->ioname, name);
 	if (IS_ERR(gpu->mmio)) {
 		ret = PTR_ERR(gpu->mmio);
 		goto fail;
 	}
 
 	/* Get Interrupt: */
-	gpu->irq = platform_get_irq_byname(pdev, irqname);
+	gpu->irq = platform_get_irq_byname(pdev, config->irqname);
 	if (gpu->irq < 0) {
 		ret = gpu->irq;
 		dev_err(drm->dev, "failed to get irq: %d\n", ret);
@@ -681,8 +680,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	iommu = iommu_domain_alloc(&platform_bus_type);
 	if (iommu) {
 		/* TODO 32b vs 64b address space.. */
-		iommu->geometry.aperture_start = 0x1000;
-		iommu->geometry.aperture_end = 0xffffffff;
+		iommu->geometry.aperture_start = config->va_start;
+		iommu->geometry.aperture_end = config->va_end;
 
 		dev_info(drm->dev, "%s: using IOMMU\n", name);
 		gpu->aspace = msm_gem_address_space_create(&pdev->dev,
@@ -698,6 +697,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	} else {
 		dev_info(drm->dev, "%s: no IOMMU, fallback to VRAM carveout!\n", name);
 	}
+
+	nr_rings = config->nr_rings;
 
 	if (nr_rings > ARRAY_SIZE(gpu->rb)) {
 		WARN(1, "Only creating %lu ringbuffers\n", ARRAY_SIZE(gpu->rb));
