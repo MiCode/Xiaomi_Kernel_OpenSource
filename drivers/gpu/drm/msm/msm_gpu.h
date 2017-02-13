@@ -108,7 +108,9 @@ struct msm_gpu {
 
 	/* Power Control: */
 	struct regulator *gpu_reg, *gpu_cx;
-	struct clk *ebi1_clk, *grp_clks[7];
+	struct clk **grp_clks;
+	struct clk *ebi1_clk, *core_clk, *rbbmtimer_clk;
+	int nr_clocks;
 
 	uint32_t gpufreq[10];
 	uint32_t busfreq[10];
