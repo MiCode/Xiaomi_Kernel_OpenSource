@@ -24,6 +24,11 @@
 #include "msm_gpu.h"
 #include "msm_mmu.h"
 
+static void *get_dmabuf_ptr(struct drm_gem_object *obj)
+{
+	return (obj && obj->import_attach) ? obj->import_attach->dmabuf : NULL;
+}
+
 static dma_addr_t physaddr(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
@@ -279,8 +284,8 @@ put_iova(struct drm_gem_object *obj)
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
 	for (id = 0; id < ARRAY_SIZE(msm_obj->domain); id++) {
-		msm_gem_unmap_vma(priv->aspace[id],
-				&msm_obj->domain[id], msm_obj->sgt);
+		msm_gem_unmap_vma(priv->aspace[id], &msm_obj->domain[id],
+			msm_obj->sgt, get_dmabuf_ptr(obj));
 	}
 }
 
@@ -305,12 +310,11 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 			return PTR_ERR(pages);
 
 		if (iommu_present(&platform_bus_type)) {
-			ret = msm_gem_map_vma(priv->aspace[id], &msm_obj->domain[id],
-					msm_obj->sgt, obj->size >> PAGE_SHIFT);
-		} else {
-			WARN_ONCE(1, "physical address being used\n");
+			ret = msm_gem_map_vma(priv->aspace[id],
+				&msm_obj->domain[id], msm_obj->sgt,
+				get_dmabuf_ptr(obj));
+		} else
 			msm_obj->domain[id].iova = physaddr(obj);
-		}
 	}
 
 	if (!ret)
@@ -485,7 +489,7 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 	struct msm_drm_private *priv = obj->dev->dev_private;
 	uint64_t off = drm_vma_node_start(&obj->vma_node);
-	unsigned id;
+	int id;
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 	seq_printf(m, "%08x: %c(r=%u,w=%u) %2d (%2d) %08llx %p\t",
@@ -496,6 +500,8 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 
 	for (id = 0; id < priv->num_aspaces; id++)
 		seq_printf(m, " %08llx", msm_obj->domain[id].iova);
+
+	seq_puts(m, "\n");
 }
 
 void msm_gem_describe_objects(struct list_head *list, struct seq_file *m)
@@ -532,7 +538,8 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 
 	if (obj->import_attach) {
 		if (msm_obj->vaddr)
-			dma_buf_vunmap(obj->import_attach->dmabuf, msm_obj->vaddr);
+			dma_buf_vunmap(obj->import_attach->dmabuf,
+				msm_obj->vaddr);
 
 		/* Don't drop the pages for imported dmabuf, as they are not
 		 * ours, just free the array we allocated:
