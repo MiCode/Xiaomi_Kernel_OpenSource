@@ -1168,10 +1168,10 @@
 		interrupts = <0 5 0>;
 		#mbox-cells = <1>;
 		qcom,drv-id = <2>;
-		qcom,tcs-config = <SLEEP_TCS 3>,
-				<WAKE_TCS    3>,
-				<ACTIVE_TCS  2>,
-				<CONTROL_TCS 1>;
+		qcom,tcs-config = <ACTIVE_TCS  2>,
+				<SLEEP_TCS     3>,
+				<WAKE_TCS      3>,
+				<CONTROL_TCS   1>;
 	};
 
 	disp_rsc: mailbox@af20000 {
