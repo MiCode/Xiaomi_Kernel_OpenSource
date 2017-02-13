@@ -93,6 +93,10 @@ struct msm_kms_funcs {
 			struct drm_mode_object *obj, u32 event, bool en);
 	/* cleanup: */
 	void (*destroy)(struct msm_kms *kms);
+	/* get address space */
+	struct msm_gem_address_space *(*get_address_space)(
+			struct msm_kms *kms,
+			unsigned int domain);
 };
 
 struct msm_kms {

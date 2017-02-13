@@ -171,7 +171,7 @@ static void unref_cursor_worker(struct drm_flip_work *work, void *val)
 		container_of(work, struct mdp5_crtc, unref_cursor_work);
 	struct mdp5_kms *mdp5_kms = get_kms(&mdp5_crtc->base);
 
-	msm_gem_put_iova(val, mdp5_kms->id);
+	msm_gem_put_iova(val, mdp5_kms->aspace);
 	drm_gem_object_unreference_unlocked(val);
 }
 
@@ -525,7 +525,7 @@ static int mdp5_crtc_cursor_set(struct drm_crtc *crtc,
 	if (!cursor_bo)
 		return -ENOENT;
 
-	ret = msm_gem_get_iova(cursor_bo, mdp5_kms->id, &cursor_addr);
+	ret = msm_gem_get_iova(cursor_bo, mdp5_kms->aspace, &cursor_addr);
 	if (ret)
 		return -EINVAL;
 
