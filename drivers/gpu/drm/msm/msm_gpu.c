@@ -702,7 +702,4 @@ void msm_gpu_cleanup(struct msm_gpu *gpu)
 			msm_gem_put_iova(gpu->rb->bo, gpu->id);
 		msm_ringbuffer_destroy(gpu->rb);
 	}
-
-	if (gpu->aspace)
-		msm_gem_address_space_destroy(gpu->aspace);
 }
