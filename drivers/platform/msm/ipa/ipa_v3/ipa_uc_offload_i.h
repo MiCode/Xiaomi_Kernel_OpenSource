@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -388,18 +388,9 @@ union Ipa3HwNTNErrorEventData_t {
  *@num_pkts_processed: Number of packets processed - cumulative
  *@rx_ring_rp_value: Read pointer last advertized to the WLAN FW
  *
- *@ntn_ch_err_type: Information about the channel error (if
- *		available)
  *@rx_ind_ring_stats:
  *@bam_stats:
- *@num_bam_int_handled: Number of Bam Interrupts handled by FW
  *@num_db: Number of times the doorbell was rung
- *@num_unexpected_db: Number of unexpected doorbells
- *@num_pkts_in_dis_uninit_state:
- *@num_bam_int_handled_while_not_in_bam: Number of Bam
- *		Interrupts handled by FW
- *@num_bam_int_handled_while_in_bam_state: Number of Bam
- *   Interrupts handled by FW
  */
 struct NTN3RxInfoData_t {
 	u32  max_outstanding_pkts;
@@ -407,17 +398,12 @@ struct NTN3RxInfoData_t {
 	u32  rx_ring_rp_value;
 	struct IpaHwRingStats_t rx_ind_ring_stats;
 	struct IpaHwBamStats_t bam_stats;
-	u32  num_bam_int_handled;
 	u32  num_db;
-	u32  num_unexpected_db;
-	u32  num_pkts_in_dis_uninit_state;
-	u32  num_bam_int_handled_while_not_in_bam;
-	u32  num_bam_int_handled_while_in_bam_state;
 } __packed;
 
 
 /**
- * struct NTNTxInfoData_t - Structure holding the NTN Tx channel
+ * struct NTN3TxInfoData_t - Structure holding the NTN Tx channel
  * Ensure that this is always word aligned
  *
  *@num_pkts_processed: Number of packets processed - cumulative
@@ -427,27 +413,16 @@ struct NTN3RxInfoData_t {
  *@tx_comp_ring_stats:
  *@bam_stats:
  *@num_db: Number of times the doorbell was rung
- *@num_unexpected_db: Number of unexpected doorbells
- *@num_bam_int_handled: Number of Bam Interrupts handled by FW
- *@num_bam_int_in_non_running_state: Number of Bam interrupts
- *			while not in Running state
  *@num_qmb_int_handled: Number of QMB interrupts handled
- *@num_bam_int_handled_while_wait_for_bam: Number of times the
- *		Imm Cmd is injected due to fw_desc change
  */
-struct NTNTxInfoData_t {
+struct NTN3TxInfoData_t {
 	u32  num_pkts_processed;
 	u32  tail_ptr_val;
 	u32  num_db_fired;
 	struct IpaHwRingStats_t tx_comp_ring_stats;
 	struct IpaHwBamStats_t bam_stats;
 	u32  num_db;
-	u32  num_unexpected_db;
-	u32  num_bam_int_handled;
-	u32  num_bam_int_in_non_running_state;
 	u32  num_qmb_int_handled;
-	u32  num_bam_int_handled_while_wait_for_bam;
-	u32  num_bam_int_handled_while_not_in_bam;
 } __packed;
 
 
@@ -458,7 +433,7 @@ struct NTNTxInfoData_t {
  */
 struct Ipa3HwStatsNTNInfoData_t {
 	struct NTN3RxInfoData_t rx_ch_stats[IPA_UC_MAX_NTN_RX_CHANNELS];
-	struct NTNTxInfoData_t tx_ch_stats[IPA_UC_MAX_NTN_TX_CHANNELS];
+	struct NTN3TxInfoData_t tx_ch_stats[IPA_UC_MAX_NTN_TX_CHANNELS];
 } __packed;
 
 
