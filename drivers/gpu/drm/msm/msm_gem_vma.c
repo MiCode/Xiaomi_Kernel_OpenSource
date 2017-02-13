@@ -19,6 +19,24 @@
 #include "msm_gem.h"
 #include "msm_mmu.h"
 
+static void
+msm_gem_address_space_destroy(struct kref *kref)
+{
+	struct msm_gem_address_space *aspace = container_of(kref,
+			struct msm_gem_address_space, kref);
+
+	if (aspace->ops->destroy)
+		aspace->ops->destroy(aspace);
+
+	kfree(aspace);
+}
+
+void msm_gem_address_space_put(struct msm_gem_address_space *aspace)
+{
+	if (aspace)
+		kref_put(&aspace->kref, msm_gem_address_space_destroy);
+}
+
 /* SDE address space operations */
 static void smmu_aspace_unmap_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt,
@@ -34,6 +52,8 @@ static void smmu_aspace_unmap_vma(struct msm_gem_address_space *aspace,
 			DMA_BIDIRECTIONAL);
 
 	vma->iova = 0;
+
+	msm_gem_address_space_put(aspace);
 }
 
 
@@ -53,6 +73,9 @@ static int smmu_aspace_map_vma(struct msm_gem_address_space *aspace,
 
 	if (!ret)
 		vma->iova = sg_dma_address(sgt->sgl);
+
+	/* Get a reference to the aspace to keep it around */
+	kref_get(&aspace->kref);
 
 	return ret;
 }
@@ -79,6 +102,8 @@ msm_gem_smmu_address_space_create(struct device *dev, struct msm_mmu *mmu,
 	aspace->mmu = mmu;
 	aspace->ops = &smmu_aspace_ops;
 
+	kref_init(&aspace->kref);
+
 	return aspace;
 }
 
@@ -104,6 +129,8 @@ static void iommu_aspace_unmap_vma(struct msm_gem_address_space *aspace,
 	drm_mm_remove_node(&vma->node);
 
 	vma->iova = 0;
+
+	msm_gem_address_space_put(aspace);
 }
 
 static int iommu_aspace_map_vma(struct msm_gem_address_space *aspace,
@@ -138,6 +165,9 @@ static int iommu_aspace_map_vma(struct msm_gem_address_space *aspace,
 	if (aspace->mmu)
 		ret = aspace->mmu->funcs->map(aspace->mmu, vma->iova, sgt,
 			iommu_flags);
+
+	/* Get a reference to the aspace to keep it around */
+	kref_get(&aspace->kref);
 
 	return ret;
 }
@@ -176,6 +206,8 @@ msm_gem_address_space_new(struct msm_mmu *mmu, const char *name,
 	local->base.mmu = mmu;
 	local->base.ops = &msm_iommu_aspace_ops;
 
+	kref_init(&local->base.kref);
+
 	return &local->base;
 }
 
@@ -208,15 +240,6 @@ msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
 	return msm_gem_address_space_new(mmu, name,
 		domain->geometry.aperture_start,
 		domain->geometry.aperture_end);
-}
-
-void
-msm_gem_address_space_destroy(struct msm_gem_address_space *aspace)
-{
-	if (aspace && aspace->ops->destroy)
-		aspace->ops->destroy(aspace);
-
-	kfree(aspace);
 }
 
 /* Create a new dynamic instance */

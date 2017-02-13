@@ -637,7 +637,7 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 	mutex_lock(&dev->struct_mutex);
 	if (ctx && ctx->aspace && ctx->aspace != priv->gpu->aspace) {
 		ctx->aspace->mmu->funcs->detach(ctx->aspace->mmu);
-		msm_gem_address_space_destroy(ctx->aspace);
+		msm_gem_address_space_put(ctx->aspace);
 	}
 	mutex_unlock(&dev->struct_mutex);
 

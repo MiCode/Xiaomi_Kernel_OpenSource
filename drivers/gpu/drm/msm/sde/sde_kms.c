@@ -947,7 +947,7 @@ static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
 		mmu = sde_kms->aspace[i]->mmu;
 
 		mmu->funcs->detach(mmu);
-		msm_gem_address_space_destroy(sde_kms->aspace[i]);
+		msm_gem_address_space_put(sde_kms->aspace[i]);
 
 		sde_kms->aspace[i] = NULL;
 	}
@@ -986,7 +986,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 				ARRAY_SIZE(iommu_ports));
 		if (ret) {
 			SDE_ERROR("failed to attach iommu %d: %d\n", i, ret);
-			msm_gem_address_space_destroy(aspace);
+			msm_gem_address_space_put(aspace);
 			goto fail;
 		}
 
