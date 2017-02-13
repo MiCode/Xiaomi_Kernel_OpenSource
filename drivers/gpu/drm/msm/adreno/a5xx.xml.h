@@ -8,15 +8,15 @@ http://github.com/freedreno/envytools/
 git clone https://github.com/freedreno/envytools.git
 
 The rules-ng-ng source files this header was generated from are:
-- ./adreno.xml               (    431 bytes, from 2016-10-24 21:12:27)
-- ./freedreno_copyright.xml  (   1572 bytes, from 2016-10-24 21:12:27)
-- ./adreno/a2xx.xml          (  32901 bytes, from 2016-10-24 21:12:27)
-- ./adreno/adreno_common.xml (  12025 bytes, from 2016-10-24 21:12:27)
-- ./adreno/adreno_pm4.xml    (  19684 bytes, from 2016-10-24 21:12:27)
-- ./adreno/a3xx.xml          (  83840 bytes, from 2016-10-24 21:12:27)
-- ./adreno/a4xx.xml          ( 110708 bytes, from 2016-10-24 21:12:27)
-- ./adreno/a5xx.xml          (  81207 bytes, from 2016-10-26 19:36:59)
-- ./adreno/ocmem.xml         (   1773 bytes, from 2016-10-24 21:12:27)
+- /local3/projects/drm/envytools/rnndb//adreno.xml               (    431 bytes, from 2016-10-24 21:12:27)
+- /local3/projects/drm/envytools/rnndb//freedreno_copyright.xml  (   1572 bytes, from 2016-10-24 21:12:27)
+- /local3/projects/drm/envytools/rnndb//adreno/a2xx.xml          (  32901 bytes, from 2016-10-24 21:12:27)
+- /local3/projects/drm/envytools/rnndb//adreno/adreno_common.xml (  12025 bytes, from 2016-10-24 21:12:27)
+- /local3/projects/drm/envytools/rnndb//adreno/adreno_pm4.xml    (  19684 bytes, from 2016-10-24 21:12:27)
+- /local3/projects/drm/envytools/rnndb//adreno/a3xx.xml          (  83840 bytes, from 2016-10-24 21:12:27)
+- /local3/projects/drm/envytools/rnndb//adreno/a4xx.xml          ( 110708 bytes, from 2016-10-24 21:12:27)
+- /local3/projects/drm/envytools/rnndb//adreno/a5xx.xml          (  81546 bytes, from 2016-10-31 16:38:41)
+- /local3/projects/drm/envytools/rnndb//adreno/ocmem.xml         (   1773 bytes, from 2016-10-24 21:12:27)
 
 Copyright (C) 2013-2016 by the following authors:
 - Rob Clark <robdclark@gmail.com> (robclark)
@@ -1821,6 +1821,14 @@ static inline uint32_t A5XX_VSC_BIN_SIZE_Y(uint32_t val)
 #define REG_A5XX_GPMU_TEMP_SENSOR_ID				0x0000ac00
 
 #define REG_A5XX_GPMU_TEMP_SENSOR_CONFIG			0x0000ac01
+#define A5XX_GPMU_TEMP_SENSOR_CONFIG_ISENSE_STATUS__MASK	0x0000000f
+#define A5XX_GPMU_TEMP_SENSOR_CONFIG_ISENSE_STATUS__SHIFT	0
+static inline uint32_t A5XX_GPMU_TEMP_SENSOR_CONFIG_ISENSE_STATUS(uint32_t val)
+{
+	return ((val) << A5XX_GPMU_TEMP_SENSOR_CONFIG_ISENSE_STATUS__SHIFT) & A5XX_GPMU_TEMP_SENSOR_CONFIG_ISENSE_STATUS__MASK;
+}
+#define A5XX_GPMU_TEMP_SENSOR_CONFIG_BCL_ENABLED		0x00000002
+#define A5XX_GPMU_TEMP_SENSOR_CONFIG_LLM_ENABLED		0x00000200
 
 #define REG_A5XX_GPMU_TEMP_VAL					0x0000ac02
 
@@ -1849,8 +1857,17 @@ static inline uint32_t A5XX_VSC_BIN_SIZE_Y(uint32_t val)
 #define REG_A5XX_GPMU_GPMU_PWR_THRESHOLD			0x0000ac80
 
 #define REG_A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL			0x0000acc4
+#define A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL_IDLE_FULL_LM		0x00000001
+#define A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL_STATE_OF_CHILD__MASK	0x00000030
+#define A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL_STATE_OF_CHILD__SHIFT	4
+static inline uint32_t A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL_STATE_OF_CHILD(uint32_t val)
+{
+	return ((val) << A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL_STATE_OF_CHILD__SHIFT) & A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL_STATE_OF_CHILD__MASK;
+}
 
 #define REG_A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS			0x0000acc5
+#define A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS_IDLE_FULL_ACK	0x00000001
+#define A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS_WAKEUP_ACK		0x00000002
 
 #define REG_A5XX_GDPM_CONFIG1					0x0000b80c
 
