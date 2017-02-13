@@ -303,6 +303,67 @@ static int a5xx_ucode_init(struct msm_gpu *gpu)
 	return 0;
 }
 
+#ifdef CONFIG_MSM_SUBSYSTEM_RESTART
+
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/scm.h>
+
+static void a5xx_zap_shader_init(struct msm_gpu *gpu)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
+	const char *name;
+	void *ptr;
+
+	/* If no zap shader was defined, we'll assume that none is needed */
+	if (of_property_read_string(GPU_OF_NODE(gpu), "qcom,zap-shader", &name))
+		return;
+
+	/*
+	 * If the zap shader has already been loaded then just ask the SCM to
+	 * re-initialize the registers (not needed if CPZ retention is a thing)
+	 */
+	if (test_bit(A5XX_ZAP_SHADER_LOADED, &a5xx_gpu->flags)) {
+		int ret;
+		struct scm_desc desc = { 0 };
+
+		if (of_property_read_bool(GPU_OF_NODE(gpu),
+			"qcom,cpz-retention"))
+			return;
+
+		desc.args[0] = 0;
+		desc.args[1] = 13;
+		desc.arginfo = SCM_ARGS(2);
+
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT, 0x0A), &desc);
+		if (ret)
+			DRM_ERROR(
+				"%s: zap-shader resume failed with error %d\n",
+				gpu->name, ret);
+
+		return;
+	}
+
+	ptr = subsystem_get(name);
+
+	if (IS_ERR_OR_NULL(ptr)) {
+		DRM_ERROR("%s: Unable to load the zap shader: %ld\n", gpu->name,
+			IS_ERR(ptr) ? PTR_ERR(ptr) : -ENODEV);
+	} else {
+		set_bit(A5XX_ZAP_SHADER_LOADED, &a5xx_gpu->flags);
+	}
+}
+#else
+static void a5xx_zap_shader_init(struct msm_gpu *gpu)
+{
+	if (of_find_property(GPU_OF_NODE(gpu), "qcom,zap-shader", NULL))
+		return;
+
+	DRM_INFO_ONCE("%s: Zap shader is defined but loader isn't available\n",
+		gpu->name);
+}
+#endif
+
 #define A5XX_INT_MASK (A5XX_RBBM_INT_0_MASK_RBBM_AHB_ERROR | \
 	  A5XX_RBBM_INT_0_MASK_RBBM_TRANSFER_TIMEOUT | \
 	  A5XX_RBBM_INT_0_MASK_RBBM_ME_MS_TIMEOUT | \
@@ -320,6 +381,7 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 	struct msm_drm_private *priv = gpu->dev->dev_private;
 	struct platform_device *pdev = priv->gpu_pdev;
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
 	int ret, bit = 0;
 
 	pm_qos_update_request(&gpu->pm_qos_req_dma, 101);
@@ -414,6 +476,9 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 		}
 	}
 
+	/* Try to load and initialize the zap shader if applicable */
+	a5xx_zap_shader_init(gpu);
+
 	/* Protect registers from the CP */
 	gpu_write(gpu, REG_A5XX_CP_PROTECT_CNTL, 0x00000007);
 
@@ -500,8 +565,29 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 			return -EINVAL;
 	}
 
-	/* Put the GPU into insecure mode */
-	gpu_write(gpu, REG_A5XX_RBBM_SECVID_TRUST_CNTL, 0x0);
+	/*
+	 * If a zap shader was specified in the device tree, assume that we are
+	 * on a secure device that blocks access to the RBBM_SECVID registers
+	 * so we need to use the CP to switch out of secure mode. If a zap
+	 * shader was NOT specified then we assume we are on an unlocked device.
+	 * If we guessed wrong then the access to the register will probably
+	 * cause a XPU violation.
+	 */
+	if (test_bit(A5XX_ZAP_SHADER_LOADED, &a5xx_gpu->flags)) {
+		struct msm_ringbuffer *ring = gpu->rb;
+
+		OUT_PKT7(ring, CP_SET_SECURE_MODE, 1);
+		OUT_RING(ring, 0x00000000);
+
+		gpu->funcs->flush(gpu);
+		if (!gpu->funcs->idle(gpu))
+			return -EINVAL;
+	} else {
+		/* Print a warning so if we die, we know why */
+		dev_warn_once(gpu->dev->dev,
+			"Zap shader not enabled - using SECVID_TRUST_CNTL instead\n");
+		gpu_write(gpu, REG_A5XX_RBBM_SECVID_TRUST_CNTL, 0x0);
+	}
 
 	pm_qos_update_request(&gpu->pm_qos_req_dma, 501);
 

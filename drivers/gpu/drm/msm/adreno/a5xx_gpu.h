@@ -21,7 +21,13 @@
 
 #include "a5xx.xml.h"
 
+enum {
+	A5XX_ZAP_SHADER_LOADED = 1,
+};
+
 struct a5xx_gpu {
+	unsigned long flags;
+
 	struct adreno_gpu base;
 	struct platform_device *pdev;
 
