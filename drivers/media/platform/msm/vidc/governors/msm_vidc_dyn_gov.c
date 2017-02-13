@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -298,7 +298,7 @@ static unsigned long __calculate_vmem_plus_ab(struct vidc_bus_vote_data *d)
 		vmem_plus = 1;
 		dprintk(VIDC_WARN,
 			"could not calculate vmem ab value due to core freq mismatch\n");
-		WARN_ON(1);
+		WARN_ON(VIDC_DBG_WARN_ENABLE);
 	}
 
 exit:

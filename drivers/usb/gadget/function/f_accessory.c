@@ -555,7 +555,7 @@ static int create_bulk_endpoints(struct acc_dev *dev,
 	struct usb_ep *ep;
 	int i;
 
-	DBG(cdev, "create_bulk_endpoints dev: %p\n", dev);
+	DBG(cdev, "create_bulk_endpoints dev: %pK\n", dev);
 
 	ep = usb_ep_autoconfig(cdev->gadget, in_desc);
 	if (!ep) {
@@ -658,7 +658,7 @@ requeue_req:
 		r = -EIO;
 		goto done;
 	} else {
-		pr_debug("rx %p queue\n", req);
+		pr_debug("rx %pK queue\n", req);
 	}
 
 	/* wait for a request to complete */
@@ -681,7 +681,7 @@ copy_data:
 		if (req->actual == 0)
 			goto requeue_req;
 
-		pr_debug("rx %p %u\n", req, req->actual);
+		pr_debug("rx %pK %u\n", req, req->actual);
 		xfer = (req->actual < count) ? req->actual : count;
 		r = xfer;
 		if (copy_to_user(buf, req->buf, xfer))
@@ -981,7 +981,7 @@ __acc_function_bind(struct usb_configuration *c,
 	int			id;
 	int			ret;
 
-	DBG(cdev, "acc_function_bind dev: %p\n", dev);
+	DBG(cdev, "acc_function_bind dev: %pK\n", dev);
 
 	if (configfs) {
 		if (acc_string_defs[INTERFACE_STRING_INDEX].id == 0) {
@@ -1168,7 +1168,7 @@ static void acc_hid_work(struct work_struct *data)
 	list_for_each_safe(entry, temp, &new_list) {
 		hid = list_entry(entry, struct acc_hid_dev, list);
 		if (acc_hid_init(hid)) {
-			pr_err("can't add HID device %p\n", hid);
+			pr_err("can't add HID device %pK\n", hid);
 			acc_hid_delete(hid);
 		} else {
 			spin_lock_irqsave(&dev->lock, flags);

@@ -1037,6 +1037,12 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_0][IPA_QSB_MAX_READS] = {
 		ipareg_construct_qsb_max_reads, ipareg_parse_dummy,
 		0x00000078, 0},
+	[IPA_HW_v3_0][IPA_DPS_SEQUENCER_FIRST] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x0001e000, 0},
+	[IPA_HW_v3_0][IPA_HPS_SEQUENCER_FIRST] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x0001e080, 0},
 
 
 	/* IPAv3.1 */

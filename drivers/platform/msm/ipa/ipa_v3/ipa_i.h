@@ -316,6 +316,7 @@ struct ipa3_rt_tbl {
  * @id: header entry id
  * @is_eth2_ofst_valid: is eth2_ofst field valid?
  * @eth2_ofst: offset to start of Ethernet-II/802.3 header
+ * @user_deleted: is the header deleted by the user?
  */
 struct ipa3_hdr_entry {
 	struct list_head link;
@@ -333,6 +334,7 @@ struct ipa3_hdr_entry {
 	int id;
 	u8 is_eth2_ofst_valid;
 	u16 eth2_ofst;
+	bool user_deleted;
 };
 
 /**
@@ -372,6 +374,7 @@ struct ipa3_hdr_proc_ctx_offset_entry {
  * @cookie: cookie used for validity check
  * @ref_cnt: reference counter of routing table
  * @id: processing context header entry id
+ * @user_deleted: is the hdr processing context deleted by the user?
  */
 struct ipa3_hdr_proc_ctx_entry {
 	struct list_head link;
@@ -381,6 +384,7 @@ struct ipa3_hdr_proc_ctx_entry {
 	u32 cookie;
 	u32 ref_cnt;
 	int id;
+	bool user_deleted;
 };
 
 /**
@@ -1512,6 +1516,8 @@ int ipa3_add_hdr(struct ipa_ioc_add_hdr *hdrs);
 
 int ipa3_del_hdr(struct ipa_ioc_del_hdr *hdls);
 
+int ipa3_del_hdr_by_user(struct ipa_ioc_del_hdr *hdls, bool by_user);
+
 int ipa3_commit_hdr(void);
 
 int ipa3_reset_hdr(void);
@@ -1528,6 +1534,9 @@ int ipa3_copy_hdr(struct ipa_ioc_copy_hdr *copy);
 int ipa3_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs);
 
 int ipa3_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls);
+
+int ipa3_del_hdr_proc_ctx_by_user(struct ipa_ioc_del_hdr_proc_ctx *hdls,
+	bool by_user);
 
 /*
  * Routing
@@ -1833,7 +1842,7 @@ int ipa3_active_clients_log_print_table(char *buf, int size);
 void ipa3_active_clients_log_clear(void);
 int ipa3_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev);
 int __ipa3_del_rt_rule(u32 rule_hdl);
-int __ipa3_del_hdr(u32 hdr_hdl);
+int __ipa3_del_hdr(u32 hdr_hdl, bool by_user);
 int __ipa3_release_hdr(u32 hdr_hdl);
 int __ipa3_release_hdr_proc_ctx(u32 proc_ctx_hdl);
 int _ipa_read_ep_reg_v3_0(char *buf, int max_len, int pipe);
@@ -1996,7 +2005,7 @@ int ipa3_uc_panic_notifier(struct notifier_block *this,
 	unsigned long event, void *ptr);
 void ipa3_inc_acquire_wakelock(void);
 void ipa3_dec_release_wakelock(void);
-int ipa3_load_fws(const struct firmware *firmware);
+int ipa3_load_fws(const struct firmware *firmware, phys_addr_t gsi_mem_base);
 int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data);
 const char *ipa_hw_error_str(enum ipa3_hw_errors err_type);
 int ipa_gsi_ch20_wa(void);

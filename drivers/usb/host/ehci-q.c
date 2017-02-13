@@ -264,7 +264,7 @@ ehci_urb_done(struct ehci_hcd *ehci, struct urb *urb, int status)
 
 #ifdef EHCI_URB_TRACE
 	ehci_dbg (ehci,
-		"%s %s urb %p ep%d%s status %d len %d/%d\n",
+		"%s %s urb %pK ep%d%s status %d len %d/%d\n",
 		__func__, urb->dev->devpath, urb,
 		usb_pipeendpoint (urb->pipe),
 		usb_pipein (urb->pipe) ? "in" : "out",
@@ -350,7 +350,7 @@ qh_completions (struct ehci_hcd *ehci, struct ehci_qh *qh)
 			/* Report Data Buffer Error: non-fatal but useful */
 			if (token & QTD_STS_DBE)
 				ehci_dbg(ehci,
-					"detected DataBufferErr for urb %p ep%d%s len %d, qtd %p [qh %p]\n",
+					"detected DataBufferErr for urb %pK ep%d%s len %d, qtd %pK [qh %pK]\n",
 					urb,
 					usb_endpoint_num(&urb->ep->desc),
 					usb_endpoint_dir_in(&urb->ep->desc) ? "in" : "out",
@@ -924,7 +924,7 @@ qh_make (
 		}
 		break;
 	default:
-		ehci_dbg(ehci, "bogus dev %p speed %d\n", urb->dev,
+		ehci_dbg(ehci, "bogus dev %pK speed %d\n", urb->dev,
 			urb->dev->speed);
 done:
 		qh_destroy(ehci, qh);
@@ -1112,7 +1112,7 @@ submit_async (
 		struct ehci_qtd *qtd;
 		qtd = list_entry(qtd_list->next, struct ehci_qtd, qtd_list);
 		ehci_dbg(ehci,
-			 "%s %s urb %p ep%d%s len %d, qtd %p [qh %p]\n",
+			 "%s %s urb %pK ep%d%s len %d, qtd %pK [qh %pK]\n",
 			 __func__, urb->dev->devpath, urb,
 			 epnum & 0x0f, (epnum & USB_DIR_IN) ? "in" : "out",
 			 urb->transfer_buffer_length,

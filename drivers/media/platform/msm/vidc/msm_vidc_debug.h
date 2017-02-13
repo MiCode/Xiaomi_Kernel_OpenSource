@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #endif
 
 #define VIDC_DBG_TAG VIDC_DBG_LABEL ": %4s: "
+#define VIDC_DBG_WARN_ENABLE (msm_vidc_debug & VIDC_INFO)
 
 /* To enable messages OR these values and
  * echo the result to debugfs file.

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -669,6 +669,7 @@ struct fg_trans {
 	struct fg_chip *chip;
 	struct fg_log_buffer *log; /* log buffer */
 	u8 *data;	/* fg data that is read */
+	struct mutex memif_dfs_lock; /* Prevent thread concurrency */
 };
 
 struct fg_dbgfs {
@@ -7460,6 +7461,7 @@ static int fg_memif_data_open(struct inode *inode, struct file *file)
 	trans->addr = dbgfs_data.addr;
 	trans->chip = dbgfs_data.chip;
 	trans->offset = trans->addr;
+	mutex_init(&trans->memif_dfs_lock);
 
 	file->private_data = trans;
 	return 0;
@@ -7471,6 +7473,7 @@ static int fg_memif_dfs_close(struct inode *inode, struct file *file)
 
 	if (trans && trans->log && trans->data) {
 		file->private_data = NULL;
+		mutex_destroy(&trans->memif_dfs_lock);
 		kfree(trans->log);
 		kfree(trans->data);
 		kfree(trans);
@@ -7628,10 +7631,13 @@ static ssize_t fg_memif_dfs_reg_read(struct file *file, char __user *buf,
 	size_t ret;
 	size_t len;
 
+	mutex_lock(&trans->memif_dfs_lock);
 	/* Is the the log buffer empty */
 	if (log->rpos >= log->wpos) {
-		if (get_log_data(trans) <= 0)
-			return 0;
+		if (get_log_data(trans) <= 0) {
+			len = 0;
+			goto unlock_mutex;
+		}
 	}
 
 	len = min(count, log->wpos - log->rpos);
@@ -7639,7 +7645,8 @@ static ssize_t fg_memif_dfs_reg_read(struct file *file, char __user *buf,
 	ret = copy_to_user(buf, &log->data[log->rpos], len);
 	if (ret == len) {
 		pr_err("error copy sram register values to user\n");
-		return -EFAULT;
+		len = -EFAULT;
+		goto unlock_mutex;
 	}
 
 	/* 'ret' is the number of bytes not copied */
@@ -7647,6 +7654,9 @@ static ssize_t fg_memif_dfs_reg_read(struct file *file, char __user *buf,
 
 	*ppos += len;
 	log->rpos += len;
+
+unlock_mutex:
+	mutex_unlock(&trans->memif_dfs_lock);
 	return len;
 }
 
@@ -7667,14 +7677,20 @@ static ssize_t fg_memif_dfs_reg_write(struct file *file, const char __user *buf,
 	int cnt = 0;
 	u8  *values;
 	size_t ret = 0;
+	char *kbuf;
+	u32 offset;
 
 	struct fg_trans *trans = file->private_data;
-	u32 offset = trans->offset;
+
+	mutex_lock(&trans->memif_dfs_lock);
+	offset = trans->offset;
 
 	/* Make a copy of the user data */
-	char *kbuf = kmalloc(count + 1, GFP_KERNEL);
-	if (!kbuf)
-		return -ENOMEM;
+	kbuf = kmalloc(count + 1, GFP_KERNEL);
+	if (!kbuf) {
+		ret = -ENOMEM;
+		goto unlock_mutex;
+	}
 
 	ret = copy_from_user(kbuf, buf, count);
 	if (ret == count) {
@@ -7713,6 +7729,8 @@ static ssize_t fg_memif_dfs_reg_write(struct file *file, const char __user *buf,
 
 free_buf:
 	kfree(kbuf);
+unlock_mutex:
+	mutex_unlock(&trans->memif_dfs_lock);
 	return ret;
 }
 

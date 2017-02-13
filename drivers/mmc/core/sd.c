@@ -1359,6 +1359,11 @@ static int mmc_sd_power_restore(struct mmc_host *host)
 	mmc_claim_host(host);
 	ret = mmc_sd_init_card(host, host->card->ocr, host->card);
 	mmc_release_host(host);
+	if (ret) {
+		pr_err("%s: %s: mmc_sd_init_card_failed (%d)\n",
+				mmc_hostname(host), __func__, ret);
+		return ret;
+	}
 
 	ret = mmc_resume_clk_scaling(host);
 	if (ret)

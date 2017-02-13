@@ -741,7 +741,7 @@ static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 	struct f_mbim			*mbim = req->context;
 	struct usb_cdc_notification	*event = req->buf;
 
-	pr_debug("dev:%p\n", mbim);
+	pr_debug("dev:%pK\n", mbim);
 
 	spin_lock(&mbim->lock);
 	switch (req->status) {
@@ -771,7 +771,7 @@ static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 	mbim_do_notify(mbim);
 	spin_unlock(&mbim->lock);
 
-	pr_debug("dev:%p Exit\n", mbim);
+	pr_debug("dev:%pK Exit\n", mbim);
 }
 
 static void mbim_ep0out_complete(struct usb_ep *ep, struct usb_request *req)
@@ -782,7 +782,7 @@ static void mbim_ep0out_complete(struct usb_ep *ep, struct usb_request *req)
 	struct f_mbim		*mbim = func_to_mbim(f);
 	struct mbim_ntb_input_size *ntb = NULL;
 
-	pr_debug("dev:%p\n", mbim);
+	pr_debug("dev:%pK\n", mbim);
 
 	req->context = NULL;
 	if (req->status || req->actual != req->length) {
@@ -820,7 +820,7 @@ static void mbim_ep0out_complete(struct usb_ep *ep, struct usb_request *req)
 invalid:
 	usb_ep_set_halt(ep);
 
-	pr_err("dev:%p Failed\n", mbim);
+	pr_err("dev:%pK Failed\n", mbim);
 
 	return;
 }
@@ -855,7 +855,7 @@ fmbim_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 	if (!first_command_sent)
 		first_command_sent = true;
 
-	pr_debug("dev:%p port#%d\n", dev, dev->port_num);
+	pr_debug("dev:%pK port#%d\n", dev, dev->port_num);
 
 	cpkt = mbim_alloc_ctrl_pkt(len, GFP_ATOMIC);
 	if (!cpkt) {
@@ -1195,7 +1195,7 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			return ret;
 		}
 
-		pr_info("Set mbim port in_desc = 0x%p\n",
+		pr_info("Set mbim port in_desc = 0x%pK\n",
 				mbim->bam_port.in->desc);
 
 		ret = config_ep_by_speed(cdev->gadget, f,
@@ -1207,7 +1207,7 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			return ret;
 		}
 
-		pr_info("Set mbim port out_desc = 0x%p\n",
+		pr_info("Set mbim port out_desc = 0x%pK\n",
 				mbim->bam_port.out->desc);
 
 		pr_debug("Activate mbim\n");
@@ -1832,7 +1832,7 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 	pr_debug("Enter(%zu)\n", count);
 
 	if (!dev || !req || !req->buf) {
-		pr_err("%s: dev %p req %p req->buf %p\n",
+		pr_err("%s: dev %pK req %pK req->buf %pK\n",
 			__func__, dev, req, req ? req->buf : req);
 		return -ENODEV;
 	}
@@ -1854,7 +1854,7 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 	}
 
 	if (dev->not_port.notify_state != MBIM_NOTIFY_RESPONSE_AVAILABLE) {
-		pr_err("dev:%p state=%d error\n", dev,
+		pr_err("dev:%pK state=%d error\n", dev,
 			dev->not_port.notify_state);
 		mbim_unlock(&dev->write_excl);
 		return -EINVAL;
