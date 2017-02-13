@@ -305,8 +305,7 @@ put_iova(struct drm_gem_object *obj)
 						obj->import_attach->dmabuf,
 						DMA_BIDIRECTIONAL);
 			else
-				mmu->funcs->unmap(mmu, offset, msm_obj->sgt,
-						obj->size);
+				mmu->funcs->unmap(mmu, offset, msm_obj->sgt);
 			msm_obj->domain[id].iova = 0;
 		}
 	}
