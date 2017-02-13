@@ -32,6 +32,18 @@
 #define AGC_POWER_CONFIG_PRODUCTION_ID 1
 #define AGC_INIT_MSG_VALUE 0xBABEFACE
 
+/* AGC_LM_CONFIG (A540+) */
+#define AGC_LM_CONFIG (136/4)
+#define AGC_LM_CONFIG_GPU_VERSION_SHIFT 17
+#define AGC_LM_CONFIG_ENABLE_GPMU_ADAPTIVE 1
+#define AGC_LM_CONFIG_THROTTLE_DISABLE (2 << 8)
+#define AGC_LM_CONFIG_ISENSE_ENABLE (1 << 4)
+#define AGC_LM_CONFIG_ENABLE_ERROR (3 << 4)
+#define AGC_LM_CONFIG_LLM_ENABLED (1 << 16)
+#define AGC_LM_CONFIG_BCL_DISABLED (1 << 24)
+
+#define AGC_LEVEL_CONFIG (140/4)
+
 static struct {
 	uint32_t reg;
 	uint32_t value;
@@ -109,14 +121,56 @@ static inline uint32_t _get_mvolts(struct msm_gpu *gpu, uint32_t freq)
 	return (!IS_ERR(opp)) ? dev_pm_opp_get_voltage(opp) / 1000 : 0;
 }
 
-/* Setup thermal limit management */
-static void a5xx_lm_setup(struct msm_gpu *gpu)
+#define PAYLOAD_SIZE(_size) ((_size) * sizeof(u32))
+#define LM_DCVS_LIMIT 1
+#define LEVEL_CONFIG ~(0x303)
+
+/* Setup thermal limit management for A540 */
+static void a540_lm_setup(struct msm_gpu *gpu)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	u32 max_power = 0;
+	u32 rate = gpu->gpufreq[gpu->active_level];
+	u32 config;
+
+	/* The battery current limiter isn't enabled for A540 */
+	config = AGC_LM_CONFIG_BCL_DISABLED;
+	config |= adreno_gpu->rev.patchid << AGC_LM_CONFIG_GPU_VERSION_SHIFT;
+
+	/* For now disable GPMU side throttling */
+	config |= AGC_LM_CONFIG_THROTTLE_DISABLE;
+
+	/* Get the max-power from the device tree */
+	of_property_read_u32(GPU_OF_NODE(gpu), "qcom,lm-max-power", &max_power);
+
+	gpu_write(gpu, AGC_MSG_STATE, 0x80000001);
+	gpu_write(gpu, AGC_MSG_COMMAND, AGC_POWER_CONFIG_PRODUCTION_ID);
+
+	/*
+	 * For now just write the one voltage level - we will do more when we
+	 * can do scaling
+	 */
+	gpu_write(gpu, AGC_MSG_PAYLOAD(0), max_power);
+	gpu_write(gpu, AGC_MSG_PAYLOAD(1), 1);
+
+	gpu_write(gpu, AGC_MSG_PAYLOAD(2), _get_mvolts(gpu, rate));
+	gpu_write(gpu, AGC_MSG_PAYLOAD(3), rate / 1000000);
+
+	gpu_write(gpu, AGC_MSG_PAYLOAD(AGC_LM_CONFIG), config);
+	gpu_write(gpu, AGC_MSG_PAYLOAD(AGC_LEVEL_CONFIG), LEVEL_CONFIG);
+	gpu_write(gpu, AGC_MSG_PAYLOAD_SIZE,
+		PAYLOAD_SIZE(AGC_LEVEL_CONFIG + 1));
+
+	gpu_write(gpu, AGC_INIT_MSG_MAGIC, AGC_INIT_MSG_VALUE);
+}
+
+/* Setup thermal limit management for A530 */
+static void a530_lm_setup(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
 	uint32_t rate = gpu->gpufreq[gpu->active_level];
 	uint32_t tsens = 0;
-	uint32_t lm_limit = 6000;
 	uint32_t max_power = 0;
 	unsigned int i;
 
@@ -131,14 +185,7 @@ static void a5xx_lm_setup(struct msm_gpu *gpu)
 	gpu_write(gpu, REG_A5XX_GPMU_DELTA_TEMP_THRESHOLD, 0x01);
 	gpu_write(gpu, REG_A5XX_GPMU_TEMP_SENSOR_CONFIG, 0x01);
 
-	/* Until we get clock scaling 0 is always the active power level */
-	gpu_write(gpu, REG_A5XX_GPMU_GPMU_VOLTAGE, 0x80000000 | 0);
-
 	gpu_write(gpu, REG_A5XX_GPMU_BASE_LEAKAGE, a5xx_gpu->lm_leakage);
-
-	of_property_read_u32(GPU_OF_NODE(gpu), "qcom,lm-limit", &lm_limit);
-
-	gpu_write(gpu, REG_A5XX_GPMU_GPMU_PWR_THRESHOLD, 0x80000000 | lm_limit);
 
 	gpu_write(gpu, REG_A5XX_GPMU_BEC_ENABLE, 0x10001FFF);
 	gpu_write(gpu, REG_A5XX_GDPM_CONFIG1, 0x00201FF1);
@@ -209,7 +256,9 @@ static int a5xx_gpmu_init(struct msm_gpu *gpu)
 		return -EINVAL;
 	}
 
-	gpu_write(gpu, REG_A5XX_GPMU_WFI_CONFIG, 0x4014);
+	/* Clock gating setup for A530 targets */
+	if (adreno_is_a530(adreno_gpu))
+		gpu_write(gpu, REG_A5XX_GPMU_WFI_CONFIG, 0x4014);
 
 	/* Kick off the GPMU */
 	gpu_write(gpu, REG_A5XX_GPMU_CM3_SYSRESET, 0x0);
@@ -223,12 +272,29 @@ static int a5xx_gpmu_init(struct msm_gpu *gpu)
 		DRM_ERROR("%s: GPMU firmware initialization timed out\n",
 			gpu->name);
 
+	if (!adreno_is_a530(adreno_gpu)) {
+		u32 val = gpu_read(gpu, REG_A5XX_GPMU_GENERAL_1);
+
+		if (val) {
+			DRM_ERROR("%s: GPMU firmare initialization failed: %d\n",
+				gpu->name, val);
+			return -EIO;
+		}
+	}
+
+	/* FIXME: Clear GPMU interrupts? */
 	return 0;
 }
 
 /* Enable limits management */
 static void a5xx_lm_enable(struct msm_gpu *gpu)
 {
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	/* This init sequence only applies to A530 */
+	if (!adreno_is_a530(adreno_gpu))
+		return;
+
 	gpu_write(gpu, REG_A5XX_GDPM_INT_MASK, 0x0);
 	gpu_write(gpu, REG_A5XX_GDPM_INT_EN, 0x0A);
 	gpu_write(gpu, REG_A5XX_GPMU_GPMU_VOLTAGE_INTR_EN_MASK, 0x01);
@@ -240,10 +306,24 @@ static void a5xx_lm_enable(struct msm_gpu *gpu)
 
 int a5xx_power_init(struct msm_gpu *gpu)
 {
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	int ret;
+	u32 lm_limit = 6000;
 
-	/* Set up the limits management */
-	a5xx_lm_setup(gpu);
+	/*
+	 * Set up the limit management
+	 * first, do some generic setup:
+	 */
+	gpu_write(gpu, REG_A5XX_GPMU_GPMU_VOLTAGE, 0x80000000 | 0);
+
+	of_property_read_u32(GPU_OF_NODE(gpu), "qcom,lm-limit", &lm_limit);
+	gpu_write(gpu, REG_A5XX_GPMU_GPMU_PWR_THRESHOLD, 0x80000000 | lm_limit);
+
+	/* Now do the target specific setup */
+	if (adreno_is_a530(adreno_gpu))
+		a530_lm_setup(gpu);
+	else
+		a540_lm_setup(gpu);
 
 	/* Set up SP/TP power collpase */
 	a5xx_pc_init(gpu);
