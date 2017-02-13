@@ -250,7 +250,7 @@ struct msm_drm_commit {
 	struct kthread_worker worker;
 };
 
-#define MSM_GPU_MAX_RINGS 1
+#define MSM_GPU_MAX_RINGS 4
 
 struct msm_drm_private {
 

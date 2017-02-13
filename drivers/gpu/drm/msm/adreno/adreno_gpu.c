@@ -2,7 +2,7 @@
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
- * Copyright (c) 2014,2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014,2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -93,11 +93,6 @@ int adreno_hw_init(struct msm_gpu *gpu)
 	return 0;
 }
 
-static uint32_t get_wptr(struct msm_ringbuffer *ring)
-{
-	return ring->cur - ring->start;
-}
-
 /* Use this helper to read rptr, since a430 doesn't update rptr in memory */
 static uint32_t get_rptr(struct adreno_gpu *adreno_gpu,
 		struct msm_ringbuffer *ring)
@@ -154,6 +149,7 @@ void adreno_recover(struct msm_gpu *gpu)
 		if (!ring)
 			continue;
 
+		/* No need for a lock here, nobody else is peeking in */
 		ring->cur = ring->start;
 		ring->next = ring->start;
 
@@ -270,7 +266,7 @@ void adreno_flush(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 	 * to account for the possibility that the last command fit exactly into
 	 * the ringbuffer and rb->next hasn't wrapped to zero yet
 	 */
-	wptr = (ring->cur - ring->start) % (MSM_GPU_RINGBUFFER_SZ >> 2);
+	wptr = get_wptr(ring);
 
 	/* ensure writes to ringbuffer have hit system memory: */
 	mb();
@@ -288,8 +284,9 @@ bool adreno_idle(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 		return true;
 
 	/* TODO maybe we need to reset GPU here to recover from hang? */
-	DRM_ERROR("%s: timeout waiting to drain ringbuffer %d!\n", gpu->name,
-		ring->id);
+	DRM_ERROR("%s: timeout waiting to drain ringbuffer %d rptr/wptr = %X/%X\n",
+		gpu->name, ring->id, get_rptr(adreno_gpu, ring), wptr);
+
 	return false;
 }
 
@@ -345,11 +342,12 @@ void adreno_show(struct msm_gpu *gpu, struct seq_file *m)
  */
 void adreno_dump_info(struct msm_gpu *gpu)
 {
+	struct drm_device *dev = gpu->dev;
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct msm_ringbuffer *ring;
 	int i;
 
-	pr_err("revision: %d (%d.%d.%d.%d)\n",
+	dev_err(dev->dev, "revision: %d (%d.%d.%d.%d)\n",
 			adreno_gpu->info->revn, adreno_gpu->rev.core,
 			adreno_gpu->rev.major, adreno_gpu->rev.minor,
 			adreno_gpu->rev.patchid);
@@ -358,12 +356,11 @@ void adreno_dump_info(struct msm_gpu *gpu)
 		if (!ring)
 			continue;
 
-		pr_err("rb %d: fence:    %d/%d\n", i,
+		dev_err(dev->dev, " ring %d: fence %d/%d rptr/wptr %x/%x\n", i,
 			adreno_last_fence(gpu, ring),
-			adreno_submitted_fence(gpu, ring));
-
-		pr_err("rptr:     %d\n", get_rptr(adreno_gpu, ring));
-		pr_err("rb wptr:  %d\n", get_wptr(ring));
+			adreno_submitted_fence(gpu, ring),
+			get_rptr(adreno_gpu, ring),
+			get_wptr(ring));
 	}
 
 	for (i = 0; i < 8; i++) {
