@@ -888,6 +888,11 @@
 		status = "ok";
 	};
 
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>;
+	};
+
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-compute";
 
