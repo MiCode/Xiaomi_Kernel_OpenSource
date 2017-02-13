@@ -41,9 +41,16 @@ int f2fs_read_inline_data(struct inode *inode, struct page *page)
 	struct page *ipage;
 	void *src_addr, *dst_addr;
 
-	trace_android_fs_dataread_start(inode, page_offset(page),
-					PAGE_SIZE, current->pid,
-					current->comm);
+	if (trace_android_fs_dataread_start_enabled()) {
+		char *path, pathbuf[MAX_TRACE_PATHBUF_LEN];
+
+		path = android_fstrace_get_pathname(pathbuf,
+						    MAX_TRACE_PATHBUF_LEN,
+						    inode);
+		trace_android_fs_dataread_start(inode, page_offset(page),
+						PAGE_SIZE, current->pid,
+						path, current->comm);
+	}
 
 	if (page->index) {
 		zero_user_segment(page, 0, PAGE_CACHE_SIZE);
