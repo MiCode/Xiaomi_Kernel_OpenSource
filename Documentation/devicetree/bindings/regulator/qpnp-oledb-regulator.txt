@@ -44,12 +44,12 @@ Required Node Structure
 	Value type: <bool>
 	Definition: Enables the voltage programming through SWIRE signal.
 
- qcom,ext-pin-control
+- qcom,ext-pin-control
 	Usage:      optional
 	Value type: <bool>
 	Definition: Configures the OLED module to be enabled by a external pin.
 
- qcom,dynamic-ext-pinctl-config
+- qcom,dynamic-ext-pinctl-config
 	Usage:      optional
 	Value type: <bool>
 	Definition:  Used to dynamically enable/disable the OLEDB module
@@ -57,13 +57,27 @@ Required Node Structure
 		     rail.  This property is applicable only if qcom,ext-pin-ctl
 		     property is specified and it is specific to PM660A.
 
- qcom,pbs-control
+- qcom,force-pd-control
+	Usage:      optional
+	Value type: <bool>
+	Definition:  Used to enable the pull down control forcibly via SPMI by
+		     disabling the pull down configuration done by hardware
+		     automatically through SWIRE pulses.
+
+- qcom,pbs-client
+	Usage:      optional
+	Value type: <phandle>
+	Definition:  Used to send the PBS trigger to the specified PBS client.
+		     This property is applicable only if qcom,force-pd-control
+		     property is specified.
+
+- qcom,pbs-control
 	Usage:      optional
 	Value type: <bool>
 	Definition: PMIC PBS logic directly configures the output voltage update
 		    and pull down control.
 
- qcom,oledb-init-voltage-mv
+- qcom,oledb-init-voltage-mv
 	Usage:      optional
 	Value type: <u32>
 	Definition: Sets the AVDD bias voltage (in mV) when the module is
@@ -71,53 +85,53 @@ Required Node Structure
 		    property is not specified. Supported values are from 5.0V
 		    to 8.1V with a step of 100mV.
 
-qcom,oledb-default-voltage-mv
+- qcom,oledb-default-voltage-mv
 	Usage:      optional
 	Value type: <u32>
 	Definition: Sets the default AVDD bias voltage (in mV) before module
 		    enable. Supported values are from 5.0V to 8.1V with the
 		    step of 100mV.
 
-qcom,bias-gen-warmup-delay-ns
+- qcom,bias-gen-warmup-delay-ns
 	Usage:      optional
 	Value type: <u32>
 	Definition: Bias generator warm-up time (ns). Supported values are
 		    6700, 13300, 267000, 534000.
 
-qcom,peak-curr-limit-ma
+- qcom,peak-curr-limit-ma
 	Usage:      optional
 	Value type: <u32>
 	Definition: Peak current limit (in mA). Supported values are 115, 265,
 		    415, 570, 720, 870, 1020, 1170.
 
-qcom,pull-down-enable
+- qcom,pull-down-enable
 	Usage:      optional
 	Value type: <u32>
 	Definition: Pull down configuration of OLEDB.
 		    1 - Enable pull-down
 		    0 - Disable pull-down
 
-qcom,negative-curr-limit-enable
+- qcom,negative-curr-limit-enable
 	Usage:      optional
 	Value type: <u32>
 	Definition: negative current limit enable/disable.
 			1 = enable negative current limit
 			0 = disable negative current limit
 
-qcom,negative-curr-limit-ma
+- qcom,negative-curr-limit-ma
 	Usage:      optional
 	Value type: <u32>
 	Definition: Negative current limit (in mA). Supported values are
 		    170, 300, 420, 550.
 
-qcom,enable-short-circuit
+- qcom,enable-short-circuit
 	Usage:      optional
 	Value type: <u32>
 	Definition: Short circuit protection enable/disable.
 			1 = enable short circuit protection
 			0 = disable short circuit protection
 
-qcom,short-circuit-dbnc-time
+- qcom,short-circuit-dbnc-time
 	usage:      optional
 	Value type: <u32>
 	Definitioan: Short circuit debounce time (in Fsw). Supported
@@ -126,26 +140,26 @@ qcom,short-circuit-dbnc-time
 Fast precharge properties:
 -------------------------
 
-qcom,fast-precharge-ppulse-enable
+- qcom,fast-precharge-ppulse-enable
 	usage:      optional
 	Value type: <u32>
 	Definitioan: Fast precharge pfet pulsing enable/disable.
 			1 = enable fast precharge pfet pulsing
 			0 = disable fast precharge pfet pulsing
 
-qcom,precharge-debounce-time-ms
+- qcom,precharge-debounce-time-ms
 	usage:      optional
 	Value type: <u32>
 	Definitioan: Fast precharge debounce time (in ms). Supported
 		     values are 1, 2, 4, 8.
 
-qcom,precharge-pulse-period-us
+- qcom,precharge-pulse-period-us
 	usage:      optional
 	Value type: <u32>
 	Definitioan: Fast precharge pulse period (in us). Supported
 		     values are 3, 6, 9, 12.
 
-qcom,precharge-pulse-on-time-us
+- qcom,precharge-pulse-on-time-us
 	usage:      optional
 	Value type: <u32>
 	Definitioan: Fast precharge pulse on time (in ns). Supported
@@ -154,20 +168,20 @@ qcom,precharge-pulse-on-time-us
 Pulse Skip Modulation (PSM) properties:
 --------------------------------------
 
-qcom,psm-enable
+- qcom,psm-enable
 	Usage:      optional
 	Value type: <u32>
 	Definition: Pulse Skip Modulation mode.
 		    1 - Enable PSM mode
 		    0 - Disable PSM mode
 
-qcom,psm-hys-mv
+- qcom,psm-hys-mv
 	Usage:      optional
 	Value type: <u32>
 	Definition: PSM hysterysis voltage (in mV).
 		    Supported values are 13mV and 26mV.
 
-qcom,psm-vref-mv
+- qcom,psm-vref-mv
 	Usage:      optional
 	Value type: <u32>
 	Definition: Reference voltage(in mV) control for PSM comparator.
@@ -177,26 +191,26 @@ qcom,psm-vref-mv
 Pulse Frequency Modulation (PFM) properties:
 -------------------------------------------
 
-qcom,pfm-enable
+- qcom,pfm-enable
 	Usage:      optional
 	Value type: <u32>
 	Definition: Pulse Frequency Modulation mode.
 		    1 - Enable PFM mode
 		    0 - Disable PFM mode
 
-qcom,pfm-hys-mv
+- qcom,pfm-hys-mv
 	Usage:      optional
 	Value type: <u32>
 	Definition: PFM hysterysis voltage (in mV).
 		    Supported values are 13mV and 26mV.
 
-qcom,pfm-curr-limit-ma
+- qcom,pfm-curr-limit-ma
 	Usage:      optional
 	Value type: <u32>
 	Definition: PFM current limit (in mA).
 		    Supported values are 130, 200, 270, 340.
 
-qcom,pfm-off-time-ns
+- qcom,pfm-off-time-ns
 	Usage:      optional
 	Value type: <u32>
 	Definition: NFET off time at PFM (in ns).
