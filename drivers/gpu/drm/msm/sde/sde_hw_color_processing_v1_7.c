@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -100,6 +100,14 @@
 
 #define SSPP	0
 #define DSPP	1
+
+#define PGC_C0_OFF 0x4
+#define PGC_C0_INDEX_OFF 0x8
+#define PGC_8B_ROUND_EN BIT(1)
+#define PGC_EN BIT(0)
+#define PGC_TBL_NUM 3
+#define PGC_LUT_SWAP_OFF 0x1c
+
 
 static void __setup_pa_hue(struct sde_hw_blk_reg_map *hw,
 			const struct sde_pp_blk *blk, uint32_t hue,
@@ -450,4 +458,50 @@ void sde_setup_dspp_pa_vlut_v1_7(struct sde_hw_dspp *ctx, void *cfg)
 	SDE_REG_WRITE(&ctx->hw, (base + PA_LUT_SWAP_OFF), 1);
 	op_mode |= DSPP_OP_PA_EN | DSPP_OP_PA_LUTV_EN;
 	SDE_REG_WRITE(&ctx->hw, base, op_mode);
+}
+
+void sde_setup_dspp_gc_v1_7(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct drm_msm_pgc_lut *payload = NULL;
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	u32 c0_off, c1_off, c2_off, i;
+
+	if (!hw_cfg || (hw_cfg->payload && hw_cfg->len !=
+			sizeof(struct drm_msm_pgc_lut))) {
+		DRM_ERROR("hw %pK payload %pK payloadsize %d exp size %zd\n",
+			  hw_cfg, ((hw_cfg) ? hw_cfg->payload : NULL),
+			  ((hw_cfg) ? hw_cfg->len : 0),
+			  sizeof(struct drm_msm_pgc_lut));
+		return;
+	}
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("Disable pgc feature\n");
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->gc.base, 0);
+		return;
+	}
+	payload = hw_cfg->payload;
+
+	/* Initialize index offsets */
+	c0_off = ctx->cap->sblk->gc.base + PGC_C0_INDEX_OFF;
+	c1_off = c0_off + (sizeof(u32) * 2);
+	c2_off = c1_off + (sizeof(u32) * 2);
+	SDE_REG_WRITE(&ctx->hw, c0_off, 0);
+	SDE_REG_WRITE(&ctx->hw, c1_off, 0);
+	SDE_REG_WRITE(&ctx->hw, c2_off, 0);
+
+	/* Initialize table offsets */
+	c0_off = ctx->cap->sblk->gc.base + PGC_C0_OFF;
+	c1_off = c0_off + (sizeof(u32) * 2);
+	c2_off = c1_off + (sizeof(u32) * 2);
+
+	for (i = 0; i < PGC_TBL_LEN; i++) {
+		SDE_REG_WRITE(&ctx->hw, c0_off, payload->c0[i]);
+		SDE_REG_WRITE(&ctx->hw, c1_off, payload->c1[i]);
+		SDE_REG_WRITE(&ctx->hw, c2_off, payload->c2[i]);
+	}
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->gc.base + PGC_LUT_SWAP_OFF,
+			BIT(0));
+	i = BIT(0) | ((payload->flags & PGC_8B_ROUND) ? BIT(1) : 0);
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->gc.base, i);
 }

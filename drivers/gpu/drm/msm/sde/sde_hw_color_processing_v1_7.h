@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,5 +74,12 @@ void sde_setup_dspp_pa_hue_v1_7(struct sde_hw_dspp *ctx, void *cfg);
  * @cfg: Pointer to vLUT data
  */
 void sde_setup_dspp_pa_vlut_v1_7(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * sde_setup_dspp_gc_v1_7 - setup DSPP gc feature in v1.7 hardware
+ * @ctx: Pointer to DSPP context
+ * @cfg: Pointer to gc data
+ */
+void sde_setup_dspp_gc_v1_7(struct sde_hw_dspp *ctx, void *cfg);
 
 #endif
