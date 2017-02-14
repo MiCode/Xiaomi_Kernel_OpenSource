@@ -422,6 +422,7 @@ header-y += sonet.h
 header-y += sonypi.h
 header-y += soundcard.h
 header-y += sound.h
+header-y += spcom.h
 header-y += stat.h
 header-y += stddef.h
 header-y += string.h

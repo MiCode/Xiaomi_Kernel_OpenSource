@@ -302,6 +302,19 @@ config MSM_GLINK_SPI_XPRT
 	  allows for G-Link communication with remote subsystems that are
 	  external to the System-on-Chip.
 
+config MSM_SPCOM
+	depends on MSM_GLINK
+	bool "Secure Processor Communication over GLINK"
+	help
+	  spcom driver allows loading Secure Processor Applications and
+	  sending messages to Secure Processor Applications.
+	  spcom provides interface to both user space app and kernel driver.
+	  It is using glink as the transport layer, which provides multiple
+	  logical channels over single physical channel.
+	  The physical layer is based on shared memory and interrupts.
+	  spcom provides clients/server API, although currently only one client
+	  or server is allowed per logical channel.
+
 config TRACER_PKT
 	bool "Tracer Packet"
 	help
