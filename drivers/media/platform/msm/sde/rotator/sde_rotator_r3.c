@@ -1860,6 +1860,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	u32 danger_lut = 0;	/* applicable for realtime client only */
 	u32 safe_lut = 0;	/* applicable for realtime client only */
 	u32 flags = 0;
+	u32 rststs = 0;
 	struct sde_rotation_item *item;
 	int ret;
 
@@ -1931,10 +1932,46 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 
 	SDEROT_EVTLOG(ctx->start_ctrl, ctx->sys_cache_mode, ctx->op_mode);
 
+	/*
+	 * if Rotator HW is reset, but missing PM event notification, we
+	 * need to init the SW timestamp automatically.
+	 */
+	rststs = SDE_ROTREG_READ(rot->mdss_base, REGDMA_RESET_STATUS_REG);
+	if (!rot->reset_hw_ts && rststs) {
+		u32 l_ts, h_ts, swts;
+
+		swts = SDE_ROTREG_READ(rot->mdss_base, REGDMA_TIMESTAMP_REG);
+		h_ts = atomic_read(&rot->timestamp[ROT_QUEUE_HIGH_PRIORITY]);
+		l_ts = atomic_read(&rot->timestamp[ROT_QUEUE_LOW_PRIORITY]);
+		SDEROT_EVTLOG(0xbad0, rststs, swts, h_ts, l_ts);
+
+		if (ctx->q_id == ROT_QUEUE_HIGH_PRIORITY)
+			h_ts = (h_ts - 1) & SDE_REGDMA_SWTS_MASK;
+		else
+			l_ts = (l_ts - 1) & SDE_REGDMA_SWTS_MASK;
+
+		/* construct the combined timstamp */
+		swts = (h_ts & SDE_REGDMA_SWTS_MASK) |
+			((l_ts & SDE_REGDMA_SWTS_MASK) <<
+			 SDE_REGDMA_SWTS_SHIFT);
+
+		SDEROT_DBG("swts:0x%x, h_ts:0x%x, l_ts;0x%x\n",
+				swts, h_ts, l_ts);
+		SDEROT_EVTLOG(0x900d, swts, h_ts, l_ts);
+		rot->last_hw_ts = swts;
+
+		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG,
+				rot->last_hw_ts);
+		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_RESET_STATUS_REG, 0);
+		/* ensure write is issued to the rotator HW */
+		wmb();
+	}
+
 	if (rot->reset_hw_ts) {
 		SDEROT_EVTLOG(rot->last_hw_ts);
 		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG,
 				rot->last_hw_ts);
+		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_RESET_STATUS_REG, 0);
 		/* ensure write is issued to the rotator HW */
 		wmb();
 		rot->reset_hw_ts = false;
