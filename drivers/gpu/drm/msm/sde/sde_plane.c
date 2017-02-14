@@ -1825,11 +1825,11 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 					0, ~0, 0, PLANE_PROP_SCALER_V1);
 		}
 
-		if (psde->features & BIT(SDE_SSPP_CSC)) {
+		if (psde->features & BIT(SDE_SSPP_CSC) ||
+		    psde->features & BIT(SDE_SSPP_CSC_10BIT))
 			msm_property_install_volatile_range(
 					&psde->property_info, "csc_v1", 0x0,
 					0, ~0, 0, PLANE_PROP_CSC_V1);
-		}
 
 		if (psde->features & BIT(SDE_SSPP_HSIC)) {
 			snprintf(feature_name, sizeof(feature_name), "%s%d",
