@@ -177,23 +177,22 @@ void mdss_dp_mainlink_ctrl(struct dss_io_data *ctrl_io, bool enable)
 	writel_relaxed(mainlink_ctrl, ctrl_io->base + DP_MAINLINK_CTRL);
 }
 
-int mdss_dp_mainlink_ready(struct mdss_dp_drv_pdata *dp, u32 which)
+bool mdss_dp_mainlink_ready(struct mdss_dp_drv_pdata *dp)
 {
 	u32 data;
 	int cnt = 10;
+	int const mainlink_ready_bit = BIT(0);
 
 	while (--cnt) {
 		/* DP_MAINLINK_READY */
 		data = readl_relaxed(dp->base + DP_MAINLINK_READY);
-		if (data & which) {
-			pr_debug("which=%x ready\n", which);
-			return 1;
-		}
+		if (data & mainlink_ready_bit)
+			return true;
 		udelay(1000);
 	}
-	pr_err("which=%x NOT ready\n", which);
+	pr_err("mainlink not ready\n");
 
-	return 0;
+	return false;
 }
 
 /* DP Configuration controller*/
