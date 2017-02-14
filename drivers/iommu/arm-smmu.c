@@ -3628,6 +3628,14 @@ static int arm_smmu_of_iommu_configure_fixup(struct device *dev, void *data)
 	return 0;
 }
 
+static int arm_smmu_add_device_fixup(struct device *dev, void *data)
+{
+	struct iommu_ops *ops = data;
+
+	ops->add_device(dev);
+	return 0;
+}
+
 static int qsmmuv500_tbu_register(struct device *dev, void *data);
 static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 {
@@ -3767,6 +3775,9 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	/* Oh, for a proper bus abstraction */
 	if (!iommu_present(&platform_bus_type))
 		bus_set_iommu(&platform_bus_type, &arm_smmu_ops);
+	else
+		bus_for_each_dev(&platform_bus_type, NULL, &arm_smmu_ops,
+				 arm_smmu_add_device_fixup);
 #ifdef CONFIG_ARM_AMBA
 	if (!iommu_present(&amba_bustype))
 		bus_set_iommu(&amba_bustype, &arm_smmu_ops);
