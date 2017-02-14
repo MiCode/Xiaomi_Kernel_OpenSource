@@ -439,6 +439,8 @@ struct arm_smmu_device {
 	u32				num_context_irqs;
 	unsigned int			*irqs;
 
+	struct list_head		list;
+
 	u32				cavium_id_base; /* Specific to Cavium */
 	/* Specific to QCOM */
 	struct arm_smmu_impl_def_reg	*impl_def_attach_registers;
@@ -511,6 +513,9 @@ struct arm_smmu_domain {
 	struct list_head		secure_pool_list;
 	struct iommu_domain		domain;
 };
+
+static DEFINE_SPINLOCK(arm_smmu_devices_lock);
+static LIST_HEAD(arm_smmu_devices);
 
 struct arm_smmu_option_prop {
 	u32 opt;
@@ -2341,6 +2346,22 @@ static bool arm_smmu_capable(enum iommu_cap cap)
 	}
 }
 
+static struct arm_smmu_device *arm_smmu_get_by_list(struct device_node *np)
+{
+	struct arm_smmu_device *smmu;
+	unsigned long flags;
+
+	spin_lock_irqsave(&arm_smmu_devices_lock, flags);
+	list_for_each_entry(smmu, &arm_smmu_devices, list) {
+		if (smmu->dev->of_node == np) {
+			spin_unlock_irqrestore(&arm_smmu_devices_lock, flags);
+			return smmu;
+		}
+	}
+	spin_unlock_irqrestore(&arm_smmu_devices_lock, flags);
+	return NULL;
+}
+
 static int arm_smmu_match_node(struct device *dev, void *data)
 {
 	return dev->of_node == data;
@@ -2351,7 +2372,7 @@ static struct arm_smmu_device *arm_smmu_get_by_node(struct device_node *np)
 	struct device *dev = driver_find_device(&arm_smmu_driver.driver, NULL,
 						np, arm_smmu_match_node);
 	put_device(dev);
-	return dev ? dev_get_drvdata(dev) : NULL;
+	return dev ? dev_get_drvdata(dev) : arm_smmu_get_by_list(np);
 }
 
 static int arm_smmu_add_device(struct device *dev)
@@ -3733,6 +3754,11 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, smmu);
 	arm_smmu_device_reset(smmu);
 	arm_smmu_power_off(smmu->pwr);
+
+	INIT_LIST_HEAD(&smmu->list);
+	spin_lock(&arm_smmu_devices_lock);
+	list_add(&smmu->list, &arm_smmu_devices);
+	spin_unlock(&arm_smmu_devices_lock);
 
 	/* bus_set_iommu depends on this. */
 	bus_for_each_dev(&platform_bus_type, NULL, NULL,
