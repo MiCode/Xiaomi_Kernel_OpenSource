@@ -87,6 +87,11 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 				&pwr_log_fops);
 }
 
+void kgsl_device_debugfs_close(struct kgsl_device *device)
+{
+	debugfs_remove_recursive(device->d_debugfs);
+}
+
 struct type_entry {
 	int type;
 	const char *str;
