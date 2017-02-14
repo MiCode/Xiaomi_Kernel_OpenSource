@@ -155,7 +155,7 @@ static int smb138x_parse_dt(struct smb138x *chip)
 
 	rc = of_property_read_u32(node,
 				"qcom,connector-temp-max-mdegc",
-				&chip->dt.chg_temp_max_mdegc);
+				&chip->dt.connector_temp_max_mdegc);
 	if (rc < 0)
 		chip->dt.connector_temp_max_mdegc = 105000;
 
