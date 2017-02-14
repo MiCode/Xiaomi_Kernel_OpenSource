@@ -30,16 +30,6 @@ config SND_SOC_QDSP_DEBUG
 	 is inducing kernel panic upon encountering critical
 	 errors from DSP audio modules
 
-config DOLBY_DAP
-	bool "Enable Dolby DAP"
-	depends on SND_SOC_MSM_QDSP6V2_INTF
-	help
-	 To add support for dolby DAP post processing.
-	 This support is to configure the post processing parameters
-	 to DSP. The configuration includes sending the end point
-	 device, end point dependent post processing parameters and
-	 the various posrt processing parameters
-
 config DOLBY_DS2
 	bool "Enable Dolby DS2"
 	depends on SND_SOC_MSM_QDSP6V2_INTF
