@@ -110,7 +110,9 @@ struct hdmi_platform_config {
 	int pwr_clk_cnt;
 
 	/* gpio's: */
-	int ddc_clk_gpio, ddc_data_gpio, hpd_gpio, mux_en_gpio, mux_sel_gpio;
+	int ddc_clk_gpio, ddc_data_gpio;
+	int hpd_gpio, mux_en_gpio;
+	int mux_sel_gpio, hpd5v_gpio;
 	int mux_lpm_gpio;
 };
 
