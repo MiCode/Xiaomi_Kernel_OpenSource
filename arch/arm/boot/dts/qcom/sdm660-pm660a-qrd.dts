@@ -44,7 +44,6 @@
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	lab-supply = <&lab_regulator>;
 	ibb-supply = <&ibb_regulator>;
-	vdda-3p3-supply = <&pm660l_l6>;
 	qcom,platform-reset-gpio = <&tlmm 53 0>;
 	qcom,platform-te-gpio = <&tlmm 59 0>;
 };
