@@ -12,12 +12,12 @@
  *
  */
 
-#include "phy-qcom-ufs-qrbtc-msmskunk.h"
+#include "phy-qcom-ufs-qrbtc-sdm845.h"
 
-#define UFS_PHY_NAME "ufs_phy_qrbtc_msmskunk"
+#define UFS_PHY_NAME "ufs_phy_qrbtc_sdm845"
 
 static
-int ufs_qcom_phy_qrbtc_msmskunk_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
+int ufs_qcom_phy_qrbtc_sdm845_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 					bool is_rate_B)
 {
 	int err;
@@ -44,7 +44,7 @@ int ufs_qcom_phy_qrbtc_msmskunk_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 }
 
 static int
-ufs_qcom_phy_qrbtc_msmskunk_is_pcs_ready(struct ufs_qcom_phy *phy_common)
+ufs_qcom_phy_qrbtc_sdm845_is_pcs_ready(struct ufs_qcom_phy *phy_common)
 {
 	int err = 0;
 	u32 val;
@@ -68,7 +68,7 @@ ufs_qcom_phy_qrbtc_msmskunk_is_pcs_ready(struct ufs_qcom_phy *phy_common)
 	return err;
 }
 
-static void ufs_qcom_phy_qrbtc_msmskunk_start_serdes(struct ufs_qcom_phy *phy)
+static void ufs_qcom_phy_qrbtc_sdm845_start_serdes(struct ufs_qcom_phy *phy)
 {
 	u32 temp;
 
@@ -82,34 +82,34 @@ static void ufs_qcom_phy_qrbtc_msmskunk_start_serdes(struct ufs_qcom_phy *phy)
 	mb();
 }
 
-static int ufs_qcom_phy_qrbtc_msmskunk_init(struct phy *generic_phy)
+static int ufs_qcom_phy_qrbtc_sdm845_init(struct phy *generic_phy)
 {
 	return 0;
 }
 
-static int ufs_qcom_phy_qrbtc_msmskunk_exit(struct phy *generic_phy)
+static int ufs_qcom_phy_qrbtc_sdm845_exit(struct phy *generic_phy)
 {
 	return 0;
 }
 
-struct phy_ops ufs_qcom_phy_qrbtc_msmskunk_phy_ops = {
-	.init		= ufs_qcom_phy_qrbtc_msmskunk_init,
-	.exit		= ufs_qcom_phy_qrbtc_msmskunk_exit,
+struct phy_ops ufs_qcom_phy_qrbtc_sdm845_phy_ops = {
+	.init		= ufs_qcom_phy_qrbtc_sdm845_init,
+	.exit		= ufs_qcom_phy_qrbtc_sdm845_exit,
 	.owner		= THIS_MODULE,
 };
 
-struct ufs_qcom_phy_specific_ops phy_qrbtc_msmskunk_ops = {
-	.calibrate_phy		= ufs_qcom_phy_qrbtc_msmskunk_phy_calibrate,
-	.start_serdes		= ufs_qcom_phy_qrbtc_msmskunk_start_serdes,
+struct ufs_qcom_phy_specific_ops phy_qrbtc_sdm845_ops = {
+	.calibrate_phy		= ufs_qcom_phy_qrbtc_sdm845_phy_calibrate,
+	.start_serdes		= ufs_qcom_phy_qrbtc_sdm845_start_serdes,
 	.is_physical_coding_sublayer_ready =
-				ufs_qcom_phy_qrbtc_msmskunk_is_pcs_ready,
+				ufs_qcom_phy_qrbtc_sdm845_is_pcs_ready,
 };
 
-static int ufs_qcom_phy_qrbtc_msmskunk_probe(struct platform_device *pdev)
+static int ufs_qcom_phy_qrbtc_sdm845_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct phy *generic_phy;
-	struct ufs_qcom_phy_qrbtc_msmskunk *phy;
+	struct ufs_qcom_phy_qrbtc_sdm845 *phy;
 	int err = 0;
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
@@ -119,7 +119,7 @@ static int ufs_qcom_phy_qrbtc_msmskunk_probe(struct platform_device *pdev)
 	}
 
 	generic_phy = ufs_qcom_phy_generic_probe(pdev, &phy->common_cfg,
-		&ufs_qcom_phy_qrbtc_msmskunk_phy_ops, &phy_qrbtc_msmskunk_ops);
+		&ufs_qcom_phy_qrbtc_sdm845_phy_ops, &phy_qrbtc_sdm845_ops);
 
 	if (!generic_phy) {
 		dev_err(dev, "%s: ufs_qcom_phy_generic_probe() failed\n",
@@ -137,22 +137,22 @@ out:
 	return err;
 }
 
-static const struct of_device_id ufs_qcom_phy_qrbtc_msmskunk_of_match[] = {
-	{.compatible = "qcom,ufs-phy-qrbtc-msmskunk"},
+static const struct of_device_id ufs_qcom_phy_qrbtc_sdm845_of_match[] = {
+	{.compatible = "qcom,ufs-phy-qrbtc-sdm845"},
 	{},
 };
-MODULE_DEVICE_TABLE(of, ufs_qcom_phy_qrbtc_msmskunk_of_match);
+MODULE_DEVICE_TABLE(of, ufs_qcom_phy_qrbtc_sdm845_of_match);
 
-static struct platform_driver ufs_qcom_phy_qrbtc_msmskunk_driver = {
-	.probe = ufs_qcom_phy_qrbtc_msmskunk_probe,
+static struct platform_driver ufs_qcom_phy_qrbtc_sdm845_driver = {
+	.probe = ufs_qcom_phy_qrbtc_sdm845_probe,
 	.driver = {
-		.of_match_table = ufs_qcom_phy_qrbtc_msmskunk_of_match,
-		.name = "ufs_qcom_phy_qrbtc_msmskunk",
+		.of_match_table = ufs_qcom_phy_qrbtc_sdm845_of_match,
+		.name = "ufs_qcom_phy_qrbtc_sdm845",
 		.owner = THIS_MODULE,
 	},
 };
 
-module_platform_driver(ufs_qcom_phy_qrbtc_msmskunk_driver);
+module_platform_driver(ufs_qcom_phy_qrbtc_sdm845_driver);
 
-MODULE_DESCRIPTION("Universal Flash Storage (UFS) QCOM PHY QRBTC MSMSKUNK");
+MODULE_DESCRIPTION("Universal Flash Storage (UFS) QCOM PHY QRBTC SDM845");
 MODULE_LICENSE("GPL v2");

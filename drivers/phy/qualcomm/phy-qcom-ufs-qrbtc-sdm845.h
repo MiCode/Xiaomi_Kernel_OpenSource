@@ -12,8 +12,8 @@
  *
  */
 
-#ifndef UFS_QCOM_PHY_QRBTC_MSMSKUNK_H_
-#define UFS_QCOM_PHY_QRBTC_MSMSKUNK_H_
+#ifndef UFS_QCOM_PHY_QRBTC_SDM845_H_
+#define UFS_QCOM_PHY_QRBTC_SDM845_H_
 
 #include "phy-qcom-ufs-i.h"
 
@@ -50,6 +50,9 @@
 #define QSERDES_COM_PLL_CLKEPDIV		COM_OFF(0xB0)
 #define QSERDES_COM_RESET_SM			COM_OFF(0xBC)
 
+/* TX LANE n (0, 1) registers */
+#define QSERDES_TX_CLKBUF_ENABLE(n)		TX_OFF(n, 0x4)
+
 /* RX LANE n (0, 1) registers */
 #define QSERDES_RX_CDR_CONTROL(n)		RX_OFF(n, 0x0)
 #define QSERDES_RX_RX_IQ_RXDET_EN(n)		RX_OFF(n, 0x28)
@@ -69,6 +72,7 @@
 #define UFS_PHY_TIMER_20US_CORECLK_STEPS_MSB	PHY_OFF(0x08)
 #define UFS_PHY_TIMER_20US_CORECLK_STEPS_LSB	PHY_OFF(0x0C)
 #define UFS_PHY_RX_SYM_RESYNC_CTRL		PHY_OFF(0x134)
+#define UFS_PHY_MULTI_LANE_CTRL1		PHY_OFF(0x1C4)
 
 /* QRBTC V2 USER REGISTERS */
 #define U11_UFS_RESET_REG_OFFSET		PHY_USR(0x4)
@@ -93,6 +97,11 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_RESETSM_CNTRL, 0x10),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_PLL_RXTXEPCLK_EN, 0x13),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_PLL_CRCTRL, 0x43),
+
+	/* QSERDES TX */
+	/* Enable large amplitude setting */
+	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_TX_CLKBUF_ENABLE(0), 0x29),
+	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_TX_CLKBUF_ENABLE(1), 0x29),
 
 	/* QSERDES RX0 */
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_RX_PWM_CNTRL1(0), 0x08),
@@ -134,6 +143,8 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_PLL_CP_SETI, 0x0F),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_PLL_IP_SETP, 0x07),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_PLL_CP_SETP, 0x01),
+
+	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_MULTI_LANE_CTRL1, 0x02),
 };
 
 static struct ufs_qcom_phy_calibration phy_cal_table_rate_B[] = {
@@ -155,14 +166,14 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_B[] = {
 
 
 /*
- * This structure represents the qrbtc-msmskunk specific phy.
+ * This structure represents the qrbtc-sdm845 specific phy.
  * common_cfg MUST remain the first field in this structure
  * in case extra fields are added. This way, when calling
  * get_ufs_qcom_phy() of generic phy, we can extract the
  * common phy structure (struct ufs_qcom_phy) out of it
  * regardless of the relevant specific phy.
  */
-struct ufs_qcom_phy_qrbtc_msmskunk {
+struct ufs_qcom_phy_qrbtc_sdm845 {
 	struct ufs_qcom_phy common_cfg;
 };
 
