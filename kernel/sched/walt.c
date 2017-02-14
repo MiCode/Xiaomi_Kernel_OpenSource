@@ -22,6 +22,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/cpufreq.h>
 #include <linux/list_sort.h>
+#include <linux/jiffies.h>
 #include <trace/events/sched.h>
 #include "sched.h"
 #include "walt.h"
@@ -74,6 +75,65 @@ static int __init sched_init_ops(void)
 	return 0;
 }
 late_initcall(sched_init_ops);
+
+static void acquire_rq_locks_irqsave(const cpumask_t *cpus,
+				     unsigned long *flags)
+{
+	int cpu;
+
+	local_irq_save(*flags);
+	for_each_cpu(cpu, cpus)
+		raw_spin_lock(&cpu_rq(cpu)->lock);
+}
+
+static void release_rq_locks_irqrestore(const cpumask_t *cpus,
+					unsigned long *flags)
+{
+	int cpu;
+
+	for_each_cpu(cpu, cpus)
+		raw_spin_unlock(&cpu_rq(cpu)->lock);
+	local_irq_restore(*flags);
+}
+
+struct timer_list sched_grp_timer;
+static void sched_agg_grp_load(unsigned long data)
+{
+	struct sched_cluster *cluster;
+	unsigned long flags;
+	int cpu;
+
+	acquire_rq_locks_irqsave(cpu_possible_mask, &flags);
+
+	for_each_sched_cluster(cluster) {
+		u64 aggr_grp_load = 0;
+
+		for_each_cpu(cpu, &cluster->cpus) {
+			struct rq *rq = cpu_rq(cpu);
+
+			if (rq->curr)
+				update_task_ravg(rq->curr, rq, TASK_UPDATE,
+						sched_ktime_clock(), 0);
+			aggr_grp_load +=
+				rq->grp_time.prev_runnable_sum;
+		}
+
+		cluster->aggr_grp_load = aggr_grp_load;
+	}
+
+	release_rq_locks_irqrestore(cpu_possible_mask, &flags);
+
+	if (sched_boost() == RESTRAINED_BOOST)
+		mod_timer(&sched_grp_timer, jiffies + 1);
+}
+
+static int __init setup_sched_grp_timer(void)
+{
+	init_timer_deferrable(&sched_grp_timer);
+	sched_grp_timer.function = sched_agg_grp_load;
+	return 0;
+}
+late_initcall(setup_sched_grp_timer);
 
 /* 1 -> use PELT based load stats, 0 -> use window-based load stats */
 unsigned int __read_mostly walt_disabled = 0;
@@ -193,9 +253,6 @@ void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
 /*
  * Demand aggregation for frequency purpose:
  *
- * 'sched_freq_aggregate' controls aggregation of cpu demand of related threads
- * for frequency determination purpose. This aggregation is done per-cluster.
- *
  * CPU demand of tasks from various related groups is aggregated per-cluster and
  * added to the "max_busy_cpu" in that cluster, where max_busy_cpu is determined
  * by just rq->prev_runnable_sum.
@@ -236,7 +293,7 @@ void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
  *	C1 busy time = 5 + 5 + 6 = 16ms
  *
  */
-__read_mostly unsigned int sched_freq_aggregate = 1;
+__read_mostly int sched_freq_aggregate_threshold;
 
 static void
 update_window_start(struct rq *rq, u64 wallclock, int event)
@@ -401,9 +458,17 @@ static u32  top_task_load(struct rq *rq)
 	}
 }
 
-u64 freq_policy_load(struct rq *rq, u64 load)
+u64 freq_policy_load(struct rq *rq)
 {
 	unsigned int reporting_policy = sysctl_sched_freq_reporting_policy;
+	struct sched_cluster *cluster = rq->cluster;
+	u64 aggr_grp_load = cluster->aggr_grp_load;
+	u64 load;
+
+	if (aggr_grp_load > sched_freq_aggregate_threshold)
+		load = rq->prev_runnable_sum + aggr_grp_load;
+	else
+		load = rq->prev_runnable_sum + rq->grp_time.prev_runnable_sum;
 
 	switch (reporting_policy) {
 	case FREQ_REPORT_MAX_CPU_LOAD_TOP_TASK:
@@ -716,7 +781,7 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	 * even for intra cluster migrations. This is because, the aggregated
 	 * load has to reported on a single CPU regardless.
 	 */
-	if (grp && sched_freq_aggregate) {
+	if (grp) {
 		struct group_cpu_time *cpu_time;
 
 		cpu_time = &src_rq->grp_time;
@@ -1273,7 +1338,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		goto done;
 
 	grp = p->grp;
-	if (grp && sched_freq_aggregate) {
+	if (grp) {
 		struct group_cpu_time *cpu_time = &rq->grp_time;
 
 		curr_runnable_sum = &cpu_time->curr_runnable_sum;
@@ -1797,8 +1862,7 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 	update_task_pred_demand(rq, p, event);
 done:
 	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
-				     rq->cc.cycles, rq->cc.time,
-				     p->grp ? &rq->grp_time : NULL);
+				rq->cc.cycles, rq->cc.time, &rq->grp_time);
 	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
 				rq->cc.cycles, rq->cc.time, &rq->grp_time);
 
@@ -1988,26 +2052,6 @@ static int compute_max_possible_capacity(struct sched_cluster *cluster)
 	return capacity;
 }
 
-static void acquire_rq_locks_irqsave(const cpumask_t *cpus,
-				     unsigned long *flags)
-{
-	int cpu;
-
-	local_irq_save(*flags);
-	for_each_cpu(cpu, cpus)
-		raw_spin_lock(&cpu_rq(cpu)->lock);
-}
-
-static void release_rq_locks_irqrestore(const cpumask_t *cpus,
-					unsigned long *flags)
-{
-	int cpu;
-
-	for_each_cpu(cpu, cpus)
-		raw_spin_unlock(&cpu_rq(cpu)->lock);
-	local_irq_restore(*flags);
-}
-
 static void update_min_max_capacity(void)
 {
 	unsigned long flags;
@@ -2154,6 +2198,7 @@ struct sched_cluster init_cluster = {
 	.exec_scale_factor	=	1024,
 	.notifier_sent		=	0,
 	.wake_up_idle		=	0,
+	.aggr_grp_load		=	0,
 };
 
 void init_clusters(void)
@@ -2263,7 +2308,6 @@ static LIST_HEAD(active_related_thread_groups);
 DEFINE_RWLOCK(related_thread_group_lock);
 
 unsigned int __read_mostly sysctl_sched_freq_aggregate_threshold_pct;
-int __read_mostly sched_freq_aggregate_threshold;
 
 /*
  * Task groups whose aggregate demand on a cpu is more than
@@ -2787,9 +2831,6 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	int cpu = cpu_of(rq);
 	bool new_task;
 	int i;
-
-	if (!sched_freq_aggregate)
-		return;
 
 	wallclock = sched_ktime_clock();
 

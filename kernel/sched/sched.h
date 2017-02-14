@@ -79,9 +79,12 @@ struct sched_cluster {
 	unsigned int static_cluster_pwr_cost;
 	int notifier_sent;
 	bool wake_up_idle;
+	u64 aggr_grp_load;
 };
 
 extern unsigned int sched_disable_window_stats;
+
+extern struct timer_list sched_grp_timer;
 #endif /* CONFIG_SCHED_WALT */
 
 
@@ -1787,7 +1790,7 @@ static inline unsigned long cpu_util_cum(int cpu, int delta)
 }
 
 #ifdef CONFIG_SCHED_WALT
-u64 freq_policy_load(struct rq *rq, u64 load);
+u64 freq_policy_load(struct rq *rq);
 #endif
 
 static inline unsigned long
@@ -1799,9 +1802,7 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 
 #ifdef CONFIG_SCHED_WALT
 	if (!walt_disabled && sysctl_sched_use_walt_cpu_util) {
-		util = rq->prev_runnable_sum +
-		       rq->grp_time.prev_runnable_sum;
-		util = freq_policy_load(rq, util);
+		util = freq_policy_load(rq);
 		util = div64_u64(util,
 				 sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 

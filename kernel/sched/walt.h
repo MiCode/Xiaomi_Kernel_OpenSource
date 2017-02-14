@@ -217,7 +217,6 @@ static inline void clear_top_tasks_table(u8 *table)
 	memset(table, 0, NUM_LOAD_INDICES * sizeof(u8));
 }
 
-extern u64 freq_policy_load(struct rq *rq, u64 load);
 extern void update_cluster_load_subtractions(struct task_struct *p,
 					int cpu, u64 ws, bool new_task);
 extern void sched_account_irqstart(int cpu, struct task_struct *curr,
