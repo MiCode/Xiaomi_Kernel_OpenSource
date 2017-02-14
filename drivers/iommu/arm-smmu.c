@@ -496,6 +496,7 @@ struct arm_smmu_pte_info {
 
 struct arm_smmu_domain {
 	struct arm_smmu_device		*smmu;
+	struct device			*dev;
 	struct io_pgtable_ops		*pgtbl_ops;
 	struct io_pgtable_cfg		pgtbl_cfg;
 	spinlock_t			pgtbl_lock;
@@ -1482,7 +1483,8 @@ static void arm_smmu_free_asid(struct iommu_domain *domain)
 }
 
 static int arm_smmu_init_domain_context(struct iommu_domain *domain,
-					struct arm_smmu_device *smmu)
+					struct arm_smmu_device *smmu,
+					struct device *dev)
 {
 	int irq, start, ret = 0;
 	unsigned long ias, oas;
@@ -1631,6 +1633,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	};
 
 	smmu_domain->smmu = smmu;
+	smmu_domain->dev = dev;
 	pgtbl_ops = alloc_io_pgtable_ops(fmt, &smmu_domain->pgtbl_cfg,
 					smmu_domain);
 	if (!pgtbl_ops) {
@@ -2119,7 +2122,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		return ret;
 
 	/* Ensure that the domain is finalised */
-	ret = arm_smmu_init_domain_context(domain, smmu);
+	ret = arm_smmu_init_domain_context(domain, smmu, dev);
 	if (ret < 0)
 		goto out_power_off;
 
