@@ -791,23 +791,20 @@ void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
 			sof_info->axi_updating_mask |=
 				1 << stream_idx;
 		}
+		/* report frame drop per stream */
+		i = stream_info->bufq_handle[VFE_BUF_QUEUE_DEFAULT] &
+				0xFF;
+		if (vfe_dev->error_info.stream_framedrop_count[i]) {
+			ISP_DBG("%s: get buf failed i %d\n", __func__,
+				i);
+			sof_info->stream_get_buf_fail_mask |= (1 << i);
+			vfe_dev->error_info.
+				stream_framedrop_count[i] = 0;
+		}
 	}
 
 	vfe_dev->reg_updated = 0;
 
-	/* report frame drop per stream */
-	if (vfe_dev->error_info.framedrop_flag) {
-		for (i = 0; i < BUF_MGR_NUM_BUF_Q; i++) {
-			if (vfe_dev->error_info.stream_framedrop_count[i]) {
-				ISP_DBG("%s: get buf failed i %d\n", __func__,
-					i);
-				sof_info->stream_get_buf_fail_mask |= (1 << i);
-				vfe_dev->error_info.
-					stream_framedrop_count[i] = 0;
-			}
-		}
-		vfe_dev->error_info.framedrop_flag = 0;
-	}
 }
 
 void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
@@ -3898,7 +3895,6 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 			vfe_dev->error_info.stream_framedrop_count[
 				stream_info->bufq_handle[
 				VFE_BUF_QUEUE_DEFAULT] & 0xFF]++;
-			vfe_dev->error_info.framedrop_flag = 1;
 		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 		return;
