@@ -151,20 +151,20 @@ config MSM_MMCC_8996
 	  Say Y if you want to support multimedia devices such as display,
 	  graphics, video encode/decode, camera, etc.
 
-config MSM_GCC_SKUNK
-	tristate "MSMSKUNK Global Clock Controller"
+config MSM_GCC_SDM845
+	tristate "SDM845 Global Clock Controller"
 	depends on COMMON_CLK_QCOM
 	help
 	  Support for the global clock controller on Qualcomm Technologies, Inc
-	  MSMskunk devices.
+	  sdm845 devices.
 	  Say Y if you want to use peripheral devices such as UART, SPI,
 	  i2c, USB, UFS, SD/eMMC, PCIe, etc.
 
-config MSM_VIDEOCC_SKUNK
-	tristate "MSMSKUNK Video Clock Controller"
+config MSM_VIDEOCC_SDM845
+	tristate "SDM845 Video Clock Controller"
 	depends on COMMON_CLK_QCOM
 	help
 	  Support for the video clock controller on Qualcomm Technologies, Inc
-	  MSMskunk devices.
+	  sdm845 devices.
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.

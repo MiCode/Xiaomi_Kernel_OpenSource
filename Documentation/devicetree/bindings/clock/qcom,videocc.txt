@@ -2,7 +2,7 @@ Qualcomm Technologies Video Clock & Reset Controller Binding
 ----------------------------------------------------
 
 Required properties :
-- compatible : shall contain "qcom,video_cc-msmskunk"
+- compatible : shall contain "qcom,video_cc-sdm845"
 - reg : shall contain base register location and length
 - reg-names: names of registers listed in the same order as in
 	     the reg property.
@@ -14,7 +14,7 @@ Optional properties :
 
 Example:
 	clock_videocc: qcom,videocc@ab00000 {
-		compatible = "qcom,video_cc-msmskunk";
+		compatible = "qcom,video_cc-sdm845";
 		reg = <0xab00000 0x10000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pmcobalt_s9_level>;

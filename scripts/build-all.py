@@ -61,7 +61,7 @@ def check_kernel():
     """Ensure that PWD is a kernel directory"""
     have_defconfig = any([
         os.path.isfile('arch/arm64/configs/msm_defconfig'),
-        os.path.isfile('arch/arm64/configs/msmskunk_defconfig')])
+        os.path.isfile('arch/arm64/configs/sdm845_defconfig')])
 
     if not all([os.path.isfile('MAINTAINERS'), have_defconfig]):
         fail("This doesn't seem to be an MSM kernel dir")
@@ -305,10 +305,12 @@ def scan_configs():
         r'[fm]sm[0-9]*_defconfig',
         r'apq*_defconfig',
         r'qsd*_defconfig',
-	r'mpq*_defconfig',
+        r'mpq*_defconfig',
+        r'sdm[0-9]*_defconfig',
         )
     arch64_pats = (
-	r'msm*_defconfig',
+        r'msm*_defconfig',
+        r'sdm[0-9]*_defconfig',
         )
     for p in arch_pats:
         for n in glob.glob('arch/arm/configs/' + p):

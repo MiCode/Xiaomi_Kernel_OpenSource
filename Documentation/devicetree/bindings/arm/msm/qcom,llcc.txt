@@ -79,8 +79,8 @@ Example:
 		reg-names = "llcc_base";
 		status = "disabled";
 
-		llcc: qcom,msmskunk-llcc {
-			compatible = "qcom,msmskunk-llcc";
+		llcc: qcom,sdm845-llcc {
+			compatible = "qcom,sdm845-llcc";
 			#cache-cells = <1>;
 			max-slices = <32>;
 		};

@@ -538,11 +538,11 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* falcon ID */
 	[317] = {MSM_CPU_FALCON, "MSMFALCON"},
 
-	/* Skunk ID */
-	[321] = {MSM_CPU_SKUNK, "MSMSKUNK"},
+	/* sdm845 ID */
+	[321] = {MSM_CPU_SDM845, "SDM845"},
 
 	/* Bat ID */
-	[328] = {MSM_CPU_BAT, "SDMBAT"},
+	[328] = {MSM_CPU_SDM830, "SDM830"},
 
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -1221,13 +1221,13 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 319;
 		strlcpy(dummy_socinfo.build_id, "apqcobalt - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msmskunk()) {
+	} else if (early_machine_is_sdm845()) {
 		dummy_socinfo.id = 321;
-		strlcpy(dummy_socinfo.build_id, "msmskunk - ",
+		strlcpy(dummy_socinfo.build_id, "sdm845 - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_sdmbat()) {
+	} else if (early_machine_is_sdm830()) {
 		dummy_socinfo.id = 328;
-		strlcpy(dummy_socinfo.build_id, "sdmbat - ",
+		strlcpy(dummy_socinfo.build_id, "sdm830 - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 

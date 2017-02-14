@@ -35,11 +35,11 @@ config QCOM_LLCC
 	  Level Cache. This provides interfaces to client's that use the LLCC.
 	  Say yes here to enable LLCC slice driver.
 
-config QCOM_MSMSKUNK_LLCC
-	tristate "Qualcomm Technologies, Inc. MSMSKUNK LLCC driver"
+config QCOM_SDM845_LLCC
+	tristate "Qualcomm Technologies, Inc. SDM845 LLCC driver"
 	depends on QCOM_LLCC
 	help
-	  Say yes here to enable the LLCC driver for MSMSKUNK. This is provides
+	  Say yes here to enable the LLCC driver for SDM845. This is provides
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
