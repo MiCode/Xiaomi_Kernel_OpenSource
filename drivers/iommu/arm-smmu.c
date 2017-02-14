@@ -3832,15 +3832,21 @@ static struct platform_driver arm_smmu_driver = {
 	.remove	= arm_smmu_device_remove,
 };
 
+static struct platform_driver qsmmuv500_tbu_driver;
 static int __init arm_smmu_init(void)
 {
 	static bool registered;
 	int ret = 0;
 
-	if (!registered) {
-		ret = platform_driver_register(&arm_smmu_driver);
-		registered = !ret;
-	}
+	if (registered)
+		return 0;
+
+	ret = platform_driver_register(&qsmmuv500_tbu_driver);
+	if (ret)
+		return ret;
+
+	ret = platform_driver_register(&arm_smmu_driver);
+	registered = !ret;
 	return ret;
 }
 
@@ -4123,12 +4129,6 @@ static struct platform_driver qsmmuv500_tbu_driver = {
 	},
 	.probe	= qsmmuv500_tbu_probe,
 };
-
-static int __init qsmmuv500_tbu_init(void)
-{
-	return platform_driver_register(&qsmmuv500_tbu_driver);
-}
-subsys_initcall(qsmmuv500_tbu_init);
 
 MODULE_DESCRIPTION("IOMMU API for ARM architected SMMU implementations");
 MODULE_AUTHOR("Will Deacon <will.deacon@arm.com>");
