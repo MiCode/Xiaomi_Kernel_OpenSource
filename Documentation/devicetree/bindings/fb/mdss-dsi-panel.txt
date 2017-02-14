@@ -516,6 +516,8 @@ Additional properties added to the second level nodes that represent timings pro
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
 
+Note, all the "qcom,supply-*" properties have their definitions in mdss-dsi-txt.
+
 Example:
 &mdss_mdp {
 	dsi_sim_vid: qcom,mdss_dsi_sim_video {
@@ -705,6 +707,7 @@ Example:
 				qcom,supply-max-voltage = <2800000>;
 				qcom,supply-enable-load = <100000>;
 				qcom,supply-disable-load = <100>;
+				qcom,supply-ulp-load = <100>;
 				qcom,supply-pre-on-sleep = <0>;
 				qcom,supply-post-on-sleep = <0>;
 				qcom,supply-pre-off-sleep = <0>;
@@ -718,6 +721,7 @@ Example:
 				qcom,supply-max-voltage = <1800000>;
 				qcom,supply-enable-load = <100000>;
 				qcom,supply-disable-load = <100>;
+				qcom,supply-ulp-load = <100>;
 				qcom,supply-pre-on-sleep = <0>;
 				qcom,supply-post-on-sleep = <0>;
 				qcom,supply-pre-off-sleep = <0>;
