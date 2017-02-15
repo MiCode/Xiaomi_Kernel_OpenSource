@@ -686,7 +686,7 @@ static bool valid_v4l2_buffer(struct v4l2_buffer *b,
 								MAX_PORT_NUM;
 
 	return port != MAX_PORT_NUM &&
-		inst->fmts[port].num_planes == b->length;
+		inst->prop.num_planes[port] == b->length;
 }
 
 int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
@@ -1316,9 +1316,6 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 			dprintk(VIDC_ERR,
 				"Failed to release output buffers\n");
 		}
-
-		if (inst->extradata_handle)
-			msm_comm_smem_free(inst, inst->extradata_handle);
 
 		debugfs_remove_recursive(inst->debugfs_root);
 
