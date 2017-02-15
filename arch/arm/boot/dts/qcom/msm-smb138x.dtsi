@@ -95,18 +95,22 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			interrupt-parent = <&smb138x>;
-			io-channels = <&smb138x_tadc 2>,
-				      <&smb138x_tadc 3>,
-				      <&smb138x_tadc 14>,
-				      <&smb138x_tadc 15>,
-				      <&smb138x_tadc 16>,
-				      <&smb138x_tadc 17>;
-			io-channel-names = "charger_temp",
-					   "batt_i",
-					   "connector_temp_thr1",
-					   "connector_temp_thr2",
-					   "connector_temp_thr3",
-					   "charger_temp_max";
+			io-channels =
+				<&smb138x_tadc 1>,
+				<&smb138x_tadc 2>,
+				<&smb138x_tadc 3>,
+				<&smb138x_tadc 14>,
+				<&smb138x_tadc 15>,
+				<&smb138x_tadc 16>,
+				<&smb138x_tadc 17>;
+			io-channel-names =
+				"connector_temp",
+				"charger_temp",
+				"batt_i",
+				"connector_temp_thr1",
+				"connector_temp_thr2",
+				"connector_temp_thr3",
+				"charger_temp_max";
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
