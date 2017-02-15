@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,7 +75,8 @@ av8l_fast_iova_to_phys_public(struct io_pgtable_ops *ops,
  */
 #define AV8L_FAST_PTE_UNMAPPED_NEED_TLBI 0xa
 
-void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops, bool skip_sync);
+void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops, u64 base, u64 end,
+				bool skip_sync);
 void av8l_register_notify(struct notifier_block *nb);
 
 #else  /* !CONFIG_IOMMU_IO_PGTABLE_FAST_PROVE_TLB */
@@ -83,6 +84,8 @@ void av8l_register_notify(struct notifier_block *nb);
 #define AV8L_FAST_PTE_UNMAPPED_NEED_TLBI 0
 
 static inline void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops,
+					      u64 base,
+					      u64 end,
 					      bool skip_sync)
 {
 }

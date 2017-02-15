@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -173,7 +173,9 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 
 		iommu_tlbiall(mapping->domain);
 		mapping->have_stale_tlbs = false;
-		av8l_fast_clear_stale_ptes(mapping->pgtbl_ops, skip_sync);
+		av8l_fast_clear_stale_ptes(mapping->pgtbl_ops, mapping->base,
+				mapping->base + mapping->size - 1,
+				skip_sync);
 	}
 
 	iova =  (bit << FAST_PAGE_SHIFT) + mapping->base;
@@ -931,6 +933,9 @@ int fast_smmu_init_mapping(struct device *dev,
 		goto release_mapping;
 
 	fast_smmu_reserve_pci_windows(dev, mapping->fast);
+
+	domain->geometry.aperture_start = mapping->base;
+	domain->geometry.aperture_end = mapping->base + size - 1;
 
 	if (iommu_domain_get_attr(domain, DOMAIN_ATTR_PGTBL_INFO,
 				  &info)) {

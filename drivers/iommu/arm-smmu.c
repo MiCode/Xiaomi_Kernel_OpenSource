@@ -2223,6 +2223,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			},
 			.tlb		= tlb_ops,
 			.iommu_dev      = smmu->dev,
+			.iova_base	= domain->geometry.aperture_start,
+			.iova_end	= domain->geometry.aperture_end,
 		};
 		fmt = ARM_MSM_SECURE;
 	} else  {
@@ -2233,6 +2235,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			.oas		= oas,
 			.tlb		= tlb_ops,
 			.iommu_dev	= smmu->dev,
+			.iova_base	= domain->geometry.aperture_start,
+			.iova_end	= domain->geometry.aperture_end,
 		};
 	}
 
@@ -2257,6 +2261,12 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	domain->pgsize_bitmap = smmu_domain->pgtbl_cfg.pgsize_bitmap;
 	domain->geometry.aperture_end = (1UL << ias) - 1;
 	domain->geometry.force_aperture = true;
+	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST)) {
+		domain->geometry.aperture_start =
+			smmu_domain->pgtbl_cfg.iova_base;
+		domain->geometry.aperture_end =
+			smmu_domain->pgtbl_cfg.iova_end;
+	}
 
 	/* Assign an asid */
 	ret = arm_smmu_init_asid(domain, smmu);
