@@ -89,6 +89,7 @@ enum {
 	Opt_active_logs,
 	Opt_disable_ext_identify,
 	Opt_inline_xattr,
+	Opt_noinline_xattr,
 	Opt_inline_data,
 	Opt_inline_dentry,
 	Opt_noinline_dentry,
@@ -120,6 +121,7 @@ static match_table_t f2fs_tokens = {
 	{Opt_active_logs, "active_logs=%u"},
 	{Opt_disable_ext_identify, "disable_ext_identify"},
 	{Opt_inline_xattr, "inline_xattr"},
+	{Opt_noinline_xattr, "noinline_xattr"},
 	{Opt_inline_data, "inline_data"},
 	{Opt_inline_dentry, "inline_dentry"},
 	{Opt_noinline_dentry, "noinline_dentry"},
@@ -440,6 +442,9 @@ static int parse_options(struct super_block *sb, char *options)
 		case Opt_inline_xattr:
 			set_opt(sbi, INLINE_XATTR);
 			break;
+		case Opt_noinline_xattr:
+			clear_opt(sbi, INLINE_XATTR);
+			break;
 #else
 		case Opt_user_xattr:
 			f2fs_msg(sb, KERN_INFO,
@@ -452,6 +457,10 @@ static int parse_options(struct super_block *sb, char *options)
 		case Opt_inline_xattr:
 			f2fs_msg(sb, KERN_INFO,
 				"inline_xattr options not supported");
+			break;
+		case Opt_noinline_xattr:
+			f2fs_msg(sb, KERN_INFO,
+				"noinline_xattr options not supported");
 			break;
 #endif
 #ifdef CONFIG_F2FS_FS_POSIX_ACL
@@ -896,6 +905,8 @@ static int f2fs_show_options(struct seq_file *seq, struct dentry *root)
 		seq_puts(seq, ",nouser_xattr");
 	if (test_opt(sbi, INLINE_XATTR))
 		seq_puts(seq, ",inline_xattr");
+	else
+		seq_puts(seq, ",noinline_xattr");
 #endif
 #ifdef CONFIG_F2FS_FS_POSIX_ACL
 	if (test_opt(sbi, POSIX_ACL))
