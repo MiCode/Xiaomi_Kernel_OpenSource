@@ -14,9 +14,6 @@
 #ifndef _DT_BINDINGS_CLK_MSM_GCC_SDM845_H
 #define _DT_BINDINGS_CLK_MSM_GCC_SDM845_H
 
-/* Hardware/Dummy/Voter clocks */
-#define GCC_XO							0
-
 /* GCC clock registers */
 #define GCC_AGGRE_NOC_PCIE_TBU_CLK				0
 #define GCC_AGGRE_UFS_CARD_AXI_CLK				1
