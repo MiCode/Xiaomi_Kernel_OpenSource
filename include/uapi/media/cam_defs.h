@@ -250,18 +250,18 @@ struct cam_cmd_buf_desc {
  * struct cam_packet_header - camera packet header
  *
  * @op_code:                    camera packet opcode
- * @dev_type:                   camera packet device type
  * @size:                       size of the camera packet in bytes
- * @flags:                      flags for the camera packet
  * @request_id:                 request id for this camera packet
+ * @flags:                      flags for the camera packet
+ * @dev_type:                   camera packet device type
  *
  */
 struct cam_packet_header {
 	uint32_t                op_code;
-	uint32_t                dev_type;
 	uint32_t                size;
-	uint32_t                flags;
 	uint64_t                request_id;
+	uint32_t                flags;
+	uint32_t                dev_type;
 };
 
 /**
@@ -352,6 +352,43 @@ struct cam_config_dev_cmd {
 	int32_t                 dev_handle;
 	uint64_t                offset;
 	uint64_t                packet_handle;
+};
+
+/* Query Device Caps */
+/**
+ * struct cam_query_cap_cmd - payload for query device capability
+ *
+ * @size:               handle size
+ * @handle_type:        user pointer or shared memory handle
+ * @caps_handle:        device specific query command payload
+ *
+ */
+struct cam_query_cap_cmd {
+	uint32_t        size;
+	uint32_t        handle_type;
+	uint64_t        caps_handle;
+};
+
+/* Acquire Device */
+/**
+ * struct cam_acquire_dev_cmd - control payload for acquire devices
+ *
+ * @session_handle:     session handle for the acquire command
+ * @dev_handle:         device handle to be returned
+ * @handle_type:        resource handle type:
+ *                             1 = user poniter, 2 = mem handle
+ * @num_resources:      number of the resources to be acquired
+ * @resources_hdl:      resource handle that refers to the actual
+ *                             resource array. Each item in this
+ *                             array is device specific resource structure
+ *
+ */
+struct cam_acquire_dev_cmd {
+	int32_t         session_handle;
+	int32_t         dev_handle;
+	uint32_t        handle_type;
+	uint32_t        num_resources;
+	uint64_t        resource_hdl;
 };
 
 #endif /* __UAPI_CAM_DEFS_H__ */
