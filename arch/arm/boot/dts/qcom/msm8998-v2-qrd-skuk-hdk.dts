@@ -23,6 +23,12 @@
 	qcom,board-id = <0x06000b 0x10>;
 };
 
+&soc {
+	sound-tavil {
+		qcom,msm-mbhc-hphl-swh = <0>;
+	};
+};
+
 &pmx_mdss {
 	mdss_dsi_active: mdss_dsi_active {
 		mux {
