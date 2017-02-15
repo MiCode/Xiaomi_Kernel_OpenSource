@@ -26,7 +26,6 @@
 		qcom,never-unload-fw;
 		qcom,sw-power-collapse;
 		qcom,max-secure-instances = <5>;
-		qcom,debug-timeout;
 		qcom,reg-presets =
 			<0x80124 0x00000003>,
 			<0x80550 0x01111111>,
