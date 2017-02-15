@@ -190,6 +190,8 @@ struct io_pgtable_ops {
  *			and False if non-coherent.
  * @iova_to_pte:	Translate iova to Page Table Entry (PTE).
  * @pgtbl_cfg:		The configuration for a set of page tables.
+ * @iova_base:		Configured IOVA base
+ * @iova_end:		Configured IOVA end
  */
 struct msm_io_pgtable_info {
 	int (*map_sg)(struct io_pgtable_ops *ops, unsigned long iova,
@@ -199,6 +201,8 @@ struct msm_io_pgtable_info {
 				 unsigned long iova);
 	uint64_t (*iova_to_pte)(struct io_pgtable_ops *ops, unsigned long iova);
 	struct io_pgtable_cfg pgtbl_cfg;
+	dma_addr_t	iova_base;
+	dma_addr_t	iova_end;
 };
 
 /**

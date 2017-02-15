@@ -116,6 +116,9 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 					    mapping->num_4k_pages);
 				mapping->have_stale_tlbs = false;
 				av8l_fast_clear_stale_ptes(mapping->pgtbl_ops,
+							   mapping->base,
+							   mapping->base +
+							   mapping->size - 1,
 							   skip_sync);
 				bit = bitmap_find_next_zero_area(
 							mapping->clean_bitmap,
