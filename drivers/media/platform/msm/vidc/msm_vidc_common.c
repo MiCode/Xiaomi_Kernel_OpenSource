@@ -898,12 +898,12 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 	if (!rc) {
 		dprintk(VIDC_ERR, "Wait interrupted or timed out: %d\n",
 				SESSION_MSG_INDEX(cmd));
-		msm_comm_kill_session(inst);
 		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 		dprintk(VIDC_ERR,
 			"sess resp timeout can potentially crash the system\n");
 		msm_comm_print_debug_info(inst);
 		BUG_ON(inst->core->resources.debug_timeout);
+		msm_comm_kill_session(inst);
 		rc = -EIO;
 	} else {
 		rc = 0;
@@ -4058,7 +4058,6 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 			__func__, inst,
 			SESSION_MSG_INDEX(HAL_SESSION_PROPERTY_INFO));
 		inst->state = MSM_VIDC_CORE_INVALID;
-		msm_comm_kill_session(inst);
 		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 		dprintk(VIDC_ERR,
 			"SESS_PROP timeout can potentially crash the system\n");
@@ -4066,6 +4065,7 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 			msm_comm_print_debug_info(inst);
 
 		BUG_ON(inst->core->resources.debug_timeout);
+		msm_comm_kill_session(inst);
 		rc = -ETIMEDOUT;
 		goto exit;
 	} else {
