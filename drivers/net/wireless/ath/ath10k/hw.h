@@ -268,6 +268,29 @@ extern const struct ath10k_hw_regs qca99x0_regs;
 extern const struct ath10k_hw_regs qca4019_regs;
 extern const struct ath10k_hw_regs wcn3990_regs;
 
+struct ath10k_hw_ce_regs_addr_map {
+	u32 msb;
+	u32 lsb;
+	u32 mask;
+	unsigned int (*set)(unsigned int offset,
+			    struct ath10k_hw_ce_regs_addr_map *addr_map);
+	unsigned int (*get)(unsigned int offset,
+			    struct ath10k_hw_ce_regs_addr_map *addr_map);
+};
+
+struct ath10k_hw_ce_ctrl1 {
+	u32 addr;
+	u32 hw_mask;
+	u32 sw_mask;
+	u32 hw_wr_mask;
+	u32 sw_wr_mask;
+	u32 reset_mask;
+	u32 reset;
+	struct ath10k_hw_ce_regs_addr_map *src_ring;
+	struct ath10k_hw_ce_regs_addr_map *dst_ring;
+	struct ath10k_hw_ce_regs_addr_map *dmax;
+};
+
 struct ath10k_hw_ce_regs {
 	u32 sr_base_addr;
 	u32 sr_size_addr;
@@ -284,6 +307,7 @@ struct ath10k_hw_ce_regs {
 	u32 ce_rri_low;
 	u32 ce_rri_high;
 	u32 host_ie_addr;
+	struct ath10k_hw_ce_ctrl1 *ctrl1_regs;
 };
 
 extern struct ath10k_hw_ce_regs wcn3990_ce_regs;

@@ -164,6 +164,51 @@ const struct ath10k_hw_regs wcn3990_regs = {
 	.pcie_intr_fw_mask			= 0x00100000,
 };
 
+static unsigned int
+ath10k_set_ring_byte(unsigned int offset,
+		     struct ath10k_hw_ce_regs_addr_map *addr_map)
+{
+	return (((0 | (offset)) << addr_map->lsb) & addr_map->mask);
+}
+
+static unsigned int
+ath10k_get_ring_byte(unsigned int offset,
+		     struct ath10k_hw_ce_regs_addr_map *addr_map)
+{
+	return (((offset) & addr_map->mask) >> (addr_map->lsb));
+}
+
+struct ath10k_hw_ce_regs_addr_map wcn3990_src_ring = {
+	.msb	= 0x00000010,
+	.lsb	= 0x00000010,
+	.mask	= 0x00020000,
+	.set	= &ath10k_set_ring_byte,
+	.get	= &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_regs_addr_map wcn3990_dst_ring = {
+	.msb	= 0x00000012,
+	.lsb	= 0x00000012,
+	.mask	= 0x00040000,
+	.set	= &ath10k_set_ring_byte,
+	.get	= &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_regs_addr_map wcn3990_dmax = {
+	.msb	= 0x00000000,
+	.lsb	= 0x00000000,
+	.mask	= 0x0000ffff,
+	.set	= &ath10k_set_ring_byte,
+	.get	= &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_ctrl1 wcn3990_ctrl1 = {
+	.addr		= 0x00000018,
+	.src_ring	= &wcn3990_src_ring,
+	.dst_ring	= &wcn3990_dst_ring,
+	.dmax		= &wcn3990_dmax,
+};
+
 struct ath10k_hw_ce_regs wcn3990_ce_regs = {
 	.sr_base_addr		= 0x00000000,
 	.sr_size_addr		= 0x00000008,
@@ -179,6 +224,43 @@ struct ath10k_hw_ce_regs wcn3990_ce_regs = {
 	.ce_rri_low		= 0x0024C004,
 	.ce_rri_high		= 0x0024C008,
 	.host_ie_addr		= 0x0000002c,
+	.ctrl1_regs		= &wcn3990_ctrl1,
+};
+
+struct ath10k_hw_ce_regs_addr_map qcax_src_ring = {
+	.msb	= 0x00000010,
+	.lsb	= 0x00000010,
+	.mask	= 0x00010000,
+	.set	= &ath10k_set_ring_byte,
+};
+
+struct ath10k_hw_ce_regs_addr_map qcax_dst_ring = {
+	.msb	= 0x00000011,
+	.lsb	= 0x00000011,
+	.mask	= 0x00020000,
+	.set	= &ath10k_set_ring_byte,
+	.get	= &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_regs_addr_map qcax_dmax = {
+	.msb	= 0x0000000f,
+	.lsb	= 0x00000000,
+	.mask	= 0x0000ffff,
+	.set	= &ath10k_set_ring_byte,
+	.get    = &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_ctrl1 qcax_ctrl1 = {
+	.addr		= 0x00000010,
+	.hw_mask	= 0x0007ffff,
+	.sw_mask	= 0x0007ffff,
+	.hw_wr_mask	= 0x00000000,
+	.sw_wr_mask	= 0x0007ffff,
+	.reset_mask	= 0xffffffff,
+	.reset		= 0x00000080,
+	.src_ring	= &qcax_src_ring,
+	.dst_ring	= &qcax_dst_ring,
+	.dmax		= &qcax_dmax,
 };
 
 struct ath10k_hw_ce_regs qcax_ce_regs = {
@@ -193,6 +275,7 @@ struct ath10k_hw_ce_regs qcax_ce_regs = {
 	.current_srri_addr	= 0x00000044,
 	.current_drri_addr	= 0x00000048,
 	.host_ie_addr		= 0x0000002c,
+	.ctrl1_regs		= &qcax_ctrl1,
 };
 
 const struct ath10k_hw_values qca988x_values = {

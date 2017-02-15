@@ -151,12 +151,14 @@ static inline void ath10k_ce_src_ring_dmax_set(struct ath10k *ar,
 					       unsigned int n)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
-	u32 ctrl1_addr = ar_opaque->bus_ops->read32((ar),
-					   (ce_ctrl_addr) + CE_CTRL1_ADDRESS);
+	struct ath10k_hw_ce_ctrl1 *ctrl_regs = ar->hw_ce_regs->ctrl1_regs;
 
-	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + CE_CTRL1_ADDRESS,
-			   (ctrl1_addr &  ~CE_CTRL1_DMAX_LENGTH_MASK) |
-			   CE_CTRL1_DMAX_LENGTH_SET(n));
+	u32 ctrl1_addr = ar_opaque->bus_ops->read32((ar),
+				(ce_ctrl_addr) + ctrl_regs->addr);
+
+	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + ctrl_regs->addr,
+			   (ctrl1_addr &  ~(ctrl_regs->dmax->mask)) |
+			   ctrl_regs->dmax->set(n, ctrl_regs->dmax));
 }
 
 static inline void ath10k_ce_src_ring_byte_swap_set(struct ath10k *ar,
@@ -164,12 +166,14 @@ static inline void ath10k_ce_src_ring_byte_swap_set(struct ath10k *ar,
 						    unsigned int n)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
-	u32 ctrl1_addr = ar_opaque->bus_ops->read32(ar, ce_ctrl_addr +
-						    CE_CTRL1_ADDRESS);
+	struct ath10k_hw_ce_ctrl1 *ctrl_regs = ar->hw_ce_regs->ctrl1_regs;
 
-	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + CE_CTRL1_ADDRESS,
-			   (ctrl1_addr & ~CE_CTRL1_SRC_RING_BYTE_SWAP_EN_MASK) |
-			   CE_CTRL1_SRC_RING_BYTE_SWAP_EN_SET(n));
+	u32 ctrl1_addr = ar_opaque->bus_ops->read32(ar, ce_ctrl_addr +
+						    ctrl_regs->addr);
+
+	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + ctrl_regs->addr,
+			   (ctrl1_addr & ~(ctrl_regs->src_ring->mask)) |
+			   ctrl_regs->src_ring->set(n, ctrl_regs->src_ring));
 }
 
 static inline void ath10k_ce_dest_ring_byte_swap_set(struct ath10k *ar,
@@ -177,12 +181,14 @@ static inline void ath10k_ce_dest_ring_byte_swap_set(struct ath10k *ar,
 						     unsigned int n)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
-	u32 ctrl1_addr = ar_opaque->bus_ops->read32(ar, ce_ctrl_addr +
-						    CE_CTRL1_ADDRESS);
+	struct ath10k_hw_ce_ctrl1 *ctrl_regs = ar->hw_ce_regs->ctrl1_regs;
 
-	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + CE_CTRL1_ADDRESS,
-			   (ctrl1_addr & ~CE_CTRL1_DST_RING_BYTE_SWAP_EN_MASK) |
-			   CE_CTRL1_DST_RING_BYTE_SWAP_EN_SET(n));
+	u32 ctrl1_addr = ar_opaque->bus_ops->read32(ar, ce_ctrl_addr +
+						    ctrl_regs->addr);
+
+	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + ctrl_regs->addr,
+			   (ctrl1_addr & ~(ctrl_regs->dst_ring->mask)) |
+			   ctrl_regs->dst_ring->set(n, ctrl_regs->dst_ring));
 }
 
 static inline u32 ath10k_ce_dest_ring_read_index_get(struct ath10k *ar,
