@@ -1694,18 +1694,10 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	dprintk(VIDC_ERR,
 		"SYS_ERROR can potentially crash the system\n");
 
-	/*
-	 * For SYS_ERROR, there will not be any inst pointer.
-	 * Just grab one of the inst from instances list and
-	 * use it.
-	 */
-
 	mutex_lock(&core->lock);
-	inst = list_first_entry_or_null(&core->instances,
-		struct msm_vidc_inst, list);
+	list_for_each_entry(inst, &core->instances, list)
+		msm_comm_print_inst_info(inst);
 	mutex_unlock(&core->lock);
-
-	msm_comm_print_debug_info(inst);
 
 	BUG_ON(core->resources.debug_timeout);
 }
