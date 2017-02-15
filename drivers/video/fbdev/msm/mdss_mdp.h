@@ -421,6 +421,9 @@ struct mdss_mdp_ctl_intfs_ops {
 	/* to update lineptr, [1..yres] - enable, 0 - disable */
 	int (*update_lineptr)(struct mdss_mdp_ctl *ctl, bool enable);
 	int (*avr_ctrl_fnc)(struct mdss_mdp_ctl *, bool enable);
+
+	/* to wait for vsync */
+	int (*wait_for_vsync_fnc)(struct mdss_mdp_ctl *ctl);
 };
 
 struct mdss_mdp_cwb {
