@@ -25,6 +25,7 @@
 
 		arm,buffer-size = <0x400000>;
 		arm,sg-enable;
+		arm,default-sink;
 
 		coresight-ctis = <&cti0 &cti8>;
 
