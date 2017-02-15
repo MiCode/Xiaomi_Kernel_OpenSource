@@ -1303,3 +1303,9 @@ dtb-$(CONFIG_ARCH_ASPEED) += \
 	aspeed-bmc-opp-zaius.dtb \
 	aspeed-bmc-portwell-neptune.dtb \
 	aspeed-bmc-quanta-q71l.dtb
+
+dtstree := $(srctree)/$(src)
+vendor := $(dtstree)/vendor
+ifneq "$(wildcard $(vendor)/Makefile)" ""
+    subdir-y += vendor
+endif

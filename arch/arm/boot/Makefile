@@ -13,8 +13,10 @@
 
 OBJCOPYFLAGS	:=-O binary -R .comment -S
 
-ifneq ($(MACHINE),)
-include $(MACHINE)/Makefile.boot
+include $(srctree)/arch/arm/boot/dts/Makefile
+ifneq ($(DTSSUBDIR),)
+DTSSUBDIR_INCS=$(foreach DIR, $(DTSSUBDIR), $(addsuffix /Makefile, $(addprefix $(srctree)/arch/arm/boot/dts/, $(DIR))))
+include $(DTSSUBDIR_INCS)
 endif
 
 # Note: the following conditions must always be true:
