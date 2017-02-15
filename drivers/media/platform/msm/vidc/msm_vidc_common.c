@@ -4167,8 +4167,7 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 		dprintk(VIDC_ERR,
 			"SESS_PROP timeout can potentially crash the system\n");
-		if (inst->core->resources.debug_timeout)
-			msm_comm_print_debug_info(inst);
+		msm_comm_print_debug_info(inst);
 
 		msm_vidc_handle_hw_error(inst->core);
 		rc = -ETIMEDOUT;
