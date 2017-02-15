@@ -15,6 +15,8 @@
 #include <linux/usb/audio-v2.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
+#include <linux/delay.h>
+#include <linux/workqueue.h>
 
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -151,6 +153,13 @@ struct audio_dev {
 
 	/* The ALSA Sound Card it represents on the USB-Client side */
 	struct snd_uac2_chip uac2;
+
+	/* Workqueue for handling uevents */
+	struct workqueue_struct *uevent_wq;
+
+	struct delayed_work p_work;
+	struct delayed_work c_work;
+	struct work_struct  disconnect_work;
 };
 
 static inline
@@ -404,6 +413,11 @@ static int uac2_pcm_open(struct snd_pcm_substream *substream)
 	runtime->hw = uac2_pcm_hardware;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if (audio_dev->as_in_alt == 0) {
+			pr_err("%s: Host is not ready to receive the streaming\n",
+					__func__);
+			return -EPIPE;
+		}
 		spin_lock_init(&uac2->p_prm.lock);
 		runtime->hw.rate_min = p_srate;
 		switch (p_ssize) {
@@ -421,6 +435,11 @@ static int uac2_pcm_open(struct snd_pcm_substream *substream)
 		runtime->hw.period_bytes_min = 2 * uac2->p_prm.max_psize
 						/ runtime->hw.periods_min;
 	} else {
+		if (audio_dev->as_out_alt == 0) {
+			pr_err("%s: Host has not started the streaming\n",
+					__func__);
+			return -EPIPE;
+		}
 		spin_lock_init(&uac2->c_prm.lock);
 		runtime->hw.rate_min = c_srate;
 		switch (c_ssize) {
@@ -1476,6 +1495,97 @@ err:
 	return -EINVAL;
 }
 
+static void cable_disconnect_work(struct work_struct *data)
+{
+	struct audio_dev *agdev = container_of(data, struct audio_dev,
+			disconnect_work);
+	struct snd_uac2_chip *uac2 = &agdev->uac2;
+	struct device *dev = &uac2->pdev.dev;
+	char *disconnected[2] = {"HOST_CABLE_DISCONNECTED", NULL};
+
+	queue_delayed_work(agdev->uevent_wq, &agdev->c_work, 0);
+	queue_delayed_work(agdev->uevent_wq, &agdev->p_work, 0);
+	pr_debug("%s: sent HOST CABLE DISCONNECTED uevent\n", __func__);
+	kobject_uevent_env(&dev->kobj, KOBJ_CHANGE,
+			disconnected);
+}
+
+static void uevent_p_work(struct work_struct *data)
+{
+
+	struct audio_dev *agdev = container_of(data, struct audio_dev,
+			p_work.work);
+	struct snd_uac2_chip *uac2 = &agdev->uac2;
+	struct device *dev = &uac2->pdev.dev;
+	char *disconnected[2] = { "HOST_PLAYBACK_STREAM_CLOSED", NULL };
+	char *connected[2] = { "HOST_PLAYBACK_STREAM_PARAMS_CHANGED", NULL };
+	static int is_prv_connect;
+
+	if (agdev->as_in_alt != 0) {
+		if (is_prv_connect) {
+			pr_debug("%s: sent missed USB_AUDIO PLAYBACK DISCONNECT event\n",
+					__func__);
+			kobject_uevent_env(&dev->kobj, KOBJ_CHANGE,
+				disconnected);
+			is_prv_connect = 0;
+			msleep(20);
+		}
+
+		if (agdev->as_in_alt != 0) {
+			pr_debug("%s: sent USB_AUDIO PLAYBACK CONNECT event\n",
+					__func__);
+			kobject_uevent_env(&dev->kobj, KOBJ_CHANGE,
+					connected);
+			is_prv_connect = 1;
+		}
+	} else if (is_prv_connect) {
+		pr_debug("%s: sent USB_AUDIO PLAYBACK DISCONNECT event\n",
+				__func__);
+		kobject_uevent_env(&dev->kobj, KOBJ_CHANGE,
+				disconnected);
+		is_prv_connect = 0;
+	}
+}
+
+static void uevent_c_work(struct work_struct *data)
+{
+
+	struct audio_dev *agdev = container_of(data, struct audio_dev,
+			c_work.work);
+	struct snd_uac2_chip *uac2 = &agdev->uac2;
+	struct device *dev = &uac2->pdev.dev;
+	char *disconnected[2] = { "HOST_CAPTURE_STREAM_CLOSED", NULL };
+	char *connected[2] = { "HOST_CAPTURE_STREAM_PARAMS_CHANGED", NULL };
+	static int is_prv_connect;
+
+	if (agdev->as_out_alt != 0) {
+		if (is_prv_connect) {
+			pr_debug("%s: sent missed USB_AUDIO CAPTURE DISCONNECT event\n",
+					__func__);
+			kobject_uevent_env(&dev->kobj, KOBJ_CHANGE,
+					disconnected);
+			is_prv_connect = 0;
+			msleep(20);
+		}
+
+		if (agdev->as_out_alt != 0) {
+			pr_debug("%s: sent USB_AUDIO CAPTURE CONNECT event\n",
+					__func__);
+			kobject_uevent_env(&dev->kobj, KOBJ_CHANGE,
+					connected);
+			is_prv_connect = 1;
+		}
+	} else if (is_prv_connect) {
+		pr_debug("%s: sent USB_AUDIO CAPTURE DISCONNECT event\n",
+				__func__);
+		kobject_uevent_env(&dev->kobj, KOBJ_CHANGE,
+				disconnected);
+		is_prv_connect = 0;
+	}
+}
+
+#define UAC2_UEVENT_DELAY	msecs_to_jiffies(30)
+
 static int
 afunc_set_alt(struct usb_function *fn, unsigned intf, unsigned alt)
 {
@@ -1516,6 +1626,15 @@ afunc_set_alt(struct usb_function *fn, unsigned intf, unsigned alt)
 				as_out_alt_setting[alt-1][1])->bmChannelConfig;
 			pr_debug("%s: values set c_ssize:%u c_chmask:%u\n",
 				__func__, opts->c_ssize, opts->c_chmask);
+			pr_debug("%s: scheduling connect c_uevent_work\n",
+					__func__);
+			queue_delayed_work(agdev->uevent_wq, &agdev->c_work,
+					UAC2_UEVENT_DELAY);
+		} else {
+			pr_debug("%s: scheduling disconnect c_uevent_work\n",
+					__func__);
+			queue_delayed_work(agdev->uevent_wq,
+					&agdev->c_work, 0);
 		}
 	} else if (intf == agdev->as_in_intf && alt <= MAX_AS_IN_ALT) {
 		unsigned int factor, rate;
@@ -1543,6 +1662,15 @@ afunc_set_alt(struct usb_function *fn, unsigned intf, unsigned alt)
 				as_in_alt_setting[alt-1][1])->bmChannelConfig;
 			pr_debug("%s: values set p_ssize:%u p_chmask:%u\n",
 				__func__, opts->p_ssize, opts->p_chmask);
+			pr_debug("%s: scheduling connect p_uevent_work\n",
+					__func__);
+			queue_delayed_work(agdev->uevent_wq, &agdev->p_work,
+					UAC2_UEVENT_DELAY);
+		} else {
+			pr_debug("%s: scheduling disconnect p_uevent_work\n",
+					__func__);
+			queue_delayed_work(agdev->uevent_wq,
+					&agdev->p_work, 0);
 		}
 
 		/* pre-compute some values for iso_complete() */
@@ -1622,6 +1750,7 @@ afunc_disable(struct usb_function *fn)
 	struct audio_dev *agdev = func_to_agdev(fn);
 	struct snd_uac2_chip *uac2 = &agdev->uac2;
 
+	queue_work(agdev->uevent_wq, &agdev->disconnect_work);
 	free_ep(&uac2->p_prm, agdev->in_ep);
 	agdev->as_in_alt = 0;
 
@@ -1979,6 +2108,9 @@ static void afunc_free(struct usb_function *f)
 
 	agdev = func_to_agdev(f);
 	opts = container_of(f->fi, struct f_uac2_opts, func_inst);
+
+	destroy_workqueue(agdev->uevent_wq);
+
 	kfree(agdev);
 	mutex_lock(&opts->lock);
 	--opts->refcnt;
@@ -2028,6 +2160,11 @@ struct usb_function *afunc_alloc(struct usb_function_instance *fi)
 	agdev->func.setup = afunc_setup;
 	agdev->func.free_func = afunc_free;
 
+	INIT_DELAYED_WORK(&agdev->p_work, uevent_p_work);
+	INIT_DELAYED_WORK(&agdev->c_work, uevent_c_work);
+	INIT_WORK(&agdev->disconnect_work, cable_disconnect_work);
+
+	agdev->uevent_wq = alloc_ordered_workqueue("uevent_wq", 0);
 	return &agdev->func;
 }
 
