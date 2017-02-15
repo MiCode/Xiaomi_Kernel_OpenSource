@@ -593,6 +593,7 @@ struct msm_vfe_tasklet_queue_cmd {
 	uint32_t vfeInterruptStatus1;
 	struct msm_isp_timestamp ts;
 	uint8_t cmd_used;
+	struct vfe_device *vfe_dev;
 };
 
 #define MSM_VFE_TASKLETQ_SIZE 200
@@ -717,6 +718,15 @@ struct msm_vfe_irq_dump {
 		tasklet_debug[MAX_VFE_IRQ_DEBUG_DUMP_SIZE];
 };
 
+struct msm_vfe_tasklet {
+	spinlock_t tasklet_lock;
+	uint8_t taskletq_idx;
+	struct list_head tasklet_q;
+	struct tasklet_struct tasklet;
+	struct msm_vfe_tasklet_queue_cmd
+		tasklet_queue_cmd[MSM_VFE_TASKLETQ_SIZE];
+};
+
 struct msm_vfe_common_dev_data {
 	spinlock_t common_dev_data_lock;
 	struct dual_vfe_resource *dual_vfe_res;
@@ -726,6 +736,7 @@ struct msm_vfe_common_dev_data {
 	struct mutex vfe_common_mutex;
 	/* Irq debug Info */
 	struct msm_vfe_irq_dump vfe_irq_dump;
+	struct msm_vfe_tasklet tasklets[MAX_VFE + 1];
 };
 
 struct msm_vfe_common_subdev {
@@ -777,15 +788,9 @@ struct vfe_device {
 	struct mutex core_mutex;
 	spinlock_t shared_data_lock;
 	spinlock_t reg_update_lock;
-	spinlock_t tasklet_lock;
 
 	/* Tasklet info */
 	atomic_t irq_cnt;
-	uint8_t taskletq_idx;
-	struct list_head tasklet_q;
-	struct tasklet_struct vfe_tasklet;
-	struct msm_vfe_tasklet_queue_cmd
-		tasklet_queue_cmd[MSM_VFE_TASKLETQ_SIZE];
 
 	/* Data structures */
 	struct msm_vfe_hardware_info *hw_info;
