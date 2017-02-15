@@ -1419,7 +1419,7 @@ static void __stats_ctl_dump(struct mdss_mdp_ctl *ctl, struct seq_file *s)
 		seq_printf(s, "vsync: %08u \tunderrun: %08u\n",
 				ctl->vsync_cnt, ctl->underrun_cnt);
 		if (ctl->mfd) {
-			seq_printf(s, "user_bl: %08llu \tmod_bl: %08u\n",
+			seq_printf(s, "user_bl: %llu \tmod_bl: %08u\n",
 				ctl->mfd->bl_level, ctl->mfd->bl_level_scaled);
 		}
 	} else {

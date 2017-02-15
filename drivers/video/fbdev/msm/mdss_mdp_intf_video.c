@@ -2191,6 +2191,7 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	ctl->ops.config_fps_fnc = mdss_mdp_video_config_fps;
 	ctl->ops.early_wake_up_fnc = mdss_mdp_video_early_wake_up;
 	ctl->ops.update_lineptr = mdss_mdp_video_lineptr_ctrl;
+	ctl->ops.wait_for_vsync_fnc = NULL;
 
 	return 0;
 }
