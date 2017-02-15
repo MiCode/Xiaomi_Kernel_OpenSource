@@ -1595,11 +1595,13 @@
 	};
 
 	qcom,icnss@18800000 {
-		status = "disabled";
 		compatible = "qcom,icnss";
 		reg = <0x18800000 0x800000>,
-		      <0x10ac000 0x20>;
-		reg-names = "membase", "mpm_config";
+		      <0xa0000000 0x10000000>,
+		      <0xb0000000 0x10000>;
+		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
+		iommus = <&anoc2_smmu 0x1a00>,
+			 <&anoc2_smmu 0x1a01>;
 		interrupts = <0 413 0>,   /* CE0 */
 			     <0 414 0>,   /* CE1 */
 			     <0 415 0>,   /* CE2 */
