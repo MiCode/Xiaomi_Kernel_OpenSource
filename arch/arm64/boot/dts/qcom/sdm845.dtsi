@@ -465,6 +465,13 @@
 		};
 	};
 
+	restart@10ac000 {
+		compatible = "qcom,pshold";
+		reg = <0xC264000 0x4>,
+		      <0x1fd3000 0x4>;
+		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+	};
+
 	clock_gcc: qcom,gcc@100000 {
 		compatible = "qcom,gcc-sdm845";
 		reg = <0x100000 0x1f0000>;
@@ -956,6 +963,11 @@
 		mem_dump_table@10 {
 			compatible = "qcom,msm-imem-mem_dump_table";
 			reg = <0x10 8>;
+		};
+
+		restart_reason@65c {
+			compatible = "qcom,msm-imem-restart_reason";
+			reg = <0x65c 4>;
 		};
 
 		pil@94c {
