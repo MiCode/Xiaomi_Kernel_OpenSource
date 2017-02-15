@@ -13,10 +13,11 @@
 
 OBJCOPYFLAGS	:=-O binary -R .comment -S
 
-ifneq ($(MACHINE),)
-include $(MACHINE)/Makefile.boot
-endif
 include $(srctree)/arch/arm/boot/dts/Makefile
+ifneq ($(DTSSUBDIR),)
+DTSSUBDIR_INCS=$(foreach DIR, $(DTSSUBDIR), $(addsuffix /Makefile, $(addprefix $(srctree)/arch/arm/boot/dts/, $(DIR))))
+include $(DTSSUBDIR_INCS)
+endif
 
 # Note: the following conditions must always be true:
 #   ZRELADDR == virt_to_phys(PAGE_OFFSET + TEXT_OFFSET)
