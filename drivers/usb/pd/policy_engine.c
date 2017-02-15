@@ -1931,6 +1931,11 @@ static void usbpd_sm(struct work_struct *w)
 
 	case PE_SNK_SELECT_CAPABILITY:
 		if (IS_CTRL(rx_msg, MSG_ACCEPT)) {
+			u32 pdo = pd->received_pdos[pd->requested_pdo - 1];
+			bool same_pps = (pd->selected_pdo == pd->requested_pdo)
+				&& (PD_SRC_PDO_TYPE(pdo) ==
+						PD_SRC_PDO_TYPE_AUGMENTED);
+
 			usbpd_set_state(pd, PE_SNK_TRANSITION_SINK);
 
 			/* prepare for voltage increase/decrease */
@@ -1942,11 +1947,12 @@ static void usbpd_sm(struct work_struct *w)
 					&val);
 
 			/*
-			 * if we are changing voltages, we must lower input
-			 * current to pSnkStdby (2.5W). Calculate it and set
-			 * PD_CURRENT_MAX accordingly.
+			 * if changing voltages (not within the same PPS PDO),
+			 * we must lower input current to pSnkStdby (2.5W).
+			 * Calculate it and set PD_CURRENT_MAX accordingly.
 			 */
-			if (pd->requested_voltage != pd->current_voltage) {
+			if (!same_pps &&
+				pd->requested_voltage != pd->current_voltage) {
 				int mv = max(pd->requested_voltage,
 						pd->current_voltage) / 1000;
 				val.intval = (2500000 / mv) * 1000;
