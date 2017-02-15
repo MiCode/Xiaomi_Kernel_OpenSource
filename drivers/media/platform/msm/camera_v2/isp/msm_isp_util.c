@@ -2056,13 +2056,19 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 {
 	unsigned long flags;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd = NULL;
+	struct msm_vfe_tasklet *tasklet;
 
-	spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
-	queue_cmd = &vfe_dev->tasklet_queue_cmd[vfe_dev->taskletq_idx];
+	if (vfe_dev->is_split)
+		tasklet = &vfe_dev->common_data->tasklets[MAX_VFE];
+	else
+		tasklet = &vfe_dev->common_data->tasklets[vfe_dev->pdev->id];
+
+	spin_lock_irqsave(&tasklet->tasklet_lock, flags);
+	queue_cmd = &tasklet->tasklet_queue_cmd[tasklet->taskletq_idx];
 	if (queue_cmd->cmd_used) {
-		ISP_DBG("%s: Tasklet queue overflow: %d\n",
+		pr_err("%s: Tasklet queue overflow: %d\n",
 			__func__, vfe_dev->pdev->id);
-		list_del(&queue_cmd->list);
+		return;
 	} else {
 		atomic_add(1, &vfe_dev->irq_cnt);
 	}
@@ -2071,11 +2077,13 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 	msm_isp_get_timestamp(&queue_cmd->ts, vfe_dev);
 
 	queue_cmd->cmd_used = 1;
-	vfe_dev->taskletq_idx = (vfe_dev->taskletq_idx + 1) %
+	queue_cmd->vfe_dev = vfe_dev;
+
+	tasklet->taskletq_idx = (tasklet->taskletq_idx + 1) %
 		MSM_VFE_TASKLETQ_SIZE;
-	list_add_tail(&queue_cmd->list, &vfe_dev->tasklet_q);
-	spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
-	tasklet_schedule(&vfe_dev->vfe_tasklet);
+	list_add_tail(&queue_cmd->list, &tasklet->tasklet_q);
+	spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
+	tasklet_schedule(&tasklet->tasklet);
 }
 
 irqreturn_t msm_isp_process_irq(int irq_num, void *data)
@@ -2124,39 +2132,39 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 void msm_isp_do_tasklet(unsigned long data)
 {
 	unsigned long flags;
-	struct vfe_device *vfe_dev = (struct vfe_device *) data;
-	struct msm_vfe_irq_ops *irq_ops = &vfe_dev->hw_info->vfe_ops.irq_ops;
+	struct msm_vfe_tasklet *tasklet = (struct msm_vfe_tasklet *)data;
+	struct vfe_device *vfe_dev;
+	struct msm_vfe_irq_ops *irq_ops;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
 	struct msm_isp_timestamp ts;
 	uint32_t irq_status0, irq_status1;
 
-	if (vfe_dev->vfe_base == NULL || vfe_dev->vfe_open_cnt == 0) {
-		ISP_DBG("%s: VFE%d open cnt = %d, device closed(base = %pK)\n",
-			__func__, vfe_dev->pdev->id, vfe_dev->vfe_open_cnt,
-			vfe_dev->vfe_base);
-		return;
-	}
-
-	while (atomic_read(&vfe_dev->irq_cnt)) {
-		spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
-		queue_cmd = list_first_entry_or_null(&vfe_dev->tasklet_q,
-		struct msm_vfe_tasklet_queue_cmd, list);
+	while (1) {
+		spin_lock_irqsave(&tasklet->tasklet_lock, flags);
+		queue_cmd = list_first_entry_or_null(&tasklet->tasklet_q,
+			struct msm_vfe_tasklet_queue_cmd, list);
 		if (!queue_cmd) {
-			atomic_set(&vfe_dev->irq_cnt, 0);
-			spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
-			return;
+			spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
+			break;
 		}
-		atomic_sub(1, &vfe_dev->irq_cnt);
-		list_del(&queue_cmd->list);
+		list_del_init(&queue_cmd->list);
+		vfe_dev = queue_cmd->vfe_dev;
 		queue_cmd->cmd_used = 0;
+		queue_cmd->vfe_dev = NULL;
 		irq_status0 = queue_cmd->vfeInterruptStatus0;
 		irq_status1 = queue_cmd->vfeInterruptStatus1;
 		ts = queue_cmd->ts;
-		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
+		spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
+		if (vfe_dev->vfe_open_cnt == 0) {
+			pr_err("%s: VFE%d open cnt = %d, irq %x/%x\n",
+			__func__, vfe_dev->pdev->id, vfe_dev->vfe_open_cnt,
+			irq_status0, irq_status1);
+			continue;
+		}
+		atomic_sub(1, &vfe_dev->irq_cnt);
 		msm_isp_prepare_tasklet_debug_info(vfe_dev,
 			irq_status0, irq_status1, ts);
-		ISP_DBG("%s: vfe_id %d status0: 0x%x status1: 0x%x\n",
-			__func__, vfe_dev->pdev->id, irq_status0, irq_status1);
+		irq_ops = &vfe_dev->hw_info->vfe_ops.irq_ops;
 		irq_ops->process_reset_irq(vfe_dev,
 			irq_status0, irq_status1);
 		irq_ops->process_halt_irq(vfe_dev,
@@ -2297,7 +2305,6 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		sizeof(vfe_dev->fetch_engine_info));
 	vfe_dev->axi_data.hw_info = vfe_dev->hw_info->axi_hw_info;
 	vfe_dev->axi_data.enable_frameid_recovery = 0;
-	vfe_dev->taskletq_idx = 0;
 	vfe_dev->vt_enable = 0;
 	vfe_dev->reg_update_requested = 0;
 	/* Register page fault handler */
@@ -2362,15 +2369,14 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		update_camif_state(vfe_dev, DISABLE_CAMIF_IMMEDIATELY);
 	vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, 0, 0);
 
-	/* after regular hw stop, reduce open cnt */
-	vfe_dev->vfe_open_cnt--;
-
 	/* put scratch buf in all the wm */
 	for (wm = 0; wm < vfe_dev->axi_data.hw_info->num_wm; wm++) {
 		msm_isp_cfg_wm_scratch(vfe_dev, wm, VFE_PING_FLAG);
 		msm_isp_cfg_wm_scratch(vfe_dev, wm, VFE_PONG_FLAG);
 	}
 	vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);
+	/* after regular hw stop, reduce open cnt */
+	vfe_dev->vfe_open_cnt--;
 	vfe_dev->buf_mgr->ops->buf_mgr_deinit(vfe_dev->buf_mgr);
 	if (vfe_dev->vt_enable) {
 		msm_isp_end_avtimer();
@@ -2387,22 +2393,27 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 void msm_isp_flush_tasklet(struct vfe_device *vfe_dev)
 {
 	unsigned long flags;
-	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
+	int i;
+	struct msm_vfe_tasklet_queue_cmd *queue_cmd, *q_cmd_next;
+	struct msm_vfe_tasklet *tasklet;
 
-	spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
-	while (atomic_read(&vfe_dev->irq_cnt)) {
-		queue_cmd = list_first_entry(&vfe_dev->tasklet_q,
-		struct msm_vfe_tasklet_queue_cmd, list);
-		if (!queue_cmd) {
-			atomic_set(&vfe_dev->irq_cnt, 0);
-			break;
+	for (i = 0; i <= MAX_VFE; i++) {
+		if (i != vfe_dev->pdev->id &&
+			i != MAX_VFE)
+			continue;
+		tasklet = &vfe_dev->common_data->tasklets[i];
+		spin_lock_irqsave(&tasklet->tasklet_lock, flags);
+		list_for_each_entry_safe(queue_cmd, q_cmd_next,
+			&tasklet->tasklet_q, list) {
+			if (queue_cmd->vfe_dev != vfe_dev)
+				continue;
+			list_del_init(&queue_cmd->list);
+			queue_cmd->cmd_used = 0;
 		}
-		atomic_sub(1, &vfe_dev->irq_cnt);
-		list_del(&queue_cmd->list);
-		queue_cmd->cmd_used = 0;
+		spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
+		tasklet_kill(&tasklet->tasklet);
 	}
-	spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
-	tasklet_kill(&vfe_dev->vfe_tasklet);
+	atomic_set(&vfe_dev->irq_cnt, 0);
 
 	return;
 }
