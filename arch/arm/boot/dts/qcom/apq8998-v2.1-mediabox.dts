@@ -21,6 +21,10 @@
 	qcom,board-id = <8 1>;
 };
 
+&spi_10 {
+	status = "disabled";
+};
+
 &msm_ath10k_wlan {
 	status = "ok";
 };
