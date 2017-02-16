@@ -6778,13 +6778,12 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 				return task_cpu(p);
 			}
 		} else {
-			cpu_idle_idx = cpu_rq(task_cpu(p))->nr_running ? -1 :
-				       idle_get_state_idx(cpu_rq(task_cpu(p)));
-			if (ediff > 0 || (ediff == 0 &&
-					  cpu_idle_idx <= min_idle_idx)) {
+			if (ediff > 0) {
 				trace_sched_task_util_energy_diff(p,
-						task_cpu(p), task_util(p),
-						target_cpu, task_cpu(p), ediff);
+							task_cpu(p),
+							task_util(p),
+							target_cpu,
+							task_cpu(p), ediff);
 				return task_cpu(p);
 			}
 		}
