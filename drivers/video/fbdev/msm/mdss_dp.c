@@ -1481,8 +1481,7 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	if (ret)
 		goto exit;
 
-	if (dp_drv->new_vic && (dp_drv->new_vic != dp_drv->vic))
-		dp_init_panel_info(dp_drv, dp_drv->new_vic);
+	dp_init_panel_info(dp_drv, dp_drv->new_vic);
 
 	dp_drv->link_rate = mdss_dp_gen_link_clk(dp_drv);
 	if (!dp_drv->link_rate) {
