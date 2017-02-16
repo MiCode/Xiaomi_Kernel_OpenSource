@@ -1723,8 +1723,9 @@ static SIMPLE_DEV_PM_OPS(qpnp_haptic_pm_ops, qpnp_haptic_suspend, NULL);
 /* Configuration api for haptics registers */
 static int qpnp_hap_config(struct qpnp_hap *hap)
 {
-	u8 reg = 0, unlock_val, error_value;
-	int rc, i, temp;
+	u8 reg = 0, unlock_val, rc_clk_err_percent_x10;
+	u32 temp;
+	int rc, i;
 	uint error_code = 0;
 
 	/* Configure the ACTUATOR TYPE register */
@@ -1858,9 +1859,10 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 	temp = hap->wave_play_rate_us / QPNP_HAP_RATE_CFG_STEP_US;
 
 	/*
-	 * The frequency of 19.2Mzhz RC clock is subject to variation.
-	 * In PMI8950, TRIM_ERROR_RC19P2_CLK register in MISC module
-	 * holds the frequency error in 19.2Mhz RC clock
+	 * The frequency of 19.2Mzhz RC clock is subject to variation. Currently
+	 * PMI8950 and PMI8937 modules have MISC_TRIM_ERROR_RC19P2_CLK register
+	 * present in the MISC block. This register holds the frequency error
+	 * in 19.2Mhz RC clock.
 	 */
 	if ((hap->act_type == QPNP_HAP_LRA) && hap->correct_lra_drive_freq
 			&& hap->misc_trim_error_rc19p2_clk_reg_present) {
@@ -1873,12 +1875,24 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 		regmap_read(hap->regmap, MISC_TRIM_ERROR_RC19P2_CLK,
 			    &error_code);
 
-		error_value = (error_code & 0x0F) * 7;
+		rc_clk_err_percent_x10 = (error_code & 0x0F) * 7;
 
-		if (error_code & 0x80)
-			temp = (temp * (1000 - error_value)) / 1000;
+		/*
+		 * If the TRIM register holds value less than 0x80,
+		 * then there is a positive error in the RC clock.
+		 * If the TRIM register holds value greater than or equal to
+		 * 0x80, then there is a negative error in the RC clock.
+		 * The adjusted play rate code is calculated as follows:
+		 * LRA_drive_period_code = (200Khz * (1+%error/100)) / LRA_freq
+		 */
+		if (error_code >= 128)
+			temp = (temp * (1000 - rc_clk_err_percent_x10)) / 1000;
 		else
-			temp = (temp * (1000 + error_value)) / 1000;
+			temp = (temp * (1000 + rc_clk_err_percent_x10)) / 1000;
+
+		dev_dbg(&hap->pdev->dev,
+			"TRIM register = 0x%x Play rate code after RC clock correction 0x%x\n",
+					error_code, temp);
 	}
 
 	reg = temp & QPNP_HAP_RATE_CFG1_MASK;
