@@ -920,6 +920,10 @@ struct ipa_uc_wdi_ctx {
 	struct IpaHwStatsWDIInfoData_t *wdi_uc_stats_mmio;
 	void *priv;
 	ipa_uc_ready_cb uc_ready_cb;
+	/* for AP+STA stats update */
+#ifdef IPA_WAN_MSG_IPv6_ADDR_GW_LEN
+	ipa_wdi_meter_notifier_cb stats_notify;
+#endif
 };
 
 /**
@@ -1504,6 +1508,7 @@ int ipa2_resume_wdi_pipe(u32 clnt_hdl);
 int ipa2_suspend_wdi_pipe(u32 clnt_hdl);
 int ipa2_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
 u16 ipa2_get_smem_restr_bytes(void);
+int ipa2_broadcast_wdi_quota_reach_ind(uint32_t fid, uint64_t num_bytes);
 int ipa2_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *inp,
 		ipa_notify_cb notify, void *priv, u8 hdr_len,
 		struct ipa_ntn_conn_out_params *outp);
@@ -1543,6 +1548,10 @@ void ipa2_set_client(int index, enum ipacm_client_enum client, bool uplink);
 enum ipacm_client_enum ipa2_get_client(int pipe_idx);
 
 bool ipa2_get_client_uplink(int pipe_idx);
+
+int ipa2_get_wlan_stats(struct ipa_get_wdi_sap_stats *wdi_sap_stats);
+
+int ipa2_set_wlan_quota(struct ipa_set_wifi_quota *wdi_quota);
 
 /*
  * IPADMA

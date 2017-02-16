@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -763,7 +763,8 @@ static void ipa_q6_clnt_ind_cb(struct qmi_handle *handle, unsigned int msg_id,
 		IPAWANDBG("Quota reached indication on qmux(%d) Mbytes(%lu)\n",
 			  qmi_ind.apn.mux_id,
 			  (unsigned long int) qmi_ind.apn.num_Mbytes);
-		ipa_broadcast_quota_reach_ind(qmi_ind.apn.mux_id);
+		ipa_broadcast_quota_reach_ind(qmi_ind.apn.mux_id,
+			  IPA_UPSTEAM_MODEM);
 	}
 }
 
