@@ -1247,7 +1247,7 @@
 	dcc: dcc@10b3000 {
 		compatible = "qcom,dcc";
 		reg = <0x10b3000 0x1000>,
-			<0x10b4000 0x800>;
+			<0x10b4000 0x2000>;
 		reg-names = "dcc-base", "dcc-ram-base";
 
 		clocks = <&clock_gcc GCC_DCC_AHB_CLK>;
@@ -1913,6 +1913,7 @@
 #include "msm-arm-smmu-630.dtsi"
 #include "msm-audio.dtsi"
 #include "sdm660-audio.dtsi"
+#include "sdm630-gpu.dtsi"
 #include "sdm660-camera.dtsi"
 #include "sdm630-pm.dtsi"
 #include "sdm660-vidc.dtsi"

@@ -1365,6 +1365,10 @@ static int __init ath10k_snoc_init(void)
 {
 	int ret;
 
+	if (!icnss_is_fw_ready()) {
+		pr_err("failed to get fw ready indication\n");
+		return -EAGAIN;
+	}
 	ret = platform_driver_register(&ath10k_snoc_driver);
 	if (ret)
 		pr_err("failed to register ath10k snoc driver: %d\n",
