@@ -124,7 +124,7 @@ config SND_SOC_INT_CODEC
 	select SND_SOC_SDM660_CDC
 	select QTI_PP
 	select DTS_SRS_TM
-	select DOLBY_DS2
+	select DOLBY_LICENSE
 	select SND_HWDEP
 	select MSM_ULTRASOUND
 	select DTS_EAGLE
@@ -156,7 +156,7 @@ config SND_SOC_EXT_CODEC
 	select MFD_CORE
 	select QTI_PP
 	select DTS_SRS_TM
-	select DOLBY_DS2
+	select DOLBY_LICENSE
 	select SND_SOC_CPE
 	select SND_SOC_WCD_CPE
 	select SND_HWDEP
