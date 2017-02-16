@@ -67,6 +67,18 @@ Optional properties when qcom,actuator-type is "lra"
  - qcom,lra-res-cal-period : Auto resonance calibration period. The values range from
 			4 to 32(default)
 
+Optional properties when qcom,lra-auto-res-mode is "qwd"
+ - qcom,time-required-to-generate-back-emf-us: Time period required to generate sufficient
+			back-emf (in case of QWD mode only) in us. For auto resonance
+			detection to work properly,sufficient back-emf has to be
+			generated. In general, back-emf takes some time to build up.
+			When the auto resonance  mode is chosen as QWD, high-z will
+			be applied for every LRA cycle and hence there won't be
+			enough back-emf at the start-up. So we need to drive the
+			motor for a few LRA cycles. Hence, auto resonance detection
+			is enabled after this delay period after the PLAY bit is
+			asserted. The default value is 20000us.
+
 Example:
 		qcom,haptic@c000 {
 			status = "disabled";
@@ -94,4 +106,5 @@ Example:
 			qcom,lra-high-z = "opt1";
 			qcom,lra-auto-res-mode = "qwd";
 			qcom,lra-res-cal-period = <4>;
+			qcom,time-required-to-generate-back-emf-us = <20000>;
 		};
