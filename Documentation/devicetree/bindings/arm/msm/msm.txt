@@ -86,11 +86,11 @@ SoCs:
 - MSMCOBALT
   compatible = "qcom,msmcobalt"
 
-- MSMSKUNK
-  compatible = "qcom,msmskunk"
+- SDM845
+  compatible = "qcom,sdm845"
 
-- SDMBAT
-  compatible = "qcom,sdmbat"
+- SDM830
+  compatible = "qcom,sdm830"
 
 - MSM8952
   compatible = "qcom,msm8952"
@@ -258,15 +258,15 @@ compatible = "qcom,msm8996-adp"
 compatible = "qcom,msmcobalt-sim"
 compatible = "qcom,msmcobalt-rumi"
 compatible = "qcom,msmcobalt-cdp"
-compatible = "qcom,msmskunk-sim"
-compatible = "qcom,msmskunk-rumi"
-compatible = "qcom,msmskunk-cdp"
-compatible = "qcom,msmskunk-mtp"
-compatible = "qcom,msmskunk-mtp"
-compatible = "qcom,sdmbat-sim"
-compatible = "qcom,sdmbat-rumi"
-compatible = "qcom,sdmbat-cdp"
-compatible = "qcom,sdmbat-mtp"
+compatible = "qcom,sdm845-sim"
+compatible = "qcom,sdm845-rumi"
+compatible = "qcom,sdm845-cdp"
+compatible = "qcom,sdm845-mtp"
+compatible = "qcom,sdm845-mtp"
+compatible = "qcom,sdm830-sim"
+compatible = "qcom,sdm830-rumi"
+compatible = "qcom,sdm830-cdp"
+compatible = "qcom,sdm830-mtp"
 compatible = "qcom,msm8952-rumi"
 compatible = "qcom,msm8952-sim"
 compatible = "qcom,msm8952-qrd"

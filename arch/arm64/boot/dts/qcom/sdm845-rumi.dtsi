@@ -1,0 +1,95 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+	vdda-phy-supply = <&pm8998_l1>;
+	vdda-pll-supply = <&pm8998_l2>;
+	vddp-ref-clk-supply = <&pm8998_l26>;
+	vdda-phy-max-microamp = <44000>;
+	vdda-pll-max-microamp = <14600>;
+	vddp-ref-clk-max-microamp = <100>;
+	vddp-ref-clk-always-on;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	limit-tx-hs-gear = <1>;
+	limit-rx-hs-gear = <1>;
+	scsi-cmd-timeout = <300000>;
+
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8998_l20>;
+	vccq2-supply = <&pm8998_s4>;
+	vcc-max-microamp = <600000>;
+	vccq2-max-microamp = <600000>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+	status = "ok";
+};
+
+&soc {
+	qcom,icnss@18800000 {
+		compatible = "qcom,icnss";
+		reg = <0x18800000 0x800000>;
+		reg-names = "membase";
+		interrupts = <0 414 0 /* CE0 */ >,
+			     <0 415 0 /* CE1 */ >,
+			     <0 416 0 /* CE2 */ >,
+			     <0 417 0 /* CE3 */ >,
+			     <0 418 0 /* CE4 */ >,
+			     <0 419 0 /* CE5 */ >,
+			     <0 420 0 /* CE6 */ >,
+			     <0 421 0 /* CE7 */ >,
+			     <0 422 0 /* CE8 */ >,
+			     <0 423 0 /* CE9 */ >,
+			     <0 424 0 /* CE10 */ >,
+			     <0 425 0 /* CE11 */ >;
+		qcom,wlan-msa-memory = <0x100000>;
+	};
+};
+
+&ufsphy_card {
+	compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+	vdda-phy-supply = <&pm8998_l1>; /* 0.88v */
+	vdda-pll-supply = <&pm8998_l26>; /* 1.2v */
+	vddp-ref-clk-supply = <&pm8998_l2>;
+	vdda-phy-max-microamp = <62900>;
+	vdda-pll-max-microamp = <18300>;
+	vddp-ref-clk-max-microamp = <100>;
+	vddp-ref-clk-always-on;
+
+	status = "ok";
+};
+
+&ufshc_card {
+	limit-tx-hs-gear = <1>;
+	limit-rx-hs-gear = <1>;
+
+	vdd-hba-supply = <&ufs_card_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8998_l21>;
+	vccq2-supply = <&pm8998_s4>;
+	vcc-max-microamp = <300000>;
+	vccq2-max-microamp = <300000>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+	status = "ok";
+};

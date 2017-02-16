@@ -233,8 +233,8 @@ config SND_SOC_FALCON
 	 the machine driver and the corresponding
 	 DAI-links
 
-config SND_SOC_MSMSKUNK
-	tristate "SoC Machine driver for MSMSKUNK boards"
+config SND_SOC_SDM845
+	tristate "SoC Machine driver for SDM845 boards"
 	depends on ARCH_QCOM
 	select SND_SOC_COMPRESS
 	select SND_SOC_QDSP6V2
@@ -255,7 +255,7 @@ config SND_SOC_MSMSKUNK
 	select SND_HWDEP
         select DTS_EAGLE
 	help
-	 To add support for SoC audio on MSMSKUNK.
+	 To add support for SoC audio on SDM845.
 	 This enables sound soc drivers that interfaces
 	 with DSP. This also enables the machine driver
 	 and the corresponding DAI-links.

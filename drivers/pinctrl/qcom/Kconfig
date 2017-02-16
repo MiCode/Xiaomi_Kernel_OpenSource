@@ -79,23 +79,23 @@ config PINCTRL_MSM8916
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  Qualcomm TLMM block found on the Qualcomm 8916 platform.
 
-config PINCTRL_MSMSKUNK
-	tristate "Qualcomm Technologies Inc MSMSKUNK pin controller driver"
+config PINCTRL_SDM845
+	tristate "Qualcomm Technologies Inc SDM845 pin controller driver"
 	depends on GPIOLIB && OF
 	select PINCTRL_MSM
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
-	  Technologies Inc MSMSKUNK platform.
+	  Technologies Inc SDM845 platform.
 
-config PINCTRL_SDMBAT
-	tristate "Qualcomm Technologies Inc SDMBAT pin controller driver"
+config PINCTRL_SDM830
+	tristate "Qualcomm Technologies Inc SDM830 pin controller driver"
 	depends on GPIOLIB && OF
 	select PINCTRL_MSM
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
-	  Technologies Inc SDMBAT platform.
+	  Technologies Inc SDM830 platform.
 
 
 config PINCTRL_MSM8996

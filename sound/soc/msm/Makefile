@@ -34,6 +34,6 @@ snd-soc-ext-codec-objs := msmfalcon-external.o msmfalcon-ext-dai-links.o
 obj-$(CONFIG_SND_SOC_EXT_CODEC) += snd-soc-msmfalcon-common.o
 obj-$(CONFIG_SND_SOC_EXT_CODEC) += snd-soc-ext-codec.o
 
-# for MSMSKUNK sound card driver
-snd-soc-msmskunk-objs := msmskunk.o
-obj-$(CONFIG_SND_SOC_MSMSKUNK) += snd-soc-msmskunk.o
+# for SDM845 sound card driver
+snd-soc-sdm845-objs := sdm845.o
+obj-$(CONFIG_SND_SOC_SDM845) += snd-soc-sdm845.o

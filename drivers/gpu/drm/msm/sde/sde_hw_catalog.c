@@ -1969,7 +1969,7 @@ static void sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		break;
 	case SDE_HW_VER_300:
 	case SDE_HW_VER_400:
-		/* update msm8998 and skunk target here */
+		/* update msm8998 and sdm845 target here */
 		break;
 	}
 }
