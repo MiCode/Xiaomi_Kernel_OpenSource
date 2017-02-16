@@ -9,7 +9,7 @@
 
 /**
  * touch_nmi_watchdog - restart NMI watchdog timeout.
- * 
+ *
  * If the architecture supports the NMI watchdog, touch_nmi_watchdog()
  * may be used to reset the timeout - for code which intentionally
  * disables interrupts for a long time. This call is stateless.
@@ -41,7 +41,7 @@ static inline void hardlockup_detector_disable(void) {}
 #ifdef arch_trigger_cpumask_backtrace
 static inline bool trigger_all_cpu_backtrace(void)
 {
-	#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+	#if defined(CONFIG_ARM64)
 		arch_trigger_all_cpu_backtrace();
 	else
 		arch_trigger_cpumask_backtrace(cpu_online_mask, false);
@@ -52,7 +52,7 @@ static inline bool trigger_all_cpu_backtrace(void)
 
 static inline bool trigger_allbutself_cpu_backtrace(void)
 {
-	#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+	#if defined(CONFIG_ARM64)
 		arch_trigger_all_cpu_backtrace();
 	else
 		arch_trigger_cpumask_backtrace(cpu_online_mask, true);
