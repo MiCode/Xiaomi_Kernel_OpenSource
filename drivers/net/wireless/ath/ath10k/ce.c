@@ -225,13 +225,12 @@ static inline void ath10k_ce_src_ring_highmark_set(struct ath10k *ar,
 						   unsigned int n)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
+	struct ath10k_hw_ce_dst_src_wm_regs *srcr_wm = ar->hw_ce_regs->wm_srcr;
+	u32 addr = ar_opaque->bus_ops->read32(ar, ce_ctrl_addr + srcr_wm->addr);
 
-	u32 addr = ar_opaque->bus_ops->read32(ar, ce_ctrl_addr +
-					      SRC_WATERMARK_ADDRESS);
-
-	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + SRC_WATERMARK_ADDRESS,
-			   (addr & ~SRC_WATERMARK_HIGH_MASK) |
-			   SRC_WATERMARK_HIGH_SET(n));
+	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + srcr_wm->addr,
+			   (addr & ~(srcr_wm->wm_high->mask)) |
+			   (srcr_wm->wm_high->set(n, srcr_wm->wm_high)));
 }
 
 static inline void ath10k_ce_src_ring_lowmark_set(struct ath10k *ar,
@@ -239,12 +238,12 @@ static inline void ath10k_ce_src_ring_lowmark_set(struct ath10k *ar,
 						  unsigned int n)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
-	u32 addr = ar_opaque->bus_ops->read32(ar, ce_ctrl_addr +
-					      SRC_WATERMARK_ADDRESS);
+	struct ath10k_hw_ce_dst_src_wm_regs *srcr_wm = ar->hw_ce_regs->wm_srcr;
+	u32 addr = ar_opaque->bus_ops->read32(ar, ce_ctrl_addr + srcr_wm->addr);
 
-	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + SRC_WATERMARK_ADDRESS,
-			   (addr & ~SRC_WATERMARK_LOW_MASK) |
-			   SRC_WATERMARK_LOW_SET(n));
+	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + srcr_wm->addr,
+			   (addr & ~(srcr_wm->wm_low->mask)) |
+			   (srcr_wm->wm_low->set(n, srcr_wm->wm_low)));
 }
 
 static inline void ath10k_ce_dest_ring_highmark_set(struct ath10k *ar,
@@ -252,12 +251,12 @@ static inline void ath10k_ce_dest_ring_highmark_set(struct ath10k *ar,
 						    unsigned int n)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
-	u32 addr = ar_opaque->bus_ops->read32(ar, ce_ctrl_addr +
-					      DST_WATERMARK_ADDRESS);
+	struct ath10k_hw_ce_dst_src_wm_regs *dstr_wm = ar->hw_ce_regs->wm_dstr;
+	u32 addr = ar_opaque->bus_ops->read32(ar, ce_ctrl_addr + dstr_wm->addr);
 
-	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + DST_WATERMARK_ADDRESS,
-			   (addr & ~DST_WATERMARK_HIGH_MASK) |
-			   DST_WATERMARK_HIGH_SET(n));
+	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + dstr_wm->addr,
+			   (addr & ~(dstr_wm->wm_high->mask)) |
+			   (dstr_wm->wm_high->set(n, dstr_wm->wm_high)));
 }
 
 static inline void ath10k_ce_dest_ring_lowmark_set(struct ath10k *ar,
@@ -265,72 +264,82 @@ static inline void ath10k_ce_dest_ring_lowmark_set(struct ath10k *ar,
 						   unsigned int n)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
-	u32 addr = ar_opaque->bus_ops->read32(ar, ce_ctrl_addr +
-					      DST_WATERMARK_ADDRESS);
+	struct ath10k_hw_ce_dst_src_wm_regs *dstr_wm = ar->hw_ce_regs->wm_dstr;
+	u32 addr = ar_opaque->bus_ops->read32(ar, ce_ctrl_addr + dstr_wm->addr);
 
-	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + DST_WATERMARK_ADDRESS,
-			   (addr & ~DST_WATERMARK_LOW_MASK) |
-			   DST_WATERMARK_LOW_SET(n));
+	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + dstr_wm->addr,
+			   (addr & ~(dstr_wm->wm_low->mask)) |
+			   (dstr_wm->wm_low->set(n, dstr_wm->wm_low)));
 }
 
 static inline void ath10k_ce_copy_complete_inter_enable(struct ath10k *ar,
 							u32 ce_ctrl_addr)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
+	struct ath10k_hw_ce_host_ie *host_ie = ar->hw_ce_regs->host_ie;
+
 	u32 host_ie_addr = ar_opaque->bus_ops->read32(ar,
 				ce_ctrl_addr + ar->hw_ce_regs->host_ie_addr);
 
 	ar_opaque->bus_ops->write32(ar,
 			ce_ctrl_addr + ar->hw_ce_regs->host_ie_addr,
-			host_ie_addr | HOST_IE_COPY_COMPLETE_MASK);
+			host_ie_addr | host_ie->copy_complete->mask);
 }
 
 static inline void ath10k_ce_copy_complete_intr_disable(struct ath10k *ar,
 							u32 ce_ctrl_addr)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
+	struct ath10k_hw_ce_host_ie *host_ie = ar->hw_ce_regs->host_ie;
+
 	u32 host_ie_addr = ar_opaque->bus_ops->read32(ar,
 				ce_ctrl_addr + ar->hw_ce_regs->host_ie_addr);
 
 	ar_opaque->bus_ops->write32(ar,
 			ce_ctrl_addr + ar->hw_ce_regs->host_ie_addr,
-			host_ie_addr & ~HOST_IE_COPY_COMPLETE_MASK);
+			host_ie_addr & ~(host_ie->copy_complete->mask));
 }
 
 static inline void ath10k_ce_watermark_intr_disable(struct ath10k *ar,
 						    u32 ce_ctrl_addr)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
+	struct ath10k_hw_ce_host_wm_regs *wm_regs = ar->hw_ce_regs->wm_regs;
+
 	u32 host_ie_addr = ar_opaque->bus_ops->read32(ar,
 				ce_ctrl_addr + ar->hw_ce_regs->host_ie_addr);
 
 	ar_opaque->bus_ops->write32(ar,
 			ce_ctrl_addr + ar->hw_ce_regs->host_ie_addr,
-			host_ie_addr & ~CE_WATERMARK_MASK);
+			host_ie_addr & ~(wm_regs->wm_mask));
 }
 
 static inline void ath10k_ce_error_intr_enable(struct ath10k *ar,
 					       u32 ce_ctrl_addr)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
+	struct ath10k_hw_ce_misc_regs *misc_regs = ar->hw_ce_regs->misc_regs;
+
 	u32 misc_ie_addr = ar_opaque->bus_ops->read32(ar,
 			ce_ctrl_addr + ar->hw_ce_regs->misc_ie_addr);
 
 	ar_opaque->bus_ops->write32(ar,
 			ce_ctrl_addr + ar->hw_ce_regs->misc_ie_addr,
-			misc_ie_addr | CE_ERROR_MASK);
+			misc_ie_addr | misc_regs->err_mask);
 }
 
 static inline void ath10k_ce_error_intr_disable(struct ath10k *ar,
 						u32 ce_ctrl_addr)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
+	struct ath10k_hw_ce_misc_regs *misc_regs = ar->hw_ce_regs->misc_regs;
+
 	u32 misc_ie_addr = ar_opaque->bus_ops->read32(ar,
 			ce_ctrl_addr + ar->hw_ce_regs->misc_ie_addr);
 
 	ar_opaque->bus_ops->write32(ar,
 			ce_ctrl_addr + ar->hw_ce_regs->misc_ie_addr,
-			misc_ie_addr & ~CE_ERROR_MASK);
+			misc_ie_addr & ~(misc_regs->err_mask));
 }
 
 static inline void ath10k_ce_engine_int_status_clear(struct ath10k *ar,
@@ -338,8 +347,9 @@ static inline void ath10k_ce_engine_int_status_clear(struct ath10k *ar,
 						     unsigned int mask)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
+	struct ath10k_hw_ce_host_wm_regs *wm_regs = ar->hw_ce_regs->wm_regs;
 
-	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + HOST_IS_ADDRESS, mask);
+	ar_opaque->bus_ops->write32(ar, ce_ctrl_addr + wm_regs->addr, mask);
 }
 
 u32 shadow_sr_wr_ind_addr(struct ath10k *ar, u32 ctrl_addr)
@@ -891,13 +901,14 @@ void ath10k_ce_per_engine_service(struct ath10k *ar, unsigned int ce_id)
 {
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
 	struct ath10k_ce_pipe *ce_state = &ar_opaque->ce_states[ce_id];
+	struct ath10k_hw_ce_host_wm_regs *wm_regs = ar->hw_ce_regs->wm_regs;
 	u32 ctrl_addr = ce_state->ctrl_addr;
 
 	spin_lock_bh(&ar_opaque->ce_lock);
 
 	/* Clear the copy-complete interrupts that will be handled here. */
 	ath10k_ce_engine_int_status_clear(ar, ctrl_addr,
-					  HOST_IS_COPY_COMPLETE_MASK);
+					  wm_regs->cc_mask);
 
 	spin_unlock_bh(&ar_opaque->ce_lock);
 
@@ -913,7 +924,7 @@ void ath10k_ce_per_engine_service(struct ath10k *ar, unsigned int ce_id)
 	 * Misc CE interrupts are not being handled, but still need
 	 * to be cleared.
 	 */
-	ath10k_ce_engine_int_status_clear(ar, ctrl_addr, CE_WATERMARK_MASK);
+	ath10k_ce_engine_int_status_clear(ar, ctrl_addr, wm_regs->wm_mask);
 
 	spin_unlock_bh(&ar_opaque->ce_lock);
 }

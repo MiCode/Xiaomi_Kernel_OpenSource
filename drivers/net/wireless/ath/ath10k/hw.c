@@ -209,6 +209,81 @@ struct ath10k_hw_ce_ctrl1 wcn3990_ctrl1 = {
 	.dmax		= &wcn3990_dmax,
 };
 
+struct ath10k_hw_ce_regs_addr_map wcn3990_host_ie_cc = {
+	.mask	= 0x00000001,
+};
+
+struct ath10k_hw_ce_host_ie wcn3990_host_ie = {
+	.copy_complete	= &wcn3990_host_ie_cc,
+};
+
+struct ath10k_hw_ce_host_wm_regs wcn3990_wm_reg = {
+	.dstr_lmask	= 0x00000010,
+	.dstr_hmask	= 0x00000008,
+	.srcr_lmask	= 0x00000004,
+	.srcr_hmask	= 0x00000002,
+	.cc_mask	= 0x00000001,
+	.wm_mask	= 0x0000001E,
+	.addr		= 0x00000030,
+};
+
+struct ath10k_hw_ce_misc_regs wcn3990_misc_reg = {
+	.axi_err	= 0x00000100,
+	.dstr_add_err	= 0x00000200,
+	.srcr_len_err	= 0x00000100,
+	.dstr_mlen_vio	= 0x00000080,
+	.dstr_overflow	= 0x00000040,
+	.srcr_overflow	= 0x00000020,
+	.err_mask	= 0x000003E0,
+	.addr		= 0x00000038,
+};
+
+struct ath10k_hw_ce_regs_addr_map wcn3990_src_wm_low = {
+	.msb	= 0x00000000,
+	.lsb	= 0x00000010,
+	.mask	= 0xffff0000,
+	.set	= &ath10k_set_ring_byte,
+	.get	= &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_regs_addr_map wcn3990_src_wm_high = {
+	.msb	= 0x0000000f,
+	.lsb	= 0x00000000,
+	.mask	= 0x0000ffff,
+	.set	= &ath10k_set_ring_byte,
+	.get	= &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_dst_src_wm_regs wcn3990_wm_src_ring = {
+	.addr		= 0x0000004c,
+	.low_rst	= 0x00000000,
+	.high_rst	= 0x00000000,
+	.wm_low		= &wcn3990_src_wm_low,
+	.wm_high	= &wcn3990_src_wm_high,
+};
+
+struct ath10k_hw_ce_regs_addr_map wcn3990_dst_wm_low = {
+	.lsb	= 0x00000010,
+	.mask	= 0xffff0000,
+	.set	= &ath10k_set_ring_byte,
+};
+
+struct ath10k_hw_ce_regs_addr_map wcn3990_dst_wm_high = {
+	.msb	= 0x0000000f,
+	.lsb	= 0x00000000,
+	.mask	= 0x0000ffff,
+	.set	= &ath10k_set_ring_byte,
+	.get	= &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_dst_src_wm_regs wcn3990_wm_dst_ring = {
+	.addr		= 0x00000050,
+	.low_rst	= 0x00000000,
+	.high_rst	= 0x00000000,
+	.wm_low		= &wcn3990_dst_wm_low,
+	.wm_high	= &wcn3990_dst_wm_high,
+};
+
 struct ath10k_hw_ce_regs wcn3990_ce_regs = {
 	.sr_base_addr		= 0x00000000,
 	.sr_size_addr		= 0x00000008,
@@ -225,6 +300,11 @@ struct ath10k_hw_ce_regs wcn3990_ce_regs = {
 	.ce_rri_high		= 0x0024C008,
 	.host_ie_addr		= 0x0000002c,
 	.ctrl1_regs		= &wcn3990_ctrl1,
+	.host_ie		= &wcn3990_host_ie,
+	.wm_regs		= &wcn3990_wm_reg,
+	.misc_regs		= &wcn3990_misc_reg,
+	.wm_srcr		= &wcn3990_wm_src_ring,
+	.wm_dstr		= &wcn3990_wm_dst_ring,
 };
 
 struct ath10k_hw_ce_regs_addr_map qcax_src_ring = {
@@ -263,6 +343,101 @@ struct ath10k_hw_ce_ctrl1 qcax_ctrl1 = {
 	.dmax		= &qcax_dmax,
 };
 
+struct ath10k_hw_ce_regs_addr_map qcax_cmd_halt_status = {
+	.msb	= 0x00000003,
+	.lsb	= 0x00000003,
+	.mask	= 0x00000008,
+	.set	= &ath10k_set_ring_byte,
+	.get	= &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_cmd_halt qcax_cmd_halt = {
+	.msb		= 0x00000000,
+	.mask		= 0x00000001,
+	.status_reset	= 0x00000000,
+	.status		= &qcax_cmd_halt_status,
+};
+
+struct ath10k_hw_ce_regs_addr_map qcax_host_ie_cc = {
+	.msb	= 0x00000000,
+	.lsb	= 0x00000000,
+	.mask	= 0x00000001,
+	.set	= &ath10k_set_ring_byte,
+	.get	= &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_host_ie qcax_host_ie = {
+	.copy_complete_reset	= 0x00000000,
+	.copy_complete		= &qcax_host_ie_cc,
+};
+
+struct ath10k_hw_ce_host_wm_regs qcax_wm_reg = {
+	.dstr_lmask	= 0x00000010,
+	.dstr_hmask	= 0x00000008,
+	.srcr_lmask	= 0x00000004,
+	.srcr_hmask	= 0x00000002,
+	.cc_mask	= 0x00000001,
+	.wm_mask	= 0x0000001E,
+	.addr		= 0x00000030,
+};
+
+struct ath10k_hw_ce_misc_regs qcax_misc_reg = {
+	.axi_err	= 0x00000400,
+	.dstr_add_err	= 0x00000200,
+	.srcr_len_err	= 0x00000100,
+	.dstr_mlen_vio	= 0x00000080,
+	.dstr_overflow	= 0x00000040,
+	.srcr_overflow	= 0x00000020,
+	.err_mask	= 0x000007E0,
+	.addr		= 0x00000038,
+};
+
+struct ath10k_hw_ce_regs_addr_map qcax_src_wm_low = {
+	.msb    = 0x0000001f,
+	.lsb	= 0x00000010,
+	.mask	= 0xffff0000,
+	.set	= &ath10k_set_ring_byte,
+	.get	= &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_regs_addr_map qcax_src_wm_high = {
+	.msb	= 0x0000000f,
+	.lsb	= 0x00000000,
+	.mask	= 0x0000ffff,
+	.set	= &ath10k_set_ring_byte,
+	.get	= &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_dst_src_wm_regs qcax_wm_src_ring = {
+	.addr		= 0x0000004c,
+	.low_rst	= 0x00000000,
+	.high_rst	= 0x00000000,
+	.wm_low		= &qcax_src_wm_low,
+	.wm_high        = &qcax_src_wm_high,
+};
+
+struct ath10k_hw_ce_regs_addr_map qcax_dst_wm_low = {
+	.lsb	= 0x00000010,
+	.mask	= 0xffff0000,
+	.set	= &ath10k_set_ring_byte,
+};
+
+struct ath10k_hw_ce_regs_addr_map qcax_dst_wm_high = {
+	.msb	= 0x0000000f,
+	.lsb	= 0x00000000,
+	.mask	= 0x0000ffff,
+	.set	= &ath10k_set_ring_byte,
+	.get	= &ath10k_get_ring_byte,
+};
+
+struct ath10k_hw_ce_dst_src_wm_regs qcax_wm_dst_ring = {
+	.addr		= 0x00000050,
+	.low_rst	= 0x00000000,
+	.high_rst	= 0x00000000,
+	.wm_low		= &qcax_dst_wm_low,
+	.wm_high	= &qcax_dst_wm_high,
+};
+
 struct ath10k_hw_ce_regs qcax_ce_regs = {
 	.sr_base_addr		= 0x00000000,
 	.sr_size_addr		= 0x00000004,
@@ -276,6 +451,12 @@ struct ath10k_hw_ce_regs qcax_ce_regs = {
 	.current_drri_addr	= 0x00000048,
 	.host_ie_addr		= 0x0000002c,
 	.ctrl1_regs		= &qcax_ctrl1,
+	.cmd_halt		= &qcax_cmd_halt,
+	.host_ie		= &qcax_host_ie,
+	.wm_regs		= &qcax_wm_reg,
+	.misc_regs		= &qcax_misc_reg,
+	.wm_srcr		= &qcax_wm_src_ring,
+	.wm_dstr                = &qcax_wm_dst_ring,
 };
 
 const struct ath10k_hw_values qca988x_values = {
