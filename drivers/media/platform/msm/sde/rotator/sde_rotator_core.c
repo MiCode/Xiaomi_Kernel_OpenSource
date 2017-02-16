@@ -1818,6 +1818,17 @@ static int sde_rotator_validate_entry(struct sde_rot_mgr *mgr,
 	int ret;
 	struct sde_rotation_item *item;
 	struct sde_rot_perf *perf;
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+
+	/* Check to ensure handoff is completed before 1st rotation request */
+	if (!mdata->handoff_done && mdata->handoff_pending) {
+		mdata->handoff_done = !mdata->handoff_pending();
+		if (!mdata->handoff_done) {
+			SDEROT_INFO(
+				"Splash Still on, Reject Rotation Request\n");
+			return -EINVAL;
+		}
+	}
 
 	item = &entry->item;
 

@@ -576,12 +576,15 @@ struct mdss_util_intf {
 	int (*iommu_ctrl)(int enable);
 	void (*iommu_lock)(void);
 	void (*iommu_unlock)(void);
+	void (*vbif_reg_lock)(void);
+	void (*vbif_reg_unlock)(void);
 	int (*secure_session_ctrl)(int enable);
 	void (*bus_bandwidth_ctrl)(int enable);
 	int (*bus_scale_set_quota)(int client, u64 ab_quota, u64 ib_quota);
 	int (*panel_intf_status)(u32 disp_num, u32 intf_type);
 	struct mdss_panel_cfg* (*panel_intf_type)(int intf_val);
 	int (*dyn_clk_gating_ctrl)(int enable);
+	bool (*mdp_handoff_pending)(void);
 };
 
 struct mdss_util_intf *mdss_get_util_intf(void);
