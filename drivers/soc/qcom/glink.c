@@ -2048,7 +2048,7 @@ static struct glink_core_xprt_ctx *find_open_transport(const char *edge,
 						       uint16_t *best_id)
 {
 	struct glink_core_xprt_ctx *xprt;
-	struct glink_core_xprt_ctx *best_xprt;
+	struct glink_core_xprt_ctx *best_xprt = NULL;
 	struct glink_core_xprt_ctx *ret;
 	bool first = true;
 
@@ -5502,7 +5502,7 @@ static void tx_func(struct kthread_work *work)
 {
 	struct channel_ctx *ch_ptr;
 	uint32_t prio;
-	uint32_t tx_ready_head_prio;
+	uint32_t tx_ready_head_prio = 0;
 	int ret;
 	struct channel_ctx *tx_ready_head = NULL;
 	bool transmitted_successfully = true;
