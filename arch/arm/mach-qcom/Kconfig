@@ -4,7 +4,6 @@ menu "QCOM SoC Type"
 config ARCH_MSM8X60
 	bool "Enable support for MSM8X60"
 	select ARCH_SUPPORTS_BIG_ENDIAN
-	select ARM_GIC
 	select ARM_AMBA
 	select QCOM_SCM if SMP
 	select CLKSRC_QCOM
@@ -15,7 +14,6 @@ config ARCH_MSM8960
 	bool "Enable support for MSM8960"
 	select CLKSRC_QCOM
 	select ARCH_SUPPORTS_BIG_ENDIAN
-	select ARM_GIC
 	select ARM_AMBA
 	select QCOM_SCM if SMP
 	select CLKSRC_OF
@@ -26,7 +24,6 @@ config ARCH_MSM8974
 	bool "Enable support for MSM8974"
 	select HAVE_ARM_ARCH_TIMER
 	select ARCH_SUPPORTS_BIG_ENDIAN
-	select ARM_GIC
 	select ARM_AMBA
 	select QCOM_SCM if SMP
 	select CLKSRC_OF
@@ -36,7 +33,6 @@ config ARCH_MDM9615
 	bool "Enable support for MDM9615"
 	select CLKSRC_QCOM
 	select ARCH_SUPPORTS_BIG_ENDIAN
-	select ARM_GIC
 	select ARM_AMBA
 	select QCOM_SCM if SMP
 	select CLKSRC_OF
