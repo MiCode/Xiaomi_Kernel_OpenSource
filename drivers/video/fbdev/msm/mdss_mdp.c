@@ -2130,6 +2130,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_HDR_SUPPORT_ENABLED);
 		break;
 	case MDSS_MDP_HW_REV_320:
+	case MDSS_MDP_HW_REV_330:
 		mdata->max_target_zorder = 7; /* excluding base layer */
 		mdata->max_cursor_size = 512;
 		mdata->per_pipe_ib_factor.numer = 8;
@@ -2138,7 +2139,9 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->hflip_buffer_reused = false;
 		mdata->min_prefill_lines = 25;
 		mdata->has_ubwc = true;
-		mdata->pixel_ram_size = 50 * 1024;
+		mdata->pixel_ram_size =
+			(mdata->mdp_rev == MDSS_MDP_HW_REV_320) ? 50 : 40;
+		mdata->pixel_ram_size *= 1024;
 		mdata->rects_per_sspp[MDSS_MDP_PIPE_TYPE_DMA] = 2;
 
 		mem_protect_sd_ctrl_id = MEM_PROTECT_SD_CTRL_SWITCH;
@@ -4876,6 +4879,7 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 			*ot_lim = 6;
 		break;
 	case MDSS_MDP_HW_REV_320:
+	case MDSS_MDP_HW_REV_330:
 		if ((res <= RES_1080p) && (params->frame_rate <= 30))
 			*ot_lim = 2;
 		else if ((res <= RES_1080p) && (params->frame_rate <= 60))
