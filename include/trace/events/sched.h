@@ -1642,6 +1642,43 @@ TRACE_EVENT(sched_energy_diff,
 		__entry->capb, __entry->capa, __entry->capd,
 		__entry->nrgn, __entry->nrgp)
 );
+
+TRACE_EVENT(sched_group_energy,
+
+	TP_PROTO(int cpu, long group_util, u64 total_nrg,
+		 int busy_nrg, int idle_nrg, int grp_idle_idx,
+		 int new_capacity),
+
+	TP_ARGS(cpu, group_util, total_nrg,
+		busy_nrg, idle_nrg, grp_idle_idx,
+		new_capacity),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(long, group_util)
+		__field(u64, total_nrg)
+		__field(int, busy_nrg)
+		__field(int, idle_nrg)
+		__field(int, grp_idle_idx)
+		__field(int, new_capacity)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->group_util = group_util;
+		__entry->total_nrg = total_nrg;
+		__entry->busy_nrg = busy_nrg;
+		__entry->idle_nrg = idle_nrg;
+		__entry->grp_idle_idx = grp_idle_idx;
+		__entry->new_capacity = new_capacity;
+	),
+
+	TP_printk("cpu=%d group_util=%ld total_nrg=%llu busy_nrg=%d idle_nrg=%d grp_idle_idx=%d new_capacity=%d",
+		  __entry->cpu, __entry->group_util,
+		  __entry->total_nrg, __entry->busy_nrg, __entry->idle_nrg,
+		  __entry->grp_idle_idx, __entry->new_capacity)
+);
+
 /*
  * Tracepoint for schedtune_tasks_update
  */
