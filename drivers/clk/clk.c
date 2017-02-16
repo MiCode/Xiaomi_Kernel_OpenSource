@@ -2649,7 +2649,7 @@ static const struct file_operations clk_enabled_list_fops = {
 	.release	= seq_release,
 };
 
-static void clk_debug_print_hw(struct clk_core *clk, struct seq_file *f)
+void clk_debug_print_hw(struct clk_core *clk, struct seq_file *f)
 {
 	if (IS_ERR_OR_NULL(clk))
 		return;
@@ -2663,6 +2663,7 @@ static void clk_debug_print_hw(struct clk_core *clk, struct seq_file *f)
 
 	clk->ops->list_registers(f, clk->hw);
 }
+EXPORT_SYMBOL(clk_debug_print_hw);
 
 static int print_hw_show(struct seq_file *m, void *unused)
 {
