@@ -575,6 +575,7 @@
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-rot-vbif-qos-setting = <1 1 1 1>;
+		qcom,mdss-rot-xin-id = <14 15>;
 
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <40>;
