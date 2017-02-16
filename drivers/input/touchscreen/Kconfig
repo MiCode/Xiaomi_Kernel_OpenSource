@@ -1128,17 +1128,6 @@ config TOUCHSCREEN_FT5X06_GESTURE
 
          If unsure, say N.
 
-config TOUCHSCREEN_MSTAR21XX
-	tristate "Mstar touchscreens"
-	depends on I2C
-	help
-	 Say Y here if you have a mstar touchscreen.
-
-	 If unsure, say N.
-
-	 To compile this driver as a module, choose M here: the
-	 module will be called msg21xx_ts.
-
 config TOUCHSCREEN_ROHM_BU21023
 	tristate "ROHM BU21023/24 Dual touch support resistive touchscreens"
 	depends on I2C
