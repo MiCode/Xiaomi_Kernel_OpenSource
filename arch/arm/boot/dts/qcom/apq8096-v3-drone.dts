@@ -24,3 +24,7 @@
 			<246 0x30001>, <291 0x30001>;
 	qcom,board-id = <8 3>;
 };
+
+&blsp1_uart2 {
+	status = "ok";
+};
