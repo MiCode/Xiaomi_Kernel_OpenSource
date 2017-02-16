@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -956,18 +956,28 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	int st = 0;
 	int i, j, ret, nelem;
 	u32 config, max_tcs, ncpt;
+	int tcs_type_count[TCS_TYPE_NR] = { 0 };
+	struct resource *res;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
 
-	of_property_read_u32(dn, "qcom,drv-id", &drv->drv_id);
+	ret = of_property_read_u32(dn, "qcom,drv-id", &drv->drv_id);
+	if (ret)
+		return ret;
 
-	drv->base = of_iomap(dn, 0);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -EINVAL;
+	drv->base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(drv->base))
 		return PTR_ERR(drv->base);
 
-	drv->reg_base = of_iomap(dn, 1);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res)
+		return -EINVAL;
+	drv->reg_base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(drv->reg_base))
 		return PTR_ERR(drv->reg_base);
 
@@ -987,8 +997,22 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	/* Ensure we have exactly not more than one of each type in DT */
 	for (i = 0; i < (nelem / 2); i++) {
-		tcs = &drv->tcs[i];
+		if (val[2 * i] >= TCS_TYPE_NR)
+			return -EINVAL;
+		tcs_type_count[val[2 * i]]++;
+		if (tcs_type_count[val[2 * i]] > 1)
+			return -EINVAL;
+	}
+
+	/* Ensure we have each type specified in DT */
+	for (i = 0; i < ARRAY_SIZE(tcs_type_count); i++)
+		if (!tcs_type_count[i])
+			return -EINVAL;
+
+	for (i = 0; i < (nelem / 2); i++) {
+		tcs = &drv->tcs[val[2 * i]];
 		tcs->drv = drv;
 		tcs->type = val[2 * i];
 		tcs->num_tcs = val[2 * i + 1];
