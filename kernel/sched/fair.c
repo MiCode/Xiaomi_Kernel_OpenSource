@@ -2620,7 +2620,6 @@ struct cpu_select_env {
 	u8 need_idle:1;
 	u8 need_waker_cluster:1;
 	u8 sync:1;
-	u8 ignore_prev_cpu:1;
 	enum sched_boost_policy boost_policy;
 	u8 pack_task:1;
 	int prev_cpu;
@@ -2630,6 +2629,7 @@ struct cpu_select_env {
 	u64 cpu_load;
 	u32 sbc_best_flag;
 	u32 sbc_best_cluster_flag;
+	struct cpumask search_cpus;
 };
 
 struct cluster_cpu_stats {
@@ -2834,11 +2834,14 @@ struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 {
 	struct sched_cluster *next = NULL;
 	int i;
+	struct cpumask search_cpus;
 
 	while (!bitmap_empty(env->backup_list, num_clusters)) {
 		next = next_candidate(env->backup_list, 0, num_clusters);
 		__clear_bit(next->id, env->backup_list);
-		for_each_cpu_and(i, &env->p->cpus_allowed, &next->cpus) {
+
+		cpumask_and(&search_cpus, &env->search_cpus, &next->cpus);
+		for_each_cpu(i, &search_cpus) {
 			trace_sched_cpu_load_wakeup(cpu_rq(i), idle_cpu(i),
 			sched_irqload(i), power_cost(i, task_load(env->p) +
 					cpu_cravg_sync(i, env->sync)), 0);
@@ -3010,11 +3013,7 @@ static void find_best_cpu_in_cluster(struct sched_cluster *c,
 	int i;
 	struct cpumask search_cpus;
 
-	cpumask_and(&search_cpus, tsk_cpus_allowed(env->p), &c->cpus);
-	cpumask_andnot(&search_cpus, &search_cpus, cpu_isolated_mask);
-
-	if (env->ignore_prev_cpu)
-		cpumask_clear_cpu(env->prev_cpu, &search_cpus);
+	cpumask_and(&search_cpus, &env->search_cpus, &c->cpus);
 
 	env->need_idle = wake_to_idle(env->p) || c->wake_up_idle;
 
@@ -3026,7 +3025,7 @@ static void find_best_cpu_in_cluster(struct sched_cluster *c,
 			power_cost(i, task_load(env->p) +
 					cpu_cravg_sync(i, env->sync)), 0);
 
-		if (unlikely(!cpu_active(i)) || skip_cpu(i, env))
+		if (skip_cpu(i, env))
 			continue;
 
 		update_spare_capacity(stats, env, i, c->capacity,
@@ -3081,9 +3080,7 @@ bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 		return false;
 
 	prev_cpu = env->prev_cpu;
-	if (!cpumask_test_cpu(prev_cpu, tsk_cpus_allowed(task)) ||
-					unlikely(!cpu_active(prev_cpu)) ||
-					cpu_isolated(prev_cpu))
+	if (!cpumask_test_cpu(prev_cpu, &env->search_cpus))
 		return false;
 
 	if (task->ravg.mark_start - task->last_cpu_selected_ts >=
@@ -3116,7 +3113,7 @@ bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 			spill_threshold_crossed(env, cpu_rq(prev_cpu))) {
 		update_spare_capacity(stats, env, prev_cpu,
 				cluster->capacity, env->cpu_load);
-		env->ignore_prev_cpu = 1;
+		cpumask_clear_cpu(prev_cpu, &env->search_cpus);
 		return false;
 	}
 
@@ -3132,23 +3129,17 @@ wake_to_waker_cluster(struct cpu_select_env *env)
 }
 
 static inline bool
-bias_to_waker_cpu(struct task_struct *p, int cpu)
+bias_to_waker_cpu(struct cpu_select_env *env, int cpu)
 {
 	return sysctl_sched_prefer_sync_wakee_to_waker &&
 	       cpu_rq(cpu)->nr_running == 1 &&
-	       cpumask_test_cpu(cpu, tsk_cpus_allowed(p)) &&
-	       cpu_active(cpu) && !cpu_isolated(cpu);
+	       cpumask_test_cpu(cpu, &env->search_cpus);
 }
 
 static inline int
-cluster_allowed(struct task_struct *p, struct sched_cluster *cluster)
+cluster_allowed(struct cpu_select_env *env, struct sched_cluster *cluster)
 {
-	cpumask_t tmp_mask;
-
-	cpumask_and(&tmp_mask, &cluster->cpus, cpu_active_mask);
-	cpumask_and(&tmp_mask, &tmp_mask, &p->cpus_allowed);
-
-	return !cpumask_empty(&tmp_mask);
+	return cpumask_intersects(&env->search_cpus, &cluster->cpus);
 }
 
 /* return cheapest cpu that can fit this task */
@@ -3169,7 +3160,6 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		.need_waker_cluster	= 0,
 		.sync			= sync,
 		.prev_cpu		= target,
-		.ignore_prev_cpu	= 0,
 		.rtg			= NULL,
 		.sbc_best_flag		= 0,
 		.sbc_best_cluster_flag	= 0,
@@ -3182,6 +3172,9 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	bitmap_copy(env.candidate_list, all_cluster_ids, NR_CPUS);
 	bitmap_zero(env.backup_list, NR_CPUS);
 
+	cpumask_and(&env.search_cpus, tsk_cpus_allowed(p), cpu_active_mask);
+	cpumask_andnot(&env.search_cpus, &env.search_cpus, cpu_isolated_mask);
+
 	init_cluster_cpu_stats(&stats);
 	special = env_has_special_flags(&env);
 
@@ -3191,19 +3184,19 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 
 	if (grp && grp->preferred_cluster) {
 		pref_cluster = grp->preferred_cluster;
-		if (!cluster_allowed(p, pref_cluster))
+		if (!cluster_allowed(&env, pref_cluster))
 			clear_bit(pref_cluster->id, env.candidate_list);
 		else
 			env.rtg = grp;
 	} else if (!special) {
 		cluster = cpu_rq(cpu)->cluster;
 		if (wake_to_waker_cluster(&env)) {
-			if (bias_to_waker_cpu(p, cpu)) {
+			if (bias_to_waker_cpu(&env, cpu)) {
 				target = cpu;
 				sbc_flag = SBC_FLAG_WAKER_CLUSTER |
 					   SBC_FLAG_WAKER_CPU;
 				goto out;
-			} else if (cluster_allowed(p, cluster)) {
+			} else if (cluster_allowed(&env, cluster)) {
 				env.need_waker_cluster = 1;
 				bitmap_zero(env.candidate_list, NR_CPUS);
 				__set_bit(cluster->id, env.candidate_list);
@@ -3499,8 +3492,15 @@ static inline int migration_needed(struct task_struct *p, int cpu)
 	nice = task_nice(p);
 	rcu_read_lock();
 	grp = task_related_thread_group(p);
+	/*
+	 * Don't assume higher capacity means higher power. If the task
+	 * is running on the power efficient CPU, avoid migrating it
+	 * to a lower capacity cluster.
+	 */
 	if (!grp && (nice > SCHED_UPMIGRATE_MIN_NICE ||
-	       upmigrate_discouraged(p)) && cpu_capacity(cpu) > min_capacity) {
+			upmigrate_discouraged(p)) &&
+			cpu_capacity(cpu) > min_capacity &&
+			cpu_max_power_cost(cpu) == max_power_cost) {
 		rcu_read_unlock();
 		return DOWN_MIGRATION;
 	}
