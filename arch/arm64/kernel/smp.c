@@ -808,11 +808,20 @@ void arch_irq_work_raise(void)
 }
 #endif
 
+static DEFINE_RAW_SPINLOCK(stop_lock);
 /*
  * ipi_cpu_stop - handle IPI from smp_send_stop()
  */
 static void ipi_cpu_stop(unsigned int cpu)
 {
+	if (system_state == SYSTEM_BOOTING ||
+	    system_state == SYSTEM_RUNNING) {
+		raw_spin_lock(&stop_lock);
+		pr_crit("CPU%u: stopping\n", cpu);
+		dump_stack();
+		raw_spin_unlock(&stop_lock);
+	}
+
 	set_cpu_active(cpu, false);
 
 	flush_cache_all();
