@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,6 +87,31 @@ static long ipa3_wan_ioctl(struct file *filp,
 		}
 		if (ipa3_qmi_filter_request_send(
 			(struct ipa_install_fltr_rule_req_msg_v01 *)param)) {
+			IPAWANDBG("IPACM->Q6 add filter rule failed\n");
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((u8 *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case WAN_IOC_ADD_FLT_RULE_EX:
+		IPAWANDBG("device %s got WAN_IOC_ADD_FLT_RULE_EX :>>>\n",
+		DRIVER_NAME);
+		pyld_sz = sizeof(struct ipa_install_fltr_rule_req_ex_msg_v01);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (u8 *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa3_qmi_filter_request_ex_send(
+			(struct ipa_install_fltr_rule_req_ex_msg_v01 *)param)) {
 			IPAWANDBG("IPACM->Q6 add filter rule failed\n");
 			retval = -EFAULT;
 			break;
