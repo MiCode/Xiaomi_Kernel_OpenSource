@@ -55,6 +55,12 @@
 			qcom,cdc-reset-gpio = <&msm_gpio 27 0>;
 		};
 	};
+
+	i2c@78b9000 {
+		synaptics@20 {
+			status = "disabled";
+		};
+	};
 };
 
 &i2c_4 {
