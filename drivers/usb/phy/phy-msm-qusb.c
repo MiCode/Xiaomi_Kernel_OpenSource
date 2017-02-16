@@ -70,6 +70,7 @@
 #define QUSB2PHY_PORT_TUNE2             0x84
 #define QUSB2PHY_PORT_TUNE3             0x88
 #define QUSB2PHY_PORT_TUNE4             0x8C
+#define QUSB2PHY_PORT_TUNE5             0x90
 
 /* Get TUNE2's high nibble value read from efuse */
 #define TUNE2_HIGH_NIBBLE_VAL(val, pos, mask)	((val >> pos) & mask)
@@ -96,9 +97,26 @@
 
 #define QUSB2PHY_REFCLK_ENABLE		BIT(0)
 
-unsigned int tune2;
-module_param(tune2, uint, S_IRUGO | S_IWUSR);
+static unsigned int tune1;
+module_param(tune1, uint, 0644);
+MODULE_PARM_DESC(tune1, "QUSB PHY TUNE1");
+
+static unsigned int tune2;
+module_param(tune2, uint, 0644);
 MODULE_PARM_DESC(tune2, "QUSB PHY TUNE2");
+
+static unsigned int tune3;
+module_param(tune3, uint, 0644);
+MODULE_PARM_DESC(tune3, "QUSB PHY TUNE3");
+
+static unsigned int tune4;
+module_param(tune4, uint, 0644);
+MODULE_PARM_DESC(tune4, "QUSB PHY TUNE4");
+
+static unsigned int tune5;
+module_param(tune5, uint, 0644);
+MODULE_PARM_DESC(tune5, "QUSB PHY TUNE5");
+
 
 struct qusb_phy {
 	struct usb_phy		phy;
@@ -511,13 +529,29 @@ static int qusb_phy_init(struct usb_phy *phy)
 				qphy->base + QUSB2PHY_PORT_TUNE2);
 	}
 
-	/* If tune2 modparam set, override tune2 value */
-	if (tune2) {
-		pr_debug("%s(): (modparam) TUNE2 val:0x%02x\n",
-						__func__, tune2);
+	/* If tune modparam set, override tune value */
+
+	pr_debug("%s():userspecified modparams TUNEX val:0x%x %x %x %x %x\n",
+				__func__, tune1, tune2, tune3, tune4, tune5);
+	if (tune1)
+		writel_relaxed(tune1,
+				qphy->base + QUSB2PHY_PORT_TUNE1);
+
+	if (tune2)
 		writel_relaxed(tune2,
 				qphy->base + QUSB2PHY_PORT_TUNE2);
-	}
+
+	if (tune3)
+		writel_relaxed(tune3,
+				qphy->base + QUSB2PHY_PORT_TUNE3);
+
+	if (tune4)
+		writel_relaxed(tune4,
+				qphy->base + QUSB2PHY_PORT_TUNE4);
+
+	if (tune5)
+		writel_relaxed(tune5,
+				qphy->base + QUSB2PHY_PORT_TUNE5);
 
 	/* ensure above writes are completed before re-enabling PHY */
 	wmb();
