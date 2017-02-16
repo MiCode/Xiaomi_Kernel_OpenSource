@@ -1283,6 +1283,14 @@
 		qcom,fragmented-data;
 	};
 
+	qcom,spcom {
+		compatible = "qcom,spcom";
+
+		/* predefined channels, remote side is server */
+		qcom,spcom-ch-names = "sp_kernel", "sp_ssr";
+		status = "ok";
+	};
+
 	qcom,glink_pkt {
 		compatible = "qcom,glinkpkt";
 
