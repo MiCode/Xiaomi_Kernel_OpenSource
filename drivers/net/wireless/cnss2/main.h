@@ -114,6 +114,12 @@ struct cnss_recovery_work_t {
 	enum cnss_recovery_reason reason;
 };
 
+struct cnss_pin_connect_result {
+	u32 fw_pwr_pin_result;
+	u32 fw_phy_io_pin_result;
+	u32 fw_rf_pin_result;
+};
+
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
@@ -147,6 +153,7 @@ struct cnss_plat_data {
 	struct wlfw_fw_version_info_s_v01 fw_version_info;
 	struct cnss_fw_mem fw_mem;
 	struct cnss_fw_mem m3_mem;
+	struct cnss_pin_connect_result pin_result;
 };
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev);
