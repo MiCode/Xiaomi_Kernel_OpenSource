@@ -2663,7 +2663,6 @@ int smblib_set_icl_reduction(struct smb_charger *chg, int reduction_ua)
 	int current_ua, rc;
 
 	if (reduction_ua == 0) {
-		chg->icl_reduction_ua = 0;
 		vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, false, 0);
 	} else {
 		/*
@@ -2680,6 +2679,8 @@ int smblib_set_icl_reduction(struct smb_charger *chg, int reduction_ua)
 					current_ua);
 		}
 	}
+
+	chg->icl_reduction_ua = reduction_ua;
 
 	return rerun_election(chg->usb_icl_votable);
 }
