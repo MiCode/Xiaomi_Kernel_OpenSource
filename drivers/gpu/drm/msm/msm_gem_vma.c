@@ -88,7 +88,7 @@ static int allocate_iova(struct msm_gem_address_space *aspace,
 		return 0;
 	}
 	ret = drm_mm_insert_node(&aspace->mm, &vma->node,
-			size >> PAGE_SHIFT, 0, DRM_MM_SEARCH_DEFAULT);
+			size >> PAGE_SHIFT, 0, DRM_MM_SEARCH_BOTTOM_UP);
 
 	spin_unlock(&aspace->lock);
 
