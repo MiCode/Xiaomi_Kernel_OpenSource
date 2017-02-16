@@ -632,11 +632,15 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
 
-	/* reset AUTH_IRQ_EN_CFG_BIT */
-	rc = smblib_masked_write(chg, USBIN_SOURCE_CHANGE_INTRPT_ENB_REG,
-				 AUTH_IRQ_EN_CFG_BIT, AUTH_IRQ_EN_CFG_BIT);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't enable QC auth setting rc=%d\n", rc);
+	if (chg->wa_flags & QC_AUTH_INTERRUPT_WA_BIT) {
+		/* re-enable AUTH_IRQ_EN_CFG_BIT */
+		rc = smblib_masked_write(chg,
+				USBIN_SOURCE_CHANGE_INTRPT_ENB_REG,
+				AUTH_IRQ_EN_CFG_BIT, AUTH_IRQ_EN_CFG_BIT);
+		if (rc < 0)
+			smblib_err(chg,
+				"Couldn't enable QC auth setting rc=%d\n", rc);
+	}
 
 	/* reconfigure allowed voltage for HVDCP */
 	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG,
@@ -3018,14 +3022,18 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 	if (!rising)
 		return;
 
-	/*
-	 * Disable AUTH_IRQ_EN_CFG_BIT to receive adapter voltage
-	 * change interrupt.
-	 */
-	rc = smblib_masked_write(chg, USBIN_SOURCE_CHANGE_INTRPT_ENB_REG,
-				 AUTH_IRQ_EN_CFG_BIT, 0);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't enable QC auth setting rc=%d\n", rc);
+	if (chg->wa_flags & QC_AUTH_INTERRUPT_WA_BIT) {
+		/*
+		 * Disable AUTH_IRQ_EN_CFG_BIT to receive adapter voltage
+		 * change interrupt.
+		 */
+		rc = smblib_masked_write(chg,
+				USBIN_SOURCE_CHANGE_INTRPT_ENB_REG,
+				AUTH_IRQ_EN_CFG_BIT, 0);
+		if (rc < 0)
+			smblib_err(chg,
+				"Couldn't enable QC auth setting rc=%d\n", rc);
+	}
 
 	if (chg->mode == PARALLEL_MASTER)
 		vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, true, 0);
@@ -3187,11 +3195,15 @@ static void typec_source_removal(struct smb_charger *chg)
 
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
 
-	/* reset AUTH_IRQ_EN_CFG_BIT */
-	rc = smblib_masked_write(chg, USBIN_SOURCE_CHANGE_INTRPT_ENB_REG,
-				 AUTH_IRQ_EN_CFG_BIT, AUTH_IRQ_EN_CFG_BIT);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't enable QC auth setting rc=%d\n", rc);
+	if (chg->wa_flags & QC_AUTH_INTERRUPT_WA_BIT) {
+		/* re-enable AUTH_IRQ_EN_CFG_BIT */
+		rc = smblib_masked_write(chg,
+				USBIN_SOURCE_CHANGE_INTRPT_ENB_REG,
+				AUTH_IRQ_EN_CFG_BIT, AUTH_IRQ_EN_CFG_BIT);
+		if (rc < 0)
+			smblib_err(chg,
+				"Couldn't enable QC auth setting rc=%d\n", rc);
+	}
 
 	/* reconfigure allowed voltage for HVDCP */
 	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG,
