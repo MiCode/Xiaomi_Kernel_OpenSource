@@ -74,3 +74,7 @@
 
 	status = "ok";
 };
+
+&tspp {
+	qcom,lpass-timer-tts = <1>;
+};
