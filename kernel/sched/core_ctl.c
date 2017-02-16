@@ -277,9 +277,6 @@ static ssize_t show_global_state(const struct cluster_data *state, char *buf)
 
 	for_each_possible_cpu(cpu) {
 		c = &per_cpu(cpu_state, cpu);
-		if (!c->cluster)
-			continue;
-
 		cluster = c->cluster;
 		if (!cluster || !cluster->inited)
 			continue;
@@ -300,6 +297,9 @@ static ssize_t show_global_state(const struct cluster_data *state, char *buf)
 					"\tBusy%%: %u\n", c->busy);
 		count += snprintf(buf + count, PAGE_SIZE - count,
 					"\tIs busy: %u\n", c->is_busy);
+		count += snprintf(buf + count, PAGE_SIZE - count,
+					"\tNot preferred: %u\n",
+						c->not_preferred);
 		count += snprintf(buf + count, PAGE_SIZE - count,
 					"\tNr running: %u\n", cluster->nrrun);
 		count += snprintf(buf + count, PAGE_SIZE - count,
@@ -323,13 +323,14 @@ static ssize_t store_not_preferred(struct cluster_data *state,
 	int ret;
 
 	ret = sscanf(buf, "%u %u %u %u\n", &val[0], &val[1], &val[2], &val[3]);
-	if (ret != 1 && ret != state->num_cpus)
+	if (ret != state->num_cpus)
 		return -EINVAL;
 
-	i = 0;
 	spin_lock_irqsave(&state_lock, flags);
-	list_for_each_entry(c, &state->lru, sib)
-		c->not_preferred = val[i++];
+	for (i = 0; i < state->num_cpus; i++) {
+		c = &per_cpu(cpu_state, i + state->first_cpu);
+		c->not_preferred = val[i];
+	}
 	spin_unlock_irqrestore(&state_lock, flags);
 
 	return count;
@@ -340,11 +341,14 @@ static ssize_t show_not_preferred(const struct cluster_data *state, char *buf)
 	struct cpu_data *c;
 	ssize_t count = 0;
 	unsigned long flags;
+	int i;
 
 	spin_lock_irqsave(&state_lock, flags);
-	list_for_each_entry(c, &state->lru, sib)
-		count += snprintf(buf + count, PAGE_SIZE - count,
-				"\tCPU:%d %u\n", c->cpu, c->not_preferred);
+	for (i = 0; i < state->num_cpus; i++) {
+		c = &per_cpu(cpu_state, i + state->first_cpu);
+		count += scnprintf(buf + count, PAGE_SIZE - count,
+				"CPU#%d: %u\n", c->cpu, c->not_preferred);
+	}
 	spin_unlock_irqrestore(&state_lock, flags);
 
 	return count;
