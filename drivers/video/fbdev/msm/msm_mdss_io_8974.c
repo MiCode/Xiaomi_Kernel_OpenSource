@@ -2419,9 +2419,16 @@ int mdss_dsi_post_clkoff_cb(void *priv,
 		pdata = &ctrl->panel_data;
 
 		for (i = DSI_MAX_PM - 1; i >= DSI_CORE_PM; i--) {
-			if ((ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) &&
-				(i != DSI_CORE_PM))
-				continue;
+			/**
+			 * If DSI_CTRL is active, proceed to turn off
+			 * supplies which support turning off in low power
+			 * state
+			 */
+			if (ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE)
+				if (!sdata->power_data[i].vreg_config
+						->lp_disable_allowed)
+					continue;
+
 			rc = msm_dss_enable_vreg(
 				sdata->power_data[i].vreg_config,
 				sdata->power_data[i].num_vreg, 0);
@@ -2431,6 +2438,12 @@ int mdss_dsi_post_clkoff_cb(void *priv,
 					__mdss_dsi_pm_name(i));
 				rc = 0;
 			} else {
+				pr_debug("%s: disabled vreg for %s panel_state %d\n",
+					__func__,
+					__mdss_dsi_pm_name(i),
+					pdata->panel_info.panel_power_state);
+				sdata->power_data[i].vreg_config->disabled =
+					true;
 				ctrl->core_power = false;
 			}
 		}
@@ -2470,7 +2483,7 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 		for (i = DSI_CORE_PM; i < DSI_MAX_PM; i++) {
 			if ((ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) &&
 				(!pdata->panel_info.cont_splash_enabled) &&
-				(i != DSI_CORE_PM))
+				(!sdata->power_data[i].vreg_config->disabled))
 				continue;
 			rc = msm_dss_enable_vreg(
 				sdata->power_data[i].vreg_config,
@@ -2480,6 +2493,11 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 					__func__,
 					__mdss_dsi_pm_name(i));
 			} else {
+				pr_debug("%s: enabled vregs for %s\n",
+					__func__,
+					__mdss_dsi_pm_name(i));
+				sdata->power_data[i].vreg_config->disabled =
+					false;
 				ctrl->core_power = true;
 			}
 
