@@ -19,6 +19,7 @@
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
 #include <linux/of_device.h>
+#include <linux/msm_ext_display.h>
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
@@ -241,6 +242,32 @@ struct drm_bridge *sde_hdmi_bridge_init(struct hdmi *hdmi);
  */
 void sde_hdmi_set_mode(struct hdmi *hdmi, bool power_on);
 
+/**
+ * sde_hdmi_audio_on() - enable hdmi audio.
+ * @hdmi:          Handle to the hdmi.
+ * @params:        audio setup parameters from codec.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_audio_on(struct hdmi *hdmi,
+	struct msm_ext_disp_audio_setup_params *params);
+
+/**
+ * sde_hdmi_audio_off() - disable hdmi audio.
+ * @hdmi:          Handle to the hdmi.
+ *
+ * Return: void.
+ */
+void sde_hdmi_audio_off(struct hdmi *hdmi);
+
+/**
+ * sde_hdmi_config_avmute() - mute hdmi.
+ * @hdmi:          Handle to the hdmi.
+ * @set:           enable/disable avmute.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_config_avmute(struct hdmi *hdmi, bool set);
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 
 static inline u32 sde_hdmi_get_num_of_displays(void)
