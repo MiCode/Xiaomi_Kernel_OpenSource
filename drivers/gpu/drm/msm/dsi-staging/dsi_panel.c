@@ -22,6 +22,8 @@
 
 #define DSI_PANEL_DEFAULT_LABEL  "Default dsi panel"
 
+#define DEFAULT_MDP_TRANSFER_TIME 14000
+
 static int dsi_panel_vreg_get(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -952,6 +954,14 @@ static int dsi_panel_parse_cmd_host_config(struct dsi_cmd_engine_cfg *cfg,
 		       name);
 		rc = -EINVAL;
 		goto error;
+	}
+
+	if (of_property_read_u32(of_node, "qcom,mdss-mdp-transfer-time-us",
+				&val)) {
+		pr_debug("[%s] Fallback to default transfer-time-us\n", name);
+		cfg->mdp_transfer_time_us = DEFAULT_MDP_TRANSFER_TIME;
+	} else {
+		cfg->mdp_transfer_time_us = val;
 	}
 
 error:

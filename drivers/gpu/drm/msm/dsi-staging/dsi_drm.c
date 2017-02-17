@@ -313,6 +313,8 @@ int dsi_conn_post_init(struct drm_connector *connector,
 		break;
 	case DSI_OP_CMD_MODE:
 		sde_kms_info_add_keystr(info, "panel mode", "command");
+		sde_kms_info_add_keyint(info, "mdp_transfer_time_us",
+				panel->cmd_config.mdp_transfer_time_us);
 		break;
 	default:
 		pr_debug("invalid panel type:%d\n", panel->mode.panel_mode);

@@ -108,6 +108,12 @@ enum sde_prop {
 };
 
 enum {
+	PERF_MAX_BW_LOW,
+	PERF_MAX_BW_HIGH,
+	PERF_PROP_MAX,
+};
+
+enum {
 	SSPP_OFF,
 	SSPP_SIZE,
 	SSPP_TYPE,
@@ -282,6 +288,11 @@ static struct sde_prop_type sde_prop[] = {
 	{SRC_SPLIT, "qcom,sde-has-src-split", false, PROP_TYPE_BOOL},
 	{DIM_LAYER, "qcom,sde-has-dim-layer", false, PROP_TYPE_BOOL},
 	{SMART_DMA_REV, "qcom,sde-smart-dma-rev", false, PROP_TYPE_STRING},
+};
+
+static struct sde_prop_type sde_perf_prop[] = {
+	{PERF_MAX_BW_LOW, "qcom,sde-max-bw-low-kbps", false, PROP_TYPE_U32},
+	{PERF_MAX_BW_HIGH, "qcom,sde-max-bw-high-kbps", false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type sspp_prop[] = {
@@ -1959,6 +1970,46 @@ static int sde_parse_reg_dma_dt(struct device_node *np,
 	return 0;
 }
 
+static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
+{
+	int rc, len, prop_count[PERF_PROP_MAX];
+	struct sde_prop_value *prop_value = NULL;
+	bool prop_exists[PERF_PROP_MAX];
+
+	if (!cfg) {
+		SDE_ERROR("invalid argument\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	prop_value = kzalloc(SDE_PROP_MAX *
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!prop_value) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	rc = _validate_dt_entry(np, sde_perf_prop, ARRAY_SIZE(sde_perf_prop),
+			prop_count, &len);
+	if (rc)
+		goto freeprop;
+
+	rc = _read_dt_entry(np, sde_perf_prop, ARRAY_SIZE(sde_perf_prop),
+			prop_count, prop_exists, prop_value);
+	if (rc)
+		goto freeprop;
+
+	cfg->perf.max_bw_low =
+			PROP_VALUE_ACCESS(prop_value, PERF_MAX_BW_LOW, 0);
+	cfg->perf.max_bw_high =
+			PROP_VALUE_ACCESS(prop_value, PERF_MAX_BW_HIGH, 0);
+
+freeprop:
+	kfree(prop_value);
+end:
+	return rc;
+}
+
 static void sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 {
 	switch (hw_rev) {
@@ -2061,6 +2112,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 		goto end;
 
 	rc = sde_parse_reg_dma_dt(np, sde_cfg);
+	if (rc)
+		goto end;
+
+	rc = sde_perf_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
 

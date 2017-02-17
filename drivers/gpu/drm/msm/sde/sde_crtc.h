@@ -23,6 +23,7 @@
 #include "msm_prop.h"
 #include "sde_fence.h"
 #include "sde_kms.h"
+#include "sde_core_perf.h"
 
 #define SDE_CRTC_NAME_SIZE	12
 
@@ -142,6 +143,8 @@ struct sde_crtc {
  * @property_blobs: Reference pointers for blob properties
  * @num_dim_layers: Number of dim layers
  * @dim_layer: Dim layer configs
+ * @cur_perf: current performance state
+ * @new_perf: new performance state
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -156,6 +159,9 @@ struct sde_crtc_state {
 	struct drm_property_blob *property_blobs[CRTC_PROP_COUNT];
 	uint32_t num_dim_layers;
 	struct sde_hw_dim_layer dim_layer[SDE_MAX_DIM_LAYERS];
+
+	struct sde_core_perf_params cur_perf;
+	struct sde_core_perf_params new_perf;
 };
 
 #define to_sde_crtc_state(x) \
@@ -254,5 +260,47 @@ void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
  * Returns: True if a connector is present with real time constraints
  */
 bool sde_crtc_is_rt(struct drm_crtc *crtc);
+
+/**
+ * sde_crtc_get_intf_mode - get interface mode of the given crtc
+ * @crtc: Pointert to crtc
+ */
+static inline enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc)
+{
+	struct sde_crtc_state *cstate =
+			crtc ? to_sde_crtc_state(crtc->state) : NULL;
+
+	return cstate ? cstate->intf_mode : INTF_MODE_NONE;
+}
+
+/**
+ * sde_core_perf_crtc_is_wb - check if writeback is primary output of this crtc
+ * @crtc: Pointer to crtc
+ */
+static inline bool sde_crtc_is_wb(struct drm_crtc *crtc)
+{
+	struct sde_crtc_state *cstate =
+			crtc ? to_sde_crtc_state(crtc->state) : NULL;
+
+	return cstate ? (cstate->intf_mode == INTF_MODE_WB_LINE) : false;
+}
+
+/**
+ * sde_crtc_is_nrt - check if primary output of this crtc is non-realtime client
+ * @crtc: Pointer to crtc
+ */
+static inline bool sde_crtc_is_nrt(struct drm_crtc *crtc)
+{
+	return sde_crtc_is_wb(crtc);
+}
+
+/**
+ * sde_crtc_is_enabled - check if sde crtc is enabled or not
+ * @crtc: Pointer to crtc
+ */
+static inline bool sde_crtc_is_enabled(struct drm_crtc *crtc)
+{
+	return crtc ? crtc->enabled : false;
+}
 
 #endif /* _SDE_CRTC_H_ */
