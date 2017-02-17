@@ -557,7 +557,7 @@ DECLARE_PCI_FIXUP_HEADER(MHI_PCIE_VENDOR_ID,
 
 
 module_exit(mhi_exit);
-module_init(mhi_init);
+subsys_initcall(mhi_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("MHI_CORE");
