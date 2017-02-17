@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -392,11 +392,13 @@ struct msm_mmu *msm_smmu_new(struct drm_device *drm_dev,
 
 	msm_mmu_init(&smmu->base, drm_dev, dev, name[domain], &funcs);
 	client = msm_smmu_to_client(smmu);
-	iommu_set_fault_handler(client->mmu_mapping->domain,
-			msm_smmu_fault_handler, dev);
+	if (client) {
+		iommu_set_fault_handler(client->mmu_mapping->domain,
+				msm_smmu_fault_handler, dev);
 
-	drm_mm_init(&smmu->va_mm, client->domain->va_start,
-		client->domain->va_size);
+		drm_mm_init(&smmu->va_mm, client->domain->va_start,
+				client->domain->va_size);
+	}
 
 	dpriv->mmus[domain] = &smmu->base;
 
