@@ -600,8 +600,8 @@
 				<0xd900 0x100>;
 			reg-names = "qpnp-wled-ctrl-base",
 					"qpnp-wled-sink-base";
-			interrupts = <0x3 0xd8 0x1 IRQ_TYPE_EDGE_BOTH>,
-					<0x3 0xd8 0x2 IRQ_TYPE_EDGE_BOTH>;
+			interrupts = <0x3 0xd8 0x1 IRQ_TYPE_EDGE_RISING>,
+					<0x3 0xd8 0x2 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "ovp-irq", "sc-irq";
 			linux,name = "wled";
 			linux,default-trigger = "bkl-trigger";
