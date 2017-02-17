@@ -348,11 +348,12 @@ int drm_av_sync_delay(struct drm_connector *connector,
 struct drm_connector *drm_select_eld(struct drm_encoder *encoder);
 
 #ifdef CONFIG_DRM_LOAD_EDID_FIRMWARE
-int drm_load_edid_firmware(struct drm_connector *connector);
+struct edid *drm_load_edid_firmware(struct drm_connector *connector);
 #else
-static inline int drm_load_edid_firmware(struct drm_connector *connector)
+static inline struct edid *
+drm_load_edid_firmware(struct drm_connector *connector)
 {
-	return 0;
+	return ERR_PTR(-ENOENT);
 }
 #endif
 
