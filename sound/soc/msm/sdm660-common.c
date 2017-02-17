@@ -260,6 +260,8 @@ static const char *const mi2s_ch_text[] = {"One", "Two", "Three", "Four",
 					   "Eight"};
 static char const *bit_format_text[] = {"S16_LE", "S24_LE", "S24_3LE",
 					  "S32_LE"};
+static char const *mi2s_format_text[] = {"S16_LE", "S24_LE", "S24_3LE",
+					  "S32_LE"};
 static char const *tdm_ch_text[] = {"One", "Two", "Three", "Four",
 				    "Five", "Six", "Seven", "Eight"};
 static char const *tdm_bit_format_text[] = {"S16_LE", "S24_LE", "S32_LE"};
@@ -295,6 +297,14 @@ static SOC_ENUM_SINGLE_EXT_DECL(prim_mi2s_tx_sample_rate, mi2s_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(sec_mi2s_tx_sample_rate, mi2s_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(tert_mi2s_tx_sample_rate, mi2s_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(quat_mi2s_tx_sample_rate, mi2s_rate_text);
+static SOC_ENUM_SINGLE_EXT_DECL(prim_mi2s_rx_format, mi2s_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(sec_mi2s_rx_format, mi2s_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(tert_mi2s_rx_format, mi2s_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(quat_mi2s_rx_format, mi2s_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(prim_mi2s_tx_format, mi2s_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(sec_mi2s_tx_format, mi2s_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(tert_mi2s_tx_format, mi2s_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(quat_mi2s_tx_format, mi2s_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(prim_mi2s_rx_chs, mi2s_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(prim_mi2s_tx_chs, mi2s_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(sec_mi2s_rx_chs, mi2s_ch_text);
@@ -675,6 +685,54 @@ static int tdm_get_format_val(int format)
 		break;
 	case SNDRV_PCM_FORMAT_S32_LE:
 		value = 2;
+		break;
+	default:
+		value = 0;
+		break;
+	}
+	return value;
+}
+
+static int mi2s_get_format(int value)
+{
+	int format = 0;
+
+	switch (value) {
+	case 0:
+		format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	case 1:
+		format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 2:
+		format = SNDRV_PCM_FORMAT_S24_3LE;
+		break;
+	case 3:
+		format = SNDRV_PCM_FORMAT_S32_LE;
+		break;
+	default:
+		format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	return format;
+}
+
+static int mi2s_get_format_value(int format)
+{
+	int value = 0;
+
+	switch (format) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		value = 0;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		value = 1;
+		break;
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		value = 2;
+		break;
+	case SNDRV_PCM_FORMAT_S32_LE:
+		value = 3;
 		break;
 	default:
 		value = 0;
@@ -1144,6 +1202,78 @@ static int mi2s_tx_sample_rate_get(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: idx[%d]_tx_sample_rate = %d, item = %d\n", __func__,
 		 idx, mi2s_tx_cfg[idx].sample_rate,
 		 ucontrol->value.enumerated.item[0]);
+
+	return 0;
+}
+
+static int mi2s_tx_format_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = mi2s_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	mi2s_tx_cfg[idx].bit_format =
+		mi2s_get_format(ucontrol->value.enumerated.item[0]);
+
+	pr_debug("%s: idx[%d] _tx_format = %d, item = %d\n", __func__,
+		  idx, mi2s_tx_cfg[idx].bit_format,
+		  ucontrol->value.enumerated.item[0]);
+
+	return 0;
+}
+
+static int mi2s_tx_format_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = mi2s_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	ucontrol->value.enumerated.item[0] =
+		mi2s_get_format_value(mi2s_tx_cfg[idx].bit_format);
+
+	pr_debug("%s: idx[%d]_tx_format = %d, item = %d\n", __func__,
+		idx, mi2s_tx_cfg[idx].bit_format,
+		ucontrol->value.enumerated.item[0]);
+
+	return 0;
+}
+
+static int mi2s_rx_format_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = mi2s_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	mi2s_rx_cfg[idx].bit_format =
+		mi2s_get_format(ucontrol->value.enumerated.item[0]);
+
+	pr_debug("%s: idx[%d] _rx_format = %d, item = %d\n", __func__,
+		  idx, mi2s_rx_cfg[idx].bit_format,
+		  ucontrol->value.enumerated.item[0]);
+
+	return 0;
+}
+
+static int mi2s_rx_format_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = mi2s_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	ucontrol->value.enumerated.item[0] =
+		mi2s_get_format_value(mi2s_rx_cfg[idx].bit_format);
+
+	pr_debug("%s: idx[%d]_rx_format = %d, item = %d\n", __func__,
+		idx, mi2s_rx_cfg[idx].bit_format,
+		ucontrol->value.enumerated.item[0]);
 
 	return 0;
 }
@@ -1737,6 +1867,30 @@ const struct snd_kcontrol_new msm_common_snd_controls[] = {
 	SOC_ENUM_EXT("QUAT_MI2S_TX SampleRate", quat_mi2s_tx_sample_rate,
 			mi2s_tx_sample_rate_get,
 			mi2s_tx_sample_rate_put),
+	SOC_ENUM_EXT("PRIM_MI2S_RX Format", prim_mi2s_rx_format,
+			mi2s_rx_format_get,
+			mi2s_rx_format_put),
+	SOC_ENUM_EXT("SEC_MI2S_RX Format", sec_mi2s_rx_format,
+			mi2s_rx_format_get,
+			mi2s_rx_format_put),
+	SOC_ENUM_EXT("TERT_MI2S_RX Format", tert_mi2s_rx_format,
+			mi2s_rx_format_get,
+			mi2s_rx_format_put),
+	SOC_ENUM_EXT("QUAT_MI2S_RX Format", quat_mi2s_rx_format,
+			mi2s_rx_format_get,
+			mi2s_rx_format_put),
+	SOC_ENUM_EXT("PRIM_MI2S_TX Format", prim_mi2s_tx_format,
+			mi2s_tx_format_get,
+			mi2s_tx_format_put),
+	SOC_ENUM_EXT("SEC_MI2S_TX Format", sec_mi2s_tx_format,
+			mi2s_tx_format_get,
+			mi2s_tx_format_put),
+	SOC_ENUM_EXT("TERT_MI2S_TX Format", tert_mi2s_tx_format,
+			mi2s_tx_format_get,
+			mi2s_tx_format_put),
+	SOC_ENUM_EXT("QUAT_MI2S_TX Format", quat_mi2s_tx_format,
+			mi2s_tx_format_get,
+			mi2s_tx_format_put),
 	SOC_ENUM_EXT("PRIM_MI2S_RX Channels", prim_mi2s_rx_chs,
 			msm_mi2s_rx_ch_get, msm_mi2s_rx_ch_put),
 	SOC_ENUM_EXT("PRIM_MI2S_TX Channels", prim_mi2s_tx_chs,
@@ -2082,48 +2236,64 @@ int msm_common_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		rate->min = rate->max = mi2s_rx_cfg[PRIM_MI2S].sample_rate;
 		channels->min = channels->max =
 			mi2s_rx_cfg[PRIM_MI2S].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       mi2s_rx_cfg[PRIM_MI2S].bit_format);
 		break;
 
 	case MSM_BACKEND_DAI_PRI_MI2S_TX:
 		rate->min = rate->max = mi2s_tx_cfg[PRIM_MI2S].sample_rate;
 		channels->min = channels->max =
 			mi2s_tx_cfg[PRIM_MI2S].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       mi2s_tx_cfg[PRIM_MI2S].bit_format);
 		break;
 
 	case MSM_BACKEND_DAI_SECONDARY_MI2S_RX:
 		rate->min = rate->max = mi2s_rx_cfg[SEC_MI2S].sample_rate;
 		channels->min = channels->max =
 			mi2s_rx_cfg[SEC_MI2S].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       mi2s_rx_cfg[SEC_MI2S].bit_format);
 		break;
 
 	case MSM_BACKEND_DAI_SECONDARY_MI2S_TX:
 		rate->min = rate->max = mi2s_tx_cfg[SEC_MI2S].sample_rate;
 		channels->min = channels->max =
 			mi2s_tx_cfg[SEC_MI2S].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       mi2s_tx_cfg[SEC_MI2S].bit_format);
 		break;
 
 	case MSM_BACKEND_DAI_TERTIARY_MI2S_RX:
 		rate->min = rate->max = mi2s_rx_cfg[TERT_MI2S].sample_rate;
 		channels->min = channels->max =
 			mi2s_rx_cfg[TERT_MI2S].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       mi2s_rx_cfg[TERT_MI2S].bit_format);
 		break;
 
 	case MSM_BACKEND_DAI_TERTIARY_MI2S_TX:
 		rate->min = rate->max = mi2s_tx_cfg[TERT_MI2S].sample_rate;
 		channels->min = channels->max =
 			mi2s_tx_cfg[TERT_MI2S].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       mi2s_tx_cfg[TERT_MI2S].bit_format);
 		break;
 
 	case MSM_BACKEND_DAI_QUATERNARY_MI2S_RX:
 		rate->min = rate->max = mi2s_rx_cfg[QUAT_MI2S].sample_rate;
 		channels->min = channels->max =
 			mi2s_rx_cfg[QUAT_MI2S].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       mi2s_rx_cfg[QUAT_MI2S].bit_format);
 		break;
 
 	case MSM_BACKEND_DAI_QUATERNARY_MI2S_TX:
 		rate->min = rate->max = mi2s_tx_cfg[QUAT_MI2S].sample_rate;
 		channels->min = channels->max =
 			mi2s_tx_cfg[QUAT_MI2S].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       mi2s_tx_cfg[QUAT_MI2S].bit_format);
 		break;
 
 	default:
@@ -2213,6 +2383,7 @@ static u32 get_mi2s_bits_per_sample(u32 bit_format)
 	u32 bit_per_sample;
 
 	switch (bit_format) {
+	case SNDRV_PCM_FORMAT_S32_LE:
 	case SNDRV_PCM_FORMAT_S24_3LE:
 	case SNDRV_PCM_FORMAT_S24_LE:
 		bit_per_sample = 32;
