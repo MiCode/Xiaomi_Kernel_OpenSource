@@ -39,7 +39,7 @@
 #define UAC2_STEREO_CH_CONFIG	0x03
 
 /* Keep everyone on toes */
-#define USB_XFERS	2
+#define USB_XFERS	8
 
 /*
  * The driver implements a simple UAC_2 topology.
