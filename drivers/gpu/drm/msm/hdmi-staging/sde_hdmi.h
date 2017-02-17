@@ -271,6 +271,27 @@ void sde_hdmi_audio_off(struct hdmi *hdmi);
  * Return: error code.
  */
 int sde_hdmi_config_avmute(struct hdmi *hdmi, bool set);
+
+/**
+ * sde_hdmi_notify_clients() - notify hdmi clients of the connection status.
+ * @connector:     Handle to the drm_connector.
+ * @status:        connection status.
+ *
+ * Return: void.
+ */
+void sde_hdmi_notify_clients(struct drm_connector *connector,
+	enum drm_connector_status status);
+
+/**
+ * sde_hdmi_ack_state() - acknowledge the connection status.
+ * @connector:     Handle to the drm_connector.
+ * @status:        connection status.
+ *
+ * Return: void.
+ */
+void sde_hdmi_ack_state(struct drm_connector *connector,
+	enum drm_connector_status status);
+
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 
 static inline u32 sde_hdmi_get_num_of_displays(void)

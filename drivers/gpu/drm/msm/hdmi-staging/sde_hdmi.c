@@ -25,6 +25,7 @@
 #include <linux/of_platform.h>
 
 #include "sde_kms.h"
+#include "sde_connector.h"
 #include "msm_drv.h"
 #include "sde_hdmi.h"
 
@@ -404,6 +405,8 @@ static void _sde_hdmi_hotplug_work(struct work_struct *work)
 
 	connector = sde_hdmi->ctrl.ctrl->connector;
 	drm_helper_hpd_irq_event(connector->dev);
+
+	sde_hdmi_notify_clients(connector, connector->status);
 }
 
 static void _sde_hdmi_connector_irq(struct sde_hdmi *sde_hdmi)
@@ -567,6 +570,41 @@ static int _sde_hdmi_ext_disp_init(struct sde_hdmi *display)
 		SDE_ERROR("[%s]failed to register disp\n", display->name);
 
 	return rc;
+}
+
+void sde_hdmi_notify_clients(struct drm_connector *connector,
+	enum drm_connector_status status)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+	int state = (status == connector_status_connected) ?
+		EXT_DISPLAY_CABLE_CONNECT : EXT_DISPLAY_CABLE_DISCONNECT;
+
+	if (display && display->ext_audio_data.intf_ops.hpd) {
+		struct hdmi *hdmi = display->ctrl.ctrl;
+		u32 flags = MSM_EXT_DISP_HPD_VIDEO;
+
+		if (hdmi->hdmi_mode)
+			flags |= MSM_EXT_DISP_HPD_AUDIO;
+
+		display->ext_audio_data.intf_ops.hpd(display->ext_pdev,
+				display->ext_audio_data.type, state, flags);
+	}
+}
+
+void sde_hdmi_ack_state(struct drm_connector *connector,
+	enum drm_connector_status status)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+
+	if (display) {
+		struct hdmi *hdmi = display->ctrl.ctrl;
+
+		if (hdmi->hdmi_mode && display->ext_audio_data.intf_ops.notify)
+			display->ext_audio_data.intf_ops.notify(
+				display->ext_pdev, status);
+	}
 }
 
 void sde_hdmi_set_mode(struct hdmi *hdmi, bool power_on)

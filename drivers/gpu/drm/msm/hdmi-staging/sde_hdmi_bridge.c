@@ -18,6 +18,7 @@
 
 #include "drm_edid.h"
 #include "sde_kms.h"
+#include "sde_connector.h"
 #include "sde_hdmi.h"
 #include "hdmi.h"
 
@@ -120,14 +121,42 @@ static void _sde_hdmi_bridge_pre_enable(struct drm_bridge *bridge)
 
 	if (hdmi->hdcp_ctrl && hdmi->is_hdcp_supported)
 		hdmi_hdcp_ctrl_on(hdmi->hdcp_ctrl);
+
+	sde_hdmi_ack_state(hdmi->connector, EXT_DISPLAY_CABLE_CONNECT);
+}
+
+static void sde_hdmi_force_update_audio(struct drm_connector *connector,
+	enum drm_connector_status status)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+
+	if (display && display->non_pluggable) {
+		display->ext_audio_data.intf_ops.hpd(display->ext_pdev,
+				display->ext_audio_data.type,
+				status,
+				MSM_EXT_DISP_HPD_AUDIO);
+	}
 }
 
 static void _sde_hdmi_bridge_enable(struct drm_bridge *bridge)
 {
+	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
+	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+
+	/* force update audio ops when there's no HPD event */
+	sde_hdmi_force_update_audio(hdmi->connector,
+		EXT_DISPLAY_CABLE_CONNECT);
 }
 
 static void _sde_hdmi_bridge_disable(struct drm_bridge *bridge)
 {
+	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
+	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+
+	/* force update audio ops when there's no HPD event */
+	sde_hdmi_force_update_audio(hdmi->connector,
+		EXT_DISPLAY_CABLE_DISCONNECT);
 }
 
 static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
@@ -151,6 +180,8 @@ static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
 		_sde_hdmi_bridge_power_off(bridge);
 		hdmi->power_on = false;
 	}
+
+	sde_hdmi_ack_state(hdmi->connector, EXT_DISPLAY_CABLE_DISCONNECT);
 }
 
 static void _sde_hdmi_bridge_set_avi_infoframe(struct hdmi *hdmi,
