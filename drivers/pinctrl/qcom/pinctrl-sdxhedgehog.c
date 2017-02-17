@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -445,11 +445,11 @@ static const char * const gpio_groups[] = {
 	"gpio22", "gpio23", "gpio25", "gpio26", "gpio27", "gpio28", "gpio29",
 	"gpio30", "gpio31", "gpio32", "gpio33", "gpio34", "gpio35", "gpio36",
 	"gpio37", "gpio38", "gpio39", "gpio40", "gpio41", "gpio42", "gpio43",
-	"gpio44", "gpio45", "gpio46", "gpio47", "gpio49", "gpio50", "gpio59",
-	"gpio60", "gpio62", "gpio63", "gpio64", "gpio65", "gpio66", "gpio67",
-	"gpio68", "gpio69", "gpio70", "gpio71", "gpio72", "gpio73", "gpio74",
-	"gpio75", "gpio76", "gpio77", "gpio78", "gpio79", "gpio80", "gpio81",
-	"gpio82", "gpio83", "gpio83",
+	"gpio44", "gpio45", "gpio46", "gpio47", "gpio49", "gpio50", "gpio57",
+	"gpio59", "gpio60", "gpio62", "gpio63", "gpio64", "gpio65", "gpio66",
+	"gpio67", "gpio68", "gpio69", "gpio70", "gpio71", "gpio72", "gpio73",
+	"gpio74", "gpio75", "gpio76", "gpio77", "gpio78", "gpio79", "gpio80",
+	"gpio81", "gpio82", "gpio83", "gpio83",
 };
 static const char * const uim2_data_groups[] = {
 	"gpio0",
