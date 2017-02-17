@@ -1563,5 +1563,19 @@
 				};
 			};
 		};
+
+		vbus_low_as_host: vbus_low_as_host {
+			mux {
+				pins = "gpio130";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio130";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
 	};
 };
