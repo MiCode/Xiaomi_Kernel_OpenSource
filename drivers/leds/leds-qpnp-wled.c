@@ -45,6 +45,7 @@
 #define QPNP_WLED_SOFTSTART_RAMP_DLY(b) (b + 0x53)
 #define QPNP_WLED_VLOOP_COMP_RES_REG(b)	(b + 0x55)
 #define QPNP_WLED_VLOOP_COMP_GM_REG(b)	(b + 0x56)
+#define QPNP_WLED_EN_PSM_REG(b)		(b + 0x5A)
 #define QPNP_WLED_PSM_CTRL_REG(b)	(b + 0x5B)
 #define QPNP_WLED_LCD_AUTO_PFM_REG(b)	(b + 0x5C)
 #define QPNP_WLED_SC_PRO_REG(b)		(b + 0x5E)
@@ -83,12 +84,13 @@
 #define QPNP_WLED_VREF_PSM_MIN_MV			400
 #define QPNP_WLED_VREF_PSM_MAX_MV			750
 #define QPNP_WLED_VREF_PSM_DFLT_AMOLED_MV		450
-#define QPNP_WLED_PSM_CTRL_OVERWRITE			0x80
+#define QPNP_WLED_PSM_OVERWRITE_BIT			BIT(7)
 #define QPNP_WLED_LCD_AUTO_PFM_DFLT_THRESH		1
 #define QPNP_WLED_LCD_AUTO_PFM_THRESH_MAX		0xF
 #define QPNP_WLED_LCD_AUTO_PFM_EN_SHIFT			7
 #define QPNP_WLED_LCD_AUTO_PFM_EN_BIT			BIT(7)
 #define QPNP_WLED_LCD_AUTO_PFM_THRESH_MASK		GENMASK(3, 0)
+#define QPNP_WLED_EN_PSM_BIT				BIT(7)
 
 #define QPNP_WLED_ILIM_MASK		GENMASK(2, 0)
 #define QPNP_WLED_ILIM_OVERWRITE	BIT(7)
@@ -339,6 +341,7 @@ static struct wled_vref_setting vref_setting_pmi8998 = {
  *  @ lcd_auto_pfm_thresh - the threshold for lcd auto pfm mode
  *  @ loop_auto_gm_en - select if auto gm is enabled
  *  @ lcd_auto_pfm_en - select if auto pfm is enabled in lcd mode
+ *  @ lcd_psm_ctrl - select if psm needs to be controlled in lcd mode
  *  @ avdd_mode_spmi - enable avdd programming via spmi
  *  @ en_9b_dim_res - enable or disable 9bit dimming
  *  @ en_phase_stag - enable or disable phase staggering
@@ -384,6 +387,7 @@ struct qpnp_wled {
 	u8			lcd_auto_pfm_thresh;
 	bool			loop_auto_gm_en;
 	bool			lcd_auto_pfm_en;
+	bool			lcd_psm_ctrl;
 	bool			avdd_mode_spmi;
 	bool			en_9b_dim_res;
 	bool			en_phase_stag;
@@ -553,6 +557,30 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 	return 0;
 }
 
+static int qpnp_wled_psm_config(struct qpnp_wled *wled, bool enable)
+{
+	int rc;
+
+	if (!wled->lcd_psm_ctrl)
+		return 0;
+
+	rc = qpnp_wled_masked_write_reg(wled,
+			QPNP_WLED_EN_PSM_REG(wled->ctrl_base),
+			QPNP_WLED_EN_PSM_BIT,
+			enable ? QPNP_WLED_EN_PSM_BIT : 0);
+	if (rc < 0)
+		return rc;
+
+	rc = qpnp_wled_masked_write_reg(wled,
+			QPNP_WLED_PSM_CTRL_REG(wled->ctrl_base),
+			QPNP_WLED_PSM_OVERWRITE_BIT,
+			enable ? QPNP_WLED_PSM_OVERWRITE_BIT : 0);
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
 static int qpnp_wled_module_en(struct qpnp_wled *wled,
 				u16 base_addr, bool state)
 {
@@ -565,21 +593,31 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 	if (rc < 0)
 		return rc;
 
-	if (wled->ovp_irq > 0) {
-		if (state && wled->ovp_irq_disabled) {
-			/*
-			 * Wait for at least 10ms before enabling OVP fault
-			 * interrupt after enabling the module so that soft
-			 * start is completed. Keep OVP interrupt disabled
-			 * when the module is disabled.
-			 */
-			usleep_range(10000, 11000);
+	/*
+	 * Wait for at least 10ms before enabling OVP fault interrupt after
+	 * enabling the module so that soft start is completed. Also, this
+	 * delay can be used to control PSM during enable when required. Keep
+	 * OVP interrupt disabled when the module is disabled.
+	 */
+	if (state) {
+		usleep_range(10000, 11000);
+		rc = qpnp_wled_psm_config(wled, false);
+		if (rc < 0)
+			return rc;
+
+		if (wled->ovp_irq > 0 && wled->ovp_irq_disabled) {
 			enable_irq(wled->ovp_irq);
 			wled->ovp_irq_disabled = false;
-		} else if (!state && !wled->ovp_irq_disabled) {
+		}
+	} else {
+		if (wled->ovp_irq > 0 && !wled->ovp_irq_disabled) {
 			disable_irq(wled->ovp_irq);
 			wled->ovp_irq_disabled = true;
 		}
+
+		rc = qpnp_wled_psm_config(wled, true);
+		if (rc < 0)
+			return rc;
 	}
 
 	return 0;
@@ -994,7 +1032,7 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 		reg &= QPNP_WLED_VREF_PSM_MASK;
 		reg |= ((wled->vref_psm_mv - QPNP_WLED_VREF_PSM_MIN_MV)/
 			QPNP_WLED_VREF_PSM_STEP_MV);
-		reg |= QPNP_WLED_PSM_CTRL_OVERWRITE;
+		reg |= QPNP_WLED_PSM_OVERWRITE_BIT;
 		rc = qpnp_wled_write_reg(wled,
 				QPNP_WLED_PSM_CTRL_REG(wled->ctrl_base), reg);
 		if (rc)
@@ -2078,6 +2116,8 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 	wled->en_ext_pfet_sc_pro = of_property_read_bool(pdev->dev.of_node,
 					"qcom,en-ext-pfet-sc-pro");
 
+	wled->lcd_psm_ctrl = of_property_read_bool(pdev->dev.of_node,
+				"qcom,lcd-psm-ctrl");
 	return 0;
 }
 
