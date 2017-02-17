@@ -747,9 +747,9 @@ TRACE_EVENT(sched_cpu_util,
 
 DECLARE_EVENT_CLASS(sched_task_util,
 
-	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff),
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
 
-	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle),
 
 	TP_STRUCT__entry(
 		__array(char, comm, TASK_COMM_LEN	)
@@ -760,6 +760,7 @@ DECLARE_EVENT_CLASS(sched_task_util,
 		__field(int, nominated_cpu		)
 		__field(int, target_cpu			)
 		__field(int, ediff			)
+		__field(bool, need_idle			)
 	),
 
 	TP_fast_assign(
@@ -770,31 +771,32 @@ DECLARE_EVENT_CLASS(sched_task_util,
 		__entry->cpu_util_freq		= cpu_util_freq(target_cpu, NULL);
 		__entry->nominated_cpu		= nominated_cpu;
 		__entry->target_cpu		= target_cpu;
-		__entry->ediff		= ediff;
+		__entry->ediff			= ediff;
+		__entry->need_idle		= need_idle;
 	),
 
-	TP_printk("comm=%s pid=%d task_cpu=%d task_util=%lu nominated_cpu=%d target_cpu=%d energy_diff=%d",
-		__entry->comm, __entry->pid, __entry->task_cpu, __entry->task_util, __entry->nominated_cpu, __entry->target_cpu, __entry->ediff)
+	TP_printk("comm=%s pid=%d task_cpu=%d task_util=%lu nominated_cpu=%d target_cpu=%d energy_diff=%d need_idle=%d",
+		__entry->comm, __entry->pid, __entry->task_cpu, __entry->task_util, __entry->nominated_cpu, __entry->target_cpu, __entry->ediff, __entry->need_idle)
 );
 
 DEFINE_EVENT(sched_task_util, sched_task_util_overutilzed,
-	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff),
-	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff)
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle)
 );
 
 DEFINE_EVENT(sched_task_util, sched_task_util_energy_diff,
-	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff),
-	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff)
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle)
 );
 
 DEFINE_EVENT(sched_task_util, sched_task_util_energy_aware,
-	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff),
-	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff)
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle)
 );
 
 DEFINE_EVENT(sched_task_util, sched_task_util_imbalance,
-	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff),
-	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff)
+	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
+	TP_ARGS(p, task_cpu, task_util, nominated_cpu, target_cpu, ediff, need_idle)
 );
 #endif
 

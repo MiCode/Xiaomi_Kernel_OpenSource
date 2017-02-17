@@ -6587,6 +6587,21 @@ static inline int find_best_target(struct task_struct *p, bool boosted, bool pre
 	return target_cpu;
 }
 
+/*
+ * Should task be woken to any available idle cpu?
+ *
+ * Waking tasks to idle cpu has mixed implications on both performance and
+ * power. In many cases, scheduler can't estimate correctly impact of using idle
+ * cpus on either performance or power. PF_WAKE_UP_IDLE allows external kernel
+ * module to pass a strong hint to scheduler that the task in question should be
+ * woken to idle cpu, generally to improve performance.
+ */
+static inline int wake_to_idle(struct task_struct *p)
+{
+	return (current->flags & PF_WAKE_UP_IDLE) ||
+		 (p->flags & PF_WAKE_UP_IDLE);
+}
+
 static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 {
 	struct sched_domain *sd;
@@ -6606,6 +6621,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	int min_idle_idx_cpu;
 	int min_idle_idx = INT_MAX;
 	unsigned int target_cpu_util = UINT_MAX;
+	bool need_idle;
 
 	sd = rcu_dereference(per_cpu(sd_ea, task_cpu(p)));
 
@@ -6617,6 +6633,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 
 	sync = sync && sysctl_sched_sync_hint_enable;
 	curr_util = boosted_task_util(cpu_rq(cpu)->curr);
+
+	need_idle = wake_to_idle(p);
 
 	if (sysctl_sched_is_big_little) {
 		/*
@@ -6684,8 +6702,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			cpu_idle_idx = cpu_rq(i)->nr_running ? -1 :
 				       idle_get_state_idx(cpu_rq(i));
 
-			if (add_capacity_margin(new_util_cum) <
-			    capacity_curr_of(i)) {
+			if (!need_idle &&
+			    add_capacity_margin(new_util_cum) <
+						capacity_curr_of(i)) {
 				if (sysctl_sched_cstate_aware) {
 					if (cpu_idle_idx < min_idle_idx ||
 					    (cpu_idle_idx == min_idle_idx &&
@@ -6774,7 +6793,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		if (__cpu_overutilized(task_cpu(p), task_util_boosted)) {
 			trace_sched_task_util_overutilzed(p, task_cpu(p),
 						task_util(p), target_cpu,
-						target_cpu, 0);
+						target_cpu, 0, need_idle);
 			return target_cpu;
 		}
 
@@ -6783,24 +6802,24 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			if (ediff >= 0) {
 				trace_sched_task_util_energy_diff(p,
 						task_cpu(p), task_util(p),
-						target_cpu, task_cpu(p),
-						ediff);
+						target_cpu, task_cpu(p), ediff,
+						need_idle);
 				return task_cpu(p);
 			}
 		} else {
 			if (ediff > 0) {
 				trace_sched_task_util_energy_diff(p,
-							task_cpu(p),
-							task_util(p),
-							target_cpu,
-							task_cpu(p), ediff);
+						task_cpu(p), task_util(p),
+						target_cpu, task_cpu(p), ediff,
+						need_idle);
 				return task_cpu(p);
 			}
 		}
 	}
 
 	trace_sched_task_util_energy_aware(p, task_cpu(p), task_util(p),
-					   target_cpu, target_cpu, ediff);
+					   target_cpu, target_cpu, ediff,
+					   need_idle);
 	return target_cpu;
 }
 
@@ -11014,21 +11033,6 @@ struct cluster_cpu_stats {
 	u64 min_load, best_load, best_sibling_cpu_load;
 	s64 highest_spare_capacity;
 };
-
-/*
- * Should task be woken to any available idle cpu?
- *
- * Waking tasks to idle cpu has mixed implications on both performance and
- * power. In many cases, scheduler can't estimate correctly impact of using idle
- * cpus on either performance or power. PF_WAKE_UP_IDLE allows external kernel
- * module to pass a strong hint to scheduler that the task in question should be
- * woken to idle cpu, generally to improve performance.
- */
-static inline int wake_to_idle(struct task_struct *p)
-{
-	return (current->flags & PF_WAKE_UP_IDLE) ||
-		 (p->flags & PF_WAKE_UP_IDLE);
-}
 
 static int spill_threshold_crossed(struct cpu_select_env *env, struct rq *rq)
 {
