@@ -18,11 +18,23 @@
 		reg-names = "mdp_phys",
 			"vbif_phys";
 
+		clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_AXI_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_MDP_CLK_SRC>,
+			<&clock_dispcc DISP_CC_MDSS_MDP_CLK>;
+		clock-names = "iface_clk", "bus_clk",
+			"core_clk_src", "core_clk";
+		clock-rate = <0 0 300000000 300000000>;
+		clock-max-rate = <0 0 430000000 430000000>;
+
+		mdp-vdd-supply = <&mdss_core_gdsc>;
+
 		/* interrupt config */
 		interrupt-parent = <&intc>;
 		interrupts = <0 83 0>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
+		iommus = <&apps_smmu 0x880>;
 
 		/* hw blocks */
 		qcom,sde-off = <0x1000>;
@@ -43,7 +55,6 @@
 		qcom,sde-te2-off = <0x2000 0x2000 0x0 0x0 0x0>;
 		qcom,sde-cdm-off = <0x7a200>;
 		qcom,sde-intf-max-prefetch-lines = <0x15 0x15 0x15 0x15>;
-		qcom,sde-vbif-off = <0>;
 
 		qcom,sde-sspp-type = "vig", "vig", "vig", "vig",
 					"dma", "dma", "dma", "dma";
@@ -79,10 +90,55 @@
 		qcom,sde-has-cdp;
 		qcom,sde-has-src-split;
 		qcom,sde-has-dim-layer;
+		qcom,sde-max-bw-low-kbps = <9600000>;
+		qcom,sde-max-bw-high-kbps = <9600000>;
+		qcom,sde-dram-channels = <2>;
+		qcom,sde-num-nrt-paths = <0>;
+
+		qcom,sde-vbif-off = <0>;
+		qcom,sde-vbif-size = <0x1040>;
+		qcom,sde-vbif-id = <0>;
 
 		qcom,sde-sspp-vig-blocks {
 			qcom,sde-vig-csc-off = <0x1a00>;
 			qcom,sde-vig-qseed-off = <0xa00>;
+		};
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "mdp-vdd";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+
+		/* data and reg bus scale settings */
+		qcom,sde-data-bus {
+			qcom,msm-bus,name = "mdss_sde";
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <2>;
+			qcom,msm-bus,vectors-KBps =
+				<22 512 0 0>, <23 512 0 0>,
+				<22 512 0 6400000>, <23 512 0 6400000>,
+				<22 512 0 6400000>, <23 512 0 6400000>;
+		};
+
+		qcom,sde-reg-bus {
+			qcom,msm-bus,name = "mdss_reg";
+			qcom,msm-bus,num-cases = <4>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,vectors-KBps =
+				<1 590 0 0>,
+				<1 590 0 76800>,
+				<1 590 0 150000>,
+				<1 590 0 300000>;
 		};
 	};
 };
