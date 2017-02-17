@@ -28,3 +28,9 @@
 &blsp1_uart2 {
 	status = "ok";
 };
+
+&peripheral_mem {
+	compatible = "removed-dma-pool";
+	no-map;
+	reg = <0 0x8ea00000 0 0x3200000>;
+};
