@@ -69,6 +69,8 @@ Optional Properties:
 				via pin in a parallel-charger configuration.
 				0 - Active low and 1  - Active high.
 				If not specified the default value is active-low.
+- qcom,parallel-external-current-sense If present specifies external rsense is
+				used for charge current sensing.
 
 Example for standalone charger:
 

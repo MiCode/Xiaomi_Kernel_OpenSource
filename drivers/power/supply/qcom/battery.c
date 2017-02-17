@@ -96,7 +96,8 @@ static void split_settled(struct pl_data *chip)
 	 * for desired split
 	 */
 
-	if (chip->pl_mode != POWER_SUPPLY_PARALLEL_USBIN_USBIN)
+	if ((chip->pl_mode != POWER_SUPPLY_PL_USBIN_USBIN)
+		&& (chip->pl_mode != POWER_SUPPLY_PL_USBIN_USBIN_EXT))
 		return;
 
 	if (!chip->main_psy)
@@ -262,7 +263,7 @@ static void split_fcc(struct pl_data *chip, int total_ua,
 		hw_cc_delta_ua = pval.intval;
 
 	bcl_ua = INT_MAX;
-	if (chip->pl_mode == POWER_SUPPLY_PARALLEL_MID_MID) {
+	if (chip->pl_mode == POWER_SUPPLY_PL_USBMID_USBMID) {
 		rc = power_supply_get_property(chip->main_psy,
 			       POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED, &pval);
 		if (rc < 0) {
@@ -287,7 +288,15 @@ static void split_fcc(struct pl_data *chip, int total_ua,
 	slave_limited_ua = min(effective_total_ua, bcl_ua);
 	*slave_ua = (slave_limited_ua * chip->slave_pct) / 100;
 	*slave_ua = (*slave_ua * chip->taper_pct) / 100;
-	*master_ua = max(0, total_ua - *slave_ua);
+	/*
+	 * In USBIN_USBIN configuration with internal rsense parallel
+	 * charger's current goes through main charger's BATFET, keep
+	 * the main charger's FCC to the votable result.
+	 */
+	if (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+		*master_ua = max(0, total_ua);
+	else
+		*master_ua = max(0, total_ua - *slave_ua);
 }
 
 static int pl_fcc_vote_callback(struct votable *votable, void *data,
@@ -316,7 +325,7 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 			total_fcc_ua = pval.intval;
 	}
 
-	if (chip->pl_mode == POWER_SUPPLY_PARALLEL_NONE
+	if (chip->pl_mode == POWER_SUPPLY_PL_NONE
 	    || get_effective_result_locked(chip->pl_disable_votable)) {
 		pval.intval = total_fcc_ua;
 		rc = power_supply_set_property(chip->main_psy,
@@ -391,7 +400,7 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 		return rc;
 	}
 
-	if (chip->pl_mode != POWER_SUPPLY_PARALLEL_NONE) {
+	if (chip->pl_mode != POWER_SUPPLY_PL_NONE) {
 		pval.intval += PARALLEL_FLOAT_VOLTAGE_DELTA_UV;
 		rc = power_supply_set_property(chip->pl_psy,
 				POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
@@ -451,7 +460,8 @@ static int pl_disable_vote_callback(struct votable *votable,
 			pr_err("Couldn't change slave suspend state rc=%d\n",
 				rc);
 
-		if (chip->pl_mode == POWER_SUPPLY_PARALLEL_USBIN_USBIN)
+		if ((chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+			|| (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
 			split_settled(chip);
 		/*
 		 * we could have been enabled while in taper mode,
@@ -469,7 +479,8 @@ static int pl_disable_vote_callback(struct votable *votable,
 			}
 		}
 	} else {
-		if (chip->pl_mode == POWER_SUPPLY_PARALLEL_USBIN_USBIN)
+		if ((chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+			|| (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
 			split_settled(chip);
 
 		/* pl_psy may be NULL while in the disable branch */
@@ -610,7 +621,8 @@ static void handle_settled_aicl_split(struct pl_data *chip)
 	int rc;
 
 	if (!get_effective_result(chip->pl_disable_votable)
-		&& chip->pl_mode == POWER_SUPPLY_PARALLEL_USBIN_USBIN) {
+		&& (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN
+			|| chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT)) {
 		/*
 		 * call aicl split only when USBIN_USBIN and enabled
 		 * and if aicl changed
