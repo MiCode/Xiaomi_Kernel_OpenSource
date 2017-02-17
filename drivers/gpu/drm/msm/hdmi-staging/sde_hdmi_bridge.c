@@ -111,7 +111,6 @@ static void _sde_hdmi_bridge_pre_enable(struct drm_bridge *bridge)
 	if (!hdmi->power_on) {
 		_sde_hdmi_bridge_power_on(bridge);
 		hdmi->power_on = true;
-		hdmi_audio_update(hdmi);
 	}
 
 	if (phy)
@@ -140,6 +139,8 @@ static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
 	if (hdmi->hdcp_ctrl && hdmi->is_hdcp_supported)
 		hdmi_hdcp_ctrl_off(hdmi->hdcp_ctrl);
 
+	sde_hdmi_audio_off(hdmi);
+
 	DRM_DEBUG("power down");
 	sde_hdmi_set_mode(hdmi, false);
 
@@ -149,7 +150,6 @@ static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
 	if (hdmi->power_on) {
 		_sde_hdmi_bridge_power_off(bridge);
 		hdmi->power_on = false;
-		hdmi_audio_update(hdmi);
 	}
 }
 
@@ -342,8 +342,6 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 		_sde_hdmi_bridge_set_spd_infoframe(hdmi, mode);
 		DRM_DEBUG("hdmi setup info frame\n");
 	}
-
-	hdmi_audio_update(hdmi);
 }
 
 static const struct drm_bridge_funcs _sde_hdmi_bridge_funcs = {

@@ -193,8 +193,6 @@
 		qcom,enable-load = <0>;
 		qcom,disable-load = <0>;
 
-		qcom,msm_ext_disp = <&msm_ext_disp>;
-
 		clocks = <&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			 <&clock_mmss clk_mmss_mdss_ahb_clk>,
 			 <&clock_mmss clk_mmss_mdss_hdmi_clk>,

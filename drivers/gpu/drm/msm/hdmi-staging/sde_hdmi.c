@@ -22,6 +22,7 @@
 #include <linux/of.h>
 #include <linux/gpio.h>
 #include <linux/of_irq.h>
+#include <linux/of_platform.h>
 
 #include "sde_kms.h"
 #include "msm_drv.h"
@@ -460,6 +461,114 @@ static irqreturn_t _sde_hdmi_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int _sde_hdmi_audio_info_setup(struct platform_device *pdev,
+	struct msm_ext_disp_audio_setup_params *params)
+{
+	int rc = -EPERM;
+	struct sde_hdmi *display = NULL;
+	struct hdmi *hdmi = NULL;
+
+	display = platform_get_drvdata(pdev);
+
+	if (!display || !params) {
+		SDE_ERROR("invalid param(s), display %pK, params %pK\n",
+				display, params);
+		return -ENODEV;
+	}
+
+	hdmi = display->ctrl.ctrl;
+
+	if (hdmi->hdmi_mode)
+		rc = sde_hdmi_audio_on(hdmi, params);
+
+	return rc;
+}
+
+static int _sde_hdmi_get_audio_edid_blk(struct platform_device *pdev,
+	struct msm_ext_disp_audio_edid_blk *blk)
+{
+	struct sde_hdmi *display = platform_get_drvdata(pdev);
+
+	if (!display || !blk) {
+		SDE_ERROR("invalid param(s), display %pK, blk %pK\n",
+			display, blk);
+		return -ENODEV;
+	}
+
+	/* TODO: add audio edid blk support */
+	blk->audio_data_blk = NULL;
+	blk->audio_data_blk_size = 0;
+
+	blk->spk_alloc_data_blk = NULL;
+	blk->spk_alloc_data_blk_size = 0;
+
+	return 0;
+}
+
+static int _sde_hdmi_get_cable_status(struct platform_device *pdev, u32 vote)
+{
+	struct sde_hdmi *display = NULL;
+	struct hdmi *hdmi = NULL;
+
+	display = platform_get_drvdata(pdev);
+
+	if (!display) {
+		SDE_ERROR("invalid param(s), display %pK\n", display);
+		return -ENODEV;
+	}
+
+	hdmi = display->ctrl.ctrl;
+
+	return hdmi->power_on && display->connected;
+}
+
+static int _sde_hdmi_ext_disp_init(struct sde_hdmi *display)
+{
+	int rc = 0;
+	struct device_node *pd_np;
+	const char *phandle = "qcom,msm_ext_disp";
+
+	if (!display) {
+		SDE_ERROR("[%s]Invalid params\n", display->name);
+		return -EINVAL;
+	}
+
+	display->ext_audio_data.type = EXT_DISPLAY_TYPE_HDMI;
+	display->ext_audio_data.pdev = display->pdev;
+	display->ext_audio_data.codec_ops.audio_info_setup =
+		_sde_hdmi_audio_info_setup;
+	display->ext_audio_data.codec_ops.get_audio_edid_blk =
+		_sde_hdmi_get_audio_edid_blk;
+	display->ext_audio_data.codec_ops.cable_status =
+		_sde_hdmi_get_cable_status;
+
+	if (!display->pdev->dev.of_node) {
+		SDE_ERROR("[%s]cannot find sde_hdmi of_node\n", display->name);
+		return -ENODEV;
+	}
+
+	pd_np = of_parse_phandle(display->pdev->dev.of_node, phandle, 0);
+	if (!pd_np) {
+		SDE_ERROR("[%s]cannot find %s device node\n",
+			display->name, phandle);
+		return -ENODEV;
+	}
+
+	display->ext_pdev = of_find_device_by_node(pd_np);
+	if (!display->ext_pdev) {
+		SDE_ERROR("[%s]cannot find %s platform device\n",
+			display->name, phandle);
+		return -ENODEV;
+	}
+
+	rc = msm_ext_disp_register_intf(display->ext_pdev,
+			&display->ext_audio_data);
+	if (rc)
+		SDE_ERROR("[%s]failed to register disp\n", display->name);
+
+	return rc;
+}
+
 void sde_hdmi_set_mode(struct hdmi *hdmi, bool power_on)
 {
 	uint32_t ctrl = 0;
@@ -778,6 +887,13 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 	if (rc) {
 		SDE_ERROR("[%s]Debugfs init failed, rc=%d\n",
 				display->name, rc);
+		goto debug_error;
+	}
+
+	rc = _sde_hdmi_ext_disp_init(display);
+	if (rc) {
+		SDE_ERROR("[%s]Ext Disp init failed, rc=%d\n",
+				display->name, rc);
 		goto error;
 	}
 
@@ -787,6 +903,8 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 	display->drm_dev = drm;
 
 error:
+	(void)_sde_hdmi_debugfs_deinit(display);
+debug_error:
 	mutex_unlock(&display->display_lock);
 	return rc;
 }

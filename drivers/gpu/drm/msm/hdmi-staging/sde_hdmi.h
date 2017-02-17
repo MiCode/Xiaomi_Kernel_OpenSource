@@ -88,6 +88,9 @@ struct sde_hdmi {
 
 	struct sde_hdmi_ctrl ctrl;
 
+	struct platform_device *ext_pdev;
+	struct msm_ext_disp_init_data ext_audio_data;
+
 	bool non_pluggable;
 	u32 num_of_modes;
 	struct list_head mode_list;
