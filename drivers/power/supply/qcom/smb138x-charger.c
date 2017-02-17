@@ -493,7 +493,7 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 		val->strval = "smb138x";
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
-		val->intval = POWER_SUPPLY_PARALLEL_MID_MID;
+		val->intval = POWER_SUPPLY_PL_USBMID_USBMID;
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		rc = smblib_get_prop_die_health(chg, val);
