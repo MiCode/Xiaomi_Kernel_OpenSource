@@ -48,6 +48,12 @@
 
 #define BUF_POOL_SIZE 32
 
+#define DFPS_DATA_MAX_HFP 8192
+#define DFPS_DATA_MAX_HBP 8192
+#define DFPS_DATA_MAX_HPW 8192
+#define DFPS_DATA_MAX_FPS 0x7fffffff
+#define DFPS_DATA_MAX_CLK_RATE 250000
+
 static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd);
@@ -3373,6 +3379,13 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		pr_debug("%s: FPS is already %d\n",
 			__func__, data.fps);
 		return count;
+	}
+
+	if (data.hfp > DFPS_DATA_MAX_HFP || data.hbp > DFPS_DATA_MAX_HBP ||
+		data.hpw > DFPS_DATA_MAX_HPW || data.fps > DFPS_DATA_MAX_FPS ||
+		data.clk_rate > DFPS_DATA_MAX_CLK_RATE){
+		pr_err("Data values out of bound.\n");
+		return -EINVAL;
 	}
 
 	rc = mdss_mdp_dfps_update_params(mfd, pdata, &data);
