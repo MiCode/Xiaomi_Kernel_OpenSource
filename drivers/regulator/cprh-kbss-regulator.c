@@ -37,7 +37,8 @@
 
 #define MSM8998_KBSS_FUSE_CORNERS	4
 #define SDM660_KBSS_FUSE_CORNERS	5
-#define SDM630_KBSS_FUSE_CORNERS	4
+#define SDM630_POWER_KBSS_FUSE_CORNERS	3
+#define SDM630_PERF_KBSS_FUSE_CORNERS	5
 
 /**
  * struct cprh_kbss_fuses - KBSS specific fuse data
@@ -131,18 +132,32 @@ static const char * const cprh_sdm660_perf_kbss_fuse_corner_name[] = {
 	[CPRH_SDM660_PERF_KBSS_FUSE_CORNER_TURBO_L2]	= "TURBO_L2",
 };
 
-enum cprh_sdm630_kbss_fuse_corner {
-	CPRH_SDM630_KBSS_FUSE_CORNER_LOWSVS	= 0,
-	CPRH_SDM630_KBSS_FUSE_CORNER_SVSPLUS	= 1,
-	CPRH_SDM630_KBSS_FUSE_CORNER_NOM	= 2,
-	CPRH_SDM630_KBSS_FUSE_CORNER_TURBO_L1	= 3,
+enum cprh_sdm630_power_kbss_fuse_corner {
+	CPRH_SDM630_POWER_KBSS_FUSE_CORNER_LOWSVS	= 0,
+	CPRH_SDM630_POWER_KBSS_FUSE_CORNER_SVSPLUS	= 1,
+	CPRH_SDM630_POWER_KBSS_FUSE_CORNER_TURBO_L1	= 2,
 };
 
-static const char * const cprh_sdm630_kbss_fuse_corner_name[] = {
-	[CPRH_SDM630_KBSS_FUSE_CORNER_LOWSVS]	= "LowSVS",
-	[CPRH_SDM630_KBSS_FUSE_CORNER_SVSPLUS]	= "SVSPLUS",
-	[CPRH_SDM630_KBSS_FUSE_CORNER_NOM]	= "NOM",
-	[CPRH_SDM630_KBSS_FUSE_CORNER_TURBO_L1]	= "TURBO_L1",
+static const char * const cprh_sdm630_power_kbss_fuse_corner_name[] = {
+	[CPRH_SDM630_POWER_KBSS_FUSE_CORNER_LOWSVS]	= "LowSVS",
+	[CPRH_SDM630_POWER_KBSS_FUSE_CORNER_SVSPLUS]	= "SVSPLUS",
+	[CPRH_SDM630_POWER_KBSS_FUSE_CORNER_TURBO_L1]	= "TURBO_L1",
+};
+
+enum cprh_sdm630_perf_kbss_fuse_corner {
+	CPRH_SDM630_PERF_KBSS_FUSE_CORNER_LOWSVS	= 0,
+	CPRH_SDM630_PERF_KBSS_FUSE_CORNER_SVSPLUS	= 1,
+	CPRH_SDM630_PERF_KBSS_FUSE_CORNER_NOM		= 2,
+	CPRH_SDM630_PERF_KBSS_FUSE_CORNER_TURBO		= 3,
+	CPRH_SDM630_PERF_KBSS_FUSE_CORNER_TURBO_L2	= 4,
+};
+
+static const char * const cprh_sdm630_perf_kbss_fuse_corner_name[] = {
+	[CPRH_SDM630_PERF_KBSS_FUSE_CORNER_LOWSVS]	= "LowSVS",
+	[CPRH_SDM630_PERF_KBSS_FUSE_CORNER_SVSPLUS]	= "SVSPLUS",
+	[CPRH_SDM630_PERF_KBSS_FUSE_CORNER_NOM]		= "NOM",
+	[CPRH_SDM630_PERF_KBSS_FUSE_CORNER_TURBO]	= "TURBO",
+	[CPRH_SDM630_PERF_KBSS_FUSE_CORNER_TURBO_L2]	= "TURBO_L2",
 };
 
 /* KBSS cluster IDs */
@@ -202,17 +217,17 @@ sdm660_kbss_ro_sel_param[2][SDM660_KBSS_FUSE_CORNERS][3] = {
 };
 
 static const struct cpr3_fuse_param
-sdm630_kbss_ro_sel_param[2][SDM630_KBSS_FUSE_CORNERS][3] = {
+sdm630_kbss_ro_sel_param[2][SDM630_PERF_KBSS_FUSE_CORNERS][3] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		{{67, 12, 15}, {} },
 		{{65, 56, 59}, {} },
-		{{67,  4,  7}, {} },
 		{{67,  0,  3}, {} },
 	},
 	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
 		{{68, 61, 63}, {69,  0,  0} },
 		{{69,  1,  4}, {} },
 		{{68, 57, 60}, {} },
+		{{68, 53, 56}, {} },
 		{{66, 14, 17}, {} },
 	},
 };
@@ -252,17 +267,17 @@ sdm660_kbss_init_voltage_param[2][SDM660_KBSS_FUSE_CORNERS][2] = {
 };
 
 static const struct cpr3_fuse_param
-sdm630_kbss_init_voltage_param[2][SDM630_KBSS_FUSE_CORNERS][2] = {
+sdm630_kbss_init_voltage_param[2][SDM630_PERF_KBSS_FUSE_CORNERS][2] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		{{67, 34, 39}, {} },
 		{{71,  3,  8}, {} },
-		{{67, 22, 27}, {} },
 		{{67, 16, 21}, {} },
 	},
 	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
 		{{69, 17, 22}, {} },
 		{{69, 23, 28}, {} },
 		{{69, 11, 16}, {} },
+		{{69,  5, 10}, {} },
 		{{70, 42, 47}, {} },
 	},
 };
@@ -302,17 +317,17 @@ sdm660_kbss_target_quot_param[2][SDM660_KBSS_FUSE_CORNERS][3] = {
 };
 
 static const struct cpr3_fuse_param
-sdm630_kbss_target_quot_param[2][SDM630_KBSS_FUSE_CORNERS][3] = {
+sdm630_kbss_target_quot_param[2][SDM630_PERF_KBSS_FUSE_CORNERS][3] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		{{68, 12, 23}, {} },
 		{{71,  9, 20}, {} },
-		{{67, 52, 63}, {} },
 		{{67, 40, 51}, {} },
 	},
 	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
 		{{69, 53, 63}, {70,  0,  0}, {} },
 		{{70,  1, 12}, {} },
 		{{69, 41, 52}, {} },
+		{{69, 29, 40}, {} },
 		{{70, 48, 59}, {} },
 	},
 };
@@ -352,17 +367,17 @@ sdm660_kbss_quot_offset_param[2][SDM660_KBSS_FUSE_CORNERS][3] = {
 };
 
 static const struct cpr3_fuse_param
-sdm630_kbss_quot_offset_param[2][SDM630_KBSS_FUSE_CORNERS][3] = {
+sdm630_kbss_quot_offset_param[2][SDM630_PERF_KBSS_FUSE_CORNERS][3] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		{{} },
 		{{71, 21, 27}, {} },
-		{{68, 31, 37}, {} },
 		{{68, 24, 30}, {} },
 	},
 	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
 		{{} },
 		{{70, 27, 33}, {} },
 		{{70, 20, 26}, {} },
+		{{70, 13, 19}, {} },
 		{{70, 60, 63}, {71,  0,  2}, {} },
 	},
 };
@@ -484,18 +499,27 @@ sdm660_kbss_fuse_ref_volt[2][SDM660_KBSS_FUSE_CORNERS] = {
  * Open loop voltage fuse reference voltages in microvolts for SDM630
  */
 static const int
-sdm630_kbss_fuse_ref_volt[SDM630_KBSS_FUSE_CORNERS] = {
-	644000,
-	788000,
-	868000,
-	1068000,
+sdm630_kbss_fuse_ref_volt[2][SDM630_PERF_KBSS_FUSE_CORNERS] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		644000,
+		788000,
+		1068000,
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		644000,
+		788000,
+		868000,
+		988000,
+		1068000,
+	},
 };
 
 static const int
-sdm630_kbss_speed_bin_2_fuse_ref_volt[SDM630_KBSS_FUSE_CORNERS] = {
+sdm630_perf_kbss_speed_bin_2_fuse_ref_volt[SDM630_PERF_KBSS_FUSE_CORNERS] = {
 	644000,
 	788000,
 	868000,
+	988000,
 	1140000,
 };
 
@@ -552,7 +576,7 @@ sdm630_kbss_speed_bin_2_fuse_ref_volt[SDM630_KBSS_FUSE_CORNERS] = {
  * sdm630 configuration
  */
 #define SDM630_KBSS_POWER_CPR_SENSOR_COUNT		6
-#define SDM630_KBSS_PERFORMANCE_CPR_SENSOR_COUNT	9
+#define SDM630_KBSS_PERFORMANCE_CPR_SENSOR_COUNT	6
 
 /*
  * SOC IDs
@@ -760,7 +784,7 @@ static int cprh_sdm630_kbss_read_fuse_data(struct cpr3_regulator *vreg,
 		struct cprh_kbss_fuses *fuse)
 {
 	void __iomem *base = vreg->thread->ctrl->fuse_base;
-	int i, id, rc;
+	int i, id, rc, fuse_corners;
 
 	rc = cpr3_read_fuse_param(base, sdm630_cpr_fusing_rev_param,
 				&fuse->cpr_fusing_rev);
@@ -772,7 +796,12 @@ static int cprh_sdm630_kbss_read_fuse_data(struct cpr3_regulator *vreg,
 	cpr3_info(vreg, "CPR fusing revision = %llu\n", fuse->cpr_fusing_rev);
 
 	id = vreg->thread->ctrl->ctrl_id;
-	for (i = 0; i < SDM630_KBSS_FUSE_CORNERS; i++) {
+	if (id == CPRH_KBSS_POWER_CLUSTER_ID)
+		fuse_corners = SDM630_POWER_KBSS_FUSE_CORNERS;
+	else
+		fuse_corners = SDM630_PERF_KBSS_FUSE_CORNERS;
+
+	for (i = 0; i < fuse_corners; i++) {
 		rc = cpr3_read_fuse_param(base,
 				sdm630_kbss_init_voltage_param[id][i],
 				&fuse->init_voltage[i]);
@@ -856,7 +885,10 @@ static int cprh_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 		fuse_corners = SDM660_KBSS_FUSE_CORNERS;
 		break;
 	case SDM630_SOC_ID:
-		fuse_corners = SDM630_KBSS_FUSE_CORNERS;
+		if (vreg->thread->ctrl->ctrl_id == CPRH_KBSS_POWER_CLUSTER_ID)
+			fuse_corners = SDM630_POWER_KBSS_FUSE_CORNERS;
+		else
+			fuse_corners = SDM630_PERF_KBSS_FUSE_CORNERS;
 		break;
 	case MSM8998_V1_SOC_ID:
 	case MSM8998_V2_SOC_ID:
@@ -1008,10 +1040,15 @@ static int cprh_kbss_calculate_open_loop_voltages(struct cpr3_regulator *vreg)
 			corner_name = cprh_sdm660_perf_kbss_fuse_corner_name;
 		break;
 	case SDM630_SOC_ID:
-		ref_volt = sdm630_kbss_fuse_ref_volt;
-		if (vreg->speed_bin_fuse == 2)
-			ref_volt = sdm630_kbss_speed_bin_2_fuse_ref_volt;
-		corner_name = cprh_sdm630_kbss_fuse_corner_name;
+		ref_volt = sdm630_kbss_fuse_ref_volt[id];
+		if (id == CPRH_KBSS_PERFORMANCE_CLUSTER_ID
+			&& vreg->speed_bin_fuse == 2)
+			ref_volt = sdm630_perf_kbss_speed_bin_2_fuse_ref_volt;
+
+		if (id == CPRH_KBSS_POWER_CLUSTER_ID)
+			corner_name = cprh_sdm630_power_kbss_fuse_corner_name;
+		else
+			corner_name = cprh_sdm630_perf_kbss_fuse_corner_name;
 		break;
 	case MSM8998_V1_SOC_ID:
 		ref_volt = msm8998_v1_kbss_fuse_ref_volt;
@@ -1581,11 +1618,19 @@ static int cprh_kbss_calculate_target_quotients(struct cpr3_regulator *vreg)
 		}
 		break;
 	case SDM630_SOC_ID:
-		corner_name = cprh_sdm630_kbss_fuse_corner_name;
-		lowest_fuse_corner =
-			CPRH_SDM630_KBSS_FUSE_CORNER_LOWSVS;
-		highest_fuse_corner =
-			CPRH_SDM630_KBSS_FUSE_CORNER_TURBO_L1;
+		if (vreg->thread->ctrl->ctrl_id == CPRH_KBSS_POWER_CLUSTER_ID) {
+			corner_name = cprh_sdm630_power_kbss_fuse_corner_name;
+			lowest_fuse_corner =
+				CPRH_SDM630_POWER_KBSS_FUSE_CORNER_LOWSVS;
+			highest_fuse_corner =
+				CPRH_SDM630_POWER_KBSS_FUSE_CORNER_TURBO_L1;
+		} else {
+			corner_name = cprh_sdm630_perf_kbss_fuse_corner_name;
+			lowest_fuse_corner =
+				CPRH_SDM630_PERF_KBSS_FUSE_CORNER_LOWSVS;
+			highest_fuse_corner =
+				CPRH_SDM630_PERF_KBSS_FUSE_CORNER_TURBO_L2;
+		}
 		break;
 	case MSM8998_V1_SOC_ID:
 	case MSM8998_V2_SOC_ID:
