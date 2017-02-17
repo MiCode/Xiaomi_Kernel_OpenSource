@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,8 +15,8 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
 
-#include "debug.h"
 #include "main.h"
+#include "debug.h"
 
 static struct cnss_vreg_info cnss_vreg_info[] = {
 	{NULL, "vdd-wlan-core", 1300000, 1300000, 0, 0},

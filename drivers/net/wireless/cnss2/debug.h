@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,5 +67,7 @@ extern void *cnss_ipc_log_context;
 
 int cnss_debug_init(void);
 void cnss_debug_deinit(void);
+int cnss_debugfs_create(struct cnss_plat_data *plat_priv);
+void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv);
 
 #endif /* _CNSS_DEBUG_H */
