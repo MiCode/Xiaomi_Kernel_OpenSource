@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@ int cnss_wlfw_server_exit(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_respond_mem_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv);
+int cnss_wlfw_m3_dnld_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_wlan_mode_send_sync(struct cnss_plat_data *plat_priv,
 				  enum wlfw_driver_mode_enum_v01 mode);
 int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,

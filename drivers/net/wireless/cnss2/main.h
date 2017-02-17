@@ -146,6 +146,7 @@ struct cnss_plat_data {
 	struct wlfw_soc_info_s_v01 soc_info;
 	struct wlfw_fw_version_info_s_v01 fw_version_info;
 	struct cnss_fw_mem fw_mem;
+	struct cnss_fw_mem m3_mem;
 };
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev);
