@@ -325,9 +325,9 @@ static int _sde_hdmi_hpd_enable(struct sde_hdmi *sde_hdmi)
 		}
 	}
 
-	hdmi_set_mode(hdmi, false);
+	sde_hdmi_set_mode(hdmi, false);
 	_sde_hdmi_phy_reset(hdmi);
-	hdmi_set_mode(hdmi, true);
+	sde_hdmi_set_mode(hdmi, true);
 
 	hdmi_write(hdmi, REG_HDMI_USEC_REFTIMER, 0x0001001b);
 
@@ -367,7 +367,7 @@ static void _sde_hdmi_hdp_disable(struct sde_hdmi *sde_hdmi)
 	/* Disable HPD interrupt */
 	hdmi_write(hdmi, REG_HDMI_HPD_INT_CTRL, 0);
 
-	hdmi_set_mode(hdmi, false);
+	sde_hdmi_set_mode(hdmi, false);
 
 	for (i = 0; i < config->hpd_clk_cnt; i++)
 		clk_disable_unprepare(hdmi->hpd_clks[i]);
@@ -458,6 +458,32 @@ static irqreturn_t _sde_hdmi_irq(int irq, void *dev_id)
 	/* TODO audio.. */
 
 	return IRQ_HANDLED;
+}
+
+void sde_hdmi_set_mode(struct hdmi *hdmi, bool power_on)
+{
+	uint32_t ctrl = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&hdmi->reg_lock, flags);
+	ctrl = hdmi_read(hdmi, REG_HDMI_CTRL);
+	if (power_on) {
+		ctrl |= HDMI_CTRL_ENABLE;
+		if (!hdmi->hdmi_mode) {
+			ctrl |= HDMI_CTRL_HDMI;
+			hdmi_write(hdmi, REG_HDMI_CTRL, ctrl);
+			ctrl &= ~HDMI_CTRL_HDMI;
+		} else {
+			ctrl |= HDMI_CTRL_HDMI;
+		}
+	} else {
+		ctrl &= ~HDMI_CTRL_HDMI;
+	}
+
+	hdmi_write(hdmi, REG_HDMI_CTRL, ctrl);
+	spin_unlock_irqrestore(&hdmi->reg_lock, flags);
+	DRM_DEBUG("HDMI Core: %s, HDMI_CTRL=0x%08x\n",
+			power_on ? "Enable" : "Disable", ctrl);
 }
 
 int sde_hdmi_get_info(struct msm_display_info *info,
@@ -1087,7 +1113,7 @@ int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 
 	hdmi_audio_infoframe_init(&hdmi->audio.infoframe);
 
-	hdmi->bridge = hdmi_bridge_init(hdmi);
+	hdmi->bridge = sde_hdmi_bridge_init(hdmi);
 	if (IS_ERR(hdmi->bridge)) {
 		rc = PTR_ERR(hdmi->bridge);
 		SDE_ERROR("failed to create HDMI bridge: %d\n", rc);

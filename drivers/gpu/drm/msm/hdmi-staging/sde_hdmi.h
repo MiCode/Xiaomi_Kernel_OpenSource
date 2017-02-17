@@ -224,6 +224,23 @@ int sde_hdmi_drm_deinit(struct sde_hdmi *display);
 int sde_hdmi_get_info(struct msm_display_info *info,
 				void *display);
 
+/**
+ * sde_hdmi_bridge_init() - init sde hdmi bridge
+ * @hdmi:          Handle to the hdmi.
+ *
+ * Return: struct drm_bridge *.
+ */
+struct drm_bridge *sde_hdmi_bridge_init(struct hdmi *hdmi);
+
+/**
+ * sde_hdmi_set_mode() - Set HDMI mode API.
+ * @hdmi:          Handle to the hdmi.
+ * @power_on:      Power on/off request.
+ *
+ * Return: void.
+ */
+void sde_hdmi_set_mode(struct hdmi *hdmi, bool power_on);
+
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 
 static inline u32 sde_hdmi_get_num_of_displays(void)
