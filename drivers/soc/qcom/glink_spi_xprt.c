@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1819,7 +1819,7 @@ static int glink_wdsp_cmpnt_event_handler(struct device *dev,
 		einfo->spi_dev = spi_dev;
 		break;
 	case WDSP_EVENT_IPC1_INTR:
-		queue_kthread_work(&einfo->kworker, &einfo->kwork);
+		kthread_queue_work(&einfo->kworker, &einfo->kwork);
 		break;
 	default:
 		pr_debug("%s: unhandled event %d", __func__, event);
@@ -2042,8 +2042,8 @@ static int glink_spi_probe(struct platform_device *pdev)
 
 	einfo->in_ssr = true;
 	einfo->fifo_size = DEFAULT_FIFO_SIZE;
-	init_kthread_work(&einfo->kwork, rx_worker);
-	init_kthread_worker(&einfo->kworker);
+	kthread_init_work(&einfo->kwork, rx_worker);
+	kthread_init_worker(&einfo->kworker);
 	init_srcu_struct(&einfo->use_ref);
 	mutex_init(&einfo->write_lock);
 	init_waitqueue_head(&einfo->tx_blocked_queue);
@@ -2097,7 +2097,7 @@ reg_cmpnt_fail:
 	dev_set_drvdata(&pdev->dev, NULL);
 	glink_core_unregister_transport(&einfo->xprt_if);
 reg_xprt_fail:
-	flush_kthread_worker(&einfo->kworker);
+	kthread_flush_worker(&einfo->kworker);
 	kthread_stop(einfo->task);
 	einfo->task = NULL;
 kthread_fail:
@@ -2117,7 +2117,7 @@ static int glink_spi_remove(struct platform_device *pdev)
 
 	einfo = (struct edge_info *)dev_get_drvdata(&pdev->dev);
 	glink_core_unregister_transport(&einfo->xprt_if);
-	flush_kthread_worker(&einfo->kworker);
+	kthread_flush_worker(&einfo->kworker);
 	kthread_stop(einfo->task);
 	einfo->task = NULL;
 	spin_lock_irqsave(&edge_infos_lock, flags);
