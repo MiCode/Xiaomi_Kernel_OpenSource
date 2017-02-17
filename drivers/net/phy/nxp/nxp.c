@@ -171,7 +171,7 @@ static int nxp_probe(struct phy_device *phydev)
 	int err;
 	struct nxp_specific_data *nxp_specific;
 
-	nxp_specific = kzalloc(sizeof(*nxp_specific_data), GFP_KERNEL);
+	nxp_specific = kzalloc(sizeof(*nxp_specific), GFP_KERNEL);
 	if (!nxp_specific)
 		goto phy_allocation_error;
 
@@ -1523,12 +1523,13 @@ static ssize_t sysfs_get_wakeup_cfg(struct device *dev,
 		if (reg_val < 0)
 			goto phy_read_error;
 
-		if (reg_val & TJA1100_CFG1_LED_EN)
+		if (reg_val & TJA1100_CFG1_LED_EN) {
 			locwuphy_en = 0;
 			fwdphyrem_en = 0;
-		else
+		} else {
 			locwuphy_en = 1;
 			fwdphyrem_en = 1;
+		}
 	} else {
 		goto unsupported_phy_error;
 	}
@@ -1607,7 +1608,7 @@ static ssize_t sysfs_set_wakeup_cfg(struct device *dev,
 		     (wakeup_cfg & SYSFS_FWDPHYREM)) ||
 		    wakeup_cfg & SYSFS_FWDPHYLOC ||
 		    !(wakeup_cfg & SYSFS_REMWUPHY)) {
-			dev_alert("Invalid configuration\n");
+			dev_alert(&phydev->dev, "Invalid configuration\n");
 		} else if (wakeup_cfg & SYSFS_LOCWUPHY &&
 			   wakeup_cfg & SYSFS_FWDPHYREM) {
 			err = enter_led_mode(phydev, NO_LED_MODE);
@@ -1853,7 +1854,8 @@ static struct phy_device *search_mdio_by_id(struct mii_bus *bus, int phy_id)
 		if (bus->phy_map[addr]) {
 			phydev = bus->phy_map[addr];
 			if ((phydev->phy_id & NXP_PHY_ID_MASK) == phy_id) {
-				dev_alert("found the given phy\n");
+				dev_alert(&phydev->dev,
+					  "found the given phy\n");
 				return phydev;
 			}
 		}
@@ -1904,13 +1906,14 @@ static int TJA1102p1_fixup_register(void)
 	/* check if the fixup drv is already loaded */
 	drv = driver_find("TJA1102_p1", phydev->dev.bus);
 	if (drv) {
-		dev_alert("fixup driver already loaded\n");
+		dev_alert(&phydev->dev, "fixup driver already loaded\n");
 	} else {
 		err = phy_driver_register(&nxp_TJA1102p1_fixup_driver);
 		if (err)
 			goto drv_registration_error;
 
-		dev_alert("Successfully registered fixup: %s\n",
+		dev_alert(&phydev->dev,
+			  "Successfully registered fixup: %s\n",
 			  nxp_TJA1102p1_fixup_driver.name);
 	}
 
@@ -1938,7 +1941,7 @@ static void unregister_TJA1102p1_fixup(void)
 	/* check if the fixup drv was previously loaded */
 	drv = driver_find("TJA1102_p1", phydev->dev.bus);
 	if (drv) {
-		dev_alert("unloading fixup driver\n");
+		dev_alert(&phydev->dev, "unloading fixup driver\n");
 		phy_driver_unregister(&nxp_TJA1102p1_fixup_driver);
 	}
 }
@@ -1948,8 +1951,8 @@ static int __init nxp_init(void)
 {
 	int err;
 
-	dev_alert("loading NXP PHY driver: [%s]\n",
-		  (managed_mode ? "managed mode" : "autonomous mode"));
+	pr_alert("loading NXP PHY driver: [%s]\n",
+		 (managed_mode ? "managed mode" : "autonomous mode"));
 
 	err = phy_drivers_register(nxp_drivers, ARRAY_SIZE(nxp_drivers));
 	if (err)
@@ -1963,7 +1966,7 @@ static int __init nxp_init(void)
 
 /* error handling */
 drv_registration_error:
-	dev_err("NXP PHY: driver registration failed\n");
+	pr_err("NXP PHY: driver registration failed\n");
 	return err;
 }
 
@@ -1972,7 +1975,7 @@ module_init(nxp_init);
 /* module exit function */
 static void __exit nxp_exit(void)
 {
-	dev_alert("unloading NXP PHY driver\n");
+	pr_alert("unloading NXP PHY driver\n");
 	unregister_TJA1102p1_fixup();
 	phy_drivers_unregister(nxp_drivers, ARRAY_SIZE(nxp_drivers));
 }
