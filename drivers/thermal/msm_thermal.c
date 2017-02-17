@@ -2857,6 +2857,9 @@ static void msm_thermal_bite(int zone_id, int temp)
 		pr_err("Tsens:%d reached temperature:%d. System reset\n",
 			tsens_id, temp);
 	}
+	/* If it is a secure device ignore triggering the thermal bite. */
+	if (scm_is_secure_device())
+		return;
 	if (!is_scm_armv8()) {
 		scm_call_atomic1(SCM_SVC_BOOT, THERM_SECURE_BITE_CMD, 0);
 	} else {

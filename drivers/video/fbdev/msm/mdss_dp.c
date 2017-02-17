@@ -132,7 +132,7 @@ static int mdss_dp_is_clk_prefix(const char *clk_prefix, const char *clk_name)
 static int mdss_dp_parse_prop(struct platform_device *pdev,
 			struct mdss_dp_drv_pdata *dp_drv)
 {
-	int len = 0, i = 0;
+	int len = 0, i = 0, rc = 0;
 	const char *data;
 
 	data = of_get_property(pdev->dev.of_node,
@@ -159,6 +159,11 @@ static int mdss_dp_parse_prop(struct platform_device *pdev,
 		for (i = 0; i < len; i++)
 			dp_drv->l_map[i] = data[i];
 	}
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,max-pclk-frequency-khz", &dp_drv->max_pclk_khz);
+	if (rc)
+		dp_drv->max_pclk_khz = DP_MAX_PIXEL_CLK_KHZ;
 
 	return 0;
 }
@@ -1476,8 +1481,7 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	if (ret)
 		goto exit;
 
-	if (dp_drv->new_vic && (dp_drv->new_vic != dp_drv->vic))
-		dp_init_panel_info(dp_drv, dp_drv->new_vic);
+	dp_init_panel_info(dp_drv, dp_drv->new_vic);
 
 	dp_drv->link_rate = mdss_dp_gen_link_clk(dp_drv);
 	if (!dp_drv->link_rate) {
@@ -1683,7 +1687,6 @@ static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 			panel_data);
 
-	dp_drv->max_pclk_khz = DP_MAX_PIXEL_CLK_KHZ;
 	edid_init_data.kobj = dp_drv->kobj;
 	edid_init_data.max_pclk_khz = dp_drv->max_pclk_khz;
 

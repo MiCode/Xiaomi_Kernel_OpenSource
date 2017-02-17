@@ -42,9 +42,6 @@
 #define TRAFFIC_SHAPE_CLKTICK_14MS   268800
 #define TRAFFIC_SHAPE_CLKTICK_12MS   230400
 
-/* XIN mapping */
-#define XIN_SSPP		0
-#define XIN_WRITEBACK		1
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
 #define KOFF_TIMEOUT msecs_to_jiffies(42 * 32)
@@ -1698,11 +1695,14 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 			item->input.format, item->output.format,
 			entry->perf->config.frame_rate);
 
+	if (mdata->vbif_reg_lock)
+		mdata->vbif_reg_lock();
+
 	if (mdata->default_ot_rd_limit) {
 		struct sde_mdp_set_ot_params ot_params;
 
 		memset(&ot_params, 0, sizeof(struct sde_mdp_set_ot_params));
-		ot_params.xin_id = XIN_SSPP;
+		ot_params.xin_id = mdata->vbif_xin_id[XIN_SSPP];
 		ot_params.num = 0; /* not used */
 		ot_params.width = entry->perf->config.input.width;
 		ot_params.height = entry->perf->config.input.height;
@@ -1724,7 +1724,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 		struct sde_mdp_set_ot_params ot_params;
 
 		memset(&ot_params, 0, sizeof(struct sde_mdp_set_ot_params));
-		ot_params.xin_id = XIN_WRITEBACK;
+		ot_params.xin_id = mdata->vbif_xin_id[XIN_WRITEBACK];
 		ot_params.num = 0; /* not used */
 		ot_params.width = entry->perf->config.input.width;
 		ot_params.height = entry->perf->config.input.height;
@@ -1745,36 +1745,67 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	if (test_bit(SDE_QOS_PER_PIPE_LUT, mdata->sde_qos_map))	{
 		u32 qos_lut = 0; /* low priority for nrt read client */
 
-		trace_rot_perf_set_qos_luts(XIN_SSPP, sspp_cfg.fmt->format,
-			qos_lut, sde_mdp_is_linear_format(sspp_cfg.fmt));
+		trace_rot_perf_set_qos_luts(mdata->vbif_xin_id[XIN_SSPP],
+			sspp_cfg.fmt->format, qos_lut,
+			sde_mdp_is_linear_format(sspp_cfg.fmt));
 
 		SDE_ROTREG_WRITE(rot->mdss_base, ROT_SSPP_CREQ_LUT, qos_lut);
 	}
 
+	/* Set CDP control registers to 0 if CDP is disabled */
+	if (!test_bit(SDE_QOS_CDP, mdata->sde_qos_map)) {
+		SDE_ROTREG_WRITE(rot->mdss_base, ROT_SSPP_CDP_CNTL, 0x0);
+		SDE_ROTREG_WRITE(rot->mdss_base, ROT_WB_CDP_CNTL, 0x0);
+	}
+
 	if (mdata->npriority_lvl > 0) {
-		u32 mask, reg_val, i, vbif_qos;
+		u32 mask, reg_val, i, j, vbif_qos, reg_val_lvl, reg_high;
 
 		for (i = 0; i < mdata->npriority_lvl; i++) {
-			reg_val = SDE_VBIF_READ(mdata,
-					MMSS_VBIF_NRT_VBIF_QOS_REMAP_00 + i*4);
-			mask = 0x3 << (XIN_SSPP * 2);
-			reg_val &= ~(mask);
-			vbif_qos = mdata->vbif_nrt_qos[i];
-			reg_val |= vbif_qos << (XIN_SSPP * 2);
-			/* ensure write is issued after the read operation */
-			mb();
-			SDE_VBIF_WRITE(mdata,
-					MMSS_VBIF_NRT_VBIF_QOS_REMAP_00 + i*4,
-					reg_val);
+
+			for (j = 0; j < mdata->nxid; j++) {
+				reg_high = ((mdata->vbif_xin_id[j] &
+					0x8) >> 3) * 4 + (i * 8);
+
+				reg_val = SDE_VBIF_READ(mdata,
+				  MDSS_VBIF_QOS_RP_REMAP_BASE + reg_high);
+				reg_val_lvl = SDE_VBIF_READ(mdata,
+				  MDSS_VBIF_QOS_LVL_REMAP_BASE + reg_high);
+
+				mask = 0x3 << (mdata->vbif_xin_id[j] * 4);
+				vbif_qos = mdata->vbif_nrt_qos[i];
+
+				reg_val &= ~(mask);
+				reg_val |= vbif_qos <<
+					(mdata->vbif_xin_id[j] * 4);
+
+				reg_val_lvl &= ~(mask);
+				reg_val_lvl |= vbif_qos <<
+					(mdata->vbif_xin_id[j] * 4);
+
+				pr_debug("idx:%d xin:%d reg:0x%x val:0x%x lvl:0x%x\n",
+				   i, mdata->vbif_xin_id[j],
+					reg_high, reg_val, reg_val_lvl);
+				SDE_VBIF_WRITE(mdata,
+				MDSS_VBIF_QOS_RP_REMAP_BASE +
+					reg_high, reg_val);
+				SDE_VBIF_WRITE(mdata,
+					MDSS_VBIF_QOS_LVL_REMAP_BASE +
+					 reg_high, reg_val_lvl);
+			}
 		}
 	}
 
 	/* Enable write gather for writeback to remove write gaps, which
 	 * may hang AXI/BIMC/SDE.
 	 */
-	SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_WRITE_GATHTER_EN,
-			BIT(XIN_WRITEBACK));
+	if (!((mdata->mdss_version == MDSS_MDP_HW_REV_320) ||
+			(mdata->mdss_version == MDSS_MDP_HW_REV_330)))
+		SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_WRITE_GATHTER_EN,
+				BIT(mdata->vbif_xin_id[XIN_WRITEBACK]));
 
+	if (mdata->vbif_reg_unlock)
+		mdata->vbif_reg_unlock();
 	return 0;
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1362,7 +1362,9 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 						(mdata->mdp_rev ==
 							MDSS_MDP_HW_REV_301) ||
 						(mdata->mdp_rev ==
-							MDSS_MDP_HW_REV_320)) {
+							MDSS_MDP_HW_REV_320) ||
+						(mdata->mdp_rev ==
+							MDSS_MDP_HW_REV_330)) {
 						ctrl_reg += 0x8;
 						value_reg += 0x8;
 					}

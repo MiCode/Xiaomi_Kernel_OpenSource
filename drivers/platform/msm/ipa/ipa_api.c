@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,7 +113,8 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_A5_WLAN_AMPDU_PROD),
 	__stringify(IPA_CLIENT_A2_EMBEDDED_PROD),
 	__stringify(IPA_CLIENT_A2_TETHERED_PROD),
-	__stringify(IPA_CLIENT_APPS_LAN_WAN_PROD),
+	__stringify(IPA_CLIENT_APPS_LAN_PROD),
+	__stringify(IPA_CLIENT_APPS_WAN_PROD),
 	__stringify(IPA_CLIENT_APPS_CMD_PROD),
 	__stringify(IPA_CLIENT_ODU_PROD),
 	__stringify(IPA_CLIENT_MHI_PROD),

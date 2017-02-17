@@ -152,7 +152,7 @@
 			qcom,limits-info = <&mitigation_profile1>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			qcom,ea = <&ea4>;
-			efficiency = <1536>;
+			efficiency = <1638>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
 				compatible = "arm,arch-cache";
@@ -179,7 +179,7 @@
 			qcom,limits-info = <&mitigation_profile2>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			qcom,ea = <&ea5>;
-			efficiency = <1536>;
+			efficiency = <1638>;
 			next-level-cache = <&L2_1>;
 			L1_I_101: l1-icache {
 				compatible = "arm,arch-cache";
@@ -202,7 +202,7 @@
 			qcom,limits-info = <&mitigation_profile3>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			qcom,ea = <&ea6>;
-			efficiency = <1536>;
+			efficiency = <1638>;
 			next-level-cache = <&L2_1>;
 			L1_I_102: l1-icache {
 				compatible = "arm,arch-cache";
@@ -225,7 +225,7 @@
 			qcom,limits-info = <&mitigation_profile4>;
 			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			qcom,ea = <&ea7>;
-			efficiency = <1536>;
+			efficiency = <1638>;
 			next-level-cache = <&L2_1>;
 			L1_I_103: l1-icache {
 				compatible = "arm,arch-cache";
@@ -1305,51 +1305,6 @@
 			< 2150400 >,
 			< 2208000 >,
 			< 2457600 >;
-	};
-
-	ufs_ice: ufsice@1db0000 {
-		compatible = "qcom,ice";
-		reg = <0x1db0000 0x8000>;
-		qcom,enable-ice-clk;
-		clock-names = "ufs_core_clk", "bus_clk",
-				"iface_clk", "ice_core_clk";
-		clocks = <&clock_gcc GCC_UFS_AXI_CLK>,
-			 <&clock_gcc GCC_UFS_CLKREF_CLK>,
-			 <&clock_gcc GCC_UFS_AHB_CLK>,
-			 <&clock_gcc GCC_UFS_ICE_CORE_CLK>;
-		qcom,op-freq-hz = <0>, <0>, <0>, <300000000>;
-		vdd-hba-supply = <&gdsc_ufs>;
-		qcom,msm-bus,name = "ufs_ice_noc";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-				<1 650 0 0>,    /* No vote */
-				<1 650 1000 0>; /* Max. bandwidth */
-		qcom,bus-vector-names = "MIN",
-					"MAX";
-		qcom,instance-type = "ufs";
-	};
-
-	sdcc1_ice: sdcc1ice@c0c8000 {
-		compatible = "qcom,ice";
-		reg = <0xc0c8000 0x8000>;
-		qcom,enable-ice-clk;
-		clock-names = "ice_core_clk_src", "ice_core_clk",
-				"bus_clk", "iface_clk";
-		clocks = <&clock_gcc SDCC1_ICE_CORE_CLK_SRC>,
-			 <&clock_gcc GCC_SDCC1_ICE_CORE_CLK>,
-			 <&clock_gcc GCC_SDCC1_APPS_CLK>,
-			 <&clock_gcc GCC_SDCC1_AHB_CLK>;
-		qcom,op-freq-hz = <300000000>, <0>, <0>, <0>;
-		qcom,msm-bus,name = "sdcc_ice_noc";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-			<78 512 0 0>,    /* No vote */
-			<78 512 1000 0>; /* Max. bandwidth */
-		qcom,bus-vector-names = "MIN",
-					"MAX";
-		qcom,instance-type = "sdcc";
 	};
 
 	sdhc_1: sdhci@c0c4000 {

@@ -165,6 +165,13 @@ enum msm_spi_state {
 /* Data Mover commands should be aligned to 64 bit(8 bytes) */
 #define DM_BYTE_ALIGN                 8
 
+#if defined(CONFIG_ARM64) || defined(CONFIG_LPAE)
+#define spi_dma_mask(dev)   (dma_set_mask((dev), DMA_BIT_MASK(36)))
+#else
+#define spi_dma_mask(dev)   (dma_set_mask((dev), DMA_BIT_MASK(32)))
+#endif
+
+
 enum msm_spi_qup_version {
 	SPI_QUP_VERSION_NONE    = 0x0,
 	SPI_QUP_VERSION_BFAM    = 0x2,

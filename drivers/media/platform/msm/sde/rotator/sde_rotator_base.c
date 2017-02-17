@@ -438,6 +438,40 @@ static void sde_mdp_parse_vbif_qos(struct platform_device *pdev,
 	}
 }
 
+static int sde_mdp_parse_vbif_xin_id(struct platform_device *pdev,
+		struct sde_rot_data_type *mdata)
+{
+	int rc = 0;
+	bool default_xin_id = false;
+
+	mdata->nxid = sde_mdp_parse_dt_prop_len(pdev,
+			"qcom,mdss-rot-xin-id");
+	if (!mdata->nxid) {
+		mdata->nxid = 2;
+		default_xin_id = true;
+	}
+	mdata->vbif_xin_id = kzalloc(sizeof(u32) *
+			mdata->nxid, GFP_KERNEL);
+	if (!mdata->vbif_xin_id) {
+		SDEROT_ERR("xin alloc failure\n");
+		return -ENOMEM;
+	}
+	if (default_xin_id) {
+		mdata->vbif_xin_id[XIN_SSPP] = XIN_SSPP;
+		mdata->vbif_xin_id[XIN_WRITEBACK] = XIN_WRITEBACK;
+	} else {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-rot-xin-id", mdata->vbif_xin_id,
+				mdata->nxid);
+		if (rc) {
+			SDEROT_ERR("vbif xin id setting not found\n");
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
 static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 		struct sde_rot_data_type *mdata)
 {
@@ -463,6 +497,11 @@ static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 			"Could not read optional property: highest bank bit\n");
 
 	sde_mdp_parse_vbif_qos(pdev, mdata);
+	rc = sde_mdp_parse_vbif_xin_id(pdev, mdata);
+	if (rc) {
+		SDEROT_DBG("vbif xin id dt parse failure\n");
+		return rc;
+	}
 
 	mdata->mdp_base = mdata->sde_io.base + SDE_MDP_OFFSET;
 

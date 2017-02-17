@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,6 +70,11 @@ struct tspp_select_source {
 	int enable_inverse;
 };
 
+enum tsif_tts_source {
+	TSIF_TTS_TCR = 0,	/* Time stamps from TCR counter */
+	TSIF_TTS_LPASS_TIMER	/* Time stamps from AV/Qtimer Timer  */
+};
+
 typedef void (tspp_notifier)(int channel_id, void *user);
 typedef void* (tspp_allocator)(int channel_id, u32 size,
 	phys_addr_t *phys_base, void *user);
@@ -95,5 +100,9 @@ int tspp_release_buffer(u32 dev, u32 channel_id, u32 descriptor_id);
 int tspp_allocate_buffers(u32 dev, u32 channel_id, u32 count,
 	u32 size, u32 int_freq, tspp_allocator *alloc,
 	tspp_memfree *memfree, void *user);
+
+int tspp_get_tts_source(u32 dev, int *tts_source);
+int tspp_get_lpass_time_counter(u32 dev, enum tspp_source source,
+			u64 *lpass_time_counter);
 
 #endif /* _MSM_TSPP_H_ */

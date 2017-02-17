@@ -54,7 +54,7 @@ enum print_reason {
 #define MICRO_USB_VOTER			"MICRO_USB_VOTER"
 #define DEBUG_BOARD_VOTER		"DEBUG_BOARD_VOTER"
 #define PD_SUSPEND_SUPPORTED_VOTER	"PD_SUSPEND_SUPPORTED_VOTER"
-#define PL_DISABLE_HVDCP_VOTER		"PL_DISABLE_HVDCP_VOTER"
+#define PL_DELAY_HVDCP_VOTER		"PL_DELAY_HVDCP_VOTER"
 #define CTM_VOTER			"CTM_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
@@ -252,7 +252,6 @@ struct smb_charger {
 	struct regulator	*dpdm_reg;
 
 	/* votables */
-	struct votable		*usb_suspend_votable;
 	struct votable		*dc_suspend_votable;
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;

@@ -25,12 +25,58 @@
 		status = "disabled";
 	};
 
+	ufs_ice: ufsice@1db0000 {
+		compatible = "qcom,ice";
+		reg = <0x1db0000 0x8000>;
+		qcom,enable-ice-clk;
+		clock-names = "ufs_core_clk", "bus_clk",
+				"iface_clk", "ice_core_clk";
+		clocks = <&clock_gcc GCC_UFS_AXI_CLK>,
+			 <&clock_gcc GCC_UFS_CLKREF_CLK>,
+			 <&clock_gcc GCC_UFS_AHB_CLK>,
+			 <&clock_gcc GCC_UFS_ICE_CORE_CLK>;
+		qcom,op-freq-hz = <0>, <0>, <0>, <300000000>;
+		vdd-hba-supply = <&gdsc_ufs>;
+		qcom,msm-bus,name = "ufs_ice_noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<1 650 0 0>,    /* No vote */
+				<1 650 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN",
+					"MAX";
+		qcom,instance-type = "ufs";
+	};
+
+	sdcc1_ice: sdcc1ice@c0c8000 {
+		compatible = "qcom,ice";
+		reg = <0xc0c8000 0x8000>;
+		qcom,enable-ice-clk;
+		clock-names = "ice_core_clk_src", "ice_core_clk",
+				"bus_clk", "iface_clk";
+		clocks = <&clock_gcc SDCC1_ICE_CORE_CLK_SRC>,
+			 <&clock_gcc GCC_SDCC1_ICE_CORE_CLK>,
+			 <&clock_gcc GCC_SDCC1_APPS_CLK>,
+			 <&clock_gcc GCC_SDCC1_AHB_CLK>;
+		qcom,op-freq-hz = <300000000>, <0>, <0>, <0>;
+		qcom,msm-bus,name = "sdcc_ice_noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<78 512 0 0>,    /* No vote */
+			<78 512 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN",
+					"MAX";
+		qcom,instance-type = "sdcc";
+	};
+
 	ufs1: ufshc@1da4000 {
 		compatible = "qcom,ufshc";
 		reg = <0x1da4000 0x3000>;
 		interrupts = <0 265 0>;
 		phys = <&ufsphy1>;
 		phy-names = "ufsphy";
+		ufs-qcom-crypto = <&ufs_ice>;
 
 		clock-names =
 			"core_clk",
@@ -415,6 +461,7 @@
 
 		qcom,bus-width = <8>;
 		qcom,large-address-bus;
+		sdhc-msm-crypto = <&sdcc1_ice>;
 
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
