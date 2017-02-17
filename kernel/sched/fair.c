@@ -6600,6 +6600,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	int cpu = smp_processor_id();
 	int min_util_cpu = -1;
 	int min_util_cpu_idle_idx = INT_MAX;
+	long min_util_cpu_util_cum = LONG_MAX;
 	unsigned int min_util = UINT_MAX;
 	int cpu_idle_idx;
 	int min_idle_idx_cpu;
@@ -6709,16 +6710,21 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 				min_util_cpu = i;
 				min_util = new_util;
 				min_util_cpu_idle_idx = cpu_idle_idx;
+				min_util_cpu_util_cum = new_util_cum;
 			} else if (sysctl_sched_cstate_aware &&
-				   min_util == new_util &&
-				   cpu_idle_idx < min_util_cpu_idle_idx) {
-				min_util_cpu = i;
-				min_util_cpu_idle_idx = cpu_idle_idx;
+				   min_util == new_util) {
+				if (cpu_idle_idx < min_util_cpu_idle_idx ||
+				    (cpu_idle_idx == min_util_cpu_idle_idx &&
+				     min_util_cpu_util_cum > new_util_cum)) {
+					min_util_cpu = i;
+					min_util_cpu_idle_idx = cpu_idle_idx;
+					min_util_cpu_util_cum = new_util_cum;
+				}
 			}
 		}
 
 		if (target_cpu == -1) {
-			if (min_util_cpu != -1)
+			if (likely(min_util_cpu != -1))
 				target_cpu = min_util_cpu;
 			else
 				target_cpu = task_cpu(p);
