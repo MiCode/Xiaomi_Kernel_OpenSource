@@ -1535,6 +1535,15 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	}
 
 	sde_kms_info_add_keyint(info, "has_src_split", catalog->has_src_split);
+	if (catalog->perf.max_bw_low)
+		sde_kms_info_add_keyint(info, "max_bandwidth_low",
+				catalog->perf.max_bw_low);
+	if (catalog->perf.max_bw_high)
+		sde_kms_info_add_keyint(info, "max_bandwidth_high",
+				catalog->perf.max_bw_high);
+	if (sde_kms->perf.max_core_clk_rate)
+		sde_kms_info_add_keyint(info, "max_mdp_clk",
+				sde_kms->perf.max_core_clk_rate);
 	msm_property_set_blob(&sde_crtc->property_info, &sde_crtc->blob_info,
 			info->data, info->len, CRTC_PROP_INFO);
 
