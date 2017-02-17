@@ -328,15 +328,19 @@ struct sde_hw_sspp_ops {
 	 * setup_rects - setup pipe ROI rectangles
 	 * @ctx: Pointer to pipe context
 	 * @cfg: Pointer to pipe config structure
-	 * @pe_ext: Pointer to pixel ext settings
 	 * @index: rectangle index in multirect
-	 * @scale_cfg: Pointer to scaler settings
 	 */
 	void (*setup_rects)(struct sde_hw_pipe *ctx,
 			struct sde_hw_pipe_cfg *cfg,
-			struct sde_hw_pixel_ext *pe_ext,
-			enum sde_sspp_multirect_index index,
-			void *scale_cfg);
+			enum sde_sspp_multirect_index index);
+
+	/**
+	 * setup_pe - setup pipe pixel extension
+	 * @ctx: Pointer to pipe context
+	 * @pe_ext: Pointer to pixel ext settings
+	 */
+	void (*setup_pe)(struct sde_hw_pipe *ctx,
+			struct sde_hw_pixel_ext *pe_ext);
 
 	/**
 	 * setup_excl_rect - setup pipe exclusion rectangle

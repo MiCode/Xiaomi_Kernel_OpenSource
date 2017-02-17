@@ -1104,8 +1104,6 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 		psde->pipe_cfg.src_rect.w = psde->pipe_cfg.dst_rect.w;
 		psde->pipe_cfg.src_rect.h = psde->pipe_cfg.dst_rect.h;
 
-		_sde_plane_setup_scaler(psde, fmt, 0);
-
 		if (psde->pipe_hw->ops.setup_format)
 			psde->pipe_hw->ops.setup_format(psde->pipe_hw,
 					fmt, SDE_SSPP_SOLID_FILL,
@@ -1113,9 +1111,13 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 
 		if (psde->pipe_hw->ops.setup_rects)
 			psde->pipe_hw->ops.setup_rects(psde->pipe_hw,
-					&psde->pipe_cfg, &psde->pixel_ext,
-					pstate->multirect_index,
-					psde->scaler3_cfg);
+					&psde->pipe_cfg,
+					pstate->multirect_index);
+
+		_sde_plane_setup_scaler(psde, fmt, 0);
+		if (psde->pipe_hw->ops.setup_pe)
+			psde->pipe_hw->ops.setup_pe(psde->pipe_hw,
+					&psde->pixel_ext);
 	}
 
 	return 0;
@@ -1238,13 +1240,20 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 			/* skip remaining processing on color fill */
 			pstate->dirty = 0x0;
 		} else if (psde->pipe_hw->ops.setup_rects) {
-			_sde_plane_setup_scaler(psde, fmt, pstate);
-
 			psde->pipe_hw->ops.setup_rects(psde->pipe_hw,
-					&psde->pipe_cfg, &psde->pixel_ext,
-					pstate->multirect_index,
-					psde->scaler3_cfg);
+					&psde->pipe_cfg,
+					pstate->multirect_index);
 		}
+
+		_sde_plane_setup_scaler(psde, fmt, pstate);
+		if (psde->pipe_hw->ops.setup_pe)
+			psde->pipe_hw->ops.setup_pe(psde->pipe_hw,
+					&psde->pixel_ext);
+
+		if (psde->pipe_hw->ops.setup_scaler)
+			psde->pipe_hw->ops.setup_scaler(psde->pipe_hw,
+					&psde->pipe_cfg, &psde->pixel_ext,
+					psde->scaler3_cfg);
 
 		/* update excl rect */
 		if (psde->pipe_hw->ops.setup_excl_rect)
