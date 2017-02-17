@@ -6713,9 +6713,13 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 				min_util_cpu_util_cum = new_util_cum;
 			} else if (sysctl_sched_cstate_aware &&
 				   min_util == new_util) {
-				if (cpu_idle_idx < min_util_cpu_idle_idx ||
-				    (cpu_idle_idx == min_util_cpu_idle_idx &&
-				     min_util_cpu_util_cum > new_util_cum)) {
+				if (min_util_cpu == task_cpu(p))
+					continue;
+
+				if (i == task_cpu(p) ||
+				    (cpu_idle_idx < min_util_cpu_idle_idx ||
+				     (cpu_idle_idx == min_util_cpu_idle_idx &&
+				      min_util_cpu_util_cum > new_util_cum))) {
 					min_util_cpu = i;
 					min_util_cpu_idle_idx = cpu_idle_idx;
 					min_util_cpu_util_cum = new_util_cum;
