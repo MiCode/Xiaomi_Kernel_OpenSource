@@ -635,14 +635,16 @@ static void handle_main_charge_type(struct pl_data *chip)
 }
 
 #define MIN_ICL_CHANGE_DELTA_UA		300000
-static void handle_settled_aicl_split(struct pl_data *chip)
+static void handle_settled_icl_change(struct pl_data *chip)
 {
 	union power_supply_propval pval = {0, };
 	int rc;
 
-	if (!get_effective_result(chip->pl_disable_votable)
-		&& (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN
-			|| chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT)) {
+	if (get_effective_result(chip->pl_disable_votable))
+		return;
+
+	if (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN
+			|| chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT) {
 		/*
 		 * call aicl split only when USBIN_USBIN and enabled
 		 * and if aicl changed
@@ -659,6 +661,8 @@ static void handle_settled_aicl_split(struct pl_data *chip)
 		if (abs((chip->main_settled_ua - chip->pl_settled_ua)
 				- pval.intval) > MIN_ICL_CHANGE_DELTA_UA)
 			split_settled(chip);
+	} else {
+		rerun_election(chip->fcc_votable);
 	}
 }
 
@@ -705,7 +709,7 @@ static void status_change_work(struct work_struct *work)
 	is_parallel_available(chip);
 
 	handle_main_charge_type(chip);
-	handle_settled_aicl_split(chip);
+	handle_settled_icl_change(chip);
 	handle_parallel_in_taper(chip);
 }
 
@@ -719,7 +723,8 @@ static int pl_notifier_call(struct notifier_block *nb,
 		return NOTIFY_OK;
 
 	if ((strcmp(psy->desc->name, "parallel") == 0)
-	    || (strcmp(psy->desc->name, "battery") == 0))
+	    || (strcmp(psy->desc->name, "battery") == 0)
+	    || (strcmp(psy->desc->name, "main") == 0))
 		schedule_work(&chip->status_change_work);
 
 	return NOTIFY_OK;
