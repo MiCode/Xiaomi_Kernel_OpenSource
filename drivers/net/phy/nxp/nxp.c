@@ -18,6 +18,14 @@
 
 #include "nxp.h"
 
+/* Variable can be modified via parameter passed at load time
+ * A nonzero value indicates that we should operate in managed mode
+ */
+static int managed_mode;
+/* Permission: do not show up in sysfs */
+module_param(managed_mode, int, 0000);
+MODULE_PARM_DESC(managed_mode, "Use PHY in managed or autonomous mode");
+
 /* Called to initialize the PHY,
  * including after a reset
  */
@@ -287,6 +295,21 @@ phy_write_error:
 	return err;
 }
 
+/* handler for link changes
+ * if interrupts would be used, this would be handled by phy_change()
+ */
+static inline void handle_link_changes(struct phy_device *phydev)
+{
+	mutex_lock(&phydev->lock);
+	if ((PHY_RUNNING == phydev->state) || (PHY_NOLINK == phydev->state))
+		phydev->state = PHY_CHANGELINK;
+	mutex_unlock(&phydev->lock);
+
+	/* reschedule state queue work to run as soon as possible */
+	cancel_delayed_work_sync(&phydev->state_queue);
+	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, 0);
+}
+
 /* interrupt handler for pwon interrupts */
 static inline void handle_pwon_interrupt(struct phy_device *phydev)
 {
@@ -348,6 +371,7 @@ static void poll(struct work_struct *work)
 	 * - reinitialize after power down
 	 * - resume PHY after an external WAKEUP was received
 	 * - resume PHY after an undervoltage recovery
+	 * - adjust state on link changes
 	 * - check for some PHY errors
 	 */
 
@@ -359,6 +383,11 @@ static void poll(struct work_struct *work)
 			handle_uvr_interrupt(phydev);
 		else if (interrupts & INTERRUPT_WAKEUP)
 			phydev->drv->resume(phydev);
+
+		/* link changes */
+		if (interrupts & INTERRUPT_LINK_STATUS_FAIL ||
+		    interrupts & INTERRUPT_LINK_STATUS_UP)
+			handle_link_changes(phydev);
 
 		/* warnings */
 		if (interrupts & INTERRUPT_PHY_INIT_FAIL)
@@ -385,10 +414,8 @@ static void poll(struct work_struct *work)
 /* helper function, waits until a given condition is met
  *
  * The function delays until the part of the register at reg_addr,
- * defined by reg_mask equals cond, or a timeout (timeout*DELAY_LENGTH)
- * occurs.
- * @return          0 if condition is met, <0 if timeout or read
- *		    error occurred
+ * defined by reg_mask equals cond, or a timeout (timeout*DELAY_LENGTH) occurs.
+ * @return	0 if condition is met, <0 if timeout or read error occurred
  */
 static int wait_on_condition(struct phy_device *phydev, int reg_addr,
 			     int reg_mask, int cond, int timeout)
@@ -409,7 +436,7 @@ static int wait_on_condition(struct phy_device *phydev, int reg_addr,
 }
 
 /* helper function, enables or disables link control */
-void set_link_control(struct phy_device *phydev, int enable_link_control)
+static void set_link_control(struct phy_device *phydev, int enable_link_control)
 {
 	int err;
 
@@ -422,6 +449,7 @@ void set_link_control(struct phy_device *phydev, int enable_link_control)
 
 phy_configure_error:
 	dev_err(&phydev->dev, "phy r/w error: setting link control failed\n");
+	return;
 }
 
 /* Helper function, configures phy as master or slave
@@ -430,7 +458,7 @@ phy_configure_error:
  *                   !=0: set to master
  * @return           0 on success, error code on failure
  */
-int set_master_cfg(struct phy_device *phydev, int setMaster)
+static int set_master_cfg(struct phy_device *phydev, int setMaster)
 {
 	int err;
 
@@ -459,7 +487,7 @@ phy_configure_error:
  * @return           ==0: is slave
  *                   !=0: is master
  */
-int get_master_cfg(struct phy_device *phydev)
+static int get_master_cfg(struct phy_device *phydev)
 {
 	int reg_val;
 
@@ -546,17 +574,13 @@ phy_transition_error:
 }
 
 /* wakes up the phy from sleep mode */
-static int nxp_wakeup(struct phy_device *phydev)
+static int wakeup_from_sleep(struct phy_device *phydev)
 {
 	int err;
 	unsigned long wakeup_delay;
 
 	if (!managed_mode)
 		goto phy_auto_op_error;
-
-	/* TJA1100 cannot be woken up via SMI */
-	if ((phydev->phy_id & NXP_PHY_ID_MASK) == NXP_PHY_ID_TJA1100)
-		goto phy_no_SMI_wakeup;
 
 	/* set power mode bits to standby mode */
 	err = phy_configure_bits(phydev, MII_ECTRL, ECTRL_POWER_MODE,
@@ -581,7 +605,6 @@ static int nxp_wakeup(struct phy_device *phydev)
 				GENSTAT_PLL_LOCKED, POWER_MODE_TIMEOUT);
 	if (err < 0)
 		goto phy_transition_error;
-
 	/* if phy is configured as slave, also send a wakeup request
 	 * to master
 	 */
@@ -636,13 +659,75 @@ phy_transition_error:
 	dev_err(&phydev->dev, "power mode transition failed\n");
 	return err;
 
-phy_no_SMI_wakeup:
-	dev_err(&phydev->dev, "cannot be woken up via SMI command\n");
-	return 0;
-
 unsupported_phy_error:
 	dev_err(&phydev->dev, "unsupported phy, wakeup failed\n");
 	return -1;
+}
+
+/* send a wakeup request to the link partner */
+static int wakeup_from_normal(struct phy_device *phydev)
+{
+	int err;
+
+	/* start sending bus wakeup signal */
+	err = phy_configure_bit(phydev, MII_ECTRL, ECTRL_WAKE_REQUEST, 1);
+	if (err < 0)
+		goto phy_configure_error;
+
+	/* stop sending bus wakeup signal */
+	err = phy_configure_bit(phydev, MII_ECTRL, ECTRL_WAKE_REQUEST, 0);
+	if (err < 0)
+		goto phy_configure_error;
+
+	return 0;
+
+/* error handling */
+phy_configure_error:
+	dev_err(&phydev->dev, "phy r/w error: wakeup_from_normal failed\n");
+	return err;
+}
+
+/* wake up phy if is in sleep mode, send wakeup request if in normal mode */
+static int nxp_wakeup(struct phy_device *phydev)
+{
+	int reg_val;
+	int err = 0;
+
+	reg_val = phy_read(phydev, MII_ECTRL);
+	if (reg_val < 0)
+		goto phy_read_error;
+
+	reg_val &= ECTRL_POWER_MODE;
+	switch (reg_val) {
+	case POWER_MODE_NORMAL:
+		err = wakeup_from_normal(phydev);
+		break;
+	case POWER_MODE_SLEEP:
+		err = wakeup_from_sleep(phydev);
+		break;
+	case 0xffff & ECTRL_POWER_MODE:
+		/* TJA1100 disables SMI during sleep */
+		goto phy_SMI_disabled;
+	default:
+		break;
+	}
+	if (err < 0)
+		goto phy_configure_error;
+
+	return 0;
+
+/* error handling */
+phy_read_error:
+	dev_err(&phydev->dev, "read error: nxp_wakeup failed\n");
+	return reg_val;
+
+phy_SMI_disabled:
+	dev_err(&phydev->dev, "SMI interface disabled, cannot be woken up\n");
+	return 0;
+
+phy_configure_error:
+	dev_err(&phydev->dev, "phy r/w error: wakeup_from_normal failed\n");
+	return err;
 }
 
 /* power mode transition to standby */
@@ -783,8 +868,7 @@ phy_configure_error:
 }
 
 /* helper function, enables or disables loopback mode
- * @return          0 if loopback mode was configured, <0 on read or
- *		    write error
+ * @return	0 if loopback mode was configured, <0 on read or write error
  */
 static int set_loopback(struct phy_device *phydev, int enable_loopback)
 {
@@ -804,8 +888,7 @@ phy_configure_error:
 }
 
 /* helper function, enters the loopback mode specified by lmode
- * @return          0 if loopback mode was entered, <0 on read or
- *		    write error
+ * @return          0 if loopback mode was entered, <0 on read or write error
  */
 static int enter_loopback_mode(struct phy_device *phydev,
 			       enum loopback_mode lmode)
@@ -916,7 +999,8 @@ phy_configure_error:
 	return err;
 }
 
-/* This function handles read accesses to the node 'master_cfg' in sysfs
+/* This function handles read accesses to the node 'master_cfg' in
+ * sysfs.
  * Depending on current configuration of the phy, the node reads
  * 'master' or 'slave'
  */
@@ -933,7 +1017,7 @@ static ssize_t sysfs_get_master_cfg(struct device *dev,
 			 is_master ? "master" : "slave");
 }
 
-/* This function handles write accesses to the node 'master_cfg' in sysfs
+/* This function handles write accesses to the node 'master_cfg' in sysfs.
  * Depending on the value written to it, the phy is configured as
  * master or slave
  */
@@ -970,7 +1054,7 @@ phy_cfg_error:
 	return err;
 }
 
-/* This function handles read accesses to the node 'power_cfg' in sysfs
+/* This function handles read accesses to the node 'power_cfg' in sysfs.
  * Reading the node returns the current power state
  */
 static ssize_t sysfs_get_power_cfg(struct device *dev,
@@ -1019,7 +1103,8 @@ phy_read_error:
 	return reg_val;
 }
 
-/* This function handles write accesses to the node 'power_cfg' in sysfs.
+/* This function handles write accesses to the node 'power_cfg' in
+ * sysfs.
  * Depending on the value written to it, the phy enters a certain
  * power state.
  */
@@ -1048,6 +1133,8 @@ static ssize_t sysfs_set_power_cfg(struct device *dev,
 		break;
 	case 3:
 		err = nxp_wakeup(phydev);
+		break;
+	default:
 		break;
 	}
 
@@ -1149,6 +1236,8 @@ static ssize_t sysfs_set_loopback_cfg(struct device *dev,
 		break;
 	case 3:
 		err = enter_loopback_mode(phydev, REMOTE_LMODE);
+		break;
+	default:
 		break;
 	}
 
@@ -1342,6 +1431,8 @@ static ssize_t sysfs_set_test_mode(struct device *dev,
 		set_link_control(phydev, 0);
 		err = enter_test_mode(phydev, TMODE6);
 		break;
+	default:
+		break;
 	}
 
 	if (err)
@@ -1363,7 +1454,7 @@ phy_tmode_transit_error:
 	return err;
 }
 
-/* This function handles read accesses to the node 'led_cfg' in sysfs
+/* This function handles read accesses to the node 'led_cfg' in sysfs.
  * Reading the node returns the current led configuration
  */
 static ssize_t sysfs_get_led_cfg(struct device *dev,
@@ -1413,7 +1504,7 @@ phy_read_error:
 	return reg_val;
 }
 
-/* This function handles write accesses to the node 'led_cfg' in sysfs.
+/* This function handles write accesses to the node 'led_cfg' in sysfs
  * Depending on the value written to it, the led mode is configured
  * accordingly.
  */
@@ -1445,6 +1536,8 @@ static ssize_t sysfs_set_led_cfg(struct device *dev,
 		break;
 	case 4:
 		err = enter_led_mode(phydev, CRSSIG_LED_MODE);
+		break;
+	default:
 		break;
 	}
 
@@ -1670,11 +1763,11 @@ static struct attribute_group nxp_attribute_group = {
  *
  * The function sets the bit of register reg_name,
  * defined by bit_mask to 0 if (bit_value == 0), else to 1
- * @return          0 if configuration completed, <0 if read/write
-		    error occurred
+ * @return	0 if configuration completed, <0 if read/write
+ *		error occurred
  */
-static inline int phy_configure_bit(struct phy_device *phydev,
-				    int reg_name, int bit_mask, int bit_value)
+static inline int phy_configure_bit(struct phy_device *phydev, int reg_name,
+				    int bit_mask, int bit_value)
 {
 	int reg_val, err;
 
@@ -1707,11 +1800,11 @@ phy_write_error:
  *
  * The function sets the bits of register reg_name,
  * defined by bit_mask to bit_value
- * @return          0 if configuration completed, <0 if read/write
-		    error occurred
+ * @return	0 if configuration completed, <0 if read/write
+ *		error occurred
  */
-static inline int phy_configure_bits(struct phy_device *phydev,
-				     int reg_name, int bit_mask, int bit_value)
+static inline int phy_configure_bits(struct phy_device *phydev, int reg_name,
+				     int bit_mask, int bit_value)
 {
 	int reg_val, err;
 
@@ -1854,8 +1947,8 @@ static struct phy_device *search_mdio_by_id(struct mii_bus *bus, int phy_id)
 		if (bus->phy_map[addr]) {
 			phydev = bus->phy_map[addr];
 			if ((phydev->phy_id & NXP_PHY_ID_MASK) == phy_id) {
-				dev_alert(&phydev->dev,
-					  "found the given phy\n");
+				pr_alert("found the given phy\n");
+
 				return phydev;
 			}
 		}
@@ -1912,9 +2005,8 @@ static int TJA1102p1_fixup_register(void)
 		if (err)
 			goto drv_registration_error;
 
-		dev_alert(&phydev->dev,
-			  "Successfully registered fixup: %s\n",
-			  nxp_TJA1102p1_fixup_driver.name);
+		pr_alert("Successfully registered fixup: %s\n",
+			 nxp_TJA1102p1_fixup_driver.name);
 	}
 
 	return 0;
