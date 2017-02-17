@@ -19,6 +19,7 @@
 		status = "ok";
 		bus-vectors = "suspend", "svs", "nominal", "turbo";
 		qcom,bus-votes = <0 150000000 320000000 320000000>;
+		qcom,gpu-limit = <700000000>;
 	};
 
 	qcom,csiphy@c824000 {
