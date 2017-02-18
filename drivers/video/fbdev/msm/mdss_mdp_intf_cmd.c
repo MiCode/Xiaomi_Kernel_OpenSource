@@ -2659,10 +2659,11 @@ static void mdss_mdp_cmd_wait4_autorefresh_done(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_cmd_ctx *ctx = ctl->intf_ctx[MASTER_CTX];
 	unsigned long flags;
 	unsigned long autorefresh_timeout;
+	u32 timeout_us = 20000;
 
 	line_out = mdss_mdp_pingpong_read(pp_base, MDSS_MDP_REG_PP_LINE_COUNT);
 
-	MDSS_XLOG(ctl->num, line_out, ctl->mixer_left->roi.h);
+	MDSS_XLOG(ctl->num, line_out, ctl->mixer_left->roi.h, 0x111);
 
 	reinit_completion(&ctx->autorefresh_done);
 
@@ -2721,6 +2722,26 @@ static void mdss_mdp_cmd_wait4_autorefresh_done(struct mdss_mdp_ctl *ctl)
 			"dsi1_ctrl", "dsi1_phy", "vbif", "vbif_nrt",
 			"dbg_bus", "vbif_dbg_bus", "panic");
 	}
+
+	/* once autorefresh is done, wait for write pointer */
+	line_out = mdss_mdp_pingpong_read(pp_base, MDSS_MDP_REG_PP_LINE_COUNT);
+	MDSS_XLOG(ctl->num, line_out, 0x222);
+
+	/* wait until the first line is out to make sure transfer is on-going */
+	rc = readl_poll_timeout(pp_base +
+		MDSS_MDP_REG_PP_LINE_COUNT, val,
+		(val & 0xffff) >= 1, 10, timeout_us);
+
+	if (rc) {
+		pr_err("timed out waiting for line out ctl:%d val:0x%x\n",
+			ctl->num, val);
+		MDSS_XLOG(0xbad5, val);
+		MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
+			"dsi1_ctrl", "dsi1_phy", "vbif", "vbif_nrt",
+			"dbg_bus", "vbif_dbg_bus", "panic");
+	}
+
+	MDSS_XLOG(val, 0x333);
 }
 
 /* caller needs to hold autorefresh_lock before calling this function */
