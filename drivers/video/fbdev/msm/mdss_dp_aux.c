@@ -138,35 +138,46 @@ static int dp_buf_add_cmd(struct edp_buf *eb, struct edp_cmd *cmd)
 	return cmd->len - 1;
 }
 
-static int dp_cmd_fifo_tx(struct edp_buf *tp, unsigned char *base)
+static int dp_cmd_fifo_tx(struct mdss_dp_drv_pdata *dp)
 {
 	u32 data;
-	char *dp;
+	char *datap;
 	int len, cnt;
+	struct edp_buf *tp = &dp->txp;
+	void __iomem *base = dp->base;
+
 
 	len = tp->len;	/* total byte to cmd fifo */
 	if (len == 0)
 		return 0;
 
 	cnt = 0;
-	dp = tp->start;
+	datap = tp->start;
 
 	while (cnt < len) {
-		data = *dp; /* data byte */
+		data = *datap; /* data byte */
 		data <<= 8;
 		data &= 0x00ff00; /* index = 0, write */
 		if (cnt == 0)
 			data |= BIT(31);  /* INDEX_WRITE */
 		dp_write(base + DP_AUX_DATA, data);
 		cnt++;
-		dp++;
+		datap++;
 	}
+
+	/* clear the current tx request before queuing a new one */
+	dp_write(base + DP_AUX_TRANS_CTRL, 0);
+
+	/* clear any previous PHY AUX interrupts */
+	mdss_dp_aux_clear_hw_interrupts(dp->phy_io.base);
 
 	data = (tp->trans_num - 1);
 	if (tp->i2c) {
 		data |= BIT(8); /* I2C */
-		data |= BIT(10); /* NO SEND ADDR */
-		data |= BIT(11); /* NO SEND STOP */
+		if (tp->no_send_addr)
+			data |= BIT(10); /* NO SEND ADDR */
+		if (tp->no_send_stop)
+			data |= BIT(11); /* NO SEND STOP */
 	}
 
 	data |= BIT(9); /* GO */
@@ -179,7 +190,7 @@ static int dp_cmd_fifo_rx(struct edp_buf *rp, int len, unsigned char *base)
 {
 	u32 data;
 	char *dp;
-	int i;
+	int i, actual_i;
 
 	data = 0; /* index = 0 */
 	data |= BIT(31);  /* INDEX_WRITE */
@@ -192,7 +203,12 @@ static int dp_cmd_fifo_rx(struct edp_buf *rp, int len, unsigned char *base)
 	data = dp_read(base + DP_AUX_DATA);
 	for (i = 0; i < len; i++) {
 		data = dp_read(base + DP_AUX_DATA);
-		*dp++ = (char)((data >> 8) & 0xff);
+		*dp++ = (char)((data >> 8) & 0xFF);
+
+		actual_i = (data >> 16) & 0xFF;
+		if (i != actual_i)
+			pr_warn("Index mismatch: expected %d, found %d\n",
+				i, actual_i);
 	}
 
 	rp->len = len;
@@ -229,7 +245,9 @@ static int dp_aux_write_cmds(struct mdss_dp_drv_pdata *ep,
 
 	reinit_completion(&ep->aux_comp);
 
-	len = dp_cmd_fifo_tx(&ep->txp, ep->base);
+	tp->no_send_addr = true;
+	tp->no_send_stop = true;
+	len = dp_cmd_fifo_tx(ep);
 
 	if (!wait_for_completion_timeout(&ep->aux_comp, HZ/4)) {
 		pr_err("aux write timeout\n");
@@ -255,6 +273,7 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 	struct edp_buf *tp;
 	struct edp_buf *rp;
 	int len, ret;
+	u32 data;
 
 	mutex_lock(&ep->aux_mutex);
 	ep->aux_cmd_busy = 1;
@@ -283,7 +302,9 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 
 	reinit_completion(&ep->aux_comp);
 
-	dp_cmd_fifo_tx(tp, ep->base);
+	tp->no_send_addr = true;
+	tp->no_send_stop = false;
+	dp_cmd_fifo_tx(ep);
 
 	if (!wait_for_completion_timeout(&ep->aux_comp, HZ/4)) {
 		pr_err("aux read timeout\n");
@@ -294,6 +315,10 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 		goto end;
 	}
 
+	/* clear the current rx request before queuing a new one */
+	data = dp_read(ep->base + DP_AUX_TRANS_CTRL);
+	data &= (~BIT(9));
+	dp_write(ep->base + DP_AUX_TRANS_CTRL, data);
 	if (ep->aux_error_num == EDP_AUX_ERR_NONE) {
 		ret = dp_cmd_fifo_rx(rp, len, ep->base);
 
