@@ -658,7 +658,10 @@ static unsigned int __add_curr_ctxt_cmds(struct adreno_ringbuffer *rb,
 	*cmds++ = (drawctxt ? drawctxt->base.id : 0);
 
 	/* Invalidate UCHE for new context */
-	if (adreno_is_a5xx(adreno_dev)) {
+	if (adreno_is_a6xx(adreno_dev)) {
+		*cmds++ = cp_packet(adreno_dev, CP_EVENT_WRITE, 1);
+		*cmds++ = 0x31; /* CACHE_INVALIDATE */
+	} else if (adreno_is_a5xx(adreno_dev)) {
 		*cmds++ = cp_register(adreno_dev,
 			adreno_getreg(adreno_dev,
 		ADRENO_REG_UCHE_INVALIDATE0), 1);
@@ -872,7 +875,7 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 	/* Just do the context switch incase of NOMMU */
 	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE) {
 		if ((!(flags & ADRENO_CONTEXT_SWITCH_FORCE_GPU)) &&
-			adreno_isidle(device))
+			adreno_isidle(device) && !adreno_is_a6xx(adreno_dev))
 			_set_ctxt_cpu(rb, drawctxt);
 		else
 			result = _set_ctxt_gpu(rb, drawctxt);
@@ -898,7 +901,7 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 		return result;
 
 	/* Context switch */
-	if (cpu_path)
+	if (cpu_path && !adreno_is_a6xx(adreno_dev))
 		_set_ctxt_cpu(rb, drawctxt);
 	else
 		result = _set_ctxt_gpu(rb, drawctxt);
