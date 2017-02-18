@@ -57,6 +57,12 @@ int smblib_read(struct smb_charger *chg, u16 addr, u8 *val)
 	return rc;
 }
 
+int smblib_multibyte_read(struct smb_charger *chg, u16 addr, u8 *val,
+				int count)
+{
+	return regmap_bulk_read(chg->regmap, addr, val, count);
+}
+
 int smblib_masked_write(struct smb_charger *chg, u16 addr, u8 mask, u8 val)
 {
 	int rc = 0;
@@ -651,6 +657,8 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 
 	chg->voltage_min_uv = MICRO_5V;
 	chg->voltage_max_uv = MICRO_5V;
+	chg->usb_icl_delta_ua = 0;
+	chg->pulse_cnt = 0;
 
 	/* clear USB ICL vote for USB_PSY_VOTER */
 	rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
@@ -735,6 +743,40 @@ int smblib_rerun_apsd_if_required(struct smb_charger *chg)
 			smblib_err(chg, "Couldn't rerun APSD rc = %d\n", rc);
 			return rc;
 		}
+	}
+
+	return 0;
+}
+
+static int smblib_get_pulse_cnt(struct smb_charger *chg, int *count)
+{
+	int rc;
+	u8 val[2];
+
+	switch (chg->smb_version) {
+	case PMI8998_SUBTYPE:
+		rc = smblib_read(chg, QC_PULSE_COUNT_STATUS_REG, val);
+		if (rc) {
+			pr_err("failed to read QC_PULSE_COUNT_STATUS_REG rc=%d\n",
+					rc);
+			return rc;
+		}
+		*count = val[0] & QC_PULSE_COUNT_MASK;
+		break;
+	case PM660_SUBTYPE:
+		rc = smblib_multibyte_read(chg,
+				QC_PULSE_COUNT_STATUS_1_REG, val, 2);
+		if (rc) {
+			pr_err("failed to read QC_PULSE_COUNT_STATUS_1_REG rc=%d\n",
+					rc);
+			return rc;
+		}
+		*count = (val[1] << 8) | val[0];
+		break;
+	default:
+		smblib_dbg(chg, PR_PARALLEL, "unknown SMB chip %d\n",
+				chg->smb_version);
+		return -EINVAL;
 	}
 
 	return 0;
@@ -974,8 +1016,10 @@ static int smblib_hvdcp_enable_vote_callback(struct votable *votable,
 {
 	struct smb_charger *chg = data;
 	int rc;
-	u8 val = HVDCP_AUTH_ALG_EN_CFG_BIT
-		| HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT | HVDCP_EN_BIT;
+	u8 val = HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT;
+
+	/* vote to enable/disable HW autonomous INOV */
+	vote(chg->hvdcp_hw_inov_dis_votable, client, !hvdcp_enable, 0);
 
 	/*
 	 * Disable the autonomous bit and auth bit for disabling hvdcp.
@@ -986,9 +1030,7 @@ static int smblib_hvdcp_enable_vote_callback(struct votable *votable,
 		val = HVDCP_EN_BIT;
 
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-				 HVDCP_EN_BIT
-				 | HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT
-				 | HVDCP_AUTH_ALG_EN_CFG_BIT,
+				 HVDCP_EN_BIT | HVDCP_AUTH_ALG_EN_CFG_BIT,
 				 val);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't %s hvdcp rc=%d\n",
@@ -1055,6 +1097,37 @@ static int smblib_apsd_disable_vote_callback(struct votable *votable,
 	}
 
 	return 0;
+}
+
+static int smblib_hvdcp_hw_inov_dis_vote_callback(struct votable *votable,
+				void *data, int disable, const char *client)
+{
+	struct smb_charger *chg = data;
+	int rc;
+
+	if (disable) {
+		/*
+		 * the pulse count register get zeroed when autonomous mode is
+		 * disabled. Track that in variables before disabling
+		 */
+		rc = smblib_get_pulse_cnt(chg, &chg->pulse_cnt);
+		if (rc < 0) {
+			pr_err("failed to read QC_PULSE_COUNT_STATUS_REG rc=%d\n",
+					rc);
+			return rc;
+		}
+	}
+
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+			HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT,
+			disable ? 0 : HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't %s hvdcp rc=%d\n",
+				disable ? "disable" : "enable", rc);
+		return rc;
+	}
+
+	return rc;
 }
 
 /*******************
@@ -1642,6 +1715,98 @@ int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 	vote(chg->fcc_votable, THERMAL_DAEMON_VOTER, true,
 			chg->thermal_mitigation[chg->system_temp_level]);
 	return 0;
+}
+
+int smblib_rerun_aicl(struct smb_charger *chg)
+{
+	int rc = 0;
+	u8 val;
+
+	/*
+	 * Use restart_AICL instead of trigger_AICL as it runs the
+	 * complete AICL instead of starting from the last settled value.
+	 *
+	 * 8998 only supports trigger_AICL return error for 8998
+	 */
+	switch (chg->smb_version) {
+	case PMI8998_SUBTYPE:
+		smblib_dbg(chg, PR_PARALLEL, "AICL rerun not supported\n");
+		return -EINVAL;
+	case PM660_SUBTYPE:
+		val = RESTART_AICL_BIT;
+		break;
+	default:
+		smblib_dbg(chg, PR_PARALLEL, "unknown SMB chip %d\n",
+				chg->smb_version);
+		return -EINVAL;
+	}
+	rc = smblib_masked_write(chg, CMD_HVDCP_2_REG, val, val);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't write to CMD_HVDCP_2_REG rc=%d\n",
+				rc);
+
+	return rc;
+}
+
+static int smblib_dp_pulse(struct smb_charger *chg)
+{
+	int rc;
+
+	/* QC 3.0 increment */
+	rc = smblib_masked_write(chg, CMD_HVDCP_2_REG, SINGLE_INCREMENT_BIT,
+			SINGLE_INCREMENT_BIT);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't write to CMD_HVDCP_2_REG rc=%d\n",
+				rc);
+
+	return rc;
+}
+
+static int smblib_dm_pulse(struct smb_charger *chg)
+{
+	int rc;
+
+	/* QC 3.0 decrement */
+	rc = smblib_masked_write(chg, CMD_HVDCP_2_REG, SINGLE_DECREMENT_BIT,
+			SINGLE_DECREMENT_BIT);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't write to CMD_HVDCP_2_REG rc=%d\n",
+				rc);
+
+	return rc;
+}
+
+int smblib_dp_dm(struct smb_charger *chg, int val)
+{
+	int target_icl_ua, rc = 0;
+
+	switch (val) {
+	case POWER_SUPPLY_DP_DM_DP_PULSE:
+		rc = smblib_dp_pulse(chg);
+		if (!rc)
+			chg->pulse_cnt++;
+		smblib_dbg(chg, PR_PARALLEL, "DP_DM_DP_PULSE rc=%d cnt=%d\n",
+				rc, chg->pulse_cnt);
+		break;
+	case POWER_SUPPLY_DP_DM_DM_PULSE:
+		rc = smblib_dm_pulse(chg);
+		if (!rc && chg->pulse_cnt)
+			chg->pulse_cnt--;
+		smblib_dbg(chg, PR_PARALLEL, "DP_DM_DM_PULSE rc=%d cnt=%d\n",
+				rc, chg->pulse_cnt);
+		break;
+	case POWER_SUPPLY_DP_DM_ICL_DOWN:
+		chg->usb_icl_delta_ua -= 100000;
+		target_icl_ua = get_effective_result(chg->usb_icl_votable);
+		vote(chg->usb_icl_votable, SW_QC3_VOTER, true,
+				target_icl_ua + chg->usb_icl_delta_ua);
+		break;
+	case POWER_SUPPLY_DP_DM_ICL_UP:
+	default:
+		break;
+	}
+
+	return rc;
 }
 
 /*******************
@@ -3282,6 +3447,8 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 
 	chg->vconn_attempts = 0;
 	chg->otg_attempts = 0;
+	chg->pulse_cnt = 0;
+	chg->usb_icl_delta_ua = 0;
 
 	chg->usb_ever_removed = true;
 
@@ -3920,6 +4087,15 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
+	chg->hvdcp_hw_inov_dis_votable = create_votable("HVDCP_HW_INOV_DIS",
+					VOTE_SET_ANY,
+					smblib_hvdcp_hw_inov_dis_vote_callback,
+					chg);
+	if (IS_ERR(chg->hvdcp_hw_inov_dis_votable)) {
+		rc = PTR_ERR(chg->hvdcp_hw_inov_dis_votable);
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -3943,6 +4119,8 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->pl_enable_votable_indirect);
 	if (chg->apsd_disable_votable)
 		destroy_votable(chg->apsd_disable_votable);
+	if (chg->hvdcp_hw_inov_dis_votable)
+		destroy_votable(chg->hvdcp_hw_inov_dis_votable);
 }
 
 static void smblib_iio_deinit(struct smb_charger *chg)
