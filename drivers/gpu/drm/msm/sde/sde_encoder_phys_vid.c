@@ -506,9 +506,6 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 	if (WARN_ON(!vid_enc->hw_intf->ops.enable_timing))
 		return;
 
-	sde_power_data_bus_bandwidth_ctrl(&priv->phandle,
-			phys_enc->sde_kms->core_client, true);
-
 	sde_encoder_helper_split_config(phys_enc, vid_enc->hw_intf->idx);
 
 	sde_encoder_phys_vid_setup_timing_engine(phys_enc);
@@ -739,9 +736,6 @@ static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
 		}
 		sde_encoder_phys_vid_control_vblank_irq(phys_enc, false);
 	}
-
-	sde_power_data_bus_bandwidth_ctrl(&priv->phandle,
-			phys_enc->sde_kms->core_client, false);
 
 	if (atomic_read(&phys_enc->vblank_refcount))
 		SDE_ERROR_VIDENC(vid_enc, "invalid vblank refcount %d\n",

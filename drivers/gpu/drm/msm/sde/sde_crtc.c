@@ -542,8 +542,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 					crtc->base.id,
 					ktime_to_ns(fevent->ts));
 			SDE_EVT32(DRMID(crtc), fevent->event, 1);
-			sde_power_data_bus_bandwidth_ctrl(&priv->phandle,
-					sde_kms->core_client, false);
 			sde_core_perf_crtc_release_bw(crtc);
 		} else {
 			SDE_EVT32(DRMID(crtc), fevent->event, 2);
@@ -1003,8 +1001,6 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		/* acquire bandwidth and other resources */
 		SDE_DEBUG("crtc%d first commit\n", crtc->base.id);
 		SDE_EVT32(DRMID(crtc), 1);
-		sde_power_data_bus_bandwidth_ctrl(&priv->phandle,
-				sde_kms->core_client, true);
 	} else {
 		SDE_DEBUG("crtc%d commit\n", crtc->base.id);
 		SDE_EVT32(DRMID(crtc), 2);
@@ -1129,8 +1125,6 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		SDE_ERROR("crtc%d invalid frame pending\n",
 				crtc->base.id);
 		SDE_EVT32(DRMID(crtc));
-		sde_power_data_bus_bandwidth_ctrl(&priv->phandle,
-				sde_kms->core_client, false);
 		sde_core_perf_crtc_release_bw(crtc);
 		atomic_set(&sde_crtc->frame_pending, 0);
 	}

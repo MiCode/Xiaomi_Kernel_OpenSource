@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,8 +75,6 @@ struct sde_power_client {
  * @bus_channels: number of memory bus channels
  * @curr_bw_uc_idx: current use case index of data bus
  * @ao_bw_uc_idx: active only use case index of data bus
- * @bus_ref_cnt: reference count of data bus enable request
- * @handoff_pending: True to indicate if bootloader hand-over is pending
  */
 struct sde_power_data_bus_handle {
 	struct msm_bus_scale_pdata *data_bus_scale_table;
@@ -86,8 +84,6 @@ struct sde_power_data_bus_handle {
 	u32 bus_channels;
 	u32 curr_bw_uc_idx;
 	u32 ao_bw_uc_idx;
-	u32 bus_ref_cnt;
-	int handoff_pending;
 };
 
 /**
