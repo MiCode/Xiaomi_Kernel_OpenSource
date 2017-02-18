@@ -68,7 +68,7 @@ static u64 time_to_jiffies(u64 sec, u32 nsec)
 	if (sec || nsec) {
 		struct timespec64 ts = {
 			sec,
-			max_t(u32, nsec, NSEC_PER_SEC - 1)
+			min_t(u32, nsec, NSEC_PER_SEC - 1)
 		};
 
 		return get_jiffies_64() + timespec64_to_jiffies(&ts);
@@ -334,6 +334,7 @@ const struct dentry_operations fuse_dentry_operations = {
 const struct dentry_operations fuse_root_dentry_operations = {
 	.d_init		= fuse_dentry_init,
 	.d_release	= fuse_dentry_release,
+	.d_canonical_path = fuse_dentry_canonical_path,
 };
 
 int fuse_valid_type(int m)

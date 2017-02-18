@@ -311,7 +311,6 @@ enum rtattr_type_t {
 	RTA_TABLE,
 	RTA_MARK,
 	RTA_MFC_STATS,
-	RTA_UID,
 	RTA_VIA,
 	RTA_NEWDST,
 	RTA_PREF,
@@ -319,6 +318,7 @@ enum rtattr_type_t {
 	RTA_ENCAP,
 	RTA_EXPIRES,
 	RTA_PAD,
+	RTA_UID,
 	__RTA_MAX
 };
 
