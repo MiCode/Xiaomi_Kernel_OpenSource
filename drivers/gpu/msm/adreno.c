@@ -48,6 +48,10 @@ static bool nopreempt;
 module_param(nopreempt, bool, 0444);
 MODULE_PARM_DESC(nopreempt, "Disable GPU preemption");
 
+static bool swfdetect;
+module_param(swfdetect, bool, 0444);
+MODULE_PARM_DESC(swfdetect, "Enable soft fault detection");
+
 #define DRIVER_VERSION_MAJOR   3
 #define DRIVER_VERSION_MINOR   1
 
@@ -92,7 +96,6 @@ static struct adreno_device device_3d0 = {
 	.pm4_fw = NULL,
 	.ft_policy = KGSL_FT_DEFAULT_POLICY,
 	.ft_pf_policy = KGSL_FT_PAGEFAULT_DEFAULT_POLICY,
-	.fast_hang_detect = 1,
 	.long_ib_detect = 1,
 	.input_work = __WORK_INITIALIZER(device_3d0.input_work,
 		adreno_input_work),
@@ -1107,7 +1110,11 @@ static int adreno_remove(struct platform_device *pdev)
 static void adreno_fault_detect_init(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	int i, val = adreno_dev->fast_hang_detect;
+	int i;
+
+	if (!(swfdetect ||
+			ADRENO_FEATURE(adreno_dev, ADRENO_SOFT_FAULT_DETECT)))
+		return;
 
 	/* Disable the fast hang detect bit until we know its a go */
 	adreno_dev->fast_hang_detect = 0;
@@ -1136,8 +1143,7 @@ static void adreno_fault_detect_init(struct adreno_device *adreno_dev)
 
 	set_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv);
 
-	if (val)
-		adreno_fault_detect_start(adreno_dev);
+	adreno_fault_detect_start(adreno_dev);
 }
 
 static int adreno_init(struct kgsl_device *device)

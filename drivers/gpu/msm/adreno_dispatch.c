@@ -237,6 +237,9 @@ static int fault_detect_read_compare(struct adreno_device *adreno_dev)
 	int i, ret = 0;
 	unsigned int ts;
 
+	if (!test_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv))
+		return 1;
+
 	/* Check to see if the device is idle - if so report no hang */
 	if (_isidle(adreno_dev) == true)
 		ret = 1;

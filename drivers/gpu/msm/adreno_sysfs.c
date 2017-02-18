@@ -77,34 +77,6 @@ static unsigned int _ft_pagefault_policy_show(struct adreno_device *adreno_dev)
 	return adreno_dev->ft_pf_policy;
 }
 
-static int _ft_fast_hang_detect_store(struct adreno_device *adreno_dev,
-		unsigned int val)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	if (!test_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv))
-		return 0;
-
-	mutex_lock(&device->mutex);
-
-	if (val) {
-		if (!kgsl_active_count_get(device)) {
-			adreno_fault_detect_start(adreno_dev);
-			kgsl_active_count_put(device);
-		}
-	} else
-		adreno_fault_detect_stop(adreno_dev);
-
-	mutex_unlock(&device->mutex);
-
-	return 0;
-}
-
-static unsigned int _ft_fast_hang_detect_show(struct adreno_device *adreno_dev)
-{
-	return adreno_dev->fast_hang_detect;
-}
-
 static int _ft_long_ib_detect_store(struct adreno_device *adreno_dev,
 		unsigned int val)
 {
@@ -316,7 +288,6 @@ static ssize_t _sysfs_show_bool(struct device *dev,
 
 static ADRENO_SYSFS_U32(ft_policy);
 static ADRENO_SYSFS_U32(ft_pagefault_policy);
-static ADRENO_SYSFS_BOOL(ft_fast_hang_detect);
 static ADRENO_SYSFS_BOOL(ft_long_ib_detect);
 static ADRENO_SYSFS_BOOL(ft_hang_intr_status);
 
@@ -334,7 +305,6 @@ static ADRENO_SYSFS_BOOL(throttling);
 static const struct device_attribute *_attr_list[] = {
 	&adreno_attr_ft_policy.attr,
 	&adreno_attr_ft_pagefault_policy.attr,
-	&adreno_attr_ft_fast_hang_detect.attr,
 	&adreno_attr_ft_long_ib_detect.attr,
 	&adreno_attr_ft_hang_intr_status.attr,
 	&dev_attr_wake_nice.attr,
