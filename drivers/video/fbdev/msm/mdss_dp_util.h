@@ -35,6 +35,8 @@
 #define	DP_AUX_CTRL				(0x00000230)
 #define	DP_AUX_DATA				(0x00000234)
 #define	DP_AUX_TRANS_CTRL			(0x00000238)
+#define	DP_AUX_TIMEOUT_COUNT			(0x0000023C)
+#define	DP_AUX_LIMITS				(0x00000240)
 #define	DP_AUX_STATUS				(0x00000244)
 
 #define DP_DPCD_CP_IRQ				(0x201)
@@ -272,6 +274,7 @@ static const struct dp_vc_tu_mapping_table tu_table[] = {
 			0x21, 0x000c, false, 0x00, 0x00, 0x00, 0x27},
 };
 
+void mdss_dp_aux_set_limits(struct dss_io_data *ctrl_io);
 int dp_aux_read(void *ep, struct edp_cmd *cmds);
 int dp_aux_write(void *ep, struct edp_cmd *cmd);
 void mdss_dp_state_ctrl(struct dss_io_data *ctrl_io, u32 data);

@@ -858,6 +858,19 @@ void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
 	pr_debug("dp_tu=0x%x\n", dp_tu);
 }
 
+void mdss_dp_aux_set_limits(struct dss_io_data *ctrl_io)
+{
+	u32 const max_aux_timeout_count = 0xFFFFF;
+	u32 const max_aux_limits = 0xFFFFFFFF;
+
+	pr_debug("timeout=0x%x, limits=0x%x\n",
+			max_aux_timeout_count, max_aux_limits);
+
+	writel_relaxed(max_aux_timeout_count,
+			ctrl_io->base + DP_AUX_TIMEOUT_COUNT);
+	writel_relaxed(max_aux_limits, ctrl_io->base + DP_AUX_LIMITS);
+}
+
 void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io, char *l_map)
 {
 	u8 bits_per_lane = 2;

@@ -1907,6 +1907,7 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	mdss_dp_ctrl_reset(&dp_drv->ctrl_io);
 	mdss_dp_phy_reset(&dp_drv->ctrl_io);
 	mdss_dp_aux_reset(&dp_drv->ctrl_io);
+	mdss_dp_aux_set_limits(&dp_drv->ctrl_io);
 	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, true);
 
 	pr_debug("Ctrl_hw_rev =0x%x, phy hw_rev =0x%x\n",
