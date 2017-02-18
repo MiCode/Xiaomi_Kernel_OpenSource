@@ -110,6 +110,8 @@ struct edp_buf {
 	int len;	/* dara length */
 	char trans_num;	/* transaction number */
 	char i2c;	/* 1 == i2c cmd, 0 == native cmd */
+	bool no_send_addr;
+	bool no_send_stop;
 };
 
 /* USBPD-TypeC specific Macros */
