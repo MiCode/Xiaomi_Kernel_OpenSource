@@ -89,6 +89,7 @@ enum clk_osm_trace_packet_id {
 #define SINGLE_CORE 1
 #define MAX_CORE_COUNT 4
 #define LLM_SW_OVERRIDE_CNT 3
+#define OSM_SEQ_MINUS_ONE 0xff
 
 #define ENABLE_REG 0x1004
 #define INDEX_REG 0x1150
@@ -367,8 +368,10 @@ struct clk_osm {
 	u32 cluster_num;
 	u32 irq;
 	u32 apm_crossover_vc;
+	u32 apm_threshold_pre_vc;
 	u32 apm_threshold_vc;
 	u32 mem_acc_crossover_vc;
+	u32 mem_acc_threshold_pre_vc;
 	u32 mem_acc_threshold_vc;
 	u32 cycle_counter_reads;
 	u32 cycle_counter_delay;
@@ -1646,8 +1649,24 @@ static int clk_osm_resolve_crossover_corners(struct clk_osm *c,
 
 		if (corner_volt >= apm_threshold) {
 			c->apm_threshold_vc = c->osm_table[i].virtual_corner;
+			/*
+			 * Handle case where VC 0 has open-loop
+			 * greater than or equal to APM threshold voltage.
+			 */
+			c->apm_threshold_pre_vc = c->apm_threshold_vc ?
+				c->apm_threshold_vc - 1 : OSM_SEQ_MINUS_ONE;
 			break;
 		}
+	}
+
+	/*
+	 * This assumes the OSM table uses corners
+	 * 0 to MAX_VIRTUAL_CORNER - 1.
+	 */
+	if (!c->apm_threshold_vc &&
+	    c->apm_threshold_pre_vc != OSM_SEQ_MINUS_ONE) {
+		c->apm_threshold_vc = MAX_VIRTUAL_CORNER;
+		c->apm_threshold_pre_vc = c->apm_threshold_vc - 1;
 	}
 
 	/* Determine MEM ACC threshold virtual corner */
@@ -1660,6 +1679,15 @@ static int clk_osm_resolve_crossover_corners(struct clk_osm *c,
 			if (corner_volt >= mem_acc_threshold) {
 				c->mem_acc_threshold_vc
 					= c->osm_table[i].virtual_corner;
+				/*
+				 * Handle case where VC 0 has open-loop
+				 * greater than or equal to MEM-ACC threshold
+				 * voltage.
+				 */
+				c->mem_acc_threshold_pre_vc =
+					c->mem_acc_threshold_vc ?
+					c->mem_acc_threshold_vc - 1 :
+					OSM_SEQ_MINUS_ONE;
 				break;
 			}
 		}
@@ -1668,9 +1696,13 @@ static int clk_osm_resolve_crossover_corners(struct clk_osm *c,
 		 * This assumes the OSM table uses corners
 		 * 0 to MAX_VIRTUAL_CORNER - 1.
 		 */
-		if (!c->mem_acc_threshold_vc)
+		if (!c->mem_acc_threshold_vc && c->mem_acc_threshold_pre_vc
+		    != OSM_SEQ_MINUS_ONE) {
 			c->mem_acc_threshold_vc =
 				MAX_VIRTUAL_CORNER;
+			c->mem_acc_threshold_pre_vc =
+				c->mem_acc_threshold_vc - 1;
+		}
 	}
 
 	return 0;
@@ -2021,13 +2053,20 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 		 * highest MEM ACC threshold if it is specified instead of the
 		 * fixed mapping in the LUT.
 		 */
-		if (c->mem_acc_threshold_vc) {
-			threshold_vc[2] = c->mem_acc_threshold_vc - 1;
+		if (c->mem_acc_threshold_vc || c->mem_acc_threshold_pre_vc
+		    == OSM_SEQ_MINUS_ONE) {
+			threshold_vc[2] = c->mem_acc_threshold_pre_vc;
 			threshold_vc[3] = c->mem_acc_threshold_vc;
-			if (threshold_vc[1] >= threshold_vc[2])
-				threshold_vc[1] = threshold_vc[2] - 1;
-			if (threshold_vc[0] >= threshold_vc[1])
-				threshold_vc[0] = threshold_vc[1] - 1;
+
+			if (c->mem_acc_threshold_pre_vc == OSM_SEQ_MINUS_ONE) {
+				threshold_vc[1] = threshold_vc[0] =
+					c->mem_acc_threshold_pre_vc;
+			} else {
+				if (threshold_vc[1] >= threshold_vc[2])
+					threshold_vc[1] = threshold_vc[2] - 1;
+				if (threshold_vc[0] >= threshold_vc[1])
+					threshold_vc[0] = threshold_vc[1] - 1;
+			}
 		}
 
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(55),
@@ -2045,7 +2084,8 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 	 * Program L_VAL corresponding to the first virtual
 	 * corner with MEM ACC level 3.
 	 */
-	if (c->mem_acc_threshold_vc)
+	if (c->mem_acc_threshold_vc ||
+	    c->mem_acc_threshold_pre_vc == OSM_SEQ_MINUS_ONE)
 		for (i = 0; i < c->num_entries; i++)
 			if (c->mem_acc_threshold_vc == table[i].virtual_corner)
 				scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(32),
@@ -2365,8 +2405,7 @@ static void clk_osm_apm_vc_setup(struct clk_osm *c)
 				  SEQ_REG(8));
 		clk_osm_write_reg(c, c->apm_threshold_vc,
 				  SEQ_REG(15));
-		clk_osm_write_reg(c, c->apm_threshold_vc != 0 ?
-				  c->apm_threshold_vc - 1 : 0xff,
+		clk_osm_write_reg(c, c->apm_threshold_pre_vc,
 				  SEQ_REG(31));
 		clk_osm_write_reg(c, 0x3b | c->apm_threshold_vc << 6,
 				  SEQ_REG(73));
@@ -2390,8 +2429,7 @@ static void clk_osm_apm_vc_setup(struct clk_osm *c)
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(15),
 			     c->apm_threshold_vc);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(31),
-			     c->apm_threshold_vc != 0 ?
-			     c->apm_threshold_vc - 1 : 0xff);
+			     c->apm_threshold_pre_vc);
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(76),
 			     0x39 | c->apm_threshold_vc << 6);
 	}
