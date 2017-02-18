@@ -19,6 +19,8 @@
 #include <linux/platform_device.h>
 #include <linux/of_device.h>
 #include <linux/sysfs.h>
+#include <linux/workqueue.h>
+
 #include <soc/qcom/subsystem_restart.h>
 
 #define BOOT_CMD 1
@@ -47,10 +49,12 @@ static struct attribute *attrs[] = {
 
 static u32 cdsp_state = CDSP_SUBSYS_DOWN;
 static struct platform_device *cdsp_private;
+static struct work_struct cdsp_ldr_work;
 static void cdsp_loader_unload(struct platform_device *pdev);
 
-static int cdsp_loader_do(struct platform_device *pdev)
+static void cdsp_load_fw(struct work_struct *cdsp_ldr_work)
 {
+	struct platform_device *pdev = cdsp_private;
 	struct cdsp_loader_private *priv = NULL;
 
 	int rc = 0;
@@ -99,14 +103,17 @@ static int cdsp_loader_do(struct platform_device *pdev)
 		}
 
 		dev_dbg(&pdev->dev, "%s: CDSP image is loaded\n", __func__);
-		return rc;
+		return;
 	}
 
 fail:
 	dev_err(&pdev->dev, "%s: CDSP image loading failed\n", __func__);
-	return rc;
 }
 
+static void cdsp_loader_do(struct platform_device *pdev)
+{
+	schedule_work(&cdsp_ldr_work);
+}
 
 static ssize_t cdsp_boot_store(struct kobject *kobj,
 	struct kobj_attribute *attr,
@@ -124,7 +131,7 @@ static ssize_t cdsp_boot_store(struct kobject *kobj,
 		pr_debug("%s: going to call cdsp_loader_do\n", __func__);
 		cdsp_loader_do(cdsp_private);
 	} else if (boot == IMAGE_UNLOAD_CMD) {
-		pr_debug("%s: going to call adsp_unloader\n", __func__);
+		pr_debug("%s: going to call cdsp_unloader\n", __func__);
 		cdsp_loader_unload(cdsp_private);
 	}
 	return count;
@@ -235,6 +242,8 @@ static int cdsp_loader_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "%s: Error in initing sysfs\n", __func__);
 		return ret;
 	}
+
+	INIT_WORK(&cdsp_ldr_work, cdsp_load_fw);
 
 	return 0;
 }
