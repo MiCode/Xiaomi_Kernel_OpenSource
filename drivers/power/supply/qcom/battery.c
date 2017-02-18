@@ -45,6 +45,7 @@ struct pl_data {
 	struct votable		*fv_votable;
 	struct votable		*pl_disable_votable;
 	struct votable		*pl_awake_votable;
+	struct votable		*hvdcp_hw_inov_dis_votable;
 	struct work_struct	status_change_work;
 	struct work_struct	pl_disable_forever_work;
 	struct delayed_work	pl_taper_work;
@@ -420,6 +421,10 @@ static void pl_disable_forever_work(struct work_struct *work)
 
 	/* Disable Parallel charger forever */
 	vote(chip->pl_disable_votable, PL_HW_ABSENT_VOTER, true, 0);
+
+	/* Re-enable autonomous mode */
+	if (chip->hvdcp_hw_inov_dis_votable)
+		vote(chip->hvdcp_hw_inov_dis_votable, PL_VOTER, false, 0);
 }
 
 static int pl_disable_vote_callback(struct votable *votable,
@@ -563,6 +568,21 @@ static bool is_parallel_available(struct pl_data *chip)
 	 * pl_psy is present and valid.
 	 */
 	chip->pl_mode = pval.intval;
+
+	/* Disable autonomous votage increments for USBIN-USBIN */
+	if ((chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+		|| (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT)) {
+		if (!chip->hvdcp_hw_inov_dis_votable)
+			chip->hvdcp_hw_inov_dis_votable =
+					find_votable("HVDCP_HW_INOV_DIS");
+		if (chip->hvdcp_hw_inov_dis_votable)
+			/* Read current pulse count */
+			vote(chip->hvdcp_hw_inov_dis_votable, PL_VOTER,
+					true, 0);
+		else
+			return false;
+	}
+
 	vote(chip->pl_disable_votable, PARALLEL_PSY_VOTER, false, 0);
 
 	return true;
