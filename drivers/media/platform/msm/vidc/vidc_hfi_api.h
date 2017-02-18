@@ -946,10 +946,6 @@ struct hal_mvc_buffer_layout {
 	u32 ngap;
 };
 
-struct hal_seq_header_info {
-	u32 nax_header_len;
-};
-
 struct hal_aspect_ratio {
 	u32 aspect_width;
 	u32 aspect_height;
@@ -1068,11 +1064,6 @@ struct vidc_frame_data {
 	u32 extradata_size;
 };
 
-struct vidc_seq_hdr {
-	ion_phys_addr_t seq_hdr;
-	u32 seq_hdr_len;
-};
-
 struct hal_fw_info {
 	char version[VENUS_VERSION_LENGTH];
 	phys_addr_t base_addr;
@@ -1096,9 +1087,8 @@ enum hal_event_type {
 };
 
 enum buffer_mode_type {
-	HAL_BUFFER_MODE_STATIC = 0x001,
-	HAL_BUFFER_MODE_RING = 0x010,
 	HAL_BUFFER_MODE_DYNAMIC = 0x100,
+	HAL_BUFFER_MODE_STATIC = 0x001,
 };
 
 struct hal_buffer_alloc_mode {
@@ -1188,7 +1178,6 @@ union hal_get_property {
 	struct hal_nal_stream_format_supported nal_stream_format_supported;
 	struct hal_nal_stream_format_select nal_stream_format_select;
 	struct hal_multi_view_format multi_view_format;
-	struct hal_seq_header_info seq_header_info;
 	struct hal_codec_supported codec_supported;
 	struct hal_multi_view_select multi_view_select;
 	struct hal_timestamp_scale timestamp_scale;
@@ -1344,7 +1333,6 @@ struct msm_vidc_cb_cmd_done {
 		struct vidc_frame_plane_config frame_plane_config;
 		struct vidc_uncompressed_frame_config uncompressed_frame_config;
 		struct vidc_frame_data frame_data;
-		struct vidc_seq_hdr seq_hdr;
 		struct vidc_hal_ebd ebd;
 		struct vidc_hal_fbd fbd;
 		struct vidc_hal_sys_init_done sys_init_done;
@@ -1505,10 +1493,6 @@ struct hfi_device {
 	int (*session_process_batch)(void *sess,
 		int num_etbs, struct vidc_frame_data etbs[],
 		int num_ftbs, struct vidc_frame_data ftbs[]);
-	int (*session_parse_seq_hdr)(void *sess,
-			struct vidc_seq_hdr *seq_hdr);
-	int (*session_get_seq_hdr)(void *sess,
-			struct vidc_seq_hdr *seq_hdr);
 	int (*session_get_buf_req)(void *sess);
 	int (*session_flush)(void *sess, enum hal_flush flush_mode);
 	int (*session_set_property)(void *sess, enum hal_property ptype,

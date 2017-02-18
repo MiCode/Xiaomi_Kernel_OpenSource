@@ -223,22 +223,6 @@ static void __sim_modify_cmd_packet(u8 *packet, struct venus_hfi_device *device)
 		}
 		break;
 	}
-	case HFI_CMD_SESSION_PARSE_SEQUENCE_HEADER:
-	{
-		struct hfi_cmd_session_parse_sequence_header_packet *pkt =
-			(struct hfi_cmd_session_parse_sequence_header_packet *)
-		packet;
-		pkt->packet_buffer -= fw_bias;
-		break;
-	}
-	case HFI_CMD_SESSION_GET_SEQUENCE_HEADER:
-	{
-		struct hfi_cmd_session_get_sequence_header_packet *pkt =
-			(struct hfi_cmd_session_get_sequence_header_packet *)
-		packet;
-		pkt->packet_buffer -= fw_bias;
-		break;
-	}
 	default:
 		break;
 	}
@@ -1358,8 +1342,7 @@ static enum hal_default_properties venus_hfi_get_default_properties(void *dev)
 
 	mutex_lock(&device->lock);
 
-	if (device->packetization_type == HFI_PACKETIZATION_3XX)
-		prop = HAL_VIDEO_DYNAMIC_BUF_MODE;
+	prop = HAL_VIDEO_DYNAMIC_BUF_MODE;
 
 	mutex_unlock(&device->lock);
 	return prop;
@@ -3025,72 +3008,6 @@ err_etbs_and_ftbs:
 	return rc;
 }
 
-static int venus_hfi_session_parse_seq_hdr(void *sess,
-					struct vidc_seq_hdr *seq_hdr)
-{
-	struct hfi_cmd_session_parse_sequence_header_packet *pkt;
-	int rc = 0;
-	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE];
-	struct hal_session *session = sess;
-	struct venus_hfi_device *device;
-
-	if (!session || !session->device || !seq_hdr) {
-		dprintk(VIDC_ERR, "Invalid Params\n");
-		return -EINVAL;
-	}
-
-	device = session->device;
-	mutex_lock(&device->lock);
-
-	pkt = (struct hfi_cmd_session_parse_sequence_header_packet *)packet;
-	rc = call_hfi_pkt_op(device, session_parse_seq_header,
-			pkt, session, seq_hdr);
-	if (rc) {
-		dprintk(VIDC_ERR,
-		"Session parse seq hdr: failed to create pkt\n");
-		goto err_create_pkt;
-	}
-
-	if (__iface_cmdq_write(session->device, pkt))
-		rc = -ENOTEMPTY;
-err_create_pkt:
-	mutex_unlock(&device->lock);
-	return rc;
-}
-
-static int venus_hfi_session_get_seq_hdr(void *sess,
-				struct vidc_seq_hdr *seq_hdr)
-{
-	struct hfi_cmd_session_get_sequence_header_packet *pkt;
-	int rc = 0;
-	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE];
-	struct hal_session *session = sess;
-	struct venus_hfi_device *device;
-
-	if (!session || !session->device || !seq_hdr) {
-		dprintk(VIDC_ERR, "Invalid Params\n");
-		return -EINVAL;
-	}
-
-	device = session->device;
-	mutex_lock(&device->lock);
-
-	pkt = (struct hfi_cmd_session_get_sequence_header_packet *)packet;
-	rc = call_hfi_pkt_op(device, session_get_seq_hdr,
-			pkt, session, seq_hdr);
-	if (rc) {
-		dprintk(VIDC_ERR,
-				"Session get seq hdr: failed to create pkt\n");
-		goto err_create_pkt;
-	}
-
-	if (__iface_cmdq_write(session->device, pkt))
-		rc = -ENOTEMPTY;
-err_create_pkt:
-	mutex_unlock(&device->lock);
-	return rc;
-}
-
 static int venus_hfi_session_get_buf_req(void *sess)
 {
 	struct hfi_cmd_session_get_property_packet pkt;
@@ -4537,23 +4454,13 @@ static int venus_hfi_get_core_capabilities(void *dev)
 static int __initialize_packetization(struct venus_hfi_device *device)
 {
 	int rc = 0;
-	const char *hfi_version;
 
 	if (!device || !device->res) {
 		dprintk(VIDC_ERR, "%s - invalid param\n", __func__);
 		return -EINVAL;
 	}
 
-	hfi_version = device->res->hfi_version;
-
-	if (!hfi_version) {
-		device->packetization_type = HFI_PACKETIZATION_LEGACY;
-	} else if (!strcmp(hfi_version, "3xx")) {
-		device->packetization_type = HFI_PACKETIZATION_3XX;
-	} else {
-		dprintk(VIDC_ERR, "Unsupported hfi version\n");
-		return -EINVAL;
-	}
+	device->packetization_type = HFI_PACKETIZATION_4XX;
 
 	device->pkt_ops = hfi_get_pkt_ops_handle(device->packetization_type);
 	if (!device->pkt_ops) {
@@ -4705,8 +4612,6 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_etb = venus_hfi_session_etb;
 	hdev->session_ftb = venus_hfi_session_ftb;
 	hdev->session_process_batch = venus_hfi_session_process_batch;
-	hdev->session_parse_seq_hdr = venus_hfi_session_parse_seq_hdr;
-	hdev->session_get_seq_hdr = venus_hfi_session_get_seq_hdr;
 	hdev->session_get_buf_req = venus_hfi_session_get_buf_req;
 	hdev->session_flush = venus_hfi_session_flush;
 	hdev->session_set_property = venus_hfi_session_set_property;

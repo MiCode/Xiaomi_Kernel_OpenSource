@@ -304,9 +304,6 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 		case HAL_BUFFER_MODE_STATIC:
 			write_str(&dbg_buf, "buffer mode : %s\n", "static");
 			break;
-		case HAL_BUFFER_MODE_RING:
-			write_str(&dbg_buf, "buffer mode : %s\n", "ring");
-			break;
 		case HAL_BUFFER_MODE_DYNAMIC:
 			write_str(&dbg_buf, "buffer mode : %s\n", "dynamic");
 			break;
