@@ -73,6 +73,21 @@ static int dp_buf_trailing(struct edp_buf *eb)
 	return (int)(eb->end - eb->data);
 }
 
+static void mdss_dp_aux_clear_hw_interrupts(void __iomem *phy_base)
+{
+	u32 data;
+
+	data = dp_read(phy_base + DP_PHY_AUX_INTERRUPT_STATUS);
+	pr_debug("PHY_AUX_INTERRUPT_STATUS=0x%08x\n", data);
+
+	dp_write(phy_base + DP_PHY_AUX_INTERRUPT_CLEAR, 0x1f);
+	dp_write(phy_base + DP_PHY_AUX_INTERRUPT_CLEAR, 0x9f);
+	dp_write(phy_base + DP_PHY_AUX_INTERRUPT_CLEAR, 0);
+
+	/* Ensure that all interrupts are cleared and acked */
+	wmb();
+}
+
 /*
  * edp aux dp_buf_add_cmd:
  * NO native and i2c command mix allowed
@@ -299,14 +314,21 @@ int dp_aux_read(void *ep, struct edp_cmd *cmds)
 
 void dp_aux_native_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
 {
-	if (isr & EDP_INTR_AUX_I2C_DONE)
+	pr_debug("isr=0x%08x\n", isr);
+	if (isr & EDP_INTR_AUX_I2C_DONE) {
 		ep->aux_error_num = EDP_AUX_ERR_NONE;
-	else if (isr & EDP_INTR_WRONG_ADDR)
+	} else if (isr & EDP_INTR_WRONG_ADDR) {
 		ep->aux_error_num = EDP_AUX_ERR_ADDR;
-	else if (isr & EDP_INTR_TIMEOUT)
+	} else if (isr & EDP_INTR_TIMEOUT) {
 		ep->aux_error_num = EDP_AUX_ERR_TOUT;
-	if (isr & EDP_INTR_NACK_DEFER)
+	} else if (isr & EDP_INTR_NACK_DEFER) {
 		ep->aux_error_num = EDP_AUX_ERR_NACK;
+	} else if (isr & EDP_INTR_PHY_AUX_ERR) {
+		ep->aux_error_num = EDP_AUX_ERR_PHY;
+		mdss_dp_aux_clear_hw_interrupts(ep->phy_io.base);
+	} else {
+		ep->aux_error_num = EDP_AUX_ERR_NONE;
+	}
 
 	complete(&ep->aux_comp);
 }
@@ -319,16 +341,22 @@ void dp_aux_i2c_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
 		else
 			ep->aux_error_num = EDP_AUX_ERR_NONE;
 	} else {
-		if (isr & EDP_INTR_WRONG_ADDR)
+		if (isr & EDP_INTR_WRONG_ADDR) {
 			ep->aux_error_num = EDP_AUX_ERR_ADDR;
-		else if (isr & EDP_INTR_TIMEOUT)
+		} else if (isr & EDP_INTR_TIMEOUT) {
 			ep->aux_error_num = EDP_AUX_ERR_TOUT;
-		if (isr & EDP_INTR_NACK_DEFER)
+		} else if (isr & EDP_INTR_NACK_DEFER) {
 			ep->aux_error_num = EDP_AUX_ERR_NACK_DEFER;
-		if (isr & EDP_INTR_I2C_NACK)
+		} else if (isr & EDP_INTR_I2C_NACK) {
 			ep->aux_error_num = EDP_AUX_ERR_NACK;
-		if (isr & EDP_INTR_I2C_DEFER)
+		} else if (isr & EDP_INTR_I2C_DEFER) {
 			ep->aux_error_num = EDP_AUX_ERR_DEFER;
+		} else if (isr & EDP_INTR_PHY_AUX_ERR) {
+			ep->aux_error_num = EDP_AUX_ERR_PHY;
+			mdss_dp_aux_clear_hw_interrupts(ep->phy_io.base);
+		} else {
+			ep->aux_error_num = EDP_AUX_ERR_NONE;
+		}
 	}
 
 	complete(&ep->aux_comp);
