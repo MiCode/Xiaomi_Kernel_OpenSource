@@ -1512,7 +1512,7 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 							payload[4+i];
 			} else if (payload[0] == 0) {
 				adm_get_parameters[idx] = -1;
-				pr_err("%s: Out of band case, setting size to %d\n",
+				pr_debug("%s: Out of band case, setting size to %d\n",
 					__func__, adm_get_parameters[idx]);
 			} else {
 				adm_get_parameters[idx] = -1;

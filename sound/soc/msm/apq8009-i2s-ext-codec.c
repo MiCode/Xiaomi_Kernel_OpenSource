@@ -66,6 +66,9 @@
 
 #define DEV_NAME_STR_LEN	32
 
+#define WSA8810_NAME_1 "wsa881x.20170211"
+#define WSA8810_NAME_2 "wsa881x.20170212"
+
 enum btsco_rates {
 	RATE_8KHZ_ID,
 	RATE_16KHZ_ID,
@@ -963,6 +966,7 @@ static int msm_audrx_init_wcd(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
 	struct snd_card *card;
 	struct snd_info_entry *entry;
 	struct apq8009_asoc_mach_data *pdata =
@@ -1004,8 +1008,18 @@ static int msm_audrx_init_wcd(struct snd_soc_pcm_runtime *rtd)
 				__func__);
 		return  -ENOMEM;
 	}
-	tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
-	tasha_set_spkr_gain_offset(rtd->codec, RX_GAIN_OFFSET_M1P5_DB);
+
+	/*
+	 * Send speaker configuration only for WSA8810.
+	 * Defalut configuration is for WSA8815.
+	 */
+	if (rtd_aux && rtd_aux->component)
+		if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
+		    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
+			tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
+			tasha_set_spkr_gain_offset(rtd->codec,
+						   RX_GAIN_OFFSET_M1P5_DB);
+	}
 	card = rtd->card->snd_card;
 	entry = snd_register_module_info(card->module,
 						"codecs",

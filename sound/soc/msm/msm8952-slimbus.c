@@ -1011,6 +1011,9 @@ static int slim0_tx_sample_rate_get(struct snd_kcontrol *kcontrol,
 	int sample_rate_val = 0;
 
 	switch (slim0_tx_sample_rate) {
+	case SAMPLING_RATE_16KHZ:
+		sample_rate_val = 4;
+		break;
 	case SAMPLING_RATE_192KHZ:
 		sample_rate_val = 2;
 		break;
@@ -1039,6 +1042,9 @@ static int slim0_tx_sample_rate_put(struct snd_kcontrol *kcontrol,
 				ucontrol->value.integer.value[0]);
 
 	switch (ucontrol->value.integer.value[0]) {
+	case 4:
+		slim0_tx_sample_rate = SAMPLING_RATE_16KHZ;
+		break;
 	case 2:
 		slim0_tx_sample_rate = SAMPLING_RATE_192KHZ;
 		break;
@@ -1496,16 +1502,22 @@ static int  msm_sec_tdm_tx_0_sample_rate_put(struct snd_kcontrol *kcontrol,
 }
 
 static const char *const spk_function[] = {"Off", "On"};
-static const char *const slim0_rx_ch_text[] = {"One", "Two"};
+static const char *const slim0_rx_ch_text[] = {"One", "Two", "Three", "Four",
+						"Five", "Six", "Seven",
+						"Eight"};
 static const char *const slim0_tx_ch_text[] = {"One", "Two", "Three", "Four",
 						"Five", "Six", "Seven",
 						"Eight"};
 static const char *const vi_feed_ch_text[] = {"One", "Two"};
 static char const *rx_bit_format_text[] = {"S16_LE", "S24_LE", "S24_3LE"};
 static char const *slim0_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
-	"KHZ_192", "KHZ_44P1"};
-static const char *const slim5_rx_ch_text[] = {"One", "Two"};
-static const char *const slim6_rx_ch_text[] = {"One", "Two"};
+	"KHZ_192", "KHZ_44P1", "KHZ_16"};
+static const char *const slim5_rx_ch_text[] = {"One", "Two", "Three", "Four",
+						"Five", "Six", "Seven",
+						"Eight"};
+static const char *const slim6_rx_ch_text[] = {"One", "Two", "Three", "Four",
+						"Five", "Six", "Seven",
+						"Eight"};
 static char const *slim5_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
 	"KHZ_192", "KHZ_44P1"};
 static char const *slim6_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
@@ -1517,16 +1529,17 @@ static char const *slim6_rx_bit_format_text[] = {"S16_LE", "S24_LE", "S24_3LE"};
 
 static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
-	SOC_ENUM_SINGLE_EXT(2, slim0_rx_ch_text),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(slim0_rx_ch_text), slim0_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(8, slim0_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(rx_bit_format_text),
 			    rx_bit_format_text),
-	SOC_ENUM_SINGLE_EXT(4, slim0_rx_sample_rate_text),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(slim0_rx_sample_rate_text),
+			    slim0_rx_sample_rate_text),
 	SOC_ENUM_SINGLE_EXT(2, vi_feed_ch_text),
 	SOC_ENUM_SINGLE_EXT(4, slim5_rx_sample_rate_text),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(slim5_rx_bit_format_text),
 			    slim5_rx_bit_format_text),
-	SOC_ENUM_SINGLE_EXT(2, slim5_rx_ch_text),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(slim5_rx_ch_text), slim5_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(8, proxy_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(slim6_rx_sample_rate_text),
 				slim6_rx_sample_rate_text),

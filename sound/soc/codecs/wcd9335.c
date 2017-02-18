@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11351,7 +11351,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 			.rate_max = 192000,
 			.rate_min = 8000,
 			.channels_min = 1,
-			.channels_max = 2,
+			.channels_max = 8,
 		},
 		.ops = &tasha_dai_ops,
 	},
@@ -11365,7 +11365,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 			.rate_max = 192000,
 			.rate_min = 8000,
 			.channels_min = 1,
-			.channels_max = 4,
+			.channels_max = 8,
 		},
 		.ops = &tasha_dai_ops,
 	},
@@ -11379,7 +11379,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 			.rate_min = 8000,
 			.rate_max = 192000,
 			.channels_min = 1,
-			.channels_max = 2,
+			.channels_max = 8,
 		},
 		.ops = &tasha_dai_ops,
 	},
@@ -11407,7 +11407,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 			.rate_min = 8000,
 			.rate_max = 192000,
 			.channels_min = 1,
-			.channels_max = 2,
+			.channels_max = 8,
 		},
 		.ops = &tasha_dai_ops,
 	},
@@ -11421,7 +11421,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 			.rate_max = 48000,
 			.rate_min = 8000,
 			.channels_min = 1,
-			.channels_max = 2,
+			.channels_max = 8,
 		},
 		.ops = &tasha_dai_ops,
 	},
@@ -11435,7 +11435,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 			.rate_min = 8000,
 			.rate_max = 192000,
 			.channels_min = 1,
-			.channels_max = 2,
+			.channels_max = 8,
 		},
 		.ops = &tasha_dai_ops,
 	},

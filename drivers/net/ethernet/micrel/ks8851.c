@@ -1412,6 +1412,8 @@ static int ks8851_probe(struct spi_device *spi)
 	unsigned cider;
 	int gpio;
 
+	pr_debug("eth: spi KS8851 Probe\n");
+
 	ndev = alloc_etherdev(sizeof(struct ks8851_net));
 	if (!ndev)
 		return -ENOMEM;
@@ -1427,18 +1429,23 @@ static int ks8851_probe(struct spi_device *spi)
 	gpio = of_get_named_gpio_flags(spi->dev.of_node, "reset-gpios",
 				       0, NULL);
 	if (gpio == -EPROBE_DEFER) {
+		pr_err("eth: spi KS8851 Probe Failed ret:%d\n", gpio);
 		ret = gpio;
 		goto err_gpio;
 	}
 
 	ks->gpio = gpio;
+	pr_debug("eth: spi KS8851 Probe reset gpio#:%d\n", gpio);
 	if (gpio_is_valid(gpio)) {
+		pr_debug("eth: spi KS8851 Going to reset\n");
 		ret = devm_gpio_request_one(&spi->dev, gpio,
 					    GPIOF_OUT_INIT_LOW, "ks8851_rst_n");
 		if (ret) {
 			dev_err(&spi->dev, "reset gpio request failed\n");
 			goto err_gpio;
 		}
+	} else {
+		pr_err("eth: spi KS8851 invalid gpio\n");
 	}
 
 	ks->vdd_io = devm_regulator_get(&spi->dev, "vdd-io");
@@ -1468,10 +1475,13 @@ static int ks8851_probe(struct spi_device *spi)
 	}
 
 	if (gpio_is_valid(gpio)) {
+		pr_debug("eth: spi reset GPIO set to 1\n");
 		usleep_range(10000, 11000);
-		gpio_set_value(gpio, 1);
+		gpio_direction_output(gpio, 0x1);
+	} else {
+		pr_err("[%s:%d] eth: spi reset GPIO is invalid\n",
+		       __func__, __LINE__);
 	}
-
 	mutex_init(&ks->lock);
 	spin_lock_init(&ks->statelock);
 
@@ -1525,6 +1535,9 @@ static int ks8851_probe(struct spi_device *spi)
 
 	/* simple check for a valid chip being connected to the bus */
 	cider = ks8851_rdreg16(ks, KS_CIDER);
+	pr_debug("###################################\n");
+	pr_debug("## eth: spi Chip ID Ox:%08X  ##\n", cider);
+	pr_debug("###################################\n");
 	if ((cider & ~CIDER_REV_MASK) != CIDER_ID) {
 		dev_err(&spi->dev, "failed to read device ID\n");
 		ret = -ENODEV;
@@ -1539,6 +1552,7 @@ static int ks8851_probe(struct spi_device *spi)
 	else
 		ks->eeprom_size = 0;
 
+	ks->eeprom_size = 0;
 	ks8851_read_selftest(ks);
 	ks8851_init_mac(ks);
 

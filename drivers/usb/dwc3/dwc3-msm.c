@@ -261,6 +261,7 @@ struct dwc3_msm {
 	u32                     pm_qos_latency;
 	struct pm_qos_request   pm_qos_req_dma;
 	struct delayed_work     perf_vote_work;
+	enum dwc3_perf_mode	curr_mode;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -2803,6 +2804,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (!mdwc)
 		return -ENOMEM;
 
+	mdwc->curr_mode = DWC3_PERF_INVALID;
+
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
 		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
 		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
@@ -3291,14 +3294,13 @@ static void dwc3_pm_qos_update_latency(struct dwc3_msm *mdwc, s32 latency)
 static void dwc3_msm_perf_vote_update(struct dwc3_msm *mdwc,
 					enum dwc3_perf_mode mode)
 {
-	static enum dwc3_perf_mode curr_mode = DWC3_PERF_INVALID;
 	int latency = mdwc->pm_qos_latency, ret;
 	long core_clk_rate = mdwc->core_clk_rate;
 
-	if (curr_mode == mode)
+	if (mdwc->curr_mode == mode)
 		return;
 
-	curr_mode = mode;
+	mdwc->curr_mode = mode;
 	switch (mode) {
 	case DWC3_PERF_NOM:
 		latency = mdwc->pm_qos_latency;

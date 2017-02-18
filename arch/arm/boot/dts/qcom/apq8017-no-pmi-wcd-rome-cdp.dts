@@ -33,6 +33,17 @@
 	gpio_keys {
 		/delete-node/ home;
 	};
+
+	usb_detect {
+		compatible = "qcom,gpio-usbdetect";
+		interrupt-names = "vbus_det_irq";
+		interrupt-parent = <&tlmm>;
+		interrupts = <130 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&vbus_low_as_host>;
+		qcom,gpio-mode-sel = <&tlmm 130 0>;
+		qcom,notify-host-mode;
+	};
 };
 
 &usb_otg {
