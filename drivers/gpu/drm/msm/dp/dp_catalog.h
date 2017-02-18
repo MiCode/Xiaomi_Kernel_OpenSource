@@ -41,6 +41,7 @@ struct dp_catalog_aux {
 	u32 (*read_data)(struct dp_catalog_aux *aux);
 	int (*write_data)(struct dp_catalog_aux *aux);
 	int (*write_trans)(struct dp_catalog_aux *aux);
+	int (*clear_trans)(struct dp_catalog_aux *aux);
 	void (*reset)(struct dp_catalog_aux *aux);
 	void (*enable)(struct dp_catalog_aux *aux, bool enable);
 	void (*update_aux_cfg)(struct dp_catalog_aux *aux,

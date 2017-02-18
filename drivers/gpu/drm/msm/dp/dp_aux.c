@@ -38,6 +38,8 @@ struct dp_aux_private {
 	bool cmd_busy;
 	bool native;
 	bool read;
+	bool no_send_addr;
+	bool no_send_stop;
 
 	struct drm_dp_aux drm_aux;
 };
@@ -103,8 +105,15 @@ static u32 dp_aux_write(struct dp_aux_private *aux,
 	}
 
 	reg = 0; /* Transaction number == 1 */
-	if (!aux->native) /* i2c */
-		reg |= (BIT(8) | BIT(10) | BIT(11));
+	if (!aux->native) { /* i2c */
+		reg |= BIT(8);
+
+		if (aux->no_send_addr)
+			reg |= BIT(10);
+
+		if (aux->no_send_stop)
+			reg |= BIT(11);
+	}
 
 	reg |= BIT(9);
 	aux->catalog->data = reg;
@@ -150,7 +159,7 @@ static void dp_aux_cmd_fifo_rx(struct dp_aux_private *aux,
 {
 	u32 data;
 	u8 *dp;
-	u32 i;
+	u32 i, actual_i;
 	u32 len = msg->size;
 
 	data = 0;
@@ -168,6 +177,11 @@ static void dp_aux_cmd_fifo_rx(struct dp_aux_private *aux,
 	for (i = 0; i < len; i++) {
 		data = aux->catalog->read_data(aux->catalog);
 		*dp++ = (u8)((data >> 8) & 0xff);
+
+		actual_i = (data >> 16) & 0xFF;
+		if (i != actual_i)
+			pr_warn("Index mismatch: expected %d, found %d\n",
+				i, actual_i);
 	}
 }
 
@@ -288,6 +302,14 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 		goto unlock_exit;
 	}
 
+	if (aux->read) {
+		aux->no_send_addr = true;
+		aux->no_send_stop = false;
+	} else {
+		aux->no_send_addr = true;
+		aux->no_send_stop = true;
+	}
+
 	ret = dp_aux_cmd_fifo_tx(aux, msg);
 	if ((ret < 0) && aux->native) {
 		aux->retry_cnt++;
@@ -299,6 +321,8 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 	} else if (ret < 0) {
 		goto unlock_exit;
 	}
+
+	aux->catalog->clear_trans(aux->catalog);
 
 	if (aux->aux_error_num == DP_AUX_ERR_NONE) {
 		if (aux->read)

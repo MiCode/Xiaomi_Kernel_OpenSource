@@ -128,6 +128,29 @@ end:
 	return rc;
 }
 
+static int dp_catalog_aux_clear_trans(struct dp_catalog_aux *aux)
+{
+	int rc = 0;
+	u32 data;
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+
+	if (!aux) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	dp_catalog_get_priv(aux);
+	base = catalog->io->ctrl_io.base;
+
+	data = dp_read(base + DP_AUX_TRANS_CTRL);
+	data &= ~BIT(9);
+	dp_write(base + DP_AUX_TRANS_CTRL, data);
+end:
+	return rc;
+}
+
 static void dp_catalog_aux_reset(struct dp_catalog_aux *aux)
 {
 	u32 aux_ctrl;
@@ -216,13 +239,12 @@ static void dp_catalog_aux_setup(struct dp_catalog_aux *aux,
 
 	dp_catalog_get_priv(aux);
 
-	dp_write(catalog->io->phy_io.base + DP_PHY_PD_CTL, 0x02);
+	dp_write(catalog->io->phy_io.base + DP_PHY_PD_CTL, 0x65);
 	wmb(); /* make sure PD programming happened */
-	dp_write(catalog->io->phy_io.base + DP_PHY_PD_CTL, 0x7d);
 
 	/* Turn on BIAS current for PHY/PLL */
 	dp_write(catalog->io->dp_pll_io.base +
-		QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x3f);
+		QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x1b);
 
 	/* DP AUX CFG register programming */
 	for (i = 0; i < PHY_AUX_CFG_MAX; i++) {
@@ -1040,6 +1062,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.read_data     = dp_catalog_aux_read_data,
 		.write_data    = dp_catalog_aux_write_data,
 		.write_trans   = dp_catalog_aux_write_trans,
+		.clear_trans   = dp_catalog_aux_clear_trans,
 		.reset         = dp_catalog_aux_reset,
 		.update_aux_cfg = dp_catalog_aux_update_cfg,
 		.enable        = dp_catalog_aux_enable,
