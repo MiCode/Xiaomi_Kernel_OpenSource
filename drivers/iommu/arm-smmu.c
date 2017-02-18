@@ -2374,6 +2374,10 @@ static int arm_smmu_add_device(struct device *dev)
 		return -ENODEV;
 	}
 
+	ret = arm_smmu_power_on(smmu->pwr);
+	if (ret)
+		goto out_free;
+
 	ret = -EINVAL;
 	for (i = 0; i < fwspec->num_ids; i++) {
 		u16 sid = fwspec->ids[i];
@@ -2382,12 +2386,12 @@ static int arm_smmu_add_device(struct device *dev)
 		if (sid & ~smmu->streamid_mask) {
 			dev_err(dev, "stream ID 0x%x out of range for SMMU (0x%x)\n",
 				sid, smmu->streamid_mask);
-			goto out_free;
+			goto out_pwr_off;
 		}
 		if (mask & ~smmu->smr_mask_mask) {
 			dev_err(dev, "SMR mask 0x%x out of range for SMMU (0x%x)\n",
 				sid, smmu->smr_mask_mask);
-			goto out_free;
+			goto out_pwr_off;
 		}
 	}
 
@@ -2395,7 +2399,7 @@ static int arm_smmu_add_device(struct device *dev)
 	cfg = kzalloc(offsetof(struct arm_smmu_master_cfg, smendx[i]),
 		      GFP_KERNEL);
 	if (!cfg)
-		goto out_free;
+		goto out_pwr_off;
 
 	cfg->smmu = smmu;
 	fwspec->iommu_priv = cfg;
@@ -2404,10 +2408,13 @@ static int arm_smmu_add_device(struct device *dev)
 
 	ret = arm_smmu_master_alloc_smes(dev);
 	if (ret)
-		goto out_free;
+		goto out_pwr_off;
 
+	arm_smmu_power_off(smmu->pwr);
 	return 0;
 
+out_pwr_off:
+	arm_smmu_power_off(smmu->pwr);
 out_free:
 	if (fwspec)
 		kfree(fwspec->iommu_priv);
@@ -2418,14 +2425,22 @@ out_free:
 static void arm_smmu_remove_device(struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct arm_smmu_device *smmu;
 
 	if (!fwspec || fwspec->ops != &arm_smmu_ops)
 		return;
+
+	smmu = fwspec_smmu(fwspec);
+	if (arm_smmu_power_on(smmu->pwr)) {
+		WARN_ON(1);
+		return;
+	}
 
 	arm_smmu_master_free_smes(fwspec);
 	iommu_group_remove_device(dev);
 	kfree(fwspec->iommu_priv);
 	iommu_fwspec_free(dev);
+	arm_smmu_power_off(smmu->pwr);
 }
 
 static struct iommu_group *arm_smmu_device_group(struct device *dev)
