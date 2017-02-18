@@ -446,11 +446,13 @@ struct sde_mdss_color {
  * @payload: Feature specific payload.
  * @len: Length of the payload.
  * @ctl: control pointer associated with dspp/lm.
+ * @last_feature: last feature that will be set.
  */
 struct sde_hw_cp_cfg {
 	void *payload;
 	u32 len;
 	void *ctl;
+	u32 last_feature;
 };
 
 /**
