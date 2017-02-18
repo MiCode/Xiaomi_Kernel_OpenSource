@@ -6602,12 +6602,70 @@ static inline int wake_to_idle(struct task_struct *p)
 		 (p->flags & PF_WAKE_UP_IDLE);
 }
 
+static bool
+is_packing_eligible(struct task_struct *p, unsigned long task_util,
+		    struct sched_group *sg_target,
+		    unsigned long target_cpu_new_util_cum,
+		    int targeted_cpus)
+{
+	int cpu_cap_idx_pack, cpu_cap_idx_spread, cap_idx0, cap_idx1;
+
+	if (targeted_cpus > 1)
+		/*
+		 * More than one CPUs were evaulated and target_cpu is the
+		 * least loaded CPU among the CPUs.  Thus target_cpu won't
+		 * raise OPP.
+		 */
+		return true;
+
+	/*
+	 * There is only one CPU out of C-state.
+	 *
+	 * cpu_cap_idx_pack contains estimated OPP index of target_cpu when we
+	 * pack the new task onto the target_cpu.
+	 * cap_idx0 and cap_idx1 contain OPP indices of two CPUs, one for
+	 * target_cpu without new task's load, one other for new idle CPU with
+	 * task's load.
+	 *
+	 *   Pack :                       Spread :
+	 *  cap_idx_pack is new OPP.     max(cap_idx0, cap_idx1) is new OPP.
+	 *  ________________             ________________
+	 *  |              |             |              | ______________
+	 *  | cap_idx_pack |             |   cap_idx0   | |  cap_idx1  |
+	 *  | (target_cpu) |             | (target_cpu) | | (idle cpu) |
+	 *  ----------------             ---------------- --------------
+	 *
+	 * The target_cpu's current capacity can be much more than target_cpu's
+	 * current utilization due to for example hysteresis while task
+	 * migration.  In that the case, packing onto the target_cpu based on
+	 * current capacity would deprive chance to lower the OPP and will end
+	 * up making target_cpu to keep the higher OOP longer than spreading.
+	 *
+	 * Try task packing only when packing won't make to keep the current
+	 * OPP longer than wihout packing.
+	 */
+
+	cpu_cap_idx_pack = __find_new_capacity(target_cpu_new_util_cum,
+					       sg_target->sge);
+
+	cap_idx0 = __find_new_capacity(target_cpu_new_util_cum - task_util,
+				       sg_target->sge);
+	cap_idx1 = __find_new_capacity(task_util, sg_target->sge);
+
+	cpu_cap_idx_spread = max(cap_idx0, cap_idx1);
+
+	trace_sched_energy_diff_packing(p, task_util, targeted_cpus,
+					cpu_cap_idx_pack, cpu_cap_idx_spread);
+
+	return cpu_cap_idx_pack == cpu_cap_idx_spread;
+}
+
 static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 {
 	struct sched_domain *sd;
 	struct sched_group *sg, *sg_target;
 	int target_max_cap = INT_MAX;
-	int target_cpu;
+	int target_cpu, targeted_cpus = 0;
 	unsigned long task_util_boosted = 0, curr_util = 0;
 	long new_util, new_util_cum;
 	int i;
@@ -6620,7 +6678,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	int cpu_idle_idx;
 	int min_idle_idx_cpu;
 	int min_idle_idx = INT_MAX;
+	bool safe_to_pack = false;
 	unsigned int target_cpu_util = UINT_MAX;
+	long target_cpu_new_util_cum = LONG_MAX;
 	bool need_idle;
 
 	sd = rcu_dereference(per_cpu(sd_ea, task_cpu(p)));
@@ -6702,23 +6762,41 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			cpu_idle_idx = cpu_rq(i)->nr_running ? -1 :
 				       idle_get_state_idx(cpu_rq(i));
 
-			if (!need_idle &&
-			    add_capacity_margin(new_util_cum) <
-						capacity_curr_of(i)) {
+			if (!need_idle && add_capacity_margin(new_util_cum) <
+			    capacity_curr_of(i)) {
 				if (sysctl_sched_cstate_aware) {
-					if (cpu_idle_idx < min_idle_idx ||
-					    (cpu_idle_idx == min_idle_idx &&
-					     target_cpu_util > new_util)) {
+					if (cpu_idle_idx < min_idle_idx) {
 						min_idle_idx = cpu_idle_idx;
 						min_idle_idx_cpu = i;
 						target_cpu = i;
 						target_cpu_util = new_util;
-						continue;
+						target_cpu_new_util_cum =
+						    new_util_cum;
+						targeted_cpus = 1;
+					} else if (cpu_idle_idx ==
+						   min_idle_idx &&
+						target_cpu_util > new_util) {
+						min_idle_idx_cpu = i;
+						target_cpu = i;
+						target_cpu_util = new_util;
+						target_cpu_new_util_cum =
+						    new_util_cum;
+						targeted_cpus++;
 					}
 				} else if (cpu_rq(i)->nr_running) {
 					target_cpu = i;
 					break;
 				}
+			} else if (!need_idle) {
+				/*
+				 * At least one CPU other than target_cpu is
+				 * going to raise CPU's OPP higher than current
+				 * because current CPU util is more than current
+				 * capacity + margin.  We can safely do task
+				 * packing without worrying about doing such
+				 * itself raises OPP.
+				 */
+				safe_to_pack = true;
 			}
 
 			/*
@@ -6746,7 +6824,11 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			}
 		}
 
-		if (target_cpu == -1) {
+		if (target_cpu == -1 ||
+		    (target_cpu != min_util_cpu && !safe_to_pack &&
+		     !is_packing_eligible(p, task_util_boosted, sg_target,
+					  target_cpu_new_util_cum,
+					  targeted_cpus))) {
 			if (likely(min_util_cpu != -1))
 				target_cpu = min_util_cpu;
 			else

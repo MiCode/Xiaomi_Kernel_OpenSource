@@ -745,6 +745,37 @@ TRACE_EVENT(sched_cpu_util,
 		__entry->comm, __entry->pid, __entry->cpu, __entry->task_util, __entry->nr_running, __entry->cpu_util, __entry->cpu_util_cum, __entry->new_cum_util, __entry->task_in_cum_demand, __entry->capacity_curr, __entry->capacity, __entry->curr_util, __entry->sync, __entry->idle_state, __entry->irqload, __entry->high_irqload)
 );
 
+TRACE_EVENT(sched_energy_diff_packing,
+
+	TP_PROTO(struct task_struct *p, unsigned long task_util,
+		 int targeted_cpus, int nrg_pack, int nrg_spread),
+
+	TP_ARGS(p, task_util, targeted_cpus, nrg_pack, nrg_spread),
+
+	TP_STRUCT__entry(
+		__array(char, comm, TASK_COMM_LEN	)
+		__field(int, pid			)
+		__field(unsigned long, task_util	)
+		__field(int, targeted_cpus		)
+		__field(int, nrg_pack		)
+		__field(int, nrg_spread		)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid			= p->pid;
+		__entry->task_util		= task_util;
+		__entry->targeted_cpus		= targeted_cpus;
+		__entry->nrg_pack		= nrg_pack;
+		__entry->nrg_spread		= nrg_spread;
+	),
+
+	TP_printk("comm=%s pid=%d task_util=%lu targeted_cpus=%d nrg_pack=%d nrg_spread=%d nrg_diff=%d",
+		__entry->comm, __entry->pid, __entry->task_util,
+		__entry->targeted_cpus, __entry->nrg_pack,
+		__entry->nrg_spread, __entry->nrg_pack - __entry->nrg_spread)
+);
+
 DECLARE_EVENT_CLASS(sched_task_util,
 
 	TP_PROTO(struct task_struct *p, int task_cpu, unsigned long task_util, int nominated_cpu, int target_cpu, int ediff, bool need_idle),
