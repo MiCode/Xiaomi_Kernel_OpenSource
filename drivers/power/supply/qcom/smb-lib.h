@@ -281,6 +281,7 @@ struct smb_charger {
 	struct work_struct	otg_oc_work;
 	struct work_struct	vconn_oc_work;
 	struct delayed_work	otg_ss_done_work;
+	struct delayed_work	icl_change_work;
 
 	/* cached status */
 	int			voltage_min_uv;

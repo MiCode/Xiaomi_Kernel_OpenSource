@@ -3079,26 +3079,38 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 }
 
 #define USB_WEAK_INPUT_UA	1400000
+#define ICL_CHANGE_DELAY_MS	1000
 irqreturn_t smblib_handle_icl_change(int irq, void *data)
 {
+	u8 stat;
+	int rc, settled_ua, delay = ICL_CHANGE_DELAY_MS;
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
-	int rc, settled_ua;
-
-	rc = smblib_get_charge_param(chg, &chg->param.icl_stat, &settled_ua);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get ICL status rc=%d\n", rc);
-		return IRQ_HANDLED;
-	}
 
 	if (chg->mode == PARALLEL_MASTER) {
-		power_supply_changed(chg->usb_main_psy);
-		vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER,
-					settled_ua >= USB_WEAK_INPUT_UA, 0);
+		rc = smblib_read(chg, AICL_STATUS_REG, &stat);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read AICL_STATUS rc=%d\n",
+					rc);
+			return IRQ_HANDLED;
+		}
+
+		rc = smblib_get_charge_param(chg, &chg->param.icl_stat,
+				&settled_ua);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't get ICL status rc=%d\n", rc);
+			return IRQ_HANDLED;
+		}
+
+		/* If AICL settled then schedule work now */
+		if ((settled_ua == get_effective_result(chg->usb_icl_votable))
+				|| (stat & AICL_DONE_BIT))
+			delay = 0;
+
+		schedule_delayed_work(&chg->icl_change_work,
+						msecs_to_jiffies(delay));
 	}
 
-	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s icl_settled=%d\n",
-						irq_data->name, settled_ua);
 	return IRQ_HANDLED;
 }
 
@@ -3971,6 +3983,25 @@ static void smblib_otg_ss_done_work(struct work_struct *work)
 	mutex_unlock(&chg->otg_oc_lock);
 }
 
+static void smblib_icl_change_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+							icl_change_work.work);
+	int rc, settled_ua;
+
+	rc = smblib_get_charge_param(chg, &chg->param.icl_stat, &settled_ua);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get ICL status rc=%d\n", rc);
+		return;
+	}
+
+	power_supply_changed(chg->usb_main_psy);
+	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER,
+				settled_ua >= USB_WEAK_INPUT_UA, 0);
+
+	smblib_dbg(chg, PR_INTERRUPT, "icl_settled=%d\n", settled_ua);
+}
+
 static int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -4151,6 +4182,7 @@ int smblib_init(struct smb_charger *chg)
 	INIT_WORK(&chg->otg_oc_work, smblib_otg_oc_work);
 	INIT_WORK(&chg->vconn_oc_work, smblib_vconn_oc_work);
 	INIT_DELAYED_WORK(&chg->otg_ss_done_work, smblib_otg_ss_done_work);
+	INIT_DELAYED_WORK(&chg->icl_change_work, smblib_icl_change_work);
 	chg->fake_capacity = -EINVAL;
 
 	switch (chg->mode) {
