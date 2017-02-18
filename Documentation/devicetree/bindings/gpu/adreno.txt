@@ -124,7 +124,20 @@ Optional Properties:
 				Specify the bit of the highest DDR bank. This
 				is programmed into protected registers and also
 				passed to the user as a property.
-
+- qcom,min-access-length:
+				Specify the minimum access length for the chip.
+				Either 32 or 64 bytes.
+				Based on the above options, program the appropriate bit into
+				certain protected registers and also pass to the user as
+				a property.
+- qcom,ubwc-mode:
+				Specify the ubwc mode for this chip.
+				1: UBWC 1.0
+				2: UBWC 2.0
+				3: UBWC 3.0
+				Based on the ubwc mode, program the appropriate bit into
+				certain protected registers and also pass to the user as
+				a property.
 - qcom,l2pc-cpu-mask:
 				Disables L2PC on masked CPUs when any of Graphics
 				rendering thread is running on masked CPUs.

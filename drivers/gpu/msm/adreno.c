@@ -1860,6 +1860,48 @@ static int adreno_getproperty(struct kgsl_device *device,
 		}
 		status = 0;
 		break;
+	case KGSL_PROP_MIN_ACCESS_LENGTH:
+		{
+			unsigned int mal;
+
+			if (sizebytes < sizeof(unsigned int)) {
+				status = -EINVAL;
+				break;
+			}
+
+			if (of_property_read_u32(device->pdev->dev.of_node,
+				"qcom,min-access-length", &mal)) {
+				mal = 0;
+			}
+
+			if (copy_to_user(value, &mal, sizeof(mal))) {
+				status = -EFAULT;
+				break;
+			}
+		}
+		status = 0;
+		break;
+	case KGSL_PROP_UBWC_MODE:
+		{
+			unsigned int mode;
+
+			if (sizebytes < sizeof(unsigned int)) {
+				status = -EINVAL;
+				break;
+			}
+
+			if (of_property_read_u32(device->pdev->dev.of_node,
+				"qcom,ubwc-mode", &mode))
+				mode = 0;
+
+			if (copy_to_user(value, &mode, sizeof(mode))) {
+				status = -EFAULT;
+				break;
+			}
+		}
+		status = 0;
+		break;
+
 	case KGSL_PROP_DEVICE_BITNESS:
 	{
 		unsigned int bitness = 32;
