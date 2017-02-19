@@ -871,6 +871,35 @@ void mdss_dp_aux_set_limits(struct dss_io_data *ctrl_io)
 	writel_relaxed(max_aux_limits, ctrl_io->base + DP_AUX_LIMITS);
 }
 
+void mdss_dp_phy_aux_update_config(struct mdss_dp_drv_pdata *dp,
+		enum dp_phy_aux_config_type config_type)
+{
+	u32 new_index;
+	struct dss_io_data *phy_io = &dp->phy_io;
+	struct mdss_dp_phy_cfg *cfg = mdss_dp_phy_aux_get_config(dp,
+			config_type);
+
+	if (!cfg) {
+		pr_err("invalid config type %s",
+			mdss_dp_phy_aux_config_type_to_string(config_type));
+		return;
+	}
+
+	new_index = (cfg->current_index + 1) % cfg->cfg_cnt;
+
+	pr_debug("Updating %s from 0x%08x to 0x%08x\n",
+		mdss_dp_phy_aux_config_type_to_string(config_type),
+		cfg->lut[cfg->current_index], cfg->lut[new_index]);
+	writel_relaxed(cfg->lut[new_index], phy_io->base + cfg->offset);
+	cfg->current_index = new_index;
+
+	/* Make sure the new HW configuration takes effect */
+	wmb();
+
+	/* Reset the AUX controller before any subsequent transactions */
+	mdss_dp_aux_reset(&dp->ctrl_io);
+}
+
 void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io, char *l_map)
 {
 	u8 bits_per_lane = 2;
