@@ -56,6 +56,9 @@
 };
 
 &soc {
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
 };
 
 &pm660_fg {
