@@ -24,6 +24,10 @@
 
 #define DEFAULT_MDP_TRANSFER_TIME 14000
 
+#define DEFAULT_PANEL_JITTER		5
+#define MAX_PANEL_JITTER		25
+#define DEFAULT_PANEL_PREFILL_LINES	16
+
 static int dsi_panel_vreg_get(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -1361,6 +1365,37 @@ error:
 	return rc;
 }
 
+static int dsi_panel_parse_jitter_config(struct dsi_panel *panel,
+				     struct device_node *of_node)
+{
+	int rc;
+
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-jitter",
+				  &panel->panel_jitter);
+	if (rc) {
+		pr_debug("panel jitter is not defined rc=%d\n", rc);
+		panel->panel_jitter = DEFAULT_PANEL_JITTER;
+	} else if (panel->panel_jitter > MAX_PANEL_JITTER) {
+		pr_debug("invalid jitter config=%d setting to:%d\n",
+			panel->panel_jitter, DEFAULT_PANEL_JITTER);
+		panel->panel_jitter = DEFAULT_PANEL_JITTER;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-prefill-lines",
+				  &panel->panel_prefill_lines);
+	if (rc) {
+		pr_debug("panel prefill lines are not defined rc=%d\n", rc);
+		panel->panel_prefill_lines = DEFAULT_PANEL_PREFILL_LINES;
+	} else if (panel->panel_prefill_lines >=
+					DSI_V_TOTAL(&panel->mode.timing))  {
+		pr_debug("invalid prefill lines config=%d setting to:%d\n",
+		      panel->panel_prefill_lines, DEFAULT_PANEL_PREFILL_LINES);
+		panel->panel_prefill_lines = DEFAULT_PANEL_PREFILL_LINES;
+	}
+
+	return 0;
+}
+
 static int dsi_panel_parse_power_cfg(struct device *parent,
 				     struct dsi_panel *panel,
 				     struct device_node *of_node)
@@ -1642,6 +1677,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	rc = dsi_panel_parse_bl_config(panel, of_node);
 	if (rc)
 		pr_err("failed to parse backlight config, rc=%d\n", rc);
+
+	rc = dsi_panel_parse_jitter_config(panel, of_node);
+	if (rc)
+		pr_err("failed to parse panel jitter config, rc=%d\n", rc);
 
 	panel->panel_of_node = of_node;
 	drm_panel_init(&panel->drm_panel);

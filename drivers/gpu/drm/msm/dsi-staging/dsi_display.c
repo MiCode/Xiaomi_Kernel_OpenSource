@@ -2660,13 +2660,19 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 {
 	struct dsi_display *display;
 	struct dsi_panel_phy_props phy_props;
+	struct dsi_mode_info *timing;
 	int i, rc;
 
 	if (!info || !disp) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
+
 	display = disp;
+	if (!display->panel) {
+		pr_err("invalid display panel\n");
+		return -EINVAL;
+	}
 
 	mutex_lock(&display->display_lock);
 	rc = dsi_panel_get_phy_props(display->panel, &phy_props);
@@ -2677,6 +2683,7 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 	}
 
 	info->intf_type = DRM_MODE_CONNECTOR_DSI;
+	timing = &display->panel->mode.timing;
 
 	info->num_of_h_tiles = display->ctrl_count;
 	for (i = 0; i < info->num_of_h_tiles; i++)
@@ -2684,6 +2691,10 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 
 	info->is_connected = true;
 	info->is_primary = true;
+	info->frame_rate = timing->refresh_rate;
+	info->vtotal = DSI_V_TOTAL(timing);
+	info->prefill_lines = display->panel->panel_prefill_lines;
+	info->jitter = display->panel->panel_jitter;
 	info->width_mm = phy_props.panel_width_mm;
 	info->height_mm = phy_props.panel_height_mm;
 	info->max_width = 1920;
