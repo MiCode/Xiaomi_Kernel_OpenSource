@@ -2765,6 +2765,7 @@ static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
 
 		bpp = fbi->var.bits_per_pixel / 8;
 		req->id = MSMFB_NEW_REQUEST;
+		req->flags |= MDP_OV_PIPE_FORCE_DMA;
 		req->src.format = mfd->fb_imgType;
 		req->src.height = fbi->var.yres;
 		req->src.width = fbi->fix.line_length / bpp;
@@ -2878,7 +2879,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		MDSS_MDP_MIXER_MUX_LEFT, &l_pipe_allocated);
 	if (ret) {
 		pr_err("unable to allocate base pipe\n");
-		goto iommu_disable;
+		goto pipe_release;
 	}
 
 	if (mdss_mdp_pipe_map(l_pipe)) {
@@ -2889,20 +2890,20 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	ret = mdss_mdp_overlay_start(mfd);
 	if (ret) {
 		pr_err("unable to start overlay %d (%d)\n", mfd->index, ret);
-		goto clk_disable;
+		goto pipe_release;
 	}
 
 	ret = mdss_iommu_ctrl(1);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("IOMMU attach failed\n");
-		goto clk_disable;
+		goto iommu_disable;
 	}
 
 	buf_l = __mdp_overlay_buf_alloc(mfd, l_pipe);
 	if (!buf_l) {
 		pr_err("unable to allocate memory for fb buffer\n");
 		mdss_mdp_pipe_unmap(l_pipe);
-		goto pipe_release;
+		goto iommu_disable;
 	}
 
 	buf_l->p[0].srcp_table = mfd->fb_table;
@@ -2925,19 +2926,19 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 			MDSS_MDP_MIXER_MUX_RIGHT, &r_pipe_allocated);
 		if (ret) {
 			pr_err("unable to allocate right base pipe\n");
-			goto pipe_release;
+			goto iommu_disable;
 		}
 
 		if (mdss_mdp_pipe_map(r_pipe)) {
 			pr_err("unable to map right base pipe\n");
-			goto pipe_release;
+			goto iommu_disable;
 		}
 
 		buf_r = __mdp_overlay_buf_alloc(mfd, r_pipe);
 		if (!buf_r) {
 			pr_err("unable to allocate memory for fb buffer\n");
 			mdss_mdp_pipe_unmap(r_pipe);
-			goto pipe_release;
+			goto iommu_disable;
 		}
 
 		buf_r->p[0] = buf_l->p[0];
@@ -2955,6 +2956,9 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	return;
 
+iommu_disable:
+	mdss_iommu_ctrl(0);
+
 pipe_release:
 	if (r_pipe_allocated)
 		mdss_mdp_overlay_release(mfd, r_pipe->ndx);
@@ -2962,8 +2966,6 @@ pipe_release:
 		__mdp_overlay_buf_free(mfd, buf_l);
 	if (l_pipe_allocated)
 		mdss_mdp_overlay_release(mfd, l_pipe->ndx);
-iommu_disable:
-	mdss_iommu_ctrl(0);
 clk_disable:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	mutex_unlock(&mdp5_data->ov_lock);
