@@ -862,8 +862,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
 	if (sde_enc->disp_info.is_primary) {
 		ret = sde_rsc_client_vote(sde_enc->rsc_client,
 			SDE_POWER_HANDLE_DATA_BUS_IB_QUOTA,
-			SDE_POWER_HANDLE_DATA_BUS_AB_QUOTA,
-			true);
+			SDE_POWER_HANDLE_DATA_BUS_AB_QUOTA);
 		if (ret)
 			SDE_ERROR("sde rsc client vote failed ret:%d\n", ret);
 	}
@@ -1302,7 +1301,6 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		}
 	}
 	mutex_unlock(&sde_enc->enc_lock);
-
 
 	return ret;
 }
