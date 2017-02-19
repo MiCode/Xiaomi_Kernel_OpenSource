@@ -220,6 +220,60 @@ struct fw_flag wcn3990_fw_flags = {
 	.flags = 0x82E,
 };
 
+struct ath10k_shadow_reg_value wcn3990_shadow_reg_value = {
+	.shadow_reg_value_0  = 0x00032000,
+	.shadow_reg_value_1  = 0x00032004,
+	.shadow_reg_value_2  = 0x00032008,
+	.shadow_reg_value_3  = 0x0003200C,
+	.shadow_reg_value_4  = 0x00032010,
+	.shadow_reg_value_5  = 0x00032014,
+	.shadow_reg_value_6  = 0x00032018,
+	.shadow_reg_value_7  = 0x0003201C,
+	.shadow_reg_value_8  = 0x00032020,
+	.shadow_reg_value_9  = 0x00032024,
+	.shadow_reg_value_10 = 0x00032028,
+	.shadow_reg_value_11 = 0x0003202C,
+	.shadow_reg_value_12 = 0x00032030,
+	.shadow_reg_value_13 = 0x00032034,
+	.shadow_reg_value_14 = 0x00032038,
+	.shadow_reg_value_15 = 0x0003203C,
+	.shadow_reg_value_16 = 0x00032040,
+	.shadow_reg_value_17 = 0x00032044,
+	.shadow_reg_value_18 = 0x00032048,
+	.shadow_reg_value_19 = 0x0003204C,
+	.shadow_reg_value_20 = 0x00032050,
+	.shadow_reg_value_21 = 0x00032054,
+	.shadow_reg_value_22 = 0x00032058,
+	.shadow_reg_value_23 = 0x0003205C
+};
+
+struct ath10k_shadow_reg_address wcn3990_shadow_reg_address = {
+	.shadow_reg_address_0  = 0x00030020,
+	.shadow_reg_address_1  = 0x00030024,
+	.shadow_reg_address_2  = 0x00030028,
+	.shadow_reg_address_3  = 0x0003002C,
+	.shadow_reg_address_4  = 0x00030030,
+	.shadow_reg_address_5  = 0x00030034,
+	.shadow_reg_address_6  = 0x00030038,
+	.shadow_reg_address_7  = 0x0003003C,
+	.shadow_reg_address_8  = 0x00030040,
+	.shadow_reg_address_9  = 0x00030044,
+	.shadow_reg_address_10 = 0x00030048,
+	.shadow_reg_address_11 = 0x0003004C,
+	.shadow_reg_address_12 = 0x00030050,
+	.shadow_reg_address_13 = 0x00030054,
+	.shadow_reg_address_14 = 0x00030058,
+	.shadow_reg_address_15 = 0x0003005C,
+	.shadow_reg_address_16 = 0x00030060,
+	.shadow_reg_address_17 = 0x00030064,
+	.shadow_reg_address_18 = 0x00030068,
+	.shadow_reg_address_19 = 0x0003006C,
+	.shadow_reg_address_20 = 0x00030070,
+	.shadow_reg_address_21 = 0x00030074,
+	.shadow_reg_address_22 = 0x00030078,
+	.shadow_reg_address_23 = 0x0003007C
+};
+
 void ath10k_hw_fill_survey_time(struct ath10k *ar, struct survey_info *survey,
 				u32 cc, u32 rcc, u32 cc_prev, u32 rcc_prev)
 {
