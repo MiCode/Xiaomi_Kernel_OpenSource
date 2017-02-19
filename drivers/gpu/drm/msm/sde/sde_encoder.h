@@ -73,6 +73,15 @@ void sde_encoder_register_frame_event_callback(struct drm_encoder *encoder,
 		void (*cb)(void *, u32), void *data);
 
 /**
+ * sde_encoder_update_rsc_client - updates the rsc client state for primary
+ *      for primary display.
+ * @encoder:	encoder pointer
+ * @enable:	enable/disable the client
+ */
+struct sde_rsc_client *sde_encoder_update_rsc_client(
+		struct drm_encoder *encoder, bool enable);
+
+/**
  * sde_encoder_prepare_for_kickoff - schedule double buffer flip of the ctl
  *	path (i.e. ctl flush and start) at next appropriate time.
  *	Immediately: if no previous commit is outstanding.
@@ -103,12 +112,6 @@ int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_encoder);
  * @encoder: Pointer to drm encoder object
  */
 enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
-
-/*
- * sde_encoder_get_intf_primary - is primary display connected with encoder
- * @encoder: Pointer to drm encoder object
- */
-bool sde_encoder_get_intf_primary(struct drm_encoder *encoder);
 
 /**
  * sde_encoder_init - initialize virtual encoder object

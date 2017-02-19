@@ -151,7 +151,6 @@ struct sde_crtc {
  * @connectors    : Currently associated drm connectors
  * @num_connectors: Number of associated drm connectors
  * @intf_mode     : Interface mode of the primary connector
- * @rsc_mode      : Client vote through sde rsc
  * @rsc_client    : sde rsc client when mode is valid
  * @property_values: Current crtc property values
  * @input_fence_timeout_ns : Cached input fence timeout, in ns
@@ -167,8 +166,8 @@ struct sde_crtc_state {
 	struct drm_connector *connectors[MAX_CONNECTORS];
 	int num_connectors;
 	enum sde_intf_mode intf_mode;
-	bool rsc_mode;
 	struct sde_rsc_client *rsc_client;
+	bool rsc_update;
 
 	uint64_t property_values[CRTC_PROP_COUNT];
 	uint64_t input_fence_timeout_ns;
@@ -286,13 +285,17 @@ static inline enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc)
  * sde_crtc_get_client_type - check the crtc type- rt, nrt, rsc, etc.
  * @crtc: Pointer to crtc
  */
-static inline bool sde_crtc_get_client_type(struct drm_crtc *crtc)
+static inline enum sde_crtc_client_type sde_crtc_get_client_type(
+						struct drm_crtc *crtc)
 {
 	struct sde_crtc_state *cstate =
 			crtc ? to_sde_crtc_state(crtc->state) : NULL;
 
-	return cstate && (cstate->intf_mode == INTF_MODE_WB_LINE) ? NRT_CLIENT
-		: cstate && cstate->rsc_mode ? RT_RSC_CLIENT : RT_CLIENT;
+	if (!cstate)
+		return NRT_CLIENT;
+
+	return cstate->rsc_client ? RT_RSC_CLIENT :
+	    (cstate->intf_mode == INTF_MODE_WB_LINE ? NRT_CLIENT : RT_CLIENT);
 }
 
 /**

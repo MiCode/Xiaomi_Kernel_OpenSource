@@ -95,7 +95,8 @@ struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index, char *client_name,
 	client->rsc_index = rsc_index;
 	if (is_primary_client)
 		rsc->primary_client = client;
-	pr_debug("client %s rsc index:%d\n", client_name, rsc_index);
+	pr_debug("client %s rsc index:%d primary:%d\n", client_name,
+						rsc_index, is_primary_client);
 
 	list_add(&client->list, &rsc->client_list);
 	mutex_unlock(&rsc->client_lock);
@@ -140,7 +141,7 @@ end:
 }
 
 static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
-	struct sde_rsc_command_config *cmd_config)
+	struct sde_rsc_cmd_config *cmd_config)
 {
 	const u32 cxo_period_ns = 52;
 	u64 rsc_backoff_time_ns = RSC_BACKOFF_TIME_NS;
@@ -153,6 +154,7 @@ static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
 	u64 line_time_ns, prefill_time_ns;
 	u64 pdc_backoff_time_ns;
 	s64 total;
+	int ret = 0;
 
 	if (cmd_config)
 		memcpy(&rsc->cmd_config, cmd_config, sizeof(*cmd_config));
@@ -222,7 +224,14 @@ static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
 
 	/* mode 2 is infinite */
 	rsc->timer_config.rsc_time_slot_2_ns = 0xFFFFFFFF;
-	return 0;
+
+	if (rsc->hw_ops.init) {
+		ret = rsc->hw_ops.init(rsc);
+		if (ret)
+			pr_err("sde rsc: hw init failed ret:%d\n", ret);
+	}
+
+	return ret;
 }
 
 static int sde_rsc_switch_to_idle(struct sde_rsc_priv *rsc)
@@ -241,7 +250,7 @@ static int sde_rsc_switch_to_idle(struct sde_rsc_priv *rsc)
 }
 
 static bool sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
-	struct sde_rsc_command_config *config,
+	struct sde_rsc_cmd_config *config,
 	struct sde_rsc_client *caller_client, bool wait_req)
 {
 	struct sde_rsc_client *client;
@@ -257,6 +266,10 @@ static bool sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 		rc = -EINVAL;
 		goto end;
 	}
+
+	/* update timers - might not be available at next switch */
+	if (config)
+		sde_rsc_timer_calculate(rsc, config);
 
 	/* any one client in video state blocks the cmd state switch */
 	list_for_each_entry(client, &rsc->client_list, list)
@@ -275,7 +288,7 @@ end:
 }
 
 static bool sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
-	struct sde_rsc_command_config *config,
+	struct sde_rsc_cmd_config *config,
 	struct sde_rsc_client *caller_client, bool wait_req)
 {
 	int rc = 0;
@@ -311,7 +324,7 @@ static bool sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
  */
 int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 	enum sde_rsc_state state,
-	struct sde_rsc_command_config *config, int crtc_id)
+	struct sde_rsc_cmd_config *config, int crtc_id)
 {
 	int rc = 0;
 	struct sde_rsc_priv *rsc;
@@ -346,10 +359,6 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 	pr_debug("%pS: rsc state:%d request client:%s state:%d\n",
 		__builtin_return_address(0), rsc->current_state,
 		caller_client->name, state);
-
-	if (config && ((state == SDE_RSC_CMD_STATE) ||
-					(state == SDE_RSC_CMD_UPDATE_STATE)))
-		sde_rsc_timer_calculate(rsc, config);
 
 	wait_requested = (rsc->current_state != SDE_RSC_IDLE_STATE);
 
@@ -881,21 +890,14 @@ static int sde_rsc_probe(struct platform_device *pdev)
 		goto sde_rsc_fail;
 	}
 
-	sde_rsc_timer_calculate(rsc, NULL);
-
 	/* these clocks are always on */
 	if (sde_power_resource_enable(&rsc->phandle, rsc->pclient, true)) {
 		pr_err("failed to enable sde rsc power resources\n");
 		goto sde_rsc_fail;
 	}
 
-	if (rsc->hw_ops.init) {
-		ret = rsc->hw_ops.init(rsc);
-		if (ret) {
-			pr_err("sde rsc: hw init failed ret:%d\n", ret);
-			goto sde_rsc_fail;
-		}
-	}
+	if (sde_rsc_timer_calculate(rsc, NULL))
+		goto sde_rsc_fail;
 
 	INIT_LIST_HEAD(&rsc->client_list);
 	mutex_init(&rsc->client_lock);
