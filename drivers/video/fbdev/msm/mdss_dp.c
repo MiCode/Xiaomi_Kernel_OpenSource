@@ -2938,8 +2938,6 @@ static void mdss_dp_mainlink_push_idle(struct mdss_panel_data *pdata)
 	/* wait until link training is completed */
 	mutex_lock(&dp_drv->train_mutex);
 
-	mdss_dp_aux_set_sink_power_state(dp_drv, SINK_POWER_OFF);
-
 	reinit_completion(&dp_drv->idle_comp);
 	mdss_dp_state_ctrl(&dp_drv->ctrl_io, ST_PUSH_IDLE);
 	if (!wait_for_completion_timeout(&dp_drv->idle_comp,
@@ -3339,6 +3337,7 @@ irqreturn_t dp_isr(int irq, void *ptr)
 	spin_lock(&dp->lock);
 	isr1 = dp_read(base + DP_INTR_STATUS);
 	isr2 = dp_read(base + DP_INTR_STATUS2);
+	pr_debug("isr1=0x%08x, isr2=0x%08x\n", isr1, isr2);
 
 	mask1 = isr1 & dp->mask1;
 

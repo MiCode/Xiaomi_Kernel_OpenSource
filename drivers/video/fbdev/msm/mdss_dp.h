@@ -508,6 +508,23 @@ static inline char *mdss_dp_phy_aux_config_type_to_string(u32 cfg_type)
 	}
 }
 
+enum dp_aux_transaction {
+	DP_AUX_WRITE,
+	DP_AUX_READ
+};
+
+static inline char *mdss_dp_aux_transaction_to_string(u32 transaction)
+{
+	switch (transaction) {
+	case DP_AUX_WRITE:
+		return DP_ENUM_STR(DP_AUX_WRITE);
+	case DP_AUX_READ:
+		return DP_ENUM_STR(DP_AUX_READ);
+	default:
+		return "unknown";
+	}
+}
+
 struct mdss_dp_drv_pdata {
 	/* device driver */
 	int (*on) (struct mdss_panel_data *pdata);

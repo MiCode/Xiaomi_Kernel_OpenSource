@@ -231,7 +231,12 @@ static int dp_aux_write_cmds(struct mdss_dp_drv_pdata *ep,
 
 	len = dp_cmd_fifo_tx(&ep->txp, ep->base);
 
-	wait_for_completion_timeout(&ep->aux_comp, HZ/4);
+	if (!wait_for_completion_timeout(&ep->aux_comp, HZ/4)) {
+		pr_err("aux write timeout\n");
+		ep->aux_error_num = EDP_AUX_ERR_TOUT;
+		/* Reset the AUX controller state machine */
+		mdss_dp_aux_reset(&ep->ctrl_io);
+	}
 
 	if (ep->aux_error_num == EDP_AUX_ERR_NONE)
 		ret = len;
@@ -241,13 +246,6 @@ static int dp_aux_write_cmds(struct mdss_dp_drv_pdata *ep,
 	ep->aux_cmd_busy = 0;
 	mutex_unlock(&ep->aux_mutex);
 	return  ret;
-}
-
-int dp_aux_write(void *ep, struct edp_cmd *cmd)
-{
-	int rc = dp_aux_write_cmds(ep, cmd);
-
-	return rc < 0 ? -EINVAL : 0;
 }
 
 static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
@@ -287,7 +285,14 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 
 	dp_cmd_fifo_tx(tp, ep->base);
 
-	wait_for_completion_timeout(&ep->aux_comp, HZ/4);
+	if (!wait_for_completion_timeout(&ep->aux_comp, HZ/4)) {
+		pr_err("aux read timeout\n");
+		ep->aux_error_num = EDP_AUX_ERR_TOUT;
+		/* Reset the AUX controller state machine */
+		mdss_dp_aux_reset(&ep->ctrl_io);
+		ret = ep->aux_error_num;
+		goto end;
+	}
 
 	if (ep->aux_error_num == EDP_AUX_ERR_NONE) {
 		ret = dp_cmd_fifo_rx(rp, len, ep->base);
@@ -299,17 +304,11 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 		ret = ep->aux_error_num;
 	}
 
+end:
 	ep->aux_cmd_busy = 0;
 	mutex_unlock(&ep->aux_mutex);
 
 	return ret;
-}
-
-int dp_aux_read(void *ep, struct edp_cmd *cmds)
-{
-	int rc = dp_aux_read_cmds(ep, cmds);
-
-	return rc  < 0 ? -EINVAL : 0;
 }
 
 void dp_aux_native_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
@@ -335,6 +334,7 @@ void dp_aux_native_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
 
 void dp_aux_i2c_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
 {
+	pr_debug("isr=0x%08x\n", isr);
 	if (isr & EDP_INTR_AUX_I2C_DONE) {
 		if (isr & (EDP_INTR_I2C_NACK | EDP_INTR_I2C_DEFER))
 			ep->aux_error_num = EDP_AUX_ERR_NACK;
@@ -362,8 +362,70 @@ void dp_aux_i2c_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
 	complete(&ep->aux_comp);
 }
 
-static int dp_aux_write_buf(struct mdss_dp_drv_pdata *ep, u32 addr,
-				char *buf, int len, int i2c)
+static int dp_aux_rw_cmds_retry(struct mdss_dp_drv_pdata *dp,
+	struct edp_cmd *cmd, enum dp_aux_transaction transaction)
+{
+	int const retry_count = 5;
+	int adjust_count = 0;
+	int i;
+	u32 aux_cfg1_config_count;
+	int ret;
+
+	aux_cfg1_config_count = mdss_dp_phy_aux_get_config_cnt(dp,
+			PHY_AUX_CFG1);
+retry:
+	i = 0;
+	ret = 0;
+	do {
+		struct edp_cmd cmd1 = *cmd;
+
+		dp->aux_error_num = EDP_AUX_ERR_NONE;
+		pr_debug("Trying %s, iteration count: %d\n",
+			mdss_dp_aux_transaction_to_string(transaction),
+			i + 1);
+		if (transaction == DP_AUX_READ)
+			ret = dp_aux_read_cmds(dp, &cmd1);
+		else if (transaction == DP_AUX_WRITE)
+			ret = dp_aux_write_cmds(dp, &cmd1);
+
+		i++;
+	} while ((i < retry_count) && (ret < 0));
+
+	if (ret >= 0) /* rw success */
+		goto end;
+
+	if (adjust_count >= aux_cfg1_config_count) {
+		pr_err("PHY_AUX_CONFIG1 calibration failed\n");
+		goto end;
+	}
+
+	/* Adjust AUX configuration and retry */
+	pr_debug("AUX failure (%d), adjust AUX settings\n", ret);
+	mdss_dp_phy_aux_update_config(dp, PHY_AUX_CFG1);
+	adjust_count++;
+	goto retry;
+
+end:
+	return ret;
+}
+
+/**
+ * dp_aux_write_buf_retry() - send a AUX write command
+ * @dp: display port driver data
+ * @addr: AUX address (in hex) to write the command to
+ * @buf: the buffer containing the actual payload
+ * @len: the length of the buffer @buf
+ * @i2c: indicates if it is an i2c-over-aux transaction
+ * @retry: specifies if retries should be attempted upon failures
+ *
+ * Send an AUX write command with the specified payload over the AUX
+ * channel. This function can send both native AUX command or an
+ * i2c-over-AUX command. In addition, if specified, it can also retry
+ * when failures are detected. The retry logic would adjust AUX PHY
+ * parameters on the fly.
+ */
+static int dp_aux_write_buf_retry(struct mdss_dp_drv_pdata *dp, u32 addr,
+	char *buf, int len, int i2c, bool retry)
 {
 	struct edp_cmd	cmd;
 
@@ -374,11 +436,42 @@ static int dp_aux_write_buf(struct mdss_dp_drv_pdata *ep, u32 addr,
 	cmd.len = len & 0x0ff;
 	cmd.next = 0;
 
-	return dp_aux_write_cmds(ep, &cmd);
+	if (retry)
+		return dp_aux_rw_cmds_retry(dp, &cmd, DP_AUX_WRITE);
+	else
+		return dp_aux_write_cmds(dp, &cmd);
 }
 
-static int dp_aux_read_buf(struct mdss_dp_drv_pdata *ep, u32 addr,
-				int len, int i2c)
+static int dp_aux_write_buf(struct mdss_dp_drv_pdata *dp, u32 addr,
+	char *buf, int len, int i2c)
+{
+	return dp_aux_write_buf_retry(dp, addr, buf, len, i2c, true);
+}
+
+int dp_aux_write(void *dp, struct edp_cmd *cmd)
+{
+	int rc = dp_aux_write_cmds(dp, cmd);
+
+	return rc < 0 ? -EINVAL : 0;
+}
+
+/**
+ * dp_aux_read_buf_retry() - send a AUX read command
+ * @dp: display port driver data
+ * @addr: AUX address (in hex) to write the command to
+ * @buf: the buffer containing the actual payload
+ * @len: the length of the buffer @buf
+ * @i2c: indicates if it is an i2c-over-aux transaction
+ * @retry: specifies if retries should be attempted upon failures
+ *
+ * Send an AUX write command with the specified payload over the AUX
+ * channel. This function can send both native AUX command or an
+ * i2c-over-AUX command. In addition, if specified, it can also retry
+ * when failures are detected. The retry logic would adjust AUX PHY
+ * parameters on the fly.
+ */
+static int dp_aux_read_buf_retry(struct mdss_dp_drv_pdata *dp, u32 addr,
+		int len, int i2c, bool retry)
 {
 	struct edp_cmd cmd = {0};
 
@@ -389,7 +482,23 @@ static int dp_aux_read_buf(struct mdss_dp_drv_pdata *ep, u32 addr,
 	cmd.len = len & 0x0ff;
 	cmd.next = 0;
 
-	return dp_aux_read_cmds(ep, &cmd);
+	if (retry)
+		return dp_aux_rw_cmds_retry(dp, &cmd, DP_AUX_READ);
+	else
+		return dp_aux_read_cmds(dp, &cmd);
+}
+
+static int dp_aux_read_buf(struct mdss_dp_drv_pdata *dp, u32 addr,
+				int len, int i2c)
+{
+	return dp_aux_read_buf_retry(dp, addr, len, i2c, true);
+}
+
+int dp_aux_read(void *dp, struct edp_cmd *cmds)
+{
+	int rc = dp_aux_read_cmds(dp, cmds);
+
+	return rc  < 0 ? -EINVAL : 0;
 }
 
 /*
@@ -787,9 +896,9 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 	dp_sink_parse_test_request(dp);
 
 	do {
-		rlen = dp_aux_read_buf(dp, EDID_START_ADDRESS +
+		rlen = dp_aux_read_buf_retry(dp, EDID_START_ADDRESS +
 				(blk_num * EDID_BLOCK_SIZE),
-				EDID_BLOCK_SIZE, 1);
+				EDID_BLOCK_SIZE, 1, false);
 		if (rlen != EDID_BLOCK_SIZE) {
 			pr_err("Read failed. rlen=%d\n", rlen);
 			continue;
