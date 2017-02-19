@@ -44,7 +44,7 @@ static void msm_iommu_detach(struct msm_mmu *mmu, const char **names, int cnt)
 }
 
 static int msm_iommu_map(struct msm_mmu *mmu, uint32_t iova,
-		struct sg_table *sgt, unsigned len, int prot)
+		struct sg_table *sgt, int prot)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	struct iommu_domain *domain = iommu->domain;
@@ -57,10 +57,10 @@ static int msm_iommu_map(struct msm_mmu *mmu, uint32_t iova,
 		return -EINVAL;
 
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		u32 pa = sg_phys(sg) - sg->offset;
+		phys_addr_t pa = sg_phys(sg) - sg->offset;
 		size_t bytes = sg->length + sg->offset;
 
-		VERB("map[%d]: %08x %08x(%zx)", i, iova, pa, bytes);
+		VERB("map[%d]: %08x %pa(%zx)", i, iova, &pa, bytes);
 
 		ret = iommu_map(domain, da, pa, bytes, prot);
 		if (ret)
@@ -83,7 +83,7 @@ fail:
 }
 
 static int msm_iommu_unmap(struct msm_mmu *mmu, uint32_t iova,
-		struct sg_table *sgt, unsigned len)
+		struct sg_table *sgt)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	struct iommu_domain *domain = iommu->domain;

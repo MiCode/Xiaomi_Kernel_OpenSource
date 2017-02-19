@@ -77,6 +77,7 @@ enum {
 	QC_CHARGER_DETECTION_WA_BIT	= BIT(0),
 	BOOST_BACK_WA			= BIT(1),
 	TYPEC_CC2_REMOVAL_WA_BIT	= BIT(2),
+	QC_AUTH_INTERRUPT_WA_BIT	= BIT(3),
 };
 
 enum smb_irq_index {
