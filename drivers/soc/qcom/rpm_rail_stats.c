@@ -27,7 +27,7 @@
 
 #include "rpm_stats.h"
 
-#define RPM_RAIL_BUF_LEN 600
+#define RPM_RAIL_BUF_LEN 1300
 
 #define SNPRINTF(buf, size, format, ...) \
 { \
@@ -118,7 +118,7 @@ static int msm_rpm_rail_type_copy(void __iomem **base, char **buf, int count)
 	rail[NAMELEN - 1] = '\0';
 	memcpy(rail, &rt.rail, NAMELEN - 1);
 	SNPRINTF(*buf, count,
-		"\trail:%-2s num_corners:%-2u current_corner:%-2u last_entered:%-8u\n",
+		"\trail:%-2s \tnum_corners:%-2u current_corner:%-2u last_entered:%-8u\n",
 		rail, rt.num_corners, rt.current_corner, rt.last_entered);
 
 	*base += sizeof(rt);
