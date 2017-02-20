@@ -134,16 +134,34 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 static void a6xx_protect_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_protected_registers *mmu_prot = NULL;
 	int i;
+	int num_sets;
+	int num_sets_array;
+	unsigned int mmu_base;
+	unsigned int mmu_range;
 
 	/* enable access protection to privileged registers */
 	kgsl_regwrite(device, A6XX_CP_PROTECT_CNTL, 0x00000007);
 
-	if (ARRAY_SIZE(a6xx_protected_regs_group) >
-			adreno_dev->gpucore->num_protected_regs)
-		WARN(1, "Size exceeds the num of protection regs available\n");
+	num_sets = ARRAY_SIZE(a6xx_protected_regs_group);
 
-	for (i = 0; i < ARRAY_SIZE(a6xx_protected_regs_group); i++) {
+	mmu_prot = kgsl_mmu_get_prot_regs(&device->mmu);
+
+	if (mmu_prot) {
+		mmu_base = mmu_prot->base;
+		mmu_range = 1 << mmu_prot->range;
+		num_sets += DIV_ROUND_UP(mmu_range, 0x2000);
+	}
+
+	if (num_sets > adreno_dev->gpucore->num_protected_regs) {
+		WARN(1, "Size exceeds the num of protection regs available\n");
+		num_sets = adreno_dev->gpucore->num_protected_regs;
+	}
+
+	num_sets_array = min_t(unsigned int,
+		ARRAY_SIZE(a6xx_protected_regs_group), num_sets);
+	for (i = 0; i < num_sets_array; i++) {
 		struct a6xx_protected_regs *regs =
 					&a6xx_protected_regs_group[i];
 
@@ -152,6 +170,16 @@ static void a6xx_protect_init(struct adreno_device *adreno_dev)
 				(regs->read_protect << 31));
 	}
 
+	for (; i < num_sets; i++) {
+		unsigned int cur_range = min_t(unsigned int, mmu_range,
+						0x2000);
+
+		kgsl_regwrite(device, A6XX_CP_PROTECT_REG + i,
+			mmu_base | ((cur_range - 1) << 18) | (1 << 31));
+
+		mmu_base += cur_range;
+		mmu_range -= cur_range;
+	}
 }
 
 static void a6xx_enable_64bit(struct adreno_device *adreno_dev)
