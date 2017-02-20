@@ -848,6 +848,8 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
 	POWER_SUPPLY_PROP_SET_SHIP_MODE,
 	POWER_SUPPLY_PROP_DIE_HEALTH,
+	POWER_SUPPLY_PROP_RERUN_AICL,
+	POWER_SUPPLY_PROP_DP_DM,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -933,6 +935,12 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
 		rc = smblib_get_prop_die_health(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_DP_DM:
+		val->intval = chg->pulse_cnt;
+		break;
+	case POWER_SUPPLY_PROP_RERUN_AICL:
+		val->intval = 0;
+		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -986,6 +994,12 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 			break;
 		rc = smblib_set_prop_ship_mode(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_RERUN_AICL:
+		rc = smblib_rerun_aicl(chg);
+		break;
+	case POWER_SUPPLY_PROP_DP_DM:
+		rc = smblib_dp_dm(chg, val->intval);
+		break;
 	default:
 		rc = -EINVAL;
 	}
@@ -1001,6 +1015,8 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_CAPACITY:
 	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
+	case POWER_SUPPLY_PROP_DP_DM:
+	case POWER_SUPPLY_PROP_RERUN_AICL:
 		return 1;
 	default:
 		break;
