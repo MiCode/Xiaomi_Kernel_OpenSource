@@ -1040,6 +1040,13 @@ static int msm_sdw_swrm_read(void *handle, int reg)
 		__func__, reg);
 	sdw_rd_addr_base = MSM_SDW_AHB_BRIDGE_RD_ADDR_0;
 	sdw_rd_data_base = MSM_SDW_AHB_BRIDGE_RD_DATA_0;
+
+	/*
+	 * Add sleep as SWR slave access read takes time.
+	 * Allow for RD_DONE to complete for previous register if any.
+	 */
+	usleep_range(50, 55);
+
 	/* read_lock */
 	mutex_lock(&msm_sdw->sdw_read_lock);
 	ret = regmap_bulk_write(msm_sdw->regmap, sdw_rd_addr_base,
