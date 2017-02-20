@@ -64,6 +64,18 @@ enum sde_hw_filter {
 	SDE_SCALE_FILTER_MAX
 };
 
+enum sde_hw_filter_alpa {
+	SDE_SCALE_ALPHA_PIXEL_REP,
+	SDE_SCALE_ALPHA_BIL
+};
+
+enum sde_hw_filter_yuv {
+	SDE_SCALE_2D_4X4,
+	SDE_SCALE_2D_CIR,
+	SDE_SCALE_1D_SEP,
+	SDE_SCALE_BIL
+};
+
 struct sde_hw_sharp_cfg {
 	u32 strength;
 	u32 edge_thr;

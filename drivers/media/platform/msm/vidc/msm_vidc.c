@@ -364,7 +364,7 @@ static struct msm_smem *map_buffer(struct msm_vidc_inst *inst,
 	struct msm_smem *handle = NULL;
 	handle = msm_comm_smem_user_to_kernel(inst,
 				p->reserved[0],
-				p->reserved[1],
+				p->length,
 				buffer_type);
 	if (!handle) {
 		dprintk(VIDC_ERR,
@@ -433,8 +433,10 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 		goto exit;
 	}
 
-	dprintk(VIDC_DBG, "[MAP] Create binfo = %pK fd = %d type = %d\n",
-			binfo, b->m.planes[0].reserved[0], b->type);
+	dprintk(VIDC_DBG,
+		"[MAP] Create binfo = %pK fd = %d size = %d type = %d\n",
+		binfo, b->m.planes[0].reserved[0],
+		b->m.planes[0].length, b->type);
 
 	for (i = 0; i < b->length; ++i) {
 		rc = 0;
@@ -686,7 +688,7 @@ static bool valid_v4l2_buffer(struct v4l2_buffer *b,
 								MAX_PORT_NUM;
 
 	return port != MAX_PORT_NUM &&
-		inst->fmts[port].num_planes == b->length;
+		inst->prop.num_planes[port] == b->length;
 }
 
 int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
@@ -720,6 +722,7 @@ int msm_vidc_release_buffers(void *instance, int buffer_type)
 	struct buffer_info *bi, *dummy;
 	struct v4l2_buffer buffer_info;
 	struct v4l2_plane plane[VIDEO_MAX_PLANES];
+	struct vb2_buf_entry *temp, *next;
 	int i, rc = 0;
 
 	if (!inst)
@@ -807,6 +810,15 @@ free_and_unmap:
 		}
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
+
+	mutex_lock(&inst->pendingq.lock);
+	list_for_each_entry_safe(temp, next, &inst->pendingq.list, list) {
+		if (temp->vb->type == buffer_type) {
+			list_del(&temp->list);
+			kfree(temp);
+		}
+	}
+	mutex_unlock(&inst->pendingq.lock);
 	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_release_buffers);
@@ -1306,9 +1318,6 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 			dprintk(VIDC_ERR,
 				"Failed to release output buffers\n");
 		}
-
-		if (inst->extradata_handle)
-			msm_comm_smem_free(inst, inst->extradata_handle);
 
 		debugfs_remove_recursive(inst->debugfs_root);
 

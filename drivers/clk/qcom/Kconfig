@@ -231,4 +231,13 @@ config CLOCK_CPU_OSM
 	 existence of multiple OSM domains.
 	 Say Y if you want to support osm clocks.
 
+config CLOCK_QPNP_DIV
+	tristate "QPNP PMIC clkdiv driver"
+	depends on COMMON_CLK_QCOM && SPMI
+	help
+	  This driver supports the clkdiv functionality on the Qualcomm
+	  Technologies, Inc. QPNP PMIC. It configures the frequency of
+	  clkdiv outputs on the PMIC. These clocks are typically wired
+	  through alternate functions on gpio pins.
+
 source "drivers/clk/qcom/mdss/Kconfig"

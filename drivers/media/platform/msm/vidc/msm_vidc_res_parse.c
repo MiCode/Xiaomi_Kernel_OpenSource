@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1082,6 +1082,13 @@ int read_platform_resources_from_dt(
 		dprintk(VIDC_ERR,
 			"Failed to determine max load supported: %d\n", rc);
 		goto err_load_max_hw_load;
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,power-conf",
+			&res->power_conf);
+	if (rc) {
+		dprintk(VIDC_DBG,
+			"Failed to read power configuration: %d\n", rc);
 	}
 
 	rc = msm_vidc_populate_legacy_context_bank(res);

@@ -171,6 +171,19 @@
 	};
 };
 
+&pmi8998_gpios {
+	/* GPIO 6 for the internal QNOVO discharge FET control signal */
+	gpio@c500 {
+		status = "okay";
+		qcom,mode = <1>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <2>;
+		qcom,out-strength = <1>;
+		qcom,master-en = <1>;
+	};
+};
+
 &i2c_5 {
 	status = "okay";
 	synaptics@20 {
@@ -519,6 +532,10 @@
 
 &wil6210 {
 	status = "ok";
+};
+
+&snd_9335 {
+	qcom,mbhc-audio-jack-type = "6-pole-jack";
 };
 
 &soc {

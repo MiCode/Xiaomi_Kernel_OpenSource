@@ -1118,7 +1118,7 @@ static void msm_spi_bam_unmap_buffers(struct msm_spi *dd)
 	void *tx_buf, *rx_buf;
 	u32  tx_len, rx_len;
 
-	dev = &dd->spi->dev;
+	dev = dd->dev;
 	xfr = dd->cur_transfer;
 
 	tx_buf = (void *)xfr->tx_buf;
@@ -2484,6 +2484,7 @@ static int msm_spi_probe(struct platform_device *pdev)
 		dd->use_dma = 1;
 	}
 
+	spi_dma_mask(&pdev->dev);
 skip_dma_resources:
 
 	spin_lock_init(&dd->queue_lock);

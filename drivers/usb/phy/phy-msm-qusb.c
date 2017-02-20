@@ -151,6 +151,7 @@ struct qusb_phy {
 	int			*emu_dcm_reset_seq;
 	int			emu_dcm_reset_seq_len;
 	bool			put_into_high_z_state;
+	struct mutex		phy_lock;
 };
 
 static void qusb_phy_enable_clocks(struct qusb_phy *qphy, bool on)
@@ -326,6 +327,7 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 	switch (value) {
 	case POWER_SUPPLY_DP_DM_DPF_DMF:
 		dev_dbg(phy->dev, "POWER_SUPPLY_DP_DM_DPF_DMF\n");
+		mutex_lock(&qphy->phy_lock);
 		if (!qphy->rm_pulldown) {
 			ret = qusb_phy_enable_power(qphy, true);
 			if (ret >= 0) {
@@ -372,14 +374,17 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 				/* Make sure that above write is completed */
 				wmb();
 
-				qusb_phy_enable_clocks(qphy, false);
+				if (qphy->suspended)
+					qusb_phy_enable_clocks(qphy, false);
 			}
 		}
+		mutex_unlock(&qphy->phy_lock);
 
 		break;
 
 	case POWER_SUPPLY_DP_DM_DPR_DMR:
 		dev_dbg(phy->dev, "POWER_SUPPLY_DP_DM_DPR_DMR\n");
+		mutex_lock(&qphy->phy_lock);
 		if (qphy->rm_pulldown) {
 			if (!qphy->cable_connected) {
 				if (qphy->tcsr_clamp_dig_n)
@@ -394,6 +399,7 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 						qphy->rm_pulldown);
 			}
 		}
+		mutex_unlock(&qphy->phy_lock);
 		break;
 
 	default:
@@ -707,6 +713,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 
 			qusb_phy_enable_clocks(qphy, false);
 		} else { /* Disconnect case */
+			mutex_lock(&qphy->phy_lock);
 			/* Disable all interrupts */
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
@@ -723,6 +730,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				qusb_phy_enable_power(qphy, false);
 			else
 				dev_dbg(phy->dev, "race with rm_pulldown. Keep ldo ON\n");
+			mutex_unlock(&qphy->phy_lock);
 
 			/*
 			 * Set put_into_high_z_state to true so next USB
@@ -1081,6 +1089,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		return PTR_ERR(qphy->vdda18);
 	}
 
+	mutex_init(&qphy->phy_lock);
 	platform_set_drvdata(pdev, qphy);
 
 	qphy->phy.label			= "msm-qusb-phy";

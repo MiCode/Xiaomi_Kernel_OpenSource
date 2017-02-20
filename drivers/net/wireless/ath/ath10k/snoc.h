@@ -35,7 +35,6 @@ struct snoc_state {
  * @buf_sz: buffer size
  * @pipe_lock: pipe lock
  * @ar_snoc: snoc private structure
- * @intr: tasklet structure
  */
 
 struct ath10k_snoc_pipe {
@@ -46,7 +45,6 @@ struct ath10k_snoc_pipe {
 	/* protect ce info */
 	spinlock_t pipe_lock;
 	struct ath10k_snoc *ar_snoc;
-	struct tasklet_struct intr;
 };
 
 /* struct ath10k_snoc_supp_chip: supported chip set
@@ -97,7 +95,6 @@ struct ath10k_target_info {
  * @mem_pa: mem base physical address
  * @target_info: snoc target info
  * @mem_len: mempry map length
- * @intr_tq: rx tasklet handle
  * @pipe_info: pipe info struct
  * @ce_lock: protect ce structures
  * @ce_states: maps ce id to ce state
@@ -112,7 +109,6 @@ struct ath10k_snoc {
 	dma_addr_t mem_pa;
 	struct ath10k_target_info target_info;
 	size_t mem_len;
-	struct tasklet_struct intr_tq;
 	struct ath10k_snoc_pipe pipe_info[CE_COUNT_MAX];
 	/* protects CE info */
 	spinlock_t ce_lock;

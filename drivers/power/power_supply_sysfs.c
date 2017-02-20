@@ -60,7 +60,7 @@ static ssize_t power_supply_show_property(struct device *dev,
 		"Unknown", "Good", "Overheat", "Dead", "Over voltage",
 		"Unspecified failure", "Cold", "Watchdog timer expire",
 		"Safety timer expire",
-		"Warm", "Cool"
+		"Warm", "Cool", "Hot"
 	};
 	static char *technology_text[] = {
 		"Unknown", "NiMH", "Li-ion", "Li-poly", "LiFe", "NiCd",
@@ -122,6 +122,10 @@ static ssize_t power_supply_show_property(struct device *dev,
 		return sprintf(buf, "%s\n", typec_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_TYPEC_POWER_ROLE)
 		return sprintf(buf, "%s\n", typec_pr_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_DIE_HEALTH)
+		return sprintf(buf, "%s\n", health_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_CONNECTOR_HEALTH)
+		return sprintf(buf, "%s\n", health_text[value.intval]);
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
 		return sprintf(buf, "%s\n", value.strval);
 
@@ -235,6 +239,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(input_current_max),
 	POWER_SUPPLY_ATTR(input_current_trim),
 	POWER_SUPPLY_ATTR(input_current_settled),
+	POWER_SUPPLY_ATTR(input_voltage_settled),
 	POWER_SUPPLY_ATTR(bypass_vchg_loop_debouncer),
 	POWER_SUPPLY_ATTR(charge_counter_shadow),
 	POWER_SUPPLY_ATTR(hi_power),
@@ -259,6 +264,8 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(dp_dm),
 	POWER_SUPPLY_ATTR(input_current_limited),
 	POWER_SUPPLY_ATTR(input_current_now),
+	POWER_SUPPLY_ATTR(current_qnovo),
+	POWER_SUPPLY_ATTR(voltage_qnovo),
 	POWER_SUPPLY_ATTR(rerun_aicl),
 	POWER_SUPPLY_ATTR(cycle_count_id),
 	POWER_SUPPLY_ATTR(safety_timer_expired),
@@ -282,6 +289,9 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(fcc_delta),
 	POWER_SUPPLY_ATTR(icl_reduction),
 	POWER_SUPPLY_ATTR(parallel_mode),
+	POWER_SUPPLY_ATTR(die_health),
+	POWER_SUPPLY_ATTR(connector_health),
+	POWER_SUPPLY_ATTR(ctm_current_max),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */

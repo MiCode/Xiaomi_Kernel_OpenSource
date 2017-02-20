@@ -243,6 +243,10 @@ static void *usbpd_ipc_log;
 #define MAX_VDM_RESPONSE_TIME	60 /* 2 * tVDMSenderResponse_max(30ms) */
 #define MAX_VDM_BUSY_TIME	100 /* 2 * tVDMBusy (50ms) */
 
+#define PD_SNK_PDO_FIXED(prs, hc, uc, usb_comm, drs, volt, curr) \
+	(((prs) << 29) | ((hc) << 28) | ((uc) << 27) | ((usb_comm) << 26) | \
+	 ((drs) << 25) | ((volt) << 10) | (curr))
+
 /* VDM header is the first 32-bit object following the 16-bit PD header */
 #define VDM_HDR_SVID(hdr)	((hdr) >> 16)
 #define VDM_IS_SVDM(hdr)	((hdr) & 0x8000)
@@ -273,7 +277,7 @@ static int min_sink_current = 900;
 module_param(min_sink_current, int, S_IRUSR | S_IWUSR);
 
 static const u32 default_src_caps[] = { 0x36019096 };	/* VSafe5V @ 1.5A */
-static const u32 default_snk_caps[] = { 0x2601905A };	/* 5V @ 900mA */
+static const u32 default_snk_caps[] = { 0x2601912C };	/* VSafe5V @ 3A */
 
 struct vdm_tx {
 	u32			data[7];
@@ -305,7 +309,7 @@ struct usbpd {
 	spinlock_t		rx_lock;
 
 	u32			received_pdos[7];
-	int			src_cap_id;
+	u16			src_cap_id;
 	u8			selected_pdo;
 	u8			requested_pdo;
 	u32			rdo;	/* can be either source or sink */
@@ -317,6 +321,9 @@ struct usbpd {
 	bool			peer_usb_comm;
 	bool			peer_pr_swap;
 	bool			peer_dr_swap;
+
+	u32			sink_caps[7];
+	int			num_sink_caps;
 
 	struct power_supply	*usb_psy;
 	struct notifier_block	psy_nb;
@@ -331,8 +338,10 @@ struct usbpd {
 	enum power_role		current_pr;
 	bool			in_pr_swap;
 	bool			pd_phy_opened;
-	struct completion	swap_complete;
+	bool			send_request;
+	struct completion	is_ready;
 
+	struct mutex		swap_lock;
 	struct dual_role_phy_instance	*dual_role;
 	struct dual_role_phy_desc	dr_desc;
 	bool			send_pr_swap;
@@ -456,6 +465,9 @@ static inline void pd_reset_protocol(struct usbpd *pd)
 	 */
 	pd->rx_msgid = -1;
 	pd->tx_msgid = 0;
+	pd->send_request = false;
+	pd->send_pr_swap = false;
+	pd->send_dr_swap = false;
 }
 
 static int pd_send_msg(struct usbpd *pd, u8 hdr_type, const u32 *data,
@@ -835,7 +847,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		}
 
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
-		complete(&pd->swap_complete);
+		complete(&pd->is_ready);
 		dual_role_instance_changed(pd->dual_role);
 		break;
 
@@ -970,7 +982,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_SNK_READY:
 		pd->in_explicit_contract = true;
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
-		complete(&pd->swap_complete);
+		complete(&pd->is_ready);
 		dual_role_instance_changed(pd->dual_role);
 		break;
 
@@ -1539,9 +1551,9 @@ static void usbpd_sm(struct work_struct *w)
 		pd->hard_reset_recvd = false;
 		pd->caps_count = 0;
 		pd->hard_reset_count = 0;
-		pd->src_cap_id = 0;
 		pd->requested_voltage = 0;
 		pd->requested_current = 0;
+		pd->selected_pdo = pd->requested_pdo = 0;
 		memset(&pd->received_pdos, 0, sizeof(pd->received_pdos));
 		rx_msg_cleanup(pd);
 
@@ -1609,8 +1621,12 @@ static void usbpd_sm(struct work_struct *w)
 				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
 		pd->in_pr_swap = false;
+		pd->in_explicit_contract = false;
+		pd->selected_pdo = pd->requested_pdo = 0;
+		pd->rdo = 0;
 		rx_msg_cleanup(pd);
 		reset_vdm_state(pd);
+		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 
 		if (pd->current_pr == PR_SINK) {
 			usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
@@ -1718,8 +1734,8 @@ static void usbpd_sm(struct work_struct *w)
 			}
 		} else if (IS_CTRL(rx_msg, MSG_GET_SINK_CAP)) {
 			ret = pd_send_msg(pd, MSG_SINK_CAPABILITIES,
-					default_snk_caps,
-					ARRAY_SIZE(default_snk_caps), SOP_MSG);
+					pd->sink_caps, pd->num_sink_caps,
+					SOP_MSG);
 			if (ret) {
 				usbpd_err(&pd->dev, "Error sending Sink Caps\n");
 				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
@@ -1833,8 +1849,10 @@ static void usbpd_sm(struct work_struct *w)
 
 		pd_send_hard_reset(pd);
 		pd->in_explicit_contract = false;
+		pd->rdo = 0;
 		rx_msg_cleanup(pd);
 		reset_vdm_state(pd);
+		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 
 		pd->current_state = PE_SRC_TRANSITION_TO_DEFAULT;
 		kick_sm(pd, PS_HARD_RESET_TIME);
@@ -1996,8 +2014,8 @@ static void usbpd_sm(struct work_struct *w)
 			usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
 		} else if (IS_CTRL(rx_msg, MSG_GET_SINK_CAP)) {
 			ret = pd_send_msg(pd, MSG_SINK_CAPABILITIES,
-					default_snk_caps,
-					ARRAY_SIZE(default_snk_caps), SOP_MSG);
+					pd->sink_caps, pd->num_sink_caps,
+					SOP_MSG);
 			if (ret) {
 				usbpd_err(&pd->dev, "Error sending Sink Caps\n");
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
@@ -2068,6 +2086,9 @@ static void usbpd_sm(struct work_struct *w)
 			vconn_swap(pd);
 		} else if (IS_DATA(rx_msg, MSG_VDM)) {
 			handle_vdm_rx(pd, rx_msg);
+		} else if (pd->send_request) {
+			pd->send_request = false;
+			usbpd_set_state(pd, PE_SNK_SELECT_CAPABILITY);
 		} else if (pd->send_pr_swap && is_sink_tx_ok(pd)) {
 			pd->send_pr_swap = false;
 			ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0, SOP_MSG);
@@ -2151,7 +2172,10 @@ static void usbpd_sm(struct work_struct *w)
 
 		pd_send_hard_reset(pd);
 		pd->in_explicit_contract = false;
+		pd->selected_pdo = pd->requested_pdo = 0;
+		pd->rdo = 0;
 		reset_vdm_state(pd);
+		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		usbpd_set_state(pd, PE_SNK_TRANSITION_TO_DEFAULT);
 		break;
 
@@ -2533,16 +2557,20 @@ static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
 				return -EAGAIN;
 			}
 
-			reinit_completion(&pd->swap_complete);
+			mutex_lock(&pd->swap_lock);
+			reinit_completion(&pd->is_ready);
 			pd->send_dr_swap = true;
 			kick_sm(pd, 0);
 
 			/* wait for operation to complete */
-			if (!wait_for_completion_timeout(&pd->swap_complete,
+			if (!wait_for_completion_timeout(&pd->is_ready,
 					msecs_to_jiffies(100))) {
 				usbpd_err(&pd->dev, "data_role swap timed out\n");
+				mutex_unlock(&pd->swap_lock);
 				return -ETIMEDOUT;
 			}
+
+			mutex_unlock(&pd->swap_lock);
 
 			if ((*val == DUAL_ROLE_PROP_DR_HOST &&
 					pd->current_dr != DR_DFP) ||
@@ -2584,16 +2612,20 @@ static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
 				return -EAGAIN;
 			}
 
-			reinit_completion(&pd->swap_complete);
+			mutex_lock(&pd->swap_lock);
+			reinit_completion(&pd->is_ready);
 			pd->send_pr_swap = true;
 			kick_sm(pd, 0);
 
 			/* wait for operation to complete */
-			if (!wait_for_completion_timeout(&pd->swap_complete,
+			if (!wait_for_completion_timeout(&pd->is_ready,
 					msecs_to_jiffies(2000))) {
 				usbpd_err(&pd->dev, "power_role swap timed out\n");
+				mutex_unlock(&pd->swap_lock);
 				return -ETIMEDOUT;
 			}
+
+			mutex_unlock(&pd->swap_lock);
 
 			if ((*val == DUAL_ROLE_PROP_PR_SRC &&
 					pd->current_pr != PR_SRC) ||
@@ -2857,36 +2889,62 @@ static ssize_t select_pdo_store(struct device *dev,
 	int pdo, uv = 0, ua = 0;
 	int ret;
 
+	mutex_lock(&pd->swap_lock);
+
 	/* Only allowed if we are already in explicit sink contract */
 	if (pd->current_state != PE_SNK_READY || !is_sink_tx_ok(pd)) {
 		usbpd_err(&pd->dev, "select_pdo: Cannot select new PDO yet\n");
-		return -EBUSY;
+		ret = -EBUSY;
+		goto out;
 	}
 
 	ret = sscanf(buf, "%d %d %d %d", &src_cap_id, &pdo, &uv, &ua);
 	if (ret != 2 && ret != 4) {
 		usbpd_err(&pd->dev, "select_pdo: Must specify <src cap id> <PDO> [<uV> <uA>]\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	if (src_cap_id != pd->src_cap_id) {
 		usbpd_err(&pd->dev, "select_pdo: src_cap_id mismatch.  Requested:%d, current:%d\n",
 				src_cap_id, pd->src_cap_id);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	if (pdo < 1 || pdo > 7) {
 		usbpd_err(&pd->dev, "select_pdo: invalid PDO:%d\n", pdo);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	ret = pd_select_pdo(pd, pdo, uv, ua);
 	if (ret)
-		return ret;
+		goto out;
 
-	usbpd_set_state(pd, PE_SNK_SELECT_CAPABILITY);
+	reinit_completion(&pd->is_ready);
+	pd->send_request = true;
+	kick_sm(pd, 0);
 
-	return size;
+	/* wait for operation to complete */
+	if (!wait_for_completion_timeout(&pd->is_ready,
+			msecs_to_jiffies(1000))) {
+		usbpd_err(&pd->dev, "select_pdo: request timed out\n");
+		ret = -ETIMEDOUT;
+		goto out;
+	}
+
+	/* determine if request was accepted/rejected */
+	if (pd->selected_pdo != pd->requested_pdo ||
+			pd->current_voltage != pd->requested_voltage) {
+		usbpd_err(&pd->dev, "select_pdo: request rejected\n");
+		ret = -EINVAL;
+	}
+
+out:
+	pd->send_request = false;
+	mutex_unlock(&pd->swap_lock);
+	return ret ? ret : size;
 }
 
 static ssize_t select_pdo_show(struct device *dev,
@@ -3116,6 +3174,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	INIT_WORK(&pd->sm_work, usbpd_sm);
 	hrtimer_init(&pd->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	pd->timer.function = pd_timeout;
+	mutex_init(&pd->swap_lock);
 
 	pd->usb_psy = power_supply_get_by_name("usb");
 	if (!pd->usb_psy) {
@@ -3157,6 +3216,44 @@ struct usbpd *usbpd_create(struct device *parent)
 	pd->vconn_is_external = device_property_present(parent,
 					"qcom,vconn-uses-external-source");
 
+	pd->num_sink_caps = device_property_read_u32_array(parent,
+			"qcom,default-sink-caps", NULL, 0);
+	if (pd->num_sink_caps > 0) {
+		int i;
+		u32 sink_caps[14];
+
+		if (pd->num_sink_caps % 2 || pd->num_sink_caps > 14) {
+			ret = -EINVAL;
+			usbpd_err(&pd->dev, "default-sink-caps must be be specified as voltage/current, max 7 pairs\n");
+			goto put_psy;
+		}
+
+		ret = device_property_read_u32_array(parent,
+				"qcom,default-sink-caps", sink_caps,
+				pd->num_sink_caps);
+		if (ret) {
+			usbpd_err(&pd->dev, "Error reading default-sink-caps\n");
+			goto put_psy;
+		}
+
+		pd->num_sink_caps /= 2;
+
+		for (i = 0; i < pd->num_sink_caps; i++) {
+			int v = sink_caps[i * 2] / 50;
+			int c = sink_caps[i * 2 + 1] / 10;
+
+			pd->sink_caps[i] =
+				PD_SNK_PDO_FIXED(0, 0, 0, 0, 0, v, c);
+		}
+
+		/* First PDO includes additional capabilities */
+		pd->sink_caps[0] |= PD_SNK_PDO_FIXED(1, 0, 0, 1, 1, 0, 0);
+	} else {
+		memcpy(pd->sink_caps, default_snk_caps,
+				sizeof(default_snk_caps));
+		pd->num_sink_caps = ARRAY_SIZE(default_snk_caps);
+	}
+
 	/*
 	 * Register the Android dual-role class (/sys/class/dual_role_usb/).
 	 * The first instance should be named "otg_default" as that's what
@@ -3188,7 +3285,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	spin_lock_init(&pd->rx_lock);
 	INIT_LIST_HEAD(&pd->rx_q);
 	INIT_LIST_HEAD(&pd->svid_handlers);
-	init_completion(&pd->swap_complete);
+	init_completion(&pd->is_ready);
 
 	pd->psy_nb.notifier_call = psy_changed;
 	ret = power_supply_reg_notifier(&pd->psy_nb);

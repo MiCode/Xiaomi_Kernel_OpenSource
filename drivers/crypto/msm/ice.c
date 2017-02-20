@@ -24,6 +24,7 @@
 #include <linux/pfk.h>
 #include <crypto/ice.h>
 #include <soc/qcom/scm.h>
+#include <soc/qcom/qseecomi.h>
 #include "iceregs.h"
 
 #define TZ_SYSCALL_CREATE_SMC_ID(o, s, f) \
@@ -40,11 +41,20 @@
 #define TZ_OS_KS_RESTORE_KEY_ID_PARAM_ID \
 	TZ_SYSCALL_CREATE_PARAM_ID_0
 
+#define TZ_OS_KS_RESTORE_KEY_CONFIG_ID \
+	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_QSEE_OS, TZ_SVC_KEYSTORE, 0x06)
+
+#define TZ_OS_KS_RESTORE_KEY_CONFIG_ID_PARAM_ID \
+	TZ_SYSCALL_CREATE_PARAM_ID_1(TZ_SYSCALL_PARAM_TYPE_VAL)
+
+
 #define ICE_REV(x, y) (((x) & ICE_CORE_##y##_REV_MASK) >> ICE_CORE_##y##_REV)
 #define QCOM_UFS_ICE_DEV	"iceufs"
 #define QCOM_SDCC_ICE_DEV	"icesdcc"
 #define QCOM_ICE_TYPE_NAME_LEN 8
 #define QCOM_ICE_MAX_BIST_CHECK_COUNT 100
+#define QCOM_ICE_UFS		10
+#define QCOM_ICE_SDCC		20
 
 struct ice_clk_info {
 	struct list_head list;
@@ -830,6 +840,29 @@ static int qcom_ice_restore_config(void)
 	return ret;
 }
 
+static int qcom_ice_restore_key_config(struct ice_device *ice_dev)
+{
+	struct scm_desc desc = {0};
+	int ret = -1;
+
+	/* For ice 3, key configuration needs to be restored in case of reset */
+
+	desc.arginfo = TZ_OS_KS_RESTORE_KEY_CONFIG_ID_PARAM_ID;
+
+	if (!strcmp(ice_dev->ice_instance_type, "sdcc"))
+		desc.args[0] = QCOM_ICE_SDCC;
+
+	if (!strcmp(ice_dev->ice_instance_type, "ufs"))
+		desc.args[0] = QCOM_ICE_UFS;
+
+	ret = scm_call2(TZ_OS_KS_RESTORE_KEY_CONFIG_ID, &desc);
+
+	if (ret)
+		pr_err("%s: Error:  0x%x\n", __func__, ret);
+
+	return ret;
+}
+
 static int qcom_ice_init_clocks(struct ice_device *ice)
 {
 	int ret = -EINVAL;
@@ -1103,6 +1136,22 @@ static int qcom_ice_finish_power_collapse(struct ice_device *ice_dev)
 				err = -EFAULT;
 				goto out;
 			}
+
+		/*
+		 * ICE looses its key configuration when UFS is reset,
+		 * restore it
+		 */
+		} else if (ICE_REV(ice_dev->ice_hw_version, MAJOR) > 2) {
+			err = qcom_ice_restore_key_config(ice_dev);
+			if (err)
+				goto out;
+
+			/*
+			 * for PFE case, clear the cached ICE key table,
+			 * this will force keys to be reconfigured
+			 * per each next transaction
+			 */
+			pfk_clear_on_reset();
 		}
 	}
 

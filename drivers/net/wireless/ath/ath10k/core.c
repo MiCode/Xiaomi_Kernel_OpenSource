@@ -1298,6 +1298,14 @@ err:
 static int ath10k_core_fetch_firmware_files(struct ath10k *ar)
 {
 	int ret;
+	struct ath10k_fw_file *fw_file;
+
+	if (!ar->is_bmi && QCA_REV_WCN3990(ar)) {
+		fw_file = &ar->normal_mode_fw.fw_file;
+		fw_file->wmi_op_version = ATH10K_FW_WMI_OP_VERSION_TLV;
+		fw_file->htt_op_version = ATH10K_FW_HTT_OP_VERSION_TLV;
+		return 0;
+	}
 
 	if (ar->is_bmi) {
 		/* calibration file is optional, don't check for any errors */
@@ -1528,6 +1536,7 @@ static void ath10k_core_restart(struct work_struct *work)
 	struct ath10k *ar = container_of(work, struct ath10k, restart_work);
 
 	set_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags);
+	ath10k_gen_set_base_mac_addr(ar, ar->base_mac_addr);
 
 	/* Place a barrier to make sure the compiler doesn't reorder
 	 * CRASH_FLUSH and calling other functions.
@@ -1577,16 +1586,6 @@ static void ath10k_core_restart(struct work_struct *work)
 	}
 
 	mutex_unlock(&ar->conf_mutex);
-}
-
-/* WAR: WCN3990 fw loading is done by PIL, assign WMI/HTT version */
-static inline void init_fw_param(struct ath10k *ar,
-				 struct ath10k_fw_file *fw_file)
-{
-	if (QCA_REV_WCN3990(ar)) {
-		fw_file->wmi_op_version = ATH10K_FW_WMI_OP_VERSION_HL_1_0;
-		fw_file->htt_op_version = ATH10K_FW_HTT_OP_VERSION_TLV;
-	}
 }
 
 static int ath10k_core_init_firmware_features(struct ath10k *ar)
@@ -1695,7 +1694,6 @@ static int ath10k_core_init_firmware_features(struct ath10k *ar)
 		ar->max_spatial_stream = WMI_MAX_SPATIAL_STREAM;
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_TLV:
-	case ATH10K_FW_WMI_OP_VERSION_HL_1_0:
 		ar->max_num_peers = TARGET_TLV_NUM_PEERS;
 		ar->max_num_stations = TARGET_TLV_NUM_STATIONS;
 		ar->max_num_vdevs = TARGET_TLV_NUM_VDEVS;
@@ -1742,7 +1740,6 @@ static int ath10k_core_init_firmware_features(struct ath10k *ar)
 			fw_file->htt_op_version = ATH10K_FW_HTT_OP_VERSION_10_1;
 			break;
 		case ATH10K_FW_WMI_OP_VERSION_TLV:
-		case ATH10K_FW_WMI_OP_VERSION_HL_1_0:
 			fw_file->htt_op_version = ATH10K_FW_HTT_OP_VERSION_TLV;
 			break;
 		case ATH10K_FW_WMI_OP_VERSION_10_4:

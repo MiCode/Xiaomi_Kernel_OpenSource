@@ -1076,6 +1076,8 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 			pr_err("trigger lmh mitigation failed, rc=%d\n", rc);
 			return rc;
 		}
+		/* Wait for LMH mitigation to take effect */
+		udelay(500);
 	}
 
 	if (led->trigger_chgr) {
@@ -1166,6 +1168,10 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 	struct qpnp_flash_led *led = NULL;
 	int rc;
 
+	/*
+	 * strncmp() must be used here since a prefix comparison is required
+	 * in order to support names like led:switch_0 and led:flash_1.
+	 */
 	if (!strncmp(led_cdev->name, "led:switch", strlen("led:switch"))) {
 		snode = container_of(led_cdev, struct flash_switch_data, cdev);
 		led = dev_get_drvdata(&snode->pdev->dev);
@@ -1214,8 +1220,7 @@ static ssize_t qpnp_flash_led_max_current_show(struct device *dev,
 
 /* sysfs attributes exported by flash_led */
 static struct device_attribute qpnp_flash_led_attrs[] = {
-	__ATTR(max_current, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_flash_led_max_current_show, NULL),
+	__ATTR(max_current, 0664, qpnp_flash_led_max_current_show, NULL),
 };
 
 static int flash_led_psy_notifier_call(struct notifier_block *nb,

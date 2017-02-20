@@ -1134,6 +1134,14 @@ static void update_cpu_freq(int cpu, enum freq_limits changed)
 		if (ret)
 			pr_err("Unable to update policy for cpu:%d. err:%d\n",
 				cpu, ret);
+	} else if (lmh_dcvs_available) {
+		trace_thermal_pre_frequency_mit(cpu,
+			cpus[cpu].limited_max_freq,
+			cpus[cpu].limited_min_freq);
+		msm_lmh_dcvs_update(cpu);
+		trace_thermal_post_frequency_mit(cpu,
+			cpufreq_quick_get_max(cpu),
+			cpus[cpu].limited_min_freq);
 	}
 }
 
@@ -1621,6 +1629,9 @@ static void update_cluster_freq(void)
 			changed |= FREQ_LIMIT_MIN;
 		cluster_ptr->limited_max_freq = max;
 		cluster_ptr->limited_min_freq = min;
+		if (online_cpu == -1 && lmh_dcvs_available)
+			online_cpu = cpumask_first(
+					&cluster_ptr->cluster_cores);
 		if (online_cpu != -1)
 			update_cpu_freq(online_cpu, changed);
 	}
@@ -2846,6 +2857,9 @@ static void msm_thermal_bite(int zone_id, int temp)
 		pr_err("Tsens:%d reached temperature:%d. System reset\n",
 			tsens_id, temp);
 	}
+	/* If it is a secure device ignore triggering the thermal bite. */
+	if (scm_is_secure_device())
+		return;
 	if (!is_scm_armv8()) {
 		scm_call_atomic1(SCM_SVC_BOOT, THERM_SECURE_BITE_CMD, 0);
 	} else {
@@ -3646,12 +3660,6 @@ static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
 
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_UP_PREPARE:
-		/*
-		 * Apply LMH freq cap vote, which was requested when the
-		 * core was offline.
-		 */
-		if (lmh_dcvs_available)
-			msm_lmh_dcvs_update(cpu);
 		if (!cpumask_test_and_set_cpu(cpu, cpus_previously_online))
 			pr_debug("Total prev cores online tracked %u\n",
 				cpumask_weight(cpus_previously_online));

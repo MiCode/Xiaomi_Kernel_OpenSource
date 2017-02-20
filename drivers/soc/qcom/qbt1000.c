@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,6 +90,7 @@ struct qbt1000_drvdata {
 	struct finger_detect_gpio	fd_gpio;
 	DECLARE_KFIFO(fw_events, struct fw_event_desc, MAX_FW_EVENTS);
 	wait_queue_head_t read_wait_queue;
+	struct qseecom_handle *app_handle;
 	struct qseecom_handle *fp_app_handle;
 };
 
@@ -147,7 +148,8 @@ static int get_cmd_rsp_buffers(struct qseecom_handle *hdl,
 	*cmd_len = ALIGN(*cmd_len, 64);
 	*rsp_len = ALIGN(*rsp_len, 64);
 
-	if ((*rsp_len + *cmd_len) > g_app_buf_size) {
+	if (((uint64_t)*rsp_len + (uint64_t)*cmd_len)
+			> (uint64_t)g_app_buf_size) {
 		pr_err("buffer too small to hold cmd=%d and rsp=%d\n",
 			*cmd_len, *rsp_len);
 		return -ENOMEM;
@@ -260,6 +262,13 @@ static int send_tz_cmd(struct qbt1000_drvdata *drvdata,
 
 	if (rc != 0)
 		goto end;
+
+	if (!aligned_cmd) {
+		dev_err(drvdata->dev, "%s: Null command buffer\n",
+			__func__);
+		rc = -EINVAL;
+		goto end;
+	}
 
 	if (aligned_cmd - cmd + cmd_len > g_app_buf_size) {
 		rc = -ENOMEM;
@@ -392,13 +401,26 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			goto end;
 		}
 
+		if (drvdata->app_handle) {
+			dev_err(drvdata->dev, "%s: LOAD app already loaded, unloading first\n",
+				__func__);
+			drvdata->fp_app_handle = 0;
+			rc = qseecom_shutdown_app(&drvdata->app_handle);
+			if (rc != 0) {
+				dev_err(drvdata->dev, "%s: LOAD current app failed to shutdown\n",
+					  __func__);
+				goto end;
+			}
+		}
+
 		pr_debug("app %s load before\n", app.name);
 
 		/* start the TZ app */
-		rc = qseecom_start_app(&app_handle, app.name, app.size);
+		rc = qseecom_start_app(
+				&drvdata->app_handle, app.name, app.size);
 		if (rc == 0) {
 			g_app_buf_size = app.size;
-			rc = qseecom_set_bandwidth(app_handle,
+			rc = qseecom_set_bandwidth(drvdata->app_handle,
 				app.high_band_width == 1 ? true : false);
 			if (rc != 0) {
 				/* log error, allow to continue */
@@ -409,7 +431,9 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			goto end;
 		}
 
-		/* copy the app handle to user */
+		/* copy a fake app handle to user */
+		app_handle = drvdata->app_handle ?
+				(struct qseecom_handle *)123456 : 0;
 		rc = copy_to_user((void __user *)app.app_handle, &app_handle,
 			sizeof(*app.app_handle));
 
@@ -424,14 +448,14 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		pr_debug("app %s load after\n", app.name);
 
 		if (!strcmp(app.name, FP_APP_NAME))
-			drvdata->fp_app_handle = app_handle;
+			drvdata->fp_app_handle = drvdata->app_handle;
 
 		break;
 	}
 	case QBT1000_UNLOAD_APP:
 	{
 		struct qbt1000_app app;
-		struct qseecom_handle *app_handle;
+		struct qseecom_handle *app_handle = 0;
 
 		if (copy_from_user(&app, priv_arg,
 			sizeof(app)) != 0) {
@@ -459,19 +483,19 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		}
 
 		/* if the app hasn't been loaded already, return err */
-		if (!app_handle) {
+		if (!drvdata->app_handle) {
 			pr_err("app not loaded\n");
 			rc = -EINVAL;
 			goto end;
 		}
 
-		if (drvdata->fp_app_handle == app_handle)
+		if (drvdata->fp_app_handle == drvdata->app_handle)
 			drvdata->fp_app_handle = 0;
 
 		/* set bw & shutdown the TZ app */
-		qseecom_set_bandwidth(app_handle,
+		qseecom_set_bandwidth(drvdata->app_handle,
 			app.high_band_width == 1 ? true : false);
-		rc = qseecom_shutdown_app(&app_handle);
+		rc = qseecom_shutdown_app(&drvdata->app_handle);
 		if (rc != 0) {
 			pr_err("app failed to shutdown\n");
 			goto end;
@@ -513,14 +537,14 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		}
 
 		/* if the app hasn't been loaded already, return err */
-		if (!tzcmd.app_handle) {
+		if (!drvdata->app_handle) {
 			pr_err("app not loaded\n");
 			rc = -EINVAL;
 			goto end;
 		}
 
 		rc = send_tz_cmd(drvdata,
-			tzcmd.app_handle, 1,
+			drvdata->app_handle, 1,
 			tzcmd.req_buf, tzcmd.req_buf_len,
 			&rsp_buf, tzcmd.rsp_buf_len);
 
@@ -1112,6 +1136,7 @@ static int qbt1000_read_device_tree(struct platform_device *pdev,
 	}
 
 	/* read finger detect GPIO configuration */
+
 	gpio = of_get_named_gpio_flags(pdev->dev.of_node,
 				"qcom,finger-detect-gpio", 0, &flags);
 	if (gpio < 0) {

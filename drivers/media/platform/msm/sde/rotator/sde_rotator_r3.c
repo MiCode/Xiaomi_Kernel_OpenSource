@@ -336,6 +336,8 @@ static void sde_hw_rotator_disable_irq(struct sde_hw_rotator *rot)
  */
 static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot)
 {
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+
 	SDEROT_ERR(
 		"op_mode = %x, int_en = %x, int_status = %x\n",
 		SDE_ROTREG_READ(rot->mdss_base,
@@ -367,6 +369,10 @@ static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot)
 		"UBWC decode status = %x, UBWC encode status = %x\n",
 		SDE_ROTREG_READ(rot->mdss_base, ROT_SSPP_UBWC_ERROR_STATUS),
 		SDE_ROTREG_READ(rot->mdss_base, ROT_WB_UBWC_ERROR_STATUS));
+
+	SDEROT_ERR("VBIF XIN HALT status = %x VBIF AXI HALT status = %x\n",
+		SDE_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL1),
+		SDE_VBIF_READ(mdata, MMSS_VBIF_AXI_HALT_CTRL1));
 }
 
 /**
@@ -1686,7 +1692,11 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 			item->input.width, item->input.height,
 			item->output.width, item->output.height,
 			entry->src_buf.p[0].addr, entry->dst_buf.p[0].addr,
-			item->input.format, item->output.format);
+			item->input.format, item->output.format,
+			entry->perf->config.frame_rate);
+
+	if (mdata->vbif_reg_lock)
+		mdata->vbif_reg_lock();
 
 	if (mdata->vbif_reg_lock)
 		mdata->vbif_reg_lock();
@@ -1708,6 +1718,8 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 		ot_params.fmt = ctx->is_traffic_shaping ?
 			SDE_PIX_FMT_ABGR_8888 :
 			entry->perf->config.input.format;
+		ot_params.rotsts_base = rot->mdss_base + ROTTOP_STATUS;
+		ot_params.rotsts_busy_mask = ROT_BUSY_BIT;
 		sde_mdp_set_ot_limit(&ot_params);
 	}
 
@@ -1728,6 +1740,8 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 		ot_params.fmt = ctx->is_traffic_shaping ?
 			SDE_PIX_FMT_ABGR_8888 :
 			entry->perf->config.input.format;
+		ot_params.rotsts_base = rot->mdss_base + ROTTOP_STATUS;
+		ot_params.rotsts_busy_mask = ROT_BUSY_BIT;
 		sde_mdp_set_ot_limit(&ot_params);
 	}
 
@@ -1739,6 +1753,12 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 			sde_mdp_is_linear_format(sspp_cfg.fmt));
 
 		SDE_ROTREG_WRITE(rot->mdss_base, ROT_SSPP_CREQ_LUT, qos_lut);
+	}
+
+	/* Set CDP control registers to 0 if CDP is disabled */
+	if (!test_bit(SDE_QOS_CDP, mdata->sde_qos_map)) {
+		SDE_ROTREG_WRITE(rot->mdss_base, ROT_SSPP_CDP_CNTL, 0x0);
+		SDE_ROTREG_WRITE(rot->mdss_base, ROT_WB_CDP_CNTL, 0x0);
 	}
 
 	if (mdata->npriority_lvl > 0) {

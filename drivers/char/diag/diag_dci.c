@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,6 +133,35 @@ void diag_dci_record_traffic(int read_bytes, uint8_t ch_type,
 void diag_dci_record_traffic(int read_bytes, uint8_t ch_type,
 			     uint8_t peripheral, uint8_t proc) { }
 #endif
+
+static int check_peripheral_dci_support(int peripheral_id, int dci_proc_id)
+{
+	int dci_peripheral_list = 0;
+
+	if (dci_proc_id < 0 || dci_proc_id >= NUM_DCI_PROC) {
+		pr_err("diag:In %s,not a supported DCI proc id\n", __func__);
+		return 0;
+	}
+	if (peripheral_id < 0 || peripheral_id >= NUM_PERIPHERALS) {
+		pr_err("diag:In %s,not a valid peripheral id\n", __func__);
+		return 0;
+	}
+	dci_peripheral_list = dci_ops_tbl[dci_proc_id].peripheral_status;
+
+	if (dci_peripheral_list <= 0 || dci_peripheral_list > DIAG_CON_ALL) {
+		pr_err("diag:In %s,not a valid dci peripheral mask\n",
+			 __func__);
+		return 0;
+	}
+	/* Remove APSS bit mask information */
+	dci_peripheral_list = dci_peripheral_list >> 1;
+
+	if ((1 << peripheral_id) & (dci_peripheral_list))
+		return 1;
+	else
+		return 0;
+}
+
 static void create_dci_log_mask_tbl(unsigned char *mask, uint8_t dirty)
 {
 	unsigned char *temp = mask;
@@ -1433,7 +1462,7 @@ void diag_dci_channel_open_work(struct work_struct *work)
 
 void diag_dci_notify_client(int peripheral_mask, int data, int proc)
 {
-	int stat;
+	int stat = 0;
 	struct siginfo info;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
@@ -2203,8 +2232,9 @@ struct diag_dci_client_tbl *dci_lookup_client_entry_pid(int tgid)
 	struct diag_dci_client_tbl *entry = NULL;
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
-		if (entry->client->tgid == tgid)
-			return entry;
+		if (entry->client && entry->tgid == entry->client->tgid)
+			if (entry->client->tgid == tgid)
+				return entry;
 	}
 	return NULL;
 }
@@ -2371,10 +2401,12 @@ int diag_send_dci_event_mask(int token)
 		 * is down. It may also mean that the peripheral doesn't
 		 * support DCI.
 		 */
-		err = diag_dci_write_proc(i, DIAG_CNTL_TYPE, buf,
-					  header_size + DCI_EVENT_MASK_SIZE);
-		if (err != DIAG_DCI_NO_ERROR)
-			ret = DIAG_DCI_SEND_DATA_FAIL;
+		if (check_peripheral_dci_support(i, DCI_LOCAL_PROC)) {
+			err = diag_dci_write_proc(i, DIAG_CNTL_TYPE, buf,
+				  header_size + DCI_EVENT_MASK_SIZE);
+			if (err != DIAG_DCI_NO_ERROR)
+				ret = DIAG_DCI_SEND_DATA_FAIL;
+		}
 	}
 
 	mutex_unlock(&event_mask.lock);
@@ -2556,11 +2588,13 @@ int diag_send_dci_log_mask(int token)
 		}
 		write_len = dci_fill_log_mask(buf, log_mask_ptr);
 		for (j = 0; j < NUM_PERIPHERALS && write_len; j++) {
-			err = diag_dci_write_proc(j, DIAG_CNTL_TYPE, buf,
-						  write_len);
-			if (err != DIAG_DCI_NO_ERROR) {
-				updated = 0;
-				ret = DIAG_DCI_SEND_DATA_FAIL;
+			if (check_peripheral_dci_support(j, DCI_LOCAL_PROC)) {
+				err = diag_dci_write_proc(j, DIAG_CNTL_TYPE,
+					buf, write_len);
+				if (err != DIAG_DCI_NO_ERROR) {
+					updated = 0;
+					ret = DIAG_DCI_SEND_DATA_FAIL;
+				}
 			}
 		}
 		if (updated)

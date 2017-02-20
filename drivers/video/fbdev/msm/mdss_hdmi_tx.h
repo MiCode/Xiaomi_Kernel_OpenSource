@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,13 +14,13 @@
 #define __MDSS_HDMI_TX_H__
 
 #include <linux/switch.h>
+#include <linux/msm_mdp_ext.h>
 #include "mdss_hdmi_util.h"
 #include "mdss_hdmi_panel.h"
 #include "mdss_cec_core.h"
 #include "mdss_hdmi_audio.h"
 
 #define MAX_SWITCH_NAME_SIZE        5
-#define HDR_PRIMARIES_COUNT	3
 
 enum hdmi_tx_io_type {
 	HDMI_TX_CORE_IO,
@@ -62,30 +62,6 @@ struct hdmi_tx_pinctrl {
 struct hdmi_tx_ctrl;
 typedef int (*hdmi_tx_evt_handler) (struct hdmi_tx_ctrl *);
 
-/*
- * struct hdmi_tx_hdr_stream - HDR video stream characteristics
- * @eotf: Electro-Optical Transfer Function
- * @display_primaries_x: display primaries data for x-coordinate
- * @display_primaries_y: display primaries data for y-coordinate
- * @white_point_x: white point data for x-coordinate
- * @white_point_y: white point data for y-coordinate
- * @max_luminance: content maximum luminance
- * @min_luminance: content minimum luminance
- * @max_content_light_level: content maximum light level
- * @max_average_light_level: content average light level
- */
-struct hdmi_tx_hdr_stream_data {
-	u32 eotf;
-	u32 display_primaries_x[HDR_PRIMARIES_COUNT];
-	u32 display_primaries_y[HDR_PRIMARIES_COUNT];
-	u32 white_point_x;
-	u32 white_point_y;
-	u32 max_luminance;
-	u32 min_luminance;
-	u32 max_content_light_level;
-	u32 max_average_light_level;
-};
-
 struct hdmi_tx_ctrl {
 	struct platform_device *pdev;
 	struct platform_device *ext_pdev;
@@ -98,7 +74,6 @@ struct hdmi_tx_ctrl {
 	struct mutex tx_lock;
 	struct list_head cable_notify_handlers;
 	struct kobject *kobj;
-	struct switch_dev sdev;
 	struct workqueue_struct *workq;
 	struct hdmi_util_ds_data ds_data;
 	struct completion hpd_int_done;
@@ -115,7 +90,7 @@ struct hdmi_tx_ctrl {
 	struct msm_ext_disp_audio_setup_params audio_params;
 	struct msm_ext_disp_init_data ext_audio_data;
 	struct work_struct fps_work;
-	struct hdmi_tx_hdr_stream_data hdr_data;
+	struct mdp_hdr_stream hdr_data;
 
 	spinlock_t hpd_state_lock;
 
@@ -166,7 +141,10 @@ struct hdmi_tx_ctrl {
 
 	char disp_switch_name[MAX_SWITCH_NAME_SIZE];
 
+	/* pre/post is done in the context without tx_lock */
+	hdmi_tx_evt_handler pre_evt_handler[MDSS_EVENT_MAX - 1];
 	hdmi_tx_evt_handler evt_handler[MDSS_EVENT_MAX - 1];
+	hdmi_tx_evt_handler post_evt_handler[MDSS_EVENT_MAX - 1];
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */

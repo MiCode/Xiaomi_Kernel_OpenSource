@@ -21,12 +21,8 @@
 	qcom,board-id = <8 1>;
 };
 
-&pil_modem {
-	status = "disabled";
-};
-
 &msm_ath10k_wlan {
-	status = "enabled";
+	status = "ok";
 };
 
 &mdss_mdp {
@@ -77,4 +73,8 @@
 	cd-gpios = <&tlmm 86 0x1>;
 
 	status = "ok";
+};
+
+&tspp {
+	qcom,lpass-timer-tts = <1>;
 };

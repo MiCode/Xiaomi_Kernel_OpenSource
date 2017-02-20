@@ -2407,6 +2407,7 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
 			mutex_init(&ctl->flush_lock);
 			mutex_init(&ctl->rsrc_lock);
 			spin_lock_init(&ctl->spin_lock);
+			mutex_init(&ctl->ds_lock);
 			BLOCKING_INIT_NOTIFIER_HEAD(&ctl->notifier_head);
 			pr_debug("alloc ctl_num=%d\n", ctl->num);
 			break;
@@ -3614,6 +3615,7 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	u32 width, height;
 	int split_fb, rc = 0;
 	u32 max_mixer_width;
+	bool dsc_merge_enabled = 0;
 	struct mdss_panel_info *pinfo;
 
 	if (!ctl || !ctl->panel_data) {
@@ -3738,15 +3740,15 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 		ctl->mixer_right = NULL;
 	}
 
-	if (ctl->mixer_right) {
-		if (!is_dsc_compression(pinfo) ||
-		    (pinfo->dsc_enc_total == 1))
-			ctl->opmode |= MDSS_MDP_CTL_OP_PACK_3D_ENABLE |
-				       MDSS_MDP_CTL_OP_PACK_3D_H_ROW_INT;
-	} else {
+	dsc_merge_enabled = is_dsc_compression(pinfo) &&
+			    (pinfo->dsc_enc_total == 2);
+
+	if (ctl->mixer_right && (!dsc_merge_enabled))
+		ctl->opmode |= MDSS_MDP_CTL_OP_PACK_3D_ENABLE |
+			       MDSS_MDP_CTL_OP_PACK_3D_H_ROW_INT;
+	else
 		ctl->opmode &= ~(MDSS_MDP_CTL_OP_PACK_3D_ENABLE |
 				  MDSS_MDP_CTL_OP_PACK_3D_H_ROW_INT);
-	}
 	return 0;
 }
 

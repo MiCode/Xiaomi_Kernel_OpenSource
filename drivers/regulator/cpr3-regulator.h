@@ -36,9 +36,9 @@ struct cpr3_thread;
  * from 0 to 63.  bit_start must be less than or equal to bit_end.
  */
 struct cpr3_fuse_param {
-	unsigned		row;
-	unsigned		bit_start;
-	unsigned		bit_end;
+	unsigned int		row;
+	unsigned int		bit_start;
+	unsigned int		bit_end;
 };
 
 /* Each CPR3 sensor has 16 ring oscillators */
@@ -735,6 +735,12 @@ struct cpr3_panic_regs_info {
  * @panic_notifier:	Notifier block registered to global panic notifier list.
  * @support_ldo300_vreg: Boolean value which indicates that this CPR controller
  *			manages an underlying LDO regulator of type LDO300.
+ * @reset_step_quot_loop_en: Boolean value which indicates that this CPR
+ *			controller should be configured to reset step_quot on
+ *			each loop_en = 0 transition. This configuration allows
+ *			the CPR controller to first use the default step_quot
+ *			and then later switch to the run-time calibrated
+ *			step_quot.
  *
  * This structure contains both configuration and runtime state data.  The
  * elements cpr_allowed_sw, use_hw_closed_loop, aggr_corner, cpr_enabled,
@@ -836,6 +842,7 @@ struct cpr3_controller {
 	struct cpr3_panic_regs_info *panic_regs_info;
 	struct notifier_block	panic_notifier;
 	bool			support_ldo300_vreg;
+	bool			reset_step_quot_loop_en;
 };
 
 /* Used for rounding voltages to the closest physically available set point. */
@@ -1021,7 +1028,6 @@ static inline int cpr3_limit_open_loop_voltages(struct cpr3_regulator *vreg)
 static inline void cpr3_open_loop_voltage_as_ceiling(
 			struct cpr3_regulator *vreg)
 {
-	return;
 }
 
 static inline int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg)
@@ -1031,7 +1037,6 @@ static inline int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg)
 
 static inline void cpr3_print_quots(struct cpr3_regulator *vreg)
 {
-	return;
 }
 
 static inline int cpr3_adjust_fused_open_loop_voltages(

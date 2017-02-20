@@ -36,3 +36,7 @@
 	lab-supply = <&lab_regulator>;
 	ibb-supply = <&ibb_regulator>;
 };
+
+&tavil_snd {
+	qcom,msm-mbhc-moist-cfg = <0>, <0>, <3>;
+};

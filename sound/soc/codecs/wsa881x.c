@@ -759,15 +759,13 @@ static int wsa881x_rdac_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		wsa881x_resource_acquire(codec, ENABLE);
-		if (wsa881x->boost_enable)
-			wsa881x_boost_ctrl(codec, ENABLE);
+		wsa881x_boost_ctrl(codec, ENABLE);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		swr_slvdev_datapath_control(wsa881x->swr_slave,
 					    wsa881x->swr_slave->dev_num,
 					    false);
-		if (wsa881x->boost_enable)
-			wsa881x_boost_ctrl(codec, DISABLE);
+		wsa881x_boost_ctrl(codec, DISABLE);
 		wsa881x_resource_acquire(codec, DISABLE);
 		break;
 	}

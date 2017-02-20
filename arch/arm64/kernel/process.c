@@ -188,7 +188,7 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 	 * don't attempt to dump non-kernel addresses or
 	 * values that are probably just small negative numbers
 	 */
-	if (addr < PAGE_OFFSET || addr > -256UL)
+	if (addr < KIMAGE_VADDR || addr > -256UL)
 		return;
 
 	printk("\n%s: %#lx:\n", name, addr);

@@ -5474,6 +5474,21 @@ int cfg80211_iter_combinations(struct wiphy *wiphy,
 					    void *data),
 			       void *data);
 
+/*
+ * cfg80211_stop_iface - trigger interface disconnection
+ *
+ * @wiphy: the wiphy
+ * @wdev: wireless device
+ * @gfp: context flags
+ *
+ * Trigger interface to be stopped as if AP was stopped, IBSS/mesh left, STA
+ * disconnected.
+ *
+ * Note: This doesn't need any locks and is asynchronous.
+ */
+void cfg80211_stop_iface(struct wiphy *wiphy, struct wireless_dev *wdev,
+			 gfp_t gfp);
+
 /**
  * cfg80211_shutdown_all_interfaces - shut down all interfaces for a wiphy
  * @wiphy: the wiphy to shut down

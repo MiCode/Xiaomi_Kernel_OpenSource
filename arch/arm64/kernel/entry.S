@@ -347,6 +347,9 @@ ENDPROC(el1_error_invalid)
  */
 	.align	6
 el1_sync:
+#ifdef CONFIG_TLB_EL2_HANDLER
+	smc #0xffff
+#endif
 	kernel_entry 1
 	mrs	x1, esr_el1			// read the syndrome register
 	lsr	x24, x1, #ESR_ELx_EC_SHIFT	// exception class

@@ -109,8 +109,8 @@
 		qcom,clock-freq-tbl {
 			qcom,profile-enc {
 				qcom,codec-mask = <0x55555555>;
-				qcom,cycles-per-mb = <863>;
-				qcom,low-power-mode-factor = <35616>;
+				qcom,cycles-per-mb = <931>;
+				qcom,low-power-mode-factor = <33286>;
 			};
 			qcom,profile-dec {
 				qcom,codec-mask = <0xf3ffffff>;

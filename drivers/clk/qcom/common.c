@@ -334,15 +334,16 @@ static u32 run_measurement(unsigned ticks, struct regmap *regmap,
 static unsigned long clk_debug_mux_measure_rate(struct clk_hw *hw)
 {
 	unsigned long flags, ret = 0;
-	u32 gcc_xo4_reg, sample_ticks = 0x10000, multiplier = 1;
+	u32 gcc_xo4_reg, sample_ticks = 0x10000, multiplier;
 	u64 raw_count_short, raw_count_full;
 	struct clk_debug_mux *meas = to_clk_measure(hw);
 	struct measure_clk_data *data = meas->priv;
 
-
 	clk_prepare_enable(data->cxo);
 
 	spin_lock_irqsave(&clk_reg_lock, flags);
+
+	multiplier = meas->multiplier + 1;
 
 	/* Enable CXO/4 and RINGOSC branch. */
 	regmap_read(meas->regmap[GCC], data->xo_div4_cbcr, &gcc_xo4_reg);
@@ -404,6 +405,7 @@ static u8 clk_debug_mux_get_parent(struct clk_hw *hw)
 static int clk_debug_mux_set_parent(struct clk_hw *hw, u8 index)
 {
 	struct clk_debug_mux *meas = to_clk_measure(hw);
+	unsigned long lsb = 0;
 	u32 regval = 0;
 	int dbg_cc = 0;
 
@@ -411,6 +413,16 @@ static int clk_debug_mux_set_parent(struct clk_hw *hw, u8 index)
 
 	if (dbg_cc != GCC) {
 		regmap_read(meas->regmap[dbg_cc], 0x0, &regval);
+
+		/* Clear & Set post divider bits */
+		if (meas->parent[index].post_div_mask) {
+			regval &= ~meas->parent[index].post_div_mask;
+			lsb = find_first_bit((unsigned long *)
+				&meas->parent[index].post_div_mask, 32);
+			regval |= (meas->parent[index].post_div_val << lsb) &
+					meas->parent[index].post_div_mask;
+			meas->multiplier = meas->parent[index].post_div_val;
+		}
 
 		if (meas->parent[index].mask)
 			regval &= ~meas->parent[index].mask <<
@@ -436,6 +448,11 @@ static int clk_debug_mux_set_parent(struct clk_hw *hw, u8 index)
 
 	/* clear post divider bits */
 	regval &= ~BM(15, 12);
+	lsb = find_first_bit((unsigned long *)
+			&meas->parent[index].post_div_mask, 32);
+	regval |= (meas->parent[index].post_div_val << lsb) &
+			meas->parent[index].post_div_mask;
+	meas->multiplier = meas->parent[index].post_div_val;
 	regval &= ~meas->mask;
 	regval |= (meas->parent[index].sel & meas->mask);
 	regval |= meas->en_mask;

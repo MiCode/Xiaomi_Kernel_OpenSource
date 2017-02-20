@@ -37,12 +37,14 @@ config MSM_SMEM
 	  inter-processor communication.
 
 config QPNP_HAPTIC
-        tristate "Haptic support for QPNP PMIC"
+	tristate "Haptic support for QPNP PMIC"
 	depends on ARCH_QCOM
-        help
-          This option enables device driver support for the Haptic
-          on the Qualcomm Technologies' QPNP PMICs. It uses the android
-          timed-output framework.
+	help
+	  This option enables device driver support for the haptic peripheral
+	  found on Qualcomm Technologies, Inc. QPNP PMICs.  The haptic
+	  peripheral is capable of driving both LRA and ERM vibrators.  This
+	  module provides haptic feedback for user actions such as a long press
+	  on the touch screen.  It uses the Android timed-output framework.
 
 config MSM_SMD
 	depends on MSM_SMEM
@@ -862,5 +864,14 @@ config QCOM_EARLY_RANDOM
 	  process which means that any calls to get random numbers before then
 	  may not be truly random. Select this option to make an early call
 	  to get some random data to put in the pool. If unsure, say N.
+
+config QCOM_CX_IPEAK
+	bool "Common driver to handle Cx iPeak limitation"
+	help
+	  Cx ipeak HW module is used to limit the current drawn by various subsystem
+	  blocks on Cx power rail. Each client needs to set their
+	  bit in tcsr register if it is going to cross its own threshold. If all
+	  clients are going to cross their thresholds then Cx ipeak hw module will raise
+	  an interrupt to cDSP block to throttle cDSP fmax.
 
 source "drivers/soc/qcom/memshare/Kconfig"

@@ -21,6 +21,7 @@
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		vdd-supply = <&gdsc_mdss>;
+		gdsc-core-supply = <&gdsc_bimc_smmu>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_mdp";
@@ -44,6 +45,7 @@
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <1 2 2 2>;
+		qcom,mdss-vbif-qos-nrt-setting = <1 1 1 1>;
 		qcom,vbif-settings = <0x00ac 0x00000040>,
 				     <0x00d0 0x00001010>; /* v1 only */
 
@@ -499,6 +501,9 @@
 		qcom,dp-usbpd-detection = <&pmi8998_pdphy>;
 
 		qcom,msm_ext_disp = <&msm_ext_disp>;
+
+		qcom,aux-cfg-settings = [00 13 00 10 0a 26 0a 03 8b 03];
+		qcom,logical2physical-lane-map = [02 03 01 00];
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;

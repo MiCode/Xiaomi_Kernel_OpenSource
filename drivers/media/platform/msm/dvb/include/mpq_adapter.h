@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,11 +27,23 @@ enum mpq_adapter_stream_if {
 	/** Interface holding stream-buffer for video1 stream */
 	MPQ_ADAPTER_VIDEO1_STREAM_IF = 1,
 
-	/** Interface holding stream-buffer for video1 stream */
+	/** Interface holding stream-buffer for video2 stream */
 	MPQ_ADAPTER_VIDEO2_STREAM_IF = 2,
 
-	/** Interface holding stream-buffer for video1 stream */
+	/** Interface holding stream-buffer for video3 stream */
 	MPQ_ADAPTER_VIDEO3_STREAM_IF = 3,
+
+	/** Interface holding stream-buffer for audio0 stream */
+	MPQ_ADAPTER_AUDIO0_STREAM_IF = 4,
+
+	/** Interface holding stream-buffer for audio1 stream */
+	MPQ_ADAPTER_AUDIO1_STREAM_IF = 5,
+
+	/** Interface holding stream-buffer for audio2 stream */
+	MPQ_ADAPTER_AUDIO2_STREAM_IF = 6,
+
+	/** Interface holding stream-buffer for audio3 stream */
+	MPQ_ADAPTER_AUDIO3_STREAM_IF = 7,
 
 	/** Maximum number of interfaces holding stream-buffers */
 	MPQ_ADAPTER_MAX_NUM_OF_INTERFACES,
@@ -113,6 +125,17 @@ struct mpq_adapter_video_meta_data {
 	} info;
 } __packed;
 
+/** The meta-data used for audio interface */
+struct mpq_adapter_audio_meta_data {
+	/** meta-data packet type */
+	enum dmx_packet_type packet_type;
+
+	/** packet-type specific information */
+	union {
+		struct dmx_pes_packet_info pes;
+		struct dmx_marker_info marker;
+	} info;
+} __packed;
 
 /** Callback function to notify on registrations of specific interfaces */
 typedef void (*mpq_adapter_stream_if_callback)(

@@ -2148,6 +2148,10 @@ void mmc_get_card(struct mmc_card *card)
 {
 	pm_runtime_get_sync(&card->dev);
 	mmc_claim_host(card->host);
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	if (mmc_bus_needs_resume(card->host))
+		mmc_resume_bus(card->host);
+#endif
 }
 EXPORT_SYMBOL(mmc_get_card);
 

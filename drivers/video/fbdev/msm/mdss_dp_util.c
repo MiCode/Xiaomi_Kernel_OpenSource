@@ -859,31 +859,38 @@ void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
 	pr_debug("dp_tu=0x%x\n", dp_tu);
 }
 
-void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io,
-				struct lane_mapping l_map)
+void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io, char *l_map)
 {
 	u8 bits_per_lane = 2;
-	u32 lane_map = ((l_map.lane0 << (bits_per_lane * 0))
-			    | (l_map.lane1 << (bits_per_lane * 1))
-			    | (l_map.lane2 << (bits_per_lane * 2))
-			    | (l_map.lane3 << (bits_per_lane * 3)));
+	u32 lane_map = ((l_map[0] << (bits_per_lane * 0))
+			    | (l_map[1] << (bits_per_lane * 1))
+			    | (l_map[2] << (bits_per_lane * 2))
+			    | (l_map[3] << (bits_per_lane * 3)));
 	pr_debug("%s: lane mapping reg = 0x%x\n", __func__, lane_map);
 	writel_relaxed(lane_map,
 		ctrl_io->base + DP_LOGICAL2PHYSCIAL_LANE_MAPPING);
 }
 
-void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io)
+void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io, u32 *aux_cfg,
+		u32 phy_reg_offset)
 {
-	writel_relaxed(0x3d, phy_io->base + DP_PHY_PD_CTL);
-	writel_relaxed(0x13, phy_io->base + DP_PHY_AUX_CFG1);
-	writel_relaxed(0x10, phy_io->base + DP_PHY_AUX_CFG3);
-	writel_relaxed(0x0a, phy_io->base + DP_PHY_AUX_CFG4);
-	writel_relaxed(0x26, phy_io->base + DP_PHY_AUX_CFG5);
-	writel_relaxed(0x0a, phy_io->base + DP_PHY_AUX_CFG6);
-	writel_relaxed(0x03, phy_io->base + DP_PHY_AUX_CFG7);
-	writel_relaxed(0x8b, phy_io->base + DP_PHY_AUX_CFG8);
-	writel_relaxed(0x03, phy_io->base + DP_PHY_AUX_CFG9);
-	writel_relaxed(0x1f, phy_io->base + DP_PHY_AUX_INTERRUPT_MASK);
+	void __iomem *adjusted_phy_io_base = phy_io->base + phy_reg_offset;
+
+	writel_relaxed(0x3d, adjusted_phy_io_base + DP_PHY_PD_CTL);
+
+	/* DP AUX CFG register programming */
+	writel_relaxed(aux_cfg[0], adjusted_phy_io_base + DP_PHY_AUX_CFG0);
+	writel_relaxed(aux_cfg[1], adjusted_phy_io_base + DP_PHY_AUX_CFG1);
+	writel_relaxed(aux_cfg[2], adjusted_phy_io_base + DP_PHY_AUX_CFG2);
+	writel_relaxed(aux_cfg[3], adjusted_phy_io_base + DP_PHY_AUX_CFG3);
+	writel_relaxed(aux_cfg[4], adjusted_phy_io_base + DP_PHY_AUX_CFG4);
+	writel_relaxed(aux_cfg[5], adjusted_phy_io_base + DP_PHY_AUX_CFG5);
+	writel_relaxed(aux_cfg[6], adjusted_phy_io_base + DP_PHY_AUX_CFG6);
+	writel_relaxed(aux_cfg[7], adjusted_phy_io_base + DP_PHY_AUX_CFG7);
+	writel_relaxed(aux_cfg[8], adjusted_phy_io_base + DP_PHY_AUX_CFG8);
+	writel_relaxed(aux_cfg[9], adjusted_phy_io_base + DP_PHY_AUX_CFG9);
+
+	writel_relaxed(0x1f, adjusted_phy_io_base + DP_PHY_AUX_INTERRUPT_MASK);
 }
 
 int mdss_dp_irq_setup(struct mdss_dp_drv_pdata *dp_drv)
@@ -1036,22 +1043,20 @@ u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp)
 }
 
 void mdss_dp_phy_share_lane_config(struct dss_io_data *phy_io,
-					u8 orientation, u8 ln_cnt)
+		u8 orientation, u8 ln_cnt, u32 phy_reg_offset)
 {
 	u32 info = 0x0;
 
 	info |= (ln_cnt & 0x0F);
 	info |= ((orientation & 0x0F) << 4);
 	pr_debug("Shared Info = 0x%x\n", info);
-	writel_relaxed(info, phy_io->base + DP_PHY_SPARE0);
+	writel_relaxed(info, phy_io->base + phy_reg_offset + DP_PHY_SPARE0);
 }
 
 void mdss_dp_config_audio_acr_ctrl(struct dss_io_data *ctrl_io, char link_rate)
 {
 	u32 acr_ctrl = 0;
 	u32 select = 0;
-
-	acr_ctrl = readl_relaxed(ctrl_io->base + MMSS_DP_AUDIO_ACR_CTRL);
 
 	switch (link_rate) {
 	case DP_LINK_RATE_162:

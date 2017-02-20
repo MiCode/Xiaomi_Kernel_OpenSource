@@ -1170,10 +1170,16 @@ static u32 sde_rotator_calc_buf_bw(struct sde_mdp_format_params *fmt,
 	u32 bw;
 
 	bw = width * height * frame_rate;
-	if (fmt->chroma_sample == SDE_MDP_CHROMA_420)
+
+	if (sde_mdp_is_tp10_format(fmt))
+		bw *= 2;
+	else if (sde_mdp_is_p010_format(fmt))
+		bw *= 3;
+	else if (fmt->chroma_sample == SDE_MDP_CHROMA_420)
 		bw = (bw * 3) / 2;
 	else
 		bw *= fmt->bpp;
+	SDEROT_EVTLOG(bw, width, height, frame_rate, fmt->format);
 	return bw;
 }
 
@@ -1270,13 +1276,15 @@ static int sde_rotator_calc_perf(struct sde_rot_mgr *mgr,
 
 	perf->rdot_limit = sde_mdp_get_ot_limit(
 			config->input.width, config->input.height,
-			config->input.format, max_fps, true);
+			config->input.format, config->frame_rate, true);
 	perf->wrot_limit = sde_mdp_get_ot_limit(
 			config->input.width, config->input.height,
-			config->input.format, max_fps, false);
+			config->input.format, config->frame_rate, false);
 
 	SDEROT_DBG("clk:%lu, rdBW:%d, wrBW:%d, rdOT:%d, wrOT:%d\n",
 			perf->clk_rate, read_bw, write_bw, perf->rdot_limit,
+			perf->wrot_limit);
+	SDEROT_EVTLOG(perf->clk_rate, read_bw, write_bw, perf->rdot_limit,
 			perf->wrot_limit);
 	return 0;
 }
@@ -1816,6 +1824,17 @@ static int sde_rotator_validate_entry(struct sde_rot_mgr *mgr,
 	int ret;
 	struct sde_rotation_item *item;
 	struct sde_rot_perf *perf;
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+
+	/* Check to ensure handoff is completed before 1st rotation request */
+	if (!mdata->handoff_done && mdata->handoff_pending) {
+		mdata->handoff_done = !mdata->handoff_pending();
+		if (!mdata->handoff_done) {
+			SDEROT_INFO(
+				"Splash Still on, Reject Rotation Request\n");
+			return -EINVAL;
+		}
+	}
 
 	item = &entry->item;
 

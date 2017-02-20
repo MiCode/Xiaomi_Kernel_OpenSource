@@ -77,15 +77,6 @@ module_param(qmi_timeout, ulong, 0600);
 		ipc_log_string(icnss_ipc_log_context, _x);		\
 	} while (0)
 
-#ifdef CONFIG_ICNSS_DEBUG
-#define icnss_ipc_log_long_string(_x...) do {				\
-	if (icnss_ipc_log_long_context)					\
-		ipc_log_string(icnss_ipc_log_long_context, _x);		\
-	} while (0)
-#else
-#define icnss_ipc_log_long_string(_x...)
-#endif
-
 #define icnss_pr_err(_fmt, ...) do {					\
 		pr_err(_fmt, ##__VA_ARGS__);				\
 		icnss_ipc_log_string("ERR: " pr_fmt(_fmt),		\
@@ -107,12 +98,6 @@ module_param(qmi_timeout, ulong, 0600);
 #define icnss_pr_dbg(_fmt, ...) do {					\
 		pr_debug(_fmt, ##__VA_ARGS__);				\
 		icnss_ipc_log_string("DBG: " pr_fmt(_fmt),		\
-				     ##__VA_ARGS__);			\
-	} while (0)
-
-#define icnss_reg_dbg(_fmt, ...) do {				\
-		pr_debug(_fmt, ##__VA_ARGS__);				\
-		icnss_ipc_log_long_string("REG: " pr_fmt(_fmt),		\
 				     ##__VA_ARGS__);			\
 	} while (0)
 
@@ -157,10 +142,6 @@ module_param(dynamic_feature_mask, ullong, 0600);
 
 void *icnss_ipc_log_context;
 
-#ifdef CONFIG_ICNSS_DEBUG
-void *icnss_ipc_log_long_context;
-#endif
-
 #define ICNSS_EVENT_PENDING			2989
 
 #define ICNSS_EVENT_SYNC			BIT(0)
@@ -181,6 +162,7 @@ enum icnss_driver_event_type {
 struct icnss_event_pd_service_down_data {
 	bool crashed;
 	bool fw_rejuvenate;
+	bool wdog_bite;
 };
 
 struct icnss_driver_event {
@@ -205,6 +187,7 @@ enum icnss_driver_state {
 	ICNSS_PD_RESTART,
 	ICNSS_MSA0_ASSIGNED,
 	ICNSS_WLFW_EXISTS,
+	ICNSS_WDOG_BITE,
 };
 
 struct ce_irq_list {
@@ -334,6 +317,7 @@ static struct icnss_priv {
 	struct ramdump_device *msa0_dump_dev;
 	bool is_wlan_mac_set;
 	struct icnss_wlan_mac_addr wlan_mac_addr;
+	bool bypass_s1_smmu;
 } *penv;
 
 static void icnss_pm_stay_awake(struct icnss_priv *priv)
@@ -1339,7 +1323,7 @@ static int wlfw_athdiag_read_send_sync_msg(struct icnss_priv *priv,
 		goto out;
 	}
 
-	if (!resp->data_valid || resp->data_len <= data_len) {
+	if (!resp->data_valid || resp->data_len < data_len) {
 		icnss_pr_err("Athdiag read data is invalid, data_valid = %u, data_len = %u\n",
 			     resp->data_valid, resp->data_len);
 		ret = -EINVAL;
@@ -1700,6 +1684,23 @@ static int icnss_driver_event_server_exit(void *data)
 	return 0;
 }
 
+static int icnss_call_driver_uevent(struct icnss_priv *priv,
+				    enum icnss_uevent uevent, void *data)
+{
+	struct icnss_uevent_data uevent_data;
+
+	if (!priv->ops || !priv->ops->uevent)
+		return 0;
+
+	icnss_pr_dbg("Calling driver uevent state: 0x%lx, uevent: %d\n",
+		     priv->state, uevent);
+
+	uevent_data.uevent = uevent;
+	uevent_data.data = data;
+
+	return priv->ops->uevent(&priv->pdev->dev, &uevent_data);
+}
+
 static int icnss_call_driver_probe(struct icnss_priv *priv)
 {
 	int ret;
@@ -1727,17 +1728,39 @@ out:
 	return ret;
 }
 
+static int icnss_call_driver_shutdown(struct icnss_priv *priv)
+{
+	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
+		goto out;
+
+	if (!priv->ops || !priv->ops->shutdown)
+		goto out;
+
+	icnss_pr_dbg("Calling driver shutdown state: 0x%lx\n", priv->state);
+
+	priv->ops->shutdown(&priv->pdev->dev);
+
+out:
+	return 0;
+}
+
 static int icnss_pd_restart_complete(struct icnss_priv *priv)
 {
 	int ret;
 
-	clear_bit(ICNSS_PD_RESTART, &priv->state);
 	icnss_pm_relax(priv);
+
+	if (test_bit(ICNSS_WDOG_BITE, &priv->state)) {
+		icnss_call_driver_shutdown(priv);
+		clear_bit(ICNSS_WDOG_BITE, &priv->state);
+	}
+
+	clear_bit(ICNSS_PD_RESTART, &priv->state);
 
 	if (!priv->ops || !priv->ops->reinit)
 		goto out;
 
-	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
+	if (!test_bit(ICNSS_DRIVER_PROBED, &priv->state))
 		goto call_probe;
 
 	icnss_pr_dbg("Calling driver reinit state: 0x%lx\n", priv->state);
@@ -1773,6 +1796,8 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 		return -ENODEV;
 
 	set_bit(ICNSS_FW_READY, &penv->state);
+
+	icnss_call_driver_uevent(penv, ICNSS_UEVENT_FW_READY, NULL);
 
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", penv->state);
 
@@ -1873,23 +1898,30 @@ static int icnss_call_driver_remove(struct icnss_priv *priv)
 	return 0;
 }
 
-static int icnss_call_driver_shutdown(struct icnss_priv *priv)
+static int icnss_fw_crashed(struct icnss_priv *priv,
+			    struct icnss_event_pd_service_down_data *event_data)
 {
-	icnss_pr_dbg("Calling driver shutdown state: 0x%lx\n", priv->state);
+	icnss_pr_dbg("FW crashed, state: 0x%lx, wdog_bite: %d\n",
+		     priv->state, event_data->wdog_bite);
 
 	set_bit(ICNSS_PD_RESTART, &priv->state);
 	clear_bit(ICNSS_FW_READY, &priv->state);
 
 	icnss_pm_stay_awake(priv);
 
-	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))
-		return 0;
+	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_CRASHED, NULL);
 
-	if (!priv->ops || !priv->ops->shutdown)
-		return 0;
+	if (event_data->wdog_bite) {
+		set_bit(ICNSS_WDOG_BITE, &priv->state);
+		goto out;
+	}
 
-	priv->ops->shutdown(&priv->pdev->dev);
+	icnss_call_driver_shutdown(priv);
 
+	if (event_data->fw_rejuvenate)
+		wlfw_rejuvenate_ack_send_sync_msg(priv);
+
+out:
 	return 0;
 }
 
@@ -1910,12 +1942,9 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	}
 
 	if (event_data->crashed)
-		icnss_call_driver_shutdown(priv);
+		icnss_fw_crashed(priv, event_data);
 	else
 		icnss_call_driver_remove(priv);
-
-	if (event_data->fw_rejuvenate)
-		wlfw_rejuvenate_ack_send_sync_msg(priv);
 
 out:
 	ret = icnss_hw_power_off(priv);
@@ -2063,7 +2092,8 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	if (test_bit(ICNSS_PDR_ENABLED, &priv->state))
 		return NOTIFY_OK;
 
-	icnss_pr_info("Modem went down, state: %lx\n", priv->state);
+	icnss_pr_info("Modem went down, state: %lx, crashed: %d\n",
+		      priv->state, notif->crashed);
 
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 
@@ -2071,6 +2101,9 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 		return notifier_from_errno(-ENOMEM);
 
 	event_data->crashed = notif->crashed;
+
+	if (notif->crashed == CRASH_STATUS_WDOG_BITE)
+		event_data->wdog_bite = true;
 
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
@@ -2136,30 +2169,41 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 	enum pd_subsys_state *state = data;
 	struct icnss_event_pd_service_down_data *event_data;
 
-	switch (notification) {
-	case SERVREG_NOTIF_SERVICE_STATE_DOWN_V01:
-		icnss_pr_info("Service down, data: 0x%p, state: 0x%lx\n", data,
-			      priv->state);
-		event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
+	icnss_pr_dbg("PD service notification: 0x%lx state: 0x%lx\n",
+		     notification, priv->state);
 
-		if (event_data == NULL)
-			return notifier_from_errno(-ENOMEM);
+	if (notification != SERVREG_NOTIF_SERVICE_STATE_DOWN_V01)
+		goto done;
 
-		if (state == NULL || *state != SHUTDOWN)
-			event_data->crashed = true;
+	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 
-		icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
-					ICNSS_EVENT_SYNC, event_data);
-		break;
-	case SERVREG_NOTIF_SERVICE_STATE_UP_V01:
-		icnss_pr_dbg("Service up, state: 0x%lx\n", priv->state);
-		break;
-	default:
-		icnss_pr_dbg("Service state Unknown, notification: 0x%lx, state: 0x%lx\n",
-			     notification, priv->state);
-		return NOTIFY_DONE;
+	if (event_data == NULL)
+		return notifier_from_errno(-ENOMEM);
+
+	if (state == NULL) {
+		event_data->crashed = true;
+		goto event_post;
 	}
 
+	icnss_pr_info("PD service down, pd_state: %d, state: 0x%lx\n",
+		      *state, priv->state);
+
+	switch (*state) {
+	case ROOT_PD_WDOG_BITE:
+		event_data->crashed = true;
+		event_data->wdog_bite = true;
+		break;
+	case ROOT_PD_SHUTDOWN:
+		break;
+	default:
+		event_data->crashed = true;
+		break;
+	}
+
+event_post:
+	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
+				ICNSS_EVENT_SYNC, event_data);
+done:
 	return NOTIFY_OK;
 }
 
@@ -2914,13 +2958,15 @@ static int icnss_smmu_init(struct icnss_priv *priv)
 		goto map_fail;
 	}
 
-	ret = iommu_domain_set_attr(mapping->domain,
-				    DOMAIN_ATTR_ATOMIC,
-				    &atomic_ctx);
-	if (ret < 0) {
-		icnss_pr_err("Set atomic_ctx attribute failed, err = %d\n",
-			     ret);
-		goto set_attr_fail;
+	if (!priv->bypass_s1_smmu) {
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_ATOMIC,
+					    &atomic_ctx);
+		if (ret < 0) {
+			icnss_pr_err("Set atomic_ctx attribute failed, err = %d\n",
+				     ret);
+			goto set_attr_fail;
+		}
 	}
 
 	ret = iommu_domain_set_attr(mapping->domain,
@@ -3222,6 +3268,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_WLFW_EXISTS:
 			seq_puts(s, "WLAN FW EXISTS");
+			continue;
+		case ICNSS_WDOG_BITE:
+			seq_puts(s, "MODEM WDOG BITE");
 			continue;
 		}
 
@@ -3666,6 +3715,11 @@ static int icnss_probe(struct platform_device *pdev)
 	if (ret == -EPROBE_DEFER)
 		goto out;
 
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,smmu-s1-bypass"))
+		priv->bypass_s1_smmu = true;
+
+	icnss_pr_dbg("SMMU S1 BYPASS = %d\n", priv->bypass_s1_smmu);
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "membase");
 	if (!res) {
 		icnss_pr_err("Memory base not found in DT\n");
@@ -3961,34 +4015,12 @@ static struct platform_driver icnss_driver = {
 	},
 };
 
-#ifdef CONFIG_ICNSS_DEBUG
-static void __init icnss_ipc_log_long_context_init(void)
-{
-	icnss_ipc_log_long_context = ipc_log_context_create(NUM_REG_LOG_PAGES,
-							   "icnss_long", 0);
-	if (!icnss_ipc_log_long_context)
-		icnss_pr_err("Unable to create register log context\n");
-}
-
-static void __exit icnss_ipc_log_long_context_destroy(void)
-{
-	ipc_log_context_destroy(icnss_ipc_log_long_context);
-	icnss_ipc_log_long_context = NULL;
-}
-#else
-
-static void __init icnss_ipc_log_long_context_init(void) { }
-static void __exit icnss_ipc_log_long_context_destroy(void) { }
-#endif
-
 static int __init icnss_initialize(void)
 {
 	icnss_ipc_log_context = ipc_log_context_create(NUM_LOG_PAGES,
 						       "icnss", 0);
 	if (!icnss_ipc_log_context)
 		icnss_pr_err("Unable to create log context\n");
-
-	icnss_ipc_log_long_context_init();
 
 	return platform_driver_register(&icnss_driver);
 }
@@ -3998,8 +4030,6 @@ static void __exit icnss_exit(void)
 	platform_driver_unregister(&icnss_driver);
 	ipc_log_context_destroy(icnss_ipc_log_context);
 	icnss_ipc_log_context = NULL;
-
-	icnss_ipc_log_long_context_destroy();
 }
 
 

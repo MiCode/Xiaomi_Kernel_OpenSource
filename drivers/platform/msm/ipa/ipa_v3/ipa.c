@@ -2809,7 +2809,7 @@ static int ipa3_setup_apps_pipes(void)
 		result = ipa_gsi_ch20_wa();
 		if (result) {
 			IPAERR("ipa_gsi_ch20_wa failed %d\n", result);
-			goto fail_cmd;
+			goto fail_ch20_wa;
 		}
 	}
 
@@ -2820,9 +2820,9 @@ static int ipa3_setup_apps_pipes(void)
 	sys_in.ipa_ep_cfg.mode.mode = IPA_DMA;
 	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_APPS_LAN_CONS;
 	if (ipa3_setup_sys_pipe(&sys_in, &ipa3_ctx->clnt_hdl_cmd)) {
-		IPAERR(":setup sys pipe failed.\n");
+		IPAERR(":setup sys pipe (APPS_CMD_PROD) failed.\n");
 		result = -EPERM;
-		goto fail_cmd;
+		goto fail_ch20_wa;
 	}
 	IPADBG("Apps to IPA cmd pipe is connected\n");
 
@@ -2847,32 +2847,32 @@ static int ipa3_setup_apps_pipes(void)
 	if (ipa3_setup_flt_hash_tuple()) {
 		IPAERR(":fail to configure flt hash tuple\n");
 		result = -EPERM;
-		goto fail_schedule_delayed_work;
+		goto fail_flt_hash_tuple;
 	}
 	IPADBG("flt hash tuple is configured\n");
 
 	if (ipa3_setup_rt_hash_tuple()) {
 		IPAERR(":fail to configure rt hash tuple\n");
 		result = -EPERM;
-		goto fail_schedule_delayed_work;
+		goto fail_flt_hash_tuple;
 	}
 	IPADBG("rt hash tuple is configured\n");
 
 	if (ipa3_setup_exception_path()) {
 		IPAERR(":fail to setup excp path\n");
 		result = -EPERM;
-		goto fail_schedule_delayed_work;
+		goto fail_flt_hash_tuple;
 	}
 	IPADBG("Exception path was successfully set");
 
 	if (ipa3_setup_dflt_rt_tables()) {
 		IPAERR(":fail to setup dflt routes\n");
 		result = -EPERM;
-		goto fail_schedule_delayed_work;
+		goto fail_flt_hash_tuple;
 	}
 	IPADBG("default routing was set\n");
 
-	/* LAN IN (IPA->A5) */
+	/* LAN IN (IPA->AP) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
 	sys_in.client = IPA_CLIENT_APPS_LAN_CONS;
 	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
@@ -2896,27 +2896,27 @@ static int ipa3_setup_apps_pipes(void)
 	 */
 	spin_lock_init(&ipa3_ctx->disconnect_lock);
 	if (ipa3_setup_sys_pipe(&sys_in, &ipa3_ctx->clnt_hdl_data_in)) {
-		IPAERR(":setup sys pipe failed.\n");
+		IPAERR(":setup sys pipe (LAN_CONS) failed.\n");
 		result = -EPERM;
-		goto fail_schedule_delayed_work;
+		goto fail_flt_hash_tuple;
 	}
 
-	/* LAN-WAN OUT (AP->IPA) */
+	/* LAN OUT (AP->IPA) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
-	sys_in.client = IPA_CLIENT_APPS_LAN_WAN_PROD;
+	sys_in.client = IPA_CLIENT_APPS_LAN_PROD;
 	sys_in.desc_fifo_sz = IPA_SYS_TX_DATA_DESC_FIFO_SZ;
 	sys_in.ipa_ep_cfg.mode.mode = IPA_BASIC;
 	if (ipa3_setup_sys_pipe(&sys_in, &ipa3_ctx->clnt_hdl_data_out)) {
-		IPAERR(":setup sys pipe failed.\n");
+		IPAERR(":setup sys pipe (LAN_PROD) failed.\n");
 		result = -EPERM;
-		goto fail_data_out;
+		goto fail_lan_data_out;
 	}
 
 	return 0;
 
-fail_data_out:
+fail_lan_data_out:
 	ipa3_teardown_sys_pipe(ipa3_ctx->clnt_hdl_data_in);
-fail_schedule_delayed_work:
+fail_flt_hash_tuple:
 	if (ipa3_ctx->dflt_v6_rt_rule_hdl)
 		__ipa3_del_rt_rule(ipa3_ctx->dflt_v6_rt_rule_hdl);
 	if (ipa3_ctx->dflt_v4_rt_rule_hdl)
@@ -2924,7 +2924,7 @@ fail_schedule_delayed_work:
 	if (ipa3_ctx->excp_hdr_hdl)
 		__ipa3_del_hdr(ipa3_ctx->excp_hdr_hdl, false);
 	ipa3_teardown_sys_pipe(ipa3_ctx->clnt_hdl_cmd);
-fail_cmd:
+fail_ch20_wa:
 	return result;
 }
 
@@ -3715,30 +3715,49 @@ static void ipa3_destroy_flt_tbl_idrs(void)
 static void ipa3_freeze_clock_vote_and_notify_modem(void)
 {
 	int res;
-	u32 ipa_clk_state;
 	struct ipa_active_client_logging_info log_info;
 
 	if (ipa3_ctx->smp2p_info.res_sent)
 		return;
 
+	if (ipa3_ctx->smp2p_info.out_base_id == 0) {
+		IPAERR("smp2p out gpio not assigned\n");
+		return;
+	}
+
 	IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, "FREEZE_VOTE");
 	res = ipa3_inc_client_enable_clks_no_block(&log_info);
 	if (res)
-		ipa_clk_state = 0;
+		ipa3_ctx->smp2p_info.ipa_clk_on = false;
 	else
-		ipa_clk_state = 1;
+		ipa3_ctx->smp2p_info.ipa_clk_on = true;
 
-	if (ipa3_ctx->smp2p_info.out_base_id) {
-		gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
-			IPA_GPIO_OUT_CLK_VOTE_IDX, ipa_clk_state);
-		gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
-			IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX, 1);
-		ipa3_ctx->smp2p_info.res_sent = true;
-	} else {
-		IPAERR("smp2p out gpio not assigned\n");
-	}
+	gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
+		IPA_GPIO_OUT_CLK_VOTE_IDX,
+		ipa3_ctx->smp2p_info.ipa_clk_on);
+	gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
+		IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX, 1);
 
-	IPADBG("IPA clocks are %s\n", ipa_clk_state ? "ON" : "OFF");
+	ipa3_ctx->smp2p_info.res_sent = true;
+	IPADBG("IPA clocks are %s\n",
+		ipa3_ctx->smp2p_info.ipa_clk_on ? "ON" : "OFF");
+}
+
+void ipa3_reset_freeze_vote(void)
+{
+	if (ipa3_ctx->smp2p_info.res_sent == false)
+		return;
+
+	if (ipa3_ctx->smp2p_info.ipa_clk_on)
+		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("FREEZE_VOTE");
+
+	gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
+		IPA_GPIO_OUT_CLK_VOTE_IDX, 0);
+	gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
+		IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX, 0);
+
+	ipa3_ctx->smp2p_info.res_sent = false;
+	ipa3_ctx->smp2p_info.ipa_clk_on = false;
 }
 
 static int ipa3_panic_notifier(struct notifier_block *this,

@@ -25,6 +25,7 @@
 
 		arm,buffer-size = <0x400000>;
 		arm,sg-enable;
+		arm,default-sink;
 
 		coresight-ctis = <&cti0 &cti8>;
 
@@ -626,7 +627,7 @@
 
 		qcom,cti-gpio-trigout = <4>;
 		pinctrl-names = "cti-trigout-pctrl";
-		pinctrl-0 = <&trigout_b>;
+		pinctrl-0 = <&trigout_a>;
 	};
 
 	cti3: cti@6013000 {

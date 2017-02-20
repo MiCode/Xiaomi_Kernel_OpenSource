@@ -23,6 +23,7 @@
 		pm660_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
 			reg = <0x100 0x100>;
+			qcom,fab-id-valid;
 		};
 
 		qcom,power-on@800 {
@@ -606,6 +607,8 @@
 			qcom,lra-high-z = "opt1";
 			qcom,lra-auto-res-mode = "qwd";
 			qcom,lra-res-cal-period = <4>;
+			qcom,correct-lra-drive-freq;
+			qcom,misc-trim-error-rc19p2-clk-reg-present;
 		};
 	};
 };

@@ -49,16 +49,17 @@
 			};
 		};
 
-		trigout_b: trigout_b {
+		trigout_a: trigout_a {
 			mux {
-				pins = "gpio12";
-				function = "qdss_cti1_b";
+				pins = "gpio49";
+				function = "qdss_cti_trig_out_a";
 			};
 
 			config {
-				pins = "gpio12";
-				drive-strength = <16>;
+				pins = "gpio49";
+				drive-strength = <2>;
 				bias-disable;
+				output-low;
 			};
 		};
 
@@ -1436,6 +1437,58 @@
 					drive-strength = <2>; /* 2 mA */
 					bias-pull-down; /* pull down */
 				};
+			};
+		};
+
+		mdss_dp_aux_active: mdss_dp_aux_active {
+			mux {
+				pins = "gpio55", "gpio56";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio55", "gpio56";
+				bias-disable = <0>; /* no pull */
+				drive-strength = <8>;
+			};
+		};
+
+		mdss_dp_aux_suspend: mdss_dp_aux_suspend {
+			mux {
+				pins = "gpio55", "gpio56";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio55", "gpio56";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+		mdss_dp_usbplug_cc_active: mdss_dp_usbplug_cc_active {
+			mux {
+				pins = "gpio58";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio58";
+				bias-disable;
+				drive-strength = <16>;
+			};
+		};
+
+		mdss_dp_usbplug_cc_suspend: mdss_dp_usbplug_cc_suspend {
+			mux {
+				pins = "gpio58";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio58";
+				bias-pull-down;
+				drive-strength = <2>;
 			};
 		};
 

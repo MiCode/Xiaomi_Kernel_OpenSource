@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,9 +47,9 @@
 #define TAILROOM            0 /* for padding by mux layer */
 #define MAX_NUM_OF_MUX_CHANNEL  10 /* max mux channels */
 #define UL_FILTER_RULE_HANDLE_START 69
-#define DEFAULT_OUTSTANDING_HIGH_CTL 96
-#define DEFAULT_OUTSTANDING_HIGH 64
-#define DEFAULT_OUTSTANDING_LOW 32
+#define DEFAULT_OUTSTANDING_HIGH 128
+#define DEFAULT_OUTSTANDING_HIGH_CTL (DEFAULT_OUTSTANDING_HIGH+32)
+#define DEFAULT_OUTSTANDING_LOW 64
 
 #define IPA_WWAN_DEV_NAME "rmnet_ipa%d"
 #define IPA_UPSTEAM_WLAN_IFACE_NAME "wlan0"
@@ -140,7 +140,7 @@ struct rmnet_ipa3_context {
 	void *subsys_notify_handle;
 	u32 apps_to_ipa3_hdl;
 	u32 ipa3_to_apps_hdl;
-	struct mutex ipa_to_apps_pipe_handle_guard;
+	struct mutex pipe_handle_guard;
 };
 
 static struct rmnet_ipa3_context *rmnet_ipa3_ctx;
@@ -661,7 +661,7 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 	}
 
 	param->commit = 1;
-	param->ep = IPA_CLIENT_APPS_LAN_WAN_PROD;
+	param->ep = IPA_CLIENT_APPS_WAN_PROD;
 	param->global = false;
 	param->num_rules = (uint8_t)1;
 
@@ -700,7 +700,7 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 
 	/* send ipa_fltr_installed_notif_req_msg_v01 to Q6*/
 	req->source_pipe_index =
-		ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD);
+		ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
 	req->install_status = QMI_RESULT_SUCCESS_V01;
 	req->rule_id_valid = 1;
 	req->rule_id_len = rmnet_ipa3_ctx->num_q6_rules;
@@ -850,14 +850,14 @@ static int ipa3_wwan_register_to_ipa(int index)
 	rx_ipv4_property->attrib.meta_data =
 		rmnet_ipa3_ctx->mux_channel[index].mux_id << WWAN_METADATA_SHFT;
 	rx_ipv4_property->attrib.meta_data_mask = WWAN_METADATA_MASK;
-	rx_ipv4_property->src_pipe = IPA_CLIENT_APPS_LAN_WAN_PROD;
+	rx_ipv4_property->src_pipe = IPA_CLIENT_APPS_WAN_PROD;
 	rx_ipv6_property = &rx_properties.prop[1];
 	rx_ipv6_property->ip = IPA_IP_v6;
 	rx_ipv6_property->attrib.attrib_mask |= IPA_FLT_META_DATA;
 	rx_ipv6_property->attrib.meta_data =
 		rmnet_ipa3_ctx->mux_channel[index].mux_id << WWAN_METADATA_SHFT;
 	rx_ipv6_property->attrib.meta_data_mask = WWAN_METADATA_MASK;
-	rx_ipv6_property->src_pipe = IPA_CLIENT_APPS_LAN_WAN_PROD;
+	rx_ipv6_property->src_pipe = IPA_CLIENT_APPS_WAN_PROD;
 	rx_properties.num_props = 2;
 
 	pyld_sz = rmnet_ipa3_ctx->num_q6_rules *
@@ -1139,9 +1139,10 @@ send:
 		memset(&meta, 0, sizeof(meta));
 		meta.pkt_init_dst_ep_valid = true;
 		meta.pkt_init_dst_ep_remote = true;
-		ret = ipa3_tx_dp(IPA_CLIENT_Q6_LAN_CONS, skb, &meta);
+		meta.pkt_init_dst_ep = IPA_CLIENT_Q6_LAN_CONS;
+		ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, &meta);
 	} else {
-		ret = ipa3_tx_dp(IPA_CLIENT_APPS_LAN_WAN_PROD, skb, NULL);
+		ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, NULL);
 	}
 
 	if (ret) {
@@ -1154,8 +1155,9 @@ send:
 	dev->stats.tx_bytes += skb->len;
 	ret = NETDEV_TX_OK;
 out:
-	ipa_rm_inactivity_timer_release_resource(
-		IPA_RM_RESOURCE_WWAN_0_PROD);
+	if (atomic_read(&wwan_ptr->outstanding_pkts) == 0)
+		ipa_rm_inactivity_timer_release_resource(
+			IPA_RM_RESOURCE_WWAN_0_PROD);
 	return ret;
 }
 
@@ -1206,10 +1208,12 @@ static void apps_ipa_tx_complete_notify(void *priv,
 				wwan_ptr->outstanding_low);
 		netif_wake_queue(wwan_ptr->net);
 	}
+
+	if (atomic_read(&wwan_ptr->outstanding_pkts) == 0)
+		ipa_rm_inactivity_timer_release_resource(
+			IPA_RM_RESOURCE_WWAN_0_PROD);
 	__netif_tx_unlock_bh(netdev_get_tx_queue(dev, 0));
 	dev_kfree_skb_any(skb);
-	ipa_rm_inactivity_timer_release_resource(
-		IPA_RM_RESOURCE_WWAN_0_PROD);
 }
 
 /**
@@ -1280,7 +1284,7 @@ static int handle3_ingress_format(struct net_device *dev,
 		   IPA_ENABLE_CS_OFFLOAD_DL;
 
 	if ((in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA) {
-		IPAWANERR("get AGG size %d count %d\n",
+		IPAWANDBG("get AGG size %d count %d\n",
 				  in->u.ingress_format.agg_size,
 				  in->u.ingress_format.agg_count);
 
@@ -1325,22 +1329,120 @@ static int handle3_ingress_format(struct net_device *dev,
 	ipa_wan_ep_cfg->desc_fifo_sz =
 		ipa3_rmnet_res.wan_rx_desc_size * sizeof(struct sps_iovec);
 
-	mutex_lock(&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
+	mutex_lock(&rmnet_ipa3_ctx->pipe_handle_guard);
 
 	if (atomic_read(&rmnet_ipa3_ctx->is_ssr)) {
 		IPAWANDBG("In SSR sequence/recovery\n");
-		mutex_unlock(&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
+		mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
 		return -EFAULT;
 	}
 	ret = ipa3_setup_sys_pipe(&rmnet_ipa3_ctx->ipa_to_apps_ep_cfg,
 	   &rmnet_ipa3_ctx->ipa3_to_apps_hdl);
 
-	mutex_unlock(&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
+	mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
 
 	if (ret)
 		IPAWANERR("failed to configure ingress\n");
 
 	return ret;
+}
+
+/**
+ * handle3_egress_format() - Egress data format configuration
+ *
+ * Setup IPA egress system pipe and Configure:
+ *	header handling, checksum, de-aggregation and fifo size
+ *
+ * @dev: network device
+ * @e: egress configuration
+ */
+static int handle3_egress_format(struct net_device *dev,
+			struct rmnet_ioctl_extended_s *e)
+{
+	int rc;
+	struct ipa_sys_connect_params *ipa_wan_ep_cfg;
+
+	IPAWANDBG("get RMNET_IOCTL_SET_EGRESS_DATA_FORMAT\n");
+	ipa_wan_ep_cfg = &rmnet_ipa3_ctx->apps_to_ipa_ep_cfg;
+	if ((e->u.data) & RMNET_IOCTL_EGRESS_FORMAT_CHECKSUM) {
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 8;
+		ipa_wan_ep_cfg->ipa_ep_cfg.cfg.cs_offload_en =
+			IPA_ENABLE_CS_OFFLOAD_UL;
+		ipa_wan_ep_cfg->ipa_ep_cfg.cfg.cs_metadata_hdr_offset = 1;
+	} else {
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 4;
+	}
+
+	if ((e->u.data) & RMNET_IOCTL_EGRESS_FORMAT_AGGREGATION) {
+		IPAWANERR("WAN UL Aggregation not supported!!\n");
+		WARN_ON(1);
+		return -EINVAL;
+		ipa_wan_ep_cfg->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_DEAGGR;
+		ipa_wan_ep_cfg->ipa_ep_cfg.aggr.aggr = IPA_QCMAP;
+
+		ipa_wan_ep_cfg->ipa_ep_cfg.deaggr.packet_offset_valid = false;
+
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_pkt_size = 2;
+
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad_valid =
+			true;
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad =
+			IPA_HDR_PAD;
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr_ext.hdr_pad_to_alignment =
+			2;
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr_ext.hdr_payload_len_inc_padding =
+			true;
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad_offset =
+			0;
+		ipa_wan_ep_cfg->ipa_ep_cfg.hdr_ext.hdr_little_endian =
+			false;
+	} else {
+		IPAWANDBG("WAN UL Aggregation disabled\n");
+		ipa_wan_ep_cfg->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
+	}
+
+	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_metadata_valid = 1;
+	/* modem want offset at 0! */
+	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_metadata = 0;
+
+	ipa_wan_ep_cfg->ipa_ep_cfg.mode.dst = IPA_CLIENT_APPS_WAN_PROD;
+	ipa_wan_ep_cfg->ipa_ep_cfg.mode.mode = IPA_BASIC;
+
+	ipa_wan_ep_cfg->client = IPA_CLIENT_APPS_WAN_PROD;
+	ipa_wan_ep_cfg->notify = apps_ipa_tx_complete_notify;
+	ipa_wan_ep_cfg->desc_fifo_sz = IPA_SYS_TX_DATA_DESC_FIFO_SZ;
+	ipa_wan_ep_cfg->priv = dev;
+
+	mutex_lock(&rmnet_ipa3_ctx->pipe_handle_guard);
+	if (atomic_read(&rmnet_ipa3_ctx->is_ssr)) {
+		IPAWANDBG("In SSR sequence/recovery\n");
+		mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
+		return -EFAULT;
+	}
+	rc = ipa3_setup_sys_pipe(
+		ipa_wan_ep_cfg, &rmnet_ipa3_ctx->apps_to_ipa3_hdl);
+	if (rc) {
+		IPAWANERR("failed to config egress endpoint\n");
+		mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
+		return rc;
+	}
+	mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
+
+	if (rmnet_ipa3_ctx->num_q6_rules != 0) {
+		/* already got Q6 UL filter rules*/
+		if (ipa3_qmi_ctx->modem_cfg_emb_pipe_flt == false)
+			rc = ipa3_wwan_add_ul_flt_rule_to_ipa();
+		if (rc)
+			IPAWANERR("install UL rules failed\n");
+		else
+			rmnet_ipa3_ctx->a7_ul_flt_set = true;
+	} else {
+		/* wait Q6 UL filter rules*/
+		IPAWANDBG("no UL-rules\n");
+	}
+	rmnet_ipa3_ctx->egress_set = true;
+
+	return rc;
 }
 
 /**
@@ -1504,7 +1606,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		case RMNET_IOCTL_GET_EP_PAIR:
 			IPAWANDBG("get ioctl: RMNET_IOCTL_GET_EP_PAIR\n");
 			extend_ioctl_data.u.ipa_ep_pair.consumer_pipe_num =
-			ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD);
+			ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
 			extend_ioctl_data.u.ipa_ep_pair.producer_pipe_num =
 			ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
 			if (copy_to_user((u8 *)ifr->ifr_ifru.ifru_data,
@@ -1590,72 +1692,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			rmnet_ipa3_ctx->rmnet_index++;
 			break;
 		case RMNET_IOCTL_SET_EGRESS_DATA_FORMAT:
-			IPAWANDBG("get RMNET_IOCTL_SET_EGRESS_DATA_FORMAT\n");
-			if ((extend_ioctl_data.u.data) &
-					RMNET_IOCTL_EGRESS_FORMAT_CHECKSUM) {
-				rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.
-					ipa_ep_cfg.hdr.hdr_len = 8;
-				rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.
-					ipa_ep_cfg.cfg.cs_offload_en =
-					IPA_ENABLE_CS_OFFLOAD_UL;
-				rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.
-					ipa_ep_cfg.cfg.cs_metadata_hdr_offset
-						= 1;
-			} else {
-				rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.
-					ipa_ep_cfg.hdr.hdr_len = 4;
-			}
-			if ((extend_ioctl_data.u.data) &
-					RMNET_IOCTL_EGRESS_FORMAT_AGGREGATION)
-				rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.
-					ipa_ep_cfg.aggr.aggr_en =
-						IPA_ENABLE_AGGR;
-			else
-				rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.
-					ipa_ep_cfg.aggr.aggr_en =
-						IPA_BYPASS_AGGR;
-			rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.ipa_ep_cfg.hdr.
-				hdr_ofst_metadata_valid = 1;
-			/* modem want offset at 0! */
-			rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.ipa_ep_cfg.hdr.
-				hdr_ofst_metadata = 0;
-			rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.ipa_ep_cfg.mode.
-				dst = IPA_CLIENT_APPS_LAN_WAN_PROD;
-			rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.ipa_ep_cfg.mode.
-				mode = IPA_BASIC;
-
-			rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.client =
-				IPA_CLIENT_APPS_LAN_WAN_PROD;
-			rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.notify =
-				apps_ipa_tx_complete_notify;
-			rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.desc_fifo_sz =
-			IPA_SYS_TX_DATA_DESC_FIFO_SZ;
-			rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.priv = dev;
-
-			rc = ipa3_setup_sys_pipe(
-				&rmnet_ipa3_ctx->apps_to_ipa_ep_cfg,
-				&rmnet_ipa3_ctx->apps_to_ipa3_hdl);
-			if (rc)
-				IPAWANERR("failed to config egress endpoint\n");
-
-			if (rmnet_ipa3_ctx->num_q6_rules != 0) {
-				/* already got Q6 UL filter rules*/
-				if (ipa3_qmi_ctx->modem_cfg_emb_pipe_flt
-					== false)
-					rc = ipa3_wwan_add_ul_flt_rule_to_ipa();
-				else
-					rc = 0;
-				rmnet_ipa3_ctx->egress_set = true;
-				if (rc)
-					IPAWANERR("install UL rules failed\n");
-				else
-					rmnet_ipa3_ctx->a7_ul_flt_set = true;
-			} else {
-				/* wait Q6 UL filter rules*/
-				rmnet_ipa3_ctx->egress_set = true;
-				IPAWANDBG("no UL-rules, egress_set(%d)\n",
-					rmnet_ipa3_ctx->egress_set);
-			}
+			rc = handle3_egress_format(dev, &extend_ioctl_data);
 			break;
 		case RMNET_IOCTL_SET_INGRESS_DATA_FORMAT:/*  Set IDF  */
 			rc = handle3_ingress_format(dev, &extend_ioctl_data);
@@ -2260,15 +2297,20 @@ static int ipa3_wwan_remove(struct platform_device *pdev)
 	int ret;
 
 	pr_info("rmnet_ipa started deinitialization\n");
-	mutex_lock(&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
+	mutex_lock(&rmnet_ipa3_ctx->pipe_handle_guard);
 	ret = ipa3_teardown_sys_pipe(rmnet_ipa3_ctx->ipa3_to_apps_hdl);
 	if (ret < 0)
 		IPAWANERR("Failed to teardown IPA->APPS pipe\n");
 	else
 		rmnet_ipa3_ctx->ipa3_to_apps_hdl = -1;
+	ret = ipa3_teardown_sys_pipe(rmnet_ipa3_ctx->apps_to_ipa3_hdl);
+	if (ret < 0)
+		IPAWANERR("Failed to teardown APPS->IPA pipe\n");
+	else
+		rmnet_ipa3_ctx->apps_to_ipa3_hdl = -1;
 	if (ipa3_rmnet_res.ipa_napi_enable)
 		netif_napi_del(&(rmnet_ipa3_ctx->wwan_priv->napi));
-	mutex_unlock(&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
+	mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
 	unregister_netdev(IPA_NETDEV());
 	ret = ipa_rm_delete_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
 		IPA_RM_RESOURCE_Q6_CONS);
@@ -2435,6 +2477,7 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 			ipa3_qmi_service_exit();
 		/*hold a proxy vote for the modem*/
 		ipa3_proxy_clk_vote();
+		ipa3_reset_freeze_vote();
 		IPAWANINFO("IPA BEFORE_POWERUP handling is complete\n");
 		break;
 	case SUBSYS_AFTER_POWERUP:
@@ -3156,8 +3199,9 @@ static int __init ipa3_wwan_init(void)
 	atomic_set(&rmnet_ipa3_ctx->is_initialized, 0);
 	atomic_set(&rmnet_ipa3_ctx->is_ssr, 0);
 
-	mutex_init(&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
+	mutex_init(&rmnet_ipa3_ctx->pipe_handle_guard);
 	rmnet_ipa3_ctx->ipa3_to_apps_hdl = -1;
+	rmnet_ipa3_ctx->apps_to_ipa3_hdl = -1;
 	/* Register for Modem SSR */
 	rmnet_ipa3_ctx->subsys_notify_handle = subsys_notif_register_notifier(
 			SUBSYS_MODEM,
@@ -3171,7 +3215,7 @@ static int __init ipa3_wwan_init(void)
 static void __exit ipa3_wwan_cleanup(void)
 {
 	int ret;
-	mutex_destroy(&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
+	mutex_destroy(&rmnet_ipa3_ctx->pipe_handle_guard);
 	ret = subsys_notif_unregister_notifier(
 		rmnet_ipa3_ctx->subsys_notify_handle, &ipa3_ssr_notifier);
 	if (ret)

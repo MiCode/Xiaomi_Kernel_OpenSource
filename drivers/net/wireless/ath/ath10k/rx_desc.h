@@ -625,8 +625,10 @@ struct rx_msdu_end {
 	struct rx_msdu_end_common common;
 	union {
 		struct rx_msdu_end_qca99x0 qca99x0;
-		struct rx_msdu_end_wcn3990 wcn3990;
 	} __packed;
+#ifdef CONFIG_ATH10K_SNOC
+	struct rx_msdu_end_wcn3990 wcn3990;
+#endif
 } __packed;
 
 /*
@@ -1123,7 +1125,6 @@ struct rx_ppdu_end_qca9984 {
 
 struct rx_timing_offset {
 	__le32 timing_offset;
-	__le32 reserved;
 };
 
 struct rx_ppdu_end_wcn3990 {
@@ -1147,7 +1148,9 @@ struct rx_ppdu_end {
 		struct rx_ppdu_end_qca6174 qca6174;
 		struct rx_ppdu_end_qca99x0 qca99x0;
 		struct rx_ppdu_end_qca9984 qca9984;
+#ifdef CONFIG_ATH10K_SNOC
 		struct rx_ppdu_end_wcn3990 wcn3990;
+#endif
 	} __packed;
 } __packed;
 

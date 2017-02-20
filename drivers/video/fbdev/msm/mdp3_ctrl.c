@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2147,8 +2147,10 @@ static int mdp3_ctrl_lut_config(struct msm_fb_data_type *mfd,
 
 	dma = mdp3_session->dma;
 
-	if (cfg->cmap.start + cfg->cmap.len > MDP_LUT_SIZE) {
-		pr_err("Invalid arguments\n");
+	if ((cfg->cmap.start > MDP_LUT_SIZE) ||
+		(cfg->cmap.len > MDP_LUT_SIZE) ||
+		(cfg->cmap.start + cfg->cmap.len > MDP_LUT_SIZE)) {
+		pr_err("Invalid arguments.\n");
 		return  -EINVAL;
 	}
 

@@ -1088,7 +1088,7 @@ static int cpr3_mmss_regulator_resume(struct platform_device *pdev)
 }
 
 /* Data corresponds to the SoC revision */
-static struct of_device_id cpr_regulator_match_table[] = {
+static const struct of_device_id cpr_regulator_match_table[] = {
 	{
 		.compatible = "qcom,cpr3-msm8996-v1-mmss-regulator",
 		.data = (void *)(uintptr_t)1,

@@ -840,7 +840,8 @@ static ssize_t firmware_direct_write(struct file *filp, struct kobject *kobj,
 
 	mutex_lock(&fw_lock);
 	fw = fw_priv->fw;
-	if (!fw || test_bit(FW_STATUS_DONE, &fw_priv->buf->status)) {
+	if (!fw || !fw_priv->buf ||
+			test_bit(FW_STATUS_DONE, &fw_priv->buf->status)) {
 		retval = -ENODEV;
 		goto out;
 	}

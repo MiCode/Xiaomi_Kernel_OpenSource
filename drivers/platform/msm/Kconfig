@@ -5,20 +5,20 @@ config QPNP_REVID
 	tristate "QPNP Revision ID Peripheral"
 	depends on SPMI
 	help
-	  Say 'y' here to include support for the Qualcomm QPNP REVID
-	  peripheral. REVID prints out the PMIC type and revision numbers
-	  in the kernel log along with the PMIC option status. The PMIC
-	  type is mapped to a Qualcomm chip part number and logged as well.
+	  Say 'y' here to include support for the Qualcomm Technologies, Inc.
+	  QPNP REVID peripheral. REVID prints out the PMIC type and revision
+	  numbers in the kernel log along with the PMIC option status. The PMIC
+	  type is mapped to a QTI chip part number and logged as well.
 
 config QPNP_COINCELL
-	tristate "Qualcomm QPNP coincell charger support"
+	tristate "QPNP coincell charger support"
 	depends on SPMI
 	help
 	  This driver supports the QPNP coincell peripheral found inside of
-	  Qualcomm QPNP PMIC devices.  The coincell charger provides a means to
-	  charge a coincell battery or backup capacitor which is used to
-	  maintain PMIC register state when the main battery is removed from the
-	  mobile device.
+	  Qualcomm Technologies, Inc. QPNP PMIC devices.  The coincell charger
+	  provides a means to charge a coincell battery or backup capacitor
+	  which is used to maintain PMIC register state when the main battery is
+	  removed from the mobile device.
 
 config SPS
 	bool "SPS support"

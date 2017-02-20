@@ -1071,10 +1071,6 @@ enum sched_boost_policy {
 #define WINDOW_STATS_AVG		3
 #define WINDOW_STATS_INVALID_POLICY	4
 
-#define FREQ_REPORT_MAX_CPU_LOAD_TOP_TASK	0
-#define FREQ_REPORT_CPU_LOAD			1
-#define FREQ_REPORT_TOP_TASK			2
-
 #define SCHED_UPMIGRATE_MIN_NICE 15
 #define EXITING_TASK_MARKER	0xdeaddead
 

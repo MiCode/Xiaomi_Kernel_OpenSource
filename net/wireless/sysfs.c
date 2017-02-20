@@ -94,12 +94,11 @@ static int wiphy_suspend(struct device *dev)
 
 	rdev->suspend_at = get_seconds();
 
-	if (rdev->ops->suspend) {
-		rtnl_lock();
-		if (rdev->wiphy.registered)
-			ret = rdev_suspend(rdev);
-		rtnl_unlock();
-	}
+	rtnl_lock();
+	if (rdev->wiphy.registered)
+		if (rdev->ops->suspend)
+			ret = rdev_suspend(rdev, NULL);
+	rtnl_unlock();
 
 	return ret;
 }

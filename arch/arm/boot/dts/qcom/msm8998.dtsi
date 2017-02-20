@@ -1750,7 +1750,8 @@
 			tx-fifo-resize;
 			snps,nominal-elastic-buffer;
 			snps,disable-clk-gating;
-			snps,hird_thresh = <0x10>;
+			snps,has-lpm-erratum;
+			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,num-gsi-evt-buffs = <0x3>;
 		};
 
@@ -2186,6 +2187,7 @@
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor12";
 			qcom,scaling-factor = <10>;
+			qcom,alias-name = "gpu_1";
 		};
 		sensor_information13: qcom,sensor-information-13 {
 			qcom,sensor-type = "tsens";
@@ -3041,7 +3043,7 @@
 
 	};
 
-	msm_ath10k_wlan: qcom,msm_ath10k_wlan@18000000 {
+	msm_ath10k_wlan: qcom,msm_ath10k_wlan {
 		status = "disabled";
 		compatible = "qcom,wcn3990-wifi";
 		interrupts =

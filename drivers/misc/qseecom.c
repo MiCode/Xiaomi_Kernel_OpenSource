@@ -562,7 +562,6 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 		case QSEOS_REGISTER_LISTENER: {
 			struct qseecom_register_listener_ireq *req;
 			struct qseecom_register_listener_64bit_ireq *req_64bit;
-			smc_id = TZ_OS_REGISTER_LISTENER_ID;
 			desc.arginfo =
 				TZ_OS_REGISTER_LISTENER_ID_PARAM_ID;
 			if (qseecom.qsee_version < QSEE_VERSION_40) {
@@ -579,8 +578,15 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 				desc.args[1] = req_64bit->sb_ptr;
 				desc.args[2] = req_64bit->sb_len;
 			}
+			smc_id = TZ_OS_REGISTER_LISTENER_SMCINVOKE_ID;
 			__qseecom_reentrancy_check_if_no_app_blocked(smc_id);
 			ret = scm_call2(smc_id, &desc);
+			if (ret) {
+				smc_id = TZ_OS_REGISTER_LISTENER_ID;
+				__qseecom_reentrancy_check_if_no_app_blocked(
+					smc_id);
+				ret = scm_call2(smc_id, &desc);
+			}
 			break;
 		}
 		case QSEOS_DEREGISTER_LISTENER: {
@@ -2135,22 +2141,24 @@ static void __qseecom_reentrancy_check_if_no_app_blocked(uint32_t smc_id)
 }
 
 /*
- * scm_call send command to a blocked TZ app will fail
- * So, first check and then wait until this apps is unblocked
+ * scm_call of send data will fail if this TA is blocked or there are more
+ * than one TA requesting listener services; So, first check to see if need
+ * to wait.
  */
 static void __qseecom_reentrancy_check_if_this_app_blocked(
 			struct qseecom_registered_app_list *ptr_app)
 {
 	sigset_t new_sigset, old_sigset;
 	if (qseecom.qsee_reentrancy_support) {
-		while (ptr_app->app_blocked) {
+		while (ptr_app->app_blocked || qseecom.app_block_ref_cnt > 1) {
 			/* thread sleep until this app unblocked */
 			sigfillset(&new_sigset);
 			sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
 			mutex_unlock(&app_access_lock);
 			do {
 				if (!wait_event_freezable(qseecom.app_block_wq,
-						!ptr_app->app_blocked))
+					(!ptr_app->app_blocked &&
+					qseecom.app_block_ref_cnt <= 1)))
 					break;
 			} while (1);
 			mutex_lock(&app_access_lock);

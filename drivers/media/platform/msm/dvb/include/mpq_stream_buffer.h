@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,6 @@
 #define _MPQ_STREAM_BUFFER_H
 
 #include "dvb_ringbuffer.h"
-
 
 /**
  * DOC: MPQ Stream Buffer
@@ -458,5 +457,38 @@ ssize_t mpq_streambuffer_metadata_free(struct mpq_streambuffer *sbuff);
  * Returns error status
  */
 int mpq_streambuffer_flush(struct mpq_streambuffer *sbuff);
+
+/*
+ *  ------------------------------------------------------
+ *  Consumer or AV Decoder Stream Interface to Ring Buffer
+ *  ------------------------------------------------------
+ *  Producer is Demux Driver
+ *  ------------------------
+ *
+ *  call from Audio/Video Decoder Driver to find Audio/Video
+ *  streambuffer AV handles, "DMX_PES_AUDIO0 through 3" or
+ *  DMX_PES_VIDEO0 through 3" interfaces corresponding to 4 programs.
+ */
+
+/* call from Audio/Video Decoder Driver via POLLING to consume
+ * Headers and Compressed data from ring buffer using streambuffer handle.
+ * hdrdata[] and cdata[] buffers have to be malloc'd by consumer
+ *
+ *  --------------------------
+ *  Consumer Calling Sequence
+ *  --------------------------
+ *  Find the streambuffer corresponding to a DMX TS PES stream instance.
+ *  1. consumer_audio_streambuffer() or consumer_video_streambuffer()
+ *  Process the packet headers if required.
+ *  2. mpq_read_new_packet_hdr_data()
+ *  Process the compressed data by forwarding to AV decoder.
+ *  3. mpq_read_new_packet_compressed_data()
+ *  Dispose the packet.
+ *  4. mpq_dispose_new_packet_read()
+ *
+ *  The Audio/Video drivers (or consumers) require the stream_buffer information
+ *  for consuming packet headers and compressed AV data from the
+ *  ring buffer filled by demux driver which is the producer
+ */
 
 #endif /* _MPQ_STREAM_BUFFER_H */

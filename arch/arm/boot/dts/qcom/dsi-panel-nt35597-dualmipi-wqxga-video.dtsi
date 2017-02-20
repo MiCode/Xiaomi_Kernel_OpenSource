@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,7 @@
 		qcom,mdss-dsi-v-front-porch = <8>;
 		qcom,mdss-dsi-v-pulse-width = <1>;
 		qcom,mdss-dsi-bpp = <24>;
-		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-underflow-color = <0x3ff>;
 		qcom,mdss-dsi-border-color = <0>;
 		qcom,mdss-dsi-panel-hdr-enabled;
 		qcom,mdss-dsi-panel-hdr-color-primaries = <14500 15500 32000

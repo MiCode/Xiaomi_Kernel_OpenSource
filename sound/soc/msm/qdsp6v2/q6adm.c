@@ -2815,8 +2815,8 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode,
 							[port_idx][copp_idx]),
 					    get_cal_path(path),
 					    payload_map.session_id,
-					    payload_map.app_type,
-					    payload_map.acdb_dev_id);
+					    payload_map.app_type[i],
+					    payload_map.acdb_dev_id[i]);
 
 			if (!test_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 				(void *)&this_adm.copp.adm_status[port_idx]
@@ -2827,9 +2827,9 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode,
 			}
 			send_adm_cal(payload_map.port_id[i], copp_idx,
 				     get_cal_path(path), perf_mode,
-				     payload_map.app_type,
-				     payload_map.acdb_dev_id,
-				     payload_map.sample_rate);
+				     payload_map.app_type[i],
+				     payload_map.acdb_dev_id[i],
+				     payload_map.sample_rate[i]);
 			/* ADM COPP calibration is already sent */
 			clear_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 				(void *)&this_adm.copp.

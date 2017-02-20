@@ -43,6 +43,9 @@ Optional properties:
 - qcom,vconn-uses-external-source: Indicates whether VCONN supply is sourced
 			from an external regulator. If omitted, then it is
 			assumed it is connected to VBUS.
+- qcom,default-sink-caps: List of 32-bit values representing the nominal sink
+			capabilities in voltage (millivolts) and current
+			(milliamps) pairs.
 
 Example:
 	qcom,qpnp-pdphy@1700 {
@@ -64,4 +67,8 @@ Example:
 				  "msg-tx-failed",
 				  "msg-tx-discarded",
 				  "msg-rx-discarded";
+
+		qcom,default-sink-caps = <5000 3000>, /* 5V @ 3A */
+					 <9000 3000>, /* 9V @ 3A */
+					 <12000 2250>; /* 12V @ 2.25A */
 	};

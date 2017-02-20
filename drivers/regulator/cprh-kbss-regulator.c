@@ -37,6 +37,7 @@
 
 #define MSM8998_KBSS_FUSE_CORNERS	4
 #define SDM660_KBSS_FUSE_CORNERS	5
+#define SDM630_KBSS_FUSE_CORNERS	4
 
 /**
  * struct cprh_kbss_fuses - KBSS specific fuse data
@@ -79,6 +80,7 @@ struct cprh_kbss_fuses {
  */
 #define CPRH_MSM8998_KBSS_FUSE_COMBO_COUNT	32
 #define CPRH_SDM660_KBSS_FUSE_COMBO_COUNT	16
+#define CPRH_SDM630_KBSS_FUSE_COMBO_COUNT	24
 
 /*
  * Constants which define the name of each fuse corner.
@@ -127,6 +129,20 @@ static const char * const cprh_sdm660_perf_kbss_fuse_corner_name[] = {
 	[CPRH_SDM660_PERF_KBSS_FUSE_CORNER_NOM]		= "NOM",
 	[CPRH_SDM660_PERF_KBSS_FUSE_CORNER_TURBO]	= "TURBO",
 	[CPRH_SDM660_PERF_KBSS_FUSE_CORNER_TURBO_L2]	= "TURBO_L2",
+};
+
+enum cprh_sdm630_kbss_fuse_corner {
+	CPRH_SDM630_KBSS_FUSE_CORNER_LOWSVS	= 0,
+	CPRH_SDM630_KBSS_FUSE_CORNER_SVSPLUS	= 1,
+	CPRH_SDM630_KBSS_FUSE_CORNER_NOM	= 2,
+	CPRH_SDM630_KBSS_FUSE_CORNER_TURBO_L1	= 3,
+};
+
+static const char * const cprh_sdm630_kbss_fuse_corner_name[] = {
+	[CPRH_SDM630_KBSS_FUSE_CORNER_LOWSVS]	= "LowSVS",
+	[CPRH_SDM630_KBSS_FUSE_CORNER_SVSPLUS]	= "SVSPLUS",
+	[CPRH_SDM630_KBSS_FUSE_CORNER_NOM]	= "NOM",
+	[CPRH_SDM630_KBSS_FUSE_CORNER_TURBO_L1]	= "TURBO_L1",
 };
 
 /* KBSS cluster IDs */
@@ -186,6 +202,22 @@ sdm660_kbss_ro_sel_param[2][SDM660_KBSS_FUSE_CORNERS][3] = {
 };
 
 static const struct cpr3_fuse_param
+sdm630_kbss_ro_sel_param[2][SDM630_KBSS_FUSE_CORNERS][3] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		{{67, 12, 15}, {} },
+		{{65, 56, 59}, {} },
+		{{67,  4,  7}, {} },
+		{{67,  0,  3}, {} },
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		{{68, 61, 63}, {69,  0,  0} },
+		{{69,  1,  4}, {} },
+		{{68, 57, 60}, {} },
+		{{66, 14, 17}, {} },
+	},
+};
+
+static const struct cpr3_fuse_param
 msm8998_kbss_init_voltage_param[2][MSM8998_KBSS_FUSE_CORNERS][2] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		{{67, 34, 39}, {} },
@@ -215,6 +247,22 @@ sdm660_kbss_init_voltage_param[2][SDM660_KBSS_FUSE_CORNERS][2] = {
 		{{69, 23, 28}, {} },
 		{{69, 11, 16}, {} },
 		{{69,  5, 10}, {} },
+		{{70, 42, 47}, {} },
+	},
+};
+
+static const struct cpr3_fuse_param
+sdm630_kbss_init_voltage_param[2][SDM630_KBSS_FUSE_CORNERS][2] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		{{67, 34, 39}, {} },
+		{{71,  3,  8}, {} },
+		{{67, 22, 27}, {} },
+		{{67, 16, 21}, {} },
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		{{69, 17, 22}, {} },
+		{{69, 23, 28}, {} },
+		{{69, 11, 16}, {} },
 		{{70, 42, 47}, {} },
 	},
 };
@@ -254,6 +302,22 @@ sdm660_kbss_target_quot_param[2][SDM660_KBSS_FUSE_CORNERS][3] = {
 };
 
 static const struct cpr3_fuse_param
+sdm630_kbss_target_quot_param[2][SDM630_KBSS_FUSE_CORNERS][3] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		{{68, 12, 23}, {} },
+		{{71,  9, 20}, {} },
+		{{67, 52, 63}, {} },
+		{{67, 40, 51}, {} },
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		{{69, 53, 63}, {70,  0,  0}, {} },
+		{{70,  1, 12}, {} },
+		{{69, 41, 52}, {} },
+		{{70, 48, 59}, {} },
+	},
+};
+
+static const struct cpr3_fuse_param
 msm8998_kbss_quot_offset_param[2][MSM8998_KBSS_FUSE_CORNERS][3] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		{{} },
@@ -287,12 +351,33 @@ sdm660_kbss_quot_offset_param[2][SDM660_KBSS_FUSE_CORNERS][3] = {
 	},
 };
 
+static const struct cpr3_fuse_param
+sdm630_kbss_quot_offset_param[2][SDM630_KBSS_FUSE_CORNERS][3] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		{{} },
+		{{71, 21, 27}, {} },
+		{{68, 31, 37}, {} },
+		{{68, 24, 30}, {} },
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		{{} },
+		{{70, 27, 33}, {} },
+		{{70, 20, 26}, {} },
+		{{70, 60, 63}, {71,  0,  2}, {} },
+	},
+};
+
 static const struct cpr3_fuse_param msm8998_cpr_fusing_rev_param[] = {
 	{39, 51, 53},
 	{},
 };
 
 static const struct cpr3_fuse_param sdm660_cpr_fusing_rev_param[] = {
+	{71, 28, 30},
+	{},
+};
+
+static const struct cpr3_fuse_param sdm630_cpr_fusing_rev_param[] = {
 	{71, 28, 30},
 	{},
 };
@@ -322,6 +407,18 @@ msm8998_kbss_aging_init_quot_diff_param[2][2] = {
 
 static const struct cpr3_fuse_param
 sdm660_kbss_aging_init_quot_diff_param[2][2] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		{68, 45, 52},
+		{},
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		{70, 34, 41},
+		{},
+	},
+};
+
+static const struct cpr3_fuse_param
+sdm630_kbss_aging_init_quot_diff_param[2][2] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		{68, 45, 52},
 		{},
@@ -383,6 +480,25 @@ sdm660_kbss_fuse_ref_volt[2][SDM660_KBSS_FUSE_CORNERS] = {
 	},
 };
 
+/*
+ * Open loop voltage fuse reference voltages in microvolts for SDM630
+ */
+static const int
+sdm630_kbss_fuse_ref_volt[SDM630_KBSS_FUSE_CORNERS] = {
+	644000,
+	788000,
+	868000,
+	1068000,
+};
+
+static const int
+sdm630_kbss_speed_bin_2_fuse_ref_volt[SDM630_KBSS_FUSE_CORNERS] = {
+	644000,
+	788000,
+	868000,
+	1140000,
+};
+
 #define CPRH_KBSS_FUSE_STEP_VOLT		10000
 #define CPRH_KBSS_VOLTAGE_FUSE_SIZE		6
 #define CPRH_KBSS_QUOT_OFFSET_SCALE		5
@@ -433,12 +549,19 @@ sdm660_kbss_fuse_ref_volt[2][SDM660_KBSS_FUSE_CORNERS] = {
 #define SDM660_KBSS_PERFORMANCE_AGING_BYPASS_MASK0	0
 
 /*
+ * sdm630 configuration
+ */
+#define SDM630_KBSS_POWER_CPR_SENSOR_COUNT		6
+#define SDM630_KBSS_PERFORMANCE_CPR_SENSOR_COUNT	9
+
+/*
  * SOC IDs
  */
 enum soc_id {
 	MSM8998_V1_SOC_ID = 1,
 	MSM8998_V2_SOC_ID = 2,
 	SDM660_SOC_ID     = 3,
+	SDM630_SOC_ID     = 4,
 };
 
 /**
@@ -623,6 +746,90 @@ static int cprh_sdm660_kbss_read_fuse_data(struct cpr3_regulator *vreg,
 };
 
 /**
+ * cprh_sdm630_kbss_read_fuse_data() - load SDM630 KBSS specific fuse parameter
+ *		values
+ * @vreg:		Pointer to the CPR3 regulator
+ * @fuse:		KBSS specific fuse data
+ *
+ * This function fills cprh_kbss_fuses struct with values read out of hardware
+ * fuses.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cprh_sdm630_kbss_read_fuse_data(struct cpr3_regulator *vreg,
+		struct cprh_kbss_fuses *fuse)
+{
+	void __iomem *base = vreg->thread->ctrl->fuse_base;
+	int i, id, rc;
+
+	rc = cpr3_read_fuse_param(base, sdm630_cpr_fusing_rev_param,
+				&fuse->cpr_fusing_rev);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read CPR fusing revision fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
+	cpr3_info(vreg, "CPR fusing revision = %llu\n", fuse->cpr_fusing_rev);
+
+	id = vreg->thread->ctrl->ctrl_id;
+	for (i = 0; i < SDM630_KBSS_FUSE_CORNERS; i++) {
+		rc = cpr3_read_fuse_param(base,
+				sdm630_kbss_init_voltage_param[id][i],
+				&fuse->init_voltage[i]);
+		if (rc) {
+			cpr3_err(vreg, "Unable to read fuse-corner %d initial voltage fuse, rc=%d\n",
+				i, rc);
+			return rc;
+		}
+
+		rc = cpr3_read_fuse_param(base,
+				sdm630_kbss_target_quot_param[id][i],
+				&fuse->target_quot[i]);
+		if (rc) {
+			cpr3_err(vreg, "Unable to read fuse-corner %d target quotient fuse, rc=%d\n",
+				i, rc);
+			return rc;
+		}
+
+		rc = cpr3_read_fuse_param(base,
+				sdm630_kbss_ro_sel_param[id][i],
+				&fuse->ro_sel[i]);
+		if (rc) {
+			cpr3_err(vreg, "Unable to read fuse-corner %d RO select fuse, rc=%d\n",
+				i, rc);
+			return rc;
+		}
+
+		rc = cpr3_read_fuse_param(base,
+				sdm630_kbss_quot_offset_param[id][i],
+				&fuse->quot_offset[i]);
+		if (rc) {
+			cpr3_err(vreg, "Unable to read fuse-corner %d quotient offset fuse, rc=%d\n",
+				i, rc);
+			return rc;
+		}
+	}
+
+	rc = cpr3_read_fuse_param(base,
+				sdm630_kbss_aging_init_quot_diff_param[id],
+				&fuse->aging_init_quot_diff);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read aging initial quotient difference fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	vreg->fuse_combo = fuse->cpr_fusing_rev + 8 * fuse->speed_bin;
+	if (vreg->fuse_combo >= CPRH_SDM630_KBSS_FUSE_COMBO_COUNT) {
+		cpr3_err(vreg, "invalid CPR fuse combo = %d found\n",
+			vreg->fuse_combo);
+		return -EINVAL;
+	}
+
+	return rc;
+};
+
+/**
  * cprh_kbss_read_fuse_data() - load KBSS specific fuse parameter values
  * @vreg:		Pointer to the CPR3 regulator
  *
@@ -647,6 +854,9 @@ static int cprh_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 	switch (soc_revision) {
 	case SDM660_SOC_ID:
 		fuse_corners = SDM660_KBSS_FUSE_CORNERS;
+		break;
+	case SDM630_SOC_ID:
+		fuse_corners = SDM630_KBSS_FUSE_CORNERS;
 		break;
 	case MSM8998_V1_SOC_ID:
 	case MSM8998_V2_SOC_ID:
@@ -682,6 +892,14 @@ static int cprh_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 		rc = cprh_sdm660_kbss_read_fuse_data(vreg, fuse);
 		if (rc) {
 			cpr3_err(vreg, "sdm660 kbss fuse data read failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+		break;
+	case SDM630_SOC_ID:
+		rc = cprh_sdm630_kbss_read_fuse_data(vreg, fuse);
+		if (rc) {
+			cpr3_err(vreg, "sdm630 kbss fuse data read failed, rc=%d\n",
 				rc);
 			return rc;
 		}
@@ -788,6 +1006,12 @@ static int cprh_kbss_calculate_open_loop_voltages(struct cpr3_regulator *vreg)
 			corner_name = cprh_sdm660_power_kbss_fuse_corner_name;
 		else
 			corner_name = cprh_sdm660_perf_kbss_fuse_corner_name;
+		break;
+	case SDM630_SOC_ID:
+		ref_volt = sdm630_kbss_fuse_ref_volt;
+		if (vreg->speed_bin_fuse == 2)
+			ref_volt = sdm630_kbss_speed_bin_2_fuse_ref_volt;
+		corner_name = cprh_sdm630_kbss_fuse_corner_name;
 		break;
 	case MSM8998_V1_SOC_ID:
 		ref_volt = msm8998_v1_kbss_fuse_ref_volt;
@@ -1356,6 +1580,13 @@ static int cprh_kbss_calculate_target_quotients(struct cpr3_regulator *vreg)
 				CPRH_SDM660_PERF_KBSS_FUSE_CORNER_TURBO_L2;
 		}
 		break;
+	case SDM630_SOC_ID:
+		corner_name = cprh_sdm630_kbss_fuse_corner_name;
+		lowest_fuse_corner =
+			CPRH_SDM630_KBSS_FUSE_CORNER_LOWSVS;
+		highest_fuse_corner =
+			CPRH_SDM630_KBSS_FUSE_CORNER_TURBO_L1;
+		break;
 	case MSM8998_V1_SOC_ID:
 	case MSM8998_V2_SOC_ID:
 		corner_name = cprh_msm8998_kbss_fuse_corner_name;
@@ -1923,6 +2154,14 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 			ctrl->sensor_count =
 				SDM660_KBSS_PERFORMANCE_CPR_SENSOR_COUNT;
 		break;
+	case SDM630_SOC_ID:
+		if (ctrl->ctrl_id == CPRH_KBSS_POWER_CLUSTER_ID)
+			ctrl->sensor_count =
+				SDM630_KBSS_POWER_CPR_SENSOR_COUNT;
+		else
+			ctrl->sensor_count =
+				SDM630_KBSS_PERFORMANCE_CPR_SENSOR_COUNT;
+		break;
 	case MSM8998_V1_SOC_ID:
 	case MSM8998_V2_SOC_ID:
 		if (ctrl->ctrl_id == CPRH_KBSS_POWER_CLUSTER_ID)
@@ -2007,7 +2246,7 @@ static int cprh_kbss_regulator_resume(struct platform_device *pdev)
 }
 
 /* Data corresponds to the SoC revision */
-static struct of_device_id cprh_regulator_match_table[] = {
+static const struct of_device_id cprh_regulator_match_table[] = {
 	{
 		.compatible =  "qcom,cprh-msm8998-v1-kbss-regulator",
 		.data = (void *)(uintptr_t)MSM8998_V1_SOC_ID,
@@ -2023,6 +2262,10 @@ static struct of_device_id cprh_regulator_match_table[] = {
 	{
 		.compatible = "qcom,cprh-sdm660-kbss-regulator",
 		.data = (void *)(uintptr_t)SDM660_SOC_ID,
+	},
+	{
+		.compatible = "qcom,cprh-sdm630-kbss-regulator",
+		.data = (void *)(uintptr_t)SDM630_SOC_ID,
 	},
 	{}
 };

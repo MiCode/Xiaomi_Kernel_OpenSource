@@ -1827,7 +1827,7 @@ static int ipa_q6_clean_q6_tables(void)
 	u32 max_cmds = ipa_get_max_flt_rt_cmds(ipa_ctx->ipa_num_pipes);
 
 	mem.base = dma_alloc_coherent(ipa_ctx->pdev, 4, &mem.phys_base,
-		GFP_KERNEL);
+		GFP_ATOMIC);
 	if (!mem.base) {
 		IPAERR("failed to alloc DMA buff of size 4\n");
 		return -ENOMEM;

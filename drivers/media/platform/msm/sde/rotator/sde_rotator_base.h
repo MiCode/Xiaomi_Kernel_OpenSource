@@ -46,6 +46,8 @@ struct sde_mdp_set_ot_params {
 	u32 reg_off_vbif_lim_conf;
 	u32 reg_off_mdp_clk_ctrl;
 	u32 bit_off_mdp_clk_ctrl;
+	char __iomem *rotsts_base;
+	u32 rotsts_busy_mask;
 };
 
 enum sde_bus_vote_type {
@@ -179,6 +181,7 @@ struct sde_rot_data_type {
 	int (*wait_for_transition)(int state, int request);
 	void (*vbif_reg_lock)(void);
 	void (*vbif_reg_unlock)(void);
+	bool (*handoff_pending)(void);
 	struct sde_rot_vbif_debug_bus *nrt_vbif_dbg_bus;
 	u32 nrt_vbif_dbg_bus_size;
 
@@ -189,6 +192,8 @@ struct sde_rot_data_type {
 	int sec_cam_en;
 	bool callback_request;
 	struct ion_client *iclient;
+
+	bool handoff_done;
 };
 
 int sde_rotator_base_init(struct sde_rot_data_type **pmdata,

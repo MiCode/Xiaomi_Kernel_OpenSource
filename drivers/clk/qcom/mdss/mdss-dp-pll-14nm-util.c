@@ -600,6 +600,7 @@ unsigned long dp_vco_recalc_rate_14nm(struct clk_hw *hw,
 
 	mdss_pll_resource_enable(dp_res, false);
 
+	dp_res->vco_cached_rate = vco->rate = vco_rate;
 	return (unsigned long)vco_rate;
 }
 

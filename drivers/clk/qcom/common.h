@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -12,6 +12,8 @@
  */
 #ifndef __QCOM_CLK_COMMON_H__
 #define __QCOM_CLK_COMMON_H__
+
+#include "../clk.h"
 
 struct platform_device;
 struct regmap_config;
@@ -94,6 +96,10 @@ enum debug_cc {
  *		Incase the recursive debug mux does not have a enable bit,
  *		0xFF should be used to indicate the same, otherwise global
  *		enable bit would be used.
+ * @post_div_mask: indicates the post div mask to be used at debug/recursive
+ *		   debug mux.
+ * @post_div_val: indicates the post div value to be used at debug/recursive
+ *		  debug mux.
  */
 struct clk_src {
 	const char  *parents;
@@ -103,6 +109,8 @@ struct clk_src {
 	u32 mask;
 	u32 shift;
 	u32 en_mask;
+	u32 post_div_mask;
+	u32 post_div_val;
 };
 
 #define MUX_SRC_LIST(...) \
@@ -123,6 +131,7 @@ struct clk_src {
  *			controller debug mux.
  * @debug_offset:	Start of debug mux offset.
  * @hw:			handle between common and hardware-specific interfaces.
+ * @multiplier:		internally used by debug mux as post div multiplier.
  */
 struct clk_debug_mux {
 	struct clk_src *parent;
@@ -134,6 +143,9 @@ struct clk_debug_mux {
 	u32 mask;
 	u32 debug_offset;
 	struct clk_hw hw;
+
+	/* internal */
+	u32 multiplier;
 };
 
 #define BM(msb, lsb) (((((uint32_t)-1) << (31-msb)) >> (31-msb+lsb)) << lsb)
@@ -142,5 +154,20 @@ struct clk_debug_mux {
 #define to_clk_measure(_hw) container_of((_hw), struct clk_debug_mux, hw)
 
 extern const struct clk_ops clk_debug_mux_ops;
+
+#define WARN_CLK(core, name, cond, fmt, ...) do {		\
+		clk_debug_print_hw(core, NULL);			\
+		WARN(cond, "%s: " fmt, name, ##__VA_ARGS__);	\
+} while (0)
+
+#define clock_debug_output(m, c, fmt, ...)		\
+do {							\
+	if (m)						\
+		seq_printf(m, fmt, ##__VA_ARGS__);	\
+	else if (c)					\
+		pr_cont(fmt, ##__VA_ARGS__);		\
+	else						\
+		pr_info(fmt, ##__VA_ARGS__);		\
+} while (0)
 
 #endif

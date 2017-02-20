@@ -3174,6 +3174,33 @@ ath10k_wmi_tlv_op_gen_wow_del_pattern(struct ath10k *ar, u32 vdev_id,
 }
 
 static struct sk_buff *
+ath10k_wmi_tlv_op_gen_set_base_mac_addr(struct ath10k *ar, u32 pdev_id,
+					u8 *mac_addr)
+{
+	struct wmi_tlv_mac_addr_cmd *cmd;
+	struct wmi_tlv *tlv;
+	struct sk_buff *skb;
+	size_t len;
+
+	len = sizeof(*tlv) + sizeof(*cmd);
+	skb = ath10k_wmi_alloc_skb(ar, len);
+	if (!skb)
+		return ERR_PTR(-ENOMEM);
+
+	tlv = (struct wmi_tlv *)skb->data;
+	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_PDEV_SET_BASE_MACADDR_CMD);
+	tlv->len = __cpu_to_le16(sizeof(*cmd));
+	cmd = (void *)tlv->value;
+
+	cmd->pdev_id = __cpu_to_le32(pdev_id);
+	ether_addr_copy(cmd->mac_addr.addr, mac_addr);
+
+	ath10k_dbg(ar, ATH10K_DBG_WMI, "wmi tlv set_base_mac addr pdev_id %d mac addr %pM\n",
+		   cmd->pdev_id, cmd->mac_addr.addr);
+	return skb;
+}
+
+static struct sk_buff *
 ath10k_wmi_tlv_op_gen_adaptive_qcs(struct ath10k *ar, bool enable)
 {
 	struct wmi_tlv_adaptive_qcs *cmd;
@@ -3610,7 +3637,7 @@ static const struct wmi_ops wmi_tlv_ops = {
 	.gen_pdev_set_wmm = ath10k_wmi_tlv_op_gen_pdev_set_wmm,
 	.gen_request_stats = ath10k_wmi_tlv_op_gen_request_stats,
 	.gen_force_fw_hang = ath10k_wmi_tlv_op_gen_force_fw_hang,
-	/* .gen_mgmt_tx = not implemented; HTT is used */
+	.gen_mgmt_tx =  ath10k_wmi_tlv_op_gen_mgmt_tx,
 	.gen_dbglog_cfg = ath10k_wmi_tlv_op_gen_dbglog_cfg,
 	.gen_pktlog_enable = ath10k_wmi_tlv_op_gen_pktlog_enable,
 	.gen_pktlog_disable = ath10k_wmi_tlv_op_gen_pktlog_disable,
@@ -3636,6 +3663,7 @@ static const struct wmi_ops wmi_tlv_ops = {
 	.fw_stats_fill = ath10k_wmi_main_op_fw_stats_fill,
 	.get_vdev_subtype = ath10k_wmi_op_get_vdev_subtype,
 	.gen_echo = ath10k_wmi_tlv_op_gen_echo,
+	.gen_set_pdev_mac_addr = ath10k_wmi_tlv_op_gen_set_base_mac_addr,
 };
 
 static const struct wmi_peer_flags_map wmi_tlv_peer_flags_map = {
@@ -3655,80 +3683,6 @@ static const struct wmi_peer_flags_map wmi_tlv_peer_flags_map = {
 	.bw80 = WMI_TLV_PEER_80MHZ,
 	.pmf = WMI_TLV_PEER_PMF,
 };
-
-static const struct wmi_ops wmi_hl_1_0_ops = {
-	.rx = ath10k_wmi_tlv_op_rx,
-	.map_svc = wmi_hl_1_0_svc_map,
-	.pull_scan = ath10k_wmi_tlv_op_pull_scan_ev,
-	.pull_mgmt_rx = ath10k_wmi_tlv_op_pull_mgmt_rx_ev,
-	.pull_ch_info = ath10k_wmi_tlv_op_pull_ch_info_ev,
-	.pull_vdev_start = ath10k_wmi_tlv_op_pull_vdev_start_ev,
-	.pull_peer_kick = ath10k_wmi_tlv_op_pull_peer_kick_ev,
-	.pull_swba = ath10k_wmi_tlv_op_pull_swba_ev,
-	.pull_phyerr_hdr = ath10k_wmi_tlv_op_pull_phyerr_ev_hdr,
-	.pull_phyerr = ath10k_wmi_op_pull_phyerr_ev,
-	.pull_svc_rdy = ath10k_wmi_tlv_op_pull_svc_rdy_ev,
-	.pull_rdy = ath10k_wmi_tlv_op_pull_rdy_ev,
-	.pull_fw_stats = ath10k_wmi_tlv_op_pull_fw_stats,
-	.pull_roam_ev = ath10k_wmi_tlv_op_pull_roam_ev,
-	.pull_wow_event = ath10k_wmi_tlv_op_pull_wow_ev,
-	.get_txbf_conf_scheme = ath10k_wmi_tlv_txbf_conf_scheme,
-	.gen_pdev_suspend = ath10k_wmi_tlv_op_gen_pdev_suspend,
-	.gen_pdev_resume = ath10k_wmi_tlv_op_gen_pdev_resume,
-	.gen_pdev_set_rd = ath10k_wmi_tlv_op_gen_pdev_set_rd,
-	.gen_pdev_set_param = ath10k_wmi_tlv_op_gen_pdev_set_param,
-	.gen_init = ath10k_wmi_tlv_op_gen_init,
-	.gen_start_scan = ath10k_wmi_tlv_op_gen_start_scan,
-	.gen_stop_scan = ath10k_wmi_tlv_op_gen_stop_scan,
-	.gen_vdev_create = ath10k_wmi_tlv_op_gen_vdev_create,
-	.gen_vdev_delete = ath10k_wmi_tlv_op_gen_vdev_delete,
-	.gen_vdev_start = ath10k_wmi_tlv_op_gen_vdev_start,
-	.gen_vdev_stop = ath10k_wmi_tlv_op_gen_vdev_stop,
-	.gen_vdev_up = ath10k_wmi_tlv_op_gen_vdev_up,
-	.gen_vdev_down = ath10k_wmi_tlv_op_gen_vdev_down,
-	.gen_vdev_set_param = ath10k_wmi_tlv_op_gen_vdev_set_param,
-	.gen_vdev_install_key = ath10k_wmi_tlv_op_gen_vdev_install_key,
-	.gen_vdev_wmm_conf = ath10k_wmi_tlv_op_gen_vdev_wmm_conf,
-	.gen_peer_create = ath10k_wmi_tlv_op_gen_peer_create,
-	.gen_peer_delete = ath10k_wmi_tlv_op_gen_peer_delete,
-	.gen_peer_flush = ath10k_wmi_tlv_op_gen_peer_flush,
-	.gen_peer_set_param = ath10k_wmi_tlv_op_gen_peer_set_param,
-	.gen_peer_assoc = ath10k_wmi_tlv_op_gen_peer_assoc,
-	.gen_set_psmode = ath10k_wmi_tlv_op_gen_set_psmode,
-	.gen_set_sta_ps = ath10k_wmi_tlv_op_gen_set_sta_ps,
-	.gen_set_ap_ps = ath10k_wmi_tlv_op_gen_set_ap_ps,
-	.gen_scan_chan_list = ath10k_wmi_tlv_op_gen_scan_chan_list,
-	.gen_beacon_dma = ath10k_wmi_tlv_op_gen_beacon_dma,
-	.gen_pdev_set_wmm = ath10k_wmi_tlv_op_gen_pdev_set_wmm,
-	.gen_request_stats = ath10k_wmi_tlv_op_gen_request_stats,
-	.gen_force_fw_hang = ath10k_wmi_tlv_op_gen_force_fw_hang,
-	.gen_mgmt_tx =  ath10k_wmi_tlv_op_gen_mgmt_tx,
-	.gen_dbglog_cfg = ath10k_wmi_tlv_op_gen_dbglog_cfg,
-	.gen_pktlog_enable = ath10k_wmi_tlv_op_gen_pktlog_enable,
-	.gen_bcn_tmpl = ath10k_wmi_tlv_op_gen_bcn_tmpl,
-	.gen_prb_tmpl = ath10k_wmi_tlv_op_gen_prb_tmpl,
-	.gen_p2p_go_bcn_ie = ath10k_wmi_tlv_op_gen_p2p_go_bcn_ie,
-	.gen_vdev_sta_uapsd = ath10k_wmi_tlv_op_gen_vdev_sta_uapsd,
-	.gen_sta_keepalive = ath10k_wmi_tlv_op_gen_sta_keepalive,
-	.gen_wow_enable = ath10k_wmi_tlv_op_gen_wow_enable,
-	.gen_wow_add_wakeup_event = ath10k_wmi_tlv_op_gen_wow_add_wakeup_event,
-	.gen_wow_host_wakeup_ind = ath10k_wmi_tlv_gen_wow_host_wakeup_ind,
-	.gen_wow_add_pattern = ath10k_wmi_tlv_op_gen_wow_add_pattern,
-	.gen_wow_del_pattern = ath10k_wmi_tlv_op_gen_wow_del_pattern,
-	.gen_update_fw_tdls_state = ath10k_wmi_tlv_op_gen_update_fw_tdls_state,
-	.gen_tdls_peer_update = ath10k_wmi_tlv_op_gen_tdls_peer_update,
-	.gen_adaptive_qcs = ath10k_wmi_tlv_op_gen_adaptive_qcs,
-	.fw_stats_fill = ath10k_wmi_main_op_fw_stats_fill,
-};
-
-void ath10k_wmi_hl_1_0_attach(struct ath10k *ar)
-{
-	ar->wmi.cmd = &wmi_tlv_cmd_map;
-	ar->wmi.vdev_param = &wmi_tlv_vdev_param_map;
-	ar->wmi.pdev_param = &wmi_tlv_pdev_param_map;
-	ar->wmi.ops = &wmi_hl_1_0_ops;
-	ar->wmi.peer_flags = &wmi_tlv_peer_flags_map;
-}
 
 /* TLV init */
 /************/

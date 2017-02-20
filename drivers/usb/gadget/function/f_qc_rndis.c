@@ -1198,7 +1198,7 @@ usb_function *rndis_qc_bind_config_vendor(struct usb_function_instance *fi,
 	/* export host's Ethernet address in CDC format */
 	random_ether_addr(rndis_ipa_params.host_ethaddr);
 	random_ether_addr(rndis_ipa_params.device_ethaddr);
-	pr_debug("setting host_ethaddr=%pKM, device_ethaddr=%pKM\n",
+	pr_debug("setting host_ethaddr=%pM, device_ethaddr=%pM\n",
 		rndis_ipa_params.host_ethaddr,
 		rndis_ipa_params.device_ethaddr);
 	rndis_ipa_supported = true;
@@ -1257,7 +1257,7 @@ usb_function *rndis_qc_bind_config_vendor(struct usb_function_instance *fi,
 
 static struct usb_function *qcrndis_alloc(struct usb_function_instance *fi)
 {
-	return rndis_qc_bind_config_vendor(fi, 0, NULL, 1, 0);
+	return rndis_qc_bind_config_vendor(fi, 0, NULL, 0, 0);
 }
 
 static int rndis_qc_open_dev(struct inode *ip, struct file *fp)

@@ -42,6 +42,8 @@
 #define AFE_CLK_VERSION_V1    1
 #define AFE_CLK_VERSION_V2    2
 
+typedef int (*routing_cb)(int port);
+
 enum {
 	/* IDX 0->4 */
 	IDX_PRIMARY_I2S_RX,
@@ -362,5 +364,8 @@ int afe_send_custom_tdm_header_cfg(
 	struct afe_param_id_custom_tdm_header_cfg *custom_tdm_header_cfg,
 	u16 port_id);
 int afe_tdm_port_start(u16 port_id, struct afe_tdm_port_config *tdm_port,
-		u32 rate);
+		       u32 rate, u16 num_groups);
+void afe_set_routing_callback(routing_cb);
+int afe_get_av_dev_drift(struct afe_param_id_dev_timing_stats *timing_stats,
+		u16 port);
 #endif /* __Q6AFE_V2_H__ */

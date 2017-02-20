@@ -555,6 +555,7 @@ struct mdss_mdp_ctl {
 	bool switch_with_handoff;
 	struct mdss_mdp_avr_info avr_info;
 	bool commit_in_progress;
+	struct mutex ds_lock;
 };
 
 struct mdss_mdp_mixer {
@@ -1298,7 +1299,9 @@ static inline int mdss_mdp_panic_signal_support_mode(
 		IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
 				MDSS_MDP_HW_REV_300) ||
 		IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
-				MDSS_MDP_HW_REV_320))
+				MDSS_MDP_HW_REV_320) ||
+		IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_330))
 		signal_mode = MDSS_MDP_PANIC_PER_PIPE_CFG;
 
 	return signal_mode;
@@ -1972,6 +1975,7 @@ void mdss_mdp_enable_hw_irq(struct mdss_data_type *mdata);
 void mdss_mdp_disable_hw_irq(struct mdss_data_type *mdata);
 
 void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata);
+int mdss_mdp_dest_scaler_setup_locked(struct mdss_mdp_mixer *mixer);
 
 #ifdef CONFIG_FB_MSM_MDP_NONE
 struct mdss_data_type *mdss_mdp_get_mdata(void)

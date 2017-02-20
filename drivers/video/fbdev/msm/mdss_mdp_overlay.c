@@ -1471,6 +1471,23 @@ static void __unstage_pipe_and_clean_buf(struct msm_fb_data_type *mfd,
 		__pipe_buf_mark_cleanup(mfd, buf);
 }
 
+static int __dest_scaler_setup(struct msm_fb_data_type *mfd)
+{
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+
+	mutex_lock(&ctl->ds_lock);
+
+	if (ctl->mixer_left)
+		mdss_mdp_dest_scaler_setup_locked(ctl->mixer_left);
+
+	if (ctl->mixer_right)
+		mdss_mdp_dest_scaler_setup_locked(ctl->mixer_right);
+
+	mutex_unlock(&ctl->ds_lock);
+
+	return 0;
+}
+
 static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
@@ -2394,6 +2411,9 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mutex_unlock(&mdp5_data->list_lock);
 
 	mdp5_data->kickoff_released = false;
+	ATRACE_BEGIN("dest_scaler_programming");
+	ret = __dest_scaler_setup(mfd);
+	ATRACE_END("dest_scaler_programming");
 
 	if (mfd->panel.type == WRITEBACK_PANEL) {
 		ATRACE_BEGIN("wb_kickoff");
@@ -4495,8 +4515,10 @@ static int mdss_bl_scale_config(struct msm_fb_data_type *mfd,
 	mfd->bl_scale = data->scale;
 	pr_debug("update scale = %d\n", mfd->bl_scale);
 
-	/* update current backlight to use new scaling*/
-	mdss_fb_set_backlight(mfd, curr_bl);
+	/* Update current backlight to use new scaling, if it is not zero */
+	if (curr_bl)
+		mdss_fb_set_backlight(mfd, curr_bl);
+
 	mutex_unlock(&mfd->bl_lock);
 	return ret;
 }

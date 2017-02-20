@@ -850,6 +850,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	mdss_smmu->base.secure_session_ctrl =
 		mdata->mdss_util->secure_session_ctrl;
 	mdss_smmu->base.wait_for_transition = mdss_smmu_secure_wait;
+	mdss_smmu->base.handoff_pending = mdata->mdss_util->mdp_handoff_pending;
 
 	list_add(&mdss_smmu->_client, &prv->smmu_device_list);
 

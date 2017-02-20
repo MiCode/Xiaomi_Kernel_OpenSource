@@ -597,7 +597,11 @@ void pm_qos_add_request(struct pm_qos_request *req,
 	case PM_QOS_REQ_AFFINE_IRQ:
 		if (irq_can_set_affinity(req->irq)) {
 			struct irq_desc *desc = irq_to_desc(req->irq);
-			struct cpumask *mask = desc->irq_data.common->affinity;
+			struct cpumask *mask;
+
+			if (!desc)
+				return;
+			mask = desc->irq_data.common->affinity;
 
 			/* Get the current affinity */
 			cpumask_copy(&req->cpus_affine, mask);

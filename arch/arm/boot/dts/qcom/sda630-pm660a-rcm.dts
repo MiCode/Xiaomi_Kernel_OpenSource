@@ -16,10 +16,21 @@
 #include "sda630.dtsi"
 #include "sdm630-cdp.dtsi"
 #include "msm-pm660a.dtsi"
+#include "sdm660-external-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDA 630 PM660 + PM660A RCM";
 	compatible = "qcom,sda630-cdp", "qcom,sda630", "qcom,cdp";
 	qcom,board-id = <21 0>;
 	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
+};
+
+&tavil_snd {
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+};
+
+&tasha_snd {
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
 };

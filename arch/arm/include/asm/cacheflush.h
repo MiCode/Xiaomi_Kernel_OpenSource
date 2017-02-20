@@ -178,6 +178,9 @@ extern void __cpuc_flush_dcache_area(void *, size_t);
  * is visible to DMA, or data written by DMA to system memory is
  * visible to the CPU.
  */
+extern void __dma_map_area(const void *, size_t, int);
+extern void __dma_unmap_area(const void *, size_t, int);
+
 extern void dmac_inv_range(const void *, const void *);
 extern void dmac_clean_range(const void *, const void *);
 extern void dmac_flush_range(const void *, const void *);
@@ -538,5 +541,14 @@ static inline void secure_flush_area(const void *addr, size_t size)
 	__cpuc_flush_dcache_area((void *)addr, size);
 	outer_flush_range(phys, phys + size);
 }
+
+#ifdef CONFIG_FREE_PAGES_RDONLY
+#define mark_addr_rdonly(a)     set_memory_ro((unsigned long)a, 1)
+#define mark_addr_rdwrite(a)    set_memory_rw((unsigned long)a, 1)
+#else
+#define mark_addr_rdonly(a)
+#define mark_addr_rdwrite(a)
+#endif
+
 
 #endif

@@ -798,6 +798,13 @@ void mdss_mdp_vbif_reg_unlock(void)
 	mutex_unlock(&mdata->reg_lock);
 }
 
+bool mdss_mdp_handoff_pending(void)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	return mdata->handoff_pending;
+}
+
 static int mdss_mdp_intr2index(u32 intr_type, u32 intf_num)
 {
 	int i;
@@ -2120,8 +2127,10 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_AVR_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map);
+		mdss_set_quirk(mdata, MDSS_QUIRK_HDR_SUPPORT_ENABLED);
 		break;
 	case MDSS_MDP_HW_REV_320:
+	case MDSS_MDP_HW_REV_330:
 		mdata->max_target_zorder = 7; /* excluding base layer */
 		mdata->max_cursor_size = 512;
 		mdata->per_pipe_ib_factor.numer = 8;
@@ -2130,7 +2139,9 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->hflip_buffer_reused = false;
 		mdata->min_prefill_lines = 25;
 		mdata->has_ubwc = true;
-		mdata->pixel_ram_size = 50 * 1024;
+		mdata->pixel_ram_size =
+			(mdata->mdp_rev == MDSS_MDP_HW_REV_320) ? 50 : 40;
+		mdata->pixel_ram_size *= 1024;
 		mdata->rects_per_sspp[MDSS_MDP_PIPE_TYPE_DMA] = 2;
 
 		mem_protect_sd_ctrl_id = MEM_PROTECT_SD_CTRL_SWITCH;
@@ -2152,6 +2163,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_CAPS_3D_MUX_UNDERRUN_RECOVERY_SUPPORTED,
 			mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map);
+		set_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_MDP_VOTE_CLK_NOT_SUPPORTED,
 			mdata->mdss_caps_map);
 		mdss_mdp_init_default_prefill_factors(mdata);
@@ -2163,7 +2175,6 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->has_wb_ubwc = true;
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map);
-		mdss_set_quirk(mdata, MDSS_QUIRK_HDR_SUPPORT_ENABLED);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
@@ -2883,6 +2894,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mdss_res->mdss_util->panel_intf_status = mdss_panel_get_intf_status;
 	mdss_res->mdss_util->vbif_reg_lock = mdss_mdp_vbif_reg_lock;
 	mdss_res->mdss_util->vbif_reg_unlock = mdss_mdp_vbif_reg_unlock;
+	mdss_res->mdss_util->mdp_handoff_pending = mdss_mdp_handoff_pending;
 
 	rc = msm_dss_ioremap_byname(pdev, &mdata->mdss_io, "mdp_phys");
 	if (rc) {
@@ -4867,6 +4879,7 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 			*ot_lim = 6;
 		break;
 	case MDSS_MDP_HW_REV_320:
+	case MDSS_MDP_HW_REV_330:
 		if ((res <= RES_1080p) && (params->frame_rate <= 30))
 			*ot_lim = 2;
 		else if ((res <= RES_1080p) && (params->frame_rate <= 60))

@@ -807,42 +807,43 @@ config REGULATOR_RPM_SMD
 	  application processor over SMD.
 
 config REGULATOR_QPNP
+	tristate "Qualcomm Technologies, Inc. QPNP regulator support"
 	depends on SPMI
-	tristate "Qualcomm QPNP regulator support"
 	help
-	  This driver supports voltage regulators in Qualcomm PMIC chips which
-	  comply with QPNP.  QPNP is a SPMI based PMIC implementation.  These
-	  chips provide several different varieties of LDO and switching
-	  regulators.  They also provide voltage switches and boost regulators.
+	  This driver supports voltage regulators in Qualcomm Technologies, Inc.
+	  PMIC chips which comply with QPNP.  QPNP is a SPMI based PMIC
+	  implementation.  These chips provide several different varieties of
+	  LDO and switching regulators.  They also provide voltage switches and
+	  boost regulators.
 
 config REGULATOR_QPNP_LABIBB
+	tristate "Qualcomm Technologies, Inc. QPNP LAB/IBB regulator support"
 	depends on SPMI
-	tristate "Qualcomm Technologies, Inc QPNP LAB/IBB regulator support"
 	help
-	  This driver supports voltage regulators in Qualcomm Technologies, Inc
+	  This driver supports voltage regulators in Qualcomm Technologies, Inc.
 	  PMIC chips which comply with QPNP LAB/IBB regulators. QPNP LAB and IBB
-	  are SPMI based PMIC implementation. LAB regulator can be used as a
+	  are SPMI based PMIC implementations. LAB regulator can be used as a
 	  regular positive boost regulator. IBB can be used as a regular
 	  negative boost regulator. LAB/IBB regulators can also be used
 	  together for LCD or AMOLED.
 
 config REGULATOR_QPNP_LCDB
+	tristate "Qualcomm Technologies, Inc. QPNP LCDB support"
 	depends on SPMI
-	tristate "Qualcomm Technologies, Inc QPNP LCDB support"
 	help
-	  Supports the LCDB module in the Qualcomm Technologies, Inc
-	  QPNP PMIC. Exposes regulators to control the positive and
+	  Supports the LCDB module in the Qualcomm Technologies, Inc.
+	  QPNP PMICs. Exposes regulators to control the positive and
 	  negative voltage bias for the LCD display panel. It also
 	  allows configurability for the various bias-voltage parameters.
 
 config REGULATOR_QPNP_OLEDB
+	tristate "Qualcomm Technologies, Inc. QPNP OLEDB regulator support"
 	depends on SPMI
-	tristate "Qualcomm Technologies, Inc QPNP OLEDB regulator support"
 	help
-	  This driver supports the OLEDB(AVDD bias) signal for AMOLED panel in Qualcomm
-	  Technologies, Inc QPNP PMIC. It exposes the OLED voltage configuration
-	  via the regulator framework. The configurable range of this bias is
-	  5V to 8.1V.
+	  This driver supports the OLEDB (AVDD bias) signal for AMOLED panel in
+	  Qualcomm Technologies, Inc. QPNP PMICs. It exposes the OLED voltage
+	  configuration via the regulator framework. The configurable range of
+	  this bias is 5 V to 8.1 V.
 
 config REGULATOR_SPM
 	bool "SPM regulator driver"
@@ -950,19 +951,18 @@ config REGULATOR_KRYO
 	depends on OF
 	help
 	  Some MSM designs have CPUs that can be directly powered from a common
-	  voltage rail via a Block Head Switch (BHS) or an LDO whose output voltage
-	  can be configured for use when certain power constraints are met.
-	  Say yes to support management of LDO and BHS modes for the clusters in the
-	  CPU subsystem.
+	  voltage rail via a Block Head Switch (BHS) or an LDO whose output
+	  voltage can be configured for use when certain power constraints are
+	  met.  Say yes to support management of LDO and BHS modes for the
+	  clusters in the CPU subsystem.
 
 config REGULATOR_MEM_ACC
-        tristate "QTI Memory accelerator regulator driver"
-        help
-         Say y here to enable the memory accelerator driver for Qualcomm
-         Technologies (QTI) chips. The accelerator controls delays applied
-         for memory accesses.
-         This driver configures the power-mode (corner) for the memory
-         accelerator.
+	tristate "QTI Memory accelerator regulator driver"
+	help
+	  Say y here to enable the memory accelerator driver for Qualcomm
+	  Technologies, Inc. (QTI) chips. The accelerator controls delays
+	  applied for memory accesses.  This driver configures the power-mode
+	  (corner) for the memory accelerator.
 
 config REGULATOR_PROXY_CONSUMER
 	bool "Boot time regulator proxy consumer support"

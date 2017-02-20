@@ -28,7 +28,8 @@ MMSS LDO specific properties:
 	Usage:      required
 	Value type: <string>
 	Definition: should be the following:
-		    "qcom,cpr4-sdm660-mmss-ldo-regulator".
+		    "qcom,cpr4-sdm660-mmss-ldo-regulator" for SDM660,
+		    "qcom,cpr4-sdm630-mmss-ldo-regulator" for SDM630.
 
 - clocks
 	Usage:      required
@@ -71,7 +72,7 @@ MMSS specific properties:
 	Usage:      required
 	Value type: <u32>
 	Definition: Specifies the number of fuse corners. This value must be 6
-		    for sdm660 GFX LDO. These fuse corners are: MinSVS,
+		    for sdm660/sdm630 GFX LDO. These fuse corners are: MinSVS,
 		    LowSVS, SVS, SVSP, NOM and NOMP. The open-loop voltage fuses
 		    are allocated for LowSVS, SVS, NOM and NOMP corners. The
 		    open-loop voltages for MinSVS and SVSP are derived by

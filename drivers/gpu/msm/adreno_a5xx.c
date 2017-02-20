@@ -59,6 +59,7 @@ static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
 	{ adreno_is_a530, a530_vbif },
 	{ adreno_is_a512, a540_vbif },
 	{ adreno_is_a510, a530_vbif },
+	{ adreno_is_a508, a530_vbif },
 	{ adreno_is_a505, a530_vbif },
 	{ adreno_is_a506, a530_vbif },
 };
@@ -182,7 +183,7 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 	uint64_t addr;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
-	if (adreno_is_a505_or_a506(adreno_dev)) {
+	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev)) {
 		gpudev->snapshot_data->sect_sizes->cp_meq = 32;
 		gpudev->snapshot_data->sect_sizes->cp_merciu = 1024;
 		gpudev->snapshot_data->sect_sizes->roq = 256;
@@ -537,7 +538,7 @@ static void a5xx_regulator_disable(struct adreno_device *adreno_dev)
 	unsigned int reg;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (adreno_is_a512(adreno_dev))
+	if (adreno_is_a512(adreno_dev) || adreno_is_a508(adreno_dev))
 		return;
 
 	/* If feature is not supported or not enabled */
@@ -1195,6 +1196,7 @@ static const struct {
 	{ adreno_is_a510, a510_hwcg_regs, ARRAY_SIZE(a510_hwcg_regs) },
 	{ adreno_is_a505, a50x_hwcg_regs, ARRAY_SIZE(a50x_hwcg_regs) },
 	{ adreno_is_a506, a50x_hwcg_regs, ARRAY_SIZE(a50x_hwcg_regs) },
+	{ adreno_is_a508, a50x_hwcg_regs, ARRAY_SIZE(a50x_hwcg_regs) },
 };
 
 void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
@@ -1639,7 +1641,9 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 static void a5xx_clk_set_options(struct adreno_device *adreno_dev,
 	const char *name, struct clk *clk)
 {
-	if (adreno_is_a540(adreno_dev)) {
+	/* Handle clock settings for GFX PSCBCs */
+	if (adreno_is_a540(adreno_dev) || adreno_is_a512(adreno_dev) ||
+		adreno_is_a508(adreno_dev)) {
 		if (!strcmp(name, "mem_iface_clk")) {
 			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
 			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
@@ -1926,7 +1930,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	 * Below CP registers are 0x0 by default, program init
 	 * values based on a5xx flavor.
 	 */
-	if (adreno_is_a505_or_a506(adreno_dev)) {
+	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev)) {
 		kgsl_regwrite(device, A5XX_CP_MEQ_THRESHOLDS, 0x20);
 		kgsl_regwrite(device, A5XX_CP_MERCIU_SIZE, 0x400);
 		kgsl_regwrite(device, A5XX_CP_ROQ_THRESHOLDS_2, 0x40000030);
@@ -1952,7 +1956,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	 * vtxFifo and primFifo thresholds default values
 	 * are different.
 	 */
-	if (adreno_is_a505_or_a506(adreno_dev))
+	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev))
 		kgsl_regwrite(device, A5XX_PC_DBG_ECO_CNTL,
 						(0x100 << 11 | 0x100 << 22));
 	else if (adreno_is_a510(adreno_dev) || adreno_is_a512(adreno_dev))

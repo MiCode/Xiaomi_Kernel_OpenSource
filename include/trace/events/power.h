@@ -304,6 +304,7 @@ DEFINE_EVENT(wakeup_source, wakeup_source_deactivate,
  * The clock events are used for clock enable/disable and for
  *  clock rate change
  */
+#if defined(CONFIG_COMMON_CLK_MSM)
 DECLARE_EVENT_CLASS(clock,
 
 	TP_PROTO(const char *name, unsigned int state, unsigned int cpu_id),
@@ -401,6 +402,7 @@ TRACE_EVENT(clock_state,
 			__get_str(name), __entry->prepare_count,
 			__entry->count, __entry->rate, __entry->vdd_level)
 );
+#endif /* CONFIG_COMMON_CLK_MSM */
 
 /*
  * The power domain events are used for power domains transitions
