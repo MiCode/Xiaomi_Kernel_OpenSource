@@ -78,7 +78,6 @@ enum {
 	WSA881X_DEV_UP,
 };
 
-bool cache_always;
 /*
  * Private data Structure for wsa881x. All parameters related to
  * WSA881X codec needs to be defined here.
@@ -1226,9 +1225,6 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 		if (ret)
 			goto err;
 	}
-
-	cache_always = of_property_read_bool(pdev->dev.of_node,
-					"qcom,cache-always");
 	wsa881x_gpio_ctrl(wsa881x, true);
 	wsa881x->state = WSA881X_DEV_UP;
 

@@ -20,7 +20,6 @@
 
 #define WSA881X_MAX_SWR_PORTS   4
 
-extern bool cache_always;
 extern int wsa881x_set_channel_map(struct snd_soc_codec *codec, u8 *port,
 				u8 num_port, unsigned int *ch_mask,
 				unsigned int *ch_rate);
