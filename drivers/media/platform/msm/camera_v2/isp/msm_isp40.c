@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1782,11 +1782,18 @@ static int msm_vfe40_axi_restart(struct vfe_device *vfe_dev,
 	memset(&vfe_dev->error_info, 0, sizeof(vfe_dev->error_info));
 	atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
 
-	if (enable_camif) {
+	if (enable_camif &&
+		vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux
+		!= EXTERNAL_READ){
 		vfe_dev->hw_info->vfe_ops.core_ops.
 		update_camif_state(vfe_dev, ENABLE_CAMIF);
 	}
-
+	if (vfe_dev->fetch_engine_info.is_busy == 1) {
+		vfe_dev->fetch_engine_info.is_busy = 0;
+		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x378);
+		msm_camera_io_w_mb(0x10000, vfe_dev->vfe_base + 0x4C);
+		msm_camera_io_w_mb(0x20000, vfe_dev->vfe_base + 0x4C);
+	}
 	return 0;
 }
 
