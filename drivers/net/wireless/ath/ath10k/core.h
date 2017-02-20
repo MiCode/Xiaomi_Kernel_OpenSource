@@ -741,6 +741,8 @@ struct ath10k {
 
 	const struct ath10k_hw_regs *regs;
 	const struct ath10k_hw_values *hw_values;
+	struct ath10k_shadow_reg_value *shadow_reg_value;
+	struct ath10k_shadow_reg_address *shadow_reg_address;
 	struct ath10k_bmi bmi;
 	struct ath10k_wmi wmi;
 	struct ath10k_htc htc;
