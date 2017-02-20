@@ -205,7 +205,11 @@ dtb-$(CONFIG_ARCH_SDM630) += sdm630-rumi.dtb \
 	sda630-rcm.dtb \
 	sda630-pm660a-mtp.dtb \
 	sda630-pm660a-cdp.dtb \
-	sda630-pm660a-rcm.dtb
+	sda630-pm660a-rcm.dtb \
+	sdm630-headset-jacktype-no-cdp.dtb \
+	sdm630-headset-jacktype-no-rcm.dtb \
+	sdm630-pm660a-headset-jacktype-no-cdp.dtb \
+	sdm630-pm660a-headset-jacktype-no-rcm.dtb
 
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)
