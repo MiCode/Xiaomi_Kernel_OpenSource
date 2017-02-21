@@ -781,14 +781,8 @@ static void ipa3_switch_to_intr_rx_work_func(struct work_struct *work)
 	sys = container_of(dwork, struct ipa3_sys_context, switch_to_intr_work);
 
 	if (sys->ep->napi_enabled) {
-		if (sys->ep->switch_to_intr) {
-			ipa3_rx_switch_to_intr_mode(sys);
-			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("NAPI");
-			sys->ep->switch_to_intr = false;
-			sys->ep->inactive_cycles = 0;
-		} else
-			sys->ep->client_notify(sys->ep->priv,
-				IPA_CLIENT_START_POLL, 0);
+		ipa3_rx_switch_to_intr_mode(sys);
+		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("NAPI");
 	} else
 		ipa3_handle_rx(sys);
 }
@@ -861,7 +855,8 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		snprintf(buff, IPA_RESOURCE_NAME_MAX, "ipawq%d",
 				sys_in->client);
 		ep->sys->wq = alloc_workqueue(buff,
-				WQ_MEM_RECLAIM | WQ_UNBOUND, 1);
+				WQ_MEM_RECLAIM | WQ_UNBOUND | WQ_SYSFS, 1);
+
 		if (!ep->sys->wq) {
 			IPAERR("failed to create wq for client %d\n",
 					sys_in->client);
@@ -872,7 +867,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		snprintf(buff, IPA_RESOURCE_NAME_MAX, "iparepwq%d",
 				sys_in->client);
 		ep->sys->repl_wq = alloc_workqueue(buff,
-				WQ_MEM_RECLAIM | WQ_UNBOUND, 1);
+				WQ_MEM_RECLAIM | WQ_UNBOUND | WQ_SYSFS, 1);
 		if (!ep->sys->repl_wq) {
 			IPAERR("failed to create rep wq for client %d\n",
 					sys_in->client);
@@ -1023,7 +1018,6 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 
 	ipa3_disable_data_path(clnt_hdl);
 	if (ep->napi_enabled) {
-		ep->switch_to_intr = true;
 		do {
 			usleep_range(95, 105);
 		} while (atomic_read(&ep->sys->curr_polling_state));
@@ -3653,7 +3647,7 @@ static int ipa_poll_gsi_pkt(struct ipa3_sys_context *sys,
  * function is exectued in the softirq context
  *
  * if input budget is zero, the driver switches back to
- * interrupt mode
+ * interrupt mode.
  *
  * return number of polled packets, on error 0(zero)
  */
@@ -3662,8 +3656,8 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 	struct ipa3_ep_context *ep;
 	int ret;
 	int cnt = 0;
-	unsigned int delay = 1;
 	struct ipa_mem_buffer mem_info = {0};
+	static int total_cnt;
 
 	IPADBG("\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
@@ -3683,22 +3677,19 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 
 		ipa3_wq_rx_common(ep->sys, mem_info.size);
 		cnt += IPA_WAN_AGGR_PKT_CNT;
+		total_cnt++;
+
+		if (ep->sys->len == 0 || total_cnt >= ep->sys->rx_pool_sz) {
+			total_cnt = 0;
+			cnt = cnt-1;
+			break;
+		}
 	};
 
-	if (cnt == 0 || cnt < weight) {
-		ep->inactive_cycles++;
+	if (cnt < weight) {
 		ep->client_notify(ep->priv, IPA_CLIENT_COMP_NAPI, 0);
-
-		if (ep->inactive_cycles > 3 || ep->sys->len == 0) {
-			ep->switch_to_intr = true;
-			delay = 0;
-		} else if (cnt < weight) {
-			delay = 0;
-		}
-		queue_delayed_work(ep->sys->wq,
-			&ep->sys->switch_to_intr_work, msecs_to_jiffies(delay));
-	} else
-		ep->inactive_cycles = 0;
+		queue_work(ep->sys->wq, &ep->sys->switch_to_intr_work.work);
+	}
 
 	return cnt;
 }
