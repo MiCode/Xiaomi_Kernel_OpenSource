@@ -131,12 +131,12 @@ static bool migrate_one_irq(struct irq_desc *desc)
 		brokeaff = true;
 	}
 	/*
-	 * Do not set the force argument of irq_do_set_affinity() as this
+	 * Do not set the force argument of irq_set_affinity_locked() as this
 	 * disables the masking of offline CPUs from the supplied affinity
 	 * mask and therefore might keep/reassign the irq to the outgoing
 	 * CPU.
 	 */
-	err = irq_do_set_affinity(d, affinity, false);
+	err = irq_set_affinity_locked(d, affinity, false);
 	if (err) {
 		pr_warn_ratelimited("IRQ%u: set affinity failed(%d).\n",
 				    d->irq, err);
