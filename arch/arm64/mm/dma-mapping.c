@@ -1756,7 +1756,11 @@ static dma_addr_t arm_coherent_iommu_map_page(struct device *dev,
 {
 	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
 	dma_addr_t dma_addr;
-	int ret, prot, len = PAGE_ALIGN(size + offset);
+	int ret, prot, len, start_offset, map_offset;
+
+	map_offset = offset & ~PAGE_MASK;
+	start_offset = offset & PAGE_MASK;
+	len = PAGE_ALIGN(map_offset + size);
 
 	dma_addr = __alloc_iova(mapping, len);
 	if (dma_addr == DMA_ERROR_CODE)
@@ -1766,12 +1770,12 @@ static dma_addr_t arm_coherent_iommu_map_page(struct device *dev,
 	prot = __get_iommu_pgprot(attrs, prot,
 				  is_dma_coherent(dev, attrs));
 
-	ret = iommu_map(mapping->domain, dma_addr, page_to_phys(page), len,
-			prot);
+	ret = iommu_map(mapping->domain, dma_addr, page_to_phys(page) +
+			start_offset, len, prot);
 	if (ret < 0)
 		goto fail;
 
-	return dma_addr + offset;
+	return dma_addr + map_offset;
 fail:
 	__free_iova(mapping, dma_addr, len);
 	return DMA_ERROR_CODE;

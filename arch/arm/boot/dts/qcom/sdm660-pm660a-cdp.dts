@@ -36,3 +36,13 @@
 	lab-supply = <&lab_regulator>;
 	ibb-supply = <&ibb_regulator>;
 };
+
+&tavil_snd {
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+};
+
+&tasha_snd {
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
+};

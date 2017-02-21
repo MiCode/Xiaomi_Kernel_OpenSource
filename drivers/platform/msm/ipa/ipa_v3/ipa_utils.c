@@ -95,7 +95,8 @@
 #define QMB_MASTER_SELECT_PCIE (1)
 
 #define IPA_CLIENT_NOT_USED \
-	{-1, -1, false, IPA_DPS_HPS_SEQ_TYPE_INVALID, QMB_MASTER_SELECT_DDR}
+	{IPA_EP_NOT_ALLOCATED, IPA_EP_NOT_ALLOCATED, false, \
+		IPA_DPS_HPS_SEQ_TYPE_INVALID, QMB_MASTER_SELECT_DDR}
 
 /* Resource Group index*/
 #define IPA_GROUP_UL		(0)
@@ -919,12 +920,18 @@ u8 ipa3_get_hw_type_index(void)
  */
 int ipa3_get_ep_mapping(enum ipa_client_type client)
 {
+	int ipa_ep_idx;
+
 	if (client >= IPA_CLIENT_MAX || client < 0) {
 		IPAERR("Bad client number! client =%d\n", client);
 		return -EINVAL;
 	}
 
-	return ipa3_ep_mapping[ipa3_get_hw_type_index()][client].pipe_num;
+	ipa_ep_idx = ipa3_ep_mapping[ipa3_get_hw_type_index()][client].pipe_num;
+	if (ipa_ep_idx < 0 || ipa_ep_idx >= IPA3_MAX_NUM_PIPES)
+		return IPA_EP_NOT_ALLOCATED;
+
+	return ipa_ep_idx;
 }
 
 /**

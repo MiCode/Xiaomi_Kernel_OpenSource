@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -269,7 +269,7 @@ static void update_acc_reg(struct mem_acc_regulator *mem_acc_vreg, int corner)
 }
 
 static int mem_acc_regulator_set_voltage(struct regulator_dev *rdev,
-		int corner, int corner_max, unsigned *selector)
+		int corner, int corner_max, unsigned int *selector)
 {
 	struct mem_acc_regulator *mem_acc_vreg = rdev_get_drvdata(rdev);
 	int i;
@@ -333,10 +333,8 @@ static int __mem_acc_sel_init(struct mem_acc_regulator *mem_acc_vreg,
 
 	mem_acc_vreg->acc_sel_mask[mem_type] = devm_kzalloc(mem_acc_vreg->dev,
 		mem_acc_vreg->num_acc_sel[mem_type] * sizeof(u32), GFP_KERNEL);
-	if (!mem_acc_vreg->acc_sel_mask[mem_type]) {
-		pr_err("Unable to allocate memory for mem_type=%d\n", mem_type);
+	if (!mem_acc_vreg->acc_sel_mask[mem_type])
 		return -ENOMEM;
-	}
 
 	for (i = 0; i < mem_acc_vreg->num_acc_sel[mem_type]; i++) {
 		bit = mem_acc_vreg->acc_sel_bit_pos[mem_type][i];
@@ -355,8 +353,8 @@ static int mem_acc_sel_init(struct mem_acc_regulator *mem_acc_vreg)
 		if (mem_acc_vreg->mem_acc_supported[i]) {
 			rc = __mem_acc_sel_init(mem_acc_vreg, i);
 			if (rc) {
-				pr_err("Unable to intialize mem_type=%d rc=%d\n",
-								i, rc);
+				pr_err("Unable to initialize mem_type=%d rc=%d\n",
+					i, rc);
 				return rc;
 			}
 		}
@@ -523,15 +521,15 @@ static int mem_acc_custom_data_init(struct platform_device *pdev,
 	if (!res || !res->start) {
 		pr_debug("%s resource missing\n", custom_apc_addr_str);
 		return -EINVAL;
-	} else {
-		len = res->end - res->start + 1;
-		mem_acc_vreg->acc_custom_addr[mem_type] =
-			devm_ioremap(mem_acc_vreg->dev, res->start, len);
-		if (!mem_acc_vreg->acc_custom_addr[mem_type]) {
-			pr_err("Unable to map %s %pa\n", custom_apc_addr_str,
-							&res->start);
-			return -EINVAL;
-		}
+	}
+
+	len = res->end - res->start + 1;
+	mem_acc_vreg->acc_custom_addr[mem_type] =
+		devm_ioremap(mem_acc_vreg->dev, res->start, len);
+	if (!mem_acc_vreg->acc_custom_addr[mem_type]) {
+		pr_err("Unable to map %s %pa\n",
+			custom_apc_addr_str, &res->start);
+		return -EINVAL;
 	}
 
 	rc = populate_acc_data(mem_acc_vreg, custom_apc_data_str,
@@ -1190,7 +1188,7 @@ static int mem_acc_init(struct platform_device *pdev,
 
 	rc = mem_acc_sel_init(mem_acc_vreg);
 	if (rc) {
-		pr_err("Unable to intialize mem_acc_sel reg rc=%d\n", rc);
+		pr_err("Unable to initialize mem_acc_sel reg rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1307,19 +1305,16 @@ static int mem_acc_regulator_probe(struct platform_device *pdev)
 	if (!init_data) {
 		pr_err("regulator init data is missing\n");
 		return -EINVAL;
-	} else {
-		init_data->constraints.input_uV
-			= init_data->constraints.max_uV;
-		init_data->constraints.valid_ops_mask
-			|= REGULATOR_CHANGE_VOLTAGE;
 	}
+
+	init_data->constraints.input_uV = init_data->constraints.max_uV;
+	init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_VOLTAGE;
 
 	mem_acc_vreg = devm_kzalloc(&pdev->dev, sizeof(*mem_acc_vreg),
 			GFP_KERNEL);
-	if (!mem_acc_vreg) {
-		pr_err("Can't allocate mem_acc_vreg memory\n");
+	if (!mem_acc_vreg)
 		return -ENOMEM;
-	}
+
 	mem_acc_vreg->dev = &pdev->dev;
 
 	rc = mem_acc_init(pdev, mem_acc_vreg);
@@ -1361,7 +1356,7 @@ static int mem_acc_regulator_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id mem_acc_regulator_match_table[] = {
+static const struct of_device_id mem_acc_regulator_match_table[] = {
 	{ .compatible = "qcom,mem-acc-regulator", },
 	{}
 };

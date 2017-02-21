@@ -581,40 +581,6 @@ config LEDS_POWERNV
 	depends on LEDS_CLASS
 	depends on PPC_POWERNV
 	depends on OF
-
-config LEDS_QPNP
-	tristate "Support for QPNP LEDs"
-	depends on LEDS_CLASS && SPMI
-	help
-	  This driver supports the leds functionality of Qualcomm PNP PMIC.  It
-	  includes RGB Leds, WLED and Flash Led.
-
-	  To compile this driver as a module, choose M here: the module will
-	  be called leds-qpnp.
-
-config LEDS_QPNP_FLASH
-	tristate "Support for QPNP Flash LEDs"
-	depends on LEDS_CLASS && SPMI
-	help
-	  This driver supports the leds functionality of Qualcomm Technologies
-	  PNP PMIC.  It includes Flash Led.
-
-	  To compile this driver as a module, choose M here: the module will
-	  be called leds-qpnp-flash.
-
-config LEDS_QPNP_FLASH_V2
-        tristate "Support for QPNP V2 Flash LEDs"
-        depends on LEDS_CLASS && MFD_SPMI_PMIC
-        help
-          This driver supports the leds functionality of Qualcomm Technologies
-          PNP PMIC.  It includes Flash Led.
-
-          To compile this driver as a module, choose M here: the module will
-          be called leds-qpnp-flash-v2.
-
-config LEDS_QPNP_WLED
-	tristate "Support for QPNP WLED"
-	depends on LEDS_CLASS && SPMI
 	help
 	  This option enables support for the system LEDs present on
 	  PowerNV platforms. Say 'y' to enable this support in kernel.
@@ -625,31 +591,38 @@ config LEDS_QPNP
 	tristate "Support for QPNP LEDs"
 	depends on LEDS_CLASS && SPMI
 	help
-	  This driver supports the leds functionality of Qualcomm PNP PMIC.  It
-	  includes RGB Leds, WLED and Flash Led.
-
-	  To compile this driver as a module, choose M here: the module will
-	  be called leds-qpnp.
+	  This driver supports the LED functionality of Qualcomm Technologies,
+	  Inc. QPNP PMICs.  It primarily supports controlling tri-color RGB
+	  LEDs in both PWM and light pattern generator (LPG) modes.  For older
+	  PMICs, it also supports WLEDs and flash LEDs.
 
 config LEDS_QPNP_FLASH
 	tristate "Support for QPNP Flash LEDs"
 	depends on LEDS_CLASS && SPMI
 	help
-	  This driver supports the leds functionality of Qualcomm Technologies
-	  PNP PMIC.  It includes Flash Led.
+	  This driver supports the flash LED functionality of Qualcomm
+	  Technologies, Inc. QPNP PMICs.  This driver supports PMICs up through
+	  PM8994.  It can configure the flash LED target current for several
+	  independent channels.
 
-	  To compile this driver as a module, choose M here: the module will
-	  be called leds-qpnp-flash.
+config LEDS_QPNP_FLASH_V2
+	tristate "Support for QPNP V2 Flash LEDs"
+	depends on LEDS_CLASS && MFD_SPMI_PMIC && !LEDS_QPNP_FLASH
+	help
+	  This driver supports the flash V2 LED functionality of Qualcomm
+	  Technologies, Inc. QPNP PMICs.  This driver supports PMICs starting
+	  from PMI8998.  It can configure the flash LED target current for
+	  several independent channels.  It also supports various over current
+	  and over temperature mitigation features.
 
 config LEDS_QPNP_WLED
 	tristate "Support for QPNP WLED"
 	depends on LEDS_CLASS && SPMI
 	help
-	  This driver supports the WLED (White LED) functionality of
-	  Qualcomm Technologies PNP PMIC. WLED is used for display backlight.
-
-	  To compile this driver as a module, choose M here: the module will
-	  be called leds-qpnp-wled.
+	  This driver supports the WLED (White LED) functionality of Qualcomm
+	  Technologies, Inc. QPNP PMICs.  WLED is used for LCD backlight with
+	  variable brightness.  It also supports outputting the Avdd supply for
+	  AMOLED displays.
 
 config LEDS_SYSCON
 	bool "LED support for LEDs on system controllers"

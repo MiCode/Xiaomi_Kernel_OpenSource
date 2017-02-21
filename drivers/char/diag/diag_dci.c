@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2203,8 +2203,9 @@ struct diag_dci_client_tbl *dci_lookup_client_entry_pid(int tgid)
 	struct diag_dci_client_tbl *entry = NULL;
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
-		if (entry->client->tgid == tgid)
-			return entry;
+		if (entry->client && entry->tgid == entry->client->tgid)
+			if (entry->client->tgid == tgid)
+				return entry;
 	}
 	return NULL;
 }

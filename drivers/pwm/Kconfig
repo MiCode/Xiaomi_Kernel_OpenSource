@@ -310,13 +310,14 @@ config PWM_RCAR
 	  will be called pwm-rcar.
 
 config PWM_QPNP
+	tristate "Qualcomm Technologies, Inc. QPNP LPG/PWM support"
 	depends on SPMI
-        tristate "Qualcomm QPNP LPG/PWM support"
-        help
-          This driver supports PWM/LPG devices in Qualcomm PMIC chips which
-          comply with QPNP.  QPNP is a SPMI based PMIC implementation.  These
-          devices support Pulse Width Modulation output with user generated
-          patterns. They share a lookup table with size of 64 entries.
+	help
+	  This driver supports PWM/LPG devices in Qualcomm Technologies, Inc.
+	  PMIC chips which comply with QPNP.  QPNP is an SPMI based PMIC
+	  implementation.  These devices support Pulse Width Modulation output
+	  with user generated patterns. They share a lookup table with size of
+	  64 entries.
 
 config PWM_RENESAS_TPU
 	tristate "Renesas TPU PWM support"

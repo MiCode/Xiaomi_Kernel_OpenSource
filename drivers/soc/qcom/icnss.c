@@ -336,6 +336,7 @@ static struct icnss_priv {
 	struct ramdump_device *msa0_dump_dev;
 	bool is_wlan_mac_set;
 	struct icnss_wlan_mac_addr wlan_mac_addr;
+	bool bypass_s1_smmu;
 } *penv;
 
 static void icnss_pm_stay_awake(struct icnss_priv *priv)
@@ -2976,13 +2977,15 @@ static int icnss_smmu_init(struct icnss_priv *priv)
 		goto map_fail;
 	}
 
-	ret = iommu_domain_set_attr(mapping->domain,
-				    DOMAIN_ATTR_ATOMIC,
-				    &atomic_ctx);
-	if (ret < 0) {
-		icnss_pr_err("Set atomic_ctx attribute failed, err = %d\n",
-			     ret);
-		goto set_attr_fail;
+	if (!priv->bypass_s1_smmu) {
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_ATOMIC,
+					    &atomic_ctx);
+		if (ret < 0) {
+			icnss_pr_err("Set atomic_ctx attribute failed, err = %d\n",
+				     ret);
+			goto set_attr_fail;
+		}
 	}
 
 	ret = iommu_domain_set_attr(mapping->domain,
@@ -3730,6 +3733,11 @@ static int icnss_probe(struct platform_device *pdev)
 	ret = icnss_get_vbatt_info(priv);
 	if (ret == -EPROBE_DEFER)
 		goto out;
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,smmu-s1-bypass"))
+		priv->bypass_s1_smmu = true;
+
+	icnss_pr_dbg("SMMU S1 BYPASS = %d\n", priv->bypass_s1_smmu);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "membase");
 	if (!res) {

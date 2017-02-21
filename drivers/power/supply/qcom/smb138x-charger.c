@@ -10,18 +10,20 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "SMB138X: %s: " fmt, __func__
+
 #include <linux/device.h>
+#include <linux/iio/consumer.h>
 #include <linux/module.h>
-#include <linux/platform_device.h>
-#include <linux/regmap.h>
-#include <linux/power_supply.h>
-#include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
+#include <linux/platform_device.h>
+#include <linux/power_supply.h>
+#include <linux/regmap.h>
 #include <linux/regulator/driver.h>
-#include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
+#include <linux/regulator/of_regulator.h>
 #include <linux/qpnp/qpnp-revid.h>
 #include "smb-reg.h"
 #include "smb-lib.h"
@@ -89,6 +91,8 @@ struct smb_dt_props {
 	int	fcc_ua;
 	int	usb_icl_ua;
 	int	dc_icl_ua;
+	int	chg_temp_max_mdegc;
+	int	connector_temp_max_mdegc;
 };
 
 struct smb138x {
@@ -102,6 +106,17 @@ static int __debug_mask;
 module_param_named(
 	debug_mask, __debug_mask, int, S_IRUSR | S_IWUSR
 );
+
+irqreturn_t smb138x_handle_slave_chg_state_change(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb138x *chip = irq_data->parent_data;
+
+	if (chip->parallel_psy)
+		power_supply_changed(chip->parallel_psy);
+
+	return IRQ_HANDLED;
+}
 
 static int smb138x_parse_dt(struct smb138x *chip)
 {
@@ -131,6 +146,18 @@ static int smb138x_parse_dt(struct smb138x *chip)
 				"qcom,dc-icl-ua", &chip->dt.dc_icl_ua);
 	if (rc < 0)
 		chip->dt.dc_icl_ua = SMB138X_DEFAULT_ICL_UA;
+
+	rc = of_property_read_u32(node,
+				"qcom,charger-temp-max-mdegc",
+				&chip->dt.chg_temp_max_mdegc);
+	if (rc < 0)
+		chip->dt.chg_temp_max_mdegc = 80000;
+
+	rc = of_property_read_u32(node,
+				"qcom,connector-temp-max-mdegc",
+				&chip->dt.chg_temp_max_mdegc);
+	if (rc < 0)
+		chip->dt.connector_temp_max_mdegc = 105000;
 
 	return 0;
 }
@@ -415,6 +442,7 @@ static enum power_supply_property smb138x_parallel_props[] = {
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
+	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 };
 
 static int smb138x_parallel_get_prop(struct power_supply *psy,
@@ -466,6 +494,9 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
 		val->intval = POWER_SUPPLY_PARALLEL_MID_MID;
+		break;
+	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
+		rc = smblib_get_prop_die_health(chg, val);
 		break;
 	default:
 		pr_err("parallel power supply get prop %d not supported\n",
@@ -658,6 +689,138 @@ static int smb138x_init_vconn_regulator(struct smb138x *chip)
  * HARDWARE INITIALIZATION *
  ***************************/
 
+#define MDEGC_3		3000
+#define MDEGC_15	15000
+static int smb138x_init_slave_hw(struct smb138x *chip)
+{
+	struct smb_charger *chg = &chip->chg;
+	int rc;
+
+	if (chip->wa_flags & OOB_COMP_WA_BIT) {
+		rc = smblib_masked_write(chg, SMB2CHG_MISC_ENG_SDCDC_CFG2,
+					ENG_SDCDC_SEL_OOB_VTH_BIT,
+					ENG_SDCDC_SEL_OOB_VTH_BIT);
+		if (rc < 0) {
+			pr_err("Couldn't configure the OOB comp threshold rc = %d\n",
+									rc);
+			return rc;
+		}
+
+		rc = smblib_masked_write(chg, SMB2CHG_MISC_ENG_SDCDC_CFG6,
+				DEAD_TIME_MASK, HIGH_DEAD_TIME_MASK);
+		if (rc < 0) {
+			pr_err("Couldn't configure the sdcdc cfg 6 reg rc = %d\n",
+									rc);
+			return rc;
+		}
+	}
+
+	/* enable watchdog bark and bite interrupts, and disable the watchdog */
+	rc = smblib_masked_write(chg, WD_CFG_REG, WDOG_TIMER_EN_BIT
+			| WDOG_TIMER_EN_ON_PLUGIN_BIT | BITE_WDOG_INT_EN_BIT
+			| BARK_WDOG_INT_EN_BIT,
+			BITE_WDOG_INT_EN_BIT | BARK_WDOG_INT_EN_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't configure the watchdog rc=%d\n", rc);
+		return rc;
+	}
+
+	/* disable charging when watchdog bites */
+	rc = smblib_masked_write(chg, SNARL_BARK_BITE_WD_CFG_REG,
+				 BITE_WDOG_DISABLE_CHARGING_CFG_BIT,
+				 BITE_WDOG_DISABLE_CHARGING_CFG_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't configure the watchdog bite rc=%d\n", rc);
+		return rc;
+	}
+
+	/* suspend parallel charging */
+	rc = smb138x_set_parallel_suspend(chip, true);
+	if (rc < 0) {
+		pr_err("Couldn't suspend parallel charging rc=%d\n", rc);
+		return rc;
+	}
+
+	/* initialize FCC to 0 */
+	rc = smblib_set_charge_param(chg, &chg->param.fcc, 0);
+	if (rc < 0) {
+		pr_err("Couldn't set 0 FCC rc=%d\n", rc);
+		return rc;
+	}
+
+	/* enable the charging path */
+	rc = smblib_masked_write(chg, CHARGING_ENABLE_CMD_REG,
+				 CHARGING_ENABLE_CMD_BIT,
+				 CHARGING_ENABLE_CMD_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't enable charging rc=%d\n", rc);
+		return rc;
+	}
+
+	/* configure charge enable for software control; active high */
+	rc = smblib_masked_write(chg, CHGR_CFG2_REG,
+				 CHG_EN_POLARITY_BIT | CHG_EN_SRC_BIT, 0);
+	if (rc < 0) {
+		pr_err("Couldn't configure charge enable source rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* enable parallel current sensing */
+	rc = smblib_masked_write(chg, CFG_REG,
+				 VCHG_EN_CFG_BIT, VCHG_EN_CFG_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't enable parallel current sensing rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* enable stacked diode */
+	rc = smblib_write(chg, SMB2CHG_DC_TM_SREFGEN, STACKED_DIODE_EN_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't enable stacked diode rc=%d\n", rc);
+		return rc;
+	}
+
+	/* initialize charger temperature threshold */
+	rc = iio_write_channel_processed(chg->iio.temp_max_chan,
+					chip->dt.chg_temp_max_mdegc);
+	if (rc < 0) {
+		pr_err("Couldn't set charger temp threshold rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = iio_write_channel_processed(chg->iio.connector_temp_thr1_chan,
+				chip->dt.connector_temp_max_mdegc);
+	if (rc < 0) {
+		pr_err("Couldn't set connector temp threshold1 rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = iio_write_channel_processed(chg->iio.connector_temp_thr2_chan,
+				chip->dt.connector_temp_max_mdegc + MDEGC_3);
+	if (rc < 0) {
+		pr_err("Couldn't set connector temp threshold2 rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = iio_write_channel_processed(chg->iio.connector_temp_thr3_chan,
+				chip->dt.connector_temp_max_mdegc + MDEGC_15);
+	if (rc < 0) {
+		pr_err("Couldn't set connector temp threshold3 rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smblib_write(chg, THERMREG_SRC_CFG_REG,
+						THERMREG_SKIN_ADC_SRC_EN_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't enable connector thermreg source rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int smb138x_init_hw(struct smb138x *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -681,15 +844,14 @@ static int smb138x_init_hw(struct smb138x *chip)
 	rc = smblib_masked_write(chg, CHGR_CFG2_REG,
 				 CHG_EN_POLARITY_BIT | CHG_EN_SRC_BIT, 0);
 	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure charge enable source rc=%d\n", rc);
+		pr_err("Couldn't configure charge enable source rc=%d\n", rc);
 		return rc;
 	}
 
 	/* enable the charging path */
 	rc = vote(chg->chg_disable_votable, DEFAULT_VOTER, false, 0);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't enable charging rc=%d\n", rc);
+		pr_err("Couldn't enable charging rc=%d\n", rc);
 		return rc;
 	}
 
@@ -701,8 +863,7 @@ static int smb138x_init_hw(struct smb138x *chip)
 			    TYPEC_CCSTATE_CHANGE_INT_EN_BIT
 			  | TYPEC_VBUS_ERROR_INT_EN_BIT);
 	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure Type-C interrupts rc=%d\n", rc);
+		pr_err("Couldn't configure Type-C interrupts rc=%d\n", rc);
 		return rc;
 	}
 
@@ -711,16 +872,14 @@ static int smb138x_init_hw(struct smb138x *chip)
 				 VCONN_EN_SRC_BIT | VCONN_EN_VALUE_BIT,
 				 VCONN_EN_SRC_BIT);
 	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure VCONN for SW control rc=%d\n", rc);
+		pr_err("Couldn't configure VCONN for SW control rc=%d\n", rc);
 		return rc;
 	}
 
 	/* configure VBUS for software control */
 	rc = smblib_masked_write(chg, OTG_CFG_REG, OTG_EN_SRC_CFG_BIT, 0);
 	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure VBUS for SW control rc=%d\n", rc);
+		pr_err("Couldn't configure VBUS for SW control rc=%d\n", rc);
 		return rc;
 	}
 
@@ -728,8 +887,7 @@ static int smb138x_init_hw(struct smb138x *chip)
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
 				 TYPEC_POWER_ROLE_CMD_MASK, 0);
 	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure power role for DRP rc=%d\n", rc);
+		pr_err("Couldn't configure power role for DRP rc=%d\n", rc);
 		return rc;
 	}
 
@@ -738,16 +896,16 @@ static int smb138x_init_hw(struct smb138x *chip)
 					ENG_SDCDC_SEL_OOB_VTH_BIT,
 					ENG_SDCDC_SEL_OOB_VTH_BIT);
 		if (rc < 0) {
-			dev_err(chg->dev,
-			"Couldn't configure the oob comp threh rc = %d\n", rc);
+			pr_err("Couldn't configure the OOB comp threshold rc = %d\n",
+									rc);
 			return rc;
 		}
 
 		rc = smblib_masked_write(chg, SMB2CHG_MISC_ENG_SDCDC_CFG6,
 				DEAD_TIME_MASK, HIGH_DEAD_TIME_MASK);
 		if (rc < 0) {
-			dev_err(chg->dev,
-			"Couldn't configure the sdcdc cfg 6 reg rc = %d\n", rc);
+			pr_err("Couldn't configure the sdcdc cfg 6 reg rc = %d\n",
+									rc);
 			return rc;
 		}
 	}
@@ -795,6 +953,23 @@ static int smb138x_setup_wa_flags(struct smb138x *chip)
  * DETERMINE INITIAL STATUS *
  ****************************/
 
+static irqreturn_t smb138x_handle_temperature_change(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb138x *chip = irq_data->parent_data;
+
+	power_supply_changed(chip->parallel_psy);
+	return IRQ_HANDLED;
+}
+
+static int smb138x_determine_initial_slave_status(struct smb138x *chip)
+{
+	struct smb_irq_data irq_data = {chip, "determine-initial-status"};
+
+	smb138x_handle_temperature_change(0, &irq_data);
+	return 0;
+}
+
 static int smb138x_determine_initial_status(struct smb138x *chip)
 {
 	struct smb_irq_data irq_data = {chip, "determine-initial-status"};
@@ -802,7 +977,6 @@ static int smb138x_determine_initial_status(struct smb138x *chip)
 	smblib_handle_usb_plugin(0, &irq_data);
 	smblib_handle_usb_typec_change(0, &irq_data);
 	smblib_handle_usb_source_change(0, &irq_data);
-
 	return 0;
 }
 
@@ -810,170 +984,164 @@ static int smb138x_determine_initial_status(struct smb138x *chip)
  * INTERRUPT REGISTRATION *
  **************************/
 
-struct smb138x_irq_info {
-	const char			*name;
-	const irq_handler_t		handler;
-	const bool			wake;
-	const struct storm_watch	storm_data;
-};
-
-static const struct smb138x_irq_info smb138x_irqs[] = {
+static struct smb_irq_info smb138x_irqs[] = {
 /* CHARGER IRQs */
-	{
+	[CHG_ERROR_IRQ] = {
 		.name		= "chg-error",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[CHG_STATE_CHANGE_IRQ] = {
 		.name		= "chg-state-change",
-		.handler	= smblib_handle_debug,
+		.handler	= smb138x_handle_slave_chg_state_change,
+		.wake		= true,
 	},
-	{
+	[STEP_CHG_STATE_CHANGE_IRQ] = {
 		.name		= "step-chg-state-change",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[STEP_CHG_SOC_UPDATE_FAIL_IRQ] = {
 		.name		= "step-chg-soc-update-fail",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[STEP_CHG_SOC_UPDATE_REQ_IRQ] = {
 		.name		= "step-chg-soc-update-request",
 		.handler	= smblib_handle_debug,
 	},
 /* OTG IRQs */
-	{
+	[OTG_FAIL_IRQ] = {
 		.name		= "otg-fail",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[OTG_OVERCURRENT_IRQ] = {
 		.name		= "otg-overcurrent",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[OTG_OC_DIS_SW_STS_IRQ] = {
 		.name		= "otg-oc-dis-sw-sts",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[TESTMODE_CHANGE_DET_IRQ] = {
 		.name		= "testmode-change-detect",
 		.handler	= smblib_handle_debug,
 	},
 /* BATTERY IRQs */
-	{
+	[BATT_TEMP_IRQ] = {
 		.name		= "bat-temp",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_OCP_IRQ] = {
 		.name		= "bat-ocp",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_OV_IRQ] = {
 		.name		= "bat-ov",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_LOW_IRQ] = {
 		.name		= "bat-low",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_THERM_ID_MISS_IRQ] = {
 		.name		= "bat-therm-or-id-missing",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
-	{
+	[BATT_TERM_MISS_IRQ] = {
 		.name		= "bat-terminal-missing",
 		.handler	= smblib_handle_batt_psy_changed,
 	},
 /* USB INPUT IRQs */
-	{
+	[USBIN_COLLAPSE_IRQ] = {
 		.name		= "usbin-collapse",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[USBIN_LT_3P6V_IRQ] = {
 		.name		= "usbin-lt-3p6v",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[USBIN_UV_IRQ] = {
 		.name		= "usbin-uv",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[USBIN_OV_IRQ] = {
 		.name		= "usbin-ov",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[USBIN_PLUGIN_IRQ] = {
 		.name		= "usbin-plugin",
 		.handler	= smblib_handle_usb_plugin,
 	},
-	{
+	[USBIN_SRC_CHANGE_IRQ] = {
 		.name		= "usbin-src-change",
 		.handler	= smblib_handle_usb_source_change,
 	},
-	{
+	[USBIN_ICL_CHANGE_IRQ] = {
 		.name		= "usbin-icl-change",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[TYPE_C_CHANGE_IRQ] = {
 		.name		= "type-c-change",
 		.handler	= smblib_handle_usb_typec_change,
 	},
 /* DC INPUT IRQs */
-	{
+	[DCIN_COLLAPSE_IRQ] = {
 		.name		= "dcin-collapse",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_LT_3P6V_IRQ] = {
 		.name		= "dcin-lt-3p6v",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_UV_IRQ] = {
 		.name		= "dcin-uv",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_OV_IRQ] = {
 		.name		= "dcin-ov",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_PLUGIN_IRQ] = {
 		.name		= "dcin-plugin",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DIV2_EN_DG_IRQ] = {
 		.name		= "div2-en-dg",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[DCIN_ICL_CHANGE_IRQ] = {
 		.name		= "dcin-icl-change",
 		.handler	= smblib_handle_debug,
 	},
 /* MISCELLANEOUS IRQs */
-	{
+	[WDOG_SNARL_IRQ] = {
 		.name		= "wdog-snarl",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[WDOG_BARK_IRQ] = {
 		.name		= "wdog-bark",
 		.handler	= smblib_handle_wdog_bark,
 		.wake		= true,
 	},
-	{
+	[AICL_FAIL_IRQ] = {
 		.name		= "aicl-fail",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[AICL_DONE_IRQ] = {
 		.name		= "aicl-done",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[HIGH_DUTY_CYCLE_IRQ] = {
 		.name		= "high-duty-cycle",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[INPUT_CURRENT_LIMIT_IRQ] = {
 		.name		= "input-current-limiting",
 		.handler	= smblib_handle_debug,
 	},
-	{
+	[TEMPERATURE_CHANGE_IRQ] = {
 		.name		= "temperature-change",
-		.handler	= smblib_handle_debug,
+		.handler	= smb138x_handle_temperature_change,
 	},
-	{
+	[SWITCH_POWER_OK_IRQ] = {
 		.name		= "switcher-power-ok",
 		.handler	= smblib_handle_debug,
 	},
@@ -1021,6 +1189,7 @@ static int smb138x_request_interrupt(struct smb138x *chip,
 	irq_data->parent_data = chip;
 	irq_data->name = irq_name;
 	irq_data->storm_data = smb138x_irqs[irq_index].storm_data;
+	mutex_init(&irq_data->storm_data.storm_lock);
 
 	rc = devm_request_threaded_irq(chg->dev, irq, NULL,
 					smb138x_irqs[irq_index].handler,
@@ -1144,95 +1313,54 @@ static int smb138x_slave_probe(struct smb138x *chip)
 		goto cleanup;
 	}
 
-	if (chip->wa_flags & OOB_COMP_WA_BIT) {
-		rc = smblib_masked_write(chg, SMB2CHG_MISC_ENG_SDCDC_CFG2,
-					ENG_SDCDC_SEL_OOB_VTH_BIT,
-					ENG_SDCDC_SEL_OOB_VTH_BIT);
-		if (rc < 0) {
-			dev_err(chg->dev,
-			"Couldn't configure the oob comp threh rc = %d\n", rc);
-			goto cleanup;
-		}
-
-		rc = smblib_masked_write(chg, SMB2CHG_MISC_ENG_SDCDC_CFG6,
-				DEAD_TIME_MASK, HIGH_DEAD_TIME_MASK);
-		if (rc < 0) {
-			dev_err(chg->dev,
-			"Couldn't configure the sdcdc cfg 6 reg rc = %d\n", rc);
-			goto cleanup;
-		}
-	}
-
-	/* enable watchdog bark and bite interrupts, and disable the watchdog */
-	rc = smblib_masked_write(chg, WD_CFG_REG, WDOG_TIMER_EN_BIT
-			| WDOG_TIMER_EN_ON_PLUGIN_BIT | BITE_WDOG_INT_EN_BIT
-			| BARK_WDOG_INT_EN_BIT,
-			BITE_WDOG_INT_EN_BIT | BARK_WDOG_INT_EN_BIT);
-	if (rc < 0) {
-		pr_err("Couldn't configure the watchdog rc=%d\n", rc);
+	chg->iio.temp_max_chan = iio_channel_get(chg->dev, "charger_temp_max");
+	if (IS_ERR(chg->iio.temp_max_chan)) {
+		rc = PTR_ERR(chg->iio.temp_max_chan);
 		goto cleanup;
 	}
 
-	/* disable charging when watchdog bites */
-	rc = smblib_masked_write(chg, SNARL_BARK_BITE_WD_CFG_REG,
-				 BITE_WDOG_DISABLE_CHARGING_CFG_BIT,
-				 BITE_WDOG_DISABLE_CHARGING_CFG_BIT);
-	if (rc < 0) {
-		pr_err("Couldn't configure the watchdog bite rc=%d\n", rc);
+	chg->iio.connector_temp_thr1_chan = iio_channel_get(chg->dev,
+							"connector_temp_thr1");
+	if (IS_ERR(chg->iio.connector_temp_thr1_chan)) {
+		rc = PTR_ERR(chg->iio.connector_temp_thr1_chan);
 		goto cleanup;
 	}
 
-	/* suspend parallel charging */
-	rc = smb138x_set_parallel_suspend(chip, true);
-	if (rc < 0) {
-		pr_err("Couldn't suspend parallel charging rc=%d\n", rc);
+	chg->iio.connector_temp_thr2_chan = iio_channel_get(chg->dev,
+							"connector_temp_thr2");
+	if (IS_ERR(chg->iio.connector_temp_thr2_chan)) {
+		rc = PTR_ERR(chg->iio.connector_temp_thr2_chan);
 		goto cleanup;
 	}
 
-	/* initialize FCC to 0 */
-	rc = smblib_set_charge_param(chg, &chg->param.fcc, 0);
-	if (rc < 0) {
-		pr_err("Couldn't set 0 FCC rc=%d\n", rc);
+	chg->iio.connector_temp_thr3_chan = iio_channel_get(chg->dev,
+							"connector_temp_thr3");
+	if (IS_ERR(chg->iio.connector_temp_thr3_chan)) {
+		rc = PTR_ERR(chg->iio.connector_temp_thr3_chan);
 		goto cleanup;
 	}
 
-	/* enable the charging path */
-	rc = smblib_masked_write(chg, CHARGING_ENABLE_CMD_REG,
-				 CHARGING_ENABLE_CMD_BIT,
-				 CHARGING_ENABLE_CMD_BIT);
+	rc = smb138x_parse_dt(chip);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't enable charging rc=%d\n", rc);
+		pr_err("Couldn't parse device tree rc=%d\n", rc);
 		goto cleanup;
 	}
 
-	/* configure charge enable for software control; active high */
-	rc = smblib_masked_write(chg, CHGR_CFG2_REG,
-				 CHG_EN_POLARITY_BIT | CHG_EN_SRC_BIT, 0);
+	rc = smb138x_init_slave_hw(chip);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure charge enable source rc=%d\n",
-			rc);
+		pr_err("Couldn't initialize hardware rc=%d\n", rc);
 		goto cleanup;
-	}
-
-	/* enable parallel current sensing */
-	rc = smblib_masked_write(chg, CFG_REG,
-				 VCHG_EN_CFG_BIT, VCHG_EN_CFG_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't enable parallel current sensing rc=%d\n",
-			rc);
-		goto cleanup;
-	}
-
-	/* enable stacked diode */
-	rc = smblib_write(chg, SMB2CHG_DC_TM_SREFGEN, STACKED_DIODE_EN_BIT);
-	if (rc < 0) {
-		pr_err("Couldn't enable stacked diode rc=%d\n", rc);
-		return rc;
 	}
 
 	rc = smb138x_init_parallel_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize parallel psy rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	rc = smb138x_determine_initial_slave_status(chip);
+	if (rc < 0) {
+		pr_err("Couldn't determine initial status rc=%d\n", rc);
 		goto cleanup;
 	}
 
@@ -1275,6 +1403,7 @@ static int smb138x_probe(struct platform_device *pdev)
 
 	chip->chg.dev = &pdev->dev;
 	chip->chg.debug_mask = &__debug_mask;
+	chip->chg.irq_info = smb138x_irqs;
 	chip->chg.name = "SMB";
 
 	chip->chg.regmap = dev_get_regmap(chip->chg.dev->parent, NULL);
@@ -1309,6 +1438,12 @@ static int smb138x_probe(struct platform_device *pdev)
 	default:
 		pr_err("Couldn't find a matching mode %d\n", chip->chg.mode);
 		rc = -EINVAL;
+		goto cleanup;
+	}
+
+	if (rc < 0) {
+		if (rc != -EPROBE_DEFER)
+			pr_err("Couldn't probe SMB138X rc=%d\n", rc);
 		goto cleanup;
 	}
 

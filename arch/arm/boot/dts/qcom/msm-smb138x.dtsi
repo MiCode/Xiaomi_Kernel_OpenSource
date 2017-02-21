@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,16 +96,30 @@
 			#size-cells = <1>;
 			interrupt-parent = <&smb138x>;
 			io-channels = <&smb138x_tadc 2>,
-				      <&smb138x_tadc 12>,
-				      <&smb138x_tadc 3>;
+				      <&smb138x_tadc 3>,
+				      <&smb138x_tadc 14>,
+				      <&smb138x_tadc 15>,
+				      <&smb138x_tadc 16>,
+				      <&smb138x_tadc 17>;
 			io-channel-names = "charger_temp",
-					   "charger_temp_max",
-					   "batt_i";
+					   "batt_i",
+					   "connector_temp_thr1",
+					   "connector_temp_thr2",
+					   "connector_temp_thr3",
+					   "charger_temp_max";
+
+			qcom,chgr@1000 {
+				reg = <0x1000 0x100>;
+				interrupts = <0x10 0x1 IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "chg-state-change";
+			};
 
 			qcom,chgr-misc@1600 {
 				reg = <0x1600 0x100>;
-				interrupts = <0x16 0x1 IRQ_TYPE_EDGE_RISING>;
-				interrupt-names = "wdog-bark";
+				interrupts = <0x16 0x1 IRQ_TYPE_EDGE_RISING>,
+					     <0x16 0x6 IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "wdog-bark",
+						  "temperature-change";
 			};
 		};
 	};

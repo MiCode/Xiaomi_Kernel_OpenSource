@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -608,10 +608,9 @@ qpnp_flash_led_get_max_avail_current(struct flash_node_data *flash_node,
 		}
 
 		/*
-		* When charging is enabled, enforce this new
-		* enabelment sequence to reduce fuel gauge
-		* resolution reading.
-		*/
+		 * When charging is enabled, enforce this new enablement
+		 * sequence to reduce fuel gauge reading resolution.
+		 */
 		if (led->charging_enabled) {
 			rc = qpnp_led_masked_write(led,
 				FLASH_MODULE_ENABLE_CTRL(led->base),
@@ -637,10 +636,10 @@ qpnp_flash_led_get_max_avail_current(struct flash_node_data *flash_node,
 		max_curr_avail_ma = (prop.intval / FLASH_LED_UA_PER_MA);
 	}
 
-	/* When thermal mitigation is available, this logic
-	*  will execute, to derate current based on PMIC die
-	*  temperature.
-	*/
+	/*
+	 * When thermal mitigation is available, this logic will execute to
+	 * derate current based upon the PMIC die temperature.
+	 */
 	if (led->pdata->die_current_derate_en) {
 		chg_temp_milidegc = qpnp_flash_led_get_die_temp(led);
 		if (chg_temp_milidegc < 0)
@@ -797,21 +796,14 @@ static ssize_t qpnp_flash_led_max_current_show(struct device *dev,
 }
 
 static struct device_attribute qpnp_flash_led_attrs[] = {
-	__ATTR(strobe, (S_IRUGO | S_IWUSR | S_IWGRP),
-				NULL,
-				qpnp_led_strobe_type_store),
-	__ATTR(reg_dump, (S_IRUGO | S_IWUSR | S_IWGRP),
-				qpnp_flash_led_dump_regs_show,
-				NULL),
-	__ATTR(enable_current_derate, (S_IRUGO | S_IWUSR | S_IWGRP),
-				NULL,
-				qpnp_flash_led_current_derate_store),
-	__ATTR(max_allowed_current, (S_IRUGO | S_IWUSR | S_IWGRP),
-				qpnp_flash_led_max_current_show,
-				NULL),
-	__ATTR(enable_die_temp_current_derate, (S_IRUGO | S_IWUSR | S_IWGRP),
-				NULL,
-				qpnp_flash_led_die_temp_store),
+	__ATTR(strobe, 0664, NULL, qpnp_led_strobe_type_store),
+	__ATTR(reg_dump, 0664, qpnp_flash_led_dump_regs_show, NULL),
+	__ATTR(enable_current_derate, 0664, NULL,
+		qpnp_flash_led_current_derate_store),
+	__ATTR(max_allowed_current, 0664, qpnp_flash_led_max_current_show,
+		NULL),
+	__ATTR(enable_die_temp_current_derate, 0664, NULL,
+		qpnp_flash_led_die_temp_store),
 };
 
 static int qpnp_flash_led_get_thermal_derate_rate(const char *rate)
@@ -1771,8 +1763,6 @@ error_enable_gpio:
 
 	flash_node->flash_on = false;
 	mutex_unlock(&led->flash_led_lock);
-
-	return;
 }
 
 static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
@@ -1823,8 +1813,6 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 	}
 
 	queue_work(led->ordered_workq, &flash_node->work);
-
-	return;
 }
 
 static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
@@ -2359,26 +2347,24 @@ static int qpnp_flash_led_parse_common_dt(
 		dev_err(&led->pdev->dev, "Unable to acquire pinctrl\n");
 		led->pinctrl = NULL;
 		return 0;
-	} else {
-		led->gpio_state_active =
-			pinctrl_lookup_state(led->pinctrl, "flash_led_enable");
-		if (IS_ERR_OR_NULL(led->gpio_state_active)) {
-			dev_err(&led->pdev->dev,
-					"Can not lookup LED active state\n");
-			devm_pinctrl_put(led->pinctrl);
-			led->pinctrl = NULL;
-			return PTR_ERR(led->gpio_state_active);
-		}
-		led->gpio_state_suspend =
-			pinctrl_lookup_state(led->pinctrl,
+	}
+
+	led->gpio_state_active = pinctrl_lookup_state(led->pinctrl,
+							"flash_led_enable");
+	if (IS_ERR_OR_NULL(led->gpio_state_active)) {
+		dev_err(&led->pdev->dev, "Cannot lookup LED active state\n");
+		devm_pinctrl_put(led->pinctrl);
+		led->pinctrl = NULL;
+		return PTR_ERR(led->gpio_state_active);
+	}
+
+	led->gpio_state_suspend = pinctrl_lookup_state(led->pinctrl,
 							"flash_led_disable");
-		if (IS_ERR_OR_NULL(led->gpio_state_suspend)) {
-			dev_err(&led->pdev->dev,
-					"Can not lookup LED disable state\n");
-			devm_pinctrl_put(led->pinctrl);
-			led->pinctrl = NULL;
-			return PTR_ERR(led->gpio_state_suspend);
-		}
+	if (IS_ERR_OR_NULL(led->gpio_state_suspend)) {
+		dev_err(&led->pdev->dev, "Cannot lookup LED disable state\n");
+		devm_pinctrl_put(led->pinctrl);
+		led->pinctrl = NULL;
+		return PTR_ERR(led->gpio_state_suspend);
 	}
 
 	return 0;
@@ -2408,13 +2394,10 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	led = devm_kzalloc(&pdev->dev, sizeof(struct qpnp_flash_led),
-								GFP_KERNEL);
-	if (!led) {
-		dev_err(&pdev->dev,
-			"Unable to allocate memory for flash LED\n");
+	led = devm_kzalloc(&pdev->dev, sizeof(*led), GFP_KERNEL);
+	if (!led)
 		return -ENOMEM;
-	}
+
 	led->regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!led->regmap) {
 		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
@@ -2426,13 +2409,9 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	led->current_addr = FLASH_LED0_CURRENT(led->base);
 	led->current2_addr = FLASH_LED1_CURRENT(led->base);
 
-	led->pdata = devm_kzalloc(&pdev->dev,
-			sizeof(struct flash_led_platform_data), GFP_KERNEL);
-	if (!led->pdata) {
-		dev_err(&pdev->dev,
-			"Unable to allocate memory for platform data\n");
+	led->pdata = devm_kzalloc(&pdev->dev, sizeof(*led->pdata), GFP_KERNEL);
+	if (!led->pdata)
 		return -ENOMEM;
-	}
 
 	led->peripheral_type = (u8)qpnp_flash_led_get_peripheral_type(led);
 	if (led->peripheral_type < 0) {
@@ -2571,21 +2550,21 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	}
 
 	led->dbgfs_root = root;
-	file = debugfs_create_file("enable_debug", S_IRUSR | S_IWUSR, root,
-					led, &flash_led_dfs_dbg_feature_fops);
+	file = debugfs_create_file("enable_debug", 0600, root, led,
+					&flash_led_dfs_dbg_feature_fops);
 	if (!file) {
 		pr_err("error creating 'enable_debug' entry\n");
 		goto error_led_debugfs;
 	}
 
-	file = debugfs_create_file("latched", S_IRUSR | S_IWUSR, root, led,
+	file = debugfs_create_file("latched", 0600, root, led,
 					&flash_led_dfs_latched_reg_fops);
 	if (!file) {
 		pr_err("error creating 'latched' entry\n");
 		goto error_led_debugfs;
 	}
 
-	file = debugfs_create_file("strobe", S_IRUSR | S_IWUSR, root, led,
+	file = debugfs_create_file("strobe", 0600, root, led,
 					&flash_led_dfs_strobe_reg_fops);
 	if (!file) {
 		pr_err("error creating 'strobe' entry\n");
@@ -2639,7 +2618,7 @@ static int qpnp_flash_led_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id spmi_match_table[] = {
+static const struct of_device_id spmi_match_table[] = {
 	{ .compatible = "qcom,qpnp-flash-led",},
 	{ },
 };

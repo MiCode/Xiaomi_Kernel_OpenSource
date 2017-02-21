@@ -1256,6 +1256,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(ana_cdc);
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(rtd->card);
 	struct snd_card *card;
 	int ret = -ENOMEM;
 
@@ -1330,6 +1331,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			 __func__);
 		goto done;
 	}
+	pdata->codec_root = codec_root;
 	msm_dig_codec_info_create_codec_entry(codec_root, dig_cdc);
 	msm_anlg_codec_info_create_codec_entry(codec_root, ana_cdc);
 done:
@@ -1341,6 +1343,7 @@ static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm =
 			snd_soc_codec_get_dapm(codec);
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(rtd->card);
 	struct snd_card *card;
 
 	snd_soc_add_codec_controls(codec, msm_sdw_controls,
@@ -1363,6 +1366,7 @@ static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			 __func__);
 		goto done;
 	}
+	pdata->codec_root = codec_root;
 	msm_sdw_codec_info_create_codec_entry(codec_root, codec);
 done:
 	return 0;
@@ -2261,11 +2265,28 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
+	{/* hw:x,39 */
+		.name = "SDM660 HFP TX",
+		.stream_name = "MultiMedia6",
+		.cpu_dai_name = "MultiMedia6",
+		.platform_name  = "msm-pcm-loopback",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA6,
+	},
 };
 
 
 static struct snd_soc_dai_link msm_int_wsa_dai[] = {
-	{/* hw:x,39 */
+	{/* hw:x,40 */
 		.name = LPASS_BE_INT5_MI2S_TX,
 		.stream_name = "INT5_mi2s Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.12",

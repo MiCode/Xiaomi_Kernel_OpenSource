@@ -917,7 +917,7 @@ returns prev_runnable_sum, scaled to the efficiency and fmax of given
 CPU. The same applies to nt_curr_runnable_sum and  nt_prev_runnable_sum.
 
 A 'new' task is defined as a task whose number of active windows since fork is
-less than sysctl_sched_new_task_windows. An active window is defined as a window
+less than SCHED_NEW_TASK_WINDOWS. An active window is defined as a window
 where a task was observed to be runnable.
 
 Moving on the second type of statistics; top-tasks, the scheduler tracks a list

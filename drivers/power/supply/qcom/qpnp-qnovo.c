@@ -110,8 +110,7 @@ struct qnovo_dt_props {
 };
 
 enum {
-	QNOVO_ERASE_OFFSET_WA_BIT	= BIT(0),
-	QNOVO_NO_ERR_STS_BIT		= BIT(1),
+	QNOVO_NO_ERR_STS_BIT		= BIT(0),
 };
 
 struct chg_props {
@@ -149,8 +148,6 @@ struct qnovo {
 	struct work_struct	status_change_work;
 	int			fv_uV_request;
 	int			fcc_uA_request;
-	struct votable		*fcc_max_votable;
-	struct votable		*fv_votable;
 };
 
 static int debug_mask;
@@ -227,6 +224,50 @@ unlock:
 	return rc;
 }
 
+static bool is_batt_available(struct qnovo *chip)
+{
+	if (!chip->batt_psy)
+		chip->batt_psy = power_supply_get_by_name("battery");
+
+	if (!chip->batt_psy)
+		return false;
+
+	return true;
+}
+
+static int qnovo_batt_psy_update(struct qnovo *chip, bool disable)
+{
+	union power_supply_propval pval = {0};
+	int rc = 0;
+
+	if (!is_batt_available(chip))
+		return -EINVAL;
+
+	if (chip->fv_uV_request != -EINVAL) {
+		pval.intval = disable ? -EINVAL : chip->fv_uV_request;
+		rc = power_supply_set_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_QNOVO,
+			&pval);
+		if (rc < 0) {
+			pr_err("Couldn't set prop qnovo_fv rc = %d\n", rc);
+			return -EINVAL;
+		}
+	}
+
+	if (chip->fcc_uA_request != -EINVAL) {
+		pval.intval = disable ? -EINVAL : chip->fcc_uA_request;
+		rc = power_supply_set_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CURRENT_QNOVO,
+			&pval);
+		if (rc < 0) {
+			pr_err("Couldn't set prop qnovo_fcc rc = %d\n", rc);
+			return -EINVAL;
+		}
+	}
+
+	return rc;
+}
+
 static int qnovo_disable_cb(struct votable *votable, void *data, int disable,
 					const char *client)
 {
@@ -234,15 +275,9 @@ static int qnovo_disable_cb(struct votable *votable, void *data, int disable,
 	int rc = 0;
 
 	if (disable) {
-		if (chip->fv_uV_request != -EINVAL) {
-			if (chip->fv_votable)
-				vote(chip->fv_votable, QNOVO_VOTER, false, 0);
-		}
-		if (chip->fcc_uA_request != -EINVAL) {
-			if (chip->fcc_max_votable)
-				vote(chip->fcc_max_votable, QNOVO_VOTER,
-						false, 0);
-		}
+		rc = qnovo_batt_psy_update(chip, true);
+		if (rc < 0)
+			return rc;
 	}
 
 	rc = qnovo_masked_write(chip, QNOVO_PTRAIN_EN, QNOVO_PTRAIN_EN_BIT,
@@ -254,20 +289,9 @@ static int qnovo_disable_cb(struct votable *votable, void *data, int disable,
 	}
 
 	if (!disable) {
-		if (chip->fv_uV_request != -EINVAL) {
-			if (!chip->fv_votable)
-				chip->fv_votable = find_votable("FV");
-			if (chip->fv_votable)
-				vote(chip->fv_votable, QNOVO_VOTER,
-						true, chip->fv_uV_request);
-		}
-		if (chip->fcc_uA_request != -EINVAL) {
-			if (!chip->fcc_max_votable)
-				chip->fcc_max_votable = find_votable("FCC_MAX");
-			if (chip->fcc_max_votable)
-				vote(chip->fcc_max_votable, QNOVO_VOTER,
-						true, chip->fcc_uA_request);
-		}
+		rc = qnovo_batt_psy_update(chip, false);
+		if (rc < 0)
+			return rc;
 	}
 
 	return rc;
@@ -315,7 +339,6 @@ static int qnovo_check_chg_version(struct qnovo *chip)
 
 	if ((chip->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE)
 		   && (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4)) {
-		chip->wa_flags |= QNOVO_ERASE_OFFSET_WA_BIT;
 		chip->wa_flags |= QNOVO_NO_ERR_STS_BIT;
 	}
 
@@ -447,6 +470,8 @@ static struct param_info params[] = {
 		.num_regs		= 1,
 		.reg_to_unit_multiplier	= 1,
 		.reg_to_unit_divider	= 1,
+		.min_val		= 0,
+		.max_val		= 255,
 		.units_str		= "pulses",
 	},
 	[VLIM1] = {
@@ -817,7 +842,7 @@ static ssize_t current_show(struct class *c, struct class_attribute *attr,
 	}
 
 	comp_val_nA = div_s64(regval_nA * gain, 1000000) + offset_nA;
-	comp_val_uA = comp_val_nA / 1000;
+	comp_val_uA = div_s64(comp_val_nA, 1000);
 
 	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
 			comp_val_uA, params[i].units_str);
@@ -848,7 +873,7 @@ static ssize_t voltage_show(struct class *c, struct class_attribute *attr,
 	gain = chip->v_gain_mega;
 
 	comp_val_nV = div_s64(regval_nV * gain, 1000000) + offset_nV;
-	comp_val_uV = comp_val_nV / 1000;
+	comp_val_uV = div_s64(comp_val_nV, 1000);
 
 	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
 				comp_val_uV, params[i].units_str);
@@ -979,10 +1004,7 @@ static ssize_t batt_prop_show(struct class *c, struct class_attribute *attr,
 	int prop = params[i].start_addr;
 	union power_supply_propval pval = {0};
 
-	if (!chip->batt_psy)
-		chip->batt_psy = power_supply_get_by_name("battery");
-
-	if (!chip->batt_psy)
+	if (!is_batt_available(chip))
 		return -EINVAL;
 
 	rc = power_supply_get_property(chip->batt_psy, prop, &pval);
@@ -1187,7 +1209,7 @@ static int qnovo_hw_init(struct qnovo *chip)
 	u8 iadc_offset_external, iadc_offset_internal;
 	u8 iadc_gain_external, iadc_gain_internal;
 	u8 vadc_offset, vadc_gain;
-	u8 buf[2] = {0, 0};
+	u8 val;
 
 	vote(chip->disable_votable, USER_VOTER, 1, 0);
 
@@ -1241,13 +1263,39 @@ static int qnovo_hw_init(struct qnovo *chip)
 	chip->v_gain_mega = 1000000000 + (s64)vadc_gain * GAIN_LSB_FACTOR;
 	chip->v_gain_mega = div_s64(chip->v_gain_mega, 1000);
 
-	if (chip->wa_flags & QNOVO_ERASE_OFFSET_WA_BIT) {
-		rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_0, buf, 2);
-		if (rc < 0) {
-			pr_err("Couldn't erase offset rc = %d\n", rc);
-			return rc;
-		}
+	val = 0;
+	rc = qnovo_write(chip, QNOVO_STRM_CTRL, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write iadc bitsteam control rc = %d\n", rc);
+		return rc;
 	}
+
+	rc = qnovo_read(chip, QNOVO_TR_IADC_OFFSET_0, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't read iadc offset rc = %d\n", rc);
+		return rc;
+	}
+
+	val *= -1;
+	rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_0, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write iadc offset rc = %d\n", rc);
+		return rc;
+	}
+
+	rc = qnovo_read(chip, QNOVO_TR_IADC_OFFSET_1, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't read iadc offset rc = %d\n", rc);
+		return rc;
+	}
+
+	val *= -1;
+	rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_1, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write iadc offset rc = %d\n", rc);
+		return rc;
+	}
+
 	return 0;
 }
 

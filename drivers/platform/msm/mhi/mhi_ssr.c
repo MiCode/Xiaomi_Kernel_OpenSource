@@ -179,7 +179,7 @@ static int set_mhi_base_state(struct mhi_pcie_dev_info *mhi_pcie_dev)
 void mhi_link_state_cb(struct msm_pcie_notify *notify)
 {
 	int ret_val = 0;
-	struct mhi_pcie_dev_info *mhi_pcie_dev = notify->data;
+	struct mhi_pcie_dev_info *mhi_pcie_dev;
 	struct mhi_device_ctxt *mhi_dev_ctxt = NULL;
 	int r = 0;
 
@@ -188,6 +188,8 @@ void mhi_link_state_cb(struct msm_pcie_notify *notify)
 		"Incomplete handle received\n");
 		return;
 	}
+
+	mhi_pcie_dev = notify->data;
 	mhi_dev_ctxt = &mhi_pcie_dev->mhi_ctxt;
 	switch (notify->event) {
 	case MSM_PCIE_EVENT_LINKDOWN:

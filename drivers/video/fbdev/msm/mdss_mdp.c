@@ -98,6 +98,7 @@ static DEFINE_SPINLOCK(mdss_mdp_intr_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
 static DEFINE_MUTEX(mdp_iommu_ref_cnt_lock);
 static DEFINE_MUTEX(mdp_fs_idle_pc_lock);
+static DEFINE_MUTEX(mdp_sec_ref_cnt_lock);
 
 static struct mdss_panel_intf pan_types[] = {
 	{"dsi", MDSS_PANEL_INTF_DSI},
@@ -2106,6 +2107,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_AVR_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map);
+		mdss_set_quirk(mdata, MDSS_QUIRK_HDR_SUPPORT_ENABLED);
 		break;
 	case MDSS_MDP_HW_REV_320:
 		mdata->max_target_zorder = 7; /* excluding base layer */
@@ -2146,10 +2148,10 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
 		mdss_set_quirk(mdata, MDSS_QUIRK_MMSS_GDSC_COLLAPSE);
 		mdss_set_quirk(mdata, MDSS_QUIRK_MDP_CLK_SET_RATE);
+		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
 		mdata->has_wb_ubwc = true;
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map);
-		mdss_set_quirk(mdata, MDSS_QUIRK_HDR_SUPPORT_ENABLED);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
@@ -2852,6 +2854,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mdata->reg_bus_clist);
 	atomic_set(&mdata->sd_client_count, 0);
 	atomic_set(&mdata->active_intf_cnt, 0);
+	init_waitqueue_head(&mdata->secure_waitq);
 
 	mdss_res->mdss_util = mdss_get_util_intf();
 	if (mdss_res->mdss_util == NULL) {
@@ -4159,6 +4162,7 @@ static int mdss_mdp_parse_dt_prefill(struct platform_device *pdev)
 static void mdss_mdp_parse_vbif_qos(struct platform_device *pdev)
 {
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	u32 npriority_lvl_nrt;
 	int rc;
 
 	mdata->npriority_lvl = mdss_mdp_parse_dt_prop_len(pdev,
@@ -4184,8 +4188,20 @@ static void mdss_mdp_parse_vbif_qos(struct platform_device *pdev)
 		return;
 	}
 
-	mdata->npriority_lvl = mdss_mdp_parse_dt_prop_len(pdev,
+	npriority_lvl_nrt = mdss_mdp_parse_dt_prop_len(pdev,
 			"qcom,mdss-vbif-qos-nrt-setting");
+
+	if (!npriority_lvl_nrt) {
+		pr_debug("no vbif nrt priorities found rt:%d\n",
+			mdata->npriority_lvl);
+		return;
+	} else if (npriority_lvl_nrt != mdata->npriority_lvl) {
+		/* driver expects same number for both nrt and rt */
+		pr_err("invalid nrt settings nrt(%d) != rt(%d)\n",
+			npriority_lvl_nrt, mdata->npriority_lvl);
+		return;
+	}
+
 	if (mdata->npriority_lvl == MDSS_VBIF_QOS_REMAP_ENTRIES) {
 		mdata->vbif_nrt_qos = kzalloc(sizeof(u32) *
 				mdata->npriority_lvl, GFP_KERNEL);
@@ -4203,7 +4219,7 @@ static void mdss_mdp_parse_vbif_qos(struct platform_device *pdev)
 		}
 	} else {
 		mdata->npriority_lvl = 0;
-		pr_debug("Invalid or no vbif qos nrt seting\n");
+		pr_debug("Invalid or no vbif qos nrt setting\n");
 	}
 }
 
@@ -5157,6 +5173,27 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 	int ret = 0;
 	uint32_t sid_info;
 	struct scm_desc desc;
+	bool changed = false;
+
+	mutex_lock(&mdp_sec_ref_cnt_lock);
+
+	if (enable) {
+		if (mdata->sec_session_cnt == 0)
+			changed = true;
+		mdata->sec_session_cnt++;
+	} else {
+		if (mdata->sec_session_cnt != 0) {
+			mdata->sec_session_cnt--;
+			if (mdata->sec_session_cnt == 0)
+				changed = true;
+		} else {
+			pr_warn("%s: ref_count is not balanced\n",
+				__func__);
+		}
+	}
+
+	if (!changed)
+		goto end;
 
 	if (test_bit(MDSS_CAPS_SEC_DETACH_SMMU, mdata->mdss_caps_map)) {
 		/*
@@ -5180,7 +5217,8 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 				desc.args[3] = VMID_CP_CAMERA_PREVIEW;
 				mdata->sec_cam_en = 1;
 			} else {
-				return 0;
+				ret = 0;
+				goto end;
 			}
 
 			/* detach smmu contexts */
@@ -5188,7 +5226,8 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 			if (ret) {
 				pr_err("Error while detaching smmu contexts ret = %d\n",
 					ret);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 
 			/* let the driver think smmu is still attached */
@@ -5200,7 +5239,8 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 			if (ret) {
 				pr_err("Error scm_call MEM_PROTECT_SD_CTRL(%u) ret=%dm resp=%x\n",
 						enable, ret, resp);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 			resp = desc.ret[0];
 
@@ -5233,7 +5273,8 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 			if (ret) {
 				pr_err("Error while attaching smmu contexts ret = %d\n",
 					ret);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 		}
 		MDSS_XLOG(enable);
@@ -5256,10 +5297,11 @@ int mdss_mdp_secure_session_ctrl(unsigned int enable, u64 flags)
 		pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x\n",
 				enable, ret, resp);
 	}
-	if (ret)
-		return ret;
 
-	return resp;
+end:
+	mutex_unlock(&mdp_sec_ref_cnt_lock);
+	return ret;
+
 }
 
 static inline int mdss_mdp_suspend_sub(struct mdss_data_type *mdata)

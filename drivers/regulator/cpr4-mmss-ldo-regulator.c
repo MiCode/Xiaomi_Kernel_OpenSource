@@ -737,6 +737,11 @@ static const struct of_device_id cpr4_mmss_regulator_match_table[] = {
 		.compatible = "qcom,cpr4-sdm660-mmss-ldo-regulator",
 		.data = (void *)NULL,
 	},
+	{
+		.compatible = "qcom,cpr4-sdm630-mmss-ldo-regulator",
+		.data = (void *)NULL,
+	},
+	{ },
 };
 
 static struct platform_driver cpr4_mmss_regulator_driver = {

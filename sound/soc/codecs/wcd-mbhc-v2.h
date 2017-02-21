@@ -456,6 +456,7 @@ struct wcd_mbhc {
 	unsigned long intr_status;
 	bool is_hph_ocp_pending;
 
+	bool usbc_force_pr_mode;
 	int usbc_mode;
 	struct notifier_block psy_nb;
 	struct power_supply *usb_psy;

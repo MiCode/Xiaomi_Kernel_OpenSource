@@ -4844,6 +4844,39 @@ static int ath10k_wmi_op_pull_echo_ev(struct ath10k *ar,
 	return 0;
 }
 
+void
+ath10k_generate_mac_addr_auto(struct ath10k *ar, struct wmi_rdy_ev_arg *arg)
+{
+	unsigned int soc_serial_num;
+	u8 bdata_mac_addr[ETH_ALEN];
+	u8 udef_mac_addr[] = {0x00, 0x0A, 0xF5, 0x00, 0x00, 0x00};
+
+	soc_serial_num = socinfo_get_serial_number();
+	if (!soc_serial_num)
+		return;
+
+	if (arg->mac_addr) {
+		ether_addr_copy(ar->base_mac_addr, arg->mac_addr);
+		ether_addr_copy(bdata_mac_addr, arg->mac_addr);
+		soc_serial_num &= 0x00ffffff;
+		bdata_mac_addr[3] = (soc_serial_num >> 16) & 0xff;
+		bdata_mac_addr[4] = (soc_serial_num >> 8) & 0xff;
+		bdata_mac_addr[5] = soc_serial_num & 0xff;
+		ether_addr_copy(ar->mac_addr, bdata_mac_addr);
+	} else {
+		/* If mac address not encoded in wlan board data,
+		 * Auto-generate mac address using device serial
+		 * number and user defined mac address 'udef_mac_addr'.
+		 */
+		udef_mac_addr[3] = (soc_serial_num >> 16) & 0xff;
+		udef_mac_addr[4] = (soc_serial_num >> 8) & 0xff;
+		udef_mac_addr[5] = soc_serial_num & 0xff;
+		ether_addr_copy(ar->base_mac_addr, udef_mac_addr);
+		udef_mac_addr[2] = (soc_serial_num >> 24) & 0xff;
+		ether_addr_copy(ar->mac_addr, udef_mac_addr);
+	}
+}
+
 int ath10k_wmi_event_ready(struct ath10k *ar, struct sk_buff *skb)
 {
 	struct wmi_rdy_ev_arg arg = {};
@@ -4862,7 +4895,11 @@ int ath10k_wmi_event_ready(struct ath10k *ar, struct sk_buff *skb)
 		   arg.mac_addr,
 		   __le32_to_cpu(arg.status));
 
-	ether_addr_copy(ar->mac_addr, arg.mac_addr);
+	if (QCA_REV_WCN3990(ar))
+		ath10k_generate_mac_addr_auto(ar, &arg);
+	else
+		ether_addr_copy(ar->mac_addr, arg.mac_addr);
+
 	complete(&ar->wmi.unified_ready);
 	return 0;
 }
@@ -8195,9 +8232,6 @@ int ath10k_wmi_attach(struct ath10k *ar)
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_TLV:
 		ath10k_wmi_tlv_attach(ar);
-		break;
-	case ATH10K_FW_WMI_OP_VERSION_HL_1_0:
-		ath10k_wmi_hl_1_0_attach(ar);
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_UNSET:
 	case ATH10K_FW_WMI_OP_VERSION_MAX:
