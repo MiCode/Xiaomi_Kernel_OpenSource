@@ -15,9 +15,6 @@
 #include "msm_iommu.h"
 #include "a5xx_gpu.h"
 
-extern bool hang_debug;
-static void a5xx_dump(struct msm_gpu *gpu);
-
 static void a5xx_flush(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
@@ -800,8 +797,7 @@ static void a5xx_recover(struct msm_gpu *gpu)
 {
 	adreno_dump_info(gpu);
 
-	if (hang_debug)
-		a5xx_dump(gpu);
+	msm_gpu_snapshot(gpu, gpu->snapshot);
 
 	/* Reset the GPU so it can work again */
 	gpu_write(gpu, REG_A5XX_RBBM_SW_RESET_CMD, 1);
@@ -1112,13 +1108,6 @@ static const u32 a5xx_registers[] = {
 	~0
 };
 
-static void a5xx_dump(struct msm_gpu *gpu)
-{
-	dev_info(gpu->dev->dev, "status:   %08x\n",
-		gpu_read(gpu, REG_A5XX_RBBM_STATUS));
-	adreno_dump(gpu);
-}
-
 static int a5xx_pm_resume(struct msm_gpu *gpu)
 {
 	int ret;
@@ -1225,6 +1214,7 @@ static const struct adreno_gpu_funcs funcs = {
 #ifdef CONFIG_DEBUG_FS
 		.show = a5xx_show,
 #endif
+		.snapshot = a5xx_snapshot,
 	},
 	.get_timestamp = a5xx_get_timestamp,
 };

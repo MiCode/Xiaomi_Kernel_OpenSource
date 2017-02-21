@@ -233,6 +233,7 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		int nr_rings);
 void adreno_gpu_cleanup(struct adreno_gpu *gpu);
 
+void adreno_snapshot(struct msm_gpu *gpu, struct msm_snapshot *snapshot);
 
 /* ringbuffer helpers (the parts that are adreno specific) */
 

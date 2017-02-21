@@ -764,6 +764,10 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 
 	bs_init(gpu);
 
+	gpu->snapshot = msm_snapshot_new(gpu);
+	if (IS_ERR(gpu->snapshot))
+		gpu->snapshot = NULL;
+
 	return 0;
 
 fail:
@@ -794,4 +798,6 @@ void msm_gpu_cleanup(struct msm_gpu *gpu)
 
 		msm_ringbuffer_destroy(gpu->rb[i]);
 	}
+
+	msm_snapshot_destroy(gpu, gpu->snapshot);
 }

@@ -24,6 +24,7 @@
 
 #include "msm_drv.h"
 #include "msm_ringbuffer.h"
+#include "msm_snapshot.h"
 
 struct msm_gem_submit;
 struct msm_gpu_perfcntr;
@@ -69,6 +70,7 @@ struct msm_gpu_funcs {
 	/* show GPU status in debugfs: */
 	void (*show)(struct msm_gpu *gpu, struct seq_file *m);
 #endif
+	int (*snapshot)(struct msm_gpu *gpu, struct msm_snapshot *snapshot);
 };
 
 struct msm_gpu {
@@ -137,6 +139,8 @@ struct msm_gpu {
 	struct work_struct recover_work;
 
 	struct list_head submit_list;
+
+	struct msm_snapshot *snapshot;
 };
 
 /* It turns out that all targets use the same ringbuffer size. */

@@ -176,6 +176,8 @@ void a5xx_preempt_trigger(struct msm_gpu *gpu);
 void a5xx_preempt_irq(struct msm_gpu *gpu);
 void a5xx_preempt_fini(struct msm_gpu *gpu);
 
+int a5xx_snapshot(struct msm_gpu *gpu, struct msm_snapshot *snapshot);
+
 /* Return true if we are in a preempt state */
 static inline bool a5xx_in_preempt(struct a5xx_gpu *a5xx_gpu)
 {
