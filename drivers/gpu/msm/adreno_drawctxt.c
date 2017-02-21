@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -213,10 +213,12 @@ static int adreno_drawctxt_wait_rb(struct adreno_device *adreno_dev,
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
 	/*
-	 * If the context is invalid then return immediately - we may end up
-	 * waiting for a timestamp that will never come
+	 * If the context is invalid (OR) not submitted commands to GPU
+	 * then return immediately - we may end up waiting for a timestamp
+	 * that will never come
 	 */
-	if (kgsl_context_invalid(context))
+	if (kgsl_context_invalid(context) ||
+			!test_bit(KGSL_CONTEXT_PRIV_SUBMITTED, &context->priv))
 		goto done;
 
 	trace_adreno_drawctxt_wait_start(drawctxt->rb->id, context->id,
