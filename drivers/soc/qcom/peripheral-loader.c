@@ -595,6 +595,22 @@ static void pil_release_mmap(struct pil_desc *desc)
 	struct pil_priv *priv = desc->priv;
 	struct pil_seg *p, *tmp;
 	u64 zero = 0ULL;
+
+	if (priv->info) {
+		__iowrite32_copy(&priv->info->start, &zero,
+					sizeof(zero) / 4);
+		writel_relaxed(0, &priv->info->size);
+	}
+
+	list_for_each_entry_safe(p, tmp, &priv->segs, list) {
+		list_del(&p->list);
+		kfree(p);
+	}
+}
+
+static void pil_clear_segment(struct pil_desc *desc)
+{
+	struct pil_priv *priv = desc->priv;
 	u8 __iomem *buf;
 
 	struct pil_map_fw_info map_fw_info = {
@@ -613,16 +629,6 @@ static void pil_release_mmap(struct pil_desc *desc)
 	desc->unmap_fw_mem(buf, (priv->region_end - priv->region_start),
 								map_data);
 
-	if (priv->info) {
-		__iowrite32_copy(&priv->info->start, &zero,
-					sizeof(zero) / 4);
-		writel_relaxed(0, &priv->info->size);
-	}
-
-	list_for_each_entry_safe(p, tmp, &priv->segs, list) {
-		list_del(&p->list);
-		kfree(p);
-	}
 }
 
 #define IOMAP_SIZE SZ_1M
@@ -914,6 +920,7 @@ out:
 					&desc->attrs);
 			priv->region = NULL;
 		}
+		pil_clear_segment(desc);
 		pil_release_mmap(desc);
 	}
 	return ret;
