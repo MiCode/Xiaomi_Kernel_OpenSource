@@ -792,6 +792,7 @@ struct vfe_device {
 	struct msm_vfe_error_info error_info;
 	struct msm_vfe_fetch_engine_info fetch_engine_info;
 	enum msm_vfe_hvx_streaming_cmd hvx_cmd;
+	uint8_t cur_hvx_state;
 
 	/* State variables */
 	uint32_t vfe_hw_version;
