@@ -267,6 +267,14 @@ static int __ufs_qcom_phy_init_vreg(struct phy *phy,
 
 	char prop_name[MAX_PROP_NAME];
 
+	if (dev->of_node) {
+		snprintf(prop_name, MAX_PROP_NAME, "%s-supply", name);
+		if (!of_parse_phandle(dev->of_node, prop_name, 0)) {
+			dev_dbg(dev, "No vreg data found for %s\n", prop_name);
+			return optional ? err : -ENODATA;
+		}
+	}
+
 	vreg->name = kstrdup(name, GFP_KERNEL);
 	if (!vreg->name) {
 		err = -ENOMEM;
