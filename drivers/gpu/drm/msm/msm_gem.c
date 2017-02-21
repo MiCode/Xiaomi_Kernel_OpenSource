@@ -24,6 +24,11 @@
 #include "msm_gpu.h"
 #include "msm_mmu.h"
 
+static void *get_dmabuf_ptr(struct drm_gem_object *obj)
+{
+	return (obj && obj->import_attach) ? obj->import_attach->dmabuf : NULL;
+}
+
 static dma_addr_t physaddr(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
@@ -279,21 +284,8 @@ put_iova(struct drm_gem_object *obj)
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
 	for (id = 0; id < ARRAY_SIZE(msm_obj->domain); id++) {
-		struct msm_mmu *mmu = priv->mmus[id];
-
-		if (!mmu || !msm_obj->domain[id].iova)
-			continue;
-
-		if (obj->import_attach) {
-			if (mmu->funcs->unmap_dma_buf)
-				mmu->funcs->unmap_dma_buf(mmu, msm_obj->sgt,
-					obj->import_attach->dmabuf,
-					DMA_BIDIRECTIONAL);
-		} else
-			mmu->funcs->unmap_sg(mmu, msm_obj->sgt,
-				DMA_BIDIRECTIONAL);
-
-		msm_obj->domain[id].iova = 0;
+		msm_gem_unmap_vma(priv->aspace[id], &msm_obj->domain[id],
+			msm_obj->sgt, get_dmabuf_ptr(obj));
 	}
 }
 
@@ -318,31 +310,11 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 			return PTR_ERR(pages);
 
 		if (iommu_present(&platform_bus_type)) {
-			struct msm_mmu *mmu = priv->mmus[id];
-
-			if (WARN_ON(!mmu))
-				return -EINVAL;
-
-			if (obj->import_attach && mmu->funcs->map_dma_buf) {
-				ret = mmu->funcs->map_dma_buf(mmu, msm_obj->sgt,
-						obj->import_attach->dmabuf,
-						DMA_BIDIRECTIONAL);
-				if (ret) {
-					DRM_ERROR("Unable to map dma buf\n");
-					return ret;
-				}
-			} else {
-				ret = mmu->funcs->map_sg(mmu, msm_obj->sgt,
-					DMA_BIDIRECTIONAL);
-			}
-
-			if (!ret)
-				msm_obj->domain[id].iova =
-					sg_dma_address(msm_obj->sgt->sgl);
-		} else {
-			WARN_ONCE(1, "physical address being used\n");
+			ret = msm_gem_map_vma(priv->aspace[id],
+				&msm_obj->domain[id], msm_obj->sgt,
+				get_dmabuf_ptr(obj));
+		} else
 			msm_obj->domain[id].iova = physaddr(obj);
-		}
 	}
 
 	if (!ret)
@@ -515,14 +487,21 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 {
 	struct drm_device *dev = obj->dev;
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct msm_drm_private *priv = obj->dev->dev_private;
 	uint64_t off = drm_vma_node_start(&obj->vma_node);
+	int id;
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
-	seq_printf(m, "%08x: %c(r=%u,w=%u) %2d (%2d) %08llx %p %zu\n",
+	seq_printf(m, "%08x: %c(r=%u,w=%u) %2d (%2d) %08llx %p\t",
 			msm_obj->flags, is_active(msm_obj) ? 'A' : 'I',
 			msm_obj->read_fence, msm_obj->write_fence,
 			obj->name, obj->refcount.refcount.counter,
-			off, msm_obj->vaddr, obj->size);
+			off, msm_obj->vaddr);
+
+	for (id = 0; id < priv->num_aspaces; id++)
+		seq_printf(m, " %08llx", msm_obj->domain[id].iova);
+
+	seq_puts(m, "\n");
 }
 
 void msm_gem_describe_objects(struct list_head *list, struct seq_file *m)
@@ -559,7 +538,8 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 
 	if (obj->import_attach) {
 		if (msm_obj->vaddr)
-			dma_buf_vunmap(obj->import_attach->dmabuf, msm_obj->vaddr);
+			dma_buf_vunmap(obj->import_attach->dmabuf,
+				msm_obj->vaddr);
 
 		/* Don't drop the pages for imported dmabuf, as they are not
 		 * ours, just free the array we allocated:
@@ -613,7 +593,6 @@ static int msm_gem_new_impl(struct drm_device *dev,
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_gem_object *msm_obj;
-	unsigned sz;
 	bool use_vram = false;
 
 	switch (flags & MSM_BO_CACHE_MASK) {
@@ -635,16 +614,12 @@ static int msm_gem_new_impl(struct drm_device *dev,
 	if (WARN_ON(use_vram && !priv->vram.size))
 		return -EINVAL;
 
-	sz = sizeof(*msm_obj);
-	if (use_vram)
-		sz += sizeof(struct drm_mm_node);
-
-	msm_obj = kzalloc(sz, GFP_KERNEL);
+	msm_obj = kzalloc(sizeof(*msm_obj), GFP_KERNEL);
 	if (!msm_obj)
 		return -ENOMEM;
 
 	if (use_vram)
-		msm_obj->vram_node = (void *)&msm_obj[1];
+		msm_obj->vram_node = &msm_obj->domain[0].node;
 
 	msm_obj->flags = flags;
 

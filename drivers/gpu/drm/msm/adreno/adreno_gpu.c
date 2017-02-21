@@ -390,7 +390,7 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		return ret;
 	}
 
-	mmu = gpu->mmu;
+	mmu = gpu->aspace->mmu;
 	if (mmu) {
 		ret = mmu->funcs->attach(mmu, iommu_ports,
 				ARRAY_SIZE(iommu_ports));
@@ -427,6 +427,8 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 
 void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 {
+	struct msm_gem_address_space *aspace = gpu->base.aspace;
+
 	if (gpu->memptrs_bo) {
 		if (gpu->memptrs_iova)
 			msm_gem_put_iova(gpu->memptrs_bo, gpu->base.id);
@@ -434,5 +436,12 @@ void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 	}
 	release_firmware(gpu->pm4);
 	release_firmware(gpu->pfp);
+
 	msm_gpu_cleanup(&gpu->base);
+
+	if (aspace) {
+		aspace->mmu->funcs->detach(aspace->mmu,
+			iommu_ports, ARRAY_SIZE(iommu_ports));
+		msm_gem_address_space_destroy(aspace);
+	}
 }
