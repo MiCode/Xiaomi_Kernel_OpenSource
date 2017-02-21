@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -959,6 +959,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 					drawobj->timestamp, time);
 
 	if (!ret) {
+		set_bit(KGSL_CONTEXT_PRIV_SUBMITTED, &context->priv);
 		cmdobj->global_ts = drawctxt->internal_timestamp;
 
 		/* Put the timevalues in the profiling buffer */
