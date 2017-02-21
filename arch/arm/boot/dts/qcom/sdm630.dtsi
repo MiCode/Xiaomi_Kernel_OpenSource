@@ -2149,6 +2149,18 @@
 	status = "ok";
 };
 
+&pm660l_gpios {
+	/* GPIO 7 for VOL_UP */
+	gpio@c600 {
+		status = "okay";
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,out-strength = <1>;
+	};
+};
+
 &soc {
 	gpio_keys {
 		status = "okay";
@@ -2171,6 +2183,15 @@
 			gpios = <&tlmm 113 0x1>;
 			linux,input-type = <1>;
 			linux,code = <0x2fe>;
+			debounce-interval = <15>;
+		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm660l_gpios 7 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 	};
