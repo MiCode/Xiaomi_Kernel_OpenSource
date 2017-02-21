@@ -1494,6 +1494,10 @@ void msm_vfe47_configure_hvx(struct vfe_device *vfe_dev,
 	uint32_t val;
 	int rc = 0;
 
+	if (is_stream_on == vfe_dev->cur_hvx_state) {
+		ISP_DBG("already in same hvx state\n");
+		return;
+	}
 	if (vfe_dev->buf_mgr->secure_enable == SECURE_MODE) {
 		pr_err("%s: Cannot configure hvx, secure_mode: %d\n",
 			__func__,
@@ -1527,6 +1531,7 @@ void msm_vfe47_configure_hvx(struct vfe_device *vfe_dev,
 		val &= 0xFFFFFFF7;
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x50);
 	}
+	vfe_dev->cur_hvx_state = is_stream_on;
 }
 
 void msm_vfe47_update_camif_state(struct vfe_device *vfe_dev,
