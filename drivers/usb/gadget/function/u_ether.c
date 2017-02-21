@@ -889,7 +889,7 @@ static int get_ether_addr_str(u8 dev_addr[ETH_ALEN], char *str, int len)
 	if (len < 18)
 		return -EINVAL;
 
-	snprintf(str, len, "%pKM", dev_addr);
+	snprintf(str, len, "%pM", dev_addr);
 	return 18;
 }
 
