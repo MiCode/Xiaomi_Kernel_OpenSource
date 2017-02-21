@@ -180,10 +180,16 @@ static int sde_hw_rot_to_v4l2_pixfmt(u32 drm_pixfmt, u64 drm_modifier,
 		break;
 	case DRM_FORMAT_NV12:
 		if (SDE_MODIFIER_IS_UBWC(drm_modifier)) {
-			if (SDE_MODIFIER_IS_10B(drm_modifier))
-				*pixfmt = SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC;
-			else
+			if (SDE_MODIFIER_IS_10B(drm_modifier)) {
+				if (SDE_MODIFIER_IS_TIGHT(drm_modifier))
+					*pixfmt =
+					SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC;
+				else
+					*pixfmt =
+					SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC;
+			} else {
 				*pixfmt = SDE_PIX_FMT_Y_CBCR_H2V2_UBWC;
+			}
 		} else if (SDE_MODIFIER_IS_TILE(drm_modifier)) {
 			if (SDE_MODIFIER_IS_10B(drm_modifier)) {
 				if (SDE_MODIFIER_IS_TIGHT(drm_modifier))
@@ -450,6 +456,12 @@ static int sde_hw_rot_to_drm_pixfmt(u32 pixfmt, u32 *drm_pixfmt,
 	case SDE_PIX_FMT_Y_CBCR_H2V2_P010_TILE:
 		*drm_pixfmt = DRM_FORMAT_NV12;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE |
+				DRM_FORMAT_MOD_QCOM_DX;
+		break;
+	case SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC:
+		*drm_pixfmt = DRM_FORMAT_NV12;
+		*drm_modifier = DRM_FORMAT_MOD_QCOM_COMPRESSED |
+				DRM_FORMAT_MOD_QCOM_TILE |
 				DRM_FORMAT_MOD_QCOM_DX;
 		break;
 	case SDE_PIX_FMT_Y_CBCR_H2V2_TP10:
