@@ -118,6 +118,10 @@
 		vddcx-supply = <&gdsc_gpu_cx>;
 		vdd-supply = <&gdsc_gpu_gx>;
 
+		/* Cx ipeak limit supprt */
+		qcom,gpu-cx-ipeak = <&cx_ipeak_lm 1>;
+		qcom,gpu-cx-ipeak-clk = <700000000>;
+
 		/* CPU latency parameter */
 		qcom,pm-qos-active-latency = <518>;
 		qcom,pm-qos-wakeup-latency = <518>;

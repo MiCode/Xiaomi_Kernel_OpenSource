@@ -818,6 +818,11 @@
 		};
 	};
 
+	cx_ipeak_lm: cx_ipeak@1fe5040 {
+		compatible = "qcom,cx-ipeak-sdm660";
+		reg = <0x1fe5040 0x28>;
+	};
+
 	qcom,bcl {
 		compatible = "qcom,bcl";
 		qcom,bcl-enable;
@@ -2513,6 +2518,11 @@
 		qcom,src-sel = <0>;
 		qcom,out-strength = <1>;
 	};
+};
+
+&msm_vidc {
+	qcom,cx-ipeak-data = <&cx_ipeak_lm 4>;
+	qcom,clock-freq-threshold = <518400000>;
 };
 
 &soc {

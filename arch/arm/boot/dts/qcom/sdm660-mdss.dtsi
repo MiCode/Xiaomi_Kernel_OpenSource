@@ -50,6 +50,7 @@
 		qcom,vbif-settings = <0x00ac 0x00008040>,
 				     <0x00d0 0x00002828>;
 
+		qcom,mdss-cx-ipeak = <&cx_ipeak_lm 3>;
 		qcom,mdss-has-panic-ctrl;
 		qcom,mdss-per-pipe-panic-luts = <0x000f>,
 						<0xffff>,
