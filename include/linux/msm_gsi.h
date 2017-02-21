@@ -1053,6 +1053,18 @@ int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size);
 void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
 		unsigned long *size);
 
+/**
+ * gsi_halt_channel_ee - Peripheral should call this function
+ * to stop other EE's channel. This is usually used in SSR clean
+ *
+ * @chan_idx: Virtual channel index
+ * @ee: EE
+ * @code: [out] response code for operation
+
+ * @Return gsi_status
+ */
+int gsi_halt_channel_ee(unsigned int chan_idx, unsigned int ee, int *code);
+
 /*
  * Here is a typical sequence of calls
  *
@@ -1249,6 +1261,12 @@ static inline int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size)
 static inline void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
 		unsigned long *size)
 {
+}
+
+static inline int gsi_halt_channel_ee(unsigned int chan_idx, unsigned int ee,
+	 int *code)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
 }
 #endif
 #endif
