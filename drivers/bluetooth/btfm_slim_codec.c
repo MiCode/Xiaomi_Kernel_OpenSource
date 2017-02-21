@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,8 +54,8 @@ static int btfm_slim_dai_startup(struct snd_pcm_substream *substream,
 	int ret;
 	struct btfmslim *btfmslim = dai->dev->platform_data;
 
-	BTFMSLIM_DBG("substream = %s  stream = %d",
-		 substream->name, substream->stream);
+	BTFMSLIM_DBG("substream = %s  stream = %d dai name = %s",
+		 substream->name, substream->stream, dai->name);
 	ret = btfm_slim_hw_init(btfmslim);
 	return ret;
 }
@@ -65,8 +65,8 @@ static void btfm_slim_dai_shutdown(struct snd_pcm_substream *substream,
 {
 	struct btfmslim *btfmslim = dai->dev->platform_data;
 
-	BTFMSLIM_DBG("substream = %s  stream = %d",
-		 substream->name, substream->stream);
+	BTFMSLIM_DBG("substream = %s  stream = %d dai name = %s",
+		 substream->name, substream->stream, dai->name);
 	btfm_slim_hw_deinit(btfmslim);
 }
 
@@ -74,7 +74,7 @@ static int btfm_slim_dai_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
 			    struct snd_soc_dai *dai)
 {
-	BTFMSLIM_DBG("dai_name = %s DAI-ID %x rate %d num_ch %d",
+	BTFMSLIM_DBG("dai name = %s DAI-ID %x rate %d num_ch %d",
 		dai->name, dai->id, params_rate(params),
 		params_channels(params));
 
@@ -89,7 +89,7 @@ int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 	struct btfmslim_ch *ch;
 	uint8_t rxport, grp = false, nchan = 1;
 
-	BTFMSLIM_DBG("dai->name:%s, dai->id: %d, dai->rate: %d", dai->name,
+	BTFMSLIM_DBG("dai name: %s, dai->id: %d, dai->rate: %d", dai->name,
 		dai->id, dai->rate);
 
 	switch (dai->id) {
@@ -137,7 +137,7 @@ int btfm_slim_dai_hw_free(struct snd_pcm_substream *substream,
 	struct btfmslim_ch *ch;
 	uint8_t rxport, grp = false, nchan = 1;
 
-	BTFMSLIM_DBG("dai->name:%s, dai->id: %d, dai->rate: %d", dai->name,
+	BTFMSLIM_DBG("dai name: %s, dai->id: %d, dai->rate: %d", dai->name,
 		dai->id, dai->rate);
 
 	switch (dai->id) {
@@ -384,7 +384,7 @@ static struct snd_soc_dai_driver btfmslim_dai[] = {
 static struct snd_soc_codec_driver btfmslim_codec = {
 	.probe	= btfm_slim_codec_probe,
 	.remove	= btfm_slim_codec_remove,
-	.read		= btfm_slim_codec_read,
+	.read	= btfm_slim_codec_read,
 	.write	= btfm_slim_codec_write,
 };
 
