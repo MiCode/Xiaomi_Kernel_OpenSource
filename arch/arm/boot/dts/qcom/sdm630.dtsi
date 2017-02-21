@@ -800,7 +800,6 @@
 	};
 
 	wdog: qcom,wdt@17817000 {
-		status = "disabled";
 		compatible = "qcom,msm-watchdog";
 		reg = <0x17817000 0x1000>;
 		reg-names = "wdt-base";
