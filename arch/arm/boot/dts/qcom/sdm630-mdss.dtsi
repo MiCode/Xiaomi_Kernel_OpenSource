@@ -62,7 +62,7 @@
 		qcom,max-bandwidth-per-pipe-kbps = <1 3200000>, /* Default */
 						   <2 2400000>; /* Camera */
 		qcom,max-clk-rate = <412500000>;
-		qcom,mdss-default-ot-rd-limit = <40>;
+		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;
 		qcom,mdss-dram-channels = <2>;
 
@@ -480,7 +480,7 @@
 		qcom,mdss-rot-vbif-qos-setting = <1 1 1 1>;
 		qcom,mdss-rot-xin-id = <14 15>;
 
-		qcom,mdss-default-ot-rd-limit = <40>;
+		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;
 	};
 };
