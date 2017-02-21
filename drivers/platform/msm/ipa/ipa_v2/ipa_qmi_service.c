@@ -39,6 +39,8 @@
 #define QMI_SEND_STATS_REQ_TIMEOUT_MS 5000
 #define QMI_SEND_REQ_TIMEOUT_MS 60000
 
+#define QMI_IPA_FORCE_CLEAR_DATAPATH_TIMEOUT_MS 1000
+
 static struct qmi_handle *ipa_svc_handle;
 static void ipa_a5_svc_recv_msg(struct work_struct *work);
 static DECLARE_DELAYED_WORK(work_recv_msg, ipa_a5_svc_recv_msg);
@@ -583,7 +585,8 @@ int qmi_enable_force_clear_datapath_send(
 			&req_desc,
 			req,
 			sizeof(*req),
-			&resp_desc, &resp, sizeof(resp), 0);
+			&resp_desc, &resp, sizeof(resp),
+			QMI_IPA_FORCE_CLEAR_DATAPATH_TIMEOUT_MS);
 	if (rc < 0) {
 		IPAWANERR("send req failed %d\n", rc);
 		return rc;
@@ -628,7 +631,8 @@ int qmi_disable_force_clear_datapath_send(
 			&req_desc,
 			req,
 			sizeof(*req),
-			&resp_desc, &resp, sizeof(resp), 0);
+			&resp_desc, &resp, sizeof(resp),
+			QMI_IPA_FORCE_CLEAR_DATAPATH_TIMEOUT_MS);
 	if (rc < 0) {
 		IPAWANERR("send req failed %d\n", rc);
 		return rc;
