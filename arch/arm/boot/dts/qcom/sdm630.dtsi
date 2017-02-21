@@ -2068,7 +2068,7 @@
 #include "msm-audio.dtsi"
 #include "sdm660-audio.dtsi"
 #include "sdm630-gpu.dtsi"
-#include "sdm660-camera.dtsi"
+#include "sdm630-camera.dtsi"
 #include "sdm630-pm.dtsi"
 #include "sdm660-vidc.dtsi"
 #include "sdm630-mdss.dtsi"

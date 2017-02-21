@@ -28,6 +28,7 @@
 		qcom,firmware-name = "venus";
 		qcom,never-unload-fw;
 		qcom,sw-power-collapse;
+		qcom,max-secure-instances = <5>;
 		qcom,reg-presets =
 			<0x80010 0x001f001f>,
 			<0x80018 0x00000156>,
