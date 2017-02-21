@@ -938,6 +938,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 					drawobj->timestamp, time);
 
 	if (!ret) {
+		set_bit(KGSL_CONTEXT_PRIV_SUBMITTED, &context->priv);
 		cmdobj->global_ts = drawctxt->internal_timestamp;
 
 		/* Put the timevalues in the profiling buffer */

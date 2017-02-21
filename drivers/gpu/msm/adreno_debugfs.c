@@ -167,6 +167,7 @@ static const struct flag_entry context_flags[] = {KGSL_CONTEXT_FLAGS};
  * KGSL_CONTEXT_PRIV_DEVICE_SPECIFIC so it is ok to cross the streams here.
  */
 static const struct flag_entry context_priv[] = {
+	{ KGSL_CONTEXT_PRIV_SUBMITTED, "submitted"},
 	{ KGSL_CONTEXT_PRIV_DETACHED, "detached"},
 	{ KGSL_CONTEXT_PRIV_INVALID, "invalid"},
 	{ KGSL_CONTEXT_PRIV_PAGEFAULT, "pagefault"},
