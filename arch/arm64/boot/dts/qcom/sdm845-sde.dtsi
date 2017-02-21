@@ -210,7 +210,6 @@
 	};
 
 	mdss_rotator: qcom,mdss_rotator@ae00000 {
-		status = "disabled";
 		compatible = "qcom,sde_rotator";
 		reg = <0x0ae00000 0xac000>,
 		      <0x0aeb8000 0x3000>;
@@ -261,14 +260,11 @@
 		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
 			compatible = "qcom,smmu_sde_rot_unsec";
 			iommus = <&apps_smmu 0x1090 0x0>;
-			gdsc-mdss-supply = <&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc>;
 		};
 
 		smmu_rot_sec: qcom,smmu_rot_sec_cb {
-			status = "disabled";
 			compatible = "qcom,smmu_sde_rot_sec";
 			iommus = <&apps_smmu 0x1091 0x0>;
-			gdsc-mdss-supply = <&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc>;
 		};
 	};
 
