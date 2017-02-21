@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,6 @@
 /* Config registers offsets*/
 #define COMMON_CFG0		0x00030004
 #define DRP_ECC_ERROR_CFG	0x00040000
-#define TRP_MISC_CFG		0x00022300
 
 /* TRP, DRP interrupt register offsets */
 #define CMN_INTERRUPT_0_ENABLE		0x0003001C
@@ -33,8 +32,6 @@
 #define DATA_RAM_ECC_ENABLE	0x1
 #define SB_ERROR_THRESHOLD	0x1
 #define SB_ERROR_THRESHOLD_SHIFT	24
-#define TAG_RAM_ECC_DISABLE	0x1
-#define TAG_RAM_ECC_DISABLE_SHIFT	0x1
 #define SB_DB_TRP_INTERRUPT_ENABLE	0x3
 #define TRP0_INTERRUPT_ENABLE	0x1
 #define DRP0_INTERRUPT_ENABLE	BIT(6)
@@ -43,13 +40,7 @@
 
 static void qcom_llcc_core_setup(struct regmap *llcc_regmap)
 {
-	u32 trp_misc_val;
 	u32 sb_err_threshold;
-
-	/* Enable Tag RAM ECC */
-	trp_misc_val = (TAG_RAM_ECC_DISABLE << TAG_RAM_ECC_DISABLE_SHIFT);
-	regmap_update_bits(llcc_regmap, TRP_MISC_CFG,
-			   ~trp_misc_val, trp_misc_val);
 
 	/* Enable TRP in instance 2 of common interrupt enable register */
 	regmap_update_bits(llcc_regmap, CMN_INTERRUPT_2_ENABLE,
