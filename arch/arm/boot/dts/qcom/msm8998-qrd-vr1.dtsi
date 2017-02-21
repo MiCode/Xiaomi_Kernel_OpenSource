@@ -156,6 +156,25 @@
 	};
 };
 
+&i2c_5 {
+	status = "okay";
+	st_fts@49 {
+		compatible = "st,fts";
+		reg = <0x49>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <125 0x2008>;
+		vdd-supply = <&pm8998_l6>;
+		avdd-supply = <&pm8998_l28>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		st,irq-gpio = <&tlmm 125 0x2008>;
+		st,reset-gpio = <&tlmm 89 0x00>;
+		st,regulator_dvdd = "vdd";
+		st,regulator_avdd = "avdd";
+	};
+};
+
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";
