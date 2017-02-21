@@ -94,6 +94,20 @@
 			qcom,max-frequency = <24000000>;
 			qcom,mem-base-addr = <0x100000>;
 		};
+
+		wcd_usbc_analog_en1_gpio: msm_cdc_pinctrl_usbc_audio_en1 {
+			compatible = "qcom,msm-cdc-pinctrl";
+			pinctrl-names = "aud_active", "aud_sleep";
+			pinctrl-0 = <&wcd_usbc_analog_en1_active>;
+			pinctrl-1 = <&wcd_usbc_analog_en1_idle>;
+		};
+
+		wcd_usbc_analog_en2n_gpio: msm_cdc_pinctrl_usbc_audio_en2 {
+			compatible = "qcom,msm-cdc-pinctrl";
+			pinctrl-names = "aud_active", "aud_sleep";
+			pinctrl-0 = <&wcd_usbc_analog_en2n_active>;
+			pinctrl-1 = <&wcd_usbc_analog_en2n_idle>;
+		};
 	};
 };
 
