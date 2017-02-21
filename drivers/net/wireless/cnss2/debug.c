@@ -31,6 +31,8 @@ static int cnss_pin_connect_show(struct seq_file *s, void *data)
 		   cnss_priv->pin_result.fw_phy_io_pin_result);
 	seq_printf(s, "FW RF pin result: %04x\n",
 		   cnss_priv->pin_result.fw_rf_pin_result);
+	seq_printf(s, "Host pin result: %04x\n",
+		   cnss_priv->pin_result.host_pin_result);
 	seq_puts(s, "\n");
 
 	return 0;
