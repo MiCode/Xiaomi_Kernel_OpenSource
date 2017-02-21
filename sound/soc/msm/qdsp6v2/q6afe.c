@@ -1303,13 +1303,22 @@ static struct cal_block_data *afe_find_cal_topo_id_by_port(
 			MSM_AFE_PORT_TYPE_TX)?(TX_DEVICE):(RX_DEVICE));
 		afe_top =
 		(struct audio_cal_info_afe_top *)cal_block->cal_info;
-		if ((afe_top->path == path) &&
-		    (afe_top->acdb_id ==
-		     this_afe.dev_acdb_id[afe_port_index])) {
-			pr_debug("%s: top_id:%x acdb_id:%d afe_port:%d\n",
+		if (afe_top->path == path) {
+			if (this_afe.dev_acdb_id[afe_port_index] > 0) {
+				if (afe_top->acdb_id ==
+				    this_afe.dev_acdb_id[afe_port_index]) {
+					pr_debug("%s: top_id:%x acdb_id:%d afe_port_id:%d\n",
+						 __func__, afe_top->topology,
+						 afe_top->acdb_id,
+						 q6audio_get_port_id(port_id));
+					return cal_block;
+				}
+			} else {
+				pr_debug("%s: top_id:%x acdb_id:%d afe_port:%d\n",
 				 __func__, afe_top->topology, afe_top->acdb_id,
 				 q6audio_get_port_id(port_id));
-			return cal_block;
+				return cal_block;
+			}
 		}
 	}
 
@@ -1497,6 +1506,8 @@ static void send_afe_cal_type(int cal_index, int port_id)
 {
 	struct cal_block_data		*cal_block = NULL;
 	int ret;
+	int afe_port_index = q6audio_get_port_index(port_id);
+
 	pr_debug("%s:\n", __func__);
 
 	if (this_afe.cal_data[cal_index] == NULL) {
@@ -1505,10 +1516,17 @@ static void send_afe_cal_type(int cal_index, int port_id)
 		goto done;
 	}
 
+	if (afe_port_index < 0) {
+		pr_err("%s: Error getting AFE port index %d\n",
+			__func__, afe_port_index);
+		goto done;
+	}
+
 	mutex_lock(&this_afe.cal_data[cal_index]->lock);
 
-	if ((cal_index == AFE_COMMON_RX_CAL) ||
-	    (cal_index == AFE_COMMON_TX_CAL))
+	if (((cal_index == AFE_COMMON_RX_CAL) ||
+	     (cal_index == AFE_COMMON_TX_CAL)) &&
+	    (this_afe.dev_acdb_id[afe_port_index] > 0))
 		cal_block = afe_find_cal(cal_index, port_id);
 	else
 		cal_block = cal_utils_get_only_cal_block(
