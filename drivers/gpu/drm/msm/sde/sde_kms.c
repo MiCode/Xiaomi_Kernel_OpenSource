@@ -1296,6 +1296,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto power_error;
 	}
 
+	sde_dbg_init_dbg_buses(sde_kms->core_rev);
+
 	rc = sde_rm_init(&sde_kms->rm, sde_kms->catalog, sde_kms->mmio,
 			sde_kms->dev);
 	if (rc) {
