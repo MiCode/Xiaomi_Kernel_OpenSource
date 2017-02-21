@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -342,6 +342,10 @@
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,cti-gpio-trigout = <4>;
+		pinctrl-names = "cti-trigout-pctrl";
+		pinctrl-0 = <&trigout_a>;
 	};
 
 	cti3: cti@813000 {
@@ -447,14 +451,12 @@
 	hwevent: hwevent@86c000 {
 		compatible = "qcom,coresight-hwevent";
 		reg =   <0x0086c000 0x148>,
-			<0x00801020 0x10>,
 			<0x08af8860 0x4>,
 			<0x0200c000 0x4>,
 			<0x0200c008 0x20>,
 			<0x08b05014 0x4>,
 			<0x0408200c 0x4>;
 		reg-names = "qdss-wrapper",
-			    "stm",
 			    "usb30",
 			    "spmi-test",
 			    "spmi-events",

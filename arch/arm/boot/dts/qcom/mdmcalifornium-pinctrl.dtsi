@@ -32,6 +32,18 @@
 			};
 		};
 
+		trigout_a: trigout_a {
+			mux {
+				pins = "gpio92";
+				function = "qdss_cti";
+			};
+			config {
+				pins = "gpio92";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		uart2_console_active: uart2_console_active {
 			mux {
 				pins = "gpio4", "gpio5";
