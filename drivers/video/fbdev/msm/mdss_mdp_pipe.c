@@ -1250,11 +1250,12 @@ cursor_done:
 }
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
-	u32 type, struct mdss_mdp_pipe *left_blend_pipe)
+	u32 off, u32 type, struct mdss_mdp_pipe *left_blend_pipe)
 {
 	struct mdss_mdp_pipe *pipe;
+
 	mutex_lock(&mdss_mdp_sspp_lock);
-	pipe = mdss_mdp_pipe_init(mixer, type, 0, left_blend_pipe);
+	pipe = mdss_mdp_pipe_init(mixer, type, off, left_blend_pipe);
 	mutex_unlock(&mdss_mdp_sspp_lock);
 	return pipe;
 }
