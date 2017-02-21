@@ -25,6 +25,10 @@
 #include <drm/drm_crtc.h>
 #include "hdmi.h"
 
+#define MAX_NUMBER_ADB 5
+#define MAX_AUDIO_DATA_BLOCK_SIZE 30
+#define MAX_SPKR_ALLOC_DATA_BLOCK_SIZE 3
+
 /**
  * struct sde_hdmi_info - defines hdmi display properties
  * @display_type:      Display type as defined by device tree.
@@ -60,6 +64,14 @@ struct sde_hdmi_ctrl {
 	u32 hdmi_ctrl_idx;
 };
 
+struct hdmi_edid_ctrl {
+	struct edid *edid;
+	u8 audio_data_block[MAX_NUMBER_ADB * MAX_AUDIO_DATA_BLOCK_SIZE];
+	int adb_size;
+	u8 spkr_alloc_data_block[MAX_SPKR_ALLOC_DATA_BLOCK_SIZE];
+	int sadb_size;
+};
+
 /**
  * struct sde_hdmi - hdmi display information
  * @pdev:             Pointer to platform device.
@@ -90,6 +102,7 @@ struct sde_hdmi {
 
 	struct platform_device *ext_pdev;
 	struct msm_ext_disp_init_data ext_audio_data;
+	struct hdmi_edid_ctrl edid;
 
 	bool non_pluggable;
 	u32 num_of_modes;
@@ -275,12 +288,12 @@ int sde_hdmi_config_avmute(struct hdmi *hdmi, bool set);
 /**
  * sde_hdmi_notify_clients() - notify hdmi clients of the connection status.
  * @connector:     Handle to the drm_connector.
- * @status:        connection status.
+ * @connected:     connection status.
  *
  * Return: void.
  */
 void sde_hdmi_notify_clients(struct drm_connector *connector,
-	enum drm_connector_status status);
+	bool connected);
 
 /**
  * sde_hdmi_ack_state() - acknowledge the connection status.
@@ -291,6 +304,40 @@ void sde_hdmi_notify_clients(struct drm_connector *connector,
  */
 void sde_hdmi_ack_state(struct drm_connector *connector,
 	enum drm_connector_status status);
+
+/**
+ * sde_hdmi_edid_init() - init edid structure.
+ * @display:     Handle to the sde_hdmi.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_edid_init(struct sde_hdmi *display);
+
+/**
+ * sde_hdmi_edid_deinit() - deinit edid structure.
+ * @display:     Handle to the sde_hdmi.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_edid_deinit(struct sde_hdmi *display);
+
+/**
+ * sde_hdmi_get_edid() - get edid info.
+ * @connector:   Handle to the drm_connector.
+ * @display:     Handle to the sde_hdmi.
+ *
+ * Return: void.
+ */
+void sde_hdmi_get_edid(struct drm_connector *connector,
+	struct sde_hdmi *display);
+
+/**
+ * sde_hdmi_free_edid() - free edid structure.
+ * @display:     Handle to the sde_hdmi.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_free_edid(struct sde_hdmi *display);
 
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 

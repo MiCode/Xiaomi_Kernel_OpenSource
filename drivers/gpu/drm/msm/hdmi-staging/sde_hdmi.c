@@ -404,9 +404,14 @@ static void _sde_hdmi_hotplug_work(struct work_struct *work)
 	}
 
 	connector = sde_hdmi->ctrl.ctrl->connector;
-	drm_helper_hpd_irq_event(connector->dev);
 
-	sde_hdmi_notify_clients(connector, connector->status);
+	if (sde_hdmi->connected)
+		sde_hdmi_get_edid(connector, sde_hdmi);
+	else
+		sde_hdmi_free_edid(sde_hdmi);
+
+	sde_hdmi_notify_clients(connector, sde_hdmi->connected);
+	drm_helper_hpd_irq_event(connector->dev);
 }
 
 static void _sde_hdmi_connector_irq(struct sde_hdmi *sde_hdmi)
@@ -498,12 +503,11 @@ static int _sde_hdmi_get_audio_edid_blk(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
-	/* TODO: add audio edid blk support */
-	blk->audio_data_blk = NULL;
-	blk->audio_data_blk_size = 0;
+	blk->audio_data_blk = display->edid.audio_data_block;
+	blk->audio_data_blk_size = display->edid.adb_size;
 
-	blk->spk_alloc_data_blk = NULL;
-	blk->spk_alloc_data_blk_size = 0;
+	blk->spk_alloc_data_blk = display->edid.spkr_alloc_data_block;
+	blk->spk_alloc_data_blk_size = display->edid.sadb_size;
 
 	return 0;
 }
@@ -573,11 +577,11 @@ static int _sde_hdmi_ext_disp_init(struct sde_hdmi *display)
 }
 
 void sde_hdmi_notify_clients(struct drm_connector *connector,
-	enum drm_connector_status status)
+	bool connected)
 {
 	struct sde_connector *c_conn = to_sde_connector(connector);
 	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
-	int state = (status == connector_status_connected) ?
+	int state = connected ?
 		EXT_DISPLAY_CABLE_CONNECT : EXT_DISPLAY_CABLE_DISCONNECT;
 
 	if (display && display->ext_audio_data.intf_ops.hpd) {
@@ -792,13 +796,29 @@ sde_hdmi_connector_detect(struct drm_connector *connector,
 	return status;
 }
 
+int _sde_hdmi_update_modes(struct drm_connector *connector,
+	struct sde_hdmi *display)
+{
+	int rc = 0;
+	struct hdmi_edid_ctrl *edid_ctrl = &display->edid;
+
+	if (edid_ctrl->edid) {
+		drm_mode_connector_update_edid_property(connector,
+			edid_ctrl->edid);
+
+		rc = drm_add_edid_modes(connector, edid_ctrl->edid);
+		return rc;
+	}
+
+	drm_mode_connector_update_edid_property(connector, NULL);
+
+	return rc;
+}
+
 int sde_hdmi_connector_get_modes(struct drm_connector *connector, void *display)
 {
 	struct sde_hdmi *hdmi_display = (struct sde_hdmi *)display;
-	struct hdmi *hdmi;
-	struct edid *edid;
 	struct drm_display_mode *mode, *m;
-	uint32_t hdmi_ctrl;
 	int ret = 0;
 
 	if (!connector || !display) {
@@ -809,7 +829,6 @@ int sde_hdmi_connector_get_modes(struct drm_connector *connector, void *display)
 
 	SDE_DEBUG("\n");
 
-	hdmi = hdmi_display->ctrl.ctrl;
 	if (hdmi_display->non_pluggable) {
 		list_for_each_entry(mode, &hdmi_display->mode_list, head) {
 			m = drm_mode_duplicate(connector->dev, mode);
@@ -822,21 +841,7 @@ int sde_hdmi_connector_get_modes(struct drm_connector *connector, void *display)
 		}
 		ret = hdmi_display->num_of_modes;
 	} else {
-		/* Read EDID */
-		hdmi_ctrl = hdmi_read(hdmi, REG_HDMI_CTRL);
-		hdmi_write(hdmi, REG_HDMI_CTRL, hdmi_ctrl | HDMI_CTRL_ENABLE);
-
-		edid = drm_get_edid(connector, hdmi->i2c);
-
-		hdmi_write(hdmi, REG_HDMI_CTRL, hdmi_ctrl);
-
-		hdmi->hdmi_mode = drm_detect_hdmi_monitor(edid);
-		drm_mode_connector_update_edid_property(connector, edid);
-
-		if (edid) {
-			ret = drm_add_edid_modes(connector, edid);
-			kfree(edid);
-		}
+		ret = _sde_hdmi_update_modes(connector, display);
 	}
 
 	return ret;
@@ -935,6 +940,13 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 		goto error;
 	}
 
+	rc = sde_hdmi_edid_init(display);
+	if (rc) {
+		SDE_ERROR("[%s]Ext Disp init failed, rc=%d\n",
+				display->name, rc);
+		goto error;
+	}
+
 	display_ctrl = &display->ctrl;
 	display_ctrl->ctrl = priv->hdmi;
 	SDE_ERROR("display_ctrl->ctrl=%p\n", display_ctrl->ctrl);
@@ -965,6 +977,7 @@ static void sde_hdmi_unbind(struct device *dev, struct device *master,
 	}
 	mutex_lock(&display->display_lock);
 	(void)_sde_hdmi_debugfs_deinit(display);
+	(void)sde_hdmi_edid_deinit(display);
 	display->drm_dev = NULL;
 	mutex_unlock(&display->display_lock);
 }
