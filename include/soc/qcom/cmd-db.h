@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +96,13 @@ int cmd_db_ready(void);
  * return  cmd_db_hw_type enum  on success, errno on error
  */
 int cmd_db_get_slave_id(const char *resource_id);
+
+/**
+ * cmd_db_is_standalone - Returns if the command DB is standalone
+ *
+ * return 1 if command DB is standalone, 0 if not, errno otherwise.
+ */
+int cmd_db_is_standalone(void);
 #else
 
 static inline u32 cmd_db_get_addr(const char *resource_id)
@@ -129,6 +136,11 @@ int cmd_db_ready(void)
 }
 
 int cmd_db_get_slave_id(const char *resource_id)
+{
+	return -ENODEV;
+}
+
+int cmd_db_is_standalone(void)
 {
 	return -ENODEV;
 }
