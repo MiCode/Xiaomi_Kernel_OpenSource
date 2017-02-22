@@ -360,9 +360,11 @@ static int cnss_pci_suspend(struct device *dev)
 	driver_ops = plat_priv->driver_ops;
 	if (driver_ops && driver_ops->suspend) {
 		ret = driver_ops->suspend(pci_dev, state);
-		if (pci_priv->pci_link_state)
+		if (pci_priv->pci_link_state) {
 			cnss_set_pci_config_space(pci_priv,
 						  SAVE_PCI_CONFIG_SPACE);
+			cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_SUSPEND);
+		}
 	}
 
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
@@ -391,6 +393,7 @@ static int cnss_pci_resume(struct device *dev)
 		if (pci_priv->saved_state)
 			cnss_set_pci_config_space(pci_priv,
 						  RESTORE_PCI_CONFIG_SPACE);
+		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
 		ret = driver_ops->resume(pci_dev);
 	}
 
@@ -558,6 +561,11 @@ int cnss_auto_suspend(void)
 	pci_dev = pci_priv->pci_dev;
 
 	if (pci_priv->pci_link_state) {
+		if (cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_SUSPEND)) {
+			ret = -EAGAIN;
+			goto out;
+		}
+
 		cnss_set_pci_config_space(pci_priv, SAVE_PCI_CONFIG_SPACE);
 		pci_disable_device(pci_dev);
 
@@ -567,7 +575,7 @@ int cnss_auto_suspend(void)
 		if (cnss_set_pci_link(pci_priv, PCI_LINK_DOWN)) {
 			cnss_pr_err("Failed to shutdown PCI link!\n");
 			ret = -EAGAIN;
-			goto out;
+			goto resume_mhi;
 		}
 	}
 
@@ -578,6 +586,13 @@ int cnss_auto_suspend(void)
 	bus_bw_info = &plat_priv->bus_bw_info;
 	msm_bus_scale_client_update_request(bus_bw_info->bus_client,
 					    CNSS_BUS_WIDTH_NONE);
+
+	return 0;
+
+resume_mhi:
+	if (pci_enable_device(pci_dev))
+		cnss_pr_err("Failed to enable PCI device!\n");
+	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
 out:
 	return ret;
 }
@@ -610,6 +625,7 @@ int cnss_auto_resume(void)
 		if (ret)
 			cnss_pr_err("Failed to enable PCI device, err = %d\n",
 				    ret);
+		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
 	}
 
 	cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
@@ -1137,6 +1153,9 @@ int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		cnss_pr_err("pci_priv is NULL!\n");
 		return -ENODEV;
 	}
+
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
 
 	if (mhi_dev_state < 0) {
 		cnss_pr_err("Invalid MHI DEV state (%d)\n", mhi_dev_state);
