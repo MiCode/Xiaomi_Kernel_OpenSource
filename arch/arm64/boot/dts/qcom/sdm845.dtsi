@@ -1644,3 +1644,4 @@
 #include "sdm845-smp2p.dtsi"
 #include "sdm845-camera.dtsi"
 #include "sdm845-bus.dtsi"
+#include "sdm845-vidc.dtsi"

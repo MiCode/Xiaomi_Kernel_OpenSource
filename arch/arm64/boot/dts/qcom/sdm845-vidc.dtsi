@@ -1,0 +1,64 @@
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/clock/qcom,videocc-sdm845.h>
+
+&soc {
+	msm_vidc: qcom,vidc@cc00000 {
+		  compatible = "qcom,msm-vidc";
+		  status = "disabled";
+		  reg = <0xcc00000 0x100000>;
+		  interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
+		  qcom,debug-timeout;
+		  qcom,reg-presets =
+			 <0x80124 0x00000003>,
+			 <0x80550 0x01111111>,
+			 <0x80560 0x01111111>,
+			 <0x80568 0x01111111>,
+			 <0x80570 0x01111111>,
+			 <0x80580 0x01111111>,
+			 <0x80588 0x01111111>,
+			 <0xe2010 0x00000000>;
+		  vdd-supply = <&venus_gdsc>;
+		  venus-core0-supply = <&vcodec0_gdsc>;
+		  venus-core1-supply = <&vcodec1_gdsc>;
+		  clocks = <&clock_videocc VIDEO_CC_VENUS_CTL_CORE_CLK>,
+			 <&clock_videocc VIDEO_CC_VENUS_AHB_CLK>,
+			 <&clock_videocc VIDEO_CC_VENUS_CTL_AXI_CLK>,
+			 <&clock_videocc VIDEO_CC_VCODEC0_CORE_CLK>,
+			 <&clock_videocc VIDEO_CC_VCODEC1_CORE_CLK>;
+		  clock-names = "core_clk", "iface_clk", "bus_clk",
+			"core0_clk", "core1_clk";
+		  qcom,proxy-clock-names = "core_clk", "iface_clk",
+			"bus_clk", "core0_clk", "core1_clk";
+		  qcom,clock-configs = <0x1 0x1 0x1 0x1 0x1>;
+		  qcom,proxy-reg-names = "vdd";
+		  bus_cnoc {
+			  compatible = "qcom,msm-vidc,bus";
+			  label = "cnoc";
+			  qcom,bus-master = <MSM_BUS_MASTER_AMPSS_M0>;
+			  qcom,bus-slave = <MSM_BUS_SLAVE_VENUS_CFG>;
+			  qcom,bus-governor = "performance";
+			  qcom,bus-range-kbps = <1 1>;
+		  };
+		  venus_bus_ddr {
+			  compatible = "qcom,msm-vidc,bus";
+			  label = "venus-ddr";
+			  qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			  qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			  qcom,bus-governor = "msm-vidc-ddr";
+			  qcom,bus-range-kbps = <1000 3388000>;
+		  };
+	  };
+};
