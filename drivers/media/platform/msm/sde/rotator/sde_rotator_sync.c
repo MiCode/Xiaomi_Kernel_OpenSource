@@ -16,8 +16,8 @@
 #include <linux/fs.h>
 #include <linux/file.h>
 #include <linux/slab.h>
-#include <linux/sync.h>
-#include <linux/sw_sync.h>
+#include <sync.h>
+#include <sw_sync.h>
 
 #include "sde_rotator_util.h"
 #include "sde_rotator_sync.h"
