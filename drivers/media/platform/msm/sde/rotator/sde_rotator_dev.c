@@ -90,8 +90,40 @@ static const struct v4l2_fmtdesc fmtdesc[] = {
 		.pixelformat = SDE_PIX_FMT_BGRX_8888,
 	},
 	{
+		.description = "SDE/XBGR_8888",
+		.pixelformat = SDE_PIX_FMT_XBGR_8888,
+	},
+	{
 		.description = "RGBA_5551",
 		.pixelformat = SDE_PIX_FMT_RGBA_5551,
+	},
+	{
+		.description = "ARGB_1555",
+		.pixelformat = SDE_PIX_FMT_ARGB_1555,
+	},
+	{
+		.description = "ABGR_1555",
+		.pixelformat = SDE_PIX_FMT_ABGR_1555,
+	},
+	{
+		.description = "BGRA_5551",
+		.pixelformat = SDE_PIX_FMT_BGRA_5551,
+	},
+	{
+		.description = "BGRX_5551",
+		.pixelformat = SDE_PIX_FMT_BGRX_5551,
+	},
+	{
+		.description = "RGBX_5551",
+		.pixelformat = SDE_PIX_FMT_RGBX_5551,
+	},
+	{
+		.description = "XBGR_1555",
+		.pixelformat = SDE_PIX_FMT_XBGR_1555,
+	},
+	{
+		.description = "XRGB_1555",
+		.pixelformat = SDE_PIX_FMT_XRGB_1555,
 	},
 	{
 		.description = "ARGB_4444",
@@ -100,6 +132,30 @@ static const struct v4l2_fmtdesc fmtdesc[] = {
 	{
 		.description = "RGBA_4444",
 		.pixelformat = SDE_PIX_FMT_RGBA_4444,
+	},
+	{
+		.description = "BGRA_4444",
+		.pixelformat = SDE_PIX_FMT_BGRA_4444,
+	},
+	{
+		.description = "ABGR_4444",
+		.pixelformat = SDE_PIX_FMT_ABGR_4444,
+	},
+	{
+		.description = "RGBX_4444",
+		.pixelformat = SDE_PIX_FMT_RGBX_4444,
+	},
+	{
+		.description = "XRGB_4444",
+		.pixelformat = SDE_PIX_FMT_XRGB_4444,
+	},
+	{
+		.description = "BGRX_4444",
+		.pixelformat = SDE_PIX_FMT_BGRX_4444,
+	},
+	{
+		.description = "XBGR_4444",
+		.pixelformat = SDE_PIX_FMT_XBGR_4444,
 	},
 	{
 		.description = "RGB_888",
