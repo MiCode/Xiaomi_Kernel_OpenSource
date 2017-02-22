@@ -366,7 +366,7 @@
 
 &pm8998_s13 {
 	regulator-min-microvolt = <568000>;
-	regulator-max-microvolt = <1056000>;
+	regulator-max-microvolt = <1136000>;
 };
 
 &pcie0 {
