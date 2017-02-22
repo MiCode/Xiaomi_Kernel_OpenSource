@@ -45,6 +45,13 @@ struct sde_smmu_domain {
 	unsigned long size;
 };
 
+#ifndef CONFIG_FB_MSM_MDSS
+int mdss_smmu_request_mappings(msm_smmu_handler_t callback)
+{
+	return 0;
+}
+#endif
+
 int sde_smmu_set_dma_direction(int dir)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
