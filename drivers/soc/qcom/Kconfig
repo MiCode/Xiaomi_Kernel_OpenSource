@@ -786,13 +786,6 @@ config MSM_QBT1000
 	  This driver is used to enable clocks and marshal buffers for trusted
 	  applications running in the trusted execution environment.
 
-config MSM_PACMAN
-	tristate "Enable the Peripheral Access Control Manager (PACMan)"
-	help
-	  Add support for the Peripheral Access Control Manager (PACMan). This
-	  driver allows reconfiguration of the Bus Access Manager Low Speed
-	  peripheral (BLSP) ownership.
-
 config MSM_KERNEL_PROTECT
 	bool "Protect kernel text by removing write permissions"
         depends on !FUNCTION_TRACER
