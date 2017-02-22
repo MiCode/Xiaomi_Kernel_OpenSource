@@ -914,6 +914,34 @@ static int sde_rotator_evtlog_create_debugfs(
 	return 0;
 }
 
+
+static int sde_rotator_perf_create_debugfs(
+		struct sde_rotator_device *rot_dev,
+		struct dentry *debugfs_root)
+{
+	rot_dev->perf_root = debugfs_create_dir("perf", debugfs_root);
+	if (IS_ERR_OR_NULL(rot_dev->perf_root)) {
+		pr_err("debugfs_create_dir for perf failed, error %ld\n",
+		       PTR_ERR(rot_dev->perf_root));
+		rot_dev->perf_root = NULL;
+		return -ENODEV;
+	}
+
+	rot_dev->min_rot_clk = 0;
+	debugfs_create_u32("min_rot_clk", 0644,
+			rot_dev->perf_root, &rot_dev->min_rot_clk);
+
+	rot_dev->min_bw = 0;
+	debugfs_create_u32("min_bw", 0644,
+			rot_dev->perf_root, &rot_dev->min_bw);
+
+	rot_dev->min_overhead_us = 0;
+	debugfs_create_u32("min_overhead_us", 0644,
+			rot_dev->perf_root, &rot_dev->min_overhead_us);
+
+	return 0;
+}
+
 /*
  * struct sde_rotator_stat_ops - processed statistics file operations
  */
@@ -1002,6 +1030,12 @@ struct dentry *sde_rotator_create_debugfs(
 
 	if (sde_rotator_evtlog_create_debugfs(rot_dev->mgr, debugfs_root)) {
 		SDEROT_ERR("fail create evtlog debugfs\n");
+		debugfs_remove_recursive(debugfs_root);
+		return NULL;
+	}
+
+	if (sde_rotator_perf_create_debugfs(rot_dev, debugfs_root)) {
+		SDEROT_ERR("fail create perf debugfs\n");
 		debugfs_remove_recursive(debugfs_root);
 		return NULL;
 	}
