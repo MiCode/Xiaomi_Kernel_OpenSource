@@ -386,6 +386,7 @@ void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 
 	vfe_dev->hw_info->vfe_ops.platform_ops.enable_clks(
 							vfe_dev, 0);
+	msm_vfe47_configure_hvx(vfe_dev, 0);
 	vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(vfe_dev, 0);
 }
 
@@ -1508,16 +1509,19 @@ void msm_vfe47_configure_hvx(struct vfe_device *vfe_dev,
 		pr_err("%s: no stream_clk\n", __func__);
 		return;
 	}
-	rc = msm_camera_clk_enable(&vfe_dev->pdev->dev, vfe_dev->hvx_clk_info,
-			vfe_dev->hvx_clk, vfe_dev->num_hvx_clk, is_stream_on);
-	if (rc) {
-		pr_err("%s: stream_clk enable failed, enable: %u\n",
-			__func__,
-			is_stream_on);
-		return;
-	}
-	if (is_stream_on == 1) {
+	if (is_stream_on) {
 		/* Enable HVX */
+		if (!vfe_dev->hvx_clk_state) {
+			rc = msm_camera_clk_enable(&vfe_dev->pdev->dev,
+				vfe_dev->hvx_clk_info, vfe_dev->hvx_clk,
+				vfe_dev->num_hvx_clk, is_stream_on);
+			if (rc) {
+				pr_err("%s: stream_clk enable failed\n",
+						__func__);
+				return;
+			}
+			vfe_dev->hvx_clk_state = true;
+		}
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
 		val |= (1 << 3);
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x50);
@@ -1527,6 +1531,17 @@ void msm_vfe47_configure_hvx(struct vfe_device *vfe_dev,
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x50);
 	} else {
 		/* Disable HVX */
+		if (!vfe_dev->hvx_clk_state)
+			return;
+		rc = msm_camera_clk_enable(&vfe_dev->pdev->dev,
+			vfe_dev->hvx_clk_info, vfe_dev->hvx_clk,
+			vfe_dev->num_hvx_clk, is_stream_on);
+		if (rc) {
+			pr_err("%s: stream_clk disable failed\n",
+					__func__);
+			return;
+		}
+		vfe_dev->hvx_clk_state = false;
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
 		val &= 0xFFFFFFF7;
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x50);
@@ -2528,6 +2543,7 @@ int msm_vfe47_get_clks(struct vfe_device *vfe_dev)
 		vfe_dev->hvx_clk_info =
 			&vfe_dev->vfe_clk_info[vfe_dev->num_clk-1];
 		vfe_dev->hvx_clk = &vfe_dev->vfe_clk[vfe_dev->num_clk-1];
+		vfe_dev->hvx_clk_state = false;
 	}
 
 	for (i = 0; i < vfe_dev->num_clk; i++) {
@@ -2553,8 +2569,8 @@ void msm_vfe47_put_clks(struct vfe_device *vfe_dev)
 int msm_vfe47_enable_clks(struct vfe_device *vfe_dev, int enable)
 {
 	return msm_camera_clk_enable(&vfe_dev->pdev->dev,
-			vfe_dev->vfe_clk_info,
-			vfe_dev->vfe_clk, vfe_dev->num_norm_clk, enable);
+		vfe_dev->vfe_clk_info,
+		vfe_dev->vfe_clk, vfe_dev->num_norm_clk, enable);
 }
 
 int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
