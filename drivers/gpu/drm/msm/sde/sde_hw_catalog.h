@@ -47,6 +47,8 @@
 
 #define IS_SDM845_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_400)
 
+#define SDE_HW_BLK_NAME_LEN	16
+
 #define MAX_IMG_WIDTH 0x3fff
 #define MAX_IMG_HEIGHT 0x3fff
 
@@ -241,12 +243,14 @@ enum {
 
 /**
  * MACRO SDE_HW_BLK_INFO - information of HW blocks inside SDE
+ * @name:              string name for debug purposes
  * @id:                enum identifying this block
  * @base:              register base offset to mdss
  * @len:               length of hardware block
  * @features           bit mask identifying sub-blocks/features
  */
 #define SDE_HW_BLK_INFO \
+	char name[SDE_HW_BLK_NAME_LEN]; \
 	u32 id; \
 	u32 base; \
 	u32 len; \
@@ -254,12 +258,14 @@ enum {
 
 /**
  * MACRO SDE_HW_SUBBLK_INFO - information of HW sub-block inside SDE
+ * @name:              string name for debug purposes
  * @id:                enum identifying this sub-block
  * @base:              offset of this sub-block relative to the block
  *                     offset
  * @len                register block length of this sub-block
  */
 #define SDE_HW_SUBBLK_INFO \
+	char name[SDE_HW_BLK_NAME_LEN]; \
 	u32 id; \
 	u32 base; \
 	u32 len

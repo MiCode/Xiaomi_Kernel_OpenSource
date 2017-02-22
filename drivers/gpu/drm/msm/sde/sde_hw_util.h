@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,12 +24,14 @@
  * @base_off:     mdp register mapped offset
  * @blk_off:      pipe offset relative to mdss offset
  * @length        length of register block offset
+ * @xin_id        xin id
  * @hwversion     mdss hw version number
  */
 struct sde_hw_blk_reg_map {
 	void __iomem *base_off;
 	u32 blk_off;
 	u32 length;
+	u32 xin_id;
 	u32 hwversion;
 	u32 log_mask;
 };
