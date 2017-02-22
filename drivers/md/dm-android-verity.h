@@ -26,6 +26,23 @@
 #define VERITY_METADATA_SIZE (8 * DATA_BLOCK_SIZE)
 #define VERITY_TABLE_ARGS 10
 #define VERITY_COMMANDLINE_PARAM_LENGTH 20
+#define BUILD_VARIANT 20
+
+/*
+ * <subject>:<sha1-id> is the format for the identifier.
+ * subject can either be the Common Name(CN) + Organization Name(O) or
+ * just the CN if the it is prefixed with O
+ * From https://tools.ietf.org/html/rfc5280#appendix-A
+ * ub-organization-name-length INTEGER ::= 64
+ * ub-common-name-length INTEGER ::= 64
+ *
+ * http://lxr.free-electrons.com/source/crypto/asymmetric_keys/x509_cert_parser.c?v=3.9#L278
+ * ctx->o_size + 2 + ctx->cn_size + 1
+ * + 41 characters for ":" and sha1 id
+ * 64 + 2 + 64 + 1 + 1 + 40 (172)
+ * setting VERITY_DEFAULT_KEY_ID_LENGTH to 200 characters.
+ */
+#define VERITY_DEFAULT_KEY_ID_LENGTH 200
 
 #define FEC_MAGIC 0xFECFECFE
 #define FEC_BLOCK_SIZE (4 * 1024)
@@ -55,9 +72,6 @@
  * if fec is not present
  * <data_blocks> <verity_tree> <verity_metdata_32K>
  */
-/* TODO: rearrange structure to reduce memory holes
- * depends on userspace change.
- */
 struct fec_header {
 	__le32 magic;
 	__le32 version;
@@ -66,7 +80,7 @@ struct fec_header {
 	__le32 fec_size;
 	__le64 inp_size;
 	u8 hash[SHA256_DIGEST_SIZE];
-};
+} __attribute__((packed));
 
 struct android_metadata_header {
 	__le32 magic_number;

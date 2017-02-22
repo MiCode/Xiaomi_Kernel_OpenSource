@@ -27,6 +27,7 @@
 #include <linux/notifier.h>
 #include <linux/suspend.h>
 #include <linux/slab.h>
+#include <linux/debugfs.h>
 
 #define MAX_WAKEUP_REASON_IRQS 32
 static bool suspend_abort;
@@ -47,6 +48,9 @@ static ktime_t last_monotime; /* monotonic time before last suspend */
 static ktime_t curr_monotime; /* monotonic time after last suspend */
 static ktime_t last_stime; /* monotonic boottime offset before last suspend */
 static ktime_t curr_stime; /* monotonic boottime offset after last suspend */
+#if IS_ENABLED(CONFIG_SUSPEND_TIME)
+static unsigned int time_in_suspend_bins[32];
+#endif
 
 static void init_wakeup_irq_node(struct wakeup_irq_node *p, int irq)
 {
@@ -544,6 +548,11 @@ void clear_wakeup_reasons(void)
 static int wakeup_reason_pm_event(struct notifier_block *notifier,
 		unsigned long pm_event, void *unused)
 {
+#if IS_ENABLED(CONFIG_SUSPEND_TIME)
+	ktime_t temp;
+	struct timespec suspend_time;
+#endif
+
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
 		spin_lock(&resume_reason_lock);
@@ -569,6 +578,15 @@ static int wakeup_reason_pm_event(struct notifier_block *notifier,
 #else
 		print_wakeup_sources();
 #endif
+
+#if IS_ENABLED(CONFIG_SUSPEND_TIME)
+		temp = ktime_sub(ktime_sub(curr_stime, last_stime),
+				ktime_sub(curr_monotime, last_monotime));
+		suspend_time = ktime_to_timespec(temp);
+		time_in_suspend_bins[fls(suspend_time.tv_sec)]++;
+		pr_info("Suspended for %lu.%03lu seconds\n", suspend_time.tv_sec,
+			suspend_time.tv_nsec / NSEC_PER_MSEC);
+#endif
 		break;
 	default:
 		break;
@@ -580,6 +598,57 @@ static struct notifier_block wakeup_reason_pm_notifier_block = {
 	.notifier_call = wakeup_reason_pm_event,
 };
 
+/* Initializes the sysfs parameter
+ * registers the pm_event notifier
+ */
+#if IS_ENABLED(CONFIG_DEBUG_FS) && IS_ENABLED(CONFIG_SUSPEND_TIME)
+static int suspend_time_debug_show(struct seq_file *s, void *data)
+{
+	int bin;
+	seq_printf(s, "time (secs)  count\n");
+	seq_printf(s, "------------------\n");
+	for (bin = 0; bin < 32; bin++) {
+		if (time_in_suspend_bins[bin] == 0)
+			continue;
+		seq_printf(s, "%4d - %4d %4u\n",
+			bin ? 1 << (bin - 1) : 0, 1 << bin,
+				time_in_suspend_bins[bin]);
+	}
+	return 0;
+}
+
+static int suspend_time_debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, suspend_time_debug_show, NULL);
+}
+
+static const struct file_operations suspend_time_debug_fops = {
+	.open		= suspend_time_debug_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static int __init suspend_time_debug_init(void)
+{
+	struct dentry *d;
+
+	d = debugfs_create_file("suspend_time", 0755, NULL, NULL,
+		&suspend_time_debug_fops);
+	if (!d) {
+		pr_err("Failed to create suspend_time debug file\n");
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+late_initcall(suspend_time_debug_init);
+#endif
+
+/* Initializes the sysfs parameter
+ * registers the pm_event notifier
+ */
 int __init wakeup_reason_init(void)
 {
 	spin_lock_init(&resume_reason_lock);

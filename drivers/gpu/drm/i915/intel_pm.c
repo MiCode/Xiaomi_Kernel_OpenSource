@@ -2818,7 +2818,9 @@ void skl_ddb_get_hw_state(struct drm_i915_private *dev_priv,
 	int plane;
 	u32 val;
 
-	memset(ddb, 0, sizeof(*ddb));
+	memset(active, 0, sizeof(*active));
+
+	active->pipe_enabled = intel_crtc_active(crtc);
 
 	for_each_pipe(dev_priv, pipe) {
 		if (!intel_display_power_is_enabled(dev_priv, POWER_DOMAIN_PIPE(pipe)))
