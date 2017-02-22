@@ -449,7 +449,7 @@ static void mdss_mdp_video_avr_vtotal_setup(struct mdss_mdp_ctl *ctl,
 		if (sctl)
 			sctx = (struct mdss_mdp_video_ctx *)
 				sctl->intf_ctx[MASTER_CTX];
-		mdss_mdp_video_timegen_flush(ctl, ctx);
+		mdss_mdp_video_timegen_flush(ctl, sctx);
 
 		MDSS_XLOG(pinfo->min_fps, pinfo->default_fps, avr_vtotal);
 	}
