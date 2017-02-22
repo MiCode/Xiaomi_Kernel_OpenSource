@@ -24,7 +24,7 @@
 #define SDE_PIX_FMT_XRGB_1555		V4L2_PIX_FMT_XRGB555
 #define SDE_PIX_FMT_ARGB_4444		V4L2_PIX_FMT_ARGB444
 #define SDE_PIX_FMT_RGBA_4444		v4l2_fourcc('R', 'A', '1', '2')
-#define SDE_PIX_FMT_BGRA_4444		v4l2_fourcc('B', 'A', '1', '2')
+#define SDE_PIX_FMT_BGRA_4444		v4l2_fourcc('b', 'A', '1', '2')
 #define SDE_PIX_FMT_ABGR_4444		v4l2_fourcc('A', 'B', '1', '2')
 #define SDE_PIX_FMT_RGBX_4444		v4l2_fourcc('R', 'X', '1', '2')
 #define SDE_PIX_FMT_XRGB_4444		V4L2_PIX_FMT_XRGB444
