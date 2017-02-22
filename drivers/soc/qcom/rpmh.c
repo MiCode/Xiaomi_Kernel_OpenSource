@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,7 @@
 
 #include <soc/qcom/rpmh.h>
 #include <soc/qcom/tcs.h>
+#include <soc/qcom/cmd-db.h>
 
 #define RPMH_MAX_MBOXES			2
 #define RPMH_MAX_FAST_RES		32
@@ -83,6 +84,7 @@ struct rpmh_client {
 
 static struct rpmh_mbox mbox_ctrlr[RPMH_MAX_MBOXES];
 DEFINE_MUTEX(rpmh_mbox_mutex);
+bool rpmh_standalone;
 
 static struct rpmh_msg *get_msg_from_pool(struct rpmh_client *rc)
 {
@@ -291,6 +293,9 @@ int rpmh_write_single_async(struct rpmh_client *rc, enum rpmh_state state,
 	if (IS_ERR_OR_NULL(rc))
 		return -EINVAL;
 
+	if (rpmh_standalone)
+		return 0;
+
 	rpm_msg = get_msg_from_pool(rc);
 	if (!rpm_msg)
 		return -ENOMEM;
@@ -331,6 +336,9 @@ int rpmh_write_single(struct rpmh_client *rc, enum rpmh_state state,
 		return -EINVAL;
 
 	might_sleep();
+
+	if (rpmh_standalone)
+		return 0;
 
 	rpm_msg.cmd.addr = addr;
 	rpm_msg.cmd.data = data;
@@ -391,8 +399,12 @@ struct rpmh_msg *__get_rpmh_msg_async(struct rpmh_client *rc,
 int rpmh_write_async(struct rpmh_client *rc, enum rpmh_state state,
 			struct tcs_cmd *cmd, int n)
 {
-	struct rpmh_msg *rpm_msg = __get_rpmh_msg_async(rc, state, cmd, n,
-							true);
+	struct rpmh_msg *rpm_msg;
+
+	if (rpmh_standalone)
+		return 0;
+
+	rpm_msg = __get_rpmh_msg_async(rc, state, cmd, n, true);
 
 	if (IS_ERR(rpm_msg))
 		return PTR_ERR(rpm_msg);
@@ -429,6 +441,9 @@ int rpmh_write(struct rpmh_client *rc, enum rpmh_state state,
 		return -EINVAL;
 
 	might_sleep();
+
+	if (rpmh_standalone)
+		return 0;
 
 	rpm_msg.msg.payload = cmd;
 	rpm_msg.msg.num_payload = n;
@@ -469,6 +484,9 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	atomic_t wait_count = ATOMIC_INIT(0); /* overwritten */
 	int count = 0;
 	int ret, i = 0;
+
+	if (rpmh_standalone)
+		return 0;
 
 	while (n[count++])
 		;
@@ -528,6 +546,9 @@ int rpmh_write_control(struct rpmh_client *rc, struct tcs_cmd *cmd, int n)
 	if (IS_ERR_OR_NULL(rc))
 		return -EINVAL;
 
+	if (rpmh_standalone)
+		return 0;
+
 	rpm_msg.msg.payload = cmd;
 	rpm_msg.msg.num_payload = n;
 	rpm_msg.msg.is_control = true;
@@ -552,6 +573,9 @@ int rpmh_invalidate(struct rpmh_client *rc)
 
 	if (IS_ERR_OR_NULL(rc))
 		return -EINVAL;
+
+	if (rpmh_standalone)
+		return 0;
 
 	rpm_msg.msg.invalidate = true;
 
@@ -584,6 +608,9 @@ int rpmh_read(struct rpmh_client *rc, u32 addr, u32 *resp)
 		return -EINVAL;
 
 	might_sleep();
+
+	if (rpmh_standalone)
+		return 0;
 
 	rpm_msg.cmd.addr = addr;
 	rpm_msg.cmd.data = 0;
@@ -637,6 +664,9 @@ int rpmh_flush(struct rpmh_client *rc)
 
 	if (IS_ERR_OR_NULL(rc))
 		return -EINVAL;
+
+	if (rpmh_standalone)
+		return 0;
 
 	if (!mbox_controller_is_idle(rc->chan))
 		return -EBUSY;
@@ -748,6 +778,10 @@ static struct rpmh_client *get_rpmh_client(struct platform_device *pdev,
 	struct rpmh_client *rc;
 	int ret = 0;
 
+	ret = cmd_db_ready();
+	if (ret)
+		return ERR_PTR(ret);
+
 	rc = kzalloc(sizeof(*rc), GFP_KERNEL);
 	if (!rc)
 		return ERR_PTR(-ENOMEM);
@@ -775,6 +809,7 @@ static struct rpmh_client *get_rpmh_client(struct platform_device *pdev,
 
 	mutex_lock(&rpmh_mbox_mutex);
 	rc->rpmh = get_mbox(pdev, name, index);
+	rpmh_standalone = (cmd_db_is_standalone() > 0);
 	mutex_unlock(&rpmh_mbox_mutex);
 
 	if (IS_ERR(rc->rpmh)) {
