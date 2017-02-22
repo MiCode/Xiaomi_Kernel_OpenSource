@@ -6775,7 +6775,15 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 						targeted_cpus = 1;
 					} else if (cpu_idle_idx ==
 						   min_idle_idx &&
-						target_cpu_util > new_util) {
+						   (target_cpu_util >
+						    new_util ||
+						    (target_cpu_util ==
+						     new_util &&
+						     (i == task_cpu(p) ||
+						      (target_cpu !=
+						       task_cpu(p) &&
+						       target_cpu_new_util_cum >
+						       new_util_cum))))) {
 						min_idle_idx_cpu = i;
 						target_cpu = i;
 						target_cpu_util = new_util;
