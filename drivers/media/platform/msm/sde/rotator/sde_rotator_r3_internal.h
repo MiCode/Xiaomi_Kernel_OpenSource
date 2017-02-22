@@ -270,6 +270,8 @@ struct sde_hw_rotator {
 	spinlock_t rotisr_lock;
 
 	bool    dbgmem;
+	bool reset_hw_ts;
+	u32 last_hw_ts;
 };
 
 /**
