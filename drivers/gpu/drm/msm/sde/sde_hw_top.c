@@ -13,6 +13,7 @@
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_top.h"
+#include "sde_dbg.h"
 
 #define SSPP_SPARE                        0x28
 
@@ -255,9 +256,9 @@ struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
 	mdp->cap = cfg;
 	_setup_mdp_ops(&mdp->ops, mdp->cap->features);
 
-	/*
-	 * Perform any default initialization for the intf
-	 */
+	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name,
+			mdp->hw.blk_off, mdp->hw.blk_off + mdp->hw.length,
+			mdp->hw.xin_id);
 
 	return mdp;
 }

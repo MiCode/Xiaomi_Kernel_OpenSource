@@ -14,6 +14,7 @@
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_cdm.h"
+#include "sde_dbg.h"
 
 #define CDM_CSC_10_OPMODE                  0x000
 #define CDM_CSC_10_BASE                    0x004
@@ -66,7 +67,6 @@ static struct sde_cdm_cfg *_cdm_offset(enum sde_cdm cdm,
 		if (cdm == m->cdm[i].id) {
 			b->base_off = addr;
 			b->blk_off = m->cdm[i].base;
-			b->length = m->cdm[i].len;
 			b->hwversion = m->hwversion;
 			b->log_mask = SDE_DBG_MASK_CDM;
 			return &m->cdm[i];
@@ -314,6 +314,9 @@ struct sde_hw_cdm *sde_hw_cdm_init(enum sde_cdm idx,
 	c->cdm_hw_cap = cfg;
 	_setup_cdm_ops(&c->ops, c->cdm_hw_cap->features);
 	c->hw_mdp = hw_mdp;
+
+	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
+			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
 }
