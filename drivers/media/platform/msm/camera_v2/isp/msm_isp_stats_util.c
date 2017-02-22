@@ -23,7 +23,8 @@ static inline void msm_isp_stats_cfg_wm_scratch(struct vfe_device *vfe_dev,
 {
 	vfe_dev->hw_info->vfe_ops.stats_ops.update_ping_pong_addr(
 		vfe_dev, stream_info,
-		pingpong_status, vfe_dev->buf_mgr->scratch_buf_stats_addr);
+		pingpong_status, vfe_dev->buf_mgr->scratch_buf_stats_addr,
+		SZ_32M);
 }
 
 static inline void msm_isp_stats_cfg_stream_scratch(
@@ -123,7 +124,8 @@ static int msm_isp_stats_cfg_ping_pong_address(
 		vfe_dev->hw_info->vfe_ops.stats_ops.update_ping_pong_addr(
 			vfe_dev, stream_info, pingpong_status,
 			buf->mapped_info[0].paddr +
-			stream_info->buffer_offset[k]);
+			stream_info->buffer_offset[k],
+			buf->mapped_info[0].len);
 	}
 	stream_info->buf[pingpong_bit] = buf;
 	buf->pingpong_bit = pingpong_bit;
