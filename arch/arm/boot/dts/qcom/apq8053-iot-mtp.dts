@@ -155,3 +155,10 @@
 &wcnss_fw_mem {
 	reg = <0x0 0x89b00000 0x0 0x700000>;
 };
+
+&gpio_key_suspend {
+	config {
+		/delete-property/ bias-pull-up;
+		bias-pull-down;
+	};
+};
