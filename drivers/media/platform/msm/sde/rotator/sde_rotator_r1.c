@@ -45,6 +45,100 @@ struct sde_rotator_r1_data {
 	struct sde_mdp_hw_resource *mdp_hw;
 };
 
+static u32 sde_hw_rotator_input_pixfmts[] = {
+	SDE_PIX_FMT_XRGB_8888,
+	SDE_PIX_FMT_ARGB_8888,
+	SDE_PIX_FMT_ABGR_8888,
+	SDE_PIX_FMT_RGBA_8888,
+	SDE_PIX_FMT_BGRA_8888,
+	SDE_PIX_FMT_RGBX_8888,
+	SDE_PIX_FMT_BGRX_8888,
+	SDE_PIX_FMT_XBGR_8888,
+	SDE_PIX_FMT_RGBA_5551,
+	SDE_PIX_FMT_ARGB_1555,
+	SDE_PIX_FMT_ABGR_1555,
+	SDE_PIX_FMT_BGRA_5551,
+	SDE_PIX_FMT_BGRX_5551,
+	SDE_PIX_FMT_RGBX_5551,
+	SDE_PIX_FMT_XBGR_1555,
+	SDE_PIX_FMT_XRGB_1555,
+	SDE_PIX_FMT_ARGB_4444,
+	SDE_PIX_FMT_RGBA_4444,
+	SDE_PIX_FMT_BGRA_4444,
+	SDE_PIX_FMT_ABGR_4444,
+	SDE_PIX_FMT_RGBX_4444,
+	SDE_PIX_FMT_XRGB_4444,
+	SDE_PIX_FMT_BGRX_4444,
+	SDE_PIX_FMT_XBGR_4444,
+	SDE_PIX_FMT_RGB_888,
+	SDE_PIX_FMT_BGR_888,
+	SDE_PIX_FMT_RGB_565,
+	SDE_PIX_FMT_BGR_565,
+	SDE_PIX_FMT_Y_CB_CR_H2V2,
+	SDE_PIX_FMT_Y_CR_CB_H2V2,
+	SDE_PIX_FMT_Y_CR_CB_GH2V2,
+	SDE_PIX_FMT_Y_CBCR_H2V2,
+	SDE_PIX_FMT_Y_CRCB_H2V2,
+	SDE_PIX_FMT_Y_CBCR_H1V2,
+	SDE_PIX_FMT_Y_CRCB_H1V2,
+	SDE_PIX_FMT_Y_CBCR_H2V1,
+	SDE_PIX_FMT_Y_CRCB_H2V1,
+	SDE_PIX_FMT_YCBYCR_H2V1,
+	SDE_PIX_FMT_Y_CBCR_H2V2_VENUS,
+	SDE_PIX_FMT_Y_CRCB_H2V2_VENUS,
+	SDE_PIX_FMT_RGBA_8888_UBWC,
+	SDE_PIX_FMT_RGBX_8888_UBWC,
+	SDE_PIX_FMT_RGB_565_UBWC,
+	SDE_PIX_FMT_Y_CBCR_H2V2_UBWC,
+};
+
+static u32 sde_hw_rotator_output_pixfmts[] = {
+	SDE_PIX_FMT_XRGB_8888,
+	SDE_PIX_FMT_ARGB_8888,
+	SDE_PIX_FMT_ABGR_8888,
+	SDE_PIX_FMT_RGBA_8888,
+	SDE_PIX_FMT_BGRA_8888,
+	SDE_PIX_FMT_RGBX_8888,
+	SDE_PIX_FMT_BGRX_8888,
+	SDE_PIX_FMT_XBGR_8888,
+	SDE_PIX_FMT_RGBA_5551,
+	SDE_PIX_FMT_ARGB_1555,
+	SDE_PIX_FMT_ABGR_1555,
+	SDE_PIX_FMT_BGRA_5551,
+	SDE_PIX_FMT_BGRX_5551,
+	SDE_PIX_FMT_RGBX_5551,
+	SDE_PIX_FMT_XBGR_1555,
+	SDE_PIX_FMT_XRGB_1555,
+	SDE_PIX_FMT_ARGB_4444,
+	SDE_PIX_FMT_RGBA_4444,
+	SDE_PIX_FMT_BGRA_4444,
+	SDE_PIX_FMT_ABGR_4444,
+	SDE_PIX_FMT_RGBX_4444,
+	SDE_PIX_FMT_XRGB_4444,
+	SDE_PIX_FMT_BGRX_4444,
+	SDE_PIX_FMT_XBGR_4444,
+	SDE_PIX_FMT_RGB_888,
+	SDE_PIX_FMT_BGR_888,
+	SDE_PIX_FMT_RGB_565,
+	SDE_PIX_FMT_BGR_565,
+	SDE_PIX_FMT_Y_CB_CR_H2V2,
+	SDE_PIX_FMT_Y_CR_CB_H2V2,
+	SDE_PIX_FMT_Y_CR_CB_GH2V2,
+	SDE_PIX_FMT_Y_CBCR_H2V2,
+	SDE_PIX_FMT_Y_CRCB_H2V2,
+	SDE_PIX_FMT_Y_CBCR_H1V2,
+	SDE_PIX_FMT_Y_CRCB_H1V2,
+	SDE_PIX_FMT_Y_CBCR_H2V1,
+	SDE_PIX_FMT_Y_CRCB_H2V1,
+	SDE_PIX_FMT_YCBYCR_H2V1,
+	SDE_PIX_FMT_Y_CBCR_H2V2_VENUS,
+	SDE_PIX_FMT_Y_CRCB_H2V2_VENUS,
+	SDE_PIX_FMT_RGBA_8888_UBWC,
+	SDE_PIX_FMT_RGBX_8888_UBWC,
+	SDE_PIX_FMT_RGB_565_UBWC,
+	SDE_PIX_FMT_Y_CBCR_H2V2_UBWC,
+};
+
 static struct sde_mdp_hw_resource *sde_rotator_hw_alloc(
 	struct sde_rot_mgr *mgr, u32 ctl_id, u32 wb_id, int irq_num)
 {
@@ -403,6 +497,52 @@ static ssize_t sde_rotator_hw_show_state(struct sde_rot_mgr *mgr,
 	return cnt;
 }
 
+/*
+ * sde_hw_rotator_get_pixfmt - get the indexed pixel format
+ * @mgr: Pointer to rotator manager
+ * @index: index of pixel format
+ * @input: true for input port; false for output port
+ */
+static u32 sde_hw_rotator_get_pixfmt(struct sde_rot_mgr *mgr,
+		int index, bool input)
+{
+	if (input) {
+		if (index < ARRAY_SIZE(sde_hw_rotator_input_pixfmts))
+			return sde_hw_rotator_input_pixfmts[index];
+		else
+			return 0;
+	} else {
+		if (index < ARRAY_SIZE(sde_hw_rotator_output_pixfmts))
+			return sde_hw_rotator_output_pixfmts[index];
+		else
+			return 0;
+	}
+}
+
+/*
+ * sde_hw_rotator_is_valid_pixfmt - verify if the given pixel format is valid
+ * @mgr: Pointer to rotator manager
+ * @pixfmt: pixel format to be verified
+ * @input: true for input port; false for output port
+ */
+static int sde_hw_rotator_is_valid_pixfmt(struct sde_rot_mgr *mgr, u32 pixfmt,
+		bool input)
+{
+	int i;
+
+	if (input) {
+		for (i = 0; i < ARRAY_SIZE(sde_hw_rotator_input_pixfmts); i++)
+			if (sde_hw_rotator_input_pixfmts[i] == pixfmt)
+				return true;
+	} else {
+		for (i = 0; i < ARRAY_SIZE(sde_hw_rotator_output_pixfmts); i++)
+			if (sde_hw_rotator_output_pixfmts[i] == pixfmt)
+				return true;
+	}
+
+	return false;
+}
+
 static int sde_rotator_hw_parse_dt(struct sde_rotator_r1_data *hw_data,
 		struct platform_device *dev)
 {
@@ -552,6 +692,8 @@ int sde_rotator_r1_init(struct sde_rot_mgr *mgr)
 	mgr->ops_hw_show_caps = sde_rotator_hw_show_caps;
 	mgr->ops_hw_show_state = sde_rotator_hw_show_state;
 	mgr->ops_hw_create_debugfs = sde_rotator_r1_create_debugfs;
+	mgr->ops_hw_get_pixfmt = sde_hw_rotator_get_pixfmt;
+	mgr->ops_hw_is_valid_pixfmt = sde_hw_rotator_is_valid_pixfmt;
 
 	ret = sde_rotator_hw_parse_dt(mgr->hw_data, mgr->pdev);
 	if (ret)

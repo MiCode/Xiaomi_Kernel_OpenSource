@@ -1273,8 +1273,13 @@ static bool sde_rotator_verify_format(struct sde_rot_mgr *mgr,
 	u8 in_v_subsample, in_h_subsample;
 	u8 out_v_subsample, out_h_subsample;
 
-	if (!sde_mdp_is_wb_format(out_fmt)) {
-		SDEROT_DBG("Invalid output format\n");
+	if (!sde_rotator_is_valid_pixfmt(mgr, in_fmt->format, true)) {
+		SDEROT_DBG("Invalid input format %x\n", in_fmt->format);
+		return false;
+	}
+
+	if (!sde_rotator_is_valid_pixfmt(mgr, out_fmt->format, false)) {
+		SDEROT_DBG("Invalid output format %x\n", out_fmt->format);
 		return false;
 	}
 
