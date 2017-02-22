@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -485,7 +485,6 @@ void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	pll->inited = true;
 }
 
-
 static int clk_fabia_pll_enable(struct clk_hw *hw)
 {
 	int ret;
@@ -822,7 +821,18 @@ static int clk_generic_pll_postdiv_set_rate(struct clk_hw *hw,
 				unsigned long rate, unsigned long parent_rate)
 {
 	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
-	int i, val = 0, div;
+	int i, val = 0, div, ret;
+
+	/*
+	 * If the PLL is in FSM mode, then treat the set_rate callback
+	 * as a no-operation.
+	 */
+	ret = regmap_read(pll->clkr.regmap, pll->offset + PLL_MODE, &val);
+	if (ret)
+		return ret;
+
+	if (val & PLL_VOTE_FSM_ENA)
+		return 0;
 
 	if (!pll->post_div_table) {
 		pr_err("Missing the post_div_table for the PLL\n");
