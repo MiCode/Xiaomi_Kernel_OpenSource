@@ -22,6 +22,10 @@
  * @count: number of subdevices registered.
  * @dev_lock: lock for the subdevice count.
  * @state: state of the root device.
+ * @open_cnt: open count of subdev
+ * @cam_lock: per file handle lock
+ * @cam_eventq: event queue
+ * @cam_eventq_lock: lock for event queue
  */
 struct cam_req_mgr_device {
 	struct video_device *video;
@@ -30,6 +34,10 @@ struct cam_req_mgr_device {
 	int count;
 	struct mutex dev_lock;
 	bool state;
+	int32_t open_cnt;
+	struct mutex cam_lock;
+	struct v4l2_fh  *cam_eventq;
+	spinlock_t cam_eventq_lock;
 };
 
 #endif /* _CAM_REQ_MGR_DEV_H_ */
