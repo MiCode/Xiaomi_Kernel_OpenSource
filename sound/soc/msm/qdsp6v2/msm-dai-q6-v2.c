@@ -274,7 +274,7 @@ static struct afe_clk_set tdm_clk_set = {
 	AFE_API_VERSION_CLOCK_SET,
 	Q6AFE_LPASS_CLK_ID_QUAD_TDM_EBIT,
 	Q6AFE_LPASS_IBIT_CLK_DISABLE,
-	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
+	Q6AFE_LPASS_CLK_ATTRIBUTE_INVERT_COUPLE_NO,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
 	0,
 };
@@ -4095,6 +4095,16 @@ static int msm_dai_tdm_q6_probe(struct platform_device *pdev)
 	}
 	dev_dbg(&pdev->dev, "%s: Clk Rate from DT file %d\n",
 		__func__, tdm_clk_set.clk_freq_in_hz);
+
+	rc = of_property_read_u16(pdev->dev.of_node,
+		"qcom,msm-cpudai-tdm-clk-attribute",
+		&tdm_clk_set.clk_attri);
+	if (rc) {
+		dev_dbg(&pdev->dev, "%s: No Clk attribute in DT file %s\n",
+			__func__, "qcom,msm-cpudai-tdm-clk-attribute");
+	}
+	dev_dbg(&pdev->dev, "%s: Clk Attribute from DT file %d\n",
+		__func__, tdm_clk_set.clk_attri);
 
 	/* other initializations within device group */
 	atomic_set(&tdm_group_ref[group_idx], 0);
