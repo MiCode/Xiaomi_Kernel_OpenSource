@@ -20,7 +20,6 @@
 #include <linux/stat.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/usb/msm_hsusb.h>
 #include <linux/msm-sps.h>
 #include <linux/ipa.h>
 #include <linux/usb_bam.h>
