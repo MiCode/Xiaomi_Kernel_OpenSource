@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +96,7 @@ enum sde_bus_clients {
 enum sde_rot_regdump_access {
 	SDE_ROT_REGDUMP_READ,
 	SDE_ROT_REGDUMP_WRITE,
+	SDE_ROT_REGDUMP_VBIF,
 	SDE_ROT_REGDUMP_MAX
 };
 

@@ -1523,20 +1523,20 @@ static bool sde_rotator_verify_format(struct sde_rot_mgr *mgr,
 	u8 out_v_subsample, out_h_subsample;
 
 	if (!sde_rotator_is_valid_pixfmt(mgr, in_fmt->format, true)) {
-		SDEROT_DBG("Invalid input format %x\n", in_fmt->format);
-		return false;
+		SDEROT_ERR("Invalid input format %x\n", in_fmt->format);
+		goto verify_error;
 	}
 
 	if (!sde_rotator_is_valid_pixfmt(mgr, out_fmt->format, false)) {
-		SDEROT_DBG("Invalid output format %x\n", out_fmt->format);
-		return false;
+		SDEROT_ERR("Invalid output format %x\n", out_fmt->format);
+		goto verify_error;
 	}
 
 	if ((in_fmt->is_yuv != out_fmt->is_yuv) ||
 		(in_fmt->pixel_mode != out_fmt->pixel_mode) ||
 		(in_fmt->unpack_tight != out_fmt->unpack_tight)) {
-		SDEROT_DBG("Rotator does not support CSC\n");
-		return false;
+		SDEROT_ERR("Rotator does not support CSC\n");
+		goto verify_error;
 	}
 
 	/* Forcing same pixel depth */
@@ -1546,8 +1546,8 @@ static bool sde_rotator_verify_format(struct sde_rot_mgr *mgr,
 			(in_fmt->bits[C2_R_Cr] != out_fmt->bits[C2_R_Cr]) ||
 			(in_fmt->bits[C0_G_Y] != out_fmt->bits[C0_G_Y]) ||
 			(in_fmt->bits[C1_B_Cb] != out_fmt->bits[C1_B_Cb])) {
-			SDEROT_DBG("Bit format does not match\n");
-			return false;
+			SDEROT_ERR("Bit format does not match\n");
+			goto verify_error;
 		}
 	}
 
@@ -1560,87 +1560,161 @@ static bool sde_rotator_verify_format(struct sde_rot_mgr *mgr,
 
 		if ((in_v_subsample != out_h_subsample) ||
 				(in_h_subsample != out_v_subsample)) {
-			SDEROT_DBG("Rotation has invalid subsampling\n");
-			return false;
+			SDEROT_ERR("Rotation has invalid subsampling\n");
+			goto verify_error;
 		}
 	} else {
 		if (in_fmt->chroma_sample != out_fmt->chroma_sample) {
-			SDEROT_DBG("Format subsampling mismatch\n");
-			return false;
+			SDEROT_ERR("Format subsampling mismatch\n");
+			goto verify_error;
 		}
 	}
 
-	SDEROT_DBG("in_fmt=%0d, out_fmt=%d\n", in_fmt->format, out_fmt->format);
 	return true;
+
+verify_error:
+	SDEROT_ERR("in_fmt=0x%x, out_fmt=0x%x\n",
+			in_fmt->format, out_fmt->format);
+	return false;
 }
 
-int sde_rotator_verify_config(struct sde_rot_mgr *mgr,
+static struct sde_mdp_format_params *__verify_input_config(
+		struct sde_rot_mgr *mgr,
+		struct sde_rotation_config *config)
+{
+	struct sde_mdp_format_params *in_fmt;
+	u8 in_v_subsample, in_h_subsample;
+	u32 input;
+	int verify_input_only;
+
+	if (!mgr || !config) {
+		SDEROT_ERR("null parameters\n");
+		return NULL;
+	}
+
+	input = config->input.format;
+	verify_input_only =
+		(config->flags & SDE_ROTATION_VERIFY_INPUT_ONLY) ? 1 : 0;
+
+	in_fmt = sde_get_format_params(input);
+	if (!in_fmt) {
+		if (!verify_input_only)
+			SDEROT_ERR("Unrecognized input format:0x%x\n", input);
+		return NULL;
+	}
+
+	sde_mdp_get_v_h_subsample_rate(in_fmt->chroma_sample,
+		&in_v_subsample, &in_h_subsample);
+
+	/* Dimension of image needs to be divisible by subsample rate  */
+	if ((config->input.height % in_v_subsample) ||
+			(config->input.width % in_h_subsample)) {
+		if (!verify_input_only)
+			SDEROT_ERR(
+				"In ROI, subsample mismatch, w=%d, h=%d, vss%d, hss%d\n",
+					config->input.width,
+					config->input.height,
+					in_v_subsample, in_h_subsample);
+		return NULL;
+	}
+
+	return in_fmt;
+}
+
+static struct sde_mdp_format_params *__verify_output_config(
+		struct sde_rot_mgr *mgr,
+		struct sde_rotation_config *config)
+{
+	struct sde_mdp_format_params *out_fmt;
+	u8 out_v_subsample, out_h_subsample;
+	u32 output;
+	int verify_input_only;
+
+	if (!mgr || !config) {
+		SDEROT_ERR("null parameters\n");
+		return NULL;
+	}
+
+	output = config->output.format;
+	verify_input_only =
+		(config->flags & SDE_ROTATION_VERIFY_INPUT_ONLY) ? 1 : 0;
+
+	out_fmt = sde_get_format_params(output);
+	if (!out_fmt) {
+		if (!verify_input_only)
+			SDEROT_ERR("Unrecognized output format:0x%x\n", output);
+		return NULL;
+	}
+
+	sde_mdp_get_v_h_subsample_rate(out_fmt->chroma_sample,
+		&out_v_subsample, &out_h_subsample);
+
+	/* Dimension of image needs to be divisible by subsample rate  */
+	if ((config->output.height % out_v_subsample) ||
+			(config->output.width % out_h_subsample)) {
+		if (!verify_input_only)
+			SDEROT_ERR(
+				"Out ROI, subsample mismatch, w=%d, h=%d, vss%d, hss%d\n",
+					config->output.width,
+					config->output.height,
+					out_v_subsample, out_h_subsample);
+		return NULL;
+	}
+
+	return out_fmt;
+}
+
+int sde_rotator_verify_config_input(struct sde_rot_mgr *mgr,
+		struct sde_rotation_config *config)
+{
+	struct sde_mdp_format_params *in_fmt;
+
+	in_fmt = __verify_input_config(mgr, config);
+	if (!in_fmt)
+		return -EINVAL;
+
+	return 0;
+}
+
+int sde_rotator_verify_config_output(struct sde_rot_mgr *mgr,
+		struct sde_rotation_config *config)
+{
+	struct sde_mdp_format_params *out_fmt;
+
+	out_fmt = __verify_output_config(mgr, config);
+	if (!out_fmt)
+		return -EINVAL;
+
+	return 0;
+}
+
+int sde_rotator_verify_config_all(struct sde_rot_mgr *mgr,
 	struct sde_rotation_config *config)
 {
 	struct sde_mdp_format_params *in_fmt, *out_fmt;
-	u8 in_v_subsample, in_h_subsample;
-	u8 out_v_subsample, out_h_subsample;
-	u32 input, output;
 	bool rotation;
-	int verify_input_only;
 
 	if (!mgr || !config) {
 		SDEROT_ERR("null parameters\n");
 		return -EINVAL;
 	}
 
-	input = config->input.format;
-	output = config->output.format;
 	rotation = (config->flags & SDE_ROTATION_90) ? true : false;
-	verify_input_only =
-		(config->flags & SDE_ROTATION_VERIFY_INPUT_ONLY) ? 1 : 0;
 
-	in_fmt = sde_get_format_params(input);
-	if (!in_fmt) {
-		SDEROT_DBG("Unrecognized input format:%u\n", input);
+	in_fmt = __verify_input_config(mgr, config);
+	if (!in_fmt)
 		return -EINVAL;
-	}
 
-	out_fmt = sde_get_format_params(output);
-	if (!out_fmt) {
-		SDEROT_DBG("Unrecognized output format:%u\n", output);
+	out_fmt = __verify_output_config(mgr, config);
+	if (!out_fmt)
 		return -EINVAL;
-	}
 
-	sde_mdp_get_v_h_subsample_rate(in_fmt->chroma_sample,
-		&in_v_subsample, &in_h_subsample);
-	sde_mdp_get_v_h_subsample_rate(out_fmt->chroma_sample,
-		&out_v_subsample, &out_h_subsample);
-
-	/* Dimension of image needs to be divisible by subsample rate  */
-	if ((config->input.height % in_v_subsample) ||
-			(config->input.width % in_h_subsample)) {
-		SDEROT_DBG(
-			"In ROI, subsample mismatch, w=%d, h=%d, vss%d, hss%d\n",
-					config->input.width,
-					config->input.height,
-					in_v_subsample, in_h_subsample);
+	if (!sde_rotator_verify_format(mgr, in_fmt, out_fmt, rotation)) {
+		SDEROT_ERR(
+			"Rot format pairing invalid, in_fmt:0x%x, out_fmt:0x%x\n",
+					config->input.format,
+					config->output.format);
 		return -EINVAL;
-	}
-
-	if ((config->output.height % out_v_subsample) ||
-			(config->output.width % out_h_subsample)) {
-		SDEROT_DBG(
-			"Out ROI, subsample mismatch, w=%d, h=%d, vss%d, hss%d\n",
-					config->output.width,
-					config->output.height,
-					out_v_subsample, out_h_subsample);
-		if (!verify_input_only)
-			return -EINVAL;
-	}
-
-	if (!sde_rotator_verify_format(mgr, in_fmt,
-			out_fmt, rotation)) {
-		SDEROT_DBG(
-			"Rot format pairing invalid, in_fmt:%d, out_fmt:%d\n",
-					input, output);
-		if (!verify_input_only)
-			return -EINVAL;
 	}
 
 	return 0;
@@ -2049,7 +2123,7 @@ static int sde_rotator_config_session(struct sde_rot_mgr *mgr,
 	int ret = 0;
 	struct sde_rot_perf *perf;
 
-	ret = sde_rotator_verify_config(mgr, config);
+	ret = sde_rotator_verify_config_all(mgr, config);
 	if (ret) {
 		SDEROT_ERR("Rotator verify format failed\n");
 		return ret;
