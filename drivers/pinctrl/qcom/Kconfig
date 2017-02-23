@@ -139,4 +139,11 @@ config PINCTRL_QCOM_SSBI_PMIC
          which are using SSBI for communication with SoC. Example PMIC's
          devices are pm8058 and pm8921.
 
+config PINCTRL_WCD
+	tristate "Qualcomm Technologies, Inc WCD pin controller driver"
+	depends on WCD934X_CODEC
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  WCD gpio controller block.
+
 endif
