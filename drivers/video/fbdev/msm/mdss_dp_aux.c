@@ -870,16 +870,67 @@ static void dp_aux_send_checksum(struct mdss_dp_drv_pdata *dp, u32 checksum)
 	dp_aux_write_buf(dp, 0x260, data, 1, 0);
 }
 
+int mdss_dp_aux_read_edid(struct mdss_dp_drv_pdata *dp,
+	u8 *buf, int size, int blk_num)
+{
+	int max_size_bytes = 16;
+	int rc, read_size;
+	int ret = 0;
+	u8 offset_lut[] = {0x0, 0x80};
+	u8 offset;
+
+	if (dp->test_data.test_requested == TEST_EDID_READ)
+		max_size_bytes = 128;
+
+	/*
+	 * Calculate the offset of the desired EDID block to be read.
+	 * For even blocks, offset starts at 0x0
+	 * For odd blocks, offset starts at 0x80
+	 */
+	if (blk_num % 2)
+		offset = offset_lut[1];
+	else
+		offset = offset_lut[0];
+
+	do {
+		struct edp_cmd cmd = {0};
+
+		read_size = min(size, max_size_bytes);
+		cmd.read = 1;
+		cmd.addr = EDID_START_ADDRESS;
+		cmd.len = read_size;
+		cmd.out_buf = buf;
+		cmd.i2c = 1;
+
+		/* Write the offset first prior to reading the data */
+		pr_debug("offset=0x%x, size=%d\n", offset, size);
+		dp_aux_write_buf_retry(dp, EDID_START_ADDRESS, &offset, 1, 1,
+			false);
+		rc = dp_aux_read(dp, &cmd);
+		if (rc < 0) {
+			pr_err("aux read failed\n");
+			return rc;
+		}
+
+		print_hex_dump(KERN_DEBUG, "DP:EDID: ", DUMP_PREFIX_NONE, 16, 1,
+				buf, read_size, false);
+		buf += read_size;
+		offset += read_size;
+		size -= read_size;
+		ret += read_size;
+	} while (size > 0);
+
+	return ret;
+}
+
 int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 {
-	struct edp_buf *rp = &dp->rxp;
 	int rlen, ret = 0;
 	int edid_blk = 0, blk_num = 0, retries = 10;
 	bool edid_parsing_done = false;
 	const u8 cea_tag = 0x02;
 	u32 const segment_addr = 0x30;
 	u32 checksum = 0;
-	u8 offset[] = {0x0, 0x80};
 
 	ret = dp_aux_chan_ready(dp);
 	if (ret) {
@@ -896,8 +947,8 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 	dp_sink_parse_test_request(dp);
 
 	while (retries) {
-		u8 *offset_p;
 		u8 segment;
+		u8 edid_buf[EDID_BLOCK_SIZE] = {0};
 
 		/*
 		 * Write the segment first.
@@ -909,20 +960,8 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 		segment = blk_num >> 1;
 		dp_aux_write_buf_retry(dp, segment_addr, &segment, 1, 1, false);
 
-		/*
-		 * Write the offset of the desired EDID block to be read.
-		 * For even blocks, offset = 0x0
-		 * For odd blocks, offset = 0x80
-		 */
-		if (blk_num % 2)
-			offset_p = &offset[1];
-		else
-			offset_p = &offset[0];
-		dp_aux_write_buf_retry(dp, EDID_START_ADDRESS, offset_p, 1, 1,
-				false);
-
-		rlen = dp_aux_read_buf_retry(dp, EDID_START_ADDRESS,
-				EDID_BLOCK_SIZE, 1, false);
+		rlen = mdss_dp_aux_read_edid(dp, edid_buf, EDID_BLOCK_SIZE,
+			blk_num);
 		if (rlen != EDID_BLOCK_SIZE) {
 			pr_err("Read failed. rlen=%s\n",
 				mdss_dp_get_aux_error(rlen));
@@ -931,9 +970,10 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 			continue;
 		}
 		pr_debug("blk_num=%d, rlen=%d\n", blk_num, rlen);
-
-		if (dp_edid_is_valid_header(rp->data)) {
-			ret = dp_edid_buf_error(rp->data, rp->len);
+		print_hex_dump(KERN_DEBUG, "DP:EDID: ", DUMP_PREFIX_NONE, 16, 1,
+				edid_buf, EDID_BLOCK_SIZE, false);
+		if (dp_edid_is_valid_header(edid_buf)) {
+			ret = dp_edid_buf_error(edid_buf, rlen);
 			if (ret) {
 				pr_err("corrupt edid block detected\n");
 				mdss_dp_phy_aux_update_config(dp, PHY_AUX_CFG1);
@@ -948,14 +988,14 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 				continue;
 			}
 
-			dp_extract_edid_manufacturer(&dp->edid, rp->data);
-			dp_extract_edid_product(&dp->edid, rp->data);
-			dp_extract_edid_version(&dp->edid, rp->data);
-			dp_extract_edid_ext_block_cnt(&dp->edid, rp->data);
-			dp_extract_edid_video_support(&dp->edid, rp->data);
-			dp_extract_edid_feature(&dp->edid, rp->data);
+			dp_extract_edid_manufacturer(&dp->edid, edid_buf);
+			dp_extract_edid_product(&dp->edid, edid_buf);
+			dp_extract_edid_version(&dp->edid, edid_buf);
+			dp_extract_edid_ext_block_cnt(&dp->edid, edid_buf);
+			dp_extract_edid_video_support(&dp->edid, edid_buf);
+			dp_extract_edid_feature(&dp->edid, edid_buf);
 			dp_extract_edid_detailed_timing_description(&dp->edid,
-				rp->data);
+				edid_buf);
 
 			edid_parsing_done = true;
 		} else if (!edid_parsing_done) {
@@ -969,19 +1009,19 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 			blk_num++;
 
 			/* fix dongle byte shift issue */
-			if (edid_blk == 1 && rp->data[0] != cea_tag) {
+			if (edid_blk == 1 && edid_buf[0] != cea_tag) {
 				u8 tmp[EDID_BLOCK_SIZE - 1];
 
-				memcpy(tmp, rp->data, EDID_BLOCK_SIZE - 1);
-				rp->data[0] = cea_tag;
-				memcpy(rp->data + 1, tmp, EDID_BLOCK_SIZE - 1);
+				memcpy(tmp, edid_buf, EDID_BLOCK_SIZE - 1);
+				edid_buf[0] = cea_tag;
+				memcpy(edid_buf + 1, tmp, EDID_BLOCK_SIZE - 1);
 			}
 		}
 
 		memcpy(dp->edid_buf + (edid_blk * EDID_BLOCK_SIZE),
-			rp->data, EDID_BLOCK_SIZE);
+			edid_buf, EDID_BLOCK_SIZE);
 
-		checksum = rp->data[rp->len - 1];
+		checksum = edid_buf[rlen - 1];
 
 		/* break if no more extension blocks present */
 		if (edid_blk >= dp->edid.ext_block_cnt)
