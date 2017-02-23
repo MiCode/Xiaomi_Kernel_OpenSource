@@ -484,6 +484,9 @@
 #define DWC3_DEPCMD_TYPE_BULK		2
 #define DWC3_DEPCMD_TYPE_INTR		3
 
+#define DWC_CTRL_COUNT	10
+#define NUM_LOG_PAGES	12
+
 /* Structures */
 
 struct dwc3_trb;
@@ -932,6 +935,8 @@ struct dwc3_scratchpad_array {
  * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  * @wait_linkstate: waitqueue for waiting LINK to move into required state
  * @vbus_draw: current to be drawn from USB
+ * @index: dwc3 instance's number
+ * @dwc_ipc_log_ctxt: dwc3 ipc log context
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -1114,6 +1119,8 @@ struct dwc3 {
 	unsigned int		irq_dbg_index;
 
 	wait_queue_head_t	wait_linkstate;
+	unsigned int		index;
+	void			*dwc_ipc_log_ctxt;
 	struct dwc3_gadget_events	dbg_gadget_events;
 };
 
