@@ -32,7 +32,7 @@ static void sde_core_irq_callback_handler(void *arg, int irq_idx)
 	struct sde_irq_callback *cb;
 	unsigned long irq_flags;
 
-	SDE_DEBUG("irq_idx=%d\n", irq_idx);
+	pr_debug("irq_idx=%d\n", irq_idx);
 
 	if (list_empty(&irq_obj->irq_cb_tbl[irq_idx]))
 		SDE_ERROR("irq_idx=%d has no registered callback\n", irq_idx);
