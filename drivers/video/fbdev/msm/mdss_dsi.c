@@ -2533,8 +2533,6 @@ static void mdss_dsi_timing_db_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_ON);
 	MIPI_OUTP((ctrl->ctrl_base + 0x1e8), enable);
 	wmb(); /* ensure timing db is disabled */
-	MIPI_OUTP((ctrl->ctrl_base + 0x1e4), enable);
-	wmb(); /* ensure timing flush is disabled */
 	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle,
 		  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_OFF);
 }

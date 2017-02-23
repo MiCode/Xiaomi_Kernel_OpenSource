@@ -1416,6 +1416,8 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 		}
 	}
 
+	/* add HW recommended delay to handle panel_vsync */
+	udelay(2000);
 	mutex_lock(&ctl->offlock);
 	pdata = ctl->panel_data;
 	if (pdata == NULL) {
@@ -1545,7 +1547,8 @@ exit_dfps:
 				if (rc < 0)
 					pr_err("Error in dfps_wait: %d\n", rc);
 			}
-
+			/* add HW recommended delay to handle panel_vsync */
+			udelay(2000);
 			/* Disable interface timing double buffer */
 			rc = mdss_mdp_ctl_intf_event(ctl,
 				MDSS_EVENT_DSI_TIMING_DB_CTRL,
