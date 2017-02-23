@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -183,13 +183,6 @@ void sde_rm_init_hw_iter(
  * @Return: true on match found, false on no match found
  */
 bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *iter);
-
-/**
- * sde_rm_check_property_topctl - validate property bitmask before it is set
- * @val: user's proposed topology control bitmask
- * @Return: 0 on success or error
- */
-int sde_rm_check_property_topctl(uint64_t val);
 
 /**
  * sde_rm_check_property_topctl - validate property bitmask before it is set
