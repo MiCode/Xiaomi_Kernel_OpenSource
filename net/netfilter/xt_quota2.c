@@ -106,7 +106,7 @@ static void quota2_log(unsigned int hooknum,
 		return;
 	}
 	pm = nlmsg_data(nlh);
-	if (skb->tstamp.tv64 == 0)
+	if (skb->tstamp == 0)
 		__net_timestamp((struct sk_buff *)skb);
 	pm->data_len = 0;
 	pm->hook = hooknum;
