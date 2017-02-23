@@ -102,7 +102,7 @@
 			1 &intc 0 0 221 0
 			2 &tlmm 54 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&tlmm 54 0x1>;
+	cd-gpios = <&tlmm 54 0x0>;
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 								200000000>;
