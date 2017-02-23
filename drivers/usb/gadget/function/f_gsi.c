@@ -1,4 +1,5 @@
-/* Copyright (c) 2015-2016, Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2015-2017, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,10 +13,6 @@
 
 #include "f_gsi.h"
 #include "rndis.h"
-
-#define log_event_err(x, ...) pr_err(x, ##__VA_ARGS__)
-#define log_event_dbg(x, ...) pr_debug(x, ##__VA_ARGS__)
-#define log_event_info(x, ...) pr_info(x, ##__VA_ARGS__)
 
 static unsigned int gsi_in_aggr_size;
 module_param(gsi_in_aggr_size, uint, 0644);
@@ -53,6 +50,7 @@ static void gsi_ctrl_pkt_free(struct gsi_ctrl_pkt *pkt);
 static inline bool usb_gsi_remote_wakeup_allowed(struct usb_function *f)
 {
 	bool remote_wakeup_allowed;
+	struct f_gsi *gsi = func_to_gsi(f);
 
 	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
 		remote_wakeup_allowed = f->func_wakeup_allowed;
@@ -60,13 +58,14 @@ static inline bool usb_gsi_remote_wakeup_allowed(struct usb_function *f)
 		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
 
 	log_event_dbg("%s: remote_wakeup_allowed:%s", __func__,
-			remote_wakeup_allowed ? "true" : "false");
+			(remote_wakeup_allowed ? "true" : "false"));
 	return remote_wakeup_allowed;
 }
 
 static void post_event(struct gsi_data_port *port, u8 event)
 {
 	unsigned long flags;
+	struct f_gsi *gsi = d_port_to_gsi(port);
 
 	spin_lock_irqsave(&port->evt_q.q_lock, flags);
 
@@ -96,6 +95,7 @@ static u8 read_event(struct gsi_data_port *port)
 {
 	u8 event;
 	unsigned long flags;
+	struct f_gsi *gsi = d_port_to_gsi(port);
 
 	spin_lock_irqsave(&port->evt_q.q_lock, flags);
 	if (port->evt_q.head == port->evt_q.tail) {
@@ -119,6 +119,7 @@ static u8 peek_event(struct gsi_data_port *port)
 	u8 event;
 	unsigned long flags;
 	u8 peek_index = 0;
+	struct f_gsi *gsi = d_port_to_gsi(port);
 
 	spin_lock_irqsave(&port->evt_q.q_lock, flags);
 	if (port->evt_q.head == port->evt_q.tail) {
@@ -614,7 +615,7 @@ static void ipa_work_handler(struct work_struct *w)
 	struct usb_gadget *gadget = d_port->gadget;
 	struct device *dev;
 	struct device *gad_dev;
-	struct f_gsi *gsi;
+	struct f_gsi *gsi = d_port_to_gsi(d_port);
 
 	event = read_event(d_port);
 
@@ -633,8 +634,6 @@ static void ipa_work_handler(struct work_struct *w)
 		log_event_err("%s(): gadget is NULL.\n", __func__);
 		return;
 	}
-
-	gsi = d_port_to_gsi(d_port);
 
 	switch (d_port->sm_state) {
 	case STATE_UNINITIALIZED:
@@ -955,6 +954,7 @@ static int gsi_ctrl_dev_open(struct inode *ip, struct file *fp)
 	struct gsi_ctrl_port *c_port = container_of(fp->private_data,
 						struct gsi_ctrl_port,
 						ctrl_device);
+	struct f_gsi *gsi = c_port_to_gsi(c_port);
 
 	if (!c_port) {
 		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
@@ -978,6 +978,7 @@ static int gsi_ctrl_dev_release(struct inode *ip, struct file *fp)
 	struct gsi_ctrl_port *c_port = container_of(fp->private_data,
 						struct gsi_ctrl_port,
 						ctrl_device);
+	struct f_gsi *gsi = c_port_to_gsi(c_port);
 
 	if (!c_port) {
 		log_event_err("%s: gsi ctrl port %p", __func__, c_port);
@@ -997,7 +998,7 @@ gsi_ctrl_dev_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 	struct gsi_ctrl_port *c_port = container_of(fp->private_data,
 						struct gsi_ctrl_port,
 						ctrl_device);
-
+	struct f_gsi *gsi = c_port_to_gsi(c_port);
 	struct gsi_ctrl_pkt *cpkt = NULL;
 	unsigned long flags;
 	int ret = 0;
@@ -1267,6 +1268,7 @@ static unsigned int gsi_ctrl_dev_poll(struct file *fp, poll_table *wait)
 	struct gsi_ctrl_port *c_port = container_of(fp->private_data,
 						struct gsi_ctrl_port,
 						ctrl_device);
+	struct f_gsi *gsi = c_port_to_gsi(c_port);
 	unsigned long flags;
 	unsigned int mask = 0;
 
@@ -1372,29 +1374,28 @@ static struct net_device *gsi_rndis_get_netdev(const char *netname)
 	return net_dev;
 }
 
-static void gsi_rndis_open(struct f_gsi *rndis)
+static void gsi_rndis_open(struct f_gsi *gsi)
 {
-	struct usb_composite_dev *cdev = rndis->function.config->cdev;
+	struct usb_composite_dev *cdev = gsi->function.config->cdev;
 
 	log_event_dbg("%s", __func__);
 
-	rndis_set_param_medium(rndis->params, RNDIS_MEDIUM_802_3,
+	rndis_set_param_medium(gsi->params, RNDIS_MEDIUM_802_3,
 				gsi_xfer_bitrate(cdev->gadget) / 100);
-	rndis_signal_connect(rndis->params);
+	rndis_signal_connect(gsi->params);
 }
 
 void gsi_rndis_flow_ctrl_enable(bool enable, struct rndis_params *param)
 {
-	struct f_gsi *rndis = param->v;
+	struct f_gsi *gsi = param->v;
 	struct gsi_data_port *d_port;
 
-	if (!rndis) {
-		log_event_err("%s: gsi prot ctx is %p", __func__, rndis);
+	if (!gsi) {
+		pr_err("%s: gsi prot ctx is %p", __func__, gsi);
 		return;
 	}
 
-	d_port = &rndis->d_port;
-
+	d_port = &gsi->d_port;
 	if (enable) {
 		log_event_dbg("%s: posting HOST_NRDY\n", __func__);
 		post_event(d_port, EVT_HOST_NRDY);
@@ -1403,7 +1404,7 @@ void gsi_rndis_flow_ctrl_enable(bool enable, struct rndis_params *param)
 		post_event(d_port, EVT_HOST_READY);
 	}
 
-	queue_work(rndis->d_port.ipa_usb_wq, &rndis->d_port.usb_ipa_w);
+	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
 }
 
 static int queue_notification_request(struct f_gsi *gsi)
@@ -1594,10 +1595,10 @@ static void gsi_rndis_response_available(void *_rndis)
 static void gsi_rndis_command_complete(struct usb_ep *ep,
 		struct usb_request *req)
 {
-	struct f_gsi *rndis = req->context;
+	struct f_gsi *gsi = req->context;
 	int status;
 
-	status = rndis_msg_parser(rndis->params, (u8 *) req->buf);
+	status = rndis_msg_parser(gsi->params, (u8 *) req->buf);
 	if (status < 0)
 		log_event_err("RNDIS command error %d, %d/%d",
 			status, req->actual, req->length);
@@ -2188,6 +2189,7 @@ static void gsi_resume(struct usb_function *f)
 static int gsi_func_suspend(struct usb_function *f, u8 options)
 {
 	bool func_wakeup_allowed;
+	struct f_gsi *gsi = func_to_gsi(f);
 
 	log_event_dbg("func susp %u cmd for %s",
 		options, f->name ? f->name : "");
@@ -2677,8 +2679,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		&gsi->d_port.ipa_init_params, gsi->d_port.ipa_usb_notify_cb,
 		gsi);
 	if (status) {
-		log_event_err("%s: failed to init teth prot %d",
-						__func__, gsi->prot_id);
+		log_event_err("%s: failed to init teth prot(%d) with err:%d",
+					__func__, gsi->prot_id, status);
 		goto dereg_rndis;
 	}
 
@@ -2800,7 +2802,7 @@ static struct f_gsi *gsi_function_init(enum ipa_usb_teth_prot prot_id)
 	int ret = 0;
 
 	if (prot_id >= IPA_USB_MAX_TETH_PROT_SIZE) {
-		log_event_err("%s: invalid prot id %d", __func__, prot_id);
+		pr_err("%s: invalid prot id %d", __func__, prot_id);
 		ret = -EINVAL;
 		goto error;
 	}
@@ -3005,7 +3007,9 @@ static int gsi_set_inst_name(struct usb_function_instance *fi,
 {
 	int ret, name_len;
 	struct f_gsi *gsi;
+	char gsi_inst_name[MAX_INST_NAME_LEN + sizeof("gsi.") + 1];
 	struct gsi_opts *opts = container_of(fi, struct gsi_opts, func_inst);
+	void *ipc_log_ctxt;
 
 	name_len = strlen(name) + 1;
 	if (name_len > MAX_INST_NAME_LEN)
@@ -3018,12 +3022,24 @@ static int gsi_set_inst_name(struct usb_function_instance *fi,
 		return -EINVAL;
 	}
 
+	/*
+	 * create instance name with prefixing "gsi." to differentiate
+	 * ipc log debugfs entry
+	 */
+	snprintf(gsi_inst_name, sizeof(gsi_inst_name), "gsi.%s", name);
+	ipc_log_ctxt = ipc_log_context_create(NUM_LOG_PAGES, gsi_inst_name, 0);
+	if (!ipc_log_ctxt)
+		pr_err("%s: Err allocating ipc_log_ctxt for prot:%s\n",
+						__func__, gsi_inst_name);
+
 	gsi = gsi_function_init(ret);
-	if (IS_ERR(gsi))
+	if (IS_ERR(gsi)) {
+		ipc_log_context_destroy(ipc_log_ctxt);
 		return PTR_ERR(gsi);
+	}
 
 	opts->gsi = gsi;
-
+	opts->gsi->ipc_log_ctxt = ipc_log_ctxt;
 	return 0;
 }
 
@@ -3034,6 +3050,7 @@ static void gsi_free_inst(struct usb_function_instance *f)
 	if (opts->gsi->c_port.ctrl_device.fops)
 		misc_deregister(&opts->gsi->c_port.ctrl_device);
 
+	ipc_log_context_destroy(opts->gsi->ipc_log_ctxt);
 	kfree(opts->gsi);
 	kfree(opts);
 }
@@ -3077,7 +3094,7 @@ static int fgsi_init(void)
 	ipa_usb_wq = alloc_workqueue("k_ipa_usb",
 				WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_FREEZABLE, 1);
 	if (!ipa_usb_wq) {
-		log_event_err("Failed to create workqueue for IPA");
+		pr_err("%s(): Failed to create workqueue\n", __func__);
 		return -ENOMEM;
 	}
 

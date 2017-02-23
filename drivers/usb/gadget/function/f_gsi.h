@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
-
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -25,6 +25,7 @@
 #include <linux/etherdevice.h>
 #include <linux/debugfs.h>
 #include <linux/ipa_usb.h>
+#include <linux/ipc_logging.h>
 
 #define GSI_RMNET_CTRL_NAME "rmnet_ctrl"
 #define GSI_MBIM_CTRL_NAME "android_mbim"
@@ -81,6 +82,28 @@
 #define	EVT_SUSPEND			8
 #define	EVT_IPA_SUSPEND			9
 #define	EVT_RESUMED			10
+
+#define NUM_LOG_PAGES 10
+#define log_event_err(x, ...) do { \
+	if (gsi) { \
+		ipc_log_string(gsi->ipc_log_ctxt, x, ##__VA_ARGS__); \
+		pr_err(x, ##__VA_ARGS__); \
+	} \
+} while (0)
+
+#define log_event_dbg(x, ...) do { \
+	if (gsi) { \
+		ipc_log_string(gsi->ipc_log_ctxt, x, ##__VA_ARGS__); \
+		pr_debug(x, ##__VA_ARGS__); \
+	} \
+} while (0)
+
+#define log_event_info(x, ...) do { \
+	if (gsi) { \
+		ipc_log_string(gsi->ipc_log_ctxt, x, ##__VA_ARGS__); \
+		pr_info(x, ##__VA_ARGS__); \
+	} \
+} while (0)
 
 enum connection_state {
 	STATE_UNINITIALIZED,
@@ -242,6 +265,7 @@ struct f_gsi {
 
 	struct gsi_data_port d_port;
 	struct gsi_ctrl_port c_port;
+	void *ipc_log_ctxt;
 };
 
 static inline struct f_gsi *func_to_gsi(struct usb_function *f)
