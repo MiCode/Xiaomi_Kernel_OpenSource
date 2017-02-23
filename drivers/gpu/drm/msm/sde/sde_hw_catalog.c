@@ -1830,12 +1830,20 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED3;
 	else if (!rc && !strcmp(type, "qseedv2"))
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED2;
+	else if (rc) {
+		SDE_DEBUG("qseed property not found\n");
+		rc = 0;
+	}
 
 	rc = of_property_read_string(np, sde_prop[CSC_TYPE].prop_name, &type);
 	if (!rc && !strcmp(type, "csc"))
 		cfg->csc_type = SDE_SSPP_CSC;
 	else if (!rc && !strcmp(type, "csc-10bit"))
 		cfg->csc_type = SDE_SSPP_CSC_10BIT;
+	else if (rc) {
+		SDE_DEBUG("CSC property not found\n");
+		rc = 0;
+	}
 
 	cfg->has_src_split = PROP_VALUE_ACCESS(prop_value, SRC_SPLIT, 0);
 end:

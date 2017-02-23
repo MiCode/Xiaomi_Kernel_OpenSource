@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -326,13 +326,7 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 	if (rd_dev->complete_ramdump) {
 		for (i = 0; i < nsegments-1; i++)
 			segments[i].size =
-			PAGE_ALIGN(segments[i+1].address - segments[i].address);
-
-		segments[nsegments-1].size =
-			PAGE_ALIGN(segments[nsegments-1].size);
-	} else {
-		for (i = 0; i < nsegments; i++)
-			segments[i].size = PAGE_ALIGN(segments[i].size);
+				segments[i + 1].address - segments[i].address;
 	}
 
 	rd_dev->segments = segments;

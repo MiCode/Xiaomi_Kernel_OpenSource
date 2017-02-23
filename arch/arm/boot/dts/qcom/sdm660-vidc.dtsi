@@ -28,6 +28,7 @@
 		qcom,firmware-name = "venus";
 		qcom,never-unload-fw;
 		qcom,sw-power-collapse;
+		qcom,max-secure-instances = <5>;
 		qcom,reg-presets =
 			<0x80010 0x001f001f>,
 			<0x80018 0x00000156>,
@@ -43,7 +44,7 @@
 
 		qcom,dcvs-tbl =
 			/* Dec UHD@30 All decoder - NOM to SVS+ */
-			<897600 734400 979200 0x3f00000c>,
+			<897600 783360 979200 0x3f00000c>,
 
 			/* Dec DCI@24 HEVC - NOM to SVS+ */
 			<816000 734400 829440 0x0c000000>,

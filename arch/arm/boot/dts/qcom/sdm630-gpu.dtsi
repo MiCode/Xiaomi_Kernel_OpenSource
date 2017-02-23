@@ -90,7 +90,7 @@
 		/* GPU to BIMC bus width, VBIF data transfer in 1 cycle */
 		qcom,bus-width = <32>;
 		qcom,msm-bus,name = "grp3d";
-		qcom,msm-bus,num-cases = <14>;
+		qcom,msm-bus,num-cases = <12>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<26 512 0 0>,

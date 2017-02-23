@@ -61,8 +61,8 @@
 		qcom,max-bandwidth-high-kbps = <6600000>;
 		qcom,max-bandwidth-per-pipe-kbps = <3100000>;
 		qcom,max-clk-rate = <412500000>;
-		qcom,mdss-default-ot-rd-limit = <32>;
-		qcom,mdss-default-ot-wr-limit = <40>;
+		qcom,mdss-default-ot-rd-limit = <40>;
+		qcom,mdss-default-ot-wr-limit = <32>;
 		qcom,mdss-dram-channels = <2>;
 
 		/* Bandwidth limit settings */
@@ -577,8 +577,8 @@
 		qcom,mdss-rot-vbif-qos-setting = <1 1 1 1>;
 		qcom,mdss-rot-xin-id = <14 15>;
 
-		qcom,mdss-default-ot-rd-limit = <32>;
-		qcom,mdss-default-ot-wr-limit = <40>;
+		qcom,mdss-default-ot-rd-limit = <40>;
+		qcom,mdss-default-ot-wr-limit = <32>;
 	};
 
 };

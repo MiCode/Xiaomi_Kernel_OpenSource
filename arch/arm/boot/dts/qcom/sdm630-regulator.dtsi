@@ -383,7 +383,7 @@
 	rpm-regulator-ldob8 {
 		status = "okay";
 		pm660l_l8: regulator-l8 {
-			regulator-min-microvolt = <3200000>;
+			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <3400000>;
 			status = "okay";
 		};
@@ -528,7 +528,7 @@
 /* CPR controller regulators */
 	/* MMSS CPR Controller node */
 	gfx_cpr: cpr4-ctrl@05061000 {
-		compatible = "qcom,cpr4-sdm660-mmss-ldo-regulator";
+		compatible = "qcom,cpr4-sdm630-mmss-ldo-regulator";
 		reg = <0x05061000 0x4000>, <0x00784000 0x1000>;
 		reg-names = "cpr_ctrl", "fuse_base";
 		clocks = <&clock_gpu GPUCC_RBCPR_CLK>,

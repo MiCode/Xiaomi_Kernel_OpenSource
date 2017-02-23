@@ -4116,7 +4116,7 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 
 		if (result) {
 			IPAERR("FW loading process has failed\n");
-			BUG();
+			return result;
 		} else
 			ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
 	}

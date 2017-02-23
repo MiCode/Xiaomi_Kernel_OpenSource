@@ -395,10 +395,23 @@ static struct service_to_pipe target_service_to_ce_map_wlan[] = {
 	},
 };
 
-#define ADRASTEA_SRC_WR_INDEX_OFFSET 0x3C
-#define ADRASTEA_DST_WR_INDEX_OFFSET 0x40
+#define WCN3990_SRC_WR_INDEX_OFFSET 0x3C
+#define WCN3990_DST_WR_INDEX_OFFSET 0x40
 
-static struct ath10k_shadow_reg_cfg target_shadow_reg_cfg_map[] = { };
+static struct ath10k_shadow_reg_cfg target_shadow_reg_cfg_map[] = {
+		{ 0, WCN3990_SRC_WR_INDEX_OFFSET},
+		{ 3, WCN3990_SRC_WR_INDEX_OFFSET},
+		{ 4, WCN3990_SRC_WR_INDEX_OFFSET},
+		{ 5, WCN3990_SRC_WR_INDEX_OFFSET},
+		{ 7, WCN3990_SRC_WR_INDEX_OFFSET},
+		{ 1, WCN3990_DST_WR_INDEX_OFFSET},
+		{ 2, WCN3990_DST_WR_INDEX_OFFSET},
+		{ 7, WCN3990_DST_WR_INDEX_OFFSET},
+		{ 8, WCN3990_DST_WR_INDEX_OFFSET},
+		{ 9, WCN3990_DST_WR_INDEX_OFFSET},
+		{ 10, WCN3990_DST_WR_INDEX_OFFSET},
+		{ 11, WCN3990_DST_WR_INDEX_OFFSET},
+};
 
 void ath10k_snoc_write32(void *ar, u32 offset, u32 value)
 {
@@ -1048,7 +1061,8 @@ static int ath10k_snoc_wlan_enable(struct ath10k *ar)
 				  sizeof(struct ce_svc_pipe_cfg);
 	cfg.ce_svc_cfg = (struct ce_svc_pipe_cfg *)
 		&target_service_to_ce_map_wlan;
-	cfg.num_shadow_reg_cfg = sizeof(target_shadow_reg_cfg_map);
+	cfg.num_shadow_reg_cfg = sizeof(target_shadow_reg_cfg_map) /
+					sizeof(struct icnss_shadow_reg_cfg);
 	cfg.shadow_reg_cfg = (struct icnss_shadow_reg_cfg *)
 		&target_shadow_reg_cfg_map;
 

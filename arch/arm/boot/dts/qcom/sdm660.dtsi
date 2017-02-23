@@ -2219,6 +2219,7 @@
 			<0 0>;
 
 		lanes-per-direction = <1>;
+		spm-level = <5>;
 
 		qcom,msm-bus,name = "ufs1";
 		qcom,msm-bus,num-cases = <12>;

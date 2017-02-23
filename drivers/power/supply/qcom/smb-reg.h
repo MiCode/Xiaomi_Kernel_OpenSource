@@ -535,6 +535,8 @@ enum {
 #define USBIN_LT_3P6V_RT_STS_BIT		BIT(1)
 #define USBIN_COLLAPSE_RT_STS_BIT		BIT(0)
 
+#define QC_PULSE_COUNT_STATUS_1_REG		(USBIN_BASE + 0x30)
+
 #define USBIN_CMD_IL_REG			(USBIN_BASE + 0x40)
 #define BAT_2_SYS_FET_DIS_BIT			BIT(1)
 #define USBIN_SUSPEND_BIT			BIT(0)
@@ -544,6 +546,7 @@ enum {
 #define APSD_RERUN_BIT				BIT(0)
 
 #define CMD_HVDCP_2_REG				(USBIN_BASE + 0x43)
+#define RESTART_AICL_BIT			BIT(7)
 #define TRIGGER_AICL_BIT			BIT(6)
 #define FORCE_12V_BIT				BIT(5)
 #define FORCE_9V_BIT				BIT(4)

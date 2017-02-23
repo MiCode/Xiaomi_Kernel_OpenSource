@@ -120,6 +120,9 @@ struct ath10k_ce_ring {
 	/* CE address space */
 	u32 base_addr_ce_space;
 
+	char *shadow_base_unaligned;
+	struct ce_desc *shadow_base;
+
 	/* keep last */
 	void *per_transfer_context[0];
 };
@@ -142,6 +145,61 @@ struct ath10k_ce_pipe {
 
 /* Copy Engine settable attributes */
 struct ce_attr;
+
+#define SHADOW_VALUE0       (ar->shadow_reg_value->shadow_reg_value_0)
+#define SHADOW_VALUE1       (ar->shadow_reg_value->shadow_reg_value_1)
+#define SHADOW_VALUE2       (ar->shadow_reg_value->shadow_reg_value_2)
+#define SHADOW_VALUE3       (ar->shadow_reg_value->shadow_reg_value_3)
+#define SHADOW_VALUE4       (ar->shadow_reg_value->shadow_reg_value_4)
+#define SHADOW_VALUE5       (ar->shadow_reg_value->shadow_reg_value_5)
+#define SHADOW_VALUE6       (ar->shadow_reg_value->shadow_reg_value_6)
+#define SHADOW_VALUE7       (ar->shadow_reg_value->shadow_reg_value_7)
+#define SHADOW_VALUE8       (ar->shadow_reg_value->shadow_reg_value_8)
+#define SHADOW_VALUE9       (ar->shadow_reg_value->shadow_reg_value_9)
+#define SHADOW_VALUE10      (ar->shadow_reg_value->shadow_reg_value_10)
+#define SHADOW_VALUE11      (ar->shadow_reg_value->shadow_reg_value_11)
+#define SHADOW_VALUE12      (ar->shadow_reg_value->shadow_reg_value_12)
+#define SHADOW_VALUE13      (ar->shadow_reg_value->shadow_reg_value_13)
+#define SHADOW_VALUE14      (ar->shadow_reg_value->shadow_reg_value_14)
+#define SHADOW_VALUE15      (ar->shadow_reg_value->shadow_reg_value_15)
+#define SHADOW_VALUE16      (ar->shadow_reg_value->shadow_reg_value_16)
+#define SHADOW_VALUE17      (ar->shadow_reg_value->shadow_reg_value_17)
+#define SHADOW_VALUE18      (ar->shadow_reg_value->shadow_reg_value_18)
+#define SHADOW_VALUE19      (ar->shadow_reg_value->shadow_reg_value_19)
+#define SHADOW_VALUE20      (ar->shadow_reg_value->shadow_reg_value_20)
+#define SHADOW_VALUE21      (ar->shadow_reg_value->shadow_reg_value_21)
+#define SHADOW_VALUE22      (ar->shadow_reg_value->shadow_reg_value_22)
+#define SHADOW_VALUE23      (ar->shadow_reg_value->shadow_reg_value_23)
+#define SHADOW_ADDRESS0     (ar->shadow_reg_address->shadow_reg_address_0)
+#define SHADOW_ADDRESS1     (ar->shadow_reg_address->shadow_reg_address_1)
+#define SHADOW_ADDRESS2     (ar->shadow_reg_address->shadow_reg_address_2)
+#define SHADOW_ADDRESS3     (ar->shadow_reg_address->shadow_reg_address_3)
+#define SHADOW_ADDRESS4     (ar->shadow_reg_address->shadow_reg_address_4)
+#define SHADOW_ADDRESS5     (ar->shadow_reg_address->shadow_reg_address_5)
+#define SHADOW_ADDRESS6     (ar->shadow_reg_address->shadow_reg_address_6)
+#define SHADOW_ADDRESS7     (ar->shadow_reg_address->shadow_reg_address_7)
+#define SHADOW_ADDRESS8     (ar->shadow_reg_address->shadow_reg_address_8)
+#define SHADOW_ADDRESS9     (ar->shadow_reg_address->shadow_reg_address_9)
+#define SHADOW_ADDRESS10    (ar->shadow_reg_address->shadow_reg_address_10)
+#define SHADOW_ADDRESS11    (ar->shadow_reg_address->shadow_reg_address_11)
+#define SHADOW_ADDRESS12    (ar->shadow_reg_address->shadow_reg_address_12)
+#define SHADOW_ADDRESS13    (ar->shadow_reg_address->shadow_reg_address_13)
+#define SHADOW_ADDRESS14    (ar->shadow_reg_address->shadow_reg_address_14)
+#define SHADOW_ADDRESS15    (ar->shadow_reg_address->shadow_reg_address_15)
+#define SHADOW_ADDRESS16    (ar->shadow_reg_address->shadow_reg_address_16)
+#define SHADOW_ADDRESS17    (ar->shadow_reg_address->shadow_reg_address_17)
+#define SHADOW_ADDRESS18    (ar->shadow_reg_address->shadow_reg_address_18)
+#define SHADOW_ADDRESS19    (ar->shadow_reg_address->shadow_reg_address_19)
+#define SHADOW_ADDRESS20    (ar->shadow_reg_address->shadow_reg_address_20)
+#define SHADOW_ADDRESS21    (ar->shadow_reg_address->shadow_reg_address_21)
+#define SHADOW_ADDRESS22    (ar->shadow_reg_address->shadow_reg_address_22)
+#define SHADOW_ADDRESS23    (ar->shadow_reg_address->shadow_reg_address_23)
+
+#define SHADOW_ADDRESS(i) (SHADOW_ADDRESS0 + \
+			   i * (SHADOW_ADDRESS1 - SHADOW_ADDRESS0))
+
+u32 shadow_sr_wr_ind_addr(struct ath10k *ar, u32 ctrl_addr);
+u32 shadow_dst_wr_ind_addr(struct ath10k *ar, u32 ctrl_addr);
 
 /*==================Send====================*/
 
@@ -590,6 +648,9 @@ struct ce_attr {
 #define BITS32_TO_35(val) ((uint32_t)(((uint64_t)(val)\
 				     & (uint64_t)(0xF00000000)) >> 32))
 #endif
+
+#define COPY_ENGINE_ID(COPY_ENGINE_BASE_ADDRESS) ((COPY_ENGINE_BASE_ADDRESS \
+		- CE0_BASE_ADDRESS) / (CE1_BASE_ADDRESS - CE0_BASE_ADDRESS))
 
 static inline u32 ath10k_ce_base_address(struct ath10k *ar, unsigned int ce_id)
 {

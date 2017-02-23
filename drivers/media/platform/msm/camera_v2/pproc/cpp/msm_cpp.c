@@ -834,8 +834,10 @@ static int cpp_init_mem(struct cpp_device *cpp_dev)
 	else
 		rc = cam_smmu_get_handle("cpp", &iommu_hdl);
 
-	if (rc < 0)
+	if (rc < 0) {
+		pr_err("smmu get handle failed\n");
 		return -ENODEV;
+	}
 
 	cpp_dev->iommu_hdl = iommu_hdl;
 	cam_smmu_reg_client_page_fault_handler(
@@ -1466,10 +1468,16 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		msm_cpp_clear_timer(cpp_dev);
 		cpp_release_hardware(cpp_dev);
 		if (cpp_dev->iommu_state == CPP_IOMMU_STATE_ATTACHED) {
-			cpp_dev->iommu_state = CPP_IOMMU_STATE_DETACHED;
-			rc = cam_smmu_ops(cpp_dev->iommu_hdl, CAM_SMMU_DETACH);
+			if (cpp_dev->security_mode == SECURE_MODE)
+				rc = cam_smmu_ops(cpp_dev->iommu_hdl,
+					CAM_SMMU_DETACH_SEC_CPP);
+			else
+				rc = cam_smmu_ops(cpp_dev->iommu_hdl,
+					CAM_SMMU_DETACH);
+
 			if (rc < 0)
 				pr_err("Error: Detach fail in release\n");
+			cpp_dev->iommu_state = CPP_IOMMU_STATE_DETACHED;
 		}
 		cam_smmu_destroy_handle(cpp_dev->iommu_hdl);
 		msm_cpp_empty_list(processing_q, list_frame);
@@ -3450,6 +3458,7 @@ STREAM_BUFF_END:
 			rc = msm_cpp_copy_from_ioctl_ptr(&cpp_attach_info,
 				ioctl_ptr);
 			if (rc < 0) {
+				pr_err("CPP_IOMMU_ATTACH copy from user fail");
 				ERR_COPY_FROM_USER();
 				return -EINVAL;
 			}
@@ -3487,6 +3496,7 @@ STREAM_BUFF_END:
 			rc = msm_cpp_copy_from_ioctl_ptr(&cpp_attach_info,
 				ioctl_ptr);
 			if (rc < 0) {
+				pr_err("CPP_IOMMU_DETTACH copy from user fail");
 				ERR_COPY_FROM_USER();
 				return -EINVAL;
 			}

@@ -460,6 +460,7 @@ struct smb1351_charger {
 	int			workaround_flags;
 
 	int			parallel_pin_polarity_setting;
+	int			parallel_mode;
 	bool			parallel_charger;
 	bool			parallel_charger_suspended;
 	bool			bms_controlled_charging;
@@ -1699,7 +1700,7 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
-		val->intval = POWER_SUPPLY_PARALLEL_USBIN_USBIN;
+		val->intval = chip->parallel_mode;
 		break;
 	default:
 		return -EINVAL;
@@ -3190,6 +3191,12 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 		chip->parallel_pin_polarity_setting =
 				chip->parallel_pin_polarity_setting ?
 				EN_BY_PIN_HIGH_ENABLE : EN_BY_PIN_LOW_ENABLE;
+
+	if (of_property_read_bool(node,
+				"qcom,parallel-external-current-sense"))
+		chip->parallel_mode = POWER_SUPPLY_PL_USBIN_USBIN_EXT;
+	else
+		chip->parallel_mode = POWER_SUPPLY_PL_USBIN_USBIN;
 
 	i2c_set_clientdata(client, chip);
 

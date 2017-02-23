@@ -742,7 +742,8 @@ int mdss_mdp_get_pipe_overlap_bw(struct mdss_mdp_pipe *pipe,
 
 	*quota = fps * src.w * src_h;
 
-	if (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420)
+	if (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420 &&
+		pipe->src_fmt->format != MDP_Y_CBCR_H2V2_TP10_UBWC)
 		/*
 		 * with decimation, chroma is not downsampled, this means we
 		 * need to allocate bw for extra lines that will be fetched

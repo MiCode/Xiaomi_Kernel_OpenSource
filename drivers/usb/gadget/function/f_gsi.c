@@ -268,6 +268,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	struct ipa_req_chan_out_params ipa_in_channel_out_params;
 	struct ipa_req_chan_out_params ipa_out_channel_out_params;
 
+	log_event_dbg("%s: USB GSI IN OPS", __func__);
 	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
 		GSI_EP_OP_PREPARE_TRBS);
 	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
@@ -279,6 +280,8 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	gsi_channel_info.ch_req = &d_port->in_request;
 	usb_gsi_ep_op(d_port->in_ep, (void *)&gsi_channel_info,
 			GSI_EP_OP_GET_CH_INFO);
+
+	log_event_dbg("%s: USB GSI IN OPS Completed", __func__);
 	in_params->client =
 		(gsi->prot_id != IPA_USB_DIAG) ? IPA_CLIENT_USB_CONS :
 						IPA_CLIENT_USB_DPL_CONS;
@@ -307,6 +310,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		gsi_channel_info.depcmd_hi_addr;
 
 	if (d_port->out_ep) {
+		log_event_dbg("%s: USB GSI OUT OPS", __func__);
 		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
 			GSI_EP_OP_PREPARE_TRBS);
 		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
@@ -318,7 +322,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		gsi_channel_info.ch_req = &d_port->out_request;
 		usb_gsi_ep_op(d_port->out_ep, (void *)&gsi_channel_info,
 				GSI_EP_OP_GET_CH_INFO);
-
+		log_event_dbg("%s: USB GSI OUT OPS Completed", __func__);
 		out_params->client = IPA_CLIENT_USB_PROD;
 		out_params->ipa_ep_cfg.mode.mode = IPA_BASIC;
 		out_params->teth_prot = gsi->prot_id;

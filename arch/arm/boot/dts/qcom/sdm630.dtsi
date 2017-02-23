@@ -1144,8 +1144,8 @@
 	msm_cpufreq: qcom,msm-cpufreq {
 		compatible = "qcom,msm-cpufreq";
 		clock-names = "cpu0_clk", "cpu4_clk";
-		clocks = <&clock_cpu PWRCL_CLK>,
-			 <&clock_cpu PERFCL_CLK>;
+		clocks = <&clock_cpu PERFCL_CLK>,
+			 <&clock_cpu PWRCL_CLK>;
 
 		qcom,governor-per-policy;
 
@@ -1153,11 +1153,14 @@
 			<  787200 >,
 			< 1113600 >,
 			< 1344000 >,
+			< 1516800 >,
 			< 1670400 >,
 			< 1881600 >,
+			< 2016000 >,
 			< 2150400 >,
+			< 2208000 >,
 			< 2380800 >,
-			< 2515000 >;
+			< 2515200 >;
 
 		qcom,cpufreq-table-4 =
 			<  614400 >,
@@ -1166,8 +1169,7 @@
 			< 1382400 >,
 			< 1536000 >,
 			< 1728000 >,
-			< 1843200 >,
-			< 2000000 >;
+			< 1843200 >;
 	};
 
 	ipa_hw: qcom,ipa@14780000 {
@@ -2066,7 +2068,7 @@
 #include "msm-audio.dtsi"
 #include "sdm660-audio.dtsi"
 #include "sdm630-gpu.dtsi"
-#include "sdm660-camera.dtsi"
+#include "sdm630-camera.dtsi"
 #include "sdm630-pm.dtsi"
 #include "sdm660-vidc.dtsi"
 #include "sdm630-mdss.dtsi"

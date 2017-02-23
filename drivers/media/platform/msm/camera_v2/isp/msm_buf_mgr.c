@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1179,26 +1179,6 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 		rc = msm_isp_buf_get_scratch(buf_mgr);
 		if (rc)
 			goto err2;
-	} else {
-		if (buf_mgr->attach_ref_cnt > 0)
-			buf_mgr->attach_ref_cnt--;
-		else
-			pr_err("%s: Error! Invalid ref_cnt %d\n",
-				__func__, buf_mgr->attach_ref_cnt);
-
-		if (buf_mgr->attach_ref_cnt == 0) {
-			rc = msm_isp_buf_put_scratch(buf_mgr);
-			if (buf_mgr->secure_enable == SECURE_MODE)
-				rc |= cam_smmu_ops(buf_mgr->iommu_hdl,
-					CAM_SMMU_DETACH_SEC_VFE_NS_STATS);
-			else
-				rc |= cam_smmu_ops(buf_mgr->iommu_hdl,
-					CAM_SMMU_DETACH);
-			if (rc < 0) {
-				pr_err("%s: img/stats smmu detach error, rc :%d\n",
-					__func__, rc);
-			}
-		}
 	}
 
 	mutex_unlock(&buf_mgr->lock);
