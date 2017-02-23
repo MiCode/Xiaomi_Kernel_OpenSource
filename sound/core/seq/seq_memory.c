@@ -383,15 +383,20 @@ int snd_seq_pool_init(struct snd_seq_pool *pool)
 
 	if (snd_BUG_ON(!pool))
 		return -EINVAL;
-	if (pool->ptr)			/* should be atomic? */
-		return 0;
 
-	pool->ptr = vmalloc(sizeof(struct snd_seq_event_cell) * pool->size);
-	if (!pool->ptr)
+	cellptr = vmalloc(sizeof(struct snd_seq_event_cell) * pool->size);
+	if (!cellptr)
 		return -ENOMEM;
 
 	/* add new cells to the free cell list */
 	spin_lock_irqsave(&pool->lock, flags);
+	if (pool->ptr) {
+		spin_unlock_irqrestore(&pool->lock, flags);
+		vfree(cellptr);
+		return 0;
+	}
+
+	pool->ptr = cellptr;
 	pool->free = NULL;
 
 	for (cell = 0; cell < pool->size; cell++) {
@@ -414,7 +419,6 @@ int snd_seq_pool_done(struct snd_seq_pool *pool)
 {
 	unsigned long flags;
 	struct snd_seq_event_cell *ptr;
-	int max_count = 5 * HZ;
 
 	if (snd_BUG_ON(!pool))
 		return -EINVAL;
@@ -427,14 +431,8 @@ int snd_seq_pool_done(struct snd_seq_pool *pool)
 	if (waitqueue_active(&pool->output_sleep))
 		wake_up(&pool->output_sleep);
 
-	while (atomic_read(&pool->counter) > 0) {
-		if (max_count == 0) {
-			pr_warn("ALSA: snd_seq_pool_done timeout: %d cells remain\n", atomic_read(&pool->counter));
-			break;
-		}
+	while (atomic_read(&pool->counter) > 0)
 		schedule_timeout_uninterruptible(1);
-		max_count--;
-	}
 	
 	/* release all resources */
 	spin_lock_irqsave(&pool->lock, flags);

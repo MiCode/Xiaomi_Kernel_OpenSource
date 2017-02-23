@@ -698,7 +698,7 @@ void mei_host_client_init(struct work_struct *work)
 
 	pm_runtime_mark_last_busy(dev->dev);
 	dev_dbg(dev->dev, "rpm: autosuspend\n");
-	pm_runtime_autosuspend(dev->dev);
+	pm_request_autosuspend(dev->dev);
 }
 
 /**
@@ -1734,6 +1734,10 @@ void mei_cl_complete(struct mei_cl *cl, struct mei_cl_cb *cb)
 		if (waitqueue_active(&cl->wait))
 			wake_up(&cl->wait);
 
+		break;
+	case MEI_FOP_DISCONNECT_RSP:
+		mei_io_cb_free(cb);
+		mei_cl_set_disconnected(cl);
 		break;
 	default:
 		BUG_ON(0);

@@ -535,7 +535,7 @@ struct nfs4_ol_stateid {
 	unsigned char			st_access_bmap;
 	unsigned char			st_deny_bmap;
 	struct nfs4_ol_stateid		*st_openstp;
-	struct rw_semaphore		st_rwsem;
+	struct mutex			st_mutex;
 };
 
 static inline struct nfs4_ol_stateid *openlockstateid(struct nfs4_stid *s)
@@ -583,8 +583,8 @@ extern __be32 nfs4_preprocess_stateid_op(struct svc_rqst *rqstp,
 __be32 nfsd4_lookup_stateid(struct nfsd4_compound_state *cstate,
 		     stateid_t *stateid, unsigned char typemask,
 		     struct nfs4_stid **s, struct nfsd_net *nn);
-struct nfs4_stid *nfs4_alloc_stid(struct nfs4_client *cl,
-		struct kmem_cache *slab);
+struct nfs4_stid *nfs4_alloc_stid(struct nfs4_client *cl, struct kmem_cache *slab,
+				  void (*sc_free)(struct nfs4_stid *));
 void nfs4_unhash_stid(struct nfs4_stid *s);
 void nfs4_put_stid(struct nfs4_stid *s);
 void nfs4_inc_and_copy_stateid(stateid_t *dst, struct nfs4_stid *stid);
