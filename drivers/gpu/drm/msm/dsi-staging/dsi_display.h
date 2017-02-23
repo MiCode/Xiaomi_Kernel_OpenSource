@@ -391,4 +391,19 @@ int dsi_display_clock_gate(struct dsi_display *display, bool enable);
 int dsi_dispaly_static_frame(struct dsi_display *display, bool enable);
 
 int dsi_display_set_backlight(void *display, u32 bl_lvl);
+
+/**
+ * dsi_display_soft_reset() - perform a soft reset on DSI controller
+ * @display:         Handle to display
+ *
+ * The video, command and controller engines will be disabled before the
+ * reset is triggered. After, the engines will be re-enabled to the same state
+ * as before the reset.
+ *
+ * If the reset is done while MDP timing engine is turned on, the video
+ * engine should be re-enabled only during the vertical blanking time.
+ *
+ * Return: error code
+ */
+int dsi_display_soft_reset(void *display);
 #endif /* _DSI_DISPLAY_H_ */

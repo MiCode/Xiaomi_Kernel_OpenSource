@@ -784,6 +784,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->needs_single_flush = sde_encoder_phys_vid_needs_single_flush;
 	ops->setup_misr = sde_encoder_phys_vid_setup_misr;
 	ops->collect_misr = sde_encoder_phys_vid_collect_misr;
+	ops->hw_reset = sde_encoder_helper_hw_reset;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_vid_init(

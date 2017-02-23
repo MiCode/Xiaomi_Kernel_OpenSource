@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,6 +113,13 @@ struct sde_connector_ops {
 	int (*get_info)(struct msm_display_info *info, void *display);
 
 	int (*set_backlight)(void *display, u32 bl_lvl);
+
+	/**
+	 * soft_reset - perform a soft reset on the connector
+	 * @display: Pointer to private display structure
+	 * Return: Zero on success, -ERROR otherwise
+	 */
+	int (*soft_reset)(void *display);
 };
 
 /**

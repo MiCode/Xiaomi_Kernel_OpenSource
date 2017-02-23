@@ -526,7 +526,8 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 			ktime_to_ns(fevent->ts));
 
 	if (fevent->event == SDE_ENCODER_FRAME_EVENT_DONE ||
-			fevent->event == SDE_ENCODER_FRAME_EVENT_ERROR) {
+			(fevent->event & SDE_ENCODER_FRAME_EVENT_ERROR) ||
+			(fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)) {
 
 		if (atomic_read(&sde_crtc->frame_pending) < 1) {
 			/* this should not happen */
@@ -553,6 +554,10 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 				fevent->event);
 		SDE_EVT32(DRMID(crtc), fevent->event, 3);
 	}
+
+	if (fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)
+		SDE_ERROR("crtc%d ts:%lld received panel dead event\n",
+				crtc->base.id, ktime_to_ns(fevent->ts));
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	list_add_tail(&fevent->list, &sde_crtc->frame_event_list);

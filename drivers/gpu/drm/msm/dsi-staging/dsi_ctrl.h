@@ -329,6 +329,21 @@ int dsi_ctrl_phy_sw_reset(struct dsi_ctrl *dsi_ctrl);
 int dsi_ctrl_phy_reset_config(struct dsi_ctrl *dsi_ctrl, bool enable);
 
 /**
+ * dsi_ctrl_soft_reset() - perform a soft reset on DSI controller
+ * @dsi_ctrl:         DSI controller handle.
+ *
+ * The video, command and controller engines will be disabled before the
+ * reset is triggered. After, the engines will be re-enabled to the same state
+ * as before the reset.
+ *
+ * If the reset is done while MDP timing engine is turned on, the video
+ * engine should be re-enabled only during the vertical blanking time.
+ *
+ * Return: error code
+ */
+int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl);
+
+/**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
  *

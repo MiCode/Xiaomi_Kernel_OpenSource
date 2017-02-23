@@ -47,6 +47,22 @@ enum sde_enc_split_role {
 	ENC_ROLE_SLAVE
 };
 
+/**
+ * enum sde_enc_enable_state - current enabled state of the physical encoder
+ * @SDE_ENC_DISABLED:	Encoder is disabled
+ * @SDE_ENC_ENABLING:	Encoder transitioning to enabled
+ *			Events bounding transition are encoder type specific
+ * @SDE_ENC_ENABLED:	Encoder is enabled
+ * @SDE_ENC_ERR_NEEDS_HW_RESET:	Encoder is enabled, but requires a hw_reset
+ *				to recover from a previous error
+ */
+enum sde_enc_enable_state {
+	SDE_ENC_DISABLED,
+	SDE_ENC_ENABLING,
+	SDE_ENC_ENABLED,
+	SDE_ENC_ERR_NEEDS_HW_RESET
+};
+
 struct sde_encoder_phys;
 
 /**
@@ -94,6 +110,8 @@ struct sde_encoder_virt_ops {
  * @needs_single_flush:		Whether encoder slaves need to be flushed
  * @setup_misr:		Sets up MISR, enable and disables based on sysfs
  * @collect_misr:		Collects MISR data on frame update
+ * @hw_reset:			Issue HW recovery such as CTL reset and clear
+ *				SDE_ENC_ERR_NEEDS_HW_RESET state
  */
 
 struct sde_encoder_phys_ops {
@@ -124,19 +142,7 @@ struct sde_encoder_phys_ops {
 			struct sde_misr_params *misr_map);
 	void (*collect_misr)(struct sde_encoder_phys *phys_enc,
 			struct sde_misr_params *misr_map);
-};
-
-/**
- * enum sde_enc_enable_state - current enabled state of the physical encoder
- * @SDE_ENC_DISABLED:	Encoder is disabled
- * @SDE_ENC_ENABLING:	Encoder transitioning to enabled
- *			Events bounding transition are encoder type specific
- * @SDE_ENC_ENABLED:	Encoder is enabled
- */
-enum sde_enc_enable_state {
-	SDE_ENC_DISABLED,
-	SDE_ENC_ENABLING,
-	SDE_ENC_ENABLED
+	void (*hw_reset)(struct sde_encoder_phys *phys_enc);
 };
 
 /**
@@ -239,9 +245,10 @@ struct sde_encoder_phys_vid {
  * @pp_rd_ptr_irq_idx:	IRQ signifying panel's frame read pointer
  *			For CMD encoders, VBLANK is driven by the PP RD Done IRQ
  * @pp_tx_done_irq_idx:	IRQ signifying frame transmission to panel complete
- * @irq_cb:	interrupt callback
- * @serialize_wait4pp: serialize wait4pp feature waits for pp_done interrupt
- *                     after ctl_start instead of before next frame kickoff
+ * @irq_cb:		interrupt callback
+ * @serialize_wait4pp:	serialize wait4pp feature waits for pp_done interrupt
+ *			after ctl_start instead of before next frame kickoff
+ * @pp_timeout_report_cnt: number of pingpong done irq timeout errors
  */
 struct sde_encoder_phys_cmd {
 	struct sde_encoder_phys base;
@@ -250,6 +257,7 @@ struct sde_encoder_phys_cmd {
 	int irq_idx[INTR_IDX_MAX];
 	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
 	bool serialize_wait4pp;
+	int pp_timeout_report_cnt;
 };
 
 /**
@@ -381,6 +389,14 @@ int sde_encoder_helper_wait_event_timeout(
 		atomic_t *cnt,
 		s64 timeout_ms);
 
+/**
+ * sde_encoder_helper_hw_reset - issue ctl hw reset
+ *	This helper function may be optionally specified by physical
+ *	encoders if they require ctl hw reset. If state is currently
+ *	SDE_ENC_ERR_NEEDS_HW_RESET, it is set back to SDE_ENC_ENABLED.
+ * @phys_enc: Pointer to physical encoder structure
+ */
+void sde_encoder_helper_hw_reset(struct sde_encoder_phys *phys_enc);
 
 static inline enum sde_3d_blend_mode sde_encoder_helper_get_3d_blend_mode(
 		struct sde_encoder_phys *phys_enc)

@@ -24,8 +24,9 @@
 #include "msm_prop.h"
 #include "sde_hw_mdss.h"
 
-#define SDE_ENCODER_FRAME_EVENT_DONE	BIT(0)
-#define SDE_ENCODER_FRAME_EVENT_ERROR	BIT(1)
+#define SDE_ENCODER_FRAME_EVENT_DONE		BIT(0)
+#define SDE_ENCODER_FRAME_EVENT_ERROR		BIT(1)
+#define SDE_ENCODER_FRAME_EVENT_PANEL_DEAD	BIT(2)
 
 /**
  * Encoder functions and data types

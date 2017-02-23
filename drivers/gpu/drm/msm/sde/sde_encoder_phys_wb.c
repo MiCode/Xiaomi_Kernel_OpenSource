@@ -989,6 +989,7 @@ static void sde_encoder_phys_wb_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->prepare_for_kickoff = sde_encoder_phys_wb_prepare_for_kickoff;
 	ops->handle_post_kickoff = sde_encoder_phys_wb_handle_post_kickoff;
 	ops->trigger_start = sde_encoder_helper_trigger_start;
+	ops->hw_reset = sde_encoder_helper_hw_reset;
 }
 
 /**
