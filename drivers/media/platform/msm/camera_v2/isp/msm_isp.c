@@ -590,9 +590,9 @@ int vfe_hw_probe(struct platform_device *pdev)
 			(struct msm_vfe_hardware_info *) match_dev->data;
 		/* Cx ipeak support */
 		if (of_find_property(pdev->dev.of_node,
-			"qcom,vfe_cx_ipeak", NULL)) {
+			"qcom,vfe-cx-ipeak", NULL)) {
 			vfe_dev->vfe_cx_ipeak = cx_ipeak_register(
-				pdev->dev.of_node, "qcom,vfe_cx_ipeak");
+				pdev->dev.of_node, "qcom,vfe-cx-ipeak");
 		}
 	} else {
 		vfe_dev->hw_info = (struct msm_vfe_hardware_info *)

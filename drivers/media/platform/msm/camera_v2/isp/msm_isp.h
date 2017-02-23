@@ -768,7 +768,6 @@ struct vfe_device {
 	size_t num_hvx_clk;
 	size_t num_norm_clk;
 	enum cam_ahb_clk_vote ahb_vote;
-	bool turbo_vote;
 	struct cx_ipeak_client *vfe_cx_ipeak;
 
 	/* Sync variables*/
