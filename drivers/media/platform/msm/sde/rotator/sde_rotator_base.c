@@ -560,6 +560,15 @@ int sde_rotator_base_init(struct sde_rot_data_type **pmdata,
 		goto probe_done;
 	}
 
+	mdata->iclient = msm_ion_client_create(mdata->pdev->name);
+	if (IS_ERR_OR_NULL(mdata->iclient)) {
+		SDEROT_ERR("msm_ion_client_create() return error (%pK)\n",
+				mdata->iclient);
+		mdata->iclient = NULL;
+		rc = -EFAULT;
+		goto probe_done;
+	}
+
 	*pmdata = mdata;
 
 	return 0;

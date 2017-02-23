@@ -19,6 +19,7 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/dma-buf.h>
+#include <linux/msm_ion.h>
 
 #include "sde_rotator_hwio.h"
 #include "sde_rotator_base.h"
@@ -44,6 +45,8 @@
 #define SDEDEV_ERR(dev, fmt, ...)	\
 	dev_err(dev, "<SDEROT_ERR> " fmt, ##__VA_ARGS__)
 
+#define PHY_ADDR_4G (1ULL<<32)
+
 struct sde_rect {
 	u16 x;
 	u16 y;
@@ -62,12 +65,14 @@ struct sde_rect {
 #define SDE_SOURCE_ROTATED_90		0x00100000
 #define SDE_SECURE_OVERLAY_SESSION	0x00008000
 #define SDE_ROT_EXT_DMA_BUF		0x00010000
+#define SDE_SECURE_CAMERA_SESSION	0x00020000
 
 struct sde_rot_data_type;
 
 struct sde_fb_data {
 	uint32_t offset;
 	struct dma_buf *buffer;
+	struct ion_handle *handle;
 	int memory_id;
 	int id;
 	uint32_t flags;
@@ -79,6 +84,7 @@ struct sde_layer_plane {
 	/* DMA buffer file descriptor information. */
 	int fd;
 	struct dma_buf *buffer;
+	struct ion_handle *handle;
 
 	/* Pixel offset in the dma buffer. */
 	uint32_t offset;

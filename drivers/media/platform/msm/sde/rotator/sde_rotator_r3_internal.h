@@ -28,6 +28,7 @@ struct sde_hw_rotator_context;
 #define SDE_ROT_FLAG_SOURCE_ROTATED_90      0x8
 #define SDE_ROT_FLAG_ROT_90                 0x10
 #define SDE_ROT_FLAG_DEINTERLACE            0x20
+#define SDE_ROT_FLAG_SECURE_CAMERA_SESSION  0x40
 
 /**
  * General defines

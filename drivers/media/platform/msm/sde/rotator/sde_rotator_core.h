@@ -59,6 +59,9 @@
 /* use client provided dma buf instead of ion fd */
 #define SDE_ROTATION_EXT_DMA_BUF	0x20000
 
+/* secure camera operation*/
+#define SDE_ROTATION_SECURE_CAMERA	0x40000
+
 /**********************************************************************
  * configuration structures
  **********************************************************************/

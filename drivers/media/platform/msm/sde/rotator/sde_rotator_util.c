@@ -745,6 +745,13 @@ static int sde_mdp_put_img(struct sde_mdp_img_data *data, bool rotator,
 	return 0;
 }
 
+static int sde_mdp_is_map_needed(struct sde_mdp_img_data *data)
+{
+	if (data->flags & SDE_SECURE_CAMERA_SESSION)
+		return false;
+	return true;
+}
+
 static int sde_mdp_get_img(struct sde_fb_data *img,
 		struct sde_mdp_img_data *data, struct device *dev,
 		bool rotator, int dir)
@@ -753,6 +760,8 @@ static int sde_mdp_get_img(struct sde_fb_data *img,
 	unsigned long *len;
 	u32 domain;
 	dma_addr_t *start;
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	struct ion_client *iclient = mdata->iclient;
 
 	start = &data->addr;
 	len = &data->len;
@@ -766,34 +775,78 @@ static int sde_mdp_get_img(struct sde_fb_data *img,
 		data->srcp_dma_buf = NULL;
 		return ret;
 	}
-	domain = sde_smmu_get_domain_type(data->flags, rotator);
 
-	SDEROT_DBG("%d domain=%d ihndl=%p\n",
-			__LINE__, domain, data->srcp_dma_buf);
-	data->srcp_attachment =
-		sde_smmu_dma_buf_attach(data->srcp_dma_buf, dev,
-				domain);
-	if (IS_ERR(data->srcp_attachment)) {
-		SDEROT_ERR("%d Failed to attach dma buf\n", __LINE__);
-		ret = PTR_ERR(data->srcp_attachment);
-		goto err_put;
+	if (sde_mdp_is_map_needed(data)) {
+		domain = sde_smmu_get_domain_type(data->flags, rotator);
+
+		SDEROT_DBG("%d domain=%d ihndl=%p\n",
+				__LINE__, domain, data->srcp_dma_buf);
+		data->srcp_attachment =
+			sde_smmu_dma_buf_attach(data->srcp_dma_buf, dev,
+					domain);
+		if (IS_ERR(data->srcp_attachment)) {
+			SDEROT_ERR("%d Failed to attach dma buf\n", __LINE__);
+			ret = PTR_ERR(data->srcp_attachment);
+			goto err_put;
+		}
+
+		SDEROT_DBG("%d attach=%p\n", __LINE__, data->srcp_attachment);
+		data->srcp_table =
+			dma_buf_map_attachment(data->srcp_attachment, dir);
+		if (IS_ERR(data->srcp_table)) {
+			SDEROT_ERR("%d Failed to map attachment\n", __LINE__);
+			ret = PTR_ERR(data->srcp_table);
+			goto err_detach;
+		}
+
+		SDEROT_DBG("%d table=%p\n", __LINE__, data->srcp_table);
+		data->addr = 0;
+		data->len = 0;
+		data->mapped = false;
+		data->skip_detach = false;
+		/* return early, mapping will be done later */
+	} else {
+		struct ion_handle *ihandle = NULL;
+		struct sg_table *sg_ptr = NULL;
+
+		do {
+			ihandle = img->handle;
+			if (IS_ERR_OR_NULL(ihandle)) {
+				ret = -EINVAL;
+				SDEROT_ERR("invalid ion handle\n");
+				break;
+			}
+
+			sg_ptr = ion_sg_table(iclient, ihandle);
+			if (sg_ptr == NULL) {
+				SDEROT_ERR("ion sg table get failed\n");
+				ret = -EINVAL;
+				break;
+			}
+
+			if (sg_ptr->nents != 1) {
+				SDEROT_ERR("ion buffer mapping failed\n");
+				ret = -EINVAL;
+				break;
+			}
+
+			if (((uint64_t)sg_dma_address(sg_ptr->sgl) >=
+					PHY_ADDR_4G - sg_ptr->sgl->length)) {
+				SDEROT_ERR("ion buffer mapped size invalid\n");
+				ret = -EINVAL;
+				break;
+			}
+
+			data->addr = sg_dma_address(sg_ptr->sgl);
+			data->len = sg_ptr->sgl->length;
+			data->mapped = true;
+			ret = 0;
+		} while (0);
+
+		if (!IS_ERR_OR_NULL(ihandle))
+			ion_free(iclient, ihandle);
+		return ret;
 	}
-
-	SDEROT_DBG("%d attach=%p\n", __LINE__, data->srcp_attachment);
-	data->srcp_table =
-		dma_buf_map_attachment(data->srcp_attachment, dir);
-	if (IS_ERR(data->srcp_table)) {
-		SDEROT_ERR("%d Failed to map attachment\n", __LINE__);
-		ret = PTR_ERR(data->srcp_table);
-		goto err_detach;
-	}
-
-	SDEROT_DBG("%d table=%p\n", __LINE__, data->srcp_table);
-	data->addr = 0;
-	data->len = 0;
-	data->mapped = false;
-	data->skip_detach = false;
-	/* return early, mapping will be done later */
 
 	return 0;
 err_detach:
@@ -811,23 +864,39 @@ static int sde_mdp_map_buffer(struct sde_mdp_img_data *data, bool rotator,
 {
 	int ret = -EINVAL;
 	int domain;
+	struct scatterlist *sg;
+	unsigned int i;
+	struct sg_table *table;
 
 	if (data->addr && data->len)
 		return 0;
 
 	if (!IS_ERR_OR_NULL(data->srcp_dma_buf)) {
-		domain = sde_smmu_get_domain_type(data->flags,
-				rotator);
-		ret = sde_smmu_map_dma_buf(data->srcp_dma_buf,
-				data->srcp_table, domain,
-				&data->addr, &data->len, dir);
-		if (IS_ERR_VALUE(ret)) {
-			SDEROT_ERR("smmu map dma buf failed: (%d)\n", ret);
-			goto err_unmap;
+		if (sde_mdp_is_map_needed(data)) {
+			domain = sde_smmu_get_domain_type(data->flags,
+					rotator);
+			ret = sde_smmu_map_dma_buf(data->srcp_dma_buf,
+					data->srcp_table, domain,
+					&data->addr, &data->len, dir);
+			if (IS_ERR_VALUE(ret)) {
+				SDEROT_ERR("smmu map buf failed:(%d)\n", ret);
+				goto err_unmap;
+			}
+			SDEROT_DBG("map %pad/%lx d:%u f:%x\n",
+					&data->addr,
+					data->len,
+					domain,
+					data->flags);
+			data->mapped = true;
+		} else {
+			data->addr = sg_phys(data->srcp_table->sgl);
+			data->len = 0;
+			table = data->srcp_table;
+			for_each_sg(table->sgl, sg, table->nents, i) {
+				data->len += sg->length;
+			}
+			ret = 0;
 		}
-		SDEROT_DBG("map %pad/%lx d:%u f:%x\n", &data->addr, data->len,
-				domain, data->flags);
-		data->mapped = true;
 	}
 
 	if (!data->addr) {

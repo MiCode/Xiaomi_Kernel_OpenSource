@@ -90,6 +90,8 @@ static uint32_t sde_rotator_get_flags_from_ctx(struct sde_rotator_ctx *ctx)
 		ret_flags ^= SDE_ROTATION_FLIP_UD;
 	if (ctx->secure)
 		ret_flags |= SDE_ROTATION_SECURE;
+	if (ctx->secure_camera)
+		ret_flags |= SDE_ROTATION_SECURE_CAMERA;
 	if (ctx->format_out.fmt.pix.field == V4L2_FIELD_INTERLACED &&
 			ctx->format_cap.fmt.pix.field == V4L2_FIELD_NONE)
 		ret_flags |= SDE_ROTATION_DEINTERLACE;
@@ -510,28 +512,45 @@ static void *sde_rotator_get_userptr(void *alloc_ctx,
 	struct sde_rotator_ctx *ctx = alloc_ctx;
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
 	struct sde_rotator_buf_handle *buf;
+	struct ion_client *iclient = rot_dev->mdata->iclient;
 
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
 	buf->fd = vaddr;
-	buf->secure = ctx->secure;
+	buf->secure = ctx->secure || ctx->secure_camera;
 	buf->ctx = ctx;
 	buf->rot_dev = rot_dev;
-	buf->buffer = dma_buf_get(buf->fd);
-
-	if (IS_ERR_OR_NULL(buf->buffer)) {
-		SDEDEV_ERR(rot_dev->dev, "fail get dmabuf fd:%d r:%ld\n",
+	if (ctx->secure_camera) {
+		buf->handle = ion_import_dma_buf(iclient,
+				buf->fd);
+		if (IS_ERR_OR_NULL(buf->handle)) {
+			SDEDEV_ERR(rot_dev->dev,
+				"fail get ion_handler fd:%d r:%ld\n",
 				buf->fd, PTR_ERR(buf->buffer));
-		goto error_dma_buf_get;
+			goto error_buf_get;
+		}
+		SDEDEV_DBG(rot_dev->dev,
+				"get ion_handle s:%d fd:%d buf:%pad\n",
+				buf->ctx->session_id,
+				buf->fd, &buf->handle);
+	} else {
+		buf->buffer = dma_buf_get(buf->fd);
+		if (IS_ERR_OR_NULL(buf->buffer)) {
+			SDEDEV_ERR(rot_dev->dev,
+				"fail get dmabuf fd:%d r:%ld\n",
+				buf->fd, PTR_ERR(buf->buffer));
+			goto error_buf_get;
+		}
+		SDEDEV_DBG(rot_dev->dev,
+				"get dmabuf s:%d fd:%d buf:%pad\n",
+				buf->ctx->session_id,
+				buf->fd, &buf->buffer);
 	}
 
-	SDEDEV_DBG(rot_dev->dev, "get dmabuf s:%d fd:%d buf:%pad\n",
-			buf->ctx->session_id,
-			buf->fd, &buf->buffer);
 	return buf;
-error_dma_buf_get:
+error_buf_get:
 	kfree(buf);
 	return ERR_PTR(-ENOMEM);
 }
@@ -618,6 +637,9 @@ static int sde_rotator_s_ctrl(struct v4l2_ctrl *ctrl)
 		ret = sde_rotator_s_ctx_ctrl(ctx, &ctx->secure, ctrl);
 		break;
 
+	case V4L2_CID_SDE_ROTATOR_SECURE_CAMERA:
+		ret = sde_rotator_s_ctx_ctrl(ctx, &ctx->secure_camera, ctrl);
+		break;
 	default:
 		v4l2_warn(&rot_dev->v4l2_dev, "invalid control %d\n", ctrl->id);
 		ret = -EINVAL;
@@ -641,6 +663,17 @@ static const struct v4l2_ctrl_config sde_rotator_ctrl_secure = {
 	.ops = &sde_rotator_ctrl_ops,
 	.id = V4L2_CID_SDE_ROTATOR_SECURE,
 	.name = "Non-secure/Secure Domain",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.def = 0,
+	.min = 0,
+	.max = 1,
+	.step = 1,
+};
+
+static const struct v4l2_ctrl_config sde_rotator_ctrl_secure_camera = {
+	.ops = &sde_rotator_ctrl_ops,
+	.id = V4L2_CID_SDE_ROTATOR_SECURE_CAMERA,
+	.name = "Secure Camera content",
 	.type = V4L2_CTRL_TYPE_INTEGER,
 	.def = 0,
 	.min = 0,
@@ -924,6 +957,8 @@ static int sde_rotator_open(struct file *file)
 			&sde_rotator_ctrl_ops, V4L2_CID_ROTATE, 0, 270, 90, 0);
 	v4l2_ctrl_new_custom(ctrl_handler,
 			&sde_rotator_ctrl_secure, NULL);
+	v4l2_ctrl_new_custom(ctrl_handler,
+			&sde_rotator_ctrl_secure_camera, NULL);
 	if (ctrl_handler->error) {
 		ret = ctrl_handler->error;
 		v4l2_ctrl_handler_free(ctrl_handler);
@@ -2010,11 +2045,13 @@ static int sde_rotator_process_buffers(struct sde_rotator_ctx *ctx,
 	sde_rotator_get_item_from_ctx(ctx, &item);
 	item.flags |= SDE_ROTATION_EXT_DMA_BUF;
 	item.input.planes[0].buffer = src_handle->buffer;
+	item.input.planes[0].handle = src_handle->handle;
 	item.input.planes[0].offset = src_handle->addr;
 	item.input.planes[0].stride = ctx->format_out.fmt.pix.bytesperline;
 	item.input.plane_count = 1;
 	item.input.fence = NULL;
 	item.output.planes[0].buffer = dst_handle->buffer;
+	item.output.planes[0].handle = dst_handle->handle;
 	item.output.planes[0].offset = dst_handle->addr;
 	item.output.planes[0].stride = ctx->format_cap.fmt.pix.bytesperline;
 	item.output.plane_count = 1;
