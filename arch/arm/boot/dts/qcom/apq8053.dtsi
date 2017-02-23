@@ -22,6 +22,13 @@
 	qcom,rmnet-ipa {
 		status = "disabled";
 	};
+	qcom,vidc@1d00000 {
+		reg = <0x01d00000 0xff000>,
+			<0x000a4124 0x08>;
+		reg-names = "vidc", "efuse";
+		qcom,venus-uplift-freq = <540000000>;
+		qcom,speedbin-version = <0x7 0x8>;
+	};
 };
 
 &pm8953_vadc {
