@@ -389,6 +389,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0xec00 0x100>;
+			qcom,force-module-reenable;
 
 			lcdb_ldo_vreg: ldo {
 				label = "ldo";
