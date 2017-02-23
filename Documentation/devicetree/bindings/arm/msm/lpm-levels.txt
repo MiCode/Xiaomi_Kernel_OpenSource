@@ -1,0 +1,324 @@
+* Low Power Management Levels
+
+The application processor in MSM can do a variety of C-States for low power
+management. The LPM module performs the System low power modes based on
+the latency/residency information of the individual CPUs and clusters.
+
+LPM-levels defines a hierarchy of low power modes that a cluster and
+clusters/cpus within that cluster can enter. The bottom hierarchy level
+represents the low power modes that a CPU can enter. The CPU low power nodes
+are associated with a cluster that defines the low power modes that a cluster
+can enter. For system involving a hierarchy of clusters, the cluster low power
+modes can be contained within another cluster.
+
+[Top Level Node]
+Required properties:
+
+- compatible: "qcom,lpm-levels"
+
+[Node bindings for qcom,pm-cluster]
+ Required properties:
+	- reg - The numeric cluster id
+	- label: Identifies the cluster name. The name will be
+	used when reporting the stats for each low power mode.
+	- qcom,spm-device-names: List of  SPM device names which control the
+	low power modes for this driver. The lpm driver uses the device name
+	to obtain a handle to the SPM driver that controls the cluster's low
+	power mode. This is only required if "qcom,use-psci" is not defined.
+	- qcom,default-level: The default low power level that a cluster is
+	programmed. The SPM of the corresponding device is configured at this
+	low power mode by default.
+	- qcom,cpu: List of CPU phandles to identify the CPUs associated with
+	this cluster. This property is required if and only if the cluster
+	node contains a qcom,pm-cpu node.
+
+	qcom,pm-cluster contains qcom,pm-cluster-level nodes which identify
+	the various low power modes that the cluster can enter. The
+	qcom,pm-cluster node should also include another cluster node or a cpu
+	node that defines their respective low power modes.
+
+[Node bindings for qcom,pm-cluster-level]
+ Required properties:
+	- reg: The numeric cluster level id
+	- label: Name to identify the low power mode in stats
+	module.
+	- qcom,spm-<device-name>-mode: For each SPM device defined in
+	qcom,spm-devices-names, a corresponding entry identifying the low
+	power mode is expected. For example, the qcom,pm-cluster node contains
+	a SPM device by name "l2" then the cluster level should contain a
+	qcom,spm-l2-mode.  When a cluster level is chosen ,the SPM device is
+	programmed with its
+	corresponding low power mode. The accepted values for this property
+	are:
+		- "active"
+		- "wfi"
+		- "retention"
+		- "gdhs"
+		- "pc"
+		- "fpc"
+	- qcom,min-child-idx: The minimum level that a child CPU should be in
+	before this level can be chosen. This property is required for all
+        non-default level.
+	- qcom,latency-us: The latency in handling the interrupt if this level
+	was chosen, in uSec
+	- qcom,ss-power: The steady state power expelled when the processor is
+	in this level in mWatts
+	- qcom,energy-overhead: The energy used up in entering and exiting
+	this level in mWatts.uSec
+	- qcom,time-overhead: The time spent in entering and exiting this
+	level in uS
+ Optional properties:
+	- qcom,notify-rpm: When set, the driver flushes the RPM sleep set and
+	configures the virtual MPM driver in prepration for a RPM assisted
+	sleep.
+	- qcom,last-level - When set, the cluster level is applied only when
+	there is 1 online core.
+	- qcom,disable-dynamic-int-routing: When set disables the dynamic
+	routing of rpm-smd and mpm interrupts to next wake up core.
+	- qcom,use-psci: This boolean property allows the LPM modules to
+	terminate in PSCI to configure SPM for low power modes.
+	- qcom,psci-mode-shift: The property is used to determine with bit
+	location of the cluster mode in the composite state ID used to define
+	cluster low power modes in PSCI v1.0. Required only if qcom,use-psci
+	is defined at the lpm-levels root node.
+	- qcom,psci-mode-mask: The property is used to determine with bit
+	mask of the cluster mode in the composite state ID used to define
+	cluster low power modes in PSCI v1.0. Required only if qcom,use-psci
+	is defined at the lpm-levels root node.
+	- qcom,psci-mode: ID to be passed into the PSCI firmware. Required
+	only if qcom,use-psci is defined at the lpm-levels root node.
+	- qcom,is-reset: This boolean property will tell whether
+	cluster level need power management notifications to be sent out
+	or not for the drivers to prepare for cluster collapse.
+	- qcom,hyp-psci: This property is used to determine if the cpu
+        enters the low power mode within hypervisor.
+	- qcom,reset-level: This property is used to determine in this
+	low power mode only control logic power collapse happens or memory
+	logic power collapse aswell happens or retention state.
+	The accepted values for this property are:
+		"LPM_RESET_LVL_NONE" - No power collapse
+		"LPM_RESET_LVL_RET"  - Retention state
+		"LPM_RESET_LVL_GDHS" - Only control logic power collapse (GDHS)
+		"LPM_RESET_LVL_PC" - Control logic and memory logic
+					power collapse (PC)
+
+[Node bindings for qcom,pm-cpu]
+qcom,pm-cpu contains the low power modes that a cpu could enter. Currently it
+doesn't have any required properties and is a container for
+qcom,pm-cpu-levels.
+
+[Node bindings for qcom,pm-cpu-levels]
+ Required properties:
+	- reg: The numeric cpu level id
+	- qcom,spm-cpu-mode: The sleep mode of the processor, values for the
+	property are:
+		"wfi" - Wait for Interrupt
+		"retention" - Retention
+		"standalone_pc" - Standalone power collapse
+		"pc" - Power Collapse
+	- qcom,latency-us: The latency in handling the interrupt if this level
+	was chosen, in uSec
+	- qcom,ss-power: The steady state power expelled when the processor is
+	in this level in mWatts
+	- qcom,energy-overhead: The energy used up in entering and exiting
+	this level in mWatts.uSec
+	- qcom,time-overhead: The time spent in entering and exiting this
+	level in uS
+	- qcom,use-broadcast-timer: Indicates that the timer gets reset during
+	power collapse and the cpu relies on Broadcast timer for scheduled
+	wakeups. Required only for states where the CPUs internal timer state
+	is lost.
+
+ Optional properties:
+	- qcom,psci-mode-shift: Same as cluster level fields.
+	- qcom,psci-mode-mask: Same as cluster level fields.
+	- qcom,psci-cpu-mode: ID to be passed into PSCI firmware.
+	- qcom,jtag-save-restore: A boolean specifying jtag registers save and restore
+	required are not.
+	- qcom,is-reset: This boolean property maps to "power state" bit in PSCI
+	state_id configuration. This property will tell whether CPU get reset for
+	a particular LPM or not. This property will also be used to notify the
+	drivers in case of cpu reset.
+
+[Example dts]
+
+qcom,lpm-levels {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	compatible = "qcom,lpm-levels";
+
+	qcom,pm-cluster@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+		label = "system";
+		qcom,spm-device-names = "cci";
+		qcom,default-level = <0>;
+
+		qcom,pm-cluster-level@0{
+			reg = <0>;
+			label = "system-cci-retention";
+			qcom,spm-cci-mode = "retention";
+			qcom,latency-us = <100>;
+			qcom,ss-power = <1000>;
+			qcom,energy-overhead = <300000>;
+			qcom,time-overhead = <100>;
+		};
+
+		qcom,pm-cluster-level@2{
+			reg = <1>;
+			label = "system-cci-pc";
+			qcom,spm-cci-mode = "pc";
+			qcom,latency-us = <30000>;
+			qcom,ss-power = <83>;
+			qcom,energy-overhead = <2274420>;
+			qcom,time-overhead = <6605>;
+			qcom,min-child-idx = <1>;
+			qcom,notify-rpm;
+		};
+
+		qcom,pm-cluster@0{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			label = "a53";
+			qcom,spm-device-names = "l2";
+			qcom,default-level=<0>;
+			qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3>;
+
+			qcom,pm-cluster-level@0{
+				reg = <0>;
+				label = "a53-l2-retention";
+				qcom,spm-l2-mode = "retention";
+				qcom,latency-us = <100>;
+				qcom,ss-power = <1000>;
+				qcom,energy-overhead = <300000>;
+				qcom,time-overhead = <100>;
+			};
+
+			qcom,pm-cluster-level@1{
+				reg = <1>;
+				label = "a53-l2-pc";
+				qcom,spm-l2-mode = "pc";
+				qcom,latency-us = <30000>;
+				qcom,ss-power = <83>;
+				qcom,energy-overhead = <2274420>;
+				qcom,time-overhead = <6605>;
+				qcom,min-child-idx = <3>;
+			};
+
+			qcom,pm-cpu {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,pm-cpu-level@0 {
+					reg = <0>;
+					qcom,spm-cpu-mode = "wfi";
+					qcom,latency-us = <1>;
+					qcom,ss-power = <715>;
+					qcom,energy-overhead = <17700>;
+					qcom,time-overhead = <2>;
+				};
+
+				qcom,pm-cpu-level@1 {
+					reg = <1>;
+					qcom,spm-cpu-mode = "retention";
+					qcom,latency-us = <35>;
+					qcom,ss-power = <542>;
+					qcom,energy-overhead = <34920>;
+					qcom,time-overhead = <40>;
+				};
+
+				qcom,pm-cpu-level@2 {
+					reg = <2>;
+					qcom,spm-cpu-mode = "standalone_pc";
+					qcom,latency-us = <300>;
+					qcom,ss-power = <476>;
+					qcom,energy-overhead = <225300>;
+					qcom,time-overhead = <350>;
+				};
+
+				qcom,pm-cpu-level@3 {
+					reg = <3>;
+					qcom,spm-cpu-mode = "pc";
+					qcom,latency-us = <500>;
+					qcom,ss-power = <163>;
+					qcom,energy-overhead = <577736>;
+					qcom,time-overhead = <1000>;
+				};
+			};
+		};
+
+		qcom,pm-cluster@1{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			label = "a57";
+			qcom,spm-device-names = "l2";
+			qcom,default-level=<0>;
+			qcom,cpu = <&CPU4 &CPU5 &CPU6 &CPU7>;
+
+			qcom,pm-cluster-level@0{
+				reg = <0>;
+				label = "a57-l2-retention";
+				qcom,spm-l2-mode = "retention";
+				qcom,latency-us = <100>;
+				qcom,ss-power = <1000>;
+				qcom,energy-overhead = <300000>;
+				qcom,time-overhead = <100>;
+			};
+
+			qcom,pm-cluster-level@2{
+				reg = <1>;
+				label = "a57-l2-pc";
+				qcom,spm-l2-mode = "pc";
+				qcom,latency-us = <30000>;
+				qcom,ss-power = <83>;
+				qcom,energy-overhead = <2274420>;
+				qcom,time-overhead = <6605>;
+				qcom,min-child-idx = <3>;
+			};
+
+			qcom,pm-cpu {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				qcom,pm-cpu-level@0 {
+					reg = <0>;
+					qcom,spm-cpu-mode = "wfi";
+					qcom,latency-us = <1>;
+					qcom,ss-power = <715>;
+					qcom,energy-overhead = <17700>;
+					qcom,time-overhead = <2>;
+				};
+
+				qcom,pm-cpu-level@1 {
+					reg = <1>;
+					qcom,spm-cpu-mode = "retention";
+					qcom,latency-us = <35>;
+					qcom,ss-power = <542>;
+					qcom,energy-overhead = <34920>;
+					qcom,time-overhead = <40>;
+				};
+
+				qcom,pm-cpu-level@2 {
+					reg = <2>;
+					qcom,spm-cpu-mode = "standalone_pc";
+					qcom,latency-us = <300>;
+					qcom,ss-power = <476>;
+					qcom,energy-overhead = <225300>;
+					qcom,time-overhead = <350>;
+				};
+
+				qcom,pm-cpu-level@3 {
+					reg = <3>;
+					qcom,spm-cpu-mode = "pc";
+					qcom,latency-us = <500>;
+					qcom,ss-power = <163>;
+					qcom,energy-overhead = <577736>;
+					qcom,time-overhead = <1000>;
+				};
+			};
+		};
+	};
+
+
+};

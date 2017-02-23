@@ -508,3 +508,4 @@ header-y += userfaultfd.h
 header-y += ipa_qmi_service_v01.h
 header-y += msm_ipa.h
 header-y += rmnet_ipa_fd_ioctl.h
+header-y += msm-core-interface.h
