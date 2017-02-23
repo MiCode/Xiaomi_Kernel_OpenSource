@@ -5,6 +5,7 @@
 
 #define MSM_VIDC_HAL_INTERLACE_COLOR_FORMAT_NV12	0x2
 #define MSM_VIDC_HAL_INTERLACE_COLOR_FORMAT_NV12_UBWC	0x8002
+#define MSM_VIDC_4x_1 0x1
 
 struct msm_vidc_extradata_header {
 	unsigned int size;
@@ -77,6 +78,12 @@ struct msm_vidc_input_crop_payload {
 	unsigned int height;
 };
 
+struct msm_vidc_misr_info {
+	unsigned int misr_dpb_luma;
+	unsigned int misr_dpb_chroma;
+	unsigned int misr_opb_luma;
+	unsigned int misr_opb_chroma;
+};
 struct msm_vidc_output_crop_payload {
 	unsigned int size;
 	unsigned int version;
@@ -87,6 +94,10 @@ struct msm_vidc_output_crop_payload {
 	unsigned int display_height;
 	unsigned int width;
 	unsigned int height;
+	unsigned int frame_num;
+	unsigned int bit_depth_y;
+	unsigned int bit_depth_c;
+	struct msm_vidc_misr_info misr_info[2];
 };
 
 
