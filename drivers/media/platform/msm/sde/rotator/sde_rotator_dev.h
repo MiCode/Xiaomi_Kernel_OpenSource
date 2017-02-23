@@ -68,6 +68,7 @@ struct sde_rotator_buf_handle {
  * @fence_ts: completion timestamp associated with fd
  * @qbuf_ts: timestamp associated with buffer queue event
  * @dqbuf_ts: Pointer to timestamp associated with buffer dequeue event
+ * @comp_ratio: compression ratio of this buffer
  */
 struct sde_rotator_vbinfo {
 	int fd;
@@ -75,6 +76,7 @@ struct sde_rotator_vbinfo {
 	u32 fence_ts;
 	ktime_t qbuf_ts;
 	ktime_t *dqbuf_ts;
+	struct sde_mult_factor comp_ratio;
 };
 
 /*
