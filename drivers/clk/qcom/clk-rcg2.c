@@ -19,6 +19,7 @@
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/regmap.h>
+#include <linux/rational.h>
 #include <linux/math64.h>
 #include <linux/clk.h>
 
@@ -896,6 +897,92 @@ const struct clk_ops clk_pixel_ops = {
 	.list_registers = clk_rcg2_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_pixel_ops);
+
+static int clk_dp_set_rate(struct clk_hw *hw, unsigned long rate,
+			unsigned long parent_rate)
+{
+	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	struct freq_tbl f = { 0 };
+	unsigned long src_rate;
+	unsigned long num, den;
+	u32 mask = BIT(rcg->hid_width) - 1;
+	u32 hid_div, cfg;
+	int i, num_parents = clk_hw_get_num_parents(hw);
+
+	src_rate = clk_get_rate(clk_hw_get_parent(hw)->clk);
+	if (src_rate <= 0) {
+		pr_err("Invalid RCG parent rate\n");
+		return -EINVAL;
+	}
+
+	rational_best_approximation(src_rate, rate,
+			(unsigned long)(1 << 16) - 1,
+			(unsigned long)(1 << 16) - 1, &den, &num);
+
+	if (!num || !den) {
+		pr_err("Invalid MN values derived for requested rate %lu\n",
+							rate);
+		return -EINVAL;
+	}
+
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &cfg);
+	hid_div = cfg;
+	cfg &= CFG_SRC_SEL_MASK;
+	cfg >>= CFG_SRC_SEL_SHIFT;
+
+	for (i = 0; i < num_parents; i++)
+		if (cfg == rcg->parent_map[i].cfg) {
+			f.src = rcg->parent_map[i].src;
+			break;
+	}
+
+	f.pre_div = hid_div;
+	f.pre_div >>= CFG_SRC_DIV_SHIFT;
+	f.pre_div &= mask;
+
+	if (num == den) {
+		f.m = 0;
+		f.n = 0;
+	} else {
+		f.m = num;
+		f.n = den;
+	}
+
+	return clk_rcg2_configure(rcg, &f);
+}
+
+static int clk_dp_set_rate_and_parent(struct clk_hw *hw, unsigned long rate,
+		unsigned long parent_rate, u8 index)
+{
+	return clk_dp_set_rate(hw, rate, parent_rate);
+}
+
+static int clk_dp_determine_rate(struct clk_hw *hw,
+				struct clk_rate_request *req)
+{
+	if (!hw)
+		return -EINVAL;
+
+	if (!clk_hw_get_parent(hw)) {
+		pr_err("Missing the parent for the DP RCG\n");
+		return -EINVAL;
+	}
+
+	req->best_parent_rate = clk_get_rate(clk_hw_get_parent(hw)->clk);
+	return 0;
+}
+
+const struct clk_ops clk_dp_ops = {
+	.is_enabled = clk_rcg2_is_enabled,
+	.get_parent = clk_rcg2_get_parent,
+	.set_parent = clk_rcg2_set_parent,
+	.recalc_rate = clk_rcg2_recalc_rate,
+	.set_rate = clk_dp_set_rate,
+	.set_rate_and_parent = clk_dp_set_rate_and_parent,
+	.determine_rate = clk_dp_determine_rate,
+	.list_registers = clk_rcg2_list_registers,
+};
+EXPORT_SYMBOL_GPL(clk_dp_ops);
 
 static int clk_gfx3d_determine_rate(struct clk_hw *hw,
 				    struct clk_rate_request *req)
