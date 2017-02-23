@@ -383,14 +383,13 @@ struct dsi_host_config {
  * @timing:         Timing parameters for the panel.
  * @pixel_clk_khz:  Pixel clock in Khz.
  * @panel_mode:     Panel operation mode.
- * @flags:          Additional flags.
+ * @dsi_mode_flags: Flags to signal other drm components via private flags
  */
 struct dsi_display_mode {
 	struct dsi_mode_info timing;
 	u32 pixel_clk_khz;
 	enum dsi_op_mode panel_mode;
-
-	u32 flags;
+	u32 dsi_mode_flags;
 };
 
 #endif /* _DSI_DEFS_H_ */
