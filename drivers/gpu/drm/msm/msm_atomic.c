@@ -66,8 +66,7 @@ static void commit_destroy(struct msm_commit *c)
 
 static void msm_atomic_wait_for_commit_done(
 		struct drm_device *dev,
-		struct drm_atomic_state *old_state,
-		int modeset_flags)
+		struct drm_atomic_state *old_state)
 {
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *crtc_state;
@@ -76,14 +75,7 @@ static void msm_atomic_wait_for_commit_done(
 	int i;
 
 	for_each_crtc_in_state(old_state, crtc, crtc_state, i) {
-		int private_flags;
-
 		if (!crtc->state->enable)
-			continue;
-
-		/* If specified, only wait if requested flag is true */
-		private_flags = crtc->state->adjusted_mode.private_flags;
-		if (modeset_flags && !(modeset_flags & private_flags))
 			continue;
 
 		/* Legacy cursor ioctls are completely unsynced, and userspace
@@ -318,11 +310,10 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 			else
 				funcs->commit(crtc);
 		}
-	}
 
-	/* ensure bridge/encoder updates happen on same vblank */
-	msm_atomic_wait_for_commit_done(dev, old_state,
-			MSM_MODE_FLAG_VBLANK_PRE_MODESET);
+		if (msm_needs_vblank_pre_modeset(&crtc->state->adjusted_mode))
+			drm_crtc_wait_one_vblank(crtc);
+	}
 
 	for_each_connector_in_state(old_state, connector, old_conn_state, i) {
 		const struct drm_encoder_helper_funcs *funcs;
@@ -417,7 +408,7 @@ static void complete_commit(struct msm_commit *c)
 	 * not be critical path)
 	 */
 
-	msm_atomic_wait_for_commit_done(dev, state, 0);
+	msm_atomic_wait_for_commit_done(dev, state);
 
 	drm_atomic_helper_cleanup_planes(dev, state);
 
