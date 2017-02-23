@@ -67,7 +67,7 @@
 		adi,main-addr = <0x39>;
 		adi,cec-dsi-addr = <0x3C>;
 		adi,enable-audio;
-		adi,irq-gpio = <&tlmm 0x7E 0x2002>;
+		adi,irq-gpio = <&tlmm 0x29 0x2002>;
 		adi,power-down-gpio = <&tlmm 0x7D 0x0>;
 		adi,switch-gpio = <&pm8937_gpios 0x8 0x1>;
 		pinctrl-names = "pmx_adv7533_active",
@@ -82,13 +82,14 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_adv7533_720p>;
+	qcom,dsi-pref-prim-pan = <&dsi_adv7533_1080p>;
 	qcom,platform-intf-mux-gpio = <&tlmm 115 0>;
 	status = "ok";
 	qcom,bridge-index = <0>;
+	qcom,pluggable;
 };
 
-&dsi_adv7533_720p {
+&dsi_adv7533_1080p {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
