@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1074,12 +1074,6 @@ void _sde_rm_release_rsvp(
 	}
 
 	kfree(rsvp);
-
-	(void) msm_property_set_property(
-			sde_connector_get_propinfo(conn),
-			sde_connector_get_property_values(conn->state),
-			CONNECTOR_PROP_TOPOLOGY_NAME,
-			SDE_RM_TOPOLOGY_UNKNOWN);
 }
 
 void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
@@ -1115,6 +1109,12 @@ void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
 		SDE_DEBUG("release rsvp[s%de%d]\n", rsvp->seq,
 				rsvp->enc_id);
 		_sde_rm_release_rsvp(rm, rsvp, conn);
+
+		(void) msm_property_set_property(
+				sde_connector_get_propinfo(conn),
+				sde_connector_get_property_values(conn->state),
+				CONNECTOR_PROP_TOPOLOGY_NAME,
+				SDE_RM_TOPOLOGY_UNKNOWN);
 	}
 }
 
@@ -1132,8 +1132,12 @@ static int _sde_rm_commit_rsvp(
 			sde_connector_get_property_values(conn_state),
 			CONNECTOR_PROP_TOPOLOGY_NAME,
 			rsvp->topology);
-	if (ret)
+	if (ret) {
+		SDE_ERROR("failed to set topology name property, ret %d\n",
+				ret);
 		_sde_rm_release_rsvp(rm, rsvp, conn_state->connector);
+		return ret;
+	}
 
 	/* Swap next rsvp to be the active */
 	for (type = 0; type < SDE_HW_BLK_MAX; type++) {
@@ -1226,6 +1230,12 @@ int sde_rm_reserve(
 		_sde_rm_release_rsvp(rm, rsvp_cur, conn_state->connector);
 		rsvp_cur = NULL;
 		_sde_rm_print_rsvps(rm, SDE_RM_STAGE_AFTER_CLEAR);
+		(void) msm_property_set_property(
+				sde_connector_get_propinfo(
+						conn_state->connector),
+				sde_connector_get_property_values(conn_state),
+				CONNECTOR_PROP_TOPOLOGY_NAME,
+				SDE_RM_TOPOLOGY_UNKNOWN);
 	}
 
 	/* Check the proposed reservation, store it in hw's "next" field */
