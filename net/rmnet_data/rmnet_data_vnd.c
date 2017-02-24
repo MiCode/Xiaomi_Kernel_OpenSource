@@ -556,7 +556,7 @@ int rmnet_vnd_init(void)
  *      - RMNET_CONFIG_UNKNOWN_ERROR if register_netdevice() fails
  */
 int rmnet_vnd_create_dev(int id, struct net_device **new_device,
-			 const char *prefix)
+			 const char *prefix, int use_name)
 {
 	struct net_device *dev;
 	char dev_prefix[IFNAMSIZ];
@@ -572,11 +572,16 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 		return RMNET_CONFIG_DEVICE_IN_USE;
 	}
 
-	if (!prefix)
+	if (!prefix && !use_name)
 		p = scnprintf(dev_prefix, IFNAMSIZ, "%s%%d",
 			      RMNET_DATA_DEV_NAME_STR);
-	else
+	else if (prefix && use_name)
+		p = scnprintf(dev_prefix, IFNAMSIZ, "%s", prefix);
+	else if (prefix && !use_name)
 		p = scnprintf(dev_prefix, IFNAMSIZ, "%s%%d", prefix);
+	else
+		return RMNET_CONFIG_BAD_ARGUMENTS;
+
 	if (p >= (IFNAMSIZ - 1)) {
 		LOGE("Specified prefix longer than IFNAMSIZ");
 		return RMNET_CONFIG_BAD_ARGUMENTS;
@@ -584,7 +589,7 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 
 	dev = alloc_netdev(sizeof(struct rmnet_vnd_private_s),
 			   dev_prefix,
-			   NET_NAME_ENUM,
+			   use_name ? NET_NAME_UNKNOWN : NET_NAME_ENUM,
 			   rmnet_vnd_setup);
 	if (!dev) {
 		LOGE("Failed to to allocate netdev for id %d", id);
