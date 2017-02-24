@@ -1133,6 +1133,7 @@ static struct platform_driver tz_log_driver = {
 		.name = "tz_log",
 		.owner = THIS_MODULE,
 		.of_match_table = tzlog_match,
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 };
 
