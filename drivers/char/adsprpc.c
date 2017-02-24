@@ -1421,10 +1421,11 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 }
 
 static int fastrpc_init_process(struct fastrpc_file *fl,
-				struct fastrpc_ioctl_init *init)
+				struct fastrpc_ioctl_init_attrs *uproc)
 {
 	int err = 0;
 	struct fastrpc_ioctl_invoke_attrs ioctl;
+	struct fastrpc_ioctl_init *init = &uproc->init;
 	struct smq_phy_page pages[1];
 	struct fastrpc_mmap *file = 0, *mem = 0;
 
@@ -1445,14 +1446,16 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (err)
 			goto bail;
 	} else if (init->flags == FASTRPC_INIT_CREATE) {
-		remote_arg_t ra[4];
-		int fds[4];
+		remote_arg_t ra[6];
+		int fds[6];
 		int mflags = 0;
 		struct {
 			int pgid;
 			int namelen;
 			int filelen;
 			int pageslen;
+			int attrs;
+			int siglen;
 		} inbuf;
 
 		inbuf.pgid = current->tgid;
@@ -1489,8 +1492,20 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		ra[3].buf.len = 1 * sizeof(*pages);
 		fds[3] = 0;
 
+		inbuf.attrs = uproc->attrs;
+		ra[4].buf.pv = (void *)&(inbuf.attrs);
+		ra[4].buf.len = sizeof(inbuf.attrs);
+		fds[4] = 0;
+
+		inbuf.siglen = uproc->siglen;
+		ra[5].buf.pv = (void *)&(inbuf.siglen);
+		ra[5].buf.len = sizeof(inbuf.siglen);
+		fds[5] = 0;
+
 		ioctl.inv.handle = 1;
 		ioctl.inv.sc = REMOTE_SCALARS_MAKE(6, 4, 0);
+		if (uproc->attrs)
+			ioctl.inv.sc = REMOTE_SCALARS_MAKE(7, 6, 0);
 		ioctl.inv.pra = ra;
 		ioctl.fds = fds;
 		ioctl.attrs = 0;
@@ -2024,7 +2039,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		struct fastrpc_ioctl_invoke_attrs inv;
 		struct fastrpc_ioctl_mmap mmap;
 		struct fastrpc_ioctl_munmap munmap;
-		struct fastrpc_ioctl_init init;
+		struct fastrpc_ioctl_init_attrs init;
 		struct fastrpc_ioctl_perf perf;
 	} p;
 	void *param = (char *)ioctl_param;
@@ -2120,8 +2135,14 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			goto bail;
 		break;
 	case FASTRPC_IOCTL_INIT:
-		VERIFY(err, 0 == copy_from_user(&p.init, param,
-						sizeof(p.init)));
+		p.init.attrs = 0;
+		p.init.siglen = 0;
+		size = sizeof(struct fastrpc_ioctl_init);
+		/* fall through */
+	case FASTRPC_IOCTL_INIT_ATTRS:
+		if (!size)
+			size = sizeof(struct fastrpc_ioctl_init_attrs);
+		VERIFY(err, 0 == copy_from_user(&p.init, param, size));
 		if (err)
 			goto bail;
 		VERIFY(err, 0 == fastrpc_init_process(fl, &p.init));
