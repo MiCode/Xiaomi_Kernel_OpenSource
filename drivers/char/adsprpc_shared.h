@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,7 @@
 #define FASTRPC_IOCTL_INVOKE_ATTRS \
 				_IOWR('R', 7, struct fastrpc_ioctl_invoke_attrs)
 #define FASTRPC_IOCTL_GETINFO	_IOWR('R', 8, uint32_t)
+#define FASTRPC_IOCTL_GETPERF	_IOWR('R', 9, struct fastrpc_ioctl_perf)
 
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
@@ -38,6 +39,9 @@
 
 /* Driver should operate in serial mode with the co-processor */
 #define FASTRPC_MODE_SERIAL      1
+
+/* Driver should operate in profile mode with the co-processor */
+#define FASTRPC_MODE_PROFILE     2
 
 /* INIT a new process or attach to guestos */
 #define FASTRPC_INIT_ATTACH      0
@@ -166,13 +170,18 @@ struct fastrpc_ioctl_munmap {
 	ssize_t size;		/* size */
 };
 
-
 struct fastrpc_ioctl_mmap {
 	int fd;				/* ion fd */
 	uint32_t flags;			/* flags for dsp to map with */
 	uintptr_t __user *vaddrin;	/* optional virtual address */
 	ssize_t size;			/* size */
 	uintptr_t vaddrout;		/* dsps virtual address */
+};
+
+struct fastrpc_ioctl_perf {			/* kernel performance data */
+	uintptr_t __user data;
+	uint32_t numkeys;
+	uintptr_t __user keys;
 };
 
 struct smq_null_invoke {
