@@ -132,6 +132,11 @@ DMA_ATTR_FORCE_COHERENT
 
 When passed to a DMA map call the DMA_ATTR_FORCE_COHERENT DMA
 attribute can be used to force a buffer to be mapped as IO coherent.
+
+When the DMA_ATTR_FORCE_COHERENT attribute is set during a map call ensure
+that it is also set during for the matching unmap call to ensure that the
+correct cache maintenance is carried out.
+
 This DMA attribute is only currently supported for arm64 stage 1 IOMMU
 mappings.
 
@@ -142,6 +147,10 @@ attribute can be used to force a buffer to not be mapped as IO
 coherent.
 The DMA_ATTR_FORCE_NON_COHERENT DMA attribute overrides the buffer IO
 coherency configuration set by making the device IO coherent.
+
+When the DMA_ATTR_FORCE_NON_COHERENT attribute is set during a map call
+ensure that it is also set during for the matching unmap call to ensure
+that the correct cache maintenance is carried out.
 
 This DMA attribute is only currently supported for arm64 stage 1 IOMMU
 mappings.
