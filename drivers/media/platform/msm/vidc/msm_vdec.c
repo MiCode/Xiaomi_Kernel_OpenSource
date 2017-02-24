@@ -1418,76 +1418,6 @@ static struct v4l2_ctrl *get_ctrl_from_cluster(int id,
 	return NULL;
 }
 
-static int vdec_v4l2_to_hal(int id, int value)
-{
-	switch (id) {
-	/* H264 */
-	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-		switch (value) {
-		case V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE:
-			return HAL_H264_PROFILE_BASELINE;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE:
-			return HAL_H264_PROFILE_CONSTRAINED_BASE;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH:
-			return HAL_H264_PROFILE_CONSTRAINED_HIGH;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_MAIN:
-			return HAL_H264_PROFILE_MAIN;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_EXTENDED:
-			return HAL_H264_PROFILE_EXTENDED;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH:
-			return HAL_H264_PROFILE_HIGH;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_10:
-			return HAL_H264_PROFILE_HIGH10;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_422:
-			return HAL_H264_PROFILE_HIGH422;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE:
-			return HAL_H264_PROFILE_HIGH444;
-		default:
-			goto unknown_value;
-		}
-	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-		switch (value) {
-		case V4L2_MPEG_VIDEO_H264_LEVEL_1_0:
-			return HAL_H264_LEVEL_1;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_1B:
-			return HAL_H264_LEVEL_1b;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_1_1:
-			return HAL_H264_LEVEL_11;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_1_2:
-			return HAL_H264_LEVEL_12;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_1_3:
-			return HAL_H264_LEVEL_13;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_2_0:
-			return HAL_H264_LEVEL_2;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_2_1:
-			return HAL_H264_LEVEL_21;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_2_2:
-			return HAL_H264_LEVEL_22;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_3_0:
-			return HAL_H264_LEVEL_3;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_3_1:
-			return HAL_H264_LEVEL_31;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_3_2:
-			return HAL_H264_LEVEL_32;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_4_0:
-			return HAL_H264_LEVEL_4;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_4_1:
-			return HAL_H264_LEVEL_41;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_4_2:
-			return HAL_H264_LEVEL_42;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_5_0:
-			return HAL_H264_LEVEL_5;
-		case V4L2_MPEG_VIDEO_H264_LEVEL_5_1:
-			return HAL_H264_LEVEL_51;
-		default:
-			goto unknown_value;
-		}
-	}
-unknown_value:
-	dprintk(VIDC_WARN, "Unknown control (%x, %d)\n", id, value);
-	return -EINVAL;
-}
-
 int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
@@ -1670,9 +1600,9 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_LEVEL);
 		property_id =
 			HAL_PARAM_PROFILE_LEVEL_CURRENT;
-		profile_level.profile = vdec_v4l2_to_hal(ctrl->id,
+		profile_level.profile = msm_comm_v4l2_to_hal(ctrl->id,
 				ctrl->val);
-		profile_level.level = vdec_v4l2_to_hal(
+		profile_level.level = msm_comm_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDEO_H264_LEVEL,
 				temp_ctrl->val);
 		pdata = &profile_level;
@@ -1681,9 +1611,9 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_PROFILE);
 		property_id =
 			HAL_PARAM_PROFILE_LEVEL_CURRENT;
-		profile_level.level = vdec_v4l2_to_hal(ctrl->id,
+		profile_level.level = msm_comm_v4l2_to_hal(ctrl->id,
 				ctrl->val);
-		profile_level.profile = vdec_v4l2_to_hal(
+		profile_level.profile = msm_comm_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDEO_H264_PROFILE,
 				temp_ctrl->val);
 		pdata = &profile_level;

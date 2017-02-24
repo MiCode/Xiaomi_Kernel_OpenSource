@@ -110,6 +110,7 @@ static int hfi_process_sess_evt_seq_changed(u32 device_id,
 	struct hfi_profile_level *profile_level;
 	struct hfi_bit_depth *pixel_depth;
 	struct hfi_pic_struct *pic_struct;
+	u32 entropy_mode = 0;
 	u8 *data_ptr;
 	int prop_id;
 	enum msm_vidc_pixel_depth luma_bit_depth, chroma_bit_depth;
@@ -158,6 +159,8 @@ static int hfi_process_sess_evt_seq_changed(u32 device_id,
 				data_ptr = data_ptr + sizeof(u32);
 				profile_level =
 					(struct hfi_profile_level *) data_ptr;
+				event_notify.profile = profile_level->profile;
+				event_notify.level = profile_level->level;
 				dprintk(VIDC_DBG, "profile: %d level: %d\n",
 					profile_level->profile,
 					profile_level->level);
@@ -218,6 +221,15 @@ static int hfi_process_sess_evt_seq_changed(u32 device_id,
 						colour_info->colour_space);
 				data_ptr +=
 					sizeof(struct hfi_colour_space);
+				break;
+			case HFI_PROPERTY_CONFIG_VDEC_ENTROPY:
+				data_ptr = data_ptr + sizeof(u32);
+				entropy_mode = *(u32 *)data_ptr;
+				event_notify.entropy_mode = entropy_mode;
+				dprintk(VIDC_DBG,
+					"Entropy Mode: 0x%x\n", entropy_mode);
+				data_ptr +=
+					sizeof(u32);
 				break;
 			default:
 				dprintk(VIDC_ERR,
@@ -1001,59 +1013,6 @@ enum vidc_status hfi_process_sys_init_done_prop_read(
 	return status;
 }
 
-static void hfi_process_sess_get_prop_dec_entropy(
-	struct hfi_msg_session_property_info_packet *prop,
-	enum hal_h264_entropy *entropy)
-{
-	u32 req_bytes, hfi_entropy;
-
-	req_bytes = prop->size - sizeof(
-			struct hfi_msg_session_property_info_packet);
-
-	if (!req_bytes || req_bytes % sizeof(hfi_entropy)) {
-		dprintk(VIDC_ERR, "%s: bad packet: %d\n", __func__, req_bytes);
-		return;
-	}
-
-	hfi_entropy = prop->rg_property_data[1];
-	*entropy =
-		hfi_entropy == HFI_H264_ENTROPY_CAVLC ? HAL_H264_ENTROPY_CAVLC :
-		hfi_entropy == HFI_H264_ENTROPY_CABAC ? HAL_H264_ENTROPY_CABAC :
-							HAL_UNUSED_ENTROPY;
-}
-
-static void hfi_process_sess_get_prop_profile_level(
-	struct hfi_msg_session_property_info_packet *prop,
-	struct hfi_profile_level *profile_level)
-{
-	struct hfi_profile_level *hfi_profile_level;
-	u32 req_bytes;
-
-	dprintk(VIDC_DBG, "Entered %s\n", __func__);
-	if (!prop) {
-		dprintk(VIDC_ERR,
-			"hal_process_sess_get_profile_level: bad_prop: %pK\n",
-			prop);
-		return;
-	}
-	req_bytes = prop->size - sizeof(
-			struct hfi_msg_session_property_info_packet);
-
-	if (!req_bytes || req_bytes % sizeof(struct hfi_profile_level)) {
-		dprintk(VIDC_ERR,
-			"hal_process_sess_get_profile_level: bad_pkt: %d\n",
-			req_bytes);
-		return;
-	}
-	hfi_profile_level = (struct hfi_profile_level *)
-				&prop->rg_property_data[1];
-	profile_level->profile = hfi_profile_level->profile;
-	profile_level->level = hfi_profile_level->level;
-	dprintk(VIDC_DBG, "%s profile: %d level: %d\n",
-		__func__, profile_level->profile,
-		profile_level->level);
-}
-
 static void hfi_process_sess_get_prop_buf_req(
 	struct hfi_msg_session_property_info_packet *prop,
 	struct buffer_requirements *buffreq)
@@ -1179,8 +1138,6 @@ static int hfi_process_session_prop_info(u32 device_id,
 		struct msm_vidc_cb_info *info)
 {
 	struct msm_vidc_cb_cmd_done cmd_done = {0};
-	struct hfi_profile_level profile_level = {0};
-	enum hal_h264_entropy entropy = {0};
 	struct buffer_requirements buff_req = { { {0} } };
 
 	dprintk(VIDC_DBG, "Received SESSION_PROPERTY_INFO[%#x]\n",
@@ -1210,36 +1167,6 @@ static int hfi_process_session_prop_info(u32 device_id,
 			.response.cmd = cmd_done,
 		};
 
-		return 0;
-	case HFI_PROPERTY_PARAM_PROFILE_LEVEL_CURRENT:
-		hfi_process_sess_get_prop_profile_level(pkt, &profile_level);
-		cmd_done.device_id = device_id;
-		cmd_done.session_id = (void *)(uintptr_t)pkt->session_id;
-		cmd_done.status = VIDC_ERR_NONE;
-		cmd_done.data.property.profile_level =
-			(struct hal_profile_level) {
-				.profile = profile_level.profile,
-				.level = profile_level.level,
-			};
-		cmd_done.size = sizeof(struct hal_profile_level);
-
-		*info = (struct msm_vidc_cb_info) {
-			.response_type =  HAL_SESSION_PROPERTY_INFO,
-			.response.cmd = cmd_done,
-		};
-		return 0;
-	case HFI_PROPERTY_CONFIG_VDEC_ENTROPY:
-		hfi_process_sess_get_prop_dec_entropy(pkt, &entropy);
-		cmd_done.device_id = device_id;
-		cmd_done.session_id = (void *)(uintptr_t)pkt->session_id;
-		cmd_done.status = VIDC_ERR_NONE;
-		cmd_done.data.property.h264_entropy = entropy;
-		cmd_done.size = sizeof(enum hal_h264_entropy);
-
-		*info = (struct msm_vidc_cb_info) {
-			.response_type =  HAL_SESSION_PROPERTY_INFO,
-			.response.cmd = cmd_done,
-		};
 		return 0;
 	default:
 		dprintk(VIDC_DBG,

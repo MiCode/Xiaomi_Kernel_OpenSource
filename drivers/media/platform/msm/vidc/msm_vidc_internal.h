@@ -303,6 +303,9 @@ struct msm_vidc_inst {
 	u32 pic_struct;
 	u32 colour_space;
 	u32 operating_rate;
+	u32 profile;
+	u32 level;
+	u32 entropy_mode;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
