@@ -123,7 +123,6 @@ struct sde_kms {
 	struct sde_mdss_cfg *catalog;
 
 	struct msm_gem_address_space *aspace[MSM_SMMU_DOMAIN_MAX];
-	int mmu_id[MSM_SMMU_DOMAIN_MAX];
 	struct sde_power_client *core_client;
 
 	/* directory entry for debugfs */

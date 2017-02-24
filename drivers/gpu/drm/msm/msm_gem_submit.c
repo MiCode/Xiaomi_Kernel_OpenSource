@@ -90,7 +90,8 @@ static int submit_lookup_objects(struct msm_gem_submit *submit,
 			pagefault_disable();
 		}
 
-		if (submit_bo.flags & ~MSM_SUBMIT_BO_FLAGS) {
+		if ((submit_bo.flags & ~MSM_SUBMIT_BO_FLAGS) ||
+			!(submit_bo.flags & MSM_SUBMIT_BO_FLAGS)) {
 			DRM_ERROR("invalid flags: %x\n", submit_bo.flags);
 			ret = -EINVAL;
 			goto out_unlock;
@@ -141,7 +142,7 @@ static void submit_unlock_unpin_bo(struct msm_gem_submit *submit, int i)
 	struct msm_gem_object *msm_obj = submit->bos[i].obj;
 
 	if (submit->bos[i].flags & BO_PINNED)
-		msm_gem_put_iova(&msm_obj->base, submit->gpu->id);
+		msm_gem_put_iova(&msm_obj->base, submit->gpu->aspace);
 
 	if (submit->bos[i].flags & BO_LOCKED)
 		ww_mutex_unlock(&msm_obj->resv->lock);
@@ -162,7 +163,7 @@ retry:
 
 	for (i = 0; i < submit->nr_bos; i++) {
 		struct msm_gem_object *msm_obj = submit->bos[i].obj;
-		uint32_t iova;
+		uint64_t iova;
 
 		if (slow_locked == i)
 			slow_locked = -1;
@@ -180,7 +181,7 @@ retry:
 
 		/* if locking succeeded, pin bo: */
 		ret = msm_gem_get_iova_locked(&msm_obj->base,
-				submit->gpu->id, &iova);
+				submit->gpu->aspace, &iova);
 
 		/* this would break the logic in the fail path.. there is no
 		 * reason for this to happen, but just to be on the safe side
@@ -229,7 +230,7 @@ fail:
 }
 
 static int submit_bo(struct msm_gem_submit *submit, uint32_t idx,
-		struct msm_gem_object **obj, uint32_t *iova, bool *valid)
+		struct msm_gem_object **obj, uint64_t *iova, bool *valid)
 {
 	if (idx >= submit->nr_bos) {
 		DRM_ERROR("invalid buffer index: %u (out of %u)\n",
@@ -275,7 +276,8 @@ static int submit_reloc(struct msm_gem_submit *submit, struct msm_gem_object *ob
 		struct drm_msm_gem_submit_reloc submit_reloc;
 		void __user *userptr =
 			to_user_ptr(relocs + (i * sizeof(submit_reloc)));
-		uint32_t iova, off;
+		uint64_t iova;
+		uint32_t off;
 		bool valid;
 
 		ret = copy_from_user(&submit_reloc, userptr, sizeof(submit_reloc));
@@ -351,6 +353,8 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		return -EINVAL;
 
 	gpu = priv->gpu;
+	if (!gpu)
+		return -ENXIO;
 
 	if (args->nr_cmds > MAX_CMDS)
 		return -EINVAL;
@@ -376,7 +380,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		void __user *userptr =
 			to_user_ptr(args->cmds + (i * sizeof(submit_cmd)));
 		struct msm_gem_object *msm_obj;
-		uint32_t iova;
+		uint64_t iova;
 
 		ret = copy_from_user(&submit_cmd, userptr, sizeof(submit_cmd));
 		if (ret) {

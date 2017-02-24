@@ -2,7 +2,7 @@
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
- * Copyright (c) 2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014,2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -22,7 +22,7 @@
 #include "msm_mmu.h"
 
 #define RB_SIZE    SZ_32K
-#define RB_BLKSIZE 16
+#define RB_BLKSIZE 32
 
 int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value)
 {
@@ -42,7 +42,7 @@ int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value)
 				(adreno_gpu->rev.core << 24);
 		return 0;
 	case MSM_PARAM_MAX_FREQ:
-		*value = adreno_gpu->base.fast_rate;
+		*value = gpu->gpufreq[gpu->active_level];
 		return 0;
 	case MSM_PARAM_TIMESTAMP:
 		if (adreno_gpu->funcs->get_timestamp)
@@ -54,9 +54,6 @@ int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value)
 	}
 }
 
-#define rbmemptr(adreno_gpu, member)  \
-	((adreno_gpu)->memptrs_iova + offsetof(struct adreno_rbmemptrs, member))
-
 int adreno_hw_init(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
@@ -64,7 +61,7 @@ int adreno_hw_init(struct msm_gpu *gpu)
 
 	DBG("%s", gpu->name);
 
-	ret = msm_gem_get_iova(gpu->rb->bo, gpu->id, &gpu->rb_iova);
+	ret = msm_gem_get_iova(gpu->rb->bo, gpu->aspace, &gpu->rb_iova);
 	if (ret) {
 		gpu->rb_iova = 0;
 		dev_err(gpu->dev->dev, "could not map ringbuffer: %d\n", ret);
@@ -78,12 +75,12 @@ int adreno_hw_init(struct msm_gpu *gpu)
 			AXXX_CP_RB_CNTL_BLKSZ(ilog2(RB_BLKSIZE / 8)) |
 			(adreno_is_a430(adreno_gpu) ? AXXX_CP_RB_CNTL_NO_UPDATE : 0));
 
-	/* Setup ringbuffer address: */
-	adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_BASE, gpu->rb_iova);
+	/* Setup ringbuffer address */
+	adreno_gpu_write64(adreno_gpu, REG_ADRENO_CP_RB_BASE,
+		REG_ADRENO_CP_RB_BASE_HI, gpu->rb_iova);
 
-	if (!adreno_is_a430(adreno_gpu))
-		adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_RPTR_ADDR,
-						rbmemptr(adreno_gpu, rptr));
+	adreno_gpu_write64(adreno_gpu, REG_ADRENO_CP_RB_RPTR_ADDR,
+		REG_ADRENO_CP_RB_RPTR_ADDR_HI, rbmemptr(adreno_gpu, rptr));
 
 	return 0;
 }
@@ -126,11 +123,14 @@ void adreno_recover(struct msm_gpu *gpu)
 	adreno_gpu->memptrs->wptr  = 0;
 
 	gpu->funcs->pm_resume(gpu);
+
+	disable_irq(gpu->irq);
 	ret = gpu->funcs->hw_init(gpu);
 	if (ret) {
 		dev_err(dev->dev, "gpu hw init failed: %d\n", ret);
 		/* hmm, oh well? */
 	}
+	enable_irq(gpu->irq);
 }
 
 int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
@@ -153,7 +153,7 @@ int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 		case MSM_SUBMIT_CMD_BUF:
 			OUT_PKT3(ring, adreno_is_a430(adreno_gpu) ?
 				CP_INDIRECT_BUFFER_PFE : CP_INDIRECT_BUFFER_PFD, 2);
-			OUT_RING(ring, submit->cmd[i].iova);
+			OUT_RING(ring, lower_32_bits(submit->cmd[i].iova));
 			OUT_RING(ring, submit->cmd[i].size);
 			ibs++;
 			break;
@@ -219,7 +219,14 @@ int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 void adreno_flush(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
-	uint32_t wptr = get_wptr(gpu->rb);
+	uint32_t wptr;
+
+	/*
+	 * Mask the wptr value that we calculate to fit in the HW range. This is
+	 * to account for the possibility that the last command fit exactly into
+	 * the ringbuffer and rb->next hasn't wrapped to zero yet
+	 */
+	wptr = get_wptr(gpu->rb) & ((gpu->rb->size / 4) - 1);
 
 	/* ensure writes to ringbuffer have hit system memory: */
 	mb();
@@ -341,9 +348,121 @@ void adreno_wait_ring(struct msm_gpu *gpu, uint32_t ndwords)
 }
 
 static const char *iommu_ports[] = {
-		"gfx3d_user", "gfx3d_priv",
-		"gfx3d1_user", "gfx3d1_priv",
+		"gfx3d_user",
 };
+
+/* Read the set of powerlevels */
+static int _adreno_get_pwrlevels(struct msm_gpu *gpu, struct device_node *node)
+{
+	struct device_node *child;
+
+	gpu->active_level = 1;
+
+	/* The device tree will tell us the best clock to initialize with */
+	of_property_read_u32(node, "qcom,initial-pwrlevel", &gpu->active_level);
+
+	if (gpu->active_level >= ARRAY_SIZE(gpu->gpufreq))
+		gpu->active_level = 1;
+
+	for_each_child_of_node(node, child) {
+		unsigned int index;
+
+		if (of_property_read_u32(child, "reg", &index))
+			return -EINVAL;
+
+		if (index >= ARRAY_SIZE(gpu->gpufreq))
+			continue;
+
+		gpu->nr_pwrlevels = max(gpu->nr_pwrlevels, index + 1);
+
+		of_property_read_u32(child, "qcom,gpu-freq",
+			&gpu->gpufreq[index]);
+		of_property_read_u32(child, "qcom,bus-freq",
+			&gpu->busfreq[index]);
+	}
+
+	DBG("fast_rate=%u, slow_rate=%u, bus_freq=%u",
+		gpu->gpufreq[gpu->active_level],
+		gpu->gpufreq[gpu->nr_pwrlevels - 1],
+		gpu->busfreq[gpu->active_level]);
+
+	return 0;
+}
+
+/*
+ * Escape valve for targets that don't define the binning nodes. Get the
+ * first powerlevel node and parse it
+ */
+static int adreno_get_legacy_pwrlevels(struct msm_gpu *gpu,
+		struct device_node *parent)
+{
+	struct device_node *child;
+
+	child = of_find_node_by_name(parent, "qcom,gpu-pwrlevels");
+	if (child)
+		return _adreno_get_pwrlevels(gpu, child);
+
+	dev_err(gpu->dev->dev, "Unable to parse any powerlevels\n");
+	return -EINVAL;
+}
+
+/* Get the powerlevels for the target */
+static int adreno_get_pwrlevels(struct msm_gpu *gpu, struct device_node *parent)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct device_node *node, *child;
+
+	/* See if the target has defined a number of power bins */
+	node = of_find_node_by_name(parent, "qcom,gpu-pwrlevel-bins");
+	if (!node) {
+		/* If not look for the qcom,gpu-pwrlevels node */
+		return adreno_get_legacy_pwrlevels(gpu, parent);
+	}
+
+	for_each_child_of_node(node, child) {
+		unsigned int bin;
+
+		if (of_property_read_u32(child, "qcom,speed-bin", &bin))
+			continue;
+
+		/*
+		 * If the bin matches the bin specified by the fuses, then we
+		 * have a winner - parse it
+		 */
+		if (adreno_gpu->speed_bin == bin)
+			return _adreno_get_pwrlevels(gpu, child);
+	}
+
+	return -ENODEV;
+}
+
+static const struct {
+	const char *str;
+	uint32_t flag;
+} quirks[] = {
+	{ "qcom,gpu-quirk-two-pass-use-wfi", ADRENO_QUIRK_TWO_PASS_USE_WFI },
+	{ "qcom,gpu-quirk-fault-detect-mask", ADRENO_QUIRK_FAULT_DETECT_MASK },
+};
+
+/* Parse the statistics from the device tree */
+static int adreno_of_parse(struct platform_device *pdev, struct msm_gpu *gpu)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct device_node *node = pdev->dev.of_node;
+	int i, ret;
+
+	/* Probe the powerlevels */
+	ret = adreno_get_pwrlevels(gpu, node);
+	if (ret)
+		return ret;
+
+	/* Check to see if any quirks were specified in the device tree */
+	for (i = 0; i < ARRAY_SIZE(quirks); i++)
+		if (of_property_read_bool(node, quirks[i].str))
+			adreno_gpu->quirks |= quirks[i].flag;
+
+	return 0;
+}
 
 int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		struct adreno_gpu *adreno_gpu, const struct adreno_gpu_funcs *funcs)
@@ -359,15 +478,8 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	adreno_gpu->revn = adreno_gpu->info->revn;
 	adreno_gpu->rev = config->rev;
 
-	gpu->fast_rate = config->fast_rate;
-	gpu->slow_rate = config->slow_rate;
-	gpu->bus_freq  = config->bus_freq;
-#ifdef DOWNSTREAM_CONFIG_MSM_BUS_SCALING
-	gpu->bus_scale_table = config->bus_scale_table;
-#endif
-
-	DBG("fast_rate=%u, slow_rate=%u, bus_freq=%u",
-			gpu->fast_rate, gpu->slow_rate, gpu->bus_freq);
+	/* Get the rest of the target configuration from the device tree */
+	adreno_of_parse(pdev, gpu);
 
 	ret = msm_gpu_init(drm, pdev, &adreno_gpu->base, &funcs->base,
 			adreno_gpu->info->name, "kgsl_3d0_reg_memory", "kgsl_3d0_irq",
@@ -414,7 +526,7 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		return -ENOMEM;
 	}
 
-	ret = msm_gem_get_iova(adreno_gpu->memptrs_bo, gpu->id,
+	ret = msm_gem_get_iova(adreno_gpu->memptrs_bo, gpu->aspace,
 			&adreno_gpu->memptrs_iova);
 	if (ret) {
 		dev_err(drm->dev, "could not map memptrs: %d\n", ret);
@@ -430,7 +542,7 @@ void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 
 	if (gpu->memptrs_bo) {
 		if (gpu->memptrs_iova)
-			msm_gem_put_iova(gpu->memptrs_bo, gpu->base.id);
+			msm_gem_put_iova(gpu->memptrs_bo, gpu->base.aspace);
 		drm_gem_object_unreference_unlocked(gpu->memptrs_bo);
 	}
 	release_firmware(gpu->pm4);

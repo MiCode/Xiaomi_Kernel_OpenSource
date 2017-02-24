@@ -90,19 +90,18 @@ static int disable_pwrrail(struct msm_gpu *gpu)
 
 static int enable_clk(struct msm_gpu *gpu)
 {
-	struct clk *rate_clk = NULL;
+	uint32_t rate = gpu->gpufreq[gpu->active_level];
 	int i;
 
-	/* NOTE: kgsl_pwrctrl_clk() ignores grp_clks[0].. */
-	for (i = ARRAY_SIZE(gpu->grp_clks) - 1; i > 0; i--) {
-		if (gpu->grp_clks[i]) {
-			clk_prepare(gpu->grp_clks[i]);
-			rate_clk = gpu->grp_clks[i];
-		}
-	}
+	clk_set_rate(gpu->grp_clks[0], rate);
 
-	if (rate_clk && gpu->fast_rate)
-		clk_set_rate(rate_clk, gpu->fast_rate);
+	if (gpu->grp_clks[3])
+		clk_set_rate(gpu->grp_clks[3], 19200000);
+
+	/* NOTE: kgsl_pwrctrl_clk() ignores grp_clks[0].. */
+	for (i = ARRAY_SIZE(gpu->grp_clks) - 1; i > 0; i--)
+		if (gpu->grp_clks[i])
+			clk_prepare(gpu->grp_clks[i]);
 
 	for (i = ARRAY_SIZE(gpu->grp_clks) - 1; i > 0; i--)
 		if (gpu->grp_clks[i])
@@ -113,24 +112,19 @@ static int enable_clk(struct msm_gpu *gpu)
 
 static int disable_clk(struct msm_gpu *gpu)
 {
-	struct clk *rate_clk = NULL;
+	uint32_t rate = gpu->gpufreq[gpu->nr_pwrlevels - 1];
 	int i;
 
 	/* NOTE: kgsl_pwrctrl_clk() ignores grp_clks[0].. */
-	for (i = ARRAY_SIZE(gpu->grp_clks) - 1; i > 0; i--) {
-		if (gpu->grp_clks[i]) {
+	for (i = ARRAY_SIZE(gpu->grp_clks) - 1; i > 0; i--)
+		if (gpu->grp_clks[i])
 			clk_disable(gpu->grp_clks[i]);
-			rate_clk = gpu->grp_clks[i];
-		}
-	}
-
-	if (rate_clk && gpu->slow_rate)
-		clk_set_rate(rate_clk, gpu->slow_rate);
 
 	for (i = ARRAY_SIZE(gpu->grp_clks) - 1; i > 0; i--)
 		if (gpu->grp_clks[i])
 			clk_unprepare(gpu->grp_clks[i]);
 
+	clk_set_rate(gpu->grp_clks[0], rate);
 	return 0;
 }
 
@@ -138,8 +132,9 @@ static int enable_axi(struct msm_gpu *gpu)
 {
 	if (gpu->ebi1_clk)
 		clk_prepare_enable(gpu->ebi1_clk);
-	if (gpu->bus_freq)
-		bs_set(gpu, gpu->bus_freq);
+
+	if (gpu->busfreq[gpu->active_level])
+		bs_set(gpu, gpu->busfreq[gpu->active_level]);
 	return 0;
 }
 
@@ -147,7 +142,8 @@ static int disable_axi(struct msm_gpu *gpu)
 {
 	if (gpu->ebi1_clk)
 		clk_disable_unprepare(gpu->ebi1_clk);
-	if (gpu->bus_freq)
+
+	if (gpu->busfreq[gpu->active_level])
 		bs_set(gpu, 0);
 	return 0;
 }
@@ -474,7 +470,7 @@ static void retire_worker(struct work_struct *work)
 				(obj->write_fence <= fence)) {
 			/* move to inactive: */
 			msm_gem_move_to_inactive(&obj->base);
-			msm_gem_put_iova(&obj->base, gpu->id);
+			msm_gem_put_iova(&obj->base, gpu->aspace);
 			drm_gem_object_unreference(&obj->base);
 		} else {
 			break;
@@ -528,12 +524,12 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 		WARN_ON(is_active(msm_obj) && (msm_obj->gpu != gpu));
 
 		if (!is_active(msm_obj)) {
-			uint32_t iova;
+			uint64_t iova;
 
 			/* ring takes a reference to the bo and iova: */
 			drm_gem_object_reference(&msm_obj->base);
 			msm_gem_get_iova_locked(&msm_obj->base,
-					submit->gpu->id, &iova);
+					submit->gpu->aspace, &iova);
 		}
 
 		if (submit->bos[i].flags & MSM_SUBMIT_BO_READ)
@@ -562,8 +558,8 @@ static irqreturn_t irq_handler(int irq, void *data)
 }
 
 static const char *clk_names[] = {
-		"src_clk", "core_clk", "iface_clk", "mem_clk", "mem_iface_clk",
-		"alt_mem_iface_clk",
+		"src_clk", "core_clk", "iface_clk", "rbbmtimer_clk",
+		"mem_clk", "mem_iface_clk", "alt_mem_iface_clk",
 };
 
 int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
@@ -627,6 +623,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 			gpu->grp_clks[i] = NULL;
 	}
 
+	gpu->grp_clks[0] = gpu->grp_clks[1];
+
 	gpu->ebi1_clk = devm_clk_get(&pdev->dev, "bus_clk");
 	DBG("ebi1_clk: %p", gpu->ebi1_clk);
 	if (IS_ERR(gpu->ebi1_clk))
@@ -667,8 +665,6 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	} else {
 		dev_info(drm->dev, "%s: no IOMMU, fallback to VRAM carveout!\n", name);
 	}
-	gpu->id = msm_register_address_space(drm, gpu->aspace);
-
 
 	/* Create ringbuffer: */
 	mutex_lock(&drm->struct_mutex);
@@ -680,6 +676,14 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		dev_err(drm->dev, "could not create ringbuffer: %d\n", ret);
 		goto fail;
 	}
+
+#ifdef CONFIG_SMP
+	gpu->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
+	gpu->pm_qos_req_dma.irq = gpu->irq;
+#endif
+
+	pm_qos_add_request(&gpu->pm_qos_req_dma, PM_QOS_CPU_DMA_LATENCY,
+			PM_QOS_DEFAULT_VALUE);
 
 	bs_init(gpu);
 
@@ -699,7 +703,7 @@ void msm_gpu_cleanup(struct msm_gpu *gpu)
 
 	if (gpu->rb) {
 		if (gpu->rb_iova)
-			msm_gem_put_iova(gpu->rb->bo, gpu->id);
+			msm_gem_put_iova(gpu->rb->bo, gpu->aspace);
 		msm_ringbuffer_destroy(gpu->rb);
 	}
 }

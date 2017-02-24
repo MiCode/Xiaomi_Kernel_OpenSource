@@ -627,13 +627,6 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 		aspace = NULL;
 	}
 
-	mdp5_kms->id = msm_register_address_space(dev, aspace);
-	if (mdp5_kms->id < 0) {
-		ret = mdp5_kms->id;
-		dev_err(dev->dev, "failed to register mdp5 iommu: %d\n", ret);
-		goto fail;
-	}
-
 	ret = modeset_init(mdp5_kms);
 	if (ret) {
 		dev_err(dev->dev, "modeset_init failed: %d\n", ret);

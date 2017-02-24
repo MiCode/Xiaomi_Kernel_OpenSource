@@ -19,6 +19,7 @@
 #define __MSM_GPU_H__
 
 #include <linux/clk.h>
+#include <linux/pm_qos.h>
 #include <linux/regulator/consumer.h>
 
 #include "msm_drv.h"
@@ -78,7 +79,7 @@ struct msm_gpu {
 	uint32_t num_perfcntrs;
 
 	struct msm_ringbuffer *rb;
-	uint32_t rb_iova;
+	uint64_t rb_iova;
 
 	/* list of GEM active objects: */
 	struct list_head active_list;
@@ -96,12 +97,17 @@ struct msm_gpu {
 	int irq;
 
 	struct msm_gem_address_space *aspace;
-	int id;
 
 	/* Power Control: */
 	struct regulator *gpu_reg, *gpu_cx;
-	struct clk *ebi1_clk, *grp_clks[6];
-	uint32_t fast_rate, slow_rate, bus_freq;
+	struct clk *ebi1_clk, *grp_clks[7];
+
+	uint32_t gpufreq[10];
+	uint32_t busfreq[10];
+	uint32_t nr_pwrlevels;
+	uint32_t active_level;
+
+	struct pm_qos_request pm_qos_req_dma;
 
 #ifdef DOWNSTREAM_CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *bus_scale_table;
@@ -149,6 +155,45 @@ static inline void gpu_write(struct msm_gpu *gpu, u32 reg, u32 data)
 static inline u32 gpu_read(struct msm_gpu *gpu, u32 reg)
 {
 	return msm_readl(gpu->mmio + (reg << 2));
+}
+
+static inline void gpu_rmw(struct msm_gpu *gpu, u32 reg, u32 mask, u32 or)
+{
+	uint32_t val = gpu_read(gpu, reg);
+
+	val &= ~mask;
+	gpu_write(gpu, reg, val | or);
+}
+
+static inline u64 gpu_read64(struct msm_gpu *gpu, u32 lo, u32 hi)
+{
+	u64 val;
+
+	/*
+	 * Why not a readq here? Two reasons: 1) many of the LO registers are
+	 * not quad word aligned and 2) the GPU hardware designers have a bit
+	 * of a history of putting registers where they fit, especially in
+	 * spins. The longer a GPU family goes the higher the chance that
+	 * we'll get burned.  We could do a series of validity checks if we
+	 * wanted to, but really is a readq() that much better? Nah.
+	 */
+
+	/*
+	 * For some lo/hi registers (like perfcounters), the hi value is latched
+	 * when the lo is read, so make sure to read the lo first to trigger
+	 * that
+	 */
+	val = (u64) msm_readl(gpu->mmio + (lo << 2));
+	val |= ((u64) msm_readl(gpu->mmio + (hi << 2)) << 32);
+
+	return val;
+}
+
+static inline void gpu_write64(struct msm_gpu *gpu, u32 lo, u32 hi, u64 val)
+{
+	/* Why not a writeq here? Read the screed above */
+	msm_writel(lower_32_bits(val), gpu->mmio + (lo << 2));
+	msm_writel(upper_32_bits(val), gpu->mmio + (hi << 2));
 }
 
 int msm_gpu_pm_suspend(struct msm_gpu *gpu);

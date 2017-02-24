@@ -8,14 +8,15 @@ http://github.com/freedreno/envytools/
 git clone https://github.com/freedreno/envytools.git
 
 The rules-ng-ng source files this header was generated from are:
-- /home/robclark/src/freedreno/envytools/rnndb/adreno.xml               (    398 bytes, from 2015-09-24 17:25:31)
-- /home/robclark/src/freedreno/envytools/rnndb/freedreno_copyright.xml  (   1572 bytes, from 2016-02-10 17:07:21)
-- /home/robclark/src/freedreno/envytools/rnndb/adreno/a2xx.xml          (  32901 bytes, from 2015-05-20 20:03:14)
-- /home/robclark/src/freedreno/envytools/rnndb/adreno/adreno_common.xml (  11518 bytes, from 2016-02-10 21:03:25)
-- /home/robclark/src/freedreno/envytools/rnndb/adreno/adreno_pm4.xml    (  16166 bytes, from 2016-02-11 21:20:31)
-- /home/robclark/src/freedreno/envytools/rnndb/adreno/a3xx.xml          (  83967 bytes, from 2016-02-10 17:07:21)
-- /home/robclark/src/freedreno/envytools/rnndb/adreno/a4xx.xml          ( 109916 bytes, from 2016-02-20 18:44:48)
-- /home/robclark/src/freedreno/envytools/rnndb/adreno/ocmem.xml         (   1773 bytes, from 2015-09-24 17:30:00)
+- ./adreno.xml               (    431 bytes, from 2016-10-24 21:12:27)
+- ./freedreno_copyright.xml  (   1572 bytes, from 2016-10-24 21:12:27)
+- ./adreno/a2xx.xml          (  32901 bytes, from 2016-10-24 21:12:27)
+- ./adreno/adreno_common.xml (  12025 bytes, from 2016-10-24 21:12:27)
+- ./adreno/adreno_pm4.xml    (  19684 bytes, from 2016-10-24 21:12:27)
+- ./adreno/a3xx.xml          (  83840 bytes, from 2016-10-24 21:12:27)
+- ./adreno/a4xx.xml          ( 110708 bytes, from 2016-10-24 21:12:27)
+- ./adreno/a5xx.xml          (  81207 bytes, from 2016-10-26 19:36:59)
+- ./adreno/ocmem.xml         (   1773 bytes, from 2016-10-24 21:12:27)
 
 Copyright (C) 2013-2016 by the following authors:
 - Rob Clark <robdclark@gmail.com> (robclark)
@@ -127,11 +128,13 @@ enum a3xx_rop_code {
 	ROP_COPY_INVERTED = 3,
 	ROP_AND_REVERSE = 4,
 	ROP_INVERT = 5,
+	ROP_XOR = 6,
 	ROP_NAND = 7,
 	ROP_AND = 8,
 	ROP_EQUIV = 9,
 	ROP_NOOP = 10,
 	ROP_OR_INVERTED = 11,
+	ROP_COPY = 12,
 	ROP_OR_REVERSE = 13,
 	ROP_OR = 14,
 	ROP_SET = 15,
@@ -170,6 +173,14 @@ enum a3xx_color_swap {
 	WXYZ = 1,
 	ZYXW = 2,
 	XYZW = 3,
+};
+
+enum a3xx_rb_blend_opcode {
+	BLEND_DST_PLUS_SRC = 0,
+	BLEND_SRC_MINUS_DST = 1,
+	BLEND_DST_MINUS_SRC = 2,
+	BLEND_MIN_DST_SRC = 3,
+	BLEND_MAX_DST_SRC = 4,
 };
 
 #define REG_AXXX_CP_RB_BASE					0x000001c0

@@ -38,20 +38,6 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_commit = msm_atomic_commit,
 };
 
-int msm_register_address_space(struct drm_device *dev,
-		struct msm_gem_address_space *aspace)
-{
-	struct msm_drm_private *priv = dev->dev_private;
-	int idx = priv->num_aspaces++;
-
-	if (WARN_ON(idx >= ARRAY_SIZE(priv->aspace)))
-		return -EINVAL;
-
-	priv->aspace[idx] = aspace;
-
-	return idx;
-}
-
 #ifdef CONFIG_DRM_MSM_REGISTER_LOGGING
 static bool reglog = false;
 MODULE_PARM_DESC(reglog, "Enable register read/write logging");
@@ -956,7 +942,7 @@ int msm_wait_fence(struct drm_device *dev, uint32_t fence,
 	int ret;
 
 	if (!priv->gpu)
-		return 0;
+		return -ENXIO;
 
 	if (fence > priv->gpu->submitted_fence) {
 		DRM_ERROR("waiting on invalid fence: %u (of %u)\n",
@@ -1138,6 +1124,17 @@ static int msm_ioctl_gem_cpu_fini(struct drm_device *dev, void *data,
 	return ret;
 }
 
+static int msm_ioctl_gem_info_iova(struct drm_device *dev,
+		struct drm_gem_object *obj, uint64_t *iova)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+
+	if (!priv->gpu)
+		return -EINVAL;
+
+	return msm_gem_get_iova(obj, priv->gpu->aspace, iova);
+}
+
 static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 		struct drm_file *file)
 {
@@ -1145,14 +1142,22 @@ static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 	struct drm_gem_object *obj;
 	int ret = 0;
 
-	if (args->pad)
+	if (args->flags & ~MSM_INFO_FLAGS)
 		return -EINVAL;
 
 	obj = drm_gem_object_lookup(dev, file, args->handle);
 	if (!obj)
 		return -ENOENT;
 
-	args->offset = msm_gem_mmap_offset(obj);
+	if (args->flags & MSM_INFO_IOVA) {
+		uint64_t iova;
+
+		ret = msm_ioctl_gem_info_iova(dev, obj, &iova);
+		if (!ret)
+			args->offset = iova;
+	} else {
+		args->offset = msm_gem_mmap_offset(obj);
+	}
 
 	drm_gem_object_unreference_unlocked(obj);
 
