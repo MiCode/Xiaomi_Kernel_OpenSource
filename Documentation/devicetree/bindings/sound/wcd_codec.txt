@@ -514,10 +514,6 @@ Required properties:
 	       which is also existing driver WSA881x that represents
 	       soundwire slave devices.
 
-Optional Properties:
- - qcom,cache-always : Boolean. This property is used in  WSA slave
-			  device to use cacheable for all registers.
-
 Example:
 
 msm_sdw_codec: qcom,msm-sdw-codec@152c1000 {
@@ -535,7 +531,6 @@ msm_sdw_codec: qcom,msm-sdw-codec@152c1000 {
 			compatible = "qcom,wsa881x";
 			reg = <0x00 0x20170212>;
 			qcom,spkr-sd-n-gpio = <&tlmm 80 0>;
-			qcom,cache-always;
 		};
 	};
 };
