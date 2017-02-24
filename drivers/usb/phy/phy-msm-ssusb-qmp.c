@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,10 +27,10 @@
 #include <linux/clk/msm-clk.h>
 #include <linux/reset.h>
 
-enum core_ldo_levels {
-	CORE_LEVEL_NONE = 0,
-	CORE_LEVEL_MIN,
-	CORE_LEVEL_MAX,
+enum ldo_levels {
+	VOLTAGE_LEVEL_NONE = 0,
+	VOLTAGE_LEVEL_MIN,
+	VOLTAGE_LEVEL_MAX,
 };
 
 #define INIT_MAX_TIME_USEC			1000
@@ -39,6 +39,8 @@ enum core_ldo_levels {
 #define USB_SSPHY_1P2_VOL_MIN		1200000 /* uV */
 #define USB_SSPHY_1P2_VOL_MAX		1200000 /* uV */
 #define USB_SSPHY_HPM_LOAD		23000	/* uA */
+
+#define USB_SSPHY_LOAD_DEFAULT		-1
 
 /* USB3PHY_PCIE_USB3_PCS_PCS_STATUS bit */
 #define PHYSTATUS				BIT(6)
@@ -83,6 +85,9 @@ struct msm_ssphy_qmp {
 	int			vdd_levels[3]; /* none, low, high */
 	struct regulator	*core_ldo;
 	int			core_voltage_levels[3];
+	struct regulator	*fpc_redrive_ldo;
+	int			redrive_voltage_levels[3];
+	int			redrive_load;
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
 	struct clk		*aux_clk;
@@ -162,6 +167,33 @@ static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
 	}
 }
 
+static int msm_ldo_enable(struct msm_ssphy_qmp *phy,
+		struct regulator *ldo, int *voltage_levels, int load)
+{
+	int ret = 0;
+
+	dev_dbg(phy->phy.dev,
+		"ldo: min_vol:%duV max_vol:%duV\n",
+		voltage_levels[VOLTAGE_LEVEL_MIN],
+		voltage_levels[VOLTAGE_LEVEL_MAX]);
+
+	if (load > 0) {
+		ret = regulator_set_load(ldo, load);
+		if (ret < 0)
+			return ret;
+	}
+
+	ret = regulator_set_voltage(ldo,
+			voltage_levels[VOLTAGE_LEVEL_MIN],
+			voltage_levels[VOLTAGE_LEVEL_MAX]);
+	if (ret)
+		return ret;
+
+	ret = regulator_enable(ldo);
+
+	return ret;
+}
+
 static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 {
 	int min, rc = 0;
@@ -181,74 +213,65 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 	if (!on)
 		goto disable_regulators;
 
-	rc = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
-				    phy->vdd_levels[2]);
-	if (rc) {
-		dev_err(phy->phy.dev, "unable to set voltage for ssusb vdd\n");
-		return rc;
+	if (phy->fpc_redrive_ldo) {
+		rc = msm_ldo_enable(phy, phy->fpc_redrive_ldo,
+				phy->redrive_voltage_levels,
+				phy->redrive_load);
+		if (rc < 0) {
+			dev_err(phy->phy.dev,
+				"enable phy->fpc_redrive_ldo failed\n");
+			return rc;
+		}
+
+		dev_dbg(phy->phy.dev,
+			"fpc redrive ldo: min_vol:%duV max_vol:%duV\n",
+			phy->redrive_voltage_levels[VOLTAGE_LEVEL_MIN],
+			phy->redrive_voltage_levels[VOLTAGE_LEVEL_MAX]);
 	}
 
-	dev_dbg(phy->phy.dev, "min_vol:%d max_vol:%d\n",
-		phy->vdd_levels[min], phy->vdd_levels[2]);
-
-	rc = regulator_enable(phy->vdd);
-	if (rc) {
-		dev_err(phy->phy.dev,
-			"regulator_enable(phy->vdd) failed, ret=%d",
-			rc);
-		goto unconfig_vdd;
-	}
-
-	rc = regulator_set_load(phy->core_ldo, USB_SSPHY_HPM_LOAD);
+	rc = msm_ldo_enable(phy, phy->vdd, phy->vdd_levels,
+			USB_SSPHY_LOAD_DEFAULT);
 	if (rc < 0) {
-		dev_err(phy->phy.dev, "Unable to set HPM of core_ldo\n");
+		dev_err(phy->phy.dev, "enable phy->vdd failed\n");
+		goto disable_fpc_redrive;
+	}
+
+	dev_dbg(phy->phy.dev,
+		"vdd ldo: min_vol:%duV max_vol:%duV\n",
+		phy->vdd_levels[VOLTAGE_LEVEL_MIN],
+		phy->vdd_levels[VOLTAGE_LEVEL_MAX]);
+
+	rc = msm_ldo_enable(phy, phy->core_ldo, phy->core_voltage_levels,
+			USB_SSPHY_HPM_LOAD);
+	if (rc < 0) {
+		dev_err(phy->phy.dev, "enable phy->core_ldo failed\n");
 		goto disable_vdd;
 	}
 
-	rc = regulator_set_voltage(phy->core_ldo,
-			phy->core_voltage_levels[CORE_LEVEL_MIN],
-			phy->core_voltage_levels[CORE_LEVEL_MAX]);
-	if (rc) {
-		dev_err(phy->phy.dev, "unable to set voltage for core_ldo\n");
-		goto put_core_ldo_lpm;
-	}
-
-	rc = regulator_enable(phy->core_ldo);
-	if (rc) {
-		dev_err(phy->phy.dev, "Unable to enable core_ldo\n");
-		goto unset_core_ldo;
-	}
+	dev_dbg(phy->phy.dev,
+		"core ldo: min_vol:%duV max_vol:%duV\n",
+		phy->core_voltage_levels[VOLTAGE_LEVEL_MIN],
+		phy->core_voltage_levels[VOLTAGE_LEVEL_MAX]);
 
 	return 0;
 
 disable_regulators:
 	rc = regulator_disable(phy->core_ldo);
 	if (rc)
-		dev_err(phy->phy.dev, "Unable to disable core_ldo\n");
-
-unset_core_ldo:
-	rc = regulator_set_voltage(phy->core_ldo,
-			phy->core_voltage_levels[CORE_LEVEL_NONE],
-			phy->core_voltage_levels[CORE_LEVEL_MAX]);
-	if (rc)
-		dev_err(phy->phy.dev, "unable to set voltage for core_ldo\n");
-
-put_core_ldo_lpm:
-	rc = regulator_set_load(phy->core_ldo, 0);
-	if (rc < 0)
-		dev_err(phy->phy.dev, "Unable to set LPM of core_ldo\n");
+		dev_err(phy->phy.dev, "disable phy->core_ldo failed\n");
 
 disable_vdd:
 	rc = regulator_disable(phy->vdd);
 	if (rc)
-		dev_err(phy->phy.dev, "regulator_disable(phy->vdd) failed, ret=%d",
-			rc);
+		dev_err(phy->phy.dev, "disable phy->vdd failed\n");
 
-unconfig_vdd:
-	rc = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
-				    phy->vdd_levels[2]);
-	if (rc)
-		dev_err(phy->phy.dev, "unable to set voltage for ssusb vdd\n");
+disable_fpc_redrive:
+	if (phy->fpc_redrive_ldo) {
+		rc = regulator_disable(phy->fpc_redrive_ldo);
+		if (rc)
+			dev_err(phy->phy.dev,
+				"disable phy->fpc_redrive_ldo failed\n");
+	}
 
 	return rc < 0 ? rc : 0;
 }
@@ -683,9 +706,9 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	}
 
 	/* Set default core voltage values */
-	phy->core_voltage_levels[CORE_LEVEL_NONE] = 0;
-	phy->core_voltage_levels[CORE_LEVEL_MIN] = USB_SSPHY_1P2_VOL_MIN;
-	phy->core_voltage_levels[CORE_LEVEL_MAX] = USB_SSPHY_1P2_VOL_MAX;
+	phy->core_voltage_levels[VOLTAGE_LEVEL_NONE] = 0;
+	phy->core_voltage_levels[VOLTAGE_LEVEL_MIN] = USB_SSPHY_1P2_VOL_MIN;
+	phy->core_voltage_levels[VOLTAGE_LEVEL_MAX] = USB_SSPHY_1P2_VOL_MAX;
 
 	if (of_get_property(dev->of_node, "qcom,core-voltage-level", &len) &&
 		len == sizeof(phy->core_voltage_levels)) {
@@ -727,6 +750,39 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		dev_err(dev, "unable to get core ldo supply\n");
 		ret = PTR_ERR(phy->core_ldo);
 		goto err;
+	}
+
+	phy->fpc_redrive_ldo = devm_regulator_get_optional(dev, "fpc-redrive");
+	if (IS_ERR(phy->fpc_redrive_ldo)) {
+		phy->fpc_redrive_ldo = NULL;
+		dev_dbg(dev, "no FPC re-drive ldo regulator\n");
+	} else {
+		if (of_get_property(dev->of_node,
+				"qcom,redrive-voltage-level", &len) &&
+				len == sizeof(phy->redrive_voltage_levels)) {
+			ret = of_property_read_u32_array(dev->of_node,
+					"qcom,redrive-voltage-level",
+					(u32 *) phy->redrive_voltage_levels,
+					len / sizeof(u32));
+			if (ret) {
+				dev_err(dev,
+					"err qcom,redrive-voltage-level\n");
+				goto err;
+			}
+		} else {
+			ret = -EINVAL;
+			dev_err(dev, "err inputs for redrive-voltage-level\n");
+			goto err;
+		}
+
+		ret = of_property_read_u32(dev->of_node, "qcom,redrive-load",
+				&phy->redrive_load);
+		if (ret) {
+			dev_err(&pdev->dev, "unable to read redrive load\n");
+			goto err;
+		}
+
+		dev_dbg(dev, "Get FPC re-drive ldo regulator\n");
 	}
 
 	phy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
