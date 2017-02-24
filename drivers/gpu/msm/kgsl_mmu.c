@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -618,6 +618,18 @@ struct kgsl_memdesc *kgsl_mmu_get_qdss_global_entry(struct kgsl_device *device)
 	return NULL;
 }
 EXPORT_SYMBOL(kgsl_mmu_get_qdss_global_entry);
+
+struct kgsl_memdesc *kgsl_mmu_get_qtimer_global_entry(
+		struct kgsl_device *device)
+{
+	struct kgsl_mmu *mmu = &device->mmu;
+
+	if (MMU_OP_VALID(mmu, mmu_get_qtimer_global_entry))
+		return mmu->mmu_ops->mmu_get_qtimer_global_entry();
+
+	return NULL;
+}
+EXPORT_SYMBOL(kgsl_mmu_get_qtimer_global_entry);
 
 /*
  * NOMMU defintions - NOMMU really just means that the MMU is kept in pass

@@ -139,6 +139,11 @@ Optional Properties:
 				baseAddr - base address of the gpu channels in the qdss stm memory region
 				size     - size of the gpu stm region
 
+- qcom,gpu-qtimer:
+				<baseAddr size>
+				baseAddr - base address of the qtimer memory region
+				size     - size of the qtimer region
+
 - qcom,tsens-name:
 				Specify the name of GPU temperature sensor. This name will be used
 				to get the temperature from the thermal driver API.
