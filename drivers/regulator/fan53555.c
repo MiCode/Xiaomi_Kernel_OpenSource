@@ -99,6 +99,8 @@ struct fan53555_device_info {
 	unsigned int slew_rate;
 	/* Sleep voltage cache */
 	unsigned int sleep_vol_cache;
+	/* Disable suspend */
+	bool disable_suspend;
 };
 
 static int fan53555_set_suspend_voltage(struct regulator_dev *rdev, int uV)
@@ -106,6 +108,8 @@ static int fan53555_set_suspend_voltage(struct regulator_dev *rdev, int uV)
 	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
 	int ret;
 
+	if (di->disable_suspend)
+		return 0;
 	if (di->sleep_vol_cache == uV)
 		return 0;
 	ret = regulator_map_voltage_linear(rdev, uV, uV);
@@ -367,6 +371,8 @@ static int fan53555_parse_dt(struct fan53555_device_info *di,
 				   &tmp);
 	if (!ret)
 		pdata->sleep_vsel_id = tmp;
+
+	di->disable_suspend = of_property_read_bool(np, "fcs,disable-suspend");
 
 	return ret;
 }
