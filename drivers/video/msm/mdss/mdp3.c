@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -2778,7 +2778,7 @@ int mdp3_panel_get_intf_status(u32 disp_num, u32 intf_type)
 	rc = (status == 0x180000) || (status == 0x080000);
 
 	/* For Video mode panel do not disable clock */
-	if (status == 0x80000) {
+	if (!(status == 0x180000)) {
 		if (mdp3_clk_enable(0, 0))
 			pr_err("fail to turn off MDP core clks\n");
 	}
