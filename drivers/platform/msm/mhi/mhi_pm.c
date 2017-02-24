@@ -46,8 +46,8 @@ int mhi_pci_suspend(struct device *dev)
 
 	if (NULL == mhi_dev_ctxt)
 		return -EINVAL;
-	mhi_log(MHI_MSG_INFO, "Entered, MHI state %d\n",
-			mhi_dev_ctxt->mhi_state);
+	mhi_log(MHI_MSG_INFO, "Entered, MHI state %s\n",
+		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
 	atomic_set(&mhi_dev_ctxt->flags.pending_resume, 1);
 
 	r = mhi_initiate_m3(mhi_dev_ctxt);
@@ -115,7 +115,8 @@ int mhi_pci_resume(struct device *dev)
 		break;
 	default:
 		mhi_log(MHI_MSG_INFO,
-			"Wait complete state: %d\n", mhi_dev_ctxt->mhi_state);
+			"Wait complete state: %s\n",
+			TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
 		r = 0;
 	}
 exit:
@@ -181,8 +182,8 @@ ssize_t sysfs_init_m0(struct device *dev, struct device_attribute *attr,
 	}
 	mhi_initiate_m0(mhi_dev_ctxt);
 	mhi_log(MHI_MSG_CRITICAL,
-			"Current mhi_state = 0x%x\n",
-			mhi_dev_ctxt->mhi_state);
+		"Current mhi_state = %s\n",
+		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
 
 	return count;
 }

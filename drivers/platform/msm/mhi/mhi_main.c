@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -212,7 +212,7 @@ int mhi_release_chan_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
 			ring->len, ring->base,
 			 cc_list->mhi_trb_ring_base_addr);
 	mhi_init_chan_ctxt(cc_list, 0, 0, 0, 0, 0, ring,
-				MHI_CHAN_STATE_DISABLED);
+			   MHI_CHAN_STATE_DISABLED, false);
 	return 0;
 }
 
@@ -259,7 +259,9 @@ static int populate_tre_ring(struct mhi_client_handle *client_handle)
 				client_handle->chan_info.flags),
 			   client_handle->chan_info.ev_ring,
 			   &mhi_dev_ctxt->mhi_local_chan_ctxt[chan],
-			   MHI_CHAN_STATE_ENABLED);
+			   MHI_CHAN_STATE_ENABLED,
+			   GET_CHAN_PROPS(PRESERVE_DB_STATE,
+				client_handle->chan_info.flags));
 	mhi_log(MHI_MSG_INFO, "Exited\n");
 	return 0;
 }
@@ -520,9 +522,9 @@ static inline int mhi_queue_tre(struct mhi_device_ctxt
 		}
 	} else {
 		mhi_log(MHI_MSG_VERBOSE,
-			"Wakeup, pending data state %d chan state %d\n",
-						 mhi_dev_ctxt->mhi_state,
-						 chan_ctxt->mhi_chan_state);
+			"Wakeup, pending data state %s chan state %d\n",
+			TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state),
+			chan_ctxt->mhi_chan_state);
 			ret_val = 0;
 	}
 	return ret_val;
@@ -654,6 +656,7 @@ static int mhi_queue_dma_xfer(
 	MHI_ASSERT(VALID_BUF(buf, buf_len, mhi_dev_ctxt),
 			"Client buffer is of invalid length\n");
 	chan = client_handle->chan_info.chan_nr;
+
 	mhi_log(MHI_MSG_INFO, "Getting Reference %d", chan);
 	pm_runtime_get(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 
@@ -698,6 +701,7 @@ static int mhi_queue_dma_xfer(
 
 error:
 	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->pcie_device->dev);
+
 	mhi_log(MHI_MSG_INFO, "Putting Reference %d", chan);
 	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 	return ret_val;
@@ -766,10 +770,9 @@ int mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	}
 
 	mhi_log(MHI_MSG_INFO,
-		"Entered, MHI state %d dev_exec_env %d chan %d cmd %d\n",
-			mhi_dev_ctxt->mhi_state,
-			mhi_dev_ctxt->dev_exec_env,
-			chan, cmd);
+		"Entered, MHI state %s dev_exec_env %d chan %d cmd %d\n",
+		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state),
+		mhi_dev_ctxt->dev_exec_env, chan, cmd);
 	mhi_log(MHI_MSG_INFO, "Getting Reference %d", chan);
 	pm_runtime_get(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 	/*
@@ -870,7 +873,6 @@ static void parse_inbound_bb(struct mhi_device_ctxt *mhi_dev_ctxt,
 
 	result->buf_addr = bb->client_buf;
 	result->bytes_xferd = bb->filled_size;
-	result->transaction_status = 0;
 
 	/* At this point the bounce buffer is no longer necessary
 	 * Whatever was received from the device was copied back to the
@@ -1166,13 +1168,17 @@ int parse_xfer_event(struct mhi_device_ctxt *ctxt,
 	{
 		struct mhi_ring *chan_ctxt = NULL;
 		u64 db_value = 0;
+		unsigned long flags;
 
 		mhi_dev_ctxt->flags.uldl_enabled = 1;
 		chan = MHI_EV_READ_CHID(EV_CHID, event);
-		mhi_dev_ctxt->flags.db_mode[chan] = 1;
 		chan_ctxt =
 			&mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
+
 		mhi_log(MHI_MSG_INFO, "DB_MODE/OOB Detected chan %d.\n", chan);
+		spin_lock_irqsave(&mhi_dev_ctxt->db_write_lock[chan],
+				  flags);
+		chan_ctxt->db_mode.db_mode = 1;
 		if (chan_ctxt->wp != chan_ctxt->rp) {
 			db_value = mhi_v2p_addr(mhi_dev_ctxt,
 						MHI_RING_TYPE_XFER_RING, chan,
@@ -1182,8 +1188,10 @@ int parse_xfer_event(struct mhi_device_ctxt *ctxt,
 				     db_value);
 		}
 		client_handle = mhi_dev_ctxt->client_handle_list[chan];
-			if (NULL != client_handle)
-				result->transaction_status = -ENOTCONN;
+		if (client_handle)
+			result->transaction_status = -ENOTCONN;
+		spin_unlock_irqrestore(&mhi_dev_ctxt->db_write_lock[chan],
+				       flags);
 		break;
 	}
 	case MHI_EVENT_CC_BAD_TRE:
@@ -1393,8 +1401,10 @@ static int start_chan_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	u32 chan;
 
 	MHI_TRB_GET_INFO(CMD_TRB_CHID, cmd_pkt, chan);
-	if (!VALID_CHAN_NR(chan))
+	if (!VALID_CHAN_NR(chan)) {
 		mhi_log(MHI_MSG_ERROR, "Bad chan: 0x%x\n", chan);
+		return -EINVAL;
+	}
 	mhi_dev_ctxt->mhi_chan_pend_cmd_ack[chan] =
 					MHI_CMD_NOT_PENDING;
 	mhi_log(MHI_MSG_INFO, "Processed START CMD chan %d\n", chan);
@@ -1652,6 +1662,8 @@ void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 		  void __iomem *io_addr,
 		  uintptr_t chan, u32 val)
 {
+	struct mhi_ring *chan_ctxt = &mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
+
 	mhi_log(MHI_MSG_VERBOSE,
 			"db.set addr: %p io_offset 0x%lx val:0x%x\n",
 			io_addr, chan, val);
@@ -1662,14 +1674,14 @@ void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 	if (io_addr == mhi_dev_ctxt->mmio_info.chan_db_addr) {
 		if (!(IS_HARDWARE_CHANNEL(chan) &&
 		    mhi_dev_ctxt->flags.uldl_enabled &&
-		    !mhi_dev_ctxt->flags.db_mode[chan])) {
+		    !chan_ctxt->db_mode.db_mode)) {
 			mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
-			mhi_dev_ctxt->flags.db_mode[chan] = 0;
+			chan_ctxt->db_mode.db_mode = 0;
 		} else {
 			mhi_log(MHI_MSG_INFO,
-			 "Not ringing xfer db, chan %ld, ul_dl %d db_mode %d\n",
-			  chan, mhi_dev_ctxt->flags.uldl_enabled,
-				mhi_dev_ctxt->flags.db_mode[chan]);
+				"Not ringing xfer db, chan %ld, ul_dl %d db_mode %d\n",
+				chan, mhi_dev_ctxt->flags.uldl_enabled,
+				chan_ctxt->db_mode.db_mode);
 		}
 	/* Event Doorbell and Polling mode Disabled */
 	} else if (io_addr == mhi_dev_ctxt->mmio_info.event_db_addr) {
@@ -1677,11 +1689,9 @@ void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 		if (IS_SW_EV_RING(mhi_dev_ctxt, chan) ||
 		    !mhi_dev_ctxt->flags.uldl_enabled) {
 			mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
-			mhi_dev_ctxt->flags.db_mode[chan] = 0;
 		}
 	} else {
 		mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
-		mhi_dev_ctxt->flags.db_mode[chan] = 0;
 	}
 }
 

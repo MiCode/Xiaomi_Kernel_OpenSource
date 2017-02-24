@@ -34,6 +34,18 @@ MODULE_PARM_DESC(mhi_msg_lvl, "dbg lvl");
 module_param(mhi_ipc_log_lvl, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(mhi_ipc_log_lvl, "dbg lvl");
 
+const char * const mhi_states_str[MHI_STATE_LIMIT] = {
+	"RESET",
+	"READY",
+	"M0",
+	"M1",
+	"M2",
+	"M3",
+	"Reserved: 0x06",
+	"BHI",
+	"SYS_ERR",
+};
+
 static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 				size_t count, loff_t *offp)
 {
@@ -225,9 +237,9 @@ static ssize_t mhi_dbgfs_state_read(struct file *fp, char __user *buf,
 	amnt_copied =
 	scnprintf(mhi_dev_ctxt->chan_info,
 			MHI_LOG_SIZE,
-			"%s %u %s %d %s %d %s %d %s %d %s %d %s %d %s %d %s %d %s %d %s %d, %s, %d, %s %d\n",
+			"%s %s %s %d %s %d %s %d %s %d %s %d %s %d %s %d %s %d %s %d %s %d\n",
 			"Our State:",
-			mhi_dev_ctxt->mhi_state,
+			TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state),
 			"M0->M1:",
 			mhi_dev_ctxt->counters.m0_m1,
 			"M0<-M1:",
@@ -244,10 +256,6 @@ static ssize_t mhi_dbgfs_state_read(struct file *fp, char __user *buf,
 			mhi_dev_ctxt->counters.m3_event_timeouts,
 			"M0_ev_TO:",
 			mhi_dev_ctxt->counters.m0_event_timeouts,
-			"MSI_d:",
-			mhi_dev_ctxt->counters.msi_disable_cntr,
-			"MSI_e:",
-			mhi_dev_ctxt->counters.msi_enable_cntr,
 			"outstanding_acks:",
 			atomic_read(&mhi_dev_ctxt->counters.outbound_acks),
 			"LPM:",
