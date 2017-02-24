@@ -154,6 +154,7 @@ struct cnss_plat_data {
 	struct cnss_fw_mem fw_mem;
 	struct cnss_fw_mem m3_mem;
 	struct cnss_pin_connect_result pin_result;
+	struct dentry *root_dentry;
 };
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev);

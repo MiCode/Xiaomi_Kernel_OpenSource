@@ -15,8 +15,8 @@
 #include <linux/qmi_encdec.h>
 #include <soc/qcom/msm_qmi_interface.h>
 
-#include "debug.h"
 #include "main.h"
+#include "debug.h"
 #include "qmi.h"
 
 #define WLFW_SERVICE_INS_ID_V01		1
