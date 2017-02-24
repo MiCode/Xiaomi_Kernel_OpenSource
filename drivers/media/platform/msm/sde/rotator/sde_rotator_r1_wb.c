@@ -402,7 +402,7 @@ static int sde_mdp_wb_wait4comp(struct sde_mdp_ctl *ctl, void *arg)
 
 static void sde_mdp_set_ot_limit_wb(struct sde_mdp_writeback_ctx *ctx)
 {
-	struct sde_mdp_set_ot_params ot_params;
+	struct sde_mdp_set_ot_params ot_params = {0,};
 
 	ot_params.xin_id = ctx->xin_id;
 	ot_params.num = ctx->wb_num;
