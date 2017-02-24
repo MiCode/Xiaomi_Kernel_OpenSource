@@ -1013,6 +1013,7 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 		cnss_pr_err("Failed to start MHI, err = %d\n", ret);
 		goto suspend_link;
 	}
+	cnss_set_pin_connect_status(plat_priv);
 
 bypass_fbc:
 	if (qmi_bypass)
