@@ -142,11 +142,14 @@
 		compatible = "qcom,rpmh-arc-regulator";
 		mboxes = <&apps_rsc 0>;
 		qcom,resource-name = "cx.lvl";
+		pm8998_s9_level-parent-supply = <&pm8998_s6_level>;
+		pm8998_s9_level_ao-parent-supply = <&pm8998_s6_level_ao>;
 		pm8998_s9_level: regulator-s9-level {
 			regulator-name = "pm8998_s9_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
 			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,min-dropout-voltage-level = <(-1)>;
 		};
 
 		pm8998_s9_level_ao: regulator-s9-level-ao {
@@ -154,6 +157,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
 			regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
 			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,min-dropout-voltage-level = <(-1)>;
 		};
 	};
 
