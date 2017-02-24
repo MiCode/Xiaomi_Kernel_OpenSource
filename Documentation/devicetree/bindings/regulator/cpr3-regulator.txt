@@ -36,16 +36,16 @@ Platform independent properties:
 	Usage:      required
 	Value type: <prop-encoded-array>
 	Definition: Addresses and sizes for the memory of the CPR3 controller,
-		    the first fuse row, and optionally a register used to check
-		    if aging measurements are possible.
+		    the first fuse row, and optionally the SAW module and/or a
+		    register used to check if aging measurements are possible.
 
 - reg-names
 	Usage:      required
 	Value type: <stringlist>
 	Definition: Address names. Must include "cpr_ctrl" and "fuse_base".
-		    "aging_allowed" may also be specified.  The strings must be
-		    specified in the same order as the corresponding addresses
-		    are specified in the reg property.
+		    "aging_allowed" and "saw" may also be specified.  The
+		    strings must be specified in the same order as the
+		    corresponding addresses are specified in the reg property.
 
 - qcom,cpr-ctrl-name
 	Usage:      required
@@ -215,6 +215,22 @@ Platform independent properties:
 	Definition: Address names. Must be specified in the same order
 		    as the corresponding addresses are specified in
 		    the qcom,cpr-panic-reg-addr-list property.
+
+- qcom,saw-avs-ctrl
+	Usage:      required if "saw" registers are specified by reg and
+		    reg-names properties
+	Value type: <u32>
+	Definition: SAW AVS_CTL register value to program at initialization time
+		    in order to allow hardware closed-loop CPR voltage change
+		    requests to reach the PMIC regulator.
+
+- qcom,saw-avs-limit
+	Usage:      required if "saw" registers are specified by reg and
+		    reg-names properties
+	Value type: <u32>
+	Definition: SAW AVS_LIMIT register value to program at initialization
+		    time in order to allow hardware closed-loop CPR voltage
+		    change requests to reach the PMIC regulator.
 
 =================================================
 Second Level Nodes - CPR Threads for a Controller

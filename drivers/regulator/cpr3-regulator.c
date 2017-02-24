@@ -45,6 +45,9 @@
 #define CPR3_RO_MASK			GENMASK(CPR3_RO_COUNT - 1, 0)
 
 /* CPR3 registers */
+#define CPR3_REG_CPR_VERSION			0x0
+#define CPRH_CPR_VERSION_4P5			0x40050000
+
 #define CPR3_REG_CPR_CTL			0x4
 #define CPR3_CPR_CTL_LOOP_EN_MASK		BIT(0)
 #define CPR3_CPR_CTL_LOOP_ENABLE		BIT(0)
@@ -228,7 +231,10 @@
 #define CPR4_CPR_MASK_THREAD_RO_MASK4THREAD_MASK	GENMASK(15, 0)
 
 /* CPRh controller specific registers and bit definitions */
-#define CPRH_REG_CORNER(corner)	(0x3A00 + 0x4 * (corner))
+#define CPRH_REG_CORNER(thread, corner) \
+		((thread)->ctrl->cpr_hw_version >= CPRH_CPR_VERSION_4P5 \
+			? 0x3500 + 0xA0 * (thread)->thread_id + 0x4 * (corner) \
+			: 0x3A00 + 0x4 * (corner))
 #define CPRH_CORNER_INIT_VOLTAGE_MASK		GENMASK(7, 0)
 #define CPRH_CORNER_INIT_VOLTAGE_SHIFT		0
 #define CPRH_CORNER_FLOOR_VOLTAGE_MASK		GENMASK(15, 8)
@@ -244,7 +250,8 @@
 #define CPRH_CORNER_FLOOR_VOLTAGE_MAX_VALUE	255
 #define CPRH_CORNER_QUOT_DELTA_MAX_VALUE	511
 
-#define CPRH_REG_CTL				0x3AA0
+#define CPRH_REG_CTL(ctrl) \
+	     ((ctrl)->cpr_hw_version >= CPRH_CPR_VERSION_4P5 ? 0x3A80 : 0x3AA0)
 #define CPRH_CTL_OSM_ENABLED			BIT(0)
 #define CPRH_CTL_BASE_VOLTAGE_MASK		GENMASK(10, 1)
 #define CPRH_CTL_BASE_VOLTAGE_SHIFT		1
@@ -257,7 +264,9 @@
 #define CPRH_CTL_LAST_KNOWN_VOLTAGE_MARGIN_MASK		GENMASK(31, 29)
 #define CPRH_CTL_LAST_KNOWN_VOLTAGE_MARGIN_SHIFT	29
 
-#define CPRH_REG_STATUS			0x3AA4
+#define CPRH_REG_STATUS(thread) \
+		((thread)->ctrl->cpr_hw_version >= CPRH_CPR_VERSION_4P5 \
+			? 0x3A84 + 0x4 * (thread)->thread_id : 0x3AA4)
 #define CPRH_STATUS_CORNER			GENMASK(5, 0)
 #define CPRH_STATUS_CORNER_LAST_VOLT_MASK	GENMASK(17, 6)
 #define CPRH_STATUS_CORNER_LAST_VOLT_SHIFT	6
@@ -270,6 +279,10 @@
 #define CPRH_MARGIN_TEMP_CORE_VBAND(core, vband) \
 	((vband) == 0 ? CPR4_REG_MARGIN_TEMP_CORE(core) \
 			: 0x3AB0 + 0x40 * ((vband) - 1) + 0x4 * (core))
+
+/* SAW module registers */
+#define SAW_REG_AVS_CTL				0x904
+#define SAW_REG_AVS_LIMIT			0x908
 
 /*
  * The amount of time to wait for the CPR controller to become idle when
@@ -1173,7 +1186,7 @@ static int cpr3_regulator_init_cprh_corners(struct cpr3_regulator *vreg)
 			   i, open_loop_volt_steps, floor_volt_steps,
 			   delta_quot_steps, ctrl->base_volt,
 			   ctrl->step_volt, base_quots[ro_sel]);
-		cpr3_write(ctrl, CPRH_REG_CORNER(i), reg);
+		cpr3_write(ctrl, CPRH_REG_CORNER(vreg->thread, i), reg);
 	}
 
 free_base_quots:
@@ -1197,6 +1210,7 @@ free_base_quots:
 static void cprh_controller_program_sdelta(
 		struct cpr3_controller *ctrl)
 {
+	/* Only thread 0 supports sdelta */
 	struct cpr3_regulator *vreg = &ctrl->thread[0].vreg[0];
 	struct cprh_corner_band *corner_band;
 	struct cpr4_sdelta *sdelta;
@@ -1205,6 +1219,11 @@ static void cprh_controller_program_sdelta(
 
 	if (!vreg->allow_core_count_adj && !vreg->allow_temp_adj)
 		return;
+
+	if (vreg->thread->thread_id != 0) {
+		cpr3_err(vreg, "core count and temperature based adjustments are only allowed for CPR thread 0\n");
+		return;
+	}
 
 	cpr4_regulator_init_temp_points(ctrl);
 
@@ -1287,16 +1306,20 @@ static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
 {
 	u32 reg, pmic_step_size = 1;
 	u64 temp;
-	int rc;
+	int i, rc;
 
-	/* Single thread, single regulator supported */
-	if (ctrl->thread_count != 1) {
-		cpr3_err(ctrl, "expected 1 thread but found %d\n",
+	/* One or two threads each with a single regulator supported */
+	if (ctrl->thread_count < 1 || ctrl->thread_count > 2) {
+		cpr3_err(ctrl, "expected 1 or 2 threads but found %d\n",
 			ctrl->thread_count);
 		return -EINVAL;
 	} else if (ctrl->thread[0].vreg_count != 1) {
-		cpr3_err(ctrl, "expected 1 regulator but found %d\n",
+		cpr3_err(ctrl, "expected 1 regulator for thread 0 but found %d\n",
 			ctrl->thread[0].vreg_count);
+		return -EINVAL;
+	} else if (ctrl->thread_count == 2 && ctrl->thread[1].vreg_count != 1) {
+		cpr3_err(ctrl, "expected 1 regulator for thread 1 but found %d\n",
+			ctrl->thread[1].vreg_count);
 		return -EINVAL;
 	}
 
@@ -1312,10 +1335,12 @@ static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
 
 	cprh_controller_program_sdelta(ctrl);
 
-	rc = cpr3_regulator_init_cprh_corners(&ctrl->thread[0].vreg[0]);
-	if (rc) {
-		cpr3_err(ctrl, "failed to initialize CPRh corner registers\n");
-		return rc;
+	for (i = 0; i < ctrl->thread_count; i++) {
+		rc = cpr3_regulator_init_cprh_corners(&ctrl->thread[i].vreg[0]);
+		if (rc) {
+			cpr3_err(ctrl, "failed to initialize CPRh corner registers\n");
+			return rc;
+		}
 	}
 
 	if (ctrl->saw_use_unit_mV)
@@ -1368,7 +1393,7 @@ static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
 			* (u64)ctrl->corner_switch_delay_time;
 		do_div(temp, 1000000000);
 		do_div(temp, CPRH_MODE_SWITCH_DELAY_FACTOR);
-		cpr3_masked_write(ctrl, CPRH_REG_CTL,
+		cpr3_masked_write(ctrl, CPRH_REG_CTL(ctrl),
 				  CPRH_CTL_MODE_SWITCH_DELAY_MASK,
 				  temp << CPRH_CTL_MODE_SWITCH_DELAY_SHIFT);
 	}
@@ -1386,7 +1411,7 @@ static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
 		& CPRH_CTL_VOLTAGE_MULTIPLIER_MASK;
 	/* Enable OSM block interface with CPR */
 	reg |= CPRH_CTL_OSM_ENABLED;
-	cpr3_masked_write(ctrl, CPRH_REG_CTL, CPRH_CTL_BASE_VOLTAGE_MASK
+	cpr3_masked_write(ctrl, CPRH_REG_CTL(ctrl), CPRH_CTL_BASE_VOLTAGE_MASK
 			  | CPRH_CTL_VOLTAGE_MULTIPLIER_MASK
 			  | CPRH_CTL_OSM_ENABLED, reg);
 
@@ -1426,6 +1451,8 @@ static int cpr3_regulator_init_ctrl(struct cpr3_controller *ctrl)
 		return rc;
 	}
 	ctrl->cpr_enabled = true;
+
+	ctrl->cpr_hw_version = cpr3_read(ctrl, CPR3_REG_CPR_VERSION);
 
 	/* Find all RO's used by any corner of any regulator. */
 	for (i = 0; i < ctrl->thread_count; i++)
@@ -1585,6 +1612,60 @@ static int cpr3_regulator_init_ctrl(struct cpr3_controller *ctrl)
 		mode = "closed-loop";
 
 	cpr3_info(ctrl, "Default CPR mode = %s", mode);
+
+	return 0;
+}
+
+/**
+ * cpr3_regulator_init_hw_closed_loop_dependencies() - perform hardware
+ *		initialization steps to ensure that CPR HW closed-loop voltage
+ *		change requests are able to reach the PMIC regulator
+ * @pdev:		Platform device pointer for the CPR3 controller
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int
+cpr3_regulator_init_hw_closed_loop_dependencies(struct platform_device *pdev,
+		struct cpr3_controller *ctrl)
+{
+	struct resource *res;
+	int rc = 0;
+	u32 val;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "saw");
+	if (res && res->start)
+		ctrl->saw_base = devm_ioremap(&pdev->dev, res->start,
+					resource_size(res));
+
+	if (ctrl->saw_base) {
+		/* Configure SAW registers directly. */
+		rc = of_property_read_u32(ctrl->dev->of_node,
+					"qcom,saw-avs-ctrl", &val);
+		if (rc) {
+			cpr3_err(ctrl, "unable to read DT property qcom,saw-avs-ctrl, rc=%d\n",
+				rc);
+			return rc;
+		}
+		writel_relaxed(val, ctrl->saw_base + SAW_REG_AVS_CTL);
+
+		rc = of_property_read_u32(ctrl->dev->of_node,
+					"qcom,saw-avs-limit", &val);
+		if (rc) {
+			cpr3_err(ctrl, "unable to read DT property qcom,saw-avs-limit, rc=%d\n",
+				rc);
+			return rc;
+		}
+		writel_relaxed(val, ctrl->saw_base + SAW_REG_AVS_LIMIT);
+	} else {
+		/* Wait for SPM driver to configure SAW registers. */
+		rc = msm_spm_probe_done();
+		if (rc) {
+			if (rc != -EPROBE_DEFER)
+				cpr3_err(ctrl, "spm unavailable, rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	return 0;
 }
@@ -4506,7 +4587,7 @@ static int cprh_regulator_get_voltage(struct regulator_dev *rdev)
 		ctrl->cpr_enabled = true;
 	}
 
-	reg = cpr3_read(vreg->thread->ctrl, CPRH_REG_STATUS);
+	reg = cpr3_read(vreg->thread->ctrl, CPRH_REG_STATUS(vreg->thread));
 
 	if (!cpr_enabled) {
 		cpr3_clock_disable(ctrl);
@@ -6332,12 +6413,10 @@ int cpr3_regulator_register(struct platform_device *pdev,
 	}
 
 	if (ctrl->supports_hw_closed_loop) {
-		rc = msm_spm_probe_done();
-		if (rc) {
-			if (rc != -EPROBE_DEFER)
-				cpr3_err(ctrl, "spm unavailable, rc=%d\n", rc);
+		rc = cpr3_regulator_init_hw_closed_loop_dependencies(pdev,
+								     ctrl);
+		if (rc)
 			return rc;
-		}
 
 		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
 			ctrl->ceiling_irq = platform_get_irq_byname(pdev,
