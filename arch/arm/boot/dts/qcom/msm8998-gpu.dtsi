@@ -75,6 +75,8 @@
 
 		qcom,gpu-qdss-stm = <0x161c0000 0x40000>; // base addr, size
 
+		qcom,gpu-qtimer = <0x17921000 0x1000>; // base addr, size
+
 		qcom,tsens-name = "tsens_tz_sensor12";
 
 		/* Quirks */
