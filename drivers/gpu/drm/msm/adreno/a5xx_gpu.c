@@ -744,10 +744,6 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 	if (ret)
 		return ret;
 
-	ret = a5xx_power_init(gpu);
-	if (ret)
-		return ret;
-
 	/*
 	 * Send a pipeline event stat to get misbehaving counters to start
 	 * ticking correctly
@@ -784,6 +780,12 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 			"Zap shader not enabled - using SECVID_TRUST_CNTL instead\n");
 		gpu_write(gpu, REG_A5XX_RBBM_SECVID_TRUST_CNTL, 0x0);
 	}
+
+	/* Next, start the power */
+	ret = a5xx_power_init(gpu);
+	if (ret)
+		return ret;
+
 
 	/* Last step - yield the ringbuffer */
 	a5xx_preempt_start(gpu);
