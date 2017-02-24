@@ -93,8 +93,6 @@ static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
 static struct snd_soc_dai_driver msm_anlg_cdc_i2s_dai[];
 /* By default enable the internal speaker boost */
 static bool spkr_boost_en = true;
-static bool initial_boot = true;
-static bool is_ssr_en;
 
 static char on_demand_supply_name[][MAX_ON_DEMAND_SUPPLY_NAME_LENGTH] = {
 	"cdc-vdd-mic-bias",
@@ -3777,7 +3775,6 @@ static int msm_anlg_cdc_device_down(struct snd_soc_codec *codec)
 	snd_soc_write(codec,
 		MSM89XX_PMIC_ANALOG_SPKR_DAC_CTL, 0x93);
 
-	msm_anlg_cdc_bringup(codec);
 	atomic_set(&pdata->int_mclk0_enabled, false);
 	msm_anlg_cdc_dig_notifier_call(codec, DIG_CDC_EVENT_SSR_DOWN);
 	set_bit(BUS_DOWN, &sdm660_cdc_priv->status_mask);
@@ -3798,14 +3795,6 @@ static int msm_anlg_cdc_device_up(struct snd_soc_codec *codec)
 	snd_soc_card_change_online_state(codec->component.card, 1);
 	/* delay is required to make sure sound card state updated */
 	usleep_range(5000, 5100);
-
-	msm_anlg_cdc_codec_init_reg(codec);
-	msm_anlg_cdc_update_reg_defaults(codec);
-
-	regcache_mark_dirty(codec->component.regmap);
-	regcache_sync_region(codec->component.regmap,
-			     MSM89XX_PMIC_DIGITAL_REVISION1,
-			     MSM89XX_PMIC_CDC_MAX_REGISTER);
 
 	snd_soc_write(codec, MSM89XX_PMIC_DIGITAL_INT_EN_SET,
 				MSM89XX_PMIC_DIGITAL_INT_EN_SET__POR);
@@ -3855,10 +3844,6 @@ static int sdm660_cdc_notifier_service_cb(struct notifier_block *nb,
 		msm_anlg_cdc_device_down(codec);
 		break;
 	case AUDIO_NOTIFIER_SERVICE_UP:
-		if (initial_boot) {
-			initial_boot = false;
-			break;
-		}
 		dev_dbg(codec->dev,
 			"ADSP is about to power up. bring up codec\n");
 
@@ -4058,17 +4043,16 @@ int msm_anlg_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 		return -ENOMEM;
 	}
 	sdm660_cdc_priv->version_entry = version_entry;
-	if (is_ssr_en) {
-		sdm660_cdc_priv->audio_ssr_nb.notifier_call =
-					sdm660_cdc_notifier_service_cb;
-		ret = audio_notifier_register("pmic_analog_cdc",
-					      AUDIO_NOTIFIER_ADSP_DOMAIN,
-					      &sdm660_cdc_priv->audio_ssr_nb);
-		if (ret < 0) {
-			pr_err("%s: Audio notifier register failed ret = %d\n",
-				__func__, ret);
-			return ret;
-		}
+
+	sdm660_cdc_priv->audio_ssr_nb.notifier_call =
+				sdm660_cdc_notifier_service_cb;
+	ret = audio_notifier_register("pmic_analog_cdc",
+				      AUDIO_NOTIFIER_ADSP_DOMAIN,
+				      &sdm660_cdc_priv->audio_ssr_nb);
+	if (ret < 0) {
+		pr_err("%s: Audio notifier register failed ret = %d\n",
+			__func__, ret);
+		return ret;
 	}
 	return 0;
 }
