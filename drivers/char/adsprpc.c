@@ -44,6 +44,7 @@
 #include <asm/dma-iommu.h>
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
+#include <linux/debugfs.h>
 
 #define TZ_PIL_PROTECT_MEM_SUBSYS_ID 0x0C
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
@@ -51,6 +52,7 @@
 #define FASTRPC_ENOSUCH 39
 #define VMID_SSC_Q6     5
 #define VMID_ADSP_Q6    6
+#define DEBUGFS_SIZE 1024
 
 #define RPC_TIMEOUT	(5 * HZ)
 #define BALIGN		128
@@ -87,6 +89,8 @@
 
 static int fastrpc_glink_open(int cid);
 static void fastrpc_glink_close(void *chan, int cid);
+static struct dentry *debugfs_root;
+static struct dentry *debugfs_global_file;
 
 static inline uint64_t buf_page_start(uint64_t buf)
 {
@@ -279,6 +283,7 @@ struct fastrpc_file {
 	int pd;
 	struct fastrpc_apps *apps;
 	struct fastrpc_perf perf;
+	struct dentry *debugfs_file;
 };
 
 static struct fastrpc_apps gfa;
@@ -1839,6 +1844,8 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
 
 	if (fl) {
+		if (fl->debugfs_file != NULL)
+			debugfs_remove(fl->debugfs_file);
 		fastrpc_file_free(fl);
 		file->private_data = 0;
 	}
@@ -1955,9 +1962,124 @@ bail:
 	return err;
 }
 
+static int fastrpc_debugfs_open(struct inode *inode, struct file *filp)
+{
+	filp->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
+					 size_t count, loff_t *position)
+{
+	struct fastrpc_file *fl = filp->private_data;
+	struct hlist_node *n;
+	struct fastrpc_buf *buf = 0;
+	struct fastrpc_mmap *map = 0;
+	struct smq_invoke_ctx *ictx = 0;
+	struct fastrpc_channel_ctx *chan;
+	struct fastrpc_session_ctx *sess;
+	unsigned int len = 0;
+	int i, j, ret = 0;
+	char *fileinfo = NULL;
+
+	fileinfo = kzalloc(DEBUGFS_SIZE, GFP_KERNEL);
+	if (!fileinfo)
+		goto bail;
+	if (fl == NULL) {
+		for (i = 0; i < NUM_CHANNELS; i++) {
+			chan = &gcinfo[i];
+			len += scnprintf(fileinfo + len,
+					DEBUGFS_SIZE - len, "%s\n\n",
+					chan->name);
+			len += scnprintf(fileinfo + len,
+					DEBUGFS_SIZE - len, "%s %d\n",
+					"sesscount:", chan->sesscount);
+			for (j = 0; j < chan->sesscount; j++) {
+				sess = &chan->session[j];
+				len += scnprintf(fileinfo + len,
+						DEBUGFS_SIZE - len,
+						"%s%d\n\n", "SESSION", j);
+				len += scnprintf(fileinfo + len,
+						DEBUGFS_SIZE - len,
+						"%s %d\n", "sid:",
+						sess->smmu.cb);
+				len += scnprintf(fileinfo + len,
+						DEBUGFS_SIZE - len,
+						"%s %d\n", "SECURE:",
+						sess->smmu.secure);
+			}
+		}
+	} else {
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%s %d\n\n",
+				"PROCESS_ID:", fl->tgid);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%s %d\n\n",
+				"CHANNEL_ID:", fl->cid);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%s %d\n\n",
+				"SSRCOUNT:", fl->ssrcount);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%s\n",
+				"LIST OF BUFS:");
+		spin_lock(&fl->hlock);
+		hlist_for_each_entry_safe(buf, n, &fl->bufs, hn) {
+			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+						"%s %p %s %p %s %llx\n", "buf:",
+						buf, "buf->virt:", buf->virt,
+						"buf->phys:", buf->phys);
+		}
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+					"\n%s\n",
+					"LIST OF MAPS:");
+		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
+			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+						"%s %p %s %lx %s %llx\n",
+						"map:", map,
+						"map->va:", map->va,
+						"map->phys:", map->phys);
+		}
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+					"\n%s\n",
+					"LIST OF PENDING SMQCONTEXTS:");
+		hlist_for_each_entry_safe(ictx, n, &fl->clst.pending, hn) {
+			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+						"%s %p %s %u %s %u %s %u\n",
+						"smqcontext:", ictx,
+						"sc:", ictx->sc,
+						"tid:", ictx->pid,
+						"handle", ictx->rpra->h);
+		}
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+					"\n%s\n",
+					"LIST OF INTERRUPTED SMQCONTEXTS:");
+		hlist_for_each_entry_safe(ictx, n, &fl->clst.interrupted, hn) {
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+					"%s %p %s %u %s %u %s %u\n",
+					"smqcontext:", ictx,
+					"sc:", ictx->sc,
+					"tid:", ictx->pid,
+					"handle", ictx->rpra->h);
+		}
+		spin_unlock(&fl->hlock);
+	}
+	if (len > DEBUGFS_SIZE)
+		len = DEBUGFS_SIZE;
+	ret = simple_read_from_buffer(buffer, count, position, fileinfo, len);
+	kfree(fileinfo);
+bail:
+	return ret;
+}
+
+static const struct file_operations debugfs_fops = {
+	.open = fastrpc_debugfs_open,
+	.read = fastrpc_debugfs_read,
+};
+
 static int fastrpc_device_open(struct inode *inode, struct file *filp)
 {
 	int cid = MINOR(inode->i_rdev);
+	struct dentry *debugfs_file;
 	int err = 0;
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_file *fl = 0;
@@ -1970,6 +2092,8 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 
 	mutex_lock(&me->smd_mutex);
 
+	debugfs_file = debugfs_create_file(current->comm, 0644, debugfs_root,
+						fl, &debugfs_fops);
 	context_list_ctor(&fl->clst);
 	spin_lock_init(&fl->hlock);
 	INIT_HLIST_HEAD(&fl->maps);
@@ -1978,6 +2102,8 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->tgid = current->tgid;
 	fl->apps = me;
 	fl->cid = cid;
+	if (debugfs_file != NULL)
+		fl->debugfs_file = debugfs_file;
 	memset(&fl->perf, 0, sizeof(fl->perf));
 
 	VERIFY(err, !fastrpc_session_alloc_locked(&me->channel[cid], 0,
@@ -2257,6 +2383,8 @@ static int fastrpc_cb_probe(struct device *dev)
 	sess->dev = dev;
 	sess->smmu.enabled = 1;
 	chan->sesscount++;
+	debugfs_global_file = debugfs_create_file("global", 0644, debugfs_root,
+							NULL, &debugfs_fops);
 bail:
 	return err;
 }
@@ -2409,6 +2537,7 @@ static int __init fastrpc_device_init(void)
 	VERIFY(err, !IS_ERR_OR_NULL(me->client));
 	if (err)
 		goto device_create_bail;
+	debugfs_root = debugfs_create_dir("adsprpc", NULL);
 	return 0;
 device_create_bail:
 	for (i = 0; i < NUM_CHANNELS; i++) {
@@ -2447,6 +2576,7 @@ static void __exit fastrpc_device_exit(void)
 	cdev_del(&me->cdev);
 	unregister_chrdev_region(me->dev_no, NUM_CHANNELS);
 	ion_client_destroy(me->client);
+	debugfs_remove_recursive(debugfs_root);
 }
 
 late_initcall(fastrpc_device_init);
