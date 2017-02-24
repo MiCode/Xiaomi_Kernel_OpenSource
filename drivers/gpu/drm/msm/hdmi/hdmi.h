@@ -70,7 +70,7 @@ struct hdmi {
 	struct drm_encoder *encoder;
 
 	bool hdmi_mode;               /* are we in hdmi mode? */
-
+	bool is_hdcp_supported;
 	int irq;
 	struct workqueue_struct *workq;
 

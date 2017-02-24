@@ -1,0 +1,22 @@
+Qualcomm Technologies,Inc. Adreno/Snapdragon hdmi display manager
+
+Required properties:
+- compatible: "qcom,hdmi-display"
+- label: label of this display manager
+
+Optional properties:
+- qcom,display-type: display type of this manager. It could be "primary",
+  "secondary", "tertiary", etc.
+
+Example:
+
+/ {
+	...
+
+	hdmi_display: qcom,hdmi-display {
+		compatible = "qcom,hdmi-display";
+		label = "hdmi_display";
+		qcom,display-type = "secondary";
+	};
+
+};

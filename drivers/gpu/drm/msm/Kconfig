@@ -88,3 +88,9 @@ config DRM_SDE_WB
 	help
 	  Choose this option for writeback connector support.
 
+config DRM_SDE_HDMI
+	bool "Enable HDMI driver support in DRM SDE driver"
+	depends on DRM_MSM
+	default y
+	help
+	  Choose this option if HDMI connector support is needed in SDE driver.

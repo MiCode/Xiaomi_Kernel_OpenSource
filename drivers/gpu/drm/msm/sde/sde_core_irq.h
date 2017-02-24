@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,20 @@ int sde_core_irq_postinstall(struct sde_kms *sde_kms);
  * @return:		none
  */
 void sde_core_irq_uninstall(struct sde_kms *sde_kms);
+
+/**
+ * sde_core_irq_domain_add - Add core IRQ domain for SDE
+ * @sde_kms:		SDE handle
+ * @return:		none
+ */
+int sde_core_irq_domain_add(struct sde_kms *sde_kms);
+
+/**
+ * sde_core_irq_domain_fini - uninstall core IRQ domain
+ * @sde_kms:		SDE handle
+ * @return:		0 if success; error code otherwise
+ */
+int sde_core_irq_domain_fini(struct sde_kms *sde_kms);
 
 /**
  * sde_core_irq - core IRQ handler

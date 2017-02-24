@@ -154,8 +154,9 @@ struct sde_kms {
 	void **dsi_displays;
 	int wb_display_count;
 	void **wb_displays;
-
 	bool has_danger_ctrl;
+	void **hdmi_displays;
+	int hdmi_display_count;
 };
 
 struct vsync_info {

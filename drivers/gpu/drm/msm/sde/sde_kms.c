@@ -27,6 +27,7 @@
 #include "dsi_display.h"
 #include "dsi_drm.h"
 #include "sde_wb.h"
+#include "sde_hdmi.h"
 
 #include "sde_kms.h"
 #include "sde_core_irq.h"
@@ -504,7 +505,29 @@ static int _sde_kms_get_displays(struct sde_kms *sde_kms)
 			wb_display_get_displays(sde_kms->wb_displays,
 					sde_kms->wb_display_count);
 	}
+
+	/* hdmi */
+	sde_kms->hdmi_displays = NULL;
+	sde_kms->hdmi_display_count = sde_hdmi_get_num_of_displays();
+	SDE_DEBUG("hdmi display count=%d", sde_kms->hdmi_display_count);
+	if (sde_kms->hdmi_display_count) {
+		sde_kms->hdmi_displays = kcalloc(sde_kms->hdmi_display_count,
+				  sizeof(void *),
+				  GFP_KERNEL);
+		if (!sde_kms->hdmi_displays) {
+			SDE_ERROR("failed to allocate hdmi displays\n");
+			goto exit_deinit_hdmi;
+		}
+		sde_kms->hdmi_display_count =
+			sde_hdmi_get_displays(sde_kms->hdmi_displays,
+				sde_kms->hdmi_display_count);
+	}
+
 	return 0;
+
+exit_deinit_hdmi:
+	sde_kms->hdmi_display_count = 0;
+	sde_kms->hdmi_displays = NULL;
 
 exit_deinit_wb:
 	kfree(sde_kms->wb_displays);
@@ -528,6 +551,9 @@ static void _sde_kms_release_displays(struct sde_kms *sde_kms)
 		SDE_ERROR("invalid sde kms\n");
 		return;
 	}
+	kfree(sde_kms->hdmi_displays);
+	sde_kms->hdmi_display_count = 0;
+	sde_kms->hdmi_displays = NULL;
 
 	kfree(sde_kms->wb_displays);
 	sde_kms->wb_displays = NULL;
@@ -565,6 +591,14 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.set_property = sde_wb_connector_set_property,
 		.get_info =     sde_wb_get_info,
 	};
+	static const struct sde_connector_ops hdmi_ops = {
+		.pre_deinit = sde_hdmi_connector_pre_deinit,
+		.post_init =  sde_hdmi_connector_post_init,
+		.detect =     sde_hdmi_connector_detect,
+		.get_modes =  sde_hdmi_connector_get_modes,
+		.mode_valid = sde_hdmi_mode_valid,
+		.get_info =   sde_hdmi_get_info,
+	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;
 	void *display, *connector;
@@ -576,7 +610,10 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		return -EINVAL;
 	}
 
-	max_encoders = sde_kms->dsi_display_count + sde_kms->wb_display_count;
+	max_encoders = sde_kms->dsi_display_count +
+		sde_kms->wb_display_count +
+		sde_kms->hdmi_display_count;
+
 	if (max_encoders > ARRAY_SIZE(priv->encoders)) {
 		max_encoders = ARRAY_SIZE(priv->encoders);
 		SDE_ERROR("capping number of displays to %d", max_encoders);
@@ -666,6 +703,54 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		}
 	}
 
+	/* hdmi */
+	for (i = 0; i < sde_kms->hdmi_display_count &&
+		priv->num_encoders < max_encoders; ++i) {
+		display = sde_kms->hdmi_displays[i];
+		encoder = NULL;
+
+		memset(&info, 0x0, sizeof(info));
+		rc = sde_hdmi_dev_init(display);
+		if (rc) {
+			SDE_ERROR("hdmi dev_init %d failed\n", i);
+			continue;
+		}
+		rc = sde_hdmi_get_info(&info, display);
+		if (rc) {
+			SDE_ERROR("hdmi get_info %d failed\n", i);
+			continue;
+		}
+
+		encoder = sde_encoder_init(dev, &info);
+		if (IS_ERR_OR_NULL(encoder)) {
+			SDE_ERROR("encoder init failed for hdmi %d\n", i);
+			continue;
+		}
+
+		rc = sde_hdmi_drm_init(display, encoder);
+		if (rc) {
+			SDE_ERROR("hdmi drm %d init failed, %d\n", i, rc);
+			sde_encoder_destroy(encoder);
+			continue;
+		}
+
+		connector = sde_connector_init(dev,
+					encoder,
+					0,
+					display,
+					&hdmi_ops,
+					DRM_CONNECTOR_POLL_HPD,
+					DRM_MODE_CONNECTOR_HDMIA);
+		if (connector) {
+			priv->encoders[priv->num_encoders++] = encoder;
+		} else {
+			SDE_ERROR("hdmi %d connector init failed\n", i);
+			sde_hdmi_dev_deinit(display);
+			sde_hdmi_drm_deinit(display);
+			sde_encoder_destroy(encoder);
+		}
+	}
+
 	return 0;
 }
 
@@ -726,6 +811,9 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 	priv = dev->dev_private;
 	catalog = sde_kms->catalog;
 
+	ret = sde_core_irq_domain_add(sde_kms);
+	if (ret)
+		goto fail_irq;
 	/*
 	 * Query for underlying display drivers, and create connectors,
 	 * bridges and encoders for them.
@@ -784,6 +872,8 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 	return 0;
 fail:
 	_sde_kms_drm_obj_destroy(sde_kms);
+fail_irq:
+	sde_core_irq_domain_fini(sde_kms);
 	return ret;
 }
 
@@ -1134,6 +1224,14 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto perf_err;
 	}
 
+	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
+	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
+		rc = PTR_ERR(sde_kms->hw_intr);
+		SDE_ERROR("hw_intr init failed: %d\n", rc);
+		sde_kms->hw_intr = NULL;
+		goto hw_intr_init_err;
+	}
+
 	/*
 	 * _sde_kms_drm_obj_init should create the DRM related objects
 	 * i.e. CRTCs, planes, encoders, connectors and so forth
@@ -1159,21 +1257,12 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	 */
 	dev->mode_config.allow_fb_modifiers = true;
 
-	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
-	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
-		rc = PTR_ERR(sde_kms->hw_intr);
-		SDE_ERROR("hw_intr init failed: %d\n", rc);
-		sde_kms->hw_intr = NULL;
-		goto hw_intr_init_err;
-	}
-
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 	return 0;
 
-hw_intr_init_err:
-	_sde_kms_drm_obj_destroy(sde_kms);
 drm_obj_init_err:
 	sde_core_perf_destroy(&sde_kms->perf);
+hw_intr_init_err:
 perf_err:
 power_error:
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
