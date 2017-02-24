@@ -24,7 +24,7 @@
 
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
-#include <linux/mdss_io_util.h>
+#include <linux/sde_io_util.h>
 
 #include "sde_power_handle.h"
 #include "sde_trace.h"
