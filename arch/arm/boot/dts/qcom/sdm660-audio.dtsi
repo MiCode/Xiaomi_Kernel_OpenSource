@@ -94,6 +94,20 @@
 			qcom,max-frequency = <24000000>;
 			qcom,mem-base-addr = <0x100000>;
 		};
+
+		wcd_usbc_analog_en1_gpio: msm_cdc_pinctrl_usbc_audio_en1 {
+			compatible = "qcom,msm-cdc-pinctrl";
+			pinctrl-names = "aud_active", "aud_sleep";
+			pinctrl-0 = <&wcd_usbc_analog_en1_active>;
+			pinctrl-1 = <&wcd_usbc_analog_en1_idle>;
+		};
+
+		wcd_usbc_analog_en2n_gpio: msm_cdc_pinctrl_usbc_audio_en2 {
+			compatible = "qcom,msm-cdc-pinctrl";
+			pinctrl-names = "aud_active", "aud_sleep";
+			pinctrl-0 = <&wcd_usbc_analog_en2n_active>;
+			pinctrl-1 = <&wcd_usbc_analog_en2n_idle>;
+		};
 	};
 };
 
@@ -102,6 +116,8 @@
 		status = "disabled";
 		compatible = "qcom,pmic-analog-codec";
 		reg = <0xf000 0x200>;
+		#address-cells = <2>;
+		#size-cells = <0>;
 		interrupt-parent = <&spmi_bus>;
 		interrupts = <0x3 0xf0 0x0 IRQ_TYPE_NONE>,
 				<0x3 0xf0 0x1 IRQ_TYPE_NONE>,
@@ -228,28 +244,24 @@
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x20170211>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
-				qcom,cache-always;
 			};
 
 			wsa881x_212_en: wsa881x_en@20170212 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x20170212>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
-				qcom,cache-always;
 			};
 
 			wsa881x_213_en: wsa881x_en@21170213 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x21170213>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
-				qcom,cache-always;
 			};
 
 			wsa881x_214_en: wsa881x_en@21170214 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x21170214>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
-				qcom,cache-always;
 			};
 		};
 	};

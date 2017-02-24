@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,8 +65,12 @@ static void sde_connector_destroy(struct drm_connector *connector)
 
 	c_conn = to_sde_connector(connector);
 
+	if (c_conn->ops.pre_deinit)
+		c_conn->ops.pre_deinit(connector, c_conn->display);
+
 	if (c_conn->blob_caps)
 		drm_property_unreference_blob(c_conn->blob_caps);
+
 	msm_property_destroy(&c_conn->property_info);
 
 	drm_connector_unregister(connector);
@@ -88,8 +92,7 @@ static void _sde_connector_destroy_fb(struct sde_connector *c_conn,
 		return;
 	}
 
-	msm_framebuffer_cleanup(c_state->out_fb,
-			c_state->mmu_id);
+	msm_framebuffer_cleanup(c_state->out_fb, c_state->aspace);
 	drm_framebuffer_unreference(c_state->out_fb);
 	c_state->out_fb = NULL;
 
@@ -193,7 +196,7 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 	if (c_state->out_fb) {
 		drm_framebuffer_reference(c_state->out_fb);
 		rc = msm_framebuffer_prepare(c_state->out_fb,
-				c_state->mmu_id);
+				c_state->aspace);
 		if (rc)
 			SDE_ERROR("failed to prepare fb, %d\n", rc);
 	}
@@ -241,14 +244,14 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 			rc = -EFAULT;
 		} else {
 			if (c_state->out_fb->flags & DRM_MODE_FB_SECURE)
-				c_state->mmu_id =
-				c_conn->mmu_id[SDE_IOMMU_DOMAIN_SECURE];
+				c_state->aspace =
+				c_conn->aspace[SDE_IOMMU_DOMAIN_SECURE];
 			else
-				c_state->mmu_id =
-				c_conn->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE];
+				c_state->aspace =
+				c_conn->aspace[SDE_IOMMU_DOMAIN_UNSECURE];
 
 			rc = msm_framebuffer_prepare(c_state->out_fb,
-					c_state->mmu_id);
+					c_state->aspace);
 			if (rc)
 				SDE_ERROR("prep fb failed, %d\n", rc);
 		}
@@ -492,18 +495,17 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	c_conn->panel = panel;
 	c_conn->display = display;
 
-	/* cache mmu_id's for later */
 	sde_kms = to_sde_kms(priv->kms);
 	if (sde_kms->vbif[VBIF_NRT]) {
-		c_conn->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE] =
-			sde_kms->mmu_id[MSM_SMMU_DOMAIN_NRT_UNSECURE];
-		c_conn->mmu_id[SDE_IOMMU_DOMAIN_SECURE] =
-			sde_kms->mmu_id[MSM_SMMU_DOMAIN_NRT_SECURE];
+		c_conn->aspace[SDE_IOMMU_DOMAIN_UNSECURE] =
+			sde_kms->aspace[MSM_SMMU_DOMAIN_NRT_UNSECURE];
+		c_conn->aspace[SDE_IOMMU_DOMAIN_SECURE] =
+			sde_kms->aspace[MSM_SMMU_DOMAIN_NRT_SECURE];
 	} else {
-		c_conn->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE] =
-			sde_kms->mmu_id[MSM_SMMU_DOMAIN_UNSECURE];
-		c_conn->mmu_id[SDE_IOMMU_DOMAIN_SECURE] =
-			sde_kms->mmu_id[MSM_SMMU_DOMAIN_SECURE];
+		c_conn->aspace[SDE_IOMMU_DOMAIN_UNSECURE] =
+			sde_kms->aspace[MSM_SMMU_DOMAIN_UNSECURE];
+		c_conn->aspace[SDE_IOMMU_DOMAIN_SECURE] =
+			sde_kms->aspace[MSM_SMMU_DOMAIN_SECURE];
 	}
 
 	if (ops)

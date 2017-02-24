@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016-2017 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -18,6 +18,7 @@
 
 
 #include "msm_drv.h"
+#include "msm_gem.h"
 #include "msm_mmu.h"
 #include "mdp5_kms.h"
 
@@ -130,13 +131,13 @@ static void mdp5_preclose(struct msm_kms *kms, struct drm_file *file)
 static void mdp5_destroy(struct msm_kms *kms)
 {
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
-	struct msm_mmu *mmu = mdp5_kms->mmu;
+	struct msm_gem_address_space *aspace = mdp5_kms->aspace;
 
 	mdp5_irq_domain_fini(mdp5_kms);
 
-	if (mmu) {
-		mmu->funcs->detach(mmu, iommu_ports, ARRAY_SIZE(iommu_ports));
-		mmu->funcs->destroy(mmu);
+	if (aspace) {
+		aspace->mmu->funcs->detach(aspace->mmu);
+		msm_gem_address_space_put(aspace);
 	}
 
 	if (mdp5_kms->ctlm)
@@ -474,7 +475,7 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 	struct mdp5_cfg *config;
 	struct mdp5_kms *mdp5_kms;
 	struct msm_kms *kms = NULL;
-	struct msm_mmu *mmu;
+	struct msm_gem_address_space *aspace;
 	uint32_t major, minor;
 	int i, ret;
 
@@ -595,34 +596,34 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 	mdelay(16);
 
 	if (config->platform.iommu) {
-		mmu = msm_smmu_new(&pdev->dev,
+		struct msm_mmu *mmu = msm_smmu_new(&pdev->dev,
 				MSM_SMMU_DOMAIN_UNSECURE);
 		if (IS_ERR(mmu)) {
 			ret = PTR_ERR(mmu);
 			dev_err(dev->dev, "failed to init iommu: %d\n", ret);
 			iommu_domain_free(config->platform.iommu);
+		}
+
+		aspace = msm_gem_smmu_address_space_create(&pdev->dev,
+				mmu, "mdp5");
+		if (IS_ERR(aspace)) {
+			ret = PTR_ERR(aspace);
 			goto fail;
 		}
 
-		ret = mmu->funcs->attach(mmu, iommu_ports,
+		mdp5_kms->aspace = aspace;
+
+		ret = aspace->mmu->funcs->attach(aspace->mmu, iommu_ports,
 				ARRAY_SIZE(iommu_ports));
 		if (ret) {
-			dev_err(dev->dev, "failed to attach iommu: %d\n", ret);
-			mmu->funcs->destroy(mmu);
+			dev_err(&pdev->dev, "failed to attach iommu: %d\n",
+				ret);
 			goto fail;
 		}
 	} else {
-		dev_info(dev->dev, "no iommu, fallback to phys "
-				"contig buffers for scanout\n");
-		mmu = NULL;
-	}
-	mdp5_kms->mmu = mmu;
-
-	mdp5_kms->id = msm_register_mmu(dev, mmu);
-	if (mdp5_kms->id < 0) {
-		ret = mdp5_kms->id;
-		dev_err(dev->dev, "failed to register mdp5 iommu: %d\n", ret);
-		goto fail;
+		dev_info(&pdev->dev,
+			 "no iommu, fallback to phys contig buffers for scanout\n");
+		aspace = NULL;
 	}
 
 	ret = modeset_init(mdp5_kms);

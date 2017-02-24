@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,15 @@ struct sde_connector_ops {
 	 */
 	int (*post_init)(struct drm_connector *connector,
 			void *info,
+			void *display);
+
+	/**
+	 * pre_deinit - perform additional deinitialization steps
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display handle
+	 * Returns: Zero on success
+	 */
+	int (*pre_deinit)(struct drm_connector *connector,
 			void *display);
 
 	/**
@@ -140,7 +149,7 @@ struct sde_connector {
 	struct drm_panel *panel;
 	void *display;
 
-	int mmu_id[SDE_IOMMU_DOMAIN_MAX];
+	struct msm_gem_address_space *aspace[SDE_IOMMU_DOMAIN_MAX];
 
 	char name[SDE_CONNECTOR_NAME_SIZE];
 
@@ -195,13 +204,13 @@ struct sde_connector {
  * struct sde_connector_state - private connector status structure
  * @base: Base drm connector structure
  * @out_fb: Pointer to output frame buffer, if applicable
- * @mmu_id: MMU ID for accessing frame buffer objects, if applicable
+ * @aspace: Address space for accessing frame buffer objects, if applicable
  * @property_values: Local cache of current connector property values
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
 	struct drm_framebuffer *out_fb;
-	int mmu_id;
+	struct msm_gem_address_space *aspace;
 	uint64_t property_values[CONNECTOR_PROP_COUNT];
 };
 

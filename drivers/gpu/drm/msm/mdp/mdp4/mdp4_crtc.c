@@ -40,7 +40,7 @@ struct mdp4_crtc {
 		uint32_t x, y;
 
 		/* next cursor to scan-out: */
-		uint32_t next_iova;
+		uint64_t next_iova;
 		struct drm_gem_object *next_bo;
 
 		/* current cursor being scanned out: */
@@ -133,7 +133,7 @@ static void unref_cursor_worker(struct drm_flip_work *work, void *val)
 		container_of(work, struct mdp4_crtc, unref_cursor_work);
 	struct mdp4_kms *mdp4_kms = get_kms(&mdp4_crtc->base);
 
-	msm_gem_put_iova(val, mdp4_kms->id);
+	msm_gem_put_iova(val, mdp4_kms->aspace);
 	drm_gem_object_unreference_unlocked(val);
 }
 
@@ -387,25 +387,28 @@ static void update_cursor(struct drm_crtc *crtc)
 	if (mdp4_crtc->cursor.stale) {
 		struct drm_gem_object *next_bo = mdp4_crtc->cursor.next_bo;
 		struct drm_gem_object *prev_bo = mdp4_crtc->cursor.scanout_bo;
-		uint32_t iova = mdp4_crtc->cursor.next_iova;
+		uint64_t iova = mdp4_crtc->cursor.next_iova;
 
 		if (next_bo) {
 			/* take a obj ref + iova ref when we start scanning out: */
 			drm_gem_object_reference(next_bo);
-			msm_gem_get_iova_locked(next_bo, mdp4_kms->id, &iova);
+			msm_gem_get_iova_locked(next_bo, mdp4_kms->aspace,
+				&iova);
 
 			/* enable cursor: */
 			mdp4_write(mdp4_kms, REG_MDP4_DMA_CURSOR_SIZE(dma),
 					MDP4_DMA_CURSOR_SIZE_WIDTH(mdp4_crtc->cursor.width) |
 					MDP4_DMA_CURSOR_SIZE_HEIGHT(mdp4_crtc->cursor.height));
-			mdp4_write(mdp4_kms, REG_MDP4_DMA_CURSOR_BASE(dma), iova);
+			/* FIXME: Make sure iova < 32 bits */
+			mdp4_write(mdp4_kms, REG_MDP4_DMA_CURSOR_BASE(dma),
+				lower_32_bits(iova));
 			mdp4_write(mdp4_kms, REG_MDP4_DMA_CURSOR_BLEND_CONFIG(dma),
 					MDP4_DMA_CURSOR_BLEND_CONFIG_FORMAT(CURSOR_ARGB) |
 					MDP4_DMA_CURSOR_BLEND_CONFIG_CURSOR_EN);
 		} else {
 			/* disable cursor: */
 			mdp4_write(mdp4_kms, REG_MDP4_DMA_CURSOR_BASE(dma),
-					mdp4_kms->blank_cursor_iova);
+				lower_32_bits(mdp4_kms->blank_cursor_iova));
 		}
 
 		/* and drop the iova ref + obj rev when done scanning out: */
@@ -432,7 +435,7 @@ static int mdp4_crtc_cursor_set(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct drm_gem_object *cursor_bo, *old_bo;
 	unsigned long flags;
-	uint32_t iova;
+	uint64_t iova;
 	int ret;
 
 	if ((width > CURSOR_WIDTH) || (height > CURSOR_HEIGHT)) {
@@ -449,7 +452,7 @@ static int mdp4_crtc_cursor_set(struct drm_crtc *crtc,
 	}
 
 	if (cursor_bo) {
-		ret = msm_gem_get_iova(cursor_bo, mdp4_kms->id, &iova);
+		ret = msm_gem_get_iova(cursor_bo, mdp4_kms->aspace, &iova);
 		if (ret)
 			goto fail;
 	} else {

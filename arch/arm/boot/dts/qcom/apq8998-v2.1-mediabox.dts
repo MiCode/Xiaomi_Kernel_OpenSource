@@ -26,7 +26,12 @@
 };
 
 &mdss_mdp {
+	status = "disabled";
 	qcom,mdss-pref-prim-intf = "hdmi";
+};
+
+&sde_hdmi {
+	qcom,display-type = "primary";
 };
 
 &slim_aud {

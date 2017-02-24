@@ -299,7 +299,6 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
 		if (!mdss_smmu_is_valid_domain_type(mdata, i))
 			continue;
-
 		mdss_smmu = mdss_smmu_get_cb(i);
 		if (mdss_smmu && mdss_smmu->base.dev) {
 			if (!mdss_smmu->handoff_pending) {
@@ -326,6 +325,14 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 					goto err;
 				}
 				mdss_smmu->domain_attached = true;
+				if (mdss_smmu->domain_reattach) {
+					pr_debug("iommu v2 domain[%i] remove extra vote\n",
+							i);
+					/* remove extra power vote */
+					mdss_smmu_enable_power(mdss_smmu,
+						false);
+					mdss_smmu->domain_reattach = false;
+				}
 				pr_debug("iommu v2 domain[%i] attached\n", i);
 			}
 		} else {
@@ -379,6 +386,11 @@ static int mdss_smmu_detach_v2(struct mdss_data_type *mdata)
 				 */
 				arm_iommu_detach_device(mdss_smmu->base.dev);
 				mdss_smmu->domain_attached = false;
+				/*
+				 * since we are leaving clocks on, on
+				 * re-attach do not vote for clocks
+				 */
+				mdss_smmu->domain_reattach = true;
 				pr_debug("iommu v2 domain[%i] detached\n", i);
 			} else {
 				mdss_smmu_enable_power(mdss_smmu, false);

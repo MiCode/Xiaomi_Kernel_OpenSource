@@ -31,6 +31,7 @@
 
 extern bool hang_debug;
 static void a4xx_dump(struct msm_gpu *gpu);
+static bool a4xx_idle(struct msm_gpu *gpu);
 
 /*
  * a4xx_enable_hwcg() - Program the clock control registers
@@ -113,9 +114,9 @@ static void a4xx_enable_hwcg(struct msm_gpu *gpu)
 }
 
 
-static void a4xx_me_init(struct msm_gpu *gpu)
+static bool a4xx_me_init(struct msm_gpu *gpu)
 {
-	struct msm_ringbuffer *ring = gpu->rb;
+	struct msm_ringbuffer *ring = gpu->rb[0];
 
 	OUT_PKT3(ring, CP_ME_INIT, 17);
 	OUT_RING(ring, 0x000003f7);
@@ -136,8 +137,8 @@ static void a4xx_me_init(struct msm_gpu *gpu)
 	OUT_RING(ring, 0x00000000);
 	OUT_RING(ring, 0x00000000);
 
-	gpu->funcs->flush(gpu);
-	gpu->funcs->idle(gpu);
+	gpu->funcs->flush(gpu, ring);
+	return a4xx_idle(gpu);
 }
 
 static int a4xx_hw_init(struct msm_gpu *gpu)
@@ -292,9 +293,7 @@ static int a4xx_hw_init(struct msm_gpu *gpu)
 	/* clear ME_HALT to start micro engine */
 	gpu_write(gpu, REG_A4XX_CP_ME_CNTL, 0);
 
-	a4xx_me_init(gpu);
-
-	return 0;
+	return a4xx_me_init(gpu) ? 0 : -EINVAL;
 }
 
 static void a4xx_recover(struct msm_gpu *gpu)
@@ -328,17 +327,21 @@ static void a4xx_destroy(struct msm_gpu *gpu)
 	kfree(a4xx_gpu);
 }
 
-static void a4xx_idle(struct msm_gpu *gpu)
+static bool a4xx_idle(struct msm_gpu *gpu)
 {
 	/* wait for ringbuffer to drain: */
-	adreno_idle(gpu);
+	if (!adreno_idle(gpu, gpu->rb[0]))
+		return false;
 
 	/* then wait for GPU to finish: */
 	if (spin_until(!(gpu_read(gpu, REG_A4XX_RBBM_STATUS) &
-					A4XX_RBBM_STATUS_GPU_BUSY)))
+					A4XX_RBBM_STATUS_GPU_BUSY))) {
 		DRM_ERROR("%s: timeout waiting for GPU to idle!\n", gpu->name);
+		/* TODO maybe we need to reset GPU here to recover from hang? */
+		return false;
+	}
 
-	/* TODO maybe we need to reset GPU here to recover from hang? */
+	return true;
 }
 
 static irqreturn_t a4xx_irq(struct msm_gpu *gpu)
@@ -453,87 +456,13 @@ static void a4xx_show(struct msm_gpu *gpu, struct seq_file *m)
 
 /* Register offset defines for A4XX, in order of enum adreno_regs */
 static const unsigned int a4xx_register_offsets[REG_ADRENO_REGISTER_MAX] = {
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_DEBUG, REG_A4XX_CP_DEBUG),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_ME_RAM_WADDR, REG_A4XX_CP_ME_RAM_WADDR),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_ME_RAM_DATA, REG_A4XX_CP_ME_RAM_DATA),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_PFP_UCODE_DATA,
-			REG_A4XX_CP_PFP_UCODE_DATA),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_PFP_UCODE_ADDR,
-			REG_A4XX_CP_PFP_UCODE_ADDR),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_WFI_PEND_CTR, REG_A4XX_CP_WFI_PEND_CTR),
 	REG_ADRENO_DEFINE(REG_ADRENO_CP_RB_BASE, REG_A4XX_CP_RB_BASE),
+	REG_ADRENO_SKIP(REG_ADRENO_CP_RB_BASE_HI),
 	REG_ADRENO_DEFINE(REG_ADRENO_CP_RB_RPTR_ADDR, REG_A4XX_CP_RB_RPTR_ADDR),
+	REG_ADRENO_SKIP(REG_ADRENO_CP_RB_RPTR_ADDR_HI),
 	REG_ADRENO_DEFINE(REG_ADRENO_CP_RB_RPTR, REG_A4XX_CP_RB_RPTR),
 	REG_ADRENO_DEFINE(REG_ADRENO_CP_RB_WPTR, REG_A4XX_CP_RB_WPTR),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_PROTECT_CTRL, REG_A4XX_CP_PROTECT_CTRL),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_ME_CNTL, REG_A4XX_CP_ME_CNTL),
 	REG_ADRENO_DEFINE(REG_ADRENO_CP_RB_CNTL, REG_A4XX_CP_RB_CNTL),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_IB1_BASE, REG_A4XX_CP_IB1_BASE),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_IB1_BUFSZ, REG_A4XX_CP_IB1_BUFSZ),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_IB2_BASE, REG_A4XX_CP_IB2_BASE),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_IB2_BUFSZ, REG_A4XX_CP_IB2_BUFSZ),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_TIMESTAMP, REG_AXXX_CP_SCRATCH_REG0),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_ME_RAM_RADDR, REG_A4XX_CP_ME_RAM_RADDR),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_ROQ_ADDR, REG_A4XX_CP_ROQ_ADDR),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_ROQ_DATA, REG_A4XX_CP_ROQ_DATA),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_MERCIU_ADDR, REG_A4XX_CP_MERCIU_ADDR),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_MERCIU_DATA, REG_A4XX_CP_MERCIU_DATA),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_MERCIU_DATA2, REG_A4XX_CP_MERCIU_DATA2),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_MEQ_ADDR, REG_A4XX_CP_MEQ_ADDR),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_MEQ_DATA, REG_A4XX_CP_MEQ_DATA),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_HW_FAULT, REG_A4XX_CP_HW_FAULT),
-	REG_ADRENO_DEFINE(REG_ADRENO_CP_PROTECT_STATUS,
-			REG_A4XX_CP_PROTECT_STATUS),
-	REG_ADRENO_DEFINE(REG_ADRENO_SCRATCH_ADDR, REG_A4XX_CP_SCRATCH_ADDR),
-	REG_ADRENO_DEFINE(REG_ADRENO_SCRATCH_UMSK, REG_A4XX_CP_SCRATCH_UMASK),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_STATUS, REG_A4XX_RBBM_STATUS),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_PERFCTR_CTL,
-			REG_A4XX_RBBM_PERFCTR_CTL),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_PERFCTR_LOAD_CMD0,
-			REG_A4XX_RBBM_PERFCTR_LOAD_CMD0),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_PERFCTR_LOAD_CMD1,
-			REG_A4XX_RBBM_PERFCTR_LOAD_CMD1),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_PERFCTR_LOAD_CMD2,
-			REG_A4XX_RBBM_PERFCTR_LOAD_CMD2),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_PERFCTR_PWR_1_LO,
-			REG_A4XX_RBBM_PERFCTR_PWR_1_LO),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_INT_0_MASK, REG_A4XX_RBBM_INT_0_MASK),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_INT_0_STATUS,
-			REG_A4XX_RBBM_INT_0_STATUS),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_AHB_ERROR_STATUS,
-			REG_A4XX_RBBM_AHB_ERROR_STATUS),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_AHB_CMD, REG_A4XX_RBBM_AHB_CMD),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_CLOCK_CTL, REG_A4XX_RBBM_CLOCK_CTL),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_AHB_ME_SPLIT_STATUS,
-			REG_A4XX_RBBM_AHB_ME_SPLIT_STATUS),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_AHB_PFP_SPLIT_STATUS,
-			REG_A4XX_RBBM_AHB_PFP_SPLIT_STATUS),
-	REG_ADRENO_DEFINE(REG_ADRENO_VPC_DEBUG_RAM_SEL,
-			REG_A4XX_VPC_DEBUG_RAM_SEL),
-	REG_ADRENO_DEFINE(REG_ADRENO_VPC_DEBUG_RAM_READ,
-			REG_A4XX_VPC_DEBUG_RAM_READ),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_INT_CLEAR_CMD,
-			REG_A4XX_RBBM_INT_CLEAR_CMD),
-	REG_ADRENO_DEFINE(REG_ADRENO_VSC_SIZE_ADDRESS,
-			REG_A4XX_VSC_SIZE_ADDRESS),
-	REG_ADRENO_DEFINE(REG_ADRENO_VFD_CONTROL_0, REG_A4XX_VFD_CONTROL_0),
-	REG_ADRENO_DEFINE(REG_ADRENO_SP_VS_PVT_MEM_ADDR_REG,
-			REG_A4XX_SP_VS_PVT_MEM_ADDR),
-	REG_ADRENO_DEFINE(REG_ADRENO_SP_FS_PVT_MEM_ADDR_REG,
-			REG_A4XX_SP_FS_PVT_MEM_ADDR),
-	REG_ADRENO_DEFINE(REG_ADRENO_SP_VS_OBJ_START_REG,
-			REG_A4XX_SP_VS_OBJ_START),
-	REG_ADRENO_DEFINE(REG_ADRENO_SP_FS_OBJ_START_REG,
-			REG_A4XX_SP_FS_OBJ_START),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_RBBM_CTL, REG_A4XX_RBBM_RBBM_CTL),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_SW_RESET_CMD,
-			REG_A4XX_RBBM_SW_RESET_CMD),
-	REG_ADRENO_DEFINE(REG_ADRENO_UCHE_INVALIDATE0,
-			REG_A4XX_UCHE_INVALIDATE0),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_PERFCTR_LOAD_VALUE_LO,
-			REG_A4XX_RBBM_PERFCTR_LOAD_VALUE_LO),
-	REG_ADRENO_DEFINE(REG_ADRENO_RBBM_PERFCTR_LOAD_VALUE_HI,
-			REG_A4XX_RBBM_PERFCTR_LOAD_VALUE_HI),
 };
 
 static void a4xx_dump(struct msm_gpu *gpu)
@@ -580,16 +509,8 @@ static int a4xx_pm_suspend(struct msm_gpu *gpu) {
 
 static int a4xx_get_timestamp(struct msm_gpu *gpu, uint64_t *value)
 {
-	uint32_t hi, lo, tmp;
-
-	tmp = gpu_read(gpu, REG_A4XX_RBBM_PERFCTR_CP_0_HI);
-	do {
-		hi = tmp;
-		lo = gpu_read(gpu, REG_A4XX_RBBM_PERFCTR_CP_0_LO);
-		tmp = gpu_read(gpu, REG_A4XX_RBBM_PERFCTR_CP_0_HI);
-	} while (tmp != hi);
-
-	*value = (((uint64_t)hi) << 32) | lo;
+	*value = gpu_read64(gpu, REG_A4XX_RBBM_PERFCTR_CP_0_LO,
+		REG_A4XX_RBBM_PERFCTR_CP_0_HI);
 
 	return 0;
 }
@@ -602,9 +523,10 @@ static const struct adreno_gpu_funcs funcs = {
 		.pm_resume = a4xx_pm_resume,
 		.recover = a4xx_recover,
 		.last_fence = adreno_last_fence,
+		.submitted_fence = adreno_submitted_fence,
 		.submit = adreno_submit,
 		.flush = adreno_flush,
-		.idle = a4xx_idle,
+		.active_ring = adreno_active_ring,
 		.irq = a4xx_irq,
 		.destroy = a4xx_destroy,
 #ifdef CONFIG_DEBUG_FS
@@ -646,7 +568,7 @@ struct msm_gpu *a4xx_gpu_init(struct drm_device *dev)
 	adreno_gpu->registers = a4xx_registers;
 	adreno_gpu->reg_offsets = a4xx_register_offsets;
 
-	ret = adreno_gpu_init(dev, pdev, adreno_gpu, &funcs);
+	ret = adreno_gpu_init(dev, pdev, adreno_gpu, &funcs, 1);
 	if (ret)
 		goto fail;
 
@@ -665,7 +587,7 @@ struct msm_gpu *a4xx_gpu_init(struct drm_device *dev)
 #endif
 	}
 
-	if (!gpu->mmu) {
+	if (!gpu->aspace) {
 		/* TODO we think it is possible to configure the GPU to
 		 * restrict access to VRAM carveout.  But the required
 		 * registers are unknown.  For now just bail out and

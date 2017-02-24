@@ -32,7 +32,8 @@
 #include <linux/iommu.h>
 #include <linux/types.h>
 #include <linux/of_graph.h>
-#include <linux/mdss_io_util.h>
+#include <linux/of_device.h>
+#include <linux/sde_io_util.h>
 #include <asm/sizes.h>
 #include <linux/kthread.h>
 
@@ -63,6 +64,8 @@ struct msm_mmu;
 struct msm_rd_state;
 struct msm_perf_state;
 struct msm_gem_submit;
+struct msm_gem_address_space;
+struct msm_gem_vma;
 
 #define NUM_DOMAINS    4    /* one for KMS, then one per gpu core (?) */
 #define MAX_CRTCS      8
@@ -72,11 +75,7 @@ struct msm_gem_submit;
 #define MAX_CONNECTORS 8
 
 struct msm_file_private {
-	/* currently we don't do anything useful with this.. but when
-	 * per-context address spaces are supported we'd keep track of
-	 * the context's page-tables here.
-	 */
-	int dummy;
+	struct msm_gem_address_space *aspace;
 };
 
 enum msm_mdp_plane_property {
@@ -248,6 +247,8 @@ struct msm_drm_commit {
 	struct kthread_worker worker;
 };
 
+#define MSM_GPU_MAX_RINGS 4
+
 struct msm_drm_private {
 
 	struct msm_kms *kms;
@@ -274,11 +275,12 @@ struct msm_drm_private {
 
 	/* when we have more than one 'msm_gpu' these need to be an array: */
 	struct msm_gpu *gpu;
-	struct msm_file_private *lastctx;
 
 	struct drm_fb_helper *fbdev;
 
-	uint32_t next_fence, completed_fence;
+	uint32_t next_fence[MSM_GPU_MAX_RINGS];
+	uint32_t completed_fence[MSM_GPU_MAX_RINGS];
+
 	wait_queue_head_t fence_event;
 
 	struct msm_rd_state *rd;
@@ -296,9 +298,13 @@ struct msm_drm_private {
 	uint32_t pending_crtcs;
 	wait_queue_head_t pending_crtcs_event;
 
-	/* registered MMUs: */
-	unsigned int num_mmus;
-	struct msm_mmu *mmus[NUM_DOMAINS];
+	/* Registered address spaces.. currently this is fixed per # of
+	 * iommu's.  Ie. one for display block and one for gpu block.
+	 * Eventually, to do per-process gpu pagetables, we'll want one
+	 * of these per-process.
+	 */
+	unsigned int num_aspaces;
+	struct msm_gem_address_space *aspace[NUM_DOMAINS];
 
 	unsigned int num_planes;
 	struct drm_plane *planes[MAX_PLANES];
@@ -345,6 +351,31 @@ struct msm_format {
 	uint32_t pixel_format;
 };
 
+/*
+ * Some GPU targets can support multiple ringbuffers and preempt between them.
+ * In order to do this without massive API changes we will steal two bits from
+ * the top of the fence and use them to identify the ringbuffer, (0x00000001 for
+ * riug 0, 0x40000001 for ring 1, 0x50000001 for ring 2, etc). If you are going
+ * to do a fence comparision you have to make sure you are only comparing
+ * against fences from the same ring, but since fences within a ringbuffer are
+ * still contigious you can still use straight comparisons (i.e 0x40000001 is
+ * older than 0x40000002). Mathmatically there will be 0x3FFFFFFF timestamps
+ * per ring or ~103 days of 120 interrupts per second (two interrupts per frame
+ * at 60 FPS).
+ */
+#define FENCE_RING(_fence) ((_fence >> 30) & 3)
+#define FENCE(_ring, _fence) ((((_ring) & 3) << 30) | ((_fence) & 0x3FFFFFFF))
+
+static inline bool COMPARE_FENCE_LTE(uint32_t a, uint32_t b)
+{
+	return ((FENCE_RING(a) == FENCE_RING(b)) && a <= b);
+}
+
+static inline bool COMPARE_FENCE_LT(uint32_t a, uint32_t b)
+{
+	return ((FENCE_RING(a) == FENCE_RING(b)) && a < b);
+}
+
 /* callback from wq once fence has passed: */
 struct msm_fence_cb {
 	struct work_struct work;
@@ -362,14 +393,33 @@ void __msm_fence_worker(struct work_struct *work);
 int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool async);
 
-int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu);
-void msm_unregister_mmu(struct drm_device *dev, struct msm_mmu *mmu);
-
 int msm_wait_fence(struct drm_device *dev, uint32_t fence,
 		ktime_t *timeout, bool interruptible);
 int msm_queue_fence_cb(struct drm_device *dev,
 		struct msm_fence_cb *cb, uint32_t fence);
 void msm_update_fence(struct drm_device *dev, uint32_t fence);
+
+void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
+		struct msm_gem_vma *vma, struct sg_table *sgt,
+		void *priv);
+int msm_gem_map_vma(struct msm_gem_address_space *aspace,
+		struct msm_gem_vma *vma, struct sg_table *sgt,
+		void *priv, unsigned int flags);
+
+void msm_gem_address_space_put(struct msm_gem_address_space *aspace);
+
+/* For GPU and legacy display */
+struct msm_gem_address_space *
+msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
+		const char *name);
+struct msm_gem_address_space *
+msm_gem_address_space_create_instance(struct msm_mmu *parent, const char *name,
+		uint64_t start, uint64_t end);
+
+/* For SDE  display */
+struct msm_gem_address_space *
+msm_gem_smmu_address_space_create(struct device *dev, struct msm_mmu *mmu,
+		const char *name);
 
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		struct drm_file *file);
@@ -379,13 +429,16 @@ int msm_gem_mmap_obj(struct drm_gem_object *obj,
 int msm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 int msm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
 uint64_t msm_gem_mmap_offset(struct drm_gem_object *obj);
-int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
-		uint32_t *iova);
-int msm_gem_get_iova(struct drm_gem_object *obj, int id, uint32_t *iova);
-uint32_t msm_gem_iova(struct drm_gem_object *obj, int id);
+int msm_gem_get_iova_locked(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace, uint64_t *iova);
+int msm_gem_get_iova(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace, uint64_t *iova);
+uint64_t msm_gem_iova(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace);
 struct page **msm_gem_get_pages(struct drm_gem_object *obj);
 void msm_gem_put_pages(struct drm_gem_object *obj);
-void msm_gem_put_iova(struct drm_gem_object *obj, int id);
+void msm_gem_put_iova(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace);
 int msm_gem_dumb_create(struct drm_file *file, struct drm_device *dev,
 		struct drm_mode_create_dumb *args);
 int msm_gem_dumb_map_offset(struct drm_file *file, struct drm_device *dev,
@@ -416,9 +469,12 @@ struct drm_gem_object *msm_gem_new(struct drm_device *dev,
 struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 		uint32_t size, struct sg_table *sgt);
 
-int msm_framebuffer_prepare(struct drm_framebuffer *fb, int id);
-void msm_framebuffer_cleanup(struct drm_framebuffer *fb, int id);
-uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb, int id, int plane);
+int msm_framebuffer_prepare(struct drm_framebuffer *fb,
+		struct msm_gem_address_space *aspace);
+void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
+		struct msm_gem_address_space *aspace);
+uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb,
+		struct msm_gem_address_space *aspace, int plane);
 struct drm_gem_object *msm_framebuffer_bo(struct drm_framebuffer *fb, int plane);
 const struct msm_format *msm_framebuffer_format(struct drm_framebuffer *fb);
 struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,
@@ -502,7 +558,8 @@ u32 msm_readl(const void __iomem *addr);
 static inline bool fence_completed(struct drm_device *dev, uint32_t fence)
 {
 	struct msm_drm_private *priv = dev->dev_private;
-	return priv->completed_fence >= fence;
+
+	return priv->completed_fence[FENCE_RING(fence)] >= fence;
 }
 
 static inline int align_pitch(int width, int bpp)

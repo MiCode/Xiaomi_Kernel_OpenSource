@@ -261,6 +261,12 @@ enum MHI_EVENT_CCS {
 	MHI_EVENT_CC_BAD_TRE = 0x11,
 };
 
+struct db_mode {
+	/* if set do not reset DB_Mode during M0 resume */
+	u32 preserve_db_state : 1;
+	u32 db_mode : 1;
+};
+
 struct mhi_ring {
 	void *base;
 	void *wp;
@@ -270,6 +276,9 @@ struct mhi_ring {
 	uintptr_t el_size;
 	u32 overwrite_en;
 	enum MHI_CHAN_DIR dir;
+	struct db_mode db_mode;
+	u32 msi_disable_cntr;
+	u32 msi_enable_cntr;
 };
 
 enum MHI_CMD_STATUS {
@@ -344,12 +353,6 @@ struct mhi_client_handle {
 	int event_ring_index;
 };
 
-enum MHI_EVENT_POLLING {
-	MHI_EVENT_POLLING_DISABLED = 0x0,
-	MHI_EVENT_POLLING_ENABLED = 0x1,
-	MHI_EVENT_POLLING_reserved = 0x80000000
-};
-
 enum MHI_TYPE_EVENT_RING {
 	MHI_ER_DATA_TYPE = 0x1,
 	MHI_ER_CTRL_TYPE = 0x2,
@@ -386,8 +389,6 @@ struct mhi_counters {
 	u32 m3_event_timeouts;
 	u32 m0_event_timeouts;
 	u32 m2_event_timeouts;
-	u32 msi_disable_cntr;
-	u32 msi_enable_cntr;
 	u32 nr_irq_migrations;
 	u32 *msi_counter;
 	u32 *ev_counter;
@@ -414,7 +415,6 @@ struct mhi_flags {
 	u32 ev_thread_stopped;
 	u32 st_thread_stopped;
 	u32 uldl_enabled;
-	u32 db_mode[MHI_MAX_CHANNELS];
 };
 
 struct mhi_wait_queues {
@@ -577,7 +577,8 @@ int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
 				   enum MHI_CHAN_DIR chan_type,
 				   u32 event_ring,
 				   struct mhi_ring *ring,
-				   enum MHI_CHAN_STATE chan_state);
+				   enum MHI_CHAN_STATE chan_state,
+				   bool preserve_db_state);
 int mhi_populate_event_cfg(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_get_event_ring_for_channel(struct mhi_device_ctxt *mhi_dev_ctxt,
 					      u32 chan);

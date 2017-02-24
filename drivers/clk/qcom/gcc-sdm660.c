@@ -730,32 +730,6 @@ static struct clk_rcg2 gp3_clk_src = {
 	},
 };
 
-static const struct freq_tbl ftbl_hmss_ahb_clk_src[] = {
-	F(19200000, P_XO, 1, 0, 0),
-	F(37500000, P_GPLL0_OUT_MAIN, 16, 0, 0),
-	F(75000000, P_GPLL0_OUT_MAIN, 8, 0, 0),
-	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
-	{ }
-};
-
-static struct clk_rcg2 hmss_ahb_clk_src = {
-	.cmd_rcgr = 0x48014,
-	.mnd_width = 0,
-	.hid_width = 5,
-	.parent_map = gcc_parent_map_1,
-	.freq_tbl = ftbl_hmss_ahb_clk_src,
-	.clkr.hw.init = &(struct clk_init_data){
-		.name = "hmss_ahb_clk_src",
-		.parent_names = gcc_parent_names_ao_1,
-		.num_parents = 3,
-		.ops = &clk_rcg2_ops,
-		VDD_DIG_FMAX_MAP3_AO(
-				LOWER, 19200000,
-				LOW, 50000000,
-				NOMINAL, 100000000),
-	},
-};
-
 static const struct freq_tbl ftbl_hmss_gpll0_clk_src[] = {
 	F(600000000, P_GPLL0_OUT_MAIN, 1, 0, 0),
 	{ }
@@ -1823,24 +1797,6 @@ static struct clk_branch gcc_gpu_gpll0_div_clk = {
 	},
 };
 
-static struct clk_branch gcc_hmss_ahb_clk = {
-	.halt_reg = 0x48000,
-	.halt_check = BRANCH_HALT_VOTED,
-	.clkr = {
-		.enable_reg = 0x52004,
-		.enable_mask = BIT(21),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_hmss_ahb_clk",
-			.parent_names = (const char *[]){
-				"hmss_ahb_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_hmss_dvm_bus_clk = {
 	.halt_reg = 0x4808c,
 	.halt_check = BRANCH_HALT,
@@ -2493,14 +2449,15 @@ static struct clk_branch gcc_usb3_phy_aux_clk = {
 	},
 };
 
-static struct clk_gate2 gcc_usb3_phy_pipe_clk = {
-	.udelay = 50,
+static struct clk_branch gcc_usb3_phy_pipe_clk = {
+	.halt_reg = 0x50004,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x50004,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_usb3_phy_pipe_clk",
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -2640,7 +2597,6 @@ static struct clk_regmap *gcc_660_clocks[] = {
 	[GCC_GPU_CFG_AHB_CLK] = &gcc_gpu_cfg_ahb_clk.clkr,
 	[GCC_GPU_GPLL0_CLK] = &gcc_gpu_gpll0_clk.clkr,
 	[GCC_GPU_GPLL0_DIV_CLK] = &gcc_gpu_gpll0_div_clk.clkr,
-	[GCC_HMSS_AHB_CLK] = &gcc_hmss_ahb_clk.clkr,
 	[GCC_HMSS_DVM_BUS_CLK] = &gcc_hmss_dvm_bus_clk.clkr,
 	[GCC_HMSS_RBCPR_CLK] = &gcc_hmss_rbcpr_clk.clkr,
 	[GCC_MMSS_GPLL0_CLK] = &gcc_mmss_gpll0_clk.clkr,
@@ -2690,7 +2646,6 @@ static struct clk_regmap *gcc_660_clocks[] = {
 	[GPLL1] = &gpll1_out_main.clkr,
 	[GPLL4] = &gpll4_out_main.clkr,
 	[HLOS1_VOTE_LPASS_ADSP_SMMU_CLK] = &hlos1_vote_lpass_adsp_smmu_clk.clkr,
-	[HMSS_AHB_CLK_SRC] = &hmss_ahb_clk_src.clkr,
 	[HMSS_GPLL0_CLK_SRC] = &hmss_gpll0_clk_src.clkr,
 	[HMSS_GPLL4_CLK_SRC] = &hmss_gpll4_clk_src.clkr,
 	[HMSS_RBCPR_CLK_SRC] = &hmss_rbcpr_clk_src.clkr,
@@ -2763,12 +2718,6 @@ static int gcc_660_probe(struct platform_device *pdev)
 	regmap = qcom_cc_map(pdev, &gcc_660_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
-
-	/*
-	 * Set the HMSS_AHB_CLK_SLEEP_ENA bit to allow the hmss_ahb_clk to be
-	 * turned off by hardware during certain apps low power modes.
-	 */
-	regmap_update_bits(regmap, 0x52008, BIT(21), BIT(21));
 
 	vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig");
 	if (IS_ERR(vdd_dig.regulator[0])) {
@@ -2882,7 +2831,6 @@ static const char *const debug_mux_parent_names[] = {
 	"gcc_gp3_clk",
 	"gcc_gpu_bimc_gfx_clk",
 	"gcc_gpu_cfg_ahb_clk",
-	"gcc_hmss_ahb_clk",
 	"gcc_hmss_dvm_bus_clk",
 	"gcc_hmss_rbcpr_clk",
 	"gcc_mmss_noc_cfg_ahb_clk",
@@ -3061,7 +3009,6 @@ static struct clk_debug_mux gcc_debug_mux = {
 		{ "gcc_gp3_clk",			0x0E1 },
 		{ "gcc_gpu_bimc_gfx_clk",		0x13F },
 		{ "gcc_gpu_cfg_ahb_clk",		0x13B },
-		{ "gcc_hmss_ahb_clk",			0x0BA },
 		{ "gcc_hmss_dvm_bus_clk",		0x0BF },
 		{ "gcc_hmss_rbcpr_clk",			0x0BC },
 		{ "gcc_mmss_noc_cfg_ahb_clk",		0x020 },

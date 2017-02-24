@@ -136,6 +136,17 @@ config CORESIGHT_CTI
 	  hardware component to another. It can also be used to pass
 	  software generated events.
 
+config CORESIGHT_CTI_SAVE_DISABLE
+	bool "Turn off CTI save and restore"
+	depends on CORESIGHT_CTI
+	help
+	  Turns off CoreSight CTI save and restore support for cpu CTIs. This
+	  avoids voting for the clocks during probe as well as the associated
+	  save and restore latency at the cost of breaking cpu CTI support on
+	  targets where cpu CTIs have to be preserved across power collapse.
+
+	  If unsure, say 'N' here to avoid breaking cpu CTI support.
+
 config CORESIGHT_TPDA
 	bool "CoreSight Trace, Profiling & Diagnostics Aggregator driver"
 	help

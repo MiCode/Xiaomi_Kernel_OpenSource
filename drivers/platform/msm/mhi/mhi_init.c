@@ -585,21 +585,23 @@ error_during_props:
 /**
  * @brief Initialize the channel context and shadow context
  *
- * @cc_list:		Context to initialize
- * @trb_list_phy:	Physical base address for the TRE ring
- * @trb_list_virt:	Virtual base address for the TRE ring
- * @el_per_ring:	Number of TREs this ring will contain
- * @chan_type:		Type of channel IN/OUT
- * @event_ring:	 Event ring to be mapped to this channel context
- * @ring:		 Shadow context to be initialized alongside
- *
+ * @cc_list: Context to initialize
+ * @trb_list_phy: Physical base address for the TRE ring
+ * @trb_list_virt: Virtual base address for the TRE ring
+ * @el_per_ring: Number of TREs this ring will contain
+ * @chan_type: Type of channel IN/OUT
+ * @event_ring: Event ring to be mapped to this channel context
+ * @ring: Shadow context to be initialized alongside
+ * @chan_state: Channel state
+ * @preserve_db_state: Do not reset DB state during resume
  * @Return errno
  */
 int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
-		uintptr_t trb_list_phy, uintptr_t trb_list_virt,
-		u64 el_per_ring, enum MHI_CHAN_DIR chan_type,
-		u32 event_ring, struct mhi_ring *ring,
-		enum MHI_CHAN_STATE chan_state)
+		       uintptr_t trb_list_phy, uintptr_t trb_list_virt,
+		       u64 el_per_ring, enum MHI_CHAN_DIR chan_type,
+		       u32 event_ring, struct mhi_ring *ring,
+		       enum MHI_CHAN_STATE chan_state,
+		       bool preserve_db_state)
 {
 	cc_list->mhi_chan_state = chan_state;
 	cc_list->mhi_chan_type = chan_type;
@@ -617,6 +619,8 @@ int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
 	ring->el_size = sizeof(struct mhi_tx_pkt);
 	ring->overwrite_en = 0;
 	ring->dir = chan_type;
+	ring->db_mode.db_mode = 1;
+	ring->db_mode.preserve_db_state = (preserve_db_state) ? 1 : 0;
 	/* Flush writes to MMIO */
 	wmb();
 	return 0;

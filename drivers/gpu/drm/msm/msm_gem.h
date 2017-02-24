@@ -18,11 +18,37 @@
 #ifndef __MSM_GEM_H__
 #define __MSM_GEM_H__
 
+#include <linux/kref.h>
 #include <linux/reservation.h>
 #include "msm_drv.h"
 
 /* Additional internal-use only BO flags: */
 #define MSM_BO_STOLEN        0x10000000    /* try to use stolen/splash memory */
+
+struct msm_gem_aspace_ops {
+	int (*map)(struct msm_gem_address_space *, struct msm_gem_vma *,
+		struct sg_table *sgt, void *priv, unsigned int flags);
+
+	void (*unmap)(struct msm_gem_address_space *, struct msm_gem_vma *,
+		struct sg_table *sgt, void *priv);
+
+	void (*destroy)(struct msm_gem_address_space *);
+};
+
+struct msm_gem_address_space {
+	const char *name;
+	struct msm_mmu *mmu;
+	const struct msm_gem_aspace_ops *ops;
+	struct kref kref;
+};
+
+struct msm_gem_vma {
+	/* Node used by the GPU address space, but not the SDE address space */
+	struct drm_mm_node node;
+	struct msm_gem_address_space *aspace;
+	uint64_t iova;
+	struct list_head list;
+};
 
 struct msm_gem_object {
 	struct drm_gem_object base;
@@ -52,9 +78,7 @@ struct msm_gem_object {
 	struct sg_table *sgt;
 	void *vaddr;
 
-	struct {
-		dma_addr_t iova;
-	} domain[NUM_DOMAINS];
+	struct list_head domains;
 
 	/* normally (resv == &_resv) except for imported bo's */
 	struct reservation_object *resv;
@@ -94,24 +118,25 @@ static inline uint32_t msm_gem_fence(struct msm_gem_object *msm_obj,
  */
 struct msm_gem_submit {
 	struct drm_device *dev;
-	struct msm_gpu *gpu;
+	struct msm_gem_address_space *aspace;
 	struct list_head node;   /* node in gpu submit_list */
 	struct list_head bo_list;
 	struct ww_acquire_ctx ticket;
 	uint32_t fence;
+	int ring;
 	bool valid;
 	unsigned int nr_cmds;
 	unsigned int nr_bos;
 	struct {
 		uint32_t type;
 		uint32_t size;  /* in dwords */
-		uint32_t iova;
+		uint64_t iova;
 		uint32_t idx;   /* cmdstream buffer idx in bos[] */
 	} cmd[MAX_CMDS];
 	struct {
 		uint32_t flags;
 		struct msm_gem_object *obj;
-		uint32_t iova;
+		uint64_t iova;
 	} bos[0];
 };
 

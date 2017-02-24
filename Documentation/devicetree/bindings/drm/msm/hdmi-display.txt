@@ -1,0 +1,59 @@
+Qualcomm Technologies,Inc. Adreno/Snapdragon hdmi display manager
+
+Required properties:
+- compatible: "qcom,hdmi-display"
+- label: label of this display manager
+
+Optional properties:
+- qcom,display-type: display type of this manager. It could be "primary",
+  "secondary", "tertiary", etc.
+- qcom,non-pluggable: Boolean to indicate if display is non pluggable.
+- qcom,customize-modes: Customized modes when it's non pluggable display.
+- qcom,customize-mode-id: Customized mode node.
+- qcom,mode-name: String which indicates the mode name which shall be used
+   by the connector in non pluggable mode. Refer the example below for details.
+   In pluggable mode, the modes shall be filled up
+   after edid parsing.
+- qcom,mode-h-active: Horizontal active pixels for this mode.
+- qcom,mode-h-front-porch: Horizontal front porch in pixels for this mode.
+- qcom,mode-h-pulse-width: Horizontal sync width in pixels for this mode.
+- qcom,mode-h-back-porch: Horizontal back porch in pixels for this mode.
+- qcom,mode-h-active-high: Boolean to indicate if mode horizontal polarity is active high.
+- qcom,mode-v-active: Vertical active lines for this mode.
+- qcom,mode-v-front-porch: Vertical front porch in lines for this mode.
+- qcom,mode-v-pulse-width: Vertical sync width in lines for this mode.
+- qcom,mode-v-back-porch: Vertical back porch in lines for this mode.
+- qcom,mode-v-active-high: Boolean to indicate if mode vertical polarity is active high.
+- qcom,mode-refersh-rate: Mode refresh rate in hertz.
+- qcom,mode-clock-in-khz: Mode pixel clock in KHz.
+
+Example:
+
+/ {
+	...
+
+	hdmi_display: qcom,hdmi-display {
+		compatible = "qcom,hdmi-display";
+		label = "hdmi_display";
+		qcom,display-type = "secondary";
+		qcom,non-pluggable;
+		qcom,customize-modes {
+			qcom,customize-mode-id@0 {
+				qcom,mode-name = "3840x2160@30Hz";
+				qcom,mode-h-active = <3840>;
+				qcom,mode-h-front-porch = <176>;
+				qcom,mode-h-pulse-width = <88>;
+				qcom,mode-h-back-porch = <296>;
+				qcom,mode-h-active-high;
+				qcom,mode-v-active = <2160>;
+				qcom,mode-v-front-porch = <8>;
+				qcom,mode-v-pulse-width = <10>;
+				qcom,mode-v-back-porch = <72>;
+				qcom,mode-v-active-high;
+				qcom,mode-refersh-rate = <30>;
+				qcom,mode-clock-in-khz = <297000>;
+			};
+		};
+	};
+
+};

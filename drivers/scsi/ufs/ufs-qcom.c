@@ -35,6 +35,9 @@
 #include "ufs-qcom-debugfs.h"
 #include <linux/clk/msm-clk.h>
 
+#define MAX_PROP_SIZE		   32
+#define VDDP_REF_CLK_MIN_UV        1200000
+#define VDDP_REF_CLK_MAX_UV        1200000
 /* TODO: further tuning for this parameter may be required */
 #define UFS_QCOM_PM_QOS_UNVOTE_TIMEOUT_US	(10000) /* microseconds */
 
@@ -709,40 +712,105 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 	return err;
 }
 
+
+static int ufs_qcom_config_vreg(struct device *dev,
+		struct ufs_vreg *vreg, bool on)
+{
+	int ret = 0;
+	struct regulator *reg;
+	int min_uV, uA_load;
+
+	if (!vreg) {
+		WARN_ON(1);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	reg = vreg->reg;
+	if (regulator_count_voltages(reg) > 0) {
+		min_uV = on ? vreg->min_uV : 0;
+		ret = regulator_set_voltage(reg, min_uV, vreg->max_uV);
+		if (ret) {
+			dev_err(dev, "%s: %s set voltage failed, err=%d\n",
+					__func__, vreg->name, ret);
+			goto out;
+		}
+
+		uA_load = on ? vreg->max_uA : 0;
+		ret = regulator_set_load(vreg->reg, uA_load);
+		if (ret)
+			goto out;
+	}
+out:
+	return ret;
+}
+
+static int ufs_qcom_enable_vreg(struct device *dev, struct ufs_vreg *vreg)
+{
+	int ret = 0;
+
+	if (vreg->enabled)
+		return ret;
+
+	ret = ufs_qcom_config_vreg(dev, vreg, true);
+	if (ret)
+		goto out;
+
+	ret = regulator_enable(vreg->reg);
+	if (ret)
+		goto out;
+
+	vreg->enabled = true;
+out:
+	return ret;
+}
+
+static int ufs_qcom_disable_vreg(struct device *dev, struct ufs_vreg *vreg)
+{
+	int ret = 0;
+
+	if (!vreg->enabled)
+		return ret;
+
+	ret = regulator_disable(vreg->reg);
+	if (ret)
+		goto out;
+
+	ret = ufs_qcom_config_vreg(dev, vreg, false);
+	if (ret)
+		goto out;
+
+	vreg->enabled = false;
+out:
+	return ret;
+}
+
 static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
 	int ret = 0;
 
-	if (ufs_qcom_is_link_off(hba)) {
-		/*
-		 * Disable the tx/rx lane symbol clocks before PHY is
-		 * powered down as the PLL source should be disabled
-		 * after downstream clocks are disabled.
-		 */
-		ufs_qcom_disable_lane_clks(host);
-		phy_power_off(phy);
-		ret = ufs_qcom_ice_suspend(host);
-		if (ret)
-			dev_err(hba->dev, "%s: failed ufs_qcom_ice_suspend %d\n",
-					__func__, ret);
-
-		/* Assert PHY soft reset */
-		ufs_qcom_assert_reset(hba);
-		goto out;
-	}
-
 	/*
-	 * If UniPro link is not active, PHY ref_clk, main PHY analog power
-	 * rail and low noise analog power rail for PLL can be switched off.
+	 * If UniPro link is not active or OFF, PHY ref_clk, main PHY analog
+	 * power rail and low noise analog power rail for PLL can be
+	 * switched off.
 	 */
 	if (!ufs_qcom_is_link_active(hba)) {
 		ufs_qcom_disable_lane_clks(host);
 		phy_power_off(phy);
-		ufs_qcom_ice_suspend(host);
-	}
 
+		if (host->vddp_ref_clk && ufs_qcom_is_link_off(hba))
+			ret = ufs_qcom_disable_vreg(hba->dev,
+					host->vddp_ref_clk);
+		ufs_qcom_ice_suspend(host);
+
+		if (ufs_qcom_is_link_off(hba)) {
+			/* Assert PHY soft reset */
+			ufs_qcom_assert_reset(hba);
+			goto out;
+		}
+	}
 	/* Unvote PM QoS */
 	ufs_qcom_pm_qos_suspend(host);
 
@@ -762,6 +830,11 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			__func__, err);
 		goto out;
 	}
+
+	if (host->vddp_ref_clk && (hba->rpm_lvl > UFS_PM_LVL_3 ||
+				   hba->spm_lvl > UFS_PM_LVL_3))
+		ufs_qcom_enable_vreg(hba->dev,
+				      host->vddp_ref_clk);
 
 	err = ufs_qcom_enable_lane_clks(host);
 	if (err)
@@ -1951,6 +2024,57 @@ static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host)
 		pr_info("%s: will disable all LPM modes\n", __func__);
 }
 
+static int ufs_qcom_parse_reg_info(struct ufs_qcom_host *host, char *name,
+				   struct ufs_vreg **out_vreg)
+{
+	int ret = 0;
+	char prop_name[MAX_PROP_SIZE];
+	struct ufs_vreg *vreg = NULL;
+	struct device *dev = host->hba->dev;
+	struct device_node *np = dev->of_node;
+
+	if (!np) {
+		dev_err(dev, "%s: non DT initialization\n", __func__);
+		goto out;
+	}
+
+	snprintf(prop_name, MAX_PROP_SIZE, "%s-supply", name);
+	if (!of_parse_phandle(np, prop_name, 0)) {
+		dev_info(dev, "%s: Unable to find %s regulator, assuming enabled\n",
+			 __func__, prop_name);
+		ret = -ENODEV;
+		goto out;
+	}
+
+	vreg = devm_kzalloc(dev, sizeof(*vreg), GFP_KERNEL);
+	if (!vreg)
+		return -ENOMEM;
+
+	vreg->name = name;
+
+	snprintf(prop_name, MAX_PROP_SIZE, "%s-max-microamp", name);
+	ret = of_property_read_u32(np, prop_name, &vreg->max_uA);
+	if (ret) {
+		dev_err(dev, "%s: unable to find %s err %d\n",
+			__func__, prop_name, ret);
+		goto out;
+	}
+
+	vreg->reg = devm_regulator_get(dev, vreg->name);
+	if (IS_ERR(vreg->reg)) {
+		ret = PTR_ERR(vreg->reg);
+		dev_err(dev, "%s: %s get failed, err=%d\n",
+			__func__, vreg->name, ret);
+	}
+	vreg->min_uV = VDDP_REF_CLK_MIN_UV;
+	vreg->max_uV = VDDP_REF_CLK_MAX_UV;
+
+out:
+	if (!ret)
+		*out_vreg = vreg;
+	return ret;
+}
+
 /**
  * ufs_qcom_init - bind phy with controller
  * @hba: host controller instance
@@ -2068,14 +2192,24 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_phy_save_controller_version(host->generic_phy,
 		host->hw_ver.major, host->hw_ver.minor, host->hw_ver.step);
 
+	err = ufs_qcom_parse_reg_info(host, "qcom,vddp-ref-clk",
+				      &host->vddp_ref_clk);
 	phy_init(host->generic_phy);
 	err = phy_power_on(host->generic_phy);
 	if (err)
 		goto out_unregister_bus;
+	if (host->vddp_ref_clk) {
+		err = ufs_qcom_enable_vreg(dev, host->vddp_ref_clk);
+		if (err) {
+			dev_err(dev, "%s: failed enabling ref clk supply: %d\n",
+				__func__, err);
+			goto out_disable_phy;
+		}
+	}
 
 	err = ufs_qcom_init_lane_clks(host);
 	if (err)
-		goto out_disable_phy;
+		goto out_disable_vddp;
 
 	ufs_qcom_parse_lpm(host);
 	if (host->disable_lpm)
@@ -2100,6 +2234,9 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	goto out;
 
+out_disable_vddp:
+	if (host->vddp_ref_clk)
+		ufs_qcom_disable_vreg(dev, host->vddp_ref_clk);
 out_disable_phy:
 	phy_power_off(host->generic_phy);
 out_unregister_bus:

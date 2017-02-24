@@ -264,7 +264,7 @@ struct sde_encoder_phys_cmd {
  * @wb_fmt:		Writeback pixel format
  * @frame_count:	Counter of completed writeback operations
  * @kickoff_count:	Counter of issued writeback operations
- * @mmu_id:		mmu identifier for non-secure/secure domain
+ * @aspace:		address space identifier for non-secure/secure domain
  * @wb_dev:		Pointer to writeback device
  * @start_time:		Start time of writeback latest request
  * @end_time:		End time of writeback latest request
@@ -285,7 +285,7 @@ struct sde_encoder_phys_wb {
 	const struct sde_format *wb_fmt;
 	u32 frame_count;
 	u32 kickoff_count;
-	int mmu_id[SDE_IOMMU_DOMAIN_MAX];
+	struct msm_gem_address_space *aspace[SDE_IOMMU_DOMAIN_MAX];
 	struct sde_wb_device *wb_dev;
 	ktime_t start_time;
 	ktime_t end_time;

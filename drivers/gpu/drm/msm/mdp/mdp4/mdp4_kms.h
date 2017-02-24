@@ -33,8 +33,6 @@ struct mdp4_kms {
 	int rev;
 
 	/* mapper-id used to request GEM buffer mapped for scanout: */
-	int id;
-
 	void __iomem *mmio;
 
 	struct regulator *dsi_pll_vdda;
@@ -45,12 +43,13 @@ struct mdp4_kms {
 	struct clk *pclk;
 	struct clk *lut_clk;
 	struct clk *axi_clk;
+	struct msm_gem_address_space *aspace;
 
 	struct mdp_irq error_handler;
 
 	/* empty/blank cursor bo to use when cursor is "disabled" */
 	struct drm_gem_object *blank_cursor_bo;
-	uint32_t blank_cursor_iova;
+	uint64_t blank_cursor_iova;
 };
 #define to_mdp4_kms(x) container_of(x, struct mdp4_kms, base)
 

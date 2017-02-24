@@ -86,7 +86,7 @@ static int msm_smmu_attach(struct msm_mmu *mmu, const char **names, int cnt)
 	return 0;
 }
 
-static void msm_smmu_detach(struct msm_mmu *mmu, const char **names, int cnt)
+static void msm_smmu_detach(struct msm_mmu *mmu)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
@@ -104,14 +104,14 @@ static void msm_smmu_detach(struct msm_mmu *mmu, const char **names, int cnt)
 	dev_dbg(client->dev, "iommu domain detached\n");
 }
 
-static int msm_smmu_map(struct msm_mmu *mmu, uint32_t iova,
+static int msm_smmu_map(struct msm_mmu *mmu, uint64_t iova,
 		struct sg_table *sgt, int prot)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
 	struct iommu_domain *domain;
 	struct scatterlist *sg;
-	unsigned int da = iova;
+	uint64_t da = iova;
 	unsigned int i, j;
 	int ret;
 
@@ -126,7 +126,7 @@ static int msm_smmu_map(struct msm_mmu *mmu, uint32_t iova,
 		u32 pa = sg_phys(sg) - sg->offset;
 		size_t bytes = sg->length + sg->offset;
 
-		VERB("map[%d]: %08x %08x(%zx)", i, iova, pa, bytes);
+		VERB("map[%d]: %16llx %08x(%zx)", i, iova, pa, bytes);
 
 		ret = iommu_map(domain, da, pa, bytes, prot);
 		if (ret)
@@ -172,14 +172,14 @@ static void msm_smmu_unmap_sg(struct msm_mmu *mmu, struct sg_table *sgt,
 	dma_unmap_sg(client->dev, sgt->sgl, sgt->nents, dir);
 }
 
-static int msm_smmu_unmap(struct msm_mmu *mmu, uint32_t iova,
+static int msm_smmu_unmap(struct msm_mmu *mmu, uint64_t iova,
 		struct sg_table *sgt)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
 	struct iommu_domain *domain;
 	struct scatterlist *sg;
-	unsigned int da = iova;
+	uint64_t da = iova;
 	int i;
 
 	if (!client)
@@ -197,7 +197,7 @@ static int msm_smmu_unmap(struct msm_mmu *mmu, uint32_t iova,
 		if (unmapped < bytes)
 			return unmapped;
 
-		VERB("unmap[%d]: %08x(%zx)", i, iova, bytes);
+		VERB("unmap[%d]: %16llx(%zx)", i, iova, bytes);
 
 		WARN_ON(!PAGE_ALIGNED(bytes));
 

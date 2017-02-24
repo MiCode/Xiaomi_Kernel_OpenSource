@@ -96,7 +96,6 @@
 				((_mhi_dev_ctxt)->mmio_info.nr_event_rings - \
 				((_mhi_dev_ctxt)->mmio_info.nr_hw_event_rings)))
 
-
 /* MHI Transfer Ring Elements 7.4.1*/
 #define TX_TRB_LEN
 #define MHI_TX_TRB_LEN__SHIFT (0)
@@ -243,6 +242,10 @@
 #define CHAN_TYPE
 #define MHI_CHAN_TYPE__MASK (3)
 #define MHI_CHAN_TYPE__SHIFT (6)
+
+#define PRESERVE_DB_STATE
+#define MHI_PRESERVE_DB_STATE__MASK (1)
+#define MHI_PRESERVE_DB_STATE__SHIFT (8)
 
 #define GET_CHAN_PROPS(_FIELD, _VAL) \
 	(((_VAL) >> MHI_##_FIELD ## __SHIFT) & MHI_##_FIELD ## __MASK)

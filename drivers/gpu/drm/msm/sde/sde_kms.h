@@ -22,6 +22,7 @@
 #include "msm_drv.h"
 #include "msm_kms.h"
 #include "msm_mmu.h"
+#include "msm_gem.h"
 #include "sde_dbg.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_ctl.h"
@@ -121,8 +122,7 @@ struct sde_kms {
 	int core_rev;
 	struct sde_mdss_cfg *catalog;
 
-	struct msm_mmu *mmu[MSM_SMMU_DOMAIN_MAX];
-	int mmu_id[MSM_SMMU_DOMAIN_MAX];
+	struct msm_gem_address_space *aspace[MSM_SMMU_DOMAIN_MAX];
 	struct sde_power_client *core_client;
 
 	/* directory entry for debugfs */
@@ -154,8 +154,9 @@ struct sde_kms {
 	void **dsi_displays;
 	int wb_display_count;
 	void **wb_displays;
-
 	bool has_danger_ctrl;
+	void **hdmi_displays;
+	int hdmi_display_count;
 };
 
 struct vsync_info {

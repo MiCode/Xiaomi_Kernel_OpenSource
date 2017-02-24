@@ -117,7 +117,7 @@
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
 			qcom,bus-governor = "msm-vidc-ddr";
-			qcom,bus-range-kbps = <1000 3388000>;
+			qcom,bus-range-kbps = <1000 4946000>;
 		};
 
 		venus_bus_vmem {
