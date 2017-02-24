@@ -48,7 +48,7 @@
 #define XIN_WRITEBACK		1
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
-#define KOFF_TIMEOUT		(42 * 32)
+#define KOFF_TIMEOUT		(84)
 
 /* default stream buffer headroom in lines */
 #define DEFAULT_SBUF_HEADROOM	20
