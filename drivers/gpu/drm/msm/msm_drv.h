@@ -74,11 +74,7 @@ struct msm_gem_vma;
 #define MAX_CONNECTORS 8
 
 struct msm_file_private {
-	/* currently we don't do anything useful with this.. but when
-	 * per-context address spaces are supported we'd keep track of
-	 * the context's page-tables here.
-	 */
-	int dummy;
+	struct msm_gem_address_space *aspace;
 };
 
 enum msm_mdp_plane_property {
@@ -250,6 +246,8 @@ struct msm_drm_commit {
 	struct kthread_worker worker;
 };
 
+#define MSM_GPU_MAX_RINGS 4
+
 struct msm_drm_private {
 
 	struct msm_kms *kms;
@@ -276,11 +274,12 @@ struct msm_drm_private {
 
 	/* when we have more than one 'msm_gpu' these need to be an array: */
 	struct msm_gpu *gpu;
-	struct msm_file_private *lastctx;
 
 	struct drm_fb_helper *fbdev;
 
-	uint32_t next_fence, completed_fence;
+	uint32_t next_fence[MSM_GPU_MAX_RINGS];
+	uint32_t completed_fence[MSM_GPU_MAX_RINGS];
+
 	wait_queue_head_t fence_event;
 
 	struct msm_rd_state *rd;
@@ -351,6 +350,31 @@ struct msm_format {
 	uint32_t pixel_format;
 };
 
+/*
+ * Some GPU targets can support multiple ringbuffers and preempt between them.
+ * In order to do this without massive API changes we will steal two bits from
+ * the top of the fence and use them to identify the ringbuffer, (0x00000001 for
+ * riug 0, 0x40000001 for ring 1, 0x50000001 for ring 2, etc). If you are going
+ * to do a fence comparision you have to make sure you are only comparing
+ * against fences from the same ring, but since fences within a ringbuffer are
+ * still contigious you can still use straight comparisons (i.e 0x40000001 is
+ * older than 0x40000002). Mathmatically there will be 0x3FFFFFFF timestamps
+ * per ring or ~103 days of 120 interrupts per second (two interrupts per frame
+ * at 60 FPS).
+ */
+#define FENCE_RING(_fence) ((_fence >> 30) & 3)
+#define FENCE(_ring, _fence) ((((_ring) & 3) << 30) | ((_fence) & 0x3FFFFFFF))
+
+static inline bool COMPARE_FENCE_LTE(uint32_t a, uint32_t b)
+{
+	return ((FENCE_RING(a) == FENCE_RING(b)) && a <= b);
+}
+
+static inline bool COMPARE_FENCE_LT(uint32_t a, uint32_t b)
+{
+	return ((FENCE_RING(a) == FENCE_RING(b)) && a < b);
+}
+
 /* callback from wq once fence has passed: */
 struct msm_fence_cb {
 	struct work_struct work;
@@ -379,13 +403,17 @@ void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
 		void *priv);
 int msm_gem_map_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt,
-		void *priv);
-void msm_gem_address_space_destroy(struct msm_gem_address_space *aspace);
+		void *priv, unsigned int flags);
+
+void msm_gem_address_space_put(struct msm_gem_address_space *aspace);
 
 /* For GPU and legacy display */
 struct msm_gem_address_space *
 msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
 		const char *name);
+struct msm_gem_address_space *
+msm_gem_address_space_create_instance(struct msm_mmu *parent, const char *name,
+		uint64_t start, uint64_t end);
 
 /* For SDE  display */
 struct msm_gem_address_space *
@@ -529,7 +557,8 @@ u32 msm_readl(const void __iomem *addr);
 static inline bool fence_completed(struct drm_device *dev, uint32_t fence)
 {
 	struct msm_drm_private *priv = dev->dev_private;
-	return priv->completed_fence >= fence;
+
+	return priv->completed_fence[FENCE_RING(fence)] >= fence;
 }
 
 static inline int align_pitch(int width, int bpp)

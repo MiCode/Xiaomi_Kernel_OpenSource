@@ -23,6 +23,8 @@
 #include "sde_wb.h"
 
 #define TEARDOWN_DEADLOCK_RETRY_MAX 5
+#include "msm_gem.h"
+#include "msm_mmu.h"
 
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
@@ -552,29 +554,65 @@ static void load_gpu(struct drm_device *dev)
 }
 #endif
 
-static int msm_open(struct drm_device *dev, struct drm_file *file)
+static struct msm_file_private *setup_pagetable(struct msm_drm_private *priv)
 {
 	struct msm_file_private *ctx;
 
+	if (!priv || !priv->gpu)
+		return NULL;
+
+	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	if (!ctx)
+		return ERR_PTR(-ENOMEM);
+
+	ctx->aspace = msm_gem_address_space_create_instance(
+		priv->gpu->aspace->mmu, "gpu", 0x100000000, 0x1ffffffff);
+
+	if (IS_ERR(ctx->aspace)) {
+		int ret = PTR_ERR(ctx->aspace);
+
+		/*
+		 * If dynamic domains are not supported, everybody uses the
+		 * same pagetable
+		 */
+		if (ret != -EOPNOTSUPP) {
+			kfree(ctx);
+			return ERR_PTR(ret);
+		}
+
+		ctx->aspace = priv->gpu->aspace;
+	}
+
+	ctx->aspace->mmu->funcs->attach(ctx->aspace->mmu, NULL, 0);
+	return ctx;
+}
+
+static int msm_open(struct drm_device *dev, struct drm_file *file)
+{
+	struct msm_file_private *ctx = NULL;
+	struct msm_drm_private *priv;
+	struct msm_kms *kms;
+
+	if (!dev || !dev->dev_private)
+		return -ENODEV;
+
+	priv = dev->dev_private;
 	/* For now, load gpu on open.. to avoid the requirement of having
 	 * firmware in the initrd.
 	 */
 	load_gpu(dev);
 
-	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
-	if (!ctx)
-		return -ENOMEM;
+	ctx = setup_pagetable(priv);
+	if (IS_ERR(ctx))
+		return PTR_ERR(ctx);
 
 	file->driver_priv = ctx;
 
-	if (dev && dev->dev_private) {
-		struct msm_drm_private *priv = dev->dev_private;
-		struct msm_kms *kms;
+	kms = priv->kms;
 
-		kms = priv->kms;
-		if (kms && kms->funcs && kms->funcs->postopen)
-			kms->funcs->postopen(kms, file);
-	}
+	if (kms && kms->funcs && kms->funcs->postopen)
+		kms->funcs->postopen(kms, file);
+
 	return 0;
 }
 
@@ -597,8 +635,10 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 		kms->funcs->postclose(kms, file);
 
 	mutex_lock(&dev->struct_mutex);
-	if (ctx == priv->lastctx)
-		priv->lastctx = NULL;
+	if (ctx && ctx->aspace && ctx->aspace != priv->gpu->aspace) {
+		ctx->aspace->mmu->funcs->detach(ctx->aspace->mmu);
+		msm_gem_address_space_put(ctx->aspace);
+	}
 	mutex_unlock(&dev->struct_mutex);
 
 	kfree(ctx);
@@ -797,6 +837,13 @@ static int msm_gpu_show(struct drm_device *dev, struct seq_file *m)
 	return 0;
 }
 
+static int msm_snapshot_show(struct drm_device *dev, struct seq_file *m)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+
+	return msm_snapshot_write(priv->gpu, m);
+}
+
 static int msm_gem_show(struct drm_device *dev, struct seq_file *m)
 {
 	struct msm_drm_private *priv = dev->dev_private;
@@ -861,11 +908,22 @@ static int show_locked(struct seq_file *m, void *arg)
 	return ret;
 }
 
+static int show_unlocked(struct seq_file *m, void *arg)
+{
+	struct drm_info_node *node = (struct drm_info_node *) m->private;
+	struct drm_device *dev = node->minor->dev;
+	int (*show)(struct drm_device *dev, struct seq_file *m) =
+			node->info_ent->data;
+
+	return show(dev, m);
+}
+
 static struct drm_info_list msm_debugfs_list[] = {
 		{"gpu", show_locked, 0, msm_gpu_show},
 		{"gem", show_locked, 0, msm_gem_show},
 		{ "mm", show_locked, 0, msm_mm_show },
 		{ "fb", show_locked, 0, msm_fb_show },
+		{ "snapshot", show_unlocked, 0, msm_snapshot_show },
 };
 
 static int late_init_minor(struct drm_minor *minor)
@@ -939,14 +997,23 @@ int msm_wait_fence(struct drm_device *dev, uint32_t fence,
 		ktime_t *timeout , bool interruptible)
 {
 	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_gpu *gpu = priv->gpu;
+	int index = FENCE_RING(fence);
+	uint32_t submitted;
 	int ret;
 
-	if (!priv->gpu)
+	if (!gpu)
 		return -ENXIO;
 
-	if (fence > priv->gpu->submitted_fence) {
+	if (index > MSM_GPU_MAX_RINGS || index >= gpu->nr_rings ||
+		!gpu->rb[index])
+		return -EINVAL;
+
+	submitted = gpu->funcs->submitted_fence(gpu, gpu->rb[index]);
+
+	if (fence > submitted) {
 		DRM_ERROR("waiting on invalid fence: %u (of %u)\n",
-				fence, priv->gpu->submitted_fence);
+			fence, submitted);
 		return -EINVAL;
 	}
 
@@ -976,7 +1043,7 @@ int msm_wait_fence(struct drm_device *dev, uint32_t fence,
 
 		if (ret == 0) {
 			DBG("timeout waiting for fence: %u (completed: %u)",
-					fence, priv->completed_fence);
+					fence, priv->completed_fence[index]);
 			ret = -ETIMEDOUT;
 		} else if (ret != -ERESTARTSYS) {
 			ret = 0;
@@ -990,12 +1057,13 @@ int msm_queue_fence_cb(struct drm_device *dev,
 		struct msm_fence_cb *cb, uint32_t fence)
 {
 	struct msm_drm_private *priv = dev->dev_private;
+	int index = FENCE_RING(fence);
 	int ret = 0;
 
 	mutex_lock(&dev->struct_mutex);
 	if (!list_empty(&cb->work.entry)) {
 		ret = -EINVAL;
-	} else if (fence > priv->completed_fence) {
+	} else if (fence > priv->completed_fence[index]) {
 		cb->fence = fence;
 		list_add_tail(&cb->work.entry, &priv->fence_cbs);
 	} else {
@@ -1010,21 +1078,21 @@ int msm_queue_fence_cb(struct drm_device *dev,
 void msm_update_fence(struct drm_device *dev, uint32_t fence)
 {
 	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_fence_cb *cb, *tmp;
+	int index = FENCE_RING(fence);
+
+	if (index >= MSM_GPU_MAX_RINGS)
+		return;
 
 	mutex_lock(&dev->struct_mutex);
-	priv->completed_fence = max(fence, priv->completed_fence);
+	priv->completed_fence[index] = max(fence, priv->completed_fence[index]);
 
-	while (!list_empty(&priv->fence_cbs)) {
-		struct msm_fence_cb *cb;
-
-		cb = list_first_entry(&priv->fence_cbs,
-				struct msm_fence_cb, work.entry);
-
-		if (cb->fence > priv->completed_fence)
-			break;
-
-		list_del_init(&cb->work.entry);
-		queue_work(priv->wq, &cb->work);
+	list_for_each_entry_safe(cb, tmp, &priv->fence_cbs, work.entry) {
+		if (COMPARE_FENCE_LTE(cb->fence,
+			priv->completed_fence[index])) {
+			list_del_init(&cb->work.entry);
+			queue_work(priv->wq, &cb->work);
+		}
 	}
 
 	mutex_unlock(&dev->struct_mutex);

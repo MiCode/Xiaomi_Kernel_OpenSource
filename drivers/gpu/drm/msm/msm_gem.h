@@ -18,6 +18,7 @@
 #ifndef __MSM_GEM_H__
 #define __MSM_GEM_H__
 
+#include <linux/kref.h>
 #include <linux/reservation.h>
 #include "msm_drv.h"
 
@@ -26,7 +27,7 @@
 
 struct msm_gem_aspace_ops {
 	int (*map)(struct msm_gem_address_space *, struct msm_gem_vma *,
-		struct sg_table *sgt, void *priv);
+		struct sg_table *sgt, void *priv, unsigned int flags);
 
 	void (*unmap)(struct msm_gem_address_space *, struct msm_gem_vma *,
 		struct sg_table *sgt, void *priv);
@@ -38,6 +39,7 @@ struct msm_gem_address_space {
 	const char *name;
 	struct msm_mmu *mmu;
 	const struct msm_gem_aspace_ops *ops;
+	struct kref kref;
 };
 
 struct msm_gem_vma {
@@ -116,11 +118,12 @@ static inline uint32_t msm_gem_fence(struct msm_gem_object *msm_obj,
  */
 struct msm_gem_submit {
 	struct drm_device *dev;
-	struct msm_gpu *gpu;
+	struct msm_gem_address_space *aspace;
 	struct list_head node;   /* node in gpu submit_list */
 	struct list_head bo_list;
 	struct ww_acquire_ctx ticket;
 	uint32_t fence;
+	int ring;
 	bool valid;
 	unsigned int nr_cmds;
 	unsigned int nr_bos;

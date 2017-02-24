@@ -32,7 +32,7 @@ enum msm_mmu_domain_type {
 
 struct msm_mmu_funcs {
 	int (*attach)(struct msm_mmu *mmu, const char **names, int cnt);
-	void (*detach)(struct msm_mmu *mmu, const char **names, int cnt);
+	void (*detach)(struct msm_mmu *mmu);
 	int (*map)(struct msm_mmu *mmu, uint64_t iova, struct sg_table *sgt,
 			int prot);
 	int (*unmap)(struct msm_mmu *mmu, uint64_t iova, struct sg_table *sgt);
@@ -62,5 +62,6 @@ static inline void msm_mmu_init(struct msm_mmu *mmu, struct device *dev,
 struct msm_mmu *msm_iommu_new(struct device *dev, struct iommu_domain *domain);
 struct msm_mmu *msm_smmu_new(struct device *dev,
 	enum msm_mmu_domain_type domain);
+struct msm_mmu *msm_iommu_new_dynamic(struct msm_mmu *orig);
 
 #endif /* __MSM_MMU_H__ */

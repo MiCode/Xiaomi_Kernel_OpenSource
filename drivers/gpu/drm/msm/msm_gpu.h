@@ -24,9 +24,18 @@
 
 #include "msm_drv.h"
 #include "msm_ringbuffer.h"
+#include "msm_snapshot.h"
 
 struct msm_gem_submit;
 struct msm_gpu_perfcntr;
+
+struct msm_gpu_config {
+	const char *ioname;
+	const char *irqname;
+	int nr_rings;
+	uint64_t va_start;
+	uint64_t va_end;
+};
 
 /* So far, with hardware that I've seen to date, we can have:
  *  + zero, one, or two z180 2d cores
@@ -47,18 +56,21 @@ struct msm_gpu_funcs {
 	int (*hw_init)(struct msm_gpu *gpu);
 	int (*pm_suspend)(struct msm_gpu *gpu);
 	int (*pm_resume)(struct msm_gpu *gpu);
-	int (*submit)(struct msm_gpu *gpu, struct msm_gem_submit *submit,
-			struct msm_file_private *ctx);
-	void (*flush)(struct msm_gpu *gpu);
-	bool (*idle)(struct msm_gpu *gpu);
+	int (*submit)(struct msm_gpu *gpu, struct msm_gem_submit *submit);
+	void (*flush)(struct msm_gpu *gpu, struct msm_ringbuffer *ring);
 	irqreturn_t (*irq)(struct msm_gpu *irq);
-	uint32_t (*last_fence)(struct msm_gpu *gpu);
+	uint32_t (*last_fence)(struct msm_gpu *gpu,
+			struct msm_ringbuffer *ring);
+	uint32_t (*submitted_fence)(struct msm_gpu *gpu,
+			struct msm_ringbuffer *ring);
+	struct msm_ringbuffer *(*active_ring)(struct msm_gpu *gpu);
 	void (*recover)(struct msm_gpu *gpu);
 	void (*destroy)(struct msm_gpu *gpu);
 #ifdef CONFIG_DEBUG_FS
 	/* show GPU status in debugfs: */
 	void (*show)(struct msm_gpu *gpu, struct seq_file *m);
 #endif
+	int (*snapshot)(struct msm_gpu *gpu, struct msm_snapshot *snapshot);
 };
 
 struct msm_gpu {
@@ -78,13 +90,11 @@ struct msm_gpu {
 	const struct msm_gpu_perfcntr *perfcntrs;
 	uint32_t num_perfcntrs;
 
-	struct msm_ringbuffer *rb;
-	uint64_t rb_iova;
+	struct msm_ringbuffer *rb[MSM_GPU_MAX_RINGS];
+	int nr_rings;
 
 	/* list of GEM active objects: */
 	struct list_head active_list;
-
-	uint32_t submitted_fence;
 
 	/* is gpu powered/active? */
 	int active_cnt;
@@ -100,7 +110,9 @@ struct msm_gpu {
 
 	/* Power Control: */
 	struct regulator *gpu_reg, *gpu_cx;
-	struct clk *ebi1_clk, *grp_clks[7];
+	struct clk **grp_clks;
+	struct clk *ebi1_clk, *core_clk, *rbbmtimer_clk;
+	int nr_clocks;
 
 	uint32_t gpufreq[10];
 	uint32_t busfreq[10];
@@ -123,15 +135,44 @@ struct msm_gpu {
 #define DRM_MSM_HANGCHECK_PERIOD 500 /* in ms */
 #define DRM_MSM_HANGCHECK_JIFFIES msecs_to_jiffies(DRM_MSM_HANGCHECK_PERIOD)
 	struct timer_list hangcheck_timer;
-	uint32_t hangcheck_fence;
+	uint32_t hangcheck_fence[MSM_GPU_MAX_RINGS];
 	struct work_struct recover_work;
 
 	struct list_head submit_list;
+
+	struct msm_snapshot *snapshot;
 };
+
+/* It turns out that all targets use the same ringbuffer size. */
+#define MSM_GPU_RINGBUFFER_SZ SZ_32K
+#define MSM_GPU_RINGBUFFER_BLKSIZE 32
+
+#define MSM_GPU_RB_CNTL_DEFAULT \
+		(AXXX_CP_RB_CNTL_BUFSZ(ilog2(MSM_GPU_RINGBUFFER_SZ / 8)) | \
+		AXXX_CP_RB_CNTL_BLKSZ(ilog2(MSM_GPU_RINGBUFFER_BLKSIZE / 8)))
+
+static inline struct msm_ringbuffer *__get_ring(struct msm_gpu *gpu, int index)
+{
+	return (index < ARRAY_SIZE(gpu->rb) ? gpu->rb[index] : NULL);
+}
+
+#define FOR_EACH_RING(gpu, ring, index) \
+	for (index = 0, ring = (gpu)->rb[0]; \
+		index < (gpu)->nr_rings && index < ARRAY_SIZE((gpu)->rb); \
+		index++, ring = __get_ring(gpu, index))
 
 static inline bool msm_gpu_active(struct msm_gpu *gpu)
 {
-	return gpu->submitted_fence > gpu->funcs->last_fence(gpu);
+	struct msm_ringbuffer *ring;
+	int i;
+
+	FOR_EACH_RING(gpu, ring, i) {
+		if (gpu->funcs->submitted_fence(gpu, ring) >
+			gpu->funcs->last_fence(gpu, ring))
+			return true;
+	}
+
+	return false;
 }
 
 /* Perf-Counters:
@@ -205,12 +246,12 @@ int msm_gpu_perfcntr_sample(struct msm_gpu *gpu, uint32_t *activetime,
 		uint32_t *totaltime, uint32_t ncntrs, uint32_t *cntrs);
 
 void msm_gpu_retire(struct msm_gpu *gpu);
-int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
-		struct msm_file_private *ctx);
+int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit);
 
 int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		struct msm_gpu *gpu, const struct msm_gpu_funcs *funcs,
-		const char *name, const char *ioname, const char *irqname, int ringsz);
+		const char *name, struct msm_gpu_config *config);
+
 void msm_gpu_cleanup(struct msm_gpu *gpu);
 
 struct msm_gpu *adreno_load_gpu(struct drm_device *dev);

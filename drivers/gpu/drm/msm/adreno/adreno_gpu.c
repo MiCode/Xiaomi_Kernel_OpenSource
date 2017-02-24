@@ -2,7 +2,7 @@
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
- * Copyright (c) 2014,2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014,2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -17,12 +17,12 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/utsname.h>
 #include "adreno_gpu.h"
+#include "msm_snapshot.h"
 #include "msm_gem.h"
 #include "msm_mmu.h"
 
-#define RB_SIZE    SZ_32K
-#define RB_BLKSIZE 32
 
 int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value)
 {
@@ -34,6 +34,9 @@ int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value)
 		return 0;
 	case MSM_PARAM_GMEM_SIZE:
 		*value = adreno_gpu->gmem;
+		return 0;
+	case MSM_PARAM_GMEM_BASE:
+		*value = 0x100000;
 		return 0;
 	case MSM_PARAM_CHIP_ID:
 		*value = adreno_gpu->rev.patchid |
@@ -57,70 +60,106 @@ int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value)
 int adreno_hw_init(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
-	int ret;
+	int i;
 
 	DBG("%s", gpu->name);
 
-	ret = msm_gem_get_iova(gpu->rb->bo, gpu->aspace, &gpu->rb_iova);
-	if (ret) {
-		gpu->rb_iova = 0;
-		dev_err(gpu->dev->dev, "could not map ringbuffer: %d\n", ret);
-		return ret;
+	for (i = 0; i < gpu->nr_rings; i++) {
+		int ret = msm_gem_get_iova(gpu->rb[i]->bo, gpu->aspace,
+			&gpu->rb[i]->iova);
+		if (ret) {
+			gpu->rb[i]->iova = 0;
+			dev_err(gpu->dev->dev,
+				"could not map ringbuffer %d: %d\n", i, ret);
+			return ret;
+		}
 	}
 
-	/* Setup REG_CP_RB_CNTL: */
+	/*
+	 * Setup REG_CP_RB_CNTL.  The same value is used across targets (with
+	 * the excpetion of A430 that disables the RPTR shadow) - the cacluation
+	 * for the ringbuffer size and block size is moved to msm_gpu.h for the
+	 * pre-processor to deal with and the A430 variant is ORed in here
+	 */
 	adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_CNTL,
-			/* size is log2(quad-words): */
-			AXXX_CP_RB_CNTL_BUFSZ(ilog2(gpu->rb->size / 8)) |
-			AXXX_CP_RB_CNTL_BLKSZ(ilog2(RB_BLKSIZE / 8)) |
-			(adreno_is_a430(adreno_gpu) ? AXXX_CP_RB_CNTL_NO_UPDATE : 0));
+		MSM_GPU_RB_CNTL_DEFAULT |
+		(adreno_is_a430(adreno_gpu) ? AXXX_CP_RB_CNTL_NO_UPDATE : 0));
 
-	/* Setup ringbuffer address */
+	/* Setup ringbuffer address - use ringbuffer[0] for GPU init */
 	adreno_gpu_write64(adreno_gpu, REG_ADRENO_CP_RB_BASE,
-		REG_ADRENO_CP_RB_BASE_HI, gpu->rb_iova);
+		REG_ADRENO_CP_RB_BASE_HI, gpu->rb[0]->iova);
 
 	adreno_gpu_write64(adreno_gpu, REG_ADRENO_CP_RB_RPTR_ADDR,
-		REG_ADRENO_CP_RB_RPTR_ADDR_HI, rbmemptr(adreno_gpu, rptr));
+		REG_ADRENO_CP_RB_RPTR_ADDR_HI, rbmemptr(adreno_gpu, 0, rptr));
 
 	return 0;
 }
 
-static uint32_t get_wptr(struct msm_ringbuffer *ring)
-{
-	return ring->cur - ring->start;
-}
-
 /* Use this helper to read rptr, since a430 doesn't update rptr in memory */
-static uint32_t get_rptr(struct adreno_gpu *adreno_gpu)
+static uint32_t get_rptr(struct adreno_gpu *adreno_gpu,
+		struct msm_ringbuffer *ring)
 {
-	if (adreno_is_a430(adreno_gpu))
-		return adreno_gpu->memptrs->rptr = adreno_gpu_read(
+	if (adreno_is_a430(adreno_gpu)) {
+		/*
+		 * If index is anything but 0 this will probably break horribly,
+		 * but I think that we have enough infrastructure in place to
+		 * ensure that it won't be. If not then this is why your
+		 * a430 stopped working.
+		 */
+		return adreno_gpu->memptrs->rptr[ring->id] = adreno_gpu_read(
 			adreno_gpu, REG_ADRENO_CP_RB_RPTR);
-	else
-		return adreno_gpu->memptrs->rptr;
+	} else
+		return adreno_gpu->memptrs->rptr[ring->id];
 }
 
-uint32_t adreno_last_fence(struct msm_gpu *gpu)
+struct msm_ringbuffer *adreno_active_ring(struct msm_gpu *gpu)
+{
+	return gpu->rb[0];
+}
+
+uint32_t adreno_submitted_fence(struct msm_gpu *gpu,
+		struct msm_ringbuffer *ring)
+{
+	if (!ring)
+		return 0;
+
+	return ring->submitted_fence;
+}
+
+uint32_t adreno_last_fence(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
-	return adreno_gpu->memptrs->fence;
+
+	if (!ring)
+		return 0;
+
+	return adreno_gpu->memptrs->fence[ring->id];
 }
 
 void adreno_recover(struct msm_gpu *gpu)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct drm_device *dev = gpu->dev;
-	int ret;
+	struct msm_ringbuffer *ring;
+	int ret, i;
 
 	gpu->funcs->pm_suspend(gpu);
 
-	/* reset ringbuffer: */
-	gpu->rb->cur = gpu->rb->start;
+	/* reset ringbuffer(s): */
 
-	/* reset completed fence seqno, just discard anything pending: */
-	adreno_gpu->memptrs->fence = gpu->submitted_fence;
-	adreno_gpu->memptrs->rptr  = 0;
-	adreno_gpu->memptrs->wptr  = 0;
+	FOR_EACH_RING(gpu, ring, i) {
+		if (!ring)
+			continue;
+
+		/* No need for a lock here, nobody else is peeking in */
+		ring->cur = ring->start;
+		ring->next = ring->start;
+
+		/* reset completed fence seqno, discard anything pending: */
+		adreno_gpu->memptrs->fence[ring->id] =
+			adreno_submitted_fence(gpu, ring);
+		adreno_gpu->memptrs->rptr[ring->id]  = 0;
+	}
 
 	gpu->funcs->pm_resume(gpu);
 
@@ -133,12 +172,10 @@ void adreno_recover(struct msm_gpu *gpu)
 	enable_irq(gpu->irq);
 }
 
-int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
-		struct msm_file_private *ctx)
+int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
-	struct msm_drm_private *priv = gpu->dev->dev_private;
-	struct msm_ringbuffer *ring = gpu->rb;
+	struct msm_ringbuffer *ring = gpu->rb[submit->ring];
 	unsigned i, ibs = 0;
 
 	for (i = 0; i < submit->nr_cmds; i++) {
@@ -147,8 +184,6 @@ int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 			/* ignore IB-targets */
 			break;
 		case MSM_SUBMIT_CMD_CTX_RESTORE_BUF:
-			/* ignore if there has not been a ctx switch: */
-			if (priv->lastctx == ctx)
 				break;
 		case MSM_SUBMIT_CMD_BUF:
 			OUT_PKT3(ring, adreno_is_a430(adreno_gpu) ?
@@ -184,7 +219,7 @@ int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 
 	OUT_PKT3(ring, CP_EVENT_WRITE, 3);
 	OUT_RING(ring, CACHE_FLUSH_TS);
-	OUT_RING(ring, rbmemptr(adreno_gpu, fence));
+	OUT_RING(ring, rbmemptr(adreno_gpu, ring->id, fence));
 	OUT_RING(ring, submit->fence);
 
 	/* we could maybe be clever and only CP_COND_EXEC the interrupt: */
@@ -211,22 +246,25 @@ int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 	}
 #endif
 
-	gpu->funcs->flush(gpu);
+	gpu->funcs->flush(gpu, ring);
 
 	return 0;
 }
 
-void adreno_flush(struct msm_gpu *gpu)
+void adreno_flush(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	uint32_t wptr;
+
+	/* Copy the shadow to the actual register */
+	ring->cur = ring->next;
 
 	/*
 	 * Mask the wptr value that we calculate to fit in the HW range. This is
 	 * to account for the possibility that the last command fit exactly into
 	 * the ringbuffer and rb->next hasn't wrapped to zero yet
 	 */
-	wptr = get_wptr(gpu->rb) & ((gpu->rb->size / 4) - 1);
+	wptr = get_wptr(ring);
 
 	/* ensure writes to ringbuffer have hit system memory: */
 	mb();
@@ -234,17 +272,19 @@ void adreno_flush(struct msm_gpu *gpu)
 	adreno_gpu_write(adreno_gpu, REG_ADRENO_CP_RB_WPTR, wptr);
 }
 
-bool adreno_idle(struct msm_gpu *gpu)
+bool adreno_idle(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
-	uint32_t wptr = get_wptr(gpu->rb);
+	uint32_t wptr = get_wptr(ring);
 
 	/* wait for CP to drain ringbuffer: */
-	if (!spin_until(get_rptr(adreno_gpu) == wptr))
+	if (!spin_until(get_rptr(adreno_gpu, ring) == wptr))
 		return true;
 
 	/* TODO maybe we need to reset GPU here to recover from hang? */
-	DRM_ERROR("%s: timeout waiting to drain ringbuffer!\n", gpu->name);
+	DRM_ERROR("%s: timeout waiting to drain ringbuffer %d rptr/wptr = %X/%X\n",
+		gpu->name, ring->id, get_rptr(adreno_gpu, ring), wptr);
+
 	return false;
 }
 
@@ -252,6 +292,7 @@ bool adreno_idle(struct msm_gpu *gpu)
 void adreno_show(struct msm_gpu *gpu, struct seq_file *m)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct msm_ringbuffer *ring;
 	int i;
 
 	seq_printf(m, "revision: %d (%d.%d.%d.%d)\n",
@@ -259,11 +300,18 @@ void adreno_show(struct msm_gpu *gpu, struct seq_file *m)
 			adreno_gpu->rev.major, adreno_gpu->rev.minor,
 			adreno_gpu->rev.patchid);
 
-	seq_printf(m, "fence:    %d/%d\n", adreno_gpu->memptrs->fence,
-			gpu->submitted_fence);
-	seq_printf(m, "rptr:     %d\n", get_rptr(adreno_gpu));
-	seq_printf(m, "wptr:     %d\n", adreno_gpu->memptrs->wptr);
-	seq_printf(m, "rb wptr:  %d\n", get_wptr(gpu->rb));
+	FOR_EACH_RING(gpu, ring, i) {
+		if (!ring)
+			continue;
+
+		seq_printf(m, "rb %d: fence:    %d/%d\n", i,
+			adreno_last_fence(gpu, ring),
+			adreno_submitted_fence(gpu, ring));
+
+		seq_printf(m, "      rptr:     %d\n",
+			get_rptr(adreno_gpu, ring));
+		seq_printf(m, "rb wptr:  %d\n", get_wptr(ring));
+	}
 
 	gpu->funcs->pm_resume(gpu);
 
@@ -292,22 +340,29 @@ void adreno_show(struct msm_gpu *gpu, struct seq_file *m)
  */
 void adreno_dump_info(struct msm_gpu *gpu)
 {
+	struct drm_device *dev = gpu->dev;
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct msm_ringbuffer *ring;
 	int i;
 
-	printk("revision: %d (%d.%d.%d.%d)\n",
+	dev_err(dev->dev, "revision: %d (%d.%d.%d.%d)\n",
 			adreno_gpu->info->revn, adreno_gpu->rev.core,
 			adreno_gpu->rev.major, adreno_gpu->rev.minor,
 			adreno_gpu->rev.patchid);
 
-	printk("fence:    %d/%d\n", adreno_gpu->memptrs->fence,
-			gpu->submitted_fence);
-	printk("rptr:     %d\n", get_rptr(adreno_gpu));
-	printk("wptr:     %d\n", adreno_gpu->memptrs->wptr);
-	printk("rb wptr:  %d\n", get_wptr(gpu->rb));
+	FOR_EACH_RING(gpu, ring, i) {
+		if (!ring)
+			continue;
+
+		dev_err(dev->dev, " ring %d: fence %d/%d rptr/wptr %x/%x\n", i,
+			adreno_last_fence(gpu, ring),
+			adreno_submitted_fence(gpu, ring),
+			get_rptr(adreno_gpu, ring),
+			get_wptr(ring));
+	}
 
 	for (i = 0; i < 8; i++) {
-		printk("CP_SCRATCH_REG%d: %u\n", i,
+		pr_err("CP_SCRATCH_REG%d: %u\n", i,
 			gpu_read(gpu, REG_AXXX_CP_SCRATCH_REG0 + i));
 	}
 }
@@ -332,19 +387,21 @@ void adreno_dump(struct msm_gpu *gpu)
 	}
 }
 
-static uint32_t ring_freewords(struct msm_gpu *gpu)
+static uint32_t ring_freewords(struct msm_ringbuffer *ring)
 {
-	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
-	uint32_t size = gpu->rb->size / 4;
-	uint32_t wptr = get_wptr(gpu->rb);
-	uint32_t rptr = get_rptr(adreno_gpu);
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(ring->gpu);
+	uint32_t size = MSM_GPU_RINGBUFFER_SZ >> 2;
+	/* Use ring->next to calculate free size */
+	uint32_t wptr = ring->next - ring->start;
+	uint32_t rptr = get_rptr(adreno_gpu, ring);
 	return (rptr + (size - 1) - wptr) % size;
 }
 
-void adreno_wait_ring(struct msm_gpu *gpu, uint32_t ndwords)
+void adreno_wait_ring(struct msm_ringbuffer *ring, uint32_t ndwords)
 {
-	if (spin_until(ring_freewords(gpu) >= ndwords))
-		DRM_ERROR("%s: timeout waiting for ringbuffer space\n", gpu->name);
+	if (spin_until(ring_freewords(ring) >= ndwords))
+		DRM_ERROR("%s: timeout waiting for space in ringubffer %d\n",
+			ring->gpu->name, ring->id);
 }
 
 static const char *iommu_ports[] = {
@@ -465,9 +522,11 @@ static int adreno_of_parse(struct platform_device *pdev, struct msm_gpu *gpu)
 }
 
 int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
-		struct adreno_gpu *adreno_gpu, const struct adreno_gpu_funcs *funcs)
+		struct adreno_gpu *adreno_gpu,
+		const struct adreno_gpu_funcs *funcs, int nr_rings)
 {
 	struct adreno_platform_config *config = pdev->dev.platform_data;
+	struct msm_gpu_config adreno_gpu_config  = { 0 };
 	struct msm_gpu *gpu = &adreno_gpu->base;
 	struct msm_mmu *mmu;
 	int ret;
@@ -481,9 +540,26 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	/* Get the rest of the target configuration from the device tree */
 	adreno_of_parse(pdev, gpu);
 
+	adreno_gpu_config.ioname = "kgsl_3d0_reg_memory";
+	adreno_gpu_config.irqname = "kgsl_3d0_irq";
+	adreno_gpu_config.nr_rings = nr_rings;
+
+	adreno_gpu_config.va_start = SZ_16M;
+	adreno_gpu_config.va_end = 0xffffffff;
+
+	if (adreno_gpu->revn >= 500) {
+		/* 5XX targets use a 64 bit region */
+		adreno_gpu_config.va_start = 0x800000000;
+		adreno_gpu_config.va_end = 0x8ffffffff;
+	} else {
+		adreno_gpu_config.va_start = 0x300000;
+		adreno_gpu_config.va_end = 0xffffffff;
+	}
+
+	adreno_gpu_config.nr_rings = nr_rings;
+
 	ret = msm_gpu_init(drm, pdev, &adreno_gpu->base, &funcs->base,
-			adreno_gpu->info->name, "kgsl_3d0_reg_memory", "kgsl_3d0_irq",
-			RB_SIZE);
+			adreno_gpu->info->name, &adreno_gpu_config);
 	if (ret)
 		return ret;
 
@@ -542,7 +618,7 @@ void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 
 	if (gpu->memptrs_bo) {
 		if (gpu->memptrs_iova)
-			msm_gem_put_iova(gpu->memptrs_bo, gpu->base.aspace);
+			msm_gem_put_iova(gpu->memptrs_bo, aspace);
 		drm_gem_object_unreference_unlocked(gpu->memptrs_bo);
 	}
 	release_firmware(gpu->pm4);
@@ -551,8 +627,85 @@ void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 	msm_gpu_cleanup(&gpu->base);
 
 	if (aspace) {
-		aspace->mmu->funcs->detach(aspace->mmu,
-			iommu_ports, ARRAY_SIZE(iommu_ports));
-		msm_gem_address_space_destroy(aspace);
+		aspace->mmu->funcs->detach(aspace->mmu);
+		msm_gem_address_space_put(aspace);
 	}
+}
+
+static void adreno_snapshot_os(struct msm_gpu *gpu,
+		struct msm_snapshot *snapshot)
+{
+	struct msm_snapshot_linux header;
+
+	memset(&header, 0, sizeof(header));
+
+	header.osid = SNAPSHOT_OS_LINUX_V3;
+	strlcpy(header.release, utsname()->release, sizeof(header.release));
+	strlcpy(header.version, utsname()->version, sizeof(header.version));
+
+	header.seconds = get_seconds();
+	header.ctxtcount = 0;
+
+	SNAPSHOT_HEADER(snapshot, header, SNAPSHOT_SECTION_OS, 0);
+}
+
+static void adreno_snapshot_ringbuffer(struct msm_gpu *gpu,
+		struct msm_snapshot *snapshot, struct msm_ringbuffer *ring)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct msm_snapshot_ringbuffer header;
+	unsigned int i, end = 0;
+	unsigned int *data = ring->start;
+
+	memset(&header, 0, sizeof(header));
+
+	/*
+	 * We only want to copy the active contents of each ring, so find the
+	 * last valid entry in the ringbuffer
+	 */
+	for (i = 0; i < MSM_GPU_RINGBUFFER_SZ >> 2; i++) {
+		if (data[i])
+			end = i;
+	}
+
+	/* The dump always starts at 0 */
+	header.start = 0;
+	header.end = end;
+
+	/* This is the number of dwords being dumped */
+	header.count = end + 1;
+
+	/* This is the size of the actual ringbuffer */
+	header.rbsize = MSM_GPU_RINGBUFFER_SZ >> 2;
+
+	header.id = ring->id;
+	header.gpuaddr = ring->iova;
+	header.rptr = get_rptr(adreno_gpu, ring);
+	header.wptr = get_wptr(ring);
+	header.timestamp_queued = adreno_submitted_fence(gpu, ring);
+	header.timestamp_retired = adreno_last_fence(gpu, ring);
+
+	/* Write the header even if the ringbuffer data is empty */
+	if (!SNAPSHOT_HEADER(snapshot, header, SNAPSHOT_SECTION_RB_V2,
+		header.count))
+		return;
+
+	SNAPSHOT_MEMCPY(snapshot, ring->start, header.count * sizeof(u32));
+}
+
+static void adreno_snapshot_ringbuffers(struct msm_gpu *gpu,
+		struct msm_snapshot *snapshot)
+{
+	struct msm_ringbuffer *ring;
+	int i;
+
+	/* Write a new section for each ringbuffer */
+	FOR_EACH_RING(gpu, ring, i)
+		adreno_snapshot_ringbuffer(gpu, snapshot, ring);
+}
+
+void adreno_snapshot(struct msm_gpu *gpu, struct msm_snapshot *snapshot)
+{
+	adreno_snapshot_os(gpu, snapshot);
+	adreno_snapshot_ringbuffers(gpu, snapshot);
 }

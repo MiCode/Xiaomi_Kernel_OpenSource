@@ -40,6 +40,15 @@
 #define MSM_PIPE_2D1         0x02
 #define MSM_PIPE_3D0         0x10
 
+/* The pipe-id just uses the lower bits, so can be OR'd with flags in
+ * the upper 16 bits (which could be extended further, if needed, maybe
+ * we extend/overload the pipe-id some day to deal with multiple rings,
+ * but even then I don't think we need the full lower 16 bits).
+ */
+#define MSM_PIPE_ID_MASK     0xffff
+#define MSM_PIPE_ID(x)       ((x) & MSM_PIPE_ID_MASK)
+#define MSM_PIPE_FLAGS(x)    ((x) & ~MSM_PIPE_ID_MASK)
+
 /* timeouts are specified in clock-monotonic absolute times (to simplify
  * restarting interrupted ioctls).  The following struct is logically the
  * same as 'struct timespec' but 32/64b ABI safe.
@@ -54,6 +63,7 @@ struct drm_msm_timespec {
 #define MSM_PARAM_CHIP_ID    0x03
 #define MSM_PARAM_MAX_FREQ   0x04
 #define MSM_PARAM_TIMESTAMP  0x05
+#define MSM_PARAM_GMEM_BASE  0x06
 
 struct drm_msm_param {
 	__u32 pipe;           /* in, MSM_PIPE_x */
@@ -67,6 +77,7 @@ struct drm_msm_param {
 
 #define MSM_BO_SCANOUT       0x00000001     /* scanout capable */
 #define MSM_BO_GPU_READONLY  0x00000002
+#define MSM_BO_PRIVILEGED    0x00000004
 #define MSM_BO_CACHE_MASK    0x000f0000
 /* cache modes */
 #define MSM_BO_CACHED        0x00010000
@@ -177,12 +188,18 @@ struct drm_msm_gem_submit_bo {
 	__u64 presumed;       /* in/out, presumed buffer address */
 };
 
+/* Valid submit ioctl flags: */
+#define MSM_SUBMIT_RING_MASK 0x000F0000
+#define MSM_SUBMIT_RING_SHIFT 16
+
+#define MSM_SUBMIT_FLAGS (MSM_SUBMIT_RING_MASK)
+
 /* Each cmdstream submit consists of a table of buffers involved, and
  * one or more cmdstream buffers.  This allows for conditional execution
  * (context-restore), and IB buffers needed for per tile/bin draw cmds.
  */
 struct drm_msm_gem_submit {
-	__u32 pipe;           /* in, MSM_PIPE_x */
+	__u32 flags;          /* MSM_PIPE_x | MSM_SUBMIT_x */
 	__u32 fence;          /* out */
 	__u32 nr_bos;         /* in, number of submit_bo's */
 	__u32 nr_cmds;        /* in, number of submit_cmd's */
