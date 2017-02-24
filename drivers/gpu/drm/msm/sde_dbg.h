@@ -178,6 +178,12 @@ ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
 		char *evtlog_buf, ssize_t evtlog_buf_size);
 
 /**
+ * sde_dbg_init_dbg_buses - initialize debug bus dumping support for the chipset
+ * @hwversion:		Chipset revision
+ */
+void sde_dbg_init_dbg_buses(u32 hwversion);
+
+/**
  * sde_dbg_init - initialize global sde debug facilities: evtlog, regdump
  * @debugfs_root:	debugfs root in which to create sde debug entries
  * @dev:		device handle
@@ -263,6 +269,10 @@ static inline ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
 		char *evtlog_buf, ssize_t evtlog_buf_size)
 {
 	return 0;
+}
+
+void sde_dbg_init_dbg_buses(u32 hwversion)
+{
 }
 
 static inline int sde_dbg_init(struct dentry *debugfs_root, struct device *dev,

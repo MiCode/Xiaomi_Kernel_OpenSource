@@ -1168,6 +1168,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto power_error;
 	}
 
+	sde_dbg_init_dbg_buses(sde_kms->core_rev);
+
 	/* Initialize reg dma block which is a singleton */
 	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
 			sde_kms->dev);
