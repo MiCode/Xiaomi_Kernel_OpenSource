@@ -183,6 +183,17 @@ static int _sde_hdmi_gpio_config(struct hdmi *hdmi, bool on)
 			goto error_hpd_gpio;
 		}
 		gpio_direction_output(config->hpd_gpio, 1);
+		if (config->hpd5v_gpio != -1) {
+			ret = gpio_request(config->hpd5v_gpio, "HDMI_HPD_5V");
+			if (ret) {
+				SDE_ERROR("'%s'(%d) gpio_request failed: %d\n",
+						  "HDMI_HPD_5V",
+						  config->hpd5v_gpio,
+						  ret);
+				goto error_hpd5v_gpio;
+			}
+			gpio_set_value_cansleep(config->hpd5v_gpio, 1);
+		}
 
 		if (config->mux_en_gpio != -1) {
 			ret = gpio_request(config->mux_en_gpio, "HDMI_MUX_EN");
@@ -254,6 +265,8 @@ error_sel_gpio:
 	if (config->mux_en_gpio != -1)
 		gpio_free(config->mux_en_gpio);
 error_en_gpio:
+	gpio_free(config->hpd5v_gpio);
+error_hpd5v_gpio:
 	gpio_free(config->hpd_gpio);
 error_hpd_gpio:
 	if (config->ddc_data_gpio != -1)
@@ -318,15 +331,18 @@ static int _sde_hdmi_hpd_enable(struct sde_hdmi *sde_hdmi)
 
 	hdmi_write(hdmi, REG_HDMI_USEC_REFTIMER, 0x0001001b);
 
-	/* enable HPD events: */
-	hdmi_write(hdmi, REG_HDMI_HPD_INT_CTRL,
-			HDMI_HPD_INT_CTRL_INT_CONNECT |
-			HDMI_HPD_INT_CTRL_INT_EN);
-
 	/* set timeout to 4.1ms (max) for hardware debounce */
 	spin_lock_irqsave(&hdmi->reg_lock, flags);
 	hpd_ctrl = hdmi_read(hdmi, REG_HDMI_HPD_CTRL);
 	hpd_ctrl |= HDMI_HPD_CTRL_TIMEOUT(0x1fff);
+
+	hdmi_write(hdmi, REG_HDMI_HPD_CTRL,
+			HDMI_HPD_CTRL_ENABLE | hpd_ctrl);
+
+	/* enable HPD events: */
+	hdmi_write(hdmi, REG_HDMI_HPD_INT_CTRL,
+			HDMI_HPD_INT_CTRL_INT_CONNECT |
+			HDMI_HPD_INT_CTRL_INT_EN);
 
 	/* Toggle HPD circuit to trigger HPD sense */
 	hdmi_write(hdmi, REG_HDMI_HPD_CTRL,
@@ -402,7 +418,6 @@ static void _sde_hdmi_connector_irq(struct sde_hdmi *sde_hdmi)
 			(hpd_int_status & HDMI_HPD_INT_STATUS_INT)) {
 		sde_hdmi->connected = !!(hpd_int_status &
 					HDMI_HPD_INT_STATUS_CABLE_DETECTED);
-
 		/* ack & disable (temporarily) HPD events: */
 		hdmi_write(hdmi, REG_HDMI_HPD_INT_CTRL,
 			HDMI_HPD_INT_CTRL_INT_ACK);
@@ -430,7 +445,6 @@ static irqreturn_t _sde_hdmi_irq(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 	hdmi = sde_hdmi->ctrl.ctrl;
-
 	/* Process HPD: */
 	_sde_hdmi_connector_irq(sde_hdmi);
 
@@ -463,7 +477,6 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 	info->intf_type = DRM_MODE_CONNECTOR_HDMIA;
 	info->num_of_h_tiles = 1;
 	info->h_tile_instance[0] = 0;
-	info->is_connected = true;
 	if (hdmi_display->non_pluggable) {
 		info->capabilities = MSM_DISPLAY_CAP_VID_MODE;
 		hdmi_display->connected = true;
@@ -1089,7 +1102,7 @@ int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 	}
 
 	rc = devm_request_irq(&pdev->dev, hdmi->irq,
-			_sde_hdmi_irq, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+			_sde_hdmi_irq, IRQF_TRIGGER_HIGH,
 			"sde_hdmi_isr", display);
 	if (rc < 0) {
 		SDE_ERROR("failed to request IRQ%u: %d\n",

@@ -474,7 +474,7 @@ static int hdmi_bind(struct device *dev, struct device *master, void *data)
 	hdmi_cfg->mux_en_gpio   = get_gpio(dev, of_node, "qcom,hdmi-tx-mux-en");
 	hdmi_cfg->mux_sel_gpio  = get_gpio(dev, of_node, "qcom,hdmi-tx-mux-sel");
 	hdmi_cfg->mux_lpm_gpio  = get_gpio(dev, of_node, "qcom,hdmi-tx-mux-lpm");
-
+	hdmi_cfg->hpd5v_gpio    = get_gpio(dev, of_node, "qcom,hdmi-tx-hpd5v");
 #else
 	static struct hdmi_platform_config config = {};
 	static const char *hpd_clk_names[] = {
