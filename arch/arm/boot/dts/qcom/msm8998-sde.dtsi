@@ -48,6 +48,8 @@
 		#interrupt-cells = <1>;
 		iommus = <&mmss_smmu 0>;
 
+		gpus = <&msm_gpu>;
+
 		/* hw blocks */
 		qcom,sde-off = <0x1000>;
 		qcom,sde-ctl-off = <0x2000 0x2200 0x2400
