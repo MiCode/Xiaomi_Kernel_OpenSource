@@ -2582,6 +2582,8 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 
 	speed = extcon_get_cable_state_(edev, EXTCON_USB_SPEED);
 	dwc->maximum_speed = (speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
+	if (dwc->maximum_speed > dwc->max_hw_supp_speed)
+		dwc->maximum_speed = dwc->max_hw_supp_speed;
 
 	if (mdwc->id_state != id) {
 		mdwc->id_state = id;
@@ -2622,6 +2624,8 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 
 	speed = extcon_get_cable_state_(edev, EXTCON_USB_SPEED);
 	dwc->maximum_speed = (speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
+	if (dwc->maximum_speed > dwc->max_hw_supp_speed)
+		dwc->maximum_speed = dwc->max_hw_supp_speed;
 
 	mdwc->vbus_active = event;
 	if (dwc->is_drd && !mdwc->in_restart)
@@ -2717,6 +2721,38 @@ static ssize_t mode_store(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR_RW(mode);
+
+static ssize_t speed_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	return snprintf(buf, PAGE_SIZE, "%s\n",
+			usb_speed_string(dwc->max_hw_supp_speed));
+}
+
+static ssize_t speed_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	enum usb_device_speed req_speed = USB_SPEED_UNKNOWN;
+
+	if (sysfs_streq(buf, "high"))
+		req_speed = USB_SPEED_HIGH;
+	else if (sysfs_streq(buf, "super"))
+		req_speed = USB_SPEED_SUPER;
+
+	if (req_speed != USB_SPEED_UNKNOWN &&
+			req_speed != dwc->max_hw_supp_speed) {
+		dwc->maximum_speed = dwc->max_hw_supp_speed = req_speed;
+		schedule_work(&mdwc->restart_usb_work);
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(speed);
 
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
@@ -3039,6 +3075,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dwc3_msm_id_notifier(&mdwc->id_nb, true, mdwc->extcon_id);
 
 	device_create_file(&pdev->dev, &dev_attr_mode);
+	device_create_file(&pdev->dev, &dev_attr_speed);
 
 	schedule_delayed_work(&mdwc->sm_work, 0);
 

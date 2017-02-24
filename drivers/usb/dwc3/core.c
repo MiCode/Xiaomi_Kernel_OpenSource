@@ -729,8 +729,10 @@ int dwc3_core_init(struct dwc3 *dwc)
 	/* Handle USB2.0-only core configuration */
 	if (DWC3_GHWPARAMS3_SSPHY_IFC(dwc->hwparams.hwparams3) ==
 			DWC3_GHWPARAMS3_SSPHY_IFC_DIS) {
-		if (dwc->maximum_speed == USB_SPEED_SUPER)
-			dwc->maximum_speed = USB_SPEED_HIGH;
+		if (dwc->max_hw_supp_speed == USB_SPEED_SUPER) {
+			dwc->max_hw_supp_speed = USB_SPEED_HIGH;
+			dwc->maximum_speed = dwc->max_hw_supp_speed;
+		}
 	}
 
 	/* issue device SoftReset too */
@@ -1208,6 +1210,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	hird_threshold = 12;
 
 	dwc->maximum_speed = usb_get_maximum_speed(dev);
+	dwc->max_hw_supp_speed = dwc->maximum_speed;
 	dwc->dr_mode = usb_get_dr_mode(dev);
 
 	if (dwc->dr_mode == USB_DR_MODE_UNKNOWN) {
@@ -1326,6 +1329,7 @@ static int dwc3_probe(struct platform_device *pdev)
 		     DWC3_GHWPARAMS3_SSPHY_IFC_GEN2))
 			dwc->maximum_speed = USB_SPEED_SUPER_PLUS;
 
+		dwc->max_hw_supp_speed = dwc->maximum_speed;
 		break;
 	}
 
