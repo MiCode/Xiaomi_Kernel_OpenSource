@@ -1192,25 +1192,18 @@ static int msm_ioctl_gem_cpu_fini(struct drm_device *dev, void *data,
 	return ret;
 }
 
-static int msm_ioctl_gem_info_iova(struct drm_device *dev,
-		struct drm_gem_object *obj, uint64_t *iova)
-{
-	struct msm_drm_private *priv = dev->dev_private;
-
-	if (!priv->gpu)
-		return -EINVAL;
-
-	return msm_gem_get_iova(obj, priv->gpu->aspace, iova);
-}
-
 static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 		struct drm_file *file)
 {
 	struct drm_msm_gem_info *args = data;
 	struct drm_gem_object *obj;
+	struct msm_file_private *ctx = file->driver_priv;
 	int ret = 0;
 
 	if (args->flags & ~MSM_INFO_FLAGS)
+		return -EINVAL;
+
+	if (!ctx || !ctx->aspace)
 		return -EINVAL;
 
 	obj = drm_gem_object_lookup(dev, file, args->handle);
@@ -1220,7 +1213,7 @@ static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 	if (args->flags & MSM_INFO_IOVA) {
 		uint64_t iova;
 
-		ret = msm_ioctl_gem_info_iova(dev, obj, &iova);
+		ret = msm_gem_get_iova(obj, ctx->aspace, &iova);
 		if (!ret)
 			args->offset = iova;
 	} else {
@@ -1236,13 +1229,24 @@ static int msm_ioctl_wait_fence(struct drm_device *dev, void *data,
 		struct drm_file *file)
 {
 	struct drm_msm_wait_fence *args = data;
-	ktime_t timeout = to_ktime(args->timeout);
+	ktime_t timeout;
+
 
 	if (args->pad) {
 		DRM_ERROR("invalid pad: %08x\n", args->pad);
 		return -EINVAL;
 	}
 
+	/*
+	 * Special case - if the user passes a timeout of 0.0 just return the
+	 * current fence status (0 for retired, -EBUSY for active) with no
+	 * accompanying kernel logs. This can be a poor man's way of
+	 * determining the status of a fence.
+	 */
+	if (args->timeout.tv_sec == 0 && args->timeout.tv_nsec == 0)
+		return msm_wait_fence(dev, args->fence, NULL, true);
+
+	timeout = to_ktime(args->timeout);
 	return msm_wait_fence(dev, args->fence, &timeout, true);
 }
 
