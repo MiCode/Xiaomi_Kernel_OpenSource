@@ -238,6 +238,18 @@
 	qcom,fg-cutoff-voltage = <3700>;
 };
 
+&i2c_2 {
+	status = "ok";
+	smb1351-charger@1d {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x1d>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-mv = <100>;
+		qcom,parallel-en-pin-polarity = <0>;
+	};
+};
+
 &tasha_snd {
 	qcom,model = "sdm660-tasha-skus-snd-card";
 	qcom,audio-routing =
