@@ -281,4 +281,26 @@ struct drm_msm_ad4_cfg {
 	__u32 cfg_param_053;
 };
 
+#define DITHER_MATRIX_SZ 16
+
+/**
+ * struct drm_msm_dither - dither feature structure
+ * @flags: for customizing operations
+ * @temporal_en: temperal dither enable
+ * @c0_bitdepth: c0 component bit depth
+ * @c1_bitdepth: c1 component bit depth
+ * @c2_bitdepth: c2 component bit depth
+ * @c3_bitdepth: c2 component bit depth
+ * @matrix: dither strength matrix
+ */
+struct drm_msm_dither {
+	__u64 flags;
+	__u32 temporal_en;
+	__u32 c0_bitdepth;
+	__u32 c1_bitdepth;
+	__u32 c2_bitdepth;
+	__u32 c3_bitdepth;
+	__u32 matrix[DITHER_MATRIX_SZ];
+};
+
 #endif /* _MSM_DRM_PP_H_ */

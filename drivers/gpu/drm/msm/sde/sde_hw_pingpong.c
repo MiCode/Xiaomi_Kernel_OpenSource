@@ -40,6 +40,11 @@
 #define PP_DCE_DATA_IN_SWAP             0x0ac
 #define PP_DCE_DATA_OUT_SWAP            0x0c8
 
+#define DITHER_DEPTH_MAP_INDEX 9
+static u32 dither_depth_map[DITHER_DEPTH_MAP_INDEX] = {
+	0, 0, 0, 0, 0, 1, 2, 3, 3
+};
+
 static struct sde_pingpong_cfg *_pingpong_offset(enum sde_pingpong pp,
 		struct sde_mdss_cfg *m,
 		void __iomem *addr,
@@ -167,6 +172,57 @@ static int sde_hw_pp_setup_dsc(struct sde_hw_pingpong *pp)
 	return 0;
 }
 
+static int sde_hw_pp_setup_dither_v1(struct sde_hw_pingpong *pp,
+					void *cfg, size_t len)
+{
+	struct sde_hw_blk_reg_map *c;
+	struct drm_msm_dither *dither = (struct drm_msm_dither *)cfg;
+	u32 base = 0, offset = 0, data = 0, i = 0;
+
+	if (!pp)
+		return -EINVAL;
+
+	c = &pp->hw;
+	base = pp->caps->sblk->dither.base;
+	if (!dither) {
+		/* dither property disable case */
+		SDE_REG_WRITE(c, base, 0);
+		return 0;
+	}
+
+	if (len != sizeof(struct drm_msm_dither)) {
+		DRM_ERROR("input len %zu, expected len %zu\n", len,
+			sizeof(struct drm_msm_dither));
+		return -EINVAL;
+	}
+
+	if (dither->c0_bitdepth >= DITHER_DEPTH_MAP_INDEX ||
+		dither->c1_bitdepth >= DITHER_DEPTH_MAP_INDEX ||
+		dither->c2_bitdepth >= DITHER_DEPTH_MAP_INDEX ||
+		dither->c3_bitdepth >= DITHER_DEPTH_MAP_INDEX)
+		return -EINVAL;
+
+	offset += 4;
+	data = dither_depth_map[dither->c0_bitdepth] & REG_MASK(2);
+	data |= (dither_depth_map[dither->c1_bitdepth] & REG_MASK(2)) << 2;
+	data |= (dither_depth_map[dither->c2_bitdepth] & REG_MASK(2)) << 4;
+	data |= (dither_depth_map[dither->c3_bitdepth] & REG_MASK(2)) << 6;
+	data |= (dither->temporal_en) ? (1 << 8) : 0;
+	SDE_REG_WRITE(c, base + offset, data);
+
+	for (i = 0; i < DITHER_MATRIX_SZ - 3; i += 4) {
+		offset += 4;
+		data = (dither->matrix[i] & REG_MASK(4)) |
+			((dither->matrix[i + 1] & REG_MASK(4)) << 4) |
+			((dither->matrix[i + 2] & REG_MASK(4)) << 8) |
+			((dither->matrix[i + 3] & REG_MASK(4)) << 12);
+		SDE_REG_WRITE(c, base + offset, data);
+	}
+	SDE_REG_WRITE(c, base, 1);
+
+	return 0;
+}
+
 static int sde_hw_pp_enable_te(struct sde_hw_pingpong *pp, bool enable)
 {
 	struct sde_hw_blk_reg_map *c = &pp->hw;
@@ -218,8 +274,10 @@ static int sde_hw_pp_get_vsync_info(struct sde_hw_pingpong *pp,
 }
 
 static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
-		unsigned long cap)
+	const struct sde_pingpong_cfg *hw_cap)
 {
+	u32 version = 0;
+
 	ops->setup_tearcheck = sde_hw_pp_setup_te_config;
 	ops->enable_tearcheck = sde_hw_pp_enable_te;
 	ops->connect_external_te = sde_hw_pp_connect_external_te;
@@ -230,6 +288,16 @@ static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 	ops->disable_dsc = sde_hw_pp_dsc_disable;
 	ops->get_autorefresh = sde_hw_pp_get_autorefresh_config;
 	ops->poll_timeout_wr_ptr = sde_hw_pp_poll_timeout_wr_ptr;
+
+	version = SDE_COLOR_PROCESS_MAJOR(hw_cap->sblk->dither.version);
+	switch (version) {
+	case 1:
+		ops->setup_dither = sde_hw_pp_setup_dither_v1;
+		break;
+	default:
+		ops->setup_dither = NULL;
+		break;
+	}
 };
 
 static struct sde_hw_blk_ops sde_hw_ops = {
@@ -257,7 +325,7 @@ struct sde_hw_pingpong *sde_hw_pingpong_init(enum sde_pingpong idx,
 
 	c->idx = idx;
 	c->caps = cfg;
-	_setup_pingpong_ops(&c->ops, c->caps->features);
+	_setup_pingpong_ops(&c->ops, c->caps);
 
 	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_PINGPONG, idx, &sde_hw_ops);
 	if (rc) {

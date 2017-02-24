@@ -13,6 +13,7 @@
 #ifndef _SDE_CONNECTOR_H_
 #define _SDE_CONNECTOR_H_
 
+#include <uapi/drm/msm_drm_pp.h>
 #include <drm/drmP.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_panel.h>
@@ -183,6 +184,13 @@ struct sde_connector_ops {
 	 */
 	int (*set_power)(struct drm_connector *connector,
 			int power_mode, void *display);
+
+	/**
+	 * get_dst_format - get dst_format from display
+	 * @display: Pointer to private display handle
+	 * Returns: dst_format of display
+	 */
+	enum dsi_pixel_format (*get_dst_format)(void *display);
 };
 
 /**
@@ -227,6 +235,7 @@ struct sde_connector_evt {
  * @property_data: Array of private data for generic property handling
  * @blob_caps: Pointer to blob structure for 'capabilities' property
  * @blob_hdr: Pointer to blob structure for 'hdr_properties' property
+ * @blob_dither: Pointer to blob structure for default dither config
  * @fb_kmap: true if kernel mapping of framebuffer is requested
  * @event_table: Array of registered events
  * @event_lock: Lock object for event_table
@@ -255,6 +264,7 @@ struct sde_connector {
 	struct msm_property_data property_data[CONNECTOR_PROP_COUNT];
 	struct drm_property_blob *blob_caps;
 	struct drm_property_blob *blob_hdr;
+	struct drm_property_blob *blob_dither;
 
 	bool fb_kmap;
 	struct sde_connector_evt event_table[SDE_CONN_EVENT_COUNT];
@@ -307,6 +317,7 @@ struct sde_connector {
  * @mmu_id: MMU ID for accessing frame buffer objects, if applicable
  * @property_values: Local cache of current connector property values
  * @rois: Regions of interest structure for mapping CRTC to Connector output
+ * @property_blobs: blob properties
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
@@ -315,6 +326,7 @@ struct sde_connector_state {
 	uint64_t property_values[CONNECTOR_PROP_COUNT];
 
 	struct msm_roi_list rois;
+	struct drm_property_blob *property_blobs[CONNECTOR_PROP_BLOBCOUNT];
 };
 
 /**
@@ -497,5 +509,15 @@ static inline bool sde_connector_needs_offset(struct drm_connector *connector)
 	return (c_conn->connector_type != DRM_MODE_CONNECTOR_VIRTUAL);
 }
 
-#endif /* _SDE_CONNECTOR_H_ */
+/**
+ * sde_connector_get_dither_cfg - get dither property data
+ * @conn: Pointer to drm_connector struct
+ * @state: Pointer to drm_connector_state struct
+ * @cfg: Pointer to pointer to dither cfg
+ * @len: length of the dither data
+ * Returns: Zero on success
+ */
+int sde_connector_get_dither_cfg(struct drm_connector *conn,
+		struct drm_connector_state *state, void **cfg, size_t *len);
 
+#endif /* _SDE_CONNECTOR_H_ */

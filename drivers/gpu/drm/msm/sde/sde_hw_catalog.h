@@ -194,6 +194,7 @@ enum {
  * @SDE_PINGPONG_SPLIT      PP block supports split fifo
  * @SDE_PINGPONG_SLAVE      PP block is a suitable slave for split fifo
  * @SDE_PINGPONG_DSC,       Display stream compression blocks
+ * @SDE_PINGPONG_DITHER,    Dither blocks
  * @SDE_PINGPONG_MAX
  */
 enum {
@@ -202,6 +203,7 @@ enum {
 	SDE_PINGPONG_SPLIT,
 	SDE_PINGPONG_SLAVE,
 	SDE_PINGPONG_DSC,
+	SDE_PINGPONG_DITHER,
 	SDE_PINGPONG_MAX
 };
 
@@ -457,6 +459,7 @@ struct sde_pingpong_sub_blks {
 	struct sde_pp_blk te;
 	struct sde_pp_blk te2;
 	struct sde_pp_blk dsc;
+	struct sde_pp_blk dither;
 };
 
 struct sde_wb_sub_blocks {

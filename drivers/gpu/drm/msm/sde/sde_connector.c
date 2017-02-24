@@ -29,6 +29,9 @@
 
 #define SDE_ERROR_CONN(c, fmt, ...) SDE_ERROR("conn%d " fmt,\
 		(c) ? (c)->base.base.id : -1, ##__VA_ARGS__)
+static u32 dither_matrix[DITHER_MATRIX_SZ] = {
+	15, 7, 13, 5, 3, 11, 1, 9, 12, 4, 14, 6, 0, 8, 2, 10
+};
 
 static const struct drm_prop_enum_list e_topology_name[] = {
 	{SDE_RM_TOPOLOGY_NONE,	"sde_none"},
@@ -217,6 +220,129 @@ void sde_connector_unregister_event(struct drm_connector *connector,
 	(void)sde_connector_register_event(connector, event_idx, 0, 0);
 }
 
+static int _sde_connector_get_default_dither_cfg_v1(
+		struct sde_connector *c_conn, void *cfg)
+{
+	struct drm_msm_dither *dither_cfg = (struct drm_msm_dither *)cfg;
+	enum dsi_pixel_format dst_format = DSI_PIXEL_FORMAT_MAX;
+
+	if (!c_conn || !cfg) {
+		SDE_ERROR("invalid argument(s), c_conn %pK, cfg %pK\n",
+				c_conn, cfg);
+		return -EINVAL;
+	}
+
+	if (!c_conn->ops.get_dst_format) {
+		SDE_ERROR("get_dst_format is invalid\n");
+		return -EINVAL;
+	}
+
+	dst_format = c_conn->ops.get_dst_format(c_conn->display);
+	switch (dst_format) {
+	case DSI_PIXEL_FORMAT_RGB888:
+		dither_cfg->c0_bitdepth = 8;
+		dither_cfg->c1_bitdepth = 8;
+		dither_cfg->c2_bitdepth = 8;
+		dither_cfg->c3_bitdepth = 8;
+		break;
+	case DSI_PIXEL_FORMAT_RGB666:
+	case DSI_PIXEL_FORMAT_RGB666_LOOSE:
+		dither_cfg->c0_bitdepth = 6;
+		dither_cfg->c1_bitdepth = 6;
+		dither_cfg->c2_bitdepth = 6;
+		dither_cfg->c3_bitdepth = 6;
+		break;
+	default:
+		SDE_DEBUG("no default dither config for dst_format %d\n",
+			dst_format);
+		return -ENODATA;
+	}
+
+	memcpy(&dither_cfg->matrix, dither_matrix,
+			sizeof(u32) * DITHER_MATRIX_SZ);
+	dither_cfg->temporal_en = 0;
+	return 0;
+}
+
+static void _sde_connector_install_dither_property(struct drm_device *dev,
+		struct sde_kms *sde_kms, struct sde_connector *c_conn)
+{
+	char prop_name[DRM_PROP_NAME_LEN];
+	struct sde_mdss_cfg *catalog = NULL;
+	struct drm_property_blob *blob_ptr;
+	void *cfg;
+	int ret = 0;
+	u32 version = 0, len = 0;
+	bool defalut_dither_needed = false;
+
+	if (!dev || !sde_kms || !c_conn) {
+		SDE_ERROR("invld args (s), dev %pK, sde_kms %pK, c_conn %pK\n",
+				dev, sde_kms, c_conn);
+		return;
+	}
+
+	catalog = sde_kms->catalog;
+	version = SDE_COLOR_PROCESS_MAJOR(
+			catalog->pingpong[0].sblk->dither.version);
+	snprintf(prop_name, ARRAY_SIZE(prop_name), "%s%d",
+			"SDE_PP_DITHER_V", version);
+	switch (version) {
+	case 1:
+		msm_property_install_blob(&c_conn->property_info, prop_name,
+			DRM_MODE_PROP_BLOB,
+			CONNECTOR_PROP_PP_DITHER);
+		len = sizeof(struct drm_msm_dither);
+		cfg = kzalloc(len, GFP_KERNEL);
+		if (!cfg)
+			return;
+
+		ret = _sde_connector_get_default_dither_cfg_v1(c_conn, cfg);
+		if (!ret)
+			defalut_dither_needed = true;
+		break;
+	default:
+		SDE_ERROR("unsupported dither version %d\n", version);
+		return;
+	}
+
+	if (defalut_dither_needed) {
+		blob_ptr = drm_property_create_blob(dev, len, cfg);
+		if (IS_ERR_OR_NULL(blob_ptr))
+			goto exit;
+		c_conn->blob_dither = blob_ptr;
+	}
+exit:
+	kfree(cfg);
+}
+
+int sde_connector_get_dither_cfg(struct drm_connector *conn,
+			struct drm_connector_state *state, void **cfg,
+			size_t *len)
+{
+	struct sde_connector *c_conn = NULL;
+	struct sde_connector_state *c_state = NULL;
+	size_t dither_sz = 0;
+
+	if (!conn || !state || !(*cfg))
+		return -EINVAL;
+
+	c_conn = to_sde_connector(conn);
+	c_state = to_sde_connector_state(state);
+
+	/* try to get user config data first */
+	*cfg = msm_property_get_blob(&c_conn->property_info,
+					c_state->property_blobs,
+					&dither_sz,
+					CONNECTOR_PROP_PP_DITHER);
+	/* if user config data doesn't exist, use default dither blob */
+	if (*cfg == NULL && c_conn->blob_dither) {
+		*cfg = &c_conn->blob_dither->data;
+		dither_sz = c_conn->blob_dither->length;
+	}
+	*len = dither_sz;
+	return 0;
+}
+
 int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info)
 {
@@ -305,6 +431,8 @@ static void sde_connector_destroy(struct drm_connector *connector)
 		drm_property_unreference_blob(c_conn->blob_caps);
 	if (c_conn->blob_hdr)
 		drm_property_unreference_blob(c_conn->blob_hdr);
+	if (c_conn->blob_dither)
+		drm_property_unreference_blob(c_conn->blob_dither);
 	msm_property_destroy(&c_conn->property_info);
 
 	drm_connector_unregister(connector);
@@ -369,7 +497,8 @@ static void sde_connector_atomic_destroy_state(struct drm_connector *connector,
 	} else {
 		/* destroy value helper */
 		msm_property_destroy_state(&c_conn->property_info, c_state,
-				c_state->property_values, 0);
+				c_state->property_values,
+				c_state->property_blobs);
 	}
 }
 
@@ -398,7 +527,7 @@ static void sde_connector_atomic_reset(struct drm_connector *connector)
 
 	/* reset value helper, zero out state structure and reset properties */
 	msm_property_reset_state(&c_conn->property_info, c_state,
-			c_state->property_values, 0);
+			c_state->property_values, c_state->property_blobs);
 
 	c_state->base.connector = connector;
 	connector->state = &c_state->base;
@@ -426,7 +555,8 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 
 	/* duplicate value helper */
 	msm_property_duplicate_state(&c_conn->property_info,
-			c_oldstate, c_state, c_state->property_values, 0);
+			c_oldstate, c_state, c_state->property_values,
+			c_state->property_blobs);
 
 	/* additional handling for drm framebuffer objects */
 	if (c_state->out_fb) {
@@ -626,7 +756,8 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 
 	/* generic property handling */
 	rc = msm_property_atomic_set(&c_conn->property_info,
-			c_state->property_values, 0, property, val);
+			c_state->property_values, c_state->property_blobs,
+			property, val);
 	if (rc)
 		goto end;
 
@@ -733,7 +864,8 @@ static int sde_connector_atomic_get_property(struct drm_connector *connector,
 	else
 		/* get cached property value */
 		rc = msm_property_atomic_get(&c_conn->property_info,
-				c_state->property_values, 0, property, val);
+				c_state->property_values,
+				c_state->property_blobs, property, val);
 
 	/* allow for custom override */
 	if (c_conn->ops.get_property)
@@ -1116,6 +1248,8 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 				&c_conn->property_info, "sde_drm_roi_v1", 0x0,
 				0, ~0, 0, CONNECTOR_PROP_ROI_V1);
 	}
+	/* install PP_DITHER properties */
+	_sde_connector_install_dither_property(dev, sde_kms, c_conn);
 
 	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
 			0x0, 0, INR_OPEN_MAX, 0, CONNECTOR_PROP_RETIRE_FENCE);
@@ -1156,6 +1290,9 @@ error_destroy_property:
 		drm_property_unreference_blob(c_conn->blob_caps);
 	if (c_conn->blob_hdr)
 		drm_property_unreference_blob(c_conn->blob_hdr);
+	if (c_conn->blob_dither)
+		drm_property_unreference_blob(c_conn->blob_dither);
+
 	msm_property_destroy(&c_conn->property_info);
 error_cleanup_fence:
 	mutex_destroy(&c_conn->lock);

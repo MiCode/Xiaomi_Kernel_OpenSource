@@ -2269,6 +2269,27 @@ void sde_encoder_trigger_kickoff_pending(struct drm_encoder *drm_enc)
 	}
 }
 
+static void _sde_encoder_setup_dither(struct sde_encoder_phys *phys)
+{
+	void *dither_cfg;
+	int ret = 0;
+	size_t len = 0;
+	enum sde_rm_topology_name topology;
+
+	if (!phys || !phys->connector || !phys->hw_pp ||
+			!phys->hw_pp->ops.setup_dither)
+		return;
+	topology = sde_connector_get_topology_name(phys->connector);
+	if ((topology == SDE_RM_TOPOLOGY_PPSPLIT) &&
+			(phys->split_role == ENC_ROLE_SLAVE))
+		return;
+
+	ret = sde_connector_get_dither_cfg(phys->connector,
+				phys->connector->state, &dither_cfg, &len);
+	if (!ret)
+		phys->hw_pp->ops.setup_dither(phys->hw_pp, dither_cfg, len);
+}
+
 void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		struct sde_encoder_kickoff_params *params)
 {
@@ -2295,6 +2316,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 				phys->ops.prepare_for_kickoff(phys, params);
 			if (phys->enable_state == SDE_ENC_ERR_NEEDS_HW_RESET)
 				needs_hw_reset = true;
+			_sde_encoder_setup_dither(phys);
 		}
 	}
 

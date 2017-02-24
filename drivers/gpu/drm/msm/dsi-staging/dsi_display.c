@@ -110,6 +110,23 @@ int dsi_display_soft_reset(void *display)
 
 	return rc;
 }
+
+enum dsi_pixel_format dsi_display_get_dst_format(void *display)
+{
+	enum dsi_pixel_format format = DSI_PIXEL_FORMAT_MAX;
+	struct dsi_display *dsi_display = (struct dsi_display *)display;
+
+	if (!dsi_display || !dsi_display->panel) {
+		pr_err("Invalid params(s) dsi_display %pK, panel %pK\n",
+			dsi_display,
+			((dsi_display) ? dsi_display->panel : NULL));
+		return format;
+	}
+
+	format = dsi_display->panel->host_config.dst_format;
+	return format;
+}
+
 static ssize_t debugfs_dump_info_read(struct file *file,
 				      char __user *buff,
 				      size_t count,

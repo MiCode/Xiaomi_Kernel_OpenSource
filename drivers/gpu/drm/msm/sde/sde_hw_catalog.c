@@ -217,6 +217,9 @@ enum {
 	TE2_OFF,
 	TE2_LEN,
 	PP_SLAVE,
+	DITHER_OFF,
+	DITHER_LEN,
+	DITHER_VER,
 	PP_PROP_MAX,
 };
 
@@ -494,6 +497,9 @@ static struct sde_prop_type pp_prop[] = {
 	{TE2_OFF, "qcom,sde-te2-off", false, PROP_TYPE_U32_ARRAY},
 	{TE2_LEN, "qcom,sde-te2-size", false, PROP_TYPE_U32},
 	{PP_SLAVE, "qcom,sde-pp-slave", false, PROP_TYPE_U32_ARRAY},
+	{DITHER_OFF, "qcom,sde-dither-off", false, PROP_TYPE_U32_ARRAY},
+	{DITHER_LEN, "qcom,sde-dither-size", false, PROP_TYPE_U32},
+	{DITHER_VER, "qcom,sde-dither-version", false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type dsc_prop[] = {
@@ -2334,6 +2340,18 @@ static int sde_pp_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 					pp->id - PINGPONG_0);
 			set_bit(SDE_PINGPONG_DSC, &pp->features);
 		}
+
+		sblk->dither.base = PROP_VALUE_ACCESS(prop_value, DITHER_OFF,
+							i);
+		if (sblk->dither.base) {
+			sblk->dither.id = SDE_PINGPONG_DITHER;
+			snprintf(sblk->dither.name, SDE_HW_BLK_NAME_LEN,
+					"dither_%u", pp->id);
+			set_bit(SDE_PINGPONG_DITHER, &pp->features);
+		}
+		sblk->dither.len = PROP_VALUE_ACCESS(prop_value, DITHER_LEN, 0);
+		sblk->dither.version = PROP_VALUE_ACCESS(prop_value, DITHER_VER,
+								0);
 	}
 
 end:

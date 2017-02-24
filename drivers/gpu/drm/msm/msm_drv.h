@@ -154,6 +154,7 @@ enum msm_mdp_conn_property {
 	/* blob properties, always put these first */
 	CONNECTOR_PROP_SDE_INFO,
 	CONNECTOR_PROP_HDR_INFO,
+	CONNECTOR_PROP_PP_DITHER,
 
 	/* # of blob properties */
 	CONNECTOR_PROP_BLOBCOUNT,
