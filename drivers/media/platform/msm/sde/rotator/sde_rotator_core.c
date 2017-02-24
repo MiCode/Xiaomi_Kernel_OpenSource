@@ -1137,10 +1137,16 @@ static u32 sde_rotator_calc_buf_bw(struct sde_mdp_format_params *fmt,
 	u32 bw;
 
 	bw = width * height * frame_rate;
-	if (fmt->chroma_sample == SDE_MDP_CHROMA_420)
+
+	if (sde_mdp_is_tp10_format(fmt))
+		bw *= 2;
+	else if (sde_mdp_is_p010_format(fmt))
+		bw *= 3;
+	else if (fmt->chroma_sample == SDE_MDP_CHROMA_420)
 		bw = (bw * 3) / 2;
 	else
 		bw *= fmt->bpp;
+	SDEROT_EVTLOG(bw, width, height, frame_rate, fmt->format);
 	return bw;
 }
 
