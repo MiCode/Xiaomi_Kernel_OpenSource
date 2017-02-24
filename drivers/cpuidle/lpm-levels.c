@@ -35,6 +35,7 @@
 #include <linux/moduleparam.h>
 #include <linux/sched.h>
 #include <linux/cpu_pm.h>
+#include <linux/cpuhotplug.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
 #include <soc/qcom/event_timer.h>
@@ -313,25 +314,20 @@ static void update_debug_pc_event(enum debug_event event, uint32_t arg1,
 	spin_unlock(&debug_lock);
 }
 
-static int lpm_cpu_callback(struct notifier_block *cpu_nb,
-	unsigned long action, void *hcpu)
+static int lpm_dying_cpu(unsigned int cpu)
 {
-	unsigned long cpu = (unsigned long) hcpu;
-	struct lpm_cluster *cluster = per_cpu(cpu_cluster, (unsigned int) cpu);
+	struct lpm_cluster *cluster = per_cpu(cpu_cluster, cpu);
 
-	switch (action & ~CPU_TASKS_FROZEN) {
-	case CPU_DYING:
-		cluster_prepare(cluster, get_cpu_mask((unsigned int) cpu),
-					NR_LPM_LEVELS, false, 0);
-		break;
-	case CPU_STARTING:
-		cluster_unprepare(cluster, get_cpu_mask((unsigned int) cpu),
-					NR_LPM_LEVELS, false, 0);
-		break;
-	default:
-		break;
-	}
-	return NOTIFY_OK;
+	cluster_prepare(cluster, get_cpu_mask(cpu), NR_LPM_LEVELS, false, 0);
+	return 0;
+}
+
+static int lpm_starting_cpu(unsigned int cpu)
+{
+	struct lpm_cluster *cluster = per_cpu(cpu_cluster, cpu);
+
+	cluster_unprepare(cluster, get_cpu_mask(cpu), NR_LPM_LEVELS, false, 0);
+	return 0;
 }
 
 static enum hrtimer_restart lpm_hrtimer_cb(struct hrtimer *h)
@@ -1759,7 +1755,12 @@ static int lpm_probe(struct platform_device *pdev)
 				__func__);
 		goto failed;
 	}
-	register_hotcpu_notifier(&lpm_cpu_nblk);
+	ret = cpuhp_setup_state(CPUHP_AP_QCOM_SLEEP_STARTING,
+			"AP_QCOM_SLEEP_STARTING",
+			lpm_starting_cpu, lpm_dying_cpu);
+	if (ret)
+		goto failed;
+
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
 	if (!module_kobj) {
 		pr_err("%s: cannot find kobject for module %s\n",
