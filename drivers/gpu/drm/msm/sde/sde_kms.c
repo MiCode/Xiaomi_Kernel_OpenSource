@@ -599,11 +599,12 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.mode_valid = sde_hdmi_mode_valid,
 		.get_info =   sde_hdmi_get_info,
 	};
-	struct msm_display_info info;
+	struct msm_display_info info = {0};
 	struct drm_encoder *encoder;
 	void *display, *connector;
 	int i, max_encoders;
 	int rc = 0;
+	int connector_poll;
 
 	if (!dev || !priv || !sde_kms) {
 		SDE_ERROR("invalid argument(s)\n");
@@ -720,7 +721,10 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 			SDE_ERROR("hdmi get_info %d failed\n", i);
 			continue;
 		}
-
+		if (info.capabilities & MSM_DISPLAY_CAP_HOT_PLUG)
+			connector_poll = DRM_CONNECTOR_POLL_HPD;
+		else
+			connector_poll = 0;
 		encoder = sde_encoder_init(dev, &info);
 		if (IS_ERR_OR_NULL(encoder)) {
 			SDE_ERROR("encoder init failed for hdmi %d\n", i);
@@ -739,7 +743,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 					0,
 					display,
 					&hdmi_ops,
-					DRM_CONNECTOR_POLL_HPD,
+					connector_poll,
 					DRM_MODE_CONNECTOR_HDMIA);
 		if (connector) {
 			priv->encoders[priv->num_encoders++] = encoder;

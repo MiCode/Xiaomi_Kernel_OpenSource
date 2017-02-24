@@ -71,6 +71,7 @@ struct sde_hdmi_ctrl {
  * @non_pluggable:    If HDMI display is non pluggable
  * @num_of_modes:     Number of modes supported by display if non pluggable.
  * @mode_list:        Mode list if non pluggable.
+ * @connected:        If HDMI display is connected.
  * @is_tpg_enabled:   TPG state.
  * @hpd_work:         HPD work structure.
  * @root:             Debug fs root entry.
@@ -89,6 +90,7 @@ struct sde_hdmi {
 	bool non_pluggable;
 	u32 num_of_modes;
 	struct list_head mode_list;
+	bool connected;
 	bool is_tpg_enabled;
 
 	struct work_struct hpd_work;
