@@ -4344,7 +4344,7 @@ void mdss_mdp_check_ctl_reset_status(struct mdss_mdp_ctl *ctl)
 	if (status) {
 		pr_err("hw recovery is not complete for ctl:%d\n", ctl->num);
 		MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "vbif_nrt", "dbg_bus",
-			"vbif_dbg_bus", "panic");
+			"vbif_dbg_bus", "dsi_dbg_bus", "panic");
 	}
 }
 
