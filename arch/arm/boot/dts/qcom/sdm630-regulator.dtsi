@@ -681,20 +681,20 @@
 				regulator-min-microvolt = <1>;
 				regulator-max-microvolt = <8>;
 
-				qcom,cpr-fuse-corners = <4>;
+				qcom,cpr-fuse-corners = <3>;
 				qcom,cpr-fuse-combos = <24>;
 				qcom,cpr-speed-bins = <3>;
 				qcom,cpr-speed-bin-corners = <8 8 8>;
 				qcom,cpr-corners = <8>;
-				qcom,cpr-corner-fmax-map = <2 4 5 8>;
+				qcom,cpr-corner-fmax-map = <2 4 8>;
 
 				qcom,cpr-voltage-ceiling =
-					<724000  724000  724000  788000  868000
-					 924000  988000 1068000>;
+					<724000   724000   788000  788000
+					 1068000 1068000  1068000 1068000>;
 
 				qcom,cpr-voltage-floor =
-					<588000  588000  596000  652000  712000
-					 744000  784000  844000>;
+					<588000   588000   596000   652000
+					 712000   744000   784000   844000>;
 
 				qcom,corner-frequencies =
 					<300000000  614400000  883200000
@@ -755,7 +755,7 @@
 				regulator-min-microvolt = <1>;
 				regulator-max-microvolt = <11>;
 
-				qcom,cpr-fuse-corners = <4>;
+				qcom,cpr-fuse-corners = <5>;
 				qcom,cpr-fuse-combos = <24>;
 				qcom,cpr-speed-bins = <3>;
 				qcom,cpr-speed-bin-corners = <10 10 11>;
@@ -771,29 +771,29 @@
 
 				qcom,cpr-corner-fmax-map =
 					/* Speed bin 0 */
-					<2 4 6 10>,
+					<2 4 6 9 10>,
 
 					/* Speed bin 1 */
-					<2 4 6 10>,
+					<2 4 6 9 10>,
 
 					/* Speed bin 2 */
-					<2 4 6 11>;
+					<2 4 6 9 11>;
 
 				qcom,cpr-voltage-ceiling =
 					/* Speed bin 0 */
 					<724000  724000  724000  788000
-					 868000  868000  924000  988000
+					 868000  868000  988000  988000
 					 988000 1068000>,
 
 					/* Speed bin 1 */
 					<724000  724000  724000  788000
-					 868000  868000  924000  988000
+					 868000  868000  988000  988000
 					 988000 1068000>,
 
 					/* Speed bin 2 */
 					<724000  724000  724000  788000
-					 868000  868000  924000  988000
-					 988000 1068000 1140000>;
+					 868000  868000  988000  988000
+					 988000 1140000 1140000>;
 
 				qcom,cpr-voltage-floor =
 					/* Speed bin 0 */
@@ -828,7 +828,7 @@
 					<300000000   787200000 1113600000
 					 1344000000 1516800000 1670400000
 					 1881600000 2016000000 2150400000
-					 2208000000 2515200000>;
+					 2380800000 2515200000>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
