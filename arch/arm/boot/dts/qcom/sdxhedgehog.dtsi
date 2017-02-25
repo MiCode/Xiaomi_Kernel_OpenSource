@@ -118,6 +118,10 @@
 		interrupt-parent = <&tlmm_pinmux>;
 		qcom,gpio-connect = <&tlmm_pinmux 73 0>;
 	};
+
+	/delete-node/ qcom,spm@b009000;
+	/delete-node/ qcom,mpm@601b8;
+	/delete-node/ qcom,lpm-levels;
 };
 
 &clock_gcc {
@@ -270,4 +274,5 @@
 };
 
 #include "sdxhedgehog-usb.dtsi"
+#include "sdxhedgehog-pm.dtsi"
 
