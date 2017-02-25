@@ -99,6 +99,8 @@
 #define VOLTAGE_PRED_OFFSET		0
 #define OCV_WORD			97
 #define OCV_OFFSET			2
+#define ESR_WORD			99
+#define ESR_OFFSET			0
 #define RSLOW_WORD			101
 #define RSLOW_OFFSET			0
 #define ACT_BATT_CAP_WORD		117
@@ -173,6 +175,8 @@ static struct fg_sram_param pmi8998_v1_sram_params[] = {
 		244141, 0, NULL, fg_decode_voltage_15b),
 	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 1000, 244141, 0, NULL,
 		fg_decode_voltage_15b),
+	PARAM(ESR, ESR_WORD, ESR_OFFSET, 2, 1000, 244141, 0, fg_encode_default,
+		fg_decode_value_16b),
 	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 1000, 244141, 0, NULL,
 		fg_decode_value_16b),
 	PARAM(ALG_FLAGS, ALG_FLAGS_WORD, ALG_FLAGS_OFFSET, 1, 1, 1, 0, NULL,
@@ -235,6 +239,8 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		244141, 0, NULL, fg_decode_voltage_15b),
 	PARAM(OCV, OCV_WORD, OCV_OFFSET, 2, 1000, 244141, 0, NULL,
 		fg_decode_voltage_15b),
+	PARAM(ESR, ESR_WORD, ESR_OFFSET, 2, 1000, 244141, 0, fg_encode_default,
+		fg_decode_value_16b),
 	PARAM(RSLOW, RSLOW_WORD, RSLOW_OFFSET, 2, 1000, 244141, 0, NULL,
 		fg_decode_value_16b),
 	PARAM(ALG_FLAGS, ALG_FLAGS_WORD, ALG_FLAGS_OFFSET, 1, 1, 1, 0, NULL,
@@ -571,38 +577,11 @@ static int fg_get_battery_temp(struct fg_chip *chip, int *val)
 	return 0;
 }
 
-#define BATT_ESR_NUMR		244141
-#define BATT_ESR_DENR		1000
-static int fg_get_battery_esr(struct fg_chip *chip, int *val)
-{
-	int rc = 0;
-	u16 temp = 0;
-	u8 buf[2];
-
-	rc = fg_read(chip, BATT_INFO_ESR_LSB(chip), buf, 2);
-	if (rc < 0) {
-		pr_err("failed to read addr=0x%04x, rc=%d\n",
-			BATT_INFO_ESR_LSB(chip), rc);
-		return rc;
-	}
-
-	if (chip->wa_flags & PMI8998_V1_REV_WA)
-		temp = ((buf[0] & ESR_MSB_MASK) << 8) |
-			(buf[1] & ESR_LSB_MASK);
-	else
-		temp = ((buf[1] & ESR_MSB_MASK) << 8) |
-			(buf[0] & ESR_LSB_MASK);
-
-	pr_debug("buf: %x %x temp: %x\n", buf[0], buf[1], temp);
-	*val = div_u64((u64)temp * BATT_ESR_NUMR, BATT_ESR_DENR);
-	return 0;
-}
-
 static int fg_get_battery_resistance(struct fg_chip *chip, int *val)
 {
 	int rc, esr_uohms, rslow_uohms;
 
-	rc = fg_get_battery_esr(chip, &esr_uohms);
+	rc = fg_get_sram_prop(chip, FG_SRAM_ESR, &esr_uohms);
 	if (rc < 0) {
 		pr_err("failed to get ESR, rc=%d\n", rc);
 		return rc;
@@ -1631,7 +1610,7 @@ static int fg_rconn_config(struct fg_chip *chip)
 		return 0;
 	}
 
-	rc = fg_get_battery_esr(chip, &esr_uohms);
+	rc = fg_get_sram_prop(chip, FG_SRAM_ESR, &esr_uohms);
 	if (rc < 0) {
 		pr_err("failed to get ESR, rc=%d\n", rc);
 		return rc;
@@ -2744,6 +2723,39 @@ out:
 	return rc;
 }
 
+static int fg_esr_validate(struct fg_chip *chip)
+{
+	int rc, esr_uohms;
+	u8 buf[2];
+
+	if (chip->dt.esr_clamp_mohms <= 0)
+		return 0;
+
+	rc = fg_get_sram_prop(chip, FG_SRAM_ESR, &esr_uohms);
+	if (rc < 0) {
+		pr_err("failed to get ESR, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (esr_uohms >= chip->dt.esr_clamp_mohms * 1000) {
+		pr_debug("ESR %d is > ESR_clamp\n", esr_uohms);
+		return 0;
+	}
+
+	esr_uohms = chip->dt.esr_clamp_mohms * 1000;
+	fg_encode(chip->sp, FG_SRAM_ESR, esr_uohms, buf);
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR].addr_word,
+			chip->sp[FG_SRAM_ESR].addr_byte, buf,
+			chip->sp[FG_SRAM_ESR].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ESR, rc=%d\n", rc);
+		return rc;
+	}
+
+	fg_dbg(chip, FG_STATUS, "ESR clamped to %duOhms\n", esr_uohms);
+	return 0;
+}
+
 /* PSY CALLBACKS STAY HERE */
 
 static int fg_psy_get_property(struct power_supply *psy,
@@ -3371,6 +3383,10 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	if (rc < 0)
 		pr_err("Error in updating maint_soc, rc=%d\n", rc);
 
+	rc = fg_esr_validate(chip);
+	if (rc < 0)
+		pr_err("Error in validating ESR, rc=%d\n", rc);
+
 	if (batt_psy_initialized(chip))
 		power_supply_changed(chip->batt_psy);
 
@@ -3659,6 +3675,7 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 #define DEFAULT_ESR_BROAD_FLT_UPCT	99610
 #define DEFAULT_ESR_TIGHT_LT_FLT_UPCT	48829
 #define DEFAULT_ESR_BROAD_LT_FLT_UPCT	148438
+#define DEFAULT_ESR_CLAMP_MOHMS		20
 static int fg_parse_dt(struct fg_chip *chip)
 {
 	struct device_node *child, *revid_node, *node = chip->dev->of_node;
@@ -3971,6 +3988,12 @@ static int fg_parse_dt(struct fg_chip *chip)
 	rc = fg_parse_slope_limit_coefficients(chip);
 	if (rc < 0)
 		pr_err("Error in parsing slope limit coeffs, rc=%d\n", rc);
+
+	rc = of_property_read_u32(node, "qcom,fg-esr-clamp-mohms", &temp);
+	if (rc < 0)
+		chip->dt.esr_clamp_mohms = DEFAULT_ESR_CLAMP_MOHMS;
+	else
+		chip->dt.esr_clamp_mohms = temp;
 
 	return 0;
 }
