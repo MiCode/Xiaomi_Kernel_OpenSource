@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,6 +92,7 @@ enum qmi_result_type_v01 {
 	QMI_RESULT_TYPE_MIN_ENUM_VAL_V01 = INT_MIN,
 	QMI_RESULT_SUCCESS_V01 = 0,
 	QMI_RESULT_FAILURE_V01 = 1,
+	QMI_ERR_DISABLED_V01 = 0x45,
 	QMI_RESULT_TYPE_MAX_ENUM_VAL_V01 = INT_MAX,
 };
 
