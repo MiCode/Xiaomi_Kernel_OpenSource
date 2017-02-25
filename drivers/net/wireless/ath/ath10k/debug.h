@@ -59,6 +59,7 @@ enum ath10k_dbg_aggr_mode {
 
 /* FIXME: How to calculate the buffer size sanely? */
 #define ATH10K_FW_STATS_BUF_SIZE (1024 * 1024)
+#define ATH10K_DATAPATH_BUF_SIZE (1024 * 1024)
 
 extern unsigned int ath10k_debug_mask;
 
@@ -95,6 +96,8 @@ int ath10k_debug_get_et_sset_count(struct ieee80211_hw *hw,
 void ath10k_debug_get_et_stats(struct ieee80211_hw *hw,
 			       struct ieee80211_vif *vif,
 			       struct ethtool_stats *stats, u64 *data);
+void fill_datapath_stats(struct ath10k *ar, struct ieee80211_rx_status *status);
+size_t get_datapath_stat(char *buf, struct ath10k *ar);
 #else
 static inline int ath10k_debug_start(struct ath10k *ar)
 {
@@ -143,6 +146,16 @@ static inline struct ath10k_fw_crash_data *
 ath10k_debug_get_new_fw_crash_data(struct ath10k *ar)
 {
 	return NULL;
+}
+
+static inline void fill_datapath_stats(struct ath10k *ar,
+				       struct ieee80211_rx_status *status)
+{
+}
+
+static inline size_t get_datapath_stat(char *buf, struct ath10k *ar)
+{
+	return 0;
 }
 
 #define ATH10K_DFS_STAT_INC(ar, c) do { } while (0)
