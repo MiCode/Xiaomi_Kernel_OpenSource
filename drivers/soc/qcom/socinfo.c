@@ -563,12 +563,12 @@ static struct msm_soc_info cpu_of_id[] = {
 	[298] = {MSM_CPU_9607, "MDM9307"},
 	[299] = {MSM_CPU_9607, "MDM9628"},
 
-	/* Californium IDs */
-	[279] = {MSM_CPU_CALIFORNIUM, "MDMCALIFORNIUM"},
-	[283] = {MSM_CPU_CALIFORNIUM, "MDMCALIFORNIUM"},
-	[284] = {MSM_CPU_CALIFORNIUM, "MDMCALIFORNIUM"},
-	[285] = {MSM_CPU_CALIFORNIUM, "MDMCALIFORNIUM"},
-	[286] = {MSM_CPU_CALIFORNIUM, "MDMCALIFORNIUM"},
+	/* 9650 IDs */
+	[279] = {MSM_CPU_9650, "MDM9650"},
+	[283] = {MSM_CPU_9650, "MDM9650"},
+	[284] = {MSM_CPU_9650, "MDM9650"},
+	[285] = {MSM_CPU_9650, "MDM9650"},
+	[286] = {MSM_CPU_9650, "MDM9650"},
 
 	/* Hedgehog IDs */
 	[314] = {SDX_CPU_HEDGEHOG, "SDXHEDGEHOG"},
@@ -1227,9 +1227,9 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 238;
 		strlcpy(dummy_socinfo.build_id, "mdm9640 - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_mdmcalifornium()) {
+	} else if (early_machine_is_mdm9650()) {
 		dummy_socinfo.id = 286;
-		strlcpy(dummy_socinfo.build_id, "mdmcalifornium - ",
+		strlcpy(dummy_socinfo.build_id, "mdm9650 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sdxhedgehog()) {
 		dummy_socinfo.id = 314;

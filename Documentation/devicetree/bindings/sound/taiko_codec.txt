@@ -575,15 +575,15 @@ i2c_3: i2c@78B7000 { /* BLSP1 QUP3 */
 		qcom,cdc-buck-sido-voltage = <1800000 1800000>;
 		qcom,cdc-buck-sido-current = <200000>;
 
-		cdc-vdd-tx-h-supply = <&pmdcalifornium_l6>;
+		cdc-vdd-tx-h-supply = <&pmd9650_l6>;
 		qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-tx-h-current = <25000>;
 
-		cdc-vdd-rx-h-supply = <&pmdcalifornium_l6>;
+		cdc-vdd-rx-h-supply = <&pmd9650_l6>;
 		qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-rx-h-current = <25000>;
 
-		cdc-vddpx-1-supply = <&pmdcalifornium_l6>;
+		cdc-vddpx-1-supply = <&pmd9650_l6>;
 		qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
 		qcom,cdc-vddpx-1-current = <10000>;
 
@@ -610,12 +610,12 @@ i2c_3: i2c@78B7000 { /* BLSP1 QUP3 */
 				reg = <0x00 0x20170212>;
 				qcom,spkr-sd-n-gpio = <&tlmm_pinmux 80 0>;
 
-				cdc-vdd-d-supply = <&pmdcalifornium_l6>;
+				cdc-vdd-d-supply = <&pmd9650_l6>;
 				qcom,cdc-vdd-d-voltage = <1800000
 							  1800000>;
 				qcom,cdc-vdd-d-current = <2000>;
 
-				cdc-vdd-a-supply = <&pmdcalifornium_l6>;
+				cdc-vdd-a-supply = <&pmd9650_l6>;
 				qcom,cdc-vdd-a-voltage = <1800000
 							  1800000>;
 				qcom,cdc-vdd-a-current = <2000>;

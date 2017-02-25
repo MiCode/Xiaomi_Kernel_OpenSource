@@ -1,0 +1,61 @@
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "mdm9650-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MDM9650 MTP - DWIFI(NAND)";
+	compatible = "qcom,mdm9650-mtp", "qcom,mdm9650",
+		     "qcom,mtp";
+	qcom,board-id = <8 3>, <8 0x103>;
+};
+
+&cnss_pcie {
+	qcom,is-dual-wifi-enabled;
+};
+
+&cnss_sdio {
+	status = "ok";
+};
+
+&sdhc_1 {
+	vdd-supply = <&sdc_vreg>;
+	vdd-io-supply = <&pmd9650_l7>;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-current-level = <200 10000>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
+							200000000>;
+	qcom,bus-width = <4>;
+	qcom,core_3_0v_support;
+	qcom,nonremovable;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on
+				&sdc1_wlan_gpio_active>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off
+				&sdc1_wlan_gpio_sleep>;
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_1>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 123 0
+			1 &intc 0 138 0
+			2 &tlmm_pinmux 93 0x4>;
+	interrupt-names = "hc_irq", "pwr_irq", "sdiowakeup_irq";
+
+	status = "ok";
+};
