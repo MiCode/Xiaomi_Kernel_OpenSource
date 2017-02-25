@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,6 +93,46 @@ int ipa_disable_data_path(u32 clnt_hdl)
 	}
 
 	return res;
+}
+
+int ipa2_enable_force_clear(u32 request_id, bool throttle_source,
+	u32 source_pipe_bitmask)
+{
+	struct ipa_enable_force_clear_datapath_req_msg_v01 req;
+	int result;
+
+	memset(&req, 0, sizeof(req));
+	req.request_id = request_id;
+	req.source_pipe_bitmask = source_pipe_bitmask;
+	if (throttle_source) {
+		req.throttle_source_valid = 1;
+		req.throttle_source = 1;
+	}
+	result = qmi_enable_force_clear_datapath_send(&req);
+	if (result) {
+		IPAERR("qmi_enable_force_clear_datapath_send failed %d\n",
+			result);
+		return result;
+	}
+
+	return 0;
+}
+
+int ipa2_disable_force_clear(u32 request_id)
+{
+	struct ipa_disable_force_clear_datapath_req_msg_v01 req;
+	int result;
+
+	memset(&req, 0, sizeof(req));
+	req.request_id = request_id;
+	result = qmi_disable_force_clear_datapath_send(&req);
+	if (result) {
+		IPAERR("qmi_disable_force_clear_datapath_send failed %d\n",
+			result);
+		return result;
+	}
+
+	return 0;
 }
 
 static int ipa2_smmu_map_peer_bam(unsigned long dev)

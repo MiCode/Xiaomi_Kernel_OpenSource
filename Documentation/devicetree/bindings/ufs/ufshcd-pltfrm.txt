@@ -141,6 +141,9 @@ enabled and functional in the driver:
 - qcom,pm-qos-default-cpu:		PM QoS voting is based on the cpu associated with each IO request by the block layer.
 					This defined the default cpu used for PM QoS voting in case a specific cpu value is not available.
 
+- qcom,vddp-ref-clk-supply	 : reference clock to ufs device. Controlled by the host driver.
+- qcom,vddp-ref-clk-max-microamp : specifies max. load that can be drawn for
+				   ref-clk supply.
 Example:
 	ufshc@0xfc598000 {
 		...
