@@ -15,7 +15,7 @@
 
 #include "msm8998-v2.dtsi"
 #include "msm8998-qrd-skuk.dtsi"
-#include "msm8998-camera-sensor-skuk.dtsi"
+#include "msm8998-camera-sensor-skuk-hdk.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8998 SKUK HDK";
