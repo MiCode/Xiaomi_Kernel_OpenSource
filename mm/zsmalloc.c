@@ -48,7 +48,7 @@
 #include <linux/zsmalloc.h>
 #include <linux/zpool.h>
 #include <linux/mount.h>
-#include <linux/compaction.h>
+#include <linux/migrate.h>
 #include <linux/pagemap.h>
 
 #define ZSPAGE_MAGIC	0x58
@@ -2101,7 +2101,7 @@ int zs_page_migrate(struct address_space *mapping, struct page *newpage,
 	put_page(page);
 	page = newpage;
 
-	ret = 0;
+	ret = MIGRATEPAGE_SUCCESS;
 unpin_objects:
 	for (addr = s_addr + offset; addr < s_addr + pos;
 						addr += class->size) {
