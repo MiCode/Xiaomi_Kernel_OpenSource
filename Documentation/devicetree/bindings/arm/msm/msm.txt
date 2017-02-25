@@ -110,8 +110,8 @@ SoCs:
 - MDM9650
   compatible = "qcom,mdm9650"
 
-- SDXHEDGEHOG
-  compatible = "qcom,sdxhedgehog"
+- SDX20
+  compatible = "qcom,sdx20"
 
 - VPIPA
   compatible = "qcom,msmvpipa"
@@ -311,7 +311,7 @@ compatible = "qcom,mdm9650-rumi"
 compatible = "qcom,mdm9650-sim"
 compatible = "qcom,mdm9650-cdp"
 compatible = "qcom,mdm9650-mtp"
-compatible = "qcom,sdxhedgehog-mtp"
-compatible = "qcom,sdxhedgehog-cdp"
+compatible = "qcom,sdx20-mtp"
+compatible = "qcom,sdx20-cdp"
 compatible = "qcom,apq8009-cdp"
 compatible = "qcom,apq8009-mtp"

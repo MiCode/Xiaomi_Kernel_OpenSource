@@ -10,7 +10,7 @@ Required properties:
 		"qcom,clock-a53-8916", "qcom,clock-a7-vpipa",
 		"qcom,clock-a7-9640", "qcom,clock-a7-9650",
 		"qcom,clock-a7-9640", "qcom,clock-a7-mdm9607",
-		"qcom,clock-a7-sdxhedgehog"
+		"qcom,clock-a7-sdx20"
 - reg: pairs of physical address and region size
 - reg-names: "rcg-base" is expected
 - clock-names: list of names of clock inputs

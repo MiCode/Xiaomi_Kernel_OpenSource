@@ -164,12 +164,12 @@ dtb-$(CONFIG_ARCH_MDM9650) += mdm9650-sim.dtb \
 	mdm9650-v1.1-nand-dualwifi-mtp.dtb \
 	mdm9650-v1.1-nand-ccard.dtb
 
-dtb-$(CONFIG_ARCH_SDXHEDGEHOG) += sdxhedgehog-emmc-cdp.dtb \
-	sdxhedgehog-emmc-mtp.dtb \
-	sdxhedgehog-nand-cdp.dtb \
-	sdxhedgehog-nand-mtp.dtb \
-	sdxhedgehog-nand-dualwifi-mtp.dtb \
-	sdxhedgehog-nand-dualwifi-cdp.dtb
+dtb-$(CONFIG_ARCH_SDX20) += sdx20-emmc-cdp.dtb \
+	sdx20-emmc-mtp.dtb \
+	sdx20-nand-cdp.dtb \
+	sdx20-nand-mtp.dtb \
+	sdx20-nand-dualwifi-mtp.dtb \
+	sdx20-nand-dualwifi-cdp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	msm8937-pmi8950-cdp.dtb \

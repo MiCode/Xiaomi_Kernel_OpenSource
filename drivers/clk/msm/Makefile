@@ -25,7 +25,7 @@ obj-$(CONFIG_ARCH_MSMCOBALT)	+= clock-mmss-cobalt.o
 
 # MDM9650
 obj-$(CONFIG_ARCH_MDM9650)	+= clock-gcc-9650.o
-obj-$(CONFIG_ARCH_SDXHEDGEHOG)	+= clock-gcc-9650.o
+obj-$(CONFIG_ARCH_SDX20)	+= clock-gcc-9650.o
 
 # MDM9607
 obj-$(CONFIG_ARCH_MDM9607)	+=clock-gcc-mdm9607.o
@@ -37,7 +37,7 @@ obj-$(CONFIG_ARCH_MSM8909)	+= clock-gcc-8909.o
 # ACPU clock
 obj-$(CONFIG_ARCH_MDM9640)      += clock-a7.o
 obj-$(CONFIG_ARCH_MDM9650)	+= clock-a7.o
-obj-$(CONFIG_ARCH_SDXHEDGEHOG)	+= clock-a7.o
+obj-$(CONFIG_ARCH_SDX20)	+= clock-a7.o
 obj-$(CONFIG_ARCH_MDM9607)	+= clock-a7.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-a7.o
 obj-$(CONFIG_ARCH_MSM8909)	+= clock-a7.o
