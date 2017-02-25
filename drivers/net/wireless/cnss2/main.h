@@ -105,7 +105,9 @@ enum cnss_driver_state {
 	CNSS_FW_MEM_READY,
 	CNSS_FW_READY,
 	CNSS_COLD_BOOT_CAL_DONE,
+	CNSS_DRIVER_LOAD_UNLOAD,
 	CNSS_DRIVER_PROBED,
+	CNSS_DRIVER_RECOVERY,
 };
 
 struct cnss_recovery_work_t {
