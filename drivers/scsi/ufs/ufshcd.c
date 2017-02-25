@@ -4332,13 +4332,9 @@ int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 	ret = ufshcd_uic_pwr_ctrl(hba, &uic_cmd);
 	trace_ufshcd_profile_hibern8(dev_name(hba->dev), "exit",
 			     ktime_to_us(ktime_sub(ktime_get(), start)), ret);
-	/*
-	 * Do full reinit if exit failed or if LINERESET was detected during
-	 * Hibern8 operation. After LINERESET, link moves to default PWM-G1
-	 * mode hence full reinit is required to move link to HS speeds.
-	 */
-	if (ret || hba->full_init_linereset) {
-		hba->full_init_linereset = false;
+
+	/* Do full reinit if exit failed */
+	if (ret) {
 		ufshcd_update_error_stats(hba, UFS_ERR_HIBERN8_EXIT);
 		dev_err(hba->dev, "%s: hibern8 exit failed. ret = %d",
 			__func__, ret);
@@ -6083,14 +6079,16 @@ static irqreturn_t ufshcd_update_uic_error(struct ufs_hba *hba)
 				__func__, reg);
 		ufshcd_update_uic_reg_hist(&hba->ufs_stats.pa_err, reg);
 
-		/* Don't ignore LINERESET indication during hibern8 operation */
+		/*
+		 * Don't ignore LINERESET indication during hibern8
+		 * enter operation.
+		 */
 		if (reg & UIC_PHY_ADAPTER_LAYER_GENERIC_ERROR) {
 			struct uic_command *cmd = hba->active_uic_cmd;
 
 			if (cmd) {
-				if ((cmd->command == UIC_CMD_DME_HIBER_ENTER)
-				 || (cmd->command == UIC_CMD_DME_HIBER_EXIT)) {
-					dev_err(hba->dev, "%s: LINERESET during hibern8, reg 0x%x\n",
+				if (cmd->command == UIC_CMD_DME_HIBER_ENTER) {
+					dev_err(hba->dev, "%s: LINERESET during hibern8 enter, reg 0x%x\n",
 						__func__, reg);
 					hba->full_init_linereset = true;
 				}
@@ -7292,13 +7290,6 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		if (ufshcd_scsi_add_wlus(hba))
 			goto out;
 
-		/* Enable auto hibern8 if supported, after full host and
-		 * device initialization.
-		 */
-		if (ufshcd_is_auto_hibern8_supported(hba))
-			ufshcd_set_auto_hibern8_timer(hba,
-					      hba->hibern8_on_idle.delay_ms);
-
 		/* Initialize devfreq after UFS device is detected */
 		if (ufshcd_is_clkscaling_supported(hba)) {
 			memcpy(&hba->clk_scaling.saved_pwr_info.info,
@@ -7327,6 +7318,13 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	if (!hba->is_init_prefetch)
 		hba->is_init_prefetch = true;
 
+	/*
+	 * Enable auto hibern8 if supported, after full host and
+	 * device initialization.
+	 */
+	if (ufshcd_is_auto_hibern8_supported(hba))
+		ufshcd_set_auto_hibern8_timer(hba,
+				      hba->hibern8_on_idle.delay_ms);
 out:
 	/*
 	 * If we failed to initialize the device or the device is not
@@ -8605,9 +8603,13 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			goto vendor_suspend;
 		}
 	} else if (ufshcd_is_link_off(hba)) {
-		ret = ufshcd_host_reset_and_restore(hba);
 		/*
-		 * ufshcd_host_reset_and_restore() should have already
+		 * A full initialization of the host and the device is required
+		 * since the link was put to off during suspend.
+		 */
+		ret = ufshcd_reset_and_restore(hba);
+		/*
+		 * ufshcd_reset_and_restore() should have already
 		 * set the link state as active
 		 */
 		if (ret || !ufshcd_is_link_active(hba))

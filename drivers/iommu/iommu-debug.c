@@ -839,7 +839,7 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 	if (!virt)
 		goto out;
 
-	mapping = arm_iommu_create_mapping(&platform_bus_type, 0, SZ_1G * 4UL);
+	mapping = arm_iommu_create_mapping(&platform_bus_type, 0, SZ_1G * 4ULL);
 	if (!mapping) {
 		seq_puts(s, "fast_smmu_create_mapping failed\n");
 		goto out_kfree;
@@ -939,8 +939,8 @@ static const struct file_operations iommu_debug_profiling_fast_dma_api_fops = {
 static int __tlb_stress_sweep(struct device *dev, struct seq_file *s)
 {
 	int i, ret = 0;
-	unsigned long iova;
-	const unsigned long max = SZ_1G * 4UL;
+	u64 iova;
+	const u64  max = SZ_1G * 4ULL - 1;
 	void *virt;
 	phys_addr_t phys;
 	dma_addr_t dma_addr;
@@ -1012,8 +1012,8 @@ static int __tlb_stress_sweep(struct device *dev, struct seq_file *s)
 	}
 
 	/* we're all full again. unmap everything. */
-	for (dma_addr = 0; dma_addr < max; dma_addr += SZ_8K)
-		dma_unmap_single(dev, dma_addr, SZ_8K, DMA_TO_DEVICE);
+	for (iova = 0; iova < max; iova += SZ_8K)
+		dma_unmap_single(dev, (dma_addr_t)iova, SZ_8K, DMA_TO_DEVICE);
 
 out:
 	free_pages((unsigned long)virt, get_order(SZ_8K));
@@ -1046,7 +1046,7 @@ static int __rand_va_sweep(struct device *dev, struct seq_file *s,
 			   const size_t size)
 {
 	u64 iova;
-	const unsigned long max = SZ_1G * 4UL;
+	const u64 max = SZ_1G * 4ULL - 1;
 	int i, remapped, unmapped, ret = 0;
 	void *virt;
 	dma_addr_t dma_addr, dma_addr2;
@@ -1078,9 +1078,9 @@ static int __rand_va_sweep(struct device *dev, struct seq_file *s,
 	fib_init(&fib);
 	for (iova = get_next_fib(&fib) * size;
 	     iova < max - size;
-	     iova = get_next_fib(&fib) * size) {
-		dma_addr = iova;
-		dma_addr2 = max - size - iova;
+	     iova = (u64)get_next_fib(&fib) * size) {
+		dma_addr = (dma_addr_t)(iova);
+		dma_addr2 = (dma_addr_t)((max + 1) - size - iova);
 		if (dma_addr == dma_addr2) {
 			WARN(1,
 			"%s test needs update! The random number sequence is folding in on itself and should be changed.\n",
@@ -1106,8 +1106,8 @@ static int __rand_va_sweep(struct device *dev, struct seq_file *s,
 		ret = -EINVAL;
 	}
 
-	for (dma_addr = 0; dma_addr < max; dma_addr += size)
-		dma_unmap_single(dev, dma_addr, size, DMA_TO_DEVICE);
+	for (iova = 0; iova < max; iova += size)
+		dma_unmap_single(dev, (dma_addr_t)iova, size, DMA_TO_DEVICE);
 
 out:
 	free_pages((unsigned long)virt, get_order(size));
@@ -1135,10 +1135,11 @@ static int __check_mapping(struct device *dev, struct iommu_domain *domain,
 static int __full_va_sweep(struct device *dev, struct seq_file *s,
 			   const size_t size, struct iommu_domain *domain)
 {
-	unsigned long iova;
+	u64 iova;
 	dma_addr_t dma_addr;
 	void *virt;
 	phys_addr_t phys;
+	const u64 max = SZ_1G * 4ULL - 1;
 	int ret = 0, i;
 
 	virt = (void *)__get_free_pages(GFP_KERNEL, get_order(size));
@@ -1153,7 +1154,7 @@ static int __full_va_sweep(struct device *dev, struct seq_file *s,
 	}
 	phys = virt_to_phys(virt);
 
-	for (iova = 0, i = 0; iova < SZ_1G * 4UL; iova += size, ++i) {
+	for (iova = 0, i = 0; iova < max; iova += size, ++i) {
 		unsigned long expected = iova;
 
 		dma_addr = dma_map_single(dev, virt, size, DMA_TO_DEVICE);
@@ -1201,8 +1202,8 @@ static int __full_va_sweep(struct device *dev, struct seq_file *s,
 	}
 
 out:
-	for (dma_addr = 0; dma_addr < SZ_1G * 4UL; dma_addr += size)
-		dma_unmap_single(dev, dma_addr, size, DMA_TO_DEVICE);
+	for (iova = 0; iova < max; iova += size)
+		dma_unmap_single(dev, (dma_addr_t)iova, size, DMA_TO_DEVICE);
 
 	free_pages((unsigned long)virt, get_order(size));
 	return ret;
@@ -1391,7 +1392,8 @@ static int __apply_to_new_mapping(struct seq_file *s,
 	int ret = -EINVAL, fast = 1;
 	phys_addr_t pt_phys;
 
-	mapping = arm_iommu_create_mapping(&platform_bus_type, 0, SZ_1G * 4UL);
+	mapping = arm_iommu_create_mapping(&platform_bus_type, 0,
+						(SZ_1G * 4ULL));
 	if (!mapping)
 		goto out;
 
@@ -1460,7 +1462,9 @@ static int iommu_debug_functional_arm_dma_api_show(struct seq_file *s,
 	size_t sizes[] = {SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12, 0};
 	int ret = -EINVAL;
 
-	mapping = arm_iommu_create_mapping(&platform_bus_type, 0, SZ_1G * 4UL);
+	/* Make the size equal to MAX_ULONG */
+	mapping = arm_iommu_create_mapping(&platform_bus_type, 0,
+						(SZ_1G * 4ULL - 1));
 	if (!mapping)
 		goto out;
 

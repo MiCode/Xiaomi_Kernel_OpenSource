@@ -44,3 +44,11 @@ choice
 			TSPP hardware support. All  demux tasks will be
 			performed in SW.
 endchoice
+
+config DVB_MPQ_MEDIA_BOX_DEMUX
+	bool "Media box demux support"
+	depends on DVB_MPQ_DEMUX
+
+	help
+		Use this option if your HW is Qualcomm media box and demux
+		support is required on that media box.

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -834,8 +834,10 @@ static int cpp_init_mem(struct cpp_device *cpp_dev)
 	else
 		rc = cam_smmu_get_handle("cpp", &iommu_hdl);
 
-	if (rc < 0)
+	if (rc < 0) {
+		pr_err("smmu get handle failed\n");
 		return -ENODEV;
+	}
 
 	cpp_dev->iommu_hdl = iommu_hdl;
 	cam_smmu_reg_client_page_fault_handler(
@@ -1466,10 +1468,16 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		msm_cpp_clear_timer(cpp_dev);
 		cpp_release_hardware(cpp_dev);
 		if (cpp_dev->iommu_state == CPP_IOMMU_STATE_ATTACHED) {
-			cpp_dev->iommu_state = CPP_IOMMU_STATE_DETACHED;
-			rc = cam_smmu_ops(cpp_dev->iommu_hdl, CAM_SMMU_DETACH);
+			if (cpp_dev->security_mode == SECURE_MODE)
+				rc = cam_smmu_ops(cpp_dev->iommu_hdl,
+					CAM_SMMU_DETACH_SEC_CPP);
+			else
+				rc = cam_smmu_ops(cpp_dev->iommu_hdl,
+					CAM_SMMU_DETACH);
+
 			if (rc < 0)
 				pr_err("Error: Detach fail in release\n");
+			cpp_dev->iommu_state = CPP_IOMMU_STATE_DETACHED;
 		}
 		cam_smmu_destroy_handle(cpp_dev->iommu_hdl);
 		msm_cpp_empty_list(processing_q, list_frame);
@@ -1770,6 +1778,17 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		goto end;
 	}
 
+	for (i = 0; i < queue_len; i++) {
+		processed_frame[i] = cpp_timer.data.processed_frame[i];
+		if (!processed_frame[i]) {
+			pr_warn("process frame null , queue len %d", queue_len);
+			msm_cpp_flush_queue_and_release_buffer(cpp_dev,
+				queue_len);
+			msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
+			goto end;
+		}
+	}
+
 	atomic_set(&cpp_timer.used, 1);
 	pr_warn("Starting timer to fire in %d ms. (jiffies=%lu)\n",
 		CPP_CMD_TIMEOUT_MS, jiffies);
@@ -1777,9 +1796,6 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		jiffies + msecs_to_jiffies(CPP_CMD_TIMEOUT_MS));
 
 	msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
-
-	for (i = 0; i < MAX_CPP_PROCESSING_FRAME; i++)
-		processed_frame[i] = cpp_timer.data.processed_frame[i];
 
 	for (i = 0; i < queue_len; i++) {
 		pr_warn("Rescheduling for identity=0x%x, frame_id=%03d\n",
@@ -3442,6 +3458,7 @@ STREAM_BUFF_END:
 			rc = msm_cpp_copy_from_ioctl_ptr(&cpp_attach_info,
 				ioctl_ptr);
 			if (rc < 0) {
+				pr_err("CPP_IOMMU_ATTACH copy from user fail");
 				ERR_COPY_FROM_USER();
 				return -EINVAL;
 			}
@@ -3479,6 +3496,7 @@ STREAM_BUFF_END:
 			rc = msm_cpp_copy_from_ioctl_ptr(&cpp_attach_info,
 				ioctl_ptr);
 			if (rc < 0) {
+				pr_err("CPP_IOMMU_DETTACH copy from user fail");
 				ERR_COPY_FROM_USER();
 				return -EINVAL;
 			}

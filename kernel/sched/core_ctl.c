@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,7 +36,7 @@ struct cluster_data {
 	cpumask_t cpu_mask;
 	unsigned int need_cpus;
 	unsigned int task_thres;
-	s64 last_isolate_ts;
+	s64 need_ts;
 	struct list_head lru;
 	bool pending;
 	spinlock_t pending_lock;
@@ -549,6 +549,7 @@ static bool eval_need(struct cluster_data *cluster)
 	bool need_flag = false;
 	unsigned int active_cpus;
 	unsigned int new_need;
+	s64 now;
 
 	if (unlikely(!cluster->inited))
 		return 0;
@@ -573,9 +574,10 @@ static bool eval_need(struct cluster_data *cluster)
 	need_flag = adjustment_possible(cluster, new_need);
 
 	last_need = cluster->need_cpus;
-	cluster->need_cpus = new_need;
+	now = ktime_to_ms(ktime_get());
 
-	if (!need_flag) {
+	if (new_need == last_need) {
+		cluster->need_ts = now;
 		spin_unlock_irqrestore(&state_lock, flags);
 		return 0;
 	}
@@ -583,12 +585,15 @@ static bool eval_need(struct cluster_data *cluster)
 	if (need_cpus > cluster->active_cpus) {
 		ret = 1;
 	} else if (need_cpus < cluster->active_cpus) {
-		s64 now = ktime_to_ms(ktime_get());
-		s64 elapsed = now - cluster->last_isolate_ts;
+		s64 elapsed = now - cluster->need_ts;
 
 		ret = elapsed >= cluster->offline_delay_ms;
 	}
 
+	if (ret) {
+		cluster->need_ts = now;
+		cluster->need_cpus = new_need;
+	}
 	trace_core_ctl_eval_need(cluster->first_cpu, last_need, need_cpus,
 				 ret && need_flag);
 	spin_unlock_irqrestore(&state_lock, flags);
@@ -746,7 +751,6 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 		if (!sched_isolate_cpu(c->cpu)) {
 			c->isolated_by_us = true;
 			move_cpu_lru(c);
-			cluster->last_isolate_ts = ktime_to_ms(ktime_get());
 		} else {
 			pr_debug("Unable to isolate CPU%u\n", c->cpu);
 		}
@@ -779,7 +783,6 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 		if (!sched_isolate_cpu(c->cpu)) {
 			c->isolated_by_us = true;
 			move_cpu_lru(c);
-			cluster->last_isolate_ts = ktime_to_ms(ktime_get());
 		} else {
 			pr_debug("Unable to isolate CPU%u\n", c->cpu);
 		}

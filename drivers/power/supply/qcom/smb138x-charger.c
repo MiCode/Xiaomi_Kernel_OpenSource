@@ -155,7 +155,7 @@ static int smb138x_parse_dt(struct smb138x *chip)
 
 	rc = of_property_read_u32(node,
 				"qcom,connector-temp-max-mdegc",
-				&chip->dt.chg_temp_max_mdegc);
+				&chip->dt.connector_temp_max_mdegc);
 	if (rc < 0)
 		chip->dt.connector_temp_max_mdegc = 105000;
 
@@ -827,8 +827,6 @@ static int smb138x_init_hw(struct smb138x *chip)
 	int rc = 0;
 
 	/* votes must be cast before configuring software control */
-	vote(chg->usb_suspend_votable,
-		DEFAULT_VOTER, chip->dt.suspend_input, 0);
 	vote(chg->dc_suspend_votable,
 		DEFAULT_VOTER, chip->dt.suspend_input, 0);
 	vote(chg->fcc_votable,

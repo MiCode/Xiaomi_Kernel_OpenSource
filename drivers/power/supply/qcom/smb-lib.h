@@ -54,7 +54,7 @@ enum print_reason {
 #define MICRO_USB_VOTER			"MICRO_USB_VOTER"
 #define DEBUG_BOARD_VOTER		"DEBUG_BOARD_VOTER"
 #define PD_SUSPEND_SUPPORTED_VOTER	"PD_SUSPEND_SUPPORTED_VOTER"
-#define PL_DISABLE_HVDCP_VOTER		"PL_DISABLE_HVDCP_VOTER"
+#define PL_DELAY_HVDCP_VOTER		"PL_DELAY_HVDCP_VOTER"
 #define CTM_VOTER			"CTM_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
@@ -77,6 +77,7 @@ enum {
 	QC_CHARGER_DETECTION_WA_BIT	= BIT(0),
 	BOOST_BACK_WA			= BIT(1),
 	TYPEC_CC2_REMOVAL_WA_BIT	= BIT(2),
+	QC_AUTH_INTERRUPT_WA_BIT	= BIT(3),
 };
 
 enum smb_irq_index {
@@ -252,7 +253,6 @@ struct smb_charger {
 	struct regulator	*dpdm_reg;
 
 	/* votables */
-	struct votable		*usb_suspend_votable;
 	struct votable		*dc_suspend_votable;
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;

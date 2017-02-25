@@ -45,6 +45,7 @@
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <1 2 2 2>;
+		qcom,mdss-vbif-qos-nrt-setting = <1 1 1 1>;
 		qcom,vbif-settings = <0x00ac 0x00000040>,
 				     <0x00d0 0x00001010>; /* v1 only */
 

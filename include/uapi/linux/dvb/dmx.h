@@ -148,6 +148,9 @@ enum dmx_video_codec {
 #define DMX_IDX_VC1_FRAME_END               0x02000000
 #define DMX_IDX_H264_ACCESS_UNIT_DEL        0x04000000
 #define DMX_IDX_H264_SEI                    0x08000000
+#define DMX_IDX_H264_IDR_ISLICE_START       0x10000000
+#define DMX_IDX_H264_NON_IDR_PSLICE_START   0x20000000
+#define DMX_IDX_H264_NON_IDR_BSLICE_START   0x40000000
 
 struct dmx_pes_filter_params
 {

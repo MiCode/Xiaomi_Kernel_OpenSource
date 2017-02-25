@@ -1981,22 +1981,34 @@ int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 	bool handoff)
 {
 	struct mdss_panel_data *pdata;
-	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+	struct mdss_mdp_ctl *sctl = NULL;
+	struct mdss_mdp_cmd_ctx *sctx = NULL;
 	struct dsi_panel_clk_ctrl clk_ctrl;
 	int ret = 0;
+
+	/* Get both controllers in the correct order for dual displays */
+	mdss_mdp_get_split_display_ctls(&ctl, &sctl);
+
+	if (sctl)
+		sctx = (struct mdss_mdp_cmd_ctx *) sctl->intf_ctx[MASTER_CTX];
+
+	/* In pingpong split we have single controller, dual context */
+	if (is_pingpong_split(ctl->mfd))
+		sctx = (struct mdss_mdp_cmd_ctx *) ctl->intf_ctx[SLAVE_CTX];
 
 	pdata = ctl->panel_data;
 
 	clk_ctrl.state = MDSS_DSI_CLK_OFF;
 	clk_ctrl.client = DSI_CLK_REQ_MDP_CLIENT;
-	if (sctl) {
+
+	if (sctx) { /* then slave */
 		u32 flags = CTL_INTF_EVENT_FLAG_SKIP_BROADCAST;
 
-		if (is_pingpong_split(sctl->mfd))
+		if (sctx->pingpong_split_slave)
 			flags |= CTL_INTF_EVENT_FLAG_SLAVE_INTF;
 
-		mdss_mdp_ctl_intf_event(sctl, MDSS_EVENT_PANEL_CLK_CTRL,
-			(void *)&clk_ctrl, flags);
+		mdss_mdp_ctl_intf_event(sctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
+					(void *)&clk_ctrl, flags);
 	}
 
 	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL,
@@ -2647,10 +2659,11 @@ static void mdss_mdp_cmd_wait4_autorefresh_done(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_cmd_ctx *ctx = ctl->intf_ctx[MASTER_CTX];
 	unsigned long flags;
 	unsigned long autorefresh_timeout;
+	u32 timeout_us = 20000;
 
 	line_out = mdss_mdp_pingpong_read(pp_base, MDSS_MDP_REG_PP_LINE_COUNT);
 
-	MDSS_XLOG(ctl->num, line_out, ctl->mixer_left->roi.h);
+	MDSS_XLOG(ctl->num, line_out, ctl->mixer_left->roi.h, 0x111);
 
 	reinit_completion(&ctx->autorefresh_done);
 
@@ -2709,6 +2722,26 @@ static void mdss_mdp_cmd_wait4_autorefresh_done(struct mdss_mdp_ctl *ctl)
 			"dsi1_ctrl", "dsi1_phy", "vbif", "vbif_nrt",
 			"dbg_bus", "vbif_dbg_bus", "panic");
 	}
+
+	/* once autorefresh is done, wait for write pointer */
+	line_out = mdss_mdp_pingpong_read(pp_base, MDSS_MDP_REG_PP_LINE_COUNT);
+	MDSS_XLOG(ctl->num, line_out, 0x222);
+
+	/* wait until the first line is out to make sure transfer is on-going */
+	rc = readl_poll_timeout(pp_base +
+		MDSS_MDP_REG_PP_LINE_COUNT, val,
+		(val & 0xffff) >= 1, 10, timeout_us);
+
+	if (rc) {
+		pr_err("timed out waiting for line out ctl:%d val:0x%x\n",
+			ctl->num, val);
+		MDSS_XLOG(0xbad5, val);
+		MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
+			"dsi1_ctrl", "dsi1_phy", "vbif", "vbif_nrt",
+			"dbg_bus", "vbif_dbg_bus", "panic");
+	}
+
+	MDSS_XLOG(val, 0x333);
 }
 
 /* caller needs to hold autorefresh_lock before calling this function */

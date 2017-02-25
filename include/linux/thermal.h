@@ -178,6 +178,7 @@ struct sensor_info {
 	struct work_struct work;
 	struct task_struct *sysfs_notify_thread;
 	struct completion sysfs_notify_complete;
+	bool deregister_active;
 };
 
 /**

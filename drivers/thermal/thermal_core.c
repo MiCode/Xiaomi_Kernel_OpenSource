@@ -4,7 +4,7 @@
  *  Copyright (C) 2008 Intel Corp
  *  Copyright (C) 2008 Zhang Rui <rui.zhang@intel.com>
  *  Copyright (C) 2008 Sujith Thomas <sujith.thomas@intel.com>
- *  Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  *  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -382,9 +382,11 @@ static __ref int sensor_sysfs_notify(void *data)
 	struct sensor_info *sensor = (struct sensor_info *)data;
 
 	while (!kthread_should_stop()) {
-		while (wait_for_completion_interruptible(
-		   &sensor->sysfs_notify_complete) != 0)
-			;
+		if (wait_for_completion_interruptible(
+			&sensor->sysfs_notify_complete) != 0)
+			continue;
+		if (sensor->deregister_active)
+			return ret;
 		reinit_completion(&sensor->sysfs_notify_complete);
 		sysfs_notify(&sensor->tz->device.kobj, NULL,
 					THERMAL_UEVENT_DATA);
@@ -580,6 +582,7 @@ int sensor_init(struct thermal_zone_device *tz)
 	sensor->threshold_max = INT_MAX;
 	sensor->max_idx = -1;
 	sensor->min_idx = -1;
+	sensor->deregister_active = false;
 	mutex_init(&sensor->lock);
 	INIT_LIST_HEAD_RCU(&sensor->sensor_list);
 	INIT_LIST_HEAD_RCU(&sensor->threshold_list);
@@ -2471,6 +2474,8 @@ void thermal_zone_device_unregister(struct thermal_zone_device *tz)
 
 	thermal_remove_hwmon_sysfs(tz);
 	flush_work(&tz->sensor.work);
+	tz->sensor.deregister_active = true;
+	complete(&tz->sensor.sysfs_notify_complete);
 	kthread_stop(tz->sensor.sysfs_notify_thread);
 	mutex_lock(&thermal_list_lock);
 	list_del_rcu(&tz->sensor.sensor_list);

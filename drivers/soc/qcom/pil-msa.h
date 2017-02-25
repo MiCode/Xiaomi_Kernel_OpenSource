@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@ struct modem_data {
 	struct clk *xo;
 	struct pil_desc desc;
 	struct device mba_mem_dev;
+	struct device *mba_mem_dev_fixed;
 	struct dma_attrs attrs_dma;
 };
 

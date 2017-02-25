@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,6 +75,14 @@ static int get_device_address(struct smem_client *smem_client,
 			goto mem_map_failed;
 		}
 
+		/* Check if the dmabuf size matches expected size */
+		if (buf->size < *buffer_size) {
+			rc = -EINVAL;
+			dprintk(VIDC_ERR,
+				"Size mismatch! Dmabuf size: %zu Expected Size: %lu",
+				buf->size, *buffer_size);
+			goto mem_buf_size_mismatch;
+		}
 		/* Prepare a dma buf for dma on the given device */
 		attach = dma_buf_attach(buf, cb->dev);
 		if (IS_ERR_OR_NULL(attach)) {
@@ -143,6 +151,7 @@ mem_map_sg_failed:
 	dma_buf_unmap_attachment(attach, table, DMA_BIDIRECTIONAL);
 mem_map_table_failed:
 	dma_buf_detach(buf, attach);
+mem_buf_size_mismatch:
 mem_buf_attach_failed:
 	dma_buf_put(buf);
 mem_map_failed:
@@ -193,12 +202,12 @@ static void put_device_address(struct smem_client *smem_client,
 	}
 }
 
-static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
+static int ion_user_to_kernel(struct smem_client *client, int fd, u32 size,
 		struct msm_smem *mem, enum hal_buffer buffer_type)
 {
 	struct ion_handle *hndl;
 	ion_phys_addr_t iova = 0;
-	unsigned long buffer_size = 0;
+	unsigned long buffer_size = size;
 	int rc = 0;
 	unsigned long align = SZ_4K;
 	unsigned long ion_flags = 0;
@@ -207,10 +216,11 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 	dprintk(VIDC_DBG, "%s ion handle: %pK\n", __func__, hndl);
 	if (IS_ERR_OR_NULL(hndl)) {
 		dprintk(VIDC_ERR, "Failed to get handle: %pK, %d, %d, %pK\n",
-				client, fd, offset, hndl);
+				client, fd, size, hndl);
 		rc = -ENOMEM;
 		goto fail_import_fd;
 	}
+
 	mem->kvaddr = NULL;
 	rc = ion_handle_get_flags(client->clnt, hndl, &ion_flags);
 	if (rc) {
@@ -430,7 +440,7 @@ static void ion_delete_client(struct smem_client *client)
 	ion_client_destroy(client->clnt);
 }
 
-struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
+struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 size,
 		enum hal_buffer buffer_type)
 {
 	struct smem_client *client = clt;
@@ -447,7 +457,7 @@ struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 	}
 	switch (client->mem_type) {
 	case SMEM_ION:
-		rc = ion_user_to_kernel(clt, fd, offset, mem, buffer_type);
+		rc = ion_user_to_kernel(clt, fd, size, mem, buffer_type);
 		break;
 	default:
 		dprintk(VIDC_ERR, "Mem type not supported\n");

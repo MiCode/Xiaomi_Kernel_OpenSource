@@ -1343,7 +1343,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "YCbCr Semiplanar 4:2:0",
 		.description = "Y/CbCr 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12,
-		.num_planes = 1,
 		.get_frame_size = get_frame_size_nv12,
 		.type = OUTPUT_PORT,
 	},
@@ -1351,7 +1350,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "UBWC YCbCr Semiplanar 4:2:0",
 		.description = "UBWC Y/CbCr 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12_UBWC,
-		.num_planes = 1,
 		.get_frame_size = get_frame_size_nv12_ubwc,
 		.type = OUTPUT_PORT,
 	},
@@ -1359,7 +1357,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "RGBA 8:8:8:8",
 		.description = "RGBA 8:8:8:8",
 		.fourcc = V4L2_PIX_FMT_RGB32,
-		.num_planes = 1,
 		.get_frame_size = get_frame_size_rgba,
 		.type = OUTPUT_PORT,
 	},
@@ -1367,7 +1364,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "UBWC RGBA 8:8:8:8",
 		.description = "UBWC RGBA 8:8:8:8",
 		.fourcc = V4L2_PIX_FMT_RGBA8888_UBWC,
-		.num_planes = 1,
 		.get_frame_size = get_frame_size_rgba_ubwc,
 		.type = OUTPUT_PORT,
 	},
@@ -1375,7 +1371,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "Mpeg4",
 		.description = "Mpeg4 compressed format",
 		.fourcc = V4L2_PIX_FMT_MPEG4,
-		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
 	},
@@ -1383,7 +1378,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "H263",
 		.description = "H263 compressed format",
 		.fourcc = V4L2_PIX_FMT_H263,
-		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
 	},
@@ -1391,7 +1385,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "H264",
 		.description = "H264 compressed format",
 		.fourcc = V4L2_PIX_FMT_H264,
-		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
 	},
@@ -1399,7 +1392,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "VP8",
 		.description = "VP8 compressed format",
 		.fourcc = V4L2_PIX_FMT_VP8,
-		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
 	},
@@ -1407,7 +1399,6 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "HEVC",
 		.description = "HEVC compressed format",
 		.fourcc = V4L2_PIX_FMT_HEVC,
-		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = CAPTURE_PORT,
 	},
@@ -1415,56 +1406,70 @@ static struct msm_vidc_format venc_formats[] = {
 		.name = "YCrCb Semiplanar 4:2:0",
 		.description = "Y/CrCb 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV21,
-		.num_planes = 1,
 		.get_frame_size = get_frame_size_nv21,
 		.type = OUTPUT_PORT,
 	},
 };
 
-static void msm_venc_update_plane_count(struct msm_vidc_inst *inst, int type)
+static int msm_venc_set_csc(struct msm_vidc_inst *inst)
 {
-	struct v4l2_ctrl *ctrl = NULL;
-	u32 extradata = 0;
+	int rc = 0;
+	int count = 0;
+	struct hal_vpe_color_space_conversion vpe_csc;
+
+	while (count < HAL_MAX_MATRIX_COEFFS) {
+		if (count < HAL_MAX_BIAS_COEFFS)
+			vpe_csc.csc_bias[count] =
+				vpe_csc_601_to_709_bias_coeff[count];
+		if (count < HAL_MAX_LIMIT_COEFFS)
+			vpe_csc.csc_limit[count] =
+				vpe_csc_601_to_709_limit_coeff[count];
+		vpe_csc.csc_matrix[count] =
+			vpe_csc_601_to_709_matrix_coeff[count];
+		count = count + 1;
+	}
+	rc = msm_comm_try_set_prop(inst,
+			HAL_PARAM_VPE_COLOR_SPACE_CONVERSION, &vpe_csc);
+	if (rc)
+		dprintk(VIDC_ERR, "Setting VPE coefficients failed\n");
+
+	return rc;
+}
+
+static void msm_venc_register_extradata(
+		struct msm_vidc_inst *inst, u32 extradata) {
+	struct session_prop *prop = NULL;
 
 	if (!inst)
 		return;
 
-	inst->fmts[type].num_planes = 1;
-
-	ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
-		V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
-
-	if (ctrl)
-		extradata = v4l2_ctrl_g_ctrl(ctrl);
-
-	if (type == CAPTURE_PORT) {
-		switch (extradata) {
+	prop = &inst->prop;
+	switch (extradata) {
 		case V4L2_MPEG_VIDC_EXTRADATA_MULTISLICE_INFO:
 		case V4L2_MPEG_VIDC_EXTRADATA_NUM_CONCEALED_MB:
 		case V4L2_MPEG_VIDC_EXTRADATA_METADATA_FILLER:
 		case V4L2_MPEG_VIDC_EXTRADATA_LTR:
 		case V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI:
-			inst->fmts[CAPTURE_PORT].num_planes = 2;
-		default:
+			prop->extradata[CAPTURE_PORT] |= extradata;
+			prop->num_planes[CAPTURE_PORT] = 2;
+			dprintk(VIDC_DBG, "Output Extradata: %#x",
+				prop->extradata[CAPTURE_PORT]);
 			break;
-		}
-	} else if (type == OUTPUT_PORT) {
-		switch (extradata) {
 		case V4L2_MPEG_VIDC_EXTRADATA_INPUT_CROP:
 		case V4L2_MPEG_VIDC_EXTRADATA_DIGITAL_ZOOM:
 		case V4L2_MPEG_VIDC_EXTRADATA_ASPECT_RATIO:
 		case V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS:
 		case V4L2_MPEG_VIDC_EXTRADATA_ROI_QP:
 		case V4L2_MPEG_VIDC_EXTRADATA_PQ_INFO:
-			inst->fmts[OUTPUT_PORT].num_planes = 2;
+			prop->extradata[OUTPUT_PORT] |= extradata;
+			prop->num_planes[OUTPUT_PORT] = 2;
+			dprintk(VIDC_DBG, "Input Extradata: %#x",
+				prop->extradata[OUTPUT_PORT]);
 			break;
 		default:
-			break;
-		}
+			dprintk(VIDC_ERR, "Unknown extradata: %d", extradata);
 	}
 }
-
-static int msm_venc_set_csc(struct msm_vidc_inst *inst);
 
 static int msm_venc_queue_setup(struct vb2_queue *q,
 				const void *parg,
@@ -1508,7 +1513,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		*num_planes = 1;
+		*num_planes = inst->prop.num_planes[CAPTURE_PORT];
 
 		buff_req = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
 		if (buff_req) {
@@ -1533,9 +1538,6 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 				"Changing buffer count on CAPTURE_MPLANE from %d to %d for best effort encoding\n",
 				temp, *num_buffers);
 		}
-
-		msm_venc_update_plane_count(inst, CAPTURE_PORT);
-		*num_planes = inst->fmts[CAPTURE_PORT].num_planes;
 
 		for (i = 0; i < *num_planes; i++) {
 			int extra_idx = EXTRADATA_IDX(*num_planes);
@@ -1571,7 +1573,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 
 		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-		*num_planes = 1;
+		*num_planes = inst->prop.num_planes[OUTPUT_PORT];
 
 		*num_buffers = inst->buff_req.buffer[0].buffer_count_actual =
 			max(*num_buffers, inst->buff_req.buffer[0].
@@ -1593,9 +1595,6 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		dprintk(VIDC_DBG, "actual input buffer count set to fw = %d\n",
 				*num_buffers);
 
-		msm_venc_update_plane_count(inst, OUTPUT_PORT);
-		*num_planes = inst->fmts[OUTPUT_PORT].num_planes;
-
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
 					property_id, &new_buf_count);
 		if (rc)
@@ -1610,7 +1609,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 				inst->prop.width[OUTPUT_PORT]);
 
 		extra_idx =
-			EXTRADATA_IDX(inst->fmts[OUTPUT_PORT].num_planes);
+			EXTRADATA_IDX(*num_planes);
 		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
 			buff_req_buffer = get_buff_req_buffer(inst,
 				HAL_BUFFER_EXTRADATA_INPUT);
@@ -2992,6 +2991,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				!!(inst->flags & VIDC_SECURE));
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
+		msm_venc_register_extradata(inst, (u32)ctrl->val);
 		property_id = HAL_PARAM_INDEX_EXTRADATA;
 		extra.index = msm_comm_get_hal_extradata_index(ctrl->val);
 		extra.enable = 1;
@@ -3633,8 +3633,14 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	}
 	inst->prop.height[CAPTURE_PORT] = DEFAULT_HEIGHT;
 	inst->prop.width[CAPTURE_PORT] = DEFAULT_WIDTH;
+	inst->prop.num_planes[CAPTURE_PORT] = 1;
+	inst->fmts[CAPTURE_PORT] = venc_formats[4];
+
 	inst->prop.height[OUTPUT_PORT] = DEFAULT_HEIGHT;
 	inst->prop.width[OUTPUT_PORT] = DEFAULT_WIDTH;
+	inst->prop.num_planes[OUTPUT_PORT] = 1;
+	inst->fmts[OUTPUT_PORT] = venc_formats[0];
+
 	inst->capability.height.min = MIN_SUPPORTED_HEIGHT;
 	inst->capability.height.max = DEFAULT_HEIGHT;
 	inst->capability.width.min = MIN_SUPPORTED_WIDTH;
@@ -3648,10 +3654,6 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->prop.fps = DEFAULT_FPS;
 	inst->capability.pixelprocess_capabilities = 0;
 	inst->operating_rate = 0;
-	memcpy(&inst->fmts[CAPTURE_PORT], &venc_formats[4],
-			sizeof(struct msm_vidc_format));
-	memcpy(&inst->fmts[OUTPUT_PORT], &venc_formats[0],
-			sizeof(struct msm_vidc_format));
 	return rc;
 }
 
@@ -3720,37 +3722,13 @@ int msm_venc_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
 	return rc;
 }
 
-static int msm_venc_set_csc(struct msm_vidc_inst *inst)
-{
-	int rc = 0;
-	int count = 0;
-	struct hal_vpe_color_space_conversion vpe_csc;
-
-	while (count < HAL_MAX_MATRIX_COEFFS) {
-		if (count < HAL_MAX_BIAS_COEFFS)
-			vpe_csc.csc_bias[count] =
-				vpe_csc_601_to_709_bias_coeff[count];
-		if (count < HAL_MAX_LIMIT_COEFFS)
-			vpe_csc.csc_limit[count] =
-				vpe_csc_601_to_709_limit_coeff[count];
-		vpe_csc.csc_matrix[count] =
-			vpe_csc_601_to_709_matrix_coeff[count];
-		count = count + 1;
-	}
-	rc = msm_comm_try_set_prop(inst,
-			HAL_PARAM_VPE_COLOR_SPACE_CONVERSION, &vpe_csc);
-	if (rc)
-		dprintk(VIDC_ERR, "Setting VPE coefficients failed\n");
-
-	return rc;
-}
-
 int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	struct msm_vidc_format *fmt = NULL;
 	int rc = 0;
-	int i;
+	int extra_idx = 0;
 	struct hfi_device *hdev;
+
 	if (!inst || !f) {
 		dprintk(VIDC_ERR,
 			"Invalid input, inst = %pK, format = %pK\n", inst, f);
@@ -3777,9 +3755,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 
 		memcpy(&inst->fmts[fmt->type], fmt,
 				sizeof(struct msm_vidc_format));
-
-		msm_venc_update_plane_count(inst, CAPTURE_PORT);
-		fmt->num_planes = inst->fmts[CAPTURE_PORT].num_planes;
+		f->fmt.pix_mp.num_planes = inst->prop.num_planes[CAPTURE_PORT];
 
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
@@ -3833,10 +3809,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		}
 		memcpy(&inst->fmts[fmt->type], fmt,
 				sizeof(struct msm_vidc_format));
-
-		msm_venc_update_plane_count(inst, OUTPUT_PORT);
-		fmt->num_planes = inst->fmts[OUTPUT_PORT].num_planes;
-
+		f->fmt.pix_mp.num_planes = inst->prop.num_planes[OUTPUT_PORT];
 		msm_comm_set_color_format(inst, HAL_BUFFER_INPUT, fmt->fourcc);
 	} else {
 		dprintk(VIDC_ERR, "%s - Unsupported buf type: %d\n",
@@ -3844,8 +3817,6 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		rc = -EINVAL;
 		goto exit;
 	}
-
-	f->fmt.pix_mp.num_planes = fmt->num_planes;
 
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		struct hal_frame_size frame_sz = {0};
@@ -3872,16 +3843,23 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
 		f->fmt.pix_mp.plane_fmt[0].sizeimage =
 			bufreq ? bufreq->buffer_size : 0;
+
+		extra_idx = EXTRADATA_IDX(inst->prop.num_planes[fmt->type]);
+		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+			bufreq = get_buff_req_buffer(inst,
+					HAL_BUFFER_EXTRADATA_OUTPUT);
+			f->fmt.pix_mp.plane_fmt[extra_idx].sizeimage =
+				bufreq ? bufreq->buffer_size : 0;
+		}
+
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		struct hal_buffer_requirements *bufreq = NULL;
-		int extra_idx = 0;
 
-		for (i = 0; i < inst->fmts[fmt->type].num_planes; ++i) {
-			f->fmt.pix_mp.plane_fmt[i].sizeimage =
-				inst->fmts[fmt->type].get_frame_size(i,
-				f->fmt.pix_mp.height, f->fmt.pix_mp.width);
-		}
-		extra_idx = EXTRADATA_IDX(inst->fmts[fmt->type].num_planes);
+		f->fmt.pix_mp.plane_fmt[0].sizeimage =
+			inst->fmts[fmt->type].get_frame_size(0,
+			f->fmt.pix_mp.height, f->fmt.pix_mp.width);
+
+		extra_idx = EXTRADATA_IDX(inst->prop.num_planes[fmt->type]);
 		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
 			bufreq = get_buff_req_buffer(inst,
 					HAL_BUFFER_EXTRADATA_INPUT);
@@ -3919,14 +3897,12 @@ int msm_venc_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		fmt = &inst->fmts[CAPTURE_PORT];
 		height = inst->prop.height[CAPTURE_PORT];
 		width = inst->prop.width[CAPTURE_PORT];
-		msm_venc_update_plane_count(inst, CAPTURE_PORT);
-		num_planes = inst->fmts[CAPTURE_PORT].num_planes;
+		num_planes = inst->prop.num_planes[CAPTURE_PORT];
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		fmt = &inst->fmts[OUTPUT_PORT];
 		height = inst->prop.height[OUTPUT_PORT];
 		width = inst->prop.width[OUTPUT_PORT];
-		msm_venc_update_plane_count(inst, OUTPUT_PORT);
-		num_planes = inst->fmts[OUTPUT_PORT].num_planes;
+		num_planes = inst->prop.num_planes[OUTPUT_PORT];
 	} else {
 		dprintk(VIDC_ERR, "Invalid type: %x\n", f->type);
 		return -ENOTSUPP;
@@ -4027,10 +4003,10 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		if (b->length != inst->fmts[CAPTURE_PORT].num_planes) {
+		if (b->length != inst->prop.num_planes[CAPTURE_PORT]) {
 			dprintk(VIDC_ERR,
 				"Planes mismatch: needed: %d, allocated: %d\n",
-				inst->fmts[CAPTURE_PORT].num_planes,
+				inst->prop.num_planes[CAPTURE_PORT],
 				b->length);
 			rc = -EINVAL;
 			break;
@@ -4098,10 +4074,10 @@ int msm_venc_release_buf(struct msm_vidc_inst *inst,
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
 		if (b->length !=
-			inst->fmts[CAPTURE_PORT].num_planes) {
+			inst->prop.num_planes[CAPTURE_PORT]) {
 			dprintk(VIDC_ERR,
 					"Planes mismatch: needed: %d, to release: %d\n",
-					inst->fmts[CAPTURE_PORT].num_planes,
+					inst->prop.num_planes[CAPTURE_PORT],
 					b->length);
 			rc = -EINVAL;
 			break;

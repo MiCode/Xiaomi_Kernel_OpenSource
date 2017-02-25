@@ -358,7 +358,17 @@ bool sde_crtc_is_rt(struct drm_crtc *crtc)
 	return to_sde_crtc_state(crtc->state)->is_rt;
 }
 
-/* if file!=NULL, this is preclose potential cancel-flip path */
+/**
+ *  _sde_crtc_complete_flip - signal pending page_flip events
+ * Any pending vblank events are added to the vblank_event_list
+ * so that the next vblank interrupt shall signal them.
+ * However PAGE_FLIP events are not handled through the vblank_event_list.
+ * This API signals any pending PAGE_FLIP events requested through
+ * DRM_IOCTL_MODE_PAGE_FLIP and are cached in the sde_crtc->event.
+ * if file!=NULL, this is preclose potential cancel-flip path
+ * @crtc: Pointer to drm crtc structure
+ * @file: Pointer to drm file
+ */
 static void _sde_crtc_complete_flip(struct drm_crtc *crtc,
 		struct drm_file *file)
 {
@@ -395,7 +405,7 @@ static void sde_crtc_vblank_cb(void *data)
 		sde_crtc->vblank_cb_time = ktime_get();
 	else
 		sde_crtc->vblank_cb_count++;
-
+	_sde_crtc_complete_flip(crtc, NULL);
 	drm_crtc_handle_vblank(crtc);
 	DRM_DEBUG_VBL("crtc%d\n", crtc->base.id);
 	SDE_EVT32_IRQ(DRMID(crtc));

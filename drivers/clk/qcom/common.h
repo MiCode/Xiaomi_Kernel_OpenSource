@@ -13,6 +13,8 @@
 #ifndef __QCOM_CLK_COMMON_H__
 #define __QCOM_CLK_COMMON_H__
 
+#include "../clk.h"
+
 struct platform_device;
 struct regmap_config;
 struct clk_regmap;
@@ -152,5 +154,20 @@ struct clk_debug_mux {
 #define to_clk_measure(_hw) container_of((_hw), struct clk_debug_mux, hw)
 
 extern const struct clk_ops clk_debug_mux_ops;
+
+#define WARN_CLK(core, name, cond, fmt, ...) do {		\
+		clk_debug_print_hw(core, NULL);			\
+		WARN(cond, "%s: " fmt, name, ##__VA_ARGS__);	\
+} while (0)
+
+#define clock_debug_output(m, c, fmt, ...)		\
+do {							\
+	if (m)						\
+		seq_printf(m, fmt, ##__VA_ARGS__);	\
+	else if (c)					\
+		pr_cont(fmt, ##__VA_ARGS__);		\
+	else						\
+		pr_info(fmt, ##__VA_ARGS__);		\
+} while (0)
 
 #endif

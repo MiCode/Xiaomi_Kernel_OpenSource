@@ -1124,6 +1124,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 
 	mdata = mdss_mdp_get_mdata();
 	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_320) ||
+	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_330) ||
 	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_301) ||
 	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_300)) {
 		if (pipe->src_fmt->is_yuv) {
@@ -5318,8 +5319,8 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 		pr_err("failed to get the hist data, sum = %d\n", sum);
 		ret = sum;
 	} else if (expect_sum && sum != expect_sum) {
-		pr_err("hist error: bin sum incorrect! (%d/%d)\n",
-			sum, expect_sum);
+		pr_err_ratelimited("hist error: bin sum incorrect! (%d/%d)\n",
+					sum, expect_sum);
 		ret = -EINVAL;
 	}
 hist_collect_exit:
@@ -5389,8 +5390,8 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			ret = pp_hist_collect(hist, hists[i], ctl_base,
 				exp_sum, DSPP);
 			if (ret)
-				pr_err("hist error: dspp[%d] collect %d\n",
-					dspp_num, ret);
+				pr_err_ratelimited("hist error: dspp[%d] collect %d\n",
+							dspp_num, ret);
 		}
 		/* state of dspp histogram blocks attached to logical display
 		 * should be changed atomically to idle. This will ensure that
@@ -7666,6 +7667,7 @@ static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	case MDSS_MDP_HW_REV_300:
 	case MDSS_MDP_HW_REV_301:
 	case MDSS_MDP_HW_REV_320:
+	case MDSS_MDP_HW_REV_330:
 		/*
 		 * Some of the REV_300 PP features are same as REV_107.
 		 * Get the driver ops for both the versions and update the

@@ -71,6 +71,10 @@
 #define KI_COEFF_MAX			62200
 #define KI_COEFF_SOC_LEVELS		3
 
+#define SLOPE_LIMIT_COEFF_MAX		31
+
+#define BATT_THERM_NUM_COEFFS		3
+
 /* Debug flag definitions */
 enum fg_debug_flag {
 	FG_IRQ			= BIT(0), /* Show interrupts */
@@ -164,6 +168,7 @@ enum fg_sram_param_id {
 	FG_SRAM_KI_COEFF_HI_DISCHG,
 	FG_SRAM_ESR_TIGHT_FILTER,
 	FG_SRAM_ESR_BROAD_FILTER,
+	FG_SRAM_SLOPE_LIMIT,
 	FG_SRAM_MAX,
 };
 
@@ -202,6 +207,14 @@ enum wa_flags {
 	PMI8998_V1_REV_WA = BIT(0),
 };
 
+enum slope_limit_status {
+	LOW_TEMP_DISCHARGE = 0,
+	LOW_TEMP_CHARGE,
+	HIGH_TEMP_DISCHARGE,
+	HIGH_TEMP_CHARGE,
+	SLOPE_LIMIT_NUM_COEFFS,
+};
+
 /* DT parameters for FG device */
 struct fg_dt_props {
 	bool	force_load_profile;
@@ -234,10 +247,13 @@ struct fg_dt_props {
 	int	esr_broad_flt_upct;
 	int	esr_tight_lt_flt_upct;
 	int	esr_broad_lt_flt_upct;
+	int	slope_limit_temp;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_hi_dischg[KI_COEFF_SOC_LEVELS];
+	int	slope_limit_coeffs[SLOPE_LIMIT_NUM_COEFFS];
+	u8	batt_therm_coeffs[BATT_THERM_NUM_COEFFS];
 };
 
 /* parameters from battery profile */
@@ -341,6 +357,7 @@ struct fg_chip {
 	int			maint_soc;
 	int			delta_soc;
 	int			last_msoc;
+	enum slope_limit_status	slope_limit_sts;
 	bool			profile_available;
 	bool			profile_loaded;
 	bool			battery_missing;
@@ -352,6 +369,7 @@ struct fg_chip {
 	bool			soc_reporting_ready;
 	bool			esr_flt_cold_temp_en;
 	bool			bsoc_delta_irq_en;
+	bool			slope_limit_en;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;

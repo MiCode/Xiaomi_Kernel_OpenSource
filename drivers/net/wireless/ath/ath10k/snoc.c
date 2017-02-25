@@ -48,8 +48,6 @@ const char *ce_name[WCN3990_MAX_IRQ] = {
 #define SNOC_HIF_POWER_DOWN_DELAY 30
 
 static void ath10k_snoc_buffer_cleanup(struct ath10k *ar);
-static int ath10k_snoc_init_irq(struct ath10k *ar);
-static int ath10k_snoc_deinit_irq(struct ath10k *ar);
 static int ath10k_snoc_request_irq(struct ath10k *ar);
 static void ath10k_snoc_free_irq(struct ath10k *ar);
 static void ath10k_snoc_htc_tx_cb(struct ath10k_ce_pipe *ce_state);
@@ -397,10 +395,23 @@ static struct service_to_pipe target_service_to_ce_map_wlan[] = {
 	},
 };
 
-#define ADRASTEA_SRC_WR_INDEX_OFFSET 0x3C
-#define ADRASTEA_DST_WR_INDEX_OFFSET 0x40
+#define WCN3990_SRC_WR_INDEX_OFFSET 0x3C
+#define WCN3990_DST_WR_INDEX_OFFSET 0x40
 
-static struct ath10k_shadow_reg_cfg target_shadow_reg_cfg_map[] = { };
+static struct ath10k_shadow_reg_cfg target_shadow_reg_cfg_map[] = {
+		{ 0, WCN3990_SRC_WR_INDEX_OFFSET},
+		{ 3, WCN3990_SRC_WR_INDEX_OFFSET},
+		{ 4, WCN3990_SRC_WR_INDEX_OFFSET},
+		{ 5, WCN3990_SRC_WR_INDEX_OFFSET},
+		{ 7, WCN3990_SRC_WR_INDEX_OFFSET},
+		{ 1, WCN3990_DST_WR_INDEX_OFFSET},
+		{ 2, WCN3990_DST_WR_INDEX_OFFSET},
+		{ 7, WCN3990_DST_WR_INDEX_OFFSET},
+		{ 8, WCN3990_DST_WR_INDEX_OFFSET},
+		{ 9, WCN3990_DST_WR_INDEX_OFFSET},
+		{ 10, WCN3990_DST_WR_INDEX_OFFSET},
+		{ 11, WCN3990_DST_WR_INDEX_OFFSET},
+};
 
 void ath10k_snoc_write32(void *ar, u32 offset, u32 value)
 {
@@ -703,31 +714,6 @@ static void ath10k_snoc_hif_send_complete_check(struct ath10k *ar, u8 pipe,
 	ath10k_ce_per_engine_service(ar, pipe);
 }
 
-static void ath10k_snoc_kill_tasklet(struct ath10k *ar)
-{
-	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
-	int i;
-
-	for (i = 0; i < CE_COUNT; i++)
-		tasklet_kill(&ar_snoc->pipe_info[i].intr);
-
-	del_timer_sync(&ar_snoc->rx_post_retry);
-}
-
-static void ath10k_snoc_ce_deinit(struct ath10k *ar)
-{
-	int i;
-
-	for (i = 0; i < CE_COUNT; i++)
-		ath10k_ce_deinit_pipe(ar, i);
-}
-
-static void ath10k_snoc_release_resource(struct ath10k *ar)
-{
-	netif_napi_del(&ar->napi);
-	ath10k_snoc_ce_deinit(ar);
-}
-
 static int ath10k_snoc_hif_map_service_to_pipe(struct ath10k *ar,
 					       u16 service_id,
 					       u8 *ul_pipe, u8 *dl_pipe)
@@ -862,6 +848,7 @@ static void ath10k_snoc_buffer_cleanup(struct ath10k *ar)
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
 	int pipe_num;
 
+	del_timer_sync(&ar_snoc->rx_post_retry);
 	for (pipe_num = 0; pipe_num < CE_COUNT; pipe_num++) {
 		struct ath10k_snoc_pipe *pipe_info;
 
@@ -873,7 +860,6 @@ static void ath10k_snoc_buffer_cleanup(struct ath10k *ar)
 
 static void ath10k_snoc_flush(struct ath10k *ar)
 {
-	ath10k_snoc_kill_tasklet(ar);
 	ath10k_snoc_buffer_cleanup(ar);
 }
 
@@ -921,6 +907,12 @@ static void ath10k_snoc_free_pipes(struct ath10k *ar)
 		ath10k_ce_free_pipe(ar, i);
 }
 
+static void ath10k_snoc_release_resource(struct ath10k *ar)
+{
+	netif_napi_del(&ar->napi);
+	ath10k_snoc_free_pipes(ar);
+}
+
 static int ath10k_snoc_init_pipes(struct ath10k *ar)
 {
 	int i, ret;
@@ -942,14 +934,6 @@ static void ath10k_snoc_hif_power_down(struct ath10k *ar)
 	ath10k_dbg(ar, ATH10K_DBG_BOOT, "boot hif power down\n");
 	msleep(SNOC_HIF_POWER_DOWN_DELAY);
 	icnss_wlan_disable(ICNSS_OFF);
-}
-
-static void ath10k_snoc_ce_tasklet(unsigned long ptr)
-{
-	struct ath10k_snoc_pipe *pipe = (struct ath10k_snoc_pipe *)ptr;
-	struct ath10k_snoc *ar_snoc = pipe->ar_snoc;
-
-	ath10k_ce_per_engine_service(ar_snoc->ar, pipe->pipe_num);
 }
 
 int ath10k_snoc_get_ce_id(struct ath10k *ar, int irq)
@@ -1015,30 +999,6 @@ static void ath10k_snoc_free_irq(struct ath10k *ar)
 		free_irq(ar_snoc->ce_irqs[id], ar);
 }
 
-static void ath10k_snoc_init_irq_tasklets(struct ath10k *ar)
-{
-	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
-	int i;
-
-	for (i = 0; i < CE_COUNT; i++) {
-		ar_snoc->pipe_info[i].ar_snoc = ar_snoc;
-		tasklet_init(&ar_snoc->pipe_info[i].intr,
-			     ath10k_snoc_ce_tasklet,
-			     (unsigned long)&ar_snoc->pipe_info[i]);
-	}
-}
-
-static int ath10k_snoc_init_irq(struct ath10k *ar)
-{
-	ath10k_snoc_init_irq_tasklets(ar);
-	return 0;
-}
-
-static int ath10k_snoc_deinit_irq(struct ath10k *ar)
-{
-	ath10k_snoc_irq_disable(ar);
-	return 0;
-}
 
 static int ath10k_snoc_get_soc_info(struct ath10k *ar)
 {
@@ -1101,7 +1061,8 @@ static int ath10k_snoc_wlan_enable(struct ath10k *ar)
 				  sizeof(struct ce_svc_pipe_cfg);
 	cfg.ce_svc_cfg = (struct ce_svc_pipe_cfg *)
 		&target_service_to_ce_map_wlan;
-	cfg.num_shadow_reg_cfg = sizeof(target_shadow_reg_cfg_map);
+	cfg.num_shadow_reg_cfg = sizeof(target_shadow_reg_cfg_map) /
+					sizeof(struct icnss_shadow_reg_cfg);
 	cfg.shadow_reg_cfg = (struct icnss_shadow_reg_cfg *)
 		&target_shadow_reg_cfg_map;
 
@@ -1282,16 +1243,10 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 	netif_napi_add(&ar->napi_dev, &ar->napi, ath10k_snoc_napi_poll,
 		       ATH10K_NAPI_BUDGET);
 
-	ret = ath10k_snoc_init_irq(ar);
-	if (ret) {
-		ath10k_err(ar, "failed to init irqs: %d\n", ret);
-		goto err_free_pipes;
-	}
-
 	ret = ath10k_snoc_request_irq(ar);
 	if (ret) {
 		ath10k_warn(ar, "failed to request irqs: %d\n", ret);
-		goto err_deinit_irq;
+		goto err_free_pipes;
 	}
 
 	chip_id = ar_snoc->target_info.soc_version;
@@ -1307,10 +1262,6 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 
 err_free_irq:
 	ath10k_snoc_free_irq(ar);
-	ath10k_snoc_kill_tasklet(ar);
-
-err_deinit_irq:
-	ath10k_snoc_deinit_irq(ar);
 
 err_free_pipes:
 	ath10k_snoc_free_pipes(ar);
@@ -1334,8 +1285,6 @@ static int ath10k_snoc_remove(struct platform_device *pdev)
 
 	ath10k_core_unregister(ar);
 	ath10k_snoc_free_irq(ar);
-	ath10k_snoc_kill_tasklet(ar);
-	ath10k_snoc_deinit_irq(ar);
 	ath10k_snoc_release_resource(ar);
 	ath10k_snoc_free_pipes(ar);
 	ath10k_core_destroy(ar);
@@ -1365,6 +1314,10 @@ static int __init ath10k_snoc_init(void)
 {
 	int ret;
 
+	if (!icnss_is_fw_ready()) {
+		pr_err("failed to get fw ready indication\n");
+		return -EAGAIN;
+	}
 	ret = platform_driver_register(&ath10k_snoc_driver);
 	if (ret)
 		pr_err("failed to register ath10k snoc driver: %d\n",

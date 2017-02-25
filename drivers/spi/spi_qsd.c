@@ -2484,6 +2484,7 @@ static int msm_spi_probe(struct platform_device *pdev)
 		dd->use_dma = 1;
 	}
 
+	spi_dma_mask(&pdev->dev);
 skip_dma_resources:
 
 	spin_lock_init(&dd->queue_lock);

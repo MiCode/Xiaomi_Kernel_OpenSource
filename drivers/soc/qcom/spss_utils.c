@@ -140,7 +140,7 @@ static ssize_t spss_debug_reg_show(struct device *dev,
 {
 	int ret;
 	void __iomem *spss_debug_reg = NULL;
-	int val1, val2;
+	u32 val1, val2;
 
 	if (!dev || !attr || !buf) {
 		pr_err("invalid param.\n");
@@ -149,7 +149,7 @@ static ssize_t spss_debug_reg_show(struct device *dev,
 
 	pr_debug("spss_debug_reg_addr [0x%x].\n", spss_debug_reg_addr);
 
-	spss_debug_reg = ioremap_nocache(spss_debug_reg_addr, 0x16);
+	spss_debug_reg = ioremap_nocache(spss_debug_reg_addr, sizeof(u32)*2);
 
 	if (!spss_debug_reg) {
 		pr_err("can't map debug reg addr.\n");
@@ -157,7 +157,7 @@ static ssize_t spss_debug_reg_show(struct device *dev,
 	}
 
 	val1 = readl_relaxed(spss_debug_reg);
-	val2 = readl_relaxed(((char *) spss_debug_reg) + 0x04);
+	val2 = readl_relaxed(((char *) spss_debug_reg) + sizeof(u32));
 
 	ret = snprintf(buf, PAGE_SIZE, "val1 [0x%x] val2 [0x%x]", val1, val2);
 
@@ -192,12 +192,15 @@ static int spss_create_sysfs(struct device *dev)
 	ret = device_create_file(dev, &dev_attr_test_fuse_state);
 	if (ret < 0) {
 		pr_err("failed to create sysfs file for test_fuse_state.\n");
+		device_remove_file(dev, &dev_attr_firmware_name);
 		return ret;
 	}
 
 	ret = device_create_file(dev, &dev_attr_spss_debug_reg);
 	if (ret < 0) {
 		pr_err("failed to create sysfs file for spss_debug_reg.\n");
+		device_remove_file(dev, &dev_attr_firmware_name);
+		device_remove_file(dev, &dev_attr_test_fuse_state);
 		return ret;
 	}
 
@@ -284,13 +287,16 @@ static int spss_parse_dt(struct device_node *node)
 		(int) spss_fuse2_addr, (int) spss_fuse2_bit);
 
 	spss_fuse1_reg = ioremap_nocache(spss_fuse1_addr, sizeof(u32));
-	spss_fuse2_reg = ioremap_nocache(spss_fuse2_addr, sizeof(u32));
 
 	if (!spss_fuse1_reg) {
 		pr_err("can't map fuse1 addr.\n");
 		return -EFAULT;
 	}
+
+	spss_fuse2_reg = ioremap_nocache(spss_fuse2_addr, sizeof(u32));
+
 	if (!spss_fuse2_reg) {
+		iounmap(spss_fuse1_reg);
 		pr_err("can't map fuse2 addr.\n");
 		return -EFAULT;
 	}
@@ -380,7 +386,11 @@ static int spss_probe(struct platform_device *pdev)
 		return -EFAULT;
 	}
 
-	spss_create_sysfs(dev);
+	ret = spss_create_sysfs(dev);
+	if (ret < 0) {
+		pr_err("fail to create sysfs.\n");
+		return -EFAULT;
+	}
 
 	pr_info("Initialization completed ok, firmware_name [%s].\n",
 		firmware_name);
@@ -415,7 +425,7 @@ static int __init spss_init(void)
 	if (ret)
 		pr_err("register platform driver failed, ret [%d]\n", ret);
 
-	return 0;
+	return ret;
 }
 late_initcall(spss_init); /* start after PIL driver */
 

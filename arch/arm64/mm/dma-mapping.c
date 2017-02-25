@@ -1927,7 +1927,11 @@ arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size)
 	if (!mapping)
 		goto err;
 
-	mapping->bitmap = kzalloc(bitmap_size, GFP_KERNEL);
+	mapping->bitmap = kzalloc(bitmap_size, GFP_KERNEL | __GFP_NOWARN |
+							__GFP_NORETRY);
+	if (!mapping->bitmap)
+		mapping->bitmap = vzalloc(bitmap_size);
+
 	if (!mapping->bitmap)
 		goto err2;
 
@@ -1942,7 +1946,7 @@ arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size)
 	kref_init(&mapping->kref);
 	return mapping;
 err3:
-	kfree(mapping->bitmap);
+	kvfree(mapping->bitmap);
 err2:
 	kfree(mapping);
 err:
@@ -1956,7 +1960,7 @@ static void release_iommu_mapping(struct kref *kref)
 		container_of(kref, struct dma_iommu_mapping, kref);
 
 	iommu_domain_free(mapping->domain);
-	kfree(mapping->bitmap);
+	kvfree(mapping->bitmap);
 	kfree(mapping);
 }
 

@@ -60,6 +60,9 @@
 #define SDE_PLANE_DIRTY_SHARPEN	0x4
 #define SDE_PLANE_DIRTY_ALL	0xFFFFFFFF
 
+#define SDE_QSEED3_DEFAULT_PRELOAD_H 0x4
+#define SDE_QSEED3_DEFAULT_PRELOAD_V 0x3
+
 /**
  * enum sde_plane_qos - Different qos configurations for each pipe
  *
@@ -615,6 +618,73 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 		const struct sde_format *fmt,
 		uint32_t chroma_subsmpl_h, uint32_t chroma_subsmpl_v)
 {
+	uint32_t decimated, i;
+
+	if (!psde || !scale_cfg || !fmt || !chroma_subsmpl_h ||
+			!chroma_subsmpl_v) {
+		SDE_ERROR("psde %pK scale_cfg %pK fmt %pK smp_h %d smp_v %d\n"
+			, psde, scale_cfg, fmt, chroma_subsmpl_h,
+			chroma_subsmpl_v);
+		return;
+	}
+
+	memset(scale_cfg, 0, sizeof(*scale_cfg));
+
+	decimated = DECIMATED_DIMENSION(src_w,
+			psde->pipe_cfg.horz_decimation);
+	scale_cfg->phase_step_x[SDE_SSPP_COMP_0] =
+		mult_frac((1 << PHASE_STEP_SHIFT), decimated, dst_w);
+	decimated = DECIMATED_DIMENSION(src_h,
+			psde->pipe_cfg.vert_decimation);
+	scale_cfg->phase_step_y[SDE_SSPP_COMP_0] =
+		mult_frac((1 << PHASE_STEP_SHIFT), decimated, dst_h);
+
+
+	scale_cfg->phase_step_y[SDE_SSPP_COMP_1_2] =
+		scale_cfg->phase_step_y[SDE_SSPP_COMP_0] / chroma_subsmpl_v;
+	scale_cfg->phase_step_x[SDE_SSPP_COMP_1_2] =
+		scale_cfg->phase_step_x[SDE_SSPP_COMP_0] / chroma_subsmpl_h;
+
+	scale_cfg->phase_step_x[SDE_SSPP_COMP_2] =
+		scale_cfg->phase_step_x[SDE_SSPP_COMP_1_2];
+	scale_cfg->phase_step_y[SDE_SSPP_COMP_2] =
+		scale_cfg->phase_step_y[SDE_SSPP_COMP_1_2];
+
+	scale_cfg->phase_step_x[SDE_SSPP_COMP_3] =
+		scale_cfg->phase_step_x[SDE_SSPP_COMP_0];
+	scale_cfg->phase_step_y[SDE_SSPP_COMP_3] =
+		scale_cfg->phase_step_y[SDE_SSPP_COMP_0];
+
+	for (i = 0; i < SDE_MAX_PLANES; i++) {
+		scale_cfg->src_width[i] = DECIMATED_DIMENSION(src_w,
+				psde->pipe_cfg.horz_decimation);
+		scale_cfg->src_height[i] = DECIMATED_DIMENSION(src_h,
+				psde->pipe_cfg.vert_decimation);
+		if (SDE_FORMAT_IS_YUV(fmt))
+			scale_cfg->src_width[i] &= ~0x1;
+		if (i == SDE_SSPP_COMP_1_2 || i == SDE_SSPP_COMP_2) {
+			scale_cfg->src_width[i] /= chroma_subsmpl_h;
+			scale_cfg->src_height[i] /= chroma_subsmpl_v;
+		}
+		scale_cfg->preload_x[i] = SDE_QSEED3_DEFAULT_PRELOAD_H;
+		scale_cfg->preload_y[i] = SDE_QSEED3_DEFAULT_PRELOAD_V;
+		psde->pixel_ext.num_ext_pxls_top[i] =
+			scale_cfg->src_height[i];
+		psde->pixel_ext.num_ext_pxls_left[i] =
+			scale_cfg->src_width[i];
+	}
+	if (!(SDE_FORMAT_IS_YUV(fmt)) && (src_h == dst_h)
+		&& (src_w == dst_w))
+		return;
+
+	scale_cfg->dst_width = dst_w;
+	scale_cfg->dst_height = dst_h;
+	scale_cfg->y_rgb_filter_cfg = SDE_SCALE_BIL;
+	scale_cfg->uv_filter_cfg = SDE_SCALE_BIL;
+	scale_cfg->alpha_filter_cfg = SDE_SCALE_ALPHA_BIL;
+	scale_cfg->lut_flag = 0;
+	scale_cfg->blend_cfg = 1;
+	scale_cfg->enable = 1;
 }
 
 /**
@@ -901,6 +971,7 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 
 		error = _sde_plane_setup_scaler3_lut(psde, pstate);
 		if (error || !psde->pixel_ext_usr) {
+			memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
 			/* calculate default config for QSEED3 */
 			_sde_plane_setup_scaler3(psde,
 					psde->pipe_cfg.src_rect.w,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,6 +64,11 @@ static int video_nonsecure_ion_heap = ION_IOMMU_HEAP_ID;
 module_param(video_nonsecure_ion_heap, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(video_nonsecure_ion_heap, "ION heap for non-secure video buffer allocation");
 
+/* ION heap IDs used for allocating audio  output buffer */
+static int audio_nonsecure_ion_heap = ION_IOMMU_HEAP_ID;
+module_param(audio_nonsecure_ion_heap, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(audio_nonsecure_ion_heap, "ION heap for non-secure audio buffer allocation");
+
 /* Value of TS packet scramble bits field for even key */
 static int mpq_sdmx_scramble_even = 0x2;
 module_param(mpq_sdmx_scramble_even, int, S_IRUGO | S_IWUSR);
@@ -103,6 +108,25 @@ module_param(tsif_mode, int, S_IRUGO | S_IWUSR);
 /* Inverse TSIF clock signal */
 static int clock_inv;
 module_param(clock_inv, int, S_IRUGO | S_IWUSR);
+
+/* TSIF Timestamp source: 0 = TSIF Clock Reference, 1 = LPASS time counter */
+enum tsif_tts_source {
+	TSIF_TTS_TCR = 0,       /* Time stamps from TCR counter */
+	TSIF_TTS_LPASS_TIMER    /* Time stamps from AV/Qtimer Timer  */
+};
+
+/* Store all mpq feeds corresponding to 4 TS programs in a Transport Stream */
+static struct mpq_feed *store_mpq_audio_feed[CONFIG_DVB_MPQ_NUM_DMX_DEVICES] = {
+	NULL, NULL, NULL, NULL};
+static struct mpq_feed *store_mpq_video_feed[CONFIG_DVB_MPQ_NUM_DMX_DEVICES] = {
+	NULL, NULL, NULL, NULL};
+static int non_predicted_video_frame;
+/* trigger video ES frame events on MPEG2 B frames and H264 non-IDR frames */
+#ifdef CONFIG_DVB_MPQ_MEDIA_BOX_DEMUX
+static int video_b_frame_events = 1;
+#else
+static int video_b_frame_events;
+#endif
 
 /* Global data-structure for managing demux devices */
 static struct
@@ -147,6 +171,96 @@ int mpq_dmx_get_param_clock_inv(void)
 	return clock_inv;
 }
 
+struct mpq_streambuffer *consumer_video_streambuffer(int dmx_ts_pes_video)
+{
+	struct mpq_streambuffer *streambuffer = NULL;
+	struct mpq_video_feed_info *feed_data = NULL;
+
+	switch (dmx_ts_pes_video) {
+	case DMX_PES_VIDEO0:
+		if (store_mpq_video_feed[0] != NULL) {
+			feed_data = &store_mpq_video_feed[0]->video_info;
+			feed_data->stream_interface =
+				MPQ_ADAPTER_VIDEO0_STREAM_IF;
+		}
+		break;
+	case DMX_PES_VIDEO1:
+		if (store_mpq_video_feed[1] != NULL) {
+			feed_data = &store_mpq_video_feed[1]->video_info;
+			feed_data->stream_interface =
+				MPQ_ADAPTER_VIDEO1_STREAM_IF;
+		}
+		break;
+	case DMX_PES_VIDEO2:
+		if (store_mpq_video_feed[2] != NULL) {
+			feed_data = &store_mpq_video_feed[2]->video_info;
+			feed_data->stream_interface =
+				MPQ_ADAPTER_VIDEO2_STREAM_IF;
+		}
+		break;
+	case DMX_PES_VIDEO3:
+		if (store_mpq_video_feed[3] != NULL) {
+			feed_data = &store_mpq_video_feed[3]->video_info;
+			feed_data->stream_interface =
+				MPQ_ADAPTER_VIDEO3_STREAM_IF;
+		}
+		break;
+	}
+
+	if (feed_data != NULL)
+		mpq_adapter_get_stream_if(feed_data->stream_interface,
+					  &streambuffer);
+
+	return streambuffer;
+}
+EXPORT_SYMBOL(consumer_video_streambuffer);
+
+struct mpq_streambuffer *consumer_audio_streambuffer(int dmx_ts_pes_audio)
+{
+	struct mpq_streambuffer *streambuffer = NULL;
+	struct mpq_audio_feed_info *feed_data = NULL;
+
+	switch (dmx_ts_pes_audio) {
+	case DMX_PES_AUDIO0:
+		if (store_mpq_audio_feed[0] != NULL) {
+			feed_data = &store_mpq_audio_feed[0]->audio_info;
+			feed_data->stream_interface =
+				MPQ_ADAPTER_AUDIO0_STREAM_IF;
+		}
+		break;
+	case DMX_PES_AUDIO1:
+		if (store_mpq_audio_feed[1] != NULL) {
+			feed_data = &store_mpq_audio_feed[1]->audio_info;
+			feed_data->stream_interface =
+				MPQ_ADAPTER_AUDIO1_STREAM_IF;
+		}
+		break;
+	case DMX_PES_AUDIO2:
+		if (store_mpq_audio_feed[2] != NULL) {
+			feed_data = &store_mpq_audio_feed[2]->audio_info;
+			feed_data->stream_interface =
+				MPQ_ADAPTER_AUDIO2_STREAM_IF;
+		}
+		break;
+	case DMX_PES_AUDIO3:
+		if (store_mpq_audio_feed[3] != NULL) {
+			feed_data = &store_mpq_audio_feed[3]->audio_info;
+			feed_data->stream_interface =
+				MPQ_ADAPTER_AUDIO3_STREAM_IF;
+		}
+		break;
+	}
+
+	if (feed_data != NULL)
+		mpq_adapter_get_stream_if(feed_data->stream_interface,
+					  &streambuffer);
+
+	return streambuffer;
+}
+EXPORT_SYMBOL(consumer_audio_streambuffer);
+
+
+
 /* Check that PES header is valid and that it is a video PES */
 static int mpq_dmx_is_valid_video_pes(struct pes_packet_header *pes_header)
 {
@@ -163,6 +277,25 @@ static int mpq_dmx_is_valid_video_pes(struct pes_packet_header *pes_header)
 	return 0;
 }
 
+static int mpq_dmx_is_valid_audio_pes(struct pes_packet_header *pes_header)
+{
+	/* start-code valid? */
+	if ((pes_header->packet_start_code_prefix_1 != 0) ||
+	    (pes_header->packet_start_code_prefix_2 != 0) ||
+	    (pes_header->packet_start_code_prefix_3 != 1))
+		return -EINVAL;
+
+	/* Note: AC3 stream ID = 0xBD */
+	if (pes_header->stream_id == 0xBD)
+		return 0;
+
+	/* stream_id is audio? */ /* 110x xxxx = Audio Stream IDs */
+	if ((pes_header->stream_id & 0xE0) != 0xC0)
+		return -EINVAL;
+
+	return 0;
+}
+
 /* Check if a framing pattern is a video frame pattern or a header pattern */
 static inline int mpq_dmx_is_video_frame(
 				enum dmx_video_codec codec,
@@ -170,6 +303,10 @@ static inline int mpq_dmx_is_video_frame(
 {
 	switch (codec) {
 	case DMX_VIDEO_CODEC_MPEG2:
+		if (video_b_frame_events == 1)
+			if (pattern_type == DMX_IDX_MPEG_B_FRAME_START)
+				non_predicted_video_frame = 1;
+
 		if ((pattern_type == DMX_IDX_MPEG_I_FRAME_START) ||
 			(pattern_type == DMX_IDX_MPEG_P_FRAME_START) ||
 			(pattern_type == DMX_IDX_MPEG_B_FRAME_START))
@@ -177,9 +314,20 @@ static inline int mpq_dmx_is_video_frame(
 		return 0;
 
 	case DMX_VIDEO_CODEC_H264:
-		if ((pattern_type == DMX_IDX_H264_IDR_START) ||
-			(pattern_type == DMX_IDX_H264_NON_IDR_START))
-			return 1;
+		if (video_b_frame_events == 1) {
+			if (pattern_type == DMX_IDX_H264_NON_IDR_BSLICE_START)
+				non_predicted_video_frame = 1;
+
+			if ((pattern_type == DMX_IDX_H264_IDR_ISLICE_START) ||
+			    (pattern_type ==
+				DMX_IDX_H264_NON_IDR_PSLICE_START) ||
+			    (pattern_type == DMX_IDX_H264_NON_IDR_BSLICE_START))
+				return 1;
+		} else {
+			if ((pattern_type == DMX_IDX_H264_IDR_START) ||
+			    (pattern_type == DMX_IDX_H264_NON_IDR_START))
+				return 1;
+		}
 		return 0;
 
 	case DMX_VIDEO_CODEC_VC1:
@@ -219,10 +367,23 @@ static inline int mpq_dmx_get_pattern_params(
 	case DMX_VIDEO_CODEC_H264:
 		patterns[0] = dvb_dmx_get_pattern(DMX_IDX_H264_SPS);
 		patterns[1] = dvb_dmx_get_pattern(DMX_IDX_H264_PPS);
-		patterns[2] = dvb_dmx_get_pattern(DMX_IDX_H264_IDR_START);
-		patterns[3] = dvb_dmx_get_pattern(DMX_IDX_H264_NON_IDR_START);
-		patterns[4] = dvb_dmx_get_pattern(DMX_IDX_H264_SEI);
-		*patterns_num = 5;
+		if (video_b_frame_events != 1) {
+			patterns[2] = dvb_dmx_get_pattern
+				(DMX_IDX_H264_IDR_START);
+			patterns[3] = dvb_dmx_get_pattern
+				(DMX_IDX_H264_NON_IDR_START);
+			patterns[4] = dvb_dmx_get_pattern(DMX_IDX_H264_SEI);
+			*patterns_num = 5;
+		} else {
+			patterns[2] = dvb_dmx_get_pattern
+				(DMX_IDX_H264_IDR_ISLICE_START);
+			patterns[3] = dvb_dmx_get_pattern
+				(DMX_IDX_H264_NON_IDR_PSLICE_START);
+			patterns[4] = dvb_dmx_get_pattern
+				(DMX_IDX_H264_NON_IDR_BSLICE_START);
+			patterns[5] = dvb_dmx_get_pattern(DMX_IDX_H264_SEI);
+			*patterns_num = 6;
+		}
 		break;
 
 	case DMX_VIDEO_CODEC_VC1:
@@ -254,12 +415,20 @@ void mpq_dmx_update_decoder_stat(struct mpq_feed *mpq_feed)
 	struct mpq_demux *mpq_demux = mpq_feed->mpq_demux;
 	enum mpq_adapter_stream_if idx;
 
-	if (!dvb_dmx_is_video_feed(mpq_feed->dvb_demux_feed) ||
-		(mpq_feed->video_info.stream_interface >
-		 MPQ_ADAPTER_VIDEO3_STREAM_IF))
+	if (!dvb_dmx_is_video_feed(mpq_feed->dvb_demux_feed) &&
+	    !dvb_dmx_is_audio_feed(mpq_feed->dvb_demux_feed))
 		return;
 
-	idx = mpq_feed->video_info.stream_interface;
+	if (dvb_dmx_is_video_feed(mpq_feed->dvb_demux_feed) &&
+	    mpq_feed->video_info.stream_interface <=
+			MPQ_ADAPTER_VIDEO3_STREAM_IF)
+		idx = mpq_feed->video_info.stream_interface;
+	else if (dvb_dmx_is_audio_feed(mpq_feed->dvb_demux_feed) &&
+		mpq_feed->audio_info.stream_interface <=
+			MPQ_ADAPTER_AUDIO3_STREAM_IF)
+		idx = mpq_feed->audio_info.stream_interface;
+	else
+		return;
 
 	curr_time = current_kernel_time();
 	if (unlikely(!mpq_demux->decoder_stat[idx].out_count)) {
@@ -703,6 +872,7 @@ int mpq_dmx_plugin_init(mpq_dmx_init dmx_init_func)
 		mpq_demux->sdmx_session_handle = SDMX_INVALID_SESSION_HANDLE;
 		mpq_demux->sdmx_eos = 0;
 		mpq_demux->sdmx_log_level = SDMX_LOG_NO_PRINT;
+		mpq_demux->ts_packet_timestamp_source = 0;
 
 		if (mpq_demux->demux.feednum > MPQ_MAX_DMX_FILES) {
 			MPQ_DVB_ERR_PRINT(
@@ -1050,9 +1220,33 @@ int mpq_dmx_reuse_decoder_buffer(struct dvb_demux_feed *feed, int cookie)
 		mutex_unlock(&mpq_demux->mutex);
 
 		return ret;
-	}
+	} else if (dvb_dmx_is_audio_feed(feed)) {
+		struct mpq_audio_feed_info *feed_data;
+		struct mpq_feed *mpq_feed;
+		struct mpq_streambuffer *stream_buffer;
+		int ret;
 
-	/* else */
+		mutex_lock(&mpq_demux->mutex);
+		mpq_feed = feed->priv;
+		feed_data = &mpq_feed->audio_info;
+
+		spin_lock(&feed_data->audio_buffer_lock);
+		stream_buffer = feed_data->audio_buffer;
+		if (stream_buffer == NULL) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: invalid feed, feed_data->audio_buffer is NULL\n",
+				__func__);
+			spin_unlock(&feed_data->audio_buffer_lock);
+			mutex_unlock(&mpq_demux->mutex);
+			return -EINVAL;
+		}
+
+		ret = mpq_streambuffer_pkt_dispose(stream_buffer, cookie, 1);
+		spin_unlock(&feed_data->audio_buffer_lock);
+		mutex_unlock(&mpq_demux->mutex);
+
+		return ret;
+	}
 	MPQ_DVB_ERR_PRINT("%s: Invalid feed type %d\n",
 			__func__, feed->pes_type);
 
@@ -1383,6 +1577,295 @@ int mpq_dmx_flush_stream_buffer(struct dvb_demux_feed *feed)
 	return ret;
 }
 
+static int mpq_dmx_init_audio_internal_buffers(
+	struct mpq_demux *mpq_demux,
+	struct mpq_audio_feed_info *feed_data,
+	struct dmx_decoder_buffers *dec_buffs)
+{
+	struct ion_handle *temp_handle = NULL;
+	void *payload_buffer = NULL;
+	int actual_buffer_size = 0;
+	int ret = 0;
+
+	MPQ_DVB_DBG_PRINT("%s: Internal audio decoder buffer allocation\n",
+			  __func__);
+
+	actual_buffer_size = dec_buffs->buffers_size;
+	actual_buffer_size += (SZ_4K - 1);
+	actual_buffer_size &= ~(SZ_4K - 1);
+
+	temp_handle = ion_alloc(mpq_demux->ion_client,
+		actual_buffer_size, SZ_4K,
+		ION_HEAP(audio_nonsecure_ion_heap),
+		mpq_demux->decoder_alloc_flags);
+
+	if (IS_ERR_OR_NULL(temp_handle)) {
+		ret = PTR_ERR(temp_handle);
+		MPQ_DVB_ERR_PRINT(
+			"%s: FAILED to allocate audio payload buffer %d\n",
+			 __func__, ret);
+		if (!ret)
+			ret = -ENOMEM;
+		goto end;
+	}
+
+	payload_buffer = ion_map_kernel(mpq_demux->ion_client, temp_handle);
+
+	if (IS_ERR_OR_NULL(payload_buffer)) {
+		ret = PTR_ERR(payload_buffer);
+		MPQ_DVB_ERR_PRINT(
+			"%s: FAILED to map audio payload buffer %d\n",
+			__func__, ret);
+		if (!ret)
+			ret = -ENOMEM;
+		goto init_failed_free_payload_buffer;
+	}
+	feed_data->buffer_desc.decoder_buffers_num = 1;
+	feed_data->buffer_desc.ion_handle[0] = temp_handle;
+	feed_data->buffer_desc.desc[0].base = payload_buffer;
+	feed_data->buffer_desc.desc[0].size = actual_buffer_size;
+	feed_data->buffer_desc.desc[0].read_ptr = 0;
+	feed_data->buffer_desc.desc[0].write_ptr = 0;
+	feed_data->buffer_desc.desc[0].handle =
+		ion_share_dma_buf_fd(mpq_demux->ion_client, temp_handle);
+	if (IS_ERR_VALUE(feed_data->buffer_desc.desc[0].handle)) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: FAILED to share audio payload buffer %d\n",
+			__func__, ret);
+		ret = -ENOMEM;
+		goto init_failed_unmap_payload_buffer;
+	}
+
+	feed_data->buffer_desc.shared_file = fget(
+		feed_data->buffer_desc.desc[0].handle);
+
+	return 0;
+
+init_failed_unmap_payload_buffer:
+	ion_unmap_kernel(mpq_demux->ion_client, temp_handle);
+	feed_data->buffer_desc.desc[0].base = NULL;
+init_failed_free_payload_buffer:
+	ion_free(mpq_demux->ion_client, temp_handle);
+	feed_data->buffer_desc.ion_handle[0] = NULL;
+	feed_data->buffer_desc.desc[0].size = 0;
+	feed_data->buffer_desc.decoder_buffers_num = 0;
+	feed_data->buffer_desc.shared_file = NULL;
+end:
+	return ret;
+}
+
+static int mpq_dmx_init_audio_external_buffers(
+	struct mpq_audio_feed_info *feed_data,
+	struct dmx_decoder_buffers *dec_buffs,
+	struct ion_client *client)
+{
+	struct ion_handle *temp_handle = NULL;
+	void *payload_buffer = NULL;
+	int actual_buffer_size = 0;
+	int ret = 0;
+	int i;
+
+	/*
+	 * Payload buffer was allocated externally (through ION).
+	 * Map the ion handles to kernel memory
+	 */
+	MPQ_DVB_DBG_PRINT("%s: External audio decoder buffer allocation\n",
+				__func__);
+
+	actual_buffer_size = dec_buffs->buffers_size;
+	if (!dec_buffs->is_linear) {
+		MPQ_DVB_DBG_PRINT("%s: Ex. Ring-buffer\n", __func__);
+		feed_data->buffer_desc.decoder_buffers_num = 1;
+	} else {
+		MPQ_DVB_DBG_PRINT("%s: Ex. Linear\n", __func__);
+		feed_data->buffer_desc.decoder_buffers_num =
+			dec_buffs->buffers_num;
+	}
+
+	for (i = 0; i < feed_data->buffer_desc.decoder_buffers_num; i++) {
+		ret = mpq_map_buffer_to_kernel(
+			client,
+			dec_buffs->handles[i],
+			&temp_handle,
+			&payload_buffer);
+		if (ret < 0) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: Failed mapping audio buffer %d\n",
+				__func__, i);
+			goto init_failed;
+		}
+		feed_data->buffer_desc.ion_handle[i] = temp_handle;
+		feed_data->buffer_desc.desc[i].base = payload_buffer;
+		feed_data->buffer_desc.desc[i].handle =
+			dec_buffs->handles[i];
+		feed_data->buffer_desc.desc[i].size =
+			dec_buffs->buffers_size;
+		feed_data->buffer_desc.desc[i].read_ptr = 0;
+		feed_data->buffer_desc.desc[i].write_ptr = 0;
+
+		MPQ_DVB_DBG_PRINT(
+			"%s: Audio Buffer #%d: base=0x%p, handle=%d, size=%d\n",
+			__func__, i,
+			feed_data->buffer_desc.desc[i].base,
+			feed_data->buffer_desc.desc[i].handle,
+			feed_data->buffer_desc.desc[i].size);
+	}
+
+	return 0;
+
+init_failed:
+	for (i = 0; i < feed_data->buffer_desc.decoder_buffers_num; i++) {
+		if (feed_data->buffer_desc.ion_handle[i]) {
+			if (feed_data->buffer_desc.desc[i].base) {
+				ion_unmap_kernel(client,
+					feed_data->buffer_desc.ion_handle[i]);
+				feed_data->buffer_desc.desc[i].base = NULL;
+			}
+			ion_free(client, feed_data->buffer_desc.ion_handle[i]);
+			feed_data->buffer_desc.ion_handle[i] = NULL;
+			feed_data->buffer_desc.desc[i].size = 0;
+		}
+	}
+	return ret;
+}
+static int mpq_dmx_init_audio_streambuffer(
+	struct mpq_feed *feed,
+	struct mpq_audio_feed_info *feed_data,
+	struct mpq_streambuffer *stream_buffer)
+{
+	int ret;
+	void *packet_buffer = NULL;
+	struct mpq_demux *mpq_demux = feed->mpq_demux;
+	struct ion_client *client = mpq_demux->ion_client;
+	struct dmx_decoder_buffers *dec_buffs = NULL;
+	enum mpq_streambuffer_mode mode;
+
+	dec_buffs = feed->dvb_demux_feed->feed.ts.decoder_buffers;
+
+	/* Allocate packet buffer holding the meta-data */
+	packet_buffer = vmalloc(AUDIO_META_DATA_BUFFER_SIZE);
+
+	if (packet_buffer == NULL) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: FAILED to allocate packets buffer\n", __func__);
+		ret = -ENOMEM;
+		goto end;
+	}
+
+	MPQ_DVB_DBG_PRINT("%s: dec_buffs: num=%d, size=%d, linear=%d\n",
+				__func__, dec_buffs->buffers_num,
+				dec_buffs->buffers_size,
+				dec_buffs->is_linear);
+
+	if (dec_buffs->buffers_num == 0)
+		ret = mpq_dmx_init_audio_internal_buffers(
+			mpq_demux, feed_data, dec_buffs);
+	else
+		ret = mpq_dmx_init_audio_external_buffers(
+			feed_data, dec_buffs, client);
+
+	if (ret != 0)
+		goto init_failed_free_packet_buffer;
+
+	mode = dec_buffs->is_linear ? MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR :
+		MPQ_STREAMBUFFER_BUFFER_MODE_RING;
+	ret = mpq_streambuffer_init(
+			feed_data->audio_buffer,
+			mode,
+			feed_data->buffer_desc.desc,
+			feed_data->buffer_desc.decoder_buffers_num,
+			packet_buffer,
+			AUDIO_META_DATA_BUFFER_SIZE);
+
+	if (ret != 0)
+		goto init_failed_free_packet_buffer;
+
+	goto end;
+
+
+init_failed_free_packet_buffer:
+	vfree(packet_buffer);
+end:
+	return ret;
+}
+
+static void mpq_dmx_release_audio_streambuffer(
+	struct mpq_feed *feed,
+	struct mpq_audio_feed_info *feed_data,
+	struct mpq_streambuffer *audio_buffer,
+	struct ion_client *client)
+{
+	int buf_num = 0;
+	int i;
+	struct dmx_decoder_buffers *dec_buffs =
+		feed->dvb_demux_feed->feed.ts.decoder_buffers;
+
+	mpq_adapter_unregister_stream_if(feed_data->stream_interface);
+
+	mpq_streambuffer_terminate(audio_buffer);
+
+	vfree(audio_buffer->packet_data.data);
+
+	buf_num = feed_data->buffer_desc.decoder_buffers_num;
+
+	for (i = 0; i < buf_num; i++) {
+		if (feed_data->buffer_desc.ion_handle[i]) {
+			if (feed_data->buffer_desc.desc[i].base) {
+				ion_unmap_kernel(client,
+					feed_data->buffer_desc.ion_handle[i]);
+				feed_data->buffer_desc.desc[i].base = NULL;
+			}
+
+			/*
+			 * Un-share the buffer if kernel is the one that
+			 * shared it.
+			 */
+			if (!dec_buffs->buffers_num &&
+				feed_data->buffer_desc.shared_file) {
+				fput(feed_data->buffer_desc.shared_file);
+				feed_data->buffer_desc.shared_file = NULL;
+			}
+
+			ion_free(client, feed_data->buffer_desc.ion_handle[i]);
+			feed_data->buffer_desc.ion_handle[i] = NULL;
+			feed_data->buffer_desc.desc[i].size = 0;
+		}
+	}
+}
+
+int mpq_dmx_flush_audio_stream_buffer(struct dvb_demux_feed *feed)
+{
+	struct mpq_feed *mpq_feed = feed->priv;
+	struct mpq_audio_feed_info *feed_data = &mpq_feed->audio_info;
+	struct mpq_streambuffer *sbuff;
+	int ret = 0;
+
+	if (!dvb_dmx_is_audio_feed(feed)) {
+		MPQ_DVB_DBG_PRINT("%s: not a audio feed, feed type=%d\n",
+			__func__, feed->pes_type);
+		return 0;
+	}
+
+	spin_lock(&feed_data->audio_buffer_lock);
+
+	sbuff = feed_data->audio_buffer;
+	if (sbuff == NULL) {
+		MPQ_DVB_DBG_PRINT("%s: feed_data->audio_buffer is NULL\n",
+			__func__);
+		spin_unlock(&feed_data->audio_buffer_lock);
+		return -ENODEV;
+	}
+
+	ret = mpq_streambuffer_flush(sbuff);
+	if (ret)
+		MPQ_DVB_ERR_PRINT("%s: mpq_streambuffer_flush failed, ret=%d\n",
+			__func__, ret);
+
+	spin_unlock(&feed_data->audio_buffer_lock);
+
+	return ret;
+}
+
 static int mpq_dmx_flush_buffer(struct dmx_ts_feed *ts_feed, size_t length)
 {
 	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)ts_feed;
@@ -1398,6 +1881,10 @@ static int mpq_dmx_flush_buffer(struct dmx_ts_feed *ts_feed, size_t length)
 		MPQ_DVB_DBG_PRINT("%s: flushing video buffer\n", __func__);
 
 		ret = mpq_dmx_flush_stream_buffer(feed);
+	} else if (dvb_dmx_is_audio_feed(feed)) {
+		MPQ_DVB_DBG_PRINT("%s: flushing audio buffer\n", __func__);
+
+		ret = mpq_dmx_flush_audio_stream_buffer(feed);
 	}
 
 	mutex_unlock(&demux->mutex);
@@ -1437,21 +1924,25 @@ int mpq_dmx_init_video_feed(struct mpq_feed *mpq_feed)
 	/* Register the new stream-buffer interface to MPQ adapter */
 	switch (mpq_feed->dvb_demux_feed->pes_type) {
 	case DMX_PES_VIDEO0:
+		store_mpq_video_feed[0] = mpq_feed;
 		feed_data->stream_interface =
 			MPQ_ADAPTER_VIDEO0_STREAM_IF;
 		break;
 
 	case DMX_PES_VIDEO1:
+		store_mpq_video_feed[1] = mpq_feed;
 		feed_data->stream_interface =
 			MPQ_ADAPTER_VIDEO1_STREAM_IF;
 		break;
 
 	case DMX_PES_VIDEO2:
+		store_mpq_video_feed[2] = mpq_feed;
 		feed_data->stream_interface =
 			MPQ_ADAPTER_VIDEO2_STREAM_IF;
 		break;
 
 	case DMX_PES_VIDEO3:
+		store_mpq_video_feed[3] = mpq_feed;
 		feed_data->stream_interface =
 			MPQ_ADAPTER_VIDEO3_STREAM_IF;
 		break;
@@ -1551,6 +2042,126 @@ init_failed_free_priv_data:
 	return ret;
 }
 
+/* Register the new stream-buffer interface to MPQ adapter */
+int mpq_dmx_init_audio_feed(struct mpq_feed *mpq_feed)
+{
+	int ret;
+	struct mpq_audio_feed_info *feed_data = &mpq_feed->audio_info;
+	struct mpq_demux *mpq_demux = mpq_feed->mpq_demux;
+	struct mpq_streambuffer *stream_buffer;
+
+	switch (mpq_feed->dvb_demux_feed->pes_type) {
+	case DMX_PES_AUDIO0:
+		store_mpq_audio_feed[0] = mpq_feed;
+		feed_data->stream_interface =
+			MPQ_ADAPTER_AUDIO0_STREAM_IF;
+		break;
+
+	case DMX_PES_AUDIO1:
+		store_mpq_audio_feed[1] = mpq_feed;
+		feed_data->stream_interface =
+			MPQ_ADAPTER_AUDIO1_STREAM_IF;
+		break;
+
+	case DMX_PES_AUDIO2:
+		store_mpq_audio_feed[2] = mpq_feed;
+		feed_data->stream_interface =
+			MPQ_ADAPTER_AUDIO2_STREAM_IF;
+		break;
+
+	case DMX_PES_AUDIO3:
+		store_mpq_audio_feed[3] = mpq_feed;
+		feed_data->stream_interface =
+			MPQ_ADAPTER_AUDIO3_STREAM_IF;
+		break;
+
+	default:
+		MPQ_DVB_ERR_PRINT(
+			"%s: Invalid pes type %d\n",
+			__func__,
+			mpq_feed->dvb_demux_feed->pes_type);
+		ret = -EINVAL;
+		goto init_failed_free_priv_data;
+	}
+
+	/* make sure not occupied already */
+	stream_buffer = NULL;
+	mpq_adapter_get_stream_if(
+			feed_data->stream_interface,
+			&stream_buffer);
+	if (stream_buffer != NULL) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: Audio interface %d already occupied!\n",
+			__func__, feed_data->stream_interface);
+		ret = -EBUSY;
+		goto init_failed_free_priv_data;
+	}
+
+	feed_data->audio_buffer =
+		&mpq_dmx_info.decoder_buffers[feed_data->stream_interface];
+
+	ret = mpq_dmx_init_audio_streambuffer(
+		mpq_feed, feed_data, feed_data->audio_buffer);
+	if (ret) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: mpq_dmx_init_streambuffer failed, err = %d\n",
+			__func__, ret);
+		goto init_failed_free_priv_data;
+	}
+
+	ret = mpq_adapter_register_stream_if(
+			feed_data->stream_interface,
+			feed_data->audio_buffer);
+
+	if (ret < 0) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: mpq_adapter_register_stream_if failed, err = %d\n",
+			__func__, ret);
+		goto init_failed_free_stream_buffer;
+	}
+
+	spin_lock_init(&feed_data->audio_buffer_lock);
+
+	feed_data->pes_header_left_bytes = PES_MANDATORY_FIELDS_LEN;
+	feed_data->pes_header_offset = 0;
+	mpq_feed->dvb_demux_feed->pusi_seen = 0;
+	mpq_feed->dvb_demux_feed->peslen = 0;
+	feed_data->fullness_wait_cancel = 0;
+	mpq_streambuffer_get_data_rw_offset(feed_data->audio_buffer, NULL,
+		&feed_data->frame_offset);
+	feed_data->saved_pts_dts_info.pts_exist = 0;
+	feed_data->saved_pts_dts_info.dts_exist = 0;
+	feed_data->new_pts_dts_info.pts_exist = 0;
+	feed_data->new_pts_dts_info.dts_exist = 0;
+	feed_data->saved_info_used = 1;
+	feed_data->new_info_exists = 0;
+	feed_data->first_pts_dts_copy = 1;
+	feed_data->tei_errs = 0;
+	feed_data->last_continuity = -1;
+	feed_data->continuity_errs = 0;
+	feed_data->ts_packets_num = 0;
+	feed_data->ts_dropped_bytes = 0;
+
+	mpq_demux->decoder_stat[feed_data->stream_interface].drop_count = 0;
+	mpq_demux->decoder_stat[feed_data->stream_interface].out_count = 0;
+	mpq_demux->decoder_stat[feed_data->stream_interface].
+		out_interval_sum = 0;
+	mpq_demux->decoder_stat[feed_data->stream_interface].
+		out_interval_max = 0;
+	mpq_demux->decoder_stat[feed_data->stream_interface].ts_errors = 0;
+	mpq_demux->decoder_stat[feed_data->stream_interface].cc_errors = 0;
+
+	return 0;
+
+init_failed_free_stream_buffer:
+	mpq_dmx_release_audio_streambuffer(mpq_feed, feed_data,
+		feed_data->audio_buffer, mpq_demux->ion_client);
+	mpq_adapter_unregister_stream_if(feed_data->stream_interface);
+init_failed_free_priv_data:
+	feed_data->audio_buffer = NULL;
+	return ret;
+}
+
 /**
  * mpq_dmx_terminate_video_feed - terminate video feed information
  * that was previously initialized in mpq_dmx_init_video_feed
@@ -1563,11 +2174,12 @@ int mpq_dmx_terminate_video_feed(struct mpq_feed *mpq_feed)
 {
 	struct mpq_streambuffer *video_buffer;
 	struct mpq_video_feed_info *feed_data;
-	struct mpq_demux *mpq_demux = mpq_feed->mpq_demux;
+	struct mpq_demux *mpq_demux;
 
 	if (mpq_feed == NULL)
 		return -EINVAL;
 
+	mpq_demux = mpq_feed->mpq_demux;
 	feed_data = &mpq_feed->video_info;
 
 	spin_lock(&feed_data->video_buffer_lock);
@@ -1578,6 +2190,30 @@ int mpq_dmx_terminate_video_feed(struct mpq_feed *mpq_feed)
 
 	mpq_dmx_release_streambuffer(mpq_feed, feed_data,
 		video_buffer, mpq_demux->ion_client);
+
+	return 0;
+}
+
+int mpq_dmx_terminate_audio_feed(struct mpq_feed *mpq_feed)
+{
+	struct mpq_streambuffer *audio_buffer;
+	struct mpq_audio_feed_info *feed_data;
+	struct mpq_demux *mpq_demux;
+
+	if (mpq_feed == NULL)
+		return -EINVAL;
+
+	mpq_demux = mpq_feed->mpq_demux;
+	feed_data = &mpq_feed->audio_info;
+
+	spin_lock(&feed_data->audio_buffer_lock);
+	audio_buffer = feed_data->audio_buffer;
+	feed_data->audio_buffer = NULL;
+	wake_up_all(&audio_buffer->raw_data.queue);
+	spin_unlock(&feed_data->audio_buffer_lock);
+
+	mpq_dmx_release_audio_streambuffer(mpq_feed, feed_data,
+		audio_buffer, mpq_demux->ion_client);
 
 	return 0;
 }
@@ -1814,6 +2450,12 @@ int mpq_dmx_terminate_feed(struct dvb_demux_feed *feed)
 			MPQ_DVB_ERR_PRINT(
 				"%s: mpq_dmx_terminate_video_feed failed. ret = %d\n",
 				__func__, ret);
+	} else if (dvb_dmx_is_audio_feed(feed)) {
+		ret = mpq_dmx_terminate_audio_feed(mpq_feed);
+		if (ret)
+			MPQ_DVB_ERR_PRINT(
+				"%s: mpq_dmx_terminate_audio_feed failed. ret = %d\n",
+				__func__, ret);
 	}
 
 	if (mpq_feed->sdmx_buf_handle) {
@@ -1835,8 +2477,9 @@ int mpq_dmx_terminate_feed(struct dvb_demux_feed *feed)
 
 int mpq_dmx_decoder_fullness_init(struct dvb_demux_feed *feed)
 {
+	struct mpq_feed *mpq_feed;
+
 	if (dvb_dmx_is_video_feed(feed)) {
-		struct mpq_feed *mpq_feed;
 		struct mpq_video_feed_info *feed_data;
 
 		mpq_feed = feed->priv;
@@ -1844,13 +2487,18 @@ int mpq_dmx_decoder_fullness_init(struct dvb_demux_feed *feed)
 		feed_data->fullness_wait_cancel = 0;
 
 		return 0;
+	} else if (dvb_dmx_is_audio_feed(feed)) {
+		struct mpq_audio_feed_info *feed_data;
+
+		mpq_feed = feed->priv;
+		feed_data = &mpq_feed->audio_info;
+		feed_data->fullness_wait_cancel = 0;
+
+		return 0;
 	}
 
-	/* else */
-	MPQ_DVB_DBG_PRINT(
-		"%s: Invalid feed type %d\n",
-		__func__,
-		feed->pes_type);
+	MPQ_DVB_DBG_PRINT("%s: Invalid feed type %d\n", __func__,
+			   feed->pes_type);
 
 	return -EINVAL;
 }
@@ -1864,7 +2512,7 @@ int mpq_dmx_decoder_fullness_init(struct dvb_demux_feed *feed)
  *
  * Return 1 if required free bytes are available, 0 otherwise.
  */
-static inline int mpq_dmx_check_decoder_fullness(
+static inline int mpq_dmx_check_video_decoder_fullness(
 	struct mpq_streambuffer *sbuff,
 	size_t required_space)
 {
@@ -1886,6 +2534,29 @@ static inline int mpq_dmx_check_decoder_fullness(
 	else
 		/* Ring buffer mode */
 		return (free >= required_space);
+}
+
+static inline int mpq_dmx_check_audio_decoder_fullness(
+	struct mpq_streambuffer *sbuff,
+	size_t required_space)
+{
+	ssize_t free = mpq_streambuffer_data_free(sbuff);
+	ssize_t free_meta = mpq_streambuffer_metadata_free(sbuff);
+
+	/* Verify meta-data buffer can contain at least 1 packet */
+	if (free_meta < AUDIO_META_DATA_PACKET_SIZE)
+		return 0;
+
+	/*
+	 * For linear buffers, verify there's enough space for this TSP
+	 * and an additional buffer is free, as framing might required one
+	 * more buffer to be available.
+	 */
+	if (sbuff->mode == MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR)
+		return (free >= required_space &&
+			sbuff->pending_buffers_count < sbuff->buffers_num-1);
+	else
+		return (free >= required_space); /* Ring buffer mode */
 }
 
 /**
@@ -1943,7 +2614,8 @@ static int mpq_dmx_decoder_fullness_check(
 
 	if ((feed_data->video_buffer != NULL) &&
 		(!feed_data->fullness_wait_cancel) &&
-		(!mpq_dmx_check_decoder_fullness(sbuff, required_space))) {
+		(!mpq_dmx_check_video_decoder_fullness(sbuff,
+						       required_space))) {
 		DEFINE_WAIT(__wait);
 
 		for (;;) {
@@ -1952,7 +2624,7 @@ static int mpq_dmx_decoder_fullness_check(
 				TASK_INTERRUPTIBLE);
 			if (!feed_data->video_buffer ||
 				feed_data->fullness_wait_cancel ||
-				mpq_dmx_check_decoder_fullness(sbuff,
+				mpq_dmx_check_video_decoder_fullness(sbuff,
 					required_space))
 				break;
 
@@ -1987,11 +2659,102 @@ static int mpq_dmx_decoder_fullness_check(
 	return 0;
 }
 
+static int mpq_dmx_audio_decoder_fullness_check(
+		struct dvb_demux_feed *feed,
+		size_t required_space,
+		int lock_feed)
+{
+	struct mpq_demux *mpq_demux = feed->demux->priv;
+	struct mpq_streambuffer *sbuff = NULL;
+	struct mpq_audio_feed_info *feed_data;
+	struct mpq_feed *mpq_feed;
+	int ret = 0;
+
+	if (!dvb_dmx_is_audio_feed(feed)) {
+		MPQ_DVB_DBG_PRINT("%s: Invalid feed type %d\n",
+			__func__,
+			feed->pes_type);
+		return -EINVAL;
+	}
+
+	if (lock_feed) {
+		mutex_lock(&mpq_demux->mutex);
+	} else if (!mutex_is_locked(&mpq_demux->mutex)) {
+		MPQ_DVB_ERR_PRINT(
+				"%s: Mutex should have been locked\n",
+				__func__);
+		return -EINVAL;
+	}
+
+	mpq_feed = feed->priv;
+	feed_data = &mpq_feed->audio_info;
+
+	sbuff = feed_data->audio_buffer;
+	if (sbuff == NULL) {
+		if (lock_feed)
+			mutex_unlock(&mpq_demux->mutex);
+		MPQ_DVB_ERR_PRINT("%s: mpq_streambuffer object is NULL\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if ((feed_data->audio_buffer != NULL) &&
+		(!feed_data->fullness_wait_cancel) &&
+		(!mpq_dmx_check_audio_decoder_fullness(sbuff,
+						       required_space))) {
+		DEFINE_WAIT(__wait);
+
+		for (;;) {
+			prepare_to_wait(&sbuff->raw_data.queue,
+					&__wait, TASK_INTERRUPTIBLE);
+			if (!feed_data->audio_buffer ||
+				feed_data->fullness_wait_cancel ||
+				mpq_dmx_check_audio_decoder_fullness(sbuff,
+					required_space))
+				break;
+
+			if (!signal_pending(current)) {
+				mutex_unlock(&mpq_demux->mutex);
+				schedule();
+				mutex_lock(&mpq_demux->mutex);
+				continue;
+			}
+
+			ret = -ERESTARTSYS;
+			break;
+		}
+		finish_wait(&sbuff->raw_data.queue, &__wait);
+	}
+
+	if (ret < 0) {
+		if (lock_feed)
+			mutex_unlock(&mpq_demux->mutex);
+		return ret;
+	}
+
+	if ((feed_data->fullness_wait_cancel) ||
+		(feed_data->audio_buffer == NULL)) {
+		if (lock_feed)
+			mutex_unlock(&mpq_demux->mutex);
+		return -EINVAL;
+	}
+
+	if (lock_feed)
+		mutex_unlock(&mpq_demux->mutex);
+	return 0;
+}
+
 int mpq_dmx_decoder_fullness_wait(
 		struct dvb_demux_feed *feed,
 		size_t required_space)
 {
-	return mpq_dmx_decoder_fullness_check(feed, required_space, 1);
+	if (dvb_dmx_is_video_feed(feed))
+		return mpq_dmx_decoder_fullness_check(feed, required_space, 1);
+	else if (dvb_dmx_is_audio_feed(feed))
+		return mpq_dmx_audio_decoder_fullness_check(feed,
+							    required_space, 1);
+
+	return 0;
 }
 
 int mpq_dmx_decoder_fullness_abort(struct dvb_demux_feed *feed)
@@ -2009,8 +2772,7 @@ int mpq_dmx_decoder_fullness_abort(struct dvb_demux_feed *feed)
 		spin_lock(&feed_data->video_buffer_lock);
 		if (feed_data->video_buffer == NULL) {
 			MPQ_DVB_DBG_PRINT(
-				"%s: video_buffer released\n",
-				__func__);
+				"%s: video_buffer released\n", __func__);
 			spin_unlock(&feed_data->video_buffer_lock);
 			return 0;
 		}
@@ -2020,13 +2782,33 @@ int mpq_dmx_decoder_fullness_abort(struct dvb_demux_feed *feed)
 		spin_unlock(&feed_data->video_buffer_lock);
 
 		return 0;
+	} else if (dvb_dmx_is_audio_feed(feed)) {
+		struct mpq_feed *mpq_feed;
+		struct mpq_audio_feed_info *feed_data;
+		struct dvb_ringbuffer *audio_buff;
+
+		mpq_feed = feed->priv;
+		feed_data = &mpq_feed->audio_info;
+
+		feed_data->fullness_wait_cancel = 1;
+
+		spin_lock(&feed_data->audio_buffer_lock);
+		if (feed_data->audio_buffer == NULL) {
+			MPQ_DVB_DBG_PRINT(
+				"%s: audio_buffer released\n", __func__);
+			spin_unlock(&feed_data->audio_buffer_lock);
+			return 0;
+		}
+
+		audio_buff = &feed_data->audio_buffer->raw_data;
+		wake_up_all(&audio_buff->queue);
+		spin_unlock(&feed_data->audio_buffer_lock);
+
+		return 0;
 	}
 
-	/* else */
 	MPQ_DVB_ERR_PRINT(
-		"%s: Invalid feed type %d\n",
-		__func__,
-		feed->pes_type);
+			"%s: Invalid feed type %d\n", __func__, feed->pes_type);
 
 	return -EINVAL;
 }
@@ -2087,7 +2869,103 @@ int mpq_dmx_parse_mandatory_pes_header(
 	return 0;
 }
 
+int mpq_dmx_parse_mandatory_audio_pes_header(
+				struct dvb_demux_feed *feed,
+				struct mpq_audio_feed_info *feed_data,
+				struct pes_packet_header *pes_header,
+				const u8 *buf,
+				u32 *ts_payload_offset,
+				int *bytes_avail)
+{
+	int left_size, copy_len;
+
+	if (feed_data->pes_header_offset < PES_MANDATORY_FIELDS_LEN) {
+		left_size =
+			PES_MANDATORY_FIELDS_LEN -
+			feed_data->pes_header_offset;
+
+		copy_len = (left_size > *bytes_avail) ?
+					*bytes_avail :
+					left_size;
+
+		memcpy((u8 *)((u8 *)pes_header + feed_data->pes_header_offset),
+				(buf + *ts_payload_offset),
+				copy_len);
+
+		feed_data->pes_header_offset += copy_len;
+
+		if (left_size > *bytes_avail)
+			return -EINVAL;
+
+		/* else - we have beginning of PES header */
+		*bytes_avail -= left_size;
+		*ts_payload_offset += left_size;
+
+		/* Make sure the PES packet is valid */
+		if (mpq_dmx_is_valid_audio_pes(pes_header) < 0) {
+			/*
+			 * Since the new PES header parsing
+			 * failed, reset pusi_seen to drop all
+			 * data until next PUSI
+			 */
+			feed->pusi_seen = 0;
+			feed_data->pes_header_offset = 0;
+
+			MPQ_DVB_ERR_PRINT(
+				"%s: invalid packet\n",
+				__func__);
+
+			return -EINVAL;
+		}
+
+		feed_data->pes_header_left_bytes =
+			pes_header->pes_header_data_length;
+	}
+
+	return 0;
+}
+
 static inline void mpq_dmx_get_pts_dts(struct mpq_video_feed_info *feed_data,
+				struct pes_packet_header *pes_header)
+{
+	struct dmx_pts_dts_info *info = &(feed_data->new_pts_dts_info);
+
+	/* Get PTS/DTS information from PES header */
+
+	if ((pes_header->pts_dts_flag == 2) ||
+		(pes_header->pts_dts_flag == 3)) {
+		info->pts_exist = 1;
+
+		info->pts =
+			((u64)pes_header->pts_1 << 30) |
+			((u64)pes_header->pts_2 << 22) |
+			((u64)pes_header->pts_3 << 15) |
+			((u64)pes_header->pts_4 << 7) |
+			(u64)pes_header->pts_5;
+	} else {
+		info->pts_exist = 0;
+		info->pts = 0;
+	}
+
+	if (pes_header->pts_dts_flag == 3) {
+		info->dts_exist = 1;
+
+		info->dts =
+			((u64)pes_header->dts_1 << 30) |
+			((u64)pes_header->dts_2 << 22) |
+			((u64)pes_header->dts_3 << 15) |
+			((u64)pes_header->dts_4 << 7) |
+			(u64)pes_header->dts_5;
+	} else {
+		info->dts_exist = 0;
+		info->dts = 0;
+	}
+
+	feed_data->new_info_exists = 1;
+}
+
+static inline void mpq_dmx_get_audio_pts_dts(
+				struct mpq_audio_feed_info *feed_data,
 				struct pes_packet_header *pes_header)
 {
 	struct dmx_pts_dts_info *info = &(feed_data->new_pts_dts_info);
@@ -2218,6 +3096,96 @@ int mpq_dmx_parse_remaining_pes_header(
 	return 0;
 }
 
+int mpq_dmx_parse_remaining_audio_pes_header(
+				struct dvb_demux_feed *feed,
+				struct mpq_audio_feed_info *feed_data,
+				struct pes_packet_header *pes_header,
+				const u8 *buf,
+				u32 *ts_payload_offset,
+				int *bytes_avail)
+{
+	int left_size, copy_len;
+
+	/* Remaining header bytes that need to be processed? */
+	if (!feed_data->pes_header_left_bytes)
+		return 0;
+
+	/* Did we capture the PTS value (if exists)? */
+	if ((*bytes_avail != 0) &&
+		(feed_data->pes_header_offset <
+		 (PES_MANDATORY_FIELDS_LEN+5)) &&
+		((pes_header->pts_dts_flag == 2) ||
+		 (pes_header->pts_dts_flag == 3))) {
+
+		/* 5 more bytes should be there */
+		left_size =
+			PES_MANDATORY_FIELDS_LEN + 5 -
+			feed_data->pes_header_offset;
+
+		copy_len =
+			(left_size > *bytes_avail) ? *bytes_avail : left_size;
+
+		memcpy((u8 *)((u8 *)pes_header + feed_data->pes_header_offset),
+			(buf + *ts_payload_offset), copy_len);
+
+		feed_data->pes_header_offset += copy_len;
+		feed_data->pes_header_left_bytes -= copy_len;
+
+		if (left_size > *bytes_avail)
+			return -EINVAL;
+
+		/* else - we have the PTS */
+		*bytes_avail -= copy_len;
+		*ts_payload_offset += copy_len;
+	}
+
+	/* Did we capture the DTS value (if exist)? */
+	if ((*bytes_avail != 0) &&
+		(feed_data->pes_header_offset <
+		 (PES_MANDATORY_FIELDS_LEN+10)) &&
+		(pes_header->pts_dts_flag == 3)) {
+
+		/* 5 more bytes should be there */
+		left_size =
+			PES_MANDATORY_FIELDS_LEN + 10 -
+			feed_data->pes_header_offset;
+
+		copy_len = (left_size > *bytes_avail) ?
+					*bytes_avail :
+					left_size;
+
+		memcpy((u8 *)((u8 *)pes_header + feed_data->pes_header_offset),
+			(buf + *ts_payload_offset),
+			copy_len);
+
+		feed_data->pes_header_offset += copy_len;
+		feed_data->pes_header_left_bytes -= copy_len;
+
+		if (left_size > *bytes_avail)
+			return -EINVAL;
+
+		/* else - we have the DTS */
+		*bytes_avail -= copy_len;
+		*ts_payload_offset += copy_len;
+	}
+
+	/* Any more header bytes?! */
+	if (feed_data->pes_header_left_bytes >= *bytes_avail) {
+		feed_data->pes_header_left_bytes -= *bytes_avail;
+		return -EINVAL;
+	}
+
+	/* get PTS/DTS information from PES header to be written later */
+	mpq_dmx_get_audio_pts_dts(feed_data, pes_header);
+
+	/* Got PES header, process payload */
+	*bytes_avail -= feed_data->pes_header_left_bytes;
+	*ts_payload_offset += feed_data->pes_header_left_bytes;
+	feed_data->pes_header_left_bytes = 0;
+
+	return 0;
+}
+
 static void mpq_dmx_check_continuity(struct mpq_video_feed_info *feed_data,
 					int current_continuity,
 					int discontinuity_indicator)
@@ -2236,6 +3204,37 @@ static void mpq_dmx_check_continuity(struct mpq_video_feed_info *feed_data,
 	/* reset last continuity */
 	if ((feed_data->last_continuity == -1) ||
 		(discontinuity_indicator)) {
+		feed_data->last_continuity = current_continuity;
+		return;
+	}
+
+	/* check for continuity errors */
+	if (current_continuity !=
+			((feed_data->last_continuity + 1) & max_continuity))
+		feed_data->continuity_errs++;
+
+	/* save for next time */
+	feed_data->last_continuity = current_continuity;
+}
+
+static void mpq_dmx_check_audio_continuity(
+					struct mpq_audio_feed_info *feed_data,
+					int current_continuity,
+					int discontinuity_indicator)
+{
+	const int max_continuity = 0x0F; /* 4 bits in the TS packet header */
+
+	/* sanity check */
+	if (unlikely((current_continuity < 0) ||
+			(current_continuity > max_continuity))) {
+		MPQ_DVB_DBG_PRINT(
+			"%s: received invalid continuity counter value %d\n",
+					__func__, current_continuity);
+		return;
+	}
+
+	/* reset last continuity */
+	if ((feed_data->last_continuity == -1) || (discontinuity_indicator)) {
 		feed_data->last_continuity = current_continuity;
 		return;
 	}
@@ -2270,6 +3269,43 @@ static inline void mpq_dmx_prepare_es_event_data(
 	pts_dts = meta_data->packet_type == DMX_PES_PACKET ?
 		&meta_data->info.pes.pts_dts_info :
 		&meta_data->info.framing.pts_dts_info;
+
+	data->data_length = 0;
+	data->buf.handle = packet->raw_data_handle;
+	data->buf.cookie = cookie;
+	data->buf.offset = packet->raw_data_offset;
+	data->buf.len = packet->raw_data_len;
+	data->buf.pts_exists = pts_dts->pts_exist;
+	data->buf.pts = pts_dts->pts;
+	data->buf.dts_exists = pts_dts->dts_exist;
+	data->buf.dts = pts_dts->dts;
+	data->buf.tei_counter = feed_data->tei_errs;
+	data->buf.cont_err_counter = feed_data->continuity_errs;
+	data->buf.ts_packets_num = feed_data->ts_packets_num;
+	data->buf.ts_dropped_bytes = feed_data->ts_dropped_bytes;
+	data->status = DMX_OK_DECODER_BUF;
+
+	MPQ_DVB_DBG_PRINT("%s: cookie=%d\n", __func__, data->buf.cookie);
+
+	/* reset counters */
+	feed_data->ts_packets_num = 0;
+	feed_data->ts_dropped_bytes = 0;
+	feed_data->tei_errs = 0;
+	feed_data->continuity_errs = 0;
+}
+
+static inline void mpq_dmx_prepare_audio_es_event_data(
+			struct mpq_streambuffer_packet_header *packet,
+			struct mpq_adapter_audio_meta_data *meta_data,
+			struct mpq_audio_feed_info *feed_data,
+			struct mpq_streambuffer *stream_buffer,
+			struct dmx_data_ready *data,
+			int cookie)
+{
+	struct dmx_pts_dts_info *pts_dts;
+
+	pts_dts = &meta_data->info.pes.pts_dts_info;
+	data->buf.stc = meta_data->info.pes.stc;
 
 	data->data_length = 0;
 	data->buf.handle = packet->raw_data_handle;
@@ -2486,6 +3522,81 @@ static void mpq_dmx_decoder_pes_closure(struct mpq_demux *mpq_demux,
 	feed_data->pes_header_left_bytes = PES_MANDATORY_FIELDS_LEN;
 
 	spin_unlock(&feed_data->video_buffer_lock);
+}
+
+/*
+ * in audio handling although ES frames are send to decoder, close the
+ * pes packet
+ */
+static void mpq_dmx_decoder_audio_pes_closure(struct mpq_demux *mpq_demux,
+	struct mpq_feed *mpq_feed)
+{
+	struct mpq_streambuffer_packet_header packet;
+	struct mpq_streambuffer *stream_buffer;
+	struct mpq_adapter_audio_meta_data meta_data;
+	struct mpq_audio_feed_info *feed_data;
+	struct dvb_demux_feed *feed = mpq_feed->dvb_demux_feed;
+	struct dmx_data_ready data;
+	int cookie;
+
+	feed_data = &mpq_feed->audio_info;
+
+	/*
+	 * spin-lock is taken to protect against manipulation of audio
+	 * output buffer by the API (terminate audio feed, re-use of audio
+	 * buffers).
+	 */
+	spin_lock(&feed_data->audio_buffer_lock);
+	stream_buffer = feed_data->audio_buffer;
+
+	if (stream_buffer == NULL) {
+		MPQ_DVB_DBG_PRINT("%s: audio_buffer released\n", __func__);
+		spin_unlock(&feed_data->audio_buffer_lock);
+		return;
+	}
+
+	/*
+	 * Close previous PES.
+	 * Push new packet to the meta-data buffer.
+	 */
+	if ((feed->pusi_seen) && (feed_data->pes_header_left_bytes == 0)) {
+		packet.raw_data_len = feed->peslen;
+		mpq_streambuffer_get_buffer_handle(stream_buffer,
+			0, /* current write buffer handle */
+			&packet.raw_data_handle);
+		packet.raw_data_offset = feed_data->frame_offset;
+		packet.user_data_len =
+			sizeof(struct mpq_adapter_audio_meta_data);
+
+		mpq_dmx_write_audio_pts_dts(feed_data,
+			&(meta_data.info.pes.pts_dts_info));
+
+		meta_data.packet_type = DMX_PES_PACKET;
+		meta_data.info.pes.stc = feed_data->prev_stc;
+
+		mpq_dmx_update_decoder_stat(mpq_feed);
+
+		cookie = mpq_streambuffer_pkt_write(stream_buffer, &packet,
+			(u8 *)&meta_data);
+		if (cookie >= 0) {
+			/* Save write offset where new PES will begin */
+			mpq_streambuffer_get_data_rw_offset(stream_buffer, NULL,
+				&feed_data->frame_offset);
+			mpq_dmx_prepare_audio_es_event_data(&packet, &meta_data,
+				feed_data, stream_buffer, &data, cookie);
+			feed->data_ready_cb.ts(&feed->feed.ts, &data);
+		} else {
+			MPQ_DVB_ERR_PRINT(
+				"%s: mpq_sb_pkt_write failed, ret=%d\n",
+				__func__, cookie);
+		}
+	}
+	/* Reset PES info */
+	feed->peslen = 0;
+	feed_data->pes_header_offset = 0;
+	feed_data->pes_header_left_bytes = PES_MANDATORY_FIELDS_LEN;
+
+	spin_unlock(&feed_data->audio_buffer_lock);
 }
 
 static int mpq_dmx_process_video_packet_framing(
@@ -2824,6 +3935,7 @@ static int mpq_dmx_process_video_packet_framing(
 			pending_data_len -= bytes_to_write;
 			feed_data->pending_pattern_len += bytes_to_write;
 		}
+		non_predicted_video_frame = 0;
 
 		is_video_frame = mpq_dmx_is_video_frame(
 				feed->video_codec,
@@ -2863,9 +3975,9 @@ static int mpq_dmx_process_video_packet_framing(
 			ret = mpq_streambuffer_pkt_write(stream_buffer, &packet,
 				(u8 *)&meta_data);
 			if (ret < 0) {
-				MPQ_DVB_ERR_PRINT(
-					"%s: mpq_streambuffer_pkt_write failed, ret=%d\n",
-					__func__, ret);
+				MPQ_DVB_ERR_PRINT
+					("%s: mpq_sb_pkt_write failed ret=%d\n",
+					 __func__, ret);
 				if (ret == -ENOSPC)
 					mpq_dmx_notify_overflow(feed);
 			} else {
@@ -2873,7 +3985,15 @@ static int mpq_dmx_process_video_packet_framing(
 					&packet, &meta_data, feed_data,
 					stream_buffer, &data, ret);
 
-				feed->data_ready_cb.ts(&feed->feed.ts, &data);
+				/* Trigger ES Data Event for VPTS */
+				if (video_b_frame_events == 1) {
+					if (non_predicted_video_frame == 1)
+						feed->data_ready_cb.ts
+							(&feed->feed.ts, &data);
+				} else {
+					feed->data_ready_cb.ts(&feed->feed.ts,
+							       &data);
+				}
 
 				if (feed_data->video_buffer->mode ==
 					MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR)
@@ -3071,8 +4191,8 @@ static int mpq_dmx_process_video_packet_no_framing(
 					stream_buffer, &packet,
 					(u8 *)&meta_data);
 				if (cookie < 0) {
-					MPQ_DVB_ERR_PRINT(
-						"%s: mpq_streambuffer_pkt_write failed, ret=%d\n",
+					MPQ_DVB_ERR_PRINT
+						("%s: write failed, ret=%d\n",
 						__func__, cookie);
 				} else {
 					/*
@@ -3200,60 +4320,335 @@ static int mpq_dmx_process_video_packet_no_framing(
 	return 0;
 }
 
+/*
+ * parse PES headers and send down ES packets to decoder
+ * Trigger a new ES Data Event with APTS and QTimer in 1st PES
+ */
+static int mpq_dmx_process_audio_packet_no_framing(
+			struct dvb_demux_feed *feed,
+			const u8 *buf,
+			u64 curr_stc)
+{
+	int bytes_avail;
+	u32 ts_payload_offset;
+	struct mpq_audio_feed_info *feed_data;
+	const struct ts_packet_header *ts_header;
+	struct mpq_streambuffer *stream_buffer;
+	struct pes_packet_header *pes_header;
+	struct mpq_demux *mpq_demux;
+	struct mpq_feed *mpq_feed;
+	int discontinuity_indicator = 0;
+	struct dmx_data_ready data;
+	int cookie;
+	int ret;
+
+	mpq_demux = feed->demux->priv;
+	mpq_feed = feed->priv;
+	feed_data = &mpq_feed->audio_info;
+
+	/*
+	 * spin-lock is taken to protect against manipulation of audio
+	 * output buffer by the API (terminate audio feed, re-use of audio
+	 * buffers). Mutex on the audio-feed cannot be held here
+	 * since SW demux holds a spin-lock while calling write_to_decoder
+	 */
+	spin_lock(&feed_data->audio_buffer_lock);
+	stream_buffer = feed_data->audio_buffer;
+	if (stream_buffer == NULL) {
+		MPQ_DVB_DBG_PRINT(
+			"%s: audio_buffer released\n",
+			__func__);
+		spin_unlock(&feed_data->audio_buffer_lock);
+		return 0;
+	}
+
+	ts_header = (const struct ts_packet_header *)buf;
+
+	pes_header = &feed_data->pes_header;
+
+	/* Make sure this TS packet has a payload and not scrambled */
+	if ((ts_header->sync_byte != 0x47) ||
+		(ts_header->adaptation_field_control == 0) ||
+		(ts_header->adaptation_field_control == 2) ||
+		(ts_header->transport_scrambling_control)) {
+		/* continue to next packet */
+		spin_unlock(&feed_data->audio_buffer_lock);
+		return 0;
+	}
+
+	if (ts_header->payload_unit_start_indicator) { /* PUSI? */
+		if (feed->pusi_seen) { /* Did we see PUSI before? */
+			struct mpq_streambuffer_packet_header packet;
+			struct mpq_adapter_audio_meta_data meta_data;
+
+			/*
+			 * Close previous PES.
+			 * Push new packet to the meta-data buffer.
+			 * Double check that we are not in middle of
+			 * previous PES header parsing.
+			 */
+
+			if (feed_data->pes_header_left_bytes == 0) {
+				packet.raw_data_len = feed->peslen;
+				mpq_streambuffer_get_buffer_handle(
+					stream_buffer,
+					0, /* current write buffer handle */
+					&packet.raw_data_handle);
+				packet.raw_data_offset =
+					feed_data->frame_offset;
+				packet.user_data_len =
+					sizeof(struct
+						mpq_adapter_audio_meta_data);
+
+				mpq_dmx_write_audio_pts_dts(feed_data,
+					&(meta_data.info.pes.pts_dts_info));
+
+				/* Mark that we detected start of new PES */
+				feed_data->first_pts_dts_copy = 1;
+
+				meta_data.packet_type = DMX_PES_PACKET;
+				meta_data.info.pes.stc = feed_data->prev_stc;
+
+				mpq_dmx_update_decoder_stat(mpq_feed);
+
+				/* actual writing of stream audio headers */
+				cookie = mpq_streambuffer_pkt_write(
+					stream_buffer, &packet,
+					(u8 *)&meta_data);
+				if (cookie < 0) {
+					MPQ_DVB_ERR_PRINT
+						("%s: write failed, ret=%d\n",
+						 __func__, cookie);
+				} else {
+					/*
+					 * Save write offset where new PES
+					 * will begin
+					 */
+					mpq_streambuffer_get_data_rw_offset(
+						stream_buffer,
+						NULL,
+						&feed_data->frame_offset);
+
+					mpq_dmx_prepare_audio_es_event_data(
+						&packet, &meta_data,
+						feed_data,
+						stream_buffer, &data, cookie);
+
+					/*
+					 * Trigger ES data event for APTS
+					 * and AFRAME
+					 */
+					feed->data_ready_cb.ts(&feed->feed.ts,
+							       &data);
+				}
+			} else {
+				MPQ_DVB_ERR_PRINT(
+					"%s: received PUSI while handling PES header of previous PES\n",
+					 __func__);
+			}
+
+			/* Reset PES info */
+			feed->peslen = 0;
+			feed_data->pes_header_offset = 0;
+			feed_data->pes_header_left_bytes =
+				PES_MANDATORY_FIELDS_LEN;
+		} else {
+			feed->pusi_seen = 1;
+		}
+
+		feed_data->prev_stc = curr_stc;
+	}
+
+	/*
+	 * Parse PES data only if PUSI was encountered,
+	 * otherwise the data is dropped
+	 */
+	if (!feed->pusi_seen) {
+		spin_unlock(&feed_data->audio_buffer_lock);
+		return 0; /* drop and wait for next packets */
+	}
+
+	ts_payload_offset = sizeof(struct ts_packet_header);
+
+	/*
+	 * Skip adaptation field if exists.
+	 * Save discontinuity indicator if exists.
+	 */
+	if (ts_header->adaptation_field_control == 3) {
+		const struct ts_adaptation_field *adaptation_field =
+			(const struct ts_adaptation_field *)(buf +
+				ts_payload_offset);
+
+		discontinuity_indicator =
+			adaptation_field->discontinuity_indicator;
+		ts_payload_offset += buf[ts_payload_offset] + 1;
+	}
+
+	bytes_avail = TS_PACKET_SIZE - ts_payload_offset;
+
+	/* The audio decoder requires ES packets ! */
+
+	/* Get the mandatory fields of the audio PES header */
+	if (mpq_dmx_parse_mandatory_audio_pes_header(feed, feed_data,
+						pes_header, buf,
+						&ts_payload_offset,
+						&bytes_avail)) {
+		spin_unlock(&feed_data->audio_buffer_lock);
+		return 0;
+	}
+
+	if (mpq_dmx_parse_remaining_audio_pes_header(feed, feed_data,
+						pes_header, buf,
+						&ts_payload_offset,
+						&bytes_avail)) {
+		spin_unlock(&feed_data->audio_buffer_lock);
+		return 0;
+	}
+
+	/*
+	 * If we reached here,
+	 * then we are now at the PES payload data
+	 */
+	if (bytes_avail == 0) {
+		spin_unlock(&feed_data->audio_buffer_lock);
+		return 0;
+	}
+
+	/*
+	 * Need to back-up the PTS information
+	 * of the start of new PES
+	 */
+	if (feed_data->first_pts_dts_copy) {
+		mpq_dmx_save_audio_pts_dts(feed_data);
+		feed_data->first_pts_dts_copy = 0;
+	}
+
+	/* Update error counters based on TS header */
+	feed_data->ts_packets_num++;
+	feed_data->tei_errs += ts_header->transport_error_indicator;
+	mpq_demux->decoder_stat[feed_data->stream_interface].ts_errors +=
+		ts_header->transport_error_indicator;
+	mpq_dmx_check_audio_continuity(feed_data,
+				ts_header->continuity_counter,
+				discontinuity_indicator);
+	mpq_demux->decoder_stat[feed_data->stream_interface].cc_errors +=
+		feed_data->continuity_errs;
+
+	/* actual writing of audio data for a stream */
+	ret = mpq_streambuffer_data_write(stream_buffer, buf+ts_payload_offset,
+		bytes_avail);
+	if (ret < 0) {
+		mpq_demux->decoder_stat
+			[feed_data->stream_interface].drop_count += bytes_avail;
+		feed_data->ts_dropped_bytes += bytes_avail;
+		if (ret == -ENOSPC)
+			mpq_dmx_notify_overflow(feed);
+	} else {
+		feed->peslen += bytes_avail;
+	}
+
+	spin_unlock(&feed_data->audio_buffer_lock);
+
+	return 0;
+}
+
+/* function ptr used in several places, handle differently */
 int mpq_dmx_decoder_buffer_status(struct dvb_demux_feed *feed,
 		struct dmx_buffer_status *dmx_buffer_status)
 {
-	struct mpq_demux *mpq_demux = feed->demux->priv;
-	struct mpq_video_feed_info *feed_data;
-	struct mpq_streambuffer *video_buff;
-	struct mpq_feed *mpq_feed;
 
-	if (!dvb_dmx_is_video_feed(feed)) {
-		MPQ_DVB_ERR_PRINT(
-			"%s: Invalid feed type %d\n",
-			__func__,
-			feed->pes_type);
-		return -EINVAL;
-	}
+	if (dvb_dmx_is_video_feed(feed)) {
+		struct mpq_demux *mpq_demux = feed->demux->priv;
+		struct mpq_video_feed_info *feed_data;
+		struct mpq_streambuffer *video_buff;
+		struct mpq_feed *mpq_feed;
 
-	mutex_lock(&mpq_demux->mutex);
+		mutex_lock(&mpq_demux->mutex);
 
-	mpq_feed = feed->priv;
-	feed_data = &mpq_feed->video_info;
-	video_buff = feed_data->video_buffer;
-	if (!video_buff) {
+		mpq_feed = feed->priv;
+		feed_data = &mpq_feed->video_info;
+		video_buff = feed_data->video_buffer;
+		if (!video_buff) {
+			mutex_unlock(&mpq_demux->mutex);
+			return -EINVAL;
+		}
+
+		dmx_buffer_status->error = video_buff->raw_data.error;
+
+		if (video_buff->mode == MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR) {
+			dmx_buffer_status->fullness =
+				video_buff->buffers[0].size *
+				video_buff->pending_buffers_count;
+			dmx_buffer_status->free_bytes =
+				video_buff->buffers[0].size *
+				(video_buff->buffers_num -
+				 video_buff->pending_buffers_count);
+			dmx_buffer_status->size =
+				video_buff->buffers[0].size *
+				video_buff->buffers_num;
+		} else {
+			dmx_buffer_status->fullness =
+				mpq_streambuffer_data_avail(video_buff);
+			dmx_buffer_status->free_bytes =
+				mpq_streambuffer_data_free(video_buff);
+			dmx_buffer_status->size = video_buff->buffers[0].size;
+		}
+
+		mpq_streambuffer_get_data_rw_offset(
+					video_buff,
+					&dmx_buffer_status->read_offset,
+					&dmx_buffer_status->write_offset);
+
 		mutex_unlock(&mpq_demux->mutex);
+
+	} else if (dvb_dmx_is_audio_feed(feed)) {
+		struct mpq_demux *mpq_demux = feed->demux->priv;
+		struct mpq_audio_feed_info *feed_data;
+		struct mpq_streambuffer *audio_buff;
+		struct mpq_feed *mpq_feed;
+
+		mutex_lock(&mpq_demux->mutex);
+
+		mpq_feed = feed->priv;
+		feed_data = &mpq_feed->audio_info;
+		audio_buff = feed_data->audio_buffer;
+		if (!audio_buff) {
+			mutex_unlock(&mpq_demux->mutex);
+			return -EINVAL;
+		}
+
+		dmx_buffer_status->error = audio_buff->raw_data.error;
+
+		if (audio_buff->mode == MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR) {
+			dmx_buffer_status->fullness =
+				audio_buff->buffers[0].size *
+				audio_buff->pending_buffers_count;
+			dmx_buffer_status->free_bytes =
+				audio_buff->buffers[0].size *
+				(audio_buff->buffers_num -
+				 audio_buff->pending_buffers_count);
+			dmx_buffer_status->size =
+				audio_buff->buffers[0].size *
+				audio_buff->buffers_num;
+		} else {
+			dmx_buffer_status->fullness =
+				mpq_streambuffer_data_avail(audio_buff);
+			dmx_buffer_status->free_bytes =
+				mpq_streambuffer_data_free(audio_buff);
+			dmx_buffer_status->size = audio_buff->buffers[0].size;
+		}
+
+		mpq_streambuffer_get_data_rw_offset(
+					audio_buff,
+					&dmx_buffer_status->read_offset,
+					&dmx_buffer_status->write_offset);
+
+		mutex_unlock(&mpq_demux->mutex);
+	} else {
+		MPQ_DVB_ERR_PRINT("%s: Invalid feed type %d\n",
+				   __func__, feed->pes_type);
 		return -EINVAL;
 	}
-
-	dmx_buffer_status->error = video_buff->raw_data.error;
-
-	if (video_buff->mode == MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR) {
-		dmx_buffer_status->fullness =
-			video_buff->buffers[0].size *
-			video_buff->pending_buffers_count;
-		dmx_buffer_status->free_bytes =
-			video_buff->buffers[0].size *
-			(video_buff->buffers_num -
-			video_buff->pending_buffers_count);
-		dmx_buffer_status->size =
-			video_buff->buffers[0].size *
-			video_buff->buffers_num;
-	} else {
-		dmx_buffer_status->fullness =
-			mpq_streambuffer_data_avail(video_buff);
-		dmx_buffer_status->free_bytes =
-			mpq_streambuffer_data_free(video_buff);
-		dmx_buffer_status->size = video_buff->buffers[0].size;
-	}
-
-	mpq_streambuffer_get_data_rw_offset(
-		video_buff,
-		&dmx_buffer_status->read_offset,
-		&dmx_buffer_status->write_offset);
-
-	mutex_unlock(&mpq_demux->mutex);
-
 	return 0;
 }
 
@@ -3268,10 +4663,18 @@ int mpq_dmx_process_video_packet(
 		(mpq_demux->demux.tsp_format != DMX_TSP_FORMAT_192_TAIL)) {
 		curr_stc = 0;
 	} else {
-		curr_stc = buf[STC_LOCATION_IDX + 2] << 16;
-		curr_stc += buf[STC_LOCATION_IDX + 1] << 8;
-		curr_stc += buf[STC_LOCATION_IDX];
-		curr_stc *= 256; /* convert from 105.47 KHZ to 27MHz */
+		if (mpq_demux->ts_packet_timestamp_source !=
+		    TSIF_TTS_LPASS_TIMER) {
+			curr_stc = buf[STC_LOCATION_IDX + 2] << 16;
+			curr_stc += buf[STC_LOCATION_IDX + 1] << 8;
+			curr_stc += buf[STC_LOCATION_IDX];
+			curr_stc *= 256; /* convert from 105.47 KHZ to 27MHz */
+		} else {
+			curr_stc = buf[STC_LOCATION_IDX + 3] << 24;
+			curr_stc += buf[STC_LOCATION_IDX + 2] << 16;
+			curr_stc += buf[STC_LOCATION_IDX + 1] << 8;
+			curr_stc += buf[STC_LOCATION_IDX];
+		}
 	}
 
 	if (!video_framing)
@@ -3280,6 +4683,34 @@ int mpq_dmx_process_video_packet(
 	else
 		return mpq_dmx_process_video_packet_framing(feed, buf,
 				curr_stc);
+}
+
+int mpq_dmx_process_audio_packet(
+			struct dvb_demux_feed *feed,
+			const u8 *buf)
+{
+	u64 curr_stc;
+	struct mpq_demux *mpq_demux = feed->demux->priv;
+
+	if ((mpq_demux->source >= DMX_SOURCE_DVR0) &&
+		(mpq_demux->demux.tsp_format != DMX_TSP_FORMAT_192_TAIL)) {
+		curr_stc = 0;
+	} else {
+		if (mpq_demux->ts_packet_timestamp_source !=
+		    TSIF_TTS_LPASS_TIMER) {
+			curr_stc = buf[STC_LOCATION_IDX + 2] << 16;
+			curr_stc += buf[STC_LOCATION_IDX + 1] << 8;
+			curr_stc += buf[STC_LOCATION_IDX];
+			curr_stc *= 256; /* convert from 105.47 KHZ to 27MHz */
+		} else {
+			curr_stc = buf[STC_LOCATION_IDX + 3] << 24;
+			curr_stc += buf[STC_LOCATION_IDX + 2] << 16;
+			curr_stc += buf[STC_LOCATION_IDX + 1] << 8;
+			curr_stc += buf[STC_LOCATION_IDX];
+		}
+	}
+
+	return mpq_dmx_process_audio_packet_no_framing(feed, buf, curr_stc);
 }
 
 int mpq_dmx_extract_pcr_and_dci(const u8 *buf, u64 *pcr, int *dci)
@@ -3342,10 +4773,18 @@ int mpq_dmx_process_pcr_packet(
 		(mpq_demux->demux.tsp_format != DMX_TSP_FORMAT_192_TAIL)) {
 		stc = 0;
 	} else {
-		stc = buf[STC_LOCATION_IDX + 2] << 16;
-		stc += buf[STC_LOCATION_IDX + 1] << 8;
-		stc += buf[STC_LOCATION_IDX];
-		stc *= 256; /* convert from 105.47 KHZ to 27MHz */
+		if (mpq_demux->ts_packet_timestamp_source !=
+		    TSIF_TTS_LPASS_TIMER) {
+			stc = buf[STC_LOCATION_IDX + 2] << 16;
+			stc += buf[STC_LOCATION_IDX + 1] << 8;
+			stc += buf[STC_LOCATION_IDX];
+			stc *= 256; /* convert from 105.47 KHZ to 27MHz */
+		} else {
+			stc = buf[STC_LOCATION_IDX + 3] << 24;
+			stc += buf[STC_LOCATION_IDX + 2] << 16;
+			stc += buf[STC_LOCATION_IDX + 1] << 8;
+			stc += buf[STC_LOCATION_IDX];
+		}
 	}
 
 	data.data_length = 0;
@@ -3356,45 +4795,86 @@ int mpq_dmx_process_pcr_packet(
 	return 0;
 }
 
-int mpq_dmx_decoder_eos_cmd(struct mpq_feed *mpq_feed)
+int mpq_dmx_decoder_eos_cmd(struct mpq_feed *mpq_feed, int feed_type)
 {
-	struct mpq_video_feed_info *feed_data = &mpq_feed->video_info;
-	struct mpq_streambuffer *stream_buffer;
-	struct mpq_streambuffer_packet_header oob_packet;
-	struct mpq_adapter_video_meta_data oob_meta_data;
-	int ret;
+	if (feed_type == 1) { /* video feed */
+		struct mpq_video_feed_info *feed_data = &mpq_feed->video_info;
+		struct mpq_streambuffer *stream_buffer;
+		struct mpq_streambuffer_packet_header oob_packet;
+		struct mpq_adapter_video_meta_data oob_meta_data;
+		int ret;
 
-	spin_lock(&feed_data->video_buffer_lock);
-	stream_buffer = feed_data->video_buffer;
+		spin_lock(&feed_data->video_buffer_lock);
+		stream_buffer = feed_data->video_buffer;
 
-	if (stream_buffer == NULL) {
-		MPQ_DVB_DBG_PRINT("%s: video_buffer released\n", __func__);
+		if (stream_buffer == NULL) {
+			MPQ_DVB_DBG_PRINT("%s: video_buffer released\n",
+					  __func__);
+			spin_unlock(&feed_data->video_buffer_lock);
+			return 0;
+		}
+
+		memset(&oob_packet, 0, sizeof(oob_packet));
+		oob_packet.user_data_len = sizeof(oob_meta_data);
+		oob_meta_data.packet_type = DMX_EOS_PACKET;
+
+		ret = mpq_streambuffer_pkt_write(stream_buffer, &oob_packet,
+						 (u8 *)&oob_meta_data);
+
 		spin_unlock(&feed_data->video_buffer_lock);
-		return 0;
+		return (ret < 0) ? ret : 0;
+
+	} else if (feed_type == 2) { /* audio feed */
+		struct mpq_audio_feed_info *feed_data = &mpq_feed->audio_info;
+		struct mpq_streambuffer *stream_buffer;
+		struct mpq_streambuffer_packet_header oob_packet;
+		struct mpq_adapter_audio_meta_data oob_meta_data;
+		int ret;
+
+		spin_lock(&feed_data->audio_buffer_lock);
+		stream_buffer = feed_data->audio_buffer;
+
+		if (stream_buffer == NULL) {
+			MPQ_DVB_DBG_PRINT("%s: audio_buffer released\n",
+					  __func__);
+			spin_unlock(&feed_data->audio_buffer_lock);
+			return 0;
+		}
+
+		memset(&oob_packet, 0, sizeof(oob_packet));
+		oob_packet.user_data_len = sizeof(oob_meta_data);
+		oob_meta_data.packet_type = DMX_EOS_PACKET;
+
+		ret = mpq_streambuffer_pkt_write(stream_buffer, &oob_packet,
+						 (u8 *)&oob_meta_data);
+
+		spin_unlock(&feed_data->audio_buffer_lock);
+		return (ret < 0) ? ret : 0;
 	}
 
-	memset(&oob_packet, 0, sizeof(oob_packet));
-	oob_packet.user_data_len = sizeof(oob_meta_data);
-	oob_meta_data.packet_type = DMX_EOS_PACKET;
-
-	ret = mpq_streambuffer_pkt_write(stream_buffer, &oob_packet,
-					(u8 *)&oob_meta_data);
-
-	spin_unlock(&feed_data->video_buffer_lock);
-	return (ret < 0) ? ret : 0;
+	return 0;
 }
 
 void mpq_dmx_convert_tts(struct dvb_demux_feed *feed,
 			const u8 timestamp[TIMESTAMP_LEN],
 			u64 *timestampIn27Mhz)
 {
+	struct mpq_demux *mpq_demux = feed->demux->priv;
+
 	if (unlikely(!timestampIn27Mhz))
 		return;
 
-	*timestampIn27Mhz = timestamp[2] << 16;
-	*timestampIn27Mhz += timestamp[1] << 8;
-	*timestampIn27Mhz += timestamp[0];
-	*timestampIn27Mhz *= 256; /* convert from 105.47 KHZ to 27MHz */
+	if (mpq_demux->ts_packet_timestamp_source != TSIF_TTS_LPASS_TIMER) {
+		*timestampIn27Mhz = timestamp[2] << 16;
+		*timestampIn27Mhz += timestamp[1] << 8;
+		*timestampIn27Mhz += timestamp[0];
+		*timestampIn27Mhz *= 256; /* convert from 105.47 KHZ to 27MHz */
+	} else {
+		*timestampIn27Mhz = timestamp[3] << 24;
+		*timestampIn27Mhz += timestamp[2] << 16;
+		*timestampIn27Mhz += timestamp[1] << 8;
+		*timestampIn27Mhz += timestamp[0];
+	}
 }
 
 int mpq_sdmx_open_session(struct mpq_demux *mpq_demux)
@@ -3904,6 +5384,16 @@ int mpq_dmx_init_mpq_feed(struct dvb_demux_feed *feed)
 		}
 	}
 
+	if (dvb_dmx_is_audio_feed(feed)) {
+		ret = mpq_dmx_init_audio_feed(mpq_feed);
+		if (ret) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: mpq_dmx_init_audio_feed failed, ret=%d\n",
+				__func__, ret);
+			goto init_mpq_feed_end;
+		}
+	}
+
 	/*
 	 * sdmx is not relevant for recording filters, which always use
 	 * regular filters (non-sdmx)
@@ -3924,6 +5414,8 @@ int mpq_dmx_init_mpq_feed(struct dvb_demux_feed *feed)
 			__func__, ret);
 		if (dvb_dmx_is_video_feed(feed))
 			mpq_dmx_terminate_video_feed(mpq_feed);
+		else if (dvb_dmx_is_audio_feed(feed))
+			mpq_dmx_terminate_audio_feed(mpq_feed);
 	}
 
 init_mpq_feed_end:
@@ -4662,7 +6154,7 @@ decoder_filter_check_flags:
 
 	if (sts->status_indicators & SDMX_FILTER_STATUS_EOS) {
 		/* Notify decoder via the stream buffer */
-		ret = mpq_dmx_decoder_eos_cmd(mpq_feed);
+		ret = mpq_dmx_decoder_eos_cmd(mpq_feed, 1);
 		if (ret)
 			MPQ_DVB_ERR_PRINT(
 				"%s: Failed to notify decoder on EOS, ret=%d\n",
@@ -5162,11 +6654,19 @@ int mpq_dmx_oob_command(struct dvb_demux_feed *feed,
 				else
 					mpq_dmx_decoder_frame_closure(mpq_demux,
 						mpq_feed);
-				ret = mpq_dmx_decoder_eos_cmd(mpq_feed);
+				ret = mpq_dmx_decoder_eos_cmd(mpq_feed, 1);
 				if (ret)
 					MPQ_DVB_ERR_PRINT(
 						"%s: Couldn't write oob eos packet\n",
 						__func__);
+			} else if (dvb_dmx_is_audio_feed(feed)) {
+				mpq_dmx_decoder_audio_pes_closure(mpq_demux,
+								  mpq_feed);
+				ret = mpq_dmx_decoder_eos_cmd(mpq_feed, 2);
+				if (ret)
+					MPQ_DVB_ERR_PRINT(
+							  "%s: Couldn't write oob eos packet\n",
+							  __func__);
 			}
 			ret = feed->data_ready_cb.ts(&feed->feed.ts, &event);
 		} else if (!mpq_demux->sdmx_eos) {

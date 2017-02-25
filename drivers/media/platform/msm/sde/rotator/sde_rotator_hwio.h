@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +65,8 @@
 #define MMSS_VBIF_NRT_VBIF_IN_WR_LIM_CONF2		0x00C8
 #define MMSS_VBIF_NRT_VBIF_OUT_RD_LIM_CONF0		0x00D0
 #define MMSS_VBIF_NRT_VBIF_OUT_WR_LIM_CONF0		0x00D4
+#define MDSS_VBIF_QOS_RP_REMAP_BASE		0x550
+#define MDSS_VBIF_QOS_LVL_REMAP_BASE		0x570
 
 #define SDE_MDP_REG_TRAFFIC_SHAPER_EN			BIT(31)
 #define SDE_MDP_REG_TRAFFIC_SHAPER_RD_CLIENT(num)	(0x030 + (num * 4))

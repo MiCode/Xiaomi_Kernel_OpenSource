@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +45,8 @@
 #include <linux/string.h>
 #include <linux/msm-bus.h>
 #include <linux/interrupt.h>	/* tasklet */
+#include <asm/arch_timer.h> /* Timer */
+#include <linux/avtimer_kernel.h> /* Timer */
 
 /*
  * General defines
@@ -100,6 +102,7 @@
 #define TSIF_TEST_RESET_OFF           (0x1c)
 #define TSIF_TEST_EXPORT_OFF          (0x20)
 #define TSIF_TEST_CURRENT_OFF         (0x24)
+#define TSIF_TTS_CTL_OFF	      (0x38)
 
 #define TSIF_DATA_PORT_OFF            (0x100)
 
@@ -127,6 +130,12 @@
 #define TSIF_STS_CTL_EN_DM        BIT(4)
 #define TSIF_STS_CTL_STOP         BIT(3)
 #define TSIF_STS_CTL_START        BIT(0)
+
+/* bits for TSIF_TTS_CTRL register */
+#define TSIF_TTS_CTL_TTS_ENDIANNESS	BIT(4)
+#define TSIF_TTS_CTL_TTS_SOURCE		BIT(3)
+#define TSIF_TTS_CTL_TTS_LENGTH_1	BIT(1)
+#define TSIF_TTS_CTL_TTS_LENGTH_0	BIT(0)
 
 /*
  * TSPP register offsets
@@ -255,6 +264,7 @@ static const struct debugfs_entry debugfs_tsif_regs[] = {
 	{"test_export",         S_IRUGO | S_IWUSR, TSIF_TEST_EXPORT_OFF},
 	{"test_current",        S_IRUGO,           TSIF_TEST_CURRENT_OFF},
 	{"data_port",           S_IRUSR,           TSIF_DATA_PORT_OFF},
+	{"tts_source",          S_IRUSR | S_IWUSR, TSIF_TTS_CTL_OFF},
 };
 
 static const struct debugfs_entry debugfs_tspp_regs[] = {
@@ -369,6 +379,8 @@ struct tspp_tsif_device {
 	u32 stat_overflow;
 	u32 stat_lost_sync;
 	u32 stat_timeout;
+	enum tsif_tts_source tts_source;
+	u32 lpass_timer_enable;
 };
 
 enum tspp_buf_state {
@@ -477,6 +489,7 @@ struct tspp_device {
 	/* pinctrl */
 	struct mutex mutex;
 	struct tspp_pinctrl pinctrl;
+	unsigned int tts_source; /* Time stamp source type LPASS timer/TCR */
 
 	struct dentry *dent;
 	struct dentry *debugfs_regs[ARRAY_SIZE(debugfs_tspp_regs)];
@@ -911,6 +924,8 @@ static int tspp_start_tsif(struct tspp_tsif_device *tsif_device)
 {
 	int start_hardware = 0;
 	u32 ctl;
+	u32 tts_ctl;
+	int retval;
 
 	if (tsif_device->ref_count == 0) {
 		start_hardware = 1;
@@ -949,19 +964,57 @@ static int tspp_start_tsif(struct tspp_tsif_device *tsif_device)
 					TSIF_STS_CTL_TEST_MODE;
 			break;
 		case TSPP_TSIF_MODE_1:
-			ctl |= TSIF_STS_CTL_EN_TIME_LIM |
-					TSIF_STS_CTL_EN_TCR;
+			ctl |= TSIF_STS_CTL_EN_TIME_LIM;
+			if (tsif_device->tts_source != TSIF_TTS_LPASS_TIMER)
+				ctl |= TSIF_STS_CTL_EN_TCR;
 			break;
 		case TSPP_TSIF_MODE_2:
 			ctl |= TSIF_STS_CTL_EN_TIME_LIM |
-					TSIF_STS_CTL_EN_TCR |
 					TSIF_STS_CTL_MODE_2;
+			if (tsif_device->tts_source != TSIF_TTS_LPASS_TIMER)
+				ctl |= TSIF_STS_CTL_EN_TCR;
 			break;
 		default:
 			pr_warn("tspp: unknown tsif mode 0x%x",
 				tsif_device->mode);
 		}
+		/* Set 4bytes Time Stamp for TCR */
+		if (tsif_device->tts_source == TSIF_TTS_LPASS_TIMER) {
+			if (tsif_device->lpass_timer_enable == 0) {
+				retval = avcs_core_open();
+				if (retval < 0) {
+					pr_warn("tspp: avcs open fail:%d\n",
+						retval);
+					return retval;
+				}
+				retval = avcs_core_disable_power_collapse(1);
+				if (retval  < 0) {
+					pr_warn("tspp: avcs power enable:%d\n",
+						retval);
+					return retval;
+				}
+				tsif_device->lpass_timer_enable = 1;
+			}
+
+			tts_ctl	= readl_relaxed(tsif_device->base +
+						TSIF_TTS_CTL_OFF);
+			tts_ctl = 0;
+			/* Set LPASS Timer TTS source */
+			tts_ctl |= TSIF_TTS_CTL_TTS_SOURCE;
+			 /* Set 4 byte TTS */
+			tts_ctl |= TSIF_TTS_CTL_TTS_LENGTH_0;
+
+			writel_relaxed(tts_ctl, tsif_device->base +
+				       TSIF_TTS_CTL_OFF);
+			/* write TTS control register */
+			wmb();
+			tts_ctl	= readl_relaxed(tsif_device->base +
+						TSIF_TTS_CTL_OFF);
+		}
+
 		writel_relaxed(ctl, tsif_device->base + TSIF_STS_CTL_OFF);
+		/* write Status control register */
+		wmb();
 		writel_relaxed(tsif_device->time_limit,
 			  tsif_device->base + TSIF_TIME_LIMIT_OFF);
 		/* assure register configuration is done before starting TSIF */
@@ -982,8 +1035,13 @@ static int tspp_start_tsif(struct tspp_tsif_device *tsif_device)
 
 static void tspp_stop_tsif(struct tspp_tsif_device *tsif_device)
 {
-	if (tsif_device->ref_count == 0)
+	if (tsif_device->ref_count == 0) {
+		if (tsif_device->lpass_timer_enable == 1) {
+			if (avcs_core_disable_power_collapse(0) == 0)
+				tsif_device->lpass_timer_enable = 0;
+		}
 		return;
+	}
 
 	tsif_device->ref_count--;
 
@@ -1113,6 +1171,7 @@ static int tspp_global_reset(struct tspp_device *pdev)
 		pdev->tsif[i].data_inverse = 0;
 		pdev->tsif[i].sync_inverse = 0;
 		pdev->tsif[i].enable_inverse = 0;
+		pdev->tsif[i].lpass_timer_enable = 0;
 	}
 	writel_relaxed(TSPP_RST_RESET, pdev->base + TSPP_RST);
 	/* assure state is reset before continuing with configuration */
@@ -1883,6 +1942,89 @@ int tspp_get_ref_clk_counter(u32 dev, enum tspp_source source, u32 *tcr_counter)
 	return 0;
 }
 EXPORT_SYMBOL(tspp_get_ref_clk_counter);
+
+/**
+ * tspp_get_lpass_time_counter - return the LPASS  Timer counter value.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @source: The TSIF source from which the counter should be read
+ * @tcr_counter: the value of TCR counter
+ *
+ * Return  error status
+ *
+ * If source is neither TSIF 0 or TSIF1 0 is returned.
+ */
+int tspp_get_lpass_time_counter(u32 dev, enum tspp_source source,
+			u64 *lpass_time_counter)
+{
+	struct tspp_device *pdev;
+	struct tspp_tsif_device *tsif_device;
+
+	if (!lpass_time_counter)
+		return -EINVAL;
+
+	pdev = tspp_find_by_id(dev);
+	if (!pdev) {
+		pr_err("tspp_get_lpass_time_counter: can't find device %i\n",
+		       dev);
+		return -ENODEV;
+	}
+
+	switch (source) {
+	case TSPP_SOURCE_TSIF0:
+		tsif_device = &pdev->tsif[0];
+		break;
+
+	case TSPP_SOURCE_TSIF1:
+		tsif_device = &pdev->tsif[1];
+		break;
+
+	default:
+		tsif_device = NULL;
+		break;
+	}
+
+	if (tsif_device && tsif_device->ref_count) {
+		if (avcs_core_query_timer(lpass_time_counter) < 0) {
+			pr_err("tspp_get_lpass_time_counter: read error\n");
+			*lpass_time_counter = 0;
+			return -ENETRESET;
+		}
+	} else
+		*lpass_time_counter = 0;
+
+	return 0;
+}
+EXPORT_SYMBOL(tspp_get_lpass_time_counter);
+
+/**
+ * tspp_get_tts_source - Return the TTS source value.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @tts_source:Updated TTS source type
+ *
+ * Return  error status
+ *
+ */
+int tspp_get_tts_source(u32 dev, int *tts_source)
+{
+	struct tspp_device *pdev;
+
+	if (tts_source == NULL)
+		return -EINVAL;
+
+	pdev = tspp_find_by_id(dev);
+	if (!pdev) {
+		pr_err("tspp_get_tts_source: can't find device %i\n",
+		       dev);
+		return -ENODEV;
+	}
+
+	*tts_source = pdev->tts_source;
+
+	return 0;
+}
+EXPORT_SYMBOL(tspp_get_tts_source);
 
 /**
  * tspp_add_filter - add a TSPP filter to a channel.
@@ -2890,6 +3032,20 @@ static int msm_tspp_probe(struct platform_device *pdev)
 	if (msm_tspp_map_irqs(pdev, device))
 		goto err_irq;
 	device->req_irqs = false;
+
+	/* Check whether AV timer time stamps are enabled */
+	if (!of_property_read_u32(pdev->dev.of_node, "qcom,lpass-timer-tts",
+				  &device->tts_source)) {
+		if (device->tts_source == 1)
+			device->tts_source = TSIF_TTS_LPASS_TIMER;
+		else
+			device->tts_source = TSIF_TTS_TCR;
+	} else {
+		device->tts_source = TSIF_TTS_TCR;
+	}
+
+	for (i = 0; i < TSPP_TSIF_INSTANCES; i++)
+		device->tsif[i].tts_source = device->tts_source;
 
 	/* power management */
 	pm_runtime_set_active(&pdev->dev);

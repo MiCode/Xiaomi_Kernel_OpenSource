@@ -1251,7 +1251,6 @@ static ssize_t hdmi_tx_sysfs_wta_hdr_stream(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	int ret = 0;
-	u32 const hdr_param_count = 13;
 	struct hdmi_tx_ctrl *ctrl = NULL;
 
 	ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
@@ -1267,25 +1266,13 @@ static ssize_t hdmi_tx_sysfs_wta_hdr_stream(struct device *dev,
 		goto end;
 	}
 
-	if (sscanf(buf, "%u %u %u %u %u %u %u %u %u %u %u %u %u",
-			&ctrl->hdr_data.eotf,
-			&ctrl->hdr_data.display_primaries_x[0],
-			&ctrl->hdr_data.display_primaries_y[0],
-			&ctrl->hdr_data.display_primaries_x[1],
-			&ctrl->hdr_data.display_primaries_y[1],
-			&ctrl->hdr_data.display_primaries_x[2],
-			&ctrl->hdr_data.display_primaries_y[2],
-			&ctrl->hdr_data.white_point_x,
-			&ctrl->hdr_data.white_point_y,
-			&ctrl->hdr_data.max_luminance,
-			&ctrl->hdr_data.min_luminance,
-			&ctrl->hdr_data.max_content_light_level,
-			&ctrl->hdr_data.max_average_light_level)
-			!= hdr_param_count) {
-		pr_err("%s: Invalid HDR stream data\n", __func__);
+	if (buf == NULL) {
+		pr_err("%s: hdr stream is NULL\n", __func__);
 		ret = -EINVAL;
 		goto end;
 	}
+
+	memcpy(&ctrl->hdr_data, buf, sizeof(struct mdp_hdr_stream));
 
 	pr_debug("%s: 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
 			__func__,
@@ -1305,6 +1292,14 @@ static ssize_t hdmi_tx_sysfs_wta_hdr_stream(struct device *dev,
 			ctrl->hdr_data.min_luminance,
 			ctrl->hdr_data.max_content_light_level,
 			ctrl->hdr_data.max_average_light_level);
+
+	pr_debug("%s: 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
+			__func__,
+			ctrl->hdr_data.pixel_encoding,
+			ctrl->hdr_data.colorimetry,
+			ctrl->hdr_data.range,
+			ctrl->hdr_data.bits_per_component,
+			ctrl->hdr_data.content_type);
 
 	hdmi_panel_set_hdr_infoframe(ctrl);
 

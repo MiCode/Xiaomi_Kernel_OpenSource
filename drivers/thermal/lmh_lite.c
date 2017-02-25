@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -83,6 +83,8 @@
 		}							\
 		/* Have barrier before reading from TZ data */		\
 		mb();							\
+		dmac_inv_range(payload, (void *)payload +               \
+				sizeof(uint32_t) * LMH_SCM_PAYLOAD_SIZE);\
 		trace_lmh_event_call("GET_TYPE exit");			\
 		if (ret) {						\
 			pr_err("Error in SCM v%d get type. cmd:%x err:%d\n", \
@@ -332,6 +334,8 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 	/* Have memory barrier before we access the TZ data */
 	mb();
 	trace_lmh_event_call("GET_INTENSITY exit");
+	dmac_inv_range(&payload, (void *)&payload +
+			sizeof(struct lmh_sensor_packet));
 	if (ret) {
 		pr_err("Error in SCM v%d read call. err:%d\n",
 				(is_scm_armv8()) ? 8 : 7, ret);
@@ -677,6 +681,7 @@ static int lmh_get_sensor_list(void)
 		/* Have memory barrier before we access the TZ data */
 		mb();
 		trace_lmh_event_call("GET_SENSORS exit");
+		dmac_inv_range(payload, (void *)payload + buf_size);
 		if (ret < 0) {
 			pr_err("Error in SCM v%d call. err:%d\n",
 					(is_scm_armv8()) ? 8 : 7, ret);
@@ -911,6 +916,7 @@ static int lmh_debug_read(struct lmh_debug_ops *ops, uint32_t **buf)
 	}
 	/* Have memory barrier before we access the TZ data */
 	mb();
+	dmac_inv_range(payload, (void *)payload + curr_size);
 	trace_lmh_event_call("GET_DEBUG_READ exit");
 	if (ret) {
 		pr_err("Error in SCM v%d get debug read. err:%d\n",
@@ -977,6 +983,7 @@ static int lmh_debug_config_write(uint32_t cmd_id, uint32_t *buf, int size)
 		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_LMH, cmd_id), &desc_arg);
 	/* Have memory barrier before we access the TZ data */
 	mb();
+	dmac_inv_range(payload, (void *)payload + size_bytes);
 	trace_lmh_event_call("CONFIG_DEBUG_WRITE exit");
 	if (ret) {
 		pr_err("Error in SCM v%d config debug read. err:%d\n",

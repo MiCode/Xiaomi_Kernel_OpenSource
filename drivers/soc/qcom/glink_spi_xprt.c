@@ -891,7 +891,7 @@ static void __rx_worker(struct edge_info *einfo)
 	}
 
 	glink_spi_xprt_set_poll_mode(einfo);
-	while (inactive_cycles < MAX_INACTIVE_CYCLES) {
+	do {
 		if (einfo->tx_resume_needed &&
 		    glink_spi_xprt_write_avail(einfo)) {
 			einfo->tx_resume_needed = false;
@@ -926,7 +926,7 @@ static void __rx_worker(struct edge_info *einfo)
 		}
 		process_rx_cmd(einfo, rx_data, rx_avail);
 		kfree(rx_data);
-	}
+	} while (inactive_cycles < MAX_INACTIVE_CYCLES && !einfo->in_ssr);
 	glink_spi_xprt_set_irq_mode(einfo);
 	srcu_read_unlock(&einfo->use_ref, rcu_id);
 }

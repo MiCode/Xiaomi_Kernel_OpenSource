@@ -209,6 +209,15 @@ Platform independent properties:
 		    as the corresponding addresses are specified in
 		    the qcom,cpr-panic-reg-addr-list property.
 
+- qcom,cpr-reset-step-quot-loop-en
+	Usage:      optional; only meaningful for CPR4 and CPRh controllers
+	Value type: <empty>
+	Definition: Boolean value which indicates that the CPR controller should
+		    be configured to reset step_quot on each loop_en = 0
+		    transition. This configuration allows the CPR controller to
+		    first use the default step_quot and then later switch to the
+		    run-time calibrated step_quot.
+
 =================================================
 Second Level Nodes - CPR Threads for a Controller
 =================================================

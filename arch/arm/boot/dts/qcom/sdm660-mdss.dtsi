@@ -61,8 +61,8 @@
 		qcom,max-bandwidth-high-kbps = <6600000>;
 		qcom,max-bandwidth-per-pipe-kbps = <3100000>;
 		qcom,max-clk-rate = <412500000>;
-		qcom,mdss-default-ot-rd-limit = <32>;
-		qcom,mdss-default-ot-wr-limit = <40>;
+		qcom,mdss-default-ot-rd-limit = <40>;
+		qcom,mdss-default-ot-wr-limit = <32>;
 		qcom,mdss-dram-channels = <2>;
 
 		/* Bandwidth limit settings */
@@ -494,7 +494,7 @@
 		qcom,aux-cfg-settings = [00 13 00 00 0a 28 0a 03 b7 03];
 		qcom,logical2physical-lane-map = [00 01 02 03];
 		qcom,phy-register-offset = <0x4>;
-		qcom,max-pclk-frequency-khz = <593470>;
+		qcom,max-pclk-frequency-khz = <300000>;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -575,9 +575,10 @@
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-rot-vbif-qos-setting = <1 1 1 1>;
+		qcom,mdss-rot-xin-id = <14 15>;
 
-		qcom,mdss-default-ot-rd-limit = <32>;
-		qcom,mdss-default-ot-wr-limit = <40>;
+		qcom,mdss-default-ot-rd-limit = <40>;
+		qcom,mdss-default-ot-wr-limit = <32>;
 	};
 
 };

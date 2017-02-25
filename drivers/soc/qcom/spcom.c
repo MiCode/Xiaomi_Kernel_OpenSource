@@ -359,6 +359,11 @@ static void spcom_link_state_notif_cb(struct glink_link_state_cb_info *cb_info,
 	struct spcom_channel *ch = NULL;
 	const char *ch_name = "sp_kernel";
 
+	if (!spcom_is_ready()) {
+		pr_err("spcom is not ready.\n");
+		return;
+	}
+
 	spcom_dev->link_state = cb_info->link_state;
 
 	pr_debug("spcom_link_state_notif_cb called. transport = %s edge = %s\n",
@@ -1017,7 +1022,10 @@ static void spcom_rx_abort_pending_server(void)
  */
 bool spcom_is_sp_subsystem_link_up(void)
 {
-	 return (spcom_dev->link_state == GLINK_LINK_STATE_UP);
+	if (spcom_dev == NULL)
+		return false;
+
+	return (spcom_dev->link_state == GLINK_LINK_STATE_UP);
 }
 EXPORT_SYMBOL(spcom_is_sp_subsystem_link_up);
 
@@ -1038,6 +1046,11 @@ struct spcom_client *spcom_register_client(struct spcom_client_info *info)
 	const char *name;
 	struct spcom_channel *ch;
 	struct spcom_client *client;
+
+	if (!spcom_is_ready()) {
+		pr_err("spcom is not ready.\n");
+		return NULL;
+	}
 
 	if (!info) {
 		pr_err("Invalid parameter.\n");
@@ -1080,6 +1093,11 @@ int spcom_unregister_client(struct spcom_client *client)
 {
 	struct spcom_channel *ch;
 
+	if (!spcom_is_ready()) {
+		pr_err("spcom is not ready.\n");
+		return -ENODEV;
+	}
+
 	if (!client) {
 		pr_err("Invalid parameter.\n");
 		return -EINVAL;
@@ -1117,6 +1135,11 @@ int spcom_client_send_message_sync(struct spcom_client	*client,
 {
 	int ret;
 	struct spcom_channel *ch;
+
+	if (!spcom_is_ready()) {
+		pr_err("spcom is not ready.\n");
+		return -ENODEV;
+	}
 
 	if (!client || !req_ptr || !resp_ptr) {
 		pr_err("Invalid parameter.\n");
@@ -1159,9 +1182,14 @@ bool spcom_client_is_server_connected(struct spcom_client *client)
 {
 	bool connected;
 
+	if (!spcom_is_ready()) {
+		pr_err("spcom is not ready.\n");
+		return false;
+	}
+
 	if (!client) {
 		pr_err("Invalid parameter.\n");
-		return -EINVAL;
+		return false;
 	}
 
 	connected = spcom_is_channel_connected(client->ch);
@@ -1187,6 +1215,11 @@ struct spcom_server *spcom_register_service(struct spcom_service_info *info)
 	const char *name;
 	struct spcom_channel *ch;
 	struct spcom_server *server;
+
+	if (!spcom_is_ready()) {
+		pr_err("spcom is not ready.\n");
+		return NULL;
+	}
 
 	if (!info) {
 		pr_err("Invalid parameter.\n");
@@ -1225,6 +1258,11 @@ EXPORT_SYMBOL(spcom_register_service);
 int spcom_unregister_service(struct spcom_server *server)
 {
 	struct spcom_channel *ch;
+
+	if (!spcom_is_ready()) {
+		pr_err("spcom is not ready.\n");
+		return -ENODEV;
+	}
 
 	if (!server) {
 		pr_err("Invalid parameter.\n");
@@ -1290,6 +1328,11 @@ int spcom_server_wait_for_request(struct spcom_server	*server,
 	int ret;
 	struct spcom_channel *ch;
 
+	if (!spcom_is_ready()) {
+		pr_err("spcom is not ready.\n");
+		return -ENODEV;
+	}
+
 	if (!server || !req_ptr) {
 		pr_err("Invalid parameter.\n");
 		return -EINVAL;
@@ -1322,6 +1365,11 @@ int spcom_server_send_response(struct spcom_server	*server,
 {
 	int ret;
 	struct spcom_channel *ch;
+
+	if (!spcom_is_ready()) {
+		pr_err("spcom is not ready.\n");
+		return -ENODEV;
+	}
 
 	if (!server || !resp_ptr) {
 		pr_err("Invalid parameter.\n");
@@ -2373,7 +2421,7 @@ static int spcom_create_channel_chardev(const char *name)
 	devt = spcom_dev->device_no + spcom_dev->channel_count;
 	priv = ch;
 	dev = device_create(cls, parent, devt, priv, name);
-	if (!dev) {
+	if (IS_ERR(dev)) {
 		pr_err("device_create failed.\n");
 		kfree(cdev);
 		return -ENODEV;
@@ -2426,7 +2474,7 @@ static int __init spcom_register_chardev(void)
 				  spcom_dev->device_no, priv,
 				  DEVICE_NAME);
 
-	if (!spcom_dev->class_dev) {
+	if (IS_ERR(spcom_dev->class_dev)) {
 		pr_err("class_device_create failed %d\n", ret);
 		ret = -ENOMEM;
 		goto exit_destroy_class;
@@ -2478,6 +2526,11 @@ static int spcom_parse_dt(struct device_node *np)
 	const char *name;
 
 	pr_debug("num of predefined channels [%d].\n", num_ch);
+
+	if (num_ch > ARRAY_SIZE(spcom_dev->predefined_ch_name)) {
+		pr_err("too many predefined channels [%d].\n", num_ch);
+		return -EINVAL;
+	}
 
 	for (i = 0; i < num_ch; i++) {
 		ret = of_property_read_string_index(np, propname, i, &name);
@@ -2544,21 +2597,23 @@ static int spcom_probe(struct platform_device *pdev)
 	pr_debug("register_link_state_cb(), transport [%s] edge [%s]\n",
 		link_info.transport, link_info.edge);
 	notif_handle = glink_register_link_state_cb(&link_info, spcom_dev);
-	if (!notif_handle) {
+	if (IS_ERR(notif_handle)) {
 		pr_err("glink_register_link_state_cb(), err [%d]\n", ret);
 		goto fail_reg_chardev;
 	}
 
 	spcom_dev->ion_client = msm_ion_client_create(DEVICE_NAME);
-	if (spcom_dev->ion_client == NULL) {
+	if (IS_ERR(spcom_dev->ion_client)) {
 		pr_err("fail to create ion client.\n");
-		goto fail_reg_chardev;
+		goto fail_ion_client;
 	}
 
 	pr_info("Driver Initialization ok.\n");
 
 	return 0;
 
+fail_ion_client:
+	glink_unregister_link_state_cb(notif_handle);
 fail_reg_chardev:
 	pr_err("Failed to init driver.\n");
 	spcom_unregister_chrdev();
@@ -2596,7 +2651,7 @@ static int __init spcom_init(void)
 	if (ret)
 		pr_err("spcom_driver register failed %d\n", ret);
 
-	return 0;
+	return ret;
 }
 module_init(spcom_init);
 

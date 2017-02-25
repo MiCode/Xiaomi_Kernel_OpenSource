@@ -215,6 +215,12 @@ First Level Node - FG Gen3 device
 		    capacity learning cycle. If this is not specified, then
 		    the default value is 0. Unit is in decipercentage.
 
+- qcom,battery-thermal-coefficients
+	Usage:      optional
+	Value type: <u8>
+	Definition: Byte array of battery thermal coefficients.
+		    This should be exactly 3 bytes in length.
+
 - qcom,fg-jeita-hyst-temp
 	Usage:      optional
 	Value type: <u32>
@@ -320,6 +326,27 @@ First Level Node - FG Gen3 device
 		    to be configured in conjunction with the charger side
 		    configuration for proper functionality.
 
+- qcom,slope-limit-temp-threshold
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery temperature threshold to decide when slope limit
+		    coefficients should be applied along with charging status.
+		    Unit is in decidegC.
+
+- qcom,slope-limit-coeffs
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which holds the slope limit coefficients
+		    in the following order. Allowed size is 4. Possible values
+		    are from 0 to 31. Unit is in decipercentage.
+		    Element 0 - Low temperature discharging
+		    Element 1 - Low temperature charging
+		    Element 2 - High temperature discharging
+		    Element 3 - High temperature charging
+		    These coefficients have to be specified along with the
+		    property "qcom,slope-limit-temp-threshold" to make dynamic
+		    slope limit adjustment functional.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
 ==========================================================
@@ -354,6 +381,9 @@ pmi8998_fg: qpnp,fg {
 	qcom,ki-coeff-soc-dischg = <30 60 90>;
 	qcom,ki-coeff-med-dischg = <800 1000 1400>;
 	qcom,ki-coeff-hi-dischg = <1200 1500 2100>;
+	qcom,slope-limit-temp-threshold = <100>;
+	qcom,slope-limit-coeffs = <10 11 12 13>;
+	qcom,battery-thermal-coefficients = [9d 50 ff];
 	status = "okay";
 
 	qcom,fg-batt-soc@4000 {

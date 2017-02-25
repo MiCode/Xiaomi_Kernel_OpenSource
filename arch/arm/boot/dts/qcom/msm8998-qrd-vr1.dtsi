@@ -448,3 +448,7 @@
 	qcom,mdss-dsi-bl-max-level = <255>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
+
+&wil6210 {
+	status = "ok";
+};

@@ -835,4 +835,61 @@ ath10k_rx_desc_get_l3_pad_bytes(struct ath10k_hw_params *hw,
 
 #define RTC_STATE_V_GET(x) (((x) & RTC_STATE_V_MASK) >> RTC_STATE_V_LSB)
 
+struct ath10k_shadow_reg_value {
+	u32 shadow_reg_value_0;
+	u32 shadow_reg_value_1;
+	u32 shadow_reg_value_2;
+	u32 shadow_reg_value_3;
+	u32 shadow_reg_value_4;
+	u32 shadow_reg_value_5;
+	u32 shadow_reg_value_6;
+	u32 shadow_reg_value_7;
+	u32 shadow_reg_value_8;
+	u32 shadow_reg_value_9;
+	u32 shadow_reg_value_10;
+	u32 shadow_reg_value_11;
+	u32 shadow_reg_value_12;
+	u32 shadow_reg_value_13;
+	u32 shadow_reg_value_14;
+	u32 shadow_reg_value_15;
+	u32 shadow_reg_value_16;
+	u32 shadow_reg_value_17;
+	u32 shadow_reg_value_18;
+	u32 shadow_reg_value_19;
+	u32 shadow_reg_value_20;
+	u32 shadow_reg_value_21;
+	u32 shadow_reg_value_22;
+	u32 shadow_reg_value_23;
+};
+
+struct ath10k_shadow_reg_address {
+	u32 shadow_reg_address_0;
+	u32 shadow_reg_address_1;
+	u32 shadow_reg_address_2;
+	u32 shadow_reg_address_3;
+	u32 shadow_reg_address_4;
+	u32 shadow_reg_address_5;
+	u32 shadow_reg_address_6;
+	u32 shadow_reg_address_7;
+	u32 shadow_reg_address_8;
+	u32 shadow_reg_address_9;
+	u32 shadow_reg_address_10;
+	u32 shadow_reg_address_11;
+	u32 shadow_reg_address_12;
+	u32 shadow_reg_address_13;
+	u32 shadow_reg_address_14;
+	u32 shadow_reg_address_15;
+	u32 shadow_reg_address_16;
+	u32 shadow_reg_address_17;
+	u32 shadow_reg_address_18;
+	u32 shadow_reg_address_19;
+	u32 shadow_reg_address_20;
+	u32 shadow_reg_address_21;
+	u32 shadow_reg_address_22;
+	u32 shadow_reg_address_23;
+};
+
+extern struct ath10k_shadow_reg_value wcn3990_shadow_reg_value;
+extern struct ath10k_shadow_reg_address wcn3990_shadow_reg_address;
+
 #endif /* _HW_H_ */

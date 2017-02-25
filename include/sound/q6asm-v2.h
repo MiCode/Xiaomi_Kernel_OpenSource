@@ -54,6 +54,7 @@
 #define FORMAT_DTS          0x001c
 #define FORMAT_DSD          0x001d
 #define FORMAT_APTX         0x001e
+#define FORMAT_GEN_COMPR    0x001f
 
 #define ENCDEC_SBCBITRATE   0x0001
 #define ENCDEC_IMMEDIATE_DECODE 0x0002
@@ -496,6 +497,11 @@ int q6asm_media_format_block_multi_ch_pcm(struct audio_client *ac,
 			bool use_default_chmap, char *channel_map);
 
 int q6asm_media_format_block_multi_ch_pcm_v2(
+			struct audio_client *ac,
+			uint32_t rate, uint32_t channels,
+			bool use_default_chmap, char *channel_map,
+			uint16_t bits_per_sample);
+int q6asm_media_format_block_gen_compr(
 			struct audio_client *ac,
 			uint32_t rate, uint32_t channels,
 			bool use_default_chmap, char *channel_map,
