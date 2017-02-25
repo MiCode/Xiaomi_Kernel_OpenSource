@@ -26,6 +26,13 @@ First Level Node - LCDB module
 	Value type: <prop-encoded-array>
 	Definition:  Base address of the LCDB SPMI peripheral.
 
+- qcom,force-module-reenable
+	Usage:      required if using SW mode for module enable
+	Value type:  <bool>
+	Definition: This enables the workaround to force enable
+		    the vph_pwr_2p5_ok signal required for
+		    turning on the LCDB module.
+
 Touch-to-wake (TTW) properties:
 
 TTW supports 2 modes of operation - HW and SW. In the HW mode the enable/disable
@@ -58,7 +65,6 @@ main node.
 	Value type:  <bool>
 	Definition: ON time (in mS) for the VDISP/VDISN signals.
 		    Possible values are 4, 8, 16, 32.
-
 
 ========================================
 Second Level Nodes - LDO/NCP/BOOST block
