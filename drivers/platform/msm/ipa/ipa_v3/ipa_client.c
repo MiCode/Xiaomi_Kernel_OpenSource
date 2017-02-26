@@ -1776,7 +1776,8 @@ dealloc_chan_fail:
 int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	bool should_force_clear, u32 qmi_req_id, bool is_dpl)
 {
-	struct ipa3_ep_context *ul_ep, *dl_ep;
+	struct ipa3_ep_context *ul_ep = NULL;
+	struct ipa3_ep_context *dl_ep;
 	int result = -EFAULT;
 	u32 source_pipe_bitmask = 0;
 	bool dl_data_pending = true;
