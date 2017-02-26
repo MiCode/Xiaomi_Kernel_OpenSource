@@ -912,6 +912,9 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = get_client_vote(chg->fv_votable, DEFAULT_VOTER);
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE:
+		rc = smblib_get_prop_charge_qnovo_enable(chg, val);
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
 		val->intval = chg->qnovo_fv_uv;
 		break;
@@ -986,6 +989,9 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		vote(chg->fv_votable, DEFAULT_VOTER, true, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE:
+		rc = smblib_set_prop_charge_qnovo_enable(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
 		chg->qnovo_fv_uv = val->intval;
@@ -1533,13 +1539,6 @@ static int smb2_init_hw(struct smb2 *chip)
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure VBUS for SW control rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = smblib_masked_write(chg, QNOVO_PT_ENABLE_CMD_REG,
-			QNOVO_PT_ENABLE_CMD_BIT, QNOVO_PT_ENABLE_CMD_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't enable qnovo rc=%d\n", rc);
 		return rc;
 	}
 
