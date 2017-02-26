@@ -1735,9 +1735,6 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	if (mdata->vbif_reg_lock)
 		mdata->vbif_reg_lock();
 
-	if (mdata->vbif_reg_lock)
-		mdata->vbif_reg_lock();
-
 	if (mdata->default_ot_rd_limit) {
 		struct sde_mdp_set_ot_params ot_params;
 
