@@ -249,6 +249,8 @@ struct sde_hw_rotator_resource_info {
  * @hw:           mdp register mapped offset
  * @ops:          pointer to operations possible for the rotator HW
  * @sbuf_headroom: stream buffer headroom in lines
+ * @solid_fill: true if solid fill is requested
+ * @constant_color: solid fill constant color
  * @sbuf_ctx: list of active sbuf context in FIFO order
  * @vid_trigger: video mode trigger select
  * @cmd_trigger: command mode trigger select
@@ -295,6 +297,8 @@ struct sde_hw_rotator {
 
 	u32    highest_bank;
 	u32    sbuf_headroom;
+	u32    solid_fill;
+	u32    constant_color;
 
 	spinlock_t rotctx_lock;
 	spinlock_t rotisr_lock;

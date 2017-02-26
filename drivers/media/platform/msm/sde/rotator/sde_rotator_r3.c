@@ -831,6 +831,9 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 	if (fmt->pixel_mode == SDE_MDP_PIXEL_10BIT)
 		src_format |= BIT(14); /* UNPACK_DX_FORMAT */
 
+	if (rot->solid_fill)
+		src_format |= BIT(22); /* SOLID_FILL */
+
 	/* SRC_FORMAT */
 	SDE_REGDMA_BLKWRITE_DATA(wrptr, src_format);
 
@@ -864,6 +867,10 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 		else
 			fetch_blocksize = SDE_ROT_SSPP_FETCH_BLOCKSIZE_128;
 	}
+
+	if (rot->solid_fill)
+		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_SRC_CONSTANT_COLOR,
+				rot->constant_color);
 
 	SDE_REGDMA_WRITE(wrptr, ROT_SSPP_FETCH_CONFIG,
 			fetch_blocksize |
