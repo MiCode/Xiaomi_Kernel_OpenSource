@@ -111,6 +111,8 @@ static inline uint32_t HDMI_ACR_PKT_CTRL_N_MULTIPLIER(uint32_t val)
 #define HDMI_INFOFRAME_CTRL0_AUDIO_INFO_SOURCE			0x00000040
 #define HDMI_INFOFRAME_CTRL0_AUDIO_INFO_UPDATE			0x00000080
 
+#define REG_HDMI_INFOFRAME_CTRL1				0x00000030
+
 #define REG_HDMI_GEN_PKT_CTRL					0x00000034
 #define HDMI_GEN_PKT_CTRL_GENERIC0_SEND				0x00000001
 #define HDMI_GEN_PKT_CTRL_GENERIC0_CONT				0x00000002
@@ -150,6 +152,7 @@ static inline uint32_t REG_HDMI_GENERIC0(uint32_t i0) { return 0x00000088 + 0x4*
 
 #define REG_HDMI_GENERIC1_HDR					0x000000a4
 
+#define MAX_REG_HDMI_GENERIC1_INDEX				6
 static inline uint32_t REG_HDMI_GENERIC1(uint32_t i0) { return 0x000000a8 + 0x4*i0; }
 
 static inline uint32_t REG_HDMI_ACR(enum hdmi_acr_cts i0) { return 0x000000c4 + 0x8*i0; }
