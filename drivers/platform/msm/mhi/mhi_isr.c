@@ -25,6 +25,7 @@ static int mhi_process_event_ring(
 	union mhi_event_pkt event_to_process;
 	int ret_val = 0;
 	struct mhi_event_ctxt *ev_ctxt = NULL;
+	unsigned long flags;
 	struct mhi_ring *local_ev_ctxt =
 		&mhi_dev_ctxt->mhi_local_event_ctxt[ev_index];
 
@@ -38,6 +39,7 @@ static int mhi_process_event_ring(
 	read_unlock_bh(&mhi_dev_ctxt->pm_xfer_lock);
 	ev_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[ev_index];
 
+	spin_lock_irqsave(&local_ev_ctxt->ring_lock, flags);
 	device_rp = (union mhi_event_pkt *)mhi_p2v_addr(
 					mhi_dev_ctxt,
 					MHI_RING_TYPE_EVENT_RING,
@@ -45,19 +47,19 @@ static int mhi_process_event_ring(
 					ev_ctxt->mhi_event_read_ptr);
 
 	local_rp = (union mhi_event_pkt *)local_ev_ctxt->rp;
-
+	spin_unlock_irqrestore(&local_ev_ctxt->ring_lock, flags);
 	BUG_ON(validate_ev_el_addr(local_ev_ctxt, (uintptr_t)device_rp));
 
 	while ((local_rp != device_rp) && (event_quota > 0) &&
 			(device_rp != NULL) && (local_rp != NULL)) {
 
+		spin_lock_irqsave(&local_ev_ctxt->ring_lock, flags);
 		event_to_process = *local_rp;
-		read_lock_bh(&mhi_dev_ctxt->pm_xfer_lock);
 		recycle_trb_and_ring(mhi_dev_ctxt,
 				     local_ev_ctxt,
 				     MHI_RING_TYPE_EVENT_RING,
 				     ev_index);
-		read_unlock_bh(&mhi_dev_ctxt->pm_xfer_lock);
+		spin_unlock_irqrestore(&local_ev_ctxt->ring_lock, flags);
 
 		switch (MHI_TRB_READ_INFO(EV_TRB_TYPE, &event_to_process)) {
 		case MHI_PKT_TYPE_CMD_COMPLETION_EVENT:
@@ -93,12 +95,28 @@ static int mhi_process_event_ring(
 			break;
 		}
 		case MHI_PKT_TYPE_TX_EVENT:
+		{
+			u32 chan;
+			struct mhi_ring *ring;
+
 			__pm_stay_awake(&mhi_dev_ctxt->w_lock);
-			parse_xfer_event(mhi_dev_ctxt,
-					 &event_to_process,
-					 ev_index);
+			chan = MHI_EV_READ_CHID(EV_CHID, &event_to_process);
+			if (unlikely(!VALID_CHAN_NR(chan))) {
+				mhi_log(MHI_MSG_ERROR,
+					"Invalid chan:%d\n",
+					chan);
+				break;
+			}
+			ring = &mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
+			spin_lock_bh(&ring->ring_lock);
+			if (ring->ch_state == MHI_CHAN_STATE_ENABLED)
+				parse_xfer_event(mhi_dev_ctxt,
+						 &event_to_process,
+						 ev_index);
+			spin_unlock_bh(&ring->ring_lock);
 			__pm_relax(&mhi_dev_ctxt->w_lock);
 			break;
+		}
 		case MHI_PKT_TYPE_STATE_CHANGE_EVENT:
 		{
 			enum STATE_TRANSITION new_state;
@@ -153,6 +171,11 @@ static int mhi_process_event_ring(
 			}
 			break;
 		}
+		case MHI_PKT_TYPE_STALE_EVENT:
+			mhi_log(MHI_MSG_INFO,
+				"Stale Event received for chan:%u\n",
+				MHI_EV_READ_CHID(EV_CHID, local_rp));
+			break;
 		case MHI_PKT_TYPE_SYS_ERR_EVENT:
 			mhi_log(MHI_MSG_INFO,
 			   "MHI System Error Detected. Triggering Reset\n");
@@ -165,12 +188,14 @@ static int mhi_process_event_ring(
 					&event_to_process));
 			break;
 		}
+		spin_lock_irqsave(&local_ev_ctxt->ring_lock, flags);
 		local_rp = (union mhi_event_pkt *)local_ev_ctxt->rp;
 		device_rp = (union mhi_event_pkt *)mhi_p2v_addr(
 						mhi_dev_ctxt,
 						MHI_RING_TYPE_EVENT_RING,
 						ev_index,
 						ev_ctxt->mhi_event_read_ptr);
+		spin_unlock_irqrestore(&local_ev_ctxt->ring_lock, flags);
 		ret_val = 0;
 		--event_quota;
 	}
