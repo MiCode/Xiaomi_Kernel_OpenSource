@@ -34,12 +34,27 @@
 		mbox-names = "apps_rsc", "disp_rsc";
 		mboxes = <&apps_rsc 0 &disp_rsc 0>;
 
+	/*RSCs*/
+		rsc_apps: rsc-apps {
+			cell-id = <MSM_BUS_RSC_APPS>;
+			label = "apps_rsc";
+			qcom,rsc-dev;
+			qcom,req_state = <2>;
+		};
+
+		rsc_disp: rsc-disp {
+			cell-id = <MSM_BUS_RSC_DISP>;
+			label = "disp_rsc";
+			qcom,rsc-dev;
+			qcom,req_state = <3>;
+		};
+
 	/*BCMs*/
 		bcm_acv: bcm-acv {
 			cell-id = <MSM_BUS_BCM_ACV>;
 			label = "ACV";
 			qcom,bcm-name = "ACV";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -47,7 +62,7 @@
 			cell-id = <MSM_BUS_BCM_ALC>;
 			label = "ALC";
 			qcom,bcm-name = "ALC";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -55,7 +70,7 @@
 			cell-id = <MSM_BUS_BCM_MC0>;
 			label = "MC0";
 			qcom,bcm-name = "MC0";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -63,7 +78,7 @@
 			cell-id = <MSM_BUS_BCM_SH0>;
 			label = "SH0";
 			qcom,bcm-name = "SH0";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -71,7 +86,7 @@
 			cell-id = <MSM_BUS_BCM_MM0>;
 			label = "MM0";
 			qcom,bcm-name = "MM0";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -79,7 +94,7 @@
 			cell-id = <MSM_BUS_BCM_SH1>;
 			label = "SH1";
 			qcom,bcm-name = "SH1";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -87,7 +102,7 @@
 			cell-id = <MSM_BUS_BCM_MM1>;
 			label = "MM1";
 			qcom,bcm-name = "MM1";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -95,7 +110,7 @@
 			cell-id = <MSM_BUS_BCM_SH2>;
 			label = "SH2";
 			qcom,bcm-name = "SH2";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -103,7 +118,7 @@
 			cell-id = <MSM_BUS_BCM_MM2>;
 			label = "MM2";
 			qcom,bcm-name = "MM2";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -111,7 +126,7 @@
 			cell-id = <MSM_BUS_BCM_SH3>;
 			label = "SH3";
 			qcom,bcm-name = "SH3";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -119,7 +134,7 @@
 			cell-id = <MSM_BUS_BCM_MM3>;
 			label = "MM3";
 			qcom,bcm-name = "MM3";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -127,7 +142,7 @@
 			cell-id = <MSM_BUS_BCM_SH4>;
 			label = "SH4";
 			qcom,bcm-name = "SH4";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -135,7 +150,7 @@
 			cell-id = <MSM_BUS_BCM_SH5>;
 			label = "SH5";
 			qcom,bcm-name = "SH5";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -143,7 +158,7 @@
 			cell-id = <MSM_BUS_BCM_MM5>;
 			label = "MM5";
 			qcom,bcm-name = "MM5";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -151,7 +166,7 @@
 			cell-id = <MSM_BUS_BCM_SN0>;
 			label = "SN0";
 			qcom,bcm-name = "SN0";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -159,7 +174,7 @@
 			cell-id = <MSM_BUS_BCM_CE0>;
 			label = "CE0";
 			qcom,bcm-name = "CE0";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -167,7 +182,7 @@
 			cell-id = <MSM_BUS_BCM_IP0>;
 			label = "IP0";
 			qcom,bcm-name = "IP0";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -175,7 +190,7 @@
 			cell-id = <MSM_BUS_BCM_CN0>;
 			label = "CN0";
 			qcom,bcm-name = "CN0";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -183,7 +198,7 @@
 			cell-id = <MSM_BUS_BCM_SN1>;
 			label = "SN1";
 			qcom,bcm-name = "SN1";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -191,7 +206,7 @@
 			cell-id = <MSM_BUS_BCM_SN2>;
 			label = "SN2";
 			qcom,bcm-name = "SN2";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -199,7 +214,7 @@
 			cell-id = <MSM_BUS_BCM_SN3>;
 			label = "SN3";
 			qcom,bcm-name = "SN3";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -207,7 +222,7 @@
 			cell-id = <MSM_BUS_BCM_SN4>;
 			label = "SN4";
 			qcom,bcm-name = "SN4";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -215,7 +230,7 @@
 			cell-id = <MSM_BUS_BCM_SN5>;
 			label = "SN5";
 			qcom,bcm-name = "SN5";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -223,7 +238,7 @@
 			cell-id = <MSM_BUS_BCM_SN6>;
 			label = "SN6";
 			qcom,bcm-name = "SN6";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -231,7 +246,7 @@
 			cell-id = <MSM_BUS_BCM_SN7>;
 			label = "SN7";
 			qcom,bcm-name = "SN7";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -239,7 +254,7 @@
 			cell-id = <MSM_BUS_BCM_SN8>;
 			label = "SN8";
 			qcom,bcm-name = "SN8";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -247,7 +262,7 @@
 			cell-id = <MSM_BUS_BCM_SN9>;
 			label = "SN9";
 			qcom,bcm-name = "SN9";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -255,7 +270,7 @@
 			cell-id = <MSM_BUS_BCM_SN11>;
 			label = "SN11";
 			qcom,bcm-name = "SN11";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -263,7 +278,7 @@
 			cell-id = <MSM_BUS_BCM_SN12>;
 			label = "SN12";
 			qcom,bcm-name = "SN12";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -271,7 +286,7 @@
 			cell-id = <MSM_BUS_BCM_SN14>;
 			label = "SN14";
 			qcom,bcm-name = "SN14";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -279,7 +294,7 @@
 			cell-id = <MSM_BUS_BCM_SN15>;
 			label = "SN15";
 			qcom,bcm-name = "SN15";
-			qcom,drv-id = <2>;
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
@@ -287,7 +302,7 @@
 			cell-id = <MSM_BUS_BCM_MC0_DISPLAY>;
 			label = "MC0_DISPLAY";
 			qcom,bcm-name = "MC0";
-			qcom,drv-id = <0>;
+			qcom,rscs = <&rsc_disp>;
 			qcom,bcm-dev;
 		};
 
@@ -295,7 +310,7 @@
 			cell-id = <MSM_BUS_BCM_SH0_DISPLAY>;
 			label = "SH0_DISPLAY";
 			qcom,bcm-name = "SH0";
-			qcom,drv-id = <0>;
+			qcom,rscs = <&rsc_disp>;
 			qcom,bcm-dev;
 		};
 
@@ -303,7 +318,7 @@
 			cell-id = <MSM_BUS_BCM_MM0_DISPLAY>;
 			label = "MM0_DISPLAY";
 			qcom,bcm-name = "MM0";
-			qcom,drv-id = <0>;
+			qcom,rscs = <&rsc_disp>;
 			qcom,bcm-dev;
 		};
 
@@ -311,7 +326,7 @@
 			cell-id = <MSM_BUS_BCM_MM1_DISPLAY>;
 			label = "MM1_DISPLAY";
 			qcom,bcm-name = "MM1";
-			qcom,drv-id = <0>;
+			qcom,rscs = <&rsc_disp>;
 			qcom,bcm-dev;
 		};
 
@@ -319,7 +334,7 @@
 			cell-id = <MSM_BUS_BCM_MM2_DISPLAY>;
 			label = "MM2_DISPLAY";
 			qcom,bcm-name = "MM2";
-			qcom,drv-id = <0>;
+			qcom,rscs = <&rsc_disp>;
 			qcom,bcm-dev;
 		};
 
@@ -327,7 +342,7 @@
 			cell-id = <MSM_BUS_BCM_MM3_DISPLAY>;
 			label = "MM3_DISPLAY";
 			qcom,bcm-name = "MM3";
-			qcom,drv-id = <0>;
+			qcom,rscs = <&rsc_disp>;
 			qcom,bcm-dev;
 		};
 
