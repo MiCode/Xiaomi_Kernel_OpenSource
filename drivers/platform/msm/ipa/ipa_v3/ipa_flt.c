@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,6 @@
 #include "ipahal/ipahal.h"
 #include "ipahal/ipahal_fltrt.h"
 
-#define IPA_FLT_TABLE_INDEX_NOT_FOUND		(-1)
 #define IPA_FLT_STATUS_OF_ADD_FAILED		(-1)
 #define IPA_FLT_STATUS_OF_DEL_FAILED		(-1)
 #define IPA_FLT_STATUS_OF_MDFY_FAILED		(-1)
@@ -1001,7 +1000,7 @@ error:
 static int __ipa_add_flt_get_ep_idx(enum ipa_client_type ep, int *ipa_ep_idx)
 {
 	*ipa_ep_idx = ipa3_get_ep_mapping(ep);
-	if (*ipa_ep_idx == IPA_FLT_TABLE_INDEX_NOT_FOUND) {
+	if (*ipa_ep_idx < 0) {
 		IPAERR("ep not valid ep=%d\n", ep);
 		return -EINVAL;
 	}

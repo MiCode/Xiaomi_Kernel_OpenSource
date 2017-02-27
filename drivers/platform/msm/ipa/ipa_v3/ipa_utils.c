@@ -1241,7 +1241,7 @@ int ipa3_get_ep_mapping(enum ipa_client_type client)
 
 	if (client >= IPA_CLIENT_MAX || client < 0) {
 		IPAERR("Bad client number! client =%d\n", client);
-		return -EINVAL;
+		return IPA_EP_NOT_ALLOCATED;
 	}
 
 	ipa_ep_idx = ipa3_ep_mapping[ipa3_get_hw_type_index()][client].pipe_num;
@@ -3828,6 +3828,11 @@ void ipa3_suspend_apps_pipes(bool suspend)
 	cfg.ipa_ep_suspend = suspend;
 
 	ipa_ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+	if (ipa_ep_idx < 0) {
+		IPAERR("IPA client mapping failed\n");
+		ipa_assert();
+		return;
+	}
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
 	if (ep->valid) {
 		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
