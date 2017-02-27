@@ -27,6 +27,8 @@
 #include <linux/notifier.h>
 #include <linux/suspend.h>
 #include <linux/slab.h>
+#include <linux/debugfs.h>
+#include <linux/debugfs.h>
 
 #define MAX_WAKEUP_REASON_IRQS 32
 static bool suspend_abort;
@@ -560,6 +562,7 @@ static int wakeup_reason_pm_event(struct notifier_block *notifier,
 		curr_monotime = ktime_get();
 		/* monotonic time since boot including the time spent in suspend */
 		curr_stime = ktime_get_boottime();
+
 #ifdef CONFIG_DEDUCE_WAKEUP_REASONS
 		/* log_wakeups should have been cleared by now. */
 		if (WARN_ON(logging_wakeup_reasons())) {
@@ -580,6 +583,9 @@ static struct notifier_block wakeup_reason_pm_notifier_block = {
 	.notifier_call = wakeup_reason_pm_event,
 };
 
+/* Initializes the sysfs parameter
+ * registers the pm_event notifier
+ */
 int __init wakeup_reason_init(void)
 {
 	spin_lock_init(&resume_reason_lock);

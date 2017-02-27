@@ -475,3 +475,39 @@
 };
 
 /delete-node/ &cont_splash_mem;
+
+&i2c_2 {
+	/* DSI_TO_HDMI I2C configuration */
+	adv7533@39 {
+		compatible = "adv7533";
+		reg = <0x39>;
+		instance_id = <0>;
+		adi,video-mode = <3>; /* 3 = 1080p */
+		adi,main-addr = <0x39>;
+		adi,cec-dsi-addr = <0x3C>;
+		adi,enable-audio;
+		adi,irq-gpio = <&tlmm 0x29 0x2002>;
+		adi,power-down-gpio = <&tlmm 0x7D 0x0>;
+		adi,switch-gpio = <&pm8937_gpios 0x8 0x1>;
+		pinctrl-names = "pmx_adv7533_active",
+					"pmx_adv7533_suspend";
+		pinctrl-0 = <&adv7533_int_active>;
+		pinctrl-1 = <&adv7533_int_suspend>;
+	};
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_adv7533_1080p>;
+	qcom,platform-intf-mux-gpio = <&tlmm 115 0>;
+	status = "ok";
+	qcom,bridge-index = <0>;
+	qcom,pluggable;
+};
+
+&dsi_adv7533_1080p {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};

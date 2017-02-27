@@ -1,0 +1,355 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/msm/pm.h>
+
+&soc {
+	qcom,spm@b009000 {
+		compatible = "qcom,spm-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0xb009000 0x1000>;
+		qcom,name = "core0";
+		qcom,cpu = <&CPU0>;
+		qcom,saw2-ver-reg = <0xfd0>;
+		qcom,saw2-cfg = <0x101>;
+		qcom,saw2-spm-dly= <0x401004>;
+		qcom,saw2-spm-ctl = <0x1>;
+		qcom,cpu-vctl-mask = <&CPU0>;
+		qcom,mode0  {
+			qcom,label = "qcom,saw2-spm-cmd-wfi";
+			qcom,sequence = [04 03 04 0f];
+			qcom,spm_en;
+		};
+		qcom,mode1 {
+			qcom,label = "qcom,saw2-spm-cmd-spc";
+			qcom,sequence = [34 04 44 14 24 5a 03
+				5a 44 14 04 24 3e 0f];
+			qcom,spm_en;
+		};
+		qcom,mode2 {
+			qcom,label = "qcom,saw2-spm-cmd-pc";
+			qcom,sequence = [34 04 44 14 24 5a 07
+				5a 44 14 04 24 3e 0f];
+			qcom,spm_en;
+		};
+	};
+
+	qcom,lpm-levels {
+		compatible = "qcom,lpm-levels";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm-cluster@0{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			label = "system";
+			qcom,default-level = <0>;
+
+			qcom,pm-cluster-level@0 {
+				reg = <0>;
+				label = "l2-active";
+				qcom,latency-us = <100>;
+				qcom,ss-power = <8000>;
+				qcom,energy-overhead = <100000>;
+				qcom,time-overhead = <100>;
+			};
+
+			qcom,pm-cluster-level@1 {
+				reg = <1>;
+				label = "l2-flush-no-rpm";
+				qcom,latency-us = <2000>;
+				qcom,ss-power = <6000>;
+				qcom,energy-overhead = <1000000>;
+				qcom,time-overhead = <3000>;
+				qcom,min-child-idx = <1>;
+			};
+
+			qcom,pm-cluster-level@2 {
+				reg = <2>;
+				label = "l2-pc";
+				qcom,latency-us = <5000>;
+				qcom,ss-power = <4999>;
+				qcom,energy-overhead = <5000000>;
+				qcom,time-overhead = <7300>;
+				qcom,min-child-idx = <2>;
+				qcom,notify-rpm;
+				qcom,reset-level = <LPM_RESET_LVL_PC>;
+			};
+
+			qcom,pm-cpu {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				qcom,pm-cpu-level@0 {
+					reg = <0>;
+					qcom,spm-cpu-mode = "wfi";
+					qcom,latency-us = <100>;
+					qcom,ss-power = <8000>;
+					qcom,energy-overhead = <100000>;
+					qcom,time-overhead = <100>;
+				};
+
+				qcom,pm-cpu-level@1 {
+					reg = <1>;
+					qcom,spm-cpu-mode = "standalone_pc";
+					qcom,latency-us = <2000>;
+					qcom,ss-power = <6000>;
+					qcom,energy-overhead = <1000000>;
+					qcom,time-overhead = <3000>;
+					qcom,reset-level = <LPM_RESET_LVL_PC>;
+				};
+
+				qcom,pm-cpu-level@2 {
+					reg = <2>;
+					qcom,spm-cpu-mode = "pc";
+					qcom,latency-us = <5000>;
+					qcom,ss-power = <4999>;
+					qcom,energy-overhead = <5000000>;
+					qcom,time-overhead = <7300>;
+					qcom,reset-level = <LPM_RESET_LVL_PC>;
+				};
+			};
+		};
+	};
+
+	qcom,mpm@601b8 {
+		compatible = "qcom,mpm-v2";
+		reg = <0x601b8 0x1000>, /* MSM_RPM_MPM_BASE 4K */
+		    <0xb011008 0x4>;   /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		interrupts = <0 171 1>;
+		clocks = <&clock_gcc clk_cxo_lpm_clk>;
+		clock-names = "xo";
+		qcom,num-mpm-irqs = <96>;
+		qcom,ipc-bit-offset = <1>;
+
+		qcom,gic-parent = <&intc>;
+		qcom,gic-map = <2 216>,	/* tsens_upper_lower_int*/
+			<88 222>,	/* spmi_periph_irq[0]*/
+			<89 212>,	/* usb30_power_event_irq*/
+			<54 235>,	/* qmp_pcie_usb3_lfps_rxterm_irq_cx*/
+			<0xff 234>,	/* qusb2phy_intr*/
+			<0xff 35>,	/* CTI_SPI_intx*/
+			<0xff 36>,	/* CTI_SPI_inty*/
+			<0xff 38>,	/* QTMR_qgicFrm0VirtIrq*/
+			<0xff 39>,	/* QTMR_qgicFrm0PhyIrq*/
+			<0xff 40>,	/* QTMR_qgicFrm1PhyIrq*/
+			<0xff 41>,	/* QTMR_qgicFrm2PhyIrq*/
+			<0xff 42>,	/* QTMR_qgicFrm3PhyIrq*/
+			<0xff 43>,	/* QTMR_qgicFrm4PhyIrq*/
+			<0xff 44>,	/* QTMR_qgicFrm5PhyIrq*/
+			<0xff 45>,	/* QTMR_qgicFrm6PhyIrq*/
+			<0xff 46>,	/* QTMR_qgicFrm7PhyIrq*/
+			<0xff 56>,	/* q6ss_wdog_expired_irq*/
+			<0xff 57>,	/* mss_ipc_out_irq[4]*/
+			<0xff 58>,	/* mss_ipc_out_irq[5]*/
+			<0xff 59>,	/* mss_ipc_out_irq[6]*/
+			<0xff 60>,	/* mss_ipc_out_irq[7]*/
+			<0xff 61>,	/* tsens_critical_int*/
+			<0xff 62>,	/* nAXIERRIRQ_int*/
+			<0xff 62>,	/* ao_pen_irq*/
+			<0xff 63>,	/* Ipa_irq[0]*/
+			<0xff 65>,	/* Ipa_irq[2]*/
+			<0xff 66>,	/* ipa_gsi_bam_irq[0]*/
+			<0xff 68>,	/* ipa_gsi_bam_irq[2]*/
+			<0xff 69>,	/* active_dbg_mon_irq*/
+			<0xff 70>,	/* app_tcu_gbl_flt_irpt_s*/
+			<0xff 71>,	/* dir_conn_irq_lpa_dsp_5*/
+			<0xff 72>,	/* dir_conn_irq_lpa_dsp_4*/
+			<0xff 73>,	/* app_tcu_gbl_flt_irpt_ns*/
+			<0xff 74>,	/* app_tcu_perf_irpt_ipa*/
+			<0xff 75>,	/* app_tcu_perf_irpt_ce*/
+			<0xff 76>,	/* app_tcu_perf_irpt_pcie*/
+			<0xff 77>,	/* app_tcu_perf_irpt_usb3*/
+			<0xff 78>,	/* app_tcu_cxt_irpt_10*/
+			<0xff 79>,	/* app_tcu_cxt_irpt_11*/
+			<0xff 80>,	/* app_tcu_cxt_irpt_12*/
+			<0xff 81>,	/* pcie20_global_int*/
+			<0xff 85>,	/* pcie20_int_msi_dev0*/
+			<0xff 86>,	/* pcie20_int_msi_dev1*/
+			<0xff 87>,	/* pcie20_int_msi_dev2*/
+			<0xff 88>,	/* pcie20_int_msi_dev3*/
+			<0xff 89>,	/* pcie20_int_msi_dev4*/
+			<0xff 90>,	/* pcie20_int_msi_dev5*/
+			<0xff 91>,	/* pcie20_int_msi_dev6*/
+			<0xff 92>,	/* pcie20_int_msi_dev7*/
+			<0xff 95>,	/* app_tcu_cxt_irpt_3*/
+			<0xff 96>,	/* app_tcu_cxt_irpt_4*/
+			<0xff 97>,	/* app_tcu_cxt_irpt_5*/
+			<0xff 98>,	/* app_tcu_cxt_irpt_6*/
+			<0xff 99>,	/* app_tcu_perf_irpt_periph*/
+			<0xff 100>,	/* app_tcu_cxt_irpt_7*/
+			<0xff 101>,	/* app_tcu_cxt_irpt_8*/
+			<0xff 102>,	/* app_tcu_cxt_irpt_0*/
+			<0xff 103>,	/* app_tcu_cxt_irpt_1*/
+			<0xff 104>,	/* app_tcu_cxt_irpt_9*/
+			<0xff 105>,	/* app_tcu_cxt_irpt_2*/
+			<0xff 106>,	/* dir_conn_irq_lpa_dsp_2*/
+			<0xff 107>,	/* dir_conn_irq_lpa_dsp_1*/
+			<0xff 108>,	/* app_tcu_cxt_irpt_13*/
+			<0xff 109>,	/* app_tcu_cxt_irpt_14*/
+			<0xff 110>,	/* app_tcu_cxt_irpt_15*/
+			<0xff 117>,	/* dir_conn_irq_lpa_dsp_0*/
+			<0xff 118>,	/* dir_conn_irq_sensors_7*/
+			<0xff 119>,	/* dir_conn_irq_sensors_6*/
+			<0xff 120>,	/* dir_conn_irq_sensors_5*/
+			<0xff 121>,	/* dir_conn_irq_sensors_4*/
+			<0xff 122>,	/* dir_conn_irq_sensors_3*/
+			<0xff 123>,	/* dir_conn_irq_sensors_2*/
+			<0xff 124>,	/* dir_conn_irq_sensors_1*/
+			<0xff 125>,	/* dir_conn_irq_sensors_0*/
+			<0xff 127>,	/* qup_irq*/
+			<0xff 128>,	/* qup_irq*/
+			<0xff 129>,	/* qup_irq*/
+			<0xff 130>,	/* qup_irq*/
+			<0xff 132>,	/* cri_cm_irq*/
+			<0xff 133>,	/* bam_irq[0]*/
+			<0xff 134>,	/* spmi_fetcher_irq*/
+			<0xff 135>,	/* pka_core_irq_tz*/
+			<0xff 136>,	/* pka_core_irq_hv*/
+			<0xff 137>,	/* pka_core_irq_ee*/
+			<0xff 139>,	/* uart_dm_intr*/
+			<0xff 140>,	/* uart_dm_intr*/
+			<0xff 141>,	/* uart_dm_intr*/
+			<0xff 142>,	/* uart_dm_intr*/
+			<0xff 147>,	/* pcie20_inta*/
+			<0xff 148>,	/* pcie20_intb*/
+			<0xff 149>,	/* pcie20_intc*/
+			<0xff 150>,	/* pcie20_intd*/
+			<0xff 151>,	/* pcie20_int_mhi_a7*/
+			<0xff 155>,	/* sdcc_irq[0]*/
+			<0xff 156>,	/* sdcc_irq[1]*/
+			<0xff 163>,	/* usb30_ctrl_irq[0]*/
+			<0xff 164>,	/* usb30_bam_irq[0]*/
+			<0xff 165>,	/* usb30_hs_phy_irq*/
+			<0xff 166>,	/* usb30_ctrl_irq[1]*/
+			<0xff 170>,	/* sdcc_pwr_cmd_irq*/
+			<0xff 171>,	/* sdio_wakeup_irq*/
+			<0xff 182>,	/* o_dcc_crc_fail_int*/
+			<0xff 183>,	/* o_dcc_task_done_int*/
+			<0xff 184>,	/* qdss_tpda_gerr_irq*/
+			<0xff 191>,	/* snoc_pcie_timeout_itr*/
+			<0xff 192>,	/* audio_out0_irq*/
+			<0xff 193>,	/* summary_irq_sensors*/
+			<0xff 196>,	/* pmic_arb_trans_done_irq[3]*/
+			<0xff 197>,	/* spmi_periph_irq[3]*/
+			<0xff 198>,	/* qdss_etrbytecnt_irq*/
+			<0xff 199>,	/* qdss_usb_trace_bam_irq*/
+			<0xff 200>,	/* rpm_ipc[4]*/
+			<0xff 201>,	/* rpm_ipc[5]*/
+			<0xff 202>,	/* rpm_ipc[6]*/
+			<0xff 203>,	/* rpm_ipc[7]*/
+			<0xff 204>,	/* rpm_ipc[24]*/
+			<0xff 205>,	/* rpm_ipc[25]*/
+			<0xff 206>,	/* rpm_ipc[26]*/
+			<0xff 207>,	/* rpm_ipc[27]*/
+			<0xff 208>,	/* cpr_irq*/
+			<0xff 211>,	/* o_bimc_intr[1]*/
+			<0xff 213>,	/* secure_wdog_bark_irq*/
+			<0xff 214>,	/* tsens_max_min_int*/
+			<0xff 215>,	/* o_bimc_intr[0]*/
+			<0xff 217>,	/* ocimem_nonsec_irq*/
+			<0xff 218>,	/* pmic_arb_trans_done_irq[1]*/
+			<0xff 219>,	/* pmic_arb_trans_done_irq[0]*/
+			<0xff 220>,	/* spmi_protocol_irq*/
+			<0xff 221>,	/* spmi_periph_irq[1]*/
+			<0xff 223>,	/* spdm_offline_irq*/
+			<0xff 224>,	/* spdm_realtime_irq[1]*/
+			<0xff 225>,	/* snoc_obs_mainFault*/
+			<0xff 227>,	/* o_tcsr_xpu2_sec_summary_intr*/
+			<0xff 228>,	/* o_tcsr_xpu2_non_sec_summary_intr*/
+			<0xff 229>,	/* o_timeout_slave_kpss_summary_intr*/
+			<0xff 230>,	/* o_tcsr_client_sec_summary_intr*/
+			<0xff 231>,	/* o_tcsr_client_non_sec_summary_intr*/
+			<0xff 232>,	/* o_tcsr_cfg_sec_summary_intr*/
+			<0xff 233>,	/* o_tcsr_cfg_non_sec_summary_intr*/
+			<0xff 236>,	/* crypto_core_irq[0]*/
+			<0xff 237>,	/* crypto_core_irq[1]*/
+			<0xff 238>,	/* crypto_bam_irq[0]*/
+			<0xff 239>,	/* crypto_bam_irq[1]*/
+			<0xff 240>,	/* summary_irq_kpss*/
+			<0xff 241>,	/* dir_conn_irq_kpss_7*/
+			<0xff 242>,	/* dir_conn_irq_kpss_6*/
+			<0xff 243>,	/* dir_conn_irq_kpss_5*/
+			<0xff 244>,	/* dir_conn_irq_kpss_4*/
+			<0xff 245>,	/* dir_conn_irq_kpss_3*/
+			<0xff 246>,	/* dir_conn_irq_kpss_2*/
+			<0xff 247>,	/* dir_conn_irq_kpss_1*/
+			<0xff 248>,	/* dir_conn_irq_kpss_0*/
+			<0xff 249>,	/* summary_irq_kpss_tz*/
+			<0xff 250>,	/* dir_conn_irq_sensors_9*/
+			<0xff 251>,	/* dir_conn_irq_sensors_8*/
+			<0xff 255>,	/* cpr_irq*/
+			<0xff 258>,	/* rpm_ipc[31]*/
+			<0xff 259>,	/* rpm_ipc[30]*/
+			<0xff 269>,	/* rpm_wdog_expired_irq*/
+			<0xff 270>,	/* bam_irq[0]*/
+			<0xff 274>,	/* app_tcu_comb_irpt_ns*/
+			<0xff 275>,	/* rpm_ipc[29]*/
+			<0xff 276>,	/* rpm_ipc[28]*/
+			<0xff 277>,	/* sid_match_fault_intr*/
+			<0xff 278>,	/* app_tcu_comb_irpt_s*/
+			<0xff 279>,	/* qpic_bam_irq[0]*/
+			<0xff 280>,	/* qpic_nandc_irq*/
+			<0xff 281>,	/* qpic_nandc_op_done_irq*/
+			<0xff 282>,	/* qpic_nandc_wr_er_done_irq*/
+			<0xff 283>,	/* qpic_lcdc_irq*/
+			<0xff 284>,	/* o_modem_va_pa_mismatch_irq_qdsp*/
+			<0xff 285>,	/* o_modem_va_pa_mismatch_irq_ipa*/
+			<0xff 286>;	/* o_modem_va_pa_mismatch_irq_ce*/
+		qcom,gpio-parent = <&tlmm_pinmux>;
+		qcom,gpio-map = <3 48>,
+			<4 74>,
+			<5 1>,
+			<6 2>,
+			<9 5>,
+			<10 6>,
+			<13 9>,
+			<14 10>,
+			<15 11>,
+			<16 12>,
+			<17 13>,
+			<18 14>,
+			<20 16>,
+			<21 17>,
+			<22 18>,
+			<23 19>,
+			<24 22>,
+			<25 21>,
+			<26 24>,
+			<28 51>,
+			<29 47>,
+			<31 52>,
+			<32 57>,
+			<33 59>,
+			<34 76>,
+			<35 72>,
+			<37 50>,
+			<38 53>,
+			<39 73>,
+			<40 55>,
+			<41 15>,
+			<42 75>,
+			<43 82>,
+			<47 77>,
+			<48 61>,
+			<50 83>,
+			<51 79>,
+			<52 78>,
+			<53 58>,
+			<55 81>,
+			<56 60>;
+	};
+
+};

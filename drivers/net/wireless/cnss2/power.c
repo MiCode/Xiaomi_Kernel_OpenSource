@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,8 +15,8 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
 
-#include "debug.h"
 #include "main.h"
+#include "debug.h"
 
 static struct cnss_vreg_info cnss_vreg_info[] = {
 	{NULL, "vdd-wlan-core", 1300000, 1300000, 0, 0},
@@ -367,4 +367,20 @@ void cnss_power_off_device(struct cnss_plat_data *plat_priv)
 {
 	cnss_select_pinctrl_state(plat_priv, false);
 	cnss_vreg_off(plat_priv);
+}
+
+void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv)
+{
+	unsigned long pin_status = 0;
+
+	set_bit(CNSS_WLAN_EN, &pin_status);
+	set_bit(CNSS_PCIE_TXN, &pin_status);
+	set_bit(CNSS_PCIE_TXP, &pin_status);
+	set_bit(CNSS_PCIE_RXN, &pin_status);
+	set_bit(CNSS_PCIE_RXP, &pin_status);
+	set_bit(CNSS_PCIE_REFCLKN, &pin_status);
+	set_bit(CNSS_PCIE_REFCLKP, &pin_status);
+	set_bit(CNSS_PCIE_RST, &pin_status);
+
+	plat_priv->pin_result.host_pin_result = pin_status;
 }

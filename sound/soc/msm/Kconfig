@@ -193,9 +193,9 @@ config SND_SOC_MSM8X16
 	 the machine driver and the corresponding
 	 DAI-links
 
-config SND_SOC_MDMCALIFORNIUM
-        tristate "SoC Machine driver for MDMCALIFORNIUM or SDXHEDGEHOG boards"
-        depends on ARCH_MDMCALIFORNIUM || ARCH_SDXHEDGEHOG
+config SND_SOC_MDM9650
+        tristate "SoC Machine driver for MDM9650 or SDXHEDGEHOG boards"
+        depends on ARCH_MDM9650 || ARCH_SDXHEDGEHOG
         select SND_SOC_QDSP6V2
         select SND_SOC_MSM_STUB
         select SND_SOC_MSM_HOSTLESS_PCM
@@ -207,7 +207,7 @@ config SND_SOC_MDMCALIFORNIUM
         select SND_SOC_TLV320AIC3X
         select SND_HWDEP
         help
-         To add support for SoC audio on MDMCALIFORNIUM or HEDGEHOG.
+         To add support for SoC audio on MDM9650 or HEDGEHOG.
          This will enable sound soc drivers which
          interfaces with DSP, also it will enable
          the machine driver and the corresponding

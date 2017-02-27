@@ -114,6 +114,25 @@ struct cnss_recovery_work_t {
 	enum cnss_recovery_reason reason;
 };
 
+enum cnss_pins {
+	CNSS_WLAN_EN,
+	CNSS_PCIE_TXP,
+	CNSS_PCIE_TXN,
+	CNSS_PCIE_RXP,
+	CNSS_PCIE_RXN,
+	CNSS_PCIE_REFCLKP,
+	CNSS_PCIE_REFCLKN,
+	CNSS_PCIE_RST,
+	CNSS_PCIE_WAKE,
+};
+
+struct cnss_pin_connect_result {
+	u32 fw_pwr_pin_result;
+	u32 fw_phy_io_pin_result;
+	u32 fw_rf_pin_result;
+	u32 host_pin_result;
+};
+
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
@@ -147,6 +166,8 @@ struct cnss_plat_data {
 	struct wlfw_fw_version_info_s_v01 fw_version_info;
 	struct cnss_fw_mem fw_mem;
 	struct cnss_fw_mem m3_mem;
+	struct cnss_pin_connect_result pin_result;
+	struct dentry *root_dentry;
 };
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev);
@@ -162,5 +183,6 @@ int cnss_register_subsys(struct cnss_plat_data *plat_priv);
 void cnss_unregister_subsys(struct cnss_plat_data *plat_priv);
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv);
+void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv);
 
 #endif /* _CNSS_MAIN_H */

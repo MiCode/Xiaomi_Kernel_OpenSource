@@ -20,8 +20,8 @@
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/subsystem_notif.h>
 
-#include "debug.h"
 #include "main.h"
+#include "debug.h"
 #include "pci.h"
 
 #define CNSS_DUMP_FORMAT_VER		0x11
@@ -1013,6 +1013,7 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 		cnss_pr_err("Failed to start MHI, err = %d\n", ret);
 		goto suspend_link;
 	}
+	cnss_set_pin_connect_status(plat_priv);
 
 bypass_fbc:
 	if (qmi_bypass)
@@ -1164,31 +1165,40 @@ static int cnss_shutdown(const struct subsys_desc *subsys_desc, bool force_stop)
 	return ret;
 }
 
+static int cnss_qca6174_ramdump(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+	struct cnss_ramdump_info *ramdump_info;
+	struct ramdump_segment segment;
+
+	ramdump_info = &plat_priv->ramdump_info;
+	if (!ramdump_info->ramdump_size)
+		return -EINVAL;
+
+	memset(&segment, 0, sizeof(segment));
+	segment.v_address = ramdump_info->ramdump_va;
+	segment.size = ramdump_info->ramdump_size;
+	ret = do_ramdump(ramdump_info->ramdump_dev, &segment, 1);
+
+	return ret;
+}
+
 static int cnss_ramdump(int enable, const struct subsys_desc *subsys_desc)
 {
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = dev_get_drvdata(subsys_desc->dev);
-	struct cnss_ramdump_info *ramdump_info;
-	struct ramdump_segment segment;
 
 	if (!plat_priv) {
 		cnss_pr_err("plat_priv is NULL!\n");
 		return -ENODEV;
 	}
 
-	ramdump_info = &plat_priv->ramdump_info;
-	if (!ramdump_info->ramdump_size)
-		return -EINVAL;
-
 	if (!enable)
 		return 0;
 
 	switch (plat_priv->device_id) {
 	case QCA6174_DEVICE_ID:
-		memset(&segment, 0, sizeof(segment));
-		segment.v_address = ramdump_info->ramdump_va;
-		segment.size = ramdump_info->ramdump_size;
-		ret = do_ramdump(ramdump_info->ramdump_dev, &segment, 1);
+		ret = cnss_qca6174_ramdump(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
 		break;
@@ -1678,12 +1688,18 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto deinit_event_work;
 
+	ret = cnss_debugfs_create(plat_priv);
+	if (ret)
+		goto deinit_qmi;
+
 	register_pm_notifier(&cnss_pm_notifier);
 
 	cnss_pr_info("Platform driver probed successfully.\n");
 
 	return 0;
 
+deinit_qmi:
+	cnss_qmi_deinit(plat_priv);
 deinit_event_work:
 	cnss_event_work_deinit(plat_priv);
 remove_sysfs:
@@ -1710,6 +1726,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
 	unregister_pm_notifier(&cnss_pm_notifier);
+	cnss_debugfs_destroy(plat_priv);
 	cnss_qmi_deinit(plat_priv);
 	cnss_event_work_deinit(plat_priv);
 	cnss_remove_sysfs(plat_priv);

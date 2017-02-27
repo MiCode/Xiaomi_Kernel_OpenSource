@@ -59,7 +59,7 @@ IRQCHIP_DECLARE(tlmm_irq, "qcom,msm-gpio", irq_msm_gpio_init);
 #endif
 IRQCHIP_DECLARE(8996_pinctrl, "qcom,msm8996-pinctrl", pinctrl_irq_dummy);
 IRQCHIP_DECLARE(9640_pinctrl, "qcom,mdm9640-pinctrl", pinctrl_irq_dummy);
-IRQCHIP_DECLARE(californium_pinctrl, "qcom,mdmcalifornium-pinctrl",
+IRQCHIP_DECLARE(9650_pinctrl, "qcom,mdm9650-pinctrl",
 		pinctrl_irq_dummy);
 IRQCHIP_DECLARE(hedgehog_pinctrl, "qcom,sdxhedgehog-pinctrl",
 		pinctrl_irq_dummy);

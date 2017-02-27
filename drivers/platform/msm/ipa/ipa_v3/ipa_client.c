@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,20 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 	int res = 0;
 	struct ipahal_reg_endp_init_rsrc_grp rsrc_grp;
 
+	/* Assign the resource group for pipe */
+	memset(&rsrc_grp, 0, sizeof(rsrc_grp));
+	rsrc_grp.rsrc_grp = ipa_get_ep_group(ep->client);
+	if (rsrc_grp.rsrc_grp == -1) {
+		IPAERR("invalid group for client %d\n", ep->client);
+		WARN_ON(1);
+		return -EFAULT;
+	}
+
+	IPADBG("Setting group %d for pipe %d\n",
+		rsrc_grp.rsrc_grp, clnt_hdl);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_RSRC_GRP_n, clnt_hdl,
+		&rsrc_grp);
+
 	IPADBG("Enabling data path\n");
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&holb_cfg, 0 , sizeof(holb_cfg));
@@ -63,20 +77,6 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 		ep_cfg_ctrl.ipa_ep_suspend = false;
 		res = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
-
-	/* Assign the resource group for pipe */
-	memset(&rsrc_grp, 0, sizeof(rsrc_grp));
-	rsrc_grp.rsrc_grp = ipa_get_ep_group(ep->client);
-	if (rsrc_grp.rsrc_grp == -1) {
-		IPAERR("invalid group for client %d\n", ep->client);
-		WARN_ON(1);
-		return -EFAULT;
-	}
-
-	IPADBG("Setting group %d for pipe %d\n",
-		rsrc_grp.rsrc_grp, clnt_hdl);
-	ipahal_write_reg_n_fields(IPA_ENDP_INIT_RSRC_GRP_n, clnt_hdl,
-		&rsrc_grp);
 
 	return res;
 }

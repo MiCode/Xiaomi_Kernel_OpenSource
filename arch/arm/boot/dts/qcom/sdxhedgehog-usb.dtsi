@@ -32,8 +32,8 @@
 		interrupt-names = "hs_phy_irq", "ss_phy_irq", "pwr_event_irq",
 				"pmic_id_irq";
 		USB3_GDSC-supply = <&gdsc_usb30>;
-		vdda33-supply = <&pmdcalifornium_l10>;
-		vdda18-supply = <&pmdcalifornium_l5>;
+		vdda33-supply = <&pmd9650_l10>;
+		vdda18-supply = <&pmd9650_l5>;
 		qcom,usb-dbm = <&dbm_1p5>;
 
 		qcom,msm-bus,name = "usb3";
@@ -122,9 +122,9 @@
 		reg-names = "qusb_phy_base";
 		qcom,efuse-bit-pos = <16>;
 		qcom,efuse-num-bits = <4>;
-		vdd-supply = <&pmdcalifornium_l4>;
-		vdda18-supply = <&pmdcalifornium_l5>;
-		vdda33-supply = <&pmdcalifornium_l10>;
+		vdd-supply = <&pmd9650_l4>;
+		vdda18-supply = <&pmd9650_l5>;
+		vdda33-supply = <&pmd9650_l10>;
 		qcom,vdd-voltage-level = <0 928000 928000>;
 		qcom,qusb-phy-init-seq =
 			/* <value reg_offset> */
@@ -264,8 +264,8 @@
 		qcom,qmp-phy-reg-offset = <0x988 0x98c 0x990 0x994
 					0x974 0x8d8 0x8dc 0x804 0x800
 					0x808>;
-		vdd-supply = <&pmdcalifornium_l4>;
-		core-supply = <&pmdcalifornium_l1>;
+		vdd-supply = <&pmd9650_l4>;
+		core-supply = <&pmd9650_l1>;
 		qcom,vdd-voltage-level = <0 928000 928000>;
 		qcom,core-voltage-level = <0 1224000 1224000>;
 		qcom,vbus-valid-override;

@@ -1,0 +1,271 @@
+/*
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+
+&rpm_bus {
+	/* PMD9650 S1 = VDD_MSS supply */
+	rpm-regulator-smpa1 {
+		status = "okay";
+		pmd9650_s1: regulator-s1 {
+			regulator-name = "pmd9650_s1";
+			regulator-min-microvolt = <800000>;
+			regulator-max-microvolt = <800000>;
+			qcom,init-voltage = <800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa2 {
+		status = "okay";
+		pmd9650_s2: regulator-s2 {
+			regulator-name = "pmd9650_s2";
+			regulator-min-microvolt = <1256000>;
+			regulator-max-microvolt = <1256000>;
+			qcom,init-voltage = <1256000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa3 {
+		status = "okay";
+		pmd9650_s3: regulator-s3 {
+			regulator-name = "pmd9650_s3";
+			regulator-min-microvolt = <1024000>;
+			regulator-max-microvolt = <1024000>;
+			qcom,init-voltage = <1024000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa4 {
+		status = "okay";
+		pmd9650_s4: regulator-s4 {
+			regulator-name = "pmd9650_s4";
+			regulator-min-microvolt = <1856000>;
+			regulator-max-microvolt = <1856000>;
+			qcom,init-voltage = <1856000>;
+			status = "okay";
+		};
+	};
+
+	/* PMD9650 S5 = VDD_CX supply */
+	rpm-regulator-smpa5 {
+		status = "okay";
+		pmd9650_s5_level: regulator-s5-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmd9650_s5_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+		};
+
+		pmd9650_s5_level_ao: regulator-s5-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmd9650_s5_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+		};
+
+		pmd9650_s5_floor_level: regulator-s5-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmd9650_s5_floor_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-floor-level;
+		};
+	};
+
+	rpm-regulator-ldoa1 {
+		status = "okay";
+		pmd9650_l1: regulator-l1 {
+			regulator-name = "pmd9650_l1";
+			regulator-min-microvolt = <1224000>;
+			regulator-max-microvolt = <1224000>;
+			qcom,init-voltage = <1224000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa2 {
+		status = "okay";
+		pmd9650_l2: regulator-l2 {
+			regulator-name = "pmd9650_l2";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa3 {
+		status = "okay";
+		pmd9650_l3: regulator-l3 {
+			regulator-name = "pmd9650_l3";
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <1000000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa4 {
+		status = "okay";
+		pmd9650_l4: regulator-l4 {
+			regulator-name = "pmd9650_l4";
+			regulator-min-microvolt = <928000>;
+			regulator-max-microvolt = <928000>;
+			qcom,init-voltage = <928000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa5 {
+		status = "okay";
+		pmd9650_l5: regulator-l5 {
+			regulator-name = "pmd9650_l5";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa6 {
+		status = "okay";
+		pmd9650_l6: regulator-l6 {
+			regulator-name = "pmd9650_l6";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa7 {
+		status = "okay";
+		pmd9650_l7: regulator-l7 {
+			regulator-name = "pmd9650_l7";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2848000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa8 {
+		status = "okay";
+		pmd9650_l8: regulator-l8 {
+			regulator-name = "pmd9650_l8";
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <1000000>;
+			status = "okay";
+		};
+	};
+
+	/* PMD9650 L9 = VDD_MX supply */
+	rpm-regulator-ldoa9 {
+		status = "okay";
+		pmd9650_l9_level: regulator-l9-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmd9650_l9_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		status = "okay";
+		pmd9650_l10: regulator-l10 {
+			regulator-name = "pmd9650_l10";
+			regulator-min-microvolt = <3088000>;
+			regulator-max-microvolt = <3088000>;
+			qcom,init-voltage = <3088000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa11 {
+		status = "okay";
+		pmd9650_l11: regulator-l11 {
+			regulator-name = "pmd9650_l11";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2848000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa12 {
+		status = "okay";
+		pmd9650_l12: regulator-l12 {
+			regulator-name = "pmd9650_l12";
+			regulator-min-microvolt = <2704000>;
+			regulator-max-microvolt = <2704000>;
+			qcom,init-voltage = <2704000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa13 {
+		status = "okay";
+		pmd9650_l13: regulator-l13 {
+			regulator-name = "pmd9650_l13";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2848000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+};
+
+&soc {
+	codec_buck_vreg: codec_buck_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "codec_1.8v";
+		regulator-always-on;
+	};
+
+	/* Rome 3.3V supply */
+	rome_vreg: rome_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "rome_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pmd9650_gpios 6 0>;
+	};
+
+	/* SD card 2.95 V supply */
+	sdc_vreg: sdc_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "sdc_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&tlmm_pinmux 50 0>;
+	};
+};

@@ -104,8 +104,8 @@
 		compatible = "qcom,cnss_sdio";
 		subsys-name = "AR6320_SDIO";
 		vdd-wlan-supply = <&rome_vreg>;
-		vdd-wlan-xtal-supply = <&pmdcalifornium_l5>;
-		vdd-wlan-io-supply = <&pmdcalifornium_l6>;
+		vdd-wlan-xtal-supply = <&pmd9650_l5>;
+		vdd-wlan-io-supply = <&pmd9650_l6>;
 		qcom,wlan-ramdump-dynamic = <0x200000>;
 		qcom,is-antenna-shared;
 		status = "disabled";
@@ -118,6 +118,10 @@
 		interrupt-parent = <&tlmm_pinmux>;
 		qcom,gpio-connect = <&tlmm_pinmux 73 0>;
 	};
+
+	/delete-node/ qcom,spm@b009000;
+	/delete-node/ qcom,mpm@601b8;
+	/delete-node/ qcom,lpm-levels;
 };
 
 &clock_gcc {
@@ -241,7 +245,7 @@
 	wlan-en-gpio = <&tlmm_pinmux 74 0>;
 };
 
-&pmdcalifornium_gpios {
+&pmd9650_gpios {
 	gpio@c500 { /* GPIO 6 - Rome 3.3V control */
 		status = "ok";
 		qcom,mode = <1>;		/* Digital output*/
@@ -270,4 +274,5 @@
 };
 
 #include "sdxhedgehog-usb.dtsi"
+#include "sdxhedgehog-pm.dtsi"
 

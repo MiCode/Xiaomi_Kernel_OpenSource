@@ -997,6 +997,10 @@ static int msm_audrx_init_wcd(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC3");
 	snd_soc_dapm_ignore_suspend(dapm, "SPK1 OUT");
 	snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
+
+	snd_soc_dapm_ignore_suspend(dapm, "MAD_CPE_INPUT");
+	snd_soc_dapm_ignore_suspend(dapm, "MADINPUT");
+
 	snd_soc_dapm_sync(dapm);
 
 	/* start mbhc */

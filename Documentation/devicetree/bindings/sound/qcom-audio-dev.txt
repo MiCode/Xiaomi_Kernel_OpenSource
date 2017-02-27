@@ -1994,7 +1994,7 @@ sound-9330 {
 		asoc-codec-names = "msm-stub-codec.1";
 	};
 
-* MDMCALIFORNIUM ASoC Machine driver
+* MDM9650 ASoC Machine driver
 
 - compatible : "qcom,mdm-audio-tasha" for tasha codec and
                 node is "sound"
@@ -2084,7 +2084,7 @@ Example:
 		qcom,aux-codec = <&stub_codec>;
 	};
 
-* MDMCALIFORNIUM Automotive ASoC Machine driver
+* MDM9650 Automotive ASoC Machine driver
 
 - compatible : "qcom,mdm-audio-auto" for auto codec and
 		node is "sound-auto"

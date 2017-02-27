@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -474,7 +474,7 @@ static struct of_device_id clock_a7_match_table[] = {
 	{.compatible = "qcom,clock-a7-9630"},
 	{.compatible = "qcom,clock-a7-9640"},
 	{.compatible = "qcom,clock-a53-8916"},
-	{.compatible = "qcom,clock-a7-californium"},
+	{.compatible = "qcom,clock-a7-9650"},
 	{.compatible = "qcom,clock-a7-mdm9607"},
 	{.compatible = "qcom,clock-a7-sdxhedgehog"},
 	{}

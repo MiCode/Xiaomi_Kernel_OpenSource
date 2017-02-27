@@ -4232,6 +4232,11 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	if (pdata->hub_reset_gpio < 0)
 		pr_debug("hub_reset_gpio is not available\n");
 
+	pdata->usbeth_reset_gpio = of_get_named_gpio(
+			node, "qcom,usbeth-reset-gpio", 0);
+	if (pdata->usbeth_reset_gpio < 0)
+		pr_debug("usbeth_reset_gpio is not available\n");
+
 	pdata->switch_sel_gpio =
 			of_get_named_gpio(node, "qcom,sw-sel-gpio", 0);
 	if (pdata->switch_sel_gpio < 0)
@@ -4920,6 +4925,38 @@ static int msm_otg_probe(struct platform_device *pdev)
 		if (ret) {
 			dev_err(&pdev->dev, "devices setup failed\n");
 			goto remove_cdev;
+		}
+	}
+
+	if (gpio_is_valid(motg->pdata->hub_reset_gpio)) {
+		ret = devm_gpio_request(&pdev->dev,
+				motg->pdata->hub_reset_gpio,
+				"HUB_RESET");
+		if (ret < 0) {
+			dev_err(&pdev->dev, "gpio req failed for hub_reset\n");
+		} else {
+			gpio_direction_output(
+				motg->pdata->hub_reset_gpio, 0);
+			/* 5 microsecs reset signaling to usb hub */
+			usleep_range(5, 10);
+			gpio_direction_output(
+				motg->pdata->hub_reset_gpio, 1);
+		}
+	}
+
+	if (gpio_is_valid(motg->pdata->usbeth_reset_gpio)) {
+		ret = devm_gpio_request(&pdev->dev,
+				motg->pdata->usbeth_reset_gpio,
+				"ETH_RESET");
+		if (ret < 0) {
+			dev_err(&pdev->dev, "gpio req failed for usbeth_reset\n");
+		} else {
+			gpio_direction_output(
+				motg->pdata->usbeth_reset_gpio, 0);
+			/* 100 microsecs reset signaling to usb-to-eth */
+			usleep_range(100, 110);
+			gpio_direction_output(
+				motg->pdata->usbeth_reset_gpio, 1);
 		}
 	}
 

@@ -35,3 +35,11 @@
 };
 
 /delete-node/ &cont_splash_mem;
+
+&soc {
+	i2c@78b9000 {
+		synaptics@20 {
+			status = "disabled";
+		};
+	};
+};

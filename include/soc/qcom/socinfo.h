@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,8 +76,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9630")
 #define early_machine_is_mdm9640()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9640")
-#define early_machine_is_mdmcalifornium()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdmcalifornium")
+#define early_machine_is_mdm9650()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9650")
 #define early_machine_is_sdxhedgehog()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdxhedgehog")
 #define early_machine_is_fsm9900()	\
@@ -143,7 +143,7 @@
 #define early_machine_is_msm8976() 0
 #define early_machine_is_msm8929()	0
 #define early_machine_is_mdm9607()	0
-#define early_machine_is_mdmcalifornium()	0
+#define early_machine_is_mdm9650()	0
 #define early_machine_is_sdxhedgehog()	0
 #define early_machine_is_msmcobalt()	0
 #endif
@@ -208,7 +208,7 @@ enum msm_cpu {
 	MSM_CPU_8976,
 	MSM_CPU_8929,
 	MSM_CPU_9607,
-	MSM_CPU_CALIFORNIUM,
+	MSM_CPU_9650,
 	MSM_CPU_COBALT,
 	SDX_CPU_HEDGEHOG,
 };

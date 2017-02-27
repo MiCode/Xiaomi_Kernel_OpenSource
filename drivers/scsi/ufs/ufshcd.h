@@ -888,6 +888,9 @@ struct ufs_hba {
 	bool no_ref_clk_gating;
 
 	int scsi_block_reqs_cnt;
+
+	int			latency_hist_enabled;
+	struct io_latency_state io_lat_s;
 };
 
 /* Returns true if clocks can be gated. Otherwise false */

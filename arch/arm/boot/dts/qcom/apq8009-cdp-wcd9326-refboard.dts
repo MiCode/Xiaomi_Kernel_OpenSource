@@ -50,5 +50,14 @@
 			qcom,cdc-reset-gpio = <&msm_gpio 27 0>;
 		};
 	};
-};
 
+	i2c@78b9000 {
+		synaptics@20 {
+			status = "disabled";
+		};
+
+		atmel_mxt_ts@4a {
+			status = "disabled";
+		};
+	};
+};

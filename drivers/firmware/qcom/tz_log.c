@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1100,6 +1100,7 @@ static struct platform_driver tz_log_driver = {
 		.name = "tz_log",
 		.owner = THIS_MODULE,
 		.of_match_table = tzlog_match,
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 };
 

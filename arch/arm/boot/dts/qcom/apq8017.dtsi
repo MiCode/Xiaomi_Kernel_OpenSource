@@ -22,12 +22,12 @@
 	pmx_adv7533_int: pmx_adv7533_int {
 		adv7533_int_active: adv7533_int_active {
 			mux {
-				pins = "gpio125", "gpio126";
+				pins = "gpio41";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio125", "gpio126";
+				pins = "gpio41";
 				function = "gpio";
 				drive-strength = <16>;
 				bias-pull-up; /* pull up */
@@ -36,12 +36,12 @@
 
 		adv7533_int_suspend: adv7533_int_suspend {
 			mux {
-				pins = "gpio125", "gpio126";
+				pins = "gpio41";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio125", "gpio126";
+				pins = "gpio41";
 				drive-strength = <16>;
 				bias-disable;
 			};

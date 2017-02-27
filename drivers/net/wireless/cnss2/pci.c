@@ -15,6 +15,7 @@
 #include <linux/of.h>
 #include <linux/pm_runtime.h>
 
+#include "main.h"
 #include "debug.h"
 #include "pci.h"
 
