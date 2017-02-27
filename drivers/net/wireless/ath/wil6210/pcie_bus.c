@@ -303,7 +303,7 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 #endif /* CONFIG_PM */
 
 	wil6210_debugfs_init(wil);
-
+	wil6210_sysfs_init(wil);
 
 	return 0;
 
@@ -337,6 +337,7 @@ static void wil_pcie_remove(struct pci_dev *pdev)
 #endif /* CONFIG_PM_SLEEP */
 #endif /* CONFIG_PM */
 
+	wil6210_sysfs_remove(wil);
 	wil6210_debugfs_remove(wil);
 	rtnl_lock();
 	wil_p2p_wdev_free(wil);
