@@ -78,7 +78,6 @@ enum {
 	WSA881X_DEV_UP,
 };
 
-bool cache_always;
 /*
  * Private data Structure for wsa881x. All parameters related to
  * WSA881X codec needs to be defined here.
@@ -987,6 +986,7 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
 {
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
 	struct swr_device *dev;
+	u8 retry = WSA881X_NUM_RETRY;
 	u8 devnum = 0;
 
 	if (!wsa881x) {
@@ -995,7 +995,12 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
 	}
 	dev = wsa881x->swr_slave;
 	if (dev && (wsa881x->state == WSA881X_DEV_DOWN)) {
-		if (swr_get_logical_dev_num(dev, dev->addr, &devnum)) {
+		while (swr_get_logical_dev_num(dev, dev->addr, &devnum) &&
+		       retry--) {
+			/* Retry after 1 msec delay */
+			usleep_range(1000, 1100);
+		}
+		if (retry == 0) {
 			dev_err(codec->dev,
 				"%s get devnum %d for dev addr %lx failed\n",
 				__func__, devnum, dev->addr);
@@ -1089,6 +1094,7 @@ static int wsa881x_swr_startup(struct swr_device *swr_dev)
 {
 	int ret = 0;
 	u8 devnum = 0;
+	u8 retry = WSA881X_NUM_RETRY;
 	struct wsa881x_priv *wsa881x;
 
 	wsa881x = swr_get_dev_data(swr_dev);
@@ -1103,11 +1109,16 @@ static int wsa881x_swr_startup(struct swr_device *swr_dev)
 	 * as per HW requirement.
 	 */
 	usleep_range(5000, 5010);
-	ret = swr_get_logical_dev_num(swr_dev, swr_dev->addr, &devnum);
-	if (ret) {
-		dev_dbg(&swr_dev->dev, "%s failed to get devnum, err:%d\n",
-			__func__, ret);
-		goto err;
+	while (swr_get_logical_dev_num(swr_dev, swr_dev->addr, &devnum) &&
+	       retry--) {
+		/* Retry after 1 msec delay */
+		usleep_range(1000, 1100);
+	}
+	if (retry == 0) {
+		dev_err(&swr_dev->dev,
+			"%s get devnum %d for dev addr %lx failed\n",
+			__func__, devnum, swr_dev->addr);
+		return -EINVAL;
 	}
 	swr_dev->dev_num = devnum;
 
@@ -1226,9 +1237,6 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 		if (ret)
 			goto err;
 	}
-
-	cache_always = of_property_read_bool(pdev->dev.of_node,
-					"qcom,cache-always");
 	wsa881x_gpio_ctrl(wsa881x, true);
 	wsa881x->state = WSA881X_DEV_UP;
 

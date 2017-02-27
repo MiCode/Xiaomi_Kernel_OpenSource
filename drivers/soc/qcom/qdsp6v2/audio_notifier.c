@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -394,8 +394,8 @@ static void audio_notifer_reg_all_clients(void)
 	int ret;
 
 	list_for_each_safe(ptr, next, &client_list) {
-		client_data = list_entry(ptr,
-			struct client_data, list);
+		client_data = list_entry(ptr, struct client_data, list);
+
 		ret = audio_notifer_reg_client(client_data);
 		if (IS_ERR_VALUE(ret))
 			pr_err("%s: audio_notifer_reg_client failed for client %s, ret %d\n",
@@ -518,9 +518,8 @@ int audio_notifier_deregister(char *client_name)
 		goto done;
 	}
 	mutex_lock(&notifier_mutex);
-	list_for_each_safe(ptr, next, &client_data->list) {
-		client_data = list_entry(ptr, struct client_data,
-					list);
+	list_for_each_safe(ptr, next, &client_list) {
+		client_data = list_entry(ptr, struct client_data, list);
 		if (!strcmp(client_name, client_data->client_name)) {
 			ret2 = audio_notifer_dereg_client(client_data);
 			if (ret2 < 0) {
