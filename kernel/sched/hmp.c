@@ -3274,7 +3274,9 @@ exit_early:
 		trace_sched_get_busy(cpu, busy[i].prev_load,
 				     busy[i].new_task_load,
 				     busy[i].predicted_load,
-				     early_detection[i]);
+				     early_detection[i],
+				     aggregate_load &&
+				      cpu == max_busy_cpu);
 		i++;
 	}
 }
