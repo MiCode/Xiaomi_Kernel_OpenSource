@@ -1602,28 +1602,6 @@ static int smb2_init_hw(struct smb2 *chip)
 		}
 	}
 
-	if (chip->dt.auto_recharge_soc) {
-		rc = smblib_masked_write(chg, FG_UPDATE_CFG_2_SEL_REG,
-				SOC_LT_CHG_RECHARGE_THRESH_SEL_BIT |
-				VBT_LT_CHG_RECHARGE_THRESH_SEL_BIT,
-				VBT_LT_CHG_RECHARGE_THRESH_SEL_BIT);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't configure FG_UPDATE_CFG2_SEL_REG rc=%d\n",
-				rc);
-			return rc;
-		}
-	} else {
-		rc = smblib_masked_write(chg, FG_UPDATE_CFG_2_SEL_REG,
-				SOC_LT_CHG_RECHARGE_THRESH_SEL_BIT |
-				VBT_LT_CHG_RECHARGE_THRESH_SEL_BIT,
-				SOC_LT_CHG_RECHARGE_THRESH_SEL_BIT);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't configure FG_UPDATE_CFG2_SEL_REG rc=%d\n",
-				rc);
-			return rc;
-		}
-	}
-
 	return rc;
 }
 
