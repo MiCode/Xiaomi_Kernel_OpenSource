@@ -247,6 +247,14 @@ int sde_smmu_attach(struct sde_rot_data_type *mdata)
 					goto err;
 				}
 				sde_smmu->domain_attached = true;
+				if (sde_smmu->domain_reattach) {
+					SDEROT_DBG(
+						"domain[%i] re-attach\n",
+						i);
+					/* remove extra vote */
+					sde_smmu_enable_power(sde_smmu, false);
+					sde_smmu->domain_reattach = false;
+				}
 				SDEROT_DBG("iommu v2 domain[%i] attached\n", i);
 			}
 		} else {
@@ -292,6 +300,12 @@ int sde_smmu_detach(struct sde_rot_data_type *mdata)
 				arm_iommu_detach_device(sde_smmu->dev);
 				SDEROT_DBG("iommu domain[%i] detached\n", i);
 				sde_smmu->domain_attached = false;
+
+				/*
+				 * since we are leaving the clock vote, on
+				 * re-attaching do not vote for clocks
+				 */
+				sde_smmu->domain_reattach = true;
 				}
 			else {
 				sde_smmu_enable_power(sde_smmu, false);

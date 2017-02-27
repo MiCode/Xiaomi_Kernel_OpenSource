@@ -122,6 +122,7 @@ struct sde_smmu_client {
 	struct sde_module_power mp;
 	struct reg_bus_client *reg_bus_clt;
 	bool domain_attached;
+	bool domain_reattach;
 	int domain;
 };
 
