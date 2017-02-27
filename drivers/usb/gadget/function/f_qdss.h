@@ -17,11 +17,14 @@
 #include <linux/kernel.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
-#include <linux/usb/msm_hsusb.h>
 #include <linux/usb/composite.h>
 #include <linux/usb/usb_qdss.h>
 
-#include "u_rmnet.h"
+enum qti_port_type {
+	QTI_PORT_RMNET,
+	QTI_PORT_DPL,
+	QTI_NUM_PORTS
+};
 
 struct usb_qdss_bam_connect_info {
 	u32 usb_bam_pipe_idx;
