@@ -570,10 +570,6 @@ static int smb138x_parallel_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fcc, val->intval);
 		break;
-	case POWER_SUPPLY_PROP_BUCK_FREQ:
-		rc = smblib_set_charge_param(chg, &chg->param.freq_buck,
-					     val->intval);
-		break;
 	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
 		/* Not in ship mode as long as the device is active */
 		if (!val->intval)
@@ -581,7 +577,7 @@ static int smb138x_parallel_set_prop(struct power_supply *psy,
 		rc = smblib_set_prop_ship_mode(chg, val);
 		break;
 	default:
-		pr_err("parallel power supply set prop %d not supported\n",
+		pr_debug("parallel power supply set prop %d not supported\n",
 			prop);
 		return -EINVAL;
 	}
@@ -859,6 +855,13 @@ static int smb138x_init_hw(struct smb138x *chip)
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
 
 	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
+
+	/* configure to a fixed 700khz freq to avoid tdie errors */
+	rc = smblib_set_charge_param(chg, &chg->param.freq_buck, 700);
+	if (rc < 0) {
+		pr_err("Couldn't configure 700Khz switch freq rc=%d\n", rc);
+		return rc;
+	}
 
 	/* configure charge enable for software control; active high */
 	rc = smblib_masked_write(chg, CHGR_CFG2_REG,
