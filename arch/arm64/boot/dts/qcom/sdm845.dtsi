@@ -1175,7 +1175,6 @@
 	};
 
 	disp_rsc: mailbox@af20000 {
-		status = "disabled";
 		compatible = "qcom,tcs-drv";
 		reg = <0xaf20000 0x100>, <0xaf21c00 0x3000>;
 		interrupts = <0 129 0>;
