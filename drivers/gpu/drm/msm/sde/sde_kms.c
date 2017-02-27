@@ -929,13 +929,9 @@ static void sde_kms_fbo_destroy(struct sde_kms_fbo *fbo)
 		fbo->dma_buf = NULL;
 	}
 
-	for (i = 0; i < fbo->layout.num_planes; i++) {
-		if (fbo->bo[i]) {
-			mutex_lock(&dev->struct_mutex);
-			drm_gem_object_unreference(fbo->bo[i]);
-			mutex_unlock(&dev->struct_mutex);
-			fbo->bo[i] = NULL;
-		}
+	if (sde_kms->iclient && fbo->ihandle) {
+		ion_free(sde_kms->iclient, fbo->ihandle);
+		fbo->ihandle = NULL;
 	}
 }
 
@@ -994,17 +990,52 @@ struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
 	}
 
 	/* allocate backing buffer object */
-	mutex_lock(&dev->struct_mutex);
-	fbo->bo[0] = msm_gem_new(dev, fbo->layout.total_size,
-			MSM_BO_SCANOUT | MSM_BO_WC);
-	if (IS_ERR(fbo->bo[0])) {
+	if (sde_kms->iclient) {
+		u32 heap_id = fbo->flags & DRM_MODE_FB_SECURE ?
+				ION_HEAP(ION_SECURE_DISPLAY_HEAP_ID) :
+				ION_HEAP(ION_SYSTEM_HEAP_ID);
+
+		fbo->ihandle = ion_alloc(sde_kms->iclient,
+				fbo->layout.total_size, SZ_4K, heap_id, 0);
+		if (IS_ERR_OR_NULL(fbo->ihandle)) {
+			SDE_ERROR("failed to alloc ion memory\n");
+			ret = PTR_ERR(fbo->ihandle);
+			fbo->ihandle = NULL;
+			goto done;
+		}
+
+		fbo->dma_buf = ion_share_dma_buf(sde_kms->iclient,
+				fbo->ihandle);
+		if (IS_ERR(fbo->dma_buf)) {
+			SDE_ERROR("failed to share ion memory\n");
+			ret = -ENOMEM;
+			fbo->dma_buf = NULL;
+			goto done;
+		}
+
+		fbo->bo[0] = dev->driver->gem_prime_import(dev,
+				fbo->dma_buf);
+		if (IS_ERR(fbo->bo[0])) {
+			SDE_ERROR("failed to import ion memory\n");
+			ret = PTR_ERR(fbo->bo[0]);
+			fbo->bo[0] = NULL;
+			goto done;
+		}
+	} else {
+		mutex_lock(&dev->struct_mutex);
+		fbo->bo[0] = msm_gem_new(dev, fbo->layout.total_size,
+				MSM_BO_SCANOUT | MSM_BO_WC);
+		if (IS_ERR(fbo->bo[0])) {
+			mutex_unlock(&dev->struct_mutex);
+			SDE_ERROR("failed to new gem buffer\n");
+			ret = PTR_ERR(fbo->bo[0]);
+			fbo->bo[0] = NULL;
+			goto done;
+		}
 		mutex_unlock(&dev->struct_mutex);
-		SDE_ERROR("failed to new gem buffer\n");
-		ret = PTR_ERR(fbo->bo[0]);
-		fbo->bo[0] = NULL;
-		goto done;
 	}
 
+	mutex_lock(&dev->struct_mutex);
 	for (i = 1; i < fbo->layout.num_planes; i++) {
 		fbo->bo[i] = fbo->bo[0];
 		drm_gem_object_reference(fbo->bo[i]);
@@ -1109,6 +1140,11 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 	/* safe to call these more than once during shutdown */
 	_sde_debugfs_destroy(sde_kms);
 	_sde_kms_mmu_destroy(sde_kms);
+
+	if (sde_kms->iclient) {
+		ion_client_destroy(sde_kms->iclient);
+		sde_kms->iclient = NULL;
+	}
 
 	if (sde_kms->catalog) {
 		for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
@@ -1460,6 +1496,13 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 			sde_kms->hw_vbif[vbif_idx] = NULL;
 			goto power_error;
 		}
+	}
+
+	sde_kms->iclient = msm_ion_client_create(dev->unique);
+	if (IS_ERR(sde_kms->iclient)) {
+		rc = PTR_ERR(sde_kms->iclient);
+		SDE_DEBUG("msm_ion_client not available: %d\n", rc);
+		sde_kms->iclient = NULL;
 	}
 
 	/*

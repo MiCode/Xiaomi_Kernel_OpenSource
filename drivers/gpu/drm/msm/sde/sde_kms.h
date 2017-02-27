@@ -19,6 +19,8 @@
 #ifndef __SDE_KMS_H__
 #define __SDE_KMS_H__
 
+#include <linux/msm_ion.h>
+
 #include "msm_drv.h"
 #include "msm_kms.h"
 #include "msm_mmu.h"
@@ -140,6 +142,7 @@ struct sde_kms_fbo {
 	int nplane;
 	const struct sde_format *fmt;
 	struct sde_hw_fmt_layout layout;
+	struct ion_handle *ihandle;
 	struct dma_buf *dma_buf;
 	struct drm_gem_object *bo[4];
 	struct list_head fb_list;
@@ -154,6 +157,8 @@ struct sde_kms {
 	struct msm_mmu *mmu[MSM_SMMU_DOMAIN_MAX];
 	int mmu_id[MSM_SMMU_DOMAIN_MAX];
 	struct sde_power_client *core_client;
+
+	struct ion_client *iclient;
 
 	/* directory entry for debugfs */
 	struct dentry *debugfs_danger;
