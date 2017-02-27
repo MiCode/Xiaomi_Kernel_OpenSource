@@ -2228,6 +2228,25 @@ int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
 	return 0;
 }
 
+void sde_encoder_prepare_commit(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct sde_encoder_phys *phys;
+	int i;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		phys = sde_enc->phys_encs[i];
+		if (phys && phys->ops.prepare_commit)
+			phys->ops.prepare_commit(phys);
+	}
+}
+
 #ifdef CONFIG_DEBUG_FS
 static int _sde_encoder_status_show(struct seq_file *s, void *data)
 {

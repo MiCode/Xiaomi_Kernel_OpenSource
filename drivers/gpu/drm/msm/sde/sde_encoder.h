@@ -179,4 +179,11 @@ struct drm_encoder *sde_encoder_init(
  */
 void sde_encoder_destroy(struct drm_encoder *drm_enc);
 
+/**
+ * sde_encoder_prepare_commit - prepare encoder at the very beginning of an
+ *	atomic commit, before any registers are written
+ * @drm_enc:    Pointer to previously created drm encoder structure
+ */
+void sde_encoder_prepare_commit(struct drm_encoder *drm_enc);
+
 #endif /* __SDE_ENCODER_H__ */
