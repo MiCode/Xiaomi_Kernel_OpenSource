@@ -899,11 +899,6 @@ static int chan_tcs_ctrl_write(struct mbox_chan *chan, void *data)
 		goto tx_done;
 	}
 
-	if (msg->is_complete) {
-		dev_err(dev, "Incorrect ctrl request.\n");
-		goto tx_done;
-	}
-
 	/* Post the message to the TCS without trigger */
 	ret = tcs_mbox_write(chan, msg, false);
 
