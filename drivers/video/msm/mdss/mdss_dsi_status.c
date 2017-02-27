@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include <linux/kobject.h>
 #include <linux/string.h>
 #include <linux/sysfs.h>
+#include <linux/interrupt.h>
 
 #include "mdss_fb.h"
 #include "mdss_dsi.h"
@@ -94,8 +95,10 @@ irqreturn_t hw_vsync_handler(int irq, void *data)
 	else
 		pr_err("Pstatus data is NULL\n");
 
-	if (!atomic_read(&ctrl_pdata->te_irq_ready))
+	if (!atomic_read(&ctrl_pdata->te_irq_ready)) {
+		complete_all(&ctrl_pdata->te_irq_comp);
 		atomic_inc(&ctrl_pdata->te_irq_ready);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -160,10 +163,12 @@ static int fb_event_callback(struct notifier_block *self,
 			schedule_delayed_work(&pdata->check_status,
 				msecs_to_jiffies(interval));
 			break;
-		case FB_BLANK_POWERDOWN:
-		case FB_BLANK_HSYNC_SUSPEND:
 		case FB_BLANK_VSYNC_SUSPEND:
 		case FB_BLANK_NORMAL:
+			pr_debug("%s : ESD thread running\n", __func__);
+			break;
+		case FB_BLANK_POWERDOWN:
+		case FB_BLANK_HSYNC_SUSPEND:
 			cancel_delayed_work(&pdata->check_status);
 			break;
 		default:

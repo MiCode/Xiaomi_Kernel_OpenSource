@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,15 +9,47 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include <linux/workqueue.h>
 #include <linux/delay.h>
 #include <linux/kobject.h>
 #include <linux/string.h>
 #include <linux/sysfs.h>
+#include <linux/interrupt.h>
 
 #include "mdss_dsi.h"
 #include "mdp3_ctrl.h"
+
+/*
+ * mdp3_check_te_status() - Check the status of panel for TE based ESD.
+ * @ctrl_pdata   : dsi controller data
+ * @pstatus_data : dsi status data
+ * @interval     : duration in milliseconds for panel TE wait
+ *
+ * This function waits for TE signal from the panel for a maximum
+ * duration of 3 vsyncs. If timeout occurs, report the panel to be
+ * dead due to ESD attack.
+ * NOTE: The TE IRQ handling is linked to the ESD thread scheduling,
+ * i.e. rate of TE IRQs firing is bound by the ESD interval.
+ */
+static int mdp3_check_te_status(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
+		struct dsi_status_data *pstatus_data, uint32_t interval)
+{
+	int ret;
+
+	pr_debug("%s: Checking panel TE status\n", __func__);
+
+	atomic_set(&ctrl_pdata->te_irq_ready, 0);
+	reinit_completion(&ctrl_pdata->te_irq_comp);
+	enable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
+
+	ret = wait_for_completion_timeout(&ctrl_pdata->te_irq_comp,
+			msecs_to_jiffies(interval));
+
+	disable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
+	pr_debug("%s: Panel TE check done with ret = %d\n", __func__, ret);
+
+	return ret;
+}
 
 /*
  * mdp3_check_dsi_ctrl_status() - Check MDP3 DSI controller status periodically.
@@ -33,6 +65,7 @@ void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 {
 	struct dsi_status_data *pdsi_status = NULL;
 	struct mdss_panel_data *pdata = NULL;
+	struct mipi_panel_info *mipi = NULL;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdp3_session_data *mdp3_session = NULL;
 	int ret = 0;
@@ -51,12 +84,22 @@ void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 		return;
 	}
 
+	mipi = &pdata->panel_info.mipi;
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 							panel_data);
 
-	if (!ctrl_pdata || !ctrl_pdata->check_status) {
+	if (!ctrl_pdata || (!ctrl_pdata->check_status &&
+		(ctrl_pdata->status_mode != ESD_TE))) {
 		pr_err("%s: DSI ctrl or status_check callback not available\n",
 								__func__);
+		return;
+	}
+
+	if (!pdata->panel_info.esd_rdy) {
+		pr_err("%s: unblank not complete, reschedule check status\n",
+			__func__);
+		schedule_delayed_work(&pdsi_status->check_status,
+				msecs_to_jiffies(interval));
 		return;
 	}
 
@@ -71,6 +114,19 @@ void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 			msecs_to_jiffies(interval));
 		pr_debug("%s: cont splash is on\n", __func__);
 		return;
+	}
+
+	if (mipi->mode == DSI_CMD_MODE &&
+		mipi->hw_vsync_mode &&
+		mdss_dsi_is_te_based_esd(ctrl_pdata)) {
+		uint32_t fps = mdss_panel_get_framerate(&pdata->panel_info,
+					FPS_RESOLUTION_HZ);
+		uint32_t timeout = ((1000 / fps) + 1) *
+					MDSS_STATUS_TE_WAIT_MAX;
+
+		if (mdp3_check_te_status(ctrl_pdata, pdsi_status, timeout) > 0)
+			return;
+		goto status_dead;
 	}
 
 	mutex_lock(&mdp3_session->lock);
@@ -90,18 +146,22 @@ void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 	mutex_unlock(&mdp3_session->lock);
 
 	if (mdss_fb_is_power_on_interactive(pdsi_status->mfd)) {
-		if (ret > 0) {
+		if (ret > 0)
 			schedule_delayed_work(&pdsi_status->check_status,
 						msecs_to_jiffies(interval));
-		} else {
-			char *envp[2] = {"PANEL_ALIVE=0", NULL};
-			pdata->panel_info.panel_dead = true;
-			ret = kobject_uevent_env(
-					&pdsi_status->mfd->fbi->dev->kobj,
-					KOBJ_CHANGE, envp);
-			pr_err("%s: Panel has gone bad, sending uevent - %s\n",
-							__func__, envp[0]);
-		}
+		else
+			goto status_dead;
 	}
+
+	if (pdata->panel_info.panel_force_dead) {
+		pr_debug("force_dead=%d\n", pdata->panel_info.panel_force_dead);
+		pdata->panel_info.panel_force_dead--;
+		if (!pdata->panel_info.panel_force_dead)
+			goto status_dead;
+	}
+	return;
+
+status_dead:
+	mdss_fb_report_panel_dead(pdsi_status->mfd);
 }
 
