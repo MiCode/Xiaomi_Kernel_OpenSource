@@ -440,7 +440,8 @@ static void _sde_hdmi_connector_irq(struct sde_hdmi *sde_hdmi)
 			hpd_int_ctrl |= HDMI_HPD_INT_CTRL_INT_CONNECT;
 		hdmi_write(hdmi, REG_HDMI_HPD_INT_CTRL, hpd_int_ctrl);
 
-		queue_work(hdmi->workq, &sde_hdmi->hpd_work);
+		if (!sde_hdmi->non_pluggable)
+			queue_work(hdmi->workq, &sde_hdmi->hpd_work);
 	}
 }
 
