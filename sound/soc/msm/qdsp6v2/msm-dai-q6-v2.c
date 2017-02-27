@@ -5010,6 +5010,44 @@ static struct platform_driver msm_dai_q6_spdif_driver = {
 	},
 };
 
+static int msm_dai_q6_tdm_set_clk_param(u32 group_id,
+					struct afe_clk_set *clk_set, u32 mode)
+{
+	switch (group_id) {
+	case AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX:
+	case AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX:
+		if (mode)
+			clk_set->clk_id = Q6AFE_LPASS_CLK_ID_PRI_TDM_IBIT;
+		else
+			clk_set->clk_id = Q6AFE_LPASS_CLK_ID_PRI_TDM_EBIT;
+		break;
+	case AFE_GROUP_DEVICE_ID_SECONDARY_TDM_RX:
+	case AFE_GROUP_DEVICE_ID_SECONDARY_TDM_TX:
+		if (mode)
+			clk_set->clk_id = Q6AFE_LPASS_CLK_ID_SEC_TDM_IBIT;
+		else
+			clk_set->clk_id = Q6AFE_LPASS_CLK_ID_SEC_TDM_EBIT;
+		break;
+	case AFE_GROUP_DEVICE_ID_TERTIARY_TDM_RX:
+	case AFE_GROUP_DEVICE_ID_TERTIARY_TDM_TX:
+		if (mode)
+			clk_set->clk_id = Q6AFE_LPASS_CLK_ID_TER_TDM_IBIT;
+		else
+			clk_set->clk_id = Q6AFE_LPASS_CLK_ID_TER_TDM_EBIT;
+		break;
+	case AFE_GROUP_DEVICE_ID_QUATERNARY_TDM_RX:
+	case AFE_GROUP_DEVICE_ID_QUATERNARY_TDM_TX:
+		if (mode)
+			clk_set->clk_id = Q6AFE_LPASS_CLK_ID_QUAD_TDM_IBIT;
+		else
+			clk_set->clk_id = Q6AFE_LPASS_CLK_ID_QUAD_TDM_EBIT;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static int msm_dai_tdm_q6_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -5017,6 +5055,7 @@ static int msm_dai_tdm_q6_probe(struct platform_device *pdev)
 	uint32_t array_length = 0;
 	int i = 0;
 	int group_idx = 0;
+	u32 clk_mode = 0;
 
 	/* extract tdm group info into static */
 	rc = of_property_read_u32(pdev->dev.of_node,
@@ -5088,6 +5127,26 @@ static int msm_dai_tdm_q6_probe(struct platform_device *pdev)
 	}
 	dev_dbg(&pdev->dev, "%s: Clk Rate from DT file %d\n",
 		__func__, tdm_clk_set.clk_freq_in_hz);
+
+	/* extract tdm clk src master/slave info into static */
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,msm-cpudai-tdm-clk-internal",
+		&clk_mode);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: Clk id from DT file %s\n",
+			__func__, "qcom,msm-cpudai-tdm-clk-internal");
+		goto rtn;
+	}
+	dev_dbg(&pdev->dev, "%s: Clk id from DT file %d\n",
+		__func__, clk_mode);
+
+	rc = msm_dai_q6_tdm_set_clk_param(tdm_group_cfg.group_id,
+					  &tdm_clk_set, clk_mode);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: group id not supported 0x%x\n",
+			__func__, tdm_group_cfg.group_id);
+		goto rtn;
+	}
 
 	/* other initializations within device group */
 	group_idx = msm_dai_q6_get_group_idx(tdm_group_cfg.group_id);
@@ -5884,48 +5943,6 @@ static int msm_dai_q6_tdm_set_clk(
 {
 	int rc = 0;
 
-	switch (dai_data->group_cfg.tdm_cfg.group_id) {
-	case AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX:
-	case AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX:
-		if (dai_data->clk_set.clk_freq_in_hz) {
-			dai_data->clk_set.clk_id =
-				Q6AFE_LPASS_CLK_ID_PRI_TDM_IBIT;
-		} else
-			dai_data->clk_set.clk_id =
-				Q6AFE_LPASS_CLK_ID_PRI_TDM_EBIT;
-		break;
-	case AFE_GROUP_DEVICE_ID_SECONDARY_TDM_RX:
-	case AFE_GROUP_DEVICE_ID_SECONDARY_TDM_TX:
-		if (dai_data->clk_set.clk_freq_in_hz) {
-			dai_data->clk_set.clk_id =
-				Q6AFE_LPASS_CLK_ID_SEC_TDM_IBIT;
-		} else
-			dai_data->clk_set.clk_id =
-				Q6AFE_LPASS_CLK_ID_SEC_TDM_EBIT;
-		break;
-	case AFE_GROUP_DEVICE_ID_TERTIARY_TDM_RX:
-	case AFE_GROUP_DEVICE_ID_TERTIARY_TDM_TX:
-		if (dai_data->clk_set.clk_freq_in_hz) {
-			dai_data->clk_set.clk_id =
-				Q6AFE_LPASS_CLK_ID_TER_TDM_IBIT;
-		} else
-			dai_data->clk_set.clk_id =
-				Q6AFE_LPASS_CLK_ID_TER_TDM_EBIT;
-		break;
-	case AFE_GROUP_DEVICE_ID_QUATERNARY_TDM_RX:
-	case AFE_GROUP_DEVICE_ID_QUATERNARY_TDM_TX:
-		if (dai_data->clk_set.clk_freq_in_hz) {
-			dai_data->clk_set.clk_id =
-				Q6AFE_LPASS_CLK_ID_QUAD_TDM_IBIT;
-		} else
-			dai_data->clk_set.clk_id =
-				Q6AFE_LPASS_CLK_ID_QUAD_TDM_EBIT;
-		break;
-	default:
-		pr_err("%s: port id 0x%x not supported\n",
-			__func__, port_id);
-		return -EINVAL;
-	}
 	dai_data->clk_set.enable = enable;
 
 	rc = afe_set_lpass_clock_v2(port_id,
@@ -7913,6 +7930,7 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 	int rc = 0;
 	u32 tdm_dev_id = 0;
 	int port_idx = 0;
+	struct device_node *tdm_parent_node = NULL;
 
 	/* retrieve device/afe id */
 	rc = of_property_read_u32(pdev->dev.of_node,
@@ -7947,7 +7965,8 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 	memset(dai_data, 0, sizeof(*dai_data));
 
 	/* TDM CFG */
-	rc = of_property_read_u32(pdev->dev.of_node,
+	tdm_parent_node = of_get_parent(pdev->dev.of_node);
+	rc = of_property_read_u32(tdm_parent_node,
 		"qcom,msm-cpudai-tdm-sync-mode",
 		(u32 *)&dai_data->port_cfg.tdm.sync_mode);
 	if (rc) {
@@ -7958,7 +7977,7 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "%s: Sync Mode from DT file 0x%x\n",
 		__func__, dai_data->port_cfg.tdm.sync_mode);
 
-	rc = of_property_read_u32(pdev->dev.of_node,
+	rc = of_property_read_u32(tdm_parent_node,
 		"qcom,msm-cpudai-tdm-sync-src",
 		(u32 *)&dai_data->port_cfg.tdm.sync_src);
 	if (rc) {
@@ -7969,7 +7988,7 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "%s: Sync Src from DT file 0x%x\n",
 		__func__, dai_data->port_cfg.tdm.sync_src);
 
-	rc = of_property_read_u32(pdev->dev.of_node,
+	rc = of_property_read_u32(tdm_parent_node,
 		"qcom,msm-cpudai-tdm-data-out",
 		(u32 *)&dai_data->port_cfg.tdm.ctrl_data_out_enable);
 	if (rc) {
@@ -7980,7 +7999,7 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "%s: Data Out from DT file 0x%x\n",
 		__func__, dai_data->port_cfg.tdm.ctrl_data_out_enable);
 
-	rc = of_property_read_u32(pdev->dev.of_node,
+	rc = of_property_read_u32(tdm_parent_node,
 		"qcom,msm-cpudai-tdm-invert-sync",
 		(u32 *)&dai_data->port_cfg.tdm.ctrl_invert_sync_pulse);
 	if (rc) {
@@ -7991,7 +8010,7 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "%s: Invert Sync from DT file 0x%x\n",
 		__func__, dai_data->port_cfg.tdm.ctrl_invert_sync_pulse);
 
-	rc = of_property_read_u32(pdev->dev.of_node,
+	rc = of_property_read_u32(tdm_parent_node,
 		"qcom,msm-cpudai-tdm-data-delay",
 		(u32 *)&dai_data->port_cfg.tdm.ctrl_sync_data_delay);
 	if (rc) {
