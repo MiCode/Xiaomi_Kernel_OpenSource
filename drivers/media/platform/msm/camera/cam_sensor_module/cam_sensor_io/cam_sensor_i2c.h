@@ -1,0 +1,78 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#ifndef _CAM_SENSOR_I2C_H_
+#define _CAM_SENSOR_I2C_H_
+
+#include <linux/delay.h>
+#include <media/v4l2-subdev.h>
+#include <media/cam_sensor.h>
+#include <media/cam_sensor.h>
+#include "cam_cci_dev.h"
+#include "cam_sensor_io.h"
+
+#define I2C_POLL_TIME_MS 5
+#define MAX_POLL_DELAY_MS 100
+
+#define I2C_COMPARE_MATCH 0
+#define I2C_COMPARE_MISMATCH 1
+
+/**
+ * @client: CCI client structure
+ * @data: I2C data
+ * @addr_type: I2c address type
+ * @data_type: I2C data type
+ *
+ * This API handles CCI read
+ */
+int32_t cam_cci_i2c_read(struct cam_sensor_cci_client *client,
+	uint32_t addr, uint32_t *data,
+	enum camera_sensor_i2c_type addr_type,
+	enum camera_sensor_i2c_type data_type);
+
+/**
+ * @client: CCI client structure
+ * @cci_cmd: CCI command type
+ *
+ * This API handles CCI random write
+ */
+int32_t cam_cci_i2c_write_table(
+	struct camera_io_master *client,
+	struct cam_sensor_i2c_reg_setting *write_setting);
+
+/**
+ * @cci_client: CCI client structure
+ * @cci_cmd: CCI command type
+ *
+ * Does I2C call to I2C functionalities
+ */
+int32_t cam_sensor_cci_i2c_util(struct cam_sensor_cci_client *cci_client,
+	uint16_t cci_cmd);
+
+/**
+ * @client: CCI client structure
+ * @addr: I2C address
+ * @data: I2C data
+ * @data_mask: I2C data mask
+ * @data_type: I2C data type
+ * @addr_type: I2C addr type
+ * @delay_ms: Delay in milli seconds
+ *
+ * This API implements CCI based I2C poll
+ */
+int32_t cam_cci_i2c_poll(struct cam_sensor_cci_client *client,
+	uint32_t addr, uint16_t data, uint16_t data_mask,
+	enum camera_sensor_i2c_type data_type,
+	enum camera_sensor_i2c_type addr_type,
+	uint32_t delay_ms);
+
+#endif /* _CAM_SENSOR_I2C_H_ */
