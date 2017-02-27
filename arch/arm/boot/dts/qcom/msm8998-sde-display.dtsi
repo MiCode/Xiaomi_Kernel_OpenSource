@@ -18,10 +18,20 @@
 		label = "wb_display";
 	};
 
+	msm_ext_disp: qcom,msm_ext_disp {
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+			qcom,msm_ext_disp = <&msm_ext_disp>;
+		};
+	};
+
 	sde_hdmi: qcom,hdmi-display {
 		compatible = "qcom,hdmi-display";
 		label = "sde_hdmi";
 		qcom,display-type = "secondary";
+		qcom,msm_ext_disp = <&msm_ext_disp>;
 	};
 
 };
