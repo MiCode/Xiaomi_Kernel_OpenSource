@@ -23,7 +23,7 @@
 #include "u_uac2.h"
 
 /* Keep everyone on toes */
-#define USB_XFERS	2
+#define USB_XFERS	8
 
 /*
  * The driver implements a simple UAC_2 topology.
