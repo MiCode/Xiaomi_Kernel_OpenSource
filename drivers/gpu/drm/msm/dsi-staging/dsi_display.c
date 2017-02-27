@@ -2282,7 +2282,7 @@ static int dsi_display_bind(struct device *dev,
 			sizeof(struct dsi_link_clk_info));
 		info.bus_handle[i] =
 			display_ctrl->ctrl->axi_bus_info.bus_handle;
-		info.ctrl_index[i] = display_ctrl->ctrl->index;
+		info.ctrl_index[i] = display_ctrl->ctrl->cell_index;
 	}
 
 	info.pre_clkoff_cb = dsi_pre_clkoff_cb;
@@ -2688,7 +2688,7 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 
 	info->num_of_h_tiles = display->ctrl_count;
 	for (i = 0; i < info->num_of_h_tiles; i++)
-		info->h_tile_instance[i] = display->ctrl[i].ctrl->index;
+		info->h_tile_instance[i] = display->ctrl[i].ctrl->cell_index;
 
 	info->is_connected = true;
 	info->is_primary = true;
