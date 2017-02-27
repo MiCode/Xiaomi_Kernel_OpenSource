@@ -80,9 +80,8 @@ static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
 		} else if (pci_priv->saved_state) {
 			pci_load_and_free_saved_state(pci_dev,
 						      &pci_priv->saved_state);
+			pci_restore_state(pci_dev);
 		}
-
-		pci_restore_state(pci_dev);
 	}
 
 	return 0;
@@ -167,6 +166,9 @@ int cnss_resume_pci_link(struct cnss_pci_data *pci_priv)
 	ret = cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
 	if (ret)
 		goto out;
+
+	if (pci_priv->pci_link_down_ind)
+		pci_priv->pci_link_down_ind = false;
 
 	return 0;
 out:
@@ -300,7 +302,8 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 		spin_unlock_irqrestore(&pci_link_down_lock, flags);
 
 		cnss_pr_err("PCI link down, schedule recovery!\n");
-		disable_irq(pci_dev->irq);
+		if (pci_dev->device == QCA6174_DEVICE_ID)
+			disable_irq(pci_dev->irq);
 		cnss_schedule_recovery(&pci_dev->dev, CNSS_REASON_LINK_DOWN);
 		break;
 	case MSM_PCIE_EVENT_WAKEUP:
