@@ -16,12 +16,25 @@
 #define _DSI_DEFS_H_
 
 #include <linux/types.h>
+#include "msm_drv.h"
 
 #define DSI_H_TOTAL(t) (((t)->h_active) + ((t)->h_back_porch) + \
 			((t)->h_sync_width) + ((t)->h_front_porch))
 
 #define DSI_V_TOTAL(t) (((t)->v_active) + ((t)->v_back_porch) + \
 			((t)->v_sync_width) + ((t)->v_front_porch))
+
+#define DSI_H_TOTAL_DSC(t) \
+	({\
+		u64 value;\
+		if ((t)->dsc_enabled && (t)->dsc)\
+			value = (t)->dsc->pclk_per_line;\
+		else\
+			value = (t)->h_active;\
+		value = value + (t)->h_back_porch + (t)->h_sync_width +\
+			(t)->h_front_porch;\
+		value;\
+	})
 
 /**
  * enum dsi_pixel_format - DSI pixel formats
@@ -246,6 +259,8 @@ enum dsi_video_traffic_mode {
  * @v_front_porch:    Vertical front porch in lines.
  * @v_sync_polarity:  Polarity of VSYNC (false is active low).
  * @refresh_rate:     Refresh rate in Hz.
+ * @dsc_enabled:      DSC compression enabled.
+ * @dsc:              DSC compression configuration.
  */
 struct dsi_mode_info {
 	u32 h_active;
@@ -262,6 +277,9 @@ struct dsi_mode_info {
 	bool v_sync_polarity;
 
 	u32 refresh_rate;
+
+	bool dsc_enabled;
+	struct msm_display_dsc_info *dsc;
 };
 
 /**

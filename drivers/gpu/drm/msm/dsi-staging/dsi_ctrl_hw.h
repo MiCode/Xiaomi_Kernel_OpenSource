@@ -308,18 +308,16 @@ struct dsi_ctrl_hw_ops {
 
 	/**
 	 * setup_cmd_stream() - set up parameters for command pixel streams
-	 * @ctrl:          Pointer to controller host hardware.
-	 * @width_in_pixels:   Width of the stream in pixels.
+	 * @ctrl:              Pointer to controller host hardware.
+	 * @mode:              Pointer to mode information.
 	 * @h_stride:          Horizontal stride in bytes.
-	 * @height_inLines:    Number of lines in the stream.
 	 * @vc_id:             stream_id.
 	 *
 	 * Setup parameters for command mode pixel stream size.
 	 */
 	void (*setup_cmd_stream)(struct dsi_ctrl_hw *ctrl,
-				 u32 width_in_pixels,
+				 struct dsi_mode_info *mode,
 				 u32 h_stride,
-				 u32 height_in_lines,
 				 u32 vc_id);
 
 	/**

@@ -341,6 +341,17 @@ int dsi_pre_clkoff_cb(void *priv, enum dsi_clk_type clk_type,
 	enum dsi_clk_state new_state);
 
 /**
+ * dsi_display_update_pps() - update PPS buffer.
+ * @pps_cmd:             PPS buffer.
+ * @display:             Handle to display.
+ *
+ * Copies new PPS buffer into display structure.
+ *
+ * Return: error code.
+ */
+int dsi_display_update_pps(char *pps_cmd, void *display);
+
+/**
  * dsi_post_clkoff_cb() - Callback after clock is turned off
  * @priv: private data pointer.
  * @clk_type: clock which is being turned on.

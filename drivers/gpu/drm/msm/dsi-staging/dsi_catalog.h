@@ -139,9 +139,8 @@ void dsi_ctrl_hw_cmn_ctrl_en(struct dsi_ctrl_hw *ctrl, bool on);
 void dsi_ctrl_hw_cmn_cmd_engine_en(struct dsi_ctrl_hw *ctrl, bool on);
 
 void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
-				     u32 width_in_pixels,
+				     struct dsi_mode_info *mode,
 				     u32 h_stride,
-				     u32 height_in_lines,
 				     u32 vc_id);
 void dsi_ctrl_hw_cmn_phy_sw_reset(struct dsi_ctrl_hw *ctrl);
 void dsi_ctrl_hw_cmn_soft_reset(struct dsi_ctrl_hw *ctrl);

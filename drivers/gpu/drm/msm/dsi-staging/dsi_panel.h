@@ -29,6 +29,7 @@
 #include "dsi_pwr.h"
 
 #define MAX_BL_LEVEL 4096
+#define DSI_CMD_PPS_SIZE 135
 
 enum dsi_panel_rotation {
 	DSI_PANEL_ROTATE_NONE = 0,
@@ -52,6 +53,7 @@ enum dsi_cmd_set_type {
 	DSI_CMD_SET_VID_TO_CMD_SWITCH,
 	DSI_CMD_SET_POST_VID_TO_CMD_SWITCH,
 	DSI_CMD_SET_PANEL_STATUS,
+	DSI_CMD_SET_PPS,
 	DSI_CMD_SET_MAX
 };
 
@@ -179,6 +181,10 @@ struct dsi_panel {
 	u32 panel_jitter;
 	u32 panel_prefill_lines;
 	bool panel_initialized;
+
+	bool dsc_enabled;
+	char dsc_pps_cmd[DSI_CMD_PPS_SIZE];
+	struct msm_display_dsc_info dsc;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -230,4 +236,6 @@ int dsi_panel_unprepare(struct dsi_panel *panel);
 int dsi_panel_post_unprepare(struct dsi_panel *panel);
 
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl);
+
+int dsi_panel_update_pps(struct dsi_panel *panel);
 #endif /* _DSI_PANEL_H_ */

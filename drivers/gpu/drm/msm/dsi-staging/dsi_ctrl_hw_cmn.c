@@ -159,14 +159,36 @@ void dsi_ctrl_hw_cmn_set_video_timing(struct dsi_ctrl_hw *ctrl,
 {
 	u32 reg = 0;
 	u32 hs_start = 0;
-	u32 hs_end, active_h_start, active_h_end, h_total;
+	u32 hs_end, active_h_start, active_h_end, h_total, width = 0;
 	u32 vs_start = 0, vs_end = 0;
 	u32 vpos_start = 0, vpos_end, active_v_start, active_v_end, v_total;
 
+	if (mode->dsc_enabled && mode->dsc) {
+		width = mode->dsc->pclk_per_line;
+		reg = mode->dsc->bytes_per_pkt << 16;
+		reg |= (0x0b << 8);    /* dtype of compressed image */
+		/*
+		 * pkt_per_line:
+		 * 0 == 1 pkt
+		 * 1 == 2 pkt
+		 * 2 == 4 pkt
+		 * 3 pkt is not support
+		 */
+		if (mode->dsc->pkt_per_line == 4)
+			reg |= (mode->dsc->pkt_per_line - 2) << 6;
+		else
+			reg |= (mode->dsc->pkt_per_line - 1) << 6;
+		reg |= mode->dsc->eol_byte_num << 4;
+		reg |= 1;
+		DSI_W32(ctrl, DSI_VIDEO_COMPRESSION_MODE_CTRL, reg);
+	} else {
+		width = mode->h_active;
+	}
+
 	hs_end = mode->h_sync_width;
 	active_h_start = mode->h_sync_width + mode->h_back_porch;
-	active_h_end = active_h_start + mode->h_active;
-	h_total = (mode->h_sync_width + mode->h_back_porch + mode->h_active +
+	active_h_end = active_h_start + width;
+	h_total = (mode->h_sync_width + mode->h_back_porch + width +
 		   mode->h_front_porch) - 1;
 
 	vpos_end = mode->v_sync_width;
@@ -202,29 +224,66 @@ void dsi_ctrl_hw_cmn_set_video_timing(struct dsi_ctrl_hw *ctrl,
 
 /**
  * setup_cmd_stream() - set up parameters for command pixel streams
- * @ctrl:          Pointer to controller host hardware.
- * @width_in_pixels:   Width of the stream in pixels.
+ * @ctrl:              Pointer to controller host hardware.
+ * @mode:              Pointer to mode information.
  * @h_stride:          Horizontal stride in bytes.
- * @height_inLines:    Number of lines in the stream.
  * @vc_id:             stream_id
  *
  * Setup parameters for command mode pixel stream size.
  */
 void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
-				     u32 width_in_pixels,
+				     struct dsi_mode_info *mode,
 				     u32 h_stride,
-				     u32 height_in_lines,
 				     u32 vc_id)
 {
 	u32 reg = 0;
+	u32 width_final, stride_final;
 
-	reg = (h_stride + 1) << 16;
+	if (mode->dsc_enabled && mode->dsc) {
+		u32 offset = 0;
+		u32 reg_ctrl, reg_ctrl2;
+
+		if (vc_id != 0)
+			offset = 16;
+		reg_ctrl = DSI_R32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL);
+		reg_ctrl2 = DSI_R32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL2);
+		width_final = mode->dsc->pclk_per_line;
+		stride_final = width_final * (h_stride / mode->h_active);
+
+		reg = 0x39 << 8;
+		/*
+		 * pkt_per_line:
+		 * 0 == 1 pkt
+		 * 1 == 2 pkt
+		 * 2 == 4 pkt
+		 * 3 pkt is not support
+		 */
+		if (mode->dsc->pkt_per_line == 4)
+			reg |= (mode->dsc->pkt_per_line - 2) << 6;
+		else
+			reg |= (mode->dsc->pkt_per_line - 1) << 6;
+		reg |= mode->dsc->eol_byte_num << 4;
+		reg |= 1;
+
+		reg_ctrl &= ~(0xFFFF << offset);
+		reg_ctrl |= (reg << offset);
+		reg_ctrl2 &= ~(0xFFFF << offset);
+		reg_ctrl2 |= (mode->dsc->bytes_in_slice << offset);
+		DSI_W32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL, reg_ctrl);
+		DSI_W32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL2, reg_ctrl2);
+	} else {
+		width_final = mode->h_active;
+		stride_final = h_stride;
+	}
+
+	reg = (stride_final + 1) << 16;
 	reg |= (vc_id & 0x3) << 8;
 	reg |= 0x39; /* packet data type */
+
 	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM0_CTRL, reg);
 	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM1_CTRL, reg);
 
-	reg = (height_in_lines << 16) | width_in_pixels;
+	reg = (mode->v_active << 16) | width_final;
 	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM0_TOTAL, reg);
 	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM1_TOTAL, reg);
 }

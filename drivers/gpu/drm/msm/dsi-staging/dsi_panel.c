@@ -28,6 +28,133 @@
 #define MAX_PANEL_JITTER		25
 #define DEFAULT_PANEL_PREFILL_LINES	16
 
+static u32 dsi_dsc_rc_buf_thresh[] = {0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54,
+		0x62, 0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e};
+static char dsi_dsc_rc_range_min_qp_1_1[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5,
+		5, 5, 7, 13};
+static char dsi_dsc_rc_range_min_qp_1_1_scr1[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3,
+		5, 5, 5, 9, 12};
+static char dsi_dsc_rc_range_max_qp_1_1[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 11,
+		12, 13, 13, 15};
+static char dsi_dsc_rc_range_max_qp_1_1_scr1[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10,
+		11, 11, 12, 13};
+static char dsi_dsc_rc_range_bpg_offset[] = {2, 0, 0, -2, -4, -6, -8, -8,
+		-8, -10, -10, -12, -12, -12, -12};
+
+int dsi_dsc_create_pps_buf_cmd(struct msm_display_dsc_info *dsc, char *buf,
+				int pps_id)
+{
+	char *bp;
+	char data;
+	int i, bpp;
+	char *dbgbp;
+
+	dbgbp = buf;
+	bp = buf;
+	/* First 7 bytes are cmd header */
+	*bp++ = 0x0A;
+	*bp++ = 1;
+	*bp++ = 0;
+	*bp++ = 0;
+	*bp++ = 10;
+	*bp++ = 0;
+	*bp++ = 128;
+
+	*bp++ = (dsc->version & 0xff);		/* pps0 */
+	*bp++ = (pps_id & 0xff);		/* pps1 */
+	bp++;					/* pps2, reserved */
+
+	data = dsc->line_buf_depth & 0x0f;
+	data |= ((dsc->bpc & 0xf) << 4);
+	*bp++ = data;				/* pps3 */
+
+	bpp = dsc->bpp;
+	bpp <<= 4;				/* 4 fraction bits */
+	data = (bpp >> 8);
+	data &= 0x03;				/* upper two bits */
+	data |= ((dsc->block_pred_enable & 0x1) << 5);
+	data |= ((dsc->convert_rgb & 0x1) << 4);
+	data |= ((dsc->enable_422 & 0x1) << 3);
+	data |= ((dsc->vbr_enable & 0x1) << 2);
+	*bp++ = data;				/* pps4 */
+	*bp++ = (bpp & 0xff);			/* pps5 */
+
+	*bp++ = ((dsc->pic_height >> 8) & 0xff); /* pps6 */
+	*bp++ = (dsc->pic_height & 0x0ff);	/* pps7 */
+	*bp++ = ((dsc->pic_width >> 8) & 0xff);	/* pps8 */
+	*bp++ = (dsc->pic_width & 0x0ff);	/* pps9 */
+
+	*bp++ = ((dsc->slice_height >> 8) & 0xff);/* pps10 */
+	*bp++ = (dsc->slice_height & 0x0ff);	/* pps11 */
+	*bp++ = ((dsc->slice_width >> 8) & 0xff); /* pps12 */
+	*bp++ = (dsc->slice_width & 0x0ff);	/* pps13 */
+
+	*bp++ = ((dsc->chunk_size >> 8) & 0xff);/* pps14 */
+	*bp++ = (dsc->chunk_size & 0x0ff);	/* pps15 */
+
+	*bp++ = (dsc->initial_xmit_delay >> 8) & 0x3; /* pps16, bit 0, 1 */
+	*bp++ = (dsc->initial_xmit_delay & 0xff);/* pps17 */
+
+	*bp++ = ((dsc->initial_dec_delay >> 8) & 0xff); /* pps18 */
+	*bp++ = (dsc->initial_dec_delay & 0xff);/* pps19 */
+
+	bp++;					/* pps20, reserved */
+
+	*bp++ = (dsc->initial_scale_value & 0x3f); /* pps21 */
+
+	*bp++ = ((dsc->scale_increment_interval >> 8) & 0xff); /* pps22 */
+	*bp++ = (dsc->scale_increment_interval & 0xff); /* pps23 */
+
+	*bp++ = ((dsc->scale_decrement_interval >> 8) & 0xf); /* pps24 */
+	*bp++ = (dsc->scale_decrement_interval & 0x0ff);/* pps25 */
+
+	bp++;					/* pps26, reserved */
+
+	*bp++ = (dsc->first_line_bpg_offset & 0x1f);/* pps27 */
+
+	*bp++ = ((dsc->nfl_bpg_offset >> 8) & 0xff);/* pps28 */
+	*bp++ = (dsc->nfl_bpg_offset & 0x0ff);	/* pps29 */
+	*bp++ = ((dsc->slice_bpg_offset >> 8) & 0xff);/* pps30 */
+	*bp++ = (dsc->slice_bpg_offset & 0x0ff);/* pps31 */
+
+	*bp++ = ((dsc->initial_offset >> 8) & 0xff);/* pps32 */
+	*bp++ = (dsc->initial_offset & 0x0ff);	/* pps33 */
+
+	*bp++ = ((dsc->final_offset >> 8) & 0xff);/* pps34 */
+	*bp++ = (dsc->final_offset & 0x0ff);	/* pps35 */
+
+	*bp++ = (dsc->min_qp_flatness & 0x1f);	/* pps36 */
+	*bp++ = (dsc->max_qp_flatness & 0x1f);	/* pps37 */
+
+	*bp++ = ((dsc->rc_model_size >> 8) & 0xff);/* pps38 */
+	*bp++ = (dsc->rc_model_size & 0x0ff);	/* pps39 */
+
+	*bp++ = (dsc->edge_factor & 0x0f);	/* pps40 */
+
+	*bp++ = (dsc->quant_incr_limit0 & 0x1f);	/* pps41 */
+	*bp++ = (dsc->quant_incr_limit1 & 0x1f);	/* pps42 */
+
+	data = ((dsc->tgt_offset_hi & 0xf) << 4);
+	data |= (dsc->tgt_offset_lo & 0x0f);
+	*bp++ = data;				/* pps43 */
+
+	for (i = 0; i < 14; i++)
+		*bp++ = (dsc->buf_thresh[i] & 0xff); /* pps44 - pps57 */
+
+	for (i = 0; i < 15; i++) {		/* pps58 - pps87 */
+		data = (dsc->range_min_qp[i] & 0x1f);
+		data <<= 3;
+		data |= ((dsc->range_max_qp[i] >> 2) & 0x07);
+		*bp++ = data;
+		data = (dsc->range_max_qp[i] & 0x03);
+		data <<= 6;
+		data |= (dsc->range_bpg_offset[i] & 0x3f);
+		*bp++ = data;
+	}
+
+	return 128;
+}
+
 static int dsi_panel_vreg_get(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -1149,7 +1276,7 @@ static int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
 		tmp = ((data[5] << 8) | (data[6]));
 		packet_length += tmp;
 		if (packet_length > length) {
-			pr_err("FORMAT ERROR\n");
+			pr_err("format error\n");
 			return -EINVAL;
 		}
 		length -= packet_length;
@@ -1218,13 +1345,26 @@ static void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set)
 	kfree(set->cmds);
 }
 
+static int dsi_panel_alloc_cmd_packets(struct dsi_panel_cmd_set *cmd,
+					u32 packet_count)
+{
+	u32 size;
+
+	size = packet_count * sizeof(*cmd->cmds);
+	cmd->cmds = kzalloc(size, GFP_KERNEL);
+	if (!cmd->cmds)
+		return -ENOMEM;
+
+	cmd->count = packet_count;
+	return 0;
+}
+
 static int dsi_panel_parse_cmd_sets_sub(struct dsi_panel_cmd_set *cmd,
 					enum dsi_cmd_set_type type,
 					struct device_node *of_node)
 {
 	int rc = 0;
 	u32 length = 0;
-	u32 size;
 	const char *data;
 	const char *state;
 	u32 packet_count = 0;
@@ -1242,20 +1382,18 @@ static int dsi_panel_parse_cmd_sets_sub(struct dsi_panel_cmd_set *cmd,
 		goto error;
 	}
 	pr_debug("[%s] packet-count=%d, %d\n", cmd_set_prop_map[type],
-		 packet_count, length);
+		packet_count, length);
 
-	size = packet_count * sizeof(*cmd->cmds);
-	cmd->cmds = kzalloc(size, GFP_KERNEL);
-	if (!cmd->cmds) {
-		rc = -ENOMEM;
+	rc = dsi_panel_alloc_cmd_packets(cmd, packet_count);
+	if (rc) {
+		pr_err("failed to allocate cmd packets, rc=%d\n", rc);
 		goto error;
 	}
-	cmd->count = packet_count;
 
 	rc = dsi_panel_create_cmd_packets(data, length, packet_count,
 					  cmd->cmds);
 	if (rc) {
-		pr_err("Failed to create cmd packets, rc=%d\n", rc);
+		pr_err("failed to create cmd packets, rc=%d\n", rc);
 		goto error_free_mem;
 	}
 
@@ -1265,7 +1403,7 @@ static int dsi_panel_parse_cmd_sets_sub(struct dsi_panel_cmd_set *cmd,
 	} else if (!strcmp(state, "dsi_hs_mode")) {
 		cmd->state = DSI_CMD_SET_STATE_HS;
 	} else {
-		pr_err("[%s] Command state unrecognized-%s\n",
+		pr_err("[%s] command state unrecognized-%s\n",
 		       cmd_set_state_map[type], state);
 		goto error_free_mem;
 	}
@@ -1289,9 +1427,18 @@ static int dsi_panel_parse_cmd_sets(struct dsi_panel *panel,
 	for (i = DSI_CMD_SET_PRE_ON; i < DSI_CMD_SET_MAX; i++) {
 		set = &panel->cmd_sets[i];
 		set->type = i;
-		rc = dsi_panel_parse_cmd_sets_sub(set, i, of_node);
-		if (rc)
-			pr_err("[%s] failed to parse set %d\n", panel->name, i);
+		if (i == DSI_CMD_SET_PPS) {
+			rc = dsi_panel_alloc_cmd_packets(set, 1);
+			if (rc)
+				pr_err("[%s] failed to allocate cmd set %d, rc = %d\n",
+					panel->name, i, rc);
+			set->state = DSI_CMD_SET_STATE_LP;
+		} else {
+			rc = dsi_panel_parse_cmd_sets_sub(set, i, of_node);
+			if (rc)
+				pr_err("[%s] failed to parse set %d\n",
+					panel->name, i);
+		}
 	}
 
 	rc = 0;
@@ -1593,11 +1740,242 @@ error:
 	return rc;
 }
 
+void dsi_dsc_pclk_param_calc(struct msm_display_dsc_info *dsc, int intf_width)
+{
+	int slice_per_pkt, slice_per_intf;
+	int bytes_in_slice, total_bytes_per_intf;
+
+	if (!dsc || !dsc->slice_width || !dsc->slice_per_pkt ||
+	    (intf_width < dsc->slice_width)) {
+		pr_err("invalid input, intf_width=%d slice_width=%d\n",
+			intf_width, dsc ? dsc->slice_width : -1);
+		return;
+	}
+
+	slice_per_pkt = dsc->slice_per_pkt;
+	slice_per_intf = DIV_ROUND_UP(intf_width, dsc->slice_width);
+
+	/*
+	 * If slice_per_pkt is greater than slice_per_intf then default to 1.
+	 * This can happen during partial update.
+	 */
+	if (slice_per_pkt > slice_per_intf)
+		slice_per_pkt = 1;
+
+	bytes_in_slice = DIV_ROUND_UP(dsc->slice_width * dsc->bpp, 8);
+	total_bytes_per_intf = bytes_in_slice * slice_per_intf;
+
+	dsc->eol_byte_num = total_bytes_per_intf % 3;
+	dsc->pclk_per_line =  DIV_ROUND_UP(total_bytes_per_intf, 3);
+	dsc->bytes_in_slice = bytes_in_slice;
+	dsc->bytes_per_pkt = bytes_in_slice * slice_per_pkt;
+	dsc->pkt_per_line = slice_per_intf / slice_per_pkt;
+}
+
+
+int dsi_dsc_populate_static_param(struct msm_display_dsc_info *dsc)
+{
+	int bpp, bpc;
+	int mux_words_size;
+	int groups_per_line, groups_total;
+	int min_rate_buffer_size;
+	int hrd_delay;
+	int pre_num_extra_mux_bits, num_extra_mux_bits;
+	int slice_bits;
+	int target_bpp_x16;
+	int data;
+	int final_value, final_scale;
+
+	dsc->version = 0x11;
+	dsc->scr_rev = 0;
+	dsc->rc_model_size = 8192;
+	if (dsc->version == 0x11 && dsc->scr_rev == 0x1)
+		dsc->first_line_bpg_offset = 15;
+	else
+		dsc->first_line_bpg_offset = 12;
+
+	dsc->min_qp_flatness = 3;
+	dsc->max_qp_flatness = 12;
+	dsc->line_buf_depth = 9;
+	dsc->edge_factor = 6;
+	dsc->quant_incr_limit0 = 11;
+	dsc->quant_incr_limit1 = 11;
+	dsc->tgt_offset_hi = 3;
+	dsc->tgt_offset_lo = 3;
+	dsc->enable_422 = 0;
+	dsc->convert_rgb = 1;
+	dsc->vbr_enable = 0;
+
+	dsc->buf_thresh = dsi_dsc_rc_buf_thresh;
+	if (dsc->version == 0x11 && dsc->scr_rev == 0x1) {
+		dsc->range_min_qp = dsi_dsc_rc_range_min_qp_1_1_scr1;
+		dsc->range_max_qp = dsi_dsc_rc_range_max_qp_1_1_scr1;
+	} else {
+		dsc->range_min_qp = dsi_dsc_rc_range_min_qp_1_1;
+		dsc->range_max_qp = dsi_dsc_rc_range_max_qp_1_1;
+	}
+	dsc->range_bpg_offset = dsi_dsc_rc_range_bpg_offset;
+
+	bpp = dsc->bpp;
+	bpc = dsc->bpc;
+
+	if (bpp == 8)
+		dsc->initial_offset = 6144;
+	else
+		dsc->initial_offset = 2048;	/* bpp = 12 */
+
+	if (bpc <= 8)
+		mux_words_size = 48;
+	else
+		mux_words_size = 64;	/* bpc == 12 */
+
+	dsc->slice_last_group_size = 3 - (dsc->slice_width % 3);
+
+	dsc->det_thresh_flatness = 7 + 2*(bpc - 8);
+
+	dsc->initial_xmit_delay = dsc->rc_model_size / (2 * bpp);
+
+	groups_per_line = DIV_ROUND_UP(dsc->slice_width, 3);
+
+	dsc->chunk_size = dsc->slice_width * bpp / 8;
+	if ((dsc->slice_width * bpp) % 8)
+		dsc->chunk_size++;
+
+	/* rbs-min */
+	min_rate_buffer_size =  dsc->rc_model_size - dsc->initial_offset +
+			dsc->initial_xmit_delay * bpp +
+			groups_per_line * dsc->first_line_bpg_offset;
+
+	hrd_delay = DIV_ROUND_UP(min_rate_buffer_size, bpp);
+
+	dsc->initial_dec_delay = hrd_delay - dsc->initial_xmit_delay;
+
+	dsc->initial_scale_value = 8 * dsc->rc_model_size /
+			(dsc->rc_model_size - dsc->initial_offset);
+
+	slice_bits = 8 * dsc->chunk_size * dsc->slice_height;
+
+	groups_total = groups_per_line * dsc->slice_height;
+
+	data = dsc->first_line_bpg_offset * 2048;
+
+	dsc->nfl_bpg_offset = DIV_ROUND_UP(data, (dsc->slice_height - 1));
+
+	pre_num_extra_mux_bits = 3 * (mux_words_size + (4 * bpc + 4) - 2);
+
+	num_extra_mux_bits = pre_num_extra_mux_bits - (mux_words_size -
+		((slice_bits - pre_num_extra_mux_bits) % mux_words_size));
+
+	data = 2048 * (dsc->rc_model_size - dsc->initial_offset
+		+ num_extra_mux_bits);
+	dsc->slice_bpg_offset = DIV_ROUND_UP(data, groups_total);
+
+	/* bpp * 16 + 0.5 */
+	data = bpp * 16;
+	data *= 2;
+	data++;
+	data /= 2;
+	target_bpp_x16 = data;
+
+	data = (dsc->initial_xmit_delay * target_bpp_x16) / 16;
+	final_value =  dsc->rc_model_size - data + num_extra_mux_bits;
+
+	final_scale = 8 * dsc->rc_model_size /
+		(dsc->rc_model_size - final_value);
+
+	dsc->final_offset = final_value;
+
+	data = (final_scale - 9) * (dsc->nfl_bpg_offset +
+		dsc->slice_bpg_offset);
+	dsc->scale_increment_interval = (2048 * dsc->final_offset) / data;
+
+	dsc->scale_decrement_interval = groups_per_line /
+		(dsc->initial_scale_value - 8);
+
+	return 0;
+}
+
+int dsi_panel_parse_dsc_params(struct dsi_panel *panel,
+				struct device_node *of_node)
+{
+	u32 data;
+	int rc = -EINVAL;
+	int intf_width;
+	struct device_node *dsc_np = NULL;
+
+	if (!panel->dsc_enabled)
+		return 0;
+
+	dsc_np = of_parse_phandle(of_node, "qcom,config-select", 0);
+	if (!dsc_np) {
+		pr_err("no dsc config found\n");
+		goto error;
+	}
+
+	rc = of_property_read_u32(dsc_np, "qcom,mdss-dsc-slice-height", &data);
+	if (rc) {
+		pr_err("failed to parse qcom,mdss-dsc-slice-height\n");
+		goto error;
+	}
+	panel->dsc.slice_height = data;
+
+	rc = of_property_read_u32(dsc_np, "qcom,mdss-dsc-slice-width", &data);
+	if (rc) {
+		pr_err("failed to parse qcom,mdss-dsc-slice-width\n");
+		goto error;
+	}
+	panel->dsc.slice_width = data;
+
+	intf_width = panel->mode.timing.h_active;
+	if (intf_width % panel->dsc.slice_width) {
+		pr_err("invalid slice width for the panel\n");
+		goto error;
+	}
+
+	panel->dsc.pic_width = panel->mode.timing.h_active;
+	panel->dsc.pic_height = panel->mode.timing.v_active;
+
+	rc = of_property_read_u32(dsc_np, "qcom,mdss-dsc-slice-per-pkt", &data);
+	if (rc) {
+		pr_err("failed to parse qcom,mdss-dsc-slice-per-pkt\n");
+		goto error;
+	}
+	panel->dsc.slice_per_pkt = data;
+
+	rc = of_property_read_u32(dsc_np, "qcom,mdss-dsc-bit-per-component",
+		&data);
+	if (rc) {
+		pr_err("failed to parse qcom,mdss-dsc-bit-per-component\n");
+		goto error;
+	}
+	panel->dsc.bpc = data;
+
+	rc = of_property_read_u32(dsc_np, "qcom,mdss-dsc-bit-per-pixel", &data);
+	if (rc) {
+		pr_err("failed to parse qcom,mdss-dsc-bit-per-pixel\n");
+		goto error;
+	}
+	panel->dsc.bpp = data;
+
+	panel->dsc.block_pred_enable = of_property_read_bool(dsc_np,
+		"qcom,mdss-dsc-block-prediction-enable");
+
+	panel->dsc.full_frame_slices = DIV_ROUND_UP(intf_width,
+		panel->dsc.slice_width);
+
+	dsi_dsc_populate_static_param(&panel->dsc);
+	dsi_dsc_pclk_param_calc(&panel->dsc, intf_width);
+
+error:
+	return rc;
+}
+
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node)
 {
 	struct dsi_panel *panel;
 	const char *data;
+	const char *compression;
 	u32 len = 0;
 	int rc = 0;
 
@@ -1610,9 +1988,20 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	if (!panel->name)
 		panel->name = DSI_PANEL_DEFAULT_LABEL;
 
+	panel->dsc_enabled = false;
+	compression = of_get_property(of_node, "qcom,compression-mode", NULL);
+	if (compression && !strcmp(compression, "dsc"))
+		panel->dsc_enabled = true;
+
 	rc = dsi_panel_parse_timing(&panel->mode.timing, of_node);
 	if (rc) {
 		pr_err("failed to parse panel timing, rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = dsi_panel_parse_dsc_params(panel, of_node);
+	if (rc) {
+		pr_err("failed to parse dsc params, rc=%d\n", rc);
 		goto error;
 	}
 
@@ -1710,7 +2099,7 @@ int dsi_panel_drv_init(struct dsi_panel *panel,
 	struct mipi_dsi_device *dev;
 
 	if (!panel || !host) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -1730,7 +2119,7 @@ int dsi_panel_drv_init(struct dsi_panel *panel,
 	panel->host = host;
 	rc = dsi_panel_vreg_get(panel);
 	if (rc) {
-		pr_err("[%s] Failed to get panel regulators, rc=%d\n",
+		pr_err("[%s] failed to get panel regulators, rc=%d\n",
 		       panel->name, rc);
 		goto exit;
 	}
@@ -1774,7 +2163,7 @@ int dsi_panel_drv_deinit(struct dsi_panel *panel)
 	int rc = 0;
 
 	if (!panel) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -1817,7 +2206,7 @@ int dsi_panel_get_mode_count(struct dsi_panel *panel, u32 *count)
 	int rc = 0;
 
 	if (!panel || !count) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -1835,7 +2224,7 @@ int dsi_panel_get_phy_props(struct dsi_panel *panel,
 	int rc = 0;
 
 	if (!panel || !phy_props) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -1853,7 +2242,7 @@ int dsi_panel_get_dfps_caps(struct dsi_panel *panel,
 	int rc = 0;
 
 	if (!panel || !dfps_caps) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -1872,7 +2261,7 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 	int rc = 0;
 
 	if (!panel || !mode) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -1893,7 +2282,7 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 	int rc = 0;
 
 	if (!panel || !mode || !config) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -1913,6 +2302,8 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 
 	memcpy(&config->video_timing, &mode->timing,
 	       sizeof(config->video_timing));
+	config->video_timing.dsc_enabled = panel->dsc_enabled;
+	config->video_timing.dsc = &panel->dsc;
 
 	config->esc_clk_rate_hz = 19200000;
 	mutex_unlock(&panel->panel_lock);
@@ -1924,7 +2315,7 @@ int dsi_panel_pre_prepare(struct dsi_panel *panel)
 	int rc = 0;
 
 	if (!panel) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -1936,7 +2327,41 @@ int dsi_panel_pre_prepare(struct dsi_panel *panel)
 
 	rc = dsi_panel_power_on(panel);
 	if (rc) {
-		pr_err("[%s] Panel power on failed, rc=%d\n", panel->name, rc);
+		pr_err("[%s] panel power on failed, rc=%d\n", panel->name, rc);
+		goto error;
+	}
+
+error:
+	mutex_unlock(&panel->panel_lock);
+	return rc;
+}
+
+int dsi_panel_update_pps(struct dsi_panel *panel)
+{
+	int rc = 0;
+	struct dsi_panel_cmd_set *set = NULL;
+
+	if (!panel) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+
+	set = &panel->cmd_sets[DSI_CMD_SET_PPS];
+
+	dsi_dsc_create_pps_buf_cmd(&panel->dsc, panel->dsc_pps_cmd, 0);
+	rc = dsi_panel_create_cmd_packets(panel->dsc_pps_cmd,
+					  DSI_CMD_PPS_SIZE, 1, set->cmds);
+	if (rc) {
+		pr_err("failed to create cmd packets, rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_PPS);
+	if (rc) {
+		pr_err("[%s] failed to send DSI_CMD_SET_PPS cmds, rc=%d\n",
+			panel->name, rc);
 		goto error;
 	}
 
@@ -1950,7 +2375,7 @@ int dsi_panel_prepare(struct dsi_panel *panel)
 	int rc = 0;
 
 	if (!panel) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -2003,7 +2428,7 @@ int dsi_panel_post_enable(struct dsi_panel *panel)
 	int rc = 0;
 
 	if (!panel) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -2026,7 +2451,7 @@ int dsi_panel_pre_disable(struct dsi_panel *panel)
 	int rc = 0;
 
 	if (!panel) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -2049,7 +2474,7 @@ int dsi_panel_disable(struct dsi_panel *panel)
 	int rc = 0;
 
 	if (!panel) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -2071,7 +2496,7 @@ int dsi_panel_unprepare(struct dsi_panel *panel)
 	int rc = 0;
 
 	if (!panel) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
@@ -2102,7 +2527,7 @@ int dsi_panel_post_unprepare(struct dsi_panel *panel)
 	int rc = 0;
 
 	if (!panel) {
-		pr_err("Invalid params\n");
+		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 

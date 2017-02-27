@@ -282,7 +282,7 @@ int sde_wb_get_info(struct msm_display_info *info, void *display)
 			wb_dev->wb_cfg->sblk->maxlinewidth :
 			SDE_WB_MODE_MAX_WIDTH;
 	info->max_height = SDE_WB_MODE_MAX_HEIGHT;
-	info->compression = MSM_DISPLAY_COMPRESS_NONE;
+	info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_NONE;
 	return 0;
 }
 

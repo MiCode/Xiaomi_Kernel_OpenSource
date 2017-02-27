@@ -751,7 +751,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	if (host_cfg->data_lanes & DSI_DATA_LANE_3)
 		num_of_lanes++;
 
-	h_period = DSI_H_TOTAL(timing);
+	h_period = DSI_H_TOTAL_DSC(timing);
 	v_period = DSI_V_TOTAL(timing);
 
 	bit_rate = h_period * v_period * timing->refresh_rate * bpp * 8;
@@ -1576,9 +1576,8 @@ int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
 					&dsi_ctrl->host_config.u.cmd_engine);
 
 		dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
-				dsi_ctrl->host_config.video_timing.h_active,
+				&dsi_ctrl->host_config.video_timing,
 				dsi_ctrl->host_config.video_timing.h_active * 3,
-				dsi_ctrl->host_config.video_timing.v_active,
 				0x0);
 		dsi_ctrl->hw.ops.cmd_engine_en(&dsi_ctrl->hw, true);
 	} else {
@@ -1659,9 +1658,8 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
 					&dsi_ctrl->host_config.u.cmd_engine);
 
 		dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
-				dsi_ctrl->host_config.video_timing.h_active,
+				&dsi_ctrl->host_config.video_timing,
 				dsi_ctrl->host_config.video_timing.h_active * 3,
-				dsi_ctrl->host_config.video_timing.v_active,
 				0x0);
 	} else {
 		dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,

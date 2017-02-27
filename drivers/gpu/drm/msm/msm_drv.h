@@ -166,15 +166,15 @@ struct msm_vblank_ctrl {
 #define MAX_H_TILES_PER_DISPLAY 2
 
 /**
- * enum msm_display_compression - compression method used for pixel stream
- * @MSM_DISPLAY_COMPRESS_NONE:     Pixel data is not compressed
- * @MSM_DISPLAY_COMPRESS_DSC:      DSC compresison is used
- * @MSM_DISPLAY_COMPRESS_FBC:      FBC compression is used
+ * enum msm_display_compression_type - compression method used for pixel stream
+ * @MSM_DISPLAY_COMPRESSION_NONE:     Pixel data is not compressed
+ * @MSM_DISPLAY_COMPRESSION_DSC:      DSC compresison is used
+ * @MSM_DISPLAY_COMPRESSION_FBC:      FBC compression is used
  */
-enum msm_display_compression {
-	MSM_DISPLAY_COMPRESS_NONE,
-	MSM_DISPLAY_COMPRESS_DSC,
-	MSM_DISPLAY_COMPRESS_FBC,
+enum msm_display_compression_type {
+	MSM_DISPLAY_COMPRESSION_NONE,
+	MSM_DISPLAY_COMPRESSION_DSC,
+	MSM_DISPLAY_COMPRESSION_FBC,
 };
 
 /**
@@ -189,6 +189,125 @@ enum msm_display_caps {
 	MSM_DISPLAY_CAP_CMD_MODE	= BIT(1),
 	MSM_DISPLAY_CAP_HOT_PLUG	= BIT(2),
 	MSM_DISPLAY_CAP_EDID		= BIT(3),
+};
+
+/**
+ * struct msm_display_dsc_info - defines dsc configuration
+ * @version:                 DSC version.
+ * @scr_rev:                 DSC revision.
+ * @pic_height:              Picture height in pixels.
+ * @pic_width:               Picture width in pixels.
+ * @initial_lines:           Number of initial lines stored in encoder.
+ * @pkt_per_line:            Number of packets per line.
+ * @bytes_in_slice:          Number of bytes in slice.
+ * @eol_byte_num:            Valid bytes at the end of line.
+ * @pclk_per_line:           Compressed width.
+ * @full_frame_slices:       Number of slice per interface.
+ * @slice_height:            Slice height in pixels.
+ * @slice_width:             Slice width in pixels.
+ * @chunk_size:              Chunk size in bytes for slice multiplexing.
+ * @slice_last_group_size:   Size of last group in pixels.
+ * @bpp:                     Target bits per pixel.
+ * @bpc:                     Number of bits per component.
+ * @line_buf_depth:          Line buffer bit depth.
+ * @block_pred_enable:       Block prediction enabled/disabled.
+ * @vbr_enable:              VBR mode.
+ * @enable_422:              Indicates if input uses 4:2:2 sampling.
+ * @convert_rgb:             DSC color space conversion.
+ * @input_10_bits:           10 bit per component input.
+ * @slice_per_pkt:           Number of slices per packet.
+ * @initial_dec_delay:       Initial decoding delay.
+ * @initial_xmit_delay:      Initial transmission delay.
+ * @initial_scale_value:     Scale factor value at the beginning of a slice.
+ * @scale_decrement_interval: Scale set up at the beginning of a slice.
+ * @scale_increment_interval: Scale set up at the end of a slice.
+ * @first_line_bpg_offset:   Extra bits allocated on the first line of a slice.
+ * @nfl_bpg_offset:          Slice specific settings.
+ * @slice_bpg_offset:        Slice specific settings.
+ * @initial_offset:          Initial offset at the start of a slice.
+ * @final_offset:            Maximum end-of-slice value.
+ * @rc_model_size:           Number of bits in RC model.
+ * @det_thresh_flatness:     Flatness threshold.
+ * @max_qp_flatness:         Maximum QP for flatness adjustment.
+ * @min_qp_flatness:         Minimum QP for flatness adjustment.
+ * @edge_factor:             Ratio to detect presence of edge.
+ * @quant_incr_limit0:       QP threshold.
+ * @quant_incr_limit1:       QP threshold.
+ * @tgt_offset_hi:           Upper end of variability range.
+ * @tgt_offset_lo:           Lower end of variability range.
+ * @buf_thresh:              Thresholds in RC model
+ * @range_min_qp:            Min QP allowed.
+ * @range_max_qp:            Max QP allowed.
+ * @range_bpg_offset:        Bits per group adjustment.
+ */
+struct msm_display_dsc_info {
+	u8 version;
+	u8 scr_rev;
+
+	int pic_height;
+	int pic_width;
+	int slice_height;
+	int slice_width;
+
+	int initial_lines;
+	int pkt_per_line;
+	int bytes_in_slice;
+	int bytes_per_pkt;
+	int eol_byte_num;
+	int pclk_per_line;
+	int full_frame_slices;
+	int slice_last_group_size;
+	int bpp;
+	int bpc;
+	int line_buf_depth;
+
+	int slice_per_pkt;
+	int chunk_size;
+	bool block_pred_enable;
+	int vbr_enable;
+	int enable_422;
+	int convert_rgb;
+	int input_10_bits;
+
+	int initial_dec_delay;
+	int initial_xmit_delay;
+	int initial_scale_value;
+	int scale_decrement_interval;
+	int scale_increment_interval;
+	int first_line_bpg_offset;
+	int nfl_bpg_offset;
+	int slice_bpg_offset;
+	int initial_offset;
+	int final_offset;
+
+	int rc_model_size;
+	int det_thresh_flatness;
+	int max_qp_flatness;
+	int min_qp_flatness;
+	int edge_factor;
+	int quant_incr_limit0;
+	int quant_incr_limit1;
+	int tgt_offset_hi;
+	int tgt_offset_lo;
+
+	u32 *buf_thresh;
+	char *range_min_qp;
+	char *range_max_qp;
+	char *range_bpg_offset;
+};
+
+/**
+ * struct msm_compression_info - defined panel compression
+ * @comp_type:        type of compression supported
+ * @dsc_info:         dsc configuration if the compression
+ *                    supported is DSC
+ */
+struct msm_compression_info {
+	enum msm_display_compression_type comp_type;
+
+	union{
+		struct msm_display_dsc_info dsc_info;
+	};
 };
 
 /**
@@ -210,7 +329,7 @@ enum msm_display_caps {
  * @prefill_lines:	prefill lines based on porches.
  * @vtotal:		display vertical total
  * @jitter:		display jitter configuration
- * @compression:        Compression supported by the display
+ * @comp_info:          Compression supported by the display
  */
 struct msm_display_info {
 	int intf_type;
@@ -233,7 +352,7 @@ struct msm_display_info {
 	uint32_t vtotal;
 	uint32_t jitter;
 
-	enum msm_display_compression compression;
+	struct msm_compression_info comp_info;
 };
 
 /**

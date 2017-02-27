@@ -2700,7 +2700,13 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 	info->height_mm = phy_props.panel_height_mm;
 	info->max_width = 1920;
 	info->max_height = 1080;
-	info->compression = MSM_DISPLAY_COMPRESS_NONE;
+	info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_NONE;
+
+	if (display->panel->dsc_enabled) {
+		info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_DSC;
+		memcpy(&info->comp_info.dsc_info, &display->panel->dsc,
+			sizeof(struct msm_display_dsc_info));
+	}
 
 	switch (display->panel->mode.panel_mode) {
 	case DSI_OP_VIDEO_MODE:
@@ -3027,6 +3033,16 @@ int dsi_display_enable(struct dsi_display *display)
 		goto error;
 	}
 
+	if (display->panel->dsc_enabled) {
+		display->panel->dsc.pic_width *= display->ctrl_count;
+		rc = dsi_panel_update_pps(display->panel);
+		if (rc) {
+			pr_err("[%s] panel pps cmd update failed, rc=%d\n",
+				display->name, rc);
+			goto error;
+		}
+	}
+
 	if (display->config.panel_mode == DSI_OP_VIDEO_MODE) {
 		rc = dsi_display_vid_engine_enable(display);
 		if (rc) {
@@ -3134,6 +3150,23 @@ int dsi_display_disable(struct dsi_display *display)
 
 	mutex_unlock(&display->display_lock);
 	return rc;
+}
+
+int dsi_display_update_pps(char *pps_cmd, void *disp)
+{
+	struct dsi_display *display;
+
+	if (pps_cmd == NULL || disp == NULL) {
+		pr_err("Invalid parameter\n");
+		return -EINVAL;
+	}
+
+	display = disp;
+	mutex_lock(&display->display_lock);
+	memcpy(display->panel->dsc_pps_cmd, pps_cmd, DSI_CMD_PPS_SIZE);
+	mutex_unlock(&display->display_lock);
+
+	return 0;
 }
 
 int dsi_display_unprepare(struct dsi_display *display)
