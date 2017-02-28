@@ -14701,6 +14701,7 @@ static void __exit msm_soc_routing_platform_exit(void)
 {
 	msm_routing_delete_cal_data();
 	memset(&be_dai_name_table, 0, sizeof(be_dai_name_table));
+	mutex_destroy(&routing_lock);
 	platform_driver_unregister(&msm_routing_pcm_driver);
 }
 module_exit(msm_soc_routing_platform_exit);
