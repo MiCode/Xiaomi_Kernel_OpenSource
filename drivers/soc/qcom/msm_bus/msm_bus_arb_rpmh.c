@@ -38,6 +38,7 @@ static struct handle_type handle_list;
 static LIST_HEAD(input_list);
 static LIST_HEAD(apply_list);
 static LIST_HEAD(commit_list);
+static LIST_HEAD(query_list);
 
 DEFINE_RT_MUTEX(msm_bus_adhoc_lock);
 
@@ -537,6 +538,74 @@ exit_bcm_update_bus_req:
 	return;
 }
 
+static void bcm_query_bus_req(struct device *dev, int ctx)
+{
+	struct msm_bus_node_device_type *cur_dev = NULL;
+	struct msm_bus_node_device_type *bcm_dev = NULL;
+	int i;
+	uint64_t max_query_ib = 0;
+	uint64_t max_query_ab = 0;
+	int lnode_idx = 0;
+
+	cur_dev = to_msm_bus_node(dev);
+	if (!cur_dev) {
+		MSM_BUS_ERR("%s: Null device ptr", __func__);
+		goto exit_bcm_query_bus_req;
+	}
+
+	if (!cur_dev->node_info->num_bcm_devs)
+		goto exit_bcm_query_bus_req;
+
+	for (i = 0; i < cur_dev->node_info->num_bcm_devs; i++) {
+		bcm_dev = to_msm_bus_node(cur_dev->node_info->bcm_devs[i]);
+
+		if (!bcm_dev)
+			goto exit_bcm_query_bus_req;
+
+		lnode_idx = cur_dev->node_info->bcm_req_idx;
+		bcm_dev->lnode_list[lnode_idx].lnode_query_ib[ctx] =
+			msm_bus_div64(cur_dev->node_info->agg_params.buswidth,
+					cur_dev->node_bw[ctx].max_query_ib *
+					(uint64_t)bcm_dev->bcmdev->width);
+
+		bcm_dev->lnode_list[lnode_idx].lnode_query_ab[ctx] =
+			msm_bus_div64(cur_dev->node_info->agg_params.buswidth,
+					cur_dev->node_bw[ctx].sum_query_ab *
+					(uint64_t)bcm_dev->bcmdev->width);
+
+		for (i = 0; i < bcm_dev->num_lnodes; i++) {
+			if (ctx == ACTIVE_CTX) {
+				max_query_ib = max(max_query_ib,
+				max(bcm_dev->lnode_list[i].
+					lnode_query_ib[ACTIVE_CTX],
+				bcm_dev->lnode_list[i].
+					lnode_query_ib[DUAL_CTX]));
+
+				max_query_ab = max(max_query_ab,
+				bcm_dev->lnode_list[i].
+						lnode_query_ab[ACTIVE_CTX] +
+				bcm_dev->lnode_list[i].
+						lnode_query_ab[DUAL_CTX]);
+			} else {
+				max_query_ib = max(max_query_ib,
+					bcm_dev->lnode_list[i].
+						lnode_query_ib[ctx]);
+				max_query_ab = max(max_query_ab,
+					bcm_dev->lnode_list[i].
+						lnode_query_ab[ctx]);
+			}
+		}
+
+		bcm_dev->node_bw[ctx].max_query_ab = max_query_ab;
+		bcm_dev->node_bw[ctx].max_query_ib = max_query_ib;
+
+	}
+exit_bcm_query_bus_req:
+	return;
+}
+
+
+
 int bcm_remove_handoff_req(struct device *dev, void *data)
 {
 	struct msm_bus_node_device_type *bcm_dev = NULL;
@@ -571,8 +640,6 @@ exit_bcm_remove_handoff_req:
 	return ret;
 }
 
-
-
 static void aggregate_bus_req(struct msm_bus_node_device_type *bus_dev,
 									int ctx)
 {
@@ -597,6 +664,31 @@ exit_agg_bus_req:
 	return;
 }
 
+static void aggregate_bus_query_req(struct msm_bus_node_device_type *bus_dev,
+									int ctx)
+{
+	int i;
+	uint64_t max_ib = 0;
+	uint64_t sum_ab = 0;
+
+	if (!bus_dev || !to_msm_bus_node(bus_dev->node_info->bus_device)) {
+		MSM_BUS_ERR("Bus node pointer is Invalid");
+		goto exit_agg_bus_req;
+	}
+
+	for (i = 0; i < bus_dev->num_lnodes; i++) {
+		max_ib = max(max_ib,
+				bus_dev->lnode_list[i].lnode_query_ib[ctx]);
+		sum_ab += bus_dev->lnode_list[i].lnode_query_ab[ctx];
+	}
+
+	MSM_BUS_ERR("aggregate: query_ab:%llu\n", sum_ab);
+	bus_dev->node_bw[ctx].sum_query_ab = sum_ab;
+	bus_dev->node_bw[ctx].max_query_ib = max_ib;
+
+exit_agg_bus_req:
+	return;
+}
 
 static void del_inp_list(struct list_head *list)
 {
@@ -688,6 +780,14 @@ static void add_node_to_clist(struct msm_bus_node_device_type *node)
 	}
 }
 
+static void add_node_to_query_list(struct msm_bus_node_device_type *node)
+{
+	if (!node->query_dirty) {
+		list_add_tail(&node->query_link, &query_list);
+		node->query_dirty = true;
+	}
+}
+
 static int update_path(struct device *src_dev, int dest, uint64_t act_req_ib,
 			uint64_t act_req_bw, uint64_t slp_req_ib,
 			uint64_t slp_req_bw, uint64_t cur_ib, uint64_t cur_bw,
@@ -765,6 +865,71 @@ static int update_path(struct device *src_dev, int dest, uint64_t act_req_ib,
 	}
 
 exit_update_path:
+	return ret;
+}
+
+static int query_path(struct device *src_dev, int dest, uint64_t act_req_ib,
+			uint64_t act_req_bw, uint64_t slp_req_ib,
+			uint64_t slp_req_bw, uint64_t cur_ib, uint64_t cur_bw,
+			int src_idx)
+{
+	struct device *next_dev = NULL;
+	struct link_node *lnode = NULL;
+	struct msm_bus_node_device_type *dev_info = NULL;
+	int curr_idx;
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(src_dev)) {
+		MSM_BUS_ERR("%s: No source device", __func__);
+		ret = -ENODEV;
+		goto exit_query_path;
+	}
+
+	next_dev = src_dev;
+
+	if (src_idx < 0) {
+		MSM_BUS_ERR("%s: Invalid lnode idx %d", __func__, src_idx);
+		ret = -ENXIO;
+		goto exit_query_path;
+	}
+	curr_idx = src_idx;
+
+	while (next_dev) {
+		int i;
+
+		dev_info = to_msm_bus_node(next_dev);
+
+		if (curr_idx >= dev_info->num_lnodes) {
+			MSM_BUS_ERR("%s: Invalid lnode Idx %d num lnodes %d",
+			 __func__, curr_idx, dev_info->num_lnodes);
+			ret = -ENXIO;
+			goto exit_query_path;
+		}
+
+		lnode = &dev_info->lnode_list[curr_idx];
+		if (!lnode) {
+			MSM_BUS_ERR("%s: Invalid lnode ptr lnode %d",
+				 __func__, curr_idx);
+			ret = -ENXIO;
+			goto exit_query_path;
+		}
+		lnode->lnode_query_ib[ACTIVE_CTX] = act_req_ib;
+		lnode->lnode_query_ab[ACTIVE_CTX] = act_req_bw;
+		lnode->lnode_query_ib[DUAL_CTX] = slp_req_ib;
+		lnode->lnode_query_ab[DUAL_CTX] = slp_req_bw;
+
+		for (i = 0; i < NUM_CTX; i++) {
+			aggregate_bus_query_req(dev_info, i);
+			bcm_query_bus_req(next_dev, i);
+		}
+
+		add_node_to_query_list(dev_info);
+
+		next_dev = lnode->next_dev;
+		curr_idx = lnode->next;
+	}
+
+exit_query_path:
 	return ret;
 }
 
@@ -1126,6 +1291,92 @@ exit_update_client_paths:
 	return ret;
 }
 
+static int query_usecase(struct msm_bus_client *client, bool log_trns,
+					unsigned int idx,
+					struct msm_bus_tcs_usecase *tcs_usecase)
+{
+	int lnode, src, dest, cur_idx;
+	uint64_t req_clk, req_bw, curr_clk, curr_bw, slp_clk, slp_bw;
+	int i, ret = 0;
+	struct msm_bus_scale_pdata *pdata;
+	struct device *src_dev;
+	struct msm_bus_node_device_type *node = NULL;
+	struct msm_bus_node_device_type *node_tmp = NULL;
+
+	if (!client) {
+		MSM_BUS_ERR("Client handle  Null");
+		ret = -ENXIO;
+		goto exit_query_usecase;
+	}
+
+	pdata = client->pdata;
+	if (!pdata) {
+		MSM_BUS_ERR("Client pdata Null");
+		ret = -ENXIO;
+		goto exit_query_usecase;
+	}
+
+	cur_idx = client->curr;
+	client->curr = idx;
+	for (i = 0; i < pdata->usecase->num_paths; i++) {
+		src = pdata->usecase[idx].vectors[i].src;
+		dest = pdata->usecase[idx].vectors[i].dst;
+
+		lnode = client->src_pnode[i];
+		src_dev = client->src_devs[i];
+		req_clk = client->pdata->usecase[idx].vectors[i].ib;
+		req_bw = client->pdata->usecase[idx].vectors[i].ab;
+		if (cur_idx < 0) {
+			curr_clk = 0;
+			curr_bw = 0;
+		} else {
+			curr_clk =
+				client->pdata->usecase[cur_idx].vectors[i].ib;
+			curr_bw = client->pdata->usecase[cur_idx].vectors[i].ab;
+			MSM_BUS_DBG("%s:ab: %llu ib: %llu\n", __func__,
+					curr_bw, curr_clk);
+		}
+
+		ret = query_path(src_dev, dest, req_clk, req_bw, slp_clk,
+			slp_bw, curr_clk, curr_bw, lnode);
+
+		if (ret) {
+			MSM_BUS_ERR("%s: Query path failed! %d ctx %d\n",
+					__func__, ret, pdata->active_only);
+			goto exit_query_usecase;
+		}
+	}
+	msm_bus_query_gen(&query_list, tcs_usecase);
+	INIT_LIST_HEAD(&query_list);
+
+	for (i = 0; i < pdata->usecase->num_paths; i++) {
+		src = pdata->usecase[idx].vectors[i].src;
+		dest = pdata->usecase[idx].vectors[i].dst;
+
+		lnode = client->src_pnode[i];
+		src_dev = client->src_devs[i];
+
+		ret = query_path(src_dev, dest, 0, 0, 0, 0,
+						curr_clk, curr_bw, lnode);
+
+		if (ret) {
+			MSM_BUS_ERR("%s: Clear query path failed! %d ctx %d\n",
+					__func__, ret, pdata->active_only);
+			goto exit_query_usecase;
+		}
+	}
+
+	list_for_each_entry_safe(node, node_tmp, &query_list, query_link) {
+		node->query_dirty = false;
+		list_del_init(&node->query_link);
+	}
+
+	INIT_LIST_HEAD(&query_list);
+
+exit_query_usecase:
+	return ret;
+}
+
 static int update_context(uint32_t cl, bool active_only,
 					unsigned int ctx_idx)
 {
@@ -1240,6 +1491,117 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 //	trace_bus_update_request_end(pdata->name);
 
 exit_update_request:
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
+	return ret;
+}
+
+static int query_client_usecase(struct msm_bus_tcs_usecase *tcs_usecase,
+					uint32_t cl, unsigned int index)
+{
+	int ret = 0;
+	struct msm_bus_scale_pdata *pdata;
+	struct msm_bus_client *client;
+	const char *test_cl = "Null";
+	bool log_transaction = false;
+
+	rt_mutex_lock(&msm_bus_adhoc_lock);
+
+	if (!cl) {
+		MSM_BUS_ERR("%s: Invalid client handle %d", __func__, cl);
+		ret = -ENXIO;
+		goto exit_query_client_usecase;
+	}
+
+	client = handle_list.cl_list[cl];
+	if (!client) {
+		MSM_BUS_ERR("%s: Invalid client pointer ", __func__);
+		ret = -ENXIO;
+		goto exit_query_client_usecase;
+	}
+
+	pdata = client->pdata;
+	if (!pdata) {
+		MSM_BUS_ERR("%s: Client data Null.[client didn't register]",
+				__func__);
+		ret = -ENXIO;
+		goto exit_query_client_usecase;
+	}
+
+	if (index >= pdata->num_usecases) {
+		MSM_BUS_ERR("Client %u passed invalid index: %d\n",
+			cl, index);
+		ret = -ENXIO;
+		goto exit_query_client_usecase;
+	}
+
+	if (!strcmp(test_cl, pdata->name))
+		log_transaction = true;
+
+	MSM_BUS_DBG("%s: cl: %u index: %d curr: %d num_paths: %d\n", __func__,
+		cl, index, client->curr, client->pdata->usecase->num_paths);
+	ret = query_usecase(client, log_transaction, index, tcs_usecase);
+	if (ret) {
+		pr_err("%s: Err updating path\n", __func__);
+		goto exit_query_client_usecase;
+	}
+
+//	trace_bus_update_request_end(pdata->name);
+
+exit_query_client_usecase:
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
+	return ret;
+}
+
+static int query_client_usecase_all(struct msm_bus_tcs_handle *tcs_handle,
+					uint32_t cl)
+{
+	int ret = 0;
+	struct msm_bus_scale_pdata *pdata;
+	struct msm_bus_client *client;
+	const char *test_cl = "Null";
+	bool log_transaction = false;
+	int i = 0;
+
+	rt_mutex_lock(&msm_bus_adhoc_lock);
+
+	if (!cl) {
+		MSM_BUS_ERR("%s: Invalid client handle %d", __func__, cl);
+		ret = -ENXIO;
+		goto exit_query_client_usecase_all;
+	}
+
+	client = handle_list.cl_list[cl];
+	if (!client) {
+		MSM_BUS_ERR("%s: Invalid client pointer ", __func__);
+		ret = -ENXIO;
+		goto exit_query_client_usecase_all;
+	}
+
+	pdata = client->pdata;
+	if (!pdata) {
+		MSM_BUS_ERR("%s: Client data Null.[client didn't register]",
+				__func__);
+		ret = -ENXIO;
+		goto exit_query_client_usecase_all;
+	}
+
+	if (!strcmp(test_cl, pdata->name))
+		log_transaction = true;
+
+	MSM_BUS_ERR("%s: query_start", __func__);
+	for (i = 0; i < pdata->num_usecases; i++)
+		query_usecase(client, log_transaction, i,
+						&tcs_handle->usecases[i]);
+	tcs_handle->num_usecases = pdata->num_usecases;
+
+	if (ret) {
+		pr_err("%s: Err updating path\n", __func__);
+		goto exit_query_client_usecase_all;
+	}
+
+//	trace_bus_update_request_end(pdata->name);
+
+exit_query_client_usecase_all:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
 }
@@ -1446,4 +1808,6 @@ void msm_bus_arb_setops_adhoc(struct msm_bus_arb_ops *arb_ops)
 	arb_ops->unregister = unregister_adhoc;
 	arb_ops->update_bw = update_bw_adhoc;
 	arb_ops->update_bw_context = update_bw_context;
+	arb_ops->query_usecase = query_client_usecase;
+	arb_ops->query_usecase_all = query_client_usecase_all;
 }

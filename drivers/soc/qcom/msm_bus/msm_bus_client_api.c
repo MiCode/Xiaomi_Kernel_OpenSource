@@ -173,3 +173,42 @@ void msm_bus_scale_unregister(struct msm_bus_client_handle *cl)
 				__func__);
 }
 EXPORT_SYMBOL(msm_bus_scale_unregister);
+
+/**
+ * msm_bus_scale_query_tcs_cmd() - Query for a list of TCS commands for
+ * an aggregated votes of paths from a single usecase.
+ *
+ * tcs_usecase: pointer to client allocated memory blob
+ * cl: Handle to the client
+ * index: Index into the vector, to which the bw and clock values need to be
+ * updated
+ */
+int msm_bus_scale_query_tcs_cmd(struct msm_bus_tcs_usecase *tcs_usecase,
+					uint32_t cl, unsigned int index)
+{
+	if (arb_ops.query_usecase)
+		return arb_ops.query_usecase(tcs_usecase, cl, index);
+	pr_err("%s: Bus driver not ready.",
+			__func__);
+	return -EPROBE_DEFER;
+}
+EXPORT_SYMBOL(msm_bus_scale_query_tcs_cmd);
+
+/**
+ * msm_bus_scale_query_tcs_cmd_all() - Query for a list of TCS commands for
+ * an aggregated vote of paths for all usecases registered by client
+ *
+ * tcs_handle: pointer to client allocated memory blob
+ * cl: Handle to the client
+ *
+ */
+int msm_bus_scale_query_tcs_cmd_all(struct msm_bus_tcs_handle *tcs_handle,
+					uint32_t cl)
+{
+	if (arb_ops.query_usecase)
+		return arb_ops.query_usecase_all(tcs_handle, cl);
+	pr_err("%s: Bus driver not ready.",
+			__func__);
+	return -EPROBE_DEFER;
+}
+EXPORT_SYMBOL(msm_bus_scale_query_tcs_cmd_all);

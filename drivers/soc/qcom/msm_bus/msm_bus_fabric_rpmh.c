@@ -47,6 +47,7 @@
 static int msm_bus_dev_init_qos(struct device *dev, void *data);
 
 struct list_head bcm_clist_inorder[VCD_MAX_CNT];
+struct list_head bcm_query_list_inorder[VCD_MAX_CNT];
 static struct rpmh_client *mbox_apps;
 
 struct bcm_db {
@@ -393,6 +394,41 @@ exit_tcs_cmd_list_gen:
 	return k;
 }
 
+static int tcs_cmd_query_list_gen(struct tcs_cmd *cmdlist_active)
+{
+	struct msm_bus_node_device_type *cur_bcm = NULL;
+	struct list_head *bcm_list_inorder = NULL;
+	int i = 0;
+	int k = 0;
+	bool commit = false;
+	int ret = 0;
+
+	if (!cmdlist_active)
+		goto exit_tcs_cmd_list_gen;
+
+	bcm_list_inorder = bcm_query_list_inorder;
+
+	for (i = 0; i < VCD_MAX_CNT; i++) {
+		if (list_empty(&bcm_list_inorder[i]))
+			continue;
+		list_for_each_entry(cur_bcm, &bcm_list_inorder[i], query_link) {
+			commit = false;
+			if (list_is_last(&cur_bcm->query_link,
+						&bcm_list_inorder[i])) {
+				commit = true;
+			}
+			tcs_cmd_gen(cur_bcm, &cmdlist_active[k],
+				cur_bcm->node_bw[ACTIVE_CTX].max_query_ib,
+				cur_bcm->node_bw[ACTIVE_CTX].max_query_ab,
+								commit);
+			k++;
+		}
+	}
+
+exit_tcs_cmd_list_gen:
+	return ret;
+}
+
 static int bcm_clist_add(struct msm_bus_node_device_type *cur_dev)
 {
 	int ret = 0;
@@ -414,6 +450,26 @@ exit_bcm_clist_add:
 	return ret;
 }
 
+static int bcm_query_list_add(struct msm_bus_node_device_type *cur_dev)
+{
+	int ret = 0;
+	int cur_vcd = 0;
+	struct msm_bus_node_device_type *cur_bcm = NULL;
+
+	if (!cur_dev->node_info->num_bcm_devs)
+		goto exit_bcm_query_list_add;
+
+	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
+	cur_vcd = cur_bcm->bcmdev->clk_domain;
+
+	if (!cur_bcm->query_dirty)
+		list_add_tail(&cur_bcm->query_link,
+					&bcm_query_list_inorder[cur_vcd]);
+
+exit_bcm_query_list_add:
+	return ret;
+}
+
 static int bcm_clist_clean(struct msm_bus_node_device_type *cur_dev)
 {
 	int ret = 0;
@@ -431,6 +487,24 @@ static int bcm_clist_clean(struct msm_bus_node_device_type *cur_dev)
 		cur_bcm->dirty = false;
 		list_del_init(&cur_bcm->link);
 	}
+
+exit_bcm_clist_add:
+	return ret;
+}
+
+static int bcm_query_list_clean(struct msm_bus_node_device_type *cur_dev)
+{
+	int ret = 0;
+	struct msm_bus_node_device_type *cur_bcm = NULL;
+
+	if (!cur_dev->node_info->num_bcm_devs)
+		goto exit_bcm_clist_add;
+
+	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
+
+	MSM_BUS_ERR("%s: removing bcm %d\n", __func__, cur_bcm->node_info->id);
+	cur_bcm->query_dirty = false;
+	list_del_init(&cur_bcm->query_link);
 
 exit_bcm_clist_add:
 	return ret;
@@ -517,6 +591,46 @@ int msm_bus_commit_data(struct list_head *clist)
 	kfree(n_sleep);
 	return ret;
 }
+
+int msm_bus_query_gen(struct list_head *query_list,
+				struct msm_bus_tcs_usecase *tcs_usecase)
+{
+	int ret = 0;
+	struct msm_bus_node_device_type *node = NULL;
+	struct msm_bus_node_device_type *node_tmp = NULL;
+	struct msm_bus_node_device_type *cur_bcm = NULL;
+	int *n_active = NULL;
+	int cnt_vcd = 0;
+	int cnt_active = 0;
+	int i = 0;
+
+	list_for_each_entry_safe(node, node_tmp, query_list, query_link)
+		bcm_query_list_add(node);
+
+	for (i = 0; i < VCD_MAX_CNT; i++) {
+		if (list_empty(&bcm_query_list_inorder[i]))
+			continue;
+		list_for_each_entry(cur_bcm, &bcm_query_list_inorder[i],
+							query_link) {
+			cnt_active++;
+		}
+		cnt_vcd++;
+	}
+
+	tcs_usecase->num_cmds = cnt_active;
+	ret = tcs_cmd_query_list_gen(tcs_usecase->cmds);
+
+	list_for_each_entry_safe(node, node_tmp, query_list, query_link) {
+		bcm_query_list_clean(node);
+		node->query_dirty = false;
+		list_del_init(&node->query_link);
+	}
+
+	kfree(n_active);
+	return ret;
+}
+
+
 
 void *msm_bus_realloc_devmem(struct device *dev, void *p, size_t old_size,
 					size_t new_size, gfp_t flags)
@@ -817,8 +931,10 @@ static int msm_bus_bcm_init(struct device *dev,
 	bcmdev->num_bus_devs = 0;
 
 	// Add way to count # of VCDs, initialize LL
-	for (i = 0; i < VCD_MAX_CNT; i++)
+	for (i = 0; i < VCD_MAX_CNT; i++) {
 		INIT_LIST_HEAD(&bcm_clist_inorder[i]);
+		INIT_LIST_HEAD(&bcm_query_list_inorder[i]);
+	}
 
 exit_bcm_init:
 	return ret;

@@ -25,6 +25,8 @@ struct msm_bus_node_device_type;
 struct link_node {
 	uint64_t lnode_ib[NUM_CTX];
 	uint64_t lnode_ab[NUM_CTX];
+	uint64_t lnode_query_ib[NUM_CTX];
+	uint64_t lnode_query_ab[NUM_CTX];
 	int next;
 	struct device *next_dev;
 	struct list_head link;
@@ -54,6 +56,9 @@ struct nodebw {
 	uint64_t last_max_ib;
 	uint64_t max_ib;
 	uint64_t max_ab;
+	uint64_t sum_query_ab;
+	uint64_t max_query_ib;
+	uint64_t max_query_ab;
 	uint64_t cur_clk_hz;
 	uint32_t util_used;
 	uint32_t vrail_used;
@@ -148,6 +153,7 @@ struct msm_bus_node_device_type {
 	struct link_node *lnode_list;
 	struct nodebw node_bw[NUM_CTX];
 	struct list_head link;
+	struct list_head query_link;
 	struct nodeclk clk[NUM_CTX];
 	struct nodeclk bus_qos_clk;
 	uint32_t num_node_qos_clks;
@@ -156,6 +162,7 @@ struct msm_bus_node_device_type {
 	struct device_node *of_node;
 	struct device dev;
 	bool dirty;
+	bool query_dirty;
 	struct list_head dev_link;
 	struct list_head devlist;
 };
@@ -170,6 +177,8 @@ int msm_bus_enable_limiter(struct msm_bus_node_device_type *nodedev,
 				int throttle_en, uint64_t lim_bw);
 int msm_bus_commit_data(struct list_head *clist);
 int bcm_remove_handoff_req(struct device *dev, void *data);
+int msm_bus_query_gen(struct list_head *qlist,
+				struct msm_bus_tcs_usecase *tcs_usecase);
 void *msm_bus_realloc_devmem(struct device *dev, void *p, size_t old_size,
 					size_t new_size, gfp_t flags);
 
