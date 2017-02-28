@@ -1258,12 +1258,14 @@
 
 	clock_cpu: qcom,clk-cpu-630@179c0000 {
 		compatible = "qcom,clk-cpu-osm-sdm630";
-		status = "disabled";
 		reg = <0x179c0000 0x4000>, <0x17916000 0x1000>,
 			<0x17816000 0x1000>, <0x179d1000 0x1000>,
 			<0x00784130 0x8>;
 		reg-names = "osm", "pwrcl_pll", "perfcl_pll",
 			"apcs_common", "perfcl_efuse";
+
+		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
+		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
 
 		interrupts = <GIC_SPI 35 IRQ_TYPE_EDGE_RISING>,
 			<GIC_SPI 36 IRQ_TYPE_EDGE_RISING>;
