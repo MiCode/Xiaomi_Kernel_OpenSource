@@ -11,7 +11,7 @@
  */
 
 #include <dt-bindings/gpio/gpio.h>
-
+#include "sdm845-camera-sensor-mtp.dtsi"
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";

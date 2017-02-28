@@ -11,7 +11,7 @@
  */
 
 #include <dt-bindings/gpio/gpio.h>
-
+#include "sdm845-camera-sensor-cdp.dtsi"
 &soc {
 	sound-tavil {
 		qcom,us-euro-gpios = <&tavil_us_euro_sw>;
