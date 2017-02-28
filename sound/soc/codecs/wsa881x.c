@@ -1094,7 +1094,6 @@ static int wsa881x_swr_startup(struct swr_device *swr_dev)
 {
 	int ret = 0;
 	u8 devnum = 0;
-	u8 retry = WSA881X_NUM_RETRY;
 	struct wsa881x_priv *wsa881x;
 
 	wsa881x = swr_get_dev_data(swr_dev);
@@ -1109,16 +1108,12 @@ static int wsa881x_swr_startup(struct swr_device *swr_dev)
 	 * as per HW requirement.
 	 */
 	usleep_range(5000, 5010);
-	while (swr_get_logical_dev_num(swr_dev, swr_dev->addr, &devnum) &&
-	       retry--) {
-		/* Retry after 1 msec delay */
-		usleep_range(1000, 1100);
-	}
-	if (retry == 0) {
-		dev_err(&swr_dev->dev,
+	ret = swr_get_logical_dev_num(swr_dev, swr_dev->addr, &devnum);
+	if (ret) {
+		dev_dbg(&swr_dev->dev,
 			"%s get devnum %d for dev addr %lx failed\n",
 			__func__, devnum, swr_dev->addr);
-		return -EINVAL;
+		goto err;
 	}
 	swr_dev->dev_num = devnum;
 
