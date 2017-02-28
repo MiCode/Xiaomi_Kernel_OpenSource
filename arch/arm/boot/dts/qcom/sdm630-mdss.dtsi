@@ -382,7 +382,7 @@
 	};
 
 	msm_ext_disp: qcom,msm_ext_disp {
-		status = "disabled";
+		status = "ok";
 		compatible = "qcom,msm-ext-disp";
 
 		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
@@ -392,13 +392,13 @@
 	};
 
 	mdss_dp_ctrl: qcom,dp_ctrl@c990000 {
-		status = "disabled";
+		status = "ok";
 		cell-index = <0>;
 		compatible = "qcom,mdss-dp";
 		qcom,mdss-fb-map = <&mdss_fb2>;
 
 		gdsc-supply = <&gdsc_mdss>;
-		vdda-1p2-supply = <&pm660_l1>;
+		vdda-1p8-supply = <&pm660_l10>;
 		vdda-0p9-supply = <&pm660l_l1>;
 
 		reg =	<0xc990000 0xa84>,
@@ -410,7 +410,36 @@
 		reg-names = "dp_ctrl", "dp_phy", "tcsr_regs", "dp_mmss_cc",
 				"qfprom_physical","hdcp_physical";
 
+		clocks = <&clock_mmss MMSS_MNOC_AHB_CLK>,
+			 <&clock_mmss MMSS_MDSS_AHB_CLK>,
+			 <&clock_mmss MMSS_MDSS_AXI_CLK>,
+			 <&clock_mmss MMSS_MDSS_MDP_CLK>,
+			 <&clock_mmss MMSS_MDSS_HDMI_DP_AHB_CLK>,
+			 <&clock_mmss MMSS_MDSS_DP_AUX_CLK>,
+			 <&clock_rpmcc RPM_LN_BB_CLK1>,
+			 <&clock_gcc GCC_USB3_CLKREF_CLK>,
+			 <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>,
+			 <&clock_mmss MMSS_MDSS_DP_LINK_CLK>,
+			 <&clock_mmss MMSS_MDSS_DP_LINK_INTF_CLK>,
+			 <&clock_mmss MMSS_MDSS_DP_CRYPTO_CLK>,
+			 <&clock_mmss MMSS_MDSS_DP_PIXEL_CLK>,
+			 <&clock_mmss DP_PIXEL_CLK_SRC>,
+			 <&mdss_dp_pll DP_VCO_DIVIDED_CLK_SRC_MUX>;
+		clock-names = "core_mnoc_clk", "core_iface_clk", "core_bus_clk",
+			"core_mdp_core_clk", "core_alt_iface_clk",
+			"core_aux_clk", "core_ref_clk_src", "core_ref_clk",
+			"core_ahb_phy_clk", "ctrl_link_clk",
+			"ctrl_link_iface_clk", "ctrl_crypto_clk",
+			"ctrl_pixel_clk", "pixel_clk_rcg", "pixel_parent";
+
+		qcom,dp-usbpd-detection = <&pm660_pdphy>;
+
 		qcom,msm_ext_disp = <&msm_ext_disp>;
+
+		qcom,aux-cfg-settings = [00 13 00 00 0a 28 0a 03 b7 03];
+		qcom,logical2physical-lane-map = [00 01 02 03];
+		qcom,phy-register-offset = <0x4>;
+		qcom,max-pclk-frequency-khz = <150000>;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -432,9 +461,9 @@
 
 			qcom,ctrl-supply-entry@0 {
 				reg = <0>;
-				qcom,supply-name = "vdda-1p2";
-				qcom,supply-min-voltage = <1200000>;
-				qcom,supply-max-voltage = <1250000>;
+				qcom,supply-name = "vdda-1p8";
+				qcom,supply-min-voltage = <1780000>;
+				qcom,supply-max-voltage = <1950000>;
 				qcom,supply-enable-load = <12560>;
 				qcom,supply-disable-load = <4>;
 			};
