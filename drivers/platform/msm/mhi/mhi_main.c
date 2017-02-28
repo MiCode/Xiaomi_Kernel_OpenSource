@@ -1096,7 +1096,8 @@ static int parse_outbound(struct mhi_device_ctxt *mhi_dev_ctxt,
 }
 
 static int parse_inbound(struct mhi_device_ctxt *mhi_dev_ctxt,
-		u32 chan, union mhi_xfer_pkt *local_ev_trb_loc, u16 xfer_len)
+			 u32 chan, union mhi_xfer_pkt *local_ev_trb_loc,
+			 u16 xfer_len, unsigned ev_ring)
 {
 	struct mhi_client_handle *client_handle;
 	struct mhi_client_config *client_config;
@@ -1104,6 +1105,8 @@ static int parse_inbound(struct mhi_device_ctxt *mhi_dev_ctxt,
 	struct mhi_result *result;
 	struct mhi_cb_info cb_info;
 	struct mhi_ring *bb_ctxt = &mhi_dev_ctxt->chan_bb_list[chan];
+	bool ev_managed = GET_EV_PROPS(EV_MANAGED,
+				mhi_dev_ctxt->ev_ring_props[ev_ring].flags);
 	int r;
 	uintptr_t bb_index, ctxt_index_rp, ctxt_index_wp;
 
@@ -1117,7 +1120,7 @@ static int parse_inbound(struct mhi_device_ctxt *mhi_dev_ctxt,
 	result = &client_config->result;
 	parse_inbound_bb(mhi_dev_ctxt, bb_ctxt, result, xfer_len);
 
-	if (unlikely(IS_SOFTWARE_CHANNEL(chan))) {
+	if (ev_managed) {
 		MHI_TX_TRB_SET_LEN(TX_TRB_LEN, local_ev_trb_loc, xfer_len);
 		r = ctxt_del_element(local_chan_ctxt, NULL);
 		BUG_ON(r);
@@ -1283,7 +1286,8 @@ int parse_xfer_event(struct mhi_device_ctxt *mhi_dev_ctxt,
 			}
 			if (local_chan_ctxt->dir == MHI_IN) {
 				parse_inbound(mhi_dev_ctxt, chan,
-						local_ev_trb_loc, xfer_len);
+					      local_ev_trb_loc, xfer_len,
+					      event_id);
 			} else {
 				parse_outbound(mhi_dev_ctxt, chan,
 						local_ev_trb_loc, xfer_len);
