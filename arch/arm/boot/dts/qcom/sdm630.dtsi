@@ -962,7 +962,7 @@
 	};
 
 	clock_mmss: clock-controller@c8c0000 {
-		compatible = "qcom,mmcc-sdm660";
+		compatible = "qcom,mmcc-sdm630";
 		reg = <0xc8c0000 0x40000>;
 		vdd_mx_mmss-supply = <&pm660l_s5_level>;
 		vdd_dig_mmss-supply = <&pm660l_s3_level>;
