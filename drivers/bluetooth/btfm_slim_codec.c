@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,8 +54,8 @@ static int btfm_slim_dai_startup(struct snd_pcm_substream *substream,
 	int ret;
 	struct btfmslim *btfmslim = dai->dev->platform_data;
 
-	BTFMSLIM_DBG("substream = %s  stream = %d",
-		 substream->name, substream->stream);
+	BTFMSLIM_DBG("substream = %s  stream = %d dai->name = %s",
+		 substream->name, substream->stream, dai->name);
 	ret = btfm_slim_hw_init(btfmslim);
 	return ret;
 }
@@ -63,10 +63,48 @@ static int btfm_slim_dai_startup(struct snd_pcm_substream *substream,
 static void btfm_slim_dai_shutdown(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
+	int i;
 	struct btfmslim *btfmslim = dai->dev->platform_data;
+	struct btfmslim_ch *ch;
+	uint8_t rxport, grp = false, nchan = 1;
 
-	BTFMSLIM_DBG("substream = %s  stream = %d",
-		 substream->name, substream->stream);
+	BTFMSLIM_DBG("dai->name: %s, dai->id: %d, dai->rate: %d", dai->name,
+		dai->id, dai->rate);
+
+	switch (dai->id) {
+	case BTFM_FM_SLIM_TX:
+		grp = true; nchan = 2;
+		ch = btfmslim->tx_chs;
+		rxport = 0;
+		break;
+	case BTFM_BT_SCO_SLIM_TX:
+		ch = btfmslim->tx_chs;
+		rxport = 0;
+		break;
+	case BTFM_BT_SCO_A2DP_SLIM_RX:
+	case BTFM_BT_SPLIT_A2DP_SLIM_RX:
+		ch = btfmslim->rx_chs;
+		rxport = 1;
+		break;
+	case BTFM_SLIM_NUM_CODEC_DAIS:
+	default:
+		BTFMSLIM_ERR("dai->id is invalid:%d", dai->id);
+		return;
+	}
+
+	/* Search for dai->id matched port handler */
+	for (i = 0; (i < BTFM_SLIM_NUM_CODEC_DAIS) &&
+		(ch->id != BTFM_SLIM_NUM_CODEC_DAIS) &&
+		(ch->id != dai->id); ch++, i++)
+		;
+
+	if ((ch->port == BTFM_SLIM_PGD_PORT_LAST) ||
+		(ch->id == BTFM_SLIM_NUM_CODEC_DAIS)) {
+		BTFMSLIM_ERR("ch is invalid!!");
+		return;
+	}
+
+	btfm_slim_disable_ch(btfmslim, ch, rxport, grp, nchan);
 	btfm_slim_hw_deinit(btfmslim);
 }
 
@@ -74,7 +112,7 @@ static int btfm_slim_dai_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
 			    struct snd_soc_dai *dai)
 {
-	BTFMSLIM_DBG("dai_name = %s DAI-ID %x rate %d num_ch %d",
+	BTFMSLIM_DBG("dai->name = %s DAI-ID %x rate %d num_ch %d",
 		dai->name, dai->id, params_rate(params),
 		params_channels(params));
 
@@ -89,7 +127,7 @@ int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 	struct btfmslim_ch *ch;
 	uint8_t rxport, grp = false, nchan = 1;
 
-	BTFMSLIM_DBG("dai->name:%s, dai->id: %d, dai->rate: %d", dai->name,
+	BTFMSLIM_DBG("dai->name: %s, dai->id: %d, dai->rate: %d", dai->name,
 		dai->id, dai->rate);
 
 	switch (dai->id) {
@@ -126,53 +164,6 @@ int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 	}
 
 	ret = btfm_slim_enable_ch(btfmslim, ch, rxport, dai->rate, grp, nchan);
-	return ret;
-}
-
-int btfm_slim_dai_hw_free(struct snd_pcm_substream *substream,
-	struct snd_soc_dai *dai)
-{
-	int i, ret = -EINVAL;
-	struct btfmslim *btfmslim = dai->dev->platform_data;
-	struct btfmslim_ch *ch;
-	uint8_t rxport, grp = false, nchan = 1;
-
-	BTFMSLIM_DBG("dai->name:%s, dai->id: %d, dai->rate: %d", dai->name,
-		dai->id, dai->rate);
-
-	switch (dai->id) {
-	case BTFM_FM_SLIM_TX:
-		grp = true; nchan = 2;
-		ch = btfmslim->tx_chs;
-		rxport = 0;
-		break;
-	case BTFM_BT_SCO_SLIM_TX:
-		ch = btfmslim->tx_chs;
-		rxport = 0;
-		break;
-	case BTFM_BT_SCO_A2DP_SLIM_RX:
-	case BTFM_BT_SPLIT_A2DP_SLIM_RX:
-		ch = btfmslim->rx_chs;
-		rxport = 1;
-		break;
-	case BTFM_SLIM_NUM_CODEC_DAIS:
-	default:
-		BTFMSLIM_ERR("dai->id is invalid:%d", dai->id);
-		return ret;
-	}
-
-	/* Search for dai->id matched port handler */
-	for (i = 0; (i < BTFM_SLIM_NUM_CODEC_DAIS) &&
-		(ch->id != BTFM_SLIM_NUM_CODEC_DAIS) &&
-		(ch->id != dai->id); ch++, i++)
-		;
-
-	if ((ch->port == BTFM_SLIM_PGD_PORT_LAST) ||
-		(ch->id == BTFM_SLIM_NUM_CODEC_DAIS)) {
-		BTFMSLIM_ERR("ch is invalid!!");
-		return ret;
-	}
-	ret = btfm_slim_disable_ch(btfmslim, ch, rxport, grp, nchan);
 	return ret;
 }
 
@@ -315,7 +306,6 @@ static struct snd_soc_dai_ops btfmslim_dai_ops = {
 	.shutdown = btfm_slim_dai_shutdown,
 	.hw_params = btfm_slim_dai_hw_params,
 	.prepare = btfm_slim_dai_prepare,
-	.hw_free = btfm_slim_dai_hw_free,
 	.set_channel_map = btfm_slim_dai_set_channel_map,
 	.get_channel_map = btfm_slim_dai_get_channel_map,
 };
