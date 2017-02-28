@@ -468,4 +468,5 @@ void mdss_fb_report_panel_dead(struct msm_fb_data_type *mfd);
 void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 						struct fb_var_screeninfo *var);
 void mdss_fb_calc_fps(struct msm_fb_data_type *mfd);
+void mdss_fb_idle_pc(struct msm_fb_data_type *mfd);
 #endif /* MDSS_FB_H */

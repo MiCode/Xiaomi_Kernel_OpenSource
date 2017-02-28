@@ -63,6 +63,7 @@ config FB_MSM_MDSS_WRITEBACK
 
 config FB_MSM_MDSS_HDMI_PANEL
 	depends on FB_MSM_MDSS
+	select MSM_EXT_DISPLAY
 	bool "MDSS HDMI Tx Panel"
 	default n
 	---help---
@@ -98,6 +99,7 @@ config FB_MSM_MDSS_DSI_CTRL_STATUS
 
 config FB_MSM_MDSS_DP_PANEL
 	depends on FB_MSM_MDSS
+	select MSM_EXT_DISPLAY
 	bool "MDSS DP Panel"
 	---help---
 	The MDSS DP Panel provides support for DP host controller driver

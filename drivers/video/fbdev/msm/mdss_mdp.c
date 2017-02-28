@@ -1355,6 +1355,68 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 	}
 }
 
+/*
+ * __mdss_mdp_clk_control - Overall MDSS clock control for power on/off
+ */
+static void __mdss_mdp_clk_control(struct mdss_data_type *mdata, bool enable)
+{
+	int rc = 0;
+	unsigned long flags;
+
+	if (enable) {
+		pm_runtime_get_sync(&mdata->pdev->dev);
+
+		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
+			VOTE_INDEX_LOW);
+
+		rc = mdss_iommu_ctrl(1);
+		if (IS_ERR_VALUE(rc))
+			pr_err("IOMMU attach failed\n");
+
+		/* Active+Sleep */
+		msm_bus_scale_client_update_context(mdata->bus_hdl,
+			false, mdata->curr_bw_uc_idx);
+
+		spin_lock_irqsave(&mdp_lock, flags);
+		mdata->clk_ena = enable;
+		spin_unlock_irqrestore(&mdp_lock, flags);
+
+		mdss_mdp_clk_update(MDSS_CLK_MNOC_AHB, 1);
+		mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
+		mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
+		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
+		mdss_mdp_clk_update(MDSS_CLK_MDP_LUT, 1);
+		if (mdata->vsync_ena)
+			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, 1);
+	} else {
+		spin_lock_irqsave(&mdp_lock, flags);
+		mdata->clk_ena = enable;
+		spin_unlock_irqrestore(&mdp_lock, flags);
+
+		if (mdata->vsync_ena)
+			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, 0);
+
+		mdss_mdp_clk_update(MDSS_CLK_MDP_LUT, 0);
+		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
+		mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
+		mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
+		mdss_mdp_clk_update(MDSS_CLK_MNOC_AHB, 0);
+
+		/* release iommu control */
+		mdss_iommu_ctrl(0);
+
+		/* Active-Only */
+		msm_bus_scale_client_update_context(mdata->bus_hdl,
+			true, mdata->ao_bw_uc_idx);
+
+		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
+			VOTE_INDEX_DISABLE);
+
+		pm_runtime_mark_last_busy(&mdata->pdev->dev);
+		pm_runtime_put_autosuspend(&mdata->pdev->dev);
+	}
+}
+
 int __mdss_mdp_vbif_halt(struct mdss_data_type *mdata, bool is_nrt)
 {
 	int rc = 0;
@@ -1646,9 +1708,7 @@ void mdss_mdp_clk_ctrl(int enable)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	static int mdp_clk_cnt;
-	unsigned long flags;
 	int changed = 0;
-	int rc = 0;
 
 	mutex_lock(&mdp_clk_lock);
 	if (enable) {
@@ -1672,49 +1732,8 @@ void mdss_mdp_clk_ctrl(int enable)
 		__builtin_return_address(0), current->group_leader->comm,
 		mdata->bus_ref_cnt, changed, enable);
 
-	if (changed) {
-		if (enable) {
-			pm_runtime_get_sync(&mdata->pdev->dev);
-
-			mdss_update_reg_bus_vote(mdata->reg_bus_clt,
-				VOTE_INDEX_LOW);
-
-			rc = mdss_iommu_ctrl(1);
-			if (IS_ERR_VALUE(rc))
-				pr_err("IOMMU attach failed\n");
-
-			/* Active+Sleep */
-			msm_bus_scale_client_update_context(mdata->bus_hdl,
-				false, mdata->curr_bw_uc_idx);
-		}
-
-		spin_lock_irqsave(&mdp_lock, flags);
-		mdata->clk_ena = enable;
-		spin_unlock_irqrestore(&mdp_lock, flags);
-
-		mdss_mdp_clk_update(MDSS_CLK_MNOC_AHB, enable);
-		mdss_mdp_clk_update(MDSS_CLK_AHB, enable);
-		mdss_mdp_clk_update(MDSS_CLK_AXI, enable);
-		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, enable);
-		mdss_mdp_clk_update(MDSS_CLK_MDP_LUT, enable);
-		if (mdata->vsync_ena)
-			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
-
-		if (!enable) {
-			/* release iommu control */
-			mdss_iommu_ctrl(0);
-
-			/* Active-Only */
-			msm_bus_scale_client_update_context(mdata->bus_hdl,
-				true, mdata->ao_bw_uc_idx);
-
-			mdss_update_reg_bus_vote(mdata->reg_bus_clt,
-				VOTE_INDEX_DISABLE);
-
-			pm_runtime_mark_last_busy(&mdata->pdev->dev);
-			pm_runtime_put_autosuspend(&mdata->pdev->dev);
-		}
-	}
+	if (changed)
+		__mdss_mdp_clk_control(mdata, enable);
 
 	if (enable && changed)
 		mdss_mdp_idle_pc_restore();
@@ -5092,6 +5111,22 @@ vreg_set_voltage_fail:
 }
 
 /**
+ * mdss_mdp_notify_idle_pc() - Notify fb driver of idle power collapse
+ * @mdata: MDP private data
+ *
+ * This function is called if there are active overlays.
+ */
+static void mdss_mdp_notify_idle_pc(struct mdss_data_type *mdata)
+{
+	int i;
+
+	for (i = 0; i < mdata->nctl; i++)
+		if ((mdata->ctl_off[i].ref_cnt) &&
+			!mdss_mdp_ctl_is_power_off(&mdata->ctl_off[i]))
+			mdss_fb_idle_pc(mdata->ctl_off[i].mfd);
+}
+
+/**
  * mdss_mdp_footswitch_ctrl() - Disable/enable MDSS GDSC and CX/Batfet rails
  * @mdata: MDP private data
  * @on: 1 to turn on footswitch, 0 to turn off footswitch
@@ -5155,6 +5190,7 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 				mdss_mdp_memory_retention_ctrl(MEM_RETAIN_ON,
 					PERIPH_RETAIN_OFF);
 				mdata->idle_pc = true;
+				mdss_mdp_notify_idle_pc(mdata);
 				pr_debug("idle pc. active overlays=%d\n",
 					active_cnt);
 			} else {
