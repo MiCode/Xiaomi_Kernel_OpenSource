@@ -3006,7 +3006,7 @@ static int __init clk_debug_init(void)
 
 	mutex_lock(&clk_debug_lock);
 	hlist_for_each_entry(core, &clk_debug_list, debug_node) {
-		clk_register_debug(core->hw, core->dentry);
+		clk_register_debug(core->hw);
 		clk_debug_create_one(core, rootdir);
 	}
 
