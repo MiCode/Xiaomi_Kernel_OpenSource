@@ -1035,6 +1035,27 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 	return ret;
 }
 
+static void cnss_qca6290_crash_shutdown(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+	int ret = 0;
+
+	cnss_pr_dbg("Crash shutdown with driver_state 0x%lx\n",
+		    plat_priv->driver_state);
+
+	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state))
+		return;
+
+	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM_KERNEL_PANIC);
+	if (ret) {
+		cnss_pr_err("Fail to complete RDDM, err = %d\n", ret);
+		return;
+	}
+
+	cnss_pci_collect_dump_info(pci_priv);
+}
+
 static int cnss_powerup(const struct subsys_desc *subsys_desc)
 {
 	int ret = 0;
@@ -1182,6 +1203,7 @@ static void cnss_crash_shutdown(const struct subsys_desc *subsys_desc)
 		cnss_qca6174_crash_shutdown(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
+		cnss_qca6290_crash_shutdown(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown device_id found: 0x%lx\n",
