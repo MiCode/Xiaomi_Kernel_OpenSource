@@ -1329,6 +1329,8 @@ out:
 
 void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv)
 {
+	struct cnss_plat_data *plat_priv;
+
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL!\n");
 		return;
@@ -1337,8 +1339,11 @@ void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv)
 	if (fbc_bypass)
 		return;
 
+	plat_priv = pci_priv->plat_priv;
+
 	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_POWER_OFF);
-	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_DEINIT);
+	if (!plat_priv->ramdump_info_v2.dump_data_valid)
+		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_DEINIT);
 }
 
 static int cnss_pci_probe(struct pci_dev *pci_dev,
