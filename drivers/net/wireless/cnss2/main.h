@@ -99,6 +99,7 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
 	CNSS_DRIVER_EVENT_REGISTER_DRIVER,
 	CNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
+	CNSS_DRIVER_EVENT_RECOVERY,
 	CNSS_DRIVER_EVENT_MAX,
 };
 
@@ -112,9 +113,7 @@ enum cnss_driver_state {
 	CNSS_DRIVER_RECOVERY,
 };
 
-struct cnss_recovery_work_t {
-	struct work_struct work;
-	struct device *dev;
+struct cnss_recovery_data {
 	enum cnss_recovery_reason reason;
 };
 
@@ -159,7 +158,6 @@ struct cnss_plat_data {
 	spinlock_t event_lock; /* spinlock for driver work event handling */
 	struct work_struct event_work;
 	struct workqueue_struct *event_wq;
-	struct cnss_recovery_work_t cnss_recovery_work;
 	struct qmi_handle *qmi_wlfw_clnt;
 	struct work_struct qmi_recv_msg_work;
 	struct notifier_block qmi_wlfw_clnt_nb;

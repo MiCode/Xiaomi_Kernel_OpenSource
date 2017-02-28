@@ -133,6 +133,8 @@ enum cnss_driver_mode {
 enum cnss_recovery_reason {
 	CNSS_REASON_DEFAULT,
 	CNSS_REASON_LINK_DOWN,
+	CNSS_REASON_RDDM,
+	CNSS_REASON_TIMEOUT,
 };
 
 extern int cnss_wlan_register_driver(struct cnss_wlan_driver *driver);
