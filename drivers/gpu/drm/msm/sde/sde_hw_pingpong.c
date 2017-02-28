@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/iopoll.h>
+
 #include "sde_hw_mdss.h"
 #include "sde_hwio.h"
 #include "sde_hw_catalog.h"
@@ -84,38 +86,76 @@ static int sde_hw_pp_setup_te_config(struct sde_hw_pingpong *pp,
 	return 0;
 }
 
-int sde_hw_pp_setup_autorefresh_config(struct sde_hw_pingpong *pp,
+static int sde_hw_pp_setup_autorefresh_config(struct sde_hw_pingpong *pp,
 		struct sde_hw_autorefresh *cfg)
 {
-	struct sde_hw_blk_reg_map *c = &pp->hw;
+	struct sde_hw_blk_reg_map *c;
 	u32 refresh_cfg;
+
+	if (!pp || !cfg)
+		return -EINVAL;
+	c = &pp->hw;
 
 	if (cfg->enable)
 		refresh_cfg = BIT(31) | cfg->frame_count;
 	else
 		refresh_cfg = 0;
 
-	SDE_REG_WRITE(c, PP_AUTOREFRESH_CONFIG,
-			refresh_cfg);
+	SDE_REG_WRITE(c, PP_AUTOREFRESH_CONFIG, refresh_cfg);
+	SDE_EVT32(pp->idx - PINGPONG_0, refresh_cfg);
 
 	return 0;
 }
 
-void sde_hw_pp_dsc_enable(struct sde_hw_pingpong *pp)
+static int sde_hw_pp_get_autorefresh_config(struct sde_hw_pingpong *pp,
+		struct sde_hw_autorefresh *cfg)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 val;
+
+	if (!pp || !cfg)
+		return -EINVAL;
+
+	c = &pp->hw;
+	val = SDE_REG_READ(c, PP_AUTOREFRESH_CONFIG);
+	cfg->enable = (val & BIT(31)) >> 31;
+	cfg->frame_count = val & 0xffff;
+
+	return 0;
+}
+
+static int sde_hw_pp_poll_timeout_wr_ptr(struct sde_hw_pingpong *pp,
+		u32 timeout_us)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 val;
+	int rc;
+
+	if (!pp)
+		return -EINVAL;
+
+	c = &pp->hw;
+	rc = readl_poll_timeout(c->base_off + c->blk_off + PP_LINE_COUNT,
+			val, (val & 0xffff) >= 1, 10, timeout_us);
+
+	return rc;
+}
+
+static void sde_hw_pp_dsc_enable(struct sde_hw_pingpong *pp)
 {
 	struct sde_hw_blk_reg_map *c = &pp->hw;
 
 	SDE_REG_WRITE(c, PP_DSC_MODE, 1);
 }
 
-void sde_hw_pp_dsc_disable(struct sde_hw_pingpong *pp)
+static void sde_hw_pp_dsc_disable(struct sde_hw_pingpong *pp)
 {
 	struct sde_hw_blk_reg_map *c = &pp->hw;
 
 	SDE_REG_WRITE(c, PP_DSC_MODE, 0);
 }
 
-int sde_hw_pp_setup_dsc(struct sde_hw_pingpong *pp)
+static int sde_hw_pp_setup_dsc(struct sde_hw_pingpong *pp)
 {
 	struct sde_hw_blk_reg_map *pp_c = &pp->hw;
 	int data;
@@ -126,7 +166,7 @@ int sde_hw_pp_setup_dsc(struct sde_hw_pingpong *pp)
 	return 0;
 }
 
-int sde_hw_pp_enable_te(struct sde_hw_pingpong *pp, bool enable)
+static int sde_hw_pp_enable_te(struct sde_hw_pingpong *pp, bool enable)
 {
 	struct sde_hw_blk_reg_map *c = &pp->hw;
 
@@ -134,18 +174,44 @@ int sde_hw_pp_enable_te(struct sde_hw_pingpong *pp, bool enable)
 	return 0;
 }
 
-int sde_hw_pp_get_vsync_info(struct sde_hw_pingpong *pp,
+static int sde_hw_pp_connect_external_te(struct sde_hw_pingpong *pp,
+		bool enable_external_te)
+{
+	struct sde_hw_blk_reg_map *c = &pp->hw;
+	u32 cfg;
+	int orig;
+
+	if (!pp)
+		return -EINVAL;
+
+	c = &pp->hw;
+	cfg = SDE_REG_READ(c, PP_SYNC_CONFIG_VSYNC);
+	orig = (bool)(cfg & BIT(20));
+	if (enable_external_te)
+		cfg |= BIT(20);
+	else
+		cfg &= ~BIT(20);
+	SDE_REG_WRITE(c, PP_SYNC_CONFIG_VSYNC, cfg);
+	SDE_EVT32(pp->idx - PINGPONG_0, cfg);
+
+	return orig;
+}
+
+static int sde_hw_pp_get_vsync_info(struct sde_hw_pingpong *pp,
 		struct sde_hw_pp_vsync_info *info)
 {
 	struct sde_hw_blk_reg_map *c = &pp->hw;
 	u32 val;
 
 	val = SDE_REG_READ(c, PP_VSYNC_INIT_VAL);
-	info->init_val = val & 0xffff;
+	info->rd_ptr_init_val = val & 0xffff;
 
 	val = SDE_REG_READ(c, PP_INT_COUNT_VAL);
-	info->vsync_count = (val & 0xffff0000) >> 16;
-	info->line_count = val & 0xffff;
+	info->rd_ptr_frame_count = (val & 0xffff0000) >> 16;
+	info->rd_ptr_line_count = val & 0xffff;
+
+	val = SDE_REG_READ(c, PP_LINE_COUNT);
+	info->wr_ptr_line_count = val & 0xffff;
 
 	return 0;
 }
@@ -155,11 +221,14 @@ static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 {
 	ops->setup_tearcheck = sde_hw_pp_setup_te_config;
 	ops->enable_tearcheck = sde_hw_pp_enable_te;
+	ops->connect_external_te = sde_hw_pp_connect_external_te;
 	ops->get_vsync_info = sde_hw_pp_get_vsync_info;
 	ops->setup_autorefresh = sde_hw_pp_setup_autorefresh_config;
 	ops->setup_dsc = sde_hw_pp_setup_dsc;
 	ops->enable_dsc = sde_hw_pp_dsc_enable;
 	ops->disable_dsc = sde_hw_pp_dsc_disable;
+	ops->get_autorefresh = sde_hw_pp_get_autorefresh_config;
+	ops->poll_timeout_wr_ptr = sde_hw_pp_poll_timeout_wr_ptr;
 };
 
 struct sde_hw_pingpong *sde_hw_pingpong_init(enum sde_pingpong idx,

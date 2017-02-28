@@ -36,9 +36,10 @@ struct sde_hw_autorefresh {
 };
 
 struct sde_hw_pp_vsync_info {
-	u32 init_val; /* value of rd pointer at vsync edge */
-	u32 vsync_count;    /* mdp clocks to complete one line */
-	u32 line_count;   /* current line count */
+	u32 rd_ptr_init_val;	/* value of rd pointer at vsync edge */
+	u32 rd_ptr_frame_count;	/* num frames sent since enabling interface */
+	u32 rd_ptr_line_count;	/* current line on panel (rd ptr) */
+	u32 wr_ptr_line_count;	/* current line within pp fifo (wr ptr) */
 };
 
 struct sde_hw_dsc_cfg {
@@ -72,6 +73,13 @@ struct sde_hw_pingpong_ops {
 			bool enable);
 
 	/**
+	 * read, modify, write to either set or clear listening to external TE
+	 * @Return: 1 if TE was originally connected, 0 if not, or -ERROR
+	 */
+	int (*connect_external_te)(struct sde_hw_pingpong *pp,
+			bool enable_external_te);
+
+	/**
 	 * provides the programmed and current
 	 * line_count
 	 */
@@ -83,6 +91,18 @@ struct sde_hw_pingpong_ops {
 	 */
 	int (*setup_autorefresh)(struct sde_hw_pingpong *pp,
 			struct sde_hw_autorefresh *cfg);
+
+	/**
+	 * retrieve autorefresh config from hardware
+	 */
+	int (*get_autorefresh)(struct sde_hw_pingpong *pp,
+			struct sde_hw_autorefresh *cfg);
+
+	/**
+	 * poll until write pointer transmission starts
+	 * @Return: 0 on success, -ETIMEDOUT on timeout
+	 */
+	int (*poll_timeout_wr_ptr)(struct sde_hw_pingpong *pp, u32 timeout_us);
 
 	/**
 	 * Program the dsc compression block
