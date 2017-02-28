@@ -27,8 +27,10 @@
 #include "pci.h"
 
 #define CNSS_DUMP_FORMAT_VER		0x11
+#define CNSS_DUMP_FORMAT_VER_V2		0x22
 #define CNSS_DUMP_MAGIC_VER_V2		0x42445953
 #define CNSS_DUMP_NAME			"CNSS_WLAN"
+#define CNSS_DUMP_DESC_SIZE		0x1000
 #define WLAN_RECOVERY_DELAY		1000
 #define FILE_SYSTEM_READY		1
 #define FW_READY_TIMEOUT		20000
@@ -1547,6 +1549,77 @@ static void cnss_qca6174_unregister_ramdump(struct cnss_plat_data *plat_priv)
 				  ramdump_info->ramdump_pa);
 }
 
+static int cnss_qca6290_register_ramdump(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+	struct cnss_subsys_info *subsys_info;
+	struct cnss_ramdump_info_v2 *info_v2;
+	struct cnss_dump_data *dump_data;
+	struct msm_dump_entry dump_entry;
+	struct device *dev = &plat_priv->plat_dev->dev;
+	u32 ramdump_size = 0;
+
+	subsys_info = &plat_priv->subsys_info;
+	info_v2 = &plat_priv->ramdump_info_v2;
+	dump_data = &info_v2->dump_data;
+
+	if (of_property_read_u32(dev->of_node, "qcom,wlan-ramdump-dynamic",
+				 &ramdump_size) == 0)
+		info_v2->ramdump_size = ramdump_size;
+
+	cnss_pr_dbg("Ramdump size 0x%lx\n", info_v2->ramdump_size);
+
+	dump_data->vaddr = kzalloc(CNSS_DUMP_DESC_SIZE, GFP_KERNEL);
+	if (!dump_data->vaddr)
+		return -ENOMEM;
+
+	dump_data->paddr = virt_to_phys(dump_data->vaddr);
+	dump_data->version = CNSS_DUMP_FORMAT_VER_V2;
+	dump_data->magic = CNSS_DUMP_MAGIC_VER_V2;
+	strlcpy(dump_data->name, CNSS_DUMP_NAME,
+		sizeof(dump_data->name));
+	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
+	dump_entry.addr = virt_to_phys(dump_data);
+
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	if (ret) {
+		cnss_pr_err("Failed to setup dump table, err = %d\n", ret);
+		goto free_ramdump;
+	}
+
+	info_v2->ramdump_dev =
+		create_ramdump_device(subsys_info->subsys_desc.name,
+				      subsys_info->subsys_desc.dev);
+	if (!info_v2->ramdump_dev) {
+		cnss_pr_err("Failed to create ramdump device!\n");
+		ret = -ENOMEM;
+		goto free_ramdump;
+	}
+
+	return 0;
+
+free_ramdump:
+	kfree(dump_data->vaddr);
+	dump_data->vaddr = NULL;
+	return ret;
+}
+
+static void cnss_qca6290_unregister_ramdump(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_ramdump_info_v2 *info_v2;
+	struct cnss_dump_data *dump_data;
+
+	info_v2 = &plat_priv->ramdump_info_v2;
+	dump_data = &info_v2->dump_data;
+
+	if (info_v2->ramdump_dev)
+		destroy_ramdump_device(info_v2->ramdump_dev);
+
+	kfree(dump_data->vaddr);
+	dump_data->vaddr = NULL;
+	info_v2->dump_data_valid = false;
+}
+
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -1556,6 +1629,7 @@ int cnss_register_ramdump(struct cnss_plat_data *plat_priv)
 		ret = cnss_qca6174_register_ramdump(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
+		ret = cnss_qca6290_register_ramdump(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown device ID: 0x%lx\n", plat_priv->device_id);
@@ -1572,6 +1646,7 @@ void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv)
 		cnss_qca6174_unregister_ramdump(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
+		cnss_qca6290_unregister_ramdump(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown device ID: 0x%lx\n", plat_priv->device_id);
