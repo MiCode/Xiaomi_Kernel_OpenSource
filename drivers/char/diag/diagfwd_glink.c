@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -462,6 +462,31 @@ static int  diag_glink_write(void *ctxt, unsigned char *buf, int len)
 	return err;
 
 }
+
+static void diag_glink_connect_work_fn(struct work_struct *work)
+{
+	struct diag_glink_info *glink_info = container_of(work,
+							struct diag_glink_info,
+							connect_work);
+	if (!glink_info || glink_info->hdl)
+		return;
+	atomic_set(&glink_info->opened, 1);
+	diagfwd_channel_open(glink_info->fwd_ctxt);
+	diagfwd_late_open(glink_info->fwd_ctxt);
+}
+
+static void diag_glink_remote_disconnect_work_fn(struct work_struct *work)
+{
+	struct diag_glink_info *glink_info = container_of(work,
+							struct diag_glink_info,
+							remote_disconnect_work);
+	if (!glink_info || glink_info->hdl)
+		return;
+	atomic_set(&glink_info->opened, 0);
+	diagfwd_channel_close(glink_info->fwd_ctxt);
+	atomic_set(&glink_info->tx_intent_ready, 0);
+}
+
 static void diag_glink_transport_notify_state(void *handle, const void *priv,
 					  unsigned event)
 {
@@ -475,9 +500,7 @@ static void diag_glink_transport_notify_state(void *handle, const void *priv,
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"%s received channel connect for periph:%d\n",
 			 glink_info->name, glink_info->peripheral);
-		atomic_set(&glink_info->opened, 1);
-		diagfwd_channel_open(glink_info->fwd_ctxt);
-		diagfwd_late_open(glink_info->fwd_ctxt);
+		queue_work(glink_info->wq, &glink_info->connect_work);
 		break;
 	case GLINK_LOCAL_DISCONNECTED:
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
@@ -489,9 +512,7 @@ static void diag_glink_transport_notify_state(void *handle, const void *priv,
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			"%s received channel remote disconnect for periph:%d\n",
 			 glink_info->name, glink_info->peripheral);
-		atomic_set(&glink_info->opened, 0);
-		diagfwd_channel_close(glink_info->fwd_ctxt);
-		atomic_set(&glink_info->tx_intent_ready, 0);
+		queue_work(glink_info->wq, &glink_info->remote_disconnect_work);
 		break;
 	default:
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
@@ -641,6 +662,9 @@ static void __diag_glink_init(struct diag_glink_info *glink_info)
 	INIT_WORK(&(glink_info->open_work), diag_glink_open_work_fn);
 	INIT_WORK(&(glink_info->close_work), diag_glink_close_work_fn);
 	INIT_WORK(&(glink_info->read_work), diag_glink_read_work_fn);
+	INIT_WORK(&(glink_info->connect_work), diag_glink_connect_work_fn);
+	INIT_WORK(&(glink_info->remote_disconnect_work),
+		diag_glink_remote_disconnect_work_fn);
 	link_info.glink_link_state_notif_cb = diag_glink_notify_cb;
 	link_info.transport = NULL;
 	link_info.edge = glink_info->edge;
@@ -681,6 +705,8 @@ int diag_glink_init(void)
 	struct diag_glink_info *glink_info = NULL;
 
 	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
+		if (peripheral != PERIPHERAL_WDSP)
+			continue;
 		glink_info = &glink_cntl[peripheral];
 		__diag_glink_init(glink_info);
 		diagfwd_cntl_register(TRANSPORT_GLINK, glink_info->peripheral,
@@ -719,6 +745,8 @@ void diag_glink_early_exit(void)
 	int peripheral = 0;
 
 	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
+		if (peripheral != PERIPHERAL_WDSP)
+			continue;
 		__diag_glink_exit(&glink_cntl[peripheral]);
 		glink_unregister_link_state_cb(&glink_cntl[peripheral].hdl);
 	}
@@ -729,6 +757,8 @@ void diag_glink_exit(void)
 	int peripheral = 0;
 
 	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
+		if (peripheral != PERIPHERAL_WDSP)
+			continue;
 		__diag_glink_exit(&glink_data[peripheral]);
 		__diag_glink_exit(&glink_cmd[peripheral]);
 		__diag_glink_exit(&glink_dci[peripheral]);
