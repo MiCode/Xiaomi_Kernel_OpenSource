@@ -151,6 +151,32 @@ static struct notifier_block cnss_pm_notifier = {
 	.notifier_call = cnss_pm_notify,
 };
 
+static void cnss_pm_stay_awake(struct cnss_plat_data *plat_priv)
+{
+	if (atomic_inc_return(&plat_priv->pm_count) != 1)
+		return;
+
+	cnss_pr_dbg("PM stay awake, state: 0x%lx, count: %d\n",
+		    plat_priv->driver_state,
+		    atomic_read(&plat_priv->pm_count));
+	pm_stay_awake(&plat_priv->plat_dev->dev);
+}
+
+static void cnss_pm_relax(struct cnss_plat_data *plat_priv)
+{
+	int r = atomic_dec_return(&plat_priv->pm_count);
+
+	WARN_ON(r < 0);
+
+	if (r != 0)
+		return;
+
+	cnss_pr_dbg("PM relax, state: 0x%lx, count: %d\n",
+		    plat_priv->driver_state,
+		    atomic_read(&plat_priv->pm_count));
+	pm_relax(&plat_priv->plat_dev->dev);
+}
+
 void cnss_lock_pm_sem(void)
 {
 	down_read(&cnss_pm_sem);
@@ -510,6 +536,8 @@ static void cnss_driver_event_work(struct work_struct *work)
 	if (!plat_priv)
 		return;
 
+	cnss_pm_stay_awake(plat_priv);
+
 	spin_lock_irqsave(&plat_priv->event_lock, flags);
 
 	while (!list_empty(&plat_priv->event_list)) {
@@ -565,6 +593,8 @@ static void cnss_driver_event_work(struct work_struct *work)
 		spin_lock_irqsave(&plat_priv->event_lock, flags);
 	}
 	spin_unlock_irqrestore(&plat_priv->event_lock, flags);
+
+	cnss_pm_relax(plat_priv);
 }
 
 static void cnss_recovery_work_func(struct work_struct *work)
@@ -603,6 +633,8 @@ int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 	if (!event)
 		return -ENOMEM;
 
+	cnss_pm_stay_awake(plat_priv);
+
 	event->type = type;
 	event->data = data;
 	init_completion(&event->complete);
@@ -616,7 +648,7 @@ int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 	queue_work(plat_priv->event_wq, &plat_priv->event_work);
 
 	if (!sync)
-		return ret;
+		goto out;
 
 	ret = wait_for_completion_interruptible(&event->complete);
 
@@ -628,13 +660,16 @@ int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 	if (ret == -ERESTARTSYS && event->ret == CNSS_EVENT_PENDING) {
 		event->sync = false;
 		spin_unlock_irqrestore(&plat_priv->event_lock, flags);
-		return ret;
+		ret = -EINTR;
+		goto out;
 	}
 	spin_unlock_irqrestore(&plat_priv->event_lock, flags);
 
 	ret = event->ret;
 	kfree(event);
 
+out:
+	cnss_pm_relax(plat_priv);
 	return ret;
 }
 
