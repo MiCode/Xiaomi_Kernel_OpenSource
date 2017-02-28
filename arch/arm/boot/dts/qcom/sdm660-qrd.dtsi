@@ -247,6 +247,9 @@
 	};
 };
 
+/delete-node/ &tasha_hph_en0;
+/delete-node/ &tasha_hph_en1;
+
 &tasha_snd {
 	qcom,model = "sdm660-tasha-skus-snd-card";
 	qcom,audio-routing =
