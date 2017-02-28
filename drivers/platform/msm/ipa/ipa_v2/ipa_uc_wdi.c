@@ -1404,7 +1404,6 @@ int ipa2_disable_wdi_pipe(u32 clnt_hdl)
 	union IpaHwWdiCommonChCmdData_t disable;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	u32 prod_hdl;
-	int i;
 
 	if (unlikely(!ipa_ctx)) {
 		IPAERR("IPA driver was not initialized\n");
@@ -1420,28 +1419,6 @@ int ipa2_disable_wdi_pipe(u32 clnt_hdl)
 	result = ipa2_uc_state_check();
 	if (result)
 		return result;
-
-	/* checking rdy_ring_rp_pa matches the rdy_comp_ring_wp_pa on WDI2.0 */
-	if (ipa_ctx->ipa_wdi2) {
-		for (i = 0; i < IPA_UC_FINISH_MAX; i++) {
-			IPADBG("(%d) rp_value(%u), comp_wp_value(%u)\n",
-					i,
-					*ipa_ctx->uc_ctx.rdy_ring_rp_va,
-					*ipa_ctx->uc_ctx.rdy_comp_ring_wp_va);
-			if (*ipa_ctx->uc_ctx.rdy_ring_rp_va !=
-				*ipa_ctx->uc_ctx.rdy_comp_ring_wp_va) {
-				usleep_range(IPA_UC_WAIT_MIN_SLEEP,
-					IPA_UC_WAII_MAX_SLEEP);
-			} else {
-				break;
-			}
-		}
-		/* In case ipa_uc still haven't processed all
-		* pending descriptors, we have to assert
-		*/
-		if (i == IPA_UC_FINISH_MAX)
-			BUG();
-	}
 
 	IPADBG("ep=%d\n", clnt_hdl);
 
@@ -1468,6 +1445,11 @@ int ipa2_disable_wdi_pipe(u32 clnt_hdl)
 	 * holb on IPA Producer pipe
 	 */
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
+
+		IPADBG("Stopping PROD channel - hdl=%d clnt=%d\n",
+			clnt_hdl, ep->client);
+
+		/* remove delay on wlan-prod pipe*/
 		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 		ipa2_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 
@@ -1594,6 +1576,8 @@ int ipa2_suspend_wdi_pipe(u32 clnt_hdl)
 	struct ipa_ep_context *ep;
 	union IpaHwWdiCommonChCmdData_t suspend;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+	u32 source_pipe_bitmask = 0;
+	bool disable_force_clear = false;
 
 	if (unlikely(!ipa_ctx)) {
 		IPAERR("IPA driver was not initialized\n");
@@ -1623,6 +1607,31 @@ int ipa2_suspend_wdi_pipe(u32 clnt_hdl)
 	suspend.params.ipa_pipe_number = clnt_hdl;
 
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		/*
+		 * For WDI 2.0 need to ensure pipe will be empty before suspend
+		 * as IPA uC will fail to suspend the pipe otherwise.
+		 */
+		if (ipa_ctx->ipa_wdi2) {
+			source_pipe_bitmask = 1 <<
+				ipa_get_ep_mapping(ep->client);
+			result = ipa2_enable_force_clear(clnt_hdl,
+				false, source_pipe_bitmask);
+			if (result) {
+				/*
+				 * assuming here modem SSR, AP can remove
+				 * the delay in this case
+				 */
+				IPAERR("failed to force clear %d\n", result);
+				IPAERR("remove delay from SCND reg\n");
+				memset(&ep_cfg_ctrl, 0,
+					sizeof(struct ipa_ep_cfg_ctrl));
+				ep_cfg_ctrl.ipa_ep_delay = false;
+				ep_cfg_ctrl.ipa_ep_suspend = false;
+				ipa2_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+			} else {
+				disable_force_clear = true;
+			}
+		}
 		IPADBG("Post suspend event first for IPA Producer\n");
 		IPADBG("Client: %d clnt_hdl: %d\n", ep->client, clnt_hdl);
 		result = ipa_uc_send_cmd(suspend.raw32b,
@@ -1666,6 +1675,9 @@ int ipa2_suspend_wdi_pipe(u32 clnt_hdl)
 			goto uc_timeout;
 		}
 	}
+
+	if (disable_force_clear)
+		ipa2_disable_force_clear(clnt_hdl);
 
 	ipa_ctx->tag_process_before_gating = true;
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
