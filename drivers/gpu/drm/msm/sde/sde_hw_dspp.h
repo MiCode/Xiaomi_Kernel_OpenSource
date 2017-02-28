@@ -153,6 +153,15 @@ struct sde_hw_dspp_ops {
 	 * @cfg: Pointer to ad configuration
 	 */
 	void (*setup_ad)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * ad_read_intr_resp - function to get interrupt response for ad
+	 * @event: Event for which response needs to be read
+	 * @resp: Pointer to u32 where response value is dumped.
+	 */
+	void (*ad_read_intr_resp)(struct sde_hw_dspp *ctx, u32 event,
+			u32 *resp);
+
 };
 
 /**

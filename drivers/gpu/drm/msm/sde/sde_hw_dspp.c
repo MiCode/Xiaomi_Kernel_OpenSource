@@ -101,6 +101,8 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 			if (c->cap->sblk->ad.version ==
 			    SDE_COLOR_PROCESS_VER(4, 0)) {
 				c->ops.setup_ad = sde_setup_dspp_ad4;
+				c->ops.ad_read_intr_resp =
+					sde_read_intr_resp_ad4;
 				c->ops.validate_ad = sde_validate_dspp_ad4;
 			}
 			break;

@@ -2474,8 +2474,124 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	return crtc;
 }
 
-int sde_crtc_register_custom_event(struct sde_kms *kms,
-		struct drm_crtc *crtc_drm, u32 event, bool val)
+static int _sde_crtc_event_enable(struct sde_kms *kms,
+		struct drm_crtc *crtc_drm, u32 event)
 {
-	return -EINVAL;
+	struct sde_crtc *crtc = NULL;
+	struct sde_crtc_irq_info *node;
+	struct msm_drm_private *priv;
+	unsigned long flags;
+	bool found = false;
+	int ret;
+
+	crtc = to_sde_crtc(crtc_drm);
+	spin_lock_irqsave(&crtc->spin_lock, flags);
+	list_for_each_entry(node, &crtc->user_event_list, list) {
+		if (node->event == event) {
+			found = true;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&crtc->spin_lock, flags);
+
+	/* event already enabled */
+	if (found)
+		return 0;
+
+	node = kzalloc(sizeof(*node), GFP_KERNEL);
+	if (!node)
+		return -ENOMEM;
+	node->event = event;
+	INIT_LIST_HEAD(&node->list);
+
+	switch (event) {
+	case DRM_EVENT_AD_BACKLIGHT:
+		node->func = sde_cp_ad_interrupt;
+		break;
+	default:
+		SDE_ERROR("unsupported event %x\n", event);
+		kfree(node);
+		return -EINVAL;
+	}
+
+	priv = kms->dev->dev_private;
+	ret = 0;
+	if (crtc_drm->enabled) {
+		sde_power_resource_enable(&priv->phandle, kms->core_client,
+				true);
+		ret = node->func(crtc_drm, true, &node->irq);
+		sde_power_resource_enable(&priv->phandle, kms->core_client,
+				false);
+	}
+
+	if (!ret) {
+		spin_lock_irqsave(&crtc->spin_lock, flags);
+		list_add_tail(&node->list, &crtc->user_event_list);
+		spin_unlock_irqrestore(&crtc->spin_lock, flags);
+	} else {
+		kfree(node);
+	}
+
+	return ret;
+}
+
+static int _sde_crtc_event_disable(struct sde_kms *kms,
+		struct drm_crtc *crtc_drm, u32 event)
+{
+	struct sde_crtc *crtc = NULL;
+	struct sde_crtc_irq_info *node = NULL;
+	struct msm_drm_private *priv;
+	unsigned long flags;
+	bool found = false;
+	int ret;
+
+	crtc = to_sde_crtc(crtc_drm);
+	spin_lock_irqsave(&crtc->spin_lock, flags);
+	list_for_each_entry(node, &crtc->user_event_list, list) {
+		if (node->event == event) {
+			list_del(&node->list);
+			found = true;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&crtc->spin_lock, flags);
+
+	/* event already disabled */
+	if (!found)
+		return 0;
+
+	/**
+	 * crtc is disabled interrupts are cleared remove from the list,
+	 * no need to disable/de-register.
+	 */
+	if (!crtc_drm->enabled) {
+		kfree(node);
+		return 0;
+	}
+	priv = kms->dev->dev_private;
+	sde_power_resource_enable(&priv->phandle, kms->core_client, true);
+	ret = node->func(crtc_drm, false, &node->irq);
+	sde_power_resource_enable(&priv->phandle, kms->core_client, false);
+	return ret;
+}
+
+int sde_crtc_register_custom_event(struct sde_kms *kms,
+		struct drm_crtc *crtc_drm, u32 event, bool en)
+{
+	struct sde_crtc *crtc = NULL;
+	int ret;
+
+	crtc = to_sde_crtc(crtc_drm);
+	if (!crtc || !kms || !kms->dev) {
+		DRM_ERROR("invalid sde_crtc %pK kms %pK dev %pK\n", crtc,
+			kms, ((kms) ? (kms->dev) : NULL));
+		return -EINVAL;
+	}
+
+	if (en)
+		ret = _sde_crtc_event_enable(kms, crtc_drm, event);
+	else
+		ret = _sde_crtc_event_disable(kms, crtc_drm, event);
+
+	return ret;
 }

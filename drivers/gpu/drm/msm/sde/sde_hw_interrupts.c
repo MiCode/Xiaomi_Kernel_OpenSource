@@ -29,6 +29,11 @@
 #define MDP_INTF_2_OFF			0x6C000
 #define MDP_INTF_3_OFF			0x6C800
 #define MDP_INTF_4_OFF			0x6D000
+#define MDP_AD4_0_OFF			0x7D000
+#define MDP_AD4_1_OFF			0x7E000
+#define MDP_AD4_INTR_EN_OFF 0x41c
+#define MDP_AD4_INTR_CLEAR_OFF 0x424
+#define MDP_AD4_INTR_STATUS_OFF 0x420
 
 /**
  * WB interrupt status bit definitions
@@ -155,6 +160,14 @@
 #define SDE_INTR_PROG_LINE BIT(8)
 
 /**
+ * AD4 interrupt status bit definitions
+ */
+#define SDE_INTR_BRIGHTPR_UPDATED BIT(4)
+#define SDE_INTR_DARKENH_UPDATED BIT(3)
+#define SDE_INTR_STREN_OUTROI_UPDATED BIT(2)
+#define SDE_INTR_STREN_INROI_UPDATED BIT(1)
+#define SDE_INTR_BACKLIGHT_UPDATED BIT(0)
+/**
  * struct sde_intr_reg - array of SDE register sets
  * @clr_off:	offset to CLEAR reg
  * @en_off:	offset to ENABLE reg
@@ -223,6 +236,16 @@ static const struct sde_intr_reg sde_intr_set[] = {
 		MDP_INTF_4_OFF+INTF_INTR_CLEAR,
 		MDP_INTF_4_OFF+INTF_INTR_EN,
 		MDP_INTF_4_OFF+INTF_INTR_STATUS
+	},
+	{
+		MDP_AD4_0_OFF + MDP_AD4_INTR_CLEAR_OFF,
+		MDP_AD4_0_OFF + MDP_AD4_INTR_EN_OFF,
+		MDP_AD4_0_OFF + MDP_AD4_INTR_STATUS_OFF,
+	},
+	{
+		MDP_AD4_1_OFF + MDP_AD4_INTR_CLEAR_OFF,
+		MDP_AD4_1_OFF + MDP_AD4_INTR_EN_OFF,
+		MDP_AD4_1_OFF + MDP_AD4_INTR_STATUS_OFF,
 	}
 };
 
@@ -648,6 +671,10 @@ static const struct sde_irq_type sde_irq_map[] = {
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 7},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 7},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 7},
+
+	/* irq_idx: 256-257 */
+	{ SDE_IRQ_TYPE_AD4_BL_DONE, DSPP_0, SDE_INTR_BACKLIGHT_UPDATED, 8},
+	{ SDE_IRQ_TYPE_AD4_BL_DONE, DSPP_1, SDE_INTR_BACKLIGHT_UPDATED, 9}
 };
 
 static int sde_hw_intr_irqidx_lookup(enum sde_intr_type intr_type,

@@ -22,6 +22,8 @@
 #include "sde_hw_dspp.h"
 #include "sde_hw_lm.h"
 #include "sde_ad4.h"
+#include "sde_hw_interrupts.h"
+#include "sde_core_irq.h"
 
 struct sde_cp_node {
 	u32 property_id;
@@ -35,6 +37,7 @@ struct sde_cp_node {
 	struct list_head dirty_list;
 	bool is_dspp_feature;
 	u32 prop_blob_sz;
+	struct sde_irq_callback *irq;
 };
 
 struct sde_cp_prop_attach {
@@ -1314,5 +1317,112 @@ static int sde_cp_ad_validate_prop(struct sde_cp_node *prop_node,
 			ret = crtc->mixers[i].hw_dspp->ops.validate_ad(
 				crtc->mixers[i].hw_dspp, &ad_prop);
 	}
+	return ret;
+}
+
+static void sde_cp_ad_interrupt_cb(void *arg, int irq_idx)
+{
+	struct sde_crtc *crtc = arg;
+	struct drm_event event;
+	uint32_t bl = 0;
+	u32 num_mixers = crtc->num_mixers;
+	struct sde_hw_mixer *hw_lm = NULL;
+	struct sde_hw_dspp *hw_dspp = NULL;
+	int i;
+
+	event.type = DRM_EVENT_AD_BACKLIGHT;
+	event.length = sizeof(bl);
+	for (i = 0; i < num_mixers; i++) {
+		hw_lm = crtc->mixers[i].hw_lm;
+		hw_dspp = crtc->mixers[i].hw_dspp;
+		if (!hw_lm->cfg.right_mixer)
+			break;
+	}
+
+	if (!hw_dspp)
+		return;
+
+	hw_dspp->ops.ad_read_intr_resp(hw_dspp, AD4_BACKLIGHT, &bl);
+	msm_send_crtc_notification(&crtc->base, &event, (u8 *)&bl);
+}
+
+int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
+	struct sde_irq_callback *ad_irq)
+{
+	struct sde_kms *kms = NULL;
+	u32 num_mixers;
+	struct sde_hw_mixer *hw_lm;
+	struct sde_hw_dspp *hw_dspp = NULL;
+	struct sde_crtc *crtc;
+	int i;
+	int irq_idx, ret;
+	struct sde_cp_node prop_node;
+
+	if (!crtc_drm || !ad_irq) {
+		DRM_ERROR("invalid crtc %pK irq %pK\n", crtc_drm, ad_irq);
+		return -EINVAL;
+	}
+
+	crtc = to_sde_crtc(crtc_drm);
+	if (!crtc) {
+		DRM_ERROR("invalid sde_crtc %pK\n", crtc);
+		return -EINVAL;
+	}
+
+	mutex_lock(&crtc->crtc_lock);
+	kms = get_kms(crtc_drm);
+	num_mixers = crtc->num_mixers;
+
+	memset(&prop_node, 0, sizeof(prop_node));
+	prop_node.feature = SDE_CP_CRTC_DSPP_AD_BACKLIGHT;
+	ret = sde_cp_ad_validate_prop(&prop_node, crtc);
+	if (ret) {
+		DRM_ERROR("Ad not supported ret %d\n", ret);
+		goto exit;
+	}
+
+	for (i = 0; i < num_mixers; i++) {
+		hw_lm = crtc->mixers[i].hw_lm;
+		hw_dspp = crtc->mixers[i].hw_dspp;
+		if (!hw_lm->cfg.right_mixer)
+			break;
+	}
+
+	if (!hw_dspp) {
+		DRM_ERROR("invalid dspp\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	irq_idx = sde_core_irq_idx_lookup(kms, SDE_IRQ_TYPE_AD4_BL_DONE,
+			hw_dspp->idx);
+	if (irq_idx < 0) {
+		DRM_ERROR("failed to get the irq idx ret %d\n", irq_idx);
+		ret = irq_idx;
+		goto exit;
+	}
+
+	if (!en) {
+		sde_core_irq_disable(kms, &irq_idx, 1);
+		sde_core_irq_unregister_callback(kms, irq_idx, ad_irq);
+		ret = 0;
+		goto exit;
+	}
+
+	INIT_LIST_HEAD(&ad_irq->list);
+	ad_irq->arg = crtc;
+	ad_irq->func = sde_cp_ad_interrupt_cb;
+	ret = sde_core_irq_register_callback(kms, irq_idx, ad_irq);
+	if (ret) {
+		DRM_ERROR("failed to register the callback ret %d\n", ret);
+		goto exit;
+	}
+	ret = sde_core_irq_enable(kms, &irq_idx, 1);
+	if (ret) {
+		DRM_ERROR("failed to enable irq ret %d\n", ret);
+		sde_core_irq_unregister_callback(kms, irq_idx, ad_irq);
+	}
+exit:
+	mutex_unlock(&crtc->crtc_lock);
 	return ret;
 }
