@@ -504,7 +504,8 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
-	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state))
+	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state))
 		ret = cnss_driver_call_probe(plat_priv);
 	else if (enable_waltest)
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
@@ -1191,10 +1192,17 @@ static void cnss_crash_shutdown(const struct subsys_desc *subsys_desc)
 static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			    enum cnss_recovery_reason reason)
 {
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
 	struct cnss_subsys_info *subsys_info =
 		&plat_priv->subsys_info;
+	int ret = 0;
 
 	plat_priv->recovery_count++;
+
+	if (!plat_priv->driver_ops) {
+		cnss_pr_err("Host driver has not registered yet, ignore recovery!\n");
+		return 0;
+	}
 
 	if (plat_priv->device_id == QCA6174_DEVICE_ID) {
 		cnss_shutdown(&subsys_info->subsys_desc, false);
@@ -1203,6 +1211,21 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 		return 0;
 	}
 
+	plat_priv->driver_ops->update_status(pci_priv->pci_dev,
+					     CNSS_RECOVERY);
+
+	if (reason != CNSS_REASON_RDDM)
+		goto subsys_restart;
+
+	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM);
+	if (ret) {
+		cnss_pr_err("Fail to complete RDDM, err = %d\n", ret);
+		goto subsys_restart;
+	}
+
+	cnss_pci_collect_dump_info(pci_priv);
+
+subsys_restart:
 	if (!subsys_info->subsys_device)
 		return 0;
 
