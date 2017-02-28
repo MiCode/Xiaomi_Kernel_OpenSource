@@ -2228,10 +2228,12 @@ static int dsi_display_bind(struct device *dev,
 	struct dsi_display *display;
 	struct dsi_clk_info info;
 	struct clk_ctrl_cb clk_cb;
+	struct msm_drm_private *priv;
 	void *handle = NULL;
 	struct platform_device *pdev = to_platform_device(dev);
 	char *client1 = "dsi_clk_client";
 	char *client2 = "mdp_event_client";
+	char dsi_client_name[DSI_CLIENT_NAME_SIZE];
 	int i, rc = 0;
 
 	if (!dev || !pdev || !master) {
@@ -2247,6 +2249,7 @@ static int dsi_display_bind(struct device *dev,
 				drm, display);
 		return -EINVAL;
 	}
+	priv = drm->dev_private;
 
 	mutex_lock(&display->display_lock);
 
@@ -2260,7 +2263,6 @@ static int dsi_display_bind(struct device *dev,
 
 	for (i = 0; i < display->ctrl_count; i++) {
 		display_ctrl = &display->ctrl[i];
-
 		rc = dsi_ctrl_drv_init(display_ctrl->ctrl, display->root);
 		if (rc) {
 			pr_err("[%s] failed to initialize ctrl[%d], rc=%d\n",
@@ -2280,9 +2282,19 @@ static int dsi_display_bind(struct device *dev,
 			sizeof(struct dsi_core_clk_info));
 		memcpy(&info.l_clks[i], &display_ctrl->ctrl->clk_info.link_clks,
 			sizeof(struct dsi_link_clk_info));
+		info.c_clks[i].phandle = &priv->phandle;
 		info.bus_handle[i] =
 			display_ctrl->ctrl->axi_bus_info.bus_handle;
 		info.ctrl_index[i] = display_ctrl->ctrl->cell_index;
+		snprintf(dsi_client_name, DSI_CLIENT_NAME_SIZE,
+						"dsi_core_client%u", i);
+		info.c_clks[i].dsi_core_client = sde_power_client_create(
+				info.c_clks[i].phandle, dsi_client_name);
+		if (IS_ERR_OR_NULL(info.c_clks[i].dsi_core_client)) {
+			pr_err("[%s] client creation failed for ctrl[%d]",
+					dsi_client_name, i);
+			goto error_ctrl_deinit;
+		}
 	}
 
 	info.pre_clkoff_cb = dsi_pre_clkoff_cb;

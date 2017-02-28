@@ -490,30 +490,26 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 
 	core->mdp_core_clk = devm_clk_get(&pdev->dev, "mdp_core_clk");
 	if (IS_ERR(core->mdp_core_clk)) {
-		rc = PTR_ERR(core->mdp_core_clk);
-		pr_err("failed to get mdp_core_clk, rc=%d\n", rc);
-		goto fail;
+		core->mdp_core_clk = NULL;
+		pr_debug("failed to get mdp_core_clk, rc=%d\n", rc);
 	}
 
 	core->iface_clk = devm_clk_get(&pdev->dev, "iface_clk");
 	if (IS_ERR(core->iface_clk)) {
-		rc = PTR_ERR(core->iface_clk);
-		pr_err("failed to get iface_clk, rc=%d\n", rc);
-		goto fail;
+		core->iface_clk = NULL;
+		pr_debug("failed to get iface_clk, rc=%d\n", rc);
 	}
 
 	core->core_mmss_clk = devm_clk_get(&pdev->dev, "core_mmss_clk");
 	if (IS_ERR(core->core_mmss_clk)) {
-		rc = PTR_ERR(core->core_mmss_clk);
-		pr_err("failed to get core_mmss_clk, rc=%d\n", rc);
-		goto fail;
+		core->core_mmss_clk = NULL;
+		pr_debug("failed to get core_mmss_clk, rc=%d\n", rc);
 	}
 
 	core->bus_clk = devm_clk_get(&pdev->dev, "bus_clk");
 	if (IS_ERR(core->bus_clk)) {
-		rc = PTR_ERR(core->bus_clk);
-		pr_err("failed to get bus_clk, rc=%d\n", rc);
-		goto fail;
+		core->bus_clk = NULL;
+		pr_debug("failed to get bus_clk, rc=%d\n", rc);
 	}
 
 	core->mnoc_clk = devm_clk_get(&pdev->dev, "mnoc_clk");
