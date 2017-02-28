@@ -2676,7 +2676,7 @@
 
 		qcom,ep-latency = <10>;
 
-		qcom,ep-wakeirq;
+		qcom,boot-option = <0x1>;
 
 		linux,pci-domain = <0>;
 
