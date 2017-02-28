@@ -96,7 +96,6 @@ enum {
 #define SLIMBUS_2_TX_TEXT "SLIMBUS_2_TX"
 #define SLIMBUS_3_TX_TEXT "SLIMBUS_3_TX"
 #define SLIMBUS_4_TX_TEXT "SLIMBUS_4_TX"
-#define SLIMBUS_TX_VI_TEXT "SLIMBUS_TX_VI"
 #define SLIMBUS_5_TX_TEXT "SLIMBUS_5_TX"
 #define TERT_MI2S_TX_TEXT "TERT_MI2S_TX"
 #define QUAT_MI2S_TX_TEXT "QUAT_MI2S_TX"
@@ -109,7 +108,7 @@ static const char * const lsm_port_text[] = {
 	SLIMBUS_0_TX_TEXT, SLIMBUS_1_TX_TEXT, SLIMBUS_2_TX_TEXT,
 	SLIMBUS_3_TX_TEXT, SLIMBUS_4_TX_TEXT, SLIMBUS_5_TX_TEXT,
 	TERT_MI2S_TX_TEXT, QUAT_MI2S_TX_TEXT, ADM_LSM_TX_TEXT,
-	INT3_MI2S_TX_TEXT, SLIMBUS_TX_VI_TEXT
+	INT3_MI2S_TX_TEXT
 };
 
 struct msm_pcm_route_bdai_pp_params {
@@ -144,9 +143,6 @@ static int msm_routing_get_bit_width(unsigned int format)
 	int bit_width;
 
 	switch (format) {
-	case SNDRV_PCM_FORMAT_S32_LE:
-		bit_width = 32;
-		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 	case SNDRV_PCM_FORMAT_S24_3LE:
 		bit_width = 24;
@@ -538,7 +534,6 @@ struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 	  LPASS_BE_INT6_MI2S_RX},
 	{ AFE_PORT_ID_INT6_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
 	  LPASS_BE_INT6_MI2S_TX},
-	{ SLIMBUS_TX_VI, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_TX_VI},
 };
 
 /* Track ASM playback & capture sessions of DAI
@@ -5679,9 +5674,6 @@ static const struct snd_kcontrol_new mmul1_mixer_controls[] = {
 		MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
 		msm_routing_put_audio_mixer),
 	SOC_SINGLE_EXT("SLIM_4_TX", MSM_BACKEND_DAI_SLIMBUS_4_TX,
-		MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
-		msm_routing_put_audio_mixer),
-	SOC_SINGLE_EXT("SLIM_TX_VI", MSM_BACKEND_DAI_SLIMBUS_TX_VI,
 		MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
 		msm_routing_put_audio_mixer),
 	SOC_SINGLE_EXT("SLIM_6_TX", MSM_BACKEND_DAI_SLIMBUS_6_TX,
@@ -10994,8 +10986,6 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 				0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("SLIMBUS_4_TX", "Slimbus4 Capture",
 				0, 0, 0, 0),
-	SND_SOC_DAPM_AIF_IN("SLIMBUS_TX_VI", "Slimbus VI Capture",
-				0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("SENARY_TX", "Senary_mi2s Capture",
 				0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("INT5_MI2S_TX", "INT5 MI2S Capture",
@@ -11759,7 +11749,6 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MultiMedia4 Mixer", "VOC_REC_DL", "INCALL_RECORD_RX"},
 	{"MultiMedia8 Mixer", "VOC_REC_DL", "INCALL_RECORD_RX"},
 	{"MultiMedia1 Mixer", "SLIM_4_TX", "SLIMBUS_4_TX"},
-	{"MultiMedia1 Mixer", "SLIM_TX_VI", "SLIMBUS_TX_VI"},
 	{"MultiMedia1 Mixer", "SLIM_6_TX", "SLIMBUS_6_TX"},
 	{"MultiMedia1 Mixer", "SLIM_7_TX", "SLIMBUS_7_TX"},
 	{"MultiMedia1 Mixer", "SLIM_8_TX", "SLIMBUS_8_TX"},
@@ -13921,7 +13910,6 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SLIMBUS_1_TX", NULL, "BE_IN" },
 	{"SLIMBUS_3_TX", NULL, "BE_IN" },
 	{"SLIMBUS_4_TX", NULL, "BE_IN" },
-	{"SLIMBUS_TX_VI", NULL, "BE_IN" },
 	{"SLIMBUS_5_TX", NULL, "BE_IN" },
 	{"SLIMBUS_6_TX", NULL, "BE_IN" },
 	{"SLIMBUS_7_TX", NULL, "BE_IN" },
