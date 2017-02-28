@@ -1,5 +1,3 @@
-obj-$(CONFIG_QPNP_SMBCHARGER)	+= qpnp-smbcharger.o batterydata-lib.o pmic-voter.o
-obj-$(CONFIG_QPNP_FG)		+= qpnp-fg.o
 obj-$(CONFIG_QPNP_FG_GEN3)     += qpnp-fg-gen3.o fg-memif.o fg-util.o
 obj-$(CONFIG_SMB135X_CHARGER)   += smb135x-charger.o pmic-voter.o
 obj-$(CONFIG_SMB1351_USB_CHARGER) += smb1351-charger.o pmic-voter.o battery.o
