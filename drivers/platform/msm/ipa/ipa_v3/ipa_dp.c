@@ -337,7 +337,7 @@ int ipa3_send_one(struct ipa3_sys_context *sys, struct ipa3_desc *desc,
 	int result;
 	u16 sps_flags = SPS_IOVEC_FLAG_EOT;
 	dma_addr_t dma_address;
-	u16 len;
+	u16 len = 0;
 	u32 mem_flag = GFP_ATOMIC;
 
 	if (unlikely(!in_atomic))

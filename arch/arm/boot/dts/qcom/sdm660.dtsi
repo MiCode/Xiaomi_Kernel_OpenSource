@@ -320,10 +320,16 @@
 			reg = <0x0 0x92a00000 0x0 0x1e00000>;
 		};
 
-		cdsp_fw_mem: cdsp_fw_region@94800000 {
+		pil_mba_mem: pil_mba_region@94800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x94800000 0x0 0x600000>;
+			reg = <0x0 0x94800000 0x0 0x200000>;
+		};
+
+		cdsp_fw_mem: cdsp_fw_region@94a00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x94a00000 0x0 0x600000>;
 		};
 
 		venus_fw_mem: venus_fw_region {
@@ -1966,6 +1972,10 @@
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 		status = "ok";
+		qcom,mba-mem@0 {
+			compatible = "qcom,pil-mba-mem";
+			memory-region = <&pil_mba_mem>;
+		};
 	};
 
 	qcom,msm-rtb {
@@ -1991,9 +2001,9 @@
 			reg = <0x10 8>;
 		};
 
-		dload_type@18 {
+		dload_type@1c {
 			compatible = "qcom,msm-imem-dload-type";
-			reg = <0x18 4>;
+			reg = <0x1c 4>;
 		};
 
 		restart_reason@65c {

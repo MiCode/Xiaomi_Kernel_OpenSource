@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,8 @@
 #include <linux/qdsp6v2/apr.h>
 #include <linux/of_device.h>
 #include <linux/sysfs.h>
+#include <linux/workqueue.h>
+
 #include <soc/qcom/subsystem_restart.h>
 
 #define Q6_PIL_GET_DELAY_MS 100
@@ -44,12 +46,13 @@ static struct attribute *attrs[] = {
 	NULL,
 };
 
+static struct work_struct adsp_ldr_work;
 static struct platform_device *adsp_private;
 static void adsp_loader_unload(struct platform_device *pdev);
 
-static void adsp_loader_do(struct platform_device *pdev)
+static void adsp_load_fw(struct work_struct *adsp_ldr_work)
 {
-
+	struct platform_device *pdev = adsp_private;
 	struct adsp_loader_private *priv = NULL;
 
 	const char *adsp_dt = "qcom,adsp-state";
@@ -146,6 +149,11 @@ fail:
 	return;
 }
 
+static void adsp_loader_do(struct platform_device *pdev)
+{
+	dev_info(&pdev->dev, "%s: scheduling work to load ADSP fw\n", __func__);
+	schedule_work(&adsp_ldr_work);
+}
 
 static ssize_t adsp_boot_store(struct kobject *kobj,
 	struct kobj_attribute *attr,
@@ -269,6 +277,8 @@ static int adsp_loader_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "%s: Error in initing sysfs\n", __func__);
 		return ret;
 	}
+
+	INIT_WORK(&adsp_ldr_work, adsp_load_fw);
 
 	return 0;
 }

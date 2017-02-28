@@ -69,6 +69,8 @@ int notrace unwind_frame(struct task_struct *tsk, struct stackframe *frame)
 	frame->fp = *(unsigned long *)(fp);
 	frame->pc = *(unsigned long *)(fp + 8);
 
+	kasan_enable_current();
+
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 	if (tsk && tsk->ret_stack &&
 			(frame->pc == (unsigned long)return_to_handler)) {
@@ -111,8 +113,6 @@ int notrace unwind_frame(struct task_struct *tsk, struct stackframe *frame)
 			return -EINVAL;
 		}
 	}
-
-	kasan_enable_current();
 
 	return 0;
 }
