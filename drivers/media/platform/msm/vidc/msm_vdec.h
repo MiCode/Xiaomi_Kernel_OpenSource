@@ -24,8 +24,6 @@ int msm_vdec_s_fmt(void *instance, struct v4l2_format *f);
 int msm_vdec_g_fmt(void *instance, struct v4l2_format *f);
 int msm_vdec_s_ext_ctrl(void *instance, struct v4l2_ext_controls *a);
 int msm_vdec_reqbufs(void *instance, struct v4l2_requestbuffers *b);
-int msm_vdec_prepare_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b);
-int msm_vdec_release_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b);
 int msm_vdec_qbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b);
 int msm_vdec_dqbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b);
 int msm_vdec_streamon(struct msm_vidc_inst *inst, enum v4l2_buf_type i);
