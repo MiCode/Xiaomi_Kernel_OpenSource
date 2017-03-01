@@ -664,7 +664,7 @@ int rpmh_flush(struct rpmh_client *rc)
 
 	spin_lock(&rpm->lock);
 	if (!rpm->dirty) {
-		pr_info("Skipping flush, TCS has latest data.\n");
+		pr_debug("Skipping flush, TCS has latest data.\n");
 		spin_unlock(&rpm->lock);
 		return 0;
 	}
