@@ -1063,15 +1063,16 @@ static void msm_nand_update_rw_reg_data(struct msm_nand_chip *chip,
 
 	} else {
 		if (ops->mode != MTD_OPS_RAW) {
+			data->cmd = MSM_NAND_CMD_PRG_PAGE;
 			data->cfg0 = chip->cfg0;
 			data->cfg1 = chip->cfg1;
 			data->ecc_bch_cfg = chip->ecc_bch_cfg;
 		} else {
+			data->cmd = MSM_NAND_CMD_PRG_PAGE_ALL;
 			data->cfg0 = chip->cfg0_raw;
 			data->cfg1 = chip->cfg1_raw;
 			data->ecc_bch_cfg = chip->ecc_cfg_raw;
 		}
-		data->cmd = MSM_NAND_CMD_PRG_PAGE;
 		data->clrfstatus = MSM_NAND_RESET_FLASH_STS;
 		data->clrrstatus = MSM_NAND_RESET_READ_STS;
 	}
