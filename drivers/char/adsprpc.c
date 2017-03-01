@@ -58,6 +58,7 @@
 #define ADSP_MMAP_HEAP_ADDR 4
 #define FASTRPC_ENOSUCH 39
 #define VMID_SSC_Q6     5
+#define VMID_ADSP_Q6    6
 
 #define RPC_TIMEOUT	(5 * HZ)
 #define BALIGN		128
@@ -263,7 +264,6 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.subsys = "dsps",
 		.channel = SMD_APPS_DSPS,
 		.edge = "dsps",
-		.vmid = VMID_SSC_Q6,
 	},
 	{
 		.name = "mdsprpc-smd",
@@ -2356,6 +2356,11 @@ static int fastrpc_probe(struct platform_device *pdev)
 	int err = 0;
 	struct fastrpc_apps *me = &gfa;
 	struct device *dev = &pdev->dev;
+	struct smq_phy_page range;
+	struct device_node *ion_node, *node;
+	struct platform_device *ion_pdev;
+	struct cma *cma;
+	uint32_t val;
 
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-compute-cb"))
@@ -2380,6 +2385,39 @@ static int fastrpc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-mdsprpc-mem-region")) {
 		me->modem_cma_dev = dev;
+		range.addr = 0;
+		ion_node = of_find_compatible_node(NULL, NULL, "qcom,msm-ion");
+		if (ion_node) {
+			for_each_available_child_of_node(ion_node, node) {
+				if (of_property_read_u32(node, "reg", &val))
+					continue;
+				if (val != ION_ADSP_HEAP_ID)
+					continue;
+				ion_pdev = of_find_device_by_node(node);
+				if (!ion_pdev)
+					break;
+				cma = dev_get_cma_area(&ion_pdev->dev);
+				if (cma) {
+					range.addr = cma_get_base(cma);
+					range.size = (size_t)cma_get_size(cma);
+				}
+				break;
+			}
+		}
+		if (range.addr) {
+			int srcVM[1] = {VMID_HLOS};
+			int destVM[4] = {VMID_HLOS, VMID_MSS_MSA, VMID_SSC_Q6,
+					VMID_ADSP_Q6};
+			int destVMperm[4] = {PERM_READ | PERM_WRITE | PERM_EXEC,
+					PERM_READ | PERM_WRITE | PERM_EXEC,
+					PERM_READ | PERM_WRITE | PERM_EXEC,
+					PERM_READ | PERM_WRITE | PERM_EXEC,
+					};
+			VERIFY(err, !hyp_assign_phys(range.addr, range.size,
+					srcVM, 1, destVM, destVMperm, 4));
+			if (err)
+				goto bail;
+		}
 		return 0;
 	}
 

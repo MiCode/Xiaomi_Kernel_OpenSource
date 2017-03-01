@@ -722,6 +722,21 @@
 			};
 		};
 
+		pri_mi2s_mclk_b_lines {
+			pri_mi2s_mclk_b_default: pri_mi2s_mclk_default {
+				mux {
+					pins = "gpio69";
+					function = "pri_mi2s_mclk_b";
+				};
+				config {
+					pins = "gpio69";
+					drive-strength = <8>;
+					bias-disable;
+					input-enable;
+				};
+			};
+		};
+
 		sec_mi2s_mclk_a_lines {
 			sec_mi2s_mclk_a_active: sec_mi2s_mclk_a_active {
 				mux {

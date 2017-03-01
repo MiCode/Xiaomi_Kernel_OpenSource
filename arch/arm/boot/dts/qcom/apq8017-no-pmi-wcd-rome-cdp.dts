@@ -114,8 +114,8 @@
 		qcom,lpass-mclk-id = "sec_mclk";
 		qcom,codec-mclk-clk-freq = <12288000>;
 		pinctrl-names = "sleep", "active";
-		pinctrl-0 = <&sec_mi2s_mclk_a_sleep>;
-		pinctrl-1 = <&sec_mi2s_mclk_a_active>;
+		pinctrl-0 = <&pri_mi2s_mclk_b_default &sec_mi2s_mclk_a_sleep>;
+		pinctrl-1 = <&pri_mi2s_mclk_b_default &sec_mi2s_mclk_a_active>;
 	};
 };
 

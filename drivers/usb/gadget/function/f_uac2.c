@@ -19,6 +19,7 @@
 #include <linux/workqueue.h>
 
 #include <sound/core.h>
+#include <sound/asound.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 
@@ -94,6 +95,7 @@ struct uac2_rtd_params {
 	unsigned char *dma_area;
 
 	struct snd_pcm_substream *ss;
+	bool is_pcm_open; /* For state information */
 
 	/* Ring buffer */
 	ssize_t hw_ptr;
@@ -452,6 +454,7 @@ static int uac2_pcm_open(struct snd_pcm_substream *substream)
 		runtime->hw.channels_min = num_channels(p_chmask);
 		runtime->hw.period_bytes_min = 2 * uac2->p_prm.max_psize
 						/ runtime->hw.periods_min;
+		uac2->p_prm.is_pcm_open = 1;
 	} else {
 		if (audio_dev->as_out_alt == 0) {
 			pr_err("%s: Host has not started the streaming\n",
@@ -487,6 +490,7 @@ static int uac2_pcm_open(struct snd_pcm_substream *substream)
 		runtime->hw.channels_min = num_channels(c_chmask);
 		runtime->hw.period_bytes_min = 2 * uac2->c_prm.max_psize
 						/ runtime->hw.periods_min;
+		uac2->c_prm.is_pcm_open = 1;
 	}
 
 	runtime->hw.rate_max = runtime->hw.rate_min;
@@ -503,9 +507,20 @@ static int uac2_pcm_null(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+static int uac2_pcm_close(struct snd_pcm_substream *substream)
+{
+	struct snd_uac2_chip *uac2 = snd_pcm_substream_chip(substream);
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		uac2->p_prm.is_pcm_open = 0;
+	else
+		uac2->c_prm.is_pcm_open = 0;
+	return 0;
+}
+
 static struct snd_pcm_ops uac2_pcm_ops = {
 	.open = uac2_pcm_open,
-	.close = uac2_pcm_null,
+	.close = uac2_pcm_close,
 	.ioctl = snd_pcm_lib_ioctl,
 	.hw_params = uac2_pcm_hw_params,
 	.hw_free = uac2_pcm_hw_free,
@@ -1762,6 +1777,9 @@ afunc_set_alt(struct usb_function *fn, unsigned intf, unsigned alt)
 			queue_delayed_work(agdev->uevent_wq, &agdev->c_work,
 					UAC2_UEVENT_DELAY);
 		} else {
+			if (prm->is_pcm_open)
+				snd_pcm_stop(prm->ss,
+						SNDRV_PCM_STATE_DISCONNECTED);
 			pr_debug("%s: scheduling disconnect c_uevent_work\n",
 					__func__);
 			queue_delayed_work(agdev->uevent_wq,
@@ -1802,6 +1820,9 @@ afunc_set_alt(struct usb_function *fn, unsigned intf, unsigned alt)
 			queue_delayed_work(agdev->uevent_wq, &agdev->p_work,
 					UAC2_UEVENT_DELAY);
 		} else {
+			if (prm->is_pcm_open)
+				snd_pcm_stop(prm->ss,
+						SNDRV_PCM_STATE_DISCONNECTED);
 			pr_debug("%s: scheduling disconnect p_uevent_work\n",
 					__func__);
 			queue_delayed_work(agdev->uevent_wq,
@@ -1888,9 +1909,13 @@ afunc_disable(struct usb_function *fn)
 	queue_work(agdev->uevent_wq, &agdev->disconnect_work);
 	free_ep(&uac2->p_prm, agdev->in_ep);
 	agdev->as_in_alt = 0;
+	if (uac2->p_prm.is_pcm_open)
+		snd_pcm_stop(uac2->p_prm.ss, SNDRV_PCM_STATE_DISCONNECTED);
 
 	free_ep(&uac2->c_prm, agdev->out_ep);
 	agdev->as_out_alt = 0;
+	if (uac2->c_prm.is_pcm_open)
+		snd_pcm_stop(uac2->c_prm.ss, SNDRV_PCM_STATE_DISCONNECTED);
 }
 
 static int
@@ -2262,9 +2287,13 @@ static void afunc_unbind(struct usb_configuration *c, struct usb_function *f)
 	alsa_uac2_exit(agdev);
 
 	prm = &agdev->uac2.p_prm;
+	if (prm->is_pcm_open)
+		snd_pcm_stop(prm->ss, SNDRV_PCM_STATE_DISCONNECTED);
 	kfree(prm->rbuf);
 
 	prm = &agdev->uac2.c_prm;
+	if (prm->is_pcm_open)
+		snd_pcm_stop(prm->ss, SNDRV_PCM_STATE_DISCONNECTED);
 	kfree(prm->rbuf);
 	usb_free_all_descriptors(f);
 

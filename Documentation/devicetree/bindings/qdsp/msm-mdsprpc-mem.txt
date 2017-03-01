@@ -13,3 +13,12 @@ Example:
 		compatible = "qcom,msm-mdsprpc-mem-region";
 		memory-region = <&mdsp_mem>;
 	};
+
+Ion Heap:
+
+Ion heap allows for sharing of buffers between different processors
+and between user space and kernel space.
+(see Documentation/devicetree/bindings/arm/msm/msm_ion.txt).
+
+Required properties for Ion heap:
+- compatible : "qcom,msm-ion"
