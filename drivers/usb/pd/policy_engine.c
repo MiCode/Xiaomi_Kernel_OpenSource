@@ -665,7 +665,7 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 
 	rx_msg->type = PD_MSG_HDR_TYPE(header);
 	rx_msg->len = PD_MSG_HDR_COUNT(header);
-	memcpy(&rx_msg->payload, buf, len);
+	memcpy(&rx_msg->payload, buf, min(len, sizeof(rx_msg->payload)));
 
 	spin_lock_irqsave(&pd->rx_lock, flags);
 	list_add_tail(&rx_msg->entry, &pd->rx_q);

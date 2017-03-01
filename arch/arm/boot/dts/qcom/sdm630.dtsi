@@ -52,6 +52,7 @@
 			reg = <0x0 0x100>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile0>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			qcom,ea = <&ea0>;
 			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
@@ -80,6 +81,7 @@
 			reg = <0x0 0x101>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile1>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			qcom,ea = <&ea1>;
 			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
@@ -102,6 +104,7 @@
 			reg = <0x0 0x102>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile2>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			qcom,ea = <&ea2>;
 			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
@@ -124,6 +127,7 @@
 			reg = <0x0 0x103>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile3>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			qcom,ea = <&ea3>;
 			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
@@ -146,6 +150,7 @@
 			reg = <0x0 0x0>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			qcom,ea = <&ea4>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -174,6 +179,7 @@
 			reg = <0x0 0x1>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			qcom,ea = <&ea5>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -196,6 +202,7 @@
 			reg = <0x0 0x2>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			qcom,ea = <&ea6>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -218,6 +225,7 @@
 			reg = <0x0 0x3>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			qcom,ea = <&ea7>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -712,6 +720,8 @@
 		qcom,synchronous-cluster-map = <0 4 &CPU4 &CPU5 &CPU6 &CPU7>,
 						<1 4 &CPU0 &CPU1 &CPU2 &CPU3>;
 
+		clock-names = "osm";
+		clocks = <&clock_cpu PERFCL_CLK>;
 		qcom,cxip-lm-enable = <0>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
@@ -1755,9 +1765,9 @@
 			reg = <0x10 8>;
 		};
 
-		dload_type@18 {
+		dload_type@1c {
 			compatible = "qcom,msm-imem-dload-type";
-			reg = <0x18 4>;
+			reg = <0x1c 4>;
 		};
 
 		restart_reason@65c {
@@ -2140,6 +2150,18 @@
 
 &gdsc_gpu_cx {
 	status = "ok";
+};
+
+&clock_cpu {
+	lmh_dcvs0: qcom,limits-dcvs@0 {
+		compatible = "qcom,msm-hw-limits";
+		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	lmh_dcvs1: qcom,limits-dcvs@1 {
+		compatible = "qcom,msm-hw-limits";
+		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
+	};
 };
 
 &blsp2_uart1_hs {
