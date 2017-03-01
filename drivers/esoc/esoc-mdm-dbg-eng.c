@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,7 +179,165 @@ static ssize_t notifier_mask_store(struct device_driver *drv, const char *buf,
 }
 static DRIVER_ATTR(notifier_mask, S_IWUSR, NULL, notifier_mask_store);
 
-int mdm_dbg_eng_init(struct esoc_drv *esoc_drv)
+#ifdef CONFIG_MDM_DBG_REQ_ENG
+static struct esoc_clink *dbg_clink;
+/* Last recorded request from esoc */
+static enum esoc_req last_req;
+static DEFINE_SPINLOCK(req_lock);
+/*
+ * esoc_to_user: Conversion of esoc ids to user visible strings
+ * id: esoc request, command, notifier, event id
+ * str: string equivalent of the above
+ */
+struct esoc_to_user {
+	unsigned int id;
+	char str[20];
+};
+
+static struct esoc_to_user in_to_resp[] = {
+	{
+		.id = ESOC_IMG_XFER_DONE,
+		.str = "XFER_DONE",
+	},
+	{
+		.id = ESOC_BOOT_DONE,
+		.str = "BOOT_DONE",
+	},
+	{
+		.id = ESOC_BOOT_FAIL,
+		.str = "BOOT_FAIL",
+	},
+	{
+		.id = ESOC_IMG_XFER_RETRY,
+		.str = "XFER_RETRY",
+	},
+	{	.id = ESOC_IMG_XFER_FAIL,
+		.str = "XFER_FAIL",
+	},
+	{
+		.id = ESOC_UPGRADE_AVAILABLE,
+		.str = "UPGRADE",
+	},
+	{	.id = ESOC_DEBUG_DONE,
+		.str = "DEBUG_DONE",
+	},
+	{
+		.id = ESOC_DEBUG_FAIL,
+		.str = "DEBUG_FAIL",
+	},
+};
+
+static struct esoc_to_user req_to_str[] = {
+	{
+		.id = ESOC_REQ_IMG,
+		.str = "REQ_IMG",
+	},
+	{
+		.id = ESOC_REQ_DEBUG,
+		.str = "REQ_DEBUG",
+	},
+	{
+		.id = ESOC_REQ_SHUTDOWN,
+		.str = "REQ_SHUTDOWN",
+	},
+};
+
+static ssize_t req_eng_resp_store(struct device_driver *drv, const char *buf,
+							size_t count)
+{
+	unsigned int i;
+	const struct esoc_clink_ops *const clink_ops = dbg_clink->clink_ops;
+
+	dev_dbg(&dbg_clink->dev, "user input req eng response %s\n", buf);
+	for (i = 0; i < ARRAY_SIZE(in_to_resp); i++) {
+		size_t len1 = strlen(buf);
+		size_t len2 = strlen(in_to_resp[i].str);
+
+		if (len1 == len2 && !strcmp(buf, in_to_resp[i].str)) {
+			clink_ops->notify(in_to_resp[i].id, dbg_clink);
+			break;
+		}
+	}
+	if (i > ARRAY_SIZE(in_to_resp))
+		dev_err(&dbg_clink->dev, "Invalid resp %s, specified\n", buf);
+	return count;
+}
+
+static DRIVER_ATTR(req_eng_resp, S_IWUSR, NULL, req_eng_resp_store);
+
+static ssize_t last_esoc_req_show(struct device_driver *drv, char *buf)
+{
+	unsigned int i;
+	unsigned long flags;
+	size_t count;
+
+	spin_lock_irqsave(&req_lock, flags);
+	for (i = 0; i < ARRAY_SIZE(req_to_str); i++) {
+		if (last_req == req_to_str[i].id) {
+			count = snprintf(buf, PAGE_SIZE, "%s\n",
+					req_to_str[i].str);
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&req_lock, flags);
+	return count;
+}
+static DRIVER_ATTR(last_esoc_req, S_IRUSR, last_esoc_req_show, NULL);
+
+static void esoc_handle_req(enum esoc_req req, struct esoc_eng *eng)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&req_lock, flags);
+	last_req = req;
+	spin_unlock_irqrestore(&req_lock, flags);
+}
+
+static void esoc_handle_evt(enum esoc_evt evt, struct esoc_eng *eng)
+{
+}
+
+static struct esoc_eng dbg_req_eng = {
+	.handle_clink_req = esoc_handle_req,
+	.handle_clink_evt = esoc_handle_evt,
+};
+
+int register_dbg_req_eng(struct esoc_clink *clink,
+					struct device_driver *drv)
+{
+	int ret;
+
+	dbg_clink = clink;
+	ret = driver_create_file(drv, &driver_attr_req_eng_resp);
+	if (ret)
+		return ret;
+	ret = driver_create_file(drv, &driver_attr_last_esoc_req);
+	if (ret) {
+		dev_err(&clink->dev, "Unable to create last esoc req\n");
+		goto last_req_err;
+	}
+	ret = esoc_clink_register_req_eng(clink, &dbg_req_eng);
+	if (ret) {
+		pr_err("Unable to register req eng\n");
+		goto req_eng_fail;
+	}
+	spin_lock_init(&req_lock);
+	return 0;
+last_req_err:
+	driver_remove_file(drv, &driver_attr_last_esoc_req);
+req_eng_fail:
+	driver_remove_file(drv, &driver_attr_req_eng_resp);
+	return ret;
+}
+#else
+int register_dbg_req_eng(struct esoc_clink *clink, struct device_driver *d)
+{
+	return 0;
+}
+#endif
+
+int mdm_dbg_eng_init(struct esoc_drv *esoc_drv,
+			struct esoc_clink *clink)
 {
 	int ret;
 	struct device_driver *drv = &esoc_drv->driver;
@@ -194,7 +352,14 @@ int mdm_dbg_eng_init(struct esoc_drv *esoc_drv)
 		pr_err("Unable to create notify mask file\n");
 		goto notify_mask_err;
 	}
+	ret = register_dbg_req_eng(clink, drv);
+	if (ret) {
+		pr_err("Failed to register esoc dbg req eng\n");
+		goto dbg_req_fail;
+	}
 	return 0;
+dbg_req_fail:
+	driver_remove_file(drv, &driver_attr_notifier_mask);
 notify_mask_err:
 	driver_remove_file(drv, &driver_attr_command_mask);
 cmd_mask_err:
