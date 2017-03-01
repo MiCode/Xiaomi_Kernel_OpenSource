@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,8 @@ static int replicator_enable(struct coresight_device *csdev, int inport,
 {
 	struct replicator_state *drvdata = dev_get_drvdata(csdev->dev.parent);
 
+	pm_runtime_get_sync(drvdata->dev);
+
 	CS_UNLOCK(drvdata->base);
 
 	/*
@@ -83,6 +85,7 @@ static void replicator_disable(struct coresight_device *csdev, int inport,
 
 	CS_LOCK(drvdata->base);
 
+	pm_runtime_put(drvdata->dev);
 	dev_info(drvdata->dev, "REPLICATOR disabled\n");
 }
 
