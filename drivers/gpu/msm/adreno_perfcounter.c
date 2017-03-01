@@ -719,7 +719,8 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 		*cmds++ = cp_register(adreno_dev, reg->select, 1);
 		*cmds++ = countable;
 		/* submit to highest priority RB always */
-		ret = adreno_ringbuffer_issuecmds(rb, 0, buf, cmds-buf);
+		ret = adreno_ringbuffer_issuecmds(rb, KGSL_CMD_FLAGS_PMODE,
+						buf, cmds-buf);
 		if (ret)
 			return ret;
 		/*
