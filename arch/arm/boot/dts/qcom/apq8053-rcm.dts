@@ -52,5 +52,7 @@
 
 	config {
 		pins = "gpio85", "gpio86", "gpio87";
+		/delete-property/ bias-pull-up;
+		bias-pull-down;
 	};
 };
