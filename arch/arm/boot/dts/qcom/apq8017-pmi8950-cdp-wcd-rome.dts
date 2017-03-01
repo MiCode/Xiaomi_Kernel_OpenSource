@@ -98,6 +98,10 @@
 		pinctrl-0 = <&adv7533_int_active>;
 		pinctrl-1 = <&adv7533_int_suspend>;
 	};
+
+	pericom-type-c@1d {
+		status = "disabled";
+	};
 };
 
 &mdss_dsi {
