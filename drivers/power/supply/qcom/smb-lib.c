@@ -474,6 +474,36 @@ int smblib_set_dc_suspend(struct smb_charger *chg, bool suspend)
 	return rc;
 }
 
+static int smblib_set_adapter_allowance(struct smb_charger *chg,
+					u8 allowed_voltage)
+{
+	int rc = 0;
+
+	switch (allowed_voltage) {
+	case USBIN_ADAPTER_ALLOW_12V:
+	case USBIN_ADAPTER_ALLOW_5V_OR_12V:
+	case USBIN_ADAPTER_ALLOW_9V_TO_12V:
+	case USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V:
+	case USBIN_ADAPTER_ALLOW_5V_TO_12V:
+		/* PM660 only support max. 9V */
+		if (chg->smb_version == PM660_SUBTYPE) {
+			smblib_dbg(chg, PR_MISC, "voltage not supported=%d\n",
+					allowed_voltage);
+			allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_9V;
+		}
+		break;
+	}
+
+	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG, allowed_voltage);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't write 0x%02x to USBIN_ADAPTER_ALLOW_CFG rc=%d\n",
+			allowed_voltage, rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 #define MICRO_5V	5000000
 #define MICRO_9V	9000000
 #define MICRO_12V	12000000
@@ -504,10 +534,10 @@ static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 		return -EINVAL;
 	}
 
-	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG, allowed_voltage);
+	rc = smblib_set_adapter_allowance(chg, allowed_voltage);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't write 0x%02x to USBIN_ADAPTER_ALLOW_CFG rc=%d\n",
-			allowed_voltage, rc);
+		smblib_err(chg, "Couldn't configure adapter allowance rc=%d\n",
+				rc);
 		return rc;
 	}
 
@@ -650,8 +680,8 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	}
 
 	/* reconfigure allowed voltage for HVDCP */
-	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG,
-			  USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
+	rc = smblib_set_adapter_allowance(chg,
+			USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't set USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V rc=%d\n",
 			rc);
@@ -3405,8 +3435,8 @@ static void typec_source_removal(struct smb_charger *chg)
 	}
 
 	/* reconfigure allowed voltage for HVDCP */
-	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG,
-			  USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
+	rc = smblib_set_adapter_allowance(chg,
+			USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't set USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V rc=%d\n",
 			rc);
