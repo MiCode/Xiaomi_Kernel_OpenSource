@@ -361,6 +361,26 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	if (new_level == old_level)
 		return;
 
+	if (pwr->gpu_cx_ipeak) {
+		unsigned int old_freq = pwr->pwrlevels[old_level].gpu_freq;
+		unsigned int new_freq = pwr->pwrlevels[new_level].gpu_freq;
+
+		/*
+		 * Set Cx ipeak vote for GPU if it tries to cross
+		 * threshold frequency.
+		 */
+		if (old_freq < pwr->gpu_cx_ipeak_clk &&
+			new_freq >= pwr->gpu_cx_ipeak_clk) {
+			int ret = cx_ipeak_update(pwr->gpu_cx_ipeak, true);
+
+			if (ret) {
+				KGSL_PWR_ERR(device,
+					"cx_ipeak_update failed %d\n", ret);
+				return;
+			}
+		}
+	}
+
 	kgsl_pwrscale_update_stats(device);
 
 	/*
@@ -422,6 +442,24 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 
 	/* Timestamp the frequency change */
 	device->pwrscale.freq_change_time = ktime_to_ms(ktime_get());
+
+	if (pwr->gpu_cx_ipeak) {
+		unsigned int old_freq = pwr->pwrlevels[old_level].gpu_freq;
+		unsigned int new_freq = pwr->pwrlevels[new_level].gpu_freq;
+
+		/*
+		 * Reset Cx ipeak vote for GPU if it goes below
+		 * threshold frequency.
+		 */
+		if (old_freq >= pwr->gpu_cx_ipeak_clk &&
+			new_freq < pwr->gpu_cx_ipeak_clk) {
+			int ret = cx_ipeak_update(pwr->gpu_cx_ipeak, false);
+
+			if (ret)
+				KGSL_PWR_ERR(device,
+					"cx_ipeak_update failed %d\n", ret);
+		}
+	}
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_pwrlevel_change);
 
@@ -2217,8 +2255,37 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	of_property_read_string(pdev->dev.of_node, "qcom,tsens-name",
 		&pwr->tsens_name);
 
+	/* Cx ipeak client support */
+	if (of_find_property(pdev->dev.of_node, "qcom,gpu-cx-ipeak", NULL)) {
+		if (!of_property_read_u32(pdev->dev.of_node,
+			"qcom,gpu-cx-ipeak-clk", &pwr->gpu_cx_ipeak_clk)) {
+			pwr->gpu_cx_ipeak = cx_ipeak_register(pdev->dev.of_node,
+						"qcom,gpu-cx-ipeak");
+		} else {
+			KGSL_PWR_ERR(device, "failed to get gpu cxip clk\n");
+			result = -EINVAL;
+			goto error_cleanup_pwr_limit;
+		}
+
+		if (IS_ERR(pwr->gpu_cx_ipeak)) {
+			result = PTR_ERR(pwr->gpu_cx_ipeak);
+			KGSL_PWR_ERR(device,
+				"Failed to register Cx ipeak client %d\n",
+				result);
+			goto error_cleanup_pwr_limit;
+		}
+	}
 	return result;
 
+error_cleanup_pwr_limit:
+	pwr->power_flags = 0;
+
+	if (!IS_ERR_OR_NULL(pwr->sysfs_pwr_limit)) {
+		list_del(&pwr->sysfs_pwr_limit->node);
+		kfree(pwr->sysfs_pwr_limit);
+		pwr->sysfs_pwr_limit = NULL;
+	}
+	kfree(pwr->bus_ib);
 error_cleanup_pcl:
 	_close_pcl(pwr);
 error_cleanup_ocmem_pcl:
@@ -2237,6 +2304,8 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	KGSL_PWR_INFO(device, "close device %d\n", device->id);
+
+	cx_ipeak_unregister(pwr->gpu_cx_ipeak);
 
 	pwr->power_flags = 0;
 
