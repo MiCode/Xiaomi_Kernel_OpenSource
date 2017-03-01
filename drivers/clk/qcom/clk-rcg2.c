@@ -378,6 +378,7 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 	const struct freq_tbl *f;
+	int ret;
 
 	f = qcom_find_freq(rcg->freq_tbl, rate);
 	if (!f)
@@ -392,7 +393,13 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 		return 0;
 	}
 
-	return clk_rcg2_configure(rcg, f);
+	ret = clk_rcg2_configure(rcg, f);
+	if (ret)
+		return ret;
+
+	/* Update current frequency with the requested frequency. */
+	rcg->current_freq = rate;
+	return ret;
 }
 
 static int clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -410,7 +417,7 @@ static int clk_rcg2_set_rate_and_parent(struct clk_hw *hw,
 static int clk_rcg2_enable(struct clk_hw *hw)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-	unsigned long rate = clk_get_rate(hw->clk);
+	unsigned long rate;
 	const struct freq_tbl *f;
 
 	if (!rcg->enable_safe_config)
@@ -424,6 +431,7 @@ static int clk_rcg2_enable(struct clk_hw *hw)
 	 * is always on while APPS is online. Therefore, the RCG can safely be
 	 * switched.
 	 */
+	rate = rcg->current_freq;
 	f = qcom_find_freq(rcg->freq_tbl, rate);
 	if (!f)
 		return -EINVAL;
