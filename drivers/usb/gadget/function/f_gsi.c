@@ -672,25 +672,27 @@ static void ipa_work_handler(struct work_struct *w)
 				break;
 			}
 
+			/*
+			 * Update desc and reconfigure USB GSI OUT and IN
+			 * endpoint for RNDIS Adaptor enable case.
+			 */
 			if (d_port->out_ep && !d_port->out_ep->desc &&
 					gsi->out_ep_desc_backup) {
 				d_port->out_ep->desc = gsi->out_ep_desc_backup;
 				d_port->out_ep->ep_intr_num = 1;
+				log_event_dbg("%s: OUT ep_op_config", __func__);
+				usb_gsi_ep_op(d_port->out_ep,
+					&d_port->out_request, GSI_EP_OP_CONFIG);
 			}
 
 			if (d_port->in_ep && !d_port->in_ep->desc &&
 					gsi->in_ep_desc_backup) {
 				d_port->in_ep->desc = gsi->in_ep_desc_backup;
 				d_port->in_ep->ep_intr_num = 2;
-			}
-
-			if (d_port->out_ep)
-				usb_gsi_ep_op(d_port->out_ep,
-					&d_port->out_request, GSI_EP_OP_CONFIG);
-
-			if (d_port->in_ep)
+				log_event_dbg("%s: IN ep_op_config", __func__);
 				usb_gsi_ep_op(d_port->in_ep,
 					&d_port->in_request, GSI_EP_OP_CONFIG);
+			}
 
 			ipa_connect_channels(d_port);
 			ipa_data_path_enable(d_port);
