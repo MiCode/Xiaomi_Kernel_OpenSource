@@ -66,6 +66,40 @@ Optional properties when qcom,actuator-type is "lra"
 			"none", "opt1", "opt2" and "opt3" (default)
  - qcom,lra-res-cal-period : Auto resonance calibration period. The values range from
 			4 to 32(default)
+ - qcom,perform-lra-auto-resonance-search : boolean, define this property if:
+		a) the underlying PMI chip does not have a register in the MISC block to
+		read the error percentage in RC clock
+		b) the actuator type is LRA
+		Defining this causes the auto resonance search algorithm to be be performed
+		for such devices.
+		c) This property is not defined by default.
+
+- qcom,drive-period-code-max-limit-percent-variation: RATE_CFG1 and RATE_CFG2 registers will
+			be updated with the values from AUTO_RES_LO and AUTO_RES_HI registers
+			only if the variation from the resonant frequency is within the value
+			mentioned by this property on the higher side.
+			The default value is 25, which means if the drive period code resulting
+			from AUTO_RES register's is more than 25 percent of the existing drive
+			period code, then driver does not update RATE_CFG registers.
+- qcom,drive-period-code-min-limit-percent-variation: RATE_CFG1 and RATE_CFG2 registers will
+			be updated with the values from AUTO_RES_LO and AUTO_RES_HI registers
+			only if the variation from the resonant frequency is within the value
+			mentioned by this property on the lower side.
+                        The default value is 25, which means if the drive period code resulting
+                        from AUTO_RES register's is less than 25 percent of the existing drive
+                        period code, then driver does not update RATE_CFG registers.
+
+Optional properties when qcom,lra-auto-res-mode is "qwd"
+ - qcom,time-required-to-generate-back-emf-us: Time period required to generate sufficient
+			back-emf (in case of QWD mode only) in us. For auto resonance
+			detection to work properly,sufficient back-emf has to be
+			generated. In general, back-emf takes some time to build up.
+			When the auto resonance  mode is chosen as QWD, high-z will
+			be applied for every LRA cycle and hence there won't be
+			enough back-emf at the start-up. So we need to drive the
+			motor for a few LRA cycles. Hence, auto resonance detection
+			is enabled after this delay period after the PLAY bit is
+			asserted. The default value is 20000us.
 
 Example:
 		qcom,haptic@c000 {
@@ -94,4 +128,5 @@ Example:
 			qcom,lra-high-z = "opt1";
 			qcom,lra-auto-res-mode = "qwd";
 			qcom,lra-res-cal-period = <4>;
+			qcom,time-required-to-generate-back-emf-us = <20000>;
 		};
