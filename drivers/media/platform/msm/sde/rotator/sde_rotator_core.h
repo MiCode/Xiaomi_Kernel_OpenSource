@@ -686,6 +686,14 @@ int sde_rotator_validate_request(struct sde_rot_mgr *rot_dev,
 int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable);
 
 /*
+ * sde_rotator_cancel_all_requests - cancel all outstanding requests
+ * @mgr: Pointer to rotator manager
+ * @private: Pointer to rotator manager per file context
+ */
+void sde_rotator_cancel_all_requests(struct sde_rot_mgr *mgr,
+	struct sde_rot_file_private *private);
+
+/*
  * sde_rot_mgr_lock - serialization lock prior to rotator manager calls
  * @mgr: Pointer to rotator manager
  */

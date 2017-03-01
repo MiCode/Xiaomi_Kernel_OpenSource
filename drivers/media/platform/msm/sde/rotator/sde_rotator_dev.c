@@ -450,11 +450,15 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 			list_empty(&ctx->pending_list),
 			msecs_to_jiffies(rot_dev->streamoff_timeout));
 	mutex_lock(q->lock);
-	if (!ret)
+	if (!ret) {
 		SDEDEV_ERR(rot_dev->dev,
 				"timeout to stream off s:%d t:%d p:%d\n",
 				ctx->session_id, q->type,
 				!list_empty(&ctx->pending_list));
+		sde_rot_mgr_lock(rot_dev->mgr);
+		sde_rotator_cancel_all_requests(rot_dev->mgr, ctx->private);
+		sde_rot_mgr_unlock(rot_dev->mgr);
+	}
 
 	sde_rotator_return_all_buffers(q, VB2_BUF_STATE_ERROR);
 
