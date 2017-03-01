@@ -58,3 +58,10 @@
 		status = "disabled";
 	};
 };
+
+&gpio_key_suspend {
+	config {
+		/delete-property/ bias-pull-up;
+		bias-pull-down;
+	};
+};
