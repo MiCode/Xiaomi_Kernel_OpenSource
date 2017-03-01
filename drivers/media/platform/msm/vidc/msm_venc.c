@@ -1789,7 +1789,7 @@ unknown_value:
 	return -EINVAL;
 }
 
-static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
+int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
 	struct hal_request_iframe request_iframe;
@@ -2627,7 +2627,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	return rc;
 }
 
-static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
+int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 	struct v4l2_ext_controls *ctrl)
 {
 	int rc = 0, i;
@@ -2780,63 +2780,6 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	return rc;
 }
 
-static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
-{
-
-	int rc = 0, c = 0;
-
-	struct msm_vidc_inst *inst = container_of(ctrl->handler,
-					struct msm_vidc_inst, ctrl_handler);
-
-	if (!inst) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-
-	rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
-
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to move inst: %pK to start done state\n", inst);
-		goto failed_open_done;
-	}
-
-	for (c = 0; c < ctrl->ncontrols; ++c) {
-		if (ctrl->cluster[c]->is_new) {
-			struct v4l2_ctrl *temp = ctrl->cluster[c];
-
-			rc = try_set_ctrl(inst, temp);
-			if (rc) {
-				dprintk(VIDC_ERR, "Failed setting %s (%x)\n",
-						v4l2_ctrl_get_name(temp->id),
-						temp->id);
-				break;
-			}
-		}
-	}
-failed_open_done:
-	if (rc)
-		dprintk(VIDC_ERR, "Failed setting control: %x (%s)",
-				ctrl->id, v4l2_ctrl_get_name(ctrl->id));
-	return rc;
-}
-
-static int msm_venc_op_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
-{
-	return 0;
-}
-
-static const struct v4l2_ctrl_ops msm_venc_ctrl_ops = {
-
-	.s_ctrl = msm_venc_op_s_ctrl,
-	.g_volatile_ctrl = msm_venc_op_g_volatile_ctrl,
-};
-
-const struct v4l2_ctrl_ops *msm_venc_get_ctrl_ops(void)
-{
-	return &msm_venc_ctrl_ops;
-}
-
 int msm_venc_inst_init(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -2860,43 +2803,12 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->prop.fps = DEFAULT_FPS;
 	inst->capability.pixelprocess_capabilities = 0;
 	inst->operating_rate = 0;
+
 	memcpy(&inst->fmts[CAPTURE_PORT], &venc_formats[4],
 			sizeof(struct msm_vidc_format));
 	memcpy(&inst->fmts[OUTPUT_PORT], &venc_formats[0],
 			sizeof(struct msm_vidc_format));
 	return rc;
-}
-
-int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
-	struct v4l2_ext_controls *ctrl)
-{
-	int rc = 0;
-
-	rc = try_set_ext_ctrl(inst, ctrl);
-	if (rc) {
-		dprintk(VIDC_ERR, "Error setting extended control\n");
-		return rc;
-	}
-	return rc;
-}
-
-int msm_venc_querycap(struct msm_vidc_inst *inst, struct v4l2_capability *cap)
-{
-	if (!inst || !cap) {
-		dprintk(VIDC_ERR,
-			"Invalid input, inst = %pK, cap = %pK\n", inst, cap);
-		return -EINVAL;
-	}
-	strlcpy(cap->driver, MSM_VIDC_DRV_NAME, sizeof(cap->driver));
-	strlcpy(cap->card, MSM_VENC_DVC_NAME, sizeof(cap->card));
-	cap->bus_info[0] = 0;
-	cap->version = MSM_VIDC_VERSION;
-	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE_MPLANE |
-						V4L2_CAP_VIDEO_OUTPUT_MPLANE |
-						V4L2_CAP_STREAMING;
-	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
-	memset(cap->reserved, 0, sizeof(cap->reserved));
-	return 0;
 }
 
 int msm_venc_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
@@ -3186,111 +3098,9 @@ int msm_venc_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	return rc;
 }
 
-int msm_venc_reqbufs(struct msm_vidc_inst *inst, struct v4l2_requestbuffers *b)
-{
-	struct buf_queue *q = NULL;
-	int rc = 0;
-
-	if (!inst || !b) {
-		dprintk(VIDC_ERR,
-			"Invalid input, inst = %pK, buffer = %pK\n", inst, b);
-		return -EINVAL;
-	}
-	q = msm_comm_get_vb2q(inst, b->type);
-	if (!q) {
-		dprintk(VIDC_ERR,
-		"Failed to find buffer queue for type = %d\n", b->type);
-		return -EINVAL;
-	}
-
-	mutex_lock(&q->lock);
-	rc = vb2_reqbufs(&q->vb2_bufq, b);
-	mutex_unlock(&q->lock);
-	if (rc)
-		dprintk(VIDC_DBG, "Failed to get reqbufs, %d\n", rc);
-	return rc;
-}
-
-int msm_venc_qbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
-{
-	struct buf_queue *q = NULL;
-	int rc = 0;
-
-	q = msm_comm_get_vb2q(inst, b->type);
-	if (!q) {
-		dprintk(VIDC_ERR,
-			"Failed to find buffer queue for type = %d\n", b->type);
-		return -EINVAL;
-	}
-	mutex_lock(&q->lock);
-	rc = vb2_qbuf(&q->vb2_bufq, b);
-	mutex_unlock(&q->lock);
-	if (rc)
-		dprintk(VIDC_ERR, "Failed to qbuf, %d\n", rc);
-	return rc;
-}
-
-int msm_venc_dqbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
-{
-	struct buf_queue *q = NULL;
-	int rc = 0;
-
-	q = msm_comm_get_vb2q(inst, b->type);
-	if (!q) {
-		dprintk(VIDC_ERR,
-			"Failed to find buffer queue for type = %d\n", b->type);
-		return -EINVAL;
-	}
-	mutex_lock(&q->lock);
-	rc = vb2_dqbuf(&q->vb2_bufq, b, true);
-	mutex_unlock(&q->lock);
-	if (rc)
-		dprintk(VIDC_DBG, "Failed to dqbuf, %d\n", rc);
-	return rc;
-}
-
-int msm_venc_streamon(struct msm_vidc_inst *inst, enum v4l2_buf_type i)
-{
-	int rc = 0;
-	struct buf_queue *q;
-
-	q = msm_comm_get_vb2q(inst, i);
-	if (!q) {
-		dprintk(VIDC_ERR,
-			"Failed to find buffer queue for type = %d\n", i);
-		return -EINVAL;
-	}
-	dprintk(VIDC_DBG, "Calling streamon\n");
-	mutex_lock(&q->lock);
-	rc = vb2_streamon(&q->vb2_bufq, i);
-	mutex_unlock(&q->lock);
-	if (rc)
-		dprintk(VIDC_ERR, "streamon failed on port: %d\n", i);
-	return rc;
-}
-
-int msm_venc_streamoff(struct msm_vidc_inst *inst, enum v4l2_buf_type i)
-{
-	int rc = 0;
-	struct buf_queue *q;
-
-	q = msm_comm_get_vb2q(inst, i);
-	if (!q) {
-		dprintk(VIDC_ERR,
-			"Failed to find buffer queue for type = %d\n", i);
-		return -EINVAL;
-	}
-	dprintk(VIDC_DBG, "Calling streamoff on port: %d\n", i);
-	mutex_lock(&q->lock);
-	rc = vb2_streamoff(&q->vb2_bufq, i);
-	mutex_unlock(&q->lock);
-	if (rc)
-		dprintk(VIDC_ERR, "streamoff failed on port: %d\n", i);
-	return rc;
-}
-
-int msm_venc_ctrl_init(struct msm_vidc_inst *inst)
+int msm_venc_ctrl_init(struct msm_vidc_inst *inst,
+	const struct v4l2_ctrl_ops *ctrl_ops)
 {
 	return msm_comm_ctrl_init(inst, msm_venc_ctrls,
-			ARRAY_SIZE(msm_venc_ctrls), &msm_venc_ctrl_ops);
+			ARRAY_SIZE(msm_venc_ctrls), ctrl_ops);
 }

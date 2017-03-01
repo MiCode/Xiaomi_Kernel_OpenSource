@@ -87,11 +87,24 @@ int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)
 	if (!inst || !cap)
 		return -EINVAL;
 
+	strlcpy(cap->driver, MSM_VIDC_DRV_NAME, sizeof(cap->driver));
+	cap->bus_info[0] = 0;
+	cap->version = MSM_VIDC_VERSION;
+	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE_MPLANE |
+		V4L2_CAP_VIDEO_OUTPUT_MPLANE |
+		V4L2_CAP_STREAMING;
+	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
+
+	memset(cap->reserved, 0, sizeof(cap->reserved));
+
 	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_querycap(instance, cap);
+		strlcpy(cap->card, MSM_VDEC_DVC_NAME, sizeof(cap->card));
 	else if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_querycap(instance, cap);
-	return -EINVAL;
+		strlcpy(cap->card, MSM_VENC_DVC_NAME, sizeof(cap->card));
+	else
+		return -EINVAL;
+
+	return 0;
 }
 EXPORT_SYMBOL(msm_vidc_querycap);
 
@@ -180,15 +193,26 @@ EXPORT_SYMBOL(msm_vidc_s_ext_ctrl);
 int msm_vidc_reqbufs(void *instance, struct v4l2_requestbuffers *b)
 {
 	struct msm_vidc_inst *inst = instance;
+	struct buf_queue *q = NULL;
+	int rc = 0;
 
 	if (!inst || !b)
 		return -EINVAL;
+	q = msm_comm_get_vb2q(inst, b->type);
+	if (!q) {
+		dprintk(VIDC_ERR,
+			"Failed to find buffer queue for type = %d\n",
+				b->type);
+		return -EINVAL;
+	}
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_reqbufs(instance, b);
-	if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_reqbufs(instance, b);
-	return -EINVAL;
+	mutex_lock(&q->lock);
+	rc = vb2_reqbufs(&q->vb2_bufq, b);
+	mutex_unlock(&q->lock);
+
+	if (rc)
+		dprintk(VIDC_ERR, "Failed to get reqbufs, %d\n", rc);
+	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_reqbufs);
 
@@ -624,6 +648,8 @@ int qbuf_dynamic_buf(struct msm_vidc_inst *inst,
 {
 	struct v4l2_buffer b = {0};
 	struct v4l2_plane plane[VIDEO_MAX_PLANES] = { {0} };
+	struct buf_queue *q = NULL;
+	int rc = 0;
 
 	if (!binfo) {
 		dprintk(VIDC_ERR, "%s invalid param: %pK\n", __func__, binfo);
@@ -634,12 +660,20 @@ int qbuf_dynamic_buf(struct msm_vidc_inst *inst,
 	b.m.planes = plane;
 	repopulate_v4l2_buffer(&b, binfo);
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_qbuf(inst, &b);
-	if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_qbuf(inst, &b);
+	q = msm_comm_get_vb2q(inst, (&b)->type);
+	if (!q) {
+		dprintk(VIDC_ERR, "Failed to find buffer queue for type = %d\n"
+				, (&b)->type);
+		return -EINVAL;
+	}
 
-	return -EINVAL;
+	mutex_lock(&q->lock);
+	rc = vb2_qbuf(&q->vb2_bufq, &b);
+	mutex_unlock(&q->lock);
+
+	if (rc)
+		dprintk(VIDC_ERR, "Failed to qbuf, %d\n", rc);
+	return rc;
 }
 
 int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
@@ -742,6 +776,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 	int plane = 0;
 	int rc = 0;
 	int i;
+	struct buf_queue *q = NULL;
 
 	if (!inst || !inst->core || !b || !valid_v4l2_buffer(b, inst))
 		return -EINVAL;
@@ -797,10 +832,18 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 		}
 	}
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_qbuf(instance, b);
-	if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_qbuf(instance, b);
+	q = msm_comm_get_vb2q(inst, b->type);
+	if (!q) {
+		dprintk(VIDC_ERR,
+			"Failed to find buffer queue for type = %d\n", b->type);
+		return -EINVAL;
+	}
+	mutex_lock(&q->lock);
+	rc = vb2_qbuf(&q->vb2_bufq, b);
+	mutex_unlock(&q->lock);
+	if (rc)
+		dprintk(VIDC_ERR, "Failed to qbuf, %d\n", rc);
+	return rc;
 
 err_invalid_buff:
 	return -EINVAL;
@@ -812,17 +855,24 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 	struct msm_vidc_inst *inst = instance;
 	struct buffer_info *buffer_info = NULL;
 	int i = 0, rc = 0;
+	struct buf_queue *q = NULL;
 
 	if (!inst || !b || !valid_v4l2_buffer(b, inst))
 		return -EINVAL;
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		rc = msm_vdec_dqbuf(instance, b);
-	if (inst->session_type == MSM_VIDC_ENCODER)
-		rc = msm_venc_dqbuf(instance, b);
-
-	if (rc)
+	q = msm_comm_get_vb2q(inst, b->type);
+	if (!q) {
+		dprintk(VIDC_ERR,
+			"Failed to find buffer queue for type = %d\n", b->type);
+		return -EINVAL;
+	}
+	mutex_lock(&q->lock);
+	rc = vb2_dqbuf(&q->vb2_bufq, b, true);
+	mutex_unlock(&q->lock);
+	if (rc) {
+		dprintk(VIDC_DBG, "Failed to dqbuf, %d\n", rc);
 		return rc;
+	}
 
 	for (i = 0; i < b->length; i++) {
 		if (EXTRADATA_IDX(b->length) &&
@@ -879,30 +929,50 @@ EXPORT_SYMBOL(msm_vidc_dqbuf);
 int msm_vidc_streamon(void *instance, enum v4l2_buf_type i)
 {
 	struct msm_vidc_inst *inst = instance;
+	int rc = 0;
+	struct buf_queue *q;
 
 	if (!inst)
 		return -EINVAL;
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_streamon(instance, i);
-	if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_streamon(instance, i);
-	return -EINVAL;
+	q = msm_comm_get_vb2q(inst, i);
+	if (!q) {
+		dprintk(VIDC_ERR,
+			"Failed to find buffer queue for type = %d\n", i);
+		return -EINVAL;
+	}
+	dprintk(VIDC_DBG, "Calling streamon\n");
+	mutex_lock(&q->lock);
+	rc = vb2_streamon(&q->vb2_bufq, i);
+	mutex_unlock(&q->lock);
+	if (rc)
+		dprintk(VIDC_ERR, "streamon failed on port: %d\n", i);
+	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_streamon);
 
 int msm_vidc_streamoff(void *instance, enum v4l2_buf_type i)
 {
 	struct msm_vidc_inst *inst = instance;
+	int rc = 0;
+	struct buf_queue *q;
 
 	if (!inst)
 		return -EINVAL;
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_streamoff(instance, i);
-	if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_streamoff(instance, i);
-	return -EINVAL;
+	q = msm_comm_get_vb2q(inst, i);
+	if (!q) {
+		dprintk(VIDC_ERR,
+			"Failed to find buffer queue for type = %d\n", i);
+		return -EINVAL;
+	}
+	dprintk(VIDC_DBG, "Calling streamoff\n");
+	mutex_lock(&q->lock);
+	rc = vb2_streamoff(&q->vb2_bufq, i);
+	mutex_unlock(&q->lock);
+	if (rc)
+		dprintk(VIDC_ERR, "streamoff failed on port: %d\n", i);
+	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_streamoff);
 
@@ -1052,6 +1122,102 @@ static bool msm_vidc_check_for_inst_overload(struct msm_vidc_core *core)
 	return overload;
 }
 
+static int msm_vidc_try_set_ctrl(void *instance, struct v4l2_ctrl *ctrl)
+{
+	struct msm_vidc_inst *inst = instance;
+
+	if (inst->session_type == MSM_VIDC_DECODER)
+		return msm_vdec_s_ctrl(instance, ctrl);
+	else if (inst->session_type == MSM_VIDC_ENCODER)
+		return msm_venc_s_ctrl(instance, ctrl);
+	return -EINVAL;
+}
+
+static int msm_vidc_op_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+
+	int rc = 0, c = 0;
+	struct msm_vidc_inst *inst;
+
+	if (!ctrl) {
+		dprintk(VIDC_ERR, "%s invalid parameters for ctrl\n", __func__);
+		return -EINVAL;
+	}
+
+	inst = container_of(ctrl->handler,
+		struct msm_vidc_inst, ctrl_handler);
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s invalid parameters for inst\n", __func__);
+		return -EINVAL;
+	}
+
+	for (c = 0; c < ctrl->ncontrols; ++c) {
+		if (ctrl->cluster[c]->is_new) {
+			rc = msm_vidc_try_set_ctrl(inst, ctrl->cluster[c]);
+			if (rc) {
+				dprintk(VIDC_ERR, "Failed setting %x\n",
+					ctrl->cluster[c]->id);
+				break;
+			}
+		}
+	}
+	if (rc)
+		dprintk(VIDC_ERR, "Failed setting control: Inst = %pK (%s)\n",
+				inst, v4l2_ctrl_get_name(ctrl->id));
+	return rc;
+}
+
+static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
+{
+	return 0;
+}
+
+static int msm_vidc_op_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
+{
+	int rc = 0, c = 0;
+	struct msm_vidc_inst *inst;
+	struct v4l2_ctrl *master;
+
+	if (!ctrl) {
+		dprintk(VIDC_ERR, "%s invalid parameters for ctrl\n", __func__);
+		return -EINVAL;
+	}
+
+	inst = container_of(ctrl->handler,
+		struct msm_vidc_inst, ctrl_handler);
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s invalid parameters for inst\n", __func__);
+		return -EINVAL;
+	}
+	master = ctrl->cluster[0];
+	if (!master) {
+		dprintk(VIDC_ERR, "%s invalid parameters for master\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	for (c = 0; c < master->ncontrols; ++c) {
+		if (master->cluster[c]->flags & V4L2_CTRL_FLAG_VOLATILE) {
+			rc = try_get_ctrl(inst, master->cluster[c]);
+			if (rc) {
+				dprintk(VIDC_ERR, "Failed getting %x\n",
+					master->cluster[c]->id);
+				return rc;
+			}
+		}
+	}
+	if (rc)
+		dprintk(VIDC_ERR, "Failed getting control: Inst = %pK (%s)\n",
+				inst, v4l2_ctrl_get_name(ctrl->id));
+	return rc;
+}
+
+static const struct v4l2_ctrl_ops msm_vidc_ctrl_ops = {
+
+	.s_ctrl = msm_vidc_op_s_ctrl,
+	.g_volatile_ctrl = msm_vidc_op_g_volatile_ctrl,
+};
+
 void *msm_vidc_open(int core_id, int session_type)
 {
 	struct msm_vidc_inst *inst = NULL;
@@ -1113,12 +1279,13 @@ void *msm_vidc_open(int core_id, int session_type)
 		dprintk(VIDC_ERR, "Failed to create memory client\n");
 		goto fail_mem_client;
 	}
+
 	if (session_type == MSM_VIDC_DECODER) {
 		msm_vdec_inst_init(inst);
-		rc = msm_vdec_ctrl_init(inst);
+		rc = msm_vdec_ctrl_init(inst, &msm_vidc_ctrl_ops);
 	} else if (session_type == MSM_VIDC_ENCODER) {
 		msm_venc_inst_init(inst);
-		rc = msm_venc_ctrl_init(inst);
+		rc = msm_venc_ctrl_init(inst, &msm_vidc_ctrl_ops);
 	}
 
 	if (rc)

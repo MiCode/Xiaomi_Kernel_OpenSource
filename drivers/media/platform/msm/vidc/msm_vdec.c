@@ -382,8 +382,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
 
-static int vdec_hal_to_v4l2(int id, int value);
-
 static u32 get_frame_size_nv12(int plane,
 					u32 height, u32 width)
 {
@@ -580,113 +578,6 @@ struct msm_vidc_format vdec_formats[] = {
 		.type = OUTPUT_PORT,
 	},
 };
-
-int msm_vdec_streamon(struct msm_vidc_inst *inst, enum v4l2_buf_type i)
-{
-	int rc = 0;
-	struct buf_queue *q;
-
-	q = msm_comm_get_vb2q(inst, i);
-	if (!q) {
-		dprintk(VIDC_ERR,
-			"Failed to find buffer queue for type = %d\n", i);
-		return -EINVAL;
-	}
-	dprintk(VIDC_DBG, "Calling streamon\n");
-	mutex_lock(&q->lock);
-	rc = vb2_streamon(&q->vb2_bufq, i);
-	mutex_unlock(&q->lock);
-	if (rc)
-		dprintk(VIDC_ERR, "streamon failed on port: %d\n", i);
-	return rc;
-}
-
-int msm_vdec_streamoff(struct msm_vidc_inst *inst, enum v4l2_buf_type i)
-{
-	int rc = 0;
-	struct buf_queue *q;
-
-	q = msm_comm_get_vb2q(inst, i);
-	if (!q) {
-		dprintk(VIDC_ERR,
-			"Failed to find buffer queue for type = %d\n", i);
-		return -EINVAL;
-	}
-	dprintk(VIDC_DBG, "Calling streamoff\n");
-	mutex_lock(&q->lock);
-	rc = vb2_streamoff(&q->vb2_bufq, i);
-	mutex_unlock(&q->lock);
-	if (rc)
-		dprintk(VIDC_ERR, "streamoff failed on port: %d\n", i);
-	return rc;
-}
-
-int msm_vdec_qbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
-{
-	struct buf_queue *q = NULL;
-	int rc = 0;
-
-	q = msm_comm_get_vb2q(inst, b->type);
-	if (!q) {
-		dprintk(VIDC_ERR, "Failed to find buffer queue for type = %d\n"
-			, b->type);
-		return -EINVAL;
-	}
-
-	mutex_lock(&q->lock);
-	rc = vb2_qbuf(&q->vb2_bufq, b);
-	mutex_unlock(&q->lock);
-
-	if (rc)
-		dprintk(VIDC_ERR, "Failed to qbuf, %d\n", rc);
-	return rc;
-}
-
-int msm_vdec_dqbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
-{
-	struct buf_queue *q = NULL;
-	int rc = 0;
-
-	q = msm_comm_get_vb2q(inst, b->type);
-	if (!q) {
-		dprintk(VIDC_ERR, "Failed to find buffer queue for type = %d\n"
-			, b->type);
-		return -EINVAL;
-	}
-	mutex_lock(&q->lock);
-	rc = vb2_dqbuf(&q->vb2_bufq, b, true);
-	mutex_unlock(&q->lock);
-	if (rc)
-		dprintk(VIDC_DBG, "Failed to dqbuf, %d\n", rc);
-	return rc;
-}
-
-int msm_vdec_reqbufs(struct msm_vidc_inst *inst, struct v4l2_requestbuffers *b)
-{
-	struct buf_queue *q = NULL;
-	int rc = 0;
-
-	if (!inst || !b) {
-		dprintk(VIDC_ERR,
-			"Invalid input, inst = %pK, buffer = %pK\n", inst, b);
-		return -EINVAL;
-	}
-
-	q = msm_comm_get_vb2q(inst, b->type);
-	if (!q) {
-		dprintk(VIDC_ERR, "Failed to find buffer queue for type = %d\n"
-			, b->type);
-		return -EINVAL;
-	}
-
-	mutex_lock(&q->lock);
-	rc = vb2_reqbufs(&q->vb2_bufq, b);
-	mutex_unlock(&q->lock);
-
-	if (rc)
-		dprintk(VIDC_DBG, "Failed to get reqbufs, %d\n", rc);
-	return rc;
-}
 
 int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
@@ -934,25 +825,6 @@ inst, &inst->fmts[fmt->type], f->type, 0);
 	}
 err_invalid_fmt:
 	return rc;
-}
-
-int msm_vdec_querycap(struct msm_vidc_inst *inst, struct v4l2_capability *cap)
-{
-	if (!inst || !cap) {
-		dprintk(VIDC_ERR,
-			"Invalid input, inst = %pK, cap = %pK\n", inst, cap);
-		return -EINVAL;
-	}
-	strlcpy(cap->driver, MSM_VIDC_DRV_NAME, sizeof(cap->driver));
-	strlcpy(cap->card, MSM_VDEC_DVC_NAME, sizeof(cap->card));
-	cap->bus_info[0] = 0;
-	cap->version = MSM_VIDC_VERSION;
-	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE_MPLANE |
-						V4L2_CAP_VIDEO_OUTPUT_MPLANE |
-						V4L2_CAP_STREAMING;
-	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
-	memset(cap->reserved, 0, sizeof(cap->reserved));
-	return 0;
 }
 
 int msm_vdec_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
@@ -1525,88 +1397,21 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
+static struct v4l2_ctrl *get_ctrl_from_cluster(int id,
+		struct v4l2_ctrl **cluster, int ncontrols)
 {
-	int rc = 0;
-	struct hfi_device *hdev;
-	union hal_get_property hprop;
+	int c;
 
-	if (!inst || !inst->core || !inst->core->device || !ctrl) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-
-	hdev = inst->core->device;
-	/*
-	 * HACK: unlock the control prior to querying the hardware.  Otherwise
-	 * lower level code that attempts to do g_ctrl() will end up deadlocking
-	 * us.
-	 */
-	v4l2_ctrl_unlock(ctrl);
-
-	switch (ctrl->id) {
-	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
-	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
-		rc = msm_comm_try_get_prop(inst,
-				HAL_PARAM_PROFILE_LEVEL_CURRENT, &hprop);
-		if (rc) {
-			dprintk(VIDC_ERR, "%s: Failed getting profile: %d",
-					__func__, rc);
-			break;
-		}
-		ctrl->val = vdec_hal_to_v4l2(ctrl->id,
-				hprop.profile_level.profile);
-		break;
-	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
-		rc = msm_comm_try_get_prop(inst,
-				HAL_PARAM_PROFILE_LEVEL_CURRENT, &hprop);
-		if (rc) {
-			dprintk(VIDC_ERR, "%s: Failed getting level: %d",
-					__func__, rc);
-			break;
-		}
-
-		ctrl->val = vdec_hal_to_v4l2(ctrl->id,
-				hprop.profile_level.level);
-		break;
-	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
-		rc = msm_comm_try_get_prop(inst,
-				HAL_CONFIG_VDEC_ENTROPY, &hprop);
-		if (rc) {
-			dprintk(VIDC_ERR, "%s: Failed getting entropy type: %d",
-					__func__, rc);
-			break;
-		}
-		switch (hprop.h264_entropy) {
-		case HAL_H264_ENTROPY_CAVLC:
-			ctrl->val = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
-			break;
-		case HAL_H264_ENTROPY_CABAC:
-			ctrl->val = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC;
-			break;
-		case HAL_UNUSED_ENTROPY:
-			rc = -ENOTSUPP;
-			break;
-		}
-		break;
-	default:
-		/*
-		 * Other controls aren't really volatile, shouldn't need to
-		 * modify ctrl->value
-		 */
-		break;
-	}
-	v4l2_ctrl_lock(ctrl);
-
-	return rc;
+	for (c = 0; c < ncontrols; ++c)
+		if (cluster[c]->id == id)
+			return cluster[c];
+	return NULL;
 }
 
 static int vdec_v4l2_to_hal(int id, int value)
 {
 	switch (id) {
-		/* H264 */
+	/* H264 */
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE:
@@ -1673,99 +1478,7 @@ unknown_value:
 	return -EINVAL;
 }
 
-static int vdec_hal_to_v4l2(int id, int value)
-{
-	switch (id) {
-		/* H264 */
-	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-		switch (value) {
-		case HAL_H264_PROFILE_BASELINE:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
-		case HAL_H264_PROFILE_CONSTRAINED_BASE:
-			return
-			V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE;
-		case HAL_H264_PROFILE_MAIN:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_MAIN;
-		case HAL_H264_PROFILE_EXTENDED:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_EXTENDED;
-		case HAL_H264_PROFILE_HIGH:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH;
-		case HAL_H264_PROFILE_HIGH10:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_10;
-		case HAL_H264_PROFILE_HIGH422:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_422;
-		case HAL_H264_PROFILE_HIGH444:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE;
-		default:
-			goto unknown_value;
-		}
-	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-		switch (value) {
-		case HAL_H264_LEVEL_1:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_1_0;
-		case HAL_H264_LEVEL_1b:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_1B;
-		case HAL_H264_LEVEL_11:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_1_1;
-		case HAL_H264_LEVEL_12:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_1_2;
-		case HAL_H264_LEVEL_13:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_1_3;
-		case HAL_H264_LEVEL_2:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_2_0;
-		case HAL_H264_LEVEL_21:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_2_1;
-		case HAL_H264_LEVEL_22:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_2_2;
-		case HAL_H264_LEVEL_3:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_3_0;
-		case HAL_H264_LEVEL_31:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_3_1;
-		case HAL_H264_LEVEL_32:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_3_2;
-		case HAL_H264_LEVEL_4:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_4_0;
-		case HAL_H264_LEVEL_41:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_4_1;
-		case HAL_H264_LEVEL_42:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_4_2;
-		case HAL_H264_LEVEL_5:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_5_0;
-		case HAL_H264_LEVEL_51:
-			return V4L2_MPEG_VIDEO_H264_LEVEL_5_1;
-		default:
-			goto unknown_value;
-		}
-	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
-	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
-	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
-		/*
-		 * Extremely dirty hack: we haven't implemented g_ctrl of
-		 * any of these controls and have no intention of doing
-		 * so in the near future.  So just return 0 so that we
-		 * don't see the annoying "Unknown control" errors at the
-		 * bottom of this function.
-		 */
-		return 0;
-	}
-
-unknown_value:
-	dprintk(VIDC_WARN, "Unknown control (%x, %d)\n", id, value);
-	return -EINVAL;
-}
-
-static struct v4l2_ctrl *get_ctrl_from_cluster(int id,
-		struct v4l2_ctrl **cluster, int ncontrols)
-{
-	int c;
-
-	for (c = 0; c < ncontrols; ++c)
-		if (cluster[c]->id == id)
-			return cluster[c];
-	return NULL;
-}
-
-static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
+int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
 	struct hal_nal_stream_format_supported stream_format;
@@ -2021,7 +1734,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	return rc;
 }
 
-static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
+int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 	struct v4l2_ext_controls *ctrl)
 {
 	int rc = 0, i = 0, fourcc = 0;
@@ -2104,103 +1817,9 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	return rc;
 }
 
-static int msm_vdec_op_s_ctrl(struct v4l2_ctrl *ctrl)
-{
-	int rc = 0, c = 0;
-
-	struct msm_vidc_inst *inst = container_of(ctrl->handler,
-				struct msm_vidc_inst, ctrl_handler);
-	if (!inst) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-	rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to move inst: %pK to start done state\n", inst);
-		goto failed_open_done;
-	}
-
-	for (c = 0; c < ctrl->ncontrols; ++c) {
-		if (ctrl->cluster[c]->is_new) {
-			rc = try_set_ctrl(inst, ctrl->cluster[c]);
-			if (rc) {
-				dprintk(VIDC_ERR, "Failed setting %x\n",
-						ctrl->cluster[c]->id);
-				break;
-			}
-		}
-	}
-
-failed_open_done:
-	return rc;
-}
-
-static int msm_vdec_op_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
-{
-	int rc = 0, c = 0;
-
-	struct msm_vidc_inst *inst = container_of(ctrl->handler,
-				struct msm_vidc_inst, ctrl_handler);
-	struct v4l2_ctrl *master = ctrl->cluster[0];
-
-	rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to move inst: %pK to start done state\n", inst);
-		goto failed_open_done;
-	}
-	for (c = 0; c < master->ncontrols; ++c) {
-		int d = 0;
-
-		for (d = 0; d < NUM_CTRLS; ++d) {
-			if (master->cluster[c]->id == inst->ctrls[d]->id &&
-				inst->ctrls[d]->flags &
-				V4L2_CTRL_FLAG_VOLATILE) {
-				rc = try_get_ctrl(inst, master->cluster[c]);
-				if (rc) {
-					dprintk(VIDC_ERR, "Failed getting %x\n",
-							master->cluster[c]->id);
-					return rc;
-				}
-				break;
-			}
-		}
-	}
-	return rc;
-
-failed_open_done:
-	if (rc)
-		dprintk(VIDC_ERR, "Failed to get hal property\n");
-	return rc;
-}
-
-static const struct v4l2_ctrl_ops msm_vdec_ctrl_ops = {
-
-	.s_ctrl = msm_vdec_op_s_ctrl,
-	.g_volatile_ctrl = msm_vdec_op_g_volatile_ctrl,
-};
-
-const struct v4l2_ctrl_ops *msm_vdec_get_ctrl_ops(void)
-{
-	return &msm_vdec_ctrl_ops;
-}
-
-int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
-	struct v4l2_ext_controls *ctrl)
-{
-	int rc = 0;
-
-	rc = try_set_ext_ctrl(inst, ctrl);
-	if (rc) {
-		dprintk(VIDC_ERR, "Error setting extended control\n");
-		return rc;
-	}
-	return rc;
-}
-
-int msm_vdec_ctrl_init(struct msm_vidc_inst *inst)
+int msm_vdec_ctrl_init(struct msm_vidc_inst *inst,
+	const struct v4l2_ctrl_ops *ctrl_ops)
 {
 	return msm_comm_ctrl_init(inst, msm_vdec_ctrls,
-		ARRAY_SIZE(msm_vdec_ctrls), &msm_vdec_ctrl_ops);
+		ARRAY_SIZE(msm_vdec_ctrls), ctrl_ops);
 }

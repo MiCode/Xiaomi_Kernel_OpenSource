@@ -15,21 +15,16 @@
 
 #include <media/msm_vidc.h>
 #include "msm_vidc_internal.h"
+#define MSM_VENC_DVC_NAME "msm_vidc_venc"
 
 int msm_venc_inst_init(struct msm_vidc_inst *inst);
-int msm_venc_ctrl_init(struct msm_vidc_inst *inst);
-int msm_venc_querycap(void *instance, struct v4l2_capability *cap);
+int msm_venc_ctrl_init(struct msm_vidc_inst *inst,
+	const struct v4l2_ctrl_ops *ctrl_ops);
 int msm_venc_enum_fmt(void *instance, struct v4l2_fmtdesc *f);
 int msm_venc_s_fmt(void *instance, struct v4l2_format *f);
 int msm_venc_g_fmt(void *instance, struct v4l2_format *f);
+int msm_venc_s_ctrl(void *instance, struct v4l2_ctrl *ctrl);
 int msm_venc_s_ext_ctrl(void *instance, struct v4l2_ext_controls *a);
-int msm_venc_reqbufs(void *instance, struct v4l2_requestbuffers *b);
-int msm_venc_qbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b);
-int msm_venc_dqbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b);
-int msm_venc_streamon(struct msm_vidc_inst *inst, enum v4l2_buf_type i);
-int msm_venc_streamoff(struct msm_vidc_inst *inst, enum v4l2_buf_type i);
-int msm_venc_cmd(struct msm_vidc_inst *inst, struct v4l2_encoder_cmd *enc);
-int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a);
 struct vb2_ops *msm_venc_get_vb2q_ops(void);
 
 #endif
