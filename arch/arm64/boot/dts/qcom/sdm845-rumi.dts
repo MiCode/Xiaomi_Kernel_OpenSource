@@ -24,14 +24,6 @@
 };
 
 &soc {
-	timer {
-		clock-frequency = <1000000>;
-	};
-
-	timer@0x17c90000 {
-		clock-frequency = <1000000>;
-	};
-
 	wdog: qcom,wdt@17980000{
 		status = "disabled";
 	};
