@@ -27,6 +27,7 @@
 #include <linux/kvm_para.h>
 #include <linux/perf_event.h>
 #include <linux/kthread.h>
+#include <soc/qcom/watchdog.h>
 
 /*
  * The run state of the lockup detectors is controlled by the content of the
@@ -366,8 +367,11 @@ static void watchdog_check_hardlockup_other_cpu(void)
 		if (per_cpu(hard_watchdog_warn, next_cpu) == true)
 			return;
 
-		if (hardlockup_panic)
-			panic("Watchdog detected hard LOCKUP on cpu %u", next_cpu);
+		if (hardlockup_panic) {
+			pr_err("Watchdog detected hard LOCKUP on cpu %u",
+					next_cpu);
+			msm_trigger_wdog_bite();
+		}
 		else
 			WARN(1, "Watchdog detected hard LOCKUP on cpu %u", next_cpu);
 
@@ -430,6 +434,9 @@ static void watchdog_overflow_callback(struct perf_event *event,
 			return;
 
 		pr_emerg("Watchdog detected hard LOCKUP on cpu %d", this_cpu);
+		if (hardlockup_panic)
+			msm_trigger_wdog_bite();
+
 		print_modules();
 		print_irqtrace_events(current);
 		if (regs)
@@ -552,6 +559,9 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 		pr_emerg("BUG: soft lockup - CPU#%d stuck for %us! [%s:%d]\n",
 			smp_processor_id(), duration,
 			current->comm, task_pid_nr(current));
+
+		if (softlockup_panic)
+			msm_trigger_wdog_bite();
 		__this_cpu_write(softlockup_task_ptr_saved, current);
 		print_modules();
 		print_irqtrace_events(current);
