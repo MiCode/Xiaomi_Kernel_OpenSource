@@ -322,11 +322,13 @@ struct ipahal_imm_cmd_dma_task_32b_addr {
 /*
  * struct ipahal_imm_cmd_pyld - Immediate cmd payload information
  * @len: length of the buffer
+ * @reserved: padding bytes to make data buffer aligned
  * @data: buffer contains the immediate command payload. Buffer goes
  *  back to back with this structure
  */
 struct ipahal_imm_cmd_pyld {
 	u16 len;
+	u16 reserved;
 	u8 data[0];
 };
 

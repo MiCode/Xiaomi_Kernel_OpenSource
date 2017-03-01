@@ -696,8 +696,8 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 	struct ipa_desc desc[2];
 	struct ipa_mem_buffer body;
 	struct ipa_mem_buffer head;
-	struct ipa_hw_imm_cmd_dma_shared_mem cmd1 = {0};
-	struct ipa_hw_imm_cmd_dma_shared_mem cmd2 = {0};
+	struct ipa_hw_imm_cmd_dma_shared_mem *cmd1 = NULL;
+	struct ipa_hw_imm_cmd_dma_shared_mem *cmd2 = NULL;
 	u16 avail;
 	u32 num_modem_rt_index;
 	int rc = 0;
@@ -747,34 +747,50 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 		goto fail_send_cmd;
 	}
 
-	cmd1.size = head.size;
-	cmd1.system_addr = head.phys_base;
-	cmd1.local_addr = local_addr1;
+	cmd1 = kzalloc(sizeof(struct ipa_hw_imm_cmd_dma_shared_mem),
+		GFP_KERNEL);
+	if (cmd1 == NULL) {
+		IPAERR("Failed to alloc immediate command object\n");
+		rc = -ENOMEM;
+		goto fail_send_cmd;
+	}
+
+	cmd1->size = head.size;
+	cmd1->system_addr = head.phys_base;
+	cmd1->local_addr = local_addr1;
 	desc[0].opcode = IPA_DMA_SHARED_MEM;
-	desc[0].pyld = &cmd1;
+	desc[0].pyld = (void *)cmd1;
 	desc[0].len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
 	desc[0].type = IPA_IMM_CMD_DESC;
 
 	if (lcl) {
-		cmd2.size = body.size;
-		cmd2.system_addr = body.phys_base;
-		cmd2.local_addr = local_addr2;
+		cmd2 = kzalloc(sizeof(struct ipa_hw_imm_cmd_dma_shared_mem),
+			GFP_KERNEL);
+		if (cmd2 == NULL) {
+			IPAERR("Failed to alloc immediate command object\n");
+			rc = -ENOMEM;
+			goto fail_send_cmd1;
+		}
+
+		cmd2->size = body.size;
+		cmd2->system_addr = body.phys_base;
+		cmd2->local_addr = local_addr2;
 
 		desc[1].opcode = IPA_DMA_SHARED_MEM;
-		desc[1].pyld = &cmd2;
+		desc[1].pyld = (void *)cmd2;
 		desc[1].len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
 		desc[1].type = IPA_IMM_CMD_DESC;
 
 		if (ipa_send_cmd(2, desc)) {
 			IPAERR("fail to send immediate command\n");
 			rc = -EFAULT;
-			goto fail_send_cmd;
+			goto fail_send_cmd2;
 		}
 	} else {
 		if (ipa_send_cmd(1, desc)) {
 			IPAERR("fail to send immediate command\n");
 			rc = -EFAULT;
-			goto fail_send_cmd;
+			goto fail_send_cmd1;
 		}
 	}
 
@@ -785,6 +801,11 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 		IPA_DUMP_BUFF(body.base, body.phys_base, body.size);
 	}
 	__ipa_reap_sys_rt_tbls(ip);
+
+fail_send_cmd2:
+	kfree(cmd2);
+fail_send_cmd1:
+	kfree(cmd1);
 fail_send_cmd:
 	dma_free_coherent(ipa_ctx->pdev, head.size, head.base, head.phys_base);
 	if (body.size)
