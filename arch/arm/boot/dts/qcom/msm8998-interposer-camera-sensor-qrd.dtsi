@@ -12,6 +12,12 @@
  */
 
 &soc {
+	/delete-node/qcom,camera-flash@0;
+	/delete-node/qcom,camera-flash@1;
+	/delete-node/gpio-regulator@0;
+};
+
+&soc {
 	tlmm: pinctrl@03400000 {
 		cam_sensor_rear_active: cam_sensor_rear_active {
 			/* RESET, STANDBY */
@@ -170,19 +176,17 @@
 	};
 };
 
-&soc {
-	/delete-node/gpio-regulator@0;
-};
-
 &cci {
 	/delete-node/qcom,camera@0;
 	/delete-node/qcom,camera@1;
 	/delete-node/qcom,camera@2;
+	/delete-node/qcom,camera@3;
 	/delete-node/qcom,eeprom@0;
 	/delete-node/qcom,eeprom@1;
 	/delete-node/qcom,eeprom@2;
 	/delete-node/qcom,actuator@0;
 	/delete-node/qcom,actuator@1;
+	/delete-node/qcom,tof@0;
 	/delete-node/qcom,ois@0;
 };
 

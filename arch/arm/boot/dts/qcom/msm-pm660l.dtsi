@@ -330,9 +330,6 @@
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
-				pinctrl-names = "led_enable","led_disable";
-				pinctrl-0 = <&led_enable>;
-				pinctrl-1 = <&led_disable>;
 			};
 
 			pm660l_torch0: qcom,torch_0 {
@@ -369,9 +366,6 @@
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
-				pinctrl-names = "led_enable","led_disable";
-				pinctrl-0 = <&led_enable>;
-				pinctrl-1 = <&led_disable>;
 			};
 
 			pm660l_switch0: qcom,led_switch_0 {
