@@ -1067,6 +1067,9 @@ Optional properties:
 	used in chipset. If ARM SMMU HW - use id value as 1,
 	If QSMMU HW - use id value as 2.
 
+ - qcom,smmu-sid-mask:
+	Mask for the Stream ID part of SMMU SID.
+
  - qcom,smmu-enabled:
         It is possible that some MSM have SMMU in ADSP.  While other MSM use
 	no SMMU. Audio lib introduce wrapper for ION APIs. The wrapper needs
