@@ -1166,7 +1166,10 @@ static unsigned long __get_clock_rate(struct clock_info *clock,
 	}
 
 	if ((!num_mbs_per_sec || !data) && num_rows) {
-		freq = table[num_rows - 1].freq;
+
+		/* When no data is given, vote for the highest frequency. */
+
+		freq = table[0].freq;
 		goto print_clk;
 	}
 

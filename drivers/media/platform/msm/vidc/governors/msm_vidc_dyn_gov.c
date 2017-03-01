@@ -1053,6 +1053,10 @@ static int __get_target_freq(struct devfreq *dev, unsigned long *freq)
 	if (!dev || !freq)
 		return -EINVAL;
 
+	/* Start with highest frequecy and decide correct one later*/
+
+	ab_kbps = INT_MAX;
+
 	gov = container_of(dev->governor,
 			struct governor, devfreq_gov);
 	dev->profile->get_dev_status(dev->dev.parent, &stats);
