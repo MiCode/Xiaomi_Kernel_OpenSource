@@ -1847,6 +1847,12 @@ static void sde_encoder_frame_done_callback(
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	unsigned int i;
 
+	if (!sde_enc->frame_busy_mask[0]) {
+		/* suppress frame_done without waiter, likely autorefresh */
+		SDE_EVT32(DRMID(drm_enc), event, ready_phys->intf_idx);
+		return;
+	}
+
 	/* One of the physical encoders has become idle */
 	for (i = 0; i < sde_enc->num_phys_encs; i++)
 		if (sde_enc->phys_encs[i] == ready_phys) {
