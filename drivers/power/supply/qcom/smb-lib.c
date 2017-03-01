@@ -547,6 +547,26 @@ static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
  * HELPER FUNCTIONS *
  ********************/
 
+static void smblib_rerun_apsd(struct smb_charger *chg)
+{
+	int rc;
+
+	smblib_dbg(chg, PR_MISC, "re-running APSD\n");
+	if (chg->wa_flags & QC_AUTH_INTERRUPT_WA_BIT) {
+		rc = smblib_masked_write(chg,
+				USBIN_SOURCE_CHANGE_INTRPT_ENB_REG,
+				AUTH_IRQ_EN_CFG_BIT, AUTH_IRQ_EN_CFG_BIT);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't enable HVDCP auth IRQ rc=%d\n",
+									rc);
+	}
+
+	rc = smblib_masked_write(chg, CMD_APSD_REG,
+				APSD_RERUN_BIT, APSD_RERUN_BIT);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't re-run APSD rc=%d\n", rc);
+}
+
 static int try_rerun_apsd_for_hvdcp(struct smb_charger *chg)
 {
 	const struct apsd_result *apsd_result;
@@ -564,11 +584,7 @@ static int try_rerun_apsd_for_hvdcp(struct smb_charger *chg)
 				chg->hvdcp_disable_votable_indirect)) {
 			apsd_result = smblib_get_apsd_result(chg);
 			if (apsd_result->bit & (QC_2P0_BIT | QC_3P0_BIT)) {
-				/* rerun APSD */
-				smblib_dbg(chg, PR_MISC, "rerun APSD\n");
-				smblib_masked_write(chg, CMD_APSD_REG,
-						APSD_RERUN_BIT,
-						APSD_RERUN_BIT);
+				smblib_rerun_apsd(chg);
 			}
 		}
 	}
@@ -580,12 +596,13 @@ static const struct apsd_result *smblib_update_usb_type(struct smb_charger *chg)
 	const struct apsd_result *apsd_result = smblib_get_apsd_result(chg);
 
 	/* if PD is active, APSD is disabled so won't have a valid result */
-	if (chg->pd_active) {
+	if (chg->pd_active)
 		chg->usb_psy_desc.type = POWER_SUPPLY_TYPE_USB_PD;
-		return apsd_result;
-	}
+	else
+		chg->usb_psy_desc.type = apsd_result->pst;
 
-	chg->usb_psy_desc.type = apsd_result->pst;
+	smblib_dbg(chg, PR_MISC, "APSD=%s PD=%d\n",
+					apsd_result->name, chg->pd_active);
 	return apsd_result;
 }
 
@@ -763,16 +780,7 @@ int smblib_rerun_apsd_if_required(struct smb_charger *chg)
 	apsd_result = smblib_get_apsd_result(chg);
 	if ((apsd_result->pst == POWER_SUPPLY_TYPE_UNKNOWN)
 		|| (apsd_result->pst == POWER_SUPPLY_TYPE_USB)) {
-		/* rerun APSD */
-		pr_info("Reruning APSD type = %s at bootup\n",
-				apsd_result->name);
-		rc = smblib_masked_write(chg, CMD_APSD_REG,
-					APSD_RERUN_BIT,
-					APSD_RERUN_BIT);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't rerun APSD rc = %d\n", rc);
-			return rc;
-		}
+		smblib_rerun_apsd(chg);
 	}
 
 	return 0;
