@@ -2750,14 +2750,6 @@ int msm_tdm_startup(struct snd_pcm_substream *substream)
 			return -EINVAL;
 		}
 
-		if (pdata->vaddr_gpio_mux_sec_tlmm_ctl) {
-			val = ioread32(pdata->vaddr_gpio_mux_sec_tlmm_ctl);
-			val = val | 0x00000002;
-			iowrite32(val, pdata->vaddr_gpio_mux_sec_tlmm_ctl);
-		} else {
-			return -EINVAL;
-		}
-
 		if (pdata->vaddr_gpio_mux_mic_ctl) {
 			val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
 			val = val | 0x00000002;
