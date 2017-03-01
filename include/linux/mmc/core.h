@@ -111,7 +111,9 @@ struct mmc_request {
 	struct mmc_cmdq_req	*cmdq_req;
 	struct request *req;
 	ktime_t io_start;
-	int lat_hist_enabled;
+#ifdef CONFIG_BLOCK
+	int					lat_hist_enabled;
+#endif
 };
 
 struct mmc_bus_ops {

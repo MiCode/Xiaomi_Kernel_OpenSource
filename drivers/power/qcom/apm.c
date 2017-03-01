@@ -27,6 +27,7 @@
 #include <linux/string.h>
 #include <linux/power/qcom/apm.h>
 #include <soc/qcom/scm.h>
+#include <linux/arm-smccc.h>
 
 /*
  *        VDD_APCC
@@ -79,7 +80,6 @@
 
 #define MSM_APM_DRIVER_NAME        "qcom,msm-apm"
 
-asmlinkage int __invoke_psci_fn_smc(u64, u64, u64, u64);
 
 enum {
 	CLOCK_ASSERT_ENABLE,

@@ -87,6 +87,7 @@ void __init arm_dt_init_cpu_maps(void)
 		return;
 
 	for_each_child_of_node(cpus, cpu) {
+		int prop_bytes;
 		u32 hwid;
 		const __be32 *cell;
 
@@ -107,10 +108,15 @@ void __init arm_dt_init_cpu_maps(void)
 		}
 		hwid = of_read_number(cell, of_n_addr_cells(cpu));
 		/*
-		 * 8 MSBs must be set to 0 in the DT since the reg property
+		 * Bits n:24 must be set to 0 in the DT since the reg property
 		 * defines the MPIDR[23:0].
 		 */
-		if (hwid & ~MPIDR_HWID_BITMASK) {
+		do {
+			hwid = be32_to_cpu(*cell++);
+			prop_bytes -= sizeof(*cell);
+		} while (!hwid && prop_bytes > 0);
+
+		if (prop_bytes || (hwid & ~MPIDR_HWID_BITMASK)) {
 			of_node_put(cpu);
 			return;
 		}

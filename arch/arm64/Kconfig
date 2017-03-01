@@ -82,9 +82,12 @@ config ARM64
 	select HAVE_PERF_EVENTS
 	select HAVE_PERF_REGS
 	select HAVE_PERF_USER_STACK_DUMP
+	select HAVE_REGS_AND_STACK_ACCESS_API
 	select HAVE_RCU_TABLE_FREE
 	select HAVE_SYSCALL_TRACEPOINTS
 	select IOMMU_DMA if (IOMMU_SUPPORT && !ARCH_QCOM)
+	select HAVE_KPROBES
+	select HAVE_KRETPROBES if HAVE_KPROBES
 	select IRQ_DOMAIN
 	select IRQ_FORCED_THREADING
 	select MODULES_USE_ELF_RELA
@@ -99,6 +102,7 @@ config ARM64
 	select SPARSE_IRQ
 	select SYSCTL_EXCEPTION_TRACE
 	select HAVE_CONTEXT_TRACKING
+	select HAVE_ARM_SMCCC
 	help
 	  ARM 64-bit (AArch64) Linux support.
 
@@ -807,6 +811,14 @@ config SETEND_EMULATION
 	  If unsure, say Y
 endif
 
+config ARM64_SW_TTBR0_PAN
+	bool "Emulate Priviledged Access Never using TTBR0_EL1 switching"
+	help
+	  Enabling this option prevents the kernel from accessing
+	  user-space memory directly by pointing TTBR0_EL1 to a reserved
+	  zeroed area and reserved ASID. The user access routines
+	  restore the valid TTBR0_EL1 temporarily.
+
 menu "ARMv8.1 architectural features"
 
 config ARM64_HW_AFDBM
@@ -893,7 +905,7 @@ config RELOCATABLE
 
 config RANDOMIZE_BASE
 	bool "Randomize the address of the kernel image"
-	select ARM64_MODULE_PLTS
+	select ARM64_MODULE_PLTS if MODULES
 	select RELOCATABLE
 	help
 	  Randomizes the virtual address at which the kernel image is
@@ -1052,6 +1064,14 @@ endmenu
 menu "Power management options"
 
 source "kernel/power/Kconfig"
+
+config ARCH_HIBERNATION_POSSIBLE
+	def_bool y
+	depends on CPU_PM
+
+config ARCH_HIBERNATION_HEADER
+	def_bool y
+	depends on HIBERNATION
 
 config ARCH_SUSPEND_POSSIBLE
 	def_bool y

@@ -498,7 +498,8 @@ try_again:
 
 	if (is_udp4) {
 		if (inet->cmsg_flags)
-			ip_cmsg_recv(msg, skb);
+			ip_cmsg_recv_offset(msg, skb,
+					    sizeof(struct udphdr), off);
 	} else {
 		if (np->rxopt.all)
 			ip6_datagram_recv_specific_ctl(sk, msg, skb);
@@ -1552,6 +1553,7 @@ struct proto udpv6_prot = {
 	.compat_getsockopt = compat_udpv6_getsockopt,
 #endif
 	.clear_sk	   = udp_v6_clear_sk,
+	.diag_destroy      = udp_abort,
 };
 
 static struct inet_protosw udpv6_protosw = {

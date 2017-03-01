@@ -2055,6 +2055,15 @@ retry:
 		     current->flags & PF_EXITING))
 		goto force;
 
+	/*
+	 * Prevent unbounded recursion when reclaim operations need to
+	 * allocate memory. This might exceed the limits temporarily,
+	 * but we prefer facilitating memory reclaim and getting back
+	 * under the limit over triggering OOM kills in these cases.
+	 */
+	if (unlikely(current->flags & PF_MEMALLOC))
+		goto force;
+
 	if (unlikely(task_in_memcg_oom(current)))
 		goto nomem;
 
@@ -4972,11 +4981,6 @@ static int mem_cgroup_can_attach(struct cgroup_taskset *tset)
 	return ret;
 }
 
-static int mem_cgroup_allow_attach(struct cgroup_taskset *tset)
-{
-	return subsys_cgroup_allow_attach(tset);
-}
-
 static void mem_cgroup_cancel_attach(struct cgroup_taskset *tset)
 {
 	if (mc.to)
@@ -5128,10 +5132,6 @@ static void mem_cgroup_move_task(void)
 }
 #else	/* !CONFIG_MMU */
 static int mem_cgroup_can_attach(struct cgroup_taskset *tset)
-{
-	return 0;
-}
-static int mem_cgroup_allow_attach(struct cgroup_taskset *tset)
 {
 	return 0;
 }
@@ -5352,7 +5352,6 @@ struct cgroup_subsys memory_cgrp_subsys = {
 	.css_reset = mem_cgroup_css_reset,
 	.can_attach = mem_cgroup_can_attach,
 	.cancel_attach = mem_cgroup_cancel_attach,
-	.allow_attach = mem_cgroup_allow_attach,
 	.post_attach = mem_cgroup_move_task,
 	.bind = mem_cgroup_bind,
 	.dfl_cftypes = memory_files,

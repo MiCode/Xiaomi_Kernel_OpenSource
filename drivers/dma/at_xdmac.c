@@ -864,8 +864,12 @@ at_xdmac_interleaved_queue_desc(struct dma_chan *chan,
 	 * access. Hopefully we can access DDR through both ports (at least on
 	 * SAMA5D4x), so we can use the same interface for source and dest,
 	 * that solves the fact we don't know the direction.
+	 * ERRATA: Even if useless for memory transfers, the PERID has to not
+	 * match the one of another channel. If not, it could lead to spurious
+	 * flag status.
 	 */
-	u32			chan_cc = AT_XDMAC_CC_DIF(0)
+	u32			chan_cc = AT_XDMAC_CC_PERID(0x3f)
+					| AT_XDMAC_CC_DIF(0)
 					| AT_XDMAC_CC_SIF(0)
 					| AT_XDMAC_CC_MBSIZE_SIXTEEN
 					| AT_XDMAC_CC_TYPE_MEM_TRAN;
@@ -1042,8 +1046,12 @@ at_xdmac_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dest, dma_addr_t src,
 	 * access DDR through both ports (at least on SAMA5D4x), so we can use
 	 * the same interface for source and dest, that solves the fact we
 	 * don't know the direction.
+	 * ERRATA: Even if useless for memory transfers, the PERID has to not
+	 * match the one of another channel. If not, it could lead to spurious
+	 * flag status.
 	 */
-	u32			chan_cc = AT_XDMAC_CC_DAM_INCREMENTED_AM
+	u32			chan_cc = AT_XDMAC_CC_PERID(0x3f)
+					| AT_XDMAC_CC_DAM_INCREMENTED_AM
 					| AT_XDMAC_CC_SAM_INCREMENTED_AM
 					| AT_XDMAC_CC_DIF(0)
 					| AT_XDMAC_CC_SIF(0)
@@ -1144,8 +1152,12 @@ static struct at_xdmac_desc *at_xdmac_memset_create_desc(struct dma_chan *chan,
 	 * access. Hopefully we can access DDR through both ports (at least on
 	 * SAMA5D4x), so we can use the same interface for source and dest,
 	 * that solves the fact we don't know the direction.
+	 * ERRATA: Even if useless for memory transfers, the PERID has to not
+	 * match the one of another channel. If not, it could lead to spurious
+	 * flag status.
 	 */
-	u32			chan_cc = AT_XDMAC_CC_DAM_UBS_AM
+	u32			chan_cc = AT_XDMAC_CC_PERID(0x3f)
+					| AT_XDMAC_CC_DAM_UBS_AM
 					| AT_XDMAC_CC_SAM_INCREMENTED_AM
 					| AT_XDMAC_CC_DIF(0)
 					| AT_XDMAC_CC_SIF(0)
@@ -1183,8 +1195,8 @@ static struct at_xdmac_desc *at_xdmac_memset_create_desc(struct dma_chan *chan,
 	desc->lld.mbr_cfg = chan_cc;
 
 	dev_dbg(chan2dev(chan),
-		"%s: lld: mbr_da=%pad, mbr_ds=%pad, mbr_ubc=0x%08x, mbr_cfg=0x%08x\n",
-		__func__, &desc->lld.mbr_da, &desc->lld.mbr_ds, desc->lld.mbr_ubc,
+		"%s: lld: mbr_da=%pad, mbr_ds=0x%08x, mbr_ubc=0x%08x, mbr_cfg=0x%08x\n",
+		__func__, &desc->lld.mbr_da, desc->lld.mbr_ds, desc->lld.mbr_ubc,
 		desc->lld.mbr_cfg);
 
 	return desc;
@@ -2055,7 +2067,7 @@ err_dma_unregister:
 err_clk_disable:
 	clk_disable_unprepare(atxdmac->clk);
 err_free_irq:
-	free_irq(atxdmac->irq, atxdmac->dma.dev);
+	free_irq(atxdmac->irq, atxdmac);
 	return ret;
 }
 
@@ -2071,7 +2083,7 @@ static int at_xdmac_remove(struct platform_device *pdev)
 
 	synchronize_irq(atxdmac->irq);
 
-	free_irq(atxdmac->irq, atxdmac->dma.dev);
+	free_irq(atxdmac->irq, atxdmac);
 
 	for (i = 0; i < atxdmac->dma.chancnt; i++) {
 		struct at_xdmac_chan *atchan = &atxdmac->chan[i];
