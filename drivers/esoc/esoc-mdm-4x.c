@@ -211,12 +211,16 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		if (esoc->primary)
 			break;
 		graceful_shutdown = true;
-		ret = sysmon_send_shutdown(&esoc->subsys);
-		if (ret) {
-			dev_err(mdm->dev, "sysmon shutdown fail, ret = %d\n",
-									ret);
-			graceful_shutdown = false;
-			goto force_poff;
+		if (!esoc->userspace_handle_shutdown) {
+			ret = sysmon_send_shutdown(&esoc->subsys);
+			if (ret) {
+				dev_err(mdm->dev,
+				 "sysmon shutdown fail, ret = %d\n", ret);
+				graceful_shutdown = false;
+				goto force_poff;
+			}
+		} else {
+			esoc_clink_queue_request(ESOC_REQ_SEND_SHUTDOWN, esoc);
 		}
 		dev_dbg(mdm->dev, "Waiting for status gpio go low\n");
 		status_down = false;
@@ -252,9 +256,12 @@ force_poff:
 		/*
 		 * Force a shutdown of the mdm. This is required in order
 		 * to prevent the mdm from immediately powering back on
-		 * after the shutdown
+		 * after the shutdown. Avoid setting status to 0, if line is
+		 * monitored by multiple mdms(might be wrongly interpreted as
+		 * a primary crash).
 		 */
-		gpio_set_value(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
+		if (esoc->statusline_not_a_powersource == false)
+			gpio_set_value(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
 		esoc_clink_queue_request(ESOC_REQ_SHUTDOWN, esoc);
 		mdm_power_down(mdm);
 		mdm_update_gpio_configs(mdm, GPIO_UPDATE_BOOTING_CONFIG);
