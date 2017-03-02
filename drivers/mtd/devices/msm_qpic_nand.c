@@ -1056,7 +1056,10 @@ static void msm_nand_update_rw_reg_data(struct msm_nand_chip *chip,
 			data->ecc_bch_cfg = chip->ecc_bch_cfg;
 		} else {
 			data->cmd = MSM_NAND_CMD_PAGE_READ_ALL;
-			data->cfg0 = chip->cfg0_raw;
+			data->cfg0 =
+			(chip->cfg0_raw & ~(7U << CW_PER_PAGE)) |
+			(((args->cwperpage-1) - args->start_sector)
+			 << CW_PER_PAGE);
 			data->cfg1 = chip->cfg1_raw;
 			data->ecc_bch_cfg = chip->ecc_cfg_raw;
 		}
