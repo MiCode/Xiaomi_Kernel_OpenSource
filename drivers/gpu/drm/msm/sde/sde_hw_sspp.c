@@ -751,9 +751,7 @@ end:
  */
 static void sde_hw_sspp_setup_rects(struct sde_hw_pipe *ctx,
 		struct sde_hw_pipe_cfg *cfg,
-		struct sde_hw_pixel_ext *pe_ext,
-		enum sde_sspp_multirect_index rect_index,
-		void *scale_cfg)
+		enum sde_sspp_multirect_index rect_index)
 {
 	struct sde_hw_blk_reg_map *c;
 	u32 src_size, src_xy, dst_size, dst_xy, ystride0, ystride1;
@@ -778,9 +776,6 @@ static void sde_hw_sspp_setup_rects(struct sde_hw_pipe *ctx,
 		out_xy_off = SSPP_OUT_XY_REC1;
 	}
 
-	/* program pixel extension override */
-	if (pe_ext)
-		sde_hw_sspp_setup_pe_config(ctx, pe_ext);
 
 	/* src and dest rect programming */
 	src_xy = (cfg->src_rect.y << 16) | (cfg->src_rect.x);
@@ -811,7 +806,6 @@ static void sde_hw_sspp_setup_rects(struct sde_hw_pipe *ctx,
 		/* program decimation */
 		decimation = ((1 << cfg->horz_decimation) - 1) << 8;
 		decimation |= ((1 << cfg->vert_decimation) - 1);
-		ctx->ops.setup_scaler(ctx, cfg, pe_ext, scale_cfg);
 	}
 
 	/* rectangle register programming */
@@ -1000,6 +994,7 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 		c->ops.setup_rects = sde_hw_sspp_setup_rects;
 		c->ops.setup_sourceaddress = sde_hw_sspp_setup_sourceaddress;
 		c->ops.setup_solidfill = sde_hw_sspp_setup_solidfill;
+		c->ops.setup_pe = sde_hw_sspp_setup_pe_config;
 	}
 
 	if (test_bit(SDE_SSPP_EXCL_RECT, &features))
@@ -1016,16 +1011,16 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 		test_bit(SDE_SSPP_CSC_10BIT, &features))
 		c->ops.setup_csc = sde_hw_sspp_setup_csc;
 
-	if (test_bit(SDE_SSPP_SCALER_QSEED2, &features))
+	if (test_bit(SDE_SSPP_SCALER_QSEED2, &features)) {
 		c->ops.setup_sharpening = sde_hw_sspp_setup_sharpening;
+		c->ops.setup_scaler = _sde_hw_sspp_setup_scaler;
+	}
 
 	if (sde_hw_sspp_multirect_enabled(c->cap))
 		c->ops.setup_multirect = sde_hw_sspp_setup_multirect;
 
 	if (test_bit(SDE_SSPP_SCALER_QSEED3, &features))
 		c->ops.setup_scaler = _sde_hw_sspp_setup_scaler3;
-	else
-		c->ops.setup_scaler = _sde_hw_sspp_setup_scaler;
 
 	if (test_bit(SDE_SSPP_HSIC, &features)) {
 		/* TODO: add version based assignment here as inline or macro */
