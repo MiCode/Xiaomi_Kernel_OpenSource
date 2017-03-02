@@ -467,10 +467,10 @@
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
 		qcom,pm-qos-irq-type = "affine_irq";
-		qcom,pm-qos-irq-latency = <43 377>;
+		qcom,pm-qos-irq-latency = <43 518>;
 		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
-		qcom,pm-qos-cmdq-latency-us = <43 377>, <40 325>;
-		qcom,pm-qos-legacy-latency-us = <43 377>, <40 325>;
+		qcom,pm-qos-cmdq-latency-us = <43 518>, <40 518>;
+		qcom,pm-qos-legacy-latency-us = <43 518>, <40 518>;
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
@@ -531,9 +531,9 @@
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
 		qcom,pm-qos-irq-type = "affine_irq";
-		qcom,pm-qos-irq-latency = <43 377>;
+		qcom,pm-qos-irq-latency = <43 518>;
 		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
-		qcom,pm-qos-legacy-latency-us = <43 377>, <40 325>;
+		qcom,pm-qos-legacy-latency-us = <43 518>, <40 518>;
 
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
