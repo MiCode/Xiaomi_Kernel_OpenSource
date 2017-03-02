@@ -17,7 +17,7 @@
 
 #include "msm_drv.h"
 #include "msm_gem.h"
-#include "msm_mmu.h"
+#include "msm_iommu.h"
 
 static void
 msm_gem_address_space_destroy(struct kref *kref)
@@ -148,6 +148,9 @@ static int iommu_aspace_map_vma(struct msm_gem_address_space *aspace,
 
 	if (flags & MSM_BO_PRIVILEGED)
 		iommu_flags |= IOMMU_PRIV;
+
+	if ((flags & MSM_BO_CACHED) && msm_iommu_coherent(aspace->mmu))
+		iommu_flags |= IOMMU_CACHE;
 
 	if (WARN_ON(drm_mm_node_allocated(&vma->node)))
 		return 0;

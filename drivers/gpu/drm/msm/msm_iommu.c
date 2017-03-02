@@ -16,6 +16,7 @@
  */
 
 #include <linux/of_platform.h>
+#include <linux/of_address.h>
 #include "msm_drv.h"
 #include "msm_iommu.h"
 
@@ -125,6 +126,9 @@ static int msm_iommu_attach(struct msm_mmu *mmu, const char **names, int cnt)
 		DOMAIN_ATTR_ENABLE_TTBR1, &val);
 	if (ret)
 		iommu->allow_dynamic = false;
+
+	/* Mark the GPU as I/O coherent if it is supported */
+	iommu->is_coherent = of_dma_is_coherent(mmu->dev->of_node);
 
 	/* Attach the device to the domain */
 	ret = _attach_iommu_device(mmu, iommu->domain, names, cnt);
@@ -312,6 +316,7 @@ struct msm_mmu *msm_iommu_new_dynamic(struct msm_mmu *base)
 	struct iommu_domain *domain;
 	struct msm_mmu *mmu;
 	int ret, val = 1;
+	struct msm_iommu *child_iommu;
 
 	/* Don't continue if the base domain didn't have the support we need */
 	if (!base || base_iommu->allow_dynamic == false)
@@ -338,6 +343,10 @@ struct msm_mmu *msm_iommu_new_dynamic(struct msm_mmu *base)
 	/* Set the context bank to match the base domain */
 	iommu_domain_set_attr(domain, DOMAIN_ATTR_CONTEXT_BANK,
 		&base_iommu->cb);
+
+	/* Mark the dynamic domain as I/O coherent if the base domain is */
+	child_iommu = to_msm_iommu(mmu);
+	child_iommu->is_coherent = base_iommu->is_coherent;
 
 	return mmu;
 }
