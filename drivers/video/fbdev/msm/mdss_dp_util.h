@@ -274,6 +274,12 @@ static const struct dp_vc_tu_mapping_table tu_table[] = {
 			0x21, 0x000c, false, 0x00, 0x00, 0x00, 0x27},
 };
 
+static inline struct mdss_dp_phy_cfg *mdss_dp_phy_aux_get_config(
+	struct mdss_dp_drv_pdata *dp, enum dp_phy_aux_config_type cfg_type)
+{
+	return &dp->aux_cfg[cfg_type];
+}
+
 void mdss_dp_aux_set_limits(struct dss_io_data *ctrl_io);
 int dp_aux_read(void *ep, struct edp_cmd *cmds);
 int dp_aux_write(void *ep, struct edp_cmd *cmd);
@@ -289,8 +295,7 @@ void mdss_dp_assert_phy_reset(struct dss_io_data *ctrl_io, bool assert);
 void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
 			u8 ln_cnt, u32 res, struct mdss_panel_info *pinfo);
 void mdss_dp_config_misc(struct mdss_dp_drv_pdata *dp, u32 bd, u32 cc);
-void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io, u32 *aux_cfg,
-			u32 phy_reg_offset);
+void mdss_dp_phy_aux_setup(struct mdss_dp_drv_pdata *dp);
 void mdss_dp_hpd_configure(struct dss_io_data *ctrl_io, bool enable);
 void mdss_dp_aux_ctrl(struct dss_io_data *ctrl_io, bool enable);
 void mdss_dp_mainlink_ctrl(struct dss_io_data *ctrl_io, bool enable);
