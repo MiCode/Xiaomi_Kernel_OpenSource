@@ -883,25 +883,23 @@ void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io, char *l_map)
 		ctrl_io->base + DP_LOGICAL2PHYSCIAL_LANE_MAPPING);
 }
 
-void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io, u32 *aux_cfg,
-		u32 phy_reg_offset)
+void mdss_dp_phy_aux_setup(struct mdss_dp_drv_pdata *dp)
 {
-	void __iomem *adjusted_phy_io_base = phy_io->base + phy_reg_offset;
+	int i;
+	void __iomem *adjusted_phy_io_base = dp->phy_io.base +
+		dp->phy_reg_offset;
 
 	writel_relaxed(0x3d, adjusted_phy_io_base + DP_PHY_PD_CTL);
 
-	/* DP AUX CFG register programming */
-	writel_relaxed(aux_cfg[0], adjusted_phy_io_base + DP_PHY_AUX_CFG0);
-	writel_relaxed(aux_cfg[1], adjusted_phy_io_base + DP_PHY_AUX_CFG1);
-	writel_relaxed(aux_cfg[2], adjusted_phy_io_base + DP_PHY_AUX_CFG2);
-	writel_relaxed(aux_cfg[3], adjusted_phy_io_base + DP_PHY_AUX_CFG3);
-	writel_relaxed(aux_cfg[4], adjusted_phy_io_base + DP_PHY_AUX_CFG4);
-	writel_relaxed(aux_cfg[5], adjusted_phy_io_base + DP_PHY_AUX_CFG5);
-	writel_relaxed(aux_cfg[6], adjusted_phy_io_base + DP_PHY_AUX_CFG6);
-	writel_relaxed(aux_cfg[7], adjusted_phy_io_base + DP_PHY_AUX_CFG7);
-	writel_relaxed(aux_cfg[8], adjusted_phy_io_base + DP_PHY_AUX_CFG8);
-	writel_relaxed(aux_cfg[9], adjusted_phy_io_base + DP_PHY_AUX_CFG9);
+	for (i = 0; i < PHY_AUX_CFG_MAX; i++) {
+		struct mdss_dp_phy_cfg *cfg = mdss_dp_phy_aux_get_config(dp, i);
 
+		pr_debug("%s: offset=0x%08x, value=0x%08x\n",
+			mdss_dp_phy_aux_config_type_to_string(i), cfg->offset,
+			cfg->lut[cfg->current_index]);
+		writel_relaxed(cfg->lut[cfg->current_index],
+				dp->phy_io.base + cfg->offset);
+	};
 	writel_relaxed(0x1f, adjusted_phy_io_base + DP_PHY_AUX_INTERRUPT_MASK);
 }
 

@@ -429,6 +429,85 @@ struct mdss_dp_crc_data {
 	u32 b_cb;
 };
 
+#define MDSS_DP_MAX_PHY_CFG_VALUE_CNT 3
+struct mdss_dp_phy_cfg {
+	u32 cfg_cnt;
+	u32 current_index;
+	u32 offset;
+	u32 lut[MDSS_DP_MAX_PHY_CFG_VALUE_CNT];
+};
+
+/* PHY AUX config registers */
+enum dp_phy_aux_config_type {
+	PHY_AUX_CFG0,
+	PHY_AUX_CFG1,
+	PHY_AUX_CFG2,
+	PHY_AUX_CFG3,
+	PHY_AUX_CFG4,
+	PHY_AUX_CFG5,
+	PHY_AUX_CFG6,
+	PHY_AUX_CFG7,
+	PHY_AUX_CFG8,
+	PHY_AUX_CFG9,
+	PHY_AUX_CFG_MAX,
+};
+
+static inline const char *mdss_dp_get_phy_aux_config_property(u32 cfg_type)
+{
+	switch (cfg_type) {
+	case PHY_AUX_CFG0:
+		return "qcom,aux-cfg0-settings";
+	case PHY_AUX_CFG1:
+		return "qcom,aux-cfg1-settings";
+	case PHY_AUX_CFG2:
+		return "qcom,aux-cfg2-settings";
+	case PHY_AUX_CFG3:
+		return "qcom,aux-cfg3-settings";
+	case PHY_AUX_CFG4:
+		return "qcom,aux-cfg4-settings";
+	case PHY_AUX_CFG5:
+		return "qcom,aux-cfg5-settings";
+	case PHY_AUX_CFG6:
+		return "qcom,aux-cfg6-settings";
+	case PHY_AUX_CFG7:
+		return "qcom,aux-cfg7-settings";
+	case PHY_AUX_CFG8:
+		return "qcom,aux-cfg8-settings";
+	case PHY_AUX_CFG9:
+		return "qcom,aux-cfg9-settings";
+	default:
+		return "unknown";
+	}
+}
+
+static inline char *mdss_dp_phy_aux_config_type_to_string(u32 cfg_type)
+{
+	switch (cfg_type) {
+	case PHY_AUX_CFG0:
+		return DP_ENUM_STR(PHY_AUX_CFG0);
+	case PHY_AUX_CFG1:
+		return DP_ENUM_STR(PHY_AUX_CFG1);
+	case PHY_AUX_CFG2:
+		return DP_ENUM_STR(PHY_AUX_CFG2);
+	case PHY_AUX_CFG3:
+		return DP_ENUM_STR(PHY_AUX_CFG3);
+	case PHY_AUX_CFG4:
+		return DP_ENUM_STR(PHY_AUX_CFG4);
+	case PHY_AUX_CFG5:
+		return DP_ENUM_STR(PHY_AUX_CFG5);
+	case PHY_AUX_CFG6:
+		return DP_ENUM_STR(PHY_AUX_CFG6);
+	case PHY_AUX_CFG7:
+		return DP_ENUM_STR(PHY_AUX_CFG7);
+	case PHY_AUX_CFG8:
+		return DP_ENUM_STR(PHY_AUX_CFG8);
+	case PHY_AUX_CFG9:
+		return DP_ENUM_STR(PHY_AUX_CFG9);
+	default:
+		return "unknown";
+	}
+}
+
 struct mdss_dp_drv_pdata {
 	/* device driver */
 	int (*on) (struct mdss_panel_data *pdata);
@@ -549,7 +628,7 @@ struct mdss_dp_drv_pdata {
 
 	/* dt settings */
 	char l_map[4];
-	u32 aux_cfg[AUX_CFG_LEN];
+	struct mdss_dp_phy_cfg aux_cfg[PHY_AUX_CFG_MAX];
 
 	struct workqueue_struct *workq;
 	struct delayed_work hdcp_cb_work;

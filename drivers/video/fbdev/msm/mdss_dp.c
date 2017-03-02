@@ -138,22 +138,77 @@ static int mdss_dp_is_clk_prefix(const char *clk_prefix, const char *clk_name)
 	return !strncmp(clk_name, clk_prefix, strlen(clk_prefix));
 }
 
+static void mdss_dp_reset_phy_config_indices(struct mdss_dp_drv_pdata *dp)
+{
+	int i = 0;
+
+	for (i = 0; i < PHY_AUX_CFG_MAX; i++)
+		dp->aux_cfg[i].current_index = 0;
+}
+
+static void mdss_dp_phy_aux_cfg_reset(struct mdss_dp_drv_pdata *dp)
+{
+	int i = 0;
+
+	for (i = 0; i < PHY_AUX_CFG_MAX; i++)
+		dp->aux_cfg[i] = (const struct mdss_dp_phy_cfg){ 0 };
+}
+
+static int mdss_dp_parse_aux_cfg(struct platform_device *pdev,
+			struct mdss_dp_drv_pdata *dp)
+{
+	int len = 0, i = 0, j = 0, config_count = 0;
+	const char *data;
+	int const minimum_config_count = 1;
+
+	for (i = 0; i < PHY_AUX_CFG_MAX; i++) {
+		const char *property = mdss_dp_get_phy_aux_config_property(i);
+
+		data = of_get_property(pdev->dev.of_node, property, &len);
+		if (!data) {
+			pr_err("Unable to read %s\n", property);
+			goto error;
+		}
+
+		config_count = len - 1;
+		if ((config_count < minimum_config_count) ||
+			(config_count > MDSS_DP_MAX_PHY_CFG_VALUE_CNT)) {
+			pr_err("Invalid config count (%d) configs for %s\n",
+					config_count, property);
+			goto error;
+		}
+
+		dp->aux_cfg[i].offset = data[0];
+		dp->aux_cfg[i].cfg_cnt = config_count;
+		pr_debug("%s offset=0x%x, cfg_cnt=%d\n",
+				property,
+				dp->aux_cfg[i].offset,
+				dp->aux_cfg[i].cfg_cnt);
+		for (j = 1; j < len; j++) {
+			dp->aux_cfg[i].lut[j - 1] = data[j];
+			pr_debug("%s lut[%d]=0x%x\n",
+					property,
+					i,
+					dp->aux_cfg[i].lut[j - 1]);
+		}
+	}
+
+	return 0;
+
+error:
+	mdss_dp_phy_aux_cfg_reset(dp);
+	return -EINVAL;
+}
+
 static int mdss_dp_parse_prop(struct platform_device *pdev,
 			struct mdss_dp_drv_pdata *dp_drv)
 {
 	int len = 0, i = 0, rc = 0;
 	const char *data;
 
-	data = of_get_property(pdev->dev.of_node,
-		"qcom,aux-cfg-settings", &len);
-	if ((!data) || (len != AUX_CFG_LEN)) {
-		pr_err("%s:%d, Unable to read DP AUX CFG settings",
-			__func__, __LINE__);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < len; i++)
-		dp_drv->aux_cfg[i] = data[i];
+	rc = mdss_dp_parse_aux_cfg(pdev, dp_drv);
+	if (rc)
+		return rc;
 
 	data = of_get_property(pdev->dev.of_node,
 		"qcom,logical2physical-lane-map", &len);
@@ -1908,14 +1963,15 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	mdss_dp_phy_reset(&dp_drv->ctrl_io);
 	mdss_dp_aux_reset(&dp_drv->ctrl_io);
 	mdss_dp_aux_set_limits(&dp_drv->ctrl_io);
+
 	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, true);
 
 	pr_debug("Ctrl_hw_rev =0x%x, phy hw_rev =0x%x\n",
 	       mdss_dp_get_ctrl_hw_version(&dp_drv->ctrl_io),
 	       mdss_dp_get_phy_hw_version(&dp_drv->phy_io));
 
-	mdss_dp_phy_aux_setup(&dp_drv->phy_io, dp_drv->aux_cfg,
-			dp_drv->phy_reg_offset);
+	mdss_dp_reset_phy_config_indices(dp_drv);
+	mdss_dp_phy_aux_setup(dp_drv);
 
 	mdss_dp_irq_enable(dp_drv);
 	dp_drv->dp_initialized = true;
