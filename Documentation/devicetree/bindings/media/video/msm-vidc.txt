@@ -126,7 +126,7 @@ Optional properties:
            internal persist1 = 0x400
            internal cmd queue = 0x800
 - qcom,pm-qos-latency-us = The latency used to vote for QOS power manager. This
-value is typically max(latencies of every cluster at all power levels) + 1
+  value is typically max(latencies of every cluster at all power levels) + 1
 - qcom,max-secure-instances = An int containing max number of concurrent secure
   instances supported, accounting for venus and system wide limitations like
   memory, performance etc.
@@ -135,6 +135,12 @@ value is typically max(latencies of every cluster at all power levels) + 1
 - qcom,power-conf = Indicates the value at which or beyond, a video session
   is configured in low power mode to have power benefits. Value is defined
   interms of HxW of the video session beyond which power benefit is desired.
+- qcom,cx-ipeak-data : phandle of cx_ipeak device node and bit position on
+  the cx register where venus is supposed to vote
+- qcom,clock-freq-threshold : Operating threshold frequency of venus which
+  video driver uses to check against the frequency voted. Whenever venus
+  clock frequency crosses this mark, driver intimates cx ipeak driver on
+  supported targets.
 
 [Second level nodes]
 Context Banks
