@@ -14,10 +14,17 @@
 #define _USB_BAM_H_
 #include <linux/msm-sps.h>
 #include <linux/ipa.h>
-#include <linux/usb/msm_hsusb.h>
+#include <linux/usb/ch9.h>
 
 #define MAX_BAMS	NUM_CTRL	/* Bam per USB controllers */
 
+/* Supported USB controllers*/
+enum usb_ctrl {
+	DWC3_CTRL = 0,  /* DWC3 controller */
+	CI_CTRL,        /* ChipIdea controller */
+	HSIC_CTRL,      /* HSIC controller */
+	NUM_CTRL,
+};
 
 enum usb_bam_mode {
 	USB_BAM_DEVICE = 0,
@@ -424,6 +431,9 @@ int usb_bam_alloc_fifos(enum usb_ctrl cur_bam, u8 idx);
 /* Frees memory for data fifo and descriptor fifos. */
 int usb_bam_free_fifos(enum usb_ctrl cur_bam, u8 idx);
 
+bool msm_bam_hsic_lpm_ok(void);
+bool msm_bam_hsic_host_pipe_empty(void);
+bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable);
 #else
 static inline int usb_bam_connect(enum usb_ctrl bam, u8 idx, u32 *bam_pipe_idx)
 {
@@ -519,5 +529,33 @@ int usb_bam_free_fifos(enum usb_ctrl cur_bam, u8 idx)
 	return false;
 }
 
+static inline bool msm_bam_hsic_lpm_ok(void) { return true; }
+static inline bool msm_bam_hsic_host_pipe_empty(void) { return true; }
+static inline bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable)
+{ return true; }
+
+#endif
+
+#ifdef CONFIG_USB_CI13XXX_MSM
+void msm_hw_bam_disable(bool bam_disable);
+void msm_usb_irq_disable(bool disable);
+#else
+static inline void msm_hw_bam_disable(bool bam_disable)
+{ }
+
+static inline void msm_usb_irq_disable(bool disable)
+{ }
+#endif
+
+/* CONFIG_PM */
+#ifdef CONFIG_PM
+static inline int get_pm_runtime_counter(struct device *dev)
+{
+	return atomic_read(&dev->power.usage_count);
+}
+#else
+/* !CONFIG_PM */
+static inline int get_pm_runtime_counter(struct device *dev)
+{ return -EOPNOTSUPP; }
 #endif
 #endif				/* _USB_BAM_H_ */
