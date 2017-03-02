@@ -80,6 +80,13 @@
 		/* Quirks */
 		qcom,gpu-quirk-lmloadkill-disable;
 
+		/* DRM settings */
+		qcom,gpmu-tsens = <0x000c000d>;
+		qcom,max-power = <5448>;
+		qcom,gpmu-firmware = "a540_gpmu.fw2";
+		qcom,gpmu-version = <3 0>;
+		qcom,zap-shader = "a540_zap";
+
 		clocks = <&clock_gfx clk_gpucc_gfx3d_clk>,
 			<&clock_gcc clk_gcc_gpu_cfg_ahb_clk>,
 			<&clock_gpu clk_gpucc_rbbmtimer_clk>,

@@ -195,6 +195,38 @@ struct ce_irq_list {
 	irqreturn_t (*handler)(int, void *);
 };
 
+struct icnss_vreg_info {
+	struct regulator *reg;
+	const char *name;
+	u32 min_v;
+	u32 max_v;
+	u32 load_ua;
+	unsigned long settle_delay;
+	bool required;
+};
+
+struct icnss_clk_info {
+	struct clk *handle;
+	const char *name;
+	u32 freq;
+	bool required;
+};
+
+static struct icnss_vreg_info icnss_vreg_info[] = {
+	{NULL, "vdd-0.8-cx-mx", 800000, 800000, 0, 0, true},
+	{NULL, "vdd-1.8-xo", 1800000, 1800000, 0, 0, false},
+	{NULL, "vdd-1.3-rfa", 1304000, 1304000, 0, 0, false},
+	{NULL, "vdd-3.3-ch0", 3312000, 3312000, 0, 0, false},
+};
+
+#define ICNSS_VREG_INFO_SIZE		ARRAY_SIZE(icnss_vreg_info)
+
+static struct icnss_clk_info icnss_clk_info[] = {
+	{NULL, "cxo_ref_clk_pin", 0, false},
+};
+
+#define ICNSS_CLK_INFO_SIZE		ARRAY_SIZE(icnss_clk_info)
+
 struct icnss_stats {
 	struct {
 		uint32_t posted;
@@ -248,6 +280,7 @@ struct icnss_stats {
 	uint32_t rejuvenate_ack_req;
 	uint32_t rejuvenate_ack_resp;
 	uint32_t rejuvenate_ack_err;
+	uint32_t trigger_recovery;
 };
 
 #define MAX_NO_OF_MAC_ADDR 4
@@ -267,6 +300,8 @@ static struct icnss_priv {
 	struct platform_device *pdev;
 	struct icnss_driver_ops *ops;
 	struct ce_irq_list ce_irq_list[ICNSS_MAX_IRQ_REGISTRATIONS];
+	struct icnss_vreg_info vreg_info[ICNSS_VREG_INFO_SIZE];
+	struct icnss_clk_info clk_info[ICNSS_CLK_INFO_SIZE];
 	u32 ce_irqs[ICNSS_MAX_IRQ_REGISTRATIONS];
 	phys_addr_t mem_base_pa;
 	void __iomem *mem_base_va;
@@ -664,41 +699,220 @@ out:
 	return ret;
 }
 
+static int icnss_vreg_on(struct icnss_priv *priv)
+{
+	int ret = 0;
+	struct icnss_vreg_info *vreg_info;
+	int i;
+
+	for (i = 0; i < ICNSS_VREG_INFO_SIZE; i++) {
+		vreg_info = &priv->vreg_info[i];
+
+		if (!vreg_info->reg)
+			continue;
+
+		icnss_pr_dbg("Regulator %s being enabled\n", vreg_info->name);
+
+		ret = regulator_set_voltage(vreg_info->reg, vreg_info->min_v,
+					    vreg_info->max_v);
+		if (ret) {
+			icnss_pr_err("Regulator %s, can't set voltage: min_v: %u, max_v: %u, ret: %d\n",
+				     vreg_info->name, vreg_info->min_v,
+				     vreg_info->max_v, ret);
+			break;
+		}
+
+		if (vreg_info->load_ua) {
+			ret = regulator_set_load(vreg_info->reg,
+						 vreg_info->load_ua);
+			if (ret < 0) {
+				icnss_pr_err("Regulator %s, can't set load: %u, ret: %d\n",
+					     vreg_info->name,
+					     vreg_info->load_ua, ret);
+				break;
+			}
+		}
+
+		ret = regulator_enable(vreg_info->reg);
+		if (ret) {
+			icnss_pr_err("Regulator %s, can't enable: %d\n",
+				     vreg_info->name, ret);
+			break;
+		}
+
+		if (vreg_info->settle_delay)
+			udelay(vreg_info->settle_delay);
+	}
+
+	if (!ret)
+		return 0;
+
+	for (; i >= 0; i--) {
+		vreg_info = &priv->vreg_info[i];
+
+		if (!vreg_info->reg)
+			continue;
+
+		regulator_disable(vreg_info->reg);
+		regulator_set_load(vreg_info->reg, 0);
+		regulator_set_voltage(vreg_info->reg, 0, vreg_info->max_v);
+	}
+
+	return ret;
+}
+
+static int icnss_vreg_off(struct icnss_priv *priv)
+{
+	int ret = 0;
+	struct icnss_vreg_info *vreg_info;
+	int i;
+
+	for (i = ICNSS_VREG_INFO_SIZE - 1; i >= 0; i--) {
+		vreg_info = &priv->vreg_info[i];
+
+		if (!vreg_info->reg)
+			continue;
+
+		icnss_pr_dbg("Regulator %s being disabled\n", vreg_info->name);
+
+		ret = regulator_disable(vreg_info->reg);
+		if (ret)
+			icnss_pr_err("Regulator %s, can't disable: %d\n",
+				     vreg_info->name, ret);
+
+		ret = regulator_set_load(vreg_info->reg, 0);
+		if (ret < 0)
+			icnss_pr_err("Regulator %s, can't set load: %d\n",
+				     vreg_info->name, ret);
+
+		ret = regulator_set_voltage(vreg_info->reg, 0,
+					    vreg_info->max_v);
+		if (ret)
+			icnss_pr_err("Regulator %s, can't set voltage: %d\n",
+				     vreg_info->name, ret);
+	}
+
+	return ret;
+}
+
+static int icnss_clk_init(struct icnss_priv *priv)
+{
+	struct icnss_clk_info *clk_info;
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < ICNSS_CLK_INFO_SIZE; i++) {
+		clk_info = &priv->clk_info[i];
+
+		if (!clk_info->handle)
+			continue;
+
+		icnss_pr_dbg("Clock %s being enabled\n", clk_info->name);
+
+		if (clk_info->freq) {
+			ret = clk_set_rate(clk_info->handle, clk_info->freq);
+
+			if (ret) {
+				icnss_pr_err("Clock %s, can't set frequency: %u, ret: %d\n",
+					     clk_info->name, clk_info->freq,
+					     ret);
+				break;
+			}
+		}
+
+		ret = clk_prepare_enable(clk_info->handle);
+		if (ret) {
+			icnss_pr_err("Clock %s, can't enable: %d\n",
+				     clk_info->name, ret);
+			break;
+		}
+	}
+
+	if (ret == 0)
+		return 0;
+
+	for (; i >= 0; i--) {
+		clk_info = &priv->clk_info[i];
+
+		if (!clk_info->handle)
+			continue;
+
+		clk_disable_unprepare(clk_info->handle);
+	}
+
+	return ret;
+}
+
+static int icnss_clk_deinit(struct icnss_priv *priv)
+{
+	struct icnss_clk_info *clk_info;
+	int i;
+
+	for (i = 0; i < ICNSS_CLK_INFO_SIZE; i++) {
+		clk_info = &priv->clk_info[i];
+
+		if (!clk_info->handle)
+			continue;
+
+		icnss_pr_dbg("Clock %s being disabled\n", clk_info->name);
+
+		clk_disable_unprepare(clk_info->handle);
+	}
+
+	return 0;
+}
+
 static int icnss_hw_power_on(struct icnss_priv *priv)
 {
 	int ret = 0;
-	unsigned long flags;
 
 	icnss_pr_dbg("HW Power on: state: 0x%lx\n", priv->state);
 
-	spin_lock_irqsave(&priv->on_off_lock, flags);
+	spin_lock(&priv->on_off_lock);
 	if (test_bit(ICNSS_POWER_ON, &priv->state)) {
-		spin_unlock_irqrestore(&priv->on_off_lock, flags);
+		spin_unlock(&priv->on_off_lock);
 		return ret;
 	}
 	set_bit(ICNSS_POWER_ON, &priv->state);
-	spin_unlock_irqrestore(&priv->on_off_lock, flags);
+	spin_unlock(&priv->on_off_lock);
 
+	ret = icnss_vreg_on(priv);
+	if (ret)
+		goto out;
+
+	ret = icnss_clk_init(priv);
+	if (ret)
+		goto vreg_off;
+
+	return ret;
+
+vreg_off:
+	icnss_vreg_off(priv);
+out:
+	clear_bit(ICNSS_POWER_ON, &priv->state);
 	return ret;
 }
 
 static int icnss_hw_power_off(struct icnss_priv *priv)
 {
 	int ret = 0;
-	unsigned long flags;
 
 	if (test_bit(HW_ALWAYS_ON, &quirks))
 		return 0;
 
 	icnss_pr_dbg("HW Power off: 0x%lx\n", priv->state);
 
-	spin_lock_irqsave(&priv->on_off_lock, flags);
+	spin_lock(&priv->on_off_lock);
 	if (!test_bit(ICNSS_POWER_ON, &priv->state)) {
-		spin_unlock_irqrestore(&priv->on_off_lock, flags);
+		spin_unlock(&priv->on_off_lock);
 		return ret;
 	}
 	clear_bit(ICNSS_POWER_ON, &priv->state);
-	spin_unlock_irqrestore(&priv->on_off_lock, flags);
+	spin_unlock(&priv->on_off_lock);
+
+	icnss_clk_deinit(priv);
+
+	ret = icnss_vreg_off(priv);
 
 	return ret;
 }
@@ -1895,6 +2109,8 @@ static int icnss_call_driver_remove(struct icnss_priv *priv)
 
 	clear_bit(ICNSS_DRIVER_PROBED, &priv->state);
 
+	icnss_hw_power_off(penv);
+
 	return 0;
 }
 
@@ -1947,8 +2163,6 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 		icnss_call_driver_remove(priv);
 
 out:
-	ret = icnss_hw_power_off(priv);
-
 	kfree(data);
 
 	return ret;
@@ -2923,10 +3137,15 @@ int icnss_trigger_recovery(struct device *dev)
 	}
 
 	if (!priv->service_notifier[0].handle) {
-		icnss_pr_err("Invalid handle during recovery\n");
+		icnss_pr_err("Invalid handle during recovery, state: 0x%lx\n",
+			     priv->state);
 		ret = -EINVAL;
 		goto out;
 	}
+
+	icnss_pr_dbg("Initiate PD restart at WLAN FW, state: 0x%lx\n",
+		     priv->state);
+	priv->stats.trigger_recovery++;
 
 	/*
 	 * Initiate PDR, required only for the first instance
@@ -3003,6 +3222,114 @@ static void icnss_smmu_deinit(struct icnss_priv *priv)
 	arm_iommu_release_mapping(priv->smmu_mapping);
 
 	priv->smmu_mapping = NULL;
+}
+
+static int icnss_get_vreg_info(struct device *dev,
+			       struct icnss_vreg_info *vreg_info)
+{
+	int ret = 0;
+	char prop_name[MAX_PROP_SIZE];
+	struct regulator *reg;
+	const __be32 *prop;
+	int len = 0;
+	int i;
+
+	reg = devm_regulator_get_optional(dev, vreg_info->name);
+	if (PTR_ERR(reg) == -EPROBE_DEFER) {
+		icnss_pr_err("EPROBE_DEFER for regulator: %s\n",
+			     vreg_info->name);
+		ret = PTR_ERR(reg);
+		goto out;
+	}
+
+	if (IS_ERR(reg)) {
+		ret = PTR_ERR(reg);
+
+		if (vreg_info->required) {
+			icnss_pr_err("Regulator %s doesn't exist: %d\n",
+				     vreg_info->name, ret);
+			goto out;
+		} else {
+			icnss_pr_dbg("Optional regulator %s doesn't exist: %d\n",
+				     vreg_info->name, ret);
+			goto done;
+		}
+	}
+
+	vreg_info->reg = reg;
+
+	snprintf(prop_name, MAX_PROP_SIZE,
+		 "qcom,%s-config", vreg_info->name);
+
+	prop = of_get_property(dev->of_node, prop_name, &len);
+
+	icnss_pr_dbg("Got regulator config, prop: %s, len: %d\n",
+		     prop_name, len);
+
+	if (!prop || len < (2 * sizeof(__be32))) {
+		icnss_pr_dbg("Property %s %s\n", prop_name,
+			     prop ? "invalid format" : "doesn't exist");
+		goto done;
+	}
+
+	for (i = 0; (i * sizeof(__be32)) < len; i++) {
+		switch (i) {
+		case 0:
+			vreg_info->min_v = be32_to_cpup(&prop[0]);
+			break;
+		case 1:
+			vreg_info->max_v = be32_to_cpup(&prop[1]);
+			break;
+		case 2:
+			vreg_info->load_ua = be32_to_cpup(&prop[2]);
+			break;
+		case 3:
+			vreg_info->settle_delay = be32_to_cpup(&prop[3]);
+			break;
+		default:
+			icnss_pr_dbg("Property %s, ignoring value at %d\n",
+				     prop_name, i);
+			break;
+		}
+	}
+
+done:
+	icnss_pr_dbg("Regulator: %s, min_v: %u, max_v: %u, load: %u, delay: %lu\n",
+		     vreg_info->name, vreg_info->min_v, vreg_info->max_v,
+		     vreg_info->load_ua, vreg_info->settle_delay);
+
+	return 0;
+
+out:
+	return ret;
+}
+
+static int icnss_get_clk_info(struct device *dev,
+			      struct icnss_clk_info *clk_info)
+{
+	struct clk *handle;
+	int ret = 0;
+
+	handle = devm_clk_get(dev, clk_info->name);
+	if (IS_ERR(handle)) {
+		ret = PTR_ERR(handle);
+		if (clk_info->required) {
+			icnss_pr_err("Clock %s isn't available: %d\n",
+				     clk_info->name, ret);
+			goto out;
+		} else {
+			icnss_pr_dbg("Ignoring clock %s: %d\n", clk_info->name,
+				     ret);
+			ret = 0;
+			goto out;
+		}
+	}
+
+	icnss_pr_dbg("Clock: %s, freq: %u\n", clk_info->name, clk_info->freq);
+
+	clk_info->handle = handle;
+out:
+	return ret;
 }
 
 static int icnss_fw_debug_show(struct seq_file *s, void *data)
@@ -3370,6 +3697,7 @@ static int icnss_stats_show(struct seq_file *s, void *data)
 	ICNSS_STATS_DUMP(s, priv, rejuvenate_ack_req);
 	ICNSS_STATS_DUMP(s, priv, rejuvenate_ack_resp);
 	ICNSS_STATS_DUMP(s, priv, rejuvenate_ack_err);
+	ICNSS_STATS_DUMP(s, priv, trigger_recovery);
 
 	seq_puts(s, "\n<------------------ PM stats ------------------->\n");
 	ICNSS_STATS_DUMP(s, priv, pm_suspend);
@@ -3714,6 +4042,21 @@ static int icnss_probe(struct platform_device *pdev)
 	ret = icnss_get_vbatt_info(priv);
 	if (ret == -EPROBE_DEFER)
 		goto out;
+
+	memcpy(priv->vreg_info, icnss_vreg_info, sizeof(icnss_vreg_info));
+	for (i = 0; i < ICNSS_VREG_INFO_SIZE; i++) {
+		ret = icnss_get_vreg_info(dev, &priv->vreg_info[i]);
+
+		if (ret)
+			goto out;
+	}
+
+	memcpy(priv->clk_info, icnss_clk_info, sizeof(icnss_clk_info));
+	for (i = 0; i < ICNSS_CLK_INFO_SIZE; i++) {
+		ret = icnss_get_clk_info(dev, &priv->clk_info[i]);
+		if (ret)
+			goto out;
+	}
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,smmu-s1-bypass"))
 		priv->bypass_s1_smmu = true;
