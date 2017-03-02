@@ -532,154 +532,158 @@ static void adv7481_irq_delay_work(struct work_struct *work)
 			state->device_num, int_raw_status);
 	state->cec_detected = ADV_REG_GETFIELD(int_raw_status, IO_INT_CEC_ST);
 
-	if (ADV_REG_GETFIELD(int_raw_status, IO_INTRQ1_RAW)) {
-		int lock_status = -1;
-		struct v4l2_event event = {0};
-		int *ptr = (int *)event.u.data;
+	while (int_raw_status) {
+		if (ADV_REG_GETFIELD(int_raw_status, IO_INTRQ1_RAW)) {
+			int lock_status = -1;
+			struct v4l2_event event = {0};
+			int *ptr = (int *)event.u.data;
 
-		pr_debug("%s: dev: %d got intrq1_raw\n", __func__,
-				state->device_num);
-		int_status = adv7481_rd_byte(&state->i2c_client,
-				state->i2c_io_addr,
-				IO_REG_DATAPATH_INT_STATUS_ADDR);
+			pr_debug("%s: dev: %d got intrq1_raw\n", __func__,
+					state->device_num);
+			int_status = adv7481_rd_byte(&state->i2c_client,
+					state->i2c_io_addr,
+					IO_REG_DATAPATH_INT_STATUS_ADDR);
 
-		raw_status = adv7481_rd_byte(&state->i2c_client,
-				state->i2c_io_addr,
-				IO_REG_DATAPATH_RAW_STATUS_ADDR);
+			raw_status = adv7481_rd_byte(&state->i2c_client,
+					state->i2c_io_addr,
+					IO_REG_DATAPATH_RAW_STATUS_ADDR);
 
-		adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
-			IO_REG_DATAPATH_INT_CLEAR_ADDR, int_status);
+			adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
+				IO_REG_DATAPATH_INT_CLEAR_ADDR, int_status);
 
-		pr_debug("%s: dev: %d got datapath int status: 0x%x\n",
-			__func__, state->device_num, int_status);
-
-		pr_debug("%s: dev: %d got datapath raw status: 0x%x\n",
-			__func__, state->device_num, raw_status);
-
-		if (ADV_REG_GETFIELD(int_status, IO_INT_SD_ST) &&
-			ADV_REG_GETFIELD(raw_status, IO_INT_SD_RAW)) {
-			uint8_t sdp_sts = 0;
-
-			adv7481_wr_byte(&state->i2c_client,
-					state->i2c_sdp_addr, SDP_RW_MAP_REG,
-					0x01);
-			sdp_sts = adv7481_rd_byte(&state->i2c_client,
-				state->i2c_sdp_addr, SDP_RO_MAIN_STATUS1_ADDR);
-			pr_debug("%s: dev: %d got sdp status: 0x%x\n",
-					__func__, state->device_num, sdp_sts);
-			adv7481_wr_byte(&state->i2c_client,
-					state->i2c_sdp_addr, SDP_RW_MAP_REG,
-					0x00);
-			if (ADV_REG_GETFIELD(sdp_sts, SDP_RO_MAIN_IN_LOCK)) {
-				lock_status = 0;
-				pr_debug(
-				"%s: set lock_status SDP_IN_LOCK:0x%x\n",
-				__func__, lock_status);
-			} else {
-				lock_status = 1;
-				pr_debug(
-				"%s: set lock_status SDP_UNLOCK:0x%x\n",
-				__func__, lock_status);
-			}
-			adv7481_wr_byte(&state->i2c_client,
-					state->i2c_sdp_addr, SDP_RW_MAP_REG,
-					0x20);
-			adv7481_wr_byte(&state->i2c_client,
-					state->i2c_sdp_addr,
-					SDP_RW_LOCK_UNLOCK_CLR_ADDR, sdp_sts);
-			adv7481_wr_byte(&state->i2c_client,
-					state->i2c_sdp_addr, SDP_RW_MAP_REG,
-					0x00);
-		} else {
-			if (ADV_REG_GETFIELD(int_status, IO_CP_LOCK_CP_ST) &&
-				ADV_REG_GETFIELD(raw_status,
-						IO_CP_LOCK_CP_RAW)) {
-				lock_status = 0;
-				pr_debug(
-				"%s: set lock_status IO_CP_LOCK_CP_RAW:0x%x\n",
-				__func__, lock_status);
-			}
-			if (ADV_REG_GETFIELD(int_status, IO_CP_UNLOCK_CP_ST) &&
-				ADV_REG_GETFIELD(raw_status,
-						IO_CP_UNLOCK_CP_RAW)) {
-				lock_status = 1;
-				pr_debug(
-				"%s: set lock_status IO_CP_UNLOCK_CP_RAW:0x%x\n",
-				__func__, lock_status);
-			}
-		}
-
-		if (lock_status >= 0) {
-			ptr[0] = adv7481_inp_to_ba(state->mode);
-			ptr[1] = lock_status;
-			event.type = lock_status ?
-				V4L2_EVENT_MSM_BA_SIGNAL_LOST_LOCK :
-				V4L2_EVENT_MSM_BA_SIGNAL_IN_LOCK;
-			v4l2_subdev_notify(&state->sd,
-				event.type, &event);
-		}
-	}
-
-	if (ADV_REG_GETFIELD(int_raw_status, IO_INT_HDMI_ST)) {
-		int cable_detected = 0;
-		struct v4l2_event event = {0};
-		int *ptr = (int *)event.u.data;
-
-		ptr[0] = adv7481_inp_to_ba(state->mode);
-
-		pr_debug("%s: dev: %d got int_hdmi_st\n", __func__,
-				state->device_num);
-
-		int_status = adv7481_rd_byte(&state->i2c_client,
-				state->i2c_io_addr,
-				IO_HDMI_LVL_INT_STATUS_3_ADDR);
-
-		raw_status = adv7481_rd_byte(&state->i2c_client,
-				state->i2c_io_addr,
-				IO_HDMI_LVL_RAW_STATUS_3_ADDR);
-
-		pr_debug("%s: dev: %d got hdmi lvl int status 3: 0x%x\n",
+			pr_debug("%s: dev: %d got datapath int status: 0x%x\n",
 				__func__, state->device_num, int_status);
-		pr_debug("%s: dev: %d got hdmi lvl raw status 3: 0x%x\n",
+
+			pr_debug("%s: dev: %d got datapath raw status: 0x%x\n",
 				__func__, state->device_num, raw_status);
 
+			if (ADV_REG_GETFIELD(int_status, IO_INT_SD_ST) &&
+				ADV_REG_GETFIELD(raw_status, IO_INT_SD_RAW)) {
+				uint8_t sdp_sts = 0;
 
-		if (ADV_REG_GETFIELD(int_status, IO_CABLE_DET_A_ST)) {
-			cable_detected = ADV_REG_GETFIELD(raw_status,
-				IO_CABLE_DET_A_RAW);
-			pr_debug("%s: set cable_detected: 0x%x\n",
-					__func__, cable_detected);
-			ptr[1] = cable_detected;
-			event.type = V4L2_EVENT_MSM_BA_CABLE_DETECT;
-			v4l2_subdev_notify(&state->sd,
-				event.type, &event);
-		}
-		/* Assumption is that vertical sync int
-		 * is the last one to come */
-		if (ADV_REG_GETFIELD(int_status, IO_V_LOCKED_ST)) {
-			if (ADV_REG_GETFIELD(raw_status,
-				IO_TMDSPLL_LCK_A_RAW) &&
-				ADV_REG_GETFIELD(raw_status,
-				IO_V_LOCKED_RAW) &&
-				ADV_REG_GETFIELD(raw_status,
-				IO_DE_REGEN_LCK_RAW)) {
-				pr_debug("%s: port settings changed\n",
-					__func__);
-				event.type =
-				V4L2_EVENT_MSM_BA_PORT_SETTINGS_CHANGED;
+				adv7481_wr_byte(&state->i2c_client,
+					state->i2c_sdp_addr, SDP_RW_MAP_REG,
+					0x01);
+				sdp_sts = adv7481_rd_byte(&state->i2c_client,
+					state->i2c_sdp_addr,
+					SDP_RO_MAIN_STATUS1_ADDR);
+				pr_debug("%s: dev: %d got sdp status: 0x%x\n",
+					__func__, state->device_num, sdp_sts);
+				adv7481_wr_byte(&state->i2c_client,
+					state->i2c_sdp_addr, SDP_RW_MAP_REG,
+					0x00);
+				if (ADV_REG_GETFIELD(sdp_sts,
+					SDP_RO_MAIN_IN_LOCK)) {
+					lock_status = 0;
+					pr_debug(
+					"%s: set lock_status SDP_IN_LOCK:0x%x\n",
+					__func__, lock_status);
+				} else {
+					lock_status = 1;
+					pr_debug(
+					"%s: set lock_status SDP_UNLOCK:0x%x\n",
+					__func__, lock_status);
+				}
+				adv7481_wr_byte(&state->i2c_client,
+					state->i2c_sdp_addr, SDP_RW_MAP_REG,
+					0x20);
+				adv7481_wr_byte(&state->i2c_client,
+					state->i2c_sdp_addr,
+					SDP_RW_LOCK_UNLOCK_CLR_ADDR, sdp_sts);
+				adv7481_wr_byte(&state->i2c_client,
+					state->i2c_sdp_addr, SDP_RW_MAP_REG,
+					0x00);
+			} else {
+				if (ADV_REG_GETFIELD(int_status,
+						IO_CP_LOCK_CP_ST) &&
+					ADV_REG_GETFIELD(raw_status,
+						IO_CP_LOCK_CP_RAW)) {
+					lock_status = 0;
+					pr_debug(
+					"%s: set lock_status IO_CP_LOCK_CP_RAW:0x%x\n",
+					__func__, lock_status);
+				}
+				if (ADV_REG_GETFIELD(int_status,
+						IO_CP_UNLOCK_CP_ST) &&
+					ADV_REG_GETFIELD(raw_status,
+						IO_CP_UNLOCK_CP_RAW)) {
+					lock_status = 1;
+					pr_debug(
+					"%s: set lock_status IO_CP_UNLOCK_CP_RAW:0x%x\n",
+					__func__, lock_status);
+				}
+			}
+
+			if (lock_status >= 0) {
+				ptr[0] = adv7481_inp_to_ba(state->mode);
+				ptr[1] = lock_status;
+				event.type = lock_status ?
+					V4L2_EVENT_MSM_BA_SIGNAL_LOST_LOCK :
+					V4L2_EVENT_MSM_BA_SIGNAL_IN_LOCK;
 				v4l2_subdev_notify(&state->sd,
 					event.type, &event);
 			}
 		}
-	}
-	/* Clear all other interrupts */
-	adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
-		IO_HDMI_LVL_INT_CLEAR_1_ADDR, 0xFF);
-	adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
-		IO_HDMI_LVL_INT_CLEAR_2_ADDR, 0xFF);
-	adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
-		IO_HDMI_LVL_INT_CLEAR_3_ADDR, 0xFF);
 
+		if (ADV_REG_GETFIELD(int_raw_status, IO_INT_HDMI_ST)) {
+			int cable_detected = 0;
+			struct v4l2_event event = {0};
+			int *ptr = (int *)event.u.data;
+
+			ptr[0] = adv7481_inp_to_ba(state->mode);
+
+			pr_debug("%s: dev: %d got int_hdmi_st\n", __func__,
+				state->device_num);
+
+			int_status = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_io_addr,
+				IO_HDMI_LVL_INT_STATUS_3_ADDR);
+
+			raw_status = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_io_addr,
+				IO_HDMI_LVL_RAW_STATUS_3_ADDR);
+
+			adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
+				IO_HDMI_LVL_INT_CLEAR_3_ADDR, int_status);
+
+			pr_debug("%s: dev: %d got hdmi lvl int status 3: 0x%x\n",
+				__func__, state->device_num, int_status);
+			pr_debug("%s: dev: %d got hdmi lvl raw status 3: 0x%x\n",
+				__func__, state->device_num, raw_status);
+
+
+			if (ADV_REG_GETFIELD(int_status, IO_CABLE_DET_A_ST)) {
+				cable_detected = ADV_REG_GETFIELD(raw_status,
+					IO_CABLE_DET_A_RAW);
+				pr_debug("%s: set cable_detected: 0x%x\n",
+					__func__, cable_detected);
+				ptr[1] = cable_detected;
+				event.type = V4L2_EVENT_MSM_BA_CABLE_DETECT;
+				v4l2_subdev_notify(&state->sd,
+					event.type, &event);
+			}
+			/* Assumption is that vertical sync int
+			 * is the last one to come */
+			if (ADV_REG_GETFIELD(int_status, IO_V_LOCKED_ST)) {
+				if (ADV_REG_GETFIELD(raw_status,
+					IO_TMDSPLL_LCK_A_RAW) &&
+					ADV_REG_GETFIELD(raw_status,
+					IO_V_LOCKED_RAW) &&
+					ADV_REG_GETFIELD(raw_status,
+					IO_DE_REGEN_LCK_RAW)) {
+					pr_debug("%s: port settings changed\n",
+						__func__);
+					event.type =
+					V4L2_EVENT_MSM_BA_PORT_SETTINGS_CHANGED;
+					v4l2_subdev_notify(&state->sd,
+						event.type, &event);
+				}
+			}
+		}
+		int_raw_status = adv7481_rd_byte(&state->i2c_client,
+				state->i2c_io_addr,
+				IO_REG_INT_RAW_STATUS_ADDR);
+	}
 	mutex_unlock(&state->mutex);
 }
 
