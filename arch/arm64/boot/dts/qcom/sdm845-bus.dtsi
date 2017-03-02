@@ -24,12 +24,13 @@
 			<0x1380000 0x40000>,
 			<0x1380000 0x40000>,
 			<0x1740000 0x40000>,
+			<0x1620000 0x40000>,
 			<0x1620000 0x40000>;
 
 		reg-names = "aggre1_noc-base", "aggre2_noc-base",
 			"config_noc-base", "dc_noc-base",
 			"gladiator_noc-base", "mc_virt-base", "mem_noc-base",
-			"mmss_noc-base", "system_noc-base";
+			"mmss_noc-base", "system_noc-base", "ipa_virt-base";
 
 		mbox-names = "apps_rsc", "disp_rsc";
 		mboxes = <&apps_rsc 0 &disp_rsc 0>;
@@ -397,6 +398,15 @@
 			clocks = <>;
 		};
 
+		fab_ipa_virt: fab-ipa_virt {
+			cell-id = <MSM_BUS_FAB_IPA_VIRT>;
+			label = "fab-ipa_virt";
+			qcom,fab-dev;
+			qcom,base-name = "ipa_virt-base";
+			qcom,bypass-qos-prg;
+			clocks = <>;
+		};
+
 		fab_mc_virt: fab-mc_virt {
 			cell-id = <MSM_BUS_FAB_MC_VIRT>;
 			label = "fab-mc_virt";
@@ -590,7 +600,6 @@
 			qcom,qport = <2>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
-			qcom,bcms = <&bcm_ip0>;
 		};
 
 		mas_xm_pcie3_1: mas-xm-pcie3-1 {
@@ -774,6 +783,15 @@
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_srvc_gnoc>;
 			qcom,bus-dev = <&fab_gladiator_noc>;
+		};
+
+		mas_ipa_core: mas-ipa-core {
+			cell-id = <MSM_BUS_MASTER_IPA_CORE>;
+			label = "mas-ipa-core";
+			qcom,buswidth = <1>;
+			qcom,agg-ports = <1>;
+			qcom,connections = <&slv_ipa_core>;
+			qcom,bus-dev = <&fab_ipa_virt>;
 		};
 
 		mas_llcc_mc: mas-llcc-mc {
@@ -1599,6 +1617,15 @@
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_gladiator_noc>;
+		};
+
+		slv_ipa_core:slv-ipa-core {
+			cell-id = <MSM_BUS_SLAVE_IPA>;
+			label = "slv-ipa-core";
+			qcom,buswidth = <1>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_ipa_virt>;
+			qcom,bcms = <&bcm_ip0>;
 		};
 
 		slv_ebi:slv-ebi {
