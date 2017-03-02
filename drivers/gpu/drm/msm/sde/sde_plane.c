@@ -533,6 +533,7 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 	uint32_t prefix;
 	void *input_fence;
 	int ret = -EINVAL;
+	signed long rc;
 
 	if (!plane) {
 		SDE_ERROR("invalid plane\n");
@@ -544,24 +545,36 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 		input_fence = pstate->input_fence;
 
 		if (input_fence) {
+			psde->is_error = false;
 			prefix = sde_sync_get_name_prefix(input_fence);
-			ret = sde_sync_wait(input_fence, wait_ms);
+			rc = sde_sync_wait(input_fence, wait_ms);
 
 			SDE_EVT32(DRMID(plane), -ret, prefix);
 
-			switch (ret) {
+			switch (rc) {
 			case 0:
-				SDE_DEBUG_PLANE(psde, "signaled\n");
-				break;
-			case -ETIME:
 				SDE_ERROR_PLANE(psde, "%ums timeout on %08X\n",
 						wait_ms, prefix);
 				psde->is_error = true;
+				ret = -ETIMEDOUT;
+				break;
+			case -ERESTARTSYS:
+				SDE_ERROR_PLANE(psde,
+					"%ums wait interrupted on %08X\n",
+					wait_ms, prefix);
+				psde->is_error = true;
+				ret = -ERESTARTSYS;
+				break;
+			case -EINVAL:
+				SDE_ERROR_PLANE(psde,
+					"invalid fence param for %08X\n",
+						prefix);
+				psde->is_error = true;
+				ret = -EINVAL;
 				break;
 			default:
-				SDE_ERROR_PLANE(psde, "error %d on %08X\n",
-						ret, prefix);
-				psde->is_error = true;
+				SDE_DEBUG_PLANE(psde, "signaled\n");
+				ret = 0;
 				break;
 			}
 		} else {

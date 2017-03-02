@@ -91,6 +91,7 @@ struct sde_crtc_frame_event {
  * @drm_requested_vblank : Whether vblanks have been enabled in the encoder
  * @property_info : Opaque structure for generic property support
  * @property_defaults : Array of default values for generic property support
+ * @output_fence  : output release fence context
  * @stage_cfg     : H/w mixer stage configuration
  * @debugfs_root  : Parent of debugfs node
  * @vblank_cb_count : count of vblank callback since last reset
@@ -122,7 +123,7 @@ struct sde_crtc {
 	struct drm_property_blob *blob_info;
 
 	/* output fence support */
-	struct sde_fence output_fence;
+	struct sde_fence_context output_fence;
 
 	struct sde_hw_stage_cfg stage_cfg;
 	struct dentry *debugfs_root;
