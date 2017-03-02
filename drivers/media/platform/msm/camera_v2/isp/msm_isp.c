@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -588,6 +588,12 @@ int vfe_hw_probe(struct platform_device *pdev)
 		}
 		vfe_dev->hw_info =
 			(struct msm_vfe_hardware_info *) match_dev->data;
+		/* Cx ipeak support */
+		if (of_find_property(pdev->dev.of_node,
+			"qcom,vfe_cx_ipeak", NULL)) {
+			vfe_dev->vfe_cx_ipeak = cx_ipeak_register(
+				pdev->dev.of_node, "qcom,vfe_cx_ipeak");
+		}
 	} else {
 		vfe_dev->hw_info = (struct msm_vfe_hardware_info *)
 			platform_get_device_id(pdev)->driver_data;

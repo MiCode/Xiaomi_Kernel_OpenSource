@@ -55,6 +55,13 @@
 	/delete-property/gpios;
 };
 
+&tof0 {
+	/delete-property/cam_cci-supply;
+	/delete-property/cam_laser-supply;
+	/delete-property/gpios;
+};
+
+
 &cci {
 	/delete-node/qcom,camera@1;
 	/delete-node/qcom,camera@2;

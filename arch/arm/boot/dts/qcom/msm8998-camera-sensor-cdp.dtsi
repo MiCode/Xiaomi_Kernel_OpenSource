@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,6 +76,26 @@
 		pinctrl-0 = <&cam_actuator_vaf_active>;
 		pinctrl-1 = <&cam_actuator_vaf_suspend>;
 		status = "disabled";
+	};
+
+	tof0:qcom,tof@0{
+		cell-index = <0>;
+		reg = <0x29>;
+		compatible = "st,stmvl53l0";
+		qcom,cci-master = <0>;
+		cam_cci-supply = <&pm8998_lvs1>;
+		cam_laser-supply = <&pmi8998_bob>;
+		qcom,cam-vreg-name = "cam_cci", "cam_laser";
+		qcom,cam-vreg-min-voltage = <0 0>;
+		qcom,cam-vreg-max-voltage = <0 3600000>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_tof_active>;
+		pinctrl-1 = <&cam_tof_suspend>;
+		gpios = <&tlmm 27 0>,
+				<&tlmm 126 0>;
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <0 0>;
+		qcom,gpio-req-tbl-label = "CAM_TOF", "CAM_CE";
 	};
 
 	eeprom0: qcom,eeprom@0 {

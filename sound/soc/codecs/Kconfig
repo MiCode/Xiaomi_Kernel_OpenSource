@@ -989,7 +989,7 @@ config SND_SOC_MSM_STUB
 
 config SND_SOC_MSM_HDMI_CODEC_RX
 	bool "HDMI Audio Playback"
-	depends on FB_MSM_MDSS_HDMI_PANEL && (SND_SOC_APQ8084 || SND_SOC_MSM8994 || SND_SOC_MSM8996 || SND_SOC_MSM8998)
+	depends on FB_MSM_MDSS_HDMI_PANEL && (SND_SOC_APQ8084 || SND_SOC_MSM8994 || SND_SOC_MSM8996 || SND_SOC_MSM8998 || SND_SOC_SDM660_COMMON)
 	help
 	HDMI audio drivers should be built only if the platform
         supports hdmi panel.

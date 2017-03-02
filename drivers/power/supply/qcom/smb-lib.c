@@ -921,7 +921,6 @@ override_suspend_config:
 
 enable_icl_changed_interrupt:
 	enable_irq(chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq);
-
 	return rc;
 }
 
@@ -1720,33 +1719,54 @@ int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 
 int smblib_rerun_aicl(struct smb_charger *chg)
 {
-	int rc = 0;
-	u8 val;
+	int rc, settled_icl_ua;
+	u8 stat;
 
-	/*
-	 * Use restart_AICL instead of trigger_AICL as it runs the
-	 * complete AICL instead of starting from the last settled value.
-	 *
-	 * 8998 only supports trigger_AICL return error for 8998
-	 */
+	rc = smblib_read(chg, POWER_PATH_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read POWER_PATH_STATUS rc=%d\n",
+								rc);
+		return rc;
+	}
+
+	/* USB is suspended so skip re-running AICL */
+	if (stat & USBIN_SUSPEND_STS_BIT)
+		return rc;
+
+	smblib_dbg(chg, PR_MISC, "re-running AICL\n");
 	switch (chg->smb_version) {
 	case PMI8998_SUBTYPE:
-		smblib_dbg(chg, PR_PARALLEL, "AICL rerun not supported\n");
-		return -EINVAL;
+		rc = smblib_get_charge_param(chg, &chg->param.icl_stat,
+							&settled_icl_ua);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't get settled ICL rc=%d\n", rc);
+			return rc;
+		}
+
+		vote(chg->usb_icl_votable, AICL_RERUN_VOTER, true,
+				max(settled_icl_ua - chg->param.usb_icl.step_u,
+				chg->param.usb_icl.step_u));
+		vote(chg->usb_icl_votable, AICL_RERUN_VOTER, false, 0);
+		break;
 	case PM660_SUBTYPE:
-		val = RESTART_AICL_BIT;
+		/*
+		 * Use restart_AICL instead of trigger_AICL as it runs the
+		 * complete AICL instead of starting from the last settled
+		 * value.
+		 */
+		rc = smblib_masked_write(chg, CMD_HVDCP_2_REG,
+					RESTART_AICL_BIT, RESTART_AICL_BIT);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't write to CMD_HVDCP_2_REG rc=%d\n",
+									rc);
 		break;
 	default:
 		smblib_dbg(chg, PR_PARALLEL, "unknown SMB chip %d\n",
 				chg->smb_version);
 		return -EINVAL;
 	}
-	rc = smblib_masked_write(chg, CMD_HVDCP_2_REG, val, val);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't write to CMD_HVDCP_2_REG rc=%d\n",
-				rc);
 
-	return rc;
+	return 0;
 }
 
 static int smblib_dp_pulse(struct smb_charger *chg)
@@ -2403,6 +2423,10 @@ int smblib_set_prop_usb_voltage_max(struct smb_charger *chg,
 	}
 
 	chg->voltage_max_uv = max_uv;
+	rc = smblib_rerun_aicl(chg);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't re-run AICL rc=%d\n", rc);
+
 	return rc;
 }
 
