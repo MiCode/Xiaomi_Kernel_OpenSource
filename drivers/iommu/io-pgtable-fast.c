@@ -426,11 +426,16 @@ av8l_fast_prepopulate_pgtables(struct av8l_fast_io_pgtable *data,
 		for (j = pmd_index(pud), pmd = pud; pmd < pud_next(pud, end);
 				++j, pmd = pmd_next(pmd, end)) {
 			av8l_fast_iopte pte, *pudp;
+			void *addr;
 
 			page = alloc_page(GFP_KERNEL | __GFP_ZERO);
 			if (!page)
 				goto err_free_pages;
 			pages[pg++] = page;
+
+			addr = page_address(page);
+			dmac_clean_range(addr, addr + SZ_4K);
+
 			pte = page_to_phys(page) | AV8L_FAST_PTE_TYPE_TABLE;
 			pudp = data->puds[i] + j;
 			*pudp = pte;
