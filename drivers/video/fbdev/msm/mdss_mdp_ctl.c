@@ -2263,8 +2263,8 @@ static bool __mdss_mdp_compare_bw(
 		__calc_bus_ib_quota(mdata, new_perf, is_nrt, new_perf->bw_ctl);
 	u64 old_ib =
 		__calc_bus_ib_quota(mdata, old_perf, is_nrt, old_perf->bw_ctl);
-	u64 max_new_bw = max(new_perf->bw_ctl, new_ib);
-	u64 max_old_bw = max(old_perf->bw_ctl, old_ib);
+	u64 new_ab = new_perf->bw_ctl;
+	u64 old_ab = old_perf->bw_ctl;
 	bool update_bw = false;
 
 	/*
@@ -2276,16 +2276,18 @@ static bool __mdss_mdp_compare_bw(
 	 * 3. end of writeback/rotator session - last chance to
 	 *		non-realtime remove vote.
 	 */
-	if ((params_changed && ((max_new_bw > max_old_bw) || /* ab and ib bw */
+	if ((params_changed &&
+			(((new_ib > old_ib) || (new_ab > old_ab)) ||
 			(new_perf->bw_writeback > old_perf->bw_writeback))) ||
-			(!params_changed && ((max_new_bw < max_old_bw) ||
+			(!params_changed &&
+			(((new_ib < old_ib) || (new_ab < old_ab)) ||
 			(new_perf->bw_writeback < old_perf->bw_writeback))) ||
 			(stop_req && is_nrt))
 		update_bw = true;
 
 	trace_mdp_compare_bw(new_perf->bw_ctl, new_ib, new_perf->bw_writeback,
-		max_new_bw, old_perf->bw_ctl, old_ib, old_perf->bw_writeback,
-		max_old_bw, params_changed, update_bw);
+		old_perf->bw_ctl, old_ib, old_perf->bw_writeback,
+		params_changed, update_bw);
 
 	return update_bw;
 }
