@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -498,7 +498,7 @@ static int ipa3_uc_send_cmd_64b_param(u32 cmd_lo, u32 cmd_hi, u32 opcode,
 {
 	int index;
 	union IpaHwCpuCmdCompletedResponseData_t uc_rsp;
-	unsigned long flags;
+	unsigned long flags = 0;
 	int retries = 0;
 
 send_cmd_lock:
@@ -775,7 +775,7 @@ int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 void ipa3_uc_register_handlers(enum ipa3_hw_features feature,
 			      struct ipa3_uc_hdlrs *hdlrs)
 {
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	if (0 > feature || IPA_HW_FEATURE_MAX <= feature) {
 		IPAERR("Feature %u is invalid, not registering hdlrs\n",
