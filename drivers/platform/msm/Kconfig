@@ -122,4 +122,12 @@ config MSM_MHI_DEV
           involving communication between a host and a device over shared
           memory. MHI interacts with the IPA for supporting transfers
 	  on the HW accelerated channels between Host and device.
+
+config USB_BAM
+	bool "USB BAM Driver"
+	depends on SPS && USB_GADGET
+	help
+	  Enabling this option adds USB BAM Driver.
+	  USB BAM driver was added to supports SPS Peripheral-to-Peripheral
+	  transfers between the USB and other peripheral.
 endmenu
