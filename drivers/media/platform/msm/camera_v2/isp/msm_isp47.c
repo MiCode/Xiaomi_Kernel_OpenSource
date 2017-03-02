@@ -281,9 +281,11 @@ int msm_isp47_ahb_clk_cfg(struct vfe_device *vfe_dev,
 
 	vfe_dev->hw_info->vfe_ops.platform_ops.get_clk_rates(vfe_dev,
 							&clk_rates);
-	if (vfe_dev->msm_isp_vfe_clk_rate <= clk_rates.svs_rate)
+	if (vfe_dev->vfe_clk_info[vfe_dev->hw_info->vfe_clk_idx].clk_rate <=
+		clk_rates.svs_rate)
 		src_clk_vote = CAM_AHB_SVS_VOTE;
-	else if (vfe_dev->msm_isp_vfe_clk_rate <= clk_rates.nominal_rate)
+	else if (vfe_dev->vfe_clk_info[vfe_dev->hw_info->vfe_clk_idx].clk_rate
+		<= clk_rates.nominal_rate)
 		src_clk_vote = CAM_AHB_NOMINAL_VOTE;
 	else
 		src_clk_vote = CAM_AHB_TURBO_VOTE;
@@ -2565,17 +2567,19 @@ int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 	long clk_rate, prev_clk_rate;
 
 	clk_rate = clk_round_rate(vfe_dev->vfe_clk[clk_idx], *rate);
-	if (vfe_dev->msm_isp_vfe_clk_rate == clk_rate)
+	if (vfe_dev->vfe_clk_info[clk_idx].clk_rate == clk_rate)
 		return rc;
 
-	prev_clk_rate = vfe_dev->msm_isp_vfe_clk_rate;
-	vfe_dev->msm_isp_vfe_clk_rate = clk_rate;
+	prev_clk_rate =
+		vfe_dev->vfe_clk_info[clk_idx].clk_rate;
+	vfe_dev->vfe_clk_info[clk_idx].clk_rate =
+		clk_rate;
 	/*
 	 * if cx_ipeak is supported vote first so that dsp throttling is
 	 * reduced before we go to turbo
 	 */
 	if ((vfe_dev->vfe_cx_ipeak) &&
-		(vfe_dev->msm_isp_vfe_clk_rate >=
+		(vfe_dev->vfe_clk_info[clk_idx].clk_rate >=
 		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_NOMINAL]
 		[vfe_dev->hw_info->vfe_clk_idx]) &&
 		prev_clk_rate <
@@ -2598,7 +2602,7 @@ int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 	 * if voting done earlier
 	 */
 	if ((vfe_dev->vfe_cx_ipeak) &&
-		(vfe_dev->msm_isp_vfe_clk_rate <
+		(vfe_dev->vfe_clk_info[clk_idx].clk_rate <
 		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_NOMINAL]
 		[vfe_dev->hw_info->vfe_clk_idx]) &&
 		prev_clk_rate >=

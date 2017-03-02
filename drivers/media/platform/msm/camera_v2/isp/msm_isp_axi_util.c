@@ -1134,7 +1134,8 @@ static void msm_isp_calculate_bandwidth(
 		axi_data = &vfe_dev->axi_data;
 		if (stream_info->stream_src < RDI_INTF_0) {
 			stream_info->bandwidth[i] =
-				(vfe_dev->msm_isp_vfe_clk_rate /
+				(vfe_dev->vfe_clk_info[
+				vfe_dev->hw_info->vfe_clk_idx].clk_rate /
 				axi_data->src_info[VFE_PIX_0].width) *
 				stream_info->max_width[i];
 			stream_info->bandwidth[i] =
@@ -1147,7 +1148,9 @@ static void msm_isp_calculate_bandwidth(
 					stream_info->output_format);
 			if (rdi < VFE_SRC_MAX) {
 				stream_info->bandwidth[i] =
-				(vfe_dev->msm_isp_vfe_clk_rate / 8) * bpp;
+				(vfe_dev->vfe_clk_info[
+				vfe_dev->hw_info->vfe_clk_idx].clk_rate /
+				8) * bpp;
 			} else {
 				pr_err("%s: Invalid rdi interface\n", __func__);
 			}
