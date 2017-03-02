@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,7 @@
 #define DSI_W32(dsi_hw, off, val) \
 	do {\
 		pr_debug("[DSI_%d][%s] - [0x%08x]\n", \
-			(dsi_hw)->index, #off, val); \
+			(dsi_hw)->index, #off, (uint32_t)(val)); \
 		writel_relaxed((val), (dsi_hw)->base + (off)); \
 	} while (0)
 

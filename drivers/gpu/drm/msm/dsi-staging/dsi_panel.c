@@ -144,7 +144,7 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 	int i;
 
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio)) {
-		rc = gpio_direction_output(panel->bl_config.en_gpio, 1);
+		rc = gpio_direction_output(panel->reset_config.disp_en_gpio, 1);
 		if (rc) {
 			pr_err("unable to set dir for disp gpio rc=%d\n", rc);
 			goto exit;
