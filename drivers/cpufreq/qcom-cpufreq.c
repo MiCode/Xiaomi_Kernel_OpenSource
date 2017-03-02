@@ -163,66 +163,61 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 	return 0;
 }
 
-static int msm_cpufreq_cpu_callback(struct notifier_block *nfb,
-		unsigned long action, void *hcpu)
+static int qcom_cpufreq_dead_cpu(unsigned int cpu)
 {
-	unsigned int cpu = (unsigned long)hcpu;
+	/* Fail hotplug until this driver can get CPU clocks */
+	if (!hotplug_ready)
+		return -EINVAL;
+
+	clk_unprepare(cpu_clk[cpu]);
+	clk_unprepare(l2_clk);
+	return 0;
+}
+
+static int qcom_cpufreq_up_cpu(unsigned int cpu)
+{
 	int rc;
 
 	/* Fail hotplug until this driver can get CPU clocks */
 	if (!hotplug_ready)
-		return NOTIFY_BAD;
+		return -EINVAL;
 
-	switch (action & ~CPU_TASKS_FROZEN) {
-
-	case CPU_DYING:
-		clk_disable(cpu_clk[cpu]);
-		clk_disable(l2_clk);
-		break;
-	/*
-	 * Scale down clock/power of CPU that is dead and scale it back up
-	 * before the CPU is brought up.
-	 */
-	case CPU_DEAD:
-		clk_unprepare(cpu_clk[cpu]);
+	rc = clk_prepare(l2_clk);
+	if (rc < 0)
+		return rc;
+	rc = clk_prepare(cpu_clk[cpu]);
+	if (rc < 0)
 		clk_unprepare(l2_clk);
-		break;
-	case CPU_UP_CANCELED:
-		clk_unprepare(cpu_clk[cpu]);
-		clk_unprepare(l2_clk);
-		break;
-	case CPU_UP_PREPARE:
-		rc = clk_prepare(l2_clk);
-		if (rc < 0)
-			return NOTIFY_BAD;
-		rc = clk_prepare(cpu_clk[cpu]);
-		if (rc < 0) {
-			clk_unprepare(l2_clk);
-			return NOTIFY_BAD;
-		}
-		break;
-
-	case CPU_STARTING:
-		rc = clk_enable(l2_clk);
-		if (rc < 0)
-			return NOTIFY_BAD;
-		rc = clk_enable(cpu_clk[cpu]);
-		if (rc) {
-			clk_disable(l2_clk);
-			return NOTIFY_BAD;
-		}
-		break;
-
-	default:
-		break;
-	}
-
-	return NOTIFY_OK;
+	return rc;
 }
 
-static struct notifier_block __refdata msm_cpufreq_cpu_notifier = {
-	.notifier_call = msm_cpufreq_cpu_callback,
-};
+static int qcom_cpufreq_dying_cpu(unsigned int cpu)
+{
+	/* Fail hotplug until this driver can get CPU clocks */
+	if (!hotplug_ready)
+		return -EINVAL;
+
+	clk_disable(cpu_clk[cpu]);
+	clk_disable(l2_clk);
+	return 0;
+}
+
+static int qcom_cpufreq_starting_cpu(unsigned int cpu)
+{
+	int rc;
+
+	/* Fail hotplug until this driver can get CPU clocks */
+	if (!hotplug_ready)
+		return -EINVAL;
+
+	rc = clk_enable(l2_clk);
+	if (rc < 0)
+		return rc;
+	rc = clk_enable(cpu_clk[cpu]);
+	if (rc < 0)
+		clk_disable(l2_clk);
+	return rc;
+}
 
 static int msm_cpufreq_suspend(void)
 {
@@ -464,7 +459,8 @@ static int __init msm_cpufreq_register(void)
 	rc = platform_driver_register(&msm_cpufreq_plat_driver);
 	if (rc < 0) {
 		/* Unblock hotplug if msm-cpufreq probe fails */
-		unregister_hotcpu_notifier(&msm_cpufreq_cpu_notifier);
+		cpuhp_remove_state_nocalls(CPUHP_QCOM_CPUFREQ_PREPARE);
+		cpuhp_remove_state_nocalls(CPUHP_AP_QCOM_CPUFREQ_STARTING);
 		for_each_possible_cpu(cpu)
 			mutex_destroy(&(per_cpu(suspend_data, cpu).
 					suspend_mutex));
@@ -479,6 +475,22 @@ subsys_initcall(msm_cpufreq_register);
 
 static int __init msm_cpufreq_early_register(void)
 {
-	return register_hotcpu_notifier(&msm_cpufreq_cpu_notifier);
+	int ret;
+
+	ret = cpuhp_setup_state_nocalls(CPUHP_AP_QCOM_CPUFREQ_STARTING,
+					"AP_QCOM_CPUFREQ_STARTING",
+					qcom_cpufreq_starting_cpu,
+					qcom_cpufreq_dying_cpu);
+	if (ret)
+		return ret;
+
+	ret = cpuhp_setup_state_nocalls(CPUHP_QCOM_CPUFREQ_PREPARE,
+					"QCOM_CPUFREQ_PREPARE",
+					qcom_cpufreq_up_cpu,
+					qcom_cpufreq_dead_cpu);
+	if (!ret)
+		return ret;
+	cpuhp_remove_state_nocalls(CPUHP_AP_QCOM_CPUFREQ_STARTING);
+	return ret;
 }
 core_initcall(msm_cpufreq_early_register);
