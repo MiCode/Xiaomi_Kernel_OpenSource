@@ -635,7 +635,7 @@ static int arm_smmu_register_legacy_master(struct device *dev,
 	__be32 pci_sid;
 	int err = 0;
 
-	memset(&it, sizeof(it), 0);
+	memset(&it, 0, sizeof(it));
 	np = dev_get_dev_node(dev);
 	if (!np || !of_find_property(np, "#stream-id-cells", NULL)) {
 		of_node_put(np);
