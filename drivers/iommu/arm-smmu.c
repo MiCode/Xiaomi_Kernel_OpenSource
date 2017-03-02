@@ -1835,6 +1835,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			.oas		= oas,
 			.tlb		= &arm_smmu_gather_ops,
 			.iommu_dev	= smmu->dev,
+			.iova_base	= domain->geometry.aperture_start,
+			.iova_end	= domain->geometry.aperture_end,
 		};
 	}
 
