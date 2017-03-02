@@ -596,7 +596,7 @@
 		};
 	};
 
-	mhi_dev@87000 {
+	mhi_device: mhi_dev@87000 {
 		compatible = "qcom,msm-mhi-dev";
 		reg = <0x87000 0x1000>,
 			<0x7b22000 0x4>,
