@@ -34,6 +34,10 @@
 	qcom,mdss-pref-prim-intf = "hdmi";
 };
 
+&msm_gpu {
+	dma-coherent;
+};
+
 &sde_hdmi {
 	qcom,display-type = "primary";
 };
