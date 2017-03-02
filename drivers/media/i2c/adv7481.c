@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,7 @@
 #define MAX_DEFAULT_PIX_CLK_HZ  74240000
 
 #define ONE_MHZ_TO_HZ		1000000
+#define I2C_BLOCK_WRITE_SIZE    1024
 
 enum adv7481_gpio_t {
 
@@ -263,6 +264,14 @@ static int32_t adv7481_cci_i2c_write(struct msm_camera_i2c_client *i2c_client,
 				*data, data_type);
 }
 
+static int32_t adv7481_cci_i2c_write_seq(
+	struct msm_camera_i2c_client *i2c_client,
+	uint8_t reg, const uint8_t *data, uint32_t size)
+{
+	return i2c_client->i2c_func_tbl->i2c_write_seq(i2c_client, reg,
+				(uint8_t *)data, size);
+}
+
 static int32_t adv7481_cci_i2c_read(struct msm_camera_i2c_client *i2c_client,
 	uint8_t reg, uint16_t *data,
 	enum msm_camera_i2c_data_type data_type)
@@ -283,6 +292,20 @@ static int32_t adv7481_wr_byte(struct msm_camera_i2c_client *c_i2c_client,
 		MSM_CAMERA_I2C_BYTE_DATA);
 	if (ret < 0)
 		pr_err("Error %d writing cci i2c\n", ret);
+
+	return ret;
+}
+
+static int32_t adv7481_wr_block(struct msm_camera_i2c_client *c_i2c_client,
+	uint8_t sid, uint8_t reg, const uint8_t *data, uint32_t size)
+{
+	int ret = 0;
+
+	c_i2c_client->cci_client->sid = sid;
+
+	ret = adv7481_cci_i2c_write_seq(c_i2c_client, reg, data, size);
+	if (ret < 0)
+		pr_err("Error %d writing cci i2c block data\n", ret);
 
 	return ret;
 }
@@ -387,6 +410,8 @@ static int adv7481_set_edid(struct adv7481_state *state)
 	int i;
 	int ret = 0;
 	uint8_t edid_state;
+	uint32_t data_left = 0;
+	uint32_t start_pos;
 
 	/* Enable Manual Control of EDID on Port A */
 	ret |= adv7481_wr_byte(&state->i2c_client, state->i2c_rep_addr, 0x74,
@@ -407,10 +432,20 @@ static int adv7481_set_edid(struct adv7481_state *state)
 	pr_debug("%s: Readback EDID enable state: 0x%x\n", __func__,
 			edid_state);
 
-	for (i = 0; i < ADV7481_EDID_SIZE; i++) {
-		ret |= adv7481_wr_byte(&state->i2c_client,
-			state->i2c_edid_addr, i, adv7481_default_edid_data[i]);
-	}
+	for (i = 0; i < ADV7481_EDID_SIZE && !ret; i += I2C_BLOCK_WRITE_SIZE)
+		ret |= adv7481_wr_block(&state->i2c_client,
+			state->i2c_edid_addr,
+			i, &adv7481_default_edid_data[i],
+			I2C_BLOCK_WRITE_SIZE);
+
+	data_left = ADV7481_EDID_SIZE % I2C_BLOCK_WRITE_SIZE;
+	start_pos = ADV7481_EDID_SIZE - data_left;
+	if (data_left && !ret)
+		ret |= adv7481_wr_block(&state->i2c_client,
+			state->i2c_edid_addr,
+			start_pos,
+			&adv7481_default_edid_data[start_pos],
+			data_left);
 
 	return ret;
 }
@@ -2158,6 +2193,7 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 	.i2c_read = msm_camera_cci_i2c_read,
 	.i2c_read_seq = msm_camera_cci_i2c_read_seq,
 	.i2c_write = msm_camera_cci_i2c_write,
+	.i2c_write_seq = msm_camera_cci_i2c_write_seq,
 	.i2c_write_table = msm_camera_cci_i2c_write_table,
 	.i2c_write_seq_table = msm_camera_cci_i2c_write_seq_table,
 	.i2c_write_table_w_microdelay =
