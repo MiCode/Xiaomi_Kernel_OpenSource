@@ -146,14 +146,8 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 
 	cur_freq = clk_get_rate(cpu_clk[policy->cpu])/1000;
 
-	if (cpufreq_frequency_table_target(policy, table, cur_freq,
-	    CPUFREQ_RELATION_H, &index) &&
-	    cpufreq_frequency_table_target(policy, table, cur_freq,
-	    CPUFREQ_RELATION_L, &index)) {
-		pr_info("cpufreq: cpu%d at invalid freq: %d\n",
-				policy->cpu, cur_freq);
-		return -EINVAL;
-	}
+	index =  cpufreq_frequency_table_target(policy, cur_freq,
+						CPUFREQ_RELATION_H);
 	/*
 	 * Call set_cpu_freq unconditionally so that when cpu is set to
 	 * online, frequency limit will always be updated.
@@ -303,7 +297,7 @@ static struct freq_attr *msm_freq_attr[] = {
 
 static struct cpufreq_driver msm_cpufreq_driver = {
 	/* lps calculations are handled here. */
-	.flags		= CPUFREQ_STICKY | CPUFREQ_CONST_LOOPS,
+	.flags		= CPUFREQ_STICKY | CPUFREQ_CONST_LOOPS | CPUFREQ_NEED_INITIAL_FREQ_CHECK,
 	.init		= msm_cpufreq_init,
 	.verify		= msm_cpufreq_verify,
 	.target		= msm_cpufreq_target,
