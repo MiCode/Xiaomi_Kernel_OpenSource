@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -111,6 +111,7 @@ static void service_locator_svc_arrive(struct work_struct *work)
 			qmi_handle_create(service_locator_clnt_notify, NULL);
 	if (!service_locator.clnt_handle) {
 		service_locator.clnt_handle = NULL;
+		complete_all(&service_locator.service_available);
 		mutex_unlock(&service_locator.service_mutex);
 		pr_err("Service locator QMI client handle alloc failed!\n");
 		return;
@@ -123,6 +124,7 @@ static void service_locator_svc_arrive(struct work_struct *work)
 	if (rc) {
 		qmi_handle_destroy(service_locator.clnt_handle);
 		service_locator.clnt_handle = NULL;
+		complete_all(&service_locator.service_available);
 		mutex_unlock(&service_locator.service_mutex);
 		pr_err("Unable to connnect to service rc:%d\n", rc);
 		return;
@@ -138,6 +140,7 @@ static void service_locator_svc_exit(struct work_struct *work)
 	mutex_lock(&service_locator.service_mutex);
 	qmi_handle_destroy(service_locator.clnt_handle);
 	service_locator.clnt_handle = NULL;
+	complete_all(&service_locator.service_available);
 	mutex_unlock(&service_locator.service_mutex);
 	pr_info("Connection with service locator lost\n");
 }
