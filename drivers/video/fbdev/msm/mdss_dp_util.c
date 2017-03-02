@@ -929,7 +929,7 @@ void mdss_dp_phy_aux_setup(struct mdss_dp_drv_pdata *dp)
 		writel_relaxed(cfg->lut[cfg->current_index],
 				dp->phy_io.base + cfg->offset);
 	};
-	writel_relaxed(0x1f, adjusted_phy_io_base + DP_PHY_AUX_INTERRUPT_MASK);
+	writel_relaxed(0x1e, adjusted_phy_io_base + DP_PHY_AUX_INTERRUPT_MASK);
 }
 
 int mdss_dp_irq_setup(struct mdss_dp_drv_pdata *dp_drv)
