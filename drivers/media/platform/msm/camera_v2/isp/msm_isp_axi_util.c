@@ -1734,7 +1734,7 @@ int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev,
 			}
 			temp = buf->mapped_info[0].paddr +
 				buf->mapped_info[0].len;
-			pr_err("%s: stream %x ping bit %d uses buffer %pa-%pa, num_isp %d\n",
+			pr_err("%s: stream %x ping bit %d uses buffer %pK-%pK, num_isp %d\n",
 				__func__, stream_info->stream_src,
 				pingpong_bit,
 				&buf->mapped_info[0].paddr, &temp,
@@ -1743,10 +1743,10 @@ int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev,
 			for (i = 0; i < stream_info->num_planes; i++) {
 				for (k = 0; k < stream_info->num_isp; k++) {
 					pr_debug(
-					"%s: stream_id %x ping-pong %d	plane %d start_addr %lu	addr_offset %x len %zx stride %d scanline %d\n"
+					"%s: stream_id %x ping-pong %d	plane %d start_addr %pK	addr_offset %x len %zx stride %d scanline %d\n"
 					, __func__, stream_info->stream_id,
-					pingpong_bit, i, (unsigned long)
-					buf->mapped_info[i].paddr,
+					pingpong_bit, i,
+					(void *)buf->mapped_info[i].paddr,
 					stream_info->
 					plane_cfg[k][i].plane_addr_offset,
 					buf->mapped_info[i].len,
