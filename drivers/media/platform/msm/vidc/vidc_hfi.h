@@ -62,6 +62,7 @@
 #define HFI_BUFFER_EXTRADATA_OUTPUT2 (HFI_OX_BASE + 0x4)
 #define HFI_BUFFER_INTERNAL_SCRATCH_1 (HFI_OX_BASE + 0x5)
 #define HFI_BUFFER_INTERNAL_SCRATCH_2 (HFI_OX_BASE + 0x6)
+#define HFI_BUFFER_INTERNAL_RECON (HFI_OX_BASE + 0x9)
 
 #define HFI_BUFFER_MODE_DYNAMIC (HFI_OX_BASE + 0x3)
 
@@ -84,6 +85,7 @@
 #define HFI_EXTRADATA_FRAME_QP			0x0000000F
 #define HFI_EXTRADATA_FRAME_BITS_INFO		0x00000010
 #define HFI_EXTRADATA_VPX_COLORSPACE		0x00000014
+#define HFI_EXTRADATA_UBWC_CR_STAT_INFO		0x00000019
 #define HFI_EXTRADATA_MULTISLICE_INFO		0x7F100000
 #define HFI_EXTRADATA_NUM_CONCEALED_MB		0x7F100001
 #define HFI_EXTRADATA_INDEX					0x7F100002
@@ -119,6 +121,7 @@ struct hfi_extradata_header {
 #define HFI_INTERLACE_INTERLEAVE_FRAME_BOTTOMFIELDFIRST	0x04
 #define HFI_INTERLACE_FRAME_TOPFIELDFIRST				0x08
 #define HFI_INTERLACE_FRAME_BOTTOMFIELDFIRST			0x10
+#define HFI_INTERLACE_FRAME_MBAFF					0x20
 
 #define HFI_PROPERTY_SYS_OX_START			\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_OX_OFFSET + 0x0000)
@@ -135,9 +138,7 @@ struct hfi_extradata_header {
 	(HFI_PROPERTY_PARAM_OX_START + 0x006)
 #define HFI_PROPERTY_PARAM_S3D_FRAME_PACKING_EXTRADATA	\
 	(HFI_PROPERTY_PARAM_OX_START + 0x009)
-#define HFI_PROPERTY_PARAM_ERR_DETECTION_CODE_EXTRADATA \
-	(HFI_PROPERTY_PARAM_OX_START + 0x00A)
-#define HFI_PROPERTY_PARAM_BUFFER_SIZE_MINIMUM			\
+#define  HFI_PROPERTY_PARAM_BUFFER_SIZE_MINIMUM			\
 	(HFI_PROPERTY_PARAM_OX_START + 0x00C)
 #define HFI_PROPERTY_PARAM_SYNC_BASED_INTERRUPT			\
 	(HFI_PROPERTY_PARAM_OX_START + 0x00E)
@@ -591,6 +592,21 @@ struct hfi_msg_session_flush_done_packet {
 	u32 flush_type;
 };
 
+struct hfi_ubwc_cr_stats_info_type {
+	u32 cr_stats_info0;
+	u32 cr_stats_info1;
+	u32 cr_stats_info2;
+	u32 cr_stats_info3;
+	u32 cr_stats_info4;
+	u32 cr_stats_info5;
+	u32 cr_stats_info6;
+};
+
+struct hfi_frame_cr_stats_type {
+	u32 frame_index;
+	struct hfi_ubwc_cr_stats_info_type ubwc_stats_info;
+};
+
 struct hfi_msg_session_empty_buffer_done_packet {
 	u32 size;
 	u32 packet_type;
@@ -601,6 +617,8 @@ struct hfi_msg_session_empty_buffer_done_packet {
 	u32 input_tag;
 	u32 packet_buffer;
 	u32 extra_data_buffer;
+	u32 flags;
+	struct hfi_frame_cr_stats_type ubwc_cr_stats;
 	u32 rgData[0];
 };
 
@@ -759,6 +777,11 @@ struct hfi_extradata_s3d_frame_packing_payload {
 
 struct hfi_extradata_interlace_video_payload {
 	u32 format;
+};
+
+struct hfi_conceal_color_type {
+	u32 value_8bit;
+	u32 value_10bit;
 };
 
 struct hfi_extradata_num_concealed_mb_payload {
