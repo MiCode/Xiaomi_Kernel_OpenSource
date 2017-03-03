@@ -1323,6 +1323,7 @@ TRACE_EVENT(sched_contrib_scale_f,
 		  __entry->cpu_scale_factor)
 );
 
+#ifdef CONFIG_SMP
 /*
  * Tracepoint for accounting sched averages for tasks.
  */
@@ -1582,6 +1583,7 @@ TRACE_EVENT(sched_overutilized,
 	TP_printk("overutilized=%d",
 		__entry->overutilized ? 1 : 0)
 );
+#endif
 
 TRACE_EVENT(sched_get_nr_running_avg,
 
