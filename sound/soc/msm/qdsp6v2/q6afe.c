@@ -6711,8 +6711,6 @@ static int afe_set_cal_fb_spkr_prot(int32_t cal_type, size_t data_size,
 	mutex_lock(&this_afe.cal_data[AFE_FB_SPKR_PROT_CAL]->lock);
 	memcpy(&this_afe.prot_cfg, &cal_data->cal_info,
 		sizeof(this_afe.prot_cfg));
-	this_afe.th_ftm_cfg.mode = this_afe.prot_cfg.mode;
-	this_afe.ex_ftm_cfg.mode = this_afe.prot_cfg.mode;
 	mutex_unlock(&this_afe.cal_data[AFE_FB_SPKR_PROT_CAL]->lock);
 done:
 	return ret;
@@ -6854,8 +6852,6 @@ static int afe_get_cal_fb_spkr_prot(int32_t cal_type, size_t data_size,
 		cal_data->cal_info.r0[SP_V2_SPKR_1] = -1;
 		cal_data->cal_info.r0[SP_V2_SPKR_2] = -1;
 	}
-	this_afe.th_ftm_cfg.mode = this_afe.prot_cfg.mode;
-	this_afe.ex_ftm_cfg.mode = this_afe.prot_cfg.mode;
 	mutex_unlock(&this_afe.cal_data[AFE_FB_SPKR_PROT_CAL]->lock);
 	__pm_relax(&wl.ws);
 done:
