@@ -18,7 +18,6 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/usb/usb_qdss.h>
-#include <linux/usb/msm_hsusb.h>
 #include <linux/usb/cdc.h>
 
 #include "f_qdss.h"

@@ -13,7 +13,6 @@
 
 #include <linux/kernel.h>
 #include <linux/device.h>
-#include <linux/usb/msm_hsusb.h>
 #include <linux/usb_bam.h>
 
 #include "f_qdss.h"
@@ -95,12 +94,11 @@ int set_qdss_data_connection(struct usb_gadget *gadget,
 
 static int init_data(struct usb_ep *ep)
 {
-	struct f_qdss *qdss = ep->driver_data;
 	int res = 0;
 
 	pr_debug("init_data\n");
 
-	res = msm_ep_config(ep, qdss->endless_req);
+	res = msm_ep_config(ep);
 	if (res)
 		pr_err("msm_ep_config failed\n");
 
