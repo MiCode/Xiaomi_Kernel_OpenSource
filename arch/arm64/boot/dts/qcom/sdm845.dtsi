@@ -30,7 +30,7 @@
 	model = "Qualcomm Technologies, Inc. SDM845";
 	compatible = "qcom,sdm845";
 	qcom,msm-id = <321 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&pdc>;
 
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
@@ -606,6 +606,7 @@
 		reg = <0x17a00000 0x10000>,     /* GICD */
 		      <0x17a60000 0x100000>;    /* GICR * 8 */
 		interrupts = <1 9 4>;
+		interrupt-parent = <&intc>;
 	};
 
 	timer {

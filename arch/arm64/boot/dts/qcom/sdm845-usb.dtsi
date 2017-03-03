@@ -67,7 +67,6 @@
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
 			reg = <0x0a600000 0xcd00>;
-			interrupt-parent = <&intc>;
 			interrupts = <0 133 0>;
 			usb-phy = <&qusb_phy0>, <&usb_qmp_dp_phy>;
 			tx-fifo-resize;
@@ -80,7 +79,6 @@
 		qcom,usbbam@a704000 {
 			compatible = "qcom,usb-bam-msm";
 			reg = <0xa704000 0x17000>;
-			interrupt-parent = <&intc>;
 			interrupts = <0 132 0>;
 
 			qcom,bam-type = <0>;
@@ -361,7 +359,6 @@
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
 			reg = <0x0a800000 0xcd00>;
-			interrupt-parent = <&intc>;
 			interrupts = <0 138 0>;
 			usb-phy = <&qusb_phy1>, <&usb_qmp_phy>;
 			tx-fifo-resize;
