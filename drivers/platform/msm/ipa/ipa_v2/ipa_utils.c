@@ -5161,7 +5161,8 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
  */
 u32 ipa_get_sys_yellow_wm(struct ipa_sys_context *sys)
 {
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_6L) {
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_6L &&
+		ipa_ctx->ipa_uc_monitor_holb) {
 		return ipa_read_reg(ipa_ctx->mmio,
 			IPA_YELLOW_MARKER_SYS_CFG_OFST);
 	} else {
