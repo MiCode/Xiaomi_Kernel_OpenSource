@@ -135,6 +135,7 @@
 				"cfg_ahb_clk", "xo";
 
 		qcom,core-clk-rate = <133330000>;
+		qcom,core-clk-rate-hs = <66666667>;
 
 		resets = <&clock_gcc GCC_USB_30_BCR>;
 		reset-names = "core_reset";
