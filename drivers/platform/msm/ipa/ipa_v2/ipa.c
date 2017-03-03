@@ -3419,7 +3419,7 @@ void ipa_inc_acquire_wakelock(enum ipa_wakelock_ref_client ref_client)
 		return;
 	spin_lock_irqsave(&ipa_ctx->wakelock_ref_cnt.spinlock, flags);
 	if (ipa_ctx->wakelock_ref_cnt.cnt & (1 << ref_client))
-		IPAERR("client enum %d mask already set. ref cnt = %d\n",
+		IPADBG("client enum %d mask already set. ref cnt = %d\n",
 		ref_client, ipa_ctx->wakelock_ref_cnt.cnt);
 	ipa_ctx->wakelock_ref_cnt.cnt |= (1 << ref_client);
 	if (ipa_ctx->wakelock_ref_cnt.cnt)
