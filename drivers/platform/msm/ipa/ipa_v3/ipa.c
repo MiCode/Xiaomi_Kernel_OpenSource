@@ -1878,6 +1878,45 @@ static void ipa3_q6_avoid_holb(void)
 	}
 }
 
+static void ipa3_halt_q6_cons_gsi_channels(void)
+{
+	int ep_idx;
+	int client_idx;
+	const struct ipa_gsi_ep_config *gsi_ep_cfg;
+	int ret;
+	int code = 0;
+
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
+		if (IPA_CLIENT_IS_Q6_CONS(client_idx)) {
+			ep_idx = ipa3_get_ep_mapping(client_idx);
+			if (ep_idx == -1)
+				continue;
+
+			gsi_ep_cfg = ipa3_get_gsi_ep_info(ep_idx);
+			if (!gsi_ep_cfg) {
+				IPAERR("failed to get GSI config\n");
+				ipa_assert();
+				return;
+			}
+
+			ret = gsi_halt_channel_ee(
+				gsi_ep_cfg->ipa_gsi_chan_num, gsi_ep_cfg->ee,
+				&code);
+			if (ret == GSI_STATUS_SUCCESS)
+				IPADBG("halted gsi ch %d ee %d with code %d\n",
+				gsi_ep_cfg->ipa_gsi_chan_num,
+				gsi_ep_cfg->ee,
+				code);
+			else
+				IPAERR("failed to halt ch %d ee %d code %d\n",
+				gsi_ep_cfg->ipa_gsi_chan_num,
+				gsi_ep_cfg->ee,
+				code);
+		}
+	}
+}
+
+
 static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 	enum ipa_rule_type rlt)
 {
@@ -2302,12 +2341,17 @@ void ipa3_q6_post_shutdown_cleanup(void)
 	int client_idx;
 
 	IPADBG_LOW("ENTER\n");
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	if (!ipa3_ctx->uc_ctx.uc_loaded) {
 		IPAERR("uC is not loaded. Skipping\n");
 		return;
 	}
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	/* Handle the issue where SUSPEND was removed for some reason */
+	ipa3_q6_avoid_holb();
+	ipa3_halt_q6_cons_gsi_channels();
 
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
 		if (IPA_CLIENT_IS_Q6_PROD(client_idx)) {
