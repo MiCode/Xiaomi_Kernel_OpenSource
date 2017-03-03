@@ -163,42 +163,25 @@
 	qcom,msm-gpios =
 		"quin_i2s",
 		"us_eu_gpio",
-		"sec_tdm",
-		"pri_tdm";
+		"quat_i2s";
 	qcom,pinctrl-names =
 		"all_off",
-		"quin_act",
+		"quin_i2s_act",
 		"us_eu_gpio_act",
-		"quin_us_eu_gpio_act",
-		"sec_tdm_act",
-		"sec_tdm_quin_i2s_act",
-		"sec_tdm_us_eu_gpio_act",
-		"sec_tdm_us_eu_gpio_quin_i2s_act",
-		"pri_tdm_act",
-		"pri_tdm_quin_i2s_act",
-		"pri_tdm_us_eu_gpio_act",
-		"pri_tdm_quin_i2s_us_eu_gpio_act",
-		"pri_tdm_sec_tdm_act",
-		"pri_tdm_sec_tdm_quin_i2s_act",
-		"pri_tdm_sec_tdm_us_eu_gpio_act",
-		"pri_tdm_sec_tdm_us_eu_gpio_quin_i2s_act";
+		"quin_i2s_us_eu_gpio_act",
+		"quat_i2s_act",
+		"quat_i2s_quin_i2s_act",
+		"quat_i2s_us_eu_gpio_act",
+		"quat_i2s_us_eu_gpio_quin_i2s_act";
 	pinctrl-names =
 		"all_off",
-		"quin_act",
+		"quin_i2s_act",
 		"us_eu_gpio_act",
-		"quin_us_eu_gpio_act",
-		"sec_tdm_act",
-		"sec_tdm_quin_i2s_act",
-		"sec_tdm_us_eu_gpio_act",
-		"sec_tdm_us_eu_gpio_quin_i2s_act",
-		"pri_tdm_act",
-		"pri_tdm_quin_i2s_act",
-		"pri_tdm_us_eu_gpio_act",
-		"pri_tdm_quin_i2s_us_eu_gpio_act",
-		"pri_tdm_sec_tdm_act",
-		"pri_tdm_sec_tdm_quin_i2s_act",
-		"pri_tdm_sec_tdm_us_eu_gpio_act",
-		"pri_tdm_sec_tdm_us_eu_gpio_quin_i2s_act";
+		"quin_i2s_us_eu_gpio_act",
+		"quat_i2s_act",
+		"quat_i2s_quin_i2s_act",
+		"quat_i2s_us_eu_gpio_act",
+		"quat_i2s_us_eu_gpio_quin_i2s_act";
 
 	pinctrl-0 = <&pri_tlmm_ws_sus
 		&cross_conn_det_sus &pri_mi2s_sd0_sleep
@@ -207,7 +190,7 @@
 		&sec_mi2s_sd1_sleep &sec_mi2s_sd0_sleep>;
 	pinctrl-1 = <&pri_tlmm_ws_act
 		&cross_conn_det_sus &pri_mi2s_sd0_active
-		&pri_mi2s_sck_active &pri_mi2s_sd1_sleep
+		&pri_mi2s_sck_active &pri_mi2s_sd1_active
 		&sec_mi2s_ws_sleep &sec_mi2s_sck_sleep
 		&sec_mi2s_sd1_sleep &sec_mi2s_sd0_sleep>;
 	pinctrl-2 = <&pri_tlmm_ws_sus
@@ -217,65 +200,25 @@
 		&sec_mi2s_sd1_sleep &sec_mi2s_sd0_sleep>;
 	pinctrl-3 = <&pri_tlmm_ws_act
 		&cross_conn_det_act &pri_mi2s_sd0_active
-		&pri_mi2s_sck_active &pri_mi2s_sd1_sleep
-		&sec_mi2s_ws_sleep &sec_mi2s_sck_sleep
-		&sec_mi2s_sd1_sleep &sec_mi2s_sd0_sleep>;
-	pinctrl-4 = <&pri_tlmm_ws_act
-		&cross_conn_det_sus &pri_mi2s_sd0_active
 		&pri_mi2s_sck_active &pri_mi2s_sd1_active
 		&sec_mi2s_ws_sleep &sec_mi2s_sck_sleep
 		&sec_mi2s_sd1_sleep &sec_mi2s_sd0_sleep>;
-	pinctrl-5 = <&pri_tlmm_ws_act
-		&cross_conn_det_sus &pri_mi2s_sd0_active
-		&pri_mi2s_sck_active &pri_mi2s_sd1_active
-		&sec_mi2s_ws_sleep &sec_mi2s_sck_sleep
-		&sec_mi2s_sd1_sleep &sec_mi2s_sd0_sleep>;
-	pinctrl-6 = <&pri_tlmm_ws_act
-		&cross_conn_det_act &pri_mi2s_sd0_active
-		&pri_mi2s_sck_active &pri_mi2s_sd1_active
-		&sec_mi2s_ws_sleep &sec_mi2s_sck_sleep
-		&sec_mi2s_sd1_sleep &sec_mi2s_sd0_sleep>;
-	pinctrl-7 = <&pri_tlmm_ws_act
-		&cross_conn_det_act &pri_mi2s_sd0_active
-		&pri_mi2s_sck_active &pri_mi2s_sd1_active
-		&sec_mi2s_ws_sleep &sec_mi2s_sck_sleep
-		&sec_mi2s_sd1_sleep &sec_mi2s_sd0_sleep>;
-	pinctrl-8 = <&pri_tlmm_ws_sus
+	pinctrl-4 = <&pri_tlmm_ws_sus
 		&cross_conn_det_sus &pri_mi2s_sd0_sleep
 		&pri_mi2s_sck_sleep &pri_mi2s_sd1_sleep
 		&sec_mi2s_ws_active &sec_mi2s_sck_active
 		&sec_mi2s_sd1_active &sec_mi2s_sd0_active>;
-	pinctrl-9 = <&pri_tlmm_ws_act
+	pinctrl-5 = <&pri_tlmm_ws_act
 		&cross_conn_det_sus &pri_mi2s_sd0_active
-		&pri_mi2s_sck_active &pri_mi2s_sd1_sleep
+		&pri_mi2s_sck_active &pri_mi2s_sd1_active
 		&sec_mi2s_ws_active &sec_mi2s_sck_active
 		&sec_mi2s_sd1_active &sec_mi2s_sd0_active>;
-	pinctrl-10 = <&pri_tlmm_ws_sus
+	pinctrl-6 = <&pri_tlmm_ws_sus
 		&cross_conn_det_act &pri_mi2s_sd0_sleep
 		&pri_mi2s_sck_sleep &pri_mi2s_sd1_sleep
 		&sec_mi2s_ws_active &sec_mi2s_sck_active
 		&sec_mi2s_sd1_active &sec_mi2s_sd0_active>;
-	pinctrl-11 = <&pri_tlmm_ws_act
-		&cross_conn_det_act &pri_mi2s_sd0_active
-		&pri_mi2s_sck_active &pri_mi2s_sd1_sleep
-		&sec_mi2s_ws_active &sec_mi2s_sck_active
-		&sec_mi2s_sd1_active &sec_mi2s_sd0_active>;
-	pinctrl-12 = <&pri_tlmm_ws_act
-		&cross_conn_det_sus &pri_mi2s_sd0_active
-		&pri_mi2s_sck_active &pri_mi2s_sd1_active
-		&sec_mi2s_ws_active &sec_mi2s_sck_active
-		&sec_mi2s_sd1_active &sec_mi2s_sd0_active>;
-	pinctrl-13 = <&pri_tlmm_ws_act
-		&cross_conn_det_sus &pri_mi2s_sd0_active
-		&pri_mi2s_sck_active &pri_mi2s_sd1_active
-		&sec_mi2s_ws_active &sec_mi2s_sck_active
-		&sec_mi2s_sd1_active &sec_mi2s_sd0_active>;
-	pinctrl-14 = <&pri_tlmm_ws_act
-		&cross_conn_det_act &pri_mi2s_sd0_active
-		&pri_mi2s_sck_active &pri_mi2s_sd1_active
-		&sec_mi2s_ws_active &sec_mi2s_sck_active
-		&sec_mi2s_sd1_active &sec_mi2s_sd0_active>;
-	pinctrl-15 = <&pri_tlmm_ws_act
+	pinctrl-7 = <&pri_tlmm_ws_act
 		&cross_conn_det_act &pri_mi2s_sd0_active
 		&pri_mi2s_sck_active &pri_mi2s_sd1_active
 		&sec_mi2s_ws_active &sec_mi2s_sck_active
@@ -386,6 +329,10 @@
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
 	};
+};
+
+&dai_pri_auxpcm {
+	qcom,msm-cpudai-afe-clk-ver = <2>;
 };
 
 &tlmm {
