@@ -367,6 +367,8 @@ struct sde_rot_bus_data_type {
  * @doneq: array of rotator done queue corresponding to hardware queue
  * @file_list: list of all sessions managed by rotator manager
  * @pending_close_bw_vote: bandwidth of closed sessions with pending work
+ * @minimum_bw_vote: minimum bandwidth required for current use case
+ * @enable_bw_vote: minimum bandwidth required for power enable
  * @data_bus: data bus configuration state
  * @reg_bus: register bus configuration state
  * @module_power: power/clock configuration state
@@ -406,6 +408,8 @@ struct sde_rot_mgr {
 	struct list_head file_list;
 
 	u64 pending_close_bw_vote;
+	u64 minimum_bw_vote;
+	u64 enable_bw_vote;
 	struct sde_rot_bus_data_type data_bus;
 	struct sde_rot_bus_data_type reg_bus;
 
