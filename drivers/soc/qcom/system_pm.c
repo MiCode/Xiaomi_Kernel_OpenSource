@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 
 #include <soc/qcom/rpmh.h>
 
+#define ARCH_TIMER_HZ		(19200000UL)
 #define PDC_TIME_VALID_SHIFT	31
 #define PDC_TIME_UPPER_MASK	0xFFFFFF
 
@@ -25,9 +26,9 @@ static int setup_wakeup(uint64_t sleep_val)
 {
 	struct tcs_cmd cmd[3] = { { 0 } };
 
-	cmd[0].data = sleep_val & 0xFFFFFFFF;
-	cmd[1].data = (sleep_val >> 32) & PDC_TIME_UPPER_MASK;
-	cmd[1].data |= 1 << PDC_TIME_VALID_SHIFT;
+	cmd[0].data = (sleep_val >> 32) & PDC_TIME_UPPER_MASK;
+	cmd[0].data |= 1 << PDC_TIME_VALID_SHIFT;
+	cmd[1].data = sleep_val & 0xFFFFFFFF;
 
 	return rpmh_write_control(rpmh_client, cmd, ARRAY_SIZE(cmd));
 }
@@ -35,7 +36,7 @@ static int setup_wakeup(uint64_t sleep_val)
 /**
  * system_sleep_enter() - Activties done when entering system low power modes
  *
- * @sleep_val: The qtimer value for the next wakeup time
+ * @sleep_val: The sleep duration in us.
  *
  * Returns 0 for success or error values from writing the timer value in the
  * hardware block.
@@ -50,6 +51,14 @@ int system_sleep_enter(uint64_t sleep_val)
 	ret = rpmh_flush(rpmh_client);
 	if (ret)
 		return ret;
+
+	/*
+	 * Set up the wake up value offset from the current time.
+	 * Convert us to ns to allow div by 19.2 Mhz tick timer.
+	 */
+	sleep_val *= NSEC_PER_USEC;
+	do_div(sleep_val, NSEC_PER_SEC/ARCH_TIMER_HZ);
+	sleep_val += arch_counter_get_cntvct();
 
 	return setup_wakeup(sleep_val);
 }

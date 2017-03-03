@@ -245,16 +245,6 @@ int __rpmh_write(struct rpmh_client *rc, enum rpmh_state state,
 	int ret = 0;
 	int i;
 
-	/*
-	 * We cannot wait for completion for a sleep set, its done
-	 * outside the processor.
-	 */
-	if (rpm_msg->msg.is_complete &&
-		(state == RPMH_SLEEP_STATE || state == RPMH_WAKE_ONLY_STATE)) {
-		pr_err("Mismatch: sleep/wake set with completion.\n");
-		return -EINVAL;
-	}
-
 	/* Cache the request in our store and link the payload */
 	for (i = 0; i < rpm_msg->msg.num_payload; i++) {
 		req = cache_rpm_request(rc, state, &rpm_msg->msg.payload[i]);
@@ -638,7 +628,8 @@ int send_single(struct rpmh_client *rc, enum rpmh_state state, u32 addr,
 {
 	DEFINE_RPMH_MSG_ONSTACK(rc, state, NULL, NULL, rpm_msg);
 
-	rpm_msg.msg.is_complete = false;
+	/* Wake sets are always complete and sleep sets are not */
+	rpm_msg.msg.is_complete = (state == RPMH_WAKE_ONLY_STATE);
 	rpm_msg.cmd.addr = addr;
 	rpm_msg.cmd.data = data;
 
@@ -673,7 +664,7 @@ int rpmh_flush(struct rpmh_client *rc)
 
 	spin_lock(&rpm->lock);
 	if (!rpm->dirty) {
-		pr_info("Skipping flush, TCS has latest data.\n");
+		pr_debug("Skipping flush, TCS has latest data.\n");
 		spin_unlock(&rpm->lock);
 		return 0;
 	}

@@ -79,7 +79,6 @@
 
 /* Control/Hidden TCS */
 #define TCS_HIDDEN_MAX_SLOTS		3
-#define TCS_HIDDEN_CMD0_DRV_ADDR	0x34
 #define TCS_HIDDEN_CMD0_DRV_DATA	0x38
 #define TCS_HIDDEN_CMD_SHIFT		0x08
 
@@ -830,15 +829,12 @@ static int tcs_mbox_invalidate(struct mbox_chan *chan)
 static void __tcs_write_hidden(void *base, int d, struct tcs_mbox_msg *msg)
 {
 	int i;
-	void __iomem *addr;
-	const u32 offset = TCS_HIDDEN_CMD0_DRV_DATA - TCS_HIDDEN_CMD0_DRV_ADDR;
+	void __iomem *addr = base + TCS_HIDDEN_CMD0_DRV_DATA;
 
-	addr = base + TCS_HIDDEN_CMD0_DRV_ADDR;
 	for (i = 0; i < msg->num_payload; i++) {
 		/* Only data is write capable */
-		writel_relaxed(cpu_to_le32(msg->payload[i].data),
-							addr + offset);
-		trace_rpmh_control_msg(addr + offset, msg->payload[i].data);
+		writel_relaxed(cpu_to_le32(msg->payload[i].data), addr);
+		trace_rpmh_control_msg(addr, msg->payload[i].data);
 		addr += TCS_HIDDEN_CMD_SHIFT;
 	}
 }
@@ -896,11 +892,6 @@ static int chan_tcs_ctrl_write(struct mbox_chan *chan, void *data)
 	/* Control slots are unique. They carry specific data. */
 	if (msg->is_control) {
 		ret = tcs_control_write(chan, msg);
-		goto tx_done;
-	}
-
-	if (msg->is_complete) {
-		dev_err(dev, "Incorrect ctrl request.\n");
 		goto tx_done;
 	}
 
