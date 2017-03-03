@@ -2449,14 +2449,15 @@ static struct clk_branch gcc_usb3_phy_aux_clk = {
 	},
 };
 
-static struct clk_gate2 gcc_usb3_phy_pipe_clk = {
-	.udelay = 50,
+static struct clk_branch gcc_usb3_phy_pipe_clk = {
+	.halt_reg = 0x50004,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x50004,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_usb3_phy_pipe_clk",
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };

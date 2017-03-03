@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -322,6 +322,7 @@ struct kgsl_device {
 
 /**
  * enum bits for struct kgsl_context.priv
+ * @KGSL_CONTEXT_PRIV_SUBMITTED - The context has submitted commands to gpu.
  * @KGSL_CONTEXT_PRIV_DETACHED  - The context has been destroyed by userspace
  *	and is no longer using the gpu.
  * @KGSL_CONTEXT_PRIV_INVALID - The context has been destroyed by the kernel
@@ -331,7 +332,8 @@ struct kgsl_device {
  *	reserved for devices specific use.
  */
 enum kgsl_context_priv {
-	KGSL_CONTEXT_PRIV_DETACHED = 0,
+	KGSL_CONTEXT_PRIV_SUBMITTED = 0,
+	KGSL_CONTEXT_PRIV_DETACHED,
 	KGSL_CONTEXT_PRIV_INVALID,
 	KGSL_CONTEXT_PRIV_PAGEFAULT,
 	KGSL_CONTEXT_PRIV_DEVICE_SPECIFIC = 16,

@@ -3482,15 +3482,23 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	/* RED error - Fatal: requires reset */
 	if (mrq->cmdq_req->resp_err) {
 		err = mrq->cmdq_req->resp_err;
+		goto reset;
+	}
+
+	/*
+	 * TIMEOUT errrors can happen because of execution error
+	 * in the last command. So send cmd 13 to get device status
+	 */
+	if ((mrq->cmd && (mrq->cmd->error == -ETIMEDOUT)) ||
+			(mrq->data && (mrq->data->error == -ETIMEDOUT))) {
 		if (mmc_host_halt(host) || mmc_host_cq_disable(host)) {
 			ret = get_card_status(host->card, &status, 0);
 			if (ret)
 				pr_err("%s: CMD13 failed with err %d\n",
 						mmc_hostname(host), ret);
 		}
-		pr_err("%s: Response error detected with device status 0x%08x\n",
+		pr_err("%s: Timeout error detected with device status 0x%08x\n",
 			mmc_hostname(host), status);
-		goto reset;
 	}
 
 	/*

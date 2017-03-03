@@ -102,6 +102,11 @@
 		compatible = "qcom,msm-pcm-afe";
 	};
 
+	dai_dp: qcom,msm-dai-q6-dp {
+		compatible = "qcom,msm-dai-q6-hdmi";
+		qcom,msm-dai-q6-dev-id = <24608>;
+	};
+
 	loopback: qcom,msm-pcm-loopback {
 		compatible = "qcom,msm-pcm-loopback";
 	};
@@ -592,6 +597,7 @@
 		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
+		qcom,ext-disp-audio-rx;
 		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
@@ -640,7 +646,8 @@
 				      "msm-pcm-routing", "msm-cpe-lsm",
 				      "msm-compr-dsp", "msm-pcm-dsp-noirq",
 				      "msm-cpe-lsm.3";
-		asoc-cpu = <&dai_mi2s0>, <&dai_mi2s1>,
+		asoc-cpu = <&dai_dp>, <&dai_mi2s0>,
+				<&dai_mi2s1>,
 				<&dai_mi2s2>, <&dai_mi2s3>,
 				<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
 				<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
@@ -657,7 +664,8 @@
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
 				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
 				<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>;
-		asoc-cpu-names = "msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+		asoc-cpu-names = "msm-dai-q6-dp.24608", "msm-dai-q6-mi2s.0",
+				"msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
 				"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
 				"msm-dai-q6-auxpcm.3", "msm-dai-q6-auxpcm.4",
@@ -679,8 +687,9 @@
 				"msm-dai-q6-tdm.36881", "msm-dai-q6-tdm.36896",
 				"msm-dai-q6-tdm.36897", "msm-dai-q6-tdm.36912",
 				"msm-dai-q6-tdm.36913";
-		asoc-codec = <&stub_codec>;
-		asoc-codec-names = "msm-stub-codec.1";
+		asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
+		asoc-codec-names = "msm-stub-codec.1",
+					"msm-ext-disp-audio-codec-rx";
 		qcom,wsa-max-devs = <2>;
 		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
 				<&wsa881x_213>, <&wsa881x_214>;
@@ -694,6 +703,7 @@
 		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
+		qcom,ext-disp-audio-rx;
 		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
@@ -728,6 +738,8 @@
 		qcom,hph-en0-gpio = <&tavil_hph_en0>;
 		qcom,hph-en1-gpio = <&tavil_hph_en1>;
 		qcom,msm-mclk-freq = <9600000>;
+		qcom,usbc-analog-en1_gpio = <&wcd_usbc_analog_en1_gpio>;
+		qcom,usbc-analog-en2_n_gpio = <&wcd_usbc_analog_en2n_gpio>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&cpe>, <&compr>,
@@ -739,7 +751,8 @@
 				"msm-pcm-afe", "msm-lsm-client",
 				"msm-pcm-routing", "msm-cpe-lsm",
 				"msm-compr-dsp", "msm-pcm-dsp-noirq";
-		asoc-cpu = <&dai_mi2s0>, <&dai_mi2s1>,
+		asoc-cpu = <&dai_dp>, <&dai_mi2s0>,
+				<&dai_mi2s1>,
 				<&dai_mi2s2>, <&dai_mi2s3>,
 				<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
 				<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
@@ -756,7 +769,8 @@
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
 				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
 				<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>;
-		asoc-cpu-names = "msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+		asoc-cpu-names = "msm-dai-q6-dp.24608", "msm-dai-q6-mi2s.0",
+				"msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
 				"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
 				"msm-dai-q6-auxpcm.3", "msm-dai-q6-auxpcm.4",
@@ -778,8 +792,9 @@
 				"msm-dai-q6-tdm.36881", "msm-dai-q6-tdm.36896",
 				"msm-dai-q6-tdm.36897", "msm-dai-q6-tdm.36912",
 				"msm-dai-q6-tdm.36913";
-		asoc-codec = <&stub_codec>;
-		asoc-codec-names = "msm-stub-codec.1";
+		asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
+		asoc-codec-names = "msm-stub-codec.1",
+					"msm-ext-disp-audio-codec-rx";
 		qcom,wsa-max-devs = <2>;
 		qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
 				<&wsa881x_0213>, <&wsa881x_0214>;
@@ -794,6 +809,7 @@
 		qcom,wcn-btfm;
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
+		qcom,ext-disp-audio-rx;
 		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <1>;
@@ -842,7 +858,8 @@
 				"msm-pcm-afe", "msm-lsm-client",
 				"msm-pcm-routing", "msm-compr-dsp",
 				"msm-pcm-dsp-noirq";
-		asoc-cpu = <&dai_mi2s0>, <&dai_mi2s1>,
+		asoc-cpu = <&dai_dp>, <&dai_mi2s0>,
+				<&dai_mi2s1>,
 				<&dai_mi2s2>, <&dai_mi2s3>,
 				<&dai_int_mi2s0>, <&dai_int_mi2s1>,
 				<&dai_int_mi2s2>, <&dai_int_mi2s3>,
@@ -859,7 +876,8 @@
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
 				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
 				<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>;
-		asoc-cpu-names = "msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+		asoc-cpu-names = "msm-dai-q6-dp.24608", "msm-dai-q6-mi2s.0",
+				"msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
 				"msm-dai-q6-mi2s.7", "msm-dai-q6-mi2s.8",
 				"msm-dai-q6-mi2s.9", "msm-dai-q6-mi2s.10",
@@ -878,9 +896,11 @@
 				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
 				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913";
 		asoc-codec = <&stub_codec>, <&msm_digital_codec>,
-				<&pmic_analog_codec>, <&msm_sdw_codec>;
+				<&pmic_analog_codec>, <&msm_sdw_codec>,
+				<&ext_disp_audio_codec>;
 		asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
-					"analog-codec", "msm_sdw_codec";
+					"analog-codec", "msm_sdw_codec",
+					"msm-ext-disp-audio-codec-rx";
 
 		qcom,wsa-max-devs = <2>;
 		qcom,wsa-devs = <&wsa881x_211_en>, <&wsa881x_212_en>,

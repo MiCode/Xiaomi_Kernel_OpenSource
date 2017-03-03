@@ -33,8 +33,8 @@
 #define DCMD_SLOT 31
 #define NUM_SLOTS 32
 
-/* 1 sec */
-#define HALT_TIMEOUT_MS 1000
+/* 10 sec */
+#define HALT_TIMEOUT_MS 10000
 
 static int cmdq_halt_poll(struct mmc_host *mmc, bool halt);
 static int cmdq_halt(struct mmc_host *mmc, bool halt);
@@ -845,7 +845,6 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 	u32 dbr_set = 0;
 
 	status = cmdq_readl(cq_host, CQIS);
-	cmdq_writel(cq_host, status, CQIS);
 
 	if (!status && !err)
 		return IRQ_NONE;
@@ -868,6 +867,17 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 		if (ret)
 			pr_err("%s: %s: halt failed ret=%d\n",
 					mmc_hostname(mmc), __func__, ret);
+
+		/*
+		 * Clear the CQIS after halting incase of error. This is done
+		 * because if CQIS is cleared before halting, the CQ will
+		 * continue with issueing commands for rest of requests with
+		 * Doorbell rung. This will overwrite the Resp Arg register.
+		 * So CQ must be halted first and then CQIS cleared incase
+		 * of error
+		 */
+		cmdq_writel(cq_host, status, CQIS);
+
 		cmdq_dumpregs(cq_host);
 
 		if (!err_info) {
@@ -956,13 +966,16 @@ skip_cqterri:
 
 			mrq->cmdq_req->resp_err = true;
 			pr_err("%s: Response error (0x%08x) from card !!!",
-				mmc_hostname(mmc), status);
+				mmc_hostname(mmc), cmdq_readl(cq_host, CQCRA));
+
 		} else {
 			mrq->cmdq_req->resp_idx = cmdq_readl(cq_host, CQCRI);
 			mrq->cmdq_req->resp_arg = cmdq_readl(cq_host, CQCRA);
 		}
 
 		cmdq_finish_data(mmc, tag);
+	} else {
+		cmdq_writel(cq_host, status, CQIS);
 	}
 
 	if (status & CQIS_TCC) {
@@ -995,6 +1008,9 @@ skip_cqterri:
 	if (status & CQIS_HAC) {
 		if (cq_host->ops->post_cqe_halt)
 			cq_host->ops->post_cqe_halt(mmc);
+		/* halt done: re-enable legacy interrupts */
+		if (cq_host->ops->clear_set_irqs)
+			cq_host->ops->clear_set_irqs(mmc, false);
 		/* halt is completed, wakeup waiting thread */
 		complete(&cq_host->halt_comp);
 	}
@@ -1052,6 +1068,7 @@ static int cmdq_halt(struct mmc_host *mmc, bool halt)
 {
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 	u32 ret = 0;
+	u32 config = 0;
 	int retries = 3;
 
 	cmdq_runtime_pm_get(cq_host);
@@ -1061,16 +1078,31 @@ static int cmdq_halt(struct mmc_host *mmc, bool halt)
 				    CQCTL);
 			ret = wait_for_completion_timeout(&cq_host->halt_comp,
 					  msecs_to_jiffies(HALT_TIMEOUT_MS));
-			if (!ret && !(cmdq_readl(cq_host, CQCTL) & HALT)) {
-				retries--;
-				continue;
+			if (!ret) {
+				pr_warn("%s: %s: HAC int timeout\n",
+					mmc_hostname(mmc), __func__);
+				if ((cmdq_readl(cq_host, CQCTL) & HALT)) {
+					/*
+					 * Don't retry if CQE is halted but irq
+					 * is not triggered in timeout period.
+					 * And since we are returning error,
+					 * un-halt CQE. Since irq was not fired
+					 * yet, no need to set other params
+					 */
+					retries = 0;
+					config = cmdq_readl(cq_host, CQCTL);
+					config &= ~HALT;
+					cmdq_writel(cq_host, config, CQCTL);
+				} else {
+					pr_warn("%s: %s: retryng halt (%d)\n",
+						mmc_hostname(mmc), __func__,
+						retries);
+					retries--;
+					continue;
+				}
 			} else {
 				MMC_TRACE(mmc, "%s: halt done , retries: %d\n",
 					__func__, retries);
-				/* halt done: re-enable legacy interrupts */
-				if (cq_host->ops->clear_set_irqs)
-					cq_host->ops->clear_set_irqs(mmc,
-								false);
 				break;
 			}
 		}

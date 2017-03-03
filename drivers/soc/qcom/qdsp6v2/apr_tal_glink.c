@@ -218,6 +218,7 @@ static void apr_tal_notify_remote_rx_intent(void *handle, const void *priv,
 	 */
 	pr_debug("%s: remote queued an intent\n", __func__);
 	apr_ch->if_remote_intent_ready = true;
+	wake_up(&apr_ch->wait);
 }
 
 void apr_tal_notify_state(void *handle, const void *priv, unsigned event)
