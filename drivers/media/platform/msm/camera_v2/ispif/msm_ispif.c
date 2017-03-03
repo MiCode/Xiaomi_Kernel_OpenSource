@@ -1583,6 +1583,11 @@ static int msm_ispif_init(struct ispif_device *ispif,
 		return rc;
 	}
 
+	rc = msm_camera_enable_irq(ispif->irq, 1);
+	if (rc < 0) {
+		pr_err("%s: Error enabling IRQs\n", __func__);
+		return rc;
+	}
 	/* can we set to zero? */
 	ispif->applied_intf_cmd[VFE0].intf_cmd  = 0xFFFFFFFF;
 	ispif->applied_intf_cmd[VFE0].intf_cmd1 = 0xFFFFFFFF;
@@ -1790,9 +1795,6 @@ static int ispif_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		rc = msm_ispif_clk_ahb_enable(ispif, 1);
 		if (rc)
 			goto ahb_clk_enable_fail;
-		rc = msm_camera_enable_irq(ispif->irq, 1);
-		if (rc)
-			goto irq_enable_fail;
 	}
 	/* mem remap is done in init when the clock is on */
 	ispif->open_cnt++;
@@ -1800,8 +1802,6 @@ static int ispif_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	return rc;
 ahb_clk_enable_fail:
 	msm_ispif_set_regulators(ispif->ispif_vdd, ispif->ispif_vdd_count, 0);
-irq_enable_fail:
-	msm_ispif_clk_ahb_enable(ispif, 0);
 unlock:
 	mutex_unlock(&ispif->mutex);
 	return rc;
