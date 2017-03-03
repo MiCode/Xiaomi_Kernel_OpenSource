@@ -26,13 +26,13 @@
 #define BDF_FILE_NAME_PREFIX		"bdwlan.b"
 
 #ifdef CONFIG_CNSS2_DEBUG
-static unsigned long qmi_timeout = 3000;
+static unsigned long qmi_timeout = 10000;
 module_param(qmi_timeout, ulong, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(qmi_timeout, "Timeout for QMI message in milliseconds");
 
 #define QMI_WLFW_TIMEOUT_MS		qmi_timeout
 #else
-#define QMI_WLFW_TIMEOUT_MS		3000
+#define QMI_WLFW_TIMEOUT_MS		10000
 #endif
 
 static bool daemon_support;
