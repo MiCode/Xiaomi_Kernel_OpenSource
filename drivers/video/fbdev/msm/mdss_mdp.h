@@ -691,6 +691,8 @@ struct pp_hist_col_info {
 	char __iomem *base;
 	u32 intr_shift;
 	u32 disp_num;
+	u32 expect_sum;
+	u32 next_sum;
 	struct mdss_mdp_ctl *ctl;
 };
 
