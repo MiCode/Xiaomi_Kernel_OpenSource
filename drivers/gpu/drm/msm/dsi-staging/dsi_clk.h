@@ -151,11 +151,28 @@ typedef int (*pre_clockon_cb)(void *priv,
 			      enum dsi_clk_state new_state);
 
 
+/**
+ * struct dsi_clk_info - clock information for DSI hardware.
+ * @name:                    client name.
+ * @c_clks[MAX_DSI_CTRL]     array of core clock configurations
+ * @l_clks[MAX_DSI_CTRL]     array of link clock configurations
+ * @bus_handle[MAX_DSI_CTRL] array of bus handles
+ * @ctrl_index[MAX_DSI_CTRL] array of DSI controller indexes mapped
+ *                           to core and link clock configurations
+ * @pre_clkoff_cb            callback before clock is turned off
+ * @post_clkoff_cb           callback after clock is turned off
+ * @post_clkon_cb            callback after clock is turned on
+ * @pre_clkon_cb             callback before clock is turned on
+ * @priv_data                pointer to private data
+ * @master_ndx               master DSI controller index
+ * @dsi_ctrl_count           number of DSI controllers
+ */
 struct dsi_clk_info {
 	char name[MAX_STRING_LEN];
 	struct dsi_core_clk_info c_clks[MAX_DSI_CTRL];
 	struct dsi_link_clk_info l_clks[MAX_DSI_CTRL];
 	u32 bus_handle[MAX_DSI_CTRL];
+	u32 ctrl_index[MAX_DSI_CTRL];
 	pre_clockoff_cb pre_clkoff_cb;
 	post_clockoff_cb post_clkoff_cb;
 	post_clockon_cb post_clkon_cb;

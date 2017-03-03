@@ -37,6 +37,7 @@ struct dsi_clk_mngr {
 	u32 master_ndx;
 	struct dsi_core_clks core_clks[MAX_DSI_CTRL];
 	struct dsi_link_clks link_clks[MAX_DSI_CTRL];
+	u32 ctrl_index[MAX_DSI_CTRL];
 	u32 core_clk_state;
 	u32 link_clk_state;
 
@@ -58,6 +59,22 @@ struct dsi_clk_client_info {
 	struct dsi_clk_mngr *mngr;
 };
 
+static int _get_clk_mngr_index(struct dsi_clk_mngr *mngr,
+				u32 dsi_ctrl_index,
+				u32 *clk_mngr_index)
+{
+	int i;
+
+	for (i = 0; i < mngr->dsi_ctrl_count; i++) {
+		if (mngr->ctrl_index[i] == dsi_ctrl_index) {
+			*clk_mngr_index = i;
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
 /**
  * dsi_clk_set_link_frequencies() - set frequencies for link clks
  * @clks:         Link clock information
@@ -70,7 +87,7 @@ struct dsi_clk_client_info {
 int dsi_clk_set_link_frequencies(void *client, struct link_clk_freq freq,
 				u32 index)
 {
-	int rc = 0;
+	int rc = 0, clk_mngr_index = 0;
 	struct dsi_clk_client_info *c = client;
 	struct dsi_clk_mngr *mngr;
 
@@ -80,8 +97,15 @@ int dsi_clk_set_link_frequencies(void *client, struct link_clk_freq freq,
 	}
 
 	mngr = c->mngr;
-	memcpy(&mngr->link_clks[index].freq, &freq,
+	rc = _get_clk_mngr_index(mngr, index, &clk_mngr_index);
+	if (rc) {
+		pr_err("failed to map control index %d\n", index);
+		return -EINVAL;
+	}
+
+	memcpy(&mngr->link_clks[clk_mngr_index].freq, &freq,
 		sizeof(struct link_clk_freq));
+
 	return rc;
 }
 
@@ -1084,6 +1108,7 @@ void *dsi_display_clk_mngr_register(struct dsi_clk_info *info)
 		memcpy(&mngr->link_clks[i].clks, &info->l_clks[i],
 			sizeof(struct dsi_link_clk_info));
 		mngr->core_clks[i].bus_handle = info->bus_handle[i];
+		mngr->ctrl_index[i] = info->ctrl_index[i];
 	}
 
 	INIT_LIST_HEAD(&mngr->client_list);

@@ -2282,6 +2282,7 @@ static int dsi_display_bind(struct device *dev,
 			sizeof(struct dsi_link_clk_info));
 		info.bus_handle[i] =
 			display_ctrl->ctrl->axi_bus_info.bus_handle;
+		info.ctrl_index[i] = display_ctrl->ctrl->index;
 	}
 
 	info.pre_clkoff_cb = dsi_pre_clkoff_cb;
