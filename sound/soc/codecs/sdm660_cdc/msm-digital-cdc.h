@@ -43,9 +43,6 @@ struct msm_dig_priv {
 	/* Entry for version info */
 	struct snd_info_entry *entry;
 	struct snd_info_entry *version_entry;
-};
-
-struct msm_dig {
 	char __iomem *dig_base;
 	struct regmap *regmap;
 	struct notifier_block nblock;
