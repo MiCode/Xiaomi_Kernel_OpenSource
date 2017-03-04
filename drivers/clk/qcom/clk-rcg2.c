@@ -513,7 +513,7 @@ static int clk_rcg2_enable(struct clk_hw *hw)
 	 * is always on while APPS is online. Therefore, the RCG can safely be
 	 * switched.
 	 */
-	rate = clk_get_rate(hw->clk);
+	rate = rcg->current_freq;
 	f = qcom_find_freq(rcg->freq_tbl, rate);
 	if (!f)
 		return -EINVAL;
@@ -626,6 +626,9 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 		clk_enable_disable_prepare_unprepare(hw, rcg->curr_index,
 					rcg->new_index, false);
 	}
+
+	/* Update current frequency with the frequency requested. */
+	rcg->current_freq = rate;
 
 	return ret;
 }

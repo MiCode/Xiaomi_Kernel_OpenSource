@@ -12,6 +12,125 @@
 
 #include "msm-pm660a.dtsi"
 #include "sdm660-pinctrl.dtsi"
+#include "sdm630-camera-sensor-qrd.dtsi"
+
+&i2c_2 {
+	status = "okay";
+	smb138x: qcom,smb138x@8 {
+		compatible = "qcom,i2c-pmic";
+		reg = <0x8>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <21 0x0>;
+		interrupt_names = "smb138x";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		qcom,periph-map = <0x10 0x11 0x12 0x13 0x14 0x16 0x36>;
+
+		smb138x_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		smb138x_tadc: qcom,tadc@3600 {
+			compatible = "qcom,tadc";
+			reg = <0x3600 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+			interrupt-parent = <&smb138x>;
+			interrupts = <0x36 0x0 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "eoc";
+
+			batt_temp@0 {
+				reg = <0>;
+				qcom,rbias = <68100>;
+				qcom,rtherm-at-25degc = <68000>;
+				qcom,beta-coefficient = <3450>;
+			};
+
+			skin_temp@1 {
+				reg = <1>;
+				qcom,rbias = <33000>;
+				qcom,rtherm-at-25degc = <68000>;
+				qcom,beta-coefficient = <3450>;
+			};
+
+			die_temp@2 {
+				reg = <2>;
+				qcom,scale = <(-1306)>;
+				qcom,offset = <397904>;
+			};
+
+			batt_i@3 {
+				reg = <3>;
+				qcom,channel = <3>;
+				qcom,scale = <(-20000000)>;
+			};
+
+			batt_v@4 {
+				reg = <4>;
+				qcom,scale = <5000000>;
+			};
+
+			input_i@5 {
+				reg = <5>;
+				qcom,scale = <14285714>;
+			};
+
+			input_v@6 {
+				reg = <6>;
+				qcom,scale = <25000000>;
+			};
+
+			otg_i@7 {
+				reg = <7>;
+				qcom,scale = <5714286>;
+			};
+		};
+
+		smb138x_parallel_slave: qcom,smb138x-parallel-slave@1000 {
+			compatible = "qcom,smb138x-parallel-slave";
+			qcom,pmic-revid = <&smb138x_revid>;
+			reg = <0x1000 0x700>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			interrupt-parent = <&smb138x>;
+			io-channels =
+				<&smb138x_tadc 1>,
+				<&smb138x_tadc 2>,
+				<&smb138x_tadc 3>,
+				<&smb138x_tadc 14>,
+				<&smb138x_tadc 15>,
+				<&smb138x_tadc 16>,
+				<&smb138x_tadc 17>;
+			io-channel-names =
+				"connector_temp",
+				"charger_temp",
+				"batt_i",
+				"connector_temp_thr1",
+				"connector_temp_thr2",
+				"connector_temp_thr3",
+				"charger_temp_max";
+
+			qcom,chgr@1000 {
+				reg = <0x1000 0x100>;
+				interrupts = <0x10 0x1 IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "chg-state-change";
+			};
+
+			qcom,chgr-misc@1600 {
+				reg = <0x1600 0x100>;
+				interrupts = <0x16 0x1 IRQ_TYPE_EDGE_RISING>,
+					     <0x16 0x6 IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "wdog-bark",
+						  "temperature-change";
+			};
+		};
+	};
+};
+
 / {
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
@@ -132,6 +251,37 @@
 		qcom,vin-sel = <0>;
 		qcom,src-sel = <0>;
 		qcom,out-strength = <1>;
+	};
+
+	/* GPIO 4 (NFC_CLK_REQ) */
+	gpio@c300 {
+		qcom,mode = <0>;
+		qcom,vin-sel = <1>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		status = "okay";
+	};
+};
+
+&i2c_6 { /* BLSP1 QUP6 (NFC) */
+	status = "okay";
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 28 0x00>;
+		qcom,nq-ven = <&tlmm 29 0x00>;
+		qcom,nq-firm = <&tlmm 30 0x00>;
+		qcom,nq-clkreq = <&pm660_gpios 4 0x00>;
+		qcom,nq-esepwr = <&tlmm 31 0x00>;
+		interrupt-parent = <&tlmm>;
+		qcom,clk-src = "BBCLK3";
+		interrupts = <28 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
+		clocks = <&clock_rpmcc RPM_LN_BB_CLK3_PIN>;
+		clock-names = "ref_clk";
 	};
 };
 

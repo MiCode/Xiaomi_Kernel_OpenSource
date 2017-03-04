@@ -103,6 +103,7 @@ struct ath10k_target_info {
  * @is_driver_probed: flag to indicate driver state
  */
 struct ath10k_snoc {
+	struct bus_opaque opaque_ctx;
 	struct platform_device *dev;
 	struct ath10k *ar;
 	void __iomem *mem;
@@ -110,9 +111,6 @@ struct ath10k_snoc {
 	struct ath10k_target_info target_info;
 	size_t mem_len;
 	struct ath10k_snoc_pipe pipe_info[CE_COUNT_MAX];
-	/* protects CE info */
-	spinlock_t ce_lock;
-	struct ath10k_ce_pipe ce_states[CE_COUNT_MAX];
 	struct timer_list rx_post_retry;
 	u32 ce_irqs[CE_COUNT_MAX];
 	u32 *vaddr_rri_on_ddr;
@@ -191,10 +189,10 @@ static inline struct ath10k_snoc *ath10k_snoc_priv(struct ath10k *ar)
 	return (struct ath10k_snoc *)ar->drv_priv;
 }
 
-void ath10k_snoc_write32(void *ar, u32 offset, u32 value);
+void ath10k_snoc_write32(struct ath10k *ar, u32 offset, u32 value);
 void ath10k_snoc_soc_write32(struct ath10k *ar, u32 addr, u32 val);
 void ath10k_snoc_reg_write32(struct ath10k *ar, u32 addr, u32 val);
-u32 ath10k_snoc_read32(void *ar, u32 offset);
+u32 ath10k_snoc_read32(struct ath10k *ar, u32 offset);
 u32 ath10k_snoc_soc_read32(struct ath10k *ar, u32 addr);
 u32 ath10k_snoc_reg_read32(struct ath10k *ar, u32 addr);
 

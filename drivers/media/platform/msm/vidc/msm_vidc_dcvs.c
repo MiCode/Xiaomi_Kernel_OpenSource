@@ -225,7 +225,7 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 	core = inst->core;
 	dcvs = &inst->dcvs;
 	res = &core->resources;
-	dcvs->load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
+	dcvs->load = msm_comm_get_inst_load(inst, LOAD_CALC_IGNORE_TURBO_LOAD);
 
 	num_rows = res->dcvs_tbl_size;
 	table = res->dcvs_tbl;

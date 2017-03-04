@@ -596,18 +596,9 @@ config LEDS_QPNP
 	  LEDs in both PWM and light pattern generator (LPG) modes.  For older
 	  PMICs, it also supports WLEDs and flash LEDs.
 
-config LEDS_QPNP_FLASH
-	tristate "Support for QPNP Flash LEDs"
-	depends on LEDS_CLASS && SPMI
-	help
-	  This driver supports the flash LED functionality of Qualcomm
-	  Technologies, Inc. QPNP PMICs.  This driver supports PMICs up through
-	  PM8994.  It can configure the flash LED target current for several
-	  independent channels.
-
 config LEDS_QPNP_FLASH_V2
 	tristate "Support for QPNP V2 Flash LEDs"
-	depends on LEDS_CLASS && MFD_SPMI_PMIC && !LEDS_QPNP_FLASH
+	depends on LEDS_CLASS && MFD_SPMI_PMIC
 	help
 	  This driver supports the flash V2 LED functionality of Qualcomm
 	  Technologies, Inc. QPNP PMICs.  This driver supports PMICs starting
