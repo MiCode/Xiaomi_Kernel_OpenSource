@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -172,7 +172,7 @@ struct msm_dig_ctrl_platform_data {
 				 bool enable);
 };
 
-struct sdm660_cdc {
+struct sdm660_cdc_priv {
 	struct device *dev;
 	u32 num_of_supplies;
 	struct regulator_bulk_data *supplies;
@@ -182,15 +182,6 @@ struct sdm660_cdc {
 	/* digital codec data structure */
 	struct msm_dig_ctrl_data *dig_ctrl_data;
 	struct blocking_notifier_head notifier;
-};
-
-struct sdm660_cdc_pdata {
-	struct wcd_micbias_setting micbias;
-	struct sdm660_cdc_regulator regulator[MAX_REGULATOR];
-};
-
-struct sdm660_cdc_priv {
-	struct snd_soc_codec *codec;
 	u16 pmic_rev;
 	u16 codec_version;
 	u16 analog_major_rev;
@@ -207,7 +198,7 @@ struct sdm660_cdc_priv {
 	bool ext_spk_boost_set;
 	struct on_demand_supply on_demand_list[ON_DEMAND_SUPPLIES_MAX];
 	struct regulator *spkdrv_reg;
-	struct blocking_notifier_head notifier;
+	struct blocking_notifier_head notifier_mbhc;
 	/* mbhc module */
 	struct wcd_mbhc mbhc;
 	/* cal info for codec */
@@ -221,6 +212,12 @@ struct sdm660_cdc_priv {
 	struct snd_info_entry *entry;
 	struct snd_info_entry *version_entry;
 };
+
+struct sdm660_cdc_pdata {
+	struct wcd_micbias_setting micbias;
+	struct sdm660_cdc_regulator regulator[MAX_REGULATOR];
+};
+
 
 extern int msm_anlg_cdc_mclk_enable(struct snd_soc_codec *codec,
 				    int mclk_enable, bool dapm);
