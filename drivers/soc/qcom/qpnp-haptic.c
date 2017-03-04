@@ -33,10 +33,6 @@
 #include <linux/qpnp/qpnp-revid.h>
 #include "../../staging/android/timed_output.h"
 
-#define QPNP_IRQ_FLAGS	(IRQF_TRIGGER_RISING | \
-			IRQF_TRIGGER_FALLING | \
-			IRQF_ONESHOT)
-
 #define QPNP_HAP_STATUS(b)		(b + 0x0A)
 #define QPNP_HAP_LRA_AUTO_RES_LO(b)	(b + 0x0B)
 #define QPNP_HAP_LRA_AUTO_RES_HI(b)     (b + 0x0C)
@@ -313,8 +309,6 @@ struct qpnp_pwm_info {
  *  @ lra_res_cal_period - period for resonance calibration
  *  @ sc_duration - counter to determine the duration of short circuit condition
  *  @ state - current state of haptics
- *  @ use_play_irq - play irq usage state
- *  @ use_sc_irq - short circuit irq usage state
  *  @ wf_update - waveform update flag
  *  @ pwm_cfg_state - pwm mode configuration state
  *  @ buffer_cfg_state - buffer mode configuration state
@@ -381,8 +375,6 @@ struct qpnp_hap {
 	u8				clk_trim_error_code;
 	bool				vcc_pon_enabled;
 	bool				state;
-	bool				use_play_irq;
-	bool				use_sc_irq;
 	bool				manage_pon_supply;
 	bool				wf_update;
 	bool				pwm_cfg_state;
@@ -660,19 +652,6 @@ static int qpnp_hap_buffer_config(struct qpnp_hap *hap)
 			return rc;
 	}
 
-	/* setup play irq */
-	if (hap->use_play_irq) {
-		rc = devm_request_threaded_irq(&hap->pdev->dev, hap->play_irq,
-			NULL, qpnp_hap_play_irq,
-			QPNP_IRQ_FLAGS,
-			"qpnp_play_irq", hap);
-		if (rc < 0) {
-			pr_err("Unable to request play(%d) IRQ(err:%d)\n",
-				hap->play_irq, rc);
-			return rc;
-		}
-	}
-
 	hap->buffer_cfg_state = true;
 	return 0;
 }
@@ -935,16 +914,6 @@ static int qpnp_hap_parse_buffer_dt(struct qpnp_hap *hap)
 			hap->wave_samp[i] = QPNP_HAP_WAV_SAMP_MAX;
 	} else {
 		memcpy(hap->wave_samp, prop->value, QPNP_HAP_WAV_SAMP_LEN);
-	}
-
-	hap->use_play_irq = of_property_read_bool(pdev->dev.of_node,
-				"qcom,use-play-irq");
-	if (hap->use_play_irq) {
-		hap->play_irq = platform_get_irq_byname(hap->pdev, "play-irq");
-		if (hap->play_irq < 0) {
-			pr_err("Unable to get play irq\n");
-			return hap->play_irq;
-		}
 	}
 
 	return 0;
@@ -2056,12 +2025,27 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 	if (rc)
 		return rc;
 
+	/* setup play irq */
+	if (hap->play_irq >= 0) {
+		rc = devm_request_threaded_irq(&hap->pdev->dev, hap->play_irq,
+			NULL, qpnp_hap_play_irq, IRQF_ONESHOT, "qpnp_hap_play",
+			hap);
+		if (rc < 0) {
+			pr_err("Unable to request play(%d) IRQ(err:%d)\n",
+				hap->play_irq, rc);
+			return rc;
+		}
+
+		/* use play_irq only for buffer mode */
+		if (hap->play_mode != QPNP_HAP_BUFFER)
+			disable_irq(hap->play_irq);
+	}
+
 	/* setup short circuit irq */
-	if (hap->use_sc_irq) {
+	if (hap->sc_irq >= 0) {
 		rc = devm_request_threaded_irq(&hap->pdev->dev, hap->sc_irq,
-			NULL, qpnp_hap_sc_irq,
-			QPNP_IRQ_FLAGS,
-			"qpnp_sc_irq", hap);
+			NULL, qpnp_hap_sc_irq, IRQF_ONESHOT, "qpnp_hap_sc",
+			hap);
 		if (rc < 0) {
 			pr_err("Unable to request sc(%d) IRQ(err:%d)\n",
 				hap->sc_irq, rc);
@@ -2362,14 +2346,14 @@ static int qpnp_hap_parse_dt(struct qpnp_hap *hap)
 		}
 	}
 
-	hap->use_sc_irq = of_property_read_bool(pdev->dev.of_node,
-				"qcom,use-sc-irq");
-	if (hap->use_sc_irq) {
-		hap->sc_irq = platform_get_irq_byname(hap->pdev, "sc-irq");
-		if (hap->sc_irq < 0) {
-			pr_err("Unable to get sc irq\n");
-			return hap->sc_irq;
-		}
+	hap->play_irq = platform_get_irq_byname(hap->pdev, "play-irq");
+	if (hap->play_irq < 0)
+		pr_warn("Unable to get play irq\n");
+
+	hap->sc_irq = platform_get_irq_byname(hap->pdev, "sc-irq");
+	if (hap->sc_irq < 0) {
+		pr_err("Unable to get sc irq\n");
+		return hap->sc_irq;
 	}
 
 	if (of_find_property(pdev->dev.of_node, "vcc_pon-supply", NULL))
