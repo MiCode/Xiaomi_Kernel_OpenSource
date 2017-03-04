@@ -526,6 +526,14 @@ config HDCP_QSEECOM
 	  Environment (QSEE) via the QSEECOM Driver and also calls the APIs
 	  exposed by the HDMI driver to communicate with the Receiver.
 
+config PROFILER
+	tristate "Qualcomm Technologies, Inc. trustzone Communicator driver"
+	help
+	  Provides a communication interface between userspace and
+	  trustzone using Secure Channel Manager (SCM) interface.
+	  It exposes APIs for userspace to get system profiling
+	  information.
+
 config VEXPRESS_SYSCFG
 	bool "Versatile Express System Configuration driver"
 	depends on VEXPRESS_CONFIG
