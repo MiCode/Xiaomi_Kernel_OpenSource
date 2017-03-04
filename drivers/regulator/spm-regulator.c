@@ -29,9 +29,9 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/spm-regulator.h>
 #include <soc/qcom/spm.h>
+#include <linux/arm-smccc.h>
 
 #if defined(CONFIG_ARM64) || (defined(CONFIG_ARM) && defined(CONFIG_ARM_PSCI))
-	asmlinkage int __invoke_psci_fn_smc(u64, u64, u64, u64);
 #else
 	#define __invoke_psci_fn_smc(a, b, c, d) 0
 #endif
