@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/tcp.h>
 #include <linux/regulator/consumer.h>
+#include <linux/qca8337.h>
 #if IS_ENABLED(CONFIG_ACPI)
 #include <linux/gpio/consumer.h>
 #include <linux/property.h>
@@ -1148,15 +1149,27 @@ static irqreturn_t emac_wol_isr(int irq, void *data)
 {
 	struct emac_adapter *adpt = emac_irq_get_adpt(data);
 	struct net_device *netdev = adpt->netdev;
-	u16 val = 0;
+	u16 val = 0, i;
+	u32 ret = 0;
 
 	pm_runtime_get_sync(netdev->dev.parent);
-	val = phy_read(adpt->phydev, MII_INT_STATUS);
+
+	/* read switch interrupt status reg */
+	if (QCA8337_PHY_ID == adpt->phydev->phy_id)
+		ret = qca8337_read(adpt->phydev->priv, QCA8337_GLOBAL_INT1);
+
+	for (i = 0; i < QCA8337_NUM_PHYS ; i++) {
+		ret = mdiobus_read(adpt->phydev->bus, i, MII_INT_STATUS);
+
+		if ((ret & LINK_SUCCESS_INTERRUPT) || (ret & LINK_SUCCESS_BX))
+			val |= 1 << i;
+	}
+
 	pm_runtime_mark_last_busy(netdev->dev.parent);
 	pm_runtime_put_autosuspend(netdev->dev.parent);
 
 	if (!pm_runtime_status_suspended(adpt->netdev->dev.parent)) {
-		if ((val & LINK_SUCCESS_INTERRUPT) || (val & LINK_SUCCESS_BX))
+		if (val)
 			emac_wol_gpio_irq(adpt, false);
 	}
 	return IRQ_HANDLED;
@@ -2807,20 +2820,30 @@ static int emac_pm_suspend(struct device *device, bool wol_enable)
 				!!(wufc & EMAC_WOL_MAGIC));
 
 	if (!adpt->phydev->link && phy->is_wol_irq_reg) {
-		int value;
+		int value, i;
 
-		/* ePHY driver keep external phy into power down mode if WOL
-		 * is not enabled. This change is to make sure to keep ePHY
-		 * in active state for LINK UP to work
-		 */
-		value = phy_read(adpt->phydev, MII_BMCR);
-		value &= ~BMCR_PDOWN;
-		phy_write(adpt->phydev, MII_BMCR, value);
+		for (i = 0; i < QCA8337_NUM_PHYS ; i++) {
+			/* ePHY driver keep external phy into power down mode
+			 * if WOL is not enabled. This change is to make sure
+			 * to keep ePHY in active state for LINK UP to work
+			 */
+			value = mdiobus_read(adpt->phydev->bus, i, MII_BMCR);
+			value &= ~BMCR_PDOWN;
+			mdiobus_write(adpt->phydev->bus, i, MII_BMCR, value);
 
-		/* Enable EPHY Link UP interrupt */
-		phy_write(adpt->phydev, MII_INT_ENABLE,
-			  LINK_SUCCESS_INTERRUPT |
-			  LINK_SUCCESS_BX);
+			/* Clear EPHY interrupts */
+			mdiobus_read(adpt->phydev->bus, i, MII_INT_STATUS);
+
+			/* Enable EPHY Link UP interrupt */
+			mdiobus_write(adpt->phydev->bus, i, MII_INT_ENABLE,
+				      LINK_SUCCESS_INTERRUPT |
+				      LINK_SUCCESS_BX);
+		}
+
+		/* enable switch interrupts */
+		if (QCA8337_PHY_ID == adpt->phydev->phy_id)
+			qca8337_write(adpt->phydev->priv,
+				      QCA8337_GLOBAL_INT1_MASK, 0x8000);
 
 		if (wol_enable && phy->is_wol_irq_reg)
 			emac_wol_gpio_irq(adpt, true);
@@ -2839,7 +2862,7 @@ static int emac_pm_resume(struct device *device)
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw	*hw  = &adpt->hw;
 	struct emac_phy *phy = &adpt->phy;
-	int retval = 0;
+	int retval = 0, i;
 
 	adpt->gpio_on(adpt, true, false);
 	emac_enable_regulator(adpt, EMAC_VREG1, EMAC_VREG2);
@@ -2848,8 +2871,14 @@ static int emac_pm_resume(struct device *device)
 	emac_hw_reset_mac(hw);
 
 	/* Disable EPHY Link UP interrupt */
-	if (phy->is_wol_irq_reg)
-		phy_write(adpt->phydev, MII_INT_ENABLE, 0);
+	if (phy->is_wol_irq_reg) {
+		for (i = 0; i < QCA8337_NUM_PHYS ; i++)
+			mdiobus_write(adpt->phydev->bus, i, MII_INT_ENABLE, 0);
+	}
+
+	/* disable switch interrupts */
+	if (QCA8337_PHY_ID == adpt->phydev->phy_id)
+		qca8337_write(adpt->phydev->priv, QCA8337_GLOBAL_INT1, 0x8000);
 
 	phy_resume(adpt->phydev);
 

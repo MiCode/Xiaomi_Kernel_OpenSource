@@ -212,6 +212,13 @@ config MDIO_BCM_UNIMAC
 	  controllers as well as some Broadcom Ethernet switches such as the
 	  Starfighter 2 switches.
 
+config QCA8337_SWITCH
+	tristate "Drivers for QTI Atheros QCA8337 switch"
+	select REGMAP
+	---help---
+	  This enables support for the QTI Atheros QCA8337 Ethernet
+	  switch. This driver support switch funtionality over SGMII
+	  interface.
 endif # PHYLIB
 
 config MICREL_KS8995MA

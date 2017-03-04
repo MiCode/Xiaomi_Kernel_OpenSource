@@ -32,6 +32,7 @@ config QCOM_EMAC
 	select CRC32
 	select PHYLIB
 	select OF_MDIO
+	select QCA8337_SWITCH
 	---help---
 	  This driver supports the Qualcomm Technologies, Inc. Gigabit
           Ethernet Media Access Controller (EMAC). The controller
