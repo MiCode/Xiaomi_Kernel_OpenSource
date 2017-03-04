@@ -669,18 +669,18 @@ static u32 ath10k_bus_pci_read32(struct ath10k *ar, u32 offset)
 	return val;
 }
 
-inline void ath10k_pci_write32(void *ar, u32 offset, u32 value)
+inline void ath10k_pci_write32(struct ath10k *ar, u32 offset, u32 value)
 {
 	struct ath10k_pci *ar_pci = ath10k_pci_priv(ar);
 
-	ar_pci->bus_ops->write32(ar, offset, value);
+	ar_pci->opaque_ctx.bus_ops->write32(ar, offset, value);
 }
 
-inline u32 ath10k_pci_read32(void *ar, u32 offset)
+inline u32 ath10k_pci_read32(struct ath10k *ar, u32 offset)
 {
 	struct ath10k_pci *ar_pci = ath10k_pci_priv(ar);
 
-	return ar_pci->bus_ops->read32(ar, offset);
+	return ar_pci->opaque_ctx.bus_ops->read32(ar, offset);
 }
 
 u32 ath10k_pci_soc_read32(struct ath10k *ar, u32 addr)
@@ -780,9 +780,9 @@ static int __ath10k_pci_rx_post_buf(struct ath10k_pci_pipe *pipe)
 
 	ATH10K_SKB_RXCB(skb)->paddr = paddr;
 
-	spin_lock_bh(&ar_pci->ce_lock);
+	spin_lock_bh(&ar_pci->opaque_ctx.ce_lock);
 	ret = __ath10k_ce_rx_post_buf(ce_pipe, skb, paddr);
-	spin_unlock_bh(&ar_pci->ce_lock);
+	spin_unlock_bh(&ar_pci->opaque_ctx.ce_lock);
 	if (ret) {
 		dma_unmap_single(ar->dev, paddr, skb->len + skb_tailroom(skb),
 				 DMA_FROM_DEVICE);
@@ -806,9 +806,9 @@ static void ath10k_pci_rx_post_pipe(struct ath10k_pci_pipe *pipe)
 	if (!ce_pipe->dest_ring)
 		return;
 
-	spin_lock_bh(&ar_pci->ce_lock);
+	spin_lock_bh(&ar_pci->opaque_ctx.ce_lock);
 	num = __ath10k_ce_rx_num_free_bufs(ce_pipe);
-	spin_unlock_bh(&ar_pci->ce_lock);
+	spin_unlock_bh(&ar_pci->opaque_ctx.ce_lock);
 
 	while (num >= 0) {
 		ret = __ath10k_pci_rx_post_buf(pipe);
@@ -886,7 +886,7 @@ static int ath10k_pci_diag_read_mem(struct ath10k *ar, u32 address, void *data,
 	void *data_buf = NULL;
 	int i;
 
-	spin_lock_bh(&ar_pci->ce_lock);
+	spin_lock_bh(&ar_pci->opaque_ctx.ce_lock);
 
 	ce_diag = ar_pci->ce_diag;
 
@@ -987,7 +987,7 @@ done:
 		dma_free_coherent(ar->dev, alloc_nbytes, data_buf,
 				  ce_data_base);
 
-	spin_unlock_bh(&ar_pci->ce_lock);
+	spin_unlock_bh(&ar_pci->opaque_ctx.ce_lock);
 
 	return ret;
 }
@@ -1044,7 +1044,7 @@ int ath10k_pci_diag_write_mem(struct ath10k *ar, u32 address,
 	dma_addr_t ce_data_base = 0;
 	int i;
 
-	spin_lock_bh(&ar_pci->ce_lock);
+	spin_lock_bh(&ar_pci->opaque_ctx.ce_lock);
 
 	ce_diag = ar_pci->ce_diag;
 
@@ -1148,7 +1148,7 @@ done:
 		ath10k_warn(ar, "failed to write diag value at 0x%x: %d\n",
 			    address, ret);
 
-	spin_unlock_bh(&ar_pci->ce_lock);
+	spin_unlock_bh(&ar_pci->opaque_ctx.ce_lock);
 
 	return ret;
 }
@@ -1351,7 +1351,7 @@ int ath10k_pci_hif_tx_sg(struct ath10k *ar, u8 pipe_id,
 	unsigned int write_index;
 	int err, i = 0;
 
-	spin_lock_bh(&ar_pci->ce_lock);
+	spin_lock_bh(&ar_pci->opaque_ctx.ce_lock);
 
 	nentries_mask = src_ring->nentries_mask;
 	sw_index = src_ring->sw_index;
@@ -1397,14 +1397,14 @@ int ath10k_pci_hif_tx_sg(struct ath10k *ar, u8 pipe_id,
 	if (err)
 		goto err;
 
-	spin_unlock_bh(&ar_pci->ce_lock);
+	spin_unlock_bh(&ar_pci->opaque_ctx.ce_lock);
 	return 0;
 
 err:
 	for (; i > 0; i--)
 		__ath10k_ce_send_revert(ce_pipe);
 
-	spin_unlock_bh(&ar_pci->ce_lock);
+	spin_unlock_bh(&ar_pci->opaque_ctx.ce_lock);
 	return err;
 }
 
@@ -1990,7 +1990,7 @@ static int ath10k_bus_get_num_banks(struct ath10k *ar)
 {
 	struct ath10k_pci *ar_pci = ath10k_pci_priv(ar);
 
-	return ar_pci->bus_ops->get_num_banks(ar);
+	return ar_pci->opaque_ctx.bus_ops->get_num_banks(ar);
 }
 
 int ath10k_pci_init_config(struct ath10k *ar)
@@ -2165,7 +2165,7 @@ int ath10k_pci_alloc_pipes(struct ath10k *ar)
 
 	for (i = 0; i < CE_COUNT; i++) {
 		pipe = &ar_pci->pipe_info[i];
-		pipe->ce_hdl = &ar_pci->ce_states[i];
+		pipe->ce_hdl = &ar_pci->opaque_ctx.ce_states[i];
 		pipe->pipe_num = i;
 		pipe->hif_ce_state = ar;
 
@@ -2792,6 +2792,7 @@ static int ath10k_pci_napi_poll(struct napi_struct *ctx, int budget)
 {
 	struct ath10k *ar = container_of(ctx, struct ath10k, napi);
 	int done = 0;
+	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
 
 	if (ath10k_pci_has_fw_crashed(ar)) {
 		ath10k_pci_fw_crashed_clear(ar);
@@ -2814,7 +2815,7 @@ static int ath10k_pci_napi_poll(struct napi_struct *ctx, int budget)
 		 * interrupts safer to check for pending interrupts for
 		 * immediate servicing.
 		 */
-		if (CE_INTERRUPT_SUMMARY(ar)) {
+		if (CE_INTERRUPT_SUMMARY(ar, ar_opaque)) {
 			napi_reschedule(ctx);
 			goto out;
 		}
@@ -3132,7 +3133,7 @@ int ath10k_pci_setup_resource(struct ath10k *ar)
 	struct ath10k_pci *ar_pci = ath10k_pci_priv(ar);
 	int ret;
 
-	spin_lock_init(&ar_pci->ce_lock);
+	spin_lock_init(&ar_pci->opaque_ctx.ce_lock);
 	spin_lock_init(&ar_pci->ps_lock);
 
 	setup_timer(&ar_pci->rx_post_retry, ath10k_pci_rx_replenish_retry,
@@ -3243,7 +3244,7 @@ static int ath10k_pci_probe(struct pci_dev *pdev,
 	ar_pci->ar = ar;
 	ar->dev_id = pci_dev->device;
 	ar_pci->pci_ps = pci_ps;
-	ar_pci->bus_ops = &ath10k_pci_bus_ops;
+	ar_pci->opaque_ctx.bus_ops = &ath10k_pci_bus_ops;
 	ar_pci->pci_soft_reset = pci_soft_reset;
 	ar_pci->pci_hard_reset = pci_hard_reset;
 
@@ -3252,14 +3253,7 @@ static int ath10k_pci_probe(struct pci_dev *pdev,
 	ar->id.subsystem_vendor = pdev->subsystem_vendor;
 	ar->id.subsystem_device = pdev->subsystem_device;
 
-	spin_lock_init(&ar_pci->ce_lock);
 	spin_lock_init(&ar_pci->ps_lock);
-
-	ar->bus_write32 = ath10k_pci_write32;
-	ar->bus_read32 = ath10k_pci_read32;
-	ar->ce_lock = ar_pci->ce_lock;
-	ar->ce_states = ar_pci->ce_states;
-
 	setup_timer(&ar_pci->rx_post_retry, ath10k_pci_rx_replenish_retry,
 		    (unsigned long)ar);
 	setup_timer(&ar_pci->ps_timer, ath10k_pci_ps_timer,

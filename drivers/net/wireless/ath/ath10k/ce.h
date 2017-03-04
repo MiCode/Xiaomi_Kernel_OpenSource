@@ -201,6 +201,24 @@ struct ce_attr;
 u32 shadow_sr_wr_ind_addr(struct ath10k *ar, u32 ctrl_addr);
 u32 shadow_dst_wr_ind_addr(struct ath10k *ar, u32 ctrl_addr);
 
+struct ath10k_bus_ops {
+	u32 (*read32)(struct ath10k *ar, u32 offset);
+	void (*write32)(struct ath10k *ar, u32 offset, u32 value);
+	int (*get_num_banks)(struct ath10k *ar);
+};
+
+static inline struct bus_opaque *ath10k_bus_priv(struct ath10k *ar)
+{
+	return (struct bus_opaque *)ar->drv_priv;
+}
+
+struct bus_opaque {
+	/* protects CE info */
+	spinlock_t ce_lock;
+	const struct ath10k_bus_ops *bus_ops;
+	struct ath10k_ce_pipe ce_states[CE_COUNT_MAX];
+};
+
 /*==================Send====================*/
 
 /* ath10k_ce_send flags */
@@ -692,9 +710,9 @@ static inline u32 ath10k_ce_base_address(struct ath10k *ar, unsigned int ce_id)
 		CE_WRAPPER_INTERRUPT_SUMMARY_HOST_MSI_LSB)
 #define CE_WRAPPER_INTERRUPT_SUMMARY_ADDRESS			0x0000
 
-#define CE_INTERRUPT_SUMMARY(ar) \
+#define CE_INTERRUPT_SUMMARY(ar, ar_opaque) \
 	CE_WRAPPER_INTERRUPT_SUMMARY_HOST_MSI_GET( \
-		ar->bus_read32((ar), CE_WRAPPER_BASE_ADDRESS + \
+		ar_opaque->bus_ops->read32((ar), CE_WRAPPER_BASE_ADDRESS + \
 		CE_WRAPPER_INTERRUPT_SUMMARY_ADDRESS))
 
 #endif /* _CE_H_ */
