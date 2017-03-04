@@ -72,6 +72,7 @@ struct wiphy;
 #define CFG80211_RAND_TA_FOR_PUBLIC_ACTION_FRAME 1
 #define CFG80211_REPORT_BETTER_BSS_IN_SCHED_SCAN 1
 #define CFG80211_CONNECT_TIMEOUT 1
+#define CFG80211_CONNECT_TIMEOUT_REASON_CODE 1
 
 /*
  * wireless hardware capability structures
