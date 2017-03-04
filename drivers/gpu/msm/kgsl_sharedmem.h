@@ -346,4 +346,30 @@ static inline void kgsl_free_sgt(struct sg_table *sgt)
 	}
 }
 
+/**
+ * kgsl_get_page_size() - Get supported pagesize
+ * @size: Size of the page
+ * @align: Desired alignment of the size
+ *
+ * Return supported pagesize
+ */
+#ifndef CONFIG_ALLOC_BUFFERS_IN_4K_CHUNKS
+static inline int kgsl_get_page_size(size_t size, unsigned int align)
+{
+	if (align >= ilog2(SZ_1M) && size >= SZ_1M)
+		return SZ_1M;
+	else if (align >= ilog2(SZ_64K) && size >= SZ_64K)
+		return SZ_64K;
+	else if (align >= ilog2(SZ_8K) && size >= SZ_8K)
+		return SZ_8K;
+	else
+		return PAGE_SIZE;
+}
+#else
+static inline int kgsl_get_page_size(size_t size, unsigned int align)
+{
+	return PAGE_SIZE;
+}
+#endif
+
 #endif /* __KGSL_SHAREDMEM_H */
