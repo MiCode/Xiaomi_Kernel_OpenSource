@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,7 @@
 struct sde_rot_sync_fence;
 struct sde_rot_timeline;
 
-#if defined(CONFIG_SYNC) && defined(CONFIG_SW_SYNC)
+#if defined(CONFIG_SYNC_FILE)
 struct sde_rot_timeline *sde_rotator_create_timeline(const char *name);
 
 void sde_rotator_destroy_timeline(struct sde_rot_timeline *tl);
