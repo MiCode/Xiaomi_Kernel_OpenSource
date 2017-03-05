@@ -4929,7 +4929,8 @@ int ipa2_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count)
 	return res;
 }
 
-static struct ipa_gsi_ep_config *ipa2_get_gsi_ep_info(int ipa_ep_idx)
+static const struct ipa_gsi_ep_config *ipa2_get_gsi_ep_info
+	(enum ipa_client_type client)
 {
 	IPAERR("Not supported for IPA 2.x\n");
 	return NULL;

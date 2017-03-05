@@ -1995,7 +1995,8 @@ int ipa3_uc_mhi_stop_event_update_channel(int channelHandle);
 int ipa3_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa3_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 void ipa3_tag_destroy_imm(void *user1, int user2);
-struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info(int ipa_ep_idx);
+const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
+	(enum ipa_client_type client);
 void ipa3_uc_rg10_write_reg(enum ipahal_reg_name reg, u32 n, u32 val);
 
 u32 ipa3_get_num_pipes(void);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -331,7 +331,8 @@ struct ipa_api_controller {
 	int (*ipa_create_wdi_mapping)(u32 num_buffers,
 		struct ipa_wdi_buffer_info *info);
 
-	struct ipa_gsi_ep_config *(*ipa_get_gsi_ep_info)(int ipa_ep_idx);
+	const struct ipa_gsi_ep_config *(*ipa_get_gsi_ep_info)
+		(enum ipa_client_type client);
 
 	int (*ipa_register_ipa_ready_cb)(void (*ipa_ready_cb)(void *user_data),
 		void *user_data);
