@@ -1051,6 +1051,10 @@ void ipa3_dma_async_memcpy_notify_cb(void *priv
 
 	mem_info = (struct ipa_mem_buffer *)data;
 	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
+	if (ep_idx < 0) {
+		IPADMA_ERR("IPA Client mapping failed\n");
+		return;
+	}
 	sys = ipa3_ctx->ep[ep_idx].sys;
 
 	spin_lock_irqsave(&ipa3_dma_ctx->async_lock, flags);
