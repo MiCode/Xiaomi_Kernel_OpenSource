@@ -20,10 +20,17 @@
 #include <linux/msm_ext_display.h>
 
 #define MSM_EXT_DISP_PCM_RATES	SNDRV_PCM_RATE_48000
+#define AUD_EXT_DISP_ACK_DISCONNECT (AUDIO_ACK_CONNECT ^ AUDIO_ACK_CONNECT)
+#define AUD_EXT_DISP_ACK_CONNECT    (AUDIO_ACK_CONNECT)
+#define AUD_EXT_DISP_ACK_ENABLE     (AUDIO_ACK_SET_ENABLE | AUDIO_ACK_ENABLE)
 
 static const char *const ext_disp_audio_type_text[] = {"None", "HDMI", "DP"};
+static const char *const ext_disp_audio_ack_text[] = {"Disconnect",  "Connect",
+						      "Ack_Enable"};
 
 static SOC_ENUM_SINGLE_EXT_DECL(ext_disp_audio_type, ext_disp_audio_type_text);
+static SOC_ENUM_SINGLE_EXT_DECL(ext_disp_audio_ack_state,
+				ext_disp_audio_ack_text);
 
 struct msm_ext_disp_audio_codec_rx_data {
 	struct platform_device *ext_disp_core_pdev;
@@ -176,6 +183,55 @@ done:
 	return rc;
 }
 
+static int msm_ext_disp_audio_ack_set(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct msm_ext_disp_audio_codec_rx_data *codec_data;
+	u32 ack_state = 0;
+	int rc;
+
+	codec_data = snd_soc_codec_get_drvdata(codec);
+	if (!codec_data ||
+	    !codec_data->ext_disp_ops.acknowledge) {
+		dev_err(codec->dev,
+			"%s: codec_data or ops acknowledge() is NULL\n",
+			__func__);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	switch (ucontrol->value.enumerated.item[0]) {
+	case 0:
+		ack_state = AUD_EXT_DISP_ACK_DISCONNECT;
+		break;
+	case 1:
+		ack_state = AUD_EXT_DISP_ACK_CONNECT;
+		break;
+	case 2:
+		ack_state = AUD_EXT_DISP_ACK_ENABLE;
+		break;
+	default:
+		rc = -EINVAL;
+		dev_err(codec->dev,
+			"%s: invalid value %d for mixer ctl\n",
+			__func__, ucontrol->value.enumerated.item[0]);
+		goto done;
+	}
+	dev_dbg(codec->dev, "%s: control %d, ack set value 0x%x\n",
+		__func__, ucontrol->value.enumerated.item[0], ack_state);
+
+	rc = codec_data->ext_disp_ops.acknowledge(
+			 codec_data->ext_disp_core_pdev, ack_state);
+	if (rc < 0) {
+		dev_err(codec->dev, "%s: error from acknowledge(), err:%d\n",
+			__func__, rc);
+	}
+
+done:
+	return rc;
+}
+
 static const struct snd_kcontrol_new msm_ext_disp_codec_rx_controls[] = {
 	{
 		.access = SNDRV_CTL_ELEM_ACCESS_READ |
@@ -195,6 +251,8 @@ static const struct snd_kcontrol_new msm_ext_disp_codec_rx_controls[] = {
 	},
 	SOC_ENUM_EXT("External Display Type", ext_disp_audio_type,
 		     msm_ext_disp_audio_type_get, NULL),
+	SOC_ENUM_EXT("External Display Audio Ack", ext_disp_audio_ack_state,
+		     NULL, msm_ext_disp_audio_ack_set),
 };
 
 static int msm_ext_disp_audio_codec_rx_dai_startup(
