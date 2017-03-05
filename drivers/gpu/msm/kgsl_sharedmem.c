@@ -613,25 +613,6 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 }
 EXPORT_SYMBOL(kgsl_cache_range_op);
 
-#ifndef CONFIG_ALLOC_BUFFERS_IN_4K_CHUNKS
-static inline int get_page_size(size_t size, unsigned int align)
-{
-	if (align >= ilog2(SZ_1M) && size >= SZ_1M)
-		return SZ_1M;
-	else if (align >= ilog2(SZ_64K) && size >= SZ_64K)
-		return SZ_64K;
-	else if (align >= ilog2(SZ_8K) && size >= SZ_8K)
-		return SZ_8K;
-	else
-		return PAGE_SIZE;
-}
-#else
-static inline int get_page_size(size_t size, unsigned int align)
-{
-	return PAGE_SIZE;
-}
-#endif
-
 int
 kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 			uint64_t size)
@@ -648,7 +629,7 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 
 	align = (memdesc->flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT;
 
-	page_size = get_page_size(size, align);
+	page_size = kgsl_get_page_size(size, align);
 
 	/*
 	 * The alignment cannot be less than the intended page size - it can be
@@ -719,7 +700,7 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 		memdesc->page_count += page_count;
 
 		/* Get the needed page size for the next iteration */
-		page_size = get_page_size(len, align);
+		page_size = kgsl_get_page_size(len, align);
 	}
 
 	/* Call to the hypervisor to lock any secure buffer allocations */
