@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,7 +61,7 @@ static int ipa3_irq_mapping[IPA_IRQ_MAX] = {
 	[IPA_PROC_ERR_IRQ]			= 13,
 	[IPA_TX_SUSPEND_IRQ]			= 14,
 	[IPA_TX_HOLB_DROP_IRQ]			= 15,
-	[IPA_BAM_GSI_IDLE_IRQ]			= 16,
+	[IPA_GSI_IDLE_IRQ]			= 16,
 };
 
 static void ipa3_interrupt_defer(struct work_struct *work);

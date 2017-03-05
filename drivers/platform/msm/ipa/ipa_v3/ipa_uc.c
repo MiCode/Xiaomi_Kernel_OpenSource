@@ -89,7 +89,7 @@ enum ipa3_hw_2_cpu_responses {
 };
 
 /**
- * struct IpaHwResetPipeCmdData_t - Structure holding the parameters
+ * struct IpaHwMemCopyData_t - Structure holding the parameters
  * for IPA_CPU_2_HW_CMD_MEMCPY command.
  *
  * The parameters are passed as immediate params in the shared memory
@@ -100,24 +100,6 @@ struct IpaHwMemCopyData_t  {
 	u32 dest_buffer_size;
 	u32 source_buffer_size;
 };
-
-/**
- * union IpaHwResetPipeCmdData_t - Structure holding the parameters
- * for IPA_CPU_2_HW_CMD_RESET_PIPE command.
- * @pipeNum : Pipe number to be reset
- * @direction : 1 - IPA Producer, 0 - IPA Consumer
- * @reserved_02_03 : Reserved
- *
- * The parameters are passed as immediate params in the shared memory
- */
-union IpaHwResetPipeCmdData_t {
-	struct IpaHwResetPipeCmdParams_t {
-		u8     pipeNum;
-		u8     direction;
-		u32    reserved_02_03;
-	} __packed params;
-	u32 raw32b;
-} __packed;
 
 /**
  * struct IpaHwRegWriteCmdData_t - holds the parameters for
@@ -788,58 +770,6 @@ void ipa3_uc_register_handlers(enum ipa3_hw_features feature,
 	IPA3_UC_UNLOCK(flags);
 
 	IPADBG("uC handlers registered for feature %u\n", feature);
-}
-
-/**
- * ipa3_uc_reset_pipe() - reset a BAM pipe using the uC interface
- * @ipa_client: [in] ipa client handle representing the pipe
- *
- * The function uses the uC interface in order to issue a BAM
- * PIPE reset request. The uC makes sure there's no traffic in
- * the TX command queue before issuing the reset.
- *
- * Returns:	0 on success, negative on failure
- */
-int ipa3_uc_reset_pipe(enum ipa_client_type ipa_client)
-{
-	union IpaHwResetPipeCmdData_t cmd;
-	int ep_idx;
-	int ret;
-
-	ep_idx = ipa3_get_ep_mapping(ipa_client);
-	if (ep_idx == -1) {
-		IPAERR("Invalid IPA client\n");
-		return 0;
-	}
-
-	/*
-	 * If the uC interface has not been initialized yet,
-	 * continue with the sequence without resetting the
-	 * pipe.
-	 */
-	if (ipa3_uc_state_check()) {
-		IPADBG("uC interface will not be used to reset %s pipe %d\n",
-		       IPA_CLIENT_IS_PROD(ipa_client) ? "CONS" : "PROD",
-		       ep_idx);
-		return 0;
-	}
-
-	/*
-	 * IPA consumer = 0, IPA producer = 1.
-	 * IPA driver concept of PROD/CONS is the opposite of the
-	 * IPA HW concept. Therefore, IPA AP CLIENT PRODUCER = IPA CONSUMER,
-	 * and vice-versa.
-	 */
-	cmd.params.direction = (u8)(IPA_CLIENT_IS_PROD(ipa_client) ? 0 : 1);
-	cmd.params.pipeNum = (u8)ep_idx;
-
-	IPADBG("uC pipe reset on IPA %s pipe %d\n",
-	       IPA_CLIENT_IS_PROD(ipa_client) ? "CONS" : "PROD", ep_idx);
-
-	ret = ipa3_uc_send_cmd(cmd.raw32b, IPA_CPU_2_HW_CMD_RESET_PIPE, 0,
-			      false, 10*HZ);
-
-	return ret;
 }
 
 int ipa3_uc_is_gsi_channel_empty(enum ipa_client_type ipa_client)

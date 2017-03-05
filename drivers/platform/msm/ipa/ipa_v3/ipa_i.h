@@ -23,7 +23,6 @@
 #include <linux/slab.h>
 #include <linux/ipa.h>
 #include <linux/ipa_usb.h>
-#include <linux/msm-sps.h>
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
 #include <linux/platform_device.h>
@@ -129,15 +128,6 @@
 #define IPA_HDR_PROC_CTX_BIN1 1
 #define IPA_HDR_PROC_CTX_BIN_MAX 2
 
-#define IPA_EVENT_THRESHOLD 0x10
-
-/*
- * Due to ZLT issue with USB 3.0 core, IPA BAM threashold need to be set
- * to max packet size + 1. After setting the threshold, USB core
- * will not be notified on ZLTs
- */
-#define IPA_USB_EVENT_THRESHOLD 0x4001
-
 #define IPA_RX_POOL_CEIL 32
 #define IPA_RX_SKB_SIZE 1792
 
@@ -147,9 +137,6 @@
 
 #define IPA_CLIENT_IS_PROD(x) (x >= IPA_CLIENT_PROD && x < IPA_CLIENT_CONS)
 #define IPA_CLIENT_IS_CONS(x) (x >= IPA_CLIENT_CONS && x < IPA_CLIENT_MAX)
-
-#define IPA_PIPE_MEM_START_OFST_ALIGNMENT(start_ofst) \
-	(((start_ofst) + 127) & ~127)
 
 #define IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE 8
 #define IPA_HDR_PROC_CTX_TABLE_ALIGNMENT(start_ofst) \
@@ -493,7 +480,6 @@ struct ipa3_status_stats {
  * struct ipa3_ep_context - IPA end point context
  * @valid: flag indicating id EP context is valid
  * @client: EP client type
- * @ep_hdl: EP's client SPS handle
  * @gsi_chan_hdl: EP's GSI channel handle
  * @gsi_evt_ring_hdl: EP's GSI channel event ring handle
  * @gsi_mem_info: EP's GSI channel rings info
@@ -501,17 +487,10 @@ struct ipa3_status_stats {
  * @cfg: EP cionfiguration
  * @dst_pipe_index: destination pipe index
  * @rt_tbl_idx: routing table index
- * @connect: SPS connect
  * @priv: user provided information which will forwarded once the user is
  *        notified for new data avail
  * @client_notify: user provided CB for EP events notification, the event is
  *                 data revived.
- * @desc_fifo_in_pipe_mem: flag indicating if descriptors FIFO uses pipe memory
- * @data_fifo_in_pipe_mem: flag indicating if data FIFO uses pipe memory
- * @desc_fifo_pipe_mem_ofst: descriptors FIFO pipe memory offset
- * @data_fifo_pipe_mem_ofst: data FIFO pipe memory offset
- * @desc_fifo_client_allocated: if descriptors FIFO was allocated by a client
- * @data_fifo_client_allocated: if data FIFO was allocated by a client
  * @skip_ep_cfg: boolean field that determines if EP should be configured
  *  by IPA driver
  * @keep_ipa_awake: when true, IPA will not be clock gated
@@ -523,7 +502,6 @@ struct ipa3_status_stats {
 struct ipa3_ep_context {
 	int valid;
 	enum ipa_client_type client;
-	struct sps_pipe *ep_hdl;
 	unsigned long gsi_chan_hdl;
 	unsigned long gsi_evt_ring_hdl;
 	struct ipa_gsi_ep_mem_info gsi_mem_info;
@@ -536,16 +514,9 @@ struct ipa3_ep_context {
 	struct ipahal_reg_ep_cfg_status status;
 	u32 dst_pipe_index;
 	u32 rt_tbl_idx;
-	struct sps_connect connect;
 	void *priv;
 	void (*client_notify)(void *priv, enum ipa_dp_evt_type evt,
 		       unsigned long data);
-	bool desc_fifo_in_pipe_mem;
-	bool data_fifo_in_pipe_mem;
-	u32 desc_fifo_pipe_mem_ofst;
-	u32 data_fifo_pipe_mem_ofst;
-	bool desc_fifo_client_allocated;
-	bool data_fifo_client_allocated;
 	atomic_t avail_fifo_desc;
 	u32 dflt_flt4_rule_hdl;
 	u32 dflt_flt6_rule_hdl;
@@ -610,18 +581,16 @@ struct ipa3_repl_ctx {
 };
 
 /**
- * struct ipa3_sys_context - IPA endpoint context for system to BAM pipes
+ * struct ipa3_sys_context - IPA GPI pipes context
  * @head_desc_list: header descriptors list
  * @len: the size of the above list
  * @spinlock: protects the list and its size
- * @event: used to request CALLBACK mode from SPS driver
  * @ep: IPA EP context
  *
- * IPA context specific to the system-bam pipes a.k.a LAN IN/OUT and WAN
+ * IPA context specific to the GPI pipes a.k.a LAN IN/OUT and WAN
  */
 struct ipa3_sys_context {
 	u32 len;
-	struct sps_register_event event;
 	atomic_t curr_polling_state;
 	struct delayed_work switch_to_intr_work;
 	enum ipa3_sys_pipe_policy policy;
@@ -637,8 +606,6 @@ struct ipa3_sys_context {
 	unsigned int len_partial;
 	bool drop_packet;
 	struct work_struct work;
-	void (*sps_callback)(struct sps_event_notify *notify);
-	enum sps_option sps_option;
 	struct delayed_work replenish_rx_work;
 	struct work_struct repl_work;
 	void (*repl_hdlr)(struct ipa3_sys_context *sys);
@@ -677,8 +644,6 @@ enum ipa3_desc_type {
  * @user1: cookie1 for above callback
  * @user2: cookie2 for above callback
  * @sys: corresponding IPA sys context
- * @mult: valid only for first of a "multiple" transfer,
- * holds info for the "sps_transfer" buffer
  * @cnt: 1 for single transfers,
  * >1 and <0xFFFF for first of a "multiple" transfer,
  * 0xFFFF for last desc, 0 for rest of "multiple' transfer
@@ -696,7 +661,6 @@ struct ipa3_tx_pkt_wrapper {
 	void *user1;
 	int user2;
 	struct ipa3_sys_context *sys;
-	struct ipa_mem_buffer mult;
 	u32 cnt;
 	void *bounce;
 	bool no_unmap_dma;
@@ -977,15 +941,9 @@ struct ipa3_uc_wdi_ctx {
 
 /**
  * struct ipa3_transport_pm - transport power management related members
- * @lock: lock for ensuring atomic operations
- * @res_granted: true if SPS requested IPA resource and IPA granted it
- * @res_rel_in_prog: true if releasing IPA resource is in progress
  * @transport_pm_mutex: Mutex to protect the transport_pm functionality.
  */
 struct ipa3_transport_pm {
-	spinlock_t lock;
-	bool res_granted;
-	bool res_rel_in_prog;
 	atomic_t dec_clients;
 	atomic_t eot_activity;
 	struct mutex transport_pm_mutex;
@@ -1034,13 +992,12 @@ struct ipa_tz_unlock_reg_info {
  * @dev_num: device number
  * @dev: the dev_t of the device
  * @cdev: cdev of the device
- * @bam_handle: IPA driver's BAM handle
  * @ep: list of all end points
  * @skip_ep_cfg_shadow: state to update filter table correctly across
   power-save
  * @ep_flt_bitmap: End-points supporting filtering bitmap
  * @ep_flt_num: End-points supporting filtering number
- * @resume_on_connect: resume ep on ipa3_connect
+ * @resume_on_connect: resume ep on ipa connect
  * @flt_tbl: list of all IPA filter tables
  * @mode: IPA operating mode
  * @mmio: iomem
@@ -1084,13 +1041,10 @@ struct ipa_tz_unlock_reg_info {
  *  gating IPA clocks
  * @transport_pm: transport power management related information
  * @disconnect_lock: protects LAN_CONS packet receive notification CB
- * @pipe_mem_pool: pipe memory pool
- * @dma_pool: special purpose DMA pool
  * @ipa3_active_clients: structure for reference counting connected IPA clients
  * @ipa_hw_type: type of IPA HW type (e.g. IPA 1.0, IPA 1.1 etc')
  * @ipa3_hw_mode: mode of IPA HW mode (e.g. Normal, Virtual or over PCIe)
  * @use_ipa_teth_bridge: use tethering bridge driver
- * @ipa_bam_remote_mode: ipa bam is in remote mode
  * @modem_cfg_emb_pipe_flt: modem configure embedded pipe filtering rules
  * @logbuf: ipc log buffer for high priority messages
  * @logbuf_low: ipc log buffer for low priority messages
@@ -1123,7 +1077,6 @@ struct ipa3_context {
 	dev_t dev_num;
 	struct device *dev;
 	struct cdev cdev;
-	unsigned long bam_handle;
 	struct ipa3_ep_context ep[IPA3_MAX_NUM_PIPES];
 	bool skip_ep_cfg_shadow[IPA3_MAX_NUM_PIPES];
 	u32 ep_flt_bitmap;
@@ -1170,8 +1123,6 @@ struct ipa3_context {
 	bool ip4_flt_tbl_nhash_lcl;
 	bool ip6_flt_tbl_hash_lcl;
 	bool ip6_flt_tbl_nhash_lcl;
-	struct gen_pool *pipe_mem_pool;
-	struct dma_pool *dma_pool;
 	struct ipa3_active_clients ipa3_active_clients;
 	struct ipa3_active_clients_log_ctx ipa3_active_clients_logging;
 	struct workqueue_struct *power_mgmt_wq;
@@ -1191,7 +1142,6 @@ struct ipa3_context {
 	enum ipa_hw_type ipa_hw_type;
 	enum ipa3_hw_mode ipa3_hw_mode;
 	bool use_ipa_teth_bridge;
-	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
 	bool use_64_bit_dma_mask;
@@ -1220,18 +1170,12 @@ struct ipa3_context {
 	u32 wan_rx_ring_size;
 	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
-	enum ipa_transport_type transport_prototype;
 	unsigned long gsi_dev_hdl;
 	u32 ee;
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
 	bool smmu_present;
 	bool smmu_s1_bypass;
-	unsigned long peer_bam_iova;
-	phys_addr_t peer_bam_pa;
-	u32 peer_bam_map_size;
-	unsigned long peer_bam_dev;
-	u32 peer_bam_map_cnt;
 	u32 wdi_map_cnt;
 	struct wakeup_source w_lock;
 	struct ipa3_wakelock_ref_cnt wakelock_ref_cnt;
@@ -1249,18 +1193,6 @@ struct ipa3_context {
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
 };
 
-/**
- * enum ipa3_pipe_mem_type - IPA pipe memory type
- * @IPA_SPS_PIPE_MEM: Default, SPS dedicated pipe memory
- * @IPA_PRIVATE_MEM: IPA's private memory
- * @IPA_SYSTEM_MEM: System RAM, requires allocation
- */
-enum ipa3_pipe_mem_type {
-	IPA_SPS_PIPE_MEM = 0,
-	IPA_PRIVATE_MEM  = 1,
-	IPA_SYSTEM_MEM   = 2,
-};
-
 struct ipa3_plat_drv_res {
 	bool use_ipa_teth_bridge;
 	u32 ipa_mem_base;
@@ -1274,14 +1206,12 @@ struct ipa3_plat_drv_res {
 	enum ipa_hw_type ipa_hw_type;
 	enum ipa3_hw_mode ipa3_hw_mode;
 	u32 ee;
-	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
 	bool use_64_bit_dma_mask;
 	u32 wan_rx_ring_size;
 	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
-	enum ipa_transport_type transport_prototype;
 	bool apply_rg10_wa;
 	bool gsi_ch20_wa;
 	bool tethered_flow_control;
@@ -1468,14 +1398,6 @@ struct ipa3_controller {
 extern struct ipa3_context *ipa3_ctx;
 
 /* public APIs */
-/*
- * Connect / Disconnect
- */
-int ipa3_connect(const struct ipa_connect_params *in,
-		struct ipa_sps_params *sps,
-		u32 *clnt_hdl);
-int ipa3_disconnect(u32 clnt_hdl);
-
 /* Generic GSI channels functions */
 int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 			     struct ipa_req_chan_out_params *out_params);
@@ -1504,11 +1426,6 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	bool should_force_clear, u32 qmi_req_id, bool is_dpl);
 
 int ipa3_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl, bool is_dpl);
-
-/*
- * Resume / Suspend
- */
-int ipa3_reset_endpoint(u32 clnt_hdl);
 
 /*
  * Remove ep delay
@@ -1675,7 +1592,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl);
 int ipa3_teardown_sys_pipe(u32 clnt_hdl);
 
 int ipa3_sys_setup(struct ipa_sys_connect_params *sys_in,
-	unsigned long *ipa_bam_hdl,
+	unsigned long *ipa_transport_hdl,
 	u32 *ipa_pipe_num, u32 *clnt_hdl, bool en_status);
 
 int ipa3_sys_teardown(u32 clnt_hdl);
@@ -1794,8 +1711,6 @@ int ipa3_remove_interrupt_handler(enum ipa_irq_type interrupt);
 /*
  * Miscellaneous
  */
-void ipa3_bam_reg_dump(void);
-
 int ipa3_get_ep_mapping(enum ipa_client_type client);
 
 bool ipa3_is_ready(void);
@@ -1857,9 +1772,6 @@ int ipa3_cfg_route(struct ipahal_reg_route *route);
 int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout);
 int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr);
 int ipa3_cfg_filter(u32 disable);
-int ipa3_pipe_mem_init(u32 start_ofst, u32 size);
-int ipa3_pipe_mem_alloc(u32 *ofst, u32 size);
-int ipa3_pipe_mem_free(u32 ofst, u32 size);
 int ipa3_straddle_boundary(u32 start, u32 end, u32 boundary);
 struct ipa3_context *ipa3_get_ctx(void);
 void ipa3_enable_clks(void);
@@ -1956,15 +1868,11 @@ void ipa3_q6_pre_shutdown_cleanup(void);
 void ipa3_q6_post_shutdown_cleanup(void);
 int ipa3_init_q6_smem(void);
 
-int ipa3_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
-			 enum ipa_client_type ipa_client);
-
 int ipa3_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);
 int ipa3_mhi_query_ch_info(enum ipa_client_type client,
 		struct gsi_chan_info *ch_info);
 
 int ipa3_uc_interface_init(void);
-int ipa3_uc_reset_pipe(enum ipa_client_type ipa_client);
 int ipa3_uc_is_gsi_channel_empty(enum ipa_client_type ipa_client);
 int ipa3_uc_state_check(void);
 int ipa3_uc_loaded_check(void);

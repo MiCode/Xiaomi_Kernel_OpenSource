@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,8 +87,7 @@ static void teth_bridge_ipa_cb(void *priv, enum ipa_dp_evt_type evt,
 *  definition for more info)
 *
 * USB driver gets a pointer to a callback function (usb_notify_cb) and an
-* associated data. USB driver installs this callback function in the call to
-* ipa3_connect().
+* associated data.
 *
 * Builds IPA resource manager dependency graph.
 *

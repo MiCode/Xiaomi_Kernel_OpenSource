@@ -2305,103 +2305,6 @@ void ipa3_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size)
 }
 
 /**
- * ipa3_pipe_mem_init() - initialize the pipe memory
- * @start_ofst: start offset
- * @size: size
- *
- * Return value:
- * 0: success
- * -ENOMEM: no memory
- */
-int ipa3_pipe_mem_init(u32 start_ofst, u32 size)
-{
-	int res;
-	u32 aligned_start_ofst;
-	u32 aligned_size;
-	struct gen_pool *pool;
-
-	if (!size) {
-		IPAERR("no IPA pipe memory allocated\n");
-		goto fail;
-	}
-
-	aligned_start_ofst = IPA_PIPE_MEM_START_OFST_ALIGNMENT(start_ofst);
-	aligned_size = size - (aligned_start_ofst - start_ofst);
-
-	IPADBG("start_ofst=%u aligned_start_ofst=%u size=%u aligned_size=%u\n",
-	       start_ofst, aligned_start_ofst, size, aligned_size);
-
-	/* allocation order of 8 i.e. 128 bytes, global pool */
-	pool = gen_pool_create(8, -1);
-	if (!pool) {
-		IPAERR("Failed to create a new memory pool.\n");
-		goto fail;
-	}
-
-	res = gen_pool_add(pool, aligned_start_ofst, aligned_size, -1);
-	if (res) {
-		IPAERR("Failed to add memory to IPA pipe pool\n");
-		goto err_pool_add;
-	}
-
-	ipa3_ctx->pipe_mem_pool = pool;
-	return 0;
-
-err_pool_add:
-	gen_pool_destroy(pool);
-fail:
-	return -ENOMEM;
-}
-
-/**
- * ipa3_pipe_mem_alloc() - allocate pipe memory
- * @ofst: offset
- * @size: size
- *
- * Return value:
- * 0: success
- */
-int ipa3_pipe_mem_alloc(u32 *ofst, u32 size)
-{
-	u32 vaddr;
-	int res = -1;
-
-	if (!ipa3_ctx->pipe_mem_pool || !size) {
-		IPAERR("failed size=%u pipe_mem_pool=%p\n", size,
-				ipa3_ctx->pipe_mem_pool);
-		return res;
-	}
-
-	vaddr = gen_pool_alloc(ipa3_ctx->pipe_mem_pool, size);
-
-	if (vaddr) {
-		*ofst = vaddr;
-		res = 0;
-		IPADBG("size=%u ofst=%u\n", size, vaddr);
-	} else {
-		IPAERR("size=%u failed\n", size);
-	}
-
-	return res;
-}
-
-/**
- * ipa3_pipe_mem_free() - free pipe memory
- * @ofst: offset
- * @size: size
- *
- * Return value:
- * 0: success
- */
-int ipa3_pipe_mem_free(u32 ofst, u32 size)
-{
-	IPADBG("size=%u ofst=%u\n", size, ofst);
-	if (ipa3_ctx->pipe_mem_pool && size)
-		gen_pool_free(ipa3_ctx->pipe_mem_pool, ofst, size);
-	return 0;
-}
-
-/**
  * ipa3_set_aggr_mode() - Set the aggregation mode which is a global setting
  * @mode:	[in] the desired aggregation mode for e.g. straight MBIM, QCNCM,
  * etc
@@ -2497,28 +2400,6 @@ int ipa3_straddle_boundary(u32 start, u32 end, u32 boundary)
 		return 1;
 	else
 		return 0;
-}
-
-/**
- * ipa3_bam_reg_dump() - Dump selected BAM registers for IPA.
- * The API is right now used only to dump IPA registers towards USB.
- *
- * Function is rate limited to avoid flooding kernel log buffer
- */
-void ipa3_bam_reg_dump(void)
-{
-	static DEFINE_RATELIMIT_STATE(_rs, 500*HZ, 1);
-
-	if (__ratelimit(&_rs)) {
-		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-		pr_err("IPA BAM START\n");
-		sps_get_bam_debug_info(ipa3_ctx->bam_handle, 93,
-			(SPS_BAM_PIPE(ipa3_get_ep_mapping(IPA_CLIENT_USB_CONS))
-			|
-			SPS_BAM_PIPE(ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD))),
-			0, 2);
-		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
-	}
 }
 
 /**
@@ -3024,7 +2905,10 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	if (atomic_dec_return(&comp->cnt) == 0)
 		kfree(comp);
 
-	/* sleep for short period to ensure IPA wrote all packets to BAM */
+	/*
+	 * sleep for short period to ensure IPA wrote all packets to
+	 * the transport
+	 */
 	usleep_range(IPA_TAG_SLEEP_MIN_USEC, IPA_TAG_SLEEP_MAX_USEC);
 
 	return 0;
@@ -3260,16 +3144,12 @@ bool ipa3_get_modem_cfg_emb_pipe_flt(void)
 }
 
 /**
- * ipa3_get_transport_type()- Return ipa3_ctx->transport_prototype
+ * ipa3_get_transport_type()
  *
  * Return value: enum ipa_transport_type
  */
 enum ipa_transport_type ipa3_get_transport_type(void)
 {
-	if (ipa3_ctx)
-		return ipa3_ctx->transport_prototype;
-
-	IPAERR("IPA driver has not been initialized\n");
 	return IPA_TRANSPORT_TYPE_GSI;
 }
 
@@ -3345,9 +3225,9 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 		return -EPERM;
 	}
 
-	api_ctrl->ipa_connect = ipa3_connect;
-	api_ctrl->ipa_disconnect = ipa3_disconnect;
-	api_ctrl->ipa_reset_endpoint = ipa3_reset_endpoint;
+	api_ctrl->ipa_connect = NULL;
+	api_ctrl->ipa_disconnect = NULL;
+	api_ctrl->ipa_reset_endpoint = NULL;
 	api_ctrl->ipa_clear_endpoint_delay = ipa3_clear_endpoint_delay;
 	api_ctrl->ipa_disable_endpoint = NULL;
 	api_ctrl->ipa_cfg_ep = ipa3_cfg_ep;
@@ -3463,7 +3343,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_add_interrupt_handler = ipa3_add_interrupt_handler;
 	api_ctrl->ipa_remove_interrupt_handler = ipa3_remove_interrupt_handler;
 	api_ctrl->ipa_restore_suspend_handler = ipa3_restore_suspend_handler;
-	api_ctrl->ipa_bam_reg_dump = ipa3_bam_reg_dump;
+	api_ctrl->ipa_bam_reg_dump = NULL;
 	api_ctrl->ipa_get_ep_mapping = ipa3_get_ep_mapping;
 	api_ctrl->ipa_is_ready = ipa3_is_ready;
 	api_ctrl->ipa_proxy_clk_vote = ipa3_proxy_clk_vote;

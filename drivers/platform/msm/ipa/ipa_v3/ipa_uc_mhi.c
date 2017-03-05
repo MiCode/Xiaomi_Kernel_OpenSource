@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,7 +68,7 @@ enum ipa_hw_2_cpu_mhi_responses {
  * Values that represent MHI related HW event to be sent to CPU.
  * @IPA_HW_2_CPU_EVENT_MHI_CHANNEL_ERROR: Event specify the device detected an
  *	error in an element from the transfer ring associated with the channel
- * @IPA_HW_2_CPU_EVENT_MHI_CHANNEL_WAKE_UP_REQUEST: Event specify a bam
+ * @IPA_HW_2_CPU_EVENT_MHI_CHANNEL_WAKE_UP_REQUEST: Event specify a transport
  *	interrupt was asserted when MHI engine is suspended
  */
 enum ipa_hw_2_cpu_mhi_events {
@@ -187,7 +187,7 @@ struct IpaHwMhiInitCmdData_t {
  *	value is within the range 0 to IPA_HW_MAX_CHANNEL_HANDLE
  * @contexArrayIndex: Unique index for channels, between 0 and 255. The index is
  *	used as an index in channel context array structures.
- * @bamPipeId: The BAM pipe number for pipe dedicated for this channel
+ * @bamPipeId: The IPA pipe number for pipe dedicated for this channel
  * @channelDirection: The direction of the channel as defined in the channel
  *	type field (CHTYPE) in the channel context data structure.
  * @reserved: reserved.
@@ -264,8 +264,8 @@ union IpaHwMhiStopEventUpdateData_t {
  * @state: The new channel state. In case state is not as requested this is
  *	error indication for the last command
  * @channelHandle: The channel identifier
- * @additonalParams: For stop: the number of pending bam descriptors currently
- *	queued
+ * @additonalParams: For stop: the number of pending transport descriptors
+ * currently queued
 */
 union IpaHwMhiChangeChannelStateResponseData_t {
 	struct IpaHwMhiChangeChannelStateResponseParams_t {

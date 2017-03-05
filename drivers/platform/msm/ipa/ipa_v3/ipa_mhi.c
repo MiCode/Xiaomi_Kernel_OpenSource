@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -496,12 +496,10 @@ int ipa3_disconnect_mhi_pipe(u32 clnt_hdl)
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
-	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
-		res = gsi_dealloc_channel(ep->gsi_chan_hdl);
-		if (res) {
-			IPAERR("gsi_dealloc_channel failed %d\n", res);
-			goto fail_reset_channel;
-		}
+	res = gsi_dealloc_channel(ep->gsi_chan_hdl);
+	if (res) {
+		IPAERR("gsi_dealloc_channel failed %d\n", res);
+		goto fail_reset_channel;
 	}
 
 	ep->valid = 0;
