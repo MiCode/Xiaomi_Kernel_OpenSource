@@ -381,13 +381,13 @@ static int smblib_set_opt_freq_buck(struct smb_charger *chg, int fsw_khz)
 
 	if (chg->mode == PARALLEL_MASTER && chg->pl.psy) {
 		pval.intval = fsw_khz;
-		rc = power_supply_set_property(chg->pl.psy,
+		/*
+		 * Some parallel charging implementations may not have
+		 * PROP_BUCK_FREQ property - they could be running
+		 * with a fixed frequency
+		 */
+		power_supply_set_property(chg->pl.psy,
 				POWER_SUPPLY_PROP_BUCK_FREQ, &pval);
-		if (rc < 0) {
-			dev_err(chg->dev,
-				"Could not set parallel buck_freq rc=%d\n", rc);
-			return rc;
-		}
 	}
 
 	return rc;
