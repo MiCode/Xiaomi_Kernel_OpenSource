@@ -525,6 +525,15 @@ config MSM_ADSP_LOADER
 	  for the platforms that use APRv2.
 	  Say M if you want to enable this module.
 
+config MSM_CDSP_LOADER
+	tristate "CDSP loader support"
+	depends on MSM_GLINK
+	help
+	  Enable CDSP image loader.
+	  The CDSP loader brings CDSP out of reset
+	  for platforms that have compute DSP.
+	  Say M if you want to enable this module.
+
 config MSM_AVTIMER
 	tristate "Avtimer Driver"
 	depends on MSM_QDSP6_APRV2_GLINK || MSM_QDSP6_APRV3_GLINK
