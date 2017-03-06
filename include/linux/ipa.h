@@ -1412,7 +1412,8 @@ struct iommu_domain *ipa_get_smmu_domain(void);
 
 int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count);
 
-struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx);
+const struct ipa_gsi_ep_config *ipa_get_gsi_ep_info
+	(enum ipa_client_type client);
 
 int ipa_stop_gsi_channel(u32 clnt_hdl);
 
@@ -2156,7 +2157,8 @@ static inline int ipa_disable_apps_wan_cons_deaggr(void)
 	return -EINVAL;
 }
 
-static inline struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx)
+static inline const struct ipa_gsi_ep_config *ipa_get_gsi_ep_info
+	(enum ipa_client_type client)
 {
 	return NULL;
 }

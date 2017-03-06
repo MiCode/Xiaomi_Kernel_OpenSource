@@ -1152,8 +1152,7 @@ int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 	struct ipahal_reg_ep_cfg_status ep_status;
 	unsigned long gsi_dev_hdl;
 	enum gsi_status gsi_res;
-	struct ipa_gsi_ep_config gsi_ep_cfg;
-	struct ipa_gsi_ep_config *gsi_ep_cfg_ptr = &gsi_ep_cfg;
+	const struct ipa_gsi_ep_config *gsi_ep_cfg_ptr;
 
 	IPADBG("entry\n");
 	if (params == NULL || out_params == NULL ||
@@ -1227,8 +1226,7 @@ int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 		goto write_evt_scratch_fail;
 	}
 
-	memset(gsi_ep_cfg_ptr, 0, sizeof(struct ipa_gsi_ep_config));
-	gsi_ep_cfg_ptr = ipa_get_gsi_ep_info(ipa_ep_idx);
+	gsi_ep_cfg_ptr = ipa3_get_gsi_ep_info(ep->client);
 	params->chan_params.evt_ring_hdl = ep->gsi_evt_ring_hdl;
 	params->chan_params.ch_id = gsi_ep_cfg_ptr->ipa_gsi_chan_num;
 	gsi_res = gsi_alloc_channel(&params->chan_params, gsi_dev_hdl,

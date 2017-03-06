@@ -197,14 +197,14 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 	struct gsi_chan_props ch_props;
 	union __packed gsi_channel_scratch ch_scratch;
 	struct ipa3_ep_context *ep;
-	struct ipa_gsi_ep_config *ep_cfg;
+	const struct ipa_gsi_ep_config *ep_cfg;
 
 	IPA_MHI_FUNC_ENTRY();
 
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
 
 	msi = params->msi;
-	ep_cfg = ipa_get_gsi_ep_info(ipa_ep_idx);
+	ep_cfg = ipa3_get_gsi_ep_info(client);
 	if (!ep_cfg) {
 		IPA_MHI_ERR("Wrong parameter, ep_cfg is NULL\n");
 		return -EPERM;
@@ -332,7 +332,7 @@ int ipa3_mhi_init_engine(struct ipa_mhi_init_engine *params)
 {
 	int res;
 	struct gsi_device_scratch gsi_scratch;
-	struct ipa_gsi_ep_config *gsi_ep_info;
+	const struct ipa_gsi_ep_config *gsi_ep_info;
 
 	IPA_MHI_FUNC_ENTRY();
 
@@ -342,8 +342,7 @@ int ipa3_mhi_init_engine(struct ipa_mhi_init_engine *params)
 	}
 
 	/* Initialize IPA MHI engine */
-	gsi_ep_info = ipa_get_gsi_ep_info(
-		ipa_get_ep_mapping(IPA_CLIENT_MHI_PROD));
+	gsi_ep_info = ipa3_get_gsi_ep_info(IPA_CLIENT_MHI_PROD);
 	if (!gsi_ep_info) {
 		IPAERR("MHI PROD has no ep allocated\n");
 		ipa_assert();
