@@ -57,6 +57,8 @@
 #include <linux/trace_events.h>
 #include <linux/suspend.h>
 
+#include <soc/qcom/watchdog.h>
+
 #include "tree.h"
 #include "rcu.h"
 
@@ -1298,6 +1300,11 @@ static void print_other_cpu_stall(struct rcu_state *rsp, unsigned long gpnum)
 
 	rcu_check_gp_kthread_starvation(rsp);
 
+#ifdef CONFIG_RCU_STALL_WATCHDOG_BITE
+	/* Induce watchdog bite */
+	msm_trigger_wdog_bite();
+#endif
+
 	force_quiescent_state(rsp);  /* Kick them all. */
 }
 
@@ -1332,6 +1339,11 @@ static void print_cpu_stall(struct rcu_state *rsp)
 		WRITE_ONCE(rsp->jiffies_stall,
 			   jiffies + 3 * rcu_jiffies_till_stall_check() + 3);
 	raw_spin_unlock_irqrestore(&rnp->lock, flags);
+
+#ifdef CONFIG_RCU_STALL_WATCHDOG_BITE
+	/* Induce non secure watchdog bite to collect context */
+	msm_trigger_wdog_bite();
+#endif
 
 	/*
 	 * Attempt to revive the RCU machinery by forcing a context switch.
