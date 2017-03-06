@@ -292,6 +292,22 @@ struct pedometer_data_t {
 	u_int32_t last_step_counter_value;
 };
 
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+#define BMI_ACC_MAXSAMPLE        2000
+#define BMI_GYRO_MAXSAMPLE       2000
+#define G_MAX                    23920640
+struct bmi_acc_sample {
+	int xyz[3];
+	unsigned int tsec;
+	unsigned long long tnsec;
+};
+struct bmi_gyro_sample {
+	int xyz[3];
+	unsigned int tsec;
+	unsigned long long tnsec;
+};
+#endif
+
 struct bmi160_t *bmi160_get_ptr(void);
 struct bmi_client_data {
 	struct bmi160_t device;
@@ -330,6 +346,23 @@ struct bmi_client_data {
 	int IRQ;
 	int reg_sel;
 	int reg_len;
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+	bool read_acc_boot_sample;
+	bool read_gyro_boot_sample;
+	int acc_bufsample_cnt;
+	int gyro_bufsample_cnt;
+	bool acc_buffer_bmi160_samples;
+	bool gyro_buffer_bmi160_samples;
+	struct kmem_cache *bmi_acc_cachepool;
+	struct kmem_cache *bmi_gyro_cachepool;
+	struct bmi_acc_sample *bmi160_acc_samplist[BMI_ACC_MAXSAMPLE];
+	struct bmi_gyro_sample *bmi160_gyro_samplist[BMI_GYRO_MAXSAMPLE];
+	ktime_t timestamp;
+	int max_buffer_time;
+	struct input_dev *accbuf_dev;
+	struct input_dev *gyrobuf_dev;
+	int report_evt_cnt;
+#endif
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend_handler;
 #endif

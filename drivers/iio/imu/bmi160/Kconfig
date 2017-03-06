@@ -21,4 +21,11 @@ config SENSORS_BMI160_IIO_RING
         help
          BMI160 IMU Driver support ring buffer operations.
 
+config ENABLE_ACC_GYRO_BUFFERING
+	bool "Enable accel & gyro  boot time sensor sample buffering"
+	depends on SENSORS_BMI160_IIO
+	help
+	 Say Y here if you want to buffer boot time sensor
+         samples for BMI160 accelerometer and gyroscoper
+
 endmenu

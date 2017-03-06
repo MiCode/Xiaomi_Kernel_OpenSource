@@ -29,6 +29,8 @@
 #include "bmi160_core.h"
 #include "bmi160.h"
 
+#include <linux/input.h>
+#include <linux/ktime.h>
 
 #define DRIVER_VERSION "0.0.33.0"
 #define I2C_BURST_READ_MAX_LEN      (256)
@@ -37,6 +39,14 @@
 #ifdef BMI160_DEBUG
 uint8_t debug_level;
 #endif
+
+#ifdef BMI160_DEBUG
+#define LOGDI(...) { if (debug_level & 0x08) \
+				dev_info(__VA_ARGS__); }
+#else
+#define LOGDI(...)
+#endif
+
 enum BMI_SENSOR_INT_T {
 	/* Interrupt enable0*/
 	BMI_ANYMO_X_INT = 0,
@@ -174,6 +184,273 @@ enum BMI_SENSOR_IF_MODE_TYPE {
 	IF_MODE_RESEVED
 
 };
+
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+static void store_acc_boot_sample(int x, int y, int z)
+{
+	struct bmi_client_data *client_data = iio_priv(accl_iio_private);
+
+	if (false == client_data->acc_buffer_bmi160_samples)
+		return;
+	client_data->timestamp = ktime_get_boottime();
+	if (ktime_to_timespec(client_data->timestamp).tv_sec
+				<  client_data->max_buffer_time) {
+		if (client_data->acc_bufsample_cnt < BMI_ACC_MAXSAMPLE) {
+			client_data->bmi160_acc_samplist[client_data->
+						acc_bufsample_cnt]->xyz[0] = x;
+			client_data->bmi160_acc_samplist[client_data->
+						acc_bufsample_cnt]->xyz[1] = y;
+			client_data->bmi160_acc_samplist[client_data->
+						acc_bufsample_cnt]->xyz[2] = z;
+			client_data->bmi160_acc_samplist[client_data->
+						acc_bufsample_cnt]->tsec =
+						ktime_to_timespec(client_data
+							->timestamp).tv_sec;
+			client_data->bmi160_acc_samplist[client_data->
+						acc_bufsample_cnt]->tnsec =
+						ktime_to_timespec(client_data
+							->timestamp).tv_nsec;
+			client_data->acc_bufsample_cnt++;
+		}
+	} else {
+		client_data->acc_buffer_bmi160_samples = false;
+	}
+}
+static void store_gyro_boot_sample(int x, int y, int z)
+{
+	struct bmi_client_data *client_data = iio_priv(accl_iio_private);
+
+	if (false == client_data->gyro_buffer_bmi160_samples)
+		return;
+	client_data->timestamp = ktime_get_boottime();
+	if (ktime_to_timespec(client_data->timestamp).tv_sec
+			<  client_data->max_buffer_time) {
+		if (client_data->gyro_bufsample_cnt < BMI_GYRO_MAXSAMPLE) {
+			client_data->bmi160_gyro_samplist[client_data->
+						gyro_bufsample_cnt]->xyz[0] = x;
+			client_data->bmi160_gyro_samplist[client_data->
+						gyro_bufsample_cnt]->xyz[1] = y;
+			client_data->bmi160_gyro_samplist[client_data->
+						gyro_bufsample_cnt]->xyz[2] = z;
+			client_data->bmi160_gyro_samplist[client_data->
+						gyro_bufsample_cnt]->tsec =
+						ktime_to_timespec(client_data->
+							timestamp).tv_sec;
+			client_data->bmi160_gyro_samplist[client_data->
+						gyro_bufsample_cnt]->tnsec =
+						ktime_to_timespec(client_data->
+							timestamp).tv_nsec;
+			client_data->gyro_bufsample_cnt++;
+		}
+	} else {
+		client_data->gyro_buffer_bmi160_samples = false;
+	}
+}
+#else
+static void store_acc_boot_sample(int x, int y, int z)
+{
+}
+static void store_gyro_boot_sample(int x, int y, int z)
+{
+}
+#endif
+
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+static int bmi160_acc_gyro_early_buff_init(void)
+{
+	int i = 0, err = 0;
+	struct bmi_client_data *client_data = iio_priv(accl_iio_private);
+
+	client_data->acc_bufsample_cnt = 0;
+	client_data->gyro_bufsample_cnt = 0;
+	client_data->report_evt_cnt = 5;
+	client_data->max_buffer_time = 20;
+
+	client_data->bmi_acc_cachepool = kmem_cache_create("acc_sensor_sample",
+			sizeof(struct bmi_acc_sample),
+			0,
+			SLAB_HWCACHE_ALIGN, NULL);
+	for (i = 0; i < BMI_ACC_MAXSAMPLE; i++) {
+		client_data->bmi160_acc_samplist[i] =
+			kmem_cache_alloc(client_data->bmi_acc_cachepool,
+					GFP_KERNEL);
+		if (!client_data->bmi160_acc_samplist[i]) {
+			err = -ENOMEM;
+			dev_err(client_data->dev,
+				"slab:memory allocation failed:" "%d\n", err);
+			goto clean_exit1;
+		}
+	}
+
+	client_data->bmi_gyro_cachepool = kmem_cache_create("gyro_sensor_sample"
+				, sizeof(struct bmi_gyro_sample), 0,
+				SLAB_HWCACHE_ALIGN, NULL);
+	for (i = 0; i < BMI_GYRO_MAXSAMPLE; i++) {
+		client_data->bmi160_gyro_samplist[i] =
+			kmem_cache_alloc(client_data->bmi_gyro_cachepool,
+					GFP_KERNEL);
+		if (!client_data->bmi160_gyro_samplist[i]) {
+			err = -ENOMEM;
+			dev_err(client_data->dev,
+				"slab:memory allocation failed:" "%d\n", err);
+			goto clean_exit2;
+		}
+	}
+
+	client_data->accbuf_dev = input_allocate_device();
+	if (!client_data->accbuf_dev) {
+		err = -ENOMEM;
+		dev_err(client_data->dev, "input device allocation failed\n");
+		goto clean_exit3;
+	}
+	client_data->accbuf_dev->name = "bmi160_accbuf";
+	client_data->accbuf_dev->id.bustype = BUS_I2C;
+	input_set_events_per_packet(client_data->accbuf_dev,
+			client_data->report_evt_cnt * BMI_ACC_MAXSAMPLE);
+	set_bit(EV_ABS, client_data->accbuf_dev->evbit);
+	input_set_abs_params(client_data->accbuf_dev, ABS_X,
+							-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(client_data->accbuf_dev, ABS_Y,
+							-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(client_data->accbuf_dev, ABS_Z,
+							-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(client_data->accbuf_dev, ABS_RX,
+							-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(client_data->accbuf_dev, ABS_RY,
+							-G_MAX, G_MAX, 0, 0);
+	err = input_register_device(client_data->accbuf_dev);
+	if (err) {
+		dev_err(client_data->dev,
+				"unable to register input device %s\n",
+				client_data->accbuf_dev->name);
+		goto clean_exit3;
+	}
+
+	client_data->gyrobuf_dev = input_allocate_device();
+	if (!client_data->gyrobuf_dev) {
+		err = -ENOMEM;
+		dev_err(client_data->dev, "input device allocation failed\n");
+		goto clean_exit4;
+	}
+	client_data->gyrobuf_dev->name = "bmi160_gyrobuf";
+	client_data->gyrobuf_dev->id.bustype = BUS_I2C;
+	input_set_events_per_packet(client_data->gyrobuf_dev,
+			client_data->report_evt_cnt * BMI_GYRO_MAXSAMPLE);
+	set_bit(EV_ABS, client_data->gyrobuf_dev->evbit);
+	input_set_abs_params(client_data->gyrobuf_dev, ABS_X,
+							-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(client_data->gyrobuf_dev, ABS_Y,
+							-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(client_data->gyrobuf_dev, ABS_Z,
+							-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(client_data->gyrobuf_dev, ABS_RX,
+							-G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(client_data->gyrobuf_dev, ABS_RY,
+							-G_MAX, G_MAX, 0, 0);
+	err = input_register_device(client_data->gyrobuf_dev);
+	if (err) {
+		dev_err(client_data->dev,
+				"unable to register input device %s\n",
+				client_data->gyrobuf_dev->name);
+		goto clean_exit4;
+	}
+
+	client_data->acc_buffer_bmi160_samples = true;
+	client_data->gyro_buffer_bmi160_samples = true;
+	bmi160_set_command_register(ACCEL_MODE_NORMAL);
+	bmi160_set_command_register(GYRO_MODE_NORMAL);
+	bmi160_set_accel_output_data_rate(BMI160_ACCEL_OUTPUT_DATA_RATE_100HZ);
+	bmi160_set_gyro_output_data_rate(BMI160_GYRO_OUTPUT_DATA_RATE_100HZ);
+	bmi160_set_intr_enable_1(BMI160_DATA_RDY_ENABLE, BMI160_ENABLE);
+	return 1;
+clean_exit4:
+	input_free_device(client_data->gyrobuf_dev);
+	input_unregister_device(client_data->accbuf_dev);
+clean_exit3:
+	input_free_device(client_data->accbuf_dev);
+clean_exit2:
+	for (i = 0; i < BMI_GYRO_MAXSAMPLE; i++)
+		kmem_cache_free(client_data->bmi_gyro_cachepool,
+				client_data->bmi160_gyro_samplist[i]);
+	kmem_cache_destroy(client_data->bmi_gyro_cachepool);
+clean_exit1:
+	for (i = 0; i < BMI_ACC_MAXSAMPLE; i++)
+		kmem_cache_free(client_data->bmi_acc_cachepool,
+				client_data->bmi160_acc_samplist[i]);
+	kmem_cache_destroy(client_data->bmi_acc_cachepool);
+	return 0;
+}
+static void bmi160_acc_gyro_input_cleanup(
+				struct bmi_client_data *client_data)
+{
+	int i = 0;
+
+	input_free_device(client_data->accbuf_dev);
+	input_unregister_device(client_data->gyrobuf_dev);
+	input_free_device(client_data->gyrobuf_dev);
+	for (i = 0; i < BMI_GYRO_MAXSAMPLE; i++)
+		kmem_cache_free(client_data->bmi_gyro_cachepool,
+				client_data->bmi160_gyro_samplist[i]);
+	kmem_cache_destroy(client_data->bmi_gyro_cachepool);
+	for (i = 0; i < BMI_ACC_MAXSAMPLE; i++)
+		kmem_cache_free(client_data->bmi_acc_cachepool,
+				client_data->bmi160_acc_samplist[i]);
+	kmem_cache_destroy(client_data->bmi_acc_cachepool);
+}
+#else
+static int bmi160_acc_gyro_early_buff_init(void)
+{
+	return 1;
+}
+static void bmi160_acc_gyro_input_cleanup(
+			struct bmi_client_data *client_data)
+{
+}
+#endif
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+static inline int bmi160_check_acc_early_buff_enable_flag(
+		struct bmi_client_data *client_data)
+{
+	if (true == client_data->acc_buffer_bmi160_samples)
+		return 1;
+	else
+		return 0;
+}
+static inline int bmi160_check_gyro_early_buff_enable_flag(
+		struct bmi_client_data *client_data)
+{
+	if (true == client_data->gyro_buffer_bmi160_samples)
+		return 1;
+	else
+		return 0;
+}
+static inline int bmi160_check_acc_gyro_early_buff_enable_flag(void)
+{
+	struct bmi_client_data *client_data = iio_priv(accl_iio_private);
+
+	if (true == client_data->acc_buffer_bmi160_samples ||
+			true == client_data->gyro_buffer_bmi160_samples)
+		return 1;
+	else
+		return 0;
+}
+#else
+static inline int bmi160_check_acc_early_buff_enable_flag(
+		struct bmi_client_data *client_data)
+{
+	return 0;
+}
+static inline int bmi160_check_gyro_early_buff_enable_flag(
+		struct bmi_client_data *client_data)
+{
+	return 0;
+}
+static inline int bmi160_check_acc_gyro_early_buff_enable_flag(void)
+{
+	return 0;
+}
+#endif
+
 
 #define BMI_TEMP_SCALE			5000
 #define BMI_TEMP_OFFSET			12000
@@ -506,6 +783,170 @@ static ssize_t bmi160_chip_id_show(struct device *dev,
 	return snprintf(buf, 16, "0x%x\n", client_data->chip_id);
 }
 
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+static int bmi_gyro_read_bootsampl(struct bmi_client_data *client_data,
+		unsigned long enable_read)
+{
+	int i = 0;
+
+	if (enable_read) {
+		client_data->gyro_buffer_bmi160_samples = false;
+		for (i = 0; i < client_data->gyro_bufsample_cnt; i++) {
+			LOGDI(client_data->dev,
+				"gyro_cnt=%d,x=%d,y=%d,z=%d,tsec=%d,nsec=%lld\n",
+				i, client_data->bmi160_gyro_samplist[i]->xyz[0],
+				client_data->bmi160_gyro_samplist[i]->xyz[1],
+				client_data->bmi160_gyro_samplist[i]->xyz[2],
+				client_data->bmi160_gyro_samplist[i]->tsec,
+				client_data->bmi160_gyro_samplist[i]->tnsec)
+			input_report_abs(client_data->gyrobuf_dev, ABS_X,
+				client_data->bmi160_gyro_samplist[i]->xyz[0]);
+			input_report_abs(client_data->gyrobuf_dev, ABS_Y,
+				client_data->bmi160_gyro_samplist[i]->xyz[1]);
+			input_report_abs(client_data->gyrobuf_dev, ABS_Z,
+				client_data->bmi160_gyro_samplist[i]->xyz[2]);
+			input_report_abs(client_data->gyrobuf_dev, ABS_RX,
+				client_data->bmi160_gyro_samplist[i]->tsec);
+			input_report_abs(client_data->gyrobuf_dev, ABS_RY,
+				client_data->bmi160_gyro_samplist[i]->tnsec);
+			input_sync(client_data->gyrobuf_dev);
+		}
+	} else {
+		/* clean up */
+		if (0 != client_data->gyro_bufsample_cnt) {
+			for (i = 0; i < BMI_GYRO_MAXSAMPLE; i++)
+				kmem_cache_free(client_data->bmi_gyro_cachepool,
+					client_data->bmi160_gyro_samplist[i]);
+			kmem_cache_destroy(client_data->bmi_gyro_cachepool);
+			client_data->gyro_bufsample_cnt = 0;
+		}
+
+	}
+	/*SYN_CONFIG indicates end of data*/
+	input_event(client_data->gyrobuf_dev, EV_SYN, SYN_CONFIG, 0xFFFFFFFF);
+	input_sync(client_data->gyrobuf_dev);
+	LOGDI(client_data->dev,	"End of gyro samples bufsample_cnt=%d\n",
+			client_data->gyro_bufsample_cnt)
+	return 0;
+}
+static int bmi_acc_read_bootsampl(struct bmi_client_data *client_data,
+		unsigned long enable_read)
+{
+	int i = 0;
+
+	if (enable_read) {
+		client_data->acc_buffer_bmi160_samples = false;
+		for (i = 0; i < client_data->acc_bufsample_cnt; i++) {
+			LOGDI(client_data->dev,
+				"acc_cnt=%d,x=%d,y=%d,z=%d,tsec=%d,nsec=%lld\n",
+				i, client_data->bmi160_acc_samplist[i]->xyz[0],
+				client_data->bmi160_acc_samplist[i]->xyz[1],
+				client_data->bmi160_acc_samplist[i]->xyz[2],
+				client_data->bmi160_acc_samplist[i]->tsec,
+				client_data->bmi160_acc_samplist[i]->tnsec)
+			input_report_abs(client_data->accbuf_dev, ABS_X,
+				client_data->bmi160_acc_samplist[i]->xyz[0]);
+			input_report_abs(client_data->accbuf_dev, ABS_Y,
+				client_data->bmi160_acc_samplist[i]->xyz[1]);
+			input_report_abs(client_data->accbuf_dev, ABS_Z,
+				client_data->bmi160_acc_samplist[i]->xyz[2]);
+			input_report_abs(client_data->accbuf_dev, ABS_RX,
+				client_data->bmi160_acc_samplist[i]->tsec);
+			input_report_abs(client_data->accbuf_dev, ABS_RY,
+				client_data->bmi160_acc_samplist[i]->tnsec);
+			input_sync(client_data->accbuf_dev);
+		}
+	} else {
+		/* clean up */
+		if (0 != client_data->acc_bufsample_cnt) {
+			for (i = 0; i < BMI_ACC_MAXSAMPLE; i++)
+				kmem_cache_free(client_data->bmi_acc_cachepool,
+					client_data->bmi160_acc_samplist[i]);
+			kmem_cache_destroy(client_data->bmi_acc_cachepool);
+			client_data->acc_bufsample_cnt = 0;
+		}
+
+	}
+	/*SYN_CONFIG indicates end of data*/
+	input_event(client_data->accbuf_dev, EV_SYN, SYN_CONFIG, 0xFFFFFFFF);
+	input_sync(client_data->accbuf_dev);
+	LOGDI(client_data->dev,
+			"End of acc samples bufsample_cnt=%d\n",
+			client_data->acc_bufsample_cnt)
+	return 0;
+}
+static ssize_t read_gyro_boot_sample_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct bmi_client_data *client_data = iio_priv(indio_dev);
+
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+			client_data->read_gyro_boot_sample);
+}
+
+static ssize_t read_gyro_boot_sample_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int err;
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct bmi_client_data *client_data = iio_priv(indio_dev);
+	unsigned long enable = 0;
+
+	err = kstrtoul(buf, 10, &enable);
+	if (err)
+		return err;
+	if (enable > 1)	{
+		err = dev_err(client_data->dev,
+				"Invalid value of input, input=%ld\n", enable);
+		return -EINVAL;
+	}
+	err = bmi_gyro_read_bootsampl(client_data, enable);
+	if (err)
+		return err;
+	client_data->read_gyro_boot_sample = enable;
+	return count;
+
+}
+
+static ssize_t read_acc_boot_sample_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct bmi_client_data *client_data = iio_priv(indio_dev);
+
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+			client_data->read_acc_boot_sample);
+}
+
+static ssize_t read_acc_boot_sample_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int err;
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct bmi_client_data *client_data = iio_priv(indio_dev);
+	unsigned long enable = 0;
+
+	err = kstrtoul(buf, 10, &enable);
+	if (err)
+		return err;
+	if (enable > 1)	{
+		err = dev_err(client_data->dev,
+				"Invalid value of input, input=%ld\n", enable);
+		return -EINVAL;
+	}
+	err = bmi_acc_read_bootsampl(client_data, enable);
+	if (err)
+		return err;
+	client_data->read_acc_boot_sample = enable;
+	return count;
+}
+#endif
+
 static ssize_t bmi160_err_st_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -679,6 +1120,7 @@ static int bmi160_report_accel_data(struct iio_dev *indio_dev,
 			ACC_FIFO_HEAD, acc.x, acc.y, acc.z,
 			t);
 #endif
+	store_acc_boot_sample(acc.x, acc.y, acc.z);
 	ring->access->store_to(indio_dev->buffer, buf_16);
 	return 0;
 }
@@ -697,6 +1139,7 @@ static int bmi160_report_gyro_data(struct iio_dev *indio_dev,
 			t);
 #endif
 	/*iio_push_to_buffers(indio_dev, buf_16);*/
+	store_gyro_boot_sample(gyro.x, gyro.y, gyro.z);
 	ring->access->store_to(indio_dev->buffer, buf_16);
 	return 0;
 }
@@ -1844,6 +2287,10 @@ static ssize_t bmi160_acc_odr_store(struct device *dev,
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct bmi_client_data *client_data = iio_priv(indio_dev);
 
+	err = bmi160_check_acc_early_buff_enable_flag(client_data);
+	if (err)
+		return 0;
+
 	err = kstrtoul(buf, 10, &acc_odr);
 	if (err)
 		return err;
@@ -1891,6 +2338,11 @@ static ssize_t bmi160_acc_op_mode_store(struct device *dev,
 	struct bmi_client_data *client_data = iio_priv(indio_dev);
 	int err = 0;
 	unsigned long op_mode;
+
+	err = bmi160_check_acc_early_buff_enable_flag(client_data);
+	if (err)
+		return 0;
+
 	err = kstrtoul(buf, 10, &op_mode);
 	if (err)
 		return err;
@@ -2494,6 +2946,10 @@ static ssize_t bmi160_gyro_op_mode_store(struct device *dev,
 	if (err)
 		return err;
 
+	err = bmi160_check_gyro_early_buff_enable_flag(client_data);
+	if (err)
+		return 0;
+
 	mutex_lock(&client_data->mutex_op_mode);
 
 	if (op_mode < BMI_GYRO_PM_MAX) {
@@ -2601,6 +3057,10 @@ static ssize_t bmi160_gyro_odr_store(struct device *dev,
 	unsigned long gyro_odr;
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct bmi_client_data *client_data = iio_priv(indio_dev);
+
+	err = bmi160_check_gyro_early_buff_enable_flag(client_data);
+	if (err)
+		return 0;
 
 	err = kstrtoul(buf, 10, &gyro_odr);
 	if (err)
@@ -3077,6 +3537,9 @@ static ssize_t bmi_enable_int_store(struct device *dev,
 {
 	int interrupt_type, value;
 
+	if (bmi160_check_acc_gyro_early_buff_enable_flag())
+		return 0;
+
 	sscanf(buf, "%3d %3d", &interrupt_type, &value);
 
 	if (interrupt_type < 0 || interrupt_type > 16)
@@ -3341,6 +3804,12 @@ static int bmi_read_raw(struct iio_dev *indio_dev,
 
 static IIO_DEVICE_ATTR(chip_id, S_IRUGO,
 	bmi160_chip_id_show, NULL, 0);
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+static IIO_DEVICE_ATTR(read_acc_boot_sample, S_IRUGO | S_IWUSR,
+		read_acc_boot_sample_show, read_acc_boot_sample_store, 0);
+static IIO_DEVICE_ATTR(read_gyro_boot_sample, S_IRUGO | S_IWUSR,
+		read_gyro_boot_sample_show, read_gyro_boot_sample_store, 0);
+#endif
 static IIO_DEVICE_ATTR(err_st, S_IRUGO,
 	bmi160_err_st_show, NULL, 0);
 static IIO_DEVICE_ATTR(sensor_time, S_IRUGO,
@@ -3474,6 +3943,10 @@ static IIO_DEVICE_ATTR(bmi_value, S_IRUGO,
 
 static struct attribute *bmi_attributes[] = {
 	&iio_dev_attr_chip_id.dev_attr.attr,
+#ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
+	&iio_dev_attr_read_acc_boot_sample.dev_attr.attr,
+	&iio_dev_attr_read_gyro_boot_sample.dev_attr.attr,
+#endif
 	&iio_dev_attr_err_st.dev_attr.attr,
 	&iio_dev_attr_sensor_time.dev_attr.attr,
 	&iio_dev_attr_selftest.dev_attr.attr,
@@ -3895,7 +4368,6 @@ int bmi_probe(struct iio_dev *accl_iio_private,
 		return err;
 	}
 #endif
-
 	/*open the channel, time stamp channel is defined by
 	IIO_CHAN_SOFT_TIMESTAMP, it is opened in IIO itself*/
 	iio_scan_mask_set(accl_iio_private,
@@ -3943,6 +4415,10 @@ int bmi_probe(struct iio_dev *accl_iio_private,
 	}
 #endif
 
+	err = bmi160_acc_gyro_early_buff_init();
+	if (!err)
+		goto bmi_probe_ring_error;
+
 	dev_notice(p_i2c_dev, "sensor_time:%d, %d",
 		sensortime_duration_tbl[0].ts_delat,
 		sensortime_duration_tbl[0].ts_duration_lsb);
@@ -3973,6 +4449,8 @@ int bmi_remove(struct device *dev)
 	int err = 0;
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct bmi_client_data *client_data = iio_priv(indio_dev);
+
+	bmi160_acc_gyro_input_cleanup(client_data);
 
 	iio_device_unregister(indio_dev);
 	iio_device_free(indio_dev);
