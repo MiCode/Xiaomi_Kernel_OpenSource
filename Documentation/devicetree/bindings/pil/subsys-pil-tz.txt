@@ -67,6 +67,7 @@ Optional properties:
 - qcom,complete-ramdump: Boolean. If set, complete ramdump i.e. region between start address of
 			first segment to end address of last segment will be collected without
 			leaving any hole in between.
+- qcom,ignore-ssr-failure: Boolean. If set, SSR failures are not considered fatal.
 
 Example:
 	qcom,venus@fdce0000 {
