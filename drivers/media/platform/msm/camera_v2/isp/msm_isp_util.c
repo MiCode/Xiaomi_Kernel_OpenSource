@@ -351,6 +351,20 @@ int msm_isp_unsubscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
 	return msm_isp_process_event_subscription(fh, sub, false);
 }
 
+static int msm_isp_update_fe_frame_id(struct vfe_device *vfe_dev,
+	void *arg)
+{
+	struct msm_vfe_update_fe_frame_id *session_frameid = arg;
+	int rc = 0;
+	/*
+	* For Offline VFE, HAL expects same frame id
+	* for offline output which it requested in do_reprocess.
+	*/
+	vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id =
+		   session_frameid->frame_id;
+	return rc;
+}
+
 static int msm_isp_start_fetch_engine(struct vfe_device *vfe_dev,
 	void *arg)
 {
@@ -930,6 +944,13 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		rc = msm_isp_start_fetch_engine_multi_pass(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
+
+	case VIDIOC_MSM_ISP_UPDATE_FE_FRAME_ID:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_update_fe_frame_id(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
+
 	case VIDIOC_MSM_ISP_REG_UPDATE_CMD:
 		if (arg) {
 			enum msm_vfe_input_src frame_src =
