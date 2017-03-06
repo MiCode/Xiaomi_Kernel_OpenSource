@@ -239,7 +239,6 @@ static struct smb_params pm660_params = {
 struct smb_dt_props {
 	int	fcc_ua;
 	int	usb_icl_ua;
-	int	otg_cl_ua;
 	int	dc_icl_ua;
 	int	boost_threshold_ua;
 	int	fv_uv;
@@ -323,9 +322,9 @@ static int smb2_parse_dt(struct smb2 *chip)
 		chip->dt.usb_icl_ua = -EINVAL;
 
 	rc = of_property_read_u32(node,
-				"qcom,otg-cl-ua", &chip->dt.otg_cl_ua);
+				"qcom,otg-cl-ua", &chg->otg_cl_ua);
 	if (rc < 0)
-		chip->dt.otg_cl_ua = MICRO_1P5A;
+		chg->otg_cl_ua = MICRO_1P5A;
 
 	rc = of_property_read_u32(node,
 				"qcom,dc-icl-ua", &chip->dt.dc_icl_ua);
@@ -1386,7 +1385,8 @@ static int smb2_init_hw(struct smb2 *chip)
 
 	/* set OTG current limit */
 	rc = smblib_set_charge_param(chg, &chg->param.otg_cl,
-							chip->dt.otg_cl_ua);
+				(chg->wa_flags & OTG_WA) ?
+				chg->param.otg_cl.min_u : chg->otg_cl_ua);
 	if (rc < 0) {
 		pr_err("Couldn't set otg current limit rc=%d\n", rc);
 		return rc;
@@ -1649,7 +1649,7 @@ static int smb2_chg_config_init(struct smb2 *chip)
 		break;
 	case PM660_SUBTYPE:
 		chip->chg.smb_version = PM660_SUBTYPE;
-		chip->chg.wa_flags |= BOOST_BACK_WA;
+		chip->chg.wa_flags |= BOOST_BACK_WA | OTG_WA;
 		chg->param.freq_buck = pm660_params.freq_buck;
 		chg->param.freq_boost = pm660_params.freq_boost;
 		chg->chg_freq.freq_5V		= 600;

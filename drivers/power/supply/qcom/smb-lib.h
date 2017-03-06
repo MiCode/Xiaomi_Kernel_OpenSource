@@ -80,6 +80,7 @@ enum {
 	BOOST_BACK_WA			= BIT(1),
 	TYPEC_CC2_REMOVAL_WA_BIT	= BIT(2),
 	QC_AUTH_INTERRUPT_WA_BIT	= BIT(3),
+	OTG_WA				= BIT(4),
 };
 
 enum smb_irq_index {
@@ -305,6 +306,7 @@ struct smb_charger {
 	int			otg_attempts;
 	int			vconn_attempts;
 	int			default_icl_ua;
+	int			otg_cl_ua;
 
 	/* workaround flag */
 	u32			wa_flags;
