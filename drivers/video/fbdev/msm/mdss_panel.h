@@ -189,6 +189,7 @@ struct mdss_panel_cfg {
 
 enum {
 	MDP_INTF_CALLBACK_DSI_WAIT,
+	MDP_INTF_CALLBACK_CHECK_LINE_COUNT,
 };
 
 struct mdss_intf_recovery {
