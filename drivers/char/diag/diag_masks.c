@@ -113,10 +113,12 @@ static void diag_send_log_mask_update(uint8_t peripheral, int equip_id)
 	else
 		mask_info = &log_mask;
 
-	if (!mask_info)
+	if (!mask_info || !mask_info->ptr || !mask_info->update_buf)
 		return;
 
 	mask = (struct diag_log_mask_t *)mask_info->ptr;
+	if (!mask->ptr)
+		return;
 	buf = mask_info->update_buf;
 
 	switch (mask_info->status) {
@@ -225,7 +227,7 @@ static void diag_send_event_mask_update(uint8_t peripheral)
 	else
 		mask_info = &event_mask;
 
-	if (!mask_info)
+	if (!mask_info || !mask_info->ptr || !mask_info->update_buf)
 		return;
 
 	buf = mask_info->update_buf;
@@ -306,10 +308,12 @@ static void diag_send_msg_mask_update(uint8_t peripheral, int first, int last)
 	else
 		mask_info = &msg_mask;
 
-	if (!mask_info)
+	if (!mask_info || !mask_info->ptr || !mask_info->update_buf)
 		return;
 
 	mask = (struct diag_msg_mask_t *)mask_info->ptr;
+	if (!mask->ptr)
+		return;
 	buf = mask_info->update_buf;
 	mutex_lock(&mask_info->lock);
 	switch (mask_info->status) {
