@@ -974,5 +974,6 @@ ifeq ($(CONFIG_ARM64),y)
 always		:= $(DTB_LIST)
 else
 dtbs: $(addprefix $(obj)/, $(DTB_LIST))
+	$(Q)rm -f $(obj)/../*.dtb
 endif
 clean-files	:= *.dtb
