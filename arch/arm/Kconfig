@@ -548,6 +548,31 @@ config ARCH_PXA
 	help
 	  Support for Intel/Marvell's PXA2xx/PXA3xx processor line.
 
+config ARCH_QCOM
+       bool "Qualcomm MSM (non-multiplatform)"
+       select ARCH_REQUIRE_GPIOLIB
+       select CPU_V7
+       select AUTO_ZRELADDR
+       select HAVE_SMP
+       select CLKDEV_LOOKUP
+       select GENERIC_CLOCKEVENTS
+       select GENERIC_ALLOCATOR
+       select ARM_PATCH_PHYS_VIRT
+       select ARM_HAS_SG_CHAIN
+       select ARCH_HAS_OPP
+       select SOC_BUS
+       select MULTI_IRQ_HANDLER
+       select PM_OPP
+       select SPARSE_IRQ
+       select USE_OF
+       select PINCTRL
+       help
+         Support for Qualcomm MSM/QSD based systems.  This runs on the
+         apps processor of the MSM/QSD and depends on a shared memory
+         interface to the modem processor which runs the baseband
+         stack and controls some vital subsystems
+         (clock and power control, etc).
+
 config ARCH_RPC
 	bool "RiscPC"
 	depends on MMU
@@ -1478,7 +1503,7 @@ config ARM_PSCI
 config ARCH_NR_GPIO
 	int
 	default 1024 if ARCH_BRCMSTB || ARCH_SHMOBILE || ARCH_TEGRA || \
-		ARCH_ZYNQ
+		ARCH_ZYNQ || ARCH_QCOM
 	default 512 if ARCH_EXYNOS || ARCH_KEYSTONE || SOC_OMAP5 || \
 		SOC_DRA7XX || ARCH_S3C24XX || ARCH_S3C64XX || ARCH_S5PV210
 	default 416 if ARCH_SUNXI
