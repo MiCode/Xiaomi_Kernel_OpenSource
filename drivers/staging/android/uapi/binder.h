@@ -32,6 +32,7 @@ enum {
 	BINDER_TYPE_HANDLE	= B_PACK_CHARS('s', 'h', '*', B_TYPE_LARGE),
 	BINDER_TYPE_WEAK_HANDLE	= B_PACK_CHARS('w', 'h', '*', B_TYPE_LARGE),
 	BINDER_TYPE_FD		= B_PACK_CHARS('f', 'd', '*', B_TYPE_LARGE),
+	BINDER_TYPE_PTR		= B_PACK_CHARS('p', 't', '*', B_TYPE_LARGE),
 };
 
 enum {
@@ -47,6 +48,14 @@ typedef __u64 binder_size_t;
 typedef __u64 binder_uintptr_t;
 #endif
 
+/**
+ * struct binder_object_header - header shared by all binder metadata objects.
+ * @type:	type of the object
+ */
+struct binder_object_header {
+	__u32        type;
+};
+
 /*
  * This is the flattened representation of a Binder object for transfer
  * between processes.  The 'offsets' supplied as part of a binder transaction
@@ -55,9 +64,8 @@ typedef __u64 binder_uintptr_t;
  * between processes.
  */
 struct flat_binder_object {
-	/* 8 bytes for large_flat_header. */
-	__u32		type;
-	__u32		flags;
+	struct binder_object_header	hdr;
+	__u32				flags;
 
 	/* 8 bytes of data. */
 	union {
@@ -67,6 +75,57 @@ struct flat_binder_object {
 
 	/* extra data associated with local object */
 	binder_uintptr_t	cookie;
+};
+
+/**
+ * struct binder_fd_object - describes a filedescriptor to be fixed up.
+ * @hdr:	common header structure
+ * @pad_flags:	padding to remain compatible with old userspace code
+ * @pad_binder:	padding to remain compatible with old userspace code
+ * @fd:		file descriptor
+ * @cookie:	opaque data, used by user-space
+ */
+struct binder_fd_object {
+	struct binder_object_header	hdr;
+	__u32				pad_flags;
+	union {
+		binder_uintptr_t	pad_binder;
+		__u32			fd;
+	};
+
+	binder_uintptr_t		cookie;
+};
+
+/* struct binder_buffer_object - object describing a userspace buffer
+ * @hdr:		common header structure
+ * @flags:		one or more BINDER_BUFFER_* flags
+ * @buffer:		address of the buffer
+ * @length:		length of the buffer
+ * @parent:		index in offset array pointing to parent buffer
+ * @parent_offset:	offset in @parent pointing to this buffer
+ *
+ * A binder_buffer object represents an object that the
+ * binder kernel driver can copy verbatim to the target
+ * address space. A buffer itself may be pointed to from
+ * within another buffer, meaning that the pointer inside
+ * that other buffer needs to be fixed up as well. This
+ * can be done by setting the BINDER_BUFFER_FLAG_HAS_PARENT
+ * flag in @flags, by setting @parent buffer to the index
+ * in the offset array pointing to the parent binder_buffer_object,
+ * and by setting @parent_offset to the offset in the parent buffer
+ * at which the pointer to this buffer is located.
+ */
+struct binder_buffer_object {
+	struct binder_object_header	hdr;
+	__u32				flags;
+	binder_uintptr_t		buffer;
+	binder_size_t			length;
+	binder_size_t			parent;
+	binder_size_t			parent_offset;
+};
+
+enum {
+	BINDER_BUFFER_FLAG_HAS_PARENT = 0x01,
 };
 
 /*
@@ -159,6 +218,11 @@ struct binder_transaction_data {
 		} ptr;
 		__u8	buf[8];
 	} data;
+};
+
+struct binder_transaction_data_sg {
+	struct binder_transaction_data transaction_data;
+	binder_size_t buffers_size;
 };
 
 struct binder_ptr_cookie {
@@ -344,6 +408,12 @@ enum binder_driver_command_protocol {
 	BC_DEAD_BINDER_DONE = _IOW('c', 16, binder_uintptr_t),
 	/*
 	 * void *: cookie
+	 */
+
+	BC_TRANSACTION_SG = _IOW('c', 17, struct binder_transaction_data_sg),
+	BC_REPLY_SG = _IOW('c', 18, struct binder_transaction_data_sg),
+	/*
+	 * binder_transaction_data_sg: the sent command.
 	 */
 };
 
