@@ -317,7 +317,7 @@ void die(const char *str, struct pt_regs *regs, int err)
 
 	if (!user_mode(regs))
 		bug_type = report_bug(regs->pc, regs);
-	if (bug_type != BUG_TRAP_TYPE_NONE)
+	if (bug_type != BUG_TRAP_TYPE_NONE && !strlen(str))
 		str = "Oops - BUG";
 
 	ret = __die(str, err, thread, regs);
