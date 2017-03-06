@@ -121,11 +121,9 @@
 	 * feature as all TTBR0_EL1 accesses are disabled, not just those to
 	 * user mappings.
 	 */
-alternative_if_not ARM64_HAS_PAN
-	nop
-alternative_else
+alternative_if ARM64_HAS_PAN
 	b	1f				// skip TTBR0 PAN
-alternative_endif
+alternative_else_nop_endif
 
 	.if	\el != 0
 	mrs	x21, ttbr0_el1
@@ -135,7 +133,7 @@ alternative_endif
 	and	x23, x23, #~PSR_PAN_BIT		// Clear the emulated PAN in the saved SPSR
 	.endif
 
-	uaccess_ttbr0_disable x21
+	__uaccess_ttbr0_disable x21
 1:
 #endif
 
@@ -184,17 +182,15 @@ alternative_endif
 	 * Restore access to TTBR0_EL1. If returning to EL0, no need for SPSR
 	 * PAN bit checking.
 	 */
-alternative_if_not ARM64_HAS_PAN
-	nop
-alternative_else
+alternative_if ARM64_HAS_PAN
 	b	2f				// skip TTBR0 PAN
-alternative_endif
+alternative_else_nop_endif
 
 	.if	\el != 0
-	tbnz	x22, #_PSR_PAN_BIT, 1f		// Skip re-enabling TTBR0 access if previously disabled
+	tbnz	x22, #22, 1f			// Skip re-enabling TTBR0 access if the PSR_PAN_BIT is set
 	.endif
 
-	uaccess_ttbr0_enable x0
+	__uaccess_ttbr0_enable x0
 
 	.if	\el == 0
 	/*
