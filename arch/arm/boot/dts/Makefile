@@ -970,5 +970,9 @@ endif
 targets += dtbs dtbs_install
 targets += $(DTB_LIST)
 
+ifeq ($(CONFIG_ARM64),y)
 always		:= $(DTB_LIST)
+else
+dtbs: $(addprefix $(obj)/, $(DTB_LIST))
+endif
 clean-files	:= *.dtb
