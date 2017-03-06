@@ -178,6 +178,7 @@ struct kgsl_functable {
 		const char *name, struct clk *clk);
 	void (*gpu_model)(struct kgsl_device *device, char *str,
 		size_t bufsz);
+	void (*stop_fault_timer)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {

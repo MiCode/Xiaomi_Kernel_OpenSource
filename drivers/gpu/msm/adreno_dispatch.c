@@ -208,6 +208,9 @@ static inline bool _isidle(struct adreno_device *adreno_dev)
 	if (!kgsl_state_is_awake(KGSL_DEVICE(adreno_dev)))
 		goto ret;
 
+	if (adreno_rb_empty(adreno_dev->cur_rb))
+		goto ret;
+
 	/* only check rbbm status to determine if GPU is idle */
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS, &reg_rbbm_status);
 
@@ -2055,6 +2058,18 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		return 0;
 
 	/*
+	 * In the very unlikely case that the power is off, do nothing - the
+	 * state will be reset on power up and everybody will be happy
+	 */
+
+	if (!kgsl_state_is_awake(device) && (fault & ADRENO_SOFT_FAULT)) {
+		/* Clear the existing register values */
+		memset(adreno_ft_regs_val, 0,
+				adreno_ft_regs_num * sizeof(unsigned int));
+		return 0;
+	}
+
+	/*
 	 * On A5xx and A6xx, read RBBM_STATUS3:SMMU_STALLED_ON_FAULT (BIT 24)
 	 * to tell if this function was entered after a pagefault. If so, only
 	 * proceed if the fault handler has already run in the IRQ thread,
@@ -2509,7 +2524,7 @@ static void adreno_dispatcher_fault_timer(unsigned long data)
 	if (!fault_detect_read_compare(adreno_dev)) {
 		adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
 		adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
-	} else {
+	} else if (dispatcher->inflight > 0) {
 		mod_timer(&dispatcher->fault_timer,
 			jiffies + msecs_to_jiffies(_fault_timer_interval));
 	}
@@ -2550,6 +2565,20 @@ void adreno_dispatcher_stop(struct adreno_device *adreno_dev)
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 
 	del_timer_sync(&dispatcher->timer);
+	del_timer_sync(&dispatcher->fault_timer);
+}
+
+/**
+ * adreno_dispatcher_stop_fault_timer() - stop the dispatcher fault timer
+ * @device: pointer to the KGSL device structure
+ *
+ * Stop the dispatcher fault timer
+ */
+void adreno_dispatcher_stop_fault_timer(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
+
 	del_timer_sync(&dispatcher->fault_timer);
 }
 
