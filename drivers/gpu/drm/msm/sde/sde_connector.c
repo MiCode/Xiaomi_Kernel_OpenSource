@@ -399,9 +399,12 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		/* convert fb val to drm framebuffer and prepare it */
 		c_state->out_fb =
 			drm_framebuffer_lookup(connector->dev, val);
-		if (!c_state->out_fb) {
+		if (!c_state->out_fb && val) {
 			SDE_ERROR("failed to look up fb %lld\n", val);
 			rc = -EFAULT;
+		} else if (!c_state->out_fb && !val) {
+			SDE_DEBUG("cleared fb_id\n");
+			rc = 0;
 		} else {
 			msm_framebuffer_set_kmap(c_state->out_fb,
 					c_conn->fb_kmap);
