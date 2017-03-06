@@ -102,6 +102,22 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	apq8096-v3-pmi8996-mdm9x55-slimbus-mtp.dtb \
 	apq8096-v3-pmi8996-dragonboard.dtb
 
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dtbo-$(CONFIG_ARCH_MSM8998) += \
+	msm8998-cdp-overlay.dtbo \
+	msm8998-mtp-overlay.dtbo \
+	msm8998-v2-cdp-overlay.dtbo \
+	msm8998-v2-mtp-overlay.dtbo \
+	msm8998-v2.1-cdp-overlay.dtbo \
+	msm8998-v2.1-mtp-overlay.dtbo
+
+msm8998-cdp-overlay.dtbo-base :=  msm8998.dtb
+msm8998-mtp-overlay.dtbo-base :=  msm8998.dtb
+msm8998-v2-cdp-overlay.dtbo-base :=  msm8998-v2.dtb
+msm8998-v2-mtp-overlay.dtbo-base :=  msm8998-v2.dtb
+msm8998-v2.1-cdp-overlay.dtbo-base :=  msm8998-v2.1.dtb
+msm8998-v2.1-mtp-overlay.dtbo-base :=  msm8998-v2.1.dtb
+else
 dtb-$(CONFIG_ARCH_MSM8998) += msm8998-sim.dtb \
 	msm8998-rumi.dtb \
 	msm8998-cdp.dtb \
@@ -134,6 +150,7 @@ dtb-$(CONFIG_ARCH_MSM8998) += msm8998-sim.dtb \
 	msm8998-v2.1-interposer-sdm660-cdp.dtb \
 	msm8998-v2.1-interposer-sdm660-mtp.dtb \
 	msm8998-v2.1-interposer-sdm660-qrd.dtb
+endif
 
 dtb-$(CONFIG_ARCH_MSMHAMSTER) += msmhamster-rumi.dtb
 
@@ -218,6 +235,7 @@ dtb-$(CONFIG_ARCH_SDM630) += sdm630-rumi.dtb \
 
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)
+always          += $(dtbo-y)
 subdir-y        := $(dts-dirs)
 else
 targets += dtbs
@@ -228,4 +246,4 @@ $(obj)/../%.dtb: $(src)/%.dts FORCE
 
 dtbs: $(addprefix $(obj)/../,$(dtb-y))
 endif
-clean-files := *.dtb
+clean-files := *.dtbo *.dtb
