@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2721,7 +2721,7 @@ static int ipa_fltrt_alloc_init_tbl_hdr(
 	params->nhash_hdr.base = dma_alloc_coherent(ipahal_ctx->ipa_pdev,
 		params->nhash_hdr.size,
 		&params->nhash_hdr.phys_base, GFP_KERNEL);
-	if (!params->nhash_hdr.size) {
+	if (!params->nhash_hdr.base) {
 		IPAHAL_ERR("fail to alloc DMA buff of size %d\n",
 			params->nhash_hdr.size);
 		goto nhash_alloc_fail;
