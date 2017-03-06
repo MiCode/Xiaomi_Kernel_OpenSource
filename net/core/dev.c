@@ -3692,7 +3692,8 @@ static bool skb_pfmemalloc_protocol(struct sk_buff *skb)
 	}
 }
 
-int (*athrs_fast_nat_recv)(struct sk_buff *skb) __rcu __read_mostly;
+int (*athrs_fast_nat_recv)(struct sk_buff *skb,
+			   struct packet_type *pt_temp) __rcu __read_mostly;
 EXPORT_SYMBOL(athrs_fast_nat_recv);
 
 int (*embms_tm_multicast_recv)(struct sk_buff *skb) __rcu __read_mostly;
@@ -3707,7 +3708,7 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
 	bool deliver_exact = false;
 	int ret = NET_RX_DROP;
 	__be16 type;
-	int (*fast_recv)(struct sk_buff *skb);
+	int (*fast_recv)(struct sk_buff *skb, struct packet_type *pt_temp);
 	int (*embms_recv)(struct sk_buff *skb);
 
 	net_timestamp_check(!netdev_tstamp_prequeue, skb);
@@ -3756,7 +3757,7 @@ another_round:
 skip_taps:
 	fast_recv = rcu_dereference(athrs_fast_nat_recv);
 	if (fast_recv) {
-		if (fast_recv(skb)) {
+		if (fast_recv(skb, pt_prev)) {
 			ret = NET_RX_SUCCESS;
 			goto out;
 		}
