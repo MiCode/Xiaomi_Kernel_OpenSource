@@ -3226,6 +3226,7 @@ irqreturn_t smblib_handle_icl_change(int irq, void *data)
 				|| (stat & AICL_DONE_BIT))
 			delay = 0;
 
+		cancel_delayed_work_sync(&chg->icl_change_work);
 		schedule_delayed_work(&chg->icl_change_work,
 						msecs_to_jiffies(delay));
 	}
@@ -3335,11 +3336,22 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 	if (chg->mode == PARALLEL_MASTER)
 		vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, true, 0);
 
+	/* the APSD done handler will set the USB supply type */
+	apsd_result = smblib_get_apsd_result(chg);
+	if (get_effective_result(chg->hvdcp_hw_inov_dis_votable)) {
+		if (apsd_result->pst == POWER_SUPPLY_TYPE_USB_HVDCP) {
+			/* force HVDCP2 to 9V if INOV is disabled */
+			rc = smblib_masked_write(chg, CMD_HVDCP_2_REG,
+					FORCE_9V_BIT, FORCE_9V_BIT);
+			if (rc < 0)
+				smblib_err(chg,
+					"Couldn't force 9V HVDCP rc=%d\n", rc);
+		}
+	}
+
 	/* QC authentication done, parallel charger can be enabled now */
 	vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, false, 0);
 
-	/* the APSD done handler will set the USB supply type */
-	apsd_result = smblib_get_apsd_result(chg);
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: hvdcp-3p0-auth-done rising; %s detected\n",
 		   apsd_result->name);
 }
