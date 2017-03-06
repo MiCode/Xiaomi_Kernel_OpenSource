@@ -990,11 +990,14 @@ static int sde_rotator_debug_base_release(struct inode *inode,
 {
 	struct sde_rotator_debug_base *dbg = file->private_data;
 
-	if (dbg && dbg->buf) {
+	if (dbg) {
+		mutex_lock(&dbg->buflock);
 		kfree(dbg->buf);
 		dbg->buf_len = 0;
 		dbg->buf = NULL;
+		mutex_unlock(&dbg->buflock);
 	}
+
 	return 0;
 }
 
@@ -1026,8 +1029,10 @@ static ssize_t sde_rotator_debug_base_offset_write(struct file *file,
 	if (cnt > (dbg->max_offset - off))
 		cnt = dbg->max_offset - off;
 
+	mutex_lock(&dbg->buflock);
 	dbg->off = off;
 	dbg->cnt = cnt;
+	mutex_unlock(&dbg->buflock);
 
 	SDEROT_DBG("offset=%x cnt=%x\n", off, cnt);
 
@@ -1047,7 +1052,10 @@ static ssize_t sde_rotator_debug_base_offset_read(struct file *file,
 	if (*ppos)
 		return 0;	/* the end */
 
+	mutex_lock(&dbg->buflock);
 	len = snprintf(buf, sizeof(buf), "0x%08zx %zx\n", dbg->off, dbg->cnt);
+	mutex_unlock(&dbg->buflock);
+
 	if (len < 0 || len >= sizeof(buf))
 		return 0;
 
@@ -1086,6 +1094,8 @@ static ssize_t sde_rotator_debug_base_reg_write(struct file *file,
 	if (off >= dbg->max_offset)
 		return -EFAULT;
 
+	mutex_lock(&dbg->buflock);
+
 	/* Enable Clock for register access */
 	sde_rotator_clk_ctrl(dbg->mgr, true);
 
@@ -1093,6 +1103,8 @@ static ssize_t sde_rotator_debug_base_reg_write(struct file *file,
 
 	/* Disable Clock after register access */
 	sde_rotator_clk_ctrl(dbg->mgr, false);
+
+	mutex_unlock(&dbg->buflock);
 
 	SDEROT_DBG("addr=%zx data=%x\n", off, data);
 
@@ -1104,12 +1116,14 @@ static ssize_t sde_rotator_debug_base_reg_read(struct file *file,
 {
 	struct sde_rotator_debug_base *dbg = file->private_data;
 	size_t len;
+	int rc = 0;
 
 	if (!dbg) {
 		SDEROT_ERR("invalid handle\n");
 		return -ENODEV;
 	}
 
+	mutex_lock(&dbg->buflock);
 	if (!dbg->buf) {
 		char dump_buf[64];
 		char *ptr;
@@ -1121,7 +1135,8 @@ static ssize_t sde_rotator_debug_base_reg_read(struct file *file,
 
 		if (!dbg->buf) {
 			SDEROT_ERR("not enough memory to hold reg dump\n");
-			return -ENOMEM;
+			rc = -ENOMEM;
+			goto debug_read_error;
 		}
 
 		ptr = dbg->base + dbg->off;
@@ -1151,18 +1166,26 @@ static ssize_t sde_rotator_debug_base_reg_read(struct file *file,
 		dbg->buf_len = tot;
 	}
 
-	if (*ppos >= dbg->buf_len)
-		return 0; /* done reading */
+	if (*ppos >= dbg->buf_len) {
+		rc = 0; /* done reading */
+		goto debug_read_error;
+	}
 
 	len = min(count, dbg->buf_len - (size_t) *ppos);
 	if (copy_to_user(user_buf, dbg->buf + *ppos, len)) {
 		SDEROT_ERR("failed to copy to user\n");
-		return -EFAULT;
+		rc = -EFAULT;
+		goto debug_read_error;
 	}
 
 	*ppos += len; /* increase offset */
 
+	mutex_unlock(&dbg->buflock);
 	return len;
+
+debug_read_error:
+	mutex_unlock(&dbg->buflock);
+	return rc;
 }
 
 static const struct file_operations sde_rotator_off_fops = {
@@ -1196,6 +1219,9 @@ int sde_rotator_debug_register_base(struct sde_rotator_device *rot_dev,
 	if (!dbg)
 		return -ENOMEM;
 
+	mutex_init(&dbg->buflock);
+	mutex_lock(&dbg->buflock);
+
 	if (name)
 		strlcpy(dbg->name, name, sizeof(dbg->name));
 	dbg->base = io_data->base;
@@ -1217,6 +1243,7 @@ int sde_rotator_debug_register_base(struct sde_rotator_device *rot_dev,
 			dbg->base += rot_dev->mdata->regdump ?
 				rot_dev->mdata->regdump[0].offset : 0;
 	}
+	mutex_unlock(&dbg->buflock);
 
 	strlcpy(dbgname + prefix_len, "off", sizeof(dbgname) - prefix_len);
 	ent_off = debugfs_create_file(dbgname, 0644, debugfs_root, dbg,
@@ -1234,7 +1261,9 @@ int sde_rotator_debug_register_base(struct sde_rotator_device *rot_dev,
 		goto reg_fail;
 	}
 
+	mutex_lock(&dbg->buflock);
 	dbg->mgr = rot_dev->mgr;
+	mutex_unlock(&dbg->buflock);
 
 	return 0;
 reg_fail:
