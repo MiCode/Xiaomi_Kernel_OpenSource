@@ -838,10 +838,8 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 		goto fail_device_create;
 	}
 
-	if (device_can_wakeup(&ksb->udev->dev)) {
+	if (device_can_wakeup(&ksb->udev->dev))
 		ifc->needs_remote_wakeup = 1;
-		usb_enable_autosuspend(ksb->udev);
-	}
 
 	if (free_mdev)
 		kfree(mdev);
