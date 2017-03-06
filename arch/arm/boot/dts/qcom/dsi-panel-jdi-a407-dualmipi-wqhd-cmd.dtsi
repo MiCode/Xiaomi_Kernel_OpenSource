@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,18 @@
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-border-color = <0>;
 		qcom,mdss-dsi-on-command = [
+			29 01 00 00 01 00 02 00 00
+			29 01 00 00 01 00 04 FF 25 03 01
+			29 01 00 00 01 00 02 00 80
+			29 01 00 00 01 00 03 FF 25 03
+			29 01 00 00 01 00 02 00 80
+			29 01 00 00 01 00 10
+				A7 27 00 FF 01 15 11 02
+				98 0F 07 70 69 14 00 00
+			29 01 00 00 01 00 02 00 C0
+			29 01 00 00 01 00 10
+				A7 13 00 FF 01 FF 10 02
+				08 0F 07 74 69 14 00 00
 			15 01 00 00 00 00 02 35 00
 			05 01 00 00 78 00 02 11 00
 			05 01 00 00 32 00 02 29 00];
