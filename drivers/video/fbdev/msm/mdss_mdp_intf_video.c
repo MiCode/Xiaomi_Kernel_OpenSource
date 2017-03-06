@@ -83,6 +83,7 @@ struct mdss_mdp_video_ctx {
 	struct mutex vsync_mtx;
 	struct list_head vsync_handlers;
 	struct mdss_intf_recovery intf_recovery;
+	struct mdss_intf_recovery intf_mdp_callback;
 	struct work_struct early_wakeup_dfps_work;
 
 	atomic_t lineptr_ref;
@@ -1896,6 +1897,58 @@ static void mdss_mdp_handoff_programmable_fetch(struct mdss_mdp_ctl *ctl,
 	}
 }
 
+static int mdss_mdp_video_intf_callback(void *data, int event)
+{
+	struct mdss_mdp_video_ctx *ctx;
+	struct mdss_mdp_ctl *ctl = data;
+	struct mdss_panel_info *pinfo;
+	u32 line_cnt, min_ln_cnt, active_lns_cnt, line_buff = 50;
+
+	if (!data) {
+		pr_err("%s: invalid ctl\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx = ctl->intf_ctx[MASTER_CTX];
+	pr_debug("%s: ctl num = %d, event = %d\n",
+				__func__, ctl->num, event);
+
+	if (!ctl->is_video_mode)
+		return 0;
+
+	pinfo = &ctl->panel_data->panel_info;
+	min_ln_cnt = pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width;
+	active_lns_cnt = pinfo->yres;
+
+	switch (event) {
+	case MDP_INTF_CALLBACK_CHECK_LINE_COUNT:
+		if (!ctl || !ctx || !ctx->timegen_en) {
+			pr_debug("%s: no need to check for active line\n",
+							__func__);
+			goto end;
+		}
+
+		line_cnt = mdss_mdp_video_line_count(ctl);
+
+		if ((line_cnt >= min_ln_cnt) && (line_cnt <
+			(min_ln_cnt + active_lns_cnt - line_buff))) {
+			pr_debug("%s: line count is within active range=%d\n",
+						__func__, line_cnt);
+			goto end;
+		} else {
+			pr_debug("line count is less. line_cnt = %d\n",
+								line_cnt);
+			return -EPERM;
+		}
+		break;
+	default:
+		pr_debug("%s: unhandled event!\n", __func__);
+		break;
+	}
+end:
+	return 0;
+}
+
 static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_video_ctx *ctx, struct mdss_panel_info *pinfo)
 {
@@ -1929,6 +1982,13 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 			pr_err("Failed to register intf recovery handler\n");
 			return -EINVAL;
 		}
+
+		ctx->intf_mdp_callback.fxn = mdss_mdp_video_intf_callback;
+		ctx->intf_mdp_callback.data = ctl;
+		mdss_mdp_ctl_intf_event(ctl,
+				MDSS_EVENT_REGISTER_MDP_CALLBACK,
+				(void *)&ctx->intf_mdp_callback,
+				CTL_INTF_EVENT_FLAG_DEFAULT);
 	} else {
 		ctx->intf_recovery.fxn = NULL;
 		ctx->intf_recovery.data = NULL;
