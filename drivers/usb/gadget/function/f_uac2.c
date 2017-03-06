@@ -128,6 +128,7 @@ struct audio_dev {
 
 	/* The ALSA Sound Card it represents on the USB-Client side */
 	struct snd_uac2_chip uac2;
+	struct device *gdev;
 };
 
 static inline
@@ -457,7 +458,7 @@ static int snd_uac2_probe(struct platform_device *pdev)
 	c_chmask = opts->c_chmask;
 
 	/* Choose any slot, with no id */
-	err = snd_card_new(&pdev->dev, -1, NULL, THIS_MODULE, 0, &card);
+	err = snd_card_new(audio_dev->gdev, -1, NULL, THIS_MODULE, 0, &card);
 	if (err < 0)
 		return err;
 
@@ -1144,6 +1145,7 @@ afunc_bind(struct usb_configuration *cfg, struct usb_function *fn)
 		goto err_free_descs;
 	}
 
+	agdev->gdev = &gadget->dev;
 	ret = alsa_uac2_init(agdev);
 	if (ret)
 		goto err_free_descs;
