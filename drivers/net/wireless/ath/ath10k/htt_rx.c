@@ -429,9 +429,8 @@ static int ath10k_htt_rx_pop_paddr_list(struct ath10k_htt *htt,
 
 	while (msdu_count--) {
 #ifdef CONFIG_ATH10K_SNOC
-		paddr = __le32_to_cpu(msdu_desc->msdu_paddr_lo);
-		paddr |= ((u64)(msdu_desc->msdu_paddr_hi &
-				HTT_WCN3990_PADDR_MASK) << 32);
+		paddr = __le64_to_cpu(msdu_desc->msdu_paddr);
+		paddr &= HTT_WCN3990_ARCH_PADDR_MASK;
 #else
 		paddr = __le32_to_cpu(msdu_desc->msdu_paddr);
 #endif

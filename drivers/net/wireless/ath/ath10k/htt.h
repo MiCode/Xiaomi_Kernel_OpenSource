@@ -541,6 +541,7 @@ struct htt_rx_indication_hdr {
 #define HTT_RX_INDICATION_INFO2_SERVICE_LSB     24
 
 #define HTT_WCN3990_PADDR_MASK 0x1F
+#define HTT_WCN3990_ARCH_PADDR_MASK 0x1FFFFFFFFF
 
 enum htt_rx_legacy_rate {
 	HTT_RX_OFDM_48 = 0,
@@ -865,8 +866,7 @@ struct htt_rx_offload_ind {
 
 struct htt_rx_in_ord_msdu_desc {
 #ifdef CONFIG_ATH10K_SNOC
-	__le32 msdu_paddr_lo;
-	__le32 msdu_paddr_hi;
+	__le64 msdu_paddr;
 #else
 	__le32 msdu_paddr;
 #endif

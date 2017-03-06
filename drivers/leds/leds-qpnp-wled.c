@@ -33,6 +33,7 @@
 
 /* ctrl registers */
 #define QPNP_WLED_FAULT_STATUS(b)	(b + 0x08)
+#define QPNP_WLED_INT_RT_STS(b)		(b + 0x10)
 #define QPNP_WLED_EN_REG(b)		(b + 0x46)
 #define QPNP_WLED_FDBK_OP_REG(b)	(b + 0x48)
 #define QPNP_WLED_VREF_REG(b)		(b + 0x49)
@@ -117,6 +118,9 @@
 		QPNP_WLED_TEST4_EN_CLAMP_BIT |		\
 		QPNP_WLED_TEST4_EN_SOFT_START_BIT)
 #define QPNP_WLED_TEST4_EN_IIND_UP	0x1
+#define QPNP_WLED_ILIM_FAULT_BIT	BIT(0)
+#define QPNP_WLED_OVP_FAULT_BIT		BIT(1)
+#define QPNP_WLED_SC_FAULT_BIT		BIT(2)
 
 /* sink registers */
 #define QPNP_WLED_CURR_SINK_REG(b)	(b + 0x46)
@@ -1053,16 +1057,25 @@ static irqreturn_t qpnp_wled_ovp_irq_handler(int irq, void *_wled)
 {
 	struct qpnp_wled *wled = _wled;
 	int rc;
-	u8 val;
+	u8 fault_sts, int_sts;
 
 	rc = qpnp_wled_read_reg(wled,
-			QPNP_WLED_FAULT_STATUS(wled->ctrl_base), &val);
+			QPNP_WLED_INT_RT_STS(wled->ctrl_base), &int_sts);
+	if (rc < 0) {
+		pr_err("Error in reading WLED_INT_RT_STS rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+
+	rc = qpnp_wled_read_reg(wled,
+			QPNP_WLED_FAULT_STATUS(wled->ctrl_base), &fault_sts);
 	if (rc < 0) {
 		pr_err("Error in reading WLED_FAULT_STATUS rc=%d\n", rc);
 		return IRQ_HANDLED;
 	}
 
-	pr_err("WLED OVP fault detected, fault_status= %x\n", val);
+	if (fault_sts & (QPNP_WLED_OVP_FAULT_BIT | QPNP_WLED_ILIM_FAULT_BIT))
+		pr_err("WLED OVP fault detected, int_sts=%x fault_sts= %x\n",
+			int_sts, fault_sts);
 	return IRQ_HANDLED;
 }
 
@@ -1677,6 +1690,8 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 				wled->ovp_irq, rc);
 			return rc;
 		}
+		disable_irq(wled->ovp_irq);
+		wled->ovp_irq_disabled = true;
 	}
 
 	if (wled->sc_irq >= 0) {
