@@ -171,7 +171,7 @@ Peripheral specific properties:
 Example
 =======
 
-pmicobalt_charger: qcom,qpnp-smb2 {
+pmi8998_charger: qcom,qpnp-smb2 {
 	compatible = "qcom,qpnp-smb2";
 	#address-cells = <1>;
 	#size-cells = <1>;

@@ -275,12 +275,12 @@ Second Level Nodes - Peripherals managed by FG Gen3 driver
 Example
 ========
 
-pmicobalt_fg: qpnp,fg {
+pmi8998_fg: qpnp,fg {
 	compatible = "qcom,fg-gen3";
 	#address-cells = <1>;
 	#size-cells = <1>;
-	qcom,pmic-revid = <&pmicobalt_revid>;
-	io-channels = <&pmicobalt_rradc 3>;
+	qcom,pmic-revid = <&pmi8998_revid>;
+	io-channels = <&pmi8998_rradc 3>;
 	io-channel-names = "rradc_batt_id";
 	qcom,ki-coeff-soc-dischg = <30 60 90>;
 	qcom,ki-coeff-med-dischg = <800 1000 1400>;

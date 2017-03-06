@@ -317,8 +317,8 @@ static int qnovo_check_chg_version(struct qnovo *chip)
 		return rc;
 	}
 
-	if ((chip->pmic_rev_id->pmic_subtype == PMICOBALT_SUBTYPE)
-		   && (chip->pmic_rev_id->rev4 < PMICOBALT_V2P0_REV4)) {
+	if ((chip->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE)
+		   && (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4)) {
 		chip->wa_flags |= QNOVO_ERASE_OFFSET_WA_BIT;
 		chip->wa_flags |= QNOVO_NO_ERR_STS_BIT;
 	}
