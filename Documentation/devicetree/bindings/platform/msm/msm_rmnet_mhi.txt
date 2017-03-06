@@ -1,0 +1,25 @@
+MSM MHI RMNET interface device
+
+MHI RMNET provides a network interface over PCIe
+to transfer IP packets between modem and apps.
+
+Required properties:
+- compatible : "qcom,mhi-rmnet"
+- At least one of MHI channel
+  - qcom,mhi-rx-channel : MHI channel number for incoming data
+  - qcom,mhi-tx-channel : MHI channel number for outgoing data
+- Default MRU for interface
+  - qcom,mhi-mru
+- Alias id to identify interface instance
+
+Example:
+	aliases {
+		mhi_rmnet0 = &mhi_rmnet_0;
+	};
+	mhi_rmnet_0: qcom,mhi-rmnet@0 {
+		compatible = "qcom,mhi-rmnet";
+		qcom,mhi-rx-channel = <101>;
+		qcom,mhi-tx-channel = <100>;
+		qcom,mhi-mru = <8000>;
+		status = "okay";
+	};
