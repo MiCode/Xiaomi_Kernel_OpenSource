@@ -14,6 +14,17 @@
 #include "mdm9650-v1.1.dtsi"
 #include "mdm9650-pinctrl.dtsi"
 
+&soc {
+	qcom,ntn_avb {
+		compatible = "qcom,ntn_avb";
+		qcom,ntn-rst-delay-msec = <100>;
+		qcom,ntn-rc-num = <0>;
+		qcom,ntn-fw-load-delay-msec = <200>;
+		qcom,ntn-pcierst-resx;
+		qcom,ntn-timestamp-valid-window = <4>; /* 4 is approx 67 ms */
+	};
+};
+
 &blsp1_uart3 {
 	status = "ok";
 	pinctrl-names = "default";
