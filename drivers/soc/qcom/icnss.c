@@ -110,13 +110,7 @@ module_param(qmi_timeout, ulong, 0600);
 		}							\
 	} while (0)
 #else
-#define ICNSS_ASSERT(_condition) do {					\
-		if (!(_condition)) {					\
-			icnss_pr_err("ASSERT at line %d\n",		\
-				     __LINE__);				\
-			WARN_ON(1);					\
-		}							\
-	} while (0)
+#define ICNSS_ASSERT(_condition) do { } while (0)
 #endif
 
 enum icnss_debug_quirks {
