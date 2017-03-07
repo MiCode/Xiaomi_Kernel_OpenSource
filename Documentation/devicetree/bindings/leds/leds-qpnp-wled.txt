@@ -75,6 +75,9 @@ Optional properties for WLED:
 - qcom,lcd-auto-pfm-thresh	: Specify the auto-pfm threshold, if the headroom voltage level
 				  falls below this threshold and auto PFM is enabled, boost
 				  controller will enter into PFM mode automatically.
+- qcom,lcd-psm-ctrl	: A boolean property to specify if PSM needs to be
+			  controlled dynamically when WLED module is enabled
+			  or disabled.
 
 Optional properties if 'qcom,disp-type-amoled' is mentioned in DT:
 - qcom,loop-comp-res-kohm	: control to select the compensation resistor in kohm. default is 320.

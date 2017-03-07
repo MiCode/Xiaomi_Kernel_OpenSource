@@ -245,7 +245,7 @@
 		qcom,parallel-charger;
 		qcom,float-voltage-mv = <4400>;
 		qcom,recharge-mv = <100>;
-		qcom,parallel-en-pin-polarity = <0>;
+		qcom,parallel-en-pin-polarity = <1>;
 	};
 };
 
