@@ -892,7 +892,7 @@ static u32 __calc_prefill_line_time_us(struct mdss_mdp_ctl *ctl)
 
 static u32 __get_min_prefill_line_time_us(struct mdss_mdp_ctl *ctl)
 {
-	u32 vbp_min = 0;
+	u32 vbp_min = UINT_MAX;
 	int i;
 	struct mdss_data_type *mdata;
 
@@ -913,6 +913,9 @@ static u32 __get_min_prefill_line_time_us(struct mdss_mdp_ctl *ctl)
 			vbp_min = min(vbp_min, vbp_fac);
 		}
 	}
+
+	if (vbp_min == UINT_MAX)
+		vbp_min = 0;
 
 	return vbp_min;
 }

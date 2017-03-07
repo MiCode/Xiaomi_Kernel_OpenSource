@@ -13,6 +13,8 @@
 #include "dsi-panel-sim-video.dtsi"
 #include "dsi-panel-nt35695b-truly-fhd-video.dtsi"
 #include "dsi-panel-nt35695b-truly-fhd-cmd.dtsi"
+#include "dsi-panel-truly-1080p-cmd.dtsi"
+#include "dsi-panel-truly-1080p-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -55,6 +57,12 @@
 		24 1e 08 09 05 03 04 a0
 		24 1e 08 09 05 03 04 a0
 		24 1a 08 09 05 03 04 a0];
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 };
 
 &dsi_nt35695b_truly_fhd_cmd {
@@ -63,4 +71,28 @@
 		24 1e 08 09 05 03 04 a0
 		24 1e 08 09 05 03 04 a0
 		24 1a 08 09 05 03 04 a0];
+};
+
+&dsi_truly_1080_vid {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1a 08 09 05 03 04 a0];
+	qcom,mdss-dsi-min-refresh-rate = <48>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
+};
+
+&dsi_truly_1080_cmd {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1a 08 09 05 03 04 a0];
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 };

@@ -3067,6 +3067,8 @@
 		      <0xa0000000 0x10000000>,
 		      <0xb0000000 0x10000>;
 		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
+		clocks = <&clock_gcc clk_rf_clk2_pin>;
+		clock-names = "cxo_ref_clk_pin";
 		iommus = <&anoc2_smmu 0x1900>,
 			 <&anoc2_smmu 0x1901>;
 		interrupts = <0 413 0 /* CE0 */ >,
@@ -3082,6 +3084,12 @@
 			     <0 424 0 /* CE10 */ >,
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
+		vdd-0.8-cx-mx-supply = <&pm8998_l5>;
+		vdd-1.8-xo-supply = <&pm8998_l7_pin_ctrl>;
+		vdd-1.3-rfa-supply = <&pm8998_l17_pin_ctrl>;
+		vdd-3.3-ch0-supply = <&pm8998_l25_pin_ctrl>;
+		qcom,vdd-0.8-cx-mx-config = <800000 800000>;
+		qcom,vdd-3.3-ch0-config = <3104000 3312000>;
 		qcom,icnss-vadc = <&pm8998_vadc>;
 		qcom,icnss-adc_tm = <&pm8998_adc_tm>;
 	};

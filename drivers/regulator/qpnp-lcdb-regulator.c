@@ -190,6 +190,9 @@ struct qpnp_lcdb {
 	bool				ttw_enable;
 	bool				ttw_mode_sw;
 
+	/* top level DT params */
+	bool				force_module_reenable;
+
 	/* status parameters */
 	bool				lcdb_enabled;
 	bool				settings_saved;
@@ -586,6 +589,23 @@ static int qpnp_lcdb_enable(struct qpnp_lcdb *lcdb)
 	if (rc < 0) {
 		pr_err("Failed to enable lcdb rc= %d\n", rc);
 		goto fail_enable;
+	}
+
+	if (lcdb->force_module_reenable) {
+		val = 0;
+		rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
+								&val, 1);
+		if (rc < 0) {
+			pr_err("Failed to enable lcdb rc= %d\n", rc);
+			goto fail_enable;
+		}
+		val = MODULE_EN_BIT;
+		rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
+								&val, 1);
+		if (rc < 0) {
+			pr_err("Failed to disable lcdb rc= %d\n", rc);
+			goto fail_enable;
+		}
 	}
 
 	/* poll for vreg_ok */
@@ -1589,6 +1609,9 @@ static int qpnp_lcdb_parse_dt(struct qpnp_lcdb *lcdb)
 			return rc;
 		}
 	}
+
+	lcdb->force_module_reenable = of_property_read_bool(node,
+					"qcom,force-module-reenable");
 
 	if (of_property_read_bool(node, "qcom,ttw-enable")) {
 		rc = qpnp_lcdb_parse_ttw(lcdb);

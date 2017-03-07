@@ -235,7 +235,6 @@
 &pm660_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,fg-jeita-thresholds = <0 5 55 55>;
-	qcom,fg-cutoff-voltage = <3700>;
 };
 
 &i2c_2 {
@@ -249,6 +248,9 @@
 		qcom,parallel-en-pin-polarity = <0>;
 	};
 };
+
+/delete-node/ &tasha_hph_en0;
+/delete-node/ &tasha_hph_en1;
 
 &tasha_snd {
 	qcom,model = "sdm660-tasha-skus-snd-card";

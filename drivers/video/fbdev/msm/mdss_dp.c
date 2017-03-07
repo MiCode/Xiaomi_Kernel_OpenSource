@@ -1038,6 +1038,22 @@ static int dp_get_audio_edid_blk(struct platform_device *pdev,
 	return rc;
 } /* dp_get_audio_edid_blk */
 
+static void dp_audio_teardown_done(struct platform_device *pdev)
+{
+	struct mdss_dp_drv_pdata *dp = platform_get_drvdata(pdev);
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	mdss_dp_audio_enable(&dp->ctrl_io, false);
+	/* Make sure the DP audio engine is disabled */
+	wmb();
+
+	pr_debug("audio engine disabled\n");
+} /* dp_audio_teardown_done */
+
 static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
@@ -1059,6 +1075,8 @@ static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 		dp_get_audio_edid_blk;
 	dp->ext_audio_data.codec_ops.cable_status =
 		dp_get_cable_status;
+	dp->ext_audio_data.codec_ops.teardown_done =
+		dp_audio_teardown_done;
 
 	if (!dp->pdev->dev.of_node) {
 		pr_err("%s cannot find dp dev.of_node\n", __func__);
