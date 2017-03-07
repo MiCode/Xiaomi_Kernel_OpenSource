@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +34,7 @@
 
 enum ev_index {
 	INST_IDX,
-	L2DM_IDX,
+	CM_IDX,
 	CYC_IDX,
 	NUM_EVENTS
 };
@@ -51,6 +51,8 @@ struct memlat_hwmon_data {
 	struct event_data events[NUM_EVENTS];
 	ktime_t prev_ts;
 	bool init_pending;
+	unsigned long cache_miss_event;
+	unsigned long inst_event;
 };
 static DEFINE_PER_CPU(struct memlat_hwmon_data, pm_data);
 
@@ -111,7 +113,7 @@ static void read_perf_counters(int cpu, struct cpu_grp_info *cpu_grp)
 			read_event(&hw_data->events[INST_IDX]);
 
 	hw->core_stats[cpu_idx].mem_count =
-			read_event(&hw_data->events[L2DM_IDX]);
+			read_event(&hw_data->events[CM_IDX]);
 
 	cyc_cnt = read_event(&hw_data->events[CYC_IDX]);
 	hw->core_stats[cpu_idx].freq = compute_freq(hw_data, cyc_cnt);
@@ -192,19 +194,19 @@ static int set_events(struct memlat_hwmon_data *hw_data, int cpu)
 	if (IS_ERR(attr))
 		return PTR_ERR(attr);
 
-	attr->config = INST_EV;
+	attr->config = hw_data->inst_event;
 	pevent = perf_event_create_kernel_counter(attr, cpu, NULL, NULL, NULL);
 	if (IS_ERR(pevent))
 		goto err_out;
 	hw_data->events[INST_IDX].pevent = pevent;
 	perf_event_enable(hw_data->events[INST_IDX].pevent);
 
-	attr->config = L2DM_EV;
+	attr->config = hw_data->cache_miss_event;
 	pevent = perf_event_create_kernel_counter(attr, cpu, NULL, NULL, NULL);
 	if (IS_ERR(pevent))
 		goto err_out;
-	hw_data->events[L2DM_IDX].pevent = pevent;
-	perf_event_enable(hw_data->events[L2DM_IDX].pevent);
+	hw_data->events[CM_IDX].pevent = pevent;
+	perf_event_enable(hw_data->events[CM_IDX].pevent);
 
 	attr->config = CYC_EV;
 	pevent = perf_event_create_kernel_counter(attr, cpu, NULL, NULL, NULL);
@@ -300,6 +302,7 @@ static int arm_memlat_mon_driver_probe(struct platform_device *pdev)
 	struct memlat_hwmon *hw;
 	struct cpu_grp_info *cpu_grp;
 	int cpu, ret;
+	u32 cachemiss_ev, inst_ev;
 
 	cpu_grp = devm_kzalloc(dev, sizeof(*cpu_grp), GFP_KERNEL);
 	if (!cpu_grp)
@@ -325,8 +328,26 @@ static int arm_memlat_mon_driver_probe(struct platform_device *pdev)
 	if (!hw->core_stats)
 		return -ENOMEM;
 
-	for_each_cpu(cpu, &cpu_grp->cpus)
+	ret = of_property_read_u32(dev->of_node, "qcom,cachemiss-ev",
+			&cachemiss_ev);
+	if (ret) {
+		dev_dbg(dev, "Cache Miss event not specified. Using def:0x%x\n",
+				L2DM_EV);
+		cachemiss_ev = L2DM_EV;
+	}
+
+	ret = of_property_read_u32(dev->of_node, "qcom,inst-ev", &inst_ev);
+	if (ret) {
+		dev_dbg(dev, "Inst event not specified. Using def:0x%x\n",
+				INST_EV);
+		inst_ev = INST_EV;
+	}
+
+	for_each_cpu(cpu, &cpu_grp->cpus) {
 		hw->core_stats[cpu - cpumask_first(&cpu_grp->cpus)].id = cpu;
+		(&per_cpu(pm_data, cpu))->cache_miss_event = cachemiss_ev;
+		(&per_cpu(pm_data, cpu))->inst_event = inst_ev;
+	}
 
 	hw->start_hwmon = &start_hwmon;
 	hw->stop_hwmon = &stop_hwmon;
