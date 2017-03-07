@@ -263,10 +263,11 @@ struct drm_msm_event_resp {
 #define DRM_MSM_GEM_CPU_FINI           0x05
 #define DRM_MSM_GEM_SUBMIT             0x06
 #define DRM_MSM_WAIT_FENCE             0x07
-#define DRM_SDE_WB_CONFIG              0x08
-#define DRM_MSM_REGISTER_EVENT         0x09
-#define DRM_MSM_DEREGISTER_EVENT       0x0A
-#define DRM_MSM_NUM_IOCTLS             0x0B
+
+#define DRM_SDE_WB_CONFIG              0x40
+#define DRM_MSM_REGISTER_EVENT         0x41
+#define DRM_MSM_DEREGISTER_EVENT       0x42
+#define DRM_MSM_NUM_IOCTLS             0x43
 
 /**
  * Currently DRM framework supports only VSYNC event.
