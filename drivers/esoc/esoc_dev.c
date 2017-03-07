@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -214,7 +214,7 @@ static long esoc_dev_ioctl(struct file *file, unsigned int cmd,
 							esoc_clink->name);
 				return -EIO;
 			}
-			put_user(req, (unsigned long __user *)uarg);
+			put_user(req, (unsigned int __user *)uarg);
 
 		}
 		return err;
@@ -224,10 +224,12 @@ static long esoc_dev_ioctl(struct file *file, unsigned int cmd,
 		clink_ops->notify(esoc_cmd, esoc_clink);
 		break;
 	case ESOC_GET_STATUS:
-		err = clink_ops->get_status(&status, esoc_clink);
-		if (err)
-			return err;
-		put_user(status, (unsigned long __user *)uarg);
+		clink_ops->get_status(&status, esoc_clink);
+		put_user(status, (unsigned int __user *)uarg);
+		break;
+	case ESOC_GET_ERR_FATAL:
+		clink_ops->get_err_fatal(&status, esoc_clink);
+		put_user(status, (unsigned int __user *)uarg);
 		break;
 	case ESOC_WAIT_FOR_CRASH:
 		err = wait_event_interruptible(esoc_udev->evt_wait,
@@ -241,7 +243,7 @@ static long esoc_dev_ioctl(struct file *file, unsigned int cmd,
 							esoc_clink->name);
 				return -EIO;
 			}
-			put_user(evt, (unsigned long __user *)uarg);
+			put_user(evt, (unsigned int __user *)uarg);
 		}
 		return err;
 		break;
