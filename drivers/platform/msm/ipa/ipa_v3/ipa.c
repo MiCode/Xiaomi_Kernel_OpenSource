@@ -3122,6 +3122,12 @@ static const struct file_operations ipa3_drv_fops = {
 
 static int ipa3_get_clks(struct device *dev)
 {
+	if (ipa3_res.use_bw_vote) {
+		IPADBG("Vote IPA clock by bw voting via bus scaling driver\n");
+		ipa3_clk = NULL;
+		return 0;
+	}
+
 	ipa3_clk = clk_get(dev, "core_clk");
 	if (IS_ERR(ipa3_clk)) {
 		if (ipa3_clk != ERR_PTR(-EPROBE_DEFER))
@@ -3136,17 +3142,15 @@ static int ipa3_get_clks(struct device *dev)
  */
 void _ipa_enable_clks_v3_0(void)
 {
-	IPADBG_LOW("enabling gcc_ipa_clk\n");
+	IPADBG_LOW("curr_ipa_clk_rate=%d", ipa3_ctx->curr_ipa_clk_rate);
 	if (ipa3_clk) {
+		IPADBG_LOW("enabling gcc_ipa_clk\n");
 		clk_prepare(ipa3_clk);
 		clk_enable(ipa3_clk);
-		IPADBG_LOW("curr_ipa_clk_rate=%d", ipa3_ctx->curr_ipa_clk_rate);
 		clk_set_rate(ipa3_clk, ipa3_ctx->curr_ipa_clk_rate);
-		ipa3_uc_notify_clk_state(true);
-	} else {
-		WARN_ON(1);
 	}
 
+	ipa3_uc_notify_clk_state(true);
 	ipa3_suspend_apps_pipes(false);
 }
 
@@ -3184,12 +3188,11 @@ void ipa3_enable_clks(void)
 {
 	IPADBG("enabling IPA clocks and bus voting\n");
 
-	ipa3_ctx->ctrl->ipa3_enable_clks();
+	if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl,
+	    ipa3_get_bus_vote()))
+		WARN_ON(1);
 
-	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL)
-		if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl,
-		    ipa3_get_bus_vote()))
-			WARN_ON(1);
+	ipa3_ctx->ctrl->ipa3_enable_clks();
 }
 
 
@@ -3198,13 +3201,12 @@ void ipa3_enable_clks(void)
  */
 void _ipa_disable_clks_v3_0(void)
 {
-	IPADBG_LOW("disabling gcc_ipa_clk\n");
 	ipa3_suspend_apps_pipes(true);
 	ipa3_uc_notify_clk_state(false);
-	if (ipa3_clk)
+	if (ipa3_clk) {
+		IPADBG_LOW("disabling gcc_ipa_clk\n");
 		clk_disable_unprepare(ipa3_clk);
-	else
-		WARN_ON(1);
+	}
 }
 
 /**
@@ -3219,10 +3221,8 @@ void ipa3_disable_clks(void)
 
 	ipa3_ctx->ctrl->ipa3_disable_clks();
 
-	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL)
-		if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl,
-		    0))
-			WARN_ON(1);
+	if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl, 0))
+		WARN_ON(1);
 }
 
 /**
@@ -3524,11 +3524,11 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	ipa3_ctx->curr_ipa_clk_rate = clk_rate;
 	IPADBG_LOW("setting clock rate to %u\n", ipa3_ctx->curr_ipa_clk_rate);
 	if (ipa3_ctx->ipa3_active_clients.cnt > 0) {
-		clk_set_rate(ipa3_clk, ipa3_ctx->curr_ipa_clk_rate);
-		if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL)
-			if (msm_bus_scale_client_update_request(
-			    ipa3_ctx->ipa_bus_hdl, ipa3_get_bus_vote()))
-				WARN_ON(1);
+		if (ipa3_clk)
+			clk_set_rate(ipa3_clk, ipa3_ctx->curr_ipa_clk_rate);
+		if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl,
+			ipa3_get_bus_vote()))
+			WARN_ON(1);
 	} else {
 		IPADBG_LOW("clocks are gated, not setting rate\n");
 	}
@@ -4008,6 +4008,9 @@ fail_register_device:
 	destroy_workqueue(ipa3_ctx->power_mgmt_wq);
 	iounmap(ipa3_ctx->mmio);
 	ipa3_disable_clks();
+	if (ipa3_clk)
+		clk_put(ipa3_clk);
+	ipa3_clk = NULL;
 	msm_bus_scale_unregister_client(ipa3_ctx->ipa_bus_hdl);
 	if (ipa3_bus_scale_table) {
 		msm_bus_cl_clear_pdata(ipa3_bus_scale_table);
@@ -4293,22 +4296,19 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	}
 
 	if (ipa3_bus_scale_table) {
-		IPADBG("Use bus scaling info from device tree\n");
+		IPADBG("Use bus scaling info from device tree #usecases=%d\n",
+			ipa3_bus_scale_table->num_usecases);
 		ipa3_ctx->ctrl->msm_bus_data_ptr = ipa3_bus_scale_table;
 	}
 
-	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL) {
-		/* get BUS handle */
-		ipa3_ctx->ipa_bus_hdl =
-			msm_bus_scale_register_client(
-				ipa3_ctx->ctrl->msm_bus_data_ptr);
-		if (!ipa3_ctx->ipa_bus_hdl) {
-			IPAERR("fail to register with bus mgr!\n");
-			result = -ENODEV;
-			goto fail_bus_reg;
-		}
-	} else {
-		IPADBG("Skipping bus scaling registration on Virtual plat\n");
+	/* get BUS handle */
+	ipa3_ctx->ipa_bus_hdl =
+		msm_bus_scale_register_client(
+			ipa3_ctx->ctrl->msm_bus_data_ptr);
+	if (!ipa3_ctx->ipa_bus_hdl) {
+		IPAERR("fail to register with bus mgr!\n");
+		result = -ENODEV;
+		goto fail_bus_reg;
 	}
 
 	/* get IPA clocks */
@@ -4684,9 +4684,16 @@ fail_remap:
 	ipa3_disable_clks();
 	ipa3_active_clients_log_destroy();
 fail_init_active_client:
+	if (ipa3_clk)
+		clk_put(ipa3_clk);
+	ipa3_clk = NULL;
 fail_clk:
 	msm_bus_scale_unregister_client(ipa3_ctx->ipa_bus_hdl);
 fail_bus_reg:
+	if (ipa3_bus_scale_table) {
+		msm_bus_cl_clear_pdata(ipa3_bus_scale_table);
+		ipa3_bus_scale_table = NULL;
+	}
 fail_init_mem_partition:
 fail_bind:
 	kfree(ipa3_ctx->ctrl);
@@ -4717,6 +4724,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->ipa_wdi2 = false;
 	ipa_drv_res->use_64_bit_dma_mask = false;
+	ipa_drv_res->use_bw_vote = false;
 	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 	ipa_drv_res->lan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 	ipa_drv_res->apply_rg10_wa = false;
@@ -4794,6 +4802,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,use-64-bit-dma-mask");
 	IPADBG(": use_64_bit_dma_mask = %s\n",
 			ipa_drv_res->use_64_bit_dma_mask
+			? "True" : "False");
+
+	ipa_drv_res->use_bw_vote =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,bandwidth-vote-for-ipa");
+	IPADBG(": use_bw_vote = %s\n",
+			ipa_drv_res->use_bw_vote
 			? "True" : "False");
 
 	ipa_drv_res->skip_uc_pipe_reset =

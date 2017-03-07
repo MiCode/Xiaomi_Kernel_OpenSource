@@ -56,6 +56,9 @@ memory allocation over a PCIe bridge
                                 a pipe reset via the IPA uC is required
 - qcom,ipa-wdi2:		Boolean context flag to indicate whether
 				using wdi-2.0 or not
+- qcom,bandwidth-vote-for-ipa:	Boolean context flag to indicate whether
+				ipa clock voting is done by bandwidth
+				voting via msm-bus-scale driver or not
 - qcom,use-dma-zone:            Boolean context flag to indicate whether memory
                                 allocations controlled by IPA driver that do not
 				specify a struct device * should use GFP_DMA to

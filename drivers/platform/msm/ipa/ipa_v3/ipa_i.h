@@ -1054,7 +1054,7 @@ struct ipa_tz_unlock_reg_info {
  * @ctrl: holds the core specific operations based on
  *  core version (vtable like)
  * @enable_clock_scaling: clock scaling is enabled ?
- * @curr_ipa_clk_rate: ipa3_clk current rate
+ * @curr_ipa_clk_rate: IPA current clock rate
  * @wcstats: wlan common buffer stats
  * @uc_ctx: uC interface context
  * @uc_wdi_ctx: WDI specific fields for uC interface
@@ -1209,6 +1209,7 @@ struct ipa3_plat_drv_res {
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
 	bool use_64_bit_dma_mask;
+	bool use_bw_vote;
 	u32 wan_rx_ring_size;
 	u32 lan_rx_ring_size;
 	bool skip_uc_pipe_reset;
