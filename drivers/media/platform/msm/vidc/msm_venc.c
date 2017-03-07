@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1720,11 +1720,15 @@ static inline int msm_venc_power_save_mode_enable(struct msm_vidc_inst *inst)
 	power_save_min = inst->capability.mbs_per_sec_power_save.min;
 	power_save_max = inst->capability.mbs_per_sec_power_save.max;
 
+	dprintk(VIDC_DBG,
+		"Power Save Mode min mb's %d max mb's %d inst load %d\n",
+		power_save_min, power_save_max, inst_load);
+
 	if (!power_save_min || !power_save_max)
 		return rc;
 
 	hdev = inst->core->device;
-	if (inst_load >= power_save_min && inst_load <= power_save_max) {
+	if (inst_load >= power_save_min) {
 		prop_id = HAL_CONFIG_VENC_PERF_MODE;
 		venc_mode = HAL_PERF_MODE_POWER_SAVE;
 		pdata = &venc_mode;

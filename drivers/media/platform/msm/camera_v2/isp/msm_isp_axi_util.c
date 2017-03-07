@@ -2272,8 +2272,10 @@ int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	uint64_t total_pix_bandwidth = 0, total_rdi_bandwidth = 0;
+	uint64_t total_fe_bandwidth = 0;
 	uint32_t num_pix_streams = 0;
 	uint64_t total_bandwidth = 0;
+	int bpp = 0;
 
 	for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
 		stream_info = &axi_data->stream_info[i];
@@ -2297,7 +2299,16 @@ int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev,
 		}
 	}
 
-	total_bandwidth = total_pix_bandwidth + total_rdi_bandwidth;
+	if (axi_data->src_info[VFE_PIX_0].input_mux == EXTERNAL_READ
+		&& num_pix_streams){
+			bpp = msm_isp_get_bit_per_pixel(axi_data->
+			src_info[VFE_PIX_0].input_format);
+			total_fe_bandwidth =
+			(axi_data->src_info[VFE_PIX_0].pixel_clock / 8) * bpp;
+	}
+
+	total_bandwidth = total_pix_bandwidth + total_rdi_bandwidth +
+			total_fe_bandwidth;
 		rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
 			(total_bandwidth + vfe_dev->hw_info->min_ab),
 			(total_bandwidth + vfe_dev->hw_info->min_ib));
