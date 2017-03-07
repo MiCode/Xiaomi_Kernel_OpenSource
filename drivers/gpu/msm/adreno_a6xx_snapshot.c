@@ -342,6 +342,13 @@ static const struct adreno_debugbus_block a6xx_dbgc_debugbus_blocks[] = {
 	{ A6XX_DBGBUS_TPL1_3, 0x100, },
 };
 
+static void __iomem *a6xx_cx_dbgc;
+static const struct adreno_debugbus_block a6xx_cx_dbgc_debugbus_blocks[] = {
+	{ A6XX_DBGBUS_VBIF, 0x100, },
+	{ A6XX_DBGBUS_GMU, 0x100, },
+	{ A6XX_DBGBUS_CX, 0x100, },
+};
+
 #define A6XX_NUM_SHADER_BANKS 3
 #define A6XX_SHADER_STATETYPE_SHIFT 8
 
@@ -904,6 +911,100 @@ static size_t a6xx_snapshot_dbgc_debugbus_block(struct kgsl_device *device,
 	return size;
 }
 
+static void _cx_dbgc_regread(unsigned int offsetwords, unsigned int *value)
+{
+	void __iomem *reg;
+
+	if (WARN((offsetwords < A6XX_CX_DBGC_CFG_DBGBUS_SEL_A) ||
+		(offsetwords > A6XX_CX_DBGC_CFG_DBGBUS_TRACE_BUF2),
+		"Read beyond CX_DBGC block: 0x%x\n", offsetwords))
+		return;
+
+	reg = a6xx_cx_dbgc +
+		((offsetwords - A6XX_CX_DBGC_CFG_DBGBUS_SEL_A) << 2);
+	*value = __raw_readl(reg);
+
+	/*
+	 * ensure this read finishes before the next one.
+	 * i.e. act like normal readl()
+	 */
+	rmb();
+}
+
+static void _cx_dbgc_regwrite(unsigned int offsetwords, unsigned int value)
+{
+	void __iomem *reg;
+
+	if (WARN((offsetwords < A6XX_CX_DBGC_CFG_DBGBUS_SEL_A) ||
+		(offsetwords > A6XX_CX_DBGC_CFG_DBGBUS_TRACE_BUF2),
+		"Write beyond CX_DBGC block: 0x%x\n", offsetwords))
+		return;
+
+	reg = a6xx_cx_dbgc +
+		((offsetwords - A6XX_CX_DBGC_CFG_DBGBUS_SEL_A) << 2);
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, reg);
+}
+
+/* a6xx_cx_dbgc_debug_bus_read() - Read data from trace bus */
+static void a6xx_cx_debug_bus_read(struct kgsl_device *device,
+	unsigned int block_id, unsigned int index, unsigned int *val)
+{
+	unsigned int reg;
+
+	reg = (block_id << A6XX_CX_DBGC_CFG_DBGBUS_SEL_PING_BLK_SEL_SHIFT) |
+			(index << A6XX_CX_DBGC_CFG_DBGBUS_SEL_PING_INDEX_SHIFT);
+
+	_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_SEL_A, reg);
+	_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_SEL_B, reg);
+	_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_SEL_C, reg);
+	_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_SEL_D, reg);
+
+	_cx_dbgc_regread(A6XX_CX_DBGC_CFG_DBGBUS_TRACE_BUF2, val);
+	val++;
+	_cx_dbgc_regread(A6XX_CX_DBGC_CFG_DBGBUS_TRACE_BUF1, val);
+}
+
+/*
+ * a6xx_snapshot_cx_dbgc_debugbus_block() - Capture debug data for a gpu
+ * block from the CX DBGC block
+ */
+static size_t a6xx_snapshot_cx_dbgc_debugbus_block(struct kgsl_device *device,
+	u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_debugbus *header =
+		(struct kgsl_snapshot_debugbus *)buf;
+	struct adreno_debugbus_block *block = priv;
+	int i;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	unsigned int dwords;
+	size_t size;
+
+	dwords = block->dwords;
+
+	/* For a6xx each debug bus data unit is 2 DWRODS */
+	size = (dwords * sizeof(unsigned int) * 2) + sizeof(*header);
+
+	if (remain < size) {
+		SNAPSHOT_ERR_NOMEM(device, "DEBUGBUS");
+		return 0;
+	}
+
+	header->id = block->block_id;
+	header->count = dwords * 2;
+
+	for (i = 0; i < dwords; i++)
+		a6xx_cx_debug_bus_read(device, block->block_id, i,
+					&data[i*2]);
+
+	return size;
+}
+
 /* a6xx_snapshot_debugbus() - Capture debug bus data */
 static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
@@ -947,11 +1048,66 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_MASKL_2, 0);
 	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_MASKL_3, 0);
 
+	a6xx_cx_dbgc = ioremap(device->reg_phys +
+			(A6XX_CX_DBGC_CFG_DBGBUS_SEL_A << 2),
+			(A6XX_CX_DBGC_CFG_DBGBUS_TRACE_BUF2 -
+				A6XX_CX_DBGC_CFG_DBGBUS_SEL_A + 1) << 2);
+
+	if (a6xx_cx_dbgc) {
+		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_CNTLT,
+		(0xf << A6XX_DBGC_CFG_DBGBUS_CNTLT_SEGT_SHIFT) |
+		(0x4 << A6XX_DBGC_CFG_DBGBUS_CNTLT_GRANU_SHIFT) |
+		(0x20 << A6XX_DBGC_CFG_DBGBUS_CNTLT_TRACEEN_SHIFT));
+
+		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_CNTLM,
+			0xf << A6XX_CX_DBGC_CFG_DBGBUS_CNTLM_ENABLE_SHIFT);
+
+		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_IVTL_0, 0);
+		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_IVTL_1, 0);
+		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_IVTL_2, 0);
+		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_IVTL_3, 0);
+
+		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_BYTEL_0,
+			(0 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL0_SHIFT) |
+			(1 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL1_SHIFT) |
+			(2 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL2_SHIFT) |
+			(3 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL3_SHIFT) |
+			(4 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL4_SHIFT) |
+			(5 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL5_SHIFT) |
+			(6 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL6_SHIFT) |
+			(7 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL7_SHIFT));
+		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_BYTEL_1,
+			(8 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL8_SHIFT) |
+			(9 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL9_SHIFT) |
+			(10 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL10_SHIFT) |
+			(11 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL11_SHIFT) |
+			(12 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL12_SHIFT) |
+			(13 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL13_SHIFT) |
+			(14 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL14_SHIFT) |
+			(15 << A6XX_CX_DBGC_CFG_DBGBUS_BYTEL15_SHIFT));
+
+		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_MASKL_0, 0);
+		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_MASKL_1, 0);
+		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_MASKL_2, 0);
+		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_MASKL_3, 0);
+	} else
+		KGSL_DRV_ERR(device, "Unable to ioremap CX_DBGC_CFG block\n");
+
 	for (i = 0; i < ARRAY_SIZE(a6xx_dbgc_debugbus_blocks); i++) {
 		kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_DEBUGBUS,
 			snapshot, a6xx_snapshot_dbgc_debugbus_block,
 			(void *) &a6xx_dbgc_debugbus_blocks[i]);
+	}
+
+	if (a6xx_cx_dbgc) {
+		for (i = 0; i < ARRAY_SIZE(a6xx_cx_dbgc_debugbus_blocks); i++) {
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+				snapshot, a6xx_snapshot_cx_dbgc_debugbus_block,
+				(void *) &a6xx_cx_dbgc_debugbus_blocks[i]);
+		}
+		iounmap(a6xx_cx_dbgc);
 	}
 }
 
