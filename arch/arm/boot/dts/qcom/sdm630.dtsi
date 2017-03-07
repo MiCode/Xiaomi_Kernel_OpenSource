@@ -2216,4 +2216,9 @@
 			debounce-interval = <15>;
 		};
 	};
+
+	devfreq_spdm_cpu {
+		qcom,bw-dwnstep = <6750>;
+		qcom,max-vote = <6750>;
+	};
 };
