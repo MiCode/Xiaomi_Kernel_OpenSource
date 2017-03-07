@@ -931,6 +931,8 @@
 		clocks = <&clock_rpmcc RPM_DIV_CLK1>;
 		qcom,node_has_rpm_clock;
 		#clock-cells = <1>;
+		qcom,codec-mclk-clk-freq = <11289600>;
+		qcom,mclk-clk-reg = <0x15020018 0x0>;
 		pinctrl-names = "sleep", "active";
 		pinctrl-0 = <&lpi_mclk0_sleep>;
 		pinctrl-1 = <&lpi_mclk0_active>;
