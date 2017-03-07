@@ -84,8 +84,15 @@ static int dummy_probe(struct platform_device *pdev)
 
 	drvdata->traceid = traceid++;
 
-	desc->type = CORESIGHT_DEV_TYPE_SOURCE;
-	desc->subtype.source_subtype = CORESIGHT_DEV_SUBTYPE_SOURCE_PROC;
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,dummy-source")) {
+		desc->type = CORESIGHT_DEV_TYPE_SOURCE;
+		desc->subtype.source_subtype =
+					CORESIGHT_DEV_SUBTYPE_SOURCE_PROC;
+	} else {
+		dev_info(dev, "Device type not set.\n");
+		return -EINVAL;
+	}
+
 	desc->ops = &dummy_cs_ops;
 	desc->pdata = pdev->dev.platform_data;
 	desc->dev = &pdev->dev;
