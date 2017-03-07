@@ -208,6 +208,7 @@ struct mmc_cmdq_req {
 	unsigned int		resp_arg;
 	unsigned int		dev_pend_tasks;
 	bool			resp_err;
+	bool			skip_err_handling;
 	int			tag; /* used for command queuing */
 	u8			ctx_id;
 };

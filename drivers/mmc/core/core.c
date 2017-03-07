@@ -2110,6 +2110,38 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort)
 EXPORT_SYMBOL(__mmc_claim_host);
 
 /**
+ *     mmc_try_claim_host - try exclusively to claim a host
+ *        and keep trying for given time, with a gap of 10ms
+ *     @host: mmc host to claim
+ *     @dealy_ms: delay in ms
+ *
+ *     Returns %1 if the host is claimed, %0 otherwise.
+ */
+int mmc_try_claim_host(struct mmc_host *host, unsigned int delay_ms)
+{
+	int claimed_host = 0;
+	unsigned long flags;
+	int retry_cnt = delay_ms/10;
+
+	do {
+		spin_lock_irqsave(&host->lock, flags);
+		if (!host->claimed || host->claimer == current) {
+			host->claimed = 1;
+			host->claimer = current;
+			host->claim_cnt += 1;
+			claimed_host = 1;
+		}
+		spin_unlock_irqrestore(&host->lock, flags);
+		if (!claimed_host)
+			mmc_delay(10);
+	} while (!claimed_host && retry_cnt--);
+	if (host->ops->enable && claimed_host && host->claim_cnt == 1)
+		host->ops->enable(host);
+	return claimed_host;
+}
+EXPORT_SYMBOL(mmc_try_claim_host);
+
+/**
  *	mmc_release_host - release a host
  *	@host: mmc host to release
  *
