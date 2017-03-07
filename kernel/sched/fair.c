@@ -5898,7 +5898,7 @@ static inline bool __task_fits(struct task_struct *p, int cpu, int util)
 	else
 		margin = capacity_margin;
 
-	return (capacity_of(cpu) * 1024) > (util * margin);
+	return (capacity_orig_of(cpu) * 1024) > (util * margin);
 }
 
 static inline bool task_fits_max(struct task_struct *p, int cpu)
@@ -5919,7 +5919,7 @@ static inline bool task_fits_spare(struct task_struct *p, int cpu)
 
 static bool __cpu_overutilized(int cpu, int delta)
 {
-	return (capacity_of(cpu) * 1024) <
+	return (capacity_orig_of(cpu) * 1024) <
 	       ((cpu_util(cpu) + delta) * capacity_margin);
 }
 
@@ -6713,7 +6713,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			 * Ideally we should query the energy model for the right
 			 * answer but it easily ends up in an exhaustive search.
 			 */
-			if (capacity_of(max_cap_cpu) < target_max_cap &&
+			if (capacity_orig_of(max_cap_cpu) < target_max_cap &&
 			    task_fits_max(p, max_cap_cpu)) {
 				sg_target = sg;
 				target_max_cap = capacity_of(max_cap_cpu);
@@ -9210,7 +9210,7 @@ static struct rq *find_busiest_queue(struct lb_env *env,
 		 */
 		if (energy_aware() &&
 		    capacity_orig_of(i) < capacity_orig_of(env->dst_cpu) &&
-		    rq->cfs.h_nr_running == 1 && rq->misfit_task &&
+		    rq->misfit_task &&
 		    env->busiest_group_type == group_misfit_task) {
 			busiest_load = wl;
 			busiest_capacity = capacity;
@@ -9276,13 +9276,6 @@ static int need_active_balance(struct lb_env *env)
 		    (capacity_of(env->src_cpu)*sd->imbalance_pct < capacity_of(env->dst_cpu)*100))
 			return 1;
 	}
-
-	if (energy_aware() &&
-	    capacity_of(env->src_cpu) < capacity_of(env->dst_cpu) &&
-	    capacity_orig_of(env->src_cpu) < capacity_orig_of(env->dst_cpu) &&
-	    env->src_rq->cfs.h_nr_running == 1 &&
-	    cpu_overutilized(env->src_cpu) && !cpu_overutilized(env->dst_cpu))
-		return 1;
 
 	if ((env->idle != CPU_NOT_IDLE) &&
 	    (capacity_orig_of(env->src_cpu) < capacity_orig_of(env->dst_cpu)) &&
