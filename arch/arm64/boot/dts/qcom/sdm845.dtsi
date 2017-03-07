@@ -751,9 +751,119 @@
 		#reset-cells = <1>;
 	};
 
-	clock_cpucc: qcom,cpucc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "cpucc_clocks";
+	clock_cpucc: qcom,cpucc@0x17d41000 {
+		compatible = "qcom,clk-cpu-osm";
+		reg = <0x17d41000 0x1400>,
+			<0x17d43000 0x1400>,
+			<0x17d45800 0x1400>,
+			<0x178d0000 0x1000>,
+			<0x178c0000 0x1000>,
+			<0x178b0000 0x1000>,
+			<0x17d42400 0x0c00>,
+			<0x17d44400 0x0c00>,
+			<0x17d46c00 0x0c00>,
+			<0x17810090 0x8>;
+		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base",
+			"l3_pll", "pwrcl_pll", "perfcl_pll",
+			"l3_sequencer", "pwrcl_sequencer",
+			"perfcl_sequencer", "apps_itm_ctl";
+
+		vdd-l3-supply = <&apc0_l3_vreg>;
+		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
+		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
+
+		qcom,l3-speedbin0-v0 =
+			<   300000000 0x000c000f 0x00002020 0x1 1 >,
+			<   422400000 0x50140116 0x00002020 0x1 2 >,
+			<   499200000 0x5014021a 0x00002020 0x1 3 >,
+			<   576000000 0x5014031e 0x00002020 0x1 4 >,
+			<   652800000 0x501c0422 0x00002020 0x1 5 >,
+			<   729600000 0x501c0526 0x00002020 0x1 6 >,
+			<   806400000 0x501c062a 0x00002222 0x1 7 >;
+
+		qcom,pwrcl-speedbin0-v0 =
+			<   300000000 0x000c000f 0x00002020 0x1 1 >,
+			<   422400000 0x50140116 0x00002020 0x1 2 >,
+			<   499200000 0x5014021a 0x00002020 0x1 3 >,
+			<   576000000 0x5014031e 0x00002020 0x1 4 >,
+			<   652800000 0x501c0422 0x00002020 0x1 5 >,
+			<   748800000 0x501c0527 0x00002020 0x1 6 >,
+			<   825600000 0x401c062b 0x00002222 0x1 7 >,
+			<   902400000 0x4024072f 0x00002626 0x1 8 >,
+			<   979200000 0x40240833 0x00002929 0x1 9 >,
+			<  1056000000 0x402c0937 0x00002c2c 0x1 10 >,
+			<  1132800000 0x402c0a3b 0x00002f2f 0x1 11 >,
+			<  1209600000 0x402c0b3f 0x00003333 0x1 12 >;
+
+		qcom,perfcl-speedbin0-v0 =
+			<   300000000 0x000c000f 0x00002020 0x1 1 >,
+			<   422400000 0x50140116 0x00002020 0x1 2 >,
+			<   499200000 0x5014021a 0x00002020 0x1 3 >,
+			<   576000000 0x5014031e 0x00002020 0x1 4 >,
+			<   652800000 0x501c0422 0x00002020 0x1 5 >,
+			<   729600000 0x501c0526 0x00002020 0x1 6 >,
+			<   806400000 0x501c062a 0x00002222 0x1 7 >,
+			<   883200000 0x4024072b 0x00002525 0x1 8 >,
+			<   960000000 0x40240832 0x00002828 0x1 9 >,
+			<  1036800000 0x40240936 0x00002b2b 0x1 10 >,
+			<  1113600000 0x402c0a3a 0x00002e2e 0x1 11 >,
+			<  1190400000 0x402c0b3e 0x00003232 0x1 12 >;
+
+		qcom,l3-min-cpr-vc-bin0 = <7>;
+		qcom,pwrcl-min-cpr-vc-bin0 = <6>;
+		qcom,perfcl-min-cpr-vc-bin0 = <7>;
+
+		qcom,up-timer =
+			<1000 1000 1000>;
+		qcom,down-timer =
+			<100000 100000 100000>;
+		qcom,pc-override-index =
+			<0 0 0>;
+		qcom,set-ret-inactive;
+		qcom,enable-llm-freq-vote;
+		qcom,llm-freq-up-timer =
+			<1000 1000 1000>;
+		qcom,llm-freq-down-timer =
+			<327675 327675 327675>;
+		qcom,enable-llm-volt-vote;
+		qcom,llm-volt-up-timer =
+			<1000 1000 1000>;
+		qcom,llm-volt-down-timer =
+			<327675 327675 327675>;
+		qcom,cc-reads = <10>;
+		qcom,cc-delay = <5>;
+		qcom,cc-factor = <100>;
+		qcom,osm-clk-rate = <100000000>;
+		qcom,xo-clk-rate = <19200000>;
+
+		qcom,l-val-base =
+			<0x178d0004 0x178c0004 0x178b0004>;
+		qcom,apcs-pll-user-ctl =
+			<0x178d000c 0x178c000c 0x178b000c>;
+		qcom,apcs-pll-min-freq =
+			<0x17d41094 0x17d43094 0x17d45894>;
+		qcom,apm-mode-ctl =
+			<0x0 0x0 0x17d20010>;
+		qcom,apm-status-ctrl =
+			<0x0 0x0 0x17d20000>;
+		qcom,perfcl-isense-addr = <0x17871480>;
+		qcom,l3-mem-acc-addr = <0x17990170 0x17990170 0x17990170>;
+		qcom,pwrcl-mem-acc-addr = <0x17990160 0x17990164 0x17990164>;
+		qcom,perfcl-mem-acc-addr = <0x17990168 0x1799016c 0x1799016c>;
+		qcom,cfg-gfmux-addr =<0x178d0084 0x178c0084 0x178b0084>;
+		qcom,apcs-cbc-addr = <0x178d008c 0x178c008c 0x178b008c>;
+		qcom,apcs-ramp-ctl-addr = <0x17840904 0x17840904 0x17830904>;
+
+		qcom,perfcl-apcs-apm-threshold-voltage = <800000>;
+		qcom,perfcl-apcs-mem-acc-threshold-voltage = <852000>;
+		qcom,boost-fsm-en;
+		qcom,safe-fsm-en;
+		qcom,ps-fsm-en;
+		qcom,droop-fsm-en;
+		qcom,osm-pll-setup;
+
+		clock-names = "xo_ao";
+		clocks = <&clock_rpmh RPMH_CXO_CLK_A>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
