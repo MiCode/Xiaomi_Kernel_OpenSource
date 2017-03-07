@@ -17,23 +17,9 @@ Optional properties:
 				"qcom,pwm-sel" property.
 
 Example:
-	qcom,spmi@fc4c0000 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		interrupt-controller;
-		#interrupt-cells = <3>;
-
-		qcom,pm8941@0 {
-			spmi-slave-container;
-			reg = <0x0>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			qcom,misc@900 {
-				compatible = "qcom,qpnp-misc";
-				reg = <0x900 0x100>;
-				qcom,pwm-sel = <2>;
-				qcom,enable-gp-driver;
-			};
-		}
+	qcom,misc@900 {
+		compatible = "qcom,qpnp-misc";
+		reg = <0x900 0x100>;
+		qcom,pwm-sel = <2>;
+		qcom,enable-gp-driver;
 	};
