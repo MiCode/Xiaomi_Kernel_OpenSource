@@ -117,7 +117,7 @@
  * Adreno GPU quirks - control bits for various workarounds
  */
 
-/* Set TWOPASSUSEWFI in PC_DBG_ECO_CNTL (5XX) */
+/* Set TWOPASSUSEWFI in PC_DBG_ECO_CNTL (5XX/6XX) */
 #define ADRENO_QUIRK_TWO_PASS_USE_WFI BIT(0)
 /* Lock/unlock mutex to sync with the IOMMU */
 #define ADRENO_QUIRK_IOMMU_SYNC BIT(1)
