@@ -1847,5 +1847,7 @@ int ath10k_htt_tx(struct ath10k_htt *htt,
 void ath10k_htt_rx_pktlog_completion_handler(struct ath10k *ar,
 					     struct sk_buff *skb);
 int ath10k_htt_txrx_compl_task(struct ath10k *ar, int budget);
+struct sk_buff *ath10k_htt_tx_find_msdu_by_id(struct ath10k_htt *htt,
+					      u16 msdu_id);
 
 #endif

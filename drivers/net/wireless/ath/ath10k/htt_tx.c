@@ -218,6 +218,27 @@ int ath10k_htt_tx_alloc_msdu_id(struct ath10k_htt *htt, struct sk_buff *skb)
 	return ret;
 }
 
+struct sk_buff *ath10k_htt_tx_find_msdu_by_id(struct ath10k_htt *htt,
+					      u16 msdu_id)
+{
+	struct ath10k *ar;
+	struct sk_buff *ret;
+
+	if (!htt)
+		return NULL;
+
+	ar = htt->ar;
+
+	lockdep_assert_held(&htt->tx_lock);
+
+	ret = (struct sk_buff *)idr_find(&htt->pending_tx, msdu_id);
+
+	ath10k_dbg(ar, ATH10K_DBG_HTT, "htt tx find msdu by msdu_id %s\n",
+		   !ret ? "Failed" : "Success");
+
+	return ret;
+}
+
 void ath10k_htt_tx_free_msdu_id(struct ath10k_htt *htt, u16 msdu_id)
 {
 	struct ath10k *ar = htt->ar;
