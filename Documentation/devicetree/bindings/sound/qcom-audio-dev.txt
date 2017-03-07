@@ -347,6 +347,8 @@ Optional properties:
  - clocks:                                  phandle reference to the parent
                                             clock.
 
+ - qcom,mclk-clk-reg:                       Indicate the register address for mclk.
+
 * audio_slimslave
 
 Required properties:
