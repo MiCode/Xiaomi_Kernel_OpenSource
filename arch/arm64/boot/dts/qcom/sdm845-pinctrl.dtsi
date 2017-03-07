@@ -11,7 +11,7 @@
  */
 
 &soc {
-	tlmm: pinctrl@03400000 {
+	tlmm: pinctrl@03800000 {
 		compatible = "qcom,sdm845-pinctrl";
 		reg = <0x03800000 0xc00000>;
 		interrupts = <0 208 0>;
