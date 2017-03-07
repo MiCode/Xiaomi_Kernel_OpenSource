@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,7 +55,7 @@
 			     <GIC_SPI 472 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 473 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 474 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clock_rpmcc RPM_AGGR2_NOC_CLK>;
+		clocks = <&clock_rpmcc AGGR2_NOC_SMMU_CLK>;
 		clock-names = "smmu_aggr2_noc_clk";
 		#clock-cells = <1>;
 	};
