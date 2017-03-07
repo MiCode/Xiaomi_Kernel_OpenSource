@@ -580,6 +580,9 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 			rcg->curr_index = 0;
 		else {
 			f = qcom_find_freq(rcg->freq_tbl, rcg->current_freq);
+			if (!f)
+				return -EINVAL;
+
 			rcg->curr_index = qcom_find_src_index(hw,
 						rcg->parent_map, f->src);
 
