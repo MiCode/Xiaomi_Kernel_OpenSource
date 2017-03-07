@@ -47,6 +47,7 @@ struct msm_dig_priv {
 	struct regmap *regmap;
 	struct notifier_block nblock;
 	u32 mute_mask;
+	int dapm_bias_off;
 	void *handle;
 	void (*update_clkdiv)(void *handle, int val);
 	int (*get_cdc_version)(void *handle);
