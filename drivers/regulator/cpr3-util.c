@@ -1165,6 +1165,9 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	if (rc)
 		return rc;
 
+	ctrl->ignore_invalid_fuses = of_property_read_bool(ctrl->dev->of_node,
+				"qcom,cpr-ignore-invalid-fuses");
+
 	/* Aging reference voltage is optional */
 	ctrl->aging_ref_volt = 0;
 	of_property_read_u32(ctrl->dev->of_node, "qcom,cpr-aging-ref-voltage",

@@ -702,6 +702,9 @@ struct cpr3_panic_regs_info {
  * @aging_possible_val:	Optional value that the masked aging_possible_reg
  *			register must have in order for a CPR aging measurement
  *			to be possible.
+ * @ignore_invalid_fuses: Flag which indicates that invalid fuse parameter
+ *			values should be ignored.  This is used on simulator
+ *			targets which do not initialize fuse parameters.
  * @step_quot_fixed:	Fixed step quotient value used for target quotient
  *			adjustment if use_dynamic_step_quot is not set.
  *			This parameter is only relevant for CPR4 controllers
@@ -821,6 +824,8 @@ struct cpr3_controller {
 	int			aging_sensor_count;
 	u32			aging_possible_mask;
 	u32			aging_possible_val;
+
+	bool			ignore_invalid_fuses;
 
 	u32			step_quot_fixed;
 	u32			initial_temp_band;

@@ -1115,6 +1115,14 @@ static int cpr3_regulator_init_cprh_corners(struct cpr3_regulator *vreg)
 				 * select RO 0 arbitrarily.
 				 */
 				ro_sel = 0;
+			} else if (ctrl->ignore_invalid_fuses) {
+				/*
+				 * Fuses are not initialized on some simulator
+				 * targets.  Select RO 0 arbitrarily.
+				 */
+				cpr3_debug(vreg, "ignored that corner=%d has invalid RO select value\n",
+					 i);
+				ro_sel = 0;
 			} else {
 				cpr3_err(vreg, "corner=%d has invalid RO select value\n",
 					 i);
