@@ -226,16 +226,16 @@ static int profiler_get_bw_info(void __user *argp)
 	struct tz_bw_svc_buf *bwbuf = NULL;
 	struct profiler_bw_cntrs_req cnt_buf;
 
-	/* Allocate memory for request */
-	bwbuf = kzalloc(PAGE_ALIGN(sizeof(struct tz_bw_svc_buf)), GFP_KERNEL);
-	if (bwbuf == NULL)
-		return -ENOMEM;
 	ret = copy_from_user(&cnt_buf, argp,
 				sizeof(struct profiler_bw_cntrs_req));
 	if (ret) {
 		pr_err("copy_from_user failed\n");
 		return ret;
 	}
+	/* Allocate memory for request */
+	bwbuf = kzalloc(PAGE_ALIGN(sizeof(struct tz_bw_svc_buf)), GFP_KERNEL);
+	if (bwbuf == NULL)
+		return -ENOMEM;
 	switch (cnt_buf.cmd) {
 	case TZ_BW_SVC_START_ID: {
 		ret = bw_profiling_start(bwbuf);
@@ -257,7 +257,7 @@ static int profiler_get_bw_info(void __user *argp)
 	}
 	default:
 		pr_err("Invalid IOCTL: 0x%x\n", cnt_buf.cmd);
-		return -EINVAL;
+		ret = -EINVAL;
 	}
 	/* Free memory for command */
 	if (bwbuf != NULL) {
