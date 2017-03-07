@@ -7569,6 +7569,15 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 	    group_smaller_cpu_capacity(sds->local, sg))
 		return false;
 
+	/*
+	 * Candidate sg doesn't face any severe imbalance issues so
+	 * don't disturb unless the groups are of similar capacity
+	 * where balancing is more harmless.
+	 */
+	if (sgs->group_type == group_other &&
+		!group_similar_cpu_capacity(sds->local, sg))
+		return false;
+
 asym_packing:
 	/* This is the busiest node in its class. */
 	if (!(env->sd->flags & SD_ASYM_PACKING))
