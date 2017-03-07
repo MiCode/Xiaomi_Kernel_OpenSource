@@ -80,6 +80,7 @@ struct sde_hdmi_ctrl {
  * @non_pluggable:    If HDMI display is non pluggable
  * @num_of_modes:     Number of modes supported by display if non pluggable.
  * @mode_list:        Mode list if non pluggable.
+ * @mode:             Current display mode.
  * @connected:        If HDMI display is connected.
  * @is_tpg_enabled:   TPG state.
  * @hpd_work:         HPD work structure.
@@ -103,6 +104,7 @@ struct sde_hdmi {
 	bool non_pluggable;
 	u32 num_of_modes;
 	struct list_head mode_list;
+	struct drm_display_mode mode;
 	bool connected;
 	bool is_tpg_enabled;
 
@@ -268,6 +270,22 @@ int sde_hdmi_drm_deinit(struct sde_hdmi *display);
  */
 int sde_hdmi_get_info(struct msm_display_info *info,
 				void *display);
+
+/**
+ * sde_hdmi_set_property() - set the connector properties
+ * @connector:        Handle to the connector.
+ * @state:            Handle to the connector state.
+ * @property_index:   property index.
+ * @value:            property value.
+ * @display:          Handle to the display.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_set_property(struct drm_connector *connector,
+			struct drm_connector_state *state,
+			int property_index,
+			uint64_t value,
+			void *display);
 
 /**
  * sde_hdmi_bridge_init() - init sde hdmi bridge
@@ -453,5 +471,15 @@ static inline int sde_hdmi_get_info(struct msm_display_info *info,
 {
 	return 0;
 }
+
+static inline int sde_hdmi_set_property(struct drm_connector *connector,
+			struct drm_connector_state *state,
+			int property_index,
+			uint64_t value,
+			void *display)
+{
+	return 0;
+}
+
 #endif /*#else of CONFIG_DRM_SDE_HDMI*/
 #endif /* _SDE_HDMI_H_ */

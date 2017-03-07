@@ -568,6 +568,15 @@ static void _sde_hdmi_bridge_set_spd_infoframe(struct hdmi *hdmi,
 	hdmi_write(hdmi, REG_HDMI_GEN_PKT_CTRL, packet_control);
 }
 
+static inline void _sde_hdmi_save_mode(struct hdmi *hdmi,
+	struct drm_display_mode *mode)
+{
+	struct sde_connector *c_conn = to_sde_connector(hdmi->connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+
+	drm_mode_copy(&display->mode, mode);
+}
+
 static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 		 struct drm_display_mode *mode,
 		 struct drm_display_mode *adjusted_mode)
@@ -640,6 +649,8 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 		DRM_DEBUG("hdmi setup info frame\n");
 	}
 	_sde_hdmi_bridge_setup_scrambler(hdmi, mode);
+
+	_sde_hdmi_save_mode(hdmi, mode);
 }
 
 static const struct drm_bridge_funcs _sde_hdmi_bridge_funcs = {
