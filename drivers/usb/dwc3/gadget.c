@@ -1350,6 +1350,10 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 		goto out;
 	}
 
+	WARN(!dep->direction && (request->length % ep->desc->wMaxPacketSize),
+		"trying to queue unaligned request (%d) with %s\n",
+		request->length, ep->name);
+
 	ret = __dwc3_gadget_ep_queue(dep, req);
 
 	/*
