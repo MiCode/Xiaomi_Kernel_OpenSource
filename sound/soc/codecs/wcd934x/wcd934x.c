@@ -9319,6 +9319,7 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_dapm_ignore_suspend(dapm, "AIF3 Playback");
 	snd_soc_dapm_ignore_suspend(dapm, "AIF3 Capture");
 	snd_soc_dapm_ignore_suspend(dapm, "AIF4 Playback");
+	snd_soc_dapm_ignore_suspend(dapm, "AIF4 MAD TX");
 	snd_soc_dapm_ignore_suspend(dapm, "VIfeed");
 
 	snd_soc_dapm_sync(dapm);
