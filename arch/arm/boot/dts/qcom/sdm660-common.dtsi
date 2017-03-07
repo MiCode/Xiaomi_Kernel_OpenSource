@@ -170,7 +170,7 @@
 		clocks = <&clock_gcc GCC_USB30_MASTER_CLK>,
 			<&clock_gcc GCC_CFG_NOC_USB3_AXI_CLK>,
 			<&clock_gcc GCC_AGGRE2_USB3_AXI_CLK>,
-			<&clock_rpmcc RPM_AGGR2_NOC_CLK>,
+			<&clock_rpmcc AGGR2_NOC_USB_CLK>,
 			<&clock_gcc GCC_USB30_MOCK_UTMI_CLK>,
 			<&clock_gcc GCC_USB30_SLEEP_CLK>,
 			<&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>,
