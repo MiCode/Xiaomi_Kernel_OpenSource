@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -185,11 +185,6 @@
 		sb_4_tx: qcom,msm-dai-q6-sb-4-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16393>;
-		};
-
-		sb_4_tx_vi: qcom,msm-dai-q6-sb-4-tx-vi {
-			compatible = "qcom,msm-dai-q6-dev";
-			qcom,msm-dai-q6-dev-id = <20233>;
 		};
 
 		sb_5_tx: qcom,msm-dai-q6-sb-5-tx {
