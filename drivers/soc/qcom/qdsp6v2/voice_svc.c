@@ -368,6 +368,9 @@ static ssize_t voice_svc_write(struct file *file, const char __user *buf,
 	struct voice_svc_prvt *prtd;
 	struct voice_svc_write_msg *data = NULL;
 	uint32_t cmd;
+	struct voice_svc_register *register_data = NULL;
+	struct voice_svc_cmd_request *request_data = NULL;
+	uint32_t request_payload_size;
 
 	pr_debug("%s\n", __func__);
 
@@ -416,12 +419,19 @@ static ssize_t voice_svc_write(struct file *file, const char __user *buf,
 		 */
 		if (count == (sizeof(struct voice_svc_write_msg) +
 			      sizeof(struct voice_svc_register))) {
-			ret = process_reg_cmd(
-			(struct voice_svc_register *)data->payload, prtd);
+			register_data =
+				(struct voice_svc_register *)data->payload;
+			if (register_data == NULL) {
+				pr_err("%s: register data is NULL", __func__);
+				ret = -EINVAL;
+				goto done;
+			}
+			ret = process_reg_cmd(register_data, prtd);
 			if (!ret)
 				ret = count;
 		} else {
-			pr_err("%s: invalid payload size\n", __func__);
+			pr_err("%s: invalid data payload size for register command\n",
+				__func__);
 			ret = -EINVAL;
 			goto done;
 		}
@@ -430,19 +440,40 @@ static ssize_t voice_svc_write(struct file *file, const char __user *buf,
 		/*
 		 * Check that count reflects the expected size to ensure
 		 * sufficient memory was allocated. Since voice_svc_cmd_request
-		 * has a variable size, check the minimum value count must be.
+		 * has a variable size, check the minimum value count must be to
+		 * parse the message request then check the minimum size to hold
+		 * the payload of the message request.
 		 */
 		if (count >= (sizeof(struct voice_svc_write_msg) +
 			      sizeof(struct voice_svc_cmd_request))) {
-		ret = voice_svc_send_req(
-			(struct voice_svc_cmd_request *)data->payload, prtd);
-		if (!ret)
-			ret = count;
-	} else {
-		pr_err("%s: invalid payload size\n", __func__);
-		ret = -EINVAL;
-		goto done;
-	}
+			request_data =
+				(struct voice_svc_cmd_request *)data->payload;
+			if (request_data == NULL) {
+				pr_err("%s: request data is NULL", __func__);
+				ret = -EINVAL;
+				goto done;
+			}
+
+			request_payload_size = request_data->payload_size;
+
+			if (count >= (sizeof(struct voice_svc_write_msg) +
+				      sizeof(struct voice_svc_cmd_request) +
+				      request_payload_size)) {
+				ret = voice_svc_send_req(request_data, prtd);
+				if (!ret)
+					ret = count;
+			} else {
+				pr_err("%s: invalid request payload size\n",
+					__func__);
+				ret = -EINVAL;
+				goto done;
+			}
+		} else {
+			pr_err("%s: invalid data payload size for request command\n",
+				__func__);
+			ret = -EINVAL;
+			goto done;
+		}
 		break;
 	default:
 		pr_debug("%s: Invalid command: %u\n", __func__, cmd);
