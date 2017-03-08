@@ -296,11 +296,12 @@ enum {
 struct discard_cmd {
 	struct list_head list;		/* command list */
 	struct completion wait;		/* compleation */
+	struct block_device *bdev;	/* bdev */
 	block_t lstart;			/* logical start address */
+	block_t start;			/* actual start address in dev */
 	block_t len;			/* length */
-	struct bio *bio;		/* bio */
-	int error;
 	int state;			/* state */
+	int error;			/* bio error */
 };
 
 struct discard_cmd_control {
