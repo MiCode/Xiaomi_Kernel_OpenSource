@@ -417,7 +417,6 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 	SDE_EVT32(DRMID(crtc));
 
 	/* identify connectors attached to this crtc */
-	cstate->is_rt = false;
 	cstate->num_connectors = 0;
 
 	drm_for_each_connector(conn, crtc->dev)
@@ -425,9 +424,6 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 				cstate->num_connectors < MAX_CONNECTORS) {
 			cstate->connectors[cstate->num_connectors++] = conn;
 			sde_connector_prepare_fence(conn);
-
-			if (conn->connector_type != DRM_MODE_CONNECTOR_VIRTUAL)
-				cstate->is_rt = true;
 		}
 
 	if (cstate->num_connectors > 0 && cstate->connectors[0]->encoder)
@@ -438,15 +434,6 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 
 	/* prepare main output fence */
 	sde_fence_prepare(&sde_crtc->output_fence);
-}
-
-bool sde_crtc_is_rt(struct drm_crtc *crtc)
-{
-	if (!crtc || !crtc->state) {
-		SDE_ERROR("invalid crtc or state\n");
-		return true;
-	}
-	return to_sde_crtc_state(crtc->state)->is_rt;
 }
 
 /* if file!=NULL, this is preclose potential cancel-flip path */
@@ -1869,7 +1856,7 @@ static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 	struct sde_crtc_state *cstate = to_sde_crtc_state(crtc->state);
 
 	seq_printf(s, "num_connectors: %d\n", cstate->num_connectors);
-	seq_printf(s, "is_rt: %d\n", cstate->is_rt);
+	seq_printf(s, "client type: %d\n", sde_crtc_get_client_type(crtc));
 	seq_printf(s, "intf_mode: %d\n", cstate->intf_mode);
 	seq_printf(s, "bw_ctl: %llu\n", cstate->cur_perf.bw_ctl);
 	seq_printf(s, "core_clk_rate: %u\n", cstate->cur_perf.core_clk_rate);

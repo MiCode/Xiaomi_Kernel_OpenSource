@@ -1203,7 +1203,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		return 0;
 	pstate->pending = true;
 
-	psde->is_rt_pipe = sde_crtc_is_rt(crtc);
+	psde->is_rt_pipe = (sde_crtc_get_client_type(crtc) != NRT_CLIENT);
 	_sde_plane_set_qos_ctrl(plane, false, SDE_PLANE_QOS_PANIC_CTRL);
 
 	/* update roi config */

@@ -281,12 +281,11 @@ int sde_rsc_client_state_update(struct sde_rsc_client *client,
  * @client:	 Client pointer provided by sde_rsc_client_create().
  * @ab:		 aggregated bandwidth vote from client.
  * @ib:		 instant bandwidth vote from client.
- * @active:	 tcs command set selected based on active vs sleep request
  *
  * Return: error code.
  */
 int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
-	u64 ab_vote, u64 ib_vote, bool active);
+	u64 ab_vote, u64 ib_vote);
 
 /**
  * sde_rsc_hw_register() - register hardware API

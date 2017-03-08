@@ -31,6 +31,20 @@
 #define SDE_CRTC_FRAME_EVENT_SIZE	2
 
 /**
+ * enum sde_crtc_client_type: crtc client type
+ * @RT_CLIENT:	RealTime client like video/cmd mode display
+ *              voting through apps rsc
+ * @NRT_CLIENT:	Non-RealTime client like WB display
+ *              voting through apps rsc
+ * @RT_RSC_CLIENT:	Realtime display RSC voting client
+ */
+enum sde_crtc_client_type {
+	RT_CLIENT,
+	NRT_CLIENT,
+	RT_RSC_CLIENT,
+};
+
+/**
  * struct sde_crtc_mixer: stores the map for each virtual pipeline in the CRTC
  * @hw_lm:	LM HW Driver context
  * @hw_ctl:	CTL Path HW driver context
@@ -136,8 +150,9 @@ struct sde_crtc {
  * @base: Base drm crtc state structure
  * @connectors    : Currently associated drm connectors
  * @num_connectors: Number of associated drm connectors
- * @is_rt         : Whether or not the current commit contains RT connectors
  * @intf_mode     : Interface mode of the primary connector
+ * @rsc_mode      : Client vote through sde rsc
+ * @rsc_client    : sde rsc client when mode is valid
  * @property_values: Current crtc property values
  * @input_fence_timeout_ns : Cached input fence timeout, in ns
  * @property_blobs: Reference pointers for blob properties
@@ -151,8 +166,9 @@ struct sde_crtc_state {
 
 	struct drm_connector *connectors[MAX_CONNECTORS];
 	int num_connectors;
-	bool is_rt;
 	enum sde_intf_mode intf_mode;
+	bool rsc_mode;
+	struct sde_rsc_client *rsc_client;
 
 	uint64_t property_values[CRTC_PROP_COUNT];
 	uint64_t input_fence_timeout_ns;
@@ -255,13 +271,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane);
 void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
 
 /**
- * sde_crtc_is_rt - query whether real time connectors are present on the crtc
- * @crtc: Pointer to drm crtc structure
- * Returns: True if a connector is present with real time constraints
- */
-bool sde_crtc_is_rt(struct drm_crtc *crtc);
-
-/**
  * sde_crtc_get_intf_mode - get interface mode of the given crtc
  * @crtc: Pointert to crtc
  */
@@ -274,24 +283,16 @@ static inline enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc)
 }
 
 /**
- * sde_core_perf_crtc_is_wb - check if writeback is primary output of this crtc
+ * sde_crtc_get_client_type - check the crtc type- rt, nrt, rsc, etc.
  * @crtc: Pointer to crtc
  */
-static inline bool sde_crtc_is_wb(struct drm_crtc *crtc)
+static inline bool sde_crtc_get_client_type(struct drm_crtc *crtc)
 {
 	struct sde_crtc_state *cstate =
 			crtc ? to_sde_crtc_state(crtc->state) : NULL;
 
-	return cstate ? (cstate->intf_mode == INTF_MODE_WB_LINE) : false;
-}
-
-/**
- * sde_crtc_is_nrt - check if primary output of this crtc is non-realtime client
- * @crtc: Pointer to crtc
- */
-static inline bool sde_crtc_is_nrt(struct drm_crtc *crtc)
-{
-	return sde_crtc_is_wb(crtc);
+	return cstate && (cstate->intf_mode == INTF_MODE_WB_LINE) ? NRT_CLIENT
+		: cstate && cstate->rsc_mode ? RT_RSC_CLIENT : RT_CLIENT;
 }
 
 /**

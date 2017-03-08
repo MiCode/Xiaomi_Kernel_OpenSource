@@ -406,7 +406,7 @@ end:
  * Return: error code.
  */
 int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
-	u64 ab_vote, u64 ib_vote, bool active)
+	u64 ab_vote, u64 ib_vote)
 {
 	int rc = 0;
 	struct sde_rsc_priv *rsc;
@@ -447,15 +447,11 @@ int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
 		amc_mode = rsc->hw_ops.is_amc_mode(rsc);
 
 	if (rsc->current_state == SDE_RSC_CMD_STATE)
-		if (active)
-			state = RPMH_WAKE_ONLY_STATE;
-		else
-			state = RPMH_SLEEP_STATE;
+		state = RPMH_WAKE_ONLY_STATE;
+	else if (amc_mode)
+		state = RPMH_ACTIVE_ONLY_STATE;
 	else
-		if (amc_mode)
-			state = RPMH_ACTIVE_ONLY_STATE;
-		else
-			state = RPMH_AWAKE_STATE;
+		state = RPMH_AWAKE_STATE;
 
 	if (rsc->hw_ops.tcs_wait) {
 		rc = rsc->hw_ops.tcs_wait(rsc);
