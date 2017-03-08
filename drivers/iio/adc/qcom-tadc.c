@@ -217,6 +217,7 @@ struct tadc_chip {
 	struct tadc_chan_data	chans[TADC_NUM_CH];
 	struct completion	eoc_complete;
 	struct mutex		write_lock;
+	struct mutex		conv_lock;
 };
 
 struct tadc_pt {
@@ -482,10 +483,11 @@ static int tadc_do_conversion(struct tadc_chip *chip, u8 channels, s16 *adc)
 	u8 val[TADC_NUM_CH * 2];
 	int rc, i;
 
+	mutex_lock(&chip->conv_lock);
 	rc = tadc_read(chip, TADC_MBG_ERR_REG(chip), val, 1);
 	if (rc < 0) {
 		pr_err("Couldn't read mbg error status rc=%d\n", rc);
-		return rc;
+		goto unlock;
 	}
 
 	if (val[0] != 0) {
@@ -496,7 +498,7 @@ static int tadc_do_conversion(struct tadc_chip *chip, u8 channels, s16 *adc)
 	rc = tadc_write(chip, TADC_CONV_REQ_REG(chip), channels);
 	if (rc < 0) {
 		pr_err("Couldn't write conversion request rc=%d\n", rc);
-		return rc;
+		goto unlock;
 	}
 
 	timeout = msecs_to_jiffies(CONVERSION_TIMEOUT_MS);
@@ -506,25 +508,29 @@ static int tadc_do_conversion(struct tadc_chip *chip, u8 channels, s16 *adc)
 		rc = tadc_read(chip, TADC_SW_CH_CONV_REG(chip), val, 1);
 		if (rc < 0) {
 			pr_err("Couldn't read conversion status rc=%d\n", rc);
-			return rc;
+			goto unlock;
 		}
 
 		if (val[0] != channels) {
-			pr_err("Conversion timed out\n");
-			return -ETIMEDOUT;
+			rc = -ETIMEDOUT;
+			goto unlock;
 		}
 	}
 
 	rc = tadc_read(chip, TADC_CH1_ADC_LO_REG(chip), val, ARRAY_SIZE(val));
 	if (rc < 0) {
 		pr_err("Couldn't read adc channels rc=%d\n", rc);
-		return rc;
+		goto unlock;
 	}
 
 	for (i = 0; i < TADC_NUM_CH; i++)
 		adc[i] = (s16)(val[i * 2] | (u16)val[i * 2 + 1] << 8);
 
-	return jiffies_to_msecs(timeout - timeleft);
+	rc = jiffies_to_msecs(timeout - timeleft);
+
+unlock:
+	mutex_unlock(&chip->conv_lock);
+	return rc;
 }
 
 static int tadc_read_raw(struct iio_dev *indio_dev,
@@ -1017,6 +1023,7 @@ static int tadc_probe(struct platform_device *pdev)
 	chip->tadc_cmp_base = chip->tadc_base + 0x100;
 
 	mutex_init(&chip->write_lock);
+	mutex_init(&chip->conv_lock);
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
 		pr_err("Couldn't get regmap\n");
