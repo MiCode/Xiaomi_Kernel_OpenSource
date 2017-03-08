@@ -44,6 +44,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_ENDP_INIT_MODE_n),
 	__stringify(IPA_ENDP_INIT_NAT_n),
 	__stringify(IPA_ENDP_INIT_CTRL_n),
+	__stringify(IPA_ENDP_INIT_CTRL_SCND_n),
 	__stringify(IPA_ENDP_INIT_HOL_BLOCK_EN_n),
 	__stringify(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n),
 	__stringify(IPA_ENDP_INIT_DEAGGR_n),
@@ -645,6 +646,17 @@ static void ipareg_construct_endp_init_ctrl_n(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_CTRL_n_ENDP_DELAY_BMSK);
 }
 
+static void ipareg_construct_endp_init_ctrl_scnd_n(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipahal_ep_cfg_ctrl_scnd *ep_ctrl_scnd =
+		(struct ipahal_ep_cfg_ctrl_scnd *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, ep_ctrl_scnd->endp_delay,
+		IPA_ENDP_INIT_CTRL_SCND_n_ENDP_DELAY_SHFT,
+		IPA_ENDP_INIT_CTRL_SCND_n_ENDP_DELAY_BMSK);
+}
+
 static void ipareg_construct_endp_init_nat_n(enum ipahal_reg_name reg,
 		const void *fields, u32 *val)
 {
@@ -1026,6 +1038,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_0][IPA_ENDP_INIT_CTRL_n] = {
 		ipareg_construct_endp_init_ctrl_n, ipareg_parse_dummy,
 		0x00000800, 0x70},
+	[IPA_HW_v3_0][IPA_ENDP_INIT_CTRL_SCND_n] = {
+		ipareg_construct_endp_init_ctrl_scnd_n, ipareg_parse_dummy,
+		0x00000804, 0x70 },
 	[IPA_HW_v3_0][IPA_ENDP_INIT_HOL_BLOCK_EN_n] = {
 		ipareg_construct_endp_init_hol_block_en_n,
 		ipareg_parse_dummy,
