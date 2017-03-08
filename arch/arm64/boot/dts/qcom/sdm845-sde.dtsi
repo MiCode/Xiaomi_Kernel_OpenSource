@@ -77,6 +77,10 @@
 		qcom,sde-dsc-off = <0x81000 0x81400 0x81800 0x81c00>;
 		qcom,sde-dsc-size = <0x140>;
 
+		qcom,sde-dither-off = <0x30e0 0x30e0 0x30e0 0x30e0>;
+		qcom,sde-dither-version = <0x00010000>;
+		qcom,sde-dither-size = <0x20>;
+
 		qcom,sde-intf-max-prefetch-lines = <0x15 0x15 0x15 0x15>;
 
 		qcom,sde-sspp-type = "vig", "vig", "vig", "vig",
