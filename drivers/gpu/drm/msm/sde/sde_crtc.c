@@ -867,10 +867,12 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_crtc_state)
 {
+	struct drm_encoder *encoder;
 	struct sde_crtc *sde_crtc;
 	struct drm_device *dev;
 	struct drm_plane *plane;
 	unsigned long flags;
+	struct sde_crtc_state *cstate;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -886,7 +888,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
 	sde_crtc = to_sde_crtc(crtc);
-
+	cstate = to_sde_crtc_state(crtc->state);
 	dev = crtc->dev;
 
 	if (sde_crtc->event) {
@@ -907,6 +909,17 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	/* wait for acquire fences before anything else is done */
 	_sde_crtc_wait_for_fences(crtc);
+
+	if (!cstate->rsc_update) {
+		drm_for_each_encoder(encoder, dev) {
+			if (encoder->crtc != crtc)
+				continue;
+
+			cstate->rsc_client =
+				sde_encoder_update_rsc_client(encoder, true);
+		}
+		cstate->rsc_update = true;
+	}
 
 	/* update performance setting before crtc kickoff */
 	sde_core_perf_crtc_update(crtc, 1, false);
@@ -1078,6 +1091,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 {
 	struct msm_drm_private *priv;
 	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
 	struct drm_encoder *encoder;
 	struct sde_kms *sde_kms;
 
@@ -1086,6 +1100,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		return;
 	}
 	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(crtc->state);
 	sde_kms = _sde_crtc_get_kms(crtc);
 	priv = sde_kms->dev->dev_private;
 
@@ -1122,6 +1137,9 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		if (encoder->crtc != crtc)
 			continue;
 		sde_encoder_register_frame_event_callback(encoder, NULL, NULL);
+		sde_encoder_update_rsc_client(encoder, false);
+		cstate->rsc_client = NULL;
+		cstate->rsc_update = false;
 	}
 
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));

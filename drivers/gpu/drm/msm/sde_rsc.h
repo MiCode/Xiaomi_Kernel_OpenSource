@@ -131,7 +131,7 @@ struct sde_rsc_hw_ops {
 };
 
 /**
- * struct sde_rsc_command_config: provides panel configuration to rsc
+ * struct sde_rsc_cmd_config: provides panel configuration to rsc
  * when client is command mode. It is not required to set it during
  * video mode.
  *
@@ -142,7 +142,7 @@ struct sde_rsc_hw_ops {
  *              early. Default is 10% jitter
  * @prefill_lines:	max prefill lines based on panel
  */
-struct sde_rsc_command_config {
+struct sde_rsc_cmd_config {
 	u32 fps;
 	u32 vtotal;
 	u32 jitter;
@@ -215,7 +215,7 @@ struct sde_rsc_priv {
 	struct mutex client_lock;
 
 	struct sde_rsc_timer_config timer_config;
-	struct sde_rsc_command_config cmd_config;
+	struct sde_rsc_cmd_config cmd_config;
 	u32	current_state;
 
 	u32 debug_mode;
@@ -242,6 +242,8 @@ struct sde_rsc_priv {
  * @is_primary:	 Caller needs to provide information if client is primary
  *               or not. Primary client votes will be redirected to
  *               display rsc.
+ * @config:	 fps, vtotal, porches, etc configuration for command mode
+ *               panel
  *
  * Return: client node pointer.
  */
@@ -273,7 +275,7 @@ void sde_rsc_client_destroy(struct sde_rsc_client *client);
  */
 int sde_rsc_client_state_update(struct sde_rsc_client *client,
 	enum sde_rsc_state state,
-	struct sde_rsc_command_config *config, int crtc_id);
+	struct sde_rsc_cmd_config *config, int crtc_id);
 
 /**
  * sde_rsc_client_vote() - ab/ib vote from rsc client
