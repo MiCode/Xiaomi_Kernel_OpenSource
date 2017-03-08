@@ -31,6 +31,11 @@
 			reg = <0x800 0x100>;
 		};
 
+		pmi8998_misc: qcom,misc@900 {
+			compatible = "qcom,qpnp-misc";
+			reg = <0x900 0x100>;
+		};
+
 		qcom,temp-alarm@2400 {
 			compatible = "qcom,qpnp-temp-alarm";
 			reg = <0x2400 0x100>;
@@ -632,6 +637,8 @@
 				     <0x3 0xc0 0x1 IRQ_TYPE_NONE>;
 			interrupt-names = "sc-irq", "play-irq";
 			qcom,pmic-revid = <&pmi8998_revid>;
+			qcom,pmic-misc = <&pmi8998_misc>;
+			qcom,misc-clk-trim-error-reg = <0xf3>;
 			qcom,actuator-type = "lra";
 			qcom,play-mode = "direct";
 			qcom,vmax-mv = <3200>;
@@ -648,7 +655,6 @@
 			qcom,lra-auto-res-mode = "qwd";
 			qcom,lra-res-cal-period = <4>;
 			qcom,correct-lra-drive-freq;
-			qcom,misc-trim-error-rc19p2-clk-reg-present;
 		};
 
 		flash_led: qcom,leds@d300 {
