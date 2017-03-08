@@ -199,13 +199,17 @@ enum msm_display_caps {
  * @h_tile_instance:    Controller instance used per tile. Number of elements is
  *                      based on num_of_h_tiles
  * @is_connected:       Set to true if display is connected
- * @is_primary:         Set to true if display is primary display
  * @width_mm:           Physical width
  * @height_mm:          Physical height
  * @max_width:          Max width of display. In case of hot pluggable display
  *                      this is max width supported by controller
  * @max_height:         Max height of display. In case of hot pluggable display
  *                      this is max height supported by controller
+ * @is_primary:         Set to true if display is primary display
+ * @frame_rate:		Display frame rate
+ * @prefill_lines:	prefill lines based on porches.
+ * @vtotal:		display vertical total
+ * @jitter:		display jitter configuration
  * @compression:        Compression supported by the display
  */
 struct msm_display_info {
@@ -216,13 +220,18 @@ struct msm_display_info {
 	uint32_t h_tile_instance[MAX_H_TILES_PER_DISPLAY];
 
 	bool is_connected;
-	bool is_primary;
 
 	unsigned int width_mm;
 	unsigned int height_mm;
 
 	uint32_t max_width;
 	uint32_t max_height;
+
+	bool is_primary;
+	uint32_t frame_rate;
+	uint32_t prefill_lines;
+	uint32_t vtotal;
+	uint32_t jitter;
 
 	enum msm_display_compression compression;
 };

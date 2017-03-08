@@ -144,6 +144,13 @@ Optional properties:
 					0xff = default value.
 - qcom,mdss-dsi-border-color:		Defines the border color value if border is present.
 					0 = default value.
+- qcom,mdss-dsi-panel-jitter:		An integer value defines the panel jitter timing for rsc
+					backoff time. The jitter configurition causes the early
+					wakeup if panel needs to adjust before vsync.
+					Default jitter value is 5%. Max allowed value is 25%.
+- qcom,mdss-dsi-panel-prefill-lines:	An integer value defines the panel prefill lines required to
+					calculate the backoff time of rsc.
+					Default value is 16 lines. Max allowed value is vtotal.
 - qcom,mdss-dsi-pan-enable-dynamic-fps:	Boolean used to enable change in frame rate dynamically.
 - qcom,mdss-dsi-pan-fps-update:		A string that specifies when to change the frame rate.
 					"dfps_suspend_resume_mode"= FPS change request is
@@ -634,6 +641,8 @@ Example:
 						<40 120 128>,
 						<128 240 64>;
 		qcom,mdss-dsi-panel-orientation = "180"
+		qcom,mdss-dsi-panel-jitter = <0x8>;
+		qcom,mdss-dsi-panel-prefill-lines = <0x10>;
 		qcom,mdss-dsi-force-clock-lane-hs;
 		qcom,compression-mode = "dsc";
 		qcom,adjust-timer-wakeup-ms = <1>;
