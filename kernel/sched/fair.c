@@ -10316,9 +10316,8 @@ static inline bool nohz_kick_needed(struct rq *rq, int *type)
 	if (time_before(now, nohz.next_balance))
 		return false;
 
-	if (rq->nr_running >= 2 &&
-	    (!energy_aware() || cpu_overutilized(cpu)))
-		return true;
+	if (energy_aware())
+		return rq->nr_running >= 2 && cpu_overutilized(cpu);
 
 #ifndef CONFIG_SCHED_HMP
 	rcu_read_lock();
