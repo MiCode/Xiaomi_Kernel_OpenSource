@@ -15,7 +15,10 @@
 
 #include "sde_kms.h"
 #include "sde_connector.h"
-#include "sde_backlight.h"
+#include <linux/backlight.h>
+#include "dsi_drm.h"
+
+#define BL_NODE_NAME_SIZE 32
 
 static const struct drm_prop_enum_list e_topology_name[] = {
 	{SDE_RM_TOPOLOGY_UNKNOWN,	"sde_unknown"},
@@ -31,6 +34,86 @@ static const struct drm_prop_enum_list e_topology_control[] = {
 	{SDE_RM_TOPCTL_FORCE_TILING,	"force_tiling"},
 	{SDE_RM_TOPCTL_PPSPLIT,		"ppsplit"}
 };
+
+static int sde_backlight_device_update_status(struct backlight_device *bd)
+{
+	int brightness;
+	struct dsi_display *display;
+	struct sde_connector *c_conn;
+	int bl_lvl;
+
+	brightness = bd->props.brightness;
+
+	if ((bd->props.power != FB_BLANK_UNBLANK) ||
+			(bd->props.state & BL_CORE_FBBLANK) ||
+			(bd->props.state & BL_CORE_SUSPENDED))
+		brightness = 0;
+
+	c_conn = bl_get_data(bd);
+	display = (struct dsi_display *) c_conn->display;
+	if (brightness > display->panel->bl_config.bl_max_level)
+		brightness = display->panel->bl_config.bl_max_level;
+
+	/* map UI brightness into driver backlight level with rounding */
+	bl_lvl = mult_frac(brightness, display->panel->bl_config.bl_max_level,
+			display->panel->bl_config.brightness_max_level);
+
+	if (!bl_lvl && brightness)
+		bl_lvl = 1;
+
+	if (c_conn->ops.set_backlight)
+		c_conn->ops.set_backlight(c_conn->display, bl_lvl);
+
+	return 0;
+}
+
+static int sde_backlight_device_get_brightness(struct backlight_device *bd)
+{
+	return 0;
+}
+
+static const struct backlight_ops sde_backlight_device_ops = {
+	.update_status = sde_backlight_device_update_status,
+	.get_brightness = sde_backlight_device_get_brightness,
+};
+
+static int sde_backlight_setup(struct sde_connector *c_conn)
+{
+	struct backlight_device *bl_device;
+	struct backlight_properties props;
+	struct dsi_display *display;
+	struct dsi_backlight_config *bl_config;
+	static int display_count;
+	char bl_node_name[BL_NODE_NAME_SIZE];
+
+	if (!c_conn) {
+		SDE_ERROR("invalid param\n");
+		return -EINVAL;
+	} else if (c_conn->connector_type != DRM_MODE_CONNECTOR_DSI) {
+		return 0;
+	}
+
+	memset(&props, 0, sizeof(props));
+	props.type = BACKLIGHT_RAW;
+	props.power = FB_BLANK_UNBLANK;
+
+	display = (struct dsi_display *) c_conn->display;
+	bl_config = &display->panel->bl_config;
+	props.max_brightness = bl_config->brightness_max_level;
+	props.brightness = bl_config->brightness_max_level;
+	snprintf(bl_node_name, BL_NODE_NAME_SIZE, "panel%u-backlight",
+							display_count);
+	bl_device = backlight_device_register(bl_node_name, c_conn->base.kdev,
+			c_conn, &sde_backlight_device_ops, &props);
+	if (IS_ERR_OR_NULL(bl_device)) {
+		SDE_ERROR("Failed to register backlight: %ld\n",
+				    PTR_ERR(bl_device));
+		return -ENODEV;
+	}
+	display_count++;
+
+	return 0;
+}
 
 int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info)
@@ -532,12 +615,10 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		goto error_cleanup_fence;
 	}
 
-	if (c_conn->ops.set_backlight) {
-		rc = sde_backlight_setup(&c_conn->base);
-		if (rc) {
-			pr_err("failed to setup backlight, rc=%d\n", rc);
-			goto error_cleanup_fence;
-		}
+	rc = sde_backlight_setup(c_conn);
+	if (rc) {
+		SDE_ERROR("failed to setup backlight, rc=%d\n", rc);
+		goto error_cleanup_fence;
 	}
 
 	/* create properties */
