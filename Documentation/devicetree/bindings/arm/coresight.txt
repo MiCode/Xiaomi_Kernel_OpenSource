@@ -84,6 +84,9 @@ its hardware characteristcs.
 
 	* coresight-name: unique descriptive name of the component.
 
+* Additional required property for coresight-dummy devices:
+	* qcom,dummy-source: Configure the device as source.
+
 * Optional properties for all components:
 	* reg-names: names corresponding to each reg property value.
 
