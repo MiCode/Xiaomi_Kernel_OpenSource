@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/coresight.h>
+#include <linux/of.h>
 
 #define DUMMY_TRACE_ID_START	256
 
@@ -41,6 +42,22 @@ static void dummy_source_disable(struct coresight_device *csdev,
 	dev_info(drvdata->dev, "Dummy source disabled\n");
 }
 
+static int dummy_sink_enable(struct coresight_device *csdev, u32 mode)
+{
+	struct dummy_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+
+	dev_info(drvdata->dev, "Dummy sink enabled\n");
+
+	return 0;
+}
+
+static void dummy_sink_disable(struct coresight_device *csdev)
+{
+	struct dummy_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+
+	dev_info(drvdata->dev, "Dummy sink disabled\n");
+}
+
 static int dummy_trace_id(struct coresight_device *csdev)
 {
 	struct dummy_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
@@ -54,8 +71,14 @@ static const struct coresight_ops_source dummy_source_ops = {
 	.disable	= dummy_source_disable,
 };
 
+static const struct coresight_ops_sink dummy_sink_ops = {
+	.enable		= dummy_sink_enable,
+	.disable	= dummy_sink_disable,
+};
+
 static const struct coresight_ops dummy_cs_ops = {
 	.source_ops	= &dummy_source_ops,
+	.sink_ops	= &dummy_sink_ops,
 };
 
 static int dummy_probe(struct platform_device *pdev)
@@ -88,6 +111,10 @@ static int dummy_probe(struct platform_device *pdev)
 		desc->type = CORESIGHT_DEV_TYPE_SOURCE;
 		desc->subtype.source_subtype =
 					CORESIGHT_DEV_SUBTYPE_SOURCE_PROC;
+	} else if (of_property_read_bool(pdev->dev.of_node,
+					 "qcom,dummy-sink")) {
+		desc->type = CORESIGHT_DEV_TYPE_SINK;
+		desc->subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
 	} else {
 		dev_info(dev, "Device type not set.\n");
 		return -EINVAL;

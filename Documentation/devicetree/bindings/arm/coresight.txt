@@ -87,6 +87,8 @@ its hardware characteristcs.
 * Additional required property for coresight-dummy devices:
 	* qcom,dummy-source: Configure the device as source.
 
+	* qcom,dummy-sink: Configure the device as sink.
+
 * Optional properties for all components:
 	* reg-names: names corresponding to each reg property value.
 
