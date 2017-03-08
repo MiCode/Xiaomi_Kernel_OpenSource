@@ -10,14 +10,9 @@
  * This has not yet undergone a rigorous security audit.
  */
 
-#include <crypto/hash.h>
-#include <crypto/sha.h>
-#include <keys/encrypted-type.h>
-#include <keys/user-type.h>
-#include <linux/crypto.h>
 #include <linux/scatterlist.h>
 #include <linux/ratelimit.h>
-#include <linux/fscrypto.h>
+#include "fscrypt_private.h"
 
 /**
  * fname_crypt_complete() - completion callback for filename crypto
@@ -72,7 +67,7 @@ static int fname_encrypt(struct inode *inode,
 	/* Initialize the IV */
 	memset(iv, 0, FS_CRYPTO_BLOCK_SIZE);
 
-	/* Allocate request */
+	/* Set up the encryption request */
 	req = ablkcipher_request_alloc(tfm, GFP_NOFS);
 	if (!req) {
 		printk_ratelimited(KERN_ERR
@@ -82,7 +77,6 @@ static int fname_encrypt(struct inode *inode,
 	ablkcipher_request_set_callback(req,
 			CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
 			fname_crypt_complete, &ecr);
-
 	sg_init_one(&sg, oname->name, cryptlen);
 	ablkcipher_request_set_crypt(req, &sg, &sg, cryptlen, iv);
 
@@ -215,7 +209,7 @@ static int digest_decode(const char *src, int len, char *dst)
 	return cp - dst;
 }
 
-u32 fscrypt_fname_encrypted_size(struct inode *inode, u32 ilen)
+u32 fscrypt_fname_encrypted_size(const struct inode *inode, u32 ilen)
 {
 	int padding = 32;
 	struct fscrypt_info *ci = inode->i_crypt_info;
@@ -233,7 +227,7 @@ EXPORT_SYMBOL(fscrypt_fname_encrypted_size);
  * Allocates an output buffer that is sufficient for the crypto operation
  * specified by the context and the direction.
  */
-int fscrypt_fname_alloc_buffer(struct inode *inode,
+int fscrypt_fname_alloc_buffer(const struct inode *inode,
 				u32 ilen, struct fscrypt_str *crypto_str)
 {
 	unsigned int olen = fscrypt_fname_encrypted_size(inode, ilen);
@@ -338,7 +332,7 @@ int fscrypt_fname_usr_to_disk(struct inode *inode,
 	 * in a directory. Consequently, a user space name cannot be mapped to
 	 * a disk-space name
 	 */
-	return -EACCES;
+	return -ENOKEY;
 }
 EXPORT_SYMBOL(fscrypt_fname_usr_to_disk);
 
@@ -356,7 +350,7 @@ int fscrypt_setup_filename(struct inode *dir, const struct qstr *iname,
 		fname->disk_name.len = iname->len;
 		return 0;
 	}
-	ret = get_crypt_info(dir);
+	ret = fscrypt_get_crypt_info(dir);
 	if (ret && ret != -EOPNOTSUPP)
 		return ret;
 
@@ -373,7 +367,7 @@ int fscrypt_setup_filename(struct inode *dir, const struct qstr *iname,
 		return 0;
 	}
 	if (!lookup)
-		return -EACCES;
+		return -ENOKEY;
 
 	/*
 	 * We don't have the key and we are doing a lookup; decode the
