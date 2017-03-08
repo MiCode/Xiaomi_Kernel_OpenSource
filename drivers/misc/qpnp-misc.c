@@ -130,6 +130,47 @@ static bool __misc_irqs_available(struct qpnp_misc_dev *dev)
 	return 1;
 }
 
+int qpnp_misc_read_reg(struct device_node *node, u16 addr, u8 *val)
+{
+	struct qpnp_misc_dev *mdev = NULL;
+	struct qpnp_misc_dev *mdev_found = NULL;
+	int rc;
+	u8 temp;
+
+	if (IS_ERR_OR_NULL(node)) {
+		pr_err("Invalid device node pointer\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&qpnp_misc_dev_list_mutex);
+	list_for_each_entry(mdev, &qpnp_misc_dev_list, list) {
+		if (mdev->dev->of_node == node) {
+			mdev_found = mdev;
+			break;
+		}
+	}
+	mutex_unlock(&qpnp_misc_dev_list_mutex);
+
+	if (!mdev_found) {
+		/*
+		 * No MISC device was found. This API should only
+		 * be called by drivers which have specified the
+		 * misc phandle in their device tree node.
+		 */
+		pr_err("no probed misc device found\n");
+		return -EPROBE_DEFER;
+	}
+
+	rc = qpnp_read_byte(mdev, addr, &temp);
+	if (rc < 0) {
+		dev_err(mdev->dev, "Failed to read addr %x, rc=%d\n", addr, rc);
+		return rc;
+	}
+
+	*val = temp;
+	return 0;
+}
+
 int qpnp_misc_irqs_available(struct device *consumer_dev)
 {
 	struct device_node *misc_node = NULL;
