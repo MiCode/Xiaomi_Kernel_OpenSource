@@ -371,14 +371,11 @@ static int _sde_power_data_bus_set_quota(
 	pdbus->curr_bw_uc_idx = new_uc_idx;
 	pdbus->ao_bw_uc_idx = new_uc_idx;
 
-	if ((pdbus->bus_ref_cnt == 0) && pdbus->curr_bw_uc_idx) {
-		rc = 0;
-	} else { /* vote BW if bus_bw_cnt > 0 or uc_idx is zero */
-		SDE_ATRACE_BEGIN("msm_bus_scale_req");
-		rc = msm_bus_scale_client_update_request(pdbus->data_bus_hdl,
+	SDE_ATRACE_BEGIN("msm_bus_scale_req");
+	rc = msm_bus_scale_client_update_request(pdbus->data_bus_hdl,
 			new_uc_idx);
-		SDE_ATRACE_END("msm_bus_scale_req");
-	}
+	SDE_ATRACE_END("msm_bus_scale_req");
+
 	return rc;
 }
 
@@ -582,57 +579,6 @@ static int sde_power_reg_bus_update(u32 reg_bus_hdl, u32 usecase_ndx)
 	return 0;
 }
 #endif
-
-void sde_power_data_bus_bandwidth_ctrl(struct sde_power_handle *phandle,
-		struct sde_power_client *pclient, int enable)
-{
-	struct sde_power_data_bus_handle *pdbus;
-	int changed = 0;
-
-	if (!phandle || !pclient) {
-		pr_err("invalid power/client handle\n");
-		return;
-	}
-
-	pdbus = &phandle->data_bus_handle;
-
-	mutex_lock(&phandle->phandle_lock);
-	if (enable) {
-		if (pdbus->bus_ref_cnt == 0)
-			changed++;
-		pdbus->bus_ref_cnt++;
-	} else {
-		if (pdbus->bus_ref_cnt) {
-			pdbus->bus_ref_cnt--;
-			if (pdbus->bus_ref_cnt == 0)
-				changed++;
-		} else {
-			pr_debug("Can not be turned off\n");
-		}
-	}
-
-	pr_debug("%pS: task:%s bw_cnt=%d changed=%d enable=%d\n",
-		__builtin_return_address(0), current->group_leader->comm,
-		pdbus->bus_ref_cnt, changed, enable);
-
-	if (changed) {
-		SDE_ATRACE_INT("data_bus_ctrl", enable);
-
-		if (!enable) {
-			if (!pdbus->handoff_pending) {
-				msm_bus_scale_client_update_request(
-						pdbus->data_bus_hdl, 0);
-				pdbus->ao_bw_uc_idx = 0;
-			}
-		} else {
-			msm_bus_scale_client_update_request(
-					pdbus->data_bus_hdl,
-					pdbus->curr_bw_uc_idx);
-		}
-	}
-
-	mutex_unlock(&phandle->phandle_lock);
-}
 
 int sde_power_resource_init(struct platform_device *pdev,
 	struct sde_power_handle *phandle)
