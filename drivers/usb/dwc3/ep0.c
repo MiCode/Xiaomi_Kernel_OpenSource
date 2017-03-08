@@ -288,6 +288,7 @@ int __dwc3_gadget_ep0_set_halt(struct usb_ep *ep, int value)
 	struct dwc3_ep			*dep = to_dwc3_ep(ep);
 	struct dwc3			*dwc = dep->dwc;
 
+	dbg_event(dep->number, "EP0STAL", value);
 	dwc3_ep0_stall_and_restart(dwc);
 
 	return 0;
@@ -314,7 +315,8 @@ void dwc3_ep0_out_start(struct dwc3 *dwc)
 	dwc3_ep0_prepare_one_trb(dwc, 0, dwc->ctrl_req_addr, 8,
 			DWC3_TRBCTL_CONTROL_SETUP, false);
 	ret = dwc3_ep0_start_trans(dwc, 0);
-	WARN_ON(ret < 0);
+	if (WARN_ON(ret < 0))
+		dbg_event(dwc->eps[0]->number, "EOUTSTART", ret);
 }
 
 static struct dwc3_ep *dwc3_wIndex_to_dep(struct dwc3 *dwc, __le16 wIndex_le)
@@ -656,7 +658,8 @@ static void dwc3_ep0_set_sel_cmpl(struct usb_ep *ep, struct usb_request *req)
 	/* now that we have the time, issue DGCMD Set Sel */
 	ret = dwc3_send_gadget_generic_command(dwc,
 			DWC3_DGCMD_SET_PERIODIC_PAR, param);
-	WARN_ON(ret < 0);
+	if (WARN_ON(ret < 0))
+		dbg_event(dep->number, "ESET_SELCMPL", ret);
 }
 
 static int dwc3_ep0_set_sel(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
@@ -782,6 +785,7 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 		dwc->ep0_next_event = DWC3_EP0_NRDY_DATA;
 	}
 
+	dbg_setup(0x00, ctrl);
 	if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_STANDARD)
 		ret = dwc3_ep0_std_request(dwc, ctrl);
 	else
@@ -791,8 +795,10 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 		dwc->delayed_status = true;
 
 out:
-	if (ret < 0)
+	if (ret < 0) {
+		dbg_event(0x0, "ERRSTAL", ret);
 		dwc3_ep0_stall_and_restart(dwc);
+	}
 }
 
 static void dwc3_ep0_complete_data(struct dwc3 *dwc,
@@ -876,7 +882,7 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 
 	if ((epnum & 1) && ur->actual < ur->length) {
 		/* for some reason we did not get everything out */
-
+		dbg_event(epnum, "INDATSTAL", 0);
 		dwc3_ep0_stall_and_restart(dwc);
 	} else {
 		dwc3_gadget_giveback(ep0, r, 0);
@@ -890,7 +896,8 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 			dwc3_ep0_prepare_one_trb(dwc, epnum, dwc->ctrl_req_addr,
 					0, DWC3_TRBCTL_CONTROL_DATA, false);
 			ret = dwc3_ep0_start_trans(dwc, epnum);
-			WARN_ON(ret < 0);
+			if (WARN_ON(ret < 0))
+				dbg_event(epnum, "ECTRL_DATA", ret);
 		}
 	}
 }
@@ -921,6 +928,7 @@ static void dwc3_ep0_complete_status(struct dwc3 *dwc,
 		if (ret < 0) {
 			dwc3_trace(trace_dwc3_ep0, "Invalid Test #%d",
 					dwc->test_mode_nr);
+			dbg_event(0x00, "INVALTEST", ret);
 			dwc3_ep0_stall_and_restart(dwc);
 			return;
 		}
@@ -932,6 +940,7 @@ static void dwc3_ep0_complete_status(struct dwc3 *dwc,
 		dwc3_trace(trace_dwc3_ep0, "Setup Pending received");
 	}
 
+	dbg_print(dep->number, "DONE", status, "STATUS");
 	dwc->ep0state = EP0_SETUP_PHASE;
 	dwc3_ep0_out_start(dwc);
 }
@@ -1025,6 +1034,7 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 	}
 
 	WARN_ON(ret < 0);
+	dbg_queue(dep->number, &req->request, ret);
 }
 
 static int dwc3_ep0_start_control_status(struct dwc3_ep *dep)
@@ -1042,13 +1052,17 @@ static int dwc3_ep0_start_control_status(struct dwc3_ep *dep)
 
 static void __dwc3_ep0_do_control_status(struct dwc3 *dwc, struct dwc3_ep *dep)
 {
+	int ret;
+
 	if (dwc->resize_fifos) {
 		dwc3_trace(trace_dwc3_ep0, "Resizing FIFOs");
 		dwc3_gadget_resize_tx_fifos(dwc);
 		dwc->resize_fifos = 0;
 	}
 
-	WARN_ON(dwc3_ep0_start_control_status(dep));
+	ret = dwc3_ep0_start_control_status(dep);
+	if (WARN_ON_ONCE(ret))
+		dbg_event(dep->number, "ECTRLSTATUS", ret);
 }
 
 static void dwc3_ep0_do_control_status(struct dwc3 *dwc,
@@ -1073,7 +1087,11 @@ static void dwc3_ep0_end_control_data(struct dwc3 *dwc, struct dwc3_ep *dep)
 	cmd |= DWC3_DEPCMD_PARAM(dep->resource_index);
 	memset(&params, 0, sizeof(params));
 	ret = dwc3_send_gadget_ep_cmd(dep, cmd, &params);
-	WARN_ON_ONCE(ret);
+	if (ret) {
+		dev_dbg(dwc->dev, "%s: send ep cmd ENDTRANSFER failed",
+			dep->name);
+		dbg_event(dep->number, "EENDXFER", ret);
+	}
 	dep->resource_index = 0;
 }
 
@@ -1106,6 +1124,7 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 			dwc3_trace(trace_dwc3_ep0,
 					"Wrong direction for Data phase");
 			dwc3_ep0_end_control_data(dwc, dep);
+			dbg_event(epnum, "WRONGDR", 0);
 			dwc3_ep0_stall_and_restart(dwc);
 			return;
 		}
@@ -1122,7 +1141,8 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 		dwc->ep0state = EP0_STATUS_PHASE;
 
 		if (dwc->delayed_status) {
-			WARN_ON_ONCE(event->endpoint_number != 1);
+			if (event->endpoint_number != 1)
+				dbg_event(epnum, "EEPNUM", event->status);
 			dwc3_trace(trace_dwc3_ep0, "Delayed Status");
 			return;
 		}
