@@ -27,6 +27,8 @@
 #include "sde_encoder.h"
 #include "sde_connector.h"
 
+#include "sde_rsc.h"
+
 #define SDE_ENCODER_NAME_MAX	16
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */

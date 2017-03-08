@@ -199,6 +199,7 @@ enum msm_display_caps {
  * @h_tile_instance:    Controller instance used per tile. Number of elements is
  *                      based on num_of_h_tiles
  * @is_connected:       Set to true if display is connected
+ * @is_primary:         Set to true if display is primary display
  * @width_mm:           Physical width
  * @height_mm:          Physical height
  * @max_width:          Max width of display. In case of hot pluggable display
@@ -215,6 +216,7 @@ struct msm_display_info {
 	uint32_t h_tile_instance[MAX_H_TILES_PER_DISPLAY];
 
 	bool is_connected;
+	bool is_primary;
 
 	unsigned int width_mm;
 	unsigned int height_mm;
