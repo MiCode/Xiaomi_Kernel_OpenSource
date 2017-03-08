@@ -17,6 +17,7 @@
 #include <linux/etherdevice.h>
 #include "wil6210.h"
 #include "wmi.h"
+#include "ftm.h"
 
 #define WIL_MAX_ROC_DURATION_MS 5000
 
@@ -34,6 +35,90 @@ static struct ieee80211_channel wil_60ghz_channels[] = {
 	CHAN60G(2, 0),
 	CHAN60G(3, 0),
 /* channel 4 not supported yet */
+};
+
+/* Vendor id to be used in vendor specific command and events
+ * to user space.
+ * NOTE: The authoritative place for definition of QCA_NL80211_VENDOR_ID,
+ * vendor subcmd definitions prefixed with QCA_NL80211_VENDOR_SUBCMD, and
+ * qca_wlan_vendor_attr is open source file src/common/qca-vendor.h in
+ * git://w1.fi/srv/git/hostap.git; the values here are just a copy of that
+ */
+
+#define QCA_NL80211_VENDOR_ID	0x001374
+
+enum qca_nl80211_vendor_subcmds {
+	QCA_NL80211_VENDOR_SUBCMD_LOC_GET_CAPA = 128,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_START_SESSION = 129,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_ABORT_SESSION = 130,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_MEAS_RESULT = 131,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_SESSION_DONE = 132,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_CFG_RESPONDER = 133,
+	QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS = 134,
+	QCA_NL80211_VENDOR_SUBCMD_AOA_ABORT_MEAS = 135,
+	QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS_RESULT = 136,
+};
+
+/* vendor specific commands */
+static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_LOC_GET_CAPA,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_ftm_get_capabilities
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_START_SESSION,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_ftm_start_session
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_ABORT_SESSION,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_ftm_abort_session
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_CFG_RESPONDER,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_ftm_configure_responder
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_aoa_start_measurement
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_AOA_ABORT_MEAS,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wil_aoa_abort_measurement
+	},
+};
+
+/* vendor specific events */
+static const struct nl80211_vendor_cmd_info wil_nl80211_vendor_events[] = {
+	[QCA_NL80211_VENDOR_EVENT_FTM_MEAS_RESULT_INDEX] = {
+			.vendor_id = QCA_NL80211_VENDOR_ID,
+			.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_MEAS_RESULT
+	},
+	[QCA_NL80211_VENDOR_EVENT_FTM_SESSION_DONE_INDEX] = {
+			.vendor_id = QCA_NL80211_VENDOR_ID,
+			.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_SESSION_DONE
+	},
+	[QCA_NL80211_VENDOR_EVENT_AOA_MEAS_RESULT_INDEX] = {
+			.vendor_id = QCA_NL80211_VENDOR_ID,
+			.subcmd = QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS_RESULT
+	},
 };
 
 static struct ieee80211_supported_band wil_band_60ghz = {
@@ -1483,6 +1568,11 @@ static void wil_wiphy_init(struct wiphy *wiphy)
 	wiphy->n_cipher_suites = ARRAY_SIZE(wil_cipher_suites);
 	wiphy->mgmt_stypes = wil_mgmt_stypes;
 	wiphy->features |= NL80211_FEATURE_SK_TX_STATUS;
+
+	wiphy->n_vendor_commands = ARRAY_SIZE(wil_nl80211_vendor_commands);
+	wiphy->vendor_commands = wil_nl80211_vendor_commands;
+	wiphy->vendor_events = wil_nl80211_vendor_events;
+	wiphy->n_vendor_events = ARRAY_SIZE(wil_nl80211_vendor_events);
 }
 
 struct wireless_dev *wil_cfg80211_init(struct device *dev)

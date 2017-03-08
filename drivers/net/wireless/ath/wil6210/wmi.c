@@ -22,6 +22,7 @@
 #include "txrx.h"
 #include "wmi.h"
 #include "trace.h"
+#include "ftm.h"
 
 static uint max_assoc_sta = WIL6210_MAX_CID;
 module_param(max_assoc_sta, uint, S_IRUGO | S_IWUSR);
@@ -774,6 +775,30 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	spin_unlock_bh(&sta->tid_rx_lock);
 }
 
+static void wmi_evt_aoa_meas(struct wil6210_priv *wil, int id,
+			     void *d, int len)
+{
+	struct wmi_aoa_meas_event *evt = d;
+
+	wil_aoa_evt_meas(wil, evt, len);
+}
+
+static void wmi_evt_ftm_session_ended(struct wil6210_priv *wil, int id,
+				      void *d, int len)
+{
+	struct wmi_tof_session_end_event *evt = d;
+
+	wil_ftm_evt_session_ended(wil, evt);
+}
+
+static void wmi_evt_per_dest_res(struct wil6210_priv *wil, int id,
+				 void *d, int len)
+{
+	struct wmi_tof_ftm_per_dest_res_event *evt = d;
+
+	wil_ftm_evt_per_dest_res(wil, evt);
+}
+
 /**
  * Some events are ignored for purpose; and need not be interpreted as
  * "unhandled events"
@@ -801,6 +826,13 @@ static const struct {
 	{WMI_DELBA_EVENTID,		wmi_evt_delba},
 	{WMI_VRING_EN_EVENTID,		wmi_evt_vring_en},
 	{WMI_DATA_PORT_OPEN_EVENTID,		wmi_evt_ignore},
+	{WMI_AOA_MEAS_EVENTID,			wmi_evt_aoa_meas},
+	{WMI_TOF_SESSION_END_EVENTID,		wmi_evt_ftm_session_ended},
+	{WMI_TOF_GET_CAPABILITIES_EVENTID,	wmi_evt_ignore},
+	{WMI_TOF_SET_LCR_EVENTID,		wmi_evt_ignore},
+	{WMI_TOF_SET_LCI_EVENTID,		wmi_evt_ignore},
+	{WMI_TOF_FTM_PER_DEST_RES_EVENTID,	wmi_evt_per_dest_res},
+	{WMI_TOF_CHANNEL_INFO_EVENTID,		wmi_evt_ignore},
 };
 
 /*

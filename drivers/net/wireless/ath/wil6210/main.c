@@ -518,6 +518,8 @@ int wil_priv_init(struct wil6210_priv *wil)
 	spin_lock_init(&wil->wmi_ev_lock);
 	init_waitqueue_head(&wil->wq);
 
+	wil_ftm_init(wil);
+
 	wil->wmi_wq = create_singlethread_workqueue(WIL_NAME "_wmi");
 	if (!wil->wmi_wq)
 		return -EAGAIN;
@@ -565,6 +567,7 @@ void wil_priv_deinit(struct wil6210_priv *wil)
 {
 	wil_dbg_misc(wil, "%s()\n", __func__);
 
+	wil_ftm_deinit(wil);
 	wil_set_recovery_state(wil, fw_recovery_idle);
 	del_timer_sync(&wil->scan_timer);
 	del_timer_sync(&wil->p2p.discovery_timer);
@@ -1057,6 +1060,7 @@ int __wil_down(struct wil6210_priv *wil)
 	wil_enable_irq(wil);
 
 	wil_p2p_stop_radio_operations(wil);
+	wil_ftm_stop_operations(wil);
 
 	mutex_lock(&wil->p2p_wdev_mutex);
 	if (wil->scan_request) {
