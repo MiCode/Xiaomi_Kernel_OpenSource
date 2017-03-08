@@ -121,8 +121,8 @@ enum rndis_ipa_operation {
 };
 
 #define RNDIS_IPA_STATE_DEBUG(ctx) \
-	(RNDIS_IPA_DEBUG("Driver state: %s\n",\
-	rndis_ipa_state_string((ctx)->state)))
+	RNDIS_IPA_DEBUG("Driver state: %s\n",\
+	rndis_ipa_state_string((ctx)->state))
 
 
 /**
@@ -832,7 +832,7 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 	netdev_tx_t status = NETDEV_TX_BUSY;
 	struct rndis_ipa_dev *rndis_ipa_ctx = netdev_priv(net);
 
-	net->trans_start = jiffies;
+	netif_trans_update(net);
 
 	RNDIS_IPA_DEBUG
 		("Tx, len=%d, skb->protocol=%d, outstanding=%d\n",
