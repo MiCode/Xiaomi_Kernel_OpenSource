@@ -24,6 +24,14 @@
 			     DUMP_PREFIX_OFFSET, 16, 1, buf, len, true)
 #define wil_dbg_ioctl(wil, fmt, arg...) wil_dbg(wil, "DBG[IOC ]" fmt, ##arg)
 
+#define WIL_PRIV_DATA_MAX_LEN	8192
+#define CMD_SET_AP_WPS_P2P_IE	"SET_AP_WPS_P2P_IE"
+
+struct wil_android_priv_data {
+	char *buf;
+	int used_len;
+	int total_len;
+};
 static void __iomem *wil_ioc_addr(struct wil6210_priv *wil, uint32_t addr,
 				  uint32_t size, enum wil_memio_op op)
 {
@@ -159,6 +167,52 @@ out_free:
 	return rc;
 }
 
+static int wil_ioc_android(struct wil6210_priv *wil, void __user *data)
+{
+	int rc = 0;
+	char *command;
+	struct wil_android_priv_data priv_data;
+
+	wil_dbg_ioctl(wil, "%s()\n", __func__);
+
+	if (copy_from_user(&priv_data, data, sizeof(priv_data)))
+		return -EFAULT;
+
+	if (priv_data.total_len <= 0 ||
+	    priv_data.total_len >= WIL_PRIV_DATA_MAX_LEN) {
+		wil_err(wil, "%s: invalid data len %d\n",
+			__func__, priv_data.total_len);
+		return -EINVAL;
+	}
+
+	command = kmalloc(priv_data.total_len + 1, GFP_KERNEL);
+	if (!command)
+		return -ENOMEM;
+
+	if (copy_from_user(command, priv_data.buf, priv_data.total_len)) {
+		rc = -EFAULT;
+		goto out_free;
+	}
+
+	/* Make sure the command is NUL-terminated */
+	command[priv_data.total_len] = '\0';
+
+	wil_dbg_ioctl(wil, "%s(command = %s)\n", __func__, command);
+
+	/* P2P not supported, but WPS is (in AP mode).
+	 * Ignore those in order not to block WPS functionality
+	 * in non-P2P mode.
+	 */
+	if (strncasecmp(command, CMD_SET_AP_WPS_P2P_IE,
+			strlen(CMD_SET_AP_WPS_P2P_IE)) == 0)
+		rc = 0;
+	else
+		rc = -ENOIOCTLCMD;
+
+out_free:
+	kfree(command);
+	return rc;
+}
 int wil_ioctl(struct wil6210_priv *wil, void __user *data, int cmd)
 {
 	int ret;
@@ -169,6 +223,9 @@ int wil_ioctl(struct wil6210_priv *wil, void __user *data, int cmd)
 		break;
 	case WIL_IOCTL_MEMIO_BLOCK:
 		ret = wil_ioc_memio_block(wil, data);
+		break;
+	case (SIOCDEVPRIVATE + 1):
+		ret = wil_ioc_android(wil, data);
 		break;
 	default:
 		wil_dbg_ioctl(wil, "Unsupported IOCTL 0x%04x\n", cmd);
