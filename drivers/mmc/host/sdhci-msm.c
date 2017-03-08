@@ -4118,6 +4118,7 @@ static unsigned int sdhci_msm_get_current_limit(struct sdhci_host *host)
 static struct sdhci_ops sdhci_msm_ops = {
 	.crypto_engine_cfg = sdhci_msm_ice_cfg,
 	.crypto_engine_cmdq_cfg = sdhci_msm_ice_cmdq_cfg,
+	.crypto_engine_cfg_end = sdhci_msm_ice_cfg_end,
 	.crypto_cfg_reset = sdhci_msm_ice_cfg_reset,
 	.crypto_engine_reset = sdhci_msm_ice_reset,
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
