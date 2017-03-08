@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,18 +129,6 @@ static uint32_t *msm_mpm_falling_edge;
 static uint32_t *msm_mpm_rising_edge;
 static uint32_t *msm_mpm_polarity;
 
-enum {
-	MSM_MPM_DEBUG_NON_DETECTABLE_IRQ = BIT(0),
-	MSM_MPM_DEBUG_PENDING_IRQ = BIT(1),
-	MSM_MPM_DEBUG_WRITE = BIT(2),
-	MSM_MPM_DEBUG_NON_DETECTABLE_IRQ_IDLE = BIT(3),
-};
-
-static int msm_mpm_debug_mask = 1;
-module_param_named(
-	debug_mask, msm_mpm_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP
-);
-
 enum mpm_state {
 	MSM_MPM_GIC_IRQ_MAPPING_DONE = BIT(0),
 	MSM_MPM_GPIO_IRQ_MAPPING_DONE = BIT(1),
@@ -174,9 +162,6 @@ static inline void msm_mpm_write(
 	unsigned int offset = reg * MSM_MPM_REG_WIDTH + subreg_index + 2;
 
 	__raw_writel(value, msm_mpm_dev_data.mpm_request_reg_base + offset * 4);
-	if (MSM_MPM_DEBUG_WRITE & msm_mpm_debug_mask)
-		pr_info("%s: reg %u.%u: 0x%08x\n",
-			__func__, reg, subreg_index, value);
 }
 
 static inline void msm_mpm_send_interrupt(void)
@@ -513,36 +498,18 @@ int msm_mpm_set_pin_type(unsigned int pin, unsigned int flow_type)
 static bool msm_mpm_interrupts_detectable(int d, bool from_idle)
 {
 	unsigned long *irq_bitmap;
-	bool debug_mask, ret = false;
+	bool ret = false;
 	struct mpm_irqs *unlisted = &unlisted_irqs[d];
 
 	if (!msm_mpm_is_initialized())
 		return false;
 
-	if (from_idle) {
+	if (from_idle)
 		irq_bitmap = unlisted->enabled_irqs;
-		debug_mask = msm_mpm_debug_mask &
-				MSM_MPM_DEBUG_NON_DETECTABLE_IRQ_IDLE;
-	} else {
+	else
 		irq_bitmap = unlisted->wakeup_irqs;
-		debug_mask = msm_mpm_debug_mask &
-				MSM_MPM_DEBUG_NON_DETECTABLE_IRQ;
-	}
 
 	ret = (bool) bitmap_empty(irq_bitmap, unlisted->size);
-
-	if (debug_mask && !ret) {
-		int i = 0;
-		i = find_first_bit(irq_bitmap, unlisted->size);
-		pr_info("%s(): %s preventing system sleep modes during %s\n",
-				__func__, unlisted->domain_name,
-				from_idle ? "idle" : "suspend");
-
-		while (i < unlisted->size) {
-			pr_info("\thwirq: %d\n", i);
-			i = find_next_bit(irq_bitmap, unlisted->size, i + 1);
-		}
-	}
 
 	return ret;
 }
@@ -600,10 +567,6 @@ void msm_mpm_exit_sleep(bool from_idle)
 	for (i = 0; i < MSM_MPM_REG_WIDTH; i++) {
 		pending = msm_mpm_read(MSM_MPM_REG_STATUS, i);
 		pending &= enabled_intr[i];
-
-		if (MSM_MPM_DEBUG_PENDING_IRQ & msm_mpm_debug_mask)
-			pr_info("%s: enabled_intr.%d pending.%d: 0x%08x 0x%08lx\n",
-				__func__, i, i, enabled_intr[i], pending);
 
 		k = find_first_bit(&pending, 32);
 		while (k < 32) {
