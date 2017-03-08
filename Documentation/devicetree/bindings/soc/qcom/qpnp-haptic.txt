@@ -54,9 +54,11 @@ Optional properties for pwm play mode:
 Optional properties when qcom,actuator-type is "lra"
  - qcom,correct-lra-drive-freq : boolean, use this to ensure LRA is driven at correct resonant
 				 frequency, which may change due to operating conditions.
- - qcom,misc-trim-error-rc19p2-clk-reg-present : boolean, use this if TRIM_ERROR_RC19P2_CLK
-				register is present in MISC module. This register holds
-				the frequency error in 19.2Mhz RC clock.
+ - qcom,pmic-misc		: phandle of misc device using which the clock
+				  trim error can be read from.
+ - qcom,misc-clk-trim-error-reg	: Address offset of MISC_TRIM_ERROR_RC19P2_CLK
+				  register if present in MISC module. This
+				  holds the frequency error in 19.2 MHz clock.
  - qcom,lra-auto-res-mode : auto resonance technique, four different modes
 			"none" : no auto resonance
 			"zxd" : zero crossing based discontinuous method
@@ -118,6 +120,8 @@ Example:
 			interrupt-names = "sc-irq", "play-irq";
 			qcom,pmic-revid = <&pm660_revid>;
 			vcc_pon-supply = <&pon_perph_reg>;
+			qcom,pmic-misc = <&pmi8998_misc>;
+			qcom,misc-clk-trim-error-reg = <0xf3>;
 			qcom,play-mode = "direct";
 			qcom,wave-play-rate-us = <5263>;
 			qcom,actuator-type = "lra";

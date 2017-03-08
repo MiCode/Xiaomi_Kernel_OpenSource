@@ -25,6 +25,7 @@
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
 #include <linux/delay.h>
+#include <linux/qpnp-misc.h>
 #include <linux/qpnp/qpnp-revid.h>
 #include <linux/qpnp/qpnp-haptic.h>
 #include "../../staging/android/timed_output.h"
@@ -155,12 +156,6 @@
 #define QPNP_TEST_TIMER_MS		5
 
 #define QPNP_HAP_TIME_REQ_FOR_BACK_EMF_GEN	20000
-
-#define MISC_TRIM_ERROR_RC19P2_CLK	0x09F5
-#define MISC_SEC_ACCESS			0x09D0
-#define MISC_SEC_UNLOCK			0xA5
-#define PMI8950_MISC_SID		2
-
 #define POLL_TIME_AUTO_RES_ERR_NS	(20 * NSEC_PER_MSEC)
 
 #define MAX_POSITIVE_VARIATION_LRA_FREQ 30
@@ -172,11 +167,11 @@
 	((MAX_POSITIVE_VARIATION_LRA_FREQ - MAX_NEGATIVE_VARIATION_LRA_FREQ) \
 	 / FREQ_VARIATION_STEP)
 #define LRA_DRIVE_PERIOD_POS_ERR(hap, rc_clk_err_percent) \
-		(hap->init_drive_period_code = (hap->init_drive_period_code * \
-					(1000 + rc_clk_err_percent_x10)) / 1000)
+	(hap->init_drive_period_code = (hap->init_drive_period_code * \
+		(1000 + rc_clk_err_percent_x10)) / 1000)
 #define LRA_DRIVE_PERIOD_NEG_ERR(hap, rc_clk_err_percent) \
-		(hap->init_drive_period_code = (hap->init_drive_period_code * \
-					(1000 - rc_clk_err_percent_x10)) / 1000)
+	(hap->init_drive_period_code = (hap->init_drive_period_code * \
+		(1000 - rc_clk_err_percent_x10)) / 1000)
 
 u32 adjusted_lra_play_rate_code[ADJUSTED_LRA_PLAY_RATE_CODE_ARRSIZE];
 
@@ -326,7 +321,8 @@ struct qpnp_pwm_info {
  *  @ en_brake - brake state
  *  @ sup_brake_pat - support custom brake pattern
  *  @ correct_lra_drive_freq - correct LRA Drive Frequency
- *  @ misc_trim_error_rc19p2_clk_reg_present - if MISC Trim Error reg is present
+ *  @ misc_clk_trim_error_reg - MISC clock trim error register if present
+ *  @ clk_trim_error_code - MISC clock trim error code
  *  @ perform_lra_auto_resonance_search - whether lra auto resonance search
  *    algorithm should be performed or not.
  */
@@ -349,6 +345,7 @@ struct qpnp_hap {
 	enum qpnp_hap_high_z		lra_high_z;
 	int				lra_qwd_drive_duration;
 	int				calibrate_at_eop;
+	u32				misc_clk_trim_error_reg;
 	u32				init_drive_period_code;
 	u32				timeout_ms;
 	u32				time_required_to_generate_back_emf_us;
@@ -380,6 +377,7 @@ struct qpnp_hap {
 	u8				ext_pwm_dtest_line;
 	u8				pmic_subtype;
 	u8				auto_res_mode;
+	u8				clk_trim_error_code;
 	bool				vcc_pon_enabled;
 	bool				state;
 	bool				use_play_irq;
@@ -391,7 +389,6 @@ struct qpnp_hap {
 	bool				en_brake;
 	bool				sup_brake_pat;
 	bool				correct_lra_drive_freq;
-	bool				misc_trim_error_rc19p2_clk_reg_present;
 	bool				perform_lra_auto_resonance_search;
 };
 
@@ -1827,10 +1824,9 @@ static SIMPLE_DEV_PM_OPS(qpnp_haptic_pm_ops, qpnp_haptic_suspend, NULL);
 /* Configuration api for haptics registers */
 static int qpnp_hap_config(struct qpnp_hap *hap)
 {
-	u8 reg = 0, unlock_val, mask;
+	u8 reg = 0, mask;
 	u32 temp;
 	int rc, i;
-	uint error_code = 0;
 
 	/*
 	 * This denotes the percentage error in rc clock multiplied by 10
@@ -2019,35 +2015,25 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 	 * The frequency of 19.2Mzhz RC clock is subject to variation. Currently
 	 * a few PMI modules have MISC_TRIM_ERROR_RC19P2_CLK register
 	 * present in their MISC  block. This register holds the frequency error
-	 * in 19.2Mhz RC clock.
+	 * in 19.2 MHz RC clock.
 	 */
 	if ((hap->act_type == QPNP_HAP_LRA) && hap->correct_lra_drive_freq
-			&& hap->misc_trim_error_rc19p2_clk_reg_present) {
-		unlock_val = MISC_SEC_UNLOCK;
-		/*
-		 * This SID value may change depending on the PMI chip where
-		 * the MISC block is present.
-		 */
-		rc = regmap_write(hap->regmap, MISC_SEC_ACCESS, unlock_val);
-		if (rc)
-			dev_err(&hap->pdev->dev,
-				"Unable to do SEC_ACCESS rc:%d\n", rc);
-
-		regmap_read(hap->regmap, MISC_TRIM_ERROR_RC19P2_CLK,
-			    &error_code);
-		dev_dbg(&hap->pdev->dev, "TRIM register = 0x%x\n", error_code);
+			&& hap->misc_clk_trim_error_reg) {
+		dev_dbg(&hap->pdev->dev, "TRIM register = 0x%x\n",
+			hap->clk_trim_error_code);
 
 		/*
 		 * Extract the 4 LSBs and multiply by 7 to get
 		 * the %error in RC clock multiplied by 10
 		 */
-		rc_clk_err_percent_x10 = (error_code & 0x0F) * 7;
+		rc_clk_err_percent_x10 = (hap->clk_trim_error_code & 0x0F) * 7;
 
 		/*
 		 * If the TRIM register holds value less than 0x80,
 		 * then there is a positive error in the RC clock.
 		 * If the TRIM register holds value greater than or equal to
-		 * 0x80, then there is a negative error in the RC clock.
+		 * 0x80, then there is a negative error in the RC clock. Bit 7
+		 * is the sign bit for error code.
 		 *
 		 * The adjusted play rate code is calculated as follows:
 		 * LRA drive period code (RATE_CFG) =
@@ -2060,7 +2046,7 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 		 * Since 200KHz * 1/LRA drive frequency is already calculated
 		 * above we only do rest of the scaling here.
 		 */
-		if (error_code >= 128)
+		if (hap->clk_trim_error_code & BIT(7))
 			LRA_DRIVE_PERIOD_NEG_ERR(hap, rc_clk_err_percent_x10);
 		else
 			LRA_DRIVE_PERIOD_POS_ERR(hap, rc_clk_err_percent_x10);
@@ -2167,10 +2153,38 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 static int qpnp_hap_parse_dt(struct qpnp_hap *hap)
 {
 	struct platform_device *pdev = hap->pdev;
+	struct device_node *misc_node;
 	struct property *prop;
 	const char *temp_str;
 	u32 temp;
 	int rc;
+
+	if (of_find_property(pdev->dev.of_node, "qcom,pmic-misc", NULL)) {
+		misc_node = of_parse_phandle(pdev->dev.of_node,
+					"qcom,pmic-misc", 0);
+		if (!misc_node)
+			return -EINVAL;
+
+		rc = of_property_read_u32(pdev->dev.of_node,
+				"qcom,misc-clk-trim-error-reg", &temp);
+		if (rc < 0) {
+			pr_err("Missing misc-clk-trim-error-reg\n");
+			return rc;
+		}
+
+		if (!temp || temp > 0xFF) {
+			pr_err("Invalid misc-clk-trim-error-reg\n");
+			return -EINVAL;
+		}
+
+		hap->misc_clk_trim_error_reg = temp;
+		rc = qpnp_misc_read_reg(misc_node, hap->misc_clk_trim_error_reg,
+				&hap->clk_trim_error_code);
+		if (rc < 0) {
+			pr_err("Couldn't get clk_trim_error_code, rc=%d\n", rc);
+			return -EPROBE_DEFER;
+		}
+	}
 
 	hap->timeout_ms = QPNP_HAP_TIMEOUT_MS_MAX;
 	rc = of_property_read_u32(pdev->dev.of_node,
@@ -2297,10 +2311,6 @@ static int qpnp_hap_parse_dt(struct qpnp_hap *hap)
 		if (!rc)
 			hap->drive_period_code_min_limit_percent_variation =
 								(u8) temp;
-
-		hap->misc_trim_error_rc19p2_clk_reg_present =
-				of_property_read_bool(pdev->dev.of_node,
-				"qcom,misc-trim-error-rc19p2-clk-reg-present");
 
 		if (hap->auto_res_mode == QPNP_HAP_AUTO_RES_QWD) {
 			hap->time_required_to_generate_back_emf_us =
