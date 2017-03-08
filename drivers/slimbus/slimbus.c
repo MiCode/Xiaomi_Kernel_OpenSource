@@ -1390,8 +1390,10 @@ static int connect_port_ch(struct slim_controller *ctrl, u8 ch, u32 ph,
 		txn.mc = SLIM_MSG_MC_CONNECT_SINK;
 	buf[0] = pn;
 	buf[1] = ctrl->chans[ch].chan;
-	if (la == SLIM_LA_MANAGER)
+	if (la == SLIM_LA_MANAGER) {
 		ctrl->ports[pn].flow = flow;
+		ctrl->ports[pn].ch = &ctrl->chans[ch].prop;
+	}
 	ret = slim_processtxn(ctrl, &txn, false);
 	if (!ret && la == SLIM_LA_MANAGER)
 		ctrl->ports[pn].state = SLIM_P_CFG;
@@ -1467,7 +1469,6 @@ int slim_connect_src(struct slim_device *sb, u32 srch, u16 chanh)
 		ret = -EALREADY;
 		goto connect_src_err;
 	}
-	ctrl->ports[pn].ch = &slc->prop;
 	ret = connect_port_ch(ctrl, chan, srch, SLIM_SRC);
 
 	if (!ret)
@@ -1522,16 +1523,15 @@ int slim_connect_sink(struct slim_device *sb, u32 *sinkh, int nsink, u16 chanh)
 		u8 la = SLIM_HDL_TO_LA(sinkh[j]);
 		u8 pn = SLIM_HDL_TO_PORT(sinkh[j]);
 
-		if (la != SLIM_LA_MANAGER && flow != SLIM_SINK) {
+		if (la != SLIM_LA_MANAGER && flow != SLIM_SINK)
 			ret = -EINVAL;
-		} else if (la == SLIM_LA_MANAGER &&
+		else if (la == SLIM_LA_MANAGER &&
 			   (pn >= ctrl->nports ||
-			    ctrl->ports[pn].state != SLIM_P_UNCFG)) {
+			    ctrl->ports[pn].state != SLIM_P_UNCFG))
 			ret = -EINVAL;
-		} else {
-			ctrl->ports[pn].ch = &slc->prop;
+		else
 			ret = connect_port_ch(ctrl, chan, sinkh[j], SLIM_SINK);
-		}
+
 		if (ret) {
 			for (j = j - 1; j >= 0; j--)
 				disconnect_port_ch(ctrl, sinkh[j]);
