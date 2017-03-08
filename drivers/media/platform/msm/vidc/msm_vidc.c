@@ -1388,7 +1388,13 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 				"Failed to release persist buffers\n");
 		}
 
-		if (msm_comm_release_output_buffers(inst)) {
+		/*
+		 * At this point all buffes should be with driver
+		 * irrespective of scenario
+		 */
+		msm_comm_validate_output_buffers(inst);
+
+		if (msm_comm_release_output_buffers(inst, true)) {
 			dprintk(VIDC_ERR,
 				"Failed to release output buffers\n");
 		}

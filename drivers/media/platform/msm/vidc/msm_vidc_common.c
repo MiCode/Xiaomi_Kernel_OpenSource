@@ -1414,7 +1414,7 @@ static void handle_release_res_done(enum hal_command_response cmd, void *data)
 	put_inst(inst);
 }
 
-void validate_output_buffers(struct msm_vidc_inst *inst)
+void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst)
 {
 	struct internal_buf *binfo;
 	u32 buffers_owned_by_driver = 0;
@@ -1440,11 +1440,13 @@ void validate_output_buffers(struct msm_vidc_inst *inst)
 	}
 	mutex_unlock(&inst->outputbufs.lock);
 
-	if (buffers_owned_by_driver != output_buf->buffer_count_actual)
+	if (buffers_owned_by_driver != output_buf->buffer_count_actual) {
 		dprintk(VIDC_WARN,
 			"OUTPUT Buffer count mismatch %d of %d\n",
 			buffers_owned_by_driver,
 			output_buf->buffer_count_actual);
+		msm_vidc_handle_hw_error(inst->core);
+	}
 }
 
 int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst)
@@ -1524,7 +1526,11 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
-		validate_output_buffers(inst);
+
+		if (!(inst->fmts[OUTPUT_PORT].defer_outputs &&
+				inst->in_reconfig))
+			msm_comm_validate_output_buffers(inst);
+
 		if (!inst->in_reconfig) {
 			rc = msm_comm_queue_output_buffers(inst);
 			if (rc) {
@@ -4051,7 +4057,8 @@ exit:
 	return rc;
 }
 
-int msm_comm_release_output_buffers(struct msm_vidc_inst *inst)
+int msm_comm_release_output_buffers(struct msm_vidc_inst *inst,
+	bool force_release)
 {
 	struct msm_smem *handle;
 	struct internal_buf *buf, *dummy;
@@ -4091,6 +4098,11 @@ int msm_comm_release_output_buffers(struct msm_vidc_inst *inst)
 		if (!handle) {
 			dprintk(VIDC_ERR, "%s - invalid handle\n", __func__);
 			goto exit;
+		}
+
+		if ((buf->buffer_ownership == FIRMWARE) && !force_release) {
+			dprintk(VIDC_INFO, "DPB is with f/w. Can't free it\n");
+			continue;
 		}
 
 		buffer_info.buffer_size = handle->size;
@@ -4352,13 +4364,17 @@ exit:
 int msm_comm_set_output_buffers(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+	bool force_release = true;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 
-	if (msm_comm_release_output_buffers(inst))
+	if (inst->fmts[OUTPUT_PORT].defer_outputs)
+		force_release = false;
+
+	if (msm_comm_release_output_buffers(inst, force_release))
 		dprintk(VIDC_WARN, "Failed to release output buffers\n");
 
 	rc = set_output_buffers(inst, HAL_BUFFER_OUTPUT);
@@ -4366,7 +4382,7 @@ int msm_comm_set_output_buffers(struct msm_vidc_inst *inst)
 		goto error;
 	return rc;
 error:
-	msm_comm_release_output_buffers(inst);
+	msm_comm_release_output_buffers(inst, true);
 	return rc;
 }
 
