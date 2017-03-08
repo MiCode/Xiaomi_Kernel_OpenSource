@@ -169,16 +169,16 @@
 						<&tlmm_pinmux 81 0>;
 				};
 
-				wsa881x_213: wsa881x@20170213 {
+				wsa881x_213: wsa881x@21170213 {
 					compatible = "qcom,wsa881x";
-					reg = <0x00 0x20170213>;
+					reg = <0x00 0x21170213>;
 					qcom,spkr-sd-n-gpio =
 						<&tlmm_pinmux 81 0>;
 				};
 
-				wsa881x_214: wsa881x@20170214 {
+				wsa881x_214: wsa881x@21170214 {
 					compatible = "qcom,wsa881x";
-					reg = <0x00 0x20170214>;
+					reg = <0x00 0x21170214>;
 					qcom,spkr-sd-n-gpio =
 						<&tlmm_pinmux 81 0>;
 				};
