@@ -1255,7 +1255,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *ana_cdc = rtd->codec_dais[ANA_CDC]->codec;
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(ana_cdc);
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(rtd->card);
 	struct snd_card *card;
 	int ret = -ENOMEM;
@@ -1299,17 +1298,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_sync(dapm);
 
-	/*
-	 * Send speaker configuration only for WSA8810.
-	 * Defalut configuration is for WSA8815.
-	 */
-	if (rtd_aux && rtd_aux->component)
-		if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
-		    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
-			msm_sdw_set_spkr_mode(rtd->codec, SPKR_MODE_1);
-			msm_sdw_set_spkr_gain_offset(rtd->codec,
-						   RX_GAIN_OFFSET_M1P5_DB);
-	}
 	msm_anlg_cdc_spk_ext_pa_cb(enable_spk_ext_pa, ana_cdc);
 	msm_dig_cdc_hph_comp_cb(msm_config_hph_compander_gpio, dig_cdc);
 
@@ -1344,6 +1332,7 @@ static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm =
 			snd_soc_codec_get_dapm(codec);
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(rtd->card);
+	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
 	struct snd_card *card;
 
 	snd_soc_add_codec_controls(codec, msm_sdw_controls,
@@ -1357,6 +1346,18 @@ static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT_SDW");
 
 	snd_soc_dapm_sync(dapm);
+
+	/*
+	 * Send speaker configuration only for WSA8810.
+	 * Default configuration is for WSA8815.
+	 */
+	if (rtd_aux && rtd_aux->component)
+		if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
+		    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
+			msm_sdw_set_spkr_mode(rtd->codec, SPKR_MODE_1);
+			msm_sdw_set_spkr_gain_offset(rtd->codec,
+						   RX_GAIN_OFFSET_M1P5_DB);
+	}
 	card = rtd->card->snd_card;
 	if (!codec_root)
 		codec_root = snd_register_module_info(card->module, "codecs",
