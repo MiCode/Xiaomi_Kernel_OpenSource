@@ -112,6 +112,7 @@
 		qcom,sde-sspp-qseed-off = <0xa00>;
 		qcom,sde-mixer-linewidth = <2560>;
 		qcom,sde-sspp-linewidth = <2560>;
+		qcom,sde-wb-linewidth = <4096>;
 		qcom,sde-mixer-blendstages = <0xb>;
 		qcom,sde-highest-bank-bit = <0x2>;
 		qcom,sde-panic-per-pipe;
