@@ -489,7 +489,7 @@ static int smblib_set_adapter_allowance(struct smb_charger *chg,
 		if (chg->smb_version == PM660_SUBTYPE) {
 			smblib_dbg(chg, PR_MISC, "voltage not supported=%d\n",
 					allowed_voltage);
-			allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_9V;
+			allowed_voltage = USBIN_ADAPTER_ALLOW_5V_OR_9V;
 		}
 		break;
 	}
