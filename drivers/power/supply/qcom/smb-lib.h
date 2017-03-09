@@ -312,6 +312,7 @@ struct smb_charger {
 	u32			wa_flags;
 	enum cc2_sink_type	cc2_sink_detach_flag;
 	int			boost_current_ua;
+	int			temp_speed_reading_count;
 
 	/* extcon for VBUS / ID notification to USB for uUSB */
 	struct extcon_dev	*extcon;
