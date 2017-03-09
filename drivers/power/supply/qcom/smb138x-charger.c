@@ -44,6 +44,8 @@
 #define SMB2CHG_DC_TM_SREFGEN		(DCIN_BASE + 0xE2)
 #define STACKED_DIODE_EN_BIT		BIT(2)
 
+#define TDIE_AVG_COUNT	10
+
 enum {
 	OOB_COMP_WA_BIT = BIT(0),
 };
@@ -116,6 +118,27 @@ irqreturn_t smb138x_handle_slave_chg_state_change(int irq, void *data)
 		power_supply_changed(chip->parallel_psy);
 
 	return IRQ_HANDLED;
+}
+
+static int smb138x_get_prop_charger_temp(struct smb138x *chip,
+				 union power_supply_propval *val)
+{
+	union power_supply_propval pval;
+	int rc = 0, avg = 0, i;
+	struct smb_charger *chg = &chip->chg;
+
+	for (i = 0; i < TDIE_AVG_COUNT; i++) {
+		pval.intval = 0;
+		rc = smblib_get_prop_charger_temp(chg, &pval);
+		if (rc < 0) {
+			pr_err("Couldnt read chg temp at %dth iteration rc = %d\n",
+					i + 1, rc);
+			return rc;
+		}
+		avg += pval.intval;
+	}
+	val->intval = avg / TDIE_AVG_COUNT;
+	return rc;
 }
 
 static int smb138x_parse_dt(struct smb138x *chip)
@@ -312,6 +335,7 @@ static enum power_supply_property smb138x_batt_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CHARGER_TEMP,
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
+	POWER_SUPPLY_PROP_SET_SHIP_MODE,
 };
 
 static int smb138x_batt_get_prop(struct power_supply *psy,
@@ -342,10 +366,14 @@ static int smb138x_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_batt_capacity(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP:
-		rc = smblib_get_prop_charger_temp(chg, val);
+		rc = smb138x_get_prop_charger_temp(chip, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
 		rc = smblib_get_prop_charger_temp_max(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
+		/* Not in ship mode as long as device is active */
+		val->intval = 0;
 		break;
 	default:
 		pr_err("batt power supply get prop %d not supported\n", prop);
@@ -374,6 +402,12 @@ static int smb138x_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = smblib_set_prop_batt_capacity(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
+		/* Not in ship mode as long as the device is active */
+		if (!val->intval)
+			break;
+		rc = smblib_set_prop_ship_mode(chg, val);
 		break;
 	default:
 		pr_err("batt power supply set prop %d not supported\n", prop);
@@ -443,6 +477,7 @@ static enum power_supply_property smb138x_parallel_props[] = {
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
 	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
+	POWER_SUPPLY_PROP_SET_SHIP_MODE,
 };
 
 static int smb138x_parallel_get_prop(struct power_supply *psy,
@@ -484,7 +519,7 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_slave_current_now(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP:
-		rc = smblib_get_prop_charger_temp(chg, val);
+		rc = smb138x_get_prop_charger_temp(chip, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
 		rc = smblib_get_prop_charger_temp_max(chg, val);
@@ -497,6 +532,10 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		rc = smblib_get_prop_die_health(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
+		/* Not in ship mode as long as device is active */
+		val->intval = 0;
 		break;
 	default:
 		pr_err("parallel power supply get prop %d not supported\n",
@@ -554,12 +593,14 @@ static int smb138x_parallel_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fcc, val->intval);
 		break;
-	case POWER_SUPPLY_PROP_BUCK_FREQ:
-		rc = smblib_set_charge_param(chg, &chg->param.freq_buck,
-					     val->intval);
+	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
+		/* Not in ship mode as long as the device is active */
+		if (!val->intval)
+			break;
+		rc = smblib_set_prop_ship_mode(chg, val);
 		break;
 	default:
-		pr_err("parallel power supply set prop %d not supported\n",
+		pr_debug("parallel power supply set prop %d not supported\n",
 			prop);
 		return -EINVAL;
 	}
@@ -837,6 +878,13 @@ static int smb138x_init_hw(struct smb138x *chip)
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
 
 	chg->dcp_icl_ua = chip->dt.usb_icl_ua;
+
+	/* configure to a fixed 700khz freq to avoid tdie errors */
+	rc = smblib_set_charge_param(chg, &chg->param.freq_buck, 700);
+	if (rc < 0) {
+		pr_err("Couldn't configure 700Khz switch freq rc=%d\n", rc);
+		return rc;
+	}
 
 	/* configure charge enable for software control; active high */
 	rc = smblib_masked_write(chg, CHGR_CFG2_REG,

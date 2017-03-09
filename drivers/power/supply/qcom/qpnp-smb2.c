@@ -992,6 +992,9 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		/* Not in ship mode as long as the device is active */
 		if (!val->intval)
 			break;
+		if (chg->pl.psy)
+			power_supply_set_property(chg->pl.psy,
+				POWER_SUPPLY_PROP_SET_SHIP_MODE, val);
 		rc = smblib_set_prop_ship_mode(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_RERUN_AICL:

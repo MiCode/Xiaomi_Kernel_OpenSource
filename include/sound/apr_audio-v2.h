@@ -933,7 +933,6 @@ struct adm_cmd_connect_afe_port_v5 {
 #define SLIMBUS_3_TX		0x4007
 #define SLIMBUS_4_RX		0x4008
 #define SLIMBUS_4_TX		0x4009
-#define SLIMBUS_TX_VI		0x4f09
 #define SLIMBUS_5_RX		0x400a
 #define SLIMBUS_5_TX		0x400b
 #define SLIMBUS_6_RX		0x400c

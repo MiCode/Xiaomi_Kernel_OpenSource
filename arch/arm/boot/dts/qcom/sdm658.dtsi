@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,4 +16,67 @@
 	model = "Qualcomm Technologies, Inc. SDM 658";
 	compatible = "qcom,sdm658";
 	qcom,msm-id = <325 0x0>;
+
+	cpus {
+		/delete-node/ cpu@102;
+		/delete-node/ cpu@103;
+
+		cpu-map {
+			cluster1 {
+				/delete-node/ core2;
+				/delete-node/ core3;
+			};
+		};
+	};
+};
+
+&soc {
+	/delete-node/ jtagmm@7e40000;
+	/delete-node/ jtagmm@7f40000;
+	/delete-node/ etm@7e40000;
+	/delete-node/ etm@7f40000;
+	/delete-node/ cti@7e20000;
+	/delete-node/ cti@7f20000;
+
+	devfreq_memlat_4: qcom,arm-memlat-mon-4 {
+		qcom,cpulist = <&CPU4 &CPU5>;
+	};
+
+	cpuss_dump {
+		/delete-node/ qcom,l1_i_cache102;
+		/delete-node/ qcom,l1_i_cache103;
+		/delete-node/ qcom,l1_d_cache102;
+		/delete-node/ qcom,l1_d_cache103;
+		/delete-node/ qcom,l1_tlb_dump102;
+		/delete-node/ qcom,l1_tlb_dump103;
+	};
+
+	funnel@7b60000 {
+		ports {
+			/delete-node/ port@7;
+			/delete-node/ port@8;
+		};
+	};
+
+	qcom,msm-thermal {
+		qcom,synchronous-cluster-map = <0 4 &CPU0 &CPU1 &CPU2 &CPU3>,
+						<1 2 &CPU4 &CPU5>;
+	};
+
+	qcom,bcl {
+		qcom,bcl-hotplug-list = <&CPU4 &CPU5>;
+		qcom,bcl-soc-hotplug-list = <&CPU4 &CPU5>;
+	};
+
+	qcom,spm@178120000 {
+		qcom,cpu-vctl-list = <&CPU4 &CPU5>;
+	};
+
+	qcom,lpm-levels {
+		qcom,pm-cluster@0 {
+			qcom,pm-cluster@1 {
+				qcom,cpu = <&CPU4 &CPU5>;
+			};
+		};
+	};
 };

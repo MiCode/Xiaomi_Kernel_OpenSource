@@ -3544,7 +3544,7 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 	else if (mrq->data && mrq->data->error)
 		err = mrq->data->error;
 
-	if (err || cmdq_req->resp_err) {
+	if ((err || cmdq_req->resp_err) && !cmdq_req->skip_err_handling) {
 		pr_err("%s: %s: txfr error(%d)/resp_err(%d)\n",
 				mmc_hostname(mrq->host), __func__, err,
 				cmdq_req->resp_err);
@@ -3578,6 +3578,17 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 		mmc_cmdq_post_req(host, cmdq_req->tag, err);
 	if (cmdq_req->cmdq_req_flags & DCMD) {
 		clear_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
+		blk_end_request_all(rq, err);
+		goto out;
+	}
+	/*
+	 * In case of error, cmdq_req->data.bytes_xfered is set to 0.
+	 * If we call blk_end_request() with nr_bytes as 0 then the request
+	 * never gets completed. So in case of error, to complete a request
+	 * with error we should use blk_end_request_all().
+	 */
+	if (err && cmdq_req->skip_err_handling) {
+		cmdq_req->skip_err_handling = false;
 		blk_end_request_all(rq, err);
 		goto out;
 	}

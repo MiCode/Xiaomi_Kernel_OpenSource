@@ -705,9 +705,6 @@ static int wil_target_reset(struct wil6210_priv *wil)
 	wil_s(wil, RGF_DMA_OFUL_NID_0, BIT_DMA_OFUL_NID_0_RX_EXT_TR_EN |
 	      BIT_DMA_OFUL_NID_0_RX_EXT_A3_SRC);
 
-	/* Enable fix for PCIe HW bug, set "No snoop" for RX transactions */
-	wil_s(wil, RGF_DMA_PEDI_DIF, BIT_DMA_WR_CMD_ATTR_NO_SNOOP);
-
 	wil_dbg_misc(wil, "Reset completed in %d ms\n", delay * RST_DELAY);
 	return 0;
 }

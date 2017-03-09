@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #define __KGSL_PWRCTRL_H
 
 #include <linux/pm_qos.h>
+#include <soc/qcom/cx_ipeak.h>
 
 /*****************************************************************************
 ** power flags
@@ -153,6 +154,8 @@ struct kgsl_regulator {
  * isense_clk_indx - index of isense clock, 0 if no isense
  * isense_clk_on_level - isense clock rate is XO rate below this level.
  * tsens_name - pointer to temperature sensor name of GPU temperature sensor
+ * gpu_cx_ipeak - pointer to cx ipeak client used by GPU
+ * gpu_cx_ipeak_clk - GPU threshold frequency to call cx ipeak driver API
  */
 
 struct kgsl_pwrctrl {
@@ -206,6 +209,8 @@ struct kgsl_pwrctrl {
 	unsigned int gpu_bimc_int_clk_freq;
 	bool gpu_bimc_interface_enabled;
 	const char *tsens_name;
+	struct cx_ipeak_client *gpu_cx_ipeak;
+	unsigned int gpu_cx_ipeak_clk;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);
