@@ -734,7 +734,6 @@
 
 		clock-names = "osm";
 		clocks = <&clock_cpu PERFCL_CLK>;
-		qcom,cxip-lm-enable = <0>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 
