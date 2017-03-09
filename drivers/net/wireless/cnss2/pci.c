@@ -49,6 +49,13 @@ module_param(pci_link_down_panic, uint, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(pci_link_down_panic,
 		 "Trigger kernel panic when PCI link down is detected");
 
+static bool fbc_bypass;
+#ifdef CONFIG_CNSS2_DEBUG
+module_param(fbc_bypass, bool, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(fbc_bypass,
+		 "Bypass firmware download when loading WLAN driver");
+#endif
+
 static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
 {
 	int ret = 0;
@@ -1194,6 +1201,9 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 		return -ENODEV;
 	}
 
+	if (fbc_bypass)
+		return 0;
+
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_INIT);
 	if (ret)
 		goto out;
@@ -1216,6 +1226,9 @@ void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv)
 		cnss_pr_err("pci_priv is NULL!\n");
 		return;
 	}
+
+	if (fbc_bypass)
+		return;
 
 	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_POWER_OFF);
 	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_DEINIT);
