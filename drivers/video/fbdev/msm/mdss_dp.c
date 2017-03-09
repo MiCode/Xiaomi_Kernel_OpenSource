@@ -1290,6 +1290,23 @@ exit:
 	return ret;
 }
 
+static u32 mdss_dp_calc_max_pclk_rate(struct mdss_dp_drv_pdata *dp)
+{
+	u32 bpp = mdss_dp_get_bpp(dp);
+	u32 max_link_rate_khz = dp->dpcd.max_link_rate *
+		(DP_LINK_RATE_MULTIPLIER / 100);
+	u32 max_data_rate_khz = dp->dpcd.max_lane_count *
+				max_link_rate_khz * 8 / 10;
+	u32 max_pclk_rate_khz = max_data_rate_khz / bpp;
+
+	pr_debug("bpp=%d, max_lane_cnt=%d, max_link_rate=%dKHz\n", bpp,
+		dp->dpcd.max_lane_count, max_link_rate_khz);
+	pr_debug("max_data_rate=%dKHz, max_pclk_rate=%dKHz\n",
+		max_data_rate_khz, max_pclk_rate_khz);
+
+	return max_pclk_rate_khz;
+}
+
 static void mdss_dp_set_clock_rate(struct mdss_dp_drv_pdata *dp,
 		char *name, u32 rate)
 {
@@ -1981,6 +1998,7 @@ end:
 static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 {
 	int ret;
+	u32 max_pclk_khz;
 
 	if (dp->sink_info_read)
 		return 0;
@@ -1997,6 +2015,10 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 		mdss_dp_set_default_link_parameters(dp);
 		goto notify;
 	}
+
+	max_pclk_khz = mdss_dp_calc_max_pclk_rate(dp);
+	hdmi_edid_set_max_pclk_rate(dp->panel_data.panel_info.edid_data,
+		min(dp->max_pclk_khz, max_pclk_khz));
 
 	ret = hdmi_edid_parser(dp->panel_data.panel_info.edid_data);
 	if (ret) {

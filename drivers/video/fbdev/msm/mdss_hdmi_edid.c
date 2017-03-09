@@ -2620,6 +2620,13 @@ void hdmi_edid_config_override(void *input, bool enable,
 	}
 }
 
+void hdmi_edid_set_max_pclk_rate(void *input, u32 max_pclk_khz)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+
+	edid_ctrl->init_data.max_pclk_khz = max_pclk_khz;
+}
+
 void hdmi_edid_deinit(void *input)
 {
 	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
