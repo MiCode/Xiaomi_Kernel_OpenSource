@@ -513,15 +513,19 @@ static void send_sysmon_notif(struct subsys_device *dev)
 	mutex_unlock(&subsys_list_lock);
 }
 
-static void for_each_subsys_device(struct subsys_device **list, unsigned count,
-		void *data, void (*fn)(struct subsys_device *, void *))
+static int for_each_subsys_device(struct subsys_device **list, unsigned count,
+		void *data, int (*fn)(struct subsys_device *, void *))
 {
+	int ret;
 	while (count--) {
 		struct subsys_device *dev = *list++;
 		if (!dev)
 			continue;
-		fn(dev, data);
+		ret = fn(dev, data);
+		if (ret)
+			return ret;
 	}
+	return 0;
 }
 
 static void notify_each_subsys_device(struct subsys_device **list,
@@ -623,21 +627,31 @@ static int wait_for_err_ready(struct subsys_device *subsys)
 	return 0;
 }
 
-static void subsystem_shutdown(struct subsys_device *dev, void *data)
+static int subsystem_shutdown(struct subsys_device *dev, void *data)
 {
 	const char *name = dev->desc->name;
+	int ret;
 
 	pr_info("[%s:%d]: Shutting down %s\n",
 			current->comm, current->pid, name);
-	if (dev->desc->shutdown(dev->desc, true) < 0)
-		panic("subsys-restart: [%s:%d]: Failed to shutdown %s!",
+	ret = dev->desc->shutdown(dev->desc, true);
+	if (ret < 0) {
+		if (!dev->desc->ignore_ssr_failure)
+			panic("subsys-restart: [%s:%d]: Failed to shutdown %s!",
 			current->comm, current->pid, name);
+		else {
+			pr_err("Shutdown failure on %s\n", name);
+			return ret;
+		}
+	}
 	dev->crash_count++;
 	subsys_set_state(dev, SUBSYS_OFFLINE);
 	disable_all_irqs(dev);
+
+	return 0;
 }
 
-static void subsystem_ramdump(struct subsys_device *dev, void *data)
+static int subsystem_ramdump(struct subsys_device *dev, void *data)
 {
 	const char *name = dev->desc->name;
 
@@ -646,15 +660,17 @@ static void subsystem_ramdump(struct subsys_device *dev, void *data)
 			pr_warn("%s[%s:%d]: Ramdump failed.\n",
 				name, current->comm, current->pid);
 	dev->do_ramdump_on_put = false;
+	return 0;
 }
 
-static void subsystem_free_memory(struct subsys_device *dev, void *data)
+static int subsystem_free_memory(struct subsys_device *dev, void *data)
 {
 	if (dev->desc->free_memory)
 		dev->desc->free_memory(dev->desc);
+	return 0;
 }
 
-static void subsystem_powerup(struct subsys_device *dev, void *data)
+static int subsystem_powerup(struct subsys_device *dev, void *data)
 {
 	const char *name = dev->desc->name;
 	int ret;
@@ -662,11 +678,17 @@ static void subsystem_powerup(struct subsys_device *dev, void *data)
 	pr_info("[%s:%d]: Powering up %s\n", current->comm, current->pid, name);
 	init_completion(&dev->err_ready);
 
-	if (dev->desc->powerup(dev->desc) < 0) {
+	ret = dev->desc->powerup(dev->desc);
+	if (ret < 0) {
 		notify_each_subsys_device(&dev, 1, SUBSYS_POWERUP_FAILURE,
 								NULL);
-		panic("[%s:%d]: Powerup error: %s!",
-			current->comm, current->pid, name);
+		if (!dev->desc->ignore_ssr_failure)
+			panic("[%s:%d]: Powerup error: %s!",
+				current->comm, current->pid, name);
+		else {
+			pr_err("Powerup failure on %s\n", name);
+			return ret;
+		}
 	}
 	enable_all_irqs(dev);
 
@@ -674,11 +696,16 @@ static void subsystem_powerup(struct subsys_device *dev, void *data)
 	if (ret) {
 		notify_each_subsys_device(&dev, 1, SUBSYS_POWERUP_FAILURE,
 								NULL);
-		panic("[%s:%d]: Timed out waiting for error ready: %s!",
-			current->comm, current->pid, name);
+		if (!dev->desc->ignore_ssr_failure)
+			panic("[%s:%d]: Timed out waiting for error ready: %s!",
+				current->comm, current->pid, name);
+		else
+			return ret;
 	}
 	subsys_set_state(dev, SUBSYS_ONLINE);
 	subsys_set_crash_status(dev, false);
+
+	return 0;
 }
 
 static int __find_subsys(struct device *dev, void *data)
@@ -918,6 +945,7 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	struct subsys_tracking *track;
 	unsigned count;
 	unsigned long flags;
+	int ret;
 
 	/*
 	 * It's OK to not take the registration lock at this point.
@@ -965,7 +993,9 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	pr_debug("[%s:%d]: Starting restart sequence for %s\n",
 			current->comm, current->pid, desc->name);
 	notify_each_subsys_device(list, count, SUBSYS_BEFORE_SHUTDOWN, NULL);
-	for_each_subsys_device(list, count, NULL, subsystem_shutdown);
+	ret = for_each_subsys_device(list, count, NULL, subsystem_shutdown);
+	if (ret)
+		goto err;
 	notify_each_subsys_device(list, count, SUBSYS_AFTER_SHUTDOWN, NULL);
 
 	notify_each_subsys_device(list, count, SUBSYS_RAMDUMP_NOTIFICATION,
@@ -981,11 +1011,18 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	for_each_subsys_device(list, count, NULL, subsystem_free_memory);
 
 	notify_each_subsys_device(list, count, SUBSYS_BEFORE_POWERUP, NULL);
-	for_each_subsys_device(list, count, NULL, subsystem_powerup);
+	ret = for_each_subsys_device(list, count, NULL, subsystem_powerup);
+	if (ret)
+		goto err;
 	notify_each_subsys_device(list, count, SUBSYS_AFTER_POWERUP, NULL);
 
 	pr_info("[%s:%d]: Restart sequence for %s completed.\n",
 			current->comm, current->pid, desc->name);
+
+err:
+	/* Reset subsys count */
+	if (ret)
+		dev->count = 0;
 
 	mutex_unlock(&soc_order_reg_lock);
 	mutex_unlock(&track->lock);
@@ -1556,6 +1593,9 @@ static int subsys_parse_devicetree(struct subsys_desc *desc)
 		if (ret > 0)
 			desc->generic_irq = ret;
 	}
+
+	desc->ignore_ssr_failure = of_property_read_bool(pdev->dev.of_node,
+						"qcom,ignore-ssr-failure");
 
 	order = ssr_parse_restart_orders(desc);
 	if (IS_ERR(order)) {
