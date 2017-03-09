@@ -12,6 +12,7 @@
 
 #include "msm-pm660a.dtsi"
 #include "sdm660-pinctrl.dtsi"
+#include "sdm630-camera-sensor-qrd.dtsi"
 
 &i2c_2 {
 	status = "okay";
@@ -327,5 +328,9 @@
 		qcom,fb-resume-delay-us = <10000>;
 		qcom,afe-power-on-delay-us = <1000>;
 		qcom,afe-power-off-delay-us = <6>;
+	};
+
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
 	};
 };
