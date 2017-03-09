@@ -66,6 +66,8 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 	enum notification_status status);
 static int mdss_dp_process_phy_test_pattern_request(
 		struct mdss_dp_drv_pdata *dp);
+static int mdss_dp_send_audio_notification(
+	struct mdss_dp_drv_pdata *dp, int val);
 
 static inline void mdss_dp_reset_test_data(struct mdss_dp_drv_pdata *dp)
 {
@@ -969,6 +971,14 @@ static int mdss_dp_wait4video_ready(struct mdss_dp_drv_pdata *dp_drv)
 		ret = -EINVAL;
 	} else {
 		ret = 0;
+		/*
+		 * The audio subsystem should only be notified once the DP
+		 * controller is in SEND_VIDEO state. This will ensure that
+		 * the DP audio engine is able to acknowledge the audio unmute
+		 * request, which will result in the AFE port being configured
+		 * correctly.
+		 */
+		mdss_dp_send_audio_notification(dp_drv, true);
 	}
 
 	pr_debug("End--\n");
@@ -1383,7 +1393,7 @@ static void mdss_dp_configure_source_params(struct mdss_dp_drv_pdata *dp,
 static int mdss_dp_setup_main_link(struct mdss_dp_drv_pdata *dp, bool train)
 {
 	int ret = 0;
-	int ready = 0;
+	bool mainlink_ready = false;
 
 	pr_debug("enter\n");
 	mdss_dp_mainlink_ctrl(&dp->ctrl_io, true);
@@ -1416,8 +1426,8 @@ send_video:
 	mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);
 
 	mdss_dp_wait4video_ready(dp);
-	ready = mdss_dp_mainlink_ready(dp, BIT(0));
-	pr_debug("main link %s\n", ready ? "READY" : "NOT READY");
+	mainlink_ready = mdss_dp_mainlink_ready(dp);
+	pr_debug("mainlink %s\n", mainlink_ready ? "READY" : "NOT READY");
 
 end:
 	return ret;
@@ -1667,25 +1677,45 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 		return mdss_dp_off_hpd(dp);
 }
 
-static int mdss_dp_send_cable_notification(
+static int mdss_dp_send_audio_notification(
 	struct mdss_dp_drv_pdata *dp, int val)
 {
 	int ret = 0;
 	u32 flags = 0;
 
 	if (!dp) {
-		DEV_ERR("%s: invalid input\n", __func__);
+		pr_err("invalid input\n");
 		ret = -EINVAL;
 		goto end;
 	}
-
-	flags |= MSM_EXT_DISP_HPD_VIDEO;
 
 	if (!mdss_dp_is_dvi_mode(dp) || dp->audio_test_req) {
 		dp->audio_test_req = false;
 
 		flags |= MSM_EXT_DISP_HPD_AUDIO;
+
+		if (dp->ext_audio_data.intf_ops.hpd)
+			ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
+					dp->ext_audio_data.type, val, flags);
 	}
+
+end:
+	return ret;
+}
+
+static int mdss_dp_send_video_notification(
+	struct mdss_dp_drv_pdata *dp, int val)
+{
+	int ret = 0;
+	u32 flags = 0;
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	flags |= MSM_EXT_DISP_HPD_VIDEO;
 
 	if (dp->ext_audio_data.intf_ops.hpd)
 		ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
@@ -1699,6 +1729,19 @@ static void mdss_dp_set_default_resolution(struct mdss_dp_drv_pdata *dp)
 {
 	hdmi_edid_set_video_resolution(dp->panel_data.panel_info.edid_data,
 			DEFAULT_VIDEO_RESOLUTION, true);
+}
+
+static void mdss_dp_set_default_link_parameters(struct mdss_dp_drv_pdata *dp)
+{
+	const int default_max_link_rate = 0x6;
+	const int default_max_lane_count = 1;
+
+	dp->dpcd.max_lane_count =  default_max_lane_count;
+	dp->dpcd.max_link_rate =  default_max_link_rate;
+
+	pr_debug("max_link_rate = 0x%x, max_lane_count= 0x%x\n",
+			dp->dpcd.max_link_rate,
+			dp->dpcd.max_lane_count);
 }
 
 static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
@@ -1875,7 +1918,7 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 			goto invalid_request;
 		/* Follow the same programming as for NOTIFY_CONNECT */
 		mdss_dp_host_init(&dp->panel_data);
-		mdss_dp_send_cable_notification(dp, true);
+		mdss_dp_send_video_notification(dp, true);
 		break;
 	case NOTIFY_CONNECT:
 		if ((dp->hpd_notification_status == NOTIFY_CONNECT_IRQ_HPD) ||
@@ -1883,16 +1926,18 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 			 NOTIFY_DISCONNECT_IRQ_HPD))
 			goto invalid_request;
 		mdss_dp_host_init(&dp->panel_data);
-		mdss_dp_send_cable_notification(dp, true);
+		mdss_dp_send_video_notification(dp, true);
 		break;
 	case NOTIFY_DISCONNECT:
-		mdss_dp_send_cable_notification(dp, false);
+		mdss_dp_send_audio_notification(dp, false);
+		mdss_dp_send_video_notification(dp, false);
 		break;
 	case NOTIFY_DISCONNECT_IRQ_HPD:
 		if (dp->hpd_notification_status == NOTIFY_DISCONNECT)
 			goto invalid_request;
 
-		mdss_dp_send_cable_notification(dp, false);
+		mdss_dp_send_audio_notification(dp, false);
+		mdss_dp_send_video_notification(dp, false);
 		if (!IS_ERR_VALUE(ret) && ret) {
 			reinit_completion(&dp->irq_comp);
 			ret = wait_for_completion_timeout(&dp->irq_comp,
@@ -1949,12 +1994,16 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 		pr_debug("edid read error, setting default resolution\n");
 
 		mdss_dp_set_default_resolution(dp);
+		mdss_dp_set_default_link_parameters(dp);
 		goto notify;
 	}
 
 	ret = hdmi_edid_parser(dp->panel_data.panel_info.edid_data);
 	if (ret) {
-		pr_err("edid parse failed\n");
+		pr_err("edid parse failed, setting default resolution\n");
+
+		mdss_dp_set_default_resolution(dp);
+		mdss_dp_set_default_link_parameters(dp);
 		goto notify;
 	}
 
@@ -2792,11 +2841,10 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 
 	switch (event) {
 	case MDSS_EVENT_UNBLANK:
+		mdss_dp_ack_state(dp, true);
 		rc = mdss_dp_on(pdata);
 		break;
 	case MDSS_EVENT_PANEL_ON:
-		mdss_dp_ack_state(dp, true);
-
 		mdss_dp_update_hdcp_info(dp);
 
 		if (dp_is_hdcp_enabled(dp)) {
