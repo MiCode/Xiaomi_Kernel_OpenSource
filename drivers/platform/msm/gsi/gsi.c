@@ -455,8 +455,15 @@ static void gsi_handle_ieob(int ee)
 				GSIERR("invalid event %d\n", i);
 				break;
 			}
-
 			ctx = &gsi_ctx->evtr[i];
+
+			/*
+			 * Don't handle MSI interrupts, only handle IEOB
+			 * IRQs
+			 */
+			if (ctx->props.intr == GSI_INTR_MSI)
+				continue;
+
 			BUG_ON(ctx->props.intf != GSI_EVT_CHTYPE_GPI_EV);
 			spin_lock_irqsave(&ctx->ring.slock, flags);
 check_again:
@@ -1164,7 +1171,10 @@ int gsi_alloc_evt_ring(struct gsi_evt_ring_props *props, unsigned long dev_hdl,
 	spin_lock_irqsave(&gsi_ctx->slock, flags);
 	gsi_writel(1 << evt_id, gsi_ctx->base +
 			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(ee));
-	if (props->intf != GSI_EVT_CHTYPE_GPI_EV)
+
+	/* enable ieob interrupts for GPI, enable MSI interrupts */
+	if ((props->intf != GSI_EVT_CHTYPE_GPI_EV) &&
+		(props->intr != GSI_INTR_MSI))
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << evt_id, 0);
 	else
 		__gsi_config_ieob_irq(gsi_ctx->per.ee, 1 << ctx->id, ~0);
