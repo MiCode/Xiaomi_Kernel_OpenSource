@@ -2889,8 +2889,6 @@ static int mdss_dp_event_thread(void *data)
 		return -EINVAL;
 
 	ev_data = (struct mdss_dp_event_data *)data;
-	init_waitqueue_head(&ev_data->event_q);
-	spin_lock_init(&ev_data->event_lock);
 
 	while (!kthread_should_stop()) {
 		wait_event(ev_data->event_q,
@@ -3048,6 +3046,9 @@ static void mdss_dp_event_cleanup(struct mdss_dp_drv_pdata *dp)
 
 static int mdss_dp_event_setup(struct mdss_dp_drv_pdata *dp)
 {
+
+	init_waitqueue_head(&dp->dp_event.event_q);
+	spin_lock_init(&dp->dp_event.event_lock);
 
 	dp->ev_thread = kthread_run(mdss_dp_event_thread,
 		(void *)&dp->dp_event, "mdss_dp_event");
