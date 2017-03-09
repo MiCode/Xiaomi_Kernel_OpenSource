@@ -271,7 +271,7 @@
 	gpio@c200 {
 		status = "ok";
 		qcom,mode = <1>;
-		qcom,pull = <5>;
+		qcom,pull = <4>;
 		qcom,vin-sel = <0>;
 		qcom,src-sel = <2>;
 		qcom,master-en = <1>;
