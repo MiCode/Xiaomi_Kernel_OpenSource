@@ -15,6 +15,10 @@
 #ifndef _LINUX_QCOM_GENI_SE
 #define _LINUX_QCOM_GENI_SE
 #include <linux/io.h>
+#include <linux/clk.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
+#include <linux/pm_runtime.h>
 
 enum se_xfer_mode {
 	INVALID,
@@ -29,6 +33,21 @@ enum se_protocol_types {
 	I2C,
 	I3C
 };
+
+struct se_geni_rsc {
+	struct clk *se_clk;
+	struct clk *m_ahb_clk;
+	struct clk *s_ahb_clk;
+	struct msm_bus_client_handle *bus_bw;
+	unsigned long ab;
+	unsigned long ib;
+	struct pinctrl *geni_pinctrl;
+	struct pinctrl_state *geni_gpio_active;
+	struct pinctrl_state *geni_gpio_sleep;
+};
+
+#define PINCTRL_DEFAULT	"default"
+#define PINCTRL_SLEEP	"sleep"
 
 #define GENI_INIT_CFG_REVISION		(0x0)
 #define GENI_S_INIT_CFG_REVISION	(0x4)
@@ -448,5 +467,51 @@ static inline void se_config_packing(void __iomem *base, int bpw,
 	geni_write_reg(cfg1, base, SE_GENI_TX_PACKING_CFG1);
 	geni_write_reg(cfg0, base, SE_GENI_RX_PACKING_CFG0);
 	geni_write_reg(cfg1, base, SE_GENI_RX_PACKING_CFG1);
+}
+
+/*
+ * Power/Resource Management functions
+ */
+
+static inline int se_geni_clks_off(struct se_geni_rsc *rsc)
+{
+	int ret = 0;
+
+	clk_disable_unprepare(rsc->se_clk);
+	clk_disable_unprepare(rsc->m_ahb_clk);
+	clk_disable_unprepare(rsc->s_ahb_clk);
+	return ret;
+}
+
+static inline int se_geni_resources_off(struct se_geni_rsc *rsc)
+{
+	int ret = 0;
+
+	ret = pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_sleep);
+	se_geni_clks_off(rsc);
+	if (rsc->bus_bw)
+		msm_bus_scale_update_bw(rsc->bus_bw, 0, 0);
+	return ret;
+}
+
+static inline int se_geni_clks_on(struct se_geni_rsc *rsc)
+{
+	int ret = 0;
+
+	clk_prepare_enable(rsc->se_clk);
+	clk_prepare_enable(rsc->m_ahb_clk);
+	clk_prepare_enable(rsc->s_ahb_clk);
+	return ret;
+}
+
+static inline int se_geni_resources_on(struct se_geni_rsc *rsc)
+{
+	int ret = 0;
+
+	if (rsc->bus_bw)
+		msm_bus_scale_update_bw(rsc->bus_bw, rsc->ab, rsc->ib);
+	se_geni_clks_on(rsc);
+	ret = pinctrl_select_state(rsc->geni_pinctrl, rsc->geni_gpio_active);
+	return ret;
 }
 #endif
