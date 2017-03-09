@@ -15,7 +15,7 @@
 #include "ipa_ut_framework.h"
 
 #define IPA_TEST_DMA_WQ_NAME_BUFF_SZ		64
-#define IPA_TEST_DMA_MT_TEST_NUM_WQ		500
+#define IPA_TEST_DMA_MT_TEST_NUM_WQ		400
 #define IPA_TEST_DMA_MEMCPY_BUFF_SIZE		16384
 #define IPA_TEST_DMA_MAX_PKT_SIZE		0xFF00
 #define IPA_DMA_TEST_LOOP_NUM			1000
@@ -459,6 +459,53 @@ static int ipa_test_dma_sync_memcpy(void *priv)
 }
 
 /**
+* TEST: Small sync memory copy
+*
+*	1. dma enable
+*	2. small sync memcpy
+*	3. small sync memcpy
+*	4. dma disable
+*/
+static int ipa_test_dma_sync_memcpy_small(void *priv)
+{
+	int rc;
+
+	IPA_UT_LOG("Test Start\n");
+
+	rc = ipa_dma_enable();
+	if (rc) {
+		IPA_UT_LOG("DMA enable failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("fail enable dma");
+		return rc;
+	}
+
+	rc = ipa_test_dma_memcpy_sync(4, false);
+	if (rc) {
+		IPA_UT_LOG("sync memcpy failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("sync memcpy failed");
+		(void)ipa_dma_disable();
+		return rc;
+	}
+
+	rc = ipa_test_dma_memcpy_sync(7, false);
+	if (rc) {
+		IPA_UT_LOG("sync memcpy failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("sync memcpy failed");
+		(void)ipa_dma_disable();
+		return rc;
+	}
+
+	rc = ipa_dma_disable();
+	if (rc) {
+		IPA_UT_LOG("DMA disable failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("fail disable dma");
+		return rc;
+	}
+
+	return 0;
+}
+
+/**
  * TEST: Async memory copy
  *
  *	1. dma enable
@@ -479,6 +526,53 @@ static int ipa_test_dma_async_memcpy(void *priv)
 	}
 
 	rc = ipa_test_dma_memcpy_async(IPA_TEST_DMA_MEMCPY_BUFF_SIZE, false);
+	if (rc) {
+		IPA_UT_LOG("async memcpy failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("async memcpy failed");
+		(void)ipa_dma_disable();
+		return rc;
+	}
+
+	rc = ipa_dma_disable();
+	if (rc) {
+		IPA_UT_LOG("DMA disable failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("fail disable dma");
+		return rc;
+	}
+
+	return 0;
+}
+
+/**
+ * TEST: Small async memory copy
+ *
+ *	1. dma enable
+ *	2. async memcpy
+ *	3. async memcpy
+ *	4. dma disable
+ */
+static int ipa_test_dma_async_memcpy_small(void *priv)
+{
+	int rc;
+
+	IPA_UT_LOG("Test Start\n");
+
+	rc = ipa_dma_enable();
+	if (rc) {
+		IPA_UT_LOG("DMA enable failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("fail enable dma");
+		return rc;
+	}
+
+	rc = ipa_test_dma_memcpy_async(4, false);
+	if (rc) {
+		IPA_UT_LOG("async memcpy failed rc=%d\n", rc);
+		IPA_UT_TEST_FAIL_REPORT("async memcpy failed");
+		(void)ipa_dma_disable();
+		return rc;
+	}
+
+	rc = ipa_test_dma_memcpy_async(7, false);
 	if (rc) {
 		IPA_UT_LOG("async memcpy failed rc=%d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("async memcpy failed");
@@ -622,11 +716,18 @@ static int ipa_test_dma_interleaved_sync_async_memcpy_in_loop(void *priv)
 
 static atomic_t ipa_test_dma_mt_test_pass;
 
+struct one_memcpy_work {
+	struct work_struct work_s;
+	int size;
+};
+
 static void ipa_test_dma_wrapper_test_one_sync(struct work_struct *work)
 {
 	int rc;
+	struct one_memcpy_work *data =
+		container_of(work, struct one_memcpy_work, work_s);
 
-	rc = ipa_test_dma_memcpy_sync(IPA_TEST_DMA_MEMCPY_BUFF_SIZE, false);
+	rc = ipa_test_dma_memcpy_sync(data->size, false);
 	if (rc) {
 		IPA_UT_LOG("fail sync memcpy from thread rc=%d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail sync memcpy from thread");
@@ -638,8 +739,10 @@ static void ipa_test_dma_wrapper_test_one_sync(struct work_struct *work)
 static void ipa_test_dma_wrapper_test_one_async(struct work_struct *work)
 {
 	int rc;
+	struct one_memcpy_work *data =
+		container_of(work, struct one_memcpy_work, work_s);
 
-	rc = ipa_test_dma_memcpy_async(IPA_TEST_DMA_MEMCPY_BUFF_SIZE, false);
+	rc = ipa_test_dma_memcpy_async(data->size, false);
 	if (rc) {
 		IPA_UT_LOG("fail async memcpy from thread rc=%d\n", rc);
 		IPA_UT_TEST_FAIL_REPORT("fail async memcpy from thread");
@@ -668,14 +771,14 @@ static int ipa_test_dma_mt_sync_async(void *priv)
 	int i;
 	static struct workqueue_struct *wq_sync[IPA_TEST_DMA_MT_TEST_NUM_WQ];
 	static struct workqueue_struct *wq_async[IPA_TEST_DMA_MT_TEST_NUM_WQ];
-	static struct work_struct work_async[IPA_TEST_DMA_MT_TEST_NUM_WQ];
-	static struct work_struct work_sync[IPA_TEST_DMA_MT_TEST_NUM_WQ];
+	static struct one_memcpy_work async[IPA_TEST_DMA_MT_TEST_NUM_WQ];
+	static struct one_memcpy_work sync[IPA_TEST_DMA_MT_TEST_NUM_WQ];
 	char buff[IPA_TEST_DMA_WQ_NAME_BUFF_SZ];
 
 	memset(wq_sync, 0, sizeof(wq_sync));
 	memset(wq_sync, 0, sizeof(wq_async));
-	memset(work_async, 0, sizeof(work_async));
-	memset(work_sync, 0, sizeof(work_sync));
+	memset(async, 0, sizeof(async));
+	memset(sync, 0, sizeof(sync));
 
 	rc = ipa_dma_enable();
 	if (rc) {
@@ -701,10 +804,18 @@ static int ipa_test_dma_mt_sync_async(void *priv)
 			goto fail_create_wq;
 		}
 
-		INIT_WORK(&work_sync[i], ipa_test_dma_wrapper_test_one_sync);
-		queue_work(wq_sync[i], &work_sync[i]);
-		INIT_WORK(&work_async[i], ipa_test_dma_wrapper_test_one_async);
-		queue_work(wq_async[i], &work_async[i]);
+		if (i % 2) {
+			sync[i].size = IPA_TEST_DMA_MEMCPY_BUFF_SIZE;
+			async[i].size = IPA_TEST_DMA_MEMCPY_BUFF_SIZE;
+		} else {
+			sync[i].size = 4;
+			async[i].size = 4;
+		}
+		INIT_WORK(&sync[i].work_s, ipa_test_dma_wrapper_test_one_sync);
+		queue_work(wq_sync[i], &sync[i].work_s);
+		INIT_WORK(&async[i].work_s,
+			ipa_test_dma_wrapper_test_one_async);
+		queue_work(wq_async[i], &async[i].work_s);
 	}
 
 	for (i = 0; i < IPA_TEST_DMA_MT_TEST_NUM_WQ; i++) {
@@ -900,10 +1011,18 @@ IPA_UT_DEFINE_SUITE_START(dma, "DMA for GSI",
 		"Sync memory copy",
 		ipa_test_dma_sync_memcpy,
 		true, IPA_HW_v3_0, IPA_HW_MAX),
+	IPA_UT_ADD_TEST(sync_memcpy_small,
+		"Small Sync memory copy",
+		ipa_test_dma_sync_memcpy_small,
+		true, IPA_HW_v3_5, IPA_HW_MAX),
 	IPA_UT_ADD_TEST(async_memcpy,
 		"Async memory copy",
 		ipa_test_dma_async_memcpy,
 		true, IPA_HW_v3_0, IPA_HW_MAX),
+	IPA_UT_ADD_TEST(async_memcpy_small,
+		"Small async memory copy",
+		ipa_test_dma_async_memcpy_small,
+		true, IPA_HW_v3_5, IPA_HW_MAX),
 	IPA_UT_ADD_TEST(sync_memcpy_in_loop,
 		"Several sync memory copy iterations",
 		ipa_test_dma_sync_memcpy_in_loop,
