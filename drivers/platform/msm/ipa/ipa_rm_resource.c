@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,7 @@ int ipa_rm_prod_index(enum ipa_rm_resource_name resource_name)
 	case IPA_RM_RESOURCE_WLAN_PROD:
 	case IPA_RM_RESOURCE_ODU_ADAPT_PROD:
 	case IPA_RM_RESOURCE_MHI_PROD:
+	case IPA_RM_RESOURCE_ETHERNET_PROD:
 		break;
 	default:
 		result = IPA_RM_INDEX_INVALID;
@@ -69,6 +70,7 @@ int ipa_rm_cons_index(enum ipa_rm_resource_name resource_name)
 	case IPA_RM_RESOURCE_ODU_ADAPT_CONS:
 	case IPA_RM_RESOURCE_MHI_CONS:
 	case IPA_RM_RESOURCE_USB_DPL_CONS:
+	case IPA_RM_RESOURCE_ETHERNET_CONS:
 		break;
 	default:
 		result = IPA_RM_INDEX_INVALID;
