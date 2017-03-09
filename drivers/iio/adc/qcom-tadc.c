@@ -689,6 +689,7 @@ static int tadc_read_raw(struct iio_dev *indio_dev,
 		case TADC_DIE_TEMP:
 		case TADC_DIE_TEMP_THR1:
 		case TADC_DIE_TEMP_THR2:
+		case TADC_DIE_TEMP_THR3:
 			*val = chan_data->scale;
 			return IIO_VAL_INT;
 		case TADC_BATT_I:
