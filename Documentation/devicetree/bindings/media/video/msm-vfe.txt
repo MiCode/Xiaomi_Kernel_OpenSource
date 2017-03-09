@@ -23,6 +23,7 @@ Required properties for child node:
     Only needed for child node.
     - "vfe" - Required.
     - "vfe_vbif" - Optional for "vfe32". Required for "vfe40".
+    - "vfe_fuse" - Optional.
 - interrupts : should contain the vfe interrupt.
 - interrupt-names : should specify relevant names to each interrupts
   property defined.
@@ -52,9 +53,10 @@ Example:
 vfe0: qcom,vfe0@fda10000 {
 	cell-index = <0>;
 	compatible = "qcom,vfe44";
-	reg = <0xfda10000 0x1000>;
-		<0xfda40000 0x200>;
-	reg-names = "vfe", "vfe_vbif";
+	reg = <0xfda10000 0x1000>,
+		<0xfda40000 0x200>,
+		<0x7801a4 0x8>;
+	reg-names = "vfe", "vfe_vbif", "vfe_fuse";
 	interrupts = <0 57 0>;
 	interrupt-names = "vfe";
 	vdd-supply = <&gdsc_vfe>;
@@ -105,9 +107,10 @@ vfe0: qcom,vfe0@fda10000 {
 vfe1: qcom,vfe1@fda14000 {
 	cell-index = <1>;
 	compatible = "qcom,vfe44";
-	reg = <0xfda14000 0x1000>;
-		<0xfda40000 0x200>;
-	reg-names = "vfe", "vfe_vbif";
+	reg = <0xfda14000 0x1000>,
+		<0xfda40000 0x200>,
+		<0x7801a4 0x8>;
+	reg-names = "vfe", "vfe_vbif", "vfe_fuse";
 	interrupts = <0 58 0>;
 	interrupt-names = "vfe";
 	vdd-supply = <&gdsc_vfe>;
