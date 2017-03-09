@@ -179,7 +179,7 @@ static inline int adreno_cp_parser_regindex(struct adreno_device *adreno_dev,
 int adreno_ib_create_object_list(
 		struct kgsl_device *device,
 		struct kgsl_process_private *process,
-		uint64_t gpuaddr, uint64_t dwords,
+		uint64_t gpuaddr, uint64_t dwords, uint64_t ib2base,
 		struct adreno_ib_object_list **out_ib_obj_list);
 
 void adreno_ib_destroy_obj_list(struct adreno_ib_object_list *ib_obj_list);
