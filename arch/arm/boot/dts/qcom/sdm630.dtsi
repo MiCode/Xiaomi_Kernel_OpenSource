@@ -322,6 +322,18 @@
 			reg = <0x0 0x92a00000 0x0 0x1e00000>;
 		};
 
+		pil_mba_mem: pil_mba_region@94800000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x94800000 0x0 0x200000>;
+		};
+
+		buffer_mem: buffer_region@94a00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x94a00000 0x0 0x100000>;
+		};
+
 		venus_fw_mem: venus_fw_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0x0 0x80000000 0x0 0x20000000>;
@@ -335,7 +347,7 @@
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 			reusable;
 			alignment = <0x0 0x400000>;
-			size = <0x0 0xa00000>;
+			size = <0x0 0x800000>;
 		};
 
 		qseecom_mem: qseecom_region {
@@ -1742,6 +1754,10 @@
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 		status = "ok";
+		qcom,mba-mem@0 {
+			compatible = "qcom,pil-mba-mem";
+			memory-region = <&pil_mba_mem>;
+		};
 	};
 
 	qcom,msm-rtb {
@@ -2215,5 +2231,10 @@
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
+	};
+
+	devfreq_spdm_cpu {
+		qcom,bw-dwnstep = <6750>;
+		qcom,max-vote = <6750>;
 	};
 };

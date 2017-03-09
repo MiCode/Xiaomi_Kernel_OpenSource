@@ -1542,10 +1542,13 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 		struct cpuidle_driver *drv, int idx)
 {
 	struct lpm_cluster *cluster = per_cpu(cpu_cluster, dev->cpu);
-	bool success = true;
+	bool success = false;
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
 	int64_t start_time = ktime_to_ns(ktime_get()), end_time;
 	struct power_params *pwr_params;
+
+	if (idx < 0)
+		return -EINVAL;
 
 	pwr_params = &cluster->cpu->levels[idx].pwr;
 	sched_set_cpu_cstate(smp_processor_id(), idx + 1,
@@ -1559,7 +1562,7 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	trace_cpu_idle_enter(idx);
 	lpm_stats_cpu_enter(idx, start_time);
 
-	if (need_resched() || (idx < 0))
+	if (need_resched())
 		goto exit;
 
 	BUG_ON(!use_psci);

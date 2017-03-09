@@ -52,6 +52,13 @@
 	status = "ok";
 };
 
+&sdc2_cd_on {
+	config {
+		/delete-property/ bias-pull-up;
+		bias-disable;
+	};
+};
+
 &sdhc_2 {
 	/* device core power supply */
 	vdd-supply = <&pm660l_l5>;
@@ -248,6 +255,9 @@
 		qcom,parallel-en-pin-polarity = <1>;
 	};
 };
+
+/delete-node/ &tasha_hph_en0;
+/delete-node/ &tasha_hph_en1;
 
 &tasha_snd {
 	qcom,model = "sdm660-tasha-skus-snd-card";

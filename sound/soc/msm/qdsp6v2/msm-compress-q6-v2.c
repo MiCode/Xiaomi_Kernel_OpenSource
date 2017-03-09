@@ -160,6 +160,10 @@ struct msm_compr_audio {
 	uint32_t stream_available;
 	uint32_t next_stream;
 
+	uint32_t run_mode;
+	uint32_t start_delay_lsw;
+	uint32_t start_delay_msw;
+
 	uint64_t marker_timestamp;
 
 	struct msm_compr_gapless_state gapless_state;
@@ -214,6 +218,99 @@ struct msm_compr_ch_map {
 static int msm_compr_send_dec_params(struct snd_compr_stream *cstream,
 				     struct msm_compr_dec_params *dec_params,
 				     int stream_id);
+
+static int msm_compr_set_render_mode(struct msm_compr_audio *prtd,
+				     uint32_t render_mode) {
+	int ret = -EINVAL;
+	struct audio_client *ac = prtd->audio_client;
+
+	pr_debug("%s, got render mode %u\n", __func__, render_mode);
+
+	if (render_mode == SNDRV_COMPRESS_RENDER_MODE_AUDIO_MASTER) {
+		render_mode = ASM_SESSION_MTMX_STRTR_PARAM_RENDER_DEFAULT;
+	} else if (render_mode == SNDRV_COMPRESS_RENDER_MODE_STC_MASTER) {
+		render_mode = ASM_SESSION_MTMX_STRTR_PARAM_RENDER_LOCAL_STC;
+		prtd->run_mode = ASM_SESSION_CMD_RUN_STARTIME_RUN_WITH_DELAY;
+	} else {
+		pr_err("%s, Invalid render mode %u\n", __func__,
+			render_mode);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ret = q6asm_send_mtmx_strtr_render_mode(ac, render_mode);
+	if (ret) {
+		pr_err("%s, Render mode can't be set error %d\n", __func__,
+			ret);
+	}
+exit:
+	return ret;
+}
+
+static int msm_compr_set_clk_rec_mode(struct audio_client *ac,
+				     uint32_t clk_rec_mode) {
+	int ret = -EINVAL;
+
+	pr_debug("%s, got clk rec mode %u\n", __func__, clk_rec_mode);
+
+	if (clk_rec_mode == SNDRV_COMPRESS_CLK_REC_MODE_NONE) {
+		clk_rec_mode = ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_NONE;
+	} else if (clk_rec_mode == SNDRV_COMPRESS_CLK_REC_MODE_AUTO) {
+		clk_rec_mode = ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_AUTO;
+	} else {
+		pr_err("%s, Invalid clk rec_mode mode %u\n", __func__,
+			clk_rec_mode);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ret = q6asm_send_mtmx_strtr_clk_rec_mode(ac, clk_rec_mode);
+	if (ret) {
+		pr_err("%s, clk rec mode can't be set, error %d\n", __func__,
+			ret);
+	}
+
+exit:
+	return ret;
+}
+
+static int msm_compr_set_render_window(struct audio_client *ac,
+		uint32_t ws_lsw, uint32_t ws_msw,
+		uint32_t we_lsw, uint32_t we_msw)
+{
+	int ret = -EINVAL;
+	struct asm_session_mtmx_strtr_param_window_v2_t asm_mtmx_strtr_window;
+	uint32_t param_id;
+
+	pr_debug("%s, ws_lsw 0x%x ws_msw 0x%x we_lsw 0x%x we_ms 0x%x\n",
+		 __func__, ws_lsw, ws_msw, we_lsw, we_msw);
+
+	memset(&asm_mtmx_strtr_window, 0,
+	       sizeof(struct asm_session_mtmx_strtr_param_window_v2_t));
+	asm_mtmx_strtr_window.window_lsw = ws_lsw;
+	asm_mtmx_strtr_window.window_msw = ws_msw;
+	param_id = ASM_SESSION_MTMX_STRTR_PARAM_RENDER_WINDOW_START_V2;
+	ret = q6asm_send_mtmx_strtr_window(ac, &asm_mtmx_strtr_window,
+					   param_id);
+	if (ret) {
+		pr_err("%s, start window can't be set error %d\n", __func__,
+			ret);
+		goto exit;
+	}
+
+	asm_mtmx_strtr_window.window_lsw = we_lsw;
+	asm_mtmx_strtr_window.window_msw = we_msw;
+	param_id = ASM_SESSION_MTMX_STRTR_PARAM_RENDER_WINDOW_END_V2;
+	ret = q6asm_send_mtmx_strtr_window(ac, &asm_mtmx_strtr_window,
+					   param_id);
+	if (ret) {
+		pr_err("%s, end window can't be set error %d\n", __func__,
+			ret);
+	}
+
+exit:
+	return ret;
+}
 
 static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 				uint32_t volume_l, uint32_t volume_r)
@@ -1586,6 +1683,7 @@ static int msm_compr_playback_free(struct snd_compr_stream *cstream)
 	kfree(pdata->dec_params[soc_prtd->dai_link->be_id]);
 	pdata->dec_params[soc_prtd->dai_link->be_id] = NULL;
 	kfree(prtd);
+	runtime->private_data = NULL;
 
 	return 0;
 }
@@ -1645,6 +1743,7 @@ static int msm_compr_capture_free(struct snd_compr_stream *cstream)
 	q6asm_audio_client_free(ac);
 
 	kfree(prtd);
+	runtime->private_data = NULL;
 
 	return 0;
 }
@@ -1963,7 +2062,8 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			msm_compr_read_buffer(prtd);
 		}
 		/* issue RUN command for the stream */
-		q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
+		q6asm_run_nowait(prtd->audio_client, prtd->run_mode,
+				 prtd->start_delay_msw, prtd->start_delay_lsw);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		spin_lock_irqsave(&prtd->lock, flags);
@@ -2047,7 +2147,8 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 				   prtd->gapless_state.gapless_transition);
 		if (!prtd->gapless_state.gapless_transition) {
 			atomic_set(&prtd->start, 1);
-			q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
+			q6asm_run_nowait(prtd->audio_client, prtd->run_mode,
+					 0, 0);
 		}
 		break;
 	case SND_COMPR_TRIGGER_PARTIAL_DRAIN:
@@ -2717,11 +2818,14 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 		return -EINVAL;
 	}
 
-	if (prtd->compr_passthr != LEGACY_PCM) {
+	if (((metadata->key == SNDRV_COMPRESS_ENCODER_PADDING) ||
+	     (metadata->key == SNDRV_COMPRESS_ENCODER_DELAY)) &&
+	     (prtd->compr_passthr != LEGACY_PCM)) {
 		pr_debug("%s: No trailing silence for compress_type[%d]\n",
 			__func__, prtd->compr_passthr);
 		return 0;
 	}
+
 	ac = prtd->audio_client;
 	if (metadata->key == SNDRV_COMPRESS_ENCODER_PADDING) {
 		pr_debug("%s, got encoder padding %u", __func__, metadata->value[0]);
@@ -2729,10 +2833,62 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 	} else if (metadata->key == SNDRV_COMPRESS_ENCODER_DELAY) {
 		pr_debug("%s, got encoder delay %u", __func__, metadata->value[0]);
 		prtd->gapless_state.initial_samples_drop = metadata->value[0];
+	} else if (metadata->key == SNDRV_COMPRESS_RENDER_MODE) {
+		return msm_compr_set_render_mode(prtd, metadata->value[0]);
+	} else if (metadata->key == SNDRV_COMPRESS_CLK_REC_MODE) {
+		return msm_compr_set_clk_rec_mode(ac, metadata->value[0]);
+	} else if (metadata->key == SNDRV_COMPRESS_RENDER_WINDOW) {
+		return msm_compr_set_render_window(
+				ac,
+				metadata->value[0],
+				metadata->value[1],
+				metadata->value[2],
+				metadata->value[3]);
+	} else if (metadata->key == SNDRV_COMPRESS_START_DELAY) {
+		prtd->start_delay_lsw = metadata->value[0];
+		prtd->start_delay_msw = metadata->value[1];
 	}
 
 	return 0;
 }
+
+static int msm_compr_get_metadata(struct snd_compr_stream *cstream,
+				struct snd_compr_metadata *metadata)
+{
+	struct msm_compr_audio *prtd;
+	struct audio_client *ac;
+	int ret = -EINVAL;
+
+	pr_debug("%s\n", __func__);
+
+	if (!metadata || !cstream || !cstream->runtime)
+		return ret;
+
+	if (metadata->key != SNDRV_COMPRESS_PATH_DELAY) {
+		pr_err("%s, unsupported key %d\n", __func__, metadata->key);
+		return ret;
+	}
+
+	prtd = cstream->runtime->private_data;
+	if (!prtd || !prtd->audio_client) {
+		pr_err("%s: prtd or audio client is NULL\n", __func__);
+		return ret;
+	}
+
+	ac = prtd->audio_client;
+	ret = q6asm_get_path_delay(prtd->audio_client);
+	if (ret) {
+		pr_err("%s: get_path_delay failed, ret=%d\n", __func__, ret);
+		return ret;
+	}
+
+	pr_debug("%s, path delay(in us) %u\n", __func__, ac->path_delay);
+
+	metadata->value[0] = ac->path_delay;
+
+	return ret;
+}
+
 
 static int msm_compr_set_next_track_param(struct snd_compr_stream *cstream,
 				union snd_codec_options *codec_options)
@@ -3889,6 +4045,7 @@ static struct snd_compr_ops msm_compr_ops = {
 	.pointer		= msm_compr_pointer,
 	.set_params		= msm_compr_set_params,
 	.set_metadata		= msm_compr_set_metadata,
+	.get_metadata		= msm_compr_get_metadata,
 	.set_next_track_param	= msm_compr_set_next_track_param,
 	.ack			= msm_compr_ack,
 	.copy			= msm_compr_copy,

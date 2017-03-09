@@ -52,12 +52,12 @@
 		trigout_a: trigout_a {
 			mux {
 				pins = "gpio49";
-				function = "qdss_cti_trig_out_a";
+				function = "qdss_cti0_a";
 			};
 
 			config {
 				pins = "gpio49";
-				drive-strength = <2>;
+				drive-strength = <16>;
 				bias-disable;
 				output-low;
 			};

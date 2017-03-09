@@ -384,19 +384,19 @@ static const struct sde_format sde_format_map[] = {
  * the data will be passed by user-space.
  */
 static const struct sde_format sde_format_map_ubwc[] = {
-	INTERLEAVED_RGB_FMT(BGR565,
+	INTERLEAVED_RGB_FMT(RGB565,
 		0, COLOR_5BIT, COLOR_6BIT, COLOR_5BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, 0, 3,
 		false, 2, 0,
 		SDE_FETCH_UBWC, 2),
 
-	INTERLEAVED_RGB_FMT(ABGR8888,
+	INTERLEAVED_RGB_FMT(RGBA8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
 		true, 4, 0,
 		SDE_FETCH_UBWC, 2),
 
-	INTERLEAVED_RGB_FMT(XBGR8888,
+	INTERLEAVED_RGB_FMT(RGBX8888,
 		COLOR_8BIT, COLOR_8BIT, COLOR_8BIT, COLOR_8BIT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA, 4,
 		false, 4, 0,
