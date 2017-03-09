@@ -84,6 +84,7 @@ struct mdss_mdp_video_ctx {
 	struct list_head vsync_handlers;
 	struct mdss_intf_recovery intf_recovery;
 	struct mdss_intf_recovery intf_mdp_callback;
+	struct mdss_intf_ulp_clamp intf_clamp_handler;
 	struct work_struct early_wakeup_dfps_work;
 
 	atomic_t lineptr_ref;
@@ -148,6 +149,23 @@ static int mdss_mdp_intf_intr2index(u32 intr_type)
 		break;
 	}
 	return index;
+}
+
+void *mdss_mdp_intf_get_ctx_base(struct mdss_mdp_ctl *ctl, int intf_num)
+{
+	struct mdss_mdp_video_ctx *head;
+	int i = 0;
+
+	if (!ctl)
+		return NULL;
+
+	head = ctl->mdata->video_intf;
+	for (i = 0; i < ctl->mdata->nintf; i++) {
+		if (head[i].intf_num == intf_num)
+			return (void *)head[i].base;
+	}
+
+	return NULL;
 }
 
 int mdss_mdp_set_intf_intr_callback(struct mdss_mdp_video_ctx *ctx,
@@ -313,6 +331,29 @@ int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
 
 	mdata->video_intf = head;
 	mdata->nintf = count;
+	return 0;
+}
+
+static int mdss_mdp_video_intf_clamp_ctrl(void *data, int intf_num, bool enable)
+{
+	struct mdss_mdp_video_ctx *ctx = data;
+
+	if (!data) {
+		pr_err("%s: invalid ctl\n", __func__);
+		return -EINVAL;
+	}
+
+	if (intf_num != ctx->intf_num) {
+		pr_err("%s: invalid intf num\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: ctx intf num = %d, enable = %d\n",
+				__func__, ctx->intf_num, enable);
+
+	mdp_video_write(ctx, MDSS_MDP_REG_DSI_ULP_CLAMP_VALUE, enable);
+	wmb(); /* ensure clamp is enabled */
+
 	return 0;
 }
 
@@ -1988,6 +2029,13 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 		mdss_mdp_ctl_intf_event(ctl,
 				MDSS_EVENT_REGISTER_MDP_CALLBACK,
 				(void *)&ctx->intf_mdp_callback,
+				CTL_INTF_EVENT_FLAG_DEFAULT);
+
+		ctx->intf_clamp_handler.fxn = mdss_mdp_video_intf_clamp_ctrl;
+		ctx->intf_clamp_handler.data = ctx;
+		mdss_mdp_ctl_intf_event(ctl,
+				MDSS_EVENT_REGISTER_CLAMP_HANDLER,
+				(void *)&ctx->intf_clamp_handler,
 				CTL_INTF_EVENT_FLAG_DEFAULT);
 	} else {
 		ctx->intf_recovery.fxn = NULL;

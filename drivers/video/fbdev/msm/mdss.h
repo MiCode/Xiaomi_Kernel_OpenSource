@@ -210,6 +210,15 @@ enum mdss_mdp_pipe_type {
 	MDSS_MDP_PIPE_TYPE_MAX,
 };
 
+enum mdss_mdp_intf_index {
+	MDSS_MDP_NO_INTF,
+	MDSS_MDP_INTF0,
+	MDSS_MDP_INTF1,
+	MDSS_MDP_INTF2,
+	MDSS_MDP_INTF3,
+	MDSS_MDP_MAX_INTF
+};
+
 struct reg_bus_client {
 	char name[MAX_CLIENT_NAME_LEN];
 	short usecase_ndx;

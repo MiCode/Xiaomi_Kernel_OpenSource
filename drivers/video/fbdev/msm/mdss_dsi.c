@@ -2515,6 +2515,15 @@ static int mdss_dsi_register_mdp_callback(struct mdss_dsi_ctrl_pdata *ctrl,
 	return 0;
 }
 
+static int mdss_dsi_register_clamp_handler(struct mdss_dsi_ctrl_pdata *ctrl,
+	struct mdss_intf_ulp_clamp *clamp_handler)
+{
+	mutex_lock(&ctrl->mutex);
+	ctrl->clamp_handler = clamp_handler;
+	mutex_unlock(&ctrl->mutex);
+	return 0;
+}
+
 static struct device_node *mdss_dsi_get_fb_node_cb(struct platform_device *pdev)
 {
 	struct device_node *fb_node;
@@ -2698,6 +2707,10 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	case MDSS_EVENT_REGISTER_MDP_CALLBACK:
 		rc = mdss_dsi_register_mdp_callback(ctrl_pdata,
 			(struct mdss_intf_recovery *)arg);
+		break;
+	case MDSS_EVENT_REGISTER_CLAMP_HANDLER:
+		rc = mdss_dsi_register_clamp_handler(ctrl_pdata,
+			(struct mdss_intf_ulp_clamp *)arg);
 		break;
 	case MDSS_EVENT_DSI_DYNAMIC_SWITCH:
 		mode = (u32)(unsigned long) arg;

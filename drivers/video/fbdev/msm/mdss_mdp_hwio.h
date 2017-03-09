@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -634,15 +634,6 @@ enum mdss_mdp_dspp_index {
 #define MDSS_MDP_DSPP_OP_PA_SIX_ZONE_SAT_MASK		BIT(30)
 #define MDSS_MDP_DSPP_OP_PA_SIX_ZONE_VAL_MASK		BIT(31)
 
-enum mdss_mpd_intf_index {
-	MDSS_MDP_NO_INTF,
-	MDSS_MDP_INTF0,
-	MDSS_MDP_INTF1,
-	MDSS_MDP_INTF2,
-	MDSS_MDP_INTF3,
-	MDSS_MDP_MAX_INTF
-};
-
 #define MDSS_MDP_REG_INTF_TIMING_ENGINE_EN		0x000
 #define MDSS_MDP_REG_INTF_CONFIG			0x004
 #define MDSS_MDP_REG_INTF_HSYNC_CTL			0x008
@@ -702,6 +693,8 @@ enum mdss_mpd_intf_index {
 #define MDSS_MDP_REG_INTF_LINE_COUNT			0x0B0
 #define MDSS_MDP_PANEL_FORMAT_RGB888			0x213F
 #define MDSS_MDP_PANEL_FORMAT_RGB666			0x212A
+
+#define MDSS_MDP_REG_DSI_ULP_CLAMP_VALUE		0x064
 
 #define MDSS_MDP_PANEL_FORMAT_PACK_ALIGN_MSB		BIT(7)
 
