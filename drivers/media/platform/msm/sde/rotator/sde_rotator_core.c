@@ -297,7 +297,7 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	}
 
 	SDEROT_EVTLOG(on);
-	SDEROT_DBG("%s: rotator regulators", on ? "Enable" : "Disable");
+	SDEROT_DBG("%s: rotator regulators\n", on ? "Enable" : "Disable");
 
 	if (mgr->ops_hw_pre_pmevent)
 		mgr->ops_hw_pre_pmevent(mgr, on);
@@ -369,6 +369,14 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 			if (ret)
 				goto error_mnoc_ahb;
 			ret = sde_rotator_enable_clk(mgr,
+						SDE_ROTATOR_CLK_GCC_AHB);
+			if (ret)
+				goto error_gcc_ahb;
+			ret = sde_rotator_enable_clk(mgr,
+						SDE_ROTATOR_CLK_GCC_AXI);
+			if (ret)
+				goto error_gcc_axi;
+			ret = sde_rotator_enable_clk(mgr,
 						SDE_ROTATOR_CLK_MDSS_AHB);
 			if (ret)
 				goto error_mdss_ahb;
@@ -395,6 +403,8 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_ROT_CORE);
 			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AXI);
 			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AHB);
+			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_GCC_AXI);
+			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_GCC_AHB);
 			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MNOC_AHB);
 
 			/* Active Only */
@@ -413,6 +423,10 @@ error_rot_core:
 error_mdss_axi:
 	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AHB);
 error_mdss_ahb:
+	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_GCC_AXI);
+error_gcc_axi:
+	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_GCC_AHB);
+error_gcc_ahb:
 	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MNOC_AHB);
 error_mnoc_ahb:
 	return ret;
@@ -2546,9 +2560,11 @@ static int sde_rotator_bus_scale_register(struct sde_rot_mgr *mgr)
 }
 
 static inline int sde_rotator_search_dt_clk(struct platform_device *pdev,
-		struct sde_rot_mgr *mgr, char *clk_name, int clk_idx)
+		struct sde_rot_mgr *mgr, char *clk_name, int clk_idx,
+		bool mandatory)
 {
 	struct clk *tmp;
+	int rc = 0;
 
 	if (clk_idx >= SDE_ROTATOR_CLK_MAX) {
 		SDEROT_ERR("invalid clk index %d\n", clk_idx);
@@ -2557,15 +2573,18 @@ static inline int sde_rotator_search_dt_clk(struct platform_device *pdev,
 
 	tmp = devm_clk_get(&pdev->dev, clk_name);
 	if (IS_ERR(tmp)) {
-		SDEROT_ERR("unable to get clk: %s\n", clk_name);
-		return PTR_ERR(tmp);
+		if (mandatory)
+			SDEROT_ERR("unable to get clk: %s\n", clk_name);
+		else
+			tmp = NULL;
+		rc = PTR_ERR(tmp);
 	}
 
 	strlcpy(mgr->rot_clk[clk_idx].clk_name, clk_name,
 			sizeof(mgr->rot_clk[clk_idx].clk_name));
 
 	mgr->rot_clk[clk_idx].clk = tmp;
-	return 0;
+	return mandatory ? rc : 0;
 }
 
 static int sde_rotator_parse_dt_clk(struct platform_device *pdev,
@@ -2581,7 +2600,7 @@ static int sde_rotator_parse_dt_clk(struct platform_device *pdev,
 		goto clk_err;
 	}
 
-	mgr->num_rot_clk = num_clk;
+	mgr->num_rot_clk = SDE_ROTATOR_CLK_MAX;
 	mgr->rot_clk = devm_kzalloc(&pdev->dev,
 			sizeof(struct sde_rot_clk) * mgr->num_rot_clk,
 			GFP_KERNEL);
@@ -2592,16 +2611,21 @@ static int sde_rotator_parse_dt_clk(struct platform_device *pdev,
 	}
 
 	if (sde_rotator_search_dt_clk(pdev, mgr, "mnoc_clk",
-				SDE_ROTATOR_CLK_MNOC_AHB) ||
+			SDE_ROTATOR_CLK_MNOC_AHB, false) ||
+			sde_rotator_search_dt_clk(pdev, mgr, "gcc_iface",
+				SDE_ROTATOR_CLK_GCC_AHB, false) ||
+			sde_rotator_search_dt_clk(pdev, mgr, "gcc_bus",
+				SDE_ROTATOR_CLK_GCC_AXI, false) ||
 			sde_rotator_search_dt_clk(pdev, mgr, "iface_clk",
-				SDE_ROTATOR_CLK_MDSS_AHB) ||
+				SDE_ROTATOR_CLK_MDSS_AHB, true) ||
 			sde_rotator_search_dt_clk(pdev, mgr, "axi_clk",
-				SDE_ROTATOR_CLK_MDSS_AXI) ||
+				SDE_ROTATOR_CLK_MDSS_AXI, true) ||
 			sde_rotator_search_dt_clk(pdev, mgr, "rot_core_clk",
-				SDE_ROTATOR_CLK_ROT_CORE) ||
+				SDE_ROTATOR_CLK_ROT_CORE, true) ||
 			sde_rotator_search_dt_clk(pdev, mgr, "rot_clk",
-				SDE_ROTATOR_CLK_MDSS_ROT))
+				SDE_ROTATOR_CLK_MDSS_ROT, true))
 		rc = -EINVAL;
+
 clk_err:
 	return rc;
 }

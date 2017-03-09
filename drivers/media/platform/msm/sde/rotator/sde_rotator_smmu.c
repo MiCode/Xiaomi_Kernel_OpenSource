@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,15 +96,15 @@ static int sde_smmu_util_parse_dt_clock(struct platform_device *pdev,
 
 	num_clk = of_property_count_strings(pdev->dev.of_node,
 			"clock-names");
-	if (num_clk <= 0) {
-		SDEROT_ERR("clocks are not defined\n");
-		goto clk_err;
+	if (num_clk < 0) {
+		SDEROT_DBG("clocks are not defined\n");
+		num_clk = 0;
 	}
 
 	mp->num_clk = num_clk;
 	mp->clk_config = devm_kzalloc(&pdev->dev,
 			sizeof(struct sde_clk) * mp->num_clk, GFP_KERNEL);
-	if (!mp->clk_config) {
+	if (num_clk && !mp->clk_config) {
 		rc = -ENOMEM;
 		mp->num_clk = 0;
 		goto clk_err;
