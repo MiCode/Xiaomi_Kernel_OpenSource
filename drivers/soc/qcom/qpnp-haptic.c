@@ -148,7 +148,7 @@
 #define MISC_SEC_UNLOCK			0xA5
 #define PMI8950_MISC_SID		2
 
-#define POLL_TIME_AUTO_RES_ERR_NS	(5 * NSEC_PER_MSEC)
+#define POLL_TIME_AUTO_RES_ERR_NS	(20 * NSEC_PER_MSEC)
 
 #define MAX_POSITIVE_VARIATION_LRA_FREQ 30
 #define MAX_NEGATIVE_VARIATION_LRA_FREQ -30
@@ -238,6 +238,11 @@ enum qpnp_hap_mode {
 	QPNP_HAP_PWM,
 };
 
+/* status flags */
+enum qpnp_hap_status {
+	AUTO_RESONANCE_ENABLED = 1,
+};
+
 /* pwm channel info */
 struct qpnp_pwm_info {
 	struct pwm_device *pwm_dev;
@@ -253,7 +258,6 @@ struct qpnp_pwm_info {
  *  @ auto_res_err_poll_timer - hrtimer for auto-resonance error
  *  @ timed_dev - timed output device
  *  @ work - worker
- *  @ auto_res_err_work - correct auto resonance error
  *  @ sc_work - worker to handle short circuit condition
  *  @ pwm_info - pwm info
  *  @ lock - mutex lock
@@ -283,6 +287,7 @@ struct qpnp_pwm_info {
  *  @ wave_s_rep_cnt - waveform sample repeat count
  *  @ play_irq - irq for play
  *  @ sc_irq - irq for short circuit
+ *  @ status_flags - status
  *  @ base - base address
  *  @ act_type - actuator type
  *  @ wave_shape - waveform shape
@@ -314,7 +319,6 @@ struct qpnp_hap {
 	struct hrtimer			auto_res_err_poll_timer;
 	struct timed_output_dev		timed_dev;
 	struct work_struct		work;
-	struct work_struct		auto_res_err_work;
 	struct delayed_work		sc_work;
 	struct hrtimer			hap_test_timer;
 	struct work_struct		test_work;
@@ -338,6 +342,7 @@ struct qpnp_hap {
 	u32				wave_s_rep_cnt;
 	u32				play_irq;
 	u32				sc_irq;
+	u32				status_flags;
 	u16				base;
 	u16				drive_period_code_max_limit;
 	u16				drive_period_code_min_limit;
@@ -1429,13 +1434,19 @@ static int qpnp_hap_auto_res_enable(struct qpnp_hap *hap, int enable)
 	if (rc)
 		return rc;
 
+	if (enable)
+		hap->status_flags |= AUTO_RESONANCE_ENABLED;
+	else
+		hap->status_flags &= ~AUTO_RESONANCE_ENABLED;
+
 	return 0;
 }
 
 static void update_lra_frequency(struct qpnp_hap *hap)
 {
-	u8 lra_auto_res_lo = 0, lra_auto_res_hi = 0;
+	u8 lra_auto_res_lo = 0, lra_auto_res_hi = 0, val;
 	u32 play_rate_code;
+	int rc;
 
 	qpnp_hap_read_reg(hap, &lra_auto_res_lo,
 				QPNP_HAP_LRA_AUTO_RES_LO(hap->base));
@@ -1449,16 +1460,29 @@ static void update_lra_frequency(struct qpnp_hap *hap)
 		"lra_auto_res_lo = 0x%x lra_auto_res_hi = 0x%x play_rate_code = 0x%x\n",
 		lra_auto_res_lo, lra_auto_res_hi, play_rate_code);
 
+	rc = qpnp_hap_read_reg(hap, &val, QPNP_HAP_STATUS(hap->base));
+	if (rc < 0)
+		return;
+
 	/*
-	 * If the drive period code read from AUTO RES_LO and AUTO_RES_HI
-	 * registers is more than the max limit percent variation read from
-	 * DT or less than the min limit percent variation read from DT, then
-	 * RATE_CFG registers are not uptdated.
+	 * If the drive period code read from AUTO_RES_LO and AUTO_RES_HI
+	 * registers is more than the max limit percent variation or less
+	 * than the min limit percent variation specified through DT, then
+	 * auto-resonance is disabled.
 	 */
 
-	if ((play_rate_code <= hap->drive_period_code_min_limit) ||
-		(play_rate_code >= hap->drive_period_code_max_limit))
+	if ((val & AUTO_RES_ERR_BIT) ||
+		((play_rate_code <= hap->drive_period_code_min_limit) ||
+		(play_rate_code >= hap->drive_period_code_max_limit))) {
+		dev_dbg(&hap->pdev->dev,
+			"Auto-resonance error, out of 25%%, [min: 0x%x, max: 0x%x]\n",
+			hap->drive_period_code_min_limit,
+			hap->drive_period_code_max_limit);
+		rc = qpnp_hap_auto_res_enable(hap, 0);
+		if (rc < 0)
+			dev_dbg(&hap->pdev->dev, "Auto-resonance write failed\n");
 		return;
+	}
 
 	qpnp_hap_write_reg(hap, &lra_auto_res_lo,
 					QPNP_HAP_RATE_CFG1_REG(hap->base));
@@ -1472,15 +1496,11 @@ static enum hrtimer_restart detect_auto_res_error(struct hrtimer *timer)
 {
 	struct qpnp_hap *hap = container_of(timer, struct qpnp_hap,
 					auto_res_err_poll_timer);
-	u8 val;
 	ktime_t currtime;
 
-	qpnp_hap_read_reg(hap, &val, QPNP_HAP_STATUS(hap->base));
 
-	if (val & AUTO_RES_ERR_BIT) {
-		schedule_work(&hap->auto_res_err_work);
+	if (!(hap->status_flags & AUTO_RESONANCE_ENABLED))
 		return HRTIMER_NORESTART;
-	}
 
 	update_lra_frequency(hap);
 	currtime  = ktime_get();
@@ -1489,56 +1509,10 @@ static enum hrtimer_restart detect_auto_res_error(struct hrtimer *timer)
 	return HRTIMER_RESTART;
 }
 
-static void correct_auto_res_error(struct work_struct *auto_res_err_work)
-{
-	struct qpnp_hap *hap = container_of(auto_res_err_work,
-				struct qpnp_hap, auto_res_err_work);
-
-	u8 lra_code_lo, lra_code_hi, disable_hap = 0x00;
-	static u8 lra_freq_index;
-	ktime_t currtime = ktime_set(0, 0), remaining_time = ktime_set(0, 0);
-
-	if (hrtimer_active(&hap->hap_timer))
-		remaining_time  = hrtimer_get_remaining(&hap->hap_timer);
-
-	qpnp_hap_play(hap, 0);
-	qpnp_hap_write_reg(hap, &disable_hap,
-				QPNP_HAP_EN_CTL_REG(hap->base));
-
-	if (hap->perform_lra_auto_resonance_search) {
-		lra_code_lo =
-			adjusted_lra_play_rate_code[lra_freq_index]
-						& QPNP_HAP_RATE_CFG1_MASK;
-
-		qpnp_hap_write_reg(hap, &lra_code_lo,
-					QPNP_HAP_RATE_CFG1_REG(hap->base));
-
-		lra_code_hi = adjusted_lra_play_rate_code[lra_freq_index]
-						>> QPNP_HAP_RATE_CFG2_SHFT;
-
-		qpnp_hap_write_reg(hap, &lra_code_hi,
-					QPNP_HAP_RATE_CFG2_REG(hap->base));
-
-		lra_freq_index = (lra_freq_index+1) %
-					ADJUSTED_LRA_PLAY_RATE_CODE_ARRSIZE;
-	}
-
-	dev_dbg(&hap->pdev->dev, "Remaining time is %lld\n",
-						ktime_to_us(remaining_time));
-
-	if ((ktime_to_us(remaining_time)) > 0) {
-		currtime = ktime_get();
-		hap->state = 1;
-		hrtimer_forward(&hap->hap_timer, currtime, remaining_time);
-		schedule_work(&hap->work);
-	}
-}
-
 /* set api for haptics */
 static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 {
 	int rc = 0;
-	u8 val = 0;
 	unsigned long timeout_ns = POLL_TIME_AUTO_RES_ERR_NS;
 	u32 back_emf_delay_us = hap->time_required_to_generate_back_emf_us;
 
@@ -1601,11 +1575,9 @@ static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 				return rc;
 
 			if (hap->act_type == QPNP_HAP_LRA &&
-						hap->correct_lra_drive_freq) {
-				rc = qpnp_hap_read_reg(hap, &val,
-						QPNP_HAP_STATUS(hap->base));
-				if (!(val & AUTO_RES_ERR_BIT))
-					update_lra_frequency(hap);
+				hap->correct_lra_drive_freq &&
+				(hap->status_flags & AUTO_RESONANCE_ENABLED)) {
+				update_lra_frequency(hap);
 			}
 
 			rc = qpnp_hap_mod_enable(hap, on);
@@ -2023,11 +1995,13 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 
 	if (hap->act_type == QPNP_HAP_LRA && hap->correct_lra_drive_freq) {
 		hap->drive_period_code_max_limit =
-			(hap->init_drive_period_code * 100) /
-		(100 - hap->drive_period_code_max_limit_percent_variation);
+			(hap->init_drive_period_code * (100 +
+			hap->drive_period_code_max_limit_percent_variation))
+			/ 100;
 		hap->drive_period_code_min_limit =
-			(hap->init_drive_period_code * 100) /
-		(100 + hap->drive_period_code_min_limit_percent_variation);
+			(hap->init_drive_period_code * (100 -
+			hap->drive_period_code_min_limit_percent_variation))
+			/ 100;
 		dev_dbg(&hap->pdev->dev, "Drive period code max limit %x\n"
 			"Drive period code min limit %x\n",
 				hap->drive_period_code_max_limit,
@@ -2405,7 +2379,6 @@ static int qpnp_haptic_probe(struct platform_device *pdev)
 	hap->timed_dev.enable = qpnp_hap_td_enable;
 
 	if (hap->act_type == QPNP_HAP_LRA && hap->correct_lra_drive_freq) {
-		INIT_WORK(&hap->auto_res_err_work, correct_auto_res_error);
 		hrtimer_init(&hap->auto_res_err_poll_timer, CLOCK_MONOTONIC,
 						HRTIMER_MODE_REL);
 		hap->auto_res_err_poll_timer.function = detect_auto_res_error;
