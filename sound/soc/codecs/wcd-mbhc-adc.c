@@ -65,6 +65,7 @@ static int wcd_measure_adc_continuous(struct wcd_mbhc *mbhc)
 	u8 adc_result = 0;
 	int output_mv = 0;
 	int retry = 3;
+	u8 adc_en = 0;
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -73,6 +74,8 @@ static int wcd_measure_adc_continuous(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, 0x00);
 	/* Set ADC to continuous measurement */
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_MODE, 1);
+	/* Read ADC Enable bit to restore after adc measurement */
+	WCD_MBHC_REG_READ(WCD_MBHC_ADC_EN, adc_en);
 	/* Disable ADC_ENABLE bit */
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_EN, 0);
 	/* Disable MBHC FSM */
@@ -92,6 +95,8 @@ static int wcd_measure_adc_continuous(struct wcd_mbhc *mbhc)
 		WCD_MBHC_REG_READ(WCD_MBHC_ADC_RESULT, adc_result);
 	}
 
+	/* Restore ADC Enable */
+	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_EN, adc_en);
 	/* Get voltage from ADC result */
 	output_mv = wcd_get_voltage_from_adc(adc_result,
 					     wcd_mbhc_get_micbias(mbhc));
@@ -106,13 +111,16 @@ static int wcd_measure_adc_once(struct wcd_mbhc *mbhc, int mux_ctl)
 	u8 adc_timeout = 0;
 	u8 adc_complete = 0;
 	u8 adc_result = 0;
-	int retry = 5;
+	int retry = 6;
 	int ret = 0;
 	int output_mv = 0;
+	u8 adc_en = 0;
 
 	pr_debug("%s: enter\n", __func__);
 
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_MODE, 0);
+	/* Read ADC Enable bit to restore after adc measurement */
+	WCD_MBHC_REG_READ(WCD_MBHC_ADC_EN, adc_en);
 	/* Trigger ADC one time measurement */
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_EN, 0);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
@@ -122,8 +130,8 @@ static int wcd_measure_adc_once(struct wcd_mbhc *mbhc, int mux_ctl)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_EN, 1);
 
 	while (retry--) {
-		/* wait for 3msec to get adc results */
-		usleep_range(3000, 3100);
+		/* wait for 600usec to get adc results */
+		usleep_range(600, 610);
 
 		/* check for ADC Timeout */
 		WCD_MBHC_REG_READ(WCD_MBHC_ADC_TIMEOUT, adc_timeout);
@@ -144,6 +152,9 @@ static int wcd_measure_adc_once(struct wcd_mbhc *mbhc, int mux_ctl)
 						wcd_mbhc_get_micbias(mbhc));
 		break;
 	}
+
+	/* Restore ADC Enable */
+	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_EN, adc_en);
 
 	if (retry <= 0) {
 		pr_err("%s: adc complete: %d, adc timeout: %d\n",
@@ -352,8 +363,13 @@ static bool wcd_mbhc_adc_check_for_spl_headset(struct wcd_mbhc *mbhc,
 	/* Bump up MB2 to 2.7V */
 	mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(mbhc->codec,
 				mbhc->mbhc_cfg->mbhc_micbias, true);
+	usleep_range(10000, 10100);
 
-	output_mv = wcd_measure_adc_continuous(mbhc);
+	/*
+	 * Use ADC single mode to minimize the chance of missing out
+	 * btn press/relesae for HEADSET type during correct work.
+	 */
+	output_mv = wcd_measure_adc_once(mbhc, MUX_CTL_IN2P);
 	adc_threshold = ((WCD_MBHC_ADC_HS_THRESHOLD_MV *
 			  wcd_mbhc_get_micbias(mbhc))/WCD_MBHC_ADC_MICBIAS_MV);
 
@@ -521,7 +537,11 @@ static int wcd_mbhc_get_plug_type(struct wcd_mbhc *mbhc)
 {
 	int result_mv = 0;
 
-	result_mv = wcd_measure_adc_continuous(mbhc);
+	/*
+	 * Use ADC single mode to minimize the chance of missing out
+	 * btn press/release for HEADSET type during correct work.
+	 */
+	result_mv = wcd_measure_adc_once(mbhc, MUX_CTL_IN2P);
 
 	return wcd_mbhc_get_plug_from_adc(result_mv);
 }
@@ -564,7 +584,8 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		goto correct_plug_type;
 	}
 	/* Find plug type */
-	plug_type = wcd_mbhc_get_plug_type(mbhc);
+	output_mv = wcd_measure_adc_continuous(mbhc);
+	plug_type = wcd_mbhc_get_plug_from_adc(output_mv);
 
 	/*
 	 * Report plug type if it is either headset or headphone
@@ -578,6 +599,17 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		WCD_MBHC_RSC_UNLOCK(mbhc);
 	}
 
+	/*
+	 * Set DETECTION_DONE bit for HEADSET and ANC_HEADPHONE,
+	 * so that btn press/release interrupt can be generated.
+	 */
+	if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADSET ||
+		mbhc->current_plug == MBHC_PLUG_TYPE_ANC_HEADPHONE) {
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_MODE, 0);
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_EN, 0);
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_DETECTION_DONE, 1);
+	}
+
 correct_plug_type:
 	timeout = jiffies + msecs_to_jiffies(HS_DETECT_PLUG_TIME_MS);
 	while (!time_after(jiffies, timeout)) {
@@ -586,10 +618,6 @@ correct_plug_type:
 					mbhc->hs_detect_work_stop);
 			wcd_micbias_disable(mbhc);
 			goto exit;
-		}
-		if (mbhc->btn_press_intr) {
-			wcd_cancel_btn_work(mbhc);
-			mbhc->btn_press_intr = false;
 		}
 
 		/* allow sometime and re-check stop requested again */
@@ -602,7 +630,12 @@ correct_plug_type:
 		}
 
 		msleep(180);
-		output_mv = wcd_measure_adc_continuous(mbhc);
+		/*
+		 * Use ADC single mode to minimize the chance of missing out
+		 * btn press/release for HEADSET type during correct work.
+		 */
+		output_mv = wcd_measure_adc_once(mbhc, MUX_CTL_IN2P);
+
 		/*
 		 * instead of hogging system by contineous polling, wait for
 		 * sometime and re-check stop request again.
@@ -674,11 +707,10 @@ correct_plug_type:
 				 * and if there is not button press without
 				 * release
 				 */
-				if (((mbhc->current_plug !=
+				if ((mbhc->current_plug !=
 				      MBHC_PLUG_TYPE_HEADSET) &&
 				     (mbhc->current_plug !=
-				     MBHC_PLUG_TYPE_ANC_HEADPHONE)) &&
-				    !mbhc->btn_press_intr) {
+				     MBHC_PLUG_TYPE_ANC_HEADPHONE)) {
 					if (plug_type == MBHC_PLUG_TYPE_HEADSET)
 						pr_debug("%s: cable is %s headset\n",
 							__func__,
@@ -691,12 +723,6 @@ correct_plug_type:
 		}
 	}
 	if (!wrk_complete) {
-		if (mbhc->btn_press_intr) {
-			pr_debug("%s: Can be slow insertion of headphone\n",
-				 __func__);
-			wcd_cancel_btn_work(mbhc);
-			plug_type = MBHC_PLUG_TYPE_HEADPHONE;
-		}
 		/*
 		 * If plug_tye is headset, we might have already reported either
 		 * in detect_plug-type or in above while loop, no need to report
@@ -726,11 +752,7 @@ report:
 		pr_debug("%s: Switch level is low\n", __func__);
 		goto exit;
 	}
-	if (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP && mbhc->btn_press_intr) {
-		pr_debug("%s: insertion of headphone with swap\n", __func__);
-		wcd_cancel_btn_work(mbhc);
-		plug_type = MBHC_PLUG_TYPE_HEADPHONE;
-	}
+
 	pr_debug("%s: Valid plug found, plug type %d wrk_cmpt %d btn_intr %d\n",
 			__func__, plug_type, wrk_complete,
 			mbhc->btn_press_intr);
@@ -742,9 +764,16 @@ report:
 	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
 	WCD_MBHC_RSC_UNLOCK(mbhc);
 enable_supply:
+	/*
+	 * Set DETECTION_DONE bit for HEADSET and ANC_HEADPHONE,
+	 * so that btn press/release interrupt can be generated.
+	 * For other plug type, clear the bit.
+	 */
 	if (plug_type == MBHC_PLUG_TYPE_HEADSET ||
 	    plug_type == MBHC_PLUG_TYPE_ANC_HEADPHONE)
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_DETECTION_DONE, 1);
+	else
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_DETECTION_DONE, 0);
 
 	if (mbhc->mbhc_cb->mbhc_micbias_control)
 		wcd_mbhc_adc_update_fsm_source(mbhc, plug_type);
@@ -762,6 +791,18 @@ exit:
 		WCD_MBHC_RSC_UNLOCK(mbhc);
 	}
 
+	/*
+	 * Enable ADC COMPLETE interrupt for HEADPHONE.
+	 * Btn release may happen after the correct work, ADC COMPLETE
+	 * interrupt needs to be captured to correct plug type.
+	 */
+	if (plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
+		WCD_MBHC_RSC_LOCK(mbhc);
+		wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS,
+				     true);
+		WCD_MBHC_RSC_UNLOCK(mbhc);
+	}
+
 	if (mbhc->mbhc_cb->hph_pull_down_ctrl)
 		mbhc->mbhc_cb->hph_pull_down_ctrl(codec, true);
 
@@ -775,6 +816,13 @@ static irqreturn_t wcd_mbhc_adc_hs_rem_irq(int irq, void *data)
 
 	pr_debug("%s: enter\n", __func__);
 	WCD_MBHC_RSC_LOCK(mbhc);
+	/*
+	 * ADC COMPLETE and ELEC_REM interrupts are both enabled for HEADPHONE,
+	 * need to reject the ADC COMPLETE interrupt which follows ELEC_REM one
+	 * when HEADPHONE is removed.
+	 */
+	if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE)
+		mbhc->extn_cable_hph_rem = true;
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_DETECTION_DONE, 0);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_MODE, 0);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_EN, 0);
@@ -789,12 +837,39 @@ static irqreturn_t wcd_mbhc_adc_hs_ins_irq(int irq, void *data)
 	struct wcd_mbhc *mbhc = data;
 
 	pr_debug("%s: enter\n", __func__);
+
+	/*
+	 * ADC COMPLETE and ELEC_REM interrupts are both enabled for HEADPHONE,
+	 * need to reject the ADC COMPLETE interrupt which follows ELEC_REM one
+	 * when HEADPHONE is removed.
+	 */
+	if (mbhc->extn_cable_hph_rem == true) {
+		mbhc->extn_cable_hph_rem = false;
+		pr_debug("%s: leave\n", __func__);
+		return IRQ_HANDLED;
+	}
+
+	WCD_MBHC_RSC_LOCK(mbhc);
+	/*
+	 * If current plug is headphone then there is no chance to
+	 * get ADC complete interrupt, so connected cable should be
+	 * headset not headphone.
+	 */
+	if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
+		wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS, false);
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_DETECTION_DONE, 1);
+		wcd_mbhc_find_plug_and_report(mbhc, MBHC_PLUG_TYPE_HEADSET);
+		WCD_MBHC_RSC_UNLOCK(mbhc);
+		return IRQ_HANDLED;
+	}
+
 	if (!mbhc->mbhc_cfg->detect_extn_cable) {
 		pr_debug("%s: Returning as Extension cable feature not enabled\n",
 			__func__);
+		WCD_MBHC_RSC_UNLOCK(mbhc);
 		return IRQ_HANDLED;
 	}
-	WCD_MBHC_RSC_LOCK(mbhc);
+
 	pr_debug("%s: Disable electrical headset insertion interrupt\n",
 		 __func__);
 	wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS, false);
