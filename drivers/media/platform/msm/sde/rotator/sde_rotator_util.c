@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -878,7 +878,7 @@ static int sde_mdp_map_buffer(struct sde_mdp_img_data *data, bool rotator,
 			ret = sde_smmu_map_dma_buf(data->srcp_dma_buf,
 					data->srcp_table, domain,
 					&data->addr, &data->len, dir);
-			if (IS_ERR_VALUE(ret)) {
+			if (ret < 0) {
 				SDEROT_ERR("smmu map buf failed:(%d)\n", ret);
 				goto err_unmap;
 			}

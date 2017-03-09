@@ -26,7 +26,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/dma-direction.h>
 #include <soc/qcom/scm.h>
-#include <soc/qcom/rpm-smd.h>
 #include <soc/qcom/secure_buffer.h>
 #include <asm/cacheflush.h>
 
@@ -44,6 +43,10 @@
 
 /* Rotator device id to be used in SCM call */
 #define SDE_ROTATOR_DEVICE	21
+
+#ifndef VMID_CP_CAMERA_PREVIEW
+#define VMID_CP_CAMERA_PREVIEW	VMID_INVAL
+#endif
 
 /* SCM call function id to be used for switching between secure and non
  * secure context
@@ -255,7 +258,7 @@ static void sde_rotator_set_clk_rate(struct sde_rot_mgr *mgr,
 			SDEROT_ERR("unable to round rate err=%ld\n", clk_rate);
 		} else {
 			ret = clk_set_rate(clk, clk_rate);
-			if (IS_ERR_VALUE(ret))
+			if (ret < 0)
 				SDEROT_ERR("clk_set_rate failed, err:%d\n",
 						ret);
 			else
@@ -634,7 +637,7 @@ static int sde_rotator_map_and_check_data(struct sde_rot_entry *entry)
 	rotation = (entry->item.flags &  SDE_ROTATION_90) ? true : false;
 
 	ret = sde_smmu_ctrl(1);
-	if (IS_ERR_VALUE(ret))
+	if (ret < 0)
 		return ret;
 
 	secure = (entry->item.flags & SDE_ROTATION_SECURE_CAMERA) ?
@@ -1414,7 +1417,7 @@ static void sde_rotator_commit_handler(struct work_struct *work)
 
 	ATRACE_INT("sde_smmu_ctrl", 0);
 	ret = sde_smmu_ctrl(1);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		SDEROT_ERR("IOMMU attach failed\n");
 		goto smmu_error;
 	}
