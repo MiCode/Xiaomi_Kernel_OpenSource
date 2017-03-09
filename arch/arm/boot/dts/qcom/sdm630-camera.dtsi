@@ -501,8 +501,9 @@
 		cell-index = <0>;
 		compatible = "qcom,vfe48";
 		reg = <0xca10000 0x4000>,
-			<0xca40000 0x3000>;
-		reg-names = "vfe", "vfe_vbif";
+			<0xca40000 0x3000>,
+			<0x007801a4 0x8>;
+		reg-names = "vfe", "vfe_vbif", "vfe_fuse";
 		interrupts = <0 314 0>;
 		interrupt-names = "vfe";
 		vdd-supply = <&gdsc_vfe0>;
@@ -581,8 +582,9 @@
 		cell-index = <1>;
 		compatible = "qcom,vfe48";
 		reg = <0xca14000 0x4000>,
-			<0xca40000 0x3000>;
-		reg-names = "vfe", "vfe_vbif";
+			<0xca40000 0x3000>,
+			<0x007801a4 0x8>;
+		reg-names = "vfe", "vfe_vbif", "vfe_fuse";
 		interrupts = <0 315 0>;
 		interrupt-names = "vfe";
 		vdd-supply = <&gdsc_vfe1>;
