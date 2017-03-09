@@ -4538,6 +4538,7 @@ static int ath10k_start(struct ieee80211_hw *hw)
 				    ret);
 			goto err_core_stop;
 		}
+		ar->sifs_burst_enabled = false;
 	}
 
 	param = ar->wmi.pdev_param->ani_enable;
