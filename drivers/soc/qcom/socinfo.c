@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -196,6 +196,11 @@ struct socinfo_v0_12 {
 	uint32_t raw_device_number;
 };
 
+struct socinfo_v0_13 {
+	struct socinfo_v0_12 v0_12;
+	uint32_t nproduct_id;
+};
+
 static union {
 	struct socinfo_v0_1 v0_1;
 	struct socinfo_v0_2 v0_2;
@@ -209,10 +214,11 @@ static union {
 	struct socinfo_v0_10 v0_10;
 	struct socinfo_v0_11 v0_11;
 	struct socinfo_v0_12 v0_12;
+	struct socinfo_v0_13 v0_13;
 } *socinfo;
 
 /* max socinfo format version supported */
-#define MAX_SOCINFO_FORMAT SOCINFO_VERSION(0, 12)
+#define MAX_SOCINFO_FORMAT SOCINFO_VERSION(0, 13)
 
 static struct msm_soc_info cpu_of_id[] = {
 
@@ -696,6 +702,14 @@ static uint32_t socinfo_get_raw_device_number(void)
 		: 0;
 }
 
+static uint32_t socinfo_get_nproduct_id(void)
+{
+	return socinfo ?
+		(socinfo_format >= SOCINFO_VERSION(0, 13) ?
+			socinfo->v0_13.nproduct_id : 0)
+		: 0;
+}
+
 enum pmic_model socinfo_get_pmic_model(void)
 {
 	return socinfo ?
@@ -870,6 +884,15 @@ msm_get_raw_device_number(struct device *dev,
 {
 	return snprintf(buf, PAGE_SIZE, "0x%x\n",
 		socinfo_get_raw_device_number());
+}
+
+static ssize_t
+msm_get_nproduct_id(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "0x%x\n",
+		socinfo_get_nproduct_id());
 }
 
 static ssize_t
@@ -1120,6 +1143,10 @@ static struct device_attribute msm_soc_attr_raw_device_number =
 	__ATTR(raw_device_number, S_IRUGO,
 			msm_get_raw_device_number, NULL);
 
+static struct device_attribute msm_soc_attr_nproduct_id =
+	__ATTR(nproduct_id, 0444,
+			msm_get_nproduct_id, NULL);
+
 static struct device_attribute msm_soc_attr_pmic_model =
 	__ATTR(pmic_model, S_IRUGO,
 			msm_get_pmic_model, NULL);
@@ -1246,6 +1273,9 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 	device_create_file(msm_soc_device, &images);
 
 	switch (socinfo_format) {
+	case SOCINFO_VERSION(0, 13):
+		 device_create_file(msm_soc_device,
+					&msm_soc_attr_nproduct_id);
 	case SOCINFO_VERSION(0, 12):
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_chip_family);
@@ -1465,6 +1495,24 @@ static void socinfo_print(void)
 			socinfo->v0_12.chip_family,
 			socinfo->v0_12.raw_device_family,
 			socinfo->v0_12.raw_device_number);
+		break;
+	case SOCINFO_VERSION(0, 13):
+		pr_info("v%u.%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u foundry_id=%u serial_number=%u num_pmics=%u chip_family=0x%x raw_device_family=0x%x raw_device_number=0x%x nproduct_id=0x%x\n",
+			f_maj, f_min, socinfo->v0_1.id, v_maj, v_min,
+			socinfo->v0_2.raw_id, socinfo->v0_2.raw_version,
+			socinfo->v0_3.hw_platform,
+			socinfo->v0_4.platform_version,
+			socinfo->v0_5.accessory_chip,
+			socinfo->v0_6.hw_platform_subtype,
+			socinfo->v0_7.pmic_model,
+			socinfo->v0_7.pmic_die_revision,
+			socinfo->v0_9.foundry_id,
+			socinfo->v0_10.serial_number,
+			socinfo->v0_11.num_pmics,
+			socinfo->v0_12.chip_family,
+			socinfo->v0_12.raw_device_family,
+			socinfo->v0_12.raw_device_number,
+			socinfo->v0_13.nproduct_id);
 		break;
 
 	default:
