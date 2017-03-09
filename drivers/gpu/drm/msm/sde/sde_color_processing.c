@@ -531,9 +531,10 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 			hw_dspp->ops.setup_cont(hw_dspp, &hw_cfg);
 			break;
 		case SDE_CP_CRTC_DSPP_MEMCOLOR:
-			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcolor)
+			if (!hw_dspp || !hw_dspp->ops.setup_pa_memcolor) {
 				ret = -EINVAL;
 				continue;
+			}
 			hw_dspp->ops.setup_pa_memcolor(hw_dspp, &hw_cfg);
 			break;
 		case SDE_CP_CRTC_DSPP_SIXZONE:
@@ -638,16 +639,18 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 		if (!ctl)
 			continue;
 		if (set_dspp_flush && ctl->ops.get_bitmask_dspp
-				&& sde_crtc->mixers[i].hw_dspp)
+				&& sde_crtc->mixers[i].hw_dspp) {
 			ctl->ops.get_bitmask_dspp(ctl,
 					&flush_mask,
 					sde_crtc->mixers[i].hw_dspp->idx);
 			ctl->ops.update_pending_flush(ctl, flush_mask);
+		}
 		if (set_lm_flush && ctl->ops.get_bitmask_mixer
-				&& sde_crtc->mixers[i].hw_lm)
+				&& sde_crtc->mixers[i].hw_lm) {
 			flush_mask = ctl->ops.get_bitmask_mixer(ctl,
 					sde_crtc->mixers[i].hw_lm->idx);
 			ctl->ops.update_pending_flush(ctl, flush_mask);
+		}
 	}
 }
 
