@@ -98,6 +98,7 @@ static struct wcnss_prealloc wcnss_allocs[] = {
 	{0, 64 * 1024, NULL},
 	{0, 64 * 1024, NULL},
 	{0, 64 * 1024, NULL},
+	{0, 64 * 1024, NULL},
 	{0, 128 * 1024, NULL},
 	{0, 128 * 1024, NULL},
 };
