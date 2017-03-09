@@ -29,7 +29,7 @@
 #define CNSS_DUMP_NAME			"CNSS_WLAN"
 #define WLAN_RECOVERY_DELAY		1000
 #define FILE_SYSTEM_READY		1
-#define FW_READY_TIMEOUT		5000
+#define FW_READY_TIMEOUT		20000
 #define CNSS_EVENT_PENDING		2989
 
 static struct cnss_plat_data *plat_env;
