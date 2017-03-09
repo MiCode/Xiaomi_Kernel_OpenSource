@@ -215,10 +215,12 @@ static int adreno_drawctxt_wait_rb(struct adreno_device *adreno_dev,
 	int ret = 0;
 
 	/*
-	 * If the context is invalid then return immediately - we may end up
-	 * waiting for a timestamp that will never come
+	 * If the context is invalid (OR) not submitted commands to GPU
+	 * then return immediately - we may end up waiting for a timestamp
+	 * that will never come
 	 */
-	if (kgsl_context_invalid(context))
+	if (kgsl_context_invalid(context) ||
+			!test_bit(KGSL_CONTEXT_PRIV_SUBMITTED, &context->priv))
 		goto done;
 
 	trace_adreno_drawctxt_wait_start(drawctxt->rb->id, context->id,
