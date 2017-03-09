@@ -239,28 +239,6 @@ static struct pll_vote_clk gpll4 = {
 };
 DEFINE_EXT_CLK(gpll4_out_main, &gpll4.c);
 
-static struct clk_freq_tbl ftbl_hmss_ahb_clk_src[] = {
-	F(  19200000, cxo_clk_src_ao,    1,    0,     0),
-	F(  50000000, gpll0_out_main,   12,    0,     0),
-	F( 100000000, gpll0_out_main,    6,    0,     0),
-	F_END
-};
-
-static struct rcg_clk hmss_ahb_clk_src = {
-	.cmd_rcgr_reg = GCC_HMSS_AHB_CMD_RCGR,
-	.set_rate = set_rate_hid,
-	.freq_tbl = ftbl_hmss_ahb_clk_src,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "hmss_ahb_clk_src",
-		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3_AO(LOWER, 19200000, LOW, 50000000,
-					NOMINAL, 100000000),
-		CLK_INIT(hmss_ahb_clk_src.c),
-	},
-};
-
 static struct clk_freq_tbl ftbl_usb30_master_clk_src[] = {
 	F(  19200000,    cxo_clk_src,    1,    0,     0),
 	F( 60000000, gpll0_out_main,    10,    0,     0),
@@ -1732,20 +1710,6 @@ static struct branch_clk gcc_gpu_iref_clk = {
 	},
 };
 
-static struct local_vote_clk gcc_hmss_ahb_clk = {
-	.cbcr_reg = GCC_HMSS_AHB_CBCR,
-	.vote_reg = GCC_APCS_CLOCK_BRANCH_ENA_VOTE,
-	.en_mask = BIT(21),
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_hmss_ahb_clk",
-		.always_on = true,
-		.parent = &hmss_ahb_clk_src.c,
-		.ops = &clk_ops_vote,
-		CLK_INIT(gcc_hmss_ahb_clk.c),
-	},
-};
-
 static struct branch_clk gcc_hmss_dvm_bus_clk = {
 	.cbcr_reg = GCC_HMSS_DVM_BUS_CBCR,
 	.has_sibling = 1,
@@ -2408,7 +2372,6 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_ce1_ahb_m_clk.c, 0x0099 },
 		{ &measure_only_bimc_hmss_axi_clk.c, 0x00bb },
 		{ &gcc_bimc_gfx_clk.c, 0x00ac },
-		{ &gcc_hmss_ahb_clk.c, 0x00ba },
 		{ &gcc_hmss_rbcpr_clk.c, 0x00bc },
 		{ &gcc_gp1_clk.c, 0x00df },
 		{ &gcc_gp2_clk.c, 0x00e0 },
@@ -2531,7 +2494,6 @@ static struct clk_lookup msm_clocks_gcc_8998[] = {
 	CLK_LIST(gcc_gpu_gpll0_div_clk),
 	CLK_LIST(gpll4),
 	CLK_LIST(gpll4_out_main),
-	CLK_LIST(hmss_ahb_clk_src),
 	CLK_LIST(usb30_master_clk_src),
 	CLK_LIST(pcie_aux_clk_src),
 	CLK_LIST(ufs_axi_clk_src),
@@ -2629,7 +2591,6 @@ static struct clk_lookup msm_clocks_gcc_8998[] = {
 	CLK_LIST(gcc_gpu_bimc_gfx_clk),
 	CLK_LIST(gcc_gpu_cfg_ahb_clk),
 	CLK_LIST(gcc_gpu_iref_clk),
-	CLK_LIST(gcc_hmss_ahb_clk),
 	CLK_LIST(gcc_hmss_dvm_bus_clk),
 	CLK_LIST(gcc_hmss_rbcpr_clk),
 	CLK_LIST(gcc_mmss_noc_cfg_ahb_clk),
@@ -2742,12 +2703,12 @@ static int msm_gcc_8998_probe(struct platform_device *pdev)
 	}
 
 	/*
-	 * Set the HMSS_AHB_CLK_SLEEP_ENA bit to allow the hmss_ahb_clk to be
-	 * turned off by hardware during certain apps low power modes.
+	 * Clear the HMSS_AHB_CLK_ENA bit to allow the gcc_hmss_ahb_clk clock
+	 * to be gated by RPM during VDD_MIN.
 	 */
-	regval = readl_relaxed(virt_base + GCC_APCS_CLOCK_SLEEP_ENA_VOTE);
-	regval |= BIT(21);
-	writel_relaxed(regval, virt_base + GCC_APCS_CLOCK_SLEEP_ENA_VOTE);
+	regval = readl_relaxed(virt_base + GCC_APCS_CLOCK_BRANCH_ENA_VOTE);
+	regval &= ~BIT(21);
+	writel_relaxed(regval, virt_base + GCC_APCS_CLOCK_BRANCH_ENA_VOTE);
 
 	vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig");
 	if (IS_ERR(vdd_dig.regulator[0])) {

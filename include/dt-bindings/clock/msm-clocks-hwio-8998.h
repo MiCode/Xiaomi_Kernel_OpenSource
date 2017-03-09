@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,7 +66,6 @@
 #define CLOCK_FRQ_MEASURE_STATUS			        0x62008
 #define GCC_GPLL0_MODE						0x00000
 #define GCC_GPLL4_MODE						0x77000
-#define GCC_HMSS_AHB_CMD_RCGR					0x48014
 #define GCC_USB30_MASTER_CMD_RCGR				0x0F014
 #define GCC_PCIE_AUX_CMD_RCGR					0x6C000
 #define GCC_UFS_AXI_CMD_RCGR					0x75018
@@ -169,7 +168,6 @@
 #define GCC_GPU_BIMC_GFX_CBCR					0x71010
 #define GCC_GPU_CFG_AHB_CBCR					0x71004
 #define GCC_GPU_IREF_EN						0x88010
-#define GCC_HMSS_AHB_CBCR					0x48000
 #define GCC_HMSS_DVM_BUS_CBCR					0x4808C
 #define GCC_HMSS_RBCPR_CBCR					0x48008
 #define GCC_MMSS_SYS_NOC_AXI_CBCR				0x09000
