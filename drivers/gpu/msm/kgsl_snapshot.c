@@ -158,8 +158,10 @@ static size_t snapshot_os(struct kgsl_device *device,
 	header->osid = KGSL_SNAPSHOT_OS_LINUX_V3;
 
 	/* Get the kernel build information */
-	strlcpy(header->release, utsname()->release, sizeof(header->release));
-	strlcpy(header->version, utsname()->version, sizeof(header->version));
+	strlcpy(header->release, init_utsname()->release,
+			sizeof(header->release));
+	strlcpy(header->version, init_utsname()->version,
+			sizeof(header->version));
 
 	/* Get the Unix time for the timestamp */
 	header->seconds = get_seconds();
