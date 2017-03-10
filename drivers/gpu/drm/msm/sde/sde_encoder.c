@@ -404,9 +404,6 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
 		if (phys) {
-			atomic_set(&phys->vsync_cnt, 0);
-			atomic_set(&phys->underrun_cnt, 0);
-
 			if (phys->ops.is_master && phys->ops.is_master(phys)) {
 				SDE_DEBUG_ENC(sde_enc,
 						"master is now idx %d\n", i);
@@ -1315,6 +1312,15 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 			if (ret)
 				SDE_ERROR_ENC(sde_enc,
 						"failed to add phys encs\n");
+		}
+	}
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys) {
+			atomic_set(&phys->vsync_cnt, 0);
+			atomic_set(&phys->underrun_cnt, 0);
 		}
 	}
 	mutex_unlock(&sde_enc->enc_lock);
