@@ -544,7 +544,7 @@
 						&mdss_hdmi_cec_suspend>;
 };
 
-#include "msm8996-mdss-panels.dtsi"
+#include "msm8996-sde-display.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,21 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include "dsi-panel-toshiba-720p-video.dtsi"
-#include "dsi-panel-sharp-dualmipi-wqxga-video.dtsi"
-#include "dsi-panel-nt35597-dualmipi-wqxga-video.dtsi"
-#include "dsi-panel-nt35597-dualmipi-wqxga-cmd.dtsi"
-#include "dsi-panel-nt35597-dsc-wqxga-video.dtsi"
-#include "dsi-panel-jdi-dualmipi-video.dtsi"
-#include "dsi-panel-jdi-dualmipi-cmd.dtsi"
-#include "dsi-panel-jdi-4k-dualmipi-video-nofbc.dtsi"
-#include "dsi-panel-sim-video.dtsi"
-#include "dsi-panel-sim-dualmipi-video.dtsi"
-#include "dsi-panel-sim-cmd.dtsi"
-#include "dsi-panel-sim-dualmipi-cmd.dtsi"
-#include "dsi-panel-nt35597-dsc-wqxga-cmd.dtsi"
-#include "dsi-panel-hx8379a-truly-fwvga-video.dtsi"
-#include "dsi-panel-r69007-dualdsi-wqxga-cmd.dtsi"
+#include "msm8996-mdss-panels.dtsi"
 #include "dsi-panel-jdi-1080p-video.dtsi"
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
 
@@ -122,9 +108,9 @@
 
 		qcom,dsi-panel = <&dsi_dual_sharp_video>;
 		vddio-supply = <&pm8994_l14>;
-		lab-supply = <&lab_regulator>;
-		ibb-supply = <&ibb_regulator>;
-		qcom,dsi-display-active;
+		/delete-property/ lab-supply;
+		/delete-property/ ibb-supply;
+		/delete-property/ qcom,dsi-display-active;
 	};
 
 	single_dsi_sim_vid: qcom,dsi-display@1 {
@@ -145,8 +131,8 @@
 
 		qcom,dsi-panel = <&dsi_sim_vid>;
 		vddio-supply = <&pm8994_l14>;
-		lab-supply = <&lab_regulator>;
-		ibb-supply = <&ibb_regulator>;
+		/delete-property/ lab-supply;
+		/delete-property/ ibb-supply;
 	};
 
 	dsi_toshiba_720p_vid: qcom,dsi-display@2 {
@@ -207,8 +193,8 @@
 		qcom,dsi-panel = <&dsi_sharp_1080_cmd>;
 		vddio-supply = <&pm8994_l14>;
 		vdd-supply = <&pm8994_l19>;
-		lab-supply = <&lab_regulator>;
-		ibb-supply = <&ibb_regulator>;
+		/delete-property/ lab-supply;
+		/delete-property/ ibb-supply;
 	};
 
 	sde_wb: qcom,wb-display@0 {
@@ -236,8 +222,8 @@
 
 		qcom,dsi-panel = <&dsi_dual_nt35597_cmd>;
 		vddio-supply = <&pm8994_l14>;
-		lab-supply = <&lab_regulator>;
-		ibb-supply = <&ibb_regulator>;
+		/delete-property/ lab-supply;
+		/delete-property/ ibb-supply;
 	};
 
 	dsi_dual_nt35597_video_1: qcom,dsi-display@6 {
@@ -258,8 +244,8 @@
 
 		qcom,dsi-panel = <&dsi_dual_nt35597_video>;
 		vddio-supply = <&pm8994_l14>;
-		lab-supply = <&lab_regulator>;
-		ibb-supply = <&ibb_regulator>;
+		/delete-property/ lab-supply;
+		/delete-property/ ibb-supply;
 	};
 };
 
