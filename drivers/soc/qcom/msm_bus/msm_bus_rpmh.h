@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,11 +65,13 @@ struct nodebw {
 };
 
 struct msm_bus_bcm_device_type {
+	const char *name;
 	uint32_t width;
 	uint32_t clk_domain;
 	uint32_t type;
 	uint32_t unit_size;
 	uint32_t addr;
+	uint32_t drv_id;
 	int num_bus_devs;
 };
 

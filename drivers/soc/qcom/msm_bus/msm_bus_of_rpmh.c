@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,6 +95,7 @@ static struct msm_bus_bcm_device_type *get_bcm_device_info(
 		struct platform_device *pdev)
 {
 	struct msm_bus_bcm_device_type *bcm_dev;
+	unsigned int ret;
 
 	bcm_dev = devm_kzalloc(&pdev->dev,
 			sizeof(struct msm_bus_bcm_device_type),
@@ -104,6 +105,18 @@ static struct msm_bus_bcm_device_type *get_bcm_device_info(
 			"Error: Unable to allocate memory for bcm_dev\n");
 		goto bcm_dev_err;
 	}
+
+	ret = of_property_read_string(dev_node, "qcom,bcm-name",
+							&bcm_dev->name);
+	if (ret) {
+		dev_warn(&pdev->dev, "Bcm node is missing name\n");
+		goto bcm_dev_err;
+	}
+
+	ret = of_property_read_u32(dev_node, "qcom,drv-id",
+			&bcm_dev->drv_id);
+	if (ret)
+		dev_dbg(&pdev->dev, "drv-id is missing\n");
 
 	return bcm_dev;
 

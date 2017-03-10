@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,7 +36,10 @@
 #define BCM_TCS_CMD_VOTE_Y_SHFT		0
 #define BCM_TCS_CMD_VOTE_Y_MASK		0xFFFC000
 
-#define VCD_MAX_CNT			16
+#define VCD_MAX_CNT			10
+
+#define RSC_HLOS_DRV_ID			2
+#define RSC_DISP_DRV_ID			0
 
 #define BCM_TCS_CMD(commit, valid, vote_x, vote_y) \
 	(((commit & 0x1) << BCM_TCS_CMD_COMMIT_SHFT) |\
@@ -49,6 +52,7 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data);
 struct list_head bcm_clist_inorder[VCD_MAX_CNT];
 struct list_head bcm_query_list_inorder[VCD_MAX_CNT];
 static struct rpmh_client *mbox_apps;
+static struct rpmh_client *mbox_disp;
 
 struct bcm_db {
 	uint32_t unit_size;
@@ -520,6 +524,7 @@ int msm_bus_commit_data(struct list_head *clist)
 	struct tcs_cmd *cmdlist_active = NULL;
 	struct tcs_cmd *cmdlist_wake = NULL;
 	struct tcs_cmd *cmdlist_sleep = NULL;
+	struct rpmh_client *cur_mbox = NULL;
 	int *n_active = NULL;
 	int *n_wake = NULL;
 	int *n_sleep = NULL;
@@ -549,6 +554,12 @@ int msm_bus_commit_data(struct list_head *clist)
 			}
 			if (!cur_bcm->dirty)
 				cnt_active++;
+			if (!cur_mbox) {
+				if (cur_bcm->bcmdev->drv_id == RSC_HLOS_DRV_ID)
+					cur_mbox = mbox_apps;
+				else
+					cur_mbox = mbox_disp;
+			}
 		}
 		cnt_vcd++;
 	}
@@ -568,13 +579,18 @@ int msm_bus_commit_data(struct list_head *clist)
 	bcm_cnt = tcs_cmd_list_gen(n_active, n_wake, n_sleep, cmdlist_active,
 					cmdlist_wake, cmdlist_sleep);
 
-	ret = rpmh_invalidate(mbox_apps);
+	ret = rpmh_invalidate(cur_mbox);
 
-	ret = rpmh_write_passthru(mbox_apps, RPMH_ACTIVE_ONLY_STATE,
+	ret = rpmh_write_passthru(cur_mbox, RPMH_ACTIVE_ONLY_STATE,
 						cmdlist_active, n_active);
-	ret = rpmh_write_passthru(mbox_apps, RPMH_WAKE_ONLY_STATE,
+	if (cur_mbox == mbox_apps)
+		ret = rpmh_write_passthru(cur_mbox, RPMH_WAKE_ONLY_STATE,
 						cmdlist_wake, n_wake);
-	ret = rpmh_write_passthru(mbox_apps, RPMH_SLEEP_STATE,
+	else
+		ret = rpmh_write_passthru(cur_mbox, RPMH_AWAKE_STATE,
+						cmdlist_wake, n_wake);
+
+	ret = rpmh_write_passthru(cur_mbox, RPMH_SLEEP_STATE,
 						cmdlist_sleep, n_sleep);
 
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
@@ -913,17 +929,19 @@ static int msm_bus_bcm_init(struct device *dev,
 	}
 
 	node_dev->bcmdev = bcmdev;
-	if (!cmd_db_get_aux_data_len(node_dev->node_info->name)) {
+	bcmdev->name = pdata->bcmdev->name;
+
+	if (!cmd_db_get_aux_data_len(bcmdev->name)) {
 		MSM_BUS_ERR("%s: Error getting bcm info, bcm:%s",
-			__func__, node_dev->node_info->name);
+			__func__, bcmdev->name);
 		ret = -ENXIO;
 		goto exit_bcm_init;
 	}
 
-	cmd_db_get_aux_data(node_dev->node_info->name, (u8 *)&aux_data,
+	cmd_db_get_aux_data(bcmdev->name, (u8 *)&aux_data,
 						sizeof(struct bcm_db));
 
-	bcmdev->addr = cmd_db_get_addr(node_dev->node_info->name);
+	bcmdev->addr = cmd_db_get_addr(bcmdev->name);
 	bcmdev->width = (uint32_t)aux_data.width;
 	bcmdev->clk_domain = aux_data.clk_domain;
 	bcmdev->unit_size = aux_data.unit_size;
@@ -1465,8 +1483,14 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 
 	mbox_apps = rpmh_get_byname(pdev, "apps_rsc");
 	if (IS_ERR_OR_NULL(mbox_apps)) {
-		MSM_BUS_ERR("%s: mbox failure", __func__);
+		MSM_BUS_ERR("%s: apps mbox failure", __func__);
 		return PTR_ERR(mbox_apps);
+	}
+
+	mbox_disp = rpmh_get_byname(pdev, "disp_rsc");
+	if (IS_ERR_OR_NULL(mbox_disp)) {
+		MSM_BUS_ERR("%s: disp mbox failure", __func__);
+		return PTR_ERR(mbox_disp);
 	}
 
 	devm_kfree(&pdev->dev, pdata->info);
