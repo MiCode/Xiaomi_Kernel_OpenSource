@@ -1013,9 +1013,10 @@ static int dp_get_cable_status(struct platform_device *pdev, u32 vote)
 	return hpd;
 }
 
-static bool mdss_dp_is_dvi_mode(struct mdss_dp_drv_pdata *dp)
+static bool mdss_dp_sink_audio_supp(struct mdss_dp_drv_pdata *dp)
 {
-	return hdmi_edid_is_dvi_mode(dp->panel_data.panel_info.edid_data);
+	return hdmi_edid_is_audio_supported(
+		dp->panel_data.panel_info.edid_data);
 }
 
 static int dp_audio_info_setup(struct platform_device *pdev,
@@ -1706,14 +1707,17 @@ static int mdss_dp_send_audio_notification(
 		goto end;
 	}
 
-	if (!mdss_dp_is_dvi_mode(dp) || dp->audio_test_req) {
+	if (mdss_dp_sink_audio_supp(dp) || dp->audio_test_req) {
 		dp->audio_test_req = false;
 
+		pr_debug("sending audio notification\n");
 		flags |= MSM_EXT_DISP_HPD_AUDIO;
 
 		if (dp->ext_audio_data.intf_ops.hpd)
 			ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
 					dp->ext_audio_data.type, val, flags);
+	} else {
+		pr_debug("sink does not support audio\n");
 	}
 
 end:
