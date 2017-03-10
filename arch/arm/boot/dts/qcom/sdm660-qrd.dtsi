@@ -215,24 +215,6 @@
 			debounce-interval = <15>;
 		};
 	};
-
-	hbtp {
-		compatible = "qcom,hbtp-input";
-		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
-		pinctrl-0 = <&ts_rst_active>;
-		pinctrl-1 = <&ts_rst_suspend>;
-		vcc_ana-supply = <&pm660l_l3>;
-		vcc_dig-supply = <&pm660_l13>;
-		qcom,afe-load = <20000>;
-		qcom,afe-vtg-min = <3008000>;
-		qcom,afe-vtg-max = <3008000>;
-		qcom,dig-load = <40000>;
-		qcom,dig-vtg-min = <1808000>;
-		qcom,dig-vtg-max = <1808000>;
-		qcom,fb-resume-delay-us = <10000>;
-		qcom,afe-power-on-delay-us = <1000>;
-		qcom,afe-power-off-delay-us = <6>;
-	};
 };
 
 / {
