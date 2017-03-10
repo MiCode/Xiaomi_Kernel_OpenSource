@@ -155,14 +155,6 @@
 			qcom,bcm-dev;
 		};
 
-		bcm_mm5: bcm-mm5 {
-			cell-id = <MSM_BUS_BCM_MM5>;
-			label = "MM5";
-			qcom,bcm-name = "MM5";
-			qcom,rscs = <&rsc_apps>;
-			qcom,bcm-dev;
-		};
-
 		bcm_sn0: bcm-sn0 {
 			cell-id = <MSM_BUS_BCM_SN0>;
 			label = "SN0";
@@ -192,6 +184,13 @@
 			label = "CN0";
 			qcom,bcm-name = "CN0";
 			qcom,rscs = <&rsc_apps>;
+			qcom,bcm-dev;
+		};
+
+		bcm_qup0: bcm-qup0 {
+			cell-id = <MSM_BUS_BCM_QUP0>;
+			label = "QUP0";
+			qcom,bcm-name = "QUP0";
 			qcom,bcm-dev;
 		};
 
@@ -493,6 +492,7 @@
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_qns_a1noc_snoc>;
 			qcom,bus-dev = <&fab_aggre1_noc>;
+			qcom,bcms = <&bcm_qup0>;
 		};
 
 		mas_qhm_tsif: mas-qhm-tsif {
@@ -569,6 +569,7 @@
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+			qcom,bcms = <&bcm_qup0>;
 		};
 
 		mas_qnm_cnoc: mas-qnm-cnoc {
@@ -896,7 +897,6 @@
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_srvc_mnoc>;
 			qcom,bus-dev = <&fab_mmss_noc>;
-			qcom,bcms = <&bcm_mm5>;
 		};
 
 		mas_qxm_camnoc_hf: mas-qxm-camnoc-hf {
