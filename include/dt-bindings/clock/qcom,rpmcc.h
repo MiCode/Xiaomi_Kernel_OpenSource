@@ -1,6 +1,6 @@
 /*
  * Copyright 2015 Linaro Limited
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -129,5 +129,9 @@
 #define  CXO_PIL_CDSP_CLK			84
 #define  CNOC_PERIPH_KEEPALIVE_A_CLK		85
 #define  MMSSNOC_A_CLK_CPU_VOTE			86
+#define  AGGR2_NOC_MSMBUS_CLK			87
+#define  AGGR2_NOC_MSMBUS_A_CLK			88
+#define  AGGR2_NOC_SMMU_CLK			89
+#define  AGGR2_NOC_USB_CLK			90
 
 #endif

@@ -382,9 +382,9 @@
 
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
-		qca,bt-vdd-core-supply = <&pm660_l9_pin_ctrl>;
-		qca,bt-vdd-pa-supply = <&pm660_l6_pin_ctrl>;
-		qca,bt-vdd-ldo-supply = <&pm660_l19_pin_ctrl>;
+		qca,bt-vdd-core-supply = <&pm660_l9>;
+		qca,bt-vdd-pa-supply = <&pm660_l6>;
+		qca,bt-vdd-ldo-supply = <&pm660_l19>;
 		qca,bt-chip-pwd-supply = <&pm660l_bob_pin1>;
 		clocks = <&clock_rpmcc RPM_RF_CLK1_PIN>;
 		clock-names = "rf_clk1";
@@ -816,6 +816,11 @@
 			qcom,levels = <1248000>;
 			qcom,freq-req;
 		};
+	};
+
+	cx_ipeak_lm: cx_ipeak@1fe5040 {
+		compatible = "qcom,cx-ipeak-sdm660";
+		reg = <0x1fe5040 0x28>;
 	};
 
 	qcom,bcl {
@@ -2518,6 +2523,11 @@
 		qcom,src-sel = <0>;
 		qcom,out-strength = <1>;
 	};
+};
+
+&msm_vidc {
+	qcom,cx-ipeak-data = <&cx_ipeak_lm 4>;
+	qcom,clock-freq-threshold = <518400000>;
 };
 
 &soc {

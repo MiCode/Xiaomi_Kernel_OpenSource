@@ -148,14 +148,9 @@ int gsi_wakeup_host(struct f_gsi *gsi)
 	struct usb_function *func;
 
 	func = &gsi->function;
-	gadget = gsi->function.config->cdev->gadget;
+	gadget = gsi->gadget;
 
 	log_event_dbg("Entering %s", __func__);
-
-	if (!gadget) {
-		log_event_err("FAILED: d_port->cdev->gadget == NULL");
-		return -ENODEV;
-	}
 
 	/*
 	 * In Super-Speed mode, remote wakeup is not allowed for suspended
@@ -276,7 +271,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 				&d_port->ipa_out_channel_params;
 	struct ipa_usb_xdci_connect_params *conn_params =
 				&d_port->ipa_conn_pms;
-	struct usb_composite_dev *cdev = gsi->function.config->cdev;
+	struct usb_gadget *gadget = gsi->gadget;
 	struct gsi_channel_info gsi_channel_info;
 	struct ipa_req_chan_out_params ipa_in_channel_out_params;
 	struct ipa_req_chan_out_params ipa_out_channel_out_params;
@@ -366,7 +361,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 
 	/* Populate connection params */
 	conn_params->max_pkt_size =
-		(cdev->gadget->speed == USB_SPEED_SUPER) ?
+		(gadget->speed == USB_SPEED_SUPER) ?
 		IPA_USB_SUPER_SPEED_1024B : IPA_USB_HIGH_SPEED_512B;
 	conn_params->ipa_to_usb_xferrscidx =
 			d_port->in_xfer_rsc_index;
@@ -392,7 +387,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	conn_params->teth_prot_params.max_packet_number_to_dev =
 		DEFAULT_MAX_PKT_PER_XFER;
 	conn_params->max_supported_bandwidth_mbps =
-		(cdev->gadget->speed == USB_SPEED_SUPER) ? 3600 : 400;
+		(gadget->speed == USB_SPEED_SUPER) ? 3600 : 400;
 
 	memset(&ipa_in_channel_out_params, 0x0,
 				sizeof(ipa_in_channel_out_params));
@@ -604,12 +599,12 @@ static void ipa_work_handler(struct work_struct *w)
 {
 	struct gsi_data_port *d_port = container_of(w, struct gsi_data_port,
 						  usb_ipa_w);
+	struct f_gsi *gsi = d_port_to_gsi(d_port);
 	u8 event;
 	int ret = 0;
-	struct usb_gadget *gadget = d_port->gadget;
+	struct usb_gadget *gadget = gsi->gadget;
 	struct device *dev;
 	struct device *gad_dev;
-	struct f_gsi *gsi;
 
 	event = read_event(d_port);
 
@@ -636,7 +631,7 @@ static void ipa_work_handler(struct work_struct *w)
 		break;
 	case STATE_INITIALIZED:
 		if (event == EVT_CONNECT_IN_PROGRESS) {
-			usb_gadget_autopm_get(d_port->gadget);
+			usb_gadget_autopm_get(gadget);
 			log_event_dbg("%s: get = %d", __func__,
 				atomic_read(&gad_dev->power.usage_count));
 			/* allocate buffers used with each TRB */
@@ -661,7 +656,7 @@ static void ipa_work_handler(struct work_struct *w)
 			 * EVT_HOST_READY is posted to the state machine
 			 * in the handler for this msg.
 			 */
-			usb_gadget_autopm_get(d_port->gadget);
+			usb_gadget_autopm_get(gadget);
 			log_event_dbg("%s: get = %d", __func__,
 				atomic_read(&gad_dev->power.usage_count));
 			/* allocate buffers used with each TRB */
@@ -716,7 +711,7 @@ static void ipa_work_handler(struct work_struct *w)
 				read_event(d_port);
 				ipa_disconnect_work_handler(d_port);
 				d_port->sm_state = STATE_INITIALIZED;
-				usb_gadget_autopm_put_async(d_port->gadget);
+				usb_gadget_autopm_put_async(gadget);
 				log_event_dbg("%s: ST_CON_IN_PROG_EVT_SUS_DIS",
 						__func__);
 				log_event_dbg("%s: put_async1 = %d", __func__,
@@ -726,7 +721,7 @@ static void ipa_work_handler(struct work_struct *w)
 			}
 			ret = ipa_suspend_work_handler(d_port);
 			if (!ret) {
-				usb_gadget_autopm_put_async(d_port->gadget);
+				usb_gadget_autopm_put_async(gadget);
 				log_event_dbg("%s: ST_CON_IN_PROG_EVT_SUS",
 						__func__);
 				log_event_dbg("%s: put_async2 = %d", __func__,
@@ -736,7 +731,7 @@ static void ipa_work_handler(struct work_struct *w)
 		} else if (event == EVT_DISCONNECTED) {
 			ipa_disconnect_work_handler(d_port);
 			d_port->sm_state = STATE_INITIALIZED;
-			usb_gadget_autopm_put_async(d_port->gadget);
+			usb_gadget_autopm_put_async(gadget);
 			log_event_dbg("%s: ST_CON_IN_PROG_EVT_DIS",
 						__func__);
 			log_event_dbg("%s: put_async3 = %d",
@@ -760,7 +755,7 @@ static void ipa_work_handler(struct work_struct *w)
 
 			ipa_disconnect_work_handler(d_port);
 			d_port->sm_state = STATE_INITIALIZED;
-			usb_gadget_autopm_put_async(d_port->gadget);
+			usb_gadget_autopm_put_async(gadget);
 			log_event_dbg("%s: ST_CON_EVT_DIS", __func__);
 			log_event_dbg("%s: put_async4 = %d",
 					__func__, atomic_read(
@@ -770,7 +765,7 @@ static void ipa_work_handler(struct work_struct *w)
 				read_event(d_port);
 				ipa_disconnect_work_handler(d_port);
 				d_port->sm_state = STATE_INITIALIZED;
-				usb_gadget_autopm_put_async(d_port->gadget);
+				usb_gadget_autopm_put_async(gadget);
 				log_event_dbg("%s: ST_CON_EVT_SUS_DIS",
 						__func__);
 				log_event_dbg("%s: put_async5 = %d",
@@ -780,7 +775,7 @@ static void ipa_work_handler(struct work_struct *w)
 			}
 			ret = ipa_suspend_work_handler(d_port);
 			if (!ret) {
-				usb_gadget_autopm_put_async(d_port->gadget);
+				usb_gadget_autopm_put_async(gadget);
 				log_event_dbg("%s: ST_CON_EVT_SUS",
 						__func__);
 				log_event_dbg("%s: put_async6 = %d",
@@ -805,7 +800,7 @@ static void ipa_work_handler(struct work_struct *w)
 	case STATE_SUSPEND_IN_PROGRESS:
 		if (event == EVT_IPA_SUSPEND) {
 			d_port->sm_state = STATE_SUSPENDED;
-			usb_gadget_autopm_put_async(d_port->gadget);
+			usb_gadget_autopm_put_async(gadget);
 			log_event_dbg("%s: ST_SUS_IN_PROG_EVT_IPA_SUS",
 					__func__);
 			log_event_dbg("%s: put_async6 = %d",
@@ -820,7 +815,7 @@ static void ipa_work_handler(struct work_struct *w)
 			 * after IPA disconnect is done in disconnect work
 			 * (due to cable disconnect) or in suspended state.
 			 */
-			usb_gadget_autopm_get_noresume(d_port->gadget);
+			usb_gadget_autopm_get_noresume(gadget);
 			log_event_dbg("%s: ST_SUS_IN_PROG_EVT_RES", __func__);
 			log_event_dbg("%s: get_nores1 = %d", __func__,
 					atomic_read(
@@ -828,7 +823,7 @@ static void ipa_work_handler(struct work_struct *w)
 		} else if (event == EVT_DISCONNECTED) {
 			ipa_disconnect_work_handler(d_port);
 			d_port->sm_state = STATE_INITIALIZED;
-			usb_gadget_autopm_put_async(d_port->gadget);
+			usb_gadget_autopm_put_async(gadget);
 			log_event_dbg("%s: ST_SUS_IN_PROG_EVT_DIS", __func__);
 			log_event_dbg("%s: put_async7 = %d", __func__,
 					atomic_read(
@@ -838,7 +833,7 @@ static void ipa_work_handler(struct work_struct *w)
 
 	case STATE_SUSPENDED:
 		if (event == EVT_RESUMED) {
-			usb_gadget_autopm_get(d_port->gadget);
+			usb_gadget_autopm_get(gadget);
 			log_event_dbg("%s: ST_SUS_EVT_RES", __func__);
 			log_event_dbg("%s: get = %d", __func__,
 				atomic_read(&gad_dev->power.usage_count));
@@ -1425,7 +1420,6 @@ static int gsi_ctrl_send_notification(struct f_gsi *gsi)
 	__le32 *data;
 	struct usb_cdc_notification *event;
 	struct usb_request *req = gsi->c_port.notify_req;
-	struct usb_composite_dev *cdev = gsi->function.config->cdev;
 	struct gsi_ctrl_pkt *cpkt;
 	unsigned long flags;
 	bool del_free_cpkt = false;
@@ -1472,11 +1466,11 @@ static int gsi_ctrl_send_notification(struct f_gsi *gsi)
 
 		/* SPEED_CHANGE data is up/down speeds in bits/sec */
 		data = req->buf + sizeof(*event);
-		data[0] = cpu_to_le32(gsi_xfer_bitrate(cdev->gadget));
+		data[0] = cpu_to_le32(gsi_xfer_bitrate(gsi->gadget));
 		data[1] = data[0];
 
 		log_event_dbg("notify speed %d",
-				gsi_xfer_bitrate(cdev->gadget));
+				gsi_xfer_bitrate(gsi->gadget));
 		break;
 	case GSI_CTRL_NOTIFY_OFFLINE:
 		del_free_cpkt = true;
@@ -1868,10 +1862,10 @@ static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
 		len_in = gsi->d_port.in_request.buf_len *
 				gsi->d_port.in_request.num_bufs;
 		gsi->d_port.in_request.buf_base_addr =
-			dma_zalloc_coherent(gsi->d_port.gadget->dev.parent,
+			dma_zalloc_coherent(gsi->gadget->dev.parent,
 			len_in, &gsi->d_port.in_request.dma, GFP_KERNEL);
 		if (!gsi->d_port.in_request.buf_base_addr) {
-			dev_err(&gsi->d_port.gadget->dev,
+			dev_err(&gsi->gadget->dev,
 					"IN buf_base_addr allocate failed %s\n",
 					gsi->function.name);
 			ret = -ENOMEM;
@@ -1887,10 +1881,10 @@ static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
 		len_out = gsi->d_port.out_request.buf_len *
 				gsi->d_port.out_request.num_bufs;
 		gsi->d_port.out_request.buf_base_addr =
-			dma_zalloc_coherent(gsi->d_port.gadget->dev.parent,
+			dma_zalloc_coherent(gsi->gadget->dev.parent,
 			len_out, &gsi->d_port.out_request.dma, GFP_KERNEL);
 		if (!gsi->d_port.out_request.buf_base_addr) {
-			dev_err(&gsi->d_port.gadget->dev,
+			dev_err(&gsi->gadget->dev,
 					"OUT buf_base_addr allocate failed %s\n",
 					gsi->function.name);
 			ret = -ENOMEM;
@@ -1903,7 +1897,7 @@ static int gsi_alloc_trb_buffer(struct f_gsi *gsi)
 
 fail:
 	if (len_in && gsi->d_port.in_request.buf_base_addr) {
-		dma_free_coherent(gsi->d_port.gadget->dev.parent, len_in,
+		dma_free_coherent(gsi->gadget->dev.parent, len_in,
 				gsi->d_port.in_request.buf_base_addr,
 				gsi->d_port.in_request.dma);
 		gsi->d_port.in_request.buf_base_addr = NULL;
@@ -1922,7 +1916,7 @@ static void gsi_free_trb_buffer(struct f_gsi *gsi)
 			gsi->d_port.out_request.buf_base_addr) {
 		len = gsi->d_port.out_request.buf_len *
 			gsi->d_port.out_request.num_bufs;
-		dma_free_coherent(gsi->d_port.gadget->dev.parent, len,
+		dma_free_coherent(gsi->gadget->dev.parent, len,
 			gsi->d_port.out_request.buf_base_addr,
 			gsi->d_port.out_request.dma);
 		gsi->d_port.out_request.buf_base_addr = NULL;
@@ -1932,7 +1926,7 @@ static void gsi_free_trb_buffer(struct f_gsi *gsi)
 			gsi->d_port.in_request.buf_base_addr) {
 		len = gsi->d_port.in_request.buf_len *
 			gsi->d_port.in_request.num_bufs;
-		dma_free_coherent(gsi->d_port.gadget->dev.parent, len,
+		dma_free_coherent(gsi->gadget->dev.parent, len,
 			gsi->d_port.in_request.buf_base_addr,
 			gsi->d_port.in_request.dma);
 		gsi->d_port.in_request.buf_base_addr = NULL;
@@ -2035,7 +2029,7 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 						GSI_EP_OP_CONFIG);
 			}
 
-			gsi->d_port.gadget = cdev->gadget;
+			gsi->gadget = cdev->gadget;
 
 			if (gsi->prot_id == IPA_USB_RNDIS) {
 				gsi_rndis_open(gsi);

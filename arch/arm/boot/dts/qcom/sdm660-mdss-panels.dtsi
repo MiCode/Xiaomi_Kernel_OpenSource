@@ -133,6 +133,10 @@
 		23 18 07 08 04 03 04 a0];
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
+	qcom,mdss-dsi-min-refresh-rate = <53>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 };
 
 &dsi_dual_nt35597_truly_cmd {

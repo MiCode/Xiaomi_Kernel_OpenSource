@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -192,7 +192,6 @@ struct gsi_data_port {
 	struct usb_ep *out_ep;
 	struct usb_gsi_request in_request;
 	struct usb_gsi_request out_request;
-	struct usb_gadget *gadget;
 	int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void *driver_data);
 	struct ipa_usb_teth_params ipa_init_params;
 	int in_channel_handle;
@@ -228,6 +227,7 @@ struct gsi_data_port {
 
 struct f_gsi {
 	struct usb_function function;
+	struct usb_gadget *gadget;
 	enum ipa_usb_teth_prot prot_id;
 	int ctrl_id;
 	int data_id;

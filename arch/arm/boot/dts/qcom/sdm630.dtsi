@@ -734,7 +734,6 @@
 
 		clock-names = "osm";
 		clocks = <&clock_cpu PERFCL_CLK>;
-		qcom,cxip-lm-enable = <0>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 
@@ -1796,6 +1795,11 @@
 		boot_stats@6b0 {
 			compatible = "qcom,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
+		};
+
+		kaslr_offset@6d0 {
+			compatible = "qcom,msm-imem-kaslr_offset";
+			reg = <0x6d0 12>;
 		};
 
 		pil@94c {

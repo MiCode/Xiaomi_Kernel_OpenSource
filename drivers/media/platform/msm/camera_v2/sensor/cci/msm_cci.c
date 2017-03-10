@@ -291,7 +291,6 @@ static uint32_t msm_cci_wait(struct cci_device *cci_dev,
 		__func__, __LINE__);
 
 	if (rc <= 0) {
-		msm_cci_dump_registers(cci_dev, master, queue);
 		pr_err("%s: %d wait for queue: %d\n",
 			 __func__, __LINE__, queue);
 		if (rc == 0)
