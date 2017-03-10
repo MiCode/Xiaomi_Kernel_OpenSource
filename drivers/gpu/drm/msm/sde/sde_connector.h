@@ -64,6 +64,14 @@ struct sde_connector_ops {
 			void *display);
 
 	/**
+	 * update_pps - update pps command for the display panel
+	 * @pps_cmd: Pointer to pps command
+	 * @display: Pointer to private display handle
+	 * Returns: Zero on success
+	 */
+	int (*update_pps)(char *pps_cmd, void *display);
+
+	/**
 	 * mode_valid - determine if specified mode is valid
 	 * @connector: Pointer to drm connector structure
 	 * @mode: Pointer to drm mode structure

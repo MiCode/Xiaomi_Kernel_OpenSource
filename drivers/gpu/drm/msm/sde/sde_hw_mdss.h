@@ -85,6 +85,7 @@ enum sde_hw_blk_type {
 	SDE_HW_BLK_PINGPONG,
 	SDE_HW_BLK_INTF,
 	SDE_HW_BLK_WB,
+	SDE_HW_BLK_DSC,
 	SDE_HW_BLK_MAX,
 };
 
@@ -177,6 +178,17 @@ enum sde_pingpong {
 	PINGPONG_4,
 	PINGPONG_S0,
 	PINGPONG_MAX
+};
+
+enum sde_dsc {
+	DSC_NONE = 0,
+	DSC_0,
+	DSC_1,
+	DSC_2,
+	DSC_3,
+	DSC_4,
+	DSC_5,
+	DSC_MAX
 };
 
 enum sde_intf {
@@ -442,6 +454,7 @@ struct sde_mdss_color {
 #define SDE_DBG_MASK_WB       (1 << 8)
 #define SDE_DBG_MASK_TOP      (1 << 9)
 #define SDE_DBG_MASK_VBIF     (1 << 10)
+#define SDE_DBG_MASK_DSC      (1 << 11)
 
 /**
  * struct sde_hw_cp_cfg: hardware dspp/lm feature payload.

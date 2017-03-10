@@ -101,11 +101,31 @@ int sde_hw_pp_setup_autorefresh_config(struct sde_hw_pingpong *pp,
 	return 0;
 }
 
-int sde_hw_pp_setup_dsc_compression(struct sde_hw_pingpong *pp,
-		struct sde_hw_dsc_cfg *cfg)
+void sde_hw_pp_dsc_enable(struct sde_hw_pingpong *pp)
 {
+	struct sde_hw_blk_reg_map *c = &pp->hw;
+
+	SDE_REG_WRITE(c, PP_DSC_MODE, 1);
+}
+
+void sde_hw_pp_dsc_disable(struct sde_hw_pingpong *pp)
+{
+	struct sde_hw_blk_reg_map *c = &pp->hw;
+
+	SDE_REG_WRITE(c, PP_DSC_MODE, 0);
+}
+
+int sde_hw_pp_setup_dsc(struct sde_hw_pingpong *pp)
+{
+	struct sde_hw_blk_reg_map *pp_c = &pp->hw;
+	int data;
+
+	data = SDE_REG_READ(pp_c, PP_DCE_DATA_OUT_SWAP);
+	data |= BIT(18); /* endian flip */
+	SDE_REG_WRITE(pp_c, PP_DCE_DATA_OUT_SWAP, data);
 	return 0;
 }
+
 int sde_hw_pp_enable_te(struct sde_hw_pingpong *pp, bool enable)
 {
 	struct sde_hw_blk_reg_map *c = &pp->hw;
@@ -137,7 +157,9 @@ static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 	ops->enable_tearcheck = sde_hw_pp_enable_te;
 	ops->get_vsync_info = sde_hw_pp_get_vsync_info;
 	ops->setup_autorefresh = sde_hw_pp_setup_autorefresh_config;
-	ops->setup_dsc = sde_hw_pp_setup_dsc_compression;
+	ops->setup_dsc = sde_hw_pp_setup_dsc;
+	ops->enable_dsc = sde_hw_pp_dsc_enable;
+	ops->disable_dsc = sde_hw_pp_dsc_disable;
 };
 
 struct sde_hw_pingpong *sde_hw_pingpong_init(enum sde_pingpong idx,

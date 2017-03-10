@@ -33,6 +33,8 @@
 #define TRAFFIC_SHAPER_WR_CLIENT(num)     (0x060 + (num * 4))
 #define TRAFFIC_SHAPER_FIXPOINT_FACTOR    4
 
+#define DCE_SEL                           0x450
+
 static void sde_hw_setup_split_pipe(struct sde_hw_mdp *mdp,
 		struct split_pipe_cfg *cfg)
 {
@@ -200,6 +202,13 @@ static void sde_hw_get_safe_status(struct sde_hw_mdp *mdp,
 	status->wb[WB_3] = 0;
 }
 
+static void sde_hw_setup_dce(struct sde_hw_mdp *mdp, u32 dce_sel)
+{
+	struct sde_hw_blk_reg_map *c = &mdp->hw;
+
+	SDE_REG_WRITE(c, DCE_SEL, dce_sel);
+}
+
 static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 		unsigned long cap)
 {
@@ -209,6 +218,7 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 	ops->setup_clk_force_ctrl = sde_hw_setup_clk_force_ctrl;
 	ops->get_danger_status = sde_hw_get_danger_status;
 	ops->get_safe_status = sde_hw_get_safe_status;
+	ops->setup_dce = sde_hw_setup_dce;
 }
 
 static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,

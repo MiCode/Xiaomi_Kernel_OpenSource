@@ -185,6 +185,7 @@ enum sde_intr_idx {
  * @split_role:		Role to play in a split-panel configuration
  * @intf_mode:		Interface mode
  * @intf_idx:		Interface index on sde hardware
+ * @comp_type:      Type of compression supported
  * @enc_spinlock:	Virtual-Encoder-Wide Spin Lock for IRQ purposes
  * @enable_state:	Enable state tracking
  * @vblank_refcount:	Reference count of vblank request
@@ -212,6 +213,7 @@ struct sde_encoder_phys {
 	enum sde_enc_split_role split_role;
 	enum sde_intf_mode intf_mode;
 	enum sde_intf intf_idx;
+	enum msm_display_compression_type comp_type;
 	spinlock_t *enc_spinlock;
 	enum sde_enc_enable_state enable_state;
 	atomic_t vblank_refcount;
@@ -313,6 +315,7 @@ struct sde_encoder_phys_wb {
  * @split_role:		Role to play in a split-panel configuration
  * @intf_idx:		Interface index this phys_enc will control
  * @wb_idx:		Writeback index this phys_enc will control
+ * @comp_type:      Type of compression supported
  * @enc_spinlock:	Virtual-Encoder-Wide Spin Lock for IRQ purposes
  */
 struct sde_enc_phys_init_params {
@@ -322,6 +325,7 @@ struct sde_enc_phys_init_params {
 	enum sde_enc_split_role split_role;
 	enum sde_intf intf_idx;
 	enum sde_wb wb_idx;
+	enum msm_display_compression_type comp_type;
 	spinlock_t *enc_spinlock;
 };
 
@@ -404,7 +408,8 @@ static inline enum sde_3d_blend_mode sde_encoder_helper_get_3d_blend_mode(
 
 	topology = sde_connector_get_topology_name(phys_enc->connector);
 	if (phys_enc->split_role == ENC_ROLE_SOLO &&
-			topology == SDE_RM_TOPOLOGY_DUALPIPEMERGE)
+			topology == SDE_RM_TOPOLOGY_DUALPIPEMERGE &&
+			phys_enc->comp_type == MSM_DISPLAY_COMPRESSION_NONE)
 		return BLEND_3D_H_ROW_INT;
 
 	return BLEND_3D_NONE;

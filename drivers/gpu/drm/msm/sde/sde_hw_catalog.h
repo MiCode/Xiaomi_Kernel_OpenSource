@@ -526,6 +526,16 @@ struct sde_pingpong_cfg  {
 };
 
 /**
+ * struct sde_dsc_cfg - information of DSC blocks
+ * @id                 enum identifying this block
+ * @base               register offset of this block
+ * @features           bit mask identifying sub-blocks/features
+ */
+struct sde_dsc_cfg {
+	SDE_HW_BLK_INFO;
+};
+
+/**
  * struct sde_cdm_cfg - information of chroma down blocks
  * @id                 enum identifying this block
  * @base               register offset of this block
@@ -696,6 +706,9 @@ struct sde_mdss_cfg {
 
 	u32 pingpong_count;
 	struct sde_pingpong_cfg pingpong[MAX_BLOCKS];
+
+	u32 dsc_count;
+	struct sde_dsc_cfg dsc[MAX_BLOCKS];
 
 	u32 cdm_count;
 	struct sde_cdm_cfg cdm[MAX_BLOCKS];
