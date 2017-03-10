@@ -3348,6 +3348,9 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 }
 #endif
 
+#define BOOT_DEV_MASK 0x1E
+#define BOOT_DEV_NAND 0x4
+
 /*
  * This function gets called when its device named msm-nand is added to
  * device tree .dts file with all its resources such as physical addresses
@@ -3365,6 +3368,26 @@ static int msm_nand_probe(struct platform_device *pdev)
 	int i, err, nr_parts;
 	struct device *dev;
 	u32 adjustment_offset;
+	void __iomem *boot_cfg_base;
+	u32 boot_dev;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"boot_cfg");
+	if (res && res->start) {
+		boot_cfg_base = devm_ioremap(&pdev->dev, res->start,
+						resource_size(res));
+		if (!boot_cfg_base) {
+			pr_err("ioremap() failed for addr 0x%x size 0x%x\n",
+				res->start, resource_size(res));
+			return -ENOMEM;
+		}
+		boot_dev = (readl_relaxed(boot_cfg_base) & BOOT_DEV_MASK) >> 1;
+		if (boot_dev != BOOT_DEV_NAND) {
+			pr_err("disabling nand as boot device (%x) is not NAND\n",
+					boot_dev);
+			return -ENODEV;
+		}
+	}
 	/*
 	 * The partition information can also be passed from kernel command
 	 * line. Also, the MTD core layer supports adding the whole device as

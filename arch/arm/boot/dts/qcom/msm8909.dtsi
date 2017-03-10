@@ -48,6 +48,7 @@
 		i2c1 = &i2c_1; /* I2C1 controller */
 		i2c2 = &i2c_2; /* I2C2 NFC qup2 device */
 		i2c4 = &i2c_4; /* I2C4 controller device */
+		qpic_nand1 = &qnand_1; /* qpic nand controller */
 	};
 
 	cpus {
@@ -948,6 +949,30 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU3>;
+	};
+
+	qnand_1: nand@7980000 {
+		compatible = "qcom,msm-nand";
+		reg = <0x7980000 0x1000>,
+			<0x7984000 0x1a000>,
+			<0x5e02c 0x4>;
+		reg-names = "nand_phys",
+		    "bam_phys", "boot_cfg";
+		qcom,reg-adjustment-offset = <0>;
+		interrupts = <0 132 0>;
+		interrupt-names = "bam_irq";
+
+		qcom,msm-bus,name = "qpic_nand";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<91 512 0 0>,
+		/* Voting for max b/w on PNOC bus for now */
+			<91 512 400000 800000>;
+
+		clock-names = "core_clk";
+		clocks = <&clock_rpm clk_qpic_clk>;
+		status = "disabled";
 	};
 
 	sdhc_1: sdhci@7824000 {
