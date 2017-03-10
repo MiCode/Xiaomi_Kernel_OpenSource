@@ -761,7 +761,7 @@
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
-			<62 512 1920000 2880000>;
+			<62 512 1200000 1200000>;
 		status = "ok";
 	};
 
@@ -803,7 +803,7 @@
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
-			<62 512 1920000 2880000>;
+			<62 512 1200000 1200000>;
 		qcom,max-ds-factor = <128>;
 		status = "ok";
 	};
