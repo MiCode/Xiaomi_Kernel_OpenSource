@@ -50,6 +50,8 @@ Optional properties :
 - qcom,no-wakeup-src-in-hostmode: If present then driver doesn't use wakeup_source APIs e.g.
   pm_stay_awake and pm_relax in host mode. This allows PM suspend to happen irrespective of
   runtimePM state of host.
+- qcom,psy-not-used: If present then driver won't be registering usb power_supply.
+  Without usb_psy, user should be able to change modes using sysfs.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
