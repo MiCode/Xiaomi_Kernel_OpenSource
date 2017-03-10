@@ -188,6 +188,8 @@ static int cnss_wlfw_ind_register_send_sync(struct cnss_plat_data *plat_priv)
 	req.fw_mem_ready_enable = 1;
 	req.cold_boot_cal_done_enable_valid = 1;
 	req.cold_boot_cal_done_enable = 1;
+	req.pin_connect_result_enable_valid = 1;
+	req.pin_connect_result_enable = 1;
 
 	req_desc.max_msg_len = WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_WLFW_IND_REGISTER_REQ_V01;
