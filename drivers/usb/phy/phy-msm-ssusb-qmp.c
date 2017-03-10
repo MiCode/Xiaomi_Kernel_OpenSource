@@ -88,7 +88,7 @@ struct msm_ssphy_qmp {
 	struct clk		*pipe_clk;
 	struct reset_control	*phy_reset;
 	struct reset_control	*phy_phy_reset;
-
+	bool			power_enabled;
 	bool			clk_enabled;
 	bool			cable_connected;
 	bool			in_suspend;
@@ -159,38 +159,47 @@ static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
 	}
 }
 
-
-static int msm_ssusb_qmp_config_vdd(struct msm_ssphy_qmp *phy, int high)
-{
-	int min, ret;
-
-	min = high ? 1 : 0; /* low or none? */
-	ret = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
-				    phy->vdd_levels[2]);
-	if (ret) {
-		dev_err(phy->phy.dev, "unable to set voltage for ssusb vdd\n");
-		return ret;
-	}
-
-	dev_dbg(phy->phy.dev, "min_vol:%d max_vol:%d\n",
-		phy->vdd_levels[min], phy->vdd_levels[2]);
-	return ret;
-}
-
 static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 {
-	int rc = 0;
+	int min, rc = 0;
 
 	dev_dbg(phy->phy.dev, "reg (%s)\n", on ? "HPM" : "LPM");
+
+	if (phy->power_enabled == on) {
+		dev_dbg(phy->phy.dev, "PHYs' regulators status %d\n",
+			phy->power_enabled);
+		return 0;
+	}
+
+	phy->power_enabled = on;
+
+	min = on ? 1 : 0; /* low or none? */
 
 	if (!on)
 		goto disable_regulators;
 
+	rc = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
+				    phy->vdd_levels[2]);
+	if (rc) {
+		dev_err(phy->phy.dev, "unable to set voltage for ssusb vdd\n");
+		return rc;
+	}
+
+	dev_dbg(phy->phy.dev, "min_vol:%d max_vol:%d\n",
+		phy->vdd_levels[min], phy->vdd_levels[2]);
+
+	rc = regulator_enable(phy->vdd);
+	if (rc) {
+		dev_err(phy->phy.dev,
+			"regulator_enable(phy->vdd) failed, ret=%d",
+			rc);
+		goto unconfig_vdd;
+	}
 
 	rc = regulator_set_load(phy->core_ldo, USB_SSPHY_HPM_LOAD);
 	if (rc < 0) {
 		dev_err(phy->phy.dev, "Unable to set HPM of core_ldo\n");
-		return rc;
+		goto disable_vdd;
 	}
 
 	rc = regulator_set_voltage(phy->core_ldo,
@@ -225,6 +234,18 @@ put_core_ldo_lpm:
 	rc = regulator_set_load(phy->core_ldo, 0);
 	if (rc < 0)
 		dev_err(phy->phy.dev, "Unable to set LPM of core_ldo\n");
+
+disable_vdd:
+	rc = regulator_disable(phy->vdd);
+	if (rc)
+		dev_err(phy->phy.dev, "regulator_disable(phy->vdd) failed, ret=%d",
+			rc);
+
+unconfig_vdd:
+	rc = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
+				    phy->vdd_levels[2]);
+	if (rc)
+		dev_err(phy->phy.dev, "unable to set voltage for ssusb vdd\n");
 
 	return rc < 0 ? rc : 0;
 }
@@ -262,6 +283,14 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 
 	if (phy->emulation)
 		return 0;
+
+	ret = msm_ssusb_qmp_ldo_enable(phy, 1);
+	if (ret) {
+		dev_err(phy->phy.dev,
+		"msm_ssusb_qmp_ldo_enable(1) failed, ret=%d\n",
+		ret);
+		return ret;
+	}
 
 	if (!phy->clk_enabled) {
 		if (phy->ref_clk_src)
@@ -391,12 +420,6 @@ static int msm_ssphy_power_enable(struct msm_ssphy_qmp *phy, bool on)
 	 */
 	if (!host && !phy->cable_connected) {
 		if (on) {
-			ret = regulator_enable(phy->vdd);
-			if (ret)
-				dev_err(phy->phy.dev,
-					"regulator_enable(phy->vdd) failed, ret=%d",
-					ret);
-
 			ret = msm_ssusb_qmp_ldo_enable(phy, 1);
 			if (ret)
 				dev_err(phy->phy.dev,
@@ -407,11 +430,6 @@ static int msm_ssphy_power_enable(struct msm_ssphy_qmp *phy, bool on)
 			if (ret)
 				dev_err(phy->phy.dev,
 					"msm_ssusb_qmp_ldo_enable(0) failed, ret=%d\n",
-					ret);
-
-			ret = regulator_disable(phy->vdd);
-			if (ret)
-				dev_err(phy->phy.dev, "regulator_disable(phy->vdd) failed, ret=%d",
 					ret);
 		}
 	}
@@ -708,24 +726,6 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	ret = msm_ssusb_qmp_config_vdd(phy, 1);
-	if (ret) {
-		dev_err(dev, "ssusb vdd_dig configuration failed\n");
-		goto err;
-	}
-
-	ret = regulator_enable(phy->vdd);
-	if (ret) {
-		dev_err(dev, "unable to enable the ssusb vdd_dig\n");
-		goto unconfig_ss_vdd;
-	}
-
-	ret = msm_ssusb_qmp_ldo_enable(phy, 1);
-	if (ret) {
-		dev_err(dev, "ssusb vreg enable failed\n");
-		goto disable_ss_vdd;
-	}
-
 	phy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
 	if (IS_ERR(phy->ref_clk_src))
 		phy->ref_clk_src = NULL;
@@ -747,16 +747,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	phy->phy.type			= USB_PHY_TYPE_USB3;
 
 	ret = usb_add_phy_dev(&phy->phy);
-	if (ret)
-		goto disable_ss_ldo;
-	return 0;
 
-disable_ss_ldo:
-	msm_ssusb_qmp_ldo_enable(phy, 0);
-disable_ss_vdd:
-	regulator_disable(phy->vdd);
-unconfig_ss_vdd:
-	msm_ssusb_qmp_config_vdd(phy, 0);
 err:
 	return ret;
 }
@@ -774,8 +765,6 @@ static int msm_ssphy_qmp_remove(struct platform_device *pdev)
 	if (phy->ref_clk_src)
 		clk_disable_unprepare(phy->ref_clk_src);
 	msm_ssusb_qmp_ldo_enable(phy, 0);
-	regulator_disable(phy->vdd);
-	msm_ssusb_qmp_config_vdd(phy, 0);
 	clk_disable_unprepare(phy->aux_clk);
 	clk_disable_unprepare(phy->cfg_ahb_clk);
 	clk_disable_unprepare(phy->pipe_clk);
