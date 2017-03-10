@@ -3797,6 +3797,9 @@ static int msm_anlg_cdc_device_up(struct snd_soc_codec *codec)
 	msm_anlg_cdc_configure_cap(codec, false, false);
 	wcd_mbhc_stop(&sdm660_cdc_priv->mbhc);
 	wcd_mbhc_deinit(&sdm660_cdc_priv->mbhc);
+	/* Disable mechanical detection and set type to insertion */
+	snd_soc_update_bits(codec, MSM89XX_PMIC_ANALOG_MBHC_DET_CTL_1,
+			    0xA0, 0x20);
 	ret = wcd_mbhc_init(&sdm660_cdc_priv->mbhc, codec, &mbhc_cb,
 			    &intr_ids, wcd_mbhc_registers, true);
 	if (ret)
