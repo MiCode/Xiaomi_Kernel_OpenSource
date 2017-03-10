@@ -31,196 +31,305 @@
 			"gladiator_noc-base", "mc_virt-base", "mem_noc-base",
 			"mmss_noc-base", "system_noc-base";
 
-		mbox-names = "apps_rsc";
-		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps_rsc", "disp_rsc";
+		mboxes = <&apps_rsc 0 &disp_rsc 0>;
 
 	/*BCMs*/
 		bcm_acv: bcm-acv {
 			cell-id = <MSM_BUS_BCM_ACV>;
 			label = "ACV";
+			qcom,bcm-name = "ACV";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_alc: bcm-alc {
 			cell-id = <MSM_BUS_BCM_ALC>;
 			label = "ALC";
+			qcom,bcm-name = "ALC";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_mc0: bcm-mc0 {
 			cell-id = <MSM_BUS_BCM_MC0>;
 			label = "MC0";
+			qcom,bcm-name = "MC0";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sh0: bcm-sh0 {
 			cell-id = <MSM_BUS_BCM_SH0>;
 			label = "SH0";
+			qcom,bcm-name = "SH0";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_mm0: bcm-mm0 {
 			cell-id = <MSM_BUS_BCM_MM0>;
 			label = "MM0";
+			qcom,bcm-name = "MM0";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sh1: bcm-sh1 {
 			cell-id = <MSM_BUS_BCM_SH1>;
 			label = "SH1";
+			qcom,bcm-name = "SH1";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_mm1: bcm-mm1 {
 			cell-id = <MSM_BUS_BCM_MM1>;
 			label = "MM1";
+			qcom,bcm-name = "MM1";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sh2: bcm-sh2 {
 			cell-id = <MSM_BUS_BCM_SH2>;
 			label = "SH2";
+			qcom,bcm-name = "SH2";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_mm2: bcm-mm2 {
 			cell-id = <MSM_BUS_BCM_MM2>;
 			label = "MM2";
+			qcom,bcm-name = "MM2";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sh3: bcm-sh3 {
 			cell-id = <MSM_BUS_BCM_SH3>;
 			label = "SH3";
+			qcom,bcm-name = "SH3";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_mm3: bcm-mm3 {
 			cell-id = <MSM_BUS_BCM_MM3>;
 			label = "MM3";
+			qcom,bcm-name = "MM3";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sh4: bcm-sh4 {
 			cell-id = <MSM_BUS_BCM_SH4>;
 			label = "SH4";
+			qcom,bcm-name = "SH4";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sh5: bcm-sh5 {
 			cell-id = <MSM_BUS_BCM_SH5>;
 			label = "SH5";
+			qcom,bcm-name = "SH5";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_mm5: bcm-mm5 {
 			cell-id = <MSM_BUS_BCM_MM5>;
 			label = "MM5";
+			qcom,bcm-name = "MM5";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn0: bcm-sn0 {
 			cell-id = <MSM_BUS_BCM_SN0>;
 			label = "SN0";
+			qcom,bcm-name = "SN0";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_ce0: bcm-ce0 {
 			cell-id = <MSM_BUS_BCM_CE0>;
 			label = "CE0";
+			qcom,bcm-name = "CE0";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_ip0: bcm-ip0 {
 			cell-id = <MSM_BUS_BCM_IP0>;
 			label = "IP0";
+			qcom,bcm-name = "IP0";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_cn0: bcm-cn0 {
 			cell-id = <MSM_BUS_BCM_CN0>;
 			label = "CN0";
+			qcom,bcm-name = "CN0";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn1: bcm-sn1 {
 			cell-id = <MSM_BUS_BCM_SN1>;
 			label = "SN1";
+			qcom,bcm-name = "SN1";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn2: bcm-sn2 {
 			cell-id = <MSM_BUS_BCM_SN2>;
 			label = "SN2";
+			qcom,bcm-name = "SN2";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn3: bcm-sn3 {
 			cell-id = <MSM_BUS_BCM_SN3>;
 			label = "SN3";
+			qcom,bcm-name = "SN3";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn4: bcm-sn4 {
 			cell-id = <MSM_BUS_BCM_SN4>;
 			label = "SN4";
+			qcom,bcm-name = "SN4";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn5: bcm-sn5 {
 			cell-id = <MSM_BUS_BCM_SN5>;
 			label = "SN5";
+			qcom,bcm-name = "SN5";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn6: bcm-sn6 {
 			cell-id = <MSM_BUS_BCM_SN6>;
 			label = "SN6";
+			qcom,bcm-name = "SN6";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn7: bcm-sn7 {
 			cell-id = <MSM_BUS_BCM_SN7>;
 			label = "SN7";
+			qcom,bcm-name = "SN7";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn8: bcm-sn8 {
 			cell-id = <MSM_BUS_BCM_SN8>;
 			label = "SN8";
+			qcom,bcm-name = "SN8";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn9: bcm-sn9 {
 			cell-id = <MSM_BUS_BCM_SN9>;
 			label = "SN9";
+			qcom,bcm-name = "SN9";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn11: bcm-sn11 {
 			cell-id = <MSM_BUS_BCM_SN11>;
 			label = "SN11";
+			qcom,bcm-name = "SN11";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn12: bcm-sn12 {
 			cell-id = <MSM_BUS_BCM_SN12>;
 			label = "SN12";
+			qcom,bcm-name = "SN12";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn14: bcm-sn14 {
 			cell-id = <MSM_BUS_BCM_SN14>;
 			label = "SN14";
+			qcom,bcm-name = "SN14";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
 		bcm_sn15: bcm-sn15 {
 			cell-id = <MSM_BUS_BCM_SN15>;
 			label = "SN15";
+			qcom,bcm-name = "SN15";
+			qcom,drv-id = <2>;
 			qcom,bcm-dev;
 		};
 
+		bcm_mc0_display: bcm-mc0_display {
+			cell-id = <MSM_BUS_BCM_MC0_DISPLAY>;
+			label = "MC0_DISPLAY";
+			qcom,bcm-name = "MC0";
+			qcom,drv-id = <0>;
+			qcom,bcm-dev;
+		};
+
+		bcm_sh0_display: bcm-sh0_display {
+			cell-id = <MSM_BUS_BCM_SH0_DISPLAY>;
+			label = "SH0_DISPLAY";
+			qcom,bcm-name = "SH0";
+			qcom,drv-id = <0>;
+			qcom,bcm-dev;
+		};
+
+		bcm_mm0_display: bcm-mm0_display {
+			cell-id = <MSM_BUS_BCM_MM0_DISPLAY>;
+			label = "MM0_DISPLAY";
+			qcom,bcm-name = "MM0";
+			qcom,drv-id = <0>;
+			qcom,bcm-dev;
+		};
+
+		bcm_mm1_display: bcm-mm1_display {
+			cell-id = <MSM_BUS_BCM_MM1_DISPLAY>;
+			label = "MM1_DISPLAY";
+			qcom,bcm-name = "MM1";
+			qcom,drv-id = <0>;
+			qcom,bcm-dev;
+		};
+
+		bcm_mm2_display: bcm-mm2_display {
+			cell-id = <MSM_BUS_BCM_MM2_DISPLAY>;
+			label = "MM2_DISPLAY";
+			qcom,bcm-name = "MM2";
+			qcom,drv-id = <0>;
+			qcom,bcm-dev;
+		};
+
+		bcm_mm3_display: bcm-mm3_display {
+			cell-id = <MSM_BUS_BCM_MM3_DISPLAY>;
+			label = "MM3_DISPLAY";
+			qcom,bcm-name = "MM3";
+			qcom,drv-id = <0>;
+			qcom,bcm-dev;
+		};
 
 		/*Buses*/
 		fab_aggre1_noc: fab-aggre1_noc {
@@ -312,6 +421,34 @@
 			clocks = <>;
 		};
 
+		fab_mc_virt_display: fab-mc_virt_display {
+			cell-id = <MSM_BUS_FAB_MC_VIRT_DISPLAY>;
+			label = "fab-mc_virt_display";
+			qcom,fab-dev;
+			qcom,base-name = "mc_virt-base";
+			qcom,bypass-qos-prg;
+			clocks = <>;
+		};
+
+		fab_mem_noc_display: fab-mem_noc_display {
+			cell-id = <MSM_BUS_FAB_MEM_NOC_DISPLAY>;
+			label = "fab-mem_noc_display";
+			qcom,fab-dev;
+			qcom,base-name = "mem_noc-base";
+			qcom,bypass-qos-prg;
+			qcom,bus-type = <1>;
+			clocks = <>;
+		};
+
+		fab_mmss_noc_display: fab-mmss_noc_display {
+			cell-id = <MSM_BUS_FAB_MMSS_NOC_DISPLAY>;
+			label = "fab-mmss_noc_display";
+			qcom,fab-dev;
+			qcom,base-name = "mmss_noc-base";
+			qcom,bypass-qos-prg;
+			qcom,bus-type = <1>;
+			clocks = <>;
+		};
 
 		/*Masters*/
 
@@ -900,6 +1037,68 @@
 			qcom,connections = <&slv_qxs_imem &slv_qns_memnoc_gc>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_sn4>;
+		};
+
+		mas_llcc_mc_display: mas-llcc-mc_display {
+			cell-id = <MSM_BUS_MASTER_LLCC_DISPLAY>;
+			label = "mas-llcc-mc_display";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <4>;
+			qcom,connections = <&slv_ebi_display>;
+			qcom,bus-dev = <&fab_mc_virt_display>;
+		};
+
+		mas_qnm_mnoc_hf_display: mas-qnm-mnoc-hf_display {
+			cell-id = <MSM_BUS_MASTER_MNOC_HF_MEM_NOC_DISPLAY>;
+			label = "mas-qnm-mnoc-hf_display";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <2>;
+			qcom,qport = <4 5>;
+			qcom,connections = <&slv_qns_llcc_display>;
+			qcom,bus-dev = <&fab_mem_noc_display>;
+		};
+
+		mas_qnm_mnoc_sf_display: mas-qnm-mnoc-sf_display {
+			cell-id = <MSM_BUS_MASTER_MNOC_SF_MEM_NOC_DISPLAY>;
+			label = "mas-qnm-mnoc-sf_display";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,qport = <7>;
+			qcom,connections = <&slv_qns_llcc_display>;
+			qcom,bus-dev = <&fab_mem_noc_display>;
+		};
+
+		mas_qxm_mdp0_display: mas-qxm-mdp0_display {
+			cell-id = <MSM_BUS_MASTER_MDP_PORT0_DISPLAY>;
+			label = "mas-qxm-mdp0_display";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,qport = <3>;
+			qcom,connections = <&slv_qns_mem_noc_hf_display>;
+			qcom,bus-dev = <&fab_mmss_noc_display>;
+			qcom,bcms = <&bcm_mm1_display>;
+		};
+
+		mas_qxm_mdp1_display: mas-qxm-mdp1_display {
+			cell-id = <MSM_BUS_MASTER_MDP_PORT1_DISPLAY>;
+			label = "mas-qxm-mdp1_display";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,qport = <4>;
+			qcom,connections = <&slv_qns_mem_noc_hf_display>;
+			qcom,bus-dev = <&fab_mmss_noc_display>;
+			qcom,bcms = <&bcm_mm1_display>;
+		};
+
+		mas_qxm_rot_display: mas-qxm-rot_display {
+			cell-id = <MSM_BUS_MASTER_ROTATOR_DISPLAY>;
+			label = "mas-qxm-rot_display";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,qport = <5>;
+			qcom,connections = <&slv_qns2_mem_noc_display>;
+			qcom,bus-dev = <&fab_mmss_noc_display>;
+			qcom,bcms = <&bcm_mm3_display>;
 		};
 
 		/*Internal nodes*/
@@ -1568,6 +1767,45 @@
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_system_noc>;
 			qcom,bcms = <&bcm_sn6>;
+		};
+
+		slv_ebi_display:slv-ebi_display {
+			cell-id = <MSM_BUS_SLAVE_EBI_CH0_DISPLAY>;
+			label = "slv-ebi_display";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <4>;
+			qcom,bus-dev = <&fab_mc_virt_display>;
+			qcom,bcms = <&bcm_mc0_display>;
+		};
+
+		slv_qns_llcc_display:slv-qns-llcc_display {
+			cell-id = <MSM_BUS_SLAVE_LLCC_DISPLAY>;
+			label = "slv-qns-llcc_display";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <4>;
+			qcom,bus-dev = <&fab_mem_noc_display>;
+			qcom,connections = <&mas_llcc_mc_display>;
+			qcom,bcms = <&bcm_sh0_display>;
+		};
+
+		slv_qns2_mem_noc_display:slv-qns2-mem-noc_display {
+			cell-id = <MSM_BUS_SLAVE_MNOC_SF_MEM_NOC_DISPLAY>;
+			label = "slv-qns2-mem-noc_display";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_mmss_noc_display>;
+			qcom,connections = <&mas_qnm_mnoc_sf_display>;
+			qcom,bcms = <&bcm_mm2_display>;
+		};
+
+		slv_qns_mem_noc_hf_display:slv-qns-mem-noc-hf_display {
+			cell-id = <MSM_BUS_SLAVE_MNOC_HF_MEM_NOC_DISPLAY>;
+			label = "slv-qns-mem-noc-hf_display";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <2>;
+			qcom,bus-dev = <&fab_mmss_noc_display>;
+			qcom,connections = <&mas_qnm_mnoc_hf_display>;
+			qcom,bcms = <&bcm_mm0_display>;
 		};
 	};
 };
