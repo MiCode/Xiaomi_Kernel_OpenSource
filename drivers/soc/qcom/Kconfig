@@ -717,6 +717,15 @@ config MSM_PIL_SSR_GENERIC
 	  or a fatal error. Subsystems include LPASS, Venus, VPU, WCNSS and
 	  BCSS.
 
+config MSM_PIL_SSR_BG
+        tristate "MSM Subsystem Blackghost(BG) Support"
+        depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+        help
+	  Support for booting and shutting down Blackghost(BG) SOC which is
+	  an external SOC. This driver communicates with Blackghost(BG) SOC
+	  via pair of IPC GPIOs for inward and outward signals between MSM
+	  and Blackghost(BG) SOC.
+
 config MSM_PIL_MSS_QDSP6V5
 	tristate "MSS QDSP6v5 (Hexagon) Boot Support"
 	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
