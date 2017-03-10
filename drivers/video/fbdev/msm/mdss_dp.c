@@ -2185,6 +2185,12 @@ read_edid:
 	hdmi_edid_set_max_pclk_rate(dp->panel_data.panel_info.edid_data,
 		min(dp->max_pclk_khz, max_pclk_khz));
 
+	if (dp->dpcd_read_required) {
+		pr_debug("reading DPCD with updated AUX config\n");
+		mdss_dp_dpcd_cap_read(dp);
+		dp->dpcd_read_required = false;
+	}
+
 	ret = hdmi_edid_parser(dp->panel_data.panel_info.edid_data);
 	if (ret) {
 		pr_err("edid parse failed, setting default resolution\n");

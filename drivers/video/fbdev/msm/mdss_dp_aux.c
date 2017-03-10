@@ -956,6 +956,8 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 	const u8 cea_tag = 0x02;
 	u32 const segment_addr = 0x30;
 	u32 checksum = 0;
+	bool phy_aux_update_requested = false;
+	bool ext_block_parsing_done = false;
 
 	ret = dp_aux_chan_ready(dp);
 	if (ret) {
@@ -991,6 +993,7 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 			pr_err("Read failed. rlen=%s\n",
 				mdss_dp_get_aux_error(rlen));
 			mdss_dp_phy_aux_update_config(dp, PHY_AUX_CFG1);
+			phy_aux_update_requested = true;
 			retries--;
 			continue;
 		}
@@ -1002,6 +1005,7 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 			if (ret) {
 				pr_err("corrupt edid block detected\n");
 				mdss_dp_phy_aux_update_config(dp, PHY_AUX_CFG1);
+				phy_aux_update_requested = true;
 				retries--;
 				continue;
 			}
@@ -1027,6 +1031,7 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 			pr_debug("Invalid edid block 0 header\n");
 			/* Retry block 0 with adjusted phy aux settings */
 			mdss_dp_phy_aux_update_config(dp, PHY_AUX_CFG1);
+			phy_aux_update_requested = true;
 			retries--;
 			continue;
 		} else {
@@ -1049,14 +1054,28 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 		checksum = edid_buf[rlen - 1];
 
 		/* break if no more extension blocks present */
-		if (edid_blk >= dp->edid.ext_block_cnt)
+		if (edid_blk >= dp->edid.ext_block_cnt) {
+			ext_block_parsing_done = true;
 			break;
+		}
 	}
 
 	if (dp->test_data.test_requested == TEST_EDID_READ) {
 		pr_debug("sending checksum %d\n", checksum);
 		dp_aux_send_checksum(dp, checksum);
 		dp->test_data = (const struct dpcd_test_request){ 0 };
+	}
+
+	/*
+	 * Trigger the reading of DPCD if there was a change in the AUX
+	 * configuration caused by a failure while reading the EDID.
+	 * This is required to ensure the integrity and validity
+	 * of the sink capabilities read that will subsequently be used
+	 * to establish the mainlink.
+	 */
+	if (edid_parsing_done && ext_block_parsing_done
+			&& phy_aux_update_requested) {
+		dp->dpcd_read_required = true;
 	}
 
 	return ret;

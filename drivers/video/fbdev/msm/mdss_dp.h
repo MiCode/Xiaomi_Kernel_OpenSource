@@ -554,6 +554,7 @@ struct mdss_dp_drv_pdata {
 	bool hpd;
 	bool psm_enabled;
 	bool audio_test_req;
+	bool dpcd_read_required;
 
 	/* dp specific */
 	unsigned char *base;
