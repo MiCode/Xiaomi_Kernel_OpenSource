@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,6 +87,7 @@ struct hbtp_data {
 	u32 power_on_delay;
 	u32 power_off_delay;
 	bool manage_pin_ctrl;
+	bool afe_force_power_on;
 };
 
 static struct hbtp_data *hbtp;
@@ -873,6 +874,9 @@ static int hbtp_parse_dt(struct device *dev)
 			hbtp->power_on_delay, hbtp->power_off_delay);
 	}
 
+	hbtp->afe_force_power_on =
+		of_property_read_bool(np, "qcom,afe-force-power-on");
+
 	prop = of_find_property(np, "qcom,display-resolution", NULL);
 	if (prop != NULL) {
 		if (!prop->value)
@@ -1166,13 +1170,19 @@ static int hbtp_fb_early_resume(struct hbtp_data *ts)
 
 	pr_debug("%s: hbtp_fb_early_resume\n", __func__);
 
-	if (ts->pdev && ts->power_sync_enabled) {
+	if (ts->pdev && (ts->power_sync_enabled || ts->afe_force_power_on)) {
 		pr_debug("%s: power_sync is enabled\n", __func__);
-		if (!ts->power_suspended) {
+
+		if (!ts->power_suspended &&
+		   (ts->afe_force_power_on == false)) {
 			pr_err("%s: power is not suspended\n", __func__);
 			mutex_unlock(&hbtp->mutex);
 			return 0;
 		}
+
+		if (ts->afe_force_power_on)
+			ts->afe_force_power_on = false;
+
 		rc = hbtp_pdev_power_on(ts, true);
 		if (rc) {
 			pr_err("%s: failed to enable panel power\n", __func__);
