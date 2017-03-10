@@ -21,6 +21,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/qcom-geni-se.h>
 
 #define SE_I2C_TX_TRANS_LEN		(0x26C)
@@ -57,6 +58,7 @@ struct geni_i2c_dev {
 	struct i2c_adapter adap;
 	struct completion xfer;
 	struct i2c_msg *cur;
+	struct se_geni_rsc i2c_rsc;
 	int cur_wr;
 	int cur_rd;
 };
@@ -153,7 +155,15 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 	gi2c->err = 0;
 	gi2c->cur = &msgs[0];
 	reinit_completion(&gi2c->xfer);
-	enable_irq(gi2c->irq);
+	ret = pm_runtime_get_sync(gi2c->dev);
+	if (ret < 0) {
+		dev_err(gi2c->dev, "error turning SE resources:%d\n", ret);
+		pm_runtime_put_noidle(gi2c->dev);
+		/* Set device in suspended since resume failed */
+		pm_runtime_set_suspended(gi2c->dev);
+		return ret;
+	}
+	geni_se_init(gi2c->base, FIFO_MODE, 0xF, 0x10);
 	qcom_geni_i2c_conf(gi2c->base, 0, 2);
 	se_config_packing(gi2c->base, 8, 4, true);
 	dev_dbg(gi2c->dev, "i2c xfer:num:%d, msgs:len:%d,flg:%d\n",
@@ -206,7 +216,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 	}
 	if (ret == 0)
 		ret = i;
-	disable_irq(gi2c->irq);
+	pm_runtime_put_sync(gi2c->dev);
 	gi2c->cur = NULL;
 	gi2c->err = 0;
 	dev_dbg(gi2c->dev, "i2c txn ret:%d\n", ret);
@@ -239,9 +249,53 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	if (!res)
 		return -EINVAL;
 
+	gi2c->i2c_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
+	if (IS_ERR(gi2c->i2c_rsc.se_clk)) {
+		ret = PTR_ERR(gi2c->i2c_rsc.se_clk);
+		dev_err(&pdev->dev, "Err getting SE Core clk %d\n", ret);
+		return ret;
+	}
+
+	gi2c->i2c_rsc.m_ahb_clk = devm_clk_get(&pdev->dev, "m-ahb");
+	if (IS_ERR(gi2c->i2c_rsc.m_ahb_clk)) {
+		ret = PTR_ERR(gi2c->i2c_rsc.m_ahb_clk);
+		dev_err(&pdev->dev, "Err getting M AHB clk %d\n", ret);
+		return ret;
+	}
+
+	gi2c->i2c_rsc.s_ahb_clk = devm_clk_get(&pdev->dev, "s-ahb");
+	if (IS_ERR(gi2c->i2c_rsc.s_ahb_clk)) {
+		ret = PTR_ERR(gi2c->i2c_rsc.s_ahb_clk);
+		dev_err(&pdev->dev, "Err getting S AHB clk %d\n", ret);
+		return ret;
+	}
+
 	gi2c->base = devm_ioremap_resource(gi2c->dev, res);
 	if (IS_ERR(gi2c->base))
 		return PTR_ERR(gi2c->base);
+
+	gi2c->i2c_rsc.geni_pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_pinctrl)) {
+		dev_err(&pdev->dev, "No pinctrl config specified\n");
+		ret = PTR_ERR(gi2c->i2c_rsc.geni_pinctrl);
+		return ret;
+	}
+	gi2c->i2c_rsc.geni_gpio_active =
+		pinctrl_lookup_state(gi2c->i2c_rsc.geni_pinctrl,
+							PINCTRL_DEFAULT);
+	if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_gpio_active)) {
+		dev_err(&pdev->dev, "No default config specified\n");
+		ret = PTR_ERR(gi2c->i2c_rsc.geni_gpio_active);
+		return ret;
+	}
+	gi2c->i2c_rsc.geni_gpio_sleep =
+		pinctrl_lookup_state(gi2c->i2c_rsc.geni_pinctrl,
+							PINCTRL_SLEEP);
+	if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_gpio_sleep)) {
+		dev_err(&pdev->dev, "No sleep config specified\n");
+		ret = PTR_ERR(gi2c->i2c_rsc.geni_gpio_sleep);
+		return ret;
+	}
 
 	gi2c->irq = platform_get_irq(pdev, 0);
 	if (gi2c->irq < 0) {
@@ -266,8 +320,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 
 	strlcpy(gi2c->adap.name, "Geni-I2C", sizeof(gi2c->adap.name));
 
+	pm_runtime_set_suspended(gi2c->dev);
+	pm_runtime_enable(gi2c->dev);
 	i2c_add_adapter(&gi2c->adap);
-	geni_se_init(gi2c->base, FIFO_MODE, 0xF, 0x10);
 
 	return 0;
 }
@@ -276,27 +331,67 @@ static int geni_i2c_remove(struct platform_device *pdev)
 {
 	struct geni_i2c_dev *gi2c = platform_get_drvdata(pdev);
 
-	disable_irq(gi2c->irq);
+	pm_runtime_disable(gi2c->dev);
 	i2c_del_adapter(&gi2c->adap);
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int geni_i2c_suspend(struct device *device)
+static int geni_i2c_resume_noirq(struct device *device)
 {
 	return 0;
 }
 
-static int geni_i2c_resume(struct device *device)
+#ifdef CONFIG_PM
+static int geni_i2c_runtime_suspend(struct device *dev)
+{
+	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
+
+	disable_irq(gi2c->irq);
+	se_geni_resources_off(&gi2c->i2c_rsc);
+	return 0;
+}
+
+static int geni_i2c_runtime_resume(struct device *dev)
+{
+	int ret;
+	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
+
+	ret = se_geni_resources_on(&gi2c->i2c_rsc);
+	if (ret)
+		return ret;
+
+	enable_irq(gi2c->irq);
+	return 0;
+}
+
+static int geni_i2c_suspend_noirq(struct device *device)
+{
+	if (!pm_runtime_status_suspended(device))
+		return -EBUSY;
+	return 0;
+}
+#else
+static int geni_i2c_runtime_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int geni_i2c_runtime_resume(struct device *dev)
+{
+	return 0;
+}
+
+static int geni_i2c_suspend_noirq(struct device *device)
 {
 	return 0;
 }
 #endif
 
 static const struct dev_pm_ops geni_i2c_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(
-		geni_i2c_suspend,
-		geni_i2c_resume)
+	.suspend_noirq		= geni_i2c_suspend_noirq,
+	.resume_noirq		= geni_i2c_resume_noirq,
+	.runtime_suspend	= geni_i2c_runtime_suspend,
+	.runtime_resume		= geni_i2c_runtime_resume,
 };
 
 static const struct of_device_id geni_i2c_dt_match[] = {
