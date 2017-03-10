@@ -54,9 +54,9 @@
 			interrupts = <0 133 0>;
 			usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
 			tx-fifo-resize;
-			snps,nominal-elastic-buffer;
 			snps,disable-clk-gating;
-			snps,hird_thresh = <0x10>;
+			snps,has-lpm-erratum;
+			snps,hird-threshold = /bits/ 8 <0x10>;
 		};
 	};
 
