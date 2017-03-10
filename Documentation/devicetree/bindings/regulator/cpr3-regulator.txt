@@ -196,6 +196,13 @@ Platform independent properties:
 	Definition: Value required in the masked off "aging_allowed" register
 		    bits in order for a CPR aging measurement to be possible.
 
+- qcom,cpr-ignore-invalid-fuses
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that software should ignore
+		    invalid fuse values.  This should only be used on simulator
+		    targets in which fuses are not initialized.
+
 - qcom,cpr-panic-reg-addr-list
 	Usage:      optional
 	Value type: <prop-encoded-array>
