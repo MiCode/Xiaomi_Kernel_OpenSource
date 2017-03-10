@@ -550,6 +550,9 @@ struct cpr3_panic_regs_info {
  *			that this CPR3 controller manages.
  * @cpr_ctrl_base:	Virtual address of the CPR3 controller base register
  * @fuse_base:		Virtual address of fuse row 0
+ * @saw_base:		Virtual address of the SAW module base register.  This
+ *			is used for CPR controllers that support HW closed-loop
+ *			on platforms which lack an SPM.
  * @aging_possible_reg:	Virtual address of an optional platform-specific
  *			register that must be ready to determine if it is
  *			possible to perform an aging measurement.
@@ -565,6 +568,7 @@ struct cpr3_panic_regs_info {
  * @soc_revision:	Revision number of the SoC.  This may be unused by
  *			platforms that do not have different behavior for
  *			different SoC revisions.
+ * @cpr_hw_version:	CPR controller version register value
  * @lock:		Mutex lock used to ensure mutual exclusion between
  *			all of the threads associated with the controller
  * @vdd_regulator:	Pointer to the VDD supply regulator which this CPR3
@@ -757,6 +761,7 @@ struct cpr3_controller {
 	int			ctrl_id;
 	void __iomem		*cpr_ctrl_base;
 	void __iomem		*fuse_base;
+	void __iomem		*saw_base;
 	void __iomem		*aging_possible_reg;
 	struct list_head	list;
 	struct cpr3_thread	*thread;
@@ -764,6 +769,7 @@ struct cpr3_controller {
 	u8			*sensor_owner;
 	int			sensor_count;
 	int			soc_revision;
+	u32			cpr_hw_version;
 	struct mutex		lock;
 	struct regulator	*vdd_regulator;
 	struct regulator	*system_regulator;

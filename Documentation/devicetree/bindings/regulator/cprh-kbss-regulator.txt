@@ -1,7 +1,7 @@
 Qualcomm Technologies, Inc. CPRh Regulator - KBSS Specific Bindings
 
-KBSS CPRh controllers each support one CPR thread that monitors the voltage
-of a single Kryo-B CPU subystem (KBSS) cluster that is powered by a single
+KBSS CPRh controllers each support one or more CPR threads that monitor the
+voltage of Kryo-B CPU subystem (KBSS) clusters that are powered by a single
 regulator supply. The DCVSh block interacts with the CPRh controller for full
 hardware DCVS support.
 
@@ -15,9 +15,9 @@ Required Node Structure
 =======================
 
 CPRh regulators must be described in three levels of devices nodes.  The first
-level describes the CPRh controller.  The second level describes one hardware
-thread managed by the controller.  The third level describes one regulator
-handled by the CPR thread.
+level describes the CPRh controller.  The second level describes one or more
+hardware threads managed by the controller.  The third level describes one
+regulator handled by each CPR thread.
 
 All platform independent cpr3-regulator binding guidelines defined in
 cpr3-regulator.txt also apply to cprh-kbss-regulator devices.
@@ -34,7 +34,10 @@ KBSS specific properties:
 		    "qcom,cprh-msm8998-v1-kbss-regulator",
 		    "qcom,cprh-msm8998-v2-kbss-regulator",
 		    "qcom,cprh-msm8998-kbss-regulator",
-		    "qcom,cprh-sdm660-kbss-regulator".
+		    "qcom,cprh-sdm660-kbss-regulator",
+		    "qcom,cprh-sdm845-v1-kbss-regulator",
+		    "qcom,cprh-sdm845-v2-kbss-regulator",
+		    "qcom,cprh-sdm845-kbss-regulator".
 		    If the SoC revision is not specified, then it is assumed to
 		    be the most recent revision of MSM8998, i.e. v2.
 
@@ -242,7 +245,7 @@ KBSS specific properties:
 		    qcom,cpr-speed-bins number of elements.
 
 - qcom,corner-band-allow-core-count-adjustment
-	Usage:      optional
+	Usage:      optional; only allowed for CPRh thread 0
 	Value type: <prop-encoded-array>
 	Definition: A list of integer tuples which each define the CPR core
 		    count adjustment feature enable state for each corner band
@@ -271,7 +274,7 @@ KBSS specific properties:
 		    adjustments specified for this regulator's corner bands.
 
 - qcom,corner-band-allow-temp-adjustment
-	Usage:      optional
+	Usage:      optional; only allowed for CPRh thread 0
 	Value type: <prop-encoded-array>
 	Definition: A list of integer tuples which each define the temperature
 		    adjustment feature enable state for each corner band

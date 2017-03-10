@@ -25,7 +25,6 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
-#include <linux/pm_opp.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
@@ -37,6 +36,7 @@
 
 #define MSM8998_KBSS_FUSE_CORNERS	4
 #define SDM660_KBSS_FUSE_CORNERS	5
+#define SDM845_KBSS_FUSE_CORNERS	3
 
 /**
  * struct cprh_kbss_fuses - KBSS specific fuse data
@@ -79,6 +79,7 @@ struct cprh_kbss_fuses {
  */
 #define CPRH_MSM8998_KBSS_FUSE_COMBO_COUNT	32
 #define CPRH_SDM660_KBSS_FUSE_COMBO_COUNT	16
+#define CPRH_SDM845_KBSS_FUSE_COMBO_COUNT	8
 
 /*
  * Constants which define the name of each fuse corner.
@@ -136,6 +137,27 @@ static const char * const cprh_sdm660_perf_kbss_fuse_corner_name[] = {
 /* KBSS controller IDs */
 #define CPRH_KBSS_MIN_CONTROLLER_ID 0
 #define CPRH_KBSS_MAX_CONTROLLER_ID 1
+
+/* SDM845 KBSS cluster 0 thread IDs */
+#define CPRH_KBSS_POWER_CLUSTER_THREAD_ID	0
+#define CPRH_KBSS_L3_THREAD_ID			1
+
+/* SDM845 KBSS cluster 1 thread IDs */
+#define CPRH_KBSS_PERFORMANCE_CLUSTER_THREAD_ID	0
+
+static const char * const
+cprh_sdm845_kbss_fuse_corner_name[2][SDM845_KBSS_FUSE_CORNERS] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		"LowSVS",
+		"SVS_L1",
+		"NOM_L1",
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		"SVS",
+		"NOM",
+		"TURBO_L2",
+	},
+};
 
 /*
  * MSM8998 KBSS fuse parameter locations:
@@ -287,6 +309,113 @@ sdm660_kbss_quot_offset_param[2][SDM660_KBSS_FUSE_CORNERS][3] = {
 	},
 };
 
+/*
+ * SDM845 KBSS fuse parameter locations:
+ *
+ * Structs are organized with the following dimensions:
+ *	Outer:   0 or 1 for power or performance cluster
+ *	Outer-1: 0 or 1 for power cluster or L3 cache
+ *	Inner+1: 0 to 3 for fuse corners from lowest to highest corner
+ *	Inner:   large enough to hold the longest set of parameter segments
+ *		 which fully defines a fuse parameter, +1 (for NULL
+ *		 termination).  Each segment corresponds to a contiguous group
+ *		 of bits from a single fuse row.  These segments are
+ *		 concatentated together in order to form the full fuse parameter
+ *		 value.  The segments for a given parameter may correspond to
+ *		 different fuse rows.
+ */
+static const struct cpr3_fuse_param
+sdm845_kbss_ro_sel_param[2][2][SDM845_KBSS_FUSE_CORNERS][3] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		[CPRH_KBSS_POWER_CLUSTER_THREAD_ID] = {
+			{{66, 52, 55}, {} },
+			{{66, 48, 51}, {} },
+			{{66, 44, 47}, {} },
+		},
+		[CPRH_KBSS_L3_THREAD_ID] = {
+			{{66, 52, 55}, {} },
+			{{66, 48, 51}, {} },
+			{{66, 44, 47}, {} },
+		},
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		[CPRH_KBSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
+			{{70,  6,  9}, {} },
+			{{70,  2,  5}, {} },
+			{{69, 62, 63}, {70,  0,  1}, {} },
+		},
+	},
+};
+
+static const struct cpr3_fuse_param
+sdm845_kbss_init_voltage_param[2][2][SDM845_KBSS_FUSE_CORNERS][3] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		[CPRH_KBSS_POWER_CLUSTER_THREAD_ID] = {
+			{{67, 10, 15}, {} },
+			{{67,  4,  9}, {} },
+			{{66, 62, 63}, {67,  0,  3}, {} },
+		},
+		[CPRH_KBSS_L3_THREAD_ID] = {
+			{{68, 47, 52}, {} },
+			{{68, 41, 46}, {} },
+			{{68, 35, 40}, {} },
+		},
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		[CPRH_KBSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
+			{{70, 28, 33}, {} },
+			{{70, 22, 27}, {} },
+			{{70, 16, 21}, {} },
+		},
+	},
+};
+
+static const struct cpr3_fuse_param
+sdm845_kbss_target_quot_param[2][2][SDM845_KBSS_FUSE_CORNERS][3] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		[CPRH_KBSS_POWER_CLUSTER_THREAD_ID] = {
+			{{67, 52, 63}, {} },
+			{{67, 40, 51}, {} },
+			{{67, 28, 39}, {} },
+		},
+		[CPRH_KBSS_L3_THREAD_ID] = {
+			{{69, 25, 36}, {} },
+			{{69, 13, 24}, {} },
+			{{69,  1, 12}, {} },
+		},
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		[CPRH_KBSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
+			{{71,  6, 17}, {} },
+			{{70, 58, 63}, {71,  0,  5}, {} },
+			{{70, 46, 57}, {} },
+		},
+	},
+};
+
+static const struct cpr3_fuse_param
+sdm845_kbss_quot_offset_param[2][2][SDM845_KBSS_FUSE_CORNERS][2] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		[CPRH_KBSS_POWER_CLUSTER_THREAD_ID] = {
+			{{} },
+			{{68, 14, 20}, {} },
+			{{68,  7, 13}, {} },
+		},
+		[CPRH_KBSS_L3_THREAD_ID] = {
+			{{} },
+			{{69, 51, 57}, {} },
+			{{69, 44, 50}, {} },
+		},
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		[CPRH_KBSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
+			{{} },
+			{{71, 32, 38}, {} },
+			{{71, 25, 31}, {} },
+		},
+	},
+};
+
 static const struct cpr3_fuse_param msm8998_cpr_fusing_rev_param[] = {
 	{39, 51, 53},
 	{},
@@ -297,6 +426,11 @@ static const struct cpr3_fuse_param sdm660_cpr_fusing_rev_param[] = {
 	{},
 };
 
+static const struct cpr3_fuse_param sdm845_cpr_fusing_rev_param[] = {
+	{73, 3, 5},
+	{},
+};
+
 static const struct cpr3_fuse_param kbss_speed_bin_param[] = {
 	{38, 29, 31},
 	{},
@@ -304,6 +438,12 @@ static const struct cpr3_fuse_param kbss_speed_bin_param[] = {
 
 static const struct cpr3_fuse_param
 msm8998_cpr_force_highest_corner_param[] = {
+	{100, 45, 45},
+	{},
+};
+
+static const struct cpr3_fuse_param
+sdm845_cpr_force_highest_corner_param[] = {
 	{100, 45, 45},
 	{},
 };
@@ -328,6 +468,18 @@ sdm660_kbss_aging_init_quot_diff_param[2][2] = {
 	},
 	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
 		{70, 34, 41},
+		{},
+	},
+};
+
+static const struct cpr3_fuse_param
+sdm845_kbss_aging_init_quot_diff_param[2][2] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		{68, 21, 28},
+		{},
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		{71, 39, 46},
 		{},
 	},
 };
@@ -383,7 +535,34 @@ sdm660_kbss_fuse_ref_volt[2][SDM660_KBSS_FUSE_CORNERS] = {
 	},
 };
 
+/*
+ * Open loop voltage fuse reference voltages in microvolts for SDM845
+ */
+static const int
+sdm845_kbss_fuse_ref_volt[2][2][SDM845_KBSS_FUSE_CORNERS] = {
+	[CPRH_KBSS_POWER_CLUSTER_ID] = {
+		[CPRH_KBSS_POWER_CLUSTER_THREAD_ID] = {
+			688000,
+			812000,
+			884000,
+		},
+		[CPRH_KBSS_L3_THREAD_ID] = {
+			688000,
+			812000,
+			884000,
+		},
+	},
+	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
+		[CPRH_KBSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
+			 756000,
+			 828000,
+			1056000,
+		},
+	},
+};
+
 #define CPRH_KBSS_FUSE_STEP_VOLT		10000
+#define CPRH_SDM845_KBSS_FUSE_STEP_VOLT		11000
 #define CPRH_KBSS_VOLTAGE_FUSE_SIZE		6
 #define CPRH_KBSS_QUOT_OFFSET_SCALE		5
 #define CPRH_KBSS_AGING_INIT_QUOT_DIFF_SIZE	8
@@ -433,13 +612,58 @@ sdm660_kbss_fuse_ref_volt[2][SDM660_KBSS_FUSE_CORNERS] = {
 #define SDM660_KBSS_PERFORMANCE_AGING_BYPASS_MASK0	0
 
 /*
+ * sdm845 configuration
+ */
+#define SDM845_KBSS_POWER_CPR_SENSOR_COUNT		8
+#define SDM845_KBSS_L3_THREAD_CPR_SENSOR_ID_START	0
+#define SDM845_KBSS_L3_THREAD_CPR_SENSOR_ID_END		3
+#define SDM845_KBSS_POWER_THREAD_CPR_SENSOR_ID_START	4
+#define SDM845_KBSS_POWER_THREAD_CPR_SENSOR_ID_END	7
+
+#define SDM845_KBSS_PERFORMANCE_CPR_SENSOR_COUNT	14
+
+#define SDM845_KBSS_POWER_TEMP_SENSOR_ID_START		1
+#define SDM845_KBSS_POWER_TEMP_SENSOR_ID_END		5
+#define SDM845_KBSS_PERFORMANCE_TEMP_SENSOR_ID_START	6
+#define SDM845_KBSS_PERFORMANCE_TEMP_SENSOR_ID_END	10
+
+#define SDM845_KBSS_POWER_AGING_SENSOR_ID		0
+#define SDM845_KBSS_POWER_AGING_BYPASS_MASK0		0
+
+#define SDM845_KBSS_PERFORMANCE_AGING_SENSOR_ID		0
+#define SDM845_KBSS_PERFORMANCE_AGING_BYPASS_MASK0	0
+
+/*
  * SOC IDs
  */
 enum soc_id {
-	MSM8998_V1_SOC_ID = 1,
-	MSM8998_V2_SOC_ID = 2,
-	SDM660_SOC_ID     = 3,
+	MSM8998_V1_SOC_ID		= 1,
+	MSM8998_V2_SOC_ID		= 2,
+	SDM660_SOC_ID			= 3,
+	SDM845_V1_SOC_ID		= 4,
+	SDM845_V2_SOC_ID		= 5,
 };
+
+/**
+ * cprh_kbss_get_thread_id() - get the logical fusing thread ID for a CPR3
+ *		thread
+ * @thread:		Pointer to the CPR3 thread
+ *
+ * Return: CPR3 thread's thread ID fuse parameter index
+ */
+static u32 cprh_kbss_get_thread_id(struct cpr3_thread *thread)
+{
+	int thread_id = thread->thread_id;
+
+	/* Power cluster and L3 cache CPR threads are swapped on SDM845 v1 */
+	if (thread->ctrl->soc_revision == SDM845_V1_SOC_ID
+	    && thread->ctrl->ctrl_id == CPRH_KBSS_POWER_CLUSTER_ID)
+		thread_id = thread_id == CPRH_KBSS_POWER_CLUSTER_THREAD_ID
+				? CPRH_KBSS_L3_THREAD_ID
+				: CPRH_KBSS_POWER_CLUSTER_THREAD_ID;
+
+	return thread_id;
+}
 
 /**
  * cprh_msm8998_kbss_read_fuse_data() - load msm8998 KBSS specific fuse
@@ -623,6 +847,104 @@ static int cprh_sdm660_kbss_read_fuse_data(struct cpr3_regulator *vreg,
 };
 
 /**
+ * cprh_sdm845_kbss_read_fuse_data() - load sdm845 KBSS specific fuse parameter
+ *		values
+ * @vreg:		Pointer to the CPR3 regulator
+ * @fuse:		KBSS specific fuse data
+ *
+ * This function fills cprh_kbss_fuses struct with values read out of hardware
+ * fuses.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cprh_sdm845_kbss_read_fuse_data(struct cpr3_regulator *vreg,
+		struct cprh_kbss_fuses *fuse)
+{
+	void __iomem *base = vreg->thread->ctrl->fuse_base;
+	int i, cid, tid, rc;
+
+	rc = cpr3_read_fuse_param(base, sdm845_cpr_fusing_rev_param,
+				&fuse->cpr_fusing_rev);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read CPR fusing revision fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
+	cpr3_info(vreg, "CPR fusing revision = %llu\n", fuse->cpr_fusing_rev);
+
+	tid = cprh_kbss_get_thread_id(vreg->thread);
+	cid = vreg->thread->ctrl->ctrl_id;
+
+	for (i = 0; i < vreg->fuse_corner_count; i++) {
+		rc = cpr3_read_fuse_param(base,
+				sdm845_kbss_init_voltage_param[cid][tid][i],
+				&fuse->init_voltage[i]);
+		if (rc) {
+			cpr3_err(vreg, "Unable to read fuse-corner %d initial voltage fuse, rc=%d\n",
+				i, rc);
+			return rc;
+		}
+
+		rc = cpr3_read_fuse_param(base,
+				sdm845_kbss_target_quot_param[cid][tid][i],
+				&fuse->target_quot[i]);
+		if (rc) {
+			cpr3_err(vreg, "Unable to read fuse-corner %d target quotient fuse, rc=%d\n",
+				i, rc);
+			return rc;
+		}
+
+		rc = cpr3_read_fuse_param(base,
+				sdm845_kbss_ro_sel_param[cid][tid][i],
+				&fuse->ro_sel[i]);
+		if (rc) {
+			cpr3_err(vreg, "Unable to read fuse-corner %d RO select fuse, rc=%d\n",
+				i, rc);
+			return rc;
+		}
+
+		rc = cpr3_read_fuse_param(base,
+				sdm845_kbss_quot_offset_param[cid][tid][i],
+				&fuse->quot_offset[i]);
+		if (rc) {
+			cpr3_err(vreg, "Unable to read fuse-corner %d quotient offset fuse, rc=%d\n",
+				i, rc);
+			return rc;
+		}
+	}
+
+	rc = cpr3_read_fuse_param(base,
+				sdm845_kbss_aging_init_quot_diff_param[cid],
+				&fuse->aging_init_quot_diff);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read aging initial quotient difference fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = cpr3_read_fuse_param(base,
+			  sdm845_cpr_force_highest_corner_param,
+			  &fuse->force_highest_corner);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read CPR force highest corner fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	if (fuse->force_highest_corner)
+		cpr3_info(vreg, "Fusing requires all operation at the highest corner\n");
+
+	vreg->fuse_combo = fuse->cpr_fusing_rev + 8 * fuse->speed_bin;
+	if (vreg->fuse_combo >= CPRH_SDM845_KBSS_FUSE_COMBO_COUNT) {
+		cpr3_err(vreg, "invalid CPR fuse combo = %d found\n",
+			vreg->fuse_combo);
+		return -EINVAL;
+	}
+
+	return rc;
+};
+
+/**
  * cprh_kbss_read_fuse_data() - load KBSS specific fuse parameter values
  * @vreg:		Pointer to the CPR3 regulator
  *
@@ -651,6 +973,10 @@ static int cprh_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 	case MSM8998_V1_SOC_ID:
 	case MSM8998_V2_SOC_ID:
 		fuse_corners = MSM8998_KBSS_FUSE_CORNERS;
+		break;
+	case SDM845_V1_SOC_ID:
+	case SDM845_V2_SOC_ID:
+		fuse_corners = SDM845_KBSS_FUSE_CORNERS;
 		break;
 	default:
 		cpr3_err(vreg, "unsupported soc id = %d\n", soc_revision);
@@ -691,6 +1017,15 @@ static int cprh_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 		rc = cprh_msm8998_kbss_read_fuse_data(vreg, fuse);
 		if (rc) {
 			cpr3_err(vreg, "msm8998 kbss fuse data read failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+		break;
+	case SDM845_V1_SOC_ID:
+	case SDM845_V2_SOC_ID:
+		rc = cprh_sdm845_kbss_read_fuse_data(vreg, fuse);
+		if (rc) {
+			cpr3_err(vreg, "sdm845 kbss fuse data read failed, rc=%d\n",
 				rc);
 			return rc;
 		}
@@ -760,7 +1095,7 @@ static int cprh_kbss_calculate_open_loop_voltages(struct cpr3_regulator *vreg)
 {
 	struct device_node *node = vreg->of_node;
 	struct cprh_kbss_fuses *fuse = vreg->platform_fuses;
-	int i, j, id, rc = 0;
+	int i, j, id, tid, rc = 0;
 	bool allow_interpolation;
 	u64 freq_low, volt_low, freq_high, volt_high;
 	const int *ref_volt;
@@ -797,6 +1132,12 @@ static int cprh_kbss_calculate_open_loop_voltages(struct cpr3_regulator *vreg)
 		ref_volt = msm8998_v2_kbss_fuse_ref_volt[id];
 		corner_name = cprh_msm8998_kbss_fuse_corner_name;
 		break;
+	case SDM845_V1_SOC_ID:
+	case SDM845_V2_SOC_ID:
+		tid = cprh_kbss_get_thread_id(vreg->thread);
+		ref_volt = sdm845_kbss_fuse_ref_volt[id][tid];
+		corner_name = cprh_sdm845_kbss_fuse_corner_name[id];
+		break;
 	default:
 		cpr3_err(vreg, "unsupported soc id = %d\n", soc_revision);
 		rc = -EINVAL;
@@ -805,7 +1146,11 @@ static int cprh_kbss_calculate_open_loop_voltages(struct cpr3_regulator *vreg)
 
 	for (i = 0; i < vreg->fuse_corner_count; i++) {
 		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(ref_volt[i],
-			CPRH_KBSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
+			soc_revision == SDM845_V1_SOC_ID
+					|| soc_revision == SDM845_V2_SOC_ID
+				? CPRH_SDM845_KBSS_FUSE_STEP_VOLT
+				: CPRH_KBSS_FUSE_STEP_VOLT,
+			fuse->init_voltage[i],
 			CPRH_KBSS_VOLTAGE_FUSE_SIZE);
 
 		/* Log fused open-loop voltage values for debugging purposes. */
@@ -1177,6 +1522,17 @@ static int cprh_kbss_parse_core_count_temp_adj_properties(
 			? MSM8998_KBSS_POWER_TEMP_SENSOR_ID_END :
 			MSM8998_KBSS_PERFORMANCE_TEMP_SENSOR_ID_END;
 		break;
+	case SDM845_V1_SOC_ID:
+	case SDM845_V2_SOC_ID:
+		ctrl->temp_sensor_id_start = ctrl->ctrl_id ==
+			CPRH_KBSS_POWER_CLUSTER_ID
+			? SDM845_KBSS_POWER_TEMP_SENSOR_ID_START :
+			SDM845_KBSS_PERFORMANCE_TEMP_SENSOR_ID_START;
+		ctrl->temp_sensor_id_end = ctrl->ctrl_id ==
+			CPRH_KBSS_POWER_CLUSTER_ID
+			? SDM845_KBSS_POWER_TEMP_SENSOR_ID_END :
+			SDM845_KBSS_PERFORMANCE_TEMP_SENSOR_ID_END;
+		break;
 	default:
 		cpr3_err(ctrl, "unsupported soc id = %d\n", ctrl->soc_revision);
 		rc = -EINVAL;
@@ -1363,6 +1719,13 @@ static int cprh_kbss_calculate_target_quotients(struct cpr3_regulator *vreg)
 			CPRH_MSM8998_KBSS_FUSE_CORNER_LOWSVS;
 		highest_fuse_corner =
 			CPRH_MSM8998_KBSS_FUSE_CORNER_TURBO_L1;
+		break;
+	case SDM845_V1_SOC_ID:
+	case SDM845_V2_SOC_ID:
+		corner_name = cprh_sdm845_kbss_fuse_corner_name[
+						vreg->thread->ctrl->ctrl_id];
+		lowest_fuse_corner = 0;
+		highest_fuse_corner = vreg->fuse_corner_count - 1;
 		break;
 	default:
 		cpr3_err(vreg, "unsupported soc id = %d\n",
@@ -1663,6 +2026,12 @@ static int cprh_kbss_init_regulator(struct cpr3_regulator *vreg)
 		return -EINVAL;
 	}
 
+	if ((vreg->allow_core_count_adj || vreg->allow_temp_adj)
+	    && vreg->thread->thread_id != 0) {
+		cpr3_err(vreg, "core count and temperature based adjustments are only allowed for CPR thread 0\n");
+		return -EINVAL;
+	}
+
 	rc = cprh_msm8998_partial_binning_override(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to override CPR parameters based on partial binning fuse values, rc=%d\n",
@@ -1766,6 +2135,20 @@ static int cprh_kbss_init_aging(struct cpr3_controller *ctrl)
 				= MSM8998_KBSS_PERFORMANCE_AGING_BYPASS_MASK0;
 		}
 		break;
+	case SDM845_V1_SOC_ID:
+	case SDM845_V2_SOC_ID:
+		if (ctrl->ctrl_id == CPRH_KBSS_POWER_CLUSTER_ID) {
+			ctrl->aging_sensor->sensor_id
+				= SDM845_KBSS_POWER_AGING_SENSOR_ID;
+			ctrl->aging_sensor->bypass_mask[0]
+				= SDM845_KBSS_POWER_AGING_BYPASS_MASK0;
+		} else  {
+			ctrl->aging_sensor->sensor_id
+				= SDM845_KBSS_PERFORMANCE_AGING_SENSOR_ID;
+			ctrl->aging_sensor->bypass_mask[0]
+				= SDM845_KBSS_PERFORMANCE_AGING_BYPASS_MASK0;
+		}
+		break;
 	default:
 		cpr3_err(ctrl, "unsupported soc id = %d\n", ctrl->soc_revision);
 		return -EINVAL;
@@ -1795,7 +2178,7 @@ static int cprh_kbss_init_aging(struct cpr3_controller *ctrl)
  */
 static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 {
-	int rc;
+	int rc, i, tid_power, tid_l3;
 
 	ctrl->ctrl_type = CPR_CTRL_TYPE_CPRH;
 	rc = cpr3_parse_common_ctrl_data(ctrl);
@@ -1932,6 +2315,15 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 			ctrl->sensor_count =
 				MSM8998_KBSS_PERFORMANCE_CPR_SENSOR_COUNT;
 		break;
+	case SDM845_V1_SOC_ID:
+	case SDM845_V2_SOC_ID:
+		if (ctrl->ctrl_id == CPRH_KBSS_POWER_CLUSTER_ID)
+			ctrl->sensor_count =
+				SDM845_KBSS_POWER_CPR_SENSOR_COUNT;
+		else
+			ctrl->sensor_count =
+				SDM845_KBSS_PERFORMANCE_CPR_SENSOR_COUNT;
+		break;
 	default:
 		cpr3_err(ctrl, "unsupported soc id = %d\n", ctrl->soc_revision);
 		return -EINVAL;
@@ -1946,47 +2338,31 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 	if (!ctrl->sensor_owner)
 		return -ENOMEM;
 
+	/* Specify sensor ownership for SDM845 controller 0 */
+	if ((ctrl->soc_revision == SDM845_V1_SOC_ID
+		|| ctrl->soc_revision == SDM845_V2_SOC_ID)
+	    && ctrl->ctrl_id == CPRH_KBSS_POWER_CLUSTER_ID) {
+		if (ctrl->soc_revision == SDM845_V1_SOC_ID) {
+			/* Thread IDs are swapped for SDM845 V1 */
+			tid_power = CPRH_KBSS_L3_THREAD_ID;
+			tid_l3 = CPRH_KBSS_POWER_CLUSTER_THREAD_ID;
+		} else {
+			tid_power = CPRH_KBSS_POWER_CLUSTER_THREAD_ID;
+			tid_l3 = CPRH_KBSS_L3_THREAD_ID;
+		}
+
+		for (i = SDM845_KBSS_POWER_THREAD_CPR_SENSOR_ID_START;
+		     i <= SDM845_KBSS_POWER_THREAD_CPR_SENSOR_ID_END; i++)
+			ctrl->sensor_owner[i] = tid_power;
+		for (i = SDM845_KBSS_L3_THREAD_CPR_SENSOR_ID_START;
+		     i <= SDM845_KBSS_L3_THREAD_CPR_SENSOR_ID_END; i++)
+			ctrl->sensor_owner[i] = tid_l3;
+	}
+
 	ctrl->cpr_clock_rate = CPRH_KBSS_CPR_CLOCK_RATE;
 	ctrl->supports_hw_closed_loop = true;
 	ctrl->use_hw_closed_loop = of_property_read_bool(ctrl->dev->of_node,
 						 "qcom,cpr-hw-closed-loop");
-
-	return 0;
-}
-
-/**
- * cprh_kbss_populate_opp_table() - populate an Operating Performance Point
- *		table with the frequencies associated with each corner.
- *		This table may be used to resolve corner to frequency to
- *		open-loop voltage mappings.
- * @pdev:		Pointer to the platform device
- *
- * Return: 0 on success, errno on failure
- */
-static int cprh_kbss_populate_opp_table(struct cpr3_controller *ctrl)
-{
-	struct device *dev = ctrl->dev;
-	struct cpr3_regulator *vreg = &ctrl->thread[0].vreg[0];
-	struct cpr3_corner *corner;
-	int rc, i;
-
-	for (i = 0; i < vreg->corner_count; i++) {
-		corner = &vreg->corner[i];
-		if (!corner->proc_freq) {
-			/*
-			 * 0 MHz indicates this corner is not to be
-			 * used as active DCVS set point. Don't add it
-			 * to the OPP table.
-			 */
-			continue;
-		}
-		rc = dev_pm_opp_add(dev, corner->proc_freq, i + 1);
-		if (rc) {
-			cpr3_err(ctrl, "could not add OPP for corner %d with frequency %u MHz, rc=%d\n",
-				 i + 1, corner->proc_freq, rc);
-			return rc;
-		}
-	}
 
 	return 0;
 }
@@ -2024,6 +2400,18 @@ static const struct of_device_id cprh_regulator_match_table[] = {
 		.compatible = "qcom,cprh-sdm660-kbss-regulator",
 		.data = (void *)(uintptr_t)SDM660_SOC_ID,
 	},
+	{
+		.compatible = "qcom,cprh-sdm845-v1-kbss-regulator",
+		.data = (void *)(uintptr_t)SDM845_V1_SOC_ID,
+	},
+	{
+		.compatible = "qcom,cprh-sdm845-v2-kbss-regulator",
+		.data = (void *)(uintptr_t)SDM845_V2_SOC_ID,
+	},
+	{
+		.compatible = "qcom,cprh-sdm845-kbss-regulator",
+		.data = (void *)(uintptr_t)SDM845_V2_SOC_ID,
+	},
 	{}
 };
 
@@ -2032,7 +2420,7 @@ static int cprh_kbss_regulator_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	const struct of_device_id *match;
 	struct cpr3_controller *ctrl;
-	int rc;
+	int i, rc, max_thread_count;
 
 	if (!dev->of_node) {
 		dev_err(dev, "Device tree node is missing\n");
@@ -2066,21 +2454,11 @@ static int cprh_kbss_regulator_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = cpr3_allocate_threads(ctrl, 0, 0);
+	rc = cpr3_allocate_threads(ctrl, 0, 1);
 	if (rc) {
 		cpr3_err(ctrl, "failed to allocate CPR thread array, rc=%d\n",
 			rc);
 		return rc;
-	}
-
-	if (ctrl->thread_count != 1) {
-		cpr3_err(ctrl, "expected 1 thread but found %d\n",
-			ctrl->thread_count);
-		return -EINVAL;
-	} else if (ctrl->thread[0].vreg_count != 1) {
-		cpr3_err(ctrl, "expected 1 regulator but found %d\n",
-			ctrl->thread[0].vreg_count);
-		return -EINVAL;
 	}
 
 	rc = cprh_kbss_init_controller(ctrl);
@@ -2091,17 +2469,43 @@ static int cprh_kbss_regulator_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = cprh_kbss_init_thread(&ctrl->thread[0]);
-	if (rc) {
-		cpr3_err(ctrl, "thread initialization failed, rc=%d\n", rc);
-		return rc;
+	/*
+	 * SDM845 controller 0 supports 2 CPR threads.  All other controllers
+	 * only support 1.
+	 */
+	max_thread_count = (ctrl->soc_revision == SDM845_V1_SOC_ID
+				|| ctrl->soc_revision == SDM845_V2_SOC_ID)
+			    && ctrl->ctrl_id == CPRH_KBSS_POWER_CLUSTER_ID
+					? 2 : 1;
+
+	if (ctrl->thread_count < 1 || ctrl->thread_count > max_thread_count) {
+		cpr3_err(ctrl, "expected 1 or %d threads but found %d\n",
+			max_thread_count, ctrl->thread_count);
+		return -EINVAL;
+	} else if (ctrl->thread[0].vreg_count != 1) {
+		cpr3_err(ctrl, "expected 1 regulator for thread 0 but found %d\n",
+			ctrl->thread[0].vreg_count);
+		return -EINVAL;
+	} else if (ctrl->thread_count == 2 && ctrl->thread[1].vreg_count != 1) {
+		cpr3_err(ctrl, "expected 1 regulator for thread 1 but found %d\n",
+			ctrl->thread[1].vreg_count);
+		return -EINVAL;
 	}
 
-	rc = cprh_kbss_init_regulator(&ctrl->thread[0].vreg[0]);
-	if (rc) {
-		cpr3_err(&ctrl->thread[0].vreg[0], "regulator initialization failed, rc=%d\n",
-			 rc);
-		return rc;
+	for (i = 0; i < ctrl->thread_count; i++) {
+		rc = cprh_kbss_init_thread(&ctrl->thread[i]);
+		if (rc) {
+			cpr3_err(ctrl, "thread initialization failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		rc = cprh_kbss_init_regulator(&ctrl->thread[i].vreg[0]);
+		if (rc) {
+			cpr3_err(&ctrl->thread[i].vreg[0], "regulator initialization failed, rc=%d\n",
+				 rc);
+			return rc;
+		}
 	}
 
 	rc = cprh_kbss_init_aging(ctrl);
@@ -2112,10 +2516,6 @@ static int cprh_kbss_regulator_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, ctrl);
-
-	rc = cprh_kbss_populate_opp_table(ctrl);
-	if (rc)
-		panic("cprh-kbss-regulator OPP table initialization failed\n");
 
 	return cpr3_regulator_register(pdev, ctrl);
 }
