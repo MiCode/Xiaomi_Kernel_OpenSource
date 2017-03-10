@@ -73,26 +73,26 @@ static void copy_remaining_nodes(struct list_head *edge_list, struct list_head
  * "util" file for these common func/macros.
  *
  */
-uint64_t msm_bus_div64(unsigned int w, uint64_t bw)
+uint64_t msm_bus_div64(uint64_t num, unsigned int base)
 {
-	uint64_t *b = &bw;
+	uint64_t *n = &num;
 
-	if ((bw > 0) && (bw < w))
+	if ((num > 0) && (num < base))
 		return 1;
 
-	switch (w) {
+	switch (base) {
 	case 0:
 		WARN(1, "AXI: Divide by 0 attempted\n");
-	case 1: return bw;
-	case 2: return (bw >> 1);
-	case 4: return (bw >> 2);
-	case 8: return (bw >> 3);
-	case 16: return (bw >> 4);
-	case 32: return (bw >> 5);
+	case 1: return num;
+	case 2: return (num >> 1);
+	case 4: return (num >> 2);
+	case 8: return (num >> 3);
+	case 16: return (num >> 4);
+	case 32: return (num >> 5);
 	}
 
-	do_div(*b, w);
-	return *b;
+	do_div(*n, base);
+	return *n;
 }
 
 int msm_bus_device_match_adhoc(struct device *dev, void *id)
@@ -505,14 +505,15 @@ static void bcm_update_bus_req(struct device *dev, int ctx)
 
 		lnode_idx = cur_dev->node_info->bcm_req_idx;
 		bcm_dev->lnode_list[lnode_idx].lnode_ib[ctx] =
-			msm_bus_div64(cur_dev->node_info->agg_params.buswidth,
-					cur_dev->node_bw[ctx].max_ib *
-					(uint64_t)bcm_dev->bcmdev->width);
+			msm_bus_div64(cur_dev->node_bw[ctx].max_ib *
+					(uint64_t)bcm_dev->bcmdev->width,
+				cur_dev->node_info->agg_params.buswidth);
 
 		bcm_dev->lnode_list[lnode_idx].lnode_ab[ctx] =
-			msm_bus_div64(cur_dev->node_info->agg_params.buswidth,
-					cur_dev->node_bw[ctx].sum_ab *
-					(uint64_t)bcm_dev->bcmdev->width);
+			msm_bus_div64(cur_dev->node_bw[ctx].sum_ab *
+					(uint64_t)bcm_dev->bcmdev->width,
+				cur_dev->node_info->agg_params.buswidth *
+				cur_dev->node_info->agg_params.num_aggports);
 
 		for (i = 0; i < bcm_dev->num_lnodes; i++) {
 			if (ctx == ACTIVE_CTX) {
@@ -564,14 +565,15 @@ static void bcm_query_bus_req(struct device *dev, int ctx)
 
 		lnode_idx = cur_dev->node_info->bcm_req_idx;
 		bcm_dev->lnode_list[lnode_idx].lnode_query_ib[ctx] =
-			msm_bus_div64(cur_dev->node_info->agg_params.buswidth,
-					cur_dev->node_bw[ctx].max_query_ib *
-					(uint64_t)bcm_dev->bcmdev->width);
+			msm_bus_div64(cur_dev->node_bw[ctx].max_query_ib *
+					(uint64_t)bcm_dev->bcmdev->width,
+				cur_dev->node_info->agg_params.buswidth);
 
 		bcm_dev->lnode_list[lnode_idx].lnode_query_ab[ctx] =
-			msm_bus_div64(cur_dev->node_info->agg_params.buswidth,
-					cur_dev->node_bw[ctx].sum_query_ab *
-					(uint64_t)bcm_dev->bcmdev->width);
+			msm_bus_div64(cur_dev->node_bw[ctx].sum_query_ab *
+					(uint64_t)bcm_dev->bcmdev->width,
+				cur_dev->node_info->agg_params.num_aggports,
+				cur_dev->node_info->agg_params.buswidth);
 
 		for (i = 0; i < bcm_dev->num_lnodes; i++) {
 			if (ctx == ACTIVE_CTX) {
