@@ -2247,12 +2247,8 @@ static int dp_start_link_train_2(struct mdss_dp_drv_pdata *ep)
 	else
 		pattern = 0x02;
 
-	dp_write(ep->base + DP_STATE_CTRL, 0x0);
-	/* Make sure to clear the current pattern before starting a new one */
-	wmb();
-
-	dp_host_train_set(ep, pattern);
 	mdss_dp_aux_update_voltage_and_pre_emphasis_lvl(ep);
+	dp_host_train_set(ep, pattern);
 	dp_train_pattern_set_write(ep, pattern | 0x20);/* train_2 */
 
 	do  {
