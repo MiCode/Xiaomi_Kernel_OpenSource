@@ -51,7 +51,7 @@ void *sde_hw_util_get_dir(void);
 
 void sde_hw_csc_setup(struct sde_hw_blk_reg_map  *c,
 		u32 csc_reg_off,
-		struct sde_csc_cfg *data);
+		struct sde_csc_cfg *data, bool csc10);
 
 #endif /* _SDE_HW_UTIL_H */
 
