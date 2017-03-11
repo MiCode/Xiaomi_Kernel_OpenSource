@@ -344,6 +344,7 @@
 
 			qcom,timing-db-mode;
 			wqhd-vddio-supply = <&pm660_l11>;
+			vdda-3p3-supply = <&pm660l_l6>;
 			lab-supply = <&lcdb_ldo_vreg>;
 			ibb-supply = <&lcdb_ncp_vreg>;
 			qcom,mdss-mdp = <&mdss_mdp>;
