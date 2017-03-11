@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -105,7 +105,6 @@
 #define clk_gcc_gpu_gpll0_div_clk		0x07d16c6a
 #define clk_gpll4				0xb3b5d85b
 #define clk_gpll4_out_main			0xa9a0ab9d
-#define clk_hmss_ahb_clk_src			0xaec8450f
 #define clk_usb30_master_clk_src		0xc6262f89
 #define clk_pcie_aux_clk_src			0xebc50566
 #define clk_ufs_axi_clk_src			0x297ca380
@@ -201,7 +200,6 @@
 #define clk_gcc_gpu_bimc_gfx_clk		0x3909459b
 #define clk_gcc_gpu_cfg_ahb_clk			0x72f20a57
 #define clk_gcc_gpu_iref_clk			0xfd82abad
-#define clk_gcc_hmss_ahb_clk			0x62818713
 #define clk_gcc_hmss_dvm_bus_clk		0x17cc8b53
 #define clk_gcc_hmss_rbcpr_clk			0x699183be
 #define clk_hmss_gpll0_clk_src			0x17eb05d0
