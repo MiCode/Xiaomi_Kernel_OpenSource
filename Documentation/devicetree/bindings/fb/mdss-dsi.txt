@@ -46,6 +46,7 @@ Optional properties:
 					-- qcom,supply-max-voltage: maximum voltage level (uV)
 					-- qcom,supply-enable-load: load drawn (uA) from enabled supply
 					-- qcom,supply-disable-load: load drawn (uA) from disabled supply
+					-- qcom,supply-ulp-load: load drawn (uA) from supply in ultra-low power mode
 					-- qcom,supply-pre-on-sleep: time to sleep (ms) before turning on
 					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
 					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
@@ -164,6 +165,7 @@ Example:
 				qcom,supply-max-voltage = <0>;
 				qcom,supply-enable-load = <0>;
 				qcom,supply-disable-load = <0>;
+				qcom,supply-ulp-load = <0>;
 				qcom,supply-pre-on-sleep = <0>;
 				qcom,supply-post-on-sleep = <0>;
 				qcom,supply-pre-off-sleep = <0>;
@@ -182,6 +184,7 @@ Example:
 				qcom,supply-max-voltage = <1800000>;
 				qcom,supply-enable-load = <100000>;
 				qcom,supply-disable-load = <100>;
+				qcom,supply-ulp-load = <100>;
 				qcom,supply-pre-on-sleep = <0>;
 				qcom,supply-post-on-sleep = <20>;
 				qcom,supply-pre-off-sleep = <0>;
@@ -200,6 +203,7 @@ Example:
 				qcom,supply-max-voltage = <1200000>;
 				qcom,supply-enable-load = <100000>;
 				qcom,supply-disable-load = <100>;
+				qcom,supply-ulp-load = <1000>;
 				qcom,supply-pre-on-sleep = <0>;
 				qcom,supply-post-on-sleep = <20>;
 				qcom,supply-pre-off-sleep = <0>;

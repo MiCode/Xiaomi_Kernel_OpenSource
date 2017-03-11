@@ -354,11 +354,62 @@ static int mdss_dsi_panel_power_lp(struct mdss_panel_data *pdata, int enable)
 	return 0;
 }
 
-static int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
+static int mdss_dsi_panel_power_ulp(struct mdss_panel_data *pdata,
+					int enable)
+{
+	int ret = 0, i;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	u32 mode = enable ? DSS_REG_MODE_ULP : DSS_REG_MODE_ENABLE;
+	struct dsi_shared_data *sdata;
+
+	pr_debug("%s: +\n", __func__);
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	sdata = ctrl_pdata->shared_data;
+
+	for (i = 0; i < DSI_MAX_PM; i++) {
+		/*
+		 * Core power module need to be controlled along with
+		 * DSI core clocks.
+		 */
+		if (DSI_CORE_PM == i)
+			continue;
+		if (DSI_PANEL_PM == i)
+			ret = msm_dss_config_vreg_opt_mode(
+				ctrl_pdata->panel_power_data.vreg_config,
+				ctrl_pdata->panel_power_data.num_vreg, mode);
+		else
+			ret = msm_dss_config_vreg_opt_mode(
+				sdata->power_data[i].vreg_config,
+				sdata->power_data[i].num_vreg, mode);
+		if (ret) {
+			pr_err("%s: failed to config ulp opt mode for %s.rc=%d\n",
+				__func__, __mdss_dsi_pm_name(i), ret);
+			break;
+		}
+	}
+
+	if (ret) {
+		mode = enable ? DSS_REG_MODE_ENABLE : DSS_REG_MODE_ULP;
+		for (; i >= 0; i--)
+			msm_dss_config_vreg_opt_mode(
+				ctrl_pdata->power_data[i].vreg_config,
+				ctrl_pdata->power_data[i].num_vreg, mode);
+	}
+	return ret;
+}
+
+int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 	int power_state)
 {
 	int ret;
 	struct mdss_panel_info *pinfo;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -366,13 +417,17 @@ static int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 	}
 
 	pinfo = &pdata->panel_info;
-	pr_debug("%s: cur_power_state=%d req_power_state=%d\n", __func__,
+	pr_debug("%pS-->%s: cur_power_state=%d req_power_state=%d\n",
+		__builtin_return_address(0), __func__,
 		pinfo->panel_power_state, power_state);
 
 	if (pinfo->panel_power_state == power_state) {
 		pr_debug("%s: no change needed\n", __func__);
 		return 0;
 	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 
 	/*
 	 * If a dynamic mode switch is pending, the regulators should not
@@ -386,14 +441,31 @@ static int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 		ret = mdss_dsi_panel_power_off(pdata);
 		break;
 	case MDSS_PANEL_POWER_ON:
-		if (mdss_dsi_is_panel_on_lp(pdata))
+		if (mdss_dsi_is_panel_on_ulp(pdata)) {
+			ret = mdss_dsi_panel_power_ulp(pdata, false);
+			goto end;
+		} else if (mdss_dsi_is_panel_on_lp(pdata)) {
 			ret = mdss_dsi_panel_power_lp(pdata, false);
-		else
+			goto end;
+		} else {
 			ret = mdss_dsi_panel_power_on(pdata);
+		}
 		break;
 	case MDSS_PANEL_POWER_LP1:
+		if (mdss_dsi_is_panel_on_ulp(pdata))
+			ret = mdss_dsi_panel_power_ulp(pdata, false);
+		else
+			ret = mdss_dsi_panel_power_lp(pdata, true);
+		/*
+		 * temp workaround until framework issues pertaining to LP2
+		 * power state transitions are fixed. For now, we internally
+		 * transition to LP2 state whenever core power is turned off
+		 * in LP1 state
+		 */
+		break;
 	case MDSS_PANEL_POWER_LP2:
-		ret = mdss_dsi_panel_power_lp(pdata, true);
+		if (!ctrl_pdata->core_power)
+			ret = mdss_dsi_panel_power_ulp(pdata, true);
 		break;
 	default:
 		pr_err("%s: unknown panel power state requested (%d)\n",
@@ -403,7 +475,7 @@ static int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 
 	if (!ret)
 		pinfo->panel_power_state = power_state;
-
+end:
 	return ret;
 }
 
@@ -513,7 +585,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 				__func__, rc);
 			goto error;
 		}
-		mp->vreg_config[i].enable_load = tmp;
+		mp->vreg_config[i].load[DSS_REG_MODE_ENABLE] = tmp;
 
 		/* disable-load */
 		rc = of_property_read_u32(supply_node,
@@ -523,7 +595,18 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 				__func__, rc);
 			goto error;
 		}
-		mp->vreg_config[i].disable_load = tmp;
+		mp->vreg_config[i].load[DSS_REG_MODE_DISABLE] = tmp;
+
+		/* ulp-load */
+		rc = of_property_read_u32(supply_node,
+			"qcom,supply-ulp-load", &tmp);
+		if (rc) {
+			pr_warn("%s: error reading ulp load. rc=%d\n",
+				__func__, rc);
+			rc = 0;
+		}
+		mp->vreg_config[i].load[DSS_REG_MODE_ULP] = (!rc ? tmp :
+			mp->vreg_config[i].load[DSS_REG_MODE_ENABLE]);
 
 		/* pre-sleep */
 		rc = of_property_read_u32(supply_node,
@@ -567,13 +650,14 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 			mp->vreg_config[i].post_off_sleep = tmp;
 		}
 
-		pr_debug("%s: %s min=%d, max=%d, enable=%d, disable=%d, preonsleep=%d, postonsleep=%d, preoffsleep=%d, postoffsleep=%d\n",
+		pr_debug("%s: %s min=%d, max=%d, enable=%d, disable=%d, ulp_load=%d preonsleep=%d, postonsleep=%d, preoffsleep=%d, postoffsleep=%d\n",
 			__func__,
 			mp->vreg_config[i].vreg_name,
 			mp->vreg_config[i].min_voltage,
 			mp->vreg_config[i].max_voltage,
-			mp->vreg_config[i].enable_load,
-			mp->vreg_config[i].disable_load,
+			mp->vreg_config[i].load[DSS_REG_MODE_ENABLE],
+			mp->vreg_config[i].load[DSS_REG_MODE_DISABLE],
+			mp->vreg_config[i].load[DSS_REG_MODE_ULP],
 			mp->vreg_config[i].pre_on_sleep,
 			mp->vreg_config[i].post_on_sleep,
 			mp->vreg_config[i].pre_off_sleep,

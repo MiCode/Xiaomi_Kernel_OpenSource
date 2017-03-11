@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4143,7 +4143,7 @@ static int hdmi_tx_get_dt_vreg_data(struct device *dev,
 				__func__, hdmi_tx_pm_name(module_type), rc);
 			goto error;
 		}
-		mp->vreg_config[j].enable_load = val_array[i];
+		mp->vreg_config[j].load[DSS_REG_MODE_ENABLE] = val_array[i];
 
 		memset(val_array, 0, sizeof(u32) * dt_vreg_total);
 		rc = of_property_read_u32_array(of_node,
@@ -4154,15 +4154,15 @@ static int hdmi_tx_get_dt_vreg_data(struct device *dev,
 				__func__, hdmi_tx_pm_name(module_type), rc);
 			goto error;
 		}
-		mp->vreg_config[j].disable_load = val_array[i];
+		mp->vreg_config[j].load[DSS_REG_MODE_DISABLE] = val_array[i];
 
 		DEV_DBG("%s: %s min=%d, max=%d, enable=%d disable=%d\n",
 			__func__,
 			mp->vreg_config[j].vreg_name,
 			mp->vreg_config[j].min_voltage,
 			mp->vreg_config[j].max_voltage,
-			mp->vreg_config[j].enable_load,
-			mp->vreg_config[j].disable_load);
+			mp->vreg_config[j].load[DSS_REG_MODE_ENABLE],
+			mp->vreg_config[j].load[DSS_REG_MODE_DISABLE]);
 
 		ndx_mask >>= 1;
 		j++;
