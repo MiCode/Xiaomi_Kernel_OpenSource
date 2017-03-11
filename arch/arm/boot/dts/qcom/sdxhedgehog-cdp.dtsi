@@ -14,3 +14,10 @@
 #include "mdm9650-v1.1-cdp.dtsi"
 #include "sdxhedgehog.dtsi"
 #include "sdxhedgehog-pinctrl.dtsi"
+
+&soc {
+	sound {
+		qcom,wsa-devs = <&wsa881x_214>;
+		qcom,wsa-aux-dev-prefix = "SpkrRight";
+	};
+};
