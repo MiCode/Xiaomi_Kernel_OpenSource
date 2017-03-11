@@ -62,6 +62,7 @@
 #define MDSS_DSI_HW_REV_STEP_1		0x1
 #define MDSS_DSI_HW_REV_STEP_2		0x2
 
+#define MDSS_STATUS_TE_WAIT_MAX		3
 #define NONE_PANEL "none"
 
 enum {		/* mipi dsi panel */
@@ -488,6 +489,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct completion video_comp;
 	struct completion dynamic_comp;
 	struct completion bta_comp;
+	struct completion te_irq_comp;
 	spinlock_t irq_lock;
 	spinlock_t mdp_lock;
 	int mdp_busy;
