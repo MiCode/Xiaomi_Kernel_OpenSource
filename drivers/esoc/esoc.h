@@ -62,6 +62,9 @@ struct esoc_eng {
  * @auto_boot: boots independently.
  * @primary: primary esoc controls(reset/poweroff) all secondary
  *	 esocs, but not	otherway around.
+ * @statusline_not_a_powersource: True if status line to esoc is not a
+ *				power source.
+ * @userspace_handle_shutdown: True if user space handles shutdown requests.
  */
 struct esoc_clink {
 	const char *name;
@@ -82,6 +85,8 @@ struct esoc_clink {
 	struct device_node *np;
 	bool auto_boot;
 	bool primary;
+	bool statusline_not_a_powersource;
+	bool userspace_handle_shutdown;
 };
 
 /**

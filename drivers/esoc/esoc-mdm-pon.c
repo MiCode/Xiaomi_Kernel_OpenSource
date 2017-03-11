@@ -158,6 +158,11 @@ static void mdm9x55_cold_reset(struct mdm_ctrl *mdm)
 			!mdm->soft_reset_inverted);
 }
 
+static int apq8096_pon_dt_init(struct mdm_ctrl *mdm)
+{
+	return 0;
+}
+
 static int mdm4x_pon_dt_init(struct mdm_ctrl *mdm)
 {
 	int val;
@@ -187,6 +192,21 @@ static int mdm4x_pon_setup(struct mdm_ctrl *mdm)
 		}
 	}
 	return 0;
+}
+
+/* This function can be called from atomic context. */
+static int apq8096_toggle_soft_reset(struct mdm_ctrl *mdm, bool atomic)
+{
+	return 0;
+}
+
+static int apq8096_power_down(struct mdm_ctrl *mdm)
+{
+	return 0;
+}
+
+static void apq8096_cold_reset(struct mdm_ctrl *mdm)
+{
 }
 
 struct mdm_pon_ops mdm9x25_pon_ops = {
@@ -222,5 +242,14 @@ struct mdm_pon_ops mdm9x55_pon_ops = {
 	.poff_force = mdm9x55_power_down,
 	.cold_reset = mdm9x55_cold_reset,
 	.dt_init = mdm4x_pon_dt_init,
+	.setup = mdm4x_pon_setup,
+};
+
+struct mdm_pon_ops apq8096_pon_ops = {
+	.pon = mdm4x_do_first_power_on,
+	.soft_reset = apq8096_toggle_soft_reset,
+	.poff_force = apq8096_power_down,
+	.cold_reset = apq8096_cold_reset,
+	.dt_init = apq8096_pon_dt_init,
 	.setup = mdm4x_pon_setup,
 };

@@ -60,7 +60,7 @@ static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
 		return -ENODEV;
 
 	link_down_or_recovery = pci_priv->pci_link_down_ind ||
-		(plat_priv->driver_status == CNSS_RECOVERY);
+		(test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state));
 
 	if (save) {
 		if (link_down_or_recovery) {
@@ -98,7 +98,7 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 		return -ENODEV;
 
 	link_down_or_recovery = pci_priv->pci_link_down_ind ||
-		(plat_priv->driver_status == CNSS_RECOVERY);
+		(test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state));
 
 	ret = msm_pcie_pm_control(link_up ? MSM_PCIE_RESUME :
 				  MSM_PCIE_SUSPEND,
