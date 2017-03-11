@@ -22,8 +22,10 @@
 #define C1 0x2
 #define C2 0x4
 #define C3 0x8
-#define C_ALL (CC | C0 | C1 | C2 | C3)
-#define NUM_L1_CTRS 4
+#define C4 0x10
+#define C5 0x20
+#define C_ALL (CC | C0 | C1 | C2 | C3 | C4 | C5)
+#define NUM_L1_CTRS 6
 
 #include <linux/sched.h>
 #include <linux/cpumask.h>
@@ -46,8 +48,8 @@ TRACE_EVENT(sched_switch_with_ctrs,
 			__field(u32, ctr1)
 			__field(u32, ctr2)
 			__field(u32, ctr3)
-			__field(u32, lctr0)
-			__field(u32, lctr1)
+			__field(u32, ctr4)
+			__field(u32, ctr5)
 		),
 
 		TP_fast_assign(
@@ -91,15 +93,15 @@ TRACE_EVENT(sched_switch_with_ctrs,
 			__entry->ctr1 = delta_l1_cnts[1];
 			__entry->ctr2 = delta_l1_cnts[2];
 			__entry->ctr3 = delta_l1_cnts[3];
-			__entry->lctr0 = 0;
-			__entry->lctr1 = 0;
+			__entry->ctr4 = delta_l1_cnts[4];
+			__entry->ctr5 = delta_l1_cnts[5];
 		),
 
-		TP_printk("prev_pid=%d, next_pid=%d, CCNTR: %u, CTR0: %u, CTR1: %u, CTR2: %u, CTR3: %u, L2CTR0: %u, L2CTR1: %u",
+		TP_printk("prev_pid=%d, next_pid=%d, CCNTR: %u, CTR0: %u, CTR1: %u, CTR2: %u, CTR3: %u, CTR4: %u, CTR5: %u",
 				__entry->old_pid, __entry->new_pid,
 				__entry->cctr, __entry->ctr0, __entry->ctr1,
 				__entry->ctr2, __entry->ctr3,
-				__entry->lctr0, __entry->lctr1)
+				__entry->ctr4, __entry->ctr5)
 );
 
 #endif
