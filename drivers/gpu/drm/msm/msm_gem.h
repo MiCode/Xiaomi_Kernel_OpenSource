@@ -25,6 +25,7 @@
 /* Additional internal-use only BO flags: */
 #define MSM_BO_STOLEN        0x10000000    /* try to use stolen/splash memory */
 #define MSM_BO_LOCKED        0x20000000    /* Pages have been securely locked */
+#define MSM_BO_SVM           0x40000000    /* bo is SVM */
 
 struct msm_gem_address_space {
 	const char *name;
@@ -84,6 +85,16 @@ struct msm_gem_object {
 	struct mutex lock; /* Protects resources associated with bo */
 };
 #define to_msm_bo(x) container_of(x, struct msm_gem_object, base)
+
+struct msm_gem_svm_object {
+	struct msm_gem_object msm_obj_base;
+	uint64_t hostptr;
+};
+
+#define to_msm_svm_obj(x) \
+	((struct msm_gem_svm_object *) \
+	 container_of(x, struct msm_gem_svm_object, msm_obj_base))
+
 
 static inline bool is_active(struct msm_gem_object *msm_obj)
 {
