@@ -12,6 +12,7 @@
 
 #include "msm-pm660a.dtsi"
 #include "sdm660-pinctrl.dtsi"
+#include "sdm630-camera-sensor-qrd.dtsi"
 
 &i2c_2 {
 	status = "okay";
