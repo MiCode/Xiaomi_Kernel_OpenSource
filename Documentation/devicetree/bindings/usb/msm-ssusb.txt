@@ -64,6 +64,8 @@ Optional properties :
 	  device provides both "USB" and "USB-HOST" events.
 - qcom,num-gsi-evt-buffs: If present, specifies number of GSI based hardware accelerated
   event buffers. 1 event buffer is needed per h/w accelerated endpoint.
+- qcom,pm-qos-latency: This represents max tolerable CPU latency in microsecs,
+	which is used as a vote by driver to get max performance in perf mode.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
@@ -89,6 +91,7 @@ Example MSM USB3.0 controller device node :
 		qcom,usb-dbm = <&dbm_1p4>;
 		qcom,lpm-to-suspend-delay-ms = <2>;
 		qcom,num-gsi-evt-buffs = <0x2>;
+		qcom,pm-qos-latency = <2>;
 
 		qcom,msm_bus,name = "usb3";
 		qcom,msm_bus,num_cases = <2>;
