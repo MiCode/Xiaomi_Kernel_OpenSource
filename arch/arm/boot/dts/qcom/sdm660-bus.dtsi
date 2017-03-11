@@ -1248,4 +1248,46 @@
 			qcom,slv-rpm-id = <ICBID_SLAVE_SERVICE_SNOC>;
 		};
 	};
+
+	devfreq_spdm_cpu {
+		compatible = "qcom,devfreq_spdm";
+		qcom,msm-bus,name = "devfreq_spdm";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<1 512 0 0>,
+				<1 512 0 0>;
+		qcom,msm-bus,active-only;
+		qcom,spdm-client = <0>;
+
+		qcom,bw-upstep = <450>;
+		qcom,bw-dwnstep = <8200>;
+		qcom,max-vote = <8200>;
+		qcom,up-step-multp = <2>;
+		qcom,spdm-interval = <30>;
+
+		qcom,ports = <24>;
+		qcom,alpha-up = <8>;
+		qcom,alpha-down = <15>;
+		qcom,bucket-size = <8>;
+
+		/*max pl1 freq, max pl2 freq*/
+		qcom,pl-freqs = <210000 610000>;
+
+		/* pl1 low, pl1 high, pl2 low, pl2 high, pl3 low, pl3 high */
+		qcom,reject-rate = <5000 5000 5000 5000 5000 5000>;
+		/* pl1 low, pl1 high, pl2 low, pl2 high, pl3 low, pl3 high */
+		qcom,response-time-us = <5000 5000 5000 5000 5000 5000>;
+
+		/* pl1 low, pl1 high, pl2 low, pl2 high, pl3 low, pl3 high */
+		qcom,cci-response-time-us = <10000 10000 10000
+						10000 10000 10000>;
+		qcom,max-cci-freq = <1036800>;
+	};
+
+	devfreq_spdm_gov {
+		compatible = "qcom,gov_spdm_hyp";
+		interrupt-names = "spdm-irq";
+		interrupts = <0 192 IRQ_TYPE_EDGE_RISING>;
+	};
 };
