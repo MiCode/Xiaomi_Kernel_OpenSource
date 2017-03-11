@@ -849,17 +849,6 @@ int dwc3_core_init(struct dwc3 *dwc)
 	if (ret < 0)
 		goto err2;
 
-	/*
-	 * clear Elastic buffer mode in GUSBPIPE_CTRL(0) register, otherwise
-	 * it results in high link errors and could cause SS mode transfer
-	 * failure.
-	 */
-	if (!dwc->nominal_elastic_buffer) {
-		reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
-		reg &= ~DWC3_GUSB3PIPECTL_ELASTIC_BUF_MODE;
-		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
-	}
-
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
