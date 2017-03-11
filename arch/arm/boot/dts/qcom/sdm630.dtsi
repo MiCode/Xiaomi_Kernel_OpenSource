@@ -1205,7 +1205,7 @@
 		qcom,wan-rx-ring-size = <192>; /* IPA WAN-rx-ring-size*/
 		qcom,lan-rx-ring-size = <192>; /* IPA LAN-rx-ring-size*/
 		clocks = <&clock_rpmcc RPM_IPA_CLK>,
-			<&clock_rpmcc RPM_AGGR2_NOC_CLK>;
+			<&clock_rpmcc AGGR2_NOC_SMMU_CLK>;
 		clock-names = "core_clk", "smmu_clk";
 		qcom,arm-smmu;
 		qcom,smmu-disable-htw;
