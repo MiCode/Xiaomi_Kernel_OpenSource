@@ -826,9 +826,9 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 	return ret;
 }
 
-static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
-				int len)
+int mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
 {
+	int const len = 16; /* read 16 bytes */
 	char *bp;
 	char data;
 	struct dpcd_cap *cap;
@@ -838,8 +838,15 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 	rlen = dp_aux_read_buf(ep, 0, len, 0);
 	if (rlen <= 0) {
 		pr_err("edp aux read failed\n");
-		return;
+		return rlen;
 	}
+
+	if (rlen != len) {
+		pr_debug("Read size expected(%d) bytes, actual(%d) bytes\n",
+			len, rlen);
+		return -EINVAL;
+	}
+
 	rp = &ep->rxp;
 	cap = &ep->dpcd;
 	bp = rp->data;
@@ -849,15 +856,11 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 	data = *bp++; /* byte 0 */
 	cap->major = (data >> 4) & 0x0f;
 	cap->minor = data & 0x0f;
-	if (--rlen <= 0)
-		return;
 	pr_debug("version: %d.%d\n", cap->major, cap->minor);
 
 	data = *bp++; /* byte 1 */
 	/* 162, 270 and 540 MB, symbol rate, NOT bit rate */
 	cap->max_link_rate = data;
-	if (--rlen <= 0)
-		return;
 	pr_debug("link_rate=%d\n", cap->max_link_rate);
 
 	data = *bp++; /* byte 2 */
@@ -873,8 +876,6 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 
 	data &= 0x0f;
 	cap->max_lane_count = data;
-	if (--rlen <= 0)
-		return;
 	pr_debug("lane_count=%d\n", cap->max_lane_count);
 
 	data = *bp++; /* byte 3 */
@@ -887,14 +888,10 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 		cap->flags |= DPCD_NO_AUX_HANDSHAKE;
 		pr_debug("NO Link Training\n");
 	}
-	if (--rlen <= 0)
-		return;
 
 	data = *bp++; /* byte 4 */
 	cap->num_rx_port = (data & BIT(0)) + 1;
 	pr_debug("rx_ports=%d", cap->num_rx_port);
-	if (--rlen <= 0)
-		return;
 
 	data = *bp++; /* Byte 5: DOWN_STREAM_PORT_PRESENT */
 	cap->downstream_port.dfp_present = data & BIT(0);
@@ -907,13 +904,8 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 	pr_debug("format_conversion = %d, detailed_cap_info_available = %d\n",
 			cap->downstream_port.format_conversion,
 			cap->downstream_port.detailed_cap_info_available);
-	if (--rlen <= 0)
-		return;
 
 	bp += 1;	/* Skip Byte 6 */
-	rlen -= 1;
-	if (rlen <= 0)
-		return;
 
 	data = *bp++; /* Byte 7: DOWN_STREAM_PORT_COUNT */
 	cap->downstream_port.dfp_count = data & 0x7;
@@ -923,34 +915,23 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 			cap->downstream_port.dfp_count,
 			cap->downstream_port.msa_timing_par_ignored);
 	pr_debug("oui_support = %d\n", cap->downstream_port.oui_support);
-	if (--rlen <= 0)
-		return;
 
 	data = *bp++; /* byte 8 */
 	if (data & BIT(1)) {
 		cap->flags |= DPCD_PORT_0_EDID_PRESENTED;
 		pr_debug("edid presented\n");
 	}
-	if (--rlen <= 0)
-		return;
 
 	data = *bp++; /* byte 9 */
 	cap->rx_port0_buf_size = (data + 1) * 32;
 	pr_debug("lane_buf_size=%d\n", cap->rx_port0_buf_size);
-	if (--rlen <= 0)
-		return;
 
 	bp += 2; /* skip 10, 11 port1 capability */
-	rlen -= 2;
-	if (rlen <= 0)
-		return;
 
 	data = *bp++;	/* byte 12 */
 	cap->i2c_speed_ctrl = data;
 	if (cap->i2c_speed_ctrl > 0)
 		pr_debug("i2c_rate=%d", cap->i2c_speed_ctrl);
-	if (--rlen <= 0)
-		return;
 
 	data = *bp++;	/* byte 13 */
 	cap->scrambler_reset = data & BIT(0);
@@ -962,8 +943,6 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 
 	pr_debug("enhanced_framing=%d\n",
 					cap->enhanced_frame);
-	if (--rlen <= 0)
-		return;
 
 	data = *bp++; /* byte 14 */
 	if (data == 0)
@@ -974,6 +953,8 @@ static void dp_sink_capability_read(struct mdss_dp_drv_pdata *ep,
 			 cap->training_read_interval);
 
 	dp_sink_parse_sink_count(ep);
+
+	return 0;
 }
 
 int mdss_dp_aux_link_status_read(struct mdss_dp_drv_pdata *ep, int len)
@@ -2377,11 +2358,6 @@ clear:
 	dp_clear_training_pattern(dp);
 
 	return ret;
-}
-
-void mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
-{
-	dp_sink_capability_read(ep, 16);
 }
 
 void mdss_dp_aux_parse_sink_status_field(struct mdss_dp_drv_pdata *ep)
