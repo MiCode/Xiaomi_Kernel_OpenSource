@@ -980,6 +980,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 {
 	int rc = 0;
 	uint32_t vbif_version;
+	cpp_dev->turbo_vote = 0;
 
 	rc = msm_camera_regulator_enable(cpp_dev->cpp_vdd,
 		cpp_dev->num_reg, true);
@@ -1430,6 +1431,14 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		pr_err("Invalid close\n");
 		mutex_unlock(&cpp_dev->mutex);
 		return -ENODEV;
+	}
+
+	if (cpp_dev->turbo_vote == 1) {
+		rc = cx_ipeak_update(cpp_dev->cpp_cx_ipeak, false);
+			if (rc)
+				pr_err("cx_ipeak_update failed");
+			else
+				cpp_dev->turbo_vote = 0;
 	}
 
 	cpp_dev->cpp_open_cnt--;
@@ -2953,6 +2962,38 @@ static int msm_cpp_validate_input(unsigned int cmd, void *arg,
 	return 0;
 }
 
+unsigned long cpp_cx_ipeak_update(struct cpp_device *cpp_dev,
+	unsigned long clock, int idx)
+{
+	unsigned long clock_rate = 0;
+	int ret = 0;
+
+	if ((clock >= cpp_dev->hw_info.freq_tbl
+		[(cpp_dev->hw_info.freq_tbl_count) - 1]) &&
+		(cpp_dev->turbo_vote == 0)) {
+		ret = cx_ipeak_update(cpp_dev->cpp_cx_ipeak, true);
+		if (ret) {
+			pr_err("cx_ipeak voting failed setting clock below turbo");
+			clock = cpp_dev->hw_info.freq_tbl
+				[(cpp_dev->hw_info.freq_tbl_count) - 2];
+		} else {
+			cpp_dev->turbo_vote = 1;
+		}
+		clock_rate = msm_cpp_set_core_clk(cpp_dev, clock, idx);
+	} else if (clock < cpp_dev->hw_info.freq_tbl
+		[(cpp_dev->hw_info.freq_tbl_count) - 1]) {
+		clock_rate = msm_cpp_set_core_clk(cpp_dev, clock, idx);
+		if (cpp_dev->turbo_vote == 1) {
+			ret = cx_ipeak_update(cpp_dev->cpp_cx_ipeak, false);
+			if (ret)
+				pr_err("cx_ipeak unvoting failed");
+			else
+				cpp_dev->turbo_vote = 0;
+		}
+	}
+	return clock_rate;
+}
+
 long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
 {
@@ -3335,9 +3376,15 @@ STREAM_BUFF_END:
 				mutex_unlock(&cpp_dev->mutex);
 				return -EINVAL;
 			}
-			clock_rate = msm_cpp_set_core_clk(cpp_dev,
-				clock_settings.clock_rate,
-				msm_cpp_core_clk_idx);
+			if (cpp_dev->cpp_cx_ipeak) {
+				clock_rate = cpp_cx_ipeak_update(cpp_dev,
+					clock_settings.clock_rate,
+					msm_cpp_core_clk_idx);
+			} else {
+				clock_rate = msm_cpp_set_core_clk(cpp_dev,
+					clock_settings.clock_rate,
+					msm_cpp_core_clk_idx);
+			}
 			if (rc < 0) {
 				pr_err("Fail to set core clk\n");
 				mutex_unlock(&cpp_dev->mutex);
@@ -4387,6 +4434,15 @@ static int cpp_probe(struct platform_device *pdev)
 			msm_camera_set_clk_flags(cpp_dev->cpp_clk[i],
 				CLKFLAG_NORETAIN_PERIPH);
 		}
+	}
+
+	if (of_find_property(pdev->dev.of_node, "qcom,cpp-cx-ipeak", NULL)) {
+		cpp_dev->cpp_cx_ipeak = cx_ipeak_register(
+			pdev->dev.of_node, "qcom,cpp-cx-ipeak");
+		if (cpp_dev->cpp_cx_ipeak)
+			CPP_DBG("Cx ipeak Registration Successful ");
+		else
+			pr_err("Cx ipeak Registration Unsuccessful");
 	}
 
 	rc = msm_camera_get_reset_info(pdev,
