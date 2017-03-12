@@ -54,6 +54,8 @@ struct mdss_dp_attention_node {
 
 #define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
 
+static int mdss_dp_host_init(struct mdss_panel_data *pdata);
+static int mdss_dp_host_deinit(struct mdss_dp_drv_pdata *dp);
 static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv);
 static void mdss_dp_mainlink_push_idle(struct mdss_panel_data *pdata);
 static inline void mdss_dp_link_maintenance(struct mdss_dp_drv_pdata *dp,
@@ -64,6 +66,8 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 	enum notification_status status);
 static int mdss_dp_process_phy_test_pattern_request(
 		struct mdss_dp_drv_pdata *dp);
+static int mdss_dp_send_audio_notification(
+	struct mdss_dp_drv_pdata *dp, int val);
 
 static inline void mdss_dp_reset_test_data(struct mdss_dp_drv_pdata *dp)
 {
@@ -474,6 +478,12 @@ static int mdss_dp_clk_ctrl(struct mdss_dp_drv_pdata *dp_drv,
 	else
 		dp_drv->link_clks_on = enable;
 
+	pr_debug("%s clocks for %s\n",
+			enable ? "enable" : "disable",
+			__mdss_dp_pm_name(pm_type));
+	pr_debug("link_clks:%s core_clks:%s\n",
+		dp_drv->link_clks_on ? "on" : "off",
+		dp_drv->core_clks_on ? "on" : "off");
 error:
 	return ret;
 }
@@ -961,6 +971,14 @@ static int mdss_dp_wait4video_ready(struct mdss_dp_drv_pdata *dp_drv)
 		ret = -EINVAL;
 	} else {
 		ret = 0;
+		/*
+		 * The audio subsystem should only be notified once the DP
+		 * controller is in SEND_VIDEO state. This will ensure that
+		 * the DP audio engine is able to acknowledge the audio unmute
+		 * request, which will result in the AFE port being configured
+		 * correctly.
+		 */
+		mdss_dp_send_audio_notification(dp_drv, true);
 	}
 
 	pr_debug("End--\n");
@@ -1038,6 +1056,22 @@ static int dp_get_audio_edid_blk(struct platform_device *pdev,
 	return rc;
 } /* dp_get_audio_edid_blk */
 
+static void dp_audio_teardown_done(struct platform_device *pdev)
+{
+	struct mdss_dp_drv_pdata *dp = platform_get_drvdata(pdev);
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	mdss_dp_audio_enable(&dp->ctrl_io, false);
+	/* Make sure the DP audio engine is disabled */
+	wmb();
+
+	pr_debug("audio engine disabled\n");
+} /* dp_audio_teardown_done */
+
 static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
@@ -1059,6 +1093,8 @@ static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
 		dp_get_audio_edid_blk;
 	dp->ext_audio_data.codec_ops.cable_status =
 		dp_get_cable_status;
+	dp->ext_audio_data.codec_ops.teardown_done =
+		dp_audio_teardown_done;
 
 	if (!dp->pdev->dev.of_node) {
 		pr_err("%s cannot find dp dev.of_node\n", __func__);
@@ -1284,6 +1320,11 @@ static int mdss_dp_enable_mainlink_clocks(struct mdss_dp_drv_pdata *dp)
 	if (dp->pixel_clk_rcg && dp->pixel_parent)
 		clk_set_parent(dp->pixel_clk_rcg, dp->pixel_parent);
 
+	if (dp->link_clks_on) {
+		pr_debug("link clocks already on\n");
+		return ret;
+	}
+
 	mdss_dp_set_clock_rate(dp, "ctrl_link_clk",
 		(dp->link_rate * DP_LINK_RATE_MULTIPLIER) / DP_KHZ_TO_HZ);
 
@@ -1308,6 +1349,11 @@ static int mdss_dp_enable_mainlink_clocks(struct mdss_dp_drv_pdata *dp)
  */
 static void mdss_dp_disable_mainlink_clocks(struct mdss_dp_drv_pdata *dp_drv)
 {
+	if (!dp_drv->link_clks_on) {
+		pr_debug("link clocks already off\n");
+		return;
+	}
+
 	mdss_dp_clk_ctrl(dp_drv, DP_CTRL_PM, false);
 }
 
@@ -1347,7 +1393,7 @@ static void mdss_dp_configure_source_params(struct mdss_dp_drv_pdata *dp,
 static int mdss_dp_setup_main_link(struct mdss_dp_drv_pdata *dp, bool train)
 {
 	int ret = 0;
-	int ready = 0;
+	bool mainlink_ready = false;
 
 	pr_debug("enter\n");
 	mdss_dp_mainlink_ctrl(&dp->ctrl_io, true);
@@ -1380,8 +1426,8 @@ send_video:
 	mdss_dp_state_ctrl(&dp->ctrl_io, ST_SEND_VIDEO);
 
 	mdss_dp_wait4video_ready(dp);
-	ready = mdss_dp_mainlink_ready(dp, BIT(0));
-	pr_debug("main link %s\n", ready ? "READY" : "NOT READY");
+	mainlink_ready = mdss_dp_mainlink_ready(dp);
+	pr_debug("mainlink %s\n", mainlink_ready ? "READY" : "NOT READY");
 
 end:
 	return ret;
@@ -1543,6 +1589,16 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 		return 0;
 	}
 
+	/*
+	 * During device suspend, host_deinit() is called
+	 * to release DP resources. PM_RESUME can be
+	 * called for any module wake-up. To avoid multiple host
+	 * init/deinit during unrelated resume/suspend events,
+	 * add host initialization call before DP power-on.
+	 */
+	if (!dp_drv->dp_initialized)
+		mdss_dp_host_init(pdata);
+
 	return mdss_dp_on_hpd(dp_drv);
 }
 
@@ -1590,25 +1646,7 @@ static int mdss_dp_off_hpd(struct mdss_dp_drv_pdata *dp_drv)
 
 	mdss_dp_audio_enable(&dp_drv->ctrl_io, false);
 
-	mdss_dp_irq_disable(dp_drv);
-
-	mdss_dp_config_gpios(dp_drv, false);
-	mdss_dp_pinctrl_set_state(dp_drv, false);
-
-	/*
-	* The global reset will need DP link ralated clocks to be
-	* running. Add the global reset just before disabling the
-	* link clocks and core clocks.
-	*/
-	mdss_dp_ctrl_reset(&dp_drv->ctrl_io);
-
-	/* Make sure DP is disabled before clk disable */
-	wmb();
-	mdss_dp_disable_mainlink_clocks(dp_drv);
-	mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
-
-	mdss_dp_regulator_ctrl(dp_drv, false);
-	dp_drv->dp_initialized = false;
+	mdss_dp_host_deinit(dp_drv);
 
 	dp_drv->power_on = false;
 	dp_drv->sink_info_read = false;
@@ -1639,25 +1677,45 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 		return mdss_dp_off_hpd(dp);
 }
 
-static int mdss_dp_send_cable_notification(
+static int mdss_dp_send_audio_notification(
 	struct mdss_dp_drv_pdata *dp, int val)
 {
 	int ret = 0;
 	u32 flags = 0;
 
 	if (!dp) {
-		DEV_ERR("%s: invalid input\n", __func__);
+		pr_err("invalid input\n");
 		ret = -EINVAL;
 		goto end;
 	}
-
-	flags |= MSM_EXT_DISP_HPD_VIDEO;
 
 	if (!mdss_dp_is_dvi_mode(dp) || dp->audio_test_req) {
 		dp->audio_test_req = false;
 
 		flags |= MSM_EXT_DISP_HPD_AUDIO;
+
+		if (dp->ext_audio_data.intf_ops.hpd)
+			ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
+					dp->ext_audio_data.type, val, flags);
 	}
+
+end:
+	return ret;
+}
+
+static int mdss_dp_send_video_notification(
+	struct mdss_dp_drv_pdata *dp, int val)
+{
+	int ret = 0;
+	u32 flags = 0;
+
+	if (!dp) {
+		pr_err("invalid input\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	flags |= MSM_EXT_DISP_HPD_VIDEO;
 
 	if (dp->ext_audio_data.intf_ops.hpd)
 		ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
@@ -1671,6 +1729,19 @@ static void mdss_dp_set_default_resolution(struct mdss_dp_drv_pdata *dp)
 {
 	hdmi_edid_set_video_resolution(dp->panel_data.panel_info.edid_data,
 			DEFAULT_VIDEO_RESOLUTION, true);
+}
+
+static void mdss_dp_set_default_link_parameters(struct mdss_dp_drv_pdata *dp)
+{
+	const int default_max_link_rate = 0x6;
+	const int default_max_lane_count = 1;
+
+	dp->dpcd.max_lane_count =  default_max_lane_count;
+	dp->dpcd.max_link_rate =  default_max_link_rate;
+
+	pr_debug("max_link_rate = 0x%x, max_lane_count= 0x%x\n",
+			dp->dpcd.max_link_rate,
+			dp->dpcd.max_lane_count);
 }
 
 static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
@@ -1776,6 +1847,49 @@ vreg_error:
 }
 
 /**
+ * mdss_dp_host_deinit() - Uninitialize DP controller
+ * @dp: Display Port Driver data
+ *
+ * Perform required steps to uninitialize DP controller
+ * and its resources.
+ */
+static int mdss_dp_host_deinit(struct mdss_dp_drv_pdata *dp)
+{
+	if (!dp) {
+		pr_err("Invalid input data\n");
+		return -EINVAL;
+	}
+
+	if (!dp->dp_initialized) {
+		pr_debug("%s: host deinit done already\n", __func__);
+		return 0;
+	}
+
+	mdss_dp_irq_disable(dp);
+
+	mdss_dp_config_gpios(dp, false);
+	mdss_dp_pinctrl_set_state(dp, false);
+
+	/*
+	* The global reset will need DP link ralated clocks to be
+	* running. Add the global reset just before disabling the
+	* link clocks and core clocks.
+	*/
+	mdss_dp_ctrl_reset(&dp->ctrl_io);
+
+	/* Make sure DP is disabled before clk disable */
+	wmb();
+	mdss_dp_disable_mainlink_clocks(dp);
+	mdss_dp_clk_ctrl(dp, DP_CORE_PM, false);
+
+	mdss_dp_regulator_ctrl(dp, false);
+	dp->dp_initialized = false;
+	pr_debug("Host deinitialized successfully\n");
+
+	return 0;
+}
+
+/**
  * mdss_dp_notify_clients() - notifies DP clients of cable connection
  * @dp: Display Port Driver data
  * @status: HPD notification status requested
@@ -1804,7 +1918,7 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 			goto invalid_request;
 		/* Follow the same programming as for NOTIFY_CONNECT */
 		mdss_dp_host_init(&dp->panel_data);
-		mdss_dp_send_cable_notification(dp, true);
+		mdss_dp_send_video_notification(dp, true);
 		break;
 	case NOTIFY_CONNECT:
 		if ((dp->hpd_notification_status == NOTIFY_CONNECT_IRQ_HPD) ||
@@ -1812,16 +1926,18 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 			 NOTIFY_DISCONNECT_IRQ_HPD))
 			goto invalid_request;
 		mdss_dp_host_init(&dp->panel_data);
-		mdss_dp_send_cable_notification(dp, true);
+		mdss_dp_send_video_notification(dp, true);
 		break;
 	case NOTIFY_DISCONNECT:
-		mdss_dp_send_cable_notification(dp, false);
+		mdss_dp_send_audio_notification(dp, false);
+		mdss_dp_send_video_notification(dp, false);
 		break;
 	case NOTIFY_DISCONNECT_IRQ_HPD:
 		if (dp->hpd_notification_status == NOTIFY_DISCONNECT)
 			goto invalid_request;
 
-		mdss_dp_send_cable_notification(dp, false);
+		mdss_dp_send_audio_notification(dp, false);
+		mdss_dp_send_video_notification(dp, false);
 		if (!IS_ERR_VALUE(ret) && ret) {
 			reinit_completion(&dp->irq_comp);
 			ret = wait_for_completion_timeout(&dp->irq_comp,
@@ -1878,12 +1994,16 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 		pr_debug("edid read error, setting default resolution\n");
 
 		mdss_dp_set_default_resolution(dp);
+		mdss_dp_set_default_link_parameters(dp);
 		goto notify;
 	}
 
 	ret = hdmi_edid_parser(dp->panel_data.panel_info.edid_data);
 	if (ret) {
-		pr_err("edid parse failed\n");
+		pr_err("edid parse failed, setting default resolution\n");
+
+		mdss_dp_set_default_resolution(dp);
+		mdss_dp_set_default_link_parameters(dp);
 		goto notify;
 	}
 
@@ -2307,7 +2427,7 @@ static ssize_t mdss_dp_wta_hpd(struct device *dev,
 		} else {
 			dp_send_events(dp, EV_USBPD_DISCOVER_MODES);
 		}
-	} else if (!dp->hpd && dp->power_on) {
+	} else if (!dp->hpd) {
 		mdss_dp_notify_clients(dp, NOTIFY_DISCONNECT);
 	}
 end:
@@ -2686,6 +2806,22 @@ static void mdss_dp_update_hdcp_info(struct mdss_dp_drv_pdata *dp)
 	}
 }
 
+/**
+ * mdss_dp_reset_panel_info() - reset the panel_info data
+ * @dp: Display Port Driver data
+ *
+ * This function will reset the panel resolution to
+ * HDMI_VFRMT_UNKNOWN if the sink device is not connected. This will help
+ * to reconfigure the panel resolution during cable connect event.
+ */
+static void mdss_dp_reset_panel_info(struct mdss_dp_drv_pdata *dp)
+{
+	if (dp->suspend_vic != HDMI_VFRMT_UNKNOWN) {
+		dp->suspend_vic = HDMI_VFRMT_UNKNOWN;
+		dp_init_panel_info(dp, dp->suspend_vic);
+	}
+}
+
 static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
@@ -2705,11 +2841,10 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 
 	switch (event) {
 	case MDSS_EVENT_UNBLANK:
+		mdss_dp_ack_state(dp, true);
 		rc = mdss_dp_on(pdata);
 		break;
 	case MDSS_EVENT_PANEL_ON:
-		mdss_dp_ack_state(dp, true);
-
 		mdss_dp_update_hdcp_info(dp);
 
 		if (dp_is_hdcp_enabled(dp)) {
@@ -2753,6 +2888,31 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_CHECK_PARAMS:
 		rc = mdss_dp_check_params(dp, arg);
+		break;
+	case MDSS_EVENT_SUSPEND:
+		/*
+		 * Make sure DP host_deinit is called
+		 * when DP host is initialized but not
+		 * powered ON.
+		 * For example, this scenerio happens
+		 * when you connect DP sink while the
+		 * device is in suspend state.
+		 */
+		if ((!dp->power_on) && (dp->dp_initialized))
+			rc = mdss_dp_host_deinit(dp);
+
+		/*
+		 * For DP suspend/resume use case, CHECK_PARAMS is
+		 * not called if the cable status is not changed.
+		 * Store the sink resolution in suspend and configure
+		 * the resolution during DP resume path.
+		 */
+		if (dp->power_on)
+			dp->suspend_vic = dp->vic;
+		break;
+	case MDSS_EVENT_RESUME:
+		if (dp->suspend_vic != HDMI_VFRMT_UNKNOWN)
+			dp_init_panel_info(dp, dp->suspend_vic);
 		break;
 	default:
 		pr_debug("unhandled event=%d\n", event);
@@ -3109,6 +3269,27 @@ static void usbpd_disconnect_callback(struct usbpd_svid_handler *hdlr)
 	} else {
 		mdss_dp_notify_clients(dp_drv, NOTIFY_DISCONNECT);
 	}
+
+	/*
+	 * If cable is disconnected during device suspend,
+	 * reset the panel resolution to HDMI_VFRMT_UNKNOWN
+	 * so that new resolution is configured during
+	 * cable connect event
+	 */
+	if ((!dp_drv->power_on) && (!dp_drv->dp_initialized))
+		mdss_dp_reset_panel_info(dp_drv);
+
+	/*
+	 * If a cable/dongle is connected to the TX device but
+	 * no sink device is connected, we call host
+	 * initialization where orientation settings are
+	 * configured. When the cable/dongle is disconnect,
+	 * call host de-initialization to make sure
+	 * we re-configure the orientation settings during
+	 * the next connect event.
+	 */
+	if ((!dp_drv->power_on) && (dp_drv->dp_initialized))
+		mdss_dp_host_deinit(dp_drv);
 }
 
 static int mdss_dp_validate_callback(u8 cmd,
@@ -3605,6 +3786,16 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 		mdss_dp_notify_clients(dp_drv, NOTIFY_DISCONNECT);
 		pr_debug("Attention: Notified clients\n");
 
+		/*
+		 * When a DP adaptor is connected and if sink is
+		 * disconnected during device suspend,
+		 * reset the panel resolution to HDMI_VFRMT_UNKNOWN
+		 * so that new resolution is configured during
+		 * connect event.
+		 */
+		if ((!dp_drv->power_on) && (!dp_drv->dp_initialized))
+			mdss_dp_reset_panel_info(dp_drv);
+
 		/**
 		 * Manually turn off the DP controller if we are in PHY
 		 * testing mode.
@@ -3827,6 +4018,7 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	dp_drv->hpd_irq_on = false;
 	mdss_dp_reset_test_data(dp_drv);
 	init_completion(&dp_drv->irq_comp);
+	dp_drv->suspend_vic = HDMI_VFRMT_UNKNOWN;
 
 	pr_debug("done\n");
 

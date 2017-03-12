@@ -2114,6 +2114,10 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	hlist_del_init(&fl->hn);
 	spin_unlock(&fl->apps->hlock);
 
+	if (!fl->sctx) {
+		kfree(fl);
+		return 0;
+	}
 	(void)fastrpc_release_current_dsp_process(fl);
 	fastrpc_context_list_dtor(fl);
 	fastrpc_buf_list_free(fl);
@@ -2423,13 +2427,15 @@ bail:
 static int fastrpc_device_open(struct inode *inode, struct file *filp)
 {
 	int err = 0;
+	struct dentry *debugfs_file;
 	struct fastrpc_file *fl = 0;
 	struct fastrpc_apps *me = &gfa;
 
 	VERIFY(err, fl = kzalloc(sizeof(*fl), GFP_KERNEL));
 	if (err)
 		return err;
-
+	debugfs_file = debugfs_create_file(current->comm, 0644, debugfs_root,
+						fl, &debugfs_fops);
 	context_list_ctor(&fl->clst);
 	spin_lock_init(&fl->hlock);
 	INIT_HLIST_HEAD(&fl->maps);
@@ -2439,6 +2445,9 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->apps = me;
 	fl->mode = FASTRPC_MODE_SERIAL;
 	fl->cid = -1;
+	if (debugfs_file != NULL)
+		fl->debugfs_file = debugfs_file;
+	memset(&fl->perf, 0, sizeof(fl->perf));
 	filp->private_data = fl;
 	spin_lock(&me->hlock);
 	hlist_add_head(&fl->hn, &me->drivers);

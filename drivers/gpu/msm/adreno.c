@@ -1720,6 +1720,30 @@ static int adreno_getproperty(struct kgsl_device *device,
 			status = 0;
 		}
 		break;
+	case KGSL_PROP_DEVICE_QTIMER:
+		{
+			struct kgsl_qtimer_prop qtimerprop = {0};
+			struct kgsl_memdesc *qtimer_desc =
+				kgsl_mmu_get_qtimer_global_entry(device);
+
+			if (sizebytes != sizeof(qtimerprop)) {
+				status = -EINVAL;
+				break;
+			}
+
+			if (qtimer_desc) {
+				qtimerprop.gpuaddr = qtimer_desc->gpuaddr;
+				qtimerprop.size = qtimer_desc->size;
+			}
+
+			if (copy_to_user(value, &qtimerprop,
+						sizeof(qtimerprop))) {
+				status = -EFAULT;
+				break;
+			}
+			status = 0;
+		}
+		break;
 	case KGSL_PROP_MMU_ENABLE:
 		{
 			/* Report MMU only if we can handle paged memory */
@@ -2771,6 +2795,7 @@ static const struct kgsl_functable adreno_functable = {
 	.regulator_disable_poll = adreno_regulator_disable_poll,
 	.clk_set_options = adreno_clk_set_options,
 	.gpu_model = adreno_gpu_model,
+	.stop_fault_timer = adreno_dispatcher_stop_fault_timer,
 };
 
 static struct platform_driver adreno_platform_driver = {

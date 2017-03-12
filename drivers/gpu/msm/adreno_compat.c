@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -107,6 +107,30 @@ int adreno_getproperty_compat(struct kgsl_device *device,
 
 			if (copy_to_user(value, &qdssprop,
 						sizeof(qdssprop))) {
+				status = -EFAULT;
+				break;
+			}
+			status = 0;
+		}
+		break;
+	case KGSL_PROP_DEVICE_QTIMER:
+		{
+			struct kgsl_qtimer_prop qtimerprop = {0};
+			struct kgsl_memdesc *qtimer_desc =
+				kgsl_mmu_get_qtimer_global_entry(device);
+
+			if (sizebytes != sizeof(qtimerprop)) {
+				status = -EINVAL;
+				break;
+			}
+
+			if (qtimer_desc) {
+				qtimerprop.gpuaddr = qtimer_desc->gpuaddr;
+				qtimerprop.size = qtimer_desc->size;
+			}
+
+			if (copy_to_user(value, &qtimerprop,
+						sizeof(qtimerprop))) {
 				status = -EFAULT;
 				break;
 			}
