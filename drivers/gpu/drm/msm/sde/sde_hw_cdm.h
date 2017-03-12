@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,8 +65,9 @@ struct sde_hw_cdm_ops {
 	 * to program a different matrix than default matrix.
 	 * @cdm:          Pointer to the chroma down context structure
 	 * @data          Pointer to CSC configuration data
+	 * return:        0 if success; error code otherwise
 	 */
-	void (*setup_csc_data)(struct sde_hw_cdm *cdm,
+	int (*setup_csc_data)(struct sde_hw_cdm *cdm,
 			struct sde_csc_cfg *data);
 
 	/**
