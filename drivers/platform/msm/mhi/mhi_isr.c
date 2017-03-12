@@ -114,6 +114,7 @@ static int mhi_process_event_ring(
 						 ev_index);
 			spin_unlock_bh(&ring->ring_lock);
 			__pm_relax(&mhi_dev_ctxt->w_lock);
+			event_quota--;
 			break;
 		}
 		case MHI_PKT_TYPE_STATE_CHANGE_EVENT:
@@ -207,7 +208,6 @@ static int mhi_process_event_ring(
 						ev_ctxt->mhi_event_read_ptr);
 		spin_unlock_irqrestore(&local_ev_ctxt->ring_lock, flags);
 		ret_val = 0;
-		--event_quota;
 	}
 	read_lock_bh(&mhi_dev_ctxt->pm_xfer_lock);
 	mhi_dev_ctxt->deassert_wake(mhi_dev_ctxt);
@@ -222,12 +222,10 @@ void mhi_ev_task(unsigned long data)
 	struct mhi_device_ctxt *mhi_dev_ctxt =
 		mhi_ring->mhi_dev_ctxt;
 	int ev_index = mhi_ring->index;
-	struct mhi_event_ring_cfg *ring_props =
-		&mhi_dev_ctxt->ev_ring_props[ev_index];
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Enter\n");
 	/* Process event ring */
-	mhi_process_event_ring(mhi_dev_ctxt, ev_index, ring_props->nr_desc);
+	mhi_process_event_ring(mhi_dev_ctxt, ev_index, U32_MAX);
 
 	enable_irq(MSI_TO_IRQ(mhi_dev_ctxt, ev_index));
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Exit\n");
@@ -240,12 +238,10 @@ void process_event_ring(struct work_struct *work)
 	struct mhi_device_ctxt *mhi_dev_ctxt =
 		mhi_ring->mhi_dev_ctxt;
 	int ev_index = mhi_ring->index;
-	struct mhi_event_ring_cfg *ring_props =
-		&mhi_dev_ctxt->ev_ring_props[ev_index];
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Enter\n");
 	/* Process event ring */
-	mhi_process_event_ring(mhi_dev_ctxt, ev_index, ring_props->nr_desc);
+	mhi_process_event_ring(mhi_dev_ctxt, ev_index, U32_MAX);
 
 	enable_irq(MSI_TO_IRQ(mhi_dev_ctxt, ev_index));
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Exit\n");
