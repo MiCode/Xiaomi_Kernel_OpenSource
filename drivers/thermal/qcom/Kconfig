@@ -30,3 +30,13 @@ config QTI_THERMAL_LIMITS_DCVS
 	  each cluster can be used to perform quick thermal mitigations by
 	  tracking temperatures of the CPUs and taking thermal action in the
 	  hardware without s/w intervention.
+
+config QTI_VIRTUAL_SENSOR
+	bool "QTI Virtual Sensor driver"
+	depends on THERMAL_OF
+	help
+	  This driver has the information about the virtual sensors used by
+	  QTI chipset's and registers the virtual sensors to a thermal zone.
+	  The virtual sensor information includes the underlying thermal
+	  sensors to query for temperature and the aggregation logic to
+	  determine the virtual sensor temperature.
