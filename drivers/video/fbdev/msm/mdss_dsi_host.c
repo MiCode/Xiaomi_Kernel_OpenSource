@@ -766,6 +766,8 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 	u32 data0, data1, mask = 0, data_lane_en = 0;
 	struct mdss_dsi_ctrl_pdata *ctrl0, *ctrl1;
 	u32 ln0, ln1, ln_ctrl0, ln_ctrl1, i;
+	int rc = 0;
+
 	/*
 	 * Add 2 ms delay suggested by HW team.
 	 * Check clk lane stop state after every 200 us
@@ -787,9 +789,15 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 		ctrl0 = mdss_dsi_get_ctrl_by_index(DSI_CTRL_0);
 		ctrl1 = mdss_dsi_get_ctrl_by_index(DSI_CTRL_1);
 
-		if (ctrl0->recovery)
-			ctrl0->recovery->fxn(ctrl0->recovery->data,
+		if (ctrl0->recovery) {
+			rc = ctrl0->recovery->fxn(ctrl0->recovery->data,
 					MDP_INTF_DSI_VIDEO_FIFO_OVERFLOW);
+			if (rc < 0) {
+				pr_debug("%s: Target is in suspend/shutdown\n",
+					__func__);
+				return;
+			}
+		}
 		/*
 		 * Disable PHY contention detection and receive.
 		 * Configure the strength ctrl 1 register.
@@ -879,9 +887,15 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 		 */
 		udelay(200);
 	} else {
-		if (ctrl->recovery)
-			ctrl->recovery->fxn(ctrl->recovery->data,
+		if (ctrl->recovery) {
+			rc = ctrl->recovery->fxn(ctrl->recovery->data,
 					MDP_INTF_DSI_VIDEO_FIFO_OVERFLOW);
+			if (rc < 0) {
+				pr_debug("%s: Target is in suspend/shutdown\n",
+					__func__);
+				return;
+			}
+		}
 		/* Disable PHY contention detection and receive */
 		MIPI_OUTP((ctrl->phy_io.base) + 0x0188, 0);
 
@@ -2134,8 +2148,8 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		status = reg_val & DSI_INTR_CMD_DMA_DONE;
 		if (status) {
 			reg_val &= DSI_INTR_MASK_ALL;
-			/* clear CMD DMA isr only */
-			reg_val |= DSI_INTR_CMD_DMA_DONE;
+			/* clear CMD DMA and BTA_DONE isr only */
+			reg_val |= (DSI_INTR_CMD_DMA_DONE | DSI_INTR_BTA_DONE);
 			MIPI_OUTP(ctrl->ctrl_base + 0x0110, reg_val);
 			mdss_dsi_disable_irq_nosync(ctrl, DSI_CMD_TERM);
 			complete(&ctrl->dma_comp);
@@ -3029,6 +3043,13 @@ static bool mdss_dsi_fifo_status(struct mdss_dsi_ctrl_pdata *ctrl)
 		MIPI_OUTP(base + 0x000c, status);
 
 		pr_err("%s: status=%x\n", __func__, status);
+
+		/*
+		 * if DSI FIFO overflow is masked,
+		 * do not report overflow error
+		 */
+		if (MIPI_INP(base + 0x10c) & 0xf0000)
+			status = status & 0xaaaaffff;
 
 		if (status & 0x44440000) {/* DLNx_HS_FIFO_OVERFLOW */
 			dsi_send_events(ctrl, DSI_EV_DLNx_FIFO_OVERFLOW, 0);

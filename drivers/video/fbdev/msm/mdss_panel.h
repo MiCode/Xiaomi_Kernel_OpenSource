@@ -112,12 +112,6 @@ enum {
 };
 
 enum {
-	MDSS_PANEL_BLANK_BLANK = 0,
-	MDSS_PANEL_BLANK_UNBLANK,
-	MDSS_PANEL_BLANK_LOW_POWER,
-};
-
-enum {
 	MDSS_PANEL_LOW_PERSIST_MODE_OFF = 0,
 	MDSS_PANEL_LOW_PERSIST_MODE_ON,
 };
@@ -195,7 +189,7 @@ enum {
 };
 
 struct mdss_intf_recovery {
-	void (*fxn)(void *ctx, int event);
+	int (*fxn)(void *ctx, int event);
 	void *data;
 };
 
