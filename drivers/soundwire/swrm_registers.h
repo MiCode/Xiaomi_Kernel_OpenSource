@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 
 #define SWRM_BASE_ADDRESS				0x00
 
+#define SWRM_COMP_HW_VERSION                     SWRM_BASE_ADDRESS
 #define SWRM_COMP_CFG_ADDR			(SWRM_BASE_ADDRESS+0x00000004)
 #define SWRM_COMP_CFG_RMSK				0x3
 #define SWRM_COMP_CFG_IRQ_LEVEL_OR_PULSE_BMSK		0x2
