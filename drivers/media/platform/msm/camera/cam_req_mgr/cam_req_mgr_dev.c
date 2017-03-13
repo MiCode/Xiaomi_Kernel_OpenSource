@@ -21,6 +21,8 @@
 #include <media/v4l2-ioctl.h>
 #include <media/cam_req_mgr.h>
 #include "cam_req_mgr_dev.h"
+#include "cam_req_mgr_util.h"
+#include "cam_req_mgr_core.h"
 #include "cam_dev_mgr_util.h"
 
 #define CAM_REQ_MGR_EVENT_MAX 30
@@ -92,8 +94,76 @@ static void cam_v4l2_device_cleanup(void)
 	g_dev.v4l2_dev = NULL;
 }
 
+static int cam_req_mgr_open(struct file *filep)
+{
+	int rc;
+
+	mutex_lock(&g_dev.cam_lock);
+	if (g_dev.open_cnt >= 1) {
+		rc = -EALREADY;
+		goto end;
+	}
+
+	rc = v4l2_fh_open(filep);
+	if (rc) {
+		pr_err("v4l2_fh_open failed: %d\n", rc);
+		goto end;
+	}
+
+	spin_lock_bh(&g_dev.cam_eventq_lock);
+	g_dev.cam_eventq = filep->private_data;
+	spin_unlock_bh(&g_dev.cam_eventq_lock);
+
+	g_dev.open_cnt++;
+
+end:
+	mutex_unlock(&g_dev.cam_lock);
+	return rc;
+}
+
+static unsigned int cam_req_mgr_poll(struct file *f,
+	struct poll_table_struct *pll_table)
+{
+	int rc = 0;
+	struct v4l2_fh *eventq = f->private_data;
+
+	if (!eventq)
+		return -EINVAL;
+
+	poll_wait(f, &eventq->wait, pll_table);
+	if (v4l2_event_pending(eventq))
+		rc = POLLPRI;
+
+	return rc;
+}
+
+static int cam_req_mgr_close(struct file *filep)
+{
+	mutex_lock(&g_dev.cam_lock);
+
+	if (g_dev.open_cnt <= 0) {
+		mutex_unlock(&g_dev.cam_lock);
+		return -EINVAL;
+	}
+
+	g_dev.open_cnt--;
+	v4l2_fh_release(filep);
+
+	spin_lock_bh(&g_dev.cam_eventq_lock);
+	g_dev.cam_eventq = NULL;
+	spin_unlock_bh(&g_dev.cam_eventq_lock);
+
+	cam_req_mgr_util_free_hdls();
+	mutex_unlock(&g_dev.cam_lock);
+
+	return 0;
+}
+
 static struct v4l2_file_operations g_cam_fops = {
 	.owner  = THIS_MODULE,
+	.open   = cam_req_mgr_open,
+	.poll   = cam_req_mgr_poll,
+	.release = cam_req_mgr_close,
 	.unlocked_ioctl   = video_ioctl2,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = video_ioctl2,
@@ -112,9 +182,151 @@ static int cam_unsubscribe_event(struct v4l2_fh *fh,
 	return v4l2_event_unsubscribe(fh, sub);
 }
 
+static long cam_private_ioctl(struct file *file, void *fh,
+	bool valid_prio, unsigned int cmd, void *arg)
+{
+	int rc;
+	struct cam_control *k_ioctl;
+
+	if ((!arg) || (cmd != VIDIOC_CAM_CONTROL))
+		return -EINVAL;
+
+	k_ioctl = (struct cam_control *)arg;
+
+	if (!k_ioctl->handle)
+		return -EINVAL;
+
+	switch (k_ioctl->op_code) {
+	case CAM_REQ_MGR_CREATE_SESSION: {
+		struct cam_req_mgr_session_info ses_info;
+
+		if (k_ioctl->size != sizeof(ses_info))
+			return -EINVAL;
+
+		if (copy_from_user(&ses_info,
+			(void *)k_ioctl->handle,
+			k_ioctl->size)) {
+			return -EFAULT;
+		}
+
+		rc = cam_req_mgr_create_session(&ses_info);
+		if (!rc)
+			if (copy_to_user((void *)k_ioctl->handle,
+				&ses_info, k_ioctl->size))
+				rc = -EFAULT;
+		}
+		break;
+
+	case CAM_REQ_MGR_DESTROY_SESSION: {
+		struct cam_req_mgr_session_info ses_info;
+
+		if (k_ioctl->size != sizeof(ses_info))
+			return -EINVAL;
+
+		if (copy_from_user(&ses_info,
+			(void *)k_ioctl->handle,
+			k_ioctl->size)) {
+			return -EFAULT;
+		}
+
+		rc = cam_req_mgr_destroy_session(&ses_info);
+		}
+		break;
+
+	case CAM_REQ_MGR_LINK: {
+		struct cam_req_mgr_link_info link_info;
+
+		if (k_ioctl->size != sizeof(link_info))
+			return -EINVAL;
+
+		if (copy_from_user(&link_info,
+			(void *)k_ioctl->handle,
+			k_ioctl->size)) {
+			return -EFAULT;
+		}
+
+		rc = cam_req_mgr_link(&link_info);
+		if (!rc)
+			if (copy_to_user((void *)k_ioctl->handle,
+				&link_info, k_ioctl->size))
+				rc = -EFAULT;
+		}
+		break;
+
+	case CAM_REQ_MGR_UNLINK: {
+		struct cam_req_mgr_unlink_info unlink_info;
+
+		if (k_ioctl->size != sizeof(unlink_info))
+			return -EINVAL;
+
+		if (copy_from_user(&unlink_info,
+			(void *)k_ioctl->handle,
+			k_ioctl->size)) {
+			return -EFAULT;
+		}
+
+		rc = cam_req_mgr_unlink(&unlink_info);
+		}
+		break;
+
+	case CAM_REQ_MGR_SCHED_REQ: {
+		struct cam_req_mgr_sched_request sched_req;
+
+		if (k_ioctl->size != sizeof(sched_req))
+			return -EINVAL;
+
+		if (copy_from_user(&sched_req,
+			(void *)k_ioctl->handle,
+			k_ioctl->size)) {
+			return -EFAULT;
+		}
+
+		rc = cam_req_mgr_schedule_request(&sched_req);
+		}
+		break;
+
+	case CAM_REQ_MGR_FLUSH_REQ: {
+		struct cam_req_mgr_flush_info flush_info;
+
+		if (k_ioctl->size != sizeof(flush_info))
+			return -EINVAL;
+
+		if (copy_from_user(&flush_info,
+			(void *)k_ioctl->handle,
+			k_ioctl->size)) {
+			return -EFAULT;
+		}
+
+		rc = cam_req_mgr_flush_requests(&flush_info);
+		}
+		break;
+
+	case CAM_REQ_MGR_SYNC_MODE: {
+		struct cam_req_mgr_sync_mode sync_mode;
+
+		if (k_ioctl->size != sizeof(sync_mode))
+			return -EINVAL;
+
+		if (copy_from_user(&sync_mode,
+			(void *)k_ioctl->handle,
+			k_ioctl->size)) {
+			return -EFAULT;
+		}
+
+		rc = cam_req_mgr_sync_mode(&sync_mode);
+		}
+		break;
+	default:
+		return -ENOIOCTLCMD;
+	}
+
+	return rc;
+}
+
 static const struct v4l2_ioctl_ops g_cam_ioctl_ops = {
 	.vidioc_subscribe_event = cam_subscribe_event,
 	.vidioc_unsubscribe_event = cam_unsubscribe_event,
+	.vidioc_default = cam_private_ioctl,
 };
 
 static int cam_video_device_setup(void)
@@ -231,6 +443,8 @@ EXPORT_SYMBOL(cam_unregister_subdev);
 
 static int cam_req_mgr_remove(struct platform_device *pdev)
 {
+	cam_req_mgr_core_device_deinit();
+	cam_req_mgr_util_deinit();
 	cam_media_device_cleanup();
 	cam_video_device_cleanup();
 	cam_v4l2_device_cleanup();
@@ -256,12 +470,32 @@ static int cam_req_mgr_probe(struct platform_device *pdev)
 	if (rc)
 		goto video_setup_fail;
 
+	g_dev.open_cnt = 0;
+	mutex_init(&g_dev.cam_lock);
+	spin_lock_init(&g_dev.cam_eventq_lock);
 	g_dev.subdev_nodes_created = false;
 	mutex_init(&g_dev.dev_lock);
+
+	rc = cam_req_mgr_util_init();
+	if (rc) {
+		pr_err("cam req mgr util init is failed\n");
+		goto req_mgr_util_fail;
+	}
+
+	rc = cam_req_mgr_core_device_init();
+	if (rc) {
+		pr_err("core device setup failed\n");
+		goto req_mgr_core_fail;
+	}
+
 	g_dev.state = true;
 
 	return rc;
 
+req_mgr_core_fail:
+	cam_req_mgr_util_deinit();
+req_mgr_util_fail:
+	cam_video_device_cleanup();
 video_setup_fail:
 	cam_media_device_cleanup();
 media_setup_fail:
