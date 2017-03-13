@@ -670,6 +670,7 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 	u32 irq_status;
 	u64 wb_time = 0;
 	int rc = 0;
+	u32 timeout = max_t(u32, wb_enc->wbdone_timeout, KICKOFF_TIMEOUT_MS);
 
 	/* Return EWOULDBLOCK since we know the wait isn't necessary */
 	if (WARN_ON(phys_enc->enable_state != SDE_ENC_ENABLED))
@@ -678,7 +679,7 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), wb_enc->frame_count);
 
 	ret = wait_for_completion_timeout(&wb_enc->wbdone_complete,
-			KICKOFF_TIMEOUT_JIFFIES);
+			msecs_to_jiffies(timeout));
 
 	if (!ret) {
 		SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc),
