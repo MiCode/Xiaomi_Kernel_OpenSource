@@ -1678,7 +1678,7 @@ static void mdss_mdp_fetch_end_config(struct mdss_mdp_video_ctx *ctx,
 static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 		struct mdss_mdp_ctl *ctl)
 {
-	int fetch_start, fetch_enable, v_total, h_total;
+	int fetch_start = 0, fetch_enable, v_total, h_total;
 	struct mdss_data_type *mdata;
 	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
 
@@ -1687,6 +1687,15 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 	pinfo->prg_fet = mdss_mdp_get_prefetch_lines(pinfo);
 	if (!pinfo->prg_fet) {
 		pr_debug("programmable fetch is not needed/supported\n");
+
+		fetch_enable = mdp_video_read(ctx, MDSS_MDP_REG_INTF_CONFIG);
+		fetch_enable &= ~BIT(31);
+
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_CONFIG, fetch_enable);
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_PROG_FETCH_START,
+						fetch_start);
+
+		MDSS_XLOG(ctx->intf_num, fetch_enable, fetch_start);
 		return;
 	}
 
