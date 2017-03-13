@@ -2755,9 +2755,13 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 	mdata->mdss_version = SDE_REG_READ(mdata, SDE_REG_HW_VERSION);
 	SDEROT_DBG("mdss revision %x\n", mdata->mdss_version);
 
-	if ((mdata->mdss_version & 0xFFFF0000) == 0x10070000) {
+	if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_107)) {
 		mgr->ops_hw_init = sde_rotator_r1_init;
-	} else if ((mdata->mdss_version & 0xF0000000) == 0x30000000) {
+	} else if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_300) ||
+		IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version,
+			SDE_MDP_HW_REV_400)) {
 		mgr->ops_hw_init = sde_rotator_r3_init;
 	} else {
 		ret = -ENODEV;
