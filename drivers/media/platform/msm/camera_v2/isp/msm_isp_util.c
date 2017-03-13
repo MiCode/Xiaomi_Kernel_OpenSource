@@ -2120,7 +2120,7 @@ void msm_isp_do_tasklet(unsigned long data)
 
 	while (atomic_read(&vfe_dev->irq_cnt)) {
 		spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
-		queue_cmd = list_first_entry(&vfe_dev->tasklet_q,
+		queue_cmd = list_first_entry_or_null(&vfe_dev->tasklet_q,
 		struct msm_vfe_tasklet_queue_cmd, list);
 		if (!queue_cmd) {
 			atomic_set(&vfe_dev->irq_cnt, 0);
