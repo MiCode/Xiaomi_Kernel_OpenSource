@@ -220,6 +220,10 @@ static void cmdq_dump_adma_mem(struct cmdq_host *cq_host)
 static void cmdq_dumpregs(struct cmdq_host *cq_host)
 {
 	struct mmc_host *mmc = cq_host->mmc;
+	int offset = 0;
+
+	if (cq_host->offset_changed)
+		offset = CQ_V5_VENDOR_CFG;
 
 	MMC_TRACE(mmc,
 	"%s: 0x0C=0x%08x 0x10=0x%08x 0x14=0x%08x 0x18=0x%08x 0x28=0x%08x 0x2C=0x%08x 0x30=0x%08x 0x34=0x%08x 0x54=0x%08x 0x58=0x%08x 0x5C=0x%08x 0x48=0x%08x\n",
@@ -266,7 +270,7 @@ static void cmdq_dumpregs(struct cmdq_host *cq_host)
 		cmdq_readl(cq_host, CQCRI),
 		cmdq_readl(cq_host, CQCRA));
 	pr_err(DRV_NAME": Vendor cfg 0x%08x\n",
-	       cmdq_readl(cq_host, CQ_VENDOR_CFG));
+	       cmdq_readl(cq_host, CQ_VENDOR_CFG + offset));
 	pr_err(DRV_NAME ": ===========================================\n");
 
 	cmdq_dump_task_history(cq_host);
@@ -407,6 +411,12 @@ static int cmdq_enable(struct mmc_host *mmc)
 		cq_host->caps |= CMDQ_CAP_CRYPTO_SUPPORT |
 				 CMDQ_TASK_DESC_SZ_128;
 		cqcfg |= CQ_ICE_ENABLE;
+		/*
+		 * For SDHC v5.0 onwards, ICE 3.0 specific registers are added
+		 * in CQ register space, due to which few CQ registers are
+		 * shifted. Set offset_changed boolean to use updated address.
+		 */
+		cq_host->offset_changed = true;
 	}
 
 	cmdq_writel(cq_host, cqcfg, CQCFG);
@@ -841,14 +851,18 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 {
 	struct mmc_request *mrq;
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
+	int offset = 0;
 
+	if (cq_host->offset_changed)
+		offset = CQ_V5_VENDOR_CFG;
 	mrq = get_req_by_tag(cq_host, tag);
 	if (tag == cq_host->dcmd_slot)
 		mrq->cmd->resp[0] = cmdq_readl(cq_host, CQCRDCT);
 
 	if (mrq->cmdq_req->cmdq_req_flags & DCMD)
-		cmdq_writel(cq_host, cmdq_readl(cq_host, CQ_VENDOR_CFG) |
-			    CMDQ_SEND_STATUS_TRIGGER, CQ_VENDOR_CFG);
+		cmdq_writel(cq_host,
+			cmdq_readl(cq_host, CQ_VENDOR_CFG + offset) |
+			CMDQ_SEND_STATUS_TRIGGER, CQ_VENDOR_CFG + offset);
 
 	cmdq_runtime_pm_put(cq_host);
 	if (!(cq_host->caps & CMDQ_CAP_CRYPTO_SUPPORT) &&
