@@ -323,6 +323,9 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 			SDE_ERROR("failed to look up fb %lld\n", val);
 			rc = -EFAULT;
 		} else {
+			msm_framebuffer_set_kmap(c_state->out_fb,
+					c_conn->fb_kmap);
+
 			if (c_state->out_fb->flags & DRM_MODE_FB_SECURE)
 				c_state->mmu_id =
 				c_conn->mmu_id[SDE_IOMMU_DOMAIN_SECURE];
@@ -456,6 +459,42 @@ sde_connector_detect(struct drm_connector *connector, bool force)
 	return status;
 }
 
+#ifdef CONFIG_DEBUG_FS
+/**
+ * sde_connector_init_debugfs - initialize connector debugfs
+ * @connector: Pointer to drm connector
+ */
+static int sde_connector_init_debugfs(struct drm_connector *connector)
+{
+	struct sde_connector *sde_connector;
+
+	if (!connector || !connector->debugfs_entry) {
+		SDE_ERROR("invalid connector\n");
+		return -EINVAL;
+	}
+
+	sde_connector = to_sde_connector(connector);
+
+	if (!debugfs_create_bool("fb_kmap", 0644, connector->debugfs_entry,
+			&sde_connector->fb_kmap)) {
+		SDE_ERROR("failed to create connector fb_kmap\n");
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+#else
+static int sde_connector_init_debugfs(struct drm_connector *connector)
+{
+	return 0;
+}
+#endif
+
+static int sde_connector_late_register(struct drm_connector *connector)
+{
+	return sde_connector_init_debugfs(connector);
+}
+
 static const struct drm_connector_funcs sde_connector_ops = {
 	.dpms =                   drm_atomic_helper_connector_dpms,
 	.reset =                  sde_connector_atomic_reset,
@@ -467,6 +506,7 @@ static const struct drm_connector_funcs sde_connector_ops = {
 	.atomic_set_property =    sde_connector_atomic_set_property,
 	.atomic_get_property =    sde_connector_atomic_get_property,
 	.set_property =           sde_connector_set_property,
+	.late_register =          sde_connector_late_register,
 };
 
 static int sde_connector_get_modes(struct drm_connector *connector)

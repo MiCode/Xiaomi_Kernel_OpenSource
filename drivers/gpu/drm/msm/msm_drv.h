@@ -441,6 +441,7 @@ struct drm_gem_object *msm_gem_new(struct drm_device *dev,
 struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 		struct dma_buf *dmabuf, struct sg_table *sgt);
 
+void msm_framebuffer_set_kmap(struct drm_framebuffer *fb, bool enable);
 int msm_framebuffer_prepare(struct drm_framebuffer *fb, int id);
 void msm_framebuffer_cleanup(struct drm_framebuffer *fb, int id);
 uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb, int id, int plane);
