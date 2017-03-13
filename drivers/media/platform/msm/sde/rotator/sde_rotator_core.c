@@ -1924,24 +1924,26 @@ static void sde_rotator_cancel_request(struct sde_rot_mgr *mgr,
 	struct sde_rot_entry *entry;
 	int i;
 
-	/*
-	 * To avoid signal the rotation entry output fence in the wrong
-	 * order, all the entries in the same request needs to be canceled
-	 * first, before signaling the output fence.
-	 */
-	SDEROT_DBG("cancel work start\n");
-	sde_rot_mgr_unlock(mgr);
-	for (i = req->count - 1; i >= 0; i--) {
-		entry = req->entries + i;
-		cancel_work_sync(&entry->commit_work);
-		cancel_work_sync(&entry->done_work);
-	}
-	sde_rot_mgr_lock(mgr);
-	SDEROT_DBG("cancel work done\n");
-	for (i = req->count - 1; i >= 0; i--) {
-		entry = req->entries + i;
-		sde_rotator_signal_output(entry);
-		sde_rotator_release_entry(mgr, entry);
+	if (atomic_read(&req->pending_count)) {
+		/*
+		 * To avoid signal the rotation entry output fence in the wrong
+		 * order, all the entries in the same request needs to be
+		 * canceled first, before signaling the output fence.
+		 */
+		SDEROT_DBG("cancel work start\n");
+		sde_rot_mgr_unlock(mgr);
+		for (i = req->count - 1; i >= 0; i--) {
+			entry = req->entries + i;
+			cancel_work_sync(&entry->commit_work);
+			cancel_work_sync(&entry->done_work);
+		}
+		sde_rot_mgr_lock(mgr);
+		SDEROT_DBG("cancel work done\n");
+		for (i = req->count - 1; i >= 0; i--) {
+			entry = req->entries + i;
+			sde_rotator_signal_output(entry);
+			sde_rotator_release_entry(mgr, entry);
+		}
 	}
 
 	list_del_init(&req->list);
