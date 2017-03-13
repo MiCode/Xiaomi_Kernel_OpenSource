@@ -455,6 +455,9 @@ extern dma_addr_t usb_hcd_get_dcba_dma_addr(struct usb_device *udev);
 extern dma_addr_t usb_hcd_get_xfer_ring_dma_addr(struct usb_device *udev,
 	struct usb_host_endpoint *ep);
 
+struct usb_hcd *__usb_create_hcd(const struct hc_driver *driver,
+		struct device *sysdev, struct device *dev, const char *bus_name,
+		struct usb_hcd *primary_hcd);
 extern struct usb_hcd *usb_create_hcd(const struct hc_driver *driver,
 		struct device *dev, const char *bus_name);
 extern struct usb_hcd *usb_create_shared_hcd(const struct hc_driver *driver,
