@@ -58,6 +58,18 @@ static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 	return to_sde_kms(priv->kms);
 }
 
+static void _sde_crtc_deinit_events(struct sde_crtc *sde_crtc)
+{
+	if (!sde_crtc)
+		return;
+
+	if (sde_crtc->event_thread) {
+		kthread_flush_worker(&sde_crtc->event_worker);
+		kthread_stop(sde_crtc->event_thread);
+		sde_crtc->event_thread = NULL;
+	}
+}
+
 static void sde_crtc_destroy(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
@@ -74,6 +86,7 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 
 	mutex_destroy(&sde_crtc->crtc_lock);
 	sde_fence_deinit(&sde_crtc->output_fence);
+	_sde_crtc_deinit_events(sde_crtc);
 
 	drm_crtc_cleanup(crtc);
 	kfree(sde_crtc);
@@ -1967,6 +1980,100 @@ static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
 	.atomic_flush = sde_crtc_atomic_flush,
 };
 
+static void _sde_crtc_event_cb(struct kthread_work *work)
+{
+	struct sde_crtc_event *event;
+	struct sde_crtc *sde_crtc;
+	unsigned long irq_flags;
+
+	if (!work) {
+		SDE_ERROR("invalid work item\n");
+		return;
+	}
+
+	event = container_of(work, struct sde_crtc_event, kt_work);
+	if (event->cb_func)
+		event->cb_func(event->usr);
+
+	/* set sde_crtc to NULL for static work structures */
+	sde_crtc = event->sde_crtc;
+	if (!sde_crtc)
+		return;
+
+	spin_lock_irqsave(&sde_crtc->event_lock, irq_flags);
+	list_add_tail(&event->list, &sde_crtc->event_free_list);
+	spin_unlock_irqrestore(&sde_crtc->event_lock, irq_flags);
+}
+
+int sde_crtc_event_queue(struct drm_crtc *crtc,
+		void (*func)(void *usr), void *usr)
+{
+	unsigned long irq_flags;
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_event *event = NULL;
+
+	if (!crtc || !func)
+		return -EINVAL;
+	sde_crtc = to_sde_crtc(crtc);
+
+	/*
+	 * Obtain an event struct from the private cache. This event
+	 * queue may be called from ISR contexts, so use a private
+	 * cache to avoid calling any memory allocation functions.
+	 */
+	spin_lock_irqsave(&sde_crtc->event_lock, irq_flags);
+	if (!list_empty(&sde_crtc->event_free_list)) {
+		event = list_first_entry(&sde_crtc->event_free_list,
+				struct sde_crtc_event, list);
+		list_del_init(&event->list);
+	}
+	spin_unlock_irqrestore(&sde_crtc->event_lock, irq_flags);
+
+	if (!event)
+		return -ENOMEM;
+
+	/* populate event node */
+	event->sde_crtc = sde_crtc;
+	event->cb_func = func;
+	event->usr = usr;
+
+	/* queue new event request */
+	kthread_init_work(&event->kt_work, _sde_crtc_event_cb);
+	kthread_queue_work(&sde_crtc->event_worker, &event->kt_work);
+
+	return 0;
+}
+
+static int _sde_crtc_init_events(struct sde_crtc *sde_crtc)
+{
+	int i, rc = 0;
+
+	if (!sde_crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return -EINVAL;
+	}
+
+	spin_lock_init(&sde_crtc->event_lock);
+
+	INIT_LIST_HEAD(&sde_crtc->event_free_list);
+	for (i = 0; i < SDE_CRTC_MAX_EVENT_COUNT; ++i)
+		list_add_tail(&sde_crtc->event_cache[i].list,
+				&sde_crtc->event_free_list);
+
+	kthread_init_worker(&sde_crtc->event_worker);
+	sde_crtc->event_thread = kthread_run(kthread_worker_fn,
+			&sde_crtc->event_worker, "crtc_event:%d",
+			sde_crtc->base.base.id);
+
+	if (IS_ERR_OR_NULL(sde_crtc->event_thread)) {
+		SDE_ERROR("failed to create event thread\n");
+		rc = PTR_ERR(sde_crtc->event_thread);
+		sde_crtc->event_thread = NULL;
+	}
+
+	return rc;
+}
+
 /* initialize crtc */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 {
@@ -1974,7 +2081,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	struct sde_crtc *sde_crtc = NULL;
 	struct msm_drm_private *priv = NULL;
 	struct sde_kms *kms = NULL;
-	int i;
+	int i, rc;
 
 	priv = dev->dev_private;
 	kms = to_sde_kms(priv->kms);
@@ -2007,6 +2114,14 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 
 	/* save user friendly CRTC name for later */
 	snprintf(sde_crtc->name, SDE_CRTC_NAME_SIZE, "crtc%u", crtc->base.id);
+
+	/* initialize event handling */
+	rc = _sde_crtc_init_events(sde_crtc);
+	if (rc) {
+		drm_crtc_cleanup(crtc);
+		kfree(sde_crtc);
+		return ERR_PTR(rc);
+	}
 
 	/* initialize output fence support */
 	mutex_init(&sde_crtc->crtc_lock);

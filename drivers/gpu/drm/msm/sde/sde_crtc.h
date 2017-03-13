@@ -19,6 +19,7 @@
 #ifndef _SDE_CRTC_H_
 #define _SDE_CRTC_H_
 
+#include <linux/kthread.h>
 #include "drm_crtc.h"
 #include "msm_prop.h"
 #include "sde_fence.h"
@@ -79,6 +80,28 @@ struct sde_crtc_frame_event {
 };
 
 /**
+ * struct sde_crtc_event - event callback tracking structure
+ * @list:     Linked list tracking node
+ * @kt_work:  Kthread worker structure
+ * @sde_crtc: Pointer to associated sde_crtc structure
+ * @cb_func:  Pointer to callback function
+ * @usr:      Pointer to user data to be provided to the callback
+ */
+struct sde_crtc_event {
+	struct list_head list;
+	struct kthread_work kt_work;
+	void *sde_crtc;
+
+	void (*cb_func)(void *usr);
+	void *usr;
+};
+
+/*
+ * Maximum number of free event structures to cache
+ */
+#define SDE_CRTC_MAX_EVENT_COUNT	16
+
+/**
  * struct sde_crtc - virtualized CRTC data structure
  * @base          : Base drm crtc structure
  * @name          : ASCII description of this crtc
@@ -105,6 +128,11 @@ struct sde_crtc_frame_event {
  * @frame_events  : static allocation of in-flight frame events
  * @frame_event_list : available frame event list
  * @spin_lock     : spin lock for frame event, transaction status, etc...
+ * @event_thread  : Pointer to event handler thread
+ * @event_worker  : Event worker queue
+ * @event_cache   : Local cache of event worker structures
+ * @event_free_list : List of available event structures
+ * @event_lock    : Spinlock around event handling code
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -142,6 +170,13 @@ struct sde_crtc {
 	struct sde_crtc_frame_event frame_events[SDE_CRTC_FRAME_EVENT_SIZE];
 	struct list_head frame_event_list;
 	spinlock_t spin_lock;
+
+	/* for handling internal event thread */
+	struct task_struct *event_thread;
+	struct kthread_worker event_worker;
+	struct sde_crtc_event event_cache[SDE_CRTC_MAX_EVENT_COUNT];
+	struct list_head event_free_list;
+	spinlock_t event_lock;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
@@ -307,5 +342,15 @@ static inline bool sde_crtc_is_enabled(struct drm_crtc *crtc)
 {
 	return crtc ? crtc->enabled : false;
 }
+
+/**
+ * sde_crtc_event_queue - request event callback
+ * @crtc: Pointer to drm crtc structure
+ * @func: Pointer to callback function
+ * @usr: Pointer to user data to be passed to callback
+ * Returns: Zero on success
+ */
+int sde_crtc_event_queue(struct drm_crtc *crtc,
+		void (*func)(void *usr), void *usr);
 
 #endif /* _SDE_CRTC_H_ */

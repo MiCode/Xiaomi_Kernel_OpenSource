@@ -120,6 +120,16 @@ struct sde_connector_ops {
 	 */
 	int (*get_info)(struct msm_display_info *info, void *display);
 
+	/**
+	 * enable_event - notify display of event registration/unregistration
+	 * @connector: Pointer to drm connector structure
+	 * @event_idx: SDE connector event index
+	 * @enable: Whether the event is being enabled/disabled
+	 * @display: Pointer to private display structure
+	 */
+	void (*enable_event)(struct drm_connector *connector,
+			uint32_t event_idx, bool enable, void *display);
+
 	int (*set_backlight)(void *display, u32 bl_lvl);
 
 	/**
@@ -128,6 +138,28 @@ struct sde_connector_ops {
 	 * Return: Zero on success, -ERROR otherwise
 	 */
 	int (*soft_reset)(void *display);
+};
+
+/**
+ * enum sde_connector_events - list of recognized connector events
+ */
+enum sde_connector_events {
+	SDE_CONN_EVENT_VID_DONE, /* video mode frame done */
+	SDE_CONN_EVENT_CMD_DONE, /* command mode frame done */
+	SDE_CONN_EVENT_COUNT,
+};
+
+/**
+ * struct sde_connector_evt - local event registration entry structure
+ * @cb_func: Pointer to desired callback function
+ * @usr: User pointer to pass to callback on event trigger
+ */
+struct sde_connector_evt {
+	void (*cb_func)(uint32_t event_idx,
+			uint32_t instance_idx, void *usr,
+			uint32_t data0, uint32_t data1,
+			uint32_t data2, uint32_t data3);
+	void *usr;
 };
 
 /**
@@ -146,6 +178,8 @@ struct sde_connector_ops {
  * @property_data: Array of private data for generic property handling
  * @blob_caps: Pointer to blob structure for 'capabilities' property
  * @fb_kmap: true if kernel mapping of framebuffer is requested
+ * @event_table: Array of registered events
+ * @event_lock: Lock object for event_table
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -168,6 +202,8 @@ struct sde_connector {
 	struct drm_property_blob *blob_caps;
 
 	bool fb_kmap;
+	struct sde_connector_evt event_table[SDE_CONN_EVENT_COUNT];
+	spinlock_t event_lock;
 };
 
 /**
@@ -311,6 +347,48 @@ void sde_connector_complete_commit(struct drm_connector *connector);
  */
 int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info);
+
+/**
+ * sde_connector_trigger_event - indicate that an event has occurred
+ *	Any callbacks that have been registered against this event will
+ *	be called from the same thread context.
+ * @connector: Pointer to drm connector structure
+ * @event_idx: Index of event to trigger
+ * @instance_idx: Event-specific "instance index" to pass to callback
+ * @data0: Event-specific "data" to pass to callback
+ * @data1: Event-specific "data" to pass to callback
+ * @data2: Event-specific "data" to pass to callback
+ * @data3: Event-specific "data" to pass to callback
+ * Returns: Zero on success
+ */
+int sde_connector_trigger_event(void *drm_connector,
+		uint32_t event_idx, uint32_t instance_idx,
+		uint32_t data0, uint32_t data1,
+		uint32_t data2, uint32_t data3);
+
+/**
+ * sde_connector_register_event - register a callback function for an event
+ * @connector: Pointer to drm connector structure
+ * @event_idx: Index of event to register
+ * @cb_func: Pointer to desired callback function
+ * @usr: User pointer to pass to callback on event trigger
+ * Returns: Zero on success
+ */
+int sde_connector_register_event(struct drm_connector *connector,
+		uint32_t event_idx,
+		void (*cb_func)(uint32_t event_idx,
+			uint32_t instance_idx, void *usr,
+			uint32_t data0, uint32_t data1,
+			uint32_t data2, uint32_t data3),
+		void *usr);
+
+/**
+ * sde_connector_unregister_event - unregister all callbacks for an event
+ * @connector: Pointer to drm connector structure
+ * @event_idx: Index of event to register
+ */
+void sde_connector_unregister_event(struct drm_connector *connector,
+		uint32_t event_idx);
 
 #endif /* _SDE_CONNECTOR_H_ */
 

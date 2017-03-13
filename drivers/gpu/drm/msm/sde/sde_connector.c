@@ -115,6 +115,83 @@ static int sde_backlight_setup(struct sde_connector *c_conn)
 	return 0;
 }
 
+int sde_connector_trigger_event(void *drm_connector,
+		uint32_t event_idx, uint32_t instance_idx,
+		uint32_t data0, uint32_t data1,
+		uint32_t data2, uint32_t data3)
+{
+	struct sde_connector *c_conn;
+	unsigned long irq_flags;
+	void (*cb_func)(uint32_t event_idx,
+			uint32_t instance_idx, void *usr,
+			uint32_t data0, uint32_t data1,
+			uint32_t data2, uint32_t data3);
+	void *usr;
+	int rc = 0;
+
+	/*
+	 * This function may potentially be called from an ISR context, so
+	 * avoid excessive logging/etc.
+	 */
+	if (!drm_connector)
+		return -EINVAL;
+	else if (event_idx >= SDE_CONN_EVENT_COUNT)
+		return -EINVAL;
+	c_conn = to_sde_connector(drm_connector);
+
+	spin_lock_irqsave(&c_conn->event_lock, irq_flags);
+	cb_func = c_conn->event_table[event_idx].cb_func;
+	usr = c_conn->event_table[event_idx].usr;
+	spin_unlock_irqrestore(&c_conn->event_lock, irq_flags);
+
+	if (cb_func)
+		cb_func(event_idx, instance_idx, usr,
+			data0, data1, data2, data3);
+	else
+		rc = -EAGAIN;
+
+	return rc;
+}
+
+int sde_connector_register_event(struct drm_connector *connector,
+		uint32_t event_idx,
+		void (*cb_func)(uint32_t event_idx,
+			uint32_t instance_idx, void *usr,
+			uint32_t data0, uint32_t data1,
+			uint32_t data2, uint32_t data3),
+		void *usr)
+{
+	struct sde_connector *c_conn;
+	unsigned long irq_flags;
+
+	if (!connector) {
+		SDE_ERROR("invalid connector\n");
+		return -EINVAL;
+	} else if (event_idx >= SDE_CONN_EVENT_COUNT) {
+		SDE_ERROR("conn%d, invalid event %d\n",
+				connector->base.id, event_idx);
+		return -EINVAL;
+	}
+	c_conn = to_sde_connector(connector);
+
+	spin_lock_irqsave(&c_conn->event_lock, irq_flags);
+	c_conn->event_table[event_idx].cb_func = cb_func;
+	c_conn->event_table[event_idx].usr = usr;
+	spin_unlock_irqrestore(&c_conn->event_lock, irq_flags);
+
+	/* optionally notify display of event registration */
+	if (c_conn->ops.enable_event && c_conn->display)
+		c_conn->ops.enable_event(connector, event_idx,
+				cb_func != NULL, c_conn->display);
+	return 0;
+}
+
+void sde_connector_unregister_event(struct drm_connector *connector,
+		uint32_t event_idx)
+{
+	(void)sde_connector_register_event(connector, event_idx, 0, 0);
+}
+
 int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info)
 {
@@ -615,6 +692,8 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 			connector_type);
 	if (rc)
 		goto error_free_conn;
+
+	spin_lock_init(&c_conn->event_lock);
 
 	c_conn->connector_type = connector_type;
 	c_conn->encoder = encoder;
