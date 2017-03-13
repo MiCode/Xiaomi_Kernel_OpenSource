@@ -1871,6 +1871,8 @@ static void ipa_cleanup_wlan_rx_common_cache(void)
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 	struct ipa_rx_pkt_wrapper *tmp;
 
+	spin_lock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
+
 	list_for_each_entry_safe(rx_pkt, tmp,
 		&ipa_ctx->wc_memb.wlan_comm_desc_list, link) {
 		list_del(&rx_pkt->link);
@@ -1890,6 +1892,8 @@ static void ipa_cleanup_wlan_rx_common_cache(void)
 	if (ipa_ctx->wc_memb.wlan_comm_total_cnt != 0)
 		IPAERR("wlan comm buff total cnt: %d\n",
 			ipa_ctx->wc_memb.wlan_comm_total_cnt);
+
+	spin_unlock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 
 }
 
