@@ -1274,10 +1274,10 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		SDE_DEBUG_PLANE(psde, "rotation 0x%llX\n",
 			sde_plane_get_property(pstate, PLANE_PROP_ROTATION));
 		if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) &
-			BIT(DRM_REFLECT_X))
+			DRM_REFLECT_X)
 			src_flags |= SDE_SSPP_FLIP_LR;
 		if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) &
-			BIT(DRM_REFLECT_Y))
+			DRM_REFLECT_Y)
 			src_flags |= SDE_SSPP_FLIP_UD;
 
 		/* update format */
@@ -1874,7 +1874,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 
 	/* standard properties */
 	msm_property_install_rotation(&psde->property_info,
-		(unsigned int) (BIT(DRM_REFLECT_X) | BIT(DRM_REFLECT_Y)),
+		(unsigned int) (DRM_REFLECT_X | DRM_REFLECT_Y),
 		PLANE_PROP_ROTATION);
 
 	msm_property_install_enum(&psde->property_info, "blend_op", 0x0, 0,
