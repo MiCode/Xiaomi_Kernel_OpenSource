@@ -1073,6 +1073,12 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 
+static inline int adreno_is_a630v1(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A630) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
+}
+
 /*
  * adreno_checkreg_off() - Checks the validity of a register enum
  * @adreno_dev:		Pointer to adreno device
