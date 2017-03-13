@@ -75,17 +75,24 @@
 #define CAM_ISP_PACKET_META_CSID                8
 #define CAM_ISP_PACKET_META_MAX                 9
 
+/* DSP mode */
+#define CAM_ISP_DSP_MODE_NONE                   0
+#define CAM_ISP_DSP_MODE_ONE_WAY                1
+#define CAM_ISP_DSP_MODE_ROUND                  2
+
 
 /* Query devices */
 /**
  * struct cam_isp_dev_cap_info - A cap info for particular hw type
  *
  * @hw_type:            Hardware type for the cap info
+ * @reserved:           reserved field for alignment
  * @hw_version:         Hardware version
  *
  */
 struct cam_isp_dev_cap_info {
 	uint32_t              hw_type;
+	uint32_t              reserved;
 	struct cam_hw_version hw_version;
 };
 
@@ -161,7 +168,9 @@ struct cam_isp_out_port_info {
  * @height:                     input height in lines
  * @pixel_clk;                  sensor output clock
  * @batch_size:                 batch size for HFR mode
- * @reserved:                   reserved field for alignment
+ * @dsp_mode:                   DSP stream mode (Defines as CAM_ISP_DSP_MODE_*)
+ * @hbi_cnt:                    HBI count for the camif input
+ * @reserved:                   Reserved field for alignment
  * @num_out_res:                number of the output resource associated
  * @data:                       payload that contains the output resources
  *
@@ -187,6 +196,8 @@ struct cam_isp_in_port_info {
 	uint32_t                        height;
 	uint32_t                        pixel_clk;
 	uint32_t                        batch_size;
+	uint32_t                        dsp_mode;
+	uint32_t                        hbi_cnt;
 	uint32_t                        reserved;
 	uint32_t                        num_out_res;
 	struct cam_isp_out_port_info    data[1];
@@ -209,27 +220,6 @@ struct cam_isp_resource {
 	uint32_t                       handle_type;
 	uint32_t                       reserved;
 	uint64_t                       res_hdl;
-};
-
-/**
- * struct cam_isp_acquire_dev_cmd - control payload for acquire devices
- *
- * @session_handle:             session handle for the acquire command
- * @dev_handle:                 device handle to be returned
- * @num_resources:              number of the resources to be acquired
- * @handle_type:                resource handle type:
- *                                      1 = user poniter, 2 = mem handle
- * @resources_hdl:              resource handle that refers to the actual
- *                                      resource array. Each item in this
- *                                      array is struct cam_isp_resource
- *
- */
-struct cam_isp_acquire_dev_cmd {
-	int32_t                 session_handle;
-	int32_t                 dev_handle;
-	uint32_t                num_resources;
-	uint32_t                handle_type;
-	uint64_t                resource_hdl;
 };
 
 #endif /* __UAPI_CAM_ISP_H__ */
