@@ -1616,6 +1616,15 @@ static int smb2_init_hw(struct smb2 *chip)
 	return rc;
 }
 
+static int smb2_post_init(struct smb2 *chip)
+{
+	struct smb_charger *chg = &chip->chg;
+
+	rerun_election(chg->usb_irq_enable_votable);
+
+	return 0;
+}
+
 static int smb2_chg_config_init(struct smb2 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -2144,6 +2153,8 @@ static int smb2_probe(struct platform_device *pdev)
 		pr_err("Couldn't request interrupts rc=%d\n", rc);
 		goto cleanup;
 	}
+
+	smb2_post_init(chip);
 
 	smb2_create_debugfs(chip);
 
