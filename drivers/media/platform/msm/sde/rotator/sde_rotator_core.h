@@ -428,6 +428,9 @@ int sde_rotator_validate_request(struct sde_rot_mgr *rot_dev,
 
 int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable);
 
+void sde_rotator_cancel_all_requests(struct sde_rot_mgr *mgr,
+	struct sde_rot_file_private *private);
+
 static inline void sde_rot_mgr_lock(struct sde_rot_mgr *mgr)
 {
 	mutex_lock(&mgr->lock);
