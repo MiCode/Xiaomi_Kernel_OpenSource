@@ -43,6 +43,15 @@
 /* max bank bit for macro tile and ubwc format */
 #define DEFAULT_SDE_HIGHEST_BANK_BIT 15
 
+/* default ubwc version */
+#define DEFAULT_SDE_UBWC_VERSION SDE_HW_UBWC_VER_10
+
+/* default ubwc static config register value */
+#define DEFAULT_SDE_UBWC_STATIC 0x0
+
+/* default ubwc swizzle register value */
+#define DEFAULT_SDE_UBWC_SWIZZLE 0x0
+
 /* default hardware block size if dtsi entry is not present */
 #define DEFAULT_SDE_HW_BLOCK_LEN 0x100
 
@@ -97,6 +106,9 @@ enum sde_prop {
 	MIXER_BLEND,
 	WB_LINEWIDTH,
 	BANK_BIT,
+	UBWC_VERSION,
+	UBWC_STATIC,
+	UBWC_SWIZZLE,
 	QSEED_TYPE,
 	CSC_TYPE,
 	PANIC_PER_PIPE,
@@ -287,6 +299,9 @@ static struct sde_prop_type sde_prop[] = {
 	{MIXER_BLEND, "qcom,sde-mixer-blendstages", false, PROP_TYPE_U32},
 	{WB_LINEWIDTH, "qcom,sde-wb-linewidth", false, PROP_TYPE_U32},
 	{BANK_BIT, "qcom,sde-highest-bank-bit", false, PROP_TYPE_U32},
+	{UBWC_VERSION, "qcom,sde-ubwc-version", false, PROP_TYPE_U32},
+	{UBWC_STATIC, "qcom,sde-ubwc-static", false, PROP_TYPE_U32},
+	{UBWC_SWIZZLE, "qcom,sde-ubwc-swizzle", false, PROP_TYPE_U32},
 	{QSEED_TYPE, "qcom,sde-qseed-type", false, PROP_TYPE_STRING},
 	{CSC_TYPE, "qcom,sde-csc-type", false, PROP_TYPE_STRING},
 	{PANIC_PER_PIPE, "qcom,sde-panic-per-pipe", false, PROP_TYPE_BOOL},
@@ -809,6 +824,8 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 		sblk->pcc_blk.len = 0;
 		set_bit(SDE_SSPP_PCC, &sspp->features);
 	}
+
+	sblk->format_list = sde_cfg->vig_formats;
 }
 
 static void _sde_sspp_setup_rgb(struct sde_mdss_cfg *sde_cfg,
@@ -856,15 +873,21 @@ static void _sde_sspp_setup_rgb(struct sde_mdss_cfg *sde_cfg,
 		sblk->pcc_blk.len = 0;
 		set_bit(SDE_SSPP_PCC, &sspp->features);
 	}
+
+	sblk->format_list = sde_cfg->dma_formats;
 }
 
 static void _sde_sspp_setup_cursor(struct sde_mdss_cfg *sde_cfg,
 	struct sde_sspp_cfg *sspp, struct sde_sspp_sub_blks *sblk,
 	struct sde_prop_value *prop_value, u32 *cursor_count)
 {
+	if (!IS_SDE_MAJOR_MINOR_SAME(sde_cfg->hwversion, SDE_HW_VER_300))
+		SDE_ERROR("invalid sspp type %d, xin id %d\n",
+				sspp->type, sspp->xin_id);
 	set_bit(SDE_SSPP_CURSOR, &sspp->features);
 	sblk->maxupscale = SSPP_UNITY_SCALE;
 	sblk->maxdwnscale = SSPP_UNITY_SCALE;
+	sblk->format_list = sde_cfg->cursor_formats;
 	sspp->id = SSPP_CURSOR0 + *cursor_count;
 	snprintf(sspp->name, SDE_HW_BLK_NAME_LEN, "sspp_%u", sspp->id);
 	sspp->clk_ctrl = SDE_CLK_CTRL_CURSOR0 + *cursor_count;
@@ -878,6 +901,7 @@ static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 {
 	sblk->maxupscale = SSPP_UNITY_SCALE;
 	sblk->maxdwnscale = SSPP_UNITY_SCALE;
+	sblk->format_list = sde_cfg->dma_formats;
 	sspp->id = SSPP_DMA0 + *dma_count;
 	sspp->clk_ctrl = SDE_CLK_CTRL_DMA0 + *dma_count;
 	snprintf(sspp->name, SDE_HW_BLK_NAME_LEN, "sspp_%u", sspp->id);
@@ -1414,6 +1438,9 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 		set_bit(SDE_WB_TRAFFIC_SHAPER, &wb->features);
 		set_bit(SDE_WB_YUV_CONFIG, &wb->features);
 
+		if (sde_cfg->has_wb_ubwc)
+			set_bit(SDE_WB_UBWC, &wb->features);
+
 		for (j = 0; j < sde_cfg->mdp_count; j++) {
 			sde_cfg->mdp[j].clk_ctrls[wb->clk_ctrl].reg_off =
 				PROP_BITVALUE_ACCESS(prop_value,
@@ -1422,6 +1449,8 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 				PROP_BITVALUE_ACCESS(prop_value,
 						WB_CLK_CTRL, i, 1);
 		}
+
+		wb->format_list = sde_cfg->wb_formats;
 
 		SDE_DEBUG(
 			"wb:%d xin:%d vbif:%d clk%d:%x/%d\n",
@@ -2037,6 +2066,19 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	if (!prop_exists[BANK_BIT])
 		cfg->mdp[0].highest_bank_bit = DEFAULT_SDE_HIGHEST_BANK_BIT;
 
+	cfg->ubwc_version = PROP_VALUE_ACCESS(prop_value, UBWC_VERSION, 0);
+	if (!prop_exists[UBWC_VERSION])
+		cfg->ubwc_version = DEFAULT_SDE_UBWC_VERSION;
+
+	cfg->mdp[0].ubwc_static = PROP_VALUE_ACCESS(prop_value, UBWC_STATIC, 0);
+	if (!prop_exists[UBWC_STATIC])
+		cfg->mdp[0].ubwc_static = DEFAULT_SDE_UBWC_STATIC;
+
+	cfg->mdp[0].ubwc_swizzle = PROP_VALUE_ACCESS(prop_value,
+			UBWC_SWIZZLE, 0);
+	if (!prop_exists[UBWC_SWIZZLE])
+		cfg->mdp[0].ubwc_swizzle = DEFAULT_SDE_UBWC_SWIZZLE;
+
 	rc = of_property_read_string(np, sde_prop[QSEED_TYPE].prop_name, &type);
 	if (!rc && !strcmp(type, "qseedv3")) {
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED3;
@@ -2154,10 +2196,9 @@ end:
 static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	uint32_t hw_rev)
 {
-	int i, rc = 0;
+	int rc = 0;
 	uint32_t dma_list_size, vig_list_size, wb2_list_size;
 	uint32_t cursor_list_size = 0;
-	struct sde_sspp_sub_blks *sblk;
 	uint32_t index = 0;
 
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300)) {
@@ -2239,42 +2280,16 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	index += _sde_copy_formats(sde_cfg->wb_formats, wb2_list_size,
 		index, tp10_ubwc_formats,
 		ARRAY_SIZE(tp10_ubwc_formats));
-
-	for (i = 0; i < sde_cfg->sspp_count; ++i) {
-		struct sde_sspp_cfg *sspp = &sde_cfg->sspp[i];
-
-		sblk = (struct sde_sspp_sub_blks *)sspp->sblk;
-		switch (sspp->type) {
-		case SSPP_TYPE_VIG:
-			sblk->format_list = sde_cfg->vig_formats;
-			break;
-		case SSPP_TYPE_CURSOR:
-			if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300))
-				sblk->format_list = sde_cfg->cursor_formats;
-			else
-				SDE_ERROR("invalid sspp type %d, xin id %d\n",
-					sspp->type, sspp->xin_id);
-			break;
-		case SSPP_TYPE_DMA:
-			sblk->format_list = sde_cfg->dma_formats;
-			break;
-		default:
-			SDE_ERROR("invalid sspp type %d\n", sspp->type);
-			rc = -EINVAL;
-			goto end;
-		}
-	}
-
-	for (i = 0; i < sde_cfg->wb_count; ++i)
-		sde_cfg->wb[i].format_list = sde_cfg->wb_formats;
-
 end:
 	return rc;
 }
 
-static int sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
+static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 {
 	int rc = 0;
+
+	if (!sde_cfg)
+		return -EINVAL;
 
 	switch (hw_rev) {
 	case SDE_HW_VER_170:
@@ -2287,6 +2302,7 @@ static int sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 	case SDE_HW_VER_400:
 		/* update msm8998 and sdm845 target here */
 		rc = sde_hardware_format_caps(sde_cfg, hw_rev);
+		sde_cfg->has_wb_ubwc = true;
 		break;
 	}
 
@@ -2343,6 +2359,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 
 	sde_cfg->hwversion = hw_rev;
 
+	rc = _sde_hardware_caps(sde_cfg, hw_rev);
+	if (rc)
+		goto end;
+
 	rc = sde_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
@@ -2394,10 +2414,6 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 		goto end;
 
 	rc = sde_perf_parse_dt(np, sde_cfg);
-	if (rc)
-		goto end;
-
-	rc = sde_hardware_caps(sde_cfg, hw_rev);
 	if (rc)
 		goto end;
 

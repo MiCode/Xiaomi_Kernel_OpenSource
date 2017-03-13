@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,15 +62,18 @@ struct sde_hw_wb_ops {
 /**
  * struct sde_hw_wb : WB driver object
  * @struct sde_hw_blk_reg_map *hw;
+ * @catalog: back pointer to catalog
+ * @mdp:          pointer to associated mdp portion of the catalog
  * @idx
  * @wb_hw_caps
  * @ops
- * @highest_bank_bit: GPU highest memory bank bit used
  * @hw_mdp: MDP top level hardware block
  */
 struct sde_hw_wb {
 	/* base */
 	struct sde_hw_blk_reg_map hw;
+	struct sde_mdss_cfg *catalog;
+	struct sde_mdp_cfg *mdp;
 
 	/* wb path */
 	int idx;
@@ -78,8 +81,6 @@ struct sde_hw_wb {
 
 	/* ops */
 	struct sde_hw_wb_ops ops;
-
-	u32 highest_bank_bit;
 
 	struct sde_hw_mdp *hw_mdp;
 };

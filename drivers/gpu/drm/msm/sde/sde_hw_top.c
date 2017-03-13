@@ -16,6 +16,7 @@
 #include "sde_dbg.h"
 
 #define SSPP_SPARE                        0x28
+#define UBWC_STATIC                       0x144
 
 #define FLD_SPLIT_DISPLAY_CMD             BIT(1)
 #define FLD_SMART_PANEL_FREE_RUN          BIT(2)
@@ -242,12 +243,34 @@ static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,
 	return ERR_PTR(-EINVAL);
 }
 
+static inline void _sde_hw_mdptop_init_ubwc(void __iomem *addr,
+		const struct sde_mdss_cfg *m)
+{
+	struct sde_hw_blk_reg_map hw;
+
+	if (!addr || !m)
+		return;
+
+	if (!IS_UBWC_20_SUPPORTED(m->ubwc_version))
+		return;
+
+	memset(&hw, 0, sizeof(hw));
+	hw.base_off = addr;
+	hw.blk_off = 0x0;
+	hw.hwversion = m->hwversion;
+	hw.log_mask = SDE_DBG_MASK_TOP;
+	SDE_REG_WRITE(&hw, UBWC_STATIC, m->mdp[0].ubwc_static);
+}
+
 struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
 		void __iomem *addr,
 		const struct sde_mdss_cfg *m)
 {
 	struct sde_hw_mdp *mdp;
 	const struct sde_mdp_cfg *cfg;
+
+	if (!addr || !m)
+		return ERR_PTR(-EINVAL);
 
 	mdp = kzalloc(sizeof(*mdp), GFP_KERNEL);
 	if (!mdp)
@@ -269,6 +292,8 @@ struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name,
 			mdp->hw.blk_off, mdp->hw.blk_off + mdp->hw.length,
 			mdp->hw.xin_id);
+
+	_sde_hw_mdptop_init_ubwc(addr, m);
 
 	return mdp;
 }
