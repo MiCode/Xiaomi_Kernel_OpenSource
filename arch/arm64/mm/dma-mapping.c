@@ -484,6 +484,13 @@ static void arm64_dma_unremap(struct device *dev, void *remapped_addr,
 			(unsigned long)(remapped_addr + size));
 }
 
+static int __swiotlb_dma_mapping_error(struct device *hwdev, dma_addr_t addr)
+{
+	if (swiotlb)
+		return swiotlb_dma_mapping_error(hwdev, addr);
+	return 0;
+}
+
 static struct dma_map_ops swiotlb_dma_ops = {
 	.alloc = __dma_alloc,
 	.free = __dma_free,
@@ -498,7 +505,7 @@ static struct dma_map_ops swiotlb_dma_ops = {
 	.sync_sg_for_cpu = __swiotlb_sync_sg_for_cpu,
 	.sync_sg_for_device = __swiotlb_sync_sg_for_device,
 	.dma_supported = __swiotlb_dma_supported,
-	.mapping_error = swiotlb_dma_mapping_error,
+	.mapping_error = __swiotlb_dma_mapping_error,
 	.remap = arm64_dma_remap,
 	.unremap = arm64_dma_unremap,
 };
