@@ -519,7 +519,7 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_hw_ctl *ctl;
-	u32 flush_mask;
+	u32 flush_mask = 0;
 	int ret;
 
 	if (!phys_enc || !phys_enc->hw_ctl) {
