@@ -176,6 +176,8 @@ Optional property:
 			"power_allocator": Use power allocator governor.
 			"low_limits_floor": Use low limits floor
 						mitigation governor.
+			"low_limits_cap": Use a low limits cap mitigation
+						governor.
   Type: string
 
 - sustainable-power:	An estimate of the sustainable power (in mW) that the
