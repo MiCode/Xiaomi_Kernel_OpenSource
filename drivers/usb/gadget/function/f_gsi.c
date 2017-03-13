@@ -2689,7 +2689,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		/* export host's Ethernet address in CDC format */
 		random_ether_addr(gsi->d_port.ipa_init_params.device_ethaddr);
 		random_ether_addr(gsi->d_port.ipa_init_params.host_ethaddr);
-		log_event_dbg("setting host_ethaddr=%pKM, device_ethaddr = %pKM",
+		log_event_dbg("setting host_ethaddr=%pM, device_ethaddr = %pM",
 		gsi->d_port.ipa_init_params.host_ethaddr,
 		gsi->d_port.ipa_init_params.device_ethaddr);
 		memcpy(gsi->ethaddr, &gsi->d_port.ipa_init_params.host_ethaddr,
@@ -2821,7 +2821,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		/* export host's Ethernet address in CDC format */
 		random_ether_addr(gsi->d_port.ipa_init_params.device_ethaddr);
 		random_ether_addr(gsi->d_port.ipa_init_params.host_ethaddr);
-		log_event_dbg("setting host_ethaddr=%pKM, device_ethaddr = %pKM",
+		log_event_dbg("setting host_ethaddr=%pM, device_ethaddr = %pM",
 		gsi->d_port.ipa_init_params.host_ethaddr,
 		gsi->d_port.ipa_init_params.device_ethaddr);
 
