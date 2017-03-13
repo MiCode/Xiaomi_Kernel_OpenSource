@@ -2743,9 +2743,10 @@ void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
 		unsigned long *size)
 {
 	if (base_offset)
-		*base_offset = GSI_GSI_INST_RAM_BASE_OFFS;
+		*base_offset = GSI_GSI_INST_RAM_n_OFFS(0);
 	if (size)
-		*size = GSI_GSI_INST_RAM_SIZE;
+		*size = GSI_GSI_INST_RAM_n_WORD_SZ *
+			(GSI_GSI_INST_RAM_n_MAXn + 1);
 }
 EXPORT_SYMBOL(gsi_get_inst_ram_offset_and_size);
 
