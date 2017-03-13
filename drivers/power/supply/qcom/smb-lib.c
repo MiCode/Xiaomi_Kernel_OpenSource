@@ -1129,6 +1129,26 @@ static int smblib_hvdcp_hw_inov_dis_vote_callback(struct votable *votable,
 	return rc;
 }
 
+static int smblib_usb_irq_enable_vote_callback(struct votable *votable,
+				void *data, int enable, const char *client)
+{
+	struct smb_charger *chg = data;
+
+	if (!chg->irq_info[INPUT_CURRENT_LIMIT_IRQ].irq ||
+				!chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq)
+		return 0;
+
+	if (enable) {
+		enable_irq(chg->irq_info[INPUT_CURRENT_LIMIT_IRQ].irq);
+		enable_irq(chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq);
+	} else {
+		disable_irq(chg->irq_info[INPUT_CURRENT_LIMIT_IRQ].irq);
+		disable_irq(chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq);
+	}
+
+	return 0;
+}
+
 /*******************
  * VCONN REGULATOR *
  * *****************/
@@ -2523,6 +2543,7 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 
 	vote(chg->apsd_disable_votable, PD_VOTER, pd_active, 0);
 	vote(chg->pd_allowed_votable, PD_VOTER, pd_active, 0);
+	vote(chg->usb_irq_enable_votable, PD_VOTER, pd_active, 0);
 
 	/*
 	 * VCONN_EN_ORIENTATION_BIT controls whether to use CC1 or CC2 line
@@ -3357,6 +3378,10 @@ static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 			/* could be a legacy cable, try doing hvdcp */
 			try_rerun_apsd_for_hvdcp(chg);
 
+		/* enable HDC and ICL irq for QC2/3 charger */
+		if (qc_charger)
+			vote(chg->usb_irq_enable_votable, QC_VOTER, true, 0);
+
 		/*
 		 * HVDCP detection timeout done
 		 * If adapter is not QC2.0/QC3.0 - it is a plain old DCP.
@@ -3611,6 +3636,8 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, true, 0);
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER, true, 0);
 	vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, true, 0);
+	vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
+	vote(chg->usb_irq_enable_votable, QC_VOTER, false, 0);
 
 	/* reset votes from vbus_cc_short */
 	vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER,
@@ -4290,6 +4317,15 @@ static int smblib_create_votables(struct smb_charger *chg)
 					chg);
 	if (IS_ERR(chg->hvdcp_hw_inov_dis_votable)) {
 		rc = PTR_ERR(chg->hvdcp_hw_inov_dis_votable);
+		return rc;
+	}
+
+	chg->usb_irq_enable_votable = create_votable("USB_IRQ_DISABLE",
+					VOTE_SET_ANY,
+					smblib_usb_irq_enable_vote_callback,
+					chg);
+	if (IS_ERR(chg->usb_irq_enable_votable)) {
+		rc = PTR_ERR(chg->usb_irq_enable_votable);
 		return rc;
 	}
 
