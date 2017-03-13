@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,10 @@
 #define SWR_WCD_NAME	"swr-wcd"
 
 #define SWR_MSTR_PORT_LEN	8 /* Number of master ports */
+
+#define SWRM_VERSION_1_0 0x01010000
+#define SWRM_VERSION_1_2 0x01030000
+#define SWRM_VERSION_1_3 0x01040000
 
 enum {
 	SWR_MSTR_PAUSE,
@@ -88,6 +92,7 @@ struct swr_mstr_ctrl {
 	int (*reg_irq)(void *handle, irqreturn_t(*irq_handler)(int irq,
 			void *data), void *swr_handle, int type);
 	int irq;
+	int version;
 	int num_enum_slaves;
 	int slave_status;
 	struct swr_mstr_port *mstr_port;
