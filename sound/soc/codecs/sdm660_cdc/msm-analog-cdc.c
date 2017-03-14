@@ -4046,6 +4046,7 @@ EXPORT_SYMBOL(msm_anlg_codec_info_create_codec_entry);
 static int msm_anlg_cdc_soc_probe(struct snd_soc_codec *codec)
 {
 	struct sdm660_cdc_priv *sdm660_cdc;
+	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
 	int ret;
 
 	sdm660_cdc = dev_get_drvdata(codec->dev);
@@ -4154,6 +4155,9 @@ static int msm_anlg_cdc_soc_probe(struct snd_soc_codec *codec)
 	/* Set initial cap mode */
 	msm_anlg_cdc_configure_cap(codec, false, false);
 
+	snd_soc_dapm_ignore_suspend(dapm, "PDM Playback");
+	snd_soc_dapm_ignore_suspend(dapm, "PDM Capture");
+
 	return 0;
 }
 
@@ -4229,24 +4233,10 @@ static int msm_anlg_cdc_disable_static_supplies_to_optimum(
 
 static int msm_anlg_cdc_suspend(struct snd_soc_codec *codec)
 {
-	struct msm_asoc_mach_data *pdata = NULL;
 	struct sdm660_cdc_priv *sdm660_cdc = snd_soc_codec_get_drvdata(codec);
 	struct sdm660_cdc_pdata *sdm660_cdc_pdata =
 					sdm660_cdc->dev->platform_data;
 
-	pdata = snd_soc_card_get_drvdata(codec->component.card);
-	pr_debug("%s: mclk cnt = %d, mclk_enabled = %d\n",
-		  __func__, atomic_read(&pdata->int_mclk0_rsc_ref),
-	atomic_read(&pdata->int_mclk0_enabled));
-	if (atomic_read(&pdata->int_mclk0_enabled) == true) {
-		cancel_delayed_work_sync(&pdata->disable_int_mclk0_work);
-		mutex_lock(&pdata->cdc_int_mclk0_mutex);
-		pdata->digital_cdc_core_clk.enable = 0;
-		afe_set_lpass_clock_v2(AFE_PORT_ID_INT0_MI2S_RX,
-				       &pdata->digital_cdc_core_clk);
-		atomic_set(&pdata->int_mclk0_enabled, false);
-		mutex_unlock(&pdata->cdc_int_mclk0_mutex);
-	}
 	msm_anlg_cdc_disable_static_supplies_to_optimum(sdm660_cdc,
 							sdm660_cdc_pdata);
 	return 0;
