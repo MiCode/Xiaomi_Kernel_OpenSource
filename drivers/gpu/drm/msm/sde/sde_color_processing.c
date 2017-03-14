@@ -70,6 +70,8 @@ static void sde_cp_update_list(struct sde_cp_node *prop_node,
 static int sde_cp_ad_validate_prop(struct sde_cp_node *prop_node,
 		struct sde_crtc *crtc);
 
+static void sde_cp_notify_ad_event(struct drm_crtc *crtc_drm, void *arg);
+
 #define setup_dspp_prop_install_funcs(func) \
 do { \
 	func[SDE_DSPP_PCC] = dspp_pcc_install_property; \
@@ -1323,15 +1325,25 @@ static int sde_cp_ad_validate_prop(struct sde_cp_node *prop_node,
 static void sde_cp_ad_interrupt_cb(void *arg, int irq_idx)
 {
 	struct sde_crtc *crtc = arg;
-	struct drm_event event;
+
+	sde_crtc_event_queue(&crtc->base, sde_cp_notify_ad_event, NULL);
+}
+
+static void sde_cp_notify_ad_event(struct drm_crtc *crtc_drm, void *arg)
+{
 	uint32_t bl = 0;
-	u32 num_mixers = crtc->num_mixers;
 	struct sde_hw_mixer *hw_lm = NULL;
 	struct sde_hw_dspp *hw_dspp = NULL;
+	u32 num_mixers;
+	struct sde_crtc *crtc;
+	struct drm_event event;
 	int i;
 
-	event.type = DRM_EVENT_AD_BACKLIGHT;
-	event.length = sizeof(bl);
+	crtc = to_sde_crtc(crtc_drm);
+	num_mixers = crtc->num_mixers;
+	if (!num_mixers)
+		return;
+
 	for (i = 0; i < num_mixers; i++) {
 		hw_lm = crtc->mixers[i].hw_lm;
 		hw_dspp = crtc->mixers[i].hw_dspp;
@@ -1343,6 +1355,8 @@ static void sde_cp_ad_interrupt_cb(void *arg, int irq_idx)
 		return;
 
 	hw_dspp->ops.ad_read_intr_resp(hw_dspp, AD4_BACKLIGHT, &bl);
+	event.length = sizeof(u32);
+	event.type = DRM_EVENT_AD_BACKLIGHT;
 	msm_send_crtc_notification(&crtc->base, &event, (u8 *)&bl);
 }
 

@@ -45,6 +45,16 @@ struct sde_crtc_irq_info {
 	struct list_head list;
 };
 
+struct sde_crtc_custom_events {
+	u32 event;
+	int (*func)(struct drm_crtc *crtc, bool en,
+			struct sde_irq_callback *irq);
+};
+
+static struct sde_crtc_custom_events custom_events[] = {
+	{DRM_EVENT_AD_BACKLIGHT, sde_cp_ad_interrupt}
+};
+
 /* default input fence timeout, in ms */
 #define SDE_CRTC_INPUT_FENCE_TIMEOUT    2000
 
@@ -2322,13 +2332,14 @@ static void _sde_crtc_event_cb(struct kthread_work *work)
 	}
 
 	event = container_of(work, struct sde_crtc_event, kt_work);
-	if (event->cb_func)
-		event->cb_func(event->usr);
 
 	/* set sde_crtc to NULL for static work structures */
 	sde_crtc = event->sde_crtc;
 	if (!sde_crtc)
 		return;
+
+	if (event->cb_func)
+		event->cb_func(&sde_crtc->base, event->usr);
 
 	spin_lock_irqsave(&sde_crtc->event_lock, irq_flags);
 	list_add_tail(&event->list, &sde_crtc->event_free_list);
@@ -2336,7 +2347,7 @@ static void _sde_crtc_event_cb(struct kthread_work *work)
 }
 
 int sde_crtc_event_queue(struct drm_crtc *crtc,
-		void (*func)(void *usr), void *usr)
+		void (*func)(struct drm_crtc *crtc, void *usr), void *usr)
 {
 	unsigned long irq_flags;
 	struct sde_crtc *sde_crtc;
@@ -2346,6 +2357,8 @@ int sde_crtc_event_queue(struct drm_crtc *crtc,
 		return -EINVAL;
 	sde_crtc = to_sde_crtc(crtc);
 
+	if (!sde_crtc->event_thread)
+		return -EINVAL;
 	/*
 	 * Obtain an event struct from the private cache. This event
 	 * queue may be called from ISR contexts, so use a private
@@ -2482,7 +2495,7 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 	struct msm_drm_private *priv;
 	unsigned long flags;
 	bool found = false;
-	int ret;
+	int ret, i = 0;
 
 	crtc = to_sde_crtc(crtc_drm);
 	spin_lock_irqsave(&crtc->spin_lock, flags);
@@ -2498,19 +2511,23 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 	if (found)
 		return 0;
 
-	node = kzalloc(sizeof(*node), GFP_KERNEL);
-	if (!node)
-		return -ENOMEM;
-	node->event = event;
-	INIT_LIST_HEAD(&node->list);
+	node = NULL;
+	for (i = 0; i < ARRAY_SIZE(custom_events); i++) {
+		if (custom_events[i].event == event &&
+			custom_events[i].func) {
+			node = kzalloc(sizeof(*node), GFP_KERNEL);
+			if (!node)
+				return -ENOMEM;
+			node->event = event;
+			INIT_LIST_HEAD(&node->list);
+			node->func = custom_events[i].func;
+			node->event = event;
+			break;
+		}
+	}
 
-	switch (event) {
-	case DRM_EVENT_AD_BACKLIGHT:
-		node->func = sde_cp_ad_interrupt;
-		break;
-	default:
+	if (!node) {
 		SDE_ERROR("unsupported event %x\n", event);
-		kfree(node);
 		return -EINVAL;
 	}
 
