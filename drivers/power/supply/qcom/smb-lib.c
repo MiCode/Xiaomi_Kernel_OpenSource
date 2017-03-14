@@ -701,21 +701,6 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 			rc);
 }
 
-static bool smblib_sysok_reason_usbin(struct smb_charger *chg)
-{
-	int rc;
-	u8 stat;
-
-	rc = smblib_read(chg, SYSOK_REASON_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get SYSOK_REASON_STATUS rc=%d\n", rc);
-		/* assuming 'not usbin' in case of read failure */
-		return false;
-	}
-
-	return stat & SYSOK_REASON_USBIN_BIT;
-}
-
 void smblib_suspend_on_debug_battery(struct smb_charger *chg)
 {
 	int rc;
@@ -3542,8 +3527,6 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 
 	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, true, 0);
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER, true, 0);
-	vote(chg->pd_disallowed_votable_indirect, LEGACY_CABLE_VOTER, true, 0);
-	vote(chg->pd_disallowed_votable_indirect, VBUS_CC_SHORT_VOTER, true, 0);
 	vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, true, 0);
 
 	/* reset votes from vbus_cc_short */
@@ -3561,7 +3544,6 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	chg->otg_attempts = 0;
 	chg->pulse_cnt = 0;
 	chg->usb_icl_delta_ua = 0;
-	chg->usb_ever_removed = true;
 
 	/* enable APSD CC trigger for next insertion */
 	rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
@@ -3578,8 +3560,6 @@ static void smblib_handle_typec_insertion(struct smb_charger *chg,
 		bool sink_attached, bool legacy_cable)
 {
 	int rp, rc;
-	bool vbus_cc_short = false;
-	bool valid_legacy_cable;
 
 	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, false, 0);
 
@@ -3597,25 +3577,18 @@ static void smblib_handle_typec_insertion(struct smb_charger *chg,
 		typec_sink_removal(chg);
 	}
 
-	valid_legacy_cable = legacy_cable &&
-		(chg->usb_ever_removed || !smblib_sysok_reason_usbin(chg));
-	vote(chg->pd_disallowed_votable_indirect, LEGACY_CABLE_VOTER,
-			valid_legacy_cable, 0);
-
-	if (valid_legacy_cable) {
-		rp = smblib_get_prop_ufp_mode(chg);
-		if (rp == POWER_SUPPLY_TYPEC_SOURCE_HIGH
-				|| rp == POWER_SUPPLY_TYPEC_NON_COMPLIANT) {
-			vbus_cc_short = true;
-			smblib_err(chg, "Disabling PD and HVDCP, VBUS-CC shorted, rp = %d found\n",
-					rp);
-		}
+	rp = smblib_get_prop_ufp_mode(chg);
+	if (rp == POWER_SUPPLY_TYPEC_SOURCE_HIGH
+			|| rp == POWER_SUPPLY_TYPEC_NON_COMPLIANT) {
+		smblib_dbg(chg, PR_MISC, "VBUS & CC could be shorted; keeping HVDCP disabled\n");
+		/* HVDCP is not going to be enabled; enable parallel */
+		vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, false, 0);
+		vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER,
+								true, 0);
+	} else {
+		vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER,
+								false, 0);
 	}
-
-	vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER,
-			vbus_cc_short, 0);
-	vote(chg->pd_disallowed_votable_indirect, VBUS_CC_SHORT_VOTER,
-			vbus_cc_short, 0);
 }
 
 static void smblib_handle_typec_debounce_done(struct smb_charger *chg,
