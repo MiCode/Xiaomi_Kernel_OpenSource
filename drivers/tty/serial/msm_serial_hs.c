@@ -1436,13 +1436,13 @@ static void msm_hs_submit_tx_locked(struct uart_port *uport)
 	hex_dump_ipc(msm_uport, tx->ipc_tx_ctxt, "Tx",
 			&tx_buf->buf[tx_buf->tail], (u64)src_addr, tx_count);
 	sps_pipe_handle = tx->cons.pipe_handle;
-	/* Queue transfer request to SPS */
-	ret = sps_transfer_one(sps_pipe_handle, src_addr, tx_count,
-				msm_uport, flags);
 
 	/* Set 1 second timeout */
 	mod_timer(&tx->tx_timeout_timer,
 		jiffies + msecs_to_jiffies(MSEC_PER_SEC));
+	/* Queue transfer request to SPS */
+	ret = sps_transfer_one(sps_pipe_handle, src_addr, tx_count,
+				msm_uport, flags);
 
 	MSM_HS_DBG("%s:Enqueue Tx Cmd, ret %d\n", __func__, ret);
 }
