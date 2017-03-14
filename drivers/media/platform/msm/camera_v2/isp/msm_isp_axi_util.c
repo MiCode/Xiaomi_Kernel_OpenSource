@@ -3321,6 +3321,7 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	int k;
 	uint32_t wm_mask = 0;
 	int vfe_idx;
+	uint32_t pingpong_bit = 0;
 
 	if (!vfe_dev || !stream_info) {
 		pr_err("%s %d failed: vfe_dev %pK stream_info %pK\n", __func__,
@@ -3381,6 +3382,25 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	}
 
 	spin_lock_irqsave(&stream_info->lock, flags);
+	vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
+	if (stream_info->undelivered_request_cnt == 1) {
+		pingpong_status =
+			vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(
+				vfe_dev);
+		pingpong_bit = ((pingpong_status >>
+					stream_info->wm[vfe_idx][0]) & 0x1);
+		if (stream_info->sw_ping_pong_bit == !pingpong_bit) {
+			ISP_DBG("%s:Return Empty Buffer stream id 0x%X\n",
+				__func__, stream_info->stream_id);
+			rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
+				user_stream_id, frame_id, buf_index,
+				frame_src);
+			spin_unlock_irqrestore(&stream_info->lock,
+					flags);
+			return 0;
+		}
+	}
+
 	queue_req = &stream_info->request_queue_cmd[stream_info->request_q_idx];
 	if (queue_req->cmd_used) {
 		spin_unlock_irqrestore(&stream_info->lock, flags);
@@ -3410,7 +3430,6 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	stream_info->request_q_cnt++;
 
 	stream_info->undelivered_request_cnt++;
-	vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
 	stream_cfg_cmd.axi_stream_handle = stream_info->stream_handle[vfe_idx];
 	stream_cfg_cmd.frame_skip_pattern = NO_SKIP;
 	stream_cfg_cmd.init_frame_drop = 0;
@@ -3439,9 +3458,6 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		}
 		stream_info->sw_ping_pong_bit = 0;
 	} else if (stream_info->undelivered_request_cnt == 2) {
-		pingpong_status =
-			vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(
-				vfe_dev);
 		rc = msm_isp_cfg_ping_pong_address(
 				stream_info, pingpong_status);
 		if (rc) {
