@@ -601,7 +601,7 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 		iommu->setstate.gpuaddr + KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
 	if (iommu->version >= 2) {
-		if (adreno_is_a5xx(adreno_dev))
+		if (adreno_is_a5xx(adreno_dev) || adreno_is_a6xx(adreno_dev))
 			cmds += _adreno_iommu_set_pt_v2_a5xx(device, cmds,
 						ttbr0, contextidr, rb);
 		else if (adreno_is_a4xx(adreno_dev))
