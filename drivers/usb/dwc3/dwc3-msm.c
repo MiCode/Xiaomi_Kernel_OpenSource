@@ -215,8 +215,10 @@ struct dwc3_msm {
 
 	struct extcon_dev	*extcon_vbus;
 	struct extcon_dev	*extcon_id;
+	struct extcon_dev	*extcon_eud;
 	struct notifier_block	vbus_nb;
 	struct notifier_block	id_nb;
+	struct notifier_block	eud_event_nb;
 
 	struct notifier_block	host_nb;
 
@@ -2642,6 +2644,42 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 done:
 	return NOTIFY_DONE;
 }
+/*
+ * Handle EUD based soft detach/attach event, and force USB high speed mode
+ * functionality on receiving soft attach event.
+ *
+ * @nb - notifier handler
+ * @event - event information i.e. soft detach/attach event
+ * @ptr - extcon_dev pointer
+ *
+ * @return int - NOTIFY_DONE always due to EUD
+ */
+static int dwc3_msm_eud_notifier(struct notifier_block *nb,
+		unsigned long event, void *ptr)
+{
+	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, eud_event_nb);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	struct extcon_dev *edev = ptr;
+
+	if (!edev) {
+		dev_err(mdwc->dev, "%s: edev null\n", __func__);
+		goto done;
+	}
+
+	dbg_event(0xFF, "EUD_NB", event);
+	dev_dbg(mdwc->dev, "eud:%ld event received\n", event);
+	if (mdwc->vbus_active == event)
+		return NOTIFY_DONE;
+
+	/* Force USB High-Speed enumeration Only */
+	dwc->maximum_speed = USB_SPEED_HIGH;
+	dbg_event(0xFF, "Speed", dwc->maximum_speed);
+	mdwc->vbus_active = event;
+	if (dwc->is_drd && !mdwc->in_restart)
+		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
+done:
+	return NOTIFY_DONE;
+}
 
 static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 {
@@ -2652,6 +2690,7 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 	if (!of_property_read_bool(node, "extcon"))
 		return 0;
 
+	/* Use first phandle (mandatory) for USB vbus status notification */
 	edev = extcon_get_edev_by_phandle(mdwc->dev, 0);
 	if (IS_ERR(edev) && PTR_ERR(edev) != -ENODEV)
 		return PTR_ERR(edev);
@@ -2667,7 +2706,7 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 		}
 	}
 
-	/* if a second phandle was provided, use it to get a separate edev */
+	/* Use second phandle (optional) for USB ID status notification */
 	if (of_count_phandle_with_args(node, "extcon", NULL) > 1) {
 		edev = extcon_get_edev_by_phandle(mdwc->dev, 1);
 		if (IS_ERR(edev) && PTR_ERR(edev) != -ENODEV) {
@@ -2687,7 +2726,31 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 		}
 	}
 
+	/* Use third phandle (optional) for EUD based detach/attach events */
+	if (of_count_phandle_with_args(node, "extcon", NULL) > 2) {
+		edev = extcon_get_edev_by_phandle(mdwc->dev, 2);
+		if (IS_ERR(edev) && PTR_ERR(edev) != -ENODEV) {
+			ret = PTR_ERR(edev);
+			goto err;
+		}
+	}
+
+	if (!IS_ERR(edev)) {
+		mdwc->extcon_eud = edev;
+		mdwc->eud_event_nb.notifier_call = dwc3_msm_eud_notifier;
+		ret = extcon_register_notifier(edev, EXTCON_USB,
+				&mdwc->eud_event_nb);
+		if (ret < 0) {
+			dev_err(mdwc->dev, "failed to register notifier for EUD-USB\n");
+			goto err1;
+		}
+	}
+
 	return 0;
+err1:
+	if (mdwc->extcon_id)
+		extcon_unregister_notifier(mdwc->extcon_id, EXTCON_USB_HOST,
+				&mdwc->id_nb);
 err:
 	if (mdwc->extcon_vbus)
 		extcon_unregister_notifier(mdwc->extcon_vbus, EXTCON_USB,
