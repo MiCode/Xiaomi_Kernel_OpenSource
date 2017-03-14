@@ -132,7 +132,7 @@ struct sde_connector_ops {
  * @mmu_secure: MMU id for secure buffers
  * @mmu_unsecure: MMU id for unsecure buffers
  * @name: ASCII name of connector
- * @retire_fence: Retire fence reference
+ * @retire_fence: Retire fence context reference
  * @ops: Local callback function pointer table
  * @property_info: Private structure for generic property handling
  * @property_data: Array of private data for generic property handling
@@ -152,7 +152,7 @@ struct sde_connector {
 
 	char name[SDE_CONNECTOR_NAME_SIZE];
 
-	struct sde_fence retire_fence;
+	struct sde_fence_context retire_fence;
 	struct sde_connector_ops ops;
 
 	struct msm_property_info property_info;

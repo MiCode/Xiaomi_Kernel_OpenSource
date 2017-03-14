@@ -693,6 +693,7 @@ static void _sde_crtc_wait_for_fences(struct drm_crtc *crtc)
 	struct drm_plane *plane = NULL;
 	uint32_t wait_ms = 1;
 	ktime_t kt_end, kt_wait;
+	int rc = 0;
 
 	SDE_DEBUG("\n");
 
@@ -712,18 +713,19 @@ static void _sde_crtc_wait_for_fences(struct drm_crtc *crtc)
 	 * Limit total wait time to INPUT_FENCE_TIMEOUT, but still call
 	 * sde_plane_wait_input_fence with wait_ms == 0 after the timeout so
 	 * that each plane can check its fence status and react appropriately
-	 * if its fence has timed out.
+	 * if its fence has timed out. Call input fence wait multiple times if
+	 * fence wait is interrupted due to interrupt call.
 	 */
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
-		if (wait_ms) {
-			/* determine updated wait time */
+		do {
 			kt_wait = ktime_sub(kt_end, ktime_get());
 			if (ktime_compare(kt_wait, ktime_set(0, 0)) >= 0)
 				wait_ms = ktime_to_ms(kt_wait);
 			else
 				wait_ms = 0;
-		}
-		sde_plane_wait_input_fence(plane, wait_ms);
+
+			rc = sde_plane_wait_input_fence(plane, wait_ms);
+		} while (wait_ms && rc == -ERESTARTSYS);
 	}
 }
 
@@ -1692,7 +1694,7 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 		cstate = to_sde_crtc_state(state);
 		i = msm_property_index(&sde_crtc->property_info, property);
 		if (i == CRTC_PROP_OUTPUT_FENCE) {
-			int offset = sde_crtc_get_property(cstate,
+			uint32_t offset = sde_crtc_get_property(cstate,
 					CRTC_PROP_OUTPUT_FENCE_OFFSET);
 
 			ret = sde_fence_create(

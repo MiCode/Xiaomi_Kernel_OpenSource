@@ -1,6 +1,5 @@
 ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging
 ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
-ccflags-$(CONFIG_SYNC) += -Idrivers/staging/android
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
 ccflags-y += -Idrivers/gpu/drm/msm/sde
 
@@ -71,7 +70,7 @@ msm_drm-$(CONFIG_DRM_MSM_MDP4) += mdp/mdp4/mdp4_crtc.o \
 	mdp/mdp4/mdp4_plane.o
 
 msm_drm-$(CONFIG_DRM_FBDEV_EMULATION) += msm_fbdev.o
-msm_drm-$(CONFIG_SYNC) += sde/sde_fence.o
+msm_drm-$(CONFIG_SYNC_FILE) += sde/sde_fence.o
 msm_drm-$(CONFIG_COMMON_CLK) += mdp/mdp4/mdp4_lvds_pll.o
 msm_drm-$(CONFIG_COMMON_CLK) += hdmi/hdmi_pll_8960.o
 msm_drm-$(CONFIG_COMMON_CLK) += hdmi/hdmi_phy_8996.o
