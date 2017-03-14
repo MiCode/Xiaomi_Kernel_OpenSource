@@ -196,6 +196,10 @@
 	};
 };
 
+&usb3 {
+	fpc-redrive-supply = <&pm660_l11>;
+};
+
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";
