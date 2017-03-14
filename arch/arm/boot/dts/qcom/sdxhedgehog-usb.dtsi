@@ -128,7 +128,7 @@
 		qcom,vdd-voltage-level = <0 928000 928000>;
 		qcom,qusb-phy-init-seq =
 			/* <value reg_offset> */
-				<0x13 0x04 /* analog_controls_two */
+				<0x03 0x04 /* analog_controls_two */
 				0x7c 0x18c /* pll_clock_inverter */
 				0x80 0x2c /* pll_cmode */
 				0x0a 0x184 /* pll_lock_delay */

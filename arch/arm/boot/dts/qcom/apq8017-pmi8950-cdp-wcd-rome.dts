@@ -119,3 +119,23 @@
 &dsi_adv7533_1080p {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
+
+&modem_mem {
+	reg = <0x0 0x86800000 0x0 0x1e00000>;
+};
+
+&adsp_fw_mem {
+	reg = <0x0 0x88600000 0x0 0x1100000>;
+};
+
+&wcnss_fw_mem {
+	reg = <0x0 0x89700000 0x0 0x700000>;
+};
+
+&other_ext_mem {
+	reg = <0x0 0x84f00000 0x0 0x1900000>;
+};
+
+&qcom_seecom {
+	reg = <0x84f00000 0x1400000>;
+};
