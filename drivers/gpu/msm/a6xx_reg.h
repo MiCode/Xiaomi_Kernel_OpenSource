@@ -80,6 +80,8 @@
 #define A6XX_CP_DRAW_STATE_DATA          0x90B
 #define A6XX_CP_ROQ_DBG_ADDR             0x90C
 #define A6XX_CP_ROQ_DBG_DATA             0x90D
+#define A6XX_CP_MEM_POOL_DBG_ADDR        0x90E
+#define A6XX_CP_MEM_POOL_DBG_DATA        0x90F
 #define A6XX_CP_SQE_UCODE_DBG_ADDR       0x910
 #define A6XX_CP_SQE_UCODE_DBG_DATA       0x911
 #define A6XX_CP_IB1_BASE                 0x928

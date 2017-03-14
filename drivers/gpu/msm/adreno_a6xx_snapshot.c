@@ -565,6 +565,23 @@ static void a6xx_snapshot_shader(struct kgsl_device *device,
 	}
 }
 
+static void a6xx_snapshot_mempool(struct kgsl_device *device,
+				struct kgsl_snapshot *snapshot)
+{
+	unsigned int pool_size;
+
+	/* Save the mempool size to 0 to stabilize it while dumping */
+	kgsl_regread(device, A6XX_CP_MEM_POOL_SIZE, &pool_size);
+	kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 0);
+
+	kgsl_snapshot_indexed_registers(device, snapshot,
+		A6XX_CP_MEM_POOL_DBG_ADDR, A6XX_CP_MEM_POOL_DBG_DATA,
+		0, 0x2060);
+
+	/* Restore the saved mempool size */
+	kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, pool_size);
+}
+
 static inline unsigned int a6xx_read_dbgahb(struct kgsl_device *device,
 				unsigned int regbase, unsigned int reg)
 {
@@ -1021,6 +1038,9 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
 		snapshot, adreno_snapshot_cp_roq,
 		&snap_data->sect_sizes->roq);
+
+	/* Mempool debug data */
+	a6xx_snapshot_mempool(device, snapshot);
 
 	/* Shader memory */
 	a6xx_snapshot_shader(device, snapshot);
