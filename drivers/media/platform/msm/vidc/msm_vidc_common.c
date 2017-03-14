@@ -991,6 +991,24 @@ static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
 			&inst->capability.bitrate);
 	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE_PEAK,
 			&inst->capability.peakbitrate);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP,
+			&inst->capability.i_qp);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP,
+			&inst->capability.p_qp);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP,
+			&inst->capability.b_qp);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MIN,
+			&inst->capability.i_qp);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MIN,
+			&inst->capability.p_qp);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MIN,
+			&inst->capability.b_qp);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MAX,
+			&inst->capability.i_qp);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MAX,
+			&inst->capability.p_qp);
+	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MAX,
+			&inst->capability.b_qp);
 	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_BLUR_WIDTH,
 			&inst->capability.blur_width);
 	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_BLUR_HEIGHT,
