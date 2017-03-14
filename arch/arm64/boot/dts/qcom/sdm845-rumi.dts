@@ -29,7 +29,7 @@
 	};
 };
 
-&usb3 {
+&usb0 {
 	/delete-property/ qcom,usb-dbm;
 	qcom,charging-disabled;
 	dwc3@a600000 {
