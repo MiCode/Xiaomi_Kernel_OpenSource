@@ -2511,10 +2511,6 @@ int smblib_set_prop_usb_voltage_max(struct smb_charger *chg,
 	}
 
 	chg->voltage_max_uv = max_uv;
-	rc = smblib_rerun_aicl(chg);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't re-run AICL rc=%d\n", rc);
-
 	return rc;
 }
 
