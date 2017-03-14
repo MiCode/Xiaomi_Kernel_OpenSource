@@ -70,6 +70,8 @@
 #define A6XX_CP_ADDR_MODE_CNTL           0x842
 #define A6XX_CP_PROTECT_CNTL             0x84F
 #define A6XX_CP_PROTECT_REG              0x850
+#define A6XX_CP_SQE_STAT_ADDR            0x908
+#define A6XX_CP_SQE_STAT_DATA            0x909
 #define A6XX_CP_ALWAYS_ON_COUNTER_LO     0x980
 #define A6XX_CP_ALWAYS_ON_COUNTER_HI     0x981
 #define A6XX_CP_AHB_CNTL                 0x98D
