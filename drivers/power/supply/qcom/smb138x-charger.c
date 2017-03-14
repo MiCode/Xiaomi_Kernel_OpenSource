@@ -1464,6 +1464,15 @@ static int smb138x_slave_probe(struct smb138x *chip)
 		goto cleanup;
 	}
 
+	if (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN) {
+		rc = smb138x_init_vbus_regulator(chip);
+		if (rc < 0) {
+			pr_err("Couldn't initialize vbus regulator rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	rc = smb138x_init_parallel_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize parallel psy rc=%d\n", rc);
@@ -1488,6 +1497,8 @@ cleanup:
 	smblib_deinit(chg);
 	if (chip->parallel_psy)
 		power_supply_unregister(chip->parallel_psy);
+	if (chg->vbus_vreg && chg->vbus_vreg->rdev)
+		regulator_unregister(chg->vbus_vreg->rdev);
 	return rc;
 }
 
