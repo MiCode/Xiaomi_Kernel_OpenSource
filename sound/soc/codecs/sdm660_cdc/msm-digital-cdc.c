@@ -1028,7 +1028,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 		break;
 	case DIG_CDC_EVENT_PRE_RX1_INT_ON:
 		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x1C, 0x14);
+				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x3C, 0x28);
 		snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_RX1_B4_CTL, 0x18, 0x10);
 		snd_soc_update_bits(codec,
@@ -1036,7 +1036,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 		break;
 	case DIG_CDC_EVENT_PRE_RX2_INT_ON:
 		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x1C, 0x14);
+				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x3C, 0x28);
 		snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_RX2_B4_CTL, 0x18, 0x10);
 		snd_soc_update_bits(codec,
@@ -1044,7 +1044,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 		break;
 	case DIG_CDC_EVENT_POST_RX1_INT_OFF:
 		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x1C, 0x00);
+				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x3C, 0x00);
 		snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_RX1_B4_CTL, 0x18, 0xFF);
 		snd_soc_update_bits(codec,
@@ -1052,7 +1052,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 		break;
 	case DIG_CDC_EVENT_POST_RX2_INT_OFF:
 		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x1C, 0x00);
+				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x3C, 0x00);
 		snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_RX2_B4_CTL, 0x18, 0xFF);
 		snd_soc_update_bits(codec,

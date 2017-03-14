@@ -1436,11 +1436,11 @@ static int msm_anlg_cdc_codec_enable_clock_block(struct snd_soc_codec *codec,
 	if (enable) {
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_ANALOG_MASTER_BIAS_CTL, 0x30, 0x30);
+		msm_anlg_cdc_dig_notifier_call(codec, DIG_CDC_EVENT_CLK_ON);
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_DIGITAL_CDC_RST_CTL, 0x80, 0x80);
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_DIGITAL_CDC_TOP_CLK_CTL, 0x0C, 0x0C);
-		msm_anlg_cdc_dig_notifier_call(codec, DIG_CDC_EVENT_CLK_ON);
 	} else {
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_DIGITAL_CDC_TOP_CLK_CTL, 0x0C, 0x00);
