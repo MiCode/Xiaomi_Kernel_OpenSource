@@ -1592,10 +1592,10 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
-	case HAL_PARAM_VENC_H264_GENERATE_AUDNAL:
+	case HAL_PARAM_VENC_GENERATE_AUDNAL:
 	{
 		create_pkt_enable(pkt->rg_property_data,
-				HFI_PROPERTY_PARAM_VENC_H264_GENERATE_AUDNAL,
+				HFI_PROPERTY_PARAM_VENC_GENERATE_AUDNAL,
 				((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;

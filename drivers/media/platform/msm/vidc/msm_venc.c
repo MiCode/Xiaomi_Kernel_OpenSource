@@ -681,7 +681,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_AU_DELIMITER,
-		.name = "H264 AU Delimiter",
+		.name = "AU Delimiter",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
 		.minimum = V4L2_MPEG_VIDC_VIDEO_AU_DELIMITER_DISABLED,
 		.maximum = V4L2_MPEG_VIDC_VIDEO_AU_DELIMITER_ENABLED,
@@ -2338,7 +2338,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &extra;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_AU_DELIMITER:
-		property_id = HAL_PARAM_VENC_H264_GENERATE_AUDNAL;
+		property_id = HAL_PARAM_VENC_GENERATE_AUDNAL;
 
 		switch (ctrl->val) {
 		case V4L2_MPEG_VIDC_VIDEO_AU_DELIMITER_DISABLED:
