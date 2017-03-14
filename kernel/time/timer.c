@@ -873,10 +873,11 @@ static inline struct timer_base *get_timer_this_cpu_base(u32 tflags)
 	 * the deferrable base.
 	 */
 	if (IS_ENABLED(CONFIG_NO_HZ_COMMON) && base->nohz_active &&
-	    (tflags & TIMER_DEFERRABLE))
+	    (tflags & TIMER_DEFERRABLE)) {
 		base = &timer_base_deferrable;
 		if (tflags & TIMER_PINNED)
 			base = this_cpu_ptr(&timer_bases[BASE_DEF]);
+	}
 	return base;
 }
 
