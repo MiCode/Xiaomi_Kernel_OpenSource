@@ -1118,16 +1118,6 @@ static int smblib_apsd_disable_vote_callback(struct votable *votable,
 	int rc;
 
 	if (apsd_disable) {
-		/* Don't run APSD on CC debounce when APSD is disabled */
-		rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
-							APSD_START_ON_CC_BIT,
-							0);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't disable APSD_START_ON_CC rc=%d\n",
-									rc);
-			return rc;
-		}
-
 		rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
 							AUTO_SRC_DETECT_BIT,
 							0);
@@ -1141,15 +1131,6 @@ static int smblib_apsd_disable_vote_callback(struct votable *votable,
 							AUTO_SRC_DETECT_BIT);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't enable APSD rc=%d\n", rc);
-			return rc;
-		}
-
-		rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
-							APSD_START_ON_CC_BIT,
-							APSD_START_ON_CC_BIT);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't enable APSD_START_ON_CC rc=%d\n",
-									rc);
 			return rc;
 		}
 	}
@@ -2705,12 +2686,6 @@ int smblib_reg_block_restore(struct smb_charger *chg,
 
 static struct reg_info cc2_detach_settings[] = {
 	{
-		.reg	= TYPE_C_CFG_REG,
-		.mask	= APSD_START_ON_CC_BIT,
-		.val	= 0,
-		.desc	= "TYPE_C_CFG_REG",
-	},
-	{
 		.reg	= TYPE_C_CFG_2_REG,
 		.mask	= TYPE_C_UFP_MODE_BIT | EN_TRY_SOURCE_MODE_BIT,
 		.val	= TYPE_C_UFP_MODE_BIT,
@@ -3592,6 +3567,8 @@ static void typec_sink_removal(struct smb_charger *chg)
 
 static void smblib_handle_typec_removal(struct smb_charger *chg)
 {
+	int rc;
+
 	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, true, 0);
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER, true, 0);
 	vote(chg->pd_disallowed_votable_indirect, LEGACY_CABLE_VOTER, true, 0);
@@ -3613,11 +3590,15 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	chg->otg_attempts = 0;
 	chg->pulse_cnt = 0;
 	chg->usb_icl_delta_ua = 0;
-
 	chg->usb_ever_removed = true;
 
-	smblib_update_usb_type(chg);
+	/* enable APSD CC trigger for next insertion */
+	rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
+				APSD_START_ON_CC_BIT, APSD_START_ON_CC_BIT);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't enable APSD_START_ON_CC rc=%d\n", rc);
 
+	smblib_update_usb_type(chg);
 	typec_source_removal(chg);
 	typec_sink_removal(chg);
 }
@@ -3625,11 +3606,17 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 static void smblib_handle_typec_insertion(struct smb_charger *chg,
 		bool sink_attached, bool legacy_cable)
 {
-	int rp;
+	int rp, rc;
 	bool vbus_cc_short = false;
 	bool valid_legacy_cable;
 
 	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, false, 0);
+
+	/* disable APSD CC trigger since CC is attached */
+	rc = smblib_masked_write(chg, TYPE_C_CFG_REG, APSD_START_ON_CC_BIT, 0);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't disable APSD_START_ON_CC rc=%d\n",
+									rc);
 
 	if (sink_attached) {
 		typec_source_removal(chg);
