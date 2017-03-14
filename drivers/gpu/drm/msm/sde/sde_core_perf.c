@@ -456,13 +456,13 @@ static const struct file_operations sde_core_perf_mode_fops = {
 	.write = _sde_core_perf_mode_write,
 };
 
-static void sde_debugfs_core_perf_destroy(struct sde_core_perf *perf)
+static void sde_core_perf_debugfs_destroy(struct sde_core_perf *perf)
 {
 	debugfs_remove_recursive(perf->debugfs_root);
 	perf->debugfs_root = NULL;
 }
 
-static int sde_debugfs_core_perf_init(struct sde_core_perf *perf,
+int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
 		struct dentry *parent)
 {
 	struct sde_mdss_cfg *catalog = perf->catalog;
@@ -499,11 +499,11 @@ static int sde_debugfs_core_perf_init(struct sde_core_perf *perf,
 	return 0;
 }
 #else
-static void sde_debugfs_core_perf_destroy(struct sde_core_perf *perf)
+static void sde_core_perf_debugfs_destroy(struct sde_core_perf *perf)
 {
 }
 
-static int sde_debugfs_core_perf_init(struct sde_core_perf *perf,
+int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
 		struct dentry *parent)
 {
 	return 0;
@@ -517,7 +517,7 @@ void sde_core_perf_destroy(struct sde_core_perf *perf)
 		return;
 	}
 
-	sde_debugfs_core_perf_destroy(perf);
+	sde_core_perf_debugfs_destroy(perf);
 	perf->max_core_clk_rate = 0;
 	perf->core_clk = NULL;
 	mutex_destroy(&perf->perf_lock);
@@ -532,11 +532,9 @@ int sde_core_perf_init(struct sde_core_perf *perf,
 		struct sde_mdss_cfg *catalog,
 		struct sde_power_handle *phandle,
 		struct sde_power_client *pclient,
-		char *clk_name,
-		struct dentry *debugfs_parent)
+		char *clk_name)
 {
-	if (!perf || !catalog || !phandle || !pclient ||
-			!clk_name || !debugfs_parent) {
+	if (!perf || !dev || !catalog || !phandle || !pclient || !clk_name) {
 		SDE_ERROR("invalid parameters\n");
 		return -EINVAL;
 	}
@@ -559,8 +557,6 @@ int sde_core_perf_init(struct sde_core_perf *perf,
 		SDE_ERROR("invalid max core clk rate\n");
 		goto err;
 	}
-
-	sde_debugfs_core_perf_init(perf, debugfs_parent);
 
 	return 0;
 

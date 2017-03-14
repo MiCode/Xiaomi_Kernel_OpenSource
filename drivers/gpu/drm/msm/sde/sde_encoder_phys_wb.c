@@ -918,68 +918,44 @@ static void sde_encoder_phys_wb_get_hw_resources(
 #ifdef CONFIG_DEBUG_FS
 /**
  * sde_encoder_phys_wb_init_debugfs - initialize writeback encoder debugfs
- * @phys_enc:	Pointer to physical encoder
- * @sde_kms:	Pointer to SDE KMS object
+ * @phys_enc:		Pointer to physical encoder
+ * @debugfs_root:	Pointer to virtual encoder's debugfs_root dir
  */
 static int sde_encoder_phys_wb_init_debugfs(
-		struct sde_encoder_phys *phys_enc, struct sde_kms *kms)
+		struct sde_encoder_phys *phys_enc, struct dentry *debugfs_root)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
 
-	if (!phys_enc || !kms || !wb_enc->hw_wb)
+	if (!phys_enc || !wb_enc->hw_wb || !debugfs_root)
 		return -EINVAL;
 
-	snprintf(wb_enc->wb_name, ARRAY_SIZE(wb_enc->wb_name), "encoder_wb%d",
-			wb_enc->hw_wb->idx - WB_0);
-
-	wb_enc->debugfs_root =
-		debugfs_create_dir(wb_enc->wb_name,
-				sde_debugfs_get_root(kms));
-	if (!wb_enc->debugfs_root) {
-		SDE_ERROR("failed to create debugfs\n");
-		return -ENOMEM;
-	}
-
 	if (!debugfs_create_u32("wbdone_timeout", 0644,
-			wb_enc->debugfs_root, &wb_enc->wbdone_timeout)) {
+			debugfs_root, &wb_enc->wbdone_timeout)) {
 		SDE_ERROR("failed to create debugfs/wbdone_timeout\n");
 		return -ENOMEM;
 	}
 
 	if (!debugfs_create_u32("bypass_irqreg", 0644,
-			wb_enc->debugfs_root, &wb_enc->bypass_irqreg)) {
+			debugfs_root, &wb_enc->bypass_irqreg)) {
 		SDE_ERROR("failed to create debugfs/bypass_irqreg\n");
 		return -ENOMEM;
 	}
 
 	return 0;
 }
-
-/**
- * sde_encoder_phys_wb_destroy_debugfs - destroy writeback encoder debugfs
- * @phys_enc:	Pointer to physical encoder
- */
-static void sde_encoder_phys_wb_destroy_debugfs(
-		struct sde_encoder_phys *phys_enc)
-{
-	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
-
-	if (!phys_enc)
-		return;
-
-	debugfs_remove_recursive(wb_enc->debugfs_root);
-}
 #else
 static int sde_encoder_phys_wb_init_debugfs(
-		struct sde_encoder_phys *phys_enc, struct sde_kms *kms)
+		struct sde_encoder_phys *phys_enc, struct dentry *debugfs_root)
 {
 	return 0;
 }
-static void sde_encoder_phys_wb_destroy_debugfs(
-		struct sde_encoder_phys *phys_enc)
-{
-}
 #endif
+
+static int sde_encoder_phys_wb_late_register(struct sde_encoder_phys *phys_enc,
+		struct dentry *debugfs_root)
+{
+	return sde_encoder_phys_wb_init_debugfs(phys_enc, debugfs_root);
+}
 
 /**
  * sde_encoder_phys_wb_destroy - destroy writeback encoder
@@ -995,8 +971,6 @@ static void sde_encoder_phys_wb_destroy(struct sde_encoder_phys *phys_enc)
 	if (!phys_enc)
 		return;
 
-	sde_encoder_phys_wb_destroy_debugfs(phys_enc);
-
 	kfree(wb_enc);
 }
 
@@ -1006,6 +980,7 @@ static void sde_encoder_phys_wb_destroy(struct sde_encoder_phys *phys_enc)
  */
 static void sde_encoder_phys_wb_init_ops(struct sde_encoder_phys_ops *ops)
 {
+	ops->late_register = sde_encoder_phys_wb_late_register;
 	ops->is_master = sde_encoder_phys_wb_is_master;
 	ops->mode_set = sde_encoder_phys_wb_mode_set;
 	ops->enable = sde_encoder_phys_wb_enable;
@@ -1103,18 +1078,11 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	phys_enc->enc_spinlock = p->enc_spinlock;
 	INIT_LIST_HEAD(&wb_enc->irq_cb.list);
 
-	ret = sde_encoder_phys_wb_init_debugfs(phys_enc, p->sde_kms);
-	if (ret) {
-		SDE_ERROR("failed to init debugfs %d\n", ret);
-		goto fail_debugfs_init;
-	}
-
 	SDE_DEBUG("Created sde_encoder_phys_wb for wb %d\n",
 			wb_enc->hw_wb->idx - WB_0);
 
 	return phys_enc;
 
-fail_debugfs_init:
 fail_wb_init:
 fail_wb_check:
 fail_mdp_init:

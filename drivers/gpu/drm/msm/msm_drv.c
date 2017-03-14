@@ -505,8 +505,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	dbg_power_ctrl.handle = &priv->phandle;
 	dbg_power_ctrl.client = priv->pclient;
 	dbg_power_ctrl.enable_fn = msm_power_enable_wrapper;
-	ret = sde_dbg_init(ddev->primary->debugfs_root, &pdev->dev,
-			&dbg_power_ctrl);
+	ret = sde_dbg_init(&pdev->dev, &dbg_power_ctrl);
 	if (ret) {
 		dev_err(dev, "failed to init sde dbg: %d\n", ret);
 		goto fail;
@@ -604,6 +603,12 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	ret = msm_debugfs_late_init(ddev);
 	if (ret)
 		goto fail;
+
+	ret = sde_dbg_debugfs_register(ddev->primary->debugfs_root);
+	if (ret) {
+		dev_err(dev, "failed to reg sde dbg debugfs: %d\n", ret);
+		goto fail;
+	}
 
 	/* perform subdriver post initialization */
 	if (kms && kms->funcs && kms->funcs->postinit) {

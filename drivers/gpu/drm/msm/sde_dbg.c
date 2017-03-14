@@ -2554,123 +2554,6 @@ static const struct file_operations sde_evtlog_fops = {
 	.write = sde_evtlog_dump_write,
 };
 
-void sde_dbg_init_dbg_buses(u32 hwversion)
-{
-	static struct sde_dbg_base *dbg = &sde_dbg_base;
-	char debug_name[80] = "";
-
-	memset(&dbg->dbgbus_sde, 0, sizeof(dbg->dbgbus_sde));
-	memset(&dbg->dbgbus_vbif_rt, 0, sizeof(dbg->dbgbus_vbif_rt));
-
-	switch (hwversion) {
-	case SDE_HW_VER_300:
-	case SDE_HW_VER_301:
-		dbg->dbgbus_sde.entries = dbg_bus_sde_8998;
-		dbg->dbgbus_sde.cmn.entries_size = ARRAY_SIZE(dbg_bus_sde_8998);
-		dbg->dbgbus_sde.cmn.flags = DBGBUS_FLAGS_DSPP;
-
-		dbg->dbgbus_vbif_rt.entries = vbif_dbg_bus_msm8998;
-		dbg->dbgbus_vbif_rt.cmn.entries_size =
-				ARRAY_SIZE(vbif_dbg_bus_msm8998);
-		break;
-
-	case SDE_HW_VER_400:
-		dbg->dbgbus_sde.entries = dbg_bus_sde_sdm845;
-		dbg->dbgbus_sde.cmn.entries_size =
-				ARRAY_SIZE(dbg_bus_sde_sdm845);
-		dbg->dbgbus_sde.cmn.flags = DBGBUS_FLAGS_DSPP;
-
-		/* vbif is unchanged vs 8998 */
-		dbg->dbgbus_vbif_rt.entries = vbif_dbg_bus_msm8998;
-		dbg->dbgbus_vbif_rt.cmn.entries_size =
-				ARRAY_SIZE(vbif_dbg_bus_msm8998);
-		break;
-	default:
-		pr_err("unsupported chipset id %u\n", hwversion);
-		break;
-	}
-
-	if (dbg->dbgbus_sde.entries) {
-		dbg->dbgbus_sde.cmn.name = DBGBUS_NAME_SDE;
-		snprintf(debug_name, sizeof(debug_name), "%s_dbgbus",
-				dbg->dbgbus_sde.cmn.name);
-		dbg->dbgbus_sde.cmn.enable_mask = DEFAULT_DBGBUS_SDE;
-		debugfs_create_u32(debug_name, 0644, dbg->root,
-				&dbg->dbgbus_sde.cmn.enable_mask);
-	}
-
-	if (dbg->dbgbus_vbif_rt.entries) {
-		dbg->dbgbus_vbif_rt.cmn.name = DBGBUS_NAME_VBIF_RT;
-		snprintf(debug_name, sizeof(debug_name), "%s_dbgbus",
-				dbg->dbgbus_vbif_rt.cmn.name);
-		dbg->dbgbus_vbif_rt.cmn.enable_mask = DEFAULT_DBGBUS_VBIFRT;
-		debugfs_create_u32(debug_name, 0644, dbg->root,
-				&dbg->dbgbus_vbif_rt.cmn.enable_mask);
-	}
-}
-
-int sde_dbg_init(struct dentry *debugfs_root, struct device *dev,
-		struct sde_dbg_power_ctrl *power_ctrl)
-{
-	int i;
-
-	INIT_LIST_HEAD(&sde_dbg_base.reg_base_list);
-	sde_dbg_base.dev = dev;
-	sde_dbg_base.power_ctrl = *power_ctrl;
-
-
-	sde_dbg_base.evtlog = sde_evtlog_init();
-	if (IS_ERR_OR_NULL(sde_dbg_base.evtlog))
-		return PTR_ERR(sde_dbg_base.evtlog);
-
-	sde_dbg_base_evtlog = sde_dbg_base.evtlog;
-
-	sde_dbg_base.root = debugfs_create_dir("evt_dbg", debugfs_root);
-	if (IS_ERR_OR_NULL(sde_dbg_base.root)) {
-		pr_err("debugfs_create_dir fail, error %ld\n",
-		       PTR_ERR(sde_dbg_base.root));
-		sde_dbg_base.root = NULL;
-		return -ENODEV;
-	}
-
-	INIT_WORK(&sde_dbg_base.dump_work, _sde_dump_work);
-	sde_dbg_base.work_panic = false;
-
-	for (i = 0; i < SDE_EVTLOG_ENTRY; i++)
-		sde_dbg_base.evtlog->logs[i].counter = i;
-
-	debugfs_create_file("dump", 0644, sde_dbg_base.root, NULL,
-						&sde_evtlog_fops);
-	debugfs_create_u32("enable", 0644, sde_dbg_base.root,
-			&(sde_dbg_base.evtlog->enable));
-	debugfs_create_u32("panic", 0644, sde_dbg_base.root,
-			&sde_dbg_base.panic_on_err);
-	debugfs_create_u32("reg_dump", 0644, sde_dbg_base.root,
-			&sde_dbg_base.enable_reg_dump);
-
-	sde_dbg_base.panic_on_err = DEFAULT_PANIC;
-	sde_dbg_base.enable_reg_dump = DEFAULT_REGDUMP;
-
-	pr_info("evtlog_status: enable:%d, panic:%d, dump:%d\n",
-		sde_dbg_base.evtlog->enable, sde_dbg_base.panic_on_err,
-		sde_dbg_base.enable_reg_dump);
-
-	return 0;
-}
-
-/**
- * sde_dbg_destroy - destroy sde debug facilities
- */
-void sde_dbg_destroy(void)
-{
-	debugfs_remove_recursive(sde_dbg_base.root);
-	sde_dbg_base.root = 0;
-
-	sde_dbg_base_evtlog = NULL;
-	sde_evtlog_destroy(sde_dbg_base.evtlog);
-	sde_dbg_base.evtlog = NULL;
-}
-
 /**
  * sde_dbg_reg_base_release - release allocated reg dump file private data
  * @inode: debugfs inode
@@ -2894,44 +2777,172 @@ static const struct file_operations sde_reg_fops = {
 	.write = sde_dbg_reg_base_reg_write,
 };
 
+int sde_dbg_debugfs_register(struct dentry *debugfs_root)
+{
+	static struct sde_dbg_base *dbg = &sde_dbg_base;
+	struct sde_dbg_reg_base *blk_base;
+	char debug_name[80] = "";
+
+	sde_dbg_base.root = debugfs_create_dir("evt_dbg", debugfs_root);
+	if (IS_ERR_OR_NULL(sde_dbg_base.root)) {
+		pr_err("debugfs_create_dir fail, error %ld\n",
+		       PTR_ERR(sde_dbg_base.root));
+		sde_dbg_base.root = NULL;
+		return -ENODEV;
+	}
+
+	debugfs_create_file("dump", 0644, sde_dbg_base.root, NULL,
+			&sde_evtlog_fops);
+	debugfs_create_u32("enable", 0644, sde_dbg_base.root,
+			&(sde_dbg_base.evtlog->enable));
+	debugfs_create_u32("panic", 0644, sde_dbg_base.root,
+			&sde_dbg_base.panic_on_err);
+	debugfs_create_u32("reg_dump", 0644, sde_dbg_base.root,
+			&sde_dbg_base.enable_reg_dump);
+
+
+	if (dbg->dbgbus_sde.entries) {
+		dbg->dbgbus_sde.cmn.name = DBGBUS_NAME_SDE;
+		snprintf(debug_name, sizeof(debug_name), "%s_dbgbus",
+				dbg->dbgbus_sde.cmn.name);
+		dbg->dbgbus_sde.cmn.enable_mask = DEFAULT_DBGBUS_SDE;
+		debugfs_create_u32(debug_name, 0644, dbg->root,
+				&dbg->dbgbus_sde.cmn.enable_mask);
+	}
+
+	if (dbg->dbgbus_vbif_rt.entries) {
+		dbg->dbgbus_vbif_rt.cmn.name = DBGBUS_NAME_VBIF_RT;
+		snprintf(debug_name, sizeof(debug_name), "%s_dbgbus",
+				dbg->dbgbus_vbif_rt.cmn.name);
+		dbg->dbgbus_vbif_rt.cmn.enable_mask = DEFAULT_DBGBUS_VBIFRT;
+		debugfs_create_u32(debug_name, 0644, dbg->root,
+				&dbg->dbgbus_vbif_rt.cmn.enable_mask);
+	}
+
+	list_for_each_entry(blk_base, &dbg->reg_base_list, reg_base_head) {
+		snprintf(debug_name, sizeof(debug_name), "%s_off",
+				blk_base->name);
+		debugfs_create_file(debug_name, 0644, dbg->root, blk_base,
+				&sde_off_fops);
+
+		snprintf(debug_name, sizeof(debug_name), "%s_reg",
+				blk_base->name);
+		debugfs_create_file(debug_name, 0644, dbg->root, blk_base,
+				&sde_reg_fops);
+	}
+
+	return 0;
+}
+
+#if defined(CONFIG_DEBUG_FS)
+static void _sde_dbg_debugfs_destroy(void)
+{
+	debugfs_remove_recursive(sde_dbg_base.root);
+	sde_dbg_base.root = 0;
+}
+#else
+static void _sde_dbg_debugfs_destroy(void)
+{
+}
+#endif
+
+void sde_dbg_init_dbg_buses(u32 hwversion)
+{
+	static struct sde_dbg_base *dbg = &sde_dbg_base;
+
+	memset(&dbg->dbgbus_sde, 0, sizeof(dbg->dbgbus_sde));
+	memset(&dbg->dbgbus_vbif_rt, 0, sizeof(dbg->dbgbus_vbif_rt));
+
+	switch (hwversion) {
+	case SDE_HW_VER_300:
+	case SDE_HW_VER_301:
+		dbg->dbgbus_sde.entries = dbg_bus_sde_8998;
+		dbg->dbgbus_sde.cmn.entries_size = ARRAY_SIZE(dbg_bus_sde_8998);
+		dbg->dbgbus_sde.cmn.flags = DBGBUS_FLAGS_DSPP;
+
+		dbg->dbgbus_vbif_rt.entries = vbif_dbg_bus_msm8998;
+		dbg->dbgbus_vbif_rt.cmn.entries_size =
+				ARRAY_SIZE(vbif_dbg_bus_msm8998);
+		break;
+
+	case SDE_HW_VER_400:
+		dbg->dbgbus_sde.entries = dbg_bus_sde_sdm845;
+		dbg->dbgbus_sde.cmn.entries_size =
+				ARRAY_SIZE(dbg_bus_sde_sdm845);
+		dbg->dbgbus_sde.cmn.flags = DBGBUS_FLAGS_DSPP;
+
+		/* vbif is unchanged vs 8998 */
+		dbg->dbgbus_vbif_rt.entries = vbif_dbg_bus_msm8998;
+		dbg->dbgbus_vbif_rt.cmn.entries_size =
+				ARRAY_SIZE(vbif_dbg_bus_msm8998);
+		break;
+	default:
+		pr_err("unsupported chipset id %u\n", hwversion);
+		break;
+	}
+}
+
+int sde_dbg_init(struct device *dev, struct sde_dbg_power_ctrl *power_ctrl)
+{
+	if (!dev || !power_ctrl) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	INIT_LIST_HEAD(&sde_dbg_base.reg_base_list);
+	sde_dbg_base.dev = dev;
+	sde_dbg_base.power_ctrl = *power_ctrl;
+
+	sde_dbg_base.evtlog = sde_evtlog_init();
+	if (IS_ERR_OR_NULL(sde_dbg_base.evtlog))
+		return PTR_ERR(sde_dbg_base.evtlog);
+
+	sde_dbg_base_evtlog = sde_dbg_base.evtlog;
+
+	INIT_WORK(&sde_dbg_base.dump_work, _sde_dump_work);
+	sde_dbg_base.work_panic = false;
+	sde_dbg_base.panic_on_err = DEFAULT_PANIC;
+	sde_dbg_base.enable_reg_dump = DEFAULT_REGDUMP;
+
+	pr_info("evtlog_status: enable:%d, panic:%d, dump:%d\n",
+		sde_dbg_base.evtlog->enable, sde_dbg_base.panic_on_err,
+		sde_dbg_base.enable_reg_dump);
+
+	return 0;
+}
+
+/**
+ * sde_dbg_destroy - destroy sde debug facilities
+ */
+void sde_dbg_destroy(void)
+{
+	_sde_dbg_debugfs_destroy();
+	sde_dbg_base_evtlog = NULL;
+	sde_evtlog_destroy(sde_dbg_base.evtlog);
+	sde_dbg_base.evtlog = NULL;
+}
+
 int sde_dbg_reg_register_base(const char *name, void __iomem *base,
 		size_t max_offset)
 {
 	struct sde_dbg_base *dbg_base = &sde_dbg_base;
 	struct sde_dbg_reg_base *reg_base;
-	struct dentry *ent_off, *ent_reg;
-	char dn[80] = "";
-	int prefix_len = 0;
+
+	if (!name || !strlen(name)) {
+		pr_err("no debug name provided\n");
+		return -EINVAL;
+	}
 
 	reg_base = kzalloc(sizeof(*reg_base), GFP_KERNEL);
 	if (!reg_base)
 		return -ENOMEM;
 
-	if (name)
-		strlcpy(reg_base->name, name, sizeof(reg_base->name));
+	strlcpy(reg_base->name, name, sizeof(reg_base->name));
 	reg_base->base = base;
 	reg_base->max_offset = max_offset;
 	reg_base->off = 0;
 	reg_base->cnt = DEFAULT_BASE_REG_CNT;
 	reg_base->reg_dump = NULL;
-
-	if (name)
-		prefix_len = snprintf(dn, sizeof(dn), "%s_", name);
-	strlcpy(dn + prefix_len, "off", sizeof(dn) - prefix_len);
-	ent_off = debugfs_create_file(dn, 0644, dbg_base->root, reg_base,
-			&sde_off_fops);
-	if (IS_ERR_OR_NULL(ent_off)) {
-		pr_err("debugfs_create_file: offset fail\n");
-		goto off_fail;
-	}
-
-	strlcpy(dn + prefix_len, "reg", sizeof(dn) - prefix_len);
-	ent_reg = debugfs_create_file(dn, 0644, dbg_base->root, reg_base,
-			&sde_reg_fops);
-	if (IS_ERR_OR_NULL(ent_reg)) {
-		pr_err("debugfs_create_file: reg fail\n");
-		goto reg_fail;
-	}
 
 	/* Initialize list to make sure check for null list will be valid */
 	INIT_LIST_HEAD(&reg_base->sub_range_list);
@@ -2942,11 +2953,6 @@ int sde_dbg_reg_register_base(const char *name, void __iomem *base,
 	list_add(&reg_base->reg_base_head, &dbg_base->reg_base_list);
 
 	return 0;
-reg_fail:
-	debugfs_remove(ent_off);
-off_fail:
-	kfree(reg_base);
-	return -ENODEV;
 }
 
 void sde_dbg_reg_register_dump_range(const char *base_name,

@@ -495,6 +495,11 @@ static int sde_connector_late_register(struct drm_connector *connector)
 	return sde_connector_init_debugfs(connector);
 }
 
+static void sde_connector_early_unregister(struct drm_connector *connector)
+{
+	/* debugfs under connector->debugfs are deleted by drm_debugfs */
+}
+
 static const struct drm_connector_funcs sde_connector_ops = {
 	.dpms =                   drm_atomic_helper_connector_dpms,
 	.reset =                  sde_connector_atomic_reset,
@@ -507,6 +512,7 @@ static const struct drm_connector_funcs sde_connector_ops = {
 	.atomic_get_property =    sde_connector_atomic_get_property,
 	.set_property =           sde_connector_set_property,
 	.late_register =          sde_connector_late_register,
+	.early_unregister =       sde_connector_early_unregister,
 };
 
 static int sde_connector_get_modes(struct drm_connector *connector)

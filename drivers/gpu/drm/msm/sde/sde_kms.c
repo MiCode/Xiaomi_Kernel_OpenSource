@@ -273,35 +273,35 @@ void *sde_debugfs_create_regset32(const char *name, umode_t mode,
 
 void *sde_debugfs_get_root(struct sde_kms *sde_kms)
 {
-	return sde_kms ? sde_kms->debugfs_root : 0;
+	return sde_kms ? sde_kms->dev->primary->debugfs_root : 0;
 }
 
 static int _sde_debugfs_init(struct sde_kms *sde_kms)
 {
 	void *p;
+	int rc;
+	void *debugfs_root;
 
 	p = sde_hw_util_get_log_mask_ptr();
 
 	if (!sde_kms || !p)
 		return -EINVAL;
 
-	if (sde_kms->dev && sde_kms->dev->primary)
-		sde_kms->debugfs_root = sde_kms->dev->primary->debugfs_root;
-	else
-		sde_kms->debugfs_root = debugfs_create_dir(SDE_DEBUGFS_DIR, 0);
+	debugfs_root = sde_debugfs_get_root(sde_kms);
+	if (!debugfs_root)
+		return -EINVAL;
 
 	/* allow debugfs_root to be NULL */
-	debugfs_create_x32(SDE_DEBUGFS_HWMASKNAME,
-			0644, sde_kms->debugfs_root, p);
+	debugfs_create_x32(SDE_DEBUGFS_HWMASKNAME, 0644, debugfs_root, p);
 
-	/* create common folder for debug information */
-	sde_kms->debugfs_debug = debugfs_create_dir("debug",
-			sde_kms->debugfs_root);
-	if (!sde_kms->debugfs_debug)
-		SDE_ERROR("failed to create debugfs debug directory\n");
+	sde_debugfs_danger_init(sde_kms, debugfs_root);
+	sde_debugfs_vbif_init(sde_kms, debugfs_root);
 
-	sde_debugfs_danger_init(sde_kms, sde_kms->debugfs_debug);
-	sde_debugfs_vbif_init(sde_kms, sde_kms->debugfs_debug);
+	rc = sde_core_perf_debugfs_init(&sde_kms->perf, debugfs_root);
+	if (rc) {
+		SDE_ERROR("failed to init perf %d\n", rc);
+		return rc;
+	}
 
 	return 0;
 }
@@ -312,13 +312,19 @@ static void _sde_debugfs_destroy(struct sde_kms *sde_kms)
 	if (sde_kms) {
 		sde_debugfs_vbif_destroy(sde_kms);
 		sde_debugfs_danger_destroy(sde_kms);
-		debugfs_remove_recursive(sde_kms->debugfs_debug);
-		sde_kms->debugfs_debug = 0;
-		debugfs_remove_recursive(sde_kms->debugfs_root);
-		sde_kms->debugfs_root = 0;
 	}
 }
 #else
+static int _sde_debugfs_init(struct sde_kms *sde_kms)
+{
+	return 0;
+}
+
+static void _sde_debugfs_destroy(struct sde_kms *sde_kms)
+{
+	return 0;
+}
+
 static void sde_debugfs_danger_destroy(struct sde_kms *sde_kms,
 		struct dentry *parent)
 {
@@ -818,6 +824,7 @@ static int sde_kms_postinit(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
 	struct drm_device *dev;
+	int rc;
 
 	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev) {
 		SDE_ERROR("invalid sde_kms\n");
@@ -826,7 +833,11 @@ static int sde_kms_postinit(struct msm_kms *kms)
 
 	dev = sde_kms->dev;
 
-	return 0;
+	rc = _sde_debugfs_init(sde_kms);
+	if (rc)
+		SDE_ERROR("sde_debugfs init failed: %d\n", rc);
+
+	return rc;
 }
 
 static long sde_kms_round_pixclk(struct msm_kms *kms, unsigned long rate,
@@ -1218,19 +1229,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto power_error;
 	}
 
-	/*
-	 * NOTE: Calling sde_debugfs_init here so that the drm_minor device for
-	 *       'primary' is already created.
-	 */
-	rc = _sde_debugfs_init(sde_kms);
-	if (rc) {
-		SDE_ERROR("sde_debugfs init failed: %d\n", rc);
-		goto power_error;
-	}
-
 	rc = sde_core_perf_init(&sde_kms->perf, dev, sde_kms->catalog,
-			&priv->phandle, priv->pclient, "core_clk_src",
-			sde_kms->debugfs_debug);
+			&priv->phandle, priv->pclient, "core_clk_src");
 	if (rc) {
 		SDE_ERROR("failed to init perf %d\n", rc);
 		goto perf_err;

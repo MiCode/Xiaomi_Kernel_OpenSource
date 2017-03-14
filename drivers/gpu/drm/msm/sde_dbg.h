@@ -64,7 +64,6 @@ struct sde_dbg_power_ctrl {
 };
 
 struct sde_dbg_evtlog_log {
-	u32 counter;
 	s64 time;
 	const char *name;
 	int line;
@@ -185,14 +184,19 @@ void sde_dbg_init_dbg_buses(u32 hwversion);
 
 /**
  * sde_dbg_init - initialize global sde debug facilities: evtlog, regdump
- * @debugfs_root:	debugfs root in which to create sde debug entries
  * @dev:		device handle
  * @power_ctrl:		power control callback structure for enabling clocks
  *			during register dumping
  * Returns:		0 or -ERROR
  */
-int sde_dbg_init(struct dentry *debugfs_root, struct device *dev,
-		struct sde_dbg_power_ctrl *power_ctrl);
+int sde_dbg_init(struct device *dev, struct sde_dbg_power_ctrl *power_ctrl);
+
+/**
+ * sde_dbg_debugfs_register - register entries at the given debugfs dir
+ * @debugfs_root:	debugfs root in which to create sde debug entries
+ * Returns:	0 or -ERROR
+ */
+int sde_dbg_debugfs_register(struct dentry *debugfs_root);
 
 /**
  * sde_dbg_destroy - destroy the global sde debug facilities
@@ -275,8 +279,13 @@ void sde_dbg_init_dbg_buses(u32 hwversion)
 {
 }
 
-static inline int sde_dbg_init(struct dentry *debugfs_root, struct device *dev,
+static inline int sde_dbg_init(struct device *dev,
 		struct sde_dbg_power_ctrl *power_ctrl)
+{
+	return 0;
+}
+
+int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 {
 	return 0;
 }

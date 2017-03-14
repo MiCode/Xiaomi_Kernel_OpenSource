@@ -72,7 +72,6 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 	msm_property_destroy(&sde_crtc->property_info);
 	sde_cp_crtc_destroy_properties(crtc);
 
-	debugfs_remove_recursive(sde_crtc->debugfs_root);
 	mutex_destroy(&sde_crtc->crtc_lock);
 	sde_fence_deinit(&sde_crtc->output_fence);
 
@@ -1843,30 +1842,7 @@ static int _sde_debugfs_status_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, _sde_debugfs_status_show, inode->i_private);
 }
-#endif
 
-static const struct drm_crtc_funcs sde_crtc_funcs = {
-	.set_config = drm_atomic_helper_set_config,
-	.destroy = sde_crtc_destroy,
-	.page_flip = drm_atomic_helper_page_flip,
-	.set_property = sde_crtc_set_property,
-	.atomic_set_property = sde_crtc_atomic_set_property,
-	.atomic_get_property = sde_crtc_atomic_get_property,
-	.reset = sde_crtc_reset,
-	.atomic_duplicate_state = sde_crtc_duplicate_state,
-	.atomic_destroy_state = sde_crtc_destroy_state,
-};
-
-static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
-	.mode_fixup = sde_crtc_mode_fixup,
-	.disable = sde_crtc_disable,
-	.enable = sde_crtc_enable,
-	.atomic_check = sde_crtc_atomic_check,
-	.atomic_begin = sde_crtc_atomic_begin,
-	.atomic_flush = sde_crtc_atomic_flush,
-};
-
-#ifdef CONFIG_DEBUG_FS
 #define DEFINE_SDE_DEBUGFS_SEQ_FOPS(__prefix)				\
 static int __prefix ## _open(struct inode *inode, struct file *file)	\
 {									\
@@ -1897,9 +1873,11 @@ static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 }
 DEFINE_SDE_DEBUGFS_SEQ_FOPS(sde_crtc_debugfs_state);
 
-static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
-		struct sde_kms *sde_kms)
+static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 {
+	struct sde_crtc *sde_crtc;
+	struct sde_kms *sde_kms;
+
 	static const struct file_operations debugfs_status_fops = {
 		.open =		_sde_debugfs_status_open,
 		.read =		seq_read,
@@ -1907,27 +1885,84 @@ static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 		.release =	single_release,
 	};
 
-	if (sde_crtc && sde_kms) {
-		sde_crtc->debugfs_root = debugfs_create_dir(sde_crtc->name,
-				sde_debugfs_get_root(sde_kms));
-		if (sde_crtc->debugfs_root) {
-			/* don't error check these */
-			debugfs_create_file("status", 0444,
-					sde_crtc->debugfs_root,
-					sde_crtc, &debugfs_status_fops);
-			debugfs_create_file("state", 0644,
-					sde_crtc->debugfs_root,
-					&sde_crtc->base,
-					&sde_crtc_debugfs_state_fops);
-		}
-	}
+	if (!crtc)
+		return -EINVAL;
+	sde_crtc = to_sde_crtc(crtc);
+
+	sde_kms = _sde_crtc_get_kms(crtc);
+	if (!sde_kms)
+		return -EINVAL;
+
+	sde_crtc->debugfs_root = debugfs_create_dir(sde_crtc->name,
+			sde_debugfs_get_root(sde_kms));
+	if (!sde_crtc->debugfs_root)
+		return -ENOMEM;
+
+	/* don't error check these */
+	debugfs_create_file("status", 0444,
+			sde_crtc->debugfs_root,
+			sde_crtc, &debugfs_status_fops);
+	debugfs_create_file("state", 0644,
+			sde_crtc->debugfs_root,
+			&sde_crtc->base,
+			&sde_crtc_debugfs_state_fops);
+
+	return 0;
+}
+
+static void _sde_crtc_destroy_debugfs(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc)
+		return;
+	sde_crtc = to_sde_crtc(crtc);
+	debugfs_remove_recursive(sde_crtc->debugfs_root);
 }
 #else
-static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
-		struct sde_kms *sde_kms)
+static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 {
+	return 0;
 }
-#endif
+
+static void _sde_crtc_destroy_debugfs(struct drm_crtc *crtc)
+{
+	return 0;
+}
+#endif /* CONFIG_DEBUG_FS */
+
+static int sde_crtc_late_register(struct drm_crtc *crtc)
+{
+	return _sde_crtc_init_debugfs(crtc);
+}
+
+static void sde_crtc_early_unregister(struct drm_crtc *crtc)
+{
+	_sde_crtc_destroy_debugfs(crtc);
+}
+
+static const struct drm_crtc_funcs sde_crtc_funcs = {
+	.set_config = drm_atomic_helper_set_config,
+	.destroy = sde_crtc_destroy,
+	.page_flip = drm_atomic_helper_page_flip,
+	.set_property = sde_crtc_set_property,
+	.atomic_set_property = sde_crtc_atomic_set_property,
+	.atomic_get_property = sde_crtc_atomic_get_property,
+	.reset = sde_crtc_reset,
+	.atomic_duplicate_state = sde_crtc_duplicate_state,
+	.atomic_destroy_state = sde_crtc_destroy_state,
+	.late_register = sde_crtc_late_register,
+	.early_unregister = sde_crtc_early_unregister,
+};
+
+static const struct drm_crtc_helper_funcs sde_crtc_helper_funcs = {
+	.mode_fixup = sde_crtc_mode_fixup,
+	.disable = sde_crtc_disable,
+	.enable = sde_crtc_enable,
+	.atomic_check = sde_crtc_atomic_check,
+	.atomic_begin = sde_crtc_atomic_begin,
+	.atomic_flush = sde_crtc_atomic_flush,
+};
 
 /* initialize crtc */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
@@ -1973,9 +2008,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	/* initialize output fence support */
 	mutex_init(&sde_crtc->crtc_lock);
 	sde_fence_init(&sde_crtc->output_fence, sde_crtc->name, crtc->base.id);
-
-	/* initialize debugfs support */
-	_sde_crtc_init_debugfs(sde_crtc, kms);
 
 	/* create CRTC properties */
 	msm_property_init(&sde_crtc->property_info, &crtc->base, dev,
