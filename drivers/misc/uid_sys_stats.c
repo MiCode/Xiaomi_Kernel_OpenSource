@@ -454,7 +454,7 @@ static int __init proc_uid_sys_stats_init(void)
 		&uid_io_fops, NULL);
 
 	proc_parent = proc_mkdir("uid_procstat", NULL);
-	if (!io_parent) {
+	if (!proc_parent) {
 		pr_err("%s: failed to create uid_procstat proc entry\n",
 			__func__);
 		goto err;
