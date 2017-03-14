@@ -1791,13 +1791,6 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 
 	mdata = ctl->mdata;
 
-	/*
-	 * do not enable programmable fetch trigger for split display
-	 * on sdm660.
-	 */
-	if (is_split_lm(ctl->mfd) && (mdata->mdp_rev == MDSS_MDP_HW_REV_320))
-		return;
-
 	pinfo->prg_fet = mdss_mdp_get_prefetch_lines(pinfo);
 	if (!pinfo->prg_fet) {
 		pr_debug("programmable fetch is not needed/supported\n");
