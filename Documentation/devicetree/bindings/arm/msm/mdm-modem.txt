@@ -108,6 +108,8 @@ Optional driver parameters:
 - qcom,sysmon-id: platform device id that sysmon is probed with for the subsystem.
 - qcom,pil-force-shutdown: Boolean. If set, the SSR framework will not trigger graceful shutdown
 			   on behalf of the subsystem driver.
+- qcom,mdm-link-info: a string indicating additional info about the physical link.
+			For example: "devID_domain.bus.slot" in case of PCIe.
 
 Example:
 	mdm0: qcom,mdm0 {
