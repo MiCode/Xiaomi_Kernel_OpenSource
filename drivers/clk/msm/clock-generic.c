@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -491,6 +491,9 @@ static long __slave_div_round_rate(struct clk *c, unsigned long rate,
 	if (best_div)
 		*best_div = div;
 
+	if (d->data.is_half_divider)
+		p_rate *= 2;
+
 	return p_rate / div;
 }
 
@@ -530,9 +533,16 @@ static int slave_div_set_rate(struct clk *c, unsigned long rate)
 static unsigned long slave_div_get_rate(struct clk *c)
 {
 	struct div_clk *d = to_div_clk(c);
+	unsigned long rate;
+
 	if (!d->data.div)
 		return 0;
-	return clk_get_rate(c->parent) / d->data.div;
+
+	rate = clk_get_rate(c->parent) / d->data.div;
+	if (d->data.is_half_divider)
+		rate *= 2;
+
+	return rate;
 }
 
 struct clk_ops clk_ops_slave_div = {

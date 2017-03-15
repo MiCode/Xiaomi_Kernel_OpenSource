@@ -239,7 +239,6 @@ static struct smb_params pm660_params = {
 struct smb_dt_props {
 	int	fcc_ua;
 	int	usb_icl_ua;
-	int	otg_cl_ua;
 	int	dc_icl_ua;
 	int	boost_threshold_ua;
 	int	fv_uv;
@@ -323,9 +322,9 @@ static int smb2_parse_dt(struct smb2 *chip)
 		chip->dt.usb_icl_ua = -EINVAL;
 
 	rc = of_property_read_u32(node,
-				"qcom,otg-cl-ua", &chip->dt.otg_cl_ua);
+				"qcom,otg-cl-ua", &chg->otg_cl_ua);
 	if (rc < 0)
-		chip->dt.otg_cl_ua = MICRO_1P5A;
+		chg->otg_cl_ua = MICRO_1P5A;
 
 	rc = of_property_read_u32(node,
 				"qcom,dc-icl-ua", &chip->dt.dc_icl_ua);
@@ -848,6 +847,8 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_PARALLEL_DISABLE,
 	POWER_SUPPLY_PROP_SET_SHIP_MODE,
 	POWER_SUPPLY_PROP_DIE_HEALTH,
+	POWER_SUPPLY_PROP_RERUN_AICL,
+	POWER_SUPPLY_PROP_DP_DM,
 };
 
 static int smb2_batt_get_prop(struct power_supply *psy,
@@ -933,6 +934,12 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
 		rc = smblib_get_prop_die_health(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_DP_DM:
+		val->intval = chg->pulse_cnt;
+		break;
+	case POWER_SUPPLY_PROP_RERUN_AICL:
+		val->intval = 0;
+		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -984,7 +991,16 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		/* Not in ship mode as long as the device is active */
 		if (!val->intval)
 			break;
+		if (chg->pl.psy)
+			power_supply_set_property(chg->pl.psy,
+				POWER_SUPPLY_PROP_SET_SHIP_MODE, val);
 		rc = smblib_set_prop_ship_mode(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_RERUN_AICL:
+		rc = smblib_rerun_aicl(chg);
+		break;
+	case POWER_SUPPLY_PROP_DP_DM:
+		rc = smblib_dp_dm(chg, val->intval);
 		break;
 	default:
 		rc = -EINVAL;
@@ -1001,6 +1017,8 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_CAPACITY:
 	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
+	case POWER_SUPPLY_PROP_DP_DM:
+	case POWER_SUPPLY_PROP_RERUN_AICL:
 		return 1;
 	default:
 		break;
@@ -1367,7 +1385,8 @@ static int smb2_init_hw(struct smb2 *chip)
 
 	/* set OTG current limit */
 	rc = smblib_set_charge_param(chg, &chg->param.otg_cl,
-							chip->dt.otg_cl_ua);
+				(chg->wa_flags & OTG_WA) ?
+				chg->param.otg_cl.min_u : chg->otg_cl_ua);
 	if (rc < 0) {
 		pr_err("Couldn't set otg current limit rc=%d\n", rc);
 		return rc;
@@ -1630,7 +1649,7 @@ static int smb2_chg_config_init(struct smb2 *chip)
 		break;
 	case PM660_SUBTYPE:
 		chip->chg.smb_version = PM660_SUBTYPE;
-		chip->chg.wa_flags |= BOOST_BACK_WA;
+		chip->chg.wa_flags |= BOOST_BACK_WA | OTG_WA;
 		chg->param.freq_buck = pm660_params.freq_buck;
 		chg->param.freq_boost = pm660_params.freq_boost;
 		chg->chg_freq.freq_5V		= 600;

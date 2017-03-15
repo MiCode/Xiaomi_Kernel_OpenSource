@@ -892,7 +892,7 @@ static u32 __calc_prefill_line_time_us(struct mdss_mdp_ctl *ctl)
 
 static u32 __get_min_prefill_line_time_us(struct mdss_mdp_ctl *ctl)
 {
-	u32 vbp_min = 0;
+	u32 vbp_min = UINT_MAX;
 	int i;
 	struct mdss_data_type *mdata;
 
@@ -913,6 +913,9 @@ static u32 __get_min_prefill_line_time_us(struct mdss_mdp_ctl *ctl)
 			vbp_min = min(vbp_min, vbp_fac);
 		}
 	}
+
+	if (vbp_min == UINT_MAX)
+		vbp_min = 0;
 
 	return vbp_min;
 }
@@ -4770,6 +4773,8 @@ static void __mdss_mdp_mixer_get_offsets(u32 mixer_num,
 
 static inline int __mdss_mdp_mixer_get_hw_num(struct mdss_mdp_mixer *mixer)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
 	/*
 	 * mapping to hardware expectation of actual mixer programming to
 	 * happen on following registers:
@@ -4777,6 +4782,11 @@ static inline int __mdss_mdp_mixer_get_hw_num(struct mdss_mdp_mixer *mixer)
 	 *  WB: 3, 4
 	 * With some exceptions on certain revisions
 	 */
+
+	if (mdata->mdp_rev == MDSS_MDP_HW_REV_330
+			&& mixer->num == MDSS_MDP_INTF_LAYERMIXER1)
+		return MDSS_MDP_INTF_LAYERMIXER2;
+
 	if (mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK) {
 		u32 wb_offset;
 

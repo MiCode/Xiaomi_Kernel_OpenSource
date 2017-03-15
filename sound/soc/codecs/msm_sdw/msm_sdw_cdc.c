@@ -48,10 +48,14 @@
 #define MSM_SDW_VERSION_1_0 0x0001
 #define MSM_SDW_VERSION_ENTRY_SIZE 32
 
+/*
+ * 200 Milliseconds sufficient for DSP bring up in the modem
+ * after Sub System Restart
+ */
+#define ADSP_STATE_READY_TIMEOUT_MS 200
+
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static struct snd_soc_dai_driver msm_sdw_dai[];
-static bool initial_boot = true;
-static bool is_ssr_en;
 static bool skip_irq = true;
 
 static int msm_sdw_config_ear_spkr_gain(struct snd_soc_codec *codec,
@@ -467,10 +471,9 @@ static int msm_sdw_codec_enable_vi_feedback(struct snd_soc_dapm_widget *w,
 				MSM_SDW_TX10_SPKR_PROT_PATH_CTL, 0x20,
 				0x20);
 			snd_soc_update_bits(codec,
-				MSM_SDW_TX9_SPKR_PROT_PATH_CTL, 0x0F, 0x00);
+				MSM_SDW_TX9_SPKR_PROT_PATH_CTL, 0x0F, 0x04);
 			snd_soc_update_bits(codec,
-				MSM_SDW_TX10_SPKR_PROT_PATH_CTL, 0x0F,
-				0x00);
+				MSM_SDW_TX10_SPKR_PROT_PATH_CTL, 0x0F, 0x04);
 			snd_soc_update_bits(codec,
 				MSM_SDW_TX9_SPKR_PROT_PATH_CTL, 0x10, 0x10);
 			snd_soc_update_bits(codec,
@@ -493,10 +496,10 @@ static int msm_sdw_codec_enable_vi_feedback(struct snd_soc_dapm_widget *w,
 				0x20);
 			snd_soc_update_bits(codec,
 				MSM_SDW_TX11_SPKR_PROT_PATH_CTL, 0x0F,
-				0x00);
+				0x04);
 			snd_soc_update_bits(codec,
 				MSM_SDW_TX12_SPKR_PROT_PATH_CTL, 0x0F,
-				0x00);
+				0x04);
 			snd_soc_update_bits(codec,
 				MSM_SDW_TX11_SPKR_PROT_PATH_CTL, 0x10,
 				0x10);
@@ -1036,6 +1039,13 @@ static int msm_sdw_swrm_read(void *handle, int reg)
 		__func__, reg);
 	sdw_rd_addr_base = MSM_SDW_AHB_BRIDGE_RD_ADDR_0;
 	sdw_rd_data_base = MSM_SDW_AHB_BRIDGE_RD_DATA_0;
+
+	/*
+	 * Add sleep as SWR slave access read takes time.
+	 * Allow for RD_DONE to complete for previous register if any.
+	 */
+	usleep_range(50, 55);
+
 	/* read_lock */
 	mutex_lock(&msm_sdw->sdw_read_lock);
 	ret = regmap_bulk_write(msm_sdw->regmap, sdw_rd_addr_base,
@@ -1225,7 +1235,7 @@ static int msm_sdw_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
 			    struct snd_soc_dai *dai)
 {
-	u8 rx_clk_fs_rate, rx_fs_rate;
+	u8 clk_fs_rate, fs_rate;
 
 	dev_dbg(dai->codec->dev,
 		"%s: dai_name = %s DAI-ID %x rate %d num_ch %d format %d\n",
@@ -1234,28 +1244,28 @@ static int msm_sdw_hw_params(struct snd_pcm_substream *substream,
 
 	switch (params_rate(params)) {
 	case 8000:
-		rx_clk_fs_rate = 0x00;
-		rx_fs_rate = 0x00;
+		clk_fs_rate = 0x00;
+		fs_rate = 0x00;
 		break;
 	case 16000:
-		rx_clk_fs_rate = 0x01;
-		rx_fs_rate = 0x01;
+		clk_fs_rate = 0x01;
+		fs_rate = 0x01;
 		break;
 	case 32000:
-		rx_clk_fs_rate = 0x02;
-		rx_fs_rate = 0x03;
+		clk_fs_rate = 0x02;
+		fs_rate = 0x03;
 		break;
 	case 48000:
-		rx_clk_fs_rate = 0x03;
-		rx_fs_rate = 0x04;
+		clk_fs_rate = 0x03;
+		fs_rate = 0x04;
 		break;
 	case 96000:
-		rx_clk_fs_rate = 0x04;
-		rx_fs_rate = 0x05;
+		clk_fs_rate = 0x04;
+		fs_rate = 0x05;
 		break;
 	case 192000:
-		rx_clk_fs_rate = 0x05;
-		rx_fs_rate = 0x06;
+		clk_fs_rate = 0x05;
+		fs_rate = 0x06;
 		break;
 	default:
 		dev_err(dai->codec->dev,
@@ -1264,30 +1274,45 @@ static int msm_sdw_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	snd_soc_update_bits(dai->codec,
-			MSM_SDW_TOP_RX_I2S_CTL, 0x1C, (rx_clk_fs_rate << 2));
-	snd_soc_update_bits(dai->codec,
-			MSM_SDW_RX7_RX_PATH_CTL, 0x0F, rx_fs_rate);
-	snd_soc_update_bits(dai->codec,
-			MSM_SDW_RX8_RX_PATH_CTL, 0x0F, rx_fs_rate);
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		snd_soc_update_bits(dai->codec,
+				MSM_SDW_TOP_TX_I2S_CTL, 0x1C,
+				(clk_fs_rate << 2));
+	} else {
+		snd_soc_update_bits(dai->codec,
+				MSM_SDW_TOP_RX_I2S_CTL, 0x1C,
+				(clk_fs_rate << 2));
+		snd_soc_update_bits(dai->codec,
+				MSM_SDW_RX7_RX_PATH_CTL, 0x0F,
+				fs_rate);
+		snd_soc_update_bits(dai->codec,
+				MSM_SDW_RX8_RX_PATH_CTL, 0x0F,
+				fs_rate);
+	}
 
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
-		snd_soc_update_bits(dai->codec,
-				MSM_SDW_TOP_RX_I2S_CTL, 0x20, 0x20);
+		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+			snd_soc_update_bits(dai->codec,
+					MSM_SDW_TOP_TX_I2S_CTL, 0x20, 0x20);
+		else
+			snd_soc_update_bits(dai->codec,
+					MSM_SDW_TOP_RX_I2S_CTL, 0x20, 0x20);
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 	case SNDRV_PCM_FORMAT_S24_3LE:
-		snd_soc_update_bits(dai->codec,
-				MSM_SDW_TOP_RX_I2S_CTL, 0x20, 0x00);
+		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+			snd_soc_update_bits(dai->codec,
+					MSM_SDW_TOP_TX_I2S_CTL, 0x20, 0x00);
+		else
+			snd_soc_update_bits(dai->codec,
+					MSM_SDW_TOP_RX_I2S_CTL, 0x20, 0x00);
 		break;
 	default:
 		dev_err(dai->codec->dev, "%s: wrong format selected\n",
 				__func__);
 		return -EINVAL;
 	}
-	snd_soc_update_bits(dai->codec,
-			MSM_SDW_TOP_TX_I2S_CTL, 0x20, 0x20);
 
 	return 0;
 }
@@ -1403,7 +1428,7 @@ static struct snd_soc_dai_driver msm_sdw_dai[] = {
 			.rate_max = 192000,
 			.rate_min = 8000,
 			.channels_min = 1,
-			.channels_max = 2,
+			.channels_max = 4,
 		},
 		.ops = &msm_sdw_dai_ops,
 	},
@@ -1412,9 +1437,9 @@ static struct snd_soc_dai_driver msm_sdw_dai[] = {
 		.id = AIF1_SDW_VIFEED,
 		.capture = {
 			.stream_name = "VIfeed_SDW",
-			.rates = SNDRV_PCM_RATE_8000,
+			.rates = MSM_SDW_RATES,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
-			.rate_max = 8000,
+			.rate_max = 48000,
 			.rate_min = 8000,
 			.channels_min = 2,
 			.channels_max = 4,
@@ -1629,6 +1654,8 @@ static int msm_sdw_notifier_service_cb(struct notifier_block *nb,
 	struct msm_sdw_priv *msm_sdw = container_of(nb,
 						    struct msm_sdw_priv,
 						    service_nb);
+	bool adsp_ready = false;
+	unsigned long timeout;
 
 	pr_debug("%s: Service opcode 0x%lx\n", __func__, opcode);
 
@@ -1641,15 +1668,34 @@ static int msm_sdw_notifier_service_cb(struct notifier_block *nb,
 					SWR_DEVICE_DOWN, NULL);
 		break;
 	case AUDIO_NOTIFIER_SERVICE_UP:
-		if (initial_boot) {
-			initial_boot = false;
-			break;
+		if (!q6core_is_adsp_ready()) {
+			dev_dbg(msm_sdw->dev, "ADSP isn't ready\n");
+			timeout = jiffies +
+				  msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
+			while (!time_after(jiffies, timeout)) {
+				if (!q6core_is_adsp_ready()) {
+					dev_dbg(msm_sdw->dev,
+						"ADSP isn't ready\n");
+				} else {
+					dev_dbg(msm_sdw->dev,
+						"ADSP is ready\n");
+					adsp_ready = true;
+					goto powerup;
+				}
+			}
+		} else {
+			adsp_ready = true;
+			dev_dbg(msm_sdw->dev, "%s: DSP is ready\n", __func__);
 		}
-		msm_sdw->dev_up = true;
-		msm_sdw_init_reg(msm_sdw->codec);
-		regcache_mark_dirty(msm_sdw->regmap);
-		regcache_sync(msm_sdw->regmap);
-		msm_sdw_set_spkr_mode(msm_sdw->codec, msm_sdw->spkr_mode);
+powerup:
+		if (adsp_ready) {
+			msm_sdw->dev_up = true;
+			msm_sdw_init_reg(msm_sdw->codec);
+			regcache_mark_dirty(msm_sdw->regmap);
+			regcache_sync(msm_sdw->regmap);
+			msm_sdw_set_spkr_mode(msm_sdw->codec,
+					      msm_sdw->spkr_mode);
+		}
 		break;
 	default:
 		break;
@@ -1676,17 +1722,14 @@ static int msm_sdw_codec_probe(struct snd_soc_codec *codec)
 	msm_sdw_init_reg(codec);
 	msm_sdw->version = MSM_SDW_VERSION_1_0;
 
-	if (is_ssr_en) {
-		msm_sdw->service_nb.notifier_call = msm_sdw_notifier_service_cb;
-		ret = audio_notifier_register("msm_sdw",
-					AUDIO_NOTIFIER_ADSP_DOMAIN,
-					&msm_sdw->service_nb);
-		if (ret < 0)
-			dev_err(msm_sdw->dev,
-				"%s: Audio notifier register failed ret = %d\n",
-				__func__, ret);
-	}
-
+	msm_sdw->service_nb.notifier_call = msm_sdw_notifier_service_cb;
+	ret = audio_notifier_register("msm_sdw",
+				AUDIO_NOTIFIER_ADSP_DOMAIN,
+				&msm_sdw->service_nb);
+	if (ret < 0)
+		dev_err(msm_sdw->dev,
+			"%s: Audio notifier register failed ret = %d\n",
+			__func__, ret);
 	return 0;
 }
 

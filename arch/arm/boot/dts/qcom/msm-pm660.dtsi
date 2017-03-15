@@ -270,6 +270,18 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
+			chan@4e {
+				label = "emmc_therm";
+				reg = <0x4e>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <2>;
+				qcom,fast-avg-setup = <0>;
+				qcom,vadc-thermal-node;
+			};
+
 			chan@1d {
 				label = "drax_temp";
 				reg = <0x1d>;
@@ -433,6 +445,9 @@
 					  "msg-tx-failed",
 					  "msg-tx-discarded",
 					  "msg-rx-discarded";
+
+			qcom,default-sink-caps = <5000 3000>, /* 5V @ 3A */
+						 <9000 3000>; /* 9V @ 3A */
 		};
 
 		pm660_adc_tm: vadc@3400 {

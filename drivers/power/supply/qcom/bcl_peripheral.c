@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -482,8 +482,10 @@ static int bcl_access_monitor_enable(bool enable)
 	if (enable == bcl_perph->enabled)
 		goto access_exit;
 
-	if ((bcl_perph_version == BCL_PMI8998) && !hw_enabled && enable)
+	if ((bcl_perph_version == BCL_PMI8998) && !hw_enabled && enable) {
 		bcl_lmh_dcvs_enable();
+		hw_enabled = true;
+	}
 
 	for (; i < BCL_PARAM_MAX; i++) {
 		perph_data = &bcl_perph->param[i];

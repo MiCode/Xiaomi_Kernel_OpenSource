@@ -136,7 +136,7 @@ static struct dev_config int_mi2s_cfg[] = {
 	[INT2_MI2S]  = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[INT3_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[INT4_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
-	[INT5_MI2S] = {SAMPLING_RATE_8KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
+	[INT5_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
 	[INT6_MI2S] = {SAMPLING_RATE_8KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
 };
 
@@ -1255,7 +1255,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *ana_cdc = rtd->codec_dais[ANA_CDC]->codec;
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(ana_cdc);
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(rtd->card);
 	struct snd_card *card;
 	int ret = -ENOMEM;
@@ -1299,17 +1298,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_sync(dapm);
 
-	/*
-	 * Send speaker configuration only for WSA8810.
-	 * Defalut configuration is for WSA8815.
-	 */
-	if (rtd_aux && rtd_aux->component)
-		if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
-		    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
-			msm_sdw_set_spkr_mode(rtd->codec, SPKR_MODE_1);
-			msm_sdw_set_spkr_gain_offset(rtd->codec,
-						   RX_GAIN_OFFSET_M1P5_DB);
-	}
 	msm_anlg_cdc_spk_ext_pa_cb(enable_spk_ext_pa, ana_cdc);
 	msm_dig_cdc_hph_comp_cb(msm_config_hph_compander_gpio, dig_cdc);
 
@@ -1344,6 +1332,7 @@ static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm =
 			snd_soc_codec_get_dapm(codec);
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(rtd->card);
+	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
 	struct snd_card *card;
 
 	snd_soc_add_codec_controls(codec, msm_sdw_controls,
@@ -1357,6 +1346,18 @@ static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT_SDW");
 
 	snd_soc_dapm_sync(dapm);
+
+	/*
+	 * Send speaker configuration only for WSA8810.
+	 * Default configuration is for WSA8815.
+	 */
+	if (rtd_aux && rtd_aux->component)
+		if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
+		    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
+			msm_sdw_set_spkr_mode(rtd->codec, SPKR_MODE_1);
+			msm_sdw_set_spkr_gain_offset(rtd->codec,
+						   RX_GAIN_OFFSET_M1P5_DB);
+	}
 	card = rtd->card->snd_card;
 	if (!codec_root)
 		codec_root = snd_register_module_info(card->module, "codecs",
@@ -2896,6 +2897,24 @@ static struct snd_soc_dai_link msm_wsa_be_dai_links[] = {
 	},
 };
 
+static struct snd_soc_dai_link ext_disp_be_dai_link[] = {
+	/* DISP PORT BACK END DAI Link */
+	{
+		.name = LPASS_BE_DISPLAY_PORT,
+		.stream_name = "Display Port Playback",
+		.cpu_dai_name = "msm-dai-q6-dp.24608",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-ext-disp-audio-codec-rx",
+		.codec_dai_name = "msm_dp_audio_codec_rx_dai",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_DISPLAY_PORT_RX,
+		.be_hw_params_fixup = msm_common_be_hw_params_fixup,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+
 static struct snd_soc_dai_link msm_int_dai_links[
 ARRAY_SIZE(msm_int_dai) +
 ARRAY_SIZE(msm_int_wsa_dai) +
@@ -2903,7 +2922,8 @@ ARRAY_SIZE(msm_int_be_dai) +
 ARRAY_SIZE(msm_mi2s_be_dai_links) +
 ARRAY_SIZE(msm_auxpcm_be_dai_links)+
 ARRAY_SIZE(msm_wcn_be_dai_links) +
-ARRAY_SIZE(msm_wsa_be_dai_links)];
+ARRAY_SIZE(msm_wsa_be_dai_links) +
+ARRAY_SIZE(ext_disp_be_dai_link)];
 
 static struct snd_soc_card sdm660_card = {
 	/* snd_soc_card_sdm660 */
@@ -3003,6 +3023,14 @@ static struct snd_soc_card *msm_int_populate_sndcard_dailinks(
 		       msm_wsa_be_dai_links,
 		       sizeof(msm_wsa_be_dai_links));
 		len1 += ARRAY_SIZE(msm_wsa_be_dai_links);
+	}
+	if (of_property_read_bool(dev->of_node, "qcom,ext-disp-audio-rx")) {
+		dev_dbg(dev, "%s(): ext disp audio support present\n",
+				__func__);
+		memcpy(dailink + len1,
+			ext_disp_be_dai_link,
+			sizeof(ext_disp_be_dai_link));
+		len1 += ARRAY_SIZE(ext_disp_be_dai_link);
 	}
 	card->dai_link = dailink;
 	card->num_links = len1;

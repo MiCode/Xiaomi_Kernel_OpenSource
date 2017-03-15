@@ -335,6 +335,7 @@ static enum power_supply_property smb138x_batt_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CHARGER_TEMP,
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
+	POWER_SUPPLY_PROP_SET_SHIP_MODE,
 };
 
 static int smb138x_batt_get_prop(struct power_supply *psy,
@@ -370,6 +371,10 @@ static int smb138x_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
 		rc = smblib_get_prop_charger_temp_max(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
+		/* Not in ship mode as long as device is active */
+		val->intval = 0;
+		break;
 	default:
 		pr_err("batt power supply get prop %d not supported\n", prop);
 		return -EINVAL;
@@ -397,6 +402,12 @@ static int smb138x_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = smblib_set_prop_batt_capacity(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
+		/* Not in ship mode as long as the device is active */
+		if (!val->intval)
+			break;
+		rc = smblib_set_prop_ship_mode(chg, val);
 		break;
 	default:
 		pr_err("batt power supply set prop %d not supported\n", prop);
@@ -466,6 +477,7 @@ static enum power_supply_property smb138x_parallel_props[] = {
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
 	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
+	POWER_SUPPLY_PROP_SET_SHIP_MODE,
 };
 
 static int smb138x_parallel_get_prop(struct power_supply *psy,
@@ -516,10 +528,14 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 		val->strval = "smb138x";
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
-		val->intval = POWER_SUPPLY_PARALLEL_MID_MID;
+		val->intval = POWER_SUPPLY_PL_USBMID_USBMID;
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		rc = smblib_get_prop_die_health(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
+		/* Not in ship mode as long as device is active */
+		val->intval = 0;
 		break;
 	default:
 		pr_err("parallel power supply get prop %d not supported\n",
@@ -576,6 +592,12 @@ static int smb138x_parallel_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fcc, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
+		/* Not in ship mode as long as the device is active */
+		if (!val->intval)
+			break;
+		rc = smblib_set_prop_ship_mode(chg, val);
 		break;
 	default:
 		pr_debug("parallel power supply set prop %d not supported\n",

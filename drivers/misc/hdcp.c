@@ -2103,7 +2103,8 @@ static void hdcp_lib_msg_recvd(struct hdcp_lib_handle *handle)
 	    (rc == 0) && (rsp_buf->status == 0)) {
 		pr_debug("Got Auth_Stream_Ready, nothing sent to rx\n");
 
-		if (!hdcp_lib_enable_encryption(handle)) {
+		if (!handle->authenticated &&
+		    !hdcp_lib_enable_encryption(handle)) {
 			handle->authenticated = true;
 
 			cdata.cmd = HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS;

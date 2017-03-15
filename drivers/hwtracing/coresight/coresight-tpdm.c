@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3724,12 +3724,6 @@ static int tpdm_probe(struct platform_device *pdev)
 	drvdata->tc_counters_avail = BMVAL(devid, 4, 5) + 1;
 
 	clk_disable_unprepare(drvdata->clk);
-
-	ret = tpdm_datasets_alloc(drvdata);
-	if (ret)
-		return ret;
-
-	tpdm_init_default_data(drvdata);
 
 	drvdata->traceid = traceid++;
 

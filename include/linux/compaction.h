@@ -52,6 +52,10 @@ extern void compaction_defer_reset(struct zone *zone, int order,
 				bool alloc_success);
 extern bool compaction_restarting(struct zone *zone, int order);
 
+extern int kcompactd_run(int nid);
+extern void kcompactd_stop(int nid);
+extern void wakeup_kcompactd(pg_data_t *pgdat, int order, int classzone_idx);
+
 #else
 static inline unsigned long try_to_compact_pages(gfp_t gfp_mask,
 			unsigned int order, int alloc_flags,
@@ -84,9 +88,22 @@ static inline bool compaction_deferred(struct zone *zone, int order)
 	return true;
 }
 
+static inline int kcompactd_run(int nid)
+{
+	return 0;
+}
+static inline void kcompactd_stop(int nid)
+{
+}
+
+static inline void wakeup_kcompactd(pg_data_t *pgdat, int order, int classzone_idx)
+{
+}
+
 #endif /* CONFIG_COMPACTION */
 
 #if defined(CONFIG_COMPACTION) && defined(CONFIG_SYSFS) && defined(CONFIG_NUMA)
+struct node;
 extern int compaction_register_node(struct node *node);
 extern void compaction_unregister_node(struct node *node);
 

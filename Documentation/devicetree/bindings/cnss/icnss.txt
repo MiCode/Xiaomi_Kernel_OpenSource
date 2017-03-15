@@ -12,9 +12,17 @@ Required properties:
   - reg-names: Names of the memory regions defined in reg entry
   - interrupts: Copy engine interrupt table
   - qcom,wlan-msa-memory: MSA memory size
+  - clocks: List of clock phandles
+  - clock-names: List of clock names corresponding to the "clocks" property
   - iommus: SMMUs and corresponding Stream IDs needed by WLAN
   - qcom,wlan-smmu-iova-address: I/O virtual address range as <start length>
     format to be used for allocations associated between WLAN and SMMU
+  - <supply-name>-supply: phandle to the regulator device tree node
+                          Required "supply-name" is "vdd-0.8-cx-mx".
+  - qcom,<supply>-config: Specifies voltage levels for supply. Should be
+                          specified in pairs (min, max), units uV.  There can
+                          be optional load in uA and Regulator settle delay in
+                          uS.
 
 Optional properties:
   - qcom,icnss-vadc: VADC handle for vph_pwr read APIs.
@@ -27,6 +35,8 @@ Example:
         compatible = "qcom,icnss";
         reg = <0x0a000000 0x1000000>;
         reg-names = "membase";
+        clocks = <&clock_gcc clk_aggre2_noc_clk>;
+        clock-names = "smmu_aggre2_noc_clk";
         iommus = <&anoc2_smmu 0x1900>,
                  <&anoc2_smmu 0x1901>;
         qcom,wlan-smmu-iova-address = <0 0x10000000>;
@@ -45,4 +55,6 @@ Example:
 		   <0 141 0 /* CE11 */ >;
         qcom,wlan-msa-memory = <0x200000>;
 	qcom,smmu-s1-bypass;
+	vdd-0.8-cx-mx-supply = <&pm8998_l5>;
+	qcom,vdd-0.8-cx-mx-config = <800000 800000 2400 1000>;
     };

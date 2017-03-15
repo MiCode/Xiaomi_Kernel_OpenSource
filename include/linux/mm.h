@@ -995,6 +995,7 @@ static inline int page_mapped(struct page *page)
 {
 	return atomic_read(&(page)->_mapcount) >= 0;
 }
+struct address_space *page_mapping(struct page *page);
 
 /*
  * Return true only if the page has been allocated with

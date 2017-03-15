@@ -70,7 +70,7 @@ struct snd_compr_tstamp {
 	__u32 pcm_frames;
 	__u32 pcm_io_frames;
 	__u32 sampling_rate;
-	uint64_t timestamp;
+	__u64 timestamp;
 } __attribute__((packed, aligned(4)));
 
 /**
@@ -128,8 +128,8 @@ struct snd_compr_codec_caps {
  * @reserved: reserved for furture use
  */
 struct snd_compr_audio_info {
-	uint32_t frame_size;
-	uint32_t reserved[15];
+	__u32 frame_size;
+	__u32 reserved[15];
 } __attribute__((packed, aligned(4)));
 
 /**

@@ -278,6 +278,14 @@ First Level Node - FG Gen3 device
 		    is specified, then ESR to Rslow scaling factors will be
 		    updated to account it for an accurate ESR.
 
+- qcom,fg-esr-clamp-mohms
+	Usage:      optional
+	Value type: <u32>
+	Definition: Equivalent series resistance (ESR) in milliohms. If this
+		    is specified, then ESR will be clamped to this value when
+		    ESR is found to be dropping below this. Default value is
+		    20.
+
 - qcom,fg-esr-filter-switch-temp
 	Usage:      optional
 	Value type: <u32>

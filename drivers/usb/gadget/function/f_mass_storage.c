@@ -2289,8 +2289,11 @@ reset:
 	}
 
 	common->running = 0;
-	if (!new_fsg || rc)
+	if (!new_fsg || rc) {
+		/* allow usb LPM after eps are disabled */
+		usb_gadget_autopm_put_async(common->gadget);
 		return rc;
+	}
 
 	common->fsg = new_fsg;
 	fsg = common->fsg;
@@ -2332,6 +2335,9 @@ reset:
 		bh->inreq->complete = bulk_in_complete;
 		bh->outreq->complete = bulk_out_complete;
 	}
+
+	/* prevents usb LPM until thread runs to completion */
+	usb_gadget_autopm_get_noresume(common->gadget);
 
 	common->running = 1;
 	for (i = 0; i < ARRAY_SIZE(common->luns); ++i)

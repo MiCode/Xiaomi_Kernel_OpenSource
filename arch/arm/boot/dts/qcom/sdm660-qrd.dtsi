@@ -52,6 +52,13 @@
 	status = "ok";
 };
 
+&sdc2_cd_on {
+	config {
+		/delete-property/ bias-pull-up;
+		bias-disable;
+	};
+};
+
 &sdhc_2 {
 	/* device core power supply */
 	vdd-supply = <&pm660l_l5>;
@@ -107,6 +114,9 @@
 };
 
 &soc {
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
 };
 
 &pm660_gpios {
@@ -232,8 +242,22 @@
 &pm660_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,fg-jeita-thresholds = <0 5 55 55>;
-	qcom,fg-cutoff-voltage = <3700>;
 };
+
+&i2c_2 {
+	status = "ok";
+	smb1351-charger@1d {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x1d>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-mv = <100>;
+		qcom,parallel-en-pin-polarity = <0>;
+	};
+};
+
+/delete-node/ &tasha_hph_en0;
+/delete-node/ &tasha_hph_en1;
 
 &tasha_snd {
 	qcom,model = "sdm660-tasha-skus-snd-card";
@@ -245,10 +269,10 @@
 		"MIC BIAS2", "Headset Mic",
 		"DMIC0", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic0",
-		"DMIC2", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic2",
-		"DMIC4", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic4",
+		"DMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic3",
+		"DMIC5", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic5",
 		"SpkrLeft IN", "SPK1 OUT";
 	qcom,msm-mbhc-hphl-swh = <1>;
 	/delete-property/ qcom,us-euro-gpios;

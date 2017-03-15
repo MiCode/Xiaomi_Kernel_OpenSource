@@ -374,7 +374,7 @@ static struct snd_soc_dai_driver btfmslim_dai[] = {
 static struct snd_soc_codec_driver btfmslim_codec = {
 	.probe	= btfm_slim_codec_probe,
 	.remove	= btfm_slim_codec_remove,
-	.read		= btfm_slim_codec_read,
+	.read	= btfm_slim_codec_read,
 	.write	= btfm_slim_codec_write,
 };
 

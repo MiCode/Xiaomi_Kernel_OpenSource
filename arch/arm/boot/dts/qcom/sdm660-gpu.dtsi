@@ -119,8 +119,8 @@
 		vdd-supply = <&gdsc_gpu_gx>;
 
 		/* CPU latency parameter */
-		qcom,pm-qos-active-latency = <349>;
-		qcom,pm-qos-wakeup-latency = <349>;
+		qcom,pm-qos-active-latency = <518>;
+		qcom,pm-qos-wakeup-latency = <518>;
 
 		/* Quirks */
 		qcom,gpu-quirk-dp2clockgating-disable;

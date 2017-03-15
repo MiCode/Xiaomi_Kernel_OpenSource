@@ -676,7 +676,7 @@ static int msm_ext_get_spk(struct snd_kcontrol *kcontrol,
 static int msm_ext_set_spk(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 
 	pr_debug("%s()\n", __func__);
 	if (msm_ext_spk_control == ucontrol->value.integer.value[0])

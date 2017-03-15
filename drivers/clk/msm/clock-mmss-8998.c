@@ -664,8 +664,8 @@ static struct rcg_clk byte0_clk_src = {
 		.parent = &ext_byte0_clk_src.c,
 		.ops = &clk_ops_byte_multiparent,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		VDD_DIG_FMAX_MAP3(LOWER, 150000000, LOW, 240000000,
-						NOMINAL, 357140000),
+		VDD_DIG_FMAX_MAP3(LOWER, 131250000, LOW, 210000000,
+						NOMINAL, 312500000),
 		CLK_INIT(byte0_clk_src.c),
 	},
 };
@@ -681,8 +681,8 @@ static struct rcg_clk byte1_clk_src = {
 		.parent = &ext_byte1_clk_src.c,
 		.ops = &clk_ops_byte_multiparent,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		VDD_DIG_FMAX_MAP3(LOWER, 150000000, LOW, 240000000,
-						NOMINAL, 357140000),
+		VDD_DIG_FMAX_MAP3(LOWER, 131250000, LOW, 210000000,
+						NOMINAL, 312500000),
 		CLK_INIT(byte1_clk_src.c),
 	},
 };
@@ -722,8 +722,8 @@ static struct rcg_clk pclk0_clk_src = {
 		.parent = &ext_pclk0_clk_src.c,
 		.ops = &clk_ops_pixel_multiparent,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		VDD_DIG_FMAX_MAP3(LOWER, 184000000, LOW, 295000000,
-						NOMINAL, 610000000),
+		VDD_DIG_FMAX_MAP3(LOWER, 175000000, LOW, 280000000,
+						NOMINAL, 416670000),
 		CLK_INIT(pclk0_clk_src.c),
 	},
 };
@@ -739,8 +739,8 @@ static struct rcg_clk pclk1_clk_src = {
 		.parent = &ext_pclk1_clk_src.c,
 		.ops = &clk_ops_pixel_multiparent,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		VDD_DIG_FMAX_MAP3(LOWER, 184000000, LOW, 295000000,
-						NOMINAL, 610000000),
+		VDD_DIG_FMAX_MAP3(LOWER, 175000000, LOW, 280000000,
+						NOMINAL, 416670000),
 		CLK_INIT(pclk1_clk_src.c),
 	},
 };

@@ -1581,6 +1581,8 @@ static int functionfs_init(void)
 		pr_err("failed registering file system (%d)\n", ret);
 
 	ffs_ipc_log = ipc_log_context_create(NUM_PAGES, "f_fs", 0);
+	if (IS_ERR_OR_NULL(ffs_ipc_log))
+		ffs_ipc_log =  NULL;
 
 	return ret;
 }
@@ -1591,6 +1593,11 @@ static void functionfs_cleanup(void)
 
 	pr_info("unloading\n");
 	unregister_filesystem(&ffs_fs_type);
+
+	if (ffs_ipc_log) {
+		ipc_log_context_destroy(ffs_ipc_log);
+		ffs_ipc_log = NULL;
+	}
 }
 
 

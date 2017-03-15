@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -168,6 +168,7 @@ static const struct flag_entry context_flags[] = {KGSL_CONTEXT_FLAGS};
  * KGSL_CONTEXT_PRIV_DEVICE_SPECIFIC so it is ok to cross the streams here.
  */
 static const struct flag_entry context_priv[] = {
+	{ KGSL_CONTEXT_PRIV_SUBMITTED, "submitted"},
 	{ KGSL_CONTEXT_PRIV_DETACHED, "detached"},
 	{ KGSL_CONTEXT_PRIV_INVALID, "invalid"},
 	{ KGSL_CONTEXT_PRIV_PAGEFAULT, "pagefault"},

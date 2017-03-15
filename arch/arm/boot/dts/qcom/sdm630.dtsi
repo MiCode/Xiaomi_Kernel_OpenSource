@@ -52,6 +52,7 @@
 			reg = <0x0 0x100>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile0>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			qcom,ea = <&ea0>;
 			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
@@ -80,6 +81,7 @@
 			reg = <0x0 0x101>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile1>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			qcom,ea = <&ea1>;
 			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
@@ -102,6 +104,7 @@
 			reg = <0x0 0x102>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile2>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			qcom,ea = <&ea2>;
 			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
@@ -124,6 +127,7 @@
 			reg = <0x0 0x103>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile3>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			qcom,ea = <&ea3>;
 			efficiency = <1126>;
 			next-level-cache = <&L2_1>;
@@ -146,6 +150,7 @@
 			reg = <0x0 0x0>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			qcom,ea = <&ea4>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -174,6 +179,7 @@
 			reg = <0x0 0x1>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			qcom,ea = <&ea5>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -196,6 +202,7 @@
 			reg = <0x0 0x2>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			qcom,ea = <&ea6>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -218,6 +225,7 @@
 			reg = <0x0 0x3>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			qcom,ea = <&ea7>;
 			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
@@ -712,7 +720,8 @@
 		qcom,synchronous-cluster-map = <0 4 &CPU4 &CPU5 &CPU6 &CPU7>,
 						<1 4 &CPU0 &CPU1 &CPU2 &CPU3>;
 
-		qcom,cxip-lm-enable = <0>;
+		clock-names = "osm";
+		clocks = <&clock_cpu PERFCL_CLK>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 
@@ -800,7 +809,6 @@
 	};
 
 	wdog: qcom,wdt@17817000 {
-		status = "disabled";
 		compatible = "qcom,msm-watchdog";
 		reg = <0x17817000 0x1000>;
 		reg-names = "wdt-base";
@@ -953,7 +961,7 @@
 	};
 
 	clock_mmss: clock-controller@c8c0000 {
-		compatible = "qcom,mmcc-sdm660";
+		compatible = "qcom,mmcc-sdm630";
 		reg = <0xc8c0000 0x40000>;
 		vdd_mx_mmss-supply = <&pm660l_s5_level>;
 		vdd_dig_mmss-supply = <&pm660l_s3_level>;
@@ -1109,7 +1117,7 @@
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,target-dev = <&memlat_cpu0>;
 		qcom,core-dev-table =
-			< 787200 762 >,
+			< 1113600 762 >,
 			< 1344000 2086 >,
 			< 1670400 2929 >,
 			< 2150400 3879 >,
@@ -1249,12 +1257,14 @@
 
 	clock_cpu: qcom,clk-cpu-630@179c0000 {
 		compatible = "qcom,clk-cpu-osm-sdm630";
-		status = "disabled";
 		reg = <0x179c0000 0x4000>, <0x17916000 0x1000>,
 			<0x17816000 0x1000>, <0x179d1000 0x1000>,
 			<0x00784130 0x8>;
 		reg-names = "osm", "pwrcl_pll", "perfcl_pll",
 			"apcs_common", "perfcl_efuse";
+
+		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
+		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
 
 		interrupts = <GIC_SPI 35 IRQ_TYPE_EDGE_RISING>,
 			<GIC_SPI 36 IRQ_TYPE_EDGE_RISING>;
@@ -1595,11 +1605,13 @@
 	};
 
 	qcom,icnss@18800000 {
-		status = "disabled";
 		compatible = "qcom,icnss";
 		reg = <0x18800000 0x800000>,
-		      <0x10ac000 0x20>;
-		reg-names = "membase", "mpm_config";
+		      <0xa0000000 0x10000000>,
+		      <0xb0000000 0x10000>;
+		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
+		iommus = <&anoc2_smmu 0x1a00>,
+			 <&anoc2_smmu 0x1a01>;
 		interrupts = <0 413 0>,   /* CE0 */
 			     <0 414 0>,   /* CE1 */
 			     <0 415 0>,   /* CE2 */
@@ -1754,9 +1766,9 @@
 			reg = <0x10 8>;
 		};
 
-		dload_type@18 {
+		dload_type@1c {
 			compatible = "qcom,msm-imem-dload-type";
-			reg = <0x18 4>;
+			reg = <0x1c 4>;
 		};
 
 		restart_reason@65c {
@@ -2068,7 +2080,7 @@
 #include "msm-audio.dtsi"
 #include "sdm660-audio.dtsi"
 #include "sdm630-gpu.dtsi"
-#include "sdm660-camera.dtsi"
+#include "sdm630-camera.dtsi"
 #include "sdm630-pm.dtsi"
 #include "sdm660-vidc.dtsi"
 #include "sdm630-mdss.dtsi"
@@ -2141,8 +2153,32 @@
 	status = "ok";
 };
 
+&clock_cpu {
+	lmh_dcvs0: qcom,limits-dcvs@0 {
+		compatible = "qcom,msm-hw-limits";
+		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	lmh_dcvs1: qcom,limits-dcvs@1 {
+		compatible = "qcom,msm-hw-limits";
+		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
+	};
+};
+
 &blsp2_uart1_hs {
 	status = "ok";
+};
+
+&pm660l_gpios {
+	/* GPIO 7 for VOL_UP */
+	gpio@c600 {
+		status = "okay";
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,out-strength = <1>;
+	};
 };
 
 &soc {
@@ -2169,5 +2205,19 @@
 			linux,code = <0x2fe>;
 			debounce-interval = <15>;
 		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm660l_gpios 7 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+	};
+
+	devfreq_spdm_cpu {
+		qcom,bw-dwnstep = <6750>;
+		qcom,max-vote = <6750>;
 	};
 };

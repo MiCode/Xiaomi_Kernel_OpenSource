@@ -942,30 +942,6 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
-	cti_lpass0: cti@7060000 {
-		compatible = "arm,coresight-cti";
-		reg = <0x7060000 0x1000>;
-		reg-names = "cti-base";
-
-		coresight-name = "coresight-cti-lpass0";
-
-		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
-			 <&clock_rpmcc RPM_QDSS_A_CLK>;
-		clock-names = "core_clk", "core_a_clk";
-	};
-
-	cti_lpass1: cti@7061000 {
-		compatible = "arm,coresight-cti";
-		reg = <0x7061000 0x1000>;
-		reg-names = "cti-base";
-
-		coresight-name = "coresight-cti-lpass1";
-
-		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
-			 <&clock_rpmcc RPM_QDSS_A_CLK>;
-		clock-names = "core_clk", "core_a_clk";
-	};
-
 	cti_turing: cti@7068000 {
 		compatible = "arm,coresight-cti";
 		reg = <0x7068000 0x1000>;

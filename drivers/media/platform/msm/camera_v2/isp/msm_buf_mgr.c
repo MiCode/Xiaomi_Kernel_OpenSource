@@ -196,6 +196,13 @@ static int msm_isp_prepare_v4l2_buf(struct msm_isp_buf_mgr *buf_mgr,
 			__func__, stream_id);
 		return -EINVAL;
 	}
+
+	if (qbuf_buf->num_planes > MAX_PLANES_PER_STREAM) {
+		pr_err("%s: Invalid num_planes %d , stream id %x\n",
+			__func__, qbuf_buf->num_planes, stream_id);
+		return -EINVAL;
+	}
+
 	for (i = 0; i < qbuf_buf->num_planes; i++) {
 		mapped_info = &buf_info->mapped_info[i];
 		mapped_info->buf_fd = qbuf_buf->planes[i].addr;
@@ -246,6 +253,12 @@ static void msm_isp_unprepare_v4l2_buf(
 	if (!buf_mgr || !buf_info) {
 		pr_err("%s: NULL ptr %pK %pK\n", __func__,
 			buf_mgr, buf_info);
+		return;
+	}
+
+	if (buf_info->num_planes > VIDEO_MAX_PLANES) {
+		pr_err("%s: Invalid num_planes %d , stream id %x\n",
+			__func__, buf_info->num_planes, stream_id);
 		return;
 	}
 

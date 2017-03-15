@@ -449,7 +449,7 @@ static struct attribute *dp_hdcp2p2_fs_attrs[] = {
 };
 
 static struct attribute_group dp_hdcp2p2_fs_attr_group = {
-	.name = "dp_hdcp2p2",
+	.name = "hdcp2p2",
 	.attrs = dp_hdcp2p2_fs_attrs,
 };
 

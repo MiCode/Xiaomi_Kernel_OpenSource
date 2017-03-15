@@ -61,7 +61,7 @@
 		qcom,max-bandwidth-high-kbps = <6600000>;
 		qcom,max-bandwidth-per-pipe-kbps = <3100000>;
 		qcom,max-clk-rate = <412500000>;
-		qcom,mdss-default-ot-rd-limit = <40>;
+		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;
 		qcom,mdss-dram-channels = <2>;
 
@@ -194,6 +194,19 @@
 		qcom,mdss-prefill-scaler-buffer-lines-caf = <4>;
 		qcom,mdss-prefill-post-scaler-buffer-pixels = <2560>;
 		qcom,mdss-prefill-pingpong-buffer-pixels = <5120>;
+
+		qcom,mdss-reg-bus {
+			/* Reg Bus Scale Settings */
+			qcom,msm-bus,name = "mdss_reg";
+			qcom,msm-bus,num-cases = <4>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,vectors-KBps =
+				<1 590 0 0>,
+				<1 590 0 76800>,
+				<1 590 0 160000>,
+				<1 590 0 320000>;
+		};
 
 		qcom,mdss-pp-offsets {
 			qcom,mdss-sspp-mdss-igc-lut-off = <0x2000>;
@@ -577,7 +590,7 @@
 		qcom,mdss-rot-vbif-qos-setting = <1 1 1 1>;
 		qcom,mdss-rot-xin-id = <14 15>;
 
-		qcom,mdss-default-ot-rd-limit = <40>;
+		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;
 	};
 

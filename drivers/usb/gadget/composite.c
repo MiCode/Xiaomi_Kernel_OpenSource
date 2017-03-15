@@ -1942,7 +1942,9 @@ unknown:
 			if (value < 0) {
 				DBG(cdev, "ep_queue --> %d\n", value);
 				req->status = 0;
-				composite_setup_complete(gadget->ep0, req);
+				if (value != -ESHUTDOWN)
+					composite_setup_complete(gadget->ep0,
+									req);
 			}
 			return value;
 		}
@@ -2031,7 +2033,8 @@ try_fun_setup:
 		if (value < 0) {
 			DBG(cdev, "ep_queue --> %d\n", value);
 			req->status = 0;
-			composite_setup_complete(gadget->ep0, req);
+			if (value != -ESHUTDOWN)
+				composite_setup_complete(gadget->ep0, req);
 		}
 	} else if (value == USB_GADGET_DELAYED_STATUS && w_length != 0) {
 		WARN(cdev,
@@ -2461,6 +2464,11 @@ void usb_composite_setup_continue(struct usb_composite_dev *cdev)
 	spin_lock_irqsave(&cdev->lock, flags);
 
 	if (cdev->delayed_status == 0) {
+		if (!cdev->config) {
+			spin_unlock_irqrestore(&cdev->lock, flags);
+			return;
+		}
+		spin_unlock_irqrestore(&cdev->lock, flags);
 		WARN(cdev, "%s: Unexpected call\n", __func__);
 
 	} else if (--cdev->delayed_status == 0) {

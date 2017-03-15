@@ -212,21 +212,6 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		return rc;
 	}
 
-	/* device supports 48 bit addresses */
-	rc = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(48));
-	if (rc) {
-		dev_err(dev, "dma_set_mask_and_coherent(48) failed: %d\n", rc);
-		rc = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
-		if (rc) {
-			dev_err(dev,
-				"dma_set_mask_and_coherent(32) failed: %d\n",
-				rc);
-			goto if_free;
-		}
-	} else {
-		wil->use_extended_dma_addr = 1;
-	}
-
 	wil->pdev = pdev;
 	pci_set_drvdata(pdev, wil);
 	/* rollback to if_free */
@@ -239,6 +224,21 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto if_free;
 	}
 	/* rollback to err_plat */
+
+	/* device supports 48bit addresses */
+	rc = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(48));
+	if (rc) {
+		dev_err(dev, "dma_set_mask_and_coherent(48) failed: %d\n", rc);
+		rc = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+		if (rc) {
+			dev_err(dev,
+				"dma_set_mask_and_coherent(32) failed: %d\n",
+				rc);
+			goto err_plat;
+		}
+	} else {
+		wil->use_extended_dma_addr = 1;
+	}
 
 	rc = pci_enable_device(pdev);
 	if (rc) {
@@ -303,7 +303,7 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 #endif /* CONFIG_PM */
 
 	wil6210_debugfs_init(wil);
-
+	wil6210_sysfs_init(wil);
 
 	return 0;
 
@@ -337,6 +337,7 @@ static void wil_pcie_remove(struct pci_dev *pdev)
 #endif /* CONFIG_PM_SLEEP */
 #endif /* CONFIG_PM */
 
+	wil6210_sysfs_remove(wil);
 	wil6210_debugfs_remove(wil);
 	rtnl_lock();
 	wil_p2p_wdev_free(wil);

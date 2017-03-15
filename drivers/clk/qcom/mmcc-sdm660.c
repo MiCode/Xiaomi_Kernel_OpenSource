@@ -529,7 +529,7 @@ static struct clk_rcg2 ahb_clk_src = {
 	.hid_width = 5,
 	.parent_map = mmcc_parent_map_10,
 	.freq_tbl = ftbl_ahb_clk_src,
-	.flags = FORCE_ENABLE_RCGR,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "ahb_clk_src",
 		.parent_names = mmcc_parent_names_10,
@@ -1041,7 +1041,7 @@ static const struct freq_tbl ftbl_mclk0_clk_src[] = {
 	F(9600000, P_CXO, 2, 0, 0),
 	F(16666667, P_GPLL0_OUT_MAIN_DIV, 2, 1, 9),
 	F(19200000, P_CXO, 1, 0, 0),
-	F(24000000, P_GPLL0_OUT_MAIN_DIV, 1, 2, 25),
+	F(24000000, P_MMPLL10_PLL_OUT_MAIN, 1, 1, 24),
 	F(33333333, P_GPLL0_OUT_MAIN_DIV, 1, 1, 9),
 	F(48000000, P_GPLL0_OUT_MAIN, 1, 2, 25),
 	F(66666667, P_GPLL0_OUT_MAIN, 1, 1, 9),
@@ -3002,6 +3002,7 @@ static const struct qcom_cc_desc mmcc_660_desc = {
 
 static const struct of_device_id mmcc_660_match_table[] = {
 	{ .compatible = "qcom,mmcc-sdm660" },
+	{ .compatible = "qcom,mmcc-sdm630" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, mmcc_660_match_table);
@@ -3010,10 +3011,14 @@ static int mmcc_660_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct regmap *regmap;
+	bool is_sdm630 = 0;
 
 	regmap = qcom_cc_map(pdev, &mmcc_660_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
+
+	is_sdm630 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,mmcc-sdm630");
 
 	/* PLLs connected on Mx rails of MMSS_CC  */
 	vdd_mx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mx_mmss");
@@ -3047,6 +3052,17 @@ static int mmcc_660_probe(struct platform_device *pdev)
 	clk_alpha_pll_configure(&mmpll7_pll_out_main, regmap, &mmpll7_config);
 	clk_alpha_pll_configure(&mmpll8_pll_out_main, regmap, &mmpll8_config);
 	clk_alpha_pll_configure(&mmpll10_pll_out_main, regmap, &mmpll10_config);
+
+	if (is_sdm630) {
+		mmcc_660_desc.clks[BYTE1_CLK_SRC] = 0;
+		mmcc_660_desc.clks[MMSS_MDSS_BYTE1_CLK] = 0;
+		mmcc_660_desc.clks[MMSS_MDSS_BYTE1_INTF_DIV_CLK] = 0;
+		mmcc_660_desc.clks[MMSS_MDSS_BYTE1_INTF_CLK] = 0;
+		mmcc_660_desc.clks[ESC1_CLK_SRC] = 0;
+		mmcc_660_desc.clks[MMSS_MDSS_ESC1_CLK] = 0;
+		mmcc_660_desc.clks[PCLK1_CLK_SRC] = 0;
+		mmcc_660_desc.clks[MMSS_MDSS_PCLK1_CLK] = 0;
+	}
 
 	ret = qcom_cc_really_probe(pdev, &mmcc_660_desc, regmap);
 	if (ret) {

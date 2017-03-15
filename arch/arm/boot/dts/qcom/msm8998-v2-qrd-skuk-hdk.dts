@@ -15,12 +15,18 @@
 
 #include "msm8998-v2.dtsi"
 #include "msm8998-qrd-skuk.dtsi"
-#include "msm8998-camera-sensor-skuk.dtsi"
+#include "msm8998-camera-sensor-skuk-hdk.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8998 SKUK HDK";
 	compatible = "qcom,msm8998-qrd", "qcom,msm8998", "qcom,qrd";
 	qcom,board-id = <0x06000b 0x10>;
+};
+
+&soc {
+	sound-tavil {
+		qcom,msm-mbhc-hphl-swh = <0>;
+	};
 };
 
 &pmx_mdss {
@@ -113,4 +119,30 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <255>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&i2c_5 {
+	status = "okay";
+	st_fts@49 {
+		compatible = "st,fts";
+		reg = <0x49>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <125 0x2008>;
+		vdd-supply = <&pm8998_l6>;
+		avdd-supply = <&pm8998_l28>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		st,irq-gpio = <&tlmm 125 0x2008>;
+		st,reset-gpio = <&tlmm 89 0x00>;
+		st,regulator_dvdd = "vdd";
+		st,regulator_avdd = "avdd";
+	};
+};
+
+&soc {
+	/* HDK835 do not use improveTouch. If do not remove this node,
+	 * legacy TOUCH could not work.
+	 */
+	/delete-node/hbtp;
 };

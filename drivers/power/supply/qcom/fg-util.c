@@ -358,7 +358,7 @@ int fg_write(struct fg_chip *chip, int addr, u8 *val, int len)
 		return -ENXIO;
 
 	mutex_lock(&chip->bus_lock);
-	sec_access = (addr & 0xFF00) > 0xD0;
+	sec_access = (addr & 0x00FF) > 0xD0;
 	if (sec_access) {
 		rc = regmap_write(chip->regmap, (addr & 0xFF00) | 0xD0, 0xA5);
 		if (rc < 0) {
@@ -398,7 +398,7 @@ int fg_masked_write(struct fg_chip *chip, int addr, u8 mask, u8 val)
 		return -ENXIO;
 
 	mutex_lock(&chip->bus_lock);
-	sec_access = (addr & 0xFF00) > 0xD0;
+	sec_access = (addr & 0x00FF) > 0xD0;
 	if (sec_access) {
 		rc = regmap_write(chip->regmap, (addr & 0xFF00) | 0xD0, 0xA5);
 		if (rc < 0) {

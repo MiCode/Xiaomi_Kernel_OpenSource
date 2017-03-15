@@ -143,6 +143,7 @@ enum fg_sram_param_id {
 	FG_SRAM_FULL_SOC,
 	FG_SRAM_VOLTAGE_PRED,
 	FG_SRAM_OCV,
+	FG_SRAM_ESR,
 	FG_SRAM_RSLOW,
 	FG_SRAM_ALG_FLAGS,
 	FG_SRAM_CC_SOC,
@@ -233,6 +234,7 @@ struct fg_dt_props {
 	int	esr_timer_awake;
 	int	esr_timer_asleep;
 	int	rconn_mohms;
+	int	esr_clamp_mohms;
 	int	cl_start_soc;
 	int	cl_max_temp;
 	int	cl_min_temp;

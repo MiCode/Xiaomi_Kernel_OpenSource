@@ -56,6 +56,8 @@ enum print_reason {
 #define PD_SUSPEND_SUPPORTED_VOTER	"PD_SUSPEND_SUPPORTED_VOTER"
 #define PL_DELAY_HVDCP_VOTER		"PL_DELAY_HVDCP_VOTER"
 #define CTM_VOTER			"CTM_VOTER"
+#define SW_QC3_VOTER			"SW_QC3_VOTER"
+#define AICL_RERUN_VOTER		"AICL_RERUN_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
@@ -78,6 +80,7 @@ enum {
 	BOOST_BACK_WA			= BIT(1),
 	TYPEC_CC2_REMOVAL_WA_BIT	= BIT(2),
 	QC_AUTH_INTERRUPT_WA_BIT	= BIT(3),
+	OTG_WA				= BIT(4),
 };
 
 enum smb_irq_index {
@@ -267,6 +270,7 @@ struct smb_charger {
 	struct votable		*hvdcp_disable_votable_indirect;
 	struct votable		*hvdcp_enable_votable;
 	struct votable		*apsd_disable_votable;
+	struct votable		*hvdcp_hw_inov_dis_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
@@ -278,6 +282,7 @@ struct smb_charger {
 	struct work_struct	otg_oc_work;
 	struct work_struct	vconn_oc_work;
 	struct delayed_work	otg_ss_done_work;
+	struct delayed_work	icl_change_work;
 
 	/* cached status */
 	int			voltage_min_uv;
@@ -300,6 +305,7 @@ struct smb_charger {
 	int			otg_attempts;
 	int			vconn_attempts;
 	int			default_icl_ua;
+	int			otg_cl_ua;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -315,6 +321,8 @@ struct smb_charger {
 	/* qnovo */
 	int			qnovo_fcc_ua;
 	int			qnovo_fv_uv;
+	int			usb_icl_delta_ua;
+	int			pulse_cnt;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -472,6 +480,8 @@ int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 			       union power_supply_propval *val);
 int smblib_icl_override(struct smb_charger *chg, bool override);
 int smblib_set_icl_reduction(struct smb_charger *chg, int reduction_ua);
+int smblib_dp_dm(struct smb_charger *chg, int val);
+int smblib_rerun_aicl(struct smb_charger *chg);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

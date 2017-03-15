@@ -547,7 +547,6 @@ int afe_get_port_type(u16 port_id)
 	case SLIMBUS_2_TX:
 	case SLIMBUS_3_TX:
 	case SLIMBUS_4_TX:
-	case SLIMBUS_TX_VI:
 	case SLIMBUS_5_TX:
 	case SLIMBUS_6_TX:
 	case SLIMBUS_7_TX:
@@ -652,7 +651,6 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case SLIMBUS_3_TX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
-	case SLIMBUS_TX_VI:
 	case SLIMBUS_5_RX:
 	case SLIMBUS_5_TX:
 	case SLIMBUS_6_RX:
@@ -1303,13 +1301,22 @@ static struct cal_block_data *afe_find_cal_topo_id_by_port(
 			MSM_AFE_PORT_TYPE_TX)?(TX_DEVICE):(RX_DEVICE));
 		afe_top =
 		(struct audio_cal_info_afe_top *)cal_block->cal_info;
-		if ((afe_top->path == path) &&
-		    (afe_top->acdb_id ==
-		     this_afe.dev_acdb_id[afe_port_index])) {
-			pr_debug("%s: top_id:%x acdb_id:%d afe_port:%d\n",
+		if (afe_top->path == path) {
+			if (this_afe.dev_acdb_id[afe_port_index] > 0) {
+				if (afe_top->acdb_id ==
+				    this_afe.dev_acdb_id[afe_port_index]) {
+					pr_debug("%s: top_id:%x acdb_id:%d afe_port_id:%d\n",
+						 __func__, afe_top->topology,
+						 afe_top->acdb_id,
+						 q6audio_get_port_id(port_id));
+					return cal_block;
+				}
+			} else {
+				pr_debug("%s: top_id:%x acdb_id:%d afe_port:%d\n",
 				 __func__, afe_top->topology, afe_top->acdb_id,
 				 q6audio_get_port_id(port_id));
-			return cal_block;
+				return cal_block;
+			}
 		}
 	}
 
@@ -1497,6 +1504,8 @@ static void send_afe_cal_type(int cal_index, int port_id)
 {
 	struct cal_block_data		*cal_block = NULL;
 	int ret;
+	int afe_port_index = q6audio_get_port_index(port_id);
+
 	pr_debug("%s:\n", __func__);
 
 	if (this_afe.cal_data[cal_index] == NULL) {
@@ -1505,10 +1514,17 @@ static void send_afe_cal_type(int cal_index, int port_id)
 		goto done;
 	}
 
+	if (afe_port_index < 0) {
+		pr_err("%s: Error getting AFE port index %d\n",
+			__func__, afe_port_index);
+		goto done;
+	}
+
 	mutex_lock(&this_afe.cal_data[cal_index]->lock);
 
-	if ((cal_index == AFE_COMMON_RX_CAL) ||
-	    (cal_index == AFE_COMMON_TX_CAL))
+	if (((cal_index == AFE_COMMON_RX_CAL) ||
+	     (cal_index == AFE_COMMON_TX_CAL)) &&
+	    (this_afe.dev_acdb_id[afe_port_index] > 0))
 		cal_block = afe_find_cal(cal_index, port_id);
 	else
 		cal_block = cal_utils_get_only_cal_block(
@@ -2921,13 +2937,6 @@ static int __afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		return ret;
 	}
 
-	/*
-	 * Virtual SLIMBUS_TX_VI shares afe port with SLIMBUS_4_TX.
-	 * port_id changes to physical port of SLIMBUS_4_TX.
-	 */
-	if (port_id == SLIMBUS_TX_VI)
-		port_id = SLIMBUS_4_TX;
-
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
 		(port_id == RT_PROXY_DAI_002_TX)) {
 		pr_debug("%s: before incrementing pcm_afe_instance %d"\
@@ -3114,7 +3123,6 @@ static int __afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	case SLIMBUS_3_TX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
-	case SLIMBUS_TX_VI:
 	case SLIMBUS_5_RX:
 	case SLIMBUS_5_TX:
 	case SLIMBUS_6_RX:
@@ -3307,7 +3315,6 @@ int afe_get_port_index(u16 port_id)
 	case RT_PROXY_PORT_001_TX: return IDX_RT_PROXY_PORT_001_TX;
 	case SLIMBUS_4_RX: return IDX_SLIMBUS_4_RX;
 	case SLIMBUS_4_TX: return IDX_SLIMBUS_4_TX;
-	case SLIMBUS_TX_VI: return IDX_SLIMBUS_4_TX;
 	case SLIMBUS_5_RX: return IDX_SLIMBUS_5_RX;
 	case SLIMBUS_5_TX: return IDX_SLIMBUS_5_TX;
 	case SLIMBUS_6_RX: return IDX_SLIMBUS_6_RX;
@@ -5476,14 +5483,6 @@ int afe_close(int port_id)
 		goto fail_cmd;
 	}
 	pr_debug("%s: port_id = 0x%x\n", __func__, port_id);
-
-	/*
-	 * Virtual SLIMBUS_TX_VI shares afe port with SLIMBUS_4_TX.
-	 * port_id changes to physical port of SLIMBUS_4_TX.
-	 */
-	if (port_id == SLIMBUS_TX_VI)
-		port_id = SLIMBUS_4_TX;
-
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
 			(port_id == RT_PROXY_DAI_002_TX)) {
 		pr_debug("%s: before decrementing pcm_afe_instance %d\n",
