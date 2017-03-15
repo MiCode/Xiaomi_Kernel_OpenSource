@@ -82,34 +82,6 @@ static int a5xx_gpmu_init(struct adreno_device *adreno_dev);
 #define A530_QFPROM_RAW_PTE_ROW0_MSB 0x134
 #define A530_QFPROM_RAW_PTE_ROW2_MSB 0x144
 
-/* Print some key registers if a spin-for-idle times out */
-static void spin_idle_debug(struct kgsl_device *device,
-		const char *str)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned int rptr, wptr;
-	unsigned int status, status3, intstatus;
-	unsigned int hwfault;
-
-	dev_err(device->dev, str);
-
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &rptr);
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_WPTR, &wptr);
-
-	kgsl_regread(device, A5XX_RBBM_STATUS, &status);
-	kgsl_regread(device, A5XX_RBBM_STATUS3, &status3);
-	kgsl_regread(device, A5XX_RBBM_INT_0_STATUS, &intstatus);
-	kgsl_regread(device, A5XX_CP_HW_FAULT, &hwfault);
-
-	dev_err(device->dev,
-		"rb=%d pos=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X\n",
-		adreno_dev->cur_rb->id, rptr, wptr, status, status3, intstatus);
-
-	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
-
-	kgsl_device_snapshot(device, NULL);
-}
-
 static void a530_efuse_leakage(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -752,7 +724,7 @@ static int _gpmu_send_init_cmds(struct adreno_device *adreno_dev)
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret != 0)
-		spin_idle_debug(&adreno_dev->dev,
+		adreno_spin_idle_debug(adreno_dev,
 				"gpmu initialization failed to idle\n");
 
 	return ret;
@@ -2153,7 +2125,7 @@ static int a5xx_post_start(struct adreno_device *adreno_dev)
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret)
-		spin_idle_debug(KGSL_DEVICE(adreno_dev),
+		adreno_spin_idle_debug(adreno_dev,
 				"hw initialization failed to idle\n");
 
 	return ret;
@@ -2194,7 +2166,7 @@ static int a5xx_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret)
-		spin_idle_debug(KGSL_DEVICE(adreno_dev),
+		adreno_spin_idle_debug(adreno_dev,
 				"Switch to unsecure failed to idle\n");
 
 	return ret;
@@ -2379,7 +2351,7 @@ static int a5xx_critical_packet_submit(struct adreno_device *adreno_dev,
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 20);
 	if (ret)
-		spin_idle_debug(KGSL_DEVICE(adreno_dev),
+		adreno_spin_idle_debug(adreno_dev,
 			"Critical packet submission failed to idle\n");
 
 	return ret;
@@ -2410,7 +2382,7 @@ static int a5xx_send_me_init(struct adreno_device *adreno_dev,
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret)
-		spin_idle_debug(KGSL_DEVICE(adreno_dev),
+		adreno_spin_idle_debug(adreno_dev,
 				"CP initialization failed to idle\n");
 
 	return ret;
@@ -3025,6 +2997,7 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_MEQ_ADDR, A5XX_CP_MEQ_DBG_ADDR),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_MEQ_DATA, A5XX_CP_MEQ_DBG_DATA),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_PROTECT_REG_0, A5XX_CP_PROTECT_REG_0),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_HW_FAULT, A5XX_CP_HW_FAULT),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_PREEMPT, A5XX_CP_CONTEXT_SWITCH_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_PREEMPT_DEBUG, ADRENO_REG_SKIP),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_PREEMPT_DISABLE, ADRENO_REG_SKIP),

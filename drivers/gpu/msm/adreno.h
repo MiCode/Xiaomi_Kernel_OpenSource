@@ -951,6 +951,7 @@ long adreno_ioctl_helper(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, unsigned long arg,
 		const struct kgsl_ioctl *cmds, int len);
 
+void adreno_spin_idle_debug(struct adreno_device *adreno_dev, const char *str);
 int adreno_spin_idle(struct adreno_device *device, unsigned int timeout);
 int adreno_idle(struct kgsl_device *device);
 bool adreno_isidle(struct kgsl_device *device);

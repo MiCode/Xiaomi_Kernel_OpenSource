@@ -91,30 +91,6 @@ static struct a6xx_protected_regs {
 	{ 0xA630, 0x0, 1 },
 };
 
-/* Print some key registers if a spin-for-idle times out */
-static void spin_idle_debug(struct kgsl_device *device,
-		const char *str)
-{
-	unsigned int rptr, wptr;
-	unsigned int status, status3, intstatus;
-	unsigned int hwfault;
-
-	dev_err(device->dev, str);
-
-	kgsl_regread(device, A6XX_CP_RB_RPTR, &rptr);
-	kgsl_regread(device, A6XX_CP_RB_WPTR, &wptr);
-
-	kgsl_regread(device, A6XX_RBBM_STATUS, &status);
-	kgsl_regread(device, A6XX_RBBM_STATUS3, &status3);
-	kgsl_regread(device, A6XX_RBBM_INT_0_STATUS, &intstatus);
-	kgsl_regread(device, A6XX_CP_HW_FAULT, &hwfault);
-
-	dev_err(device->dev,
-		" rb=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X\n",
-		rptr, wptr, status, status3, intstatus);
-	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
-}
-
 static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 {
 	uint64_t addr;
@@ -415,7 +391,7 @@ static int a6xx_send_cp_init(struct adreno_device *adreno_dev,
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret)
-		spin_idle_debug(KGSL_DEVICE(adreno_dev),
+		adreno_spin_idle_debug(adreno_dev,
 				"CP initialization failed to idle\n");
 
 	return ret;
@@ -1558,6 +1534,7 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_WPTR, A6XX_CP_RB_WPTR),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_CNTL, A6XX_CP_RB_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_CNTL, A6XX_CP_MISC_CNTL),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_HW_FAULT, A6XX_CP_HW_FAULT),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, A6XX_RBBM_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS3, A6XX_RBBM_STATUS3),
 
