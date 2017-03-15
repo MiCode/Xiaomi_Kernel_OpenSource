@@ -299,6 +299,7 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	apq8009-512mb-rcm-wcd9326-refboard.dtb \
 	apq8009-cdp-wcd9326-refboard.dtb \
 	apq8009-rcm-wcd9326-refboard.dtb \
+	apq8009-robot-refboard.dtb \
 	apq8009-mtp-drone.dtb \
 	msm8909-mtp.dtb \
 	msm8909-1gb-mtp.dtb
