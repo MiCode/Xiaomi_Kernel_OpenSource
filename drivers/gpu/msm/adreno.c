@@ -1365,6 +1365,53 @@ static void _set_secvid(struct kgsl_device *device)
 	}
 }
 
+static int adreno_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
+				struct adreno_ringbuffer *rb)
+{
+	unsigned int *cmds;
+	int ret;
+
+	cmds = adreno_ringbuffer_allocspace(rb, 2);
+	if (IS_ERR(cmds))
+		return PTR_ERR(cmds);
+	if (cmds == NULL)
+		return -ENOSPC;
+
+	cmds += cp_secure_mode(adreno_dev, cmds, 0);
+
+	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+	if (ret)
+		adreno_spin_idle_debug(adreno_dev,
+				"Switch to unsecure failed to idle\n");
+
+	return ret;
+}
+
+int adreno_set_unsecured_mode(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb)
+{
+	int ret = 0;
+
+	if (!adreno_is_a5xx(adreno_dev))
+		return -EINVAL;
+
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS) &&
+			adreno_is_a5xx(adreno_dev)) {
+		ret = a5xx_critical_packet_submit(adreno_dev, rb);
+		if (ret)
+			return ret;
+	}
+
+	/* GPU comes up in secured mode, make it unsecured by default */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
+		ret = adreno_switch_to_unsecure_mode(adreno_dev, rb);
+	else
+		adreno_writereg(adreno_dev,
+				ADRENO_REG_RBBM_SECVID_TRUST_CONTROL, 0x0);
+
+	return ret;
+}
+
 /**
  * _adreno_start - Power up the GPU and prepare to accept commands
  * @adreno_dev: Pointer to an adreno_device structure
