@@ -1054,6 +1054,25 @@ static void fg_notify_charger(struct fg_chip *chip)
 	fg_dbg(chip, FG_STATUS, "Notified charger on float voltage and FCC\n");
 }
 
+static int fg_delta_bsoc_irq_en_cb(struct votable *votable, void *data,
+					int enable, const char *client)
+{
+	struct fg_chip *chip = data;
+
+	if (!chip->irqs[BSOC_DELTA_IRQ].irq)
+		return 0;
+
+	if (enable) {
+		enable_irq(chip->irqs[BSOC_DELTA_IRQ].irq);
+		enable_irq_wake(chip->irqs[BSOC_DELTA_IRQ].irq);
+	} else {
+		disable_irq_wake(chip->irqs[BSOC_DELTA_IRQ].irq);
+		disable_irq(chip->irqs[BSOC_DELTA_IRQ].irq);
+	}
+
+	return 0;
+}
+
 static int fg_awake_cb(struct votable *votable, void *data, int awake,
 			const char *client)
 {
@@ -1477,16 +1496,8 @@ static int fg_charge_full_update(struct fg_chip *chip)
 		return 0;
 
 	mutex_lock(&chip->charge_full_lock);
-	if (!chip->charge_done && chip->bsoc_delta_irq_en) {
-		disable_irq_wake(fg_irqs[BSOC_DELTA_IRQ].irq);
-		disable_irq_nosync(fg_irqs[BSOC_DELTA_IRQ].irq);
-		chip->bsoc_delta_irq_en = false;
-	} else if (chip->charge_done && !chip->bsoc_delta_irq_en) {
-		enable_irq(fg_irqs[BSOC_DELTA_IRQ].irq);
-		enable_irq_wake(fg_irqs[BSOC_DELTA_IRQ].irq);
-		chip->bsoc_delta_irq_en = true;
-	}
-
+	vote(chip->delta_bsoc_irq_en_votable, DELTA_BSOC_IRQ_VOTER,
+		chip->charge_done, 0);
 	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_HEALTH,
 		&prop);
 	if (rc < 0) {
@@ -4023,6 +4034,9 @@ static void fg_cleanup(struct fg_chip *chip)
 	if (chip->awake_votable)
 		destroy_votable(chip->awake_votable);
 
+	if (chip->delta_bsoc_irq_en_votable)
+		destroy_votable(chip->delta_bsoc_irq_en_votable);
+
 	if (chip->batt_id_chan)
 		iio_channel_release(chip->batt_id_chan);
 
@@ -4064,7 +4078,15 @@ static int fg_gen3_probe(struct platform_device *pdev)
 					chip);
 	if (IS_ERR(chip->awake_votable)) {
 		rc = PTR_ERR(chip->awake_votable);
-		return rc;
+		goto exit;
+	}
+
+	chip->delta_bsoc_irq_en_votable = create_votable("FG_DELTA_BSOC_IRQ",
+						VOTE_SET_ANY,
+						fg_delta_bsoc_irq_en_cb, chip);
+	if (IS_ERR(chip->delta_bsoc_irq_en_votable)) {
+		rc = PTR_ERR(chip->delta_bsoc_irq_en_votable);
+		goto exit;
 	}
 
 	rc = fg_parse_dt(chip);
@@ -4091,7 +4113,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	rc = fg_get_batt_id(chip);
 	if (rc < 0) {
 		pr_err("Error in getting battery id, rc:%d\n", rc);
-		return rc;
+		goto exit;
 	}
 
 	rc = fg_get_batt_profile(chip);
@@ -4149,11 +4171,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		disable_irq_nosync(fg_irqs[SOC_UPDATE_IRQ].irq);
 
 	/* Keep BSOC_DELTA_IRQ irq disabled until we require it */
-	if (fg_irqs[BSOC_DELTA_IRQ].irq) {
-		disable_irq_wake(fg_irqs[BSOC_DELTA_IRQ].irq);
-		disable_irq_nosync(fg_irqs[BSOC_DELTA_IRQ].irq);
-		chip->bsoc_delta_irq_en = false;
-	}
+	rerun_election(chip->delta_bsoc_irq_en_votable);
 
 	rc = fg_debugfs_create(chip);
 	if (rc < 0) {
