@@ -3229,20 +3229,19 @@ static irqreturn_t fg_mem_xcp_irq_handler(int irq, void *data)
 	}
 
 	fg_dbg(chip, FG_IRQ, "irq %d triggered, status:%d\n", irq, status);
-	if (status & MEM_XCP_BIT) {
-		rc = fg_clear_dma_errors_if_any(chip);
-		if (rc < 0) {
-			pr_err("Error in clearing DMA error, rc=%d\n", rc);
-			return IRQ_HANDLED;
-		}
 
-		mutex_lock(&chip->sram_rw_lock);
+	mutex_lock(&chip->sram_rw_lock);
+	rc = fg_clear_dma_errors_if_any(chip);
+	if (rc < 0)
+		pr_err("Error in clearing DMA error, rc=%d\n", rc);
+
+	if (status & MEM_XCP_BIT) {
 		rc = fg_clear_ima_errors_if_any(chip, true);
 		if (rc < 0 && rc != -EAGAIN)
 			pr_err("Error in checking IMA errors rc:%d\n", rc);
-		mutex_unlock(&chip->sram_rw_lock);
 	}
 
+	mutex_unlock(&chip->sram_rw_lock);
 	return IRQ_HANDLED;
 }
 
