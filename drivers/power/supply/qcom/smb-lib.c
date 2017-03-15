@@ -160,39 +160,14 @@ static int smblib_get_jeita_cc_delta(struct smb_charger *chg, int *cc_delta_ua)
 int smblib_icl_override(struct smb_charger *chg, bool override)
 {
 	int rc;
-	bool override_status;
-	u8 stat;
-	u16 reg;
 
-	switch (chg->smb_version) {
-	case PMI8998_SUBTYPE:
-		reg = APSD_RESULT_STATUS_REG;
-		break;
-	case PM660_SUBTYPE:
-		reg = AICL_STATUS_REG;
-		break;
-	default:
-		smblib_dbg(chg, PR_MISC, "Unknown chip version=%x\n",
-				chg->smb_version);
-		return -EINVAL;
-	}
+	rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
+				ICL_OVERRIDE_AFTER_APSD_BIT,
+				override ? ICL_OVERRIDE_AFTER_APSD_BIT : 0);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't override ICL rc=%d\n", rc);
 
-	rc = smblib_read(chg, reg, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read reg=%x rc=%d\n", reg, rc);
-		return rc;
-	}
-	override_status = (bool)(stat & ICL_OVERRIDE_LATCH_BIT);
-
-	if (override != override_status) {
-		rc = smblib_masked_write(chg, CMD_APSD_REG,
-				ICL_OVERRIDE_BIT, ICL_OVERRIDE_BIT);
-		if (rc < 0) {
-			smblib_err(chg, "Couldn't override ICL rc=%d\n", rc);
-			return rc;
-		}
-	}
-	return 0;
+	return rc;
 }
 
 /********************
