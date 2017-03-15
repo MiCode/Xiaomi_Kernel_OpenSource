@@ -1683,7 +1683,7 @@ static struct drm_driver msm_driver = {
 	.debugfs_cleanup    = msm_debugfs_cleanup,
 #endif
 	.ioctls             = msm_ioctls,
-	.num_ioctls         = DRM_MSM_NUM_IOCTLS,
+	.num_ioctls         = ARRAY_SIZE(msm_ioctls),
 	.fops               = &fops,
 	.name               = "msm_drm",
 	.desc               = "MSM Snapdragon DRM",
