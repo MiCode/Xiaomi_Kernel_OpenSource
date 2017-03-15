@@ -361,6 +361,7 @@ int ipa2_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 	ep_dl->uc_offload_state |= IPA_UC_OFFLOAD_CONNECTED;
 	IPAERR("client %d (ep: %d) connected\n", in->dl.client,
 		ipa_ep_idx_dl);
+	ipa_inc_acquire_wakelock(IPA_WAKELOCK_REF_CLIENT_ODU_RX);
 
 fail:
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
@@ -436,6 +437,7 @@ int ipa2_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 	ipa_disable_data_path(ipa_ep_idx_dl);
 	memset(&ipa_ctx->ep[ipa_ep_idx_dl], 0, sizeof(struct ipa_ep_context));
 	IPADBG("dl client (ep: %d) disconnected\n", ipa_ep_idx_dl);
+	ipa_dec_release_wakelock(IPA_WAKELOCK_REF_CLIENT_ODU_RX);
 
 fail:
 	dma_free_coherent(ipa_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
