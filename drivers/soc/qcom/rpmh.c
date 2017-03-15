@@ -106,11 +106,6 @@ static struct rpmh_msg *get_msg_from_pool(struct rpmh_client *rc)
 	return msg;
 }
 
-static inline int is_sleep_nonempty(struct rpmh_req *req)
-{
-	return (req->sleep_val != UINT_MAX);
-}
-
 static void rpmh_rx_cb(struct mbox_client *cl, void *msg)
 {
 	struct rpmh_msg *rpm_msg = container_of(msg, struct rpmh_msg, msg);
@@ -623,6 +618,12 @@ int rpmh_read(struct rpmh_client *rc, u32 addr, u32 *resp)
 }
 EXPORT_SYMBOL(rpmh_read);
 
+static inline int is_req_valid(struct rpmh_req *req)
+{
+	return (req->sleep_val != UINT_MAX && req->wake_val != UINT_MAX
+			&& req->sleep_val != req->wake_val);
+}
+
 int send_single(struct rpmh_client *rc, enum rpmh_state state, u32 addr,
 				u32 data)
 {
@@ -675,8 +676,11 @@ int rpmh_flush(struct rpmh_client *rc)
 	 * hence we can run without locks.
 	 */
 	list_for_each_entry(p, &rc->rpmh->resources, list) {
-		if (p->sleep_val == INT_MAX || p->wake_val == INT_MAX)
+		if (!is_req_valid(p)) {
+			pr_debug("%s: skipping RPMH req: a:0x%x s:0x%x w:0x%x",
+				__func__, p->addr, p->sleep_val, p->wake_val);
 			continue;
+		}
 		ret = send_single(rc, RPMH_SLEEP_STATE, p->addr, p->sleep_val);
 		if (ret)
 			return ret;
