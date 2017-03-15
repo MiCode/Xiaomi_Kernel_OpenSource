@@ -40,19 +40,25 @@ static int alloc_sps_req(struct usb_ep *data_ep)
 }
 
 static int init_data(struct usb_ep *ep);
-int set_qdss_data_connection(struct usb_gadget *gadget,
-	struct usb_ep *data_ep, u8 data_addr, int enable)
+int set_qdss_data_connection(struct f_qdss *qdss, int enable)
 {
 	enum usb_ctrl		usb_bam_type;
 	int			res = 0;
 	int			idx;
-	struct f_qdss *qdss = data_ep->driver_data;
-	struct usb_qdss_bam_connect_info bam_info = qdss->bam_info;
+	struct usb_qdss_bam_connect_info bam_info;
+	struct usb_gadget *gadget;
 
 	pr_debug("set_qdss_data_connection\n");
 
+	if (!qdss) {
+		pr_err("%s: qdss ptr is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	gadget = qdss->gadget;
 	usb_bam_type = usb_bam_get_bam_type(gadget->name);
 
+	bam_info = qdss->bam_info;
 	/* There is only one qdss pipe, so the pipe number can be set to 0 */
 	idx = usb_bam_get_connection_idx(usb_bam_type, QDSS_P_BAM,
 		PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE, 0);
@@ -67,14 +73,16 @@ int set_qdss_data_connection(struct usb_gadget *gadget,
 			kzalloc(sizeof(struct sps_mem_buffer), GFP_KERNEL);
 		if (!bam_info.data_fifo) {
 			pr_err("qdss_data_connection: memory alloc failed\n");
+			usb_bam_free_fifos(usb_bam_type, idx);
 			return -ENOMEM;
 		}
 		get_bam2bam_connection_info(usb_bam_type, idx,
 				&bam_info.usb_bam_pipe_idx,
 				NULL, bam_info.data_fifo, NULL);
 
-		alloc_sps_req(data_ep);
-		msm_data_fifo_config(data_ep, bam_info.data_fifo->phys_base,
+		alloc_sps_req(qdss->port.data);
+		msm_data_fifo_config(qdss->port.data,
+					bam_info.data_fifo->phys_base,
 					bam_info.data_fifo->size,
 					bam_info.usb_bam_pipe_idx);
 		init_data(qdss->port.data);
