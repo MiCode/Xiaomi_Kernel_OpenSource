@@ -2763,6 +2763,8 @@ int msm_vfe47_enable_regulators(struct vfe_device *vfe_dev, int enable)
 int msm_vfe47_get_platform_data(struct vfe_device *vfe_dev)
 {
 	int rc = 0;
+	void __iomem *vfe_fuse_base;
+	uint32_t vfe_fuse_base_size;
 
 	vfe_dev->vfe_base = msm_camera_get_reg_base(vfe_dev->pdev, "vfe", 0);
 	if (!vfe_dev->vfe_base)
@@ -2787,7 +2789,18 @@ int msm_vfe47_get_platform_data(struct vfe_device *vfe_dev)
 		rc = -ENOMEM;
 		goto get_res_fail;
 	}
-
+	vfe_dev->vfe_hw_limit = 0;
+	vfe_fuse_base = msm_camera_get_reg_base(vfe_dev->pdev,
+					"vfe_fuse", 0);
+	vfe_fuse_base_size = msm_camera_get_res_size(vfe_dev->pdev,
+						"vfe_fuse");
+	if (vfe_fuse_base) {
+		if (vfe_fuse_base_size)
+			vfe_dev->vfe_hw_limit =
+				(msm_camera_io_r(vfe_fuse_base) >> 5) & 0x1;
+		msm_camera_put_reg_base(vfe_dev->pdev, vfe_fuse_base,
+				"vfe_fuse", 0);
+	}
 	rc = vfe_dev->hw_info->vfe_ops.platform_ops.get_regulators(vfe_dev);
 	if (rc)
 		goto get_regulator_fail;

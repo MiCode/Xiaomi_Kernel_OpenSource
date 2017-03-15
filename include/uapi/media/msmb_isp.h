@@ -24,6 +24,8 @@
 
 #define ISP_STATS_STREAM_BIT  0x80000000
 
+#define VFE_HW_LIMIT 1
+
 struct msm_vfe_cfg_cmd_list;
 
 enum ISP_START_PIXEL_PATTERN {
@@ -456,6 +458,7 @@ enum msm_vfe_reg_cfg_type {
 	VFE_HW_UPDATE_UNLOCK,
 	SET_WM_UB_SIZE,
 	SET_UB_POLICY,
+	GET_VFE_HW_LIMIT,
 };
 
 struct msm_vfe_cfg_cmd2 {
