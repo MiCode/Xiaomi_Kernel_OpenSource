@@ -175,6 +175,7 @@ int fg_clear_dma_errors_if_any(struct fg_chip *chip)
 {
 	int rc;
 	u8 dma_sts;
+	bool error_present;
 
 	rc = fg_read(chip, MEM_IF_DMA_STS(chip), &dma_sts, 1);
 	if (rc < 0) {
@@ -184,14 +185,13 @@ int fg_clear_dma_errors_if_any(struct fg_chip *chip)
 	}
 	fg_dbg(chip, FG_STATUS, "dma_sts: %x\n", dma_sts);
 
-	if (dma_sts & (DMA_WRITE_ERROR_BIT | DMA_READ_ERROR_BIT)) {
-		rc = fg_masked_write(chip, MEM_IF_DMA_CTL(chip),
-				DMA_CLEAR_LOG_BIT, DMA_CLEAR_LOG_BIT);
-		if (rc < 0) {
-			pr_err("failed to write addr=0x%04x, rc=%d\n",
-				MEM_IF_DMA_CTL(chip), rc);
-			return rc;
-		}
+	error_present = dma_sts & (DMA_WRITE_ERROR_BIT | DMA_READ_ERROR_BIT);
+	rc = fg_masked_write(chip, MEM_IF_DMA_CTL(chip), DMA_CLEAR_LOG_BIT,
+			error_present ? DMA_CLEAR_LOG_BIT : 0);
+	if (rc < 0) {
+		pr_err("failed to write addr=0x%04x, rc=%d\n",
+			MEM_IF_DMA_CTL(chip), rc);
+		return rc;
 	}
 
 	return 0;
