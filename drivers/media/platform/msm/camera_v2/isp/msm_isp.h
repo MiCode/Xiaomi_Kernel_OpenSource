@@ -768,7 +768,6 @@ struct vfe_device {
 	size_t num_hvx_clk;
 	size_t num_norm_clk;
 	enum cam_ahb_clk_vote ahb_vote;
-	bool turbo_vote;
 	struct cx_ipeak_client *vfe_cx_ipeak;
 
 	/* Sync variables*/
@@ -809,6 +808,7 @@ struct vfe_device {
 	uint32_t is_split;
 	uint32_t dual_vfe_enable;
 	unsigned long page_fault_addr;
+	uint32_t vfe_hw_limit;
 
 	/* Debug variables */
 	int dump_reg;
