@@ -38,6 +38,7 @@
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000>;
 	qcom,bus-width = <4>;
+	qcom,core_3_0v_support;
 	qcom,nonremovable;
 
 	pinctrl-names = "active", "sleep";
