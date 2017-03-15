@@ -164,7 +164,7 @@ static void a6xx_enable_64bit(struct adreno_device *adreno_dev)
 static void a6xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int bit, mal, mode;
+	unsigned int bit, mal, mode, glbl_inv;
 	unsigned int amsbc = 0;
 
 	adreno_vbif_start(adreno_dev, a6xx_vbif_platforms,
@@ -241,6 +241,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	mal = (mal == 64) ? 1 : 0;
 
+	/* (1 << 29)globalInvFlushFilterDis bit needs to be set for A630 V1 */
+	glbl_inv = (adreno_is_a630v1(adreno_dev)) ? 1 : 0;
+
 	kgsl_regwrite(device, A6XX_RB_NC_MODE_CNTL, (amsbc << 4) | (mal << 3) |
 							(bit << 1) | mode);
 	kgsl_regwrite(device, A6XX_TPL1_NC_MODE_CNTL, (mal << 3) |
@@ -248,9 +251,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_SP_NC_MODE_CNTL, (mal << 3) | (bit << 1) |
 								mode);
 
-	/* (1 << 29)globalInvFlushFilterDis bit needs to be set for A630 V1 */
-	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (1 << 29) | (mal << 23) |
-								(bit << 21));
+	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (glbl_inv << 29) |
+						(mal << 23) | (bit << 21));
 
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
 					  (1 << 30) | 0x4000);
