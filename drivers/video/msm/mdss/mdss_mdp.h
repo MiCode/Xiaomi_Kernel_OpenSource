@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1609,7 +1609,8 @@ int mdss_mdp_argc_config(struct msm_fb_data_type *mfd,
 int mdss_mdp_hist_lut_config(struct msm_fb_data_type *mfd,
 			struct mdp_hist_lut_data *config, u32 *copyback);
 int mdss_mdp_pp_default_overlay_config(struct msm_fb_data_type *mfd,
-					struct mdss_panel_data *pdata);
+					struct mdss_panel_data *pdata,
+					bool enable);
 int mdss_mdp_dither_config(struct msm_fb_data_type *mfd,
 			struct mdp_dither_cfg_data *config, u32 *copyback,
 			   int copy_from_kernel);
