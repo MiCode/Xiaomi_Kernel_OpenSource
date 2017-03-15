@@ -165,7 +165,7 @@ Optional Properties:
 GPU Quirks:
 - qcom,gpu-quirk-two-pass-use-wfi:
 				Signal the GPU to set Set TWOPASSUSEWFI bit in
-				A5XX_PC_DBG_ECO_CNTL (5XX only)
+				PC_DBG_ECO_CNTL (5XX and 6XX only)
 - qcom,gpu-quirk-critical-packets:
 				Submit a set of critical PM4 packets when the GPU wakes up
 - qcom,gpu-quirk-fault-detect-mask:

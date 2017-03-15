@@ -257,6 +257,10 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
 					  (1 << 30) | 0x4000);
 
+	/* Set TWOPASSUSEWFI in A6XX_PC_DBG_ECO_CNTL if requested */
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_TWO_PASS_USE_WFI))
+		kgsl_regrmw(device, A6XX_PC_DBG_ECO_CNTL, 0, (1 << 8));
+
 	a6xx_protect_init(adreno_dev);
 }
 
