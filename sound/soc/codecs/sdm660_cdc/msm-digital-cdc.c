@@ -79,7 +79,7 @@ static int msm_digcdc_clock_control(bool flag)
 		if (atomic_read(&pdata->int_mclk0_enabled) == false) {
 			pdata->digital_cdc_core_clk.enable = 1;
 			ret = afe_set_lpass_clock_v2(
-						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						AFE_PORT_ID_INT0_MI2S_RX,
 						&pdata->digital_cdc_core_clk);
 			if (ret < 0) {
 				pr_err("%s:failed to enable the MCLK\n",
@@ -1166,6 +1166,7 @@ EXPORT_SYMBOL(msm_dig_codec_info_create_codec_entry);
 static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 {
 	struct msm_dig_priv *msm_dig_cdc = dev_get_drvdata(codec->dev);
+	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
 	int i, ret;
 
 	msm_dig_cdc->codec = codec;
@@ -1196,6 +1197,15 @@ static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 		}
 	}
 	registered_digcodec = codec;
+
+	snd_soc_dapm_ignore_suspend(dapm, "AIF1 Playback");
+	snd_soc_dapm_ignore_suspend(dapm, "AIF1 Capture");
+	snd_soc_dapm_ignore_suspend(dapm, "ADC1_IN");
+	snd_soc_dapm_ignore_suspend(dapm, "ADC2_IN");
+	snd_soc_dapm_ignore_suspend(dapm, "ADC3_IN");
+	snd_soc_dapm_ignore_suspend(dapm, "PDM_OUT_RX1");
+	snd_soc_dapm_ignore_suspend(dapm, "PDM_OUT_RX2");
+	snd_soc_dapm_ignore_suspend(dapm, "PDM_OUT_RX3");
 
 	return 0;
 }
@@ -1969,9 +1979,27 @@ static struct regmap *msm_digital_get_regmap(struct device *dev)
 	return msm_dig_cdc->regmap;
 }
 
+static int msm_dig_cdc_suspend(struct snd_soc_codec *codec)
+{
+	struct msm_dig_priv *msm_dig_cdc = dev_get_drvdata(codec->dev);
+
+	msm_dig_cdc->dapm_bias_off = 1;
+	return 0;
+}
+
+static int msm_dig_cdc_resume(struct snd_soc_codec *codec)
+{
+	struct msm_dig_priv *msm_dig_cdc = dev_get_drvdata(codec->dev);
+
+	msm_dig_cdc->dapm_bias_off = 0;
+	return 0;
+}
+
 static struct snd_soc_codec_driver soc_msm_dig_codec = {
 	.probe  = msm_dig_cdc_soc_probe,
 	.remove = msm_dig_cdc_soc_remove,
+	.suspend = msm_dig_cdc_suspend,
+	.resume = msm_dig_cdc_resume,
 	.controls = msm_dig_snd_controls,
 	.num_controls = ARRAY_SIZE(msm_dig_snd_controls),
 	.dapm_widgets = msm_dig_dapm_widgets,
@@ -2054,6 +2082,44 @@ static int msm_dig_cdc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int msm_dig_suspend(struct device *dev)
+{
+	struct msm_asoc_mach_data *pdata =
+	snd_soc_card_get_drvdata(registered_digcodec->component.card);
+	struct msm_dig_priv *msm_dig_cdc = dev_get_drvdata(dev);
+
+	if (msm_dig_cdc->dapm_bias_off) {
+		pr_debug("%s: mclk cnt = %d, mclk_enabled = %d\n",
+			__func__, atomic_read(&pdata->int_mclk0_rsc_ref),
+			atomic_read(&pdata->int_mclk0_enabled));
+
+		if (atomic_read(&pdata->int_mclk0_enabled) == true) {
+			cancel_delayed_work_sync(
+				&pdata->disable_int_mclk0_work);
+			mutex_lock(&pdata->cdc_int_mclk0_mutex);
+			pdata->digital_cdc_core_clk.enable = 0;
+			afe_set_lpass_clock_v2(AFE_PORT_ID_INT0_MI2S_RX,
+						&pdata->digital_cdc_core_clk);
+			atomic_set(&pdata->int_mclk0_enabled, false);
+			mutex_unlock(&pdata->cdc_int_mclk0_mutex);
+		}
+	}
+
+	return 0;
+}
+
+static int msm_dig_resume(struct device *dev)
+{
+	return 0;
+}
+
+static const struct dev_pm_ops msm_dig_pm_ops = {
+	.suspend = msm_dig_suspend,
+	.resume = msm_dig_resume,
+};
+#endif
+
 static const struct of_device_id msm_dig_cdc_of_match[] = {
 	{.compatible = "qcom,msm-digital-codec"},
 	{},
@@ -2064,6 +2130,9 @@ static struct platform_driver msm_digcodec_driver = {
 		.owner          = THIS_MODULE,
 		.name           = DRV_NAME,
 		.of_match_table = msm_dig_cdc_of_match,
+#ifdef CONFIG_PM
+	.pm = &msm_dig_pm_ops,
+#endif
 	},
 	.probe                  = msm_dig_cdc_probe,
 	.remove                 = msm_dig_cdc_remove,
