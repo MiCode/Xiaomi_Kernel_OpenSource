@@ -374,6 +374,7 @@ struct msm_display_info {
 struct msm_drm_event {
 	struct drm_pending_event base;
 	struct drm_event event;
+	struct drm_msm_event_req info;
 	u8 data[];
 };
 
@@ -623,6 +624,15 @@ enum msm_dsi_encoder_id {
 	MSM_DSI_CMD_ENCODER_ID = 1,
 	MSM_DSI_ENCODER_NUM = 2
 };
+
+/* *
+ * msm_send_crtc_notification - notify user-space clients of crtc events.
+ * @crtc: crtc that is generating the event.
+ * @event: event that needs to be notified.
+ * @payload: payload for the event.
+ */
+void msm_send_crtc_notification(struct drm_crtc *crtc,
+		struct drm_event *event, u8 *payload);
 #ifdef CONFIG_DRM_MSM_DSI
 void __init msm_dsi_register(void);
 void __exit msm_dsi_unregister(void);

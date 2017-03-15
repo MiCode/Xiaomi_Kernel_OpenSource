@@ -846,3 +846,9 @@ error_free_conn:
 
 	return ERR_PTR(rc);
 }
+
+int sde_connector_register_custom_event(struct sde_kms *kms,
+		struct drm_connector *conn_drm, u32 event, bool val)
+{
+	return -EINVAL;
+}

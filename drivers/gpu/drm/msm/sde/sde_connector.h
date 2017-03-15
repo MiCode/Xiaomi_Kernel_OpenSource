@@ -392,5 +392,16 @@ int sde_connector_register_event(struct drm_connector *connector,
 void sde_connector_unregister_event(struct drm_connector *connector,
 		uint32_t event_idx);
 
+/**
+ * sde_connector_register_custom_event - register for async events
+ * @kms: Pointer to sde_kms
+ * @conn_drm: Pointer to drm connector object
+ * @event: Event for which request is being sent
+ * @en: Flag to enable/disable the event
+ * Returns: Zero on success
+ */
+int sde_connector_register_custom_event(struct sde_kms *kms,
+		struct drm_connector *conn_drm, u32 event, bool en);
+
 #endif /* _SDE_CONNECTOR_H_ */
 

@@ -268,6 +268,39 @@ struct drm_panel_hdr_properties {
 	__u32 blackness_level;
 };
 
+/**
+ * struct drm_msm_event_req - Payload to event enable/disable ioctls.
+ * @object_id: DRM object id. e.g.: for crtc pass crtc id.
+ * @object_type: DRM object type. e.g.: for crtc set it to DRM_MODE_OBJECT_CRTC.
+ * @event: Event for which notification is being enabled/disabled.
+ *         e.g.: for Histogram set - DRM_EVENT_HISTOGRAM.
+ * @client_context: Opaque pointer that will be returned during event response
+ *                  notification.
+ * @index: Object index(e.g.: crtc index), optional for user-space to set.
+ *         Driver will override value based on object_id and object_type.
+ */
+struct drm_msm_event_req {
+	__u32 object_id;
+	__u32 object_type;
+	__u32 event;
+	__u64 client_context;
+	__u32 index;
+};
+
+/**
+ * struct drm_msm_event_resp - payload returned when read is called for
+ *                            custom notifications.
+ * @base: Event type and length of complete notification payload.
+ * @info: Contains information about DRM that which raised this event.
+ * @data: Custom payload that driver returns for event type.
+ *        size of data = base.length - (sizeof(base) + sizeof(info))
+ */
+struct drm_msm_event_resp {
+	struct drm_event base;
+	struct drm_msm_event_req info;
+	__u8 data[];
+};
+
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
 #define DRM_MSM_SET_PARAM              0x01
@@ -284,6 +317,10 @@ struct drm_panel_hdr_properties {
 #define DRM_MSM_REGISTER_EVENT         0x41
 #define DRM_MSM_DEREGISTER_EVENT       0x42
 
+/* sde custom events */
+#define DRM_EVENT_HISTOGRAM 0x80000000
+#define DRM_EVENT_AD_BACKLIGHT 0x80000001
+
 #define DRM_IOCTL_MSM_GET_PARAM        DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GET_PARAM, struct drm_msm_param)
 #define DRM_IOCTL_MSM_GEM_NEW          DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_NEW, struct drm_msm_gem_new)
 #define DRM_IOCTL_MSM_GEM_INFO         DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_INFO, struct drm_msm_gem_info)
@@ -294,6 +331,10 @@ struct drm_panel_hdr_properties {
 #define DRM_IOCTL_MSM_GEM_MADVISE      DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_MADVISE, struct drm_msm_gem_madvise)
 #define DRM_IOCTL_SDE_WB_CONFIG \
 	DRM_IOW((DRM_COMMAND_BASE + DRM_SDE_WB_CONFIG), struct sde_drm_wb_cfg)
+#define DRM_IOCTL_MSM_REGISTER_EVENT   DRM_IOW((DRM_COMMAND_BASE + \
+			DRM_MSM_REGISTER_EVENT), struct drm_msm_event_req)
+#define DRM_IOCTL_MSM_DEREGISTER_EVENT DRM_IOW((DRM_COMMAND_BASE + \
+			DRM_MSM_DEREGISTER_EVENT), struct drm_msm_event_req)
 
 #if defined(__cplusplus)
 }

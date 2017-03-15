@@ -169,6 +169,7 @@ struct sde_crtc {
 	struct list_head dirty_list;
 	struct list_head ad_dirty;
 	struct list_head ad_active;
+	struct list_head user_event_list;
 
 	struct mutex crtc_lock;
 
@@ -316,7 +317,17 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane);
 void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
 
 /**
- * sde_crtc_get_intf_mode - get primary interface mode of the given crtc
+ * sde_crtc_register_custom_event - api for enabling/disabling crtc event
+ * @kms: Pointer to sde_kms
+ * @crtc_drm: Pointer to crtc object
+ * @event: Event that client is interested
+ * @en: Flag to enable/disable the event
+ */
+int sde_crtc_register_custom_event(struct sde_kms *kms,
+		struct drm_crtc *crtc_drm, u32 event, bool en);
+
+/**
+ * sde_crtc_get_intf_mode - get interface mode of the given crtc
  * @crtc: Pointert to crtc
  */
 enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc);

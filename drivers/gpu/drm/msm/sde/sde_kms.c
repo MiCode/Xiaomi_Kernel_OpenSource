@@ -81,7 +81,8 @@ MODULE_PARM_DESC(sdecustom, "Enable customizations for sde clients");
 
 static int sde_kms_hw_init(struct msm_kms *kms);
 static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms);
-
+static int _sde_kms_register_events(struct msm_kms *kms,
+		struct drm_mode_object *obj, u32 event, bool en);
 bool sde_is_custom_client(void)
 {
 	return sdecustom;
@@ -1231,6 +1232,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_kms_round_pixclk,
 	.destroy         = sde_kms_destroy,
+	.register_events = _sde_kms_register_events,
 };
 
 /* the caller api needs to turn on clock before calling it */
@@ -1595,4 +1597,33 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	sde_kms->dev = dev;
 
 	return &sde_kms->base;
+}
+
+static int _sde_kms_register_events(struct msm_kms *kms,
+		struct drm_mode_object *obj, u32 event, bool en)
+{
+	int ret = 0;
+	struct drm_crtc *crtc = NULL;
+	struct drm_connector *conn = NULL;
+	struct sde_kms *sde_kms = NULL;
+
+	if (!kms || !obj) {
+		SDE_ERROR("invalid argument kms %pK obj %pK\n", kms, obj);
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	switch (obj->type) {
+	case DRM_MODE_OBJECT_CRTC:
+		crtc = obj_to_crtc(obj);
+		ret = sde_crtc_register_custom_event(sde_kms, crtc, event, en);
+		break;
+	case DRM_MODE_OBJECT_CONNECTOR:
+		conn = obj_to_connector(obj);
+		ret = sde_connector_register_custom_event(sde_kms, conn, event,
+				en);
+		break;
+	}
+
+	return ret;
 }
