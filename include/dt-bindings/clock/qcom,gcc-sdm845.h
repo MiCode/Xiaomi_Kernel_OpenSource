@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -219,13 +219,21 @@
 #define GCC_PRNG_BCR						6
 #define GCC_QUPV3_WRAPPER_0_BCR					7
 #define GCC_QUPV3_WRAPPER_1_BCR					8
-#define GCC_SDCC2_BCR						9
-#define GCC_SDCC4_BCR						10
-#define GCC_TSIF_BCR						11
-#define GCC_UFS_CARD_BCR					12
-#define GCC_UFS_PHY_BCR						13
-#define GCC_USB30_PRIM_BCR					14
-#define GCC_USB30_SEC_BCR					15
-#define GCC_USB_PHY_CFG_AHB2PHY_BCR				16
+#define GCC_QUSB2PHY_PRIM_BCR					9
+#define GCC_QUSB2PHY_SEC_BCR					10
+#define GCC_SDCC2_BCR						11
+#define GCC_SDCC4_BCR						12
+#define GCC_TSIF_BCR						13
+#define GCC_UFS_CARD_BCR					14
+#define GCC_UFS_PHY_BCR						15
+#define GCC_USB30_PRIM_BCR					16
+#define GCC_USB30_SEC_BCR					17
+#define GCC_USB3_PHY_PRIM_BCR					18
+#define GCC_USB3PHY_PHY_PRIM_BCR				19
+#define GCC_USB3_DP_PHY_PRIM_BCR				20
+#define GCC_USB3_PHY_SEC_BCR					21
+#define GCC_USB3PHY_PHY_SEC_BCR					22
+#define GCC_USB3_DP_PHY_SEC_BCR					23
+#define GCC_USB_PHY_CFG_AHB2PHY_BCR				24
 
 #endif

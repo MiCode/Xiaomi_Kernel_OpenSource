@@ -3404,6 +3404,8 @@ static const struct qcom_reset_map gcc_sdm845_resets[] = {
 	[GCC_PRNG_BCR] = { 0x34000 },
 	[GCC_QUPV3_WRAPPER_0_BCR] = { 0x17000 },
 	[GCC_QUPV3_WRAPPER_1_BCR] = { 0x18000 },
+	[GCC_QUSB2PHY_PRIM_BCR] = { 0x12000 },
+	[GCC_QUSB2PHY_SEC_BCR] = { 0x12004 },
 	[GCC_SDCC2_BCR] = { 0x14000 },
 	[GCC_SDCC4_BCR] = { 0x16000 },
 	[GCC_TSIF_BCR] = { 0x36000 },
@@ -3411,6 +3413,12 @@ static const struct qcom_reset_map gcc_sdm845_resets[] = {
 	[GCC_UFS_PHY_BCR] = { 0x77000 },
 	[GCC_USB30_PRIM_BCR] = { 0xf000 },
 	[GCC_USB30_SEC_BCR] = { 0x10000 },
+	[GCC_USB3_PHY_PRIM_BCR] = { 0x50000 },
+	[GCC_USB3PHY_PHY_PRIM_BCR] = { 0x50004 },
+	[GCC_USB3_DP_PHY_PRIM_BCR] = { 0x50008 },
+	[GCC_USB3_PHY_SEC_BCR] = { 0x5000c },
+	[GCC_USB3PHY_PHY_SEC_BCR] = { 0x50010 },
+	[GCC_USB3_DP_PHY_SEC_BCR] = { 0x50014 },
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0x6a000 },
 };
 
