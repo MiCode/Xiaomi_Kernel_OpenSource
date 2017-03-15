@@ -50,6 +50,8 @@ Optional Properties:
   - qcom,pcie-active-config: boolean type; active configuration of PCIe
     addressing.
   - qcom,pcie-aggregated-irq: boolean type; interrupts are aggregated.
+  - qcom,pcie-perst-enum: Link enumeration will be triggered by PERST
+    deassertion.
   - mdm2apstatus-gpio: GPIO used by PCIe endpoint side to notify the host side.
   - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
     below optional properties:
@@ -115,6 +117,7 @@ Example:
 		qcom,pcie-link-speed = <1>;
 		qcom,pcie-active-config;
 		qcom,pcie-aggregated-irq;
+		qcom,pcie-perst-enum;
 		qcom,phy-status-reg = <0x728>;
 		qcom,dbi-base-reg = <0x168>;
 		qcom,slv-space-reg = <0x16c>;

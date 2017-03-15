@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -292,6 +292,7 @@ struct ep_pcie_dev_t {
 	u32                          phy_status_reg;
 	u32                          phy_init_len;
 	struct ep_pcie_phy_info_t    *phy_init;
+	bool                         perst_enum;
 
 	u32                          rev;
 	u32                          phy_rev;
@@ -328,6 +329,7 @@ struct ep_pcie_dev_t {
 	struct ep_pcie_msi_config    msi_cfg;
 
 	struct ep_pcie_register_event *event_reg;
+	struct work_struct	     handle_perst_work;
 };
 
 extern struct ep_pcie_dev_t ep_pcie_dev;
@@ -364,6 +366,7 @@ static inline void ep_pcie_write_reg_field(void *base, u32 offset,
 	wmb();
 }
 
+extern int ep_pcie_core_register_event(struct ep_pcie_register_event *reg);
 extern int ep_pcie_get_debug_mask(void);
 extern void ep_pcie_phy_init(struct ep_pcie_dev_t *dev);
 extern bool ep_pcie_phy_is_ready(struct ep_pcie_dev_t *dev);

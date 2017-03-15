@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1072,7 +1072,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 			"PCIe V%d: PERST is not de-asserted by host\n",
 			dev->rev);
 		ret = EP_PCIE_ERROR;
-		goto pipe_clk_fail;
+		goto link_fail;
 	} else {
 		dev->perst_deast = true;
 		if (opt & EP_PCIE_OPT_AST_WAKE) {
@@ -1422,6 +1422,54 @@ static irqreturn_t ep_pcie_handle_dstate_change_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int ep_pcie_enumeration(struct ep_pcie_dev_t *dev)
+{
+	int ret = 0;
+
+	if (!dev) {
+		EP_PCIE_ERR(&ep_pcie_dev,
+			"PCIe V%d: the input handler is NULL.\n",
+			ep_pcie_dev.rev);
+		return EP_PCIE_ERROR;
+	}
+
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: start PCIe link enumeration per host side.\n",
+		dev->rev);
+
+	ret = ep_pcie_core_enable_endpoint(EP_PCIE_OPT_ALL);
+
+	if (ret) {
+		EP_PCIE_ERR(&ep_pcie_dev,
+			"PCIe V%d: PCIe link enumeration failed.\n",
+			ep_pcie_dev.rev);
+	} else {
+		EP_PCIE_INFO(&ep_pcie_dev,
+			"PCIe V%d: PCIe link enumeration is successful with host side.\n",
+			ep_pcie_dev.rev);
+
+		dev->enumerated = true;
+
+		hw_drv.device_id = readl_relaxed(dev->dm_core);
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: register driver for device 0x%x.\n",
+			ep_pcie_dev.rev, hw_drv.device_id);
+		ep_pcie_register_drv(&hw_drv);
+
+		ep_pcie_notify_event(dev, EP_PCIE_EVENT_LINKUP);
+	}
+
+	return ret;
+}
+
+static void handle_perst_func(struct work_struct *work)
+{
+	struct ep_pcie_dev_t *dev = container_of(work, struct ep_pcie_dev_t,
+					handle_perst_work);
+
+	ep_pcie_enumeration(dev);
+}
+
 static irqreturn_t ep_pcie_handle_perst_irq(int irq, void *data)
 {
 	struct ep_pcie_dev_t *dev = data;
@@ -1436,6 +1484,11 @@ static irqreturn_t ep_pcie_handle_perst_irq(int irq, void *data)
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: PCIe is not enumerated yet; PERST is %sasserted.\n",
 			dev->rev, perst ? "de" : "");
+		if ((!dev->perst_enum) || !perst)
+			goto out;
+		/* start work for link enumeration with the host side */
+		schedule_work(&dev->handle_perst_work);
+
 		goto out;
 	}
 
@@ -1625,6 +1678,8 @@ perst_irq:
 			dev->rev, perst_irq);
 		return ret;
 	}
+
+	INIT_WORK(&dev->handle_perst_work, handle_perst_func);
 
 	return 0;
 }
@@ -2080,7 +2135,13 @@ static int ep_pcie_probe(struct platform_device *pdev)
 		"PCIe V%d: aggregated IRQ is %s enabled.\n",
 		ep_pcie_dev.rev, ep_pcie_dev.aggregated_irq ? "" : "not");
 
-	ep_pcie_dev.rev = 1610071;
+	ep_pcie_dev.perst_enum = of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,pcie-perst-enum");
+	EP_PCIE_DBG(&ep_pcie_dev,
+		"PCIe V%d: enum by PERST is %s enabled.\n",
+		ep_pcie_dev.rev, ep_pcie_dev.perst_enum ? "" : "not");
+
+	ep_pcie_dev.rev = 1703011;
 	ep_pcie_dev.pdev = pdev;
 	memcpy(ep_pcie_dev.vreg, ep_pcie_vreg_info,
 				sizeof(ep_pcie_vreg_info));
@@ -2123,36 +2184,22 @@ static int ep_pcie_probe(struct platform_device *pdev)
 		goto irq_failure;
 	}
 
+	if (ep_pcie_dev.perst_enum) {
+		EP_PCIE_DBG2(&ep_pcie_dev,
+			"PCIe V%d: %s probe is done; link will be trained when PERST is deasserted.\n",
+		ep_pcie_dev.rev, dev_name(&(pdev->dev)));
+		return 0;
+	}
+
 	EP_PCIE_DBG(&ep_pcie_dev,
 		"PCIe V%d: %s got resources successfully; start turning on the link.\n",
 		ep_pcie_dev.rev, dev_name(&(pdev->dev)));
 
-	ret = ep_pcie_core_enable_endpoint(EP_PCIE_OPT_ALL);
+	ret = ep_pcie_enumeration(&ep_pcie_dev);
 
-	if (ret) {
-		EP_PCIE_ERR(&ep_pcie_dev,
-			"PCIe V%d: PCIe link failed to be enabled during probe.\n",
-			ep_pcie_dev.rev);
-		goto ep_enable_failure;
-	} else {
-		EP_PCIE_INFO(&ep_pcie_dev,
-			"PCIe V%d: PCIe link is enabled during probe.\n",
-			ep_pcie_dev.rev);
-
-		ep_pcie_dev.enumerated = true;
-
-		hw_drv.device_id = readl_relaxed(ep_pcie_dev.dm_core);
-		EP_PCIE_DBG(&ep_pcie_dev,
-			"PCIe V%d: register driver for device 0x%x.\n",
-			ep_pcie_dev.rev, hw_drv.device_id);
-		ep_pcie_register_drv(&hw_drv);
-
-		ep_pcie_notify_event(&ep_pcie_dev, EP_PCIE_EVENT_LINKUP);
-
+	if (!ret || ep_pcie_debug_keep_resource)
 		return 0;
-	}
 
-ep_enable_failure:
 	ep_pcie_irq_deinit(&ep_pcie_dev);
 irq_failure:
 	ep_pcie_gpio_deinit(&ep_pcie_dev);
