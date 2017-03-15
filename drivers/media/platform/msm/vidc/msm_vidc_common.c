@@ -2441,6 +2441,9 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 
 	if (vb) {
 		vbuf = to_vb2_v4l2_buffer(vb);
+		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DROP_FRAME ||
+			fill_buf_done->flags1 & HAL_BUFFERFLAG_DECODEONLY)
+			fill_buf_done->filled_len1 = 0;
 		vb->planes[0].bytesused = fill_buf_done->filled_len1;
 		vb->planes[0].data_offset = fill_buf_done->offset1;
 		if (vb->planes[0].data_offset > vb->planes[0].length)
@@ -2492,7 +2495,8 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 			vbuf->flags |= V4L2_QCOM_BUF_FLAG_IDRFRAME;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOSEQ)
 			vbuf->flags |= V4L2_QCOM_BUF_FLAG_EOSEQ;
-		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DECODEONLY)
+		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DECODEONLY ||
+			fill_buf_done->flags1 & HAL_BUFFERFLAG_DROP_FRAME)
 			vbuf->flags |= V4L2_QCOM_BUF_FLAG_DECODEONLY;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DATACORRUPT)
 			vbuf->flags |= V4L2_QCOM_BUF_DATA_CORRUPT;
@@ -2579,7 +2583,7 @@ static void handle_seq_hdr_done(enum hal_command_response cmd, void *data)
 		goto err_seq_hdr_done;
 	}
 	vbuf = to_vb2_v4l2_buffer(vb);
-//	vb->timestamp = (u64) ns_to_timeval(0);
+	vb->timestamp = 0;
 
 	vb->planes[0].bytesused = fill_buf_done->filled_len1;
 	vb->planes[0].data_offset = fill_buf_done->offset1;
