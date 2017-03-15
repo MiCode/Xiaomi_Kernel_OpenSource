@@ -67,7 +67,7 @@
 #define QUSB2PHY_PLL_ANALOG_CONTROLS_ONE	0x0
 #define QUSB2PHY_PLL_ANALOG_CONTROLS_TWO	0x4
 
-#define QUSB2PHY_LVL_SHIFTER_CMD_ID	0x11
+#define QUSB2PHY_LVL_SHIFTER_CMD_ID	0x1B
 
 unsigned int phy_tune1;
 module_param(phy_tune1, uint, S_IRUGO | S_IWUSR);
