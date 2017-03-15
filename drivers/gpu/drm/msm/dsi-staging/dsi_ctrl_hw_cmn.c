@@ -21,6 +21,7 @@
 #include "dsi_hw.h"
 
 #define MMSS_MISC_CLAMP_REG_OFF           0x0014
+#define DSI_CTRL_DYNAMIC_FORCE_ON         (0x23F|BIT(8)|BIT(9)|BIT(11)|BIT(21))
 
 /* Unsupported formats default to RGB888 */
 static const u8 cmd_mode_format_map[DSI_PIXEL_FORMAT_MAX] = {
@@ -94,9 +95,11 @@ void dsi_ctrl_hw_cmn_host_setup(struct dsi_ctrl_hw *ctrl,
  */
 void dsi_ctrl_hw_cmn_phy_sw_reset(struct dsi_ctrl_hw *ctrl)
 {
-	DSI_W32(ctrl, DSI_PHY_SW_RESET, 0x1);
+	DSI_W32(ctrl, DSI_PHY_SW_RESET, BIT(24)|BIT(0));
+	wmb(); /* make sure reset is asserted */
 	udelay(1000);
 	DSI_W32(ctrl, DSI_PHY_SW_RESET, 0x0);
+	wmb(); /* ensure reset is cleared before waiting */
 	udelay(100);
 
 	pr_debug("[DSI_%d] phy sw reset done\n", ctrl->index);
@@ -106,9 +109,8 @@ void dsi_ctrl_hw_cmn_phy_sw_reset(struct dsi_ctrl_hw *ctrl)
  * soft_reset() - perform a soft reset on DSI controller
  * @ctrl:          Pointer to the controller host hardware.
  *
- * The video, command and controller engines will be disable before the
- * reset is triggered. These engines will not be enabled after the reset
- * is complete. Caller must re-enable the engines.
+ * The video, command and controller engines will be disabled before the
+ * reset is triggered and re-enabled after the reset is complete.
  *
  * If the reset is done while MDP timing engine is turned on, the video
  * enigne should be re-enabled only during the vertical blanking time.
@@ -121,23 +123,27 @@ void dsi_ctrl_hw_cmn_soft_reset(struct dsi_ctrl_hw *ctrl)
 	/* Clear DSI_EN, VIDEO_MODE_EN, CMD_MODE_EN */
 	reg_ctrl = DSI_R32(ctrl, DSI_CTRL);
 	DSI_W32(ctrl, DSI_CTRL, reg_ctrl & ~0x7);
+	wmb(); /* wait controller to be disabled before reset */
 
 	/* Force enable PCLK, BYTECLK, AHBM_HCLK */
 	reg = DSI_R32(ctrl, DSI_CLK_CTRL);
-	reg |= 0x23F;
-	DSI_W32(ctrl, DSI_CLK_CTRL, reg);
+	DSI_W32(ctrl, DSI_CLK_CTRL, reg | DSI_CTRL_DYNAMIC_FORCE_ON);
+	wmb(); /* wait for clocks to be enabled */
 
 	/* Trigger soft reset */
 	DSI_W32(ctrl, DSI_SOFT_RESET, 0x1);
+	wmb(); /* wait for reset to assert before waiting */
 	udelay(1);
 	DSI_W32(ctrl, DSI_SOFT_RESET, 0x0);
+	wmb(); /* ensure reset is cleared */
 
 	/* Disable force clock on */
-	reg &= ~(BIT(20) | BIT(11));
 	DSI_W32(ctrl, DSI_CLK_CTRL, reg);
+	wmb(); /* make sure clocks are restored */
 
 	/* Re-enable DSI controller */
 	DSI_W32(ctrl, DSI_CTRL, reg_ctrl);
+	wmb(); /* make sure DSI controller is enabled again */
 	pr_debug("[DSI_%d] ctrl soft reset done\n", ctrl->index);
 }
 
@@ -325,6 +331,11 @@ void dsi_ctrl_hw_cmn_video_engine_en(struct dsi_ctrl_hw *ctrl, bool on)
 void dsi_ctrl_hw_cmn_ctrl_en(struct dsi_ctrl_hw *ctrl, bool on)
 {
 	u32 reg = 0;
+	u32 clk_ctrl;
+
+	clk_ctrl = DSI_R32(ctrl, DSI_CLK_CTRL);
+	DSI_W32(ctrl, DSI_CLK_CTRL, clk_ctrl | DSI_CTRL_DYNAMIC_FORCE_ON);
+	wmb(); /* wait for clocks to enable */
 
 	/* Set/Clear DSI_EN bit */
 	reg = DSI_R32(ctrl, DSI_CTRL);
@@ -334,6 +345,10 @@ void dsi_ctrl_hw_cmn_ctrl_en(struct dsi_ctrl_hw *ctrl, bool on)
 		reg &= ~BIT(0);
 
 	DSI_W32(ctrl, DSI_CTRL, reg);
+	wmb(); /* wait for DSI_EN update before disabling clocks */
+
+	DSI_W32(ctrl, DSI_CLK_CTRL, clk_ctrl);
+	wmb(); /* make sure clocks are restored */
 
 	pr_debug("[DSI_%d] Controller engine = %d\n", ctrl->index, on);
 }
