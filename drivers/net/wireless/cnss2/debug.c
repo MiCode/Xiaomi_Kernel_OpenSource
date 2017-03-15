@@ -51,6 +51,75 @@ static const struct file_operations cnss_pin_connect_fops = {
 	.llseek		= seq_lseek,
 };
 
+static int cnss_stats_show_state(struct seq_file *s,
+				 struct cnss_plat_data *plat_priv)
+{
+	enum cnss_driver_state i;
+	int skip = 0;
+	unsigned long state;
+
+	seq_printf(s, "\nState: 0x%lx(", plat_priv->driver_state);
+	for (i = 0, state = plat_priv->driver_state; state != 0;
+	     state >>= 1, i++) {
+		if (!(state & 0x1))
+			continue;
+
+		if (skip++)
+			seq_puts(s, " | ");
+
+		switch (i) {
+		case CNSS_QMI_WLFW_CONNECTED:
+			seq_puts(s, "QMI_WLFW_CONNECTED");
+			continue;
+		case CNSS_FW_MEM_READY:
+			seq_puts(s, "FW_MEM_READY");
+			continue;
+		case CNSS_FW_READY:
+			seq_puts(s, "FW_READY");
+			continue;
+		case CNSS_COLD_BOOT_CAL_DONE:
+			seq_puts(s, "COLD_BOOT_CAL_DONE");
+			continue;
+		case CNSS_DRIVER_LOAD_UNLOAD:
+			seq_puts(s, "DRIVER_LOAD_UNLOAD");
+			continue;
+		case CNSS_DRIVER_PROBED:
+			seq_puts(s, "DRIVER_PROBED");
+			continue;
+		case CNSS_DRIVER_RECOVERY:
+			seq_puts(s, "DRIVER_RECOVERY");
+			continue;
+		}
+
+		seq_printf(s, "UNKNOWN-%d", i);
+	}
+	seq_puts(s, ")\n");
+
+	return 0;
+}
+
+static int cnss_stats_show(struct seq_file *s, void *data)
+{
+	struct cnss_plat_data *plat_priv = s->private;
+
+	cnss_stats_show_state(s, plat_priv);
+
+	return 0;
+}
+
+static int cnss_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, cnss_stats_show, inode->i_private);
+}
+
+static const struct file_operations cnss_stats_fops = {
+	.read           = seq_read,
+	.release        = single_release,
+	.open           = cnss_stats_open,
+	.owner          = THIS_MODULE,
+	.llseek         = seq_lseek,
+};
+
 int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -65,6 +134,8 @@ int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
 	plat_priv->root_dentry = root_dentry;
 	debugfs_create_file("pin_connect_result", 0644, root_dentry, plat_priv,
 			    &cnss_pin_connect_fops);
+	debugfs_create_file("stats", 0644, root_dentry, plat_priv,
+			    &cnss_stats_fops);
 out:
 	return ret;
 }
