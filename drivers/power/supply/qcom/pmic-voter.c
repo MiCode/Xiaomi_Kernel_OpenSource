@@ -188,6 +188,38 @@ void unlock_votable(struct votable *votable)
 }
 
 /**
+ * is_client_vote_enabled() -
+ * is_client_vote_enabled_locked() -
+ *		The unlocked and locked variants of getting whether a client's
+		vote is enabled.
+ * @votable:	the votable object
+ * @client_str: client of interest
+ *
+ * Returns:
+ *	True if the client's vote is enabled; false otherwise.
+ */
+bool is_client_vote_enabled_locked(struct votable *votable,
+							const char *client_str)
+{
+	int client_id = get_client_id(votable, client_str);
+
+	if (client_id < 0)
+		return false;
+
+	return votable->votes[client_id].enabled;
+}
+
+bool is_client_vote_enabled(struct votable *votable, const char *client_str)
+{
+	bool enabled;
+
+	lock_votable(votable);
+	enabled = is_client_vote_enabled_locked(votable, client_str);
+	unlock_votable(votable);
+	return enabled;
+}
+
+/**
  * get_client_vote() -
  * get_client_vote_locked() -
  *		The unlocked and locked variants of getting a client's voted
