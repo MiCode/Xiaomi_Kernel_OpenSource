@@ -342,8 +342,14 @@ static void cam_smmu_check_vaddr_in_range(int idx, void *vaddr)
 				mapping->ion_fd);
 		}
 	}
-	pr_err("Cannot find vaddr:%pK in SMMU. %s uses invalid virtual address\n",
-		vaddr, iommu_cb_set.cb_info[idx].name);
+	if (!strcmp(iommu_cb_set.cb_info[idx].name, "vfe"))
+		pr_err_ratelimited("Cannot find vaddr:%pK in SMMU.\n"
+			" %s uses invalid virtual address\n",
+			vaddr, iommu_cb_set.cb_info[idx].name);
+	else
+		pr_err("Cannot find vaddr:%pK in SMMU.\n"
+			" %s uses invalid virtual address\n",
+			vaddr, iommu_cb_set.cb_info[idx].name);
 	return;
 }
 
