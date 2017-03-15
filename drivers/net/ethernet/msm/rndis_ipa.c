@@ -251,7 +251,7 @@ static ssize_t rndis_ipa_debugfs_atomic_read
 	(struct file *file,
 	char __user *ubuf, size_t count, loff_t *ppos);
 static void rndis_ipa_dump_skb(struct sk_buff *skb);
-static int rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx);
+static void rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx);
 static void rndis_ipa_debugfs_destroy(struct rndis_ipa_dev *rndis_ipa_ctx);
 static int rndis_ipa_ep_registers_cfg
 	(u32 usb_to_ipa_hdl,
@@ -551,10 +551,7 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 		("Needed headroom for RNDIS header set to %d\n",
 		net->needed_headroom);
 
-	result = rndis_ipa_debugfs_init(rndis_ipa_ctx);
-	if (result)
-		goto fail_debugfs;
-	RNDIS_IPA_DEBUG("debugfs entries were created\n");
+	rndis_ipa_debugfs_init(rndis_ipa_ctx);
 
 	result = rndis_ipa_set_device_ethernet_addr
 		(net->dev_addr, rndis_ipa_ctx->device_ethaddr);
@@ -613,7 +610,6 @@ fail_register_tx:
 fail_set_device_ethernet:
 fail_hdrs_cfg:
 	rndis_ipa_debugfs_destroy(rndis_ipa_ctx);
-fail_debugfs:
 fail_netdev_priv:
 	free_netdev(net);
 fail_alloc_etherdev:
@@ -2175,10 +2171,11 @@ static void rndis_ipa_dump_skb(struct sk_buff *skb)
 		("packet dump ended for skb->len=%d\n", skb->len);
 }
 
+#ifdef CONFIG_DEBUG_FS
 /**
  * Creates the root folder for the driver
  */
-static int rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx)
+static void rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx)
 {
 	const mode_t flags_read_write = 0666;
 	const mode_t flags_read_only = 0444;
@@ -2189,7 +2186,7 @@ static int rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx)
 	RNDIS_IPA_LOG_ENTRY();
 
 	if (!rndis_ipa_ctx)
-		return -EINVAL;
+		return;
 
 	rndis_ipa_ctx->directory = debugfs_create_dir(DEBUGFS_DIR_NAME, NULL);
 	if (!rndis_ipa_ctx->directory) {
@@ -2385,13 +2382,14 @@ static int rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx)
 		goto fail_file;
 	}
 
+	RNDIS_IPA_DEBUG("debugfs entries were created\n");
 	RNDIS_IPA_LOG_EXIT();
 
-	return 0;
+	return;
 fail_file:
 	debugfs_remove_recursive(rndis_ipa_ctx->directory);
 fail_directory:
-	return -EFAULT;
+	return;
 }
 
 static void rndis_ipa_debugfs_destroy(struct rndis_ipa_dev *rndis_ipa_ctx)
@@ -2399,9 +2397,17 @@ static void rndis_ipa_debugfs_destroy(struct rndis_ipa_dev *rndis_ipa_ctx)
 	debugfs_remove_recursive(rndis_ipa_ctx->directory);
 }
 
+#else /* !CONFIG_DEBUG_FS */
+
+static void rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx) {}
+
+static void rndis_ipa_debugfs_destroy(struct rndis_ipa_dev *rndis_ipa_ctx) {}
+
+#endif /* CONFIG_DEBUG_FS*/
+
 static int rndis_ipa_debugfs_aggr_open
-	(struct inode *inode,
-	struct file *file)
+		(struct inode *inode,
+		struct file *file)
 {
 	struct rndis_ipa_dev *rndis_ipa_ctx = inode->i_private;
 
