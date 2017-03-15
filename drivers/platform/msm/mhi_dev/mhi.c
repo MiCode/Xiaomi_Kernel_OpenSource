@@ -2059,28 +2059,12 @@ static int mhi_init(struct mhi_dev *mhi)
 	return 0;
 }
 
-static int mhi_dev_probe(struct platform_device *pdev)
+static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 {
+	struct platform_device *pdev;
 	int rc = 0;
 
-	if (pdev->dev.of_node) {
-		rc = get_device_tree_data(pdev);
-		if (rc) {
-			pr_err("Error reading MHI Dev DT\n");
-			return rc;
-		}
-	}
-
-	mhi_ctx->phandle = ep_pcie_get_phandle(mhi_ctx->ifc_id);
-	if (!mhi_ctx->phandle) {
-		pr_err("PCIe driver is not ready yet.\n");
-		return -EPROBE_DEFER;
-	}
-
-	if (ep_pcie_get_linkstatus(mhi_ctx->phandle) != EP_PCIE_LINK_ENABLED) {
-		pr_err("PCIe link is not ready to use.\n");
-		return -EPROBE_DEFER;
-	}
+	pdev = mhi_ctx->pdev;
 
 	INIT_WORK(&mhi_ctx->chdb_ctrl_work, mhi_dev_scheduler);
 
@@ -2138,6 +2122,12 @@ static int mhi_dev_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	mhi_ctx->phandle = ep_pcie_get_phandle(mhi_ctx->ifc_id);
+	if (!mhi_ctx->phandle) {
+		pr_err("PCIe driver get handle failed.\n");
+		return -EINVAL;
+	}
+
 	mhi_ctx->event_reg.events = EP_PCIE_EVENT_PM_D3_HOT |
 		EP_PCIE_EVENT_PM_D3_COLD |
 		EP_PCIE_EVENT_PM_D0 |
@@ -2167,7 +2157,11 @@ static int mhi_dev_probe(struct platform_device *pdev)
 	}
 
 	/* Invoke MHI SM when device is in RESET state */
-	mhi_dev_sm_init(mhi_ctx);
+	rc = mhi_dev_sm_init(mhi_ctx);
+	if (rc) {
+		pr_err("%s: Error during SM init\n", __func__);
+		return rc;
+	}
 
 	/* set the env before setting the ready bit */
 	rc = mhi_dev_mmio_set_env(mhi_ctx, MHI_ENV_VALUE);
@@ -2188,6 +2182,66 @@ static int mhi_dev_probe(struct platform_device *pdev)
 		}
 
 		disable_irq(mhi_ctx->mhi_irq);
+	}
+
+	return 0;
+}
+
+void mhi_dev_resume_init_with_link_up(struct ep_pcie_notify *notify)
+{
+	int rc = 0;
+
+	if (!notify) {
+		pr_err("Null argument for notify\n");
+		return;
+	}
+
+	mhi_ctx = notify->user;
+	if (!mhi_ctx) {
+		pr_err("Invalid mhi_ctx\n");
+		return;
+	}
+
+	rc = mhi_dev_resume_mmio_mhi_init(mhi_ctx);
+	if (rc) {
+		pr_err("Error during MHI device initialization\n");
+		return;
+	}
+}
+
+static int mhi_dev_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	if (pdev->dev.of_node) {
+		rc = get_device_tree_data(pdev);
+		if (rc) {
+			pr_err("Error reading MHI Dev DT\n");
+			return rc;
+		}
+	}
+
+	mhi_ctx->phandle = ep_pcie_get_phandle(mhi_ctx->ifc_id);
+	if (mhi_ctx->phandle) {
+		/* PCIe link is already up */
+		rc = mhi_dev_resume_mmio_mhi_init(mhi_ctx);
+		if (rc) {
+			pr_err("Error during MHI device initialization\n");
+			return rc;
+		}
+	} else {
+		pr_debug("Register a PCIe callback\n");
+		mhi_ctx->event_reg.events = EP_PCIE_EVENT_LINKUP;
+		mhi_ctx->event_reg.user = mhi_ctx;
+		mhi_ctx->event_reg.mode = EP_PCIE_TRIGGER_CALLBACK;
+		mhi_ctx->event_reg.callback = mhi_dev_resume_init_with_link_up;
+
+		rc = ep_pcie_register_event(mhi_ctx->phandle,
+							&mhi_ctx->event_reg);
+		if (rc) {
+			pr_err("Failed to register for events from PCIe\n");
+			return rc;
+		}
 	}
 
 	return 0;
