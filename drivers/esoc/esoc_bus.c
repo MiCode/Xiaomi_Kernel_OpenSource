@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,7 +129,7 @@ struct esoc_clink *get_esoc_clink(int id)
 	struct device *dev;
 
 	dev = bus_find_device(&esoc_bus_type, NULL, &id, esoc_clink_match_id);
-	if (IS_ERR(dev))
+	if (IS_ERR_OR_NULL(dev))
 		return NULL;
 	esoc_clink = to_esoc_clink(dev);
 	return esoc_clink;
@@ -143,7 +143,7 @@ struct esoc_clink *get_esoc_clink_by_node(struct device_node *node)
 
 	dev = bus_find_device(&esoc_bus_type, NULL, node,
 						esoc_clink_match_node);
-	if (IS_ERR(dev))
+	if (IS_ERR_OR_NULL(dev))
 		return NULL;
 	esoc_clink = to_esoc_clink(dev);
 	return esoc_clink;
@@ -175,14 +175,14 @@ int esoc_clink_register_ssr(struct esoc_clink *esoc_clink)
 
 	len = strlen("esoc") + sizeof(esoc_clink->id);
 	subsys_name = kzalloc(len, GFP_KERNEL);
-	if (IS_ERR(subsys_name))
+	if (IS_ERR_OR_NULL(subsys_name))
 		return PTR_ERR(subsys_name);
 	snprintf(subsys_name, len, "esoc%d", esoc_clink->id);
 	esoc_clink->subsys.name = subsys_name;
 	esoc_clink->dev.of_node = esoc_clink->np;
 	esoc_clink->subsys.dev = &esoc_clink->dev;
 	esoc_clink->subsys_dev = subsys_register(&esoc_clink->subsys);
-	if (IS_ERR(esoc_clink->subsys_dev)) {
+	if (IS_ERR_OR_NULL(esoc_clink->subsys_dev)) {
 		dev_err(&esoc_clink->dev, "failed to register ssr node\n");
 		ret = PTR_ERR(esoc_clink->subsys_dev);
 		goto subsys_err;
