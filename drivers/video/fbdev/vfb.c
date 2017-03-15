@@ -399,10 +399,10 @@ static int __init vfb_setup(char *options)
 		/* Test disable for backwards compatibility */
 		if (!strcmp(this_opt, "disable"))
 			vfb_enable = 0;
-		else if (!strcmp(this_opt, "bpp=")) {
+		else if (!strncmp(this_opt, "bpp=", 4)) {
 			if (kstrtoint(this_opt + 4, 0, &bpp) < 0)
 				bpp = 8;
-		} else if (!strcmp(this_opt, "memsize=")) {
+		} else if (!strncmp(this_opt, "memsize=", 8)) {
 			if (kstrtoul(this_opt + 8, 0, &videomemorysize) < 0)
 				videomemorysize = VIDEOMEMSIZE;
 		} else
