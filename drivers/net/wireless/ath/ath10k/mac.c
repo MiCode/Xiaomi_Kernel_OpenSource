@@ -3506,6 +3506,7 @@ static int ath10k_mac_tx(struct ath10k *ar,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	int ret;
 
+	skb_orphan(skb);
 	/* We should disable CCK RATE due to P2P */
 	if (info->flags & IEEE80211_TX_CTL_NO_CCK_RATE)
 		ath10k_dbg(ar, ATH10K_DBG_MAC, "IEEE80211_TX_CTL_NO_CCK_RATE\n");

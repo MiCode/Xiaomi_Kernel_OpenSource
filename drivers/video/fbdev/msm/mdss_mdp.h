@@ -164,6 +164,14 @@ enum mdss_mdp_mixer_mux {
 	MDSS_MDP_MIXER_MUX_RIGHT,
 };
 
+enum mdss_secure_transition {
+	SECURE_TRANSITION_NONE,
+	SD_NON_SECURE_TO_SECURE,
+	SD_SECURE_TO_NON_SECURE,
+	SC_NON_SECURE_TO_SECURE,
+	SC_SECURE_TO_NON_SECURE,
+};
+
 static inline enum mdss_mdp_sspp_index get_pipe_num_from_ndx(u32 ndx)
 {
 	u32 id;
@@ -421,6 +429,9 @@ struct mdss_mdp_ctl_intfs_ops {
 	/* to update lineptr, [1..yres] - enable, 0 - disable */
 	int (*update_lineptr)(struct mdss_mdp_ctl *ctl, bool enable);
 	int (*avr_ctrl_fnc)(struct mdss_mdp_ctl *, bool enable);
+
+	/* to wait for vsync */
+	int (*wait_for_vsync_fnc)(struct mdss_mdp_ctl *ctl);
 };
 
 struct mdss_mdp_cwb {
@@ -953,6 +964,8 @@ struct mdss_overlay_private {
 	struct kthread_worker worker;
 	struct kthread_work vsync_work;
 	struct task_struct *thread;
+
+	u8 secure_transition_state;
 };
 
 struct mdss_mdp_set_ot_params {
