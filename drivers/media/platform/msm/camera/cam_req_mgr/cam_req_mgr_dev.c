@@ -326,7 +326,7 @@ static long cam_private_ioctl(struct file *file, void *fh,
 			return -EFAULT;
 		}
 
-		rc = cam_req_mgr_sync_mode(&sync_mode);
+		rc = cam_req_mgr_sync_link(&sync_mode);
 		}
 		break;
 	case CAM_REQ_MGR_ALLOC_BUF: {
