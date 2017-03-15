@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,13 +27,13 @@
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/of_device.h>
+#include <linux/rtnetlink.h>
 
 #define RMNET_MHI_DRIVER_NAME "rmnet_mhi"
 #define RMNET_MHI_DEV_NAME    "rmnet_mhi%d"
 #define MHI_DEFAULT_MTU        8000
 #define MHI_MAX_MRU            0xFFFF
 #define MHI_NAPI_WEIGHT_VALUE  12
-#define MHI_RX_HEADROOM        64
 #define WATCHDOG_TIMEOUT       (30 * HZ)
 #define RMNET_IPC_LOG_PAGES (100)
 
@@ -79,6 +79,7 @@ struct __packed mhi_skb_priv {
 
 struct rmnet_mhi_private {
 	struct list_head	      node;
+	u32                           dev_id;
 	struct mhi_client_handle      *tx_client_handle;
 	struct mhi_client_handle      *rx_client_handle;
 	enum MHI_CLIENT_CHANNEL       tx_channel;
@@ -87,6 +88,8 @@ struct rmnet_mhi_private {
 	struct sk_buff_head           rx_buffers;
 	atomic_t		      rx_pool_len;
 	u32			      mru;
+	u32			      max_mru;
+	u32			      max_mtu;
 	struct napi_struct            napi;
 	gfp_t                         allocation_flags;
 	uint32_t                      tx_buffers_max;
@@ -118,9 +121,9 @@ static int rmnet_mhi_process_fragment(struct rmnet_mhi_private *rmnet_mhi_ptr,
 	if (rmnet_mhi_ptr->frag_skb) {
 		/* Merge the new skb into the old fragment */
 		temp_skb = skb_copy_expand(rmnet_mhi_ptr->frag_skb,
-					MHI_RX_HEADROOM,
-						skb->len,
-					GFP_ATOMIC);
+					   0,
+					   skb->len,
+					   GFP_ATOMIC);
 		if (!temp_skb) {
 			kfree(rmnet_mhi_ptr->frag_skb);
 			rmnet_mhi_ptr->frag_skb = NULL;
@@ -207,9 +210,8 @@ static int rmnet_alloc_rx(struct rmnet_mhi_private *rmnet_mhi_ptr,
 			return -ENOMEM;
 		}
 		skb_priv = (struct mhi_skb_priv *)(skb->cb);
-		skb_priv->dma_size = cur_mru - MHI_RX_HEADROOM;
+		skb_priv->dma_size = cur_mru;
 		skb_priv->dma_addr = 0;
-		skb_reserve(skb, MHI_RX_HEADROOM);
 
 		/* These steps must be in atomic context */
 		spin_lock_irqsave(&rmnet_mhi_ptr->alloc_lock, flags);
@@ -584,7 +586,10 @@ static int rmnet_mhi_stop(struct net_device *dev)
 
 static int rmnet_mhi_change_mtu(struct net_device *dev, int new_mtu)
 {
-	if (0 > new_mtu || MHI_MAX_MTU < new_mtu)
+	struct rmnet_mhi_private *rmnet_mhi_ptr =
+			*(struct rmnet_mhi_private **)netdev_priv(dev);
+
+	if (new_mtu < 0 || rmnet_mhi_ptr->max_mtu < new_mtu)
 		return -EINVAL;
 
 	dev->mtu = new_mtu;
@@ -667,11 +672,11 @@ static int rmnet_mhi_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 
 	switch (ext_cmd.extended_ioctl) {
 	case RMNET_IOCTL_SET_MRU:
-		if (!ext_cmd.u.data || ext_cmd.u.data > MHI_MAX_MRU) {
-			rmnet_log(rmnet_mhi_ptr,
-				  MSG_CRITICAL,
-				  "Can't set MRU, value %u is invalid\n",
-				  ext_cmd.u.data);
+		if (!ext_cmd.u.data ||
+		    ext_cmd.u.data > rmnet_mhi_ptr->max_mru) {
+			rmnet_log(rmnet_mhi_ptr, MSG_CRITICAL,
+				  "Can't set MRU, value:%u is invalid max:%u\n",
+				  ext_cmd.u.data, rmnet_mhi_ptr->max_mru);
 			return -EINVAL;
 		}
 		rmnet_log(rmnet_mhi_ptr,
@@ -793,6 +798,8 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 	int ret = 0;
 	struct rmnet_mhi_private **rmnet_mhi_ctxt = NULL;
 	int r = 0;
+	char ifalias[IFALIASZ];
+	struct mhi_client_handle *client_handle = NULL;
 
 	rmnet_log(rmnet_mhi_ptr, MSG_INFO, "Entered.\n");
 
@@ -826,6 +833,7 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 		} else {
 			rmnet_mhi_ptr->tx_enabled = 1;
 		}
+		client_handle = rmnet_mhi_ptr->tx_client_handle;
 	}
 	if (rmnet_mhi_ptr->rx_client_handle != NULL) {
 		rmnet_log(rmnet_mhi_ptr,
@@ -841,7 +849,26 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 		} else {
 			rmnet_mhi_ptr->rx_enabled = 1;
 		}
+		/* Both tx & rx client handle contain same device info */
+		client_handle = rmnet_mhi_ptr->rx_client_handle;
 	}
+
+	if (!client_handle) {
+		ret = -EINVAL;
+		goto net_dev_alloc_fail;
+	}
+
+	snprintf(ifalias,
+		 sizeof(ifalias),
+		 "%s_%04x_%02u.%02u.%02u_%u",
+		 RMNET_MHI_DRIVER_NAME,
+		 client_handle->dev_id,
+		 client_handle->domain,
+		 client_handle->bus,
+		 client_handle->slot,
+		 rmnet_mhi_ptr->dev_id);
+
+	rtnl_lock();
 	rmnet_mhi_ptr->dev =
 		alloc_netdev(sizeof(struct rmnet_mhi_private *),
 			     RMNET_MHI_DEV_NAME,
@@ -854,7 +881,9 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 		goto net_dev_alloc_fail;
 	}
 	SET_NETDEV_DEV(rmnet_mhi_ptr->dev, &rmnet_mhi_ptr->pdev->dev);
+	dev_set_alias(rmnet_mhi_ptr->dev, ifalias, strlen(ifalias));
 	rmnet_mhi_ctxt = netdev_priv(rmnet_mhi_ptr->dev);
+	rtnl_unlock();
 	*rmnet_mhi_ctxt = rmnet_mhi_ptr;
 
 	ret = dma_set_mask(&(rmnet_mhi_ptr->dev->dev),
@@ -981,17 +1010,16 @@ static void rmnet_mhi_cb(struct mhi_cb_info *cb_info)
 	}
 }
 
-static struct mhi_client_info_t rmnet_mhi_info = {rmnet_mhi_cb};
-
 #ifdef CONFIG_DEBUG_FS
 struct dentry *dentry;
 
 static void rmnet_mhi_create_debugfs(struct rmnet_mhi_private *rmnet_mhi_ptr)
 {
-	char node_name[15];
+	char node_name[32];
 	int i;
 	const umode_t mode = (S_IRUSR | S_IWUSR);
 	struct dentry *file;
+	struct mhi_client_handle *client_handle;
 
 	const struct {
 		char *name;
@@ -1047,8 +1075,20 @@ static void rmnet_mhi_create_debugfs(struct rmnet_mhi_private *rmnet_mhi_ptr)
 		},
 	};
 
-	snprintf(node_name, sizeof(node_name), "%s%d",
-		 RMNET_MHI_DRIVER_NAME, rmnet_mhi_ptr->pdev->id);
+	/* Both tx & rx client handle contain same device info */
+	client_handle = rmnet_mhi_ptr->rx_client_handle;
+	if (!client_handle)
+		client_handle = rmnet_mhi_ptr->tx_client_handle;
+
+	snprintf(node_name,
+		 sizeof(node_name),
+		 "%s_%04x_%02u.%02u.%02u_%u",
+		 RMNET_MHI_DRIVER_NAME,
+		 client_handle->dev_id,
+		 client_handle->domain,
+		 client_handle->bus,
+		 client_handle->slot,
+		 rmnet_mhi_ptr->dev_id);
 
 	if (IS_ERR_OR_NULL(dentry))
 		return;
@@ -1109,10 +1149,15 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 	int rc;
 	u32 channel;
 	struct rmnet_mhi_private *rmnet_mhi_ptr;
-	char node_name[15];
+	struct mhi_client_handle *client_handle = NULL;
+	char node_name[32];
+	struct mhi_client_info_t client_info;
 
 	if (unlikely(!pdev->dev.of_node))
 		return -ENODEV;
+
+	if (!mhi_is_device_ready(&pdev->dev, "qcom,mhi"))
+		return -EPROBE_DEFER;
 
 	pdev->id = of_alias_get_id(pdev->dev.of_node, "mhi_rmnet");
 	if (unlikely(pdev->id < 0))
@@ -1135,15 +1180,50 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 	}
 
 	rc = of_property_read_u32(pdev->dev.of_node,
+				  "cell-index",
+				  &rmnet_mhi_ptr->dev_id);
+	if (unlikely(rc)) {
+		rmnet_log(rmnet_mhi_ptr,
+			  MSG_CRITICAL,
+			  "failed to get valid 'cell-index'\n");
+		goto probe_fail;
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+				  "qcom,mhi-max-mru",
+				  &rmnet_mhi_ptr->max_mru);
+	if (likely(rc)) {
+		rmnet_log(rmnet_mhi_ptr, MSG_INFO,
+			  "max-mru not defined, setting to max %d\n",
+			  MHI_MAX_MRU);
+		rmnet_mhi_ptr->max_mru = MHI_MAX_MRU;
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+				  "qcom,mhi-max-mtu",
+				  &rmnet_mhi_ptr->max_mtu);
+	if (likely(rc)) {
+		rmnet_log(rmnet_mhi_ptr, MSG_INFO,
+			  "max-mtu not defined, setting to max %d\n",
+			  MHI_MAX_MTU);
+		rmnet_mhi_ptr->max_mtu = MHI_MAX_MTU;
+	}
+
+	client_info.dev = &pdev->dev;
+	client_info.node_name = "qcom,mhi";
+	client_info.mhi_client_cb = rmnet_mhi_cb;
+	client_info.user_data = rmnet_mhi_ptr;
+
+	rc = of_property_read_u32(pdev->dev.of_node,
 				  "qcom,mhi-tx-channel",
 				  &channel);
 	if (rc == 0) {
 		rmnet_mhi_ptr->tx_channel = channel;
+		client_info.chan = channel;
+		client_info.max_payload = rmnet_mhi_ptr->max_mtu;
+
 		rc = mhi_register_channel(&rmnet_mhi_ptr->tx_client_handle,
-					  rmnet_mhi_ptr->tx_channel,
-					  0,
-					  &rmnet_mhi_info,
-					  rmnet_mhi_ptr);
+					  &client_info);
 		if (unlikely(rc)) {
 			rmnet_log(rmnet_mhi_ptr,
 				  MSG_CRITICAL,
@@ -1152,6 +1232,7 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 				  rc);
 			goto probe_fail;
 		}
+		client_handle = rmnet_mhi_ptr->tx_client_handle;
 	}
 
 	rc = of_property_read_u32(pdev->dev.of_node,
@@ -1159,11 +1240,10 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 				  &channel);
 	if (rc == 0) {
 		rmnet_mhi_ptr->rx_channel = channel;
+		client_info.max_payload = rmnet_mhi_ptr->max_mru;
+		client_info.chan = channel;
 		rc = mhi_register_channel(&rmnet_mhi_ptr->rx_client_handle,
-					  rmnet_mhi_ptr->rx_channel,
-					  0,
-					  &rmnet_mhi_info,
-					  rmnet_mhi_ptr);
+					  &client_info);
 		if (unlikely(rc)) {
 			rmnet_log(rmnet_mhi_ptr,
 				  MSG_CRITICAL,
@@ -1172,22 +1252,31 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 				  rc);
 			goto probe_fail;
 		}
-
+		/* overwriting tx_client_handle is ok because dev_id and
+		 * bdf are same for both channels
+		 */
+		client_handle = rmnet_mhi_ptr->rx_client_handle;
 		INIT_WORK(&rmnet_mhi_ptr->alloc_work, rmnet_mhi_alloc_work);
 		spin_lock_init(&rmnet_mhi_ptr->alloc_lock);
 	}
 
 	/* We must've have @ least one valid channel */
-	if (!rmnet_mhi_ptr->rx_client_handle &&
-	    !rmnet_mhi_ptr->tx_client_handle) {
+	if (!client_handle) {
 		rmnet_log(rmnet_mhi_ptr, MSG_CRITICAL,
 			  "No registered channels\n");
 		rc = -ENODEV;
 		goto probe_fail;
 	}
 
-	snprintf(node_name, sizeof(node_name), "%s%d",
-		 RMNET_MHI_DRIVER_NAME, pdev->id);
+	snprintf(node_name,
+		 sizeof(node_name),
+		 "%s_%04x_%02u.%02u.%02u_%u",
+		 RMNET_MHI_DRIVER_NAME,
+		 client_handle->dev_id,
+		 client_handle->domain,
+		 client_handle->bus,
+		 client_handle->slot,
+		 rmnet_mhi_ptr->dev_id);
 	rmnet_mhi_ptr->rmnet_ipc_log =
 		ipc_log_context_create(RMNET_IPC_LOG_PAGES,
 				       node_name, 0);

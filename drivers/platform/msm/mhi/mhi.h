@@ -29,7 +29,6 @@
 #include <linux/list.h>
 #include <linux/dma-mapping.h>
 
-extern struct mhi_pcie_devices mhi_devices;
 struct mhi_device_ctxt;
 
 enum MHI_DEBUG_LEVEL {
@@ -49,11 +48,13 @@ struct pcie_core_info {
 	u32 mhi_ver;
 	void __iomem *bar0_base;
 	void __iomem *bar0_end;
-	void __iomem *bar2_base;
-	void __iomem *bar2_end;
 	u32 irq_base;
 	u32 max_nr_msis;
+	u32 domain;
+	u32 bus;
+	u32 slot;
 	struct pci_saved_state *pcie_state;
+	bool pci_master;
 };
 
 struct bhi_ctxt_t {
@@ -64,7 +65,6 @@ struct bhi_ctxt_t {
 	void *unaligned_image_loc;
 	dev_t bhi_dev;
 	struct cdev cdev;
-	struct class *bhi_class;
 	struct device *dev;
 };
 
@@ -382,7 +382,7 @@ struct mhi_chan_cfg {
 	union mhi_cmd_pkt cmd_pkt;
 };
 
-struct mhi_client_handle {
+struct mhi_client_config {
 	struct mhi_chan_info chan_info;
 	struct mhi_device_ctxt *mhi_dev_ctxt;
 	struct mhi_client_info_t client_info;
@@ -434,6 +434,8 @@ struct mhi_counters {
 	atomic_t events_pending;
 	u32 *msi_counter;
 	u32 mhi_reset_cntr;
+	u32 link_down_cntr;
+	u32 link_up_cntr;
 };
 
 struct mhi_flags {
@@ -486,20 +488,23 @@ struct mhi_dev_space {
 };
 
 struct mhi_device_ctxt {
+	struct list_head node;
+	struct pcie_core_info core;
+	struct msm_pcie_register_event mhi_pci_link_event;
+	struct pci_dev *pcie_device;
+	struct bhi_ctxt_t bhi_ctxt;
+	struct platform_device *plat_dev;
 	enum MHI_PM_STATE mhi_pm_state; /* Host driver state */
 	enum MHI_STATE mhi_state; /* protocol state */
 	enum MHI_EXEC_ENV dev_exec_env;
 
 	struct mhi_dev_space dev_space;
-	struct mhi_pcie_dev_info *dev_info;
-	struct pcie_core_info *dev_props;
 	struct mhi_ring chan_bb_list[MHI_MAX_CHANNELS];
 	struct mhi_ring mhi_local_chan_ctxt[MHI_MAX_CHANNELS];
 
 	struct mhi_ring *mhi_local_event_ctxt;
 	struct mhi_ring mhi_local_cmd_ctxt[NR_OF_CMD_RINGS];
 	struct mhi_chan_cfg mhi_chan_cfg[MHI_MAX_CHANNELS];
-
 
 	struct mhi_client_handle *client_handle_list[MHI_MAX_CHANNELS];
 	struct mhi_event_ring_cfg *ev_ring_props;
@@ -517,7 +522,9 @@ struct mhi_device_ctxt {
 
 	struct hrtimer m1_timer;
 	ktime_t m1_timeout;
+	u32 poll_reset_timeout_ms;
 
+	struct notifier_block mhi_ssr_nb;
 	struct esoc_desc *esoc_handle;
 	void *esoc_ssr_handle;
 
@@ -534,30 +541,30 @@ struct mhi_device_ctxt {
 	struct wakeup_source w_lock;
 
 	char *chan_info;
-	struct dentry *mhi_parent_folder;
+	struct dentry *child;
+	struct dentry *parent;
+	void *mhi_ipc_log;
+
+	/* Shadow functions since not all device supports runtime pm */
+	void (*runtime_get)(struct mhi_device_ctxt *mhi_dev_ctxt);
+	void (*runtime_put)(struct mhi_device_ctxt *mhi_dev_ctxt);
+	void (*assert_wake)(struct mhi_device_ctxt *mhi_dev_ctxt,
+			    bool force_set);
+	void (*deassert_wake)(struct mhi_device_ctxt *mhi_dev_ctxt);
 };
 
-struct mhi_pcie_dev_info {
-	struct pcie_core_info core;
-	struct mhi_device_ctxt mhi_ctxt;
-	struct msm_pcie_register_event mhi_pci_link_event;
-	struct pci_dev *pcie_device;
-	struct pci_driver *mhi_pcie_driver;
-	struct bhi_ctxt_t bhi_ctxt;
-	struct platform_device *plat_dev;
-	u32 link_down_cntr;
-	u32 link_up_cntr;
-};
-
-struct mhi_pcie_devices {
-	struct mhi_pcie_dev_info device_list[MHI_MAX_SUPPORTED_DEVICES];
-	s32 nr_of_devices;
+struct mhi_device_driver {
+	struct mutex lock;
+	struct list_head head;
+	struct class *mhi_bhi_class;
+	struct dentry *parent;
 };
 
 struct mhi_event_ring_cfg {
 	u32 nr_desc;
 	u32 msi_vec;
 	u32 intmod;
+	enum MHI_CLIENT_CHANNEL chan;
 	u32 flags;
 	enum MHI_RING_CLASS class;
 	enum MHI_EVENT_RING_STATE state;
@@ -570,18 +577,20 @@ struct mhi_data_buf {
 	u32 bounce_flag;
 };
 
+extern struct mhi_device_driver *mhi_device_drv;
+
 irqreturn_t mhi_msi_ipa_handlr(int irq_number, void *dev_id);
 int mhi_reset_all_thread_queues(
 					struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_add_elements_to_event_rings(
 				struct mhi_device_ctxt *mhi_dev_ctxt,
 					enum STATE_TRANSITION new_state);
-int get_nr_avail_ring_elements(struct mhi_ring *ring);
+int get_nr_avail_ring_elements(struct mhi_device_ctxt *mhi_dev_ctxt,
+			       struct mhi_ring *ring);
 int get_nr_enclosed_el(struct mhi_ring *ring, void *loc_1,
 					void *loc_2, u32 *nr_el);
 int mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt);
-int mhi_init_device_ctxt(struct mhi_pcie_dev_info *dev_info,
-				struct mhi_device_ctxt *mhi_dev_ctxt);
+int mhi_init_device_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_init_local_event_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 		u32 nr_ev_el, u32 event_ring_index);
 int mhi_send_cmd(struct mhi_device_ctxt *dest_device,
@@ -632,11 +641,11 @@ int mhi_wait_for_mdm(struct mhi_device_ctxt *mhi_dev_ctxt);
 enum hrtimer_restart mhi_initiate_m1(struct hrtimer *timer);
 int mhi_pci_suspend(struct device *dev);
 int mhi_pci_resume(struct device *dev);
-int mhi_init_pcie_device(struct mhi_pcie_dev_info *mhi_pcie_dev);
+int mhi_init_pcie_device(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_init_pm_sysfs(struct device *dev);
 void mhi_rem_pm_sysfs(struct device *dev);
 void mhi_pci_remove(struct pci_dev *mhi_device);
-int mhi_ctxt_init(struct mhi_pcie_dev_info *mhi_pcie_dev);
+int mhi_ctxt_init(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_get_chan_max_buffers(u32 chan);
 int mhi_esoc_register(struct mhi_device_ctxt *mhi_dev_ctxt);
 void mhi_link_state_cb(struct msm_pcie_notify *notify);
@@ -644,6 +653,8 @@ void mhi_notify_clients(struct mhi_device_ctxt *mhi_dev_ctxt,
 						enum MHI_CB_REASON reason);
 void mhi_notify_client(struct mhi_client_handle *client_handle,
 		       enum MHI_CB_REASON reason);
+void mhi_runtime_get(struct mhi_device_ctxt *mhi_dev_ctxt);
+void mhi_runtime_put(struct mhi_device_ctxt *mhi_dev_ctxt);
 void mhi_deassert_device_wake(struct mhi_device_ctxt *mhi_dev_ctxt);
 void mhi_assert_device_wake(struct mhi_device_ctxt *mhi_dev_ctxt,
 			    bool force_set);
@@ -691,7 +702,7 @@ void init_event_ctxt_array(struct mhi_device_ctxt *mhi_dev_ctxt);
 int create_local_ev_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt);
 enum MHI_STATE mhi_get_m_state(struct mhi_device_ctxt *mhi_dev_ctxt);
 void process_m1_transition(struct work_struct *work);
-int set_mhi_base_state(struct mhi_pcie_dev_info *mhi_pcie_dev);
+int set_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt);
 void mhi_set_m_state(struct mhi_device_ctxt *mhi_dev_ctxt,
 		     enum MHI_STATE new_state);
 const char *state_transition_str(enum STATE_TRANSITION state);

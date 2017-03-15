@@ -26,41 +26,55 @@ int mhi_populate_event_cfg(struct mhi_device_ctxt *mhi_dev_ctxt)
 	int r, i;
 	char dt_prop[MAX_BUF_SIZE];
 	const struct device_node *np =
-		mhi_dev_ctxt->dev_info->plat_dev->dev.of_node;
+		mhi_dev_ctxt->plat_dev->dev.of_node;
 
 	r = of_property_read_u32(np, "mhi-event-rings",
 			&mhi_dev_ctxt->mmio_info.nr_event_rings);
 	if (r) {
-		mhi_log(MHI_MSG_CRITICAL,
+		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
 			"Failed to pull event ring info from DT, %d\n", r);
-		goto dt_error;
+		return -EINVAL;
 	}
 	mhi_dev_ctxt->ev_ring_props =
 				kzalloc(sizeof(struct mhi_event_ring_cfg) *
 					mhi_dev_ctxt->mmio_info.nr_event_rings,
 					GFP_KERNEL);
-	if (!mhi_dev_ctxt->ev_ring_props) {
-		r = -ENOMEM;
-		goto dt_error;
-	}
+	if (!mhi_dev_ctxt->ev_ring_props)
+		return -ENOMEM;
 
 	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i) {
+		u32 dt_configs[5];
+		int len;
+
 		scnprintf(dt_prop, MAX_BUF_SIZE, "%s%d", "mhi-event-cfg-", i);
-		r = of_property_read_u32_array(np, dt_prop,
-					(u32 *)&mhi_dev_ctxt->ev_ring_props[i],
-					4);
+		if (!of_find_property(np, dt_prop, &len))
+			goto dt_error;
+		if (len != sizeof(dt_configs))
+			goto dt_error;
+		r = of_property_read_u32_array(
+					np,
+					dt_prop,
+					dt_configs,
+					sizeof(dt_configs) / sizeof(u32));
 		if (r) {
-			mhi_log(MHI_MSG_CRITICAL,
+			mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
 				"Failed to pull ev ring %d info from DT %d\n",
 				i, r);
 			goto dt_error;
 		}
-		mhi_log(MHI_MSG_INFO,
-		"Pulled ev ring %d,desc:0x%x,msi_vec:0x%x,intmod%d flags0x%x\n",
-			i, mhi_dev_ctxt->ev_ring_props[i].nr_desc,
-			   mhi_dev_ctxt->ev_ring_props[i].msi_vec,
-			   mhi_dev_ctxt->ev_ring_props[i].intmod,
-			   mhi_dev_ctxt->ev_ring_props[i].flags);
+		mhi_dev_ctxt->ev_ring_props[i].nr_desc = dt_configs[0];
+		mhi_dev_ctxt->ev_ring_props[i].msi_vec = dt_configs[1];
+		mhi_dev_ctxt->ev_ring_props[i].intmod = dt_configs[2];
+		mhi_dev_ctxt->ev_ring_props[i].chan = dt_configs[3];
+		mhi_dev_ctxt->ev_ring_props[i].flags = dt_configs[4];
+		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+			"ev ring %d,desc:0x%x,msi:0x%x,intmod%d chan:%u flags0x%x\n",
+			i,
+			mhi_dev_ctxt->ev_ring_props[i].nr_desc,
+			mhi_dev_ctxt->ev_ring_props[i].msi_vec,
+			mhi_dev_ctxt->ev_ring_props[i].intmod,
+			mhi_dev_ctxt->ev_ring_props[i].chan,
+			mhi_dev_ctxt->ev_ring_props[i].flags);
 		if (GET_EV_PROPS(EV_MANAGED,
 			mhi_dev_ctxt->ev_ring_props[i].flags))
 			mhi_dev_ctxt->ev_ring_props[i].mhi_handler_ptr =
@@ -76,14 +90,18 @@ int mhi_populate_event_cfg(struct mhi_device_ctxt *mhi_dev_ctxt)
 			mhi_dev_ctxt->ev_ring_props[i].class = MHI_SW_RING;
 			mhi_dev_ctxt->mmio_info.nr_sw_event_rings++;
 		}
-		mhi_log(MHI_MSG_INFO,
-		 "Detected %d SW EV rings and %d HW EV rings out of %d EV rings\n",
-		  mhi_dev_ctxt->mmio_info.nr_sw_event_rings,
-		  mhi_dev_ctxt->mmio_info.nr_hw_event_rings,
-		  mhi_dev_ctxt->mmio_info.nr_event_rings);
+		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+			"Detected %d SW EV rings and %d HW EV rings out of %d EV rings\n",
+			mhi_dev_ctxt->mmio_info.nr_sw_event_rings,
+			mhi_dev_ctxt->mmio_info.nr_hw_event_rings,
+			mhi_dev_ctxt->mmio_info.nr_event_rings);
 	}
+
+	return 0;
 dt_error:
-	return r;
+	kfree(mhi_dev_ctxt->ev_ring_props);
+	mhi_dev_ctxt->ev_ring_props = NULL;
+	return -EINVAL;
 }
 
 int create_local_ev_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt)
@@ -195,7 +213,7 @@ int init_local_ev_ring_by_type(struct mhi_device_ctxt *mhi_dev_ctxt,
 	int ret_val = 0;
 	u32 i;
 
-	mhi_log(MHI_MSG_INFO, "Entered\n");
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Entered\n");
 	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; i++) {
 		if (GET_EV_PROPS(EV_TYPE,
 			mhi_dev_ctxt->ev_ring_props[i].flags) == type &&
@@ -207,9 +225,10 @@ int init_local_ev_ring_by_type(struct mhi_device_ctxt *mhi_dev_ctxt,
 				return ret_val;
 		}
 		ring_ev_db(mhi_dev_ctxt, i);
-		mhi_log(MHI_MSG_INFO, "Finished ev ring init %d\n", i);
+		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+			"Finished ev ring init %d\n", i);
 	}
-	mhi_log(MHI_MSG_INFO, "Exited\n");
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exited\n");
 	return 0;
 }
 
@@ -228,7 +247,7 @@ int mhi_add_elements_to_event_rings(struct mhi_device_ctxt *mhi_dev_ctxt,
 							MHI_ER_DATA_TYPE);
 		break;
 	default:
-		mhi_log(MHI_MSG_ERROR,
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Unrecognized event stage, %d\n", new_state);
 		ret_val = -EINVAL;
 		break;
@@ -247,23 +266,18 @@ int mhi_init_local_event_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 		&mhi_dev_ctxt->mhi_local_event_ctxt[ring_index];
 	spinlock_t *lock = &event_ctxt->ring_lock;
 
-	if (NULL == mhi_dev_ctxt || 0 == nr_ev_el) {
-		mhi_log(MHI_MSG_ERROR, "Bad Input data, quitting\n");
-		return -EINVAL;
-	}
-
 	spin_lock_irqsave(lock, flags);
 
-	mhi_log(MHI_MSG_INFO, "mmio_addr = 0x%p, mmio_len = 0x%llx\n",
-			mhi_dev_ctxt->mmio_info.mmio_addr,
-			mhi_dev_ctxt->mmio_info.mmio_len);
-	mhi_log(MHI_MSG_INFO, "Initializing event ring %d with %d desc\n",
-			ring_index, nr_ev_el);
+	mhi_log(mhi_dev_ctxt,
+		MHI_MSG_INFO,
+		"Initializing event ring %d with %d desc\n",
+		ring_index,
+		nr_ev_el);
 
 	for (i = 0; i < nr_ev_el - 1; ++i) {
 		ret_val = ctxt_add_element(event_ctxt, (void *)&ev_pkt);
 		if (0 != ret_val) {
-			mhi_log(MHI_MSG_ERROR,
+			mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 				"Failed to insert el in ev ctxt\n");
 			break;
 		}
@@ -279,7 +293,8 @@ void mhi_reset_ev_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
 	struct mhi_event_ctxt *ev_ctxt;
 	struct mhi_ring *local_ev_ctxt;
 
-	mhi_log(MHI_MSG_VERBOSE, "Resetting event index %d\n", index);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE,
+		"Resetting event index %d\n", index);
 	ev_ctxt =
 	    &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[index];
 	local_ev_ctxt =
