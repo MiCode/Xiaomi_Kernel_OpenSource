@@ -496,7 +496,7 @@ void apr_cb_func(void *buf, int len, void *priv)
 	pr_debug("\n*****************\n");
 
 	if (!buf || len <= APR_HDR_SIZE) {
-		pr_err("APR: Improper apr pkt received:%p %d\n", buf, len);
+		pr_err("APR: Improper apr pkt received:%pK %d\n", buf, len);
 		return;
 	}
 	hdr = buf;
@@ -584,7 +584,7 @@ void apr_cb_func(void *buf, int len, void *priv)
 		return;
 	}
 	pr_debug("svc_idx = %d\n", i);
-	pr_debug("%x %x %x %p %p\n", c_svc->id, c_svc->dest_id,
+	pr_debug("%x %x %x %pK %pK\n", c_svc->id, c_svc->dest_id,
 		 c_svc->client_id, c_svc->fn, c_svc->priv);
 	data.payload_size = hdr->pkt_size - hdr_size;
 	data.opcode = hdr->opcode;
@@ -648,7 +648,7 @@ static void apr_reset_deregister(struct work_struct *work)
 			container_of(work, struct apr_reset_work, work);
 
 	handle = apr_reset->handle;
-	pr_debug("%s:handle[%p]\n", __func__, handle);
+	pr_debug("%s:handle[%pK]\n", __func__, handle);
 	apr_deregister(handle);
 	kfree(apr_reset);
 }
@@ -681,7 +681,7 @@ int apr_deregister(void *handle)
 		client[dest_id][client_id].svc_cnt--;
 		if (!client[dest_id][client_id].svc_cnt) {
 			svc->need_reset = 0x0;
-			pr_debug("%s: service is reset %p\n", __func__, svc);
+			pr_debug("%s: service is reset %pK\n", __func__, svc);
 		}
 	}
 
@@ -709,7 +709,7 @@ void apr_reset(void *handle)
 
 	if (!handle)
 		return;
-	pr_debug("%s: handle[%p]\n", __func__, handle);
+	pr_debug("%s: handle[%pK]\n", __func__, handle);
 
 	if (apr_reset_workqueue == NULL) {
 		pr_err("%s: apr_reset_workqueue is NULL\n", __func__);

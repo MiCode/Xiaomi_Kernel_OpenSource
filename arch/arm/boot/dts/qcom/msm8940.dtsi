@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,6 +217,10 @@
 	/delete-property/ qcom,cpr-quotient-adjustment;
 	/delete-property/ qcom,cpr-init-voltage-adjustment;
 	/delete-property/ qcom,cpr-enable;
+
+	qcom,cpr-quotient-adjustment =
+		<(0)    (28)   (28)>;
+	qcom,cpr-enable;
 };
 
 &modem_mem {
@@ -276,4 +281,17 @@
 &pil_mss {
 	/delete-property/ qcom,qdsp6v56-1-8-inrush-current;
 	qcom,qdsp6v56-1-8;
+};
+
+/* CAMSS_CPHY */
+&soc {
+	qcom,csiphy@1b34000 {
+		status = "ok";
+		compatible = "qcom,csiphy-v3.4.2.1", "qcom,csiphy";
+	};
+
+	qcom,csiphy@1b35000 {
+		status = "ok";
+		compatible = "qcom,csiphy-v3.4.2.1", "qcom,csiphy";
+	};
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -188,7 +188,7 @@ void ocm_core_open(void)
 	if (q6core_lcl.core_handle_q == NULL)
 		q6core_lcl.core_handle_q = apr_register("ADSP", "CORE",
 					aprv2_core_fn_q, 0xFFFFFFFF, NULL);
-	pr_debug("%s: Open_q %p\n", __func__, q6core_lcl.core_handle_q);
+	pr_debug("%s: Open_q %pK\n", __func__, q6core_lcl.core_handle_q);
 	if (q6core_lcl.core_handle_q == NULL)
 		pr_err("%s: Unable to register CORE\n", __func__);
 }
@@ -351,7 +351,7 @@ int core_dts_eagle_set(int size, char *data)
 
 	pr_debug("DTS_EAGLE_CORE - %s\n", __func__);
 	if (size <= 0 || !data) {
-		pr_err("DTS_EAGLE_CORE - %s: invalid size %i or pointer %p.\n",
+		pr_err("DTS_EAGLE_CORE - %s: invalid size %i or pointer %pK.\n",
 			__func__, size, data);
 		return -EINVAL;
 	}
@@ -397,7 +397,7 @@ int core_dts_eagle_get(int id, int size, char *data)
 
 	pr_debug("DTS_EAGLE_CORE - %s\n", __func__);
 	if (size <= 0 || !data) {
-		pr_err("DTS_EAGLE_CORE - %s: invalid size %i or pointer %p.\n",
+		pr_err("DTS_EAGLE_CORE - %s: invalid size %i or pointer %pK.\n",
 			__func__, size, data);
 		return -EINVAL;
 	}
@@ -563,7 +563,7 @@ static int q6core_map_memory_regions(phys_addr_t *buf_add, uint32_t mempool_id,
 		++mregions;
 	}
 
-	pr_debug("%s: sending memory map, addr %pa, size %d, bufcnt = %d\n",
+	pr_debug("%s: sending memory map, addr %pK, size %d, bufcnt = %d\n",
 		__func__, buf_add, bufsz[0], mmap_regions->num_regions);
 
 	*map_handle = 0;
@@ -745,7 +745,7 @@ static int q6core_send_custom_topologies(void)
 	q6core_lcl.adsp_status = 0;
 	q6core_lcl.bus_bw_resp_received = 0;
 
-	pr_debug("%s: Register topologies addr %pa, size %zd, map handle %d\n",
+	pr_debug("%s: Register topologies addr %pK, size %zd, map handle %d\n",
 		__func__, &cal_block->cal_data.paddr, cal_block->cal_data.size,
 		cal_block->map_data.q6map_handle);
 

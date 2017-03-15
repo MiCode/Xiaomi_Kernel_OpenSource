@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2013 Red Hat, Inc. All Rights Reserved.
  * Written by David Howells (dhowells@redhat.com)
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public Licence
@@ -523,7 +524,9 @@ static bool assoc_array_insert_into_terminal_node(struct assoc_array_edit *edit,
 			free_slot = i;
 			continue;
 		}
-		if (ops->compare_object(assoc_array_ptr_to_leaf(ptr), index_key)) {
+		if (assoc_array_ptr_is_leaf(ptr) &&
+		    ops->compare_object(assoc_array_ptr_to_leaf(ptr),
+					index_key)) {
 			pr_devel("replace in slot %d\n", i);
 			edit->leaf_p = &node->slots[i];
 			edit->dead_leaf = node->slots[i];

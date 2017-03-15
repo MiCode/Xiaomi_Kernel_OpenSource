@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,6 +64,15 @@
 #define MDSS_DSI_HW_REV_STEP_2		0x2
 
 #define NONE_PANEL "none"
+
+enum {
+	WARM = 1,
+	COOL = 3,
+	NATURE = 2,
+	STANDARD = 10,
+	VIVID = 11,
+	BRIGHT = 12,
+};
 
 enum {		/* mipi dsi panel */
 	DSI_VIDEO_MODE,
@@ -463,6 +473,20 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds post_panel_on_cmds;
 	struct dsi_panel_cmds off_cmds;
 	struct dsi_panel_cmds status_cmds;
+
+	struct dsi_panel_cmds warm_cmds;
+	struct dsi_panel_cmds cool_cmds;
+	struct dsi_panel_cmds nature_cmds;
+	struct dsi_panel_cmds vivid_cmds;
+	struct dsi_panel_cmds standard_cmds;
+	struct dsi_panel_cmds bright_cmds;
+
+	struct dsi_panel_cmds dispparam_cmds;
+	struct dsi_panel_cmds gamma_cmds;
+	struct dsi_panel_cmds ce_cmds;
+	bool init_last;
+
+
 	u32 *status_valid_params;
 	u32 *status_cmds_rlen;
 	u32 *status_value;
@@ -612,6 +636,11 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 			  enum mdss_dsi_clk_type clk_type,
 			  enum mdss_dsi_clk_state new_state);
 int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable);
+
+int mdss_panel_set_ce(struct mdss_panel_data *pdata, int mode);
+ int mdss_panel_set_gamma(struct mdss_panel_data *pdata, int mode);
+
+
 void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_test_pattern(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_video_test_pattern(struct mdss_dsi_ctrl_pdata *ctrl);

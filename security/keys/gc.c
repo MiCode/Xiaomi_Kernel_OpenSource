@@ -148,8 +148,8 @@ static noinline void key_gc_unused_keys(struct list_head *keys)
 		if (test_bit(KEY_FLAG_INSTANTIATED, &key->flags))
 			atomic_dec(&key->user->nikeys);
 
-		/* now throw away the key memory */
-		if (key->type->destroy)
+		/* Throw away the key data if the key is instantiated */
+		if (key_is_instantiated(key) && key->type->destroy)
 			key->type->destroy(key);
 
 		key_user_put(key->user);

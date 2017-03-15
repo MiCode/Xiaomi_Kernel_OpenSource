@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +36,12 @@
 #include "mdss_dba_utils.h"
 
 #define XO_CLK_RATE	19200000
+
+struct mutex gamma_lock;
+struct mutex ce_lock;
+int Gamma_mode = NATURE;
+
+
 #define CMDLINE_DSI_CTL_NUM_STRING_LEN 2
 
 /* Master structure to hold all the information about the DSI/panel */
@@ -44,6 +51,8 @@ static struct mdss_dsi_data *mdss_dsi_res;
 #define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
 
 static struct pm_qos_request mdss_dsi_pm_qos_request;
+
+bool is_Lcm_Present = false;
 
 static void mdss_dsi_pm_qos_add_request(void)
 {
@@ -2641,7 +2650,7 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 {
 	int len, i = 0;
 	int ctrl_id = pdev->id - 1;
-	char panel_name[MDSS_MAX_PANEL_LEN] = "";
+	char panel_name[MDSS_MAX_PANEL_LEN] = "none";
 	char ctrl_id_stream[3] =  "0:";
 	char *str1 = NULL, *str2 = NULL, *override_cfg = NULL;
 	char cfg_np_name[MDSS_MAX_PANEL_LEN] = "";
@@ -2745,11 +2754,13 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 						__func__, cfg_np_name);
 			}
 		}
+		is_Lcm_Present = true;
 		return dsi_pan_node;
 	}
 end:
-	if (strcmp(panel_name, NONE_PANEL))
-		dsi_pan_node = mdss_dsi_pref_prim_panel(pdev);
+
+	dsi_pan_node = mdss_dsi_pref_prim_panel(pdev);
+	is_Lcm_Present = false;
 exit:
 	return dsi_pan_node;
 }
@@ -3583,6 +3594,9 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 		goto error;
 	}
 
+	mutex_init(&gamma_lock);
+	mutex_init(&ce_lock);
+
 	mdss_dsi_config_clk_src(pdev);
 
 error:
@@ -4110,6 +4124,114 @@ static struct platform_driver mdss_dsi_ctrl_driver = {
 static int mdss_dsi_register_driver(void)
 {
 	return platform_driver_register(&mdss_dsi_driver);
+}
+
+
+extern int mdss_dsi_panel_gamma(struct mdss_panel_data *pdata);
+ int mdss_panel_set_gamma(struct mdss_panel_data *pdata, int   mode)
+{
+	int ret = 0;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	pr_debug("%s: Set panel gamma, mode is %d\n", __func__, mode);
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&gamma_lock);
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle, MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
+	switch (mode) {
+	case WARM:
+		ctrl_pdata->gamma_cmds = ctrl_pdata->warm_cmds;
+		Gamma_mode = WARM;
+		break;
+	case COOL:
+		ctrl_pdata->gamma_cmds = ctrl_pdata->cool_cmds;
+		Gamma_mode = COOL;
+		break;
+	case NATURE:
+		ctrl_pdata->gamma_cmds = ctrl_pdata->nature_cmds;
+		Gamma_mode = NATURE;
+		break;
+	default:
+		ret = -EINVAL;
+		goto err_out;
+	}
+	if (ctrl_pdata->nature_cmds.link_state == DSI_HS_MODE)
+		mdss_dsi_set_tx_power_mode(0, &ctrl_pdata->panel_data);
+
+	ret = mdss_dsi_panel_gamma(pdata);
+	if (ret) {
+		pr_err("%s: unable to set the panel gamma\n",
+					__func__);
+		goto err_out;
+	}
+	if (ctrl_pdata->nature_cmds.link_state == DSI_HS_MODE)
+		mdss_dsi_set_tx_power_mode(1, &ctrl_pdata->panel_data);
+
+err_out:
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle, MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
+	mutex_unlock(&gamma_lock);
+	return ret;
+
+
+}
+
+extern int mdss_dsi_panel_ce(struct mdss_panel_data *pdata);
+ int mdss_panel_set_ce(struct mdss_panel_data *pdata, int  mode)
+{
+
+	int ret = 0;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	pr_debug("%s: Set panel ce, mode is %d\n", __func__, mode);
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&ce_lock);
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle, MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
+
+	switch (mode) {
+	case VIVID:
+		ctrl_pdata->ce_cmds = ctrl_pdata->vivid_cmds;
+		break;
+	case STANDARD:
+		ctrl_pdata->ce_cmds = ctrl_pdata->standard_cmds;
+		break;
+	case BRIGHT:
+		ctrl_pdata->ce_cmds = ctrl_pdata->bright_cmds;
+		break;
+	default:
+		ret = -EINVAL;
+		goto err_out;
+	}
+	if (ctrl_pdata->nature_cmds.link_state == DSI_HS_MODE)
+		mdss_dsi_set_tx_power_mode(0, &ctrl_pdata->panel_data);
+	ret = mdss_dsi_panel_ce(pdata);
+	if (ret) {
+		pr_err("%s: unable to set the panel ce\n",
+							__func__);
+		goto err_out;
+	}
+
+	if (ctrl_pdata->nature_cmds.link_state == DSI_HS_MODE)
+		mdss_dsi_set_tx_power_mode(1, &ctrl_pdata->panel_data);
+
+err_out:
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle, MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
+	mutex_unlock(&ce_lock);
+	return ret;
 }
 
 static int __init mdss_dsi_driver_init(void)

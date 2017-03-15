@@ -2,6 +2,7 @@
  * Gadget Driver for Android
  *
  * Copyright (C) 2008 Google, Inc.
+ * Copyright (C) 2017 XiaoMi, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Benoit Goby <benoit@android.com>
  *
@@ -532,13 +533,24 @@ static void android_disable(struct android_dev *dev)
 	struct android_configuration *conf;
 
 	if (dev->disable_depth++ == 0) {
-		/* Cancel pending control requests */
-		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
+		if (gadget_is_dwc3(cdev->gadget)) {
+			/* Cancel pending control requests */
+			usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
 
-		list_for_each_entry(conf, &dev->configs, list_item)
-			usb_remove_config(cdev, &conf->usb_config);
-		usb_gadget_disconnect(cdev->gadget);
-		dev->last_disconnect = ktime_get();
+			list_for_each_entry(conf, &dev->configs, list_item)
+				usb_remove_config(cdev, &conf->usb_config);
+			usb_gadget_disconnect(cdev->gadget);
+			dev->last_disconnect = ktime_get();
+		} else {
+			usb_gadget_disconnect(cdev->gadget);
+			dev->last_disconnect = ktime_get();
+
+			/* Cancel pnding control requests */
+			usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
+
+			list_for_each_entry(conf, &dev->configs, list_item)
+				usb_remove_config(cdev, &conf->usb_config);
+		}
 	}
 }
 

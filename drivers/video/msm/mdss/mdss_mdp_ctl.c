@@ -905,7 +905,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	prefill_params.is_hflip = pipe->flags & MDP_FLIP_LR;
 	prefill_params.is_cmd = !mixer->ctl->is_video_mode;
 	prefill_params.pnum = pipe->num;
-	prefill_params.is_bwc = mdss_mdp_is_ubwc_format(pipe->src_fmt);
+	prefill_params.is_ubwc = mdss_mdp_is_ubwc_format(pipe->src_fmt);
 	prefill_params.is_nv12 = mdss_mdp_is_nv12_format(pipe->src_fmt);
 
 	mdss_mdp_get_bw_vote_mode(mixer, mdata->mdp_rev, perf,

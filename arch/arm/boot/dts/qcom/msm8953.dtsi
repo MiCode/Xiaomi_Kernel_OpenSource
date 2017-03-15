@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +35,7 @@
 		other_ext_mem: other_ext_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85b00000 0x0 0xd00000>;
+			reg = <0x0 0x84A00000 0x0 0x1E00000>;
 		};
 
 		modem_mem: modem_region@0 {
@@ -1192,6 +1193,19 @@
 		reg-names = "fuse-base";
 	};
 
+	sn_fuse: snfuse@0xa0128 {
+		compatible = "qcom,sn-fuse";
+		reg = <0xa0128 0x4>;
+		reg-names = "sn-base";
+	};
+
+
+	sec_boot_fuse: secbootfuse@0xa41d0 {
+		compatible = "qcom,sec-boot-fuse";
+		reg = <0xa41d0 0x4>;
+		reg-names = "sec-boot-base";
+	};
+
 	jtag_mm0: jtagmm@619c000 {
 		compatible = "qcom,jtagv8-mm";
 		reg = <0x619c000 0x1000>,
@@ -1582,9 +1596,9 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@85b00000 {
+	qcom_seecom: qseecom@84A00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85b00000 0x800000>;
+		reg = <0x84A00000 0x1900000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;

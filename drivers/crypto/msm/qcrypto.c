@@ -1,6 +1,7 @@
 /* Qualcomm Crypto driver
  *
  * Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2261,12 +2262,12 @@ static int _qcrypto_process_aead(struct  crypto_engine *pengine,
 			 * include  assoicated data, ciphering data stream,
 			 * generated MAC, and CCM padding.
 			 */
-			if ((MAX_ALIGN_SIZE * 2 > ULONG_MAX - req->assoclen) ||
+			if ((MAX_ALIGN_SIZE * 2 > UINT_MAX - req->assoclen) ||
 				((MAX_ALIGN_SIZE * 2 + req->assoclen) >
-						ULONG_MAX - qreq.ivsize) ||
+						UINT_MAX - qreq.ivsize) ||
 				((MAX_ALIGN_SIZE * 2 + req->assoclen
 					+ qreq.ivsize)
-						> ULONG_MAX - req->cryptlen)) {
+						> UINT_MAX - req->cryptlen)) {
 				pr_err("Integer overflow on aead req length.\n");
 				return -EINVAL;
 			}

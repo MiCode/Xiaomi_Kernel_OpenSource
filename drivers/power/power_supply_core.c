@@ -4,6 +4,7 @@
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
  *  Copyright © 2003  Ian Molton <spyro@f2s.com>
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
  *  Modified: 2004, Oct     Szabolcs Gyurko
  *
@@ -269,6 +270,26 @@ int power_supply_set_low_power_state(struct power_supply *psy, int value)
 	return -ENXIO;
 }
 EXPORT_SYMBOL(power_supply_set_low_power_state);
+
+int power_supply_get_battery_charge_state(struct power_supply *psy)
+{
+	union power_supply_propval ret = {0,};
+
+	if (!psy) {
+		 pr_err("power supply is NULL\n");
+	}
+
+	if (psy->get_property) {
+		psy->get_property(psy, POWER_SUPPLY_PROP_PRESENT, &ret);
+	}
+
+	pr_debug("online:%d\n", ret.intval);
+
+	return ret.intval;
+
+}
+
+EXPORT_SYMBOL(power_supply_get_battery_charge_state);
 
 /**
  * power_supply_set_dp_dm -

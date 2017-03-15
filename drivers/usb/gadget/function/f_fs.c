@@ -7,6 +7,7 @@
  * Based on inode.c (GadgetFS) which was:
  * Copyright (C) 2003-2004 David Brownell
  * Copyright (C) 2003 Agilent Technologies
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -689,7 +690,6 @@ static void ffs_user_copy_worker(struct work_struct *work)
 
 	usb_ep_free_request(io_data->ep, io_data->req);
 
-	io_data->kiocb->private = NULL;
 	if (io_data->read)
 		kfree(io_data->iovec);
 	kfree(io_data->buf);
@@ -912,8 +912,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 
 			if (unlikely(ret < 0)) {
 				ret = -EIO;
-			} else if (unlikely(
-				   wait_for_completion_interruptible(done))) {
+			} else if (unlikely(wait_for_completion_interruptible_timeout(done, 10*HZ) <= 0)) {
 				spin_lock_irq(&epfile->ffs->eps_lock);
 				/*
 				 * While we were acquiring lock endpoint got
@@ -1583,6 +1582,11 @@ static void ffs_data_clear(struct ffs_data *ffs)
 			ffs->gadget, ffs->flags);
 
 	ffs_closed(ffs);
+
+
+	if (test_bit(FFS_FL_BOUND, &ffs->flags))
+		ffs_closed(ffs);
+
 
 	/* Dump ffs->gadget and ffs->flags */
 	if (ffs->gadget)

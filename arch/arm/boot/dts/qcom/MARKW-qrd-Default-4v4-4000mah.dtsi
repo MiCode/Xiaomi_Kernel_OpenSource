@@ -1,0 +1,48 @@
+qcom,2369665_markw_4000mah_default {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <1>;
+	qcom,battery-beta = <3435>;
+	qcom,thermal-coefficients = [c2 86 bb 50 cf 37];
+	qcom,battery-type = "Default_Coslight_4000mah";
+	qcom,chg-rslow-comp-c1 = <3798459>;
+	qcom,chg-rslow-comp-c2 = <5738213>;
+	qcom,chg-rs-to-rslow = <1029153>;
+	qcom,chg-rslow-comp-thr = <0xAB>;
+	qcom,checksum = <0x3522>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.15";
+	qcom,fg-profile-data = [
+		 CB 83 75 77
+		 D3 7B 55 74
+		 5E 83 4E 6D
+		 65 88 7C 8F
+		 45 82 95 98
+		 69 B6 08 C2
+		 52 14 9B 83
+		 DA 6F C3 79
+		 E9 6D 38 83
+		 22 79 E5 85
+		 6A 81 A1 82
+		 2D 98 C0 B7
+		 CE C8 70 13
+		 40 10 D0 59
+		 14 70 F8 FF
+		 13 35 A6 45
+		 CF 40 00 00
+		 86 47 F1 31
+		 27 40 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 62 70 F4 69
+		 23 5B FD 88
+		 6A 7C 15 72
+		 1E 63 9E 80
+		 90 75 1D 6B
+		 65 6F CC A8
+		 23 0D 60 56
+		 5D A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

@@ -526,4 +526,5 @@ static inline void wcd_mbhc_deinit(struct wcd_mbhc *mbhc)
 }
 #endif
 
+extern void msm8x16_wcd_codec_set_headset_state(u32 state);
 #endif /* __WCD_MBHC_V2_H__ */

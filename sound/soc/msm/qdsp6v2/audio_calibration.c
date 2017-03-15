@@ -1,4 +1,5 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -490,7 +491,13 @@ static long audio_cal_shared_ioctl(struct file *file, unsigned int cmd,
 			goto unlock;
 		if (data == NULL)
 			goto unlock;
-		if (copy_to_user((void *)arg, data,
+		if ((sizeof(data->hdr) + data->hdr.cal_type_size) > size) {
+			pr_err("%s: header size %zd plus cal type size %d are greater than data buffer size %d\n",
+				__func__, sizeof(data->hdr),
+				data->hdr.cal_type_size, size);
+			ret = -EFAULT;
+			goto unlock;
+		} else if (copy_to_user((void *)arg, data,
 			sizeof(data->hdr) + data->hdr.cal_type_size)) {
 			pr_err("%s: Could not copy cal type to user\n",
 				__func__);

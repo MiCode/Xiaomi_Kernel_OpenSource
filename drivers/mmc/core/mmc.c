@@ -4,6 +4,7 @@
  *  Copyright (C) 2003-2004 Russell King, All Rights Reserved.
  *  Copyright (C) 2005-2007 Pierre Ossman, All Rights Reserved.
  *  MMCv4 support Copyright (C) 2006 Philip Langdale, All Rights Reserved.
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -812,6 +813,7 @@ MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(enhanced_rpmb_supported, "%#x\n",
 		card->ext_csd.enhanced_rpmb_supported);
 MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
+MMC_DEV_ATTR(fw_version, "%#x\n", card->ext_csd.fw_version);
 
 static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_cid.attr,
@@ -831,6 +833,7 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_raw_rpmb_size_mult.attr,
 	&dev_attr_enhanced_rpmb_supported.attr,
 	&dev_attr_rel_sectors.attr,
+	&dev_attr_fw_version.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(mmc_std);
@@ -2378,12 +2381,6 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 			goto out;
 	}
 
-	if (mmc_card_doing_auto_bkops(host->card)) {
-		err = mmc_set_auto_bkops(host->card, false);
-		if (err)
-			goto out;
-	}
-
 	err = mmc_flush_cache(host->card);
 	if (err)
 		goto out;
@@ -2462,9 +2459,6 @@ static int mmc_partial_init(struct mmc_host *host)
 	}
 	pr_debug("%s: %s: reading and comparing ext_csd successful\n",
 		mmc_hostname(host), __func__);
-
-	if (mmc_card_support_auto_bkops(host->card))
-		(void)mmc_set_auto_bkops(host->card, true);
 
 	if (card->ext_csd.cmdq_support && (card->host->caps2 &
 					   MMC_CAP2_CMD_QUEUE)) {

@@ -630,10 +630,10 @@ done:
 #define MSM8953_APCC_APM_CTL_STS           0x000002b0
 
 /* 8953 constants */
-#define MSM8953_APM_SWITCH_TIMEOUT_US      500
+#define MSM8953_APM_SWITCH_TIMEOUT_US 500
 
 /* Register bit mask definitions */
-#define MSM8953_APM_CTL_STS_MASK           0x1f
+#define MSM8953_APM_CTL_STS_MASK 0x1f
 
 static int msm8953_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 {

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,4 +22,32 @@
 	model = "Qualcomm Technologies, Inc. MSM8953 RCM";
 	compatible = "qcom,msm8953-cdp", "qcom,msm8953", "qcom,cdp";
 	qcom,board-id= <21 0>;
+};
+
+&soc {
+	gpio_keys {
+		/delete-node/ home;
+	};
+};
+
+&gpio_key_active {
+	mux {
+		pins = "gpio85", "gpio86", "gpio87";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio85", "gpio86", "gpio87";
+	};
+};
+
+&gpio_key_suspend {
+	mux {
+		pins = "gpio85", "gpio86", "gpio87";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio85", "gpio86", "gpio87";
+	};
 };

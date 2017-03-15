@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3339,7 +3340,7 @@ static ssize_t wcnss_wlan_write(struct file *fp, const char __user
 		return -EFAULT;
 
 	if ((UINT32_MAX - count < penv->user_cal_rcvd) ||
-	     MAX_CALIBRATED_DATA_SIZE < count + penv->user_cal_rcvd) {
+		(penv->user_cal_exp_size < count + penv->user_cal_rcvd)) {
 		pr_err(DEVICE " invalid size to write %zu\n", count +
 				penv->user_cal_rcvd);
 		rc = -ENOMEM;

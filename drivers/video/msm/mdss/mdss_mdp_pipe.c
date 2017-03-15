@@ -1129,7 +1129,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 
 	for (i = off; i < npipes; i++) {
 		pipe = pipe_pool + i;
-		if (atomic_read(&pipe->kref.refcount) == 0) {
+		if (pipe && atomic_read(&pipe->kref.refcount) == 0) {
 			pipe->mixer_left = mixer;
 			break;
 		}

@@ -2,6 +2,7 @@
  * fs/ioprio.c
  *
  * Copyright (C) 2004 Jens Axboe <axboe@kernel.dk>
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Helper functions for setting/querying io priorities of processes. The
  * system calls closely mimmick getpriority/setpriority, see the man page for
@@ -149,8 +150,10 @@ static int get_task_ioprio(struct task_struct *p)
 	if (ret)
 		goto out;
 	ret = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_NONE, IOPRIO_NORM);
+	task_lock(p);
 	if (p->io_context)
 		ret = p->io_context->ioprio;
+	task_unlock(p);
 out:
 	return ret;
 }

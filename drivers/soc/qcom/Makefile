@@ -81,6 +81,8 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-y += subsystem_restart.o
 	obj-y += ramdump.o
 endif
+obj-$(CONFIG_SERIAL_NUM) += serial_num.o
+obj-$(CONFIG_SECBOOT_FUSE) += secboot_fuse.o
 
 obj-$(CONFIG_MSM_SERVICE_NOTIFIER) += service-notifier.o
 obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o sysmon-qmi.o

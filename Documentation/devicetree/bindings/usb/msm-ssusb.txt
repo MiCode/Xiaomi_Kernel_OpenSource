@@ -42,6 +42,9 @@ Optional properties :
 - qcom,disable-host-mode-pm: If present, it disables XHCI PM runtime functionality when USB
   host mode is used.
 - qcom,core-clk-rate: If present, indicates clock frequency to be set for USB master clock.
+- qcom,detect-dpdm-floating: Indicates if SDP must be rechecked for floating data lines.
+  If datalines are floating then don't treat that as SDP.
+
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
   This sub node is required property for device node. The properties of this subnode

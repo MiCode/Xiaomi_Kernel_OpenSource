@@ -1,0 +1,71 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8953.dtsi"
+#include "msm8953-qrd-wt88553.dtsi"
+#include "msm8953-audio-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSMTITANIUM QRD WT88553";
+	compatible = "qcom,msm8953-qrd-wt88553",
+		   "qcom,msm8953-qrd", "qcom,msm8953", "qcom,qrd";
+	qcom,board-id= <0x1000b 1>;
+};
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "MARKW-qrd-Coslight-4v4-4000mah.dtsi"
+		#include "MARKW-qrd-Feimaotui-4v4-4000mah.dtsi"
+		#include "MARKW-qrd-Default-4v4-4000mah.dtsi"
+
+	};
+};
+
+&pmi8950_charger {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,float-voltage-mv = <4400>;
+	qcom,resume-delta-mv = <50>;
+	qcom,chg-inhibit-fg;
+	qcom,thermal-mitigation = <2000 1200 1000 800 800>;
+	qcom,charge-unknown-battery;
+	status = "okay";
+};
+
+&pmi8950_fg {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,cold-bat-decidegc = <(0)>;
+	qcom,cool-bat-decidegc = <(100)>;
+	qcom,hot-bat-decidegc = <600>;
+	qcom,warm-bat-decidegc = <450>;
+
+	qcom,fg-iterm-ma = <150>;
+	qcom,fg-chg-iterm-ma = <100>;
+	qcom,resume-soc = <99>;
+	qcom,fg-cutoff-voltage-mv = <3400>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,cl-max-increment-deciperc = <1>;
+	qcom,cl-max-decrement-deciperc = <1>;
+	qcom,fg-delta-soc = <1>;
+	qcom,bad-battery-detection-enable;
+	qcom,hold-soc-while-full;
+	qcom,thermal-coefficients = [c2 86 bb 50 cf 37];
+};
+
+&i2c_2 {
+	pericom-type-c@1d {
+		status="disabled";
+	};
+};

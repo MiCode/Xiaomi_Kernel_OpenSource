@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,7 @@
 #include <sound/pcm.h>
 #include <sound/jack.h>
 #include <sound/q6afe-v2.h>
+#include <sound/q6core.h>
 #include <soc/qcom/socinfo.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "msm-audio-pinctrl.h"
@@ -47,10 +49,14 @@
 #define QUIN_MI2S_ID	(1 << 4)
 
 #define DEFAULT_MCLK_RATE 9600000
+#define AW8736_MODE 5
 
 #define WCD_MBHC_DEF_RLOADS 5
 #define MAX_WSA_CODEC_NAME_LENGTH 80
 #define MSM_DT_MAX_PROP_SIZE 80
+#define EXT_CLASS_D_EN_DELAY 13000
+#define EXT_CLASS_D_DIS_DELAY 3000
+#define EXT_CLASS_D_DELAY_DELTA 2000
 
 enum btsco_rates {
 	RATE_8KHZ_ID,
@@ -71,6 +77,7 @@ static int mi2s_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static atomic_t quat_mi2s_clk_ref;
 static atomic_t quin_mi2s_clk_ref;
 static atomic_t auxpcm_mi2s_clk_ref;
+static int spk_pa_gpio;
 
 static int msm8952_enable_dig_cdc_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
@@ -79,6 +86,7 @@ static int msm8952_mclk_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event);
 static int msm8952_wsa_switch_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event);
+static struct delayed_work lineout_amp_enable;
 
 /*
  * Android L spec
@@ -93,9 +101,9 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = false,
 	.key_code[0] = KEY_MEDIA,
-	.key_code[1] = KEY_VOICECOMMAND,
-	.key_code[2] = KEY_VOLUMEUP,
-	.key_code[3] = KEY_VOLUMEDOWN,
+	.key_code[1] = KEY_PREVIOUSSONG_NEW,
+	.key_code[2] = KEY_NEXTSONG_NEW,
+	.key_code[3] = KEY_VOICECOMMAND,
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
@@ -168,6 +176,7 @@ static const char *const btsco_rate_text[] = {"BTSCO_RATE_8KHZ",
 static const char *const proxy_rx_ch_text[] = {"One", "Two", "Three", "Four",
 	"Five", "Six", "Seven", "Eight"};
 static const char *const vi_feed_ch_text[] = {"One", "Two"};
+static const char *const lineout_text[] = {"DISABLE", "ENABLE", "DUALMODE"};
 static char const *mi2s_rx_sample_rate_text[] = {"KHZ_48",
 					"KHZ_96", "KHZ_192"};
 
@@ -703,6 +712,65 @@ static int msm8952_enable_dig_cdc_clk(struct snd_soc_codec *codec,
 	return ret;
 }
 
+static void msm8952_ext_spk_control(u32 enable)
+{
+		int i = 0;
+	if (enable) {
+	/* Open external audio PA device */
+		for (i = 0; i < AW8736_MODE; i++) {
+			gpio_direction_output(spk_pa_gpio, false);
+			gpio_direction_output(spk_pa_gpio, true);
+		}
+		usleep_range(EXT_CLASS_D_EN_DELAY,
+		 EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
+	} else {
+		gpio_direction_output(spk_pa_gpio, false);
+		/* time takes disable the external power amplifier */
+		usleep_range(EXT_CLASS_D_DIS_DELAY,
+		 EXT_CLASS_D_DIS_DELAY + EXT_CLASS_D_DELAY_DELTA);
+	}
+	pr_err("%s: %s [hjf]  external speaker 222PAs.\n", __func__,
+	enable ? "Enable" : "Disable");
+}
+static void msm8x16_ext_spk_delayed_enable(struct work_struct *work)
+{
+	int i = 0;
+	/* Open external audio PA device */
+	for (i = 0; i < AW8736_MODE; i++) {
+		gpio_direction_output(spk_pa_gpio, false);
+		gpio_direction_output(spk_pa_gpio, true);
+	}
+	usleep_range(EXT_CLASS_D_DIS_DELAY,
+	EXT_CLASS_D_DIS_DELAY + EXT_CLASS_D_DELAY_DELTA);
+
+	pr_debug("%s: Enable external speaker PAs.\n", __func__);
+}
+
+static int lineout_status_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	pr_err("%s: [hjf] get222\n", __func__);
+	return 0;
+}
+static int lineout_status_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int state = 0;
+	state = ucontrol->value.integer.value[0];
+	pr_err("%s: [hjf]  external speaker PA mode:%d\n", __func__, state);
+	switch (state) {
+	case 1:
+		schedule_delayed_work(&lineout_amp_enable, msecs_to_jiffies(30));
+		break;
+	case 0:
+		msm8952_ext_spk_control(0);
+		break;
+	default:
+		pr_err("%s: [hjf]  Unexpected input value\n", __func__);
+		break;
+	}
+	return 0;
+}
 static int msm_btsco_rate_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -981,6 +1049,7 @@ static const struct soc_enum msm_snd_enum[] = {
 				vi_feed_ch_text),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mi2s_rx_sample_rate_text),
 				mi2s_rx_sample_rate_text),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(lineout_text), lineout_text),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -1000,6 +1069,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_vi_feed_tx_ch_get, msm_vi_feed_tx_ch_put),
 	SOC_ENUM_EXT("MI2S_RX SampleRate", msm_snd_enum[6],
 			mi2s_rx_sample_rate_get, mi2s_rx_sample_rate_put),
+	SOC_ENUM_EXT("Lineout_1 amp", msm_snd_enum[7],
+			lineout_status_get, lineout_status_put),
 };
 
 static int msm8952_mclk_event(struct snd_soc_dapm_widget *w,
@@ -1146,6 +1217,10 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
+	if (!q6core_is_adsp_ready()) {
+		pr_err("%s(): adsp not ready\n", __func__);
+		return -EINVAL;
+	}
 
 	/*
 	 * configure the slave select to
@@ -1236,6 +1311,10 @@ static int msm_prim_auxpcm_startup(struct snd_pcm_substream *substream)
 
 	pr_debug("%s(): substream = %s\n",
 			__func__, substream->name);
+	if (!q6core_is_adsp_ready()) {
+		pr_err("%s(): adsp not ready\n", __func__);
+		return -EINVAL;
+	}
 
 	/* mux config to route the AUX MI2S */
 	if (pdata->vaddr_gpio_mux_mic_ctl) {
@@ -1303,6 +1382,11 @@ static int msm_sec_mi2s_snd_startup(struct snd_pcm_substream *substream)
 					__func__);
 		return 0;
 	}
+	if (!q6core_is_adsp_ready()) {
+		pr_err("%s(): adsp not ready\n", __func__);
+		return -EINVAL;
+	}
+
 	if ((pdata->ext_pa & SEC_MI2S_ID) == SEC_MI2S_ID) {
 		if (pdata->vaddr_gpio_mux_spkr_ctl) {
 			val = ioread32(pdata->vaddr_gpio_mux_spkr_ctl);
@@ -1376,6 +1460,10 @@ static int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 				substream->name, substream->stream);
+	if (!q6core_is_adsp_ready()) {
+		pr_err("%s(): adsp not ready\n", __func__);
+		return -EINVAL;
+	}
 	if (pdata->vaddr_gpio_mux_mic_ctl) {
 		val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
 		val = val | 0x02020002;
@@ -1434,6 +1522,10 @@ static int msm_quin_mi2s_snd_startup(struct snd_pcm_substream *substream)
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 				substream->name, substream->stream);
+	if (!q6core_is_adsp_ready()) {
+		pr_err("%s(): adsp not ready\n", __func__);
+		return -EINVAL;
+	}
 	if (pdata->vaddr_gpio_mux_quin_ctl) {
 		val = ioread32(pdata->vaddr_gpio_mux_quin_ctl);
 		val = val | 0x00000001;
@@ -1495,7 +1587,7 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 		return NULL;
 
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(msm8952_wcd_cal)->X) = (Y))
-	S(v_hs_max, 1500);
+	S(v_hs_max, 1600);
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(msm8952_wcd_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -1518,16 +1610,16 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 	 * 210-290 == Button 2
 	 * 360-680 == Button 3
 	 */
-	btn_low[0] = 75;
+	btn_low[0] = 25;
 	btn_high[0] = 75;
-	btn_low[1] = 150;
-	btn_high[1] = 150;
-	btn_low[2] = 225;
-	btn_high[2] = 225;
-	btn_low[3] = 450;
-	btn_high[3] = 450;
-	btn_low[4] = 500;
-	btn_high[4] = 500;
+	btn_low[1] = 200;
+	btn_high[1] = 225;
+	btn_low[2] = 325;
+	btn_high[2] = 450;
+	btn_low[3] = 500;
+	btn_high[3] = 510;
+	btn_low[4] = 530;
+	btn_high[4] = 540;
 
 	return msm8952_wcd_cal;
 }
@@ -1561,6 +1653,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC3");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC2");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT");
 	snd_soc_dapm_ignore_suspend(dapm, "WSA_SPK OUT");
 
 	snd_soc_dapm_sync(dapm);
@@ -2948,6 +3041,16 @@ parse_mclk_freq:
 	}
 	pdata->mclk_freq = id;
 
+	spk_pa_gpio = of_get_named_gpio(pdev->dev.of_node, "ext-spk-amp-gpio", 0);
+	if (spk_pa_gpio < 0) {
+		dev_err(&pdev->dev,
+		"%s: error! spk_pa_gpio is :%d\n", __func__, spk_pa_gpio);
+	} else {
+		if (gpio_request_one(spk_pa_gpio, GPIOF_DIR_OUT, "spk_enable")) {
+			pr_err("%s: request spk_pa_gpio  fail!\n", __func__);
+		}
+	}
+	pr_err("%s: [hjf] request spk_pa_gpio is %d!\n", __func__, spk_pa_gpio);
 	/*reading the gpio configurations from dtsi file*/
 	ret = msm_gpioset_initialize(CLIENT_WCD_INT, &pdev->dev);
 	if (ret < 0) {
@@ -3120,6 +3223,7 @@ parse_mclk_freq:
 		goto err;
 	/* initialize timer */
 	INIT_DELAYED_WORK(&pdata->disable_mclk_work, msm8952_disable_mclk);
+	INIT_DELAYED_WORK(&lineout_amp_enable, msm8x16_ext_spk_delayed_enable);
 	mutex_init(&pdata->cdc_mclk_mutex);
 	atomic_set(&pdata->mclk_rsc_ref, 0);
 	if (card->aux_dev) {
@@ -3166,6 +3270,7 @@ err:
 		}
 	}
 err1:
+	snd_soc_card_set_drvdata(card, NULL);
 	devm_kfree(&pdev->dev, pdata);
 	return ret;
 }

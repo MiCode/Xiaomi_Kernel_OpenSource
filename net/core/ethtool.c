@@ -1,6 +1,7 @@
 /*
  * net/core/ethtool.c - Ethtool ioctl handler
  * Copyright (c) 2003 Matthew Wilcox <matthew@wil.cx>
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This file is where we call all the ethtool_ops commands to get
  * the information ethtool needs.
@@ -902,11 +903,13 @@ static int ethtool_reset(struct net_device *dev, char __user *useraddr)
 
 static int ethtool_get_wol(struct net_device *dev, char __user *useraddr)
 {
-	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
+	struct ethtool_wolinfo wol;
 
 	if (!dev->ethtool_ops->get_wol)
 		return -EOPNOTSUPP;
 
+	memset(&wol, 0, sizeof(struct ethtool_wolinfo));
+	wol.cmd = ETHTOOL_GWOL;
 	dev->ethtool_ops->get_wol(dev, &wol);
 
 	if (copy_to_user(useraddr, &wol, sizeof(wol)))

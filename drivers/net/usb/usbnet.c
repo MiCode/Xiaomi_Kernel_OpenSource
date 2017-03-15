@@ -2,6 +2,7 @@
  * USB Network driver infrastructure
  * Copyright (C) 2000-2005 by David Brownell
  * Copyright (C) 2003-2005 David Hollis <dhollis@davehollis.com>
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -2272,6 +2273,13 @@ unbind:
 	if (info->unbind)
 		info->unbind (dev, udev);
 free_netdevice:
+	/* subdrivers must undo all they did in bind() if they
+	 * fail it, but we may fail later and a deferred kevent
+	 * may trigger an error resubmitting itself and, worse,
+	 * schedule a timer. So we kill it all just in case.
+	 */
+	cancel_work_sync(&dev->kevent);
+	del_timer_sync(&dev->delay);
 	free_netdev(net);
 exit:
 	return status;

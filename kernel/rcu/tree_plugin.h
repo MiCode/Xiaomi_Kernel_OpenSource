@@ -1633,12 +1633,10 @@ static bool rcu_preempt_cpu_has_nonlazy_callbacks(int cpu)
 }
 
 #endif /* else #ifdef CONFIG_TREE_PREEMPT_RCU */
-#endif
 
 /*
  * Does any flavor of RCU have non-lazy callbacks on the specified CPU?
  */
-#ifndef CONFIG_RCU_NOCB_CPU_ALL
 static bool rcu_cpu_has_nonlazy_callbacks(int cpu)
 {
 	return __rcu_cpu_has_nonlazy_callbacks(&per_cpu(rcu_sched_data, cpu)) ||
@@ -1646,7 +1644,6 @@ static bool rcu_cpu_has_nonlazy_callbacks(int cpu)
 	       rcu_preempt_cpu_has_nonlazy_callbacks(cpu);
 }
 #endif
-
 /*
  * Allow the CPU to enter dyntick-idle mode if either: (1) There are no
  * callbacks on this CPU, (2) this CPU has not yet attempted to enter

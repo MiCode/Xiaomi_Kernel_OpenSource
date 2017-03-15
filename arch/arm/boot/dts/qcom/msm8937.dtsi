@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -205,7 +206,7 @@
 
 	qcom,rmtfs_sharedmem@00000000 {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x00000000 0x00E0000>;
+		reg = <0x00000000 0x00180000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
 	};

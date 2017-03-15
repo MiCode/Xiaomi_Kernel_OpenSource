@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2008 International Business Machines Corp.
  *   Author(s): Michael A. Halcrow <mahalcro@us.ibm.com>
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -25,6 +26,7 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/mount.h>
+#include <linux/file.h>
 #include "ecryptfs_kernel.h"
 
 struct ecryptfs_open_req {
@@ -147,7 +149,7 @@ int ecryptfs_privileged_open(struct file **lower_file,
 	flags |= IS_RDONLY(lower_dentry->d_inode) ? O_RDONLY : O_RDWR;
 	(*lower_file) = dentry_open(&req.path, flags, cred);
 	if (!IS_ERR(*lower_file))
-		goto out;
+		goto have_file;
 	if ((flags & O_ACCMODE) == O_RDONLY) {
 		rc = PTR_ERR((*lower_file));
 		goto out;
@@ -165,8 +167,16 @@ int ecryptfs_privileged_open(struct file **lower_file,
 	mutex_unlock(&ecryptfs_kthread_ctl.mux);
 	wake_up(&ecryptfs_kthread_ctl.wait);
 	wait_for_completion(&req.done);
-	if (IS_ERR(*lower_file))
+	if (IS_ERR(*lower_file)) {
 		rc = PTR_ERR(*lower_file);
+		goto out;
+	}
+have_file:
+	if ((*lower_file)->f_op->mmap == NULL && !d_is_dir(lower_dentry)) {
+		fput(*lower_file);
+		*lower_file = NULL;
+		rc = -EMEDIUMTYPE;
+	}
 out:
 	return rc;
 }

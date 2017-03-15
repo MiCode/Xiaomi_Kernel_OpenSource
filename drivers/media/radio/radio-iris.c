@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -634,6 +635,7 @@ int radio_hci_unregister_dev(void)
 	skb_queue_purge(&hdev->rx_q);
 	skb_queue_purge(&hdev->cmd_q);
 	skb_queue_purge(&hdev->raw_q);
+	radio->fm_hdev = NULL;
 
 	radio->fm_hdev = NULL;
 	return 0;

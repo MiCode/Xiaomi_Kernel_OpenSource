@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2007 Michel Ludwig (michel.ludwig@gmail.com)
  *       - frontend interface
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This code is placed under the terms of the GNU General Public License v2
  */
@@ -1403,11 +1404,12 @@ static int xc2028_set_config(struct dvb_frontend *fe, void *priv_cfg)
 	 * in order to avoid troubles during device release.
 	 */
 	kfree(priv->ctrl.fname);
+	priv->ctrl.fname = NULL;
 	memcpy(&priv->ctrl, p, sizeof(priv->ctrl));
 	if (p->fname) {
 		priv->ctrl.fname = kstrdup(p->fname, GFP_KERNEL);
 		if (priv->ctrl.fname == NULL)
-			rc = -ENOMEM;
+			return -ENOMEM;
 	}
 
 	/*

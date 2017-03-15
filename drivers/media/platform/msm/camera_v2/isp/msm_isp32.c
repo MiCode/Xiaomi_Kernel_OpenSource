@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -861,7 +862,7 @@ static void msm_vfe32_cfg_fetch_engine(struct vfe_device *vfe_dev,
 	return;
 }
 
-static void msm_vfe32_cfg_camif(struct vfe_device *vfe_dev,
+static void msm_vfe32_cfg_camif (struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg)
 {
 	uint16_t first_pixel, last_pixel, first_line, last_line;

@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +32,12 @@
 			qcom,secondary-pon-reset;
 			qcom,hard-reset-poweroff-type =
 				<PON_POWER_OFF_SHUTDOWN>;
+
+			pon_perph_reg: qcom,pon_perph_reg {
+				regulator-name = "pon_spare_reg";
+				qcom,pon-spare-reg-addr = <0x8c>;
+				qcom,pon-spare-reg-bit = <1>;
+			};
 		};
 
 		pmi8950_vadc: vadc@3100 {
@@ -197,15 +204,10 @@
 			#size-cells = <1>;
 
 			qcom,iterm-ma = <100>;
-			qcom,float-voltage-mv = <4200>;
 			qcom,resume-delta-mv = <200>;
 			qcom,chg-inhibit-fg;
 			qcom,rparasitic-uohm = <100000>;
 			qcom,bms-psy-name = "bms";
-			qcom,thermal-mitigation = <1500 700 600 0>;
-			qcom,parallel-usb-min-current-ma = <1400>;
-			qcom,parallel-usb-9v-min-current-ma = <900>;
-			qcom,parallel-allowed-lowering-ma = <500>;
 			qcom,pmic-revid = <&pmi8950_revid>;
 			qcom,force-aicl-rerun;
 			qcom,aicl-rerun-period-s = <180>;
@@ -311,7 +313,7 @@
 			compatible = "qcom,qpnp-fg";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			qcom,resume-soc = <95>;
+			qcom,resume-soc = <99>;
 			status = "okay";
 			qcom,bcl-lm-threshold-ma = <127>;
 			qcom,bcl-mh-threshold-ma = <405>;
@@ -559,7 +561,7 @@
 				qcom,max-current = <1000>;
 				qcom,duration = <1280>;
 				qcom,id = <0>;
-				qcom,current = <625>;
+				qcom,current = <750>;
 			};
 
 			pmi8950_flash1: qcom,flash_1 {
@@ -570,7 +572,7 @@
 				qcom,max-current = <1000>;
 				qcom,duration = <1280>;
 				qcom,id = <1>;
-				qcom,current = <625>;
+				qcom,current = <750>;
 			};
 
 			pmi8950_torch0: qcom,torch_0 {
@@ -580,7 +582,7 @@
 						"torch0_trigger";
 				qcom,max-current = <200>;
 				qcom,id = <0>;
-				qcom,current = <120>;
+				qcom,current = <100>;
 			};
 
 			pmi8950_torch1: qcom,torch_1 {
@@ -590,7 +592,16 @@
 						"torch1_trigger";
 				qcom,max-current = <200>;
 				qcom,id = <1>;
-				qcom,current = <120>;
+				qcom,current = <100>;
+			};
+			pmi8950_torch2: qcom,torch_2 {
+				label = "torch";
+				qcom,led-name = "flashlight";
+				qcom,default-led-trigger =
+						"torch2_trigger";
+				qcom,max-current = <200>;
+				qcom,id = <1>;
+				qcom,current = <100>;
 			};
 
 			pmi8950_switch: qcom,switch {
@@ -602,6 +613,10 @@
 				qcom,duration = <1280>;
 				qcom,id = <2>;
 				qcom,current = <625>;
+
+				reg0 {
+					regulator-name = "pon_spare_reg";
+				};
 			};
 		};
 

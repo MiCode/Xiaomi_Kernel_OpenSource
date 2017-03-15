@@ -30,7 +30,7 @@
 #define BORDER_ADJUST_NUM 3
 #define BORDER_ADJUST_DENOM 4
 
-static struct kobject *vkey_obj;
+struct kobject *vkey_obj;
 static char *vkey_buf;
 
 static ssize_t vkey_show(struct kobject  *obj,
@@ -184,10 +184,8 @@ static int vkeys_probe(struct platform_device *pdev)
 				"virtualkeys.%s", pdata->name);
 	vkey_obj_attr.attr.name = name;
 
-	vkey_obj = kobject_create_and_add("board_properties", NULL);
 	if (!vkey_obj) {
-		dev_err(&pdev->dev, "unable to create kobject\n");
-		return -ENOMEM;
+		vkey_obj = kobject_create_and_add("board_properties", NULL);
 	}
 
 	ret = sysfs_create_group(vkey_obj, &vkey_grp);
@@ -221,7 +219,7 @@ static struct platform_driver vkeys_driver = {
 	.remove = vkeys_remove,
 	.driver = {
 		.owner = THIS_MODULE,
-		.name = "gen_vkeys",
+		.name = "gen-vkey",
 		.of_match_table = vkey_match_table,
 	},
 };

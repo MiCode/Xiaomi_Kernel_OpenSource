@@ -2,6 +2,7 @@
  * Debugfs support for hosts and cards
  *
  * Copyright (C) 2008 Atmel Corporation
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -733,6 +734,9 @@ static ssize_t mmc_bkops_stats_write(struct file *filp,
 	int err;
 
 	if (!card)
+		return cnt;
+
+	if (!access_ok(VERIFY_READ, ubuf, cnt))
 		return cnt;
 
 	stats = &card->bkops.stats;

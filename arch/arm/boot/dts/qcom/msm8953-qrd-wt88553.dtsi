@@ -1,0 +1,212 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8953-qrd.dtsi"
+#include "dsi-panel-nt35521s-ebbg-720p-video.dtsi"
+#include "dsi-panel-nt35596-ebbg-1080p-video.dtsi"
+#include "dsi-panel-r63350-tianma-1080p-video.dtsi"
+
+&spmi_bus {
+	qcom,pmi8950@3 {
+		labibb: qpnp-labibb-regulator {
+			ibb_regulator: qcom,ibb@dc00 {
+				/delete-property/
+					qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-lcd-voltage = <5700000>;
+			};
+
+			lab_regulator: qcom,lab@de00 {
+				/delete-property/
+					qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-lcd-voltage = <5700000>;
+			};
+		};
+	};
+	qcom,pmi8950@2 {
+		qcom,leds@a100 {
+			status = "ok";
+			qcom,led_mpp_2 {
+				label = "mpp";
+				linux,name = "button-backlight";
+				linux,default-trigger = "none";
+				qcom,default-state = "off";
+				qcom,max-current = <40>;
+				qcom,current-setting = <5>;
+				qcom,id = <6>;
+				qcom,mode = "manual";
+				qcom,source-sel = <1>;
+				qcom,mode-ctrl = <0x60>;
+			};
+		};
+	};
+};
+&soc {
+	gpio-leds {
+		compatible = "gpio-leds";
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_led_off>;
+
+			infred {
+			gpios = <&tlmm 45 0>;
+			label = "infrared";
+			linux,default-trigger = "infra-red";
+			default-state = "off";
+			retain-state-suspended;
+		};
+	};
+	fpc1020 {
+		compatible = "soc:fpc1020";
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <48 0x0>;
+
+		fpc,gpio_rst    = <&tlmm 140 0>;
+		fpc,gpio_irq    = <&tlmm 48 0>;
+
+		vcc_spi-supply  = <&pm8953_l5>;
+		vdd_ana-supply  = <&pm8953_l5>;
+		vdd_io-supply   = <&pm8953_l5>;
+
+		fpc,enable-on-boot;
+		/delete-property/
+		fpc,enable-wakeup;
+
+		fpc,spi-max-frequency = <4800000>;
+
+		/*For SPI Clock Handled by Linux*/
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
+
+		pinctrl-names = "fpc1020_spi_active",
+				"fpc1020_reset_reset",
+				"fpc1020_reset_active",
+				"fpc1020_irq_active";
+
+		pinctrl-0 = <&fpc_spi_active>;
+		pinctrl-1 = <&fpc_reset_reset>;
+		pinctrl-2 = <&fpc_reset_active>;
+		pinctrl-3 = <&fpc_irq_active>;
+	};
+};
+&i2c_2  { /* i2c 6 */
+	aw2013@45 { /*blink */
+		compatible = "awinc,aw2013";
+		reg = <0x45>;
+		rgb_led-supply = <&pm8953_l10>;
+		red {
+			label = "red";
+			linux,default-trigger = "battery-red";
+			default-state = "off";
+			retain-state-suspended;
+		};
+
+		green {
+			label = "green";
+			linux,default-trigger = "battery-green";
+			default-state = "off";
+			retain-state-suspended;
+		};
+
+		blue {
+			label = "blue";
+			linux,default-trigger = "battery-blue";
+			default-state = "off";
+			retain-state-suspended;
+		};
+		white {
+			label = "white";
+			linux,default-trigger = "none";
+			default-state = "off";
+			retain-state-suspended;
+		};
+
+		yellow {
+			label = "yellow";
+			linux,default-trigger = "none";
+			default-state = "off";
+			retain-state-suspended;
+		};
+
+		cyan {
+			label = "cyan";
+			linux,default-trigger = "none";
+			default-state = "off";
+			retain-state-suspended;
+		};
+		purple {
+			label = "purple";
+			linux,default-trigger = "none";
+			default-state = "off";
+			retain-state-suspended;
+		};
+
+	};
+};
+
+#include "msm8953-mdss-panels.dtsi"
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
+
+	qcom,dsi-pref-prim-pan = <&dsi_nt35521s_ebbg_720_video>;
+	qcom,dsi-pref-sub-pan = <&dsi_nt35596_1080_vid>;
+	qcom,dsi-pref-sub1-pan = <&dsi_r63350_1080p_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 61 0>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
+};
+
+&dsi_r69006_1080p_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_r69006_1080p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt35521s_ebbg_720_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt35596_1080_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_r63350_1080p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+

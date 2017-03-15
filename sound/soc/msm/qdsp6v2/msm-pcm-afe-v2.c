@@ -414,7 +414,7 @@ static int msm_afe_open(struct snd_pcm_substream *substream)
 		pr_err("Failed to allocate memory for msm_audio\n");
 		return -ENOMEM;
 	} else
-		pr_debug("prtd %p\n", prtd);
+		pr_debug("prtd %pK\n", prtd);
 
 	mutex_init(&prtd->lock);
 	spin_lock_init(&prtd->dsp_lock);
@@ -483,7 +483,7 @@ static int msm_afe_playback_copy(struct snd_pcm_substream *substream,
 	char *hwbuf = runtime->dma_area + frames_to_bytes(runtime, hwoff);
 	u32 mem_map_handle = 0;
 
-	pr_debug("%s : appl_ptr 0x%lx hw_ptr 0x%lx dest_to_copy 0x%p\n",
+	pr_debug("%s : appl_ptr 0x%lx hw_ptr 0x%lx dest_to_copy 0x%pK\n",
 		__func__,
 		runtime->control->appl_ptr, runtime->status->hw_ptr, hwbuf);
 
@@ -571,7 +571,7 @@ static int msm_afe_capture_copy(struct snd_pcm_substream *substream,
 		}
 		atomic_set(&prtd->rec_bytes_avail, 0);
 	}
-	pr_debug("%s:appl_ptr 0x%lx hw_ptr 0x%lx src_to_copy 0x%p\n",
+	pr_debug("%s:appl_ptr 0x%lx hw_ptr 0x%lx src_to_copy 0x%pK\n",
 			__func__, runtime->control->appl_ptr,
 			runtime->status->hw_ptr, hwbuf);
 
@@ -766,7 +766,7 @@ static int msm_afe_hw_params(struct snd_pcm_substream *substream,
 		return -ENOMEM;
 	}
 
-	pr_debug("%s:buf = %p\n", __func__, buf);
+	pr_debug("%s:buf = %pK\n", __func__, buf);
 	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	dma_buf->dev.dev = substream->pcm->card->dev;
 	dma_buf->private_data = NULL;

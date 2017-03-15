@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is Mree software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,7 +133,7 @@ static ssize_t bus_floor_vote_store_api(struct device *dev,
 		return 0;
 	}
 
-	if (sscanf(buf, "%s %llu", name, &vote_khz) != 2) {
+	if (sscanf(buf, "%9s %llu", name, &vote_khz) != 2) {
 		pr_err("%s:return error", __func__);
 		return -EINVAL;
 	}

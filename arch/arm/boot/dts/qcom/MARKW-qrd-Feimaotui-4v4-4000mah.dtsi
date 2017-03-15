@@ -1,0 +1,48 @@
+qcom,2389679_markw_scud_4000mah_averaged_masterslave_apr11th2016 {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <50>;
+	qcom,battery-beta = <3435>;
+	qcom,thermal-coefficients = [c2 86 bb 50 cf 37];
+	qcom,battery-type = "Feimaotui_4000mah";
+	qcom,chg-rslow-comp-c1 = <2571878>;
+	qcom,chg-rslow-comp-c2 = <2754170>;
+	qcom,chg-rs-to-rslow = <1877718>;
+	qcom,chg-rslow-comp-thr = <0x99>;
+	qcom,checksum = <0x8AA7>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.15";
+	qcom,fg-profile-data = [
+		 B7 83 D7 75
+		 60 7A 67 6D
+		 6C 83 3C 77
+		 E3 8B F5 96
+		 F5 81 95 9A
+		 23 BD 5E C9
+		 4C 12 68 83
+		 FD 54 C0 71
+		 6C 32 3E 83
+		 99 78 D8 84
+		 DE 7B 51 82
+		 25 99 0E BC
+		 41 C8 71 0C
+		 6B 10 D2 52
+		 14 70 EE FC
+		 F0 35 24 47
+		 CA 41 00 00
+		 AE 47 E5 39
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 EA 73 70 72
+		 00 6C FA 80
+		 3B 75 D8 62
+		 01 50 AC 72
+		 C5 6E 65 4B
+		 7C 77 F0 AB
+		 21 B9 6A 95
+		 6C A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

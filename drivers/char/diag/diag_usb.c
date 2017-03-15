@@ -132,7 +132,7 @@ static void diag_usb_buf_tbl_remove(struct diag_usb_info *usb_info,
 	list_for_each_safe(start, temp, &usb_info->buf_tbl) {
 		entry = list_entry(start, struct diag_usb_buf_tbl_t, track);
 		if (entry->buf == buf) {
-			DIAG_LOG(DIAG_DEBUG_MUX, "ref_count-- for %p\n", buf);
+			DIAG_LOG(DIAG_DEBUG_MUX, "ref_count-- for %pK\n", buf);
 			atomic_dec(&entry->ref_count);
 			/*
 			 * Remove reference from the table if it is the
@@ -155,7 +155,7 @@ static struct diag_usb_buf_tbl_t *diag_usb_buf_tbl_get(
 	list_for_each_safe(start, temp, &usb_info->buf_tbl) {
 		entry = list_entry(start, struct diag_usb_buf_tbl_t, track);
 		if (entry->buf == buf) {
-			DIAG_LOG(DIAG_DEBUG_MUX, "ref_count-- for %p\n", buf);
+			DIAG_LOG(DIAG_DEBUG_MUX, "ref_count-- for %pK\n", buf);
 			atomic_dec(&entry->ref_count);
 			return entry;
 		}
@@ -303,7 +303,7 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	ch->write_cnt++;
 	entry = diag_usb_buf_tbl_get(ch, req->context);
 	if (!entry) {
-		pr_err_ratelimited("diag: In %s, unable to find entry %p in the table\n",
+		pr_err_ratelimited("diag: In %s, unable to find entry %pK in the table\n",
 				   __func__, req->context);
 		return;
 	}
@@ -398,7 +398,7 @@ static int diag_usb_write_ext(struct diag_usb_info *usb_info,
 	struct diag_request *req = NULL;
 
 	if (!usb_info || !buf || len <= 0) {
-		pr_err_ratelimited("diag: In %s, usb_info: %p buf: %p, len: %d\n",
+		pr_err_ratelimited("diag: In %s, usb_info: %pK buf: %pK, len: %d\n",
 				   __func__, usb_info, buf, len);
 		return -EINVAL;
 	}
@@ -518,7 +518,7 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 
 	spin_lock_irqsave(&usb_info->write_lock, flags);
 	if (diag_usb_buf_tbl_add(usb_info, buf, len, ctxt)) {
-		DIAG_LOG(DIAG_DEBUG_MUX, "ERR! unable to add buf %p to table\n",
+		DIAG_LOG(DIAG_DEBUG_MUX, "ERR! unable to add buf %pK to table\n",
 			 buf);
 		diagmem_free(driver, req, usb_info->mempool);
 		spin_unlock_irqrestore(&usb_info->write_lock, flags);

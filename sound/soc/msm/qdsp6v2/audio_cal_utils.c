@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,8 @@
 #include <linux/mutex.h>
 #include <sound/audio_cal_utils.h>
 
+static int unmap_memory(struct cal_type_data *cal_type,
+			struct cal_block_data *cal_block);
 
 size_t get_cal_info_size(int32_t cal_type)
 {
@@ -445,16 +448,12 @@ static void destroy_all_cal_blocks(struct cal_type_data *cal_type)
 		cal_block = list_entry(ptr,
 			struct cal_block_data, list);
 
-		if (cal_type->info.cal_util_callbacks.unmap_cal != NULL) {
-			ret = cal_type->info.cal_util_callbacks.
-				unmap_cal(cal_type->info.reg.cal_type,
-					cal_block);
-			if (ret < 0) {
-				pr_err("%s: unmap_cal failed, cal type %d, ret = %d!\n",
-					__func__,
-				       cal_type->info.reg.cal_type,
-					ret);
-			}
+		ret = unmap_memory(cal_type, cal_block);
+		if (ret < 0) {
+			pr_err("%s: unmap_memory failed, cal type %d, ret = %d!\n",
+				__func__,
+			       cal_type->info.reg.cal_type,
+				ret);
 		}
 		delete_cal_block(cal_block);
 		cal_block = NULL;
@@ -636,7 +635,7 @@ static struct cal_block_data *create_cal_block(struct cal_type_data *cal_type,
 		goto err;
 	}
 	cal_block->buffer_number = basic_cal->cal_hdr.buffer_number;
-	pr_debug("%s: created block for cal type %d, buf num %d, map handle %d, map size %zd paddr 0x%pa!\n",
+	pr_debug("%s: created block for cal type %d, buf num %d, map handle %d, map size %zd paddr 0x%pK!\n",
 		__func__, cal_type->info.reg.cal_type,
 		cal_block->buffer_number,
 		cal_block->map_data.ion_map_handle,

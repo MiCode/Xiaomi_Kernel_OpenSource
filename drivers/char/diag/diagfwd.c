@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -406,7 +406,7 @@ void diag_update_pkt_buffer(unsigned char *buf, uint32_t len, int type)
 	uint32_t max_len = 0;
 
 	if (!buf || len == 0) {
-		pr_err("diag: In %s, Invalid ptr %p and length %d\n",
+		pr_err("diag: In %s, Invalid ptr %pK and length %d\n",
 		       __func__, buf, len);
 		return;
 	}
@@ -525,7 +525,7 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 	int i;
 
 	if (!buf || !dest_buf) {
-		pr_err("diag: Invalid pointers buf: %p, dest_buf %p in %s\n",
+		pr_err("diag: Invalid pointers buf: %pK, dest_buf %pK in %s\n",
 		       buf, dest_buf, __func__);
 		return -EIO;
 	}
@@ -614,7 +614,7 @@ int diag_process_time_sync_query_cmd(unsigned char *src_buf, int src_len,
 	struct diag_cmd_time_sync_query_rsp_t rsp;
 
 	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
-		pr_err("diag: Invalid input in %s, src_buf: %p, src_len: %d, dest_buf: %p, dest_len: %d",
+		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d",
 			__func__, src_buf, src_len, dest_buf, dest_len);
 		return -EINVAL;
 	}
@@ -641,7 +641,7 @@ int diag_process_time_sync_switch_cmd(unsigned char *src_buf, int src_len,
 	int err = 0, write_len = 0;
 
 	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
-		pr_err("diag: Invalid input in %s, src_buf: %p, src_len: %d, dest_buf: %p, dest_len: %d",
+		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d",
 			__func__, src_buf, src_len, dest_buf, dest_len);
 		return -EINVAL;
 	}
@@ -713,7 +713,7 @@ int diag_cmd_log_on_demand(unsigned char *src_buf, int src_len,
 		return 0;
 
 	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
-		pr_err("diag: Invalid input in %s, src_buf: %p, src_len: %d, dest_buf: %p, dest_len: %d",
+		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d",
 		       __func__, src_buf, src_len, dest_buf, dest_len);
 		return -EINVAL;
 	}

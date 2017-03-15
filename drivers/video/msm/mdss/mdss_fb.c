@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2007 Google Incorporated
  * Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -54,6 +55,8 @@
 #include "mdss_debug.h"
 #include "mdss_smmu.h"
 #include "mdss_mdp.h"
+#include "mdss_dsi.h"
+
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
@@ -1091,6 +1094,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->ad_bl_level = 0;
 	mfd->fb_imgType = MDP_RGBA_8888;
 	mfd->calib_mode_bl = 0;
+	mfd->unset_bl_level = U32_MAX;
 
 	mfd->pdev = pdev;
 
@@ -1515,7 +1519,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	} else if (mdss_fb_is_power_on(mfd) && mfd->panel_info->panel_dead) {
 		mfd->unset_bl_level = mfd->bl_level;
 	} else {
-		mfd->unset_bl_level = 0;
+		mfd->unset_bl_level = U32_MAX;
 	}
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
@@ -1559,7 +1563,7 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd)
 	u32 temp;
 	bool bl_notify = false;
 
-	if (!mfd->unset_bl_level)
+	if (mfd->unset_bl_level == U32_MAX)
 		return;
 	mutex_lock(&mfd->bl_lock);
 	if (!mfd->allow_bl_update) {
@@ -1770,7 +1774,8 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 			 */
 			if (IS_CALIB_MODE_BL(mfd))
 				mdss_fb_set_backlight(mfd, mfd->calib_mode_bl);
-			else if (!mfd->panel_info->mipi.post_init_delay)
+			else if ((!mfd->panel_info->mipi.post_init_delay) &&
+				(mfd->unset_bl_level != U32_MAX))
 				mdss_fb_set_backlight(mfd, mfd->unset_bl_level);
 
 			/*
@@ -1951,7 +1956,9 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 
 	ion_unmap_kernel(mfd->fb_ion_client, mfd->fb_ion_handle);
 
-	if (mfd->mdp.fb_mem_get_iommu_domain) {
+	if (mfd->mdp.fb_mem_get_iommu_domain && !(!mfd->fb_attachment ||
+		!mfd->fb_attachment->dmabuf ||
+		!mfd->fb_attachment->dmabuf->ops)) {
 		dma_buf_unmap_attachment(mfd->fb_attachment, mfd->fb_table,
 				DMA_BIDIRECTIONAL);
 		dma_buf_detach(mfd->fbmem_buf, mfd->fb_attachment);
@@ -4521,6 +4528,8 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 	struct msm_sync_pt_data *sync_pt_data = NULL;
 	unsigned int dsi_mode = 0;
 	struct mdss_panel_data *pdata = NULL;
+	unsigned int Color_mode = 0;
+	unsigned int CE_mode = 0;
 
 	if (!info || !info->par)
 		return -EINVAL;
@@ -4600,7 +4609,21 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_ASYNC_POSITION_UPDATE:
 		ret = mdss_fb_async_position_update_ioctl(info, argp);
 		break;
+	case MSMFB_ENHANCE_SET_GAMMA:
+		if (copy_from_user(&Color_mode, argp, sizeof(Color_mode))) {
+			pr_err("%s: MSMFB_ENHANCE_SET_GAMMA ioctl failed\n", __func__);
+			goto exit;
+		}
+		ret = mdss_panel_set_gamma(pdata, Color_mode);
+		break;
 
+	case MSMFB_ENHANCE_SET_CE:
+		if (copy_from_user(&CE_mode, argp, sizeof(CE_mode))) {
+			pr_err("%s: MSMFB_ENHANCE_SET_CE ioctl failed\n", __func__);
+			goto exit;
+		}
+		ret = mdss_panel_set_ce(pdata, CE_mode);
+		break;
 	default:
 		if (mfd->mdp.ioctl_handler)
 			ret = mfd->mdp.ioctl_handler(mfd, cmd, argp);

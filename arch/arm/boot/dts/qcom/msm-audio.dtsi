@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -297,9 +298,8 @@
 	};
 
 	int_codec: sound {
-		status = "disabled";
 		compatible = "qcom,msm8952-audio-codec";
-		qcom,model = "msm8952-snd-card-mtp";
+		qcom,model = "msm8953-snd-card-mtp";
 		reg = <0xc051000 0x4>,
 		      <0xc051004 0x4>,
 		      <0xc055000 0x4>,
@@ -311,19 +311,20 @@
 
 		qcom,msm-ext-pa = "primary";
 		qcom,msm-mclk-freq = <9600000>;
-		qcom,msm-mbhc-hphl-swh = <0>;
+		qcom,msm-mbhc-hphl-swh = <1>;
 		qcom,msm-mbhc-gnd-swh = <0>;
-		qcom,msm-hs-micbias-type = "external";
+		qcom,msm-hs-micbias-type = "internal";
+		ext-spk-amp-gpio = <&tlmm 96 0>;
 		qcom,msm-micbias1-ext-cap;
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"SPK_RX_BIAS", "MCLK",
 			"INT_LDO_H", "MCLK",
 			"MIC BIAS External", "Handset Mic",
-			"MIC BIAS External2", "Headset Mic",
+			"MIC BIAS Internal2", "Headset Mic",
 			"MIC BIAS External", "Secondary Mic",
 			"AMIC1", "MIC BIAS External",
-			"AMIC2", "MIC BIAS External2",
+			"AMIC2", "MIC BIAS Internal2",
 			"AMIC3", "MIC BIAS External",
 			"WSA_SPK OUT", "VDD_WSA_SWITCH",
 			"SpkrMono WSA_IN", "WSA_SPK OUT";

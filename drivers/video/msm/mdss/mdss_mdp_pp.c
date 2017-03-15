@@ -7237,8 +7237,8 @@ static int pp_mfd_ad_release_all(struct msm_fb_data_type *mfd)
 	ad->mfd = NULL;
 	ad->bl_mfd = NULL;
 	ad->state = 0;
-	cancel_work_sync(&ad->calc_work);
 	mutex_unlock(&ad->lock);
+	cancel_work_sync(&ad->calc_work);
 
 	ctl = mfd_to_ctl(mfd);
 	if (ctl && ctl->ops.remove_vsync_handler)

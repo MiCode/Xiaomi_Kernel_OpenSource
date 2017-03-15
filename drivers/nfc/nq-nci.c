@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,8 +25,6 @@
 #include <linux/of_device.h>
 #include <linux/uaccess.h>
 #include "nq-nci.h"
-#include <linux/dma-mapping.h>
-#include <linux/dmapool.h>
 #include <linux/clk.h>
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
@@ -68,10 +67,9 @@ struct nqx_dev {
 	/* CLK control */
 	bool			clk_run;
 	struct	clk		*s_clk;
-	/* Enable DMA  to read data*/
-	struct dma_pool *nfc_dma_pool;
-	dma_addr_t dma_handle_physical_addr;
-	void *dma_virtual_addr;
+	/* read buffer*/
+	size_t kbuflen;
+	u8 *kbuf;
 };
 
 static int nfcc_reboot(struct notifier_block *notifier, unsigned long val,
@@ -123,10 +121,9 @@ static irqreturn_t nqx_dev_irq_handler(int irq, void *dev_id)
 	unsigned long flags;
 	int ret;
 
-	if (device_may_wakeup(&nqx_dev->client->dev) &&
-		(nqx_dev->client->dev.power.is_suspended == true)) {
+	if (device_may_wakeup(&nqx_dev->client->dev))
 		pm_wakeup_event(&nqx_dev->client->dev, WAKEUP_SRC_TIMEOUT);
-	}
+
 	ret = gpio_get_value(nqx_dev->irq_gpio);
 	if (!ret) {
 #ifdef NFC_KERNEL_BU
@@ -136,6 +133,7 @@ static irqreturn_t nqx_dev_irq_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
+	nqx_disable_irq(nqx_dev);
 	spin_lock_irqsave(&nqx_dev->irq_enabled_lock, flags);
 	nqx_dev->count_irq++;
 	spin_unlock_irqrestore(&nqx_dev->irq_enabled_lock, flags);
@@ -152,15 +150,15 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 	int ret;
 	int irq_gpio_val = 0;
 
-	if (count > MAX_BUFFER_SIZE)
-		count = MAX_BUFFER_SIZE;
+	if (count > nqx_dev->kbuflen)
+		count = nqx_dev->kbuflen;
 
 	dev_dbg(&nqx_dev->client->dev, "%s : reading %zu bytes.\n",
 			__func__, count);
 
 	mutex_lock(&nqx_dev->read_mutex);
 
-	irq_gpio_val = gpio_get_value_cansleep(nqx_dev->irq_gpio);
+	irq_gpio_val = gpio_get_value(nqx_dev->irq_gpio);
 	if (irq_gpio_val == 0) {
 		if (filp->f_flags & O_NONBLOCK) {
 			dev_err(&nqx_dev->client->dev,
@@ -168,22 +166,21 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 			ret = -EAGAIN;
 			goto err;
 		}
-		nqx_dev->irq_enabled = true;
-		enable_irq(nqx_dev->client->irq);
-		if (gpio_get_value_cansleep(nqx_dev->irq_gpio)) {
-			nqx_disable_irq(nqx_dev);
-		} else {
-			ret = wait_event_interruptible(nqx_dev->read_wq,
-					gpio_get_value(nqx_dev->irq_gpio));
-			nqx_disable_irq(nqx_dev);
-			if (ret)
-				goto err;
+		if (!nqx_dev->irq_enabled) {
+			enable_irq(nqx_dev->client->irq);
+			nqx_dev->irq_enabled = true;
 		}
+		ret = wait_event_interruptible(nqx_dev->read_wq,
+				gpio_get_value(nqx_dev->irq_gpio));
+		if (ret)
+			goto err;
+		nqx_disable_irq(nqx_dev);
 	}
 
+	tmp = nqx_dev->kbuf;
+
+	memset(tmp, 0x00, count);
 	/* Read data */
-	tmp = nqx_dev->dma_virtual_addr;
-	memset(tmp, 0x00, MAX_BUFFER_SIZE);
 	ret = i2c_master_recv(nqx_dev->client, tmp, count);
 
 	mutex_unlock(&nqx_dev->read_mutex);
@@ -219,19 +216,20 @@ static ssize_t nfc_write(struct file *filp, const char __user *buf,
 				size_t count, loff_t *offset)
 {
 	struct nqx_dev *nqx_dev = filp->private_data;
-	char tmp[MAX_BUFFER_SIZE];
+	char *tmp;
 	int ret = 0;
 
-	if (count > MAX_BUFFER_SIZE) {
+	if (count > nqx_dev->kbuflen) {
 		dev_err(&nqx_dev->client->dev, "%s: out of memory\n",
 			__func__);
 		return -ENOMEM;
 	}
-	if (copy_from_user(tmp, buf, count)) {
-		dev_err(&nqx_dev->client->dev,
-			"%s: failed to copy from user space\n", __func__);
-		return -EFAULT;
-	}
+
+	tmp = memdup_user(buf, count);
+
+	if (IS_ERR(tmp))
+		return PTR_ERR(tmp);
+
 	ret = i2c_master_send(nqx_dev->client, tmp, count);
 	if (ret != count) {
 		dev_err(&nqx_dev->client->dev,
@@ -239,10 +237,13 @@ static ssize_t nfc_write(struct file *filp, const char __user *buf,
 		ret = -EIO;
 	}
 #ifdef NFC_KERNEL_BU
-	dev_dbg(&nqx_dev->client->dev, "%s : NfcNciTx %x %x %x\n",
-			__func__, tmp[0], tmp[1], tmp[2]);
+	dev_dbg(&nqx_dev->client->dev,
+			"%s : i2c-%d: NfcNciTx %x %x %x\n",
+			__func__, iminor(file_inode(filp)),
+			tmp[0], tmp[1], tmp[2]);
 #endif
 	usleep_range(1000, 1100);
+	kfree(tmp);
 	return ret;
 }
 
@@ -254,8 +255,6 @@ static int nfc_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = nqx_dev;
 	nqx_init_stat(nqx_dev);
-	/* Enable interrupts from NFCC NFC_INT new NCI data available */
-	nqx_enable_irq(nqx_dev);
 
 	dev_dbg(&nqx_dev->client->dev,
 			"%s: %d,%d\n", __func__, imajor(inode), iminor(inode));
@@ -298,6 +297,7 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 		/* hardware dependent delay */
 		msleep(100);
 	} else if (arg == 1) {
+		nqx_enable_irq(nqx_dev);
 		dev_dbg(&nqx_dev->client->dev,
 			"gpio_set_value enable: %s: info: %p\n",
 			__func__, nqx_dev);
@@ -433,6 +433,10 @@ static int nfcc_hw_check(struct i2c_client *client, unsigned int enable_gpio)
 	/* Read Response of RESET command */
 	ret = i2c_master_recv(client, nci_reset_rsp,
 						sizeof(nci_reset_rsp));
+	dev_err(&client->dev,
+		"%s: - nq - reset cmd answer : NfcNciRx %x %x %x\n",
+			__func__, nci_reset_rsp[0],
+			nci_reset_rsp[1], nci_reset_rsp[2]);
 	if (ret < 0) {
 		dev_err(&client->dev,
 		"%s: - i2c_master_recv Error\n", __func__);
@@ -578,33 +582,14 @@ static int nqx_probe(struct i2c_client *client,
 	if (nqx_dev == NULL)
 		return -ENOMEM;
 	nqx_dev->client = client;
-
-	/* if coherent_dma_mask not set by the device, set it to ULONG_MAX */
-	if (client->dev.coherent_dma_mask == 0)
-		client->dev.coherent_dma_mask = ULONG_MAX;
-
-		nqx_dev->nfc_dma_pool = NULL;
-		nqx_dev->dma_virtual_addr = NULL;
-
-		nqx_dev->nfc_dma_pool = dma_pool_create(
-				"NFC-DMA", &client->dev,
-				MAX_BUFFER_SIZE, 64, 4096);
-		if (!nqx_dev->nfc_dma_pool) {
-				dev_err(&client->dev,
-				"nfc-nci probe: failed to allocate memory for dma_pool\n");
-				r = -ENOMEM;
-				goto err_free_dev;
-		}
-
-		nqx_dev->dma_virtual_addr = dma_pool_alloc(
-				nqx_dev->nfc_dma_pool, GFP_KERNEL,
-				&nqx_dev->dma_handle_physical_addr);
-		if (!nqx_dev->dma_virtual_addr) {
-				dev_err(&client->dev,
-				"nfc-nci probe: failed to allocate coherent memory for i2c dma buffer\n");
-				r = -ENOMEM;
-				goto err_free_dev;
-		}
+	nqx_dev->kbuflen = MAX_BUFFER_SIZE;
+	nqx_dev->kbuf = kzalloc(MAX_BUFFER_SIZE, GFP_KERNEL);
+	if (!nqx_dev->kbuf) {
+		dev_err(&client->dev,
+			"failed to allocate memory for nqx_dev->kbuf\n");
+		r = -ENOMEM;
+		goto err_free_dev;
+	}
 
 	if (gpio_is_valid(platform_data->en_gpio)) {
 		r = gpio_request(platform_data->en_gpio, "nfc_reset_gpio");
@@ -613,7 +598,7 @@ static int nqx_probe(struct i2c_client *client,
 			"%s: unable to request gpio [%d]\n",
 				__func__,
 				platform_data->en_gpio);
-			goto err_free_dev;
+			goto err_mem;
 		}
 		r = gpio_direction_output(platform_data->en_gpio, 0);
 		if (r) {
@@ -625,13 +610,13 @@ static int nqx_probe(struct i2c_client *client,
 		}
 	} else {
 		dev_err(&client->dev, "%s: dis gpio not provided\n", __func__);
-		goto err_free_dev;
+		goto err_mem;
 	}
 
 	if (gpio_is_valid(platform_data->irq_gpio)) {
 		r = gpio_request(platform_data->irq_gpio, "nfc_irq_gpio");
 		if (r) {
-			dev_err(&client->dev, "%s: unable to request gpio [%d]\n",
+			dev_err(&client->dev, "%s: unable to req irq gpio [%d]\n",
 				__func__, platform_data->irq_gpio);
 			goto err_en_gpio;
 		}
@@ -639,7 +624,7 @@ static int nqx_probe(struct i2c_client *client,
 		if (r) {
 
 			dev_err(&client->dev,
-			"%s: unable to set direction for gpio [%d]\n",
+			"%s: unable to set direction for irq gpio [%d]\n",
 				__func__,
 				platform_data->irq_gpio);
 			goto err_irq;
@@ -659,14 +644,14 @@ static int nqx_probe(struct i2c_client *client,
 			"nfc_firm_gpio");
 		if (r) {
 			dev_err(&client->dev,
-				"%s: unable to request gpio [%d]\n",
+				"%s: unable to request firm gpio [%d]\n",
 				__func__, platform_data->firm_gpio);
 			goto err_irq;
 		}
 		r = gpio_direction_output(platform_data->firm_gpio, 0);
 		if (r) {
 			dev_err(&client->dev,
-			"%s: cannot set direction for gpio [%d]\n",
+			"%s: cannot set direction for firm gpio [%d]\n",
 			__func__, platform_data->firm_gpio);
 			goto err_irq;
 		}
@@ -680,14 +665,14 @@ static int nqx_probe(struct i2c_client *client,
 			"nfc_clkreq_gpio");
 		if (r) {
 			dev_err(&client->dev,
-				"%s: unable to request gpio [%d]\n",
+				"%s: unable to request clk gpio [%d]\n",
 				__func__, platform_data->clkreq_gpio);
 			goto err_clkreq_gpio;
 		}
 		r = gpio_direction_input(platform_data->clkreq_gpio);
 		if (r) {
 			dev_err(&client->dev,
-			"%s: cannot set direction for gpio [%d]\n",
+			"%s: cannot set direction for clk gpio [%d]\n",
 			__func__, platform_data->clkreq_gpio);
 			goto err_clkreq_gpio;
 		}
@@ -719,7 +704,7 @@ static int nqx_probe(struct i2c_client *client,
 	/* NFC_INT IRQ */
 	nqx_dev->irq_enabled = true;
 	r = request_irq(client->irq, nqx_dev_irq_handler,
-			  IRQF_TRIGGER_RISING, client->name, nqx_dev);
+			  IRQF_TRIGGER_HIGH, client->name, nqx_dev);
 	if (r) {
 		dev_err(&client->dev, "%s: request_irq failed\n", __func__);
 		goto err_request_irq_failed;
@@ -759,7 +744,7 @@ static int nqx_probe(struct i2c_client *client,
 	}
 	gpio_set_value(platform_data->en_gpio, 1);
 #endif
-	dev_dbg(&client->dev,
+	dev_err(&client->dev,
 	"%s: probing NFCC NQxxx exited successfully\n",
 		 __func__);
 	return 0;
@@ -780,6 +765,8 @@ err_irq:
 	gpio_free(platform_data->irq_gpio);
 err_en_gpio:
 	gpio_free(platform_data->en_gpio);
+err_mem:
+	kfree(nqx_dev->kbuf);
 err_free_dev:
 	kfree(nqx_dev);
 	dev_err(&client->dev,
@@ -798,7 +785,7 @@ static int nqx_remove(struct i2c_client *client)
 	mutex_destroy(&nqx_dev->read_mutex);
 	gpio_free(nqx_dev->irq_gpio);
 	gpio_free(nqx_dev->en_gpio);
-
+	kfree(nqx_dev->kbuf);
 	kfree(nqx_dev);
 	return 0;
 }

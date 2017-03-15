@@ -4,6 +4,7 @@
  *  Kernel scheduler and related syscalls
  *
  *  Copyright (C) 1991-2002  Linus Torvalds
+ *  Copyright (C) 2017 XiaoMi, Inc.
  *
  *  1996-12-23  Modified by Dave Grothe to fix bugs in semaphores and
  *		make semaphores SMP safe
@@ -5565,7 +5566,8 @@ static noinline void __schedule_bug(struct task_struct *prev)
 static inline void schedule_debug(struct task_struct *prev)
 {
 #ifdef CONFIG_SCHED_STACK_END_CHECK
-	BUG_ON(unlikely(task_stack_end_corrupted(prev)));
+	if (task_stack_end_corrupted(prev))
+		panic("corrupted stack end detected inside scheduler\n");
 #endif
 	/*
 	 * Test if we are atomic. Since do_exit() needs to call into
@@ -8198,6 +8200,14 @@ static int sched_cpu_active(struct notifier_block *nfb,
 	case CPU_STARTING:
 		set_cpu_rq_start_time();
 		return NOTIFY_OK;
+	case CPU_ONLINE:
+		/*
+		 * At this point a starting CPU has marked itself as online via
+		 * set_cpu_online(). But it might not yet have marked itself
+		 * as active, which is essential from here on.
+		 *
+		 * Thus, fall-through and help the starting CPU along.
+		 */
 	case CPU_DOWN_FAILED:
 		set_cpu_active((long)hcpu, true);
 		return NOTIFY_OK;

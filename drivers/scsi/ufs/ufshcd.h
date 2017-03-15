@@ -4,6 +4,7 @@
  * This code is based on drivers/scsi/ufs/ufshcd.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
  * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -805,6 +806,7 @@ struct ufs_hba {
 	u32 saved_uic_err;
 	u32 saved_ce_err;
 	bool silence_err_logs;
+	bool force_host_reset;
 
 	/* Device management request data */
 	struct ufs_dev_cmd dev_cmd;
