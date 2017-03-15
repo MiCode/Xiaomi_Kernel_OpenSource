@@ -1326,7 +1326,8 @@ static void a6xx_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 		kgsl_regwrite(device, A6XX_CP_SQE_STAT_ADDR, 1);
 		kgsl_regread(device, A6XX_CP_SQE_STAT_DATA, &opcode);
 		KGSL_DRV_CRIT_RATELIMIT(device,
-		"CP opcode error interrupt | possible opcode=0x%8.8x\n");
+				"CP opcode error interrupt | opcode=0x%8.8x\n",
+				opcode);
 	}
 	if (status1 & BIT(A6XX_CP_UCODE_ERROR))
 		KGSL_DRV_CRIT_RATELIMIT(device, "CP ucode error interrupt\n");
