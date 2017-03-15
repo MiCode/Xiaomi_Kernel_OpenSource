@@ -19,6 +19,7 @@ Required properties:
 Optional properties:
 - qcom,bus-mas: contains the bus master id needed to put in bus bandwidth votes
 		for inter-connect buses.
+- qcom,wakeup-byte: Byte to be injected in the tty layer during wakeup isr.
 
 Example:
 qupv3_uart11: qcom,qup_uart@0xa88000 {
@@ -34,4 +35,5 @@ qupv3_uart11: qcom,qup_uart@0xa88000 {
 	pinctrl-1 = <&qup_1_uart_3_sleep>;
 	interrupts = <0 355 0>;
 	qcom,bus-mas = <MASTER_BLSP_2>;
+	qcom,wakeup-byte = <0xFF>;
 };
