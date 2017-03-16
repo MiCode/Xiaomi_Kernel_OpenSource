@@ -142,6 +142,69 @@ end:
 	return;
 }
 
+struct sde_rsc_event *sde_rsc_register_event(int rsc_index, uint32_t event_type,
+		void (*cb_func)(uint32_t event_type, void *usr), void *usr)
+{
+	struct sde_rsc_event *evt;
+	struct sde_rsc_priv *rsc;
+
+	if (rsc_index >= MAX_RSC_COUNT) {
+		pr_err("invalid rsc index:%d\n", rsc_index);
+		return ERR_PTR(-EINVAL);
+	} else if (!rsc_prv_list[rsc_index]) {
+		pr_err("rsc idx:%d not probed yet or not available\n",
+								rsc_index);
+		return ERR_PTR(-EINVAL);
+	} else if (!cb_func || !event_type) {
+		pr_err("no event or cb func\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rsc = rsc_prv_list[rsc_index];
+	evt = kzalloc(sizeof(struct sde_rsc_event), GFP_KERNEL);
+	if (!evt)
+		return ERR_PTR(-ENOMEM);
+
+	evt->event_type = event_type;
+	evt->rsc_index = rsc_index;
+	evt->usr = usr;
+	evt->cb_func = cb_func;
+	pr_debug("event register type:%d rsc index:%d\n",
+						event_type, rsc_index);
+
+	mutex_lock(&rsc->client_lock);
+	list_add(&evt->list, &rsc->event_list);
+	mutex_unlock(&rsc->client_lock);
+
+	return evt;
+}
+
+void sde_rsc_unregister_event(struct sde_rsc_event *event)
+{
+	struct sde_rsc_priv *rsc;
+
+	if (!event) {
+		pr_debug("invalid event client\n");
+		goto end;
+	} else if (event->rsc_index >= MAX_RSC_COUNT) {
+		pr_err("invalid rsc index\n");
+		goto end;
+	}
+
+	pr_debug("event client destroyed\n");
+	rsc = rsc_prv_list[event->rsc_index];
+	if (!rsc)
+		goto end;
+
+	mutex_lock(&rsc->client_lock);
+	list_del_init(&event->list);
+	mutex_unlock(&rsc->client_lock);
+
+	kfree(event);
+end:
+	return;
+}
+
 static int sde_rsc_clk_enable(struct sde_power_handle *phandle,
 	struct sde_power_client *pclient, bool enable)
 {
