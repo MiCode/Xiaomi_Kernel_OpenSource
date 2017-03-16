@@ -710,6 +710,7 @@ static int msm_vidc_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&core->v4l2_dev);
 
 	msm_vidc_free_platform_resources(&core->resources);
+	kfree(core->vote_data);
 	sysfs_remove_group(&pdev->dev.kobj, &msm_vidc_core_attr_group);
 	dev_set_drvdata(&pdev->dev, NULL);
 	mutex_destroy(&core->lock);

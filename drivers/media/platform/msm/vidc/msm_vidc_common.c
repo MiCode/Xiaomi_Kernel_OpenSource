@@ -817,7 +817,7 @@ enum hal_video_codec get_hal_codec(int fourcc)
 	return codec;
 }
 
-static enum hal_uncompressed_format get_hal_uncompressed(int fourcc)
+enum hal_uncompressed_format msm_comm_get_hal_uncompressed(int fourcc)
 {
 	enum hal_uncompressed_format format = HAL_UNUSED_COLOR;
 
@@ -975,6 +975,11 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 		"%s: supported_codecs[%d]: enc = %#x, dec = %#x\n",
 		__func__, core->codec_count, core->enc_codec_supported,
 		core->dec_codec_supported);
+
+	core->vote_data = kcalloc(MAX_SUPPORTED_INSTANCES,
+		sizeof(core->vote_data), GFP_KERNEL);
+	if (!core->vote_data)
+		dprintk(VIDC_ERR, "%s: failed to allocate memory\n", __func__);
 
 	complete(&(core->completions[index]));
 }
@@ -2231,6 +2236,9 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 					V4L2_QCOM_BUF_FLAG_IDRFRAME |
 					V4L2_BUF_FLAG_KEYFRAME;
 		}
+
+		update_recon_stats(inst, &empty_buf_done->recon_stats);
+
 		dprintk(VIDC_DBG,
 			"Got ebd from hal: device_addr: %pa, alloc: %d, status: %#x, pic_type: %#x, flags: %#x\n",
 			&empty_buf_done->packet_buffer,
@@ -4504,6 +4512,27 @@ exit:
 	return rc;
 }
 
+int msm_comm_release_recon_buffers(struct msm_vidc_inst *inst)
+{
+	struct recon_buf *buf, *next;
+
+	if (!inst) {
+		dprintk(VIDC_ERR,
+			"Invalid instance pointer = %pK\n", inst);
+		return -EINVAL;
+	}
+
+	mutex_lock(&inst->reconbufs.lock);
+	list_for_each_entry_safe(buf, next, &inst->reconbufs.list, list) {
+		list_del(&buf->list);
+		kfree(buf);
+	}
+	INIT_LIST_HEAD(&inst->reconbufs.list);
+	mutex_unlock(&inst->reconbufs.lock);
+
+	return 0;
+}
+
 int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 {
 	struct msm_smem *handle;
@@ -4654,6 +4683,54 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 	return rc;
 error:
 	msm_comm_release_scratch_buffers(inst, false);
+	return rc;
+}
+
+int msm_comm_set_recon_buffers(struct msm_vidc_inst *inst)
+{
+	int rc = 0, i = 0;
+	struct hal_buffer_requirements *internal_buf;
+	struct recon_buf *binfo;
+	struct msm_vidc_list *buf_list = &inst->reconbufs;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	if (inst->session_type == MSM_VIDC_ENCODER)
+		internal_buf = get_buff_req_buffer(inst,
+			HAL_BUFFER_INTERNAL_RECON);
+	else if (inst->session_type == MSM_VIDC_DECODER)
+		internal_buf = get_buff_req_buffer(inst,
+			msm_comm_get_hal_output_buffer(inst));
+	else
+		return -EINVAL;
+
+	if (!internal_buf || !internal_buf->buffer_count_actual) {
+		dprintk(VIDC_DBG, "Inst : %pK Recon buffers not required\n",
+			inst);
+		return 0;
+	}
+
+	if (!list_empty(&inst->reconbufs.list))
+		msm_comm_release_recon_buffers(inst);
+
+	for (i = 0; i < internal_buf->buffer_count_actual; i++) {
+		binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
+		if (!binfo) {
+			dprintk(VIDC_ERR, "Out of memory\n");
+			rc = -ENOMEM;
+			goto fail_kzalloc;
+		}
+
+		binfo->buffer_index = i;
+		mutex_lock(&buf_list->lock);
+		list_add_tail(&binfo->list, &buf_list->list);
+		mutex_unlock(&buf_list->lock);
+	}
+
+fail_kzalloc:
 	return rc;
 }
 
@@ -5395,7 +5472,7 @@ int msm_comm_set_color_format(struct msm_vidc_inst *inst,
 
 	hdev = inst->core->device;
 
-	format = get_hal_uncompressed(fourcc);
+	format = msm_comm_get_hal_uncompressed(fourcc);
 	if (format == HAL_UNUSED_COLOR) {
 		dprintk(VIDC_ERR, "Using unsupported colorformat %#x\n",
 				fourcc);

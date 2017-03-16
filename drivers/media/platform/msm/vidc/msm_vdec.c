@@ -513,6 +513,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				msm_comm_get_hal_output_buffer(inst),
 				f->fmt.pix_mp.pixelformat);
 
+		inst->clk_data.opb_fourcc = f->fmt.pix_mp.pixelformat;
 		if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
 			frame_sz.buffer_type = HAL_BUFFER_OUTPUT2;
@@ -1056,6 +1057,7 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 							"%s Failed to get buffer requirements : %d\n",
 							__func__, rc);
 				}
+				inst->clk_data.dpb_fourcc = fourcc;
 				break;
 			default:
 				dprintk(VIDC_ERR,

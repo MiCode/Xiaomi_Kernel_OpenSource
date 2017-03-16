@@ -16,6 +16,94 @@
 #include "msm_vidc_debug.h"
 #include "msm_vidc_clocks.h"
 
+static inline unsigned long int get_ubwc_compression_ratio(
+	struct ubwc_cr_stats_info_type ubwc_stats_info)
+{
+	unsigned long int sum = 0, weighted_sum = 0;
+	unsigned long int compression_ratio = 1 << 16;
+
+	weighted_sum =
+		32  * ubwc_stats_info.cr_stats_info0 +
+		64  * ubwc_stats_info.cr_stats_info1 +
+		96  * ubwc_stats_info.cr_stats_info2 +
+		128 * ubwc_stats_info.cr_stats_info3 +
+		160 * ubwc_stats_info.cr_stats_info4 +
+		192 * ubwc_stats_info.cr_stats_info5 +
+		256 * ubwc_stats_info.cr_stats_info6;
+
+	sum =
+		ubwc_stats_info.cr_stats_info0 +
+		ubwc_stats_info.cr_stats_info1 +
+		ubwc_stats_info.cr_stats_info2 +
+		ubwc_stats_info.cr_stats_info3 +
+		ubwc_stats_info.cr_stats_info4 +
+		ubwc_stats_info.cr_stats_info5 +
+		ubwc_stats_info.cr_stats_info6;
+
+	compression_ratio = (weighted_sum && sum) ?
+		((256 * sum) << 16) / weighted_sum : compression_ratio;
+
+	return compression_ratio;
+}
+
+static inline int msm_vidc_get_mbs_per_frame(struct msm_vidc_inst *inst)
+{
+	int height, width;
+
+	if (!inst->in_reconfig) {
+		height = max(inst->prop.height[CAPTURE_PORT],
+			inst->prop.height[OUTPUT_PORT]);
+		width = max(inst->prop.width[CAPTURE_PORT],
+			inst->prop.width[OUTPUT_PORT]);
+	} else {
+		height = inst->reconfig_height;
+		width = inst->reconfig_width;
+	}
+
+	return NUM_MBS_PER_FRAME(height, width);
+}
+
+void update_recon_stats(struct msm_vidc_inst *inst,
+	struct recon_stats_type *recon_stats)
+{
+	struct recon_buf *binfo;
+	u32 CR = 0, CF = 0;
+	u32 frame_size;
+
+	CR = get_ubwc_compression_ratio(recon_stats->ubwc_stats_info);
+
+	frame_size = (msm_vidc_get_mbs_per_frame(inst) / (32 * 8) * 3) / 2;
+
+	CF = recon_stats->complexity_number / frame_size;
+
+	mutex_lock(&inst->reconbufs.lock);
+	list_for_each_entry(binfo, &inst->reconbufs.list, list) {
+		if (binfo->buffer_index ==
+				recon_stats->buffer_index) {
+			binfo->CR = CR;
+			binfo->CF = CF;
+		}
+	}
+	mutex_unlock(&inst->reconbufs.lock);
+}
+
+static int fill_recon_stats(struct msm_vidc_inst *inst,
+	struct vidc_bus_vote_data *vote_data)
+{
+	struct recon_buf *binfo;
+	u32 CR = 0, CF = 0;
+
+	mutex_lock(&inst->reconbufs.lock);
+	list_for_each_entry(binfo, &inst->reconbufs.list, list) {
+		CR = max(CR, binfo->CR);
+		CF = max(CF, binfo->CF);
+	}
+	mutex_unlock(&inst->reconbufs.lock);
+	vote_data->complexity_factor = CF;
+	vote_data->compression_ratio = CR;
+	return 0;
+}
+
 int msm_comm_vote_bus(struct msm_vidc_core *core)
 {
 	int rc = 0, vote_data_count = 0, i = 0;
@@ -30,35 +118,36 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 	hdev = core->device;
 
-	mutex_lock(&core->lock);
-	list_for_each_entry(inst, &core->instances, list)
-		++vote_data_count;
-
-	vote_data = kcalloc(vote_data_count, sizeof(*vote_data),
-			GFP_TEMPORARY);
+	vote_data = core->vote_data;
 	if (!vote_data) {
-		dprintk(VIDC_ERR, "%s: failed to allocate memory\n", __func__);
-		rc = -ENOMEM;
-		goto fail_alloc;
+		dprintk(VIDC_PROF,
+			"Failed to get vote_data for inst %pK\n",
+				inst);
+		return -EINVAL;
 	}
 
+	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
-		int codec = 0, yuv = 0;
+		int codec = 0;
+
+		++vote_data_count;
 
 		codec = inst->session_type == MSM_VIDC_DECODER ?
 			inst->fmts[OUTPUT_PORT].fourcc :
 			inst->fmts[CAPTURE_PORT].fourcc;
 
-		yuv = inst->session_type == MSM_VIDC_DECODER ?
-			inst->fmts[CAPTURE_PORT].fourcc :
-			inst->fmts[OUTPUT_PORT].fourcc;
-
 		vote_data[i].domain = get_hal_domain(inst->session_type);
 		vote_data[i].codec = get_hal_codec(codec);
-		vote_data[i].width =  max(inst->prop.width[CAPTURE_PORT],
+		vote_data[i].input_width =  max(inst->prop.width[OUTPUT_PORT],
 				inst->prop.width[OUTPUT_PORT]);
-		vote_data[i].height = max(inst->prop.height[CAPTURE_PORT],
+		vote_data[i].input_height = max(inst->prop.height[OUTPUT_PORT],
 				inst->prop.height[OUTPUT_PORT]);
+		vote_data[i].output_width =  max(inst->prop.width[CAPTURE_PORT],
+				inst->prop.width[OUTPUT_PORT]);
+		vote_data[i].output_height =
+				max(inst->prop.height[CAPTURE_PORT],
+				inst->prop.height[OUTPUT_PORT]);
+		vote_data[i].lcu_size = codec == V4L2_PIX_FMT_HEVC ? 32 : 16;
 
 		if (inst->clk_data.operating_rate)
 			vote_data[i].fps =
@@ -67,32 +156,35 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		else
 			vote_data[i].fps = inst->prop.fps;
 
+		vote_data[i].power_mode = 0;
 		if (!msm_vidc_clock_scaling ||
 			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW)
 			vote_data[i].power_mode = VIDC_POWER_TURBO;
 
-		/*
-		 * TODO: support for OBP-DBP split mode hasn't been yet
-		 * implemented, once it is, this part of code needs to be
-		 * revisited since passing in accurate information to the bus
-		 * governor will drastically reduce bandwidth
-		 */
-		//vote_data[i].color_formats[0] = get_hal_uncompressed(yuv);
-		vote_data[i].num_formats = 1;
+		if (msm_comm_get_stream_output_mode(inst) ==
+				HAL_VIDEO_DECODER_PRIMARY) {
+			vote_data[i].color_formats[0] =
+				msm_comm_get_hal_uncompressed(
+				inst->clk_data.opb_fourcc);
+			vote_data[i].num_formats = 1;
+		} else {
+			vote_data[i].color_formats[0] =
+				msm_comm_get_hal_uncompressed(
+				inst->clk_data.dpb_fourcc);
+			vote_data[i].color_formats[1] =
+				msm_comm_get_hal_uncompressed(
+				inst->clk_data.opb_fourcc);
+			vote_data[i].num_formats = 2;
+		}
+		vote_data[i].work_mode = inst->clk_data.work_mode;
+		fill_recon_stats(inst, &vote_data[i]);
 		i++;
 	}
 	mutex_unlock(&core->lock);
+	if (vote_data_count)
+		rc = call_hfi_op(hdev, vote_bus, hdev->hfi_device_data,
+			vote_data, vote_data_count);
 
-	rc = call_hfi_op(hdev, vote_bus, hdev->hfi_device_data, vote_data,
-			vote_data_count);
-	if (rc)
-		dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
-
-	kfree(vote_data);
-	return rc;
-
-fail_alloc:
-	mutex_unlock(&core->lock);
 	return rc;
 }
 
@@ -250,24 +342,6 @@ void msm_comm_free_freq_table(struct msm_vidc_inst *inst)
 	}
 	INIT_LIST_HEAD(&inst->freqs.list);
 	mutex_unlock(&inst->freqs.lock);
-}
-
-
-static inline int msm_dcvs_get_mbs_per_frame(struct msm_vidc_inst *inst)
-{
-	int height, width;
-
-	if (!inst->in_reconfig) {
-		height = max(inst->prop.height[CAPTURE_PORT],
-			inst->prop.height[OUTPUT_PORT]);
-		width = max(inst->prop.width[CAPTURE_PORT],
-			inst->prop.width[OUTPUT_PORT]);
-	} else {
-		height = inst->reconfig_height;
-		width = inst->reconfig_width;
-	}
-
-	return NUM_MBS_PER_FRAME(height, width);
 }
 
 static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
@@ -783,7 +857,7 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 				__func__);
 		return 0;
 	}
-	mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
+	mbs_per_frame = msm_vidc_get_mbs_per_frame(inst);
 	if (mbs_per_frame >= inst->core->resources.max_hq_mbs_per_frame ||
 		inst->prop.fps >= inst->core->resources.max_hq_fps) {
 		enable = true;

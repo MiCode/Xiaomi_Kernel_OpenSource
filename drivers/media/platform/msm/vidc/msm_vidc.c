@@ -1482,6 +1482,13 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 
+	rc = msm_comm_set_recon_buffers(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"Failed to set recon buffers: %d\n", rc);
+		goto fail_start;
+	}
+
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
 		rc = msm_comm_set_output_buffers(inst);
@@ -2085,6 +2092,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	INIT_MSM_VIDC_LIST(&inst->outputbufs);
 	INIT_MSM_VIDC_LIST(&inst->registeredbufs);
+	INIT_MSM_VIDC_LIST(&inst->reconbufs);
 
 	kref_init(&inst->kref);
 
@@ -2217,6 +2225,11 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 		if (msm_comm_release_scratch_buffers(inst, false)) {
 			dprintk(VIDC_ERR,
 				"Failed to release scratch buffers\n");
+		}
+
+		if (msm_comm_release_recon_buffers(inst)) {
+			dprintk(VIDC_ERR,
+				"Failed to release recon buffers\n");
 		}
 
 		if (msm_comm_release_persist_buffers(inst)) {

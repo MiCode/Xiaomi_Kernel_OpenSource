@@ -145,6 +145,13 @@ struct vidc_freq_data {
 	unsigned long freq;
 };
 
+struct recon_buf {
+	struct list_head list;
+	u32 buffer_index;
+	u32 CR;
+	u32 CF;
+};
+
 struct internal_buf {
 	struct list_head list;
 	enum hal_buffer buffer_type;
@@ -230,6 +237,8 @@ struct clock_data {
 	u32 operating_rate;
 	struct clock_profile_entry *entry;
 	u32 core_id;
+	u32 dpb_fourcc;
+	u32 opb_fourcc;
 	enum hal_work_mode work_mode;
 	bool low_latency_mode;
 };
@@ -278,6 +287,7 @@ struct msm_vidc_core {
 	bool smmu_fault_handled;
 	unsigned long min_freq;
 	unsigned long curr_freq;
+	struct vidc_bus_vote_data *vote_data;
 };
 
 struct msm_vidc_inst {
@@ -296,6 +306,7 @@ struct msm_vidc_inst {
 	struct msm_vidc_list persistbufs;
 	struct msm_vidc_list pending_getpropq;
 	struct msm_vidc_list outputbufs;
+	struct msm_vidc_list reconbufs;
 	struct msm_vidc_list registeredbufs;
 	struct buffer_requirements buff_req;
 	void *mem_client;
