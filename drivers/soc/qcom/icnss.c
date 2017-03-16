@@ -2537,7 +2537,7 @@ static int icnss_pd_restart_enable(struct icnss_priv *priv)
 
 	return 0;
 out:
-	icnss_pr_err("PD restart not enabled: %d\n", ret);
+	icnss_pr_err("Failed to enable PD restart: %d\n", ret);
 	return ret;
 
 }
@@ -3150,22 +3150,23 @@ int icnss_trigger_recovery(struct device *dev)
 		goto out;
 	}
 
-	if (test_bit(ICNSS_PDR_ENABLED, &priv->state)) {
-		icnss_pr_err("PD restart not enabled: state: 0x%lx\n",
+	if (!test_bit(ICNSS_PDR_ENABLED, &priv->state)) {
+		icnss_pr_err("PD restart not enabled to trigger recovery: state: 0x%lx\n",
 			     priv->state);
 		ret = -EOPNOTSUPP;
 		goto out;
 	}
 
-	if (!priv->service_notifier[0].handle) {
+	if (!priv->service_notifier || !priv->service_notifier[0].handle) {
 		icnss_pr_err("Invalid handle during recovery, state: 0x%lx\n",
 			     priv->state);
 		ret = -EINVAL;
 		goto out;
 	}
 
-	icnss_pr_dbg("Initiate PD restart at WLAN FW, state: 0x%lx\n",
-		     priv->state);
+	WARN_ON(1);
+	icnss_pr_warn("Initiate PD restart at WLAN FW, state: 0x%lx\n",
+		      priv->state);
 	priv->stats.trigger_recovery++;
 
 	/*
@@ -3363,6 +3364,7 @@ static int icnss_fw_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "  VAL: 0 (Test mode disable)\n");
 	seq_puts(s, "  VAL: 1 (WLAN FW test)\n");
 	seq_puts(s, "  VAL: 2 (CCPM test)\n");
+	seq_puts(s, "  VAL: 3 (Trigger Recovery)\n");
 
 	seq_puts(s, "\nCMD: dynamic_feature_mask\n");
 	seq_puts(s, "  VAL: (64 bit feature mask)\n");
