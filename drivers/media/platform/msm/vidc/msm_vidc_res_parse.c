@@ -1137,8 +1137,11 @@ int read_platform_resources_from_dt(
 			"qcom,max-secure-instances",
 			&res->max_secure_inst_count);
 
-	res->cx_ipeak_context = cx_ipeak_register(pdev->dev.of_node,
-			"qcom,cx-ipeak-data");
+	if (of_find_property(pdev->dev.of_node,
+			"qcom,cx-ipeak-data", NULL)) {
+		res->cx_ipeak_context = cx_ipeak_register(
+			pdev->dev.of_node, "qcom,cx-ipeak-data");
+	}
 
 	if (IS_ERR(res->cx_ipeak_context)) {
 		rc = PTR_ERR(res->cx_ipeak_context);
