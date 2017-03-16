@@ -1662,6 +1662,7 @@ static int msm_sdw_notifier_service_cb(struct notifier_block *nb,
 	mutex_lock(&msm_sdw->codec_mutex);
 	switch (opcode) {
 	case AUDIO_NOTIFIER_SERVICE_DOWN:
+		msm_sdw->int_mclk1_enabled = false;
 		msm_sdw->dev_up = false;
 		for (i = 0; i < msm_sdw->nr; i++)
 			swrm_wcd_notify(msm_sdw->sdw_ctrl_data[i].sdw_pdev,
