@@ -68,7 +68,6 @@ struct llcc_drv_data {
 /* Get the slice entry by index */
 static struct llcc_slice_desc *llcc_slice_get_entry(struct device *dev, int n)
 {
-	int id;
 	struct of_phandle_args phargs;
 	struct llcc_drv_data *drv;
 	const struct llcc_slice_config *llcc_data_ptr;
@@ -102,7 +101,7 @@ static struct llcc_slice_desc *llcc_slice_get_entry(struct device *dev, int n)
 	}
 
 	if (llcc_data_ptr == NULL) {
-		pr_err("can't find %d usecase id\n", id);
+		pr_err("can't find %d usecase id\n", phargs.args[0]);
 		return ERR_PTR(-ENODEV);
 	}
 
