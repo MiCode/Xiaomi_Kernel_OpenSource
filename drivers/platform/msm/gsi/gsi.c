@@ -568,7 +568,7 @@ static void gsi_handle_irq(void)
 		if (!type)
 			break;
 
-		GSIDBG("type %x\n", type);
+		GSIDBG_LOW("type %x\n", type);
 
 		if (type & GSI_EE_n_CNTXT_TYPE_IRQ_CH_CTRL_BMSK)
 			gsi_handle_ch_ctrl(ee);
@@ -2834,6 +2834,13 @@ static int msm_gsi_probe(struct platform_device *pdev)
 	gsi_ctx = devm_kzalloc(dev, sizeof(*gsi_ctx), GFP_KERNEL);
 	if (!gsi_ctx) {
 		dev_err(dev, "failed to allocated gsi context\n");
+		return -ENOMEM;
+	}
+
+	gsi_ctx->ipc_logbuf = ipc_log_context_create(GSI_IPC_LOG_PAGES,
+		"gsi", 0);
+	if (gsi_ctx->ipc_logbuf == NULL) {
+		GSIERR("failed to get ipc_logbuf\n");
 		return -ENOMEM;
 	}
 
