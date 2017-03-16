@@ -189,6 +189,11 @@ enum afe_cal_mode {
 	AFE_CAL_MODE_NONE,
 };
 
+enum lpass_clk_ver {
+	LPASS_CLK_VER_1,
+	LPASS_CLK_VER_2,
+};
+
 struct afe_audio_buffer {
 	dma_addr_t phys;
 	void       *data;
@@ -234,6 +239,7 @@ struct aanc_data {
 
 int afe_open(u16 port_id, union afe_port_config *afe_config, int rate);
 int afe_close(int port_id);
+enum lpass_clk_ver afe_get_lpass_clk_ver(void);
 int afe_loopback(u16 enable, u16 rx_port, u16 tx_port);
 int afe_sidetone(u16 tx_port_id, u16 rx_port_id, u16 enable, uint16_t gain);
 int afe_loopback_gain(u16 port_id, u16 volume);
