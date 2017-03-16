@@ -1693,3 +1693,4 @@
 #include "sdm845-bus.dtsi"
 #include "sdm845-vidc.dtsi"
 #include "sdm845-pm.dtsi"
+#include "sdm845-pinctrl.dtsi"
