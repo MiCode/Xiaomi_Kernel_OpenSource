@@ -165,6 +165,15 @@ Optional properties:
   should contain phandle of respective ir-cut node
 - qcom,special-support-sensors: if only some special sensors are supported
   on this board, add sensor name in this property.
+- qcom,clock-rates: clock rate in Hz.
+- qcom,clock-cntl-support: Says whether clock control support is present or not
+- qcom,clock-control: The valid fields are "NO_SET_RATE", "INIT_RATE" and
+  "SET_RATE". "NO_SET_RATE" the corresponding clock is enabled without setting
+  the rate assuming some other driver has already set it to appropriate rate.
+  "INIT_RATE" clock rate is not queried assuming some other driver has set
+  the clock rate and ispif will set the the clock to this rate.
+  "SET_RATE" clock is enabled and the rate is set to the value specified
+  in the property qcom,clock-rates.
 
 * Qualcomm Technologies, Inc. MSM ACTUATOR
 
@@ -205,6 +214,7 @@ Required properties:
   sensor
   - 0 -> MASTER 0
   - 1 -> MASTER 1
+- qcom,clock-rates: clock rate in Hz.
 
 Optional properties:
 - qcom,cam-vreg-name : should contain names of all regulators needed by this

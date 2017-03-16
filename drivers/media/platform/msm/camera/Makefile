@@ -6,3 +6,4 @@ obj-$(CONFIG_SPECTRA_CAMERA) += cam_smmu/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_cpas/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_cdm/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_isp/
+obj-$(CONFIG_SPECTRA_CAMERA) += cam_sensor_module/
