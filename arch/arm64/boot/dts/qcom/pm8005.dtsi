@@ -1,0 +1,103 @@
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&spmi_bus {
+	qcom,pm8005@4 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x4 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		pm8005_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,temp-alarm@2400 {
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x4 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			label = "pm8005_tz";
+		};
+
+		pm8005_gpios: gpios {
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pm8005-gpio";
+
+			gpio@c000 {
+				reg = <0xc000 0x100>;
+				qcom,pin-num = <1>;
+				status = "disabled";
+			};
+
+			gpio@c100 {
+				reg = <0xc100 0x100>;
+				qcom,pin-num = <2>;
+				status = "disabled";
+			};
+
+			gpio@c200 {
+				reg = <0xc200 0x100>;
+				qcom,pin-num = <3>;
+				status = "disabled";
+			};
+
+			gpio@c300 {
+				reg = <0xc300 0x100>;
+				qcom,pin-num = <4>;
+				status = "disabled";
+			};
+		};
+	};
+
+	qcom,pm8005@5 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x5 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		regulator@1400 {
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1400 0x100>;
+			regulator-name = "pm8005_s1";
+			status = "disabled";
+		};
+
+		regulator@1700 {
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1700 0x100>;
+			regulator-name = "pm8005_s2";
+			status = "disabled";
+		};
+
+		regulator@1a00 {
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1a00 0x100>;
+			regulator-name = "pm8005_s3";
+			status = "disabled";
+		};
+
+		regulator@1d00 {
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1d00 0x100>;
+			regulator-name = "pm8005_s4";
+			status = "disabled";
+		};
+	};
+};
