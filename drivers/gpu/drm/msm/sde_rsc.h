@@ -60,23 +60,22 @@ enum rsc_vsync_req {
 
 /**
  * sde_rsc_state: sde rsc state information
- * SDE_RSC_MODE_IDLE: A client requests for idle state when there is no
+ * SDE_RSC_IDLE_STATE: A client requests for idle state when there is no
  *                    pixel or cmd transfer expected. An idle vote from
  *                    all clients lead to power collapse state.
- * SDE_RSC_MODE_CMD:  A client requests for cmd state when it wants to
+ * SDE_RSC_CLK_STATE:  A client requests for clk state when it wants to
+ *                    only avoid mode-2 entry/exit. For ex: V4L2 driver,
+ *                    sde power handle, etc.
+ * SDE_RSC_CMD_STATE:  A client requests for cmd state when it wants to
  *                    enable the solver mode.
- * SDE_RSC_MODE_CMD_UPDATE: A clients requests for cmd_update state when
- *                    it wants to update the backoff time during solver
- *                    enable state. Inline-rotation is one good example
- *                    use case. It increases the prefill lines by 128 lines.
- * SDE_RSC_MODE_VID:  A client requests for vid state it wants to avoid
+ * SDE_RSC_VID_STATE:  A client requests for vid state it wants to avoid
  *                    solver enable because client is fetching data from
  *                    continuously.
  */
 enum sde_rsc_state {
 	SDE_RSC_IDLE_STATE,
+	SDE_RSC_CLK_STATE,
 	SDE_RSC_CMD_STATE,
-	SDE_RSC_CMD_UPDATE_STATE,
 	SDE_RSC_VID_STATE,
 };
 
@@ -261,7 +260,7 @@ void sde_rsc_client_destroy(struct sde_rsc_client *client);
 
 /**
  * sde_rsc_client_state_update() - rsc client state update
- * Video mode and command mode are supported as modes. A client need to
+ * Video mode, cmd mode and clk state are supported as modes. A client need to
  * set this property during panel time. A switching client can set the
  * property to change the state
  *
