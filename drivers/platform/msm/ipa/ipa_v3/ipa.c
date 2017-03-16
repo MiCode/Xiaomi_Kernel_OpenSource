@@ -2934,14 +2934,17 @@ static int ipa3_setup_apps_pipes(void)
 	}
 
 	/* LAN OUT (AP->IPA) */
-	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
-	sys_in.client = IPA_CLIENT_APPS_LAN_PROD;
-	sys_in.desc_fifo_sz = IPA_SYS_TX_DATA_DESC_FIFO_SZ;
-	sys_in.ipa_ep_cfg.mode.mode = IPA_BASIC;
-	if (ipa3_setup_sys_pipe(&sys_in, &ipa3_ctx->clnt_hdl_data_out)) {
-		IPAERR(":setup sys pipe (LAN_PROD) failed.\n");
-		result = -EPERM;
-		goto fail_lan_data_out;
+	if (!ipa3_ctx->ipa_config_is_mhi) {
+		memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
+		sys_in.client = IPA_CLIENT_APPS_LAN_PROD;
+		sys_in.desc_fifo_sz = IPA_SYS_TX_DATA_DESC_FIFO_SZ;
+		sys_in.ipa_ep_cfg.mode.mode = IPA_BASIC;
+		if (ipa3_setup_sys_pipe(&sys_in,
+			&ipa3_ctx->clnt_hdl_data_out)) {
+			IPAERR(":setup sys pipe (LAN_PROD) failed.\n");
+			result = -EPERM;
+			goto fail_lan_data_out;
+		}
 	}
 
 	return 0;
@@ -2962,7 +2965,8 @@ fail_ch20_wa:
 
 static void ipa3_teardown_apps_pipes(void)
 {
-	ipa3_teardown_sys_pipe(ipa3_ctx->clnt_hdl_data_out);
+	if (!ipa3_ctx->ipa_config_is_mhi)
+		ipa3_teardown_sys_pipe(ipa3_ctx->clnt_hdl_data_out);
 	ipa3_teardown_sys_pipe(ipa3_ctx->clnt_hdl_data_in);
 	__ipa3_del_rt_rule(ipa3_ctx->dflt_v6_rt_rule_hdl);
 	__ipa3_del_rt_rule(ipa3_ctx->dflt_v4_rt_rule_hdl);
@@ -3889,6 +3893,10 @@ static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
  * @pdev:	The platform device structure representing the IPA driver
  *
  * Function initialization process:
+ * - Initialize endpoints bitmaps
+ * - Initialize resource groups min and max values
+ * - Initialize filtering lists heads and idr
+ * - Initialize interrupts
  * - Register GSI
  * - Setup APPS pipes
  * - Initialize tethering bridge
@@ -3906,6 +3914,53 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	int result;
 	struct gsi_per_props gsi_props;
 	struct ipa3_uc_hdlrs uc_hdlrs = { 0 };
+	struct ipa3_flt_tbl *flt_tbl;
+	int i;
+
+	/*
+	 * indication whether working in MHI config or non MHI config is given
+	 * in ipa3_write which is launched before ipa3_post_init. i.e. from
+	 * this point it is safe to use ipa3_ep_mapping array and the correct
+	 * entry will be returned from ipa3_get_hw_type_index()
+	 */
+	ipa_init_ep_flt_bitmap();
+	IPADBG("EP with flt support bitmap 0x%x (%u pipes)\n",
+		ipa3_ctx->ep_flt_bitmap, ipa3_ctx->ep_flt_num);
+
+	/* Assign resource limitation to each group */
+	ipa3_set_resorce_groups_min_max_limits();
+
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		if (!ipa_is_ep_support_flt(i))
+			continue;
+
+		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v4];
+		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
+		flt_tbl->in_sys[IPA_RULE_HASHABLE] =
+			!ipa3_ctx->ip4_flt_tbl_hash_lcl;
+		flt_tbl->in_sys[IPA_RULE_NON_HASHABLE] =
+			!ipa3_ctx->ip4_flt_tbl_nhash_lcl;
+		idr_init(&flt_tbl->rule_ids);
+
+		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v6];
+		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
+		flt_tbl->in_sys[IPA_RULE_HASHABLE] =
+			!ipa3_ctx->ip6_flt_tbl_hash_lcl;
+		flt_tbl->in_sys[IPA_RULE_NON_HASHABLE] =
+			!ipa3_ctx->ip6_flt_tbl_nhash_lcl;
+		idr_init(&flt_tbl->rule_ids);
+	}
+
+	if (!ipa3_ctx->apply_rg10_wa) {
+		result = ipa3_init_interrupts();
+		if (result) {
+			IPAERR("ipa initialization of interrupts failed\n");
+			result = -ENODEV;
+			goto fail_register_device;
+		}
+	} else {
+		IPADBG("Initialization of ipa interrupts skipped\n");
+	}
 
 	memset(&gsi_props, 0, sizeof(gsi_props));
 	gsi_props.ver = ipa3_get_gsi_ver(resource_p->ipa_hw_type);
@@ -4103,10 +4158,19 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-	if (ipa3_is_msm_device())
+	if (ipa3_is_msm_device()) {
 		result = ipa3_trigger_fw_loading_msms();
-	else
+	} else {
+		if (!strcasecmp(dbg_buff, "MHI")) {
+			ipa3_ctx->ipa_config_is_mhi = true;
+			pr_info(
+			"IPA is loading with MHI configuration\n");
+		} else {
+			pr_info(
+			"IPA is loading with non MHI configuration\n");
+		}
 		result = ipa3_trigger_fw_loading_mdms();
+	}
 	/* No IPAv3.x chipsets that don't support FW loading */
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
@@ -4176,35 +4240,34 @@ static int ipa3_tz_unlock_reg(struct ipa3_context *ipa3_ctx)
 * @pdev:	The platform device structure representing the IPA driver
 *
 * Function initialization process:
-* - Allocate memory for the driver context data struct
-* - Initializing the ipa3_ctx with:
+* Allocate memory for the driver context data struct
+* Initializing the ipa3_ctx with :
 *    1)parsed values from the dts file
 *    2)parameters passed to the module initialization
 *    3)read HW values(such as core memory size)
-* - Map IPA core registers to CPU memory
-* - Restart IPA core(HW reset)
-* - Initialize the look-aside caches(kmem_cache/slab) for filter,
+* Map IPA core registers to CPU memory
+* Restart IPA core(HW reset)
+* Initialize the look-aside caches(kmem_cache/slab) for filter,
 *   routing and IPA-tree
-* - Create memory pool with 4 objects for DMA operations(each object
+* Create memory pool with 4 objects for DMA operations(each object
 *   is 512Bytes long), this object will be use for tx(A5->IPA)
-* - Initialize lists head(routing,filter,hdr,system pipes)
-* - Initialize mutexes (for ipa_ctx and NAT memory mutexes)
-* - Initialize spinlocks (for list related to A5<->IPA pipes)
-* - Initialize 2 single-threaded work-queue named "ipa rx wq" and "ipa tx wq"
-* - Initialize Red-Black-Tree(s) for handles of header,routing rule,
-*   routing table ,filtering rule
-* - Initialize the filter block by committing IPV4 and IPV6 default rules
-* - Create empty routing table in system memory(no committing)
-* - Create a char-device for IPA
-* - Initialize IPA RM (resource manager)
-* - Configure GSI registers (in GSI case)
+* Initialize lists head(routing, hdr, system pipes)
+* Initialize mutexes (for ipa_ctx and NAT memory mutexes)
+* Initialize spinlocks (for list related to A5<->IPA pipes)
+* Initialize 2 single-threaded work-queue named "ipa rx wq" and "ipa tx wq"
+* Initialize Red-Black-Tree(s) for handles of header,routing rule,
+*  routing table ,filtering rule
+* Initialize the filter block by committing IPV4 and IPV6 default rules
+* Create empty routing table in system memory(no committing)
+* Create a char-device for IPA
+* Initialize IPA RM (resource manager)
+* Configure GSI registers (in GSI case)
 */
 static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		struct device *ipa_dev)
 {
 	int result = 0;
 	int i;
-	struct ipa3_flt_tbl *flt_tbl;
 	struct ipa3_rt_tbl_set *rset;
 	struct ipa_active_client_logging_info log_info;
 
@@ -4362,10 +4425,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_init_hw;
 	}
 
-	ipa_init_ep_flt_bitmap();
-	IPADBG("EP with flt support bitmap 0x%x (%u pipes)\n",
-		ipa3_ctx->ep_flt_bitmap, ipa3_ctx->ep_flt_num);
-
 	ipa3_ctx->ctrl->ipa_sram_read_settings();
 	IPADBG("SRAM, size: 0x%x, restricted bytes: 0x%x\n",
 		ipa3_ctx->smem_sz, ipa3_ctx->smem_restricted_bytes);
@@ -4397,9 +4456,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, "PROXY_CLK_VOTE");
 	ipa3_active_clients_log_inc(&log_info, false);
 	ipa3_ctx->ipa3_active_clients.cnt = 1;
-
-	/* Assign resource limitation to each group */
-	ipa3_set_resorce_groups_min_max_limits();
 
 	/* Create workqueues for power management */
 	ipa3_ctx->power_mgmt_wq =
@@ -4503,26 +4559,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	}
 	INIT_LIST_HEAD(&ipa3_ctx->rt_tbl_set[IPA_IP_v4].head_rt_tbl_list);
 	INIT_LIST_HEAD(&ipa3_ctx->rt_tbl_set[IPA_IP_v6].head_rt_tbl_list);
-	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
-		if (!ipa_is_ep_support_flt(i))
-			continue;
-
-		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v4];
-		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
-		flt_tbl->in_sys[IPA_RULE_HASHABLE] =
-			!ipa3_ctx->ip4_flt_tbl_hash_lcl;
-		flt_tbl->in_sys[IPA_RULE_NON_HASHABLE] =
-			!ipa3_ctx->ip4_flt_tbl_nhash_lcl;
-		idr_init(&flt_tbl->rule_ids);
-
-		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v6];
-		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
-		flt_tbl->in_sys[IPA_RULE_HASHABLE] =
-			!ipa3_ctx->ip6_flt_tbl_hash_lcl;
-		flt_tbl->in_sys[IPA_RULE_NON_HASHABLE] =
-			!ipa3_ctx->ip6_flt_tbl_nhash_lcl;
-		idr_init(&flt_tbl->rule_ids);
-	}
 
 	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v4];
 	INIT_LIST_HEAD(&rset->head_rt_tbl_list);
@@ -4604,17 +4640,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_create_apps_resource;
 	}
 
-	if (!ipa3_ctx->apply_rg10_wa) {
-		result = ipa3_init_interrupts();
-		if (result) {
-			IPAERR("ipa initialization of interrupts failed\n");
-			result = -ENODEV;
-			goto fail_ipa_init_interrupts;
-		}
-	} else {
-		IPADBG("Initialization of ipa interrupts skipped\n");
-	}
-
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)
 		ipa3_enable_dcd();
 
@@ -4653,7 +4678,6 @@ fail_cdev_add:
 fail_device_create:
 	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
 fail_alloc_chrdev_region:
-	ipa3_destroy_flt_tbl_idrs();
 	idr_destroy(&ipa3_ctx->ipa_idr);
 	kmem_cache_destroy(ipa3_ctx->rx_pkt_wrapper_cache);
 fail_rx_pkt_wrapper_cache:
