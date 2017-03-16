@@ -4496,11 +4496,15 @@ end:
  */
 static void mdss_mdp_pipe_reset(struct mdss_mdp_mixer *mixer, bool is_recovery)
 {
-	unsigned long pipe_map = mixer->pipe_mapped;
+	unsigned long pipe_map;
 	u32 bit = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool sw_rst_avail = mdss_mdp_pipe_is_sw_reset_available(mdata);
 
+	if (!mixer)
+		return;
+
+	pipe_map = mixer->pipe_mapped;
 	pr_debug("pipe_map=0x%lx\n", pipe_map);
 	for_each_set_bit_from(bit, &pipe_map, MAX_PIPES_PER_LM) {
 		struct mdss_mdp_pipe *pipe;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,38 @@
 #define BHI_STATUS_SUCCESS				   (2)
 #define BHI_STATUS_RESET				   (0)
 
+/* BHIE Offsets */
+#define BHIE_OFFSET (0x0124) /* BHIE register space offset from BHI base */
+#define BHIE_MSMSOCID_OFFS (BHIE_OFFSET + 0x0000)
+#define BHIE_TXVECADDR_LOW_OFFS (BHIE_OFFSET + 0x002C)
+#define BHIE_TXVECADDR_HIGH_OFFS (BHIE_OFFSET + 0x0030)
+#define BHIE_TXVECSIZE_OFFS (BHIE_OFFSET + 0x0034)
+#define BHIE_TXVECDB_OFFS (BHIE_OFFSET + 0x003C)
+#define BHIE_TXVECDB_SEQNUM_BMSK (0x3FFFFFFF)
+#define BHIE_TXVECDB_SEQNUM_SHFT (0)
+#define BHIE_TXVECSTATUS_OFFS (BHIE_OFFSET + 0x0044)
+#define BHIE_TXVECSTATUS_SEQNUM_BMSK (0x3FFFFFFF)
+#define BHIE_TXVECSTATUS_SEQNUM_SHFT (0)
+#define BHIE_TXVECSTATUS_STATUS_BMSK (0xC0000000)
+#define BHIE_TXVECSTATUS_STATUS_SHFT (30)
+#define BHIE_TXVECSTATUS_STATUS_RESET (0x00)
+#define BHIE_TXVECSTATUS_STATUS_XFER_COMPL (0x02)
+#define BHIE_TXVECSTATUS_STATUS_ERROR (0x03)
+#define BHIE_RXVECADDR_LOW_OFFS (BHIE_OFFSET + 0x0060)
+#define BHIE_RXVECADDR_HIGH_OFFS (BHIE_OFFSET + 0x0064)
+#define BHIE_RXVECSIZE_OFFS (BHIE_OFFSET + 0x0068)
+#define BHIE_RXVECDB_OFFS (BHIE_OFFSET + 0x0070)
+#define BHIE_RXVECDB_SEQNUM_BMSK (0x3FFFFFFF)
+#define BHIE_RXVECDB_SEQNUM_SHFT (0)
+#define BHIE_RXVECSTATUS_OFFS (BHIE_OFFSET + 0x0078)
+#define BHIE_RXVECSTATUS_SEQNUM_BMSK (0x3FFFFFFF)
+#define BHIE_RXVECSTATUS_SEQNUM_SHFT (0)
+#define BHIE_RXVECSTATUS_STATUS_BMSK (0xC0000000)
+#define BHIE_RXVECSTATUS_STATUS_SHFT (30)
+#define BHIE_RXVECSTATUS_STATUS_RESET (0x00)
+#define BHIE_RXVECSTATUS_STATUS_XFER_COMPL (0x02)
+#define BHIE_RXVECSTATUS_STATUS_ERROR (0x03)
+
 #define BHI_MAJOR_VERSION 0x0
 #define BHI_MINOR_VERSION 0x1
 
@@ -51,10 +83,12 @@
 #define BHI_READBUF_SIZE sizeof(bhi_info_type)
 
 #define BHI_MAX_IMAGE_SIZE (256 * 1024)
+#define BHI_DEFAULT_ALIGNMENT (0x1000)
 
-#define BHI_POLL_SLEEP_TIME 1000
-#define BHI_POLL_NR_RETRIES 10
+#define BHI_POLL_SLEEP_TIME_MS 100
+#define BHI_POLL_TIMEOUT_MS 2000
 
-int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device);
+int bhi_probe(struct mhi_device_ctxt *mhi_dev_ctxt);
+void bhi_firmware_download(struct work_struct *work);
 
 #endif

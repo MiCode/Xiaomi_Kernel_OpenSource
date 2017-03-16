@@ -661,6 +661,7 @@ struct mdss_mdp_img_data {
 	struct dma_buf *srcp_dma_buf;
 	struct dma_buf_attachment *srcp_attachment;
 	struct sg_table *srcp_table;
+	struct ion_handle *ihandle;
 };
 
 enum mdss_mdp_data_state {
@@ -702,6 +703,8 @@ struct pp_hist_col_info {
 	char __iomem *base;
 	u32 intr_shift;
 	u32 disp_num;
+	u32 expect_sum;
+	u32 next_sum;
 	struct mdss_mdp_ctl *ctl;
 };
 
