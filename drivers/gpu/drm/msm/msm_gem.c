@@ -299,7 +299,14 @@ put_iova(struct drm_gem_object *obj)
 		struct msm_mmu *mmu = priv->mmus[id];
 		if (mmu && msm_obj->domain[id].iova) {
 			uint32_t offset = msm_obj->domain[id].iova;
-			mmu->funcs->unmap(mmu, offset, msm_obj->sgt, obj->size);
+
+			if (obj->import_attach && mmu->funcs->unmap_dma_buf)
+				mmu->funcs->unmap_dma_buf(mmu, msm_obj->sgt,
+						obj->import_attach->dmabuf,
+						DMA_BIDIRECTIONAL);
+			else
+				mmu->funcs->unmap(mmu, offset, msm_obj->sgt,
+						obj->size);
 			msm_obj->domain[id].iova = 0;
 		}
 	}
