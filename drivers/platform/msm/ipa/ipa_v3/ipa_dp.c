@@ -62,7 +62,7 @@
 
 #define IPA_GSI_EVT_RING_LEN 4096
 #define IPA_GSI_MAX_CH_LOW_WEIGHT 15
-#define IPA_GSI_EVT_RING_INT_MODT 3200 /* 0.1s under 32KHz clock */
+#define IPA_GSI_EVT_RING_INT_MODT (32 * 1) /* 1ms under 32KHz clock */
 
 #define IPA_GSI_CH_20_WA_NUM_CH_TO_ALLOC 10
 /* The below virtual channel cannot be used by any entity */
@@ -439,10 +439,12 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		if (i == (num_desc - 1)) {
 			gsi_xfer_elem_array[i].flags |=
 				GSI_XFER_FLAG_EOT;
+			if (sys->ep->client == IPA_CLIENT_APPS_WAN_PROD
+				&& sys->policy == IPA_POLICY_INTR_MODE)
+				gsi_xfer_elem_array[i].flags |=
+					GSI_XFER_FLAG_BEI;
 			gsi_xfer_elem_array[i].xfer_user_data =
 				tx_pkt_first;
-			/* "mark" the last desc */
-			tx_pkt->cnt = IPA_LAST_DESC_CNT;
 		} else
 			gsi_xfer_elem_array[i].flags |=
 				GSI_XFER_FLAG_CHAIN;
@@ -844,37 +846,12 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	}
 
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
-	IPA_ACTIVE_CLIENTS_INC_EP(sys_in->client);
-
 	if (ep->valid == 1) {
-		if (sys_in->client != IPA_CLIENT_APPS_LAN_WAN_PROD) {
-			IPAERR("EP already allocated.\n");
-			goto fail_and_disable_clocks;
-		} else {
-			if (ipa3_cfg_ep_hdr(ipa_ep_idx,
-						&sys_in->ipa_ep_cfg.hdr)) {
-				IPAERR("fail to configure hdr prop of EP.\n");
-				result = -EFAULT;
-				goto fail_and_disable_clocks;
-			}
-			if (ipa3_cfg_ep_cfg(ipa_ep_idx,
-						&sys_in->ipa_ep_cfg.cfg)) {
-				IPAERR("fail to configure cfg prop of EP.\n");
-				result = -EFAULT;
-				goto fail_and_disable_clocks;
-			}
-			IPADBG("client %d (ep: %d) overlay ok sys=%p\n",
-					sys_in->client, ipa_ep_idx, ep->sys);
-			ep->client_notify = sys_in->notify;
-			ep->priv = sys_in->priv;
-			*clnt_hdl = ipa_ep_idx;
-			if (!ep->keep_ipa_awake)
-				IPA_ACTIVE_CLIENTS_DEC_EP(sys_in->client);
-
-			return 0;
-		}
+		IPAERR("EP %d already allocated.\n", ipa_ep_idx);
+		goto fail_gen;
 	}
 
+	IPA_ACTIVE_CLIENTS_INC_EP(sys_in->client);
 	memset(ep, 0, offsetof(struct ipa3_ep_context, sys));
 
 	if (!ep->sys) {
@@ -951,9 +928,9 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 			IPAERR("fail to configure status of EP.\n");
 			goto fail_gen2;
 		}
-		IPADBG("ep configuration successful\n");
+		IPADBG("ep %d configuration successful\n", ipa_ep_idx);
 	} else {
-		IPADBG("skipping ep configuration\n");
+		IPADBG("skipping ep %d configuration\n", ipa_ep_idx);
 	}
 
 	result = ipa_gsi_setup_channel(sys_in, ep);
@@ -990,7 +967,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	ipa3_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
 	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(sys_in->client)) {
 		if (ipa3_ctx->modem_cfg_emb_pipe_flt &&
-			sys_in->client == IPA_CLIENT_APPS_LAN_WAN_PROD)
+			sys_in->client == IPA_CLIENT_APPS_WAN_PROD)
 			IPADBG("modem cfg emb pipe flt\n");
 		else
 			ipa3_install_dflt_flt_rules(ipa_ep_idx);
@@ -1121,7 +1098,7 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 
 	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(ep->client)) {
 		if (ipa3_ctx->modem_cfg_emb_pipe_flt &&
-			ep->client == IPA_CLIENT_APPS_LAN_WAN_PROD)
+			ep->client == IPA_CLIENT_APPS_WAN_PROD)
 			IPADBG("modem cfg emb pipe flt\n");
 		else
 			ipa3_delete_dflt_flt_rules(clnt_hdl);
@@ -1209,6 +1186,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	int src_ep_idx;
 	int num_frags, f;
 	const struct ipa_gsi_ep_config *gsi_ep;
+	int data_idx;
 
 	if (unlikely(!ipa3_ctx)) {
 		IPAERR("IPA3 driver was not initialized\n");
@@ -1230,10 +1208,10 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	 *
 	 */
 	if (IPA_CLIENT_IS_CONS(dst)) {
-		src_ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD);
+		src_ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_PROD);
 		if (-1 == src_ep_idx) {
 			IPAERR("Client %u is not mapped\n",
-				IPA_CLIENT_APPS_LAN_WAN_PROD);
+				IPA_CLIENT_APPS_LAN_PROD);
 			goto fail_gen;
 		}
 		dst_ep_idx = ipa3_get_ep_mapping(dst);
@@ -1344,40 +1322,54 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		IPA_STATS_INC_CNT(ipa3_ctx->stats.tx_sw_pkts);
 	} else {
 		/* HW data path */
-		desc[0].opcode =
-			ipahal_imm_cmd_get_opcode(
-				IPA_IMM_CMD_IP_PACKET_TAG_STATUS);
-		desc[0].type = IPA_IMM_CMD_DESC;
-		desc[0].callback = ipa3_tag_destroy_imm;
-		desc[1].pyld = skb->data;
-		desc[1].len = skb_headlen(skb);
-		desc[1].type = IPA_DATA_DESC_SKB;
-		desc[1].callback = ipa3_tx_comp_usr_notify_release;
-		desc[1].user1 = skb;
-		desc[1].user2 = src_ep_idx;
+		data_idx = 0;
+		if (sys->policy == IPA_POLICY_NOINTR_MODE) {
+			/*
+			 * For non-interrupt mode channel (where there is no
+			 * event ring) TAG STATUS are used for completion
+			 * notification. IPA will generate a status packet with
+			 * tag info as a result of the TAG STATUS command.
+			 */
+			desc[data_idx].opcode =
+				ipahal_imm_cmd_get_opcode(
+					IPA_IMM_CMD_IP_PACKET_TAG_STATUS);
+			desc[data_idx].type = IPA_IMM_CMD_DESC;
+			desc[data_idx].callback = ipa3_tag_destroy_imm;
+			data_idx++;
+		}
+		desc[data_idx].pyld = skb->data;
+		desc[data_idx].len = skb_headlen(skb);
+		desc[data_idx].type = IPA_DATA_DESC_SKB;
+		desc[data_idx].callback = ipa3_tx_comp_usr_notify_release;
+		desc[data_idx].user1 = skb;
+		desc[data_idx].user2 = src_ep_idx;
 
 		if (meta && meta->dma_address_valid) {
-			desc[1].dma_address_valid = true;
-			desc[1].dma_address = meta->dma_address;
+			desc[data_idx].dma_address_valid = true;
+			desc[data_idx].dma_address = meta->dma_address;
 		}
 		if (num_frags == 0) {
-			if (ipa3_send(sys, 2, desc, true)) {
+			if (ipa3_send(sys, data_idx + 1, desc, true)) {
 				IPAERR("fail to send skb %p HWP\n", skb);
 				goto fail_mem;
 			}
 		} else {
 			for (f = 0; f < num_frags; f++) {
-				desc[2+f].frag = &skb_shinfo(skb)->frags[f];
-				desc[2+f].type = IPA_DATA_DESC_SKB_PAGED;
-				desc[2+f].len = skb_frag_size(desc[2+f].frag);
+				desc[data_idx+f+1].frag =
+					&skb_shinfo(skb)->frags[f];
+				desc[data_idx+f+1].type =
+					IPA_DATA_DESC_SKB_PAGED;
+				desc[data_idx+f+1].len =
+					skb_frag_size(desc[data_idx+f+1].frag);
 			}
 			/* don't free skb till frag mappings are released */
-			desc[2+f-1].callback = desc[1].callback;
-			desc[2+f-1].user1 = desc[1].user1;
-			desc[2+f-1].user2 = desc[1].user2;
-			desc[1].callback = NULL;
+			desc[data_idx+f].callback = desc[data_idx].callback;
+			desc[data_idx+f].user1 = desc[data_idx].user1;
+			desc[data_idx+f].user2 = desc[data_idx].user2;
+			desc[data_idx].callback = NULL;
 
-			if (ipa3_send(sys, num_frags + 2, desc, true)) {
+			if (ipa3_send(sys, num_frags + data_idx + 1,
+				desc, true)) {
 				IPAERR("fail to send skb %p num_frags %u HWP\n",
 					skb, num_frags);
 				goto fail_mem;
@@ -2646,7 +2638,8 @@ static void ipa3_free_rx_wrapper(struct ipa3_rx_pkt_wrapper *rk_pkt)
 static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 		struct ipa3_sys_context *sys)
 {
-	if (in->client == IPA_CLIENT_APPS_CMD_PROD) {
+	if (in->client == IPA_CLIENT_APPS_CMD_PROD ||
+		in->client == IPA_CLIENT_APPS_WAN_PROD) {
 		sys->policy = IPA_POLICY_INTR_MODE;
 		return 0;
 	}
@@ -3052,7 +3045,7 @@ int ipa3_sys_setup(struct ipa_sys_connect_params *sys_in,
 	IPA_ACTIVE_CLIENTS_INC_EP(sys_in->client);
 
 	if (ep->valid == 1) {
-		if (sys_in->client != IPA_CLIENT_APPS_LAN_WAN_PROD) {
+		if (sys_in->client != IPA_CLIENT_APPS_WAN_PROD) {
 			IPAERR("EP %d already allocated\n", ipa_ep_idx);
 			goto fail_and_disable_clocks;
 		} else {
@@ -3382,7 +3375,15 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 			gsi_evt_ring_props.ring_base_vaddr;
 
 		gsi_evt_ring_props.int_modt = IPA_GSI_EVT_RING_INT_MODT;
-		gsi_evt_ring_props.int_modc = 1;
+		if (ep->client == IPA_CLIENT_APPS_WAN_PROD)
+			gsi_evt_ring_props.int_modc = 248;
+		else
+			gsi_evt_ring_props.int_modc = 1;
+
+		IPADBG("client=%d moderation threshold cycles=%u cnt=%u\n",
+			ep->client,
+			gsi_evt_ring_props.int_modt,
+			gsi_evt_ring_props.int_modc);
 		gsi_evt_ring_props.rp_update_addr = 0;
 		gsi_evt_ring_props.exclusive = true;
 		gsi_evt_ring_props.err_cb = ipa_gsi_evt_ring_err_cb;
@@ -3419,9 +3420,13 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	 * GSI ring length is calculated based on the desc_fifo_sz which was
 	 * meant to define the BAM desc fifo. GSI descriptors are 16B as opposed
 	 * to 8B for BAM. For PROD pipes there is also an additional descriptor
-	 * for TAG STATUS immediate command.
+	 * for TAG STATUS immediate command. APPS_WAN_PROD pipe is an exception
+	 * as this pipe do not use TAG STATUS for completion. Instead it uses
+	 * event ring based completions.
 	 */
-	if (IPA_CLIENT_IS_PROD(ep->client))
+	if (ep->client == IPA_CLIENT_APPS_WAN_PROD)
+		gsi_channel_props.ring_len = 2 * in->desc_fifo_sz;
+	else if (IPA_CLIENT_IS_PROD(ep->client))
 		gsi_channel_props.ring_len = 4 * in->desc_fifo_sz;
 	else
 		gsi_channel_props.ring_len = 2 * in->desc_fifo_sz;
