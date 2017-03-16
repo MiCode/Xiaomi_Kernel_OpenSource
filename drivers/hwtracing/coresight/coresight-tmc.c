@@ -63,11 +63,13 @@ void tmc_flush_and_stop(struct tmc_drvdata *drvdata)
 
 void tmc_enable_hw(struct tmc_drvdata *drvdata)
 {
+	drvdata->enable = true;
 	writel_relaxed(TMC_CTL_CAPT_EN, drvdata->base + TMC_CTL);
 }
 
 void tmc_disable_hw(struct tmc_drvdata *drvdata)
 {
+	drvdata->enable = false;
 	writel_relaxed(0x0, drvdata->base + TMC_CTL);
 }
 
@@ -309,6 +311,100 @@ static ssize_t mem_size_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(mem_size);
 
+static ssize_t out_mode_show(struct device *dev,
+			     struct device_attribute *attr, char *buf)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			str_tmc_etr_out_mode[drvdata->out_mode]);
+}
+
+static ssize_t out_mode_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t size)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	char str[10] = "";
+	unsigned long flags;
+	int ret;
+
+	if (strlen(buf) >= 10)
+		return -EINVAL;
+	if (sscanf(buf, "%10s", str) != 1)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->mem_lock);
+	if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM])) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+			goto out;
+
+		spin_lock_irqsave(&drvdata->spinlock, flags);
+		if (!drvdata->enable) {
+			drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
+			goto out;
+		}
+		__tmc_etr_disable_to_bam(drvdata);
+		tmc_etr_enable_hw(drvdata);
+		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+
+		tmc_etr_bam_disable(drvdata);
+		usb_qdss_close(drvdata->usbch);
+	} else if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB])) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB)
+			goto out;
+
+		spin_lock_irqsave(&drvdata->spinlock, flags);
+		if (!drvdata->enable) {
+			drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
+			goto out;
+		}
+		if (drvdata->reading) {
+			ret = -EBUSY;
+			goto err1;
+		}
+		tmc_etr_disable_hw(drvdata);
+		drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+
+		drvdata->usbch = usb_qdss_open("qdss", drvdata,
+					       usb_notifier);
+		if (IS_ERR(drvdata->usbch)) {
+			dev_err(drvdata->dev, "usb_qdss_open failed\n");
+			ret = PTR_ERR(drvdata->usbch);
+			goto err0;
+		}
+	}
+out:
+	mutex_unlock(&drvdata->mem_lock);
+	return size;
+err1:
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+err0:
+	mutex_unlock(&drvdata->mem_lock);
+	return ret;
+}
+static DEVICE_ATTR_RW(out_mode);
+
+static ssize_t available_out_modes_show(struct device *dev,
+				       struct device_attribute *attr,
+				       char *buf)
+{
+	ssize_t len = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(str_tmc_etr_out_mode); i++)
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%s ",
+				str_tmc_etr_out_mode[i]);
+
+	len += scnprintf(buf + len, PAGE_SIZE - len, "\n");
+	return len;
+}
+static DEVICE_ATTR_RO(available_out_modes);
+
 static ssize_t mem_type_show(struct device *dev,
 			     struct device_attribute *attr,
 			     char *buf)
@@ -355,6 +451,8 @@ static struct attribute *coresight_tmc_etr_attrs[] = {
 	&dev_attr_mem_size.attr,
 	&dev_attr_mem_type.attr,
 	&dev_attr_trigger_cntr.attr,
+	&dev_attr_out_mode.attr,
+	&dev_attr_available_out_modes.attr,
 	NULL,
 };
 
@@ -460,6 +558,10 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		desc.ops = &tmc_etr_cs_ops;
 		desc.groups = coresight_tmc_etr_groups;
 		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
+
+		ret = tmc_etr_bam_init(adev, drvdata);
+		if (ret)
+			goto out;
 	} else {
 		desc.type = CORESIGHT_DEV_TYPE_LINKSINK;
 		desc.ops = &tmc_etf_cs_ops;

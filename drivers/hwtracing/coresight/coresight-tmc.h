@@ -19,7 +19,12 @@
 #define _CORESIGHT_TMC_H
 
 #include <linux/miscdevice.h>
+#include <linux/delay.h>
 #include <asm/cacheflush.h>
+#include <linux/of_address.h>
+#include <linux/amba/bus.h>
+#include <linux/usb_bam.h>
+#include <linux/usb/usb_qdss.h>
 
 #define TMC_RSZ			0x004
 #define TMC_STS			0x00c
@@ -77,6 +82,8 @@
 #define TMC_ETR_SG_NXT_TBL(phys_pte)	(((phys_pte >> PAGE_SHIFT) << 4) | 0x3)
 #define TMC_ETR_SG_LST_ENT(phys_pte)	(((phys_pte >> PAGE_SHIFT) << 4) | 0x1)
 
+#define TMC_ETR_BAM_PIPE_INDEX	0
+#define TMC_ETR_BAM_NR_PIPES	2
 
 enum tmc_config_type {
 	TMC_CONFIG_TYPE_ETB,
@@ -107,6 +114,30 @@ static const char * const str_tmc_etr_mem_type[] = {
 	[TMC_ETR_MEM_TYPE_SG]		= "sg",
 };
 
+enum tmc_etr_out_mode {
+	TMC_ETR_OUT_MODE_NONE,
+	TMC_ETR_OUT_MODE_MEM,
+	TMC_ETR_OUT_MODE_USB,
+};
+
+static const char * const str_tmc_etr_out_mode[] = {
+	[TMC_ETR_OUT_MODE_NONE]		= "none",
+	[TMC_ETR_OUT_MODE_MEM]		= "mem",
+	[TMC_ETR_OUT_MODE_USB]		= "usb",
+};
+
+struct tmc_etr_bam_data {
+	struct sps_bam_props	props;
+	unsigned long		handle;
+	struct sps_pipe		*pipe;
+	struct sps_connect	connect;
+	uint32_t		src_pipe_idx;
+	unsigned long		dest;
+	uint32_t		dest_pipe_idx;
+	struct sps_mem_buffer	desc_fifo;
+	struct sps_mem_buffer	data_fifo;
+	bool			enable;
+};
 
 /**
  * struct tmc_drvdata - specifics associated to an TMC component
@@ -132,6 +163,7 @@ struct tmc_drvdata {
 	struct miscdevice	miscdev;
 	spinlock_t		spinlock;
 	bool			reading;
+	bool			enable;
 	char			*buf;
 	dma_addr_t		paddr;
 	void __iomem		*vaddr;
@@ -147,6 +179,11 @@ struct tmc_drvdata {
 	enum tmc_etr_mem_type	memtype;
 	u32			delta_bottom;
 	int			sg_blk_num;
+	enum tmc_etr_out_mode	out_mode;
+	struct usb_qdss_ch	*usbch;
+	struct tmc_etr_bam_data	*bamdata;
+	bool			enable_to_bam;
+
 };
 
 /* Generic functions */
@@ -166,5 +203,13 @@ void tmc_etr_sg_compute_read(struct tmc_drvdata *drvdata, loff_t *ppos,
 			     char **bufpp, size_t *len);
 int tmc_read_prepare_etr(struct tmc_drvdata *drvdata);
 int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata);
+void __tmc_etr_disable_to_bam(struct tmc_drvdata *drvdata);
+void tmc_etr_bam_disable(struct tmc_drvdata *drvdata);
+void tmc_etr_enable_hw(struct tmc_drvdata *drvdata);
+void tmc_etr_disable_hw(struct tmc_drvdata *drvdata);
+void usb_notifier(void *priv, unsigned int event, struct qdss_request *d_req,
+		  struct usb_qdss_ch *ch);
+int tmc_etr_bam_init(struct amba_device *adev,
+		     struct tmc_drvdata *drvdata);
 extern const struct coresight_ops tmc_etr_cs_ops;
 #endif
