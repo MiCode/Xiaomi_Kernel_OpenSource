@@ -1034,6 +1034,14 @@ static void _sde_crtc_set_suspend(struct drm_crtc *crtc, bool enable)
 	mutex_lock(&sde_crtc->crtc_lock);
 
 	/*
+	 * Update CP on suspend/resume transitions
+	 */
+	if (enable && !sde_crtc->suspend)
+		sde_cp_crtc_suspend(crtc);
+	else if (!enable && sde_crtc->suspend)
+		sde_cp_crtc_resume(crtc);
+
+	/*
 	 * If the vblank refcount != 0, release a power reference on suspend
 	 * and take it back during resume (if it is still != 0).
 	 */
