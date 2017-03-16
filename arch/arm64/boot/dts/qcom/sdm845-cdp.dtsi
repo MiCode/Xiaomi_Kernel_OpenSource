@@ -10,3 +10,8 @@
  * GNU General Public License for more details.
  */
 
+&soc {
+	sound-tavil {
+		qcom,us-euro-gpios = <&tavil_us_euro_sw>;
+	};
+};

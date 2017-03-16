@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include "msm-audio-lpass.dtsi"
 #include "sdm845-wcd.dtsi"
 #include "msm-wsa881x.dtsi"
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
