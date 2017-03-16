@@ -395,7 +395,7 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 {
 	u32 count = 0;
 	u32 size = 0;
-	struct dsi_display_mode *modes;
+	struct dsi_display_mode *modes = NULL;
 	struct drm_display_mode drm_mode;
 	int rc, i;
 

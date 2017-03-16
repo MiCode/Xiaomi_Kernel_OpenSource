@@ -670,7 +670,7 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 	int d = drv->drv_id;
 	struct tcs_mbox *tcs;
 	int i, slot, offset, m, n;
-	struct tcs_response *resp;
+	struct tcs_response *resp = NULL;
 
 	tcs = get_tcs_for_msg(drv, msg);
 	if (IS_ERR(tcs))

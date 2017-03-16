@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1433,7 +1433,7 @@ void diag_dci_channel_open_work(struct work_struct *work)
 
 void diag_dci_notify_client(int peripheral_mask, int data, int proc)
 {
-	int stat;
+	int stat = 0;
 	struct siginfo info;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;

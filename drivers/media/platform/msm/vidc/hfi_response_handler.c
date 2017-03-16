@@ -790,7 +790,7 @@ static enum vidc_status hfi_parse_init_done_properties(
 {
 	enum vidc_status status = VIDC_ERR_NONE;
 	u32 prop_id, next_offset;
-	u32 codecs, domain;
+	u32 codecs = 0, domain = 0;
 
 	while (status == VIDC_ERR_NONE && num_properties &&
 			rem_bytes >= sizeof(u32)) {

@@ -6617,8 +6617,8 @@ static void ufshcd_set_active_icc_lvl(struct ufs_hba *hba)
 static int ufshcd_scsi_add_wlus(struct ufs_hba *hba)
 {
 	int ret = 0;
-	struct scsi_device *sdev_rpmb;
-	struct scsi_device *sdev_boot;
+	struct scsi_device *sdev_rpmb = NULL;
+	struct scsi_device *sdev_boot = NULL;
 	bool is_bootable_dev = false;
 	bool is_embedded_dev = false;
 

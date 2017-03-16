@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -223,10 +223,9 @@ static void dump_drp_sb_syn_reg(struct regmap *llcc_map)
 	int sb_err_ways;
 	u32 synd_reg;
 	u32 synd_val;
-	u32 synd_reg_offset;
 
 	for (i = 0; i < DRP_SYN_REG_CNT; i++) {
-		synd_reg_offset = DRP_ECC_SB_ERR_SYN0 + (i * 4);
+		synd_reg = DRP_ECC_SB_ERR_SYN0 + (i * 4);
 		regmap_read(llcc_map, synd_reg, &synd_val);
 		edac_printk(KERN_CRIT, EDAC_LLCC, "DRP_ECC_SYN%d: 0x%8x\n",
 			i, synd_val);

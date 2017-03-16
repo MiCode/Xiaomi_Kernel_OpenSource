@@ -2022,7 +2022,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE: {
-		struct v4l2_ctrl *air_mbs, *air_ref, *cir_mbs;
+		struct v4l2_ctrl *air_mbs, *air_ref = NULL, *cir_mbs = NULL;
 		bool is_cont_intra_supported = false;
 
 		air_mbs = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_IR_MBS);
@@ -2042,7 +2042,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_IR_MBS: {
-		struct v4l2_ctrl *ir_mode, *air_ref, *cir_mbs;
+		struct v4l2_ctrl *ir_mode, *air_ref = NULL, *cir_mbs = NULL;
 
 		ir_mode = TRY_GET_CTRL(
 				V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE);

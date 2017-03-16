@@ -1157,7 +1157,7 @@ static void smem_module_init_notify(uint32_t state, void *data)
 static void smem_init_security_partition(struct smem_toc_entry *entry,
 								uint32_t num)
 {
-	uint16_t remote_host;
+	uint16_t remote_host = 0;
 	struct smem_partition_header *hdr;
 	bool is_comm_partition = false;
 

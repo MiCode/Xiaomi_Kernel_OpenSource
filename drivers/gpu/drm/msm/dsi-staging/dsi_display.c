@@ -1914,7 +1914,7 @@ static int dsi_display_dfps_update(struct dsi_display *display,
 	struct dsi_display_mode *panel_mode;
 	struct dsi_dfps_capabilities dfps_caps;
 	int rc = 0;
-	int i;
+	int i = 0;
 
 	if (!display || !dsi_mode) {
 		pr_err("Invalid params\n");
