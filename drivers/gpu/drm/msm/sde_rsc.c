@@ -142,6 +142,48 @@ end:
 	return;
 }
 
+static int sde_rsc_clk_enable(struct sde_power_handle *phandle,
+	struct sde_power_client *pclient, bool enable)
+{
+	int rc = 0;
+	struct dss_module_power *mp;
+
+	if (!phandle || !pclient) {
+		pr_err("invalid input argument\n");
+		return -EINVAL;
+	}
+
+	mp = &phandle->mp;
+
+	if (enable)
+		pclient->refcount++;
+	else if (pclient->refcount)
+		pclient->refcount--;
+
+	if (pclient->refcount)
+		pclient->usecase_ndx = VOTE_INDEX_LOW;
+	else
+		pclient->usecase_ndx = VOTE_INDEX_DISABLE;
+
+	if (phandle->current_usecase_ndx == pclient->usecase_ndx)
+		goto end;
+
+	if (enable) {
+		rc = msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
+		if (rc) {
+			pr_err("clock enable failed rc:%d\n", rc);
+			goto end;
+		}
+	} else {
+		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
+	}
+
+	phandle->current_usecase_ndx = pclient->usecase_ndx;
+
+end:
+	return rc;
+}
+
 static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
 	struct sde_rsc_cmd_config *cmd_config)
 {
@@ -420,7 +462,7 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 			(rsc->current_state == SDE_RSC_CMD_STATE);
 
 	if (rsc->power_collapse)
-		sde_power_resource_enable(&rsc->phandle, rsc->pclient, true);
+		sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 
 	switch (state) {
 	case SDE_RSC_IDLE_STATE:
@@ -473,7 +515,7 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 
 clk_disable:
 	if (rsc->power_collapse)
-		sde_power_resource_enable(&rsc->phandle, rsc->pclient, false);
+		sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 end:
 	mutex_unlock(&rsc->client_lock);
 	return rc;
@@ -592,7 +634,7 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 		seq_printf(s, "\t client:%s state:%d\n",
 				client->name, client->current_state);
 
-	sde_power_resource_enable(&rsc->phandle, rsc->pclient, true);
+	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 
 	if (rsc->hw_ops.debug_show) {
 		ret = rsc->hw_ops.debug_show(s, rsc);
@@ -600,7 +642,7 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 			pr_err("sde rsc: hw debug failed ret:%d\n", ret);
 	}
 
-	sde_power_resource_enable(&rsc->phandle, rsc->pclient, false);
+	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 	mutex_unlock(&rsc->client_lock);
 
 	return 0;
@@ -629,12 +671,12 @@ static ssize_t _sde_debugfs_mode_ctrl_read(struct file *file, char __user *buf,
 		return 0;
 
 	mutex_lock(&rsc->client_lock);
-	sde_power_resource_enable(&rsc->phandle, rsc->pclient, true);
+	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 
 	blen = rsc->hw_ops.mode_ctrl(rsc, MODE_READ, buffer,
 							MAX_BUFFER_SIZE, 0);
 
-	sde_power_resource_enable(&rsc->phandle, rsc->pclient, false);
+	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 	mutex_unlock(&rsc->client_lock);
 
 	if (blen < 0)
@@ -668,7 +710,7 @@ static ssize_t _sde_debugfs_mode_ctrl_write(struct file *file,
 	input[count - 1] = '\0';
 
 	mutex_lock(&rsc->client_lock);
-	sde_power_resource_enable(&rsc->phandle, rsc->pclient, true);
+	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 
 	mode = strnstr(input, "mode0=", strlen("mode0="));
 	if (mode) {
@@ -694,7 +736,7 @@ static ssize_t _sde_debugfs_mode_ctrl_write(struct file *file,
 	}
 
 end:
-	sde_power_resource_enable(&rsc->phandle, rsc->pclient, false);
+	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 	mutex_unlock(&rsc->client_lock);
 
 	pr_err("req: mode0:%d mode1:%d mode2:%d\n", mode0_state, mode1_state,
@@ -721,12 +763,12 @@ static ssize_t _sde_debugfs_vsync_mode_read(struct file *file, char __user *buf,
 		return 0;
 
 	mutex_lock(&rsc->client_lock);
-	sde_power_resource_enable(&rsc->phandle, rsc->pclient, true);
+	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 
 	blen = rsc->hw_ops.hw_vsync(rsc, VSYNC_READ, buffer,
 						MAX_BUFFER_SIZE, 0);
 
-	sde_power_resource_enable(&rsc->phandle, rsc->pclient, false);
+	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 	mutex_unlock(&rsc->client_lock);
 
 	if (blen < 0)
@@ -766,7 +808,7 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 	}
 
 	mutex_lock(&rsc->client_lock);
-	sde_power_resource_enable(&rsc->phandle, rsc->pclient, true);
+	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 
 	if (vsync_state)
 		rsc->hw_ops.hw_vsync(rsc, VSYNC_ENABLE, NULL,
@@ -774,7 +816,7 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 	else
 		rsc->hw_ops.hw_vsync(rsc, VSYNC_DISABLE, NULL, 0, 0);
 
-	sde_power_resource_enable(&rsc->phandle, rsc->pclient, false);
+	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 	mutex_unlock(&rsc->client_lock);
 
 	kfree(input);
@@ -824,7 +866,7 @@ static void sde_rsc_deinit(struct platform_device *pdev,
 		return;
 
 	if (rsc->pclient)
-		sde_power_resource_enable(&rsc->phandle, rsc->pclient, false);
+		sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 	if (rsc->fs)
 		devm_regulator_put(rsc->fs);
 	if (rsc->wrapper_io.base)
@@ -964,14 +1006,15 @@ static int sde_rsc_probe(struct platform_device *pdev)
 		goto sde_rsc_fail;
 	}
 
-	/* these clocks are always on */
-	if (sde_power_resource_enable(&rsc->phandle, rsc->pclient, true)) {
+	if (sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true)) {
 		pr_err("failed to enable sde rsc power resources\n");
 		goto sde_rsc_fail;
 	}
 
 	if (sde_rsc_timer_calculate(rsc, NULL))
 		goto sde_rsc_fail;
+
+	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 
 	INIT_LIST_HEAD(&rsc->client_list);
 	mutex_init(&rsc->client_lock);
