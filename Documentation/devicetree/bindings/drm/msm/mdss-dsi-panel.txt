@@ -456,28 +456,6 @@ Optional properties:
 					with the supply entry index. For a detailed description of
 					fields in the supply entry, refer to the qcom,ctrl-supply-entries
 					binding above.
-- qcom,config-select:			Optional property to select default configuration.
-
-[[Optional config sub-nodes]]		These subnodes provide different configurations for a given same panel.
-					Default configuration can be chosen by specifying phandle of the
-					selected subnode in the qcom,config-select.
-Required properties for sub-nodes:	None
-Optional properites:
-- qcom,lm-split:			An array of two values indicating MDP should use two layer
-					mixers to reduce power.
-					Ex: Normally 1080x1920 display uses single DSI and thus one layer
-					    mixer. But if we use two layer mixers then mux the output of
-					    those two mixers into single stream and route it to single DSI
-					    then we can lower the clock requirements of MDP. To use this
-					    configuration we need two fill this array with <540 540>.
-					Both values doesn't have to be same, but recommended, however sum of
-					both values has to be equal to the panel-width.
-					By default two mixer streams are merged using 2D mux, however if
-					2 DSC encoders are used then merge is performed within compression
-					engine.
-- qcom,split-mode:			String property indicating which split mode MDP should use. Valid
-					entries are "pingpong-split" and "dualctl-split".
-					This property is mutually exclusive with qcom,lm-split.
 - qcom,mdss-dsc-version:		An 8 bit value indicates the DSC version supported by panel. Bits[0.3]
 					provides information about minor version while Bits[4.7] provides
 					major version information. It supports only DSC rev 1(Major).1(Minor)
@@ -500,6 +478,21 @@ Optional properites:
 - qcom,mdss-dsc-block-prediction-enable: A boolean value to enable/disable the block prediction at decoder.
 - qcom,mdss-dsc-config-by-manufacture-cmd: A boolean to indicates panel use manufacture command to setup pps
 					instead of standard dcs type 0x0A.
+- qcom,display-topology:  		Array of u32 values which specifies the	list of topologies available
+					for the display. A display topology is defined by a
+					set of 3 values in the order:
+					- number of mixers
+					- number of compression encoders
+					- number of interfaces
+					Therefore, the array should always contain a tuple of 3 elements.
+- qcom,default-topology-index:          An u32 value which indexes the topology set
+					specified by the node "qcom,display-topology"
+					to identify the default topology for the
+					display. The first set is indexed by the
+					value 0.
+
+Required properties for sub-nodes:	None
+Optional properties:
 - qcom,dba-panel:	Indicates whether the current panel is used as a display bridge
 					to a non-DSI interface.
 - qcom,bridge-name:			A string to indicate the name of the bridge chip connected to DSI. qcom,bridge-name
@@ -692,18 +685,15 @@ Example:
 					29 00 00 00 00 00 02 F1 00];
 				qcom,mdss-dsi-timing-switch-command-state = "dsi_lp_mode";
 
-				qcom,config-select = <&dsi_sim_vid_config0>;
-				dsi_sim_vid_config0: config0 {
-					qcom,lm-split = <360 360>;
-					qcom,mdss-dsc-encoders = <2>;
-					qcom,mdss-dsc-slice-height = <16>;
-					qcom,mdss-dsc-slice-width = <360>;
-					qcom,mdss-dsc-slice-per-pkt = <2>;
-					qcom,mdss-dsc-bit-per-component = <8>;
-					qcom,mdss-dsc-bit-per-pixel = <8>;
-					qcom,mdss-dsc-block-prediction-enable;
-					qcom,mdss-dsc-config-by-manufacture-cmd;
-				};
+				qcom,mdss-dsc-slice-height = <16>;
+				qcom,mdss-dsc-slice-width = <360>;
+				qcom,mdss-dsc-slice-per-pkt = <2>;
+				qcom,mdss-dsc-bit-per-component = <8>;
+				qcom,mdss-dsc-bit-per-pixel = <8>;
+				qcom,mdss-dsc-block-prediction-enable;
+				qcom,mdss-dsc-config-by-manufacture-cmd;
+				qcom,display-topology = <1 1 1>;
+				qcom,default-topology-index = <0>;
 			};
 		};
 		qcom,panel-supply-entries {
@@ -737,41 +727,19 @@ Example:
 			};
 		};
 
-		qcom,config-select = <&dsi_sim_vid_config0>;
 		qcom,dba-panel;
 		qcom,bridge-name = "adv7533";
 		qcom,mdss-dsc-version = <0x11>;
 		qcom,mdss-dsc-scr-version = <0x1>;
-
-		dsi_sim_vid_config0: config0 {
-			qcom,lm-split = <360 360>;
-			qcom,mdss-dsc-encoders = <2>;
-			qcom,mdss-dsc-slice-height = <16>;
-			qcom,mdss-dsc-slice-width = <360>;
-			qcom,mdss-dsc-slice-per-pkt = <2>;
-			qcom,mdss-dsc-bit-per-component = <8>;
-			qcom,mdss-dsc-bit-per-pixel = <8>;
-			qcom,mdss-dsc-block-prediction-enable;
-			qcom,mdss-dsc-config-by-manufacture-cmd;
-		};
-
-		dsi_sim_vid_config1: config1 {
-			qcom,mdss-dsc-encoders = <1>;
-			qcom,mdss-dsc-slice-height = <16>;
-			qcom,mdss-dsc-slice-width = <360>;
-			qcom,mdss-dsc-slice-per-pkt = <2>;
-			qcom,mdss-dsc-bit-per-component = <8>;
-			qcom,mdss-dsc-bit-per-pixel = <8>;
-			qcom,mdss-dsc-block-prediction-enable;
-			qcom,mdss-dsc-config-by-manufacture-cmd;
-		};
-
-		dsi_sim_vid_config2: config2 {
-			qcom,split-mode = "dualctl-split";
-		};
-
-		dsi_sim_vid_config3: config3 {
-			qcom,split-mode = "pingpong-split";
-		};
+		qcom,mdss-dsc-slice-height = <16>;
+		qcom,mdss-dsc-slice-width = <360>;
+		qcom,mdss-dsc-slice-per-pkt = <2>;
+		qcom,mdss-dsc-bit-per-component = <8>;
+		qcom,mdss-dsc-bit-per-pixel = <8>;
+		qcom,mdss-dsc-block-prediction-enable;
+		qcom,mdss-dsc-config-by-manufacture-cmd;
+		qcom,display-topology = <1 1 1>,
+			                <2 2 1>;
+		qcom,default-topology-index = <0>;
 	};
 };
