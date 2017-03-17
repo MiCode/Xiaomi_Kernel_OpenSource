@@ -1034,6 +1034,7 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 	d->desc.ops = &pil_ops_trusted;
 
 	d->desc.proxy_timeout = PROXY_TIMEOUT_MS;
+	d->desc.clear_fw_region = true;
 
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,proxy-timeout-ms",
 					&proxy_timeout);
