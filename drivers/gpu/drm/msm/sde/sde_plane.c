@@ -618,8 +618,19 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 static int _sde_plane_setup_scaler3_lut(struct sde_plane *psde,
 		struct sde_plane_state *pstate)
 {
-	struct sde_hw_scaler3_cfg *cfg = psde->scaler3_cfg;
+	struct sde_hw_scaler3_cfg *cfg;
 	int ret = 0;
+
+	if (!psde || !psde->scaler3_cfg) {
+		SDE_ERROR("invalid args\n");
+		return -EINVAL;
+	} else if (!pstate) {
+		/* pstate is expected to be null on forced color fill */
+		SDE_DEBUG("null pstate\n");
+		return -EINVAL;
+	}
+
+	cfg = psde->scaler3_cfg;
 
 	cfg->dir_lut = msm_property_get_blob(
 			&psde->property_info,
@@ -1006,7 +1017,7 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 					psde->scaler3_cfg, fmt,
 					chroma_subsmpl_h, chroma_subsmpl_v);
 		}
-	} else if (!psde->pixel_ext_usr) {
+	} else if (!psde->pixel_ext_usr || !pstate) {
 		uint32_t deci_dim, i;
 
 		/* calculate default configuration for QSEED2 */
@@ -1713,8 +1724,8 @@ void sde_plane_flush(struct drm_plane *plane)
 	 * timing, and may not be moved to the atomic_update/mode_set functions.
 	 */
 	if (psde->is_error)
-		/* force white frame with 0% alpha pipe output on error */
-		_sde_plane_color_fill(psde, 0xFFFFFF, 0x0);
+		/* force white frame with 100% alpha pipe output on error */
+		_sde_plane_color_fill(psde, 0xFFFFFF, 0xFF);
 	else if (psde->color_fill & SDE_PLANE_COLOR_FILL_FLAG)
 		/* force 100% alpha */
 		_sde_plane_color_fill(psde, psde->color_fill, 0xFF);
