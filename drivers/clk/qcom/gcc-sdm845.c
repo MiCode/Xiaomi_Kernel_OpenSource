@@ -185,6 +185,7 @@ static const struct clk_div_table post_div_table_fabia_even[] = {
 	{ 0x1, 2 },
 	{ 0x3, 4 },
 	{ 0x7, 8 },
+	{ }
 };
 
 static struct clk_alpha_pll_postdiv gpll0_out_even = {
