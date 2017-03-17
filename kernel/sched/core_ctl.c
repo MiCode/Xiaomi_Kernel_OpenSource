@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt)	"core_ctl: " fmt
+
 #include <linux/init.h>
 #include <linux/notifier.h>
 #include <linux/cpu.h>
