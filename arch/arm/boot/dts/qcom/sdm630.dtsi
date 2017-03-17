@@ -1231,8 +1231,8 @@
 		<90 512 206000 960000>,
 		<1 676 206000 160000>;
 		qcom,bus-vector-names = "MIN", "SVS", "PERF", "TURBO";
-		qcom,rx-polling-sleep-ms = <2>; /* Polling sleep interval */
-		qcom,ipa-polling-iteration = <5>; /* Polling Iteration */
+		qcom,rx-polling-sleep-ms = <1>; /* Polling sleep interval */
+		qcom,ipa-polling-iteration = <40>; /* Polling Iteration */
 
 		ipa_smmu_ap: ipa_smmu_ap {
 			compatible = "qcom,ipa-smmu-ap-cb";
