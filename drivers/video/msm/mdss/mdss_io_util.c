@@ -300,7 +300,10 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 					in_vreg[i].pre_off_sleep * 1000);
 			regulator_set_optimum_mode(in_vreg[i].vreg,
 				in_vreg[i].load[DSS_REG_MODE_DISABLE]);
-			regulator_disable(in_vreg[i].vreg);
+
+			if (regulator_is_enabled(in_vreg[i].vreg))
+				regulator_disable(in_vreg[i].vreg);
+
 			if (in_vreg[i].post_off_sleep)
 				usleep_range(in_vreg[i].post_off_sleep * 1000,
 					in_vreg[i].post_off_sleep * 1000);
