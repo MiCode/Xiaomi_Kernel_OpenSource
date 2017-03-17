@@ -15,50 +15,121 @@
 #include <dt-bindings/clock/qcom,videocc-sdm845.h>
 
 &soc {
-	msm_vidc: qcom,vidc@cc00000 {
+	msm_vidc: qcom,vidc@aa00000 {
 		  compatible = "qcom,msm-vidc";
 		  status = "disabled";
-		  reg = <0xcc00000 0x100000>;
+		  reg = <0xaa00000 0x200000>;
 		  interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
-		  qcom,debug-timeout;
-		  qcom,reg-presets =
-			 <0x80124 0x00000003>,
-			 <0x80550 0x01111111>,
-			 <0x80560 0x01111111>,
-			 <0x80568 0x01111111>,
-			 <0x80570 0x01111111>,
-			 <0x80580 0x01111111>,
-			 <0x80588 0x01111111>,
-			 <0xe2010 0x00000000>;
-		  vdd-supply = <&venus_gdsc>;
+		  qcom,hfi = "venus";
+		  qcom,firmware-name = "venus";
+		  qcom,max-secure-instances = <5>;
+		  qcom,max-hw-load = <2563200>; /* Full 4k @ 60 + 1080p @ 60 */
+
+		  /* Supply */
+		  venus-supply = <&venus_gdsc>;
 		  venus-core0-supply = <&vcodec0_gdsc>;
 		  venus-core1-supply = <&vcodec1_gdsc>;
+
+		  /* Clocks */
+		  clock-names = "core_clk", "iface_clk", "bus_clk",
+			  "core0_clk", "core1_clk";
 		  clocks = <&clock_videocc VIDEO_CC_VENUS_CTL_CORE_CLK>,
 			 <&clock_videocc VIDEO_CC_VENUS_AHB_CLK>,
 			 <&clock_videocc VIDEO_CC_VENUS_CTL_AXI_CLK>,
 			 <&clock_videocc VIDEO_CC_VCODEC0_CORE_CLK>,
 			 <&clock_videocc VIDEO_CC_VCODEC1_CORE_CLK>;
-		  clock-names = "core_clk", "iface_clk", "bus_clk",
-			"core0_clk", "core1_clk";
 		  qcom,proxy-clock-names = "core_clk", "iface_clk",
-			"bus_clk", "core0_clk", "core1_clk";
-		  qcom,clock-configs = <0x1 0x1 0x1 0x1 0x1>;
-		  qcom,proxy-reg-names = "vdd";
+			  "bus_clk", "core0_clk", "core1_clk";
+		  qcom,clock-configs = <0x0 0x0 0x0 0x0 0x0>;
+
+		  qcom,load-freq-tbl =
+			  /* Encoders */
+			  <1944000 444000000 0x55555555>, /* 4k UHD @ 60 */
+			  < 244800 200000000 0x55555555>, /* 720p @ 30 */
+			  /* Decoders */
+			  <1944000 444000000 0xffffffff>, /* 4k UHD @ 60 */
+			  < 244800 200000000 0xffffffff>; /* 1080p @ 30 */
+
+		  /* Buses */
 		  bus_cnoc {
 			  compatible = "qcom,msm-vidc,bus";
 			  label = "cnoc";
 			  qcom,bus-master = <MSM_BUS_MASTER_AMPSS_M0>;
 			  qcom,bus-slave = <MSM_BUS_SLAVE_VENUS_CFG>;
 			  qcom,bus-governor = "performance";
-			  qcom,bus-range-kbps = <1 1>;
+			  qcom,bus-range-kbps = <1000 1000>;
 		  };
 		  venus_bus_ddr {
 			  compatible = "qcom,msm-vidc,bus";
 			  label = "venus-ddr";
 			  qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			  qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
-			  qcom,bus-governor = "msm-vidc-ddr";
+			  qcom,bus-governor = "performance";
 			  qcom,bus-range-kbps = <1000 3388000>;
 		  };
+		  arm9_bus_ddr {
+			  compatible = "qcom,msm-vidc,bus";
+			  label = "venus-arm9-ddr";
+			  qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			  qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			  qcom,bus-governor = "performance";
+			  qcom,bus-range-kbps = <1000 1000>;
+		  };
+
+		  /* MMUs */
+		  non_secure_cb {
+			  compatible = "qcom,msm-vidc,context-bank";
+			  label = "venus_ns";
+			  iommus =
+				  <&apps_smmu 0x10a0>,
+				  <&apps_smmu 0x10a8>,
+				  <&apps_smmu 0x10b0>;
+			  buffer-types = <0xfff>;
+			  virtual-addr-pool = <0x70800000 0x6f800000>;
+		  };
+
+		  firmware_cb {
+			  compatible = "qcom,msm-vidc,context-bank";
+			  qcom,fw-context-bank;
+			  iommus =
+				  <&apps_smmu 0x10b2>;
+		  };
+
+		  secure_bitstream_cb {
+			  compatible = "qcom,msm-vidc,context-bank";
+			  label = "venus_sec_bitstream";
+			  iommus =
+				  <&apps_smmu 0x10a1>,
+				  <&apps_smmu 0x10a9>,
+				  <&apps_smmu 0x10a5>,
+				  <&apps_smmu 0x10ad>;
+			  buffer-types = <0x241>;
+			  virtual-addr-pool = <0x4b000000 0x25800000>;
+			  qcom,secure-context-bank;
+		  };
+
+		  secure_pixel_cb {
+			  compatible = "qcom,msm-vidc,context-bank";
+			  label = "venus_sec_pixel";
+			  iommus =
+				  <&apps_smmu 0x10a3>,
+				  <&apps_smmu 0x10ab>;
+			  buffer-types = <0x106>;
+			  virtual-addr-pool = <0x25800000 0x25800000>;
+			  qcom,secure-context-bank;
+		  };
+
+		  secure_non_pixel_cb {
+			  compatible = "qcom,msm-vidc,context-bank";
+			  label = "venus_sec_non_pixel";
+			  iommus =
+				  <&apps_smmu 0x10a4>,
+				  <&apps_smmu 0x10ac>,
+				  <&apps_smmu 0x10b4>;
+			  buffer-types = <0x480>;
+			  virtual-addr-pool = <0x1000000 0x24800000>;
+			  qcom,secure-context-bank;
+		  };
+
 	  };
 };
