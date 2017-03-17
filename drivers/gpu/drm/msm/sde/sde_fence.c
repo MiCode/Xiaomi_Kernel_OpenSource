@@ -76,6 +76,10 @@ struct sde_fence {
 	int fd;
 };
 
+static void sde_fence_destroy(struct kref *kref)
+{
+}
+
 static inline struct sde_fence *to_sde_fence(struct fence *fence)
 {
 	return container_of(fence, struct sde_fence, base);
@@ -114,7 +118,26 @@ static bool sde_fence_signaled(struct fence *fence)
 static void sde_fence_release(struct fence *fence)
 {
 	struct sde_fence *f = to_sde_fence(fence);
+	struct sde_fence *fc, *next;
+	struct sde_fence_context *ctx = f->ctx;
+	unsigned long flags;
+	bool release_kref = false;
 
+	spin_lock_irqsave(&ctx->lock, flags);
+	list_for_each_entry_safe(fc, next, &ctx->fence_list_head,
+				 fence_list) {
+		/* fence release called before signal */
+		if (f == fc) {
+			list_del_init(&fc->fence_list);
+			release_kref = true;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&ctx->lock, flags);
+
+	/* keep kput outside spin_lock because it may release ctx */
+	if (release_kref)
+		kref_put(&ctx->kref, sde_fence_destroy);
 	kfree_rcu(f, base.rcu);
 }
 
@@ -223,10 +246,6 @@ int sde_fence_init(struct sde_fence_context *ctx,
 	return 0;
 }
 
-static void sde_fence_destroy(struct kref *kref)
-{
-}
-
 void sde_fence_deinit(struct sde_fence_context *ctx)
 {
 	if (!ctx) {
@@ -295,6 +314,7 @@ void sde_fence_signal(struct sde_fence_context *ctx, bool is_error)
 {
 	unsigned long flags;
 	struct sde_fence *fc, *next;
+	uint32_t count = 0;
 
 	if (!ctx) {
 		SDE_ERROR("invalid ctx, %pK\n", ctx);
@@ -324,7 +344,7 @@ void sde_fence_signal(struct sde_fence_context *ctx, bool is_error)
 				 fence_list) {
 		if (fence_is_signaled_locked(&fc->base)) {
 			list_del_init(&fc->fence_list);
-			kref_put(&ctx->kref, sde_fence_destroy);
+			count++;
 		}
 	}
 
@@ -332,4 +352,8 @@ void sde_fence_signal(struct sde_fence_context *ctx, bool is_error)
 
 end:
 	spin_unlock_irqrestore(&ctx->lock, flags);
+
+	/* keep this outside spin_lock because same ctx may be released */
+	for (; count > 0; count--)
+		kref_put(&ctx->kref, sde_fence_destroy);
 }
