@@ -87,8 +87,6 @@ static DEFINE_MUTEX(rpmh_clk_lock);
 		.hw.init = &(struct clk_init_data){			      \
 			.ops = &clk_rpmh_ops,			              \
 			.name = #_name,					      \
-			.parent_names = (const char *[]){ "xo_board" },       \
-			.num_parents = 1,				      \
 		},							      \
 	};								      \
 	static struct clk_rpmh _platform##_##_name_active = {		      \
@@ -103,8 +101,6 @@ static DEFINE_MUTEX(rpmh_clk_lock);
 		.hw.init = &(struct clk_init_data){			      \
 			.ops = &clk_rpmh_ops,				      \
 			.name = #_name_active,				      \
-			.parent_names = (const char *[]){ "xo_board" },	      \
-			.num_parents = 1,				      \
 		},							      \
 	}
 
