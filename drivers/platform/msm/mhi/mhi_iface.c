@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,8 +110,6 @@ int mhi_ctxt_init(struct mhi_device_ctxt *mhi_dev_ctxt)
 
 irq_error:
 	kfree(mhi_dev_ctxt->state_change_work_item_list.q_lock);
-	kfree(mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq);
-	kfree(mhi_dev_ctxt->mhi_ev_wq.state_change_event);
 	kfree(mhi_dev_ctxt->mhi_ev_wq.m0_event);
 	kfree(mhi_dev_ctxt->mhi_ev_wq.m3_event);
 	kfree(mhi_dev_ctxt->mhi_ev_wq.bhi_event);
@@ -190,12 +188,10 @@ static int mhi_pci_probe(struct pci_dev *pcie_device,
 	pcie_device->dev.of_node = plat_dev->dev.of_node;
 	mhi_dev_ctxt->mhi_pm_state = MHI_PM_DISABLE;
 	INIT_WORK(&mhi_dev_ctxt->process_m1_worker, process_m1_transition);
+	INIT_WORK(&mhi_dev_ctxt->st_thread_worker, mhi_state_change_worker);
 	mutex_init(&mhi_dev_ctxt->pm_lock);
 	rwlock_init(&mhi_dev_ctxt->pm_xfer_lock);
 	spin_lock_init(&mhi_dev_ctxt->dev_wake_lock);
-	tasklet_init(&mhi_dev_ctxt->ev_task,
-		     mhi_ctrl_ev_task,
-		     (unsigned long)mhi_dev_ctxt);
 	init_completion(&mhi_dev_ctxt->cmd_complete);
 	mhi_dev_ctxt->flags.link_up = 1;
 
@@ -455,6 +451,10 @@ static int mhi_plat_probe(struct platform_device *pdev)
 		}
 		INIT_WORK(&bhi_ctxt->fw_load_work, bhi_firmware_download);
 	}
+
+	mhi_dev_ctxt->flags.bb_required =
+		of_property_read_bool(pdev->dev.of_node,
+				      "qcom,mhi-bb-required");
 
 	mhi_dev_ctxt->plat_dev = pdev;
 	platform_set_drvdata(pdev, mhi_dev_ctxt);

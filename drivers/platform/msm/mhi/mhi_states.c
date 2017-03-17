@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -169,10 +169,9 @@ static int process_bhie_transition(struct mhi_device_ctxt *mhi_dev_ctxt,
 	return 0;
 }
 
-static int process_m0_transition(
-			struct mhi_device_ctxt *mhi_dev_ctxt,
-			enum STATE_TRANSITION cur_work_item)
+int process_m0_transition(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
+	unsigned long flags;
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Entered With State %s\n",
@@ -189,10 +188,10 @@ static int process_m0_transition(
 		break;
 	}
 
-	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	write_lock_irqsave(&mhi_dev_ctxt->pm_xfer_lock, flags);
 	mhi_dev_ctxt->mhi_state = MHI_STATE_M0;
 	mhi_dev_ctxt->mhi_pm_state = MHI_PM_M0;
-	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	write_unlock_irqrestore(&mhi_dev_ctxt->pm_xfer_lock, flags);
 	read_lock_bh(&mhi_dev_ctxt->pm_xfer_lock);
 	mhi_dev_ctxt->assert_wake(mhi_dev_ctxt, true);
 
@@ -266,11 +265,9 @@ void process_m1_transition(struct work_struct *work)
 	mutex_unlock(&mhi_dev_ctxt->pm_lock);
 }
 
-static int process_m3_transition(
-		struct mhi_device_ctxt *mhi_dev_ctxt,
-		enum STATE_TRANSITION cur_work_item)
+int process_m3_transition(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-
+	unsigned long flags;
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Entered with State %s\n",
 		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
@@ -286,32 +283,12 @@ static int process_m3_transition(
 		break;
 	}
 
-	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	write_lock_irqsave(&mhi_dev_ctxt->pm_xfer_lock, flags);
 	mhi_dev_ctxt->mhi_state = MHI_STATE_M3;
 	mhi_dev_ctxt->mhi_pm_state = MHI_PM_M3;
-	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	write_unlock_irqrestore(&mhi_dev_ctxt->pm_xfer_lock, flags);
 	wake_up(mhi_dev_ctxt->mhi_ev_wq.m3_event);
 	return 0;
-}
-
-static int process_link_down_transition(
-			struct mhi_device_ctxt *mhi_dev_ctxt,
-			enum STATE_TRANSITION cur_work_item)
-{
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-		"Entered with State %s\n",
-		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
-	return -EIO;
-}
-
-static int process_wake_transition(
-			struct mhi_device_ctxt *mhi_dev_ctxt,
-			enum STATE_TRANSITION cur_work_item)
-{
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-		"Entered with State %s\n",
-		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
-	return -EIO;
 }
 
 static int process_bhi_transition(
@@ -364,7 +341,6 @@ static int process_ready_transition(
 	}
 
 	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
-	mhi_dev_ctxt->flags.stop_threads = 0;
 	mhi_reg_write_field(mhi_dev_ctxt,
 			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL,
 			MHICTRL_MHISTATE_MASK,
@@ -439,16 +415,6 @@ static int process_reset_transition(
 	return r;
 }
 
-static int process_syserr_transition(
-			struct mhi_device_ctxt *mhi_dev_ctxt,
-			enum STATE_TRANSITION cur_work_item)
-{
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-		"Entered with State %s\n",
-		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
-	return -EIO;
-}
-
 static void enable_clients(struct mhi_device_ctxt *mhi_dev_ctxt,
 					enum MHI_EXEC_ENV exec_env)
 {
@@ -510,9 +476,6 @@ static int process_amss_transition(
 			mhi_dev_ctxt->deassert_wake(mhi_dev_ctxt);
 			return r;
 		}
-		read_lock_bh(&mhi_dev_ctxt->pm_xfer_lock);
-		ring_all_chan_dbs(mhi_dev_ctxt, true);
-		read_unlock_bh(&mhi_dev_ctxt->pm_xfer_lock);
 		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 			"Notifying clients that MHI is enabled\n");
 		enable_clients(mhi_dev_ctxt, mhi_dev_ctxt->dev_exec_env);
@@ -521,9 +484,6 @@ static int process_amss_transition(
 			"MHI is initialized\n");
 	}
 
-	read_lock_bh(&mhi_dev_ctxt->pm_xfer_lock);
-	ring_all_ev_dbs(mhi_dev_ctxt);
-	read_unlock_bh(&mhi_dev_ctxt->pm_xfer_lock);
 	complete(&mhi_dev_ctxt->cmd_complete);
 
 	/*
@@ -574,23 +534,6 @@ static int process_stt_work_item(
 	case STATE_TRANSITION_AMSS:
 		r = process_amss_transition(mhi_dev_ctxt, cur_work_item);
 		break;
-	case STATE_TRANSITION_M0:
-		r = process_m0_transition(mhi_dev_ctxt, cur_work_item);
-		break;
-	case STATE_TRANSITION_M3:
-		r = process_m3_transition(mhi_dev_ctxt, cur_work_item);
-		break;
-	case STATE_TRANSITION_SYS_ERR:
-		r = process_syserr_transition(mhi_dev_ctxt,
-						   cur_work_item);
-		break;
-	case STATE_TRANSITION_LINK_DOWN:
-		r = process_link_down_transition(mhi_dev_ctxt,
-							cur_work_item);
-		break;
-	case STATE_TRANSITION_WAKE:
-		r = process_wake_transition(mhi_dev_ctxt, cur_work_item);
-		break;
 	case STATE_TRANSITION_BHIE:
 		r = process_bhie_transition(mhi_dev_ctxt, cur_work_item);
 		break;
@@ -603,42 +546,26 @@ static int process_stt_work_item(
 	return r;
 }
 
-int mhi_state_change_thread(void *ctxt)
+void mhi_state_change_worker(struct work_struct *work)
 {
 	int r = 0;
-	unsigned long flags = 0;
-	struct mhi_device_ctxt *mhi_dev_ctxt = (struct mhi_device_ctxt *)ctxt;
+	struct mhi_device_ctxt *mhi_dev_ctxt = container_of(work,
+				    struct mhi_device_ctxt,
+				    st_thread_worker);
 	enum STATE_TRANSITION cur_work_item;
 	struct mhi_state_work_queue *work_q =
 			&mhi_dev_ctxt->state_change_work_item_list;
 	struct mhi_ring *state_change_q = &work_q->q_info;
 
-	for (;;) {
-		r = wait_event_interruptible(
-				*mhi_dev_ctxt->mhi_ev_wq.state_change_event,
-				((work_q->q_info.rp != work_q->q_info.wp) &&
-				 !mhi_dev_ctxt->flags.st_thread_stopped));
-		if (r) {
-			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-				"Caught signal %d, quitting\n", r);
-			return 0;
-		}
-
-		if (mhi_dev_ctxt->flags.kill_threads) {
-			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-				"Caught exit signal, quitting\n");
-			return 0;
-		}
-		mhi_dev_ctxt->flags.st_thread_stopped = 0;
-		spin_lock_irqsave(work_q->q_lock, flags);
+	while (work_q->q_info.rp != work_q->q_info.wp) {
+		spin_lock_irq(work_q->q_lock);
 		cur_work_item = *(enum STATE_TRANSITION *)(state_change_q->rp);
 		r = ctxt_del_element(&work_q->q_info, NULL);
 		MHI_ASSERT(r == 0,
 			"Failed to delete element from STT workqueue\n");
-		spin_unlock_irqrestore(work_q->q_lock, flags);
+		spin_unlock_irq(work_q->q_lock);
 		r = process_stt_work_item(mhi_dev_ctxt, cur_work_item);
 	}
-	return 0;
 }
 
 /**
@@ -673,6 +600,6 @@ int mhi_init_state_transition(struct mhi_device_ctxt *mhi_dev_ctxt,
 	r = ctxt_add_element(stt_ring, (void **)&cur_work_item);
 	BUG_ON(r);
 	spin_unlock_irqrestore(work_q->q_lock, flags);
-	wake_up_interruptible(mhi_dev_ctxt->mhi_ev_wq.state_change_event);
+	schedule_work(&mhi_dev_ctxt->st_thread_worker);
 	return r;
 }
