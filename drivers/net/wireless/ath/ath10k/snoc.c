@@ -1245,6 +1245,12 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ar);
 	ar_snoc->ar = ar;
 
+	ret = ath10k_snoc_start_qmi_service(ar);
+	if (ret) {
+		ath10k_err(ar, "failed to start QMI service: %d\n", ret);
+		goto err_core_destroy;
+	}
+
 	spin_lock_init(&ar_snoc->opaque_ctx.ce_lock);
 	ar_snoc->opaque_ctx.bus_ops = &ath10k_snoc_bus_ops;
 	ath10k_snoc_resource_init(ar);
@@ -1325,6 +1331,7 @@ static int ath10k_snoc_remove(struct platform_device *pdev)
 	ath10k_snoc_free_irq(ar);
 	ath10k_snoc_release_resource(ar);
 	ath10k_snoc_free_pipes(ar);
+	ath10k_snoc_stop_qmi_service(ar);
 	ath10k_core_destroy(ar);
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 removed\n", __func__);
