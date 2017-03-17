@@ -249,6 +249,9 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 	stream_info->runtime_output_format = stream_info->output_format;
 	stream_info->stream_src = stream_cfg_cmd->stream_src;
 	stream_info->frame_based = stream_cfg_cmd->frame_base;
+	axi_data->src_info[SRC_TO_INTF(stream_info->stream_src)].session_id =
+		stream_cfg_cmd->session_id;
+
 	return 0;
 }
 
@@ -815,8 +818,8 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 	enum msm_vfe_dual_hw_type dual_hw_type;
 	enum msm_vfe_dual_hw_ms_type ms_type;
 	struct msm_vfe_sof_info *master_sof_info = NULL;
-	int32_t time, master_time, delta;
-	uint32_t sof_incr = 0;
+	int32_t time, master_time, delta, i;
+	uint32_t sof_incr = 0, temp_frame_id;
 	uint32_t master_last_slave_diff = 0;
 	uint32_t last_curr_diff = 0;
 	unsigned long flags;
@@ -827,9 +830,32 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 			ts);
 	dual_hw_type =
 		vfe_dev->axi_data.src_info[frame_src].dual_hw_type;
-	ms_type =
-		vfe_dev->axi_data.src_info[frame_src].
-		dual_hw_ms_info.dual_hw_ms_type;
+	ms_type = vfe_dev->axi_data.src_info[frame_src].
+			dual_hw_ms_info.dual_hw_ms_type;
+	src_info = vfe_dev->axi_data.src_info;
+
+	if (src_info[frame_src].frame_id == 0) {
+		for (i = VFE_PIX_0; i < VFE_SRC_MAX; i++) {
+			if (i == frame_src)
+				continue;
+
+			if (src_info[frame_src].session_id !=
+				src_info[i].session_id)
+				continue;
+
+			if (src_info[i].active == 0)
+				continue;
+
+			if (i == VFE_PIX_0)
+				temp_frame_id = src_info[i].frame_id - 1;
+			else
+				temp_frame_id = src_info[i].frame_id;
+
+			if (src_info[frame_src].frame_id < temp_frame_id)
+				src_info[frame_src].frame_id = temp_frame_id;
+		}
+	}
+
 	/*
 	 * Increment frame_id if
 	 *   1. Not Master Slave
