@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -2631,6 +2631,22 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		goto out;
 	}
+	if (ufshcd_is_clkgating_allowed(hba))
+		WARN_ON(hba->clk_gating.state != CLKS_ON);
+
+	err = ufshcd_hibern8_hold(hba, true);
+	if (err) {
+		clear_bit_unlock(tag, &hba->lrb_in_use);
+		err = SCSI_MLQUEUE_HOST_BUSY;
+		ufshcd_release(hba, true);
+		goto out;
+	}
+	if (ufshcd_is_hibern8_on_idle_allowed(hba))
+		WARN_ON(hba->hibern8_on_idle.state != HIBERN8_EXITED);
+
+	/* Vote PM QoS for the request */
+	ufshcd_vops_pm_qos_req_start(hba, cmd->request);
+
 	/* IO svc time latency histogram */
 	if (hba != NULL && cmd->request != NULL) {
 		if (hba->latency_hist_enabled &&
@@ -5098,6 +5114,19 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			update_req_stats(hba, lrbp);
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
+			__ufshcd_release(hba, false);
+			__ufshcd_hibern8_release(hba, false);
+			if (cmd->request) {
+				/*
+				 * As we are accessing the "request" structure,
+				 * this must be called before calling
+				 * ->scsi_done() callback.
+				 */
+				ufshcd_vops_pm_qos_req_end(hba, cmd->request,
+					false);
+				ufshcd_vops_crypto_engine_cfg_end(hba,
+					lrbp, cmd->request);
+			}
 			clear_bit_unlock(index, &hba->lrb_in_use);
 			req = cmd->request;
 			if (req) {
