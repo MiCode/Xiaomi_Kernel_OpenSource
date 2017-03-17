@@ -162,6 +162,7 @@ enum fg_sram_param_id {
 	FG_SRAM_ESR_TIMER_DISCHG_INIT,
 	FG_SRAM_ESR_TIMER_CHG_MAX,
 	FG_SRAM_ESR_TIMER_CHG_INIT,
+	FG_SRAM_ESR_PULSE_THRESH,
 	FG_SRAM_SYS_TERM_CURR,
 	FG_SRAM_CHG_TERM_CURR,
 	FG_SRAM_DELTA_MSOC_THR,
@@ -253,6 +254,8 @@ struct fg_dt_props {
 	int	esr_tight_lt_flt_upct;
 	int	esr_broad_lt_flt_upct;
 	int	slope_limit_temp;
+	int	esr_pulse_thresh_ma;
+	int	esr_meas_curr_ma;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];

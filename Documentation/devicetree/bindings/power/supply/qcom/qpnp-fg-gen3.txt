@@ -154,6 +154,20 @@ First Level Node - FG Gen3 device
 		    asleep and the battery is discharging. This option requires
 		    qcom,fg-esr-timer-awake to be defined.
 
+- qcom,fg-esr-pulse-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: ESR pulse qualification threshold in mA. If this is not
+		    specified, a default value of 110 mA will be configured.
+		    Allowed values are from 1 to 997.
+
+- qcom,fg-esr-meas-curr-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: ESR measurement current in mA. If this is not specified,
+		    a default value of 120 mA will be configured. Allowed
+		    values are 60, 120, 180 and 240.
+
 - qcom,cycle-counter-en
 	Usage:      optional
 	Value type: <empty>
