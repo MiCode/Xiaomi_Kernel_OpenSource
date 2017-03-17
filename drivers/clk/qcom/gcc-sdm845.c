@@ -150,14 +150,6 @@ static const char * const gcc_parent_names_6[] = {
 	"core_bi_pll_test_se",
 };
 
-static struct clk_dummy bi_tcxo = {
-	.rrate = 19200000,
-	.hw.init = &(struct clk_init_data){
-		.name = "bi_tcxo",
-		.ops = &clk_dummy_ops,
-	},
-};
-
 static struct pll_vco fabia_vco[] = {
 	{ 250000000, 2000000000, 0 },
 	{ 125000000, 1000000000, 1 },
@@ -3202,10 +3194,6 @@ static struct clk_branch gcc_video_xo_clk = {
 	},
 };
 
-struct clk_hw *gcc_sdm845_hws[] = {
-	[GCC_XO] =      &bi_tcxo.hw,
-};
-
 static struct clk_regmap *gcc_sdm845_clocks[] = {
 	[GCC_AGGRE_NOC_PCIE_TBU_CLK] = &gcc_aggre_noc_pcie_tbu_clk.clkr,
 	[GCC_AGGRE_UFS_CARD_AXI_CLK] = &gcc_aggre_ufs_card_axi_clk.clkr,
@@ -3447,20 +3435,12 @@ MODULE_DEVICE_TABLE(of, gcc_sdm845_match_table);
 
 static int gcc_sdm845_probe(struct platform_device *pdev)
 {
-	struct clk *clk;
 	struct regmap *regmap;
-	int ret = 0, i;
+	int ret = 0;
 
 	regmap = qcom_cc_map(pdev, &gcc_sdm845_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
-
-	/* register hardware clocks */
-	for (i = 0; i < ARRAY_SIZE(gcc_sdm845_hws); i++) {
-		clk = devm_clk_register(&pdev->dev, gcc_sdm845_hws[i]);
-		if (IS_ERR(clk))
-			return PTR_ERR(clk);
-	}
 
 	/*
 	 * Set the CPUSS_AHB_CLK_SLEEP_ENA bit to allow the cpuss_ahb_clk to be
