@@ -388,8 +388,10 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 			}
 			return -ETIMEDOUT;
 		}
-
-		udelay(1);
+		if ((cmd & DWC3_DEPCMD_SETTRANSFRESOURCE))
+			udelay(20);
+		else
+			udelay(1);
 	} while (1);
 }
 
