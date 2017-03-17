@@ -1383,6 +1383,9 @@ struct msm_vidc_cb_event {
 	ion_phys_addr_t extra_data_buffer;
 	u32 pic_struct;
 	u32 colour_space;
+	u32 profile;
+	u32 level;
+	u32 entropy_mode;
 };
 
 struct msm_vidc_cb_data_done {

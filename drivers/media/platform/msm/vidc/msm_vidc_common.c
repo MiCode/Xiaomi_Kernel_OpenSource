@@ -44,6 +44,7 @@
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_INSUFFICIENT
 #define V4L2_EVENT_RELEASE_BUFFER_REFERENCE \
 		V4L2_EVENT_MSM_VIDC_RELEASE_BUFFER_REFERENCE
+#define L_MODE V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
 
 #define MAX_SUPPORTED_INSTANCES 16
 
@@ -147,6 +148,308 @@ static struct v4l2_ctrl **get_super_cluster(struct msm_vidc_inst *inst,
 		cluster[c] =  inst->ctrls[c];
 
 	return cluster;
+}
+
+int msm_comm_hal_to_v4l2(int id, int value)
+{
+	switch (id) {
+		/* H264 */
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+		switch (value) {
+		case HAL_H264_PROFILE_BASELINE:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
+		case HAL_H264_PROFILE_CONSTRAINED_BASE:
+			return
+			V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE;
+		case HAL_H264_PROFILE_MAIN:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_MAIN;
+		case HAL_H264_PROFILE_EXTENDED:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_EXTENDED;
+		case HAL_H264_PROFILE_HIGH:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH;
+		case HAL_H264_PROFILE_HIGH10:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_10;
+		case HAL_H264_PROFILE_HIGH422:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_422;
+		case HAL_H264_PROFILE_HIGH444:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+		switch (value) {
+		case HAL_H264_LEVEL_1:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_1_0;
+		case HAL_H264_LEVEL_1b:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_1B;
+		case HAL_H264_LEVEL_11:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_1_1;
+		case HAL_H264_LEVEL_12:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_1_2;
+		case HAL_H264_LEVEL_13:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_1_3;
+		case HAL_H264_LEVEL_2:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_2_0;
+		case HAL_H264_LEVEL_21:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_2_1;
+		case HAL_H264_LEVEL_22:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_2_2;
+		case HAL_H264_LEVEL_3:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_3_0;
+		case HAL_H264_LEVEL_31:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_3_1;
+		case HAL_H264_LEVEL_32:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_3_2;
+		case HAL_H264_LEVEL_4:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_4_0;
+		case HAL_H264_LEVEL_41:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_4_1;
+		case HAL_H264_LEVEL_42:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_4_2;
+		case HAL_H264_LEVEL_5:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_5_0;
+		case HAL_H264_LEVEL_51:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_5_1;
+		default:
+			goto unknown_value;
+		}
+
+	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
+		switch (value) {
+		case HAL_H264_ENTROPY_CAVLC:
+			return V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
+		case HAL_H264_ENTROPY_CABAC:
+			return V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+		/*
+		 * Extremely dirty hack: we haven't implemented g_ctrl of
+		 * any of these controls and have no intention of doing
+		 * so in the near future.  So just return 0 so that we
+		 * don't see the annoying "Unknown control" errors at the
+		 * bottom of this function.
+		 */
+		return 0;
+	}
+
+unknown_value:
+	dprintk(VIDC_WARN, "Unknown control (%x, %d)\n", id, value);
+	return -EINVAL;
+}
+
+int msm_comm_v4l2_to_hal(int id, int value)
+{
+	switch (id) {
+	/* H264 */
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+		switch (value) {
+		case V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE:
+			return HAL_H264_PROFILE_BASELINE;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE:
+			return HAL_H264_PROFILE_CONSTRAINED_BASE;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_MAIN:
+			return HAL_H264_PROFILE_MAIN;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_EXTENDED:
+			return HAL_H264_PROFILE_EXTENDED;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH:
+			return HAL_H264_PROFILE_HIGH;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_10:
+			return HAL_H264_PROFILE_HIGH10;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_422:
+			return HAL_H264_PROFILE_HIGH422;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE:
+			return HAL_H264_PROFILE_HIGH444;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH:
+			return HAL_H264_PROFILE_CONSTRAINED_HIGH;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+		switch (value) {
+		case V4L2_MPEG_VIDEO_H264_LEVEL_1_0:
+			return HAL_H264_LEVEL_1;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_1B:
+			return HAL_H264_LEVEL_1b;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_1_1:
+			return HAL_H264_LEVEL_11;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_1_2:
+			return HAL_H264_LEVEL_12;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_1_3:
+			return HAL_H264_LEVEL_13;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_2_0:
+			return HAL_H264_LEVEL_2;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_2_1:
+			return HAL_H264_LEVEL_21;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_2_2:
+			return HAL_H264_LEVEL_22;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_3_0:
+			return HAL_H264_LEVEL_3;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_3_1:
+			return HAL_H264_LEVEL_31;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_3_2:
+			return HAL_H264_LEVEL_32;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_4_0:
+			return HAL_H264_LEVEL_4;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_4_1:
+			return HAL_H264_LEVEL_41;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_4_2:
+			return HAL_H264_LEVEL_42;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_5_0:
+			return HAL_H264_LEVEL_5;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_5_1:
+			return HAL_H264_LEVEL_51;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_5_2:
+			return HAL_H264_LEVEL_52;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
+		switch (value) {
+		case V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC:
+			return HAL_H264_ENTROPY_CAVLC;
+		case V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC:
+			return HAL_H264_ENTROPY_CABAC;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL:
+		switch (value) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL_0:
+			return HAL_H264_CABAC_MODEL_0;
+		case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL_1:
+			return HAL_H264_CABAC_MODEL_1;
+		case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL_2:
+			return HAL_H264_CABAC_MODEL_2;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+		switch (value) {
+		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0:
+			return HAL_VPX_PROFILE_VERSION_0;
+		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1:
+			return HAL_VPX_PROFILE_VERSION_1;
+		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_2:
+			return HAL_VPX_PROFILE_VERSION_2;
+		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3:
+			return HAL_VPX_PROFILE_VERSION_3;
+		case V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED:
+			return HAL_VPX_PROFILE_UNUSED;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE:
+		switch (value) {
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_PROFILE_MAIN:
+			return HAL_HEVC_PROFILE_MAIN;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_PROFILE_MAIN10:
+			return HAL_HEVC_PROFILE_MAIN10;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_PROFILE_MAIN_STILL_PIC:
+			return HAL_HEVC_PROFILE_MAIN_STILL_PIC;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL:
+		switch (value) {
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_1:
+			return HAL_HEVC_MAIN_TIER_LEVEL_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_2:
+			return HAL_HEVC_MAIN_TIER_LEVEL_2;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_2_1:
+			return HAL_HEVC_MAIN_TIER_LEVEL_2_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_3:
+			return HAL_HEVC_MAIN_TIER_LEVEL_3;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_3_1:
+			return HAL_HEVC_MAIN_TIER_LEVEL_3_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_4:
+			return HAL_HEVC_MAIN_TIER_LEVEL_4;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_4_1:
+			return HAL_HEVC_MAIN_TIER_LEVEL_4_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_5:
+			return HAL_HEVC_MAIN_TIER_LEVEL_5;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_5_1:
+			return HAL_HEVC_MAIN_TIER_LEVEL_5_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_5_2:
+			return HAL_HEVC_MAIN_TIER_LEVEL_5_2;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_6:
+			return HAL_HEVC_MAIN_TIER_LEVEL_6;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_6_1:
+			return HAL_HEVC_MAIN_TIER_LEVEL_6_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_6_2:
+			return HAL_HEVC_MAIN_TIER_LEVEL_6_2;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_1:
+			return HAL_HEVC_HIGH_TIER_LEVEL_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_2:
+			return HAL_HEVC_HIGH_TIER_LEVEL_2;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_2_1:
+			return HAL_HEVC_HIGH_TIER_LEVEL_2_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_3:
+			return HAL_HEVC_HIGH_TIER_LEVEL_3;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_3_1:
+			return HAL_HEVC_HIGH_TIER_LEVEL_3_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_4:
+			return HAL_HEVC_HIGH_TIER_LEVEL_4;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_4_1:
+			return HAL_HEVC_HIGH_TIER_LEVEL_4_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_5:
+			return HAL_HEVC_HIGH_TIER_LEVEL_5;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_5_1:
+			return HAL_HEVC_HIGH_TIER_LEVEL_5_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_5_2:
+			return HAL_HEVC_HIGH_TIER_LEVEL_5_2;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_6:
+			return HAL_HEVC_HIGH_TIER_LEVEL_6;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_6_1:
+			return HAL_HEVC_HIGH_TIER_LEVEL_6_1;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
+		switch (value) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_NONE:
+			return HAL_ROTATE_NONE;
+		case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_90:
+			return HAL_ROTATE_90;
+		case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_180:
+			return HAL_ROTATE_180;
+		case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_270:
+			return HAL_ROTATE_270;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE:
+		switch (value) {
+		case V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED:
+			return HAL_H264_DB_MODE_DISABLE;
+		case V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_ENABLED:
+			return HAL_H264_DB_MODE_ALL_BOUNDARY;
+		case L_MODE:
+			return HAL_H264_DB_MODE_SKIP_SLICE_BOUNDARY;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_SIZE_TYPE:
+		switch (value) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_SIZE_DEFAULT:
+			return HAL_IFRAMESIZE_TYPE_DEFAULT;
+		case V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_SIZE_MEDIUM:
+			return HAL_IFRAMESIZE_TYPE_MEDIUM;
+		case V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_SIZE_HUGE:
+			return HAL_IFRAMESIZE_TYPE_HUGE;
+		case V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_SIZE_UNLIMITED:
+			return HAL_IFRAMESIZE_TYPE_UNLIMITED;
+		default:
+			goto unknown_value;
+		}
+	}
+
+unknown_value:
+	dprintk(VIDC_WARN, "Unknown control (%x, %d)\n", id, value);
+	return -EINVAL;
 }
 
 int msm_comm_ctrl_init(struct msm_vidc_inst *inst,
@@ -1278,6 +1581,16 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	 * ptr[4] = pic struct (progressive or interlaced)
 	 * ptr[5] = colour space
 	 */
+
+	inst->entropy_mode = msm_comm_hal_to_v4l2(
+		V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE,
+			event_notify->entropy_mode);
+	inst->profile = msm_comm_hal_to_v4l2(
+		V4L2_CID_MPEG_VIDEO_H264_PROFILE,
+			event_notify->profile);
+	inst->level = msm_comm_hal_to_v4l2(
+		V4L2_CID_MPEG_VIDEO_H264_LEVEL,
+			event_notify->level);
 
 	ptr = (u32 *)seq_changed_event.u.data;
 
@@ -4076,11 +4389,6 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 	mutex_unlock(&inst->sync_lock);
 
 	switch (ptype) {
-	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
-	case HAL_CONFIG_VDEC_ENTROPY:
-		rc = call_hfi_op(hdev, session_get_property, inst->session,
-				ptype);
-		break;
 	case HAL_PARAM_GET_BUFFER_REQUIREMENTS:
 		rc = call_hfi_op(hdev, session_get_buf_req, inst->session);
 		break;
