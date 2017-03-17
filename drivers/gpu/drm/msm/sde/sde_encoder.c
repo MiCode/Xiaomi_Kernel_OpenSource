@@ -152,6 +152,8 @@ enum sde_enc_rc_states {
  * @rc_state:			resource controller state
  * @delayed_off_work:		delayed worker to schedule disabling of
  *				clks and resources after IDLE_TIMEOUT time.
+ * @topology:                   topology of the display
+ * @mode_set_complete:          flag to indicate modeset completion
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -188,6 +190,8 @@ struct sde_encoder_virt {
 	struct mutex rc_lock;
 	enum sde_enc_rc_states rc_state;
 	struct delayed_work delayed_off_work;
+	struct msm_display_topology topology;
+	bool mode_set_complete;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -249,15 +253,14 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 	memset(hw_res, 0, sizeof(*hw_res));
 	hw_res->display_num_of_h_tiles = sde_enc->display_num_of_h_tiles;
 
-	if (_sde_is_dsc_enabled(sde_enc))
-		hw_res->needs_dsc = true;
-
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
 		if (phys && phys->ops.get_hw_resources)
 			phys->ops.get_hw_resources(phys, hw_res, conn_state);
 	}
+
+	hw_res->topology = sde_enc->topology;
 }
 
 void sde_encoder_destroy(struct drm_encoder *drm_enc)
@@ -423,9 +426,18 @@ static int sde_encoder_virt_atomic_check(
 	}
 
 	/* Reserve dynamic resources now. Indicating AtomicTest phase */
-	if (!ret)
-		ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
+	if (!ret) {
+		/*
+		 * Avoid reserving resources when mode set is pending. Topology
+		 * info may not be available to complete reservation.
+		 */
+		if (drm_atomic_crtc_needs_modeset(crtc_state)
+				&& sde_enc->mode_set_complete) {
+			ret = sde_rm_reserve(&sde_kms->rm, drm_enc, crtc_state,
 				conn_state, true);
+			sde_enc->mode_set_complete = false;
+		}
+	}
 
 	if (!ret)
 		drm_mode_set_crtcinfo(adj_mode, 0);
@@ -720,7 +732,7 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc)
 	int ret = 0;
 
 	topology = sde_connector_get_topology_name(drm_conn);
-	if (topology == SDE_RM_TOPOLOGY_UNKNOWN) {
+	if (topology == SDE_RM_TOPOLOGY_NONE) {
 		SDE_ERROR_ENC(sde_enc, "topology not set yet\n");
 		return -EINVAL;
 	}
@@ -729,16 +741,15 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc)
 	SDE_EVT32(DRMID(&sde_enc->base));
 
 	switch (topology) {
-	case SDE_RM_TOPOLOGY_SINGLEPIPE:
+	case SDE_RM_TOPOLOGY_SINGLEPIPE_DSC:
 		ret = _sde_encoder_dsc_1_lm_1_enc_1_intf(sde_enc);
 		break;
-	case SDE_RM_TOPOLOGY_DUALPIPEMERGE:
+	case SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE:
 		ret = _sde_encoder_dsc_2_lm_2_enc_1_intf(sde_enc);
 		break;
-	case SDE_RM_TOPOLOGY_DUALPIPE:
+	case SDE_RM_TOPOLOGY_DUALPIPE_DSC:
 		ret = _sde_encoder_dsc_2_lm_2_enc_2_intf(sde_enc);
 		break;
-	case SDE_RM_TOPOLOGY_PPSPLIT:
 	default:
 		SDE_ERROR_ENC(sde_enc, "No DSC support for topology %d",
 				topology);
@@ -1098,6 +1109,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	struct sde_kms *sde_kms;
 	struct list_head *connector_list;
 	struct drm_connector *conn = NULL, *conn_iter;
+	struct sde_connector *sde_conn = NULL;
 	struct sde_rm_hw_iter dsc_iter, pp_iter;
 	int i = 0, ret;
 
@@ -1125,6 +1137,17 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	} else if (!conn->state) {
 		SDE_ERROR_ENC(sde_enc, "invalid connector state\n");
 		return;
+	}
+
+	sde_conn = to_sde_connector(conn);
+	if (sde_conn) {
+		ret = sde_conn->ops.get_topology(adj_mode, &sde_enc->topology,
+				sde_kms->catalog->max_mixer_width);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"invalid topology for the mode\n");
+			return;
+		}
 	}
 
 	/* Reserve dynamic resources now. Indicating non-AtomicTest phase */
@@ -1167,6 +1190,8 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 				phys->ops.mode_set(phys, mode, adj_mode);
 		}
 	}
+
+	sde_enc->mode_set_complete = true;
 }
 
 static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
@@ -1659,7 +1684,7 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	/* don't perform flush/start operations for slave encoders */
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
-		enum sde_rm_topology_name topology = SDE_RM_TOPOLOGY_UNKNOWN;
+		enum sde_rm_topology_name topology = SDE_RM_TOPOLOGY_NONE;
 
 		if (!phys || phys->enable_state == SDE_ENC_DISABLED)
 			continue;

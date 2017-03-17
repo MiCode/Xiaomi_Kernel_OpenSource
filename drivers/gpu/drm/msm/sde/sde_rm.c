@@ -32,22 +32,40 @@
 #define RM_RQ_LOCK(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_RESERVE_LOCK))
 #define RM_RQ_CLEAR(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_RESERVE_CLEAR))
 #define RM_RQ_DSPP(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_DSPP))
-#define RM_RQ_PPSPLIT(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_PPSPLIT))
-#define RM_RQ_FORCE_TILING(r) ((r)->top_ctrl & BIT(SDE_RM_TOPCTL_FORCE_TILING))
+#define RM_IS_TOPOLOGY_MATCH(t, r) ((t).num_lm == (r).num_lm && \
+				(t).num_comp_enc == (r).num_enc && \
+				(t).num_intf == (r).num_intf)
+
+struct sde_rm_topology_def {
+	enum sde_rm_topology_name top_name;
+	int num_lm;
+	int num_comp_enc;
+	int num_intf;
+	int num_ctl;
+	int needs_split_display;
+};
+
+static const struct sde_rm_topology_def g_top_table[] = {
+	{   SDE_RM_TOPOLOGY_NONE,                 0, 0, 0, 0, false },
+	{   SDE_RM_TOPOLOGY_SINGLEPIPE,           1, 0, 1, 1, false },
+	{   SDE_RM_TOPOLOGY_SINGLEPIPE_DSC,       1, 1, 1, 1, false },
+	{   SDE_RM_TOPOLOGY_DUALPIPE,             2, 0, 2, 2, true  },
+	{   SDE_RM_TOPOLOGY_DUALPIPE_DSC,         2, 2, 2, 2, true  },
+	{   SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE,     2, 0, 1, 1, false },
+	{   SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC, 2, 1, 1, 1, false },
+	{   SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE,    2, 2, 1, 1, false },
+	{   SDE_RM_TOPOLOGY_PPSPLIT,              1, 0, 2, 1, true  },
+};
 
 /**
  * struct sde_rm_requirements - Reservation requirements parameter bundle
- * @top_name:	DRM<->HW topology use case user is trying to enable
- * @dspp:	Whether the user requires a DSPP
- * @num_lm:	Number of layer mixers needed in the use case
- * @hw_res:	Hardware resources required as reported by the encoders
+ * @top_ctrl:  topology control preference from kernel client
+ * @top:       selected topology for the display
+ * @hw_res:	   Hardware resources required as reported by the encoders
  */
 struct sde_rm_requirements {
-	enum sde_rm_topology_name top_name;
 	uint64_t top_ctrl;
-	int num_lm;
-	int num_ctl;
-	bool needs_split_display;
+	const struct sde_rm_topology_def *topology;
 	struct sde_encoder_hw_resources hw_res;
 };
 
@@ -607,7 +625,7 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 	}
 
 	pp_cfg = (struct sde_pingpong_cfg *)((*pp)->catalog);
-	if ((reqs->top_name == SDE_RM_TOPOLOGY_PPSPLIT) &&
+	if ((reqs->topology->top_name == SDE_RM_TOPOLOGY_PPSPLIT) &&
 			!(test_bit(SDE_PINGPONG_SPLIT, &pp_cfg->features))) {
 		SDE_DEBUG("pp %d doesn't support ppsplit\n", pp_cfg->id);
 		*dspp = NULL;
@@ -630,14 +648,15 @@ static int _sde_rm_reserve_lms(
 	int lm_count = 0;
 	int i, rc = 0;
 
-	if (!reqs->num_lm) {
-		SDE_ERROR("invalid number of lm: %d\n", reqs->num_lm);
+	if (!reqs->topology->num_lm) {
+		SDE_ERROR("invalid number of lm: %d\n", reqs->topology->num_lm);
 		return -EINVAL;
 	}
 
 	/* Find a primary mixer */
 	sde_rm_init_hw_iter(&iter_i, 0, SDE_HW_BLK_LM);
-	while (lm_count != reqs->num_lm && sde_rm_get_hw(rm, &iter_i)) {
+	while (lm_count != reqs->topology->num_lm &&
+			sde_rm_get_hw(rm, &iter_i)) {
 		memset(&lm, 0, sizeof(lm));
 		memset(&dspp, 0, sizeof(dspp));
 		memset(&pp, 0, sizeof(pp));
@@ -655,7 +674,8 @@ static int _sde_rm_reserve_lms(
 		/* Valid primary mixer found, find matching peers */
 		sde_rm_init_hw_iter(&iter_j, 0, SDE_HW_BLK_LM);
 
-		while (lm_count != reqs->num_lm && sde_rm_get_hw(rm, &iter_j)) {
+		while (lm_count != reqs->topology->num_lm &&
+				sde_rm_get_hw(rm, &iter_j)) {
 			if (iter_i.blk == iter_j.blk)
 				continue;
 
@@ -669,7 +689,7 @@ static int _sde_rm_reserve_lms(
 		}
 	}
 
-	if (lm_count != reqs->num_lm) {
+	if (lm_count != reqs->topology->num_lm) {
 		SDE_DEBUG("unable to find appropriate mixers\n");
 		return -ENAVAIL;
 	}
@@ -687,7 +707,7 @@ static int _sde_rm_reserve_lms(
 				dspp[i] ? dspp[i]->id : 0);
 	}
 
-	if (reqs->top_name == SDE_RM_TOPOLOGY_PPSPLIT) {
+	if (reqs->topology->top_name == SDE_RM_TOPOLOGY_PPSPLIT) {
 		/* reserve a free PINGPONG_SLAVE block */
 		rc = -ENAVAIL;
 		sde_rm_init_hw_iter(&iter_i, 0, SDE_HW_BLK_PINGPONG);
@@ -713,7 +733,7 @@ static int _sde_rm_reserve_lms(
 static int _sde_rm_reserve_ctls(
 		struct sde_rm *rm,
 		struct sde_rm_rsvp *rsvp,
-		struct sde_rm_requirements *reqs)
+		const struct sde_rm_topology_def *top)
 {
 	struct sde_rm_hw_blk *ctls[MAX_BLOCKS];
 	struct sde_rm_hw_iter iter;
@@ -735,23 +755,23 @@ static int _sde_rm_reserve_ctls(
 
 		SDE_DEBUG("ctl %d caps 0x%lX\n", iter.blk->id, caps);
 
-		if (reqs->needs_split_display != has_split_display)
+		if (top->needs_split_display != has_split_display)
 			continue;
 
-		if (reqs->top_name == SDE_RM_TOPOLOGY_PPSPLIT && !has_ppsplit)
+		if (top->top_name == SDE_RM_TOPOLOGY_PPSPLIT && !has_ppsplit)
 			continue;
 
 		ctls[i] = iter.blk;
 		SDE_DEBUG("ctl %d match\n", iter.blk->id);
 
-		if (++i == reqs->num_ctl)
+		if (++i == top->num_ctl)
 			break;
 	}
 
-	if (i != reqs->num_ctl)
+	if (i != top->num_ctl)
 		return -ENAVAIL;
 
-	for (i = 0; i < ARRAY_SIZE(ctls) && i < reqs->num_ctl; i++) {
+	for (i = 0; i < ARRAY_SIZE(ctls) && i < top->num_ctl; i++) {
 		ctls[i]->rsvp_nxt = rsvp;
 		SDE_EVT32(ctls[i]->type, rsvp->enc_id, ctls[i]->id);
 	}
@@ -762,13 +782,13 @@ static int _sde_rm_reserve_ctls(
 static int _sde_rm_reserve_dsc(
 		struct sde_rm *rm,
 		struct sde_rm_rsvp *rsvp,
-		struct sde_rm_requirements *reqs)
+		const struct sde_rm_topology_def *top)
 {
 	struct sde_rm_hw_iter iter;
 	int alloc_count = 0;
-	int num_dsc_enc = reqs->num_lm;
+	int num_dsc_enc = top->num_lm;
 
-	if (!reqs->hw_res.needs_dsc)
+	if (!top->num_comp_enc)
 		return 0;
 
 	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_DSC);
@@ -912,11 +932,12 @@ static int _sde_rm_make_next_rsvp(
 		struct sde_rm_requirements *reqs)
 {
 	int ret;
+	struct sde_rm_topology_def topology;
 
 	/* Create reservation info, tag reserved blocks with it as we go */
 	rsvp->seq = ++rm->rsvp_next_seq;
 	rsvp->enc_id = enc->base.id;
-	rsvp->topology = reqs->top_name;
+	rsvp->topology = reqs->topology->top_name;
 	list_add_tail(&rsvp->list, &rm->rsvps);
 
 	/*
@@ -941,10 +962,11 @@ static int _sde_rm_make_next_rsvp(
 	 * - Check mixers without Split Display
 	 * - Only then allow to grab from CTLs with split display capability
 	 */
-	_sde_rm_reserve_ctls(rm, rsvp, reqs);
-	if (ret && !reqs->needs_split_display) {
-		reqs->needs_split_display = true;
-		_sde_rm_reserve_ctls(rm, rsvp, reqs);
+	_sde_rm_reserve_ctls(rm, rsvp, reqs->topology);
+	if (ret && !reqs->topology->needs_split_display) {
+		memcpy(&topology, reqs->topology, sizeof(topology));
+		topology.needs_split_display = true;
+		_sde_rm_reserve_ctls(rm, rsvp, &topology);
 	}
 	if (ret) {
 		SDE_ERROR("unable to find appropriate CTL\n");
@@ -956,7 +978,7 @@ static int _sde_rm_make_next_rsvp(
 	if (ret)
 		return ret;
 
-	ret = _sde_rm_reserve_dsc(rm, rsvp, reqs);
+	ret = _sde_rm_reserve_dsc(rm, rsvp, reqs->topology);
 	if (ret)
 		return ret;
 
@@ -971,37 +993,7 @@ static int _sde_rm_populate_requirements(
 		struct sde_rm_requirements *reqs)
 {
 	const struct drm_display_mode *mode = &crtc_state->mode;
-
-	/**
-	 * DRM<->HW Topologies
-	 *
-	 * Name: SINGLEPIPE
-	 * Description: 1 LM, 1 PP, 1 INTF
-	 * Condition: 1 DRM Encoder w/ 1 Display Tiles (Default)
-	 *
-	 * Name: DUALPIPE
-	 * Description: 2 LM, 2 PP, 2 INTF
-	 * Condition: 1 DRM Encoder w/ 2 Display Tiles
-	 *
-	 * Name: PPSPLIT
-	 * Description: 1 LM, 1 PP + 1 Slave PP, 2 INTF
-	 * Condition:
-	 *	1 DRM Encoder w/ 2 Display Tiles
-	 *	topology_control & SDE_TOPREQ_PPSPLIT
-	 *
-	 * Name: DUALPIPEMERGE
-	 * Description: 2 LM, 2 PP, 3DMux, 1 INTF
-	 * Condition:
-	 *	1 DRM Encoder w/ 1 Display Tiles
-	 *	display_info.max_width >= layer_mixer.max_width
-	 *
-	 * Name: DUALPIPEMERGE
-	 * Description: 2 LM, 2 PP, 3DMux, 1 INTF
-	 * Condition:
-	 *	1 DRM Encoder w/ 1 Display Tiles
-	 *	display_info.max_width <= layer_mixer.max_width
-	 *	topology_control & SDE_TOPREQ_FORCE_TILING
-	 */
+	int i;
 
 	memset(reqs, 0, sizeof(*reqs));
 
@@ -1009,63 +1001,32 @@ static int _sde_rm_populate_requirements(
 			CONNECTOR_PROP_TOPOLOGY_CONTROL);
 	sde_encoder_get_hw_resources(enc, &reqs->hw_res, conn_state);
 
-	/* DSC blocks are hardwired for control path 0 and 1 */
-	if (reqs->hw_res.needs_dsc)
-		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DSPP);
-
-	/* Base assumption is LMs = h_tiles, conditions below may override */
-	reqs->num_lm = reqs->hw_res.display_num_of_h_tiles;
-
-	if (reqs->num_lm == 2) {
-		if (RM_RQ_PPSPLIT(reqs)) {
-			/* user requests serving dual display with 1 lm */
-			reqs->top_name = SDE_RM_TOPOLOGY_PPSPLIT;
-			reqs->num_lm = 1;
-			reqs->num_ctl = 1;
-			reqs->needs_split_display = true;
-		} else {
-			/* dual display, serve with 2 lms */
-			reqs->top_name = SDE_RM_TOPOLOGY_DUALPIPE;
-			reqs->num_ctl = 2;
-			reqs->needs_split_display = true;
+	for (i = 0; i < SDE_RM_TOPOLOGY_MAX; i++) {
+		if (RM_IS_TOPOLOGY_MATCH(g_top_table[i],
+					reqs->hw_res.topology)) {
+			reqs->topology = &g_top_table[i];
+			break;
 		}
+	}
 
-	} else if (reqs->num_lm == 1) {
-		if (mode->hdisplay > rm->lm_max_width) {
-			/* wide display, must split across 2 lm and merge */
-			reqs->top_name = SDE_RM_TOPOLOGY_DUALPIPEMERGE;
-			reqs->num_lm = 2;
-			reqs->num_ctl = 1;
-			reqs->needs_split_display = false;
-		} else if (RM_RQ_FORCE_TILING(reqs)) {
-			/* thin display, but user requests 2 lm and merge */
-			reqs->top_name = SDE_RM_TOPOLOGY_DUALPIPEMERGE;
-			reqs->num_lm = 2;
-			reqs->num_ctl = 1;
-			reqs->needs_split_display = false;
-		} else {
-			/* thin display, serve with only 1 lm */
-			reqs->top_name = SDE_RM_TOPOLOGY_SINGLEPIPE;
-			reqs->num_ctl = 1;
-			reqs->needs_split_display = false;
-		}
-
-	} else {
-		/* Currently no configurations with # LM > 2 */
-		SDE_ERROR("unsupported # of mixers %d\n", reqs->num_lm);
+	if (!reqs->topology) {
+		SDE_ERROR("invalid topology for the display\n");
 		return -EINVAL;
 	}
 
-	SDE_DEBUG("top_ctrl 0x%llX num_h_tiles %d\n", reqs->top_ctrl,
+	/* DSC blocks are hardwired for control path 0 and 1 */
+	if (reqs->topology->num_comp_enc)
+		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DSPP);
+
+	SDE_DEBUG("top_ctrl: 0x%llX num_h_tiles: %d\n", reqs->top_ctrl,
 			reqs->hw_res.display_num_of_h_tiles);
-	SDE_DEBUG("display_max_width %d rm->lm_max_width %d\n",
-			mode->hdisplay, rm->lm_max_width);
-	SDE_DEBUG("num_lm %d num_ctl %d topology_name %d\n", reqs->num_lm,
-			reqs->num_ctl, reqs->top_name);
-	SDE_DEBUG("num_lm %d topology_name %d\n", reqs->num_lm,
-			reqs->top_name);
-	SDE_EVT32(mode->hdisplay, rm->lm_max_width, reqs->num_lm,
-			reqs->top_ctrl, reqs->top_name, reqs->num_ctl);
+	SDE_DEBUG("num_lm: %d num_ctl: %d topology: %d split_display: %d\n",
+			reqs->topology->num_lm, reqs->topology->num_ctl,
+			reqs->topology->top_name,
+			reqs->topology->needs_split_display);
+	SDE_EVT32(mode->hdisplay, rm->lm_max_width, reqs->topology->num_lm,
+			reqs->top_ctrl, reqs->topology->top_name,
+			reqs->topology->num_ctl);
 
 	return 0;
 }
@@ -1189,7 +1150,7 @@ void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
 				sde_connector_get_propinfo(conn),
 				sde_connector_get_property_values(conn->state),
 				CONNECTOR_PROP_TOPOLOGY_NAME,
-				SDE_RM_TOPOLOGY_UNKNOWN);
+				SDE_RM_TOPOLOGY_NONE);
 	}
 }
 
@@ -1231,17 +1192,6 @@ static int _sde_rm_commit_rsvp(
 	}
 
 	return ret;
-}
-
-int sde_rm_check_property_topctl(uint64_t val)
-{
-	if ((BIT(SDE_RM_TOPCTL_FORCE_TILING) & val) &&
-			(BIT(SDE_RM_TOPCTL_PPSPLIT) & val)) {
-		SDE_ERROR("ppsplit & force_tiling are incompatible\n");
-		return -EINVAL;
-	}
-
-	return 0;
 }
 
 int sde_rm_reserve(
@@ -1310,7 +1260,7 @@ int sde_rm_reserve(
 						conn_state->connector),
 				sde_connector_get_property_values(conn_state),
 				CONNECTOR_PROP_TOPOLOGY_NAME,
-				SDE_RM_TOPOLOGY_UNKNOWN);
+				SDE_RM_TOPOLOGY_NONE);
 	}
 
 	/* Check the proposed reservation, store it in hw's "next" field */
