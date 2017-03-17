@@ -1930,6 +1930,9 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 	if (!priv->ops || !priv->ops->probe)
 		return 0;
 
+	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state))
+		return -EINVAL;
+
 	icnss_pr_dbg("Calling driver probe state: 0x%lx\n", priv->state);
 
 	icnss_hw_power_on(priv);
