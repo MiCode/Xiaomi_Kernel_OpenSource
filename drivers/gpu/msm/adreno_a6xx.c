@@ -1434,7 +1434,7 @@ static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
 	gpuhtw_scid = adreno_llc_get_scid(adreno_dev->gpuhtw_llc_slice);
 
 	gpu_cx_reg = ioremap(A6XX_GPU_CX_REG_BASE, A6XX_GPU_CX_REG_SIZE);
-	extregrmw(gpu_cx_reg + A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
+	_reg_rmw(gpu_cx_reg + A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_1,
 			A6XX_GPUHTW_LLC_SCID_MASK,
 			gpuhtw_scid << A6XX_GPUHTW_LLC_SCID_SHIFT);
 	iounmap(gpu_cx_reg);
@@ -1603,7 +1603,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.enable_64bit = a6xx_enable_64bit,
 	.llc_configure_gpu_scid = a6xx_llc_configure_gpu_scid,
 	.llc_configure_gpuhtw_scid = a6xx_llc_configure_gpuhtw_scid,
-	.llc_enable_overrides = a6xx_llc_enable_overrides
+	.llc_enable_overrides = a6xx_llc_enable_overrides,
 	.oob_set = a6xx_oob_set,
 	.oob_clear = a6xx_oob_clear,
 	.rpmh_gpu_pwrctrl = a6xx_rpmh_gpu_pwrctrl,

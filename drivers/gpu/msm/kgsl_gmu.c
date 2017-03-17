@@ -94,6 +94,25 @@ struct gmu_iommu_context gmu_ctx[] = {
 static struct gmu_memdesc gmu_kmem_entries[GMU_KERNEL_ENTRIES];
 static unsigned long gmu_kmem_bitmap;
 
+/*
+ * kgsl_gmu_isenabled() - Check if there is a GMU and it is enabled
+ * @device: Pointer to the KGSL device that owns the GMU
+ *
+ * Check if a GMU has been found and successfully probed. Also
+ * check that the feature flag to use a GMU is enabled. Returns
+ * true if both of these conditions are met, otherwise false.
+ */
+bool kgsl_gmu_isenabled(struct kgsl_device *device)
+{
+	struct gmu_device *gmu = &device->gmu;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (gmu->pdev && ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
+		return true;
+
+	return false;
+}
+
 static int _gmu_iommu_fault_handler(struct device *dev,
 		unsigned long addr, int flags, const char *name)
 {
