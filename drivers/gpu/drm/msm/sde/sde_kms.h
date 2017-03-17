@@ -126,8 +126,6 @@ struct sde_kms {
 	struct sde_power_client *core_client;
 
 	/* directory entry for debugfs */
-	void *debugfs_root;
-	struct dentry *debugfs_debug;
 	struct dentry *debugfs_danger;
 	struct dentry *debugfs_vbif;
 
@@ -235,7 +233,7 @@ void *sde_debugfs_create_regset32(const char *name, umode_t mode,
 		void *parent, struct sde_debugfs_regset32 *regset);
 
 /**
- * sde_debugfs_get_root - Return root directory entry for SDE's debugfs
+ * sde_debugfs_get_root - Return root directory entry for KMS's debugfs
  *
  * The return value should be passed as the 'parent' argument to subsequent
  * debugfs create calls.

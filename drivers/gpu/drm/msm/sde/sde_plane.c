@@ -2269,8 +2269,6 @@ static void sde_plane_destroy(struct drm_plane *plane)
 	if (psde) {
 		_sde_plane_set_qos_ctrl(plane, false, SDE_PLANE_QOS_PANIC_CTRL);
 
-		debugfs_remove_recursive(psde->debugfs_root);
-
 		if (psde->blob_info)
 			drm_property_unreference_blob(psde->blob_info);
 		msm_property_destroy(&psde->property_info);
@@ -2399,35 +2397,7 @@ static void sde_plane_reset(struct drm_plane *plane)
 	plane->state = &pstate->base;
 }
 
-static const struct drm_plane_funcs sde_plane_funcs = {
-		.update_plane = drm_atomic_helper_update_plane,
-		.disable_plane = drm_atomic_helper_disable_plane,
-		.destroy = sde_plane_destroy,
-		.set_property = sde_plane_set_property,
-		.atomic_set_property = sde_plane_atomic_set_property,
-		.atomic_get_property = sde_plane_atomic_get_property,
-		.reset = sde_plane_reset,
-		.atomic_duplicate_state = sde_plane_duplicate_state,
-		.atomic_destroy_state = sde_plane_destroy_state,
-};
-
-static const struct drm_plane_helper_funcs sde_plane_helper_funcs = {
-		.prepare_fb = sde_plane_prepare_fb,
-		.cleanup_fb = sde_plane_cleanup_fb,
-		.atomic_check = sde_plane_atomic_check,
-		.atomic_update = sde_plane_atomic_update,
-};
-
-enum sde_sspp sde_plane_pipe(struct drm_plane *plane)
-{
-	return plane ? to_sde_plane(plane)->pipe : SSPP_NONE;
-}
-
-bool is_sde_plane_virtual(struct drm_plane *plane)
-{
-	return plane ? to_sde_plane(plane)->is_virtual : false;
-}
-
+#ifdef CONFIG_DEBUG_FS
 static ssize_t _sde_plane_danger_read(struct file *file,
 			char __user *buff, size_t count, loff_t *ppos)
 {
@@ -2520,72 +2490,161 @@ static const struct file_operations sde_plane_danger_enable = {
 	.write = _sde_plane_danger_write,
 };
 
-static void _sde_plane_init_debugfs(struct sde_plane *psde, struct sde_kms *kms)
+static int _sde_plane_init_debugfs(struct drm_plane *plane)
 {
+	struct sde_plane *psde;
+	struct sde_kms *kms;
+	struct msm_drm_private *priv;
 	const struct sde_sspp_sub_blks *sblk = 0;
 	const struct sde_sspp_cfg *cfg = 0;
+
+	if (!plane || !plane->dev) {
+		SDE_ERROR("invalid arguments\n");
+		return -EINVAL;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv || !priv->kms) {
+		SDE_ERROR("invalid KMS reference\n");
+		return -EINVAL;
+	}
+
+	kms = to_sde_kms(priv->kms);
+	psde = to_sde_plane(plane);
 
 	if (psde && psde->pipe_hw)
 		cfg = psde->pipe_hw->cap;
 	if (cfg)
 		sblk = cfg->sblk;
 
-	if (kms && sblk) {
-		/* create overall sub-directory for the pipe */
-		psde->debugfs_root =
-			debugfs_create_dir(psde->pipe_name,
-					sde_debugfs_get_root(kms));
-		if (psde->debugfs_root) {
-			/* don't error check these */
-			debugfs_create_x32("features", 0644,
-					psde->debugfs_root, &psde->features);
+	if (!sblk)
+		return 0;
 
-			/* add register dump support */
-			sde_debugfs_setup_regset32(&psde->debugfs_src,
-					sblk->src_blk.base + cfg->base,
-					sblk->src_blk.len,
-					kms);
-			sde_debugfs_create_regset32("src_blk", 0444,
-					psde->debugfs_root, &psde->debugfs_src);
+	/* create overall sub-directory for the pipe */
+	psde->debugfs_root =
+		debugfs_create_dir(psde->pipe_name,
+				sde_debugfs_get_root(kms));
 
-			sde_debugfs_setup_regset32(&psde->debugfs_scaler,
-					sblk->scaler_blk.base + cfg->base,
-					sblk->scaler_blk.len,
-					kms);
-			sde_debugfs_create_regset32("scaler_blk", 0444,
-					psde->debugfs_root,
-					&psde->debugfs_scaler);
+	if (!psde->debugfs_root)
+		return -ENOMEM;
 
-			sde_debugfs_setup_regset32(&psde->debugfs_csc,
-					sblk->csc_blk.base + cfg->base,
-					sblk->csc_blk.len,
-					kms);
-			sde_debugfs_create_regset32("csc_blk", 0444,
-					psde->debugfs_root, &psde->debugfs_csc);
+	/* don't error check these */
+	debugfs_create_x32("features", 0644,
+			psde->debugfs_root, &psde->features);
 
-			debugfs_create_u32("xin_id",
-					0444,
-					psde->debugfs_root,
-					(u32 *) &cfg->xin_id);
-			debugfs_create_u32("clk_ctrl",
-					0444,
-					psde->debugfs_root,
-					(u32 *) &cfg->clk_ctrl);
-			debugfs_create_x32("creq_vblank",
-					0644,
-					psde->debugfs_root,
-					(u32 *) &sblk->creq_vblank);
-			debugfs_create_x32("danger_vblank",
-					0644,
-					psde->debugfs_root,
-					(u32 *) &sblk->danger_vblank);
+	/* add register dump support */
+	sde_debugfs_setup_regset32(&psde->debugfs_src,
+			sblk->src_blk.base + cfg->base,
+			sblk->src_blk.len,
+			kms);
+	sde_debugfs_create_regset32("src_blk", 0444,
+			psde->debugfs_root, &psde->debugfs_src);
 
-			debugfs_create_file("disable_danger",
-					0644,
-					psde->debugfs_root,
-					kms, &sde_plane_danger_enable);
-		}
+	if (cfg->features & BIT(SDE_SSPP_SCALER_QSEED3) ||
+			cfg->features & BIT(SDE_SSPP_SCALER_QSEED2)) {
+		sde_debugfs_setup_regset32(&psde->debugfs_scaler,
+				sblk->scaler_blk.base + cfg->base,
+				sblk->scaler_blk.len,
+				kms);
+		sde_debugfs_create_regset32("scaler_blk", 0444,
+				psde->debugfs_root,
+				&psde->debugfs_scaler);
 	}
+
+	if (cfg->features & BIT(SDE_SSPP_CSC) ||
+			cfg->features & BIT(SDE_SSPP_CSC_10BIT)) {
+		sde_debugfs_setup_regset32(&psde->debugfs_csc,
+				sblk->csc_blk.base + cfg->base,
+				sblk->csc_blk.len,
+				kms);
+		sde_debugfs_create_regset32("csc_blk", 0444,
+				psde->debugfs_root, &psde->debugfs_csc);
+	}
+
+	debugfs_create_u32("xin_id",
+			0444,
+			psde->debugfs_root,
+			(u32 *) &cfg->xin_id);
+	debugfs_create_u32("clk_ctrl",
+			0444,
+			psde->debugfs_root,
+			(u32 *) &cfg->clk_ctrl);
+	debugfs_create_x32("creq_vblank",
+			0644,
+			psde->debugfs_root,
+			(u32 *) &sblk->creq_vblank);
+	debugfs_create_x32("danger_vblank",
+			0644,
+			psde->debugfs_root,
+			(u32 *) &sblk->danger_vblank);
+
+	debugfs_create_file("disable_danger",
+			0644,
+			psde->debugfs_root,
+			kms, &sde_plane_danger_enable);
+
+	return 0;
+}
+
+static void _sde_plane_destroy_debugfs(struct drm_plane *plane)
+{
+	struct sde_plane *psde;
+
+	if (!plane)
+		return;
+	psde = to_sde_plane(plane);
+
+	debugfs_remove_recursive(psde->debugfs_root);
+}
+#else
+static int _sde_plane_init_debugfs(struct drm_plane *plane)
+{
+	return 0;
+}
+static void _sde_plane_destroy_debugfs(struct drm_plane *plane)
+{
+}
+#endif
+
+static int sde_plane_late_register(struct drm_plane *plane)
+{
+	return _sde_plane_init_debugfs(plane);
+}
+
+static void sde_plane_early_unregister(struct drm_plane *plane)
+{
+	_sde_plane_destroy_debugfs(plane);
+}
+
+static const struct drm_plane_funcs sde_plane_funcs = {
+		.update_plane = drm_atomic_helper_update_plane,
+		.disable_plane = drm_atomic_helper_disable_plane,
+		.destroy = sde_plane_destroy,
+		.set_property = sde_plane_set_property,
+		.atomic_set_property = sde_plane_atomic_set_property,
+		.atomic_get_property = sde_plane_atomic_get_property,
+		.reset = sde_plane_reset,
+		.atomic_duplicate_state = sde_plane_duplicate_state,
+		.atomic_destroy_state = sde_plane_destroy_state,
+		.late_register = sde_plane_late_register,
+		.early_unregister = sde_plane_early_unregister,
+};
+
+static const struct drm_plane_helper_funcs sde_plane_helper_funcs = {
+		.prepare_fb = sde_plane_prepare_fb,
+		.cleanup_fb = sde_plane_cleanup_fb,
+		.atomic_check = sde_plane_atomic_check,
+		.atomic_update = sde_plane_atomic_update,
+};
+
+enum sde_sspp sde_plane_pipe(struct drm_plane *plane)
+{
+	return plane ? to_sde_plane(plane)->pipe : SSPP_NONE;
+}
+
+bool is_sde_plane_virtual(struct drm_plane *plane)
+{
+	return plane ? to_sde_plane(plane)->is_virtual : false;
 }
 
 /* initialize plane */
@@ -2708,8 +2767,6 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	snprintf(psde->pipe_name, SDE_NAME_SIZE, "plane%u", plane->base.id);
 
 	mutex_init(&psde->lock);
-
-	_sde_plane_init_debugfs(psde, kms);
 
 	SDE_DEBUG("%s created for pipe %u\n", psde->pipe_name, pipe);
 	return plane;

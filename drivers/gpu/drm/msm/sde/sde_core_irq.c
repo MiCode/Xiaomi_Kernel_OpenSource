@@ -386,7 +386,7 @@ void sde_core_irq_preinstall(struct sde_kms *sde_kms)
 		atomic_set(&sde_kms->irq_obj.irq_counts[i], 0);
 	}
 
-	sde_debugfs_core_irq_init(sde_kms, sde_kms->debugfs_root);
+	sde_debugfs_core_irq_init(sde_kms, sde_debugfs_get_root(sde_kms));
 }
 
 int sde_core_irq_postinstall(struct sde_kms *sde_kms)

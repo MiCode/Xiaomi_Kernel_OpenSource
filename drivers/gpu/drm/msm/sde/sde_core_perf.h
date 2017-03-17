@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __SDE_CORE_PERF_H__
-#define __SDE_CORE_PERF_H__
+#ifndef _SDE_CORE_PERF_H_
+#define _SDE_CORE_PERF_H_
 
 #include <linux/types.h>
 #include <linux/dcache.h>
@@ -111,14 +111,20 @@ void sde_core_perf_destroy(struct sde_core_perf *perf);
  * @phandle: Pointer to power handle
  * @pclient: Pointer to power client
  * @clk_name: core clock name
- * @debugfs_parent: Pointer to parent debugfs
  */
 int sde_core_perf_init(struct sde_core_perf *perf,
 		struct drm_device *dev,
 		struct sde_mdss_cfg *catalog,
 		struct sde_power_handle *phandle,
 		struct sde_power_client *pclient,
-		char *clk_name,
-		struct dentry *debugfs_parent);
+		char *clk_name);
 
-#endif /* __SDE_CORE_PERF_H__ */
+/**
+ * sde_core_perf_debugfs_init - initialize debugfs for core performance context
+ * @perf: Pointer to core performance context
+ * @debugfs_parent: Pointer to parent debugfs
+ */
+int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
+		struct dentry *parent);
+
+#endif /* _SDE_CORE_PERF_H_ */

@@ -89,6 +89,7 @@ struct sde_encoder_virt_ops {
 /**
  * struct sde_encoder_phys_ops - Interface the physical encoders provide to
  *	the containing virtual encoder.
+ * @late_register:		DRM Call. Add Userspace interfaces, debugfs.
  * @is_master:			Whether this phys_enc is the current master
  *				encoder. Can be switched at enable time. Based
  *				on split_role and current mode (CMD/VID).
@@ -117,6 +118,8 @@ struct sde_encoder_virt_ops {
  */
 
 struct sde_encoder_phys_ops {
+	int (*late_register)(struct sde_encoder_phys *encoder,
+			struct dentry *debugfs_root);
 	bool (*is_master)(struct sde_encoder_phys *encoder);
 	bool (*mode_fixup)(struct sde_encoder_phys *encoder,
 			const struct drm_display_mode *mode,
@@ -281,8 +284,6 @@ struct sde_encoder_phys_cmd {
  * @wb_dev:		Pointer to writeback device
  * @start_time:		Start time of writeback latest request
  * @end_time:		End time of writeback latest request
- * @wb_name:		Name of this writeback device
- * @debugfs_root:	Root entry of writeback debugfs
  */
 struct sde_encoder_phys_wb {
 	struct sde_encoder_phys base;
@@ -302,10 +303,6 @@ struct sde_encoder_phys_wb {
 	struct sde_wb_device *wb_dev;
 	ktime_t start_time;
 	ktime_t end_time;
-#ifdef CONFIG_DEBUG_FS
-	char wb_name[SDE_ENCODER_NAME_MAX];
-	struct dentry *debugfs_root;
-#endif
 };
 
 /**
