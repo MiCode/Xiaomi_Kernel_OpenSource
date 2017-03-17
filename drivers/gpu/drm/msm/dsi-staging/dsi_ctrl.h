@@ -167,7 +167,7 @@ struct dsi_ctrl_interrupts {
 /**
  * struct dsi_ctrl - DSI controller object
  * @pdev:                Pointer to platform device.
- * @index:               Instance id.
+ * @cell_index:          Instance cell id.
  * @name:                Name of the controller instance.
  * @refcount:            ref counter.
  * @ctrl_lock:           Mutex for hardware and object access.
@@ -188,7 +188,7 @@ struct dsi_ctrl_interrupts {
  */
 struct dsi_ctrl {
 	struct platform_device *pdev;
-	u32 index;
+	u32 cell_index;
 	const char *name;
 	u32 refcount;
 	struct mutex ctrl_lock;
