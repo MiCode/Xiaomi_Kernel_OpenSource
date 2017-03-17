@@ -1951,6 +1951,8 @@ static void fastrpc_channel_close(struct kref *kref)
 	cid = ctx - &gcinfo[0];
 	fastrpc_glink_close(ctx->chan, cid);
 	ctx->chan = 0;
+	glink_unregister_link_state_cb(ctx->link.link_notify_handle);
+	ctx->link.link_notify_handle = 0;
 	mutex_unlock(&me->smd_mutex);
 	pr_info("'closed /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
