@@ -474,6 +474,7 @@ struct msm_drm_private {
 
 	/* saved atomic state during system suspend */
 	struct drm_atomic_state *suspend_state;
+	bool suspend_block;
 
 	/* list of clients waiting for events */
 	struct list_head client_event_list;
@@ -508,6 +509,17 @@ static inline bool msm_is_suspend_state(struct drm_device *dev)
 		return false;
 
 	return ((struct msm_drm_private *)dev->dev_private)->suspend_state != 0;
+}
+
+static inline bool msm_is_suspend_blocked(struct drm_device *dev)
+{
+	if (!dev || !dev->dev_private)
+		return false;
+
+	if (!msm_is_suspend_state(dev))
+		return false;
+
+	return ((struct msm_drm_private *)dev->dev_private)->suspend_block != 0;
 }
 
 int msm_atomic_commit(struct drm_device *dev,
