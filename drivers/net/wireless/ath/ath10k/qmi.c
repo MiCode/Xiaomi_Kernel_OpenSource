@@ -319,6 +319,196 @@ out:
 	return ret;
 }
 
+static int
+ath10k_snoc_wlan_mode_send_sync_msg(struct ath10k *ar,
+				    enum wlfw_driver_mode_enum_v01 mode)
+{
+	int ret;
+	struct wlfw_wlan_mode_req_msg_v01 req;
+	struct wlfw_wlan_mode_resp_msg_v01 resp;
+	struct msg_desc req_desc, resp_desc;
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+	struct ath10k_snoc_qmi_config *qmi_cfg = &ar_snoc->qmi_cfg;
+
+	if (!qmi_cfg || !qmi_cfg->wlfw_clnt)
+		return -ENODEV;
+
+	ath10k_dbg(ar, ATH10K_DBG_SNOC,
+		   "Sending Mode request, mode: %d\n", mode);
+
+	memset(&req, 0, sizeof(req));
+	memset(&resp, 0, sizeof(resp));
+
+	req.mode = mode;
+	req.hw_debug_valid = 1;
+	req.hw_debug = 0;
+
+	req_desc.max_msg_len = WLFW_WLAN_MODE_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.msg_id = QMI_WLFW_WLAN_MODE_REQ_V01;
+	req_desc.ei_array = wlfw_wlan_mode_req_msg_v01_ei;
+
+	resp_desc.max_msg_len = WLFW_WLAN_MODE_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.msg_id = QMI_WLFW_WLAN_MODE_RESP_V01;
+	resp_desc.ei_array = wlfw_wlan_mode_resp_msg_v01_ei;
+
+	ret = qmi_send_req_wait(qmi_cfg->wlfw_clnt,
+				&req_desc, &req, sizeof(req),
+				&resp_desc, &resp, sizeof(resp),
+				WLFW_TIMEOUT_MS);
+	if (ret < 0) {
+		ath10k_err(ar, "Send mode req failed, mode: %d ret: %d\n",
+			   mode, ret);
+		return ret;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		ath10k_err(ar, "QMI mode request rejected:");
+		ath10k_err(ar, "mode:%d result:%d error:%d\n",
+			   mode, resp.resp.result, resp.resp.error);
+		ret = resp.resp.result;
+		return ret;
+	}
+
+	ath10k_dbg(ar, ATH10K_DBG_SNOC,
+		   "wlan Mode request send success, mode: %d\n", mode);
+	return 0;
+}
+
+static int
+ath10k_snoc_wlan_cfg_send_sync_msg(struct ath10k *ar,
+				   struct wlfw_wlan_cfg_req_msg_v01 *data)
+{
+	int ret;
+	struct wlfw_wlan_cfg_req_msg_v01 req;
+	struct wlfw_wlan_cfg_resp_msg_v01 resp;
+	struct msg_desc req_desc, resp_desc;
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+	struct ath10k_snoc_qmi_config *qmi_cfg = &ar_snoc->qmi_cfg;
+
+	if (!qmi_cfg || !qmi_cfg->wlfw_clnt)
+		return -ENODEV;
+
+	ath10k_dbg(ar, ATH10K_DBG_SNOC, "Sending config request\n");
+
+	memset(&req, 0, sizeof(req));
+	memset(&resp, 0, sizeof(resp));
+	memcpy(&req, data, sizeof(req));
+
+	req_desc.max_msg_len = WLFW_WLAN_CFG_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.msg_id = QMI_WLFW_WLAN_CFG_REQ_V01;
+	req_desc.ei_array = wlfw_wlan_cfg_req_msg_v01_ei;
+
+	resp_desc.max_msg_len = WLFW_WLAN_CFG_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.msg_id = QMI_WLFW_WLAN_CFG_RESP_V01;
+	resp_desc.ei_array = wlfw_wlan_cfg_resp_msg_v01_ei;
+
+	ret = qmi_send_req_wait(qmi_cfg->wlfw_clnt,
+				&req_desc, &req, sizeof(req),
+				&resp_desc, &resp, sizeof(resp),
+				WLFW_TIMEOUT_MS);
+	if (ret < 0) {
+		ath10k_err(ar, "Send config req failed %d\n", ret);
+		return ret;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		ath10k_err(ar, "QMI config request rejected:");
+		ath10k_err(ar, "result:%d error:%d\n",
+			   resp.resp.result, resp.resp.error);
+		ret = resp.resp.result;
+		return ret;
+	}
+
+	ath10k_dbg(ar, ATH10K_DBG_SNOC, "wlan config request success..\n");
+	return 0;
+}
+
+int ath10k_snoc_qmi_wlan_enable(struct ath10k *ar,
+				struct ath10k_wlan_enable_cfg *config,
+				enum ath10k_driver_mode mode,
+				const char *host_version)
+{
+	struct wlfw_wlan_cfg_req_msg_v01 req;
+	u32 i;
+	int ret;
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+	struct ath10k_snoc_qmi_config *qmi_cfg = &ar_snoc->qmi_cfg;
+
+	ath10k_dbg(ar, ATH10K_DBG_SNOC,
+		   "Mode: %d, config: %p, host_version: %s\n",
+		   mode, config, host_version);
+
+	memset(&req, 0, sizeof(req));
+	if (!config || !host_version) {
+		ath10k_err(ar, "WLAN_EN Config Invalid:%p: host_version:%p\n",
+			   config, host_version);
+		ret = -EINVAL;
+		return ret;
+	}
+
+	wait_event_timeout(ath10k_fw_ready_wait_event,
+			   (atomic_read(&qmi_cfg->fw_ready) &&
+			    atomic_read(&qmi_cfg->server_connected)),
+			   msecs_to_jiffies(ATH10K_SNOC_WLAN_FW_READY_TIMEOUT));
+
+	req.host_version_valid = 1;
+	strlcpy(req.host_version, host_version,
+		QMI_WLFW_MAX_STR_LEN_V01 + 1);
+
+	req.tgt_cfg_valid = 1;
+	if (config->num_ce_tgt_cfg > QMI_WLFW_MAX_NUM_CE_V01)
+		req.tgt_cfg_len = QMI_WLFW_MAX_NUM_CE_V01;
+	else
+		req.tgt_cfg_len = config->num_ce_tgt_cfg;
+	for (i = 0; i < req.tgt_cfg_len; i++) {
+		req.tgt_cfg[i].pipe_num = config->ce_tgt_cfg[i].pipe_num;
+		req.tgt_cfg[i].pipe_dir = config->ce_tgt_cfg[i].pipe_dir;
+		req.tgt_cfg[i].nentries = config->ce_tgt_cfg[i].nentries;
+		req.tgt_cfg[i].nbytes_max = config->ce_tgt_cfg[i].nbytes_max;
+		req.tgt_cfg[i].flags = config->ce_tgt_cfg[i].flags;
+	}
+
+	req.svc_cfg_valid = 1;
+	if (config->num_ce_svc_pipe_cfg > QMI_WLFW_MAX_NUM_SVC_V01)
+		req.svc_cfg_len = QMI_WLFW_MAX_NUM_SVC_V01;
+	else
+		req.svc_cfg_len = config->num_ce_svc_pipe_cfg;
+	for (i = 0; i < req.svc_cfg_len; i++) {
+		req.svc_cfg[i].service_id = config->ce_svc_cfg[i].service_id;
+		req.svc_cfg[i].pipe_dir = config->ce_svc_cfg[i].pipe_dir;
+		req.svc_cfg[i].pipe_num = config->ce_svc_cfg[i].pipe_num;
+	}
+
+	req.shadow_reg_valid = 1;
+	if (config->num_shadow_reg_cfg >
+	    QMI_WLFW_MAX_NUM_SHADOW_REG_V01)
+		req.shadow_reg_len = QMI_WLFW_MAX_NUM_SHADOW_REG_V01;
+	else
+		req.shadow_reg_len = config->num_shadow_reg_cfg;
+
+	memcpy(req.shadow_reg, config->shadow_reg_cfg,
+	       sizeof(struct wlfw_shadow_reg_cfg_s_v01) * req.shadow_reg_len);
+
+	ret = ath10k_snoc_wlan_cfg_send_sync_msg(ar, &req);
+	if (ret) {
+		ath10k_err(ar, "WLAN config send failed\n");
+		return ret;
+	}
+
+	ret = ath10k_snoc_wlan_mode_send_sync_msg(ar, mode);
+	if (ret) {
+		ath10k_err(ar, "WLAN mode send failed\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+int ath10k_snoc_qmi_wlan_disable(struct ath10k *ar)
+{
+	return ath10k_snoc_wlan_mode_send_sync_msg(ar, QMI_WLFW_OFF_V01);
+}
+
 static int ath10k_snoc_ind_register_send_sync_msg(struct ath10k *ar)
 {
 	int ret;
@@ -486,6 +676,8 @@ static int ath10k_snoc_driver_event_server_arrive(struct ath10k *ar)
 		goto err_qmi_config;
 	}
 
+	atomic_set(&qmi_cfg->server_connected, 1);
+	wake_up_all(&ath10k_fw_ready_wait_event);
 	ath10k_dbg(ar, ATH10K_DBG_SNOC,
 		   "QMI Server Arrive Configuration Success\n");
 	return 0;
@@ -499,20 +691,22 @@ err_qmi_config:
 static int ath10k_snoc_driver_event_server_exit(struct ath10k *ar)
 {
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+	struct ath10k_snoc_qmi_config *qmi_cfg = &ar_snoc->qmi_cfg;
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "QMI Server Exit event received\n");
-	ar_snoc->qmi_cfg.fw_ready = false;
-	ar_snoc->qmi_cfg.msa_ready = false;
-
+	atomic_set(&qmi_cfg->fw_ready, 0);
+	qmi_cfg->msa_ready = false;
+	atomic_set(&qmi_cfg->server_connected, 0);
 	return 0;
 }
 
 static int ath10k_snoc_driver_event_fw_ready_ind(struct ath10k *ar)
 {
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+	struct ath10k_snoc_qmi_config *qmi_cfg = &ar_snoc->qmi_cfg;
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "FW Ready event received.\n");
-	ar_snoc->qmi_cfg.fw_ready = true;
+	atomic_set(&qmi_cfg->fw_ready, 1);
 	wake_up_all(&ath10k_fw_ready_wait_event);
 
 	return 0;
@@ -621,7 +815,8 @@ int ath10k_snoc_start_qmi_service(struct ath10k *ar)
 	}
 
 	spin_lock_init(&qmi_cfg->event_lock);
-	qmi_cfg->fw_ready = false;
+	atomic_set(&qmi_cfg->fw_ready, 0);
+	atomic_set(&qmi_cfg->server_connected, 0);
 
 	INIT_WORK(&qmi_cfg->event_work, ath10k_snoc_driver_event_work);
 	INIT_WORK(&qmi_cfg->qmi_recv_msg_work,
@@ -643,6 +838,7 @@ int ath10k_snoc_start_qmi_service(struct ath10k *ar)
 		goto out_destroy_wq;
 	}
 
+	atomic_set(&qmi_cfg->fw_ready, 1);
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "QMI service started successfully\n");
 	return 0;
 

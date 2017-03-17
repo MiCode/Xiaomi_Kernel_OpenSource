@@ -15,7 +15,7 @@
 #define ATH10K_SNOC_EVENT_PENDING		2989
 #define ATH10K_SNOC_EVENT_SYNC			BIT(0)
 #define ATH10K_SNOC_EVENT_UNINTERRUPTIBLE	BIT(1)
-#define ATH10K_SNOC_WLAN_FW_READY_TIMEOUT	6000
+#define ATH10K_SNOC_WLAN_FW_READY_TIMEOUT	8000
 
 #define WLFW_SERVICE_INS_ID_V01		0
 #define WLFW_CLIENT_ID			0x4b4e454c
@@ -117,6 +117,7 @@ struct ath10k_snoc_qmi_driver_event {
 /* struct ath10k_snoc_qmi_config: qmi service configuration
  * fw_ready: wlan firmware ready for wlan operation
  * msa_ready: wlan firmware msa memory ready for board data download
+ * server_connected: qmi server connected
  * event_work: QMI event work
  * event_list: QMI event list
  * qmi_recv_msg_work: QMI message receive work
@@ -127,8 +128,9 @@ struct ath10k_snoc_qmi_driver_event {
  * event_lock: spinlock for qmi event work queue
  */
 struct ath10k_snoc_qmi_config {
-	bool fw_ready;
+	atomic_t fw_ready;
 	bool msa_ready;
+	atomic_t server_connected;
 	struct work_struct event_work;
 	struct list_head event_list;
 	struct work_struct qmi_recv_msg_work;
@@ -146,4 +148,9 @@ int ath10k_snoc_modem_ssr_unregister_notifier(struct ath10k *ar);
 int ath10k_snoc_pdr_unregister_notifier(struct ath10k *ar);
 int ath10k_snoc_start_qmi_service(struct ath10k *ar);
 void ath10k_snoc_stop_qmi_service(struct ath10k *ar);
+int ath10k_snoc_qmi_wlan_enable(struct ath10k *ar,
+				struct ath10k_wlan_enable_cfg *config,
+				enum ath10k_driver_mode mode,
+				const char *host_version);
+int ath10k_snoc_qmi_wlan_disable(struct ath10k *ar);
 #endif
