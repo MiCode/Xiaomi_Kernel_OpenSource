@@ -2316,41 +2316,35 @@ static int apq8096_tdm_snd_hw_params(struct snd_pcm_substream *substream,
 	pr_debug("%s: dai id = 0x%x\n", __func__, cpu_dai->id);
 
 	channels = params_channels(params);
-	switch (channels) {
-	case 1:
-	case 2:
-	case 3:
-	case 4:
-	case 6:
-	case 8:
-		switch (params_format(params)) {
-		case SNDRV_PCM_FORMAT_S32_LE:
-		case SNDRV_PCM_FORMAT_S24_LE:
-		case SNDRV_PCM_FORMAT_S16_LE:
-			/*
-			 * up to 8 channel HW configuration should
-			 * use 32 bit slot width for max support of
-			 * stream bit width. (slot_width > bit_width)
-			 */
-			slot_width = msm_tdm_slot_width;
-			break;
-		default:
-			pr_err("%s: invalid param format 0x%x\n",
-				__func__, params_format(params));
-			return -EINVAL;
-		}
-		slots = msm_tdm_num_slots;
-		slot_mask = tdm_param_set_slot_mask(cpu_dai->id,
-			slot_width, slots);
-		if (!slot_mask) {
-			pr_err("%s: invalid slot_mask 0x%x\n",
-				__func__, slot_mask);
-			return -EINVAL;
-		}
-		break;
-	default:
+	if (channels < 1 || channels > 8) {
 		pr_err("%s: invalid param channels %d\n",
 			__func__, channels);
+		return -EINVAL;
+	}
+
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S32_LE:
+	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_S16_LE:
+		/*
+		 * up to 8 channel HW configuration should
+		 * use 32 bit slot width for max support of
+		 * stream bit width. (slot_width > bit_width)
+		 */
+		slot_width = msm_tdm_slot_width;
+		break;
+	default:
+		pr_err("%s: invalid param format 0x%x\n",
+			__func__, params_format(params));
+		return -EINVAL;
+	}
+
+	slots = msm_tdm_num_slots;
+	slot_mask = tdm_param_set_slot_mask(cpu_dai->id,
+		slot_width, slots);
+	if (!slot_mask) {
+		pr_err("%s: invalid slot_mask 0x%x\n",
+			__func__, slot_mask);
 		return -EINVAL;
 	}
 
