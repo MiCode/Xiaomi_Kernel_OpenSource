@@ -553,7 +553,7 @@ static void a6xx_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 		KGSL_DRV_CRIT_RATELIMIT(device,
 			"CP | Protected mode error | %s | addr=%x | status=%x\n",
 			status2 & (1 << 20) ? "READ" : "WRITE",
-			(status2 & 0x3FFFF) >> 2, status2);
+			status2 & 0x3FFFF, status2);
 	}
 	if (status1 & BIT(A6XX_CP_AHB_ERROR))
 		KGSL_DRV_CRIT_RATELIMIT(device,
