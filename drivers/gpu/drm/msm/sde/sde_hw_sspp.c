@@ -895,14 +895,17 @@ static void sde_hw_sspp_setup_csc(struct sde_hw_pipe *ctx,
 		struct sde_csc_cfg *data)
 {
 	u32 idx;
+	bool csc10 = false;
 
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_CSC, &idx) || !data)
 		return;
 
-	if (test_bit(SDE_SSPP_CSC_10BIT, &ctx->cap->features))
+	if (test_bit(SDE_SSPP_CSC_10BIT, &ctx->cap->features)) {
 		idx += CSC_10BIT_OFFSET;
+		csc10 = true;
+	}
 
-	sde_hw_csc_setup(&ctx->hw, idx, data);
+	sde_hw_csc_setup(&ctx->hw, idx, data, csc10);
 }
 
 static void sde_hw_sspp_setup_sharpening(struct sde_hw_pipe *ctx,

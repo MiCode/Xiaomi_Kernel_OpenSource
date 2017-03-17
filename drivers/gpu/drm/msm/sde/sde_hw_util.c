@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,9 +42,10 @@ u32 *sde_hw_util_get_log_mask_ptr(void)
 
 void sde_hw_csc_setup(struct sde_hw_blk_reg_map *c,
 		u32 csc_reg_off,
-		struct sde_csc_cfg *data)
+		struct sde_csc_cfg *data, bool csc10)
 {
 	static const u32 matrix_shift = 7;
+	u32 clamp_shift = csc10 ? 16 : 8;
 	u32 val;
 
 	/* matrix coeff - convert S15.16 to S4.9 */
@@ -64,19 +65,19 @@ void sde_hw_csc_setup(struct sde_hw_blk_reg_map *c,
 	SDE_REG_WRITE(c, csc_reg_off + 0x10, val);
 
 	/* Pre clamp */
-	val = (data->csc_pre_lv[0] << 8) | data->csc_pre_lv[1];
+	val = (data->csc_pre_lv[0] << clamp_shift) | data->csc_pre_lv[1];
 	SDE_REG_WRITE(c, csc_reg_off + 0x14, val);
-	val = (data->csc_pre_lv[2] << 8) | data->csc_pre_lv[3];
+	val = (data->csc_pre_lv[2] << clamp_shift) | data->csc_pre_lv[3];
 	SDE_REG_WRITE(c, csc_reg_off + 0x18, val);
-	val = (data->csc_pre_lv[4] << 8) | data->csc_pre_lv[5];
+	val = (data->csc_pre_lv[4] << clamp_shift) | data->csc_pre_lv[5];
 	SDE_REG_WRITE(c, csc_reg_off + 0x1c, val);
 
 	/* Post clamp */
-	val = (data->csc_post_lv[0] << 8) | data->csc_post_lv[1];
+	val = (data->csc_post_lv[0] << clamp_shift) | data->csc_post_lv[1];
 	SDE_REG_WRITE(c, csc_reg_off + 0x20, val);
-	val = (data->csc_post_lv[2] << 8) | data->csc_post_lv[3];
+	val = (data->csc_post_lv[2] << clamp_shift) | data->csc_post_lv[3];
 	SDE_REG_WRITE(c, csc_reg_off + 0x24, val);
-	val = (data->csc_post_lv[4] << 8) | data->csc_post_lv[5];
+	val = (data->csc_post_lv[4] << clamp_shift) | data->csc_post_lv[5];
 	SDE_REG_WRITE(c, csc_reg_off + 0x28, val);
 
 	/* Pre-Bias */
