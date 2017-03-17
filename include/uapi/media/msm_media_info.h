@@ -222,7 +222,7 @@ enum color_fmts {
 	 * Y_Stride = align(Width, 128)
 	 * UV_Stride = align(Width, 128)
 	 * Y_Scanlines = align(Height, 32)
-	 * UV_Scanlines = align((Height + 96)/2, 16)
+	 * UV_Scanlines = align(Height/2, 16)
 	 * Y_UBWC_Plane_size = align(Y_Stride * Y_Scanlines, 4096)
 	 * UV_UBWC_Plane_size = align(UV_Stride * UV_Scanlines, 4096)
 	 * Y_Meta_Stride = align(roundup(Width, Y_TileWidth), 64)
@@ -235,7 +235,7 @@ enum color_fmts {
 	 *
 	 * Total size = align( Y_UBWC_Plane_size + UV_UBWC_Plane_size +
 	 *           Y_Meta_Plane_size + UV_Meta_Plane_size
-	 *           + Extradata), 4096)
+	 *           + max(Extradata, Y_Stride * 64), 4096)
 	 */
 	COLOR_FMT_NV12_UBWC,
 	/* Venus NV12 10-bit UBWC:
@@ -311,7 +311,7 @@ enum color_fmts {
 	 * Y_Stride = align(Width * 4/3, 128)
 	 * UV_Stride = align(Width * 4/3, 128)
 	 * Y_Scanlines = align(Height, 32)
-	 * UV_Scanlines = align((Height + 96)/2, 16)
+	 * UV_Scanlines = align(Height/2, 16)
 	 * Y_UBWC_Plane_Size = align(Y_Stride * Y_Scanlines, 4096)
 	 * UV_UBWC_Plane_Size = align(UV_Stride * UV_Scanlines, 4096)
 	 * Y_Meta_Stride = align(roundup(Width, Y_TileWidth), 64)
@@ -324,7 +324,7 @@ enum color_fmts {
 	 *
 	 * Total size = align(Y_UBWC_Plane_size + UV_UBWC_Plane_size +
 	 *           Y_Meta_Plane_size + UV_Meta_Plane_size
-	 *           + Extradata), 4096)
+	 *           + max(Extradata, Y_Stride * 64), 4096)
 	 */
 	COLOR_FMT_NV12_BPP10_UBWC,
 	/* Venus RGBA8888 format:
@@ -970,7 +970,6 @@ static inline unsigned int VENUS_BUFFER_SIZE(
 		break;
 	case COLOR_FMT_NV12_UBWC:
 	case COLOR_FMT_NV12_BPP10_UBWC:
-		uv_sclines = VENUS_UV_SCANLINES(color_fmt, height + 96);
 		y_ubwc_plane = MSM_MEDIA_ALIGN(y_stride * y_sclines, 4096);
 		uv_ubwc_plane = MSM_MEDIA_ALIGN(uv_stride * uv_sclines, 4096);
 		y_meta_stride = VENUS_Y_META_STRIDE(color_fmt, width);
@@ -983,7 +982,8 @@ static inline unsigned int VENUS_BUFFER_SIZE(
 					uv_meta_scanlines, 4096);
 
 		size = y_ubwc_plane + uv_ubwc_plane + y_meta_plane +
-			uv_meta_plane + extra_size;
+			uv_meta_plane + MSM_MEDIA_MAX(extra_size,
+			64 * y_stride);
 		size = MSM_MEDIA_ALIGN(size, 4096);
 		break;
 	case COLOR_FMT_P010_UBWC:
