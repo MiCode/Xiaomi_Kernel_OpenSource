@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -584,6 +584,7 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	if (ret)
 		return ERR_PTR(ret);
 
+	desc->clear_fw_region = false;
 	desc->dev = &pdev->dev;
 
 	drv->qdsp6v5_2_0 = of_device_is_compatible(pdev->dev.of_node,
