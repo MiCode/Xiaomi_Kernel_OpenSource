@@ -240,13 +240,14 @@ out:
 }
 #endif
 
-static int touch(char *abs_path, mode_t mode) {
+static int touch(char *abs_path, mode_t mode)
+{
 	struct file *filp = filp_open(abs_path, O_RDWR|O_CREAT|O_EXCL|O_NOFOLLOW, mode);
+
 	if (IS_ERR(filp)) {
 		if (PTR_ERR(filp) == -EEXIST) {
 			return 0;
-		}
-		else {
+		} else {
 			printk(KERN_ERR "sdcardfs: failed to open(%s): %ld\n",
 						abs_path, PTR_ERR(filp));
 			return PTR_ERR(filp);
@@ -315,19 +316,21 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 	}
 
 	/* if it is a local obb dentry, setup it with the base obbpath */
-	if(need_graft_path(dentry)) {
+	if (need_graft_path(dentry)) {
 
 		err = setup_obb_dentry(dentry, &lower_path);
-		if(err) {
+		if (err) {
 			/* if the sbi->obbpath is not available, the lower_path won't be
 			 * changed by setup_obb_dentry() but the lower path is saved to
 			 * its orig_path. this dentry will be revalidated later.
-			 * but now, the lower_path should be NULL */
+			 * but now, the lower_path should be NULL
+			 */
 			sdcardfs_put_reset_lower_path(dentry);
 
 			/* the newly created lower path which saved to its orig_path or
 			 * the lower_path is the base obbpath.
-			 * therefore, an additional path_get is required */
+			 * therefore, an additional path_get is required
+			 */
 			path_get(&lower_path);
 		} else
 			make_nomedia_in_obb = 1;
@@ -391,7 +394,8 @@ static int sdcardfs_rmdir(struct inode *dir, struct dentry *dentry)
 	OVERRIDE_CRED(SDCARDFS_SB(dir->i_sb), saved_cred, SDCARDFS_I(dir));
 
 	/* sdcardfs_get_real_lower(): in case of remove an user's obb dentry
-	 * the dentry on the original path should be deleted. */
+	 * the dentry on the original path should be deleted.
+	 */
 	sdcardfs_get_real_lower(dentry, &lower_path);
 
 	lower_dentry = lower_path.dentry;
@@ -663,6 +667,7 @@ static int sdcardfs_permission(struct vfsmount *mnt, struct inode *inode, int ma
 		 * we check it with AID_MEDIA_RW permission
 		 */
 		struct inode *lower_inode;
+
 		OVERRIDE_CRED(SDCARDFS_SB(inode->sb));
 
 		lower_inode = sdcardfs_lower_inode(inode);
@@ -733,7 +738,8 @@ static int sdcardfs_setattr(struct vfsmount *mnt, struct dentry *dentry, struct 
 	/* prepare our own lower struct iattr (with the lower file) */
 	memcpy(&lower_ia, ia, sizeof(lower_ia));
 	/* Allow touch updating timestamps. A previous permission check ensures
-	 * we have write access. Changes to mode, owner, and group are ignored*/
+	 * we have write access. Changes to mode, owner, and group are ignored
+	 */
 	ia->ia_valid |= ATTR_FORCE;
 	err = setattr_prepare(&tmp_d, ia);
 
@@ -819,10 +825,12 @@ out_err:
 	return err;
 }
 
-static int sdcardfs_fillattr(struct vfsmount *mnt, struct inode *inode, struct kstat *stat)
+static int sdcardfs_fillattr(struct vfsmount *mnt,
+				struct inode *inode, struct kstat *stat)
 {
 	struct sdcardfs_inode_info *info = SDCARDFS_I(inode);
 	struct inode *top = grab_top(info);
+
 	if (!top)
 		return -EINVAL;
 
