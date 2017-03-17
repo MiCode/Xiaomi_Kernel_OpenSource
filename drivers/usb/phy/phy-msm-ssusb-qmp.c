@@ -84,6 +84,7 @@ struct msm_ssphy_qmp {
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
 	struct clk		*aux_clk;
+	struct clk		*com_aux_clk;
 	struct clk		*cfg_ahb_clk;
 	struct clk		*pipe_clk;
 	struct reset_control	*phy_reset;
@@ -113,6 +114,8 @@ static const struct of_device_id msm_usb_id_table[] = {
 	{ },
 };
 MODULE_DEVICE_TABLE(of, msm_usb_id_table);
+
+static void msm_ssphy_qmp_enable_clks(struct msm_ssphy_qmp *phy, bool on);
 
 static inline char *get_cable_status_str(struct msm_ssphy_qmp *phy)
 {
@@ -292,17 +295,7 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		return ret;
 	}
 
-	if (!phy->clk_enabled) {
-		if (phy->ref_clk_src)
-			clk_prepare_enable(phy->ref_clk_src);
-		if (phy->ref_clk)
-			clk_prepare_enable(phy->ref_clk);
-		clk_prepare_enable(phy->aux_clk);
-		clk_prepare_enable(phy->cfg_ahb_clk);
-		clk_set_rate(phy->pipe_clk, 125000000);
-		clk_prepare_enable(phy->pipe_clk);
-		phy->clk_enabled = true;
-	}
+	msm_ssphy_qmp_enable_clks(phy, true);
 
 	writel_relaxed(0x01,
 		phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
@@ -469,29 +462,13 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		/* Make sure above write completed with PHY */
 		wmb();
 
-		clk_disable_unprepare(phy->cfg_ahb_clk);
-		clk_disable_unprepare(phy->aux_clk);
-		clk_disable_unprepare(phy->pipe_clk);
-		if (phy->ref_clk)
-			clk_disable_unprepare(phy->ref_clk);
-		if (phy->ref_clk_src)
-			clk_disable_unprepare(phy->ref_clk_src);
-		phy->clk_enabled = false;
+		msm_ssphy_qmp_enable_clks(phy, false);
 		phy->in_suspend = true;
 		msm_ssphy_power_enable(phy, 0);
 		dev_dbg(uphy->dev, "QMP PHY is suspend\n");
 	} else {
 		msm_ssphy_power_enable(phy, 1);
-		clk_prepare_enable(phy->pipe_clk);
-		if (!phy->clk_enabled) {
-			if (phy->ref_clk_src)
-				clk_prepare_enable(phy->ref_clk_src);
-			if (phy->ref_clk)
-				clk_prepare_enable(phy->ref_clk);
-			clk_prepare_enable(phy->aux_clk);
-			clk_prepare_enable(phy->cfg_ahb_clk);
-			phy->clk_enabled = true;
-		}
+		msm_ssphy_qmp_enable_clks(phy, true);
 		if (!phy->cable_connected) {
 			writel_relaxed(0x01,
 			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
@@ -533,16 +510,9 @@ static int msm_ssphy_qmp_notify_disconnect(struct usb_phy *uphy,
 	return 0;
 }
 
-static int msm_ssphy_qmp_probe(struct platform_device *pdev)
+static int msm_ssphy_qmp_get_clks(struct msm_ssphy_qmp *phy, struct device *dev)
 {
-	struct msm_ssphy_qmp *phy;
-	struct device *dev = &pdev->dev;
-	struct resource *res;
-	int ret = 0, size = 0, len;
-
-	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
-	if (!phy)
-		return -ENOMEM;
+	int ret = 0;
 
 	phy->aux_clk = devm_clk_get(dev, "aux_clk");
 	if (IS_ERR(phy->aux_clk)) {
@@ -552,11 +522,10 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 			dev_err(dev, "failed to get aux_clk\n");
 		goto err;
 	}
-
 	clk_set_rate(phy->aux_clk, clk_round_rate(phy->aux_clk, ULONG_MAX));
 
-	if (of_property_match_string(pdev->dev.of_node,
-				"clock-names", "cfg_ahb_clk") >= 0) {
+	if (of_property_match_string(dev->of_node,
+			"clock-names", "cfg_ahb_clk") >= 0) {
 		phy->cfg_ahb_clk = devm_clk_get(dev, "cfg_ahb_clk");
 		if (IS_ERR(phy->cfg_ahb_clk)) {
 			ret = PTR_ERR(phy->cfg_ahb_clk);
@@ -575,6 +544,88 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 			dev_err(dev, "failed to get pipe_clk\n");
 		goto err;
 	}
+
+	phy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
+	if (IS_ERR(phy->ref_clk_src))
+		phy->ref_clk_src = NULL;
+
+	phy->ref_clk = devm_clk_get(dev, "ref_clk");
+	if (IS_ERR(phy->ref_clk))
+		phy->ref_clk = NULL;
+
+	if (of_property_match_string(dev->of_node,
+			"clock-names", "com_aux_clk") >= 0) {
+		phy->com_aux_clk = devm_clk_get(dev, "com_aux_clk");
+		if (IS_ERR(phy->com_aux_clk)) {
+			ret = PTR_ERR(phy->com_aux_clk);
+			if (ret != -EPROBE_DEFER)
+				dev_err(dev,
+				"failed to get com_aux_clk ret %d\n", ret);
+			goto err;
+		}
+	}
+
+err:
+	return ret;
+}
+
+static void msm_ssphy_qmp_enable_clks(struct msm_ssphy_qmp *phy, bool on)
+{
+	dev_dbg(phy->phy.dev, "%s(): clk_enabled:%d on:%d\n", __func__,
+					phy->clk_enabled, on);
+
+	if (!phy->clk_enabled && on) {
+		if (phy->ref_clk_src)
+			clk_prepare_enable(phy->ref_clk_src);
+
+		if (phy->ref_clk)
+			clk_prepare_enable(phy->ref_clk);
+
+		if (phy->com_aux_clk)
+			clk_prepare_enable(phy->com_aux_clk);
+
+		clk_prepare_enable(phy->aux_clk);
+		if (phy->cfg_ahb_clk)
+			clk_prepare_enable(phy->cfg_ahb_clk);
+
+		clk_prepare_enable(phy->pipe_clk);
+		phy->clk_enabled = true;
+	}
+
+	if (phy->clk_enabled && !on) {
+		clk_disable_unprepare(phy->pipe_clk);
+
+		if (phy->cfg_ahb_clk)
+			clk_disable_unprepare(phy->cfg_ahb_clk);
+
+		clk_disable_unprepare(phy->aux_clk);
+		if (phy->com_aux_clk)
+			clk_disable_unprepare(phy->com_aux_clk);
+
+		if (phy->ref_clk)
+			clk_disable_unprepare(phy->ref_clk);
+
+		if (phy->ref_clk_src)
+			clk_disable_unprepare(phy->ref_clk_src);
+
+		phy->clk_enabled = false;
+	}
+}
+
+static int msm_ssphy_qmp_probe(struct platform_device *pdev)
+{
+	struct msm_ssphy_qmp *phy;
+	struct device *dev = &pdev->dev;
+	struct resource *res;
+	int ret = 0, size = 0, len;
+
+	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
+	if (!phy)
+		return -ENOMEM;
+
+	ret = msm_ssphy_qmp_get_clks(phy, dev);
+	if (ret)
+		goto err;
 
 	phy->phy_reset = devm_reset_control_get(dev, "phy_reset");
 	if (IS_ERR(phy->phy_reset)) {
@@ -726,13 +777,6 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	phy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
-	if (IS_ERR(phy->ref_clk_src))
-		phy->ref_clk_src = NULL;
-	phy->ref_clk = devm_clk_get(dev, "ref_clk");
-	if (IS_ERR(phy->ref_clk))
-		phy->ref_clk = NULL;
-
 	platform_set_drvdata(pdev, phy);
 
 	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
@@ -760,14 +804,8 @@ static int msm_ssphy_qmp_remove(struct platform_device *pdev)
 		return 0;
 
 	usb_remove_phy(&phy->phy);
-	if (phy->ref_clk)
-		clk_disable_unprepare(phy->ref_clk);
-	if (phy->ref_clk_src)
-		clk_disable_unprepare(phy->ref_clk_src);
+	msm_ssphy_qmp_enable_clks(phy, false);
 	msm_ssusb_qmp_ldo_enable(phy, 0);
-	clk_disable_unprepare(phy->aux_clk);
-	clk_disable_unprepare(phy->cfg_ahb_clk);
-	clk_disable_unprepare(phy->pipe_clk);
 	kfree(phy);
 	return 0;
 }
