@@ -57,6 +57,10 @@
  * TZ 3.X version info
  */
 #define QSEE_VERSION_TZ_3_X 0x800000
+/*
+ * TZ 4.X version info
+ */
+#define QSEE_VERSION_TZ_4_X 0x1000000
 
 #define TZBSP_AES_256_ENCRYPTED_KEY_SIZE 256
 #define TZBSP_NONCE_LEN 12
@@ -128,6 +132,18 @@ struct tzdbg_int_t {
 	 */
 	uint8_t int_desc[TZBSP_MAX_INT_DESC];
 	uint64_t int_count[TZBSP_MAX_CPU_COUNT]; /* # of times seen per CPU */
+};
+
+/*
+ * Interrupt Info Table used in tz version >=4.X
+ */
+struct tzdbg_int_t_tz40 {
+	uint16_t int_info;
+	uint8_t avail;
+	uint8_t spare;
+	uint32_t int_num;
+	uint8_t int_desc[TZBSP_MAX_INT_DESC];
+	uint32_t int_count[TZBSP_MAX_CPU_COUNT]; /* uint32_t in TZ ver >= 4.x*/
 };
 
 /* warm boot reason for cores */
@@ -291,6 +307,7 @@ struct tzdbg {
 	struct tzdbg_stat stat[TZDBG_STATS_MAX];
 	uint32_t hyp_debug_rw_buf_size;
 	bool is_hyplog_enabled;
+	uint32_t tz_version;
 };
 
 static struct tzdbg tzdbg = {
@@ -364,31 +381,9 @@ static int _disp_tz_boot_stats(void)
 	int len = 0;
 	struct tzdbg_boot_info_t *ptr = NULL;
 	struct tzdbg_boot_info64_t *ptr_64 = NULL;
-	int ret = 0;
-	uint32_t smc_id = 0;
-	uint32_t feature = 10;
-	struct qseecom_command_scm_resp resp = {};
-	struct scm_desc desc = {0};
 
-	if (!is_scm_armv8()) {
-		ret = scm_call(SCM_SVC_INFO, SCM_SVC_UTIL,  &feature,
-					sizeof(feature), &resp, sizeof(resp));
-	} else {
-		smc_id = TZ_INFO_GET_FEATURE_VERSION_ID;
-		desc.arginfo = TZ_INFO_GET_FEATURE_VERSION_ID_PARAM_ID;
-		desc.args[0] = feature;
-		ret = scm_call2(smc_id, &desc);
-		resp.result = desc.ret[0];
-	}
-
-	if (ret) {
-		pr_err("%s: scm_call to register log buffer failed\n",
-				__func__);
-		return 0;
-	}
-	pr_info("qsee_version = 0x%x\n", resp.result);
-
-	if (resp.result >= QSEE_VERSION_TZ_3_X) {
+	pr_info("qsee_version = 0x%x\n", tzdbg.tz_version);
+	if (tzdbg.tz_version >= QSEE_VERSION_TZ_3_X) {
 		ptr_64 = (struct tzdbg_boot_info64_t *)((unsigned char *)
 			tzdbg.diag_buf + tzdbg.diag_buf->boot_info_off);
 	} else {
@@ -397,7 +392,7 @@ static int _disp_tz_boot_stats(void)
 	}
 
 	for (i = 0; i < tzdbg.diag_buf->cpu_count; i++) {
-		if (resp.result >= QSEE_VERSION_TZ_3_X) {
+		if (tzdbg.tz_version >= QSEE_VERSION_TZ_3_X) {
 			len += snprintf(tzdbg.disp_buf + len,
 					(debug_rw_buf_size - 1) - len,
 					"  CPU #: %d\n"
@@ -487,6 +482,7 @@ static int _disp_tz_interrupt_stats(void)
 	int *num_int;
 	unsigned char *ptr;
 	struct tzdbg_int_t *tzdbg_ptr;
+	struct tzdbg_int_t_tz40 *tzdbg_ptr_tz40;
 
 	num_int = (uint32_t *)((unsigned char *)tzdbg.diag_buf +
 			(tzdbg.diag_buf->int_info_off - sizeof(uint32_t)));
@@ -495,9 +491,12 @@ static int _disp_tz_interrupt_stats(void)
 	int_info_size = ((tzdbg.diag_buf->ring_off -
 				tzdbg.diag_buf->int_info_off)/(*num_int));
 
-	for (i = 0; i < (*num_int); i++) {
-		tzdbg_ptr = (struct tzdbg_int_t *)ptr;
-		len += snprintf(tzdbg.disp_buf + len,
+	pr_info("qsee_version = 0x%x\n", tzdbg.tz_version);
+
+	if (tzdbg.tz_version < QSEE_VERSION_TZ_4_X) {
+		for (i = 0; i < (*num_int); i++) {
+			tzdbg_ptr = (struct tzdbg_int_t *)ptr;
+			len += snprintf(tzdbg.disp_buf + len,
 				(debug_rw_buf_size - 1) - len,
 				"     Interrupt Number          : 0x%x\n"
 				"     Type of Interrupt         : 0x%x\n"
@@ -505,24 +504,53 @@ static int _disp_tz_interrupt_stats(void)
 				tzdbg_ptr->int_num,
 				(uint32_t)tzdbg_ptr->int_info,
 				(uint8_t *)tzdbg_ptr->int_desc);
-		for (j = 0; j < tzdbg.diag_buf->cpu_count; j++) {
-			len += snprintf(tzdbg.disp_buf + len,
+			for (j = 0; j < tzdbg.diag_buf->cpu_count; j++) {
+				len += snprintf(tzdbg.disp_buf + len,
 				(debug_rw_buf_size - 1) - len,
 				"     int_count on CPU # %d      : %u\n",
 				(uint32_t)j,
 				(uint32_t)tzdbg_ptr->int_count[j]);
-		}
-		len += snprintf(tzdbg.disp_buf + len, debug_rw_buf_size - 1,
-									"\n");
+			}
+			len += snprintf(tzdbg.disp_buf + len,
+					debug_rw_buf_size - 1, "\n");
 
-		if (len > (debug_rw_buf_size - 1)) {
-			pr_warn("%s: Cannot fit all info into the buffer\n",
+			if (len > (debug_rw_buf_size - 1)) {
+				pr_warn("%s: Cannot fit all info into buf\n",
 								__func__);
-			break;
+				break;
+			}
+			ptr += int_info_size;
 		}
+	} else {
+		for (i = 0; i < (*num_int); i++) {
+			tzdbg_ptr_tz40 = (struct tzdbg_int_t_tz40 *)ptr;
+			len += snprintf(tzdbg.disp_buf + len,
+				(debug_rw_buf_size - 1) - len,
+				"     Interrupt Number          : 0x%x\n"
+				"     Type of Interrupt         : 0x%x\n"
+				"     Description of interrupt  : %s\n",
+				tzdbg_ptr_tz40->int_num,
+				(uint32_t)tzdbg_ptr_tz40->int_info,
+				(uint8_t *)tzdbg_ptr_tz40->int_desc);
+			for (j = 0; j < tzdbg.diag_buf->cpu_count; j++) {
+				len += snprintf(tzdbg.disp_buf + len,
+				(debug_rw_buf_size - 1) - len,
+				"     int_count on CPU # %d      : %u\n",
+				(uint32_t)j,
+				(uint32_t)tzdbg_ptr_tz40->int_count[j]);
+			}
+			len += snprintf(tzdbg.disp_buf + len,
+					debug_rw_buf_size - 1, "\n");
 
-		ptr += int_info_size;
+			if (len > (debug_rw_buf_size - 1)) {
+				pr_warn("%s: Cannot fit all info into buf\n",
+								__func__);
+				break;
+			}
+			ptr += int_info_size;
+		}
 	}
+
 	tzdbg.stat[TZDBG_INTERRUPT].data = tzdbg.disp_buf;
 	return len;
 }
@@ -1021,6 +1049,33 @@ static int __update_hypdbg_base(struct platform_device *pdev,
 	return 0;
 }
 
+static void tzdbg_get_tz_version(void)
+{
+	uint32_t smc_id = 0;
+	uint32_t feature = 10;
+	struct qseecom_command_scm_resp resp = {0};
+	struct scm_desc desc = {0};
+	int ret = 0;
+
+	if (!is_scm_armv8()) {
+		ret = scm_call(SCM_SVC_INFO, SCM_SVC_UTIL,  &feature,
+					sizeof(feature), &resp, sizeof(resp));
+	} else {
+		smc_id = TZ_INFO_GET_FEATURE_VERSION_ID;
+		desc.arginfo = TZ_INFO_GET_FEATURE_VERSION_ID_PARAM_ID;
+		desc.args[0] = feature;
+		ret = scm_call2(smc_id, &desc);
+		resp.result = desc.ret[0];
+	}
+
+	if (ret)
+		pr_err("%s: scm_call to get tz version failed\n",
+				__func__);
+	else
+		tzdbg.tz_version = resp.result;
+
+}
+
 /*
  * Driver functions
  */
@@ -1109,6 +1164,9 @@ static int tz_log_probe(struct platform_device *pdev)
 		goto err;
 
 	tzdbg_register_qsee_log_buf();
+
+	tzdbg_get_tz_version();
+
 	return 0;
 err:
 	kfree(tzdbg.diag_buf);
