@@ -236,7 +236,7 @@
 };
 
 &mem_client_3_size {
-	qcom,peripheral-size = <0x500000>;
+	qcom,peripheral-size = <0xf00000>;
 };
 
 &pm660_fg {
