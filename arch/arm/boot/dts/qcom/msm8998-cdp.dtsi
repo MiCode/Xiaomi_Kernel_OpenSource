@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8998-pinctrl.dtsi"
 #include "msm8998-camera-sensor-cdp.dtsi"
 / {
 	bluetooth: bt_wcn3990 {
