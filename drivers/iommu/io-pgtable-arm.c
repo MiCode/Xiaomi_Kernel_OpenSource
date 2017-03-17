@@ -89,6 +89,7 @@
 #define ARM_LPAE_PTE_TYPE_TABLE		3
 #define ARM_LPAE_PTE_TYPE_PAGE		3
 
+#define ARM_LPAE_PTE_SH_MASK		(((arm_lpae_iopte)0x3) << 8)
 #define ARM_LPAE_PTE_NSTABLE		(((arm_lpae_iopte)1) << 63)
 #define ARM_LPAE_PTE_XN			(((arm_lpae_iopte)3) << 53)
 #define ARM_LPAE_PTE_AF			(((arm_lpae_iopte)1) << 10)
@@ -928,8 +929,9 @@ static bool __arm_lpae_is_iova_coherent(struct arm_lpae_io_pgtable *data,
 					ARM_LPAE_PTE_ATTRINDX_SHIFT)) >>
 					ARM_LPAE_PTE_ATTRINDX_SHIFT;
 		if ((attr_idx == ARM_LPAE_MAIR_ATTR_IDX_CACHE) &&
-		    ((*ptep & ARM_LPAE_PTE_SH_IS) ||
-		     (*ptep & ARM_LPAE_PTE_SH_OS)))
+		   (((*ptep & ARM_LPAE_PTE_SH_MASK) == ARM_LPAE_PTE_SH_IS)
+		     ||
+		     (*ptep & ARM_LPAE_PTE_SH_MASK) == ARM_LPAE_PTE_SH_OS))
 			return true;
 	} else {
 		if (*ptep & ARM_LPAE_PTE_MEMATTR_OIWB)
