@@ -333,4 +333,8 @@
 		qcom,afe-power-on-delay-us = <1000>;
 		qcom,afe-power-off-delay-us = <6>;
 	};
+
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
 };

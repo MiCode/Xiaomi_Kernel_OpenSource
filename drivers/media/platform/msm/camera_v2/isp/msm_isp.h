@@ -768,7 +768,6 @@ struct vfe_device {
 	size_t num_hvx_clk;
 	size_t num_norm_clk;
 	enum cam_ahb_clk_vote ahb_vote;
-	bool turbo_vote;
 	struct cx_ipeak_client *vfe_cx_ipeak;
 
 	/* Sync variables*/
@@ -831,6 +830,8 @@ struct vfe_device {
 	uint32_t recovery_irq1_mask;
 	/* Store the buf_idx for pd stats RDI stream */
 	uint8_t pd_buf_idx;
+	/* total bandwidth per vfe */
+	uint64_t total_bandwidth;
 };
 
 struct vfe_parent_device {

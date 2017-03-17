@@ -276,8 +276,12 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 	if (q6->cx_ipeak_vote) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						    "cxip_lm_vote_clear");
-		q6->cxip_lm_vote_clear = devm_ioremap_resource(&pdev->dev,
-								res);
+		if (!res) {
+			dev_err(&pdev->dev, "Failed to get resource for ipeak reg\n");
+			return -EINVAL;
+		}
+		q6->cxip_lm_vote_clear = devm_ioremap(&pdev->dev,
+						res->start, resource_size(res));
 		if (!q6->cxip_lm_vote_clear)
 			return -ENOMEM;
 	}

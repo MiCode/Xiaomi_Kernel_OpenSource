@@ -1821,10 +1821,8 @@ static void arm_iommu_unmap_page(struct device *dev, dma_addr_t handle,
 						mapping->domain, iova));
 	int offset = handle & ~PAGE_MASK;
 	int len = PAGE_ALIGN(size + offset);
-	bool iova_coherent = iommu_is_iova_coherent(mapping->domain,
-							handle);
 
-	if (!(iova_coherent ||
+	if (!(is_dma_coherent(dev, attrs) ||
 	      dma_get_attr(DMA_ATTR_SKIP_CPU_SYNC, attrs)))
 		__dma_page_dev_to_cpu(page, offset, size, dir);
 

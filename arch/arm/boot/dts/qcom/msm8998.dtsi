@@ -286,16 +286,22 @@
 			reg = <0 0x85800000 0 0x3700000>;
 		};
 
-		pil_ipa_gpu_mem: pil_ipa_gpu_region@95000000 {
+		pil_ipa_gpu_mem: pil_ipa_gpu_region@95200000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95000000 0 0x100000>;
+			reg = <0 0x95200000 0 0x100000>;
 		};
 
-		pil_slpi_mem: pil_slpi_region@94100000 {
+		pil_slpi_mem: pil_slpi_region@94300000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x94100000 0 0xf00000>;
+			reg = <0 0x94300000 0 0xf00000>;
+		};
+
+		pil_mba_mem: pil_mba_region@94100000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x94100000 0 0x200000>;
 		};
 
 		pil_video_mem: pil_video_region@93c00000 {
@@ -2097,6 +2103,10 @@
 
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+		qcom,mba-mem@0 {
+			compatible = "qcom,pil-mba-mem";
+			memory-region = <&pil_mba_mem>;
+		};
 	};
 
 	tsens0: tsens@10aa000 {

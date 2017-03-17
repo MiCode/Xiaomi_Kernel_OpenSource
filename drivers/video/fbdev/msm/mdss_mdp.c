@@ -1173,6 +1173,31 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 	return IRQ_HANDLED;
 }
 
+static void mdss_mdp_cxipeak_vote(bool set_vote, unsigned long new_rate,
+		unsigned long prev_rate)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int ret = 0;
+
+	if (!mdata->mdss_cx_ipeak)
+		return;
+
+	/* fmax threshold for mdp in sdm660 is max MDP clk */
+	if (set_vote) {
+		if ((new_rate >= mdata->max_mdp_clk_rate) &&
+				 (prev_rate < mdata->max_mdp_clk_rate))
+			ret = cx_ipeak_update(mdata->mdss_cx_ipeak, true);
+	} else {
+		if ((new_rate < mdata->max_mdp_clk_rate) &&
+				 (prev_rate >= mdata->max_mdp_clk_rate))
+			ret = cx_ipeak_update(mdata->mdss_cx_ipeak, false);
+	}
+	if (ret) {
+		pr_err("cxipeak api fail ret:%d set_vote :%d new_rate:%lu prev_rate:%lu\n",
+				ret, (int)set_vote, new_rate, prev_rate);
+	}
+}
+
 static int mdss_mdp_clk_update(u32 clk_idx, u32 enable)
 {
 	int ret = -ENODEV;
@@ -1234,7 +1259,7 @@ void mdss_mdp_set_clk_rate(unsigned long rate, bool locked)
 	struct mdss_data_type *mdata = mdss_res;
 	unsigned long clk_rate;
 	struct clk *clk = mdss_mdp_get_clk(MDSS_CLK_MDP_CORE);
-	unsigned long min_clk_rate;
+	unsigned long min_clk_rate, curr_clk_rate;
 
 	min_clk_rate = max(rate, mdata->perf_tune.min_mdp_clk);
 
@@ -1246,15 +1271,20 @@ void mdss_mdp_set_clk_rate(unsigned long rate, bool locked)
 			clk_rate = clk_round_rate(clk, min_clk_rate);
 		else
 			clk_rate = mdata->max_mdp_clk_rate;
+
+		curr_clk_rate = clk_get_rate(clk);
 		if (IS_ERR_VALUE(clk_rate)) {
 			pr_err("unable to round rate err=%ld\n", clk_rate);
-		} else if (clk_rate != clk_get_rate(clk)) {
-
+		} else if (clk_rate != curr_clk_rate) {
+			mdss_mdp_cxipeak_vote(true, clk_rate, curr_clk_rate);
 			mdata->mdp_clk_rate = clk_rate;
-			if (IS_ERR_VALUE(clk_set_rate(clk, clk_rate)))
+			if (IS_ERR_VALUE(clk_set_rate(clk, clk_rate))) {
 				pr_err("clk_set_rate failed\n");
-			else
+			} else {
+				mdss_mdp_cxipeak_vote(false, clk_rate,
+					 curr_clk_rate);
 				pr_debug("mdp clk rate=%lu\n", clk_rate);
+			}
 		}
 		if (!locked)
 			mutex_unlock(&mdp_clk_lock);
@@ -4538,6 +4568,10 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		pr_debug("max pipe width not specified. Using default value\n");
 		mdata->max_pipe_width = DEFAULT_MDP_PIPE_WIDTH;
 	}
+
+	if (of_find_property(pdev->dev.of_node, "qcom,mdss-cx-ipeak", NULL))
+		mdata->mdss_cx_ipeak = cx_ipeak_register(pdev->dev.of_node,
+								"qcom,mdss-cx-ipeak");
 	return 0;
 }
 
@@ -5111,6 +5145,22 @@ vreg_set_voltage_fail:
 }
 
 /**
+ * mdss_mdp_notify_idle_pc() - Notify fb driver of idle power collapse
+ * @mdata: MDP private data
+ *
+ * This function is called if there are active overlays.
+ */
+static void mdss_mdp_notify_idle_pc(struct mdss_data_type *mdata)
+{
+	int i;
+
+	for (i = 0; i < mdata->nctl; i++)
+		if ((mdata->ctl_off[i].ref_cnt) &&
+			!mdss_mdp_ctl_is_power_off(&mdata->ctl_off[i]))
+			mdss_fb_idle_pc(mdata->ctl_off[i].mfd);
+}
+
+/**
  * mdss_mdp_footswitch_ctrl() - Disable/enable MDSS GDSC and CX/Batfet rails
  * @mdata: MDP private data
  * @on: 1 to turn on footswitch, 0 to turn off footswitch
@@ -5174,6 +5224,7 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 				mdss_mdp_memory_retention_ctrl(MEM_RETAIN_ON,
 					PERIPH_RETAIN_OFF);
 				mdata->idle_pc = true;
+				mdss_mdp_notify_idle_pc(mdata);
 				pr_debug("idle pc. active overlays=%d\n",
 					active_cnt);
 			} else {
@@ -5506,6 +5557,8 @@ static int mdss_mdp_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	mdss_mdp_pp_term(&pdev->dev);
 	mdss_mdp_bus_scale_unregister(mdata);
+	if (mdata->mdss_cx_ipeak)
+		cx_ipeak_unregister(mdata->mdss_cx_ipeak);
 	mdss_debugfs_remove(mdata);
 	if (mdata->regulator_notif_register)
 		regulator_unregister_notifier(mdata->fs, &(mdata->gdsc_cb));

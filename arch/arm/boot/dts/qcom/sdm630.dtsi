@@ -380,9 +380,9 @@
 
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
-		qca,bt-vdd-core-supply = <&pm660_l9_pin_ctrl>;
-		qca,bt-vdd-pa-supply = <&pm660_l6_pin_ctrl>;
-		qca,bt-vdd-ldo-supply = <&pm660_l19_pin_ctrl>;
+		qca,bt-vdd-core-supply = <&pm660_l9>;
+		qca,bt-vdd-pa-supply = <&pm660_l6>;
+		qca,bt-vdd-ldo-supply = <&pm660_l19>;
 		qca,bt-chip-pwd-supply = <&pm660l_bob_pin1>;
 		clocks = <&clock_rpmcc RPM_RF_CLK1_PIN>;
 		clock-names = "rf_clk1";
@@ -734,7 +734,6 @@
 
 		clock-names = "osm";
 		clocks = <&clock_cpu PERFCL_CLK>;
-		qcom,cxip-lm-enable = <0>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 
@@ -1796,6 +1795,11 @@
 		boot_stats@6b0 {
 			compatible = "qcom,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
+		};
+
+		kaslr_offset@6d0 {
+			compatible = "qcom,msm-imem-kaslr_offset";
+			reg = <0x6d0 12>;
 		};
 
 		pil@94c {

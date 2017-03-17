@@ -52,6 +52,13 @@
 	status = "ok";
 };
 
+&sdc2_cd_on {
+	config {
+		/delete-property/ bias-pull-up;
+		bias-disable;
+	};
+};
+
 &sdhc_2 {
 	/* device core power supply */
 	vdd-supply = <&pm660l_l5>;
@@ -187,6 +194,10 @@
 			};
 		};
 	};
+};
+
+&usb3 {
+	fpc-redrive-supply = <&pm660_l11>;
 };
 
 &soc {

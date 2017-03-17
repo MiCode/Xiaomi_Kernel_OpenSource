@@ -104,19 +104,16 @@ module_param(qmi_timeout, ulong, 0600);
 #ifdef CONFIG_ICNSS_DEBUG
 #define ICNSS_ASSERT(_condition) do {					\
 		if (!(_condition)) {					\
-			icnss_pr_err("ASSERT at line %d\n",		\
-				     __LINE__);				\
+			icnss_pr_err("ASSERT at line %d\n", __LINE__);	\
 			BUG_ON(1);					\
 		}							\
 	} while (0)
+
+bool ignore_qmi_timeout;
+#define ICNSS_QMI_ASSERT() ICNSS_ASSERT(ignore_qmi_timeout)
 #else
-#define ICNSS_ASSERT(_condition) do {					\
-		if (!(_condition)) {					\
-			icnss_pr_err("ASSERT at line %d\n",		\
-				     __LINE__);				\
-			WARN_ON(1);					\
-		}							\
-	} while (0)
+#define ICNSS_ASSERT(_condition) do { } while (0)
+#define ICNSS_QMI_ASSERT() do { } while (0)
 #endif
 
 enum icnss_debug_quirks {
@@ -354,6 +351,15 @@ static struct icnss_priv {
 	struct icnss_wlan_mac_addr wlan_mac_addr;
 	bool bypass_s1_smmu;
 } *penv;
+
+#ifdef CONFIG_ICNSS_DEBUG
+static void icnss_ignore_qmi_timeout(bool ignore)
+{
+	ignore_qmi_timeout = ignore;
+}
+#else
+static void icnss_ignore_qmi_timeout(bool ignore) { }
+#endif
 
 static void icnss_pm_stay_awake(struct icnss_priv *priv)
 {
@@ -1138,7 +1144,7 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 
 out:
 	penv->stats.msa_info_err++;
-	ICNSS_ASSERT(false);
+	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -1186,7 +1192,7 @@ static int wlfw_msa_ready_send_sync_msg(void)
 
 out:
 	penv->stats.msa_ready_err++;
-	ICNSS_ASSERT(false);
+	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -1249,7 +1255,7 @@ static int wlfw_ind_register_send_sync_msg(void)
 
 out:
 	penv->stats.ind_register_err++;
-	ICNSS_ASSERT(false);
+	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -1318,7 +1324,7 @@ static int wlfw_cap_send_sync_msg(void)
 
 out:
 	penv->stats.cap_err++;
-	ICNSS_ASSERT(false);
+	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -1379,7 +1385,7 @@ static int wlfw_wlan_mode_send_sync_msg(enum wlfw_driver_mode_enum_v01 mode)
 
 out:
 	penv->stats.mode_req_err++;
-	ICNSS_ASSERT(false);
+	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -1429,7 +1435,7 @@ static int wlfw_wlan_cfg_send_sync_msg(struct wlfw_wlan_cfg_req_msg_v01 *data)
 
 out:
 	penv->stats.cfg_req_err++;
-	ICNSS_ASSERT(false);
+	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -1482,7 +1488,7 @@ static int wlfw_ini_send_sync_msg(uint8_t fw_log_mode)
 
 out:
 	penv->stats.ini_req_err++;
-	ICNSS_ASSERT(false);
+	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -1648,7 +1654,7 @@ static int wlfw_rejuvenate_ack_send_sync_msg(struct icnss_priv *priv)
 
 out:
 	priv->stats.rejuvenate_ack_err++;
-	ICNSS_ASSERT(false);
+	ICNSS_QMI_ASSERT();
 	return ret;
 }
 
@@ -1780,6 +1786,8 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 	case QMI_WLFW_REJUVENATE_IND_V01:
 		icnss_pr_dbg("Received Rejuvenate Indication msg_id 0x%x, state: 0x%lx\n",
 			     msg_id, penv->state);
+
+		icnss_ignore_qmi_timeout(true);
 		event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 		if (event_data == NULL)
 			return;
@@ -2148,7 +2156,7 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 	struct icnss_event_pd_service_down_data *event_data = data;
 
 	if (!test_bit(ICNSS_WLFW_EXISTS, &priv->state))
-		return 0;
+		goto out;
 
 	if (test_bit(ICNSS_PD_RESTART, &priv->state)) {
 		icnss_pr_err("PD Down while recovery inprogress, crashed: %d, state: 0x%lx\n",
@@ -2164,6 +2172,8 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 
 out:
 	kfree(data);
+
+	icnss_ignore_qmi_timeout(false);
 
 	return ret;
 }
@@ -2306,8 +2316,10 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	if (test_bit(ICNSS_PDR_ENABLED, &priv->state))
 		return NOTIFY_OK;
 
-	icnss_pr_info("Modem went down, state: %lx, crashed: %d\n",
+	icnss_pr_info("Modem went down, state: 0x%lx, crashed: %d\n",
 		      priv->state, notif->crashed);
+
+	icnss_ignore_qmi_timeout(true);
 
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 
@@ -2415,6 +2427,8 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 	}
 
 event_post:
+	icnss_ignore_qmi_timeout(true);
+
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
 done:

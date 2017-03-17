@@ -626,9 +626,11 @@ static int __init audio_notifier_late_init(void)
 	 * If pdr registration failed, register clients on next service
 	 * Do in late init to ensure that SSR subsystem is initialized
 	 */
+	mutex_lock(&notifier_mutex);
 	if (!audio_notifer_is_service_enabled(AUDIO_NOTIFIER_PDR_SERVICE))
 		audio_notifer_reg_all_clients();
 
+	mutex_unlock(&notifier_mutex);
 	return 0;
 }
 late_initcall(audio_notifier_late_init);
