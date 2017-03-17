@@ -47,7 +47,6 @@ enum print_reason {
 #define PD_DISALLOWED_INDIRECT_VOTER	"PD_DISALLOWED_INDIRECT_VOTER"
 #define PD_HARD_RESET_VOTER		"PD_HARD_RESET_VOTER"
 #define VBUS_CC_SHORT_VOTER		"VBUS_CC_SHORT_VOTER"
-#define LEGACY_CABLE_VOTER		"LEGACY_CABLE_VOTER"
 #define PD_INACTIVE_VOTER		"PD_INACTIVE_VOTER"
 #define BOOST_BACK_VOTER		"BOOST_BACK_VOTER"
 #define HVDCP_INDIRECT_VOTER		"HVDCP_INDIRECT_VOTER"
@@ -316,7 +315,6 @@ struct smb_charger {
 
 	/* extcon for VBUS / ID notification to USB for uUSB */
 	struct extcon_dev	*extcon;
-	bool			usb_ever_removed;
 
 	int			icl_reduction_ua;
 
