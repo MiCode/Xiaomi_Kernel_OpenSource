@@ -20,12 +20,6 @@
 
 struct sde_hw_rot;
 
-/* tags for attachment */
-#define SDE_TAG_ROT_OUT_FBO	0x1000
-#define SDE_TAG_ROT_OUT_FB	0x1001
-#define SDE_TAG_ROT_PLANE	0x1002
-#define SDE_TAG_ROT_IN_FB	0x1003
-
 /**
  * enum sde_hw_rot_cmd_type - type of rotator hardware command
  * @SDE_HW_ROT_CMD_VALDIATE: validate rotator command; do not commit
