@@ -3,7 +3,7 @@ config MSM_SDE_ROTATOR
 	depends on ARCH_QCOM && VIDEO_V4L2
 	select V4L2_MEM2MEM_DEV
 	select VIDEOBUF2_CORE
-	select SW_SYNC if SYNC
+	select SYNC_FILE
 	---help---
 	  Enable support of V4L2 rotator driver.
 

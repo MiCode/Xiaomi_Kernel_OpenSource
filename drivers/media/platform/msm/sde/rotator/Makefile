@@ -18,7 +18,7 @@ obj-y += \
 obj-y += \
 		sde_rotator_r3.o
 
-obj-$(CONFIG_SYNC) += \
+obj-$(CONFIG_SYNC_FILE) += \
 		sde_rotator_sync.o
 
 obj-$(CONFIG_DEBUG_FS) += \
