@@ -34,6 +34,7 @@ struct pinctrl_info {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *sleep;
 	struct pinctrl_state *active;
+	char __iomem *base;
 };
 
 struct audio_ext_ap_clk {
@@ -192,8 +193,10 @@ static int audio_ext_lpass_mclk_prepare(struct clk_hw *hw)
 		pr_err("%s afe_set_digital_codec_core_clock failed\n",
 			__func__);
 		return ret;
-		}
+	}
 
+	if (pnctrl_info->base)
+		iowrite32(1, pnctrl_info->base);
 	return 0;
 }
 
@@ -219,6 +222,8 @@ static void audio_ext_lpass_mclk_unprepare(struct clk_hw *hw)
 	if (ret < 0)
 		pr_err("%s: afe_set_digital_codec_core_clock failed, ret = %d\n",
 			__func__, ret);
+	if (pnctrl_info->base)
+		iowrite32(0, pnctrl_info->base);
 }
 
 static int audio_ext_lpass_mclk2_prepare(struct clk_hw *hw)
@@ -381,9 +386,11 @@ static struct clk_hw *audio_msm_hws1[] = {
 static int audio_get_pinctrl(struct platform_device *pdev,
 			     enum audio_clk_mux mux)
 {
+	struct device *dev =  &pdev->dev;
 	struct pinctrl_info *pnctrl_info;
 	struct pinctrl *pinctrl;
 	int ret;
+	u32 reg;
 
 	switch (mux) {
 	case AP_CLK2:
@@ -396,21 +403,20 @@ static int audio_get_pinctrl(struct platform_device *pdev,
 		pnctrl_info = &audio_lpass_mclk2.pnctrl_info;
 		break;
 	default:
-		dev_err(&pdev->dev, "%s Not a valid MUX ID: %d\n",
+		dev_err(dev, "%s Not a valid MUX ID: %d\n",
 			__func__, mux);
 		return -EINVAL;
 	}
-	pnctrl_info = &audio_ap_clk2.pnctrl_info;
 
 	if (pnctrl_info->pinctrl) {
-		dev_dbg(&pdev->dev, "%s: already requested before\n",
+		dev_dbg(dev, "%s: already requested before\n",
 			__func__);
 		return -EINVAL;
 	}
 
-	pinctrl = devm_pinctrl_get(&pdev->dev);
+	pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR_OR_NULL(pinctrl)) {
-		dev_dbg(&pdev->dev, "%s: Unable to get pinctrl handle\n",
+		dev_dbg(dev, "%s: Unable to get pinctrl handle\n",
 			__func__);
 		return -EINVAL;
 	}
@@ -418,13 +424,13 @@ static int audio_get_pinctrl(struct platform_device *pdev,
 	/* get all state handles from Device Tree */
 	pnctrl_info->sleep = pinctrl_lookup_state(pinctrl, "sleep");
 	if (IS_ERR(pnctrl_info->sleep)) {
-		dev_err(&pdev->dev, "%s: could not get sleep pinstate\n",
+		dev_err(dev, "%s: could not get sleep pinstate\n",
 			__func__);
 		goto err;
 	}
 	pnctrl_info->active = pinctrl_lookup_state(pinctrl, "active");
 	if (IS_ERR(pnctrl_info->active)) {
-		dev_err(&pdev->dev, "%s: could not get active pinstate\n",
+		dev_err(dev, "%s: could not get active pinstate\n",
 			__func__);
 		goto err;
 	}
@@ -432,10 +438,22 @@ static int audio_get_pinctrl(struct platform_device *pdev,
 	ret = pinctrl_select_state(pnctrl_info->pinctrl,
 				   pnctrl_info->sleep);
 	if (ret) {
-		dev_err(&pdev->dev, "%s: Disable TLMM pins failed with %d\n",
+		dev_err(dev, "%s: Disable TLMM pins failed with %d\n",
 			__func__, ret);
 		goto err;
 	}
+
+	ret = of_property_read_u32(dev->of_node, "qcom,mclk-clk-reg", &reg);
+	if (ret < 0) {
+		dev_dbg(dev, "miss mclk reg\n");
+	} else {
+		pnctrl_info->base = ioremap(reg, sizeof(u32));
+		if (pnctrl_info->base ==  NULL) {
+			dev_err(dev, "%s ioremap failed\n", __func__);
+			goto err;
+		}
+	}
+
 	return 0;
 
 err:
