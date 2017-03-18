@@ -6911,12 +6911,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		};
 
 		/*
-		 * If the previous CPU does not belong to the preferred_cluster,
-		 * there is no need to evaluate energy difference. We want
-		 * to migrate the task to the preferred cluster.
-		 *
+		 * We always want to migrate the task to the preferred cluster.
 		 */
-		if (rtg_target && !cpumask_test_cpu(eenv.src_cpu, rtg_target)) {
+		if (rtg_target) {
 			trace_sched_task_util_colocated(p, task_cpu(p),
 						task_util(p),
 						cpumask_first(rtg_target),
