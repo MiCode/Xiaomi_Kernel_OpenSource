@@ -13,7 +13,6 @@
 #ifndef __KGSL_GMU_H
 #define __KGSL_GMU_H
 
-#include "adreno.h"
 #include "kgsl_hfi.h"
 
 #define FW_VER_MAJOR(ver)		(((ver)>>28) & 0xFF)
@@ -224,25 +223,7 @@ struct gmu_device {
 	unsigned int idle_level;
 };
 
-/**
- * kgsl_gmu_isenabled() - Check if there is a GMU and it is enabled
- * @device: Pointer to the KGSL device that owns the GMU
- *
- * Check if a GMU has been found and successfully probed. Also
- * check that the feature flag to use a GMU is enabled. Returns
- * true if both of these conditions are met, otherwise false.
- */
-static inline bool kgsl_gmu_isenabled(struct kgsl_device *device)
-{
-	struct gmu_device *gmu = &device->gmu;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-	if (gmu->pdev && ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
-		return true;
-
-	return false;
-}
-
+bool kgsl_gmu_isenabled(struct kgsl_device *device);
 int gmu_probe(struct kgsl_device *device);
 void gmu_remove(struct kgsl_device *device);
 int allocate_gmu_image(struct gmu_device *gmu, unsigned int size);
