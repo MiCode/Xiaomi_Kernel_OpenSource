@@ -554,7 +554,7 @@ EXPORT_SYMBOL(rpmh_write_control);
 int rpmh_invalidate(struct rpmh_client *rc)
 {
 	DEFINE_RPMH_MSG_ONSTACK(rc, 0, NULL, NULL, rpm_msg);
-	struct rpmh_mbox *rpm = rc->rpmh;
+	struct rpmh_mbox *rpm;
 
 	if (IS_ERR_OR_NULL(rc))
 		return -EINVAL;
@@ -562,6 +562,7 @@ int rpmh_invalidate(struct rpmh_client *rc)
 	if (rpmh_standalone)
 		return 0;
 
+	rpm = rc->rpmh;
 	rpm_msg.msg.invalidate = true;
 
 	spin_lock(&rpm->lock);
