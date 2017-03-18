@@ -3207,6 +3207,8 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 		ctx->default_pp_num, NULL, NULL);
 
 	memset(ctx, 0, sizeof(*ctx));
+	/* intf stopped,  no more kickoff */
+	ctx->intf_stopped = 1;
 
 	return 0;
 }
@@ -3352,7 +3354,11 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 			ctx->intf_stopped = 0;
 			if (sctx)
 				sctx->intf_stopped = 0;
-
+			/*
+			 * Tearcheck was disabled while entering LP2 state.
+			 * Enable it back to allow updates in LP1 state.
+			 */
+			mdss_mdp_tearcheck_enable(ctl, true);
 			goto end;
 		}
 	}
