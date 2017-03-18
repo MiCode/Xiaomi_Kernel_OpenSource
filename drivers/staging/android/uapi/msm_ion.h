@@ -3,6 +3,8 @@
 
 #include "ion.h"
 
+#define ION_BIT(nr) (1UL << (nr))
+
 enum msm_ion_heap_types {
 	ION_HEAP_TYPE_MSM_START = ION_HEAP_TYPE_CUSTOM + 1,
 	ION_HEAP_TYPE_SECURE_DMA = ION_HEAP_TYPE_MSM_START,
@@ -76,34 +78,36 @@ enum cp_mem_usage {
  * Flags to be used when allocating from the secure heap for
  * content protection
  */
-#define ION_FLAG_CP_TOUCH ((1 << 17))
-#define ION_FLAG_CP_BITSTREAM ((1 << 18))
-#define ION_FLAG_CP_PIXEL  ((1 << 19))
-#define ION_FLAG_CP_NON_PIXEL ((1 << 20))
-#define ION_FLAG_CP_CAMERA ((1 << 21))
-#define ION_FLAG_CP_HLOS ((1 << 22))
-#define ION_FLAG_CP_HLOS_FREE ((1 << 23))
-#define ION_FLAG_CP_SEC_DISPLAY ((1 << 25))
-#define ION_FLAG_CP_APP ((1 << 26))
+#define ION_FLAG_CP_TOUCH		ION_BIT(17)
+#define ION_FLAG_CP_BITSTREAM		ION_BIT(18)
+#define ION_FLAG_CP_PIXEL		ION_BIT(19)
+#define ION_FLAG_CP_NON_PIXEL		ION_BIT(20)
+#define ION_FLAG_CP_CAMERA		ION_BIT(21)
+#define ION_FLAG_CP_HLOS		ION_BIT(22)
+#define ION_FLAG_CP_HLOS_FREE		ION_BIT(23)
+#define ION_FLAG_CP_SEC_DISPLAY		ION_BIT(25)
+#define ION_FLAG_CP_APP			ION_BIT(26)
+#define ION_FLAG_CP_CAMERA_PREVIEW	ION_BIT(27)
+
 
 /**
  * Flag to use when allocating to indicate that a heap is secure.
  * Do NOT use BIT macro since it is defined in #ifdef __KERNEL__
  */
-#define ION_FLAG_SECURE (1 << (ION_HEAP_ID_RESERVED))
+#define ION_FLAG_SECURE			ION_BIT(ION_HEAP_ID_RESERVED)
 
 /**
  * Flag for clients to force contiguous memort allocation
  *
  * Use of this flag is carefully monitored!
  */
-#define ION_FLAG_FORCE_CONTIGUOUS ((1 << 30))
+#define ION_FLAG_FORCE_CONTIGUOUS	ION_BIT(30)
 
 /*
  * Used in conjunction with heap which pool memory to force an allocation
  * to come from the page allocator directly instead of from the pool allocation
  */
-#define ION_FLAG_POOL_FORCE_ALLOC ((1 << 16))
+#define ION_FLAG_POOL_FORCE_ALLOC	ION_BIT(16)
 
 /**
  * Deprecated! Please use the corresponding ION_FLAG_*
@@ -114,7 +118,7 @@ enum cp_mem_usage {
 /**
  * Macro should be used with ion_heap_ids defined above.
  */
-#define ION_HEAP(bit) (1 << (bit))
+#define ION_HEAP(bit)			ION_BIT(bit)
 
 #define ION_ADSP_HEAP_NAME	"adsp"
 #define ION_SYSTEM_HEAP_NAME	"system"

@@ -598,7 +598,8 @@ bool is_secure_vmid_valid(int vmid)
 		vmid == VMID_CP_NON_PIXEL ||
 		vmid == VMID_CP_CAMERA ||
 		vmid == VMID_CP_SEC_DISPLAY ||
-		vmid == VMID_CP_APP);
+		vmid == VMID_CP_APP ||
+		vmid == VMID_CP_CAMERA_PREVIEW);
 }
 
 int get_secure_vmid(unsigned long flags)
@@ -617,6 +618,8 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_SEC_DISPLAY;
 	if (flags & ION_FLAG_CP_APP)
 		return VMID_CP_APP;
+	if (flags & ION_FLAG_CP_CAMERA_PREVIEW)
+		return VMID_CP_CAMERA_PREVIEW;
 	return -EINVAL;
 }
 /* fix up the cases where the ioctl direction bits are incorrect */
