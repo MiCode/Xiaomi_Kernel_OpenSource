@@ -1665,12 +1665,42 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 	return 0;
 }
 
+static int mdss_mdp_video_splash_handoff(struct mdss_mdp_ctl *ctl)
+{
+	int i, ret = 0;
+	u32 data, flush;
+
+	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_BEGIN,
+			NULL, CTL_INTF_EVENT_FLAG_DEFAULT);
+
+	if (ret) {
+		pr_err("%s:ctl%d failed to handle 'CONT_SPLASH_BEGIN' event\n"
+			, __func__, ctl->num);
+		return ret;
+	}
+
+	/* clear up mixer0 and mixer1 */
+	flush = 0;
+	for (i = 0; i < 2; i++) {
+		data = mdss_mdp_ctl_read(ctl,
+			MDSS_MDP_REG_CTL_LAYER(i));
+		if (data) {
+			mdss_mdp_ctl_write(ctl,
+				MDSS_MDP_REG_CTL_LAYER(i),
+				MDSS_MDP_LM_BORDER_COLOR);
+			flush |= (0x40 << i);
+		}
+	}
+	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush);
+
+	return ret;
+}
+
 int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 	bool handoff)
 {
 	struct mdss_panel_data *pdata;
-	int i, ret = 0, off;
-	u32 data, flush;
+	int ret = 0, off;
 	struct mdss_mdp_video_ctx *ctx, *sctx = NULL;
 	struct mdss_mdp_ctl *sctl;
 
@@ -1704,29 +1734,20 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 	}
 
 	if (!handoff) {
-		ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_BEGIN,
-				      NULL, CTL_INTF_EVENT_FLAG_DEFAULT);
-		if (ret) {
-			pr_err("%s: Failed to handle 'CONT_SPLASH_BEGIN' event\n"
-				, __func__);
-			return ret;
-		}
+		ret = mdss_mdp_video_splash_handoff(ctl);
 
-		/* clear up mixer0 and mixer1 */
-		flush = 0;
-		for (i = 0; i < 2; i++) {
-			data = mdss_mdp_ctl_read(ctl,
-				MDSS_MDP_REG_CTL_LAYER(i));
-			if (data) {
-				mdss_mdp_ctl_write(ctl,
-					MDSS_MDP_REG_CTL_LAYER(i),
-					MDSS_MDP_LM_BORDER_COLOR);
-				flush |= (0x40 << i);
-			}
-		}
-		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush);
+		if (!ret && sctl)
+			ret = mdss_mdp_video_splash_handoff(sctl);
+
+		if (ret)
+			return ret;
 
 		mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
+
+		if (sctx)
+			mdp_video_write(sctx,
+				MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
+
 		mdss_mdp_video_timegen_flush(ctl, sctx);
 
 		/* wait for 1 VSYNC for the pipe to be unstaged */
@@ -1735,6 +1756,12 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 		ret = mdss_mdp_ctl_intf_event(ctl,
 			MDSS_EVENT_CONT_SPLASH_FINISH, NULL,
 			CTL_INTF_EVENT_FLAG_DEFAULT);
+
+		if (!ret && sctl)
+			ret = mdss_mdp_ctl_intf_event(sctl,
+				MDSS_EVENT_CONT_SPLASH_FINISH, NULL,
+				CTL_INTF_EVENT_FLAG_DEFAULT);
+
 	}
 
 	return ret;
