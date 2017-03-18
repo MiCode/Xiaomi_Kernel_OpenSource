@@ -29,6 +29,16 @@
 		qcom,switch-source = <&pmi8998_switch1>;
 		status = "ok";
 	};
+
+	actuator_regulator: gpio-regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "rear_vana_regulator";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		enable-active-high;
+		gpio = <&tlmm 27 0>;
+		vin-supply = <&pmi8998_bob>;
+	};
 };
 
 &cci {
@@ -37,14 +47,11 @@
 		reg = <0x0>;
 		compatible = "qcom,actuator";
 		qcom,cci-master = <0>;
-		gpios = <&tlmm 27 0>;
-		qcom,gpio-vaf = <0>;
-		qcom,gpio-req-tbl-num = <0>;
-		qcom,gpio-req-tbl-flags = <0>;
-		qcom,gpio-req-tbl-label = "CAM_VAF";
-		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_actuator_vaf_active>;
-		pinctrl-1 = <&cam_actuator_vaf_suspend>;
+		cam_vaf-supply = <&actuator_regulator>;
+		qcom,cam-vreg-name = "cam_vaf";
+		qcom,cam-vreg-min-voltage = <2800000>;
+		qcom,cam-vreg-max-voltage = <2800000>;
+		qcom,cam-vreg-op-mode = <0>;
 	};
 
 	actuator1: qcom,actuator@1 {
@@ -52,33 +59,32 @@
 		reg = <0x1>;
 		compatible = "qcom,actuator";
 		qcom,cci-master = <1>;
-		gpios = <&tlmm 27 0>;
-		qcom,gpio-vaf = <0>;
-		qcom,gpio-req-tbl-num = <0>;
-		qcom,gpio-req-tbl-flags = <0>;
-		qcom,gpio-req-tbl-label = "CAM_VAF";
-		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_actuator_vaf_active>;
-		pinctrl-1 = <&cam_actuator_vaf_suspend>;
+		cam_vaf-supply = <&actuator_regulator>;
+		qcom,cam-vreg-name = "cam_vaf";
+		qcom,cam-vreg-min-voltage = <2800000>;
+		qcom,cam-vreg-max-voltage = <2800000>;
+		qcom,cam-vreg-op-mode = <0>;
 	};
-	tof0:qcom,tof@0{
+
+	tof0: qcom,tof@0 {
 		cell-index = <0>;
 		reg = <0x29>;
 		compatible = "st,stmvl53l0";
 		qcom,cci-master = <0>;
 		cam_cci-supply = <&pm8998_lvs1>;
-		cam_laser-supply = <&pmi8998_bob>;
+		cam_laser-supply = <&actuator_regulator>;
 		qcom,cam-vreg-name = "cam_cci", "cam_laser";
 		qcom,cam-vreg-min-voltage = <0 0>;
-		qcom,cam-vreg-max-voltage = <0 3600000>;
+		qcom,cam-vreg-max-voltage = <0 2800000>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_tof_active>;
 		pinctrl-1 = <&cam_tof_suspend>;
-		gpios = <&tlmm 27 0>, <&tlmm 126 0>;
-		qcom,gpio-req-tbl-num = <0 1>;
-		qcom,gpio-req-tbl-flags = <0 0>;
-		qcom,gpio-req-tbl-label = "CAM_TOF", "CAM_CE";
+		gpios = <&tlmm 126 0>;
+		qcom,gpio-req-tbl-num = <0>;
+		qcom,gpio-req-tbl-flags = <0>;
+		qcom,gpio-req-tbl-label = "CAM_CE";
 	};
+
 	ois0: qcom,ois@0 {
 		cell-index = <0>;
 		reg = <0x0>;
