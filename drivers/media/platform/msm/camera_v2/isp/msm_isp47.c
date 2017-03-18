@@ -2576,10 +2576,10 @@ int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 	 */
 	if ((vfe_dev->vfe_cx_ipeak) &&
 		(vfe_dev->msm_isp_vfe_clk_rate >=
-		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_TURBO]
+		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_NOMINAL]
 		[vfe_dev->hw_info->vfe_clk_idx]) &&
 		prev_clk_rate <
-		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_TURBO]
+		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_NOMINAL]
 		[vfe_dev->hw_info->vfe_clk_idx]) {
 		ret = cx_ipeak_update(vfe_dev->vfe_cx_ipeak, true);
 		if (ret) {
@@ -2599,10 +2599,10 @@ int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 	 */
 	if ((vfe_dev->vfe_cx_ipeak) &&
 		(vfe_dev->msm_isp_vfe_clk_rate <
-		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_TURBO]
+		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_NOMINAL]
 		[vfe_dev->hw_info->vfe_clk_idx]) &&
 		prev_clk_rate >=
-		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_TURBO]
+		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_NOMINAL]
 		[vfe_dev->hw_info->vfe_clk_idx]) {
 		ret = cx_ipeak_update(vfe_dev->vfe_cx_ipeak, false);
 		if (ret) {
