@@ -3760,8 +3760,8 @@ static int msm_anlg_cdc_device_down(struct snd_soc_codec *codec)
 	snd_soc_write(codec,
 		MSM89XX_PMIC_ANALOG_SPKR_DAC_CTL, 0x93);
 
-	atomic_set(&pdata->int_mclk0_enabled, false);
 	msm_anlg_cdc_dig_notifier_call(codec, DIG_CDC_EVENT_SSR_DOWN);
+	atomic_set(&pdata->int_mclk0_enabled, false);
 	set_bit(BUS_DOWN, &sdm660_cdc_priv->status_mask);
 	snd_soc_card_change_online_state(codec->component.card, 0);
 
@@ -3822,17 +3822,22 @@ static int sdm660_cdc_notifier_service_cb(struct notifier_block *nb,
 	bool adsp_ready = false;
 	bool timedout;
 	unsigned long timeout;
+	static bool initial_boot = true;
 
 	codec = sdm660_cdc_priv->codec;
 	dev_dbg(codec->dev, "%s: Service opcode 0x%lx\n", __func__, opcode);
 
 	switch (opcode) {
 	case AUDIO_NOTIFIER_SERVICE_DOWN:
+		if (initial_boot)
+			break;
 		dev_dbg(codec->dev,
 			"ADSP is about to power down. teardown/reset codec\n");
 		msm_anlg_cdc_device_down(codec);
 		break;
 	case AUDIO_NOTIFIER_SERVICE_UP:
+		if (initial_boot)
+			initial_boot = false;
 		dev_dbg(codec->dev,
 			"ADSP is about to power up. bring up codec\n");
 
