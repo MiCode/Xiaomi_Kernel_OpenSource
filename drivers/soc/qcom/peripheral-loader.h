@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,7 @@ struct pil_priv;
  * This defaults to iounmap if not specified.
  * @shutdown_fail: Set if PIL op for shutting down subsystem fails.
  * @modem_ssr: true if modem is restarting, false if booting for first time.
+ * @clear_fw_region: Clear fw region on failure in loading.
  * @subsys_vmid: memprot id for the subsystem.
  */
 struct pil_desc {
@@ -56,6 +57,7 @@ struct pil_desc {
 	void *map_data;
 	bool shutdown_fail;
 	bool modem_ssr;
+	bool clear_fw_region;
 	u32 subsys_vmid;
 };
 
