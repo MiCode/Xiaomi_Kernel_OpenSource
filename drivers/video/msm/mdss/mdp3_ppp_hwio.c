@@ -1,4 +1,4 @@
-/* Copyright (c) 2007, 2012-2013, 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007, 2012-2013, 2016-2017, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -23,6 +23,7 @@
 #include "mdss_fb.h"
 #include "mdp3_ppp.h"
 #include "mdp3_hwio.h"
+#include "mdss_debug.h"
 
 /* SHIM Q Factor */
 #define PHI_Q_FACTOR          29
@@ -1337,6 +1338,10 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 
 	PPP_WRITEL(ppp_operation_reg, MDP3_PPP_OP_MODE);
 	mb();
+	MDSS_XLOG(ppp_operation_reg, blit_op->src.roi.x, blit_op->src.roi.y,
+		blit_op->src.roi.width, blit_op->src.roi.height);
+	 MDSS_XLOG(blit_op->dst.roi.x, blit_op->dst.roi.y,
+		blit_op->dst.roi.width, blit_op->dst.roi.height);
 	return 0;
 }
 
