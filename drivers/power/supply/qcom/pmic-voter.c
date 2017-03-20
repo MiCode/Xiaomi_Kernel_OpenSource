@@ -18,7 +18,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 
 #define NUM_MAX_CLIENTS	8
 #define DEBUG_FORCE_CLIENT	"DEBUG_FORCE_CLIENT"
