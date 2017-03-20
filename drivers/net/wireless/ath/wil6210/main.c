@@ -993,6 +993,9 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 			return rc;
 		}
 
+		if (wil->tt_data_set)
+			wmi_set_tt_cfg(wil, &wil->tt_data);
+
 		wil_collect_fw_info(wil);
 
 		if (wil->platform_ops.notify) {
