@@ -27,7 +27,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 #include "smb138x-charger.h"
 
 #define SMB_DEFAULT_FCC_UA 1000000
