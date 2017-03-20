@@ -3025,6 +3025,8 @@ ___update_load_avg(u64 now, int cpu, struct sched_avg *sa,
 
 	if (cfs_rq)
 		trace_sched_load_cfs_rq(cfs_rq);
+	else
+		trace_sched_load_se(container_of(sa, struct sched_entity, avg));
 
 	return 1;
 }
@@ -3270,6 +3272,7 @@ static inline int propagate_entity_load_avg(struct sched_entity *se)
 	update_tg_cfs_load(cfs_rq, se);
 
 	trace_sched_load_cfs_rq(cfs_rq);
+	trace_sched_load_se(se);
 
 	return 1;
 }
