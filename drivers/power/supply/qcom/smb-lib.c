@@ -21,7 +21,7 @@
 #include "smb-lib.h"
 #include "smb-reg.h"
 #include "storm-watch.h"
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 
 #define smblib_err(chg, fmt, ...)		\
 	pr_err("%s: %s: " fmt, chg->name,	\

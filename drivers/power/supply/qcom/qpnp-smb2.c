@@ -26,7 +26,7 @@
 #include "smb-reg.h"
 #include "smb-lib.h"
 #include "storm-watch.h"
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 
 #define SMB2_DEFAULT_WPWR_UW	8000000
 

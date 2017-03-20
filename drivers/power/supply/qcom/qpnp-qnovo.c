@@ -19,7 +19,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/qpnp/qpnp-revid.h>
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 
 #define QNOVO_REVISION1		0x00
 #define QNOVO_REVISION2		0x01
