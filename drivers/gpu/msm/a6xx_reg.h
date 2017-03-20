@@ -710,6 +710,7 @@
 #define A6XX_VBIF_VERSION                       0x3000
 #define A6XX_VBIF_GATE_OFF_WRREQ_EN             0x302A
 #define A6XX_VBIF_XIN_HALT_CTRL0                0x3080
+#define A6XX_VBIF_XIN_HALT_CTRL0_MASK           0xF
 #define A6XX_VBIF_XIN_HALT_CTRL1                0x3081
 #define A6XX_VBIF_PERF_CNT_SEL0                 0x30d0
 #define A6XX_VBIF_PERF_CNT_SEL1                 0x30d1
