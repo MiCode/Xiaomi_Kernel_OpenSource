@@ -1096,9 +1096,21 @@
 			qcom,dump-node = <&L1_D_103>;
 			qcom,dump-id = <0x87>;
 		};
-		qcom,llcc_d_cache {
-			qcom,dump-node = <&llcc>;
+		qcom,llcc1_d_cache {
+			qcom,dump-node = <&LLCC_1>;
 			qcom,dump-id = <0x121>;
+		};
+		qcom,llcc2_d_cache {
+			qcom,dump-node = <&LLCC_2>;
+			qcom,dump-id = <0x122>;
+		};
+		qcom,llcc3_d_cache {
+			qcom,dump-node = <&LLCC_3>;
+			qcom,dump-id = <0x123>;
+		};
+		qcom,llcc4_d_cache {
+			qcom,dump-node = <&LLCC_4>;
+			qcom,dump-id = <0x124>;
 		};
 	};
 
@@ -1135,6 +1147,22 @@
 
 		qcom,llcc-amon {
 			compatible = "qcom,llcc-amon";
+		};
+
+		LLCC_1: llcc_1_dcache {
+			qcom,dump-size = <0xd8000>;
+		};
+
+		LLCC_2: llcc_2_dcache {
+			qcom,dump-size = <0xd8000>;
+		};
+
+		LLCC_3: llcc_3_dcache {
+			qcom,dump-size = <0xd8000>;
+		};
+
+		LLCC_4: llcc_4_dcache {
+			qcom,dump-size = <0xd8000>;
 		};
 	};
 
