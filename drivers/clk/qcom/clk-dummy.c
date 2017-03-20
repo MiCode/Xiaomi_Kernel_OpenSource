@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,8 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/reset-controller.h>
+
+#include "clk-debug.h"
 
 struct clk_dummy {
 	struct clk_hw hw;
@@ -65,6 +67,7 @@ struct clk_ops clk_dummy_ops = {
 	.round_rate = dummy_clk_round_rate,
 	.recalc_rate = dummy_clk_recalc_rate,
 	.set_flags = dummy_clk_set_flags,
+	.debug_init = clk_debug_measure_add,
 };
 EXPORT_SYMBOL_GPL(clk_dummy_ops);
 
