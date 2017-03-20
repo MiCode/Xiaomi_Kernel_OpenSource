@@ -154,6 +154,42 @@
 #define OSM_CYCLE_COUNTER_STATUS_REG(n)	(OSM_CYCLE_COUNTER_STATUS_REG_0 + \
 					(4 * n))
 
+/* ACD registers */
+#define ACD_HW_VERSION		0x0
+#define ACDCR			0x4
+#define ACDTD			0x8
+#define ACDSSCR			0x28
+#define ACD_EXTINT_CFG		0x30
+#define ACD_DCVS_SW		0x34
+#define ACD_GFMUX_CFG		0x3c
+#define ACD_READOUT_CFG		0x48
+#define ACD_AVG_CFG_0		0x4c
+#define ACD_AVG_CFG_1		0x50
+#define ACD_AVG_CFG_2		0x54
+#define ACD_AUTOXFER_CFG	0x80
+#define ACD_AUTOXFER		0x84
+#define ACD_AUTOXFER_CTL	0x88
+#define ACD_AUTOXFER_STATUS	0x8c
+#define ACD_WRITE_CTL		0x90
+#define ACD_WRITE_STATUS	0x94
+#define ACD_READOUT		0x98
+
+#define ACD_MASTER_ONLY_REG_ADDR	0x80
+#define ACD_1P1_MAX_REG_OFFSET		0x100
+#define ACD_WRITE_CTL_UPDATE_EN		BIT(0)
+#define ACD_WRITE_CTL_SELECT_SHIFT	1
+#define ACD_GFMUX_CFG_SELECT		BIT(0)
+#define ACD_AUTOXFER_START_CLEAR	0
+#define ACD_AUTOXFER_START_SET		1
+#define AUTO_XFER_DONE_MASK		BIT(0)
+#define ACD_DCVS_SW_DCVS_IN_PRGR_SET	BIT(0)
+#define ACD_DCVS_SW_DCVS_IN_PRGR_CLEAR	0
+#define ACD_LOCAL_TRANSFER_TIMEOUT_NS   500
+
+#define ACD_REG_RELATIVE_ADDR(addr) (addr / 4)
+#define ACD_REG_RELATIVE_ADDR_BITMASK(addr) \
+			(1 << (ACD_REG_RELATIVE_ADDR(addr)))
+
 static const struct regmap_config osm_qcom_regmap_config = {
 	.reg_bits       = 32,
 	.reg_stride     = 4,
@@ -166,6 +202,7 @@ enum clk_osm_bases {
 	PLL_BASE,
 	EFUSE_BASE,
 	SEQ_BASE,
+	ACD_BASE,
 	NUM_BASES,
 };
 
@@ -186,6 +223,8 @@ struct osm_entry {
 	u32 mem_acc_level;
 	long frequency;
 };
+
+static struct dentry *osm_debugfs_base;
 
 struct clk_osm {
 	struct clk_hw hw;
@@ -236,11 +275,172 @@ struct clk_osm {
 	u32 trace_periodic_timer;
 	bool trace_en;
 	bool wdog_trace_en;
+
+	bool acd_init;
+	u32 acd_td;
+	u32 acd_cr;
+	u32 acd_sscr;
+	u32 acd_extint0_cfg;
+	u32 acd_extint1_cfg;
+	u32 acd_autoxfer_ctl;
+	u32 acd_debugfs_addr;
+	bool acd_avg_init;
+	u32 acd_avg_cfg0;
+	u32 acd_avg_cfg1;
+	u32 acd_avg_cfg2;
 };
 
 static struct regulator *vdd_l3;
 static struct regulator *vdd_pwrcl;
 static struct regulator *vdd_perfcl;
+
+static inline int clk_osm_acd_mb(struct clk_osm *c)
+{
+	return readl_relaxed_no_log((char *)c->vbases[ACD_BASE] +
+					ACD_HW_VERSION);
+}
+
+static int clk_osm_acd_local_read_reg(struct clk_osm *c, u32 offset)
+{
+	u32 reg = 0;
+	int timeout;
+
+	if (offset >= ACD_MASTER_ONLY_REG_ADDR) {
+		pr_err("ACD register at offset=0x%x not locally readable\n",
+			offset);
+		return -EINVAL;
+	}
+
+	/* Set select field in read control register */
+	writel_relaxed(ACD_REG_RELATIVE_ADDR(offset),
+			(char *)c->vbases[ACD_BASE] + ACD_READOUT_CFG);
+
+	/* Clear write control register */
+	writel_relaxed(reg, (char *)c->vbases[ACD_BASE] + ACD_WRITE_CTL);
+
+	/* Set select and update_en fields in write control register */
+	reg = (ACD_REG_RELATIVE_ADDR(ACD_READOUT_CFG)
+	       << ACD_WRITE_CTL_SELECT_SHIFT)
+		| ACD_WRITE_CTL_UPDATE_EN;
+	writel_relaxed(reg, (char *)c->vbases[ACD_BASE] + ACD_WRITE_CTL);
+
+	/* Ensure writes complete before polling */
+	clk_osm_acd_mb(c);
+
+	/* Poll write status register */
+	for (timeout = ACD_LOCAL_TRANSFER_TIMEOUT_NS; timeout > 0;
+	     timeout -= 100) {
+		reg = readl_relaxed((char *)c->vbases[ACD_BASE]
+					+ ACD_WRITE_STATUS);
+		if ((reg & (ACD_REG_RELATIVE_ADDR_BITMASK(ACD_READOUT_CFG))))
+			break;
+		ndelay(100);
+	}
+
+	if (!timeout) {
+		pr_err("local read timed out, offset=0x%x status=0x%x\n",
+			offset, reg);
+		return -ETIMEDOUT;
+	}
+
+	reg = readl_relaxed((char *)c->vbases[ACD_BASE] + ACD_READOUT);
+	return reg;
+}
+
+static int clk_osm_acd_local_write_reg(struct clk_osm *c, u32 val, u32 offset)
+{
+	u32 reg = 0;
+	int timeout;
+
+	if (offset >= ACD_MASTER_ONLY_REG_ADDR) {
+		pr_err("ACD register at offset=0x%x not transferrable\n",
+			offset);
+		return -EINVAL;
+	}
+
+	/* Clear write control register */
+	writel_relaxed(reg, (char *)c->vbases[ACD_BASE] + ACD_WRITE_CTL);
+
+	/* Set select and update_en fields in write control register */
+	reg = (ACD_REG_RELATIVE_ADDR(offset) << ACD_WRITE_CTL_SELECT_SHIFT)
+		| ACD_WRITE_CTL_UPDATE_EN;
+	writel_relaxed(reg, (char *)c->vbases[ACD_BASE] + ACD_WRITE_CTL);
+
+	/* Ensure writes complete before polling */
+	clk_osm_acd_mb(c);
+
+	/* Poll write status register */
+	for (timeout = ACD_LOCAL_TRANSFER_TIMEOUT_NS; timeout > 0;
+	     timeout -= 100) {
+		reg = readl_relaxed((char *)c->vbases[ACD_BASE]
+					+ ACD_WRITE_STATUS);
+		if ((reg & (ACD_REG_RELATIVE_ADDR_BITMASK(offset))))
+			break;
+		ndelay(100);
+	}
+
+	if (!timeout) {
+		pr_err("local write timed out, offset=0x%x val=0x%x status=0x%x\n",
+			offset, val, reg);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static int clk_osm_acd_master_write_through_reg(struct clk_osm *c,
+						u32 val, u32 offset)
+{
+	writel_relaxed(val, (char *)c->vbases[ACD_BASE] + offset);
+
+	/* Ensure writes complete before transfer to local copy */
+	clk_osm_acd_mb(c);
+
+	return clk_osm_acd_local_write_reg(c, val, offset);
+}
+
+static int clk_osm_acd_auto_local_write_reg(struct clk_osm *c, u32 mask)
+{
+	u32 numregs, bitmask = mask;
+	u32 reg = 0;
+	int timeout;
+
+	/* count number of bits set in register mask */
+	for (numregs = 0; bitmask; numregs++)
+		bitmask &= bitmask - 1;
+
+	/* Program auto-transfer mask */
+	writel_relaxed(mask, (char *)c->vbases[ACD_BASE] + ACD_AUTOXFER_CFG);
+
+	/* Clear start field in auto-transfer register */
+	writel_relaxed(ACD_AUTOXFER_START_CLEAR,
+			(char *)c->vbases[ACD_BASE] + ACD_AUTOXFER);
+
+	/* Set start field in auto-transfer register */
+	writel_relaxed(ACD_AUTOXFER_START_SET,
+			(char *)c->vbases[ACD_BASE] + ACD_AUTOXFER);
+
+	/* Ensure writes complete before polling */
+	clk_osm_acd_mb(c);
+
+	/* Poll auto-transfer status register */
+	for (timeout = ACD_LOCAL_TRANSFER_TIMEOUT_NS * numregs;
+	     timeout > 0; timeout -= 100) {
+		reg = readl_relaxed((char *)c->vbases[ACD_BASE]
+					+ ACD_AUTOXFER_STATUS);
+		if (reg & AUTO_XFER_DONE_MASK)
+			break;
+		ndelay(100);
+	}
+
+	if (!timeout) {
+		pr_err("local register auto-transfer timed out, mask=0x%x registers=%d status=0x%x\n",
+			mask, numregs, reg);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
 
 static inline struct clk_osm *to_clk_osm(struct clk_hw *_hw)
 {
@@ -265,9 +465,10 @@ static inline void clk_osm_write_seq_reg(struct clk_osm *c, u32 val, u32 offset)
 	writel_relaxed(val, (char *)c->vbases[SEQ_BASE] + offset);
 }
 
-static inline void clk_osm_write_reg(struct clk_osm *c, u32 val, u32 offset)
+static inline void clk_osm_write_reg(struct clk_osm *c, u32 val, u32 offset,
+					int base)
 {
-	writel_relaxed(val, (char *)c->vbases[OSM_BASE] + offset);
+	writel_relaxed(val, (char *)c->vbases[base] + offset);
 }
 
 static inline int clk_osm_read_reg(struct clk_osm *c, u32 offset)
@@ -356,7 +557,7 @@ static int clk_osm_enable(struct clk_hw *hw)
 {
 	struct clk_osm *cpuclk = to_clk_osm(hw);
 
-	clk_osm_write_reg(cpuclk, 1, ENABLE_REG);
+	clk_osm_write_reg(cpuclk, 1, ENABLE_REG, OSM_BASE);
 
 	/* Make sure the write goes through before proceeding */
 	clk_osm_mb(cpuclk, OSM_BASE);
@@ -410,7 +611,8 @@ static int cpu_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	 * TODO: Program INACTIVE_OS_REQUEST if needed.
 	 */
 	clk_osm_write_reg(parent, index,
-			DCVS_PERF_STATE_DESIRED_REG(cpuclk->core_num));
+			DCVS_PERF_STATE_DESIRED_REG(cpuclk->core_num),
+			OSM_BASE);
 
 	/* Make sure the write goes through before proceeding */
 	clk_osm_mb(parent, OSM_BASE);
@@ -444,7 +646,8 @@ static int l3_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	}
 	pr_debug("rate: %lu --> index %d\n", rate, index);
 
-	clk_osm_write_reg(cpuclk, index, DCVS_PERF_STATE_DESIRED_REG_0);
+	clk_osm_write_reg(cpuclk, index, DCVS_PERF_STATE_DESIRED_REG_0,
+				OSM_BASE);
 
 	/* Make sure the write goes through before proceeding */
 	clk_osm_mb(cpuclk, OSM_BASE);
@@ -916,50 +1119,51 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 	if (c->red_fsm_en) {
 		val = clk_osm_read_reg(c, VMIN_REDUCTION_ENABLE_REG) | BIT(0);
 		val |= BVAL(6, 1, c->min_cpr_vc);
-		clk_osm_write_reg(c, val, VMIN_REDUCTION_ENABLE_REG);
+		clk_osm_write_reg(c, val, VMIN_REDUCTION_ENABLE_REG,
+					OSM_BASE);
 
 		clk_osm_write_reg(c, clk_osm_count_ns(c, 10000),
-				  VMIN_REDUCTION_TIMER_REG);
+				  VMIN_REDUCTION_TIMER_REG, OSM_BASE);
 	}
 
 	/* Boost FSM */
 	if (c->boost_fsm_en) {
 		val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
 		val |= DELTA_DEX_VAL | CC_BOOST_FSM_EN | IGNORE_PLL_LOCK;
-		clk_osm_write_reg(c, val, PDN_FSM_CTRL_REG);
+		clk_osm_write_reg(c, val, PDN_FSM_CTRL_REG, OSM_BASE);
 
 		val = clk_osm_read_reg(c, CC_BOOST_FSM_TIMERS_REG0);
 		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
 		val |= BVAL(31, 16, clk_osm_count_ns(c, SAFE_FREQ_WAIT_NS));
-		clk_osm_write_reg(c, val, CC_BOOST_FSM_TIMERS_REG0);
+		clk_osm_write_reg(c, val, CC_BOOST_FSM_TIMERS_REG0, OSM_BASE);
 
 		val = clk_osm_read_reg(c, CC_BOOST_FSM_TIMERS_REG1);
 		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
 		val |= BVAL(31, 16, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
-		clk_osm_write_reg(c, val, CC_BOOST_FSM_TIMERS_REG1);
+		clk_osm_write_reg(c, val, CC_BOOST_FSM_TIMERS_REG1, OSM_BASE);
 
 		val = clk_osm_read_reg(c, CC_BOOST_FSM_TIMERS_REG2);
 		val |= BVAL(15, 0, clk_osm_count_ns(c, DEXT_DECREMENT_WAIT_NS));
-		clk_osm_write_reg(c, val, CC_BOOST_FSM_TIMERS_REG2);
+		clk_osm_write_reg(c, val, CC_BOOST_FSM_TIMERS_REG2, OSM_BASE);
 	}
 
 	/* Safe Freq FSM */
 	if (c->safe_fsm_en) {
 		val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
 		clk_osm_write_reg(c, val | DCVS_BOOST_FSM_EN_MASK,
-				  PDN_FSM_CTRL_REG);
+				  PDN_FSM_CTRL_REG, OSM_BASE);
 
 		val = clk_osm_read_reg(c, DCVS_BOOST_FSM_TIMERS_REG0);
 		val |= BVAL(31, 16, clk_osm_count_ns(c, 1000));
-		clk_osm_write_reg(c, val, DCVS_BOOST_FSM_TIMERS_REG0);
+		clk_osm_write_reg(c, val, DCVS_BOOST_FSM_TIMERS_REG0, OSM_BASE);
 
 		val = clk_osm_read_reg(c, DCVS_BOOST_FSM_TIMERS_REG1);
 		val |= BVAL(15, 0, clk_osm_count_ns(c, SAFE_FREQ_WAIT_NS));
-		clk_osm_write_reg(c, val, DCVS_BOOST_FSM_TIMERS_REG1);
+		clk_osm_write_reg(c, val, DCVS_BOOST_FSM_TIMERS_REG1, OSM_BASE);
 
 		val = clk_osm_read_reg(c, DCVS_BOOST_FSM_TIMERS_REG2);
 		val |= BVAL(15, 0, clk_osm_count_ns(c, DEXT_DECREMENT_WAIT_NS));
-		clk_osm_write_reg(c, val, DCVS_BOOST_FSM_TIMERS_REG2);
+		clk_osm_write_reg(c, val, DCVS_BOOST_FSM_TIMERS_REG2, OSM_BASE);
 
 	}
 
@@ -967,46 +1171,46 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 	if (c->ps_fsm_en) {
 		val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
 		clk_osm_write_reg(c, val | PS_BOOST_FSM_EN_MASK,
-							PDN_FSM_CTRL_REG);
+					PDN_FSM_CTRL_REG, OSM_BASE);
 
 		val = clk_osm_read_reg(c, PS_BOOST_FSM_TIMERS_REG0);
 		val |= BVAL(15, 0, clk_osm_count_ns(c, SAFE_FREQ_WAIT_NS));
 		val |= BVAL(31, 16, clk_osm_count_ns(c, 1000));
-		clk_osm_write_reg(c, val, PS_BOOST_FSM_TIMERS_REG0);
+		clk_osm_write_reg(c, val, PS_BOOST_FSM_TIMERS_REG0, OSM_BASE);
 
 		val = clk_osm_read_reg(c, PS_BOOST_FSM_TIMERS_REG1);
 		val |= BVAL(15, 0, clk_osm_count_ns(c, SAFE_FREQ_WAIT_NS));
 		val |= BVAL(31, 16, clk_osm_count_ns(c, 1000));
-		clk_osm_write_reg(c, val, PS_BOOST_FSM_TIMERS_REG1);
+		clk_osm_write_reg(c, val, PS_BOOST_FSM_TIMERS_REG1, OSM_BASE);
 
 		val = clk_osm_read_reg(c, PS_BOOST_FSM_TIMERS_REG2);
 		val |= BVAL(15, 0, clk_osm_count_ns(c, DEXT_DECREMENT_WAIT_NS));
-		clk_osm_write_reg(c, val, PS_BOOST_FSM_TIMERS_REG2);
+		clk_osm_write_reg(c, val, PS_BOOST_FSM_TIMERS_REG2, OSM_BASE);
 	}
 
 	/* PLL signal timing control */
 	if (c->boost_fsm_en || c->safe_fsm_en || c->ps_fsm_en)
-		clk_osm_write_reg(c, 0x2, BOOST_PROG_SYNC_DELAY_REG);
+		clk_osm_write_reg(c, 0x2, BOOST_PROG_SYNC_DELAY_REG, OSM_BASE);
 
 	/* DCVS droop FSM - only if RCGwRC is not used for di/dt control */
 	if (c->droop_fsm_en) {
 		val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
 		clk_osm_write_reg(c, val | DCVS_DROOP_FSM_EN_MASK,
-				  PDN_FSM_CTRL_REG);
+					PDN_FSM_CTRL_REG, OSM_BASE);
 	}
 
 	if (c->ps_fsm_en || c->droop_fsm_en) {
-		clk_osm_write_reg(c, 0x1, DROOP_PROG_SYNC_DELAY_REG);
+		clk_osm_write_reg(c, 0x1, DROOP_PROG_SYNC_DELAY_REG, OSM_BASE);
 		clk_osm_write_reg(c, clk_osm_count_ns(c, 100),
-				  DROOP_RELEASE_TIMER_CTRL);
+					DROOP_RELEASE_TIMER_CTRL, OSM_BASE);
 		clk_osm_write_reg(c, clk_osm_count_ns(c, 150),
-				  DCVS_DROOP_TIMER_CTRL);
+					DCVS_DROOP_TIMER_CTRL, OSM_BASE);
 		/*
 		 * TODO: Check if DCVS_DROOP_CODE used is correct. Also check
 		 * if RESYNC_CTRL should be set for L3.
 		 */
 		val = BIT(31) | BVAL(22, 16, 0x2) | BVAL(6, 0, 0x8);
-		clk_osm_write_reg(c, val, DROOP_CTRL_REG);
+		clk_osm_write_reg(c, val, DROOP_CTRL_REG, OSM_BASE);
 	}
 }
 
@@ -1034,17 +1238,20 @@ static int clk_osm_set_llm_volt_policy(struct platform_device *pdev)
 	} else {
 		val = clk_osm_count_ns(&l3_clk, array[l3_clk.cluster_num]);
 		clk_osm_write_reg(&l3_clk, val,
-					LLM_VOLTAGE_VOTE_INC_HYSTERESIS);
+					LLM_VOLTAGE_VOTE_INC_HYSTERESIS,
+					OSM_BASE);
 
 		val = clk_osm_count_ns(&pwrcl_clk,
 						array[pwrcl_clk.cluster_num]);
 		clk_osm_write_reg(&pwrcl_clk, val,
-					LLM_VOLTAGE_VOTE_INC_HYSTERESIS);
+					LLM_VOLTAGE_VOTE_INC_HYSTERESIS,
+					OSM_BASE);
 
 		val = clk_osm_count_ns(&perfcl_clk,
 						array[perfcl_clk.cluster_num]);
 		clk_osm_write_reg(&perfcl_clk, val,
-					LLM_VOLTAGE_VOTE_INC_HYSTERESIS);
+					LLM_VOLTAGE_VOTE_INC_HYSTERESIS,
+					OSM_BASE);
 	}
 
 	/*
@@ -1060,17 +1267,20 @@ static int clk_osm_set_llm_volt_policy(struct platform_device *pdev)
 	} else {
 		val = clk_osm_count_ns(&l3_clk, array[l3_clk.cluster_num]);
 		clk_osm_write_reg(&l3_clk, val,
-					LLM_VOLTAGE_VOTE_DEC_HYSTERESIS);
+					LLM_VOLTAGE_VOTE_DEC_HYSTERESIS,
+					OSM_BASE);
 
 		val = clk_osm_count_ns(&pwrcl_clk,
 					       array[pwrcl_clk.cluster_num]);
 		clk_osm_write_reg(&pwrcl_clk, val,
-					LLM_VOLTAGE_VOTE_DEC_HYSTERESIS);
+					LLM_VOLTAGE_VOTE_DEC_HYSTERESIS,
+					OSM_BASE);
 
 		val = clk_osm_count_ns(&perfcl_clk,
-					       array[perfcl_clk.cluster_num]);
+					array[perfcl_clk.cluster_num]);
 		clk_osm_write_reg(&perfcl_clk, val,
-					LLM_VOLTAGE_VOTE_DEC_HYSTERESIS);
+					LLM_VOLTAGE_VOTE_DEC_HYSTERESIS,
+					OSM_BASE);
 	}
 
 	/* Enable or disable honoring of LLM Voltage requests */
@@ -1084,11 +1294,11 @@ static int clk_osm_set_llm_volt_policy(struct platform_device *pdev)
 
 	/* Enable or disable LLM VOLT DVCS */
 	regval = val | clk_osm_read_reg(&l3_clk, LLM_INTF_DCVS_DISABLE);
-	clk_osm_write_reg(&l3_clk, regval, LLM_INTF_DCVS_DISABLE);
+	clk_osm_write_reg(&l3_clk, regval, LLM_INTF_DCVS_DISABLE, OSM_BASE);
 	regval = val | clk_osm_read_reg(&pwrcl_clk, LLM_INTF_DCVS_DISABLE);
-	clk_osm_write_reg(&pwrcl_clk, regval, LLM_INTF_DCVS_DISABLE);
+	clk_osm_write_reg(&pwrcl_clk, regval, LLM_INTF_DCVS_DISABLE, OSM_BASE);
 	regval = val | clk_osm_read_reg(&perfcl_clk, LLM_INTF_DCVS_DISABLE);
-	clk_osm_write_reg(&perfcl_clk, regval, LLM_INTF_DCVS_DISABLE);
+	clk_osm_write_reg(&perfcl_clk, regval, LLM_INTF_DCVS_DISABLE, OSM_BASE);
 
 	/* Wait for the writes to complete */
 	clk_osm_mb(&perfcl_clk, OSM_BASE);
@@ -1120,17 +1330,20 @@ static int clk_osm_set_llm_freq_policy(struct platform_device *pdev)
 			rc);
 	} else {
 		val = clk_osm_count_ns(&l3_clk, array[l3_clk.cluster_num]);
-		clk_osm_write_reg(&l3_clk, val, LLM_FREQ_VOTE_INC_HYSTERESIS);
+		clk_osm_write_reg(&l3_clk, val, LLM_FREQ_VOTE_INC_HYSTERESIS,
+			OSM_BASE);
 
 		val = clk_osm_count_ns(&pwrcl_clk,
 						array[pwrcl_clk.cluster_num]);
 		clk_osm_write_reg(&pwrcl_clk, val,
-						LLM_FREQ_VOTE_INC_HYSTERESIS);
+					LLM_FREQ_VOTE_INC_HYSTERESIS,
+					OSM_BASE);
 
 		val = clk_osm_count_ns(&perfcl_clk,
 						array[perfcl_clk.cluster_num]);
 		clk_osm_write_reg(&perfcl_clk, val,
-						LLM_FREQ_VOTE_INC_HYSTERESIS);
+					LLM_FREQ_VOTE_INC_HYSTERESIS,
+					OSM_BASE);
 	}
 
 	/*
@@ -1145,17 +1358,18 @@ static int clk_osm_set_llm_freq_policy(struct platform_device *pdev)
 			rc);
 	} else {
 		val = clk_osm_count_ns(&l3_clk, array[l3_clk.cluster_num]);
-		clk_osm_write_reg(&l3_clk, val, LLM_FREQ_VOTE_DEC_HYSTERESIS);
+		clk_osm_write_reg(&l3_clk, val, LLM_FREQ_VOTE_DEC_HYSTERESIS,
+					OSM_BASE);
 
 		val = clk_osm_count_ns(&pwrcl_clk,
 					       array[pwrcl_clk.cluster_num]);
 		clk_osm_write_reg(&pwrcl_clk, val,
-						LLM_FREQ_VOTE_DEC_HYSTERESIS);
+					LLM_FREQ_VOTE_DEC_HYSTERESIS, OSM_BASE);
 
 		val = clk_osm_count_ns(&perfcl_clk,
 					       array[perfcl_clk.cluster_num]);
 		clk_osm_write_reg(&perfcl_clk, val,
-						LLM_FREQ_VOTE_DEC_HYSTERESIS);
+					LLM_FREQ_VOTE_DEC_HYSTERESIS, OSM_BASE);
 	}
 
 	/* Enable or disable honoring of LLM frequency requests */
@@ -1169,11 +1383,11 @@ static int clk_osm_set_llm_freq_policy(struct platform_device *pdev)
 
 	/* Enable or disable LLM FREQ DVCS */
 	regval = val | clk_osm_read_reg(&l3_clk, LLM_INTF_DCVS_DISABLE);
-	clk_osm_write_reg(&l3_clk, regval, LLM_INTF_DCVS_DISABLE);
+	clk_osm_write_reg(&l3_clk, regval, LLM_INTF_DCVS_DISABLE, OSM_BASE);
 	regval = val | clk_osm_read_reg(&pwrcl_clk, LLM_INTF_DCVS_DISABLE);
-	clk_osm_write_reg(&pwrcl_clk, regval, LLM_INTF_DCVS_DISABLE);
+	clk_osm_write_reg(&pwrcl_clk, regval, LLM_INTF_DCVS_DISABLE, OSM_BASE);
 	regval = val | clk_osm_read_reg(&perfcl_clk, LLM_INTF_DCVS_DISABLE);
-	clk_osm_write_reg(&perfcl_clk, regval, LLM_INTF_DCVS_DISABLE);
+	clk_osm_write_reg(&perfcl_clk, regval, LLM_INTF_DCVS_DISABLE, OSM_BASE);
 
 	/* Wait for the write to complete */
 	clk_osm_mb(&perfcl_clk, OSM_BASE);
@@ -1201,15 +1415,18 @@ static int clk_osm_set_cc_policy(struct platform_device *pdev)
 	} else {
 		val = clk_osm_count_ns(&l3_clk,
 					array[l3_clk.cluster_num]);
-		clk_osm_write_reg(&l3_clk, val, SPM_CC_INC_HYSTERESIS);
+		clk_osm_write_reg(&l3_clk, val, SPM_CC_INC_HYSTERESIS,
+			OSM_BASE);
 
 		val = clk_osm_count_ns(&pwrcl_clk,
 					array[pwrcl_clk.cluster_num]);
-		clk_osm_write_reg(&pwrcl_clk, val, SPM_CC_INC_HYSTERESIS);
+		clk_osm_write_reg(&pwrcl_clk, val, SPM_CC_INC_HYSTERESIS,
+					OSM_BASE);
 
 		val = clk_osm_count_ns(&perfcl_clk,
 					array[perfcl_clk.cluster_num]);
-		clk_osm_write_reg(&perfcl_clk, val, SPM_CC_INC_HYSTERESIS);
+		clk_osm_write_reg(&perfcl_clk, val, SPM_CC_INC_HYSTERESIS,
+					OSM_BASE);
 	}
 
 	rc = of_property_read_u32_array(of, "qcom,down-timer",
@@ -1219,15 +1436,18 @@ static int clk_osm_set_cc_policy(struct platform_device *pdev)
 	} else {
 		val = clk_osm_count_ns(&l3_clk,
 				       array[l3_clk.cluster_num]);
-		clk_osm_write_reg(&l3_clk, val, SPM_CC_DEC_HYSTERESIS);
+		clk_osm_write_reg(&l3_clk, val, SPM_CC_DEC_HYSTERESIS,
+					OSM_BASE);
 
 		val = clk_osm_count_ns(&pwrcl_clk,
 				       array[pwrcl_clk.cluster_num]);
-		clk_osm_write_reg(&pwrcl_clk, val, SPM_CC_DEC_HYSTERESIS);
+		clk_osm_write_reg(&pwrcl_clk, val, SPM_CC_DEC_HYSTERESIS,
+					OSM_BASE);
 
 		clk_osm_count_ns(&perfcl_clk,
 				       array[perfcl_clk.cluster_num]);
-		clk_osm_write_reg(&perfcl_clk, val, SPM_CC_DEC_HYSTERESIS);
+		clk_osm_write_reg(&perfcl_clk, val, SPM_CC_DEC_HYSTERESIS,
+					OSM_BASE);
 	}
 
 	/* OSM index override for cluster PC */
@@ -1236,15 +1456,18 @@ static int clk_osm_set_cc_policy(struct platform_device *pdev)
 	if (rc) {
 		dev_dbg(&pdev->dev, "No PC override index value, rc=%d\n",
 			rc);
-		clk_osm_write_reg(&pwrcl_clk, 0, CC_ZERO_BEHAV_CTRL);
-		clk_osm_write_reg(&perfcl_clk, 0, CC_ZERO_BEHAV_CTRL);
+		clk_osm_write_reg(&pwrcl_clk, 0, CC_ZERO_BEHAV_CTRL, OSM_BASE);
+		clk_osm_write_reg(&perfcl_clk, 0, CC_ZERO_BEHAV_CTRL,
+					OSM_BASE);
 	} else {
 		val = BVAL(6, 1, array[pwrcl_clk.cluster_num])
 			| ENABLE_OVERRIDE;
-		clk_osm_write_reg(&pwrcl_clk, val, CC_ZERO_BEHAV_CTRL);
+		clk_osm_write_reg(&pwrcl_clk, val, CC_ZERO_BEHAV_CTRL,
+					OSM_BASE);
 		val = BVAL(6, 1, array[perfcl_clk.cluster_num])
 			| ENABLE_OVERRIDE;
-		clk_osm_write_reg(&perfcl_clk, val, CC_ZERO_BEHAV_CTRL);
+		clk_osm_write_reg(&perfcl_clk, val, CC_ZERO_BEHAV_CTRL,
+					OSM_BASE);
 	}
 
 	/* Wait for the writes to complete */
@@ -1256,15 +1479,18 @@ static int clk_osm_set_cc_policy(struct platform_device *pdev)
 
 		val = clk_osm_read_reg(&l3_clk, SPM_CORE_INACTIVE_MAPPING);
 		val &= ~BIT(2);
-		clk_osm_write_reg(&l3_clk, val, SPM_CORE_INACTIVE_MAPPING);
+		clk_osm_write_reg(&l3_clk, val, SPM_CORE_INACTIVE_MAPPING,
+					OSM_BASE);
 
 		val = clk_osm_read_reg(&pwrcl_clk, SPM_CORE_INACTIVE_MAPPING);
 		val &= ~BIT(2);
-		clk_osm_write_reg(&pwrcl_clk, val, SPM_CORE_INACTIVE_MAPPING);
+		clk_osm_write_reg(&pwrcl_clk, val, SPM_CORE_INACTIVE_MAPPING,
+					OSM_BASE);
 
 		val = clk_osm_read_reg(&perfcl_clk, SPM_CORE_INACTIVE_MAPPING);
 		val &= ~BIT(2);
-		clk_osm_write_reg(&perfcl_clk, val, SPM_CORE_INACTIVE_MAPPING);
+		clk_osm_write_reg(&perfcl_clk, val, SPM_CORE_INACTIVE_MAPPING,
+					OSM_BASE);
 	}
 
 	rc = of_property_read_bool(pdev->dev.of_node, "qcom,set-c2-active");
@@ -1273,15 +1499,18 @@ static int clk_osm_set_cc_policy(struct platform_device *pdev)
 
 		val = clk_osm_read_reg(&l3_clk, SPM_CORE_INACTIVE_MAPPING);
 		val &= ~BIT(1);
-		clk_osm_write_reg(&l3_clk, val, SPM_CORE_INACTIVE_MAPPING);
+		clk_osm_write_reg(&l3_clk, val, SPM_CORE_INACTIVE_MAPPING,
+					OSM_BASE);
 
 		val = clk_osm_read_reg(&pwrcl_clk, SPM_CORE_INACTIVE_MAPPING);
 		val &= ~BIT(1);
-		clk_osm_write_reg(&pwrcl_clk, val, SPM_CORE_INACTIVE_MAPPING);
+		clk_osm_write_reg(&pwrcl_clk, val, SPM_CORE_INACTIVE_MAPPING,
+					OSM_BASE);
 
 		val = clk_osm_read_reg(&perfcl_clk, SPM_CORE_INACTIVE_MAPPING);
 		val &= ~BIT(1);
-		clk_osm_write_reg(&perfcl_clk, val, SPM_CORE_INACTIVE_MAPPING);
+		clk_osm_write_reg(&perfcl_clk, val, SPM_CORE_INACTIVE_MAPPING,
+					OSM_BASE);
 	}
 
 	rc = of_property_read_bool(pdev->dev.of_node, "qcom,disable-cc-dvcs");
@@ -1291,9 +1520,9 @@ static int clk_osm_set_cc_policy(struct platform_device *pdev)
 	} else
 		val = 0;
 
-	clk_osm_write_reg(&l3_clk, val, SPM_CC_DCVS_DISABLE);
-	clk_osm_write_reg(&pwrcl_clk, val, SPM_CC_DCVS_DISABLE);
-	clk_osm_write_reg(&perfcl_clk, val, SPM_CC_DCVS_DISABLE);
+	clk_osm_write_reg(&l3_clk, val, SPM_CC_DCVS_DISABLE, OSM_BASE);
+	clk_osm_write_reg(&pwrcl_clk, val, SPM_CC_DCVS_DISABLE, OSM_BASE);
+	clk_osm_write_reg(&perfcl_clk, val, SPM_CC_DCVS_DISABLE, OSM_BASE);
 
 	/* Wait for the writes to complete */
 	clk_osm_mb(&perfcl_clk, OSM_BASE);
@@ -1335,8 +1564,9 @@ static void clk_osm_misc_programming(struct clk_osm *c)
 	u32 lval = 0xFF, val;
 	int i;
 
-	clk_osm_write_reg(c, BVAL(23, 16, 0xF), SPM_CORE_COUNT_CTRL);
-	clk_osm_write_reg(c, PLL_MIN_LVAL, PLL_MIN_FREQ_REG);
+	clk_osm_write_reg(c, BVAL(23, 16, 0xF), SPM_CORE_COUNT_CTRL,
+				OSM_BASE);
+	clk_osm_write_reg(c, PLL_MIN_LVAL, PLL_MIN_FREQ_REG, OSM_BASE);
 
 	/* Pattern to set/clear PLL lock in PDN_FSM_CTRL_REG */
 	val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
@@ -1396,10 +1626,12 @@ static int clk_osm_setup_hw_table(struct clk_osm *c)
 		}
 
 		table_entry_offset = i * OSM_REG_SIZE;
-		clk_osm_write_reg(c, freq_val, FREQ_REG + table_entry_offset);
-		clk_osm_write_reg(c, volt_val, VOLT_REG + table_entry_offset);
+		clk_osm_write_reg(c, freq_val, FREQ_REG + table_entry_offset,
+					OSM_BASE);
+		clk_osm_write_reg(c, volt_val, VOLT_REG + table_entry_offset,
+					OSM_BASE);
 		clk_osm_write_reg(c, override_val, OVERRIDE_REG +
-				  table_entry_offset);
+				  table_entry_offset, OSM_BASE);
 	}
 
 	/* Make sure all writes go through */
@@ -1575,7 +1807,7 @@ static void clk_osm_setup_cycle_counters(struct clk_osm *c)
 	do_div(ratio, c->xo_clk_rate);
 	val |= BVAL(5, 1, ratio - 1) | OSM_CYCLE_COUNTER_USE_XO_EDGE_EN;
 
-	clk_osm_write_reg(c, val, OSM_CYCLE_COUNTER_CTRL_REG);
+	clk_osm_write_reg(c, val, OSM_CYCLE_COUNTER_CTRL_REG, OSM_BASE);
 	pr_debug("OSM to XO clock ratio: %d\n", ratio);
 }
 
@@ -1746,6 +1978,149 @@ static int clk_osm_get_lut(struct platform_device *pdev,
 	osm_clks_init[c->cluster_num].num_rate_max = k;
 exit:
 	devm_kfree(&pdev->dev, fmax_temp);
+	devm_kfree(&pdev->dev, array);
+	return rc;
+}
+
+static int clk_osm_parse_acd_dt_configs(struct platform_device *pdev)
+{
+	struct device_node *of = pdev->dev.of_node;
+	u32 *array;
+	int rc = 0;
+
+	array = devm_kzalloc(&pdev->dev, MAX_CLUSTER_CNT * sizeof(u32),
+				GFP_KERNEL);
+	if (!array)
+		return -ENOMEM;
+
+	l3_clk.acd_init = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+				"l3_acd") != NULL ? true : false;
+	pwrcl_clk.acd_init = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+				"pwrcl_acd") != NULL ? true : false;
+	perfcl_clk.acd_init = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+				"perfcl_acd") != NULL ? true : false;
+
+	if (pwrcl_clk.acd_init || perfcl_clk.acd_init || l3_clk.acd_init) {
+		rc = of_property_read_u32_array(of, "qcom,acdtd-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdtd-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		pwrcl_clk.acd_td = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_td = array[perfcl_clk.cluster_num];
+		l3_clk.acd_td = array[l3_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdcr-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdcr-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		pwrcl_clk.acd_cr = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_cr = array[perfcl_clk.cluster_num];
+		l3_clk.acd_cr = array[l3_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdsscr-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdsscr-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		pwrcl_clk.acd_sscr = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_sscr = array[perfcl_clk.cluster_num];
+		l3_clk.acd_sscr =  array[l3_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdextint0-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdextint0-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		pwrcl_clk.acd_extint0_cfg = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_extint0_cfg = array[perfcl_clk.cluster_num];
+		l3_clk.acd_extint0_cfg =  array[l3_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdextint1-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdextint1-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		pwrcl_clk.acd_extint1_cfg = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_extint1_cfg = array[perfcl_clk.cluster_num];
+		l3_clk.acd_extint1_cfg =  array[l3_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdautoxfer-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdautoxfer-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		pwrcl_clk.acd_autoxfer_ctl = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_autoxfer_ctl = array[perfcl_clk.cluster_num];
+		l3_clk.acd_autoxfer_ctl =  array[l3_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdavg-init",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdavg-init property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+		pwrcl_clk.acd_avg_init = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_avg_init = array[perfcl_clk.cluster_num];
+		l3_clk.acd_avg_init =  array[l3_clk.cluster_num];
+	}
+
+	if (pwrcl_clk.acd_avg_init || perfcl_clk.acd_avg_init ||
+	    l3_clk.acd_avg_init) {
+		rc = of_property_read_u32_array(of, "qcom,acdavgcfg0-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdavgcfg0-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+		pwrcl_clk.acd_avg_cfg0 = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_avg_cfg0 = array[perfcl_clk.cluster_num];
+		l3_clk.acd_avg_cfg0 =  array[l3_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdavgcfg1-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdavgcfg1-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+		pwrcl_clk.acd_avg_cfg1 = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_avg_cfg1 = array[perfcl_clk.cluster_num];
+		l3_clk.acd_avg_cfg1 =  array[l3_clk.cluster_num];
+
+		rc = of_property_read_u32_array(of, "qcom,acdavgcfg2-val",
+						array, MAX_CLUSTER_CNT);
+		if (rc) {
+			dev_err(&pdev->dev, "unable to find qcom,acdavgcfg2-val property, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+		pwrcl_clk.acd_avg_cfg2 = array[pwrcl_clk.cluster_num];
+		perfcl_clk.acd_avg_cfg2 = array[perfcl_clk.cluster_num];
+		l3_clk.acd_avg_cfg2 =  array[l3_clk.cluster_num];
+	}
+
 	devm_kfree(&pdev->dev, array);
 	return rc;
 }
@@ -1938,7 +2313,7 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 						  resource_size(res));
 
 	if (!l3_clk.vbases[SEQ_BASE]) {
-		dev_err(&pdev->dev, "Unable to map in l3_sequencer base\n");
+		dev_err(&pdev->dev, "Unable to map l3_sequencer base\n");
 		return -ENOMEM;
 	}
 
@@ -1955,7 +2330,7 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 						  resource_size(res));
 
 	if (!pwrcl_clk.vbases[SEQ_BASE]) {
-		dev_err(&pdev->dev, "Unable to map in pwrcl_sequencer base\n");
+		dev_err(&pdev->dev, "Unable to map pwrcl_sequencer base\n");
 		return -ENOMEM;
 	}
 
@@ -1972,7 +2347,7 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 						  resource_size(res));
 
 	if (!perfcl_clk.vbases[SEQ_BASE]) {
-		dev_err(&pdev->dev, "Unable to map in perfcl_sequencer base\n");
+		dev_err(&pdev->dev, "Unable to map perfcl_sequencer base\n");
 		return -ENOMEM;
 	}
 
@@ -2038,6 +2413,57 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 	return rc;
 }
 
+static int clk_osm_acd_resources_init(struct platform_device *pdev)
+{
+	struct resource *res;
+	unsigned long pbase;
+	void *vbase;
+	int rc = 0;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"pwrcl_acd");
+	if (res) {
+		pbase = (unsigned long)res->start;
+		vbase = devm_ioremap(&pdev->dev, res->start,
+					resource_size(res));
+		if (!vbase) {
+			dev_err(&pdev->dev, "Unable to map pwrcl_acd base\n");
+			return -ENOMEM;
+		}
+		pwrcl_clk.pbases[ACD_BASE] = pbase;
+		pwrcl_clk.vbases[ACD_BASE] = vbase;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"perfcl_acd");
+	if (res) {
+		pbase = (unsigned long)res->start;
+		vbase = devm_ioremap(&pdev->dev, res->start,
+					resource_size(res));
+		if (!vbase) {
+			dev_err(&pdev->dev, "Unable to map perfcl_acd base\n");
+			return -ENOMEM;
+		}
+		perfcl_clk.pbases[ACD_BASE] = pbase;
+		perfcl_clk.vbases[ACD_BASE] = vbase;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"l3_acd");
+	if (res) {
+		pbase = (unsigned long)res->start;
+		vbase = devm_ioremap(&pdev->dev, res->start,
+					resource_size(res));
+		if (!vbase) {
+			dev_err(&pdev->dev, "Unable to map l3_acd base\n");
+			return -ENOMEM;
+		}
+		l3_clk.pbases[ACD_BASE] = pbase;
+		l3_clk.vbases[ACD_BASE] = vbase;
+	}
+	return rc;
+}
+
 static int clk_osm_resources_init(struct platform_device *pdev)
 {
 	struct device_node *node;
@@ -2059,7 +2485,7 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 						  resource_size(res));
 
 	if (!l3_clk.vbases[OSM_BASE]) {
-		dev_err(&pdev->dev, "Unable to map in osm_l3_base base\n");
+		dev_err(&pdev->dev, "Unable to map osm_l3_base base\n");
 		return -ENOMEM;
 	}
 
@@ -2075,7 +2501,7 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 	pwrcl_clk.vbases[OSM_BASE] = devm_ioremap(&pdev->dev, res->start,
 						  resource_size(res));
 	if (!pwrcl_clk.vbases[OSM_BASE]) {
-		dev_err(&pdev->dev, "Unable to map in osm_pwrcl_base base\n");
+		dev_err(&pdev->dev, "Unable to map osm_pwrcl_base base\n");
 		return -ENOMEM;
 	}
 
@@ -2092,7 +2518,7 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 						  resource_size(res));
 
 	if (!perfcl_clk.vbases[OSM_BASE]) {
-		dev_err(&pdev->dev, "Unable to map in osm_perfcl_base base\n");
+		dev_err(&pdev->dev, "Unable to map osm_perfcl_base base\n");
 		return -ENOMEM;
 	}
 
@@ -2169,7 +2595,7 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 		vbase = devm_ioremap(&pdev->dev, res->start,
 				     resource_size(res));
 		if (!vbase) {
-			dev_err(&pdev->dev, "Unable to map in pwrcl_efuse base\n");
+			dev_err(&pdev->dev, "Unable to map pwrcl_efuse base\n");
 			return -ENOMEM;
 		}
 		pwrcl_clk.pbases[EFUSE_BASE] = pbase;
@@ -2183,7 +2609,7 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 		vbase = devm_ioremap(&pdev->dev, res->start,
 				     resource_size(res));
 		if (!vbase) {
-			dev_err(&pdev->dev, "Unable to map in perfcl_efuse base\n");
+			dev_err(&pdev->dev, "Unable to map perfcl_efuse base\n");
 			return -ENOMEM;
 		}
 		perfcl_clk.pbases[EFUSE_BASE] = pbase;
@@ -2259,6 +2685,207 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 	return 0;
 }
 
+static int debugfs_get_debug_reg(void *data, u64 *val)
+{
+	struct clk_osm *c = data;
+
+	if (c->acd_debugfs_addr >= ACD_MASTER_ONLY_REG_ADDR)
+		*val = readl_relaxed((char *)c->vbases[ACD_BASE] +
+					c->acd_debugfs_addr);
+	else
+		*val = clk_osm_acd_local_read_reg(c, c->acd_debugfs_addr);
+	return 0;
+}
+
+static int debugfs_set_debug_reg(void *data, u64 val)
+{
+	struct clk_osm *c = data;
+
+	if (c->acd_debugfs_addr >= ACD_MASTER_ONLY_REG_ADDR)
+		clk_osm_write_reg(c, val, c->acd_debugfs_addr, ACD_BASE);
+	else
+		clk_osm_acd_master_write_through_reg(c, val,
+							c->acd_debugfs_addr);
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(debugfs_acd_debug_reg_fops,
+			debugfs_get_debug_reg,
+			debugfs_set_debug_reg,
+			"0x%llx\n");
+
+static int debugfs_get_debug_reg_addr(void *data, u64 *val)
+{
+	struct clk_osm *c = data;
+
+	*val = c->acd_debugfs_addr;
+	return 0;
+}
+
+static int debugfs_set_debug_reg_addr(void *data, u64 val)
+{
+	struct clk_osm *c = data;
+
+	if (val > ACD_1P1_MAX_REG_OFFSET) {
+		pr_err("invalid ACD register address offset, must be between 0-0x%x\n",
+			ACD_1P1_MAX_REG_OFFSET);
+		return 0;
+	}
+
+	c->acd_debugfs_addr = val;
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(debugfs_acd_debug_reg_addr_fops,
+			debugfs_get_debug_reg_addr,
+			debugfs_set_debug_reg_addr,
+			"%llu\n");
+
+static void populate_debugfs_dir(struct clk_osm *c)
+{
+	struct dentry *temp;
+
+	if (osm_debugfs_base == NULL) {
+		osm_debugfs_base = debugfs_create_dir("osm", NULL);
+		if (IS_ERR_OR_NULL(osm_debugfs_base)) {
+			pr_err("osm debugfs base directory creation failed\n");
+			osm_debugfs_base = NULL;
+			return;
+		}
+	}
+
+	c->debugfs = debugfs_create_dir(clk_hw_get_name(&c->hw),
+					osm_debugfs_base);
+	if (IS_ERR_OR_NULL(c->debugfs)) {
+		pr_err("osm debugfs directory creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_file("acd_debug_reg",
+			0644,
+			c->debugfs, c,
+			&debugfs_acd_debug_reg_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("debugfs_acd_debug_reg_fops debugfs file creation failed\n");
+		goto exit;
+	}
+
+	temp = debugfs_create_file("acd_debug_reg_addr",
+			0644,
+			c->debugfs, c,
+			&debugfs_acd_debug_reg_addr_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("debugfs_acd_debug_reg_addr_fops debugfs file creation failed\n");
+		goto exit;
+	}
+
+exit:
+	if (IS_ERR_OR_NULL(temp))
+		debugfs_remove_recursive(c->debugfs);
+}
+
+static int clk_osm_acd_init(struct clk_osm *c)
+{
+
+	int rc = 0;
+	u32 auto_xfer_mask = 0;
+
+	if (c->secure_init) {
+		clk_osm_write_reg(c, c->pbases[ACD_BASE] + ACDCR,
+					DATA_MEM(115), OSM_BASE);
+		clk_osm_write_reg(c, c->pbases[ACD_BASE] + ACD_WRITE_CTL,
+					DATA_MEM(116), OSM_BASE);
+	}
+
+	if (!c->acd_init)
+		return 0;
+
+	c->acd_debugfs_addr = ACD_HW_VERSION;
+
+	/* Program ACD tunable-length delay register */
+	clk_osm_write_reg(c, c->acd_td, ACDTD, ACD_BASE);
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACDTD);
+
+	/* Program ACD control register */
+	clk_osm_write_reg(c, c->acd_cr, ACDCR, ACD_BASE);
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACDCR);
+
+	/* Program ACD soft start control register */
+	clk_osm_write_reg(c, c->acd_sscr, ACDSSCR, ACD_BASE);
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACDSSCR);
+
+	/* Program initial ACD external interface configuration register */
+	clk_osm_write_reg(c, c->acd_extint0_cfg, ACD_EXTINT_CFG, ACD_BASE);
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACD_EXTINT_CFG);
+
+	/* Program ACD auto-register transfer control register */
+	clk_osm_write_reg(c, c->acd_autoxfer_ctl, ACD_AUTOXFER_CTL, ACD_BASE);
+
+	/* Ensure writes complete before transfers to local copy */
+	clk_osm_acd_mb(c);
+
+	/* Transfer master copies */
+	rc = clk_osm_acd_auto_local_write_reg(c, auto_xfer_mask);
+	if (rc)
+		return rc;
+
+	/* Switch CPUSS clock source to ACD clock */
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACD_GFMUX_CFG);
+	rc = clk_osm_acd_master_write_through_reg(c, ACD_GFMUX_CFG_SELECT,
+							ACD_GFMUX_CFG);
+	if (rc)
+		return rc;
+
+	/* Program ACD_DCVS_SW */
+	rc = clk_osm_acd_master_write_through_reg(c,
+					ACD_DCVS_SW_DCVS_IN_PRGR_SET,
+					ACD_DCVS_SW);
+	if (rc)
+		return rc;
+
+	rc = clk_osm_acd_master_write_through_reg(c,
+					ACD_DCVS_SW_DCVS_IN_PRGR_CLEAR,
+					ACD_DCVS_SW);
+	if (rc)
+		return rc;
+
+	udelay(1);
+
+	/* Program final ACD external interface configuration register */
+	rc = clk_osm_acd_master_write_through_reg(c, c->acd_extint1_cfg,
+							ACD_EXTINT_CFG);
+	if (rc)
+		return rc;
+
+	if (c->acd_avg_init) {
+		auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACD_AVG_CFG_2);
+		rc = clk_osm_acd_master_write_through_reg(c, c->acd_avg_cfg2,
+								ACD_AVG_CFG_2);
+		if (rc)
+			return rc;
+
+		auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACD_AVG_CFG_1);
+		rc = clk_osm_acd_master_write_through_reg(c, c->acd_avg_cfg1,
+								ACD_AVG_CFG_1);
+		if (rc)
+			return rc;
+
+		auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACD_AVG_CFG_0);
+		rc = clk_osm_acd_master_write_through_reg(c, c->acd_avg_cfg0,
+								ACD_AVG_CFG_0);
+		if (rc)
+			return rc;
+	}
+
+	/*
+	 * ACDCR, ACDTD, ACDSSCR, ACD_EXTINT_CFG, ACD_GFMUX_CFG
+	 * must be copied from master to local copy on PC exit.
+	 * Also, ACD_AVG_CFG0, ACF_AVG_CFG1, and ACD_AVG_CFG2 when
+	 * AVG is enabled.
+	 */
+	clk_osm_write_reg(c, auto_xfer_mask, ACD_AUTOXFER_CFG, ACD_BASE);
+	return 0;
+}
+
 static unsigned long init_rate = 300000000;
 
 static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
@@ -2303,15 +2930,28 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 
 	rc = clk_osm_parse_dt_configs(pdev);
 	if (rc) {
-		dev_err(&pdev->dev, "Unable to parse device tree configurations\n");
+		dev_err(&pdev->dev, "Unable to parse OSM device tree configurations\n");
+		return rc;
+	}
+
+	rc = clk_osm_parse_acd_dt_configs(pdev);
+	if (rc) {
+		dev_err(&pdev->dev, "Unable to parse ACD device tree configurations\n");
 		return rc;
 	}
 
 	rc = clk_osm_resources_init(pdev);
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "resources init failed, rc=%d\n",
-									rc);
+			dev_err(&pdev->dev, "OSM resources init failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	rc = clk_osm_acd_resources_init(pdev);
+	if (rc) {
+		dev_err(&pdev->dev, "ACD resources init failed, rc=%d\n",
+			rc);
 		return rc;
 	}
 
@@ -2466,7 +3106,7 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 
 	/* Program VC at which the array power supply needs to be switched */
 	clk_osm_write_reg(&perfcl_clk, perfcl_clk.apm_threshold_vc,
-					APM_CROSSOVER_VC);
+				APM_CROSSOVER_VC, OSM_BASE);
 	if (perfcl_clk.secure_init) {
 		clk_osm_write_seq_reg(&perfcl_clk, perfcl_clk.apm_crossover_vc,
 				DATA_MEM(77));
@@ -2510,17 +3150,33 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	if (pwrcl_clk.per_core_dcvs) {
 		val = clk_osm_read_reg(&pwrcl_clk, CORE_DCVS_CTRL);
 		val |= BIT(0);
-		clk_osm_write_reg(&pwrcl_clk, val, CORE_DCVS_CTRL);
+		clk_osm_write_reg(&pwrcl_clk, val, CORE_DCVS_CTRL, OSM_BASE);
 
 		val = clk_osm_read_reg(&perfcl_clk, CORE_DCVS_CTRL);
 		val |= BIT(0);
-		clk_osm_write_reg(&perfcl_clk, val, CORE_DCVS_CTRL);
+		clk_osm_write_reg(&perfcl_clk, val, CORE_DCVS_CTRL, OSM_BASE);
 	}
 
 	clk_ops_core = clk_dummy_ops;
 	clk_ops_core.set_rate = cpu_clk_set_rate;
 	clk_ops_core.round_rate = cpu_clk_round_rate;
 	clk_ops_core.recalc_rate = cpu_clk_recalc_rate;
+
+	rc = clk_osm_acd_init(&l3_clk);
+	if (rc) {
+		pr_err("failed to initialize ACD for L3, rc=%d\n", rc);
+		goto exit;
+	}
+	rc = clk_osm_acd_init(&pwrcl_clk);
+	if (rc) {
+		pr_err("failed to initialize ACD for pwrcl, rc=%d\n", rc);
+		goto exit;
+	}
+	rc = clk_osm_acd_init(&perfcl_clk);
+	if (rc) {
+		pr_err("failed to initialize ACD for perfcl, rc=%d\n", rc);
+		goto exit;
+	}
 
 	spin_lock_init(&l3_clk.lock);
 	spin_lock_init(&pwrcl_clk.lock);
@@ -2595,6 +3251,9 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	clk_prepare_enable(perfcl_clk.hw.clk);
 
 	populate_opp_table(pdev);
+	populate_debugfs_dir(&l3_clk);
+	populate_debugfs_dir(&pwrcl_clk);
+	populate_debugfs_dir(&perfcl_clk);
 
 	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	register_cpu_cycle_counter_cb(&cb);
