@@ -834,4 +834,14 @@ config INPUT_DRV2667_HAPTICS
 
 source "drivers/input/misc/ots_pat9125/Kconfig"
 
+config INPUT_STMVL53L0
+	tristate "STM VL53L0 Proximity support"
+	depends on INPUT && I2C
+	help
+	 Say Y here if you want to use STMicroelectronics's proximity sensor
+	 through I2C interface.
+
+	 To compile this driver as a module, choose M here: the
+	 module will be called stmvl53l0.
+
 endif
