@@ -689,6 +689,26 @@ static int _sde_format_get_plane_sizes(
 	return _sde_format_get_plane_sizes_linear(fmt, w, h, layout);
 }
 
+uint32_t sde_format_get_framebuffer_size(
+		const uint32_t format,
+		const uint32_t width,
+		const uint32_t height,
+		const uint64_t *modifiers,
+		const uint32_t modifiers_len)
+{
+	const struct sde_format *fmt;
+	struct sde_hw_fmt_layout layout;
+
+	fmt = sde_get_sde_format_ext(format, modifiers, modifiers_len);
+	if (!fmt)
+		return 0;
+
+	if (_sde_format_get_plane_sizes(fmt, width, height, &layout))
+		layout.total_size = 0;
+
+	return layout.total_size;
+}
+
 static int _sde_format_populate_addrs_ubwc(
 		int mmu_id,
 		struct drm_framebuffer *fb,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,5 +103,22 @@ int sde_format_populate_layout_with_roi(
 		struct drm_framebuffer *fb,
 		struct sde_rect *roi,
 		struct sde_hw_fmt_layout *fmtl);
+
+/**
+ * sde_format_get_framebuffer_size - get framebuffer memory size
+ * @format:            DRM pixel format
+ * @width:             pixel width
+ * @height:            pixel height
+ * @modifiers:         array to populate with drm modifiers, can be NULL
+ * @modifiers_len:     length of modifers array
+ *
+ * Return: memory size required for frame buffer
+ */
+uint32_t sde_format_get_framebuffer_size(
+		const uint32_t format,
+		const uint32_t width,
+		const uint32_t height,
+		const uint64_t *modifiers,
+		const uint32_t modifiers_len);
 
 #endif /*_SDE_FORMATS_H */

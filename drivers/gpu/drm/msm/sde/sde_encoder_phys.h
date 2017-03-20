@@ -51,6 +51,8 @@ enum sde_enc_split_role {
 
 /**
  * enum sde_enc_enable_state - current enabled state of the physical encoder
+ * @SDE_ENC_DISABLING:	Encoder transitioning to disable state
+ *			Events bounding transition are encoder type specific
  * @SDE_ENC_DISABLED:	Encoder is disabled
  * @SDE_ENC_ENABLING:	Encoder transitioning to enabled
  *			Events bounding transition are encoder type specific
@@ -59,6 +61,7 @@ enum sde_enc_split_role {
  *				to recover from a previous error
  */
 enum sde_enc_enable_state {
+	SDE_ENC_DISABLING,
 	SDE_ENC_DISABLED,
 	SDE_ENC_ENABLING,
 	SDE_ENC_ENABLED,
@@ -286,6 +289,8 @@ struct sde_encoder_phys_cmd {
  * @wb_dev:		Pointer to writeback device
  * @start_time:		Start time of writeback latest request
  * @end_time:		End time of writeback latest request
+ * @bo_disable:		Buffer object(s) to use during the disabling state
+ * @fb_disable:		Frame buffer to use during the disabling state
  */
 struct sde_encoder_phys_wb {
 	struct sde_encoder_phys base;
@@ -305,6 +310,8 @@ struct sde_encoder_phys_wb {
 	struct sde_wb_device *wb_dev;
 	ktime_t start_time;
 	ktime_t end_time;
+	struct drm_gem_object *bo_disable[SDE_MAX_PLANES];
+	struct drm_framebuffer *fb_disable;
 };
 
 /**
@@ -406,6 +413,9 @@ static inline enum sde_3d_blend_mode sde_encoder_helper_get_3d_blend_mode(
 {
 	enum sde_rm_topology_name topology;
 
+	if (!phys_enc || phys_enc->enable_state == SDE_ENC_DISABLING)
+		return BLEND_3D_NONE;
+
 	topology = sde_connector_get_topology_name(phys_enc->connector);
 	if (phys_enc->split_role == ENC_ROLE_SOLO &&
 			topology == SDE_RM_TOPOLOGY_DUALPIPEMERGE &&
@@ -425,5 +435,14 @@ static inline enum sde_3d_blend_mode sde_encoder_helper_get_3d_blend_mode(
 void sde_encoder_helper_split_config(
 		struct sde_encoder_phys *phys_enc,
 		enum sde_intf interface);
+
+/**
+ * sde_encoder_helper_hw_release - prepare for h/w reset during disable
+ * @phys_enc: Pointer to physical encoder structure
+ * @fb: Optional fb for specifying new mixer output resolution, may be NULL
+ * Return: Zero on success
+ */
+int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
+		struct drm_framebuffer *fb);
 
 #endif /* __sde_encoder_phys_H__ */
