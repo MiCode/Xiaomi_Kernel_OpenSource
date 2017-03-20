@@ -1173,8 +1173,8 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	/* will be enabled in dwc3_msm_resume() */
 	irq_set_status_flags(irq, IRQ_NOAUTOEN);
-	ret = devm_request_threaded_irq(dev, irq, NULL, dwc3_interrupt,
-			IRQF_SHARED | IRQF_ONESHOT, "dwc3", dwc);
+	ret = devm_request_irq(dev, irq, dwc3_interrupt, IRQF_SHARED, "dwc3",
+			dwc);
 	if (ret) {
 		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
 				irq, ret);
@@ -1314,6 +1314,14 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	spin_lock_init(&dwc->lock);
 
+	dwc->dwc_wq = alloc_ordered_workqueue("dwc_wq", WQ_HIGHPRI);
+	if (!dwc->dwc_wq) {
+		pr_err("%s: Unable to create workqueue dwc_wq\n", __func__);
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&dwc->bh_work, dwc3_bh_work);
+
 	pm_runtime_no_callbacks(dev);
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
@@ -1385,6 +1393,7 @@ err0:
 	 * memory region the next time probe is called.
 	 */
 	res->start -= DWC3_GLOBALS_REGS_START;
+	destroy_workqueue(dwc->dwc_wq);
 
 	return ret;
 }
@@ -1407,6 +1416,8 @@ static int dwc3_remove(struct platform_device *pdev)
 
 	dwc3_core_exit(dwc);
 	dwc3_ulpi_exit(dwc);
+
+	destroy_workqueue(dwc->dwc_wq);
 
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_allow(&pdev->dev);
