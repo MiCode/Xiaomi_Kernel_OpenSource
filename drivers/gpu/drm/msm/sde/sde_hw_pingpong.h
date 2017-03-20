@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,11 +49,13 @@ struct sde_hw_dsc_cfg {
  *
  * struct sde_hw_pingpong_ops : Interface to the pingpong Hw driver functions
  *  Assumption is these functions will be called after clocks are enabled
- *  @setup_tearcheck :
- *  @enable_tearcheck :
- *  @get_vsync_info :
- *  @setup_autorefresh :
- *  #setup_dsc :
+ *  @setup_tearcheck : program tear check values
+ *  @enable_tearcheck : enables tear check
+ *  @get_vsync_info : retries timing info of the panel
+ *  @setup_autorefresh : program auto refresh
+ *  @setup_dsc : program DSC block with encoding details
+ *  @enable_dsc : enables DSC encoder
+ *  @disable_dsc : disables DSC encoder
  */
 struct sde_hw_pingpong_ops {
 	/**
@@ -85,8 +87,17 @@ struct sde_hw_pingpong_ops {
 	/**
 	 * Program the dsc compression block
 	 */
-	int (*setup_dsc)(struct sde_hw_pingpong *pp,
-			struct sde_hw_dsc_cfg *cfg);
+	int (*setup_dsc)(struct sde_hw_pingpong *pp);
+
+	/**
+	 * Enables DSC encoder
+	 */
+	void (*enable_dsc)(struct sde_hw_pingpong *pp);
+
+	/**
+	 * Disables DSC encoder
+	 */
+	void (*disable_dsc)(struct sde_hw_pingpong *pp);
 };
 
 struct sde_hw_pingpong {

@@ -169,12 +169,10 @@ struct msm_vblank_ctrl {
  * enum msm_display_compression_type - compression method used for pixel stream
  * @MSM_DISPLAY_COMPRESSION_NONE:     Pixel data is not compressed
  * @MSM_DISPLAY_COMPRESSION_DSC:      DSC compresison is used
- * @MSM_DISPLAY_COMPRESSION_FBC:      FBC compression is used
  */
 enum msm_display_compression_type {
 	MSM_DISPLAY_COMPRESSION_NONE,
 	MSM_DISPLAY_COMPRESSION_DSC,
-	MSM_DISPLAY_COMPRESSION_FBC,
 };
 
 /**

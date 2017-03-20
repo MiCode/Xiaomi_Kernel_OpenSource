@@ -33,8 +33,8 @@
 #include "sde_encoder_phys.h"
 #include "sde_color_processing.h"
 #include "sde_rsc.h"
-
 #include "sde_power_handle.h"
+#include "sde_hw_dsc.h"
 
 #define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
 		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
@@ -72,6 +72,7 @@
  *			Only valid after enable. Cleared as disable.
  * @hw_pp		Handle to the pingpong blocks used for the display. No.
  *                      pingpong blocks can be different than num_phys_encs.
+ * @hw_dsc:		Array of DSC block handles used for the display.
  * @crtc_vblank_cb:	Callback into the upper layer / CRTC for
  *			notification of the VBLANK
  * @crtc_vblank_cb_data:	Data from upper layer for VBLANK notification
@@ -101,6 +102,7 @@ struct sde_encoder_virt {
 	struct sde_encoder_phys *phys_encs[MAX_PHYS_ENCODERS_PER_VIRTUAL];
 	struct sde_encoder_phys *cur_master;
 	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
+	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC];
 
 	void (*crtc_vblank_cb)(void *);
 	void *crtc_vblank_cb_data;
@@ -122,6 +124,13 @@ struct sde_encoder_virt {
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
 
+inline bool _sde_is_dsc_enabled(struct sde_encoder_virt *sde_enc)
+{
+	struct msm_compression_info *comp_info = &sde_enc->disp_info.comp_info;
+
+	return (comp_info->comp_type == MSM_DISPLAY_COMPRESSION_DSC);
+}
+
 void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 		struct sde_encoder_hw_resources *hw_res,
 		struct drm_connector_state *conn_state)
@@ -141,6 +150,9 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 	/* Query resources used by phys encs, expected to be without overlap */
 	memset(hw_res, 0, sizeof(*hw_res));
 	hw_res->display_num_of_h_tiles = sde_enc->display_num_of_h_tiles;
+
+	if (_sde_is_dsc_enabled(sde_enc))
+		hw_res->needs_dsc = true;
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
@@ -298,6 +310,319 @@ static int sde_encoder_virt_atomic_check(
 	return ret;
 }
 
+static int _sde_encoder_dsc_update_pic_dim(struct msm_display_dsc_info *dsc,
+		int pic_width, int pic_height)
+{
+	if (!dsc || !pic_width || !pic_height) {
+		SDE_ERROR("invalid input: pic_width=%d pic_height=%d\n",
+			pic_width, pic_height);
+		return -EINVAL;
+	}
+
+	if ((pic_width % dsc->slice_width) ||
+	    (pic_height % dsc->slice_height)) {
+		SDE_ERROR("pic_dim=%dx%d has to be multiple of slice=%dx%d\n",
+			pic_width, pic_height,
+			dsc->slice_width, dsc->slice_height);
+		return -EINVAL;
+	}
+
+	dsc->pic_width = pic_width;
+	dsc->pic_height = pic_height;
+
+	return 0;
+}
+
+static void _sde_encoder_dsc_pclk_param_calc(struct msm_display_dsc_info *dsc,
+		int intf_width)
+{
+	int slice_per_pkt, slice_per_intf;
+	int bytes_in_slice, total_bytes_per_intf;
+
+	if (!dsc || !dsc->slice_width || !dsc->slice_per_pkt ||
+	    (intf_width < dsc->slice_width)) {
+		SDE_ERROR("invalid input: intf_width=%d slice_width=%d\n",
+			intf_width, dsc ? dsc->slice_width : -1);
+		return;
+	}
+
+	slice_per_pkt = dsc->slice_per_pkt;
+	slice_per_intf = DIV_ROUND_UP(intf_width, dsc->slice_width);
+
+	/*
+	 * If slice_per_pkt is greater than slice_per_intf then default to 1.
+	 * This can happen during partial update.
+	 */
+	if (slice_per_pkt > slice_per_intf)
+		slice_per_pkt = 1;
+
+	bytes_in_slice = DIV_ROUND_UP(dsc->slice_width * dsc->bpp, 8);
+	total_bytes_per_intf = bytes_in_slice * slice_per_intf;
+
+	dsc->eol_byte_num = total_bytes_per_intf % 3;
+	dsc->pclk_per_line =  DIV_ROUND_UP(total_bytes_per_intf, 3);
+	dsc->bytes_in_slice = bytes_in_slice;
+	dsc->bytes_per_pkt = bytes_in_slice * slice_per_pkt;
+	dsc->pkt_per_line = slice_per_intf / slice_per_pkt;
+}
+
+static int _sde_encoder_dsc_initial_line_calc(struct msm_display_dsc_info *dsc,
+		int enc_ip_width)
+{
+	int ssm_delay, total_pixels, soft_slice_per_enc;
+
+	soft_slice_per_enc = enc_ip_width / dsc->slice_width;
+
+	/*
+	 * minimum number of initial line pixels is a sum of:
+	 * 1. sub-stream multiplexer delay (83 groups for 8bpc,
+	 *    91 for 10 bpc) * 3
+	 * 2. for two soft slice cases, add extra sub-stream multiplexer * 3
+	 * 3. the initial xmit delay
+	 * 4. total pipeline delay through the "lock step" of encoder (47)
+	 * 5. 6 additional pixels as the output of the rate buffer is
+	 *    48 bits wide
+	 */
+	ssm_delay = ((dsc->bpc < 10) ? 84 : 92);
+	total_pixels = ssm_delay * 3 + dsc->initial_xmit_delay + 47;
+	if (soft_slice_per_enc > 1)
+		total_pixels += (ssm_delay * 3);
+	dsc->initial_lines = DIV_ROUND_UP(total_pixels, dsc->slice_width);
+	return 0;
+}
+
+static bool _sde_encoder_dsc_ich_reset_override_needed(bool pu_en,
+		struct msm_display_dsc_info *dsc)
+{
+	/*
+	 * As per the DSC spec, ICH_RESET can be either end of the slice line
+	 * or at the end of the slice. HW internally generates ich_reset at
+	 * end of the slice line if DSC_MERGE is used or encoder has two
+	 * soft slices. However, if encoder has only 1 soft slice and DSC_MERGE
+	 * is not used then it will generate ich_reset at the end of slice.
+	 *
+	 * Now as per the spec, during one PPS session, position where
+	 * ich_reset is generated should not change. Now if full-screen frame
+	 * has more than 1 soft slice then HW will automatically generate
+	 * ich_reset at the end of slice_line. But for the same panel, if
+	 * partial frame is enabled and only 1 encoder is used with 1 slice,
+	 * then HW will generate ich_reset at end of the slice. This is a
+	 * mismatch. Prevent this by overriding HW's decision.
+	 */
+	return pu_en && dsc && (dsc->full_frame_slices > 1) &&
+		(dsc->slice_width == dsc->pic_width);
+}
+
+static void _sde_encoder_dsc_pipe_cfg(struct sde_hw_dsc *hw_dsc,
+		struct sde_hw_pingpong *hw_pp, struct msm_display_dsc_info *dsc,
+		u32 common_mode, bool ich_reset)
+{
+	if (hw_dsc->ops.dsc_config)
+		hw_dsc->ops.dsc_config(hw_dsc, dsc, common_mode, ich_reset);
+
+	if (hw_dsc->ops.dsc_config_thresh)
+		hw_dsc->ops.dsc_config_thresh(hw_dsc, dsc);
+
+	if (hw_pp->ops.setup_dsc)
+		hw_pp->ops.setup_dsc(hw_pp);
+
+	if (hw_pp->ops.enable_dsc)
+		hw_pp->ops.enable_dsc(hw_pp);
+}
+
+static int _sde_encoder_dsc_1_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
+{
+	int pic_width, pic_height;
+	int this_frame_slices;
+	int intf_ip_w, enc_ip_w;
+	int ich_res, dsc_common_mode = 0;
+
+	struct sde_hw_pingpong *hw_pp = sde_enc->hw_pp[0];
+	struct sde_hw_dsc *hw_dsc = sde_enc->hw_dsc[0];
+	struct sde_encoder_phys *enc_master = sde_enc->cur_master;
+	struct sde_hw_mdp *hw_mdp_top  = enc_master->hw_mdptop;
+	struct msm_display_dsc_info *dsc =
+		&sde_enc->disp_info.comp_info.dsc_info;
+
+	if (dsc == NULL || hw_dsc == NULL || hw_pp == NULL ||
+						hw_mdp_top == NULL) {
+		SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
+		return -EINVAL;
+	}
+
+	pic_width = dsc->pic_width;
+	pic_height = dsc->pic_height;
+
+	_sde_encoder_dsc_update_pic_dim(dsc, pic_width, pic_height);
+
+	this_frame_slices = pic_width / dsc->slice_width;
+	intf_ip_w = this_frame_slices * dsc->slice_width;
+	_sde_encoder_dsc_pclk_param_calc(dsc, intf_ip_w);
+
+	enc_ip_w = intf_ip_w;
+	_sde_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
+
+	ich_res = _sde_encoder_dsc_ich_reset_override_needed(false, dsc);
+
+	if (enc_master->intf_mode == INTF_MODE_VIDEO)
+		dsc_common_mode = DSC_MODE_VIDEO;
+
+	SDE_DEBUG_ENC(sde_enc, "pic_w: %d pic_h: %d mode:%d\n",
+		pic_width, pic_height, dsc_common_mode);
+	SDE_EVT32(DRMID(&sde_enc->base), pic_width, pic_height,
+			dsc_common_mode);
+
+	_sde_encoder_dsc_pipe_cfg(hw_dsc, hw_pp, dsc, dsc_common_mode,
+			ich_res);
+
+	return 0;
+}
+static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc)
+{
+	int pic_width, pic_height;
+	int this_frame_slices;
+	int intf_ip_w, enc_ip_w;
+	int ich_res, dsc_common_mode;
+
+	struct sde_encoder_phys *enc_master = sde_enc->cur_master;
+	struct sde_hw_dsc *l_hw_dsc = sde_enc->hw_dsc[0];
+	struct sde_hw_dsc *r_hw_dsc = sde_enc->hw_dsc[1];
+	struct sde_hw_pingpong *l_hw_pp = sde_enc->hw_pp[0];
+	struct sde_hw_pingpong *r_hw_pp = sde_enc->hw_pp[1];
+	struct sde_hw_mdp *hw_mdp_top  = enc_master->hw_mdptop;
+	struct msm_display_dsc_info *dsc =
+		&sde_enc->disp_info.comp_info.dsc_info;
+
+	if (l_hw_dsc == NULL || r_hw_dsc == NULL || hw_mdp_top == NULL ||
+		l_hw_pp == NULL || r_hw_pp == NULL) {
+		SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
+		return -EINVAL;
+	}
+
+	pic_width = dsc->pic_width * sde_enc->display_num_of_h_tiles;
+	pic_height = dsc->pic_height;
+
+	_sde_encoder_dsc_update_pic_dim(dsc, pic_width, pic_height);
+
+	this_frame_slices = pic_width / dsc->slice_width;
+	intf_ip_w = this_frame_slices * dsc->slice_width;
+
+	intf_ip_w /= 2;
+	_sde_encoder_dsc_pclk_param_calc(dsc, intf_ip_w);
+
+	enc_ip_w = intf_ip_w;
+	_sde_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
+
+	ich_res = _sde_encoder_dsc_ich_reset_override_needed(false, dsc);
+
+	dsc_common_mode = DSC_MODE_SPLIT_PANEL;
+	if (enc_master->intf_mode == INTF_MODE_VIDEO)
+		dsc_common_mode |= DSC_MODE_VIDEO;
+
+	SDE_DEBUG_ENC(sde_enc, "pic_w: %d pic_h: %d mode:%d\n",
+		pic_width, pic_height, dsc_common_mode);
+	SDE_EVT32(DRMID(&sde_enc->base), pic_width, pic_height,
+			dsc_common_mode);
+
+	_sde_encoder_dsc_pipe_cfg(l_hw_dsc, l_hw_pp, dsc, dsc_common_mode,
+			ich_res);
+	_sde_encoder_dsc_pipe_cfg(r_hw_dsc, r_hw_pp, dsc, dsc_common_mode,
+			ich_res);
+
+	return 0;
+}
+
+static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc)
+{
+	int pic_width, pic_height;
+	int this_frame_slices;
+	int intf_ip_w, enc_ip_w;
+	int ich_res, dsc_common_mode;
+
+	struct sde_encoder_phys *enc_master = sde_enc->cur_master;
+	struct sde_hw_dsc *l_hw_dsc = sde_enc->hw_dsc[0];
+	struct sde_hw_dsc *r_hw_dsc = sde_enc->hw_dsc[1];
+	struct sde_hw_pingpong *l_hw_pp = sde_enc->hw_pp[0];
+	struct sde_hw_pingpong *r_hw_pp = sde_enc->hw_pp[1];
+	struct sde_hw_mdp *hw_mdp_top  = enc_master->hw_mdptop;
+	struct msm_display_dsc_info *dsc =
+		&sde_enc->disp_info.comp_info.dsc_info;
+
+	if (l_hw_dsc == NULL || r_hw_dsc == NULL || hw_mdp_top == NULL ||
+					l_hw_pp == NULL || r_hw_pp == NULL) {
+		SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
+		return -EINVAL;
+	}
+
+	pic_width = dsc->pic_width;
+	pic_height = dsc->pic_height;
+	_sde_encoder_dsc_update_pic_dim(dsc, pic_width, pic_height);
+
+	this_frame_slices = pic_width / dsc->slice_width;
+	intf_ip_w = this_frame_slices * dsc->slice_width;
+	_sde_encoder_dsc_pclk_param_calc(dsc, intf_ip_w);
+
+	/*
+	 * when using 2 encoders for the same stream, no. of slices
+	 * need to be same on both the encoders.
+	 */
+	enc_ip_w = intf_ip_w / 2;
+	_sde_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
+
+	ich_res = _sde_encoder_dsc_ich_reset_override_needed(false, dsc);
+
+	dsc_common_mode = DSC_MODE_MULTIPLEX | DSC_MODE_SPLIT_PANEL;
+	if (enc_master->intf_mode == INTF_MODE_VIDEO)
+		dsc_common_mode |= DSC_MODE_VIDEO;
+
+	SDE_DEBUG_ENC(sde_enc, "pic_w: %d pic_h: %d mode:%d\n",
+		pic_width, pic_height, dsc_common_mode);
+	SDE_EVT32(DRMID(&sde_enc->base), pic_width, pic_height,
+			dsc_common_mode);
+
+	_sde_encoder_dsc_pipe_cfg(l_hw_dsc, l_hw_pp, dsc, dsc_common_mode,
+			ich_res);
+	_sde_encoder_dsc_pipe_cfg(r_hw_dsc, r_hw_pp, dsc, dsc_common_mode,
+			ich_res);
+
+	return 0;
+}
+
+static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc)
+{
+	enum sde_rm_topology_name topology;
+	struct drm_connector *drm_conn = sde_enc->phys_encs[0]->connector;
+	int ret = 0;
+
+	topology = sde_connector_get_topology_name(drm_conn);
+	if (topology == SDE_RM_TOPOLOGY_UNKNOWN) {
+		SDE_ERROR_ENC(sde_enc, "topology not set yet\n");
+		return -EINVAL;
+	}
+
+	SDE_DEBUG_ENC(sde_enc, "\n");
+	SDE_EVT32(DRMID(&sde_enc->base));
+
+	switch (topology) {
+	case SDE_RM_TOPOLOGY_SINGLEPIPE:
+		ret = _sde_encoder_dsc_1_lm_1_enc_1_intf(sde_enc);
+		break;
+	case SDE_RM_TOPOLOGY_DUALPIPEMERGE:
+		ret = _sde_encoder_dsc_2_lm_2_enc_1_intf(sde_enc);
+		break;
+	case SDE_RM_TOPOLOGY_DUALPIPE:
+		ret = _sde_encoder_dsc_2_lm_2_enc_2_intf(sde_enc);
+		break;
+	case SDE_RM_TOPOLOGY_PPSPLIT:
+	default:
+		SDE_ERROR_ENC(sde_enc, "No DSC support for topology %d",
+				topology);
+		return -EINVAL;
+	};
+
+	return ret;
+}
+
 static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 				      struct drm_display_mode *mode,
 				      struct drm_display_mode *adj_mode)
@@ -307,7 +632,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	struct sde_kms *sde_kms;
 	struct list_head *connector_list;
 	struct drm_connector *conn = NULL, *conn_iter;
-	struct sde_rm_hw_iter pp_iter;
+	struct sde_rm_hw_iter dsc_iter, pp_iter;
 	int i = 0, ret;
 
 	if (!drm_enc) {
@@ -353,6 +678,14 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 		sde_enc->hw_pp[i] = (struct sde_hw_pingpong *) pp_iter.hw;
 	}
 
+	sde_rm_init_hw_iter(&dsc_iter, drm_enc->base.id, SDE_HW_BLK_DSC);
+	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
+		sde_enc->hw_dsc[i] = NULL;
+		if (!sde_rm_get_hw(&sde_kms->rm, &dsc_iter))
+			break;
+		sde_enc->hw_dsc[i] = (struct sde_hw_dsc *) dsc_iter.hw;
+	}
+
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
@@ -376,6 +709,7 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	int i = 0;
+	int ret = 0;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -417,6 +751,13 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		SDE_ERROR("virt encoder has no master! num_phys %d\n", i);
 	else if (sde_enc->cur_master->ops.enable)
 		sde_enc->cur_master->ops.enable(sde_enc->cur_master);
+
+	if (_sde_is_dsc_enabled(sde_enc)) {
+		ret = _sde_encoder_dsc_setup(sde_enc);
+		if (ret)
+			SDE_ERROR_ENC(sde_enc, "failed to setup DSC: %d\n",
+					ret);
+	}
 }
 
 static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
@@ -1284,6 +1625,8 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	sde_enc->display_num_of_h_tiles = disp_info->num_of_h_tiles;
 
 	SDE_DEBUG("dsi_info->num_of_h_tiles %d\n", disp_info->num_of_h_tiles);
+
+	phys_params.comp_type = disp_info->comp_info.comp_type;
 
 	mutex_lock(&sde_enc->enc_lock);
 	for (i = 0; i < disp_info->num_of_h_tiles && !ret; i++) {

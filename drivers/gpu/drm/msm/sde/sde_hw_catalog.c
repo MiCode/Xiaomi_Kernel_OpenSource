@@ -162,10 +162,14 @@ enum {
 	TE_LEN,
 	TE2_OFF,
 	TE2_LEN,
-	DSC_OFF,
-	DSC_LEN,
 	PP_SLAVE,
 	PP_PROP_MAX,
+};
+
+enum {
+	DSC_OFF,
+	DSC_LEN,
+	DSC_PROP_MAX,
 };
 
 enum {
@@ -387,9 +391,12 @@ static struct sde_prop_type pp_prop[] = {
 	{TE_LEN, "qcom,sde-te-size", false, PROP_TYPE_U32},
 	{TE2_OFF, "qcom,sde-te2-off", false, PROP_TYPE_U32_ARRAY},
 	{TE2_LEN, "qcom,sde-te2-size", false, PROP_TYPE_U32},
+	{PP_SLAVE, "qcom,sde-pp-slave", false, PROP_TYPE_U32_ARRAY},
+};
+
+static struct sde_prop_type dsc_prop[] = {
 	{DSC_OFF, "qcom,sde-dsc-off", false, PROP_TYPE_U32_ARRAY},
 	{DSC_LEN, "qcom,sde-dsc-size", false, PROP_TYPE_U32},
-	{PP_SLAVE, "qcom,sde-pp-slave", false, PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type cdm_prop[] = {
@@ -1649,6 +1656,54 @@ end:
 	return rc;
 }
 
+static int sde_dsc_parse_dt(struct device_node *np,
+			struct sde_mdss_cfg *sde_cfg)
+{
+	int rc, prop_count[MAX_BLOCKS], i;
+	struct sde_prop_value *prop_value = NULL;
+	bool prop_exists[DSC_PROP_MAX];
+	u32 off_count;
+	struct sde_dsc_cfg *dsc;
+
+	if (!sde_cfg) {
+		SDE_ERROR("invalid argument\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	prop_value = kzalloc(DSC_PROP_MAX *
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!prop_value) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	rc = _validate_dt_entry(np, dsc_prop, ARRAY_SIZE(dsc_prop), prop_count,
+		&off_count);
+	if (rc)
+		goto end;
+
+	sde_cfg->dsc_count = off_count;
+
+	rc = _read_dt_entry(np, dsc_prop, ARRAY_SIZE(dsc_prop), prop_count,
+		prop_exists, prop_value);
+	if (rc)
+		goto end;
+
+	for (i = 0; i < off_count; i++) {
+		dsc = sde_cfg->dsc + i;
+		dsc->base = PROP_VALUE_ACCESS(prop_value, DSC_OFF, i);
+		dsc->id = DSC_0 + i;
+		dsc->len = PROP_VALUE_ACCESS(prop_value, DSC_LEN, 0);
+		if (!prop_exists[DSC_LEN])
+			dsc->len = DEFAULT_SDE_HW_BLOCK_LEN;
+	}
+
+end:
+	kfree(prop_value);
+	return rc;
+};
+
 static int sde_cdm_parse_dt(struct device_node *np,
 				struct sde_mdss_cfg *sde_cfg)
 {
@@ -2301,6 +2356,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 		goto end;
 
 	rc = sde_dspp_parse_dt(np, sde_cfg);
+	if (rc)
+		goto end;
+
+	rc = sde_dsc_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
 

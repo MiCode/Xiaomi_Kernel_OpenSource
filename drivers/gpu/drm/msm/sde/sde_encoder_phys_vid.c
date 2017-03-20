@@ -15,6 +15,7 @@
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
 #include "sde_formats.h"
+#include "dsi_display.h"
 
 #define SDE_DEBUG_VIDENC(e, fmt, ...) SDE_DEBUG("enc%d intf%d " fmt, \
 		(e) && (e)->base.parent ? \
@@ -58,6 +59,9 @@ static void drm_mode_to_intf_timing_params(
 	 * <---------------------------- [hv]total ------------->
 	 */
 	timing->width = mode->hdisplay;	/* active width */
+	if (vid_enc->base.comp_type == MSM_DISPLAY_COMPRESSION_DSC)
+		timing->width = DIV_ROUND_UP(timing->width, 3);
+
 	timing->height = mode->vdisplay;	/* active height */
 	timing->xres = timing->width;
 	timing->yres = timing->height;
@@ -878,6 +882,7 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 	phys_enc->split_role = p->split_role;
 	phys_enc->intf_mode = INTF_MODE_VIDEO;
 	phys_enc->enc_spinlock = p->enc_spinlock;
+	phys_enc->comp_type = p->comp_type;
 	for (i = 0; i < INTR_IDX_MAX; i++)
 		INIT_LIST_HEAD(&vid_enc->irq_cb[i].list);
 	atomic_set(&phys_enc->vblank_refcount, 0);

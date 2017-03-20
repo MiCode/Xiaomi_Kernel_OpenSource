@@ -756,6 +756,7 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	phys_enc->enc_spinlock = p->enc_spinlock;
 	cmd_enc->stream_sel = 0;
 	phys_enc->enable_state = SDE_ENC_DISABLED;
+	phys_enc->comp_type = p->comp_type;
 	for (i = 0; i < INTR_IDX_MAX; i++)
 		INIT_LIST_HEAD(&cmd_enc->irq_cb[i].list);
 	atomic_set(&phys_enc->vblank_refcount, 0);

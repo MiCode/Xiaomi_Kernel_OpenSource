@@ -23,6 +23,7 @@
 #include "sde_hw_wb.h"
 #include "sde_encoder.h"
 #include "sde_connector.h"
+#include "sde_hw_dsc.h"
 
 #define RESERVED_BY_OTHER(h, r) \
 	((h)->rsvp && ((h)->rsvp->enc_id != (r)->enc_id))
@@ -221,6 +222,9 @@ static void _sde_rm_hw_destroy(enum sde_hw_blk_type type, void *hw)
 	case SDE_HW_BLK_WB:
 		sde_hw_wb_destroy(hw);
 		break;
+	case SDE_HW_BLK_DSC:
+		sde_hw_dsc_destroy(hw);
+		break;
 	case SDE_HW_BLK_SSPP:
 		/* SSPPs are not managed by the resource manager */
 	case SDE_HW_BLK_TOP:
@@ -308,6 +312,10 @@ static int _sde_rm_hw_blk_create(
 	case SDE_HW_BLK_WB:
 		hw = sde_hw_wb_init(id, mmio, cat, hw_mdp);
 		name = "wb";
+		break;
+	case SDE_HW_BLK_DSC:
+		hw = sde_hw_dsc_init(id, mmio, cat);
+		name = "dsc";
 		break;
 	case SDE_HW_BLK_SSPP:
 		/* SSPPs are not managed by the resource manager */
@@ -412,6 +420,15 @@ int sde_rm_init(struct sde_rm *rm,
 				cat->pingpong[i].id, &cat->pingpong[i]);
 		if (rc) {
 			SDE_ERROR("failed: pp hw not available\n");
+			goto fail;
+		}
+	}
+
+	for (i = 0; i < cat->dsc_count; i++) {
+		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_DSC,
+			cat->dsc[i].id, &cat->dsc[i]);
+		if (rc) {
+			SDE_ERROR("failed: dsc hw not available\n");
 			goto fail;
 		}
 	}
@@ -723,6 +740,37 @@ static int _sde_rm_reserve_ctls(
 	return 0;
 }
 
+static int _sde_rm_reserve_dsc(
+		struct sde_rm *rm,
+		struct sde_rm_rsvp *rsvp,
+		struct sde_rm_requirements *reqs)
+{
+	struct sde_rm_hw_iter iter;
+	int alloc_count = 0;
+	int num_dsc_enc = reqs->num_lm;
+
+	if (!reqs->hw_res.needs_dsc)
+		return 0;
+
+	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_DSC);
+
+	while (sde_rm_get_hw(rm, &iter)) {
+		if (RESERVED_BY_OTHER(iter.blk, rsvp))
+			continue;
+
+		iter.blk->rsvp_nxt = rsvp;
+		SDE_EVT32(iter.blk->type, rsvp->enc_id, iter.blk->id);
+
+		if (++alloc_count == num_dsc_enc)
+			return 0;
+	}
+
+	SDE_ERROR("couldn't reserve %d dsc blocks for enc id %d\n",
+		num_dsc_enc, rsvp->enc_id);
+
+	return -ENAVAIL;
+}
+
 static int _sde_rm_reserve_cdm(
 		struct sde_rm *rm,
 		struct sde_rm_rsvp *rsvp,
@@ -889,6 +937,10 @@ static int _sde_rm_make_next_rsvp(
 	if (ret)
 		return ret;
 
+	ret = _sde_rm_reserve_dsc(rm, rsvp, reqs);
+	if (ret)
+		return ret;
+
 	return ret;
 }
 
@@ -937,6 +989,10 @@ static int _sde_rm_populate_requirements(
 	reqs->top_ctrl = sde_connector_get_property(conn_state,
 			CONNECTOR_PROP_TOPOLOGY_CONTROL);
 	sde_encoder_get_hw_resources(enc, &reqs->hw_res, conn_state);
+
+	/* DSC blocks are hardwired for control path 0 and 1 */
+	if (reqs->hw_res.needs_dsc)
+		reqs->top_ctrl |= BIT(SDE_RM_TOPCTL_DSPP);
 
 	/* Base assumption is LMs = h_tiles, conditions below may override */
 	reqs->num_lm = reqs->hw_res.display_num_of_h_tiles;

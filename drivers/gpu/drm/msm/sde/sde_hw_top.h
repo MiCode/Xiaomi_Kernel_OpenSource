@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -125,6 +125,13 @@ struct sde_hw_mdp_ops {
 	 */
 	bool (*setup_clk_force_ctrl)(struct sde_hw_mdp *mdp,
 			enum sde_clk_ctrl_type clk_ctrl, bool enable);
+
+	/**
+	 * setup_dce - set DCE mux for DSC ctrl path
+	 * @mdp: mdp top context driver
+	 * @dce_sel: dce_mux value
+	 */
+	void (*setup_dce)(struct sde_hw_mdp *mdp, u32 dce_sel);
 
 	/**
 	 * get_danger_status - get danger status
