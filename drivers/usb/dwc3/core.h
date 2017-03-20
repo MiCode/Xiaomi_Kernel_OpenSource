@@ -1022,6 +1022,9 @@ struct dwc3 {
 
 	u16			imod_interval;
 
+	struct workqueue_struct	*dwc_wq;
+	struct work_struct	bh_work;
+
 	/* IRQ timing statistics */
 	int			irq;
 	unsigned long		irq_cnt;
