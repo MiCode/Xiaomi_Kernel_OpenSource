@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015,2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,8 +39,8 @@ static bool input_boost_enabled;
 static unsigned int input_boost_ms = 40;
 module_param(input_boost_ms, uint, 0644);
 
-static bool sched_boost_on_input;
-module_param(sched_boost_on_input, bool, 0644);
+static unsigned int sched_boost_on_input;
+module_param(sched_boost_on_input, uint, 0644);
 
 static bool sched_boost_active;
 
@@ -209,8 +209,8 @@ static void do_input_boost(struct work_struct *work)
 	update_policy_online();
 
 	/* Enable scheduler boost to migrate tasks to big cluster */
-	if (sched_boost_on_input) {
-		ret = sched_set_boost(1);
+	if (sched_boost_on_input > 0) {
+		ret = sched_set_boost(sched_boost_on_input);
 		if (ret)
 			pr_err("cpu-boost: sched boost enable failed\n");
 		else
