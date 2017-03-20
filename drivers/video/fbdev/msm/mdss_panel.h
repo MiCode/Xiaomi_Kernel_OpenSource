@@ -29,6 +29,9 @@ struct panel_id {
 #define DEFAULT_FRAME_RATE	60
 #define DEFAULT_ROTATOR_FRAME_RATE 120
 #define ROTATOR_LOW_FRAME_RATE 30
+
+#define MDSS_DSI_MAX_ESC_CLK_RATE_HZ	19200000
+
 #define MDSS_DSI_RST_SEQ_LEN	10
 /* worst case prefill lines for all chipsets including all vertical blank */
 #define MDSS_MDP_MAX_PREFILL_FETCH 25
@@ -909,6 +912,9 @@ struct mdss_panel_info {
 
 	/* HDR properties of display panel*/
 	struct mdss_panel_hdr_properties hdr_properties;
+
+	/* esc clk recommended for the panel */
+	u32 esc_clk_rate_hz;
 };
 
 struct mdss_panel_timing {
