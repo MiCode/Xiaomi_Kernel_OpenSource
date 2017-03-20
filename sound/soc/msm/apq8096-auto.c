@@ -69,6 +69,7 @@ static int msm_tert_tdm_rx_0_ch = 2; /* ICC STREAM */
 static int msm_tert_tdm_rx_1_ch = 2;
 static int msm_tert_tdm_rx_2_ch = 2;
 static int msm_tert_tdm_rx_3_ch = 2;
+static int msm_tert_tdm_rx_4_ch;
 
 static int msm_tert_tdm_tx_0_ch = 6; /* EC_REF1-EC_REF6(6 CHAN) */
 static int msm_tert_tdm_tx_1_ch = 1;
@@ -95,6 +96,7 @@ static int msm_tert_tdm_rx_0_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_tert_tdm_rx_1_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_tert_tdm_rx_2_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_tert_tdm_rx_3_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+static int msm_tert_tdm_rx_4_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 
 static int msm_tert_tdm_tx_0_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_tert_tdm_tx_1_bit_format = SNDRV_PCM_FORMAT_S16_LE;
@@ -778,6 +780,24 @@ static int msm_tert_tdm_rx_3_ch_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_tert_tdm_rx_4_ch_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_tert_tdm_rx_4_ch = %d\n", __func__,
+		msm_tert_tdm_rx_4_ch);
+	ucontrol->value.integer.value[0] = msm_tert_tdm_rx_4_ch - 1;
+	return 0;
+}
+
+static int msm_tert_tdm_rx_4_ch_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	msm_tert_tdm_rx_4_ch = ucontrol->value.integer.value[0] + 1;
+	pr_debug("%s: msm_tert_tdm_rx_4_ch = %d\n", __func__,
+		msm_tert_tdm_rx_4_ch);
+	return 0;
+}
+
 static int msm_tert_tdm_tx_0_ch_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
@@ -1263,6 +1283,40 @@ static int msm_tert_tdm_rx_3_bit_format_put(struct snd_kcontrol *kcontrol,
 	}
 	pr_debug("%s: msm_tert_tdm_rx_3_bit_format = %d\n",
 		 __func__, msm_tert_tdm_rx_3_bit_format);
+	return 0;
+}
+
+static int msm_tert_tdm_rx_4_bit_format_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	switch (msm_tert_tdm_rx_4_bit_format) {
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+	pr_debug("%s: msm_tert_tdm_rx_4_bit_format = %ld\n",
+		 __func__, ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_tert_tdm_rx_4_bit_format_put(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		msm_tert_tdm_rx_4_bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		msm_tert_tdm_rx_4_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	pr_debug("%s: msm_tert_tdm_rx_4_bit_format = %d\n",
+		 __func__, msm_tert_tdm_rx_4_bit_format);
 	return 0;
 }
 
@@ -1962,6 +2016,11 @@ static int msm_tdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
 			msm_tert_tdm_rx_3_bit_format);
 		break;
+	case AFE_PORT_ID_TERTIARY_TDM_RX_4:
+		channels->min = channels->max = msm_tert_tdm_rx_4_ch;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			msm_tert_tdm_rx_4_bit_format);
+		break;
 	case AFE_PORT_ID_TERTIARY_TDM_TX:
 		channels->min = channels->max = msm_tert_tdm_tx_0_ch;
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
@@ -2548,6 +2607,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_tert_tdm_rx_2_ch_get, msm_tert_tdm_rx_2_ch_put),
 	SOC_ENUM_EXT("TERT_TDM_RX_3 Channels", msm_snd_enum[5],
 			msm_tert_tdm_rx_3_ch_get, msm_tert_tdm_rx_3_ch_put),
+	SOC_ENUM_EXT("TERT_TDM_RX_4 Channels", msm_snd_enum[5],
+			msm_tert_tdm_rx_4_ch_get, msm_tert_tdm_rx_4_ch_put),
 	SOC_ENUM_EXT("TERT_TDM_TX_0 Channels", msm_snd_enum[5],
 			msm_tert_tdm_tx_0_ch_get, msm_tert_tdm_tx_0_ch_put),
 	SOC_ENUM_EXT("TERT_TDM_TX_1 Channels", msm_snd_enum[5],
@@ -2596,6 +2657,9 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("TERT_TDM_RX_3 Bit Format", msm_snd_enum[6],
 			msm_tert_tdm_rx_3_bit_format_get,
 			msm_tert_tdm_rx_3_bit_format_put),
+	SOC_ENUM_EXT("TERT_TDM_RX_4 Bit Format", msm_snd_enum[6],
+			msm_tert_tdm_rx_4_bit_format_get,
+			msm_tert_tdm_rx_4_bit_format_put),
 	SOC_ENUM_EXT("TERT_TDM_TX_0 Bit Format", msm_snd_enum[6],
 			msm_tert_tdm_tx_0_bit_format_get,
 			msm_tert_tdm_tx_0_bit_format_put),
@@ -3917,6 +3981,20 @@ static struct snd_soc_dai_link apq8096_auto_be_dai_links[] = {
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_TERT_TDM_RX_3,
+		.be_hw_params_fixup = msm_tdm_be_hw_params_fixup,
+		.ops = &apq8096_tdm_be_ops,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_TERT_TDM_RX_4,
+		.stream_name = "Tertiary TDM4 Playback",
+		.cpu_dai_name = "msm-dai-q6-tdm.36904",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_TERT_TDM_RX_4,
 		.be_hw_params_fixup = msm_tdm_be_hw_params_fixup,
 		.ops = &apq8096_tdm_be_ops,
 		.ignore_suspend = 1,

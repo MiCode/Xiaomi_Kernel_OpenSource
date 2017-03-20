@@ -125,7 +125,7 @@ void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 					MDSS_STATUS_TE_WAIT_MAX;
 
 		if (mdp3_check_te_status(ctrl_pdata, pdsi_status, timeout) > 0)
-			return;
+			goto sim;
 		goto status_dead;
 	}
 
@@ -152,7 +152,7 @@ void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 		else
 			goto status_dead;
 	}
-
+sim:
 	if (pdata->panel_info.panel_force_dead) {
 		pr_debug("force_dead=%d\n", pdata->panel_info.panel_force_dead);
 		pdata->panel_info.panel_force_dead--;

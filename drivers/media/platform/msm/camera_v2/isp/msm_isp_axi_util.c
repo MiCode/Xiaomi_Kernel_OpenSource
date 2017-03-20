@@ -249,6 +249,9 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 	stream_info->runtime_output_format = stream_info->output_format;
 	stream_info->stream_src = stream_cfg_cmd->stream_src;
 	stream_info->frame_based = stream_cfg_cmd->frame_base;
+	axi_data->src_info[SRC_TO_INTF(stream_info->stream_src)].session_id =
+		stream_cfg_cmd->session_id;
+
 	return 0;
 }
 
@@ -791,23 +794,20 @@ void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
 			sof_info->axi_updating_mask |=
 				1 << stream_idx;
 		}
+		/* report frame drop per stream */
+		i = stream_info->bufq_handle[VFE_BUF_QUEUE_DEFAULT] &
+				0xFF;
+		if (vfe_dev->error_info.stream_framedrop_count[i]) {
+			ISP_DBG("%s: get buf failed i %d\n", __func__,
+				i);
+			sof_info->stream_get_buf_fail_mask |= (1 << i);
+			vfe_dev->error_info.
+				stream_framedrop_count[i] = 0;
+		}
 	}
 
 	vfe_dev->reg_updated = 0;
 
-	/* report frame drop per stream */
-	if (vfe_dev->error_info.framedrop_flag) {
-		for (i = 0; i < BUF_MGR_NUM_BUF_Q; i++) {
-			if (vfe_dev->error_info.stream_framedrop_count[i]) {
-				ISP_DBG("%s: get buf failed i %d\n", __func__,
-					i);
-				sof_info->stream_get_buf_fail_mask |= (1 << i);
-				vfe_dev->error_info.
-					stream_framedrop_count[i] = 0;
-			}
-		}
-		vfe_dev->error_info.framedrop_flag = 0;
-	}
 }
 
 void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
@@ -818,8 +818,8 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 	enum msm_vfe_dual_hw_type dual_hw_type;
 	enum msm_vfe_dual_hw_ms_type ms_type;
 	struct msm_vfe_sof_info *master_sof_info = NULL;
-	int32_t time, master_time, delta;
-	uint32_t sof_incr = 0;
+	int32_t time, master_time, delta, i;
+	uint32_t sof_incr = 0, temp_frame_id;
 	uint32_t master_last_slave_diff = 0;
 	uint32_t last_curr_diff = 0;
 	unsigned long flags;
@@ -830,9 +830,32 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 			ts);
 	dual_hw_type =
 		vfe_dev->axi_data.src_info[frame_src].dual_hw_type;
-	ms_type =
-		vfe_dev->axi_data.src_info[frame_src].
-		dual_hw_ms_info.dual_hw_ms_type;
+	ms_type = vfe_dev->axi_data.src_info[frame_src].
+			dual_hw_ms_info.dual_hw_ms_type;
+	src_info = vfe_dev->axi_data.src_info;
+
+	if (src_info[frame_src].frame_id == 0) {
+		for (i = VFE_PIX_0; i < VFE_SRC_MAX; i++) {
+			if (i == frame_src)
+				continue;
+
+			if (src_info[frame_src].session_id !=
+				src_info[i].session_id)
+				continue;
+
+			if (src_info[i].active == 0)
+				continue;
+
+			if (i == VFE_PIX_0)
+				temp_frame_id = src_info[i].frame_id - 1;
+			else
+				temp_frame_id = src_info[i].frame_id;
+
+			if (src_info[frame_src].frame_id < temp_frame_id)
+				src_info[frame_src].frame_id = temp_frame_id;
+		}
+	}
+
 	/*
 	 * Increment frame_id if
 	 *   1. Not Master Slave
@@ -3034,6 +3057,13 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			if (intf >= VFE_RAW_0 &&
 				intf < VFE_SRC_MAX) {
 				vfe_dev->axi_data.src_info[intf].active = 0;
+				/* reset frame_id for RDI path */
+				if (halt) {
+					vfe_dev->
+					axi_data.src_info[intf].frame_id = 0;
+					vfe_dev->
+					axi_data.src_info[intf].eof_id = 0;
+				}
 			}
 		} else
 			src_mask |= (1 << intf);
@@ -3078,6 +3108,13 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		for (i = VFE_RAW_0; i < VFE_SRC_MAX; i++) {
 			if (src_mask & (1 << i)) {
 				vfe_dev->axi_data.src_info[i].active = 0;
+				/* reset frame_id for RDI path */
+				if (halt) {
+					vfe_dev->
+					axi_data.src_info[i].frame_id = 0;
+					vfe_dev->
+					axi_data.src_info[i].eof_id = 0;
+				}
 			}
 		}
 	}
@@ -3898,7 +3935,6 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 			vfe_dev->error_info.stream_framedrop_count[
 				stream_info->bufq_handle[
 				VFE_BUF_QUEUE_DEFAULT] & 0xFF]++;
-			vfe_dev->error_info.framedrop_flag = 1;
 		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 		return;

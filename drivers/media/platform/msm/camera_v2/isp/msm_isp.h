@@ -468,6 +468,7 @@ enum msm_vfe_camif_state {
 
 struct msm_vfe_src_info {
 	uint32_t frame_id;
+	uint32_t session_id;
 	uint32_t reg_update_frame_id;
 	uint8_t active;
 	uint8_t flag;

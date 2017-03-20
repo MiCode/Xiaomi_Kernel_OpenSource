@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 #include <linux/kernel.h>
 #include <linux/bitops.h>
 #include <linux/errno.h>
-#include <linux/msm_ep_pcie.h>
+#include "ep_pcie_com.h"
 
 LIST_HEAD(head);
 
@@ -107,13 +107,15 @@ EXPORT_SYMBOL(ep_pcie_get_phandle);
 int ep_pcie_register_event(struct ep_pcie_hw *phandle,
 			struct ep_pcie_register_event *reg)
 {
-	if (phandle) {
+	if (phandle)
 		return phandle->register_event(reg);
-	} else {
-		pr_err("ep_pcie:%s: the input driver handle is NULL.",
-			__func__);
-		return -EINVAL;
-	}
+
+	if (ep_pcie_dev.perst_enum)
+		return ep_pcie_core_register_event(reg);
+
+	pr_err("ep_pcie:%s: the input driver handle is NULL.",
+		__func__);
+	return -EINVAL;
 }
 EXPORT_SYMBOL(ep_pcie_register_event);
 

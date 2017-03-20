@@ -36,13 +36,6 @@ static struct cnss_plat_data *plat_env;
 
 static DECLARE_RWSEM(cnss_pm_sem);
 
-static bool fbc_bypass;
-#ifdef CONFIG_CNSS2_DEBUG
-module_param(fbc_bypass, bool, S_IRUSR | S_IWUSR);
-MODULE_PARM_DESC(fbc_bypass,
-		 "Bypass firmware download when loading WLAN driver");
-#endif
-
 static bool qmi_bypass;
 #ifdef CONFIG_CNSS2_DEBUG
 module_param(qmi_bypass, bool, S_IRUSR | S_IWUSR);
@@ -1044,17 +1037,14 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 		goto power_off;
 	}
 
-	if (fbc_bypass)
-		goto bypass_fbc;
-
 	ret = cnss_pci_start_mhi(pci_priv);
 	if (ret) {
 		cnss_pr_err("Failed to start MHI, err = %d\n", ret);
 		goto suspend_link;
 	}
+
 	cnss_set_pin_connect_status(plat_priv);
 
-bypass_fbc:
 	if (qmi_bypass)
 		goto skip_fw_ready;
 
@@ -1103,8 +1093,7 @@ skip_fw_ready:
 	return 0;
 
 stop_mhi:
-	if (!fbc_bypass)
-		cnss_pci_stop_mhi(pci_priv);
+	cnss_pci_stop_mhi(pci_priv);
 suspend_link:
 	cnss_suspend_pci_link(pci_priv);
 power_off:
@@ -1138,8 +1127,7 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 	}
 
 bypass_driver_remove:
-	if (!fbc_bypass)
-		cnss_pci_stop_mhi(pci_priv);
+	cnss_pci_stop_mhi(pci_priv);
 
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)

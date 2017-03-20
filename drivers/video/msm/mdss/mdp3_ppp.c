@@ -1,4 +1,4 @@
-/* Copyright (c) 2007, 2013-2014, 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007, 2013-2014, 2016-2017, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1200,6 +1200,7 @@ void mdp3_ppp_wait_for_fence(struct blit_req_list *req)
 void mdp3_ppp_signal_timeline(struct blit_req_list *req)
 {
 	sw_sync_timeline_inc(ppp_stat->timeline, 1);
+	MDSS_XLOG(ppp_stat->timeline->value, ppp_stat->timeline_value);
 	req->last_rel_fence = req->cur_rel_fence;
 	req->cur_rel_fence = 0;
 }
@@ -1256,6 +1257,7 @@ static int mdp3_ppp_handle_buf_sync(struct blit_req_list *req,
 
 	req->cur_rel_sync_pt = sw_sync_pt_create(ppp_stat->timeline,
 			ppp_stat->timeline_value++);
+	MDSS_XLOG(ppp_stat->timeline_value);
 	if (req->cur_rel_sync_pt == NULL) {
 		pr_err("%s: cannot create sync point\n", __func__);
 		ret = -ENOMEM;
