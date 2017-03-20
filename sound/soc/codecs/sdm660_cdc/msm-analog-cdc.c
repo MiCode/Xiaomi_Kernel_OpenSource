@@ -3181,7 +3181,7 @@ static struct snd_soc_dai_driver msm_anlg_cdc_i2s_dai[] = {
 		.name = "msm_anlg_cdc_i2s_rx1",
 		.id = AIF1_PB,
 		.playback = {
-			.stream_name = "Playback",
+			.stream_name = "PDM Playback",
 			.rates = SDM660_CDC_RATES,
 			.formats = SDM660_CDC_FORMATS,
 			.rate_max = 192000,
@@ -3195,7 +3195,7 @@ static struct snd_soc_dai_driver msm_anlg_cdc_i2s_dai[] = {
 		.name = "msm_anlg_cdc_i2s_tx1",
 		.id = AIF1_CAP,
 		.capture = {
-			.stream_name = "Record",
+			.stream_name = "PDM Capture",
 			.rates = SDM660_CDC_RATES,
 			.formats = SDM660_CDC_FORMATS,
 			.rate_max = 48000,
@@ -4161,6 +4161,8 @@ static int msm_anlg_cdc_soc_probe(struct snd_soc_codec *codec)
 
 	snd_soc_dapm_ignore_suspend(dapm, "PDM Playback");
 	snd_soc_dapm_ignore_suspend(dapm, "PDM Capture");
+
+	snd_soc_dapm_sync(dapm);
 
 	return 0;
 }
