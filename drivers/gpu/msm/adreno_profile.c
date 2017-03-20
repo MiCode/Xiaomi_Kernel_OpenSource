@@ -739,7 +739,7 @@ static ssize_t profile_assignments_write(struct file *filep,
 		goto error_unlock;
 	}
 
-	ret = kgsl_active_count_get(device);
+	ret = adreno_perfcntr_active_oob_get(adreno_dev);
 	if (ret) {
 		size = ret;
 		goto error_unlock;
@@ -786,7 +786,7 @@ static ssize_t profile_assignments_write(struct file *filep,
 	size = len;
 
 error_put:
-	kgsl_active_count_put(device);
+	adreno_perfcntr_active_oob_put(adreno_dev);
 error_unlock:
 	mutex_unlock(&device->mutex);
 error_free:
