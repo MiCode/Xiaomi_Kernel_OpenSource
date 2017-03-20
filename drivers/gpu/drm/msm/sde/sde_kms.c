@@ -328,24 +328,12 @@ static int sde_debugfs_danger_init(struct sde_kms *sde_kms,
 
 static int sde_kms_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 {
-	struct sde_kms *sde_kms = to_sde_kms(kms);
-	struct drm_device *dev = sde_kms->dev;
-	struct msm_drm_private *priv = dev->dev_private;
-
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
-
 	return sde_crtc_vblank(crtc, true);
 }
 
 static void sde_kms_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 {
-	struct sde_kms *sde_kms = to_sde_kms(kms);
-	struct drm_device *dev = sde_kms->dev;
-	struct msm_drm_private *priv = dev->dev_private;
-
 	sde_crtc_vblank(crtc, false);
-
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 }
 
 static void sde_kms_prepare_commit(struct msm_kms *kms,

@@ -417,6 +417,15 @@ void __msm_fence_worker(struct work_struct *work);
 		(_cb)->func = _func;                         \
 	} while (0)
 
+static inline bool msm_is_suspend_state(struct drm_device *dev)
+{
+	if (!dev || !dev->dev_private)
+		return false;
+
+	return ((struct msm_drm_private *)dev->dev_private)->suspend_state !=
+		NULL;
+}
+
 int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool async);
 

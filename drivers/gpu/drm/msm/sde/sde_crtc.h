@@ -82,6 +82,7 @@ struct sde_crtc_frame_event {
  * @vblank_cb_count : count of vblank callback since last reset
  * @vblank_cb_time  : ktime at vblank count reset
  * @vblank_refcount : reference count for vblank enable request
+ * @suspend         : whether or not a suspend operation is in progress
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
  * @dirty_list    : list of color processing features are dirty
@@ -117,6 +118,7 @@ struct sde_crtc {
 	u32 vblank_cb_count;
 	ktime_t vblank_cb_time;
 	atomic_t vblank_refcount;
+	bool suspend;
 
 	struct list_head feature_list;
 	struct list_head active_list;
