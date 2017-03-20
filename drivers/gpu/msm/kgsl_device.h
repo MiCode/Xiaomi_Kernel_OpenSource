@@ -548,7 +548,7 @@ static inline void kgsl_gmu_regread(struct kgsl_device *device,
 	if (device->ftbl->gmu_regread)
 		device->ftbl->gmu_regread(device, offsetwords, value);
 	else
-		*value = 0xDEADBEEF;
+		*value = 0;
 }
 
 static inline void kgsl_gmu_regwrite(struct kgsl_device *device,

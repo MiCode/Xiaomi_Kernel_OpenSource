@@ -1232,7 +1232,7 @@ static inline void adreno_read_gmureg(struct adreno_device *adreno_dev,
 		kgsl_gmu_regread(KGSL_DEVICE(adreno_dev),
 				gpudev->reg_offsets->offsets[offset_name], val);
 	else
-		*val = 0xDEADBEEF;
+		*val = 0;
 }
 
 /*
