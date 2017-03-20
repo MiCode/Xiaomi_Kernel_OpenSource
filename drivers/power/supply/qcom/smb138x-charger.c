@@ -28,7 +28,7 @@
 #include "smb-reg.h"
 #include "smb-lib.h"
 #include "storm-watch.h"
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 
 #define SMB138X_DEFAULT_FCC_UA 1000000
 #define SMB138X_DEFAULT_ICL_UA 1500000

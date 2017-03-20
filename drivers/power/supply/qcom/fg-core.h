@@ -29,7 +29,7 @@
 #include <linux/string_helpers.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 
 #define fg_dbg(chip, reason, fmt, ...)			\
 	do {							\
