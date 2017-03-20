@@ -27,7 +27,7 @@ int pfk_kc_remove_key_with_salt(const unsigned char *key, size_t key_size,
 int pfk_kc_remove_key(const unsigned char *key, size_t key_size);
 int pfk_kc_clear(void);
 void pfk_kc_clear_on_reset(void);
-
+extern char *saved_command_line;
 
 
 #endif /* PFK_KC_H_ */

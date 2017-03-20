@@ -23,6 +23,7 @@
  * Empty entries always have the oldest timestamp.
  */
 
+#include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <crypto/ice.h>
@@ -51,10 +52,12 @@
 /** The maximum key and salt size */
 #define PFK_MAX_KEY_SIZE PFK_KC_KEY_SIZE
 #define PFK_MAX_SALT_SIZE PFK_KC_SALT_SIZE
+#define PFK_UFS "ufs"
 
 static DEFINE_SPINLOCK(kc_lock);
 static unsigned long flags;
 static bool kc_ready;
+static char *s_type = "sdcc";
 
 /**
  * enum pfk_kc_entry_state - state of the entry inside kc table
@@ -404,7 +407,7 @@ static int kc_update_entry(struct kc_entry *entry, const unsigned char *key,
 	kc_spin_unlock();
 
 	ret = qti_pfk_ice_set_key(entry->key_index, entry->key,
-			entry->salt);
+			entry->salt, s_type);
 
 	kc_spin_lock();
 	return ret;
@@ -524,7 +527,8 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 			kc_update_timestamp(entry);
 			entry->state = ACTIVE_ICE_LOADED;
 
-			if (async)
+			if (async && (!strcmp(s_type,
+					(char *)PFK_UFS)))
 				entry->loaded_ref_cnt++;
 
 			break;
@@ -544,7 +548,8 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 			 * sync calls from within work thread do not pass
 			 * requests further to HW
 			 */
-			if (async)
+			if (async && (!strcmp(s_type,
+					(char *)PFK_UFS)))
 				entry->loaded_ref_cnt++;
 
 		}
@@ -556,9 +561,9 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 	case (ACTIVE_ICE_LOADED):
 		kc_update_timestamp(entry);
 
-		if (async)
+		if (async && (!strcmp(s_type,
+				(char *)PFK_UFS)))
 			entry->loaded_ref_cnt++;
-
 		break;
 	case(SCM_ERROR):
 		ret = entry->scm_error;
@@ -616,24 +621,36 @@ void pfk_kc_load_key_end(const unsigned char *key, size_t key_size,
 
 		return;
 	}
-	ref_cnt = --entry->loaded_ref_cnt;
+	if (!strcmp(s_type, (char *)PFK_UFS)) {
+		ref_cnt = --entry->loaded_ref_cnt;
 
-	if (ref_cnt < 0)
-		pr_err("internal error, ref count should never be negative\n");
+		if (ref_cnt < 0)
+			pr_err("internal error, ref count should never be negative\n");
 
-	if (!ref_cnt) {
+		if (!ref_cnt) {
+			entry->state = INACTIVE;
+			/*
+			* wake-up invalidation if it's waiting
+			* for the entry to be released
+			*/
+			if (entry->thread_pending) {
+				tmp_pending = entry->thread_pending;
+				entry->thread_pending = NULL;
+
+				kc_spin_unlock();
+				wake_up_process(tmp_pending);
+				return;
+			}
+		}
+	} else {
 		entry->state = INACTIVE;
 		/*
 		 * wake-up invalidation if it's waiting
 		 * for the entry to be released
-		*/
+		 */
 		if (entry->thread_pending) {
-			tmp_pending = entry->thread_pending;
+			wake_up_process(entry->thread_pending);
 			entry->thread_pending = NULL;
-
-			kc_spin_unlock();
-			wake_up_process(tmp_pending);
-			return;
 		}
 	}
 
@@ -689,7 +706,7 @@ int pfk_kc_remove_key_with_salt(const unsigned char *key, size_t key_size,
 
 	kc_spin_unlock();
 
-	qti_pfk_ice_invalidate_key(entry->key_index);
+	qti_pfk_ice_invalidate_key(entry->key_index, s_type);
 
 	kc_spin_lock();
 	kc_entry_finish_invalidating(entry);
@@ -771,7 +788,8 @@ int pfk_kc_remove_key(const unsigned char *key, size_t key_size)
 	temp_indexes_size--;
 	for (i = temp_indexes_size; i >= 0 ; i--)
 		qti_pfk_ice_invalidate_key(
-				kc_entry_at_index(temp_indexes[i])->key_index);
+			kc_entry_at_index(temp_indexes[i])->key_index,
+					s_type);
 
 	/* fall through */
 	res = 0;
@@ -814,7 +832,8 @@ int pfk_kc_clear(void)
 	kc_spin_unlock();
 
 	for (i = 0; i < PFK_KC_TABLE_SIZE; i++)
-		qti_pfk_ice_invalidate_key(kc_entry_at_index(i)->key_index);
+		qti_pfk_ice_invalidate_key(kc_entry_at_index(i)->key_index,
+					s_type);
 
 	/* fall through */
 	res = 0;
@@ -850,3 +869,36 @@ void pfk_kc_clear_on_reset(void)
 	}
 	kc_spin_unlock();
 }
+
+static int pfk_kc_find_storage_type(char **device)
+{
+	char boot[20] = {'\0'};
+	char *match = (char *)strnstr(saved_command_line,
+				"androidboot.bootdevice=",
+				strlen(saved_command_line));
+	if (match) {
+		memcpy(boot, (match + strlen("androidboot.bootdevice=")),
+			sizeof(boot) - 1);
+		if (strnstr(boot, PFK_UFS, strlen(boot)))
+			*device = PFK_UFS;
+
+		return 0;
+	}
+	return -EINVAL;
+}
+
+static int __init pfk_kc_pre_init(void)
+{
+	return pfk_kc_find_storage_type(&s_type);
+}
+
+static void __exit pfk_kc_exit(void)
+{
+	s_type = NULL;
+}
+
+module_init(pfk_kc_pre_init);
+module_exit(pfk_kc_exit);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("Per-File-Key-KC driver");
