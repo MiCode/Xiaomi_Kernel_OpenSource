@@ -387,6 +387,63 @@ TRACE_EVENT(sched_update_task_ravg,
 		__entry->curr_top, __entry->prev_top)
 );
 
+TRACE_EVENT(sched_update_task_ravg_mini,
+
+	TP_PROTO(struct task_struct *p, struct rq *rq, enum task_event evt,
+		 u64 wallclock, u64 irqtime, u64 cycles, u64 exec_time,
+		 struct group_cpu_time *cpu_time),
+
+	TP_ARGS(p, rq, evt, wallclock, irqtime, cycles, exec_time, cpu_time),
+
+	TP_STRUCT__entry(
+		__array(	char,	comm,   TASK_COMM_LEN	)
+		__field(	pid_t,	pid			)
+		__field(	u64,	wallclock		)
+		__field(	u64,	mark_start		)
+		__field(	u64,	delta_m			)
+		__field(	u64,	win_start		)
+		__field(	u64,	delta			)
+		__field(enum task_event,	evt		)
+		__field(unsigned int,	demand			)
+		__field(	 int,	cpu			)
+		__field(	u64,	rq_cs			)
+		__field(	u64,	rq_ps			)
+		__field(	u64,	grp_cs			)
+		__field(	u64,	grp_ps			)
+		__field(	u32,	curr_window		)
+		__field(	u32,	prev_window		)
+	),
+
+	TP_fast_assign(
+		__entry->wallclock      = wallclock;
+		__entry->win_start      = rq->window_start;
+		__entry->delta          = (wallclock - rq->window_start);
+		__entry->evt            = evt;
+		__entry->cpu            = rq->cpu;
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid            = p->pid;
+		__entry->mark_start     = p->ravg.mark_start;
+		__entry->delta_m        = (wallclock - p->ravg.mark_start);
+		__entry->demand         = p->ravg.demand;
+		__entry->rq_cs          = rq->curr_runnable_sum;
+		__entry->rq_ps          = rq->prev_runnable_sum;
+		__entry->grp_cs = cpu_time ? cpu_time->curr_runnable_sum : 0;
+		__entry->grp_ps = cpu_time ? cpu_time->prev_runnable_sum : 0;
+		__entry->curr_window	= p->ravg.curr_window;
+		__entry->prev_window	= p->ravg.prev_window;
+	),
+
+	TP_printk("wc %llu ws %llu delta %llu event %s cpu %d task %d (%s) ms %llu delta %llu demand %u rq_cs %llu rq_ps %llu cur_window %u prev_window %u grp_cs %lld grp_ps %lld",
+		__entry->wallclock, __entry->win_start, __entry->delta,
+		task_event_names[__entry->evt], __entry->cpu,
+		__entry->pid, __entry->comm, __entry->mark_start,
+		__entry->delta_m, __entry->demand,
+		__entry->rq_cs, __entry->rq_ps, __entry->curr_window,
+		__entry->prev_window,
+		__entry->grp_cs,
+		__entry->grp_ps)
+);
+
 struct migration_sum_data;
 extern const char *migrate_type_names[];
 

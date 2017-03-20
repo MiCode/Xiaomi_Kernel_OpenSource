@@ -1760,6 +1760,8 @@ done:
 	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
 				     rq->cc.cycles, rq->cc.time,
 				     p->grp ? &rq->grp_time : NULL);
+	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
+				rq->cc.cycles, rq->cc.time, &rq->grp_time);
 
 	p->ravg.mark_start = wallclock;
 }
