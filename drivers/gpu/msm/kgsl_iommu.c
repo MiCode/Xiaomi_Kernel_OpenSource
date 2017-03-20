@@ -797,6 +797,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	int write;
 	struct kgsl_device *device;
 	struct adreno_device *adreno_dev;
+	struct adreno_gpudev *gpudev;
 	unsigned int no_page_fault_log = 0;
 	unsigned int curr_context_id = 0;
 	struct kgsl_context *context;
@@ -813,6 +814,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	device = KGSL_MMU_DEVICE(mmu);
 	adreno_dev = ADRENO_DEVICE(device);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (pt->name == KGSL_MMU_SECURE_PT)
 		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
@@ -885,6 +887,16 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 			"context=%s TTBR0=0x%llx CIDR=0x%x (%s %s fault)\n",
 			ctx->name, ptbase, contextidr,
 			write ? "write" : "read", fault_type);
+
+		if (gpudev->iommu_fault_block) {
+			unsigned int fsynr1;
+
+			fsynr1 = KGSL_IOMMU_GET_CTX_REG(ctx, FSYNR1);
+			KGSL_MEM_CRIT(ctx->kgsldev,
+				"FAULTING BLOCK: %s\n",
+				gpudev->iommu_fault_block(adreno_dev,
+								fsynr1));
+		}
 
 		/* Don't print the debug if this is a permissions fault */
 		if (!(flags & IOMMU_FAULT_PERMISSION)) {

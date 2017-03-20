@@ -285,6 +285,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
 					  (1 << 30) | 0x4000);
 
+	kgsl_regwrite(device, A6XX_UCHE_CLIENT_PF, 1);
+
 	/* Set TWOPASSUSEWFI in A6XX_PC_DBG_ECO_CNTL if requested */
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_TWO_PASS_USE_WFI))
 		kgsl_regrmw(device, A6XX_PC_DBG_ECO_CNTL, 0, (1 << 8));
@@ -1522,6 +1524,46 @@ static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev)
 	iounmap(gpu_cx_reg);
 }
 
+static const char *fault_block[8] = {
+	[0] = "CP",
+	[1] = "UCHE",
+	[2] = "VFD",
+	[3] = "UCHE",
+	[4] = "CCU",
+	[5] = "unknown",
+	[6] = "CDP Prefetch",
+	[7] = "GPMU",
+};
+
+static const char *uche_client[8] = {
+	[0] = "VFD",
+	[1] = "SP",
+	[2] = "VSC",
+	[3] = "VPC",
+	[4] = "HLSQ",
+	[5] = "PC",
+	[6] = "LRZ",
+	[7] = "unknown",
+};
+
+static const char *a6xx_iommu_fault_block(struct adreno_device *adreno_dev,
+						unsigned int fsynr1)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	unsigned int client_id;
+	unsigned int uche_client_id;
+
+	client_id = fsynr1 & 0xff;
+
+	if (client_id >= ARRAY_SIZE(fault_block))
+		return "unknown";
+	else if (client_id != 3)
+		return fault_block[client_id];
+
+	kgsl_regread(device, A6XX_UCHE_CLIENT_PF, &uche_client_id);
+	return uche_client[uche_client_id & A6XX_UCHE_CLIENT_PF_CLIENT_ID_MASK];
+}
+
 #define A6XX_INT_MASK \
 	((1 << A6XX_INT_CP_AHB_ERROR) |			\
 	 (1 << A6XX_INT_ATB_ASYNCFIFO_OVERFLOW) |	\
@@ -2078,5 +2120,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.oob_clear = a6xx_oob_clear,
 	.rpmh_gpu_pwrctrl = a6xx_rpmh_gpu_pwrctrl,
 	.hw_isidle = a6xx_hw_isidle, /* Replaced by NULL if GMU is disabled */
-	.wait_for_gmu_idle = a6xx_wait_for_gmu_idle
+	.wait_for_gmu_idle = a6xx_wait_for_gmu_idle,
+	.iommu_fault_block = a6xx_iommu_fault_block,
 };

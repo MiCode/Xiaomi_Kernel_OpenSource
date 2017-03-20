@@ -537,6 +537,8 @@
 #define A6XX_UCHE_GMEM_RANGE_MAX_HI         0xE0E
 #define A6XX_UCHE_CACHE_WAYS                0xE17
 #define A6XX_UCHE_FILTER_CNTL               0xE18
+#define A6XX_UCHE_CLIENT_PF                 0xE19
+#define A6XX_UCHE_CLIENT_PF_CLIENT_ID_MASK  0x7
 #define A6XX_UCHE_PERFCTR_UCHE_SEL_0        0xE1C
 #define A6XX_UCHE_PERFCTR_UCHE_SEL_1        0xE1D
 #define A6XX_UCHE_PERFCTR_UCHE_SEL_2        0xE1E
