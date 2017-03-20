@@ -609,6 +609,14 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	/* Ensure this increment is done before the IRQ status is updated */
 	smp_mb__after_atomic();
 
+	/*
+	 * On A6xx, the GPU can power down once the INT_0_STATUS is read
+	 * below. But there still might be some register reads required
+	 * so force the GMU/GPU into KEEPALIVE mode until done with the ISR.
+	 */
+	if (gpudev->gpu_keepalive)
+		gpudev->gpu_keepalive(adreno_dev, true);
+
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
 
 	/*
@@ -646,6 +654,13 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	if (status & int_bit)
 		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_CLEAR_CMD,
 				int_bit);
+
+	/* Turn off the KEEPALIVE vote from earlier unless hard fault set */
+	if (gpudev->gpu_keepalive) {
+		/* If hard fault, then let snapshot turn off the keepalive */
+		if (!(adreno_gpu_fault(adreno_dev) & ADRENO_HARD_FAULT))
+			gpudev->gpu_keepalive(adreno_dev, false);
+	}
 
 	/* Make sure the regwrites are done before the decrement */
 	smp_mb__before_atomic();

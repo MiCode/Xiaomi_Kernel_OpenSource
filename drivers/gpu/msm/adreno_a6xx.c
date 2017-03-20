@@ -980,6 +980,18 @@ static inline void a6xx_oob_clear(struct adreno_device *adreno_dev,
 	trace_kgsl_gmu_oob_clear(clear_mask);
 }
 
+/*
+ * a6xx_gpu_keepalive() - GMU reg write to request GPU stays on
+ * @adreno_dev: Pointer to the adreno device that has the GMU
+ * @state: State to set: true is ON, false is OFF
+ */
+static inline void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
+		bool state)
+{
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_PWR_COL_KEEPALIVE, state);
+}
+
 #define SPTPRAC_POWERON_CTRL_MASK	0x00778000
 #define SPTPRAC_POWEROFF_CTRL_MASK	0x00778001
 #define SPTPRAC_POWEROFF_STATUS_MASK	BIT(2)
@@ -2309,6 +2321,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.llc_enable_overrides = a6xx_llc_enable_overrides,
 	.oob_set = a6xx_oob_set,
 	.oob_clear = a6xx_oob_clear,
+	.gpu_keepalive = a6xx_gpu_keepalive,
 	.rpmh_gpu_pwrctrl = a6xx_rpmh_gpu_pwrctrl,
 	.hw_isidle = a6xx_hw_isidle, /* Replaced by NULL if GMU is disabled */
 	.wait_for_gmu_idle = a6xx_wait_for_gmu_idle,
