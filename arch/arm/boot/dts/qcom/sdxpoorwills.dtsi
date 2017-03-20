@@ -1,0 +1,144 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+#include "skeleton.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDX POORWILLS";
+	compatible = "qcom,sdxpoorwills";
+	qcom,msm-id = <334 0x0>;
+	interrupt-parent = <&intc>;
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		peripheral2_mem: peripheral2_region@8fd00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x8fd00000 0x300000>;
+			label = "peripheral2_mem";
+		};
+	};
+
+	cpus {
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		CPU0: cpu@0 {
+			device-type = "cpu";
+			compatible = "arm,cortex-a7";
+			reg = <0x0>;
+		};
+	};
+
+	soc: soc { };
+};
+
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
+
+	intc: interrupt-controller@17800000 {
+		compatible = "qcom,msm-qgic2";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0x17800000 0x1000>,
+		      <0x17802000 0x1000>;
+	};
+
+	timer {
+		compatible = "arm,armv7-timer";
+		interrupts = <1 13 0xf08>,
+			<1 12 0xf08>,
+			<1 10 0xf08>,
+			<1 11 0xf08>;
+		clock-frequency = <19200000>;
+	};
+
+	timer@17820000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		compatible = "arm,armv7-timer-mem";
+		reg = <0x17820000 0x1000>;
+		clock-frequency = <19200000>;
+
+		frame@17821000 {
+			frame-number = <0>;
+			interrupts = <0 7 0x4>,
+				     <0 6 0x4>;
+			reg = <0x17821000 0x1000>,
+			      <0x17822000 0x1000>;
+		};
+
+		frame@17823000 {
+			frame-number = <1>;
+			interrupts = <0 8 0x4>;
+			reg = <0x17823000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17824000 {
+			frame-number = <2>;
+			interrupts = <0 9 0x4>;
+			reg = <0x17824000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17825000 {
+			frame-number = <3>;
+			interrupts = <0 10 0x4>;
+			reg = <0x17825000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17826000 {
+			frame-number = <4>;
+			interrupts = <0 11 0x4>;
+			reg = <0x17826000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17827000 {
+			frame-number = <5>;
+			interrupts = <0 12 0x4>;
+			reg = <0x17827000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17828000 {
+			frame-number = <6>;
+			interrupts = <0 13 0x4>;
+			reg = <0x17828000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@17829000 {
+			frame-number = <7>;
+			interrupts = <0 14 0x4>;
+			reg = <0x17829000 0x1000>;
+			status = "disabled";
+		};
+	};
+
+	blsp1_uart2: serial@831000 {
+		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
+		reg = <0x831000 0x200>;
+		interrupts = <0 26 0>;
+		status = "disabled";
+	};
+};
