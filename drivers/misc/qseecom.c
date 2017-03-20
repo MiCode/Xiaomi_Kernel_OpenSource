@@ -2321,7 +2321,13 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 				ret);
 			goto loadapp_err;
 		}
-
+		if (load_img_req.mdt_len > len || load_img_req.img_len > len) {
+			pr_err("ion len %zu is smaller than mdt_len %u or img_len %u\n",
+					len, load_img_req.mdt_len,
+					load_img_req.img_len);
+			ret = -EINVAL;
+			goto loadapp_err;
+		}
 		/* Populate the structure for sending scm call to load image */
 		if (qseecom.qsee_version < QSEE_VERSION_40) {
 			load_req.qsee_cmd_id = QSEOS_APP_START_COMMAND;
@@ -5101,6 +5107,12 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 	if (ret) {
 		pr_err("Cannot get phys_addr for the Ion Client, ret = %d\n",
 			ret);
+		return ret;
+	}
+	if (load_img_req.mdt_len > len || load_img_req.img_len > len) {
+		pr_err("ion len %zu is smaller than mdt_len %u or img_len %u\n",
+				len, load_img_req.mdt_len,
+				load_img_req.img_len);
 		return ret;
 	}
 	/* Populate the structure for sending scm call to load image */
