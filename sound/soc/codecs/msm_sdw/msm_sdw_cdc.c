@@ -854,8 +854,8 @@ static int msm_sdw_config_compander(struct snd_soc_codec *codec, int comp,
 	if (!msm_sdw->comp_enabled[comp])
 		return 0;
 
-	comp_ctl0_reg = MSM_SDW_COMPANDER7_CTL0 + (comp * 8);
-	rx_path_cfg0_reg = MSM_SDW_RX7_RX_PATH_CFG0 + (comp * 20);
+	comp_ctl0_reg = MSM_SDW_COMPANDER7_CTL0 + (comp * 0x20);
+	rx_path_cfg0_reg = MSM_SDW_RX7_RX_PATH_CFG0 + (comp * 0x1E0);
 
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		/* Enable Compander Clock */

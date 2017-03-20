@@ -291,10 +291,6 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 	}
 
 	if (permission_fault(esr) && (addr < USER_DS)) {
-		/* regs->orig_addr_limit may be 0 if we entered from EL0 */
-		if (regs->orig_addr_limit == KERNEL_DS)
-			die("Accessing user space memory with fs=KERNEL_DS", regs, esr);
-
 		if (!search_exception_tables(regs->pc))
 			die("Accessing user space memory outside uaccess.h routines", regs, esr);
 	}
