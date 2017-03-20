@@ -123,6 +123,8 @@
 		24 1e 08 09 05 03 04 a0
 		24 1e 08 09 05 03 04 a0
 		24 1a 08 09 05 03 04 a0];
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 };
 
 &dsi_truly_1080_vid {
