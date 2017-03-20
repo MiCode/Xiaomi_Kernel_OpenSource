@@ -998,8 +998,8 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 		mmu = msm_smmu_new(sde_kms->dev->dev, i);
 		if (IS_ERR(mmu)) {
 			ret = PTR_ERR(mmu);
-			SDE_ERROR("failed to init iommu id %d: rc: %d\n", i,
-					ret);
+			SDE_DEBUG("failed to init iommu id %d: rc:%d\n",
+								i, ret);
 			continue;
 		}
 
