@@ -1345,12 +1345,19 @@ void gmu_remove(struct kgsl_device *device)
 
 	gmu_stop(device);
 
-	disable_irq(gmu->gmu_interrupt_num);
-	disable_irq(hfi->hfi_interrupt_num);
-	devm_free_irq(&gmu->pdev->dev,
-			gmu->gmu_interrupt_num, gmu);
-	devm_free_irq(&gmu->pdev->dev,
-			hfi->hfi_interrupt_num, gmu);
+	if (gmu->gmu_interrupt_num) {
+		disable_irq(gmu->gmu_interrupt_num);
+		devm_free_irq(&gmu->pdev->dev,
+				gmu->gmu_interrupt_num, gmu);
+		gmu->gmu_interrupt_num = 0;
+	}
+
+	if (hfi->hfi_interrupt_num) {
+		disable_irq(hfi->hfi_interrupt_num);
+		devm_free_irq(&gmu->pdev->dev,
+				hfi->hfi_interrupt_num, gmu);
+		hfi->hfi_interrupt_num = 0;
+	}
 
 	if (gmu->ccl) {
 		msm_bus_scale_unregister_client(gmu->ccl);
