@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -434,11 +434,12 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 {
 	int value;
 	struct esoc_clink *esoc;
+	struct device *dev;
 	struct mdm_ctrl *mdm = (struct mdm_ctrl *)dev_id;
-	struct device *dev = mdm->dev;
 
 	if (!mdm)
 		return IRQ_HANDLED;
+	dev = mdm->dev;
 	esoc = mdm->esoc;
 	value = gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS));
 	if (value == 0 && mdm->ready) {
@@ -499,7 +500,7 @@ static void mdm_configure_debug(struct mdm_ctrl *mdm)
 	struct device_node *node = mdm->dev->of_node;
 
 	addr = of_iomap(node, 0);
-	if (IS_ERR(addr)) {
+	if (IS_ERR_OR_NULL(addr)) {
 		dev_err(mdm->dev, "failed to get debug base addres\n");
 		return;
 	}
@@ -508,7 +509,7 @@ static void mdm_configure_debug(struct mdm_ctrl *mdm)
 	if (val == MDM_DBG_MODE) {
 		mdm->dbg_mode = true;
 		mdm->cti = coresight_cti_get(MDM_CTI_NAME);
-		if (IS_ERR(mdm->cti)) {
+		if (IS_ERR_OR_NULL(mdm->cti)) {
 			dev_err(mdm->dev, "unable to get cti handle\n");
 			goto cti_get_err;
 		}
@@ -743,7 +744,7 @@ static int mdm9x25_setup_hw(struct mdm_ctrl *mdm,
 	mdm->dev = &pdev->dev;
 	mdm->pon_ops = pon_ops;
 	esoc = devm_kzalloc(mdm->dev, sizeof(*esoc), GFP_KERNEL);
-	if (IS_ERR(esoc)) {
+	if (IS_ERR_OR_NULL(esoc)) {
 		dev_err(mdm->dev, "cannot allocate esoc device\n");
 		return PTR_ERR(esoc);
 	}
@@ -813,7 +814,7 @@ static int mdm9x35_setup_hw(struct mdm_ctrl *mdm,
 	mdm->pon_ops = pon_ops;
 	node = pdev->dev.of_node;
 	esoc = devm_kzalloc(mdm->dev, sizeof(*esoc), GFP_KERNEL);
-	if (IS_ERR(esoc)) {
+	if (IS_ERR_OR_NULL(esoc)) {
 		dev_err(mdm->dev, "cannot allocate esoc device\n");
 		return PTR_ERR(esoc);
 	}
@@ -901,7 +902,7 @@ static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 	mdm->pon_ops = pon_ops;
 	node = pdev->dev.of_node;
 	esoc = devm_kzalloc(mdm->dev, sizeof(*esoc), GFP_KERNEL);
-	if (IS_ERR(esoc)) {
+	if (IS_ERR_OR_NULL(esoc)) {
 		dev_err(mdm->dev, "cannot allocate esoc device\n");
 		return PTR_ERR(esoc);
 	}
@@ -1001,11 +1002,11 @@ static int mdm_probe(struct platform_device *pdev)
 	struct mdm_ctrl *mdm;
 
 	match = of_match_node(mdm_dt_match, node);
-	if (IS_ERR(match))
+	if (IS_ERR_OR_NULL(match))
 		return PTR_ERR(match);
 	mdm_ops = match->data;
 	mdm = devm_kzalloc(&pdev->dev, sizeof(*mdm), GFP_KERNEL);
-	if (IS_ERR(mdm))
+	if (IS_ERR_OR_NULL(mdm))
 		return PTR_ERR(mdm);
 	return mdm_ops->config_hw(mdm, mdm_ops, pdev);
 }
