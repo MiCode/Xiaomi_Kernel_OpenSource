@@ -2504,10 +2504,6 @@ int smblib_set_prop_usb_voltage_min(struct smb_charger *chg,
 		return rc;
 	}
 
-	if (chg->mode == PARALLEL_MASTER)
-		vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER,
-		     min_uv > MICRO_5V, 0);
-
 	chg->voltage_min_uv = min_uv;
 	return rc;
 }
