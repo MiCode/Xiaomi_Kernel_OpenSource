@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt)	"core_ctl: " fmt
+
 #include <linux/init.h>
 #include <linux/notifier.h>
 #include <linux/cpu.h>
@@ -50,7 +52,6 @@ struct cluster_data {
 };
 
 struct cpu_data {
-	bool online;
 	bool is_busy;
 	unsigned int busy;
 	unsigned int cpu;
@@ -242,22 +243,6 @@ static ssize_t show_is_big_cluster(const struct cluster_data *state, char *buf)
 	return snprintf(buf, PAGE_SIZE, "%u\n", state->is_big_cluster);
 }
 
-static ssize_t show_cpus(const struct cluster_data *state, char *buf)
-{
-	struct cpu_data *c;
-	ssize_t count = 0;
-	unsigned long flags;
-
-	spin_lock_irqsave(&state_lock, flags);
-	list_for_each_entry(c, &state->lru, sib) {
-		count += snprintf(buf + count, PAGE_SIZE - count,
-				  "CPU%u (%s)\n", c->cpu,
-				  c->online ? "Online" : "Offline");
-	}
-	spin_unlock_irqrestore(&state_lock, flags);
-	return count;
-}
-
 static ssize_t show_need_cpus(const struct cluster_data *state, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%u\n", state->need_cpus);
@@ -286,10 +271,11 @@ static ssize_t show_global_state(const struct cluster_data *state, char *buf)
 		count += snprintf(buf + count, PAGE_SIZE - count,
 					"\tCPU: %u\n", c->cpu);
 		count += snprintf(buf + count, PAGE_SIZE - count,
-					"\tOnline: %u\n", c->online);
+					"\tOnline: %u\n",
+					cpu_online(c->cpu));
 		count += snprintf(buf + count, PAGE_SIZE - count,
-					"\tActive: %u\n",
-					!cpu_isolated(c->cpu));
+					"\tIsolated: %u\n",
+					cpu_isolated(c->cpu));
 		count += snprintf(buf + count, PAGE_SIZE - count,
 					"\tFirst CPU: %u\n",
 						cluster->first_cpu);
@@ -376,7 +362,6 @@ core_ctl_attr_rw(busy_up_thres);
 core_ctl_attr_rw(busy_down_thres);
 core_ctl_attr_rw(task_thres);
 core_ctl_attr_rw(is_big_cluster);
-core_ctl_attr_ro(cpus);
 core_ctl_attr_ro(need_cpus);
 core_ctl_attr_ro(active_cpus);
 core_ctl_attr_ro(global_state);
@@ -390,7 +375,6 @@ static struct attribute *default_attrs[] = {
 	&busy_down_thres.attr,
 	&task_thres.attr,
 	&is_big_cluster.attr,
-	&cpus.attr,
 	&need_cpus.attr,
 	&active_cpus.attr,
 	&global_state.attr,
@@ -534,7 +518,7 @@ static unsigned int get_active_cpu_count(const struct cluster_data *cluster)
 
 static bool is_active(const struct cpu_data *state)
 {
-	return state->online && !cpu_isolated(state->cpu);
+	return cpu_online(state->cpu) && !cpu_isolated(state->cpu);
 }
 
 static bool adjustment_possible(const struct cluster_data *cluster,
@@ -815,7 +799,7 @@ static void __try_to_unisolate(struct cluster_data *cluster,
 
 		if (!c->isolated_by_us)
 			continue;
-		if ((c->online && !cpu_isolated(c->cpu)) ||
+		if ((cpu_online(c->cpu) && !cpu_isolated(c->cpu)) ||
 			(!force && c->not_preferred))
 			continue;
 		if (cluster->active_cpus == need)
@@ -904,19 +888,7 @@ static int __ref cpu_callback(struct notifier_block *nfb,
 		return NOTIFY_OK;
 
 	switch (action & ~CPU_TASKS_FROZEN) {
-	case CPU_UP_PREPARE:
-
-		/* If online state of CPU somehow got out of sync, fix it. */
-		if (state->online) {
-			state->online = false;
-			cluster->active_cpus = get_active_cpu_count(cluster);
-			pr_warn("CPU%d offline when state is online\n", cpu);
-		}
-		break;
-
 	case CPU_ONLINE:
-
-		state->online = true;
 		cluster->active_cpus = get_active_cpu_count(cluster);
 
 		/*
@@ -941,15 +913,6 @@ static int __ref cpu_callback(struct notifier_block *nfb,
 		/* Move a CPU to the end of the LRU when it goes offline. */
 		move_cpu_lru(state);
 
-		/* Fall through */
-
-	case CPU_UP_CANCELED:
-
-		/* If online state of CPU somehow got out of sync, fix it. */
-		if (!state->online)
-			pr_warn("CPU%d online when state is offline\n", cpu);
-
-		state->online = false;
 		state->busy = 0;
 		cluster->active_cpus = get_active_cpu_count(cluster);
 		break;
@@ -1028,8 +991,6 @@ static int cluster_init(const struct cpumask *mask)
 		state = &per_cpu(cpu_state, cpu);
 		state->cluster = cluster;
 		state->cpu = cpu;
-		if (cpu_online(cpu))
-			state->online = true;
 		list_add_tail(&state->sib, &cluster->lru);
 	}
 	cluster->active_cpus = get_active_cpu_count(cluster);
