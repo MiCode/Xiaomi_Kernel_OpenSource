@@ -45,6 +45,7 @@ enum usb_phy_type {
 	USB_PHY_TYPE_UNDEFINED,
 	USB_PHY_TYPE_USB2,
 	USB_PHY_TYPE_USB3,
+	USB_PHY_TYPE_USB3_DP,
 };
 
 /* OTG defines lots of enumeration states before device reset */
