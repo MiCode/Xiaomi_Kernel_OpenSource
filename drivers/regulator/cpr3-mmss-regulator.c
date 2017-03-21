@@ -245,6 +245,9 @@ msm8998_v2_rev0_mmss_fuse_ref_volt[MSM8996_MMSS_FUSE_CORNERS] = {
 #define MSM8996_MMSS_AGING_SENSOR_ID		29
 #define MSM8996_MMSS_AGING_BYPASS_MASK0		(GENMASK(23, 0))
 
+/* Use scaled gate count (GCNT) for aging measurements */
+#define MSM8996_MMSS_AGING_GCNT_SCALING_FACTOR	1500
+
 #define MSM8998_MMSS_AGING_INIT_QUOT_DIFF_SCALE	1
 #define MSM8998_MMSS_AGING_INIT_QUOT_DIFF_SIZE	8
 
@@ -808,6 +811,8 @@ static int cpr3_mmss_init_aging(struct cpr3_controller *ctrl)
 		return -ENOMEM;
 
 	ctrl->aging_sensor->ro_scale = aging_ro_scale;
+	ctrl->aging_gcnt_scaling_factor
+				= MSM8996_MMSS_AGING_GCNT_SCALING_FACTOR;
 
 	if (cpr3_ctrl_is_msm8998(ctrl)) {
 		ctrl->aging_sensor->sensor_id = MSM8998_MMSS_AGING_SENSOR_ID;
