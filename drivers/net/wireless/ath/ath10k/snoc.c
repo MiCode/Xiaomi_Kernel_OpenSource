@@ -1034,10 +1034,8 @@ static int ath10k_snoc_get_soc_info(struct ath10k *ar)
 static int ath10k_snoc_wlan_enable(struct ath10k *ar)
 {
 	struct icnss_wlan_enable_cfg cfg;
-	int pipe_num, i;
+	int pipe_num;
 	struct ath10k_ce_tgt_pipe_cfg tgt_cfg[CE_COUNT_MAX];
-	struct ce_tgt_pipe_cfg *tmp_tgt_cfg;
-	struct ce_svc_pipe_cfg *tmp_svc_cfg;
 
 	for (pipe_num = 0; pipe_num < CE_COUNT_MAX; pipe_num++) {
 		tgt_cfg[pipe_num].pipe_num =
@@ -1065,12 +1063,6 @@ static int ath10k_snoc_wlan_enable(struct ath10k *ar)
 					sizeof(struct icnss_shadow_reg_cfg);
 	cfg.shadow_reg_cfg = (struct icnss_shadow_reg_cfg *)
 		&target_shadow_reg_cfg_map;
-
-	for (i = 0; i < cfg.num_ce_tgt_cfg; i++)
-		tmp_tgt_cfg = cfg.ce_tgt_cfg + i;
-
-	for (i = 0; i < cfg.num_ce_svc_pipe_cfg; i++)
-		tmp_svc_cfg = cfg.ce_svc_cfg + i;
 
 	return icnss_wlan_enable(&cfg, ICNSS_MISSION, "5.1.0.26N");
 }
