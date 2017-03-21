@@ -25,6 +25,29 @@
 #define FAST_PAGE_MASK (~(PAGE_SIZE - 1))
 #define FAST_PTE_ADDR_MASK		((av8l_fast_iopte)0xfffffffff000)
 
+static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
+				 bool coherent)
+{
+	if (attrs & DMA_ATTR_STRONGLY_ORDERED)
+		return pgprot_noncached(prot);
+	else if (!coherent || (attrs & DMA_ATTR_WRITE_COMBINE))
+		return pgprot_writecombine(prot);
+	return prot;
+}
+
+static int __get_iommu_pgprot(unsigned long attrs, int prot,
+			      bool coherent)
+{
+	if (!(attrs & DMA_ATTR_EXEC_MAPPING))
+		prot |= IOMMU_NOEXEC;
+	if ((attrs & DMA_ATTR_STRONGLY_ORDERED))
+		prot |= IOMMU_MMIO;
+	if (coherent)
+		prot |= IOMMU_CACHE;
+
+	return prot;
+}
+
 static void fast_dmac_clean_range(struct dma_fast_smmu_mapping *mapping,
 				  void *start, void *end)
 {
@@ -289,11 +312,11 @@ static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 	int nptes = len >> FAST_PAGE_SHIFT;
 	bool skip_sync = (attrs & DMA_ATTR_SKIP_CPU_SYNC);
 	int prot = __fast_dma_direction_to_prot(dir);
+	bool is_coherent = is_device_dma_coherent(dev);
 
-	if (attrs & DMA_ATTR_STRONGLY_ORDERED)
-		prot |= IOMMU_MMIO;
+	prot = __get_iommu_pgprot(attrs, prot, is_coherent);
 
-	if (!skip_sync)
+	if (!skip_sync && !is_coherent)
 		__fast_dma_page_cpu_to_dev(phys_to_page(phys_to_map),
 					   offset_from_phys_to_map, size, dir);
 
@@ -333,8 +356,9 @@ static void fast_smmu_unmap_page(struct device *dev, dma_addr_t iova,
 	int nptes = len >> FAST_PAGE_SHIFT;
 	struct page *page = phys_to_page((*pmd & FAST_PTE_ADDR_MASK));
 	bool skip_sync = (attrs & DMA_ATTR_SKIP_CPU_SYNC);
+	bool is_coherent = is_device_dma_coherent(dev);
 
-	if (!skip_sync)
+	if (!skip_sync && !is_coherent)
 		__fast_dma_page_dev_to_cpu(page, offset, size, dir);
 
 	spin_lock_irqsave(&mapping->lock, flags);
@@ -444,8 +468,11 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	struct sg_mapping_iter miter;
 	unsigned int count = ALIGN(size, SZ_4K) >> PAGE_SHIFT;
 	int prot = IOMMU_READ | IOMMU_WRITE; /* TODO: extract from attrs */
-	pgprot_t remap_prot = pgprot_writecombine(PAGE_KERNEL);
+	bool is_coherent = is_device_dma_coherent(dev);
+	pgprot_t remap_prot = __get_dma_pgprot(attrs, PAGE_KERNEL, is_coherent);
 	struct page **pages;
+
+	prot = __get_iommu_pgprot(attrs, prot, is_coherent);
 
 	*handle = DMA_ERROR_CODE;
 
@@ -461,7 +488,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 		goto out_free_pages;
 	}
 
-	if (!(prot & IOMMU_CACHE)) {
+	if (!is_coherent) {
 		/*
 		 * The CPU-centric flushing implied by SG_MITER_TO_SG isn't
 		 * sufficient here, so skip it by using the "wrong" direction.
@@ -563,9 +590,10 @@ static int fast_smmu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 	unsigned long uaddr = vma->vm_start;
 	struct page **pages;
 	int i, nr_pages, ret = 0;
+	bool coherent = is_device_dma_coherent(dev);
 
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-
+	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot,
+					     coherent);
 	area = find_vm_area(cpu_addr);
 	if (!area)
 		return -EINVAL;
