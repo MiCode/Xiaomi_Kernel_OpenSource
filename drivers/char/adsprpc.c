@@ -1413,6 +1413,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 {
 	int i;
 	INIT_HLIST_HEAD(&me->drivers);
+	INIT_HLIST_HEAD(&me->maps);
 	spin_lock_init(&me->hlock);
 	mutex_init(&me->smd_mutex);
 	me->channel = &gcinfo[0];
