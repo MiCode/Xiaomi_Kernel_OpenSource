@@ -1263,6 +1263,71 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc)
 	}
 }
 
+int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
+		struct drm_framebuffer *fb)
+{
+	struct drm_encoder *drm_enc;
+	struct sde_hw_mixer_cfg mixer;
+	struct sde_rm_hw_iter lm_iter;
+	bool lm_valid = false;
+
+	if (!phys_enc || !phys_enc->parent) {
+		SDE_ERROR("invalid encoder\n");
+		return -EINVAL;
+	}
+
+	drm_enc = phys_enc->parent;
+	memset(&mixer, 0, sizeof(mixer));
+
+	/* reset associated CTL/LMs */
+	if (phys_enc->hw_ctl->ops.clear_pending_flush)
+		phys_enc->hw_ctl->ops.clear_pending_flush(phys_enc->hw_ctl);
+	if (phys_enc->hw_ctl->ops.clear_all_blendstages)
+		phys_enc->hw_ctl->ops.clear_all_blendstages(phys_enc->hw_ctl);
+
+	sde_rm_init_hw_iter(&lm_iter, drm_enc->base.id, SDE_HW_BLK_LM);
+	while (sde_rm_get_hw(&phys_enc->sde_kms->rm, &lm_iter)) {
+		struct sde_hw_mixer *hw_lm = (struct sde_hw_mixer *)lm_iter.hw;
+
+		if (!hw_lm)
+			continue;
+
+		/* need to flush LM to remove it */
+		if (phys_enc->hw_ctl->ops.get_bitmask_mixer &&
+				phys_enc->hw_ctl->ops.update_pending_flush)
+			phys_enc->hw_ctl->ops.update_pending_flush(
+					phys_enc->hw_ctl,
+					phys_enc->hw_ctl->ops.get_bitmask_mixer(
+					phys_enc->hw_ctl, hw_lm->idx));
+
+		if (fb) {
+			/* assume a single LM if targeting a frame buffer */
+			if (lm_valid)
+				continue;
+
+			mixer.out_height = fb->height;
+			mixer.out_width = fb->width;
+
+			if (hw_lm->ops.setup_mixer_out)
+				hw_lm->ops.setup_mixer_out(hw_lm, &mixer);
+		}
+
+		lm_valid = true;
+
+		/* only enable border color on LM */
+		if (phys_enc->hw_ctl->ops.setup_blendstage)
+			phys_enc->hw_ctl->ops.setup_blendstage(
+					phys_enc->hw_ctl,
+					hw_lm->idx, 0, 0);
+	}
+
+	if (!lm_valid) {
+		SDE_DEBUG_ENC(to_sde_encoder_virt(drm_enc), "lm not found\n");
+		return -EFAULT;
+	}
+	return 0;
+}
+
 static int _sde_encoder_status_show(struct seq_file *s, void *data)
 {
 	struct sde_encoder_virt *sde_enc;

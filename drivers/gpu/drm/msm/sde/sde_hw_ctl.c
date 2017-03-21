@@ -29,6 +29,9 @@
 #define   CTL_SW_RESET                  0x030
 #define   CTL_LAYER_EXTN_OFFSET         0x40
 
+#define CTL_MIXER_BORDER_OUT            BIT(24)
+#define CTL_FLUSH_MASK_CTL              BIT(17)
+
 #define SDE_REG_RESET_TIMEOUT_COUNT    20
 
 static struct sde_ctl_cfg *_ctl_offset(enum sde_ctl ctl,
@@ -180,7 +183,7 @@ static inline uint32_t sde_hw_ctl_get_bitmask_mixer(struct sde_hw_ctl *ctx,
 		return -EINVAL;
 	}
 
-	flushbits |= BIT(17); /* CTL */
+	flushbits |= CTL_FLUSH_MASK_CTL;
 
 	return flushbits;
 }
@@ -313,6 +316,7 @@ static void sde_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx)
 	for (i = 0; i < ctx->mixer_count; i++) {
 		SDE_REG_WRITE(c, CTL_LAYER(LM_0 + i), 0);
 		SDE_REG_WRITE(c, CTL_LAYER_EXT(LM_0 + i), 0);
+		SDE_REG_WRITE(c, CTL_LAYER_EXT2(LM_0 + i), 0);
 	}
 }
 
@@ -339,7 +343,10 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	else
 		pipes_per_stage = 1;
 
-	mixercfg = BIT(24); /* always set BORDER_OUT */
+	mixercfg = CTL_MIXER_BORDER_OUT; /* always set BORDER_OUT */
+
+	if (!stage_cfg)
+		goto exit;
 
 	for (i = 0; i <= stages; i++) {
 		/* overflow to ext register if 'i + 1 > 7' */
@@ -443,6 +450,7 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 		}
 	}
 
+exit:
 	SDE_REG_WRITE(c, CTL_LAYER(lm), mixercfg);
 	SDE_REG_WRITE(c, CTL_LAYER_EXT(lm), mixercfg_ext);
 	SDE_REG_WRITE(c, CTL_LAYER_EXT2(lm), mixercfg_ext2);

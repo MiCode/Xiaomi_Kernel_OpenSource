@@ -434,10 +434,10 @@ static int sde_encoder_phys_wb_atomic_check(
 }
 
 /**
- * sde_encoder_phys_wb_flush - flush hardware update
+ * _sde_encoder_phys_wb_update_flush - flush hardware update
  * @phys_enc:	Pointer to physical encoder
  */
-static void sde_encoder_phys_wb_flush(struct sde_encoder_phys *phys_enc)
+static void _sde_encoder_phys_wb_update_flush(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
 	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
@@ -461,7 +461,10 @@ static void sde_encoder_phys_wb_flush(struct sde_encoder_phys *phys_enc)
 	if (hw_ctl->ops.update_pending_flush)
 		hw_ctl->ops.update_pending_flush(hw_ctl, flush_mask);
 
-	SDE_DEBUG("Flushing CTL_ID %d, flush_mask %x, WB %d\n",
+	if (hw_ctl->ops.get_pending_flush)
+		flush_mask = hw_ctl->ops.get_pending_flush(hw_ctl);
+
+	SDE_DEBUG("Pending flush mask for CTL_%d is 0x%x, WB %d\n",
 			hw_ctl->idx - CTL_0, flush_mask, hw_wb->idx - WB_0);
 }
 
@@ -484,7 +487,15 @@ static void sde_encoder_phys_wb_setup(
 
 	memset(wb_roi, 0, sizeof(struct sde_rect));
 
-	fb = sde_wb_get_output_fb(wb_enc->wb_dev);
+	if (phys_enc->enable_state == SDE_ENC_DISABLING) {
+		fb = wb_enc->fb_disable;
+		wb_roi->w = 0;
+		wb_roi->h = 0;
+	} else {
+		fb = sde_wb_get_output_fb(wb_enc->wb_dev);
+		sde_wb_get_output_roi(wb_enc->wb_dev, wb_roi);
+	}
+
 	if (!fb) {
 		SDE_DEBUG("no output framebuffer\n");
 		return;
@@ -493,7 +504,6 @@ static void sde_encoder_phys_wb_setup(
 	SDE_DEBUG("[fb_id:%u][fb:%u,%u]\n", fb->base.id,
 			fb->width, fb->height);
 
-	sde_wb_get_output_roi(wb_enc->wb_dev, wb_roi);
 	if (wb_roi->w == 0 || wb_roi->h == 0) {
 		wb_roi->x = 0;
 		wb_roi->y = 0;
@@ -564,6 +574,10 @@ static void sde_encoder_phys_wb_done_irq(void *arg, int irq_idx)
 	SDE_DEBUG("[wb:%d,%u]\n", hw_wb->idx - WB_0,
 			wb_enc->frame_count);
 
+	/* don't notify upper layer for internal commit */
+	if (phys_enc->enable_state == SDE_ENC_DISABLING)
+		goto complete;
+
 	if (phys_enc->parent_ops.handle_frame_done)
 		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
 				phys_enc, SDE_ENCODER_FRAME_EVENT_DONE);
@@ -571,6 +585,7 @@ static void sde_encoder_phys_wb_done_irq(void *arg, int irq_idx)
 	phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
 			phys_enc);
 
+complete:
 	complete_all(&wb_enc->wbdone_complete);
 }
 
@@ -700,8 +715,10 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 	u32 timeout = max_t(u32, wb_enc->wbdone_timeout, KICKOFF_TIMEOUT_MS);
 
 	/* Return EWOULDBLOCK since we know the wait isn't necessary */
-	if (WARN_ON(phys_enc->enable_state != SDE_ENC_ENABLED))
+	if (phys_enc->enable_state == SDE_ENC_DISABLED) {
+		SDE_ERROR("encoder already disabled\n");
 		return -EWOULDBLOCK;
+	}
 
 	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), wb_enc->frame_count);
 
@@ -784,7 +801,7 @@ static void sde_encoder_phys_wb_prepare_for_kickoff(
 	/* set OT limit & enable traffic shaper */
 	sde_encoder_phys_wb_setup(phys_enc);
 
-	sde_encoder_phys_wb_flush(phys_enc);
+	_sde_encoder_phys_wb_update_flush(phys_enc);
 
 	/* vote for iommu/clk/bus */
 	wb_enc->start_time = ktime_get();
@@ -804,6 +821,111 @@ static void sde_encoder_phys_wb_handle_post_kickoff(
 	SDE_DEBUG("[wb:%d]\n", wb_enc->hw_wb->idx - WB_0);
 
 	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc));
+}
+
+/**
+ * _sde_encoder_phys_wb_init_internal_fb - create fb for internal commit
+ * @wb_enc:		Pointer to writeback encoder
+ * @pixel_format:	DRM pixel format
+ * @width:		Desired fb width
+ * @height:		Desired fb height
+ */
+static int _sde_encoder_phys_wb_init_internal_fb(
+		struct sde_encoder_phys_wb *wb_enc,
+		uint32_t pixel_format, uint32_t width, uint32_t height)
+{
+	struct drm_device *dev;
+	struct drm_framebuffer *fb;
+	struct drm_mode_fb_cmd2 mode_cmd;
+	uint32_t size;
+	int nplanes, i, ret;
+
+	if (!wb_enc || !wb_enc->base.parent || !wb_enc->base.sde_kms) {
+		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	dev = wb_enc->base.sde_kms->dev;
+	if (!dev) {
+		SDE_ERROR("invalid dev\n");
+		return -EINVAL;
+	}
+
+	memset(&mode_cmd, 0, sizeof(mode_cmd));
+	mode_cmd.pixel_format = pixel_format;
+	mode_cmd.width = width;
+	mode_cmd.height = height;
+
+	size = sde_format_get_framebuffer_size(pixel_format,
+			mode_cmd.width, mode_cmd.height, 0, 0);
+	if (!size) {
+		SDE_DEBUG("not creating zero size buffer\n");
+		return -EINVAL;
+	}
+
+	/* allocate gem tracking object */
+	nplanes = drm_format_num_planes(pixel_format);
+	if (nplanes > SDE_MAX_PLANES) {
+		SDE_ERROR("requested format has too many planes\n");
+		return -EINVAL;
+	}
+	mutex_lock(&dev->struct_mutex);
+	wb_enc->bo_disable[0] = msm_gem_new(dev, size,
+			MSM_BO_SCANOUT | MSM_BO_WC);
+	mutex_unlock(&dev->struct_mutex);
+
+	if (IS_ERR_OR_NULL(wb_enc->bo_disable[0])) {
+		ret = PTR_ERR(wb_enc->bo_disable[0]);
+		wb_enc->bo_disable[0] = NULL;
+
+		SDE_ERROR("failed to create bo, %d\n", ret);
+		return ret;
+	}
+
+	for (i = 0; i < nplanes; ++i) {
+		wb_enc->bo_disable[i] = wb_enc->bo_disable[0];
+		mode_cmd.pitches[i] = width *
+			drm_format_plane_cpp(pixel_format, i);
+	}
+
+	fb = msm_framebuffer_init(dev, &mode_cmd, wb_enc->bo_disable);
+	if (IS_ERR_OR_NULL(fb)) {
+		ret = PTR_ERR(fb);
+		drm_gem_object_unreference(wb_enc->bo_disable[0]);
+		wb_enc->bo_disable[0] = NULL;
+
+		SDE_ERROR("failed to init fb, %d\n", ret);
+		return ret;
+	}
+
+	/* prepare the backing buffer now so that it's available later */
+	ret = msm_framebuffer_prepare(fb,
+			wb_enc->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE]);
+	if (!ret)
+		wb_enc->fb_disable = fb;
+	return ret;
+}
+
+/**
+ * _sde_encoder_phys_wb_destroy_internal_fb - deconstruct internal fb
+ * @wb_enc:		Pointer to writeback encoder
+ */
+static void _sde_encoder_phys_wb_destroy_internal_fb(
+		struct sde_encoder_phys_wb *wb_enc)
+{
+	if (!wb_enc)
+		return;
+
+	if (wb_enc->fb_disable) {
+		drm_framebuffer_unregister_private(wb_enc->fb_disable);
+		drm_framebuffer_remove(wb_enc->fb_disable);
+		wb_enc->fb_disable = NULL;
+	}
+
+	if (wb_enc->bo_disable[0]) {
+		drm_gem_object_unreference(wb_enc->bo_disable[0]);
+		wb_enc->bo_disable[0] = NULL;
+	}
 }
 
 /**
@@ -865,11 +987,23 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 		sde_encoder_phys_wb_wait_for_commit_done(phys_enc);
 	}
 
-	if (phys_enc->hw_cdm && phys_enc->hw_cdm->ops.disable) {
-		SDE_DEBUG_DRIVER("[cdm_disable]\n");
-		phys_enc->hw_cdm->ops.disable(phys_enc->hw_cdm);
+	if (!phys_enc->hw_ctl || !phys_enc->parent ||
+			!phys_enc->sde_kms || !wb_enc->fb_disable) {
+		SDE_DEBUG("invalid enc, skipping extra commit\n");
+		goto exit;
 	}
 
+	/* reset h/w before final flush */
+	if (sde_encoder_helper_hw_release(phys_enc, wb_enc->fb_disable))
+		goto exit;
+
+	phys_enc->enable_state = SDE_ENC_DISABLING;
+	sde_encoder_phys_wb_prepare_for_kickoff(phys_enc);
+	if (phys_enc->hw_ctl->ops.trigger_flush)
+		phys_enc->hw_ctl->ops.trigger_flush(phys_enc->hw_ctl);
+	sde_encoder_helper_trigger_start(phys_enc);
+	sde_encoder_phys_wb_wait_for_commit_done(phys_enc);
+exit:
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 }
 
@@ -971,6 +1105,8 @@ static void sde_encoder_phys_wb_destroy(struct sde_encoder_phys *phys_enc)
 	if (!phys_enc)
 		return;
 
+	_sde_encoder_phys_wb_destroy_internal_fb(wb_enc);
+
 	kfree(wb_enc);
 }
 
@@ -1009,8 +1145,15 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 
 	SDE_DEBUG("\n");
 
+	if (!p || !p->parent) {
+		SDE_ERROR("invalid params\n");
+		ret = -EINVAL;
+		goto fail_alloc;
+	}
+
 	wb_enc = kzalloc(sizeof(*wb_enc), GFP_KERNEL);
 	if (!wb_enc) {
+		SDE_ERROR("failed to allocate wb enc\n");
 		ret = -ENOMEM;
 		goto fail_alloc;
 	}
@@ -1077,6 +1220,13 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	phys_enc->intf_idx = p->intf_idx;
 	phys_enc->enc_spinlock = p->enc_spinlock;
 	INIT_LIST_HEAD(&wb_enc->irq_cb.list);
+
+	/* create internal buffer for disable logic */
+	if (_sde_encoder_phys_wb_init_internal_fb(wb_enc,
+				DRM_FORMAT_RGB888, 2, 1)) {
+		SDE_ERROR("failed to init internal fb\n");
+		goto fail_wb_init;
+	}
 
 	SDE_DEBUG("Created sde_encoder_phys_wb for wb %d\n",
 			wb_enc->hw_wb->idx - WB_0);

@@ -532,6 +532,9 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 					ktime_to_ns(fevent->ts),
 					atomic_read(&sde_crtc->frame_pending));
 			SDE_EVT32(DRMID(crtc), fevent->event, 0);
+
+			/* don't propagate unexpected frame done events */
+			return;
 		} else if (atomic_dec_return(&sde_crtc->frame_pending) == 0) {
 			/* release bandwidth and other resources */
 			SDE_DEBUG("crtc%d ts:%lld last pending\n",
