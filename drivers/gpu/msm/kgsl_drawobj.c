@@ -100,14 +100,15 @@ void kgsl_dump_syncpoints(struct kgsl_device *device,
 				retired);
 			break;
 		}
-		case KGSL_CMD_SYNCPOINT_TYPE_FENCE:
-			if (event->handle)
-				dev_err(device->dev, "  fence: [%pK] %s\n",
-					event->handle->fence,
-					event->handle->name);
-			else
-				dev_err(device->dev, "  fence: invalid\n");
+		case KGSL_CMD_SYNCPOINT_TYPE_FENCE: {
+			char fence_str[128];
+
+			kgsl_dump_fence(event->handle,
+					fence_str, sizeof(fence_str));
+			dev_err(device->dev,
+				"  fence: %s\n", fence_str);
 			break;
+		}
 		}
 	}
 }
@@ -146,14 +147,15 @@ static void syncobj_timer(unsigned long data)
 			dev_err(device->dev, "       [%d] TIMESTAMP %d:%d\n",
 				i, event->context->id, event->timestamp);
 			break;
-		case KGSL_CMD_SYNCPOINT_TYPE_FENCE:
-			if (event->handle != NULL) {
-				dev_err(device->dev, "       [%d] FENCE %s\n",
-				i, event->handle->fence ?
-					event->handle->fence->name : "NULL");
-				kgsl_sync_fence_log(event->handle->fence);
-			}
+		case KGSL_CMD_SYNCPOINT_TYPE_FENCE: {
+			char fence_str[128];
+
+			kgsl_dump_fence(event->handle,
+					fence_str, sizeof(fence_str));
+			dev_err(device->dev, "       [%d] FENCE %s\n",
+				i, fence_str);
 			break;
+		}
 		}
 	}
 
@@ -326,9 +328,10 @@ EXPORT_SYMBOL(kgsl_drawobj_destroy);
 static void drawobj_sync_fence_func(void *priv)
 {
 	struct kgsl_drawobj_sync_event *event = priv;
+	char fence_str[128];
 
-	trace_syncpoint_fence_expire(event->syncobj,
-		event->handle ? event->handle->name : "unknown");
+	kgsl_dump_fence(event->handle, fence_str, sizeof(fence_str));
+	trace_syncpoint_fence_expire(event->syncobj, fence_str);
 
 	drawobj_sync_expire(event->device, event);
 
@@ -349,6 +352,7 @@ static int drawobj_add_sync_fence(struct kgsl_device *device,
 	struct kgsl_drawobj *drawobj = DRAWOBJ(syncobj);
 	struct kgsl_drawobj_sync_event *event;
 	unsigned int id;
+	char fence_str[128];
 
 	kref_get(&drawobj->refcount);
 
@@ -385,7 +389,8 @@ static int drawobj_add_sync_fence(struct kgsl_device *device,
 		return ret;
 	}
 
-	trace_syncpoint_fence(syncobj, event->handle->name);
+	kgsl_dump_fence(event->handle, fence_str, sizeof(fence_str));
+	trace_syncpoint_fence(syncobj, fence_str);
 
 	return 0;
 }
