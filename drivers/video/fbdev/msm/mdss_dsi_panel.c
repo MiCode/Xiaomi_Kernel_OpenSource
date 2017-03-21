@@ -2819,6 +2819,13 @@ static int mdss_panel_parse_dt(struct device_node *np,
 			MSM_DBA_CHIP_NAME_MAX_LEN);
 	}
 
+	rc = of_property_read_u32(np,
+		"qcom,mdss-dsi-host-esc-clk-freq-hz",
+		&pinfo->esc_clk_rate_hz);
+	if (rc)
+		pinfo->esc_clk_rate_hz = MDSS_DSI_MAX_ESC_CLK_RATE_HZ;
+	pr_debug("%s: esc clk %d\n", __func__, pinfo->esc_clk_rate_hz);
+
 	return 0;
 
 error:
