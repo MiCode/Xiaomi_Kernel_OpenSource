@@ -90,6 +90,7 @@ struct kgsl_pwr_history {
  * @history - History of power events with timestamps and durations
  * @popp_level - Current level of POPP mitigation
  * @popp_state - Control state for POPP, on/off, recently pushed, etc
+ * @cooling_dev - Thermal cooling device handle
  */
 struct kgsl_pwrscale {
 	struct devfreq *devfreqptr;
@@ -111,6 +112,7 @@ struct kgsl_pwrscale {
 	struct kgsl_pwr_history history[KGSL_PWREVENT_MAX];
 	int popp_level;
 	unsigned long popp_state;
+	struct thermal_cooling_device *cooling_dev;
 };
 
 int kgsl_pwrscale_init(struct device *dev, const char *governor);
