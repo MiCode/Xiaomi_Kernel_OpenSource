@@ -255,7 +255,7 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 	if (chan->txdone_method	== TXDONE_BY_POLL)
 		poll_txdone((unsigned long)chan->mbox);
 
-	if (chan->cl->tx_block && chan->active_req) {
+	if (chan->cl->tx_block) {
 		unsigned long wait;
 		int ret;
 
