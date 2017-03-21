@@ -613,7 +613,7 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 
 	/* Set the GMEM VA range [0x100000:0x100000 + gpu->gmem - 1] */
 	gpu_write64(gpu, REG_A5XX_UCHE_GMEM_RANGE_MIN_LO,
-		REG_A5XX_UCHE_GMEM_RANGE_MIN_LO, 0x00100000);
+		REG_A5XX_UCHE_GMEM_RANGE_MIN_HI, 0x00100000);
 
 	gpu_write64(gpu, REG_A5XX_UCHE_GMEM_RANGE_MAX_LO,
 		REG_A5XX_UCHE_GMEM_RANGE_MAX_HI,
