@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -218,11 +218,20 @@ static long clk_branch2_round_rate(struct clk_hw *hw, unsigned long rate,
 		unsigned long *parent_rate)
 {
 	struct clk_hw *parent = clk_hw_get_parent(hw);
+	unsigned long rrate = 0;
 
 	if (!parent)
 		return -EPERM;
 
-	return clk_hw_round_rate(parent, rate);
+	rrate = clk_hw_round_rate(parent, rate);
+	/*
+	 * If the rounded rate that's returned is valid, update the parent_rate
+	 * field so that the set_rate() call can be propagated to the parent.
+	 */
+	if (rrate > 0)
+		*parent_rate = rrate;
+
+	return rrate;
 }
 
 static unsigned long clk_branch2_recalc_rate(struct clk_hw *hw,
