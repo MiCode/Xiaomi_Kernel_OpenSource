@@ -189,10 +189,16 @@ struct mdss_panel_cfg {
 
 enum {
 	MDP_INTF_CALLBACK_DSI_WAIT,
+	MDP_INTF_CALLBACK_CHECK_LINE_COUNT,
 };
 
 struct mdss_intf_recovery {
 	int (*fxn)(void *ctx, int event);
+	void *data;
+};
+
+struct mdss_intf_ulp_clamp {
+	int (*fxn)(void *ctx, int intf_num, bool enable);
 	void *data;
 };
 
@@ -301,6 +307,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_UPDATE_PANEL_PPM,
 	MDSS_EVENT_DSI_TIMING_DB_CTRL,
 	MDSS_EVENT_AVR_MODE,
+	MDSS_EVENT_REGISTER_CLAMP_HANDLER,
 	MDSS_EVENT_MAX,
 };
 
@@ -357,6 +364,8 @@ static inline char *mdss_panel_intf_event_to_string(int event)
 		return INTF_EVENT_STR(MDSS_EVENT_REGISTER_RECOVERY_HANDLER);
 	case MDSS_EVENT_REGISTER_MDP_CALLBACK:
 		return INTF_EVENT_STR(MDSS_EVENT_REGISTER_MDP_CALLBACK);
+	case MDSS_EVENT_REGISTER_CLAMP_HANDLER:
+		return INTF_EVENT_STR(MDSS_EVENT_REGISTER_CLAMP_HANDLER);
 	case MDSS_EVENT_DSI_PANEL_STATUS:
 		return INTF_EVENT_STR(MDSS_EVENT_DSI_PANEL_STATUS);
 	case MDSS_EVENT_DSI_DYNAMIC_SWITCH:
