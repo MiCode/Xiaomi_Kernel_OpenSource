@@ -544,8 +544,10 @@ static void mdss_mdp_video_timegen_flush(struct mdss_mdp_ctl *ctl,
 			ctl_flush |= (BIT(31) >>
 					(sctx->intf_num - MDSS_MDP_INTF0));
 	}
+	MDSS_XLOG(ctl->intf_num, sctx?sctx->intf_num:0xf00, ctl_flush,
+				mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_FLUSH));
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl_flush);
-	MDSS_XLOG(ctl->intf_num, sctx?sctx->intf_num:0xf00, ctl_flush);
+
 }
 
 static inline void video_vsync_irq_enable(struct mdss_mdp_ctl *ctl, bool clear)
