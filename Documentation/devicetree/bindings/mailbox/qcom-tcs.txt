@@ -81,6 +81,10 @@ PROPERTIES:
 		ACTIVE_TCS
 		CONTROL_TCS
 	- Cell #2 (Number of TCS): <u32>
+- label:
+	Usage: optional
+	Value type: <string>
+	Definition: Name for the mailbox. The name would be used in trace logs.
 
 EXAMPLE 1:
 
@@ -92,6 +96,7 @@ Second tuple: 0x179E0000 + 0xD00  = 0x179E0D00
 
 	apps_rsc: mailbox@179e000 {
 		compatible = "qcom,tcs_drv";
+		label = "apps_rsc";
 		reg = <0x179E0000 0x10000>, <0x179E0D00 0x3000>;
 		interrupts = <0 5 0>;
 		#mbox-cells = <1>;
@@ -110,17 +115,18 @@ First tuple: 0xAF20000
 Second tuple: 0xAF20000 + 0x1C00
 
 	disp_rsc: mailbox@af20000 {
-			status = "disabled";
-			compatible = "qcom,tcs-drv";
-			reg = <0xAF20000 0x10000>, <0xAF21C00 0x3000>;
-			interrupts = <0 129 0>;
-			#mbox-cells = <1>;
-			qcom,drv-id = <0>;
-			qcom,tcs-config = <SLEEP_TCS 1>,
-					<WAKE_TCS    1>,
-					<ACTIVE_TCS  0>,
-					<CONTROL_TCS 1>;
-		};
+		status = "disabled";
+		label = "disp_rsc";
+		compatible = "qcom,tcs-drv";
+		reg = <0xAF20000 0x10000>, <0xAF21C00 0x3000>;
+		interrupts = <0 129 0>;
+		#mbox-cells = <1>;
+		qcom,drv-id = <0>;
+		qcom,tcs-config = <SLEEP_TCS 1>,
+				<WAKE_TCS    1>,
+				<ACTIVE_TCS  0>,
+				<CONTROL_TCS 1>;
+	};
 
 
 CLIENT:
