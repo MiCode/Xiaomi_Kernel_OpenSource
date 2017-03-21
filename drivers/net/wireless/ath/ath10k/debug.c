@@ -1572,6 +1572,64 @@ static const struct file_operations fops_ani_enable = {
 	.llseek = default_llseek,
 };
 
+static ssize_t ath10k_write_sifs_burst_enable(struct file *file,
+					      const char __user *user_buf,
+					      size_t count, loff_t *ppos)
+{
+	struct ath10k *ar = file->private_data;
+	int ret;
+	u8 enable;
+
+	if (kstrtou8_from_user(user_buf, count, 0, &enable))
+		return -EINVAL;
+
+	mutex_lock(&ar->conf_mutex);
+
+	if (ar->sifs_burst_enabled == enable) {
+		ret = count;
+		goto exit;
+	}
+
+	ret = ath10k_wmi_pdev_set_param(ar, ar->wmi.pdev_param->burst_enable,
+					enable);
+	if (ret) {
+		ath10k_warn(ar, "sifs_burst_enable failed: %d\n", ret);
+		goto exit;
+	}
+	ar->sifs_burst_enabled = enable;
+
+	ret = count;
+
+exit:
+	mutex_unlock(&ar->conf_mutex);
+
+	return ret;
+}
+
+static ssize_t ath10k_read_sifs_burst_enable(struct file *file,
+					     char __user *user_buf,
+					     size_t count, loff_t *ppos)
+{
+	struct ath10k *ar = file->private_data;
+	char buf[32];
+	int len;
+	bool ret = false;
+
+	if (ar->sifs_burst_enabled)
+		ret = true;
+
+	len = scnprintf(buf, sizeof(buf), "%d\n", ret);
+	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
+}
+
+static const struct file_operations fops_sifs_burst_enable = {
+	.read = ath10k_read_sifs_burst_enable,
+	.write = ath10k_write_sifs_burst_enable,
+	.open = simple_open,
+	.owner = THIS_MODULE,
+	.llseek = default_llseek,
+};
+
 static const struct file_operations fops_cal_data = {
 	.open = ath10k_debug_cal_data_open,
 	.read = ath10k_debug_cal_data_read,
@@ -2431,6 +2489,9 @@ int ath10k_debug_register(struct ath10k *ar)
 
 	debugfs_create_file("ani_enable", S_IRUSR | S_IWUSR,
 			    ar->debug.debugfs_phy, ar, &fops_ani_enable);
+
+	debugfs_create_file("sifs_burst_enable", S_IRUSR | S_IWUSR,
+			    ar->debug.debugfs_phy, ar, &fops_sifs_burst_enable);
 
 	if (IS_ENABLED(CONFIG_ATH10K_DFS_CERTIFIED)) {
 		debugfs_create_file("dfs_simulate_radar", S_IWUSR,
