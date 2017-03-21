@@ -1472,31 +1472,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 
 	switch (event_notify->hal_event_type) {
 	case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
-		event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
-
-		if (msm_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_SECONDARY) {
-			struct hal_frame_size frame_sz;
-
-			frame_sz.buffer_type = HAL_BUFFER_OUTPUT2;
-			frame_sz.width = event_notify->width;
-			frame_sz.height = event_notify->height;
-			dprintk(VIDC_DBG,
-				"Update OPB dimensions to firmware if buffer requirements are sufficient\n");
-			rc = msm_comm_try_set_prop(inst,
-				HAL_PARAM_FRAME_SIZE, &frame_sz);
-		}
-
-		dprintk(VIDC_DBG,
-			"send session_continue after sufficient event\n");
-		rc = call_hfi_op(hdev, session_continue,
-				(void *) inst->session);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"%s - failed to send session_continue\n",
-				__func__);
-			goto err_bad_event;
-		}
+		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 		break;
 	case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
