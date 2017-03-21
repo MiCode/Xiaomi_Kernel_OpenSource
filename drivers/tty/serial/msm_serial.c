@@ -1834,6 +1834,7 @@ static const struct of_device_id msm_match_table[] = {
 	{ .compatible = "qcom,msm-uartdm" },
 	{}
 };
+MODULE_DEVICE_TABLE(of, msm_match_table);
 
 #ifdef CONFIG_PM_SLEEP
 static int msm_serial_suspend(struct device *dev)
