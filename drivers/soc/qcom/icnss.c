@@ -1775,11 +1775,29 @@ static void icnss_qmi_wlfw_clnt_notify(struct qmi_handle *handle,
 	}
 }
 
+static int icnss_call_driver_uevent(struct icnss_priv *priv,
+				    enum icnss_uevent uevent, void *data)
+{
+	struct icnss_uevent_data uevent_data;
+
+	if (!priv->ops || !priv->ops->uevent)
+		return 0;
+
+	icnss_pr_dbg("Calling driver uevent state: 0x%lx, uevent: %d\n",
+		     priv->state, uevent);
+
+	uevent_data.uevent = uevent;
+	uevent_data.data = data;
+
+	return priv->ops->uevent(&priv->pdev->dev, &uevent_data);
+}
+
 static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 			  unsigned int msg_id, void *msg,
 			  unsigned int msg_len, void *ind_cb_priv)
 {
 	struct icnss_event_pd_service_down_data *event_data;
+	struct icnss_uevent_fw_down_data fw_down_data;
 
 	if (!penv)
 		return;
@@ -1811,6 +1829,9 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 			return;
 		event_data->crashed = true;
 		event_data->fw_rejuvenate = true;
+		fw_down_data.crashed = true;
+		icnss_call_driver_uevent(penv, ICNSS_UEVENT_FW_DOWN,
+					 &fw_down_data);
 		icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 					0, event_data);
 		break;
@@ -1922,23 +1943,6 @@ static int icnss_driver_event_server_exit(void *data)
 	penv->wlfw_clnt = NULL;
 
 	return 0;
-}
-
-static int icnss_call_driver_uevent(struct icnss_priv *priv,
-				    enum icnss_uevent uevent, void *data)
-{
-	struct icnss_uevent_data uevent_data;
-
-	if (!priv->ops || !priv->ops->uevent)
-		return 0;
-
-	icnss_pr_dbg("Calling driver uevent state: 0x%lx, uevent: %d\n",
-		     priv->state, uevent);
-
-	uevent_data.uevent = uevent;
-	uevent_data.data = data;
-
-	return priv->ops->uevent(&priv->pdev->dev, &uevent_data);
 }
 
 static int icnss_call_driver_probe(struct icnss_priv *priv)
@@ -2320,6 +2324,7 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	struct notif_data *notif = data;
 	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
 					       modem_ssr_nb);
+	struct icnss_uevent_fw_down_data fw_down_data;
 
 	icnss_pr_vdbg("Modem-Notify: event %lu\n", code);
 
@@ -2351,6 +2356,9 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	if (notif->crashed == CRASH_STATUS_WDOG_BITE)
 		event_data->wdog_bite = true;
+
+	fw_down_data.crashed = !!notif->crashed;
+	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN, &fw_down_data);
 
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
@@ -2415,6 +2423,7 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 					       service_notifier_nb);
 	enum pd_subsys_state *state = data;
 	struct icnss_event_pd_service_down_data *event_data;
+	struct icnss_uevent_fw_down_data fw_down_data;
 
 	icnss_pr_dbg("PD service notification: 0x%lx state: 0x%lx\n",
 		     notification, priv->state);
@@ -2450,6 +2459,8 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 event_post:
 	icnss_ignore_qmi_timeout(true);
 
+	fw_down_data.crashed = event_data->crashed;
+	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN, &fw_down_data);
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
 done:
