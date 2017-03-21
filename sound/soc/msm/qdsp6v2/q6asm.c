@@ -155,6 +155,13 @@ static int out_cold_index;
 static char *out_buffer;
 static char *in_buffer;
 
+static uint32_t adsp_reg_event_opcode[] = {ASM_STREAM_CMD_REGISTER_PP_EVENTS,
+					ASM_STREAM_CMD_REGISTER_ENCDEC_EVENTS};
+
+static uint32_t adsp_raise_event_opcode[] = {ASM_STREAM_PP_EVENT,
+					    ASM_STREAM_CMD_ENCDEC_EVENTS};
+
+
 static inline void q6asm_set_flag_in_token(union asm_token_struct *asm_token,
 					   int flag, int flag_offset)
 {
@@ -1093,37 +1100,44 @@ fail:
 	return NULL;
 }
 
-int q6asm_send_stream_cmd(struct audio_client *ac, uint32_t opcode,
-			void *param, uint32_t params_length)
+int q6asm_send_stream_cmd(struct audio_client *ac,
+			  struct msm_adsp_event_data *data)
 {
 	char *asm_params = NULL;
 	struct apr_hdr hdr;
 	int sz, rc;
 
-	if (!param || !ac) {
+	if (!data || !ac) {
 		pr_err("%s: %s is NULL\n", __func__,
-			(!param) ? "param" : "ac");
+			(!data) ? "data" : "ac");
 		rc = -EINVAL;
 		goto done;
 	}
 
-	sz = sizeof(struct apr_hdr) + params_length;
+	if (data->event_type >= ARRAY_SIZE(adsp_reg_event_opcode)) {
+		pr_err("%s: event %u out of boundary of array size of (%lu)\n",
+		       __func__, data->event_type,
+		       (long)ARRAY_SIZE(adsp_reg_event_opcode));
+		rc = -EINVAL;
+		goto done;
+	}
+
+	sz = sizeof(struct apr_hdr) + data->payload_len;
 	asm_params = kzalloc(sz, GFP_KERNEL);
 	if (!asm_params) {
 		rc = -ENOMEM;
 		goto done;
 	}
 
-	q6asm_add_hdr_async(ac, &hdr, sizeof(struct apr_hdr) +
-		params_length, TRUE);
+	q6asm_add_hdr_async(ac, &hdr, sz, TRUE);
 	atomic_set(&ac->cmd_state_pp, -1);
-	hdr.opcode = opcode;
+	hdr.opcode = adsp_reg_event_opcode[data->event_type];
 	memcpy(asm_params, &hdr, sizeof(struct apr_hdr));
 	memcpy(asm_params + sizeof(struct apr_hdr),
-		param, params_length);
+		data->payload, data->payload_len);
 	rc = apr_send_pkt(ac->apr, (uint32_t *) asm_params);
 	if (rc < 0) {
-		pr_err("%s: audio adsp pp register failed\n", __func__);
+		pr_err("%s: stream event cmd apr pkt failed\n", __func__);
 		rc = -EINVAL;
 		goto fail_send_param;
 	}
@@ -1131,13 +1145,13 @@ int q6asm_send_stream_cmd(struct audio_client *ac, uint32_t opcode,
 	rc = wait_event_timeout(ac->cmd_wait,
 				(atomic_read(&ac->cmd_state_pp) >= 0), 1 * HZ);
 	if (!rc) {
-		pr_err("%s: timeout, adsp pp register\n", __func__);
+		pr_err("%s: timeout for stream event cmd resp\n", __func__);
 		rc = -ETIMEDOUT;
 		goto fail_send_param;
 	}
 
 	if (atomic_read(&ac->cmd_state_pp) > 0) {
-		pr_err("%s: DSP returned error[%s] adsp pp register\n",
+		pr_err("%s: DSP returned error[%s] for stream event cmd\n",
 				__func__, adsp_err_get_err_str(
 				atomic_read(&ac->cmd_state_pp)));
 		rc = adsp_err_get_lnx_err_code(
@@ -1772,6 +1786,8 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_STREAM_CMD_OPEN_TRANSCODE_LOOPBACK:
 		case ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2:
 		case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
+		case ASM_STREAM_CMD_SET_ENCDEC_PARAM_V2:
+		case ASM_STREAM_CMD_REGISTER_ENCDEC_EVENTS:
 		case ASM_DATA_CMD_REMOVE_INITIAL_SILENCE:
 		case ASM_DATA_CMD_REMOVE_TRAILING_SILENCE:
 		case ASM_SESSION_CMD_REGISTER_FOR_RX_UNDERFLOW_EVENTS:
@@ -1786,7 +1802,9 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 					__func__, payload[0], payload[1]);
 				if (wakeup_flag) {
 					if (payload[0] ==
-						ASM_STREAM_CMD_SET_PP_PARAMS_V2)
+						ASM_STREAM_CMD_SET_PP_PARAMS_V2
+						|| payload[0] ==
+					  ASM_STREAM_CMD_REGISTER_ENCDEC_EVENTS)
 						atomic_set(&ac->cmd_state_pp,
 								payload[1]);
 					else
@@ -1796,7 +1814,9 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 				}
 				return 0;
 			}
-			if (payload[0] == ASM_STREAM_CMD_SET_PP_PARAMS_V2) {
+			if (payload[0] == ASM_STREAM_CMD_SET_PP_PARAMS_V2 ||
+			    payload[0] ==
+					ASM_STREAM_CMD_REGISTER_ENCDEC_EVENTS) {
 				if (atomic_read(&ac->cmd_state_pp) &&
 					wakeup_flag) {
 					atomic_set(&ac->cmd_state_pp, 0);
@@ -2037,8 +2057,16 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		q6asm_process_mtmx_get_param_rsp(ac, (void *) payload);
 		break;
 	case ASM_STREAM_PP_EVENT:
+	case ASM_STREAM_CMD_ENCDEC_EVENTS:
 		pr_debug("%s: ASM_STREAM_PP_EVENT payload[0][0x%x] payload[1][0x%x]",
 				 __func__, payload[0], payload[1]);
+		for (i = 0; i < ARRAY_SIZE(adsp_raise_event_opcode); i++)
+			if (adsp_raise_event_opcode[i] == data->opcode)
+				break;
+
+		if (i >= ARRAY_SIZE(adsp_raise_event_opcode))
+			return 0;
+
 		/* repack payload for asm_stream_pp_event
 		 * package is composed of event type + size + actual payload
 		 */
@@ -2049,10 +2077,10 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		if (!pp_event_package)
 			return -ENOMEM;
 
-		pp_event_package->event_type = ASM_STREAM_PP_EVENT;
+		pp_event_package->event_type = i;
 		pp_event_package->payload_len = payload_size;
 		memcpy((void *)pp_event_package->payload,
-				data->payload, payload_size);
+			data->payload, payload_size);
 		ac->cb(data->opcode, data->token,
 			(void *)pp_event_package, ac->priv);
 		kfree(pp_event_package);
@@ -6883,6 +6911,156 @@ int q6asm_set_aptx_dec_bt_addr(struct audio_client *ac,
 	pr_debug("%s: set BT addr is success\n", __func__);
 	rc = 0;
 fail_cmd:
+	return rc;
+}
+
+int q6asm_send_ion_fd(struct audio_client *ac, int fd)
+{
+	struct ion_client *client;
+	struct ion_handle *handle;
+	ion_phys_addr_t paddr;
+	size_t pa_len = 0;
+	void *vaddr;
+	int ret;
+	int sz = 0;
+	struct avs_rtic_shared_mem_addr shm;
+
+	if (ac == NULL) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (ac->apr == NULL) {
+		pr_err("%s: AC APR handle NULL\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = msm_audio_ion_import("audio_mem_client",
+				   &client,
+				   &handle,
+				   fd,
+				   NULL,
+				   0,
+				   &paddr,
+				   &pa_len,
+				   &vaddr);
+	if (ret) {
+		pr_err("%s: audio ION import failed, rc = %d\n",
+		       __func__, ret);
+		ret = -ENOMEM;
+		goto fail_cmd;
+	}
+	/* get payload length */
+	sz = sizeof(struct avs_rtic_shared_mem_addr);
+	q6asm_add_hdr_async(ac, &shm.hdr, sz, TRUE);
+	atomic_set(&ac->cmd_state, -1);
+	shm.shm_buf_addr_lsw = lower_32_bits(paddr);
+	shm.shm_buf_addr_msw = msm_audio_populate_upper_32_bits(paddr);
+	shm.buf_size = pa_len;
+	shm.shm_buf_num_regions = 1;
+	shm.shm_buf_mem_pool_id = ADSP_MEMORY_MAP_SHMEM8_4K_POOL;
+	shm.shm_buf_flag = 0x00;
+	shm.encdec.param_id = AVS_PARAM_ID_RTIC_SHARED_MEMORY_ADDR;
+	shm.encdec.param_size = sizeof(struct avs_rtic_shared_mem_addr) -
+						sizeof(struct apr_hdr) -
+			sizeof(struct asm_stream_cmd_set_encdec_param_v2);
+	shm.encdec.service_id = OUT;
+	shm.encdec.reserved = 0;
+	shm.map_region.shm_addr_lsw = shm.shm_buf_addr_lsw;
+	shm.map_region.shm_addr_msw = shm.shm_buf_addr_msw;
+	shm.map_region.mem_size_bytes = pa_len;
+	shm.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM_V2;
+	ret = apr_send_pkt(ac->apr, (uint32_t *) &shm);
+	if (ret < 0) {
+		pr_err("%s: set-params send failed paramid[0x%x] rc %d\n",
+		       __func__, shm.encdec.param_id, ret);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(ac->cmd_wait,
+				(atomic_read(&ac->cmd_state) >= 0), 1*HZ);
+	if (!ret) {
+		pr_err("%s: timeout, shm.encdec paramid[0x%x]\n", __func__,
+		       shm.encdec.param_id);
+		ret = -ETIMEDOUT;
+		goto fail_cmd;
+	}
+	if (atomic_read(&ac->cmd_state) > 0) {
+		pr_err("%s: DSP returned error[%s] shm.encdec paramid[0x%x]\n",
+		       __func__,
+		       adsp_err_get_err_str(atomic_read(&ac->cmd_state)),
+		       shm.encdec.param_id);
+		ret = adsp_err_get_lnx_err_code(atomic_read(&ac->cmd_state));
+		goto fail_cmd;
+	}
+	ret = 0;
+fail_cmd:
+	return ret;
+}
+
+int q6asm_send_rtic_event_ack(struct audio_client *ac,
+			      void *param, uint32_t params_length)
+{
+	char *asm_params = NULL;
+	int sz, rc;
+	struct avs_param_rtic_event_ack ack;
+
+	if (!param || !ac) {
+		pr_err("%s: %s is NULL\n", __func__,
+			(!param) ? "param" : "ac");
+		rc = -EINVAL;
+		goto done;
+	}
+
+	sz = sizeof(struct avs_param_rtic_event_ack) + params_length;
+	asm_params = kzalloc(sz, GFP_KERNEL);
+	if (!asm_params) {
+		rc = -ENOMEM;
+		goto done;
+	}
+
+	q6asm_add_hdr_async(ac, &ack.hdr,
+			    sizeof(struct avs_param_rtic_event_ack) +
+			    params_length, TRUE);
+	atomic_set(&ac->cmd_state, -1);
+	ack.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM_V2;
+	ack.encdec.param_id = AVS_PARAM_ID_RTIC_EVENT_ACK;
+	ack.encdec.param_size = params_length;
+	ack.encdec.reserved = 0;
+	ack.encdec.service_id = OUT;
+	memcpy(asm_params, &ack, sizeof(struct avs_param_rtic_event_ack));
+	memcpy(asm_params + sizeof(struct avs_param_rtic_event_ack),
+		param, params_length);
+	rc = apr_send_pkt(ac->apr, (uint32_t *) asm_params);
+	if (rc < 0) {
+		pr_err("%s: apr pkt failed for rtic event ack\n", __func__);
+		rc = -EINVAL;
+		goto fail_send_param;
+	}
+
+	rc = wait_event_timeout(ac->cmd_wait,
+				(atomic_read(&ac->cmd_state) >= 0), 1 * HZ);
+	if (!rc) {
+		pr_err("%s: timeout for rtic event ack cmd\n", __func__);
+		rc = -ETIMEDOUT;
+		goto fail_send_param;
+	}
+
+	if (atomic_read(&ac->cmd_state) > 0) {
+		pr_err("%s: DSP returned error[%s] for rtic event ack cmd\n",
+				__func__, adsp_err_get_err_str(
+				atomic_read(&ac->cmd_state)));
+		rc = adsp_err_get_lnx_err_code(
+				atomic_read(&ac->cmd_state));
+		goto fail_send_param;
+	}
+	rc = 0;
+
+fail_send_param:
+	kfree(asm_params);
+done:
 	return rc;
 }
 

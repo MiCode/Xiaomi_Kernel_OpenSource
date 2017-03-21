@@ -619,8 +619,13 @@ int q6asm_get_session_time_legacy(struct audio_client *ac, uint64_t *tstamp);
 int q6asm_send_audio_effects_params(struct audio_client *ac, char *params,
 				    uint32_t params_length);
 
-int q6asm_send_stream_cmd(struct audio_client *ac, uint32_t opcode,
-			void *param, uint32_t params_length);
+int q6asm_send_stream_cmd(struct audio_client *ac,
+			  struct msm_adsp_event_data *data);
+
+int q6asm_send_ion_fd(struct audio_client *ac, int fd);
+
+int q6asm_send_rtic_event_ack(struct audio_client *ac,
+			      void *param, uint32_t params_length);
 
 /* Client can set the IO mode to either AIO/SIO mode */
 int q6asm_set_io_mode(struct audio_client *ac, uint32_t mode);
