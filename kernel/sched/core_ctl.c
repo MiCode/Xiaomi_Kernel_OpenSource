@@ -653,6 +653,9 @@ int core_ctl_set_boost(bool boost)
 	int ret = 0;
 	bool boost_state_changed = false;
 
+	if (unlikely(!initialized))
+		return 0;
+
 	spin_lock_irqsave(&state_lock, flags);
 	for_each_cluster(cluster, index) {
 		if (cluster->is_big_cluster) {
