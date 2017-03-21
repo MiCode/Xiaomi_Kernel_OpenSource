@@ -37,9 +37,10 @@
 #define DRV_NAME "pmic_analog_codec"
 #define SDM660_CDC_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |\
-			SNDRV_PCM_RATE_48000)
+			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |\
+			SNDRV_PCM_RATE_192000)
 #define SDM660_CDC_FORMATS (SNDRV_PCM_FMTBIT_S16_LE |\
-		SNDRV_PCM_FMTBIT_S24_LE)
+		SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S24_3LE)
 #define MSM_DIG_CDC_STRING_LEN 80
 #define MSM_ANLG_CDC_VERSION_ENTRY_SIZE 32
 
@@ -1435,11 +1436,11 @@ static int msm_anlg_cdc_codec_enable_clock_block(struct snd_soc_codec *codec,
 	if (enable) {
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_ANALOG_MASTER_BIAS_CTL, 0x30, 0x30);
+		msm_anlg_cdc_dig_notifier_call(codec, DIG_CDC_EVENT_CLK_ON);
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_DIGITAL_CDC_RST_CTL, 0x80, 0x80);
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_DIGITAL_CDC_TOP_CLK_CTL, 0x0C, 0x0C);
-		msm_anlg_cdc_dig_notifier_call(codec, DIG_CDC_EVENT_CLK_ON);
 	} else {
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_DIGITAL_CDC_TOP_CLK_CTL, 0x0C, 0x00);

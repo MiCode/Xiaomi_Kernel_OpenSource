@@ -34,7 +34,6 @@
 #include "mdss_dsi_phy.h"
 #include "mdss_dba_utils.h"
 
-#define XO_CLK_RATE	19200000
 #define CMDLINE_DSI_CTL_NUM_STRING_LEN 2
 
 /* Master structure to hold all the information about the DSI/panel */
@@ -1871,7 +1870,7 @@ static void __mdss_dsi_dyn_refresh_config(
 
 static void __mdss_dsi_calc_dfps_delay(struct mdss_panel_data *pdata)
 {
-	u32 esc_clk_rate = XO_CLK_RATE;
+	u32 esc_clk_rate_hz;
 	u32 pipe_delay, pipe_delay2 = 0, pll_delay;
 	u32 hsync_period = 0;
 	u32 pclk_to_esc_ratio, byte_to_esc_ratio, hr_bit_to_esc_ratio;
@@ -1898,9 +1897,11 @@ static void __mdss_dsi_calc_dfps_delay(struct mdss_panel_data *pdata)
 	pinfo = &pdata->panel_info;
 	pd = &(pinfo->mipi.dsi_phy_db);
 
-	pclk_to_esc_ratio = (ctrl_pdata->pclk_rate / esc_clk_rate);
-	byte_to_esc_ratio = (ctrl_pdata->byte_clk_rate / esc_clk_rate);
-	hr_bit_to_esc_ratio = ((ctrl_pdata->byte_clk_rate * 4) / esc_clk_rate);
+	esc_clk_rate_hz = ctrl_pdata->esc_clk_rate_hz;
+	pclk_to_esc_ratio = (ctrl_pdata->pclk_rate / esc_clk_rate_hz);
+	byte_to_esc_ratio = (ctrl_pdata->byte_clk_rate / esc_clk_rate_hz);
+	hr_bit_to_esc_ratio = ((ctrl_pdata->byte_clk_rate * 4) /
+					esc_clk_rate_hz);
 
 	hsync_period = mdss_panel_get_htotal(pinfo, true);
 	pipe_delay = (hsync_period + 1) / pclk_to_esc_ratio;
@@ -1922,7 +1923,7 @@ static void __mdss_dsi_calc_dfps_delay(struct mdss_panel_data *pdata)
 			((pd->timing[4] >> 1) + 1)) / hr_bit_to_esc_ratio);
 
 	/* 130 us pll delay recommended by h/w doc */
-	pll_delay = ((130 * esc_clk_rate) / 1000000) * 2;
+	pll_delay = ((130 * esc_clk_rate_hz) / 1000000) * 2;
 
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + DSI_DYNAMIC_REFRESH_PIPE_DELAY,
 						pipe_delay);
@@ -3057,7 +3058,7 @@ static int mdss_dsi_set_clk_rates(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 
 	rc = mdss_dsi_clk_set_link_rate(ctrl_pdata->dsi_clk_handle,
 					MDSS_DSI_LINK_ESC_CLK,
-					19200000,
+					ctrl_pdata->esc_clk_rate_hz,
 					MDSS_DSI_CLK_UPDATE_CLK_RATE_AT_ON);
 	if (rc) {
 		pr_err("%s: dsi_esc_clk - clk_set_rate failed\n",
@@ -4236,6 +4237,9 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 	pr_debug("%s: pclk=%d, bclk=%d\n", __func__,
 			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
 
+	ctrl_pdata->esc_clk_rate_hz = pinfo->esc_clk_rate_hz;
+	pr_debug("%s: esc clk=%d\n", __func__,
+			ctrl_pdata->esc_clk_rate_hz);
 
 	rc = mdss_dsi_get_dt_vreg_data(&ctrl_pdev->dev, pan_node,
 		&ctrl_pdata->panel_power_data, DSI_PANEL_PM);

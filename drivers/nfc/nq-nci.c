@@ -267,7 +267,7 @@ static ssize_t nfc_write(struct file *filp, const char __user *buf,
 
 	ret = i2c_master_send(nqx_dev->client, tmp, count);
 	if (ret != count) {
-		dev_err(&nqx_dev->client->dev,
+		dev_dbg(&nqx_dev->client->dev,
 		"%s: failed to write %d\n", __func__, ret);
 		ret = -EIO;
 		goto out_free;
@@ -304,7 +304,7 @@ static int nqx_standby_write(struct nqx_dev *nqx_dev,
 	for (retry_cnt = 1; retry_cnt <= MAX_RETRY_COUNT; retry_cnt++) {
 		ret = i2c_master_send(nqx_dev->client, buf, len);
 		if (ret < 0) {
-			dev_err(&nqx_dev->client->dev,
+			dev_dbg(&nqx_dev->client->dev,
 				"%s: write failed, Maybe in Standby Mode - Retry(%d)\n",
 				 __func__, retry_cnt);
 			usleep_range(1000, 1100);
