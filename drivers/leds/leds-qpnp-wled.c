@@ -2076,11 +2076,12 @@ static int qpnp_wled_probe(struct platform_device *pdev)
 	wled = devm_kzalloc(&pdev->dev, sizeof(*wled), GFP_KERNEL);
 	if (!wled)
 		return -ENOMEM;
-		wled->regmap = dev_get_regmap(pdev->dev.parent, NULL);
-		if (!wled->regmap) {
-			dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
-			return -EINVAL;
-		}
+
+	wled->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!wled->regmap) {
+		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
+		return -EINVAL;
+	}
 
 	wled->pdev = pdev;
 
