@@ -18,7 +18,7 @@
 #include "adreno_snapshot.h"
 #include "a6xx_reg.h"
 #include "adreno_a6xx.h"
-
+#include "kgsl_gmu.h"
 
 #define A6XX_NUM_CTXTS 2
 
@@ -200,6 +200,11 @@ static const unsigned int a6xx_vbif_ver_20xxxxxx_registers[] = {
 	0x3156, 0x3156, 0x3158, 0x3158, 0x315A, 0x315A, 0x315C, 0x315C,
 	0x315E, 0x315E, 0x3160, 0x3160, 0x3162, 0x3162, 0x340C, 0x340C,
 	0x3410, 0x3410, 0x3800, 0x3801,
+};
+
+static const unsigned int a6xx_gmu_registers[] = {
+	/* GMU */
+	0x1B400, 0x1C3FF, 0x1C400, 0x1D3FF,
 };
 
 static const struct adreno_vbif_snapshot_registers
@@ -950,6 +955,61 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 	}
 }
 
+static size_t a6xx_snapshot_dump_gmu_registers(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
+	struct kgsl_snapshot_registers *regs = priv;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int count = 0, j, k;
+
+	/* Figure out how many registers we are going to dump */
+	for (j = 0; j < regs->count; j++) {
+		int start = regs->regs[j * 2];
+		int end = regs->regs[j * 2 + 1];
+
+		count += (end - start + 1);
+	}
+
+	if (remain < (count * 8) + sizeof(*header)) {
+		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
+		return 0;
+	}
+
+	for (j = 0; j < regs->count; j++) {
+		unsigned int start = regs->regs[j * 2];
+		unsigned int end = regs->regs[j * 2 + 1];
+
+		for (k = start; k <= end; k++) {
+			unsigned int val;
+
+			kgsl_gmu_regread(device, k, &val);
+			*data++ = k;
+			*data++ = val;
+		}
+	}
+
+	header->count = count;
+
+	/* Return the size of the section */
+	return (count * 8) + sizeof(*header);
+}
+
+static void a6xx_snapshot_gmu(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot)
+{
+	struct kgsl_snapshot_registers gmu_regs = {
+		.regs = a6xx_gmu_registers,
+		.count = ARRAY_SIZE(a6xx_gmu_registers) / 2,
+	};
+
+	if (!kgsl_gmu_isenabled(device))
+		return;
+
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
+			snapshot, a6xx_snapshot_dump_gmu_registers, &gmu_regs);
+}
+
 static void _a6xx_do_crashdump(struct kgsl_device *device)
 {
 	unsigned long wait_time;
@@ -1052,6 +1112,9 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	a6xx_snapshot_dbgahb_regs(device, snapshot);
 
 	a6xx_snapshot_debugbus(device, snapshot);
+
+	/* GMU TCM data dumped through AHB */
+	a6xx_snapshot_gmu(device, snapshot);
 }
 
 static int _a6xx_crashdump_init_mvc(uint64_t *ptr, uint64_t *offset)
