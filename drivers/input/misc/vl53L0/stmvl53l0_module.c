@@ -38,8 +38,8 @@
 #include "vl53l0_api.h"
 #include "vl53l010_api.h"
 
-/*#define USE_INT */
-#define IRQ_NUM	   59
+#define USE_INT
+
 /* #define DEBUG_TIME_LOG */
 #ifdef DEBUG_TIME_LOG
 struct timeval start_tv, stop_tv;
@@ -2668,12 +2668,12 @@ int stmvl53l0_setup(struct stmvl53l0_data *data)
 
 #ifdef USE_INT
 	/* init interrupt */
-	gpio_request(IRQ_NUM, "vl53l0_gpio_int");
-	gpio_direction_input(IRQ_NUM);
-	irq = gpio_to_irq(IRQ_NUM);
+	gpio_request(data->irq_gpio, "vl53l0_gpio_int");
+	gpio_direction_input(data->irq_gpio);
+	irq = gpio_to_irq(data->irq_gpio);
 	if (irq < 0) {
 		vl53l0_errmsg("filed to map GPIO: %d to interrupt:%d\n",
-			IRQ_NUM, irq);
+			data->irq_gpio, irq);
 	} else {
 		vl53l0_dbgmsg("register_irq:%d\n", irq);
 		/* IRQF_TRIGGER_FALLING- poliarity:0 IRQF_TRIGGER_RISNG -
