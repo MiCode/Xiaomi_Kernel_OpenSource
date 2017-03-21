@@ -27,9 +27,11 @@ struct gpio_usbdetect {
 	struct platform_device	*pdev;
 	struct regulator	*vin;
 	int			vbus_det_irq;
+	int			id_det_irq;
 	int			gpio;
 	struct extcon_dev	*extcon_dev;
 	int			vbus_state;
+	bool			id_state;
 };
 
 static const unsigned int gpio_usb_extcon_table[] = {
@@ -53,6 +55,37 @@ static irqreturn_t gpio_usbdetect_vbus_irq(int irq, void *data)
 		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB, 0);
 	}
 
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t gpio_usbdetect_id_irq(int irq, void *data)
+{
+	struct gpio_usbdetect *usb = data;
+	int ret;
+
+	ret = irq_get_irqchip_state(irq, IRQCHIP_STATE_LINE_LEVEL,
+			&usb->id_state);
+	if (ret < 0) {
+		dev_err(&usb->pdev->dev, "unable to read ID IRQ LINE\n");
+		return IRQ_HANDLED;
+	}
+
+	return IRQ_WAKE_THREAD;
+}
+
+static irqreturn_t gpio_usbdetect_id_irq_thread(int irq, void *data)
+{
+	struct gpio_usbdetect *usb = data;
+
+	if (usb->id_state) {
+		dev_dbg(&usb->pdev->dev, "stopping usb host\n");
+		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB_HOST, 0);
+		enable_irq(usb->vbus_det_irq);
+	} else {
+		dev_dbg(&usb->pdev->dev, "starting usb HOST\n");
+		disable_irq(usb->vbus_det_irq);
+		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB_HOST, 1);
+	}
 	return IRQ_HANDLED;
 }
 
@@ -132,7 +165,25 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 		goto error;
 	}
 
+	usb->id_det_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
+	if (usb->id_det_irq < 0) {
+		dev_err(&pdev->dev, "get id_det_irq failed\n");
+		rc = usb->id_det_irq;
+		goto error;
+	}
+
+	rc = devm_request_threaded_irq(&pdev->dev, usb->id_det_irq,
+				gpio_usbdetect_id_irq,
+				gpio_usbdetect_id_irq_thread,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
+				IRQF_ONESHOT, "id_det_irq", usb);
+	if (rc) {
+		dev_err(&pdev->dev, "request for id_det_irq failed: %d\n", rc);
+		goto error;
+	}
+
 	enable_irq_wake(usb->vbus_det_irq);
+	enable_irq_wake(usb->id_det_irq);
 	dev_set_drvdata(&pdev->dev, usb);
 
 	/* Read and report initial VBUS state */
@@ -152,6 +203,8 @@ static int gpio_usbdetect_remove(struct platform_device *pdev)
 
 	disable_irq_wake(usb->vbus_det_irq);
 	disable_irq(usb->vbus_det_irq);
+	disable_irq_wake(usb->id_det_irq);
+	disable_irq(usb->id_det_irq);
 	if (usb->vin)
 		regulator_disable(usb->vin);
 
