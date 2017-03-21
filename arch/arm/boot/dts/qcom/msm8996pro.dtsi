@@ -33,6 +33,7 @@
 
 &apcc_cpr {
 	compatible = "qcom,cpr3-msm8996pro-hmss-regulator";
+	qcom,cpr-interrupt-affinity = <&CPU0 &CPU1>;
 };
 
 &apc0_pwrcl_vreg {
