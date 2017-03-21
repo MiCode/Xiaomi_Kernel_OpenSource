@@ -158,6 +158,12 @@ static int sync_file_set_fence(struct sync_file *sync_file,
 			return -ENOMEM;
 
 		sync_file->fence = &array->base;
+
+		/*
+		 * Register for callbacks so that we know when each fence
+		 * in the array is signaled
+		 */
+		fence_enable_sw_signaling(sync_file->fence);
 	}
 
 	return 0;
