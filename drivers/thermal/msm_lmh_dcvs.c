@@ -114,9 +114,9 @@ static void msm_lmh_dcvs_get_max_freq(uint32_t cpu, uint32_t *max_freq)
 
 static uint32_t msm_lmh_mitigation_notify(struct msm_lmh_dcvs_hw *hw)
 {
-	uint32_t max_limit = 0, val = 0;
+	uint32_t val = 0;
 	struct device *cpu_dev = NULL;
-	unsigned long freq_val;
+	unsigned long freq_val, max_limit = 0;
 	struct dev_pm_opp *opp_entry;
 
 	val = readl_relaxed(hw->osm_hw_reg);
