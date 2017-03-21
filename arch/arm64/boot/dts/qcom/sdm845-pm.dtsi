@@ -17,7 +17,7 @@
 		qcom,use-psci;
 		#address-cells = <1>;
 		#size-cells = <0>;
-		qcom,pm-cluster@0{
+		qcom,pm-cluster@0 {
 			reg = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -26,9 +26,9 @@
 			qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4 &CPU5 &CPU6
 				&CPU7>;
 			qcom,psci-mode-shift = <4>;
-			qcom,psci-mode-mask = <0xf>;
+			qcom,psci-mode-mask = <0xfff>;
 
-			qcom,pm-cluster-level@0{ /* D1 */
+			qcom,pm-cluster-level@0 { /* D1 */
 				reg = <0>;
 				label = "l3-wfi";
 				qcom,psci-mode = <0x1>;
@@ -37,7 +37,8 @@
 				qcom,energy-overhead = <69355>;
 				qcom,time-overhead = <99>;
 			};
-			qcom,pm-cluster-level@1{ /* D2 */
+
+			qcom,pm-cluster-level@1 { /* D2 */
 				reg = <1>;
 				label = "l3-dyn-ret";
 				qcom,psci-mode = <0x2>;
@@ -48,9 +49,9 @@
 				qcom,min-child-idx = <1>;
 			};
 
-			qcom,pm-cluster-level@2{ /* D4, D3 not supported */
+			qcom,pm-cluster-level@2 { /* D4, D3 is not supported */
 				reg = <2>;
-				label = "L3 PC";
+				label = "l3-pc";
 				qcom,psci-mode = <0x4>;
 				qcom,latency-us = <4562>;
 				qcom,ss-power = <408>;
@@ -58,6 +59,32 @@
 				qcom,time-overhead = <5376>;
 				qcom,min-child-idx = <2>;
 				qcom,is-reset;
+			};
+
+			qcom,pm-cluster-level@3 { /* Cx off */
+				reg = <3>;
+				label = "cx-off";
+				qcom,psci-mode = <0x224>;
+				qcom,latency-us = <5562>;
+				qcom,ss-power = <308>;
+				qcom,energy-overhead = <2521840>;
+				qcom,time-overhead = <6376>;
+				qcom,min-child-idx = <3>;
+				qcom,is-reset;
+				qcom,notify-rpm;
+			};
+
+			qcom,pm-cluster-level@4 { /* LLCC off, AOSS sleep */
+				reg = <4>;
+				label = "llcc-off";
+				qcom,psci-mode = <0xC24>;
+				qcom,latency-us = <6562>;
+				qcom,ss-power = <108>;
+				qcom,energy-overhead = <2621840>;
+				qcom,time-overhead = <7376>;
+				qcom,min-child-idx = <3>;
+				qcom,is-reset;
+				qcom,notify-rpm;
 			};
 
 			qcom,pm-cpu {
@@ -95,7 +122,9 @@
 					qcom,energy-overhead = <418225>;
 					qcom,time-overhead = <885>;
 					qcom,is-reset;
+					qcom,use-broadcast-timer;
 				};
+
 				qcom,pm-cpu-level@3 {  /* C4 */
 					reg = <3>;
 					qcom,spm-cpu-mode = "rail-pc";
@@ -105,10 +134,9 @@
 					qcom,energy-overhead = <428225>;
 					qcom,time-overhead = <1000>;
 					qcom,is-reset;
+					qcom,use-broadcast-timer;
 				};
 			};
 		};
-
 	};
-
 };
