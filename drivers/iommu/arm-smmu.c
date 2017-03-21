@@ -2587,6 +2587,12 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    & (1 << DOMAIN_ATTR_EARLY_MAP));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT:
+		if (!smmu_domain->smmu)
+			return -ENODEV;
+		*((int *)data) = smmu_domain->smmu->dev->archdata.dma_coherent;
+		ret = 0;
+		break;
 	default:
 		return -ENODEV;
 	}
