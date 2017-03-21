@@ -887,6 +887,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = NULL,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_LAYER_ID,
+		.name = "Layer ID for different settings",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 6,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDC_VENC_PARAM_SAR_WIDTH,
 		.name = "SAR Width",
 		.type = V4L2_CTRL_TYPE_INTEGER,
@@ -2436,6 +2446,9 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
+
+	/* This will check the range for contols and clip if necessary */
+	v4l2_try_ext_ctrls(&inst->ctrl_handler, ctrl);
 
 	hdev = inst->core->device;
 	cap = &inst->capability;
