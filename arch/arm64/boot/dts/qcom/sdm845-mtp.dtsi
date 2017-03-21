@@ -12,6 +12,30 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include "sdm845-camera-sensor-mtp.dtsi"
+
+/ {
+	bluetooth: bt_wcn3990 {
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-io-supply = <&pm8998_s3>;
+		qca,bt-vdd-xtal-supply = <&pm8998_s5>;
+		qca,bt-vdd-core-supply = <&pm8998_l7>;
+		qca,bt-vdd-pa-supply = <&pm8998_l17>;
+		qca,bt-vdd-ldo-supply = <&pm8998_l25>;
+
+		qca,bt-vdd-io-voltage-level = <1352000 1352000>;
+		qca,bt-vdd-xtal-voltage-level = <2040000 2040000>;
+		qca,bt-vdd-core-voltage-level = <1800000 1800000>;
+		qca,bt-vdd-pa-voltage-level = <1304000 1304000>;
+		qca,bt-vdd-ldo-voltage-level = <3312000 3312000>;
+
+		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-xtal-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-ldo-current-level = <1>; /* LPM/PFM */
+	};
+};
+
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";
