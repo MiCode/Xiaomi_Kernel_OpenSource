@@ -245,6 +245,7 @@ struct iommu_ops {
 
 	int (*of_xlate)(struct device *dev, struct of_phandle_args *args);
 
+	bool (*is_iova_coherent)(struct iommu_domain *domain, dma_addr_t iova);
 	unsigned long pgsize_bitmap;
 };
 
@@ -278,6 +279,8 @@ extern size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long io
 extern phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_addr_t iova);
 extern phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
 					   dma_addr_t iova);
+extern bool iommu_is_iova_coherent(struct iommu_domain *domain,
+				dma_addr_t iova);
 extern void iommu_set_fault_handler(struct iommu_domain *domain,
 			iommu_fault_handler_t handler, void *token);
 
@@ -515,6 +518,12 @@ static inline phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_ad
 
 static inline phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
 						  dma_addr_t iova)
+{
+	return 0;
+}
+
+static inline bool iommu_is_iova_coherent(struct iommu_domain *domain,
+					  dma_addr_t iova)
 {
 	return 0;
 }
