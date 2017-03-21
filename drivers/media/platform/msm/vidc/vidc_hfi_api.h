@@ -384,6 +384,7 @@ enum hal_h264_profile {
 };
 
 enum hal_h264_level {
+	HAL_H264_LEVEL_UNKNOWN = 0x00000000,
 	HAL_H264_LEVEL_1  = 0x00000001,
 	HAL_H264_LEVEL_1b = 0x00000002,
 	HAL_H264_LEVEL_11 = 0x00000004,
@@ -401,7 +402,6 @@ enum hal_h264_level {
 	HAL_H264_LEVEL_5  = 0x00004000,
 	HAL_H264_LEVEL_51 = 0x00008000,
 	HAL_H264_LEVEL_52 = 0x00010000,
-	HAL_UNUSED_H264_LEVEL = 0x10000000,
 };
 
 enum hal_hevc_profile {
@@ -412,6 +412,7 @@ enum hal_hevc_profile {
 };
 
 enum hal_hevc_level {
+	HAL_HEVC_TIER_LEVEL_UNKNOWN     = 0x00000000,
 	HAL_HEVC_MAIN_TIER_LEVEL_1      = 0x10000001,
 	HAL_HEVC_MAIN_TIER_LEVEL_2      = 0x10000002,
 	HAL_HEVC_MAIN_TIER_LEVEL_2_1    = 0x10000004,
@@ -438,7 +439,6 @@ enum hal_hevc_level {
 	HAL_HEVC_HIGH_TIER_LEVEL_6      = 0x20000400,
 	HAL_HEVC_HIGH_TIER_LEVEL_6_1    = 0x20000800,
 	HAL_HEVC_HIGH_TIER_LEVEL_6_2    = 0x20001000,
-	HAL_UNUSED_HEVC_TIER_LEVEL      = 0x80000000,
 };
 
 enum hal_hevc_tier {
