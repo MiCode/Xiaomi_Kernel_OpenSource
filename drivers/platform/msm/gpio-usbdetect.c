@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,57 +20,68 @@
 #include <linux/interrupt.h>
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
-#include <linux/power_supply.h>
+#include <linux/extcon.h>
 #include <linux/regulator/consumer.h>
 
 struct gpio_usbdetect {
 	struct platform_device	*pdev;
 	struct regulator	*vin;
-	struct power_supply	*usb_psy;
 	int			vbus_det_irq;
 	int			gpio;
+	struct extcon_dev	*extcon_dev;
+	int			vbus_state;
+};
+
+static const unsigned int gpio_usb_extcon_table[] = {
+	EXTCON_USB,
+	EXTCON_USB_HOST,
+	EXTCON_USB_CC,
+	EXTCON_USB_SPEED,
+	EXTCON_NONE,
 };
 
 static irqreturn_t gpio_usbdetect_vbus_irq(int irq, void *data)
 {
 	struct gpio_usbdetect *usb = data;
-	int vbus;
-	union power_supply_propval pval = {0,};
 
-	vbus = gpio_get_value(usb->gpio);
-	if (vbus)
-		pval.intval = POWER_SUPPLY_TYPE_USB;
-	else
-		pval.intval = POWER_SUPPLY_TYPE_UNKNOWN;
+	usb->vbus_state = gpio_get_value(usb->gpio);
+	if (usb->vbus_state) {
+		dev_dbg(&usb->pdev->dev, "setting vbus notification\n");
+		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB, 1);
+	} else {
+		dev_dbg(&usb->pdev->dev, "setting vbus removed notification\n");
+		extcon_set_cable_state_(usb->extcon_dev, EXTCON_USB, 0);
+	}
 
-	power_supply_set_property(usb->usb_psy,
-			POWER_SUPPLY_PROP_TYPE, &pval);
-
-	pval.intval = vbus;
-	power_supply_set_property(usb->usb_psy, POWER_SUPPLY_PROP_PRESENT,
-			&pval);
 	return IRQ_HANDLED;
 }
+
+static const u32 gpio_usb_extcon_exclusive[] = {0x3, 0};
 
 static int gpio_usbdetect_probe(struct platform_device *pdev)
 {
 	struct gpio_usbdetect *usb;
-	struct power_supply *usb_psy;
 	int rc;
-	unsigned long flags;
-
-	usb_psy = power_supply_get_by_name("usb");
-	if (!usb_psy) {
-		dev_dbg(&pdev->dev, "USB power_supply not found, deferring probe\n");
-		return -EPROBE_DEFER;
-	}
 
 	usb = devm_kzalloc(&pdev->dev, sizeof(*usb), GFP_KERNEL);
 	if (!usb)
 		return -ENOMEM;
 
 	usb->pdev = pdev;
-	usb->usb_psy = usb_psy;
+
+	usb->extcon_dev = devm_extcon_dev_allocate(&pdev->dev,
+			gpio_usb_extcon_table);
+	if (IS_ERR(usb->extcon_dev)) {
+		dev_err(&pdev->dev, "failed to allocate a extcon device\n");
+		return PTR_ERR(usb->extcon_dev);
+	}
+
+	usb->extcon_dev->mutually_exclusive = gpio_usb_extcon_exclusive;
+	rc = devm_extcon_dev_register(&pdev->dev, usb->extcon_dev);
+	if (rc) {
+		dev_err(&pdev->dev, "failed to register extcon device\n");
+		return rc;
+	}
 
 	if (of_get_property(pdev->dev.of_node, "vin-supply", NULL)) {
 		usb->vin = devm_regulator_get(&pdev->dev, "vin");
@@ -94,43 +105,45 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 				"qcom,vbus-det-gpio", 0);
 	if (usb->gpio < 0) {
 		dev_err(&pdev->dev, "Failed to get gpio: %d\n", usb->gpio);
-		return usb->gpio;
+		rc = usb->gpio;
+		goto error;
 	}
 
 	rc = gpio_request(usb->gpio, "vbus-det-gpio");
 	if (rc < 0) {
 		dev_err(&pdev->dev, "Failed to request gpio: %d\n", rc);
-		return rc;
+		goto error;
 	}
 
 	usb->vbus_det_irq = gpio_to_irq(usb->gpio);
 	if (usb->vbus_det_irq < 0) {
-		if (usb->vin)
-			regulator_disable(usb->vin);
-		return usb->vbus_det_irq;
+		dev_err(&pdev->dev, "get vbus_det_irq failed\n");
+		rc = usb->vbus_det_irq;
+		goto error;
 	}
 
-	rc = devm_request_irq(&pdev->dev, usb->vbus_det_irq,
-			      gpio_usbdetect_vbus_irq,
-			      IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-			      "vbus_det_irq", usb);
+	rc = devm_request_threaded_irq(&pdev->dev, usb->vbus_det_irq,
+				NULL, gpio_usbdetect_vbus_irq,
+			      IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
+			      IRQF_ONESHOT, "vbus_det_irq", usb);
 	if (rc) {
 		dev_err(&pdev->dev, "request for vbus_det_irq failed: %d\n",
 			rc);
-		if (usb->vin)
-			regulator_disable(usb->vin);
-		return rc;
+		goto error;
 	}
 
 	enable_irq_wake(usb->vbus_det_irq);
 	dev_set_drvdata(&pdev->dev, usb);
 
 	/* Read and report initial VBUS state */
-	local_irq_save(flags);
 	gpio_usbdetect_vbus_irq(usb->vbus_det_irq, usb);
-	local_irq_restore(flags);
 
 	return 0;
+
+error:
+	if (usb->vin)
+		regulator_disable(usb->vin);
+	return rc;
 }
 
 static int gpio_usbdetect_remove(struct platform_device *pdev)
