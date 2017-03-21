@@ -87,6 +87,17 @@
  * may be designed to use the original attributes instead.
  */
 #define DMA_ATTR_IOMMU_USE_UPSTREAM_HINT	(1UL << 13)
+/*
+ * When passed to a DMA map call the DMA_ATTR_FORCE_COHERENT DMA
+ * attribute can be used to force a buffer to be mapped as IO coherent.
+ */
+#define DMA_ATTR_FORCE_COHERENT			(1UL << 14)
+/*
+ * When passed to a DMA map call the DMA_ATTR_FORCE_NON_COHERENT DMA
+ * attribute can be used to force a buffer to not be mapped as IO
+ * coherent.
+ */
+#define DMA_ATTR_FORCE_NON_COHERENT		(1UL << 15)
 
 /*
  * A dma_addr_t can hold any valid DMA or bus address for the platform.
