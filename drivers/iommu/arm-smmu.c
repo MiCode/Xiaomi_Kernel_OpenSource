@@ -548,6 +548,8 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
 static int arm_smmu_arch_init(struct arm_smmu_device *smmu);
 static void arm_smmu_arch_device_reset(struct arm_smmu_device *smmu);
 
+static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain);
+
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
 	return container_of(dom, struct arm_smmu_domain, domain);
@@ -1424,8 +1426,10 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
-	if (!(smmu_domain->attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) ||
-	    !stage1)
+
+	if ((!(smmu_domain->attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) &&
+	     !(smmu_domain->attributes & (1 << DOMAIN_ATTR_EARLY_MAP))) ||
+								!stage1)
 		reg |= SCTLR_M;
 	if (stage1)
 		reg |= SCTLR_S1_ASIDPNE;
@@ -2578,6 +2582,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				   (1 << DOMAIN_ATTR_USE_UPSTREAM_HINT));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_EARLY_MAP:
+		*((int *)data) = !!(smmu_domain->attributes
+				    & (1 << DOMAIN_ATTR_EARLY_MAP));
+		ret = 0;
+		break;
 	default:
 		return -ENODEV;
 	}
@@ -2716,6 +2725,24 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				1 << DOMAIN_ATTR_USE_UPSTREAM_HINT;
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_EARLY_MAP: {
+		int early_map = *((int *)data);
+
+		ret = 0;
+		if (early_map) {
+			smmu_domain->attributes |=
+						1 << DOMAIN_ATTR_EARLY_MAP;
+		} else {
+			if (smmu_domain->smmu)
+				ret = arm_smmu_enable_s1_translations(
+								smmu_domain);
+
+			if (!ret)
+				smmu_domain->attributes &=
+					~(1 << DOMAIN_ATTR_EARLY_MAP);
+		}
+		break;
+	}
 	default:
 		ret = -ENODEV;
 	}
@@ -2736,6 +2763,27 @@ static int arm_smmu_of_xlate(struct device *dev, struct of_phandle_args *args)
 		fwid |= (u16)args->args[1] << SMR_MASK_SHIFT;
 
 	return iommu_fwspec_add_ids(dev, &fwid, 1);
+}
+
+static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
+{
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	void __iomem *cb_base;
+	u32 reg;
+	int ret;
+
+	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+	ret = arm_smmu_power_on(smmu->pwr);
+	if (ret)
+		return ret;
+
+	reg = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	reg |= SCTLR_M;
+
+	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
+	arm_smmu_power_off(smmu->pwr);
+	return ret;
 }
 
 static void arm_smmu_trigger_fault(struct iommu_domain *domain,
