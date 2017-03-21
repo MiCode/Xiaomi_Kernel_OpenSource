@@ -205,11 +205,16 @@ static struct page *split_page_from_secure_pool(struct ion_system_heap *heap,
 		split_page(page, order);
 		break;
 	}
-	/* Return the remaining order-0 pages to the pool */
-	if (page)
-		for (j = 1; j < (1 << order); j++)
+	/*
+	 * Return the remaining order-0 pages to the pool.
+	 * SetPagePrivate flag to mark memory as secure.
+	 */
+	if (page) {
+		for (j = 1; j < (1 << order); j++) {
+			SetPagePrivate(page + j);
 			free_buffer_page(heap, buffer, page + j, 0);
-
+		}
+	}
 got_page:
 	mutex_unlock(&heap->split_page_mutex);
 
