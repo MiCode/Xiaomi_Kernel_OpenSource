@@ -189,12 +189,6 @@ int cnss_pci_link_down(struct device *dev)
 	unsigned long flags;
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-
-	if (!plat_priv) {
-		cnss_pr_err("plat_priv is NULL!\n");
-		return -EINVAL;
-	}
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL!\n");
