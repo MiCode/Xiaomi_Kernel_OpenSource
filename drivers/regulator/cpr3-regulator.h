@@ -661,6 +661,10 @@ struct cpr3_panic_regs_info {
  * @acd_adj_up_step_size: ACD step size in units of PMIC steps used for
  *			target quotient adjustment due to an ACD up
  *			recommendation.
+ * @acd_notwait_for_cl_settled: Boolean which indicates ACD down recommendations
+ *			do not need to wait for CPR closed-loop to settle.
+ * @acd_adj_avg_fast_update: Boolean which indicates if CPR should issue
+ *			immediate voltage updates on ACD requests.
  * @acd_avg_enabled:	Boolean defining the enable state of the ACD AVG
  *			feature.
  * @count_mode:		CPR controller count mode
@@ -822,6 +826,8 @@ struct cpr3_controller {
 	u32			acd_adj_up_step_limit;
 	u32			acd_adj_down_step_size;
 	u32			acd_adj_up_step_size;
+	bool			acd_notwait_for_cl_settled;
+	bool			acd_adj_avg_fast_update;
 	bool			acd_avg_enabled;
 	enum cpr3_count_mode	count_mode;
 	u32			count_repeat;

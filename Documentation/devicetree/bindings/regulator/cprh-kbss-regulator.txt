@@ -213,6 +213,18 @@ KBSS specific properties:
 		    target quotient adjustment due to an ACD up recommendation.
 		    Valid values are 0 through 3.
 
+- qcom,cpr-acd-notwait-for-cl-settled
+	Usage:      optional; meaningful only if qcom,cpr-acd-avg-enable is specified.
+	Value type: <empty>
+	Definition: Boolean flag which indicates ACD down recommendations do not
+		    need to wait for CPR closed-loop to settle.
+
+- qcom,cpr-acd-avg-fast-update
+	Usage:      optional; meaningful only if qcom,cpr-acd-avg-enable is specified.
+	Value type: <empty>
+	Definition: Boolean flag which indicates CPR should issue immediate
+		    voltage updates following ACD requests.
+
 - qcom,cpr-acd-avg-enable
 	Usage:      optional
 	Value type: <empty>
