@@ -58,6 +58,7 @@ struct kgsl_snapshot_section_header {
 #define KGSL_SNAPSHOT_SECTION_MEMLIST      0x0E01
 #define KGSL_SNAPSHOT_SECTION_MEMLIST_V2   0x0E02
 #define KGSL_SNAPSHOT_SECTION_SHADER       0x1201
+#define KGSL_SNAPSHOT_SECTION_MVC          0x1501
 
 #define KGSL_SNAPSHOT_SECTION_END          0xFFFF
 
@@ -194,6 +195,12 @@ struct kgsl_snapshot_indexed_regs {
 	__u32 data_reg;  /* Offset of the data register for this section */
 	int start;     /* Starting index */
 	int count;     /* Number of dwords in the data */
+} __packed;
+
+/* MVC register sub-section header */
+struct kgsl_snapshot_mvc_regs {
+	int ctxt_id;
+	int cluster_id;
 } __packed;
 
 /* Istore sub-section header */
