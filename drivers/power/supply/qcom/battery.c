@@ -49,6 +49,7 @@ struct pl_data {
 	struct votable		*pl_disable_votable;
 	struct votable		*pl_awake_votable;
 	struct votable		*hvdcp_hw_inov_dis_votable;
+	struct votable		*usb_icl_votable;
 	struct work_struct	status_change_work;
 	struct work_struct	pl_disable_forever_work;
 	struct delayed_work	pl_taper_work;
@@ -487,6 +488,25 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	return 0;
 }
 
+static int usb_icl_vote_callback(struct votable *votable, void *data,
+			int icl_ua, const char *client)
+{
+	struct pl_data *chip = data;
+	union power_supply_propval pval = {0, };
+
+	if (!chip->main_psy)
+		return 0;
+
+	if (client == NULL)
+		icl_ua = INT_MAX;
+
+	pval.intval = icl_ua;
+	return power_supply_set_property(chip->main_psy,
+				POWER_SUPPLY_PROP_INPUT_CURRENT_MAX, &pval);
+
+	return 0;
+}
+
 static void pl_disable_forever_work(struct work_struct *work)
 {
 	struct pl_data *chip = container_of(work,
@@ -596,13 +616,15 @@ static int pl_awake_vote_callback(struct votable *votable,
 
 static bool is_main_available(struct pl_data *chip)
 {
-	if (!chip->main_psy)
-		chip->main_psy = power_supply_get_by_name("main");
+	if (chip->main_psy)
+		return true;
 
-	if (!chip->main_psy)
-		return false;
+	chip->main_psy = power_supply_get_by_name("main");
 
-	return true;
+	if (chip->main_psy)
+		rerun_election(chip->usb_icl_votable);
+
+	return !!chip->main_psy;
 }
 
 static bool is_batt_available(struct pl_data *chip)
@@ -855,6 +877,14 @@ static int pl_init(void)
 		goto destroy_votable;
 	}
 
+	chip->usb_icl_votable = create_votable("USB_ICL", VOTE_MIN,
+					usb_icl_vote_callback,
+					chip);
+	if (IS_ERR(chip->usb_icl_votable)) {
+		rc = PTR_ERR(chip->usb_icl_votable);
+		goto destroy_votable;
+	}
+
 	chip->pl_disable_votable = create_votable("PL_DISABLE", VOTE_SET_ANY,
 					pl_disable_vote_callback,
 					chip);
@@ -909,6 +939,7 @@ destroy_votable:
 	destroy_votable(chip->pl_disable_votable);
 	destroy_votable(chip->fv_votable);
 	destroy_votable(chip->fcc_votable);
+	destroy_votable(chip->usb_icl_votable);
 release_wakeup_source:
 	wakeup_source_unregister(chip->pl_ws);
 cleanup:

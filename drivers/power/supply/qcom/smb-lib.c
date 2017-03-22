@@ -797,28 +797,11 @@ static int smblib_get_pulse_cnt(struct smb_charger *chg, int *count)
 	return 0;
 }
 
-/*********************
- * VOTABLE CALLBACKS *
- *********************/
-
-static int smblib_dc_suspend_vote_callback(struct votable *votable, void *data,
-			int suspend, const char *client)
-{
-	struct smb_charger *chg = data;
-
-	/* resume input if suspend is invalid */
-	if (suspend < 0)
-		suspend = 0;
-
-	return smblib_set_dc_suspend(chg, (bool)suspend);
-}
-
 #define USBIN_25MA	25000
 #define USBIN_100MA	100000
 #define USBIN_150MA	150000
 #define USBIN_500MA	500000
 #define USBIN_900MA	900000
-
 
 static int set_sdp_current(struct smb_charger *chg, int icl_ua)
 {
@@ -858,20 +841,18 @@ static int set_sdp_current(struct smb_charger *chg, int icl_ua)
 	return rc;
 }
 
-static int smblib_usb_icl_vote_callback(struct votable *votable, void *data,
-			int icl_ua, const char *client)
+int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 {
-	struct smb_charger *chg = data;
 	int rc = 0;
 	bool override;
 	union power_supply_propval pval;
 
 	/* suspend and return if 25mA or less is requested */
-	if (client && (icl_ua < USBIN_25MA))
+	if (icl_ua < USBIN_25MA)
 		return smblib_set_usb_suspend(chg, true);
 
 	disable_irq_nosync(chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq);
-	if (!client)
+	if (icl_ua == INT_MAX)
 		goto override_suspend_config;
 
 	rc = smblib_get_prop_typec_mode(chg, &pval);
@@ -900,7 +881,7 @@ static int smblib_usb_icl_vote_callback(struct votable *votable, void *data,
 override_suspend_config:
 	/* determine if override needs to be enforced */
 	override = true;
-	if (client == NULL) {
+	if (icl_ua == INT_MAX) {
 		/* remove override if no voters - hw defaults is desired */
 		override = false;
 	} else if (pval.intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
@@ -936,6 +917,22 @@ override_suspend_config:
 enable_icl_changed_interrupt:
 	enable_irq(chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq);
 	return rc;
+}
+
+/*********************
+ * VOTABLE CALLBACKS *
+ *********************/
+
+static int smblib_dc_suspend_vote_callback(struct votable *votable, void *data,
+			int suspend, const char *client)
+{
+	struct smb_charger *chg = data;
+
+	/* resume input if suspend is invalid */
+	if (suspend < 0)
+		suspend = 0;
+
+	return smblib_set_dc_suspend(chg, (bool)suspend);
 }
 
 static int smblib_dc_icl_vote_callback(struct votable *votable, void *data,
@@ -4207,6 +4204,12 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
+	chg->usb_icl_votable = find_votable("USB_ICL");
+	if (!chg->usb_icl_votable) {
+		rc = -EPROBE_DEFER;
+		return rc;
+	}
+
 	chg->pl_disable_votable = find_votable("PL_DISABLE");
 	if (!chg->pl_disable_votable) {
 		rc = -EPROBE_DEFER;
@@ -4220,14 +4223,6 @@ static int smblib_create_votables(struct smb_charger *chg)
 					chg);
 	if (IS_ERR(chg->dc_suspend_votable)) {
 		rc = PTR_ERR(chg->dc_suspend_votable);
-		return rc;
-	}
-
-	chg->usb_icl_votable = create_votable("USB_ICL", VOTE_MIN,
-					smblib_usb_icl_vote_callback,
-					chg);
-	if (IS_ERR(chg->usb_icl_votable)) {
-		rc = PTR_ERR(chg->usb_icl_votable);
 		return rc;
 	}
 
