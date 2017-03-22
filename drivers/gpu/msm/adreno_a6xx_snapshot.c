@@ -64,6 +64,129 @@ struct a6xx_cluster_regs_info {
 	unsigned int ctxt_id;
 };
 
+static const unsigned int a6xx_sp_vs_hlsq_cluster[] = {
+	0xB800, 0xB803, 0xB820, 0xB822,
+};
+
+static const unsigned int a6xx_sp_vs_sp_cluster[] = {
+	0xA800, 0xA824, 0xA830, 0xA83C, 0xA840, 0xA864, 0xA870, 0xA895,
+	0xA8A0, 0xA8AF, 0xA8C0, 0xA8C3,
+};
+
+static const unsigned int a6xx_hlsq_duplicate_cluster[] = {
+	0xBB10, 0xBB11, 0xBB20, 0xBB29,
+};
+
+static const unsigned int a6xx_hlsq_2d_duplicate_cluster[] = {
+	0xBD80, 0xBD80,
+};
+
+static const unsigned int a6xx_sp_duplicate_cluster[] = {
+	0xAB00, 0xAB00, 0xAB04, 0xAB05, 0xAB10, 0xAB1B, 0xAB20, 0xAB20,
+};
+
+static const unsigned int a6xx_tp_duplicate_cluster[] = {
+	0xB300, 0xB307, 0xB309, 0xB309, 0xB380, 0xB382,
+};
+
+static const unsigned int a6xx_sp_ps_hlsq_cluster[] = {
+	0xB980, 0xB980, 0xB982, 0xB987, 0xB990, 0xB99B, 0xB9A0, 0xB9A2,
+	0xB9C0, 0xB9C9,
+};
+
+static const unsigned int a6xx_sp_ps_hlsq_2d_cluster[] = {
+	0xBD80, 0xBD80,
+};
+
+static const unsigned int a6xx_sp_ps_sp_cluster[] = {
+	0xA980, 0xA9A8, 0xA9B0, 0xA9BC, 0xA9D0, 0xA9D3, 0xA9E0, 0xA9F3,
+	0xAA00, 0xAA00, 0xAA30, 0xAA31,
+};
+
+static const unsigned int a6xx_sp_ps_sp_2d_cluster[] = {
+	0xACC0, 0xACC0,
+};
+
+static const unsigned int a6xx_sp_ps_tp_cluster[] = {
+	0xB180, 0xB183, 0xB190, 0xB191,
+};
+
+static const unsigned int a6xx_sp_ps_tp_2d_cluster[] = {
+	0xB4C0, 0xB4D1,
+};
+
+static struct a6xx_cluster_dbgahb_registers {
+	unsigned int id;
+	unsigned int regbase;
+	unsigned int statetype;
+	const unsigned int *regs;
+	unsigned int num_sets;
+} a6xx_dbgahb_ctx_clusters[] = {
+	{ CP_CLUSTER_SP_VS, 0x0002E000, 0x41, a6xx_sp_vs_hlsq_cluster,
+		ARRAY_SIZE(a6xx_sp_vs_hlsq_cluster) / 2 },
+	{ CP_CLUSTER_SP_VS, 0x0002A000, 0x21, a6xx_sp_vs_sp_cluster,
+		ARRAY_SIZE(a6xx_sp_vs_sp_cluster) / 2 },
+	{ CP_CLUSTER_SP_VS, 0x0002EC00, 0x41, a6xx_hlsq_duplicate_cluster,
+		ARRAY_SIZE(a6xx_hlsq_duplicate_cluster) / 2 },
+	{ CP_CLUSTER_SP_VS, 0x0002F000, 0x45, a6xx_hlsq_2d_duplicate_cluster,
+		ARRAY_SIZE(a6xx_hlsq_2d_duplicate_cluster) / 2 },
+	{ CP_CLUSTER_SP_VS, 0x0002AC00, 0x21, a6xx_sp_duplicate_cluster,
+		ARRAY_SIZE(a6xx_sp_duplicate_cluster) / 2 },
+	{ CP_CLUSTER_SP_VS, 0x0002CC00, 0x1, a6xx_tp_duplicate_cluster,
+		ARRAY_SIZE(a6xx_tp_duplicate_cluster) / 2 },
+	{ CP_CLUSTER_SP_PS, 0x0002E600, 0x42, a6xx_sp_ps_hlsq_cluster,
+		ARRAY_SIZE(a6xx_sp_ps_hlsq_cluster) / 2 },
+	{ CP_CLUSTER_SP_PS, 0x0002F300, 0x46, a6xx_sp_ps_hlsq_2d_cluster,
+		ARRAY_SIZE(a6xx_sp_ps_hlsq_2d_cluster) / 2 },
+	{ CP_CLUSTER_SP_PS, 0x0002A600, 0x22, a6xx_sp_ps_sp_cluster,
+		ARRAY_SIZE(a6xx_sp_ps_sp_cluster) / 2 },
+	{ CP_CLUSTER_SP_PS, 0x0002B300, 0x26, a6xx_sp_ps_sp_2d_cluster,
+		ARRAY_SIZE(a6xx_sp_ps_sp_2d_cluster) / 2 },
+	{ CP_CLUSTER_SP_PS, 0x0002C600, 0x2, a6xx_sp_ps_tp_cluster,
+		ARRAY_SIZE(a6xx_sp_ps_tp_cluster) / 2 },
+	{ CP_CLUSTER_SP_PS, 0x0002D300, 0x6, a6xx_sp_ps_tp_2d_cluster,
+		ARRAY_SIZE(a6xx_sp_ps_tp_2d_cluster) / 2 },
+	{ CP_CLUSTER_SP_PS, 0x0002EC00, 0x42, a6xx_hlsq_duplicate_cluster,
+		ARRAY_SIZE(a6xx_hlsq_duplicate_cluster) / 2 },
+	{ CP_CLUSTER_SP_VS, 0x0002AC00, 0x22, a6xx_sp_duplicate_cluster,
+		ARRAY_SIZE(a6xx_sp_duplicate_cluster) / 2 },
+	{ CP_CLUSTER_SP_VS, 0x0002CC00, 0x2, a6xx_tp_duplicate_cluster,
+		ARRAY_SIZE(a6xx_tp_duplicate_cluster) / 2 },
+};
+
+struct a6xx_cluster_dbgahb_regs_info {
+	struct a6xx_cluster_dbgahb_registers *cluster;
+	unsigned int ctxt_id;
+};
+
+static const unsigned int a6xx_hlsq_non_ctx_registers[] = {
+	0xBE00, 0xBE01, 0xBE04, 0xBE05, 0xBE08, 0xBE09, 0xBE10, 0xBE15,
+	0xBE20, 0xBE23,
+};
+
+static const unsigned int a6xx_sp_non_ctx_registers[] = {
+	0xAE00, 0xAE04, 0xAE0C, 0xAE0C, 0xAE0F, 0xAE2B, 0xAE30, 0xAE32,
+	0xAE35, 0xAE35, 0xAE3A, 0xAE3F, 0xAE50, 0xAE52,
+};
+
+static const unsigned int a6xx_tp_non_ctx_registers[] = {
+	0xB600, 0xB601, 0xB604, 0xB605, 0xB610, 0xB61B, 0xB620, 0xB623,
+};
+
+static struct a6xx_non_ctx_dbgahb_registers {
+	unsigned int regbase;
+	unsigned int statetype;
+	const unsigned int *regs;
+	unsigned int num_sets;
+} a6xx_non_ctx_dbgahb[] = {
+	{ 0x0002F800, 0x40, a6xx_hlsq_non_ctx_registers,
+		ARRAY_SIZE(a6xx_hlsq_non_ctx_registers) / 2 },
+	{ 0x0002B800, 0x20, a6xx_sp_non_ctx_registers,
+		ARRAY_SIZE(a6xx_sp_non_ctx_registers) / 2 },
+	{ 0x0002D800, 0x0, a6xx_tp_non_ctx_registers,
+		ARRAY_SIZE(a6xx_tp_non_ctx_registers) / 2 },
+};
+
 static const unsigned int a6xx_vbif_ver_20xxxxxx_registers[] = {
 	/* VBIF */
 	0x3000, 0x3007, 0x300C, 0x3014, 0x3018, 0x302D, 0x3030, 0x3031,
@@ -200,6 +323,144 @@ out:
 
 	/* Return the size of the section */
 	return (count * 8) + sizeof(*header);
+}
+
+static inline unsigned int a6xx_read_dbgahb(struct kgsl_device *device,
+				unsigned int regbase, unsigned int reg)
+{
+	unsigned int read_reg = A6XX_HLSQ_DBG_AHB_READ_APERTURE +
+				reg - regbase / 4;
+	unsigned int val;
+
+	kgsl_regread(device, read_reg, &val);
+	return val;
+}
+
+static size_t a6xx_snapshot_cluster_dbgahb(struct kgsl_device *device, u8 *buf,
+				size_t remain, void *priv)
+{
+	struct kgsl_snapshot_mvc_regs *header =
+				(struct kgsl_snapshot_mvc_regs *)buf;
+	struct a6xx_cluster_dbgahb_regs_info *info =
+				(struct a6xx_cluster_dbgahb_regs_info *)priv;
+	struct a6xx_cluster_dbgahb_registers *cur_cluster = info->cluster;
+	unsigned int read_sel;
+	unsigned int data_size = 0;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int i, j;
+
+	if (remain < sizeof(*header)) {
+		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
+		return 0;
+	}
+
+	remain -= sizeof(*header);
+
+	header->ctxt_id = info->ctxt_id;
+	header->cluster_id = cur_cluster->id;
+
+	read_sel = ((cur_cluster->statetype + info->ctxt_id * 2) & 0xff) << 8;
+	kgsl_regwrite(device, A6XX_HLSQ_DBG_READ_SEL, read_sel);
+
+	for (i = 0; i < cur_cluster->num_sets; i++) {
+		unsigned int start = cur_cluster->regs[2 * i];
+		unsigned int end = cur_cluster->regs[2 * i + 1];
+
+		if (remain < (end - start + 3) * 4) {
+			SNAPSHOT_ERR_NOMEM(device, "MVC REGISTERS");
+			goto out;
+		}
+
+		remain -= (end - start + 3) * 4;
+		data_size += (end - start + 3) * 4;
+
+		*data++ = start | (1 << 31);
+		*data++ = end;
+
+		for (j = start; j <= end; j++) {
+			unsigned int val;
+
+			val = a6xx_read_dbgahb(device, cur_cluster->regbase, j);
+			*data++ = val;
+
+		}
+	}
+
+out:
+	return data_size + sizeof(*header);
+}
+
+static size_t a6xx_snapshot_non_ctx_dbgahb(struct kgsl_device *device, u8 *buf,
+				size_t remain, void *priv)
+{
+	struct kgsl_snapshot_regs *header =
+				(struct kgsl_snapshot_regs *)buf;
+	struct a6xx_non_ctx_dbgahb_registers *regs =
+				(struct a6xx_non_ctx_dbgahb_registers *)priv;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int count = 0;
+	unsigned int read_sel;
+	int i, j;
+
+	/* Figure out how many registers we are going to dump */
+	for (i = 0; i < regs->num_sets; i++) {
+		int start = regs->regs[i * 2];
+		int end = regs->regs[i * 2 + 1];
+
+		count += (end - start + 1);
+	}
+
+	if (remain < (count * 8) + sizeof(*header)) {
+		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
+		return 0;
+	}
+
+	header->count = count;
+
+	read_sel = (regs->statetype & 0xff) << 8;
+	kgsl_regwrite(device, A6XX_HLSQ_DBG_READ_SEL, read_sel);
+
+	for (i = 0; i < regs->num_sets; i++) {
+		unsigned int start = regs->regs[2 * i];
+		unsigned int end = regs->regs[2 * i + 1];
+
+		for (j = start; j <= end; j++) {
+			unsigned int val;
+
+			val = a6xx_read_dbgahb(device, regs->regbase, j);
+			*data++ = j;
+			*data++ = val;
+
+		}
+	}
+	return (count * 8) + sizeof(*header);
+}
+
+static void a6xx_snapshot_dbgahb_regs(struct kgsl_device *device,
+				struct kgsl_snapshot *snapshot)
+{
+	int i, j;
+
+	for (i = 0; i < ARRAY_SIZE(a6xx_dbgahb_ctx_clusters); i++) {
+		struct a6xx_cluster_dbgahb_registers *cluster =
+				&a6xx_dbgahb_ctx_clusters[i];
+		struct a6xx_cluster_dbgahb_regs_info info;
+
+		info.cluster = cluster;
+		for (j = 0; j < A6XX_NUM_CTXTS; j++) {
+			info.ctxt_id = j;
+
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_MVC, snapshot,
+				a6xx_snapshot_cluster_dbgahb, &info);
+		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(a6xx_non_ctx_dbgahb); i++) {
+		kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_REGS, snapshot,
+			a6xx_snapshot_non_ctx_dbgahb, &a6xx_non_ctx_dbgahb[i]);
+	}
 }
 
 static size_t a6xx_legacy_snapshot_mvc(struct kgsl_device *device, u8 *buf,
@@ -421,6 +682,9 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 	/* MVC register section */
 	a6xx_snapshot_mvc_regs(device, snapshot);
+
+	/* registers dumped through DBG AHB */
+	a6xx_snapshot_dbgahb_regs(device, snapshot);
 
 }
 
