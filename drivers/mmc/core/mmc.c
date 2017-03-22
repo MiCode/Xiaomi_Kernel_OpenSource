@@ -2494,7 +2494,7 @@ static int mmc_test_awake_ext_csd(struct mmc_host *host)
 
 static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 {
-	int err = 0;
+	int err = 0, ret;
 
 	BUG_ON(!host);
 	BUG_ON(!host->card);
@@ -2503,6 +2503,8 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 	if (err) {
 		pr_err("%s: %s: fail to suspend clock scaling (%d)\n",
 			mmc_hostname(host), __func__, err);
+		if (host->card->cmdq_init)
+			wake_up(&host->cmdq_ctx.wait);
 		return err;
 	}
 
@@ -2527,12 +2529,12 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 	if (mmc_card_doing_bkops(host->card)) {
 		err = mmc_stop_bkops(host->card);
 		if (err)
-			goto out;
+			goto out_err;
 	}
 
 	err = mmc_flush_cache(host->card);
 	if (err)
-		goto out;
+		goto out_err;
 
 	if (mmc_can_sleepawake(host)) {
 		/*
@@ -2549,16 +2551,38 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 		err = mmc_deselect_cards(host);
 	}
 
-	if (!err) {
-		mmc_power_off(host);
-		mmc_card_set_suspended(host->card);
+	if (err)
+		goto out_err;
+	mmc_power_off(host);
+	mmc_card_set_suspended(host->card);
+
+	goto out;
+
+out_err:
+	/*
+	 * In case of err let's put controller back in cmdq mode and unhalt
+	 * the controller.
+	 * We expect cmdq_enable and unhalt won't return any error
+	 * since it is anyway enabling few registers.
+	 */
+	if (host->card->cmdq_init) {
+		mmc_host_clk_hold(host);
+		ret = host->cmdq_ops->enable(host);
+		if (ret)
+			pr_err("%s: %s: enabling CMDQ mode failed (%d)\n",
+				mmc_hostname(host), __func__, ret);
+		mmc_host_clk_release(host);
+		mmc_cmdq_halt(host, false);
 	}
+
 out:
 	/* Kick CMDQ thread to process any requests came in while suspending */
 	if (host->card->cmdq_init)
 		wake_up(&host->cmdq_ctx.wait);
 
 	mmc_release_host(host);
+	if (err)
+		mmc_resume_clk_scaling(host);
 	return err;
 }
 
