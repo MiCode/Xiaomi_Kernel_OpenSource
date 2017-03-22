@@ -99,7 +99,7 @@ struct ind_req_resp {
  */
 struct qmi_client_info {
 	int instance_id;
-	int subsys_state;
+	enum pd_subsys_state subsys_state;
 	struct work_struct svc_arrive;
 	struct work_struct svc_exit;
 	struct work_struct svc_rcv_msg;
