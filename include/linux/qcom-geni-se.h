@@ -49,6 +49,7 @@ struct se_geni_rsc {
 #define PINCTRL_DEFAULT	"default"
 #define PINCTRL_SLEEP	"sleep"
 
+/* Common SE registers */
 #define GENI_INIT_CFG_REVISION		(0x0)
 #define GENI_S_INIT_CFG_REVISION	(0x4)
 #define GENI_FORCE_DEFAULT_REG		(0x20)
@@ -125,6 +126,9 @@ struct se_geni_rsc {
 /* FW_REVISION_RO fields */
 #define FW_REV_PROTOCOL_MSK	(GENMASK(15, 8))
 #define FW_REV_PROTOCOL_SHFT	(8)
+
+/* GENI_CLK_SEL fields */
+#define CLK_SEL_MSK		(GENMASK(2, 0))
 
 /* SE_GENI_DMA_MODE_EN */
 #define GENI_DMA_MODE_EN	(BIT(0))
@@ -280,9 +284,10 @@ static inline int se_geni_irq_en(void __iomem *base, int mode)
 	switch (mode) {
 	case FIFO_MODE:
 	{
-		if (proto == I2C) {
+		if (proto != UART) {
 			common_geni_m_irq_en |=
-				(M_CMD_DONE_EN | M_TX_FIFO_WATERMARK_EN);
+				(M_CMD_DONE_EN | M_TX_FIFO_WATERMARK_EN |
+				M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN);
 			common_geni_s_irq_en |= S_CMD_DONE_EN;
 		}
 		break;
