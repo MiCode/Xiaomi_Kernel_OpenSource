@@ -66,6 +66,13 @@
  * configuration structures
  **********************************************************************/
 
+/*
+ * struct sde_rotation_buf_info - input/output buffer configuration
+ * @width: width of buffer region to be processed
+ * @height: height of buffer region to be processed
+ * @format: pixel format of buffer
+ * @comp_ratio: compression ratio for the session
+ */
 struct sde_rotation_buf_info {
 	uint32_t width;
 	uint32_t height;
@@ -73,6 +80,14 @@ struct sde_rotation_buf_info {
 	struct sde_mult_factor comp_ratio;
 };
 
+/*
+ * struct sde_rotation_config - rotation configuration for given session
+ * @session_id: identifier of the given session
+ * @input: input buffer information
+ * @output: output buffer information
+ * @frame_rate: session frame rate in fps
+ * @flags: configuration flags, e.g. rotation angle, flip, etc...
+ */
 struct sde_rotation_config {
 	uint32_t	session_id;
 	struct sde_rotation_buf_info	input;
@@ -191,6 +206,18 @@ struct sde_rot_queue {
 	struct sde_rot_hw_resource *hw;
 };
 
+/*
+ * struct sde_rot_entry_container - rotation request
+ * @list: list of active requests managed by rotator manager
+ * @flags: reserved
+ * @count: size of rotation entries
+ * @pending_count: count of entries pending completion
+ * @failed_count: count of entries failed completion
+ * @finished: true if client is finished with the request
+ * @retireq: workqueue to post completion notification
+ * @retire_work: work for completion notification
+ * @entries: array of rotation entries
+ */
 struct sde_rot_entry_container {
 	struct list_head list;
 	u32 flags;
@@ -199,6 +226,7 @@ struct sde_rot_entry_container {
 	atomic_t failed_count;
 	struct workqueue_struct *retireq;
 	struct work_struct *retire_work;
+	bool finished;
 	struct sde_rot_entry *entries;
 };
 
@@ -380,61 +408,167 @@ static inline int __compare_session_rotations(uint32_t cfg_flag,
 	return 0;
 }
 
+/*
+ * sde_rotator_core_init - initialize rotator manager for the given platform
+ *	device
+ * @pmgr: Pointer to pointer of the newly initialized rotator manager
+ * @pdev: Pointer to platform device
+ * return: 0 if success; error code otherwise
+ */
 int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 		struct platform_device *pdev);
 
+/*
+ * sde_rotator_core_destroy - destroy given rotator manager
+ * @mgr: Pointer to rotator manager
+ * return: none
+ */
 void sde_rotator_core_destroy(struct sde_rot_mgr *mgr);
 
+/*
+ * sde_rotator_session_open - open a new rotator per file session
+ * @mgr: Pointer to rotator manager
+ * @pprivate: Pointer to pointer of the newly initialized per file session
+ * @session_id: identifier of the newly created session
+ * @queue: Pointer to fence queue of the new session
+ * return: 0 if success; error code otherwise
+ */
 int sde_rotator_session_open(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private **pprivate, int session_id,
 	struct sde_rot_queue *queue);
 
+/*
+ * sde_rotator_session_close - close the given rotator per file session
+ * @mgr: Pointer to rotator manager
+ * @private: Pointer to per file session
+ * @session_id: identifier of the session
+ * return: none
+ */
 void sde_rotator_session_close(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *private, int session_id);
 
+/*
+ * sde_rotator_session_config - configure the given rotator per file session
+ * @mgr: Pointer to rotator manager
+ * @private: Pointer to  per file session
+ * @config: Pointer to rotator configuration
+ * return: 0 if success; error code otherwise
+ */
 int sde_rotator_session_config(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *private,
 	struct sde_rotation_config *config);
 
+/*
+ * sde_rotator_req_init - allocate a new request and initialzie with given
+ *	array of rotation items
+ * @rot_dev: Pointer to rotator device
+ * @private: Pointer to rotator manager per file context
+ * @items: Pointer to array of rotation item
+ * @count: size of rotation item array
+ * @flags: rotation request flags
+ * return: Pointer to new rotation request if success; ERR_PTR otherwise
+ */
 struct sde_rot_entry_container *sde_rotator_req_init(
 	struct sde_rot_mgr *rot_dev,
 	struct sde_rot_file_private *private,
 	struct sde_rotation_item *items,
 	u32 count, u32 flags);
 
+/*
+ * sde_rotator_req_finish - notify manager that client is finished with the
+ *	given request and manager can release the request as required
+ * @rot_dev: Pointer to rotator device
+ * @private: Pointer to rotator manager per file context
+ * @req: Pointer to rotation request
+ * return: none
+ */
+void sde_rotator_req_finish(struct sde_rot_mgr *mgr,
+	struct sde_rot_file_private *private,
+	struct sde_rot_entry_container *req);
+
+/*
+ * sde_rotator_handle_request_common - add the given request to rotator
+ *	manager and clean up completed requests
+ * @rot_dev: Pointer to rotator device
+ * @private: Pointer to rotator manager per file context
+ * @req: Pointer to rotation request
+ * return: 0 if success; error code otherwise
+ */
 int sde_rotator_handle_request_common(struct sde_rot_mgr *rot_dev,
 	struct sde_rot_file_private *ctx,
-	struct sde_rot_entry_container *req,
-	struct sde_rotation_item *items);
+	struct sde_rot_entry_container *req);
 
+/*
+ * sde_rotator_queue_request - queue/schedule the given request for h/w commit
+ * @rot_dev: Pointer to rotator device
+ * @private: Pointer to rotator manager per file context
+ * @req: Pointer to rotation request
+ * return: 0 if success; error code otherwise
+ */
 void sde_rotator_queue_request(struct sde_rot_mgr *rot_dev,
 	struct sde_rot_file_private *ctx,
 	struct sde_rot_entry_container *req);
 
-void sde_rotator_remove_request(struct sde_rot_mgr *mgr,
-	struct sde_rot_file_private *private,
-	struct sde_rot_entry_container *req);
-
+/*
+ * sde_rotator_verify_config_all - verify given rotation configuration
+ * @rot_dev: Pointer to rotator device
+ * @config: Pointer to rotator configuration
+ * return: 0 if success; error code otherwise
+ */
 int sde_rotator_verify_config_all(struct sde_rot_mgr *rot_dev,
 	struct sde_rotation_config *config);
 
+/*
+ * sde_rotator_verify_config_input - verify rotation input configuration
+ * @rot_dev: Pointer to rotator device
+ * @config: Pointer to rotator configuration
+ * return: 0 if success; error code otherwise
+ */
 int sde_rotator_verify_config_input(struct sde_rot_mgr *rot_dev,
 	struct sde_rotation_config *config);
 
+/*
+ * sde_rotator_verify_config_output - verify rotation output configuration
+ * @rot_dev: Pointer to rotator device
+ * @config: Pointer to rotator configuration
+ * return: 0 if success; error code otherwise
+ */
 int sde_rotator_verify_config_output(struct sde_rot_mgr *rot_dev,
 	struct sde_rotation_config *config);
 
+/*
+ * sde_rotator_validate_request - validates given rotation request with
+ *	previous rotator configuration
+ * @rot_dev: Pointer to rotator device
+ * @private: Pointer to rotator manager per file context
+ * @req: Pointer to rotation request
+ * return: 0 if success; error code otherwise
+ */
 int sde_rotator_validate_request(struct sde_rot_mgr *rot_dev,
 	struct sde_rot_file_private *ctx,
 	struct sde_rot_entry_container *req);
 
+/*
+ * sde_rotator_clk_ctrl - enable/disable rotator clock with reference counting
+ * @mgr: Pointer to rotator manager
+ * @enable: true to enable clock; false to disable clock
+ * return: 0 if success; error code otherwise
+ */
 int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable);
 
+/*
+ * sde_rot_mgr_lock - serialization lock prior to rotator manager calls
+ * @mgr: Pointer to rotator manager
+ */
 static inline void sde_rot_mgr_lock(struct sde_rot_mgr *mgr)
 {
 	mutex_lock(&mgr->lock);
 }
 
+/*
+ * sde_rot_mgr_lock - serialization unlock after rotator manager calls
+ * @mgr: Pointer to rotator manager
+ */
 static inline void sde_rot_mgr_unlock(struct sde_rot_mgr *mgr)
 {
 	mutex_unlock(&mgr->lock);
