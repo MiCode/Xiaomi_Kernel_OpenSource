@@ -981,7 +981,33 @@ void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 		P_SCHEDSTAT(se.statistics.nr_wakeups_affine_attempts);
 		P_SCHEDSTAT(se.statistics.nr_wakeups_passive);
 		P_SCHEDSTAT(se.statistics.nr_wakeups_idle);
-
+		/* eas */
+		/* select_idle_sibling() */
+		P_SCHEDSTAT(se.statistics.nr_wakeups_sis_attempts);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_sis_idle);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_sis_cache_affine);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_sis_suff_cap);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_sis_idle_cpu);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_sis_count);
+		/* select_energy_cpu_brute() */
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_attempts);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_sync);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_idle_bt);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_insuff_cap);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_no_nrg_sav);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_nrg_sav);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_secb_count);
+		/* find_best_target() */
+		P_SCHEDSTAT(se.statistics.nr_wakeups_fbt_attempts);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_fbt_no_cpu);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_fbt_no_sd);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_fbt_pref_idle);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_fbt_count);
+		/* cas */
+		/* select_task_rq_fair() */
+		P_SCHEDSTAT(se.statistics.nr_wakeups_cas_attempts);
+		P_SCHEDSTAT(se.statistics.nr_wakeups_cas_count);
+ 
 		avg_atom = p->se.sum_exec_runtime;
 		if (nr_switches)
 			avg_atom = div64_ul(avg_atom, nr_switches);
