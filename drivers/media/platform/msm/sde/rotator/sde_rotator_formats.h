@@ -17,6 +17,27 @@
 #include <linux/types.h>
 #include <media/msm_sde_rotator.h>
 
+/* Internal rotator pixel formats */
+#define SDE_PIX_FMT_RGBA_8888_TILE	v4l2_fourcc('Q', 'T', '0', '0')
+#define SDE_PIX_FMT_RGBX_8888_TILE	v4l2_fourcc('Q', 'T', '0', '1')
+#define SDE_PIX_FMT_BGRA_8888_TILE	v4l2_fourcc('Q', 'T', '0', '2')
+#define SDE_PIX_FMT_BGRX_8888_TILE	v4l2_fourcc('Q', 'T', '0', '3')
+#define SDE_PIX_FMT_ARGB_8888_TILE	v4l2_fourcc('Q', 'T', '0', '4')
+#define SDE_PIX_FMT_XRGB_8888_TILE	v4l2_fourcc('Q', 'T', '0', '5')
+#define SDE_PIX_FMT_ABGR_8888_TILE	v4l2_fourcc('Q', 'T', '0', '6')
+#define SDE_PIX_FMT_XBGR_8888_TILE	v4l2_fourcc('Q', 'T', '0', '7')
+#define SDE_PIX_FMT_Y_CBCR_H2V2_TILE	v4l2_fourcc('Q', 'T', '0', '8')
+#define SDE_PIX_FMT_Y_CRCB_H2V2_TILE	v4l2_fourcc('Q', 'T', '0', '9')
+#define SDE_PIX_FMT_ARGB_2101010_TILE	v4l2_fourcc('Q', 'T', '0', 'A')
+#define SDE_PIX_FMT_XRGB_2101010_TILE	v4l2_fourcc('Q', 'T', '0', 'B')
+#define SDE_PIX_FMT_ABGR_2101010_TILE	v4l2_fourcc('Q', 'T', '0', 'C')
+#define SDE_PIX_FMT_XBGR_2101010_TILE	v4l2_fourcc('Q', 'T', '0', 'D')
+#define SDE_PIX_FMT_BGRA_1010102_TILE	v4l2_fourcc('Q', 'T', '0', 'E')
+#define SDE_PIX_FMT_BGRX_1010102_TILE	v4l2_fourcc('Q', 'T', '0', 'F')
+#define SDE_PIX_FMT_RGBA_1010102_TILE	v4l2_fourcc('Q', 'T', '1', '0')
+#define SDE_PIX_FMT_RGBX_1010102_TILE	v4l2_fourcc('Q', 'T', '1', '1')
+#define SDE_PIX_FMT_Y_CBCR_H2V2_P010_TILE	v4l2_fourcc('Q', 'T', '1', '2')
+
 #define SDE_ROT_MAX_PLANES		4
 
 #define UBWC_META_MACRO_W_H		16
@@ -27,12 +48,12 @@
  * expected by the HW programming.
  */
 enum {
-	COLOR_4BIT,
-	COLOR_5BIT,
-	COLOR_6BIT,
-	COLOR_8BIT,
-	COLOR_ALPHA_1BIT = 0,
-	COLOR_ALPHA_4BIT = 1,
+	SDE_COLOR_4BIT,
+	SDE_COLOR_5BIT,
+	SDE_COLOR_6BIT,
+	SDE_COLOR_8BIT,
+	SDE_COLOR_ALPHA_1BIT = 0,
+	SDE_COLOR_ALPHA_4BIT = 1,
 };
 
 #define C3_ALPHA	3	/* alpha */
@@ -67,6 +88,10 @@ enum sde_mdp_sspp_chroma_samp_type {
 	SDE_MDP_CHROMA_H2V1,
 	SDE_MDP_CHROMA_H1V2,
 	SDE_MDP_CHROMA_420
+};
+
+enum sde_mdp_format_flag_type {
+	SDE_MDP_FORMAT_FLAG_PRIVATE = BIT(0)
 };
 
 struct sde_mdp_format_params {
@@ -157,5 +182,20 @@ static inline bool sde_mdp_is_p010_format(struct sde_mdp_format_params *fmt)
 static inline bool sde_mdp_is_yuv_format(struct sde_mdp_format_params *fmt)
 {
 	return fmt && fmt->is_yuv;
+}
+
+static inline bool sde_mdp_is_rgb_format(struct sde_mdp_format_params *fmt)
+{
+	return !sde_mdp_is_yuv_format(fmt);
+}
+
+static inline bool sde_mdp_is_private_format(struct sde_mdp_format_params *fmt)
+{
+	return fmt && (fmt->flag & SDE_MDP_FORMAT_FLAG_PRIVATE);
+}
+
+static inline int sde_mdp_format_blk_size(struct sde_mdp_format_params *fmt)
+{
+	return sde_mdp_is_tp10_format(fmt) ? 96 : 128;
 }
 #endif

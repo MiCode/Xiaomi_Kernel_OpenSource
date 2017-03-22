@@ -179,13 +179,13 @@ int sde_mdp_get_rau_strides(u32 w, u32 h,
 	return 0;
 }
 
-static int sde_mdp_get_ubwc_plane_size(struct sde_mdp_format_params *fmt,
+static int sde_mdp_get_a5x_plane_size(struct sde_mdp_format_params *fmt,
 	u32 width, u32 height, struct sde_mdp_plane_sizes *ps)
 {
 	int rc = 0;
 
-	if (fmt->format == SDE_PIX_FMT_Y_CBCR_H2V2_UBWC) {
-		ps->num_planes = 4;
+	if (sde_mdp_is_nv12_8b_format(fmt)) {
+		ps->num_planes = 2;
 		/* Y bitstream stride and plane size */
 		ps->ystride[0] = ALIGN(width, 128);
 		ps->plane_size[0] = ALIGN(ps->ystride[0] * ALIGN(height, 32),
@@ -196,6 +196,11 @@ static int sde_mdp_get_ubwc_plane_size(struct sde_mdp_format_params *fmt,
 		ps->plane_size[1] = ALIGN(ps->ystride[1] *
 			ALIGN(height / 2, 32), 4096);
 
+		if (!sde_mdp_is_ubwc_format(fmt))
+			goto done;
+
+		ps->num_planes += 2;
+
 		/* Y meta data stride and plane size */
 		ps->ystride[2] = ALIGN(DIV_ROUND_UP(width, 32), 64);
 		ps->plane_size[2] = ALIGN(ps->ystride[2] *
@@ -205,13 +210,13 @@ static int sde_mdp_get_ubwc_plane_size(struct sde_mdp_format_params *fmt,
 		ps->ystride[3] = ALIGN(DIV_ROUND_UP(width / 2, 16), 64);
 		ps->plane_size[3] = ALIGN(ps->ystride[3] *
 			ALIGN(DIV_ROUND_UP(height / 2, 8), 16), 4096);
-	} else if (fmt->format == SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC) {
+	} else if (sde_mdp_is_tp10_format(fmt)) {
 		u32 yWidth   = sde_mdp_general_align(width, 192);
 		u32 yHeight  = ALIGN(height, 16);
 		u32 uvWidth  = sde_mdp_general_align(width, 192);
 		u32 uvHeight = ALIGN(height, 32);
 
-		ps->num_planes = 4;
+		ps->num_planes = 2;
 
 		/* Y bitstream stride and plane size */
 		ps->ystride[0]    = yWidth * TILEWIDTH_SIZE / Y_TILEWIDTH;
@@ -225,6 +230,11 @@ static int sde_mdp_get_ubwc_plane_size(struct sde_mdp_format_params *fmt,
 				(uvHeight * TILEHEIGHT_SIZE / UV_TILEHEIGHT),
 				4096);
 
+		if (!sde_mdp_is_ubwc_format(fmt))
+			goto done;
+
+		ps->num_planes += 2;
+
 		/* Y meta data stride and plane size */
 		ps->ystride[2]    = ALIGN(yWidth / Y_TILEWIDTH, 64);
 		ps->plane_size[2] = ALIGN(ps->ystride[2] *
@@ -234,11 +244,7 @@ static int sde_mdp_get_ubwc_plane_size(struct sde_mdp_format_params *fmt,
 		ps->ystride[3]    = ALIGN(uvWidth / UV_TILEWIDTH, 64);
 		ps->plane_size[3] = ALIGN(ps->ystride[3] *
 				ALIGN((uvHeight / UV_TILEHEIGHT), 16), 4096);
-	} else if (fmt->format == SDE_PIX_FMT_RGBA_8888_UBWC ||
-		fmt->format == SDE_PIX_FMT_RGBX_8888_UBWC    ||
-		fmt->format == SDE_PIX_FMT_RGBA_1010102_UBWC ||
-		fmt->format == SDE_PIX_FMT_RGBX_1010102_UBWC ||
-		fmt->format == SDE_PIX_FMT_RGB_565_UBWC) {
+	} else if (sde_mdp_is_rgb_format(fmt)) {
 		uint32_t stride_alignment, bpp, aligned_bitstream_width;
 
 		if (fmt->format == SDE_PIX_FMT_RGB_565_UBWC) {
@@ -248,13 +254,19 @@ static int sde_mdp_get_ubwc_plane_size(struct sde_mdp_format_params *fmt,
 			stride_alignment = 64;
 			bpp = 4;
 		}
-		ps->num_planes = 2;
+
+		ps->num_planes = 1;
 
 		/* RGB bitstream stride and plane size */
 		aligned_bitstream_width = ALIGN(width, stride_alignment);
 		ps->ystride[0] = aligned_bitstream_width * bpp;
 		ps->plane_size[0] = ALIGN(bpp * aligned_bitstream_width *
 			ALIGN(height, 16), 4096);
+
+		if (!sde_mdp_is_ubwc_format(fmt))
+			goto done;
+
+		ps->num_planes += 1;
 
 		/* RGB meta data stride and plane size */
 		ps->ystride[2] = ALIGN(DIV_ROUND_UP(aligned_bitstream_width,
@@ -266,7 +278,7 @@ static int sde_mdp_get_ubwc_plane_size(struct sde_mdp_format_params *fmt,
 			__func__, fmt->format);
 		rc = -EINVAL;
 	}
-
+done:
 	return rc;
 }
 
@@ -285,8 +297,8 @@ int sde_mdp_get_plane_sizes(struct sde_mdp_format_params *fmt, u32 w, u32 h,
 	bpp = fmt->bpp;
 	memset(ps, 0, sizeof(struct sde_mdp_plane_sizes));
 
-	if (sde_mdp_is_ubwc_format(fmt)) {
-		rc = sde_mdp_get_ubwc_plane_size(fmt, w, h, ps);
+	if (sde_mdp_is_tilea5x_format(fmt)) {
+		rc = sde_mdp_get_a5x_plane_size(fmt, w, h, ps);
 	} else if (bwc_mode) {
 		u32 height, meta_size;
 
@@ -394,7 +406,7 @@ int sde_mdp_get_plane_sizes(struct sde_mdp_format_params *fmt, u32 w, u32 h,
 	return rc;
 }
 
-static int sde_mdp_ubwc_data_check(struct sde_mdp_data *data,
+static int sde_mdp_a5x_data_check(struct sde_mdp_data *data,
 			struct sde_mdp_plane_sizes *ps,
 			struct sde_mdp_format_params *fmt)
 {
@@ -416,8 +428,7 @@ static int sde_mdp_ubwc_data_check(struct sde_mdp_data *data,
 
 	base_addr = data->p[0].addr;
 
-	if ((fmt->format == SDE_PIX_FMT_Y_CBCR_H2V2_UBWC) ||
-		(fmt->format == SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC)) {
+	if (sde_mdp_is_yuv_format(fmt)) {
 		/************************************************/
 		/*      UBWC            **                      */
 		/*      buffer          **      MDP PLANE       */
@@ -446,6 +457,9 @@ static int sde_mdp_ubwc_data_check(struct sde_mdp_data *data,
 		data->p[1].addr = base_addr + ps->plane_size[0]
 			+ ps->plane_size[2] + ps->plane_size[3];
 		data->p[1].len = ps->plane_size[1];
+
+		if (!sde_mdp_is_ubwc_format(fmt))
+			goto done;
 
 		/* configure Y metadata plane */
 		data->p[2].addr = base_addr;
@@ -477,10 +491,14 @@ static int sde_mdp_ubwc_data_check(struct sde_mdp_data *data,
 		data->p[0].addr = base_addr + ps->plane_size[2];
 		data->p[0].len = ps->plane_size[0];
 
+		if (!sde_mdp_is_ubwc_format(fmt))
+			goto done;
+
 		/* configure RGB metadata plane */
 		data->p[2].addr = base_addr;
 		data->p[2].len = ps->plane_size[2];
 	}
+done:
 	data->num_planes = ps->num_planes;
 
 end:
@@ -490,7 +508,7 @@ end:
 		return -EINVAL;
 	}
 
-	inc = ((fmt->format == SDE_PIX_FMT_Y_CBCR_H2V2_UBWC) ? 1 : 2);
+	inc = (sde_mdp_is_yuv_format(fmt) ? 1 : 2);
 	for (i = 0; i < SDE_ROT_MAX_PLANES; i += inc) {
 		if (data->p[i].len != ps->plane_size[i]) {
 			SDEROT_ERR(
@@ -517,8 +535,8 @@ int sde_mdp_data_check(struct sde_mdp_data *data,
 	if (!data || data->num_planes == 0)
 		return -ENOMEM;
 
-	if (sde_mdp_is_ubwc_format(fmt))
-		return sde_mdp_ubwc_data_check(data, ps, fmt);
+	if (sde_mdp_is_tilea5x_format(fmt))
+		return sde_mdp_a5x_data_check(data, ps, fmt);
 
 	SDEROT_DBG("srcp0=%pa len=%lu frame_size=%u\n", &data->p[0].addr,
 		data->p[0].len, ps->total_size);
@@ -574,7 +592,7 @@ int sde_validate_offset_for_ubwc_format(
 	return ret;
 }
 
-/* x and y are assumednt to be valid, expected to line up with start of tiles */
+/* x and y are assumed to be valid, expected to line up with start of tiles */
 void sde_rot_ubwc_data_calc_offset(struct sde_mdp_data *data, u16 x, u16 y,
 	struct sde_mdp_plane_sizes *ps, struct sde_mdp_format_params *fmt)
 {
@@ -589,7 +607,7 @@ void sde_rot_ubwc_data_calc_offset(struct sde_mdp_data *data, u16 x, u16 y,
 	}
 	macro_w = 4 * micro_w;
 
-	if (fmt->format == SDE_PIX_FMT_Y_CBCR_H2V2_UBWC) {
+	if (sde_mdp_is_nv12_8b_format(fmt)) {
 		u16 chroma_macro_w = macro_w / 2;
 		u16 chroma_micro_w = micro_w / 2;
 
@@ -631,9 +649,11 @@ void sde_rot_ubwc_data_calc_offset(struct sde_mdp_data *data, u16 x, u16 y,
 			ret = 4;
 			goto done;
 		}
-	} else if (fmt->format == SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC) {
+	} else if (sde_mdp_is_nv12_10b_format(fmt)) {
 		/* TODO: */
-		SDEROT_ERR("UBWC TP10 format not implemented yet");
+		SDEROT_ERR("%c%c%c%c format not implemented yet",
+				fmt->format >> 0, fmt->format >> 8,
+				fmt->format >> 16, fmt->format >> 24);
 		ret = 1;
 		goto done;
 	} else {
@@ -670,7 +690,7 @@ void sde_rot_data_calc_offset(struct sde_mdp_data *data, u16 x, u16 y,
 	if ((x == 0) && (y == 0))
 		return;
 
-	if (sde_mdp_is_ubwc_format(fmt)) {
+	if (sde_mdp_is_tilea5x_format(fmt)) {
 		sde_rot_ubwc_data_calc_offset(data, x, y, ps, fmt);
 		return;
 	}
