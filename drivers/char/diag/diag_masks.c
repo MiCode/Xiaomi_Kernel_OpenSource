@@ -456,6 +456,8 @@ static void diag_send_feature_mask_update(uint8_t peripheral)
 		DIAG_SET_FEATURE_MASK(F_DIAG_REQ_RSP_SUPPORT);
 	if (driver->supports_apps_hdlc_encoding)
 		DIAG_SET_FEATURE_MASK(F_DIAG_APPS_HDLC_ENCODE);
+	if (driver->supports_apps_header_untagging)
+		DIAG_SET_FEATURE_MASK(F_DIAG_PKT_HEADER_UNTAG);
 	DIAG_SET_FEATURE_MASK(F_DIAG_MASK_CENTRALIZATION);
 	if (driver->supports_sockets)
 		DIAG_SET_FEATURE_MASK(F_DIAG_SOCKETS_ENABLED);
