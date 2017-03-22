@@ -379,7 +379,7 @@ static int sde_encoder_phys_wb_atomic_check(
 	}
 
 	if (SDE_FORMAT_IS_UBWC(fmt) &&
-			!(wb_cfg->features & BIT(SDE_WB_UBWC_1_0))) {
+			!(wb_cfg->features & BIT(SDE_WB_UBWC))) {
 		SDE_ERROR("invalid output format %x\n", fmt->base.pixel_format);
 		return -EINVAL;
 	}

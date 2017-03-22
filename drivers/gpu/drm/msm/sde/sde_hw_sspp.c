@@ -62,6 +62,7 @@
 
 #define SSPP_SRC_CONSTANT_COLOR            0x3c
 #define SSPP_EXCL_REC_CTL                  0x40
+#define SSPP_UBWC_STATIC_CTRL              0x44
 #define SSPP_FETCH_CONFIG                  0x048
 #define SSPP_DANGER_LUT                    0x60
 #define SSPP_SAFE_LUT                      0x64
@@ -366,7 +367,11 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 		src_format |= (fmt->fetch_mode & 3) << 30; /*FRAME_FORMAT */
 		SDE_REG_WRITE(c, SSPP_FETCH_CONFIG,
 			SDE_FETCH_CONFIG_RESET_VALUE |
-			ctx->highest_bank_bit << 18);
+			ctx->mdp->highest_bank_bit << 18);
+		if (IS_UBWC_20_SUPPORTED(ctx->catalog->ubwc_version))
+			SDE_REG_WRITE(c, SSPP_UBWC_STATIC_CTRL,
+					BIT(31) | (ctx->mdp->ubwc_swizzle) |
+					(ctx->mdp->highest_bank_bit << 4));
 	}
 
 	opmode |= MDSS_MDP_OP_PE_OVERRIDE;
@@ -1074,6 +1079,9 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 	struct sde_hw_pipe *hw_pipe;
 	struct sde_sspp_cfg *cfg;
 
+	if (!addr || !catalog)
+		return ERR_PTR(-EINVAL);
+
 	hw_pipe = kzalloc(sizeof(*hw_pipe), GFP_KERNEL);
 	if (!hw_pipe)
 		return ERR_PTR(-ENOMEM);
@@ -1085,10 +1093,11 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 	}
 
 	/* Assign ops */
+	hw_pipe->catalog = catalog;
+	hw_pipe->mdp = &catalog->mdp[0];
 	hw_pipe->idx = idx;
 	hw_pipe->cap = cfg;
 	_setup_layer_ops(hw_pipe, hw_pipe->cap->features);
-	hw_pipe->highest_bank_bit = catalog->mdp[0].highest_bank_bit;
 
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name,
 			hw_pipe->hw.blk_off,

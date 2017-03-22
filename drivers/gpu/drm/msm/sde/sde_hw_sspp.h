@@ -496,21 +496,23 @@ struct sde_hw_sspp_ops {
  * @blk_off:      pipe offset relative to mdss offset
  * @length        length of register block offset
  * @hwversion     mdss hw version number
+ * @catalog:      back pointer to catalog
+ * @mdp:          pointer to associated mdp portion of the catalog
  * @idx:          pipe index
  * @type :        pipe type, VIG/DMA/RGB/CURSOR, certain operations are not
  *                supported for each pipe type
  * @pipe_hw_cap:  pointer to layer_cfg
- * @highest_bank_bit:
  * @ops:          pointer to operations possible for this pipe
  */
 struct sde_hw_pipe {
 	/* base */
-	 struct sde_hw_blk_reg_map hw;
+	struct sde_hw_blk_reg_map hw;
+	struct sde_mdss_cfg *catalog;
+	struct sde_mdp_cfg *mdp;
 
 	/* Pipe */
 	enum sde_sspp idx;
 	const struct sde_sspp_cfg *cap;
-	u32 highest_bank_bit;
 
 	/* Ops */
 	struct sde_hw_sspp_ops ops;

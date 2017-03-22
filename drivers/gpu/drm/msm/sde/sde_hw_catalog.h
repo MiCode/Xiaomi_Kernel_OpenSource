@@ -61,6 +61,17 @@
 #define SDE_COLOR_PROCESS_MINOR(version) ((version) & 0xFFFF)
 
 /**
+ * Supported UBWC feature versions
+ */
+enum {
+	SDE_HW_UBWC_VER_10 = 0x100,
+	SDE_HW_UBWC_VER_20 = 0x200,
+	SDE_HW_UBWC_VER_30 = 0x300,
+};
+
+#define IS_UBWC_20_SUPPORTED(rev)       ((rev) >= SDE_HW_UBWC_VER_20)
+
+/**
  * MDP TOP BLOCK features
  * @SDE_MDP_PANIC_PER_PIPE Panic configuration needs to be be done per pipe
  * @SDE_MDP_10BIT_SUPPORT, Chipset supports 10 bit pixel formats
@@ -207,9 +218,7 @@ enum {
  * @SDE_WB_DOWNSCALE,       Writeback integer downscaler,
  * @SDE_WB_DITHER,          Dither block
  * @SDE_WB_TRAFFIC_SHAPER,  Writeback traffic shaper bloc
- * @SDE_WB_UBWC_1_0,        Writeback Universal bandwidth compression 1.0
- *                          support
- * @SDE_WB_UBWC_1_5         UBWC 1.5 support
+ * @SDE_WB_UBWC,            Writeback Universal bandwidth compression
  * @SDE_WB_YUV_CONFIG       Writeback supports output of YUV colorspace
  * @SDE_WB_PIPE_ALPHA       Writeback supports pipe alpha
  * @SDE_WB_XY_ROI_OFFSET    Writeback supports x/y-offset of out ROI in
@@ -225,7 +234,7 @@ enum {
 	SDE_WB_DOWNSCALE,
 	SDE_WB_DITHER,
 	SDE_WB_TRAFFIC_SHAPER,
-	SDE_WB_UBWC_1_0,
+	SDE_WB_UBWC,
 	SDE_WB_YUV_CONFIG,
 	SDE_WB_PIPE_ALPHA,
 	SDE_WB_XY_ROI_OFFSET,
@@ -447,11 +456,15 @@ struct sde_clk_ctrl_reg {
  * @base:              register base offset to mdss
  * @features           bit mask identifying sub-blocks/features
  * @highest_bank_bit:  UBWC parameter
+ * @ubwc_static:       ubwc static configuration
+ * @ubwc_swizzle:      ubwc default swizzle setting
  * @clk_ctrls          clock control register definition
  */
 struct sde_mdp_cfg {
 	SDE_HW_BLK_INFO;
 	u32 highest_bank_bit;
+	u32 ubwc_static;
+	u32 ubwc_swizzle;
 	struct sde_clk_ctrl_reg clk_ctrls[SDE_CLK_CTRL_MAX];
 };
 
@@ -660,12 +673,13 @@ struct sde_perf_cfg {
  * @max_mixer_blendstages max layer mixer blend stages or
  *                       supported z order
  * @max_wb_linewidth   max writeback line width support.
- * @highest_bank_bit   highest memory bit setting for tile buffers.
  * @qseed_type         qseed2 or qseed3 support.
  * @csc_type           csc or csc_10bit support.
  * @smart_dma_rev      Supported version of SmartDMA feature.
  * @has_src_split      source split feature status
  * @has_cdp            Client driver prefetch feature status
+ * @has_wb_ubwc        UBWC feature supported on WB
+ * @ubwc_version       UBWC feature version (0x0 for not supported)
  * @dma_formats        Supported formats for dma pipe
  * @cursor_formats     Supported formats for cursor pipe
  * @vig_formats        Supported formats for vig pipe
@@ -678,13 +692,14 @@ struct sde_mdss_cfg {
 	u32 max_mixer_width;
 	u32 max_mixer_blendstages;
 	u32 max_wb_linewidth;
-	u32 highest_bank_bit;
 	u32 qseed_type;
 	u32 csc_type;
 	u32 smart_dma_rev;
 	bool has_src_split;
 	bool has_cdp;
 	bool has_dim_layer;
+	bool has_wb_ubwc;
+	u32 ubwc_version;
 
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];

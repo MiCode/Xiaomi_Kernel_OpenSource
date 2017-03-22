@@ -41,6 +41,7 @@
 #define WB_N16_INIT_PHASE_Y_C12		0x06C
 #define WB_OUT_SIZE			0x074
 #define WB_ALPHA_X_VALUE		0x078
+#define WB_UBWC_STATIC_CTRL		0x144
 #define WB_CSC_BASE			0x260
 #define WB_DST_ADDR_SW_STATUS		0x2B0
 #define WB_CDP_CTRL			0x2B4
@@ -135,10 +136,13 @@ static void sde_hw_wb_setup_format(struct sde_hw_wb *ctx,
 	if (SDE_FORMAT_IS_UBWC(fmt)) {
 		opmode |= BIT(0);
 		dst_format |= BIT(31);
-		if (ctx->highest_bank_bit)
-			write_config |= (ctx->highest_bank_bit << 8);
+		write_config |= (ctx->mdp->highest_bank_bit << 8);
 		if (fmt->base.pixel_format == DRM_FORMAT_RGB565)
 			write_config |= 0x8;
+		if (IS_UBWC_20_SUPPORTED(ctx->catalog->ubwc_version))
+			SDE_REG_WRITE(c, WB_UBWC_STATIC_CTRL,
+					(ctx->mdp->ubwc_swizzle << 0) |
+					(ctx->mdp->highest_bank_bit << 4));
 	}
 
 	if (data->is_secure)
@@ -199,6 +203,9 @@ struct sde_hw_wb *sde_hw_wb_init(enum sde_wb idx,
 	struct sde_hw_wb *c;
 	struct sde_wb_cfg *cfg;
 
+	if (!addr || !m || !hw_mdp)
+		return ERR_PTR(-EINVAL);
+
 	c = kzalloc(sizeof(*c), GFP_KERNEL);
 	if (!c)
 		return ERR_PTR(-ENOMEM);
@@ -211,10 +218,11 @@ struct sde_hw_wb *sde_hw_wb_init(enum sde_wb idx,
 	}
 
 	/* Assign ops */
+	c->catalog = m;
+	c->mdp = &m->mdp[0];
 	c->idx = idx;
 	c->caps = cfg;
 	_setup_wb_ops(&c->ops, c->caps->features);
-	c->highest_bank_bit = m->mdp[0].highest_bank_bit;
 	c->hw_mdp = hw_mdp;
 
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,

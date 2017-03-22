@@ -117,6 +117,11 @@ Optional properties:
 				type.
 - qcom,sde-highest-bank-bit:	A u32 property to indicate GPU/Camera/Video highest memory
 				bank bit used for tile format buffers.
+- qcom,sde-ubwc-version:	Property to specify the UBWC feature version.
+- qcom,sde-ubwc-static:	Property to specify the default UBWC static
+				configuration value.
+- qcom,sde-ubwc-swizzle:	Property to specify the default UBWC swizzle
+				configuration value.
 - qcom,sde-panic-per-pipe:	Boolean property to indicate if panic signal
 				control feature is available on each source pipe.
 - qcom,sde-has-src-split:	Boolean property to indicate if source split
@@ -388,6 +393,9 @@ Example:
     qcom,sde-sspp-linewidth = <2560>;
     qcom,sde-mixer-blendstages = <0x7>;
     qcom,sde-highest-bank-bit = <0x2>;
+    qcom,sde-ubwc-version = <0x100>;
+    qcom,sde-ubwc-static = <0x100>;
+    qcom,sde-ubwc-swizzle = <0>;
     qcom,sde-panic-per-pipe;
     qcom,sde-has-cdp;
     qcom,sde-has-src-split;
