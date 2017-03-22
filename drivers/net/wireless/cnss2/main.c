@@ -1679,7 +1679,7 @@ static int cnss_event_work_init(struct cnss_plat_data *plat_priv)
 {
 	spin_lock_init(&plat_priv->event_lock);
 	plat_priv->event_wq = alloc_workqueue("cnss_driver_event",
-					      0, 0);
+					      WQ_UNBOUND, 1);
 	if (!plat_priv->event_wq) {
 		cnss_pr_err("Failed to create event workqueue!\n");
 		return -EFAULT;
