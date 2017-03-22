@@ -1970,6 +1970,20 @@ error:
 }
 
 /**
+ * mdss_dsi_phy_idle_pc_exit() - Called after exit Idle PC
+ * @ctrl: pointer to DSI controller structure
+ *
+ * Perform any programming needed after Idle PC exit.
+ */
+static int mdss_dsi_phy_idle_pc_exit(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+		mdss_dsi_phy_v3_idle_pc_exit(ctrl);
+
+	return 0;
+}
+
+/**
  * mdss_dsi_clamp_ctrl_default() - Program DSI clamps
  * @ctrl: pointer to DSI controller structure
  * @enable: true to enable clamps, false to disable clamps
@@ -2485,6 +2499,11 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 
 		}
 	}
+
+	if ((clk_type & MDSS_DSI_LINK_CLK) &&
+		(new_state == MDSS_DSI_CLK_ON) &&
+		!ctrl->panel_data.panel_info.cont_splash_enabled)
+		mdss_dsi_phy_idle_pc_exit(ctrl);
 
 	return rc;
 }
