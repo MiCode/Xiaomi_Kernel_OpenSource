@@ -195,6 +195,7 @@ struct sde_rot_data_type {
 	struct ion_client *iclient;
 
 	bool handoff_done;
+	struct msm_bus_scale_pdata *reg_bus_pdata;
 };
 
 int sde_rotator_base_init(struct sde_rot_data_type **pmdata,
