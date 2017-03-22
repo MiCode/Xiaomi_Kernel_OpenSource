@@ -169,8 +169,15 @@ Optional properties:
                           sleep configuration defined for each pin or pin group.
 - qcom,hw-strobe-gpio	: phandle to specify GPIO for hardware strobing. This is used when there is no
 			  pinctrl support or PMIC GPIOs are used.
-- qcom,hw-strobe-sel	: Boolean property to enable hardware strobe. If not defined, software strobe
-			  will be used.
+- qcom,strobe-sel	: Property to select strobe type. If not defined,
+			  software strobe will be used. Allowed options are:
+			  0 - SW strobe
+			  1 - HW strobe
+			  2 - LPG strobe
+			  LPG strobe is supported only for LED3.
+			  If LPG strobe is specified, then strobe control is
+			  configured for active high and level triggered. Also
+			  qcom,hw-strobe-option should be set to 1 or 2.
 - qcom,hw-strobe-edge-trigger	: Boolean property to select trigger type. If defined, hw-strobe is set to
 				  be edge triggered. Otherwise, it is level triggered.
 - qcom,hw-strobe-active-low	: Boolean property to select strobe signal polarity. If defined, hw-strobe
