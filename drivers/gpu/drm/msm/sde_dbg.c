@@ -992,6 +992,9 @@ static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag,
 	char __iomem *end_addr;
 	int i;
 
+	if (!len_bytes)
+		return;
+
 	in_log = (reg_dump_flag & SDE_DBG_DUMP_IN_LOG);
 	in_mem = (reg_dump_flag & SDE_DBG_DUMP_IN_MEM);
 
@@ -1464,8 +1467,12 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 			sizeof(sde_dbg_base.req_dump_blks));
 
 	va_start(args, name);
-	for (i = 0; i < SDE_EVTLOG_MAX_DATA; i++) {
-		blk_name = va_arg(args, char*);
+	i = 0;
+	while ((blk_name = va_arg(args, char*))) {
+		if (i++ >= SDE_EVTLOG_MAX_DATA) {
+			pr_err("could not parse all dump arguments\n");
+			break;
+		}
 		if (IS_ERR_OR_NULL(blk_name))
 			break;
 
@@ -1489,9 +1496,6 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 		if (!strcmp(blk_name, "panic"))
 			do_panic = true;
 	}
-	blk_name = va_arg(args, char*);
-	if (!IS_ERR_OR_NULL(blk_name))
-		pr_err("could not parse all dump arguments\n");
 	va_end(args);
 
 	if (queue_work) {
