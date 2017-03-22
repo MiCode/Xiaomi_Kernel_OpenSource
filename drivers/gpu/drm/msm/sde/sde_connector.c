@@ -21,6 +21,12 @@
 
 #define BL_NODE_NAME_SIZE 32
 
+#define SDE_DEBUG_CONN(c, fmt, ...) SDE_DEBUG("conn%d " fmt,\
+		(c) ? (c)->base.base.id : -1, ##__VA_ARGS__)
+
+#define SDE_ERROR_CONN(c, fmt, ...) SDE_ERROR("conn%d " fmt,\
+		(c) ? (c)->base.base.id : -1, ##__VA_ARGS__)
+
 static const struct drm_prop_enum_list e_topology_name[] = {
 	{SDE_RM_TOPOLOGY_UNKNOWN,	"sde_unknown"},
 	{SDE_RM_TOPOLOGY_SINGLEPIPE,	"sde_singlepipe"},
@@ -396,6 +402,122 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 	return &c_state->base;
 }
 
+static int _sde_connector_roi_v1_check_roi(
+		struct sde_connector *c_conn,
+		struct drm_clip_rect *roi_conn,
+		const struct msm_roi_caps *caps)
+{
+	const struct msm_roi_alignment *align = &caps->align;
+	int w = roi_conn->x2 - roi_conn->x1;
+	int h = roi_conn->y2 - roi_conn->y1;
+
+	if (w <= 0 || h <= 0) {
+		SDE_ERROR_CONN(c_conn, "invalid conn roi w %d h %d\n", w, h);
+		return -EINVAL;
+	}
+
+	if (w < align->min_width || w % align->width_pix_align) {
+		SDE_ERROR_CONN(c_conn,
+				"invalid conn roi width %d min %d align %d\n",
+				w, align->min_width, align->width_pix_align);
+		return -EINVAL;
+	}
+
+	if (h < align->min_height || h % align->height_pix_align) {
+		SDE_ERROR_CONN(c_conn,
+				"invalid conn roi height %d min %d align %d\n",
+				h, align->min_height, align->height_pix_align);
+		return -EINVAL;
+	}
+
+	if (roi_conn->x1 % align->xstart_pix_align) {
+		SDE_ERROR_CONN(c_conn, "invalid conn roi x1 %d align %d\n",
+				roi_conn->x1, align->xstart_pix_align);
+		return -EINVAL;
+	}
+
+	if (roi_conn->y1 % align->ystart_pix_align) {
+		SDE_ERROR_CONN(c_conn, "invalid conn roi y1 %d align %d\n",
+				roi_conn->y1, align->ystart_pix_align);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int _sde_connector_set_roi_v1(
+		struct sde_connector *c_conn,
+		struct sde_connector_state *c_state,
+		void *usr_ptr)
+{
+	struct sde_drm_roi_v1 roi_v1;
+	struct msm_display_info display_info;
+	struct msm_roi_caps *caps;
+	int i, rc;
+
+	if (!c_conn || !c_state) {
+		SDE_ERROR("invalid args\n");
+		return -EINVAL;
+	}
+
+	rc = sde_connector_get_info(&c_conn->base, &display_info);
+	if (rc) {
+		SDE_ERROR_CONN(c_conn, "display get info error: %d\n", rc);
+		return rc;
+	}
+
+	caps = &display_info.roi_caps;
+	if (!caps->enabled) {
+		SDE_ERROR_CONN(c_conn, "display roi capability is disabled\n");
+		return -ENOTSUPP;
+	}
+
+	memset(&c_state->rois, 0, sizeof(c_state->rois));
+
+	if (!usr_ptr) {
+		SDE_DEBUG_CONN(c_conn, "rois cleared\n");
+		return 0;
+	}
+
+	if (copy_from_user(&roi_v1, usr_ptr, sizeof(roi_v1))) {
+		SDE_ERROR_CONN(c_conn, "failed to copy roi_v1 data\n");
+		return -EINVAL;
+	}
+
+	SDE_DEBUG_CONN(c_conn, "num_rects %d\n", roi_v1.num_rects);
+
+	if (roi_v1.num_rects == 0) {
+		SDE_DEBUG_CONN(c_conn, "rois cleared\n");
+		return 0;
+	}
+
+	if (roi_v1.num_rects > SDE_MAX_ROI_V1 ||
+			roi_v1.num_rects > caps->num_roi) {
+		SDE_ERROR_CONN(c_conn, "too many rects specified: %d\n",
+				roi_v1.num_rects);
+		return -EINVAL;
+	}
+
+	c_state->rois.num_rects = roi_v1.num_rects;
+	for (i = 0; i < roi_v1.num_rects; ++i) {
+		int rc;
+
+		rc = _sde_connector_roi_v1_check_roi(c_conn, &roi_v1.roi[i],
+				caps);
+		if (rc)
+			return rc;
+
+		c_state->rois.roi[i] = roi_v1.roi[i];
+		SDE_DEBUG_CONN(c_conn, "roi%d: roi 0x%x 0x%x 0x%x 0x%x\n", i,
+				c_state->rois.roi[i].x1,
+				c_state->rois.roi[i].y1,
+				c_state->rois.roi[i].x2,
+				c_state->rois.roi[i].y2);
+	}
+
+	return 0;
+}
+
 static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		struct drm_connector_state *state,
 		struct drm_property *property,
@@ -459,6 +581,12 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		rc = sde_rm_check_property_topctl(val);
 		if (rc)
 			SDE_ERROR("invalid topology_control: 0x%llX\n", val);
+	}
+
+	if (idx == CONNECTOR_PROP_ROI_V1) {
+		rc = _sde_connector_set_roi_v1(c_conn, c_state, (void *)val);
+		if (rc)
+			SDE_ERROR_CONN(c_conn, "invalid roi_v1, rc: %d\n", rc);
 	}
 
 	/* check for custom property handling */
@@ -705,6 +833,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	struct sde_kms_info *info;
 	struct sde_connector *c_conn = NULL;
 	struct dsi_display *dsi_display;
+	struct msm_display_info display_info;
 	int rc;
 
 	if (!dev || !dev->dev_private || !encoder) {
@@ -835,6 +964,13 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 				sizeof(dsi_display->panel->hdr_props),
 				CONNECTOR_PROP_HDR_INFO);
 		}
+	}
+
+	rc = sde_connector_get_info(&c_conn->base, &display_info);
+	if (!rc && display_info.roi_caps.enabled) {
+		msm_property_install_volatile_range(
+				&c_conn->property_info, "sde_drm_roi_v1", 0x0,
+				0, ~0, 0, CONNECTOR_PROP_ROI_V1);
 	}
 
 	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",

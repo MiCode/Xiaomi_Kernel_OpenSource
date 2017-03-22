@@ -273,7 +273,7 @@ struct sde_connector_state {
 	int mmu_id;
 	uint64_t property_values[CONNECTOR_PROP_COUNT];
 
-	struct msm_roi_mapping rois;
+	struct msm_roi_list rois;
 };
 
 /**
