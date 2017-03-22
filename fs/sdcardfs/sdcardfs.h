@@ -111,12 +111,6 @@
 
 #define REVERT_CRED(saved_cred)	revert_fsids(saved_cred)
 
-#define DEBUG_CRED()		\
-	printk("KAKJAGI: %s:%d fsuid %d fsgid %d\n", 	\
-		__FUNCTION__, __LINE__, 		\
-		(int)current->cred->fsuid, 		\
-		(int)current->cred->fsgid);
-
 /* Android 5.0 support */
 
 /* Permission mode for a specific node. Controls how file permissions
