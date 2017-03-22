@@ -888,6 +888,8 @@ config SND_SOC_WCD9330
 config SND_SOC_WCD9335
         tristate
 	depends on WCD9335_CODEC
+	select SND_SOC_WCD_MBHC
+	select SND_SOC_WCD_MBHC_LEGACY
 
 config SND_SOC_WCD934X
         tristate
@@ -903,6 +905,7 @@ config SND_SOC_WCD934X_MBHC
         tristate
 	depends on SND_SOC_WCD934X
 	select SND_SOC_WCD_MBHC
+	select SND_SOC_WCD_MBHC_ADC
 
 config SND_SOC_WSA881X
         tristate
@@ -931,8 +934,6 @@ config AUDIO_EXT_CLK
 
 config SND_SOC_WCD_MBHC
 	tristate
-	default y if (SND_SOC_MSM8909_WCD=y || SND_SOC_SDM660_CDC=y || SND_SOC_WCD9335=y) && SND_SOC_MDMCALIFORNIUM!=y
-	select SND_SOC_WCD_MBHC_LEGACY
 
 config SND_SOC_WCD_MBHC_LEGACY
 	tristate

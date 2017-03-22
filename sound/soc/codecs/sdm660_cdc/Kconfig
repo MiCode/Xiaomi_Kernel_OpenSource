@@ -1,3 +1,5 @@
 
 config SND_SOC_SDM660_CDC
 	tristate "MSM Internal PMIC based codec"
+	select SND_SOC_WCD_MBHC
+	select SND_SOC_WCD_MBHC_LEGACY
