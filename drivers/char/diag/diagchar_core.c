@@ -395,7 +395,8 @@ static uint32_t diag_translate_kernel_to_user_mask(uint32_t peripheral_mask)
 		ret |= DIAG_CON_WDSP;
 	if (peripheral_mask & MD_PERIPHERAL_MASK(PERIPHERAL_CDSP))
 		ret |= DIAG_CON_CDSP;
-
+	if (peripheral_mask & MD_PERIPHERAL_MASK(UPD_WLAN))
+		ret |= DIAG_CON_UPD_WLAN;
 	return ret;
 }
 int diag_mask_param(void)
@@ -453,6 +454,14 @@ static void diag_close_logging_process(const int pid)
 	params.mode_param = 0;
 	params.peripheral_mask =
 		diag_translate_kernel_to_user_mask(session_peripheral_mask);
+	if (driver->pd_logging_mode)
+		params.pd_mask =
+		diag_translate_kernel_to_user_mask(session_peripheral_mask);
+
+	if (session_peripheral_mask & MD_PERIPHERAL_MASK(UPD_WLAN)) {
+		driver->pd_logging_mode--;
+		driver->num_pd_session--;
+	}
 	mutex_lock(&driver->diagchar_mutex);
 	diag_switch_logging(&params);
 	mutex_unlock(&driver->diagchar_mutex);
@@ -1548,6 +1557,8 @@ static uint32_t diag_translate_mask(uint32_t peripheral_mask)
 		ret |= (1 << PERIPHERAL_WDSP);
 	if (peripheral_mask & DIAG_CON_CDSP)
 		ret |= (1 << PERIPHERAL_CDSP);
+	if (peripheral_mask & DIAG_CON_UPD_WLAN)
+		ret |= (1 << UPD_WLAN);
 
 	return ret;
 }
@@ -1569,8 +1580,28 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 		return -EINVAL;
 	}
 
-	peripheral_mask = diag_translate_mask(param->peripheral_mask);
-	param->peripheral_mask = peripheral_mask;
+	switch (param->pd_mask) {
+	case DIAG_CON_UPD_WLAN:
+		if (driver->md_session_map[PERIPHERAL_MODEM] &&
+			(MD_PERIPHERAL_MASK(PERIPHERAL_MODEM) &
+			diag_mux->mux_mask)) {
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"diag_fr: User PD is already logging onto active peripheral logging\n");
+			return -EINVAL;
+		}
+		peripheral_mask =
+			diag_translate_mask(param->pd_mask);
+		param->peripheral_mask = peripheral_mask;
+		driver->pd_logging_mode++;
+		driver->num_pd_session++;
+		break;
+
+	default:
+		peripheral_mask =
+			diag_translate_mask(param->peripheral_mask);
+		param->peripheral_mask = peripheral_mask;
+		break;
+	}
 
 	switch (param->req_mode) {
 	case CALLBACK_MODE:
@@ -1590,7 +1621,7 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 
 	curr_mode = driver->logging_mode;
 	DIAG_LOG(DIAG_DEBUG_USERSPACE,
-		"request to switch logging from %d mask:%0x to %d mask:%0x\n",
+		"request to switch logging from %d mask:%0x to new_mode %d mask:%0x\n",
 		curr_mode, driver->md_session_mask, new_mode, peripheral_mask);
 
 	err = diag_md_session_check(curr_mode, new_mode, param, &do_switch);
@@ -1910,6 +1941,27 @@ static int diag_ioctl_hdlc_toggle(unsigned long ioarg)
 	return 0;
 }
 
+static int diag_ioctl_query_pd_logging(unsigned long ioarg)
+{
+	int ret = -EINVAL;
+
+	DIAG_LOG(DIAG_DEBUG_USERSPACE,
+	"diag: %s: Untagging support on APPS is %s\n", __func__,
+	((driver->supports_apps_header_untagging) ?
+	"present" : "absent"));
+
+	DIAG_LOG(DIAG_DEBUG_USERSPACE,
+	"diag: %s: Tagging support on MODEM is %s\n", __func__,
+	(driver->feature[PERIPHERAL_MODEM].untag_header ?
+	"present" : "absent"));
+
+	if (driver->supports_apps_header_untagging &&
+		driver->feature[PERIPHERAL_MODEM].untag_header)
+		ret = 0;
+
+	return ret;
+}
+
 static int diag_ioctl_register_callback(unsigned long ioarg)
 {
 	int err = 0;
@@ -2149,6 +2201,9 @@ long diagchar_compat_ioctl(struct file *filp,
 	case DIAG_IOCTL_HDLC_TOGGLE:
 		result = diag_ioctl_hdlc_toggle(ioarg);
 		break;
+	case DIAG_IOCTL_QUERY_PD_LOGGING:
+		result = diag_ioctl_query_pd_logging(ioarg);
+		break;
 	}
 	return result;
 }
@@ -2271,6 +2326,9 @@ long diagchar_ioctl(struct file *filp,
 		break;
 	case DIAG_IOCTL_HDLC_TOGGLE:
 		result = diag_ioctl_hdlc_toggle(ioarg);
+		break;
+	case DIAG_IOCTL_QUERY_PD_LOGGING:
+		result = diag_ioctl_query_pd_logging(ioarg);
 		break;
 	}
 	return result;
@@ -3275,7 +3333,7 @@ static void diag_debug_init(void)
 	 * to be logged to IPC
 	 */
 	diag_debug_mask = DIAG_DEBUG_PERIPHERALS | DIAG_DEBUG_DCI |
-				DIAG_DEBUG_BRIDGE;
+				DIAG_DEBUG_USERSPACE | DIAG_DEBUG_BRIDGE;
 }
 #else
 static void diag_debug_init(void)
@@ -3404,6 +3462,8 @@ static int __init diagchar_init(void)
 			poolsize_usb_apps + 1 + (NUM_PERIPHERALS * 6));
 	driver->num_clients = max_clients;
 	driver->logging_mode = DIAG_USB_MODE;
+	driver->pd_logging_mode = 0;
+	driver->num_pd_session = 0;
 	driver->mask_check = 0;
 	driver->in_busy_pktdata = 0;
 	driver->in_busy_dcipktdata = 0;
@@ -3421,6 +3481,7 @@ static int __init diagchar_init(void)
 	mutex_init(&apps_data_mutex);
 	for (i = 0; i < NUM_PERIPHERALS; i++)
 		mutex_init(&driver->diagfwd_channel_mutex[i]);
+	mutex_init(&driver->diagfwd_untag_mutex);
 	init_waitqueue_head(&driver->wait_q);
 	INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
 	INIT_WORK(&(driver->update_user_clients),
