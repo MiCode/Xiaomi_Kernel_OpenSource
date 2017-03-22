@@ -104,13 +104,7 @@
 	status = "ok";
 };
 
-&pmi8998_flash2 {
-	pinctrl-names = "led_enable", "led_disable";
-	pinctrl-0 = <&flash_led3_front_en>;
-	pinctrl-1 = <&flash_led3_front_dis>;
-};
-
-&pmi8998_torch2 {
+&pmi8998_switch1 {
 	pinctrl-names = "led_enable", "led_disable";
 	pinctrl-0 = <&flash_led3_front_en>;
 	pinctrl-1 = <&flash_led3_front_dis>;
