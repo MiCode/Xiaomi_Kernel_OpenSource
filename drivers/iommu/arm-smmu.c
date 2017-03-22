@@ -576,6 +576,17 @@ static bool is_dynamic_domain(struct iommu_domain *domain)
 	return !!(smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC));
 }
 
+static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
+{
+	if (smmu_domain->attributes &
+			(1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT))
+		return true;
+	else if (smmu_domain->smmu && smmu_domain->smmu->dev)
+		return smmu_domain->smmu->dev->archdata.dma_coherent;
+	else
+		return false;
+}
+
 static bool arm_smmu_is_domain_secure(struct arm_smmu_domain *smmu_domain)
 {
 	return (smmu_domain->secure_vmid != VMID_INVAL);
@@ -1603,6 +1614,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_USE_UPSTREAM_HINT))
 		quirks |= IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
+	if (is_iommu_pt_coherent(smmu_domain))
+		quirks |= IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT;
 
 	/* Dynamic domains must set cbndx through domain attribute */
 	if (!dynamic) {
@@ -2590,7 +2603,12 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	case DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT:
 		if (!smmu_domain->smmu)
 			return -ENODEV;
-		*((int *)data) = smmu_domain->smmu->dev->archdata.dma_coherent;
+		*((int *)data) = is_iommu_pt_coherent(smmu_domain);
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT));
 		ret = 0;
 		break;
 	default:
@@ -2749,6 +2767,27 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		}
 		break;
 	}
+	case DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT: {
+		int force_coherent = *((int *)data);
+
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+			  "cannot change force coherent attribute while attached\n");
+			ret = -EBUSY;
+			break;
+		}
+
+		if (force_coherent)
+			smmu_domain->attributes |=
+			    1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT;
+		else
+			smmu_domain->attributes &=
+			    ~(1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT);
+
+		ret = 0;
+		break;
+	}
+
 	default:
 		ret = -ENODEV;
 	}
