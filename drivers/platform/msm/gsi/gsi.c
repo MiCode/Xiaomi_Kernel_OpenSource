@@ -2360,6 +2360,8 @@ int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
 			tre.re_type = GSI_RE_XFER;
 		} else if (xfer[i].type == GSI_XFER_ELEM_IMME_CMD) {
 			tre.re_type = GSI_RE_IMMD_CMD;
+		} else if (xfer[i].type == GSI_XFER_ELEM_NOP) {
+			tre.re_type = GSI_RE_NOP;
 		} else {
 			GSIERR("chan_hdl=%lu bad RE type=%u\n", chan_hdl,
 				xfer[i].type);
