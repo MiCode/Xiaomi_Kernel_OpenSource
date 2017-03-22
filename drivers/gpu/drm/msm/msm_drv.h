@@ -492,6 +492,9 @@ struct msm_drm_private {
 
 	/* whether registered and drm_dev_unregister should be called */
 	bool registered;
+
+	/* msm drv debug root node */
+	struct dentry *debug_root;
 };
 
 struct msm_format {

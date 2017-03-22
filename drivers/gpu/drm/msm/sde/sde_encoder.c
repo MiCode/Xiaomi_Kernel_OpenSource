@@ -1013,7 +1013,7 @@ static void sde_encoder_frame_done_callback(
 		if (sde_enc->phys_encs[i] == ready_phys) {
 			clear_bit(i, sde_enc->frame_busy_mask);
 			sde_enc->crtc_frame_event |= event;
-			SDE_EVT32(DRMID(drm_enc), i,
+			SDE_EVT32_VERBOSE(DRMID(drm_enc), i,
 					sde_enc->frame_busy_mask[0]);
 		}
 
@@ -1053,14 +1053,18 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	}
 
 	pending_kickoff_cnt = sde_encoder_phys_inc_pending(phys);
-	SDE_EVT32(DRMID(&to_sde_encoder_virt(drm_enc)->base),
-			phys->intf_idx, pending_kickoff_cnt);
 
 	if (extra_flush_bits && ctl->ops.update_pending_flush)
 		ctl->ops.update_pending_flush(ctl, extra_flush_bits);
 
 	ctl->ops.trigger_flush(ctl);
-	SDE_EVT32(DRMID(drm_enc), ctl->idx);
+
+	if (ctl->ops.get_pending_flush)
+		SDE_EVT32(DRMID(drm_enc), phys->intf_idx, pending_kickoff_cnt,
+			ctl->idx, ctl->ops.get_pending_flush(ctl));
+	else
+		SDE_EVT32(DRMID(drm_enc), phys->intf_idx, ctl->idx,
+						pending_kickoff_cnt);
 }
 
 /**
@@ -1081,7 +1085,6 @@ static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_hw_ctl *ctl;
-	int ctl_idx = -1;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -1091,11 +1094,8 @@ void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
 	ctl = phys_enc->hw_ctl;
 	if (ctl && ctl->ops.trigger_start) {
 		ctl->ops.trigger_start(ctl);
-		ctl_idx = ctl->idx;
+		SDE_EVT32(DRMID(phys_enc->parent), ctl->idx);
 	}
-
-	if (phys_enc && phys_enc->parent)
-		SDE_EVT32(DRMID(phys_enc->parent), ctl_idx);
 }
 
 int sde_encoder_helper_wait_event_timeout(

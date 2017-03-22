@@ -592,8 +592,9 @@ static void _sde_crtc_setup_blend_cfg(struct sde_crtc_mixer *mixer,
 
 	lm->ops.setup_blend_config(lm, pstate->stage, fg_alpha,
 						bg_alpha, blend_op);
-	SDE_DEBUG("format 0x%x, alpha_enable %u fg alpha:0x%x bg alpha:0x%x \"\
-		 blend_op:0x%x\n", format->base.pixel_format,
+	SDE_DEBUG(
+		"format: %4.4s, alpha_enable %u fg alpha:0x%x bg alpha:0x%x blend_op:0x%x\n",
+		(char *) &format->base.pixel_format,
 		format->alpha_enable, fg_alpha, bg_alpha, blend_op);
 }
 
@@ -663,6 +664,8 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc, struct sde_crtc_mixer *mixer)
 {
 	struct drm_plane *plane;
+	struct drm_framebuffer *fb;
+	struct drm_plane_state *state;
 	struct sde_crtc_state *cstate;
 	struct sde_plane_state *pstate = NULL;
 	struct sde_format *format;
@@ -691,8 +694,12 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	crtc_split_width = get_crtc_split_width(crtc);
 
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
+		state = plane->state;
+		if (!state)
+			continue;
 
-		pstate = to_sde_plane_state(plane->state);
+		pstate = to_sde_plane_state(state);
+		fb = state->fb;
 
 		if (sde_plane_is_sbuf_mode(plane, &prefill))
 			sbuf_mode = true;
@@ -700,7 +707,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		sde_plane_get_ctl_flush(plane, ctl, &flush_mask);
 
 		/* always stage plane on either left or right lm */
-		if (plane->state->crtc_x >= crtc_split_width) {
+		if (state->crtc_x >= crtc_split_width) {
 			lm_idx = RIGHT_MIXER;
 			idx = right_crtc_zpos_cnt[pstate->stage]++;
 		} else {
@@ -710,8 +717,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 
 		/* stage plane on right LM if it crosses the boundary */
 		lm_right = (lm_idx == LEFT_MIXER) &&
-		   (plane->state->crtc_x + plane->state->crtc_w >
-							crtc_split_width);
+		   (state->crtc_x + state->crtc_w > crtc_split_width);
 
 		stage_cfg->stage[lm_idx][pstate->stage][idx] =
 							sde_plane_pipe(plane);
@@ -725,10 +731,17 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 				pstate->stage,
 				plane->base.id,
 				sde_plane_pipe(plane) - SSPP_VIG0,
-				plane->state->fb ?
-				plane->state->fb->base.id : -1);
+				state->fb ? state->fb->base.id : -1);
 
 		format = to_sde_format(msm_framebuffer_format(pstate->base.fb));
+
+		SDE_EVT32(DRMID(plane), state->src_x, state->src_y,
+			state->src_w >> 16, state->src_h >> 16, state->crtc_x,
+			state->crtc_y, state->crtc_w, state->crtc_h);
+		SDE_EVT32(DRMID(plane), DRMID(crtc), lm_idx, lm_right,
+			pstate->stage, pstate->multirect_index,
+			pstate->multirect_mode, format->base.pixel_format,
+			fb ? fb->modifier[0] : 0);
 
 		/* blend config update */
 		if (pstate->stage != SDE_STAGE_BASE) {
@@ -872,7 +885,7 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc->state);
-	SDE_EVT32(DRMID(crtc));
+	SDE_EVT32_VERBOSE(DRMID(crtc));
 
 	/* identify connectors attached to this crtc */
 	cstate->num_connectors = 0;
@@ -954,7 +967,7 @@ static void sde_crtc_vblank_cb(void *data)
 	_sde_crtc_complete_flip(crtc, NULL);
 	drm_crtc_handle_vblank(crtc);
 	DRM_DEBUG_VBL("crtc%d\n", crtc->base.id);
-	SDE_EVT32_IRQ(DRMID(crtc));
+	SDE_EVT32_VERBOSE(DRMID(crtc));
 }
 
 static void sde_crtc_frame_event_work(struct kthread_work *work)
@@ -1000,7 +1013,8 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 					crtc->base.id,
 					ktime_to_ns(fevent->ts),
 					atomic_read(&sde_crtc->frame_pending));
-			SDE_EVT32(DRMID(crtc), fevent->event, 0);
+			SDE_EVT32(DRMID(crtc), fevent->event,
+							SDE_EVTLOG_FUNC_CASE1);
 
 			/* don't propagate unexpected frame done events */
 			return;
@@ -1009,16 +1023,18 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 			SDE_DEBUG("crtc%d ts:%lld last pending\n",
 					crtc->base.id,
 					ktime_to_ns(fevent->ts));
-			SDE_EVT32(DRMID(crtc), fevent->event, 1);
+			SDE_EVT32(DRMID(crtc), fevent->event,
+							SDE_EVTLOG_FUNC_CASE2);
 			sde_core_perf_crtc_release_bw(crtc);
 		} else {
-			SDE_EVT32(DRMID(crtc), fevent->event, 2);
+			SDE_EVT32_VERBOSE(DRMID(crtc), fevent->event,
+							SDE_EVTLOG_FUNC_CASE3);
 		}
 	} else {
 		SDE_ERROR("crtc%d ts:%lld unknown event %u\n", crtc->base.id,
 				ktime_to_ns(fevent->ts),
 				fevent->event);
-		SDE_EVT32(DRMID(crtc), fevent->event, 3);
+		SDE_EVT32(DRMID(crtc), fevent->event, SDE_EVTLOG_FUNC_CASE4);
 	}
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)
@@ -1048,8 +1064,7 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	pipe_id = drm_crtc_index(crtc);
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
-
-	SDE_EVT32(DRMID(crtc), event);
+	SDE_EVT32_VERBOSE(DRMID(crtc));
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	fevent = list_first_entry_or_null(&sde_crtc->frame_event_list,
@@ -1085,7 +1100,7 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc->state);
-	SDE_EVT32(DRMID(crtc));
+	SDE_EVT32_VERBOSE(DRMID(crtc));
 
 	/* signal output fence(s) at end of commit */
 	sde_fence_signal(&sde_crtc->output_fence, 0);
@@ -1709,7 +1724,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	if (atomic_read(&sde_crtc->vblank_refcount) && !sde_crtc->suspend) {
 		SDE_ERROR("crtc%d invalid vblank refcount\n",
 				crtc->base.id);
-		SDE_EVT32(DRMID(crtc));
+		SDE_EVT32(DRMID(crtc), atomic_read(&sde_crtc->vblank_refcount),
+							SDE_EVTLOG_FUNC_CASE1);
 		drm_for_each_encoder(encoder, crtc->dev) {
 			if (encoder->crtc != crtc)
 				continue;
@@ -1723,7 +1739,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		/* release bandwidth and other resources */
 		SDE_ERROR("crtc%d invalid frame pending\n",
 				crtc->base.id);
-		SDE_EVT32(DRMID(crtc));
+		SDE_EVT32(DRMID(crtc), atomic_read(&sde_crtc->frame_pending),
+							SDE_EVTLOG_FUNC_CASE2);
 		sde_core_perf_crtc_release_bw(crtc);
 		atomic_set(&sde_crtc->frame_pending, 0);
 	}

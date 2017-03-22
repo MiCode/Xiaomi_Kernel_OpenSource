@@ -305,6 +305,7 @@ static int msm_drm_uninit(struct device *dev)
 	}
 
 	sde_dbg_destroy();
+	debugfs_remove_recursive(priv->debug_root);
 
 	component_unbind_all(dev, ddev);
 	sde_power_client_destroy(&priv->phandle, priv->pclient);
@@ -611,7 +612,16 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	if (ret)
 		goto fail;
 
-	ret = sde_dbg_debugfs_register(ddev->primary->debugfs_root);
+	priv->debug_root = debugfs_create_dir("debug",
+					ddev->primary->debugfs_root);
+	if (IS_ERR_OR_NULL(priv->debug_root)) {
+		pr_err("debugfs_root create_dir fail, error %ld\n",
+		       PTR_ERR(priv->debug_root));
+		priv->debug_root = NULL;
+		goto fail;
+	}
+
+	ret = sde_dbg_debugfs_register(priv->debug_root);
 	if (ret) {
 		dev_err(dev, "failed to reg sde dbg debugfs: %d\n", ret);
 		goto fail;
