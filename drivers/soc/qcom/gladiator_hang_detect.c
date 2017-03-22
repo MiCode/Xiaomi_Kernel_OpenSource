@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -475,7 +475,7 @@ static int msm_gladiator_hang_detect_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct hang_detect *hang_det = NULL;
 	int i = 0, ret;
-	u32 NR_GLA_REG;
+	u32 NR_GLA_REG = 0;
 	u32 *treg;
 	u32 creg;
 
