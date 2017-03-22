@@ -2386,7 +2386,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	struct vidc_hal_fbd *fill_buf_done;
 	enum hal_buffer buffer_type;
 	int extra_idx = 0;
-	u64 time_nsec = 0;
+	u64 time_usec = 0;
 	struct vb2_v4l2_buffer *vbuf = NULL;
 
 	if (!response) {
@@ -2434,11 +2434,11 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 				vb->planes[0].length);
 		if (!(fill_buf_done->flags1 &
 			HAL_BUFFERFLAG_TIMESTAMPINVALID)) {
-			time_nsec = fill_buf_done->timestamp_hi;
-			time_nsec = (time_nsec << 32) |
+			time_usec = fill_buf_done->timestamp_hi;
+			time_usec = (time_usec << 32) |
 				fill_buf_done->timestamp_lo;
 		} else {
-			time_nsec = 0;
+			time_usec = 0;
 			dprintk(VIDC_DBG,
 					"Set zero timestamp for buffer %pa, filled: %d, (hi:%u, lo:%u)\n",
 					&fill_buf_done->packet_buffer1,
@@ -2447,7 +2447,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 					fill_buf_done->timestamp_lo);
 		}
 		vbuf->flags = 0;
-		vb->timestamp = time_nsec;
+		vb->timestamp = (time_usec * NSEC_PER_USEC);
 
 		extra_idx =
 			EXTRADATA_IDX(inst->fmts[CAPTURE_PORT].num_planes);
@@ -2513,7 +2513,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 		dprintk(VIDC_DBG,
 		"Got fbd from hal: device_addr: %pa, alloc: %d, filled: %d, offset: %d, ts: %lld, flags: %#x, crop: %d %d %d %d, pic_type: %#x, mark_data: %#x\n",
 		&fill_buf_done->packet_buffer1, fill_buf_done->alloc_len1,
-		fill_buf_done->filled_len1, fill_buf_done->offset1, time_nsec,
+		fill_buf_done->filled_len1, fill_buf_done->offset1, time_usec,
 		fill_buf_done->flags1, fill_buf_done->start_x_coord,
 		fill_buf_done->start_y_coord, fill_buf_done->frame_width,
 		fill_buf_done->frame_height, fill_buf_done->picture_type,
@@ -3961,15 +3961,19 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 static void populate_frame_data(struct vidc_frame_data *data,
 		const struct vb2_buffer *vb, struct msm_vidc_inst *inst)
 {
+	u64 time_usec;
 	int extra_idx;
 	enum v4l2_buf_type type = vb->type;
 	enum vidc_ports port = type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
 		OUTPUT_PORT : CAPTURE_PORT;
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 
+	time_usec = vb->timestamp;
+	do_div(time_usec, NSEC_PER_USEC);
+
 	data->alloc_len = vb->planes[0].length;
 	data->device_addr = vb->planes[0].m.userptr;
-	data->timestamp = vb->timestamp;
+	data->timestamp = time_usec;
 	data->flags = 0;
 	data->clnt_data = data->device_addr;
 
