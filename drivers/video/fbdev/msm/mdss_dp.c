@@ -4022,8 +4022,6 @@ static int mdss_dp_probe(struct platform_device *pdev)
 
 	pr_debug("done\n");
 
-	dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
-
 	return 0;
 
 probe_err:

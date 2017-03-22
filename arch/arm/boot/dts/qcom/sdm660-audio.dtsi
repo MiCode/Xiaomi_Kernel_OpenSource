@@ -34,7 +34,7 @@
 
 		clock-names = "wcd_clk", "wcd_native_clk";
 		clocks = <&clock_audio AUDIO_PMI_CLK>,
-			<&clock_audio AUDIO_AP_CLK2>;
+			<&clock_audio AUDIO_LPASS_MCLK>;
 
 		cdc-vdd-mic-bias-supply = <&pm660l_bob>;
 		qcom,cdc-vdd-mic-bias-voltage = <3300000 3300000>;

@@ -404,13 +404,14 @@
 			nfc_enable_active: nfc_enable_active {
 				/* active state */
 				mux {
-					/* 29: NFC ENABLE 31:ESE Enable */
-					pins = "gpio29", "gpio31";
+					/* 29: NFC ENABLE 30:FW DNLD */
+					/* 31:ESE Enable */
+					pins = "gpio29", "gpio30", "gpio31";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio29", "gpio31";
+					pins = "gpio29", "gpio30", "gpio31";
 					drive-strength = <2>; /* 2 MA */
 					bias-pull-up;
 				};
@@ -419,13 +420,14 @@
 			nfc_enable_suspend: nfc_enable_suspend {
 				/* sleep state */
 				mux {
-					/* 29: NFC ENABLE 31:ESE Enable */
-					pins = "gpio29", "gpio31";
+					/* 29: NFC ENABLE 30:FW DNLD */
+					/* 31:ESE Enable */
+					pins = "gpio29", "gpio30", "gpio31";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio29", "gpio31";
+					pins = "gpio29", "gpio30", "gpio31";
 					drive-strength = <2>; /* 2 MA */
 					bias-disable;
 				};
