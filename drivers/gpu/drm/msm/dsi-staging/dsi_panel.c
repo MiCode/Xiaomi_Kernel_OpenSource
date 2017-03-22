@@ -12,10 +12,12 @@
  *
  */
 
+#define pr_fmt(fmt)	"msm-dsi-panel:[%s:%d] " fmt, __func__, __LINE__
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <video/mipi_display.h>
 
 #include "dsi_panel.h"
 #include "dsi_ctrl_hw.h"
@@ -1289,6 +1291,8 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,video-to-cmd-mode-switch-commands",
 	"qcom,video-to-cmd-mode-post-switch-commands",
 	"qcom,mdss-dsi-panel-status-command",
+	"PPS not parsed from DTSI, generated dynamically",
+	"ROI not parsed from DTSI, generated dynamically",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -1306,6 +1310,8 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,video-to-cmd-mode-switch-commands-state",
 	"qcom,video-to-cmd-mode-post-switch-commands-state",
 	"qcom,mdss-dsi-panel-status-command-state",
+	"PPS not parsed from DTSI, generated dynamically",
+	"ROI not parsed from DTSI, generated dynamically",
 };
 
 static int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
@@ -1348,6 +1354,7 @@ static int dsi_panel_create_cmd_packets(const char *data,
 		cmd[i].last_command = (data[1] == 1 ? true : false);
 		cmd[i].msg.channel = data[2];
 		cmd[i].msg.flags |= (data[3] == 1 ? MIPI_DSI_MSG_REQ_ACK : 0);
+		cmd[i].msg.ctrl = 0;
 		cmd[i].post_wait_ms = data[4];
 		cmd[i].msg.tx_len = ((data[5] << 8) | (data[6]));
 
@@ -1376,7 +1383,7 @@ error_free_payloads:
 	return rc;
 }
 
-static void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set)
+void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set)
 {
 	u32 i = 0;
 	struct dsi_cmd_desc *cmd;
@@ -1471,6 +1478,8 @@ static int dsi_panel_parse_cmd_sets(struct dsi_panel *panel,
 	for (i = DSI_CMD_SET_PRE_ON; i < DSI_CMD_SET_MAX; i++) {
 		set = &panel->cmd_sets[i];
 		set->type = i;
+		set->count = 0;
+
 		if (i == DSI_CMD_SET_PPS) {
 			rc = dsi_panel_alloc_cmd_packets(set, 1);
 			if (rc)
@@ -2172,6 +2181,87 @@ read_fail:
 	return rc;
 }
 
+static int dsi_panel_parse_roi_alignment(struct device_node *of_node,
+					 struct msm_roi_alignment *align)
+{
+	int len = 0, rc = 0;
+	u32 value[6];
+	struct property *data;
+
+	if (!align || !of_node)
+		return -EINVAL;
+
+	memset(align, 0, sizeof(*align));
+
+	data = of_find_property(of_node, "qcom,panel-roi-alignment", &len);
+	len /= sizeof(u32);
+	if (!data) {
+		pr_err("panel roi alignment not found\n");
+		rc = -EINVAL;
+	} else if (len != 6) {
+		pr_err("incorrect roi alignment len %d\n", len);
+		rc = -EINVAL;
+	} else {
+		rc = of_property_read_u32_array(of_node,
+				"qcom,panel-roi-alignment", value, len);
+		if (rc)
+			pr_debug("error reading panel roi alignment values\n");
+		else {
+			align->xstart_pix_align = value[0];
+			align->ystart_pix_align = value[1];
+			align->width_pix_align = value[2];
+			align->height_pix_align = value[3];
+			align->min_width = value[4];
+			align->min_height = value[5];
+		}
+
+		pr_info("roi alignment: [%d, %d, %d, %d, %d, %d]\n",
+			align->xstart_pix_align,
+			align->width_pix_align,
+			align->ystart_pix_align,
+			align->height_pix_align,
+			align->min_width,
+			align->min_height);
+	}
+
+	return rc;
+}
+
+static int dsi_panel_parse_partial_update_caps(struct dsi_panel *panel,
+					       struct device_node *of_node)
+{
+	struct msm_roi_caps *roi_caps = &panel->roi_caps;
+	const char *data;
+	int rc = 0;
+
+	memset(roi_caps, 0, sizeof(*roi_caps));
+
+	data = of_get_property(of_node, "qcom,partial-update-enabled", NULL);
+	if (data) {
+		if (!strcmp(data, "dual_roi"))
+			roi_caps->num_roi = 2;
+		else
+			roi_caps->num_roi = 1;
+	}
+
+	roi_caps->merge_rois = of_property_read_bool(of_node,
+			"qcom,partial-update-roi-merge");
+
+	roi_caps->enabled = roi_caps->num_roi > 0;
+
+	pr_info("partial update num_rois=%d enabled=%d\n", roi_caps->num_roi,
+			roi_caps->enabled);
+
+	if (roi_caps->enabled)
+		rc = dsi_panel_parse_roi_alignment(of_node,
+				&panel->roi_caps.align);
+
+	if (rc)
+		memset(roi_caps, 0, sizeof(*roi_caps));
+
+	return rc;
+}
+
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node)
 {
@@ -2287,6 +2377,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	rc = dsi_panel_parse_hdr_config(panel, of_node);
 	if (rc)
 		pr_err("failed to parse hdr config, rc=%d\n", rc);
+
+	rc = dsi_panel_parse_partial_update_caps(panel, of_node);
+	if (rc)
+		pr_debug("failed to partial update caps, rc=%d\n", rc);
 
 	panel->panel_of_node = of_node;
 	drm_panel_init(&panel->drm_panel);
@@ -2618,6 +2712,114 @@ int dsi_panel_prepare(struct dsi_panel *panel)
 
 error:
 	mutex_unlock(&panel->panel_lock);
+	return rc;
+}
+
+static int dsi_panel_roi_prepare_dcs_cmds(struct dsi_panel *panel,
+		struct dsi_rect *roi, int ctrl_idx, int unicast)
+{
+	static const int ROI_CMD_LEN = 5;
+	struct dsi_panel_cmd_set *set = &panel->cmd_sets[DSI_CMD_SET_ROI];
+	int rc = 0;
+
+	/* DTYPE_DCS_LWRITE */
+	static char *caset, *paset;
+
+	set->cmds = NULL;
+
+	caset = kzalloc(ROI_CMD_LEN, GFP_KERNEL);
+	if (!caset) {
+		rc = -ENOMEM;
+		goto exit;
+	}
+	caset[0] = 0x2a;
+	caset[1] = (roi->x & 0xFF00) >> 8;
+	caset[2] = roi->x & 0xFF;
+	caset[3] = ((roi->x - 1 + roi->w) & 0xFF00) >> 8;
+	caset[4] = (roi->x - 1 + roi->w) & 0xFF;
+
+	paset = kzalloc(ROI_CMD_LEN, GFP_KERNEL);
+	if (!paset) {
+		rc = -ENOMEM;
+		goto error_free_mem;
+	}
+	paset[0] = 0x2b;
+	paset[1] = (roi->y & 0xFF00) >> 8;
+	paset[2] = roi->y & 0xFF;
+	paset[3] = ((roi->y - 1 + roi->h) & 0xFF00) >> 8;
+	paset[4] = (roi->y - 1 + roi->h) & 0xFF;
+
+	set->type = DSI_CMD_SET_ROI;
+	set->state = DSI_CMD_SET_STATE_LP;
+	set->count = 2; /* send caset + paset together */
+	set->cmds = kcalloc(set->count, sizeof(*set->cmds), GFP_KERNEL);
+	if (!set->cmds) {
+		rc = -ENOMEM;
+		goto error_free_mem;
+	}
+	set->cmds[0].msg.channel = 0;
+	set->cmds[0].msg.type = MIPI_DSI_DCS_LONG_WRITE;
+	set->cmds[0].msg.flags = unicast ? MIPI_DSI_MSG_UNICAST : 0;
+	set->cmds[0].msg.ctrl = unicast ? ctrl_idx : 0;
+	set->cmds[0].msg.tx_len = ROI_CMD_LEN;
+	set->cmds[0].msg.tx_buf = caset;
+	set->cmds[0].msg.rx_len = 0;
+	set->cmds[0].msg.rx_buf = 0;
+	set->cmds[0].last_command = 0;
+	set->cmds[0].post_wait_ms = 1;
+
+	set->cmds[1].msg.channel = 0;
+	set->cmds[1].msg.type = MIPI_DSI_DCS_LONG_WRITE;
+	set->cmds[1].msg.flags = unicast ? MIPI_DSI_MSG_UNICAST : 0;
+	set->cmds[1].msg.ctrl = unicast ? ctrl_idx : 0;
+	set->cmds[1].msg.tx_len = ROI_CMD_LEN;
+	set->cmds[1].msg.tx_buf = paset;
+	set->cmds[1].msg.rx_len = 0;
+	set->cmds[1].msg.rx_buf = 0;
+	set->cmds[1].last_command = 1;
+	set->cmds[1].post_wait_ms = 1;
+
+	goto exit;
+
+error_free_mem:
+	kfree(caset);
+	kfree(paset);
+	kfree(set->cmds);
+
+exit:
+	return rc;
+}
+
+int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
+		struct dsi_rect *roi)
+{
+	int rc = 0;
+
+	if (!panel) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	rc = dsi_panel_roi_prepare_dcs_cmds(panel, roi, ctrl_idx, true);
+	if (rc) {
+		pr_err("[%s] failed to prepare DSI_CMD_SET_ROI cmds, rc=%d\n",
+				panel->name, rc);
+		return rc;
+	}
+	pr_debug("[%s] send roi x %d y %d w %d h %d\n", panel->name,
+			roi->x, roi->y, roi->w, roi->h);
+
+	mutex_lock(&panel->panel_lock);
+
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_ROI);
+	if (rc)
+		pr_err("[%s] failed to send DSI_CMD_SET_ROI cmds, rc=%d\n",
+				panel->name, rc);
+
+	mutex_unlock(&panel->panel_lock);
+
+	dsi_panel_destroy_cmd_packets(&panel->cmd_sets[DSI_CMD_SET_ROI]);
+
 	return rc;
 }
 

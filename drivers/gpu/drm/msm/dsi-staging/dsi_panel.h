@@ -28,6 +28,7 @@
 #include "dsi_ctrl_hw.h"
 #include "dsi_clk.h"
 #include "dsi_pwr.h"
+#include "msm_drv.h"
 
 #define MAX_BL_LEVEL 4096
 #define DSI_CMD_PPS_SIZE 135
@@ -55,6 +56,7 @@ enum dsi_cmd_set_type {
 	DSI_CMD_SET_POST_VID_TO_CMD_SWITCH,
 	DSI_CMD_SET_PANEL_STATUS,
 	DSI_CMD_SET_PPS,
+	DSI_CMD_SET_ROI,
 	DSI_CMD_SET_MAX
 };
 
@@ -162,6 +164,7 @@ struct dsi_panel {
 	struct dsi_cmd_engine_cfg cmd_config;
 
 	struct dsi_dfps_capabilities dfps_caps;
+	struct msm_roi_caps roi_caps;
 
 	struct dsi_panel_cmd_set cmd_sets[DSI_CMD_SET_MAX];
 	struct dsi_panel_phy_props phy_props;
@@ -241,4 +244,8 @@ int dsi_panel_post_unprepare(struct dsi_panel *panel);
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl);
 
 int dsi_panel_update_pps(struct dsi_panel *panel);
+
+int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
+		struct dsi_rect *roi);
+
 #endif /* _DSI_PANEL_H_ */

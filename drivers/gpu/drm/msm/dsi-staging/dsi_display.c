@@ -38,6 +38,30 @@ static const struct of_device_id dsi_display_dt_match[] = {
 
 static struct dsi_display *main_display;
 
+void dsi_rect_intersect(const struct dsi_rect *r1,
+		const struct dsi_rect *r2,
+		struct dsi_rect *result)
+{
+	int l, t, r, b;
+
+	if (!r1 || !r2 || !result)
+		return;
+
+	l = max(r1->x, r2->x);
+	t = max(r1->y, r2->y);
+	r = min((r1->x + r1->w), (r2->x + r2->w));
+	b = min((r1->y + r1->h), (r2->y + r2->h));
+
+	if (r <= l || b <= t) {
+		memset(result, 0, sizeof(*result));
+	} else {
+		result->x = l;
+		result->y = t;
+		result->w = r - l;
+		result->h = b - t;
+	}
+}
+
 int dsi_display_set_backlight(void *display, u32 bl_lvl)
 {
 	struct dsi_display *dsi_display = display;
@@ -2285,6 +2309,7 @@ static int dsi_display_bind(struct device *dev,
 			       display->name, i, rc);
 			goto error_ctrl_deinit;
 		}
+		display_ctrl->ctrl->horiz_index = i;
 
 		rc = dsi_phy_drv_init(display_ctrl->phy);
 		if (rc) {
@@ -2748,6 +2773,10 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 				display->panel->mode.panel_mode);
 		break;
 	}
+
+	memcpy(&info->roi_caps, &display->panel->roi_caps,
+			sizeof(info->roi_caps));
+
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
@@ -3034,10 +3063,110 @@ error:
 	return rc;
 }
 
+static int dsi_display_calc_ctrl_roi(const struct dsi_display *display,
+		const struct dsi_display_ctrl *ctrl,
+		const struct msm_roi_list *req_rois,
+		struct dsi_rect *out_roi)
+{
+	const struct dsi_rect *bounds = &ctrl->ctrl->mode_bounds;
+	struct dsi_rect req_roi = { 0 };
+	int rc = 0;
+
+	if (req_rois->num_rects > display->panel->roi_caps.num_roi) {
+		pr_err("request for %d rois greater than max %d\n",
+				req_rois->num_rects,
+				display->panel->roi_caps.num_roi);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	/**
+	 * if no rois, user wants to reset back to full resolution
+	 * note: h_active is already divided by ctrl_count
+	 */
+	if (!req_rois->num_rects) {
+		*out_roi = *bounds;
+		goto exit;
+	}
+
+	/* intersect with the bounds */
+	req_roi.x = req_rois->roi[0].x1;
+	req_roi.y = req_rois->roi[0].y1;
+	req_roi.w = req_rois->roi[0].x2 - req_rois->roi[0].x1;
+	req_roi.h = req_rois->roi[0].y2 - req_rois->roi[0].y1;
+	dsi_rect_intersect(&req_roi, bounds, out_roi);
+
+exit:
+	/* adjust the ctrl origin to be top left within the ctrl */
+	out_roi->x = out_roi->x - bounds->x;
+
+	pr_debug("ctrl%d:%d: req (%d,%d,%d,%d) bnd (%d,%d,%d,%d) out (%d,%d,%d,%d)\n",
+			ctrl->dsi_ctrl_idx, ctrl->ctrl->cell_index,
+			req_roi.x, req_roi.y, req_roi.w, req_roi.h,
+			bounds->x, bounds->y, bounds->w, bounds->h,
+			out_roi->x, out_roi->y, out_roi->w, out_roi->h);
+
+	return rc;
+}
+
+static int dsi_display_set_roi(struct dsi_display *display,
+		struct msm_roi_list *rois)
+{
+	int rc = 0;
+	int i;
+
+	if (!display || !rois || !display->panel)
+		return -EINVAL;
+
+	if (!display->panel->roi_caps.enabled)
+		return 0;
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		struct dsi_display_ctrl *ctrl = &display->ctrl[i];
+		struct dsi_rect ctrl_roi;
+		bool changed = false;
+
+		rc = dsi_display_calc_ctrl_roi(display, ctrl, rois, &ctrl_roi);
+		if (rc) {
+			pr_err("dsi_display_calc_ctrl_roi failed rc %d\n", rc);
+			return rc;
+		}
+
+		rc = dsi_ctrl_set_roi(ctrl->ctrl, &ctrl_roi, &changed);
+		if (rc) {
+			pr_err("dsi_ctrl_set_roi failed rc %d\n", rc);
+			return rc;
+		}
+
+		if (!changed)
+			continue;
+
+		/* send the new roi to the panel via dcs commands */
+		rc = dsi_panel_send_roi_dcs(display->panel, i, &ctrl_roi);
+		if (rc) {
+			pr_err("dsi_panel_set_roi failed rc %d\n", rc);
+			return rc;
+		}
+
+		/* re-program the ctrl with the timing based on the new roi */
+		rc = dsi_ctrl_setup(ctrl->ctrl);
+		if (rc) {
+			pr_err("dsi_ctrl_setup failed rc %d\n", rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
 int dsi_display_pre_kickoff(struct dsi_display *display,
 		struct msm_display_kickoff_params *params)
 {
-	return 0;
+	int rc = 0;
+
+	rc = dsi_display_set_roi(display, params->rois);
+
+	return rc;
 }
 
 int dsi_display_enable(struct dsi_display *display)

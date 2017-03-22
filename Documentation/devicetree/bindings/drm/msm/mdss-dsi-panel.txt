@@ -331,8 +331,13 @@ Optional properties:
 					as below:
 					--> Reset GPIO value
 					--> Sleep value (in ms)
-- qcom,partial-update-enabled:		Boolean used to enable partial
+- qcom,partial-update-enabled:		String used to enable partial
 					panel update for command mode panels.
+					"none": partial update is disabled
+					"single_roi": default enable mode, only single roi is sent to panel
+					"dual_roi": two rois are merged into one big roi. Panel ddic should be able
+					to process two roi's along with the DCS command to send two rois.
+					disabled if property is not specified.
 - qcom,mdss-dsi-horizontal-line-idle:	List of width ranges (EC - SC) in pixels indicating
 					additional idle time in dsi clock cycles that is needed
 					to compensate for smaller line width.
@@ -627,7 +632,7 @@ Example:
 		qcom,mdss-tear-check-rd-ptr-trigger-intr = <1281>;
 		qcom,mdss-tear-check-frame-rate = <6000>;
 		qcom,mdss-dsi-reset-sequence = <1 2>, <0 10>, <1 10>;
-		qcom,partial-update-enabled;
+		qcom,partial-update-enabled = "single_roi";
 		qcom,dcs-cmd-by-left;
 		qcom,mdss-dsi-lp11-init;
 		qcom,mdss-dsi-init-delay-us = <100>;
