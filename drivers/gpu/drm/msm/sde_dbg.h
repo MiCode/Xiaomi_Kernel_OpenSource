@@ -24,9 +24,10 @@
 #define SDE_DBG_DUMP_DATA_LIMITER (NULL)
 
 enum sde_dbg_evtlog_flag {
-	SDE_EVTLOG_DEFAULT = BIT(0),
+	SDE_EVTLOG_CRITICAL = BIT(0),
 	SDE_EVTLOG_IRQ = BIT(1),
-	SDE_EVTLOG_ALL = BIT(7)
+	SDE_EVTLOG_VERBOSE = BIT(2),
+	SDE_EVTLOG_ALWAYS = -1
 };
 
 enum sde_dbg_dump_flag {
@@ -35,7 +36,7 @@ enum sde_dbg_dump_flag {
 };
 
 #ifdef CONFIG_DRM_SDE_EVTLOG_DEBUG
-#define SDE_EVTLOG_DEFAULT_ENABLE 1
+#define SDE_EVTLOG_DEFAULT_ENABLE SDE_EVTLOG_CRITICAL
 #else
 #define SDE_EVTLOG_DEFAULT_ENABLE 0
 #endif
@@ -72,6 +73,9 @@ struct sde_dbg_evtlog_log {
 	int pid;
 };
 
+/**
+ * @filter_list: Linked list of currently active filter strings
+ */
 struct sde_dbg_evtlog {
 	struct sde_dbg_evtlog_log logs[SDE_EVTLOG_ENTRY];
 	u32 first;
@@ -80,6 +84,7 @@ struct sde_dbg_evtlog {
 	u32 next;
 	u32 enable;
 	spinlock_t spin_lock;
+	struct list_head filter_list;
 };
 
 extern struct sde_dbg_evtlog *sde_dbg_base_evtlog;
@@ -89,7 +94,15 @@ extern struct sde_dbg_evtlog *sde_dbg_base_evtlog;
  * ... - variable arguments
  */
 #define SDE_EVT32(...) sde_evtlog_log(sde_dbg_base_evtlog, __func__, \
-		__LINE__, SDE_EVTLOG_DEFAULT, ##__VA_ARGS__, \
+		__LINE__, SDE_EVTLOG_ALWAYS, ##__VA_ARGS__, \
+		SDE_EVTLOG_DATA_LIMITER)
+
+/**
+ * SDE_EVT32_VERBOSE - Write a list of 32bit values for verbose event logging
+ * ... - variable arguments
+ */
+#define SDE_EVT32_VERBOSE(...) sde_evtlog_log(sde_dbg_base_evtlog, __func__, \
+		__LINE__, SDE_EVTLOG_VERBOSE, ##__VA_ARGS__, \
 		SDE_EVTLOG_DATA_LIMITER)
 
 /**
@@ -244,6 +257,24 @@ void sde_dbg_reg_register_dump_range(const char *base_name,
 		const char *range_name, u32 offset_start, u32 offset_end,
 		uint32_t xin_id);
 
+/**
+ * sde_evtlog_set_filter - update evtlog filtering
+ * @evtlog:	pointer to evtlog
+ * @filter:     pointer to optional function name filter, set to NULL to disable
+ */
+void sde_evtlog_set_filter(struct sde_dbg_evtlog *evtlog, char *filter);
+
+/**
+ * sde_evtlog_get_filter - query configured evtlog filters
+ * @evtlog:	pointer to evtlog
+ * @index:	filter index to retrieve
+ * @buf:	pointer to output filter buffer
+ * @bufsz:	size of output filter buffer
+ * Returns:	zero if a filter string was returned
+ */
+int sde_evtlog_get_filter(struct sde_dbg_evtlog *evtlog, int index,
+		char *buf, size_t bufsz);
+
 #else
 static inline struct sde_dbg_evtlog *sde_evtlog_init(void)
 {
@@ -275,7 +306,7 @@ static inline ssize_t sde_evtlog_dump_to_buffer(struct sde_dbg_evtlog *evtlog,
 	return 0;
 }
 
-void sde_dbg_init_dbg_buses(u32 hwversion)
+static inline void sde_dbg_init_dbg_buses(u32 hwversion)
 {
 }
 
@@ -285,7 +316,7 @@ static inline int sde_dbg_init(struct device *dev,
 	return 0;
 }
 
-int sde_dbg_debugfs_register(struct dentry *debugfs_root)
+static inline int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 {
 	return 0;
 }
@@ -308,6 +339,17 @@ static inline void sde_dbg_reg_register_dump_range(const char *base_name,
 		const char *range_name, u32 offset_start, u32 offset_end,
 		uint32_t xin_id)
 {
+}
+
+static inline void sde_evtlog_set_filter(
+		struct sde_dbg_evtlog *evtlog, char *filter)
+{
+}
+
+static inline int sde_evtlog_get_filter(struct sde_dbg_evtlog *evtlog,
+		int index, char *buf, size_t bufsz)
+{
+	return -EINVAL;
 }
 
 #endif /* defined(CONFIG_DEBUG_FS) */
