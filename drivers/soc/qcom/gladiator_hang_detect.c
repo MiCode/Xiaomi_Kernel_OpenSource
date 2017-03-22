@@ -71,7 +71,7 @@ static void set_threshold(int offset, struct hang_detect *hang_dev,
 		hang_dev->M1_threshold = threshold_val;
 	else if (offset == hang_dev->M2_offset)
 		hang_dev->M2_threshold = threshold_val;
-	else if (offset == hang_dev->PCIO_offset)
+	else
 		hang_dev->PCIO_threshold = threshold_val;
 }
 
@@ -86,7 +86,7 @@ static void get_threshold(int offset, struct hang_detect *hang_dev,
 		*reg_value = hang_dev->M1_threshold;
 	else if (offset == hang_dev->M2_offset)
 		*reg_value = hang_dev->M2_threshold;
-	else if (offset == hang_dev->PCIO_offset)
+	else
 		*reg_value = hang_dev->PCIO_threshold;
 }
 
@@ -101,7 +101,7 @@ static void set_enable(int offset, struct hang_detect *hang_dev,
 		hang_dev->M1_enable = enabled;
 	else if (offset == hang_dev->M2_offset)
 		hang_dev->M2_enable = enabled;
-	else if (offset == hang_dev->PCIO_offset)
+	else
 		hang_dev->PCIO_enable = enabled;
 }
 
@@ -116,7 +116,7 @@ static void get_enable(int offset, struct hang_detect *hang_dev,
 		*reg_value = hang_dev->M1_enable;
 	else if (offset == hang_dev->M2_offset)
 		*reg_value = hang_dev->M2_enable;
-	else if (offset == hang_dev->PCIO_offset)
+	else
 		*reg_value = hang_dev->PCIO_enable;
 }
 
