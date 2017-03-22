@@ -488,7 +488,7 @@ static inline struct package_details *to_package_details(struct config_item *ite
 CONFIGFS_ATTR_STRUCT(package_details);
 #define PACKAGE_DETAILS_ATTR(_name, _mode, _show, _store)	\
 struct package_details_attribute package_details_attr_##_name = __CONFIGFS_ATTR(_name, _mode, _show, _store)
-#define PACKAGE_DETAILS_ATTRIBUTE(name) &package_details_attr_##name.attr
+#define PACKAGE_DETAILS_ATTRIBUTE(name) (&package_details_attr_##name.attr)
 
 static ssize_t package_details_appid_show(struct package_details *package_details,
 				      char *page)
@@ -738,7 +738,7 @@ CONFIGFS_ATTR_STRUCT(packages);
 #define PACKAGES_ATTR(_name, _mode, _show, _store)	\
 struct packages_attribute packages_attr_##_name = __CONFIGFS_ATTR(_name, _mode, _show, _store)
 #define PACKAGES_ATTR_RO(_name, _show)	\
-struct packages_attribute packages_attr_##_name = __CONFIGFS_ATTR_RO(_name, _show);
+struct packages_attribute packages_attr_##_name = __CONFIGFS_ATTR_RO(_name, _show)
 
 static struct config_item *packages_make_item(struct config_group *group, const char *name)
 {
