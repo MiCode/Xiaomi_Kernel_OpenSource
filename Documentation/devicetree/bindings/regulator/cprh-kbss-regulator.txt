@@ -185,6 +185,40 @@ KBSS specific properties:
 	Definition: The initial temp band considering 0-based index at which
 		    the baseline target quotients are derived and fused.
 
+- qcom,cpr-acd-adj-down-step-limit
+	Usage:      required if qcom,cpr-acd-avg-enable is specified.
+	Value type: <u32>
+	Definition: The maximum number of PMIC steps to go down within a given
+		    corner due to all ACD adjustment recommendations. Valid
+		    values are 0 through 31.
+
+- qcom,cpr-acd-adj-up-step-limit
+	Usage:      required if qcom,cpr-acd-avg-enable is specified.
+	Value type: <u32>
+	Definition: The maximum number of PMIC steps to go up within a given
+		    corner due to all ACD adjustment recommendations. Valid
+		    values are 0 through 7
+
+- qcom,cpr-acd-adj-down-step-size
+	Usage:      required if qcom,cpr-acd-avg-enable is specified.
+	Value type: <u32>
+	Definition: Defines the step size in units of PMIC steps used for
+		    target quotient adjustment due to an ACD down recommendation.
+		    Valid values are 0 through 3.
+
+- qcom,cpr-acd-adj-up-step-size
+	Usage:      required if qcom,cpr-acd-avg-enable is specified.
+	Value type: <u32>
+	Definition: Defines the step size in units of PMIC steps used for
+		    target quotient adjustment due to an ACD up recommendation.
+		    Valid values are 0 through 3.
+
+- qcom,cpr-acd-avg-enable
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that the CPRh controller
+		    should enable the ACD AVG feature.
+
 =================================================
 Second Level Nodes - CPR Threads for a Controller
 =================================================

@@ -649,6 +649,20 @@ struct cpr3_panic_regs_info {
  *			defines the maximum number of VDD supply regulator steps
  *			that the voltage may be increased as the result of a
  *			single CPR measurement.
+ * @acd_adj_down_step_limit: Limits the number of PMIC steps to go down within
+ *			a given corner due to all ACD adjustments on some CPRh
+ *			controllers.
+ * @acd_adj_up_step_limit: Limits the number of PMIC steps to go up within a
+ *			given corner due to all ACD adjustments on some CPRh
+ *			controllers.
+ * @acd_adj_down_step_size: ACD step size in units of PMIC steps used for
+ *			target quotient adjustment due to an ACD down
+ *			recommendation.
+ * @acd_adj_up_step_size: ACD step size in units of PMIC steps used for
+ *			target quotient adjustment due to an ACD up
+ *			recommendation.
+ * @acd_avg_enabled:	Boolean defining the enable state of the ACD AVG
+ *			feature.
  * @count_mode:		CPR controller count mode
  * @count_repeat:	Number of times to perform consecutive sensor
  *			measurements when using all-at-once count modes.
@@ -804,6 +818,11 @@ struct cpr3_controller {
 	int			step_volt;
 	u32			down_error_step_limit;
 	u32			up_error_step_limit;
+	u32			acd_adj_down_step_limit;
+	u32			acd_adj_up_step_limit;
+	u32			acd_adj_down_step_size;
+	u32			acd_adj_up_step_size;
+	bool			acd_avg_enabled;
 	enum cpr3_count_mode	count_mode;
 	u32			count_repeat;
 	u32			proc_clock_throttle;
