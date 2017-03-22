@@ -136,6 +136,7 @@ struct sde_plane {
 	struct sde_debugfs_regset32 debugfs_src;
 	struct sde_debugfs_regset32 debugfs_scaler;
 	struct sde_debugfs_regset32 debugfs_csc;
+	bool debugfs_default_scale;
 };
 
 #define to_sde_plane(x) container_of(x, struct sde_plane, base)
@@ -666,6 +667,7 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 	}
 
 	memset(scale_cfg, 0, sizeof(*scale_cfg));
+	memset(&psde->pixel_ext, 0, sizeof(struct sde_hw_pixel_ext));
 
 	decimated = DECIMATED_DIMENSION(src_w,
 			psde->pipe_cfg.horz_decimation);
@@ -1007,7 +1009,8 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 		int error;
 
 		error = _sde_plane_setup_scaler3_lut(psde, pstate);
-		if (error || !psde->pixel_ext_usr) {
+		if (error || !psde->pixel_ext_usr ||
+				psde->debugfs_default_scale) {
 			/* calculate default config for QSEED3 */
 			_sde_plane_setup_scaler3(psde,
 					psde->pipe_cfg.src_rect.w,
@@ -1017,7 +1020,8 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 					psde->scaler3_cfg, fmt,
 					chroma_subsmpl_h, chroma_subsmpl_v);
 		}
-	} else if (!psde->pixel_ext_usr || !pstate) {
+	} else if (!psde->pixel_ext_usr || !pstate ||
+			psde->debugfs_default_scale) {
 		uint32_t deci_dim, i;
 
 		/* calculate default configuration for QSEED2 */
@@ -2549,6 +2553,10 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 		sde_debugfs_create_regset32("scaler_blk", 0444,
 				psde->debugfs_root,
 				&psde->debugfs_scaler);
+		debugfs_create_bool("default_scaling",
+				0644,
+				psde->debugfs_root,
+				&psde->debugfs_default_scale);
 	}
 
 	if (cfg->features & BIT(SDE_SSPP_CSC) ||
