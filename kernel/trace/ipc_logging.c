@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -588,8 +588,12 @@ EXPORT_SYMBOL(ipc_log_extract);
 static void tsv_read_data(struct encode_context *ectxt,
 			  void *data, uint32_t size)
 {
-	if (WARN_ON((ectxt->offset + size) > MAX_MSG_SIZE))
+	if (WARN_ON((ectxt->offset + size) > MAX_MSG_SIZE)) {
+		memcpy(data, (ectxt->buff + ectxt->offset),
+			MAX_MSG_SIZE - ectxt->offset - 1);
+		ectxt->offset += MAX_MSG_SIZE - ectxt->offset - 1;
 		return;
+	}
 	memcpy(data, (ectxt->buff + ectxt->offset), size);
 	ectxt->offset += size;
 }
@@ -604,8 +608,12 @@ static void tsv_read_data(struct encode_context *ectxt,
 static void tsv_read_header(struct encode_context *ectxt,
 			    struct tsv_header *hdr)
 {
-	if (WARN_ON((ectxt->offset + sizeof(*hdr)) > MAX_MSG_SIZE))
+	if (WARN_ON((ectxt->offset + sizeof(*hdr)) > MAX_MSG_SIZE)) {
+		memcpy(hdr, (ectxt->buff + ectxt->offset),
+			MAX_MSG_SIZE - ectxt->offset - 1);
+		ectxt->offset += MAX_MSG_SIZE - ectxt->offset - 1;
 		return;
+	}
 	memcpy(hdr, (ectxt->buff + ectxt->offset), sizeof(*hdr));
 	ectxt->offset += sizeof(*hdr);
 }
