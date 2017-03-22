@@ -72,169 +72,41 @@
 			label = "pm8998_tz";
 		};
 
-		pm8998_gpios: gpios {
-			compatible = "qcom,qpnp-pin";
+		pm8998_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0x1a00>;
+			interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
+					<0x0 0xc1 0 IRQ_TYPE_NONE>,
+					<0x0 0xc3 0 IRQ_TYPE_NONE>,
+					<0x0 0xc4 0 IRQ_TYPE_NONE>,
+					<0x0 0xc5 0 IRQ_TYPE_NONE>,
+					<0x0 0xc6 0 IRQ_TYPE_NONE>,
+					<0x0 0xc7 0 IRQ_TYPE_NONE>,
+					<0x0 0xc8 0 IRQ_TYPE_NONE>,
+					<0x0 0xc9 0 IRQ_TYPE_NONE>,
+					<0x0 0xca 0 IRQ_TYPE_NONE>,
+					<0x0 0xcb 0 IRQ_TYPE_NONE>,
+					<0x0 0xcc 0 IRQ_TYPE_NONE>,
+					<0x0 0xcd 0 IRQ_TYPE_NONE>,
+					<0x0 0xcf 0 IRQ_TYPE_NONE>,
+					<0x0 0xd0 0 IRQ_TYPE_NONE>,
+					<0x0 0xd1 0 IRQ_TYPE_NONE>,
+					<0x0 0xd2 0 IRQ_TYPE_NONE>,
+					<0x0 0xd4 0 IRQ_TYPE_NONE>,
+					<0x0 0xd6 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm8998_gpio1", "pm8998_gpio2",
+					"pm8998_gpio4", "pm8998_gpio5",
+					"pm8998_gpio6", "pm8998_gpio7",
+					"pm8998_gpio8", "pm8998_gpio9",
+					"pm8998_gpio10", "pm8998_gpio11",
+					"pm8998_gpio12", "pm8998_gpio13",
+					"pm8998_gpio14", "pm8998_gpio16",
+					"pm8998_gpio17", "pm8998_gpio18",
+					"pm8998_gpio19", "pm8998_gpio21",
+					"pm8998_gpio23";
 			gpio-controller;
 			#gpio-cells = <2>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			label = "pm8998-gpio";
-
-			gpio@c000 {
-				reg = <0xc000 0x100>;
-				qcom,pin-num = <1>;
-				status = "disabled";
-			};
-
-			gpio@c100 {
-				reg = <0xc100 0x100>;
-				qcom,pin-num = <2>;
-				status = "disabled";
-			};
-
-			gpio@c200 {
-				reg = <0xc200 0x100>;
-				qcom,pin-num = <3>;
-				status = "disabled";
-			};
-
-			gpio@c300 {
-				reg = <0xc300 0x100>;
-				qcom,pin-num = <4>;
-				status = "disabled";
-			};
-
-			gpio@c400 {
-				reg = <0xc400 0x100>;
-				qcom,pin-num = <5>;
-				status = "disabled";
-			};
-
-			gpio@c500 {
-				reg = <0xc500 0x100>;
-				qcom,pin-num = <6>;
-				status = "disabled";
-			};
-
-			gpio@c600 {
-				reg = <0xc600 0x100>;
-				qcom,pin-num = <7>;
-				status = "disabled";
-			};
-
-			gpio@c700 {
-				reg = <0xc700 0x100>;
-				qcom,pin-num = <8>;
-				status = "disabled";
-			};
-
-			gpio@c800 {
-				reg = <0xc800 0x100>;
-				qcom,pin-num = <9>;
-				status = "disabled";
-			};
-
-			gpio@c900 {
-				reg = <0xc900 0x100>;
-				qcom,pin-num = <10>;
-				status = "disabled";
-			};
-
-			gpio@ca00 {
-				reg = <0xca00 0x100>;
-				qcom,pin-num = <11>;
-				status = "disabled";
-			};
-
-			gpio@cb00 {
-				reg = <0xcb00 0x100>;
-				qcom,pin-num = <12>;
-				status = "disabled";
-			};
-
-			gpio@cc00 {
-				reg = <0xcc00 0x100>;
-				qcom,pin-num = <13>;
-				status = "disabled";
-			};
-
-			gpio@cd00 {
-				reg = <0xcd00 0x100>;
-				qcom,pin-num = <14>;
-				status = "disabled";
-			};
-
-			gpio@ce00 {
-				reg = <0xce00 0x100>;
-				qcom,pin-num = <15>;
-				status = "disabled";
-			};
-
-			gpio@cf00 {
-				reg = <0xcf00 0x100>;
-				qcom,pin-num = <16>;
-				status = "disabled";
-			};
-
-			gpio@d000 {
-				reg = <0xd000 0x100>;
-				qcom,pin-num = <17>;
-				status = "disabled";
-			};
-
-			gpio@d100 {
-				reg = <0xd100 0x100>;
-				qcom,pin-num = <18>;
-				status = "disabled";
-			};
-
-			gpio@d200 {
-				reg = <0xd200 0x100>;
-				qcom,pin-num = <19>;
-				status = "disabled";
-			};
-
-			gpio@d300 {
-				reg = <0xd300 0x100>;
-				qcom,pin-num = <20>;
-				status = "disabled";
-			};
-
-			gpio@d400 {
-				reg = <0xd400 0x100>;
-				qcom,pin-num = <21>;
-				status = "disabled";
-			};
-
-			gpio@d500 {
-				reg = <0xd500 0x100>;
-				qcom,pin-num = <22>;
-				status = "disabled";
-			};
-
-			gpio@d600 {
-				reg = <0xd600 0x100>;
-				qcom,pin-num = <23>;
-				status = "disabled";
-			};
-
-			gpio@d700 {
-				reg = <0xd700 0x100>;
-				qcom,pin-num = <24>;
-				status = "disabled";
-			};
-
-			gpio@d800 {
-				reg = <0xd800 0x100>;
-				qcom,pin-num = <25>;
-				status = "disabled";
-			};
-
-			gpio@d900 {
-				reg = <0xd900 0x100>;
-				qcom,pin-num = <26>;
-				status = "disabled";
-			};
+			qcom,gpios-disallowed = <3 15 20 22 24 25 26>;
 		};
 
 		pm8998_coincell: qcom,coincell@2800 {
