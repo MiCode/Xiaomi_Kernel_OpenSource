@@ -1720,14 +1720,6 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
-	case HAL_PARAM_VENC_H264_NAL_SVC_EXT:
-	{
-		create_pkt_enable(pkt->rg_property_data,
-			HFI_PROPERTY_PARAM_VENC_H264_NAL_SVC_EXT,
-			((struct hal_enable *)pdata)->enable);
-		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
-		break;
-	}
 	case HAL_CONFIG_VENC_PERF_MODE:
 	{
 		u32 hfi_perf_mode = 0;
