@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -485,6 +485,9 @@ static long camera_v4l2_vidioc_private_ioctl(struct file *filep, void *fh,
 
 	if (WARN_ON(!k_ioctl || !pvdev))
 		return -EIO;
+
+	if (cmd != VIDIOC_MSM_CAMERA_PRIVATE_IOCTL_CMD)
+		return -EINVAL;
 
 	switch (k_ioctl->id) {
 	case MSM_CAMERA_PRIV_IOCTL_ID_RETURN_BUF: {
