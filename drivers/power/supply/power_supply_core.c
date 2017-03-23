@@ -799,7 +799,7 @@ static const struct thermal_cooling_device_ops psy_tcd_ops = {
 	.set_cur_state = ps_set_cur_charge_cntl_limit,
 };
 
-static int psy_register_cooler(struct power_supply *psy)
+static int psy_register_cooler(struct device *dev, struct power_supply *psy)
 {
 	int i;
 
@@ -807,7 +807,13 @@ static int psy_register_cooler(struct power_supply *psy)
 	for (i = 0; i < psy->desc->num_properties; i++) {
 		if (psy->desc->properties[i] ==
 				POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT) {
-			psy->tcd = thermal_cooling_device_register(
+			if (dev)
+				psy->tcd = thermal_of_cooling_device_register(
+							dev_of_node(dev),
+							(char *)psy->desc->name,
+							psy, &psy_tcd_ops);
+			else
+				psy->tcd = thermal_cooling_device_register(
 							(char *)psy->desc->name,
 							psy, &psy_tcd_ops);
 			return PTR_ERR_OR_ZERO(psy->tcd);
@@ -832,7 +838,7 @@ static void psy_unregister_thermal(struct power_supply *psy)
 {
 }
 
-static int psy_register_cooler(struct power_supply *psy)
+static int psy_register_cooler(struct device *dev, struct power_supply *psy)
 {
 	return 0;
 }
@@ -914,7 +920,7 @@ __power_supply_register(struct device *parent,
 	if (rc)
 		goto register_thermal_failed;
 
-	rc = psy_register_cooler(psy);
+	rc = psy_register_cooler(parent, psy);
 	if (rc)
 		goto register_cooler_failed;
 
