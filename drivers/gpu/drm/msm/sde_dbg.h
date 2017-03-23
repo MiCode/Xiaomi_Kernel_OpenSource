@@ -240,6 +240,12 @@ void sde_dbg_reg_register_dump_range(const char *base_name,
 		const char *range_name, u32 offset_start, u32 offset_end,
 		uint32_t xin_id);
 
+/**
+ * sde_dbg_set_sde_top_offset - set the target specific offset from mdss base
+ *	address of the top registers. Used for accessing debug bus controls.
+ * @blk_off: offset from mdss base of the top block
+ */
+void sde_dbg_set_sde_top_offset(u32 blk_off);
 #else
 static inline struct sde_dbg_evtlog *sde_evtlog_init(void)
 {
@@ -301,6 +307,9 @@ static inline void sde_dbg_reg_register_dump_range(const char *base_name,
 {
 }
 
+void sde_dbg_set_sde_top_offset(u32 blk_off)
+{
+}
 #endif /* defined(CONFIG_DEBUG_FS) */
 
 
