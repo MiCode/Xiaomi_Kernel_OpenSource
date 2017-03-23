@@ -322,8 +322,6 @@ struct smb_charger {
 	/* extcon for VBUS / ID notification to USB for uUSB */
 	struct extcon_dev	*extcon;
 
-	int			icl_reduction_ua;
-
 	/* qnovo */
 	int			qnovo_fcc_ua;
 	int			qnovo_fv_uv;
@@ -489,10 +487,10 @@ int smblib_rerun_apsd_if_required(struct smb_charger *chg);
 int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 			       union power_supply_propval *val);
 int smblib_icl_override(struct smb_charger *chg, bool override);
-int smblib_set_icl_reduction(struct smb_charger *chg, int reduction_ua);
 int smblib_dp_dm(struct smb_charger *chg, int val);
 int smblib_rerun_aicl(struct smb_charger *chg);
 int smblib_set_icl_current(struct smb_charger *chg, int icl_ua);
+int smblib_get_charge_current(struct smb_charger *chg, int *total_current_ua);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
