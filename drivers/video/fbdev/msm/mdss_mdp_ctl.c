@@ -6061,6 +6061,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 			mutex_lock(&ctl->mfd->bl_lock);
 			mdss_fb_set_backlight(ctl->mfd,
 					      ctl->mfd->bl_extn_level);
+			ctl->mfd->bl_level_usr = ctl->mfd->bl_extn_level;
 			mutex_unlock(&ctl->mfd->bl_lock);
 		}
 	}
