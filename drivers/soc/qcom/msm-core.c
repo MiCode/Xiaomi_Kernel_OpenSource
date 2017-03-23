@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,7 +52,7 @@
 #define NUM_OF_CORNERS 10
 #define DEFAULT_SCALING_FACTOR 1
 
-#define ALLOCATE_2D_ARRAY(type) (\
+#define ALLOCATE_2D_ARRAY(type) \
 static type **allocate_2d_array_##type(int idx)\
 {\
 	int i;\
@@ -77,15 +77,13 @@ done:\
 		kfree(ptr[i]);\
 	kfree(ptr);\
 	return ERR_PTR(-ENOMEM);\
-})
+}
 
 struct cpu_activity_info {
 	int cpu;
 	int mpidr;
 	long temp;
 	int sensor_id;
-	struct sensor_threshold hi_threshold;
-	struct sensor_threshold low_threshold;
 	struct cpu_static_info *sp;
 };
 
@@ -123,76 +121,8 @@ static bool activate_power_table;
 static int max_throttling_temp = 80; /* in C */
 module_param_named(throttling_temp, max_throttling_temp, int, 0664);
 
-/*
- * Cannot be called from an interrupt context
- */
-static void set_and_activate_threshold(uint32_t sensor_id,
-	struct sensor_threshold *threshold)
-{
-	if (sensor_set_trip(sensor_id, threshold)) {
-		pr_err("%s: Error in setting trip %d\n",
-			KBUILD_MODNAME, threshold->trip);
-		return;
-	}
-
-	if (sensor_activate_trip(sensor_id, threshold, true)) {
-		sensor_cancel_trip(sensor_id, threshold);
-		pr_err("%s: Error in enabling trip %d\n",
-			KBUILD_MODNAME, threshold->trip);
-		return;
-	}
-}
-
-static void set_threshold(struct cpu_activity_info *cpu_node)
-{
-	if (cpu_node->sensor_id < 0)
-		return;
-
-	/*
-	 * Before operating on the threshold structure which is used by
-	 * thermal core ensure that the sensor is disabled to prevent
-	 * incorrect operations on the sensor list maintained by thermal code.
-	 */
-	sensor_activate_trip(cpu_node->sensor_id,
-			&cpu_node->hi_threshold, false);
-	sensor_activate_trip(cpu_node->sensor_id,
-			&cpu_node->low_threshold, false);
-
-	cpu_node->hi_threshold.temp = (cpu_node->temp + high_hyst_temp) *
-					scaling_factor;
-	cpu_node->low_threshold.temp = (cpu_node->temp - low_hyst_temp) *
-					scaling_factor;
-
-	/*
-	 * Set the threshold only if we are below the hotplug limit
-	 * Adding more work at this high temperature range, seems to
-	 * fail hotplug notifications.
-	 */
-	if (cpu_node->hi_threshold.temp < (CPU_HOTPLUG_LIMIT * scaling_factor))
-		set_and_activate_threshold(cpu_node->sensor_id,
-			&cpu_node->hi_threshold);
-
-	set_and_activate_threshold(cpu_node->sensor_id,
-		&cpu_node->low_threshold);
-}
-
 static void samplequeue_handle(struct work_struct *work)
 {
-	complete(&sampling_completion);
-}
-
-/* May be called from an interrupt context */
-static void core_temp_notify(enum thermal_trip_type type,
-		int temp, void *data)
-{
-	struct cpu_activity_info *cpu_node =
-		(struct cpu_activity_info *) data;
-
-	trace_temp_notification(cpu_node->sensor_id,
-		type, temp, cpu_node->temp);
-
-	cpu_node->temp = temp / scaling_factor;
-
 	complete(&sampling_completion);
 }
 
@@ -226,7 +156,6 @@ void trigger_cpu_pwr_stats_calc(void)
 	int cpu;
 	static long prev_temp[NR_CPUS];
 	struct cpu_activity_info *cpu_node;
-	int temp;
 
 	if (disabled)
 		return;
@@ -237,11 +166,6 @@ void trigger_cpu_pwr_stats_calc(void)
 		cpu_node = &activity[cpu];
 		if (cpu_node->sensor_id < 0)
 			continue;
-
-		if (cpu_node->temp == prev_temp[cpu]) {
-			sensor_get_temp(cpu_node->sensor_id, &temp);
-			cpu_node->temp = temp / scaling_factor;
-		}
 
 		prev_temp[cpu] = cpu_node->temp;
 
@@ -276,7 +200,7 @@ static void update_related_freq_table(struct cpufreq_policy *policy)
 	int cpu, num_of_freqs;
 	struct cpufreq_frequency_table *table;
 
-	table = cpufreq_frequency_get_table(policy->cpu);
+	table = policy->freq_table;
 	if (!table) {
 		pr_err("Couldn't get freq table for cpu%d\n",
 				policy->cpu);
@@ -319,12 +243,6 @@ static __ref int do_sampling(void *data)
 			cpu_node = &activity[cpu];
 			if (prev_temp[cpu] != cpu_node->temp) {
 				prev_temp[cpu] = cpu_node->temp;
-				set_threshold(cpu_node);
-				trace_temp_threshold(cpu, cpu_node->temp,
-					cpu_node->hi_threshold.temp /
-					scaling_factor,
-					cpu_node->low_threshold.temp /
-					scaling_factor);
 			}
 		}
 		if (!poll_ms)
@@ -551,16 +469,6 @@ static int msm_core_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static inline void init_sens_threshold(struct sensor_threshold *threshold,
-		enum thermal_trip_type trip, long temp,
-		void *data)
-{
-	threshold->trip = trip;
-	threshold->temp = temp;
-	threshold->data = data;
-	threshold->notify = (void *)core_temp_notify;
-}
-
 static int msm_core_stats_init(struct device *dev, int cpu)
 {
 	int i;
@@ -702,7 +610,6 @@ static int msm_core_tsens_init(struct device_node *node, int cpu)
 	struct device_node *phandle;
 	const char *sensor_type = NULL;
 	struct cpu_activity_info *cpu_node = &activity[cpu];
-	int temp;
 
 	if (!node)
 		return -ENODEV;
@@ -730,7 +637,6 @@ static int msm_core_tsens_init(struct device_node *node, int cpu)
 		return ret;
 	}
 
-	cpu_node->sensor_id = sensor_get_id((char *)sensor_type);
 	if (cpu_node->sensor_id < 0)
 		return cpu_node->sensor_id;
 
@@ -741,21 +647,6 @@ static int msm_core_tsens_init(struct device_node *node, int cpu)
 		pr_info("%s: Cannot read tsens scaling factor\n", __func__);
 		scaling_factor = DEFAULT_SCALING_FACTOR;
 	}
-
-	ret = sensor_get_temp(cpu_node->sensor_id, &temp);
-	if (ret)
-		return ret;
-
-	cpu_node->temp = temp / scaling_factor;
-
-	init_sens_threshold(&cpu_node->hi_threshold,
-			THERMAL_TRIP_CONFIGURABLE_HI,
-			(cpu_node->temp + high_hyst_temp) * scaling_factor,
-			(void *)cpu_node);
-	init_sens_threshold(&cpu_node->low_threshold,
-			THERMAL_TRIP_CONFIGURABLE_LOW,
-			(cpu_node->temp - low_hyst_temp) * scaling_factor,
-			(void *)cpu_node);
 
 	return ret;
 }
@@ -846,11 +737,6 @@ static int system_suspend_handler(struct notifier_block *nb,
 		for_each_possible_cpu(cpu) {
 			if (activity[cpu].sensor_id < 0)
 				continue;
-
-			sensor_activate_trip(activity[cpu].sensor_id,
-				&activity[cpu].hi_threshold, false);
-			sensor_activate_trip(activity[cpu].sensor_id,
-				&activity[cpu].low_threshold, false);
 		}
 		break;
 	default:
@@ -1020,7 +906,6 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 	int ret = 0;
 	char *key = NULL;
 	struct device_node *node;
-	int cpu;
 	struct uio_info *info;
 
 	if (!pdev)
@@ -1071,9 +956,6 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 	if (ret)
 		goto failed;
 
-	for_each_possible_cpu(cpu)
-		set_threshold(&activity[cpu]);
-
 	INIT_DEFERRABLE_WORK(&sampling_work, samplequeue_handle);
 	schedule_delayed_work(&sampling_work, msecs_to_jiffies(0));
 	cpufreq_register_notifier(&cpu_policy, CPUFREQ_POLICY_NOTIFIER);
@@ -1096,11 +978,6 @@ static int msm_core_remove(struct platform_device *pdev)
 	for_each_possible_cpu(cpu) {
 		if (activity[cpu].sensor_id < 0)
 			continue;
-
-		sensor_cancel_trip(activity[cpu].sensor_id,
-				&activity[cpu].hi_threshold);
-		sensor_cancel_trip(activity[cpu].sensor_id,
-				&activity[cpu].low_threshold);
 	}
 	free_dyn_memory();
 	misc_deregister(&msm_core_device);
