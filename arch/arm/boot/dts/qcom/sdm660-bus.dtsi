@@ -324,9 +324,9 @@
 			qcom,qport = <4>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_hmss_l3 &slv_ebi>;
-			qcom,prio-lvl = <0>;
-			qcom,prio-rd = <0>;
-			qcom,prio-wr = <0>;
+			qcom,prio-lvl = <1>;
+			qcom,prio-rd = <1>;
+			qcom,prio-wr = <1>;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_PIMEM>;
 		};
