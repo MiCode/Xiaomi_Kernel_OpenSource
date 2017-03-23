@@ -53,7 +53,17 @@
 
 static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
-	struct msm_drm_private *priv = crtc->dev->dev_private;
+	struct msm_drm_private *priv;
+
+	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
+		SDE_ERROR("invalid crtc\n");
+		return NULL;
+	}
+	priv = crtc->dev->dev_private;
+	if (!priv || !priv->kms) {
+		SDE_ERROR("invalid kms\n");
+		return NULL;
+	}
 
 	return to_sde_kms(priv->kms);
 }
@@ -84,11 +94,11 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 	msm_property_destroy(&sde_crtc->property_info);
 	sde_cp_crtc_destroy_properties(crtc);
 
-	mutex_destroy(&sde_crtc->crtc_lock);
 	sde_fence_deinit(&sde_crtc->output_fence);
 	_sde_crtc_deinit_events(sde_crtc);
 
 	drm_crtc_cleanup(crtc);
+	mutex_destroy(&sde_crtc->crtc_lock);
 	kfree(sde_crtc);
 }
 
@@ -1042,6 +1052,104 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 }
 
 /**
+ * _sde_crtc_vblank_enable_nolock - update power resource and vblank request
+ * @sde_crtc: Pointer to sde crtc structure
+ * @enable: Whether to enable/disable vblanks
+ */
+static void _sde_crtc_vblank_enable_nolock(
+		struct sde_crtc *sde_crtc, bool enable)
+{
+	struct drm_device *dev;
+	struct drm_crtc *crtc;
+	struct drm_encoder *enc;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!sde_crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	crtc = &sde_crtc->base;
+	dev = crtc->dev;
+	priv = dev->dev_private;
+
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms\n");
+		return;
+	}
+	sde_kms = to_sde_kms(priv->kms);
+
+	if (enable) {
+		sde_power_resource_enable(&priv->phandle,
+				sde_kms->core_client, true);
+		list_for_each_entry(enc, &dev->mode_config.encoder_list, head) {
+			if (enc->crtc != crtc)
+				continue;
+
+			SDE_EVT32(DRMID(crtc), DRMID(enc), enable);
+
+			sde_encoder_register_vblank_callback(enc,
+					sde_crtc_vblank_cb, (void *)crtc);
+		}
+	} else {
+		list_for_each_entry(enc, &dev->mode_config.encoder_list, head) {
+			if (enc->crtc != crtc)
+				continue;
+
+			SDE_EVT32(DRMID(crtc), DRMID(enc), enable);
+
+			sde_encoder_register_vblank_callback(enc, NULL, NULL);
+		}
+		sde_power_resource_enable(&priv->phandle,
+				sde_kms->core_client, false);
+	}
+}
+
+/**
+ * _sde_crtc_set_suspend - notify crtc of suspend enable/disable
+ * @crtc: Pointer to drm crtc object
+ * @enable: true to enable suspend, false to indicate resume
+ */
+static void _sde_crtc_set_suspend(struct drm_crtc *crtc, bool enable)
+{
+	struct sde_crtc *sde_crtc;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+	sde_crtc = to_sde_crtc(crtc);
+	priv = crtc->dev->dev_private;
+
+	if (!priv->kms) {
+		SDE_ERROR("invalid crtc kms\n");
+		return;
+	}
+	sde_kms = to_sde_kms(priv->kms);
+
+	SDE_DEBUG("crtc%d suspend = %d\n", crtc->base.id, enable);
+
+	mutex_lock(&sde_crtc->crtc_lock);
+
+	/*
+	 * If the vblank refcount != 0, release a power reference on suspend
+	 * and take it back during resume (if it is still != 0).
+	 */
+	if (sde_crtc->suspend == enable)
+		SDE_DEBUG("crtc%d suspend already set to %d, ignoring update\n",
+				crtc->base.id, enable);
+	else if (atomic_read(&sde_crtc->vblank_refcount) != 0)
+		_sde_crtc_vblank_enable_nolock(sde_crtc, !enable);
+
+	sde_crtc->suspend = enable;
+
+	mutex_unlock(&sde_crtc->crtc_lock);
+}
+
+/**
  * sde_crtc_duplicate_state - state duplicate hook
  * @crtc: Pointer to drm crtc structure
  * @Returns: Pointer to new drm_crtc_state structure
@@ -1091,6 +1199,10 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 		return;
 	}
 
+	/* revert suspend actions, if necessary */
+	if (msm_is_suspend_state(crtc->dev))
+		_sde_crtc_set_suspend(crtc, false);
+
 	/* remove previous state, if present */
 	if (crtc->state) {
 		sde_crtc_destroy_state(crtc, crtc->state);
@@ -1116,27 +1228,26 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 
 static void sde_crtc_disable(struct drm_crtc *crtc)
 {
-	struct msm_drm_private *priv;
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	struct drm_encoder *encoder;
-	struct sde_kms *sde_kms;
 
-	if (!crtc) {
+	if (!crtc || !crtc->dev || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc->state);
-	sde_kms = _sde_crtc_get_kms(crtc);
-	priv = sde_kms->dev->dev_private;
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
+
+	if (msm_is_suspend_state(crtc->dev))
+		_sde_crtc_set_suspend(crtc, true);
 
 	mutex_lock(&sde_crtc->crtc_lock);
 	SDE_EVT32(DRMID(crtc));
 
-	if (atomic_read(&sde_crtc->vblank_refcount)) {
+	if (atomic_read(&sde_crtc->vblank_refcount) && !sde_crtc->suspend) {
 		SDE_ERROR("crtc%d invalid vblank refcount\n",
 				crtc->base.id);
 		SDE_EVT32(DRMID(crtc));
@@ -1487,40 +1598,36 @@ end:
 
 int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 {
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct drm_encoder *encoder;
-	struct drm_device *dev = crtc->dev;
+	struct sde_crtc *sde_crtc;
+	int rc = 0;
 
+	if (!crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return -EINVAL;
+	}
+	sde_crtc = to_sde_crtc(crtc);
+
+	mutex_lock(&sde_crtc->crtc_lock);
 	if (en && atomic_inc_return(&sde_crtc->vblank_refcount) == 1) {
 		SDE_DEBUG("crtc%d vblank enable\n", crtc->base.id);
+		if (!sde_crtc->suspend)
+			_sde_crtc_vblank_enable_nolock(sde_crtc, true);
 	} else if (!en && atomic_read(&sde_crtc->vblank_refcount) < 1) {
 		SDE_ERROR("crtc%d invalid vblank disable\n", crtc->base.id);
-		return -EINVAL;
+		rc = -EINVAL;
 	} else if (!en && atomic_dec_return(&sde_crtc->vblank_refcount) == 0) {
 		SDE_DEBUG("crtc%d vblank disable\n", crtc->base.id);
+		if (!sde_crtc->suspend)
+			_sde_crtc_vblank_enable_nolock(sde_crtc, false);
 	} else {
 		SDE_DEBUG("crtc%d vblank %s refcount:%d\n",
 				crtc->base.id,
 				en ? "enable" : "disable",
 				atomic_read(&sde_crtc->vblank_refcount));
-		return 0;
 	}
 
-	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
-		if (encoder->crtc != crtc)
-			continue;
-
-		SDE_EVT32(DRMID(crtc), en);
-
-		if (en)
-			sde_encoder_register_vblank_callback(encoder,
-					sde_crtc_vblank_cb, (void *)crtc);
-		else
-			sde_encoder_register_vblank_callback(encoder, NULL,
-					NULL);
-	}
-
-	return 0;
+	mutex_unlock(&sde_crtc->crtc_lock);
+	return rc;
 }
 
 void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file)
@@ -2094,6 +2201,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	crtc->dev = dev;
 	atomic_set(&sde_crtc->vblank_refcount, 0);
 
+	mutex_init(&sde_crtc->crtc_lock);
 	spin_lock_init(&sde_crtc->spin_lock);
 	atomic_set(&sde_crtc->frame_pending, 0);
 
@@ -2124,7 +2232,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	}
 
 	/* initialize output fence support */
-	mutex_init(&sde_crtc->crtc_lock);
 	sde_fence_init(&sde_crtc->output_fence, sde_crtc->name, crtc->base.id);
 
 	/* create CRTC properties */
