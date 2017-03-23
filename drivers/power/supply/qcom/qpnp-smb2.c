@@ -414,6 +414,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_BOOST_CURRENT,
 	POWER_SUPPLY_PROP_PE_START,
 	POWER_SUPPLY_PROP_CTM_CURRENT_MAX,
+	POWER_SUPPLY_PROP_HW_CURRENT_MAX,
 };
 
 static int smb2_usb_get_prop(struct power_supply *psy,
@@ -501,6 +502,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
 		val->intval = get_client_vote(chg->usb_icl_votable, CTM_VOTER);
+		break;
+	case POWER_SUPPLY_PROP_HW_CURRENT_MAX:
+		rc = smblib_get_charge_current(chg, &val->intval);
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -610,7 +614,6 @@ static int smb2_init_usb_psy(struct smb2 *chip)
 
 static enum power_supply_property smb2_usb_main_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
-	POWER_SUPPLY_PROP_ICL_REDUCTION,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
@@ -634,9 +637,6 @@ static int smb2_usb_main_get_prop(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_get_charge_param(chg, &chg->param.fv, &val->intval);
-		break;
-	case POWER_SUPPLY_PROP_ICL_REDUCTION:
-		val->intval = chg->icl_reduction_ua;
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		rc = smblib_get_charge_param(chg, &chg->param.fcc,
@@ -680,9 +680,6 @@ static int smb2_usb_main_set_prop(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fv, val->intval);
-		break;
-	case POWER_SUPPLY_PROP_ICL_REDUCTION:
-		rc = smblib_set_icl_reduction(chg, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fcc, val->intval);

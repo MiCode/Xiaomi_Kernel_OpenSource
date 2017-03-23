@@ -695,13 +695,6 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	if (rc < 0)
 		smblib_err(chg,
 			"Couldn't un-vote DCP from USB ICL rc=%d\n", rc);
-
-	/* clear USB ICL vote for PL_USBIN_USBIN_VOTER */
-	rc = vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, false, 0);
-	if (rc < 0)
-		smblib_err(chg,
-			"Couldn't un-vote PL_USBIN_USBIN from USB ICL rc=%d\n",
-			rc);
 }
 
 void smblib_suspend_on_debug_battery(struct smb_charger *chg)
@@ -870,8 +863,7 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 			goto enable_icl_changed_interrupt;
 		}
 	} else {
-		rc = smblib_set_charge_param(chg, &chg->param.usb_icl,
-				icl_ua - chg->icl_reduction_ua);
+		rc = smblib_set_charge_param(chg, &chg->param.usb_icl, icl_ua);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't set HC ICL rc=%d\n", rc);
 			goto enable_icl_changed_interrupt;
@@ -889,7 +881,7 @@ override_suspend_config:
 			/* For std cable with type = SDP never override */
 			override = false;
 		else if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB_CDP
-			&& icl_ua - chg->icl_reduction_ua == 1500000)
+			&& icl_ua == 1500000)
 			/*
 			 * For std cable with type = CDP override only if
 			 * current is not 1500mA
@@ -2588,13 +2580,6 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 				"Couldn't un-vote DCP from USB ICL rc=%d\n",
 				rc);
 
-		/* clear USB ICL vote for PL_USBIN_USBIN_VOTER */
-		rc = vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, false, 0);
-		if (rc < 0)
-			smblib_err(chg,
-					"Couldn't un-vote PL_USBIN_USBIN from USB ICL rc=%d\n",
-					rc);
-
 		/* remove USB_PSY_VOTER */
 		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 		if (rc < 0) {
@@ -2849,14 +2834,20 @@ int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 #define TYPEC_DEFAULT_CURRENT_MA	900000
 #define TYPEC_MEDIUM_CURRENT_MA		1500000
 #define TYPEC_HIGH_CURRENT_MA		3000000
-static int smblib_get_charge_current(struct smb_charger *chg,
+int smblib_get_charge_current(struct smb_charger *chg,
 				int *total_current_ua)
 {
 	const struct apsd_result *apsd_result = smblib_update_usb_type(chg);
 	union power_supply_propval val = {0, };
-	int rc, typec_source_rd, current_ua;
+	int rc = 0, typec_source_rd, current_ua;
 	bool non_compliant;
 	u8 stat5;
+
+	if (chg->pd_active) {
+		*total_current_ua =
+			get_client_vote_locked(chg->usb_icl_votable, PD_VOTER);
+		return rc;
+	}
 
 	rc = smblib_read(chg, TYPE_C_STATUS_5_REG, &stat5);
 	if (rc < 0) {
@@ -2932,39 +2923,12 @@ static int smblib_get_charge_current(struct smb_charger *chg,
 	return 0;
 }
 
-int smblib_set_icl_reduction(struct smb_charger *chg, int reduction_ua)
-{
-	int current_ua, rc;
-
-	if (reduction_ua == 0) {
-		vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, false, 0);
-	} else {
-		/*
-		 * No usb_icl voter means we are defaulting to hw chosen
-		 * max limit. We need a vote from s/w to enforce the reduction.
-		 */
-		if (get_effective_result(chg->usb_icl_votable) == -EINVAL) {
-			rc = smblib_get_charge_current(chg, &current_ua);
-			if (rc < 0) {
-				pr_err("Failed to get ICL rc=%d\n", rc);
-				return rc;
-			}
-			vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, true,
-					current_ua);
-		}
-	}
-
-	chg->icl_reduction_ua = reduction_ua;
-
-	return rerun_election(chg->usb_icl_votable);
-}
-
 /************************
  * PARALLEL PSY GETTERS *
  ************************/
 
 int smblib_get_prop_slave_current_now(struct smb_charger *chg,
-				      union power_supply_propval *pval)
+		union power_supply_propval *pval)
 {
 	if (IS_ERR_OR_NULL(chg->iio.batt_i_chan))
 		chg->iio.batt_i_chan = iio_channel_get(chg->dev, "batt_i");
@@ -3027,7 +2991,7 @@ irqreturn_t smblib_handle_chg_state_change(int irq, void *data)
 	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_1_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read BATTERY_CHARGER_STATUS_1 rc=%d\n",
-			rc);
+				rc);
 		return IRQ_HANDLED;
 	}
 
@@ -3571,12 +3535,6 @@ static void typec_source_removal(struct smb_charger *chg)
 		smblib_err(chg,
 			"Couldn't un-vote DCP from USB ICL rc=%d\n", rc);
 
-	/* clear USB ICL vote for PL_USBIN_USBIN_VOTER */
-	rc = vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, false, 0);
-	if (rc < 0)
-		smblib_err(chg,
-			"Couldn't un-vote PL_USBIN_USBIN from USB ICL rc=%d\n",
-			rc);
 }
 
 static void typec_source_insertion(struct smb_charger *chg)
