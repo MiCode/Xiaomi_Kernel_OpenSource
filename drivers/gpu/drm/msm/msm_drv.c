@@ -45,10 +45,20 @@ static void msm_fb_output_poll_changed(struct drm_device *dev)
 		drm_fb_helper_hotplug_event(priv->fbdev);
 }
 
+int msm_atomic_check(struct drm_device *dev,
+			    struct drm_atomic_state *state)
+{
+	if (msm_is_suspend_blocked(dev)) {
+		DRM_DEBUG("rejecting commit during suspend\n");
+		return -EBUSY;
+	}
+	return drm_atomic_helper_check(dev, state);
+}
+
 static const struct drm_mode_config_funcs mode_config_funcs = {
 	.fb_create = msm_framebuffer_create,
 	.output_poll_changed = msm_fb_output_poll_changed,
-	.atomic_check = drm_atomic_helper_check,
+	.atomic_check = msm_atomic_check,
 	.atomic_commit = msm_atomic_commit,
 };
 
@@ -1203,6 +1213,8 @@ retry:
 	if (ret < 0) {
 		DRM_ERROR("failed to disable crtcs, %d\n", ret);
 		drm_atomic_state_free(state);
+	} else {
+		priv->suspend_block = true;
 	}
 
 unlock:
@@ -1239,6 +1251,8 @@ static int msm_pm_resume(struct device *dev)
 	drm_mode_config_reset(ddev);
 
 	drm_modeset_lock_all(ddev);
+
+	priv->suspend_block = false;
 
 	if (priv->suspend_state) {
 		priv->suspend_state->acquire_ctx =
