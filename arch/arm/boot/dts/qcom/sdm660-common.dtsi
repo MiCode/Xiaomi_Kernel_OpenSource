@@ -518,6 +518,8 @@
 
 		qcom,ice-clk-rates = <300000000 75000000>;
 
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
+
 		status = "disabled";
 	};
 
