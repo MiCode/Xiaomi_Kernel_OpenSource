@@ -267,10 +267,26 @@
 		vddio-supply = <&pm8994_l14>;
 		qcom,bridge-index = <0>;
 	};
+
+	msm_ext_disp: qcom,msm_ext_disp {
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+			qcom,msm_ext_disp = <&msm_ext_disp>;
+		};
+	};
+
+	sde_hdmi: qcom,hdmi-display {
+		compatible = "qcom,hdmi-display";
+		label = "sde_hdmi";
+		qcom,display-type = "secondary";
+		qcom,msm_ext_disp = <&msm_ext_disp>;
+	};
 };
 
 &mdss_mdp {
-	connectors = <&dsi_adv_7533_1>;
+	connectors = <&dsi_adv_7533_1 &mdss_hdmi &sde_hdmi>;
 };
 
 &dsi_dual_sharp_video {
