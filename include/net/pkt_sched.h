@@ -125,6 +125,8 @@ static inline __be16 tc_skb_protocol(const struct sk_buff *skb)
 	return skb->protocol;
 }
 
+extern int tc_qdisc_flow_control(struct net_device *dev, u32 tcm_handle,
+				  int flow_enable);
 /* Calculate maximal size of packet seen by hard_start_xmit
    routine of this device.
  */
