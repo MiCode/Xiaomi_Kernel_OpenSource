@@ -154,7 +154,8 @@ struct crypt_config {
 	} iv_gen_private;
 	sector_t iv_offset;
 	unsigned int iv_size;
-	unsigned int sector_size;
+	unsigned short int sector_size;
+	unsigned char sector_shift;
 
 	/* ESSIV: struct crypto_cipher *essiv_tfm */
 	void *iv_private;
@@ -871,7 +872,7 @@ static int crypt_convert_block(struct crypt_config *cc,
 
 	dmreq->iv_sector = ctx->cc_sector;
 	if (test_bit(CRYPT_IV_LARGE_SECTORS, &cc->cipher_flags))
-		sector_div(dmreq->iv_sector, cc->sector_size >> SECTOR_SHIFT);
+		dmreq->iv_sector >>= cc->sector_shift;
 	dmreq->ctx = ctx;
 	sg_init_table(&dmreq->sg_in, 1);
 	sg_set_page(&dmreq->sg_in, bv_in.bv_page, cc->sector_size,
@@ -941,7 +942,7 @@ static void crypt_free_req(struct crypt_config *cc,
 static int crypt_convert(struct crypt_config *cc,
 			 struct convert_context *ctx)
 {
-	unsigned int sector_step = cc->sector_size / (1 << SECTOR_SHIFT);
+	unsigned int sector_step = cc->sector_size >> SECTOR_SHIFT;
 	int r;
 
 	atomic_set(&ctx->cc_pending, 1);
@@ -1782,6 +1783,7 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	}
 	cc->key_size = key_size;
 	cc->sector_size = (1 << SECTOR_SHIFT);
+	cc->sector_shift = 0;
 
 	ti->private = cc;
 	ret = crypt_ctr_cipher(ti, argv[0], argv[1]);
@@ -1882,14 +1884,15 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 			else if (!strcasecmp(opt_string, "submit_from_crypt_cpus"))
 				set_bit(DM_CRYPT_NO_OFFLOAD, &cc->flags);
 
-			else if (sscanf(opt_string, "sector_size:%u%c",
+			else if (sscanf(opt_string, "sector_size:%hu%c",
 					&cc->sector_size, &dummy) == 1) {
 				if (cc->sector_size < (1 << SECTOR_SHIFT) ||
 				    cc->sector_size > 4096 ||
-				    (1 << ilog2(cc->sector_size) != cc->sector_size)) {
+				    (cc->sector_size & (cc->sector_size - 1))) {
 					ti->error = "Invalid feature value for sector_size";
 					goto bad;
 				}
+				cc->sector_shift = __ffs(cc->sector_size) - SECTOR_SHIFT;
 			} else if (!strcasecmp(opt_string, "iv_large_sectors"))
 				set_bit(CRYPT_IV_LARGE_SECTORS, &cc->cipher_flags);
 			else {
@@ -2022,7 +2025,7 @@ static void crypt_status(struct dm_target *ti, status_type_t type,
 		num_feature_args += !!ti->num_discard_bios;
 		num_feature_args += test_bit(DM_CRYPT_SAME_CPU, &cc->flags);
 		num_feature_args += test_bit(DM_CRYPT_NO_OFFLOAD, &cc->flags);
-		num_feature_args += (cc->sector_size != (1 << SECTOR_SHIFT)) ? 1 : 0;
+		num_feature_args += cc->sector_size != (1 << SECTOR_SHIFT);
 		num_feature_args += test_bit(CRYPT_IV_LARGE_SECTORS, &cc->cipher_flags);
 		if (num_feature_args) {
 			DMEMIT(" %d", num_feature_args);
