@@ -252,6 +252,90 @@ static const unsigned int a6xx_registers[] = {
 	0xA630, 0xA630, 0xD200, 0xD263,
 };
 
+enum a6xx_debugbus_id {
+	A6XX_DBGBUS_CP           = 0x1,
+	A6XX_DBGBUS_RBBM         = 0x2,
+	A6XX_DBGBUS_VBIF         = 0x3,
+	A6XX_DBGBUS_HLSQ         = 0x4,
+	A6XX_DBGBUS_UCHE         = 0x5,
+	A6XX_DBGBUS_DPM          = 0x6,
+	A6XX_DBGBUS_TESS         = 0x7,
+	A6XX_DBGBUS_PC           = 0x8,
+	A6XX_DBGBUS_VFDP         = 0x9,
+	A6XX_DBGBUS_VPC          = 0xa,
+	A6XX_DBGBUS_TSE          = 0xb,
+	A6XX_DBGBUS_RAS          = 0xc,
+	A6XX_DBGBUS_VSC          = 0xd,
+	A6XX_DBGBUS_COM          = 0xe,
+	A6XX_DBGBUS_LRZ          = 0x10,
+	A6XX_DBGBUS_A2D          = 0x11,
+	A6XX_DBGBUS_CCUFCHE      = 0x12,
+	A6XX_DBGBUS_GMU          = 0x13,
+	A6XX_DBGBUS_RBP          = 0x14,
+	A6XX_DBGBUS_DCS          = 0x15,
+	A6XX_DBGBUS_RBBM_CFG     = 0x16,
+	A6XX_DBGBUS_CX           = 0x17,
+	A6XX_DBGBUS_TPFCHE       = 0x19,
+	A6XX_DBGBUS_GPC          = 0x1d,
+	A6XX_DBGBUS_LARC         = 0x1e,
+	A6XX_DBGBUS_HLSQ_SPTP    = 0x1f,
+	A6XX_DBGBUS_RB_0         = 0x20,
+	A6XX_DBGBUS_RB_1         = 0x21,
+	A6XX_DBGBUS_UCHE_WRAPPER = 0x24,
+	A6XX_DBGBUS_CCU_0        = 0x28,
+	A6XX_DBGBUS_CCU_1        = 0x29,
+	A6XX_DBGBUS_VFD_0        = 0x38,
+	A6XX_DBGBUS_VFD_1        = 0x39,
+	A6XX_DBGBUS_VFD_2        = 0x3a,
+	A6XX_DBGBUS_VFD_3        = 0x3b,
+	A6XX_DBGBUS_SP_0         = 0x40,
+	A6XX_DBGBUS_SP_1         = 0x41,
+	A6XX_DBGBUS_TPL1_0       = 0x48,
+	A6XX_DBGBUS_TPL1_1       = 0x49,
+	A6XX_DBGBUS_TPL1_2       = 0x4a,
+	A6XX_DBGBUS_TPL1_3       = 0x4b,
+};
+
+static const struct adreno_debugbus_block a6xx_dbgc_debugbus_blocks[] = {
+	{ A6XX_DBGBUS_CP, 0x100, },
+	{ A6XX_DBGBUS_RBBM, 0x100, },
+	{ A6XX_DBGBUS_HLSQ, 0x100, },
+	{ A6XX_DBGBUS_UCHE, 0x100, },
+	{ A6XX_DBGBUS_DPM, 0x100, },
+	{ A6XX_DBGBUS_TESS, 0x100, },
+	{ A6XX_DBGBUS_PC, 0x100, },
+	{ A6XX_DBGBUS_VFDP, 0x100, },
+	{ A6XX_DBGBUS_VPC, 0x100, },
+	{ A6XX_DBGBUS_TSE, 0x100, },
+	{ A6XX_DBGBUS_RAS, 0x100, },
+	{ A6XX_DBGBUS_VSC, 0x100, },
+	{ A6XX_DBGBUS_COM, 0x100, },
+	{ A6XX_DBGBUS_LRZ, 0x100, },
+	{ A6XX_DBGBUS_A2D, 0x100, },
+	{ A6XX_DBGBUS_CCUFCHE, 0x100, },
+	{ A6XX_DBGBUS_RBP, 0x100, },
+	{ A6XX_DBGBUS_DCS, 0x100, },
+	{ A6XX_DBGBUS_RBBM_CFG, 0x100, },
+	{ A6XX_DBGBUS_TPFCHE, 0x100, },
+	{ A6XX_DBGBUS_GPC, 0x100, },
+	{ A6XX_DBGBUS_LARC, 0x100, },
+	{ A6XX_DBGBUS_HLSQ_SPTP, 0x100, },
+	{ A6XX_DBGBUS_RB_0, 0x100, },
+	{ A6XX_DBGBUS_RB_1, 0x100, },
+	{ A6XX_DBGBUS_UCHE_WRAPPER, 0x100, },
+	{ A6XX_DBGBUS_CCU_0, 0x100, },
+	{ A6XX_DBGBUS_CCU_1, 0x100, },
+	{ A6XX_DBGBUS_VFD_0, 0x100, },
+	{ A6XX_DBGBUS_VFD_1, 0x100, },
+	{ A6XX_DBGBUS_VFD_2, 0x100, },
+	{ A6XX_DBGBUS_VFD_3, 0x100, },
+	{ A6XX_DBGBUS_SP_0, 0x100, },
+	{ A6XX_DBGBUS_SP_1, 0x100, },
+	{ A6XX_DBGBUS_TPL1_0, 0x100, },
+	{ A6XX_DBGBUS_TPL1_1, 0x100, },
+	{ A6XX_DBGBUS_TPL1_2, 0x100, },
+	{ A6XX_DBGBUS_TPL1_3, 0x100, },
+};
 
 static struct kgsl_memdesc a6xx_capturescript;
 static struct kgsl_memdesc a6xx_crashdump_registers;
@@ -591,6 +675,108 @@ static void a6xx_snapshot_mvc_regs(struct kgsl_device *device,
 	}
 }
 
+/* a6xx_dbgc_debug_bus_read() - Read data from trace bus */
+static void a6xx_dbgc_debug_bus_read(struct kgsl_device *device,
+	unsigned int block_id, unsigned int index, unsigned int *val)
+{
+	unsigned int reg;
+
+	reg = (block_id << A6XX_DBGC_CFG_DBGBUS_SEL_PING_BLK_SEL_SHIFT) |
+			(index << A6XX_DBGC_CFG_DBGBUS_SEL_PING_INDEX_SHIFT);
+
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_SEL_A, reg);
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_SEL_B, reg);
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_SEL_C, reg);
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_SEL_D, reg);
+
+	kgsl_regread(device, A6XX_DBGC_CFG_DBGBUS_TRACE_BUF2, val);
+	val++;
+	kgsl_regread(device, A6XX_DBGC_CFG_DBGBUS_TRACE_BUF1, val);
+}
+
+/* a6xx_snapshot_cbgc_debugbus_block() - Capture debug data for a gpu block */
+static size_t a6xx_snapshot_dbgc_debugbus_block(struct kgsl_device *device,
+	u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_debugbus *header =
+		(struct kgsl_snapshot_debugbus *)buf;
+	struct adreno_debugbus_block *block = priv;
+	int i;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	unsigned int dwords;
+	size_t size;
+
+	dwords = block->dwords;
+
+	/* For a6xx each debug bus data unit is 2 DWORDS */
+	size = (dwords * sizeof(unsigned int) * 2) + sizeof(*header);
+
+	if (remain < size) {
+		SNAPSHOT_ERR_NOMEM(device, "DEBUGBUS");
+		return 0;
+	}
+
+	header->id = block->block_id;
+	header->count = dwords * 2;
+
+	for (i = 0; i < dwords; i++)
+		a6xx_dbgc_debug_bus_read(device, block->block_id, i,
+					&data[i*2]);
+
+	return size;
+}
+
+/* a6xx_snapshot_debugbus() - Capture debug bus data */
+static void a6xx_snapshot_debugbus(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot)
+{
+	int i;
+
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_CNTLT,
+		(0xf << A6XX_DBGC_CFG_DBGBUS_CNTLT_SEGT_SHIFT) |
+		(0x4 << A6XX_DBGC_CFG_DBGBUS_CNTLT_GRANU_SHIFT) |
+		(0x20 << A6XX_DBGC_CFG_DBGBUS_CNTLT_TRACEEN_SHIFT));
+
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_CNTLM,
+		0xf << A6XX_DBGC_CFG_DBGBUS_CTLTM_ENABLE_SHIFT);
+
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_IVTL_0, 0);
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_IVTL_1, 0);
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_IVTL_2, 0);
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_IVTL_3, 0);
+
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_BYTEL_0,
+		(0 << A6XX_DBGC_CFG_DBGBUS_BYTEL0_SHIFT) |
+		(1 << A6XX_DBGC_CFG_DBGBUS_BYTEL1_SHIFT) |
+		(2 << A6XX_DBGC_CFG_DBGBUS_BYTEL2_SHIFT) |
+		(3 << A6XX_DBGC_CFG_DBGBUS_BYTEL3_SHIFT) |
+		(4 << A6XX_DBGC_CFG_DBGBUS_BYTEL4_SHIFT) |
+		(5 << A6XX_DBGC_CFG_DBGBUS_BYTEL5_SHIFT) |
+		(6 << A6XX_DBGC_CFG_DBGBUS_BYTEL6_SHIFT) |
+		(7 << A6XX_DBGC_CFG_DBGBUS_BYTEL7_SHIFT));
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_BYTEL_1,
+		(8 << A6XX_DBGC_CFG_DBGBUS_BYTEL8_SHIFT) |
+		(9 << A6XX_DBGC_CFG_DBGBUS_BYTEL9_SHIFT) |
+		(10 << A6XX_DBGC_CFG_DBGBUS_BYTEL10_SHIFT) |
+		(11 << A6XX_DBGC_CFG_DBGBUS_BYTEL11_SHIFT) |
+		(12 << A6XX_DBGC_CFG_DBGBUS_BYTEL12_SHIFT) |
+		(13 << A6XX_DBGC_CFG_DBGBUS_BYTEL13_SHIFT) |
+		(14 << A6XX_DBGC_CFG_DBGBUS_BYTEL14_SHIFT) |
+		(15 << A6XX_DBGC_CFG_DBGBUS_BYTEL15_SHIFT));
+
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_MASKL_0, 0);
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_MASKL_1, 0);
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_MASKL_2, 0);
+	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_MASKL_3, 0);
+
+	for (i = 0; i < ARRAY_SIZE(a6xx_dbgc_debugbus_blocks); i++) {
+		kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+			snapshot, a6xx_snapshot_dbgc_debugbus_block,
+			(void *) &a6xx_dbgc_debugbus_blocks[i]);
+	}
+}
+
 static void _a6xx_do_crashdump(struct kgsl_device *device)
 {
 	unsigned long wait_time;
@@ -686,6 +872,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	/* registers dumped through DBG AHB */
 	a6xx_snapshot_dbgahb_regs(device, snapshot);
 
+	a6xx_snapshot_debugbus(device, snapshot);
 }
 
 static int _a6xx_crashdump_init_mvc(uint64_t *ptr, uint64_t *offset)
