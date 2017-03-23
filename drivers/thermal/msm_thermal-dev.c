@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@ static unsigned int freq_table_len[NR_CPUS], freq_table_set[NR_CPUS];
 static unsigned int voltage_table_set[NR_CPUS];
 static unsigned int *freq_table_ptr[NR_CPUS];
 static uint32_t *voltage_table_ptr[NR_CPUS];
+static DEFINE_MUTEX(ioctl_access_mutex);
 
 static int msm_thermal_ioctl_open(struct inode *node, struct file *filep)
 {
@@ -291,8 +292,9 @@ static long msm_thermal_ioctl_process(struct file *filep, unsigned int cmd,
 
 	ret = validate_and_copy(&cmd, &arg, &query);
 	if (ret)
-		goto process_exit;
+		return ret;
 
+	mutex_lock(&ioctl_access_mutex);
 	switch (cmd) {
 	case MSM_THERMAL_SET_CPU_MAX_FREQUENCY:
 		ret = msm_thermal_set_frequency(query.cpu_freq.cpu_num,
@@ -321,6 +323,7 @@ static long msm_thermal_ioctl_process(struct file *filep, unsigned int cmd,
 		goto process_exit;
 	}
 process_exit:
+	mutex_unlock(&ioctl_access_mutex);
 	return ret;
 }
 
