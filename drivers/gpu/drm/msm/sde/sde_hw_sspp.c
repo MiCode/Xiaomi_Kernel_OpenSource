@@ -946,8 +946,9 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 	if (cfg->sblk->scaler_blk.len)
 		sde_dbg_reg_register_dump_range(SDE_DBG_NAME,
 			cfg->sblk->scaler_blk.name,
-			cfg->sblk->scaler_blk.base,
-			cfg->sblk->scaler_blk.base + cfg->sblk->scaler_blk.len,
+			hw_pipe->hw.blk_off + cfg->sblk->scaler_blk.base,
+			hw_pipe->hw.blk_off + cfg->sblk->scaler_blk.base +
+				cfg->sblk->scaler_blk.len,
 			hw_pipe->hw.xin_id);
 
 	return hw_pipe;
