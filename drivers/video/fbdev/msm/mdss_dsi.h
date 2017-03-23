@@ -477,6 +477,7 @@ struct mdss_dsi_ctrl_pdata {
 	u32 byte_clk_rate;
 	u32 pclk_rate_bkp;
 	u32 byte_clk_rate_bkp;
+	u32 esc_clk_rate_hz;
 	bool refresh_clk_rate; /* flag to recalculate clk_rate */
 	struct dss_module_power panel_power_data;
 	struct dss_module_power power_data[DSI_MAX_PM]; /* for 8x10 */
@@ -484,6 +485,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct mdss_hw *dsi_hw;
 	struct mdss_intf_recovery *recovery;
 	struct mdss_intf_recovery *mdp_callback;
+	struct mdss_intf_ulp_clamp *clamp_handler;
 
 	struct dsi_panel_cmds on_cmds;
 	struct dsi_panel_cmds post_dms_on_cmds;

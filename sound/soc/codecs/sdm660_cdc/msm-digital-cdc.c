@@ -1028,7 +1028,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 		break;
 	case DIG_CDC_EVENT_PRE_RX1_INT_ON:
 		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x1C, 0x14);
+				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x3C, 0x28);
 		snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_RX1_B4_CTL, 0x18, 0x10);
 		snd_soc_update_bits(codec,
@@ -1036,7 +1036,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 		break;
 	case DIG_CDC_EVENT_PRE_RX2_INT_ON:
 		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x1C, 0x14);
+				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x3C, 0x28);
 		snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_RX2_B4_CTL, 0x18, 0x10);
 		snd_soc_update_bits(codec,
@@ -1044,7 +1044,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 		break;
 	case DIG_CDC_EVENT_POST_RX1_INT_OFF:
 		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x1C, 0x00);
+				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x3C, 0x00);
 		snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_RX1_B4_CTL, 0x18, 0xFF);
 		snd_soc_update_bits(codec,
@@ -1052,7 +1052,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 		break;
 	case DIG_CDC_EVENT_POST_RX2_INT_OFF:
 		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x1C, 0x00);
+				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x3C, 0x00);
 		snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_RX2_B4_CTL, 0x18, 0xFF);
 		snd_soc_update_bits(codec,
@@ -1206,6 +1206,8 @@ static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 	snd_soc_dapm_ignore_suspend(dapm, "PDM_OUT_RX1");
 	snd_soc_dapm_ignore_suspend(dapm, "PDM_OUT_RX2");
 	snd_soc_dapm_ignore_suspend(dapm, "PDM_OUT_RX3");
+
+	snd_soc_dapm_sync(dapm);
 
 	return 0;
 }
@@ -1929,8 +1931,12 @@ static struct snd_soc_dai_driver msm_codec_dais[] = {
 			.stream_name = "AIF1 Playback",
 			.channels_min = 1,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_8000_48000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rates = SNDRV_PCM_RATE_8000_192000,
+			.rate_max = 192000,
+			.rate_min = 8000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
 		},
 		 .ops = &msm_dig_dai_ops,
 	},
@@ -2123,8 +2129,8 @@ static int msm_dig_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops msm_dig_pm_ops = {
-	.suspend = msm_dig_suspend,
-	.resume = msm_dig_resume,
+	.suspend_late = msm_dig_suspend,
+	.resume_early = msm_dig_resume,
 };
 #endif
 
