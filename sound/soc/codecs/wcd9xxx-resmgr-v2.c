@@ -25,8 +25,7 @@
 #define WCD93XX_CDC_CLK_RST_CTRL_MCLK_CONTROL 0x0d41
 #define WCD93XX_CDC_CLK_RST_CTRL_FS_CNT_CONTROL 0x0d42
 
-static void wcd_resmgr_set_sido_input_src(struct wcd9xxx_resmgr_v2 *resmgr,
-					  int sido_src);
+
 static const char *wcd_resmgr_clk_type_to_str(enum wcd_clock_type clk_type)
 {
 	if (clk_type == WCD_CLK_OFF)
@@ -267,8 +266,6 @@ static int wcd_resmgr_enable_clk_mclk(struct wcd9xxx_resmgr_v2 *resmgr)
 					0x01, 0x01);
 			wcd_resmgr_codec_reg_update_bits(resmgr,
 					WCD934X_CODEC_RPM_CLK_GATE, 0x03, 0x00);
-			wcd_resmgr_set_sido_input_src(resmgr,
-						      SIDO_SOURCE_RCO_BG);
 		} else {
 			wcd_resmgr_codec_reg_update_bits(resmgr,
 					WCD93XX_CDC_CLK_RST_CTRL_FS_CNT_CONTROL,
@@ -515,7 +512,7 @@ int wcd_resmgr_enable_clk_block(struct wcd9xxx_resmgr_v2 *resmgr,
 	return ret;
 }
 
-static void wcd_resmgr_set_sido_input_src(struct wcd9xxx_resmgr_v2 *resmgr,
+void wcd_resmgr_set_sido_input_src(struct wcd9xxx_resmgr_v2 *resmgr,
 					  int sido_src)
 {
 	if (!resmgr)
@@ -553,6 +550,7 @@ static void wcd_resmgr_set_sido_input_src(struct wcd9xxx_resmgr_v2 *resmgr,
 		pr_debug("%s: sido input src to external\n", __func__);
 	}
 }
+EXPORT_SYMBOL(wcd_resmgr_set_sido_input_src);
 
 /*
  * wcd_resmgr_set_sido_input_src_locked:
