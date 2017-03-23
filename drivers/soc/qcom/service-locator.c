@@ -375,6 +375,7 @@ int get_service_location(char *client_name, char *service_name,
 	if (!pqw) {
 		rc = -ENOMEM;
 		pr_err("Allocation failed\n");
+		kfree(pqcd);
 		goto err;
 	}
 	pqw->notifier = locator_nb;
