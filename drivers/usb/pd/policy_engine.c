@@ -3218,7 +3218,7 @@ struct usbpd *usbpd_create(struct device *parent)
 
 	pd->num_sink_caps = device_property_read_u32_array(parent,
 			"qcom,default-sink-caps", NULL, 0);
-	if (pd->num_sink_caps) {
+	if (pd->num_sink_caps > 0) {
 		int i;
 		u32 sink_caps[14];
 
