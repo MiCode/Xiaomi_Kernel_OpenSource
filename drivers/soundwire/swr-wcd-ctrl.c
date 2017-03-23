@@ -224,6 +224,12 @@ static struct dentry *debugfs_poke;
 static struct dentry *debugfs_reg_dump;
 static unsigned int read_data;
 
+
+static bool swrm_is_msm_variant(int val)
+{
+	return (val == SWRM_VERSION_1_3);
+}
+
 static int swrm_debug_open(struct inode *inode, struct file *file)
 {
 	file->private_data = inode->i_private;
@@ -514,8 +520,17 @@ static int swrm_cmd_fifo_wr_cmd(struct swr_mstr_ctrl *swrm, u8 cmd_data,
 			__func__, val, ret);
 		goto err;
 	}
-	if (cmd_id == 0xF)
-		wait_for_completion_timeout(&swrm->broadcast, (2 * HZ/10));
+	if (cmd_id == 0xF) {
+		/*
+		 * sleep for 10ms for MSM soundwire variant to allow broadcast
+		 * command to complete.
+		 */
+		if (swrm_is_msm_variant(swrm->version))
+			usleep_range(10000, 10100);
+		else
+			wait_for_completion_timeout(&swrm->broadcast,
+						    (2 * HZ/10));
+	}
 err:
 	return ret;
 }
@@ -1472,6 +1487,7 @@ static int swrm_probe(struct platform_device *pdev)
 		mutex_unlock(&swrm->mlock);
 		goto err_mstr_fail;
 	}
+	swrm->version = swrm->read(swrm->handle, SWRM_COMP_HW_VERSION);
 
 	/* Enumerate slave devices */
 	list_for_each_entry_safe(swr_dev, safe, &swrm->master.devices,
