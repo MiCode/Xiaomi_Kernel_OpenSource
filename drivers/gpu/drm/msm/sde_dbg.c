@@ -19,6 +19,7 @@
 #include <linux/uaccess.h>
 #include <linux/dma-buf.h>
 #include <linux/slab.h>
+#include <linux/list_sort.h>
 
 #include "sde_dbg.h"
 #include "sde/sde_hw_catalog.h"
@@ -41,7 +42,7 @@
 #define DBGBUS_NAME_SDE		"sde"
 #define DBGBUS_NAME_VBIF_RT	"vbif_rt"
 
-/* offsets from sde_base address for the debug buses */
+/* offsets from sde top address for the debug buses */
 #define DBGBUS_SSPP0	0x188
 #define DBGBUS_SSPP1	0x298
 #define DBGBUS_DSPP	0x348
@@ -53,6 +54,9 @@
 #define MMSS_VBIF_CLKON			0x4
 #define MMSS_VBIF_TEST_BUS_OUT_CTRL	0x210
 #define MMSS_VBIF_TEST_BUS_OUT		0x230
+
+/* print debug ranges in groups of 4 u32s */
+#define REG_DUMP_ALIGN		16
 
 /**
  * struct sde_dbg_reg_offset - tracking for start and end of region
@@ -135,6 +139,7 @@ struct sde_dbg_debug_bus_common {
 struct sde_dbg_sde_debug_bus {
 	struct sde_dbg_debug_bus_common cmn;
 	struct sde_debug_bus_entry *entries;
+	u32 top_blk_off;
 };
 
 struct sde_dbg_vbif_debug_bus {
@@ -1961,15 +1966,17 @@ static inline void _sde_dbg_enable_power(int enable)
  * _sde_dump_reg - helper function for dumping rotator register set content
  * @dump_name: register set name
  * @reg_dump_flag: dumping flag controlling in-log/memory dump location
+ * @base_addr: starting address of io region for calculating offsets to print
  * @addr: starting address offset for dumping
  * @len_bytes: range of the register set
  * @dump_mem: output buffer for memory dump location option
  * @from_isr: whether being called from isr context
  */
-static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag, char *addr,
-		size_t len_bytes, u32 **dump_mem, bool from_isr)
+static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag,
+		char *base_addr, char *addr, size_t len_bytes, u32 **dump_mem,
+		bool from_isr)
 {
-	u32 in_log, in_mem, len_align_16, len_bytes_aligned;
+	u32 in_log, in_mem, len_align, len_padded;
 	u32 *dump_addr = NULL;
 	char *end_addr;
 	int i;
@@ -1980,28 +1987,33 @@ static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag, char *addr,
 	in_log = (reg_dump_flag & SDE_DBG_DUMP_IN_LOG);
 	in_mem = (reg_dump_flag & SDE_DBG_DUMP_IN_MEM);
 
-	pr_debug("reg_dump_flag=%d in_log=%d in_mem=%d\n",
-		reg_dump_flag, in_log, in_mem);
+	pr_debug("%s: reg_dump_flag=%d in_log=%d in_mem=%d\n",
+		dump_name, reg_dump_flag, in_log, in_mem);
 
 	if (!in_log && !in_mem)
 		return;
 
-	len_align_16 = (len_bytes + 15) / 16;
-	len_bytes_aligned = len_align_16 * 16;
+	if (in_log)
+		dev_info(sde_dbg_base.dev, "%s: start_offset 0x%lx len 0x%zx\n",
+				dump_name, addr - base_addr, len_bytes);
+
+	len_align = (len_bytes + REG_DUMP_ALIGN - 1) / REG_DUMP_ALIGN;
+	len_padded = len_align * REG_DUMP_ALIGN;
 	end_addr = addr + len_bytes;
 
 	if (in_mem) {
 		if (dump_mem && !(*dump_mem)) {
 			phys_addr_t phys = 0;
 			*dump_mem = dma_alloc_coherent(sde_dbg_base.dev,
-					len_bytes_aligned, &phys, GFP_KERNEL);
+					len_padded, &phys, GFP_KERNEL);
 		}
 
 		if (dump_mem && *dump_mem) {
 			dump_addr = *dump_mem;
-			pr_info("%s: start_addr:0x%pK end_addr:0x%pK reg_addr=0x%pK\n",
-				dump_name, dump_addr,
-				dump_addr + len_bytes_aligned, addr);
+			dev_info(sde_dbg_base.dev,
+				"%s: start_addr:0x%pK len:0x%x reg_offset=0x%lx\n",
+				dump_name, dump_addr, len_padded,
+				addr - base_addr);
 		} else {
 			in_mem = 0;
 			pr_err("dump_mem: kzalloc fails!\n");
@@ -2011,7 +2023,7 @@ static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag, char *addr,
 	if (!from_isr)
 		_sde_dbg_enable_power(true);
 
-	for (i = 0; i < len_align_16; i++) {
+	for (i = 0; i < len_align; i++) {
 		u32 x0, x4, x8, xc;
 
 		x0 = (addr < end_addr) ? readl_relaxed(addr + 0x0) : 0;
@@ -2020,8 +2032,9 @@ static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag, char *addr,
 		xc = (addr + 0xc < end_addr) ? readl_relaxed(addr + 0xc) : 0;
 
 		if (in_log)
-			pr_info("%pK : %08x %08x %08x %08x\n", addr, x0, x4, x8,
-				xc);
+			dev_info(sde_dbg_base.dev,
+					"0x%lx : %08x %08x %08x %08x\n",
+					addr - base_addr, x0, x4, x8, xc);
 
 		if (dump_addr) {
 			dump_addr[i * 4] = x0;
@@ -2030,7 +2043,7 @@ static void _sde_dump_reg(const char *dump_name, u32 reg_dump_flag, char *addr,
 			dump_addr[i * 4 + 3] = xc;
 		}
 
-		addr += 16;
+		addr += REG_DUMP_ALIGN;
 	}
 
 	if (!from_isr)
@@ -2059,6 +2072,20 @@ static u32 _sde_dbg_get_dump_range(struct sde_dbg_reg_offset *range_node,
 	return length;
 }
 
+static int _sde_dump_reg_range_cmp(void *priv, struct list_head *a,
+		struct list_head *b)
+{
+	struct sde_dbg_reg_range *ar, *br;
+
+	if (!a || !b)
+		return 0;
+
+	ar = container_of(a, struct sde_dbg_reg_range, head);
+	br = container_of(b, struct sde_dbg_reg_range, head);
+
+	return ar->offset.start - br->offset.start;
+}
+
 /**
  * _sde_dump_reg_by_ranges - dump ranges or full range of the register blk base
  * @dbg: register blk base structure
@@ -2076,10 +2103,13 @@ static void _sde_dump_reg_by_ranges(struct sde_dbg_reg_base *dbg,
 		return;
 	}
 
-	pr_info("%s:=========%s DUMP=========\n", __func__, dbg->name);
+	dev_info(sde_dbg_base.dev, "%s:=========%s DUMP=========\n", __func__,
+			dbg->name);
 
 	/* If there is a list to dump the registers by ranges, use the ranges */
 	if (!list_empty(&dbg->sub_range_list)) {
+		/* sort the list by start address first */
+		list_sort(NULL, &dbg->sub_range_list, _sde_dump_reg_range_cmp);
 		list_for_each_entry(range_node, &dbg->sub_range_list, head) {
 			len = _sde_dbg_get_dump_range(&range_node->offset,
 				dbg->max_offset);
@@ -2089,18 +2119,20 @@ static void _sde_dump_reg_by_ranges(struct sde_dbg_reg_base *dbg,
 				addr, range_node->offset.start,
 				range_node->offset.end);
 
-			_sde_dump_reg((const char *)range_node->range_name,
-				reg_dump_flag, addr, len, &range_node->reg_dump,
-				false);
+			_sde_dump_reg(range_node->range_name, reg_dump_flag,
+					dbg->base, addr, len,
+					&range_node->reg_dump, false);
 		}
 	} else {
 		/* If there is no list to dump ranges, dump all registers */
-		pr_info("Ranges not found, will dump full registers\n");
-		pr_info("base:0x%pK len:0x%zx\n", dbg->base, dbg->max_offset);
+		dev_info(sde_dbg_base.dev,
+				"Ranges not found, will dump full registers\n");
+		dev_info(sde_dbg_base.dev, "base:0x%pK len:0x%zx\n", dbg->base,
+				dbg->max_offset);
 		addr = dbg->base;
 		len = dbg->max_offset;
-		_sde_dump_reg((const char *)dbg->name, reg_dump_flag, addr,
-			len, &dbg->reg_dump, false);
+		_sde_dump_reg(dbg->name, reg_dump_flag, dbg->base, addr, len,
+				&dbg->reg_dump, false);
 	}
 }
 
@@ -2180,7 +2212,7 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 			reg_base_head)
 		if (strlen(reg_base->name) &&
 			!strcmp(reg_base->name, bus->cmn.name))
-			mem_base = reg_base->base;
+			mem_base = reg_base->base + bus->top_blk_off;
 
 	if (!mem_base) {
 		pr_err("unable to find mem_base for %s\n", bus->cmn.name);
@@ -2198,7 +2230,8 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 	if (!in_log && !in_mem)
 		return;
 
-	pr_info("======== start %s dump =========\n", bus->cmn.name);
+	dev_info(sde_dbg_base.dev, "======== start %s dump =========\n",
+			bus->cmn.name);
 
 	if (in_mem) {
 		if (!(*dump_mem))
@@ -2207,8 +2240,9 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 
 		if (*dump_mem) {
 			dump_addr = *dump_mem;
-			pr_info("%s: start_addr:0x%pK end_addr:0x%pK\n",
-				__func__, dump_addr, dump_addr + list_size);
+			dev_info(sde_dbg_base.dev,
+				"%s: start_addr:0x%pK len:0x%x\n",
+				__func__, dump_addr, list_size);
 		} else {
 			in_mem = false;
 			pr_err("dump_mem: allocation fails\n");
@@ -2230,9 +2264,10 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 		status = readl_relaxed(mem_base + offset);
 
 		if (in_log)
-			pr_err("waddr=0x%x blk=%d tst=%d val=0x%x\n",
-				head->wr_addr, head->block_id, head->test_id,
-				status);
+			dev_info(sde_dbg_base.dev,
+					"waddr=0x%x blk=%d tst=%d val=0x%x\n",
+					head->wr_addr, head->block_id,
+					head->test_id, status);
 
 		if (dump_addr && in_mem) {
 			dump_addr[i*4]     = head->wr_addr;
@@ -2247,7 +2282,8 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 	}
 	_sde_dbg_enable_power(false);
 
-	pr_info("======== end %s dump =========\n", bus->cmn.name);
+	dev_info(sde_dbg_base.dev, "======== end %s dump =========\n",
+			bus->cmn.name);
 }
 
 static void _sde_dbg_dump_vbif_debug_bus_entry(
@@ -2277,7 +2313,8 @@ static void _sde_dbg_dump_vbif_debug_bus_entry(
 				*dump_addr++ = val;
 			}
 			if (in_log)
-				pr_err("testpoint:%x arb/xin id=%d index=%d val=0x%x\n",
+				dev_info(sde_dbg_base.dev,
+					"testpoint:%x arb/xin id=%d index=%d val=0x%x\n",
 					head->block_bus_addr, i, j, val);
 		}
 	}
@@ -2316,7 +2353,8 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
 	list_size = bus->cmn.entries_size;
 	dump_mem = &bus->cmn.dumped_content;
 
-	pr_info("======== start %s dump =========\n", bus->cmn.name);
+	dev_info(sde_dbg_base.dev, "======== start %s dump =========\n",
+			bus->cmn.name);
 
 	if (!dump_mem || !dbg_bus || !bus_size || !list_size)
 		return;
@@ -2343,8 +2381,9 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
 
 		if (*dump_mem) {
 			dump_addr = *dump_mem;
-			pr_info("%s: start_addr:0x%pK end_addr:0x%pK\n",
-				__func__, dump_addr, dump_addr + list_size);
+			dev_info(sde_dbg_base.dev,
+				"%s: start_addr:0x%pK len:0x%x\n",
+				__func__, dump_addr, list_size);
 		} else {
 			in_mem = false;
 			pr_err("dump_mem: allocation fails\n");
@@ -2375,7 +2414,8 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
 
 	_sde_dbg_enable_power(false);
 
-	pr_info("======== end %s dump =========\n", bus->cmn.name);
+	dev_info(sde_dbg_base.dev, "======== end %s dump =========\n",
+			bus->cmn.name);
 }
 
 /**
@@ -3051,6 +3091,21 @@ void sde_dbg_reg_register_dump_range(const char *base_name,
 		return;
 	}
 
+	if (!range_name || strlen(range_name) == 0) {
+		pr_err("%pS: bad range name, base_name %s, offset_start 0x%X, end 0x%X\n",
+				__builtin_return_address(0), base_name,
+				offset_start, offset_end);
+		return;
+	}
+
+	if (offset_end - offset_start < REG_DUMP_ALIGN ||
+			offset_start > offset_end) {
+		pr_err("%pS: bad range, base_name %s, range_name %s, offset_start 0x%X, end 0x%X\n",
+				__builtin_return_address(0), base_name,
+				range_name, offset_start, offset_end);
+		return;
+	}
+
 	range = kzalloc(sizeof(*range), GFP_KERNEL);
 	if (!range)
 		return;
@@ -3061,6 +3116,12 @@ void sde_dbg_reg_register_dump_range(const char *base_name,
 	range->xin_id = xin_id;
 	list_add_tail(&range->head, &reg_base->sub_range_list);
 
-	pr_debug("%s start: 0x%X end: 0x%X\n", range->range_name,
+	pr_debug("base %s, range %s, start 0x%X, end 0x%X\n",
+			base_name, range->range_name,
 			range->offset.start, range->offset.end);
+}
+
+void sde_dbg_set_sde_top_offset(u32 blk_off)
+{
+	sde_dbg_base.dbgbus_sde.top_blk_off = blk_off;
 }

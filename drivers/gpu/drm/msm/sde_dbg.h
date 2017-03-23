@@ -258,6 +258,13 @@ void sde_dbg_reg_register_dump_range(const char *base_name,
 		uint32_t xin_id);
 
 /**
+ * sde_dbg_set_sde_top_offset - set the target specific offset from mdss base
+ *	address of the top registers. Used for accessing debug bus controls.
+ * @blk_off: offset from mdss base of the top block
+ */
+void sde_dbg_set_sde_top_offset(u32 blk_off);
+
+/**
  * sde_evtlog_set_filter - update evtlog filtering
  * @evtlog:	pointer to evtlog
  * @filter:     pointer to optional function name filter, set to NULL to disable
@@ -338,6 +345,10 @@ static inline int sde_dbg_reg_register_base(const char *name,
 static inline void sde_dbg_reg_register_dump_range(const char *base_name,
 		const char *range_name, u32 offset_start, u32 offset_end,
 		uint32_t xin_id)
+{
+}
+
+void sde_dbg_set_sde_top_offset(u32 blk_off)
 {
 }
 
