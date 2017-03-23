@@ -1646,38 +1646,31 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &enable;
 		break;
 	}
-	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE: {
-		struct v4l2_ctrl *air_mbs, *air_ref = NULL, *cir_mbs = NULL;
-		bool is_cont_intra_supported = false;
+	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE:
+	{
+		struct v4l2_ctrl *ir_mbs;
 
-		air_mbs = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_IR_MBS);
-
-		is_cont_intra_supported =
-		(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264) ||
-		(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC);
+		ir_mbs = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_IR_MBS);
 
 		property_id = HAL_PARAM_VENC_INTRA_REFRESH;
 
-		intra_refresh.mode = ctrl->val;
-		intra_refresh.air_mbs = air_mbs->val;
-		intra_refresh.air_ref = air_ref->val;
-		intra_refresh.cir_mbs = cir_mbs->val;
+		intra_refresh.mode   = ctrl->val;
+		intra_refresh.ir_mbs = ir_mbs->val;
 
 		pdata = &intra_refresh;
 		break;
 	}
-	case V4L2_CID_MPEG_VIDC_VIDEO_IR_MBS: {
-		struct v4l2_ctrl *ir_mode, *air_ref = NULL, *cir_mbs = NULL;
+	case V4L2_CID_MPEG_VIDC_VIDEO_IR_MBS:
+	{
+		struct v4l2_ctrl *ir_mode;
 
 		ir_mode = TRY_GET_CTRL(
 				V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE);
 
 		property_id = HAL_PARAM_VENC_INTRA_REFRESH;
 
-		intra_refresh.air_mbs = ctrl->val;
-		intra_refresh.mode = ir_mode->val;
-		intra_refresh.air_ref = air_ref->val;
-		intra_refresh.cir_mbs = cir_mbs->val;
+		intra_refresh.mode   = ir_mode->val;
+		intra_refresh.ir_mbs = ctrl->val;
 
 		pdata = &intra_refresh;
 		break;
