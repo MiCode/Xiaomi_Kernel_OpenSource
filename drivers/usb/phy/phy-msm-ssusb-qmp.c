@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -304,10 +304,6 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		phy->clk_enabled = true;
 	}
 
-	/* select usb3 phy mode */
-	if (phy->tcsr_usb3_dp_phymode)
-		writel_relaxed(0x0, phy->tcsr_usb3_dp_phymode);
-
 	writel_relaxed(0x01,
 		phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
 
@@ -382,6 +378,10 @@ static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
 		dev_err(uphy->dev, "phy_reset assert failed\n");
 		goto deassert_phy_phy_reset;
 	}
+
+	/* select usb3 phy mode */
+	if (phy->tcsr_usb3_dp_phymode)
+		writel_relaxed(0x0, phy->tcsr_usb3_dp_phymode);
 
 	/* Deassert USB3 PHY CSR reset */
 	ret = reset_control_deassert(phy->phy_reset);
