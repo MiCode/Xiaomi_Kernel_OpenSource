@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1926,6 +1926,19 @@ static bool wcd934x_is_volatile_register(struct device *dev, unsigned int reg)
 	case WCD934X_ANA_MBHC_ELECT:
 	case WCD934X_ANA_MBHC_ZDET:
 	case WCD934X_ANA_MICB2:
+	case WCD934X_CODEC_RPM_CLK_MCLK_CFG:
+	case WCD934X_CLK_SYS_MCLK_PRG:
+	case WCD934X_CHIP_TIER_CTRL_EFUSE_CTL:
+	case WCD934X_ANA_BIAS:
+	case WCD934X_ANA_BUCK_CTL:
+	case WCD934X_ANA_RCO:
+	case WCD934X_CDC_CLK_RST_CTRL_MCLK_CONTROL:
+	case WCD934X_CODEC_RPM_CLK_GATE:
+	case WCD934X_BIAS_VBG_FINE_ADJ:
+	case WCD934X_CODEC_CPR_SVS_CX_VDD:
+	case WCD934X_CODEC_CPR_SVS2_CX_VDD:
+	case WCD934X_CDC_TOP_TOP_CFG1:
+	case WCD934X_CDC_CLK_RST_CTRL_FS_CNT_CONTROL:
 		return true;
 	}
 
