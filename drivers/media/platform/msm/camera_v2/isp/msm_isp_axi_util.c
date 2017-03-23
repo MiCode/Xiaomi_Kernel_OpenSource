@@ -3339,27 +3339,40 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	}
 
 	frame_src = SRC_TO_INTF(stream_info->stream_src);
+	pingpong_status = vfe_dev->hw_info->
+		vfe_ops.axi_ops.get_pingpong_status(vfe_dev);
 	/*
 	 * If PIX stream is active then RDI path uses SOF frame ID of PIX
 	 * In case of standalone RDI streaming, SOF are used from
 	 * individual intf.
 	 */
-	if (((vfe_dev->axi_data.src_info[VFE_PIX_0].active) && (frame_id <=
-		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id)) ||
-		((!vfe_dev->axi_data.src_info[VFE_PIX_0].active) && (frame_id <=
-		vfe_dev->axi_data.src_info[frame_src].frame_id)) ||
-		stream_info->undelivered_request_cnt >= MAX_BUFFERS_IN_HW) {
-		pr_debug("%s:%d invalid request_frame %d cur frame id %d pix %d\n",
+	/*
+	 * If frame_id = 1 then no eof check is needed
+	 */
+	if (vfe_dev->axi_data.src_info[VFE_PIX_0].active &&
+		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame == false) {
+		pr_debug("%s:%d invalid time to request frame %d\n",
+			__func__, __LINE__, frame_id);
+		goto error;
+	}
+	if ((vfe_dev->axi_data.src_info[VFE_PIX_0].active && (frame_id !=
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id + vfe_dev->
+		axi_data.src_info[VFE_PIX_0].sof_counter_step)) ||
+		((!vfe_dev->axi_data.src_info[VFE_PIX_0].active) && (frame_id !=
+		vfe_dev->axi_data.src_info[frame_src].frame_id + vfe_dev->
+		axi_data.src_info[frame_src].sof_counter_step))) {
+		pr_debug("%s:%d invalid frame id %d cur frame id %d pix %d\n",
 			__func__, __LINE__, frame_id,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].active);
-
-		rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
-			user_stream_id, frame_id, buf_index, frame_src);
-		if (rc < 0)
-			pr_err("%s:%d failed: return_empty_buffer src %d\n",
-				__func__, __LINE__, frame_src);
-		return 0;
+		goto error;
+	}
+	if (stream_info->undelivered_request_cnt >= MAX_BUFFERS_IN_HW) {
+		pr_debug("%s:%d invalid undelivered_request_cnt %d frame id %d\n",
+			__func__, __LINE__,
+			stream_info->undelivered_request_cnt,
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+		goto error;
 	}
 	if ((frame_src == VFE_PIX_0) && !stream_info->undelivered_request_cnt &&
 		MSM_VFE_STREAM_STOP_PERIOD !=
@@ -3439,9 +3452,6 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		}
 		stream_info->sw_ping_pong_bit = 0;
 	} else if (stream_info->undelivered_request_cnt == 2) {
-		pingpong_status =
-			vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(
-				vfe_dev);
 		rc = msm_isp_cfg_ping_pong_address(
 				stream_info, pingpong_status);
 		if (rc) {
@@ -3467,6 +3477,14 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	spin_unlock_irqrestore(&stream_info->lock, flags);
 
 	return rc;
+error:
+	rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
+		user_stream_id, frame_id, buf_index, frame_src);
+	if (rc < 0)
+		pr_err("%s:%d failed: return_empty_buffer src %d\n",
+		__func__, __LINE__, frame_src);
+	return 0;
+
 }
 
 static int msm_isp_add_buf_queue(struct vfe_device *vfe_dev,

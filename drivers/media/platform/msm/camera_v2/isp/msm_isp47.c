@@ -685,6 +685,15 @@ void msm_vfe47_process_epoch_irq(struct vfe_device *vfe_dev,
 	}
 }
 
+void msm_isp47_preprocess_camif_irq(struct vfe_device *vfe_dev,
+	uint32_t irq_status0)
+{
+	if (irq_status0 & BIT(1))
+		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = false;
+	if (irq_status0 & BIT(0))
+		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = true;
+}
+
 void msm_vfe47_reg_update(struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src frame_src)
 {
@@ -2915,6 +2924,7 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.process_epoch_irq = msm_vfe47_process_epoch_irq,
 			.config_irq = msm_vfe47_config_irq,
 			.read_irq_status = msm_vfe47_read_irq_status,
+			.preprocess_camif_irq = msm_isp47_preprocess_camif_irq,
 		},
 		.axi_ops = {
 			.reload_wm = msm_vfe47_axi_reload_wm,
