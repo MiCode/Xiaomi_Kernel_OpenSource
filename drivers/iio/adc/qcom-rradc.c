@@ -163,11 +163,6 @@
 #define FG_ADC_RR_DIE_TEMP_SLOPE		2
 #define FG_ADC_RR_DIE_TEMP_OFFSET_MILLI_DEGC	25000
 
-#define FAB_ID_GF				0x30
-#define FAB_ID_SMIC				0x11
-#define FAB_ID_660_GF				0x0
-#define FAB_ID_660_TSMC				0x2
-#define FAB_ID_660_MX				0x3
 #define FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV		1303168
 #define FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C	3784
 #define FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV	1338433
@@ -401,11 +396,11 @@ static int rradc_get_660_fab_coeff(struct rradc_chip *chip,
 		int64_t *offset, int64_t *slope)
 {
 	switch (chip->pmic_fab_id->fab_id) {
-	case FAB_ID_660_GF:
+	case PM660_FAB_ID_GF:
 		*offset = FG_ADC_RR_CHG_TEMP_660_GF_OFFSET_UV;
 		*slope = FG_RR_CHG_TEMP_660_GF_SLOPE_UV_PER_C;
 		break;
-	case FAB_ID_660_TSMC:
+	case PM660_FAB_ID_TSMC:
 		*offset = FG_ADC_RR_CHG_TEMP_660_SMIC_OFFSET_UV;
 		*slope = FG_RR_CHG_TEMP_660_SMIC_SLOPE_UV_PER_C;
 		break;
@@ -421,11 +416,11 @@ static int rradc_get_8998_fab_coeff(struct rradc_chip *chip,
 		int64_t *offset, int64_t *slope)
 {
 	switch (chip->pmic_fab_id->fab_id) {
-	case FAB_ID_GF:
+	case PMI8998_FAB_ID_GF:
 		*offset = FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV;
 		*slope = FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C;
 		break;
-	case FAB_ID_SMIC:
+	case PMI8998_FAB_ID_SMIC:
 		*offset = FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV;
 		*slope = FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C;
 		break;
