@@ -1132,8 +1132,7 @@ static void setup_32bit_pagetable(struct kgsl_mmu *mmu,
 			pt->va_end = KGSL_IOMMU_SECURE_END;
 		} else {
 			pt->va_start = KGSL_IOMMU_SVM_BASE32;
-			pt->va_end = KGSL_IOMMU_SECURE_BASE +
-						secure_global_size;
+			pt->va_end = KGSL_IOMMU_SECURE_BASE;
 			pt->compat_va_start = pt->va_start;
 			pt->compat_va_end = pt->va_end;
 		}
