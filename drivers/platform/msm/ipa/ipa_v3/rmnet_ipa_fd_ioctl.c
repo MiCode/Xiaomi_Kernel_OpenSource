@@ -134,6 +134,34 @@ static long ipa3_wan_ioctl(struct file *filp,
 		}
 		break;
 
+		case WAN_IOC_ADD_UL_FLT_RULE:
+		IPAWANDBG("device %s got WAN_IOC_UL_ADD_FLT_RULE :>>>\n",
+		DRIVER_NAME);
+		pyld_sz =
+		sizeof(struct ipa_configure_ul_firewall_rules_req_msg_v01);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (const void __user *)arg,
+				pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa3_qmi_ul_filter_request_send(
+			(struct ipa_configure_ul_firewall_rules_req_msg_v01 *)
+			param)) {
+			IPAWANDBG("IPACM->Q6 add ul filter rule failed\n");
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((void __user *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
 	case WAN_IOC_ADD_FLT_RULE_INDEX:
 		IPAWANDBG("device %s got WAN_IOC_ADD_FLT_RULE_INDEX :>>>\n",
 		DRIVER_NAME);
