@@ -929,6 +929,13 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 {
 	int intfs_num, ret = 0;
 
+	if (ctl->cdm) {
+		if (!mdss_mdp_cdm_destroy(ctl->cdm))
+			mdss_mdp_ctl_write(ctl,
+				MDSS_MDP_REG_CTL_FLUSH, BIT(26));
+		ctl->cdm = NULL;
+	}
+
 	intfs_num = ctl->intf_num - MDSS_MDP_INTF0;
 	ret = mdss_mdp_video_intfs_stop(ctl, ctl->panel_data, intfs_num);
 	if (IS_ERR_VALUE((unsigned long)ret)) {
@@ -941,10 +948,6 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	mdss_mdp_ctl_reset(ctl, false);
 	ctl->intf_ctx[MASTER_CTX] = NULL;
 
-	if (ctl->cdm) {
-		mdss_mdp_cdm_destroy(ctl->cdm);
-		ctl->cdm = NULL;
-	}
 	return 0;
 }
 
