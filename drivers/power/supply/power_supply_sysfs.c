@@ -45,19 +45,22 @@ static ssize_t power_supply_show_property(struct device *dev,
 					  char *buf) {
 	static char *type_text[] = {
 		"Unknown", "Battery", "UPS", "Mains", "USB",
-		"USB_DCP", "USB_CDP", "USB_ACA", "USB_C",
-		"USB_PD", "USB_PD_DRP"
+		"USB_DCP", "USB_CDP", "USB_ACA",
+		"USB_HVDCP", "USB_HVDCP_3", "Wireless", "BMS", "USB_Parallel",
+		"Wipower", "TYPEC", "TYPEC_UFP", "TYPEC_DFP"
 	};
 	static char *status_text[] = {
 		"Unknown", "Charging", "Discharging", "Not charging", "Full"
 	};
 	static char *charge_type[] = {
-		"Unknown", "N/A", "Trickle", "Fast"
+		"Unknown", "N/A", "Trickle", "Fast",
+		"Taper"
 	};
 	static char *health_text[] = {
 		"Unknown", "Good", "Overheat", "Dead", "Over voltage",
 		"Unspecified failure", "Cold", "Watchdog timer expire",
-		"Safety timer expire"
+		"Safety timer expire",
+		"Warm", "Cool"
 	};
 	static char *technology_text[] = {
 		"Unknown", "NiMH", "Li-ion", "Li-poly", "LiFe", "NiCd",
@@ -102,30 +105,42 @@ static ssize_t power_supply_show_property(struct device *dev,
 	}
 
 	if (off == POWER_SUPPLY_PROP_STATUS)
-		return sprintf(buf, "%s\n", status_text[value.intval]);
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				status_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_CHARGE_TYPE)
-		return sprintf(buf, "%s\n", charge_type[value.intval]);
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				charge_type[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_HEALTH)
-		return sprintf(buf, "%s\n", health_text[value.intval]);
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				health_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_TECHNOLOGY)
-		return sprintf(buf, "%s\n", technology_text[value.intval]);
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				technology_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_CAPACITY_LEVEL)
-		return sprintf(buf, "%s\n", capacity_level_text[value.intval]);
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				capacity_level_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_TYPE)
-		return sprintf(buf, "%s\n", type_text[value.intval]);
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				type_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_SCOPE)
-		return sprintf(buf, "%s\n", scope_text[value.intval]);
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				scope_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_TYPEC_MODE)
-		return sprintf(buf, "%s\n", typec_text[value.intval]);
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				typec_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_TYPEC_POWER_ROLE)
-		return sprintf(buf, "%s\n", typec_pr_text[value.intval]);
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				typec_pr_text[value.intval]);
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
-		return sprintf(buf, "%s\n", value.strval);
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				value.strval);
 
 	if (off == POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT)
-		return sprintf(buf, "%lld\n", value.int64val);
+		return scnprintf(buf, PAGE_SIZE, "%lld\n",
+				value.int64val);
 	else
-		return sprintf(buf, "%d\n", value.intval);
+		return scnprintf(buf, PAGE_SIZE, "%d\n",
+				value.intval);
 }
 
 static ssize_t power_supply_store_property(struct device *dev,
@@ -181,6 +196,8 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(charge_full),
 	POWER_SUPPLY_ATTR(charge_empty),
 	POWER_SUPPLY_ATTR(charge_now),
+	POWER_SUPPLY_ATTR(charge_now_raw),
+	POWER_SUPPLY_ATTR(charge_now_error),
 	POWER_SUPPLY_ATTR(charge_avg),
 	POWER_SUPPLY_ATTR(charge_counter),
 	POWER_SUPPLY_ATTR(constant_charge_current),
@@ -200,6 +217,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(capacity_alert_min),
 	POWER_SUPPLY_ATTR(capacity_alert_max),
 	POWER_SUPPLY_ATTR(capacity_level),
+	POWER_SUPPLY_ATTR(capacity_raw),
 	POWER_SUPPLY_ATTR(temp),
 	POWER_SUPPLY_ATTR(temp_max),
 	POWER_SUPPLY_ATTR(temp_min),
@@ -216,11 +234,44 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(scope),
 	POWER_SUPPLY_ATTR(charge_term_current),
 	POWER_SUPPLY_ATTR(calibrate),
-	POWER_SUPPLY_ATTR(resistance),
 	/* Local extensions */
 	POWER_SUPPLY_ATTR(usb_hc),
 	POWER_SUPPLY_ATTR(usb_otg),
-	POWER_SUPPLY_ATTR(charge_enabled),
+	POWER_SUPPLY_ATTR(battery_charging_enabled),
+	POWER_SUPPLY_ATTR(charging_enabled),
+	POWER_SUPPLY_ATTR(input_voltage_regulation),
+	POWER_SUPPLY_ATTR(input_current_max),
+	POWER_SUPPLY_ATTR(input_current_trim),
+	POWER_SUPPLY_ATTR(input_current_settled),
+	POWER_SUPPLY_ATTR(bypass_vchg_loop_debouncer),
+	POWER_SUPPLY_ATTR(charge_counter_shadow),
+	POWER_SUPPLY_ATTR(hi_power),
+	POWER_SUPPLY_ATTR(low_power),
+	POWER_SUPPLY_ATTR(temp_cool),
+	POWER_SUPPLY_ATTR(temp_warm),
+	POWER_SUPPLY_ATTR(system_temp_level),
+	POWER_SUPPLY_ATTR(resistance),
+	POWER_SUPPLY_ATTR(resistance_capacitive),
+	POWER_SUPPLY_ATTR(resistance_id),
+	POWER_SUPPLY_ATTR(resistance_now),
+	POWER_SUPPLY_ATTR(flash_current_max),
+	POWER_SUPPLY_ATTR(update_now),
+	POWER_SUPPLY_ATTR(esr_count),
+	POWER_SUPPLY_ATTR(buck_freq),
+	POWER_SUPPLY_ATTR(boost_current),
+	POWER_SUPPLY_ATTR(safety_timer_enabled),
+	POWER_SUPPLY_ATTR(charge_done),
+	POWER_SUPPLY_ATTR(flash_active),
+	POWER_SUPPLY_ATTR(flash_trigger),
+	POWER_SUPPLY_ATTR(force_tlim),
+	POWER_SUPPLY_ATTR(dp_dm),
+	POWER_SUPPLY_ATTR(input_current_limited),
+	POWER_SUPPLY_ATTR(input_current_now),
+	POWER_SUPPLY_ATTR(rerun_aicl),
+	POWER_SUPPLY_ATTR(cycle_count_id),
+	POWER_SUPPLY_ATTR(safety_timer_expired),
+	POWER_SUPPLY_ATTR(restricted_charging),
+	POWER_SUPPLY_ATTR(current_capability),
 	POWER_SUPPLY_ATTR(typec_mode),
 	POWER_SUPPLY_ATTR(typec_cc_orientation),
 	POWER_SUPPLY_ATTR(typec_power_role),
@@ -231,14 +282,14 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(pd_usb_suspend_supported),
 	POWER_SUPPLY_ATTR(pe_start),
 	POWER_SUPPLY_ATTR(set_ship_mode),
-	POWER_SUPPLY_ATTR(boost_current),
-	POWER_SUPPLY_ATTR(force_tlim),
+	POWER_SUPPLY_ATTR(soc_reporting_ready),
+	POWER_SUPPLY_ATTR(debug_battery),
 	/* Local extensions of type int64_t */
-	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */
 	POWER_SUPPLY_ATTR(model_name),
 	POWER_SUPPLY_ATTR(manufacturer),
 	POWER_SUPPLY_ATTR(serial_number),
+	POWER_SUPPLY_ATTR(battery_type),
 };
 
 static struct attribute *
