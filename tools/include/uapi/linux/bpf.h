@@ -466,6 +466,14 @@ enum bpf_func_id {
 	 */
 	BPF_FUNC_get_socket_cookie,
 
+	/**
+	 * u32 bpf_get_socket_uid(skb)
+	 *     Get the owner uid of the socket stored inside sk_buff.
+	 *     @skb: pointer to skb
+	 *     Return: uid of the socket owner on success or overflowuid if failed.
+	 */
+	BPF_FUNC_get_socket_uid,
+
 	__BPF_FUNC_MAX_ID,
 };
 
