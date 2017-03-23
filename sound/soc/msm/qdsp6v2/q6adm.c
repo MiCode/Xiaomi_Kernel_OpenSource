@@ -2463,6 +2463,7 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 				pr_err("%s: DTS_EAGLE mmap did not work!",
 					__func__);
 		}
+		memset(&open, 0, sizeof(struct adm_cmd_device_open_v5));
 		open.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 						   APR_HDR_LEN(APR_HDR_SIZE),
 						   APR_PKT_VER);
@@ -2506,6 +2507,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 
 		if ((this_adm.num_ec_ref_rx_chans != 0) && (path != 1) &&
 			(open.endpoint_id_2 != 0xFFFF)) {
+			memset(&open_v6, 0,
+				sizeof(struct adm_cmd_device_open_v6));
 			memcpy(&open_v6, &open,
 				sizeof(struct adm_cmd_device_open_v5));
 			open_v6.hdr.opcode = ADM_CMD_DEVICE_OPEN_V6;
