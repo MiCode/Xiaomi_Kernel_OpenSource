@@ -798,11 +798,13 @@ int wcd934x_bringup(struct wcd9xxx *wcd9xxx)
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_RST_CTL, 0x01);
 	regmap_write(wcd_regmap, WCD934X_SIDO_NEW_VOUT_A_STARTUP, 0x19);
 	regmap_write(wcd_regmap, WCD934X_SIDO_NEW_VOUT_D_STARTUP, 0x15);
+	/* Add 1msec delay for VOUT to settle */
+	usleep_range(1000, 1100);
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x5);
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
-	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_RST_CTL, 0x3);
 	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_RST_CTL, 0x7);
+	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
 
 	return 0;
 }
@@ -8277,6 +8279,9 @@ static int __tavil_cdc_mclk_enable(struct tavil_priv *tavil,
 
 	WCD9XXX_V2_BG_CLK_LOCK(tavil->resmgr);
 	ret = __tavil_cdc_mclk_enable_locked(tavil, enable);
+	if (enable)
+		wcd_resmgr_set_sido_input_src(tavil->resmgr,
+						     SIDO_SOURCE_RCO_BG);
 	WCD9XXX_V2_BG_CLK_UNLOCK(tavil->resmgr);
 
 	return ret;
@@ -8415,6 +8420,8 @@ static int __tavil_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 					__func__, ret);
 				goto done;
 			}
+			wcd_resmgr_set_sido_input_src(tavil->resmgr,
+							SIDO_SOURCE_RCO_BG);
 			ret = wcd_resmgr_enable_clk_block(tavil->resmgr,
 							   WCD_CLK_RCO);
 			ret |= tavil_cdc_req_mclk_enable(tavil, false);
@@ -9817,18 +9824,23 @@ static int __tavil_enable_efuse_sensing(struct tavil_priv *tavil)
 {
 	int val, rc;
 
-	__tavil_cdc_mclk_enable(tavil, true);
+	WCD9XXX_V2_BG_CLK_LOCK(tavil->resmgr);
+	__tavil_cdc_mclk_enable_locked(tavil, true);
 
 	regmap_update_bits(tavil->wcd9xxx->regmap,
 			WCD934X_CHIP_TIER_CTRL_EFUSE_CTL, 0x1E, 0x10);
 	regmap_update_bits(tavil->wcd9xxx->regmap,
 			WCD934X_CHIP_TIER_CTRL_EFUSE_CTL, 0x01, 0x01);
-
 	/*
 	 * 5ms sleep required after enabling efuse control
 	 * before checking the status.
 	 */
 	usleep_range(5000, 5500);
+	wcd_resmgr_set_sido_input_src(tavil->resmgr,
+					     SIDO_SOURCE_RCO_BG);
+
+	WCD9XXX_V2_BG_CLK_UNLOCK(tavil->resmgr);
+
 	rc = regmap_read(tavil->wcd9xxx->regmap,
 			 WCD934X_CHIP_TIER_CTRL_EFUSE_STATUS, &val);
 	if (rc || (!(val & 0x01)))
