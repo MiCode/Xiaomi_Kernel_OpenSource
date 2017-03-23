@@ -115,6 +115,44 @@ static LIST_HEAD(subsystem_list);
 static atomic_t responses_remaining = ATOMIC_INIT(0);
 static wait_queue_head_t waitqueue;
 
+/**
+ * cb_data_release() - Free cb_data and set to NULL
+ * @kref_ptr:	pointer to kref.
+ *
+ * This function releses cb_data.
+ */
+static inline void cb_data_release(struct kref *kref_ptr)
+{
+	struct ssr_notify_data *cb_data;
+
+	cb_data = container_of(kref_ptr, struct ssr_notify_data, cb_kref);
+	kfree(cb_data);
+}
+
+/**
+ * check_and_get_cb_data() - Try to get reference to kref of cb_data
+ * @ss_info:	pointer to subsystem info structure.
+ *
+ * Return: NULL is cb_data is NULL, pointer to cb_data otherwise
+ */
+static struct ssr_notify_data *check_and_get_cb_data(
+					struct subsys_info *ss_info)
+{
+	struct ssr_notify_data *cb_data;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ss_info->cb_lock, flags);
+	if (ss_info->cb_data == NULL) {
+		GLINK_SSR_LOG("<SSR> %s: cb_data is NULL\n", __func__);
+		spin_unlock_irqrestore(&ss_info->cb_lock, flags);
+		return 0;
+	}
+	kref_get(&ss_info->cb_data->cb_kref);
+	cb_data = ss_info->cb_data;
+	spin_unlock_irqrestore(&ss_info->cb_lock, flags);
+	return cb_data;
+}
+
 static void rx_done_cb_worker(struct work_struct *work)
 {
 	struct rx_done_ch_work *rx_done_work =
@@ -338,8 +376,10 @@ void close_ch_worker(struct work_struct *work)
 		ss_info->link_state_handle = link_state_handle;
 
 	BUG_ON(!ss_info->cb_data);
-	kfree(ss_info->cb_data);
+	spin_lock_irqsave(&ss_info->cb_lock, flags);
+	kref_put(&ss_info->cb_data->cb_kref, cb_data_release);
 	ss_info->cb_data = NULL;
+	spin_unlock_irqrestore(&ss_info->cb_lock, flags);
 	kfree(close_work);
 }
 
@@ -507,13 +547,18 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 			return -ENODEV;
 		}
 		handle = ss_info_channel->handle;
-		ss_leaf_entry->cb_data = ss_info_channel->cb_data;
+		ss_leaf_entry->cb_data = check_and_get_cb_data(
+							ss_info_channel);
+		if (!ss_leaf_entry->cb_data) {
+			GLINK_SSR_LOG("<SSR> %s: CB data is NULL\n", __func__);
+			atomic_dec(&responses_remaining);
+			continue;
+		}
 
 		spin_lock_irqsave(&ss_info->link_up_lock, flags);
 		if (IS_ERR_OR_NULL(ss_info_channel->handle) ||
-				!ss_info_channel->cb_data ||
 				!ss_info_channel->link_up ||
-				ss_info_channel->cb_data->event
+				ss_leaf_entry->cb_data->event
 						!= GLINK_CONNECTED) {
 
 			GLINK_SSR_LOG(
@@ -526,6 +571,8 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 
 			spin_unlock_irqrestore(&ss_info->link_up_lock, flags);
 			atomic_dec(&responses_remaining);
+			kref_put(&ss_leaf_entry->cb_data->cb_kref,
+							cb_data_release);
 			continue;
 		}
 		spin_unlock_irqrestore(&ss_info->link_up_lock, flags);
@@ -536,6 +583,8 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 			GLINK_SSR_ERR(
 				"%s %s: Could not allocate do_cleanup_msg\n",
 				"<SSR>", __func__);
+			kref_put(&ss_leaf_entry->cb_data->cb_kref,
+							cb_data_release);
 			return -ENOMEM;
 		}
 
@@ -567,6 +616,8 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 						__func__);
 			}
 			atomic_dec(&responses_remaining);
+			kref_put(&ss_leaf_entry->cb_data->cb_kref,
+							cb_data_release);
 			continue;
 		}
 
@@ -596,10 +647,12 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 						__func__);
 			}
 			atomic_dec(&responses_remaining);
+			kref_put(&ss_leaf_entry->cb_data->cb_kref,
+							cb_data_release);
 			continue;
 		}
-
 		sequence_number++;
+		kref_put(&ss_leaf_entry->cb_data->cb_kref, cb_data_release);
 	}
 
 	wait_ret = wait_event_timeout(waitqueue,
@@ -608,6 +661,21 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 
 	list_for_each_entry(ss_leaf_entry, &ss_info->notify_list,
 			notify_list_node) {
+		ss_info_channel =
+			get_info_for_subsystem(ss_leaf_entry->ssr_name);
+		if (ss_info_channel == NULL) {
+			GLINK_SSR_ERR(
+				"<SSR> %s: unable to find subsystem name\n",
+					__func__);
+			continue;
+		}
+
+		ss_leaf_entry->cb_data = check_and_get_cb_data(
+							ss_info_channel);
+		if (!ss_leaf_entry->cb_data) {
+			GLINK_SSR_LOG("<SSR> %s: CB data is NULL\n", __func__);
+			continue;
+		}
 		if (!wait_ret && !IS_ERR_OR_NULL(ss_leaf_entry->cb_data)
 				&& !ss_leaf_entry->cb_data->responded) {
 			GLINK_SSR_ERR("%s %s: Subsystem %s %s\n",
@@ -626,6 +694,7 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 
 		if (!IS_ERR_OR_NULL(ss_leaf_entry->cb_data))
 			ss_leaf_entry->cb_data->responded = false;
+		kref_put(&ss_leaf_entry->cb_data->cb_kref, cb_data_release);
 	}
 	complete(&notifications_successful_complete);
 	return 0;
@@ -644,6 +713,7 @@ static int configure_and_open_channel(struct subsys_info *ss_info)
 	struct glink_open_config open_cfg;
 	struct ssr_notify_data *cb_data = NULL;
 	void *handle = NULL;
+	unsigned long flags;
 
 	if (!ss_info) {
 		GLINK_SSR_ERR("<SSR> %s: ss_info structure invalid\n",
@@ -660,7 +730,10 @@ static int configure_and_open_channel(struct subsys_info *ss_info)
 	cb_data->responded = false;
 	cb_data->event = GLINK_SSR_EVENT_INIT;
 	cb_data->edge = ss_info->edge;
+	spin_lock_irqsave(&ss_info->cb_lock, flags);
 	ss_info->cb_data = cb_data;
+	kref_init(&cb_data->cb_kref);
+	spin_unlock_irqrestore(&ss_info->cb_lock, flags);
 
 	memset(&open_cfg, 0, sizeof(struct glink_open_config));
 
@@ -876,6 +949,7 @@ static int glink_ssr_probe(struct platform_device *pdev)
 	ss_info->link_state_handle = NULL;
 	ss_info->cb_data = NULL;
 	spin_lock_init(&ss_info->link_up_lock);
+	spin_lock_init(&ss_info->cb_lock);
 
 	nb = kmalloc(sizeof(struct restart_notifier_block), GFP_KERNEL);
 	if (!nb) {
