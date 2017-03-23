@@ -118,9 +118,11 @@
 
 	qusb_phy: qusb@79000 {
 		compatible = "qcom,qusb2phy-v2";
-		reg = <0x79000 0x400>;
-		reg-names = "qusb_phy_base";
-		qcom,efuse-bit-pos = <16>;
+		reg = <0x79000 0x400>,
+		      <0xa4154 0x4>;
+		reg-names = "qusb_phy_base",
+			    "efuse_addr";
+		qcom,efuse-bit-pos = <24>;
 		qcom,efuse-num-bits = <4>;
 		vdd-supply = <&pmd9650_l4>;
 		vdda18-supply = <&pmd9650_l5>;
