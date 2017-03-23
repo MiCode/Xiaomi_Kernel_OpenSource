@@ -48,6 +48,10 @@ static int fg_config_access_mode(struct fg_chip *chip, bool access, bool burst)
 	int rc;
 	u8 intf_ctl = 0;
 
+	fg_dbg(chip, FG_SRAM_READ | FG_SRAM_WRITE, "access: %d burst: %d\n",
+		access, burst);
+
+	WARN_ON(burst && chip->use_ima_single_mode);
 	intf_ctl = ((access == FG_WRITE) ? IMA_WR_EN_BIT : 0) |
 			(burst ? MEM_ACS_BURST_BIT : 0);
 
@@ -293,7 +297,9 @@ static int fg_check_iacs_ready(struct fg_chip *chip)
 		/* check for error condition */
 		rc = fg_clear_ima_errors_if_any(chip, false);
 		if (rc < 0) {
-			pr_err("Failed to check for ima errors rc=%d\n", rc);
+			if (rc != -EAGAIN)
+				pr_err("Failed to check for ima errors rc=%d\n",
+					rc);
 			return rc;
 		}
 
@@ -357,13 +363,27 @@ static int __fg_interleaved_mem_write(struct fg_chip *chip, u16 address,
 		/* check for error condition */
 		rc = fg_clear_ima_errors_if_any(chip, false);
 		if (rc < 0) {
-			pr_err("Failed to check for ima errors rc=%d\n", rc);
+			if (rc == -EAGAIN)
+				pr_err("IMA error cleared, address [%d %d] len %d\n",
+					address, offset, len);
+			else
+				pr_err("Failed to check for ima errors rc=%d\n",
+					rc);
 			return rc;
 		}
 
 		ptr += num_bytes;
 		len -= num_bytes;
 		offset = byte_enable = 0;
+
+		if (chip->use_ima_single_mode && len) {
+			address++;
+			rc = fg_set_address(chip, address);
+			if (rc < 0) {
+				pr_err("failed to set address rc = %d\n", rc);
+				return rc;
+			}
+		}
 
 		rc = fg_check_iacs_ready(chip);
 		if (rc < 0) {
@@ -403,22 +423,40 @@ static int __fg_interleaved_mem_read(struct fg_chip *chip, u16 address,
 		/* check for error condition */
 		rc = fg_clear_ima_errors_if_any(chip, false);
 		if (rc < 0) {
-			pr_err("Failed to check for ima errors rc=%d\n", rc);
+			if (rc == -EAGAIN)
+				pr_err("IMA error cleared, address [%d %d] len %d\n",
+					address, offset, len);
+			else
+				pr_err("Failed to check for ima errors rc=%d\n",
+					rc);
 			return rc;
 		}
 
-		if (len && len < BYTES_PER_SRAM_WORD) {
-			/*
-			 * Move to single mode. Changing address is not
-			 * required here as it must be in burst mode. Address
-			 * will get incremented internally by FG HW once the MSB
-			 * of RD_DATA is read.
-			 */
-			rc = fg_config_access_mode(chip, FG_READ, 0);
-			if (rc < 0) {
-				pr_err("failed to move to single mode rc=%d\n",
-					rc);
-				return -EIO;
+		if (chip->use_ima_single_mode) {
+			if (len) {
+				address++;
+				rc = fg_set_address(chip, address);
+				if (rc < 0) {
+					pr_err("failed to set address rc = %d\n",
+						rc);
+					return rc;
+				}
+			}
+		} else {
+			if (len && len < BYTES_PER_SRAM_WORD) {
+				/*
+				 * Move to single mode. Changing address is not
+				 * required here as it must be in burst mode.
+				 * Address will get incremented internally by FG
+				 * HW once the MSB of RD_DATA is read.
+				 */
+				rc = fg_config_access_mode(chip, FG_READ,
+								false);
+				if (rc < 0) {
+					pr_err("failed to move to single mode rc=%d\n",
+						rc);
+					return -EIO;
+				}
 			}
 		}
 
@@ -489,6 +527,7 @@ static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 		u16 address, int offset, int len, bool access)
 {
 	int rc = 0;
+	bool burst_mode = false;
 
 	if (!is_mem_access_available(chip, access))
 		return -EBUSY;
@@ -503,7 +542,8 @@ static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 	}
 
 	/* configure for the read/write, single/burst mode */
-	rc = fg_config_access_mode(chip, access, (offset + len) > 4);
+	burst_mode = chip->use_ima_single_mode ? false : ((offset + len) > 4);
+	rc = fg_config_access_mode(chip, access, burst_mode);
 	if (rc < 0) {
 		pr_err("failed to set memory access rc = %d\n", rc);
 		return rc;
@@ -583,7 +623,7 @@ retry:
 	if (rc < 0) {
 		count++;
 		if (rc == -EAGAIN) {
-			pr_err("IMA access failed retry_count = %d\n", count);
+			pr_err("IMA read failed retry_count = %d\n", count);
 			goto retry;
 		}
 		pr_err("failed to read SRAM address rc = %d\n", rc);
@@ -667,8 +707,8 @@ retry:
 	rc = __fg_interleaved_mem_write(chip, address, offset, val, len);
 	if (rc < 0) {
 		count++;
-		if ((rc == -EAGAIN) && (count < RETRY_COUNT)) {
-			pr_err("IMA access failed retry_count = %d\n", count);
+		if (rc == -EAGAIN) {
+			pr_err("IMA write failed retry_count = %d\n", count);
 			goto retry;
 		}
 		pr_err("failed to write SRAM address rc = %d\n", rc);
