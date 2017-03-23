@@ -1661,12 +1661,15 @@ static int msm_sdw_notifier_service_cb(struct notifier_block *nb,
 						    service_nb);
 	bool adsp_ready = false;
 	unsigned long timeout;
+	static bool initial_boot = true;
 
 	pr_debug("%s: Service opcode 0x%lx\n", __func__, opcode);
 
 	mutex_lock(&msm_sdw->codec_mutex);
 	switch (opcode) {
 	case AUDIO_NOTIFIER_SERVICE_DOWN:
+		if (initial_boot)
+			break;
 		msm_sdw->int_mclk1_enabled = false;
 		msm_sdw->dev_up = false;
 		for (i = 0; i < msm_sdw->nr; i++)
@@ -1674,6 +1677,8 @@ static int msm_sdw_notifier_service_cb(struct notifier_block *nb,
 					SWR_DEVICE_DOWN, NULL);
 		break;
 	case AUDIO_NOTIFIER_SERVICE_UP:
+		if (initial_boot)
+			initial_boot = false;
 		if (!q6core_is_adsp_ready()) {
 			dev_dbg(msm_sdw->dev, "ADSP isn't ready\n");
 			timeout = jiffies +
