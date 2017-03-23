@@ -13,6 +13,7 @@
 #define pr_fmt(fmt) "QCOM-BATT: %s: " fmt, __func__
 
 #include <linux/device.h>
+#include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
@@ -36,6 +37,7 @@
 #define PL_HW_ABSENT_VOTER		"PL_HW_ABSENT_VOTER"
 #define PL_VOTER			"PL_VOTER"
 #define RESTRICT_CHG_VOTER		"RESTRICT_CHG_VOTER"
+#define ICL_CHANGE_VOTER		"ICL_CHANGE_VOTER"
 
 struct pl_data {
 	int			pl_mode;
@@ -505,9 +507,11 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	return 0;
 }
 
+#define ICL_STEP_UV	25000
 static int usb_icl_vote_callback(struct votable *votable, void *data,
 			int icl_ua, const char *client)
 {
+	int rc;
 	struct pl_data *chip = data;
 	union power_supply_propval pval = {0, };
 
@@ -517,9 +521,41 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 	if (client == NULL)
 		icl_ua = INT_MAX;
 
-	pval.intval = icl_ua;
-	return power_supply_set_property(chip->main_psy,
-				POWER_SUPPLY_PROP_INPUT_CURRENT_MAX, &pval);
+	/*
+	 * Disable parallel for new ICL vote - the call to split_settled will
+	 * ensure that all the input current limit gets assigned to the main
+	 * charger.
+	 */
+	vote(chip->pl_disable_votable, ICL_CHANGE_VOTER, true, 0);
+
+	/* rerun AICL */
+	/* get the settled current */
+	rc = power_supply_get_property(chip->main_psy,
+			       POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
+			       &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get aicl settled value rc=%d\n", rc);
+		return rc;
+	}
+
+	/* rerun AICL if new ICL is above settled ICL */
+	if (icl_ua > pval.intval) {
+		/* set a lower ICL */
+		pval.intval = max(pval.intval - ICL_STEP_UV, ICL_STEP_UV);
+		power_supply_set_property(chip->main_psy,
+				POWER_SUPPLY_PROP_CURRENT_MAX,
+				&pval);
+		/* wait for ICL change */
+		msleep(100);
+
+		pval.intval = icl_ua;
+		power_supply_set_property(chip->main_psy,
+				POWER_SUPPLY_PROP_CURRENT_MAX,
+				&pval);
+		/* wait for ICL change */
+		msleep(100);
+	}
+	vote(chip->pl_disable_votable, ICL_CHANGE_VOTER, false, 0);
 
 	return 0;
 }
