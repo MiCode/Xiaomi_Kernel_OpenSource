@@ -1222,6 +1222,15 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		goto end;
 	}
 
+	/* scaling is not allowed for solid_fill layers */
+	if ((pipe->flags & MDP_SOLID_FILL) &&
+		((pipe->src.w != pipe->dst.w) ||
+			(pipe->src.h != pipe->dst.h))) {
+		pr_err("solid fill pipe:%d cannot have scaling\n", pipe->num);
+		ret = -EINVAL;
+		goto end;
+	}
+
 	/*
 	 * unstage the pipe if it's current z_order does not match with new
 	 * z_order because client may only call the validate.
