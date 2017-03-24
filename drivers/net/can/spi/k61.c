@@ -22,6 +22,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
+#include <linux/uaccess.h>
 
 #define DEBUG_K61	0
 #if DEBUG_K61 == 1
@@ -117,6 +118,7 @@ struct can_add_filter_req {
 	u8 can_if;
 	u32 mid;
 	u32 mask;
+	u8 type;
 } __packed;
 
 static struct can_bittiming_const k61_bittiming_const = {
@@ -429,7 +431,19 @@ static int k61_frame_filter(struct net_device *netdev,
 	memset(rx_buf, 0, XFER_BUFFER_SIZE);
 	priv_data->xfer_length = XFER_BUFFER_SIZE;
 
-	filter_request = ifr->ifr_data;
+	if (ifr == NULL)
+		return -EINVAL;
+
+	filter_request = kzalloc(sizeof(filter_request), GFP_KERNEL);
+	if (!filter_request)
+		return -ENOMEM;
+
+	if (copy_from_user(filter_request, ifr->ifr_data,
+			   sizeof(filter_request))) {
+		kfree(filter_request);
+		return -EFAULT;
+	}
+
 	req = (struct spi_mosi *)tx_buf;
 	if (IOCTL_ADD_FRAME_FILTER == cmd)
 		req->cmd = CMD_CAN_ADD_FILTER;
