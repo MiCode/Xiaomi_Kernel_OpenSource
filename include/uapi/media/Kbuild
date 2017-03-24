@@ -4,6 +4,7 @@ header-y += cam_isp.h
 header-y += cam_isp_vfe.h
 header-y += cam_isp_ife.h
 header-y += cam_sensor.h
+header-y += cam_sync.h
 header-y += msm_media_info.h
 header-y += msm_vidc.h
 header-y += msm_sde_rotator.h
