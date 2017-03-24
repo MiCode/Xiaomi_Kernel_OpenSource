@@ -742,6 +742,17 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 
 	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
+	/*
+	 * initialize start control trigger selection first
+	 */
+	if (test_bit(SDE_CAPS_SBUF_1, mdata->sde_caps_map)) {
+		if (ctx->sbuf_mode)
+			SDE_REGDMA_WRITE(wrptr, ROTTOP_START_CTRL,
+					ctx->start_ctrl);
+		else
+			SDE_REGDMA_WRITE(wrptr, ROTTOP_START_CTRL, 0);
+	}
+
 	/* source image setup */
 	if ((flags & SDE_ROT_FLAG_DEINTERLACE)
 			&& !(flags & SDE_ROT_FLAG_SOURCE_ROTATED_90)) {
