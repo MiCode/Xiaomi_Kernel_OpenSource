@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,34 +88,17 @@
 #define CAM_CC_MCLK3_CLK_SRC					71
 #define CAM_CC_PLL0						72
 #define CAM_CC_PLL0_OUT_EVEN					73
-#define CAM_CC_PLL0_OUT_MAIN					74
-#define CAM_CC_PLL0_OUT_ODD					75
-#define CAM_CC_PLL0_OUT_TEST					76
-#define CAM_CC_PLL1						77
-#define CAM_CC_PLL1_OUT_EVEN					78
-#define CAM_CC_PLL1_OUT_MAIN					79
-#define CAM_CC_PLL1_OUT_ODD					80
-#define CAM_CC_PLL1_OUT_TEST					81
-#define CAM_CC_PLL2						82
-#define CAM_CC_PLL2_OUT_EVEN					83
-#define CAM_CC_PLL2_OUT_MAIN					84
-#define CAM_CC_PLL2_OUT_ODD					85
-#define CAM_CC_PLL2_OUT_TEST					86
-#define CAM_CC_PLL3						87
-#define CAM_CC_PLL3_OUT_EVEN					88
-#define CAM_CC_PLL3_OUT_MAIN					89
-#define CAM_CC_PLL3_OUT_ODD					90
-#define CAM_CC_PLL3_OUT_TEST					91
-#define CAM_CC_PLL_TEST_CLK					92
-#define CAM_CC_SLOW_AHB_CLK_SRC					93
-#define CAM_CC_SOC_AHB_CLK					94
-#define CAM_CC_SPDM_BPS_CLK					95
-#define CAM_CC_SPDM_IFE_0_CLK					96
-#define CAM_CC_SPDM_IFE_0_CSID_CLK				97
-#define CAM_CC_SPDM_IPE_0_CLK					98
-#define CAM_CC_SPDM_IPE_1_CLK					99
-#define CAM_CC_SPDM_JPEG_CLK					100
-#define CAM_CC_SYS_TMR_CLK					101
+#define CAM_CC_PLL1						74
+#define CAM_CC_PLL1_OUT_EVEN					75
+#define CAM_CC_PLL2						76
+#define CAM_CC_PLL2_OUT_EVEN					77
+#define CAM_CC_PLL2_OUT_ODD					78
+#define CAM_CC_PLL3						79
+#define CAM_CC_PLL3_OUT_EVEN					80
+#define CAM_CC_PLL_TEST_CLK					81
+#define CAM_CC_SLOW_AHB_CLK_SRC					82
+#define CAM_CC_SOC_AHB_CLK					83
+#define CAM_CC_SYS_TMR_CLK					84
 
 #define TITAN_CAM_CC_BPS_BCR					0
 #define TITAN_CAM_CC_CAMNOC_BCR					1
