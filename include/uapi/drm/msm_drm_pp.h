@@ -134,4 +134,151 @@ struct drm_msm_pgc_lut {
 	__u32 c1[PGC_TBL_LEN];
 	__u32 c2[PGC_TBL_LEN];
 };
+
+#define AD4_LUT_GRP0_SIZE 33
+#define AD4_LUT_GRP1_SIZE 32
+/*
+ * struct drm_msm_ad4_init - ad4 init structure set by user-space client.
+ *                           Init param values can change based on tuning
+ *                           hence it is passed by user-space clients.
+ */
+struct drm_msm_ad4_init {
+	__u32 init_param_001[AD4_LUT_GRP0_SIZE];
+	__u32 init_param_002[AD4_LUT_GRP0_SIZE];
+	__u32 init_param_003[AD4_LUT_GRP0_SIZE];
+	__u32 init_param_004[AD4_LUT_GRP0_SIZE];
+	__u32 init_param_005[AD4_LUT_GRP1_SIZE];
+	__u32 init_param_006[AD4_LUT_GRP1_SIZE];
+	__u32 init_param_007[AD4_LUT_GRP0_SIZE];
+	__u32 init_param_008[AD4_LUT_GRP0_SIZE];
+	__u32 init_param_009;
+	__u32 init_param_010;
+	__u32 init_param_011;
+	__u32 init_param_012;
+	__u32 init_param_013;
+	__u32 init_param_014;
+	__u32 init_param_015;
+	__u32 init_param_016;
+	__u32 init_param_017;
+	__u32 init_param_018;
+	__u32 init_param_019;
+	__u32 init_param_020;
+	__u32 init_param_021;
+	__u32 init_param_022;
+	__u32 init_param_023;
+	__u32 init_param_024;
+	__u32 init_param_025;
+	__u32 init_param_026;
+	__u32 init_param_027;
+	__u32 init_param_028;
+	__u32 init_param_029;
+	__u32 init_param_030;
+	__u32 init_param_031;
+	__u32 init_param_032;
+	__u32 init_param_033;
+	__u32 init_param_034;
+	__u32 init_param_035;
+	__u32 init_param_036;
+	__u32 init_param_037;
+	__u32 init_param_038;
+	__u32 init_param_039;
+	__u32 init_param_040;
+	__u32 init_param_041;
+	__u32 init_param_042;
+	__u32 init_param_043;
+	__u32 init_param_044;
+	__u32 init_param_045;
+	__u32 init_param_046;
+	__u32 init_param_047;
+	__u32 init_param_048;
+	__u32 init_param_049;
+	__u32 init_param_050;
+	__u32 init_param_051;
+	__u32 init_param_052;
+	__u32 init_param_053;
+	__u32 init_param_054;
+	__u32 init_param_055;
+	__u32 init_param_056;
+	__u32 init_param_057;
+	__u32 init_param_058;
+	__u32 init_param_059;
+	__u32 init_param_060;
+	__u32 init_param_061;
+	__u32 init_param_062;
+	__u32 init_param_063;
+	__u32 init_param_064;
+	__u32 init_param_065;
+	__u32 init_param_066;
+	__u32 init_param_067;
+	__u32 init_param_068;
+	__u32 init_param_069;
+	__u32 init_param_070;
+	__u32 init_param_071;
+	__u32 init_param_072;
+	__u32 init_param_073;
+	__u32 init_param_074;
+	__u32 init_param_075;
+};
+
+/*
+ * struct drm_msm_ad4_cfg - ad4 config structure set by user-space client.
+ *                           Config param values can vary based on tuning,
+ *                           hence it is passed by user-space clients.
+ */
+struct drm_msm_ad4_cfg {
+	__u32 cfg_param_001;
+	__u32 cfg_param_002;
+	__u32 cfg_param_003;
+	__u32 cfg_param_004;
+	__u32 cfg_param_005;
+	__u32 cfg_param_006;
+	__u32 cfg_param_007;
+	__u32 cfg_param_008;
+	__u32 cfg_param_009;
+	__u32 cfg_param_010;
+	__u32 cfg_param_011;
+	__u32 cfg_param_012;
+	__u32 cfg_param_013;
+	__u32 cfg_param_014;
+	__u32 cfg_param_015;
+	__u32 cfg_param_016;
+	__u32 cfg_param_017;
+	__u32 cfg_param_018;
+	__u32 cfg_param_019;
+	__u32 cfg_param_020;
+	__u32 cfg_param_021;
+	__u32 cfg_param_022;
+	__u32 cfg_param_023;
+	__u32 cfg_param_024;
+	__u32 cfg_param_025;
+	__u32 cfg_param_026;
+	__u32 cfg_param_027;
+	__u32 cfg_param_028;
+	__u32 cfg_param_029;
+	__u32 cfg_param_030;
+	__u32 cfg_param_031;
+	__u32 cfg_param_032;
+	__u32 cfg_param_033;
+	__u32 cfg_param_034;
+	__u32 cfg_param_035;
+	__u32 cfg_param_036;
+	__u32 cfg_param_037;
+	__u32 cfg_param_038;
+	__u32 cfg_param_039;
+	__u32 cfg_param_040;
+	__u32 cfg_param_041;
+	__u32 cfg_param_042;
+	__u32 cfg_param_043;
+	__u32 cfg_param_044;
+	__u32 cfg_param_045;
+	__u32 cfg_param_046;
+	__u32 cfg_param_047;
+	__u32 cfg_param_048;
+	__u32 cfg_param_049;
+	__u32 cfg_param_050;
+	__u32 cfg_param_051;
+	__u32 cfg_param_052;
+	__u32 cfg_param_053;
+};
+
 #endif /* _MSM_DRM_PP_H_ */
