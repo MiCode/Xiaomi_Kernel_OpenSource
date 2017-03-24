@@ -21,6 +21,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/ratelimit.h>
 #include <linux/interrupt.h>
+#include <asm/dma-iommu.h>
+#include <linux/iommu.h>
 #include <linux/ioport.h>
 #include <linux/clk.h>
 #include <linux/io.h>
@@ -155,6 +157,7 @@ struct dwc3_msm {
 	void __iomem *base;
 	void __iomem *ahb2phy_base;
 	struct platform_device	*dwc3;
+	struct dma_iommu_mapping *iommu_map;
 	const struct usb_ep_ops *original_ep_ops[DWC3_ENDPOINTS_NUM];
 	struct list_head req_complete_list;
 	struct clk		*xo_clk;
@@ -1004,7 +1007,7 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	int num_trbs = (dep->direction) ? (2 * (req->num_bufs) + 2)
 					: (req->num_bufs + 1);
 
-	dep->trb_dma_pool = dma_pool_create(ep->name, dwc->dev,
+	dep->trb_dma_pool = dma_pool_create(ep->name, dwc->sysdev,
 					num_trbs * sizeof(struct dwc3_trb),
 					num_trbs * sizeof(struct dwc3_trb), 0);
 	if (!dep->trb_dma_pool) {
@@ -2091,6 +2094,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		dev_dbg(mdwc->dev, "%s: power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 0);
 		clk_disable_unprepare(mdwc->sleep_clk);
+
+		if (mdwc->iommu_map)
+			arm_iommu_detach_device(mdwc->dev);
 	}
 
 	/* Remove bus voting */
@@ -2236,6 +2242,16 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 					PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
 
 		mdwc->lpm_flags &= ~MDWC3_POWER_COLLAPSE;
+
+		if (mdwc->iommu_map) {
+			ret = arm_iommu_attach_device(mdwc->dev,
+					mdwc->iommu_map);
+			if (ret)
+				dev_err(mdwc->dev, "IOMMU attach failed (%d)\n",
+						ret);
+			else
+				dev_dbg(mdwc->dev, "attached to IOMMU\n");
+		}
 	}
 
 	atomic_set(&dwc->in_lpm, 0);
@@ -2766,6 +2782,41 @@ err:
 	return ret;
 }
 
+#define SMMU_BASE	0x10000000 /* Device address range base */
+#define SMMU_SIZE	0x40000000 /* Device address range size */
+
+static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
+{
+	struct device_node *node = mdwc->dev->of_node;
+	int atomic_ctx = 1;
+	int ret;
+
+	if (!of_property_read_bool(node, "iommus"))
+		return 0;
+
+	mdwc->iommu_map = arm_iommu_create_mapping(&platform_bus_type,
+			SMMU_BASE, SMMU_SIZE);
+	if (IS_ERR_OR_NULL(mdwc->iommu_map)) {
+		ret = PTR_ERR(mdwc->iommu_map) ?: -ENODEV;
+		dev_err(mdwc->dev, "Failed to create IOMMU mapping (%d)\n",
+				ret);
+		return ret;
+	}
+	dev_dbg(mdwc->dev, "IOMMU mapping created: %pK\n", mdwc->iommu_map);
+
+	ret = iommu_domain_set_attr(mdwc->iommu_map->domain, DOMAIN_ATTR_ATOMIC,
+			&atomic_ctx);
+	if (ret) {
+		dev_err(mdwc->dev, "IOMMU set atomic attribute failed (%d)\n",
+			ret);
+		arm_iommu_release_mapping(mdwc->iommu_map);
+		mdwc->iommu_map = NULL;
+		return ret;
+	}
+
+	return 0;
+}
+
 static ssize_t mode_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
 {
@@ -3070,12 +3121,16 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	dwc3_set_notifier(&dwc3_msm_notify_event);
 
+	ret = dwc3_msm_init_iommu(mdwc);
+	if (ret)
+		goto err;
+
 	/* Assumes dwc3 is the first DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
 	if (!dwc3_node) {
 		dev_err(&pdev->dev, "failed to find dwc3 child\n");
 		ret = -ENODEV;
-		goto err;
+		goto uninit_iommu;
 	}
 
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
@@ -3083,7 +3138,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 				"failed to add create dwc3 core\n");
 		of_node_put(dwc3_node);
-		goto err;
+		goto uninit_iommu;
 	}
 
 	mdwc->dwc3 = of_find_device_by_node(dwc3_node);
@@ -3194,6 +3249,9 @@ put_dwc3:
 	platform_device_put(mdwc->dwc3);
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
+uninit_iommu:
+	if (mdwc->iommu_map)
+		arm_iommu_release_mapping(mdwc->iommu_map);
 err:
 	return ret;
 }
@@ -3270,6 +3328,12 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	clk_put(mdwc->xo_clk);
 
 	dwc3_msm_config_gdsc(mdwc, 0);
+
+	if (mdwc->iommu_map) {
+		if (!atomic_read(&dwc->in_lpm))
+			arm_iommu_detach_device(mdwc->dev);
+		arm_iommu_release_mapping(mdwc->iommu_map);
+	}
 
 	return 0;
 }
