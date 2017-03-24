@@ -23,6 +23,18 @@
 
 #include <linux/sde_io_util.h>
 
+/* event will be triggered before power handler disable */
+#define SDE_POWER_EVENT_PRE_DISABLE	0x1
+
+/* event will be triggered after power handler disable */
+#define SDE_POWER_EVENT_POST_DISABLE	0x2
+
+/* event will be triggered before power handler enable */
+#define SDE_POWER_EVENT_PRE_ENABLE	0x4
+
+/* event will be triggered after power handler enable */
+#define SDE_POWER_EVENT_POST_ENABLE	0x8
+
 /**
  * mdss_bus_vote_type: register bus vote type
  * VOTE_INDEX_DISABLE: removes the client vote
@@ -59,6 +71,7 @@ enum sde_power_handle_data_bus_client {
  * @list:	list to attach power handle master list
  * @ab:         arbitrated bandwidth for each bus client
  * @ib:         instantaneous bandwidth for each bus client
+ * @active:	inidcates the state of sde power handle
  */
 struct sde_power_client {
 	char name[MAX_CLIENT_NAME_LEN];
@@ -68,6 +81,7 @@ struct sde_power_client {
 	struct list_head list;
 	u64 ab[SDE_POWER_HANDLE_DATA_BUS_CLIENT_MAX];
 	u64 ib[SDE_POWER_HANDLE_DATA_BUS_CLIENT_MAX];
+	bool active;
 };
 
 /**
@@ -90,6 +104,24 @@ struct sde_power_data_bus_handle {
 	u32 ao_bw_uc_idx;
 };
 
+/*
+ * struct sde_power_event - local event registration structure
+ * @client_name: name of the client registering
+ * @cb_fnc: pointer to desired callback function
+ * @usr: user pointer to pass to callback event trigger
+ * @event: refer to SDE_POWER_HANDLE_EVENT_*
+ * @list: list to attach event master list
+ * @active: indicates the state of sde power handle
+ */
+struct sde_power_event {
+	char client_name[MAX_CLIENT_NAME_LEN];
+	void (*cb_fnc)(u32 event_type, void *usr);
+	void *usr;
+	u32 event_type;
+	struct list_head list;
+	bool active;
+};
+
 /**
  * struct sde_power_handle: power handle main struct
  * @mp:		module power for clock and regulator
@@ -99,6 +131,7 @@ struct sde_power_data_bus_handle {
  * @usecase_ndx: current usecase index
  * @reg_bus_hdl: current register bus handle
  * @data_bus_handle: context structure for data bus control
+ * @event_list: current power handle event list
  */
 struct sde_power_handle {
 	struct dss_module_power mp;
@@ -108,6 +141,7 @@ struct sde_power_handle {
 	u32 current_usecase_ndx;
 	u32 reg_bus_hdl;
 	struct sde_power_data_bus_handle data_bus_handle;
+	struct list_head event_list;
 };
 
 /**
@@ -225,5 +259,29 @@ int sde_power_data_bus_set_quota(struct sde_power_handle *phandle,
  */
 void sde_power_data_bus_bandwidth_ctrl(struct sde_power_handle *phandle,
 		struct sde_power_client *pclient, int enable);
+
+/**
+ * sde_power_handle_register_event - register a callback function for an event.
+ *	Clients can register for multiple events with a single register.
+ *	Any block with access to phandle can register for the event
+ *	notification.
+ * @phandle:	power handle containing the resources
+ * @event_type:	event type to register; refer SDE_POWER_HANDLE_EVENT_*
+ * @cb_fnc:	pointer to desired callback function
+ * @usr:	user pointer to pass to callback on event trigger
+ *
+ * Return:	event pointer if success, or error code otherwise
+ */
+struct sde_power_event *sde_power_handle_register_event(
+		struct sde_power_handle *phandle,
+		u32 event_type, void (*cb_fnc)(u32 event_type, void *usr),
+		void *usr, char *client_name);
+/**
+ * sde_power_handle_unregister_event - unregister callback for event(s)
+ * @phandle:	power handle containing the resources
+ * @event:	event pointer returned after power handle register
+ */
+void sde_power_handle_unregister_event(struct sde_power_handle *phandle,
+		struct sde_power_event *event);
 
 #endif /* _SDE_POWER_HANDLE_H_ */

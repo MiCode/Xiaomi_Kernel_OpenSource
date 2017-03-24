@@ -29,6 +29,17 @@
 #include "sde_power_handle.h"
 #include "sde_trace.h"
 
+static void sde_power_event_trigger_locked(struct sde_power_handle *phandle,
+		u32 event_type)
+{
+	struct sde_power_event *event;
+
+	list_for_each_entry(event, &phandle->event_list, list) {
+		if (event->event_type & event_type)
+			event->cb_fnc(event_type, event->usr);
+	}
+}
+
 struct sde_power_client *sde_power_client_create(
 	struct sde_power_handle *phandle, char *client_name)
 {
@@ -48,6 +59,7 @@ struct sde_power_client *sde_power_client_create(
 	strlcpy(client->name, client_name, MAX_CLIENT_NAME_LEN);
 	client->usecase_ndx = VOTE_INDEX_DISABLE;
 	client->id = id;
+	client->active = true;
 	pr_debug("client %s created:%pK id :%d\n", client_name,
 		client, id);
 	id++;
@@ -62,6 +74,9 @@ void sde_power_client_destroy(struct sde_power_handle *phandle,
 {
 	if (!client  || !phandle) {
 		pr_err("reg bus vote: invalid client handle\n");
+	} else if (!client->active) {
+		pr_err("sde power deinit already done\n");
+		kfree(client);
 	} else {
 		pr_debug("bus vote client %s destroyed:%pK id:%u\n",
 			client->name, client, client->id);
@@ -661,6 +676,8 @@ int sde_power_resource_init(struct platform_device *pdev,
 	}
 
 	INIT_LIST_HEAD(&phandle->power_client_clist);
+	INIT_LIST_HEAD(&phandle->event_list);
+
 	mutex_init(&phandle->phandle_lock);
 
 	return rc;
@@ -672,10 +689,12 @@ bus_err:
 clk_err:
 	msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg, 0);
 vreg_err:
-	devm_kfree(&pdev->dev, mp->vreg_config);
+	if (mp->vreg_config)
+		devm_kfree(&pdev->dev, mp->vreg_config);
 	mp->num_vreg = 0;
 parse_vreg_err:
-	devm_kfree(&pdev->dev, mp->clk_config);
+	if (mp->clk_config)
+		devm_kfree(&pdev->dev, mp->clk_config);
 	mp->num_clk = 0;
 end:
 	return rc;
@@ -685,12 +704,34 @@ void sde_power_resource_deinit(struct platform_device *pdev,
 	struct sde_power_handle *phandle)
 {
 	struct dss_module_power *mp;
+	struct sde_power_client *curr_client, *next_client;
+	struct sde_power_event *curr_event, *next_event;
 
 	if (!phandle || !pdev) {
 		pr_err("invalid input param\n");
 		return;
 	}
 	mp = &phandle->mp;
+
+	mutex_lock(&phandle->phandle_lock);
+	list_for_each_entry_safe(curr_client, next_client,
+			&phandle->power_client_clist, list) {
+		pr_err("cliend:%s-%d still registered with refcount:%d\n",
+				curr_client->name, curr_client->id,
+				curr_client->refcount);
+		curr_client->active = false;
+		list_del(&curr_client->list);
+	}
+
+	list_for_each_entry_safe(curr_event, next_event,
+			&phandle->event_list, list) {
+		pr_err("event:%d, client:%s still registered\n",
+				curr_event->event_type,
+				curr_event->client_name);
+		curr_event->active = false;
+		list_del(&curr_event->list);
+	}
+	mutex_unlock(&phandle->phandle_lock);
 
 	sde_power_data_bus_unregister(&phandle->data_bus_handle);
 
@@ -757,6 +798,9 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 		goto end;
 
 	if (enable) {
+		sde_power_event_trigger_locked(phandle,
+				SDE_POWER_EVENT_PRE_ENABLE);
+
 		rc = sde_power_data_bus_update(&phandle->data_bus_handle,
 									enable);
 		if (rc) {
@@ -782,7 +826,14 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 			pr_err("clock enable failed rc:%d\n", rc);
 			goto clk_err;
 		}
+
+		sde_power_event_trigger_locked(phandle,
+				SDE_POWER_EVENT_POST_ENABLE);
+
 	} else {
+		sde_power_event_trigger_locked(phandle,
+				SDE_POWER_EVENT_PRE_DISABLE);
+
 		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
 
 		sde_power_reg_bus_update(phandle->reg_bus_hdl,
@@ -791,6 +842,9 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
 
 		sde_power_data_bus_update(&phandle->data_bus_handle, enable);
+
+		sde_power_event_trigger_locked(phandle,
+				SDE_POWER_EVENT_POST_DISABLE);
 	}
 
 end:
@@ -902,4 +956,53 @@ struct clk *sde_power_clk_get_clk(struct sde_power_handle *phandle,
 	}
 
 	return clk;
+}
+
+struct sde_power_event *sde_power_handle_register_event(
+		struct sde_power_handle *phandle,
+		u32 event_type, void (*cb_fnc)(u32 event_type, void *usr),
+		void *usr, char *client_name)
+{
+	struct sde_power_event *event;
+
+	if (!phandle) {
+		pr_err("invalid power handle\n");
+		return ERR_PTR(-EINVAL);
+	} else if (!cb_fnc || !event_type) {
+		pr_err("no callback fnc or event type\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	event = kzalloc(sizeof(struct sde_power_event), GFP_KERNEL);
+	if (!event)
+		return ERR_PTR(-ENOMEM);
+
+	event->event_type = event_type;
+	event->cb_fnc = cb_fnc;
+	event->usr = usr;
+	strlcpy(event->client_name, client_name, MAX_CLIENT_NAME_LEN);
+	event->active = true;
+
+	mutex_lock(&phandle->phandle_lock);
+	list_add(&event->list, &phandle->event_list);
+	mutex_unlock(&phandle->phandle_lock);
+
+	return event;
+}
+
+void sde_power_handle_unregister_event(
+		struct sde_power_handle *phandle,
+		struct sde_power_event *event)
+{
+	if (!phandle || !event) {
+		pr_err("invalid phandle or event\n");
+	} else if (!event->active) {
+		pr_err("power handle deinit already done\n");
+		kfree(event);
+	} else {
+		mutex_lock(&phandle->phandle_lock);
+		list_del_init(&event->list);
+		mutex_unlock(&phandle->phandle_lock);
+		kfree(event);
+	}
 }
