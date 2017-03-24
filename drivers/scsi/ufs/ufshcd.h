@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -588,6 +588,22 @@ struct ufshcd_req_stat {
 };
 #endif
 
+enum ufshcd_ctx {
+	QUEUE_CMD,
+	ERR_HNDLR_WORK,
+	H8_EXIT_WORK,
+	UIC_CMD_SEND,
+	PWRCTL_CMD_SEND,
+	TM_CMD_SEND,
+	XFR_REQ_COMPL,
+	CLK_SCALE_WORK,
+};
+
+struct ufshcd_clk_ctx {
+	ktime_t ts;
+	enum ufshcd_ctx ctx;
+};
+
 /**
  * struct ufs_stats - keeps usage/err statistics
  * @enabled: enable tag stats for debugfs
@@ -616,6 +632,10 @@ struct ufs_stats {
 	int query_stats_arr[UPIU_QUERY_OPCODE_MAX][MAX_QUERY_IDN];
 
 #endif
+	u32 last_intr_status;
+	ktime_t last_intr_ts;
+	struct ufshcd_clk_ctx clk_hold;
+	struct ufshcd_clk_ctx clk_rel;
 	u32 hibern8_exit_cnt;
 	ktime_t last_hibern8_exit_tstamp;
 	struct ufs_uic_err_reg_hist pa_err;
