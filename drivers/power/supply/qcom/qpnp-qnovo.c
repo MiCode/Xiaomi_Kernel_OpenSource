@@ -29,6 +29,7 @@
 #define QNOVO_PTRAIN_STS	0x08
 #define QNOVO_ERROR_STS		0x09
 #define QNOVO_ERROR_BIT		BIT(0)
+#define QNOVO_ERROR_STS2	0x0A
 #define QNOVO_INT_RT_STS	0x10
 #define QNOVO_INT_SET_TYPE	0x11
 #define QNOVO_INT_POLARITY_HIGH	0x12
@@ -350,6 +351,7 @@ enum {
 	PE_CTRL2_REG,
 	PTRAIN_STS_REG,
 	INT_RT_STS_REG,
+	ERR_STS2_REG,
 	PREST1,
 	PPULS1,
 	NREST1,
@@ -422,6 +424,12 @@ static struct param_info params[] = {
 	[INT_RT_STS_REG] = {
 		.name			= "INT_RT_STS",
 		.start_addr		= QNOVO_INT_RT_STS,
+		.num_regs		= 1,
+		.units_str		= "",
+	},
+	[ERR_STS2_REG] = {
+		.name			= "RAW_CHGR_ERR",
+		.start_addr		= QNOVO_ERROR_STS2,
 		.num_regs		= 1,
 		.units_str		= "",
 	},
@@ -1075,6 +1083,8 @@ static struct class_attribute qnovo_attributes[] = {
 	[PTRAIN_STS_REG]	= __ATTR(PTRAIN_STS_REG, 0444,
 					reg_show, NULL),
 	[INT_RT_STS_REG]	= __ATTR(INT_RT_STS_REG, 0444,
+					reg_show, NULL),
+	[ERR_STS2_REG]		= __ATTR(ERR_STS2_REG, 0444,
 					reg_show, NULL),
 	[PREST1]		= __ATTR(PREST1_mS, 0644,
 					time_show, time_store),
