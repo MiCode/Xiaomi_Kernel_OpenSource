@@ -15,6 +15,8 @@ Required properties
 - clocks:		List of Phandles for clock device nodes
 			needed by the device.
 - clock-names:		List of clock names needed by the device.
+- #list-cells:		Number of rotator cells, must be 1
+
 Bus Scaling Data:
 - qcom,msm-bus,name:		String property describing rotator client.
 - qcom,msm-bus,num-cases:	This is the the number of Bus Scaling use cases
@@ -81,6 +83,12 @@ Optional properties
 				  priority for rotator clients.
 - qcom,mdss-rot-mode:		This is integer value indicates operation mode
 				of the rotator device
+- qcom,mdss-sbuf-headroom:	This integer value indicates stream buffer headroom in lines.
+- cache-slice-names:		A set of names that identify the usecase names of a client that uses
+				cache slice. These strings are used to look up the cache slice
+				entries by name.
+- cache-slices:			The tuple has phandle to llcc device as the first argument and the
+				second argument is the usecase id of the client.
 
 Subnode properties:
 - compatible:		Compatible name used in smmu v2.
@@ -102,6 +110,9 @@ Example:
 		reg = <0xfd900000 0x22100>,
 			<0xfd925000 0x1000>;
 		reg-names = "mdp_phys", "rot_vbif_phys";
+
+		#list-cells = <1>;
+
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <2 0>;
 
@@ -130,6 +141,10 @@ Example:
 
 		qcom,mdss-default-ot-rd-limit = <8>;
 		qcom,mdss-default-ot-wr-limit = <16>;
+
+		qcom,mdss-sbuf-headroom = <20>;
+		cache-slice-names = "rotator";
+		cache-slices = <&llcc 3>;
 
 		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
 			compatible = "qcom,smmu_sde_rot_unsec";

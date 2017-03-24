@@ -45,6 +45,11 @@
 #define ROTTOP_ROT_UBWC_DEC_VERSION             (SDE_ROT_ROTTOP_OFFSET+0x58)
 #define ROTTOP_ROT_UBWC_ENC_VERSION             (SDE_ROT_ROTTOP_OFFSET+0x5C)
 
+#define ROTTOP_START_CTRL_TRIG_SEL_SW           0
+#define ROTTOP_START_CTRL_TRIG_SEL_DONE         1
+#define ROTTOP_START_CTRL_TRIG_SEL_REGDMA       2
+#define ROTTOP_START_CTRL_TRIG_SEL_MDP          3
+
 /* SDE_ROT_SSPP:
  * OFFSET=0x0A8900
  */
@@ -160,6 +165,10 @@
 #define ROT_WB_SAFE_LUT                         (SDE_ROT_WB_OFFSET+0x088)
 #define ROT_WB_CREQ_LUT                         (SDE_ROT_WB_OFFSET+0x08C)
 #define ROT_WB_QOS_CTRL                         (SDE_ROT_WB_OFFSET+0x090)
+#define ROT_WB_SYS_CACHE_MODE                   (SDE_ROT_WB_OFFSET+0x094)
+#define ROT_WB_UBWC_STATIC_CTRL                 (SDE_ROT_WB_OFFSET+0x144)
+#define ROT_WB_SBUF_STATUS_PLANE0               (SDE_ROT_WB_OFFSET+0x148)
+#define ROT_WB_SBUF_STATUS_PLANE1               (SDE_ROT_WB_OFFSET+0x14C)
 #define ROT_WB_CSC_MATRIX_COEFF_0               (SDE_ROT_WB_OFFSET+0x260)
 #define ROT_WB_CSC_MATRIX_COEFF_1               (SDE_ROT_WB_OFFSET+0x264)
 #define ROT_WB_CSC_MATRIX_COEFF_2               (SDE_ROT_WB_OFFSET+0x268)
@@ -250,6 +259,10 @@
 
 /* REGDMA ADDR offset Mask */
 #define REGDMA_ADDR_OFFSET_MASK         0xFFFFF
+
+/* REGDMA command trigger select */
+#define REGDMA_CMD_TRIG_SEL_SW_START    (0 << 27)
+#define REGDMA_CMD_TRIG_SEL_MDP_FLUSH   (1 << 27)
 
 /* General defines */
 #define ROT_DONE_MASK                   0x1

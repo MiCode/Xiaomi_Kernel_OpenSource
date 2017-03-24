@@ -735,6 +735,12 @@ static int sde_mdp_put_img(struct sde_mdp_img_data *data, bool rotator,
 {
 	u32 domain;
 
+	if (data->flags & SDE_ROT_EXT_IOVA) {
+		SDEROT_DBG("buffer %pad/%lx is client mapped\n",
+				&data->addr, data->len);
+		return 0;
+	}
+
 	if (!IS_ERR_OR_NULL(data->srcp_dma_buf)) {
 		SDEROT_DBG("ion hdl=%p buf=0x%pa\n", data->srcp_dma_buf,
 							&data->addr);
@@ -787,9 +793,14 @@ static int sde_mdp_get_img(struct sde_fb_data *img,
 	len = &data->len;
 	data->flags |= img->flags;
 	data->offset = img->offset;
-	if (data->flags & SDE_ROT_EXT_DMA_BUF)
+	if (data->flags & SDE_ROT_EXT_DMA_BUF) {
 		data->srcp_dma_buf = img->buffer;
-	else if (IS_ERR(data->srcp_dma_buf)) {
+	} else if (data->flags & SDE_ROT_EXT_IOVA) {
+		data->addr = img->addr;
+		data->len = img->len;
+		SDEROT_DBG("use client %pad/%lx\n", &data->addr, data->len);
+		return 0;
+	} else if (IS_ERR(data->srcp_dma_buf)) {
 		SDEROT_ERR("error on ion_import_fd\n");
 		ret = PTR_ERR(data->srcp_dma_buf);
 		data->srcp_dma_buf = NULL;
@@ -890,6 +901,12 @@ static int sde_mdp_map_buffer(struct sde_mdp_img_data *data, bool rotator,
 
 	if (data->addr && data->len)
 		return 0;
+
+	if (data->flags & SDE_ROT_EXT_IOVA) {
+		SDEROT_DBG("buffer %pad/%lx is client mapped\n",
+				&data->addr, data->len);
+		return 0;
+	}
 
 	if (!IS_ERR_OR_NULL(data->srcp_dma_buf)) {
 		if (sde_mdp_is_map_needed(data)) {

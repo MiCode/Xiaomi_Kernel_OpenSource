@@ -96,12 +96,14 @@ enum sde_rot_type {
  * @SDE_CAPS_R1_WB: MDSS V1.x WB block
  * @SDE_CAPS_R3_WB: MDSS V3.x WB block
  * @SDE_CAPS_R3_1P5_DOWNSCALE: 1.5x downscale rotator support
+ * @SDE_CAPS_SBUF_1: stream buffer support for inline rotation
  */
 enum sde_caps_settings {
 	SDE_CAPS_R1_WB,
 	SDE_CAPS_R3_WB,
 	SDE_CAPS_R3_1P5_DOWNSCALE,
 	SDE_CAPS_SEC_ATTACH_DETACH_SMMU,
+	SDE_CAPS_SBUF_1,
 	SDE_CAPS_MAX,
 };
 

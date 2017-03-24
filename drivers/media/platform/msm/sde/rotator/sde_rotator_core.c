@@ -532,6 +532,10 @@ static int sde_rotator_import_buffer(struct sde_layer_buffer *buffer,
 	if (!input)
 		dir = DMA_FROM_DEVICE;
 
+	data->sbuf = buffer->sbuf;
+	data->scid = buffer->scid;
+	data->writeback = buffer->writeback;
+
 	memset(planes, 0, sizeof(planes));
 
 	for (i = 0; i < buffer->plane_count; i++) {
@@ -539,6 +543,8 @@ static int sde_rotator_import_buffer(struct sde_layer_buffer *buffer,
 		planes[i].offset = buffer->planes[i].offset;
 		planes[i].buffer = buffer->planes[i].buffer;
 		planes[i].handle = buffer->planes[i].handle;
+		planes[i].addr = buffer->planes[i].addr;
+		planes[i].len = buffer->planes[i].len;
 	}
 
 	ret =  sde_mdp_data_get_and_validate_size(data, planes,
@@ -760,6 +766,9 @@ static int sde_rotator_import_data(struct sde_rot_mgr *mgr,
 	if (entry->item.flags & SDE_ROTATION_EXT_DMA_BUF)
 		flag |= SDE_ROT_EXT_DMA_BUF;
 
+	if (entry->item.flags & SDE_ROTATION_EXT_IOVA)
+		flag |= SDE_ROT_EXT_IOVA;
+
 	if (entry->item.flags & SDE_ROTATION_SECURE_CAMERA)
 		flag |= SDE_SECURE_CAMERA_SESSION;
 
@@ -798,6 +807,10 @@ static int sde_rotator_require_reconfiguration(struct sde_rot_mgr *mgr,
 	/* OT setting change may impact queued entries */
 	if (entry->perf && (entry->perf->rdot_limit != mgr->rdot_limit ||
 			entry->perf->wrot_limit != mgr->wrot_limit))
+		return true;
+
+	/* sbuf mode is exclusive and may impact queued entries */
+	if (!mgr->sbuf_ctx && entry->perf && entry->perf->config.output.sbuf)
 		return true;
 
 	return false;
@@ -855,6 +868,9 @@ static int sde_rotator_is_hw_available(struct sde_rot_mgr *mgr,
 				entry->item.session_id,
 				entry->item.sequence_id);
 		return sde_rotator_is_hw_idle(mgr, hw);
+	} else if (mgr->sbuf_ctx && mgr->sbuf_ctx != entry->private) {
+		SDEROT_DBG("wait until sbuf mode is off\n");
+		return false;
 	} else {
 		return (atomic_read(&hw->num_active) < hw->max_active);
 	}
@@ -907,6 +923,14 @@ static struct sde_rot_hw_resource *sde_rotator_get_hw_resource(
 			entry->item.session_id, entry->item.sequence_id);
 	mgr->rdot_limit = entry->perf->rdot_limit;
 	mgr->wrot_limit = entry->perf->wrot_limit;
+
+	if (!mgr->sbuf_ctx && entry->perf->config.output.sbuf) {
+		SDEROT_DBG("acquire sbuf s:%d.%d\n", entry->item.session_id,
+				entry->item.sequence_id);
+		SDEROT_EVTLOG(entry->item.session_id, entry->item.sequence_id);
+		mgr->sbuf_ctx = entry->private;
+	}
+
 	return hw;
 }
 
@@ -1560,7 +1584,11 @@ static bool sde_rotator_verify_format(struct sde_rot_mgr *mgr,
 	if ((in_fmt->is_yuv != out_fmt->is_yuv) ||
 		(in_fmt->pixel_mode != out_fmt->pixel_mode) ||
 		(in_fmt->unpack_tight != out_fmt->unpack_tight)) {
-		SDEROT_ERR("Rotator does not support CSC\n");
+		SDEROT_ERR(
+			"Rotator does not support CSC yuv:%d/%d pm:%d/%d ut:%d/%d\n",
+			in_fmt->is_yuv, out_fmt->is_yuv,
+			in_fmt->pixel_mode, out_fmt->pixel_mode,
+			in_fmt->unpack_tight, out_fmt->unpack_tight);
 		goto verify_error;
 	}
 
@@ -2029,6 +2057,34 @@ int sde_rotator_validate_request(struct sde_rot_mgr *mgr,
 	return ret;
 }
 
+/*
+ * sde_rotator_commit_request - commit the request to hardware
+ * @mgr: pointer to rotator manager
+ * @private: pointer to per file context
+ * @req: pointer to rotation request
+ *
+ * This differs from sde_rotator_queue_request in that this
+ * function will wait until request is committed to hardware.
+ */
+void sde_rotator_commit_request(struct sde_rot_mgr *mgr,
+	struct sde_rot_file_private *ctx,
+	struct sde_rot_entry_container *req)
+{
+	int i;
+
+	if (!mgr || !ctx || !req || !req->entries) {
+		SDEROT_ERR("null parameters\n");
+		return;
+	}
+
+	sde_rotator_queue_request(mgr, ctx, req);
+
+	sde_rot_mgr_unlock(mgr);
+	for (i = 0; i < req->count; i++)
+		flush_work(&req->entries[i].commit_work);
+	sde_rot_mgr_lock(mgr);
+}
+
 static int sde_rotator_open_session(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *private, u32 session_id)
 {
@@ -2139,6 +2195,12 @@ static int sde_rotator_close_session(struct sde_rot_mgr *mgr,
 	sde_rotator_update_clk(mgr);
 	sde_rotator_resource_ctrl(mgr, false);
 done:
+	if (mgr->sbuf_ctx == private) {
+		SDEROT_DBG("release sbuf session id:%u\n", id);
+		SDEROT_EVTLOG(id);
+		mgr->sbuf_ctx = NULL;
+	}
+
 	SDEROT_DBG("Closed session id:%u\n", id);
 	return 0;
 }
@@ -2180,6 +2242,11 @@ static int sde_rotator_config_session(struct sde_rot_mgr *mgr,
 	ret = sde_rotator_update_clk(mgr);
 	if (ret) {
 		SDEROT_ERR("error in updating the rotator clk: %d\n", ret);
+		goto done;
+	}
+
+	if (config->output.sbuf && mgr->sbuf_ctx != private && mgr->sbuf_ctx) {
+		SDEROT_ERR("too many sbuf sessions\n");
 		goto done;
 	}
 
