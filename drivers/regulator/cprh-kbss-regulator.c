@@ -2221,6 +2221,46 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 		return rc;
 	}
 
+	ctrl->acd_avg_enabled = of_property_read_bool(ctrl->dev->of_node,
+					      "qcom,cpr-acd-avg-enable");
+	if (ctrl->acd_avg_enabled) {
+		rc = of_property_read_u32(ctrl->dev->of_node,
+					  "qcom,cpr-acd-adj-down-step-limit",
+					  &ctrl->acd_adj_down_step_limit);
+		if (rc) {
+			cpr3_err(ctrl, "error reading qcom,cpr-acd-adj-down-step-limit, rc=%d\n",
+				 rc);
+			return rc;
+		}
+
+		rc = of_property_read_u32(ctrl->dev->of_node,
+					  "qcom,cpr-acd-adj-up-step-limit",
+					  &ctrl->acd_adj_up_step_limit);
+		if (rc) {
+			cpr3_err(ctrl, "error reading qcom,cpr-acd-adj-up-step-limit, rc=%d\n",
+				 rc);
+			return rc;
+		}
+
+		rc = of_property_read_u32(ctrl->dev->of_node,
+					  "qcom,cpr-acd-adj-down-step-size",
+					  &ctrl->acd_adj_down_step_size);
+		if (rc) {
+			cpr3_err(ctrl, "error reading qcom,cpr-acd-down-step-size, rc=%d\n",
+				 rc);
+			return rc;
+		}
+
+		rc = of_property_read_u32(ctrl->dev->of_node,
+					  "qcom,cpr-acd-adj-up-step-size",
+					  &ctrl->acd_adj_up_step_size);
+		if (rc) {
+			cpr3_err(ctrl, "error reading qcom,cpr-acd-up-step-size, rc=%d\n",
+				 rc);
+			return rc;
+		}
+	}
+
 	rc = of_property_read_u32(ctrl->dev->of_node,
 				  "qcom,voltage-base",
 				  &ctrl->base_volt);

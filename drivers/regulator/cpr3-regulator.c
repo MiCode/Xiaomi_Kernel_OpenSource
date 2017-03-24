@@ -280,6 +280,18 @@
 	((vband) == 0 ? CPR4_REG_MARGIN_TEMP_CORE(core) \
 			: 0x3AB0 + 0x40 * ((vband) - 1) + 0x4 * (core))
 
+#define CPRH_REG_MISC_REG2	0x3AAC
+#define CPRH_MISC_REG2_ACD_ADJ_STEP_UP_LIMIT_MASK	GENMASK(31, 29)
+#define CPRH_MISC_REG2_ACD_ADJ_STEP_UP_LIMIT_SHIFT	29
+#define CPRH_MISC_REG2_ACD_ADJ_STEP_DOWN_LIMIT_MASK	GENMASK(28, 24)
+#define CPRH_MISC_REG2_ACD_ADJ_STEP_DOWN_LIMIT_SHIFT	24
+#define CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_UP_MASK	GENMASK(23, 22)
+#define CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_UP_SHIFT	22
+#define CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_DOWN_MASK	GENMASK(21, 20)
+#define CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_DOWN_SHIFT	20
+#define CPRH_MISC_REG2_ACD_AVG_EN_MASK	BIT(12)
+#define CPRH_MISC_REG2_ACD_AVG_ENABLE	BIT(12)
+
 /* SAW module registers */
 #define SAW_REG_AVS_CTL				0x904
 #define SAW_REG_AVS_LIMIT			0x908
@@ -1396,6 +1408,33 @@ static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
 		cpr3_masked_write(ctrl, CPRH_REG_CTL(ctrl),
 				  CPRH_CTL_MODE_SWITCH_DELAY_MASK,
 				  temp << CPRH_CTL_MODE_SWITCH_DELAY_SHIFT);
+	}
+
+	/*
+	 * Configure CPRh ACD AVG registers on controllers
+	 * that support this feature.
+	 */
+	if (ctrl->cpr_hw_version >= CPRH_CPR_VERSION_4P5
+	    && ctrl->acd_avg_enabled) {
+		cpr3_masked_write(ctrl, CPRH_REG_MISC_REG2,
+				  CPRH_MISC_REG2_ACD_ADJ_STEP_UP_LIMIT_MASK,
+				  ctrl->acd_adj_up_step_limit <<
+				  CPRH_MISC_REG2_ACD_ADJ_STEP_UP_LIMIT_SHIFT);
+		cpr3_masked_write(ctrl, CPRH_REG_MISC_REG2,
+				  CPRH_MISC_REG2_ACD_ADJ_STEP_DOWN_LIMIT_MASK,
+				  ctrl->acd_adj_down_step_limit <<
+				  CPRH_MISC_REG2_ACD_ADJ_STEP_DOWN_LIMIT_SHIFT);
+		cpr3_masked_write(ctrl, CPRH_REG_MISC_REG2,
+				  CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_UP_MASK,
+				  ctrl->acd_adj_up_step_size <<
+				  CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_UP_SHIFT);
+		cpr3_masked_write(ctrl, CPRH_REG_MISC_REG2,
+				  CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_DOWN_MASK,
+				  ctrl->acd_adj_down_step_size <<
+				  CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_DOWN_SHIFT);
+		cpr3_masked_write(ctrl, CPRH_REG_MISC_REG2,
+				  CPRH_MISC_REG2_ACD_AVG_EN_MASK,
+				  CPRH_MISC_REG2_ACD_AVG_ENABLE);
 	}
 
 	/*
