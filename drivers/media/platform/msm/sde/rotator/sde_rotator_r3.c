@@ -41,6 +41,7 @@
 /* traffic shaping clock ticks = finish_time x 19.2MHz */
 #define TRAFFIC_SHAPE_CLKTICK_14MS   268800
 #define TRAFFIC_SHAPE_CLKTICK_12MS   230400
+#define TRAFFIC_SHAPE_VSYNC_CLK      19200000
 
 /* XIN mapping */
 #define XIN_SSPP		0
@@ -997,8 +998,8 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 	SDE_REGDMA_WRITE(wrptr, ROTTOP_OP_MODE, ctx->op_mode |
 			(flags & SDE_ROT_FLAG_ROT_90 ? BIT(1) : 0) | BIT(0));
 
-	/* setup traffic shaper for 4k 30fps content */
-	if (ctx->is_traffic_shaping) {
+	/* setup traffic shaper for 4k 30fps content or if prefill_bw is set */
+	if (ctx->is_traffic_shaping || cfg->prefill_bw) {
 		u32 bw;
 
 		/*
@@ -1017,10 +1018,16 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 			bw *= fmt->bpp;
 
 		bw /= TRAFFIC_SHAPE_CLKTICK_12MS;
+
+		/* use prefill bandwidth instead if specified */
+		if (cfg->prefill_bw)
+			bw = DIV_ROUND_UP(cfg->prefill_bw,
+					TRAFFIC_SHAPE_VSYNC_CLK);
+
 		if (bw > 0xFF)
 			bw = 0xFF;
 		SDE_REGDMA_WRITE(wrptr, ROT_WB_TRAFFIC_SHAPER_WR_CLIENT,
-				BIT(31) | bw);
+				BIT(31) | (cfg->prefill_bw ? BIT(27) : 0) | bw);
 		SDEROT_DBG("Enable ROT_WB Traffic Shaper:%d\n", bw);
 	} else {
 		SDE_REGDMA_WRITE(wrptr, ROT_WB_TRAFFIC_SHAPER_WR_CLIENT, 0);
@@ -1947,6 +1954,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 
 	wb_cfg.v_downscale_factor = entry->dnsc_factor_h;
 	wb_cfg.h_downscale_factor = entry->dnsc_factor_w;
+	wb_cfg.prefill_bw = item->prefill_bw;
 
 	rot->ops.setup_rotator_wbengine(ctx, ctx->q_id, &wb_cfg, flags);
 

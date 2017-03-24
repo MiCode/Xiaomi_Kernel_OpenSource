@@ -139,6 +139,9 @@ struct sde_rotation_item {
 	/* rotation trigger mode */
 	uint32_t	trigger;
 
+	/* prefill bandwidth in Bps */
+	uint64_t	prefill_bw;
+
 	/* Source crop rectangle */
 	struct sde_rect	src_rect;
 
