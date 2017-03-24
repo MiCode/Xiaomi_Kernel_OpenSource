@@ -952,8 +952,8 @@ unsigned int __read_mostly sysctl_sched_restrict_cluster_spill;
 unsigned int __read_mostly sysctl_sched_short_burst;
 unsigned int __read_mostly sysctl_sched_short_sleep = 1 * NSEC_PER_MSEC;
 
-static void
-_update_up_down_migrate(unsigned int *up_migrate, unsigned int *down_migrate)
+static void _update_up_down_migrate(unsigned int *up_migrate,
+			unsigned int *down_migrate, bool is_group)
 {
 	unsigned int delta;
 
@@ -967,7 +967,8 @@ _update_up_down_migrate(unsigned int *up_migrate, unsigned int *down_migrate)
 	*up_migrate >>= 10;
 	*up_migrate *= NSEC_PER_USEC;
 
-	*up_migrate = min(*up_migrate, sched_ravg_window);
+	if (!is_group)
+		*up_migrate = min(*up_migrate, sched_ravg_window);
 
 	*down_migrate /= NSEC_PER_USEC;
 	*down_migrate *= up_down_migrate_scale_factor;
@@ -982,14 +983,14 @@ static void update_up_down_migrate(void)
 	unsigned int up_migrate = pct_to_real(sysctl_sched_upmigrate_pct);
 	unsigned int down_migrate = pct_to_real(sysctl_sched_downmigrate_pct);
 
-	_update_up_down_migrate(&up_migrate, &down_migrate);
+	_update_up_down_migrate(&up_migrate, &down_migrate, false);
 	sched_upmigrate = up_migrate;
 	sched_downmigrate = down_migrate;
 
 	up_migrate = pct_to_real(sysctl_sched_group_upmigrate_pct);
 	down_migrate = pct_to_real(sysctl_sched_group_downmigrate_pct);
 
-	_update_up_down_migrate(&up_migrate, &down_migrate);
+	_update_up_down_migrate(&up_migrate, &down_migrate, true);
 	sched_group_upmigrate = up_migrate;
 	sched_group_downmigrate = down_migrate;
 }
