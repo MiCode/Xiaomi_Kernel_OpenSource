@@ -196,3 +196,12 @@ config MSM_MMCC_8996
 	  Support for the multimedia clock controller on msm8996 devices.
 	  Say Y if you want to support multimedia devices such as display,
 	  graphics, video encode/decode, camera, etc.
+
+config MSM_CLK_AOP_QMP
+	tristate "AOP QMP Clock Driver"
+	depends on COMMON_CLK_QCOM && MSM_QMP
+	help
+	Always On Processor manages few shared clocks on some Qualcomm
+	Technologies, Inc. SoCs. It accepts requests from other hardware
+	subsystems via QMP mailboxes.
+	Say Y to support the clocks managed by AOP on platforms such as sdm845.
