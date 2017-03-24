@@ -46,6 +46,17 @@ PMIC's from Qualcomm.
 		    the first cell will be used to define gpio number and the
 		    second denotes the flags for this gpio
 
+- qcom,gpios-disallowed:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: Array of the GPIO hardware numbers corresponding to GPIOs
+		    which the APSS processor is not allowed to configure.
+		    The hardware numbers are indexed from 1.
+		    The interrupt resources for these GPIOs must not be defined
+		    in "interrupts" and "interrupt-names" properties.
+		    GPIOs defined in this array won't be registered as pins
+		    in the pinctrl device or gpios in the gpio chip.
+
 Please refer to ../gpio/gpio.txt and ../interrupt-controller/interrupts.txt for
 a general description of GPIO and interrupt bindings.
 
@@ -234,6 +245,7 @@ Example:
 
 		gpio-controller;
 		#gpio-cells = <2>;
+		qcom,gpios-disallowed = <1 20>;
 
 		pm8921_gpio_keys: gpio-keys {
 			volume-keys {
