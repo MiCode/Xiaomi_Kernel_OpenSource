@@ -479,8 +479,12 @@ static int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 
 	if (input_cfg->d.pix_cfg.input_mux == CAMIF ||
 		input_cfg->d.pix_cfg.input_mux == TESTGEN) {
-		vfe_dev->axi_data.src_info[VFE_PIX_0].width =
-			input_cfg->d.pix_cfg.camif_cfg.pixels_per_line;
+		if (input_cfg->d.pix_cfg.input_mux == CAMIF)
+			vfe_dev->axi_data.src_info[VFE_PIX_0].width =
+				input_cfg->d.pix_cfg.camif_cfg.pixels_per_line;
+		if (input_cfg->d.pix_cfg.input_mux == TESTGEN)
+			vfe_dev->axi_data.src_info[VFE_PIX_0].width =
+			input_cfg->d.pix_cfg.testgen_cfg.pixels_per_line;
 		if (input_cfg->d.pix_cfg.camif_cfg.subsample_cfg.
 			sof_counter_step > 0) {
 			vfe_dev->axi_data.src_info[VFE_PIX_0].
