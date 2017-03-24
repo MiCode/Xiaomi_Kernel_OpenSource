@@ -1171,7 +1171,7 @@ void msm_isp_get_avtimer_ts(
 
 	rc = avcs_core_query_timer(&avtimer_tick);
 	if (rc < 0) {
-		pr_err("%s: Error: Invalid AVTimer Tick, rc=%d\n",
+		pr_err_ratelimited("%s: Error: Invalid AVTimer Tick, rc=%d\n",
 			   __func__, rc);
 		/* In case of error return zero AVTimer Tick Value */
 		time_stamp->vt_time.tv_sec = 0;
