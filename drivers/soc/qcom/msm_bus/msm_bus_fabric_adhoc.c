@@ -531,7 +531,7 @@ static int msm_bus_enable_node_qos_clk(struct msm_bus_node_device_type *node)
 {
 	struct msm_bus_node_device_type *bus_node = NULL;
 	int i;
-	int ret;
+	int ret = 0;
 	long rounded_rate;
 
 	if (!node || (!to_msm_bus_node(node->node_info->bus_device))) {
