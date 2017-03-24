@@ -324,18 +324,6 @@ static int _sde_debugfs_init(struct sde_kms *sde_kms)
 
 static void _sde_debugfs_destroy(struct sde_kms *sde_kms)
 {
-	return 0;
-}
-
-static void sde_debugfs_danger_destroy(struct sde_kms *sde_kms,
-		struct dentry *parent)
-{
-}
-
-static int sde_debugfs_danger_init(struct sde_kms *sde_kms,
-		struct dentry *parent)
-{
-	return 0;
 }
 #endif
 

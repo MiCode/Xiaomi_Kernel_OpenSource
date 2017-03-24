@@ -1369,6 +1369,7 @@ int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
 	return 0;
 }
 
+#ifdef CONFIG_DEBUG_FS
 static int _sde_encoder_status_show(struct seq_file *s, void *data)
 {
 	struct sde_encoder_virt *sde_enc;
@@ -1414,7 +1415,6 @@ static int _sde_encoder_status_show(struct seq_file *s, void *data)
 	return 0;
 }
 
-#ifdef CONFIG_DEBUG_FS
 static int _sde_encoder_debugfs_status_open(struct inode *inode,
 		struct file *file)
 {
@@ -1590,7 +1590,7 @@ static int _sde_encoder_init_debugfs(struct drm_encoder *drm_enc)
 	return 0;
 }
 
-static _sde_encoder_destroy_debugfs(struct drm_encoder *drm_enc)
+static void _sde_encoder_destroy_debugfs(struct drm_encoder *drm_enc)
 {
 }
 #endif
