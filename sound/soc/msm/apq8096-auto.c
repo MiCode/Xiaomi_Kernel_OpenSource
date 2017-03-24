@@ -312,9 +312,9 @@ static unsigned int tdm_slot_offset_custom[TDM_MAX][TDM_SLOT_OFFSET_MAX] = {
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
 	/* QUAT_TDM_TX */
-	{0, 2, 0xFFFF},
-	{4, 6, 8, 10, 12, 14, 16, 18},
-	{20, 22, 24, 26, 28, 30, 0xFFFF},
+	{0, 2, 4, 6, 8, 10, 12, 0xFFFF},
+	{14, 16, 0xFFFF},
+	{18, 20, 22, 24, 26, 28, 30, 0xFFFF},
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
@@ -330,9 +330,9 @@ static unsigned int tdm_slot_offset_custom[TDM_MAX][TDM_SLOT_OFFSET_MAX] = {
 	{28, 30, 0xFFFF},
 	{0xFFFF}, /* not used */
 	/* TERT_TDM_TX */
-	{0, 2, 4, 6, 8, 10, 12, 0xFFFF},
-	{14, 16, 0xFFFF},
-	{18, 20, 22, 24, 26, 28, 30, 0xFFFF},
+	{0, 2, 0xFFFF},
+	{4, 6, 8, 10, 12, 14, 16, 18},
+	{20, 22, 24, 26, 28, 30, 0xFFFF},
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
@@ -3899,6 +3899,55 @@ static struct snd_soc_dai_link apq8096_custom_fe_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA9,
 		.ops = &apq8096_ll_ops,
+	},
+	{
+		.name = "INT_HFP_BT Hostless",
+		.stream_name = "INT_HFP_BT Hostless",
+		.cpu_dai_name = "INT_HFP_BT_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+	{
+		.name = "AUXPCM Hostless",
+		.stream_name = "AUXPCM Hostless",
+		.cpu_dai_name = "AUXPCM_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+	{
+		.name = "Tertiary MI2S TX_Hostless",
+		.stream_name = "Tertiary MI2S_TX Hostless Capture",
+		.cpu_dai_name = "TERT_MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
 	},
 };
 
