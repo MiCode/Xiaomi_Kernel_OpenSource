@@ -1744,7 +1744,9 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 		}
 	}
 
-	pr_err("fd [%d] ion buf not found.\n", fd);
+	pr_err("no free entry to store ion handle of fd [%d].\n", fd);
+	/* decrement back the ref count */
+	ion_free(spcom_dev->ion_client, ion_handle);
 
 	return -EFAULT;
 }
