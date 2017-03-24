@@ -42,6 +42,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x0>;
 			enable-method = "psci";
+			efficiency = <1024>;
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_0>;
@@ -72,6 +73,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x100>;
 			enable-method = "psci";
+			efficiency = <1024>;
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_1>;
@@ -96,6 +98,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x200>;
 			enable-method = "psci";
+			efficiency = <1024>;
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_2>;
@@ -120,6 +123,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x300>;
 			enable-method = "psci";
+			efficiency = <1024>;
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_3>;
@@ -144,6 +148,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x400>;
 			enable-method = "psci";
+			efficiency = <1740>;
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_4>;
@@ -168,6 +173,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x500>;
 			enable-method = "psci";
+			efficiency = <1740>;
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_5>;
@@ -192,6 +198,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x600>;
 			enable-method = "psci";
+			efficiency = <1740>;
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_6>;
@@ -216,6 +223,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x700>;
 			enable-method = "psci";
+			efficiency = <1740>;
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_7>;
