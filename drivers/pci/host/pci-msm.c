@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/of_pci.h>
 #include <linux/pci.h>
+#include <linux/iommu.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/rpm-smd-regulator.h>
@@ -5587,6 +5588,34 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void msm_pcie_unmap_qgic_addr(struct msm_pcie_dev_t *dev,
+					struct pci_dev *pdev)
+{
+	struct iommu_domain *domain = iommu_get_domain_for_dev(&pdev->dev);
+	int bypass_en = 0;
+
+	if (!domain) {
+		PCIE_DBG(dev,
+			"PCIe: RC%d: client does not have an iommu domain\n",
+			dev->rc_idx);
+		return;
+	}
+
+	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS, &bypass_en);
+	if (!bypass_en) {
+		int ret;
+		phys_addr_t pcie_base_addr =
+			dev->res[MSM_PCIE_RES_DM_CORE].resource->start;
+		dma_addr_t iova = rounddown(pcie_base_addr, PAGE_SIZE);
+
+		ret = iommu_unmap(domain, iova, PAGE_SIZE);
+		if (ret != PAGE_SIZE)
+			PCIE_ERR(dev,
+				"PCIe: RC%d: failed to unmap QGIC address. ret = %d\n",
+				dev->rc_idx, ret);
+	}
+}
+
 void msm_pcie_destroy_irq(unsigned int irq)
 {
 	int pos;
@@ -5634,6 +5663,8 @@ void msm_pcie_destroy_irq(unsigned int irq)
 				irq, dev->rc_idx);
 			return;
 		}
+		if (irq == firstirq + nvec - 1)
+			msm_pcie_unmap_qgic_addr(dev, pdev);
 		pos = irq - firstirq;
 	} else {
 		PCIE_DBG(dev, "destroy default MSI irq %d\n", irq);
@@ -5782,10 +5813,64 @@ again:
 	return irq;
 }
 
+static int msm_pcie_map_qgic_addr(struct msm_pcie_dev_t *dev,
+					struct pci_dev *pdev,
+					struct msi_msg *msg)
+{
+	struct iommu_domain *domain = iommu_get_domain_for_dev(&pdev->dev);
+	int ret, bypass_en = 0;
+	dma_addr_t iova;
+	phys_addr_t pcie_base_addr, gicm_db_offset;
+
+	msg->address_hi = 0;
+	msg->address_lo = dev->msi_gicm_addr;
+
+	if (!domain) {
+		PCIE_DBG(dev,
+			"PCIe: RC%d: client does not have an iommu domain\n",
+			dev->rc_idx);
+		return 0;
+	}
+
+	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS, &bypass_en);
+
+	PCIE_DBG(dev,
+		"PCIe: RC%d: Stage 1 is %s for endpoint: %04x:%02x\n",
+		dev->rc_idx, bypass_en ? "bypass" : "enabled",
+		pdev->bus->number, pdev->devfn);
+
+	if (bypass_en)
+		return 0;
+
+	gicm_db_offset = dev->msi_gicm_addr -
+		rounddown(dev->msi_gicm_addr, PAGE_SIZE);
+	/*
+	 * Use PCIe DBI address as the IOVA since client cannot
+	 * use this address for their IOMMU mapping. This will
+	 * prevent any conflicts between PCIe host and
+	 * client's mapping.
+	 */
+	pcie_base_addr = dev->res[MSM_PCIE_RES_DM_CORE].resource->start;
+	iova = rounddown(pcie_base_addr, PAGE_SIZE);
+
+	ret = iommu_map(domain, iova, rounddown(dev->msi_gicm_addr, PAGE_SIZE),
+			PAGE_SIZE, IOMMU_READ | IOMMU_WRITE);
+	if (ret < 0) {
+		PCIE_ERR(dev,
+			"PCIe: RC%d: ret: %d: Could not do iommu map for QGIC address\n",
+			dev->rc_idx, ret);
+		return -ENOMEM;
+	}
+
+	msg->address_lo = iova + gicm_db_offset;
+
+	return 0;
+}
+
 static int arch_setup_msi_irq_qgic(struct pci_dev *pdev,
 		struct msi_desc *desc, int nvec)
 {
-	int irq, index, firstirq = 0;
+	int irq, index, ret, firstirq = 0;
 	struct msi_msg msg;
 	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev->bus);
 
@@ -5807,8 +5892,11 @@ static int arch_setup_msi_irq_qgic(struct pci_dev *pdev,
 
 	/* write msi vector and data */
 	irq_set_msi_desc(firstirq, desc);
-	msg.address_hi = 0;
-	msg.address_lo = dev->msi_gicm_addr;
+
+	ret = msm_pcie_map_qgic_addr(dev, pdev, &msg);
+	if (ret)
+		return ret;
+
 	msg.data = dev->msi_gicm_base + (firstirq - dev->msi[0].num);
 	write_msi_msg(firstirq, &msg);
 
