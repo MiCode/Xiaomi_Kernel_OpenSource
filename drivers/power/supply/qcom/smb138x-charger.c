@@ -535,6 +535,8 @@ static enum power_supply_property smb138x_parallel_props[] = {
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_PIN_ENABLED,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
@@ -573,6 +575,19 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		rc = smblib_get_usb_suspend(chg, &val->intval);
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
+		if (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+			rc = smblib_get_prop_input_current_limited(chg, val);
+		else
+			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+			rc = smblib_get_charge_param(chg, &chg->param.usb_icl,
+				&val->intval);
+		else
+			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_get_charge_param(chg, &chg->param.fv, &val->intval);
@@ -652,6 +667,11 @@ static int smb138x_parallel_set_prop(struct power_supply *psy,
 	switch (prop) {
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		rc = smb138x_set_parallel_suspend(chip, (bool)val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+			rc = smblib_set_charge_param(chg, &chg->param.usb_icl,
+				val->intval);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fv, val->intval);
