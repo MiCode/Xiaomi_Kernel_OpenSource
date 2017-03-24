@@ -97,6 +97,8 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_FW_MEM_READY,
 	CNSS_DRIVER_EVENT_FW_READY,
 	CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
+	CNSS_DRIVER_EVENT_REGISTER_DRIVER,
+	CNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
 	CNSS_DRIVER_EVENT_MAX,
 };
 
@@ -153,7 +155,6 @@ struct cnss_plat_data {
 	uint32_t recovery_count;
 	struct cnss_wlan_mac_info wlan_mac_info;
 	unsigned long driver_state;
-	struct completion fw_ready_event;
 	struct list_head event_list;
 	spinlock_t event_lock; /* spinlock for driver work event handling */
 	struct work_struct event_work;
@@ -171,6 +172,7 @@ struct cnss_plat_data {
 	struct cnss_pin_connect_result pin_result;
 	struct dentry *root_dentry;
 	atomic_t pm_count;
+	struct timer_list fw_ready_timer;
 };
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev);
