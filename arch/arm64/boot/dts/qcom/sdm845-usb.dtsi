@@ -19,6 +19,7 @@
 		reg = <0x0a600000 0xf8c00>,
 		      <0x088ee000 0x400>;
 		reg-names = "core_base", "ahb2phy_base";
+		iommus = <&apps_smmu 0x740>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -56,6 +57,7 @@
 			interrupts = <0 133 0>;
 			usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
 			tx-fifo-resize;
+			linux,sysdev_is_parent;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
@@ -109,6 +111,7 @@
 		reg = <0x0a800000 0xf8c00>,
 		      <0x088ee000 0x400>;
 		reg-names = "core_base", "ahb2phy_base";
+		iommus = <&apps_smmu 0x760>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -144,6 +147,7 @@
 			interrupts = <0 138 0>;
 			usb-phy = <&qusb_phy1>, <&usb_qmp_phy>;
 			tx-fifo-resize;
+			linux,sysdev_is_parent;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
