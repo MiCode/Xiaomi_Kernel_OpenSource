@@ -1547,6 +1547,10 @@ static int dwc3_suspend(struct device *dev)
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	int		ret;
 
+	/* Check if platform glue driver handling PM, if not then handle here */
+	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_SUSPEND_EVENT))
+		return 0;
+
 	ret = dwc3_suspend_common(dwc);
 	if (ret)
 		return ret;
@@ -1560,6 +1564,10 @@ static int dwc3_resume(struct device *dev)
 {
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	int		ret;
+
+	/* Check if platform glue driver handling PM, if not then handle here */
+	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_RESUME_EVENT))
+		return 0;
 
 	pinctrl_pm_select_default_state(dev);
 
