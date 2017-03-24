@@ -455,6 +455,9 @@ int ath10k_ce_send_nolock(struct ath10k_ce_pipe *ce_state,
 	u32 desc_flags = 0;
 	int ret = 0;
 
+	if (test_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags))
+		return -ESHUTDOWN;
+
 	if (nbytes > ce_state->src_sz_max)
 		ath10k_warn(ar, "%s: send more we can (nbytes: %d, max: %d)\n",
 			    __func__, nbytes, ce_state->src_sz_max);
@@ -941,6 +944,9 @@ void ath10k_ce_per_engine_service_any(struct ath10k *ar)
 	u32 intr_summary;
 	struct ath10k_ce_pipe *ce_state;
 	struct bus_opaque *ar_opaque = ath10k_bus_priv(ar);
+
+	if (test_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags))
+		return;
 
 	if (ar->target_version == ATH10K_HW_WCN3990)
 		intr_summary = 0xFFF;

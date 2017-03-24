@@ -24,6 +24,7 @@
 #include "htc.h"
 #include "ce.h"
 #include "snoc.h"
+#include "qmi.h"
 #include <soc/qcom/icnss.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -413,6 +414,20 @@ static struct ath10k_shadow_reg_cfg target_shadow_reg_cfg_map[] = {
 		{ 11, WCN3990_DST_WR_INDEX_OFFSET},
 };
 
+static bool ath10k_snoc_has_fw_crashed(struct ath10k *ar)
+{
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+
+	return atomic_read(&ar_snoc->fw_crashed);
+}
+
+static void ath10k_snoc_fw_crashed_clear(struct ath10k *ar)
+{
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+
+	atomic_set(&ar_snoc->fw_crashed, 0);
+}
+
 void ath10k_snoc_write32(struct ath10k *ar, u32 offset, u32 value)
 {
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
@@ -655,6 +670,9 @@ static int ath10k_snoc_hif_tx_sg(struct ath10k *ar, u8 pipe_id,
 			   "snoc tx item %d paddr %pad len %d n_items %d\n",
 			   i, &items[i].paddr, items[i].len, n_items);
 
+		if (ath10k_snoc_has_fw_crashed(ar))
+			return  -EINVAL;
+
 		err = ath10k_ce_send_nolock(ce_pipe,
 					    items[i].transfer_context,
 					    items[i].paddr,
@@ -867,11 +885,17 @@ static void ath10k_snoc_hif_stop(struct ath10k *ar)
 {
 	if (!ar)
 		return;
-	ath10k_dbg(ar, ATH10K_DBG_BOOT, "boot hif stop\n");
-	ath10k_snoc_irq_disable(ar);
+	if (ath10k_snoc_has_fw_crashed(ar) ||
+	    test_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags)) {
+		ath10k_snoc_free_irq(ar);
+	} else {
+		ath10k_snoc_irq_disable(ar);
+	}
+
 	ath10k_snoc_flush(ar);
 	napi_synchronize(&ar->napi);
 	napi_disable(&ar->napi);
+	ath10k_dbg(ar, ATH10K_DBG_BOOT, "boot hif stop\n");
 }
 
 static int ath10k_snoc_alloc_pipes(struct ath10k *ar)
@@ -1087,9 +1111,14 @@ static int ath10k_snoc_bus_configure(struct ath10k *ar)
 
 static int ath10k_snoc_hif_start(struct ath10k *ar)
 {
-	ath10k_dbg(ar, ATH10K_DBG_BOOT, "boot hif start\n");
+	if (ath10k_snoc_has_fw_crashed(ar)) {
+		ath10k_snoc_request_irq(ar);
+		ath10k_snoc_fw_crashed_clear(ar);
+	}
 	ath10k_snoc_irq_enable(ar);
 	ath10k_snoc_rx_post(ar);
+
+	ath10k_dbg(ar, ATH10K_DBG_BOOT, "boot hif start\n");
 	return 0;
 }
 
@@ -1110,7 +1139,8 @@ static int ath10k_snoc_hif_power_up(struct ath10k *ar)
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 driver state = %d\n",
 		   __func__, ar->state);
 
-	if (ar->state == ATH10K_STATE_ON) {
+	if (ar->state == ATH10K_STATE_ON ||
+	    test_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags)) {
 		ret = ath10k_snoc_bus_configure(ar);
 		if (ret)
 			ath10k_err(ar, "failed to configure bus: %d\n", ret);
@@ -1133,6 +1163,10 @@ static int ath10k_snoc_napi_poll(struct napi_struct *ctx, int budget)
 	struct ath10k *ar = container_of(ctx, struct ath10k, napi);
 	int done = 0;
 
+	if (ath10k_snoc_has_fw_crashed(ar)) {
+		napi_complete(ctx);
+		return done;
+	}
 	ath10k_ce_per_engine_service_any(ar);
 
 	done = ath10k_htt_txrx_compl_task(ar, budget);
@@ -1254,6 +1288,10 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 		ath10k_err(ar, "failed to register driver core: %d\n", ret);
 		goto err_free_irq;
 	}
+
+	ath10k_snoc_modem_ssr_register_notifier(ar);
+	ath10k_snoc_pd_restart_enable(ar);
+
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 probed\n", __func__);
 
 	return 0;
@@ -1282,6 +1320,8 @@ static int ath10k_snoc_remove(struct platform_device *pdev)
 		return -EINVAL;
 
 	ath10k_core_unregister(ar);
+	ath10k_snoc_pdr_unregister_notifier(ar);
+	ath10k_snoc_modem_ssr_unregister_notifier(ar);
 	ath10k_snoc_free_irq(ar);
 	ath10k_snoc_release_resource(ar);
 	ath10k_snoc_free_pipes(ar);

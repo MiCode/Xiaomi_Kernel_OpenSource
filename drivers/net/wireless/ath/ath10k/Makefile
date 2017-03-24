@@ -26,6 +26,7 @@ ath10k_pci-y += pci.o \
 		ce.o
 obj-$(CONFIG_ATH10K_TARGET_SNOC) += ath10k_snoc.o
 ath10k_snoc-y += snoc.o \
+		qmi.o \
 		ce.o
 
 ath10k_pci-$(CONFIG_ATH10K_AHB) += ahb.o
