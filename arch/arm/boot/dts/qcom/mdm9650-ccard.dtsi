@@ -161,7 +161,8 @@
 &tlmm_pinmux {
 	/* Set these up as hogs */
 	pinctrl-names = "default";
-	pinctrl-0 = <&can_reset_gpio>;
+	pinctrl-0 = <&can_reset_gpio>, <&ant_switch_gpio1>, <&ant_switch_gpio2>,
+		<&ant_switch_gpio3>;
 
 	periph_vreg_gpio: periph_vreg_gpio {
 		mux {
@@ -315,6 +316,51 @@
 				drive-strength = <8>;	/* 8 mA */
 				bias-disable;		/* NO PULL */
 				output-high;
+			};
+		};
+	};
+
+	/* Pins for the antenna switch matrix */
+	pmx_antenna_switch_matrix {
+		ant_switch_gpio1: ant_switch_gpio1 {
+			mux {
+				pins = "gpio31";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio31";
+				drive-strength = <2>;
+				output-low;
+				bias-disable;
+			};
+		};
+
+		ant_switch_gpio2: ant_switch_gpio2 {
+			mux {
+				pins = "gpio32";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio32";
+				drive-strength = <2>;
+				output-high;
+				bias-pull-up;
+			};
+		};
+
+		ant_switch_gpio3: ant_switch_gpio3 {
+			mux {
+				pins = "gpio33";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio33";
+				drive-strength = <2>;
+				output-high;
+				bias-pull-up;
 			};
 		};
 	};
