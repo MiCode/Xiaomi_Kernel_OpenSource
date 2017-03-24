@@ -132,6 +132,8 @@ struct sde_power_event {
  * @reg_bus_hdl: current register bus handle
  * @data_bus_handle: context structure for data bus control
  * @event_list: current power handle event list
+ * @rsc_client: sde rsc client pointer
+ * @rsc_client_init: boolean to control rsc client create
  */
 struct sde_power_handle {
 	struct dss_module_power mp;
@@ -142,6 +144,8 @@ struct sde_power_handle {
 	u32 reg_bus_hdl;
 	struct sde_power_data_bus_handle data_bus_handle;
 	struct list_head event_list;
+	struct sde_rsc_client *rsc_client;
+	bool rsc_client_init;
 };
 
 /**

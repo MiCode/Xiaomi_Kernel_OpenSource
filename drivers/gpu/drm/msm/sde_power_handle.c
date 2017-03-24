@@ -25,6 +25,7 @@
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/sde_io_util.h>
+#include <linux/sde_rsc.h>
 
 #include "sde_power_handle.h"
 #include "sde_trace.h"
@@ -38,6 +39,28 @@ static void sde_power_event_trigger_locked(struct sde_power_handle *phandle,
 		if (event->event_type & event_type)
 			event->cb_fnc(event_type, event->usr);
 	}
+}
+
+static int sde_power_rsc_update(struct sde_power_handle *phandle, bool enable)
+{
+	u32 rsc_state;
+
+	/* creates the rsc client on the first enable */
+	if (!phandle->rsc_client_init) {
+		phandle->rsc_client = sde_rsc_client_create(SDE_RSC_INDEX,
+				"sde_power_handle", false);
+		if (IS_ERR_OR_NULL(phandle->rsc_client)) {
+			pr_debug("sde rsc client create failed :%ld\n",
+						PTR_ERR(phandle->rsc_client));
+			phandle->rsc_client = NULL;
+		}
+		phandle->rsc_client_init = true;
+	}
+
+	rsc_state = enable ? SDE_RSC_CLK_STATE : SDE_RSC_IDLE_STATE;
+
+	return sde_rsc_client_state_update(phandle->rsc_client,
+			rsc_state, NULL, -1);
 }
 
 struct sde_power_client *sde_power_client_create(
@@ -678,6 +701,9 @@ int sde_power_resource_init(struct platform_device *pdev,
 	INIT_LIST_HEAD(&phandle->power_client_clist);
 	INIT_LIST_HEAD(&phandle->event_list);
 
+	phandle->rsc_client = NULL;
+	phandle->rsc_client_init = false;
+
 	mutex_init(&phandle->phandle_lock);
 
 	return rc;
@@ -749,6 +775,9 @@ void sde_power_resource_deinit(struct platform_device *pdev,
 
 	mp->num_vreg = 0;
 	mp->num_clk = 0;
+
+	if (phandle->rsc_client)
+		sde_rsc_client_destroy(phandle->rsc_client);
 }
 
 int sde_power_resource_enable(struct sde_power_handle *phandle,
@@ -808,10 +837,13 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 			goto data_bus_hdl_err;
 		}
 
-		rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
-		if (rc) {
-			pr_err("failed to enable vregs rc=%d\n", rc);
-			goto vreg_err;
+		if (!phandle->rsc_client_init) {
+			rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
+									enable);
+			if (rc) {
+				pr_err("failed to enable vregs rc=%d\n", rc);
+				goto vreg_err;
+			}
 		}
 
 		rc = sde_power_reg_bus_update(phandle->reg_bus_hdl,
@@ -819,6 +851,12 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 		if (rc) {
 			pr_err("failed to set reg bus vote rc=%d\n", rc);
 			goto reg_bus_hdl_err;
+		}
+
+		rc = sde_power_rsc_update(phandle, true);
+		if (rc) {
+			pr_err("failed to update rsc\n");
+			goto rsc_err;
 		}
 
 		rc = msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
@@ -836,11 +874,14 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 
 		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
 
+		sde_power_rsc_update(phandle, false);
+
 		sde_power_reg_bus_update(phandle->reg_bus_hdl,
 							max_usecase_ndx);
 
-		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
-
+		if (!phandle->rsc_client_init)
+			msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
+									enable);
 		sde_power_data_bus_update(&phandle->data_bus_handle, enable);
 
 		sde_power_event_trigger_locked(phandle,
@@ -852,9 +893,12 @@ end:
 	return rc;
 
 clk_err:
+	sde_power_rsc_update(phandle, false);
+rsc_err:
 	sde_power_reg_bus_update(phandle->reg_bus_hdl, prev_usecase_ndx);
 reg_bus_hdl_err:
-	msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, 0);
+	if (!phandle->rsc_client_init)
+		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, 0);
 vreg_err:
 	sde_power_data_bus_update(&phandle->data_bus_handle, 0);
 data_bus_hdl_err:
