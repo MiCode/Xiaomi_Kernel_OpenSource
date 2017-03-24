@@ -30,6 +30,7 @@
 #define QNOVO_ERROR_STS		0x09
 #define QNOVO_ERROR_BIT		BIT(0)
 #define QNOVO_ERROR_STS2	0x0A
+#define QNOVO_ERROR_CHARGING_DISABLED	BIT(1)
 #define QNOVO_INT_RT_STS	0x10
 #define QNOVO_INT_SET_TYPE	0x11
 #define QNOVO_INT_POLARITY_HIGH	0x12
@@ -110,20 +111,6 @@ struct qnovo_dt_props {
 	struct device_node	*revid_dev_node;
 };
 
-enum {
-	QNOVO_NO_ERR_STS_BIT		= BIT(0),
-};
-
-struct chg_props {
-	bool		charging;
-	bool		usb_online;
-	bool		dc_online;
-};
-
-struct chg_status {
-	bool		ok_to_qnovo;
-};
-
 struct qnovo {
 	int			base;
 	struct mutex		write_lock;
@@ -142,13 +129,10 @@ struct qnovo {
 	s64			v_gain_mega;
 	struct notifier_block	nb;
 	struct power_supply	*batt_psy;
-	struct power_supply	*usb_psy;
-	struct power_supply	*dc_psy;
-	struct chg_props	cp;
-	struct chg_status	cs;
 	struct work_struct	status_change_work;
 	int			fv_uV_request;
 	int			fcc_uA_request;
+	bool			ok_to_qnovo;
 };
 
 static int debug_mask;
@@ -315,26 +299,6 @@ static int qnovo_parse_dt(struct qnovo *chip)
 	if (!chip->dt.revid_dev_node) {
 		pr_err("Missing qcom,pmic-revid property - driver failed\n");
 		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int qnovo_check_chg_version(struct qnovo *chip)
-{
-	int rc;
-
-	chip->pmic_rev_id = get_revid_data(chip->dt.revid_dev_node);
-	if (IS_ERR(chip->pmic_rev_id)) {
-		rc = PTR_ERR(chip->pmic_rev_id);
-		if (rc != -EPROBE_DEFER)
-			pr_err("Unable to get pmic_revid rc=%d\n", rc);
-		return rc;
-	}
-
-	if ((chip->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE)
-		   && (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4)) {
-		chip->wa_flags |= QNOVO_NO_ERR_STS_BIT;
 	}
 
 	return 0;
@@ -654,7 +618,7 @@ static ssize_t ok_to_qnovo_show(struct class *c, struct class_attribute *attr,
 {
 	struct qnovo *chip = container_of(c, struct qnovo, qnovo_class);
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", chip->cs.ok_to_qnovo);
+	return snprintf(buf, PAGE_SIZE, "%d\n", chip->ok_to_qnovo);
 }
 
 static ssize_t qnovo_enable_show(struct class *c, struct class_attribute *attr,
@@ -747,9 +711,6 @@ static ssize_t val_store(struct class *c, struct class_attribute *attr,
 	int i = attr - qnovo_attributes;
 	unsigned long val;
 
-	if (get_effective_result(chip->disable_votable))
-		return -EINVAL;
-
 	if (kstrtoul(ubuf, 0, &val))
 		return -EINVAL;
 
@@ -759,7 +720,8 @@ static ssize_t val_store(struct class *c, struct class_attribute *attr,
 	if (i == FCC_REQUEST)
 		chip->fcc_uA_request = val;
 
-	qnovo_batt_psy_update(chip, false);
+	if (!get_effective_result(chip->disable_votable))
+		qnovo_batt_psy_update(chip, false);
 
 	return count;
 }
@@ -1137,87 +1099,40 @@ static struct class_attribute qnovo_attributes[] = {
 	__ATTR_NULL,
 };
 
-static void get_chg_props(struct qnovo *chip, struct chg_props *cp)
+static int qnovo_update_status(struct qnovo *chip)
 {
-	union power_supply_propval pval;
 	u8 val = 0;
 	int rc;
+	bool charging;
+	bool changed = false;
 
-	cp->charging = true;
-	rc = qnovo_read(chip, QNOVO_ERROR_STS, &val, 1);
+	rc = qnovo_read(chip, QNOVO_ERROR_STS2, &val, 1);
 	if (rc < 0) {
 		pr_err("Couldn't read error sts rc = %d\n", rc);
-		cp->charging = false;
+		charging = false;
 	} else {
-		cp->charging = (!(val & QNOVO_ERROR_BIT));
+		charging = !(val & QNOVO_ERROR_CHARGING_DISABLED);
 	}
 
-	if (chip->wa_flags & QNOVO_NO_ERR_STS_BIT) {
-		/*
-		 * on v1.0 and v1.1 pmic's force charging to true
-		 * if things are not good to charge s/w gets a PTRAIN_DONE
-		 * interrupt
-		 */
-		cp->charging = true;
+	if (chip->ok_to_qnovo ^ charging) {
+
+		vote(chip->disable_votable, OK_TO_QNOVO_VOTER, !charging, 0);
+		if (!charging)
+			vote(chip->disable_votable, USER_VOTER, true, 0);
+
+		chip->ok_to_qnovo = charging;
+		changed = true;
 	}
 
-	cp->usb_online = false;
-	if (!chip->usb_psy)
-		chip->usb_psy = power_supply_get_by_name("usb");
-	if (chip->usb_psy) {
-		rc = power_supply_get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_ONLINE, &pval);
-		if (rc < 0)
-			pr_err("Couldn't read usb online rc = %d\n", rc);
-		else
-			cp->usb_online = (bool)pval.intval;
-	}
-
-	cp->dc_online = false;
-	if (!chip->dc_psy)
-		chip->dc_psy = power_supply_get_by_name("dc");
-	if (chip->dc_psy) {
-		rc = power_supply_get_property(chip->dc_psy,
-				POWER_SUPPLY_PROP_ONLINE, &pval);
-		if (rc < 0)
-			pr_err("Couldn't read dc online rc = %d\n", rc);
-		else
-			cp->dc_online = (bool)pval.intval;
-	}
-}
-
-static void get_chg_status(struct qnovo *chip, const struct chg_props *cp,
-				struct chg_status *cs)
-{
-	cs->ok_to_qnovo = false;
-
-	if (cp->charging && (cp->usb_online || cp->dc_online))
-		cs->ok_to_qnovo = true;
+	return changed;
 }
 
 static void status_change_work(struct work_struct *work)
 {
 	struct qnovo *chip = container_of(work,
 			struct qnovo, status_change_work);
-	bool notify_uevent = false;
-	struct chg_props cp;
-	struct chg_status cs;
 
-	get_chg_props(chip, &cp);
-	get_chg_status(chip, &cp, &cs);
-
-	if (cs.ok_to_qnovo ^ chip->cs.ok_to_qnovo) {
-		vote(chip->disable_votable, OK_TO_QNOVO_VOTER,
-			!cs.ok_to_qnovo, 0);
-		if (!cs.ok_to_qnovo)
-			vote(chip->disable_votable, USER_VOTER, true, 0);
-		notify_uevent = true;
-	}
-
-	memcpy(&chip->cp, &cp, sizeof(struct chg_props));
-	memcpy(&chip->cs, &cs, sizeof(struct chg_status));
-
-	if (notify_uevent)
+	if (qnovo_update_status(chip))
 		kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
 }
 
@@ -1229,8 +1144,8 @@ static int qnovo_notifier_call(struct notifier_block *nb,
 
 	if (ev != PSY_EVENT_PROP_CHANGED)
 		return NOTIFY_OK;
-	if ((strcmp(psy->desc->name, "battery") == 0)
-		|| (strcmp(psy->desc->name, "usb") == 0))
+
+	if (strcmp(psy->desc->name, "battery") == 0)
 		schedule_work(&chip->status_change_work);
 
 	return NOTIFY_OK;
@@ -1240,6 +1155,7 @@ static irqreturn_t handle_ptrain_done(int irq, void *data)
 {
 	struct qnovo *chip = data;
 
+	qnovo_update_status(chip);
 	kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
 	return IRQ_HANDLED;
 }
@@ -1393,13 +1309,6 @@ static int qnovo_probe(struct platform_device *pdev)
 	rc = qnovo_parse_dt(chip);
 	if (rc < 0) {
 		pr_err("Couldn't parse device tree rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = qnovo_check_chg_version(chip);
-	if (rc < 0) {
-		if (rc != -EPROBE_DEFER)
-			pr_err("Couldn't check version rc=%d\n", rc);
 		return rc;
 	}
 
