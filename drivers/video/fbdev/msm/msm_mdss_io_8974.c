@@ -1863,8 +1863,10 @@ static int mdss_dsi_ulps_config_default(struct mdss_dsi_ctrl_pdata *ctrl,
 		 * to be in stop state.
 		 */
 		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 16);
+		wmb(); /* ensure lanes are put to stop state */
 
 		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, 0x0);
+		wmb(); /* ensure lanes are in proper state */
 
 		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
 	}
