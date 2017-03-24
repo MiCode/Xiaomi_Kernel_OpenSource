@@ -940,7 +940,7 @@ static void ath10k_process_rx(struct ath10k *ar,
 
 	status = IEEE80211_SKB_RXCB(skb);
 	*status = *rx_status;
-
+	fill_datapath_stats(ar, status);
 	ath10k_dbg(ar, ATH10K_DBG_DATA,
 		   "rx skb %pK len %u peer %pM %s %s sn %u %s%s%s%s%s %srate_idx %u vht_nss %u freq %u band %u flag 0x%x fcs-err %i mic-err %i amsdu-more %i\n",
 		   skb,

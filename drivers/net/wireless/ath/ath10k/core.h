@@ -70,6 +70,20 @@
 #define ATH10K_NAPI_BUDGET      64
 #define ATH10K_NAPI_QUOTA_LIMIT 60
 
+#define ATH10K_RX_MCS_MIN           0
+#define ATH10K_RX_HT_MCS_MAX        32
+#define ATH10K_RX_VHT_RATEIDX_MAX   9
+#define ATH10K_RX_VHT_MCS_MAX       20  /* For 2x2 */
+#define ATH10K_RX_NSS_MIN           0
+#define ATH10K_RX_NSS_MAX           5
+
+enum ath10k_datapath_rx_band {
+	ATH10K_BAND_MIN,
+	ATH10K_BAND_2GHZ = ATH10K_BAND_MIN,
+	ATH10K_BAND_5GHZ,
+	ATH10K_BAND_MAX,
+};
+
 struct ath10k;
 
 enum ath10k_bus {
@@ -703,6 +717,20 @@ struct ath10k_fw_components {
 	struct ath10k_fw_file fw_file;
 };
 
+struct datapath_rx_stats {
+	u32 no_of_packets;
+	u32 short_gi_pkts;
+	u32 ht_rate_indx[ATH10K_RX_HT_MCS_MAX + 1];
+	u32 vht_rate_indx[ATH10K_RX_VHT_MCS_MAX + 1];
+	u32 ht_rate_packets;
+	u32 vht_rate_packets;
+	u32 legacy_pkt;
+	u32 nss[ATH10K_RX_NSS_MAX + 1];
+	u32 num_pkts_40Mhz;
+	u32 num_pkts_80Mhz;
+	u32 band[ATH10K_BAND_MAX + 1];
+};
+
 struct ath10k {
 	struct ath_common ath_common;
 	struct ieee80211_hw *hw;
@@ -900,7 +928,10 @@ struct ath10k {
 		enum ath10k_spectral_mode mode;
 		struct ath10k_spec_scan config;
 	} spectral;
+	struct datapath_rx_stats *rx_stats;
 #endif
+	/* prevent concurrency histogram for receiving data packet */
+	spinlock_t datapath_rx_stat_lock;
 
 	struct {
 		/* protected by conf_mutex */
