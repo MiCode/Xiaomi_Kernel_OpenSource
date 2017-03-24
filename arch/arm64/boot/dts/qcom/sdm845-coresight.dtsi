@@ -529,15 +529,6 @@
 			};
 
 			port@2 {
-				reg = <8>;
-				tpda_in_tpdm_dcc: endpoint {
-					slave-mode;
-					remote-endpoint =
-						<&tpdm_dcc_out_tpda>;
-				};
-			};
-
-			port@3 {
 				reg = <13>;
 				tpda_in_tpdm_pimem: endpoint {
 					slave-mode;
@@ -562,25 +553,6 @@
 		port {
 			tpdm_pimem_out_tpda: endpoint {
 				remote-endpoint = <&tpda_in_tpdm_pimem>;
-			};
-		};
-	};
-
-
-	tpdm_dcc: tpdm@6870000 {
-		compatible = "qcom,coresight-tpdm";
-		reg = <0x6870000 0x1000>;
-		reg-names = "tpdm-base";
-
-		coresight-name = "coresight-tpdm-dcc";
-
-		clocks = <&clock_gcc RPMH_QDSS_CLK>,
-			 <&clock_gcc RPMH_QDSS_A_CLK>;
-		clock-names = "core_clk", "core_a_clk";
-
-		port {
-			tpdm_dcc_out_tpda: endpoint {
-				remote-endpoint = <&tpda_in_tpdm_dcc>;
 			};
 		};
 	};
