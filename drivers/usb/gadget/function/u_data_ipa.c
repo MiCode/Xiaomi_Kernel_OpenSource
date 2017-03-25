@@ -735,7 +735,7 @@ int ipa_data_connect(struct gadget_ipa_port *gp, enum ipa_func_type func,
 {
 	struct ipa_data_ch_info *port;
 	unsigned long flags;
-	int ret;
+	int ret = 0;
 
 	pr_debug("dev:%pK port#%d src_connection_idx:%d dst_connection_idx:%d\n",
 			gp, func, src_connection_idx, dst_connection_idx);

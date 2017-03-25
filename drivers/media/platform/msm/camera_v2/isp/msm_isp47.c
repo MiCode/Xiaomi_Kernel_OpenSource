@@ -281,9 +281,11 @@ int msm_isp47_ahb_clk_cfg(struct vfe_device *vfe_dev,
 
 	vfe_dev->hw_info->vfe_ops.platform_ops.get_clk_rates(vfe_dev,
 							&clk_rates);
-	if (vfe_dev->msm_isp_vfe_clk_rate <= clk_rates.svs_rate)
+	if (vfe_dev->vfe_clk_info[vfe_dev->hw_info->vfe_clk_idx].clk_rate <=
+		clk_rates.svs_rate)
 		src_clk_vote = CAM_AHB_SVS_VOTE;
-	else if (vfe_dev->msm_isp_vfe_clk_rate <= clk_rates.nominal_rate)
+	else if (vfe_dev->vfe_clk_info[vfe_dev->hw_info->vfe_clk_idx].clk_rate
+		<= clk_rates.nominal_rate)
 		src_clk_vote = CAM_AHB_NOMINAL_VOTE;
 	else
 		src_clk_vote = CAM_AHB_TURBO_VOTE;
@@ -365,7 +367,8 @@ void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 				vfe_dev->irq0_mask, vfe_dev->irq1_mask,
 				MSM_ISP_IRQ_SET);
 	msm_camera_enable_irq(vfe_dev->vfe_irq, 0);
-	tasklet_kill(&vfe_dev->vfe_tasklet);
+	tasklet_kill(&(vfe_dev->common_data->tasklets[vfe_dev->pdev->id].
+			tasklet));
 	msm_isp_flush_tasklet(vfe_dev);
 
 	vfe_dev->common_data->dual_vfe_res->vfe_base[vfe_dev->pdev->id] = NULL;
@@ -386,6 +389,7 @@ void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 
 	vfe_dev->hw_info->vfe_ops.platform_ops.enable_clks(
 							vfe_dev, 0);
+	msm_vfe47_configure_hvx(vfe_dev, 0);
 	vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(vfe_dev, 0);
 }
 
@@ -683,6 +687,15 @@ void msm_vfe47_process_epoch_irq(struct vfe_device *vfe_dev,
 				vfe_dev, VFE_PIX_0);
 		}
 	}
+}
+
+void msm_isp47_preprocess_camif_irq(struct vfe_device *vfe_dev,
+	uint32_t irq_status0)
+{
+	if (irq_status0 & BIT(1))
+		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = false;
+	if (irq_status0 & BIT(0))
+		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = true;
 }
 
 void msm_vfe47_reg_update(struct vfe_device *vfe_dev,
@@ -1508,16 +1521,19 @@ void msm_vfe47_configure_hvx(struct vfe_device *vfe_dev,
 		pr_err("%s: no stream_clk\n", __func__);
 		return;
 	}
-	rc = msm_camera_clk_enable(&vfe_dev->pdev->dev, vfe_dev->hvx_clk_info,
-			vfe_dev->hvx_clk, vfe_dev->num_hvx_clk, is_stream_on);
-	if (rc) {
-		pr_err("%s: stream_clk enable failed, enable: %u\n",
-			__func__,
-			is_stream_on);
-		return;
-	}
-	if (is_stream_on == 1) {
+	if (is_stream_on) {
 		/* Enable HVX */
+		if (!vfe_dev->hvx_clk_state) {
+			rc = msm_camera_clk_enable(&vfe_dev->pdev->dev,
+				vfe_dev->hvx_clk_info, vfe_dev->hvx_clk,
+				vfe_dev->num_hvx_clk, is_stream_on);
+			if (rc) {
+				pr_err("%s: stream_clk enable failed\n",
+						__func__);
+				return;
+			}
+			vfe_dev->hvx_clk_state = true;
+		}
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
 		val |= (1 << 3);
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x50);
@@ -1527,6 +1543,17 @@ void msm_vfe47_configure_hvx(struct vfe_device *vfe_dev,
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x50);
 	} else {
 		/* Disable HVX */
+		if (!vfe_dev->hvx_clk_state)
+			return;
+		rc = msm_camera_clk_enable(&vfe_dev->pdev->dev,
+			vfe_dev->hvx_clk_info, vfe_dev->hvx_clk,
+			vfe_dev->num_hvx_clk, is_stream_on);
+		if (rc) {
+			pr_err("%s: stream_clk disable failed\n",
+					__func__);
+			return;
+		}
+		vfe_dev->hvx_clk_state = false;
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
 		val &= 0xFFFFFFF7;
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x50);
@@ -1895,7 +1922,7 @@ void msm_vfe47_update_ping_pong_addr(
 	if (buf_size < 0)
 		buf_size = 0;
 
-	paddr32_max = (paddr + buf_size) & 0xFFFFFFC0;
+	paddr32_max = (paddr + buf_size) & 0xFFFFFFE0;
 
 	msm_camera_io_w(paddr32, vfe_base +
 		VFE47_PING_PONG_BASE(wm_idx, pingpong_bit));
@@ -2383,18 +2410,23 @@ void msm_vfe47_stats_enable_module(struct vfe_device *vfe_dev,
 
 void msm_vfe47_stats_update_ping_pong_addr(
 	struct vfe_device *vfe_dev, struct msm_vfe_stats_stream *stream_info,
-	uint32_t pingpong_status, dma_addr_t paddr)
+	uint32_t pingpong_status, dma_addr_t paddr, uint32_t buf_size)
 {
 	void __iomem *vfe_base = vfe_dev->vfe_base;
 	int vfe_idx = msm_isp_get_vfe_idx_for_stats_stream(vfe_dev,
 			stream_info);
 	uint32_t paddr32 = (paddr & 0xFFFFFFFF);
+	uint32_t paddr32_max;
 	int stats_idx;
 
 	stats_idx = STATS_IDX(stream_info->stream_handle[vfe_idx]);
 
 	msm_camera_io_w(paddr32, vfe_base +
 		VFE47_STATS_PING_PONG_BASE(stats_idx, pingpong_status));
+
+	paddr32_max = (paddr + buf_size) & 0xFFFFFFE0;
+	msm_camera_io_w(paddr32_max, vfe_base +
+		VFE47_STATS_PING_PONG_BASE(stats_idx, pingpong_status) + 0x4);
 }
 
 uint32_t msm_vfe47_stats_get_wm_mask(
@@ -2528,6 +2560,7 @@ int msm_vfe47_get_clks(struct vfe_device *vfe_dev)
 		vfe_dev->hvx_clk_info =
 			&vfe_dev->vfe_clk_info[vfe_dev->num_clk-1];
 		vfe_dev->hvx_clk = &vfe_dev->vfe_clk[vfe_dev->num_clk-1];
+		vfe_dev->hvx_clk_state = false;
 	}
 
 	for (i = 0; i < vfe_dev->num_clk; i++) {
@@ -2553,8 +2586,8 @@ void msm_vfe47_put_clks(struct vfe_device *vfe_dev)
 int msm_vfe47_enable_clks(struct vfe_device *vfe_dev, int enable)
 {
 	return msm_camera_clk_enable(&vfe_dev->pdev->dev,
-			vfe_dev->vfe_clk_info,
-			vfe_dev->vfe_clk, vfe_dev->num_norm_clk, enable);
+		vfe_dev->vfe_clk_info,
+		vfe_dev->vfe_clk, vfe_dev->num_norm_clk, enable);
 }
 
 int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
@@ -2565,17 +2598,19 @@ int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 	long clk_rate, prev_clk_rate;
 
 	clk_rate = clk_round_rate(vfe_dev->vfe_clk[clk_idx], *rate);
-	if (vfe_dev->msm_isp_vfe_clk_rate == clk_rate)
+	if (vfe_dev->vfe_clk_info[clk_idx].clk_rate == clk_rate)
 		return rc;
 
-	prev_clk_rate = vfe_dev->msm_isp_vfe_clk_rate;
-	vfe_dev->msm_isp_vfe_clk_rate = clk_rate;
+	prev_clk_rate =
+		vfe_dev->vfe_clk_info[clk_idx].clk_rate;
+	vfe_dev->vfe_clk_info[clk_idx].clk_rate =
+		clk_rate;
 	/*
 	 * if cx_ipeak is supported vote first so that dsp throttling is
 	 * reduced before we go to turbo
 	 */
 	if ((vfe_dev->vfe_cx_ipeak) &&
-		(vfe_dev->msm_isp_vfe_clk_rate >=
+		(vfe_dev->vfe_clk_info[clk_idx].clk_rate >=
 		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_NOMINAL]
 		[vfe_dev->hw_info->vfe_clk_idx]) &&
 		prev_clk_rate <
@@ -2598,7 +2633,7 @@ int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 	 * if voting done earlier
 	 */
 	if ((vfe_dev->vfe_cx_ipeak) &&
-		(vfe_dev->msm_isp_vfe_clk_rate <
+		(vfe_dev->vfe_clk_info[clk_idx].clk_rate <
 		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_NOMINAL]
 		[vfe_dev->hw_info->vfe_clk_idx]) &&
 		prev_clk_rate >=
@@ -2915,6 +2950,7 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.process_epoch_irq = msm_vfe47_process_epoch_irq,
 			.config_irq = msm_vfe47_config_irq,
 			.read_irq_status = msm_vfe47_read_irq_status,
+			.preprocess_camif_irq = msm_isp47_preprocess_camif_irq,
 		},
 		.axi_ops = {
 			.reload_wm = msm_vfe47_axi_reload_wm,
