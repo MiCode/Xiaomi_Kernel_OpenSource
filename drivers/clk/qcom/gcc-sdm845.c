@@ -328,32 +328,6 @@ static struct clk_rcg2 gcc_gp3_clk_src = {
 	},
 };
 
-static const struct freq_tbl ftbl_gcc_mmss_qm_core_clk_src[] = {
-	F(75000000, P_GPLL0_OUT_EVEN, 4, 0, 0),
-	F(150000000, P_GPLL0_OUT_EVEN, 2, 0, 0),
-	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
-	{ }
-};
-
-static struct clk_rcg2 gcc_mmss_qm_core_clk_src = {
-	.cmd_rcgr = 0xb040,
-	.mnd_width = 0,
-	.hid_width = 5,
-	.parent_map = gcc_parent_map_0,
-	.freq_tbl = ftbl_gcc_mmss_qm_core_clk_src,
-	.clkr.hw.init = &(struct clk_init_data){
-		.name = "gcc_mmss_qm_core_clk_src",
-		.parent_names = gcc_parent_names_0,
-		.num_parents = 4,
-		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_rcg2_ops,
-		VDD_CX_FMAX_MAP3(
-			MIN, 75000000,
-			LOWER, 150000000,
-			LOW, 300000000),
-	},
-};
-
 static const struct freq_tbl ftbl_gcc_pcie_0_aux_clk_src[] = {
 	F(9600000, P_BI_TCXO, 2, 0, 0),
 	F(19200000, P_BI_TCXO, 1, 0, 0),
@@ -1664,37 +1638,6 @@ static struct clk_branch gcc_gpu_snoc_dvm_gfx_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_gpu_snoc_dvm_gfx_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_mmss_qm_ahb_clk = {
-	.halt_reg = 0xb05c,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0xb05c,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mmss_qm_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_mmss_qm_core_clk = {
-	.halt_reg = 0xb038,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0xb038,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mmss_qm_core_clk",
-			.parent_names = (const char *[]){
-				"gcc_mmss_qm_core_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3233,9 +3176,6 @@ static struct clk_regmap *gcc_sdm845_clocks[] = {
 	[GCC_GPU_GPLL0_DIV_CLK_SRC] = &gcc_gpu_gpll0_div_clk_src.clkr,
 	[GCC_GPU_MEMNOC_GFX_CLK] = &gcc_gpu_memnoc_gfx_clk.clkr,
 	[GCC_GPU_SNOC_DVM_GFX_CLK] = &gcc_gpu_snoc_dvm_gfx_clk.clkr,
-	[GCC_MMSS_QM_AHB_CLK] = &gcc_mmss_qm_ahb_clk.clkr,
-	[GCC_MMSS_QM_CORE_CLK] = &gcc_mmss_qm_core_clk.clkr,
-	[GCC_MMSS_QM_CORE_CLK_SRC] = &gcc_mmss_qm_core_clk_src.clkr,
 	[GCC_MSS_AXIS2_CLK] = &gcc_mss_axis2_clk.clkr,
 	[GCC_MSS_CFG_AHB_CLK] = &gcc_mss_cfg_ahb_clk.clkr,
 	[GCC_MSS_GPLL0_DIV_CLK_SRC] = &gcc_mss_gpll0_div_clk_src.clkr,
