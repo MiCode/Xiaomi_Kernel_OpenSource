@@ -139,7 +139,8 @@
 			<88 222>,	/* spmi_periph_irq[0]*/
 			<89 212>,	/* usb30_power_event_irq*/
 			<54 235>,	/* qmp_pcie_usb3_lfps_rxterm_irq_cx*/
-			<0xff 234>,	/* qusb2phy_intr*/
+			<49 234>,	/* qusb2phy_intr:qusb2phy_dpse_hv*/
+			<58 234>,	/* qusb2phy_intr:qusb2phy_dmse_hv*/
 			<0xff 35>,	/* CTI_SPI_intx*/
 			<0xff 36>,	/* CTI_SPI_inty*/
 			<0xff 38>,	/* QTMR_qgicFrm0VirtIrq*/
