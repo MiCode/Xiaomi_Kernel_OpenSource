@@ -137,6 +137,7 @@ enum msm_mdp_crtc_property {
 enum msm_mdp_conn_property {
 	/* blob properties, always put these first */
 	CONNECTOR_PROP_SDE_INFO,
+	CONNECTOR_PROP_HDR_INFO,
 
 	/* # of blob properties */
 	CONNECTOR_PROP_BLOBCOUNT,

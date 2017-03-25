@@ -22,6 +22,7 @@
 #include <linux/leds.h>
 #include <drm/drm_panel.h>
 #include <drm/drm_mipi_dsi.h>
+#include <drm/msm_drm.h>
 
 #include "dsi_defs.h"
 #include "dsi_ctrl_hw.h"
@@ -173,6 +174,7 @@ struct dsi_panel {
 	struct dsi_backlight_config bl_config;
 	struct dsi_panel_reset_config reset_config;
 	struct dsi_pinctrl_info pinctrl;
+	struct drm_panel_hdr_properties hdr_props;
 
 	bool lp11_init;
 	bool ulps_enabled;

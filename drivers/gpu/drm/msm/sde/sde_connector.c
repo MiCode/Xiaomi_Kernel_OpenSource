@@ -17,6 +17,7 @@
 #include "sde_connector.h"
 #include <linux/backlight.h>
 #include "dsi_drm.h"
+#include "dsi_display.h"
 
 #define BL_NODE_NAME_SIZE 32
 
@@ -227,6 +228,8 @@ static void sde_connector_destroy(struct drm_connector *connector)
 
 	if (c_conn->blob_caps)
 		drm_property_unreference_blob(c_conn->blob_caps);
+	if (c_conn->blob_hdr)
+		drm_property_unreference_blob(c_conn->blob_hdr);
 	msm_property_destroy(&c_conn->property_info);
 
 	drm_connector_unregister(connector);
@@ -666,6 +669,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	struct sde_kms *sde_kms;
 	struct sde_kms_info *info;
 	struct sde_connector *c_conn = NULL;
+	struct dsi_display *dsi_display;
 	int rc;
 
 	if (!dev || !dev->dev_private || !encoder) {
@@ -781,6 +785,23 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		kfree(info);
 	}
 
+	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
+		dsi_display = (struct dsi_display *)(display);
+		if (dsi_display && dsi_display->panel &&
+			dsi_display->panel->hdr_props.hdr_enabled == true) {
+			msm_property_install_blob(&c_conn->property_info,
+				"hdr_properties",
+				DRM_MODE_PROP_IMMUTABLE,
+				CONNECTOR_PROP_HDR_INFO);
+
+			msm_property_set_blob(&c_conn->property_info,
+				&c_conn->blob_hdr,
+				&dsi_display->panel->hdr_props,
+				sizeof(dsi_display->panel->hdr_props),
+				CONNECTOR_PROP_HDR_INFO);
+		}
+	}
+
 	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
 			0x0, 0, INR_OPEN_MAX, 0, CONNECTOR_PROP_RETIRE_FENCE);
 
@@ -810,6 +831,8 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 error_destroy_property:
 	if (c_conn->blob_caps)
 		drm_property_unreference_blob(c_conn->blob_caps);
+	if (c_conn->blob_hdr)
+		drm_property_unreference_blob(c_conn->blob_hdr);
 	msm_property_destroy(&c_conn->property_info);
 error_cleanup_fence:
 	sde_fence_deinit(&c_conn->retire_fence);

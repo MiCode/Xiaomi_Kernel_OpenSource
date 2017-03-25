@@ -244,6 +244,30 @@ struct drm_msm_gem_madvise {
 	__u32 retained;       /* out, whether backing store still exists */
 };
 
+/* HDR WRGB x and y index */
+#define DISPLAY_PRIMARIES_WX 0
+#define DISPLAY_PRIMARIES_WY 1
+#define DISPLAY_PRIMARIES_RX 2
+#define DISPLAY_PRIMARIES_RY 3
+#define DISPLAY_PRIMARIES_GX 4
+#define DISPLAY_PRIMARIES_GY 5
+#define DISPLAY_PRIMARIES_BX 6
+#define DISPLAY_PRIMARIES_BY 7
+#define DISPLAY_PRIMARIES_MAX 8
+
+struct drm_panel_hdr_properties {
+	__u32 hdr_enabled;
+
+	/* WRGB X and y values arrayed in format */
+	/* [WX, WY, RX, RY, GX, GY, BX, BY] */
+	__u32 display_primaries[DISPLAY_PRIMARIES_MAX];
+
+	/* peak brightness supported by panel */
+	__u32 peak_brightness;
+	/* Blackness level supported by panel */
+	__u32 blackness_level;
+};
+
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
 #define DRM_MSM_SET_PARAM              0x01
