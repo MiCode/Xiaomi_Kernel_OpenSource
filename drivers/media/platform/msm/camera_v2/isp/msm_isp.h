@@ -801,7 +801,6 @@ struct vfe_device {
 
 	/* State variables */
 	uint32_t vfe_hw_version;
-	int vfe_clk_idx;
 	uint32_t vfe_open_cnt;
 	uint8_t vt_enable;
 	uint32_t vfe_ub_policy;
@@ -818,7 +817,6 @@ struct vfe_device {
 	struct msm_isp_statistics *stats;
 	uint64_t msm_isp_last_overflow_ab;
 	uint64_t msm_isp_last_overflow_ib;
-	uint32_t msm_isp_vfe_clk_rate;
 	struct msm_isp_ub_info *ub_info;
 	uint32_t isp_sof_debug;
 	uint32_t isp_raw0_debug;
