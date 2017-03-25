@@ -109,6 +109,14 @@
 	};
 };
 
+&apc0_cpr {
+	qcom,cpr-ignore-invalid-fuses;
+};
+
+&apc1_cpr {
+	qcom,cpr-ignore-invalid-fuses;
+};
+
 &ufsphy_card {
 	compatible = "qcom,ufs-phy-qrbtc-sdm845";
 
