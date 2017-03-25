@@ -576,8 +576,7 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 
 		if (submit->bos[i].flags & MSM_SUBMIT_BO_READ)
 			msm_gem_move_to_active(&msm_obj->base, gpu, false, submit->fence);
-
-		if (submit->bos[i].flags & MSM_SUBMIT_BO_WRITE)
+		else if (submit->bos[i].flags & MSM_SUBMIT_BO_WRITE)
 			msm_gem_move_to_active(&msm_obj->base, gpu, true, submit->fence);
 	}
 

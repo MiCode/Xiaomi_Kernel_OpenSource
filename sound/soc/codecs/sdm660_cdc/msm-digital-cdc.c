@@ -1028,7 +1028,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 		break;
 	case DIG_CDC_EVENT_PRE_RX1_INT_ON:
 		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x1C, 0x14);
+				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x3C, 0x28);
 		snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_RX1_B4_CTL, 0x18, 0x10);
 		snd_soc_update_bits(codec,
@@ -1036,7 +1036,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 		break;
 	case DIG_CDC_EVENT_PRE_RX2_INT_ON:
 		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x1C, 0x14);
+				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x3C, 0x28);
 		snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_RX2_B4_CTL, 0x18, 0x10);
 		snd_soc_update_bits(codec,
@@ -1044,7 +1044,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 		break;
 	case DIG_CDC_EVENT_POST_RX1_INT_OFF:
 		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x1C, 0x00);
+				MSM89XX_CDC_CORE_RX1_B3_CTL, 0x3C, 0x00);
 		snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_RX1_B4_CTL, 0x18, 0xFF);
 		snd_soc_update_bits(codec,
@@ -1052,7 +1052,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 		break;
 	case DIG_CDC_EVENT_POST_RX2_INT_OFF:
 		snd_soc_update_bits(codec,
-				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x1C, 0x00);
+				MSM89XX_CDC_CORE_RX2_B3_CTL, 0x3C, 0x00);
 		snd_soc_update_bits(codec,
 				MSM89XX_CDC_CORE_RX2_B4_CTL, 0x18, 0xFF);
 		snd_soc_update_bits(codec,
@@ -1929,8 +1929,12 @@ static struct snd_soc_dai_driver msm_codec_dais[] = {
 			.stream_name = "AIF1 Playback",
 			.channels_min = 1,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_8000_48000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rates = SNDRV_PCM_RATE_8000_192000,
+			.rate_max = 192000,
+			.rate_min = 8000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
 		},
 		 .ops = &msm_dig_dai_ops,
 	},
@@ -2085,10 +2089,18 @@ static int msm_dig_cdc_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int msm_dig_suspend(struct device *dev)
 {
-	struct msm_asoc_mach_data *pdata =
-	snd_soc_card_get_drvdata(registered_digcodec->component.card);
+	struct msm_asoc_mach_data *pdata;
 	struct msm_dig_priv *msm_dig_cdc = dev_get_drvdata(dev);
 
+	if (!registered_digcodec || !msm_dig_cdc) {
+		pr_debug("%s:digcodec not initialized, return\n", __func__);
+		return 0;
+	}
+	pdata = snd_soc_card_get_drvdata(registered_digcodec->component.card);
+	if (!pdata) {
+		pr_debug("%s:card not initialized, return\n", __func__);
+		return 0;
+	}
 	if (msm_dig_cdc->dapm_bias_off) {
 		pr_debug("%s: mclk cnt = %d, mclk_enabled = %d\n",
 			__func__, atomic_read(&pdata->int_mclk0_rsc_ref),

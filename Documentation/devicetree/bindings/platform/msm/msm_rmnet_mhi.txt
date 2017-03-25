@@ -41,6 +41,12 @@ Main node properties:
   Definition: Maximum payload interface support on transmit path.  If
 	not defined MHI_MAX_MTU is used.
 
+- qcom,interface-name
+  Usage: optional
+  Value type: <string>
+  Definition: optional string to overwrite default interface name. If
+	not defined string RMNET_MHI_DRIVER_NAME is used.
+
 ========
 Example:
 ========

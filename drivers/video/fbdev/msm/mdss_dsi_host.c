@@ -41,6 +41,8 @@
 #define LANE_SWAP_CTRL			0x0B0
 #define LOGICAL_LANE_SWAP_CTRL		0x310
 
+#define MAX_BTA_WAIT_RETRY 5
+
 #define CEIL(x, y)		(((x) + ((y)-1)) / (y))
 
 struct mdss_dsi_ctrl_pdata *ctrl_list[DSI_CTRL_MAX];
@@ -1451,8 +1453,7 @@ static int mdss_dsi_wait4video_eng_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (ctrl->ctrl_state & CTRL_STATE_MDP_ACTIVE) {
 		mdss_dsi_wait4video_done(ctrl);
 		v_total = mdss_panel_get_vtotal(pinfo);
-		v_blank = pinfo->lcdc.v_back_porch + pinfo->lcdc.v_front_porch +
-			pinfo->lcdc.v_pulse_width;
+		v_blank = pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width;
 		if (pinfo->dynamic_fps && pinfo->current_fps)
 			fps = pinfo->current_fps;
 		else
@@ -1483,6 +1484,8 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	int ret = 0;
 	unsigned long flag;
 	int ignore_underflow = 0;
+	int retry_count = 0;
+	int in_blanking = 0;
 
 	if (ctrl_pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -1508,7 +1511,25 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	reinit_completion(&ctrl_pdata->bta_comp);
 	mdss_dsi_enable_irq(ctrl_pdata, DSI_BTA_TERM);
 	spin_unlock_irqrestore(&ctrl_pdata->mdp_lock, flag);
+wait:
 	mdss_dsi_wait4video_eng_busy(ctrl_pdata);
+	if (ctrl_pdata->panel_mode == DSI_VIDEO_MODE) {
+		in_blanking = ctrl_pdata->mdp_callback->fxn(
+			ctrl_pdata->mdp_callback->data,
+			MDP_INTF_CALLBACK_CHECK_LINE_COUNT);
+		/* Try for maximum of 5 attempts */
+		if (in_blanking && (retry_count < MAX_BTA_WAIT_RETRY)) {
+			pr_debug("%s: not in active region\n", __func__);
+			retry_count++;
+			goto wait;
+		}
+	}
+	if (retry_count == MAX_BTA_WAIT_RETRY)
+		MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
+			"dsi0_phy", "dsi1_ctrl", "dsi1_phy",
+			"vbif", "vbif_nrt", "dbg_bus",
+			"vbif_dbg_bus", "panic");
+
 	/* mask out overflow errors */
 	if (ignore_underflow)
 		mdss_dsi_set_reg(ctrl_pdata, 0x10c, 0x0f0000, 0x0f0000);

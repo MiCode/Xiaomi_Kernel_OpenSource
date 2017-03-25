@@ -2092,7 +2092,10 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 			__func__, vfe_dev->pdev->id);
 		return IRQ_HANDLED;
 	}
-
+	if (vfe_dev->hw_info->vfe_ops.irq_ops.preprocess_camif_irq) {
+		vfe_dev->hw_info->vfe_ops.irq_ops.preprocess_camif_irq(
+				vfe_dev, irq_status0);
+	}
 	if (msm_isp_process_overflow_irq(vfe_dev,
 		&irq_status0, &irq_status1, 0)) {
 		/* if overflow initiated no need to handle the interrupts */
@@ -2139,7 +2142,7 @@ void msm_isp_do_tasklet(unsigned long data)
 
 	while (atomic_read(&vfe_dev->irq_cnt)) {
 		spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
-		queue_cmd = list_first_entry(&vfe_dev->tasklet_q,
+		queue_cmd = list_first_entry_or_null(&vfe_dev->tasklet_q,
 		struct msm_vfe_tasklet_queue_cmd, list);
 		if (!queue_cmd) {
 			atomic_set(&vfe_dev->irq_cnt, 0);

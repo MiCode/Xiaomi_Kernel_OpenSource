@@ -18,7 +18,12 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/power_supply.h>
+#include <linux/pmic-voter.h>
 
+#define USB_PRESENT_VOTER			"USB_PRESENT_VOTER"
+#define SLEEP_VOTER				"SLEEP_VOTER"
+#define SHUTDOWN_VOTER				"SHUTDOWN_VOTER"
 #define TADC_REVISION1_REG			0x00
 #define TADC_REVISION2_REG			0x01
 #define TADC_REVISION3_REG			0x02
@@ -54,6 +59,7 @@
 #define TADC_CH7_ADC_HI_REG(chip)		(chip->tadc_base + 0x73)
 #define TADC_CH8_ADC_LO_REG(chip)		(chip->tadc_base + 0x74)
 #define TADC_CH8_ADC_HI_REG(chip)		(chip->tadc_base + 0x75)
+#define TADC_ADC_DIRECT_TST(chip)		(chip->tadc_base + 0xE7)
 
 /* TADC_CMP register definitions */
 #define TADC_CMP_THR1_CMP_REG(chip)		(chip->tadc_cmp_base + 0x51)
@@ -217,6 +223,11 @@ struct tadc_chip {
 	struct tadc_chan_data	chans[TADC_NUM_CH];
 	struct completion	eoc_complete;
 	struct mutex		write_lock;
+	struct mutex		conv_lock;
+	struct power_supply	*usb_psy;
+	struct votable		*tadc_disable_votable;
+	struct work_struct	status_change_work;
+	struct notifier_block	nb;
 };
 
 struct tadc_pt {
@@ -274,7 +285,7 @@ static bool tadc_is_reg_locked(struct tadc_chip *chip, u16 reg)
 	if ((reg & 0xFF00) == chip->tadc_cmp_base)
 		return true;
 
-	if (reg == TADC_HWTRIG_CONV_CH_EN_REG(chip))
+	if (reg >= TADC_HWTRIG_CONV_CH_EN_REG(chip))
 		return true;
 
 	return false;
@@ -480,12 +491,22 @@ static int tadc_do_conversion(struct tadc_chip *chip, u8 channels, s16 *adc)
 {
 	unsigned long timeout, timeleft;
 	u8 val[TADC_NUM_CH * 2];
-	int rc, i;
+	int rc = 0, i;
 
+	mutex_lock(&chip->conv_lock);
 	rc = tadc_read(chip, TADC_MBG_ERR_REG(chip), val, 1);
 	if (rc < 0) {
 		pr_err("Couldn't read mbg error status rc=%d\n", rc);
-		return rc;
+		goto unlock;
+	}
+
+	reinit_completion(&chip->eoc_complete);
+
+	if (get_effective_result(chip->tadc_disable_votable)) {
+		/* leave it back in completed state */
+		complete_all(&chip->eoc_complete);
+		rc = -ENODATA;
+		goto unlock;
 	}
 
 	if (val[0] != 0) {
@@ -496,7 +517,7 @@ static int tadc_do_conversion(struct tadc_chip *chip, u8 channels, s16 *adc)
 	rc = tadc_write(chip, TADC_CONV_REQ_REG(chip), channels);
 	if (rc < 0) {
 		pr_err("Couldn't write conversion request rc=%d\n", rc);
-		return rc;
+		goto unlock;
 	}
 
 	timeout = msecs_to_jiffies(CONVERSION_TIMEOUT_MS);
@@ -506,25 +527,34 @@ static int tadc_do_conversion(struct tadc_chip *chip, u8 channels, s16 *adc)
 		rc = tadc_read(chip, TADC_SW_CH_CONV_REG(chip), val, 1);
 		if (rc < 0) {
 			pr_err("Couldn't read conversion status rc=%d\n", rc);
-			return rc;
+			goto unlock;
 		}
 
+		/*
+		 * check one last time if the channel we are requesting
+		 * has completed conversion
+		 */
 		if (val[0] != channels) {
-			pr_err("Conversion timed out\n");
-			return -ETIMEDOUT;
+			rc = -ETIMEDOUT;
+			goto unlock;
 		}
 	}
 
 	rc = tadc_read(chip, TADC_CH1_ADC_LO_REG(chip), val, ARRAY_SIZE(val));
 	if (rc < 0) {
 		pr_err("Couldn't read adc channels rc=%d\n", rc);
-		return rc;
+		goto unlock;
 	}
 
 	for (i = 0; i < TADC_NUM_CH; i++)
 		adc[i] = (s16)(val[i * 2] | (u16)val[i * 2 + 1] << 8);
 
-	return jiffies_to_msecs(timeout - timeleft);
+	pr_debug("Conversion time for channels 0x%x = %dms\n", channels,
+			jiffies_to_msecs(timeout - timeleft));
+
+unlock:
+	mutex_unlock(&chip->conv_lock);
+	return rc;
 }
 
 static int tadc_read_raw(struct iio_dev *indio_dev,
@@ -593,12 +623,17 @@ static int tadc_read_raw(struct iio_dev *indio_dev,
 			break;
 		default:
 			rc = tadc_do_conversion(chip, BIT(chan->channel), adc);
-			if (rc >= 0)
-				*val = adc[chan->channel];
+			if (rc < 0) {
+				if (rc != -ENODATA)
+					pr_err("Couldn't read battery current and voltage channels rc=%d\n",
+									rc);
+				return rc;
+			}
+			*val = adc[chan->channel];
 			break;
 		}
 
-		if (rc < 0) {
+		if (rc < 0 && rc != -ENODATA) {
 			pr_err("Couldn't read channel %d\n", chan->channel);
 			return rc;
 		}
@@ -630,7 +665,7 @@ static int tadc_read_raw(struct iio_dev *indio_dev,
 		case TADC_BATT_P:
 			rc = tadc_do_conversion(chip,
 				BIT(TADC_BATT_I) | BIT(TADC_BATT_V), adc);
-			if (rc < 0) {
+			if (rc < 0 && rc != -ENODATA) {
 				pr_err("Couldn't read battery current and voltage channels rc=%d\n",
 									rc);
 				return rc;
@@ -641,7 +676,7 @@ static int tadc_read_raw(struct iio_dev *indio_dev,
 		case TADC_INPUT_P:
 			rc = tadc_do_conversion(chip,
 				BIT(TADC_INPUT_I) | BIT(TADC_INPUT_V), adc);
-			if (rc < 0) {
+			if (rc < 0 && rc != -ENODATA) {
 				pr_err("Couldn't read input current and voltage channels rc=%d\n",
 									rc);
 				return rc;
@@ -683,6 +718,7 @@ static int tadc_read_raw(struct iio_dev *indio_dev,
 		case TADC_DIE_TEMP:
 		case TADC_DIE_TEMP_THR1:
 		case TADC_DIE_TEMP_THR2:
+		case TADC_DIE_TEMP_THR3:
 			*val = chan_data->scale;
 			return IIO_VAL_INT;
 		case TADC_BATT_I:
@@ -821,13 +857,128 @@ static int tadc_write_raw(struct iio_dev *indio_dev,
 	return 0;
 }
 
-
 static irqreturn_t handle_eoc(int irq, void *dev_id)
 {
 	struct tadc_chip *chip = dev_id;
 
-	complete(&chip->eoc_complete);
+	complete_all(&chip->eoc_complete);
 	return IRQ_HANDLED;
+}
+
+static int tadc_disable_vote_callback(struct votable *votable,
+			void *data, int disable, const char *client)
+{
+	struct tadc_chip *chip = data;
+	int rc;
+	int timeout;
+	unsigned long timeleft;
+
+	if (disable) {
+		timeout = msecs_to_jiffies(CONVERSION_TIMEOUT_MS);
+		timeleft = wait_for_completion_timeout(&chip->eoc_complete,
+				timeout);
+		if (timeleft == 0)
+			pr_err("Timed out waiting for eoc, disabling hw conversions regardless\n");
+
+		rc = tadc_write(chip, TADC_HWTRIG_CONV_CH_EN_REG(chip), 0x00);
+		if (rc < 0) {
+			pr_err("Couldn't disable hw conversions rc=%d\n", rc);
+			return rc;
+		}
+		rc = tadc_write(chip, TADC_ADC_DIRECT_TST(chip), 0x80);
+		if (rc < 0) {
+			pr_err("Couldn't enable direct test mode rc=%d\n", rc);
+			return rc;
+		}
+	} else {
+		rc = tadc_write(chip, TADC_ADC_DIRECT_TST(chip), 0x00);
+		if (rc < 0) {
+			pr_err("Couldn't disable direct test mode rc=%d\n", rc);
+			return rc;
+		}
+		rc = tadc_write(chip, TADC_HWTRIG_CONV_CH_EN_REG(chip), 0x07);
+		if (rc < 0) {
+			pr_err("Couldn't enable hw conversions rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	pr_debug("client: %s disable: %d\n", client, disable);
+	return 0;
+}
+
+static void status_change_work(struct work_struct *work)
+{
+	struct tadc_chip *chip = container_of(work,
+			struct tadc_chip, status_change_work);
+	union power_supply_propval pval = {0, };
+	int rc;
+
+	if (!chip->usb_psy)
+		chip->usb_psy = power_supply_get_by_name("usb");
+
+	if (!chip->usb_psy) {
+		/* treat usb is not present */
+		vote(chip->tadc_disable_votable, USB_PRESENT_VOTER, true, 0);
+		return;
+	}
+
+	rc = power_supply_get_property(chip->usb_psy,
+		       POWER_SUPPLY_PROP_PRESENT, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get present status rc=%d\n", rc);
+		/* treat usb is not present */
+		vote(chip->tadc_disable_votable, USB_PRESENT_VOTER, true, 0);
+		return;
+	}
+
+	/* disable if usb is not present */
+	vote(chip->tadc_disable_votable, USB_PRESENT_VOTER, !pval.intval, 0);
+}
+
+static int tadc_notifier_call(struct notifier_block *nb,
+		unsigned long ev, void *v)
+{
+	struct power_supply *psy = v;
+	struct tadc_chip *chip = container_of(nb, struct tadc_chip, nb);
+
+	if (ev != PSY_EVENT_PROP_CHANGED)
+		return NOTIFY_OK;
+
+	if ((strcmp(psy->desc->name, "usb") == 0))
+		schedule_work(&chip->status_change_work);
+
+	return NOTIFY_OK;
+}
+
+static int tadc_register_notifier(struct tadc_chip *chip)
+{
+	int rc;
+
+	chip->nb.notifier_call = tadc_notifier_call;
+	rc = power_supply_reg_notifier(&chip->nb);
+	if (rc < 0) {
+		pr_err("Couldn't register psy notifier rc = %d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static int tadc_suspend(struct device *dev)
+{
+	struct tadc_chip *chip = dev_get_drvdata(dev);
+
+	vote(chip->tadc_disable_votable, SLEEP_VOTER, true, 0);
+	return 0;
+}
+
+static int tadc_resume(struct device *dev)
+{
+	struct tadc_chip *chip = dev_get_drvdata(dev);
+
+	vote(chip->tadc_disable_votable, SLEEP_VOTER, false, 0);
+	return 0;
 }
 
 static int tadc_set_therm_table(struct tadc_chan_data *chan_data, u32 beta,
@@ -1009,6 +1160,12 @@ static int tadc_probe(struct platform_device *pdev)
 	chip->dev = &pdev->dev;
 	init_completion(&chip->eoc_complete);
 
+	/*
+	 * set the completion in "completed" state so disable of the tadc
+	 * can progress
+	 */
+	complete_all(&chip->eoc_complete);
+
 	rc = of_property_read_u32(node, "reg", &chip->tadc_base);
 	if (rc < 0) {
 		pr_err("Couldn't read base address rc=%d\n", rc);
@@ -1017,6 +1174,8 @@ static int tadc_probe(struct platform_device *pdev)
 	chip->tadc_cmp_base = chip->tadc_base + 0x100;
 
 	mutex_init(&chip->write_lock);
+	mutex_init(&chip->conv_lock);
+	INIT_WORK(&chip->status_change_work, status_change_work);
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
 		pr_err("Couldn't get regmap\n");
@@ -1035,17 +1194,36 @@ static int tadc_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	chip->tadc_disable_votable = create_votable("SMB_TADC_DISABLE",
+					VOTE_SET_ANY,
+					tadc_disable_vote_callback,
+					chip);
+	if (IS_ERR(chip->tadc_disable_votable)) {
+		rc = PTR_ERR(chip->tadc_disable_votable);
+		return rc;
+	}
+	/* assume usb is not present */
+	vote(chip->tadc_disable_votable, USB_PRESENT_VOTER, true, 0);
+	vote(chip->tadc_disable_votable, SHUTDOWN_VOTER, false, 0);
+	vote(chip->tadc_disable_votable, SLEEP_VOTER, false, 0);
+
+	rc = tadc_register_notifier(chip);
+	if (rc < 0) {
+		pr_err("Couldn't register notifier=%d\n", rc);
+		goto destroy_votable;
+	}
+
 	irq = of_irq_get_byname(node, "eoc");
 	if (irq < 0) {
 		pr_err("Couldn't get eoc irq rc=%d\n", irq);
-		return irq;
+		goto destroy_votable;
 	}
 
 	rc = devm_request_threaded_irq(chip->dev, irq, NULL, handle_eoc,
 						IRQF_ONESHOT, "eoc", chip);
 	if (rc < 0) {
 		pr_err("Couldn't request irq %d rc=%d\n", irq, rc);
-		return rc;
+		goto destroy_votable;
 	}
 
 	indio_dev->dev.parent = chip->dev;
@@ -1058,16 +1236,36 @@ static int tadc_probe(struct platform_device *pdev)
 	rc = devm_iio_device_register(chip->dev, indio_dev);
 	if (rc < 0) {
 		pr_err("Couldn't register IIO device rc=%d\n", rc);
-		return rc;
+		goto destroy_votable;
 	}
 
+	platform_set_drvdata(pdev, chip);
 	return 0;
+
+destroy_votable:
+	destroy_votable(chip->tadc_disable_votable);
+	return rc;
 }
 
 static int tadc_remove(struct platform_device *pdev)
 {
+	struct tadc_chip *chip = platform_get_drvdata(pdev);
+
+	destroy_votable(chip->tadc_disable_votable);
 	return 0;
 }
+
+static void tadc_shutdown(struct platform_device *pdev)
+{
+	struct tadc_chip *chip = platform_get_drvdata(pdev);
+
+	vote(chip->tadc_disable_votable, SHUTDOWN_VOTER, true, 0);
+}
+
+static const struct dev_pm_ops tadc_pm_ops = {
+	.resume		= tadc_resume,
+	.suspend	= tadc_suspend,
+};
 
 static const struct of_device_id tadc_match_table[] = {
 	{ .compatible = "qcom,tadc" },
@@ -1076,12 +1274,14 @@ static const struct of_device_id tadc_match_table[] = {
 MODULE_DEVICE_TABLE(of, tadc_match_table);
 
 static struct platform_driver tadc_driver = {
-	.driver	= {
+	.driver		= {
 		.name		= "qcom-tadc",
 		.of_match_table	= tadc_match_table,
+		.pm		= &tadc_pm_ops,
 	},
-	.probe	= tadc_probe,
-	.remove	= tadc_remove,
+	.probe		= tadc_probe,
+	.remove		= tadc_remove,
+	.shutdown	= tadc_shutdown,
 };
 module_platform_driver(tadc_driver);
 

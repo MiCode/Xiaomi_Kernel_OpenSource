@@ -342,7 +342,7 @@ static void __exit qpnp_misc_exit(void)
 	return platform_driver_unregister(&qpnp_misc_driver);
 }
 
-module_init(qpnp_misc_init);
+subsys_initcall(qpnp_misc_init);
 module_exit(qpnp_misc_exit);
 
 MODULE_DESCRIPTION(QPNP_MISC_DEV_NAME);

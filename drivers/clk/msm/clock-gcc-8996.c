@@ -105,6 +105,8 @@ DEFINE_CLK_DUMMY(gcc_ce1_axi_m_clk, 0);
 DEFINE_CLK_DUMMY(measure_only_bimc_hmss_axi_clk, 0);
 
 DEFINE_CLK_RPM_SMD_XO_BUFFER(ln_bb_clk, ln_bb_a_clk, LN_BB_CLK_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(ln_bb_clk_pin, ln_bb_a_clk_pin,
+				LN_BB_CLK_PIN_ID);
 static DEFINE_CLK_VOTER(mcd_ce1_clk, &ce1_clk.c, 85710000);
 static DEFINE_CLK_VOTER(pnoc_keepalive_a_clk, &pnoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_msmbus_clk, &pnoc_clk.c, LONG_MAX);
@@ -1340,9 +1342,11 @@ static struct rcg_clk pdm2_clk_src = {
 	},
 };
 
-/* Frequency table might change later */
 static struct clk_freq_tbl ftbl_qspi_ser_clk_src[] = {
-	F( 192000000,  gpll4_out_main,    2,    0,     0),
+	F(  75000000,  gpll0_out_main,    8,    0,     0),
+	F( 150000000,  gpll0_out_main,    4,    0,     0),
+	F( 256000000,  gpll4_out_main,  1.5,    0,     0),
+	F( 300000000,  gpll0_out_main,    2,    0,     0),
 	F_END
 };
 
@@ -3387,6 +3391,8 @@ static struct clk_lookup msm_clocks_rpm_8996[] = {
 	CLK_LIST(ipa_clk),
 	CLK_LIST(ln_bb_clk),
 	CLK_LIST(ln_bb_a_clk),
+	CLK_LIST(ln_bb_clk_pin),
+	CLK_LIST(ln_bb_a_clk_pin),
 	CLK_LIST(mcd_ce1_clk),
 	CLK_LIST(pnoc_keepalive_a_clk),
 	CLK_LIST(pnoc_msmbus_clk),

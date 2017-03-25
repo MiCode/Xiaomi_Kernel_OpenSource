@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,6 +139,13 @@ int set_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt)
 
 	mhi_dev_ctxt->bhi_ctxt.bhi_base = mhi_dev_ctxt->core.bar0_base;
 	pcie_word_val = mhi_reg_read(mhi_dev_ctxt->bhi_ctxt.bhi_base, BHIOFF);
+
+	/* confirm it's a valid reading */
+	if (unlikely(pcie_word_val == U32_MAX)) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Invalid BHI Offset:0x%x\n", pcie_word_val);
+		return -EIO;
+	}
 	mhi_dev_ctxt->bhi_ctxt.bhi_base += pcie_word_val;
 	pcie_word_val = mhi_reg_read(mhi_dev_ctxt->bhi_ctxt.bhi_base,
 				     BHI_EXECENV);

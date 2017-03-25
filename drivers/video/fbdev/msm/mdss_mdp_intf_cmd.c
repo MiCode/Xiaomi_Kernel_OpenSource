@@ -103,6 +103,7 @@ struct mdss_mdp_cmd_ctx {
 
 	struct mdss_intf_recovery intf_recovery;
 	struct mdss_intf_recovery intf_mdp_callback;
+	struct mdss_intf_ulp_clamp intf_clamp_handler;
 	struct mdss_mdp_cmd_ctx *sync_ctx; /* for partial update */
 	u32 pp_timeout_report_cnt;
 	bool pingpong_split_slave;
@@ -1279,6 +1280,32 @@ static void mdss_mdp_cmd_lineptr_done(void *arg)
 			tmp->lineptr_handler(ctl, lineptr_time);
 	}
 	spin_unlock(&ctx->clk_lock);
+}
+
+static int mdss_mdp_cmd_intf_clamp_ctrl(void *data, int intf_num, bool enable)
+{
+	struct mdss_mdp_ctl *ctl = data;
+	char __iomem *ctx_base = NULL;
+
+	if (!data) {
+		pr_err("%s: invalid ctl\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx_base =
+		(char __iomem *)mdss_mdp_intf_get_ctx_base(ctl, intf_num);
+	if (!ctx_base) {
+		pr_err("%s: invalid ctx\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: intf num = %d, enable = %d\n",
+				__func__, intf_num, enable);
+
+	writel_relaxed(enable, (ctx_base + MDSS_MDP_REG_DSI_ULP_CLAMP_VALUE));
+	wmb(); /* ensure clamp is enabled */
+
+	return 0;
 }
 
 static int mdss_mdp_cmd_intf_recovery(void *data, int event)
@@ -3209,6 +3236,12 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 	memset(ctx, 0, sizeof(*ctx));
 	/* intf stopped,  no more kickoff */
 	ctx->intf_stopped = 1;
+	/*
+	 * Restore clamp handler as it might get called later
+	 * when DSI panel events are handled.
+	 */
+	ctx->intf_clamp_handler.fxn = mdss_mdp_cmd_intf_clamp_ctrl;
+	ctx->intf_clamp_handler.data = ctl;
 
 	return 0;
 }
@@ -3349,6 +3382,11 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 				(void *)&ctx->intf_mdp_callback,
 				CTL_INTF_EVENT_FLAG_DEFAULT);
 
+			mdss_mdp_ctl_intf_event(ctl,
+				MDSS_EVENT_REGISTER_CLAMP_HANDLER,
+				(void *)&ctx->intf_clamp_handler,
+				CTL_INTF_EVENT_FLAG_DEFAULT);
+
 			mdss_mdp_tearcheck_enable(ctl, true);
 
 			ctx->intf_stopped = 0;
@@ -3406,6 +3444,10 @@ panel_events:
 		pr_debug("%s: cmd_stop with panel always on\n", __func__);
 		goto end;
 	}
+
+	mdss_mdp_ctl_intf_event(ctl,
+		MDSS_EVENT_REGISTER_CLAMP_HANDLER,
+		NULL, CTL_INTF_EVENT_FLAG_DEFAULT);
 
 	pr_debug("%s: turn off panel\n", __func__);
 	ctl->intf_ctx[MASTER_CTX] = NULL;
@@ -3539,6 +3581,14 @@ static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
 
 	ctx->intf_mdp_callback.fxn = mdss_mdp_cmd_intf_callback;
 	ctx->intf_mdp_callback.data = ctx;
+
+	ctx->intf_clamp_handler.fxn = mdss_mdp_cmd_intf_clamp_ctrl;
+	ctx->intf_clamp_handler.data = ctl;
+
+	mdss_mdp_ctl_intf_event(ctl,
+		MDSS_EVENT_REGISTER_CLAMP_HANDLER,
+		(void *)&ctx->intf_clamp_handler,
+		CTL_INTF_EVENT_FLAG_DEFAULT);
 
 	ctx->intf_stopped = 0;
 

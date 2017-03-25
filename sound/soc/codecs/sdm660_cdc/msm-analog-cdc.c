@@ -37,9 +37,10 @@
 #define DRV_NAME "pmic_analog_codec"
 #define SDM660_CDC_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |\
-			SNDRV_PCM_RATE_48000)
+			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |\
+			SNDRV_PCM_RATE_192000)
 #define SDM660_CDC_FORMATS (SNDRV_PCM_FMTBIT_S16_LE |\
-		SNDRV_PCM_FMTBIT_S24_LE)
+		SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S24_3LE)
 #define MSM_DIG_CDC_STRING_LEN 80
 #define MSM_ANLG_CDC_VERSION_ENTRY_SIZE 32
 
@@ -1435,11 +1436,11 @@ static int msm_anlg_cdc_codec_enable_clock_block(struct snd_soc_codec *codec,
 	if (enable) {
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_ANALOG_MASTER_BIAS_CTL, 0x30, 0x30);
+		msm_anlg_cdc_dig_notifier_call(codec, DIG_CDC_EVENT_CLK_ON);
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_DIGITAL_CDC_RST_CTL, 0x80, 0x80);
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_DIGITAL_CDC_TOP_CLK_CTL, 0x0C, 0x0C);
-		msm_anlg_cdc_dig_notifier_call(codec, DIG_CDC_EVENT_CLK_ON);
 	} else {
 		snd_soc_update_bits(codec,
 			MSM89XX_PMIC_DIGITAL_CDC_TOP_CLK_CTL, 0x0C, 0x00);
@@ -3759,8 +3760,8 @@ static int msm_anlg_cdc_device_down(struct snd_soc_codec *codec)
 	snd_soc_write(codec,
 		MSM89XX_PMIC_ANALOG_SPKR_DAC_CTL, 0x93);
 
-	atomic_set(&pdata->int_mclk0_enabled, false);
 	msm_anlg_cdc_dig_notifier_call(codec, DIG_CDC_EVENT_SSR_DOWN);
+	atomic_set(&pdata->int_mclk0_enabled, false);
 	set_bit(BUS_DOWN, &sdm660_cdc_priv->status_mask);
 	snd_soc_card_change_online_state(codec->component.card, 0);
 
@@ -3796,6 +3797,9 @@ static int msm_anlg_cdc_device_up(struct snd_soc_codec *codec)
 	msm_anlg_cdc_configure_cap(codec, false, false);
 	wcd_mbhc_stop(&sdm660_cdc_priv->mbhc);
 	wcd_mbhc_deinit(&sdm660_cdc_priv->mbhc);
+	/* Disable mechanical detection and set type to insertion */
+	snd_soc_update_bits(codec, MSM89XX_PMIC_ANALOG_MBHC_DET_CTL_1,
+			    0xA0, 0x20);
 	ret = wcd_mbhc_init(&sdm660_cdc_priv->mbhc, codec, &mbhc_cb,
 			    &intr_ids, wcd_mbhc_registers, true);
 	if (ret)
@@ -3818,17 +3822,22 @@ static int sdm660_cdc_notifier_service_cb(struct notifier_block *nb,
 	bool adsp_ready = false;
 	bool timedout;
 	unsigned long timeout;
+	static bool initial_boot = true;
 
 	codec = sdm660_cdc_priv->codec;
 	dev_dbg(codec->dev, "%s: Service opcode 0x%lx\n", __func__, opcode);
 
 	switch (opcode) {
 	case AUDIO_NOTIFIER_SERVICE_DOWN:
+		if (initial_boot)
+			break;
 		dev_dbg(codec->dev,
 			"ADSP is about to power down. teardown/reset codec\n");
 		msm_anlg_cdc_device_down(codec);
 		break;
 	case AUDIO_NOTIFIER_SERVICE_UP:
+		if (initial_boot)
+			initial_boot = false;
 		dev_dbg(codec->dev,
 			"ADSP is about to power up. bring up codec\n");
 

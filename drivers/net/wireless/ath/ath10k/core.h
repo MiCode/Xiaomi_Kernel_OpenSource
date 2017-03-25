@@ -729,7 +729,7 @@ struct ath10k {
 	u32 max_spatial_stream;
 	/* protected by conf_mutex */
 	bool ani_enabled;
-
+	bool sifs_burst_enabled;
 	bool p2p;
 
 	struct {

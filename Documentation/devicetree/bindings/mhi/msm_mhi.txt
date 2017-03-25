@@ -88,12 +88,13 @@ Main node properties:
   Usage: required
   Value type: Array of <u32>
   Definition: mhi event ring configuration parameters for platform
-	defined as below <A B C D E>:
+	defined as below <A B C D E F>:
 		A = maximum event descriptors
 		B = MSI associated with event
 		C = interrupt moderation (see MHI specification)
 		D = Associated channel
-		E = flags defined by mhi_macros.h GET_EV_PROPS
+		E = priority of the event ring. 0 being the highest.
+		F = flags defined by mhi_macros.h GET_EV_PROPS
 
 - qcom,mhi-address-window
   Usage: required
@@ -120,6 +121,13 @@ Main node properties:
   Value type: <u32>
   Definition: Segment size in bytes for each segment in bytes.
 
+- qcom,mhi-bb-required
+  Usage: optional
+  Value type: bool
+  Definition: Determine whether MHI device require bounce buffer
+	during active transfer.  If true, during channel open host
+	will pre-allocate transfer buffers.
+
 ========
 Example:
 ========
@@ -140,5 +148,5 @@ mhi: qcom,mhi {
 			<100 512 1200000000 1200000000>;
 	mhi-event-rings = <1>;
 	mhi-chan-cfg-102 = <0x66 0x80 0x5 0x62>;
-	mhi-event-cfg-0 = <0x80 0x0 0x0 0x0 0x11>;
+	mhi-event-cfg-0 = <0x80 0x0 0x0 0x0 0 1 0x11>;
 };

@@ -30,7 +30,6 @@
 #include <linux/rtnetlink.h>
 
 #define RMNET_MHI_DRIVER_NAME "rmnet_mhi"
-#define RMNET_MHI_DEV_NAME    "rmnet_mhi%d"
 #define MHI_DEFAULT_MTU        8000
 #define MHI_MAX_MRU            0xFFFF
 #define MHI_NAPI_WEIGHT_VALUE  12
@@ -80,6 +79,7 @@ struct __packed mhi_skb_priv {
 struct rmnet_mhi_private {
 	struct list_head	      node;
 	u32                           dev_id;
+	const char		      *interface_name;
 	struct mhi_client_handle      *tx_client_handle;
 	struct mhi_client_handle      *rx_client_handle;
 	enum MHI_CLIENT_CHANNEL       tx_channel;
@@ -113,6 +113,7 @@ struct rmnet_mhi_private {
 };
 
 static LIST_HEAD(rmnet_mhi_ctxt_list);
+static struct platform_driver rmnet_mhi_driver;
 
 static int rmnet_mhi_process_fragment(struct rmnet_mhi_private *rmnet_mhi_ptr,
 				       struct sk_buff *skb, int frag)
@@ -693,7 +694,7 @@ static int rmnet_mhi_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 		ext_cmd.u.data = 0;
 		break;
 	case RMNET_IOCTL_GET_DRIVER_NAME:
-		strlcpy(ext_cmd.u.if_name, RMNET_MHI_DRIVER_NAME,
+		strlcpy(ext_cmd.u.if_name, rmnet_mhi_ptr->interface_name,
 			sizeof(ext_cmd.u.if_name));
 		break;
 	case RMNET_IOCTL_SET_SLEEP_STATE:
@@ -799,6 +800,7 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 	struct rmnet_mhi_private **rmnet_mhi_ctxt = NULL;
 	int r = 0;
 	char ifalias[IFALIASZ];
+	char ifname[IFNAMSIZ];
 	struct mhi_client_handle *client_handle = NULL;
 
 	rmnet_log(rmnet_mhi_ptr, MSG_INFO, "Entered.\n");
@@ -861,18 +863,20 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 	snprintf(ifalias,
 		 sizeof(ifalias),
 		 "%s_%04x_%02u.%02u.%02u_%u",
-		 RMNET_MHI_DRIVER_NAME,
+		 rmnet_mhi_ptr->interface_name,
 		 client_handle->dev_id,
 		 client_handle->domain,
 		 client_handle->bus,
 		 client_handle->slot,
 		 rmnet_mhi_ptr->dev_id);
 
+	snprintf(ifname, sizeof(ifname), "%s%%d",
+		 rmnet_mhi_ptr->interface_name);
+
 	rtnl_lock();
 	rmnet_mhi_ptr->dev =
 		alloc_netdev(sizeof(struct rmnet_mhi_private *),
-			     RMNET_MHI_DEV_NAME,
-			     NET_NAME_PREDICTABLE, rmnet_mhi_setup);
+			     ifname, NET_NAME_PREDICTABLE, rmnet_mhi_setup);
 	if (!rmnet_mhi_ptr->dev) {
 		rmnet_log(rmnet_mhi_ptr,
 			  MSG_CRITICAL,
@@ -1083,7 +1087,7 @@ static void rmnet_mhi_create_debugfs(struct rmnet_mhi_private *rmnet_mhi_ptr)
 	snprintf(node_name,
 		 sizeof(node_name),
 		 "%s_%04x_%02u.%02u.%02u_%u",
-		 RMNET_MHI_DRIVER_NAME,
+		 rmnet_mhi_ptr->interface_name,
 		 client_handle->dev_id,
 		 client_handle->domain,
 		 client_handle->bus,
@@ -1209,6 +1213,15 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 		rmnet_mhi_ptr->max_mtu = MHI_MAX_MTU;
 	}
 
+	rc = of_property_read_string(pdev->dev.of_node, "qcom,interface-name",
+				     &rmnet_mhi_ptr->interface_name);
+	if (likely(rc)) {
+		rmnet_log(rmnet_mhi_ptr, MSG_INFO,
+			  "interface-name not defined, setting to default name %s\n",
+			  RMNET_MHI_DRIVER_NAME);
+		rmnet_mhi_ptr->interface_name = rmnet_mhi_driver.driver.name;
+	}
+
 	client_info.dev = &pdev->dev;
 	client_info.node_name = "qcom,mhi";
 	client_info.mhi_client_cb = rmnet_mhi_cb;
@@ -1271,7 +1284,7 @@ static int rmnet_mhi_probe(struct platform_device *pdev)
 	snprintf(node_name,
 		 sizeof(node_name),
 		 "%s_%04x_%02u.%02u.%02u_%u",
-		 RMNET_MHI_DRIVER_NAME,
+		 rmnet_mhi_ptr->interface_name,
 		 client_handle->dev_id,
 		 client_handle->domain,
 		 client_handle->bus,

@@ -55,7 +55,6 @@
 #define VDDIO_MAX_UV	2040000
 #define VDDIO_MAX_UA	70300
 
-#define DISABLE_PCIE_L1_MASK 0xFFFFFFFD
 #define PCIE20_CAP_LINKCTRLSTATUS 0x80
 
 #define WIGIG_MIN_CPU_BOOST_KBPS	150000
@@ -90,6 +89,7 @@ struct msm11ad_ctx {
 	u32 rc_index; /* PCIE root complex index */
 	struct pci_dev *pcidev;
 	struct pci_saved_state *pristine_state;
+	bool l1_enabled_in_enum;
 
 	/* SMMU */
 	bool use_smmu; /* have SMMU enabled? */
@@ -479,6 +479,47 @@ static void msm_11ad_disable_clocks(struct msm11ad_ctx *ctx)
 	msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
 }
 
+int msm_11ad_ctrl_aspm_l1(struct msm11ad_ctx *ctx, bool enable)
+{
+	int rc;
+	u32 val;
+	struct pci_dev *pdev = ctx->pcidev;
+	bool l1_enabled;
+
+	/* Read current state */
+	rc = pci_read_config_dword(pdev,
+				   PCIE20_CAP_LINKCTRLSTATUS, &val);
+	if (rc) {
+		dev_err(ctx->dev,
+			"reading PCIE20_CAP_LINKCTRLSTATUS failed:%d\n", rc);
+		return rc;
+	}
+	dev_dbg(ctx->dev, "PCIE20_CAP_LINKCTRLSTATUS read returns 0x%x\n", val);
+
+	l1_enabled = val & PCI_EXP_LNKCTL_ASPM_L1;
+	if (l1_enabled == enable) {
+		dev_dbg(ctx->dev, "ASPM_L1 is already %s\n",
+			l1_enabled ? "enabled" : "disabled");
+		return 0;
+	}
+
+	if (enable)
+		val |= PCI_EXP_LNKCTL_ASPM_L1; /* enable bit 1 */
+	else
+		val &= ~PCI_EXP_LNKCTL_ASPM_L1; /* disable bit 1 */
+
+	dev_dbg(ctx->dev, "writing PCIE20_CAP_LINKCTRLSTATUS (val 0x%x)\n",
+		val);
+	rc = pci_write_config_dword(pdev,
+				    PCIE20_CAP_LINKCTRLSTATUS, val);
+	if (rc)
+		dev_err(ctx->dev,
+			"writing PCIE20_CAP_LINKCTRLSTATUS (val 0x%x) failed:%d\n",
+			val, rc);
+
+	return rc;
+}
+
 static int ops_suspend(void *handle)
 {
 	int rc;
@@ -521,7 +562,6 @@ static int ops_resume(void *handle)
 	int rc;
 	struct msm11ad_ctx *ctx = handle;
 	struct pci_dev *pcidev;
-	u32 val;
 
 	pr_info("%s(%p)\n", __func__, handle);
 	if (!ctx) {
@@ -565,25 +605,14 @@ static int ops_resume(void *handle)
 		goto err_suspend_rc;
 	}
 
-	/* Disable L1 */
-	rc = pci_read_config_dword(ctx->pcidev,
-				   PCIE20_CAP_LINKCTRLSTATUS, &val);
-	if (rc) {
-		dev_err(ctx->dev,
-			"reading PCIE20_CAP_LINKCTRLSTATUS failed:%d\n",
-			rc);
-		goto err_suspend_rc;
-	}
-	val &= DISABLE_PCIE_L1_MASK; /* disable bit 1 */
-	dev_dbg(ctx->dev, "writing PCIE20_CAP_LINKCTRLSTATUS (val 0x%x)\n",
-		val);
-	rc = pci_write_config_dword(ctx->pcidev,
-				    PCIE20_CAP_LINKCTRLSTATUS, val);
-	if (rc) {
-		dev_err(ctx->dev,
-			"writing PCIE20_CAP_LINKCTRLSTATUS (val 0x%x) failed:%d\n",
-			val, rc);
-		goto err_suspend_rc;
+	/* Disable L1, in case it is enabled */
+	if (ctx->l1_enabled_in_enum) {
+		rc = msm_11ad_ctrl_aspm_l1(ctx, false);
+		if (rc) {
+			dev_err(ctx->dev,
+				"failed to disable L1, rc %d\n", rc);
+			goto err_suspend_rc;
+		}
 	}
 
 	return 0;
@@ -992,8 +1021,8 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	}
 	ctx->pcidev = pcidev;
 
-	/* Disable L1 */
-	rc = pci_read_config_dword(ctx->pcidev,
+	/* Read current state */
+	rc = pci_read_config_dword(pcidev,
 				   PCIE20_CAP_LINKCTRLSTATUS, &val);
 	if (rc) {
 		dev_err(ctx->dev,
@@ -1001,16 +1030,19 @@ static int msm_11ad_probe(struct platform_device *pdev)
 			rc);
 		goto out_rc;
 	}
-	val &= DISABLE_PCIE_L1_MASK; /* disable bit 1 */
-	dev_dbg(ctx->dev, "writing PCIE20_CAP_LINKCTRLSTATUS (val 0x%x)\n",
-		 val);
-	rc = pci_write_config_dword(ctx->pcidev,
-				    PCIE20_CAP_LINKCTRLSTATUS, val);
-	if (rc) {
-		dev_err(ctx->dev,
-			"writing PCIE20_CAP_LINKCTRLSTATUS (val 0x%x) failed:%d\n",
-			val, rc);
-		goto out_rc;
+
+	ctx->l1_enabled_in_enum = val & PCI_EXP_LNKCTL_ASPM_L1;
+	dev_dbg(ctx->dev, "L1 is %s in enumeration\n",
+		ctx->l1_enabled_in_enum ? "enabled" : "disabled");
+
+	/* Disable L1, in case it is enabled */
+	if (ctx->l1_enabled_in_enum) {
+		rc = msm_11ad_ctrl_aspm_l1(ctx, false);
+		if (rc) {
+			dev_err(ctx->dev,
+				"failed to disable L1, rc %d\n", rc);
+			goto out_rc;
+		}
 	}
 
 	rc = pci_save_state(pcidev);
@@ -1258,6 +1290,13 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 		 * TODO: Enable rf_clk3 clock before resetting the device to
 		 * ensure stable ref clock during the device reset
 		 */
+		/* Re-enable L1 in case it was enabled in enumeration */
+		if (ctx->l1_enabled_in_enum) {
+			rc = msm_11ad_ctrl_aspm_l1(ctx, true);
+			if (rc)
+				dev_err(ctx->dev,
+					"failed to enable L1, rc %d\n", rc);
+		}
 		break;
 	case WIL_PLATFORM_EVT_FW_RDY:
 		/*

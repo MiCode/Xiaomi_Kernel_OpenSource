@@ -19,7 +19,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/qpnp/qpnp-revid.h>
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 
 #define QNOVO_REVISION1		0x00
 #define QNOVO_REVISION2		0x01
@@ -151,7 +151,7 @@ struct qnovo {
 };
 
 static int debug_mask;
-module_param_named(debug_mask, debug_mask, int, S_IRUSR | S_IWUSR);
+module_param_named(debug_mask, debug_mask, int, 0600);
 
 #define qnovo_dbg(chip, reason, fmt, ...)				\
 	do {								\
@@ -431,7 +431,7 @@ static struct param_info params[] = {
 		.reg_to_unit_multiplier	= 5,
 		.reg_to_unit_divider	= 1,
 		.min_val		= 5,
-		.max_val		= 1275,
+		.max_val		= 255,
 		.units_str		= "mS",
 	},
 	[PPULS1] = {
@@ -440,8 +440,8 @@ static struct param_info params[] = {
 		.num_regs		= 2,
 		.reg_to_unit_multiplier	= 1600, /* converts to uC */
 		.reg_to_unit_divider	= 1,
-		.min_val		= 0,
-		.max_val		= 104856000,
+		.min_val		= 30000,
+		.max_val		= 65535000,
 		.units_str		= "uC",
 	},
 	[NREST1] = {
@@ -451,7 +451,7 @@ static struct param_info params[] = {
 		.reg_to_unit_multiplier	= 5,
 		.reg_to_unit_divider	= 1,
 		.min_val		= 5,
-		.max_val		= 1275,
+		.max_val		= 255,
 		.units_str		= "mS",
 	},
 	[NPULS1] = {
@@ -460,8 +460,8 @@ static struct param_info params[] = {
 		.num_regs		= 1,
 		.reg_to_unit_multiplier	= 5,
 		.reg_to_unit_divider	= 1,
-		.min_val		= 5,
-		.max_val		= 1275,
+		.min_val		= 0,
+		.max_val		= 255,
 		.units_str		= "mS",
 	},
 	[PPCNT] = {
@@ -470,7 +470,7 @@ static struct param_info params[] = {
 		.num_regs		= 1,
 		.reg_to_unit_multiplier	= 1,
 		.reg_to_unit_divider	= 1,
-		.min_val		= 0,
+		.min_val		= 1,
 		.max_val		= 255,
 		.units_str		= "pulses",
 	},
@@ -480,8 +480,8 @@ static struct param_info params[] = {
 		.num_regs		= 2,
 		.reg_to_unit_multiplier	= 610350, /* converts to nV */
 		.reg_to_unit_divider	= 1,
-		.min_val		= 0,
-		.max_val		= 5000000,
+		.min_val		= 2200000,
+		.max_val		= 4500000,
 		.units_str		= "uV",
 	},
 	[PVOLT1] = {
@@ -506,8 +506,6 @@ static struct param_info params[] = {
 		.num_regs		= 1,
 		.reg_to_unit_multiplier	= 2,
 		.reg_to_unit_divider	= 1,
-		.min_val		= 5,
-		.max_val		= 1275,
 		.units_str		= "S",
 	},
 	[PREST2] = {
@@ -517,7 +515,7 @@ static struct param_info params[] = {
 		.reg_to_unit_multiplier	= 5,
 		.reg_to_unit_divider	= 1,
 		.min_val		= 5,
-		.max_val		= 327675,
+		.max_val		= 65535,
 		.units_str		= "mS",
 	},
 	[PPULS2] = {
@@ -526,8 +524,8 @@ static struct param_info params[] = {
 		.num_regs		= 2,
 		.reg_to_unit_multiplier	= 1600, /* converts to uC */
 		.reg_to_unit_divider	= 1,
-		.min_val		= 0,
-		.max_val		= 104856000,
+		.min_val		= 30000,
+		.max_val		= 65535000,
 		.units_str		= "uC",
 	},
 	[NREST2] = {
@@ -538,7 +536,7 @@ static struct param_info params[] = {
 		.reg_to_unit_divider	= 1,
 		.reg_to_unit_offset	= -5,
 		.min_val		= 5,
-		.max_val		= 1280,
+		.max_val		= 255,
 		.units_str		= "mS",
 	},
 	[NPULS2] = {
@@ -547,18 +545,18 @@ static struct param_info params[] = {
 		.num_regs		= 1,
 		.reg_to_unit_multiplier	= 5,
 		.reg_to_unit_divider	= 1,
-		.min_val		= 5,
-		.max_val		= 1275,
+		.min_val		= 0,
+		.max_val		= 255,
 		.units_str		= "mS",
 	},
 	[VLIM2] = {
-		.name			= "VLIM1",
+		.name			= "VLIM2",
 		.start_addr		= QNOVO_VLIM2_LSB_CTRL,
 		.num_regs		= 2,
 		.reg_to_unit_multiplier	= 610350, /* converts to nV */
 		.reg_to_unit_divider	= 1,
-		.min_val		= 0,
-		.max_val		= 5000000,
+		.min_val		= 2200000,
+		.max_val		= 4500000,
 		.units_str		= "uV",
 	},
 	[PVOLT2] = {
@@ -591,6 +589,8 @@ static struct param_info params[] = {
 		.num_regs		= 1,
 		.reg_to_unit_multiplier	= 1,
 		.reg_to_unit_divider	= 1,
+		.min_val		= 0,
+		.max_val		= 255,
 		.units_str		= "pulses",
 	},
 	[VMAX] = {
@@ -666,7 +666,7 @@ static ssize_t enable_store(struct class *c, struct class_attribute *attr,
 	unsigned long val;
 	bool disable;
 
-	if (kstrtoul(ubuf, 10, &val))
+	if (kstrtoul(ubuf, 0, &val))
 		return -EINVAL;
 
 	disable = !val;
@@ -688,7 +688,7 @@ static ssize_t val_show(struct class *c, struct class_attribute *attr,
 	if (i == FCC_REQUEST)
 		val = chip->fcc_uA_request;
 
-	return snprintf(ubuf, PAGE_SIZE, "%d%s\n", val, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "%d\n", val);
 }
 
 static ssize_t val_store(struct class *c, struct class_attribute *attr,
@@ -698,7 +698,7 @@ static ssize_t val_store(struct class *c, struct class_attribute *attr,
 	int i = attr - qnovo_attributes;
 	unsigned long val;
 
-	if (kstrtoul(ubuf, 10, &val))
+	if (kstrtoul(ubuf, 0, &val))
 		return -EINVAL;
 
 	if (i == FV_REQUEST)
@@ -726,8 +726,7 @@ static ssize_t reg_show(struct class *c, struct class_attribute *attr,
 	}
 	regval = buf[1] << 8 | buf[0];
 
-	return snprintf(ubuf, PAGE_SIZE, "0x%04x%s\n",
-			regval, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "0x%04x\n", regval);
 }
 
 static ssize_t reg_store(struct class *c, struct class_attribute *attr,
@@ -739,7 +738,7 @@ static ssize_t reg_store(struct class *c, struct class_attribute *attr,
 	unsigned long val;
 	int rc;
 
-	if (kstrtoul(ubuf, 16, &val))
+	if (kstrtoul(ubuf, 0, &val))
 		return -EINVAL;
 
 	buf[0] = val & 0xFF;
@@ -774,7 +773,7 @@ static ssize_t time_show(struct class *c, struct class_attribute *attr,
 			/ params[i].reg_to_unit_divider)
 		- params[i].reg_to_unit_offset;
 
-	return snprintf(ubuf, PAGE_SIZE, "%d%s\n", val, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "%d\n", val);
 }
 
 static ssize_t time_store(struct class *c, struct class_attribute *attr,
@@ -787,7 +786,7 @@ static ssize_t time_store(struct class *c, struct class_attribute *attr,
 	unsigned long val;
 	int rc;
 
-	if (kstrtoul(ubuf, 10, &val))
+	if (kstrtoul(ubuf, 0, &val))
 		return -EINVAL;
 
 	if (val < params[i].min_val || val > params[i].max_val) {
@@ -841,11 +840,10 @@ static ssize_t current_show(struct class *c, struct class_attribute *attr,
 		gain = chip->internal_i_gain_mega;
 	}
 
-	comp_val_nA = div_s64(regval_nA * gain, 1000000) + offset_nA;
+	comp_val_nA = div_s64(regval_nA * gain, 1000000) - offset_nA;
 	comp_val_uA = div_s64(comp_val_nA, 1000);
 
-	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
-			comp_val_uA, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "%d\n", comp_val_uA);
 }
 
 static ssize_t voltage_show(struct class *c, struct class_attribute *attr,
@@ -875,8 +873,7 @@ static ssize_t voltage_show(struct class *c, struct class_attribute *attr,
 	comp_val_nV = div_s64(regval_nV * gain, 1000000) + offset_nV;
 	comp_val_uV = div_s64(comp_val_nV, 1000);
 
-	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
-				comp_val_uV, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "%d\n", comp_val_uV);
 }
 
 static ssize_t voltage_store(struct class *c, struct class_attribute *attr,
@@ -890,7 +887,7 @@ static ssize_t voltage_store(struct class *c, struct class_attribute *attr,
 	s64 regval_nV;
 	s64 gain, offset_nV;
 
-	if (kstrtoul(ubuf, 10, &val_uV))
+	if (kstrtoul(ubuf, 0, &val_uV))
 		return -EINVAL;
 
 	if (val_uV < params[i].min_val || val_uV > params[i].max_val) {
@@ -947,8 +944,7 @@ static ssize_t coulomb_show(struct class *c, struct class_attribute *attr,
 		gain = chip->internal_i_gain_mega;
 
 	comp_val_uC = div_s64(regval_uC * gain, 1000000);
-	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
-			comp_val_uC, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "%d\n", comp_val_uC);
 }
 
 static ssize_t coulomb_store(struct class *c, struct class_attribute *attr,
@@ -962,7 +958,7 @@ static ssize_t coulomb_store(struct class *c, struct class_attribute *attr,
 	s64 regval;
 	s64 gain;
 
-	if (kstrtoul(ubuf, 10, &val_uC))
+	if (kstrtoul(ubuf, 0, &val_uC))
 		return -EINVAL;
 
 	if (val_uC < params[i].min_val || val_uC > params[i].max_val) {
@@ -1014,74 +1010,73 @@ static ssize_t batt_prop_show(struct class *c, struct class_attribute *attr,
 		return -EINVAL;
 	}
 
-	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
-			pval.intval, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "%d\n", pval.intval);
 }
 
 static struct class_attribute qnovo_attributes[] = {
 	[VER]			= __ATTR_RO(version),
 	[OK_TO_QNOVO]		= __ATTR_RO(ok_to_qnovo),
-	[ENABLE]		= __ATTR(enable, S_IRUGO | S_IWUSR,
+	[ENABLE]		= __ATTR(enable, 0644,
 					enable_show, enable_store),
-	[FV_REQUEST]		= __ATTR(fv_uV_request, S_IRUGO | S_IWUSR,
+	[FV_REQUEST]		= __ATTR(fv_uV_request, 0644,
 					val_show, val_store),
-	[FCC_REQUEST]		= __ATTR(fcc_uA_request, S_IRUGO | S_IWUSR,
+	[FCC_REQUEST]		= __ATTR(fcc_uA_request, 0644,
 					val_show, val_store),
-	[PE_CTRL_REG]		= __ATTR(PE_CTRL_REG, S_IRUGO | S_IWUSR,
+	[PE_CTRL_REG]		= __ATTR(PE_CTRL_REG, 0644,
 					reg_show, reg_store),
-	[PE_CTRL2_REG]		= __ATTR(PE_CTRL2_REG, S_IRUGO | S_IWUSR,
+	[PE_CTRL2_REG]		= __ATTR(PE_CTRL2_REG, 0644,
 					reg_show, reg_store),
-	[PTRAIN_STS_REG]	= __ATTR(PTRAIN_STS_REG, S_IRUGO | S_IWUSR,
-					reg_show, reg_store),
-	[INT_RT_STS_REG]	= __ATTR(INT_RT_STS_REG, S_IRUGO | S_IWUSR,
-					reg_show, reg_store),
-	[PREST1]		= __ATTR(PREST1_mS, S_IRUGO | S_IWUSR,
+	[PTRAIN_STS_REG]	= __ATTR(PTRAIN_STS_REG, 0444,
+					reg_show, NULL),
+	[INT_RT_STS_REG]	= __ATTR(INT_RT_STS_REG, 0444,
+					reg_show, NULL),
+	[PREST1]		= __ATTR(PREST1_mS, 0644,
 					time_show, time_store),
-	[PPULS1]		= __ATTR(PPULS1_uC, S_IRUGO | S_IWUSR,
+	[PPULS1]		= __ATTR(PPULS1_uC, 0644,
 					coulomb_show, coulomb_store),
-	[NREST1]		= __ATTR(NREST1_mS, S_IRUGO | S_IWUSR,
+	[NREST1]		= __ATTR(NREST1_mS, 0644,
 					time_show, time_store),
-	[NPULS1]		= __ATTR(NPULS1_mS, S_IRUGO | S_IWUSR,
+	[NPULS1]		= __ATTR(NPULS1_mS, 0644,
 					time_show, time_store),
-	[PPCNT]			= __ATTR(PPCNT, S_IRUGO | S_IWUSR,
+	[PPCNT]			= __ATTR(PPCNT, 0644,
 					time_show, time_store),
-	[VLIM1]			= __ATTR(VLIM1_uV, S_IRUGO | S_IWUSR,
+	[VLIM1]			= __ATTR(VLIM1_uV, 0644,
 					voltage_show, voltage_store),
-	[PVOLT1]		= __ATTR(PVOLT1_uV, S_IRUGO,
+	[PVOLT1]		= __ATTR(PVOLT1_uV, 0444,
 					voltage_show, NULL),
-	[PCUR1]			= __ATTR(PCUR1_uA, S_IRUGO,
+	[PCUR1]			= __ATTR(PCUR1_uA, 0444,
 					current_show, NULL),
-	[PTTIME]		= __ATTR(PTTIME_S, S_IRUGO,
+	[PTTIME]		= __ATTR(PTTIME_S, 0444,
 					time_show, NULL),
-	[PREST2]		= __ATTR(PREST2_mS, S_IRUGO | S_IWUSR,
+	[PREST2]		= __ATTR(PREST2_mS, 0644,
 					time_show, time_store),
-	[PPULS2]		= __ATTR(PPULS2_mS, S_IRUGO | S_IWUSR,
+	[PPULS2]		= __ATTR(PPULS2_mS, 0644,
 					coulomb_show, coulomb_store),
-	[NREST2]		= __ATTR(NREST2_mS, S_IRUGO | S_IWUSR,
+	[NREST2]		= __ATTR(NREST2_mS, 0644,
 					time_show, time_store),
-	[NPULS2]		= __ATTR(NPULS2_mS, S_IRUGO | S_IWUSR,
+	[NPULS2]		= __ATTR(NPULS2_mS, 0644,
 					time_show, time_store),
-	[VLIM2]			= __ATTR(VLIM2_uV, S_IRUGO | S_IWUSR,
+	[VLIM2]			= __ATTR(VLIM2_uV, 0644,
 					voltage_show, voltage_store),
-	[PVOLT2]		= __ATTR(PVOLT2_uV, S_IRUGO,
+	[PVOLT2]		= __ATTR(PVOLT2_uV, 0444,
 					voltage_show, NULL),
-	[RVOLT2]		= __ATTR(RVOLT2_uV, S_IRUGO,
+	[RVOLT2]		= __ATTR(RVOLT2_uV, 0444,
 					voltage_show, NULL),
-	[PCUR2]			= __ATTR(PCUR2_uA, S_IRUGO,
+	[PCUR2]			= __ATTR(PCUR2_uA, 0444,
 					current_show, NULL),
-	[SCNT]			= __ATTR(SCNT, S_IRUGO | S_IWUSR,
+	[SCNT]			= __ATTR(SCNT, 0644,
 					time_show, time_store),
-	[VMAX]			= __ATTR(VMAX_uV, S_IRUGO,
+	[VMAX]			= __ATTR(VMAX_uV, 0444,
 					voltage_show, NULL),
-	[SNUM]			= __ATTR(SNUM, S_IRUGO | S_IWUSR,
-					time_show, time_store),
-	[VBATT]			= __ATTR(VBATT_uV, S_IRUGO,
+	[SNUM]			= __ATTR(SNUM, 0444,
+					time_show, NULL),
+	[VBATT]			= __ATTR(VBATT_uV, 0444,
 					batt_prop_show, NULL),
-	[IBATT]			= __ATTR(IBATT_uA, S_IRUGO,
+	[IBATT]			= __ATTR(IBATT_uA, 0444,
 					batt_prop_show, NULL),
-	[BATTTEMP]		= __ATTR(BATTTEMP_deciDegC, S_IRUGO,
+	[BATTTEMP]		= __ATTR(BATTTEMP_deciDegC, 0444,
 					batt_prop_show, NULL),
-	[BATTSOC]		= __ATTR(BATTSOC, S_IRUGO,
+	[BATTSOC]		= __ATTR(BATTSOC, 0444,
 					batt_prop_show, NULL),
 	__ATTR_NULL,
 };
@@ -1213,15 +1208,38 @@ static int qnovo_hw_init(struct qnovo *chip)
 
 	vote(chip->disable_votable, USER_VOTER, 1, 0);
 
+	val = 0;
+	rc = qnovo_write(chip, QNOVO_STRM_CTRL, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write iadc bitstream control rc = %d\n", rc);
+		return rc;
+	}
+
 	rc = qnovo_read(chip, QNOVO_IADC_OFFSET_0, &iadc_offset_external, 1);
 	if (rc < 0) {
 		pr_err("Couldn't read iadc exernal offset rc = %d\n", rc);
 		return rc;
 	}
 
+	/* stored as an 8 bit 2's complement signed integer */
+	val = -1 * iadc_offset_external;
+	rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_0, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write iadc offset rc = %d\n", rc);
+		return rc;
+	}
+
 	rc = qnovo_read(chip, QNOVO_IADC_OFFSET_1, &iadc_offset_internal, 1);
 	if (rc < 0) {
 		pr_err("Couldn't read iadc internal offset rc = %d\n", rc);
+		return rc;
+	}
+
+	/* stored as an 8 bit 2's complement signed integer */
+	val = -1 * iadc_offset_internal;
+	rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_1, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write iadc offset rc = %d\n", rc);
 		return rc;
 	}
 
@@ -1249,52 +1267,19 @@ static int qnovo_hw_init(struct qnovo *chip)
 		return rc;
 	}
 
-	chip->external_offset_nA = (s64)iadc_offset_external * IADC_LSB_NA;
-	chip->internal_offset_nA = (s64)iadc_offset_internal * IADC_LSB_NA;
-	chip->offset_nV = (s64)vadc_offset * VADC_LSB_NA;
+	chip->external_offset_nA = (s64)(s8)iadc_offset_external * IADC_LSB_NA;
+	chip->internal_offset_nA = (s64)(s8)iadc_offset_internal * IADC_LSB_NA;
+	chip->offset_nV = (s64)(s8)vadc_offset * VADC_LSB_NA;
 	chip->external_i_gain_mega
-		= 1000000000 + (s64)iadc_gain_external * GAIN_LSB_FACTOR;
+		= 1000000000 + (s64)(s8)iadc_gain_external * GAIN_LSB_FACTOR;
 	chip->external_i_gain_mega
 		= div_s64(chip->external_i_gain_mega, 1000);
 	chip->internal_i_gain_mega
-		= 1000000000 + (s64)iadc_gain_internal * GAIN_LSB_FACTOR;
+		= 1000000000 + (s64)(s8)iadc_gain_internal * GAIN_LSB_FACTOR;
 	chip->internal_i_gain_mega
 		= div_s64(chip->internal_i_gain_mega, 1000);
-	chip->v_gain_mega = 1000000000 + (s64)vadc_gain * GAIN_LSB_FACTOR;
+	chip->v_gain_mega = 1000000000 + (s64)(s8)vadc_gain * GAIN_LSB_FACTOR;
 	chip->v_gain_mega = div_s64(chip->v_gain_mega, 1000);
-
-	val = 0;
-	rc = qnovo_write(chip, QNOVO_STRM_CTRL, &val, 1);
-	if (rc < 0) {
-		pr_err("Couldn't write iadc bitsteam control rc = %d\n", rc);
-		return rc;
-	}
-
-	rc = qnovo_read(chip, QNOVO_TR_IADC_OFFSET_0, &val, 1);
-	if (rc < 0) {
-		pr_err("Couldn't read iadc offset rc = %d\n", rc);
-		return rc;
-	}
-
-	val *= -1;
-	rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_0, &val, 1);
-	if (rc < 0) {
-		pr_err("Couldn't write iadc offset rc = %d\n", rc);
-		return rc;
-	}
-
-	rc = qnovo_read(chip, QNOVO_TR_IADC_OFFSET_1, &val, 1);
-	if (rc < 0) {
-		pr_err("Couldn't read iadc offset rc = %d\n", rc);
-		return rc;
-	}
-
-	val *= -1;
-	rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_1, &val, 1);
-	if (rc < 0) {
-		pr_err("Couldn't write iadc offset rc = %d\n", rc);
-		return rc;
-	}
 
 	return 0;
 }

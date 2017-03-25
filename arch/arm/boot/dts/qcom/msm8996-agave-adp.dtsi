@@ -597,13 +597,15 @@
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
-				<&afe>, <&lsm>, <&routing>, <&compr>;
+				<&afe>, <&lsm>, <&routing>, <&compr>,
+				<&loopback1>;
 		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
 				"msm-pcm-dsp.2", "msm-voip-dsp",
 				"msm-pcm-voice", "msm-pcm-loopback",
 				"msm-compress-dsp", "msm-pcm-hostless",
 				"msm-pcm-afe", "msm-lsm-client",
-				"msm-pcm-routing", "msm-compr-dsp";
+				"msm-pcm-routing", "msm-compr-dsp",
+				"msm-pcm-loopback.1";
 		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>,
 				<&dai_mi2s>, <&dai_mi2s_quat>,
 				<&afe_pcm_rx>, <&afe_pcm_tx>,
@@ -640,6 +642,11 @@
 	usb_detect {
 		compatible = "qcom,gpio-usbdetect";
 		qcom,vbus-det-irq = <&pm8994_gpios 17 0>;
+	};
+
+	loopback1: qcom,msm-pcm-loopback-low-latency {
+		compatible = "qcom,msm-pcm-loopback";
+		qcom,msm-pcm-loopback-low-latency;
 	};
 
 	qcom,msm-dai-mi2s {
@@ -915,6 +922,10 @@
 	};
 };
 
+&slim_msm {
+	status = "disabled";
+};
+
 /delete-node/  &led_flash0;
 
 &mdss_dsi0 {
@@ -970,4 +981,13 @@
 
 &blsp1_uart2 {
 	status = "ok";
+};
+
+&spi_0 {
+	spi_codec@0 {
+		compatible = "qcom,spi-msm-codec-slave";
+		reg = <0>;
+		spi-max-frequency = <2000000>;
+		spi-cpha;
+	};
 };

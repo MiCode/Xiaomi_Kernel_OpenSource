@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,13 +43,13 @@ int mhi_populate_event_cfg(struct mhi_device_ctxt *mhi_dev_ctxt)
 		return -ENOMEM;
 
 	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i) {
-		u32 dt_configs[5];
-		int len;
+		u32 dt_configs[6];
+		int no_elements;
 
 		scnprintf(dt_prop, MAX_BUF_SIZE, "%s%d", "mhi-event-cfg-", i);
-		if (!of_find_property(np, dt_prop, &len))
-			goto dt_error;
-		if (len != sizeof(dt_configs))
+		no_elements = of_property_count_elems_of_size(np, dt_prop,
+							sizeof(dt_configs));
+		if (no_elements != 1)
 			goto dt_error;
 		r = of_property_read_u32_array(
 					np,
@@ -66,14 +66,16 @@ int mhi_populate_event_cfg(struct mhi_device_ctxt *mhi_dev_ctxt)
 		mhi_dev_ctxt->ev_ring_props[i].msi_vec = dt_configs[1];
 		mhi_dev_ctxt->ev_ring_props[i].intmod = dt_configs[2];
 		mhi_dev_ctxt->ev_ring_props[i].chan = dt_configs[3];
-		mhi_dev_ctxt->ev_ring_props[i].flags = dt_configs[4];
+		mhi_dev_ctxt->ev_ring_props[i].priority = dt_configs[4];
+		mhi_dev_ctxt->ev_ring_props[i].flags = dt_configs[5];
 		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"ev ring %d,desc:0x%x,msi:0x%x,intmod%d chan:%u flags0x%x\n",
+			"ev ring %d,desc:0x%x,msi:0x%x,intmod%d chan:%u priority:%u flags0x%x\n",
 			i,
 			mhi_dev_ctxt->ev_ring_props[i].nr_desc,
 			mhi_dev_ctxt->ev_ring_props[i].msi_vec,
 			mhi_dev_ctxt->ev_ring_props[i].intmod,
 			mhi_dev_ctxt->ev_ring_props[i].chan,
+			mhi_dev_ctxt->ev_ring_props[i].priority,
 			mhi_dev_ctxt->ev_ring_props[i].flags);
 		if (GET_EV_PROPS(EV_MANAGED,
 			mhi_dev_ctxt->ev_ring_props[i].flags))
@@ -128,6 +130,9 @@ int create_local_ev_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt)
 			mhi_local_event_ctxt[i];
 
 		spin_lock_init(&mhi_ring->ring_lock);
+		tasklet_init(&mhi_ring->ev_task, mhi_ev_task,
+			     (unsigned long)mhi_ring);
+		INIT_WORK(&mhi_ring->ev_worker, process_event_ring);
 	}
 
 	return r;
@@ -157,6 +162,8 @@ void ring_ev_db(struct mhi_device_ctxt *mhi_dev_ctxt, u32 event_ring_index)
 
 static int mhi_event_ring_init(struct mhi_event_ctxt *ev_list,
 			       struct mhi_ring *ring,
+			       struct mhi_device_ctxt *mhi_dev_ctxt,
+			       int index,
 			       u32 el_per_ring,
 			       u32 intmodt_val,
 			       u32 msi_vec,
@@ -166,6 +173,8 @@ static int mhi_event_ring_init(struct mhi_event_ctxt *ev_list,
 	ev_list->mhi_msi_vector     = msi_vec;
 	ev_list->mhi_event_ring_len = el_per_ring*sizeof(union mhi_event_pkt);
 	MHI_SET_EV_CTXT(EVENT_CTXT_INTMODT, ev_list, intmodt_val);
+	ring->mhi_dev_ctxt = mhi_dev_ctxt;
+	ring->index = index;
 	ring->len = ((size_t)(el_per_ring)*sizeof(union mhi_event_pkt));
 	ring->el_size = sizeof(union mhi_event_pkt);
 	ring->overwrite_en = 0;
@@ -198,6 +207,7 @@ void init_event_ctxt_array(struct mhi_device_ctxt *mhi_dev_ctxt)
 		event_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[i];
 		mhi_local_event_ctxt = &mhi_dev_ctxt->mhi_local_event_ctxt[i];
 		mhi_event_ring_init(event_ctxt, mhi_local_event_ctxt,
+				    mhi_dev_ctxt, i,
 				    mhi_dev_ctxt->ev_ring_props[i].nr_desc,
 				    mhi_dev_ctxt->ev_ring_props[i].intmod,
 				    mhi_dev_ctxt->ev_ring_props[i].msi_vec,
