@@ -572,7 +572,7 @@ static void bcm_query_bus_req(struct device *dev, int ctx)
 		bcm_dev->lnode_list[lnode_idx].lnode_query_ab[ctx] =
 			msm_bus_div64(cur_dev->node_bw[ctx].sum_query_ab *
 					(uint64_t)bcm_dev->bcmdev->width,
-				cur_dev->node_info->agg_params.num_aggports,
+				cur_dev->node_info->agg_params.num_aggports *
 				cur_dev->node_info->agg_params.buswidth);
 
 		for (i = 0; i < bcm_dev->num_lnodes; i++) {
@@ -1298,7 +1298,7 @@ static int query_usecase(struct msm_bus_client *client, bool log_trns,
 					struct msm_bus_tcs_usecase *tcs_usecase)
 {
 	int lnode, src, dest, cur_idx;
-	uint64_t req_clk, req_bw, curr_clk, curr_bw, slp_clk, slp_bw;
+	uint64_t req_clk, req_bw, curr_clk, curr_bw;
 	int i, ret = 0;
 	struct msm_bus_scale_pdata *pdata;
 	struct device *src_dev;
@@ -1339,8 +1339,8 @@ static int query_usecase(struct msm_bus_client *client, bool log_trns,
 					curr_bw, curr_clk);
 		}
 
-		ret = query_path(src_dev, dest, req_clk, req_bw, slp_clk,
-			slp_bw, curr_clk, curr_bw, lnode);
+		ret = query_path(src_dev, dest, req_clk, req_bw, 0,
+			0, curr_clk, curr_bw, lnode);
 
 		if (ret) {
 			MSM_BUS_ERR("%s: Query path failed! %d ctx %d\n",
