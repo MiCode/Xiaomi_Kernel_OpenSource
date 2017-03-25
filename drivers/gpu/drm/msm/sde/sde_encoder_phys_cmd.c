@@ -182,7 +182,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 				atomic_read(&phys_enc->pending_kickoff_cnt));
 
 		SDE_DBG_DUMP("sde", "dsi0_ctrl", "dsi0_phy", "dsi1_ctrl",
-				"dsi1_phy", "vbif", "vbif_nrt", "dbg_bus",
+				"dsi1_phy", "vbif", "dbg_bus",
 				"vbif_dbg_bus", "panic");
 	}
 
