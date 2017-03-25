@@ -26,6 +26,7 @@
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
 #include "kgsl_device.h"
+#include "kgsl_gmu.h"
 #include "kgsl_trace.h"
 
 #define KGSL_PWRFLAGS_POWER_ON 0
@@ -65,7 +66,8 @@ static const char * const clocks[] = {
 	"alwayson_clk",
 	"isense_clk",
 	"rbcpr_clk",
-	"iref_clk"
+	"iref_clk",
+	"gmu_clk"
 };
 
 static unsigned int ib_votes[KGSL_MAX_BUSLEVELS];
@@ -214,6 +216,69 @@ static void kgsl_pwrctrl_vbif_update(unsigned long ab)
 #endif
 
 /**
+ * kgsl_bus_scale_request() - set GPU BW vote
+ * @device: Pointer to the kgsl_device struct
+ * @buslevel: index of bw vector[] table
+ */
+static int kgsl_bus_scale_request(struct kgsl_device *device,
+		unsigned int buslevel)
+{
+	struct gmu_device *gmu = &device->gmu;
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int ret;
+
+	/* GMU scales BW */
+	if (kgsl_gmu_isenabled(device)) {
+		if (!(gmu->flags & GMU_HFI_ON))
+			return 0;
+
+		ret = gmu_dcvs_set(gmu, INVALID_DCVS_IDX, buslevel);
+	} else {
+		/* Linux bus driver scales BW */
+		ret = msm_bus_scale_client_update_request(pwr->pcl, buslevel);
+	}
+
+	if (ret)
+		KGSL_PWR_ERR(device, "GPU BW scaling failure\n");
+
+	return ret;
+}
+
+/**
+ * kgsl_clk_set_rate() - set GPU clock rate
+ * @device: Pointer to the kgsl_device struct
+ * @pwrlevel: power level in pwrlevels[] table
+ */
+static int kgsl_clk_set_rate(struct kgsl_device *device,
+		unsigned int pwrlevel)
+{
+	struct gmu_device *gmu = &device->gmu;
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int ret = 0;
+
+	/* GMU scales GPU freq */
+	if (kgsl_gmu_isenabled(device)) {
+		/* If GMU has not been started, save it */
+		if (!(gmu->flags & GMU_HFI_ON)) {
+			gmu->wakeup_pwrlevel = pwrlevel;
+			return 0;
+		}
+
+		ret = gmu_dcvs_set(gmu, pwrlevel, INVALID_DCVS_IDX);
+	} else {
+		/* Linux clock driver scales GPU freq */
+		struct kgsl_pwrlevel *Pl = &pwr->pwrlevels[pwrlevel];
+
+		ret = clk_set_rate(pwr->grp_clks[0], Pl->gpu_freq);
+	}
+
+	if (ret)
+		KGSL_PWR_ERR(device, "GPU clk freq set failure\n");
+
+	return ret;
+}
+
+/**
  * kgsl_pwrctrl_buslevel_update() - Recalculate the bus vote and send it
  * @device: Pointer to the kgsl_device struct
  * @on: true for setting and active bus vote, false to turn off the vote
@@ -259,7 +324,7 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 
 	/* vote for bus if gpubw-dev support is not enabled */
 	if (pwr->pcl)
-		msm_bus_scale_client_update_request(pwr->pcl, buslevel);
+		kgsl_bus_scale_request(device, buslevel);
 
 	kgsl_pwrctrl_vbif_update(ab);
 }
@@ -388,7 +453,7 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
 	/* Change register settings if any  BEFORE pwrlevel change*/
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 0);
-	clk_set_rate(pwr->grp_clks[0], pwrlevel->gpu_freq);
+	kgsl_clk_set_rate(device, pwr->active_pwrlevel);
 	_isense_clk_set_rate(pwr, pwr->active_pwrlevel);
 
 	trace_kgsl_pwrlevel(device,
@@ -1631,9 +1696,8 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 				(requested_state != KGSL_STATE_NAP)) {
 				for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
 					clk_unprepare(pwr->grp_clks[i]);
-				clk_set_rate(pwr->grp_clks[0],
-					pwr->pwrlevels[pwr->num_pwrlevels - 1].
-					gpu_freq);
+				kgsl_clk_set_rate(device,
+						pwr->num_pwrlevels - 1);
 				_isense_clk_set_rate(pwr,
 					pwr->num_pwrlevels - 1);
 			}
@@ -1645,9 +1709,8 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
 				clk_unprepare(pwr->grp_clks[i]);
 			if ((pwr->pwrlevels[0].gpu_freq > 0)) {
-				clk_set_rate(pwr->grp_clks[0],
-					pwr->pwrlevels[pwr->num_pwrlevels - 1].
-					gpu_freq);
+				kgsl_clk_set_rate(device,
+						pwr->num_pwrlevels - 1);
 				_isense_clk_set_rate(pwr,
 					pwr->num_pwrlevels - 1);
 			}
@@ -1660,10 +1723,8 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 			/* High latency clock maintenance. */
 			if (device->state != KGSL_STATE_NAP) {
 				if (pwr->pwrlevels[0].gpu_freq > 0) {
-					clk_set_rate(pwr->grp_clks[0],
-						pwr->pwrlevels
-						[pwr->active_pwrlevel].
-						gpu_freq);
+					kgsl_clk_set_rate(device,
+							pwr->active_pwrlevel);
 					_isense_clk_set_rate(pwr,
 						pwr->active_pwrlevel);
 				}
@@ -2101,11 +2162,11 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		if (freq > 0)
 			freq = clk_round_rate(pwr->grp_clks[0], freq);
 
-		pwr->pwrlevels[i].gpu_freq = freq;
+		if (freq >= pwr->pwrlevels[i].gpu_freq)
+			pwr->pwrlevels[i].gpu_freq = freq;
 	}
 
-	clk_set_rate(pwr->grp_clks[0],
-		pwr->pwrlevels[pwr->num_pwrlevels - 1].gpu_freq);
+	kgsl_clk_set_rate(device, pwr->num_pwrlevels - 1);
 
 	clk_set_rate(pwr->grp_clks[6],
 		clk_round_rate(pwr->grp_clks[6], KGSL_RBBMTIMER_CLK_FREQ));
@@ -2362,8 +2423,12 @@ void kgsl_pre_hwaccess(struct kgsl_device *device)
 	/* In order to touch a register you must hold the device mutex */
 	WARN_ON(!mutex_is_locked(&device->mutex));
 
-	/* A register access without device power will cause a fatal timeout */
-	BUG_ON(!kgsl_pwrctrl_isenabled(device));
+	/*
+	 * A register access without device power will cause a fatal timeout.
+	 * This is not valid for targets with a GMU.
+	 */
+	if (!kgsl_gmu_isenabled(device))
+		WARN_ON(!kgsl_pwrctrl_isenabled(device));
 }
 EXPORT_SYMBOL(kgsl_pre_hwaccess);
 
@@ -2383,6 +2448,9 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 
 	kgsl_pwrctrl_pwrlevel_change(device, level);
 
+	if (kgsl_gmu_isenabled(device))
+		return gmu_start(device);
+
 	/* Order pwrrail/clk sequence based upon platform */
 	status = kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_ON);
 	if (status)
@@ -2394,6 +2462,9 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 
 static void kgsl_pwrctrl_disable(struct kgsl_device *device)
 {
+	if (kgsl_gmu_isenabled(device))
+		return gmu_stop(device);
+
 	/* Order pwrrail/clk sequence based upon platform */
 	device->ftbl->regulator_disable(device);
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_OFF);
