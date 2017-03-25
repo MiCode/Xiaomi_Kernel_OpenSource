@@ -93,13 +93,6 @@
 #define SDE_RSCC_F0_QTMR_V1_CNTP_CTL			0x202C
 #define SDE_RSCC_F1_QTMR_V1_CNTP_CTL			0x302C
 
-/* mdp and dsi clocks in clock gate state */
-#define DISP_MDP_DSI_CLK_GATE		0x7f0
-
-/* mdp and dsi clocks in clock ungate state */
-#define MDSS_CORE_GDSCR			0x0
-#define DISP_MDP_DSI_CLK_UNGATE		0x5000
-
 #define MAX_CHECK_LOOPS			500
 
 static void rsc_event_trigger(struct sde_rsc_priv *rsc, uint32_t event_type)
@@ -191,31 +184,33 @@ static int rsc_hw_seq_memory_init(struct sde_rsc_priv *rsc)
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x10,
 						0x888babec, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x14,
-						0xaaa8a020, rsc->debug_mode);
+						0xa806a020, rsc->debug_mode);
 
 	/* Mode - 2 sequence */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x18,
-						0xe1a138eb, rsc->debug_mode);
+						0xa138ebaa, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x1c,
-						0xa2ede081, rsc->debug_mode);
+						0xe0a581e1, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x20,
-						0x8a3982e2, rsc->debug_mode);
+						0x82e2a2ed, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x24,
-						0xa92088ea, rsc->debug_mode);
+						0x88ea8a39, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x28,
-						0x89e6a6e9, rsc->debug_mode);
+						0xa6e9a920, rsc->debug_mode);
 
 	/* tcs sleep sequence */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x2c,
-						0xa7e9a920, rsc->debug_mode);
+						0xa92089e6, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x30,
-						0x002089e7, rsc->debug_mode);
+						0x89e7a7e9, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x34,
+						0x00000020, rsc->debug_mode);
 
 	/* branch address */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_0_DRV0,
-						0x27, rsc->debug_mode);
+						0x29, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_1_DRV0,
-						0x2d, rsc->debug_mode);
+						0x2f, rsc->debug_mode);
 
 	return 0;
 }
