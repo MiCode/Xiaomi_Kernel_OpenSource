@@ -33,6 +33,37 @@
 struct sde_rsc_priv;
 
 /**
+ * event will be triggered before sde core power collapse,
+ * mdss gdsc is still on
+ */
+#define SDE_RSC_EVENT_PRE_CORE_PC 0x1
+/**
+ * event will be triggered after sde core collapse complete,
+ * mdss gdsc is off now
+ */
+#define SDE_RSC_EVENT_POST_CORE_PC 0x2
+/**
+ * event will be triggered before restoring the sde core from power collapse,
+ * mdss gdsc is still off
+ */
+#define SDE_RSC_EVENT_PRE_CORE_RESTORE 0x4
+/**
+ * event will be triggered after restoring the sde core from power collapse,
+ * mdss gdsc is on now
+ */
+#define SDE_RSC_EVENT_POST_CORE_RESTORE 0x8
+/**
+ * event attached with solver state enabled
+ * all clients in clk_state or cmd_state
+ */
+#define SDE_RSC_EVENT_SOLVER_ENABLED 0x10
+/**
+ * event attached with solver state disabled
+ * one of the client requested for vid state
+ */
+#define SDE_RSC_EVENT_SOLVER_DISABLED 0x20
+
+/**
  * rsc_mode_req: sde rsc mode request information
  * MODE_READ: read vsync status
  * MODE0_UPDATE: mode0 status , this should be 0x0
@@ -85,13 +116,29 @@ enum sde_rsc_state {
  * @current_state:   current client state
  * @crtc_id:		crtc_id associated with this rsc client.
  * @rsc_index:	rsc index of a client - only index "0" valid.
- * @list:	list to attach power handle master list
+ * @list:	list to attach client master list
  */
 struct sde_rsc_client {
 	char name[MAX_RSC_CLIENT_NAME_LEN];
 	short current_state;
 	int crtc_id;
 	u32 rsc_index;
+	struct list_head list;
+};
+
+/**
+ * struct sde_rsc_event: local event registration entry structure
+ * @cb_func:	Pointer to desired callback function
+ * @usr:	User pointer to pass to callback on event trigger
+ * @rsc_index:	rsc index of a client - only index "0" valid.
+ * @event_type:	refer comments in event_register
+ * @list:	list to attach event master list
+ */
+struct sde_rsc_event {
+	void (*cb_func)(uint32_t event_type, void *usr);
+	void *usr;
+	u32 rsc_index;
+	uint32_t event_type;
 	struct list_head list;
 };
 
@@ -182,6 +229,7 @@ struct sde_rsc_timer_config {
  * @wrapper_io:		wrapper io data mapping
  *
  * @client_list:	current rsc client list handle
+ * @event_list:		current rsc event list handle
  * @client_lock:	current rsc client synchronization lock
  *
  * timer_config:	current rsc timer configuration
@@ -211,6 +259,7 @@ struct sde_rsc_priv {
 	struct dss_io_data wrapper_io;
 
 	struct list_head client_list;
+	struct list_head event_list;
 	struct mutex client_lock;
 
 	struct sde_rsc_timer_config timer_config;
@@ -297,5 +346,23 @@ int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
  */
 int sde_rsc_hw_register(struct sde_rsc_priv *rsc);
 
+/**
+ * sde_rsc_register_event - register a callback function for an event
+ * @rsc_index:   A client will be created on this RSC. As of now only
+ *               SDE_RSC_INDEX is valid rsc index.
+ * @event_type:  event type to register; client sets 0x3 if it wants
+ *               to register for CORE_PC and CORE_RESTORE - both events.
+ * @cb_func:     Pointer to desired callback function
+ * @usr:         User pointer to pass to callback on event trigger
+ * Returns: sde_rsc_event pointer on success
+ */
+struct sde_rsc_event *sde_rsc_register_event(int rsc_index, uint32_t event_type,
+		void (*cb_func)(uint32_t event_type, void *usr), void *usr);
+
+/**
+ * sde_rsc_unregister_event - unregister callback for an event
+ * @sde_rsc_event: event returned by sde_rsc_register_event
+ */
+void sde_rsc_unregister_event(struct sde_rsc_event *event);
 
 #endif /* _SDE_RSC_H_ */

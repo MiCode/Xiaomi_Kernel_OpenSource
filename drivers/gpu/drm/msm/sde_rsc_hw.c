@@ -102,6 +102,15 @@
 
 #define MAX_CHECK_LOOPS			500
 
+static void rsc_event_trigger(struct sde_rsc_priv *rsc, uint32_t event_type)
+{
+	struct sde_rsc_event *event;
+
+	list_for_each_entry(event, &rsc->event_list, list)
+		if (event->event_type & event_type)
+			event->cb_func(event_type, event->usr);
+}
+
 static int rsc_hw_qtimer_init(struct sde_rsc_priv *rsc)
 {
 	pr_debug("rsc hardware qtimer init\n");
@@ -297,10 +306,13 @@ int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 	rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_FAST);
 	if (rc) {
 		pr_err("vdd reg fast mode set failed rc:%d\n", rc);
-		goto end;
+		return rc;
 	}
 
 	rc = -EBUSY;
+
+	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_PC);
+
 	wrapper_status = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_WRAPPER_CTRL,
 				rsc->debug_mode);
 	wrapper_status |= BIT(3);
@@ -319,10 +331,20 @@ int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 		usleep_range(1, 2);
 	}
 
-	if (rc)
+	if (rc) {
 		pr_err("vdd fs is still enabled\n");
+		goto end;
+	}
+
+	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_PC);
+
+	return 0;
 
 end:
+	regulator_set_mode(rsc->fs, REGULATOR_MODE_NORMAL);
+
+	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_RESTORE);
+
 	return rc;
 }
 
@@ -330,6 +352,8 @@ int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc)
 {
 	int rc = -EBUSY;
 	int count, reg;
+
+	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_RESTORE);
 
 	// needs review with HPG sequence
 	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_LO,
@@ -374,6 +398,8 @@ int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc)
 	if (rc)
 		pr_err("vdd reg normal mode set failed rc:%d\n", rc);
 
+	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_RESTORE);
+
 	return rc;
 }
 
@@ -407,6 +433,8 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 							reg, rsc->debug_mode);
 		/* make sure that solver is enabled */
 		wmb();
+
+		rsc_event_trigger(rsc, SDE_RSC_EVENT_SOLVER_ENABLED);
 		break;
 
 	case SDE_RSC_VID_STATE:
@@ -424,6 +452,8 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 							0x1, rsc->debug_mode);
 		/* make sure that solver mode is override */
 		wmb();
+
+		rsc_event_trigger(rsc, SDE_RSC_EVENT_SOLVER_DISABLED);
 		break;
 
 	case SDE_RSC_IDLE_STATE:
