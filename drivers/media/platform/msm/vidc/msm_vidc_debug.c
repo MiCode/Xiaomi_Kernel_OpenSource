@@ -50,7 +50,7 @@ static struct debug_buffer dbg_buf;
 })
 
 #define DYNAMIC_BUF_OWNER(__binfo) ({ \
-	atomic_read(&__binfo->ref_count) == 2 ? "video driver" : "firmware";\
+	atomic_read(&__binfo->ref_count) >= 2 ? "video driver" : "firmware";\
 })
 
 static int core_info_open(struct inode *inode, struct file *file)

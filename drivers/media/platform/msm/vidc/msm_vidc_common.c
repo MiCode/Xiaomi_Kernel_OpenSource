@@ -2163,6 +2163,43 @@ static struct vb2_buffer *get_vb_from_device_addr(struct buf_queue *bufq,
 	return vb;
 }
 
+static void handle_dynamic_buffer(struct msm_vidc_inst *inst,
+		ion_phys_addr_t device_addr, u32 flags)
+{
+	struct buffer_info *binfo = NULL, *temp = NULL;
+
+	/*
+	 * Update reference count and release OR queue back the buffer,
+	 * only when firmware is not holding a reference.
+	 */
+	binfo = device_to_uvaddr(&inst->registeredbufs, device_addr);
+	if (!binfo) {
+		dprintk(VIDC_ERR,
+			"%s buffer not found in registered list\n",
+			__func__);
+		return;
+	}
+	if (flags & HAL_BUFFERFLAG_READONLY) {
+		dprintk(VIDC_DBG,
+			"FBD fd[0] = %d -> Reference with f/w, addr: %pa\n",
+			binfo->fd[0], &device_addr);
+	} else {
+		dprintk(VIDC_DBG,
+			"FBD fd[0] = %d -> FBD_ref_released, addr: %pa\n",
+			binfo->fd[0], &device_addr);
+
+		mutex_lock(&inst->registeredbufs.lock);
+		list_for_each_entry(temp, &inst->registeredbufs.list,
+				list) {
+			if (temp == binfo) {
+				buf_ref_put(inst, binfo);
+				break;
+			}
+		}
+		mutex_unlock(&inst->registeredbufs.lock);
+	}
+}
+
 static void handle_ebd(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
@@ -2182,6 +2219,9 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
+	if (inst->buffer_mode_set[OUTPUT_PORT] == HAL_BUFFER_MODE_DYNAMIC)
+		handle_dynamic_buffer(inst,
+			response->input_done.packet_buffer, 0);
 
 	vb = get_vb_from_device_addr(&inst->bufq[OUTPUT_PORT],
 			response->input_done.packet_buffer);
@@ -2239,11 +2279,7 @@ int buf_ref_get(struct msm_vidc_inst *inst, struct buffer_info *binfo)
 
 	atomic_inc(&binfo->ref_count);
 	cnt = atomic_read(&binfo->ref_count);
-	if (cnt > 2) {
-		dprintk(VIDC_DBG, "%s: invalid ref_cnt: %d\n", __func__, cnt);
-		cnt = -EINVAL;
-	}
-	if (cnt == 2)
+	if (cnt >= 2)
 		inst->buffers_held_in_driver++;
 
 	dprintk(VIDC_DBG, "REF_GET[%d] fd[0] = %d\n", cnt, binfo->fd[0]);
@@ -2266,7 +2302,7 @@ int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo)
 	dprintk(VIDC_DBG, "REF_PUT[%d] fd[0] = %d\n", cnt, binfo->fd[0]);
 	if (!cnt)
 		release_buf = true;
-	else if (cnt == 1)
+	else if (cnt >= 1)
 		qbuf_again = true;
 	else {
 		dprintk(VIDC_DBG, "%s: invalid ref_cnt: %d\n", __func__, cnt);
@@ -2295,45 +2331,6 @@ int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo)
 			return rc;
 	}
 	return cnt;
-}
-
-static void handle_dynamic_buffer(struct msm_vidc_inst *inst,
-		ion_phys_addr_t device_addr, u32 flags)
-{
-	struct buffer_info *binfo = NULL, *temp = NULL;
-
-	/*
-	 * Update reference count and release OR queue back the buffer,
-	 * only when firmware is not holding a reference.
-	 */
-	if (inst->buffer_mode_set[CAPTURE_PORT] == HAL_BUFFER_MODE_DYNAMIC) {
-		binfo = device_to_uvaddr(&inst->registeredbufs, device_addr);
-		if (!binfo) {
-			dprintk(VIDC_ERR,
-				"%s buffer not found in registered list\n",
-				__func__);
-			return;
-		}
-		if (flags & HAL_BUFFERFLAG_READONLY) {
-			dprintk(VIDC_DBG,
-				"FBD fd[0] = %d -> Reference with f/w, addr: %pa\n",
-				binfo->fd[0], &device_addr);
-		} else {
-			dprintk(VIDC_DBG,
-				"FBD fd[0] = %d -> FBD_ref_released, addr: %pa\n",
-				binfo->fd[0], &device_addr);
-
-			mutex_lock(&inst->registeredbufs.lock);
-			list_for_each_entry(temp, &inst->registeredbufs.list,
-							list) {
-				if (temp == binfo) {
-					buf_ref_put(inst, binfo);
-					break;
-				}
-			}
-			mutex_unlock(&inst->registeredbufs.lock);
-		}
-	}
 }
 
 static int handle_multi_stream_buffers(struct msm_vidc_inst *inst,
@@ -2459,6 +2456,8 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 			vb->planes[extra_idx].data_offset = 0;
 		}
 
+		if (inst->buffer_mode_set[CAPTURE_PORT] ==
+			HAL_BUFFER_MODE_DYNAMIC)
 		handle_dynamic_buffer(inst, fill_buf_done->packet_buffer1,
 					fill_buf_done->flags1);
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_READONLY)
@@ -4854,20 +4853,22 @@ void msm_comm_flush_dynamic_buffers(struct msm_vidc_inst *inst)
 	 * driver should not queue any new buffer it has been holding.
 	 *
 	 * Each dynamic o/p buffer can have one of following ref_count:
-	 * ref_count : 0 - f/w has released reference and sent fbd back.
-	 *		  The buffer has been returned back to client.
+	 * ref_count : 0   - f/w has released reference and sent dynamic
+	 *                   buffer back. The buffer has been returned
+	 *                   back to client.
 	 *
-	 * ref_count : 1 - f/w is holding reference. f/w may have released
-	 *                 fbd as read_only OR fbd is pending. f/w will
-	 *		  release reference before sending flush_done.
+	 * ref_count : 1   - f/w is holding reference. f/w may have released
+	 *                   dynamic buffer as read_only OR dynamic buffer is
+	 *                   pending. f/w will release reference before sending
+	 *                   flush_done.
 	 *
-	 * ref_count : 2 - f/w is holding reference, f/w has released fbd as
-	 *                 read_only, which client has queued back to driver.
-	 *                 driver holds this buffer and will queue back
-	 *                 only when f/w releases the reference. During
-	 *		  flush_done, f/w will release the reference but driver
-	 *		  should not queue back the buffer to f/w.
-	 *		  Flush all buffers with ref_count 2.
+	 * ref_count : >=2 - f/w is holding reference, f/w has released dynamic
+	 *                   buffer as read_only, which client has queued back
+	 *                   to driver. Driver holds this buffer and will queue
+	 *                   back only when f/w releases the reference. During
+	 *                   flush_done, f/w will release the reference but
+	 *                   driver should not queue back the buffer to f/w.
+	 *                   Flush all buffers with ref_count >= 2.
 	 */
 	mutex_lock(&inst->registeredbufs.lock);
 	if (!list_empty(&inst->registeredbufs.list)) {
@@ -4876,7 +4877,7 @@ void msm_comm_flush_dynamic_buffers(struct msm_vidc_inst *inst)
 
 		list_for_each_entry(binfo, &inst->registeredbufs.list, list) {
 			if (binfo->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
-				atomic_read(&binfo->ref_count) == 2) {
+				atomic_read(&binfo->ref_count) >= 2) {
 
 				atomic_dec(&binfo->ref_count);
 				buf_event.type =

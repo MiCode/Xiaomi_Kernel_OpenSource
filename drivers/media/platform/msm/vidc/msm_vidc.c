@@ -497,11 +497,12 @@ static inline enum hal_buffer get_hal_buffer_type(
 		return -EINVAL;
 }
 
-static inline bool is_dynamic_output_buffer_mode(struct v4l2_buffer *b,
+static inline bool is_dynamic_buffer_mode(struct v4l2_buffer *b,
 				struct msm_vidc_inst *inst)
 {
-	return b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
-		inst->buffer_mode_set[CAPTURE_PORT] == HAL_BUFFER_MODE_DYNAMIC;
+	enum vidc_ports port = b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
+		OUTPUT_PORT : CAPTURE_PORT;
+	return inst->buffer_mode_set[port] == HAL_BUFFER_MODE_DYNAMIC;
 }
 
 
@@ -558,7 +559,7 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 		}
 		mutex_lock(&inst->registeredbufs.lock);
 		temp = get_registered_buf(inst, b, i, &plane);
-		if (temp && !is_dynamic_output_buffer_mode(b, inst)) {
+		if (temp && !is_dynamic_buffer_mode(b, inst)) {
 			dprintk(VIDC_DBG,
 				"This memory region has already been prepared\n");
 			rc = 0;
@@ -566,7 +567,7 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 			goto exit;
 		}
 
-		if (temp && is_dynamic_output_buffer_mode(b, inst) && !i) {
+		if (temp && is_dynamic_buffer_mode(b, inst) && !i) {
 			/*
 			 * Buffer is already present in registered list
 			 * increment ref_count, populate new values of v4l2
@@ -599,7 +600,7 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 		if (rc == 1) {
 			rc = 0;
 			goto exit;
-		} else if (rc == 2) {
+		} else if (rc >= 2) {
 			rc = -EEXIST;
 			goto exit;
 		}
@@ -629,7 +630,7 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 		}
 
 		/* We maintain one ref count for all planes*/
-		if (!i && is_dynamic_output_buffer_mode(b, inst)) {
+		if (!i && is_dynamic_buffer_mode(b, inst)) {
 			rc = buf_ref_get(inst, binfo);
 			if (rc < 0)
 				goto exit;
@@ -874,7 +875,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 	rc = map_and_register_buf(inst, b);
 	if (rc == -EEXIST) {
 		if (atomic_read(&inst->in_flush) &&
-			is_dynamic_output_buffer_mode(b, inst)) {
+			is_dynamic_buffer_mode(b, inst)) {
 			dprintk(VIDC_ERR,
 				"Flush in progress, do not hold any buffers in driver\n");
 			msm_comm_flush_dynamic_buffers(inst);
@@ -998,7 +999,7 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 		return rc;
 
 
-	if (is_dynamic_output_buffer_mode(b, inst)) {
+	if (is_dynamic_buffer_mode(b, inst)) {
 		buffer_info->dequeued = true;
 
 		dprintk(VIDC_DBG, "[DEQUEUED]: fd[0] = %d\n",
