@@ -114,6 +114,9 @@
 					1286400000 1363200000 1440000000
 					1516800000 1593600000>;
 
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					<100000 100000 100000>;
+
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
@@ -156,6 +159,9 @@
 					<300000000  422400000  499200000
 					 576000000  652800000  729600000
 					 806400000  883200000  960000000>;
+
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					<100000 100000 100000>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
@@ -256,6 +262,9 @@
 					1497600000 1574400000 1651200000
 					1728000000 1804800000 1881600000
 					1958400000>;
+
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					<100000 100000 100000>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
