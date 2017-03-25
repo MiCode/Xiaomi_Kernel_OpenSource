@@ -238,6 +238,61 @@
 			};
 		};
 
+		pmx_sde: pmx_sde {
+			sde_dsi_active: sde_dsi_active {
+				mux {
+					pins = "gpio6", "gpio52";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio6", "gpio52";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable = <0>;   /* no pull */
+				};
+			};
+			sde_dsi_suspend: sde_dsi_suspend {
+				mux {
+					pins = "gpio6", "gpio52";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio6", "gpio52";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
+		pmx_sde_te {
+			sde_te_active: sde_te_active {
+				mux {
+					pins = "gpio10";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio10";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te_suspend: sde_te_suspend {
+				mux {
+					pins = "gpio10";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio10";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
 		sec_aux_pcm {
 			sec_aux_pcm_sleep: sec_aux_pcm_sleep {
 				mux {
