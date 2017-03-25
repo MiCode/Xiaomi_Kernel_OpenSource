@@ -903,6 +903,7 @@ struct sde_rsc_client *sde_encoder_update_rsc_client(
 	enum sde_rsc_state rsc_state;
 	struct sde_rsc_cmd_config rsc_config;
 	int ret;
+	struct msm_display_info *disp_info;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -910,18 +911,25 @@ struct sde_rsc_client *sde_encoder_update_rsc_client(
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
-	if (!sde_enc->disp_info.is_primary)
-		return NULL;
+	disp_info = &sde_enc->disp_info;
 
+	/**
+	 * only primary command mode panel can request CMD state.
+	 * all other panels/displays can request for VID state including
+	 * secondary command mode panel.
+	 */
 	rsc_state = enable ?
-		(sde_enc->disp_info.capabilities & MSM_DISPLAY_CAP_CMD_MODE ?
-		SDE_RSC_CMD_STATE : SDE_RSC_VID_STATE) : SDE_RSC_IDLE_STATE;
+		(((disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) &&
+		  disp_info->is_primary) ? SDE_RSC_CMD_STATE :
+		SDE_RSC_VID_STATE) : SDE_RSC_IDLE_STATE;
 
-	if (rsc_state != SDE_RSC_IDLE_STATE && !sde_enc->rsc_state_update) {
-		rsc_config.fps = sde_enc->disp_info.frame_rate;
-		rsc_config.vtotal = sde_enc->disp_info.vtotal;
-		rsc_config.prefill_lines = sde_enc->disp_info.prefill_lines;
-		rsc_config.jitter = sde_enc->disp_info.jitter;
+	if (rsc_state != SDE_RSC_IDLE_STATE && !sde_enc->rsc_state_update
+					&& disp_info->is_primary) {
+		rsc_config.fps = disp_info->frame_rate;
+		rsc_config.vtotal = disp_info->vtotal;
+		rsc_config.prefill_lines = disp_info->prefill_lines;
+		rsc_config.jitter = disp_info->jitter;
+		/* update it only once */
 		sde_enc->rsc_state_update = true;
 
 		ret = sde_rsc_client_state_update(sde_enc->rsc_client,
@@ -936,7 +944,7 @@ struct sde_rsc_client *sde_encoder_update_rsc_client(
 	if (ret)
 		SDE_ERROR("sde rsc client update failed ret:%d\n", ret);
 
-	return sde_enc->rsc_client;
+	return sde_enc->disp_info.is_primary ? sde_enc->rsc_client : NULL;
 }
 
 void sde_encoder_register_frame_event_callback(struct drm_encoder *drm_enc,
