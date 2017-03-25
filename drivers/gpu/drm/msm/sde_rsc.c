@@ -48,6 +48,8 @@
 #define MAX_BUFFER_SIZE 256
 
 #define TRY_CMD_MODE_SWITCH		0xFFFF
+#define TRY_CLK_MODE_SWITCH		0xFFFE
+#define STATE_UPDATE_NOT_ALLOWED	0xFFFD
 
 static struct sde_rsc_priv *rsc_prv_list[MAX_RSC_COUNT];
 
@@ -237,24 +239,50 @@ static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
 static int sde_rsc_switch_to_idle(struct sde_rsc_priv *rsc)
 {
 	struct sde_rsc_client *client;
-	int rc = 0;
+	int rc = STATE_UPDATE_NOT_ALLOWED;
+	bool idle_switch = true;
 
 	list_for_each_entry(client, &rsc->client_list, list)
-		if (client->current_state != SDE_RSC_IDLE_STATE)
-			return TRY_CMD_MODE_SWITCH;
+		if (client->current_state != SDE_RSC_IDLE_STATE) {
+			idle_switch = false;
+			break;
+		}
 
-	if (rsc->hw_ops.state_update)
+	if (!idle_switch) {
+		/**
+		 * following code needs to run the loop through each
+		 * client because they might be in different order
+		 * sorting is not possible; only preference is available
+		 */
+
+		/* first check if any vid client active */
+		list_for_each_entry(client, &rsc->client_list, list)
+			if (client->current_state == SDE_RSC_VID_STATE)
+				return rc;
+
+		/* now try cmd state switch */
+		list_for_each_entry(client, &rsc->client_list, list)
+			if (client->current_state == SDE_RSC_CMD_STATE)
+				return TRY_CMD_MODE_SWITCH;
+
+		/* now try clk state switch */
+		list_for_each_entry(client, &rsc->client_list, list)
+			if (client->current_state == SDE_RSC_CLK_STATE)
+				return TRY_CLK_MODE_SWITCH;
+
+	} else if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_IDLE_STATE);
+	}
 
 	return rc;
 }
 
-static bool sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
+static int sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 	struct sde_rsc_cmd_config *config,
 	struct sde_rsc_client *caller_client, bool wait_req)
 {
 	struct sde_rsc_client *client;
-	int rc = 0;
+	int rc = STATE_UPDATE_NOT_ALLOWED;
 
 	if (!rsc->primary_client) {
 		pr_err("primary client not available for cmd state switch\n");
@@ -276,6 +304,12 @@ static bool sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 		if (client->current_state == SDE_RSC_VID_STATE)
 			goto end;
 
+	/* no need to enable solver again */
+	if (rsc->current_state == SDE_RSC_CLK_STATE) {
+		rc = 0;
+		goto end;
+	}
+
 	if (rsc->hw_ops.state_update)
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CMD_STATE);
 
@@ -283,6 +317,28 @@ static bool sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 	if (!rc && wait_req)
 		drm_wait_one_vblank(rsc->master_drm,
 						rsc->primary_client->crtc_id);
+end:
+	return rc;
+}
+
+static bool sde_rsc_switch_to_clk(struct sde_rsc_priv *rsc)
+{
+	struct sde_rsc_client *client;
+	int rc = STATE_UPDATE_NOT_ALLOWED;
+
+	list_for_each_entry(client, &rsc->client_list, list)
+		if ((client->current_state == SDE_RSC_VID_STATE) ||
+		    (client->current_state == SDE_RSC_CMD_STATE))
+			goto end;
+
+	/* no need to enable the solver again */
+	if (rsc->current_state == SDE_RSC_CMD_STATE) {
+		rc = 0;
+		goto end;
+	}
+
+	if (rsc->hw_ops.state_update)
+		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CMD_STATE);
 end:
 	return rc;
 }
@@ -310,7 +366,7 @@ static bool sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 
 /**
  * sde_rsc_client_state_update() - rsc client state update
- * Video mode and command mode are supported as modes. A client need to
+ * Video mode, cmd mode and clk state are suppoed as modes. A client need to
  * set this property during panel config time. A switching client can set the
  * property to change the state
  *
@@ -350,8 +406,7 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 		pr_err("invalid master component binding\n");
 		rc = -EINVAL;
 		goto end;
-	} else if ((rsc->current_state == state) &&
-				(state != SDE_RSC_CMD_UPDATE_STATE)) {
+	} else if ((rsc->current_state == state) && !config) {
 		pr_debug("no state change: %d\n", state);
 		goto end;
 	}
@@ -360,7 +415,9 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 		__builtin_return_address(0), rsc->current_state,
 		caller_client->name, state);
 
-	wait_requested = (rsc->current_state != SDE_RSC_IDLE_STATE);
+	/* only switch state needs vsync wait */
+	wait_requested = (rsc->current_state == SDE_RSC_VID_STATE) ||
+			(rsc->current_state == SDE_RSC_CMD_STATE);
 
 	if (rsc->power_collapse)
 		sde_power_resource_enable(&rsc->phandle, rsc->pclient, true);
@@ -368,14 +425,23 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 	switch (state) {
 	case SDE_RSC_IDLE_STATE:
 		rc = sde_rsc_switch_to_idle(rsc);
+
 		/* video state client might be exiting; try cmd state switch */
-		if (rc == TRY_CMD_MODE_SWITCH)
+		if (rc == TRY_CMD_MODE_SWITCH) {
 			rc = sde_rsc_switch_to_cmd(rsc, NULL,
 					rsc->primary_client, wait_requested);
+			if (!rc)
+				state = SDE_RSC_CMD_STATE;
+
+		/* cmd state client might be exiting; try clk state switch */
+		} else if (rc == TRY_CLK_MODE_SWITCH) {
+			rc = sde_rsc_switch_to_clk(rsc);
+			if (!rc)
+				state = SDE_RSC_CLK_STATE;
+		}
 		break;
 
 	case SDE_RSC_CMD_STATE:
-	case SDE_RSC_CMD_UPDATE_STATE:
 		rc = sde_rsc_switch_to_cmd(rsc, config, caller_client,
 								wait_requested);
 		break;
@@ -385,19 +451,27 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 								wait_requested);
 		break;
 
+	case SDE_RSC_CLK_STATE:
+		rc = sde_rsc_switch_to_clk(rsc);
+		break;
+
 	default:
 		pr_err("invalid state handling %d\n", state);
 		break;
 	}
 
-	if (rc) {
+	if (rc == STATE_UPDATE_NOT_ALLOWED) {
+		rc = 0;
+		goto clk_disable;
+	} else if (rc) {
 		pr_err("state update failed rc:%d\n", rc);
-		goto end;
+		goto clk_disable;
 	}
 
 	pr_debug("state switch successfully complete: %d\n", state);
 	rsc->current_state = state;
 
+clk_disable:
 	if (rsc->power_collapse)
 		sde_power_resource_enable(&rsc->phandle, rsc->pclient, false);
 end:
