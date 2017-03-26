@@ -581,6 +581,15 @@ Additional properties added to the second level nodes that represent timings pro
 					commands.
 					"dsi_lp_mode" = DSI low power mode (default)
 					"dsi_hs_mode" = DSI high speed mode
+- qcom,sublinks-count:			An integer value indicates the number of sublinks in the panel.
+					Default value is 1. This property is used only if qcom,split-link-enabled
+					is defined.
+- qcom,lanes-per-sublink:		An integer value indicates the number of data lanes per sublink in the panel.
+					Default value is 1. This property is used only if qcom,split-link-enabled
+					is defined.
+- qcom,split-link-enabled:		A boolean value to enable/disable the split link feature. If qcom,sublinks-count
+					or qcom,lanes-per-sublink are not defined, default values are used.
+
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -807,6 +816,10 @@ Example:
 		qcom,bridge-name = "adv7533";
 		qcom,mdss-dsc-version = <0x11>;
 		qcom,mdss-dsc-scr-version = <0x1>;
+
+		qcom,split-link-enabled;
+		qcom,sublinks-count = <2>;
+		qcom,lanes-per-sublink = <2>;
 
 		dsi_sim_vid_config0: config0 {
 			qcom,lm-split = <360 360>;

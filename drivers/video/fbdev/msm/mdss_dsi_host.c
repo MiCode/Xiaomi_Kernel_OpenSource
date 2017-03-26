@@ -1311,6 +1311,31 @@ void mdss_dsi_set_burst_mode(struct mdss_dsi_ctrl_pdata *ctrl)
 
 }
 
+static void mdss_dsi_split_link_setup(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	u32 data = 0;
+	struct mdss_panel_info *pinfo;
+
+	if (!ctrl_pdata)
+		return;
+
+	pinfo = &ctrl_pdata->panel_data.panel_info;
+	if (!pinfo->split_link_enabled)
+		return;
+
+	pr_debug("%s: enable split link\n", __func__);
+
+	data = MIPI_INP((ctrl_pdata->ctrl_base) + 0x330);
+	/* DMA_LINK_SEL */
+	data |= 0x3 << 12;
+	/* MDP0_LINK_SEL */
+	data |= 0x5 << 20;
+	/* EN */
+	data |= 0x1;
+	/* DSI_SPLIT_LINK_CTRL */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x330, data);
+}
+
 static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
@@ -1429,6 +1454,8 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 	}
 
 	mdss_dsi_dsc_config(ctrl_pdata, dsc);
+
+	mdss_dsi_split_link_setup(ctrl_pdata);
 }
 
 void mdss_dsi_ctrl_setup(struct mdss_dsi_ctrl_pdata *ctrl)

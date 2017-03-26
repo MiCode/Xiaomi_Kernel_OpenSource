@@ -1682,6 +1682,16 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 
 		mdss_bus_bandwidth_ctrl(true);
 
+		/* configure the split link to both sublinks */
+		if (is_panel_split_link(ctl->mfd)) {
+			mdp_video_write(ctx, MDSS_MDP_REG_SPLIT_LINK, 0x3);
+			/*
+			 * ensure split link register is written before
+			 * enabling timegen
+			 */
+			wmb();
+		}
+
 		mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 1);
 		wmb();
 
