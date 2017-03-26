@@ -90,18 +90,6 @@ static inline void msm_vidc_free_platform_version_table(
 	res->pf_ver_tbl = NULL;
 }
 
-static inline void msm_vidc_free_dcvs_table(
-		struct msm_vidc_platform_resources *res)
-{
-	res->dcvs_tbl = NULL;
-}
-
-static inline void msm_vidc_free_dcvs_limit(
-		struct msm_vidc_platform_resources *res)
-{
-	res->dcvs_limit = NULL;
-}
-
 static inline void msm_vidc_free_imem_ab_table(
 		struct msm_vidc_platform_resources *res)
 {
@@ -163,8 +151,6 @@ void msm_vidc_free_platform_resources(
 	msm_vidc_free_clock_table(res);
 	msm_vidc_free_regulator_table(res);
 	msm_vidc_free_platform_version_table(res);
-	msm_vidc_free_dcvs_table(res);
-	msm_vidc_free_dcvs_limit(res);
 	msm_vidc_free_cycles_per_mb_table(res);
 	msm_vidc_free_allowed_clocks_table(res);
 	msm_vidc_free_reg_table(res);
@@ -547,94 +533,6 @@ error:
 	return rc;
 }
 
-static int msm_vidc_load_dcvs_table(struct msm_vidc_platform_resources *res)
-{
-	int rc = 0;
-	int num_elements = 0;
-	struct platform_device *pdev = res->pdev;
-
-	if (!of_find_property(pdev->dev.of_node, "qcom,dcvs-tbl", NULL)) {
-		/*
-		 * qcom,dcvs-tbl is an optional property. Incase qcom,dcvs-limit
-		 * property is present, it becomes mandatory. It likely won't
-		 * be present on targets that does not support the feature
-		 */
-		dprintk(VIDC_DBG, "qcom,dcvs-tbl not found\n");
-		return 0;
-	}
-
-	num_elements = get_u32_array_num_elements(pdev->dev.of_node,
-			"qcom,dcvs-tbl");
-	num_elements /= sizeof(*res->dcvs_tbl) / sizeof(u32);
-	if (!num_elements) {
-		dprintk(VIDC_ERR, "no elements in dcvs table\n");
-		return rc;
-	}
-
-	res->dcvs_tbl = devm_kzalloc(&pdev->dev, num_elements *
-			sizeof(*res->dcvs_tbl), GFP_KERNEL);
-	if (!res->dcvs_tbl) {
-		dprintk(VIDC_ERR,
-				"%s Failed to alloc dcvs_tbl\n",
-				__func__);
-		return -ENOMEM;
-	}
-
-	if (of_property_read_u32_array(pdev->dev.of_node,
-		"qcom,dcvs-tbl", (u32 *)res->dcvs_tbl,
-		num_elements * sizeof(*res->dcvs_tbl) / sizeof(u32))) {
-		dprintk(VIDC_ERR, "Failed to read dcvs table\n");
-		msm_vidc_free_dcvs_table(res);
-		return -EINVAL;
-	}
-	res->dcvs_tbl_size = num_elements;
-
-	return rc;
-}
-
-static int msm_vidc_load_dcvs_limit(struct msm_vidc_platform_resources *res)
-{
-	int rc = 0;
-	int num_elements = 0;
-	struct platform_device *pdev = res->pdev;
-
-	if (!of_find_property(pdev->dev.of_node, "qcom,dcvs-limit", NULL)) {
-		/*
-		 * qcom,dcvs-limit is an optional property. Incase qcom,dcvs-tbl
-		 * property is present, it becomes mandatory. It likely won't
-		 * be present on targets that does not support the feature
-		 */
-		dprintk(VIDC_DBG, "qcom,dcvs-limit not found\n");
-		return 0;
-	}
-
-	num_elements = get_u32_array_num_elements(pdev->dev.of_node,
-			"qcom,dcvs-limit");
-	num_elements /= sizeof(*res->dcvs_limit) / sizeof(u32);
-	if (!num_elements) {
-		dprintk(VIDC_ERR, "no elements in dcvs limit\n");
-		res->dcvs_limit = NULL;
-		return rc;
-	}
-
-	res->dcvs_limit = devm_kzalloc(&pdev->dev, num_elements *
-			sizeof(*res->dcvs_limit), GFP_KERNEL);
-	if (!res->dcvs_limit) {
-		dprintk(VIDC_ERR,
-				"%s Failed to alloc dcvs_limit\n",
-				__func__);
-		return -ENOMEM;
-	}
-	if (of_property_read_u32_array(pdev->dev.of_node,
-		"qcom,dcvs-limit", (u32 *)res->dcvs_limit,
-		num_elements * sizeof(*res->dcvs_limit) / sizeof(u32))) {
-		dprintk(VIDC_ERR, "Failed to read dcvs limit\n");
-		msm_vidc_free_dcvs_limit(res);
-		return -EINVAL;
-	}
-	return rc;
-}
-
 static int msm_vidc_populate_bus(struct device *dev,
 		struct msm_vidc_platform_resources *res)
 {
@@ -985,14 +883,6 @@ int read_platform_resources_from_dt(
 	rc = msm_vidc_load_platform_version_table(res);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to load pf version table: %d\n", rc);
-
-	rc = msm_vidc_load_dcvs_table(res);
-	if (rc)
-		dprintk(VIDC_WARN, "Failed to load dcvs table: %d\n", rc);
-
-	rc = msm_vidc_load_dcvs_limit(res);
-	if (rc)
-		dprintk(VIDC_WARN, "Failed to load dcvs limit: %d\n", rc);
 
 	rc = msm_vidc_load_imem_ab_table(res);
 	if (rc)
