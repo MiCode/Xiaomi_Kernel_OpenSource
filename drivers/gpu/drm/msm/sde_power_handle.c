@@ -470,6 +470,8 @@ static int sde_power_data_bus_parse(struct platform_device *pdev,
 		if (IS_ERR_OR_NULL(pdbus->data_bus_scale_table)) {
 			pr_err("reg bus handle parsing failed\n");
 			rc = PTR_ERR(pdbus->data_bus_scale_table);
+			if (!pdbus->data_bus_scale_table)
+				rc = -EINVAL;
 			goto end;
 		}
 		pdbus->data_bus_hdl = msm_bus_scale_register_client(
@@ -511,6 +513,8 @@ static int sde_power_reg_bus_parse(struct platform_device *pdev,
 		if (IS_ERR_OR_NULL(bus_scale_table)) {
 			pr_err("reg bus handle parsing failed\n");
 			rc = PTR_ERR(bus_scale_table);
+			if (!bus_scale_table)
+				rc = -EINVAL;
 			goto end;
 		}
 		phandle->reg_bus_hdl = msm_bus_scale_register_client(

@@ -355,7 +355,11 @@ int msm_dss_get_clk(struct device *dev, struct dss_clk *clk_arry, int num_clk)
 	return rc;
 
 error:
-	msm_dss_put_clk(clk_arry, num_clk);
+	for (i--; i >= 0; i--) {
+		if (clk_arry[i].clk)
+			clk_put(clk_arry[i].clk);
+		clk_arry[i].clk = NULL;
+	}
 
 	return rc;
 } /* msm_dss_get_clk */

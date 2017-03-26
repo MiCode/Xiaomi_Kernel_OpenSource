@@ -861,7 +861,6 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 	/* safe to call these more than once during shutdown */
 	_sde_debugfs_destroy(sde_kms);
 	_sde_kms_mmu_destroy(sde_kms);
-	sde_core_perf_destroy(&sde_kms->perf);
 
 	if (sde_kms->catalog) {
 		for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
@@ -1143,6 +1142,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	sde_kms->core_client = sde_power_client_create(&priv->phandle, "core");
 	if (IS_ERR_OR_NULL(sde_kms->core_client)) {
 		rc = PTR_ERR(sde_kms->core_client);
+		if (!sde_kms->core_client)
+			rc = -EINVAL;
 		SDE_ERROR("sde power client create failed: %d\n", rc);
 		sde_kms->core_client = NULL;
 		goto error;
@@ -1162,6 +1163,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	sde_kms->catalog = sde_hw_catalog_init(dev, sde_kms->core_rev);
 	if (IS_ERR_OR_NULL(sde_kms->catalog)) {
 		rc = PTR_ERR(sde_kms->catalog);
+		if (!sde_kms->catalog)
+			rc = -EINVAL;
 		SDE_ERROR("catalog init failed: %d\n", rc);
 		sde_kms->catalog = NULL;
 		goto power_error;
@@ -1189,6 +1192,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
 	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {
 		rc = PTR_ERR(sde_kms->hw_mdp);
+		if (!sde_kms->hw_mdp)
+			rc = -EINVAL;
 		SDE_ERROR("failed to get hw_mdp: %d\n", rc);
 		sde_kms->hw_mdp = NULL;
 		goto power_error;
@@ -1201,6 +1206,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 				sde_kms->vbif[vbif_idx], sde_kms->catalog);
 		if (IS_ERR_OR_NULL(sde_kms->hw_vbif[vbif_idx])) {
 			rc = PTR_ERR(sde_kms->hw_vbif[vbif_idx]);
+			if (!sde_kms->hw_vbif[vbif_idx])
+				rc = -EINVAL;
 			SDE_ERROR("failed to init vbif %d: %d\n", vbif_idx, rc);
 			sde_kms->hw_vbif[vbif_idx] = NULL;
 			goto power_error;
@@ -1252,6 +1259,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
 	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
 		rc = PTR_ERR(sde_kms->hw_intr);
+		if (!sde_kms->hw_intr)
+			rc = -EINVAL;
 		SDE_ERROR("hw_intr init failed: %d\n", rc);
 		sde_kms->hw_intr = NULL;
 		goto hw_intr_init_err;
