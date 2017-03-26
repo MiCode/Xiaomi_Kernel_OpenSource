@@ -46,10 +46,6 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb);
-void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst);
-int msm_comm_scale_clocks(struct msm_vidc_core *core);
-int msm_comm_scale_clocks_load(struct msm_vidc_core *core,
-		int num_mbs_per_sec, enum load_calc_quirks quirks);
 void msm_comm_flush_dynamic_buffers(struct msm_vidc_inst *inst);
 int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags);
 int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
@@ -101,5 +97,4 @@ bool msm_comm_turbo_session(struct msm_vidc_inst *inst);
 void msm_comm_print_inst_info(struct msm_vidc_inst *inst);
 int msm_comm_v4l2_to_hal(int id, int value);
 int msm_comm_hal_to_v4l2(int id, int value);
-
 #endif

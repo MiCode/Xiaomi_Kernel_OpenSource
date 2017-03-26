@@ -139,6 +139,12 @@ enum buffer_owner {
 	MAX_OWNER
 };
 
+struct vidc_freq_data {
+	struct list_head list;
+	ion_phys_addr_t device_addr;
+	unsigned long freq;
+};
+
 struct internal_buf {
 	struct list_head list;
 	enum hal_buffer buffer_type;
@@ -261,6 +267,7 @@ struct msm_vidc_core {
 	struct msm_vidc_capability *capabilities;
 	struct delayed_work fw_unload_work;
 	bool smmu_fault_handled;
+	unsigned long freq;
 };
 
 struct msm_vidc_inst {
@@ -274,6 +281,7 @@ struct msm_vidc_inst {
 	struct msm_vidc_format fmts[MAX_PORT_NUM];
 	struct buf_queue bufq[MAX_PORT_NUM];
 	struct msm_vidc_list pendingq;
+	struct msm_vidc_list freqs;
 	struct msm_vidc_list scratchbufs;
 	struct msm_vidc_list persistbufs;
 	struct msm_vidc_list pending_getpropq;
@@ -302,7 +310,8 @@ struct msm_vidc_inst {
 	bool dcvs_mode;
 	enum msm_vidc_pixel_depth bit_depth;
 	struct kref kref;
-	unsigned long instant_bitrate;
+	unsigned long bitrate;
+	unsigned long freq;
 	u32 buffers_held_in_driver;
 	atomic_t in_flush;
 	u32 pic_struct;
@@ -311,6 +320,7 @@ struct msm_vidc_inst {
 	u32 profile;
 	u32 level;
 	u32 entropy_mode;
+	struct clock_profile_entry *entry;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
