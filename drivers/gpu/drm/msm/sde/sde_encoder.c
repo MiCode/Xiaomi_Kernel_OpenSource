@@ -19,6 +19,7 @@
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
+#include <linux/sde_rsc.h>
 
 #include "msm_drv.h"
 #include "sde_kms.h"
@@ -32,7 +33,6 @@
 #include "sde_formats.h"
 #include "sde_encoder_phys.h"
 #include "sde_color_processing.h"
-#include "sde_rsc.h"
 #include "sde_power_handle.h"
 #include "sde_hw_dsc.h"
 
@@ -1857,7 +1857,7 @@ struct drm_encoder *sde_encoder_init(
 	sde_enc->rsc_client = sde_rsc_client_create(SDE_RSC_INDEX, name,
 					disp_info->is_primary);
 	if (IS_ERR_OR_NULL(sde_enc->rsc_client)) {
-		SDE_ERROR("sde rsc client create failed :%ld\n",
+		SDE_DEBUG("sde rsc client create failed :%ld\n",
 						PTR_ERR(sde_enc->rsc_client));
 		sde_enc->rsc_client = NULL;
 	}

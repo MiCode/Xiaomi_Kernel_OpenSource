@@ -27,7 +27,7 @@
 #include <soc/qcom/rpmh.h>
 #include <drm/drmP.h>
 #include <drm/drm_irq.h>
-#include "sde_rsc.h"
+#include "sde_rsc_priv.h"
 
 /* this time is ~0.02ms */
 #define RSC_BACKOFF_TIME_NS		 20000
@@ -105,6 +105,7 @@ struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index, char *client_name,
 
 	return client;
 }
+EXPORT_SYMBOL(sde_rsc_client_create);
 
 /**
  * sde_rsc_client_destroy() - Destroy the sde rsc client.
@@ -141,6 +142,7 @@ void sde_rsc_client_destroy(struct sde_rsc_client *client)
 end:
 	return;
 }
+EXPORT_SYMBOL(sde_rsc_client_destroy);
 
 struct sde_rsc_event *sde_rsc_register_event(int rsc_index, uint32_t event_type,
 		void (*cb_func)(uint32_t event_type, void *usr), void *usr)
@@ -178,6 +180,7 @@ struct sde_rsc_event *sde_rsc_register_event(int rsc_index, uint32_t event_type,
 
 	return evt;
 }
+EXPORT_SYMBOL(sde_rsc_register_event);
 
 void sde_rsc_unregister_event(struct sde_rsc_event *event)
 {
@@ -204,6 +207,7 @@ void sde_rsc_unregister_event(struct sde_rsc_event *event)
 end:
 	return;
 }
+EXPORT_SYMBOL(sde_rsc_unregister_event);
 
 static int sde_rsc_clk_enable(struct sde_power_handle *phandle,
 	struct sde_power_client *pclient, bool enable)
@@ -583,6 +587,7 @@ end:
 	mutex_unlock(&rsc->client_lock);
 	return rc;
 }
+EXPORT_SYMBOL(sde_rsc_client_state_update);
 
 /**
  * sde_rsc_client_vote() - ab/ib vote from rsc client
@@ -661,6 +666,7 @@ end:
 	mutex_unlock(&rsc->client_lock);
 	return rc;
 }
+EXPORT_SYMBOL(sde_rsc_client_vote);
 
 static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 {

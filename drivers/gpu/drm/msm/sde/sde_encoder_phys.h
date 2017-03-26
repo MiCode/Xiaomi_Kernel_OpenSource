@@ -16,6 +16,7 @@
 #define __SDE_ENCODER_PHYS_H__
 
 #include <linux/jiffies.h>
+#include <linux/sde_rsc.h>
 
 #include "sde_kms.h"
 #include "sde_hw_intf.h"
@@ -26,8 +27,6 @@
 #include "sde_hw_cdm.h"
 #include "sde_encoder.h"
 #include "sde_connector.h"
-
-#include "sde_rsc.h"
 
 #define SDE_ENCODER_NAME_MAX	16
 
