@@ -27,7 +27,7 @@
 		qcom,cpu-vctl-mask = <&CPU0>;
 		qcom,mode0  {
 			qcom,label = "qcom,saw2-spm-cmd-wfi";
-			qcom,sequence = [04 03 04 0f];
+			qcom,sequence = [03 0f];
 			qcom,spm_en;
 		};
 		qcom,mode1 {
@@ -108,6 +108,7 @@
 					qcom,energy-overhead = <1000000>;
 					qcom,time-overhead = <3000>;
 					qcom,reset-level = <LPM_RESET_LVL_PC>;
+					qcom,use-broadcast-timer;
 				};
 
 				qcom,pm-cpu-level@2 {
@@ -118,6 +119,7 @@
 					qcom,energy-overhead = <5000000>;
 					qcom,time-overhead = <7300>;
 					qcom,reset-level = <LPM_RESET_LVL_PC>;
+					qcom,use-broadcast-timer;
 				};
 			};
 		};
