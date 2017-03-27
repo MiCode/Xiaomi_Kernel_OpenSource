@@ -49,7 +49,7 @@
 #define IOVA_XFER_RING_MAX (IOVA_XFER_BUF_BASE - PAGE_SIZE)
 #define IOVA_XFER_BUF_MAX (0xfffff000 - PAGE_SIZE)
 
-#define MAX_XFER_BUFF_LEN (2 * PAGE_SIZE)
+#define MAX_XFER_BUFF_LEN (24 * PAGE_SIZE)
 
 struct iova_info {
 	struct list_head list;
