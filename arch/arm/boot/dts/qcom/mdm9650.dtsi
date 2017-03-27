@@ -511,6 +511,7 @@
 		qcom,pcie-phy-ver = <4>;
 		qcom,pcie-active-config;
 		qcom,pcie-aggregated-irq;
+		qcom,pcie-perst-enum;
 	};
 
 	qcom,msm_gsi {
