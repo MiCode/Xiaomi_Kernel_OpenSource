@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1539,14 +1539,14 @@ exit:
 static int adv7533_video_on(void *client, bool on,
 	struct msm_dba_video_cfg *cfg, u32 flags)
 {
-	int ret = -EINVAL;
+	int ret = 0;
 	u8 lanes;
 	u8 reg_val = 0;
 	struct adv7533 *pdata = adv7533_get_platform_data(client);
 
 	if (!pdata || !cfg) {
 		pr_err("%s: invalid platform data\n", __func__);
-		return ret;
+		return -EINVAL;
 	}
 
 	mutex_lock(&pdata->ops_mutex);
