@@ -724,7 +724,6 @@ void smblib_suspend_on_debug_battery(struct smb_charger *chg)
 
 int smblib_rerun_apsd_if_required(struct smb_charger *chg)
 {
-	const struct apsd_result *apsd_result;
 	union power_supply_propval val;
 	int rc;
 
@@ -735,12 +734,6 @@ int smblib_rerun_apsd_if_required(struct smb_charger *chg)
 	}
 
 	if (!val.intval)
-		return 0;
-
-	apsd_result = smblib_get_apsd_result(chg);
-	if ((apsd_result->pst != POWER_SUPPLY_TYPE_UNKNOWN)
-		&& (apsd_result->pst != POWER_SUPPLY_TYPE_USB))
-		/* if type is not usb or unknown no need to rerun apsd */
 		return 0;
 
 	/* fetch the DPDM regulator */
