@@ -26,9 +26,13 @@
  *  interface:
  *  MSM_EXT_DISP_HPD_AUDIO: audio will be routed to external display
  *  MSM_EXT_DISP_HPD_VIDEO: video will be routed to external display
+ *  MSM_EXT_DISP_HPD_ASYNC_AUDIO: don't wait audio notification once wake it up
+ *  MSM_EXT_DISP_HPD_ASYNC_VIDEO: don't wait video notification once wake it up
  */
 #define MSM_EXT_DISP_HPD_AUDIO BIT(0)
 #define MSM_EXT_DISP_HPD_VIDEO BIT(1)
+#define MSM_EXT_DISP_HPD_ASYNC_AUDIO BIT(2)
+#define MSM_EXT_DISP_HPD_ASYNC_VIDEO BIT(3)
 
 /**
  * struct ext_disp_cable_notify - cable notify handler structure
