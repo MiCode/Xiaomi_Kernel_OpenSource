@@ -316,6 +316,7 @@
 			<0xff 94>,  /* osmmu_CIrpt[0] */
 			<0xff 97>,  /* iommu_nonsecure_irq */
 			<0xff 99>,  /* msm_iommu_pmon_nonsecure_irq */
+			<0xff 101>, /* camss_jpeg_mmu_cirpt */
 			<0xff 102>, /* osmmu_CIrpt[1] */
 			<0xff 105>, /* iommu_pmon_nonsecure_irq */
 			<0xff 108>, /* osmmu_PMIrpt */
@@ -391,6 +392,7 @@
 			<0xff 295>, /* camss_cpp_mmu_cirpt[0] */
 			<0xff 296>, /* camss_cpp_mmu_pmirpt */
 			<0xff 297>, /* ufs_intrq */
+			<0xff 298>, /* camss_cpp_mmu_cirpt */
 			<0xff 302>, /* qdss_etrbytecnt_irq */
 			<0xff 310>, /* pcie20_1_int_pls_err */
 			<0xff 311>, /* pcie20_1_int_aer_legacy */
