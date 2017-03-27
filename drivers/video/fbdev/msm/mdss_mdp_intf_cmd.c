@@ -3270,8 +3270,18 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 		 * mode.
 		 */
 		send_panel_events = true;
-		if (mdss_panel_is_power_on_ulp(panel_power_state))
+		if (mdss_panel_is_power_on_ulp(panel_power_state)) {
 			turn_off_clocks = true;
+		} else if (atomic_read(&ctx->koff_cnt)) {
+			/*
+			 * Transition from interactive to low power
+			 * Wait for kickoffs to finish
+			 */
+			MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt));
+			mdss_mdp_cmd_wait4pingpong(ctl, NULL);
+			if (sctl)
+				mdss_mdp_cmd_wait4pingpong(sctl, NULL);
+		}
 	} else {
 		/* Transitions between low power and ultra low power */
 		if (mdss_panel_is_power_on_ulp(panel_power_state)) {
