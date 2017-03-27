@@ -770,6 +770,7 @@ struct vfe_device {
 	struct msm_cam_clk_info *hvx_clk_info;
 	size_t num_hvx_clk;
 	size_t num_norm_clk;
+	bool hvx_clk_state;
 	enum cam_ahb_clk_vote ahb_vote;
 	struct cx_ipeak_client *vfe_cx_ipeak;
 
