@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _CAM_UTIL_SOC_H_
-#define _CAM_UTIL_SOC_H_
+#ifndef _CAM_SOC_UTIL_H_
+#define _CAM_SOC_UTIL_H_
 
 #include <linux/clk.h>
 #include <linux/interrupt.h>
@@ -117,8 +117,8 @@ struct cam_hw_soc_info {
  *
  * @return:             Returns a pointer to the mapped register memory
  */
-#define CAM_SOC_GET_REG_MAP_START(__soc_info, __base_index) \
-	((!__soc_info || __base_index >= __soc_info->num_reg_map) ?\
+#define CAM_SOC_GET_REG_MAP_START(__soc_info, __base_index)          \
+	((!__soc_info || __base_index >= __soc_info->num_reg_map) ?  \
 		NULL : __soc_info->reg_map[__base_index].mem_base)
 
 /*
@@ -135,8 +135,8 @@ struct cam_hw_soc_info {
  *                        Success: Starting offset of register space compared
  *                                 to entire Camera Register Map
  */
-#define CAM_SOC_GET_REG_MAP_CAM_BASE(__soc_info, __base_index) \
-	((!__soc_info || __base_index >= __soc_info->num_reg_map) ?\
+#define CAM_SOC_GET_REG_MAP_CAM_BASE(__soc_info, __base_index)       \
+	((!__soc_info || __base_index >= __soc_info->num_reg_map) ?  \
 		-1 : __soc_info->reg_map[__base_index].mem_cam_base)
 
 /*
@@ -152,8 +152,8 @@ struct cam_hw_soc_info {
  *                        Failure: 0
  *                        Success: Non-zero size of mapped register space
  */
-#define CAM_SOC_GET_REG_MAP_SIZE(__soc_info, __base_index) \
-	((!__soc_info || __base_index >= __soc_info->num_reg_map) ?\
+#define CAM_SOC_GET_REG_MAP_SIZE(__soc_info, __base_index)           \
+	((!__soc_info || __base_index >= __soc_info->num_reg_map) ?  \
 		0 : __soc_info->reg_map[__base_index].size)
 
 
@@ -292,7 +292,7 @@ int cam_soc_util_irq_disable(struct cam_hw_soc_info *soc_info);
  *
  * @return:             Success or Failure
  */
-inline int cam_soc_util_w(struct cam_hw_soc_info *soc_info,
+static inline int cam_soc_util_w(struct cam_hw_soc_info *soc_info,
 	uint32_t base_index, uint32_t offset, uint32_t data)
 {
 	if (!CAM_SOC_GET_REG_MAP_START(soc_info, base_index))
@@ -316,7 +316,7 @@ inline int cam_soc_util_w(struct cam_hw_soc_info *soc_info,
  *
  * @return:             Success or Failure
  */
-inline int cam_soc_util_w_mb(struct cam_hw_soc_info *soc_info,
+static inline int cam_soc_util_w_mb(struct cam_hw_soc_info *soc_info,
 	uint32_t base_index, uint32_t offset, uint32_t data)
 {
 	if (!CAM_SOC_GET_REG_MAP_START(soc_info, base_index))
@@ -336,7 +336,7 @@ inline int cam_soc_util_w_mb(struct cam_hw_soc_info *soc_info,
  *
  * @return:             Value read from the register address
  */
-inline uint32_t cam_soc_util_r(struct cam_hw_soc_info *soc_info,
+static inline uint32_t cam_soc_util_r(struct cam_hw_soc_info *soc_info,
 	uint32_t base_index, uint32_t offset)
 {
 	if (!CAM_SOC_GET_REG_MAP_START(soc_info, base_index))
@@ -359,7 +359,7 @@ inline uint32_t cam_soc_util_r(struct cam_hw_soc_info *soc_info,
  *
  * @return:             Value read from the register address
  */
-inline uint32_t cam_soc_util_r_mb(struct cam_hw_soc_info *soc_info,
+static inline uint32_t cam_soc_util_r_mb(struct cam_hw_soc_info *soc_info,
 	uint32_t base_index, uint32_t offset)
 {
 	if (!CAM_SOC_GET_REG_MAP_START(soc_info, base_index))
@@ -383,4 +383,4 @@ inline uint32_t cam_soc_util_r_mb(struct cam_hw_soc_info *soc_info,
 int cam_soc_util_reg_dump(struct cam_hw_soc_info *soc_info,
 	uint32_t base_index, uint32_t offset, int size);
 
-#endif /* __CAM_UTIL_SOC_H__ */
+#endif /* _CAM_SOC_UTIL_H_ */
