@@ -292,10 +292,13 @@ static int _sde_hdmi_bridge_setup_scrambler(struct hdmi *hdmi,
 	u32 tmds_clock_ratio = 0;
 	bool scrambler_on = false;
 
+	struct drm_connector *connector = NULL;
+
 	if (!hdmi || !mode) {
 		SDE_ERROR("invalid input\n");
 		return -EINVAL;
 	}
+	connector = hdmi->connector;
 
 	/* Read HDMI version */
 	reg_val = hdmi_read(hdmi, REG_HDMI_VERSION);
@@ -309,6 +312,8 @@ static int _sde_hdmi_bridge_setup_scrambler(struct hdmi *hdmi,
 	if (mode->clock > HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ) {
 		scrambler_on = true;
 		tmds_clock_ratio = 1;
+	} else {
+		scrambler_on = connector->supports_scramble;
 	}
 
 	DRM_INFO("scrambler %s\n", scrambler_on ? "on" : "off");
