@@ -7765,6 +7765,13 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	/* Record that we found atleast one task that could run on dst_cpu */
 	env->flags &= ~LBF_ALL_PINNED;
 
+#ifdef CONFIG_SCHED_WALT
+	/* Don't detach task if it doesn't fit on the destination */
+	if (env->flags & LBF_IGNORE_BIG_TASKS &&
+		!task_fits_max(p, env->dst_cpu))
+		return 0;
+#endif
+
 #ifdef CONFIG_SCHED_HMP
 	if (cpu_capacity(env->dst_cpu) > cpu_capacity(env->src_cpu)) {
 		if (nr_big_tasks(env->src_rq) && !is_big_task(p))
