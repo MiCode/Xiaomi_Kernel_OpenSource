@@ -57,6 +57,9 @@
 
 #define WIGIG_MIN_CPU_BOOST_KBPS	150000
 
+#define DISABLE_PCIE_L1_MASK 0xFFFFFFFD
+#define PCIE20_CAP_LINKCTRLSTATUS 0x80
+
 struct device;
 
 static const char * const gpio_en_name = "qcom,wigig-en";
@@ -518,6 +521,7 @@ static int ops_resume(void *handle)
 	int rc;
 	struct msm11ad_ctx *ctx = handle;
 	struct pci_dev *pcidev;
+	u32 val;
 
 	pr_info("%s(%p)\n", __func__, handle);
 	if (!ctx) {
@@ -558,6 +562,27 @@ static int ops_resume(void *handle)
 	if (rc) {
 		dev_err(ctx->dev, "msm_pcie_recover_config failed :%d\n",
 			rc);
+		goto err_suspend_rc;
+	}
+
+	/* Disable L1 */
+	rc = pci_read_config_dword(ctx->pcidev,
+				   PCIE20_CAP_LINKCTRLSTATUS, &val);
+	if (rc) {
+		dev_err(ctx->dev,
+			"reading PCIE20_CAP_LINKCTRLSTATUS failed:%d\n",
+			rc);
+		goto err_suspend_rc;
+	}
+	val &= DISABLE_PCIE_L1_MASK; /* disable bit 1 */
+	dev_dbg(ctx->dev, "writing PCIE20_CAP_LINKCTRLSTATUS (val 0x%x)\n",
+		val);
+	rc = pci_write_config_dword(ctx->pcidev,
+				    PCIE20_CAP_LINKCTRLSTATUS, val);
+	if (rc) {
+		dev_err(ctx->dev,
+			"writing PCIE20_CAP_LINKCTRLSTATUS (val 0x%x) failed:%d\n",
+			val, rc);
 		goto err_suspend_rc;
 	}
 
@@ -847,6 +872,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	struct device_node *rc_node;
 	struct pci_dev *pcidev = NULL;
 	int rc;
+	u32 val;
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -965,6 +991,28 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		goto out_rc;
 	}
 	ctx->pcidev = pcidev;
+
+	/* Disable L1 */
+	rc = pci_read_config_dword(ctx->pcidev,
+				   PCIE20_CAP_LINKCTRLSTATUS, &val);
+	if (rc) {
+		dev_err(ctx->dev,
+			"reading PCIE20_CAP_LINKCTRLSTATUS failed:%d\n",
+			rc);
+		goto out_rc;
+	}
+	val &= DISABLE_PCIE_L1_MASK; /* disable bit 1 */
+	dev_dbg(ctx->dev, "writing PCIE20_CAP_LINKCTRLSTATUS (val 0x%x)\n",
+		 val);
+	rc = pci_write_config_dword(ctx->pcidev,
+				    PCIE20_CAP_LINKCTRLSTATUS, val);
+	if (rc) {
+		dev_err(ctx->dev,
+			"writing PCIE20_CAP_LINKCTRLSTATUS (val 0x%x) failed:%d\n",
+			val, rc);
+		goto out_rc;
+	}
+
 	rc = pci_save_state(pcidev);
 	if (rc) {
 		dev_err(ctx->dev, "pci_save_state failed :%d\n", rc);
