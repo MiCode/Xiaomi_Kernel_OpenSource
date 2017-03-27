@@ -1069,11 +1069,23 @@ Optional properties:
 	A phandle parsed by smmu driver. Number of entries will vary across
 	targets.
 
+ - qcom,scm-mp-enabled:
+	It is possible that some MDMs need audio memory protection enabled
+	through SMC ID in TZ. To enable this functionality, this flag
+	should be present. Presence of this flag makes the msm-audio-ion
+	driver call SCM driver API for memory protection.
+
+ - memory-region:
+	Provide reference to memory region allocated for audio in
+	reserved-memory node.
+
 Example:
 
 qcom,msm-audio-ion {
 	compatible = "qcom,msm-audio-ion;
 	qcom,smmu-enabled;
+	qcom,scm-mp-enabled;
+	memory-region = <&audio_mem>;
 };
 
 * MSM8994 ASoC Machine driver
