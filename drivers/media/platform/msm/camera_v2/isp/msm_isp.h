@@ -284,7 +284,7 @@ struct msm_vfe_stats_ops {
 
 	void (*update_ping_pong_addr)(struct vfe_device *vfe_dev,
 		struct msm_vfe_stats_stream *stream_info,
-		uint32_t pingpong_status, dma_addr_t paddr);
+		uint32_t pingpong_status, dma_addr_t paddr, uint32_t buf_size);
 
 	uint32_t (*get_frame_id)(struct vfe_device *vfe_dev);
 	uint32_t (*get_wm_mask)(uint32_t irq_status0, uint32_t irq_status1);
