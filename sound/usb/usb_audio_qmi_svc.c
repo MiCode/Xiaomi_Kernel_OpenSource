@@ -133,6 +133,12 @@ static struct msg_desc uaudio_stream_resp_desc = {
 	.ei_array = qmi_uaudio_stream_resp_msg_v01_ei,
 };
 
+static struct msg_desc uaudio_stream_ind_desc = {
+	.max_msg_len = QMI_UAUDIO_STREAM_IND_MSG_V01_MAX_MSG_LEN,
+	.msg_id = QMI_UADUIO_STREAM_IND_V01,
+	.ei_array = qmi_uaudio_stream_ind_msg_v01_ei,
+};
+
 enum mem_type {
 	MEM_EVENT_RING,
 	MEM_DCBA,
@@ -642,29 +648,47 @@ void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 	int ret, if_idx;
 	struct uaudio_dev *dev;
 	int card_num = chip->card_num;
+	struct uaudio_qmi_svc *svc = uaudio_svc;
+	struct qmi_uaudio_stream_ind_msg_v01 disconnect_ind = {0};
 
 	pr_debug("%s: for card# %d\n", __func__, card_num);
 
-	mutex_lock(&chip->dev_lock);
 	if (card_num >=  SNDRV_CARDS) {
 		pr_err("%s: invalid card number\n", __func__);
-		goto done;
+		return;
 	}
 
+	mutex_lock(&chip->dev_lock);
 	dev = &uadev[card_num];
-	if (atomic_read(&dev->in_use)) {
-		ret = wait_event_interruptible(dev->disconnect_wq,
-				!atomic_read(&dev->in_use));
-		if (ret < 0) {
-			pr_debug("%s: failed with ret %d\n", __func__, ret);
-			goto done;
-		}
-	}
 
 	/* clean up */
 	if (!dev->udev) {
 		pr_debug("%s: no clean up required\n", __func__);
 		goto done;
+	}
+
+	if (atomic_read(&dev->in_use)) {
+		mutex_unlock(&chip->dev_lock);
+
+		pr_debug("%s: sending qmi indication disconnect\n", __func__);
+		disconnect_ind.dev_event = USB_AUDIO_DEV_DISCONNECT_V01;
+		disconnect_ind.slot_id = dev->udev->slot_id;
+		ret = qmi_send_ind(svc->uaudio_svc_hdl, svc->curr_conn,
+				&uaudio_stream_ind_desc, &disconnect_ind,
+				sizeof(disconnect_ind));
+		if (ret < 0) {
+			pr_err("%s: qmi send failed wiht err: %d\n",
+					__func__, ret);
+			return;
+		}
+
+		ret = wait_event_interruptible(dev->disconnect_wq,
+				!atomic_read(&dev->in_use));
+		if (ret < 0) {
+			pr_debug("%s: failed with ret %d\n", __func__, ret);
+			return;
+		}
+		mutex_lock(&chip->dev_lock);
 	}
 
 	/* free xfer buffer and unmap xfer ring and buf per interface */
