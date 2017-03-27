@@ -8428,7 +8428,7 @@ static inline void update_cpu_stats_if_tickless(struct rq *rq)
 
 		raw_spin_lock(&rq->lock);
 		update_rq_clock(rq);
-		update_idle_cpu_load(rq);
+		cpu_load_update_idle(rq);
 		update_cfs_rq_load_avg(rq->clock_task, &rq->cfs, false);
 		raw_spin_unlock(&rq->lock);
 	}
@@ -10037,6 +10037,10 @@ static inline bool nohz_kick_needed(struct rq *rq)
 
 	if (rq->nr_running >= 2 &&
 	    (!energy_aware() || cpu_overutilized(cpu)))
+		return true;
+
+	/* Do idle load balance if there have misfit task */
+	if (energy_aware() && rq->misfit_task)
 		return true;
 
 	rcu_read_lock();
