@@ -53,11 +53,9 @@
 				CX_VOTE_ENABLE		| \
 				GFX_VOTE_ENABLE)
 
-/* Bitmask for GMU idle status check */
-#define CXGX_CPUBUSY_IGNAHB_IDLE	BIT(30)
-#define GPUBUSY_IGNAHB_IDLE		BIT(23)
-#define SLUMBER_CHECK_MASK		(CXGX_CPUBUSY_IGNAHB_IDLE  | \
-					GPUBUSY_IGNAHB_IDLE)
+/* Bitmask for GPU idle status check */
+#define GPUBUSYIGNAHB		BIT(23)
+#define CXGXCPUBUSYIGNAHB	BIT(30)
 
 /* Constants for GMU OOBs */
 #define OOB_BOOT_OPTION         0
@@ -143,12 +141,13 @@ enum gmu_pwrctrl_mode {
 };
 
 enum gpu_idle_level {
-	GPU_HW_ACTIVE,
-	GPU_HW_CGC,
-	GPU_HW_SPTP_PC,
-	GPU_HW_IFPC,
-	GPU_HW_NAP,
-	GPU_HW_MIN_VOLT,
+	GPU_HW_ACTIVE = 0x0,
+	GPU_HW_SPTP_PC = 0x2,
+	GPU_HW_IFPC = 0x3,
+	GPU_HW_NAP = 0x4,
+	GPU_HW_MIN_VOLT = 0x5,
+	GPU_HW_MIN_DDR = 0x6,
+	GPU_HW_SLUMBER = 0xF
 };
 
 /**

@@ -1086,7 +1086,7 @@ int gmu_probe(struct kgsl_device *device)
 
 	hfi_init(&gmu->hfi, mem_addr, HFI_QUEUE_SIZE);
 
-	gmu->idle_level = GPU_HW_CGC;
+	gmu->idle_level = GPU_HW_ACTIVE;
 
 	return 0;
 
@@ -1312,7 +1312,11 @@ void gmu_stop(struct kgsl_device *device)
 	if (!test_bit(GMU_CLK_ON, &gmu->flags))
 		return;
 
-	/* TODO: Check for conditions to enter slumber */
+	if (gpudev->wait_for_gmu_idle &&
+		!gpudev->wait_for_gmu_idle(adreno_dev)) {
+		dev_err(&gmu->pdev->dev, "Failure to stop gmu");
+		return;
+	}
 
 	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);
 
