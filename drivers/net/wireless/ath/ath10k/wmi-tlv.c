@@ -684,6 +684,13 @@ static int ath10k_wmi_tlv_op_pull_ch_info_ev(struct ath10k *ar,
 	arg->noise_floor = ev->noise_floor;
 	arg->rx_clear_count = ev->rx_clear_count;
 	arg->cycle_count = ev->cycle_count;
+	arg->chan_tx_pwr_range = ev->chan_tx_pwr_range;
+	arg->chan_tx_pwr_tp = ev->chan_tx_pwr_tp;
+	arg->rx_frame_count = ev->rx_frame_count;
+	arg->my_bss_rx_cycle_count = ev->my_bss_rx_cycle_count;
+	arg->rx_11b_mode_data_duration = ev->rx_11b_mode_data_duration;
+	arg->tx_frame_cnt = ev->tx_frame_cnt;
+	arg->mac_clk_mhz = ev->mac_clk_mhz;
 
 	kfree(tb);
 	return 0;
@@ -1527,11 +1534,14 @@ ath10k_wmi_tlv_op_gen_start_scan(struct ath10k *ar,
 	cmd->ie_len = __cpu_to_le32(arg->ie_len);
 	cmd->num_probes = __cpu_to_le32(3);
 
-	if (QCA_REV_WCN3990(ar))
+	if (QCA_REV_WCN3990(ar)) {
 		cmd->common.scan_ctrl_flags = ar->fw_flags->flags;
-	else
+		cmd->common.scan_ctrl_flags |=
+					__cpu_to_le32(WMI_SCAN_CHAN_STAT_EVENT);
+	} else {
 		cmd->common.scan_ctrl_flags ^=
 			__cpu_to_le32(WMI_SCAN_FILTER_PROBE_REQ);
+	}
 
 	ptr += sizeof(*tlv);
 	ptr += sizeof(*cmd);
