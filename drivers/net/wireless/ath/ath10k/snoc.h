@@ -16,8 +16,11 @@
 #include "hw.h"
 #include "ce.h"
 #include "pci.h"
+#include <soc/qcom/service-locator.h>
 #define ATH10K_SNOC_RX_POST_RETRY_MS 50
 #define CE_POLL_PIPE 4
+#define ATH10K_SERVICE_LOCATION_CLIENT_NAME			"ATH10K-WLAN"
+#define ATH10K_WLAN_SERVICE_NAME					"wlan/fw"
 
 /* struct snoc_state: SNOC target state
  * @pipe_cfg_addr: pipe configuration address
@@ -88,6 +91,17 @@ struct ath10k_target_info {
 	u32 soc_version;
 };
 
+/* struct ath10k_service_notifier_context: service notification context
+ * @handle: notifier handle
+ * @instance_id: domain instance id
+ * @name: domain name
+ */
+struct ath10k_service_notifier_context {
+	void *handle;
+	u32 instance_id;
+	char name[QMI_SERVREG_LOC_NAME_LENGTH_V01 + 1];
+};
+
 /* struct ath10k_snoc: SNOC info struct
  * @dev: device structure
  * @ar:ath10k base structure
@@ -101,6 +115,13 @@ struct ath10k_target_info {
  * @rx_post_retry: rx buffer post processing timer
  * @vaddr_rri_on_ddr: virtual address for RRI
  * @is_driver_probed: flag to indicate driver state
+ * @modem_ssr_nb: notifier callback for modem notification
+ * @modem_notify_handler: modem notification handler
+ * @service_notifier: notifier context for service notification
+ * @service_notifier_nb: notifier callback for service notification
+ * @total_domains: no of service domains
+ * @get_service_nb: notifier callback for service discovery
+ * @fw_crashed: fw state flag
  */
 struct ath10k_snoc {
 	struct bus_opaque opaque_ctx;
@@ -115,6 +136,13 @@ struct ath10k_snoc {
 	u32 ce_irqs[CE_COUNT_MAX];
 	u32 *vaddr_rri_on_ddr;
 	bool is_driver_probed;
+	struct notifier_block modem_ssr_nb;
+	void *modem_notify_handler;
+	struct ath10k_service_notifier_context *service_notifier;
+	struct notifier_block service_notifier_nb;
+	int total_domains;
+	struct notifier_block get_service_nb;
+	atomic_t fw_crashed;
 };
 
 /* struct ath10k_ce_tgt_pipe_cfg: target pipe configuration
@@ -169,6 +197,11 @@ struct ath10k_wlan_enable_cfg {
 	struct ath10k_ce_svc_pipe_cfg *ce_svc_cfg;
 	u32 num_shadow_reg_cfg;
 	struct ath10k_shadow_reg_cfg *shadow_reg_cfg;
+};
+
+struct ath10k_event_pd_down_data {
+	bool crashed;
+	bool fw_rejuvenate;
 };
 
 /* enum ath10k_driver_mode: ath10k driver mode
