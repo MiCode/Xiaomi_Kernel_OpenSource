@@ -86,6 +86,18 @@ struct spi_miso { /* TLV for MISO line */
 #define CMD_CAN_RECEIVE_FRAME	0x85
 #define CMD_CAN_CONFIG_BIT_TIMING	0x86
 
+#define CMD_CAN_DATA_BUFF_ADD	0x87
+#define CMD_CAN_DATA_BUFF_REMOVE	0X88
+#define CMD_CAN_RELEASE_BUFFER	0x89
+#define CMD_CAN_DATA_BUFF_REMOVE_ALL	0x8A
+
+#define IOCTL_RELEASE_CAN_BUFFER	(SIOCDEVPRIVATE + 0)
+#define IOCTL_ENABLE_BUFFERING		(SIOCDEVPRIVATE + 1)
+#define IOCTL_ADD_FRAME_FILTER		(SIOCDEVPRIVATE + 2)
+#define IOCTL_REMOVE_FRAME_FILTER	(SIOCDEVPRIVATE + 3)
+#define IOCTL_DISABLE_BUFFERING		(SIOCDEVPRIVATE + 5)
+#define IOCTL_DISABLE_ALL_BUFFERING		(SIOCDEVPRIVATE + 6)
+
 struct can_fw_resp {
 	u8 maj;
 	u8 min;
@@ -146,6 +158,23 @@ static struct can_bittiming_const rh850_bittiming_const = {
 	.brp_max = 70,
 	.brp_inc = 1,
 };
+
+/* IOCTL messages */
+struct rh850_release_can_buffer {
+	u8 enable;
+} __packed;
+
+struct rh850_add_can_buffer {
+	u8 can_if;
+	u32 mid;
+	u32 mask;
+} __packed;
+
+struct rh850_delete_can_buffer {
+	u8 can_if;
+	u32 mid;
+	u32 mask;
+} __packed;
 
 static int rh850_rx_message(struct rh850_can *priv_data);
 
@@ -513,10 +542,178 @@ static netdev_tx_t rh850_netdev_start_xmit(
 	return NETDEV_TX_OK;
 }
 
+static int rh850_send_release_can_buffer_cmd(struct net_device *netdev)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+	struct rh850_can *priv_data;
+	struct rh850_netdev_privdata *netdev_priv_data;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->rh850_can;
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	req = (struct spi_mosi *)tx_buf;
+	req->cmd = CMD_CAN_RELEASE_BUFFER;
+	req->len = 0;
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	ret = rh850_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+
+	return ret;
+}
+
+static int rh850_data_buffering(struct net_device *netdev,
+				struct ifreq *ifr, int cmd)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+	struct rh850_add_can_buffer *enable_buffering;
+	struct rh850_add_can_buffer *add_request;
+	struct rh850_can *priv_data;
+	struct rh850_netdev_privdata *netdev_priv_data;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->rh850_can;
+
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	add_request = ifr->ifr_data;
+	req = (struct spi_mosi *)tx_buf;
+
+	if (cmd == IOCTL_ENABLE_BUFFERING)
+		req->cmd = CMD_CAN_DATA_BUFF_ADD;
+	else
+		req->cmd = CMD_CAN_DATA_BUFF_REMOVE;
+
+	req->len = sizeof(struct rh850_add_can_buffer);
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	enable_buffering = (struct rh850_add_can_buffer *)req->data;
+	enable_buffering->can_if = add_request->can_if;
+	enable_buffering->mid = add_request->mid;
+	enable_buffering->mask = add_request->mask;
+
+	ret = rh850_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+
+	return ret;
+}
+
+static int rh850_remove_all_buffering(struct net_device *netdev)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+	struct rh850_can *priv_data;
+	struct rh850_netdev_privdata *netdev_priv_data;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->rh850_can;
+
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	req = (struct spi_mosi *)tx_buf;
+	req->cmd = CMD_CAN_DATA_BUFF_REMOVE_ALL;
+	req->len = 0;
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	ret = rh850_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+
+	return ret;
+}
+
+static int rh850_frame_filter(struct net_device *netdev,
+			      struct ifreq *ifr, int cmd)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+	struct can_add_filter_req *add_filter;
+	struct can_add_filter_req *filter_request;
+	struct rh850_can *priv_data;
+	struct rh850_netdev_privdata *netdev_priv_data;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->rh850_can;
+
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	filter_request = ifr->ifr_data;
+	req = (struct spi_mosi *)tx_buf;
+
+	if (cmd == IOCTL_ADD_FRAME_FILTER)
+		req->cmd = CMD_CAN_ADD_FILTER;
+	else
+		req->cmd = CMD_CAN_REMOVE_FILTER;
+
+	req->len = sizeof(struct can_add_filter_req);
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	add_filter = (struct can_add_filter_req *)req->data;
+	add_filter->can_if = filter_request->can_if;
+	add_filter->mid = filter_request->mid;
+	add_filter->mask = filter_request->mask;
+
+	ret = rh850_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+
+	return ret;
+}
+
+static int rh850_netdev_do_ioctl(struct net_device *netdev,
+				 struct ifreq *ifr, int cmd)
+{
+	struct rh850_can *priv_data;
+	struct rh850_netdev_privdata *netdev_priv_data;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->rh850_can;
+
+	if (cmd == IOCTL_RELEASE_CAN_BUFFER) {
+		rh850_send_release_can_buffer_cmd(netdev);
+	} else if (cmd == IOCTL_ENABLE_BUFFERING ||
+			cmd == IOCTL_DISABLE_BUFFERING) {
+		rh850_data_buffering(netdev, ifr, cmd);
+	} else if (cmd == IOCTL_DISABLE_ALL_BUFFERING) {
+		rh850_remove_all_buffering(netdev);
+	} else if (cmd == IOCTL_ADD_FRAME_FILTER ||
+			cmd == IOCTL_REMOVE_FRAME_FILTER) {
+		rh850_frame_filter(netdev, ifr, cmd);
+	}
+
+	return 0;
+}
+
 static const struct net_device_ops rh850_netdev_ops = {
 		.ndo_open = rh850_netdev_open,
 		.ndo_stop = rh850_netdev_close,
 		.ndo_start_xmit = rh850_netdev_start_xmit,
+		.ndo_do_ioctl = rh850_netdev_do_ioctl,
 };
 
 static int rh850_create_netdev(struct spi_device *spi,
