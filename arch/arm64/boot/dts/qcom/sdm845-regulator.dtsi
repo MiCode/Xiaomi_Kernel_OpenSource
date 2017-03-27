@@ -741,8 +741,6 @@
 		qcom,resource-name = "ldoa28";
 		pm8998_l28: regulator-l28 {
 			regulator-name = "pm8998_l28";
-		mboxes = <&apps_rsc 0>;
-		qcom,resource-name = "";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <3008000>;
 			regulator-max-microvolt = <3008000>;
