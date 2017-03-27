@@ -948,6 +948,16 @@
 		qcom,msm-bus,num-cases = <22>;
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
+		/*
+		 * During HS G3 UFS runs at nominal voltage corner, vote
+		 * higher bandwidth to push other buses in the data path
+		 * to run at nominal to achieve max throughput.
+		 * 4GBps pushes BIMC to run at nominal.
+		 * 200MBps pushes CNOC to run at nominal.
+		 * Vote for half of this bandwidth for HS G3 1-lane.
+		 * For max bandwidth, vote high enough to push the buses
+		 * to run in turbo voltage corner.
+		 */
 		<123 512 0 0>, <1 757 0 0>,          /* No vote */
 		<123 512 922 0>, <1 757 1000 0>,     /* PWM G1 */
 		<123 512 1844 0>, <1 757 1000 0>,    /* PWM G2 */
@@ -959,17 +969,18 @@
 		<123 512 14752 0>, <1 757 1000 0>,   /* PWM G4 L2 */
 		<123 512 127796 0>, <1 757 1000 0>,  /* HS G1 RA */
 		<123 512 255591 0>, <1 757 1000 0>,  /* HS G2 RA */
-		<123 512 511181 0>, <1 757 1000 0>,  /* HS G3 RA */
+		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RA */
 		<123 512 255591 0>, <1 757 1000 0>,  /* HS G1 RA L2 */
 		<123 512 511181 0>, <1 757 1000 0>,  /* HS G2 RA L2 */
-		<123 512 1022362 0>, <1 757 1000 0>, /* HS G3 RA L2 */
+		<123 512 4194304 0>, <1 757 204800 0>, /* HS G3 RA L2 */
 		<123 512 149422 0>, <1 757 1000 0>,  /* HS G1 RB */
 		<123 512 298189 0>, <1 757 1000 0>,  /* HS G2 RB */
-		<123 512 596378 0>, <1 757 1000 0>,  /* HS G3 RB */
+		<123 512 2097152 0>, <1 757 102400 0>,  /* HS G3 RB */
 		<123 512 298189 0>, <1 757 1000 0>,  /* HS G1 RB L2 */
 		<123 512 596378 0>, <1 757 1000 0>,  /* HS G2 RB L2 */
-		<123 512 1192756 0>, <1 757 1000 0>, /* HS G3 RB L2 */
-		<123 512 4096000 0>, <1 757 1000 0>; /* Max. bandwidth */
+		<123 512 4194304 0>, <1 757 204800 0>, /* HS G3 RB L2 */
+		<123 512 7643136 0>, <1 757 307200 0>; /* Max. bandwidth */
+
 		qcom,bus-vector-names = "MIN",
 		"PWM_G1_L1", "PWM_G2_L1", "PWM_G3_L1", "PWM_G4_L1",
 		"PWM_G1_L2", "PWM_G2_L2", "PWM_G3_L2", "PWM_G4_L2",
@@ -978,6 +989,16 @@
 		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
 		"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2",
 		"MAX";
+
+		/* PM QoS */
+		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
+		qcom,pm-qos-cpu-group-latency-us = <70 70>;
+		qcom,pm-qos-default-cpu = <0>;
+
+		/* TODO: add UFS device reset support*/
+
+		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
+		reset-names = "core_reset";
 
 		status = "disabled";
 	};
@@ -1044,16 +1065,29 @@
 		<122 512 922 0>, <1 756 1000 0>,     /* PWM G1 */
 		<122 512 127796 0>, <1 756 1000 0>,  /* HS G1 RA */
 		<122 512 255591 0>, <1 756 1000 0>,  /* HS G2 RA */
-		<122 512 511181 0>, <1 756 1000 0>,  /* HS G3 RA */
+		<122 512 2097152 0>, <1 756 102400 0>,  /* HS G3 RA */
 		<122 512 149422 0>, <1 756 1000 0>,  /* HS G1 RB */
 		<122 512 298189 0>, <1 756 1000 0>,  /* HS G2 RB */
-		<122 512 596378 0>, <1 756 1000 0>,  /* HS G3 RB */
-		<122 512 4096000 0>, <1 756 1000 0>; /* Max. bandwidth */
+		<122 512 2097152 0>, <1 756 102400 0>,  /* HS G3 RB */
+		<122 512 7643136 0>, <1 756 307200 0>; /* Max. bandwidth */
 		qcom,bus-vector-names = "MIN",
 		"PWM_G1_L1",
 		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
 		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
 		"MAX";
+
+		/* PM QoS */
+		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
+		qcom,pm-qos-cpu-group-latency-us = <70 70>;
+		qcom,pm-qos-default-cpu = <0>;
+
+		/*
+		 * Note: this instance doesn't have control over UFS device
+		 * reset
+		 */
+
+		resets = <&clock_gcc GCC_UFS_CARD_BCR>;
+		reset-names = "core_reset";
 
 		status = "disabled";
 	};
