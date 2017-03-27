@@ -948,6 +948,8 @@ static void msm_isp_update_pd_stats_idx(struct vfe_device *vfe_dev,
 	uint32_t pingpong_status = 0, pingpong_bit = 0;
 	struct msm_isp_buffer *done_buf = NULL;
 	int vfe_idx = -1;
+	/* initialize pd_buf_idx with an invalid index 0xF */
+	vfe_dev->pd_buf_idx = 0xF;
 
 	if (frame_src < VFE_RAW_0 || frame_src >  VFE_RAW_2)
 		return;
