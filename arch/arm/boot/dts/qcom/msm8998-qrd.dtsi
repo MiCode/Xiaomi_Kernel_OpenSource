@@ -280,6 +280,19 @@
 	qcom,led-strings-list = [01 02];
 };
 
+&red_led {
+	/delete-property/ linux,default-trigger;
+	qcom,start-idx = <0>;
+	qcom,idx-len = <10>;
+	qcom,duty-pcts = [00 19 32 4b 64
+			64 4b 32 19 00];
+	qcom,use-blink;
+};
+
+&green_led {
+	/delete-property/ linux,default-trigger;
+};
+
 &dsi_dual_nt35597_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
