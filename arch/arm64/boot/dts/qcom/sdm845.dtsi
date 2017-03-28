@@ -388,6 +388,7 @@
 #include "msm-gdsc-sdm845.dtsi"
 #include "sdm845-sde.dtsi"
 #include "sdm845-sde-display.dtsi"
+#include "sdm845-qupv3.dtsi"
 
 &soc {
 	#address-cells = <1>;
