@@ -1230,12 +1230,6 @@ static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
 	return 0;
 } /* dp_init_panel_info */
 
-static inline void mdss_dp_ack_state(struct mdss_dp_drv_pdata *dp, int val)
-{
-	if (dp && dp->ext_audio_data.intf_ops.notify)
-		dp->ext_audio_data.intf_ops.notify(dp->ext_pdev, val);
-}
-
 /**
  * mdss_dp_get_lane_mapping() - returns lane mapping based on given orientation
  * @orientation: usb plug orientation
@@ -1622,14 +1616,6 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 			panel_data);
 
 	if (dp_drv->power_on) {
-		/*
-		 * Acknowledge the connection event if link training has already
-		 * been done. This will unblock the external display thread and
-		 * allow the driver to progress. For example, in the case of
-		 * video test pattern requests, to send the test response and
-		 * start transmitting the test pattern.
-		 */
-		mdss_dp_ack_state(dp_drv, true);
 		pr_debug("Link already setup, return\n");
 		return 0;
 	}
@@ -1664,10 +1650,8 @@ static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv)
 	/* Make sure DP mainlink and audio engines are disabled */
 	wmb();
 
-	mdss_dp_ack_state(dp_drv, false);
 	mutex_unlock(&dp_drv->train_mutex);
 
-	complete_all(&dp_drv->irq_comp);
 	pr_debug("end\n");
 
 	return 0;
@@ -1697,7 +1681,6 @@ static int mdss_dp_off_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	dp_drv->sink_info_read = false;
 	dp_init_panel_info(dp_drv, HDMI_VFRMT_UNKNOWN);
 
-	mdss_dp_ack_state(dp_drv, false);
 	mdss_dp_reset_test_data(dp_drv);
 	mutex_unlock(&dp_drv->train_mutex);
 	pr_debug("DP off done\n");
@@ -1763,7 +1746,7 @@ static int mdss_dp_send_video_notification(
 		goto end;
 	}
 
-	flags |= MSM_EXT_DISP_HPD_VIDEO;
+	flags |= MSM_EXT_DISP_HPD_ASYNC_VIDEO;
 
 	if (dp->ext_audio_data.intf_ops.hpd)
 		ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
@@ -1948,8 +1931,9 @@ static int mdss_dp_host_deinit(struct mdss_dp_drv_pdata *dp)
 static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 	enum notification_status status)
 {
-	const int irq_comp_timeout = HZ * 2;
 	int ret = 0;
+	bool notify = false;
+	bool connect;
 
 	mutex_lock(&dp->pd_msg_mutex);
 	if (status == dp->hpd_notification_status) {
@@ -1964,39 +1948,42 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 	case NOTIFY_CONNECT_IRQ_HPD:
 		if (dp->hpd_notification_status != NOTIFY_DISCONNECT_IRQ_HPD)
 			goto invalid_request;
-		/* Follow the same programming as for NOTIFY_CONNECT */
-		mdss_dp_host_init(&dp->panel_data);
-		mdss_dp_send_video_notification(dp, true);
+		notify = true;
+		connect = true;
 		break;
 	case NOTIFY_CONNECT:
 		if ((dp->hpd_notification_status == NOTIFY_CONNECT_IRQ_HPD) ||
 			(dp->hpd_notification_status ==
 			 NOTIFY_DISCONNECT_IRQ_HPD))
 			goto invalid_request;
-		mdss_dp_host_init(&dp->panel_data);
-		mdss_dp_send_video_notification(dp, true);
+		notify = true;
+		connect = true;
 		break;
 	case NOTIFY_DISCONNECT:
-		mdss_dp_send_audio_notification(dp, false);
-		mdss_dp_send_video_notification(dp, false);
+		/*
+		 * Userspace triggers a disconnect event on boot up, this must
+		 * not be processed as there was no previously connected sink
+		 * device.
+		 */
+		if (dp->hpd_notification_status == NOTIFY_UNKNOWN)
+			goto invalid_request;
+		if (dp->hpd_notification_status == NOTIFY_DISCONNECT_IRQ_HPD) {
+			/*
+			 * user modules already turned off. Need to explicitly
+			 * turn off DP core here.
+			 */
+			mdss_dp_off_hpd(dp);
+		} else {
+			notify = true;
+			connect = false;
+		}
 		break;
 	case NOTIFY_DISCONNECT_IRQ_HPD:
 		if (dp->hpd_notification_status == NOTIFY_DISCONNECT)
 			goto invalid_request;
 
-		mdss_dp_send_audio_notification(dp, false);
-		mdss_dp_send_video_notification(dp, false);
-		if (!IS_ERR_VALUE(ret) && ret) {
-			reinit_completion(&dp->irq_comp);
-			ret = wait_for_completion_timeout(&dp->irq_comp,
-					irq_comp_timeout);
-			if (ret <= 0) {
-				pr_warn("irq_comp timed out\n");
-				ret = -EINVAL;
-			} else {
-				ret = 0;
-			}
-		}
+		notify = true;
+		connect = false;
 		break;
 	default:
 		pr_err("Invalid notification status = %d\n", status);
@@ -2004,7 +1991,7 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 		break;
 	}
 
-	goto end;
+	goto notify;
 
 invalid_request:
 	pr_err("Invalid request %s --> %s\n",
@@ -2013,15 +2000,34 @@ invalid_request:
 		mdss_dp_notification_status_to_string(status));
 	ret = -EINVAL;
 
-end:
+notify:
+	if (ret || !notify) {
+		pr_debug("not sending notification\n");
+		goto end;
+	}
+
+	atomic_set(&dp->notification_pending, 1);
+	if (connect) {
+		mdss_dp_host_init(&dp->panel_data);
+		ret = mdss_dp_send_video_notification(dp, true);
+	} else {
+		mdss_dp_send_audio_notification(dp, false);
+		ret = mdss_dp_send_video_notification(dp, false);
+	}
+
 	if (!ret) {
 		pr_debug("Successfully sent notification %s --> %s\n",
 			mdss_dp_notification_status_to_string(
 				dp->hpd_notification_status),
 			mdss_dp_notification_status_to_string(status));
-		dp->hpd_notification_status = status;
+	} else {
+		pr_err("%s Notification failed\n",
+			mdss_dp_notification_status_to_string(status));
+		atomic_set(&dp->notification_pending, 0);
 	}
 
+end:
+	dp->hpd_notification_status = status;
 	mutex_unlock(&dp->pd_msg_mutex);
 	return ret;
 }
@@ -2905,7 +2911,6 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 
 	switch (event) {
 	case MDSS_EVENT_UNBLANK:
-		mdss_dp_ack_state(dp, true);
 		rc = mdss_dp_on(pdata);
 		break;
 	case MDSS_EVENT_PANEL_ON:
@@ -2919,8 +2924,14 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 				&dp->hdcp_cb_work, HZ / 2);
 		}
 		break;
+	case MDSS_EVENT_POST_PANEL_ON:
+		atomic_set(&dp->notification_pending, 0);
+		complete_all(&dp->notification_comp);
+		break;
 	case MDSS_EVENT_PANEL_OFF:
 		rc = mdss_dp_off(pdata);
+		atomic_set(&dp->notification_pending, 0);
+		complete_all(&dp->notification_comp);
 		break;
 	case MDSS_EVENT_BLANK:
 		if (dp_is_hdcp_enabled(dp)) {
@@ -3425,6 +3436,17 @@ static inline void mdss_dp_link_maintenance(struct mdss_dp_drv_pdata *dp,
 	if (mdss_dp_notify_clients(dp, NOTIFY_DISCONNECT_IRQ_HPD))
 		return;
 
+	if (atomic_read(&dp->notification_pending)) {
+		int ret;
+
+		pr_debug("waiting for the disconnect to finish\n");
+		ret = wait_for_completion_timeout(&dp->notification_comp, HZ);
+		if (ret <= 0) {
+			pr_warn("NOTIFY_DISCONNECT_IRQ_HPD timed out\n");
+			return;
+		}
+	}
+
 	mdss_dp_on_irq(dp, lt_needed);
 }
 
@@ -3895,6 +3917,7 @@ static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp)
 
 		pr_debug("processing item %d in the list\n", ++i);
 
+		reinit_completion(&dp->notification_comp);
 		mutex_lock(&dp->attention_lock);
 		node = list_first_entry(&dp->attention_head,
 				struct mdss_dp_attention_node, list);
@@ -3909,6 +3932,21 @@ static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp)
 		mdss_dp_usbpd_ext_dp_status(&dp->alt_mode.dp_status);
 		mdss_dp_process_attention(dp);
 
+		if (atomic_read(&dp->notification_pending)) {
+			pr_debug("waiting for the attention event to finish\n");
+			/*
+			 * This wait is intentionally implemented without a
+			 * timeout since this is happens only in possible error
+			 * conditions e.g. if the display framework does not
+			 * power off/on the DisplayPort device in time. Other
+			 * events might already be queued from the sink at this
+			 * point and they cannot be processed until the power
+			 * off/on is complete otherwise we might have problems
+			 * with interleaving of these events e.g. un-clocked
+			 * register access.
+			 */
+			wait_for_completion(&dp->notification_comp);
+		}
 		pr_debug("done processing item %d in the list\n", i);
 	};
 
@@ -4080,8 +4118,9 @@ static int mdss_dp_probe(struct platform_device *pdev)
 
 	dp_drv->inited = true;
 	dp_drv->hpd_irq_on = false;
+	atomic_set(&dp_drv->notification_pending, 0);
 	mdss_dp_reset_test_data(dp_drv);
-	init_completion(&dp_drv->irq_comp);
+	init_completion(&dp_drv->notification_comp);
 	dp_drv->suspend_vic = HDMI_VFRMT_UNKNOWN;
 
 	pr_debug("done\n");

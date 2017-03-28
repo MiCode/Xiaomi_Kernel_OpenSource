@@ -513,7 +513,7 @@ struct mdss_dp_drv_pdata {
 	struct completion aux_comp;
 	struct completion idle_comp;
 	struct completion video_comp;
-	struct completion irq_comp;
+	struct completion notification_comp;
 	struct mutex aux_mutex;
 	struct mutex train_mutex;
 	struct mutex pd_msg_mutex;
@@ -540,6 +540,7 @@ struct mdss_dp_drv_pdata {
 	struct dp_statistic dp_stat;
 	bool hpd_irq_on;
 	u32 hpd_notification_status;
+	atomic_t notification_pending;
 
 	struct mdss_dp_event_data dp_event;
 	struct task_struct *ev_thread;
