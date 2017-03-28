@@ -19,12 +19,22 @@
 #ifdef CONFIG_MSM_DEVFREQ_DEVBW
 int devfreq_add_devbw(struct device *dev);
 int devfreq_remove_devbw(struct device *dev);
+int devfreq_suspend_devbw(struct device *dev);
+int devfreq_resume_devbw(struct device *dev);
 #else
 static inline int devfreq_add_devbw(struct device *dev)
 {
 	return 0;
 }
 static inline int devfreq_remove_devbw(struct device *dev)
+{
+	return 0;
+}
+static inline int devfreq_suspend_devbw(struct device *dev)
+{
+	return 0;
+}
+static inline int devfreq_resume_devbw(struct device *dev)
 {
 	return 0;
 }

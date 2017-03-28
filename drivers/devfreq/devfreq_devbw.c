@@ -214,11 +214,6 @@ int devfreq_add_devbw(struct device *dev)
 	return 0;
 }
 
-static int devfreq_devbw_probe(struct platform_device *pdev)
-{
-	return devfreq_add_devbw(&pdev->dev);
-}
-
 int devfreq_remove_devbw(struct device *dev)
 {
 	struct dev_data *d = dev_get_drvdata(dev);
@@ -226,6 +221,25 @@ int devfreq_remove_devbw(struct device *dev)
 	msm_bus_scale_unregister_client(d->bus_client);
 	devfreq_remove_device(d->df);
 	return 0;
+}
+
+int devfreq_suspend_devbw(struct device *dev)
+{
+	struct dev_data *d = dev_get_drvdata(dev);
+
+	return devfreq_suspend_device(d->df);
+}
+
+int devfreq_resume_devbw(struct device *dev)
+{
+	struct dev_data *d = dev_get_drvdata(dev);
+
+	return devfreq_resume_device(d->df);
+}
+
+static int devfreq_devbw_probe(struct platform_device *pdev)
+{
+	return devfreq_add_devbw(&pdev->dev);
 }
 
 static int devfreq_devbw_remove(struct platform_device *pdev)
