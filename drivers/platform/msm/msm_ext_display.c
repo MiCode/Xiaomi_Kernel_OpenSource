@@ -654,6 +654,7 @@ int msm_ext_disp_register_audio_codec(struct platform_device *pdev,
 {
 	int ret = 0;
 	struct msm_ext_disp *ext_disp = NULL;
+	struct msm_ext_disp_list *node = NULL;
 
 	if (!pdev || !ops) {
 		pr_err("Invalid params\n");
@@ -671,16 +672,22 @@ int msm_ext_disp_register_audio_codec(struct platform_device *pdev,
 	if ((ext_disp->current_disp != EXT_DISPLAY_TYPE_MAX)
 			&& ext_disp->ops) {
 		pr_err("Codec already registered\n");
-		ret = -EINVAL;
-		goto end;
+		mutex_unlock(&ext_disp->lock);
+		return -EINVAL;
 	}
 
 	ext_disp->ops = ops;
 
-	pr_debug("audio codec registered\n");
-
-end:
 	mutex_unlock(&ext_disp->lock);
+
+	list_for_each_entry(node, &ext_disp->display_list, list) {
+		struct msm_ext_disp_init_data *data = node->data;
+
+		if (data->codec_ops.codec_ready)
+			data->codec_ops.codec_ready(data->pdev);
+	}
+
+	pr_debug("audio codec registered\n");
 
 	return ret;
 }
