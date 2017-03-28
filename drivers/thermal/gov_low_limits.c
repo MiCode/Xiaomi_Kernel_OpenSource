@@ -67,10 +67,11 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 
 		if (old_target == THERMAL_NO_TARGET &&
 				instance->target != THERMAL_NO_TARGET) {
-			trace_thermal_zone_trip(tz, trip, trip_type);
+			trace_thermal_zone_trip(tz, trip, trip_type, true);
 			tz->passive += 1;
 		} else if (old_target != THERMAL_NO_TARGET &&
 				instance->target == THERMAL_NO_TARGET) {
+			trace_thermal_zone_trip(tz, trip, trip_type, false);
 			tz->passive -= 1;
 		}
 

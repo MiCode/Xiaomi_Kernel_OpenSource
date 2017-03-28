@@ -444,7 +444,7 @@ static void handle_critical_trips(struct thermal_zone_device *tz,
 	if (trip_temp <= 0 || tz->temperature < trip_temp)
 		return;
 
-	trace_thermal_zone_trip(tz, trip, trip_type);
+	trace_thermal_zone_trip(tz, trip, trip_type, true);
 
 	if (tz->ops->notify)
 		tz->ops->notify(tz, trip, trip_type);
@@ -1768,7 +1768,7 @@ void thermal_cdev_update(struct thermal_cooling_device *cdev)
 		cdev->ops->set_min_state(cdev, min_target);
 	cdev->updated = true;
 	mutex_unlock(&cdev->lock);
-	trace_cdev_update(cdev, current_target);
+	trace_cdev_update(cdev, current_target, min_target);
 	dev_dbg(&cdev->device, "set to state %lu min state %lu\n",
 				current_target, min_target);
 }
