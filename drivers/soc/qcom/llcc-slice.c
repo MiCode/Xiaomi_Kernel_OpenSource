@@ -48,8 +48,6 @@
 #define LLCC_TRP_STATUSn(n)   (4 + n * 0x1000)
 #define LLCC_TRP_ATTR0_CFGn(n) (0x21000 + 0x8 * n)
 #define LLCC_TRP_ATTR1_CFGn(n) (0x21004 + 0x8 * n)
-#define LLCC_TRP_PCB_ACT       0x23204
-#define LLCC_TRP_SCID_DIS_CAP_ALLOC 0x23200
 
 /**
  * Driver data for llcc
@@ -320,8 +318,6 @@ static void qcom_llcc_cfg_program(struct platform_device *pdev)
 	u32 attr0_cfg;
 	u32 attr1_val;
 	u32 attr0_val;
-	u32 pcb = 0;
-	u32 cad = 0;
 	u32 max_cap_cacheline;
 	u32 sz;
 	const struct llcc_slice_config *llcc_table;
@@ -352,14 +348,6 @@ static void qcom_llcc_cfg_program(struct platform_device *pdev)
 
 		regmap_write(drv->llcc_map, attr1_cfg, attr1_val);
 		regmap_write(drv->llcc_map, attr0_cfg, attr0_val);
-
-		/* Write the retain on power collapse bit for each scid */
-		pcb |= llcc_table[i].retain_on_pc << llcc_table[i].slice_id;
-		regmap_write(drv->llcc_map, LLCC_TRP_PCB_ACT, pcb);
-
-		/* Disable capacity alloc */
-		cad |= llcc_table[i].dis_cap_alloc << llcc_table[i].slice_id;
-		regmap_write(drv->llcc_map, LLCC_TRP_SCID_DIS_CAP_ALLOC, cad);
 
 		/* Make sure that the SCT is programmed before activating */
 		mb();

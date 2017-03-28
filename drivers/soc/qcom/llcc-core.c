@@ -20,7 +20,6 @@
 #include <linux/regmap.h>
 
 /* Config registers offsets*/
-#define COMMON_CFG0		0x00030004
 #define DRP_ECC_ERROR_CFG	0x00040000
 
 /* TRP, DRP interrupt register offsets */
@@ -29,7 +28,6 @@
 #define TRP_INTERRUPT_0_ENABLE		0x00020488
 #define DRP_INTERRUPT_ENABLE		0x0004100C
 
-#define DATA_RAM_ECC_ENABLE	0x1
 #define SB_ERROR_THRESHOLD	0x1
 #define SB_ERROR_THRESHOLD_SHIFT	24
 #define SB_DB_TRP_INTERRUPT_ENABLE	0x3
@@ -49,10 +47,6 @@ static void qcom_llcc_core_setup(struct regmap *llcc_regmap)
 	/* Enable ECC interrupts on Tag Ram */
 	regmap_update_bits(llcc_regmap, TRP_INTERRUPT_0_ENABLE,
 		SB_DB_TRP_INTERRUPT_ENABLE, SB_DB_TRP_INTERRUPT_ENABLE);
-
-	/* Enable ECC for for data ram */
-	regmap_update_bits(llcc_regmap, COMMON_CFG0,
-				DATA_RAM_ECC_ENABLE, DATA_RAM_ECC_ENABLE);
 
 	/* Enable SB error for Data RAM */
 	sb_err_threshold = (SB_ERROR_THRESHOLD << SB_ERROR_THRESHOLD_SHIFT);
