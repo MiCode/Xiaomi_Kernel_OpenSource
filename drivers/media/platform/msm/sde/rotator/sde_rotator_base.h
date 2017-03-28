@@ -140,6 +140,18 @@ struct sde_smmu_client {
 	int domain;
 };
 
+/*
+ * struct sde_rot_debug_bus: rotator debugbus header structure
+ * @wr_addr: write address for debugbus controller
+ * @block_id: rotator debugbus block id
+ * @test_id: rotator debugbus test id
+ */
+struct sde_rot_debug_bus {
+	u32 wr_addr;
+	u32 block_id;
+	u32 test_id;
+};
+
 struct sde_rot_vbif_debug_bus {
 	u32 disable_bus_addr;
 	u32 block_bus_addr;
@@ -191,6 +203,8 @@ struct sde_rot_data_type {
 
 	struct sde_rot_vbif_debug_bus *nrt_vbif_dbg_bus;
 	u32 nrt_vbif_dbg_bus_size;
+	struct sde_rot_debug_bus *rot_dbg_bus;
+	u32 rot_dbg_bus_size;
 
 	struct sde_rot_regdump *regdump;
 	u32 regdump_size;
@@ -199,6 +213,8 @@ struct sde_rot_data_type {
 	int sec_cam_en;
 
 	struct ion_client *iclient;
+
+	bool clk_always_on;
 };
 
 int sde_rotator_base_init(struct sde_rot_data_type **pmdata,
