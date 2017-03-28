@@ -312,9 +312,9 @@ information such as migration. If non-zero, this also implies governor
 sampling windows are aligned across CPUs, with same timer_rate,
 regardless what align_windows is set to. Default is zero.
 
-use_migration_notif: If non-zero, reevaluate CPU's frequency
-immediately after receiving notification from scheduler. If zero,
-ignore scheduler notification. Default is zero.
+use_migration_notif: If non-zero, schedule hrtimer to fire in 1ms
+to reevaluate frequency of notified CPU, unless the hrtimer is already
+pending. If zero, ignore scheduler notification. Default is zero.
 
 max_freq_hysteresis: Each time freq evaluation chooses policy->max,
 next max_freq_hysteresis is considered as hysteresis period. During
