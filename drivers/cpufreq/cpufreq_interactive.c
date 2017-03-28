@@ -412,7 +412,7 @@ static u64 update_load(int cpu)
 }
 
 #define MAX_LOCAL_LOAD 100
-static void cpufreq_interactive_timer(unsigned long data)
+static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 {
 	u64 now;
 	unsigned int delta_time;
@@ -518,7 +518,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 
 	new_freq = pcpu->freq_table[index].frequency;
 
-	if (pcpu->target_freq >= pcpu->policy->max
+	if (!is_notif && pcpu->target_freq >= pcpu->policy->max
 	    && new_freq < pcpu->target_freq
 	    && now - pcpu->max_freq_hyst_start_time <
 	    tunables->max_freq_hysteresis) {
@@ -533,7 +533,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	 * floor frequency for the minimum sample time since last validated.
 	 */
 	max_fvtime = max(pcpu->pol_floor_val_time, pcpu->loc_floor_val_time);
-	if (new_freq < pcpu->floor_freq &&
+	if (!is_notif && new_freq < pcpu->floor_freq &&
 	    pcpu->target_freq >= pcpu->policy->cur) {
 		if (now - max_fvtime < tunables->min_sample_time) {
 			trace_cpufreq_interactive_notyet(
@@ -585,6 +585,11 @@ rearm:
 exit:
 	up_read(&pcpu->enable_sem);
 	return;
+}
+
+static void cpufreq_interactive_timer(unsigned long data)
+{
+	__cpufreq_interactive_timer(data, false);
 }
 
 static void cpufreq_interactive_idle_end(void)
@@ -749,7 +754,7 @@ static int load_change_callback(struct notifier_block *nb, unsigned long val,
 	trace_cpufreq_interactive_load_change(cpu);
 	del_timer(&pcpu->cpu_timer);
 	del_timer(&pcpu->cpu_slack_timer);
-	cpufreq_interactive_timer(cpu);
+	__cpufreq_interactive_timer(cpu, true);
 
 	up_read(&pcpu->enable_sem);
 	return 0;
