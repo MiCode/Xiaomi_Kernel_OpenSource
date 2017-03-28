@@ -14,6 +14,11 @@ Required Node Structure
 	Value type: <string>
 	Definition: should be "qcom,qpnp-oledb-regulator".
 
+- qcom,pmic-revid
+	Usage:      required
+	Value type: <phandle>
+	Definition: Used to identify the PMIC subtype.
+
 - reg
 	Usage:      required
 	Value type: <prop-encoded-array>
@@ -224,6 +229,7 @@ pm660a_oledb: qpnp-oledb@e000 {
 	compatible = "qcom,qpnp-oledb-regulator";
 	#address-cells = <1>;
 	#size-cells = <1>;
+	qcom,pmic-revid = <&pm660l_revid>;
 	reg = <0xe000 0x100>;
 
 	label = "oledb";
