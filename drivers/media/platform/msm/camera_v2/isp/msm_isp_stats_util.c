@@ -832,6 +832,12 @@ static int msm_isp_stats_update_cgc_override(struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream *stream_info;
 	int k;
 
+	if (stream_cfg_cmd->num_streams > MSM_ISP_STATS_MAX) {
+		pr_err("%s invalid num_streams %d\n", __func__,
+			stream_cfg_cmd->num_streams);
+		return -EINVAL;
+	}
+
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 		idx = STATS_IDX(stream_cfg_cmd->stream_handle[i]);
 
@@ -961,6 +967,11 @@ static int msm_isp_check_stream_cfg_cmd(struct vfe_device *vfe_dev,
 	int vfe_idx;
 	uint32_t stats_idx[MSM_ISP_STATS_MAX];
 
+	if (stream_cfg_cmd->num_streams > MSM_ISP_STATS_MAX) {
+		pr_err("%s invalid num_streams %d\n", __func__,
+			stream_cfg_cmd->num_streams);
+		return -EINVAL;
+	}
 	memset(stats_idx, 0, sizeof(stats_idx));
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 		idx = STATS_IDX(stream_cfg_cmd->stream_handle[i]);
@@ -1074,7 +1085,7 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev_ioctl,
 	uint32_t comp_stats_mask[MAX_NUM_STATS_COMP_MASK] = {0};
 	uint32_t num_stats_comp_mask = 0;
 	struct msm_vfe_stats_stream *stream_info;
-	struct msm_vfe_stats_shared_data *stats_data;
+	struct msm_vfe_stats_shared_data *stats_data = NULL;
 	int num_stream = 0;
 	struct msm_vfe_stats_stream *streams[MSM_ISP_STATS_MAX];
 	struct msm_isp_timestamp timestamp;
@@ -1136,10 +1147,12 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev_ioctl,
 			comp_stats_mask[stream_info->composite_flag-1] |=
 				1 << idx;
 
-		ISP_DBG("%s: stats_mask %x %x active streams %d\n",
+		ISP_DBG("%s: stats_mask %x %x\n",
 			__func__, comp_stats_mask[0],
-			comp_stats_mask[1],
-			stats_data->num_active_stream);
+			comp_stats_mask[1]);
+		if (stats_data)
+			ISP_DBG("%s: active_streams = %d\n", __func__,
+				stats_data->num_active_stream);
 		streams[num_stream++] = stream_info;
 	}
 
@@ -1230,6 +1243,12 @@ int msm_isp_update_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	struct msm_isp_sw_framskip *sw_skip_info = NULL;
 	int vfe_idx;
 	int k;
+
+	if (update_cmd->num_streams > MSM_ISP_STATS_MAX) {
+		pr_err("%s: Invalid num_streams %d\n",
+			__func__, update_cmd->num_streams);
+		return -EINVAL;
+	}
 
 	/*validate request*/
 	for (i = 0; i < update_cmd->num_streams; i++) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,9 +19,9 @@
  * To allow proper structure padding for 64bit/32bit target
  */
 #ifdef __LP64
-#define MDP_LAYER_COMMIT_V1_PAD 3
+#define MDP_LAYER_COMMIT_V1_PAD 2
 #else
-#define MDP_LAYER_COMMIT_V1_PAD 4
+#define MDP_LAYER_COMMIT_V1_PAD 3
 #endif
 
 struct mdp_buf_sync32 {
@@ -537,6 +537,7 @@ struct mdp_layer_commit_v1_32 {
 	compat_caddr_t		dest_scaler;
 	uint32_t                dest_scaler_cnt;
 	compat_caddr_t		frc_info;
+	uint32_t		bl_level; /* BL level to be updated in commit */
 	uint32_t		reserved[MDP_LAYER_COMMIT_V1_PAD];
 };
 

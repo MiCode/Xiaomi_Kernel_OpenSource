@@ -40,7 +40,13 @@
 		"DMIC3", "MIC BIAS External",
 		"MIC BIAS External", "Digital Mic4",
 		"DMIC4", "MIC BIAS External",
-		"SpkrLeft IN", "SPK1 OUT";
+		"SpkrLeft IN", "SPK1 OUT",
+		"PDM_IN_RX1", "PDM_OUT_RX1",
+		"PDM_IN_RX2", "PDM_OUT_RX2",
+		"PDM_IN_RX3", "PDM_OUT_RX3",
+		"ADC1_IN", "ADC1_OUT",
+		"ADC2_IN", "ADC2_OUT",
+		"ADC3_IN", "ADC3_OUT";
 	qcom,wsa-max-devs = <1>;
 	qcom,wsa-devs = <&wsa881x_211_en>, <&wsa881x_213_en>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";

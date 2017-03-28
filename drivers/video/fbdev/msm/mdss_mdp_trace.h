@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -297,22 +297,20 @@ TRACE_EVENT(mdp_perf_update_bus,
 
 TRACE_EVENT(mdp_compare_bw,
 	TP_PROTO(unsigned long long new_ab, unsigned long long new_ib,
-		unsigned long long new_wb, unsigned long long new_max,
+		unsigned long long new_wb,
 		unsigned long long old_ab, unsigned long long old_ib,
-		unsigned long long old_wb, unsigned long long old_max,
+		unsigned long long old_wb,
 		u32 params_changed, bool update_bw),
-	TP_ARGS(new_ab, new_ib, new_wb, new_max,
-					old_ab, old_ib, old_wb, old_max,
+	TP_ARGS(new_ab, new_ib, new_wb,
+					old_ab, old_ib, old_wb,
 					params_changed, update_bw),
 	TP_STRUCT__entry(
 			__field(u64, new_ab)
 			__field(u64, new_ib)
 			__field(u64, new_wb)
-			__field(u64, new_max)
 			__field(u64, old_ab)
 			__field(u64, old_ib)
 			__field(u64, old_wb)
-			__field(u64, old_max)
 			__field(u32, params_changed)
 			__field(bool, update_bw)
 	),
@@ -320,18 +318,16 @@ TRACE_EVENT(mdp_compare_bw,
 			__entry->new_ab = new_ab;
 			__entry->new_ib = new_ib;
 			__entry->new_wb = new_wb;
-			__entry->new_max = new_max;
 			__entry->old_ab = old_ab;
 			__entry->old_ib = old_ib;
 			__entry->old_wb = old_wb;
-			__entry->old_max = old_max;
 			__entry->params_changed = params_changed;
 			__entry->update_bw = update_bw;
 	),
-	TP_printk("[ab,ib,wb,max] new[%llu, %llu, %llu, %llu] old[%llu, %llu, %llu, %llu] parm:%d ret:%d",
+	TP_printk("[ab,ib,wb]new[%llu,%llu,%llu]old[%llu,%llu,%llu]chgd:%d %d",
 		__entry->new_ab, __entry->new_ib, __entry->new_wb,
-		__entry->new_max, __entry->old_ab, __entry->old_ib,
-		__entry->old_wb, __entry->old_max, __entry->params_changed,
+		__entry->old_ab, __entry->old_ib,
+		__entry->old_wb, __entry->params_changed,
 		__entry->update_bw)
 );
 

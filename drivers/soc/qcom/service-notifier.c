@@ -99,6 +99,7 @@ struct ind_req_resp {
  */
 struct qmi_client_info {
 	int instance_id;
+	enum pd_subsys_state subsys_state;
 	struct work_struct svc_arrive;
 	struct work_struct svc_exit;
 	struct work_struct svc_rcv_msg;
@@ -436,7 +437,7 @@ static void root_service_exit_work(struct work_struct *work)
 {
 	struct qmi_client_info *data = container_of(work,
 					struct qmi_client_info, svc_exit);
-	root_service_service_exit(data, ROOT_PD_DOWN);
+	root_service_service_exit(data, data->subsys_state);
 }
 
 static int service_event_notify(struct notifier_block *this,
@@ -453,6 +454,7 @@ static int service_event_notify(struct notifier_block *this,
 		break;
 	case QMI_SERVER_EXIT:
 		pr_debug("Root PD service DOWN\n");
+		data->subsys_state = ROOT_PD_DOWN;
 		queue_work(data->svc_event_wq, &data->svc_exit);
 		break;
 	default:
@@ -468,7 +470,6 @@ static int ssr_event_notify(struct notifier_block *this,
 	struct qmi_client_info *info = container_of(this,
 					struct qmi_client_info, ssr_notifier);
 	struct notif_data *notif = data;
-	enum pd_subsys_state state;
 
 	switch (code) {
 	case	SUBSYS_BEFORE_SHUTDOWN:
@@ -476,16 +477,16 @@ static int ssr_event_notify(struct notifier_block *this,
 						notif->crashed);
 		switch (notif->crashed) {
 		case CRASH_STATUS_ERR_FATAL:
-			state = ROOT_PD_ERR_FATAL;
+			info->subsys_state = ROOT_PD_ERR_FATAL;
 			break;
 		case CRASH_STATUS_WDOG_BITE:
-			state = ROOT_PD_WDOG_BITE;
+			info->subsys_state = ROOT_PD_WDOG_BITE;
 			break;
 		default:
-			state = ROOT_PD_SHUTDOWN;
+			info->subsys_state = ROOT_PD_SHUTDOWN;
 			break;
 		}
-		root_service_service_exit(info, state);
+		queue_work(info->svc_event_wq, &info->svc_exit);
 		break;
 	default:
 		break;
@@ -635,7 +636,13 @@ static int send_pd_restart_req(const char *service_path,
 		return rc;
 	}
 
-	/* Check the response */
+	/* Check response if PDR is disabled */
+	if (QMI_RESP_BIT_SHIFT(resp.resp.result) == QMI_ERR_DISABLED_V01) {
+		pr_err("PD restart is disabled 0x%x\n",
+					QMI_RESP_BIT_SHIFT(resp.resp.error));
+		return -EOPNOTSUPP;
+	}
+	/* Check the response for other error case*/
 	if (QMI_RESP_BIT_SHIFT(resp.resp.result) != QMI_RESULT_SUCCESS_V01) {
 		pr_err("QMI request for PD restart failed 0x%x\n",
 					QMI_RESP_BIT_SHIFT(resp.resp.error));

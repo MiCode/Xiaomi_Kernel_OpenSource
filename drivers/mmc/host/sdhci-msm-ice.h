@@ -107,6 +107,7 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 			u32 slot);
 int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
 			struct mmc_request *mrq, u32 slot, u64 *ice_ctx);
+int sdhci_msm_ice_cfg_end(struct sdhci_host *host, struct mmc_request *mrq);
 int sdhci_msm_ice_reset(struct sdhci_host *host);
 int sdhci_msm_ice_resume(struct sdhci_host *host);
 int sdhci_msm_ice_suspend(struct sdhci_host *host);
@@ -140,6 +141,11 @@ inline int sdhci_msm_ice_cfg(struct sdhci_host *host,
 }
 inline int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
 		struct mmc_request *mrq, u32 slot, u64 *ice_ctx)
+{
+	return 0;
+}
+inline int sdhci_msm_ice_cfg_end(struct sdhci_host *host,
+			struct mmc_request *mrq)
 {
 	return 0;
 }

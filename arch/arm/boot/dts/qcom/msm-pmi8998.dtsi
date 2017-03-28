@@ -631,6 +631,7 @@
 			interrupts = <0x3 0xc0 0x0 IRQ_TYPE_NONE>,
 				     <0x3 0xc0 0x1 IRQ_TYPE_NONE>;
 			interrupt-names = "sc-irq", "play-irq";
+			qcom,pmic-revid = <&pmi8998_revid>;
 			qcom,actuator-type = "lra";
 			qcom,play-mode = "direct";
 			qcom,vmax-mv = <3200>;

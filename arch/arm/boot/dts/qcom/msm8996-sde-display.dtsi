@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -308,6 +308,32 @@
 		23 1e 07 08 05 03 04 a0
 		23 1e 07 08 05 03 04 a0
 		23 18 07 08 04 03 04 a0];
+
+	qcom,mdss-dsi-on-command = [15 01 00 00 10 00 02 ff 10
+		15 01 00 00 10 00 02 fb 01
+		15 01 00 00 10 00 02 ba 03
+		15 01 00 00 10 00 02 e5 01
+		15 01 00 00 10 00 02 35 00
+		15 01 00 00 10 00 02 bb 10
+		15 01 00 00 10 00 02 b0 03
+		15 01 00 00 10 00 02 ff e0
+		15 01 00 00 10 00 02 fb 01
+		15 01 00 00 10 00 02 6b 3d
+		15 01 00 00 10 00 02 6c 3d
+		15 01 00 00 10 00 02 6d 3d
+		15 01 00 00 10 00 02 6e 3d
+		15 01 00 00 10 00 02 6f 3d
+		15 01 00 00 10 00 02 35 02
+		15 01 00 00 10 00 02 36 72
+		15 01 00 00 10 00 02 37 10
+		15 01 00 00 10 00 02 08 c0
+		15 01 00 00 10 00 02 ff 24
+		15 01 00 00 10 00 02 fb 01
+		15 01 00 00 10 00 02 c6 06
+		15 01 00 00 10 00 02 9d 30 /* Enable IMGSWAP */
+		15 01 00 00 10 00 02 ff 10
+		05 01 00 00 a0 00 02 11 00
+		05 01 00 00 a0 00 02 29 00];
 };
 
 &dsi_nt35597_dsc_video {

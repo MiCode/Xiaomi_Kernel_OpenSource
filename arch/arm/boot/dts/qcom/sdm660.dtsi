@@ -345,7 +345,7 @@
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 			reusable;
 			alignment = <0x0 0x400000>;
-			size = <0x0 0xa00000>;
+			size = <0x0 0x800000>;
 		};
 
 		qseecom_mem: qseecom_region {
@@ -370,7 +370,7 @@
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
 			reusable;
 			alignment = <0 0x400000>;
-			size = <0 0x2000000>;
+			size = <0 0x2c00000>;
 			linux,cma-default;
 		};
 
@@ -382,9 +382,9 @@
 
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
-		qca,bt-vdd-core-supply = <&pm660_l9_pin_ctrl>;
-		qca,bt-vdd-pa-supply = <&pm660_l6_pin_ctrl>;
-		qca,bt-vdd-ldo-supply = <&pm660_l19_pin_ctrl>;
+		qca,bt-vdd-core-supply = <&pm660_l9>;
+		qca,bt-vdd-pa-supply = <&pm660_l6>;
+		qca,bt-vdd-ldo-supply = <&pm660_l19>;
 		qca,bt-chip-pwd-supply = <&pm660l_bob_pin1>;
 		clocks = <&clock_rpmcc RPM_RF_CLK1_PIN>;
 		clock-names = "rf_clk1";
@@ -613,6 +613,7 @@
 			compatible = "qcom,memshare-peripheral";
 			qcom,peripheral-size = <0x0>;
 			qcom,client-id = <1>;
+			qcom,allocate-boot-time;
 			label = "modem";
 		};
 	};
@@ -816,6 +817,11 @@
 			qcom,levels = <1248000>;
 			qcom,freq-req;
 		};
+	};
+
+	cx_ipeak_lm: cx_ipeak@1fe5040 {
+		compatible = "qcom,cx-ipeak-sdm660";
+		reg = <0x1fe5040 0x28>;
 	};
 
 	qcom,bcl {
@@ -1334,26 +1340,26 @@
 			/* No vote */
 			<78 512 0 0>, <1 606 0 0>,
 			/* 400 KB/s*/
-			<78 512 1046 3200>,
-			<1 606 1046 3200>,
+			<78 512 1046 1600>,
+			<1 606 1600 1600>,
 			/* 20 MB/s */
-			<78 512 52286 160000>,
-			<1 606 52286 160000>,
+			<78 512 52286 80000>,
+			<1 606 80000 80000>,
 			/* 25 MB/s */
-			<78 512 65360 200000>,
-			<1 606 65360 200000>,
+			<78 512 65360 100000>,
+			<1 606 100000 100000>,
 			/* 50 MB/s */
-			<78 512 130718 400000>,
-			<1 606 130718 400000>,
+			<78 512 130718 200000>,
+			<1 606 133320 133320>,
 			/* 100 MB/s */
-			<78 512 130718 400000>,
-			<1 606 130718 400000>,
+			<78 512 130718 200000>,
+			<1 606 150000 150000>,
 			/* 200 MB/s */
-			<78 512 261438 800000>,
-			<1 606 261438 800000>,
+			<78 512 261438 400000>,
+			<1 606 300000 300000>,
 			/* 400 MB/s */
-			<78 512 261438 800000>,
-			<1 606 261438 800000>,
+			<78 512 261438 400000>,
+			<1 606 300000 300000>,
 			/* Max. bandwidth */
 			<78 512 1338562 4096000>,
 			<1 606 1338562 4096000>;
@@ -1364,7 +1370,7 @@
 			 <&clock_gcc GCC_SDCC1_APPS_CLK>,
 			 <&clock_gcc GCC_SDCC1_ICE_CORE_CLK>;
 		clock-names = "iface_clk", "core_clk", "ice_core_clk";
-		qcom,ice-clk-rates = <300000000 150000000>;
+		qcom,ice-clk-rates = <300000000 75000000>;
 
 		status = "disabled";
 	};
@@ -1386,24 +1392,24 @@
 		qcom,msm-bus,vectors-KBps =
 			/* No vote */
 			<81 512 0 0>, <1 608 0 0>,
-			/* 400 KB/s */
-			<81 512 1046 3200>,
-			<1 608 1046 3200>,
+			/* 400 KB/s*/
+			<81 512 1046 1600>,
+			<1 608 1600 1600>,
 			/* 20 MB/s */
-			<81 512 52286 160000>,
-			<1 608 52286 160000>,
+			<81 512 52286 80000>,
+			<1 608 80000 80000>,
 			/* 25 MB/s */
-			<81 512 65360 200000>,
-			<1 608 65360 200000>,
+			<81 512 65360 100000>,
+			<1 608 100000 100000>,
 			/* 50 MB/s */
-			<81 512 130718 400000>,
-			<1 608 130718 400000>,
+			<81 512 130718 200000>,
+			<1 608 133320 133320>,
 			/* 100 MB/s */
-			<81 512 261438 800000>,
-			<1 608 261438 800000>,
+			<81 512 261438 200000>,
+			<1 608 150000 150000>,
 			/* 200 MB/s */
-			<81 512 261438 800000>,
-			<1 608 261438 800000>,
+			<81 512 261438 400000>,
+			<1 608 300000 300000>,
 			/* Max. bandwidth */
 			<81 512 1338562 4096000>,
 			<1 608 1338562 4096000>;
@@ -1430,7 +1436,7 @@
 		qcom,wan-rx-ring-size = <192>; /* IPA WAN-rx-ring-size*/
 		qcom,lan-rx-ring-size = <192>; /* IPA LAN-rx-ring-size*/
 		clocks = <&clock_rpmcc RPM_IPA_CLK>,
-			<&clock_rpmcc RPM_AGGR2_NOC_CLK>;
+			<&clock_rpmcc AGGR2_NOC_SMMU_CLK>;
 		clock-names = "core_clk", "smmu_clk";
 		qcom,arm-smmu;
 		qcom,smmu-disable-htw;
@@ -2050,6 +2056,11 @@
 			reg = <0x6b0 32>;
 		};
 
+		kaslr_offset@6d0 {
+			compatible = "qcom,msm-imem-kaslr_offset";
+			reg = <0x6d0 12>;
+		};
+
 		pil@94c {
 			compatible = "qcom,msm-imem-pil";
 			reg = <0x94c 200>;
@@ -2513,6 +2524,11 @@
 		qcom,src-sel = <0>;
 		qcom,out-strength = <1>;
 	};
+};
+
+&msm_vidc {
+	qcom,cx-ipeak-data = <&cx_ipeak_lm 4>;
+	qcom,clock-freq-threshold = <518400000>;
 };
 
 &soc {

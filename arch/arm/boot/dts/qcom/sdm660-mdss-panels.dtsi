@@ -68,7 +68,7 @@
 			qcom,panel-supply-entry@0 {
 				reg = <0>;
 				qcom,supply-name = "wqhd-vddio";
-				qcom,supply-min-voltage = <1880000>;
+				qcom,supply-min-voltage = <1800000>;
 				qcom,supply-max-voltage = <1950000>;
 				qcom,supply-enable-load = <32000>;
 				qcom,supply-disable-load = <80>;
@@ -118,7 +118,7 @@
 		qcom,panel-supply-entry@0 {
 			reg = <0>;
 			qcom,supply-name = "wqhd-vddio";
-			qcom,supply-min-voltage = <1880000>;
+			qcom,supply-min-voltage = <1800000>;
 			qcom,supply-max-voltage = <1950000>;
 			qcom,supply-enable-load = <32000>;
 			qcom,supply-disable-load = <80>;
@@ -134,6 +134,10 @@
 		23 18 07 08 04 03 04 a0];
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
+	qcom,mdss-dsi-min-refresh-rate = <53>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 };
 
 &dsi_dual_nt35597_truly_cmd {
@@ -142,6 +146,8 @@
 		23 1e 07 08 05 03 04 a0
 		23 1e 07 08 05 03 04 a0
 		23 18 07 08 04 03 04 a0];
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 };
 
 &dsi_dual_nt36850_truly_cmd {
@@ -188,6 +194,8 @@
 		20 1d 05 07 03 03 04 a0
 		20 12 05 06 03 13 04 a0];
 	qcom,config-select = <&dsi_nt35597_truly_dsc_cmd_config2>;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 };
 
 &dsi_dual_nt35597_video {
@@ -259,11 +267,11 @@
 };
 
 &dsi_rm67195_amoled_fhd_cmd {
-	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 07 08 05 03 04 a0
-		23 1e 07 08 05 03 04 a0
-		23 1e 07 08 05 03 04 a0
-		23 1e 07 08 05 03 04 a0
-		23 19 07 08 05 03 04 a0];
+	qcom,mdss-dsi-panel-timings-phy-v2 = [24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1a 08 09 05 03 04 a0];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
-	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,mdss-dsi-t-clk-pre = <0x2f>;
 };

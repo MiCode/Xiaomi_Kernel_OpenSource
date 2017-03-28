@@ -266,8 +266,8 @@ int __ipa_commit_hdr_v2(void)
 {
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer mem;
-	struct ipa_hdr_init_system cmd;
-	struct ipa_hw_imm_cmd_dma_shared_mem dma_cmd;
+	struct ipa_hdr_init_system *cmd = NULL;
+	struct ipa_hw_imm_cmd_dma_shared_mem *dma_cmd = NULL;
 	int rc = -EFAULT;
 
 	if (ipa_generate_hdr_hw_tbl(&mem)) {
@@ -279,14 +279,21 @@ int __ipa_commit_hdr_v2(void)
 		if (mem.size > IPA_MEM_PART(apps_hdr_size)) {
 			IPAERR("tbl too big, needed %d avail %d\n", mem.size,
 				IPA_MEM_PART(apps_hdr_size));
-			goto end;
+			goto fail_send_cmd;
 		} else {
-			dma_cmd.system_addr = mem.phys_base;
-			dma_cmd.size = mem.size;
-			dma_cmd.local_addr = ipa_ctx->smem_restricted_bytes +
+			dma_cmd = kzalloc(sizeof(*dma_cmd), GFP_ATOMIC);
+			if (dma_cmd == NULL) {
+				IPAERR("fail to alloc immediate cmd\n");
+				rc = -ENOMEM;
+				goto fail_send_cmd;
+			}
+
+			dma_cmd->system_addr = mem.phys_base;
+			dma_cmd->size = mem.size;
+			dma_cmd->local_addr = ipa_ctx->smem_restricted_bytes +
 				IPA_MEM_PART(apps_hdr_ofst);
 			desc.opcode = IPA_DMA_SHARED_MEM;
-			desc.pyld = &dma_cmd;
+			desc.pyld = (void *)dma_cmd;
 			desc.len =
 				sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
 		}
@@ -294,11 +301,17 @@ int __ipa_commit_hdr_v2(void)
 		if (mem.size > IPA_MEM_PART(apps_hdr_size_ddr)) {
 			IPAERR("tbl too big, needed %d avail %d\n", mem.size,
 				IPA_MEM_PART(apps_hdr_size_ddr));
-			goto end;
+			goto fail_send_cmd;
 		} else {
-			cmd.hdr_table_addr = mem.phys_base;
+			cmd = kzalloc(sizeof(*cmd), GFP_ATOMIC);
+			if (cmd == NULL) {
+				IPAERR("fail to alloc hdr init cmd\n");
+				rc = -ENOMEM;
+				goto fail_send_cmd;
+			}
+			cmd->hdr_table_addr = mem.phys_base;
 			desc.opcode = IPA_HDR_INIT_SYSTEM;
-			desc.pyld = &cmd;
+			desc.pyld = (void *)cmd;
 			desc.len = sizeof(struct ipa_hdr_init_system);
 		}
 	}
@@ -311,6 +324,10 @@ int __ipa_commit_hdr_v2(void)
 	else
 		rc = 0;
 
+	kfree(dma_cmd);
+	kfree(cmd);
+
+fail_send_cmd:
 	if (ipa_ctx->hdr_tbl_lcl) {
 		dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base,
 				mem.phys_base);
@@ -322,6 +339,9 @@ int __ipa_commit_hdr_v2(void)
 						ipa_ctx->hdr_mem.base,
 						ipa_ctx->hdr_mem.phys_base);
 			ipa_ctx->hdr_mem = mem;
+		} else {
+			dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base,
+					mem.phys_base);
 		}
 	}
 
@@ -335,10 +355,10 @@ int __ipa_commit_hdr_v2_5(void)
 	struct ipa_mem_buffer hdr_mem;
 	struct ipa_mem_buffer ctx_mem;
 	struct ipa_mem_buffer aligned_ctx_mem;
-	struct ipa_hdr_init_system hdr_init_cmd = {0};
-	struct ipa_hw_imm_cmd_dma_shared_mem dma_cmd_hdr = {0};
-	struct ipa_hw_imm_cmd_dma_shared_mem dma_cmd_ctx = {0};
-	struct ipa_register_write reg_write_cmd = {0};
+	struct ipa_hdr_init_system *hdr_init_cmd = NULL;
+	struct ipa_hw_imm_cmd_dma_shared_mem *dma_cmd_hdr = NULL;
+	struct ipa_hw_imm_cmd_dma_shared_mem *dma_cmd_ctx = NULL;
+	struct ipa_register_write *reg_write_cmd = NULL;
 	int rc = -EFAULT;
 	u32 proc_ctx_size;
 	u32 proc_ctx_ofst;
@@ -361,15 +381,21 @@ int __ipa_commit_hdr_v2_5(void)
 		if (hdr_mem.size > IPA_MEM_PART(apps_hdr_size)) {
 			IPAERR("tbl too big needed %d avail %d\n", hdr_mem.size,
 				IPA_MEM_PART(apps_hdr_size));
-			goto end;
+			goto fail_send_cmd1;
 		} else {
-			dma_cmd_hdr.system_addr = hdr_mem.phys_base;
-			dma_cmd_hdr.size = hdr_mem.size;
-			dma_cmd_hdr.local_addr =
+			dma_cmd_hdr = kzalloc(sizeof(*dma_cmd_hdr), GFP_ATOMIC);
+			if (dma_cmd_hdr == NULL) {
+				IPAERR("fail to alloc immediate cmd\n");
+				rc = -ENOMEM;
+				goto fail_send_cmd1;
+			}
+			dma_cmd_hdr->system_addr = hdr_mem.phys_base;
+			dma_cmd_hdr->size = hdr_mem.size;
+			dma_cmd_hdr->local_addr =
 				ipa_ctx->smem_restricted_bytes +
 				IPA_MEM_PART(apps_hdr_ofst);
 			desc[0].opcode = IPA_DMA_SHARED_MEM;
-			desc[0].pyld = &dma_cmd_hdr;
+			desc[0].pyld = (void *)dma_cmd_hdr;
 			desc[0].len =
 				sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
 		}
@@ -377,11 +403,18 @@ int __ipa_commit_hdr_v2_5(void)
 		if (hdr_mem.size > IPA_MEM_PART(apps_hdr_size_ddr)) {
 			IPAERR("tbl too big needed %d avail %d\n", hdr_mem.size,
 				IPA_MEM_PART(apps_hdr_size_ddr));
-			goto end;
+			goto fail_send_cmd1;
 		} else {
-			hdr_init_cmd.hdr_table_addr = hdr_mem.phys_base;
+			hdr_init_cmd = kzalloc(sizeof(*hdr_init_cmd),
+				GFP_ATOMIC);
+			if (hdr_init_cmd == NULL) {
+				IPAERR("fail to alloc immediate cmd\n");
+				rc = -ENOMEM;
+				goto fail_send_cmd1;
+			}
+			hdr_init_cmd->hdr_table_addr = hdr_mem.phys_base;
 			desc[0].opcode = IPA_HDR_INIT_SYSTEM;
-			desc[0].pyld = &hdr_init_cmd;
+			desc[0].pyld = (void *)hdr_init_cmd;
 			desc[0].len = sizeof(struct ipa_hdr_init_system);
 		}
 	}
@@ -395,15 +428,22 @@ int __ipa_commit_hdr_v2_5(void)
 			IPAERR("tbl too big needed %d avail %d\n",
 				aligned_ctx_mem.size,
 				proc_ctx_size);
-			goto end;
+			goto fail_send_cmd1;
 		} else {
-			dma_cmd_ctx.system_addr = aligned_ctx_mem.phys_base;
-			dma_cmd_ctx.size = aligned_ctx_mem.size;
-			dma_cmd_ctx.local_addr =
+			dma_cmd_ctx = kzalloc(sizeof(*dma_cmd_ctx),
+				GFP_ATOMIC);
+			if (dma_cmd_ctx == NULL) {
+				IPAERR("fail to alloc immediate cmd\n");
+				rc = -ENOMEM;
+				goto fail_send_cmd1;
+			}
+			dma_cmd_ctx->system_addr = aligned_ctx_mem.phys_base;
+			dma_cmd_ctx->size = aligned_ctx_mem.size;
+			dma_cmd_ctx->local_addr =
 				ipa_ctx->smem_restricted_bytes +
 				proc_ctx_ofst;
 			desc[1].opcode = IPA_DMA_SHARED_MEM;
-			desc[1].pyld = &dma_cmd_ctx;
+			desc[1].pyld = (void *)dma_cmd_ctx;
 			desc[1].len =
 				sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
 		}
@@ -413,15 +453,23 @@ int __ipa_commit_hdr_v2_5(void)
 			IPAERR("tbl too big, needed %d avail %d\n",
 				aligned_ctx_mem.size,
 				proc_ctx_size_ddr);
-			goto end;
+			goto fail_send_cmd1;
 		} else {
-			reg_write_cmd.offset = IPA_SYS_PKT_PROC_CNTXT_BASE_OFST;
-			reg_write_cmd.value = aligned_ctx_mem.phys_base;
-			reg_write_cmd.value_mask =
+			reg_write_cmd = kzalloc(sizeof(*reg_write_cmd),
+				GFP_ATOMIC);
+			if (reg_write_cmd == NULL) {
+				IPAERR("fail to alloc immediate cmd\n");
+				rc = -ENOMEM;
+				goto fail_send_cmd1;
+			}
+			reg_write_cmd->offset =
+				IPA_SYS_PKT_PROC_CNTXT_BASE_OFST;
+			reg_write_cmd->value = aligned_ctx_mem.phys_base;
+			reg_write_cmd->value_mask =
 				~(IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE - 1);
-			desc[1].pyld = &reg_write_cmd;
+			desc[1].pyld = (void *)reg_write_cmd;
 			desc[1].opcode = IPA_REGISTER_WRITE;
-			desc[1].len = sizeof(reg_write_cmd);
+			desc[1].len = sizeof(*reg_write_cmd);
 		}
 	}
 	desc[1].type = IPA_IMM_CMD_DESC;
@@ -432,22 +480,16 @@ int __ipa_commit_hdr_v2_5(void)
 	else
 		rc = 0;
 
-	if (ipa_ctx->hdr_tbl_lcl) {
-		dma_free_coherent(ipa_ctx->pdev, hdr_mem.size, hdr_mem.base,
-			hdr_mem.phys_base);
-	} else {
-		if (!rc) {
-			if (ipa_ctx->hdr_mem.phys_base)
-				dma_free_coherent(ipa_ctx->pdev,
-				ipa_ctx->hdr_mem.size,
-				ipa_ctx->hdr_mem.base,
-				ipa_ctx->hdr_mem.phys_base);
-			ipa_ctx->hdr_mem = hdr_mem;
-		}
-	}
+fail_send_cmd1:
+
+	kfree(dma_cmd_hdr);
+	kfree(hdr_init_cmd);
+	kfree(dma_cmd_ctx);
+	kfree(reg_write_cmd);
 
 	if (ipa_ctx->hdr_proc_ctx_tbl_lcl) {
-		dma_free_coherent(ipa_ctx->pdev, ctx_mem.size, ctx_mem.base,
+		dma_free_coherent(ipa_ctx->pdev, ctx_mem.size,
+			ctx_mem.base,
 			ctx_mem.phys_base);
 	} else {
 		if (!rc) {
@@ -457,9 +499,31 @@ int __ipa_commit_hdr_v2_5(void)
 					ipa_ctx->hdr_proc_ctx_mem.base,
 					ipa_ctx->hdr_proc_ctx_mem.phys_base);
 			ipa_ctx->hdr_proc_ctx_mem = ctx_mem;
+		} else {
+			dma_free_coherent(ipa_ctx->pdev, ctx_mem.size,
+				ctx_mem.base,
+				ctx_mem.phys_base);
 		}
 	}
 
+	if (ipa_ctx->hdr_tbl_lcl) {
+		dma_free_coherent(ipa_ctx->pdev, hdr_mem.size,
+			hdr_mem.base,
+			hdr_mem.phys_base);
+	} else {
+		if (!rc) {
+			if (ipa_ctx->hdr_mem.phys_base)
+				dma_free_coherent(ipa_ctx->pdev,
+				ipa_ctx->hdr_mem.size,
+				ipa_ctx->hdr_mem.base,
+				ipa_ctx->hdr_mem.phys_base);
+			ipa_ctx->hdr_mem = hdr_mem;
+		} else {
+			dma_free_coherent(ipa_ctx->pdev, hdr_mem.size,
+				hdr_mem.base,
+				hdr_mem.phys_base);
+		}
+	}
 end:
 	return rc;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1983,6 +1983,7 @@ static int mdss_dsi_clamp_ctrl_default(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct mipi_panel_info *mipi = NULL;
 	u32 clamp_reg, regval = 0;
 	u32 clamp_reg_off;
+	u32 intf_num = 0;
 
 	if (!ctrl) {
 		pr_err("%s: invalid input\n", __func__);
@@ -1992,6 +1993,21 @@ static int mdss_dsi_clamp_ctrl_default(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (!ctrl->mmss_misc_io.base) {
 		pr_err("%s: mmss_misc_io not mapped\n", __func__);
 		return -EINVAL;
+	}
+
+	/*
+	 * For DSI HW version 2.1.0 ULPS_CLAMP register
+	 * is moved to interface level.
+	 */
+	if (ctrl->shared_data->hw_rev == MDSS_DSI_HW_REV_201) {
+		intf_num = ctrl->ndx ? MDSS_MDP_INTF2 : MDSS_MDP_INTF1;
+		if (ctrl->clamp_handler) {
+			ctrl->clamp_handler->fxn(ctrl->clamp_handler->data,
+				intf_num, enable);
+			pr_debug("%s: ndx: %d enable: %d\n",
+					__func__, ctrl->ndx, enable);
+		}
+		return 0;
 	}
 
 	clamp_reg_off = ctrl->shared_data->ulps_clamp_ctrl_off;

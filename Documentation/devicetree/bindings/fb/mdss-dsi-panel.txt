@@ -271,6 +271,8 @@ Optional properties:
 					"trigger_sw_te" = Software trigger and TE
 - qcom,mdss-dsi-panel-framerate:	Specifies the frame rate for the panel.
 					60 = 60 frames per second (default)
+- qcom,mdss-dsi-host-esc-clk-freq-hz:	Specifies the escape clock needed for the host.
+					19200000 = 19.2 MHz (default)
 - qcom,mdss-dsi-panel-clockrate:	A 64 bit value specifies the panel clock speed in Hz.
 					0 = default value.
 - qcom,mdss-mdp-kickoff-threshold:	This property can be used to define a region
@@ -657,6 +659,7 @@ Example:
 		qcom,mdss-dsi-mdp-trigger = <0>;
 		qcom,mdss-dsi-dma-trigger = <0>;
 		qcom,mdss-dsi-panel-framerate = <60>;
+		qcom,mdss-dsi-host-esc-clk-freq-hz = <19200000>;
 		qcom,mdss-dsi-panel-clockrate = <424000000>;
 		qcom,mdss-mdp-kickoff-threshold = <11 2430>;
 		qcom,mdss-mdp-kickoff-delay = <1000>;

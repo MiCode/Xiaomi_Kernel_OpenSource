@@ -2600,6 +2600,7 @@ _nap(struct kgsl_device *device)
 			return -EBUSY;
 		}
 
+		device->ftbl->stop_fault_timer(device);
 		kgsl_pwrscale_midframe_timer_cancel(device);
 
 		/*

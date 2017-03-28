@@ -457,11 +457,15 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 			(atomic_read(&ctx->command_pending) == 0),
 			msecs_to_jiffies(rot_dev->streamoff_timeout));
 	mutex_lock(q->lock);
-	if (!ret)
+	if (!ret) {
 		SDEDEV_ERR(rot_dev->dev,
 				"timeout to stream off s:%d t:%d p:%d\n",
 				ctx->session_id, q->type,
 				atomic_read(&ctx->command_pending));
+		sde_rot_mgr_lock(rot_dev->mgr);
+		sde_rotator_cancel_all_requests(rot_dev->mgr, ctx->private);
+		sde_rot_mgr_unlock(rot_dev->mgr);
+	}
 
 	sde_rotator_return_all_buffers(q, VB2_BUF_STATE_ERROR);
 
@@ -535,6 +539,7 @@ static void *sde_rotator_get_userptr(void *alloc_ctx,
 	buf->ctx = ctx;
 	buf->rot_dev = rot_dev;
 	if (ctx->secure_camera) {
+		buf->buffer = NULL;
 		buf->handle = ion_import_dma_buf(iclient,
 				buf->fd);
 		if (IS_ERR_OR_NULL(buf->handle)) {
@@ -548,6 +553,7 @@ static void *sde_rotator_get_userptr(void *alloc_ctx,
 				buf->ctx->session_id,
 				buf->fd, &buf->handle);
 	} else {
+		buf->handle = NULL;
 		buf->buffer = dma_buf_get(buf->fd);
 		if (IS_ERR_OR_NULL(buf->buffer)) {
 			SDEDEV_ERR(rot_dev->dev,
@@ -574,6 +580,8 @@ error_buf_get:
 static void sde_rotator_put_userptr(void *buf_priv)
 {
 	struct sde_rotator_buf_handle *buf = buf_priv;
+	struct ion_client *iclient;
+	struct sde_rotator_device *rot_dev;
 
 	if (IS_ERR_OR_NULL(buf))
 		return;
@@ -584,6 +592,9 @@ static void sde_rotator_put_userptr(void *buf_priv)
 		return;
 	}
 
+	rot_dev = buf->ctx->rot_dev;
+	iclient = buf->rot_dev->mdata->iclient;
+
 	SDEDEV_DBG(buf->rot_dev->dev, "put dmabuf s:%d fd:%d buf:%pad\n",
 			buf->ctx->session_id,
 			buf->fd, &buf->buffer);
@@ -591,6 +602,11 @@ static void sde_rotator_put_userptr(void *buf_priv)
 	if (buf->buffer) {
 		dma_buf_put(buf->buffer);
 		buf->buffer = NULL;
+	}
+
+	if (buf->handle) {
+		ion_free(iclient, buf->handle);
+		buf->handle = NULL;
 	}
 
 	kfree(buf_priv);

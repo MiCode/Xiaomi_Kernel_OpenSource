@@ -241,6 +241,10 @@ struct msm_mdp_interface {
 				out = (2 * (v) * (bl_max) + max_bright);\
 				do_div(out, 2 * max_bright);\
 				} while (0)
+#define MDSS_BL_TO_BRIGHT(out, v, bl_max, max_bright) do {\
+				out = ((v) * (max_bright));\
+				do_div(out, bl_max);\
+				} while (0)
 
 struct mdss_fb_file_info {
 	struct file *file;
@@ -305,6 +309,7 @@ struct msm_fb_data_type {
 	u32 calib_mode_bl;
 	u32 ad_bl_level;
 	u32 bl_level;
+	int bl_extn_level;
 	u32 bl_scale;
 	u32 unset_bl_level;
 	bool allow_bl_update;
@@ -468,4 +473,5 @@ void mdss_fb_report_panel_dead(struct msm_fb_data_type *mfd);
 void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 						struct fb_var_screeninfo *var);
 void mdss_fb_calc_fps(struct msm_fb_data_type *mfd);
+void mdss_fb_idle_pc(struct msm_fb_data_type *mfd);
 #endif /* MDSS_FB_H */

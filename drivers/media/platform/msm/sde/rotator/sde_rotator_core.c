@@ -1975,7 +1975,7 @@ static void sde_rotator_cancel_request(struct sde_rot_mgr *mgr,
 	devm_kfree(&mgr->pdev->dev, req);
 }
 
-static void sde_rotator_cancel_all_requests(struct sde_rot_mgr *mgr,
+void sde_rotator_cancel_all_requests(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *private)
 {
 	struct sde_rot_entry_container *req, *req_next;

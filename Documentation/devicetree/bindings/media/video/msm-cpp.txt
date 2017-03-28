@@ -70,6 +70,13 @@ Optional properties:
   The first entry is register offset and second entry is register value.
 - qcom,micro-reset: Boolean flag indicating if micro reset need to be enabled.
   This needs to present on platforms that support this feature.
+- qcom,cpp-cx-ipeak: To handle Cx peak current limit.
+                     <phandle bit>
+                     phandle - phandle of cx ipeak device node
+                     bit     - bit number of client in relevant register
+  This is used to access Cx ipeak HW module to limit the current drawn by
+  various subsystem blocks on Cx power rail. CPP set their bit in tcsr register
+  if it is going to cross its own threshold.
 
 Example:
 
@@ -105,6 +112,7 @@ Example:
 			"micro_iface_clk", "camss_ahb_clk";
 			"smmu_cpp_axi_clk", "cpp_vbif_ahb_clk";
 		qcom,clock-rates = <0 0 0 0 465000000 0 0 465000000 0 0 0 0>;
+		qcom,cpp-cx-ipeak = <&cx_ipeak_lm 2>;
 		qcom,min-clock-rate = <320000000>;
 		qcom,bus-master = <1>;
 		qcom,vbif-qos-setting = <0x20 0x10000000>,

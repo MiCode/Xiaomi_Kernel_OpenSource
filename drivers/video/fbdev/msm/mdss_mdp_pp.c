@@ -2146,6 +2146,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix,
 	unsigned long flag;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 intr_mask;
+	u32 expected_sum = 0;
 
 	if (!mdata)
 		return -EPERM;
@@ -2156,6 +2157,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix,
 		block_type = DSPP;
 		op_flags = BIT(16);
 		hist_info = &mdss_pp_res->dspp_hist[mix->num];
+		expected_sum = mix->width * mix->height;
 		base = mdss_mdp_get_dspp_addr_off(PP_BLOCK(block));
 		if (IS_ERR(base)) {
 			ret = -EPERM;
@@ -2206,6 +2208,15 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix,
 							block_type);
 	else if (hist_info->col_en)
 		*op |= op_flags;
+
+	if (hist_info->col_en) {
+		if (!hist_info->expect_sum) {
+			hist_info->expect_sum = expected_sum;
+		} else if (hist_info->expect_sum != expected_sum) {
+			hist_info->expect_sum = 0;
+			hist_info->next_sum = expected_sum;
+		}
+	}
 
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 	mutex_unlock(&hist_info->hist_mutex);
@@ -5276,8 +5287,7 @@ exit:
 
 static int pp_hist_collect(struct mdp_histogram_data *hist,
 				struct pp_hist_col_info *hist_info,
-				char __iomem *ctl_base, u32 expect_sum,
-				u32 block)
+				char __iomem *ctl_base, u32 block)
 {
 	int ret = 0;
 	int sum = 0;
@@ -5318,10 +5328,15 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 	if (sum < 0) {
 		pr_err("failed to get the hist data, sum = %d\n", sum);
 		ret = sum;
-	} else if (expect_sum && sum != expect_sum) {
+	} else if (hist_info->expect_sum && sum != hist_info->expect_sum) {
 		pr_err_ratelimited("hist error: bin sum incorrect! (%d/%d)\n",
-					sum, expect_sum);
+					sum, hist_info->expect_sum);
 		ret = -EINVAL;
+	}
+
+	if (hist_info->next_sum) {
+		hist_info->expect_sum = hist_info->next_sum;
+		hist_info->next_sum = 0;
 	}
 hist_collect_exit:
 	mutex_unlock(&hist_info->hist_mutex);
@@ -5387,8 +5402,7 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 					mdata->mixer_intf[dspp_num].height);
 			if (ret)
 				temp_ret = ret;
-			ret = pp_hist_collect(hist, hists[i], ctl_base,
-				exp_sum, DSPP);
+			ret = pp_hist_collect(hist, hists[i], ctl_base, DSPP);
 			if (ret)
 				pr_err_ratelimited("hist error: dspp[%d] collect %d\n",
 							dspp_num, ret);
@@ -5487,7 +5501,7 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			if (ret)
 				temp_ret = ret;
 			ret = pp_hist_collect(hist, hist_info, ctl_base,
-				exp_sum, SSPP_VIG);
+				SSPP_VIG);
 			if (ret)
 				pr_debug("hist error: pipe[%d] collect: %d\n",
 					pipe->num, ret);

@@ -315,7 +315,8 @@
 			dpdm-supply = <&qusb_phy0>;
 
 			qcom,thermal-mitigation
-					= <3000000 1500000 1000000 500000>;
+					= <3000000 2500000 2000000 1500000
+						1000000 500000>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -607,6 +608,7 @@
 			interrupts = <0x1 0xc0 0x0 IRQ_TYPE_NONE>,
 				     <0x1 0xc0 0x1 IRQ_TYPE_NONE>;
 			interrupt-names = "sc-irq", "play-irq";
+			qcom,pmic-revid = <&pm660_revid>;
 			qcom,actuator-type = "lra";
 			qcom,play-mode = "direct";
 			qcom,vmax-mv = <3200>;
@@ -619,9 +621,9 @@
 			qcom,brake-pattern = [03 03 00 00];
 			qcom,use-play-irq;
 			qcom,use-sc-irq;
-			qcom,lra-high-z = "opt1";
+			qcom,lra-high-z = "opt0";
 			qcom,lra-auto-res-mode = "qwd";
-			qcom,lra-res-cal-period = <4>;
+			qcom,lra-calibrate-at-eop = <0>;
 			qcom,correct-lra-drive-freq;
 			qcom,misc-trim-error-rc19p2-clk-reg-present;
 		};

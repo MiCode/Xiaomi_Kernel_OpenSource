@@ -291,7 +291,7 @@ void mdss_dp_hpd_configure(struct dss_io_data *ctrl_io, bool enable);
 void mdss_dp_aux_ctrl(struct dss_io_data *ctrl_io, bool enable);
 void mdss_dp_mainlink_ctrl(struct dss_io_data *ctrl_io, bool enable);
 void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io, char *l_map);
-int mdss_dp_mainlink_ready(struct mdss_dp_drv_pdata *dp, u32 which);
+bool mdss_dp_mainlink_ready(struct mdss_dp_drv_pdata *dp);
 void mdss_dp_timing_cfg(struct dss_io_data *ctrl_io,
 				struct mdss_panel_info *pinfo);
 void mdss_dp_configuration_ctrl(struct dss_io_data *ctrl_io, u32 data);

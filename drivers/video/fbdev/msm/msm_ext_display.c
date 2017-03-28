@@ -436,11 +436,6 @@ static bool msm_ext_disp_validate_connect(struct msm_ext_disp *ext_disp,
 	/* if already connected, block a new connection  */
 	if (ext_disp->current_disp != type)
 		return false;
-
-	/* if same display connected, block same connection type */
-	if (ext_disp->flags & flags)
-		return false;
-
 end:
 	ext_disp->flags |= flags;
 	ext_disp->current_disp = type;
