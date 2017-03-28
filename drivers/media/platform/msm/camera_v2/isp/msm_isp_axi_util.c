@@ -728,8 +728,9 @@ void msm_isp_reset_framedrop(struct vfe_device *vfe_dev,
 		stream_info->runtime_num_burst_capture);
 }
 
-void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
-	struct msm_isp_timestamp *ts, struct msm_isp_sof_info *sof_info)
+static void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
+	struct msm_isp_timestamp *ts, struct msm_isp_sof_info *sof_info,
+	enum msm_vfe_input_src frame_src)
 {
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_shared_data *axi_data;
@@ -753,10 +754,12 @@ void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
 		sof_info->regs_not_updated =
 			vfe_dev->reg_update_requested;
 	}
+
 	for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
 		struct msm_vfe_axi_stream *temp_stream_info;
-
 		stream_info = &axi_data->stream_info[i];
+		if (SRC_TO_INTF(stream_info->stream_src) != frame_src)
+			continue;
 		stream_idx = HANDLE_TO_IDX(stream_info->stream_handle);
 
 		/*
@@ -1088,7 +1091,7 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 		} else {
 			if (frame_src <= VFE_RAW_2) {
 				msm_isp_check_for_output_error(vfe_dev, ts,
-					&event_data.u.sof_info);
+					&event_data.u.sof_info, frame_src);
 			}
 		}
 		/*
@@ -3057,6 +3060,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			if (intf >= VFE_RAW_0 &&
 				intf < VFE_SRC_MAX) {
 				vfe_dev->axi_data.src_info[intf].active = 0;
+				vfe_dev->axi_data.src_info[intf].flag = 0;
 				/* reset frame_id for RDI path */
 				if (halt) {
 					vfe_dev->
@@ -3108,6 +3112,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		for (i = VFE_RAW_0; i < VFE_SRC_MAX; i++) {
 			if (src_mask & (1 << i)) {
 				vfe_dev->axi_data.src_info[i].active = 0;
+				vfe_dev->axi_data.src_info[i].flag = 0;
 				/* reset frame_id for RDI path */
 				if (halt) {
 					vfe_dev->

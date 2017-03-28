@@ -468,6 +468,9 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 
 	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state))
 		complete(&plat_priv->fw_ready_event);
+	else if (enable_waltest)
+		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
+						    QMI_WLFW_WALTEST_V01);
 	else
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
 						    QMI_WLFW_CALIBRATION_V01);
@@ -1059,12 +1062,6 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 	}
 
 skip_fw_ready:
-	if (enable_waltest) {
-		cnss_pr_dbg("Firmware waltest is enabled.\n");
-		ret = 0;
-		goto out;
-	}
-
 	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state)) {
 		ret = plat_priv->driver_ops->probe(pci_priv->pci_dev,
 						   pci_priv->pci_device_id);
@@ -1113,9 +1110,6 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 	if (!plat_priv->driver_ops)
 		return -EINVAL;
 
-	if (enable_waltest)
-		goto bypass_driver_remove;
-
 	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state)) {
 		cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
 		plat_priv->driver_ops->remove(pci_priv->pci_dev);
@@ -1126,7 +1120,6 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 		plat_priv->driver_ops->shutdown(pci_priv->pci_dev);
 	}
 
-bypass_driver_remove:
 	cnss_pci_stop_mhi(pci_priv);
 
 	ret = cnss_suspend_pci_link(pci_priv);
