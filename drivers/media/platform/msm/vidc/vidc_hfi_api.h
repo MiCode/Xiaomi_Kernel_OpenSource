@@ -234,7 +234,6 @@ enum hal_property {
 	HAL_PARAM_VENC_BITRATE_TYPE,
 	HAL_PARAM_VENC_H264_PIC_ORDER_CNT,
 	HAL_PARAM_VENC_LOW_LATENCY,
-	HAL_PARAM_VENC_CONSTRAINED_INTRA_PRED,
 	HAL_CONFIG_VENC_BLUR_RESOLUTION,
 	HAL_PARAM_VENC_H264_TRANSFORM_8x8,
 	HAL_PARAM_VENC_VIDEO_SIGNAL_INFO,
@@ -793,17 +792,13 @@ struct hal_operations {
 enum hal_intra_refresh_mode {
 	HAL_INTRA_REFRESH_NONE,
 	HAL_INTRA_REFRESH_CYCLIC,
-	HAL_INTRA_REFRESH_ADAPTIVE,
-	HAL_INTRA_REFRESH_CYCLIC_ADAPTIVE,
 	HAL_INTRA_REFRESH_RANDOM,
 	HAL_UNUSED_INTRA = 0x10000000,
 };
 
 struct hal_intra_refresh {
 	enum hal_intra_refresh_mode mode;
-	u32 air_mbs;
-	u32 air_ref;
-	u32 cir_mbs;
+	u32 ir_mbs;
 };
 
 enum hal_multi_slice {

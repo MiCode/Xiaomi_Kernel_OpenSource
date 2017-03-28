@@ -1481,21 +1481,13 @@ int create_pkt_cmd_session_set_property(
 		case HAL_INTRA_REFRESH_NONE:
 			hfi->mode = HFI_INTRA_REFRESH_NONE;
 			break;
-		case HAL_INTRA_REFRESH_ADAPTIVE:
-			hfi->mode = HFI_INTRA_REFRESH_ADAPTIVE;
-			hfi->mbs = prop->air_mbs;
-			break;
 		case HAL_INTRA_REFRESH_CYCLIC:
 			hfi->mode = HFI_INTRA_REFRESH_CYCLIC;
-			hfi->mbs = prop->cir_mbs;
-			break;
-		case HAL_INTRA_REFRESH_CYCLIC_ADAPTIVE:
-			hfi->mode = HFI_INTRA_REFRESH_CYCLIC_ADAPTIVE;
-			hfi->mbs = prop->air_mbs;
+			hfi->mbs = prop->ir_mbs;
 			break;
 		case HAL_INTRA_REFRESH_RANDOM:
 			hfi->mode = HFI_INTRA_REFRESH_RANDOM;
-			hfi->mbs = prop->air_mbs;
+			hfi->mbs = prop->ir_mbs;
 			break;
 		default:
 			dprintk(VIDC_ERR,
