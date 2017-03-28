@@ -89,6 +89,7 @@
 #include "sched.h"
 #include "../workqueue_internal.h"
 #include "../smpboot.h"
+#include "../time/tick-internal.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
@@ -3393,7 +3394,8 @@ void scheduler_tick(void)
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
 
-	core_ctl_check(wallclock);
+	if (cpu == tick_do_timer_cpu)
+		core_ctl_check(wallclock);
 	sched_freq_tick(cpu);
 }
 
