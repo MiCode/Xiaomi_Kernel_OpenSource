@@ -27,6 +27,7 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/qpnp-labibb-regulator.h>
 #include <linux/qpnp/qpnp-pbs.h>
+#include <linux/qpnp/qpnp-revid.h>
 
 #define QPNP_OLEDB_REGULATOR_DRIVER_NAME	"qcom,qpnp-oledb-regulator"
 #define OLEDB_VOUT_STEP_MV				100
@@ -162,6 +163,7 @@ struct qpnp_oledb {
 	struct notifier_block			oledb_nb;
 	struct mutex				bus_lock;
 	struct device_node			*pbs_dev_node;
+	struct pmic_revid_data			*pmic_rev_id;
 
 	u32					base;
 	u8					mod_enable;
@@ -1085,7 +1087,21 @@ static int qpnp_oledb_parse_fast_precharge(struct qpnp_oledb *oledb)
 static int qpnp_oledb_parse_dt(struct qpnp_oledb *oledb)
 {
 	int rc = 0;
+	struct device_node *revid_dev_node;
 	struct device_node *of_node = oledb->dev->of_node;
+
+	revid_dev_node = of_parse_phandle(oledb->dev->of_node,
+					"qcom,pmic-revid", 0);
+	if (!revid_dev_node) {
+		pr_err("Missing qcom,pmic-revid property - driver failed\n");
+		return -EINVAL;
+	}
+
+	oledb->pmic_rev_id = get_revid_data(revid_dev_node);
+	if (IS_ERR(oledb->pmic_rev_id)) {
+		pr_debug("Unable to get revid data\n");
+		return -EPROBE_DEFER;
+	}
 
 	oledb->swire_control =
 			of_property_read_bool(of_node, "qcom,swire-control");
