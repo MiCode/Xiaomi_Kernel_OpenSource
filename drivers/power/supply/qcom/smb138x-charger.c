@@ -96,6 +96,7 @@ struct smb_dt_props {
 	int	dc_icl_ua;
 	int	chg_temp_max_mdegc;
 	int	connector_temp_max_mdegc;
+	int	pl_mode;
 };
 
 struct smb138x {
@@ -160,6 +161,11 @@ static int smb138x_parse_dt(struct smb138x *chip)
 		pr_err("device tree node missing\n");
 		return -EINVAL;
 	}
+
+	rc = of_property_read_u32(node,
+				"qcom,parallel-mode", &chip->dt.pl_mode);
+	if (rc < 0)
+		chip->dt.pl_mode = POWER_SUPPLY_PL_USBMID_USBMID;
 
 	chip->dt.suspend_input = of_property_read_bool(node,
 				"qcom,suspend-input");
@@ -588,7 +594,7 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 		val->strval = "smb138x";
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
-		val->intval = POWER_SUPPLY_PL_USBMID_USBMID;
+		val->intval = chip->dt.pl_mode;
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		val->intval = smb138x_get_prop_connector_health(chip);
@@ -1458,6 +1464,15 @@ static int smb138x_slave_probe(struct smb138x *chip)
 		goto cleanup;
 	}
 
+	if (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN) {
+		rc = smb138x_init_vbus_regulator(chip);
+		if (rc < 0) {
+			pr_err("Couldn't initialize vbus regulator rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	rc = smb138x_init_parallel_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize parallel psy rc=%d\n", rc);
@@ -1482,6 +1497,8 @@ cleanup:
 	smblib_deinit(chg);
 	if (chip->parallel_psy)
 		power_supply_unregister(chip->parallel_psy);
+	if (chg->vbus_vreg && chg->vbus_vreg->rdev)
+		regulator_unregister(chg->vbus_vreg->rdev);
 	return rc;
 }
 
