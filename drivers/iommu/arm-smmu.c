@@ -3954,6 +3954,10 @@ IOMMU_OF_DECLARE(cavium_smmuv2, "cavium,smmu-v2", arm_smmu_of_init);
 
 #define TBU_DBG_TIMEOUT_US		30000
 
+struct qsmmuv500_archdata {
+	struct list_head		tbus;
+};
+
 struct qsmmuv500_tbu_device {
 	struct list_head		list;
 	struct device			*dev;
@@ -3971,10 +3975,10 @@ struct qsmmuv500_tbu_device {
 static int qsmmuv500_tbu_power_on_all(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv500_tbu_device *tbu;
-	struct list_head *list = smmu->archdata;
+	struct qsmmuv500_archdata *data = smmu->archdata;
 	int ret = 0;
 
-	list_for_each_entry(tbu, list, list) {
+	list_for_each_entry(tbu, &data->tbus, list) {
 		ret = arm_smmu_power_on(tbu->pwr);
 		if (ret)
 			break;
@@ -3982,7 +3986,7 @@ static int qsmmuv500_tbu_power_on_all(struct arm_smmu_device *smmu)
 	if (!ret)
 		return 0;
 
-	list_for_each_entry_continue_reverse(tbu, list, list) {
+	list_for_each_entry_continue_reverse(tbu, &data->tbus, list) {
 		arm_smmu_power_off(tbu->pwr);
 	}
 	return ret;
@@ -3991,9 +3995,9 @@ static int qsmmuv500_tbu_power_on_all(struct arm_smmu_device *smmu)
 static void qsmmuv500_tbu_power_off_all(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv500_tbu_device *tbu;
-	struct list_head *list = smmu->archdata;
+	struct qsmmuv500_archdata *data = smmu->archdata;
 
-	list_for_each_entry_reverse(tbu, list, list) {
+	list_for_each_entry_reverse(tbu, &data->tbus, list) {
 		arm_smmu_power_off(tbu->pwr);
 	}
 }
@@ -4059,10 +4063,10 @@ static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
 static int qsmmuv500_halt_all(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv500_tbu_device *tbu;
-	struct list_head *list = smmu->archdata;
+	struct qsmmuv500_archdata *data = smmu->archdata;
 	int ret = 0;
 
-	list_for_each_entry(tbu, list, list) {
+	list_for_each_entry(tbu, &data->tbus, list) {
 		ret = qsmmuv500_tbu_halt(tbu);
 		if (ret)
 			break;
@@ -4071,7 +4075,7 @@ static int qsmmuv500_halt_all(struct arm_smmu_device *smmu)
 	if (!ret)
 		return 0;
 
-	list_for_each_entry_continue_reverse(tbu, list, list) {
+	list_for_each_entry_continue_reverse(tbu, &data->tbus, list) {
 		qsmmuv500_tbu_resume(tbu);
 	}
 	return ret;
@@ -4080,9 +4084,9 @@ static int qsmmuv500_halt_all(struct arm_smmu_device *smmu)
 static void qsmmuv500_resume_all(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv500_tbu_device *tbu;
-	struct list_head *list = smmu->archdata;
+	struct qsmmuv500_archdata *data = smmu->archdata;
 
-	list_for_each_entry(tbu, list, list) {
+	list_for_each_entry(tbu, &data->tbus, list) {
 		qsmmuv500_tbu_resume(tbu);
 	}
 }
@@ -4127,15 +4131,15 @@ static int qsmmuv500_tbu_register(struct device *dev, void *data)
 static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 {
 	struct device *dev = smmu->dev;
-	struct list_head *list;
+	struct qsmmuv500_archdata *data;
 	int ret;
 
-	list = devm_kzalloc(dev, sizeof(*list), GFP_KERNEL);
-	if (!list)
+	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	if (!data)
 		return -ENOMEM;
 
-	INIT_LIST_HEAD(list);
-	smmu->archdata = list;
+	INIT_LIST_HEAD(&data->tbus);
+	smmu->archdata = data;
 
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
 	if (ret)
