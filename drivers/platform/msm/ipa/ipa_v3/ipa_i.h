@@ -1173,6 +1173,7 @@ struct ipa3_context {
 	u32 curr_ipa_clk_rate;
 	bool q6_proxy_clk_vote_valid;
 	u32 ipa_num_pipes;
+	dma_addr_t pkt_init_imm[IPA3_MAX_NUM_PIPES];
 
 	struct ipa3_wlan_comm_memb wc_memb;
 

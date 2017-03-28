@@ -4246,6 +4246,52 @@ static int ipa3_tz_unlock_reg(struct ipa3_context *ipa3_ctx)
 	return 0;
 }
 
+static int ipa3_alloc_pkt_init(void)
+{
+	struct ipa_mem_buffer mem;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
+	struct ipahal_imm_cmd_ip_packet_init cmd = {0};
+	int i;
+
+	cmd_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_IP_PACKET_INIT,
+		&cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("failed to construct IMM cmd\n");
+		return -ENOMEM;
+	}
+
+	mem.size = cmd_pyld->len * ipa3_ctx->ipa_num_pipes;
+	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size,
+		&mem.phys_base, GFP_KERNEL);
+	if (!mem.base) {
+		IPAERR("failed to alloc DMA buff of size %d\n", mem.size);
+		ipahal_destroy_imm_cmd(cmd_pyld);
+		return -ENOMEM;
+	}
+	ipahal_destroy_imm_cmd(cmd_pyld);
+
+	memset(mem.base, 0, mem.size);
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		cmd.destination_pipe_index = i;
+		cmd_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_IP_PACKET_INIT,
+			&cmd, false);
+		if (!cmd_pyld) {
+			IPAERR("failed to construct IMM cmd\n");
+			dma_free_coherent(ipa3_ctx->pdev,
+				mem.size,
+				mem.base,
+				mem.phys_base);
+			return -ENOMEM;
+		}
+		memcpy(mem.base + i * cmd_pyld->len, cmd_pyld->data,
+			cmd_pyld->len);
+		ipa3_ctx->pkt_init_imm[i] = mem.phys_base + i * cmd_pyld->len;
+		ipahal_destroy_imm_cmd(cmd_pyld);
+	}
+
+	return 0;
+}
+
 /**
 * ipa3_pre_init() - Initialize the IPA Driver.
 * This part contains all initialization which doesn't require IPA HW, such
@@ -4651,6 +4697,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	result = ipa3_create_apps_resource();
 	if (result) {
 		IPAERR("Failed to create APPS_CONS resource\n");
+		result = -ENODEV;
+		goto fail_create_apps_resource;
+	}
+
+	result = ipa3_alloc_pkt_init();
+	if (result) {
+		IPAERR("Failed to alloc pkt_init payload\n");
 		result = -ENODEV;
 		goto fail_create_apps_resource;
 	}
