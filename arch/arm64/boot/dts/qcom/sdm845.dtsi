@@ -1468,10 +1468,12 @@
 				  "l3-scu-faultirq";
 	};
 
-	qcom,llcc@1300000 {
+	qcom,llcc@1100000 {
 		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
-		reg = <0x1300000 0x50000>;
+		reg = <0x1100000 0x250000>;
 		reg-names = "llcc_base";
+		qcom,llcc-banks-off = <0x0 0x80000 0x100000 0x180000>;
+		qcom,llcc-broadcast-off = <0x200000>;
 
 		llcc: qcom,sdm845-llcc {
 			compatible = "qcom,sdm845-llcc";
