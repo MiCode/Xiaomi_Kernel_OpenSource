@@ -561,6 +561,7 @@ static int _validate_dt_entry(struct device_node *np,
 				rc = -EINVAL;
 			}
 			*off_count = 0;
+			memset(prop_count, 0, sizeof(int *) * prop_size);
 			return rc;
 		}
 	}
@@ -629,7 +630,7 @@ static int _validate_dt_entry(struct device_node *np,
 			rc = 0;
 			prop_count[i] = 0;
 		}
-		if (!off_count && prop_count[i] < 0) {
+		if (prop_count[i] < 0) {
 			prop_count[i] = 0;
 			if (sde_prop[i].is_mandatory) {
 				SDE_ERROR("prop:%s count:%d is negative\n",
@@ -2292,6 +2293,8 @@ static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 	if (!sde_cfg)
 		return -EINVAL;
 
+	rc = sde_hardware_format_caps(sde_cfg, hw_rev);
+
 	switch (hw_rev) {
 	case SDE_HW_VER_170:
 	case SDE_HW_VER_171:
@@ -2302,8 +2305,9 @@ static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 	case SDE_HW_VER_301:
 	case SDE_HW_VER_400:
 		/* update msm8998 and sdm845 target here */
-		rc = sde_hardware_format_caps(sde_cfg, hw_rev);
 		sde_cfg->has_wb_ubwc = true;
+		break;
+	default:
 		break;
 	}
 

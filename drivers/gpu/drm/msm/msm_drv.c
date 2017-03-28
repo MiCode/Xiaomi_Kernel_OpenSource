@@ -306,11 +306,8 @@ static int msm_drm_uninit(struct device *dev)
 
 	sde_dbg_destroy();
 
-	sde_power_client_destroy(&priv->phandle, priv->pclient);
-	sde_power_resource_deinit(pdev, &priv->phandle);
-
 	component_unbind_all(dev, ddev);
-
+	sde_power_client_destroy(&priv->phandle, priv->pclient);
 	sde_power_resource_deinit(pdev, &priv->phandle);
 
 	msm_mdss_destroy(ddev);
@@ -493,20 +490,20 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	ret = sde_power_resource_init(pdev, &priv->phandle);
 	if (ret) {
 		pr_err("sde power resource init failed\n");
-		goto fail;
+		goto power_init_fail;
 	}
 
 	priv->pclient = sde_power_client_create(&priv->phandle, "sde");
 	if (IS_ERR_OR_NULL(priv->pclient)) {
 		pr_err("sde power client create failed\n");
 		ret = -EINVAL;
-		goto fail;
+		goto power_client_fail;
 	}
 
 	/* Bind all our sub-components: */
 	ret = msm_component_bind_all(dev, ddev);
 	if (ret)
-		return ret;
+		goto bind_fail;
 
 	ret = msm_init_vram(ddev);
 	if (ret)
@@ -636,6 +633,12 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 fail:
 	msm_drm_uninit(dev);
 	return ret;
+bind_fail:
+	sde_power_client_destroy(&priv->phandle, priv->pclient);
+power_client_fail:
+	sde_power_resource_deinit(pdev, &priv->phandle);
+power_init_fail:
+	msm_mdss_destroy(ddev);
 mdss_init_fail:
 	kfree(priv);
 priv_alloc_fail:
