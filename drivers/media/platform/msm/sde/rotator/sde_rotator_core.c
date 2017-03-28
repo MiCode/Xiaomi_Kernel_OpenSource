@@ -67,6 +67,8 @@
 #define ROT_OVERHEAD_NUMERATOR		27
 #define ROT_OVERHEAD_DENOMINATOR	10000
 
+/* default minimum bandwidth vote */
+#define ROT_ENABLE_BW_VOTE		64000
 /*
  * Max rotator hw blocks possible. Used for upper array limits instead of
  * alloc and freeing small array
@@ -95,6 +97,9 @@ static struct msm_bus_scale_pdata rot_reg_bus_scale_table = {
 	.name = "mdss_rot_reg",
 	.active_only = 1,
 };
+
+/* forward prototype */
+static int sde_rotator_update_perf(struct sde_rot_mgr *mgr);
 
 static int sde_rotator_bus_scale_set_quota(struct sde_rot_bus_data_type *bus,
 		u64 quota)
@@ -292,6 +297,7 @@ static int sde_rotator_update_clk(struct sde_rot_mgr *mgr)
 
 static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 {
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	int ret;
 
 	if (WARN_ON(mgr->regulator_enable == on)) {
@@ -301,6 +307,11 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 
 	SDEROT_EVTLOG(on);
 	SDEROT_DBG("%s: rotator regulators\n", on ? "Enable" : "Disable");
+
+	if (test_bit(SDE_CAPS_MIN_BUS_VOTE, mdata->sde_caps_map) && on) {
+		mgr->minimum_bw_vote = mgr->enable_bw_vote;
+		sde_rotator_update_perf(mgr);
+	}
 
 	if (mgr->ops_hw_pre_pmevent)
 		mgr->ops_hw_pre_pmevent(mgr, on);
@@ -315,6 +326,11 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 
 	if (mgr->ops_hw_post_pmevent)
 		mgr->ops_hw_post_pmevent(mgr, on);
+
+	if (test_bit(SDE_CAPS_MIN_BUS_VOTE, mdata->sde_caps_map) && !on) {
+		mgr->minimum_bw_vote = 0;
+		sde_rotator_update_perf(mgr);
+	}
 
 	mgr->regulator_enable = on;
 }
@@ -1323,6 +1339,7 @@ static int sde_rotator_update_perf(struct sde_rot_mgr *mgr)
 	}
 
 	total_bw += mgr->pending_close_bw_vote;
+	total_bw = max_t(u64, total_bw, mgr->minimum_bw_vote);
 	sde_rotator_enable_reg_bus(mgr, total_bw);
 	ATRACE_INT("bus_quota", total_bw);
 	sde_rotator_bus_scale_set_quota(&mgr->data_bus, total_bw);
@@ -2794,6 +2811,7 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 	mgr->pdev = pdev;
 	mgr->device = &pdev->dev;
 	mgr->pending_close_bw_vote = 0;
+	mgr->enable_bw_vote = ROT_ENABLE_BW_VOTE;
 	mgr->hwacquire_timeout = ROT_HW_ACQUIRE_TIMEOUT_IN_MS;
 	mgr->queue_count = 1;
 	mgr->pixel_per_clk.numer = ROT_PIXEL_PER_CLK_NUMERATOR;
@@ -3013,6 +3031,7 @@ int sde_rotator_pm_suspend(struct device *dev)
 	sde_rot_mgr_lock(mgr);
 	atomic_inc(&mgr->device_suspended);
 	sde_rotator_suspend_cancel_rot_work(mgr);
+	mgr->minimum_bw_vote = 0;
 	sde_rotator_update_perf(mgr);
 	ATRACE_END("pm_active");
 	SDEROT_DBG("end pm active %d\n", atomic_read(&mgr->device_suspended));

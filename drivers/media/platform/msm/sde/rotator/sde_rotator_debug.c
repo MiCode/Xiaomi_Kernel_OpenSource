@@ -868,6 +868,12 @@ static int sde_rotator_core_create_debugfs(
 		return -EINVAL;
 	}
 
+	if (!debugfs_create_u64("enable_bw_vote", 0644,
+			debugfs_root, &mgr->enable_bw_vote)) {
+		SDEROT_WARN("failed to create enable_bw_vote\n");
+		return -EINVAL;
+	}
+
 	if (mgr->ops_hw_create_debugfs) {
 		ret = mgr->ops_hw_create_debugfs(mgr, debugfs_root);
 		if (ret)

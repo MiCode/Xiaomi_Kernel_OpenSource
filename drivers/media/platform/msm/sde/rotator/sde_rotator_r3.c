@@ -2210,6 +2210,7 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 	/* features exposed via mdss h/w version */
 	if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version, SDE_MDP_HW_REV_400)) {
 		SDEROT_DBG("Supporting sys cache inline rotation\n");
+		set_bit(SDE_CAPS_MIN_BUS_VOTE,  mdata->sde_caps_map);
 		set_bit(SDE_CAPS_SBUF_1,  mdata->sde_caps_map);
 		rot->inpixfmts = sde_hw_rotator_v4_inpixfmts;
 		rot->num_inpixfmt = ARRAY_SIZE(sde_hw_rotator_v4_inpixfmts);
