@@ -158,8 +158,6 @@ static void _sde_hdmi_phy_reset(struct hdmi *hdmi)
 				val | HDMI_PHY_CTRL_SW_RESET_PLL);
 	}
 
-	msleep(100);
-
 	if (val & HDMI_PHY_CTRL_SW_RESET_LOW) {
 		/* pull high */
 		hdmi_write(hdmi, REG_HDMI_PHY_CTRL,
