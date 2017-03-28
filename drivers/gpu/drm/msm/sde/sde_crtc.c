@@ -1299,7 +1299,6 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	struct sde_crtc_mixer *mixer;
 	struct sde_hw_mixer *lm;
 	struct drm_display_mode *mode;
-	struct sde_hw_mixer_cfg cfg;
 	struct drm_encoder *encoder;
 	int i;
 
@@ -1330,11 +1329,11 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
 		lm = mixer[i].hw_lm;
-		cfg.out_width = sde_crtc_mixer_width(sde_crtc, mode);
-		cfg.out_height = mode->vdisplay;
-		cfg.right_mixer = (i == 0) ? false : true;
-		cfg.flags = 0;
-		lm->ops.setup_mixer_out(lm, &cfg);
+		lm->cfg.out_width = sde_crtc_mixer_width(sde_crtc, mode);
+		lm->cfg.out_height = mode->vdisplay;
+		lm->cfg.right_mixer = (i == 0) ? false : true;
+		lm->cfg.flags = 0;
+		lm->ops.setup_mixer_out(lm, &lm->cfg);
 	}
 }
 

@@ -739,6 +739,9 @@ struct sde_mdss_cfg {
 
 	u32 reg_dma_count;
 	struct sde_reg_dma_cfg dma_cfg;
+
+	u32 ad_count;
+
 	/* Add additional block data structures here */
 
 	struct sde_perf_cfg perf;

@@ -124,6 +124,8 @@ struct sde_crtc_event {
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
  * @dirty_list    : list of color processing features are dirty
+ * @ad_dirty: list containing ad properties that are dirty
+ * @ad_active: list containing ad properties that are active
  * @crtc_lock     : crtc lock around create, destroy and access.
  * @frame_pending : Whether or not an update is pending
  * @frame_events  : static allocation of in-flight frame events
@@ -165,6 +167,8 @@ struct sde_crtc {
 	struct list_head feature_list;
 	struct list_head active_list;
 	struct list_head dirty_list;
+	struct list_head ad_dirty;
+	struct list_head ad_active;
 
 	struct mutex crtc_lock;
 

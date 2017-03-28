@@ -139,6 +139,20 @@ struct sde_hw_dspp_ops {
 	 * @cfg: Pointer to configuration
 	 */
 	void (*setup_gamut)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * validate_ad - check if ad property can be set
+	 * @ctx: Pointer to dspp context
+	 * @prop: Pointer to ad property being validated
+	 */
+	int (*validate_ad)(struct sde_hw_dspp *ctx, u32 *prop);
+
+	/**
+	 * setup_ad - update the ad property
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to ad configuration
+	 */
+	void (*setup_ad)(struct sde_hw_dspp *ctx, void *cfg);
 };
 
 /**

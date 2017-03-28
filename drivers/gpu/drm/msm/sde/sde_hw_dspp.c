@@ -16,6 +16,7 @@
 #include "sde_hw_dspp.h"
 #include "sde_hw_color_processing.h"
 #include "sde_dbg.h"
+#include "sde_ad4.h"
 
 static struct sde_dspp_cfg *_dspp_offset(enum sde_dspp dspp,
 		struct sde_mdss_cfg *m,
@@ -94,6 +95,13 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 				else
 					c->ops.setup_gc =
 						sde_setup_dspp_gc_v1_7;
+			}
+			break;
+		case SDE_DSPP_AD:
+			if (c->cap->sblk->ad.version ==
+			    SDE_COLOR_PROCESS_VER(4, 0)) {
+				c->ops.setup_ad = sde_setup_dspp_ad4;
+				c->ops.validate_ad = sde_validate_dspp_ad4;
 			}
 			break;
 		default:
