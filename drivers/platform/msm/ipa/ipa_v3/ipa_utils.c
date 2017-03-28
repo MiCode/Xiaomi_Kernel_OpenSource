@@ -4242,11 +4242,6 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 
 	memset(&mem, 0, sizeof(mem));
 
-	if (IPA_CLIENT_IS_PROD(ep->client)) {
-		res = gsi_stop_channel(ep->gsi_chan_hdl);
-		goto end_sequence;
-	}
-
 	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
 		IPADBG("Calling gsi_stop_channel\n");
 		res = gsi_stop_channel(ep->gsi_chan_hdl);
@@ -4254,12 +4249,14 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
 			goto end_sequence;
 
-		IPADBG("Inject a DMA_TASK with 1B packet to IPA and retry\n");
-		/* Send a 1B packet DMA_TASK to IPA and try again */
-		res = ipa3_inject_dma_task_for_gsi();
-		if (res) {
-			IPAERR("Failed to inject DMA TASk for GSI\n");
-			goto end_sequence;
+		if (IPA_CLIENT_IS_CONS(ep->client)) {
+			IPADBG("Inject a DMA_TASK with 1B packet to IPA\n");
+			/* Send a 1B packet DMA_TASK to IPA and try again */
+			res = ipa3_inject_dma_task_for_gsi();
+			if (res) {
+				IPAERR("Failed to inject DMA TASk for GSI\n");
+				goto end_sequence;
+			}
 		}
 
 		/* sleep for short period to flush IPA */
