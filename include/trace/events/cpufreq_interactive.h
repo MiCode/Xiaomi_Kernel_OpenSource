@@ -119,21 +119,27 @@ TRACE_EVENT(cpufreq_interactive_load_change,
 );
 
 TRACE_EVENT(cpufreq_interactive_cpuload,
-	    TP_PROTO(unsigned long cpu_id, unsigned long load,
-		     unsigned int new_task_pct),
-	    TP_ARGS(cpu_id, load, new_task_pct),
+	    TP_PROTO(unsigned long cpu_id, unsigned int load,
+		     unsigned int new_task_pct, unsigned int prev,
+		     unsigned int predicted),
+	    TP_ARGS(cpu_id, load, new_task_pct, prev, predicted),
 	    TP_STRUCT__entry(
 		__field(unsigned long, cpu_id)
-		__field(unsigned long, load)
-		__field(unsigned long, new_task_pct)
+		__field(unsigned int, load)
+		__field(unsigned int, new_task_pct)
+		__field(unsigned int, prev)
+		__field(unsigned int, predicted)
 	    ),
 	    TP_fast_assign(
 		__entry->cpu_id = cpu_id;
 		__entry->load = load;
 		__entry->new_task_pct = new_task_pct;
+		__entry->prev = prev;
+		__entry->predicted = predicted;
 	    ),
-	    TP_printk("cpu=%lu load=%lu new_task_pct=%lu", __entry->cpu_id,
-		      __entry->load, __entry->new_task_pct)
+	    TP_printk("cpu=%lu load=%u new_task_pct=%u prev=%u predicted=%u",
+		      __entry->cpu_id, __entry->load, __entry->new_task_pct,
+		      __entry->prev, __entry->predicted)
 );
 
 #endif /* _TRACE_CPUFREQ_INTERACTIVE_H */

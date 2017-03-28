@@ -337,6 +337,16 @@ evaluation triggered by timer, min_sample_time is still always
 enforced. fast_ramp_down has no effect if use_migration_notif is
 set to zero. Default is zero.
 
+enable_prediction: If non-zero, two frequencies will be calculated
+during each sampling period: one based on busy time in previous sampling
+period (f_prev), and the other based on prediction provided by scheduler
+(f_pred). Max of both will be selected as final frequency. Hispeed
+related logic, including both frequency selection and delay is ignored
+if enable_prediction is set. If only f_pred but not f_prev picked
+policy->max, max_freq_hysteresis period is not started/extended.
+use_sched_load must be turned on before enabling this feature.
+Default is zero.
+
 3. The Governor Interface in the CPUfreq Core
 =============================================
 
