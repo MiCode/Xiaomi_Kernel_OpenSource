@@ -54,6 +54,7 @@ struct cpufreq_interactive_cpuinfo {
 	u64 loc_hispeed_val_time; /* per-cpu hispeed_validate_time */
 	u64 max_freq_hyst_start_time;
 	struct rw_semaphore enable_sem;
+	bool reject_notification;
 	int governor_enabled;
 	struct cpufreq_interactive_tunables *cached_tunables;
 	int first_cpu;
@@ -721,6 +722,9 @@ static int load_change_callback(struct notifier_block *nb, unsigned long val,
 	struct cpufreq_interactive_tunables *tunables;
 
 	if (speedchange_task == current)
+		return 0;
+
+	if (pcpu->reject_notification)
 		return 0;
 
 	if (!down_read_trylock(&pcpu->enable_sem))
@@ -1607,6 +1611,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			pcpu->loc_floor_val_time = pcpu->pol_floor_val_time;
 			pcpu->pol_hispeed_val_time = pcpu->pol_floor_val_time;
 			pcpu->loc_hispeed_val_time = pcpu->pol_floor_val_time;
+			pcpu->reject_notification = true;
 			down_write(&pcpu->enable_sem);
 			del_timer_sync(&pcpu->cpu_timer);
 			del_timer_sync(&pcpu->cpu_slack_timer);
@@ -1614,6 +1619,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			cpufreq_interactive_timer_start(tunables, j);
 			pcpu->governor_enabled = 1;
 			up_write(&pcpu->enable_sem);
+			pcpu->reject_notification = false;
 		}
 
 		mutex_unlock(&gov_lock);
@@ -1623,11 +1629,13 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		mutex_lock(&gov_lock);
 		for_each_cpu(j, policy->cpus) {
 			pcpu = &per_cpu(cpuinfo, j);
+			pcpu->reject_notification = true;
 			down_write(&pcpu->enable_sem);
 			pcpu->governor_enabled = 0;
 			del_timer_sync(&pcpu->cpu_timer);
 			del_timer_sync(&pcpu->cpu_slack_timer);
 			up_write(&pcpu->enable_sem);
+			pcpu->reject_notification = false;
 		}
 
 		mutex_unlock(&gov_lock);
