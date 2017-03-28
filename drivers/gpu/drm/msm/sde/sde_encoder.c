@@ -57,6 +57,8 @@
 
 #define MAX_CHANNELS_PER_ENC 2
 
+#define MISR_BUFF_SIZE			256
+
 /**
  * struct sde_encoder_virt - virtual encoder. Container of one or more physical
  *	encoders. Virtual encoder manages one "logical" display. Physical
@@ -90,6 +92,7 @@
  * @crtc_frame_event:		callback event
  * @frame_done_timeout:		frame done timeout in Hz
  * @frame_done_timer:		watchdog timer for frame done event
+ * @misr_enable:		misr enable/disable status
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -120,6 +123,7 @@ struct sde_encoder_virt {
 	struct sde_rsc_client *rsc_client;
 	struct msm_display_info disp_info;
 	bool rsc_state_update;
+	bool misr_enable;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -129,6 +133,36 @@ inline bool _sde_is_dsc_enabled(struct sde_encoder_virt *sde_enc)
 	struct msm_compression_info *comp_info = &sde_enc->disp_info.comp_info;
 
 	return (comp_info->comp_type == MSM_DISPLAY_COMPRESSION_DSC);
+}
+
+static inline int _sde_encoder_power_enable(struct sde_encoder_virt *sde_enc,
+								bool enable)
+{
+	struct drm_encoder *drm_enc;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!sde_enc) {
+		SDE_ERROR("invalid sde enc\n");
+		return -EINVAL;
+	}
+
+	drm_enc = &sde_enc->base;
+	if (!drm_enc->dev || !drm_enc->dev->dev_private) {
+		SDE_ERROR("drm device invalid\n");
+		return -EINVAL;
+	}
+
+	priv = drm_enc->dev->dev_private;
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+
+	return sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+									enable);
 }
 
 void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
@@ -706,8 +740,6 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
-	struct msm_drm_private *priv;
-	struct sde_kms *sde_kms;
 	int i = 0;
 	int ret = 0;
 
@@ -723,13 +755,13 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
-	priv = drm_enc->dev->dev_private;
-	sde_kms = to_sde_kms(priv->kms);
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+	ret = _sde_encoder_power_enable(sde_enc, true);
+	if (ret)
+		return;
 
 	sde_enc->cur_master = NULL;
 
@@ -810,7 +842,7 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	sde_rm_release(&sde_kms->rm, drm_enc);
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
+	_sde_encoder_power_enable(sde_enc, false);
 }
 
 static enum sde_intf sde_encoder_get_intf(struct sde_mdss_cfg *catalog,
@@ -1389,105 +1421,108 @@ static int _sde_encoder_debugfs_status_open(struct inode *inode,
 	return single_open(file, _sde_encoder_status_show, inode->i_private);
 }
 
-static void _sde_set_misr_params(struct sde_encoder_phys *phys, u32 enable,
-					u32 frame_count)
-{
-	int j;
-
-	if (!phys->misr_map)
-		return;
-
-	phys->misr_map->enable = enable;
-
-	if (frame_count <= SDE_CRC_BATCH_SIZE)
-		phys->misr_map->frame_count = frame_count;
-	else if (frame_count <= 0)
-		phys->misr_map->frame_count = 0;
-	else
-		phys->misr_map->frame_count = SDE_CRC_BATCH_SIZE;
-
-	if (!enable) {
-		phys->misr_map->last_idx = 0;
-		phys->misr_map->frame_count = 0;
-		for (j = 0; j < SDE_CRC_BATCH_SIZE; j++)
-			phys->misr_map->crc_value[j] = 0;
-	}
-}
-
-static ssize_t _sde_encoder_misr_set(struct file *file,
+static ssize_t _sde_encoder_misr_setup(struct file *file,
 		const char __user *user_buf, size_t count, loff_t *ppos)
 {
 	struct sde_encoder_virt *sde_enc;
-	struct drm_encoder *drm_enc;
-	int i = 0;
-	char buf[10];
-	u32 enable, frame_count;
+	int i = 0, rc;
+	char buf[MISR_BUFF_SIZE + 1];
+	size_t buff_copy;
+	u32 frame_count, enable;
 
-	drm_enc = file->private_data;
-	sde_enc = to_sde_encoder_virt(drm_enc);
+	if (!file || !file->private_data)
+		return -EINVAL;
 
-	if (copy_from_user(buf, user_buf, count))
-		return -EFAULT;
+	sde_enc = file->private_data;
 
-	buf[count] = 0; /* end of string */
+	buff_copy = min_t(size_t, count, MISR_BUFF_SIZE);
+	if (copy_from_user(buf, user_buf, buff_copy))
+		return -EINVAL;
+
+	buf[buff_copy] = 0; /* end of string */
 
 	if (sscanf(buf, "%u %u", &enable, &frame_count) != 2)
-		return -EFAULT;
+		return -EINVAL;
+
+	rc = _sde_encoder_power_enable(sde_enc, true);
+	if (rc)
+		return rc;
 
 	mutex_lock(&sde_enc->enc_lock);
+	sde_enc->misr_enable = enable;
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (!phys || !phys->misr_map || !phys->ops.setup_misr)
+		if (!phys || !phys->ops.setup_misr)
 			continue;
 
-		_sde_set_misr_params(phys, enable, frame_count);
-		phys->ops.setup_misr(phys, phys->misr_map);
+		phys->ops.setup_misr(phys, enable, frame_count);
 	}
 	mutex_unlock(&sde_enc->enc_lock);
+	_sde_encoder_power_enable(sde_enc, false);
+
 	return count;
 }
 
-static ssize_t _sde_encoder_misr_read(
-		struct file *file,
-		char __user *buff, size_t count, loff_t *ppos)
+static ssize_t _sde_encoder_misr_read(struct file *file,
+		char __user *user_buff, size_t count, loff_t *ppos)
 {
 	struct sde_encoder_virt *sde_enc;
-	struct drm_encoder *drm_enc;
-	int i = 0, j = 0, len = 0;
-	char buf[512] = {'\0'};
+	int i = 0, len = 0;
+	char buf[MISR_BUFF_SIZE + 1] = {'\0'};
+	int rc;
 
 	if (*ppos)
 		return 0;
 
-	drm_enc = file->private_data;
-	sde_enc = to_sde_encoder_virt(drm_enc);
+	if (!file || !file->private_data)
+		return -EINVAL;
+
+	sde_enc = file->private_data;
+
+	rc = _sde_encoder_power_enable(sde_enc, true);
+	if (rc)
+		return rc;
 
 	mutex_lock(&sde_enc->enc_lock);
-	for (i = 0; i < sde_enc->num_phys_encs; i++) {
-		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
-		struct sde_misr_params *misr_map;
-
-		if (!phys || !phys->misr_map)
-			continue;
-
-		misr_map = phys->misr_map;
-
-		len += snprintf(buf+len, sizeof(buf), "INTF%d\n", i);
-		for (j = 0; j < SDE_CRC_BATCH_SIZE; j++)
-			len += snprintf(buf+len, sizeof(buf), "%x\n",
-						misr_map->crc_value[j]);
+	if (!sde_enc->misr_enable) {
+		len += snprintf(buf + len, MISR_BUFF_SIZE - len,
+			"disabled\n");
+		goto buff_check;
+	} else if (sde_enc->disp_info.capabilities &
+						~MSM_DISPLAY_CAP_VID_MODE) {
+		len += snprintf(buf + len, MISR_BUFF_SIZE - len,
+			"unsupported\n");
+		goto buff_check;
 	}
 
-	if (len < 0 || len >= sizeof(buf))
-		return 0;
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+		if (!phys || !phys->ops.collect_misr)
+			continue;
 
-	if ((count < sizeof(buf)) || copy_to_user(buff, buf, len))
-		return -EFAULT;
+		len += snprintf(buf + len, MISR_BUFF_SIZE - len,
+			"Intf idx:%d\n", phys->intf_idx - INTF_0);
+		len += snprintf(buf + len, MISR_BUFF_SIZE - len, "0x%x\n",
+					phys->ops.collect_misr(phys));
+	}
+
+buff_check:
+	if (count <= len) {
+		len = 0;
+		goto end;
+	}
+
+	if (copy_to_user(user_buff, buf, len)) {
+		len = -EFAULT;
+		goto end;
+	}
 
 	*ppos += len;   /* increase offset */
-	mutex_unlock(&sde_enc->enc_lock);
 
+end:
+	mutex_unlock(&sde_enc->enc_lock);
+	_sde_encoder_power_enable(sde_enc, false);
 	return len;
 }
 
@@ -1507,7 +1542,7 @@ static int _sde_encoder_init_debugfs(struct drm_encoder *drm_enc)
 	static const struct file_operations debugfs_misr_fops = {
 		.open = simple_open,
 		.read = _sde_encoder_misr_read,
-		.write = _sde_encoder_misr_set,
+		.write = _sde_encoder_misr_setup,
 	};
 
 	char name[SDE_NAME_SIZE];
@@ -1534,7 +1569,7 @@ static int _sde_encoder_init_debugfs(struct drm_encoder *drm_enc)
 		sde_enc->debugfs_root, sde_enc, &debugfs_status_fops);
 
 	debugfs_create_file("misr_data", 0644,
-		sde_enc->debugfs_root, drm_enc, &debugfs_misr_fops);
+		sde_enc->debugfs_root, sde_enc, &debugfs_misr_fops);
 
 	return 0;
 }
@@ -1896,10 +1931,6 @@ int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_enc)
 			if (ret)
 				return ret;
 		}
-
-		if (phys && phys->ops.collect_misr)
-			if (phys->misr_map && phys->misr_map->enable)
-				phys->ops.collect_misr(phys, phys->misr_map);
 	}
 
 	return ret;

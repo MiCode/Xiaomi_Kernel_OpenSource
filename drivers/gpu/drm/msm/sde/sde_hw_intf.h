@@ -19,24 +19,6 @@
 
 struct sde_hw_intf;
 
-/* Batch size of frames for collecting MISR data */
-#define SDE_CRC_BATCH_SIZE 16
-
-/**
- * struct sde_misr_params : Interface for getting and setting MISR data
- *  Assumption is these functions will be called after clocks are enabled
- * @ enable : enables/disables MISR
- * @ frame_count : represents number of frames for which MISR is enabled
- * @ last_idx: number of frames for which MISR data is collected
- * @ crc_value: stores the collected MISR data
- */
-struct sde_misr_params {
-	bool enable;
-	u32 frame_count;
-	u32 last_idx;
-	u32 crc_value[SDE_CRC_BATCH_SIZE];
-};
-
 /* intf timing settings */
 struct intf_timing_params {
 	u32 width;		/* active width */
@@ -98,10 +80,9 @@ struct sde_hw_intf_ops {
 			struct intf_status *status);
 
 	void (*setup_misr)(struct sde_hw_intf *intf,
-			struct sde_misr_params *misr_map);
+			bool enable, u32 frame_count);
 
-	void (*collect_misr)(struct sde_hw_intf *intf,
-			struct sde_misr_params *misr_map);
+	u32 (*collect_misr)(struct sde_hw_intf *intf);
 };
 
 struct sde_hw_intf {

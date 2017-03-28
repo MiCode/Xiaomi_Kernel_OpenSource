@@ -830,23 +830,29 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 }
 
 static void sde_encoder_phys_vid_setup_misr(struct sde_encoder_phys *phys_enc,
-			struct sde_misr_params *misr_map)
+						bool enable, u32 frame_count)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-		to_sde_encoder_phys_vid(phys_enc);
+	struct sde_encoder_phys_vid *vid_enc;
 
-	if (vid_enc && vid_enc->hw_intf && vid_enc->hw_intf->ops.setup_misr)
-		vid_enc->hw_intf->ops.setup_misr(vid_enc->hw_intf, misr_map);
+	if (!phys_enc)
+		return;
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+
+	if (vid_enc->hw_intf && vid_enc->hw_intf->ops.setup_misr)
+		vid_enc->hw_intf->ops.setup_misr(vid_enc->hw_intf,
+							enable, frame_count);
 }
 
-static void sde_encoder_phys_vid_collect_misr(struct sde_encoder_phys *phys_enc,
-			struct sde_misr_params *misr_map)
+static u32 sde_encoder_phys_vid_collect_misr(struct sde_encoder_phys *phys_enc)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-			to_sde_encoder_phys_vid(phys_enc);
+	struct sde_encoder_phys_vid *vid_enc;
 
-	if (vid_enc && vid_enc->hw_intf && vid_enc->hw_intf->ops.collect_misr)
-		vid_enc->hw_intf->ops.collect_misr(vid_enc->hw_intf, misr_map);
+	if (!phys_enc)
+		return 0;
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+
+	return vid_enc->hw_intf && vid_enc->hw_intf->ops.collect_misr ?
+		vid_enc->hw_intf->ops.collect_misr(vid_enc->hw_intf) : 0;
 }
 
 static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
@@ -916,13 +922,6 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 	if (!vid_enc->hw_intf) {
 		ret = -EINVAL;
 		SDE_ERROR("failed to get hw_intf\n");
-		goto fail;
-	}
-
-	phys_enc->misr_map = kzalloc(sizeof(struct sde_misr_params),
-						GFP_KERNEL);
-	if (!phys_enc->misr_map) {
-		ret = -ENOMEM;
 		goto fail;
 	}
 

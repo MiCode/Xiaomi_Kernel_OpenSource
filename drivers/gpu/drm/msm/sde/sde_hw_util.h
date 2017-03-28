@@ -47,6 +47,12 @@ int sde_reg_read(struct sde_hw_blk_reg_map *c, u32 reg_off);
 #define SDE_REG_WRITE(c, off, val) sde_reg_write(c, off, val, #off)
 #define SDE_REG_READ(c, off) sde_reg_read(c, off)
 
+#define MISR_FRAME_COUNT_MASK		0xFF
+#define MISR_CTRL_ENABLE		BIT(8)
+#define MISR_CTRL_STATUS		BIT(9)
+#define MISR_CTRL_STATUS_CLEAR		BIT(10)
+#define INTF_MISR_CTRL_FREE_RUN_MASK	BIT(31)
+
 void *sde_hw_util_get_dir(void);
 
 void sde_hw_csc_setup(struct sde_hw_blk_reg_map  *c,
