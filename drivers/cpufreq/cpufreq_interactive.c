@@ -1167,7 +1167,7 @@ static int cpufreq_interactive_enable_sched_input(
 	mutex_lock(&sched_lock);
 
 	set_window_count++;
-	if (set_window_count != 1) {
+	if (set_window_count > 1) {
 		for_each_possible_cpu(j) {
 			t = per_cpu(cpuinfo, j).cached_tunables;
 			if (t && t->use_sched_load) {
@@ -1176,22 +1176,21 @@ static int cpufreq_interactive_enable_sched_input(
 				break;
 			}
 		}
-		goto out;
+	} else {
+		rc = set_window_helper(tunables);
+		if (rc) {
+			pr_err("%s: Failed to set sched window\n", __func__);
+			set_window_count--;
+			goto out;
+		}
+		sched_set_io_is_busy(tunables->io_is_busy);
 	}
-
-	rc = set_window_helper(tunables);
-	if (rc) {
-		pr_err("%s: Failed to set sched window\n", __func__);
-		set_window_count--;
-		goto out;
-	}
-	sched_set_io_is_busy(tunables->io_is_busy);
 
 	if (!tunables->use_migration_notif)
 		goto out;
 
 	migration_register_count++;
-	if (migration_register_count != 1)
+	if (migration_register_count > 1)
 		goto out;
 	else
 		atomic_notifier_chain_register(&load_alert_notifier_head,
@@ -1208,7 +1207,7 @@ static int cpufreq_interactive_disable_sched_input(
 
 	if (tunables->use_migration_notif) {
 		migration_register_count--;
-		if (!migration_register_count)
+		if (migration_register_count < 1)
 			atomic_notifier_chain_unregister(
 					&load_alert_notifier_head,
 					&load_notifier_block);
