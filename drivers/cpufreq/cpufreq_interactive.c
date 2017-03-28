@@ -1133,6 +1133,22 @@ static struct notifier_block cpufreq_interactive_idle_nb = {
 	.notifier_call = cpufreq_interactive_idle_notifier,
 };
 
+static void save_tunables(struct cpufreq_policy *policy,
+			  struct cpufreq_interactive_tunables *tunables)
+{
+	int cpu;
+	struct cpufreq_interactive_cpuinfo *pcpu;
+
+	if (have_governor_per_policy())
+		cpu = cpumask_first(policy->related_cpus);
+	else
+		cpu = 0;
+
+	pcpu = &per_cpu(cpuinfo, cpu);
+	WARN_ON(pcpu->cached_tunables && pcpu->cached_tunables != tunables);
+	pcpu->cached_tunables = tunables;
+}
+
 static struct cpufreq_interactive_tunables *alloc_tunable(
 					struct cpufreq_policy *policy)
 {
@@ -1156,23 +1172,8 @@ static struct cpufreq_interactive_tunables *alloc_tunable(
 	spin_lock_init(&tunables->target_loads_lock);
 	spin_lock_init(&tunables->above_hispeed_delay_lock);
 
+	save_tunables(policy, tunables);
 	return tunables;
-}
-
-static void save_tunables(struct cpufreq_policy *policy,
-			  struct cpufreq_interactive_tunables *tunables)
-{
-	int cpu;
-	struct cpufreq_interactive_cpuinfo *pcpu;
-
-	if (have_governor_per_policy())
-		cpu = cpumask_first(policy->related_cpus);
-	else
-		cpu = 0;
-
-	pcpu = &per_cpu(cpuinfo, cpu);
-	WARN_ON(pcpu->cached_tunables && pcpu->cached_tunables != tunables);
-	pcpu->cached_tunables = tunables;
 }
 
 static struct cpufreq_interactive_tunables *restore_tunables(
@@ -1256,7 +1257,6 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			sysfs_remove_group(get_governor_parent_kobj(policy),
 					get_sysfs_attr());
 
-			save_tunables(policy, tunables);
 			common_tunables = NULL;
 		}
 
