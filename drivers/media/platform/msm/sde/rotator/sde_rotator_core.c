@@ -112,7 +112,10 @@ static int sde_rotator_bus_scale_set_quota(struct sde_rot_bus_data_type *bus,
 		return -EINVAL;
 	}
 
-	if (bus->bus_hdl < 1) {
+	if (!bus->bus_hdl) {
+		SDEROT_DBG("bus scaling not enabled\n");
+		return 0;
+	} else if (bus->bus_hdl < 0) {
 		SDEROT_ERR("invalid bus handle %d\n", bus->bus_hdl);
 		return -EINVAL;
 	}
@@ -2501,8 +2504,7 @@ static int sde_rotator_parse_dt_bus(struct sde_rot_mgr *mgr,
 	mgr->data_bus.bus_scale_pdata = msm_bus_cl_get_pdata(dev);
 	if (IS_ERR_OR_NULL(mgr->data_bus.bus_scale_pdata)) {
 		ret = PTR_ERR(mgr->data_bus.bus_scale_pdata);
-		if (!ret) {
-			ret = -EINVAL;
+		if (ret) {
 			SDEROT_ERR("msm_bus_cl_get_pdata failed. ret=%d\n",
 					ret);
 			mgr->data_bus.bus_scale_pdata = NULL;
@@ -2638,8 +2640,8 @@ static void sde_rotator_bus_scale_unregister(struct sde_rot_mgr *mgr)
 static int sde_rotator_bus_scale_register(struct sde_rot_mgr *mgr)
 {
 	if (!mgr->data_bus.bus_scale_pdata) {
-		SDEROT_ERR("Scale table is NULL\n");
-		return -EINVAL;
+		SDEROT_DBG("Bus scaling is not enabled\n");
+		return 0;
 	}
 
 	mgr->data_bus.bus_hdl =
