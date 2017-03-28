@@ -39,6 +39,10 @@
 
 #define DRP_SYN_REG_CNT	8
 
+#define LLCC_COMMON_STATUS0		0x0003000C
+#define LLCC_LB_CNT_MASK		0xf0000000
+#define LLCC_LB_CNT_SHIFT		28
+
 /* single & Double Bit syndrome register offsets */
 #define TRP_ECC_SB_ERR_SYN0		0x0002304C
 #define TRP_ECC_DB_ERR_SYN0		0x00020370
@@ -97,7 +101,10 @@ struct errors_edac {
 
 struct erp_drvdata {
 	struct regmap *llcc_map;
+	phys_addr_t *llcc_banks;
 	u32 ecc_irq;
+	u32 num_banks;
+	u32 b_off;
 };
 
 static const struct errors_edac errors[] = {
@@ -108,29 +115,32 @@ static const struct errors_edac errors[] = {
 };
 
 /* Clear the error interrupt and counter registers */
-static void qcom_llcc_clear_errors(int err_type, struct regmap *llcc_map)
+static void qcom_llcc_clear_errors(int err_type, struct erp_drvdata *drv)
 {
 	switch (err_type) {
 	case LLCC_DRAM_CE:
 	case LLCC_DRAM_UE:
 		/* Clear the interrupt */
-		regmap_write(llcc_map, DRP_INTERRUPT_CLEAR, DRP_TRP_INT_CLEAR);
+		regmap_write(drv->llcc_map, drv->b_off + DRP_INTERRUPT_CLEAR,
+			DRP_TRP_INT_CLEAR);
 		/* Clear the counters */
-		regmap_write(llcc_map, DRP_ECC_ERROR_CNTR_CLEAR,
+		regmap_write(drv->llcc_map,
+			drv->b_off + DRP_ECC_ERROR_CNTR_CLEAR,
 			DRP_TRP_CNT_CLEAR);
 		break;
 	case LLCC_TRAM_CE:
 	case LLCC_TRAM_UE:
-		regmap_write(llcc_map, TRP_INTERRUPT_0_CLEAR,
+		regmap_write(drv->llcc_map, drv->b_off + TRP_INTERRUPT_0_CLEAR,
 			     DRP_TRP_INT_CLEAR);
-		regmap_write(llcc_map, TRP_ECC_ERROR_CNTR_CLEAR,
-			     DRP_TRP_CNT_CLEAR);
+		regmap_write(drv->llcc_map,
+			drv->b_off + TRP_ECC_ERROR_CNTR_CLEAR,
+			DRP_TRP_CNT_CLEAR);
 		break;
 	}
 }
 
 /* Dump syndrome registers for tag Ram Double bit errors */
-static void dump_trp_db_syn_reg(struct regmap *llcc_map)
+static void dump_trp_db_syn_reg(struct erp_drvdata *drv, u32 bank)
 {
 	int i;
 	int db_err_cnt;
@@ -140,17 +150,20 @@ static void dump_trp_db_syn_reg(struct regmap *llcc_map)
 
 	for (i = 0; i < TRP_SYN_REG_CNT; i++) {
 		synd_reg = TRP_ECC_DB_ERR_SYN0 + (i * 4);
-		regmap_read(llcc_map, synd_reg, &synd_val);
+		regmap_read(drv->llcc_map, drv->llcc_banks[bank] + synd_reg,
+			&synd_val);
 		edac_printk(KERN_CRIT, EDAC_LLCC, "TRP_ECC_SYN%d: 0x%8x\n",
 			i, synd_val);
 	}
 
-	regmap_read(llcc_map, TRP_ECC_ERROR_STATUS1, &db_err_cnt);
+	regmap_read(drv->llcc_map,
+		drv->llcc_banks[bank] + TRP_ECC_ERROR_STATUS1, &db_err_cnt);
 	db_err_cnt = (db_err_cnt & ECC_DB_ERR_COUNT_MASK);
 	edac_printk(KERN_CRIT, EDAC_LLCC, "Double-Bit error count: 0x%4x\n",
 		db_err_cnt);
 
-	regmap_read(llcc_map, TRP_ECC_ERROR_STATUS0, &db_err_ways);
+	regmap_read(drv->llcc_map,
+		drv->llcc_banks[bank] + TRP_ECC_ERROR_STATUS0, &db_err_ways);
 	db_err_ways = (db_err_ways & ECC_DB_ERR_WAYS_MASK);
 	db_err_ways >>= ECC_DB_ERR_WAYS_SHIFT;
 
@@ -159,7 +172,7 @@ static void dump_trp_db_syn_reg(struct regmap *llcc_map)
 }
 
 /* Dump syndrome register for tag Ram Single Bit Errors */
-static void dump_trp_sb_syn_reg(struct regmap *llcc_map)
+static void dump_trp_sb_syn_reg(struct erp_drvdata *drv, u32 bank)
 {
 	int i;
 	int sb_err_cnt;
@@ -169,18 +182,21 @@ static void dump_trp_sb_syn_reg(struct regmap *llcc_map)
 
 	for (i = 0; i < TRP_SYN_REG_CNT; i++) {
 		synd_reg = TRP_ECC_SB_ERR_SYN0 + (i * 4);
-		regmap_read(llcc_map, synd_reg, &synd_val);
+		regmap_read(drv->llcc_map, drv->llcc_banks[bank] + synd_reg,
+			&synd_val);
 		edac_printk(KERN_CRIT, EDAC_LLCC, "TRP_ECC_SYN%d: 0x%8x\n",
 			i, synd_val);
 	}
 
-	regmap_read(llcc_map, TRP_ECC_ERROR_STATUS1, &sb_err_cnt);
+	regmap_read(drv->llcc_map,
+		drv->llcc_banks[bank] + TRP_ECC_ERROR_STATUS1, &sb_err_cnt);
 	sb_err_cnt = (sb_err_cnt & ECC_SB_ERR_COUNT_MASK);
 	sb_err_cnt >>= ECC_SB_ERR_COUNT_SHIFT;
 	edac_printk(KERN_CRIT, EDAC_LLCC, "Single-Bit error count: 0x%4x\n",
 		sb_err_cnt);
 
-	regmap_read(llcc_map, TRP_ECC_ERROR_STATUS0, &sb_err_ways);
+	regmap_read(drv->llcc_map,
+		drv->llcc_banks[bank] + TRP_ECC_ERROR_STATUS0, &sb_err_ways);
 	sb_err_ways = sb_err_ways & ECC_SB_ERR_WAYS_MASK;
 
 	edac_printk(KERN_CRIT, EDAC_LLCC, "Single-Bit error ways: 0x%4x\n",
@@ -188,7 +204,7 @@ static void dump_trp_sb_syn_reg(struct regmap *llcc_map)
 }
 
 /* Dump syndrome registers for Data Ram Double bit errors */
-static void dump_drp_db_syn_reg(struct regmap *llcc_map)
+static void dump_drp_db_syn_reg(struct erp_drvdata *drv, u32 bank)
 {
 	int i;
 	int db_err_cnt;
@@ -198,17 +214,20 @@ static void dump_drp_db_syn_reg(struct regmap *llcc_map)
 
 	for (i = 0; i < DRP_SYN_REG_CNT; i++) {
 		synd_reg = DRP_ECC_DB_ERR_SYN0 + (i * 4);
-		regmap_read(llcc_map, synd_reg, &synd_val);
+		regmap_read(drv->llcc_map, drv->llcc_banks[bank] + synd_reg,
+			&synd_val);
 		edac_printk(KERN_CRIT, EDAC_LLCC, "DRP_ECC_SYN%d: 0x%8x\n",
 			i, synd_val);
 	}
 
-	regmap_read(llcc_map, DRP_ECC_ERROR_STATUS1, &db_err_cnt);
+	regmap_read(drv->llcc_map,
+		drv->llcc_banks[bank] + DRP_ECC_ERROR_STATUS1, &db_err_cnt);
 	db_err_cnt = (db_err_cnt & ECC_DB_ERR_COUNT_MASK);
 	edac_printk(KERN_CRIT, EDAC_LLCC, "Double-Bit error count: 0x%4x\n",
 		db_err_cnt);
 
-	regmap_read(llcc_map, DRP_ECC_ERROR_STATUS0, &db_err_ways);
+	regmap_read(drv->llcc_map,
+		drv->llcc_banks[bank] + DRP_ECC_ERROR_STATUS0, &db_err_ways);
 	db_err_ways &= ECC_DB_ERR_WAYS_MASK;
 	db_err_ways >>= ECC_DB_ERR_WAYS_SHIFT;
 	edac_printk(KERN_CRIT, EDAC_LLCC, "Double-Bit error ways: 0x%4x\n",
@@ -216,7 +235,7 @@ static void dump_drp_db_syn_reg(struct regmap *llcc_map)
 }
 
 /* Dump Syndrome registers for Data Ram Single bit errors*/
-static void dump_drp_sb_syn_reg(struct regmap *llcc_map)
+static void dump_drp_sb_syn_reg(struct erp_drvdata *drv, u32 bank)
 {
 	int i;
 	int sb_err_cnt;
@@ -226,18 +245,21 @@ static void dump_drp_sb_syn_reg(struct regmap *llcc_map)
 
 	for (i = 0; i < DRP_SYN_REG_CNT; i++) {
 		synd_reg = DRP_ECC_SB_ERR_SYN0 + (i * 4);
-		regmap_read(llcc_map, synd_reg, &synd_val);
+		regmap_read(drv->llcc_map, drv->llcc_banks[bank] + synd_reg,
+			&synd_val);
 		edac_printk(KERN_CRIT, EDAC_LLCC, "DRP_ECC_SYN%d: 0x%8x\n",
 			i, synd_val);
 	}
 
-	regmap_read(llcc_map, DRP_ECC_ERROR_STATUS1, &sb_err_cnt);
+	regmap_read(drv->llcc_map,
+		drv->llcc_banks[bank] + DRP_ECC_ERROR_STATUS1, &sb_err_cnt);
 	sb_err_cnt &= ECC_SB_ERR_COUNT_MASK;
 	sb_err_cnt >>= ECC_SB_ERR_COUNT_SHIFT;
 	edac_printk(KERN_CRIT, EDAC_LLCC, "Single-Bit error count: 0x%4x\n",
 		sb_err_cnt);
 
-	regmap_read(llcc_map, DRP_ECC_ERROR_STATUS0, &sb_err_ways);
+	regmap_read(drv->llcc_map,
+		drv->llcc_banks[bank] + DRP_ECC_ERROR_STATUS0, &sb_err_ways);
 	sb_err_ways = sb_err_ways & ECC_SB_ERR_WAYS_MASK;
 
 	edac_printk(KERN_CRIT, EDAC_LLCC, "Single-Bit error ways: 0x%4x\n",
@@ -246,24 +268,26 @@ static void dump_drp_sb_syn_reg(struct regmap *llcc_map)
 
 
 static void dump_syn_reg(struct edac_device_ctl_info *edev_ctl,
-			 int err_type, struct regmap *llcc_map)
+			 int err_type, u32 bank)
 {
+	struct erp_drvdata *drv = edev_ctl->pvt_info;
+
 	switch (err_type) {
 	case LLCC_DRAM_CE:
-		dump_drp_sb_syn_reg(llcc_map);
+		dump_drp_sb_syn_reg(drv, bank);
 		break;
 	case LLCC_DRAM_UE:
-		dump_drp_db_syn_reg(llcc_map);
+		dump_drp_db_syn_reg(drv, bank);
 		break;
 	case LLCC_TRAM_CE:
-		dump_trp_sb_syn_reg(llcc_map);
+		dump_trp_sb_syn_reg(drv, bank);
 		break;
 	case LLCC_TRAM_UE:
-		dump_trp_db_syn_reg(llcc_map);
+		dump_trp_db_syn_reg(drv, bank);
 		break;
 	}
 
-	qcom_llcc_clear_errors(err_type, llcc_map);
+	qcom_llcc_clear_errors(err_type, drv);
 
 	errors[err_type].func(edev_ctl, 0, 0, errors[err_type].msg);
 }
@@ -274,30 +298,36 @@ static void qcom_llcc_check_cache_errors
 	u32 drp_error;
 	u32 trp_error;
 	struct erp_drvdata *drv = edev_ctl->pvt_info;
+	u32 i;
 
-	/* Look for Data RAM errors */
-	regmap_read(drv->llcc_map, DRP_INTERRUPT_STATUS, &drp_error);
+	for (i = 0; i < drv->num_banks; i++) {
+		/* Look for Data RAM errors */
+		regmap_read(drv->llcc_map,
+			drv->llcc_banks[i] + DRP_INTERRUPT_STATUS, &drp_error);
 
-	if (drp_error & SB_ECC_ERROR) {
-		edac_printk(KERN_CRIT, EDAC_LLCC,
-			"Single Bit Error detected in Data Ram\n");
-		dump_syn_reg(edev_ctl, LLCC_DRAM_CE, drv->llcc_map);
-	} else if (drp_error & DB_ECC_ERROR) {
-		edac_printk(KERN_CRIT, EDAC_LLCC,
-			"Double Bit Error detected in Data Ram\n");
-		dump_syn_reg(edev_ctl, LLCC_DRAM_UE, drv->llcc_map);
-	}
+		if (drp_error & SB_ECC_ERROR) {
+			edac_printk(KERN_CRIT, EDAC_LLCC,
+				"Single Bit Error detected in Data Ram\n");
+			dump_syn_reg(edev_ctl, LLCC_DRAM_CE, i);
+		} else if (drp_error & DB_ECC_ERROR) {
+			edac_printk(KERN_CRIT, EDAC_LLCC,
+				"Double Bit Error detected in Data Ram\n");
+			dump_syn_reg(edev_ctl, LLCC_DRAM_UE, i);
+		}
 
-	/* Look for Tag RAM errors */
-	regmap_read(drv->llcc_map, TRP_INTERRUPT_0_STATUS, &trp_error);
-	if (trp_error & SB_ECC_ERROR) {
-		edac_printk(KERN_CRIT, EDAC_LLCC,
-			"Single Bit Error detected in Tag Ram\n");
-		dump_syn_reg(edev_ctl, LLCC_TRAM_CE, drv->llcc_map);
-	} else if (trp_error & DB_ECC_ERROR) {
-		edac_printk(KERN_CRIT, EDAC_LLCC,
-			"Double Bit Error detected in Tag Ram\n");
-		dump_syn_reg(edev_ctl, LLCC_TRAM_UE, drv->llcc_map);
+		/* Look for Tag RAM errors */
+		regmap_read(drv->llcc_map,
+			drv->llcc_banks[i] + TRP_INTERRUPT_0_STATUS,
+			&trp_error);
+		if (trp_error & SB_ECC_ERROR) {
+			edac_printk(KERN_CRIT, EDAC_LLCC,
+				"Single Bit Error detected in Tag Ram\n");
+			dump_syn_reg(edev_ctl, LLCC_TRAM_CE, i);
+		} else if (trp_error & DB_ECC_ERROR) {
+			edac_printk(KERN_CRIT, EDAC_LLCC,
+				"Double Bit Error detected in Tag Ram\n");
+			dump_syn_reg(edev_ctl, LLCC_TRAM_UE, i);
+		}
 	}
 }
 
@@ -319,6 +349,8 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 	struct erp_drvdata *drv;
 	struct edac_device_ctl_info *edev_ctl;
 	struct device *dev = &pdev->dev;
+	u32 *banks;
+	u32 i;
 
 	/* Allocate edac control info */
 	edev_ctl = edac_device_alloc_ctl_info(sizeof(*drv), "qcom-llcc", 1,
@@ -357,6 +389,43 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 			goto out;
 		}
 	}
+
+	/* Find the number of LLC banks supported */
+	regmap_read(drv->llcc_map, LLCC_COMMON_STATUS0,
+		    &drv->num_banks);
+
+	drv->num_banks &= LLCC_LB_CNT_MASK;
+	drv->num_banks >>= LLCC_LB_CNT_SHIFT;
+
+	drv->llcc_banks = devm_kzalloc(&pdev->dev,
+		sizeof(phys_addr_t) * drv->num_banks, GFP_KERNEL);
+
+	if (!drv->num_banks) {
+		dev_err(dev, "Cannot allocate memory for llcc_banks\n");
+		return -ENOMEM;
+	}
+
+	banks = devm_kzalloc(&pdev->dev,
+		sizeof(u32) * drv->num_banks, GFP_KERNEL);
+	if (!banks)
+		return -ENOMEM;
+
+	rc = of_property_read_u32_array(dev->parent->of_node,
+			"qcom,llcc-banks-off", banks, drv->num_banks);
+	if (rc) {
+		dev_err(dev, "Cannot read llcc-banks-off property\n");
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32(dev->parent->of_node,
+			"qcom,llcc-broadcast-off", &drv->b_off);
+	if (rc) {
+		dev_err(dev, "Cannot read llcc-broadcast-off property\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < drv->num_banks; i++)
+		drv->llcc_banks[i] = banks[i];
 
 	platform_set_drvdata(pdev, edev_ctl);
 

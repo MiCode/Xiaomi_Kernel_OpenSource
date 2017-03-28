@@ -33,42 +33,39 @@
 #define SB_DB_TRP_INTERRUPT_ENABLE	0x3
 #define TRP0_INTERRUPT_ENABLE	0x1
 #define DRP0_INTERRUPT_ENABLE	BIT(6)
-#define COMMON_INTERRUPT_0_AMON BIT(8)
 #define SB_DB_DRP_INTERRUPT_ENABLE	0x3
 
-static void qcom_llcc_core_setup(struct regmap *llcc_regmap)
+static void qcom_llcc_core_setup(struct regmap *llcc_regmap, uint32_t b_off)
 {
 	u32 sb_err_threshold;
 
 	/* Enable TRP in instance 2 of common interrupt enable register */
-	regmap_update_bits(llcc_regmap, CMN_INTERRUPT_2_ENABLE,
+	regmap_update_bits(llcc_regmap, b_off + CMN_INTERRUPT_2_ENABLE,
 			   TRP0_INTERRUPT_ENABLE, TRP0_INTERRUPT_ENABLE);
 
 	/* Enable ECC interrupts on Tag Ram */
-	regmap_update_bits(llcc_regmap, TRP_INTERRUPT_0_ENABLE,
+	regmap_update_bits(llcc_regmap, b_off + TRP_INTERRUPT_0_ENABLE,
 		SB_DB_TRP_INTERRUPT_ENABLE, SB_DB_TRP_INTERRUPT_ENABLE);
 
 	/* Enable SB error for Data RAM */
 	sb_err_threshold = (SB_ERROR_THRESHOLD << SB_ERROR_THRESHOLD_SHIFT);
-	regmap_write(llcc_regmap, DRP_ECC_ERROR_CFG, sb_err_threshold);
+	regmap_write(llcc_regmap, b_off + DRP_ECC_ERROR_CFG, sb_err_threshold);
 
 	/* Enable DRP in instance 2 of common interrupt enable register */
-	regmap_update_bits(llcc_regmap, CMN_INTERRUPT_2_ENABLE,
+	regmap_update_bits(llcc_regmap, b_off + CMN_INTERRUPT_2_ENABLE,
 			   DRP0_INTERRUPT_ENABLE, DRP0_INTERRUPT_ENABLE);
 
 	/* Enable ECC interrupts on Data Ram */
-	regmap_write(llcc_regmap, DRP_INTERRUPT_ENABLE,
+	regmap_write(llcc_regmap, b_off + DRP_INTERRUPT_ENABLE,
 		     SB_DB_DRP_INTERRUPT_ENABLE);
-
-	/* Enable AMON interrupt in the common interrupt register */
-	regmap_update_bits(llcc_regmap, CMN_INTERRUPT_0_ENABLE,
-			COMMON_INTERRUPT_0_AMON, COMMON_INTERRUPT_0_AMON);
 }
 
 static int qcom_llcc_core_probe(struct platform_device *pdev)
 {
 	struct regmap *llcc_regmap;
 	struct device *dev = &pdev->dev;
+	u32 b_off = 0;
+	int ret = 0;
 
 	llcc_regmap = syscon_node_to_regmap(dev->of_node);
 
@@ -77,7 +74,14 @@ static int qcom_llcc_core_probe(struct platform_device *pdev)
 		return PTR_ERR(llcc_regmap);
 	}
 
-	qcom_llcc_core_setup(llcc_regmap);
+	ret = of_property_read_u32(dev->of_node,
+			"qcom,llcc-broadcast-off", &b_off);
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to read broadcast-off\n");
+		return -EINVAL;
+	}
+
+	qcom_llcc_core_setup(llcc_regmap, b_off);
 
 	return 0;
 }
