@@ -335,6 +335,16 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 		FENCE_STATUS_WRITEDROPPED1_MASK);
 
 	adreno_gmu_fenced_write(adreno_dev,
+		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_LO,
+		lower_32_bits(next->secure_preemption_desc.gpuaddr),
+		FENCE_STATUS_WRITEDROPPED1_MASK);
+
+	adreno_gmu_fenced_write(adreno_dev,
+		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_HI,
+		upper_32_bits(next->secure_preemption_desc.gpuaddr),
+		FENCE_STATUS_WRITEDROPPED1_MASK);
+
+	adreno_gmu_fenced_write(adreno_dev,
 		ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO,
 		lower_32_bits(gpuaddr),
 		FENCE_STATUS_WRITEDROPPED1_MASK);
@@ -457,7 +467,8 @@ unsigned int a6xx_preemption_pre_ibsubmit(
 	cmds += cp_gpuaddr(adreno_dev, cmds, rb->preemption_desc.gpuaddr);
 
 	*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_PRIV_SECURE_SAVE_ADDR;
-	cmds += cp_gpuaddr(adreno_dev, cmds, 0);
+	cmds += cp_gpuaddr(adreno_dev, cmds,
+			rb->secure_preemption_desc.gpuaddr);
 
 	if (context) {
 
@@ -576,6 +587,17 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	if (ret)
 		return ret;
 
+	ret = kgsl_allocate_user(device, &rb->secure_preemption_desc,
+		A6XX_CP_CTXRECORD_SIZE_IN_BYTES,
+		KGSL_MEMFLAGS_SECURE | KGSL_MEMDESC_PRIVILEGED);
+	if (ret)
+		return ret;
+
+	ret = kgsl_iommu_map_global_secure_pt_entry(device,
+				&rb->secure_preemption_desc);
+	if (ret)
+		return ret;
+
 	ret = kgsl_allocate_global(device, &rb->perfcounter_save_restore_desc,
 		A6XX_CP_PERFCOUNTER_SAVE_RESTORE_SIZE, 0,
 		KGSL_MEMDESC_PRIVILEGED, "perfcounter_save_restore_desc");
@@ -649,6 +671,9 @@ static void a6xx_preemption_close(struct kgsl_device *device)
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 		kgsl_free_global(device, &rb->preemption_desc);
 		kgsl_free_global(device, &rb->perfcounter_save_restore_desc);
+		kgsl_iommu_unmap_global_secure_pt_entry(device,
+				&rb->secure_preemption_desc);
+		kgsl_sharedmem_free(&rb->secure_preemption_desc);
 	}
 }
 
@@ -716,16 +741,20 @@ int a6xx_preemption_context_init(struct kgsl_context *context)
 {
 	struct kgsl_device *device = context->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	uint64_t flags = 0;
 
 	if (!adreno_is_preemption_setup_enabled(adreno_dev))
 		return 0;
+
+	if (context->flags & KGSL_CONTEXT_SECURE)
+		flags |= KGSL_MEMFLAGS_SECURE;
 
 	/*
 	 * gpumem_alloc_entry takes an extra refcount. Put it only when
 	 * destroying the context to keep the context record valid
 	 */
 	context->user_ctxt_record = gpumem_alloc_entry(context->dev_priv,
-			A6XX_CP_CTXRECORD_USER_RESTORE_SIZE, 0);
+			A6XX_CP_CTXRECORD_USER_RESTORE_SIZE, flags);
 	if (IS_ERR(context->user_ctxt_record)) {
 		int ret = PTR_ERR(context->user_ctxt_record);
 
