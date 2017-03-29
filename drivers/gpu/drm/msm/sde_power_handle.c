@@ -482,18 +482,6 @@ static int sde_power_data_bus_parse(struct platform_device *pdev,
 			goto end;
 		}
 		pr_debug("register data_bus_hdl=%x\n", pdbus->data_bus_hdl);
-
-		/*
-		 * Following call will not result in actual vote rather update
-		 * the current index and ab/ib value. When continuous splash
-		 * is enabled, actual vote will happen when splash handoff is
-		 * done.
-		 */
-		return _sde_power_data_bus_set_quota(pdbus,
-				SDE_POWER_HANDLE_DATA_BUS_AB_QUOTA,
-				SDE_POWER_HANDLE_DATA_BUS_AB_QUOTA,
-				SDE_POWER_HANDLE_DATA_BUS_IB_QUOTA,
-				SDE_POWER_HANDLE_DATA_BUS_IB_QUOTA);
 	}
 
 end:
@@ -535,6 +523,31 @@ static void sde_power_reg_bus_unregister(u32 reg_bus_hdl)
 {
 	if (reg_bus_hdl)
 		msm_bus_scale_unregister_client(reg_bus_hdl);
+}
+
+static int sde_power_data_bus_update(struct sde_power_data_bus_handle *pdbus,
+							bool enable)
+{
+	int rc = 0;
+	u64 ab_quota_rt, ab_quota_nrt;
+	u64 ib_quota_rt, ib_quota_nrt;
+
+	ab_quota_rt = ab_quota_nrt = enable ?
+			SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA :
+			SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA;
+	ib_quota_rt = ib_quota_nrt = enable ?
+			SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA :
+			SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA;
+
+	if (pdbus->data_bus_hdl)
+		rc = _sde_power_data_bus_set_quota(pdbus, ab_quota_rt,
+				ab_quota_nrt, ib_quota_rt, ib_quota_nrt);
+
+	if (rc)
+		pr_err("failed to set data bus vote rc=%d enable:%d\n",
+							rc, enable);
+
+	return rc;
 }
 
 static int sde_power_reg_bus_update(u32 reg_bus_hdl, u32 usecase_ndx)
@@ -579,6 +592,12 @@ static void sde_power_reg_bus_unregister(u32 reg_bus_hdl)
 }
 
 static int sde_power_reg_bus_update(u32 reg_bus_hdl, u32 usecase_ndx)
+{
+	return 0;
+}
+
+static int sde_power_data_bus_update(struct sde_power_data_bus_handle *pdbus,
+							bool enable)
 {
 	return 0;
 }
@@ -738,6 +757,13 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 		goto end;
 
 	if (enable) {
+		rc = sde_power_data_bus_update(&phandle->data_bus_handle,
+									enable);
+		if (rc) {
+			pr_err("failed to set data bus vote rc=%d\n", rc);
+			goto data_bus_hdl_err;
+		}
+
 		rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
 		if (rc) {
 			pr_err("failed to enable vregs rc=%d\n", rc);
@@ -763,6 +789,8 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 							max_usecase_ndx);
 
 		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
+
+		sde_power_data_bus_update(&phandle->data_bus_handle, enable);
 	}
 
 end:
@@ -774,6 +802,8 @@ clk_err:
 reg_bus_hdl_err:
 	msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, 0);
 vreg_err:
+	sde_power_data_bus_update(&phandle->data_bus_handle, 0);
+data_bus_hdl_err:
 	phandle->current_usecase_ndx = prev_usecase_ndx;
 	mutex_unlock(&phandle->phandle_lock);
 	return rc;
