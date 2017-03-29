@@ -29,8 +29,6 @@
 #include "kgsl_gmu.h"
 #include "kgsl_trace.h"
 
-#define OOB_REQUEST_TIMEOUT	10 /* ms */
-
 #define A6XX_CP_RB_CNTL_DEFAULT (((ilog2(4) << 8) & 0x1F00) | \
 		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F))
 
@@ -785,8 +783,10 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	wmb();
 }
 
-#define GMU_START_TIMEOUT 10	/* ms */
-#define GPU_START_TIMEOUT 100	/* ms */
+#define GMU_START_TIMEOUT	10	/* ms */
+#define GPU_START_TIMEOUT	100	/* ms */
+#define GPU_RESET_TIMEOUT	1	/* ms */
+#define GPU_RESET_TIMEOUT_US	10	/* us */
 
 /*
  * timed_poll_check() - polling *gmu* register at given offset until
@@ -958,7 +958,9 @@ static int a6xx_oob_set(struct adreno_device *adreno_dev,
 			GPU_START_TIMEOUT,
 			check_mask)) {
 		ret = -ETIMEDOUT;
-		dev_err(&gmu->pdev->dev, "OOB set timed out\n");
+		dev_err(&gmu->pdev->dev,
+			"OOB set timed out, mask %x\n", set_mask);
+		WARN_ON(true);
 	}
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, clear_mask);
@@ -1069,7 +1071,7 @@ static int a6xx_hm_enable(struct adreno_device *adreno_dev)
 	ret = regulator_enable(gmu->gx_gdsc);
 	if (ret) {
 		dev_err(&gmu->pdev->dev,
-				"Failed to turn on GPU HM HS\n");
+			"Failed to turn on GPU HM HS\n");
 		return ret;
 	}
 
@@ -1115,11 +1117,14 @@ static int a6xx_hm_sptprac_enable(struct kgsl_device *device)
 
 	/* If GMU does not control HM we must */
 	if (gmu->idle_level < GPU_HW_IFPC) {
+
 		ret = a6xx_hm_enable(ADRENO_DEVICE(device));
 		if (ret) {
 			dev_err(&gmu->pdev->dev, "Failed to power on GPU HM\n");
 			return ret;
 		}
+
+
 	}
 
 	/* If GMU does not control SPTPRAC we must */
@@ -1158,19 +1163,6 @@ static int a6xx_hm_sptprac_disable(struct kgsl_device *device)
 }
 
 /*
- * a6xx_hm_sptprac_control() - Turn HM and SPTPRAC on or off
- * @device: Pointer to KGSL device
- * @on: True to turn on or false to turn off
- */
-static int a6xx_hm_sptprac_control(struct kgsl_device *device, bool on)
-{
-	if (on)
-		return a6xx_hm_sptprac_enable(device);
-	else
-		return a6xx_hm_sptprac_disable(device);
-}
-
-/*
  * a6xx_gfx_rail_on() - request GMU to power GPU at given OPP.
  * @device: Pointer to KGSL device
  *
@@ -1201,6 +1193,8 @@ static int a6xx_gfx_rail_on(struct kgsl_device *device)
 
 	return ret;
 }
+
+#define GMU_POWER_STATE_SLUMBER 15
 
 /*
  * a6xx_notify_slumber() - initiate request to GMU to prepare to slumber
@@ -1277,13 +1271,12 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
 	/* Turn on the HM and SPTP head switches */
-	ret = a6xx_hm_sptprac_control(device, true);
+	ret = a6xx_hm_sptprac_enable(device);
 
 	return ret;
-
 error_rsc:
 	dev_err(dev, "GPU RSC sequence stuck in waking up GPU\n");
-	return -EINVAL;
+		return -EINVAL;
 }
 
 static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
@@ -1292,7 +1285,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	int val, ret = 0;
 
 	/* Turn off the SPTP and HM head switches */
-	ret = a6xx_hm_sptprac_control(device, false);
+	ret = a6xx_hm_sptprac_disable(device);
 
 	/* RSC sleep sequence */
 	kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
@@ -1335,7 +1328,12 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
 	int ret, i;
 
-	if (boot_state == GMU_COLD_BOOT || boot_state == GMU_RESET) {
+	switch (boot_state) {
+	case GMU_COLD_BOOT:
+		/* Turn on the HM and SPTP head switches */
+		ret = a6xx_hm_sptprac_enable(device);
+		if (ret)
+			return ret;
 
 		/* Turn on TCM retention */
 		kgsl_gmu_regwrite(device, A6XX_GMU_GENERAL_7, 1);
@@ -1343,7 +1341,7 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 		if (!test_and_set_bit(GMU_BOOT_INIT_DONE, &gmu->flags)) {
 			_load_gmu_rpmh_ucode(device);
 			/* Turn on the HM and SPTP head switches */
-			ret = a6xx_hm_sptprac_control(device, true);
+			ret = a6xx_hm_sptprac_enable(device);
 			if (ret)
 				return ret;
 		} else {
@@ -1367,10 +1365,19 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 					gmu->load_mode);
 			return -EINVAL;
 		}
-	} else {
+		break;
+	case GMU_WARM_BOOT:
 		ret = a6xx_rpmh_power_on_gpu(device);
 		if (ret)
 			return ret;
+		break;
+	case GMU_RESET:
+		/* Turn on the HM and SPTP head switches */
+		ret = a6xx_hm_sptprac_enable(device);
+		if (ret)
+			return ret;
+	default:
+		break;
 	}
 
 	/* Clear init result to make sure we are getting fresh value */
@@ -1390,8 +1397,7 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	if (ret)
 		return ret;
 
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)
-			&& boot_state == GMU_COLD_BOOT) {
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
 		ret = a6xx_gfx_rail_on(device);
 		if (ret) {
 			a6xx_oob_clear(adreno_dev,
@@ -1421,7 +1427,7 @@ static int a6xx_gmu_dcvs_nohfi(struct kgsl_device *device,
 		unsigned int perf_idx, unsigned int bw_idx)
 {
 	struct hfi_dcvs_cmd dcvs_cmd = {
-		.ack_type = ACK_BLOCK,
+		.ack_type = ACK_NONBLOCK,
 		.freq = {
 			.perf_idx = perf_idx,
 			.clkset_opt = OPTION_AT_LEAST,
@@ -1434,10 +1440,6 @@ static int a6xx_gmu_dcvs_nohfi(struct kgsl_device *device,
 	struct gmu_device *gmu = &device->gmu;
 	union gpu_perf_vote vote;
 	int ret;
-
-	if (device->state == KGSL_STATE_INIT ||
-			device->state == KGSL_STATE_SUSPEND)
-		dcvs_cmd.ack_type = ACK_NONBLOCK;
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_ACK_OPTION, dcvs_cmd.ack_type);
 
@@ -1461,43 +1463,6 @@ static int a6xx_gmu_dcvs_nohfi(struct kgsl_device *device,
 
 done:
 	a6xx_oob_clear(adreno_dev, OOB_DCVS_CLEAR_MASK);
-
-	return ret;
-}
-
-/*
- * a6xx_rpmh_gpu_pwrctrl() - GPU power control via RPMh/GMU interface
- * @adreno_dev: Pointer to adreno device
- * @mode: requested power mode
- * @arg1: first argument for mode control
- * @arg2: second argument for mode control
- */
-static int a6xx_rpmh_gpu_pwrctrl(struct adreno_device *adreno_dev,
-		unsigned int mode, unsigned int arg1, unsigned int arg2)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = &device->gmu;
-	int ret;
-
-	switch (mode) {
-	case GMU_FW_START:
-		ret = a6xx_gmu_fw_start(device, arg1);
-		break;
-	case GMU_FW_STOP:
-		ret = a6xx_rpmh_power_off_gpu(device);
-		break;
-	case GMU_DCVS_NOHFI:
-		ret = a6xx_gmu_dcvs_nohfi(device, arg1, arg2);
-		break;
-	case GMU_NOTIFY_SLUMBER:
-		ret = a6xx_notify_slumber(device);
-		break;
-	default:
-		dev_err(&gmu->pdev->dev,
-				"unsupported GMU power ctrl mode:%d\n", mode);
-		ret = -EINVAL;
-		break;
-	}
 
 	return ret;
 }
@@ -1618,6 +1583,169 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+#define A6XX_STATE_OF_CHILD             (BIT(4) | BIT(5))
+#define A6XX_IDLE_FULL_LLM              BIT(0)
+#define A6XX_WAKEUP_ACK                 BIT(1)
+#define A6XX_IDLE_FULL_ACK              BIT(0)
+#define A6XX_VBIF_XIN_HALT_CTRL1_ACKS   (BIT(0) | BIT(1) | BIT(2) | BIT(3))
+
+static void a6xx_isense_disable(struct kgsl_device *device)
+{
+	unsigned int val;
+	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		return;
+
+	kgsl_gmu_regread(device, A6XX_GPU_CS_ENABLE_REG, &val);
+	if (val) {
+		kgsl_gmu_regwrite(device, A6XX_GPU_CS_ENABLE_REG, 0);
+		kgsl_gmu_regwrite(device, A6XX_GMU_ISENSE_CTRL, 0);
+	}
+}
+
+static int a6xx_llm_glm_handshake(struct kgsl_device *device)
+{
+	unsigned int val;
+	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_device *gmu = &device->gmu;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		return 0;
+
+	kgsl_gmu_regread(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, &val);
+	if (!(val & A6XX_STATE_OF_CHILD)) {
+		kgsl_gmu_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0, BIT(4));
+		kgsl_gmu_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0,
+				A6XX_IDLE_FULL_LLM);
+		if (timed_poll_check(device, A6XX_GMU_LLM_GLM_SLEEP_STATUS,
+				A6XX_IDLE_FULL_ACK, GPU_RESET_TIMEOUT,
+				A6XX_IDLE_FULL_ACK)) {
+			dev_err(&gmu->pdev->dev, "LLM-GLM handshake failed\n");
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static int a6xx_complete_rpmh_votes(struct kgsl_device *device)
+{
+	int ret = 0;
+
+	if (!kgsl_gmu_isenabled(device))
+		return ret;
+
+	ret |= timed_poll_check(device, A6XX_RSCC_TCS0_DRV0_STATUS, BIT(0),
+			GPU_RESET_TIMEOUT, BIT(0));
+	ret |= timed_poll_check(device, A6XX_RSCC_TCS1_DRV0_STATUS, BIT(0),
+			GPU_RESET_TIMEOUT, BIT(0));
+	ret |= timed_poll_check(device, A6XX_RSCC_TCS2_DRV0_STATUS, BIT(0),
+			GPU_RESET_TIMEOUT, BIT(0));
+	ret |= timed_poll_check(device, A6XX_RSCC_TCS3_DRV0_STATUS, BIT(0),
+			GPU_RESET_TIMEOUT, BIT(0));
+
+	return ret;
+}
+
+static int a6xx_gmu_suspend(struct kgsl_device *device)
+{
+	/* Max GX clients on A6xx is 2: GMU and KMD */
+	int ret = 0, max_client_num = 2;
+	struct gmu_device *gmu = &device->gmu;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	/* do it only if LM feature is enabled */
+	/* Disable ISENSE if it's on */
+	a6xx_isense_disable(device);
+
+	/* LLM-GLM handshake sequence */
+	a6xx_llm_glm_handshake(device);
+
+	/* If SPTP_RAC is on, turn off SPTP_RAC HS */
+	a6xx_sptprac_disable(adreno_dev);
+
+	/* Disconnect GPU from BUS. Clear and reconnected after reset */
+	adreno_vbif_clear_pending_transactions(device);
+	/* Unnecessary: a6xx_soft_reset(adreno_dev); */
+
+	/* Check no outstanding RPMh voting */
+	a6xx_complete_rpmh_votes(device);
+
+	if (gmu->idle_level < GPU_HW_IFPC) {
+		/* HM GDSC is controlled by KGSL */
+		ret = a6xx_hm_disable(ADRENO_DEVICE(device));
+		if (ret)
+			dev_err(&gmu->pdev->dev,
+				"suspend: fail: power off GPU HM\n");
+	} else if (gmu->gx_gdsc) {
+		if (regulator_is_enabled(gmu->gx_gdsc)) {
+			/* Switch gx gdsc control from GMU to CPU
+			 * force non-zero reference count in clk driver
+			 * so next disable call will turn
+			 * off the GDSC
+			 */
+			ret = regulator_enable(gmu->gx_gdsc);
+			if (ret)
+				dev_err(&gmu->pdev->dev,
+					"suspend fail: gx enable\n");
+
+			while ((max_client_num)) {
+				ret = regulator_disable(gmu->gx_gdsc);
+				if (!regulator_is_enabled(gmu->gx_gdsc))
+					break;
+				max_client_num -= 1;
+			}
+
+			if (!max_client_num)
+				dev_err(&gmu->pdev->dev,
+					"suspend fail: cannot disable gx\n");
+		}
+	}
+
+	return ret;
+}
+
+/*
+ * a6xx_rpmh_gpu_pwrctrl() - GPU power control via RPMh/GMU interface
+ * @adreno_dev: Pointer to adreno device
+ * @mode: requested power mode
+ * @arg1: first argument for mode control
+ * @arg2: second argument for mode control
+ */
+static int a6xx_rpmh_gpu_pwrctrl(struct adreno_device *adreno_dev,
+		unsigned int mode, unsigned int arg1, unsigned int arg2)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = &device->gmu;
+	int ret;
+
+	switch (mode) {
+	case GMU_FW_START:
+		ret = a6xx_gmu_fw_start(device, arg1);
+		break;
+	case GMU_SUSPEND:
+		ret = a6xx_gmu_suspend(device);
+		break;
+	case GMU_FW_STOP:
+		ret = a6xx_rpmh_power_off_gpu(device);
+		break;
+	case GMU_DCVS_NOHFI:
+		ret = a6xx_gmu_dcvs_nohfi(device, arg1, arg2);
+		break;
+	case GMU_NOTIFY_SLUMBER:
+		ret = a6xx_notify_slumber(device);
+		break;
+	default:
+		dev_err(&gmu->pdev->dev,
+				"unsupported GMU power ctrl mode:%d\n", mode);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+
 static void a6xx_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -1703,7 +1831,6 @@ static inline void _reg_rmw(void __iomem *regaddr,
 	/* Make sure the above write posts before we proceed*/
 	wmb();
 }
-
 
 /*
  * a6xx_llc_configure_gpu_scid() - Program the sub-cache ID for all GPU blocks
@@ -2326,7 +2453,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_GMU_HOST2GMU_INTR_CLR),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_HOST2GMU_INTR_RAW_INFO,
 				A6XX_GMU_HOST2GMU_INTR_RAW_INFO),
-
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TRUST_CONTROL,
 				A6XX_RBBM_SECVID_TRUST_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,

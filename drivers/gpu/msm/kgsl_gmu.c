@@ -1253,32 +1253,78 @@ static int gmu_disable_gdsc(struct gmu_device *gmu)
 	return ret;
 }
 
+static int gmu_fast_boot(struct kgsl_device *device)
+{
+	int ret;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_device *gmu = &device->gmu;
+
+	hfi_stop(gmu);
+	clear_bit(GMU_HFI_ON, &gmu->flags);
+
+	ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
+		GMU_RESET, 0);
+	if (ret)
+		return ret;
+
+	/*FIXME: enabling WD interrupt*/
+
+	ret = hfi_start(gmu, GMU_WARM_BOOT);
+	if (ret)
+		return ret;
+
+	ret = gpudev->oob_set(adreno_dev, OOB_CPINIT_SET_MASK,
+			OOB_CPINIT_CHECK_MASK, OOB_CPINIT_CLEAR_MASK);
+
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+		gpudev->oob_clear(adreno_dev,
+				OOB_BOOT_SLUMBER_CLEAR_MASK);
+
+	return ret;
+}
+
+static int gmu_suspend(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct gmu_device *gmu = &device->gmu;
+
+	if (!test_bit(GMU_CLK_ON, &gmu->flags))
+		return 0;
+
+	/* Pending message in all queues are abandoned */
+	hfi_stop(gmu);
+	clear_bit(GMU_HFI_ON, &gmu->flags);
+	gmu_irq_disable(device);
+
+	if (gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_SUSPEND, 0, 0))
+		return -EINVAL;
+
+	gmu_disable_clks(gmu);
+	gmu_disable_gdsc(gmu);
+	return 0;
+}
+
 /* To be called to power on both GPU and GMU */
 int gmu_start(struct kgsl_device *device)
 {
-	int ret = 0;
+	int ret = 0, perf_idx;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gmu_device *gmu = &device->gmu;
 	int bus_level = pwr->pwrlevels[pwr->default_pwrlevel].bus_freq;
 
-	if (!kgsl_gmu_isenabled(device))
-		return 0;
+	switch (device->state) {
+	case KGSL_STATE_INIT:
+	case KGSL_STATE_SUSPEND:
+		WARN_ON(test_bit(GMU_CLK_ON, &gmu->flags));
+		gmu_enable_gdsc(gmu);
+		gmu_enable_clks(gmu);
 
-	if (test_bit(GMU_CLK_ON, &gmu->flags))
-		return 0;
-
-	ret = gmu_enable_gdsc(gmu);
-	if (ret)
-		return ret;
-
-	gmu_enable_clks(gmu);
-
-	if (device->state == KGSL_STATE_INIT ||
-			device->state == KGSL_STATE_SUSPEND) {
 		/* Convert to RPMh frequency index */
-		int perf_idx = gmu->num_gpupwrlevels -
+		perf_idx = gmu->num_gpupwrlevels -
 				pwr->default_pwrlevel - 1;
 
 		/* Vote for 300MHz DDR for GMU to init */
@@ -1305,8 +1351,16 @@ int gmu_start(struct kgsl_device *device)
 		ret = gmu_dcvs_set(gmu, perf_idx, bus_level);
 		if (ret)
 			goto error_gpu;
-	} else {
-		int perf_idx = gmu->num_gpupwrlevels - gmu->wakeup_pwrlevel - 1;
+
+		msm_bus_scale_client_update_request(gmu->pcl, 0);
+		break;
+
+	case KGSL_STATE_SLUMBER:
+		WARN_ON(test_bit(GMU_CLK_ON, &gmu->flags));
+		gmu_enable_gdsc(gmu);
+		gmu_enable_clks(gmu);
+
+		perf_idx = gmu->num_gpupwrlevels - gmu->wakeup_pwrlevel - 1;
 
 		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
 				GMU_WARM_BOOT, 0);
@@ -1325,6 +1379,46 @@ int gmu_start(struct kgsl_device *device)
 				goto error_gpu;
 			gmu->wakeup_pwrlevel = pwr->default_pwrlevel;
 		}
+		break;
+
+	case KGSL_STATE_RESET:
+		if (test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv)) {
+			gmu_suspend(device);
+			gmu_enable_gdsc(gmu);
+			gmu_enable_clks(gmu);
+
+			perf_idx = gmu->num_gpupwrlevels -
+				pwr->active_pwrlevel - 1;
+
+			bus_level =
+				pwr->pwrlevels[pwr->active_pwrlevel].bus_freq;
+			ret = gpudev->rpmh_gpu_pwrctrl(
+				adreno_dev, GMU_FW_START, GMU_RESET, 0);
+			if (ret)
+				goto error_clks;
+
+			gmu_irq_enable(device);
+
+			ret = hfi_start(gmu, GMU_WARM_BOOT);
+			if (ret)
+				goto error_gpu;
+
+			/* Send DCVS level prior to reset*/
+			ret = gmu_dcvs_set(gmu, perf_idx, bus_level);
+			if (ret)
+				goto error_gpu;
+
+			ret = gpudev->oob_set(adreno_dev,
+				OOB_CPINIT_SET_MASK,
+				OOB_CPINIT_CHECK_MASK,
+				OOB_CPINIT_CLEAR_MASK);
+
+		} else {
+			gmu_fast_boot(device);
+		}
+		break;
+	default:
+		break;
 	}
 
 	/*
@@ -1332,30 +1426,20 @@ int gmu_start(struct kgsl_device *device)
 	 * In v2, this function call shall move ahead
 	 * of hfi_start() to save power.
 	 */
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+		gpudev->oob_clear(adreno_dev,
+				OOB_BOOT_SLUMBER_CLEAR_MASK);
 
-	if (device->state == KGSL_STATE_INIT ||
-			device->state == KGSL_STATE_SUSPEND) {
-		msm_bus_scale_client_update_request(gmu->pcl, 0);
-		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-			gpudev->oob_clear(adreno_dev,
-					OOB_BOOT_SLUMBER_CLEAR_MASK);
-	}
-
-	return 0;
+	return ret;
 
 error_gpu:
 	hfi_stop(gmu);
 	gmu_irq_disable(device);
-	if (device->state == KGSL_STATE_INIT ||
-			device->state == KGSL_STATE_SUSPEND) {
 		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
 			gpudev->oob_clear(adreno_dev,
 					OOB_BOOT_SLUMBER_CLEAR_MASK);
-	}
 	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_STOP, 0, 0);
 error_bus:
-	if (device->state == KGSL_STATE_INIT ||
-			device->state == KGSL_STATE_SUSPEND)
 		msm_bus_scale_client_update_request(gmu->pcl, 0);
 error_clks:
 	gmu_disable_clks(gmu);

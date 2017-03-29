@@ -139,7 +139,7 @@ enum gmu_load_mode {
 enum gmu_pwrctrl_mode {
 	GMU_FW_START,
 	GMU_FW_STOP,
-	GMU_POWER_RESET,
+	GMU_SUSPEND,
 	GMU_DCVS_NOHFI,
 	GMU_NOTIFY_SLUMBER,
 	INVALID_POWER_CTRL

@@ -1643,38 +1643,6 @@ static int adreno_start(struct kgsl_device *device, int priority)
 	return ret;
 }
 
-/**
- * adreno_vbif_clear_pending_transactions() - Clear transactions in VBIF pipe
- * @device: Pointer to the device whose VBIF pipe is to be cleared
- */
-static int adreno_vbif_clear_pending_transactions(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	unsigned int mask = gpudev->vbif_xin_halt_ctrl0_mask;
-	unsigned int val;
-	unsigned long wait_for_vbif;
-	int ret = 0;
-
-	adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0, mask);
-	/* wait for the transactions to clear */
-	wait_for_vbif = jiffies + msecs_to_jiffies(100);
-	while (1) {
-		adreno_readreg(adreno_dev,
-			ADRENO_REG_VBIF_XIN_HALT_CTRL1, &val);
-		if ((val & mask) == mask)
-			break;
-		if (time_after(jiffies, wait_for_vbif)) {
-			KGSL_DRV_ERR(device,
-				"Wait limit reached for VBIF XIN Halt\n");
-			ret = -ETIMEDOUT;
-			break;
-		}
-	}
-	adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0, 0);
-	return ret;
-}
-
 static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 {
 	int i;
