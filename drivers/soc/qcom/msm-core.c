@@ -107,7 +107,6 @@ static struct platform_device *msm_core_pdev;
 static struct cpu_activity_info activity[NR_CPUS];
 DEFINE_PER_CPU(struct cpu_pstate_pwr *, ptable);
 static struct cpu_pwr_stats cpu_stats[NR_CPUS];
-static uint32_t scaling_factor;
 ALLOCATE_2D_ARRAY(uint32_t);
 
 static int poll_ms;
@@ -603,54 +602,6 @@ static int msm_core_dyn_pwr_init(struct platform_device *pdev,
 	return ret;
 }
 
-static int msm_core_tsens_init(struct device_node *node, int cpu)
-{
-	int ret = 0;
-	char *key = NULL;
-	struct device_node *phandle;
-	const char *sensor_type = NULL;
-	struct cpu_activity_info *cpu_node = &activity[cpu];
-
-	if (!node)
-		return -ENODEV;
-
-	key = "sensor";
-	phandle = of_parse_phandle(node, key, 0);
-	if (!phandle) {
-		pr_info("%s: No sensor mapping found for the core\n",
-				__func__);
-		/* Do not treat this as error as some targets might have
-		 * temperature notification only in userspace.
-		 * Use default temperature for the core. Userspace might
-		 * update the temperature once it is up.
-		 */
-		cpu_node->sensor_id = -ENODEV;
-		cpu_node->temp = DEFAULT_TEMP;
-		return 0;
-	}
-
-	key = "qcom,sensor-name";
-	ret = of_property_read_string(phandle, key,
-				&sensor_type);
-	if (ret) {
-		pr_err("%s: Cannot read tsens id\n", __func__);
-		return ret;
-	}
-
-	if (cpu_node->sensor_id < 0)
-		return cpu_node->sensor_id;
-
-	key = "qcom,scaling-factor";
-	ret = of_property_read_u32(phandle, key,
-				&scaling_factor);
-	if (ret) {
-		pr_info("%s: Cannot read tsens scaling factor\n", __func__);
-		scaling_factor = DEFAULT_SCALING_FACTOR;
-	}
-
-	return ret;
-}
-
 static int msm_core_mpidr_init(struct device_node *phandle)
 {
 	int ret = 0;
@@ -779,8 +730,6 @@ static int msm_core_params_init(struct platform_device *pdev)
 	int ret = 0;
 	unsigned long cpu = 0;
 	struct device_node *child_node = NULL;
-	struct device_node *ea_node = NULL;
-	char *key = NULL;
 	int mpidr;
 
 	for_each_possible_cpu(cpu) {
@@ -793,22 +742,7 @@ static int msm_core_params_init(struct platform_device *pdev)
 		if (mpidr < 0)
 			return mpidr;
 
-		if (cpu >= num_possible_cpus())
-			continue;
-
 		activity[cpu].mpidr = mpidr;
-
-		key = "qcom,ea";
-		ea_node = of_parse_phandle(child_node, key, 0);
-		if (!ea_node) {
-			pr_err("%s Couldn't find the ea_node for cpu%lu\n",
-				__func__, cpu);
-			return -ENODEV;
-		}
-
-		ret = msm_core_tsens_init(ea_node, cpu);
-		if (ret)
-			return ret;
 
 		if (!activity[cpu].sp->table)
 			continue;
@@ -858,49 +792,6 @@ static void free_dyn_memory(void)
 	}
 }
 
-static int uio_init(struct platform_device *pdev)
-{
-	int ret = 0;
-	struct uio_info *info = NULL;
-	struct resource *clnt_res = NULL;
-	u32 ea_mem_size = 0;
-	phys_addr_t ea_mem_pyhsical = 0;
-
-	clnt_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!clnt_res) {
-		pr_err("resource not found\n");
-		return -ENODEV;
-	}
-
-	info = devm_kzalloc(&pdev->dev, sizeof(struct uio_info), GFP_KERNEL);
-	if (!info)
-		return -ENOMEM;
-
-	ea_mem_size = resource_size(clnt_res);
-	ea_mem_pyhsical = clnt_res->start;
-
-	if (ea_mem_size == 0) {
-		pr_err("msm-core: memory size is zero");
-		return -EINVAL;
-	}
-
-	/* Setup device */
-	info->name = clnt_res->name;
-	info->version = "1.0";
-	info->mem[0].addr = ea_mem_pyhsical;
-	info->mem[0].size = ea_mem_size;
-	info->mem[0].memtype = UIO_MEM_PHYS;
-
-	ret = uio_register_device(&pdev->dev, info);
-	if (ret) {
-		pr_err("uio register failed ret=%d", ret);
-		return ret;
-	}
-	dev_set_drvdata(&pdev->dev, info);
-
-	return 0;
-}
-
 static int msm_core_dev_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -933,10 +824,6 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 
 	key = "qcom,throttling-temp";
 	ret = of_property_read_u32(node, key, &max_throttling_temp);
-
-	ret = uio_init(pdev);
-	if (ret)
-		return ret;
 
 	ret = msm_core_freq_init();
 	if (ret)
