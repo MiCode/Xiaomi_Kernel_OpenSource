@@ -1,7 +1,4 @@
-#ifndef	__LINUX_USBNET_ASIX_H
 #define	__LINUX_USBNET_ASIX_H
-
-/* #define RX_SKB_COPY */
 
 #define AX88179_PHY_ID			0x03
 #define AX_MCAST_FILTER_SIZE		8
@@ -69,7 +66,6 @@
 #define AX_MEDIUM_STATUS_MODE			0x22
 	#define AX_MEDIUM_GIGAMODE	0x01
 	#define AX_MEDIUM_FULL_DUPLEX	0x02
-/*	#define AX_MEDIUM_ALWAYS_ONE	0x04 */
 	#define AX_MEDIUM_EN_125MHZ	0x08
 	#define AX_MEDIUM_RXFLOW_CTRLEN	0x10
 	#define AX_MEDIUM_TXFLOW_CTRLEN	0x20
@@ -121,14 +117,9 @@
 	#define AX_RXCOE_UDPV6			0x40
 	#define AX_RXCOE_ICMV6			0x80
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 22)
 	#define AX_RXCOE_DEF_CSUM	(AX_RXCOE_IP	| AX_RXCOE_TCP  | \
 					 AX_RXCOE_UDP	| AX_RXCOE_ICMV6 | \
 					 AX_RXCOE_TCPV6	| AX_RXCOE_UDPV6)
-#else
-	#define AX_RXCOE_DEF_CSUM	(AX_RXCOE_IP	| AX_RXCOE_TCP | \
-					 AX_RXCOE_UDP)
-#endif
 
 #define AX_TXCOE_CTL			0x35
 	#define AX_TXCOE_IP			0x01
@@ -139,12 +130,8 @@
 	#define AX_TXCOE_TCPV6			0x20
 	#define AX_TXCOE_UDPV6			0x40
 	#define AX_TXCOE_ICMV6			0x80
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 22)
 	#define AX_TXCOE_DEF_CSUM	(AX_TXCOE_TCP   | AX_TXCOE_UDP | \
 					 AX_TXCOE_TCPV6 | AX_TXCOE_UDPV6)
-#else
-	#define AX_TXCOE_DEF_CSUM	(AX_TXCOE_TCP	| AX_TXCOE_UDP)
-#endif
 
 #define AX_PAUSE_WATERLVL_HIGH		0x54
 #define AX_PAUSE_WATERLVL_LOW		0x55
@@ -332,26 +319,7 @@ struct ax88179_int_data {
 #define AX_RXHDR_CRC_ERR			0x20000000
 #define AX_RXHDR_MII_ERR			0x40000000
 #define AX_RXHDR_DROP_ERR			0x80000000
-#if 0
-struct ax88179_rx_pkt_header {
-	u8	l4_csum_err:1,
-		l3_csum_err:1,
-		l4_type:3,
-		l3_type:2,
-		ce:1;
 
-	u8	vlan_ind:3,
-		rx_ok:1,
-		pri:3,
-		bmc:1;
-
-	u16	len:13,
-		crc:1,
-		mii:1,
-		drop:1;
-
-} __attribute__ ((packed));
-#endif
 static struct {unsigned char ctrl, timer_l, timer_h, size, ifg; }
 AX88179_BULKIN_SIZE[] =	{
 	{7, 0x4f, 0,	0x12, 0xff},
@@ -360,9 +328,4 @@ AX88179_BULKIN_SIZE[] =	{
 	{7, 0xcc, 0x4c, 0x18, 8},
 };
 
-static int ax88179_reset(struct usbnet *dev);
-static int ax88179_link_reset(struct usbnet *dev);
 static int ax88179_AutoDetach(struct usbnet *dev, int in_pm);
-
-#endif /* __LINUX_USBNET_ASIX_H */
-
