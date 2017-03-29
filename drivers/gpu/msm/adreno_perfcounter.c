@@ -711,7 +711,8 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 	}
 	reg = &(counters->groups[group].regs[counter]);
 
-	if (test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
+	if (!adreno_is_a6xx(adreno_dev) &&
+			test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
 		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[0];
 		unsigned int buf[4];
 		unsigned int *cmds = buf;
