@@ -181,13 +181,16 @@ int rmnet_ipa3_poll_tethering_stats(struct wan_ioctl_poll_tethering_stats
 
 int rmnet_ipa3_set_data_quota(struct wan_ioctl_set_data_quota *data);
 
-void ipa3_broadcast_quota_reach_ind(uint32_t mux_id);
+void ipa3_broadcast_quota_reach_ind(uint32_t mux_id,
+	enum ipa_upstream_type upstream_type);
 
 int rmnet_ipa3_set_tether_client_pipe(struct wan_ioctl_set_tether_client_pipe
 	*data);
 
 int rmnet_ipa3_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 	bool reset);
+
+int rmnet_ipa3_reset_tethering_stats(struct wan_ioctl_reset_tether_stats *data);
 
 int ipa3_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
 	struct ipa_get_data_stats_resp_msg_v01 *resp);
@@ -283,7 +286,8 @@ static inline int rmnet_ipa3_set_data_quota(
 	return -EPERM;
 }
 
-static inline void ipa3_broadcast_quota_reach_ind(uint32_t mux_id) { }
+static inline void ipa3_broadcast_quota_reach_ind(uint32_t mux_id,
+	enum ipa_upstream_type upstream_type) { }
 
 static inline int ipa3_qmi_get_data_stats(
 	struct ipa_get_data_stats_req_msg_v01 *req,
