@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,7 +43,7 @@ struct esoc_desc *devm_register_esoc_client(struct device *dev,
 	struct device_node *np = dev->of_node;
 	struct esoc_clink *esoc_clink;
 	struct esoc_desc *desc;
-	char *esoc_name, *esoc_link;
+	char *esoc_name, *esoc_link, *esoc_link_info;
 
 	for (index = 0;; index++) {
 		esoc_prop = kasprintf(GFP_KERNEL, "esoc-%d", index);
@@ -85,16 +85,26 @@ struct esoc_desc *devm_register_esoc_client(struct device *dev,
 			kfree(esoc_name);
 			return ERR_PTR(-ENOMEM);
 		}
+		esoc_link_info = kasprintf(GFP_KERNEL, "%s",
+					esoc_clink->link_info);
+		if (IS_ERR_OR_NULL(esoc_link_info)) {
+			dev_err(dev, "unable to alloc link info name\n");
+			kfree(esoc_name);
+			kfree(esoc_link);
+			return ERR_PTR(-ENOMEM);
+		}
 		desc = devres_alloc(devm_esoc_desc_release,
 						sizeof(*desc), GFP_KERNEL);
 		if (IS_ERR_OR_NULL(desc)) {
 			kfree(esoc_name);
 			kfree(esoc_link);
+			kfree(esoc_link_info);
 			dev_err(dev, "unable to allocate esoc descriptor\n");
 			return ERR_PTR(-ENOMEM);
 		}
 		desc->name = esoc_name;
 		desc->link = esoc_link;
+		desc->link_info = esoc_link_info;
 		desc->priv = esoc_clink;
 		devres_add(dev, desc);
 		return desc;
