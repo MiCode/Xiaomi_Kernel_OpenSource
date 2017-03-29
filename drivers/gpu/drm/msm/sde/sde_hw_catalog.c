@@ -13,6 +13,8 @@
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
 #include <linux/slab.h>
 #include <linux/of_address.h>
+#include <linux/platform_device.h>
+#include <linux/soc/qcom/llcc-qcom.h>
 
 #include "sde_hw_mdss.h"
 #include "sde_hw_catalog.h"
@@ -88,6 +90,8 @@
  * hardware index and offset array index
  */
 #define PROP_BITVALUE_ACCESS(p, i, j, k)	((p + i)->bit_value[j][k])
+
+#define DEFAULT_SBUF_HEADROOM		(20)
 
 /*************************************************************
  *  DTSI PROPERTY INDEX
@@ -777,6 +781,9 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 			"sspp_scaler%u", sspp->id);
 	}
 
+	if (sde_cfg->has_sbuf)
+		set_bit(SDE_SSPP_SBUF, &sspp->features);
+
 	sblk->csc_blk.id = SDE_SSPP_CSC;
 	snprintf(sblk->csc_blk.name, SDE_HW_BLK_NAME_LEN,
 			"sspp_csc%u", sspp->id);
@@ -1141,6 +1148,8 @@ static int sde_ctl_parse_dt(struct device_node *np,
 			set_bit(SDE_CTL_SPLIT_DISPLAY, &ctl->features);
 		if (i < MAX_PP_SPLIT_DISPLAY_CTL)
 			set_bit(SDE_CTL_PINGPONG_SPLIT, &ctl->features);
+		if (sde_cfg->has_sbuf)
+			set_bit(SDE_CTL_SBUF, &ctl->features);
 	}
 
 end:
@@ -1570,6 +1579,73 @@ static void _sde_dspp_setup_blocks(struct sde_mdss_cfg *sde_cfg,
 		sblk->sixzone.len = 0;
 		set_bit(SDE_DSPP_VLUT, &dspp->features);
 	}
+}
+
+static int sde_rot_parse_dt(struct device_node *np,
+		struct sde_mdss_cfg *sde_cfg)
+{
+	struct sde_rot_cfg *rot;
+	struct platform_device *pdev;
+	struct of_phandle_args phargs;
+	struct llcc_slice_desc *slice;
+	int rc = 0, i;
+
+	if (!sde_cfg) {
+		SDE_ERROR("invalid argument\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	for (i = 0; i < ROT_MAX; i++) {
+		rot = sde_cfg->rot + sde_cfg->rot_count;
+		rot->base = 0;
+		rot->len = 0;
+
+		rc = of_parse_phandle_with_args(np,
+				"qcom,sde-inline-rotator", "#list-cells",
+				i, &phargs);
+		if (rc) {
+			rc = 0;
+			break;
+		} else if (!phargs.np || !phargs.args_count) {
+			rc = -EINVAL;
+			break;
+		}
+
+		rot->id = ROT_0 + phargs.args[0];
+
+		pdev = of_find_device_by_node(phargs.np);
+		if (pdev) {
+			slice = llcc_slice_getd(&pdev->dev, "rotator");
+			if (IS_ERR_OR_NULL(slice)) {
+				rot->pdev = NULL;
+				SDE_ERROR("failed to get system cache %ld\n",
+						PTR_ERR(slice));
+			} else {
+				rot->scid = llcc_get_slice_id(slice);
+				rot->slice_size = llcc_get_slice_size(slice);
+				rot->pdev = pdev;
+				llcc_slice_putd(slice);
+				sde_cfg->rot_count++;
+				SDE_DEBUG("rot:%d scid:%d slice_size:%zukb\n",
+						rot->id, rot->scid,
+						rot->slice_size);
+			}
+		} else {
+			rot->pdev = NULL;
+			SDE_ERROR("invalid sde rotator node\n");
+		}
+
+		of_node_put(phargs.np);
+	}
+
+	if (sde_cfg->rot_count) {
+		sde_cfg->has_sbuf = true;
+		sde_cfg->sbuf_headroom = DEFAULT_SBUF_HEADROOM;
+	}
+
+end:
+	return rc;
 }
 
 static int sde_dspp_parse_dt(struct device_node *np,
@@ -2369,6 +2445,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 		goto end;
 
 	rc = sde_parse_dt(np, sde_cfg);
+	if (rc)
+		goto end;
+
+	rc = sde_rot_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
 

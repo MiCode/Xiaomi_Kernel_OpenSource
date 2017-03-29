@@ -201,6 +201,7 @@ struct sde_crtc {
  * @dim_layer: Dim layer configs
  * @cur_perf: current performance state
  * @new_perf: new performance state
+ * @sbuf_cfg: stream buffer configuration
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -219,6 +220,7 @@ struct sde_crtc_state {
 
 	struct sde_core_perf_params cur_perf;
 	struct sde_core_perf_params new_perf;
+	struct sde_ctl_sbuf_cfg sbuf_cfg;
 };
 
 #define to_sde_crtc_state(x) \

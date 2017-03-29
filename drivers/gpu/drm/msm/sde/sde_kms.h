@@ -115,6 +115,36 @@ struct sde_irq {
 	struct dentry *debugfs_file;
 };
 
+/**
+ * struct sde_kms_fbo - framebuffer memory object
+ * @refcount: reference/usage count of this object
+ * @dev: Pointer to containing drm device
+ * @width: width of the framebuffer
+ * @height: height of the framebuffer
+ * @flags: drm framebuffer flags
+ * @modifier: pixel format modifier of the framebuffer
+ * @fmt: Pointer to sde format descriptor
+ * @layout: sde format layout descriptor
+ * @ihandle: framebuffer object ion handle
+ * @dma_buf: framebuffer object dma buffer
+ * @bo: per plane buffer object
+ * @fb_list: llist of fb created from this buffer object
+ */
+struct sde_kms_fbo {
+	atomic_t refcount;
+	struct drm_device *dev;
+	u32 width, height;
+	u32 pixel_format;
+	u32 flags;
+	u64 modifier[4];
+	int nplane;
+	const struct sde_format *fmt;
+	struct sde_hw_fmt_layout layout;
+	struct dma_buf *dma_buf;
+	struct drm_gem_object *bo[4];
+	struct list_head fb_list;
+};
+
 struct sde_kms {
 	struct msm_kms base;
 	struct drm_device *dev;
@@ -375,5 +405,43 @@ void sde_kms_rect_intersect(struct sde_rect *res,
  */
 int sde_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
 void sde_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
+
+/**
+ * sde_kms_fbo_create_fb - create framebuffer from given framebuffer object
+ * @dev: Pointer to drm device
+ * @fbo: Pointer to framebuffer object
+ * return: Pointer to drm framebuffer on success; NULL on error
+ */
+struct drm_framebuffer *sde_kms_fbo_create_fb(struct drm_device *dev,
+		struct sde_kms_fbo *fbo);
+
+/**
+ * sde_kms_fbo_alloc - create framebuffer object with given format parameters
+ * @dev: pointer to drm device
+ * @width: width of framebuffer
+ * @height: height of framebuffer
+ * @pixel_format: pixel format of framebuffer
+ * @modifier: pixel format modifier
+ * @flags: DRM_MODE_FB flags
+ * return: Pointer to framebuffer memory object on success; NULL on error
+ */
+struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev,
+		u32 width, u32 height, u32 pixel_format,
+		u64 modifiers[4], u32 flags);
+
+/**
+ * sde_kms_fbo_reference - increment reference count of given framebuffer object
+ * @fbo: Pointer to framebuffer memory object
+ * return: 0 on success; error code otherwise
+ */
+int sde_kms_fbo_reference(struct sde_kms_fbo *fbo);
+
+/**
+ * sde_kms_fbo_unreference - decrement reference count of given framebuffer
+ *	object
+ * @fbo: Pointer to framebuffer memory object
+ * return: 0 on success; error code otherwise
+ */
+void sde_kms_fbo_unreference(struct sde_kms_fbo *fbo);
 
 #endif /* __sde_kms_H__ */
