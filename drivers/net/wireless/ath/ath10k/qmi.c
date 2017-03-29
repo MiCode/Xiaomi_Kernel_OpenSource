@@ -35,7 +35,7 @@ ath10k_snoc_service_notifier_notify(struct notifier_block *nb,
 			atomic_set(&ar_snoc->fw_crashed, 1);
 
 		ath10k_dbg(ar, ATH10K_DBG_SNOC, "PD went down %d\n",
-			   ar_snoc->fw_crashed);
+			   atomic_read(&ar_snoc->fw_crashed));
 		break;
 	case SERVREG_NOTIF_SERVICE_STATE_UP_V01:
 		ath10k_dbg(ar, ATH10K_DBG_SNOC, "Service up\n");
@@ -192,7 +192,7 @@ static int ath10k_snoc_modem_notifier_nb(struct notifier_block *nb,
 		atomic_set(&ar_snoc->fw_crashed, 1);
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "Modem went down %d\n",
-		   ar_snoc->fw_crashed);
+		   atomic_read(&ar_snoc->fw_crashed));
 	if (notif->crashed)
 		queue_work(ar->workqueue, &ar->restart_work);
 
