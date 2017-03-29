@@ -104,6 +104,7 @@ struct qmi_client_info {
 	struct work_struct svc_exit;
 	struct work_struct svc_rcv_msg;
 	struct work_struct ind_ack;
+	struct work_struct qmi_handle_free;
 	struct workqueue_struct *svc_event_wq;
 	struct qmi_handle *clnt_handle;
 	struct notifier_block notifier;
@@ -122,6 +123,18 @@ static DEFINE_MUTEX(notif_add_lock);
 static void root_service_clnt_recv_msg(struct work_struct *work);
 static void root_service_service_arrive(struct work_struct *work);
 static void root_service_exit_work(struct work_struct *work);
+
+static void free_qmi_handle(struct work_struct *work)
+{
+	struct qmi_client_info *data = container_of(work,
+				struct qmi_client_info, qmi_handle_free);
+
+	mutex_lock(&qmi_client_release_lock);
+	data->service_connected = false;
+	qmi_handle_destroy(data->clnt_handle);
+	data->clnt_handle = NULL;
+	mutex_unlock(&qmi_client_release_lock);
+}
 
 static struct service_notif_info *_find_service_info(const char *service_path)
 {
@@ -426,11 +439,7 @@ static void root_service_service_exit(struct qmi_client_info *data,
 	 * Destroy client handle and try connecting when
 	 * service comes up again.
 	 */
-	mutex_lock(&qmi_client_release_lock);
-	data->service_connected = false;
-	qmi_handle_destroy(data->clnt_handle);
-	data->clnt_handle = NULL;
-	mutex_unlock(&qmi_client_release_lock);
+	queue_work(data->svc_event_wq, &data->qmi_handle_free);
 }
 
 static void root_service_exit_work(struct work_struct *work)
@@ -486,7 +495,7 @@ static int ssr_event_notify(struct notifier_block *this,
 			info->subsys_state = ROOT_PD_SHUTDOWN;
 			break;
 		}
-		queue_work(info->svc_event_wq, &info->svc_exit);
+		root_service_service_exit(info, info->subsys_state);
 		break;
 	default:
 		break;
@@ -561,6 +570,7 @@ static void *add_service_notif(const char *service_path, int instance_id,
 	INIT_WORK(&qmi_data->svc_exit, root_service_exit_work);
 	INIT_WORK(&qmi_data->svc_rcv_msg, root_service_clnt_recv_msg);
 	INIT_WORK(&qmi_data->ind_ack, send_ind_ack);
+	INIT_WORK(&qmi_data->qmi_handle_free, free_qmi_handle);
 
 	*curr_state = service_notif->curr_state =
 				SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01;

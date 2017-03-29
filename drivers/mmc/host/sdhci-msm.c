@@ -2736,14 +2736,15 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 					msm_host->offset;
 	unsigned long flags;
 	bool done = false;
-	u32 io_sig_sts;
+	u32 io_sig_sts = SWITCHABLE_SIGNALLING_VOL;
 
 	spin_lock_irqsave(&host->lock, flags);
 	pr_debug("%s: %s: request %d curr_pwr_state %x curr_io_level %x\n",
 			mmc_hostname(host->mmc), __func__, req_type,
 			msm_host->curr_pwr_state, msm_host->curr_io_level);
-	io_sig_sts = sdhci_msm_readl_relaxed(host,
-			msm_host_offset->CORE_GENERICS);
+	if (!msm_host->mci_removed)
+		io_sig_sts = sdhci_msm_readl_relaxed(host,
+				msm_host_offset->CORE_GENERICS);
 
 	/*
 	 * The IRQ for request type IO High/Low will be generated when -
