@@ -270,6 +270,7 @@ static const struct pinctrl_pin_desc sdm845_pins[] = {
 	PINCTRL_PIN(150, "SDC2_CLK"),
 	PINCTRL_PIN(151, "SDC2_CMD"),
 	PINCTRL_PIN(152, "SDC2_DATA"),
+	PINCTRL_PIN(153, "UFS_RESET"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -428,6 +429,7 @@ DECLARE_MSM_GPIO_PINS(149);
 static const unsigned int sdc2_clk_pins[] = { 150 };
 static const unsigned int sdc2_cmd_pins[] = { 151 };
 static const unsigned int sdc2_data_pins[] = { 152 };
+static const unsigned int ufs_reset_pins[] = { 153 };
 
 enum sdm845_functions {
 	msm_mux_gpio,
@@ -2419,6 +2421,7 @@ static const struct msm_pingroup sdm845_groups[] = {
 	SDC_QDSD_PINGROUP(sdc2_clk, 0x59a000, 14, 6),
 	SDC_QDSD_PINGROUP(sdc2_cmd, 0x59a000, 11, 3),
 	SDC_QDSD_PINGROUP(sdc2_data, 0x59a000, 9, 0),
+	UFS_RESET(ufs_reset, 0x59f000),
 };
 
 static const struct msm_pinctrl_soc_data sdm845_pinctrl = {
