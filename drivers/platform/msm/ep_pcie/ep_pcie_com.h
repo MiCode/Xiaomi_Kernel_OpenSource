@@ -120,6 +120,12 @@
 
 #define PCIE20_MHICFG                  0x110
 #define PCIE20_BHI_EXECENV             0x228
+#define PCIE20_MHIVER                  0x108
+#define PCIE20_MHICTRL                 0x138
+#define PCIE20_MHISTATUS               0x148
+#define PCIE20_BHI_VERSION_LOWER	0x200
+#define PCIE20_BHI_VERSION_UPPER	0x204
+#define PCIE20_BHI_INTVEC		0x220
 
 #define PCIE20_AUX_CLK_FREQ_REG        0xB40
 
