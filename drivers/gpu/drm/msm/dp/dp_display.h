@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
+
+#ifndef _DP_DISPLAY_H_
+#define _DP_DISPLAY_H_
+
+#include <drm/drmP.h>
+
+#include "dp_panel.h"
+
+struct dp_display_mode {
+	struct dp_panel_info timing;
+	u32 capabilities;
+};
+
+struct dp_display {
+	struct drm_device *drm_dev;
+	struct dp_bridge *bridge;
+
+	int (*enable)(struct dp_display *dp_display);
+	int (*post_enable)(struct dp_display *dp_display);
+
+	int (*pre_disable)(struct dp_display *dp_display);
+	int (*disable)(struct dp_display *dp_display);
+
+	int (*set_mode)(struct dp_display *dp_display,
+			struct dp_display_mode *mode);
+	int (*validate_mode)(struct dp_display *dp_display,
+			struct dp_display_mode *mode);
+	int (*get_modes)(struct dp_display *dp_display,
+		struct dp_display_mode *modes, u32 *count);
+
+	int (*detect)(struct dp_display *dp_display);
+
+	int (*prepare)(struct dp_display *dp_display);
+	int (*unprepare)(struct dp_display *dp_display);
+};
+
+struct dp_display *dp_display_get(void);
+#endif /* _DP_DISPLAY_H_ */
