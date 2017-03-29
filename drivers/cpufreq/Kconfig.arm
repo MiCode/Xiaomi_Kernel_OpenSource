@@ -292,3 +292,9 @@ config ACPI_CPPC_CPUFREQ
 	  support for its operation.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_MSM
+	bool "MSM CPUFreq support"
+	depends on CPU_FREQ
+	help
+	  This enables the CPUFreq driver for Qualcomm Technologies, Inc. CPUs.
