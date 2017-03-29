@@ -178,6 +178,15 @@ config MSM_CAMCC_SDM845
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
+config MSM_DISPCC_SDM845
+	tristate "SDM845 Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  sdm845 devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 config CLOCK_QPNP_DIV
 	tristate "QPNP PMIC clkdiv driver"
 	depends on COMMON_CLK_QCOM && SPMI
