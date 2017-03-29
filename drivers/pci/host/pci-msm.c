@@ -5587,35 +5587,54 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-void msm_pcie_destroy_irq(unsigned int irq, struct msm_pcie_dev_t *pcie_dev)
+void msm_pcie_destroy_irq(unsigned int irq)
 {
-	int pos, i;
+	int pos;
+	struct pci_dev *pdev = irq_get_chip_data(irq);
+	struct msi_desc *entry = irq_get_msi_desc(irq);
+	struct msi_desc *firstentry;
 	struct msm_pcie_dev_t *dev;
+	u32 nvec;
+	int firstirq;
 
-	if (pcie_dev)
-		dev = pcie_dev;
-	else
-		dev = irq_get_chip_data(irq);
-
-	if (!dev) {
-		pr_err("PCIe: device is null. IRQ:%d\n", irq);
+	if (!pdev) {
+		pr_err("PCIe: pci device is null. IRQ:%d\n", irq);
 		return;
 	}
+
+	dev = PCIE_BUS_PRIV_DATA(pdev->bus);
+	if (!dev) {
+		pr_err("PCIe: could not find RC. IRQ:%d\n", irq);
+		return;
+	}
+
+	if (!entry) {
+		PCIE_ERR(dev, "PCIe: RC%d: msi desc is null. IRQ:%d\n",
+			dev->rc_idx, irq);
+		return;
+	}
+
+	firstentry = first_pci_msi_entry(pdev);
+	if (!firstentry) {
+		PCIE_ERR(dev,
+			"PCIe: RC%d: firstentry msi desc is null. IRQ:%d\n",
+			dev->rc_idx, irq);
+		return;
+	}
+
+	firstirq = firstentry->irq;
+	nvec = (1 << entry->msi_attrib.multiple);
 
 	if (dev->msi_gicm_addr) {
 		PCIE_DBG(dev, "destroy QGIC based irq %d\n", irq);
 
-		for (i = 0; i < MSM_PCIE_MAX_MSI; i++)
-			if (irq == dev->msi[i].num)
-				break;
-		if (i == MSM_PCIE_MAX_MSI) {
+		if (irq < firstirq || irq > firstirq + nvec - 1) {
 			PCIE_ERR(dev,
 				"Could not find irq: %d in RC%d MSI table\n",
 				irq, dev->rc_idx);
 			return;
 		}
-
-		pos = i;
+		pos = irq - firstirq;
 	} else {
 		PCIE_DBG(dev, "destroy default MSI irq %d\n", irq);
 		pos = irq - irq_find_mapping(dev->irq_domain, 0);
@@ -5634,7 +5653,7 @@ void msm_pcie_destroy_irq(unsigned int irq, struct msm_pcie_dev_t *pcie_dev)
 void arch_teardown_msi_irq(unsigned int irq)
 {
 	PCIE_GEN_DBG("irq %d deallocated\n", irq);
-	msm_pcie_destroy_irq(irq, NULL);
+	msm_pcie_destroy_irq(irq);
 }
 
 void arch_teardown_msi_irqs(struct pci_dev *dev)
@@ -5654,7 +5673,7 @@ void arch_teardown_msi_irqs(struct pci_dev *dev)
 			continue;
 		nvec = 1 << entry->msi_attrib.multiple;
 		for (i = 0; i < nvec; i++)
-			msm_pcie_destroy_irq(entry->irq + i, pcie_dev);
+			arch_teardown_msi_irq(entry->irq + i);
 	}
 }
 
@@ -5715,6 +5734,7 @@ static int arch_setup_msi_irq_default(struct pci_dev *pdev,
 
 	PCIE_DBG(dev, "irq %d allocated\n", irq);
 
+	irq_set_chip_data(irq, pdev);
 	irq_set_msi_desc(irq, desc);
 
 	/* write msi vector and data */
@@ -5782,6 +5802,7 @@ static int arch_setup_msi_irq_qgic(struct pci_dev *pdev,
 			firstirq = irq;
 
 		irq_set_irq_type(irq, IRQ_TYPE_EDGE_RISING);
+		irq_set_chip_data(irq, pdev);
 	}
 
 	/* write msi vector and data */
@@ -5859,7 +5880,6 @@ static int msm_pcie_msi_map(struct irq_domain *domain, unsigned int irq,
 	   irq_hw_number_t hwirq)
 {
 	irq_set_chip_and_handler (irq, &pcie_msi_chip, handle_simple_irq);
-	irq_set_chip_data(irq, domain->host_data);
 	return 0;
 }
 
