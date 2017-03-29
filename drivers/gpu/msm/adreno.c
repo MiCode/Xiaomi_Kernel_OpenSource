@@ -1392,7 +1392,7 @@ int adreno_set_unsecured_mode(struct adreno_device *adreno_dev,
 {
 	int ret = 0;
 
-	if (!adreno_is_a5xx(adreno_dev))
+	if (!adreno_is_a5xx(adreno_dev) && !adreno_is_a6xx(adreno_dev))
 		return -EINVAL;
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS) &&

@@ -11,6 +11,7 @@
  *
  */
 #include <linux/firmware.h>
+#include <soc/qcom/subsystem_restart.h>
 #include <linux/pm_opp.h>
 
 #include "adreno.h"
@@ -226,9 +227,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	/* Setting the primFifo thresholds default values */
 	kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL, (0x300 << 11));
 
-	/* Disable secured mode */
-	kgsl_regwrite(device, A6XX_RBBM_SECVID_TRUST_CNTL, 0x0);
-
 	/* Set the AHB default slave response to "ERROR" */
 	kgsl_regwrite(device, A6XX_CP_AHB_CNTL, 0x1);
 
@@ -298,6 +296,8 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	uint64_t gpuaddr;
+	static void *zap;
+	int ret = 0;
 
 	gpuaddr = fw->memdesc.gpuaddr;
 	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
@@ -305,7 +305,18 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
 				upper_32_bits(gpuaddr));
 
-	return 0;
+	/* Load the zap shader firmware through PIL if its available */
+	if (adreno_dev->gpucore->zap_name && !zap) {
+		zap = subsystem_get(adreno_dev->gpucore->zap_name);
+
+		/* Return error if the zap shader cannot be loaded */
+		if (IS_ERR_OR_NULL(zap)) {
+			ret = (zap == NULL) ? -ENODEV : PTR_ERR(zap);
+			zap = NULL;
+		}
+	}
+
+	return ret;
 }
 
 
@@ -436,7 +447,12 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev,
 	/* Clear the SQE_HALT to start the CP engine */
 	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
 
-	return a6xx_send_cp_init(adreno_dev, rb);
+	ret = a6xx_send_cp_init(adreno_dev, rb);
+	if (ret)
+		return ret;
+
+	/* GPU comes up in secured mode, make it unsecured by default */
+	return adreno_set_unsecured_mode(adreno_dev, rb);
 }
 
 static int _load_firmware(struct kgsl_device *device, const char *fwfile,
@@ -1984,6 +2000,17 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_GMU_HOST2GMU_INTR_CLR),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_HOST2GMU_INTR_RAW_INFO,
 				A6XX_GMU_HOST2GMU_INTR_RAW_INFO),
+
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TRUST_CONTROL,
+				A6XX_RBBM_SECVID_TRUST_CNTL),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
+				A6XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
+				A6XX_RBBM_SECVID_TSB_TRUSTED_BASE_HI),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
+				A6XX_RBBM_SECVID_TSB_TRUSTED_SIZE),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_CONTROL,
+				A6XX_RBBM_SECVID_TSB_CNTL),
 };
 
 static const struct adreno_reg_offsets a6xx_reg_offsets = {
