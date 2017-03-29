@@ -102,7 +102,7 @@
 
 	dsi_sharp_4k_dsc_video_display: qcom,dsi-display@0 {
 		compatible = "qcom,dsi-display";
-		label = "dsi_sharp_4k_dsc_video";
+		label = "dsi_sharp_4k_dsc_video_display";
 		qcom,display-type = "primary";
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
@@ -125,7 +125,7 @@
 
 	dsi_sharp_4k_dsc_cmd_display: qcom,dsi-display@1 {
 		compatible = "qcom,dsi-display";
-		label = "dsi_sharp_4k_dsc_cmd";
+		label = "dsi_sharp_4k_dsc_cmd_display";
 		qcom,display-type = "primary";
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
@@ -148,7 +148,7 @@
 
 	dsi_sharp_1080_cmd_display: qcom,dsi-display@2 {
 		compatible = "qcom,dsi-display";
-		label = "dsi_sharp_1080_cmd";
+		label = "dsi_sharp_1080_cmd_display";
 		qcom,display-type = "primary";
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
@@ -171,7 +171,7 @@
 
 	dsi_dual_sharp_1080_120hz_cmd_display: qcom,dsi-display@3 {
 		compatible = "qcom,dsi-display";
-		label = "dsi_dual_sharp_1080_120hz_cmd";
+		label = "dsi_dual_sharp_1080_120hz_cmd_display";
 		qcom,display-type = "primary";
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
@@ -194,7 +194,7 @@
 
 	dsi_dual_nt35597_truly_video_display: qcom,dsi-display@4 {
 		compatible = "qcom,dsi-display";
-		label = "dsi_dual_nt35597_truly_video";
+		label = "dsi_dual_nt35597_truly_video_display";
 		qcom,display-type = "primary";
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
@@ -217,7 +217,7 @@
 
 	dsi_dual_nt35597_truly_cmd_display: qcom,dsi-display@5 {
 		compatible = "qcom,dsi-display";
-		label = "dsi_dual_nt35597_truly_cmd";
+		label = "dsi_dual_nt35597_truly_cmd_display";
 		qcom,display-type = "primary";
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
@@ -240,7 +240,7 @@
 
 	dsi_nt35597_truly_dsc_cmd_display: qcom,dsi-display@6 {
 		compatible = "qcom,dsi-display";
-		label = "dsi_nt35597_truly_dsc_cmd";
+		label = "dsi_nt35597_truly_dsc_cmd_display";
 		qcom,display-type = "primary";
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
@@ -263,7 +263,7 @@
 
 	dsi_nt35597_truly_dsc_video_display: qcom,dsi-display@7 {
 		compatible = "qcom,dsi-display";
-		label = "dsi_nt35597_truly_dsc_video";
+		label = "dsi_nt35597_truly_dsc_video_display";
 		qcom,display-type = "primary";
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
