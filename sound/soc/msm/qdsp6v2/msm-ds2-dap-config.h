@@ -45,7 +45,7 @@ struct dolby_param_license32 {
 		_IOR('U', 0x15, struct dolby_param_data32)
 #endif
 
-#ifdef CONFIG_DOLBY_DS2
+#if defined(CONFIG_DOLBY_DS2) || defined(CONFIG_DOLBY_LICENSE)
 /* DOLBY DOLBY GUIDS */
 #define DS2_MODULE_ID			0x00010775
 
@@ -86,10 +86,11 @@ int msm_ds2_dap_set_custom_stereo_onoff(int port_id, int copp_idx,
 /* Dolby DOLBY end */
 #else
 
-static inline void msm_ds2_dap_update_port_parameters(struct snd_hwdep *hw,
+static inline int msm_ds2_dap_update_port_parameters(struct snd_hwdep *hw,
 					       struct file *file,
 					       bool open)
 {
+	return 0;
 }
 
 static inline int msm_ds2_dap_ioctl(struct snd_hwdep *hw, struct file *file,
