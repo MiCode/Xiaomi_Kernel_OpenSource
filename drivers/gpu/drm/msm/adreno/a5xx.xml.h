@@ -8,17 +8,17 @@ http://github.com/freedreno/envytools/
 git clone https://github.com/freedreno/envytools.git
 
 The rules-ng-ng source files this header was generated from are:
-- /local3/projects/drm/envytools/rnndb//adreno.xml               (    431 bytes, from 2016-10-24 21:12:27)
-- /local3/projects/drm/envytools/rnndb//freedreno_copyright.xml  (   1572 bytes, from 2016-10-24 21:12:27)
-- /local3/projects/drm/envytools/rnndb//adreno/a2xx.xml          (  32901 bytes, from 2016-10-24 21:12:27)
-- /local3/projects/drm/envytools/rnndb//adreno/adreno_common.xml (  12025 bytes, from 2016-10-24 21:12:27)
-- /local3/projects/drm/envytools/rnndb//adreno/adreno_pm4.xml    (  19684 bytes, from 2016-10-24 21:12:27)
-- /local3/projects/drm/envytools/rnndb//adreno/a3xx.xml          (  83840 bytes, from 2016-10-24 21:12:27)
-- /local3/projects/drm/envytools/rnndb//adreno/a4xx.xml          ( 110708 bytes, from 2016-10-24 21:12:27)
-- /local3/projects/drm/envytools/rnndb//adreno/a5xx.xml          (  81546 bytes, from 2016-10-31 16:38:41)
-- /local3/projects/drm/envytools/rnndb//adreno/ocmem.xml         (   1773 bytes, from 2016-10-24 21:12:27)
+- ./rnndb/adreno.xml               (    431 bytes, from 2016-10-24 21:12:27)
+- ./rnndb/freedreno_copyright.xml  (   1572 bytes, from 2016-10-24 21:12:27)
+- ./rnndb/adreno/a2xx.xml          (  32901 bytes, from 2016-10-24 21:12:27)
+- ./rnndb/adreno/adreno_common.xml (  12025 bytes, from 2016-10-24 21:12:27)
+- ./rnndb/adreno/adreno_pm4.xml    (  19684 bytes, from 2016-10-24 21:12:27)
+- ./rnndb/adreno/a3xx.xml          (  83840 bytes, from 2016-10-24 21:12:27)
+- ./rnndb/adreno/a4xx.xml          ( 110708 bytes, from 2016-10-24 21:12:27)
+- ./rnndb/adreno/a5xx.xml          (  86963 bytes, from 2017-03-03 16:01:09)
+- ./rnndb/adreno/ocmem.xml         (   1773 bytes, from 2016-10-24 21:12:27)
 
-Copyright (C) 2013-2016 by the following authors:
+Copyright (C) 2013-2017 by the following authors:
 - Rob Clark <robdclark@gmail.com> (robclark)
 - Ilia Mirkin <imirkin@alum.mit.edu> (imirkin)
 
@@ -1759,13 +1759,11 @@ static inline uint32_t A5XX_VBIF_TEST_BUS2_CTRL1_TEST_BUS2_DATA_SEL(uint32_t val
 
 #define REG_A5XX_VBIF_TEST_BUS_OUT				0x0000308c
 
-#define REG_A5XX_VBIF_PERF_CNT_SEL0				0x000030d0
+static inline uint32_t REG_A5XX_VBIF_PERF_CNT_EN(uint32_t i0) { return 0x000030c0 + 0x1*i0; }
 
-#define REG_A5XX_VBIF_PERF_CNT_SEL1				0x000030d1
+static inline uint32_t REG_A5XX_VBIF_PERF_CNT_CLR(uint32_t i0) { return 0x000030c8 + 0x1*i0; }
 
-#define REG_A5XX_VBIF_PERF_CNT_SEL2				0x000030d2
-
-#define REG_A5XX_VBIF_PERF_CNT_SEL3				0x000030d3
+static inline uint32_t REG_A5XX_VBIF_PERF_CNT_SEL(uint32_t i0) { return 0x000030d0 + 0x1*i0; }
 
 #define REG_A5XX_VBIF_PERF_CNT_LOW0				0x000030d8
 
@@ -1783,11 +1781,9 @@ static inline uint32_t A5XX_VBIF_TEST_BUS2_CTRL1_TEST_BUS2_DATA_SEL(uint32_t val
 
 #define REG_A5XX_VBIF_PERF_CNT_HIGH3				0x000030e3
 
-#define REG_A5XX_VBIF_PERF_PWR_CNT_EN0				0x00003100
+static inline uint32_t REG_A5XX_VBIF_PERF_PWR_CNT_EN(uint32_t i0) { return 0x00003100 + 0x1*i0; }
 
-#define REG_A5XX_VBIF_PERF_PWR_CNT_EN1				0x00003101
-
-#define REG_A5XX_VBIF_PERF_PWR_CNT_EN2				0x00003102
+static inline uint32_t REG_A5XX_VBIF_PERF_PWR_CNT_CLR(uint32_t i0) { return 0x00003108 + 0x1*i0; }
 
 #define REG_A5XX_VBIF_PERF_PWR_CNT_LOW0				0x00003110
 
