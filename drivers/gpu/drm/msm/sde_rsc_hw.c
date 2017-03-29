@@ -36,6 +36,7 @@
 #define SDE_RSCC_AMC_TCS_MODE_IRQ_STATUS_DRV0		0x1c00
 
 #define SDE_RSCC_SOFT_WAKEUP_TIME_LO_DRV0		0xc04
+#define SDE_RSCC_SOFT_WAKEUP_TIME_HI_DRV0		0xc08
 #define SDE_RSCC_MAX_IDLE_DURATION_DRV0			0xc0c
 #define SDE_RSC_SOLVER_TIME_SLOT_TABLE_0_DRV0		0x1000
 #define SDE_RSC_SOLVER_TIME_SLOT_TABLE_1_DRV0		0x1004
@@ -224,7 +225,9 @@ static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 	pr_debug("rsc solver init\n");
 
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SOFT_WAKEUP_TIME_LO_DRV0,
-					0x7FFFFFFF, rsc->debug_mode);
+					0xFFFFFFFF, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SOFT_WAKEUP_TIME_HI_DRV0,
+					0xFFFFFFFF, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_MAX_IDLE_DURATION_DRV0,
 					0xEFFFFFFF, rsc->debug_mode);
 
@@ -308,6 +311,15 @@ int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_PC);
 
+	/* update qtimers to high during clk & video mode state */
+	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
+			(rsc->current_state == SDE_RSC_CLK_STATE)) {
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_HI,
+						0xffffffff, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_LO,
+						0xffffffff, rsc->debug_mode);
+	}
+
 	wrapper_status = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_WRAPPER_CTRL,
 				rsc->debug_mode);
 	wrapper_status |= BIT(3);
@@ -357,8 +369,6 @@ int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 	return 0;
 
 end:
-	regulator_set_mode(rsc->fs, REGULATOR_MODE_NORMAL);
-
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_RESTORE);
 
 	return rc;
@@ -378,8 +388,7 @@ int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc, enum sde_rsc_state state)
 	if ((state == SDE_RSC_VID_STATE) || (state == SDE_RSC_CLK_STATE)) {
 		reg = dss_reg_r(&rsc->wrapper_io,
 			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
-		reg |= BIT(8);
-		reg &= ~(BIT(1) | BIT(0));
+		reg &= ~(BIT(8) | BIT(0));
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
 							reg, rsc->debug_mode);
 	}
@@ -411,7 +420,7 @@ int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc, enum sde_rsc_state state)
 			rc = 0;
 			break;
 		}
-		usleep_range(1, 2);
+		usleep_range(10, 100);
 	}
 
 	reg = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
@@ -419,13 +428,8 @@ int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc, enum sde_rsc_state state)
 	reg &= ~BIT(13);
 	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
 							reg, rsc->debug_mode);
-
 	if (rc)
 		pr_err("vdd reg is not enabled yet\n");
-
-	rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_NORMAL);
-	if (rc)
-		pr_err("vdd reg normal mode set failed rc:%d\n", rc);
 
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_RESTORE);
 
@@ -454,6 +458,9 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 						0x1, rsc->debug_mode);
 		dss_reg_w(&rsc->drv_io, SDE_RSCC_SOLVER_OVERRIDE_CTRL_DRV0,
 							0x0, rsc->debug_mode);
+		dss_reg_w(&rsc->drv_io,
+			SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0, 0x7,
+			rsc->debug_mode);
 		reg = dss_reg_r(&rsc->wrapper_io,
 			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
 		reg |= (BIT(0) | BIT(8));
@@ -477,8 +484,9 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 		reg &= ~(BIT(1) | BIT(0));
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
 							reg, rsc->debug_mode);
-		dss_reg_w(&rsc->drv_io, SDE_RSCC_SOLVER_OVERRIDE_CTRL_DRV0,
-							0x1, rsc->debug_mode);
+		dss_reg_w(&rsc->drv_io,
+			SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0, 0x5,
+			rsc->debug_mode);
 		/* make sure that solver mode is override */
 		wmb();
 
@@ -487,6 +495,17 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 
 	case SDE_RSC_CLK_STATE:
 		pr_debug("clk state handling\n");
+
+		reg = dss_reg_r(&rsc->wrapper_io,
+			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
+		reg &= ~(BIT(8) | BIT(0));
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+							reg, rsc->debug_mode);
+		dss_reg_w(&rsc->drv_io,
+			SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0, 0x5,
+			rsc->debug_mode);
+		/* make sure that solver mode is disabled */
+		wmb();
 		break;
 
 	case SDE_RSC_IDLE_STATE:

@@ -111,6 +111,7 @@ struct sde_rsc_timer_config {
  * @pclient:		module power client of phandle
  * @fs:			"MDSS GDSC" handle
  *
+ * @disp_rsc:		display rsc handle
  * @drv_io:		sde drv io data mapping
  * @wrapper_io:		wrapper io data mapping
  *
@@ -141,6 +142,7 @@ struct sde_rsc_priv {
 	struct sde_power_client *pclient;
 	struct regulator *fs;
 
+	struct rpmh_client *disp_rsc;
 	struct dss_io_data drv_io;
 	struct dss_io_data wrapper_io;
 
