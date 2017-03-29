@@ -848,7 +848,7 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	unsigned int stop_bit_len;
 	unsigned int rxstale;
 	unsigned int clk_div;
-	unsigned long ser_clk_cfg;
+	unsigned long ser_clk_cfg = 0;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	unsigned long clk_rate;
 
