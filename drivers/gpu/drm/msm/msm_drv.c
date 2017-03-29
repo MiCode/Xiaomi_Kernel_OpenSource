@@ -606,6 +606,8 @@ static int msm_open(struct drm_device *dev, struct drm_file *file)
 	if (IS_ERR(ctx))
 		return PTR_ERR(ctx);
 
+	INIT_LIST_HEAD(&ctx->counters);
+
 	file->driver_priv = ctx;
 
 	kms = priv->kms;
@@ -633,6 +635,9 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 
 	if (kms && kms->funcs && kms->funcs->postclose)
 		kms->funcs->postclose(kms, file);
+
+	if (priv->gpu)
+		msm_gpu_cleanup_counters(priv->gpu, ctx);
 
 	mutex_lock(&dev->struct_mutex);
 	if (ctx && ctx->aspace && ctx->aspace != priv->gpu->aspace) {
@@ -1584,6 +1589,41 @@ void msm_send_crtc_notification(struct drm_crtc *crtc,
 	spin_unlock_irqrestore(&dev->event_lock, flags);
 }
 
+static int msm_ioctl_counter_get(struct drm_device *dev, void *data,
+		struct drm_file *file)
+{
+	struct msm_file_private *ctx = file->driver_priv;
+	struct msm_drm_private *priv = dev->dev_private;
+
+	if (priv->gpu)
+		return msm_gpu_counter_get(priv->gpu, data, ctx);
+
+	return -ENODEV;
+}
+
+static int msm_ioctl_counter_put(struct drm_device *dev, void *data,
+		struct drm_file *file)
+{
+	struct msm_file_private *ctx = file->driver_priv;
+	struct msm_drm_private *priv = dev->dev_private;
+
+	if (priv->gpu)
+		return msm_gpu_counter_put(priv->gpu, data, ctx);
+
+	return -ENODEV;
+}
+
+static int msm_ioctl_counter_read(struct drm_device *dev, void *data,
+		struct drm_file *file)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+
+	if (priv->gpu)
+		return msm_gpu_counter_read(priv->gpu, data);
+
+	return -ENODEV;
+}
+
 int msm_release(struct inode *inode, struct file *filp)
 {
 	struct drm_file *file_priv = filp->private_data;
@@ -1619,6 +1659,12 @@ static const struct drm_ioctl_desc msm_ioctls[] = {
 			  DRM_UNLOCKED|DRM_CONTROL_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_DEREGISTER_EVENT,  msm_ioctl_deregister_event,
 			  DRM_UNLOCKED|DRM_CONTROL_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_COUNTER_GET, msm_ioctl_counter_get,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_COUNTER_PUT, msm_ioctl_counter_put,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_COUNTER_READ, msm_ioctl_counter_read,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
 static const struct vm_operations_struct vm_ops = {

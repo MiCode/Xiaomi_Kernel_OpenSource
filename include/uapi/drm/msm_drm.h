@@ -253,6 +253,66 @@ struct drm_msm_event_resp {
 	__u8 data[];
 };
 
+#define MSM_COUNTER_GROUP_CP 0
+#define MSM_COUNTER_GROUP_RBBM 1
+#define MSM_COUNTER_GROUP_PC 2
+#define MSM_COUNTER_GROUP_VFD 3
+#define MSM_COUNTER_GROUP_HLSQ 4
+#define MSM_COUNTER_GROUP_VPC 5
+#define MSM_COUNTER_GROUP_TSE 6
+#define MSM_COUNTER_GROUP_RAS 7
+#define MSM_COUNTER_GROUP_UCHE 8
+#define MSM_COUNTER_GROUP_TP 9
+#define MSM_COUNTER_GROUP_SP 10
+#define MSM_COUNTER_GROUP_RB 11
+#define MSM_COUNTER_GROUP_VBIF 12
+#define MSM_COUNTER_GROUP_VBIF_PWR 13
+#define MSM_COUNTER_GROUP_VSC 23
+#define MSM_COUNTER_GROUP_CCU 24
+#define MSM_COUNTER_GROUP_LRZ 25
+#define MSM_COUNTER_GROUP_CMP 26
+#define MSM_COUNTER_GROUP_ALWAYSON 27
+#define MSM_COUNTER_GROUP_SP_PWR 28
+#define MSM_COUNTER_GROUP_TP_PWR 29
+#define MSM_COUNTER_GROUP_RB_PWR 30
+#define MSM_COUNTER_GROUP_CCU_PWR 31
+#define MSM_COUNTER_GROUP_UCHE_PWR 32
+#define MSM_COUNTER_GROUP_CP_PWR 33
+#define MSM_COUNTER_GROUP_GPMU_PWR 34
+#define MSM_COUNTER_GROUP_ALWAYSON_PWR 35
+
+/**
+ * struct drm_msm_counter - allocate or release a GPU performance counter
+ * @groupid: The group ID of the counter to get/put
+ * @counterid: For GET returns the counterid that was assigned. For PUT
+ *	       release the counter identified by groupid/counterid
+ * @countable: For GET the countable for the counter
+ */
+struct drm_msm_counter {
+	__u32 groupid;
+	int counterid;
+	__u32 countable;
+	__u32 counter_lo;
+	__u32 counter_hi;
+};
+
+struct drm_msm_counter_read_op {
+	__u64 value;
+	__u32 groupid;
+	int counterid;
+};
+
+/**
+ * struct drm_msm_counter_read - Read a number of GPU performance counters
+ * ops: Pointer to the list of struct drm_msm_counter_read_op operations
+ * nr_ops: Number of operations in the list
+ */
+struct drm_msm_counter_read {
+	__u64 __user ops;
+	__u32 nr_ops;
+};
+
+
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
 #define DRM_MSM_SET_PARAM              0x01
@@ -267,6 +327,9 @@ struct drm_msm_event_resp {
 #define DRM_SDE_WB_CONFIG              0x40
 #define DRM_MSM_REGISTER_EVENT         0x41
 #define DRM_MSM_DEREGISTER_EVENT       0x42
+#define DRM_MSM_COUNTER_GET            0x43
+#define DRM_MSM_COUNTER_PUT            0x44
+#define DRM_MSM_COUNTER_READ           0x45
 
 /**
  * Currently DRM framework supports only VSYNC event.
@@ -289,4 +352,12 @@ struct drm_msm_event_resp {
 			DRM_MSM_REGISTER_EVENT), struct drm_msm_event_req)
 #define DRM_IOCTL_MSM_DEREGISTER_EVENT DRM_IOW((DRM_COMMAND_BASE + \
 			DRM_MSM_DEREGISTER_EVENT), struct drm_msm_event_req)
+#define DRM_IOCTL_MSM_COUNTER_GET \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_COUNTER_GET, struct drm_msm_counter)
+#define DRM_IOCTL_MSM_COUNTER_PUT \
+	DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_COUNTER_PUT, struct drm_msm_counter)
+#define DRM_IOCTL_MSM_COUNTER_READ \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_COUNTER_READ, \
+		struct drm_msm_counter_read)
+
 #endif /* __MSM_DRM_H__ */

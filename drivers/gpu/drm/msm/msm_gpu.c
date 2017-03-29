@@ -587,6 +587,118 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	return ret;
 }
 
+struct msm_context_counter {
+	u32 groupid;
+	int counterid;
+	struct list_head node;
+};
+
+int msm_gpu_counter_get(struct msm_gpu *gpu, struct drm_msm_counter *data,
+	struct msm_file_private *ctx)
+{
+	struct msm_context_counter *entry;
+	int counterid;
+	u32 lo = 0, hi = 0;
+
+	if (!ctx || !gpu->funcs->get_counter)
+		return -ENODEV;
+
+	counterid = gpu->funcs->get_counter(gpu, data->groupid, data->countable,
+		&lo, &hi);
+
+	if (counterid < 0)
+		return counterid;
+
+	/*
+	 * Check to see if the counter in question is already held by this
+	 * process. If it does, put it back and return an error.
+	 */
+	list_for_each_entry(entry, &ctx->counters, node) {
+		if (entry->groupid == data->groupid &&
+			entry->counterid == counterid) {
+			gpu->funcs->put_counter(gpu, data->groupid, counterid);
+			return -EBUSY;
+		}
+	}
+
+	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
+	if (!entry) {
+		gpu->funcs->put_counter(gpu, data->groupid, counterid);
+		return -ENOMEM;
+	}
+
+	entry->groupid = data->groupid;
+	entry->counterid = counterid;
+	list_add_tail(&entry->node, &ctx->counters);
+
+	data->counterid = counterid;
+	data->counter_lo = lo;
+	data->counter_hi = hi;
+
+	return 0;
+}
+
+int msm_gpu_counter_put(struct msm_gpu *gpu, struct drm_msm_counter *data,
+	struct msm_file_private *ctx)
+{
+	struct msm_context_counter *entry;
+
+	list_for_each_entry(entry, &ctx->counters, node) {
+		if (entry->groupid == data->groupid &&
+			entry->counterid == data->counterid) {
+			gpu->funcs->put_counter(gpu, data->groupid,
+				data->counterid);
+
+			list_del(&entry->node);
+			kfree(entry);
+
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
+void msm_gpu_cleanup_counters(struct msm_gpu *gpu,
+	struct msm_file_private *ctx)
+{
+	struct msm_context_counter *entry, *tmp;
+
+	if (!ctx)
+		return;
+
+	list_for_each_entry_safe(entry, tmp, &ctx->counters, node) {
+		gpu->funcs->put_counter(gpu, entry->groupid, entry->counterid);
+		list_del(&entry->node);
+		kfree(entry);
+	}
+}
+
+u64 msm_gpu_counter_read(struct msm_gpu *gpu, struct drm_msm_counter_read *data)
+{
+	int i;
+
+	if (!gpu->funcs->read_counter)
+		return 0;
+
+	for (i = 0; i < data->nr_ops; i++) {
+		struct drm_msm_counter_read_op op;
+		void __user *ptr = (void __user *)(uintptr_t)
+			(data->ops + (i * sizeof(op)));
+
+		if (copy_from_user(&op, ptr, sizeof(op)))
+			return -EFAULT;
+
+		op.value = gpu->funcs->read_counter(gpu, op.groupid,
+			op.counterid);
+
+		if (copy_to_user(ptr, &op, sizeof(op)))
+			return -EFAULT;
+	}
+
+	return 0;
+}
+
 /*
  * Init/Cleanup:
  */

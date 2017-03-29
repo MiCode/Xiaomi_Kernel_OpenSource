@@ -709,3 +709,52 @@ void adreno_snapshot(struct msm_gpu *gpu, struct msm_snapshot *snapshot)
 	adreno_snapshot_os(gpu, snapshot);
 	adreno_snapshot_ringbuffers(gpu, snapshot);
 }
+
+/* Return the group struct associated with the counter id */
+
+static struct adreno_counter_group *get_counter_group(struct msm_gpu *gpu,
+		u32 groupid)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	if (!adreno_gpu->counter_groups)
+		return ERR_PTR(-ENODEV);
+
+	if (groupid >= adreno_gpu->nr_counter_groups)
+		return ERR_PTR(-EINVAL);
+
+	return (struct adreno_counter_group *)
+		adreno_gpu->counter_groups[groupid];
+}
+
+int adreno_get_counter(struct msm_gpu *gpu, u32 groupid, u32 countable,
+		u32 *lo, u32 *hi)
+{
+	struct adreno_counter_group *group =
+		get_counter_group(gpu, groupid);
+
+	if (!IS_ERR_OR_NULL(group) && group->funcs.get)
+		return group->funcs.get(gpu, group, countable, lo, hi);
+
+	return -ENODEV;
+}
+
+u64 adreno_read_counter(struct msm_gpu *gpu, u32 groupid, int counterid)
+{
+	struct adreno_counter_group *group =
+		get_counter_group(gpu, groupid);
+
+	if (!IS_ERR(group) && group->funcs.read)
+		return group->funcs.read(gpu, group, counterid);
+
+	return 0;
+}
+
+void adreno_put_counter(struct msm_gpu *gpu, u32 groupid, int counterid)
+{
+	struct adreno_counter_group *group =
+		get_counter_group(gpu, groupid);
+
+	if (!IS_ERR(group) && group->funcs.put)
+		group->funcs.put(gpu, group, counterid);
+}
