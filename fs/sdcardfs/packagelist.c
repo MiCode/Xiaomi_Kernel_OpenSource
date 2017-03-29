@@ -48,6 +48,7 @@ static struct kmem_cache *hashtable_entry_cachep;
 static unsigned int full_name_case_hash(const void *salt, const unsigned char *name, unsigned int len)
 {
 	unsigned long hash = init_name_hash(salt);
+
 	while (len--)
 		hash = partial_name_hash(tolower(*name++), hash);
 	return end_name_hash(hash);
@@ -89,6 +90,7 @@ static appid_t __get_appid(const struct qstr *key)
 appid_t get_appid(const char *key)
 {
 	struct qstr q;
+
 	qstr_init(&q, key);
 	return __get_appid(&q);
 }
@@ -114,6 +116,7 @@ static appid_t __get_ext_gid(const struct qstr *key)
 appid_t get_ext_gid(const char *key)
 {
 	struct qstr q;
+
 	qstr_init(&q, key);
 	return __get_ext_gid(&q);
 }
@@ -144,7 +147,8 @@ appid_t is_excluded(const char *key, userid_t user)
 
 /* Kernel has already enforced everything we returned through
  * derive_permissions_locked(), so this is used to lock down access
- * even further, such as enforcing that apps hold sdcard_rw. */
+ * even further, such as enforcing that apps hold sdcard_rw.
+ */
 int check_caller_access_to_name(struct inode *parent_node, const struct qstr *name)
 {
 	struct qstr q_autorun = QSTR_LITERAL("autorun.inf");
@@ -161,26 +165,26 @@ int check_caller_access_to_name(struct inode *parent_node, const struct qstr *na
 	}
 
 	/* Root always has access; access for any other UIDs should always
-	 * be controlled through packages.list. */
-	if (from_kuid(&init_user_ns, current_fsuid()) == 0) {
+	 * be controlled through packages.list.
+	 */
+	if (from_kuid(&init_user_ns, current_fsuid()) == 0)
 		return 1;
-	}
 
 	/* No extra permissions to enforce */
 	return 1;
 }
 
 /* This function is used when file opening. The open flags must be
- * checked before calling check_caller_access_to_name() */
-int open_flags_to_access_mode(int open_flags) {
-	if((open_flags & O_ACCMODE) == O_RDONLY) {
+ * checked before calling check_caller_access_to_name()
+ */
+int open_flags_to_access_mode(int open_flags)
+{
+	if ((open_flags & O_ACCMODE) == O_RDONLY)
 		return 0; /* R_OK */
-	} else if ((open_flags & O_ACCMODE) == O_WRONLY) {
+	if ((open_flags & O_ACCMODE) == O_WRONLY)
 		return 1; /* W_OK */
-	} else {
-		/* Probably O_RDRW, but treat as default to be safe */
+	/* Probably O_RDRW, but treat as default to be safe */
 		return 1; /* R_OK | W_OK */
-	}
 }
 
 static struct hashtable_entry *alloc_hashtable_entry(const struct qstr *key,
@@ -372,7 +376,6 @@ static void remove_packagelist_entry(const struct qstr *key)
 	remove_packagelist_entry_locked(key);
 	fixup_all_perms_name(key);
 	mutex_unlock(&sdcardfs_super_list_lock);
-	return;
 }
 
 static void remove_ext_gid_entry_locked(const struct qstr *key, gid_t group)
@@ -395,7 +398,6 @@ static void remove_ext_gid_entry(const struct qstr *key, gid_t group)
 	mutex_lock(&sdcardfs_super_list_lock);
 	remove_ext_gid_entry_locked(key, group);
 	mutex_unlock(&sdcardfs_super_list_lock);
-	return;
 }
 
 static void remove_userid_all_entry_locked(userid_t userid)
@@ -423,7 +425,6 @@ static void remove_userid_all_entry(userid_t userid)
 	remove_userid_all_entry_locked(userid);
 	fixup_all_perms_userid(userid);
 	mutex_unlock(&sdcardfs_super_list_lock);
-	return;
 }
 
 static void remove_userid_exclude_entry_locked(const struct qstr *key, userid_t userid)
@@ -448,7 +449,6 @@ static void remove_userid_exclude_entry(const struct qstr *key, userid_t userid)
 	remove_userid_exclude_entry_locked(key, userid);
 	fixup_all_perms_name_userid(key, userid);
 	mutex_unlock(&sdcardfs_super_list_lock);
-	return;
 }
 
 static void packagelist_destroy(void)
@@ -457,6 +457,7 @@ static void packagelist_destroy(void)
 	struct hlist_node *h_t;
 	HLIST_HEAD(free_list);
 	int i;
+
 	mutex_lock(&sdcardfs_super_list_lock);
 	hash_for_each_rcu(package_to_appid, i, hash_cur, hlist) {
 		hash_del_rcu(&hash_cur->hlist);
@@ -470,7 +471,7 @@ static void packagelist_destroy(void)
 	hlist_for_each_entry_safe(hash_cur, h_t, &free_list, dlist)
 		free_hashtable_entry(hash_cur);
 	mutex_unlock(&sdcardfs_super_list_lock);
-	printk(KERN_INFO "sdcardfs: destroyed packagelist pkgld\n");
+	pr_info("sdcardfs: destroyed packagelist pkgld\n");
 }
 
 #define SDCARDFS_CONFIGFS_ATTR(_pfx, _name)			\
@@ -586,7 +587,8 @@ static ssize_t package_details_clear_userid_store(struct config_item *item,
 static void package_details_release(struct config_item *item)
 {
 	struct package_details *package_details = to_package_details(item);
-	printk(KERN_INFO "sdcardfs: removing %s\n", package_details->name.name);
+
+	pr_info("sdcardfs: removing %s\n", package_details->name.name);
 	remove_packagelist_entry(&package_details->name);
 	kfree(package_details->name.name);
 	kfree(package_details);
@@ -604,7 +606,7 @@ static struct configfs_attribute *package_details_attrs[] = {
 };
 
 static struct configfs_item_operations package_details_item_ops = {
-      .release = package_details_release,
+	.release = package_details_release,
 };
 
 static struct config_item_type package_appid_type = {
@@ -638,7 +640,7 @@ static void extension_details_release(struct config_item *item)
 {
 	struct extension_details *extension_details = to_extension_details(item);
 
-	printk(KERN_INFO "sdcardfs: No longer mapping %s files to gid %d\n",
+	pr_info("sdcardfs: No longer mapping %s files to gid %d\n",
 			extension_details->name.name, extension_details->num);
 	remove_ext_gid_entry(&extension_details->name, extension_details->num);
 	kfree(extension_details->name.name);
@@ -660,6 +662,7 @@ static struct config_item *extension_details_make_item(struct config_group *grou
 	struct extension_details *extension_details = kzalloc(sizeof(struct extension_details), GFP_KERNEL);
 	const char *tmp;
 	int ret;
+
 	if (!extension_details)
 		return ERR_PTR(-ENOMEM);
 
@@ -714,7 +717,8 @@ static struct config_group *extensions_make_group(struct config_group *group, co
 static void extensions_drop_group(struct config_group *group, struct config_item *item)
 {
 	struct extensions_value *value = to_extensions_value(item);
-	printk(KERN_INFO "sdcardfs: No longer mapping any files to gid %d\n", value->num);
+
+	pr_info("sdcardfs: No longer mapping any files to gid %d\n", value->num);
 	kfree(value);
 }
 
@@ -856,7 +860,7 @@ static int configfs_sdcardfs_init(void)
 	mutex_init(&subsys->su_mutex);
 	ret = configfs_register_subsystem(subsys);
 	if (ret) {
-		printk(KERN_ERR "Error %d while registering subsystem %s\n",
+		pr_err("Error %d while registering subsystem %s\n",
 		       ret,
 		       subsys->su_group.cg_item.ci_namebuf);
 	}
@@ -874,18 +878,17 @@ int packagelist_init(void)
 		kmem_cache_create("packagelist_hashtable_entry",
 					sizeof(struct hashtable_entry), 0, 0, NULL);
 	if (!hashtable_entry_cachep) {
-		printk(KERN_ERR "sdcardfs: failed creating pkgl_hashtable entry slab cache\n");
+		pr_err("sdcardfs: failed creating pkgl_hashtable entry slab cache\n");
 		return -ENOMEM;
 	}
 
 	configfs_sdcardfs_init();
-        return 0;
+	return 0;
 }
 
 void packagelist_exit(void)
 {
 	configfs_sdcardfs_exit();
 	packagelist_destroy();
-	if (hashtable_entry_cachep)
-		kmem_cache_destroy(hashtable_entry_cachep);
+	kmem_cache_destroy(hashtable_entry_cachep);
 }
