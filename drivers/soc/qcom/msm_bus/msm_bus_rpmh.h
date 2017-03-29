@@ -20,6 +20,8 @@
 #include <linux/msm_bus_rules.h>
 #include "msm_bus_core.h"
 
+#define VCD_MAX_CNT 16
+
 struct msm_bus_node_device_type;
 
 struct link_node {
@@ -62,6 +64,12 @@ struct nodebw {
 	uint64_t cur_clk_hz;
 	uint32_t util_used;
 	uint32_t vrail_used;
+};
+
+struct msm_bus_rsc_device_type {
+	struct rpmh_client *mbox;
+	struct list_head bcm_clist[VCD_MAX_CNT];
+	int req_state;
 };
 
 struct msm_bus_bcm_device_type {
@@ -128,16 +136,20 @@ struct msm_bus_node_info_type {
 	unsigned int num_connections;
 	unsigned int num_blist;
 	unsigned int num_bcm_devs;
+	unsigned int num_rsc_devs;
 	bool is_fab_dev;
 	bool virt_dev;
 	bool is_bcm_dev;
+	bool is_rsc_dev;
 	bool is_traversed;
 	unsigned int *connections;
 	unsigned int *black_listed_connections;
 	unsigned int *bcm_dev_ids;
+	unsigned int *rsc_dev_ids;
 	struct device **dev_connections;
 	struct device **black_connections;
 	struct device **bcm_devs;
+	struct device **rsc_devs;
 	int bcm_req_idx;
 	unsigned int bus_device_id;
 	struct device *bus_device;
@@ -151,6 +163,7 @@ struct msm_bus_node_device_type {
 	struct msm_bus_node_info_type *node_info;
 	struct msm_bus_fab_device_type *fabdev;
 	struct msm_bus_bcm_device_type *bcmdev;
+	struct msm_bus_rsc_device_type *rscdev;
 	int num_lnodes;
 	struct link_node *lnode_list;
 	struct nodebw node_bw[NUM_CTX];
@@ -164,6 +177,7 @@ struct msm_bus_node_device_type {
 	struct device_node *of_node;
 	struct device dev;
 	bool dirty;
+	bool updated;
 	bool query_dirty;
 	struct list_head dev_link;
 	struct list_head devlist;
