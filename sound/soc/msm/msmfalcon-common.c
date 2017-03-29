@@ -2746,8 +2746,6 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 		goto err;
 	}
-	if (pdata->snd_card_val != INT_SND_CARD)
-		msm_ext_register_audio_notifier();
 	return 0;
 err:
 	if (pdata->us_euro_gpio > 0) {
