@@ -953,7 +953,6 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 	int rlen, ret = 0;
 	int edid_blk = 0, blk_num = 0, retries = 10;
 	bool edid_parsing_done = false;
-	const u8 cea_tag = 0x02;
 	u32 const segment_addr = 0x30;
 	u32 checksum = 0;
 	bool phy_aux_update_requested = false;
@@ -1037,15 +1036,6 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 		} else {
 			edid_blk++;
 			blk_num++;
-
-			/* fix dongle byte shift issue */
-			if (edid_blk == 1 && edid_buf[0] != cea_tag) {
-				u8 tmp[EDID_BLOCK_SIZE - 1];
-
-				memcpy(tmp, edid_buf, EDID_BLOCK_SIZE - 1);
-				edid_buf[0] = cea_tag;
-				memcpy(edid_buf + 1, tmp, EDID_BLOCK_SIZE - 1);
-			}
 		}
 
 		memcpy(dp->edid_buf + (edid_blk * EDID_BLOCK_SIZE),
