@@ -46,17 +46,24 @@
 enum sde_format_flags {
 	SDE_FORMAT_FLAG_YUV_BIT,
 	SDE_FORMAT_FLAG_DX_BIT,
+	SDE_FORMAT_FLAG_COMPRESSED_BIT,
 	SDE_FORMAT_FLAG_BIT_MAX,
 };
 
 #define SDE_FORMAT_FLAG_YUV		BIT(SDE_FORMAT_FLAG_YUV_BIT)
 #define SDE_FORMAT_FLAG_DX		BIT(SDE_FORMAT_FLAG_DX_BIT)
+#define SDE_FORMAT_FLAG_COMPRESSED	BIT(SDE_FORMAT_FLAG_COMPRESSED_BIT)
 #define SDE_FORMAT_IS_YUV(X)		\
 	(test_bit(SDE_FORMAT_FLAG_YUV_BIT, (X)->flag))
 #define SDE_FORMAT_IS_DX(X)		\
 	(test_bit(SDE_FORMAT_FLAG_DX_BIT, (X)->flag))
 #define SDE_FORMAT_IS_LINEAR(X)		((X)->fetch_mode == SDE_FETCH_LINEAR)
-#define SDE_FORMAT_IS_UBWC(X)		((X)->fetch_mode == SDE_FETCH_UBWC)
+#define SDE_FORMAT_IS_TILE(X) \
+	(((X)->fetch_mode == SDE_FETCH_UBWC) && \
+			!test_bit(SDE_FORMAT_FLAG_COMPRESSED_BIT, (X)->flag))
+#define SDE_FORMAT_IS_UBWC(X) \
+	(((X)->fetch_mode == SDE_FETCH_UBWC) && \
+			test_bit(SDE_FORMAT_FLAG_COMPRESSED_BIT, (X)->flag))
 
 #define SDE_BLEND_FG_ALPHA_FG_CONST	(0 << 0)
 #define SDE_BLEND_FG_ALPHA_BG_CONST	(1 << 0)
