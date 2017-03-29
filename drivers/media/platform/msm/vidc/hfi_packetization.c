@@ -1225,6 +1225,10 @@ int create_pkt_cmd_session_set_property(
 			HFI_PROPERTY_PARAM_PROFILE_LEVEL_CURRENT;
 		hfi = (struct hfi_profile_level *)
 			&pkt->rg_property_data[1];
+
+		/* There is an assumption here that HAL level is same as
+		 * HFI level
+		 */
 		hfi->level = prop->level;
 		hfi->profile = hal_to_hfi_type(HAL_PARAM_PROFILE_LEVEL_CURRENT,
 				prop->profile);
@@ -1233,13 +1237,6 @@ int create_pkt_cmd_session_set_property(
 			dprintk(VIDC_WARN,
 					"Profile %d not supported, falling back to high\n",
 					prop->profile);
-		}
-
-		if (!hfi->level) {
-			hfi->level = 1;
-			dprintk(VIDC_WARN,
-					"Level %d not supported, falling back to high\n",
-					prop->level);
 		}
 
 		pkt->size += sizeof(u32) + sizeof(struct hfi_profile_level);

@@ -91,30 +91,8 @@ static const char *const h264_video_entropy_cabac_model[] = {
 	NULL
 };
 
-static const char *const h263_level[] = {
-	"1.0",
-	"2.0",
-	"3.0",
-	"4.0",
-	"4.5",
-	"5.0",
-	"6.0",
-	"7.0",
-};
-
-static const char *const h263_profile[] = {
-	"Baseline",
-	"H320 Coding",
-	"Backward Compatible",
-	"ISWV2",
-	"ISWV3",
-	"High Compression",
-	"Internet",
-	"Interlace",
-	"High Latency",
-};
-
 static const char *const hevc_tier_level[] = {
+	"Level unknown"
 	"Main Tier Level 1",
 	"Main Tier Level 2",
 	"Main Tier Level 2.1",
@@ -454,8 +432,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "H264 Level",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
-		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_5_2,
-		.default_value = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
+		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN,
+		.default_value = V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN,
 		.menu_skip_mask = 0,
 	},
 	{
@@ -491,9 +469,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "HEVC Tier and Level",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_1,
-		.maximum = V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_5_2,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_UNKNOWN,
 		.default_value =
-			V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_1,
+			V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_UNKNOWN,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_1) |
 		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_2) |
@@ -513,7 +491,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_4) |
 		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_4_1) |
 		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_5) |
-		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_5_1)
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_5_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_UNKNOWN)
 		),
 		.qmenu = hevc_tier_level,
 	},
