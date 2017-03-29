@@ -586,7 +586,7 @@ static void xhci_free_stream_ctx(struct xhci_hcd *xhci,
 		unsigned int num_stream_ctxs,
 		struct xhci_stream_ctx *stream_ctx, dma_addr_t dma)
 {
-	struct device *dev = xhci_to_hcd(xhci)->self.controller;
+	struct device *dev = xhci_to_hcd(xhci)->self.sysdev;
 	size_t size = sizeof(struct xhci_stream_ctx) * num_stream_ctxs;
 
 	if (size > MEDIUM_STREAM_ARRAY_SIZE)
@@ -614,7 +614,7 @@ static struct xhci_stream_ctx *xhci_alloc_stream_ctx(struct xhci_hcd *xhci,
 		unsigned int num_stream_ctxs, dma_addr_t *dma,
 		gfp_t mem_flags)
 {
-	struct device *dev = xhci_to_hcd(xhci)->self.controller;
+	struct device *dev = xhci_to_hcd(xhci)->self.sysdev;
 	size_t size = sizeof(struct xhci_stream_ctx) * num_stream_ctxs;
 
 	if (size > MEDIUM_STREAM_ARRAY_SIZE)
@@ -1678,7 +1678,7 @@ void xhci_slot_copy(struct xhci_hcd *xhci,
 static int scratchpad_alloc(struct xhci_hcd *xhci, gfp_t flags)
 {
 	int i;
-	struct device *dev = xhci_to_hcd(xhci)->self.controller;
+	struct device *dev = xhci_to_hcd(xhci)->self.sysdev;
 	int num_sp = HCS_MAX_SCRATCHPAD(xhci->hcs_params2);
 
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init,
@@ -1750,7 +1750,7 @@ static void scratchpad_free(struct xhci_hcd *xhci)
 {
 	int num_sp;
 	int i;
-	struct device *dev = xhci_to_hcd(xhci)->self.controller;
+	struct device *dev = xhci_to_hcd(xhci)->self.sysdev;
 
 	if (!xhci->scratchpad)
 		return;
@@ -1903,7 +1903,7 @@ int xhci_sec_event_ring_cleanup(struct usb_hcd *hcd, unsigned int intr_num)
 {
 	int size;
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
-	struct device	*dev = xhci_to_hcd(xhci)->self.controller;
+	struct device	*dev = xhci_to_hcd(xhci)->self.sysdev;
 
 	if (intr_num >= xhci->max_interrupters) {
 		xhci_err(xhci, "invalid secondary interrupter num %d\n",
@@ -1935,7 +1935,7 @@ void xhci_event_ring_cleanup(struct xhci_hcd *xhci)
 {
 	int size;
 	unsigned int i;
-	struct device	*dev = xhci_to_hcd(xhci)->self.controller;
+	struct device	*dev = xhci_to_hcd(xhci)->self.sysdev;
 
 	/* sec event ring clean up */
 	for (i = 1; i < xhci->max_interrupters; i++)
@@ -1963,7 +1963,7 @@ void xhci_event_ring_cleanup(struct xhci_hcd *xhci)
 
 void xhci_mem_cleanup(struct xhci_hcd *xhci)
 {
-	struct device	*dev = xhci_to_hcd(xhci)->self.controller;
+	struct device	*dev = xhci_to_hcd(xhci)->self.sysdev;
 	int i, j, num_ports;
 
 	cancel_delayed_work_sync(&xhci->cmd_timer);
@@ -2475,7 +2475,7 @@ int xhci_event_ring_setup(struct xhci_hcd *xhci, struct xhci_ring **er,
 	u64 val_64;
 	unsigned int val;
 	struct xhci_segment *seg;
-	struct device *dev = xhci_to_hcd(xhci)->self.controller;
+	struct device *dev = xhci_to_hcd(xhci)->self.sysdev;
 
 	*er = xhci_ring_alloc(xhci, ERST_NUM_SEGS, 1, TYPE_EVENT, 0, flags);
 	if (!*er)
@@ -2641,7 +2641,7 @@ fail:
 int xhci_mem_init(struct xhci_hcd *xhci, gfp_t flags)
 {
 	dma_addr_t	dma;
-	struct device	*dev = xhci_to_hcd(xhci)->self.controller;
+	struct device	*dev = xhci_to_hcd(xhci)->self.sysdev;
 	unsigned int	val, val2;
 	u64		val_64;
 	u32 page_size, temp;
