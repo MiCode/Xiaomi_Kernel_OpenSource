@@ -58,6 +58,7 @@
 #define   INTF_TPG_BLK_WHITE_PATTERN_FRAMES   0x118
 #define   INTF_TPG_RGB_MAPPING          0x11C
 #define   INTF_PROG_FETCH_START         0x170
+#define   INTF_PROG_ROT_START           0x174
 
 #define   INTF_FRAME_LINE_COUNT_EN      0x0A8
 #define   INTF_FRAME_COUNT              0x0AC
@@ -234,6 +235,25 @@ static void sde_hw_intf_setup_prg_fetch(
 	SDE_REG_WRITE(c, INTF_CONFIG, fetch_enable);
 }
 
+static void sde_hw_intf_setup_rot_start(
+		struct sde_hw_intf *intf,
+		const struct intf_prog_fetch *fetch)
+{
+	struct sde_hw_blk_reg_map *c = &intf->hw;
+	int fetch_enable;
+
+	fetch_enable = SDE_REG_READ(c, INTF_CONFIG);
+	if (fetch->enable) {
+		fetch_enable |= BIT(19);
+		SDE_REG_WRITE(c, INTF_PROG_ROT_START,
+				fetch->fetch_start);
+	} else {
+		fetch_enable &= ~BIT(19);
+	}
+
+	SDE_REG_WRITE(c, INTF_CONFIG, fetch_enable);
+}
+
 static void sde_hw_intf_get_status(
 		struct sde_hw_intf *intf,
 		struct intf_status *s)
@@ -303,6 +323,8 @@ static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 	ops->enable_timing = sde_hw_intf_enable_timing_engine;
 	ops->setup_misr = sde_hw_intf_set_misr;
 	ops->collect_misr = sde_hw_intf_collect_misr;
+	if (cap & BIT(SDE_INTF_ROT_START))
+		ops->setup_rot_start = sde_hw_intf_setup_rot_start;
 }
 
 struct sde_hw_intf *sde_hw_intf_init(enum sde_intf idx,

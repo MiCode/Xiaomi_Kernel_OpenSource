@@ -779,6 +779,24 @@ int sde_format_get_plane_sizes(
 	return _sde_format_get_plane_sizes_linear(fmt, w, h, layout);
 }
 
+int sde_format_get_block_size(const struct sde_format *fmt,
+		uint32_t *w, uint32_t *h)
+{
+	if (!fmt || !w || !h) {
+		DRM_ERROR("invalid pointer\n");
+		return -EINVAL;
+	}
+
+	/* TP10 is 96x96 and all others are 128x128 */
+	if (SDE_FORMAT_IS_YUV(fmt) && SDE_FORMAT_IS_DX(fmt) &&
+			(fmt->num_planes == 2) && fmt->unpack_tight)
+		*w = *h = 96;
+	else
+		*w = *h = 128;
+
+	return 0;
+}
+
 uint32_t sde_format_get_framebuffer_size(
 		const uint32_t format,
 		const uint32_t width,

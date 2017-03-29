@@ -212,6 +212,16 @@ enum {
 };
 
 /**
+ * INTF sub-blocks
+ * @SDE_INTF_ROT_START          INTF supports rotator start trigger
+ * @SDE_INTF_MAX
+ */
+enum {
+	SDE_INTF_ROT_START = 0x1,
+	SDE_INTF_MAX
+};
+
+/**
  * WB sub-blocks and features
  * @SDE_WB_LINE_MODE        Writeback module supports line/linear mode
  * @SDE_WB_BLOCK_MODE       Writeback module supports block mode read

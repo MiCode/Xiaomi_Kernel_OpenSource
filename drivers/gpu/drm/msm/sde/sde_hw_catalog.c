@@ -1378,6 +1378,9 @@ static int sde_intf_parse_dt(struct device_node *np,
 			intf->controller_id = none_count;
 			none_count++;
 		}
+
+		if (sde_cfg->has_sbuf)
+			set_bit(SDE_INTF_ROT_START, &intf->features);
 	}
 
 end:

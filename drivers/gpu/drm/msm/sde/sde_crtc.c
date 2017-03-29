@@ -365,9 +365,11 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		if (!sbuf_mode) {
 			cstate->sbuf_cfg.rot_op_mode =
 					SDE_CTL_ROT_OP_MODE_OFFLINE;
+			cstate->sbuf_prefill_line = 0;
 		} else {
 			cstate->sbuf_cfg.rot_op_mode =
 					SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
+			cstate->sbuf_prefill_line = prefill;
 		}
 
 		ctl->ops.setup_sbuf_cfg(ctl, &cstate->sbuf_cfg);
@@ -1024,6 +1026,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	struct sde_crtc *sde_crtc;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
+	struct sde_crtc_state *cstate;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -1033,8 +1036,11 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	sde_crtc = to_sde_crtc(crtc);
 	sde_kms = _sde_crtc_get_kms(crtc);
 	priv = sde_kms->dev->dev_private;
+	cstate = to_sde_crtc_state(crtc->state);
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+		struct sde_encoder_kickoff_params params = { 0 };
+
 		if (encoder->crtc != crtc)
 			continue;
 
@@ -1042,7 +1048,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		 * Encoder will flush/start now, unless it has a tx pending.
 		 * If so, it may delay and flush at an irq event (e.g. ppdone)
 		 */
-		sde_encoder_prepare_for_kickoff(encoder);
+		params.inline_rotate_prefill = cstate->sbuf_prefill_line;
+		sde_encoder_prepare_for_kickoff(encoder, &params);
 	}
 
 	if (atomic_read(&sde_crtc->frame_pending) > 2) {
@@ -1715,6 +1722,10 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			"core_ib", 0x0, 0, U64_MAX,
 			SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA,
 			CRTC_PROP_CORE_IB);
+	msm_property_install_range(&sde_crtc->property_info,
+			"rot_prefill_bw", 0, 0, U64_MAX,
+			catalog->perf.max_bw_high * 1000ULL,
+			CRTC_PROP_ROT_PREFILL_BW);
 
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
 		DRM_MODE_PROP_IMMUTABLE, CRTC_PROP_INFO);

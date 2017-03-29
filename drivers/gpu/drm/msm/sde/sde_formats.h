@@ -73,6 +73,18 @@ int sde_format_get_plane_sizes(
 		struct sde_hw_fmt_layout *layout);
 
 /**
+ * sde_format_get_block_size - get block size of given format when
+ *	operating in block mode
+ * @fmt:             pointer to sde_format
+ * @w:               pointer to width of the block
+ * @h:               pointer to height of the block
+ *
+ * Return: 0 if success; error oode otherwise
+ */
+int sde_format_get_block_size(const struct sde_format *fmt,
+		uint32_t *w, uint32_t *h);
+
+/**
  * sde_format_check_modified_format - validate format and buffers for
  *                   sde non-standard, i.e. modified format
  * @kms:             kms driver
