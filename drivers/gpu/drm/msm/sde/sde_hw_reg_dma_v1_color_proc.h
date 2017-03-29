@@ -51,4 +51,11 @@ void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg);
  * @cfg: pointer to struct sde_hw_cp_cfg
  */
 void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * reg_dmav1_deinit_dspp_ops() - deinitialize the dspp feature op for sde v4
+ *                               which were initialized.
+ * @idx: dspp idx
+ */
+int reg_dmav1_deinit_dspp_ops(enum sde_dspp idx);
 #endif /* _SDE_HW_REG_DMA_V1_COLOR_PROC_H */

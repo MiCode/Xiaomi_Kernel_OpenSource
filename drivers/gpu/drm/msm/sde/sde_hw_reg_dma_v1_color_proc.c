@@ -553,3 +553,26 @@ void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg)
 			BIT(0));
 	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->gc.base, reg);
 }
+
+int reg_dmav1_deinit_dspp_ops(enum sde_dspp idx)
+{
+	int i;
+	struct sde_hw_reg_dma_ops *dma_ops;
+
+	dma_ops = sde_reg_dma_get_ops();
+	if (IS_ERR_OR_NULL(dma_ops))
+		return -ENOTSUPP;
+
+	if (idx >= DSPP_MAX) {
+		DRM_ERROR("invalid dspp idx %x max %xd\n", idx, DSPP_MAX);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < REG_DMA_FEATURES_MAX; i++) {
+		if (!dspp_buf[i][idx])
+			continue;
+		dma_ops->dealloc_reg_dma(dspp_buf[i][idx]);
+		dspp_buf[i][idx] = NULL;
+	}
+	return 0;
+}

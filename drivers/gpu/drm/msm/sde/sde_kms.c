@@ -1470,6 +1470,16 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	sde_dbg_init_dbg_buses(sde_kms->core_rev);
 
+	/*
+	 * Now we need to read the HW catalog and initialize resources such as
+	 * clocks, regulators, GDSC/MMAGIC, ioremap the register ranges etc
+	 */
+	rc = _sde_kms_mmu_init(sde_kms);
+	if (rc) {
+		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
+		goto power_error;
+	}
+
 	/* Initialize reg dma block which is a singleton */
 	rc = sde_reg_dma_init(sde_kms->reg_dma, sde_kms->catalog,
 			sde_kms->dev);
@@ -1519,15 +1529,6 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		sde_kms->iclient = NULL;
 	}
 
-	/*
-	 * Now we need to read the HW catalog and initialize resources such as
-	 * clocks, regulators, GDSC/MMAGIC, ioremap the register ranges etc
-	 */
-	rc = _sde_kms_mmu_init(sde_kms);
-	if (rc) {
-		SDE_ERROR("sde_kms_mmu_init failed: %d\n", rc);
-		goto power_error;
-	}
 
 	rc = sde_core_perf_init(&sde_kms->perf, dev, sde_kms->catalog,
 			&priv->phandle, priv->pclient, "core_clk");
