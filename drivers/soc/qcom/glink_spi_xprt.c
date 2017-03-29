@@ -789,9 +789,9 @@ static void process_rx_cmd(struct edge_info *einfo,
 				offset += sizeof(*intents);
 				einfo->xprt_if.glink_core_if_ptr->
 					rx_cmd_remote_rx_intent_put_cookie(
-						&einfo->xprt_if, cmd->param1,
-						intents->id, intents->size,
-						(void *)(intents->addr));
+					&einfo->xprt_if, cmd->param1,
+					intents->id, intents->size,
+					(void *)(uintptr_t)(intents->addr));
 			}
 			break;
 
@@ -821,9 +821,10 @@ static void process_rx_cmd(struct edge_info *einfo,
 		case TRACER_PKT_CONT_CMD:
 			rx_descp = (struct rx_desc *)(rx_data + offset);
 			offset += sizeof(*rx_descp);
-			process_rx_data(einfo, cmd->id,	cmd->param1,
-					cmd->param2, (void *)rx_descp->addr,
-					rx_descp->size,	rx_descp->size_left);
+			process_rx_data(einfo, cmd->id, cmd->param1,
+					cmd->param2,
+					(void *)(uintptr_t)(rx_descp->addr),
+					rx_descp->size, rx_descp->size_left);
 			break;
 
 		case TX_SHORT_DATA_CMD:
