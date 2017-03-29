@@ -856,14 +856,6 @@ static inline bool _a5xx_check_idle(struct msm_gpu *gpu)
 
 bool a5xx_idle(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 {
-	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
-	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
-
-	if (ring != a5xx_gpu->cur_ring) {
-		WARN(1, "Tried to idle a non-current ringbuffer\n");
-		return false;
-	}
-
 	/* wait for CP to drain ringbuffer: */
 	if (!adreno_idle(gpu, ring))
 		return false;
