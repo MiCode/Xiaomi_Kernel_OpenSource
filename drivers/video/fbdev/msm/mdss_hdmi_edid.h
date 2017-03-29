@@ -79,5 +79,7 @@ void hdmi_edid_get_hdr_data(void *edid_ctrl,
 		struct hdmi_edid_hdr_data **hdr_data);
 void hdmi_edid_config_override(void *input, bool enable,
 		struct hdmi_edid_override_data *data);
+void hdmi_edid_set_max_pclk_rate(void *input, u32 max_pclk_khz);
+bool hdmi_edid_is_audio_supported(void *input);
 
 #endif /* __HDMI_EDID_H__ */
