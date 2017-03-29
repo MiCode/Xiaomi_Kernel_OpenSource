@@ -1054,7 +1054,7 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 									rc);
 			return rc;
 		}
-		scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE0);
+		scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE_0);
 	}
 
 	rc = pil_desc_init(&d->desc);
