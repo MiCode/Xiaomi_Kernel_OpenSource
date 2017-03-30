@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,6 +84,11 @@ enum mi2s_pcm_mux {
 	MI2S_PCM_MAX_INTF
 };
 
+enum mi2s_types {
+	PRI_MI2S,
+	SEC_MI2S,
+};
+
 struct mdm_machine_data {
 	u32 mclk_freq;
 	u16 prim_mi2s_mode;
@@ -103,6 +108,15 @@ static const struct afe_clk_cfg lpass_default = {
 	Q6AFE_LPASS_CLK_SRC_INTERNAL,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
 	Q6AFE_LPASS_MODE_BOTH_VALID,
+	0,
+};
+
+static const struct afe_clk_set lpass_default_v2 = {
+	AFE_API_VERSION_I2S_CONFIG,
+	Q6AFE_LPASS_CLK_ID_PRI_MI2S_IBIT,
+	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
+	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
+	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
 	0,
 };
 
@@ -199,45 +213,116 @@ static int mdm_wsa881x_init(struct snd_soc_component *component)
 	return 0;
 }
 
-static int mdm_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable)
+static int mdm_set_lpass_clk_v1(struct snd_soc_pcm_runtime *rtd,
+				bool enable,
+				u16 mi2s_port)
+{
+	struct snd_soc_card *card = rtd->card;
+	struct afe_clk_cfg lpass_clks = lpass_default;
+	int ret;
+
+	dev_dbg(card->dev, "%s: Setting clock using v1\n", __func__);
+
+	lpass_clks.clk_set_mode = Q6AFE_LPASS_MODE_CLK1_VALID;
+	if (!enable)
+		lpass_clks.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
+
+	ret = afe_set_lpass_clock(mi2s_port, &lpass_clks);
+	if (ret < 0) {
+		dev_err(card->dev,
+			"%s: afe_set_lpass_clock failed, err: %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	dev_dbg(card->dev, "%s: clk_1 = %x clk_2 = %x mode = %x\n", __func__,
+		lpass_clks.clk_val1, lpass_clks.clk_val2,
+		lpass_clks.clk_set_mode);
+
+	ret = 0;
+
+done:
+	return ret;
+}
+
+static int mdm_set_lpass_clk_v2(struct snd_soc_pcm_runtime *rtd,
+				bool enable,
+				enum mi2s_types mi2s_type)
 {
 	struct snd_soc_card *card = rtd->card;
 	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
-	struct afe_clk_cfg *lpass_clk = NULL;
+	struct afe_clk_set m_clk = lpass_default_v2;
+	struct afe_clk_set ibit_clk = lpass_default_v2;
+	u16 mi2s_port;
+	u16 ibit_clk_id;
 	int ret = 0;
 
+	dev_dbg(card->dev, "%s: setting lpass clock using v2\n", __func__);
+
 	if (pdata == NULL) {
-		pr_err("%s:platform data is null\n", __func__);
-
+		dev_err(card->dev, "%s: platform data is null\n", __func__);
 		ret = -ENOMEM;
 		goto done;
 	}
-	lpass_clk = kzalloc(sizeof(struct afe_clk_cfg), GFP_KERNEL);
-	if (!lpass_clk) {
-		ret = -ENOMEM;
-		goto done;
-	}
-	memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
-	pr_debug("%s enable = %x\n", __func__, enable);
 
-	if (enable) {
-		lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK1_VALID;
-		ret = afe_set_lpass_clock(MI2S_RX, lpass_clk);
-		if (ret < 0)
-			pr_err("%s:afe_set_lpass_clock failed\n", __func__);
+	if (mi2s_type == PRI_MI2S) {
+		mi2s_port = AFE_PORT_ID_PRIMARY_MI2S_RX;
+		ibit_clk_id = Q6AFE_LPASS_CLK_ID_PRI_MI2S_IBIT;
 	} else {
-		lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK1_VALID;
-		lpass_clk->clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
-		ret = afe_set_lpass_clock(MI2S_RX, lpass_clk);
-		if (ret < 0)
-			pr_err("%s:afe_set_lpass_clock failed\n", __func__);
+		mi2s_port = AFE_PORT_ID_SECONDARY_MI2S_RX;
+		ibit_clk_id = Q6AFE_LPASS_CLK_ID_SEC_MI2S_IBIT;
 	}
-	pr_debug("%s clk 1 = %x clk2 = %x mode = %x\n",
-		 __func__, lpass_clk->clk_val1, lpass_clk->clk_val2,
-		 lpass_clk->clk_set_mode);
 
-	kfree(lpass_clk);
+	/* Set both mclk and ibit clocks when using LPASS_CLK_VER_2 */
+	m_clk.clk_id = Q6AFE_LPASS_CLK_ID_MCLK_3;
+	m_clk.clk_freq_in_hz = pdata->mclk_freq;
+	m_clk.enable = enable;
+	ret = afe_set_lpass_clock_v2(mi2s_port, &m_clk);
+	if (ret < 0) {
+		dev_err(card->dev,
+			"%s: afe_set_lpass_clock_v2 failed for mclk_3 with ret %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	ibit_clk.clk_id = ibit_clk_id;
+	ibit_clk.clk_freq_in_hz = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+	ibit_clk.enable = enable;
+	ret = afe_set_lpass_clock_v2(mi2s_port, &ibit_clk);
+	if (ret < 0) {
+		dev_err(card->dev,
+			"%s: afe_set_lpass_clock_v2 failed for ibit with ret %d\n",
+			__func__, ret);
+		goto err_ibit_clk_set;
+	}
+
+	ret = 0;
+
 done:
+	return ret;
+
+err_ibit_clk_set:
+	m_clk.enable = false;
+	if (afe_set_lpass_clock_v2(mi2s_port, &m_clk)) {
+		dev_err(card->dev,
+			"%s: afe_set_lpass_clock_v2 failed for mclk_3\n",
+			__func__);
+	}
+	return ret;
+}
+
+static int mdm_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable)
+{
+	enum lpass_clk_ver lpass_clk_ver;
+	int ret;
+
+	lpass_clk_ver = afe_get_lpass_clk_ver();
+
+	if (lpass_clk_ver == LPASS_CLK_VER_2)
+		ret = mdm_set_lpass_clk_v2(rtd, enable, PRI_MI2S);
+	else
+		ret = mdm_set_lpass_clk_v1(rtd, enable, MI2S_RX);
+
 	return ret;
 }
 
@@ -365,46 +450,16 @@ done:
 
 static int mdm_sec_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable)
 {
-	struct snd_soc_card *card = rtd->card;
-	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
-	struct afe_clk_cfg *lpass_clk = NULL;
-	int ret = 0;
+	enum lpass_clk_ver lpass_clk_ver;
+	int ret;
 
-	if (pdata == NULL) {
-		dev_err(card->dev, "%s:platform data is null\n", __func__);
+	lpass_clk_ver = afe_get_lpass_clk_ver();
 
-		ret = -EINVAL;
-		goto done;
-	}
-	lpass_clk = kzalloc(sizeof(struct afe_clk_cfg), GFP_KERNEL);
-	if (!lpass_clk) {
-		ret = -ENOMEM;
-		goto done;
-	}
-	memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
-	dev_dbg(card->dev, "%s enable = %x\n", __func__, enable);
+	if (lpass_clk_ver == LPASS_CLK_VER_2)
+		ret = mdm_set_lpass_clk_v2(rtd, enable, SEC_MI2S);
+	else
+		ret = mdm_set_lpass_clk_v1(rtd, enable, SECONDARY_I2S_RX);
 
-	lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK1_VALID;
-	if (enable) {
-		ret = afe_set_lpass_clock(SECONDARY_I2S_RX, lpass_clk);
-		if (ret < 0)
-			dev_err(card->dev,
-				"%s:afe_set_lpass_clock failed to enable\n",
-				__func__);
-	} else {
-		lpass_clk->clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
-		ret = afe_set_lpass_clock(SECONDARY_I2S_RX, lpass_clk);
-		if (ret < 0)
-			dev_err(card->dev,
-				"%s:afe_set_lpass_clock failed disable\n",
-				__func__);
-	}
-	dev_dbg(card->dev, "%s clk 1 = %x clk2 = %x mode = %x\n",
-		 __func__, lpass_clk->clk_val1, lpass_clk->clk_val2,
-		 lpass_clk->clk_set_mode);
-
-	kfree(lpass_clk);
-done:
 	return ret;
 }
 
