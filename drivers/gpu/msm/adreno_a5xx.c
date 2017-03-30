@@ -443,7 +443,7 @@ static int a5xx_regulator_enable(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL, 0x00000055);
 		a5xx_hwcg_set(adreno_dev, true);
 		/* Turn on sp_input_clk at HM level */
-		kgsl_regrmw(device, A5XX_RBBM_CLOCK_CNTL, 3, 0);
+		kgsl_regrmw(device, A5XX_RBBM_CLOCK_CNTL, 0xFF, 0);
 		return 0;
 	}
 
