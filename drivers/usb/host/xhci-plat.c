@@ -283,7 +283,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	/* imod_interval is the interrupt moderation value in nanoseconds. */
 	xhci->imod_interval = 40000;
-	device_property_read_u32(sysdev, "imod-interval-ns",
+	device_property_read_u32(&pdev->dev, "imod-interval-ns",
 				 &xhci->imod_interval);
 
 	hcd->usb_phy = devm_usb_get_phy_by_phandle(sysdev, "usb-phy", 0);
