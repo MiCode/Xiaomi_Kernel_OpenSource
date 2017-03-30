@@ -2845,6 +2845,13 @@ static int ipa3_setup_apps_pipes(void)
 		}
 	}
 
+	/* allocate the common PROD event ring */
+	if (ipa3_alloc_common_event_ring()) {
+		IPAERR("ipa3_alloc_common_event_ring failed.\n");
+		result = -EPERM;
+		goto fail_ch20_wa;
+	}
+
 	/* CMD OUT (AP->IPA) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
 	sys_in.client = IPA_CLIENT_APPS_CMD_PROD;

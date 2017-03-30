@@ -45,6 +45,7 @@
 #define IPA3_MAX_NUM_PIPES 31
 #define IPA_SYS_DESC_FIFO_SZ 0x800
 #define IPA_SYS_TX_DATA_DESC_FIFO_SZ 0x1000
+#define IPA_COMMON_EVENT_RING_SIZE 0x7C00
 #define IPA_LAN_RX_HEADER_LENGTH (2)
 #define IPA_QMAP_HEADER_LENGTH (4)
 #define IPA_DL_CHECKSUM_LENGTH (8)
@@ -591,9 +592,11 @@ struct ipa3_repl_ctx {
  */
 struct ipa3_sys_context {
 	u32 len;
+	u32 len_pending_xfer;
 	atomic_t curr_polling_state;
 	struct delayed_work switch_to_intr_work;
 	enum ipa3_sys_pipe_policy policy;
+	bool use_comm_evt_ring;
 	int (*pyld_hdlr)(struct sk_buff *skb, struct ipa3_sys_context *sys);
 	struct sk_buff * (*get_skb)(unsigned int len, gfp_t flags);
 	void (*free_skb)(struct sk_buff *skb);
@@ -616,6 +619,7 @@ struct ipa3_sys_context {
 	struct list_head head_desc_list;
 	struct list_head rcycl_list;
 	spinlock_t spinlock;
+	struct hrtimer db_timer;
 	struct workqueue_struct *wq;
 	struct workqueue_struct *repl_wq;
 	struct ipa3_status_stats *status_stat;
@@ -702,6 +706,7 @@ struct ipa3_dma_xfer_wrapper {
  * @user1: cookie1 for above callback
  * @user2: cookie2 for above callback
  * @xfer_done: completion object for sync completion
+ * @skip_db_ring: specifies whether GSI doorbell should not be rang
  */
 struct ipa3_desc {
 	enum ipa3_desc_type type;
@@ -715,6 +720,7 @@ struct ipa3_desc {
 	void *user1;
 	int user2;
 	struct completion xfer_done;
+	bool skip_db_ring;
 };
 
 /**
@@ -1133,6 +1139,8 @@ struct ipa3_context {
 	struct workqueue_struct *transport_power_mgmt_wq;
 	bool tag_process_before_gating;
 	struct ipa3_transport_pm transport_pm;
+	unsigned long gsi_evt_comm_hdl;
+	u32 gsi_evt_comm_ring_rem;
 	u32 clnt_hdl_cmd;
 	u32 clnt_hdl_data_in;
 	u32 clnt_hdl_data_out;
@@ -1971,4 +1979,5 @@ bool ipa3_is_msm_device(void);
 struct device *ipa3_get_pdev(void);
 void ipa3_enable_dcd(void);
 void ipa3_disable_prefetch(enum ipa_client_type client);
+int ipa3_alloc_common_event_ring(void);
 #endif /* _IPA3_I_H_ */
