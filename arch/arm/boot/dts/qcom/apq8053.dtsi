@@ -39,6 +39,9 @@
 
 &pm8953_adc_tm {
 	/delete-node/ chan@36;
+	chan@7  {
+		qcom,btm-channel-number = <0x48>;
+	};
 };
 
 &ipa_hw {
