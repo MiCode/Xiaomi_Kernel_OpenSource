@@ -4029,6 +4029,10 @@ int _mmc_detect_card_removed(struct mmc_host *host)
 
 	if (ret) {
 		mmc_card_set_removed(host->card);
+		if (host->card->sdr104_blocked) {
+			mmc_host_set_sdr104(host);
+			host->card->sdr104_blocked = false;
+		}
 		pr_debug("%s: card remove detected\n", mmc_hostname(host));
 	}
 
