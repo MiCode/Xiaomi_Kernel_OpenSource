@@ -905,6 +905,7 @@ struct dwc3_scratchpad_array {
  *                 increments or 0 to disable.
  * @index: dwc3's instance number
  * @dwc_ipc_log_ctxt: dwc3 ipc log context
+ * @xhci_imod_value: imod value to use with xhci
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1061,6 +1062,7 @@ struct dwc3 {
 	unsigned int		index;
 	void			*dwc_ipc_log_ctxt;
 	struct dwc3_gadget_events	dbg_gadget_events;
+	u32			xhci_imod_value;
 };
 
 #define work_to_dwc(w)		(container_of((w), struct dwc3, drd_work))

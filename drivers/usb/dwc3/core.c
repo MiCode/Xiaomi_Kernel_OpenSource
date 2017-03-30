@@ -1032,6 +1032,10 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 				"snps,is-utmi-l1-suspend");
 	device_property_read_u8(dev, "snps,hird-threshold",
 				&hird_threshold);
+
+	device_property_read_u32(dev, "snps,xhci-imod-value",
+			&dwc->xhci_imod_value);
+
 	dwc->usb3_lpm_capable = device_property_read_bool(dev,
 				"snps,usb3_lpm_capable");
 
