@@ -2444,7 +2444,7 @@ int msm_isp_ab_ib_update_lpm_mode(struct vfe_device *vfe_dev, void *arg)
 					total_bandwidth +=
 						stream_info->bandwidth[
 							vfe_idx];
-				stream_info->state = PAUSING;
+				stream_info->state = PAUSED;
 			}
 			spin_unlock_irqrestore(&stream_info->lock, flags);
 		}
@@ -2458,7 +2458,7 @@ int msm_isp_ab_ib_update_lpm_mode(struct vfe_device *vfe_dev, void *arg)
 				msm_isp_get_stream_common_data(vfe_dev,
 					ab_ib_vote->stream_src[i]);
 			spin_lock_irqsave(&stream_info->lock, flags);
-			if (stream_info->state == PAUSING) {
+			if (stream_info->state == PAUSED) {
 				vfe_idx =
 					msm_isp_get_vfe_idx_for_stream(vfe_dev,
 						stream_info);
@@ -2816,6 +2816,7 @@ static int __msm_isp_check_stream_state(struct msm_vfe_axi_stream *stream_info,
 	case RESUMING:
 	case RESUME_PENDING:
 	case ACTIVE:
+	case PAUSED:
 		if (cmd != 0)
 			return -EALREADY;
 		break;
@@ -2882,9 +2883,11 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 		 * those state transitions instead of directly forcing stream to
 		 * be INACTIVE
 		 */
-		while (stream_info->state != ACTIVE)
-			__msm_isp_axi_stream_update(stream_info,
-						&timestamp);
+		if (stream_info->state != PAUSED) {
+			while (stream_info->state != ACTIVE)
+				__msm_isp_axi_stream_update(stream_info,
+					&timestamp);
+		}
 		msm_isp_cfg_stream_scratch(stream_info, VFE_PING_FLAG);
 		msm_isp_cfg_stream_scratch(stream_info, VFE_PONG_FLAG);
 		stream_info->undelivered_request_cnt = 0;
@@ -2897,8 +2900,15 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 				vfe_dev->hw_info->vfe_ops.axi_ops.
 				clear_wm_irq_mask(vfe_dev, stream_info);
 		}
-		init_completion(&stream_info->inactive_comp);
-		stream_info->state = STOP_PENDING;
+		if (stream_info->state == ACTIVE) {
+			init_completion(&stream_info->inactive_comp);
+			stream_info->state = STOP_PENDING;
+		} else if (stream_info->state == PAUSED) {
+			/* don't wait for reg update */
+			stream_info->state = STOP_PENDING;
+			msm_isp_axi_stream_enable_cfg(stream_info);
+			stream_info->state = INACTIVE;
+		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 	}
 

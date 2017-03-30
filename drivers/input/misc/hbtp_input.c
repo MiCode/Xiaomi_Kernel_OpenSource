@@ -105,10 +105,27 @@ static int fb_notifier_callback(struct notifier_block *self,
 {
 	int blank;
 	struct fb_event *evdata = data;
+	struct fb_info *fbi = NULL;
 	struct hbtp_data *hbtp_data =
 	container_of(self, struct hbtp_data, fb_notif);
 
-	if (evdata && evdata->data && hbtp_data &&
+	if (!evdata) {
+		pr_debug("evdata is NULL");
+		return 0;
+	}
+	fbi = evdata->info;
+
+	/*
+	 * Node 0 is the primary display and others are
+	 * external displays such as HDMI/DP.
+	 * We need to handle only fb event for the primary display.
+	 */
+	if (!fbi || fbi->node != 0) {
+		pr_debug("%s: no need to handle the fb event", __func__);
+		return 0;
+	}
+
+	if (evdata->data && hbtp_data &&
 		(event == FB_EARLY_EVENT_BLANK ||
 		event == FB_R_EARLY_EVENT_BLANK)) {
 		blank = *(int *)(evdata->data);
@@ -137,7 +154,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 		}
 	}
 
-	if (evdata && evdata->data && hbtp_data &&
+	if (evdata->data && hbtp_data &&
 		event == FB_EVENT_BLANK) {
 		blank = *(int *)(evdata->data);
 		if (blank == FB_BLANK_POWERDOWN) {
