@@ -1338,9 +1338,6 @@ static int hbtp_pdev_probe(struct platform_device *pdev)
 		hbtp->vcc_dig = vcc_dig;
 	}
 
-	hbtp->power_sync_enabled = true;
-	hbtp->power_suspended = true;
-
 	return 0;
 }
 
