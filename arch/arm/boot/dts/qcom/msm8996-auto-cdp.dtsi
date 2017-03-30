@@ -1248,7 +1248,7 @@
 	/delete-property/ qcom,l1-supported;
 	/delete-property/ qcom,l1ss-supported;
 	/delete-property/ qcom,aux-clk-sync;
-	/delete-property/ qcom,ep-wakeirq;
+	/delete-property/ qcom,boot-option;
 };
 
 &pcie2 {

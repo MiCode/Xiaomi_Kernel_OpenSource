@@ -396,7 +396,7 @@
 
 		qcom,cpl-timeout = <0x2>;
 
-		qcom,ep-wakeirq;
+		qcom,boot-option = <0x1>;
 
 		linux,pci-domain = <0>;
 
