@@ -43,6 +43,7 @@
 #include <soc/qcom/event_timer.h>
 #include <soc/qcom/lpm-stats.h>
 #include <soc/qcom/jtag.h>
+#include <soc/qcom/minidump.h>
 #include <asm/cputype.h>
 #include <asm/arch_timer.h>
 #include <asm/cacheflush.h>
@@ -1854,6 +1855,7 @@ static int lpm_probe(struct platform_device *pdev)
 	int ret;
 	int size;
 	struct kobject *module_kobj = NULL;
+	struct md_region md_entry;
 
 	get_online_cpus();
 	lpm_root_node = lpm_of_parse_cluster(pdev);
@@ -1913,6 +1915,14 @@ static int lpm_probe(struct platform_device *pdev)
 				__func__);
 		goto failed;
 	}
+
+	/* Add lpm_debug to Minidump*/
+	strlcpy(md_entry.name, "KLPMDEBUG", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)lpm_debug;
+	md_entry.phys_addr = lpm_debug_phys;
+	md_entry.size = size;
+	if (msm_minidump_add_region(&md_entry))
+		pr_info("Failed to add lpm_debug in Minidump\n");
 
 	return 0;
 failed:
