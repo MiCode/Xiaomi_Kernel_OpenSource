@@ -200,6 +200,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	struct clk              *clk;
 	int			ret;
 	int			irq;
+	u32			temp, imod;
+	unsigned long		flags;
 
 	if (usb_disabled())
 		return -ENODEV;
@@ -308,6 +310,9 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (device_property_read_bool(sysdev, "usb3-lpm-capable"))
 		xhci->quirks |= XHCI_LPM_SUPPORT;
 
+	if (device_property_read_u32(sysdev, "snps,xhci-imod-value", &imod))
+		imod = 0;
+
 	hcd->usb_phy = devm_usb_get_phy_by_phandle(sysdev, "usb-phy", 0);
 	if (IS_ERR(hcd->usb_phy)) {
 		ret = PTR_ERR(hcd->usb_phy);
@@ -330,6 +335,18 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
 	if (ret)
 		goto dealloc_usb2_hcd;
+
+	/* override imod interval if specified */
+	if (imod) {
+		imod &= ER_IRQ_INTERVAL_MASK;
+		spin_lock_irqsave(&xhci->lock, flags);
+		temp = readl_relaxed(&xhci->ir_set->irq_control);
+		temp &= ~ER_IRQ_INTERVAL_MASK;
+		temp |= imod;
+		writel_relaxed(temp, &xhci->ir_set->irq_control);
+		spin_unlock_irqrestore(&xhci->lock, flags);
+		dev_dbg(&pdev->dev, "%s: imod set to %u\n", __func__, imod);
+	}
 
 	ret = device_create_file(&pdev->dev, &dev_attr_config_imod);
 	if (ret)
