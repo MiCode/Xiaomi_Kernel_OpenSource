@@ -764,6 +764,25 @@ static int msm_11ad_ssr_powerup(const struct subsys_desc *subsys)
 	return rc;
 }
 
+static int msm_11ad_ssr_copy_ramdump(struct msm11ad_ctx *ctx)
+{
+	if (ctx->rops.ramdump && ctx->wil_handle) {
+		int rc = ctx->rops.ramdump(ctx->wil_handle, ctx->ramdump_addr,
+					   WIGIG_RAMDUMP_SIZE);
+		if (rc) {
+			dev_err(ctx->dev, "ramdump failed : %d\n", rc);
+			return -EINVAL;
+		}
+	}
+
+	ctx->dump_data.version = WIGIG_DUMP_FORMAT_VER;
+	strlcpy(ctx->dump_data.name, WIGIG_SUBSYS_NAME,
+		sizeof(ctx->dump_data.name));
+
+	ctx->dump_data.magic = WIGIG_DUMP_MAGIC_VER_V1;
+	return 0;
+}
+
 static int msm_11ad_ssr_ramdump(int enable, const struct subsys_desc *subsys)
 {
 	int rc;
@@ -780,13 +799,10 @@ static int msm_11ad_ssr_ramdump(int enable, const struct subsys_desc *subsys)
 	if (!enable)
 		return 0;
 
-	if (ctx->rops.ramdump && ctx->wil_handle) {
-		rc = ctx->rops.ramdump(ctx->wil_handle, ctx->ramdump_addr,
-				       WIGIG_RAMDUMP_SIZE);
-		if (rc) {
-			dev_err(ctx->dev, "ramdump failed : %d\n", rc);
-			return -EINVAL;
-		}
+	if (!ctx->recovery_in_progress) {
+		rc = msm_11ad_ssr_copy_ramdump(ctx);
+		if (rc)
+			return rc;
 	}
 
 	memset(&segment, 0, sizeof(segment));
@@ -798,7 +814,6 @@ static int msm_11ad_ssr_ramdump(int enable, const struct subsys_desc *subsys)
 
 static void msm_11ad_ssr_crash_shutdown(const struct subsys_desc *subsys)
 {
-	int rc;
 	struct platform_device *pdev;
 	struct msm11ad_ctx *ctx;
 
@@ -810,19 +825,8 @@ static void msm_11ad_ssr_crash_shutdown(const struct subsys_desc *subsys)
 		return;
 	}
 
-	if (ctx->rops.ramdump && ctx->wil_handle) {
-		rc = ctx->rops.ramdump(ctx->wil_handle, ctx->ramdump_addr,
-				       WIGIG_RAMDUMP_SIZE);
-		if (rc)
-			dev_err(ctx->dev, "ramdump failed : %d\n", rc);
-		/* continue */
-	}
-
-	ctx->dump_data.version = WIGIG_DUMP_FORMAT_VER;
-	strlcpy(ctx->dump_data.name, WIGIG_SUBSYS_NAME,
-		sizeof(ctx->dump_data.name));
-
-	ctx->dump_data.magic = WIGIG_DUMP_MAGIC_VER_V1;
+	if (!ctx->recovery_in_progress)
+		(void)msm_11ad_ssr_copy_ramdump(ctx);
 }
 
 static void msm_11ad_ssr_deinit(struct msm11ad_ctx *ctx)
@@ -1321,6 +1325,7 @@ static int msm_11ad_notify_crash(struct msm11ad_ctx *ctx)
 
 	if (ctx->subsys) {
 		dev_info(ctx->dev, "SSR requested\n");
+		(void)msm_11ad_ssr_copy_ramdump(ctx);
 		ctx->recovery_in_progress = true;
 		rc = subsystem_restart_dev(ctx->subsys);
 		if (rc) {
