@@ -179,7 +179,7 @@ static const int s_button_map[] = {
 };
 
 /* The opened devices container */
-static int s_opened_devs[MAX_DEVS_NUMBER];
+static atomic_t s_opened_devs[MAX_DEVS_NUMBER];
 
 static struct wakeup_source usf_wakeup_source;
 
@@ -2348,14 +2348,11 @@ static uint16_t add_opened_dev(int minor)
 	uint16_t ind = 0;
 
 	for (ind = 0; ind < MAX_DEVS_NUMBER; ++ind) {
-		if (minor == s_opened_devs[ind]) {
+		if (minor == atomic_cmpxchg(&s_opened_devs[ind], 0, minor)) {
 			pr_err("%s: device %d is already opened\n",
 			       __func__, minor);
 			return USF_UNDEF_DEV_ID;
-		}
-
-		if (s_opened_devs[ind] == 0) {
-			s_opened_devs[ind] = minor;
+		} else {
 			pr_debug("%s: device %d is added; ind=%d\n",
 				__func__, minor, ind);
 			return ind;
@@ -2410,7 +2407,7 @@ static int usf_release(struct inode *inode, struct file *file)
 	usf_disable(&usf->usf_tx);
 	usf_disable(&usf->usf_rx);
 
-	s_opened_devs[usf->dev_ind] = 0;
+	atomic_set(&s_opened_devs[usf->dev_ind], 0);
 
 	wakeup_source_trash(&usf_wakeup_source);
 	mutex_unlock(&usf->mutex);
