@@ -976,7 +976,7 @@ static bool do_iommu_attach(struct device *dev, const struct iommu_ops *ops,
 	 * device, and allocated the default domain for that group.
 	 */
 	if (!domain || iommu_dma_init_domain(domain, dma_base, size, dev)) {
-		pr_warn("Failed to set up IOMMU for device %s; retaining platform DMA ops\n",
+		pr_debug("Failed to set up IOMMU for device %s; retaining platform DMA ops\n",
 			dev_name(dev));
 		return false;
 	}
