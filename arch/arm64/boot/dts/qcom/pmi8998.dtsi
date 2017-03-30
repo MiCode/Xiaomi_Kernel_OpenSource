@@ -304,7 +304,7 @@
 			qcom,en-ext-pfet-sc-pro;
 			qcom,pmic-revid = <&pmi8998_revid>;
 			qcom,loop-auto-gm-en;
-			status = "okay";
+			status = "disabled";
 		};
 
 		flash_led: qcom,leds@d300 {
