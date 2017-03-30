@@ -91,6 +91,12 @@ struct sde_plane_rot_state {
 	int out_xpos;
 };
 
+/* dirty bits for update function */
+#define SDE_PLANE_DIRTY_RECTS	0x1
+#define SDE_PLANE_DIRTY_FORMAT	0x2
+#define SDE_PLANE_DIRTY_SHARPEN	0x4
+#define SDE_PLANE_DIRTY_ALL	0xFFFFFFFF
+
 /**
  * struct sde_plane_state: Define sde extension of drm plane state object
  * @base:	base drm plane state object
@@ -221,5 +227,13 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms);
  */
 int sde_plane_color_fill(struct drm_plane *plane,
 		uint32_t color, uint32_t alpha);
+
+/**
+ * sde_plane_set_revalidate - sets revalidate flag which forces a full
+ *	validation of the plane properties in the next atomic check
+ * @plane: Pointer to DRM plane object
+ * @enable: Boolean to set/unset the flag
+ */
+void sde_plane_set_revalidate(struct drm_plane *plane, bool enable);
 
 #endif /* _SDE_PLANE_H_ */

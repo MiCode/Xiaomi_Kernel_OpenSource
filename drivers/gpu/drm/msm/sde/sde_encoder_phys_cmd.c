@@ -582,21 +582,14 @@ static bool sde_encoder_phys_cmd_needs_single_flush(
 	return _sde_encoder_phys_is_ppsplit(phys_enc);
 }
 
-static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
+static void sde_encoder_phys_cmd_enable_helper(
+		struct sde_encoder_phys *phys_enc)
 {
-	struct sde_encoder_phys_cmd *cmd_enc =
-		to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_hw_ctl *ctl;
 	u32 flush_mask = 0;
 
 	if (!phys_enc || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid arg(s), encoder %d\n", phys_enc != 0);
-		return;
-	}
-	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
-
-	if (phys_enc->enable_state == SDE_ENC_ENABLED) {
-		SDE_ERROR("already enabled\n");
 		return;
 	}
 
@@ -607,7 +600,25 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 	ctl = phys_enc->hw_ctl;
 	ctl->ops.get_bitmask_intf(ctl, &flush_mask, phys_enc->intf_idx);
 	ctl->ops.update_pending_flush(ctl, flush_mask);
+}
 
+static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_cmd *cmd_enc =
+		to_sde_encoder_phys_cmd(phys_enc);
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid phys encoder\n");
+		return;
+	}
+	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
+
+	if (phys_enc->enable_state == SDE_ENC_ENABLED) {
+		SDE_ERROR("already enabled\n");
+		return;
+	}
+
+	sde_encoder_phys_cmd_enable_helper(phys_enc);
 	phys_enc->enable_state = SDE_ENC_ENABLED;
 }
 
@@ -760,6 +771,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->hw_reset = sde_encoder_helper_hw_reset;
 	ops->irq_control = sde_encoder_phys_cmd_irq_control;
 	ops->update_split_role = sde_encoder_phys_cmd_update_split_role;
+	ops->restore = sde_encoder_phys_cmd_enable_helper;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(

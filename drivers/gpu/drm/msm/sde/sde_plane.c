@@ -75,12 +75,6 @@ enum {
 
 #define TX_MODE_BUFFER_LINE_THRES 2
 
-/* dirty bits for update function */
-#define SDE_PLANE_DIRTY_RECTS	0x1
-#define SDE_PLANE_DIRTY_FORMAT	0x2
-#define SDE_PLANE_DIRTY_SHARPEN	0x4
-#define SDE_PLANE_DIRTY_ALL	0xFFFFFFFF
-
 #define SDE_QSEED3_DEFAULT_PRELOAD_H 0x4
 #define SDE_QSEED3_DEFAULT_PRELOAD_V 0x3
 
@@ -107,7 +101,8 @@ enum sde_plane_qos {
  * @csc_ptr: Points to sde_csc_cfg structure to use for current
  * @catalog: Points to sde catalog structure
  * @sbuf_mode: force stream buffer mode if set
- * @sbuf_writeback: fource stream buffer writeback if set
+ * @sbuf_writeback: force stream buffer writeback if set
+ * @revalidate: force revalidation of all the plane properties
  * @blob_rot_caps: Pointer to rotator capability blob
  */
 struct sde_plane {
@@ -134,6 +129,7 @@ struct sde_plane {
 	struct sde_mdss_cfg *catalog;
 	u32 sbuf_mode;
 	u32 sbuf_writeback;
+	bool revalidate;
 
 	struct sde_hw_pixel_ext pixel_ext;
 	bool pixel_ext_usr;
@@ -497,6 +493,17 @@ static void _sde_plane_set_qos_ctrl(struct drm_plane *plane,
 
 	psde->pipe_hw->ops.setup_qos_ctrl(psde->pipe_hw,
 			&psde->pipe_qos_cfg);
+}
+
+void sde_plane_set_revalidate(struct drm_plane *plane, bool enable)
+{
+	struct sde_plane *psde;
+
+	if (!plane)
+		return;
+
+	psde = to_sde_plane(plane);
+	psde->revalidate = enable;
 }
 
 int sde_plane_danger_signal_ctrl(struct drm_plane *plane, bool enable)
@@ -2249,6 +2256,14 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 			rstate->out_rotation,
 			state->crtc_w, state->crtc_h,
 			state->crtc_x, state->crtc_y);
+
+	/* force reprogramming of all the parameters, if the flag is set */
+	if (psde->revalidate) {
+		SDE_DEBUG("plane:%d - reconfigure all the parameters\n",
+				plane->base.id);
+		pstate->dirty = SDE_PLANE_DIRTY_ALL;
+		psde->revalidate = false;
+	}
 
 	/* determine what needs to be refreshed */
 	while ((idx = msm_property_pop_dirty(&psde->property_info)) >= 0) {

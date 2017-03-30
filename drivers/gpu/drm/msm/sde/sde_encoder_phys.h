@@ -121,6 +121,7 @@ struct sde_encoder_virt_ops {
  *				SDE_ENC_ERR_NEEDS_HW_RESET state
  * @irq_control:		Handler to enable/disable all the encoder IRQs
  * @update_split_role:		Update the split role of the phys enc
+ * @restore:			Restore all the encoder configs.
  */
 
 struct sde_encoder_phys_ops {
@@ -157,6 +158,7 @@ struct sde_encoder_phys_ops {
 	void (*irq_control)(struct sde_encoder_phys *phys, bool enable);
 	void (*update_split_role)(struct sde_encoder_phys *phys_enc,
 			enum sde_enc_split_role role);
+	void (*restore)(struct sde_encoder_phys *phys);
 };
 
 /**
