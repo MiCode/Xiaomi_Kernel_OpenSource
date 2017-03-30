@@ -29,7 +29,6 @@
 #define SOUTH	0x00900000
 #define WEST	0x00100000
 #define REG_SIZE 0x1000
-
 #define PINGROUP(id, base, f1, f2, f3, f4, f5, f6, f7, f8, f9)	\
 	{						\
 		.name = "gpio" #id,			\
@@ -118,7 +117,7 @@
 		.intr_detection_bit = -1,		\
 		.intr_detection_width = -1,		\
 	}
-static const struct pinctrl_pin_desc sdm830_pins[] = {
+static const struct pinctrl_pin_desc sdm670_pins[] = {
 	PINCTRL_PIN(0, "GPIO_0"),
 	PINCTRL_PIN(1, "GPIO_1"),
 	PINCTRL_PIN(2, "GPIO_2"),
@@ -255,9 +254,12 @@ static const struct pinctrl_pin_desc sdm830_pins[] = {
 	PINCTRL_PIN(147, "GPIO_147"),
 	PINCTRL_PIN(148, "GPIO_148"),
 	PINCTRL_PIN(149, "GPIO_149"),
-	PINCTRL_PIN(150, "SDC2_CLK"),
-	PINCTRL_PIN(151, "SDC2_CMD"),
-	PINCTRL_PIN(152, "SDC2_DATA"),
+	PINCTRL_PIN(150, "SDC1_CLK"),
+	PINCTRL_PIN(151, "SDC1_CMD"),
+	PINCTRL_PIN(152, "SDC1_DATA"),
+	PINCTRL_PIN(153, "SDC2_CLK"),
+	PINCTRL_PIN(154, "SDC2_CMD"),
+	PINCTRL_PIN(155, "SDC2_DATA"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -399,11 +401,14 @@ DECLARE_MSM_GPIO_PINS(147);
 DECLARE_MSM_GPIO_PINS(148);
 DECLARE_MSM_GPIO_PINS(149);
 
-static const unsigned int sdc2_clk_pins[] = { 150 };
-static const unsigned int sdc2_cmd_pins[] = { 151 };
-static const unsigned int sdc2_data_pins[] = { 152 };
+static const unsigned int sdc1_clk_pins[] = { 150 };
+static const unsigned int sdc1_cmd_pins[] = { 151 };
+static const unsigned int sdc1_data_pins[] = { 152 };
+static const unsigned int sdc2_clk_pins[] = { 153 };
+static const unsigned int sdc2_cmd_pins[] = { 154 };
+static const unsigned int sdc2_data_pins[] = { 155 };
 
-enum sdm830_functions {
+enum sdm670_functions {
 	msm_mux_qup0,
 	msm_mux_gpio,
 	msm_mux_reserved0,
@@ -456,6 +461,16 @@ enum sdm830_functions {
 	msm_mux_qup1,
 	msm_mux_qdss_gpio4,
 	msm_mux_reserved17,
+	msm_mux_qdss_gpio5,
+	msm_mux_reserved18,
+	msm_mux_qdss_gpio6,
+	msm_mux_reserved19,
+	msm_mux_qdss_gpio7,
+	msm_mux_reserved20,
+	msm_mux_cci_timer0,
+	msm_mux_gcc_gp2,
+	msm_mux_qdss_gpio8,
+	msm_mux_reserved21,
 	msm_mux_cci_timer1,
 	msm_mux_gcc_gp3,
 	msm_mux_qdss_gpio,
@@ -470,16 +485,6 @@ enum sdm830_functions {
 	msm_mux_cci_timer4,
 	msm_mux_qdss_gpio11,
 	msm_mux_reserved25,
-	msm_mux_qdss_gpio5,
-	msm_mux_reserved18,
-	msm_mux_qdss_gpio6,
-	msm_mux_reserved19,
-	msm_mux_qdss_gpio7,
-	msm_mux_reserved20,
-	msm_mux_cci_timer0,
-	msm_mux_gcc_gp2,
-	msm_mux_qdss_gpio8,
-	msm_mux_reserved21,
 	msm_mux_qdss_gpio12,
 	msm_mux_JITTER_BIST,
 	msm_mux_reserved26,
@@ -894,6 +899,36 @@ static const char * const qdss_gpio4_groups[] = {
 static const char * const reserved17_groups[] = {
 	"gpio17",
 };
+static const char * const qdss_gpio5_groups[] = {
+	"gpio18", "gpio122",
+};
+static const char * const reserved18_groups[] = {
+	"gpio18",
+};
+static const char * const qdss_gpio6_groups[] = {
+	"gpio19", "gpio41",
+};
+static const char * const reserved19_groups[] = {
+	"gpio19",
+};
+static const char * const qdss_gpio7_groups[] = {
+	"gpio20", "gpio42",
+};
+static const char * const reserved20_groups[] = {
+	"gpio20",
+};
+static const char * const cci_timer0_groups[] = {
+	"gpio21",
+};
+static const char * const gcc_gp2_groups[] = {
+	"gpio21",
+};
+static const char * const qdss_gpio8_groups[] = {
+	"gpio21", "gpio75",
+};
+static const char * const reserved21_groups[] = {
+	"gpio21",
+};
 static const char * const cci_timer1_groups[] = {
 	"gpio22",
 };
@@ -935,36 +970,6 @@ static const char * const qdss_gpio11_groups[] = {
 };
 static const char * const reserved25_groups[] = {
 	"gpio25",
-};
-static const char * const qdss_gpio5_groups[] = {
-	"gpio18", "gpio122",
-};
-static const char * const reserved18_groups[] = {
-	"gpio18",
-};
-static const char * const qdss_gpio6_groups[] = {
-	"gpio19", "gpio41",
-};
-static const char * const reserved19_groups[] = {
-	"gpio19",
-};
-static const char * const qdss_gpio7_groups[] = {
-	"gpio20", "gpio42",
-};
-static const char * const reserved20_groups[] = {
-	"gpio20",
-};
-static const char * const cci_timer0_groups[] = {
-	"gpio21",
-};
-static const char * const gcc_gp2_groups[] = {
-	"gpio21",
-};
-static const char * const qdss_gpio8_groups[] = {
-	"gpio21", "gpio75",
-};
-static const char * const reserved21_groups[] = {
-	"gpio21",
 };
 static const char * const qdss_gpio12_groups[] = {
 	"gpio26", "gpio80",
@@ -1680,7 +1685,7 @@ static const char * const reserved123_groups[] = {
 	"gpio123",
 };
 
-static const struct msm_function sdm830_functions[] = {
+static const struct msm_function sdm670_functions[] = {
 	FUNCTION(qup0),
 	FUNCTION(gpio),
 	FUNCTION(reserved0),
@@ -1733,6 +1738,16 @@ static const struct msm_function sdm830_functions[] = {
 	FUNCTION(qup1),
 	FUNCTION(qdss_gpio4),
 	FUNCTION(reserved17),
+	FUNCTION(qdss_gpio5),
+	FUNCTION(reserved18),
+	FUNCTION(qdss_gpio6),
+	FUNCTION(reserved19),
+	FUNCTION(qdss_gpio7),
+	FUNCTION(reserved20),
+	FUNCTION(cci_timer0),
+	FUNCTION(gcc_gp2),
+	FUNCTION(qdss_gpio8),
+	FUNCTION(reserved21),
 	FUNCTION(cci_timer1),
 	FUNCTION(gcc_gp3),
 	FUNCTION(qdss_gpio),
@@ -1747,16 +1762,6 @@ static const struct msm_function sdm830_functions[] = {
 	FUNCTION(cci_timer4),
 	FUNCTION(qdss_gpio11),
 	FUNCTION(reserved25),
-	FUNCTION(qdss_gpio5),
-	FUNCTION(reserved18),
-	FUNCTION(qdss_gpio6),
-	FUNCTION(reserved19),
-	FUNCTION(qdss_gpio7),
-	FUNCTION(reserved20),
-	FUNCTION(cci_timer0),
-	FUNCTION(gcc_gp2),
-	FUNCTION(qdss_gpio8),
-	FUNCTION(reserved21),
 	FUNCTION(qdss_gpio12),
 	FUNCTION(JITTER_BIST),
 	FUNCTION(reserved26),
@@ -1996,7 +2001,7 @@ static const struct msm_function sdm830_functions[] = {
 	FUNCTION(reserved123),
 };
 
-static const struct msm_pingroup sdm830_groups[] = {
+static const struct msm_pingroup sdm670_groups[] = {
 	PINGROUP(0, SOUTH, qup0, NA, reserved0, NA, NA, NA, NA, NA, NA),
 	PINGROUP(1, SOUTH, qup0, NA, reserved1, NA, NA, NA, NA, NA, NA),
 	PINGROUP(2, SOUTH, qup0, NA, reserved2, NA, NA, NA, NA, NA, NA),
@@ -2108,9 +2113,9 @@ static const struct msm_pingroup sdm830_groups[] = {
 		 QUP_L5, reserved76, NA, NA, NA),
 	PINGROUP(77, NORTH, ter_mi2s, phase_flag4, qdss_gpio10, atest_usb20,
 		 QUP_L6, reserved77, NA, NA, NA),
-	PINGROUP(78, NORTH, ter_mi2s, gcc_gp1, reserved78, NA, NA, NA, NA, NA,
+	PINGROUP(78, NORTH, ter_mi2s, gcc_gp1, NA, reserved78, NA, NA, NA, NA,
 		 NA),
-	PINGROUP(79, NORTH, sec_mi2s, GP_PDM2, NA, qdss_gpio11, reserved79, NA,
+	PINGROUP(79, NORTH, sec_mi2s, GP_PDM2, NA, qdss_gpio11, NA, reserved79,
 		 NA, NA, NA),
 	PINGROUP(80, NORTH, sec_mi2s, NA, qdss_gpio12, reserved80, NA, NA, NA,
 		 NA, NA),
@@ -2231,53 +2236,56 @@ static const struct msm_pingroup sdm830_groups[] = {
 	PINGROUP(147, WEST, NA, NA, reserved147, NA, NA, NA, NA, NA, NA),
 	PINGROUP(148, WEST, NA, reserved148, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(149, WEST, NA, reserved149, NA, NA, NA, NA, NA, NA, NA),
-	SDC_QDSD_PINGROUP(sdc2_clk, 0x59a000, 14, 6),
-	SDC_QDSD_PINGROUP(sdc2_cmd, 0x59a000, 11, 3),
-	SDC_QDSD_PINGROUP(sdc2_data, 0x59a000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc1_clk, 0x599000, 13, 6),
+	SDC_QDSD_PINGROUP(sdc1_cmd, 0x599000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc1_data, 0x599000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc2_clk, 0x99a000, 14, 6),
+	SDC_QDSD_PINGROUP(sdc2_cmd, 0x99a000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc2_data, 0x99a000, 9, 0),
 };
 
-static const struct msm_pinctrl_soc_data sdm830_pinctrl = {
-	.pins = sdm830_pins,
-	.npins = ARRAY_SIZE(sdm830_pins),
-	.functions = sdm830_functions,
-	.nfunctions = ARRAY_SIZE(sdm830_functions),
-	.groups = sdm830_groups,
-	.ngroups = ARRAY_SIZE(sdm830_groups),
+static const struct msm_pinctrl_soc_data sdm670_pinctrl = {
+	.pins = sdm670_pins,
+	.npins = ARRAY_SIZE(sdm670_pins),
+	.functions = sdm670_functions,
+	.nfunctions = ARRAY_SIZE(sdm670_functions),
+	.groups = sdm670_groups,
+	.ngroups = ARRAY_SIZE(sdm670_groups),
 	.ngpios = 136,
 };
 
-static int sdm830_pinctrl_probe(struct platform_device *pdev)
+static int sdm670_pinctrl_probe(struct platform_device *pdev)
 {
-	return msm_pinctrl_probe(pdev, &sdm830_pinctrl);
+	return msm_pinctrl_probe(pdev, &sdm670_pinctrl);
 }
 
-static const struct of_device_id sdm830_pinctrl_of_match[] = {
-	{ .compatible = "qcom,sdm830-pinctrl", },
+static const struct of_device_id sdm670_pinctrl_of_match[] = {
+	{ .compatible = "qcom,sdm670-pinctrl", },
 	{ },
 };
 
-static struct platform_driver sdm830_pinctrl_driver = {
+static struct platform_driver sdm670_pinctrl_driver = {
 	.driver = {
-		.name = "sdm830-pinctrl",
+		.name = "sdm670-pinctrl",
 		.owner = THIS_MODULE,
-		.of_match_table = sdm830_pinctrl_of_match,
+		.of_match_table = sdm670_pinctrl_of_match,
 	},
-	.probe = sdm830_pinctrl_probe,
+	.probe = sdm670_pinctrl_probe,
 	.remove = msm_pinctrl_remove,
 };
 
-static int __init sdm830_pinctrl_init(void)
+static int __init sdm670_pinctrl_init(void)
 {
-	return platform_driver_register(&sdm830_pinctrl_driver);
+	return platform_driver_register(&sdm670_pinctrl_driver);
 }
-arch_initcall(sdm830_pinctrl_init);
+arch_initcall(sdm670_pinctrl_init);
 
-static void __exit sdm830_pinctrl_exit(void)
+static void __exit sdm670_pinctrl_exit(void)
 {
-	platform_driver_unregister(&sdm830_pinctrl_driver);
+	platform_driver_unregister(&sdm670_pinctrl_driver);
 }
-module_exit(sdm830_pinctrl_exit);
+module_exit(sdm670_pinctrl_exit);
 
-MODULE_DESCRIPTION("QTI sdm830 pinctrl driver");
+MODULE_DESCRIPTION("QTI sdm670 pinctrl driver");
 MODULE_LICENSE("GPL v2");
-MODULE_DEVICE_TABLE(of, sdm830_pinctrl_of_match);
+MODULE_DEVICE_TABLE(of, sdm670_pinctrl_of_match);

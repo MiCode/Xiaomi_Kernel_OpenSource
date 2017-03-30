@@ -23,10 +23,9 @@ sdm845-cdp-overlay.dtbo-base := sdm845.dtb
 sdm845-mtp-overlay.dtbo-base := sdm845.dtb
 endif
 
-dtb-$(CONFIG_ARCH_SDM830) += sdm830-sim.dtb \
-	sdm830-rumi.dtb \
-	sdm830-mtp.dtb \
-	sdm830-cdp.dtb
+dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
+	sdm670-mtp.dtb \
+	sdm670-cdp.dtb
 
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)

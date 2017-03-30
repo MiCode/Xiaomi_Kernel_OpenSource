@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,15 +9,3 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-
-/dts-v1/;
-
-#include "sdm830.dtsi"
-#include "sdm830-mtp.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. SDM bat v1 MTP";
-	compatible = "qcom,sdm830-mtp", "qcom,sdm830", "qcom,mtp";
-	qcom,board-id = <8 0>;
-};
