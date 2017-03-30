@@ -107,9 +107,11 @@ static struct clk_alpha_pll cam_cc_pll0 = {
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_fabia_pll_ops,
-			VDD_CX_FMAX_MAP2(
-				MIN, 19200000,
-				LOWER, 600000000),
+			VDD_CX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
 		},
 	},
 };
@@ -152,9 +154,11 @@ static struct clk_alpha_pll cam_cc_pll1 = {
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_fabia_pll_ops,
-			VDD_CX_FMAX_MAP2(
-				MIN, 19200000,
-				LOW, 808000000),
+			VDD_CX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
 		},
 	},
 };
@@ -189,9 +193,11 @@ static struct clk_alpha_pll cam_cc_pll2 = {
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_fabia_pll_ops,
-			VDD_MX_FMAX_MAP2(
-				MIN, 19200000,
-				LOWER, 960000000),
+			VDD_MX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
 		},
 	},
 };
@@ -248,9 +254,11 @@ static struct clk_alpha_pll cam_cc_pll3 = {
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_fabia_pll_ops,
-			VDD_CX_FMAX_MAP2(
-				MIN, 19200000,
-				LOWER, 384000000),
+			VDD_CX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
 		},
 	},
 };

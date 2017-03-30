@@ -146,10 +146,11 @@ static struct clk_alpha_pll disp_cc_pll0 = {
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_fabia_pll_ops,
-			VDD_CX_FMAX_MAP2(
-				MIN, 430000000,
-				LOW, 860000000
-			),
+			VDD_CX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
 		},
 	},
 };

@@ -90,14 +90,6 @@
 	},					\
 	.num_rate_max = VDD_CX_NUM
 
-#define VDD_MX_FMAX_MAP2(l1, f1, l2, f2) \
-	.vdd_class = &vdd_mx,			\
-	.rate_max = (unsigned long[VDD_CX_NUM]) {	\
-		[VDD_CX_##l1] = (f1),		\
-		[VDD_CX_##l2] = (f2),		\
-	},					\
-	.num_rate_max = VDD_CX_NUM
-
 #define VDD_MX_FMAX_MAP4(l1, f1, l2, f2, l3, f3, l4, f4) \
 	.vdd_class = &vdd_mx,			\
 	.rate_max = (unsigned long[VDD_CX_NUM]) {	\
