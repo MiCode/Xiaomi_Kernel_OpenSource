@@ -1,4 +1,4 @@
- /* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
   *
   * This program is free software; you can redistribute it and/or modify
   * it under the terms of the GNU General Public License version 2 and
@@ -609,6 +609,7 @@ static int ext_mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 	int ret = 0;
 	int port_id = 0;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_codec *codec = rtd->codec;
 
 	port_id = apq8009_get_port_id(rtd->dai_link->be_id);
 	if (port_id < 0) {
@@ -617,6 +618,7 @@ static int ext_mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 	}
 
 	if (enable) {
+		apq8009_enable_extcodec_ext_clk(codec, 1, true);
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			mi2s_rx_clk.enable = enable;
 			mi2s_rx_clk.clk_id = apq8009_get_clk_id(port_id);
@@ -636,6 +638,7 @@ static int ext_mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 			pr_err("%s:afe_set_lpass_clock failed ret=%d\n",
 					__func__, ret);
 	} else {
+		apq8009_enable_extcodec_ext_clk(codec, 0, true);
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			mi2s_rx_clk.enable = enable;
 			mi2s_rx_clk.clk_id = apq8009_get_clk_id(port_id);
