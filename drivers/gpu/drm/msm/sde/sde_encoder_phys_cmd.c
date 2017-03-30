@@ -363,6 +363,78 @@ static int sde_encoder_phys_cmd_unregister_irq(
 	return 0;
 }
 
+static int sde_encoder_phys_cmd_control_vblank_irq(
+		struct sde_encoder_phys *phys_enc,
+		bool enable)
+{
+	struct sde_encoder_phys_cmd *cmd_enc =
+		to_sde_encoder_phys_cmd(phys_enc);
+	int ret = 0;
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return -EINVAL;
+	}
+
+	/* Slave encoders don't report vblank */
+	if (!sde_encoder_phys_cmd_is_master(phys_enc))
+		goto end;
+
+	SDE_DEBUG_CMDENC(cmd_enc, "[%pS] enable=%d/%d\n",
+			__builtin_return_address(0),
+			enable, atomic_read(&phys_enc->vblank_refcount));
+
+	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
+			enable, atomic_read(&phys_enc->vblank_refcount));
+
+	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
+		ret = sde_encoder_phys_cmd_register_irq(phys_enc,
+				SDE_IRQ_TYPE_PING_PONG_RD_PTR,
+				INTR_IDX_RDPTR,
+				sde_encoder_phys_cmd_pp_rd_ptr_irq,
+				"pp_rd_ptr");
+	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
+		ret = sde_encoder_phys_cmd_unregister_irq(phys_enc,
+				INTR_IDX_RDPTR);
+
+end:
+	if (ret)
+		SDE_ERROR_CMDENC(cmd_enc,
+				"control vblank irq error %d, enable %d\n",
+				ret, enable);
+
+	return ret;
+}
+
+void sde_encoder_phys_cmd_irq_control(struct sde_encoder_phys *phys_enc,
+		bool enable)
+{
+	if (!phys_enc || _sde_encoder_phys_is_ppsplit_slave(phys_enc))
+		return;
+
+	if (enable) {
+		sde_encoder_phys_cmd_register_irq(phys_enc,
+				SDE_IRQ_TYPE_PING_PONG_COMP,
+				INTR_IDX_PINGPONG,
+				sde_encoder_phys_cmd_pp_tx_done_irq,
+				"pp_tx_done");
+
+		sde_encoder_phys_cmd_control_vblank_irq(phys_enc, true);
+
+		sde_encoder_phys_cmd_register_irq(phys_enc,
+				SDE_IRQ_TYPE_INTF_UNDER_RUN,
+				INTR_IDX_UNDERRUN,
+				sde_encoder_phys_cmd_underrun_irq,
+				"underrun");
+	} else {
+		sde_encoder_phys_cmd_unregister_irq(
+				phys_enc, INTR_IDX_UNDERRUN);
+		sde_encoder_phys_cmd_control_vblank_irq(phys_enc, false);
+		sde_encoder_phys_cmd_unregister_irq(
+				phys_enc, INTR_IDX_PINGPONG);
+	}
+}
+
 static void sde_encoder_phys_cmd_tearcheck_config(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -477,56 +549,12 @@ static bool sde_encoder_phys_cmd_needs_single_flush(
 	return _sde_encoder_phys_is_ppsplit(phys_enc);
 }
 
-static int sde_encoder_phys_cmd_control_vblank_irq(
-		struct sde_encoder_phys *phys_enc,
-		bool enable)
-{
-	struct sde_encoder_phys_cmd *cmd_enc =
-		to_sde_encoder_phys_cmd(phys_enc);
-	int ret = 0;
-
-	if (!phys_enc) {
-		SDE_ERROR("invalid encoder\n");
-		return -EINVAL;
-	}
-
-	/* Slave encoders don't report vblank */
-	if (!sde_encoder_phys_cmd_is_master(phys_enc))
-		goto end;
-
-	SDE_DEBUG_CMDENC(cmd_enc, "[%pS] enable=%d/%d\n",
-			__builtin_return_address(0),
-			enable, atomic_read(&phys_enc->vblank_refcount));
-
-	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
-			enable, atomic_read(&phys_enc->vblank_refcount));
-
-	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
-		ret = sde_encoder_phys_cmd_register_irq(phys_enc,
-				SDE_IRQ_TYPE_PING_PONG_RD_PTR,
-				INTR_IDX_RDPTR,
-				sde_encoder_phys_cmd_pp_rd_ptr_irq,
-				"pp_rd_ptr");
-	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
-		ret = sde_encoder_phys_cmd_unregister_irq(phys_enc,
-				INTR_IDX_RDPTR);
-
-end:
-	if (ret)
-		SDE_ERROR_CMDENC(cmd_enc,
-				"control vblank irq error %d, enable %d\n",
-				ret, enable);
-
-	return ret;
-}
-
 static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_hw_ctl *ctl;
 	u32 flush_mask = 0;
-	int ret;
 
 	if (!phys_enc || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid arg(s), encoder %d\n", phys_enc != 0);
@@ -543,38 +571,6 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 
 	sde_encoder_phys_cmd_pingpong_config(phys_enc);
 
-	if (_sde_encoder_phys_is_ppsplit_slave(phys_enc))
-		goto update_flush;
-
-	/* Both master and slave need to register for pp_tx_done */
-	ret = sde_encoder_phys_cmd_register_irq(phys_enc,
-			SDE_IRQ_TYPE_PING_PONG_COMP,
-			INTR_IDX_PINGPONG,
-			sde_encoder_phys_cmd_pp_tx_done_irq,
-			"pp_tx_done");
-	if (ret)
-		return;
-
-	ret = sde_encoder_phys_cmd_control_vblank_irq(phys_enc, true);
-	if (ret) {
-		sde_encoder_phys_cmd_unregister_irq(phys_enc,
-				INTR_IDX_PINGPONG);
-		return;
-	}
-
-	ret = sde_encoder_phys_cmd_register_irq(phys_enc,
-			SDE_IRQ_TYPE_INTF_UNDER_RUN,
-			INTR_IDX_UNDERRUN,
-			sde_encoder_phys_cmd_underrun_irq,
-			"underrun");
-	if (ret) {
-		sde_encoder_phys_cmd_control_vblank_irq(phys_enc, false);
-		sde_encoder_phys_cmd_unregister_irq(phys_enc,
-				INTR_IDX_PINGPONG);
-		return;
-	}
-
-update_flush:
 	ctl = phys_enc->hw_ctl;
 	ctl->ops.get_bitmask_intf(ctl, &flush_mask, cmd_enc->intf_idx);
 	ctl->ops.update_pending_flush(ctl, flush_mask);
@@ -613,21 +609,9 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 			SDE_EVT32(DRMID(phys_enc->parent),
 					phys_enc->hw_pp->idx - PINGPONG_0, ret);
 		}
-
-		sde_encoder_phys_cmd_unregister_irq(
-				phys_enc, INTR_IDX_UNDERRUN);
-		sde_encoder_phys_cmd_control_vblank_irq(phys_enc, false);
-		sde_encoder_phys_cmd_unregister_irq(
-				phys_enc, INTR_IDX_PINGPONG);
 	}
 
 	phys_enc->enable_state = SDE_ENC_DISABLED;
-
-	if (atomic_read(&phys_enc->vblank_refcount))
-		SDE_ERROR("enc:%d role:%d invalid vblank refcount %d\n",
-				phys_enc->parent->base.id,
-				phys_enc->split_role,
-				atomic_read(&phys_enc->vblank_refcount));
 }
 
 static void sde_encoder_phys_cmd_destroy(struct sde_encoder_phys *phys_enc)
@@ -723,6 +707,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->trigger_start = sde_encoder_helper_trigger_start;
 	ops->needs_single_flush = sde_encoder_phys_cmd_needs_single_flush;
 	ops->hw_reset = sde_encoder_helper_hw_reset;
+	ops->irq_control = sde_encoder_phys_cmd_irq_control;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(

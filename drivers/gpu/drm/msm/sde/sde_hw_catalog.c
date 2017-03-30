@@ -120,6 +120,7 @@ enum sde_prop {
 	SRC_SPLIT,
 	DIM_LAYER,
 	SMART_DMA_REV,
+	IDLE_PC,
 	SDE_PROP_MAX,
 };
 
@@ -313,6 +314,7 @@ static struct sde_prop_type sde_prop[] = {
 	{SRC_SPLIT, "qcom,sde-has-src-split", false, PROP_TYPE_BOOL},
 	{DIM_LAYER, "qcom,sde-has-dim-layer", false, PROP_TYPE_BOOL},
 	{SMART_DMA_REV, "qcom,sde-smart-dma-rev", false, PROP_TYPE_STRING},
+	{IDLE_PC, "qcom,sde-has-idle-pc", false, PROP_TYPE_BOOL},
 };
 
 static struct sde_prop_type sde_perf_prop[] = {
@@ -2214,6 +2216,7 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 
 	cfg->has_src_split = PROP_VALUE_ACCESS(prop_value, SRC_SPLIT, 0);
 	cfg->has_dim_layer = PROP_VALUE_ACCESS(prop_value, DIM_LAYER, 0);
+	cfg->has_idle_pc = PROP_VALUE_ACCESS(prop_value, IDLE_PC, 0);
 end:
 	kfree(prop_value);
 	return rc;

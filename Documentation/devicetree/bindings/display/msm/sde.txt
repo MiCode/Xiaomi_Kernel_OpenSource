@@ -128,6 +128,8 @@ Optional properties:
 				feature is available or not.
 - qcom,sde-has-dim-layer:	Boolean property to indicate if mixer has dim layer
 				feature is available or not.
+- qcom,sde-has-idle-pc:		Boolean property to indicate if target has idle
+				power collapse feature available or not.
 - qcom,sde-has-mixer-gc:	Boolean property to indicate if mixer has gamma correction
 				feature available or not.
 - qcom,sde-has-cdp:		Boolean property to indicate if cdp feature is
@@ -420,6 +422,7 @@ Example:
     qcom,sde-csc-type = "csc-10bit";
     qcom,sde-highest-bank-bit = <15>;
     qcom,sde-has-mixer-gc;
+    qcom,sde-has-idle-pc;
     qcom,sde-sspp-max-rects = <1 1 1 1
 				1 1 1 1
 				1 1
