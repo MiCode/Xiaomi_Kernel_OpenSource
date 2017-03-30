@@ -3176,14 +3176,12 @@ static int __response_handler(struct venus_hfi_device *device)
 		case HAL_SESSION_RESUME_DONE:
 		case HAL_SESSION_SET_PROP_DONE:
 		case HAL_SESSION_GET_PROP_DONE:
-		case HAL_SESSION_PARSE_SEQ_HDR_DONE:
 		case HAL_SESSION_RELEASE_BUFFER_DONE:
 		case HAL_SESSION_RELEASE_RESOURCE_DONE:
 		case HAL_SESSION_PROPERTY_INFO:
 			session_id = &info->response.cmd.session_id;
 			break;
 		case HAL_SESSION_ERROR:
-		case HAL_SESSION_GET_SEQ_HDR_DONE:
 		case HAL_SESSION_ETB_DONE:
 		case HAL_SESSION_FTB_DONE:
 			session_id = &info->response.data.session_id;

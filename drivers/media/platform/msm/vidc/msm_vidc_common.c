@@ -2434,55 +2434,6 @@ err_handle_fbd:
 	put_inst(inst);
 }
 
-static void handle_seq_hdr_done(enum hal_command_response cmd, void *data)
-{
-	struct msm_vidc_cb_data_done *response = data;
-	struct msm_vidc_inst *inst;
-	struct vb2_buffer *vb;
-	struct vidc_hal_fbd *fill_buf_done;
-	struct vb2_v4l2_buffer *vbuf;
-
-	if (!response) {
-		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
-		return;
-	}
-
-	inst = get_inst(get_vidc_core(response->device_id),
-			response->session_id);
-	if (!inst) {
-		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
-		return;
-	}
-
-	fill_buf_done = (struct vidc_hal_fbd *)&response->output_done;
-	vb = get_vb_from_device_addr(&inst->bufq[CAPTURE_PORT],
-				fill_buf_done->packet_buffer1);
-	if (!vb) {
-		dprintk(VIDC_ERR,
-				"Failed to find video buffer for seq_hdr_done: %pa\n",
-				&fill_buf_done->packet_buffer1);
-		goto err_seq_hdr_done;
-	}
-	vbuf = to_vb2_v4l2_buffer(vb);
-	vb->timestamp = 0;
-
-	vb->planes[0].bytesused = fill_buf_done->filled_len1;
-	vb->planes[0].data_offset = fill_buf_done->offset1;
-
-	vbuf->flags = V4L2_QCOM_BUF_FLAG_CODECCONFIG;
-
-	dprintk(VIDC_DBG, "Filled length = %d; offset = %d; flags %x\n",
-				vb->planes[0].bytesused,
-				vb->planes[0].data_offset,
-				vbuf->flags);
-	mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
-	vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
-	mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
-
-err_seq_hdr_done:
-	put_inst(inst);
-}
-
 void handle_cmd_response(enum hal_command_response cmd, void *data)
 {
 	dprintk(VIDC_DBG, "Command response = %d\n", cmd);
@@ -2526,9 +2477,6 @@ void handle_cmd_response(enum hal_command_response cmd, void *data)
 		break;
 	case HAL_SESSION_FLUSH_DONE:
 		handle_session_flush(cmd, data);
-		break;
-	case HAL_SESSION_GET_SEQ_HDR_DONE:
-		handle_seq_hdr_done(cmd, data);
 		break;
 	case HAL_SYS_WATCHDOG_TIMEOUT:
 	case HAL_SYS_ERROR:
