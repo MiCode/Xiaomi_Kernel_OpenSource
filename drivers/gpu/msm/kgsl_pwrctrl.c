@@ -2493,6 +2493,8 @@ static int _init(struct kgsl_device *device)
 		/* Force power on to do the stop */
 		status = kgsl_pwrctrl_enable(device);
 	case KGSL_STATE_ACTIVE:
+		/* fall through */
+	case KGSL_STATE_RESET:
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 		del_timer_sync(&device->idle_timer);
 		kgsl_pwrscale_midframe_timer_cancel(device);
@@ -2595,6 +2597,11 @@ _aware(struct kgsl_device *device)
 	int status = 0;
 
 	switch (device->state) {
+	case KGSL_STATE_RESET:
+		if (!kgsl_gmu_isenabled(device))
+			break;
+		status = gmu_start(device);
+		break;
 	case KGSL_STATE_INIT:
 		status = kgsl_pwrctrl_enable(device);
 		break;
@@ -2645,6 +2652,7 @@ _nap(struct kgsl_device *device)
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_NAP);
 		/* fallthrough */
 	case KGSL_STATE_SLUMBER:
+	case KGSL_STATE_RESET:
 		break;
 	case KGSL_STATE_AWARE:
 		KGSL_PWR_WARN(device,
@@ -2787,6 +2795,8 @@ int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state)
 		break;
 	case KGSL_STATE_SUSPEND:
 		status = _suspend(device);
+	case KGSL_STATE_RESET:
+		kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
 		break;
 	default:
 		KGSL_PWR_INFO(device, "bad state request 0x%x\n", state);
@@ -2838,6 +2848,8 @@ const char *kgsl_pwrstate_to_str(unsigned int state)
 		return "SUSPEND";
 	case KGSL_STATE_SLUMBER:
 		return "SLUMBER";
+	case KGSL_STATE_RESET:
+		return "RESET";
 	default:
 		break;
 	}
