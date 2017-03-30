@@ -43,12 +43,13 @@ out:
 
 int dwc3_host_init(struct dwc3 *dwc)
 {
-	struct property_entry	props[4];
+	struct property_entry	props[5];
 	struct platform_device	*xhci;
 	int			ret, irq;
 	struct resource		*res;
 	struct platform_device	*dwc3_pdev = to_platform_device(dwc->dev);
 	int			prop_idx = 0;
+	struct property_entry	imod_prop;
 
 	irq = dwc3_host_get_irq(dwc);
 	if (irq < 0)
@@ -92,6 +93,15 @@ int dwc3_host_init(struct dwc3 *dwc)
 
 	if (dwc->usb2_lpm_disable)
 		props[prop_idx++].name = "usb2-lpm-disable";
+
+	if (dwc->xhci_imod_value) {
+		imod_prop.name  = "imod-interval-ns";
+		imod_prop.length  = sizeof(u32);
+		imod_prop.is_array = false;
+		imod_prop.type = DEV_PROP_U32;
+		imod_prop.value.u32_data = dwc->xhci_imod_value;
+		props[prop_idx++] = imod_prop;
+	}
 
 	/**
 	 * WORKAROUND: dwc3 revisions <=3.00a have a limitation
