@@ -120,37 +120,37 @@ static int sde_hw_rot_to_v4l2_pixfmt(u32 drm_pixfmt, u64 drm_modifier,
 		return -EINVAL;
 
 	switch (drm_pixfmt) {
-	case DRM_FORMAT_RGB565:
+	case DRM_FORMAT_BGR565:
 		if (SDE_MODIFIER_IS_UBWC(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_RGB_565_UBWC;
 		else
 			*pixfmt = SDE_PIX_FMT_RGB_565;
 		break;
-	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_BGRA8888:
 		if (SDE_MODIFIER_IS_TILE(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_ARGB_8888_TILE;
 		else
 			*pixfmt = SDE_PIX_FMT_ARGB_8888;
 		break;
-	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_BGRX8888:
 		if (SDE_MODIFIER_IS_TILE(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_XRGB_8888_TILE;
 		else
 			*pixfmt = SDE_PIX_FMT_XRGB_8888;
 		break;
-	case DRM_FORMAT_ABGR8888:
+	case DRM_FORMAT_RGBA8888:
 		if (SDE_MODIFIER_IS_TILE(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_ABGR_8888_TILE;
 		else
 			*pixfmt = SDE_PIX_FMT_ABGR_8888;
 		break;
-	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_RGBX8888:
 		if (SDE_MODIFIER_IS_TILE(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_XBGR_8888_TILE;
 		else
 			*pixfmt = SDE_PIX_FMT_XBGR_8888;
 		break;
-	case DRM_FORMAT_RGBA8888:
+	case DRM_FORMAT_ABGR8888:
 		if (SDE_MODIFIER_IS_UBWC(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_RGBA_8888_UBWC;
 		else if (SDE_MODIFIER_IS_TILE(drm_modifier))
@@ -158,7 +158,7 @@ static int sde_hw_rot_to_v4l2_pixfmt(u32 drm_pixfmt, u64 drm_modifier,
 		else
 			*pixfmt = SDE_PIX_FMT_RGBA_8888;
 		break;
-	case DRM_FORMAT_RGBX8888:
+	case DRM_FORMAT_XBGR8888:
 		if (SDE_MODIFIER_IS_UBWC(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_RGBX_8888_UBWC;
 		else if (SDE_MODIFIER_IS_TILE(drm_modifier))
@@ -166,13 +166,13 @@ static int sde_hw_rot_to_v4l2_pixfmt(u32 drm_pixfmt, u64 drm_modifier,
 		else
 			*pixfmt = SDE_PIX_FMT_RGBX_8888;
 		break;
-	case DRM_FORMAT_BGRA8888:
+	case DRM_FORMAT_ARGB8888:
 		if (SDE_MODIFIER_IS_TILE(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_BGRA_8888_TILE;
 		else
 			*pixfmt = SDE_PIX_FMT_BGRA_8888;
 		break;
-	case DRM_FORMAT_BGRX8888:
+	case DRM_FORMAT_XRGB8888:
 		if (SDE_MODIFIER_IS_TILE(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_BGRX_8888_TILE;
 		else
@@ -220,43 +220,43 @@ static int sde_hw_rot_to_v4l2_pixfmt(u32 drm_pixfmt, u64 drm_modifier,
 		else
 			*pixfmt = SDE_PIX_FMT_Y_CRCB_H2V2;
 		break;
-	case DRM_FORMAT_ARGB2101010:
+	case DRM_FORMAT_BGRA1010102:
 		if (SDE_MODIFIER_IS_TILE(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_ARGB_2101010_TILE;
 		else
 			*pixfmt = SDE_PIX_FMT_ARGB_2101010;
 		break;
-	case DRM_FORMAT_XRGB2101010:
+	case DRM_FORMAT_BGRX1010102:
 		if (SDE_MODIFIER_IS_TILE(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_XRGB_2101010_TILE;
 		else
 			*pixfmt = SDE_PIX_FMT_XRGB_2101010;
 		break;
-	case DRM_FORMAT_ABGR2101010:
+	case DRM_FORMAT_RGBA1010102:
 		if (SDE_MODIFIER_IS_TILE(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_ABGR_2101010_TILE;
 		else
 			*pixfmt = SDE_PIX_FMT_ABGR_2101010;
 		break;
-	case DRM_FORMAT_XBGR2101010:
+	case DRM_FORMAT_RGBX1010102:
 		if (SDE_MODIFIER_IS_TILE(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_XBGR_2101010_TILE;
 		else
 			*pixfmt = SDE_PIX_FMT_XBGR_2101010;
 		break;
-	case DRM_FORMAT_BGRA1010102:
+	case DRM_FORMAT_ARGB2101010:
 		if (SDE_MODIFIER_IS_TILE(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_BGRA_1010102_TILE;
 		else
 			*pixfmt = SDE_PIX_FMT_BGRA_1010102;
 		break;
-	case DRM_FORMAT_BGRX1010102:
+	case DRM_FORMAT_XRGB2101010:
 		if (SDE_MODIFIER_IS_TILE(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_BGRX_1010102_TILE;
 		else
 			*pixfmt = SDE_PIX_FMT_BGRX_1010102;
 		break;
-	case DRM_FORMAT_RGBA1010102:
+	case DRM_FORMAT_ABGR2101010:
 		if (SDE_MODIFIER_IS_UBWC(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_RGBA_1010102_UBWC;
 		else if (SDE_MODIFIER_IS_TILE(drm_modifier))
@@ -264,7 +264,7 @@ static int sde_hw_rot_to_v4l2_pixfmt(u32 drm_pixfmt, u64 drm_modifier,
 		else
 			*pixfmt = SDE_PIX_FMT_RGBA_1010102;
 		break;
-	case DRM_FORMAT_RGBX1010102:
+	case DRM_FORMAT_XBGR2101010:
 		if (SDE_MODIFIER_IS_UBWC(drm_modifier))
 			*pixfmt = SDE_PIX_FMT_RGBX_1010102_UBWC;
 		else if (SDE_MODIFIER_IS_TILE(drm_modifier))
@@ -298,28 +298,28 @@ static int sde_hw_rot_to_drm_pixfmt(u32 pixfmt, u32 *drm_pixfmt,
 
 	switch (pixfmt) {
 	case SDE_PIX_FMT_RGB_565:
-		*drm_pixfmt = DRM_FORMAT_RGB565;
+		*drm_pixfmt = DRM_FORMAT_BGR565;
 		*drm_modifier = 0;
 		break;
 	case SDE_PIX_FMT_RGB_565_UBWC:
-		*drm_pixfmt = DRM_FORMAT_RGB565;
+		*drm_pixfmt = DRM_FORMAT_BGR565;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_COMPRESSED |
 				DRM_FORMAT_MOD_QCOM_TILE;
 		break;
 	case SDE_PIX_FMT_RGBA_8888:
-		*drm_pixfmt = DRM_FORMAT_RGBA8888;
+		*drm_pixfmt = DRM_FORMAT_ABGR8888;
 		*drm_modifier = 0;
 		break;
 	case SDE_PIX_FMT_RGBX_8888:
-		*drm_pixfmt = DRM_FORMAT_RGBX8888;
+		*drm_pixfmt = DRM_FORMAT_XBGR8888;
 		*drm_modifier = 0;
 		break;
 	case SDE_PIX_FMT_BGRA_8888:
-		*drm_pixfmt = DRM_FORMAT_BGRA8888;
+		*drm_pixfmt = DRM_FORMAT_ARGB8888;
 		*drm_modifier = 0;
 		break;
 	case SDE_PIX_FMT_BGRX_8888:
-		*drm_pixfmt = DRM_FORMAT_BGRX8888;
+		*drm_pixfmt = DRM_FORMAT_XRGB8888;
 		*drm_modifier = 0;
 		break;
 	case SDE_PIX_FMT_Y_CBCR_H2V2_UBWC:
@@ -332,12 +332,12 @@ static int sde_hw_rot_to_drm_pixfmt(u32 pixfmt, u32 *drm_pixfmt,
 		*drm_modifier = 0;
 		break;
 	case SDE_PIX_FMT_RGBA_8888_UBWC:
-		*drm_pixfmt = DRM_FORMAT_RGBA8888;
+		*drm_pixfmt = DRM_FORMAT_ABGR8888;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_COMPRESSED |
 				DRM_FORMAT_MOD_QCOM_TILE;
 		break;
 	case SDE_PIX_FMT_RGBX_8888_UBWC:
-		*drm_pixfmt = DRM_FORMAT_RGBX8888;
+		*drm_pixfmt = DRM_FORMAT_XBGR8888;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_COMPRESSED |
 				DRM_FORMAT_MOD_QCOM_TILE;
 		break;
@@ -346,59 +346,59 @@ static int sde_hw_rot_to_drm_pixfmt(u32 pixfmt, u32 *drm_pixfmt,
 		*drm_modifier = 0;
 		break;
 	case SDE_PIX_FMT_ARGB_8888:
-		*drm_pixfmt = DRM_FORMAT_ARGB8888;
+		*drm_pixfmt = DRM_FORMAT_BGRA8888;
 		*drm_modifier = 0;
 		break;
 	case SDE_PIX_FMT_XRGB_8888:
-		*drm_pixfmt = DRM_FORMAT_XRGB8888;
+		*drm_pixfmt = DRM_FORMAT_BGRX8888;
 		*drm_modifier = 0;
 		break;
 	case SDE_PIX_FMT_ABGR_8888:
-		*drm_pixfmt = DRM_FORMAT_ABGR8888;
+		*drm_pixfmt = DRM_FORMAT_RGBA8888;
 		*drm_modifier = 0;
 		break;
 	case SDE_PIX_FMT_XBGR_8888:
-		*drm_pixfmt = DRM_FORMAT_XBGR8888;
+		*drm_pixfmt = DRM_FORMAT_RGBX8888;
 		*drm_modifier = 0;
 		break;
 	case SDE_PIX_FMT_ARGB_2101010:
-		*drm_pixfmt = DRM_FORMAT_ARGB2101010;
-		*drm_modifier = 0;
-		break;
-	case SDE_PIX_FMT_XRGB_2101010:
-		*drm_pixfmt = DRM_FORMAT_XRGB2101010;
-		*drm_modifier = 0;
-		break;
-	case SDE_PIX_FMT_ABGR_2101010:
-		*drm_pixfmt = DRM_FORMAT_ABGR2101010;
-		*drm_modifier = 0;
-		break;
-	case SDE_PIX_FMT_XBGR_2101010:
-		*drm_pixfmt = DRM_FORMAT_XBGR2101010;
-		*drm_modifier = 0;
-		break;
-	case SDE_PIX_FMT_BGRA_1010102:
 		*drm_pixfmt = DRM_FORMAT_BGRA1010102;
 		*drm_modifier = 0;
 		break;
-	case SDE_PIX_FMT_BGRX_1010102:
+	case SDE_PIX_FMT_XRGB_2101010:
 		*drm_pixfmt = DRM_FORMAT_BGRX1010102;
 		*drm_modifier = 0;
 		break;
+	case SDE_PIX_FMT_ABGR_2101010:
+		*drm_pixfmt = DRM_FORMAT_RGBA1010102;
+		*drm_modifier = 0;
+		break;
+	case SDE_PIX_FMT_XBGR_2101010:
+		*drm_pixfmt = DRM_FORMAT_RGBX1010102;
+		*drm_modifier = 0;
+		break;
+	case SDE_PIX_FMT_BGRA_1010102:
+		*drm_pixfmt = DRM_FORMAT_ARGB2101010;
+		*drm_modifier = 0;
+		break;
+	case SDE_PIX_FMT_BGRX_1010102:
+		*drm_pixfmt = DRM_FORMAT_XRGB2101010;
+		*drm_modifier = 0;
+		break;
 	case SDE_PIX_FMT_RGBA_8888_TILE:
-		*drm_pixfmt = DRM_FORMAT_RGBA8888;
+		*drm_pixfmt = DRM_FORMAT_ABGR8888;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
 		break;
 	case SDE_PIX_FMT_RGBX_8888_TILE:
-		*drm_pixfmt = DRM_FORMAT_RGBX8888;
+		*drm_pixfmt = DRM_FORMAT_XBGR8888;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
 		break;
 	case SDE_PIX_FMT_BGRA_8888_TILE:
-		*drm_pixfmt = DRM_FORMAT_BGRA8888;
+		*drm_pixfmt = DRM_FORMAT_ARGB8888;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
 		break;
 	case SDE_PIX_FMT_BGRX_8888_TILE:
-		*drm_pixfmt = DRM_FORMAT_BGRX8888;
+		*drm_pixfmt = DRM_FORMAT_XRGB8888;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
 		break;
 	case SDE_PIX_FMT_Y_CRCB_H2V2_TILE:
@@ -410,44 +410,54 @@ static int sde_hw_rot_to_drm_pixfmt(u32 pixfmt, u32 *drm_pixfmt,
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
 		break;
 	case SDE_PIX_FMT_ARGB_8888_TILE:
-		*drm_pixfmt = DRM_FORMAT_ARGB8888;
+		*drm_pixfmt = DRM_FORMAT_BGRA8888;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
 		break;
 	case SDE_PIX_FMT_XRGB_8888_TILE:
-		*drm_pixfmt = DRM_FORMAT_XRGB8888;
+		*drm_pixfmt = DRM_FORMAT_BGRX8888;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
 		break;
 	case SDE_PIX_FMT_ABGR_8888_TILE:
-		*drm_pixfmt = DRM_FORMAT_ABGR8888;
+		*drm_pixfmt = DRM_FORMAT_RGBA8888;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
 		break;
 	case SDE_PIX_FMT_XBGR_8888_TILE:
-		*drm_pixfmt = DRM_FORMAT_XBGR8888;
+		*drm_pixfmt = DRM_FORMAT_RGBX8888;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
 		break;
 	case SDE_PIX_FMT_ARGB_2101010_TILE:
-		*drm_pixfmt = DRM_FORMAT_ARGB2101010;
-		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
-		break;
-	case SDE_PIX_FMT_XRGB_2101010_TILE:
-		*drm_pixfmt = DRM_FORMAT_XRGB2101010;
-		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
-		break;
-	case SDE_PIX_FMT_ABGR_2101010_TILE:
-		*drm_pixfmt = DRM_FORMAT_ABGR2101010;
-		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
-		break;
-	case SDE_PIX_FMT_XBGR_2101010_TILE:
-		*drm_pixfmt = DRM_FORMAT_XBGR2101010;
-		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
-		break;
-	case SDE_PIX_FMT_BGRA_1010102_TILE:
 		*drm_pixfmt = DRM_FORMAT_BGRA1010102;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
 		break;
-	case SDE_PIX_FMT_BGRX_1010102_TILE:
+	case SDE_PIX_FMT_XRGB_2101010_TILE:
 		*drm_pixfmt = DRM_FORMAT_BGRX1010102;
 		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
+		break;
+	case SDE_PIX_FMT_ABGR_2101010_TILE:
+		*drm_pixfmt = DRM_FORMAT_RGBA1010102;
+		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
+		break;
+	case SDE_PIX_FMT_XBGR_2101010_TILE:
+		*drm_pixfmt = DRM_FORMAT_RGBX1010102;
+		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
+		break;
+	case SDE_PIX_FMT_BGRA_1010102_TILE:
+		*drm_pixfmt = DRM_FORMAT_ARGB2101010;
+		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
+		break;
+	case SDE_PIX_FMT_BGRX_1010102_TILE:
+		*drm_pixfmt = DRM_FORMAT_XRGB2101010;
+		*drm_modifier = DRM_FORMAT_MOD_QCOM_TILE;
+		break;
+	case SDE_PIX_FMT_RGBA_1010102_UBWC:
+		*drm_pixfmt = DRM_FORMAT_ABGR2101010;
+		*drm_modifier = DRM_FORMAT_MOD_QCOM_COMPRESSED |
+				DRM_FORMAT_MOD_QCOM_TILE;
+		break;
+	case SDE_PIX_FMT_RGBX_1010102_UBWC:
+		*drm_pixfmt = DRM_FORMAT_XBGR2101010;
+		*drm_modifier = DRM_FORMAT_MOD_QCOM_COMPRESSED |
+				DRM_FORMAT_MOD_QCOM_TILE;
 		break;
 	case SDE_PIX_FMT_Y_CBCR_H2V2_P010:
 		*drm_pixfmt = DRM_FORMAT_NV12;
