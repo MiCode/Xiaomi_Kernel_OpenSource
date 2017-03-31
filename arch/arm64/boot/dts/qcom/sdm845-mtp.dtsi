@@ -9,3 +9,47 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include <dt-bindings/gpio/gpio.h>
+
+&soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_vol_up_default
+			     &key_cam_snapshot_default
+			     &key_cam_focus_default>;
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm8998_gpios 6 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+
+		cam_snapshot {
+			label = "cam_snapshot";
+			gpios = <&pm8998_gpios 7 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <766>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+
+		cam_focus {
+			label = "cam_focus";
+			gpios = <&pm8998_gpios 8 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <528>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+	};
+};

@@ -23,7 +23,6 @@
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
 #include "dsi-panel-sharp-dualmipi-1080p-120hz.dtsi"
 #include "dsi-panel-s6e3ha3-amoled-dualmipi-wqhd-cmd.dtsi"
-#include "sdm845-pinctrl.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
