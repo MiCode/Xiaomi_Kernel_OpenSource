@@ -209,6 +209,7 @@ struct gsi_ctx {
 enum gsi_re_type {
 	GSI_RE_XFER = 0x2,
 	GSI_RE_IMMD_CMD = 0x3,
+	GSI_RE_NOP = 0x4,
 };
 
 struct __packed gsi_tre {

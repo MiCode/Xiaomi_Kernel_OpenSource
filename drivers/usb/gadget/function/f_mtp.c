@@ -1618,18 +1618,27 @@ static int debug_mtp_read_stats(struct seq_file *s, void *unused)
 static ssize_t debug_mtp_reset_stats(struct file *file, const char __user *buf,
 				 size_t count, loff_t *ppos)
 {
-	int clear_stats;
+	int ret;
 	unsigned long flags;
+	u8 clear_stats;
 	struct mtp_dev *dev = _mtp_dev;
 
 	if (buf == NULL) {
 		pr_err("[%s] EINVAL\n", __func__);
-		goto done;
+		ret = -EINVAL;
+		return ret;
 	}
 
-	if (sscanf(buf, "%u", &clear_stats) != 1 || clear_stats != 0) {
+	ret = kstrtou8_from_user(buf, count, 0, &clear_stats);
+	if (ret < 0) {
+		pr_err("can't get enter value.\n");
+		return ret;
+	}
+
+	if (clear_stats != 0) {
 		pr_err("Wrong value. To clear stats, enter value as 0.\n");
-		goto done;
+		ret = -EINVAL;
+		return ret;
 	}
 
 	spin_lock_irqsave(&dev->lock, flags);
@@ -1637,7 +1646,7 @@ static ssize_t debug_mtp_reset_stats(struct file *file, const char __user *buf,
 	dev->dbg_read_index = 0;
 	dev->dbg_write_index = 0;
 	spin_unlock_irqrestore(&dev->lock, flags);
-done:
+
 	return count;
 }
 

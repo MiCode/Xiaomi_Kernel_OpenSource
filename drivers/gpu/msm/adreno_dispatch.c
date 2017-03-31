@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2022,10 +2022,6 @@ static int adreno_dispatch_process_cmdqueue(struct adreno_device *adreno_dev,
 
 	/* Nothing to do if there are no pending commands */
 	if (adreno_cmdqueue_is_empty(cmdqueue))
-		return count;
-
-	/* Don't update the cmdqueue timeout if we are about to preempt out */
-	if (!adreno_in_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE))
 		return count;
 
 	/* Don't update the cmdqueue timeout if it isn't active */

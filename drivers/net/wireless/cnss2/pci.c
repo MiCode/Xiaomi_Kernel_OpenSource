@@ -11,7 +11,9 @@
  */
 
 #include <linux/firmware.h>
+#include <linux/irq.h>
 #include <linux/module.h>
+#include <linux/msi.h>
 #include <linux/of.h>
 #include <linux/pm_runtime.h>
 
@@ -806,7 +808,7 @@ static int cnss_pci_enable_msi(struct cnss_pci_data *pci_priv)
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 	int num_vectors;
 	struct cnss_msi_config *msi_config;
-	uint32_t ep_base_data;
+	struct msi_desc *msi_desc;
 
 	ret = cnss_pci_get_msi_assignment(pci_priv);
 	if (ret) {
@@ -831,12 +833,25 @@ static int cnss_pci_enable_msi(struct cnss_pci_data *pci_priv)
 		goto reset_msi_config;
 	}
 
-	pci_read_config_dword(pci_dev, pci_dev->msi_cap + PCI_MSI_DATA_64,
-			      &ep_base_data);
-	pci_priv->msi_ep_base_data = ep_base_data & 0xFFFF;
+	msi_desc = irq_get_msi_desc(pci_dev->irq);
+	if (!msi_desc) {
+		cnss_pr_err("msi_desc is NULL!\n");
+		ret = -EINVAL;
+		goto disable_msi;
+	}
+
+	pci_priv->msi_ep_base_data = msi_desc->msg.data;
+	if (!pci_priv->msi_ep_base_data) {
+		cnss_pr_err("Got 0 MSI base data!\n");
+		CNSS_ASSERT(0);
+	}
+
+	cnss_pr_dbg("MSI base data is %d\n", pci_priv->msi_ep_base_data);
 
 	return 0;
 
+disable_msi:
+	pci_disable_msi(pci_priv->pci_dev);
 reset_msi_config:
 	pci_priv->msi_config = NULL;
 out:

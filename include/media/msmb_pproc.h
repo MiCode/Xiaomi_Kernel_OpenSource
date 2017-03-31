@@ -5,6 +5,8 @@
 
 #include <linux/compat.h>
 
+#define MSM_OUTPUT_BUF_CNT 8
+
 #ifdef CONFIG_COMPAT
 struct msm_cpp_frame_info32_t {
 	int32_t frame_id;
@@ -26,7 +28,7 @@ struct msm_cpp_frame_info32_t {
 	uint32_t feature_mask;
 	uint8_t we_disable;
 	struct msm_cpp_buffer_info_t input_buffer_info;
-	struct msm_cpp_buffer_info_t output_buffer_info[8];
+	struct msm_cpp_buffer_info_t output_buffer_info[MSM_OUTPUT_BUF_CNT];
 	struct msm_cpp_buffer_info_t duplicate_buffer_info;
 	struct msm_cpp_buffer_info_t tnr_scratch_buffer_info[2];
 	uint32_t reserved;
