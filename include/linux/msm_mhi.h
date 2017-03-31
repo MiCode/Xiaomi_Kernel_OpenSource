@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,7 +61,9 @@ enum MHI_CLIENT_CHANNEL {
 	MHI_CLIENT_CSVT_IN = 43,
 	MHI_CLIENT_SMCT_OUT = 44,
 	MHI_CLIENT_SMCT_IN = 45,
-	MHI_CLIENT_RESERVED_1_LOWER = 46,
+	MHI_CLIENT_IP_SW_4_OUT = 46,
+	MHI_CLIENT_IP_SW_4_IN = 47,
+	MHI_CLIENT_RESERVED_1_LOWER = 48,
 	MHI_CLIENT_RESERVED_1_UPPER = 99,
 	MHI_CLIENT_IP_HW_0_OUT = 100,
 	MHI_CLIENT_IP_HW_0_IN = 101,
