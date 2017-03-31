@@ -1257,11 +1257,15 @@ static void msm_spi_set_qup_io_modes(struct msm_spi *dd)
 	spi_iom &= ~(SPI_IO_M_INPUT_MODE | SPI_IO_M_OUTPUT_MODE);
 	spi_iom = (spi_iom | (dd->tx_mode << OUTPUT_MODE_SHIFT));
 	spi_iom = (spi_iom | (dd->rx_mode << INPUT_MODE_SHIFT));
-	/* Always enable packing for all % 8 bits_per_word */
-	if (dd->cur_transfer->bits_per_word &&
-		((dd->cur_transfer->bits_per_word == 8) ||
-		(dd->cur_transfer->bits_per_word == 16) ||
-		(dd->cur_transfer->bits_per_word == 32))) {
+
+	/* Always enable packing for the BAM mode and for non BAM mode only
+	 * if bpw is % 8 and transfer length is % 4 Bytes.
+	 */
+	if (dd->tx_mode == SPI_BAM_MODE ||
+		((dd->cur_msg_len % SPI_MAX_BYTES_PER_WORD == 0) &&
+		(dd->cur_transfer->bits_per_word) &&
+		(dd->cur_transfer->bits_per_word <= 32) &&
+		(dd->cur_transfer->bits_per_word % 8 == 0))) {
 		spi_iom |= SPI_IO_M_PACK_EN | SPI_IO_M_UNPACK_EN;
 		dd->pack_words = true;
 	} else {
