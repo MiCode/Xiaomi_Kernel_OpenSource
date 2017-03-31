@@ -66,6 +66,23 @@
 			};
 		};
 
+		flash_led3_front {
+			flash_led3_front_en: flash_led3_front_en {
+				mux {
+					pins = "gpio21";
+					drive_strength = <2>;
+					output-high;
+				};
+			};
+
+			flash_led3_front_dis: flash_led3_front_dis {
+				mux {
+					pins = "gpio21";
+					drive_strength = <2>;
+					output-low;
+				};
+			};
+		};
 
 		wcd9xxx_intr {
 			wcd_intr_default: wcd_intr_default{
