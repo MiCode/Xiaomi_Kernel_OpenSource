@@ -999,6 +999,8 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
 		chg->qnovo_fcc_ua = val->intval;
+		vote(chg->pl_disable_votable, PL_QNOVO_VOTER,
+			val->intval != -EINVAL && val->intval < 2000000, 0);
 		rc = rerun_election(chg->fcc_votable);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
