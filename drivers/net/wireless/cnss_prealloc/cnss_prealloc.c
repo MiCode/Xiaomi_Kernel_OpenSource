@@ -226,6 +226,8 @@ void wcnss_prealloc_check_memory_leak(void)
 	}
 
 }
+#else
+void wcnss_prealloc_check_memory_leak(void) {}
 #endif
 
 int wcnss_pre_alloc_reset(void)
