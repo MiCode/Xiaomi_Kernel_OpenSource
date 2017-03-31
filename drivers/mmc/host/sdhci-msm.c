@@ -1939,6 +1939,8 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	if (of_get_property(np, "qcom,core_3_0v_support", NULL))
 		pdata->core_3_0v_support = true;
 
+	pdata->sdr104_wa = of_property_read_bool(np, "qcom,sdr104-wa");
+
 	return pdata;
 out:
 	return NULL;
@@ -4421,6 +4423,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	if (msm_host->pdata->nonhotplug)
 		msm_host->mmc->caps2 |= MMC_CAP2_NONHOTPLUG;
+
+	msm_host->mmc->sdr104_wa = msm_host->pdata->sdr104_wa;
 
 	init_completion(&msm_host->pwr_irq_completion);
 

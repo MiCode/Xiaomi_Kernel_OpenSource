@@ -587,6 +587,8 @@ struct mmc_host {
 	struct io_latency_state io_lat_s;
 #endif
 
+	bool sdr104_wa;
+
 	/*
 	 * Set to 1 to just stop the SDCLK to the card without
 	 * actually disabling the clock from it's source.

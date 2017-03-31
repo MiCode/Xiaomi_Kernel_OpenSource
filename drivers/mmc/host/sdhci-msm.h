@@ -151,6 +151,7 @@ struct sdhci_msm_pltfm_data {
 	unsigned char sup_ice_clk_cnt;
 	struct sdhci_msm_pm_qos_data pm_qos_data;
 	bool core_3_0v_support;
+	bool sdr104_wa;
 };
 
 struct sdhci_msm_bus_vote {
