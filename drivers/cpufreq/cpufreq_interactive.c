@@ -35,8 +35,12 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_interactive.h>
 
+static DEFINE_PER_CPU(struct update_util_data, update_util);
+
 struct cpufreq_interactive_policyinfo {
-	struct timer_list policy_timer;
+	bool work_in_progress;
+	struct irq_work irq_work;
+	spinlock_t irq_work_lock; /* protects work_in_progress */
 	struct timer_list policy_slack_timer;
 	struct hrtimer notif_timer;
 	spinlock_t load_lock; /* protects load tracking stat */
@@ -215,9 +219,6 @@ static void cpufreq_interactive_timer_resched(unsigned long cpu,
 			pcpu->cputime_speedadj_timestamp =
 						pcpu->time_in_idle_timestamp;
 		}
-		del_timer(&ppol->policy_timer);
-		ppol->policy_timer.expires = expires;
-		add_timer(&ppol->policy_timer);
 	}
 
 	if (tunables->timer_slack_val >= 0 &&
@@ -231,9 +232,51 @@ static void cpufreq_interactive_timer_resched(unsigned long cpu,
 	spin_unlock_irqrestore(&ppol->load_lock, flags);
 }
 
+static void update_util_handler(struct update_util_data *data, u64 time,
+				unsigned int sched_flags)
+{
+	struct cpufreq_interactive_policyinfo *ppol;
+	unsigned long flags;
+
+	ppol = *this_cpu_ptr(&polinfo);
+	spin_lock_irqsave(&ppol->irq_work_lock, flags);
+	/*
+	 * The irq-work may not be allowed to be queued up right now
+	 * because work has already been queued up or is in progress.
+	 */
+	if (ppol->work_in_progress ||
+	    sched_flags & SCHED_CPUFREQ_INTERCLUSTER_MIG)
+		goto out;
+
+	ppol->work_in_progress = true;
+	irq_work_queue(&ppol->irq_work);
+out:
+	spin_unlock_irqrestore(&ppol->irq_work_lock, flags);
+}
+
+static inline void gov_clear_update_util(struct cpufreq_policy *policy)
+{
+	int i;
+
+	for_each_cpu(i, policy->cpus)
+		cpufreq_remove_update_util_hook(i);
+
+	synchronize_sched();
+}
+
+static void gov_set_update_util(struct cpufreq_policy *policy)
+{
+	struct update_util_data *util;
+	int cpu;
+
+	for_each_cpu(cpu, policy->cpus) {
+		util = &per_cpu(update_util, cpu);
+		cpufreq_add_update_util_hook(cpu, util, update_util_handler);
+	}
+}
+
 /* The caller shall take enable_sem write semaphore to avoid any timer race.
- * The policy_timer and policy_slack_timer must be deactivated when calling
- * this function.
+ * The policy_slack_timer must be deactivated when calling this function.
  */
 static void cpufreq_interactive_timer_start(
 	struct cpufreq_interactive_tunables *tunables, int cpu)
@@ -245,8 +288,7 @@ static void cpufreq_interactive_timer_start(
 	int i;
 
 	spin_lock_irqsave(&ppol->load_lock, flags);
-	ppol->policy_timer.expires = expires;
-	add_timer(&ppol->policy_timer);
+	gov_set_update_util(ppol->policy);
 	if (tunables->timer_slack_val >= 0 &&
 	    ppol->target_freq > ppol->policy->min) {
 		expires += usecs_to_jiffies(tunables->timer_slack_val);
@@ -264,6 +306,7 @@ static void cpufreq_interactive_timer_start(
 	}
 	spin_unlock_irqrestore(&ppol->load_lock, flags);
 }
+
 
 static unsigned int freq_to_above_hispeed_delay(
 	struct cpufreq_interactive_tunables *tunables,
@@ -448,7 +491,7 @@ static unsigned int sl_busy_to_laf(struct cpufreq_interactive_policyinfo *ppol,
 
 #define NEW_TASK_RATIO 75
 #define PRED_TOLERANCE_PCT 10
-static void cpufreq_interactive_timer(unsigned long data)
+static void cpufreq_interactive_timer(int data)
 {
 	s64 now;
 	unsigned int delta_time;
@@ -467,7 +510,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	unsigned int index;
 	unsigned long flags;
 	unsigned long max_cpu;
-	int cpu, i;
+	int i, cpu;
 	int new_load_pct = 0;
 	int prev_l, pred_l = 0;
 	struct cpufreq_govinfo govinfo;
@@ -659,8 +702,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	wake_up_process_no_notif(speedchange_task);
 
 rearm:
-	if (!timer_pending(&ppol->policy_timer))
-		cpufreq_interactive_timer_resched(data, false);
+	cpufreq_interactive_timer_resched(data, false);
 
 	/*
 	 * Send govinfo notification.
@@ -822,7 +864,6 @@ static enum hrtimer_restart cpufreq_interactive_hrtimer(struct hrtimer *timer)
 	}
 	cpu = ppol->notif_cpu;
 	trace_cpufreq_interactive_load_change(cpu);
-	del_timer(&ppol->policy_timer);
 	del_timer(&ppol->policy_slack_timer);
 	cpufreq_interactive_timer(cpu);
 
@@ -1569,6 +1610,20 @@ static struct cpufreq_interactive_tunables *alloc_tunable(
 	return tunables;
 }
 
+static void irq_work(struct irq_work *irq_work)
+{
+	struct cpufreq_interactive_policyinfo *ppol;
+	unsigned long flags;
+
+	ppol = container_of(irq_work, struct cpufreq_interactive_policyinfo,
+			    irq_work);
+
+	cpufreq_interactive_timer(smp_processor_id());
+	spin_lock_irqsave(&ppol->irq_work_lock, flags);
+	ppol->work_in_progress = false;
+	spin_unlock_irqrestore(&ppol->irq_work_lock, flags);
+}
+
 static struct cpufreq_interactive_policyinfo *get_policyinfo(
 					struct cpufreq_policy *policy)
 {
@@ -1593,12 +1648,12 @@ static struct cpufreq_interactive_policyinfo *get_policyinfo(
 	}
 	ppol->sl = sl;
 
-	init_timer_deferrable(&ppol->policy_timer);
-	ppol->policy_timer.function = cpufreq_interactive_timer;
 	init_timer(&ppol->policy_slack_timer);
 	ppol->policy_slack_timer.function = cpufreq_interactive_nop_timer;
 	hrtimer_init(&ppol->notif_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	ppol->notif_timer.function = cpufreq_interactive_hrtimer;
+	init_irq_work(&ppol->irq_work, irq_work);
+	spin_lock_init(&ppol->irq_work_lock);
 	spin_lock_init(&ppol->load_lock);
 	spin_lock_init(&ppol->target_freq_lock);
 	init_rwsem(&ppol->enable_sem);
@@ -1775,9 +1830,7 @@ int cpufreq_interactive_start(struct cpufreq_policy *policy)
 	ppol->reject_notification = true;
 	ppol->notif_pending = false;
 	down_write(&ppol->enable_sem);
-	del_timer_sync(&ppol->policy_timer);
 	del_timer_sync(&ppol->policy_slack_timer);
-	ppol->policy_timer.data = policy->cpu;
 	ppol->last_evaluated_jiffy = get_jiffies_64();
 	cpufreq_interactive_timer_start(tunables, policy->cpu);
 	ppol->governor_enabled = 1;
@@ -1807,7 +1860,9 @@ void cpufreq_interactive_stop(struct cpufreq_policy *policy)
 	down_write(&ppol->enable_sem);
 	ppol->governor_enabled = 0;
 	ppol->target_freq = 0;
-	del_timer_sync(&ppol->policy_timer);
+	gov_clear_update_util(ppol->policy);
+	irq_work_sync(&ppol->irq_work);
+	ppol->work_in_progress = false;
 	del_timer_sync(&ppol->policy_slack_timer);
 	up_write(&ppol->enable_sem);
 	ppol->reject_notification = false;
