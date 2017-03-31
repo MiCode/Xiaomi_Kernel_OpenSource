@@ -3180,6 +3180,13 @@ void sched_get_cpus_busy(struct sched_load *busy,
 		update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_ktime_clock(),
 				 0);
 
+		/*
+		 * Ensure that we don't report load for 'cpu' again via the
+		 * cpufreq_update_util path in the window that started at
+		 * rq->window_start
+		 */
+		rq->load_reported_window = rq->window_start;
+
 		account_load_subtractions(rq);
 		load[i] = rq->prev_runnable_sum;
 		nload[i] = rq->nt_prev_runnable_sum;
