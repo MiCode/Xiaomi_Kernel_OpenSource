@@ -26,13 +26,6 @@
 #define MAX_OPERATING_FRAME_RATE (300 << 16)
 #define OPERATING_FRAME_RATE_STEP (1 << 16)
 
-static const char *const mpeg_video_vidc_divx_format[] = {
-	"DIVX Format 3",
-	"DIVX Format 4",
-	"DIVX Format 5",
-	"DIVX Format 6",
-	NULL
-};
 static const char *const mpeg_video_stream_format[] = {
 	"NAL Format Start Codes",
 	"NAL Format One NAL Per Buffer",
@@ -55,29 +48,6 @@ static const char *const perf_level[] = {
 	"Nominal",
 	"Performance",
 	"Turbo"
-};
-
-static const char *const h263_level[] = {
-	"1.0",
-	"2.0",
-	"3.0",
-	"4.0",
-	"4.5",
-	"5.0",
-	"6.0",
-	"7.0",
-};
-
-static const char *const h263_profile[] = {
-	"Baseline",
-	"H320 Coding",
-	"Backward Compatible",
-	"ISWV2",
-	"ISWV3",
-	"High Compression",
-	"Internet",
-	"Interlace",
-	"High Latency",
 };
 
 static const char *const vp8_profile_level[] = {
@@ -106,11 +76,6 @@ static const char *const mpeg2_level[] = {
 static const char *const mpeg_vidc_video_entropy_mode[] = {
 	"CAVLC Entropy Mode",
 	"CABAC Entropy Mode",
-};
-
-static const char *const mpeg_vidc_video_h264_mvc_layout[] = {
-	"Frame packing arrangement sequential",
-	"Frame packing arrangement top-bottom",
 };
 
 static const char *const mpeg_vidc_video_dpb_color_format[] = {
@@ -462,37 +427,6 @@ static u32 get_frame_size(struct msm_vidc_inst *inst,
 	return frame_size;
 }
 
-static int is_ctrl_valid_for_codec(struct msm_vidc_inst *inst,
-					struct v4l2_ctrl *ctrl)
-{
-	int rc = 0;
-
-	switch (ctrl->id) {
-	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_H264_MVC &&
-			ctrl->val != V4L2_MPEG_VIDEO_H264_PROFILE_STEREO_HIGH) {
-			dprintk(VIDC_ERR,
-					"Profile %#x not supported for MVC\n",
-					ctrl->val);
-			rc = -ENOTSUPP;
-			break;
-		}
-		break;
-	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_H264_MVC &&
-			ctrl->val >= V4L2_MPEG_VIDEO_H264_LEVEL_5_2) {
-			dprintk(VIDC_ERR, "Level %#x not supported for MVC\n",
-					ctrl->val);
-			rc = -ENOTSUPP;
-			break;
-		}
-		break;
-	default:
-		break;
-	}
-	return rc;
-}
-
 struct msm_vidc_format vdec_formats[] = {
 	{
 		.name = "YCbCr Semiplanar 4:2:0",
@@ -516,14 +450,6 @@ struct msm_vidc_format vdec_formats[] = {
 		.type = CAPTURE_PORT,
 	},
 	{
-		.name = "Mpeg4",
-		.description = "Mpeg4 compressed format",
-		.fourcc = V4L2_PIX_FMT_MPEG4,
-		.get_frame_size = get_frame_size_compressed,
-		.type = OUTPUT_PORT,
-		.defer_outputs = false,
-	},
-	{
 		.name = "Mpeg2",
 		.description = "Mpeg2 compressed format",
 		.fourcc = V4L2_PIX_FMT_MPEG2,
@@ -532,41 +458,9 @@ struct msm_vidc_format vdec_formats[] = {
 		.defer_outputs = false,
 	},
 	{
-		.name = "H263",
-		.description = "H263 compressed format",
-		.fourcc = V4L2_PIX_FMT_H263,
-		.get_frame_size = get_frame_size_compressed,
-		.type = OUTPUT_PORT,
-		.defer_outputs = false,
-	},
-	{
-		.name = "VC1",
-		.description = "VC-1 compressed format",
-		.fourcc = V4L2_PIX_FMT_VC1_ANNEX_G,
-		.get_frame_size = get_frame_size_compressed,
-		.type = OUTPUT_PORT,
-		.defer_outputs = false,
-	},
-	{
-		.name = "VC1 SP",
-		.description = "VC-1 compressed format G",
-		.fourcc = V4L2_PIX_FMT_VC1_ANNEX_L,
-		.get_frame_size = get_frame_size_compressed,
-		.type = OUTPUT_PORT,
-		.defer_outputs = false,
-	},
-	{
 		.name = "H264",
 		.description = "H264 compressed format",
 		.fourcc = V4L2_PIX_FMT_H264,
-		.get_frame_size = get_frame_size_compressed,
-		.type = OUTPUT_PORT,
-		.defer_outputs = false,
-	},
-	{
-		.name = "H264_MVC",
-		.description = "H264_MVC compressed format",
-		.fourcc = V4L2_PIX_FMT_H264_MVC,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
 		.defer_outputs = false,
@@ -825,10 +719,6 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
-
-	rc = is_ctrl_valid_for_codec(inst, ctrl);
-	if (rc)
-		return rc;
 
 	/* Small helper macro for quickly getting a control and err checking */
 #define TRY_GET_CTRL(__ctrl_id) ({ \

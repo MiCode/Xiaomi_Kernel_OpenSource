@@ -37,11 +37,6 @@
 #define MAX_HYBRID_HIER_P_LAYERS 6
 
 #define L_MODE V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
-#define CODING V4L2_MPEG_VIDEO_MPEG4_PROFILE_ADVANCED_CODING_EFFICIENCY
-#define BITSTREAM_RESTRICT_ENABLED \
-	V4L2_MPEG_VIDC_VIDEO_H264_VUI_BITSTREAM_RESTRICT_ENABLED
-#define BITSTREAM_RESTRICT_DISABLED \
-	V4L2_MPEG_VIDC_VIDEO_H264_VUI_BITSTREAM_RESTRICT_DISABLED
 #define MIN_TIME_RESOLUTION 1
 #define MAX_TIME_RESOLUTION 0xFFFFFF
 #define DEFAULT_TIME_RESOLUTION 0x7530
@@ -774,72 +769,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = NULL,
 	},
 	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_X_RANGE,
-		.name = "I-Frame X coordinate search range",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 4,
-		.maximum = 128,
-		.default_value = 4,
-		.step = 1,
-		.menu_skip_mask = 0,
-		.qmenu = NULL,
-	},
-	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_Y_RANGE,
-		.name = "I-Frame Y coordinate search range",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 4,
-		.maximum = 128,
-		.default_value = 4,
-		.step = 1,
-		.menu_skip_mask = 0,
-		.qmenu = NULL,
-	},
-	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_PFRAME_X_RANGE,
-		.name = "P-Frame X coordinate search range",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 4,
-		.maximum = 128,
-		.default_value = 4,
-		.step = 1,
-		.menu_skip_mask = 0,
-		.qmenu = NULL,
-	},
-	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_PFRAME_Y_RANGE,
-		.name = "P-Frame Y coordinate search range",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 4,
-		.maximum = 128,
-		.default_value = 4,
-		.step = 1,
-		.menu_skip_mask = 0,
-		.qmenu = NULL,
-	},
-	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_BFRAME_X_RANGE,
-		.name = "B-Frame X coordinate search range",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 4,
-		.maximum = 128,
-		.default_value = 4,
-		.step = 1,
-		.menu_skip_mask = 0,
-		.qmenu = NULL,
-	},
-	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_BFRAME_Y_RANGE,
-		.name = "B-Frame Y coordinate search range",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 4,
-		.maximum = 128,
-		.default_value = 4,
-		.step = 1,
-		.menu_skip_mask = 0,
-		.qmenu = NULL,
-	},
-	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS,
 		.name = "Set Hier B num layers",
 		.type = V4L2_CTRL_TYPE_INTEGER,
@@ -1258,7 +1187,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_ltr_use use_ltr;
 	struct hal_ltr_mark mark_ltr;
 	struct hal_hybrid_hierp hyb_hierp;
-	u32 hier_p_layers = 0, hier_b_layers = 0;
+	u32 hier_p_layers = 0;
 	int max_hierp_layers;
 	int baselayerid = 0;
 	struct hal_video_signal_info signal_info = {0};
@@ -1474,28 +1403,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL,
 			temp_ctrl->val);
 		pdata = &h264_entropy_control;
-		break;
-	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
-		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL);
-
-		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
-		profile_level.profile = msm_comm_v4l2_to_hal(ctrl->id,
-						ctrl->val);
-		profile_level.level = msm_comm_v4l2_to_hal(
-				V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL,
-				temp_ctrl->val);
-		pdata = &profile_level;
-		break;
-	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
-		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE);
-
-		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
-		profile_level.level = msm_comm_v4l2_to_hal(ctrl->id,
-							ctrl->val);
-		profile_level.profile = msm_comm_v4l2_to_hal(
-				V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE,
-				temp_ctrl->val);
-		pdata = &profile_level;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_LEVEL);
@@ -1836,16 +1743,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		enable.enable = ctrl->val;
 		pdata = &enable;
 		break;
-	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS:
-		if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC) {
-			dprintk(VIDC_ERR, "Hier B supported for HEVC only\n");
-			rc = -ENOTSUPP;
-			break;
-		}
-		property_id = HAL_PARAM_VENC_HIER_B_MAX_ENH_LAYERS;
-		hier_b_layers = ctrl->val;
-		pdata = &hier_b_layers;
-		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE:
 		property_id = HAL_PARAM_VENC_HIER_P_HYBRID_MODE;
 		hyb_hierp.layers = ctrl->val;
@@ -2082,7 +1979,6 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 	struct v4l2_ext_control *control;
 	struct hfi_device *hdev;
 	struct hal_ltr_mode ltr_mode;
-	struct hal_vc1e_perf_cfg_type search_range = { {0} };
 	u32 property_id = 0, layer_id = MSM_VIDC_ALL_LAYER_ID;
 	void *pdata = NULL;
 	struct msm_vidc_capability *cap = NULL;
@@ -2136,36 +2032,6 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 			ltr_mode.trust_mode = 1;
 			property_id = HAL_PARAM_VENC_LTRMODE;
 			pdata = &ltr_mode;
-			break;
-		case V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_X_RANGE:
-			search_range.i_frame.x_subsampled = control[i].value;
-			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
-			pdata = &search_range;
-			break;
-		case V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_Y_RANGE:
-			search_range.i_frame.y_subsampled = control[i].value;
-			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
-			pdata = &search_range;
-			break;
-		case V4L2_CID_MPEG_VIDC_VIDEO_PFRAME_X_RANGE:
-			search_range.p_frame.x_subsampled = control[i].value;
-			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
-			pdata = &search_range;
-			break;
-		case V4L2_CID_MPEG_VIDC_VIDEO_PFRAME_Y_RANGE:
-			search_range.p_frame.y_subsampled = control[i].value;
-			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
-			pdata = &search_range;
-			break;
-		case V4L2_CID_MPEG_VIDC_VIDEO_BFRAME_X_RANGE:
-			search_range.b_frame.x_subsampled = control[i].value;
-			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
-			pdata = &search_range;
-			break;
-		case V4L2_CID_MPEG_VIDC_VIDEO_BFRAME_Y_RANGE:
-			search_range.b_frame.y_subsampled = control[i].value;
-			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
-			pdata = &search_range;
 			break;
 		case V4L2_CID_MPEG_VIDC_VENC_PARAM_SAR_WIDTH:
 			sar.aspect_width = control[i].value;
