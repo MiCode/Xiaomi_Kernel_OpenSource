@@ -539,7 +539,8 @@ static int __read_queue(struct vidc_iface_q_info *qinfo, u8 *packet,
 
 	*pb_tx_req_is_set = (queue->qhdr_tx_req == 1) ? 1 : 0;
 
-	if (msm_vidc_debug & VIDC_PKT) {
+	if ((msm_vidc_debug & VIDC_PKT) &&
+		!(queue->qhdr_type & HFI_Q_ID_CTRL_TO_HOST_DEBUG_Q)) {
 		dprintk(VIDC_PKT, "%s: %pK\n", __func__, qinfo);
 		__dump_packet(packet, VIDC_PKT);
 	}
