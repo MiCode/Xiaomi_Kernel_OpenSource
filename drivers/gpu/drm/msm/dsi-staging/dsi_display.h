@@ -29,7 +29,7 @@
 #include "dsi_panel.h"
 
 #define MAX_DSI_CTRLS_PER_DISPLAY             2
-
+#define DSI_CLIENT_NAME_SIZE		20
 /*
  * DSI Validate Mode modifiers
  * @DSI_VALIDATE_FLAG_ALLOW_ADJUST:	Allow mode validation to also do fixup

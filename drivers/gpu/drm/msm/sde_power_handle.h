@@ -21,6 +21,8 @@
 #define SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA	64000
 #define SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA	0
 
+#include <linux/sde_io_util.h>
+
 /**
  * mdss_bus_vote_type: register bus vote type
  * VOTE_INDEX_DISABLE: removes the client vote
