@@ -9554,6 +9554,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SLIMBUS_7_RX Audio Mixer", "MultiMedia4", "MM_DL4"},
 	{"SLIMBUS_7_RX Audio Mixer", "MultiMedia5", "MM_DL5"},
 	{"SLIMBUS_7_RX Audio Mixer", "MultiMedia7", "MM_DL7"},
+	{"SLIMBUS_7_RX Audio Mixer", "MultiMedia8", "MM_DL8"},
 	{"SLIMBUS_7_RX Audio Mixer", "MultiMedia10", "MM_DL10"},
 	{"SLIMBUS_7_RX Audio Mixer", "MultiMedia11", "MM_DL11"},
 	{"SLIMBUS_7_RX Audio Mixer", "MultiMedia12", "MM_DL12"},
