@@ -490,11 +490,6 @@ static ssize_t gsi_enable_dp_stats(struct file *file,
 		goto error;
 	}
 
-	if (gsi_ctx->chan[ch_id].props.prot == GSI_CHAN_PROT_GPI) {
-		TERR("valid for non GPI channels only\n");
-		goto error;
-	}
-
 	if (gsi_ctx->chan[ch_id].enable_dp_stats == enable) {
 		TERR("ch_%d: already enabled/disabled\n", ch_id);
 		return -EFAULT;
@@ -631,7 +626,7 @@ static void gsi_dbg_update_ch_dp_stats(struct gsi_chan_ctx *ctx)
 	else
 		used_hw = ctx->ring.max_num_elem + 1 - (start_hw - end_hw);
 
-	TERR("ch %d used %d\n", ctx->props.ch_id, used_hw);
+	TDBG("ch %d used %d\n", ctx->props.ch_id, used_hw);
 	gsi_update_ch_dp_stats(ctx, used_hw);
 }
 
@@ -641,7 +636,6 @@ static void gsi_wq_update_dp_stats(struct work_struct *work)
 
 	for (ch_id = 0; ch_id < gsi_ctx->max_ch; ch_id++) {
 		if (gsi_ctx->chan[ch_id].allocated &&
-		    gsi_ctx->chan[ch_id].props.prot != GSI_CHAN_PROT_GPI &&
 		    gsi_ctx->chan[ch_id].enable_dp_stats)
 			gsi_dbg_update_ch_dp_stats(&gsi_ctx->chan[ch_id]);
 	}
