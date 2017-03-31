@@ -149,6 +149,7 @@ static const struct min_max_quirk min_max_pnpid_table[] = {
 	},
 	{
 		(const char * const []){"LEN2000", NULL},
+		{ANY_BOARD_ID, ANY_BOARD_ID},
 		1024, 5113, 2021, 4832
 	},
 	{
