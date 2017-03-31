@@ -32,7 +32,7 @@
 		qcom,usb-dbm = <&dbm_1p5>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		qcom,num-gsi-evt-buffs = <0x3>;
-		extcon = <0>, <0>, <&eud>;
+		extcon = <&pmi8998_pdphy>, <&pmi8998_pdphy>, <&eud>;
 
 		clocks = <&clock_gcc GCC_USB30_PRIM_MASTER_CLK>,
 			 <&clock_gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
