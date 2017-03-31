@@ -202,8 +202,8 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 	unsigned long align = SZ_4K;
 	unsigned long ion_flags = 0;
 
-#ifndef CONFIG_ION
-	hndl = ion_import_dma_buf(client->clnt, fd);
+#ifdef CONFIG_ION
+	hndl = ion_import_dma_buf_fd(client->clnt, fd);
 #endif
 	dprintk(VIDC_DBG, "%s ion handle: %pK\n", __func__, hndl);
 	if (IS_ERR_OR_NULL(hndl)) {
@@ -476,8 +476,8 @@ bool msm_smem_compare_buffers(void *clt, int fd, void *priv)
 			clt, priv);
 		return false;
 	}
-#ifndef CONFIG_ION
-	handle = ion_import_dma_buf(client->clnt, fd);
+#ifdef CONFIG_ION
+	handle = ion_import_dma_buf_fd(client->clnt, fd);
 #endif
 	ret = handle == priv;
 	(!IS_ERR_OR_NULL(handle)) ? ion_free(client->clnt, handle) : 0;
