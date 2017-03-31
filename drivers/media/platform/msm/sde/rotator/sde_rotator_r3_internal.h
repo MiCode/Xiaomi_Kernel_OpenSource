@@ -262,6 +262,7 @@ struct sde_hw_rotator_resource_info {
  * @outpixfmts: array of supported output pixel formats in fourcc
  * @num_outpixfmt: size of the supported output pixel formats array
  * @downscale_caps: capability string of scaling
+ * @maxlinewidth: maximum line width supported
  */
 struct sde_hw_rotator {
 	/* base */
@@ -322,6 +323,7 @@ struct sde_hw_rotator {
 	u32 *outpixfmts;
 	u32 num_outpixfmt;
 	const char *downscale_caps;
+	u32 maxlinewidth;
 };
 
 /**
