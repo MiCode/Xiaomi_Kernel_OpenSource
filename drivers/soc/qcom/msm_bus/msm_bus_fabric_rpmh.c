@@ -580,7 +580,11 @@ int msm_bus_commit_data(struct list_head *clist)
 				cmdlist_wake, cmdlist_sleep, cur_bcm_clist);
 
 	ret = rpmh_invalidate(cur_mbox);
-	ret = rpmh_write_passthru(cur_mbox, cur_rsc->rscdev->req_state,
+	if (cur_rsc->rscdev->req_state == RPMH_AWAKE_STATE)
+		ret = rpmh_write(cur_mbox, cur_rsc->rscdev->req_state,
+						cmdlist_active, cnt_active);
+	else
+		ret = rpmh_write_passthru(cur_mbox, cur_rsc->rscdev->req_state,
 						cmdlist_active, n_active);
 
 	ret = rpmh_write_passthru(cur_mbox, RPMH_WAKE_ONLY_STATE,
