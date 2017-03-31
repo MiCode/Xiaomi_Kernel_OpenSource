@@ -193,6 +193,11 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	unsigned int bit, mal, mode, glbl_inv;
 	unsigned int amsbc = 0;
 
+	/* runtime adjust callbacks based on feature sets */
+	if (!kgsl_gmu_isenabled(device))
+		/* Legacy idle management if gmu is disabled */
+		ADRENO_GPU_DEVICE(adreno_dev)->hw_isidle = NULL;
+
 	adreno_vbif_start(adreno_dev, a6xx_vbif_platforms,
 			ARRAY_SIZE(a6xx_vbif_platforms));
 	/*
@@ -925,8 +930,6 @@ static int a6xx_gfx_rail_on(struct kgsl_device *device)
 	return ret;
 }
 
-#define GMU_POWER_STATE_SLUMBER 15
-
 /*
  * a6xx_notify_slumber() - initiate request to GMU to prepare to slumber
  * @device: Pointer to KGSL device
@@ -959,7 +962,7 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 		dev_err(&gmu->pdev->dev, "OOB set for slumber timed out\n");
 	else {
 		kgsl_gmu_regread(device, A6XX_GMU_RPMH_POWER_STATE, &state);
-		if (state != GMU_POWER_STATE_SLUMBER) {
+		if (state != GPU_HW_SLUMBER) {
 			dev_err(&gmu->pdev->dev,
 					"Failed to prepare for slumber\n");
 			ret = -EINVAL;
@@ -1258,29 +1261,35 @@ static int a6xx_rpmh_gpu_pwrctrl(struct adreno_device *adreno_dev,
 	return ret;
 }
 
-static bool a6xx_gmu_isidle(struct adreno_device *adreno_dev)
+static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
+{
+	unsigned int reg;
+
+	kgsl_gmu_regread(KGSL_DEVICE(adreno_dev),
+		A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
+	return ((~reg & GPUBUSYIGNAHB) != 0);
+}
+
+static int a6xx_wait_for_gmu_idle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = &device->gmu;
-	unsigned int value;
 
-	/* Check if GMU on */
-	if (!(gmu->flags & GMU_CLK_ON))
-		return true;
+	if (timed_poll_check(device, A6XX_GMU_RPMH_POWER_STATE,
+		gmu->idle_level, GMU_START_TIMEOUT, 0xf)) {
+		dev_err(&gmu->pdev->dev,
+			"GMU is not going to powerstate %d\n",
+			gmu->idle_level);
+		return -ETIMEDOUT;
+	}
 
-	/* Ensure GPU is in its lowest power state */
-	kgsl_gmu_regread(device, A6XX_GMU_RPMH_POWER_STATE, &value);
+	if (timed_poll_check(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS,
+		0, GMU_START_TIMEOUT, CXGXCPUBUSYIGNAHB)) {
+		dev_err(&gmu->pdev->dev, "GMU is not idling\n");
+		return -ETIMEDOUT;
+	}
 
-	if (value < gmu->idle_level)
-		return false;
-
-	/* Ensure GPU and GMU are both idle */
-	kgsl_gmu_regread(device->reg_virt, A6XX_GMU_GPU_CX_BUSY_STATUS,
-			&value);
-	if ((value & SLUMBER_CHECK_MASK) != SLUMBER_CHECK_MASK)
-		return false;
-
-	return true;
+	return 0;
 }
 
 /*
@@ -2040,5 +2049,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.oob_set = a6xx_oob_set,
 	.oob_clear = a6xx_oob_clear,
 	.rpmh_gpu_pwrctrl = a6xx_rpmh_gpu_pwrctrl,
-	.gmu_isidle = a6xx_gmu_isidle,
+	.hw_isidle = a6xx_hw_isidle, /* Replaced by NULL if GMU is disabled */
+	.wait_for_gmu_idle = a6xx_wait_for_gmu_idle
 };

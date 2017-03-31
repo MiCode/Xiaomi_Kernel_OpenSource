@@ -2243,6 +2243,11 @@ bool adreno_hw_isidle(struct adreno_device *adreno_dev)
 {
 	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
 	unsigned int reg_rbbm_status;
+	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+
+	/* if hw driver implements idle check - use it */
+	if (gpudev->hw_isidle)
+		return gpudev->hw_isidle(adreno_dev);
 
 	if (adreno_is_a540(adreno_dev))
 		/**
