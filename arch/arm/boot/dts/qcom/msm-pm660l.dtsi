@@ -397,7 +397,7 @@
 			interrupts = <0x3 0xec 0x1 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "sc-irq";
 
-			qcom,force-module-reenable;
+			qcom,pmic-revid = <&pm660l_revid>;
 
 			lcdb_ldo_vreg: ldo {
 				label = "ldo";
