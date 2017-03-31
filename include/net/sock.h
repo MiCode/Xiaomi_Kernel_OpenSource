@@ -67,8 +67,8 @@
 #include <linux/atomic.h>
 #include <net/dst.h>
 #include <net/checksum.h>
-#include <linux/net_tstamp.h>
 #include <net/tcp_states.h>
+#include <linux/net_tstamp.h>
 
 struct cgroup;
 struct cgroup_subsys;
