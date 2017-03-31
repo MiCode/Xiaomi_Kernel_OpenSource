@@ -135,6 +135,7 @@ static inline int sad_pkg(const struct interleave_pkg *table, u32 reg,
 
 #define TOLM		0x80
 #define	TOHM		0x84
+#define HASWELL_TOLM	0xd0
 #define HASWELL_TOHM_0	0xd4
 #define HASWELL_TOHM_1	0xd8
 
@@ -706,8 +707,8 @@ static u64 haswell_get_tolm(struct sbridge_pvt *pvt)
 {
 	u32 reg;
 
-	pci_read_config_dword(pvt->info.pci_vtd, TOLM, &reg);
-	return (GET_BITFIELD(reg, 26, 31) << 26) | 0x1ffffff;
+	pci_read_config_dword(pvt->info.pci_vtd, HASWELL_TOLM, &reg);
+	return (GET_BITFIELD(reg, 26, 31) << 26) | 0x3ffffff;
 }
 
 static u64 haswell_get_tohm(struct sbridge_pvt *pvt)
@@ -848,7 +849,7 @@ static int get_dimm_config(struct mem_ctl_info *mci)
 	else
 		edac_dbg(0, "Memory is unregistered\n");
 
-	if (mtype == MEM_DDR4 || MEM_RDDR4)
+	if (mtype == MEM_DDR4 || mtype == MEM_RDDR4)
 		banks = 16;
 	else
 		banks = 8;
