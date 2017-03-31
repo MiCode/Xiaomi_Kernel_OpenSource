@@ -173,7 +173,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		u32 m_param = 0;
 		u32 m_cmd = 0;
 
-		m_param |= (stretch ? STOP_STRETCH : ~(STOP_STRETCH));
+		m_param |= (stretch ? STOP_STRETCH : 0);
 		m_param |= ((msgs[i].addr & 0x7F) << SLV_ADDR_SHFT);
 
 		gi2c->cur = &msgs[i];
