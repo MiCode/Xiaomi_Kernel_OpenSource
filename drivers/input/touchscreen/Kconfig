@@ -1005,6 +1005,16 @@ config SECURE_TOUCH
 
 	  If unsure, say N.
 
+config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE_EXTRA_SYSFS
+	bool "Synaptics DSX firmware update extra sysfs attributes"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
+	help
+	  Say Y here to enable support for extra sysfs attributes
+	  supporting firmware update in a development environment.
+	  This does not affect the core or other subsystem attributes.
+
+	  If unsure, say N.
+
 config TOUCHSCREEN_IT7260_I2C
 	tristate "IT7260 Touchscreen Driver"
 	depends on I2C
