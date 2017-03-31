@@ -3610,6 +3610,11 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 
 	migrate_top_tasks(p, src_rq, dest_rq);
 
+	if (!same_freq_domain(new_cpu, task_cpu(p))) {
+		cpufreq_update_util(dest_rq, SCHED_CPUFREQ_INTERCLUSTER_MIG);
+		cpufreq_update_util(src_rq, SCHED_CPUFREQ_INTERCLUSTER_MIG);
+	}
+
 	if (p == src_rq->ed_task) {
 		src_rq->ed_task = NULL;
 		if (!dest_rq->ed_task)
