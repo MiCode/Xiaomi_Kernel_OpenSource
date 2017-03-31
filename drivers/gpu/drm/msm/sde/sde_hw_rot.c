@@ -779,6 +779,25 @@ static size_t sde_hw_rot_get_cache_size(struct sde_hw_rot *hw)
 }
 
 /**
+ * sde_hw_rot_get_maxlinewidth - get maximum line width of rotator
+ * @hw: Pointer to rotator hardware driver
+ * return: maximum line width
+ */
+static int sde_hw_rot_get_maxlinewidth(struct sde_hw_rot *hw)
+{
+	struct platform_device *pdev;
+
+	if (!hw || !hw->caps || !hw->caps->pdev) {
+		SDE_ERROR("invalid rotator hw\n");
+		return 0;
+	}
+
+	pdev = hw->caps->pdev;
+
+	return sde_rotator_inline_get_maxlinewidth(pdev);
+}
+
+/**
  * _setup_rot_ops - setup rotator operations
  * @ops: Pointer to operation table
  * @features: available feature bitmask
@@ -790,6 +809,7 @@ static void _setup_rot_ops(struct sde_hw_rot_ops *ops, unsigned long features)
 	ops->get_format_caps = sde_hw_rot_get_format_caps;
 	ops->get_downscale_caps = sde_hw_rot_get_downscale_caps;
 	ops->get_cache_size = sde_hw_rot_get_cache_size;
+	ops->get_maxlinewidth = sde_hw_rot_get_maxlinewidth;
 }
 
 /**

@@ -2142,6 +2142,10 @@ static void sde_plane_rot_install_caps(struct drm_plane *plane)
 		sde_kms_info_add_keyint(info, "cache_size",
 				rot_hw->ops.get_cache_size(rot_hw));
 
+	if (rot_hw->ops.get_maxlinewidth)
+		sde_kms_info_add_keyint(info, "max_linewidth",
+				rot_hw->ops.get_maxlinewidth(rot_hw));
+
 	msm_property_set_blob(&psde->property_info, &psde->blob_rot_caps,
 			info->data, info->len, PLANE_PROP_ROT_CAPS_V1);
 
