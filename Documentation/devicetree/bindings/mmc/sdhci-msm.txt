@@ -75,6 +75,11 @@ Optional Properties:
 						during clock scaling. If this property is not
 						defined, then it falls back to the default HS
 						bus speed mode to maintain backward compatibility.
+	- qcom,sdr104-wa: On Certain chipsets, SDR104 mode might be unstable causing CRC errors
+			  on the interface. So there is a workaround implemented to skip printing
+			  register dumps on CRC errors and also downgrade bus speed mode to
+			  SDR50/DDR50 in case of continuous CRC errors. Set this flag to enable
+			  this workaround.
 
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
