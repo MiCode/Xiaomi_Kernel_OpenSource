@@ -64,14 +64,19 @@
 #define DIAG_CON_LPASS		(0x0004)	/* Bit mask for LPASS */
 #define DIAG_CON_WCNSS		(0x0008)	/* Bit mask for WCNSS */
 #define DIAG_CON_SENSORS	(0x0010)	/* Bit mask for Sensors */
-#define DIAG_CON_WDSP (0x0020) /* Bit mask for WDSP */
-#define DIAG_CON_CDSP (0x0040)
+#define DIAG_CON_WDSP		(0x0020)	/* Bit mask for WDSP */
+#define DIAG_CON_CDSP		(0x0040)	/* Bit mask for CDSP */
+
+#define DIAG_CON_UPD_WLAN		(0x1000) /*Bit mask for WLAN PD*/
+#define DIAG_CON_UPD_AUDIO		(0x2000) /*Bit mask for AUDIO PD*/
+#define DIAG_CON_UPD_SENSORS	(0x4000) /*Bit mask for SENSORS PD*/
 
 #define DIAG_CON_NONE		(0x0000)	/* Bit mask for No SS*/
 #define DIAG_CON_ALL		(DIAG_CON_APSS | DIAG_CON_MPSS \
 				| DIAG_CON_LPASS | DIAG_CON_WCNSS \
 				| DIAG_CON_SENSORS | DIAG_CON_WDSP \
 				| DIAG_CON_CDSP)
+#define DIAG_CON_UPD_ALL	(DIAG_CON_UPD_WLAN)
 
 #define DIAG_STM_MODEM	0x01
 #define DIAG_STM_LPASS	0x02
@@ -165,7 +170,7 @@
 #define PKT_ALLOC	1
 #define PKT_RESET	2
 
-#define FEATURE_MASK_LEN	2
+#define FEATURE_MASK_LEN	4
 
 #define DIAG_MD_NONE			0
 #define DIAG_MD_PERIPHERAL		1
@@ -209,8 +214,18 @@
 #define NUM_PERIPHERALS		6
 #define APPS_DATA		(NUM_PERIPHERALS)
 
+#define UPD_WLAN		7
+#define UPD_AUDIO		8
+#define UPD_SENSORS		9
+#define NUM_UPD			3
+
+#define DIAG_ID_APPS		1
+#define DIAG_ID_MPSS		2
+#define DIAG_ID_WLAN		3
+
 /* Number of sessions possible in Memory Device Mode. +1 for Apps data */
-#define NUM_MD_SESSIONS		(NUM_PERIPHERALS + 1)
+#define NUM_MD_SESSIONS		(NUM_PERIPHERALS \
+					+ NUM_UPD + 1)
 
 #define MD_PERIPHERAL_MASK(x)	(1 << x)
 
@@ -407,6 +422,7 @@ struct diag_partial_pkt_t {
 struct diag_logging_mode_param_t {
 	uint32_t req_mode;
 	uint32_t peripheral_mask;
+	uint32_t pd_mask;
 	uint8_t mode_param;
 } __packed;
 
@@ -453,6 +469,7 @@ struct diag_feature_t {
 	uint8_t log_on_demand;
 	uint8_t separate_cmd_rsp;
 	uint8_t encode_hdlc;
+	uint8_t untag_header;
 	uint8_t peripheral_buffering;
 	uint8_t mask_centralization;
 	uint8_t stm_support;
@@ -484,6 +501,7 @@ struct diagchar_dev {
 	int use_device_tree;
 	int supports_separate_cmdrsp;
 	int supports_apps_hdlc_encoding;
+	int supports_apps_header_untagging;
 	int supports_sockets;
 	/* The state requested in the STM command */
 	int stm_state_requested[NUM_STM_PROCESSORS];
@@ -515,6 +533,7 @@ struct diagchar_dev {
 	struct mutex cmd_reg_mutex;
 	uint32_t cmd_reg_count;
 	struct mutex diagfwd_channel_mutex[NUM_PERIPHERALS];
+	struct mutex diagfwd_untag_mutex;
 	/* Sizes that reflect memory pool sizes */
 	unsigned int poolsize;
 	unsigned int poolsize_hdlc;
@@ -577,6 +596,10 @@ struct diagchar_dev {
 	int in_busy_dcipktdata;
 	int logging_mode;
 	int logging_mask;
+	int pd_logging_mode;
+	int num_pd_session;
+	int cpd_len_1;
+	int cpd_len_2;
 	int mask_check;
 	uint32_t md_session_mask;
 	uint8_t md_session_mode;
