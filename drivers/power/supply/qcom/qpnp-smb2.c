@@ -1133,6 +1133,9 @@ static int smb2_init_vconn_regulator(struct smb2 *chip)
 	struct regulator_config cfg = {};
 	int rc = 0;
 
+	if (chg->micro_usb_mode)
+		return 0;
+
 	chg->vconn_vreg = devm_kzalloc(chg->dev, sizeof(*chg->vconn_vreg),
 				      GFP_KERNEL);
 	if (!chg->vconn_vreg)
@@ -1344,9 +1347,10 @@ static int smb2_disable_typec(struct smb_charger *chg)
 	int rc;
 
 	/* Move to typeC mode */
-	/* configure FSM in idle state */
+	/* configure FSM in idle state and disable UFP_ENABLE bit */
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
-			TYPEC_DISABLE_CMD_BIT, TYPEC_DISABLE_CMD_BIT);
+			TYPEC_DISABLE_CMD_BIT | UFP_EN_CMD_BIT,
+			TYPEC_DISABLE_CMD_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't put FSM in idle rc=%d\n", rc);
 		return rc;
@@ -2131,7 +2135,7 @@ static int smb2_probe(struct platform_device *pdev)
 	rc = smb2_init_vconn_regulator(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize vconn regulator rc=%d\n",
-			rc);
+				rc);
 		goto cleanup;
 	}
 
