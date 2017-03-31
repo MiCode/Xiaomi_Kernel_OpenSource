@@ -48,6 +48,11 @@
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/ramdump.h>
 
+#ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
+#include <net/cnss_prealloc.h>
+#endif
+
+
 #include "wlan_firmware_service_v01.h"
 
 #ifdef CONFIG_ICNSS_DEBUG
@@ -1947,6 +1952,8 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 	if (ret < 0) {
 		icnss_pr_err("Driver probe failed: %d, state: 0x%lx\n",
 			     ret, priv->state);
+		wcnss_prealloc_check_memory_leak();
+		wcnss_pre_alloc_reset();
 		goto out;
 	}
 
@@ -2076,6 +2083,8 @@ static int icnss_driver_event_register_driver(void *data)
 	if (ret) {
 		icnss_pr_err("Driver probe failed: %d, state: 0x%lx\n",
 			     ret, penv->state);
+		wcnss_prealloc_check_memory_leak();
+		wcnss_pre_alloc_reset();
 		goto power_off;
 	}
 
@@ -2101,6 +2110,8 @@ static int icnss_driver_event_unregister_driver(void *data)
 		penv->ops->remove(&penv->pdev->dev);
 
 	clear_bit(ICNSS_DRIVER_PROBED, &penv->state);
+	wcnss_prealloc_check_memory_leak();
+	wcnss_pre_alloc_reset();
 
 	penv->ops = NULL;
 
@@ -2125,6 +2136,8 @@ static int icnss_call_driver_remove(struct icnss_priv *priv)
 	penv->ops->remove(&priv->pdev->dev);
 
 	clear_bit(ICNSS_DRIVER_PROBED, &priv->state);
+	wcnss_prealloc_check_memory_leak();
+	wcnss_pre_alloc_reset();
 
 	icnss_hw_power_off(penv);
 
