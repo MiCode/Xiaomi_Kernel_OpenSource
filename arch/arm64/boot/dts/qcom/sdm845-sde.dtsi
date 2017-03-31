@@ -210,6 +210,8 @@
 
 		qcom,mdss-rot-mode = <1>;
 		qcom,mdss-highest-bank-bit = <0x2>;
+		qcom,sde-ubwc-malsize = <1>;
+		qcom,sde-ubwc-swizzle = <1>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_rotator";
