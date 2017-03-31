@@ -108,7 +108,7 @@ int rhashtable_expand(struct rhashtable *ht, gfp_t flags);
 int rhashtable_shrink(struct rhashtable *ht, gfp_t flags);
 
 void *rhashtable_lookup(const struct rhashtable *ht, const void *key);
-void *rhashtable_lookup_compare(const struct rhashtable *ht, u32 hash,
+void *rhashtable_lookup_compare(const struct rhashtable *ht, void *key,
 				bool (*compare)(void *, void *), void *arg);
 
 void rhashtable_destroy(const struct rhashtable *ht);
