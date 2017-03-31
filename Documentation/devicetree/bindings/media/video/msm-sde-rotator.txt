@@ -89,6 +89,10 @@ Optional properties
 				entries by name.
 - cache-slices:			The tuple has phandle to llcc device as the first argument and the
 				second argument is the usecase id of the client.
+- qcom,sde-ubwc-malsize:	A u32 property to specify the default UBWC
+				minimum allowable length configuration value.
+- qcom,sde-ubwc-swizzle:	A u32 property to specify the default UBWC
+				swizzle configuration value.
 
 Subnode properties:
 - compatible:		Compatible name used in smmu v2.
@@ -126,6 +130,8 @@ Example:
 		clock-names = "iface_clk", "rot_core_clk";
 
 		qcom,mdss-highest-bank-bit = <0x2>;
+		qcom,sde-ubwc-malsize = <0>;
+		qcom,sde-ubwc-swizzle = <1>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_rotator";
@@ -144,7 +150,7 @@ Example:
 
 		qcom,mdss-sbuf-headroom = <20>;
 		cache-slice-names = "rotator";
-		cache-slices = <&llcc 3>;
+		cache-slices = <&llcc 4>;
 
 		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
 			compatible = "qcom,smmu_sde_rot_unsec";
