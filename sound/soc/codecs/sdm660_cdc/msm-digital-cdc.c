@@ -1207,6 +1207,8 @@ static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 	snd_soc_dapm_ignore_suspend(dapm, "PDM_OUT_RX2");
 	snd_soc_dapm_ignore_suspend(dapm, "PDM_OUT_RX3");
 
+	snd_soc_dapm_sync(dapm);
+
 	return 0;
 }
 
@@ -2127,8 +2129,8 @@ static int msm_dig_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops msm_dig_pm_ops = {
-	.suspend = msm_dig_suspend,
-	.resume = msm_dig_resume,
+	.suspend_late = msm_dig_suspend,
+	.resume_early = msm_dig_resume,
 };
 #endif
 
