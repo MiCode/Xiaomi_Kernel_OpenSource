@@ -1577,8 +1577,14 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 link_training:
 	dp_drv->power_on = true;
 
-	while (-EAGAIN == mdss_dp_setup_main_link(dp_drv, true))
+	while (-EAGAIN == mdss_dp_setup_main_link(dp_drv, true)) {
 		pr_debug("MAIN LINK TRAINING RETRY\n");
+		mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, false);
+		/* Disable DP mainlink clocks */
+		mdss_dp_disable_mainlink_clocks(dp_drv);
+		/* Enable DP mainlink clocks with reduced link rate */
+		mdss_dp_enable_mainlink_clocks(dp_drv);
+	}
 
 	dp_drv->cont_splash = 0;
 
