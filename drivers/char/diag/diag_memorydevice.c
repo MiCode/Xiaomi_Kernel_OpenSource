@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 #include "diagmem.h"
 #include "diagfwd.h"
 #include "diagfwd_peripheral.h"
+#include "diag_ipc_logging.h"
 
 struct diag_md_info diag_md[NUM_DIAG_MD_DEV] = {
 	{
@@ -143,9 +144,24 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 	if (!buf || len < 0)
 		return -EINVAL;
 
-	peripheral = GET_BUF_PERIPHERAL(ctx);
-	if (peripheral > NUM_PERIPHERALS)
-		return -EINVAL;
+	if (driver->pd_logging_mode) {
+		peripheral = GET_PD_CTXT(ctx);
+		switch (peripheral) {
+		case UPD_WLAN:
+			break;
+		case DIAG_ID_MPSS:
+		default:
+			peripheral = GET_BUF_PERIPHERAL(ctx);
+			if (peripheral > NUM_PERIPHERALS)
+				return -EINVAL;
+			break;
+		}
+	} else {
+		/* Account for Apps data as well */
+		peripheral = GET_BUF_PERIPHERAL(ctx);
+		if (peripheral > NUM_PERIPHERALS)
+			return -EINVAL;
+	}
 
 	session_info = diag_md_session_get_peripheral(peripheral);
 	if (!session_info)
@@ -219,18 +235,41 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 	uint8_t peripheral = 0;
 	struct diag_md_session_t *session_info = NULL;
 
+	mutex_lock(&driver->diagfwd_untag_mutex);
+
 	for (i = 0; i < NUM_DIAG_MD_DEV && !err; i++) {
 		ch = &diag_md[i];
 		for (j = 0; j < ch->num_tbl_entries && !err; j++) {
 			entry = &ch->tbl[j];
 			if (entry->len <= 0)
 				continue;
-			peripheral = GET_BUF_PERIPHERAL(entry->ctx);
-			/* Account for Apps data as well */
-			if (peripheral > NUM_PERIPHERALS)
-				goto drop_data;
+			if (driver->pd_logging_mode) {
+				peripheral = GET_PD_CTXT(entry->ctx);
+				switch (peripheral) {
+				case UPD_WLAN:
+					break;
+				case DIAG_ID_MPSS:
+				default:
+					peripheral =
+						GET_BUF_PERIPHERAL(entry->ctx);
+					if (peripheral > NUM_PERIPHERALS)
+						goto drop_data;
+					break;
+				}
+			} else {
+				/* Account for Apps data as well */
+				peripheral = GET_BUF_PERIPHERAL(entry->ctx);
+				if (peripheral > NUM_PERIPHERALS)
+					goto drop_data;
+			}
+
 			session_info =
 			diag_md_session_get_peripheral(peripheral);
+			if (!session_info) {
+				mutex_unlock(&driver->diagfwd_untag_mutex);
+				return -EIO;
+			}
+
 			if (session_info && info &&
 				(session_info->pid != info->pid))
 				continue;
@@ -303,6 +342,8 @@ drop_data:
 	if (drain_again)
 		chk_logging_wakeup();
 
+	mutex_unlock(&driver->diagfwd_untag_mutex);
+
 	return err;
 }
 
@@ -322,7 +363,8 @@ int diag_md_close_peripheral(int id, uint8_t peripheral)
 	spin_lock_irqsave(&ch->lock, flags);
 	for (i = 0; i < ch->num_tbl_entries && !found; i++) {
 		entry = &ch->tbl[i];
-		if (GET_BUF_PERIPHERAL(entry->ctx) != peripheral)
+		if ((GET_BUF_PERIPHERAL(entry->ctx) != peripheral) ||
+			(GET_PD_CTXT(entry->ctx) != peripheral))
 			continue;
 		found = 1;
 		if (ch->ops && ch->ops->write_done) {
