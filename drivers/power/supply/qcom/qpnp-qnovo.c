@@ -843,7 +843,11 @@ static ssize_t current_show(struct class *c, struct class_attribute *attr,
 		pr_err("Couldn't read %s rc = %d\n", params[i].name, rc);
 		return -EINVAL;
 	}
-	regval_nA = buf[1] << 8 | buf[0];
+
+	if (buf[1] & BIT(5))
+		buf[1] |= GENMASK(7, 6);
+
+	regval_nA = (s16)(buf[1] << 8 | buf[0]);
 	regval_nA = div_s64(regval_nA * params[i].reg_to_unit_multiplier,
 					params[i].reg_to_unit_divider)
 			- params[i].reg_to_unit_offset;
