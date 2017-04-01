@@ -99,6 +99,30 @@ struct adreno_rbmemptrs {
 	volatile unsigned int contextidr[MSM_GPU_MAX_RINGS];
 };
 
+struct adreno_counter {
+	u32 lo;
+	u32 hi;
+	u32 sel;
+	u32 countable;
+	u32 refcount;
+};
+
+struct adreno_counter_group {
+	struct adreno_counter *counters;
+	size_t nr_counters;
+	spinlock_t lock;
+	struct {
+		int (*get)(struct msm_gpu *,
+			struct adreno_counter_group *, u32, u32 *, u32 *);
+		void (*enable)(struct msm_gpu *,
+			struct adreno_counter_group *, int);
+		u64 (*read)(struct msm_gpu *,
+			struct adreno_counter_group *, int);
+		void (*put)(struct msm_gpu *,
+			struct adreno_counter_group *, int);
+	} funcs;
+};
+
 struct adreno_gpu {
 	struct msm_gpu base;
 	struct adreno_rev rev;
@@ -129,6 +153,9 @@ struct adreno_gpu {
 
 	uint32_t quirks;
 	uint32_t speed_bin;
+
+	const struct adreno_counter_group **counter_groups;
+	int nr_counter_groups;
 };
 #define to_adreno_gpu(x) container_of(x, struct adreno_gpu, base)
 
@@ -234,6 +261,11 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 void adreno_gpu_cleanup(struct adreno_gpu *gpu);
 
 void adreno_snapshot(struct msm_gpu *gpu, struct msm_snapshot *snapshot);
+
+int adreno_get_counter(struct msm_gpu *gpu, u32 groupid, u32 countable,
+		u32 *lo, u32 *hi);
+u64 adreno_read_counter(struct msm_gpu *gpu, u32 groupid, int counterid);
+void adreno_put_counter(struct msm_gpu *gpu, u32 groupid, int counterid);
 
 /* ringbuffer helpers (the parts that are adreno specific) */
 
