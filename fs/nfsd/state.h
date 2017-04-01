@@ -506,14 +506,15 @@ struct nfs4_file {
  * Better suggestions welcome.
  */
 struct nfs4_ol_stateid {
-	struct nfs4_stid    st_stid; /* must be first field */
-	struct list_head              st_perfile;
-	struct list_head              st_perstateowner;
-	struct list_head              st_locks;
-	struct nfs4_stateowner      * st_stateowner;
-	unsigned char                 st_access_bmap;
-	unsigned char                 st_deny_bmap;
-	struct nfs4_ol_stateid         * st_openstp;
+	struct nfs4_stid		st_stid;
+	struct list_head		st_perfile;
+	struct list_head		st_perstateowner;
+	struct list_head		st_locks;
+	struct nfs4_stateowner		*st_stateowner;
+	unsigned char			st_access_bmap;
+	unsigned char			st_deny_bmap;
+	struct nfs4_ol_stateid		*st_openstp;
+	struct rw_semaphore		st_rwsem;
 };
 
 static inline struct nfs4_ol_stateid *openlockstateid(struct nfs4_stid *s)
