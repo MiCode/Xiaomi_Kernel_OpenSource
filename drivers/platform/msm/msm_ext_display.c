@@ -215,7 +215,8 @@ static int msm_ext_disp_process_display(struct msm_ext_disp *ext_disp,
 {
 	int ret = 0;
 
-	if (!(flags & MSM_EXT_DISP_HPD_VIDEO)) {
+	if (!(flags & (MSM_EXT_DISP_HPD_VIDEO
+		       | MSM_EXT_DISP_HPD_ASYNC_VIDEO))) {
 		pr_debug("skipping video setup for display (%s)\n",
 			msm_ext_disp_name(type));
 		goto end;
@@ -224,7 +225,8 @@ static int msm_ext_disp_process_display(struct msm_ext_disp *ext_disp,
 	ret = msm_ext_disp_send_cable_notification(ext_disp, state);
 
 	/* positive ret value means audio node was switched */
-	if (IS_ERR_VALUE(ret) || !ret) {
+	if ((ret <= 0) ||
+		(flags & MSM_EXT_DISP_HPD_ASYNC_VIDEO)) {
 		pr_debug("not waiting for display\n");
 		goto end;
 	}
@@ -237,9 +239,8 @@ static int msm_ext_disp_process_display(struct msm_ext_disp *ext_disp,
 		goto end;
 	}
 
-	ret = 0;
 end:
-	return ret;
+	return (ret >= 0) ? 0 : -EINVAL;
 }
 
 static int msm_ext_disp_process_audio(struct msm_ext_disp *ext_disp,
@@ -248,7 +249,8 @@ static int msm_ext_disp_process_audio(struct msm_ext_disp *ext_disp,
 {
 	int ret = 0;
 
-	if (!(flags & MSM_EXT_DISP_HPD_AUDIO)) {
+	if (!(flags & (MSM_EXT_DISP_HPD_AUDIO
+		       | MSM_EXT_DISP_HPD_ASYNC_AUDIO))) {
 		pr_debug("skipping audio setup for display (%s)\n",
 			msm_ext_disp_name(type));
 		goto end;
@@ -257,7 +259,8 @@ static int msm_ext_disp_process_audio(struct msm_ext_disp *ext_disp,
 	ret = msm_ext_disp_send_audio_notification(ext_disp, state);
 
 	/* positive ret value means audio node was switched */
-	if (IS_ERR_VALUE(ret) || !ret || !ext_disp->ack_enabled) {
+	if ((ret <= 0) || !ext_disp->ack_enabled ||
+		(flags & MSM_EXT_DISP_HPD_ASYNC_AUDIO)) {
 		pr_debug("not waiting for audio\n");
 		goto end;
 	}
@@ -270,9 +273,8 @@ static int msm_ext_disp_process_audio(struct msm_ext_disp *ext_disp,
 		goto end;
 	}
 
-	ret = 0;
 end:
-	return ret;
+	return (ret >= 0) ? 0 : -EINVAL;
 }
 
 static bool msm_ext_disp_validate_connect(struct msm_ext_disp *ext_disp,
