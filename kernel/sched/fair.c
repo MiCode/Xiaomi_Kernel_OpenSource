@@ -6669,7 +6669,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	unsigned long task_util_boosted = 0, curr_util = 0;
 	long new_util, new_util_cum;
 	int i;
-	int ediff = 0;
+	int ediff = -1;
 	int cpu = smp_processor_id();
 	int min_util_cpu = -1;
 	int min_util_cpu_idle_idx = INT_MAX;
@@ -6682,6 +6682,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	unsigned int target_cpu_util = UINT_MAX;
 	long target_cpu_new_util_cum = LONG_MAX;
 	bool need_idle;
+	bool skip_ediff = false;
 
 	sd = rcu_dereference(per_cpu(sd_ea, task_cpu(p)));
 
@@ -6697,6 +6698,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	need_idle = wake_to_idle(p);
 
 	if (sysctl_sched_is_big_little) {
+		task_util_boosted = boosted_task_util(p);
+
 		/*
 		 * Find group with sufficient capacity. We only get here if no cpu is
 		 * overutilized. We may end up overutilizing a cpu by adding the task,
@@ -6716,13 +6719,24 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			if (capacity_orig_of(max_cap_cpu) < target_max_cap &&
 			    task_fits_max(p, max_cap_cpu)) {
 				sg_target = sg;
+
+				if (sync && curr_util >= task_util_boosted) {
+					if (cpumask_test_cpu(cpu,
+							     sched_group_cpus(sg))) {
+						if (!cpumask_test_cpu(task_cpu(p),
+								      sched_group_cpus(sg)))
+							skip_ediff = true;
+						break;
+					}
+					continue;
+				}
+
 				target_max_cap = capacity_of(max_cap_cpu);
 			}
 		} while (sg = sg->next, sg != sd->groups);
 
 		target_cpu = -1;
 
-		task_util_boosted = boosted_task_util(p);
 		/* Find cpu with sufficient capacity */
 		for_each_cpu_and(i, tsk_cpus_allowed(p), sched_group_cpus(sg_target)) {
 			if (is_reserved(i))
@@ -6887,7 +6901,9 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			return target_cpu;
 		}
 
-		ediff = energy_diff(&eenv);
+		if (!skip_ediff)
+			ediff = energy_diff(&eenv);
+
 		if (!sysctl_sched_cstate_aware) {
 			if (ediff >= 0) {
 				trace_sched_task_util_energy_diff(p,
