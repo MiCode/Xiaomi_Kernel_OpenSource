@@ -36,7 +36,7 @@
 #define WIGIG_VENDOR (0x1ae9)
 #define WIGIG_DEVICE (0x0310)
 
-#define SMMU_BASE	0x10000000 /* Device address range base */
+#define SMMU_BASE	0x20000000 /* Device address range base */
 #define SMMU_SIZE	((SZ_1G * 4ULL) - SMMU_BASE)
 
 #define WIGIG_ENABLE_DELAY	50
@@ -93,9 +93,12 @@ struct msm11ad_ctx {
 
 	/* SMMU */
 	bool use_smmu; /* have SMMU enabled? */
-	int smmu_bypass;
+	int smmu_s1_en;
 	int smmu_fast_map;
+	int smmu_coherent;
 	struct dma_iommu_mapping *mapping;
+	u32 smmu_base;
+	u32 smmu_size;
 
 	/* bus frequency scaling */
 	struct msm_bus_scale_pdata *bus_scale;
@@ -638,15 +641,17 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 {
 	int atomic_ctx = 1;
 	int rc;
+	int force_pt_coherent = 1;
+	int smmu_bypass = !ctx->smmu_s1_en;
 
 	if (!ctx->use_smmu)
 		return 0;
 
-	dev_info(ctx->dev, "Initialize SMMU, bypass = %d, fastmap = %d\n",
-		 ctx->smmu_bypass, ctx->smmu_fast_map);
+	dev_info(ctx->dev, "Initialize SMMU, bypass=%d, fastmap=%d, coherent=%d\n",
+		 smmu_bypass, ctx->smmu_fast_map, ctx->smmu_coherent);
 
 	ctx->mapping = arm_iommu_create_mapping(&platform_bus_type,
-						SMMU_BASE, SMMU_SIZE);
+						ctx->smmu_base, ctx->smmu_size);
 	if (IS_ERR_OR_NULL(ctx->mapping)) {
 		rc = PTR_ERR(ctx->mapping) ?: -ENODEV;
 		dev_err(ctx->dev, "Failed to create IOMMU mapping (%d)\n", rc);
@@ -662,23 +667,39 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 		goto release_mapping;
 	}
 
-	if (ctx->smmu_bypass) {
+	if (smmu_bypass) {
 		rc = iommu_domain_set_attr(ctx->mapping->domain,
 					   DOMAIN_ATTR_S1_BYPASS,
-					   &ctx->smmu_bypass);
+					   &smmu_bypass);
 		if (rc) {
 			dev_err(ctx->dev, "Set bypass attribute to SMMU failed (%d)\n",
 				rc);
 			goto release_mapping;
 		}
-	} else if (ctx->smmu_fast_map) {
-		rc = iommu_domain_set_attr(ctx->mapping->domain,
-					   DOMAIN_ATTR_FAST,
-					   &ctx->smmu_fast_map);
-		if (rc) {
-			dev_err(ctx->dev, "Set fast attribute to SMMU failed (%d)\n",
-				rc);
-			goto release_mapping;
+	} else {
+		/* Set dma-coherent and page table coherency */
+		if (ctx->smmu_coherent) {
+			arch_setup_dma_ops(&ctx->pcidev->dev, 0, 0, NULL, true);
+			rc = iommu_domain_set_attr(ctx->mapping->domain,
+				   DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
+				   &force_pt_coherent);
+			if (rc) {
+				dev_err(ctx->dev,
+					"Set SMMU PAGE_TABLE_FORCE_COHERENT attr failed (%d)\n",
+					rc);
+				goto release_mapping;
+			}
+		}
+
+		if (ctx->smmu_fast_map) {
+			rc = iommu_domain_set_attr(ctx->mapping->domain,
+						   DOMAIN_ATTR_FAST,
+						   &ctx->smmu_fast_map);
+			if (rc) {
+				dev_err(ctx->dev, "Set fast attribute to SMMU failed (%d)\n",
+					rc);
+				goto release_mapping;
+			}
 		}
 	}
 
@@ -900,6 +921,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	struct device_node *of_node = dev->of_node;
 	struct device_node *rc_node;
 	struct pci_dev *pcidev = NULL;
+	u32 smmu_mapping[2];
 	int rc;
 	u32 val;
 
@@ -954,8 +976,27 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	ctx->use_smmu = of_property_read_bool(of_node, "qcom,smmu-support");
 	ctx->bus_scale = msm_bus_cl_get_pdata(pdev);
 
-	ctx->smmu_bypass = 1;
-	ctx->smmu_fast_map = 0;
+	ctx->smmu_s1_en = of_property_read_bool(of_node, "qcom,smmu-s1-en");
+	if (ctx->smmu_s1_en) {
+		ctx->smmu_fast_map = of_property_read_bool(
+						of_node, "qcom,smmu-fast-map");
+		ctx->smmu_coherent = of_property_read_bool(
+						of_node, "qcom,smmu-coherent");
+	}
+	rc = of_property_read_u32_array(dev->of_node, "qcom,smmu-mapping",
+			smmu_mapping, 2);
+	if (rc) {
+		dev_err(ctx->dev,
+			"Failed to read base/size smmu addresses %d, fallback to default\n",
+			rc);
+		ctx->smmu_base = SMMU_BASE;
+		ctx->smmu_size = SMMU_SIZE;
+	} else {
+		ctx->smmu_base = smmu_mapping[0];
+		ctx->smmu_size = smmu_mapping[1];
+	}
+	dev_dbg(ctx->dev, "smmu_base=0x%x smmu_sise=0x%x\n",
+		ctx->smmu_base, ctx->smmu_size);
 
 	/*== execute ==*/
 	/* turn device on */
