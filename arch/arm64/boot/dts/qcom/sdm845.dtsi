@@ -995,7 +995,9 @@
 		qcom,pm-qos-cpu-group-latency-us = <70 70>;
 		qcom,pm-qos-default-cpu = <0>;
 
-		/* TODO: add UFS device reset support*/
+		pinctrl-names = "dev-reset-assert", "dev-reset-deassert";
+		pinctrl-0 = <&ufs_dev_reset_assert>;
+		pinctrl-1 = <&ufs_dev_reset_deassert>;
 
 		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
 		reset-names = "core_reset";
