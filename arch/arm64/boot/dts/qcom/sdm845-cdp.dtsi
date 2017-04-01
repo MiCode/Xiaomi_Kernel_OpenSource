@@ -74,11 +74,8 @@
 
 	vdda-phy-supply = <&pm8998_l1>; /* 0.88v */
 	vdda-pll-supply = <&pm8998_l26>; /* 1.2v */
-	vddp-ref-clk-supply = <&pm8998_l2>;
 	vdda-phy-max-microamp = <62900>;
 	vdda-pll-max-microamp = <18300>;
-	vddp-ref-clk-max-microamp = <100>;
-	vddp-ref-clk-always-on;
 
 	status = "ok";
 };
@@ -91,6 +88,9 @@
 	vcc-max-microamp = <600000>;
 	vccq2-max-microamp = <600000>;
 
+	qcom,vddp-ref-clk-supply = <&pm8998_l2>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
 	status = "ok";
 };
 
@@ -99,11 +99,8 @@
 
 	vdda-phy-supply = <&pm8998_l1>; /* 0.88v */
 	vdda-pll-supply = <&pm8998_l26>; /* 1.2v */
-	vddp-ref-clk-supply = <&pm8998_l2>;
 	vdda-phy-max-microamp = <62900>;
 	vdda-pll-max-microamp = <18300>;
-	vddp-ref-clk-max-microamp = <100>;
-	vddp-ref-clk-always-on;
 
 	status = "ok";
 };
@@ -115,6 +112,9 @@
 	vccq2-supply = <&pm8998_s4>;
 	vcc-max-microamp = <300000>;
 	vccq2-max-microamp = <300000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8998_l2>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
 
 	status = "ok";
 };
