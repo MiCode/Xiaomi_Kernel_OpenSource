@@ -29,6 +29,7 @@ struct link_node {
 	uint64_t lnode_ab[NUM_CTX];
 	uint64_t lnode_query_ib[NUM_CTX];
 	uint64_t lnode_query_ab[NUM_CTX];
+	uint64_t alc_idx[NUM_CTX];
 	int next;
 	struct device *next_dev;
 	struct list_head link;
@@ -61,9 +62,15 @@ struct nodebw {
 	uint64_t sum_query_ab;
 	uint64_t max_query_ib;
 	uint64_t max_query_ab;
+	uint64_t max_alc;
 	uint64_t cur_clk_hz;
 	uint32_t util_used;
 	uint32_t vrail_used;
+};
+
+struct nodevector {
+	uint64_t vec_a;
+	uint64_t vec_b;
 };
 
 struct msm_bus_rsc_device_type {
@@ -167,6 +174,7 @@ struct msm_bus_node_device_type {
 	int num_lnodes;
 	struct link_node *lnode_list;
 	struct nodebw node_bw[NUM_CTX];
+	struct nodevector node_vec[NUM_CTX];
 	struct list_head link;
 	struct list_head query_link;
 	struct nodeclk clk[NUM_CTX];
