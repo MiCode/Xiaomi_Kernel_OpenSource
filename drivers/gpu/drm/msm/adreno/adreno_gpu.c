@@ -563,10 +563,8 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		}
 	}
 
-	mutex_lock(&drm->struct_mutex);
 	adreno_gpu->memptrs_bo = msm_gem_new(drm, sizeof(*adreno_gpu->memptrs),
 			MSM_BO_UNCACHED);
-	mutex_unlock(&drm->struct_mutex);
 	if (IS_ERR(adreno_gpu->memptrs_bo)) {
 		ret = PTR_ERR(adreno_gpu->memptrs_bo);
 		adreno_gpu->memptrs_bo = NULL;

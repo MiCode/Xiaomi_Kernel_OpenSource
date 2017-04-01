@@ -838,22 +838,19 @@ static int dsi_tx_buf_alloc(struct msm_dsi_host *msm_host, int size)
 	int ret;
 	u64 iova;
 
-	mutex_lock(&dev->struct_mutex);
 	msm_host->tx_gem_obj = msm_gem_new(dev, size, MSM_BO_UNCACHED);
 	if (IS_ERR(msm_host->tx_gem_obj)) {
 		ret = PTR_ERR(msm_host->tx_gem_obj);
 		pr_err("%s: failed to allocate gem, %d\n", __func__, ret);
 		msm_host->tx_gem_obj = NULL;
-		mutex_unlock(&dev->struct_mutex);
 		return ret;
 	}
 
-	ret = msm_gem_get_iova_locked(msm_host->tx_gem_obj, 0, &iova);
+	ret = msm_gem_get_iova(msm_host->tx_gem_obj, NULL, &iova);
 	if (ret) {
 		pr_err("%s: failed to get iova, %d\n", __func__, ret);
 		return ret;
 	}
-	mutex_unlock(&dev->struct_mutex);
 
 	if (iova & 0x07) {
 		pr_err("%s: buf NOT 8 bytes aligned\n", __func__);

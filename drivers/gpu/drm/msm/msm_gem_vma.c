@@ -52,6 +52,7 @@ msm_gem_address_space_new(struct msm_mmu *mmu, const char *name,
 	if (!aspace)
 		return ERR_PTR(-ENOMEM);
 
+	spin_lock_init(&aspace->lock);
 	aspace->name = name;
 	aspace->mmu = mmu;
 
@@ -77,14 +78,19 @@ static int allocate_iova(struct msm_gem_address_space *aspace,
 	if (!aspace->va_len)
 		return 0;
 
-	if (WARN_ON(drm_mm_node_allocated(&vma->node)))
-		return 0;
-
 	for_each_sg(sgt->sgl, sg, sgt->nents, i)
 		size += sg->length + sg->offset;
 
-	ret = drm_mm_insert_node(&aspace->mm, &vma->node, size >> PAGE_SHIFT,
-			0, DRM_MM_SEARCH_DEFAULT);
+	spin_lock(&aspace->lock);
+
+	if (WARN_ON(drm_mm_node_allocated(&vma->node))) {
+		spin_unlock(&aspace->lock);
+		return 0;
+	}
+	ret = drm_mm_insert_node(&aspace->mm, &vma->node,
+			size >> PAGE_SHIFT, 0, DRM_MM_SEARCH_DEFAULT);
+
+	spin_unlock(&aspace->lock);
 
 	if (!ret && iova)
 		*iova = vma->node.start << PAGE_SHIFT;
@@ -110,8 +116,10 @@ int msm_gem_map_vma(struct msm_gem_address_space *aspace,
 		flags, priv);
 
 	if (ret) {
+		spin_lock(&aspace->lock);
 		if (drm_mm_node_allocated(&vma->node))
 			drm_mm_remove_node(&vma->node);
+		spin_unlock(&aspace->lock);
 
 		return ret;
 	}
@@ -130,8 +138,10 @@ void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
 
 	aspace->mmu->funcs->unmap(aspace->mmu, vma->iova, sgt, priv);
 
+	spin_lock(&aspace->lock);
 	if (drm_mm_node_allocated(&vma->node))
 		drm_mm_remove_node(&vma->node);
+	spin_unlock(&aspace->lock);
 
 	vma->iova = 0;
 

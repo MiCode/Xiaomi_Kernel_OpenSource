@@ -322,6 +322,7 @@ static int msm_init_vram(struct drm_device *dev)
 		priv->vram.size = size;
 
 		drm_mm_init(&priv->vram.mm, 0, (size >> PAGE_SHIFT) - 1);
+		spin_lock_init(&priv->vram.lock);
 
 		dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &attrs);
 		dma_set_attr(DMA_ATTR_WRITE_COMBINE, &attrs);
@@ -631,12 +632,10 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 	if (priv->gpu)
 		msm_gpu_cleanup_counters(priv->gpu, ctx);
 
-	mutex_lock(&dev->struct_mutex);
 	if (ctx && ctx->aspace && ctx->aspace != priv->gpu->aspace) {
 		ctx->aspace->mmu->funcs->detach(ctx->aspace->mmu);
 		msm_gem_address_space_put(ctx->aspace);
 	}
-	mutex_unlock(&dev->struct_mutex);
 
 	kfree(ctx);
 }

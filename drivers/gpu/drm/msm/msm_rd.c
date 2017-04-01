@@ -310,7 +310,7 @@ void msm_rd_dump_submit(struct msm_gem_submit *submit)
 		uint64_t iova = submit->cmd[i].iova;
 		uint32_t szd  = submit->cmd[i].size; /* in dwords */
 		struct msm_gem_object *obj = submit->bos[idx].obj;
-		const char *buf = msm_gem_vaddr_locked(&obj->base);
+		const char *buf = msm_gem_vaddr(&obj->base);
 
 		buf += iova - submit->bos[idx].iova;
 
