@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -689,12 +689,12 @@ static void scenario_free_end_io_fn(struct request *rq, int err)
 	__blk_put_request(test_iosched->req_q, test_rq->rq);
 	spin_unlock_irqrestore(&test_iosched->lock, flags);
 
-	test_iosched_free_test_req_data_buffer(test_rq);
-	kfree(test_rq);
-
 	if (err)
 		pr_err("%s: request %d completed, err=%d", __func__,
 			test_rq->req_id, err);
+
+	test_iosched_free_test_req_data_buffer(test_rq);
+	kfree(test_rq);
 
 	check_test_completion(test_iosched);
 }
@@ -984,13 +984,13 @@ static void long_test_free_end_io_fn(struct request *rq, int err)
 		return;
 	}
 
-	test_iosched_free_test_req_data_buffer(test_rq);
-	kfree(test_rq);
-	utd->completed_req_count++;
-
 	if (err)
 		pr_err("%s: request %d completed, err=%d", __func__,
 			test_rq->req_id, err);
+
+	test_iosched_free_test_req_data_buffer(test_rq);
+	kfree(test_rq);
+	utd->completed_req_count++;
 
 	check_test_completion(test_iosched);
 }
@@ -1007,7 +1007,7 @@ static void long_test_free_end_io_fn(struct request *rq, int err)
 static int run_long_test(struct test_iosched *test_iosched)
 {
 	int ret = 0;
-	int direction, num_bios_per_request;
+	int direction, num_bios_per_request = 1;
 	static unsigned int inserted_requests;
 	u32 sector, seed, num_bios, seq_sector_delta;
 	struct ufs_test_data *utd = test_iosched->blk_dev_test_data;
@@ -1028,14 +1028,12 @@ static int run_long_test(struct test_iosched *test_iosched)
 	/* Set test parameters */
 	switch (test_iosched->test_info.testcase) {
 	case  UFS_TEST_LONG_RANDOM_READ:
-		num_bios_per_request = 1;
 		utd->long_test_num_reqs = (utd->sector_range * SECTOR_SIZE) /
 			(LONG_RAND_TEST_REQ_RATIO * TEST_BIO_SIZE *
 					num_bios_per_request);
 		direction = READ;
 		break;
 	case  UFS_TEST_LONG_RANDOM_WRITE:
-		num_bios_per_request = 1;
 		utd->long_test_num_reqs = (utd->sector_range * SECTOR_SIZE) /
 			(LONG_RAND_TEST_REQ_RATIO * TEST_BIO_SIZE *
 					num_bios_per_request);

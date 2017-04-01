@@ -7,11 +7,12 @@ To bind UFS PHY with UFS host controller, the controller node should
 contain a phandle reference to UFS PHY node.
 
 Required properties:
-- compatible        : compatible list, contains one of the following:
+- compatible        : compatible list, contains one of the following
+		      according to the relevant phy in use:
 		      "qcom,ufs-phy-qmp-14nm"
 		      "qcom,ufs-phy-qmp-v3"
 		      "qcom,ufs-phy-qrbtc-sdm845"
-according to the relevant phy in use.
+		      "qcom,ufs-phy-qmp-v3-660"
 - reg               : should contain PHY register address space (mandatory),
 - reg-names         : indicates various resources passed to driver (via reg proptery) by name.
                       Required "reg-names" is "phy_mem".
@@ -27,9 +28,6 @@ according to the relevant phy in use.
 Optional properties:
 - vdda-phy-max-microamp : specifies max. load that can be drawn from phy supply
 - vdda-pll-max-microamp : specifies max. load that can be drawn from pll supply
-- vddp-ref-clk-supply   : phandle to UFS device ref_clk pad power supply
-- vddp-ref-clk-max-microamp : specifies max. load that can be drawn from this supply
-- vddp-ref-clk-always-on : specifies if this supply needs to be kept always on
 - qcom,disable-lpm : disable various LPM mechanisms in UFS for platform compatibility
   (limit link to PWM Gear-1, 1-lane slow mode; disable hibernate, and avoid suspend/resume)
 
