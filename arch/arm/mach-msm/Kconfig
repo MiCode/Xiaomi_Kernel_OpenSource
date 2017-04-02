@@ -72,8 +72,8 @@ config ARCH_MDM9650
 	select MSM_RPM_LOG
 	select MSM_RPM_STATS_LOG
 
-config ARCH_SDXHEDGEHOG
-	bool "SDXHEDGEHOG"
+config ARCH_SDX20
+	bool "SDX20"
 	select ARM_GIC
 	select CPU_V7
 	select REGULATOR

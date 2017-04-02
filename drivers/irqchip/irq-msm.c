@@ -61,7 +61,7 @@ IRQCHIP_DECLARE(8996_pinctrl, "qcom,msm8996-pinctrl", pinctrl_irq_dummy);
 IRQCHIP_DECLARE(9640_pinctrl, "qcom,mdm9640-pinctrl", pinctrl_irq_dummy);
 IRQCHIP_DECLARE(9650_pinctrl, "qcom,mdm9650-pinctrl",
 		pinctrl_irq_dummy);
-IRQCHIP_DECLARE(hedgehog_pinctrl, "qcom,sdxhedgehog-pinctrl",
+IRQCHIP_DECLARE(sdx20_pinctrl, "qcom,sdx20-pinctrl",
 		pinctrl_irq_dummy);
 IRQCHIP_DECLARE(9607_pinctrl, "qcom,mdm9607-pinctrl", pinctrl_irq_dummy);
 IRQCHIP_DECLARE(qpnp_irq, "qcom,spmi-pmic-arb", qpnpint_of_init);

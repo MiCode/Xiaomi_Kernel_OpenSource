@@ -571,9 +571,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	[285] = {MSM_CPU_9650, "MDM9650"},
 	[286] = {MSM_CPU_9650, "MDM9650"},
 
-	/* Hedgehog IDs */
-	[314] = {SDX_CPU_HEDGEHOG, "SDXHEDGEHOG"},
-	[333] = {SDX_CPU_HEDGEHOG, "SDXHEDGEHOG"},
+	/* SDX20 IDs */
+	[314] = {SDX_CPU_20, "SDX20"},
+	[333] = {SDX_CPU_20, "SDX20"},
 
 	/*MSM8937 ID  */
 	[294] = {MSM_CPU_8937, "MSM8937"},
@@ -1232,9 +1232,9 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 286;
 		strlcpy(dummy_socinfo.build_id, "mdm9650 - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_sdxhedgehog()) {
+	} else if (early_machine_is_sdx20()) {
 		dummy_socinfo.id = 314;
-		strlcpy(dummy_socinfo.build_id, "sdxhedgehog - ",
+		strlcpy(dummy_socinfo.build_id, "sdx20 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msm8994()) {
 		dummy_socinfo.id = 207;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,18 +15,18 @@
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 
-static const char *sdxhedgehog_dt_match[] __initconst = {
-	"qcom,sdxhedgehog",
+static const char *sdx20_dt_match[] __initconst = {
+	"qcom,sdx20",
 	NULL
 };
 
-static void __init sdxhedgehog_init(void)
+static void __init sdx20_init(void)
 {
 	board_dt_populate(NULL);
 }
 
-DT_MACHINE_START(SDXHedgehog_DT,
-	"Qualcomm Technologies, Inc. SDX hedgehog (Flattened Device Tree)")
-	.init_machine		= sdxhedgehog_init,
-	.dt_compat		= sdxhedgehog_dt_match,
+DT_MACHINE_START(sdx20_DT,
+	"Qualcomm Technologies, Inc. SDX20 (Flattened Device Tree)")
+	.init_machine		= sdx20_init,
+	.dt_compat		= sdx20_dt_match,
 MACHINE_END

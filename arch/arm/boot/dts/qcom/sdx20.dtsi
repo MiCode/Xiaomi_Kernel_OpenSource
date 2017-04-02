@@ -11,8 +11,8 @@
  */
 
 / {
-	model = "Qualcomm Technologies, Inc. SDX HEDGEHOG";
-	compatible = "qcom,sdxhedgehog";
+	model = "Qualcomm Technologies, Inc. SDX20";
+	compatible = "qcom,sdx20";
 	qcom,msm-id = <314 0x0>, <333 0x0>;
 
 	timer {
@@ -125,11 +125,11 @@
 };
 
 &clock_gcc {
-	compatible = "qcom,gcc-sdxhedgehog";
+	compatible = "qcom,gcc-sdx20";
 };
 
 &clock_cpu  {
-	compatible = "qcom,clock-a7-sdxhedgehog";
+	compatible = "qcom,clock-a7-sdx20";
 
 	qcom,speed0-bin-v0 =
 		<         0 RPM_SMD_REGULATOR_LEVEL_NONE >,
@@ -146,7 +146,7 @@
 		/delete-property/ rpm-channel-type;
 };
 
-#include "sdxhedgehog-bus.dtsi"
+#include "sdx20-bus.dtsi"
 
 &pcie0 {
 	qcom,phy-sequence = <0x804 0x01 0x00
@@ -273,6 +273,6 @@
 	qcom,qdsp6v62-1-4;
 };
 
-#include "sdxhedgehog-usb.dtsi"
-#include "sdxhedgehog-pm.dtsi"
+#include "sdx20-usb.dtsi"
+#include "sdx20-pm.dtsi"
 

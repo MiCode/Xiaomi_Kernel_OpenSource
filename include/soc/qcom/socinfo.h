@@ -78,8 +78,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9640")
 #define early_machine_is_mdm9650()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9650")
-#define early_machine_is_sdxhedgehog()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdxhedgehog")
+#define early_machine_is_sdx20()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdx20")
 #define early_machine_is_fsm9900()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,fsm9900")
 #define early_machine_is_msm8994()	\
@@ -144,7 +144,7 @@
 #define early_machine_is_msm8929()	0
 #define early_machine_is_mdm9607()	0
 #define early_machine_is_mdm9650()	0
-#define early_machine_is_sdxhedgehog()	0
+#define early_machine_is_sdx20()	0
 #define early_machine_is_msmcobalt()	0
 #endif
 
@@ -210,7 +210,7 @@ enum msm_cpu {
 	MSM_CPU_9607,
 	MSM_CPU_9650,
 	MSM_CPU_COBALT,
-	SDX_CPU_HEDGEHOG,
+	SDX_CPU_20,
 };
 
 struct msm_soc_info {

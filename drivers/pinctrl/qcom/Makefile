@@ -14,5 +14,5 @@ obj-$(CONFIG_PINCTRL_MSMCOBALT)	+= pinctrl-msmcobalt.o
 obj-$(CONFIG_PINCTRL_MSM8953)	+= pinctrl-msm8953.o
 obj-$(CONFIG_PINCTRL_MDM9607)	+= pinctrl-mdm9607.o
 obj-$(CONFIG_PINCTRL_MDM9650)   += pinctrl-mdm9650.o
-obj-$(CONFIG_PINCTRL_SDXHEDGEHOG)   += pinctrl-sdxhedgehog.o
+obj-$(CONFIG_PINCTRL_SDX20)   += pinctrl-sdx20.o
 obj-$(CONFIG_PINCTRL_MSM8909)	+= pinctrl-msm8909.o
