@@ -75,8 +75,8 @@ av8l_fast_iova_to_phys_public(struct io_pgtable_ops *ops,
  */
 #define AV8L_FAST_PTE_UNMAPPED_NEED_TLBI 0xa
 
-void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops, u64 base, u64 end,
-				bool skip_sync);
+void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops, u64 base,
+				u64 start, u64 end, bool skip_sync);
 void av8l_register_notify(struct notifier_block *nb);
 
 #else  /* !CONFIG_IOMMU_IO_PGTABLE_FAST_PROVE_TLB */
@@ -85,6 +85,7 @@ void av8l_register_notify(struct notifier_block *nb);
 
 static inline void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops,
 					      u64 base,
+					      u64 start,
 					      u64 end,
 					      bool skip_sync)
 {

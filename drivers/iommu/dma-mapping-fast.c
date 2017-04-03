@@ -173,7 +173,9 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 
 		iommu_tlbiall(mapping->domain);
 		mapping->have_stale_tlbs = false;
-		av8l_fast_clear_stale_ptes(mapping->pgtbl_ops, mapping->base,
+		av8l_fast_clear_stale_ptes(mapping->pgtbl_ops,
+				mapping->domain->geometry.aperture_start,
+				mapping->base,
 				mapping->base + mapping->size - 1,
 				skip_sync);
 	}
@@ -799,7 +801,7 @@ static const struct dma_map_ops fast_smmu_dma_ops = {
  *
  * Creates a mapping structure which holds information about used/unused IO
  * address ranges, which is required to perform mapping with IOMMU aware
- * functions.  The only VA range supported is [0, 4GB).
+ * functions. The only VA range supported is [0, 4GB].
  *
  * The client device need to be attached to the mapping with
  * fast_smmu_attach_device function.
