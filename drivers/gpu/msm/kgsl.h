@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,7 @@
 /* The number of memstore arrays limits the number of contexts allowed.
  * If more contexts are needed, update multiple for MEMSTORE_SIZE
  */
-#define KGSL_MEMSTORE_SIZE	((int)(PAGE_SIZE * 2))
+#define KGSL_MEMSTORE_SIZE	((int)(PAGE_SIZE * 8))
 #define KGSL_MEMSTORE_GLOBAL	(0)
 #define KGSL_PRIORITY_MAX_RB_LEVELS 4
 #define KGSL_MEMSTORE_MAX	(KGSL_MEMSTORE_SIZE / \
