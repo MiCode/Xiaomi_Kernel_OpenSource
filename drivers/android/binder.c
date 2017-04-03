@@ -2830,7 +2830,7 @@ retry:
 		} break;
 		case BINDER_WORK_TRANSACTION_COMPLETE: {
 			cmd = BR_TRANSACTION_COMPLETE;
-				if (put_user_preempt_disabled(cmd, (uint32_t __user *) ptr))
+			if (put_user_preempt_disabled(cmd, (uint32_t __user *) ptr))
 				return -EFAULT;
 			ptr += sizeof(uint32_t);
 
@@ -2872,14 +2872,14 @@ retry:
 				node->has_weak_ref = 0;
 			}
 			if (cmd != BR_NOOP) {
-					if (put_user_preempt_disabled(cmd, (uint32_t __user *) ptr))
+				if (put_user_preempt_disabled(cmd, (uint32_t __user *) ptr))
 					return -EFAULT;
 				ptr += sizeof(uint32_t);
-					if (put_user_preempt_disabled(node->ptr, (binder_uintptr_t __user *)
+				if (put_user_preempt_disabled(node->ptr, (binder_uintptr_t __user *)
 					     (binder_uintptr_t __user *)ptr))
 					return -EFAULT;
 				ptr += sizeof(binder_uintptr_t);
-					if (put_user_preempt_disabled(node->cookie, (binder_uintptr_t __user *)
+				if (put_user_preempt_disabled(node->cookie, (binder_uintptr_t __user *)
 					     (binder_uintptr_t __user *)ptr))
 					return -EFAULT;
 				ptr += sizeof(binder_uintptr_t);
@@ -2923,7 +2923,7 @@ retry:
 				cmd = BR_CLEAR_DEATH_NOTIFICATION_DONE;
 			else
 				cmd = BR_DEAD_BINDER;
-				if (put_user_preempt_disabled(cmd, (uint32_t __user *) ptr))
+			if (put_user_preempt_disabled(cmd, (uint32_t __user *) ptr))
 				return -EFAULT;
 			ptr += sizeof(uint32_t);
 			if (put_user_preempt_disabled(death->cookie, (binder_uintptr_t __user *) ptr))
