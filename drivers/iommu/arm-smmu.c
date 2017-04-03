@@ -2230,6 +2230,14 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	cfg->cbndx = ret;
 
+	if (!(smmu_domain->attributes & (1 << DOMAIN_ATTR_GEOMETRY))) {
+		/* Geometry is not set use the default geometry */
+		domain->geometry.aperture_start = 0;
+		domain->geometry.aperture_end = (1UL << ias) - 1;
+		if (domain->geometry.aperture_end >= SZ_1G * 4ULL)
+			domain->geometry.aperture_end = (SZ_1G * 4ULL) - 1;
+	}
+
 	if (arm_smmu_is_slave_side_secure(smmu_domain)) {
 		smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
 			.quirks         = quirks,
@@ -2278,12 +2286,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	domain->pgsize_bitmap = smmu_domain->pgtbl_cfg.pgsize_bitmap;
 	domain->geometry.aperture_end = (1UL << ias) - 1;
 	domain->geometry.force_aperture = true;
-	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST)) {
-		domain->geometry.aperture_start =
-			smmu_domain->pgtbl_cfg.iova_base;
-		domain->geometry.aperture_end =
-			smmu_domain->pgtbl_cfg.iova_end;
-	}
 
 	/* Assign an asid */
 	ret = arm_smmu_init_asid(domain, smmu);
@@ -4016,6 +4018,45 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 		ret = 0;
 		break;
 	}
+
+	case DOMAIN_ATTR_GEOMETRY: {
+		struct iommu_domain_geometry *geometry =
+				(struct iommu_domain_geometry *)data;
+
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+			  "cannot set geometry attribute while attached\n");
+			ret = -EBUSY;
+			break;
+		}
+
+		if (geometry->aperture_start >= SZ_1G * 4ULL ||
+		    geometry->aperture_end >= SZ_1G * 4ULL) {
+			pr_err("fastmap does not support IOVAs >= 4GB\n");
+			ret = -EINVAL;
+			break;
+		}
+		if (smmu_domain->attributes
+			  & (1 << DOMAIN_ATTR_GEOMETRY)) {
+			if (geometry->aperture_start
+					< domain->geometry.aperture_start)
+				domain->geometry.aperture_start =
+					geometry->aperture_start;
+
+			if (geometry->aperture_end
+					> domain->geometry.aperture_end)
+				domain->geometry.aperture_end =
+					geometry->aperture_end;
+		} else {
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_GEOMETRY;
+			domain->geometry.aperture_start =
+						geometry->aperture_start;
+			domain->geometry.aperture_end = geometry->aperture_end;
+		}
+		ret = 0;
+		break;
+	}
+
 	default:
 		ret = -ENODEV;
 	}
