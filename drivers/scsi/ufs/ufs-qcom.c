@@ -2252,38 +2252,6 @@ out:
 	return err;
 }
 
-static inline int ufs_qcom_configure_lpm(struct ufs_hba *hba, bool enable)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct phy *phy = host->generic_phy;
-	int err = 0;
-
-	/* The default low power mode configuration is SVS2 */
-	if (!ufs_qcom_cap_svs2(host))
-		goto out;
-
-	if (!((host->hw_ver.major == 0x3) &&
-	    (host->hw_ver.minor == 0x0) &&
-	    (host->hw_ver.step == 0x0)))
-		goto out;
-
-	/*
-	 * The link should be put in hibern8 state before
-	 * configuring the PHY to enter/exit SVS2 mode.
-	 */
-	err = ufshcd_uic_hibern8_enter(hba);
-	if (err)
-		goto out;
-
-	err = ufs_qcom_phy_configure_lpm(phy, enable);
-	if (err)
-		goto out;
-
-	err = ufshcd_uic_hibern8_exit(hba);
-out:
-	return err;
-}
-
 static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -2291,10 +2259,6 @@ static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
 	int err = 0;
 
 	if (!ufs_qcom_cap_qunipro(host))
-		goto out;
-
-	err = ufs_qcom_configure_lpm(hba, false);
-	if (err)
 		goto out;
 
 	if (attr)
@@ -2305,16 +2269,6 @@ static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
 	err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150);
 out:
 	return err;
-}
-
-static int ufs_qcom_clk_scale_down_pre_change(struct ufs_hba *hba)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-
-	if (!ufs_qcom_cap_qunipro(host))
-		return 0;
-
-	return ufs_qcom_configure_lpm(hba, true);
 }
 
 static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
@@ -2356,8 +2310,6 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 	case PRE_CHANGE:
 		if (scale_up)
 			err = ufs_qcom_clk_scale_up_pre_change(hba);
-		else
-			err = ufs_qcom_clk_scale_down_pre_change(hba);
 		break;
 	case POST_CHANGE:
 		if (!scale_up)
