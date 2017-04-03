@@ -1696,6 +1696,9 @@ static int fg_set_recharge_soc(struct fg_chip *chip, int recharge_soc)
 	if (!chip->dt.auto_recharge_soc)
 		return 0;
 
+	if (recharge_soc < 0 || recharge_soc > FULL_CAPACITY)
+		return 0;
+
 	fg_encode(chip->sp, FG_SRAM_RECHARGE_SOC_THR, recharge_soc, &buf);
 	rc = fg_sram_write(chip,
 			chip->sp[FG_SRAM_RECHARGE_SOC_THR].addr_word,
@@ -1712,46 +1715,55 @@ static int fg_set_recharge_soc(struct fg_chip *chip, int recharge_soc)
 static int fg_adjust_recharge_soc(struct fg_chip *chip)
 {
 	int rc, msoc, recharge_soc, new_recharge_soc = 0;
+	bool recharge_soc_status;
 
 	if (!chip->dt.auto_recharge_soc)
 		return 0;
 
 	recharge_soc = chip->dt.recharge_soc_thr;
+	recharge_soc_status = chip->recharge_soc_adjusted;
 	/*
 	 * If the input is present and charging had been terminated, adjust
 	 * the recharge SOC threshold based on the monotonic SOC at which
 	 * the charge termination had happened.
 	 */
-	if (is_input_present(chip) && !chip->recharge_soc_adjusted
-		&& chip->charge_done) {
-		/* Get raw monotonic SOC for calculation */
-		rc = fg_get_msoc(chip, &msoc);
-		if (rc < 0) {
-			pr_err("Error in getting msoc, rc=%d\n", rc);
-			return rc;
-		}
+	if (is_input_present(chip)) {
+		if (chip->charge_done) {
+			if (!chip->recharge_soc_adjusted) {
+				/* Get raw monotonic SOC for calculation */
+				rc = fg_get_msoc(chip, &msoc);
+				if (rc < 0) {
+					pr_err("Error in getting msoc, rc=%d\n",
+						rc);
+					return rc;
+				}
 
-		/* Adjust the recharge_soc threshold */
-		new_recharge_soc = msoc - (FULL_CAPACITY - recharge_soc);
-	} else if (chip->recharge_soc_adjusted && (!is_input_present(chip)
-				|| chip->health == POWER_SUPPLY_HEALTH_GOOD)) {
+				/* Adjust the recharge_soc threshold */
+				new_recharge_soc = msoc - (FULL_CAPACITY -
+								recharge_soc);
+				chip->recharge_soc_adjusted = true;
+			} else {
+				/* adjusted already, do nothing */
+				return 0;
+			}
+		} else {
+			/* Charging, do nothing */
+			return 0;
+		}
+	} else {
 		/* Restore the default value */
 		new_recharge_soc = recharge_soc;
+		chip->recharge_soc_adjusted = false;
 	}
 
-	if (new_recharge_soc > 0 && new_recharge_soc < FULL_CAPACITY) {
-		rc = fg_set_recharge_soc(chip, new_recharge_soc);
-		if (rc) {
-			pr_err("Couldn't set resume SOC for FG, rc=%d\n", rc);
-			return rc;
-		}
-
-		chip->recharge_soc_adjusted = (new_recharge_soc !=
-						recharge_soc);
-		fg_dbg(chip, FG_STATUS, "resume soc set to %d\n",
-			new_recharge_soc);
+	rc = fg_set_recharge_soc(chip, new_recharge_soc);
+	if (rc < 0) {
+		chip->recharge_soc_adjusted = recharge_soc_status;
+		pr_err("Couldn't set resume SOC for FG, rc=%d\n", rc);
+		return rc;
 	}
 
+	fg_dbg(chip, FG_STATUS, "resume soc set to %d\n", new_recharge_soc);
 	return 0;
 }
 
