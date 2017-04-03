@@ -434,6 +434,7 @@ struct diag_md_session_t {
 	struct diag_mask_info *msg_mask;
 	struct diag_mask_info *log_mask;
 	struct diag_mask_info *event_mask;
+	struct thread_info *md_client_thread_info;
 	struct task_struct *task;
 };
 

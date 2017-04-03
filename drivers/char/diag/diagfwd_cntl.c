@@ -124,7 +124,9 @@ void diag_notify_md_client(uint8_t peripheral, int data)
 	info.si_signo = SIGCONT;
 	if (driver->md_session_map[peripheral] &&
 		driver->md_session_map[peripheral]->task) {
-		if (driver->md_session_map[peripheral]->pid ==
+		if (driver->md_session_map[peripheral]->
+			md_client_thread_info->task != NULL
+			&& driver->md_session_map[peripheral]->pid ==
 			driver->md_session_map[peripheral]->task->tgid) {
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 				"md_session %d pid = %d, md_session %d task tgid = %d\n",
