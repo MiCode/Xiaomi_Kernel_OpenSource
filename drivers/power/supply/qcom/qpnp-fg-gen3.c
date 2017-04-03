@@ -1598,6 +1598,9 @@ static int fg_rconn_config(struct fg_chip *chip)
 	u64 scaling_factor;
 	u32 val = 0;
 
+	if (!chip->dt.rconn_mohms)
+		return 0;
+
 	rc = fg_sram_read(chip, PROFILE_INTEGRITY_WORD,
 			SW_CONFIG_OFFSET, (u8 *)&val, 1, FG_IMA_DEFAULT);
 	if (rc < 0) {
@@ -3176,12 +3179,10 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
-	if (chip->dt.rconn_mohms > 0) {
-		rc = fg_rconn_config(chip);
-		if (rc < 0) {
-			pr_err("Error in configuring Rconn, rc=%d\n", rc);
-			return rc;
-		}
+	rc = fg_rconn_config(chip);
+	if (rc < 0) {
+		pr_err("Error in configuring Rconn, rc=%d\n", rc);
+		return rc;
 	}
 
 	fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER,
@@ -3228,20 +3229,19 @@ static irqreturn_t fg_mem_xcp_irq_handler(int irq, void *data)
 	}
 
 	fg_dbg(chip, FG_IRQ, "irq %d triggered, status:%d\n", irq, status);
-	if (status & MEM_XCP_BIT) {
-		rc = fg_clear_dma_errors_if_any(chip);
-		if (rc < 0) {
-			pr_err("Error in clearing DMA error, rc=%d\n", rc);
-			return IRQ_HANDLED;
-		}
 
-		mutex_lock(&chip->sram_rw_lock);
+	mutex_lock(&chip->sram_rw_lock);
+	rc = fg_clear_dma_errors_if_any(chip);
+	if (rc < 0)
+		pr_err("Error in clearing DMA error, rc=%d\n", rc);
+
+	if (status & MEM_XCP_BIT) {
 		rc = fg_clear_ima_errors_if_any(chip, true);
 		if (rc < 0 && rc != -EAGAIN)
 			pr_err("Error in checking IMA errors rc:%d\n", rc);
-		mutex_unlock(&chip->sram_rw_lock);
 	}
 
+	mutex_unlock(&chip->sram_rw_lock);
 	return IRQ_HANDLED;
 }
 
@@ -3957,9 +3957,7 @@ static int fg_parse_dt(struct fg_chip *chip)
 		pr_err("Error in parsing Ki coefficients, rc=%d\n", rc);
 
 	rc = of_property_read_u32(node, "qcom,fg-rconn-mohms", &temp);
-	if (rc < 0)
-		chip->dt.rconn_mohms = -EINVAL;
-	else
+	if (!rc)
 		chip->dt.rconn_mohms = temp;
 
 	rc = of_property_read_u32(node, "qcom,fg-esr-filter-switch-temp",

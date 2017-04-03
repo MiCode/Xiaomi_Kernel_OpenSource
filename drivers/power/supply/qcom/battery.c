@@ -24,7 +24,7 @@
 #include <linux/printk.h>
 #include <linux/pm_wakeup.h>
 #include <linux/slab.h>
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 
 #define DRV_MAJOR_VERSION	1
 #define DRV_MINOR_VERSION	0

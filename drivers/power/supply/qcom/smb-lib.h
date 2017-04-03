@@ -32,6 +32,7 @@ enum print_reason {
 #define USER_VOTER			"USER_VOTER"
 #define PD_VOTER			"PD_VOTER"
 #define DCP_VOTER			"DCP_VOTER"
+#define QC_VOTER			"QC_VOTER"
 #define PL_USBIN_USBIN_VOTER		"PL_USBIN_USBIN_VOTER"
 #define USB_PSY_VOTER			"USB_PSY_VOTER"
 #define PL_TAPER_WORK_RUNNING_VOTER	"PL_TAPER_WORK_RUNNING_VOTER"
@@ -272,6 +273,7 @@ struct smb_charger {
 	struct votable		*hvdcp_enable_votable;
 	struct votable		*apsd_disable_votable;
 	struct votable		*hvdcp_hw_inov_dis_votable;
+	struct votable		*usb_irq_enable_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
