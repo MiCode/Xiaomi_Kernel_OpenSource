@@ -301,6 +301,7 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 		mdss_fb_set_backlight(mfd, bl_lvl);
 		mutex_unlock(&mfd->bl_lock);
 	}
+	mfd->bl_level_usr = bl_lvl;
 }
 
 static enum led_brightness mdss_fb_get_bl_brightness(
@@ -309,7 +310,7 @@ static enum led_brightness mdss_fb_get_bl_brightness(
 	struct msm_fb_data_type *mfd = dev_get_drvdata(led_cdev->dev->parent);
 	enum led_brightness value;
 
-	MDSS_BL_TO_BRIGHT(value, mfd->bl_level, mfd->panel_info->bl_max,
+	MDSS_BL_TO_BRIGHT(value, mfd->bl_level_usr, mfd->panel_info->bl_max,
 			  mfd->panel_info->brightness_max);
 
 	return value;
@@ -1276,6 +1277,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->calib_mode_bl = 0;
 	mfd->unset_bl_level = U32_MAX;
 	mfd->bl_extn_level = -1;
+	mfd->bl_level_usr = backlight_led.brightness;
 
 	mfd->pdev = pdev;
 
