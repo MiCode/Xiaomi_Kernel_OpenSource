@@ -64,6 +64,8 @@
 #define MON3_INT_STATUS_MASK	0x0F
 #define MON3_EN(m)		((m)->base + 0x10)
 #define MON3_CLEAR(m)		((m)->base + 0x14)
+#define MON3_MASK(m)		((m)->base + 0x18)
+#define MON3_MATCH(m)		((m)->base + 0x1C)
 #define MON3_SW(m)		((m)->base + 0x20)
 #define MON3_THRES_HI(m)	((m)->base + 0x24)
 #define MON3_THRES_MED(m)	((m)->base + 0x28)
@@ -102,6 +104,8 @@ struct bwmon {
 	u32 throttle_adj;
 	u32 sample_size_ms;
 	u32 intr_status;
+	u32 byte_mask;
+	u32 byte_match;
 };
 
 #define to_bwmon(ptr)		container_of(ptr, struct bwmon, hw)
@@ -731,6 +735,25 @@ static irqreturn_t bwmon_intr_thread(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
+static __always_inline
+void mon_set_byte_count_filter(struct bwmon *m, enum mon_reg_type type)
+{
+	if (!m->byte_mask)
+		return;
+
+	switch (type) {
+	case MON1:
+	case MON2:
+		writel_relaxed(m->byte_mask, MON_MASK(m));
+		writel_relaxed(m->byte_match, MON_MATCH(m));
+		break;
+	case MON3:
+		writel_relaxed(m->byte_mask, MON3_MASK(m));
+		writel_relaxed(m->byte_match, MON3_MATCH(m));
+		break;
+	}
+}
+
 static __always_inline int __start_bw_hwmon(struct bw_hwmon *hw,
 		unsigned long mbps, enum mon_reg_type type)
 {
@@ -782,6 +805,7 @@ static __always_inline int __start_bw_hwmon(struct bw_hwmon *hw,
 		writel_relaxed(zone_actions, MON3_ZONE_ACTIONS(m));
 	}
 
+	mon_set_byte_count_filter(m, type);
 	mon_irq_clear(m, type);
 	mon_irq_enable(m, type);
 	mon_enable(m, type);
@@ -1059,6 +1083,11 @@ static int bimc_bwmon_driver_probe(struct platform_device *pdev)
 		m->hw.set_thres = set_thres;
 		break;
 	}
+
+	of_property_read_u32(dev->of_node, "qcom,byte-mid-match",
+			     &m->byte_match);
+	of_property_read_u32(dev->of_node, "qcom,byte-mid-mask",
+			     &m->byte_mask);
 
 	if (m->spec->throt_adj) {
 		m->hw.set_throttle_adj = mon_set_throttle_adj;
