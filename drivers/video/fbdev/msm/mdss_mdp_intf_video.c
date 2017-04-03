@@ -32,8 +32,6 @@
 /* Poll time to do recovery during active region */
 #define POLL_TIME_USEC_FOR_LN_CNT 500
 
-#define MAX_POLL_LN_CNT	10
-
 /* Filter out input events for 1 vsync time after receiving an input event*/
 #define INPUT_EVENT_HANDLER_DELAY_USECS 16000
 
@@ -365,7 +363,6 @@ static int mdss_mdp_video_intf_recovery(void *data, int event)
 	struct mdss_mdp_ctl *ctl = data;
 	struct mdss_panel_info *pinfo;
 	u32 line_cnt, min_ln_cnt, active_lns_cnt;
-	u32 prev_line_cnt = 0, cnt_val = 0;
 	u64 clk_rate;
 	u32 clk_period, time_of_line;
 	u32 delay;
@@ -431,8 +428,8 @@ static int mdss_mdp_video_intf_recovery(void *data, int event)
 	mutex_lock(&ctl->offlock);
 	while (1) {
 		if (!ctl || ctl->mfd->shutdown_pending || !ctx ||
-			!ctx->timegen_en || pinfo->panel_dead) {
-			pr_warn("Device Suspend/shutdown pending/panel dead\n");
+				!ctx->timegen_en) {
+			pr_warn("Target is in suspend or shutdown pending\n");
 			mutex_unlock(&ctl->offlock);
 			return -EPERM;
 		}
@@ -448,18 +445,6 @@ static int mdss_mdp_video_intf_recovery(void *data, int event)
 		} else {
 			pr_warn("line count is less. line_cnt = %d\n",
 								line_cnt);
-			if (line_cnt == prev_line_cnt) {
-				if (cnt_val > MAX_POLL_LN_CNT) {
-					pr_warn("Timegen seems to be stuck\n");
-					mutex_unlock(&ctl->offlock);
-					return 0;
-				}
-				cnt_val++;
-			} else {
-				prev_line_cnt = line_cnt;
-				cnt_val = 0;
-			}
-
 			/* Add delay so that line count is in active region */
 			udelay(delay);
 		}
