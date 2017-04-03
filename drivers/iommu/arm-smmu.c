@@ -1834,25 +1834,55 @@ static int arm_smmu_get_domain_iova_range(struct device *dev,
 					   dma_addr_t *ret_end)
 {
 	dma_addr_t iova_base, iova_end;
+	dma_addr_t dma_base, dma_end, geometry_start, geometry_end;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	dma_addr_t hw_base = 0;
 	dma_addr_t hw_end = (1UL << ias) - 1;
 	bool is_fast = test_bit(DOMAIN_ATTR_FAST, smmu_domain->attributes);
+	int ret;
 
-	if (is_fast) {
+	if (!is_fast) {
+		iova_base = hw_base;
+		iova_end = hw_end;
+		goto end;
+	}
+
+	ret = arm_smmu_get_domain_dma_range(dev, domain, hw_base, hw_end,
+					    &dma_base, &dma_end);
+	if (ret)
+		return ret;
+
+	ret = get_range_prop(dev, "qcom,iommu-geometry", &geometry_start,
+			     &geometry_end);
+	if (!ret) {
+		if (geometry_start >= SZ_1G * 4ULL ||
+		    geometry_end >= SZ_1G * 4ULL) {
+			pr_err("fastmap geometry does not support IOVAs >= 4GB\n");
+			return -EINVAL;
+		}
+
+		if (geometry_start < dma_base)
+			iova_base = geometry_start;
+		else
+			iova_base = dma_base;
+
+		if (geometry_end > dma_end)
+			iova_end = geometry_end;
+		else
+			iova_end = dma_end;
+	} else if (ret == -ENOENT) {
 		iova_base = 0;
 		iova_end = SZ_4G - 1;
 	} else {
-		iova_base = hw_base;
-		iova_end = hw_end;
+		return ret;
 	}
 
 	if (!((hw_base <= iova_base) && (iova_end <= hw_end)))
 		return -EINVAL;
 
+end:
 	*ret_base = iova_base;
 	*ret_end = iova_end;
-
 	return 0;
 }
 
@@ -2131,8 +2161,10 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	ret = arm_smmu_get_domain_iova_range(dev, domain, ias,
 					     &ttbr0_pgtbl_info->iova_base,
 					     &ttbr0_pgtbl_info->iova_end);
-	if (ret)
+	if (ret) {
+		dev_err(dev, "Failed to get domain IOVA range\n");
 		goto out_clear_smmu;
+	}
 
 	ttbr0_pgtbl_info->pgtbl_cfg = (struct io_pgtable_cfg) {
 		.quirks		= quirks,
