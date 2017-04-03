@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,7 +65,7 @@ struct bwmon {
 	void __iomem *base;
 	void __iomem *global_base;
 	unsigned int mport;
-	unsigned int irq;
+	int irq;
 	const struct bwmon_spec *spec;
 	struct device *dev;
 	struct bw_hwmon hw;
