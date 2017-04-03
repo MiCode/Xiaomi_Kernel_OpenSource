@@ -546,6 +546,26 @@ int msm_gem_cpu_fini(struct drm_gem_object *obj)
 	return 0;
 }
 
+void msm_gem_sync(struct drm_gem_object *obj, u32 op)
+{
+	struct drm_device *dev = obj->dev;
+	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+
+	if (msm_obj->flags & (MSM_BO_WC|MSM_BO_UNCACHED))
+		return;
+
+	switch (op) {
+	case MSM_GEM_SYNC_TO_CPU:
+		dma_sync_sg_for_cpu(dev->dev, msm_obj->sgt->sgl,
+			msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
+		break;
+	case MSM_GEM_SYNC_TO_DEV:
+		dma_sync_sg_for_device(dev->dev, msm_obj->sgt->sgl,
+			msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
+		break;
+	}
+}
+
 #ifdef CONFIG_DEBUG_FS
 void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 {

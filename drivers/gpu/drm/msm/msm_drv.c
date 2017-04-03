@@ -1537,6 +1537,37 @@ static int msm_ioctl_deregister_event(struct drm_device *dev, void *data,
 	return 0;
 }
 
+static int msm_ioctl_gem_sync(struct drm_device *dev, void *data,
+			     struct drm_file *file)
+{
+
+	struct drm_msm_gem_sync *arg = data;
+	int i;
+
+	for (i = 0; i < arg->nr_ops; i++) {
+		struct drm_msm_gem_syncop syncop;
+		struct drm_gem_object *obj;
+		int ret;
+		void __user *ptr =
+			(void __user *)(uintptr_t)
+				(arg->ops + (i * sizeof(syncop)));
+
+		ret = copy_from_user(&syncop, ptr, sizeof(syncop));
+		if (ret)
+			return -EFAULT;
+
+		obj = drm_gem_object_lookup(dev, file, syncop.handle);
+		if (!obj)
+			return -ENOENT;
+
+		msm_gem_sync(obj, syncop.op);
+
+		drm_gem_object_unreference_unlocked(obj);
+	}
+
+	return 0;
+}
+
 void msm_send_crtc_notification(struct drm_crtc *crtc,
 				struct drm_event *event, u8 *payload)
 {
@@ -1664,6 +1695,8 @@ static const struct drm_ioctl_desc msm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MSM_COUNTER_PUT, msm_ioctl_counter_put,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_COUNTER_READ, msm_ioctl_counter_read,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_GEM_SYNC, msm_ioctl_gem_sync,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
