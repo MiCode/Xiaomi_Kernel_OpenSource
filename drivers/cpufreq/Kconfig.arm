@@ -263,4 +263,4 @@ config CPU_FREQ_MSM
 	bool "MSM CPUFreq support"
 	depends on CPU_FREQ
 	help
-	  This enables the CPUFreq driver for Qualcomm CPUs.
+	  This enables the CPUFreq driver for Qualcomm Technologies, Inc. CPUs.
