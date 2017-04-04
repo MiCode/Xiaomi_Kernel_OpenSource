@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -309,4 +309,6 @@ extern int swr_reset_device(struct swr_device *swr_dev);
 extern int swr_slvdev_datapath_control(struct swr_device *swr_dev, u8 dev_num,
 				       bool enable);
 extern int swr_remove_from_group(struct swr_device *dev, u8 dev_num);
+
+extern void swr_remove_device(struct swr_device *swr_dev);
 #endif /* _LINUX_SOUNDWIRE_H */
