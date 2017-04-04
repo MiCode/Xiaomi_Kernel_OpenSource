@@ -23,16 +23,18 @@ static int mhi_process_event_ring(
 	union mhi_event_pkt *local_rp = NULL;
 	union mhi_event_pkt *device_rp = NULL;
 	union mhi_event_pkt event_to_process;
-	int ret_val = 0;
+	int count = 0;
 	struct mhi_event_ctxt *ev_ctxt = NULL;
 	unsigned long flags;
 	struct mhi_ring *local_ev_ctxt =
 		&mhi_dev_ctxt->mhi_local_event_ctxt[ev_index];
 
-	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "enter ev_index:%u\n", ev_index);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Enter ev_index:%u\n", ev_index);
 	read_lock_bh(&mhi_dev_ctxt->pm_xfer_lock);
-	if (unlikely(mhi_dev_ctxt->mhi_pm_state == MHI_PM_DISABLE)) {
-		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR, "Invalid MHI PM State\n");
+	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_dev_ctxt->mhi_pm_state))) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"No event access, PM_STATE:0x%x\n",
+			mhi_dev_ctxt->mhi_pm_state);
 		read_unlock_bh(&mhi_dev_ctxt->pm_xfer_lock);
 		return -EIO;
 	}
@@ -98,6 +100,7 @@ static int mhi_process_event_ring(
 		{
 			u32 chan;
 			struct mhi_ring *ring;
+			unsigned long flags;
 
 			__pm_stay_awake(&mhi_dev_ctxt->w_lock);
 			chan = MHI_EV_READ_CHID(EV_CHID, &event_to_process);
@@ -107,12 +110,12 @@ static int mhi_process_event_ring(
 				break;
 			}
 			ring = &mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
-			spin_lock_bh(&ring->ring_lock);
+			spin_lock_irqsave(&ring->ring_lock, flags);
 			if (ring->ch_state == MHI_CHAN_STATE_ENABLED)
 				parse_xfer_event(mhi_dev_ctxt,
 						 &event_to_process,
 						 ev_index);
-			spin_unlock_bh(&ring->ring_lock);
+			spin_unlock_irqrestore(&ring->ring_lock, flags);
 			__pm_relax(&mhi_dev_ctxt->w_lock);
 			event_quota--;
 			break;
@@ -136,18 +139,41 @@ static int mhi_process_event_ring(
 				mhi_dev_ctxt->mhi_state =
 					mhi_get_m_state(mhi_dev_ctxt);
 				if (mhi_dev_ctxt->mhi_state == MHI_STATE_M1) {
-					mhi_dev_ctxt->mhi_pm_state = MHI_PM_M1;
-					mhi_dev_ctxt->counters.m0_m1++;
-					schedule_work(&mhi_dev_ctxt->
-						      process_m1_worker);
+					enum MHI_PM_STATE state;
+
+					state = mhi_tryset_pm_state
+						(mhi_dev_ctxt, MHI_PM_M1);
+					if (state == MHI_PM_M1) {
+						mhi_dev_ctxt->counters.m0_m1++;
+						schedule_work
+							(&mhi_dev_ctxt->
+							 process_m1_worker);
+					}
 				}
 				write_unlock_irqrestore(&mhi_dev_ctxt->
-							pm_xfer_lock,
-							flags);
+							pm_xfer_lock, flags);
 				break;
 			case STATE_TRANSITION_M3:
 				process_m3_transition(mhi_dev_ctxt);
 				break;
+			case STATE_TRANSITION_SYS_ERR:
+			{
+				enum MHI_PM_STATE new_state;
+				unsigned long flags;
+
+				mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+					"MHI System Error Detected\n");
+				write_lock_irqsave(&mhi_dev_ctxt->pm_xfer_lock,
+						   flags);
+				new_state = mhi_tryset_pm_state
+					(mhi_dev_ctxt, MHI_PM_SYS_ERR_DETECT);
+				write_unlock_irqrestore
+					(&mhi_dev_ctxt->pm_xfer_lock, flags);
+				if (new_state == MHI_PM_SYS_ERR_DETECT)
+					schedule_work(&mhi_dev_ctxt->
+						      process_sys_err_worker);
+				break;
+			}
 			default:
 				mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 					"Unsupported STE received ring 0x%x State:%s\n",
@@ -158,39 +184,42 @@ static int mhi_process_event_ring(
 		}
 		case MHI_PKT_TYPE_EE_EVENT:
 		{
-			enum STATE_TRANSITION new_state;
+			enum STATE_TRANSITION new_state = 0;
+			enum MHI_EXEC_ENV event =
+				MHI_READ_EXEC_ENV(&event_to_process);
 
 			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-				"MHI EEE received ring 0x%x\n", ev_index);
+				"MHI EE received ring 0x%x event:0x%x\n",
+				ev_index, event);
 			__pm_stay_awake(&mhi_dev_ctxt->w_lock);
 			__pm_relax(&mhi_dev_ctxt->w_lock);
-			switch (MHI_READ_EXEC_ENV(&event_to_process)) {
+			switch (event) {
 			case MHI_EXEC_ENV_SBL:
 				new_state = STATE_TRANSITION_SBL;
-				mhi_init_state_transition(mhi_dev_ctxt,
-								new_state);
 				break;
 			case MHI_EXEC_ENV_AMSS:
 				new_state = STATE_TRANSITION_AMSS;
-				mhi_init_state_transition(mhi_dev_ctxt,
-								new_state);
 				break;
 			case MHI_EXEC_ENV_BHIE:
 				new_state = STATE_TRANSITION_BHIE;
+				break;
+			case MHI_EXEC_ENV_RDDM:
+				new_state = STATE_TRANSITION_RDDM;
+				break;
+			default:
+				mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+					"Invalid EE Event 0x%x received\n",
+					event);
+			}
+			if (new_state)
 				mhi_init_state_transition(mhi_dev_ctxt,
 							  new_state);
-			}
 			break;
 		}
 		case MHI_PKT_TYPE_STALE_EVENT:
 			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 				"Stale Event received for chan:%u\n",
 				MHI_EV_READ_CHID(EV_CHID, local_rp));
-			break;
-		case MHI_PKT_TYPE_SYS_ERR_EVENT:
-			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-				"MHI System Error Detected. Triggering Reset\n");
-			BUG();
 			break;
 		default:
 			mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
@@ -207,13 +236,13 @@ static int mhi_process_event_ring(
 						ev_index,
 						ev_ctxt->mhi_event_read_ptr);
 		spin_unlock_irqrestore(&local_ev_ctxt->ring_lock, flags);
-		ret_val = 0;
+		count++;
 	}
 	read_lock_bh(&mhi_dev_ctxt->pm_xfer_lock);
 	mhi_dev_ctxt->deassert_wake(mhi_dev_ctxt);
 	read_unlock_bh(&mhi_dev_ctxt->pm_xfer_lock);
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "exit ev_index:%u\n", ev_index);
-	return ret_val;
+	return count;
 }
 
 void mhi_ev_task(unsigned long data)
@@ -222,10 +251,40 @@ void mhi_ev_task(unsigned long data)
 	struct mhi_device_ctxt *mhi_dev_ctxt =
 		mhi_ring->mhi_dev_ctxt;
 	int ev_index = mhi_ring->index;
+	const int CTRL_EV = 0; /* event ring for ctrl events */
+	int ret;
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Enter\n");
+
 	/* Process event ring */
-	mhi_process_event_ring(mhi_dev_ctxt, ev_index, U32_MAX);
+	ret = mhi_process_event_ring(mhi_dev_ctxt, ev_index, U32_MAX);
+	/*
+	 * If we received MSI for primary event ring with no events to process
+	 * check status register to see if device enter SYSERR status
+	 */
+	if (ev_index == CTRL_EV && !ret) {
+		bool in_sys_err = false;
+		unsigned long flags;
+		enum MHI_PM_STATE new_state;
+
+		read_lock_bh(&mhi_dev_ctxt->pm_xfer_lock);
+		if (MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state))
+			in_sys_err = mhi_in_sys_err(mhi_dev_ctxt);
+		read_unlock_bh(&mhi_dev_ctxt->pm_xfer_lock);
+
+		if (in_sys_err) {
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"MHI System Error Detected\n");
+			write_lock_irqsave(&mhi_dev_ctxt->pm_xfer_lock, flags);
+			new_state = mhi_tryset_pm_state(mhi_dev_ctxt,
+							MHI_PM_SYS_ERR_DETECT);
+			write_unlock_irqrestore(&mhi_dev_ctxt->pm_xfer_lock,
+						flags);
+			if (new_state == MHI_PM_SYS_ERR_DETECT)
+				schedule_work(&mhi_dev_ctxt->
+					      process_sys_err_worker);
+		}
+	}
 
 	enable_irq(MSI_TO_IRQ(mhi_dev_ctxt, ev_index));
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE, "Exit\n");
@@ -258,7 +317,7 @@ struct mhi_result *mhi_poll(struct mhi_client_handle *client_handle)
 	ret_val = mhi_process_event_ring(client_config->mhi_dev_ctxt,
 					 client_config->event_ring_index,
 					 1);
-	if (ret_val)
+	if (ret_val < 0)
 		mhi_log(client_config->mhi_dev_ctxt, MHI_MSG_INFO,
 			"NAPI failed to process event ring\n");
 	return &(client_config->result);

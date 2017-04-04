@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,5 +90,6 @@
 
 int bhi_probe(struct mhi_device_ctxt *mhi_dev_ctxt);
 void bhi_firmware_download(struct work_struct *work);
+int bhi_rddm(struct mhi_device_ctxt *mhi_dev_ctxt, bool in_panic);
 
 #endif
