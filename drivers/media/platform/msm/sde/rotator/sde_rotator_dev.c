@@ -438,6 +438,8 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 {
 	struct sde_rotator_ctx *ctx = vb2_get_drv_priv(q);
 	struct sde_rotator_device *rot_dev = ctx->rot_dev;
+	struct sde_rotator_request *request;
+	struct list_head *curr, *next;
 	int i;
 	int ret;
 
@@ -458,6 +460,21 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 		sde_rot_mgr_lock(rot_dev->mgr);
 		sde_rotator_cancel_all_requests(rot_dev->mgr, ctx->private);
 		sde_rot_mgr_unlock(rot_dev->mgr);
+		list_for_each_safe(curr, next, &ctx->pending_list) {
+			request = container_of(curr, struct sde_rotator_request,
+						list);
+
+			SDEDEV_DBG(rot_dev->dev, "cancel request s:%d\n",
+					ctx->session_id);
+			mutex_unlock(q->lock);
+			cancel_work_sync(&request->submit_work);
+			cancel_work_sync(&request->retire_work);
+			mutex_lock(q->lock);
+			spin_lock(&ctx->list_lock);
+			list_del_init(&request->list);
+			list_add_tail(&request->list, &ctx->retired_list);
+			spin_unlock(&ctx->list_lock);
+		}
 	}
 
 	sde_rotator_return_all_buffers(q, VB2_BUF_STATE_ERROR);
