@@ -2896,6 +2896,24 @@ static struct snd_soc_dai_link msm_wsa_be_dai_links[] = {
 	},
 };
 
+static struct snd_soc_dai_link ext_disp_be_dai_link[] = {
+	/* DISP PORT BACK END DAI Link */
+	{
+		.name = LPASS_BE_DISPLAY_PORT,
+		.stream_name = "Display Port Playback",
+		.cpu_dai_name = "msm-dai-q6-dp.24608",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-ext-disp-audio-codec-rx",
+		.codec_dai_name = "msm_dp_audio_codec_rx_dai",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_DISPLAY_PORT_RX,
+		.be_hw_params_fixup = msm_common_be_hw_params_fixup,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+
 static struct snd_soc_dai_link msm_int_dai_links[
 ARRAY_SIZE(msm_int_dai) +
 ARRAY_SIZE(msm_int_wsa_dai) +
@@ -2903,7 +2921,8 @@ ARRAY_SIZE(msm_int_be_dai) +
 ARRAY_SIZE(msm_mi2s_be_dai_links) +
 ARRAY_SIZE(msm_auxpcm_be_dai_links)+
 ARRAY_SIZE(msm_wcn_be_dai_links) +
-ARRAY_SIZE(msm_wsa_be_dai_links)];
+ARRAY_SIZE(msm_wsa_be_dai_links) +
+ARRAY_SIZE(ext_disp_be_dai_link)];
 
 static struct snd_soc_card sdm660_card = {
 	/* snd_soc_card_sdm660 */
@@ -3003,6 +3022,14 @@ static struct snd_soc_card *msm_int_populate_sndcard_dailinks(
 		       msm_wsa_be_dai_links,
 		       sizeof(msm_wsa_be_dai_links));
 		len1 += ARRAY_SIZE(msm_wsa_be_dai_links);
+	}
+	if (of_property_read_bool(dev->of_node, "qcom,ext-disp-audio-rx")) {
+		dev_dbg(dev, "%s(): ext disp audio support present\n",
+				__func__);
+		memcpy(dailink + len1,
+			ext_disp_be_dai_link,
+			sizeof(ext_disp_be_dai_link));
+		len1 += ARRAY_SIZE(ext_disp_be_dai_link);
 	}
 	card->dai_link = dailink;
 	card->num_links = len1;
