@@ -84,6 +84,11 @@ struct msm_asoc_mach_data {
 	struct device_node *us_euro_gpio_p; /* used by pinctrl API */
 	struct device_node *hph_en1_gpio_p; /* used by pinctrl API */
 	struct device_node *hph_en0_gpio_p; /* used by pinctrl API */
+	struct device_node *pdm_gpio_p; /* used by pinctrl API */
+	struct device_node *comp_gpio_p; /* used by pinctrl API */
+	struct device_node *sdw_gpio_p; /* used by pinctrl API */
+	struct device_node *dmic_gpio_p; /* used by pinctrl API */
+	struct device_node *ext_spk_gpio_p; /* used by pinctrl API */
 	struct snd_soc_codec *codec;
 	struct msmfalcon_codec msmfalcon_codec_fn;
 	struct snd_info_entry *codec_root;

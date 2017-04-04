@@ -35,7 +35,7 @@ enum {
 struct msm_dig_priv {
 	struct snd_soc_codec *codec;
 	u32 comp_enabled[MSM89XX_RX_MAX];
-	int (*codec_hph_comp_gpio)(bool enable);
+	int (*codec_hph_comp_gpio)(bool enable, struct snd_soc_codec *codec);
 	s32 dmic_1_2_clk_cnt;
 	s32 dmic_3_4_clk_cnt;
 	bool dec_active[NUM_DECIMATORS];
@@ -85,7 +85,8 @@ enum {
 };
 
 extern void msm_dig_cdc_hph_comp_cb(
-		int (*codec_hph_comp_gpio)(bool enable),
+		int (*codec_hph_comp_gpio)(
+			bool enable, struct snd_soc_codec *codec),
 		struct snd_soc_codec *codec);
 int msm_dig_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 					  struct snd_soc_codec *codec);
