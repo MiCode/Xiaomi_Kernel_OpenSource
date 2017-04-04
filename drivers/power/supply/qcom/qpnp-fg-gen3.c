@@ -904,6 +904,7 @@ out:
 		return ret;
 	}
 
+	vote(chip->batt_miss_irq_en_votable, BATT_MISS_IRQ_VOTER, true, 0);
 	return rc;
 }
 
@@ -1101,6 +1102,25 @@ static void fg_notify_charger(struct fg_chip *chip)
 	}
 
 	fg_dbg(chip, FG_STATUS, "Notified charger on float voltage and FCC\n");
+}
+
+static int fg_batt_miss_irq_en_cb(struct votable *votable, void *data,
+					int enable, const char *client)
+{
+	struct fg_chip *chip = data;
+
+	if (!chip->irqs[BATT_MISSING_IRQ].irq)
+		return 0;
+
+	if (enable) {
+		enable_irq(chip->irqs[BATT_MISSING_IRQ].irq);
+		enable_irq_wake(chip->irqs[BATT_MISSING_IRQ].irq);
+	} else {
+		disable_irq_wake(chip->irqs[BATT_MISSING_IRQ].irq);
+		disable_irq(chip->irqs[BATT_MISSING_IRQ].irq);
+	}
+
+	return 0;
 }
 
 static int fg_delta_bsoc_irq_en_cb(struct votable *votable, void *data,
@@ -2514,6 +2534,23 @@ static void profile_load_work(struct work_struct *work)
 	int rc;
 
 	vote(chip->awake_votable, PROFILE_LOAD, true, 0);
+
+	rc = fg_get_batt_id(chip);
+	if (rc < 0) {
+		pr_err("Error in getting battery id, rc:%d\n", rc);
+		goto out;
+	}
+
+	rc = fg_get_batt_profile(chip);
+	if (rc < 0) {
+		pr_warn("profile for batt_id=%dKOhms not found..using OTP, rc:%d\n",
+			chip->batt_id_ohms / 1000, rc);
+		goto out;
+	}
+
+	if (!chip->profile_available)
+		goto out;
+
 	if (!is_profile_load_required(chip))
 		goto done;
 
@@ -2578,9 +2615,9 @@ done:
 	batt_psy_initialized(chip);
 	fg_notify_charger(chip);
 	chip->profile_loaded = true;
-	chip->soc_reporting_ready = true;
 	fg_dbg(chip, FG_STATUS, "profile loaded successfully");
 out:
+	chip->soc_reporting_ready = true;
 	vote(chip->awake_votable, PROFILE_LOAD, false, 0);
 }
 
@@ -3566,20 +3603,6 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	rc = fg_get_batt_id(chip);
-	if (rc < 0) {
-		chip->soc_reporting_ready = true;
-		pr_err("Error in getting battery id, rc:%d\n", rc);
-		return IRQ_HANDLED;
-	}
-
-	rc = fg_get_batt_profile(chip);
-	if (rc < 0) {
-		chip->soc_reporting_ready = true;
-		pr_err("Error in getting battery profile, rc:%d\n", rc);
-		return IRQ_HANDLED;
-	}
-
 	clear_battery_profile(chip);
 	schedule_delayed_work(&chip->profile_load_work, 0);
 
@@ -4346,6 +4369,9 @@ static void fg_cleanup(struct fg_chip *chip)
 	if (chip->delta_bsoc_irq_en_votable)
 		destroy_votable(chip->delta_bsoc_irq_en_votable);
 
+	if (chip->batt_miss_irq_en_votable)
+		destroy_votable(chip->batt_miss_irq_en_votable);
+
 	if (chip->batt_id_chan)
 		iio_channel_release(chip->batt_id_chan);
 
@@ -4403,6 +4429,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 					chip);
 	if (IS_ERR(chip->awake_votable)) {
 		rc = PTR_ERR(chip->awake_votable);
+		chip->awake_votable = NULL;
 		goto exit;
 	}
 
@@ -4411,6 +4438,16 @@ static int fg_gen3_probe(struct platform_device *pdev)
 						fg_delta_bsoc_irq_en_cb, chip);
 	if (IS_ERR(chip->delta_bsoc_irq_en_votable)) {
 		rc = PTR_ERR(chip->delta_bsoc_irq_en_votable);
+		chip->delta_bsoc_irq_en_votable = NULL;
+		goto exit;
+	}
+
+	chip->batt_miss_irq_en_votable = create_votable("FG_BATT_MISS_IRQ",
+						VOTE_SET_ANY,
+						fg_batt_miss_irq_en_cb, chip);
+	if (IS_ERR(chip->batt_miss_irq_en_votable)) {
+		rc = PTR_ERR(chip->batt_miss_irq_en_votable);
+		chip->batt_miss_irq_en_votable = NULL;
 		goto exit;
 	}
 
@@ -4434,19 +4471,6 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->cycle_count_work, cycle_count_work);
 	INIT_DELAYED_WORK(&chip->batt_avg_work, batt_avg_work);
 	INIT_DELAYED_WORK(&chip->sram_dump_work, sram_dump_work);
-
-	rc = fg_get_batt_id(chip);
-	if (rc < 0) {
-		pr_err("Error in getting battery id, rc:%d\n", rc);
-		goto exit;
-	}
-
-	rc = fg_get_batt_profile(chip);
-	if (rc < 0) {
-		chip->soc_reporting_ready = true;
-		pr_warn("profile for batt_id=%dKOhms not found..using OTP, rc:%d\n",
-			chip->batt_id_ohms / 1000, rc);
-	}
 
 	rc = fg_memif_init(chip);
 	if (rc < 0) {
@@ -4491,12 +4515,15 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
-	/* Keep SOC_UPDATE irq disabled until we require it */
+	/* Keep SOC_UPDATE_IRQ disabled until we require it */
 	if (fg_irqs[SOC_UPDATE_IRQ].irq)
 		disable_irq_nosync(fg_irqs[SOC_UPDATE_IRQ].irq);
 
-	/* Keep BSOC_DELTA_IRQ irq disabled until we require it */
+	/* Keep BSOC_DELTA_IRQ disabled until we require it */
 	vote(chip->delta_bsoc_irq_en_votable, DELTA_BSOC_IRQ_VOTER, false, 0);
+
+	/* Keep BATT_MISSING_IRQ disabled until we require it */
+	vote(chip->batt_miss_irq_en_votable, BATT_MISS_IRQ_VOTER, false, 0);
 
 	rc = fg_debugfs_create(chip);
 	if (rc < 0) {
@@ -4521,8 +4548,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(chip->dev, true);
-	if (chip->profile_available)
-		schedule_delayed_work(&chip->profile_load_work, 0);
+	schedule_delayed_work(&chip->profile_load_work, 0);
 
 	pr_debug("FG GEN3 driver probed successfully\n");
 	return 0;
