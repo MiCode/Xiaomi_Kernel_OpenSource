@@ -23,7 +23,7 @@
 #include "cam_req_mgr_dev.h"
 #include "cam_req_mgr_util.h"
 #include "cam_req_mgr_core.h"
-#include "cam_dev_mgr_util.h"
+#include "cam_subdev.h"
 
 #define CAM_REQ_MGR_EVENT_MAX 30
 
