@@ -112,12 +112,19 @@ static struct thermal_governor thermal_gov_low_limits_floor = {
 	.min_state_throttle = 1,
 };
 
+static struct thermal_governor thermal_gov_low_limits_cap = {
+	.name		= "low_limits_cap",
+	.throttle	= low_limits_throttle,
+};
+
 int thermal_gov_low_limits_register(void)
 {
+	thermal_register_governor(&thermal_gov_low_limits_cap);
 	return thermal_register_governor(&thermal_gov_low_limits_floor);
 }
 
 void thermal_gov_low_limits_unregister(void)
 {
+	thermal_unregister_governor(&thermal_gov_low_limits_cap);
 	thermal_unregister_governor(&thermal_gov_low_limits_floor);
 }
