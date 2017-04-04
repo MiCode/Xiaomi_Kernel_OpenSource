@@ -285,7 +285,7 @@ static int msm_dig_cdc_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 						 int event)
 {
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
-	struct msm_dig *msm_dig_cdc = dev_get_drvdata(codec->dev);
+	struct msm_dig_priv *msm_dig_cdc = snd_soc_codec_get_drvdata(codec);
 
 	dev_dbg(codec->dev, "%s %d %s\n", __func__, event, w->name);
 
@@ -542,14 +542,14 @@ static void tx_hpf_corner_freq_callback(struct work_struct *work)
 	struct delayed_work *hpf_delayed_work;
 	struct hpf_work *hpf_work;
 	struct snd_soc_codec *codec;
-	struct msm_dig *msm_dig_cdc;
+	struct msm_dig_priv *msm_dig_cdc;
 	u16 tx_mux_ctl_reg;
 	u8 hpf_cut_of_freq;
 
 	hpf_delayed_work = to_delayed_work(work);
 	hpf_work = container_of(hpf_delayed_work, struct hpf_work, dwork);
 	codec = hpf_work->dig_cdc->codec;
-	msm_dig_cdc = codec->control_data;
+	msm_dig_cdc = hpf_work->dig_cdc;
 	hpf_cut_of_freq = hpf_work->tx_hpf_cut_of_freq;
 
 	tx_mux_ctl_reg = MSM89XX_CDC_CORE_TX1_MUX_CTL +
@@ -826,8 +826,7 @@ static int msm_dig_cdc_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
 	struct msm_asoc_mach_data *pdata = NULL;
 	unsigned int decimator;
-	struct msm_dig_priv *dig_cdc = snd_soc_codec_get_drvdata(codec);
-	struct msm_dig *msm_dig_cdc = codec->control_data;
+	struct msm_dig_priv *msm_dig_cdc = snd_soc_codec_get_drvdata(codec);
 	char *dec_name = NULL;
 	char *widget_name = NULL;
 	char *temp;
@@ -897,7 +896,7 @@ static int msm_dig_cdc_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x01);
 		for (i = 0; i < NUM_DECIMATORS; i++) {
 			if (decimator == i + 1)
-				dig_cdc->dec_active[i] = true;
+				msm_dig_cdc->dec_active[i] = true;
 		}
 
 		dec_hpf_cut_of_freq = snd_soc_read(codec, tx_mux_ctl_reg);
@@ -957,7 +956,7 @@ static int msm_dig_cdc_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x00);
 		for (i = 0; i < NUM_DECIMATORS; i++) {
 			if (decimator == i + 1)
-				dig_cdc->dec_active[i] = false;
+				msm_dig_cdc->dec_active[i] = false;
 		}
 		break;
 	}
@@ -972,7 +971,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 {
 	enum dig_cdc_notify_event event = (enum dig_cdc_notify_event)val;
 	struct snd_soc_codec *codec = registered_digcodec;
-	struct msm_dig *msm_dig_cdc = codec->control_data;
+	struct msm_dig_priv *msm_dig_cdc = snd_soc_codec_get_drvdata(codec);
 	struct msm_asoc_mach_data *pdata = NULL;
 
 	pdata = snd_soc_card_get_drvdata(codec->component.card);
@@ -1155,36 +1154,34 @@ int msm_dig_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 		return -ENOMEM;
 	}
 	msm_dig->version_entry = version_entry;
+	if (msm_dig->get_cdc_version)
+		msm_dig->version = msm_dig->get_cdc_version(msm_dig->handle);
+	else
+		msm_dig->version = DRAX_CDC;
+
 	return 0;
 }
 EXPORT_SYMBOL(msm_dig_codec_info_create_codec_entry);
 
 static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 {
-	struct msm_dig_priv *dig_cdc = NULL;
-	struct msm_dig *msm_dig_cdc = dev_get_drvdata(codec->dev);
+	struct msm_dig_priv *msm_dig_cdc = dev_get_drvdata(codec->dev);
 	int i, ret;
 
-	dig_cdc = devm_kzalloc(codec->dev, sizeof(struct msm_dig_priv),
-			      GFP_KERNEL);
-	if (!dig_cdc)
-		return -ENOMEM;
-	snd_soc_codec_set_drvdata(codec, dig_cdc);
-	dig_cdc->codec = codec;
-	codec->control_data = msm_dig_cdc;
+	msm_dig_cdc->codec = codec;
 
 	snd_soc_add_codec_controls(codec, compander_kcontrols,
 			ARRAY_SIZE(compander_kcontrols));
 
 	for (i = 0; i < NUM_DECIMATORS; i++) {
-		tx_hpf_work[i].dig_cdc = dig_cdc;
+		tx_hpf_work[i].dig_cdc = msm_dig_cdc;
 		tx_hpf_work[i].decimator = i + 1;
 		INIT_DELAYED_WORK(&tx_hpf_work[i].dwork,
 			tx_hpf_corner_freq_callback);
 	}
 
 	for (i = 0; i < MSM89XX_RX_MAX; i++)
-		dig_cdc->comp_enabled[i] = COMPANDER_NONE;
+		msm_dig_cdc->comp_enabled[i] = COMPANDER_NONE;
 
 	/* Register event notifier */
 	msm_dig_cdc->nblock.notifier_call = msm_dig_cdc_event_notify;
@@ -1198,15 +1195,14 @@ static int msm_dig_cdc_soc_probe(struct snd_soc_codec *codec)
 			return ret;
 		}
 	}
-	/* Assign to DRAX_CDC for initial version */
-	dig_cdc->version = DRAX_CDC;
 	registered_digcodec = codec;
+
 	return 0;
 }
 
 static int msm_dig_cdc_soc_remove(struct snd_soc_codec *codec)
 {
-	struct msm_dig *msm_dig_cdc = dev_get_drvdata(codec->dev);
+	struct msm_dig_priv *msm_dig_cdc = dev_get_drvdata(codec->dev);
 
 	if (msm_dig_cdc->register_notifier)
 		msm_dig_cdc->register_notifier(msm_dig_cdc->handle,
@@ -1968,7 +1964,7 @@ static struct snd_soc_dai_driver msm_codec_dais[] = {
 
 static struct regmap *msm_digital_get_regmap(struct device *dev)
 {
-	struct msm_dig *msm_dig_cdc = dev_get_drvdata(dev);
+	struct msm_dig_priv *msm_dig_cdc = dev_get_drvdata(dev);
 
 	return msm_dig_cdc->regmap;
 }
@@ -2005,10 +2001,10 @@ static int msm_dig_cdc_probe(struct platform_device *pdev)
 {
 	int ret;
 	u32 dig_cdc_addr;
-	struct msm_dig *msm_dig_cdc;
+	struct msm_dig_priv *msm_dig_cdc;
 	struct dig_ctrl_platform_data *pdata;
 
-	msm_dig_cdc = devm_kzalloc(&pdev->dev, sizeof(struct msm_dig),
+	msm_dig_cdc = devm_kzalloc(&pdev->dev, sizeof(struct msm_dig_priv),
 			      GFP_KERNEL);
 	if (!msm_dig_cdc)
 		return -ENOMEM;
@@ -2019,7 +2015,6 @@ static int msm_dig_cdc_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto rtn;
 	}
-	dev_set_drvdata(&pdev->dev, msm_dig_cdc);
 
 	ret = of_property_read_u32(pdev->dev.of_node, "reg",
 					&dig_cdc_addr);
@@ -2044,6 +2039,7 @@ static int msm_dig_cdc_probe(struct platform_device *pdev)
 	msm_dig_cdc->handle = pdata->handle;
 	msm_dig_cdc->register_notifier = pdata->register_notifier;
 
+	dev_set_drvdata(&pdev->dev, msm_dig_cdc);
 	snd_soc_register_codec(&pdev->dev, &soc_msm_dig_codec,
 				msm_codec_dais, ARRAY_SIZE(msm_codec_dais));
 	dev_dbg(&pdev->dev, "%s: registered DIG CODEC 0x%x\n",
