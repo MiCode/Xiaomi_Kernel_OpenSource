@@ -100,6 +100,7 @@ struct msm_sdw_priv {
 	int (*multi_reg_write)(struct msm_sdw_priv *msm_sdw, const void *data,
 			       size_t count);
 	struct snd_soc_codec *codec;
+	struct device_node *sdw_gpio_p; /* used by pinctrl API */
 	/* SoundWire data structure */
 	struct msm_sdw_ctrl_data *sdw_ctrl_data;
 	int nr;
@@ -120,6 +121,7 @@ struct msm_sdw_priv {
 	struct mutex sdw_write_lock;
 	struct mutex sdw_clk_lock;
 	int sdw_clk_users;
+	int sdw_mclk_users;
 
 	int sdw_irq;
 	int int_mclk1_rsc_ref;
