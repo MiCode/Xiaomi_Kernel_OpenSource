@@ -245,6 +245,33 @@ exit:
 	return ret;
 }
 
+static int msm_compr_set_clk_rec_mode(struct audio_client *ac,
+				     uint32_t clk_rec_mode) {
+	int ret = -EINVAL;
+
+	pr_debug("%s, got clk rec mode %u\n", __func__, clk_rec_mode);
+
+	if (clk_rec_mode == SNDRV_COMPRESS_CLK_REC_MODE_NONE) {
+		clk_rec_mode = ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_NONE;
+	} else if (clk_rec_mode == SNDRV_COMPRESS_CLK_REC_MODE_AUTO) {
+		clk_rec_mode = ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_AUTO;
+	} else {
+		pr_err("%s, Invalid clk rec_mode mode %u\n", __func__,
+			clk_rec_mode);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ret = q6asm_send_mtmx_strtr_clk_rec_mode(ac, clk_rec_mode);
+	if (ret) {
+		pr_err("%s, clk rec mode can't be set, error %d\n", __func__,
+			ret);
+	}
+
+exit:
+	return ret;
+}
+
 static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 				uint32_t volume_l, uint32_t volume_r)
 {
@@ -2775,6 +2802,8 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 		prtd->gapless_state.initial_samples_drop = metadata->value[0];
 	} else if (metadata->key == SNDRV_COMPRESS_RENDER_MODE) {
 		return msm_compr_set_render_mode(prtd, metadata->value[0]);
+	} else if (metadata->key == SNDRV_COMPRESS_CLK_REC_MODE) {
+		return msm_compr_set_clk_rec_mode(ac, metadata->value[0]);
 	}
 
 	return 0;
