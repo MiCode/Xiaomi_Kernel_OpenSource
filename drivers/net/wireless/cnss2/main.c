@@ -944,6 +944,7 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
 	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+	unsigned int timeout;
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL!\n");
@@ -980,8 +981,11 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 		if (ret)
 			goto stop_mhi;
 	} else {
-		mod_timer(&plat_priv->fw_ready_timer,
-			  jiffies + msecs_to_jiffies(FW_READY_TIMEOUT));
+		timeout = cnss_get_qmi_timeout();
+		cnss_pr_dbg("QMI timeout is %u ms\n", timeout);
+		if (timeout)
+			mod_timer(&plat_priv->fw_ready_timer,
+				  jiffies + msecs_to_jiffies(timeout << 1));
 	}
 
 	return 0;
