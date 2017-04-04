@@ -4995,8 +4995,6 @@ void show_state_filter(unsigned long state_filter)
 			sched_show_task(p);
 	}
 
-	touch_all_softlockup_watchdogs();
-
 #ifdef CONFIG_SCHED_DEBUG
 	sysrq_sched_debug_show();
 #endif
