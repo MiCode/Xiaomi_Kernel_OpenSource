@@ -22,6 +22,8 @@
 #define VDDP_REF_CLK_MIN_UV        1200000
 #define VDDP_REF_CLK_MAX_UV        1200000
 
+#define UFS_PHY_DEFAULT_LANES_PER_DIRECTION	1
+
 static int __ufs_qcom_phy_init_vreg(struct phy *, struct ufs_qcom_phy_vreg *,
 				    const char *, bool);
 static int ufs_qcom_phy_init_vreg(struct phy *, struct ufs_qcom_phy_vreg *,
@@ -112,6 +114,11 @@ struct phy *ufs_qcom_phy_generic_probe(struct platform_device *pdev,
 		generic_phy = NULL;
 		goto out;
 	}
+
+	if (of_property_read_u32(dev->of_node, "lanes-per-direction",
+				 &common_cfg->lanes_per_direction))
+		common_cfg->lanes_per_direction =
+			UFS_PHY_DEFAULT_LANES_PER_DIRECTION;
 
 	/*
 	 * UFS PHY power management is managed by its parent (UFS host
