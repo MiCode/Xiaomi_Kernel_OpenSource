@@ -1825,6 +1825,11 @@
 		      <0x10ae000 0x2000>;
 		reg-names = "dcc-base", "dcc-ram-base";
 	};
+
+	qcom,msm-core@780000 {
+		compatible = "qcom,apss-core-ea";
+		reg = <0x780000 0x1000>;
+	};
 };
 
 &pcie_0_gdsc {
