@@ -2055,12 +2055,13 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		return 0;
 
 	/*
-	 * On A5xx, read RBBM_STATUS3:SMMU_STALLED_ON_FAULT (BIT 24) to
-	 * tell if this function was entered after a pagefault. If so, only
+	 * On A5xx and A6xx, read RBBM_STATUS3:SMMU_STALLED_ON_FAULT (BIT 24)
+	 * to tell if this function was entered after a pagefault. If so, only
 	 * proceed if the fault handler has already run in the IRQ thread,
 	 * else return early to give the fault handler a chance to run.
 	 */
-	if (!(fault & ADRENO_IOMMU_PAGE_FAULT) && adreno_is_a5xx(adreno_dev)) {
+	if (!(fault & ADRENO_IOMMU_PAGE_FAULT) &&
+		(adreno_is_a5xx(adreno_dev) || adreno_is_a6xx(adreno_dev))) {
 		unsigned int val;
 
 		mutex_lock(&device->mutex);
@@ -2086,7 +2087,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	 */
 	if (!(fault & ADRENO_HARD_FAULT)) {
 		adreno_readreg(adreno_dev, ADRENO_REG_CP_ME_CNTL, &reg);
-		if (adreno_is_a5xx(adreno_dev))
+		if (adreno_is_a5xx(adreno_dev) || adreno_is_a6xx(adreno_dev))
 			reg |= 1 | (1 << 1);
 		else
 			reg |= (1 << 27) | (1 << 28);
