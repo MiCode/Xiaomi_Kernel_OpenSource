@@ -7586,6 +7586,7 @@ static struct pmu perf_swevent = {
 	.start		= perf_swevent_start,
 	.stop		= perf_swevent_stop,
 	.read		= perf_swevent_read,
+	.events_across_hotplug = 1,
 };
 
 #ifdef CONFIG_EVENT_TRACING
@@ -7730,6 +7731,7 @@ static struct pmu perf_tracepoint = {
 	.start		= perf_swevent_start,
 	.stop		= perf_swevent_stop,
 	.read		= perf_swevent_read,
+	.events_across_hotplug = 1,
 };
 
 static inline void perf_tp_register(void)
@@ -8460,6 +8462,7 @@ static struct pmu perf_cpu_clock = {
 	.start		= cpu_clock_event_start,
 	.stop		= cpu_clock_event_stop,
 	.read		= cpu_clock_event_read,
+	.events_across_hotplug = 1,
 };
 
 /*
@@ -8541,6 +8544,7 @@ static struct pmu perf_task_clock = {
 	.start		= task_clock_event_start,
 	.stop		= task_clock_event_stop,
 	.read		= task_clock_event_read,
+	.events_across_hotplug = 1,
 };
 
 static void perf_pmu_nop_void(struct pmu *pmu)
@@ -10715,6 +10719,76 @@ int perf_event_init_cpu(unsigned int cpu)
 }
 
 #if defined CONFIG_HOTPLUG_CPU || defined CONFIG_KEXEC_CORE
+static void
+check_hotplug_start_event(struct perf_event *event)
+{
+	if (event->attr.type == PERF_TYPE_SOFTWARE) {
+		switch (event->attr.config) {
+		case PERF_COUNT_SW_CPU_CLOCK:
+			cpu_clock_event_start(event, 0);
+			break;
+		case PERF_COUNT_SW_TASK_CLOCK:
+			break;
+		default:
+			if (event->pmu->start)
+				event->pmu->start(event, 0);
+			break;
+		}
+	}
+}
+
+static int perf_event_start_swevents(unsigned int cpu)
+{
+	struct perf_event_context *ctx;
+	struct pmu *pmu;
+	struct perf_event *event;
+	int idx;
+
+	idx = srcu_read_lock(&pmus_srcu);
+	list_for_each_entry_rcu(pmu, &pmus, entry) {
+		ctx = &per_cpu_ptr(pmu->pmu_cpu_context, cpu)->ctx;
+		mutex_lock(&ctx->mutex);
+		raw_spin_lock(&ctx->lock);
+		list_for_each_entry(event, &ctx->event_list, event_entry)
+			check_hotplug_start_event(event);
+		raw_spin_unlock(&ctx->lock);
+		mutex_unlock(&ctx->mutex);
+	}
+	srcu_read_unlock(&pmus_srcu, idx);
+	return 0;
+}
+
+/*
+ * If keeping events across hotplugging is supported, do not
+ * remove the event list so event lives beyond CPU hotplug.
+ * The context is exited via an fd close path when userspace
+ * is done and the target CPU is online. If software clock
+ * event is active, then stop hrtimer associated with it.
+ * Start the timer when the CPU comes back online.
+ */
+static void
+check_hotplug_remove_from_context(struct perf_event *event,
+			   struct perf_cpu_context *cpuctx,
+			   struct perf_event_context *ctx)
+{
+	if (!event->pmu->events_across_hotplug) {
+		__perf_remove_from_context(event, cpuctx,
+			ctx, (void *)DETACH_GROUP);
+	} else if (event->attr.type == PERF_TYPE_SOFTWARE) {
+		switch (event->attr.config) {
+		case PERF_COUNT_SW_CPU_CLOCK:
+			cpu_clock_event_stop(event, 0);
+			break;
+		case PERF_COUNT_SW_TASK_CLOCK:
+			break;
+		default:
+			if (event->pmu->stop)
+				event->pmu->stop(event, 0);
+			break;
+		}
+	}
+}
+
 static void __perf_event_exit_context(void *__info)
 {
 	struct perf_event_context *ctx = __info;
@@ -10723,7 +10797,7 @@ static void __perf_event_exit_context(void *__info)
 
 	raw_spin_lock(&ctx->lock);
 	list_for_each_entry(event, &ctx->event_list, event_entry)
-		__perf_remove_from_context(event, cpuctx, ctx, (void *)DETACH_GROUP);
+		check_hotplug_remove_from_context(event, cpuctx, ctx);
 	raw_spin_unlock(&ctx->lock);
 }
 
@@ -10841,6 +10915,21 @@ unlock:
 	return ret;
 }
 device_initcall(perf_event_sysfs_init);
+
+static int perf_cpu_hp_init(void)
+{
+	int ret;
+
+	ret = cpuhp_setup_state_nocalls(CPUHP_AP_PERF_ONLINE,
+				"PERF/CORE/AP_PERF_ONLINE",
+				perf_event_start_swevents,
+				perf_event_exit_cpu);
+	if (ret)
+		pr_err("CPU hotplug notifier for perf core could not be registered: %d\n",
+		       ret);
+	return ret;
+}
+subsys_initcall(perf_cpu_hp_init);
 
 #ifdef CONFIG_CGROUP_PERF
 static struct cgroup_subsys_state *
