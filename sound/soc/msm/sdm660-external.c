@@ -1530,6 +1530,14 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		return ret;
 	}
 
+	ret = snd_soc_add_codec_controls(codec, msm_common_snd_controls,
+					 msm_common_snd_controls_size());
+	if (ret < 0) {
+		pr_err("%s: add_common_snd_controls failed: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
 	snd_soc_dapm_new_controls(dapm, msm_dapm_widgets,
 			ARRAY_SIZE(msm_dapm_widgets));
 
