@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,7 @@ int msm_ext_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 int msm_ext_cdc_init(struct platform_device *, struct msm_asoc_mach_data *,
 		     struct snd_soc_card **, struct wcd_mbhc_config *);
 void msm_ext_register_audio_notifier(void);
+void msm_ext_cdc_deinit(void);
 #else
 inline int msm_ext_cdc_init(struct platform_device *pdev,
 			    struct msm_asoc_mach_data *pdata,
@@ -44,6 +45,9 @@ inline int msm_ext_cdc_init(struct platform_device *pdev,
 }
 
 inline void msm_ext_register_audio_notifier(void)
+{
+}
+inline void msm_ext_cdc_deinit(void)
 {
 }
 #endif
