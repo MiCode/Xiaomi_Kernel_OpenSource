@@ -5123,19 +5123,18 @@ static int tavil_amic_pwr_lvl_get(struct snd_kcontrol *kcontrol,
 				  struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	u16 amic_reg;
+	u16 amic_reg = 0;
 
 	if (!strcmp(kcontrol->id.name, "AMIC_1_2 PWR MODE"))
 		amic_reg = WCD934X_ANA_AMIC1;
 	if (!strcmp(kcontrol->id.name, "AMIC_3_4 PWR MODE"))
 		amic_reg = WCD934X_ANA_AMIC3;
-	else
-		goto ret;
 
-	ucontrol->value.integer.value[0] =
-		(snd_soc_read(codec, amic_reg) & WCD934X_AMIC_PWR_LVL_MASK) >>
-			     WCD934X_AMIC_PWR_LVL_SHIFT;
-ret:
+	if (amic_reg)
+		ucontrol->value.integer.value[0] =
+			(snd_soc_read(codec, amic_reg) &
+			 WCD934X_AMIC_PWR_LVL_MASK) >>
+			  WCD934X_AMIC_PWR_LVL_SHIFT;
 	return 0;
 }
 
@@ -5144,7 +5143,7 @@ static int tavil_amic_pwr_lvl_put(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	u32 mode_val;
-	u16 amic_reg;
+	u16 amic_reg = 0;
 
 	mode_val = ucontrol->value.enumerated.item[0];
 
@@ -5154,12 +5153,10 @@ static int tavil_amic_pwr_lvl_put(struct snd_kcontrol *kcontrol,
 		amic_reg = WCD934X_ANA_AMIC1;
 	if (!strcmp(kcontrol->id.name, "AMIC_3_4 PWR MODE"))
 		amic_reg = WCD934X_ANA_AMIC3;
-	else
-		goto ret;
 
-	snd_soc_update_bits(codec, amic_reg, WCD934X_AMIC_PWR_LVL_MASK,
-			    mode_val << WCD934X_AMIC_PWR_LVL_SHIFT);
-ret:
+	if (amic_reg)
+		snd_soc_update_bits(codec, amic_reg, WCD934X_AMIC_PWR_LVL_MASK,
+				    mode_val << WCD934X_AMIC_PWR_LVL_SHIFT);
 	return 0;
 }
 
