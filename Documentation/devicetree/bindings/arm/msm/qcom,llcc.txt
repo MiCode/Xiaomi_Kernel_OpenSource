@@ -49,6 +49,16 @@ Require Properties:
 	Value Type: <stringlist>
 	Definition: Address names. Must be "llcc"
 
+- llcc-bank-off:
+	Usage: required
+	Value Type: <u32 array>
+	Definition: Offsets of llcc banks from llcc base address starting from
+		    LLCC bank0.
+- llcc-broadcast-off:
+	Usage: required
+	Value Type: <u32>
+	Definition: Offset of broadcast register from LLCC bank0 address.
+
 - #cache-cells:
 	Usage: required
 	Value Type: <u32>
