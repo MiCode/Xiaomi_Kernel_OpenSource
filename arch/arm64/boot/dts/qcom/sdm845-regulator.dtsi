@@ -801,6 +801,7 @@
 			<RPMH_REGULATOR_MODE_LDO_LPM
 			 RPMH_REGULATOR_MODE_LDO_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
+		pm8998_l24-parent-supply = <&pm8998_l12>;
 		pm8998_l24: regulator-l24 {
 			regulator-name = "pm8998_l24";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
