@@ -18,13 +18,13 @@
 #include <linux/sort.h>
 #include <linux/clk.h>
 #include <linux/bitmap.h>
+#include <linux/sde_rsc.h>
 
 #include "msm_prop.h"
 
 #include "sde_kms.h"
 #include "sde_trace.h"
 #include "sde_crtc.h"
-#include "sde_rsc.h"
 #include "sde_core_perf.h"
 
 static struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)

@@ -17,7 +17,7 @@
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 
-#include "sde_rsc.h"
+#include "sde_rsc_priv.h"
 
 /* display rsc offset */
 #define SDE_RSCC_PDC_SEQ_START_ADDR_REG_OFFSET_DRV0	0x020
