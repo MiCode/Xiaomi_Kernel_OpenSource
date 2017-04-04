@@ -617,6 +617,18 @@ struct kgsl_memdesc *kgsl_mmu_get_qdss_global_entry(struct kgsl_device *device)
 }
 EXPORT_SYMBOL(kgsl_mmu_get_qdss_global_entry);
 
+struct kgsl_memdesc *kgsl_mmu_get_qtimer_global_entry(
+		struct kgsl_device *device)
+{
+	struct kgsl_mmu *mmu = &device->mmu;
+
+	if (MMU_OP_VALID(mmu, mmu_get_qtimer_global_entry))
+		return mmu->mmu_ops->mmu_get_qtimer_global_entry();
+
+	return NULL;
+}
+EXPORT_SYMBOL(kgsl_mmu_get_qtimer_global_entry);
+
 /*
  * NOMMU definitions - NOMMU really just means that the MMU is kept in pass
  * through and the GPU directly accesses physical memory. Used in debug mode
