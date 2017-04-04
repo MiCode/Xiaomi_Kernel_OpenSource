@@ -3946,6 +3946,8 @@ IOMMU_OF_DECLARE(arm_mmu401, "arm,mmu-401", arm_smmu_of_init);
 IOMMU_OF_DECLARE(arm_mmu500, "arm,mmu-500", arm_smmu_of_init);
 IOMMU_OF_DECLARE(cavium_smmuv2, "cavium,smmu-v2", arm_smmu_of_init);
 
+#define TCU_HW_VERSION_HLOS1		(0x18)
+
 #define DEBUG_SID_HALT_REG		0x0
 #define DEBUG_SID_HALT_VAL		(0x1 << 16)
 
@@ -3956,6 +3958,8 @@ IOMMU_OF_DECLARE(cavium_smmuv2, "cavium,smmu-v2", arm_smmu_of_init);
 
 struct qsmmuv500_archdata {
 	struct list_head		tbus;
+	void __iomem			*tcu_base;
+	u32				version;
 };
 
 struct qsmmuv500_tbu_device {
@@ -4130,8 +4134,10 @@ static int qsmmuv500_tbu_register(struct device *dev, void *data)
 
 static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 {
+	struct resource *res;
 	struct device *dev = smmu->dev;
 	struct qsmmuv500_archdata *data;
+	struct platform_device *pdev;
 	int ret;
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
@@ -4139,6 +4145,14 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 		return -ENOMEM;
 
 	INIT_LIST_HEAD(&data->tbus);
+
+	pdev = container_of(dev, struct platform_device, dev);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcu-base");
+	data->tcu_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(data->tcu_base))
+		return PTR_ERR(data->tcu_base);
+
+	data->version = readl_relaxed(data->tcu_base + TCU_HW_VERSION_HLOS1);
 	smmu->archdata = data;
 
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);

@@ -25,6 +25,8 @@ conditions.
 
 - reg           : Base address and size of the SMMU.
 
+- reg-names	: For the "qcom,qsmmu-v500" device "tcu-base" is expected.
+
 - #global-interrupts : The number of global interrupts exposed by the
                        device.
 

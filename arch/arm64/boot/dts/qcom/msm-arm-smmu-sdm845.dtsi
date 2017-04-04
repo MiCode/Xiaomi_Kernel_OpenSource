@@ -49,7 +49,9 @@
 
 	apps_smmu: apps-smmu@0x15000000 {
 		compatible = "qcom,qsmmu-v500";
-		reg = <0x15000000 0x80000>;
+		reg = <0x15000000 0x80000>,
+			<0x150c2000 0x20>;
+		reg-names = "base", "tcu-base";
 		#iommu-cells = <1>;
 		qcom,skip-init;
 		#global-interrupts = <1>;
