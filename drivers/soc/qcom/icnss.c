@@ -2158,7 +2158,8 @@ static int icnss_fw_crashed(struct icnss_priv *priv,
 
 	icnss_pm_stay_awake(priv);
 
-	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_CRASHED, NULL);
+	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state))
+		icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_CRASHED, NULL);
 
 	if (event_data->wdog_bite) {
 		set_bit(ICNSS_WDOG_BITE, &priv->state);
