@@ -2348,6 +2348,10 @@ static int __init thermal_register_governors(void)
 	if (result)
 		return result;
 
+	result = thermal_gov_low_limits_register();
+	if (result)
+		return result;
+
 	return thermal_gov_power_allocator_register();
 }
 
@@ -2357,6 +2361,7 @@ static void thermal_unregister_governors(void)
 	thermal_gov_fair_share_unregister();
 	thermal_gov_bang_bang_unregister();
 	thermal_gov_user_space_unregister();
+	thermal_gov_low_limits_unregister();
 	thermal_gov_power_allocator_unregister();
 }
 
