@@ -30,6 +30,7 @@
 #include <linux/slab.h>
 #include <linux/cpu.h>
 #include <linux/cpu_cooling.h>
+#include <linux/sched.h>
 
 #include <trace/events/thermal.h>
 
@@ -45,6 +46,7 @@
  *	level 0 --> 1st Max Freq
  *	level 1 --> 2nd Max Freq
  *	...
+ *	leven n --> core isolated
  */
 
 /**
@@ -70,8 +72,8 @@ struct power_table {
  *	cooling	devices.
  * @clipped_freq: integer value representing the absolute value of the clipped
  *	frequency.
- * @max_level: maximum cooling level. One less than total number of valid
- *	cpufreq frequencies.
+ * @max_level: maximum cooling level. [0..max_level-1: <freq>
+ *	max_level: Core unavailable]
  * @allowed_cpus: all the cpus involved for this cpufreq_cooling_device.
  * @node: list_head to link all cpufreq_cooling_device together.
  * @last_load: load measured by the latest call to cpufreq_get_requested_power()
@@ -162,7 +164,7 @@ static unsigned long get_level(struct cpufreq_cooling_device *cpufreq_dev,
 {
 	unsigned long level;
 
-	for (level = 0; level <= cpufreq_dev->max_level; level++) {
+	for (level = 0; level < cpufreq_dev->max_level; level++) {
 		if (freq == cpufreq_dev->freq_table[level])
 			return level;
 
@@ -535,6 +537,12 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 	if (cpufreq_device->cpufreq_state == state)
 		return 0;
 
+	/* If state is the last, isolate the CPU */
+	if (state == cpufreq_device->max_level)
+		return sched_isolate_cpu(cpu);
+	else if (state < cpufreq_device->max_level)
+		sched_unisolate_cpu(cpu);
+
 	clip_freq = cpufreq_device->freq_table[state];
 	cpufreq_device->cpufreq_state = state;
 	cpufreq_device->clipped_freq = clip_freq;
@@ -848,7 +856,9 @@ __cpufreq_cooling_register(struct device_node *np,
 	cpufreq_for_each_valid_entry(pos, table)
 		cpufreq_dev->max_level++;
 
-	cpufreq_dev->freq_table = kmalloc(sizeof(*cpufreq_dev->freq_table) *
+	/* Last level will indicate the core will be isolated. */
+	cpufreq_dev->max_level++;
+	cpufreq_dev->freq_table = kzalloc(sizeof(*cpufreq_dev->freq_table) *
 					  cpufreq_dev->max_level, GFP_KERNEL);
 	if (!cpufreq_dev->freq_table) {
 		cool_dev = ERR_PTR(-ENOMEM);
@@ -881,7 +891,7 @@ __cpufreq_cooling_register(struct device_node *np,
 	}
 
 	/* Fill freq-table in descending order of frequencies */
-	for (i = 0, freq = -1; i <= cpufreq_dev->max_level; i++) {
+	for (i = 0, freq = -1; i < cpufreq_dev->max_level; i++) {
 		freq = find_next_max(table, freq);
 		cpufreq_dev->freq_table[i] = freq;
 
