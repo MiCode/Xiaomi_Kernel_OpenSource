@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +98,31 @@
 	},					\
 	.num_rate_max = VDD_CX_NUM
 
+#define VDD_MX_FMAX_MAP4(l1, f1, l2, f2, l3, f3, l4, f4) \
+	.vdd_class = &vdd_mx,			\
+	.rate_max = (unsigned long[VDD_CX_NUM]) {	\
+		[VDD_CX_##l1] = (f1),		\
+		[VDD_CX_##l2] = (f2),		\
+		[VDD_CX_##l3] = (f3),		\
+		[VDD_CX_##l4] = (f4),		\
+	},					\
+	.num_rate_max = VDD_CX_NUM
+
+#define VDD_GX_FMAX_MAP8(l1, f1, l2, f2, l3, f3, l4, f4, l5, f5, l6, f6, \
+				l7, f7, l8, f8) \
+	.vdd_class = &vdd_gfx,			\
+	.rate_max = (unsigned long[VDD_GX_NUM]) {	\
+		[VDD_GX_##l1] = (f1),		\
+		[VDD_GX_##l2] = (f2),		\
+		[VDD_GX_##l3] = (f3),		\
+		[VDD_GX_##l4] = (f4),		\
+		[VDD_GX_##l5] = (f5),		\
+		[VDD_GX_##l6] = (f6),		\
+		[VDD_GX_##l7] = (f7),		\
+		[VDD_GX_##l8] = (f8),		\
+	},					\
+	.num_rate_max = VDD_GX_NUM
+
 enum vdd_cx_levels {
 	VDD_CX_NONE,
 	VDD_CX_MIN,		/* MIN SVS */
@@ -107,6 +132,19 @@ enum vdd_cx_levels {
 	VDD_CX_NOMINAL,		/* NOM */
 	VDD_CX_HIGH,		/* TURBO */
 	VDD_CX_NUM,
+};
+
+enum vdd_gx_levels {
+	VDD_GX_NONE,
+	VDD_GX_MIN,		/* MIN SVS */
+	VDD_GX_LOWER,		/* SVS2 */
+	VDD_GX_LOW,		/* SVS */
+	VDD_GX_LOW_L1,		/* SVSL1 */
+	VDD_GX_NOMINAL,		/* NOM */
+	VDD_GX_NOMINAL_L1,		/* NOM1 */
+	VDD_GX_HIGH,		/* TURBO */
+	VDD_GX_HIGH_L1,		/* TURBO1 */
+	VDD_GX_NUM,
 };
 
 /* Need to use the correct VI/VL mappings */
