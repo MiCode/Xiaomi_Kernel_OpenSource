@@ -1165,5 +1165,6 @@ config SND_SOC_MSM_HDMI_CODEC_RX
         supports hdmi panel.
 
 source "sound/soc/codecs/msm8x16/Kconfig"
+source "sound/soc/codecs/msm_sdw/Kconfig"
 
 endmenu
