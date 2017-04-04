@@ -84,6 +84,15 @@ static int msm_ext_disp_edid_get(struct snd_kcontrol *kcontrol,
 	rc = codec_data->ext_disp_ops.get_audio_edid_blk(
 			codec_data->ext_disp_core_pdev, &edid_blk);
 	if (rc >= 0) {
+		if (sizeof(ucontrol->value.bytes.data) <
+			  (edid_blk.audio_data_blk_size +
+			   edid_blk.spk_alloc_data_blk_size)) {
+			dev_err(codec->dev,
+				"%s: Not enough memory to copy EDID data\n",
+				__func__);
+			return -ENOMEM;
+		}
+
 		memcpy(ucontrol->value.bytes.data,
 		       edid_blk.audio_data_blk,
 		       edid_blk.audio_data_blk_size);
