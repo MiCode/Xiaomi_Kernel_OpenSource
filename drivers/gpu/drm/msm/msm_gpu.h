@@ -71,6 +71,10 @@ struct msm_gpu_funcs {
 	void (*show)(struct msm_gpu *gpu, struct seq_file *m);
 #endif
 	int (*snapshot)(struct msm_gpu *gpu, struct msm_snapshot *snapshot);
+	int (*get_counter)(struct msm_gpu *gpu, u32 groupid, u32 countable,
+		u32 *lo, u32 *hi);
+	void (*put_counter)(struct msm_gpu *gpu, u32 groupid, int counterid);
+	u64 (*read_counter)(struct msm_gpu *gpu, u32 groupid, int counterid);
 };
 
 struct msm_gpu {
@@ -257,5 +261,17 @@ void msm_gpu_cleanup(struct msm_gpu *gpu);
 struct msm_gpu *adreno_load_gpu(struct drm_device *dev);
 void __init adreno_register(void);
 void __exit adreno_unregister(void);
+
+int msm_gpu_counter_get(struct msm_gpu *gpu, struct drm_msm_counter *data,
+	struct msm_file_private *ctx);
+
+int msm_gpu_counter_put(struct msm_gpu *gpu, struct drm_msm_counter *data,
+	struct msm_file_private *ctx);
+
+void msm_gpu_cleanup_counters(struct msm_gpu *gpu,
+	struct msm_file_private *ctx);
+
+u64 msm_gpu_counter_read(struct msm_gpu *gpu,
+		struct drm_msm_counter_read *data);
 
 #endif /* __MSM_GPU_H__ */

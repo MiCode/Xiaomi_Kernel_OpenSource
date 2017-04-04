@@ -281,9 +281,11 @@ int msm_isp47_ahb_clk_cfg(struct vfe_device *vfe_dev,
 
 	vfe_dev->hw_info->vfe_ops.platform_ops.get_clk_rates(vfe_dev,
 							&clk_rates);
-	if (vfe_dev->msm_isp_vfe_clk_rate <= clk_rates.svs_rate)
+	if (vfe_dev->vfe_clk_info[vfe_dev->hw_info->vfe_clk_idx].clk_rate <=
+		clk_rates.svs_rate)
 		src_clk_vote = CAM_AHB_SVS_VOTE;
-	else if (vfe_dev->msm_isp_vfe_clk_rate <= clk_rates.nominal_rate)
+	else if (vfe_dev->vfe_clk_info[vfe_dev->hw_info->vfe_clk_idx].clk_rate
+		<= clk_rates.nominal_rate)
 		src_clk_vote = CAM_AHB_NOMINAL_VOTE;
 	else
 		src_clk_vote = CAM_AHB_TURBO_VOTE;
@@ -365,7 +367,8 @@ void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 				vfe_dev->irq0_mask, vfe_dev->irq1_mask,
 				MSM_ISP_IRQ_SET);
 	msm_camera_enable_irq(vfe_dev->vfe_irq, 0);
-	tasklet_kill(&vfe_dev->vfe_tasklet);
+	tasklet_kill(&(vfe_dev->common_data->tasklets[vfe_dev->pdev->id].
+			tasklet));
 	msm_isp_flush_tasklet(vfe_dev);
 
 	vfe_dev->common_data->dual_vfe_res->vfe_base[vfe_dev->pdev->id] = NULL;
@@ -1400,7 +1403,7 @@ void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 	if (subsample_period && subsample_pattern) {
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x494);
 		val &= 0xFFFFE0FF;
-		val = (subsample_period - 1) << 8;
+		val |= (subsample_period - 1) << 8;
 		msm_camera_io_w(val, vfe_dev->vfe_base + 0x494);
 		ISP_DBG("%s:camif PERIOD %x PATTERN %x\n",
 			__func__,  subsample_period, subsample_pattern);
@@ -2595,17 +2598,19 @@ int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 	long clk_rate, prev_clk_rate;
 
 	clk_rate = clk_round_rate(vfe_dev->vfe_clk[clk_idx], *rate);
-	if (vfe_dev->msm_isp_vfe_clk_rate == clk_rate)
+	if (vfe_dev->vfe_clk_info[clk_idx].clk_rate == clk_rate)
 		return rc;
 
-	prev_clk_rate = vfe_dev->msm_isp_vfe_clk_rate;
-	vfe_dev->msm_isp_vfe_clk_rate = clk_rate;
+	prev_clk_rate =
+		vfe_dev->vfe_clk_info[clk_idx].clk_rate;
+	vfe_dev->vfe_clk_info[clk_idx].clk_rate =
+		clk_rate;
 	/*
 	 * if cx_ipeak is supported vote first so that dsp throttling is
 	 * reduced before we go to turbo
 	 */
 	if ((vfe_dev->vfe_cx_ipeak) &&
-		(vfe_dev->msm_isp_vfe_clk_rate >=
+		(vfe_dev->vfe_clk_info[clk_idx].clk_rate >=
 		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_NOMINAL]
 		[vfe_dev->hw_info->vfe_clk_idx]) &&
 		prev_clk_rate <
@@ -2628,7 +2633,7 @@ int msm_vfe47_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 	 * if voting done earlier
 	 */
 	if ((vfe_dev->vfe_cx_ipeak) &&
-		(vfe_dev->msm_isp_vfe_clk_rate <
+		(vfe_dev->vfe_clk_info[clk_idx].clk_rate <
 		vfe_dev->vfe_clk_rates[MSM_VFE_CLK_RATE_NOMINAL]
 		[vfe_dev->hw_info->vfe_clk_idx]) &&
 		prev_clk_rate >=

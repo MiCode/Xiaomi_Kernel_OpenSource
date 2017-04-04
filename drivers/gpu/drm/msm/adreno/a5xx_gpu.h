@@ -184,4 +184,6 @@ static inline bool a5xx_in_preempt(struct a5xx_gpu *a5xx_gpu)
 	return !(atomic_read(&a5xx_gpu->preempt_state) == PREEMPT_NONE);
 }
 
+int a5xx_counters_init(struct adreno_gpu *adreno_gpu);
+
 #endif /* __A5XX_GPU_H__ */

@@ -725,7 +725,6 @@ void smblib_suspend_on_debug_battery(struct smb_charger *chg)
 
 int smblib_rerun_apsd_if_required(struct smb_charger *chg)
 {
-	const struct apsd_result *apsd_result;
 	union power_supply_propval val;
 	int rc;
 
@@ -736,12 +735,6 @@ int smblib_rerun_apsd_if_required(struct smb_charger *chg)
 	}
 
 	if (!val.intval)
-		return 0;
-
-	apsd_result = smblib_get_apsd_result(chg);
-	if ((apsd_result->pst != POWER_SUPPLY_TYPE_UNKNOWN)
-		&& (apsd_result->pst != POWER_SUPPLY_TYPE_USB))
-		/* if type is not usb or unknown no need to rerun apsd */
 		return 0;
 
 	/* fetch the DPDM regulator */
@@ -2485,6 +2478,22 @@ int smblib_set_prop_typec_power_role(struct smb_charger *chg,
 	default:
 		smblib_err(chg, "power role %d not supported\n", val->intval);
 		return -EINVAL;
+	}
+
+	if (power_role == UFP_EN_CMD_BIT) {
+		/* disable PBS workaround when forcing sink mode */
+		rc = smblib_write(chg, TM_IO_DTEST4_SEL, 0x0);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't write to TM_IO_DTEST4_SEL rc=%d\n",
+				rc);
+		}
+	} else {
+		/* restore it back to 0xA5 */
+		rc = smblib_write(chg, TM_IO_DTEST4_SEL, 0xA5);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't write to TM_IO_DTEST4_SEL rc=%d\n",
+				rc);
+		}
 	}
 
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
