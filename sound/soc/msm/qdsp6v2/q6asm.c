@@ -8045,6 +8045,91 @@ exit:
 	return rc;
 }
 
+int q6asm_send_mtmx_strtr_clk_rec_mode(struct audio_client *ac,
+		uint32_t clk_rec_mode)
+{
+	struct asm_mtmx_strtr_params matrix;
+	struct asm_session_mtmx_strtr_param_clk_rec_t clk_rec_param;
+	int sz = 0;
+	int rc  = 0;
+
+	pr_debug("%s: clk rec mode is %d\n", __func__, clk_rec_mode);
+
+	if (!ac) {
+		pr_err("%s: audio client handle is NULL\n", __func__);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	if (ac->apr == NULL) {
+		pr_err("%s: ac->apr is NULL\n", __func__);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	if ((clk_rec_mode != ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_NONE) &&
+	    (clk_rec_mode != ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_AUTO)) {
+		pr_err("%s: Invalid clk rec mode %d\n", __func__, clk_rec_mode);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	memset(&clk_rec_param, 0,
+	       sizeof(struct asm_session_mtmx_strtr_param_clk_rec_t));
+	clk_rec_param.flags = clk_rec_mode;
+
+	memset(&matrix, 0, sizeof(struct asm_mtmx_strtr_params));
+	sz = sizeof(struct asm_mtmx_strtr_params);
+	q6asm_add_hdr(ac, &matrix.hdr, sz, TRUE);
+	atomic_set(&ac->cmd_state, -1);
+	matrix.hdr.opcode = ASM_SESSION_CMD_SET_MTMX_STRTR_PARAMS_V2;
+
+	matrix.param.data_payload_addr_lsw = 0;
+	matrix.param.data_payload_addr_msw = 0;
+	matrix.param.mem_map_handle = 0;
+	matrix.param.data_payload_size =
+		sizeof(struct asm_stream_param_data_v2) +
+		sizeof(struct asm_session_mtmx_strtr_param_clk_rec_t);
+	matrix.param.direction = 0; /* RX */
+	matrix.data.module_id = ASM_SESSION_MTMX_STRTR_MODULE_ID_AVSYNC;
+	matrix.data.param_id = ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_CMD;
+	matrix.data.param_size =
+		sizeof(struct asm_session_mtmx_strtr_param_clk_rec_t);
+	matrix.data.reserved = 0;
+	memcpy(&(matrix.config.clk_rec_param),
+	       &clk_rec_param,
+	       sizeof(struct asm_session_mtmx_strtr_param_clk_rec_t));
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &matrix);
+	if (rc < 0) {
+		pr_err("%s: clk rec mode send failed paramid [0x%x]\n",
+			__func__, matrix.data.param_id);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) >= 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s: timeout, clk rec mode send paramid [0x%x]\n",
+			__func__, matrix.data.param_id);
+		rc = -ETIMEDOUT;
+		goto exit;
+	}
+
+	if (atomic_read(&ac->cmd_state) > 0) {
+		pr_err("%s: DSP returned error[%s]\n",
+				__func__, adsp_err_get_err_str(
+				atomic_read(&ac->cmd_state)));
+		rc = adsp_err_get_lnx_err_code(
+				atomic_read(&ac->cmd_state));
+		goto exit;
+	}
+	rc = 0;
+exit:
+	return rc;
+}
+
 static int __q6asm_cmd(struct audio_client *ac, int cmd, uint32_t stream_id)
 {
 	struct apr_hdr hdr;

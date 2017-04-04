@@ -10281,9 +10281,54 @@ struct asm_session_mtmx_strtr_param_render_mode_t {
 	u32                  flags;
 } __packed;
 
+/* Parameter used by #ASM_SESSION_MTMX_STRTR_MODULE_ID_AVSYNC which allows the
+ * audio client to specify the clock recovery mechanism that the audio DSP
+ * should use.
+ */
+
+#define ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_CMD 0x00012F0E
+
+/* Indicates that default clock recovery will be used (no clock recovery).
+ * If the client wishes that no clock recovery be done, the client can
+ * choose this. This means that no attempt will made by the DSP to try and
+ * match the rates of the input and output audio.
+ */
+#define ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_NONE 0
+
+/* Indicates that independent clock recovery needs to be used.
+ * 1. In the DSP loopback/client loopback use cases (frame based inputs),
+ *    the client should choose the independent clock recovery option.
+ * 2. This basically de-couples the audio and video from knowing each others
+ *    clock sources and lets the audio DSP independently rate match the input
+ *    and output rates.
+ * 3. After drift detection, the drift correction is achieved by either pulling
+ *    the PLLs (if applicable) or by stream to device rate matching
+ *    (for PCM use cases) by comparing drift with respect to STC.
+ * 4. For passthrough use cases, since the PLL pulling is the only option,
+ *    a best effort will be made.
+ *    If PLL pulling is not possible / available, the rendering will be
+ *    done without rate matching.
+ */
+#define ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_AUTO 1
+
+/* Payload of the #ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC parameter.
+ */
+struct asm_session_mtmx_strtr_param_clk_rec_t {
+	/* Specifies the type of clock recovery that the audio DSP should
+	 * use for rate matching.
+	 */
+
+	/* @values
+	 * #ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_DEFAULT
+	 * #ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_INDEPENDENT
+	 */
+	u32                  flags;
+} __packed;
+
 union asm_session_mtmx_strtr_param_config {
 	struct asm_session_mtmx_strtr_param_window_v2_t window_param;
 	struct asm_session_mtmx_strtr_param_render_mode_t render_param;
+	struct asm_session_mtmx_strtr_param_clk_rec_t clk_rec_param;
 } __packed;
 
 struct asm_mtmx_strtr_params {
