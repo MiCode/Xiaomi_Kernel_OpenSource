@@ -130,6 +130,81 @@ static const struct wcd_reg_mask_val imped_table[][MAX_IMPED_PARAMS] = {
 	},
 };
 
+static const struct wcd_reg_mask_val imped_table_tavil[][MAX_IMPED_PARAMS] = {
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xf2},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xf2},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x00},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL, 0xff, 0xf2},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xf2},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x00},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xf4},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xf4},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x00},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL, 0xff, 0xf4},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xf4},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x00},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xf7},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xf7},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x01},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL, 0xff, 0xf7},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xf7},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x01},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xf9},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xf9},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x00},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL, 0xff, 0xf9},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xf9},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x00},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xfa},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xfa},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x00},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL, 0xff, 0xfa},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xfa},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x00},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xfb},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xfb},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x00},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL, 0xff, 0xfb},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xfb},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x00},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xfc},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xfc},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x00},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL, 0xff, 0xfc},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xfc},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x00},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xfd},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xfd},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x00},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL, 0xff, 0xfd},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xfd},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x00},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xfd},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xfd},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x01},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL, 0xff, 0xfd},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xfd},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x01},
+	},
+};
+
 static const struct wcd_imped_val imped_index[] = {
 	{4, 0},
 	{5, 1},
@@ -185,12 +260,26 @@ void wcd_clsh_imped_config(struct snd_soc_codec *codec, int imped, bool reset)
 {
 	int i;
 	int index = 0;
+	int table_size;
+
+	static const struct wcd_reg_mask_val
+				(*imped_table_ptr)[MAX_IMPED_PARAMS];
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
+
+	if (IS_CODEC_TYPE(wcd9xxx, WCD934X)) {
+		table_size = ARRAY_SIZE(imped_table_tavil);
+		imped_table_ptr = imped_table_tavil;
+	} else {
+		table_size = ARRAY_SIZE(imped_table);
+		imped_table_ptr = imped_table;
+	}
 
 	/* reset = 1, which means request is to reset the register values */
 	if (reset) {
 		for (i = 0; i < MAX_IMPED_PARAMS; i++)
-			snd_soc_update_bits(codec, imped_table[index][i].reg,
-				imped_table[index][i].mask, 0);
+			snd_soc_update_bits(codec,
+				imped_table_ptr[index][i].reg,
+				imped_table_ptr[index][i].mask, 0);
 		return;
 	}
 	index = get_impedance_index(imped);
@@ -198,15 +287,16 @@ void wcd_clsh_imped_config(struct snd_soc_codec *codec, int imped, bool reset)
 		pr_debug("%s, impedance not in range = %d\n", __func__, imped);
 		return;
 	}
-	if (index >= ARRAY_SIZE(imped_table)) {
+	if (index >= table_size) {
 		pr_debug("%s, impedance index not in range = %d\n", __func__,
 			index);
 		return;
 	}
 	for (i = 0; i < MAX_IMPED_PARAMS; i++)
-		snd_soc_update_bits(codec, imped_table[index][i].reg,
-				imped_table[index][i].mask,
-				imped_table[index][i].val);
+		snd_soc_update_bits(codec,
+				imped_table_ptr[index][i].reg,
+				imped_table_ptr[index][i].mask,
+				imped_table_ptr[index][i].val);
 }
 EXPORT_SYMBOL(wcd_clsh_imped_config);
 
