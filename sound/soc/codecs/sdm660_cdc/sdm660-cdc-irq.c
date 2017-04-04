@@ -26,8 +26,8 @@
 #include <soc/qcom/pm.h>
 #include <sound/soc.h>
 #include "msm-analog-cdc.h"
-#include "msmfalcon-cdc-irq.h"
-#include "msmfalcon-cdc-registers.h"
+#include "sdm660-cdc-irq.h"
+#include "sdm660-cdc-registers.h"
 
 #define MAX_NUM_IRQS 14
 #define NUM_IRQ_REGS 2

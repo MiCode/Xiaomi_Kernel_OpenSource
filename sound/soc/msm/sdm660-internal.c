@@ -16,12 +16,12 @@
 #include <linux/mfd/msm-cdc-pinctrl.h>
 #include <sound/pcm_params.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
-#include "msmfalcon-common.h"
-#include "../codecs/msmfalcon_cdc/msm-digital-cdc.h"
-#include "../codecs/msmfalcon_cdc/msm-analog-cdc.h"
+#include "sdm660-common.h"
+#include "../codecs/sdm660_cdc/msm-digital-cdc.h"
+#include "../codecs/sdm660_cdc/msm-analog-cdc.h"
 #include "../codecs/msm_sdw/msm_sdw.h"
 
-#define __CHIPSET__ "MSMFALCON "
+#define __CHIPSET__ "SDM660 "
 #define MSM_DAILINK_NAME(name) (__CHIPSET__#name)
 
 #define DEFAULT_MCLK_RATE 9600000
@@ -2911,9 +2911,9 @@ ARRAY_SIZE(msm_mi2s_be_dai_links) +
 ARRAY_SIZE(msm_auxpcm_be_dai_links)+
 ARRAY_SIZE(msm_wcn_be_dai_links)];
 
-static struct snd_soc_card msmfalcon_card = {
-	/* snd_soc_card_msmfalcon */
-	.name		= "msmfalcon-snd-card",
+static struct snd_soc_card sdm660_card = {
+	/* snd_soc_card_sdm660 */
+	.name		= "sdm660-snd-card",
 	.dai_link	= msm_int_dai,
 	.num_links	= ARRAY_SIZE(msm_int_dai),
 };
@@ -2964,7 +2964,7 @@ static void msm_int_dt_parse_cap_info(struct platform_device *pdev,
 static struct snd_soc_card *msm_int_populate_sndcard_dailinks(
 						struct device *dev)
 {
-	struct snd_soc_card *card = &msmfalcon_card;
+	struct snd_soc_card *card = &sdm660_card;
 	struct snd_soc_dai_link *dailink;
 	int len1;
 

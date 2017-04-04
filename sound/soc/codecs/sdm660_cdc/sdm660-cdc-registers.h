@@ -9,8 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef MSMFALCON_WCD_REGISTERS_H
-#define MSMFALCON_WCD_REGISTERS_H
+#ifndef SDM660_WCD_REGISTERS_H
+#define SDM660_WCD_REGISTERS_H
 
 #define CDC_DIG_BASE		0xF000
 #define CDC_ANA_BASE		0xF100

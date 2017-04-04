@@ -1514,10 +1514,10 @@ Example:
 		asoc-wsa-codec-prefixes = "SpkrMono";
 	};
 
-* MSMFALCON ASoC Machine driver
+* SDM660 ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,msmfalcon-asoc-snd"
+- compatible : "qcom,sdm660-asoc-snd"
 - qcom,model : The user-visible name of this sound card.
 - qcom,msm-hs-micbias-type : This property is used to recognize the headset
   micbias type, internal or external.
@@ -1570,8 +1570,8 @@ mclk frequency needs to be configured for internal and external PA.
 
 Example:
 	 sound {
-		compatible = "qcom,msmfalcon-asoc-snd";
-		qcom,model = "msmfalcon-snd-card";
+		compatible = "qcom,sdm660-asoc-snd";
+		qcom,model = "sdm660-snd-card";
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
@@ -2055,11 +2055,11 @@ Example:
 		asoc-codec-names = "msm-stub-codec.1";
 	};
 
-* MSMFALCON ASoC Slimbus Machine driver
+* SDM660 ASoC Slimbus Machine driver
 
 Required properties:
-- compatible : "qcom,msmfalcon-asoc-snd-tasha" for tasha codec,
-		"qcom,msmfalcon-asoc-snd-tavil" for tavil codec.
+- compatible : "qcom,sdm660-asoc-snd-tasha" for tasha codec,
+		"qcom,sdm660-asoc-snd-tavil" for tavil codec.
 - qcom,model : The user-visible name of this sound card.
 - qcom,msm-mclk-freq : MCLK frequency value for external codec
 - qcom,msm-gpios : Lists down all the gpio sets that are supported.
@@ -2099,8 +2099,8 @@ Optional properties:
 Example:
 
 	sound-9335 {
-	compatible = "qcom,msmfalcon-asoc-snd-tasha";
-	qcom,model = "msmfalcon-tasha-snd-card";
+	compatible = "qcom,sdm660-asoc-snd-tasha";
+	qcom,model = "sdm660-tasha-snd-card";
 
 	qcom,audio-routing =
 		"RX_BIAS", "MCLK",

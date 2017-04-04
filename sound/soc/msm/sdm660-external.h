@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MSMFALCON_EXTERNAL
-#define __MSMFALCON_EXTERNAL
+#ifndef __SDM660_EXTERNAL
+#define __SDM660_EXTERNAL
 
 int msm_snd_hw_params(struct snd_pcm_substream *substream,
 		      struct snd_pcm_hw_params *params);
