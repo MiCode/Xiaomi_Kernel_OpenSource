@@ -983,7 +983,6 @@ static int msm_bus_rsc_init(struct platform_device *pdev,
 	if (IS_ERR_OR_NULL(rscdev->mbox)) {
 		MSM_BUS_ERR("%s: Failed to get mbox:%s", __func__,
 						node_dev->node_info->name);
-		return PTR_ERR(rscdev->mbox);
 	}
 
 	// Add way to count # of VCDs, initialize LL
