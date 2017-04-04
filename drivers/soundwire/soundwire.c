@@ -68,6 +68,27 @@ static void swr_dev_release(struct device *dev)
 }
 
 /**
+ * swr_remove_device - remove a soundwire device
+ * @swr_dev: soundwire device to remove
+ *
+ * Remove a soundwire device. Go through the soundwire
+ * device list that master has and remove swr_dev from
+ * it.
+ */
+void swr_remove_device(struct swr_device *swr_dev)
+{
+	struct swr_device *swr_dev_loop, *safe;
+
+	list_for_each_entry_safe(swr_dev_loop, safe,
+				 &swr_dev->master->devices,
+				 dev_list) {
+		if (swr_dev == swr_dev_loop)
+			list_del(&swr_dev_loop->dev_list);
+	}
+}
+EXPORT_SYMBOL(swr_remove_device);
+
+/**
  * swr_new_device - instantiate a new soundwire device
  * @master: Controller to which device is connected
  * @info: Describes the soundwire device
@@ -126,47 +147,6 @@ err_out:
 	return NULL;
 }
 EXPORT_SYMBOL(swr_new_device);
-
-/**
- * swr_startup_devices - perform additional initialization for child devices
- *
- * @swr_dev: pointer to soundwire slave device
- *
- * Performs any additional initialization needed for a soundwire slave device.
- * This is a optional functionality defined by slave devices.
- * Removes the slave node from the list, in case there is any failure.
- */
-int swr_startup_devices(struct swr_device *swr_dev)
-{
-	struct swr_driver *swr_drv;
-	struct device *dev;
-	int ret = 0;
-
-	if (!swr_dev)
-		return -EINVAL;
-
-	dev = &swr_dev->dev;
-	if (!dev)
-		return -EINVAL;
-
-	swr_drv = to_swr_driver(dev->driver);
-	if (!swr_drv)
-		return -EINVAL;
-
-	if (swr_drv->startup) {
-		ret = swr_drv->startup(swr_dev);
-		if (ret)
-			goto out;
-
-		dev_dbg(&swr_dev->dev,
-			"%s: startup complete for device %lx\n",
-			__func__, swr_dev->addr);
-	}
-
-out:
-	return ret;
-}
-EXPORT_SYMBOL(swr_startup_devices);
 
 /**
  * of_register_swr_devices - register child devices on to the soundwire bus
@@ -605,7 +585,7 @@ int swr_device_up(struct swr_device *swr_dev)
 	dev = &swr_dev->dev;
 	sdrv = to_swr_driver(dev->driver);
 	if (!sdrv)
-		return -EINVAL;
+		return 0;
 
 	if (sdrv->device_up)
 		return sdrv->device_up(to_swr_device(dev));
@@ -633,7 +613,7 @@ int swr_device_down(struct swr_device *swr_dev)
 	dev = &swr_dev->dev;
 	sdrv = to_swr_driver(dev->driver);
 	if (!sdrv)
-		return -EINVAL;
+		return 0;
 
 	if (sdrv->device_down)
 		return sdrv->device_down(to_swr_device(dev));
