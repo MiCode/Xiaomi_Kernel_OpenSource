@@ -113,7 +113,7 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 				    SNDRV_PCM_FMTBIT_S24_3LE |
 				    SNDRV_PCM_FMTBIT_S32_LE),
 			.channels_min = 1,
-			.channels_max = 4,
+			.channels_max = 8,
 			.rate_min =     8000,
 			.rate_max =	48000,
 		},
