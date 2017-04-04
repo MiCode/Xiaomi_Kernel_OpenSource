@@ -1152,7 +1152,7 @@ static void ipa3_tx_comp_usr_notify_release(void *user1, int user2)
 		dev_kfree_skb_any(skb);
 }
 
-static void ipa3_tx_cmd_comp(void *user1, int user2)
+void ipa3_tx_cmd_comp(void *user1, int user2)
 {
 	ipahal_destroy_imm_cmd(user1);
 }
@@ -1187,7 +1187,6 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	struct ipa3_desc *desc;
 	struct ipa3_desc _desc[3];
 	int dst_ep_idx;
-	struct ipahal_imm_cmd_ip_packet_init cmd;
 	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
 	struct ipa3_sys_context *sys;
 	int src_ep_idx;
@@ -1274,14 +1273,6 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 
 	if (dst_ep_idx != -1) {
 		/* SW data path */
-		cmd.destination_pipe_index = dst_ep_idx;
-		cmd_pyld = ipahal_construct_imm_cmd(
-			IPA_IMM_CMD_IP_PACKET_INIT, &cmd, true);
-		if (unlikely(!cmd_pyld)) {
-			IPAERR("failed to construct ip_packet_init imm cmd\n");
-			goto fail_mem;
-		}
-
 		data_idx = 0;
 		if (sys->policy == IPA_POLICY_NOINTR_MODE) {
 			/*
@@ -1299,11 +1290,10 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		}
 		desc[data_idx].opcode =
 			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_PACKET_INIT);
-		desc[data_idx].pyld = cmd_pyld->data;
-		desc[data_idx].len = cmd_pyld->len;
+		desc[data_idx].dma_address_valid = true;
+		desc[data_idx].dma_address = ipa3_ctx->pkt_init_imm[dst_ep_idx];
 		desc[data_idx].type = IPA_IMM_CMD_DESC;
-		desc[data_idx].callback = ipa3_tx_cmd_comp;
-		desc[data_idx].user1 = cmd_pyld;
+		desc[data_idx].callback = NULL;
 		data_idx++;
 		desc[data_idx].pyld = skb->data;
 		desc[data_idx].len = skb_headlen(skb);
