@@ -121,6 +121,7 @@ struct tcs_mbox {
 
 /* One per MBOX controller */
 struct tcs_drv {
+	const char *name;
 	void *base; /* start address of the RSC's registers */
 	void *reg_base; /* start address for DRV specific register */
 	int drv_id;
@@ -385,7 +386,8 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 			mbox_chan_received_data(resp->chan, resp->msg);
 		}
 
-		trace_rpmh_notify_irq(m, resp->msg->payload[0].addr, resp->err);
+		trace_rpmh_notify_irq(drv->name, m, resp->msg->payload[0].addr,
+						resp->err);
 
 		/* Notify the client that this request is completed. */
 		send_tcs_response(resp);
@@ -401,7 +403,9 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 static inline void mbox_notify_tx_done(struct mbox_chan *chan,
 				struct tcs_mbox_msg *msg, int m, int err)
 {
-	trace_rpmh_notify(m, msg->payload[0].addr, err);
+	struct tcs_drv *drv = container_of(chan->mbox, struct tcs_drv, mbox);
+
+	trace_rpmh_notify(drv->name, m, msg->payload[0].addr, err);
 	mbox_chan_txdone(chan, err);
 }
 
@@ -467,7 +471,7 @@ static void tcs_notify_timeout(struct work_struct *work)
 	mbox_notify_tx_done(chan, msg, -1, err);
 }
 
-static void __tcs_buffer_write(void __iomem *base, int d, int m, int n,
+static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
 			struct tcs_mbox_msg *msg, bool trigger)
 {
 	u32 cmd_msgid = 0;
@@ -476,6 +480,7 @@ static void __tcs_buffer_write(void __iomem *base, int d, int m, int n,
 	u32 enable = TCS_AMC_MODE_ENABLE;
 	struct tcs_cmd *cmd;
 	int i;
+	void __iomem *base = drv->reg_base;
 
 	/* We have homologous command set i.e pure read or write, not a mix */
 	cmd_msgid = CMD_MSGID_LEN;
@@ -492,8 +497,8 @@ static void __tcs_buffer_write(void __iomem *base, int d, int m, int n,
 		write_tcs_reg(base, TCS_DRV_CMD_MSGID, m, n + i, cmd_msgid);
 		write_tcs_reg(base, TCS_DRV_CMD_ADDR, m, n + i, cmd->addr);
 		write_tcs_reg(base, TCS_DRV_CMD_DATA, m, n + i, cmd->data);
-		trace_rpmh_send_msg(base, m, n + i,
-				cmd_msgid, cmd->addr, cmd->data, cmd->complete);
+		trace_rpmh_send_msg(drv->name, m, n + i, cmd_msgid, cmd->addr,
+					cmd->data, cmd->complete, trigger);
 	}
 
 	/* Write the send-after-prev completion bits for the batch */
@@ -716,7 +721,7 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 	}
 
 	/* Write to the TCS or AMC */
-	__tcs_buffer_write(drv->reg_base, d, m, n, msg, trigger);
+	__tcs_buffer_write(drv, d, m, n, msg, trigger);
 
 	/* Schedule a timeout response, incase there is no actual response */
 	if (trigger)
@@ -826,15 +831,16 @@ static int tcs_mbox_invalidate(struct mbox_chan *chan)
 	return 0;
 }
 
-static void __tcs_write_hidden(void *base, int d, struct tcs_mbox_msg *msg)
+static void __tcs_write_hidden(struct tcs_drv *drv, int d,
+					struct tcs_mbox_msg *msg)
 {
 	int i;
-	void __iomem *addr = base + TCS_HIDDEN_CMD0_DRV_DATA;
+	void __iomem *addr = drv->base + TCS_HIDDEN_CMD0_DRV_DATA;
 
 	for (i = 0; i < msg->num_payload; i++) {
 		/* Only data is write capable */
 		writel_relaxed(cpu_to_le32(msg->payload[i].data), addr);
-		trace_rpmh_control_msg(addr, msg->payload[i].data);
+		trace_rpmh_control_msg(drv->name, msg->payload[i].data);
 		addr += TCS_HIDDEN_CMD_SHIFT;
 	}
 }
@@ -855,7 +861,7 @@ static int tcs_control_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg)
 	}
 
 	spin_lock(&tcs->tcs_lock);
-	__tcs_write_hidden(tcs->drv->base, drv->drv_id, msg);
+	__tcs_write_hidden(tcs->drv, drv->drv_id, msg);
 	spin_unlock(&tcs->tcs_lock);
 
 	return 0;
@@ -1072,6 +1078,10 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	drv->mbox.is_idle = tcs_drv_is_idle;
 	drv->num_tcs = st;
 	drv->pdev = pdev;
+
+	drv->name = of_get_property(pdev->dev.of_node, "label", NULL);
+	if (!drv->name)
+		drv->name = dev_name(&pdev->dev);
 
 	ret = tcs_response_pool_init(drv);
 	if (ret)
