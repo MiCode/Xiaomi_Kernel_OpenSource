@@ -346,7 +346,7 @@ static int msm_qti_pp_get_rms_value_control(struct snd_kcontrol *kcontrol,
 	uint32_t param_payload_len = RMS_PAYLOAD_LEN * sizeof(uint32_t);
 	struct msm_pcm_routing_bdai_data msm_bedai;
 
-	param_value = kzalloc(param_length, GFP_KERNEL);
+	param_value = kzalloc(param_length + param_payload_len, GFP_KERNEL);
 	if (!param_value)
 		return -ENOMEM;
 
