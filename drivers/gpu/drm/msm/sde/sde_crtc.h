@@ -420,6 +420,19 @@ static inline bool sde_crtc_is_enabled(struct drm_crtc *crtc)
 }
 
 /**
+ * sde_crtc_get_inline_prefill - get current inline rotation prefill
+ * @crtc: Pointer to crtc
+ * return: number of prefill lines
+ */
+static inline u32 sde_crtc_get_inline_prefill(struct drm_crtc *crtc)
+{
+	if (!crtc || !crtc->state)
+		return 0;
+
+	return to_sde_crtc_state(crtc->state)->sbuf_prefill_line;
+}
+
+/**
  * sde_crtc_event_queue - request event callback
  * @crtc: Pointer to drm crtc structure
  * @func: Pointer to callback function
