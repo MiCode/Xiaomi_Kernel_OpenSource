@@ -17,7 +17,6 @@
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
 #include <linux/bitops.h>
-
 #include "core.h"
 #include "debug.h"
 #include "hif.h"
@@ -25,10 +24,11 @@
 #include "ce.h"
 #include "snoc.h"
 #include "qmi.h"
-#include <soc/qcom/icnss.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+
 #define WCN3990_MAX_IRQ 12
+
 const char *ce_name[WCN3990_MAX_IRQ] = {
 	"WLAN_CE_0",
 	"WLAN_CE_1",
@@ -957,7 +957,7 @@ static void ath10k_snoc_hif_power_down(struct ath10k *ar)
 {
 	ath10k_dbg(ar, ATH10K_DBG_BOOT, "boot hif power down\n");
 	msleep(SNOC_HIF_POWER_DOWN_DELAY);
-	icnss_wlan_disable(ICNSS_OFF);
+	ath10k_snoc_qmi_wlan_disable(ar);
 }
 
 int ath10k_snoc_get_ce_id(struct ath10k *ar, int irq)
@@ -1061,7 +1061,7 @@ static int ath10k_snoc_get_soc_info(struct ath10k *ar)
 
 static int ath10k_snoc_wlan_enable(struct ath10k *ar)
 {
-	struct icnss_wlan_enable_cfg cfg;
+	struct ath10k_wlan_enable_cfg cfg;
 	int pipe_num;
 	struct ath10k_ce_tgt_pipe_cfg tgt_cfg[CE_COUNT_MAX];
 
@@ -1080,19 +1080,20 @@ static int ath10k_snoc_wlan_enable(struct ath10k *ar)
 	}
 
 	cfg.num_ce_tgt_cfg = sizeof(target_ce_config_wlan) /
-				sizeof(struct ce_tgt_pipe_cfg);
-	cfg.ce_tgt_cfg = (struct ce_tgt_pipe_cfg *)
+				sizeof(struct ath10k_ce_tgt_pipe_cfg);
+	cfg.ce_tgt_cfg = (struct ath10k_ce_tgt_pipe_cfg *)
 		&tgt_cfg;
 	cfg.num_ce_svc_pipe_cfg = sizeof(target_service_to_ce_map_wlan) /
-				  sizeof(struct ce_svc_pipe_cfg);
-	cfg.ce_svc_cfg = (struct ce_svc_pipe_cfg *)
+				  sizeof(struct ath10k_ce_svc_pipe_cfg);
+	cfg.ce_svc_cfg = (struct ath10k_ce_svc_pipe_cfg *)
 		&target_service_to_ce_map_wlan;
 	cfg.num_shadow_reg_cfg = sizeof(target_shadow_reg_cfg_map) /
-					sizeof(struct icnss_shadow_reg_cfg);
-	cfg.shadow_reg_cfg = (struct icnss_shadow_reg_cfg *)
+					sizeof(struct ath10k_shadow_reg_cfg);
+	cfg.shadow_reg_cfg = (struct ath10k_shadow_reg_cfg *)
 		&target_shadow_reg_cfg_map;
 
-	return icnss_wlan_enable(&cfg, ICNSS_MISSION, "5.1.0.26N");
+	return ath10k_snoc_qmi_wlan_enable(ar, &cfg,
+					   ATH10K_MISSION, "5.1.0.26N");
 }
 
 static int ath10k_snoc_bus_configure(struct ath10k *ar)
@@ -1245,6 +1246,12 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ar);
 	ar_snoc->ar = ar;
 
+	ret = ath10k_snoc_start_qmi_service(ar);
+	if (ret) {
+		ath10k_err(ar, "failed to start QMI service: %d\n", ret);
+		goto err_core_destroy;
+	}
+
 	spin_lock_init(&ar_snoc->opaque_ctx.ce_lock);
 	ar_snoc->opaque_ctx.bus_ops = &ath10k_snoc_bus_ops;
 	ath10k_snoc_resource_init(ar);
@@ -1325,6 +1332,7 @@ static int ath10k_snoc_remove(struct platform_device *pdev)
 	ath10k_snoc_free_irq(ar);
 	ath10k_snoc_release_resource(ar);
 	ath10k_snoc_free_pipes(ar);
+	ath10k_snoc_stop_qmi_service(ar);
 	ath10k_core_destroy(ar);
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 removed\n", __func__);
@@ -1352,10 +1360,6 @@ static int __init ath10k_snoc_init(void)
 {
 	int ret;
 
-	if (!icnss_is_fw_ready()) {
-		pr_err("failed to get fw ready indication\n");
-		return -EAGAIN;
-	}
 	ret = platform_driver_register(&ath10k_snoc_driver);
 	if (ret)
 		pr_err("failed to register ath10k snoc driver: %d\n",
