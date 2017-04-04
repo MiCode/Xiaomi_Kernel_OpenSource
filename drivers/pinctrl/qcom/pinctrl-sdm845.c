@@ -727,6 +727,15 @@ enum sdm845_functions {
 	msm_mux_reserved79,
 	msm_mux_reserved80,
 	msm_mux_qup15,
+	msm_mux_reserved81,
+	msm_mux_reserved82,
+	msm_mux_reserved83,
+	msm_mux_reserved84,
+	msm_mux_pcie1_pwrfault,
+	msm_mux_qup5,
+	msm_mux_reserved85,
+	msm_mux_pcie1_mrl,
+	msm_mux_reserved86,
 	msm_mux_reserved87,
 	msm_mux_reserved88,
 	msm_mux_tsif1_clk,
@@ -751,15 +760,6 @@ enum sdm845_functions {
 	msm_mux_vfr_1,
 	msm_mux_tgu_ch2,
 	msm_mux_reserved92,
-	msm_mux_reserved81,
-	msm_mux_reserved82,
-	msm_mux_reserved83,
-	msm_mux_reserved84,
-	msm_mux_pcie1_pwrfault,
-	msm_mux_qup5,
-	msm_mux_reserved85,
-	msm_mux_pcie1_mrl,
-	msm_mux_reserved86,
 	msm_mux_tsif2_clk,
 	msm_mux_sdc4_clk,
 	msm_mux_qup7,
@@ -1681,6 +1681,33 @@ static const char * const reserved80_groups[] = {
 static const char * const qup15_groups[] = {
 	"gpio81", "gpio82", "gpio83", "gpio84",
 };
+static const char * const reserved81_groups[] = {
+	"gpio81",
+};
+static const char * const reserved82_groups[] = {
+	"gpio82",
+};
+static const char * const reserved83_groups[] = {
+	"gpio83",
+};
+static const char * const reserved84_groups[] = {
+	"gpio84",
+};
+static const char * const pcie1_pwrfault_groups[] = {
+	"gpio85",
+};
+static const char * const qup5_groups[] = {
+	"gpio85", "gpio86", "gpio87", "gpio88",
+};
+static const char * const reserved85_groups[] = {
+	"gpio85",
+};
+static const char * const pcie1_mrl_groups[] = {
+	"gpio86",
+};
+static const char * const reserved86_groups[] = {
+	"gpio86",
+};
 static const char * const reserved87_groups[] = {
 	"gpio87",
 };
@@ -1752,33 +1779,6 @@ static const char * const tgu_ch2_groups[] = {
 };
 static const char * const reserved92_groups[] = {
 	"gpio92",
-};
-static const char * const reserved81_groups[] = {
-	"gpio81",
-};
-static const char * const reserved82_groups[] = {
-	"gpio82",
-};
-static const char * const reserved83_groups[] = {
-	"gpio83",
-};
-static const char * const reserved84_groups[] = {
-	"gpio84",
-};
-static const char * const pcie1_pwrfault_groups[] = {
-	"gpio85",
-};
-static const char * const qup5_groups[] = {
-	"gpio85", "gpio86", "gpio87", "gpio88",
-};
-static const char * const reserved85_groups[] = {
-	"gpio85",
-};
-static const char * const pcie1_mrl_groups[] = {
-	"gpio86",
-};
-static const char * const reserved86_groups[] = {
-	"gpio86",
 };
 static const char * const tsif2_clk_groups[] = {
 	"gpio93",
@@ -2113,6 +2113,15 @@ static const struct msm_function sdm845_functions[] = {
 	FUNCTION(reserved79),
 	FUNCTION(reserved80),
 	FUNCTION(qup15),
+	FUNCTION(reserved81),
+	FUNCTION(reserved82),
+	FUNCTION(reserved83),
+	FUNCTION(reserved84),
+	FUNCTION(pcie1_pwrfault),
+	FUNCTION(qup5),
+	FUNCTION(reserved85),
+	FUNCTION(pcie1_mrl),
+	FUNCTION(reserved86),
 	FUNCTION(reserved87),
 	FUNCTION(reserved88),
 	FUNCTION(tsif1_clk),
@@ -2137,15 +2146,6 @@ static const struct msm_function sdm845_functions[] = {
 	FUNCTION(vfr_1),
 	FUNCTION(tgu_ch2),
 	FUNCTION(reserved92),
-	FUNCTION(reserved81),
-	FUNCTION(reserved82),
-	FUNCTION(reserved83),
-	FUNCTION(reserved84),
-	FUNCTION(pcie1_pwrfault),
-	FUNCTION(qup5),
-	FUNCTION(reserved85),
-	FUNCTION(pcie1_mrl),
-	FUNCTION(reserved86),
 	FUNCTION(tsif2_clk),
 	FUNCTION(sdc4_clk),
 	FUNCTION(qup7),
@@ -2418,10 +2418,10 @@ static const struct msm_pingroup sdm845_groups[] = {
 	PINGROUP(147, NORTH, NA, NA, reserved147, NA, NA, NA, NA, NA, NA),
 	PINGROUP(148, NORTH, NA, reserved148, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(149, NORTH, NA, reserved149, NA, NA, NA, NA, NA, NA, NA),
-	SDC_QDSD_PINGROUP(sdc2_clk, 0x59a000, 14, 6),
-	SDC_QDSD_PINGROUP(sdc2_cmd, 0x59a000, 11, 3),
-	SDC_QDSD_PINGROUP(sdc2_data, 0x59a000, 9, 0),
-	UFS_RESET(ufs_reset, 0x59f000),
+	SDC_QDSD_PINGROUP(sdc2_clk, 0x99a000, 14, 6),
+	SDC_QDSD_PINGROUP(sdc2_cmd, 0x99a000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc2_data, 0x99a000, 9, 0),
+	UFS_RESET(ufs_reset, 0x99f000),
 };
 
 static const struct msm_pinctrl_soc_data sdm845_pinctrl = {
