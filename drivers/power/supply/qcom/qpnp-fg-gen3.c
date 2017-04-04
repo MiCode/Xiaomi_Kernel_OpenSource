@@ -47,6 +47,7 @@
 #define ESR_UPD_TIGHT_LOW_TEMP_OFFSET	2
 #define ESR_UPD_BROAD_LOW_TEMP_OFFSET	3
 #define KI_COEFF_MED_DISCHG_WORD	9
+#define TIMEBASE_OFFSET			1
 #define KI_COEFF_MED_DISCHG_OFFSET	3
 #define KI_COEFF_HI_DISCHG_WORD		10
 #define KI_COEFF_HI_DISCHG_OFFSET	0
@@ -261,6 +262,8 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		fg_decode_cc_soc),
 	PARAM(ACT_BATT_CAP, ACT_BATT_CAP_BKUP_WORD, ACT_BATT_CAP_BKUP_OFFSET, 2,
 		1, 1, 0, NULL, fg_decode_default),
+	PARAM(TIMEBASE, KI_COEFF_MED_DISCHG_WORD, TIMEBASE_OFFSET, 2, 1000,
+		61000, 0, fg_encode_default, NULL),
 	/* Entries below here are configurable during initialization */
 	PARAM(CUTOFF_VOLT, CUTOFF_VOLT_WORD, CUTOFF_VOLT_OFFSET, 2, 1000000,
 		244141, 0, fg_encode_voltage, NULL),
@@ -3365,6 +3368,40 @@ static int fg_memif_init(struct fg_chip *chip)
 	return fg_ima_init(chip);
 }
 
+static int fg_adjust_timebase(struct fg_chip *chip)
+{
+	int rc = 0, die_temp;
+	s32 time_base = 0;
+	u8 buf[2] = {0};
+
+	if ((chip->wa_flags & PM660_TSMC_OSC_WA) && chip->die_temp_chan) {
+		rc = iio_read_channel_processed(chip->die_temp_chan, &die_temp);
+		if (rc < 0) {
+			pr_err("Error in reading die_temp, rc:%d\n", rc);
+			return rc;
+		}
+
+		rc = fg_lerp(fg_tsmc_osc_table, ARRAY_SIZE(fg_tsmc_osc_table),
+					die_temp / 1000, &time_base);
+		if (rc < 0) {
+			pr_err("Error to lookup fg_tsmc_osc_table rc=%d\n", rc);
+			return rc;
+		}
+
+		fg_encode(chip->sp, FG_SRAM_TIMEBASE, time_base, buf);
+		rc = fg_sram_write(chip,
+			chip->sp[FG_SRAM_TIMEBASE].addr_word,
+			chip->sp[FG_SRAM_TIMEBASE].addr_byte, buf,
+			chip->sp[FG_SRAM_TIMEBASE].len, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing timebase, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
 /* INTERRUPT HANDLERS STAY HERE */
 
 static irqreturn_t fg_mem_xcp_irq_handler(int irq, void *data)
@@ -3486,6 +3523,10 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	chip->health = prop.intval;
 
 	if (chip->last_batt_temp != batt_temp) {
+		rc = fg_adjust_timebase(chip);
+		if (rc < 0)
+			pr_err("Error in adjusting timebase, rc=%d\n", rc);
+
 		chip->last_batt_temp = batt_temp;
 		power_supply_changed(chip->batt_psy);
 	}
@@ -3554,6 +3595,10 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	rc = fg_esr_validate(chip);
 	if (rc < 0)
 		pr_err("Error in validating ESR, rc=%d\n", rc);
+
+	rc = fg_adjust_timebase(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting timebase, rc=%d\n", rc);
 
 	if (batt_psy_initialized(chip))
 		power_supply_changed(chip->batt_psy);
@@ -3897,6 +3942,8 @@ static int fg_parse_dt(struct fg_chip *chip)
 		chip->sp = pmi8998_v2_sram_params;
 		chip->alg_flags = pmi8998_v2_alg_flags;
 		chip->use_ima_single_mode = true;
+		if (chip->pmic_rev_id->fab_id == PM660_FAB_ID_TSMC)
+			chip->wa_flags |= PM660_TSMC_OSC_WA;
 		break;
 	default:
 		return -EINVAL;
@@ -4236,6 +4283,21 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		rc = PTR_ERR(chip->batt_id_chan);
 		chip->batt_id_chan = NULL;
 		return rc;
+	}
+
+	rc = of_property_match_string(chip->dev->of_node,
+				"io-channel-names", "rradc_die_temp");
+	if (rc >= 0) {
+		chip->die_temp_chan = iio_channel_get(chip->dev,
+						"rradc_die_temp");
+		if (IS_ERR(chip->die_temp_chan)) {
+			if (PTR_ERR(chip->die_temp_chan) != -EPROBE_DEFER)
+				pr_err("rradc_die_temp unavailable %ld\n",
+					PTR_ERR(chip->die_temp_chan));
+			rc = PTR_ERR(chip->die_temp_chan);
+			chip->die_temp_chan = NULL;
+			return rc;
+		}
 	}
 
 	chip->awake_votable = create_votable("FG_WS", VOTE_SET_ANY, fg_awake_cb,
