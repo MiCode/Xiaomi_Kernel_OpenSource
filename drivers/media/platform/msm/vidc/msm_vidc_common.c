@@ -52,8 +52,6 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata none",
 	"Extradata MB Quantization",
 	"Extradata Interlace Video",
-	"Extradata VC1 Framedisp",
-	"Extradata VC1 Seqdisp",
 	"Extradata timestamp",
 	"Extradata S3D Frame Packing",
 	"Extradata Frame Rate",
@@ -715,21 +713,12 @@ enum hal_video_codec get_hal_codec(int fourcc)
 	case V4L2_PIX_FMT_H264_MVC:
 		codec = HAL_VIDEO_CODEC_MVC;
 		break;
-	case V4L2_PIX_FMT_H263:
-		codec = HAL_VIDEO_CODEC_H263;
-		break;
+
 	case V4L2_PIX_FMT_MPEG1:
 		codec = HAL_VIDEO_CODEC_MPEG1;
 		break;
 	case V4L2_PIX_FMT_MPEG2:
 		codec = HAL_VIDEO_CODEC_MPEG2;
-		break;
-	case V4L2_PIX_FMT_MPEG4:
-		codec = HAL_VIDEO_CODEC_MPEG4;
-		break;
-	case V4L2_PIX_FMT_VC1_ANNEX_G:
-	case V4L2_PIX_FMT_VC1_ANNEX_L:
-		codec = HAL_VIDEO_CODEC_VC1;
 		break;
 	case V4L2_PIX_FMT_VP8:
 		codec = HAL_VIDEO_CODEC_VP8;
@@ -765,9 +754,6 @@ static enum hal_uncompressed_format get_hal_uncompressed(int fourcc)
 		break;
 	case V4L2_PIX_FMT_NV12_TP10_UBWC:
 		format = HAL_COLOR_FORMAT_NV12_TP10_UBWC;
-		break;
-	case V4L2_PIX_FMT_RGB32:
-		format = HAL_COLOR_FORMAT_RGBA8888;
 		break;
 	default:
 		format = HAL_UNUSED_COLOR;

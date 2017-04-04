@@ -73,8 +73,6 @@
 #define HFI_EXTRADATA_NONE					0x00000000
 #define HFI_EXTRADATA_MB_QUANTIZATION		0x00000001
 #define HFI_EXTRADATA_INTERLACE_VIDEO		0x00000002
-#define HFI_EXTRADATA_VC1_FRAMEDISP			0x00000003
-#define HFI_EXTRADATA_VC1_SEQDISP			0x00000004
 #define HFI_EXTRADATA_TIMESTAMP				0x00000005
 #define HFI_EXTRADATA_S3D_FRAME_PACKING		0x00000006
 #define HFI_EXTRADATA_FRAME_RATE			0x00000007
@@ -132,8 +130,6 @@ struct hfi_extradata_header {
 	(HFI_PROPERTY_PARAM_OX_START + 0x001)
 #define HFI_PROPERTY_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO	\
 	(HFI_PROPERTY_PARAM_OX_START + 0x002)
-#define HFI_PROPERTY_PARAM_EXTRA_DATA_HEADER_CONFIG		\
-	(HFI_PROPERTY_PARAM_OX_START + 0x005)
 #define HFI_PROPERTY_PARAM_INDEX_EXTRADATA             \
 	(HFI_PROPERTY_PARAM_OX_START + 0x006)
 #define HFI_PROPERTY_PARAM_S3D_FRAME_PACKING_EXTRADATA	\
@@ -175,10 +171,6 @@ struct hfi_extradata_header {
 	(HFI_PROPERTY_PARAM_VDEC_OX_START + 0x00C)
 #define HFI_PROPERTY_PARAM_VDEC_THUMBNAIL_MODE   \
 	(HFI_PROPERTY_PARAM_VDEC_OX_START + 0x00D)
-#define HFI_PROPERTY_PARAM_VDEC_VC1_FRAMEDISP_EXTRADATA		\
-	(HFI_PROPERTY_PARAM_VDEC_OX_START + 0x011)
-#define HFI_PROPERTY_PARAM_VDEC_VC1_SEQDISP_EXTRADATA		\
-	(HFI_PROPERTY_PARAM_VDEC_OX_START + 0x012)
 #define HFI_PROPERTY_PARAM_VDEC_TIMESTAMP_EXTRADATA			\
 	(HFI_PROPERTY_PARAM_VDEC_OX_START + 0x013)
 #define HFI_PROPERTY_PARAM_VDEC_INTERLACE_VIDEO_EXTRADATA	\
@@ -206,8 +198,6 @@ struct hfi_extradata_header {
 
 #define HFI_PROPERTY_CONFIG_VDEC_OX_START				\
 	(HFI_DOMAIN_BASE_VDEC + HFI_ARCH_OX_OFFSET + 0x4000)
-#define HFI_PROPERTY_CONFIG_VDEC_POST_LOOP_DEBLOCKER	\
-	(HFI_PROPERTY_CONFIG_VDEC_OX_START + 0x001)
 #define HFI_PROPERTY_CONFIG_VDEC_MB_ERROR_MAP_REPORTING	\
 	(HFI_PROPERTY_CONFIG_VDEC_OX_START + 0x002)
 #define HFI_PROPERTY_CONFIG_VDEC_MB_ERROR_MAP			\
@@ -277,14 +267,6 @@ struct hfi_data_payload {
 
 struct hfi_enable_picture {
 	u32 picture_type;
-};
-
-struct hfi_extra_data_header_config {
-	u32 type;
-	u32 buffer_type;
-	u32 version;
-	u32 port_index;
-	u32 client_extra_data_id;
 };
 
 struct hfi_mb_error_map {
@@ -720,35 +702,6 @@ struct hfi_extradata_mb_quantization_payload {
 	u8 rg_mb_qp[1];
 };
 
-struct hfi_extradata_vc1_pswnd {
-	u32 ps_wnd_h_offset;
-	u32 ps_wnd_v_offset;
-	u32 ps_wnd_width;
-	u32 ps_wnd_height;
-};
-
-struct hfi_extradata_vc1_framedisp_payload {
-	u32 res_pic;
-	u32 ref;
-	u32 range_map_present;
-	u32 range_map_y;
-	u32 range_map_uv;
-	u32 num_pan_scan_wnds;
-	struct hfi_extradata_vc1_pswnd rg_ps_wnd[1];
-};
-
-struct hfi_extradata_vc1_seqdisp_payload {
-	u32 prog_seg_frm;
-	u32 uv_sampling_fmt;
-	u32 color_fmt_flag;
-	u32 color_primaries;
-	u32 transfer_char;
-	u32 mat_coeff;
-	u32 aspect_ratio;
-	u32 aspect_horiz;
-	u32 aspect_vert;
-};
-
 struct hfi_extradata_timestamp_payload {
 	u32 time_stamp_low;
 	u32 time_stamp_high;
@@ -835,10 +788,6 @@ struct hfi_index_extradata_aspect_ratio_payload {
 	u32 port_index;
 	u32 aspect_width;
 	u32 aspect_height;
-};
-struct hfi_extradata_panscan_wndw_payload {
-	u32 num_window;
-	struct hfi_extradata_vc1_pswnd wnd[1];
 };
 
 struct hfi_extradata_frame_type_payload {
