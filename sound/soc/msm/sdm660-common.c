@@ -169,11 +169,19 @@ struct mi2s_conf {
 	struct mutex lock;
 	u32 ref_cnt;
 	u32 msm_is_mi2s_master;
+	u32 msm_is_ext_mclk;
 };
 
 struct auxpcm_conf {
 	struct mutex lock;
 	u32 ref_cnt;
+};
+
+static u32 mi2s_ebit_clk[MI2S_MAX] = {
+	Q6AFE_LPASS_CLK_ID_PRI_MI2S_EBIT,
+	Q6AFE_LPASS_CLK_ID_SEC_MI2S_EBIT,
+	Q6AFE_LPASS_CLK_ID_TER_MI2S_EBIT,
+	Q6AFE_LPASS_CLK_ID_QUAD_MI2S_EBIT
 };
 
 struct msm_wsa881x_dev_info {
@@ -339,6 +347,43 @@ static struct afe_clk_set mi2s_clk[MI2S_MAX] = {
 		0,
 	}
 };
+
+static struct afe_clk_set mi2s_mclk[MI2S_MAX] = {
+	{
+		AFE_API_VERSION_I2S_CONFIG,
+		Q6AFE_LPASS_CLK_ID_MCLK_1,
+		Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
+		Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
+		Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+		0,
+	},
+	{
+		AFE_API_VERSION_I2S_CONFIG,
+		Q6AFE_LPASS_CLK_ID_MCLK_2,
+		Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
+		Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
+		Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+		0,
+	},
+	{
+		AFE_API_VERSION_I2S_CONFIG,
+		Q6AFE_LPASS_CLK_ID_MCLK_3,
+		Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
+		Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
+		Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+		0,
+	},
+	{
+		AFE_API_VERSION_I2S_CONFIG,
+		Q6AFE_LPASS_CLK_ID_MCLK_4,
+		Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
+		Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
+		Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+		0,
+	}
+};
+
+
 
 static struct mi2s_aux_pcm_common_conf mi2s_auxpcm_conf[PCM_I2S_SEL_MAX];
 static struct mi2s_conf mi2s_intf_conf[MI2S_MAX];
@@ -2095,6 +2140,7 @@ int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	int ret = 0;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int port_id = msm_get_port_id(rtd->dai_link->be_id);
 	int index = cpu_dai->id;
 	unsigned int fmt = SND_SOC_DAIFMT_CBS_CFS;
 
@@ -2117,6 +2163,11 @@ int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	 */
 	mutex_lock(&mi2s_intf_conf[index].lock);
 	if (++mi2s_intf_conf[index].ref_cnt == 1) {
+		/* Check if msm needs to provide the clock to the interface */
+		if (!mi2s_intf_conf[index].msm_is_mi2s_master) {
+			mi2s_clk[index].clk_id = mi2s_ebit_clk[index];
+			fmt = SND_SOC_DAIFMT_CBM_CFM;
+		}
 		ret = msm_mi2s_set_sclk(substream, true);
 		if (ret < 0) {
 			dev_err(rtd->card->dev,
@@ -2136,9 +2187,6 @@ int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			ret = -EINVAL;
 			goto clk_off;
 		}
-		/* Check if msm needs to provide the clock to the interface */
-		if (!mi2s_intf_conf[index].msm_is_mi2s_master)
-			fmt = SND_SOC_DAIFMT_CBM_CFM;
 		ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
 		if (ret < 0) {
 			dev_err(rtd->card->dev,
@@ -2146,7 +2194,21 @@ int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 				__func__, index, ret);
 			goto clk_off;
 		}
+		if (mi2s_intf_conf[index].msm_is_ext_mclk) {
+			mi2s_mclk[index].enable = 1;
+			pr_debug("%s: Enabling mclk, clk_freq_in_hz = %u\n",
+				__func__, mi2s_mclk[index].clk_freq_in_hz);
+			ret = afe_set_lpass_clock_v2(port_id,
+						     &mi2s_mclk[index]);
+			if (ret < 0) {
+				pr_err("%s: afe lpass mclk failed, err:%d\n",
+					__func__, ret);
+				goto clk_off;
+			}
+		}
 	}
+	mutex_unlock(&mi2s_intf_conf[index].lock);
+	return 0;
 clk_off:
 	if (ret < 0)
 		msm_mi2s_set_sclk(substream, false);
@@ -2168,6 +2230,7 @@ void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 {
 	int ret;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	int port_id = msm_get_port_id(rtd->dai_link->be_id);
 	int index = rtd->cpu_dai->id;
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
@@ -2184,6 +2247,17 @@ void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 			pr_err("%s:clock disable failed for MI2S (%d); ret=%d\n",
 				__func__, index, ret);
 			mi2s_intf_conf[index].ref_cnt++;
+		}
+		if (mi2s_intf_conf[index].msm_is_ext_mclk) {
+			mi2s_mclk[index].enable = 0;
+			pr_debug("%s: Disabling mclk, clk_freq_in_hz = %u\n",
+				 __func__, mi2s_mclk[index].clk_freq_in_hz);
+			ret = afe_set_lpass_clock_v2(port_id,
+						     &mi2s_mclk[index]);
+			if (ret < 0) {
+				pr_err("%s: mclk disable failed for MCLK (%d); ret=%d\n",
+					__func__, index, ret);
+			}
 		}
 	}
 	mutex_unlock(&mi2s_intf_conf[index].lock);
@@ -2601,6 +2675,7 @@ static void i2s_auxpcm_init(struct platform_device *pdev)
 	struct resource *muxsel;
 	int count;
 	u32 mi2s_master_slave[MI2S_MAX];
+	u32 mi2s_ext_mclk[MI2S_MAX];
 	int ret;
 	char *str[PCM_I2S_SEL_MAX] = {
 		"lpaif_pri_mode_muxsel",
@@ -2634,8 +2709,8 @@ static void i2s_auxpcm_init(struct platform_device *pdev)
 	}
 
 	ret = of_property_read_u32_array(pdev->dev.of_node,
-			"qcom,msm-mi2s-master",
-			mi2s_master_slave, MI2S_MAX);
+					 "qcom,msm-mi2s-master",
+					 mi2s_master_slave, MI2S_MAX);
 	if (ret) {
 		dev_dbg(&pdev->dev, "%s: no qcom,msm-mi2s-master in DT node\n",
 			__func__);
@@ -2644,6 +2719,18 @@ static void i2s_auxpcm_init(struct platform_device *pdev)
 			mi2s_intf_conf[count].msm_is_mi2s_master =
 				mi2s_master_slave[count];
 		}
+	}
+
+	ret = of_property_read_u32_array(pdev->dev.of_node,
+					 "qcom,msm-mi2s-ext-mclk",
+					 mi2s_ext_mclk, MI2S_MAX);
+	if (ret) {
+		dev_dbg(&pdev->dev, "%s: no qcom,msm-mi2s-ext-mclk in DT node\n",
+			__func__);
+	} else {
+		for (count = 0; count < MI2S_MAX; count++)
+			mi2s_intf_conf[count].msm_is_ext_mclk =
+				mi2s_ext_mclk[count];
 	}
 }
 

@@ -1676,6 +1676,10 @@ Optional Properties:
 - qcom,msm-mi2s-master: This property is used to inform machine driver
   if MSM is the clock master of mi2s. 1 means master and 0 means slave. The
   first entry is primary mi2s; the second entry is secondary mi2s, and so on.
+- qcom,msm-mi2s-ext-mclk: This property is used to inform machine driver
+  if MCLK from MSM is used for any external audio connections. 1 means used
+  as external mclk source and 0 indicate not used. The first entry is
+  primary mclk; the second entry is secondary mclk, and so on.
 - reg: This property provides the AUX PCM/MI2S mux select register addresses
   and size.
 - reg_names: This property provides the name of the AUX PCM/MI2S mux select
@@ -1716,6 +1720,7 @@ Example:
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
 		qcom,msm-mi2s-master = <1>, <0>, <1>, <1>;
+		qcom,msm-mi2s-ext-mclk = <1>, <1>, <0>, <1>;
 		reg = <0x1711a000 0x4>,
 		      <0x1711b000 0x4>,
 		      <0x1711c000 0x4>,
