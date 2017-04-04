@@ -325,11 +325,11 @@ void sde_kms_info_reset(struct sde_kms_info *info);
  * sde_kms_info_add_keyint - add integer value to 'sde_kms_info'
  * @info: Pointer to sde_kms_info structure
  * @key: Pointer to key string
- * @value: Signed 32-bit integer value
+ * @value: Signed 64-bit integer value
  */
 void sde_kms_info_add_keyint(struct sde_kms_info *info,
 		const char *key,
-		int32_t value);
+		int64_t value);
 
 /**
  * sde_kms_info_add_keystr - add string value to 'sde_kms_info'

@@ -93,6 +93,27 @@
 
 #define DEFAULT_SBUF_HEADROOM		(20)
 
+/*
+ * Default parameter values
+ */
+#define DEFAULT_MAX_BW_HIGH			7000000
+#define DEFAULT_MAX_BW_LOW			7000000
+#define DEFAULT_UNDERSIZED_PREFILL_LINES	2
+#define DEFAULT_XTRA_PREFILL_LINES		2
+#define DEFAULT_DEST_SCALE_PREFILL_LINES	3
+#define DEFAULT_MACROTILE_PREFILL_LINES		4
+#define DEFAULT_YUV_NV12_PREFILL_LINES		8
+#define DEFAULT_LINEAR_PREFILL_LINES		1
+#define DEFAULT_DOWNSCALING_PREFILL_LINES	1
+#define DEFAULT_CORE_IB_FF			"6.0"
+#define DEFAULT_CORE_CLK_FF			"1.0"
+#define DEFAULT_COMP_RATIO_RT \
+		"NV12/5/1/1.23 AB24/5/1/1.23 XB24/5/1/1.23"
+#define DEFAULT_COMP_RATIO_NRT \
+		"NV12/5/1/1.25 AB24/5/1/1.25 XB24/5/1/1.25"
+#define DEFAULT_MAX_PER_PIPE_BW			2400000
+#define DEFAULT_AMORTIZABLE_THRESHOLD		25
+
 /*************************************************************
  *  DTSI PROPERTY INDEX
  *************************************************************/
@@ -127,6 +148,18 @@ enum sde_prop {
 enum {
 	PERF_MAX_BW_LOW,
 	PERF_MAX_BW_HIGH,
+	PERF_CORE_IB_FF,
+	PERF_CORE_CLK_FF,
+	PERF_COMP_RATIO_RT,
+	PERF_COMP_RATIO_NRT,
+	PERF_UNDERSIZED_PREFILL_LINES,
+	PERF_DEST_SCALE_PREFILL_LINES,
+	PERF_MACROTILE_PREFILL_LINES,
+	PERF_YUV_NV12_PREFILL_LINES,
+	PERF_LINEAR_PREFILL_LINES,
+	PERF_DOWNSCALING_PREFILL_LINES,
+	PERF_XTRA_PREFILL_LINES,
+	PERF_AMORTIZABLE_THRESHOLD,
 	PERF_PROP_MAX,
 };
 
@@ -144,6 +177,7 @@ enum {
 	SSPP_RGB_BLOCKS,
 	SSPP_EXCL_RECT,
 	SSPP_SMART_DMA,
+	SSPP_MAX_PER_PIPE_BW,
 	SSPP_PROP_MAX,
 };
 
@@ -320,6 +354,28 @@ static struct sde_prop_type sde_prop[] = {
 static struct sde_prop_type sde_perf_prop[] = {
 	{PERF_MAX_BW_LOW, "qcom,sde-max-bw-low-kbps", false, PROP_TYPE_U32},
 	{PERF_MAX_BW_HIGH, "qcom,sde-max-bw-high-kbps", false, PROP_TYPE_U32},
+	{PERF_CORE_IB_FF, "qcom,sde-core-ib-ff", false, PROP_TYPE_STRING},
+	{PERF_CORE_CLK_FF, "qcom,sde-core-clk-ff", false, PROP_TYPE_STRING},
+	{PERF_COMP_RATIO_RT, "qcom,sde-comp-ratio-rt", false,
+			PROP_TYPE_STRING},
+	{PERF_COMP_RATIO_NRT, "qcom,sde-comp-ratio-nrt", false,
+			PROP_TYPE_STRING},
+	{PERF_UNDERSIZED_PREFILL_LINES, "qcom,sde-undersizedprefill-lines",
+			false, PROP_TYPE_U32},
+	{PERF_DEST_SCALE_PREFILL_LINES, "qcom,sde-dest-scaleprefill-lines",
+			false, PROP_TYPE_U32},
+	{PERF_MACROTILE_PREFILL_LINES, "qcom,sde-macrotileprefill-lines",
+			false, PROP_TYPE_U32},
+	{PERF_YUV_NV12_PREFILL_LINES, "qcom,sde-yuv-nv12prefill-lines",
+			false, PROP_TYPE_U32},
+	{PERF_LINEAR_PREFILL_LINES, "qcom,sde-linearprefill-lines",
+			false, PROP_TYPE_U32},
+	{PERF_DOWNSCALING_PREFILL_LINES, "qcom,sde-downscalingprefill-lines",
+			false, PROP_TYPE_U32},
+	{PERF_XTRA_PREFILL_LINES, "qcom,sde-xtra-prefill-lines",
+			false, PROP_TYPE_U32},
+	{PERF_AMORTIZABLE_THRESHOLD, "qcom,sde-amortizable-threshold",
+			false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type sspp_prop[] = {
@@ -338,6 +394,8 @@ static struct sde_prop_type sspp_prop[] = {
 	{SSPP_RGB_BLOCKS, "qcom,sde-sspp-rgb-blocks", false, PROP_TYPE_NODE},
 	{SSPP_EXCL_RECT, "qcom,sde-sspp-excl-rect", false, PROP_TYPE_U32_ARRAY},
 	{SSPP_SMART_DMA, "qcom,sde-sspp-smart-dma-priority", false,
+		PROP_TYPE_U32_ARRAY},
+	{SSPP_MAX_PER_PIPE_BW, "qcom,sde-max-per-pipe-bw-kbps", false,
 		PROP_TYPE_U32_ARRAY},
 };
 
@@ -1077,6 +1135,12 @@ static int sde_sspp_parse_dt(struct device_node *np,
 
 		if (PROP_VALUE_ACCESS(prop_value, SSPP_EXCL_RECT, i) == 1)
 			set_bit(SDE_SSPP_EXCL_RECT, &sspp->features);
+
+		if (prop_exists[SSPP_MAX_PER_PIPE_BW])
+			sblk->max_per_pipe_bw = PROP_VALUE_ACCESS(prop_value,
+					SSPP_MAX_PER_PIPE_BW, i);
+		else
+			sblk->max_per_pipe_bw = DEFAULT_MAX_PER_PIPE_BW;
 
 		for (j = 0; j < sde_cfg->mdp_count; j++) {
 			sde_cfg->mdp[j].clk_ctrls[sspp->clk_ctrl].reg_off =
@@ -2260,6 +2324,7 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	int rc, len, prop_count[PERF_PROP_MAX];
 	struct sde_prop_value *prop_value = NULL;
 	bool prop_exists[PERF_PROP_MAX];
+	const char *str = NULL;
 
 	if (!cfg) {
 		SDE_ERROR("invalid argument\n");
@@ -2285,9 +2350,72 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		goto freeprop;
 
 	cfg->perf.max_bw_low =
-			PROP_VALUE_ACCESS(prop_value, PERF_MAX_BW_LOW, 0);
+			prop_exists[PERF_MAX_BW_LOW] ?
+			PROP_VALUE_ACCESS(prop_value, PERF_MAX_BW_LOW, 0) :
+			DEFAULT_MAX_BW_LOW;
 	cfg->perf.max_bw_high =
-			PROP_VALUE_ACCESS(prop_value, PERF_MAX_BW_HIGH, 0);
+			prop_exists[PERF_MAX_BW_HIGH] ?
+			PROP_VALUE_ACCESS(prop_value, PERF_MAX_BW_HIGH, 0) :
+			DEFAULT_MAX_BW_HIGH;
+
+	/*
+	 * The following performance parameters (e.g. core_ib_ff) are
+	 * mapped directly as device tree string constants.
+	 */
+	rc = of_property_read_string(np,
+			sde_perf_prop[PERF_CORE_IB_FF].prop_name, &str);
+	cfg->perf.core_ib_ff = rc ? DEFAULT_CORE_IB_FF : str;
+	rc = of_property_read_string(np,
+			sde_perf_prop[PERF_CORE_CLK_FF].prop_name, &str);
+	cfg->perf.core_clk_ff = rc ? DEFAULT_CORE_CLK_FF : str;
+	rc = of_property_read_string(np,
+			sde_perf_prop[PERF_COMP_RATIO_RT].prop_name, &str);
+	cfg->perf.comp_ratio_rt = rc ? DEFAULT_COMP_RATIO_RT : str;
+	rc = of_property_read_string(np,
+			sde_perf_prop[PERF_COMP_RATIO_NRT].prop_name, &str);
+	cfg->perf.comp_ratio_nrt = rc ? DEFAULT_COMP_RATIO_NRT : str;
+	rc = 0;
+
+	cfg->perf.undersized_prefill_lines =
+			prop_exists[PERF_UNDERSIZED_PREFILL_LINES] ?
+			PROP_VALUE_ACCESS(prop_value,
+					PERF_UNDERSIZED_PREFILL_LINES, 0) :
+			DEFAULT_UNDERSIZED_PREFILL_LINES;
+	cfg->perf.xtra_prefill_lines =
+			prop_exists[PERF_XTRA_PREFILL_LINES] ?
+			PROP_VALUE_ACCESS(prop_value,
+					PERF_XTRA_PREFILL_LINES, 0) :
+			DEFAULT_XTRA_PREFILL_LINES;
+	cfg->perf.dest_scale_prefill_lines =
+			prop_exists[PERF_DEST_SCALE_PREFILL_LINES] ?
+			PROP_VALUE_ACCESS(prop_value,
+					PERF_DEST_SCALE_PREFILL_LINES, 0) :
+			DEFAULT_DEST_SCALE_PREFILL_LINES;
+	cfg->perf.macrotile_prefill_lines =
+			prop_exists[PERF_MACROTILE_PREFILL_LINES] ?
+			PROP_VALUE_ACCESS(prop_value,
+					PERF_MACROTILE_PREFILL_LINES, 0) :
+			DEFAULT_MACROTILE_PREFILL_LINES;
+	cfg->perf.yuv_nv12_prefill_lines =
+			prop_exists[PERF_YUV_NV12_PREFILL_LINES] ?
+			PROP_VALUE_ACCESS(prop_value,
+					PERF_YUV_NV12_PREFILL_LINES, 0) :
+			DEFAULT_YUV_NV12_PREFILL_LINES;
+	cfg->perf.linear_prefill_lines =
+			prop_exists[PERF_LINEAR_PREFILL_LINES] ?
+			PROP_VALUE_ACCESS(prop_value,
+					PERF_LINEAR_PREFILL_LINES, 0) :
+			DEFAULT_LINEAR_PREFILL_LINES;
+	cfg->perf.downscaling_prefill_lines =
+			prop_exists[PERF_DOWNSCALING_PREFILL_LINES] ?
+			PROP_VALUE_ACCESS(prop_value,
+					PERF_DOWNSCALING_PREFILL_LINES, 0) :
+			DEFAULT_DOWNSCALING_PREFILL_LINES;
+	cfg->perf.amortizable_threshold =
+			prop_exists[PERF_AMORTIZABLE_THRESHOLD] ?
+			PROP_VALUE_ACCESS(prop_value,
+					PERF_AMORTIZABLE_THRESHOLD, 0) :
+			DEFAULT_AMORTIZABLE_THRESHOLD;
 
 freeprop:
 	kfree(prop_value);
@@ -2400,14 +2528,21 @@ static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 	case SDE_HW_VER_171:
 	case SDE_HW_VER_172:
 		/* update msm8996 target here */
+		sde_cfg->perf.min_prefill_lines = 21;
 		break;
 	case SDE_HW_VER_300:
 	case SDE_HW_VER_301:
+		/* update msm8998 target here */
+		sde_cfg->has_wb_ubwc = true;
+		sde_cfg->perf.min_prefill_lines = 25;
+		break;
 	case SDE_HW_VER_400:
 		/* update msm8998 and sdm845 target here */
 		sde_cfg->has_wb_ubwc = true;
+		sde_cfg->perf.min_prefill_lines = 24;
 		break;
 	default:
+		sde_cfg->perf.min_prefill_lines = 0xffff;
 		break;
 	}
 

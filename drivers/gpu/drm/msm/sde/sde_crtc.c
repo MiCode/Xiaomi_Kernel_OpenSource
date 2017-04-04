@@ -2709,19 +2709,19 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			CRTC_PROP_CORE_CLK);
 	msm_property_install_range(&sde_crtc->property_info,
 			"core_ab", 0x0, 0, U64_MAX,
-			SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
+			SDE_PERF_DEFAULT_MAX_BUS_AB_QUOTA,
 			CRTC_PROP_CORE_AB);
 	msm_property_install_range(&sde_crtc->property_info,
 			"core_ib", 0x0, 0, U64_MAX,
-			SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA,
+			SDE_PERF_DEFAULT_MAX_BUS_IB_QUOTA,
 			CRTC_PROP_CORE_IB);
 	msm_property_install_range(&sde_crtc->property_info,
 			"mem_ab", 0x0, 0, U64_MAX,
-			SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
+			SDE_PERF_DEFAULT_MAX_BUS_AB_QUOTA,
 			CRTC_PROP_MEM_AB);
 	msm_property_install_range(&sde_crtc->property_info,
 			"mem_ib", 0x0, 0, U64_MAX,
-			SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
+			SDE_PERF_DEFAULT_MAX_BUS_IB_QUOTA,
 			CRTC_PROP_MEM_IB);
 	msm_property_install_range(&sde_crtc->property_info,
 			"rot_prefill_bw", 0, 0, U64_MAX,
@@ -2767,13 +2767,40 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	sde_kms_info_add_keyint(info, "has_src_split", catalog->has_src_split);
 	if (catalog->perf.max_bw_low)
 		sde_kms_info_add_keyint(info, "max_bandwidth_low",
-				catalog->perf.max_bw_low);
+				catalog->perf.max_bw_low * 1000LL);
 	if (catalog->perf.max_bw_high)
 		sde_kms_info_add_keyint(info, "max_bandwidth_high",
-				catalog->perf.max_bw_high);
+				catalog->perf.max_bw_high * 1000LL);
 	if (sde_kms->perf.max_core_clk_rate)
 		sde_kms_info_add_keyint(info, "max_mdp_clk",
 				sde_kms->perf.max_core_clk_rate);
+	sde_kms_info_add_keystr(info, "core_ib_ff",
+			catalog->perf.core_ib_ff);
+	sde_kms_info_add_keystr(info, "core_clk_ff",
+			catalog->perf.core_clk_ff);
+	sde_kms_info_add_keystr(info, "comp_ratio_rt",
+			catalog->perf.comp_ratio_rt);
+	sde_kms_info_add_keystr(info, "comp_ratio_nrt",
+			catalog->perf.comp_ratio_nrt);
+	sde_kms_info_add_keyint(info, "dest_scale_prefill_lines",
+			catalog->perf.dest_scale_prefill_lines);
+	sde_kms_info_add_keyint(info, "undersized_prefill_lines",
+			catalog->perf.undersized_prefill_lines);
+	sde_kms_info_add_keyint(info, "macrotile_prefill_lines",
+			catalog->perf.macrotile_prefill_lines);
+	sde_kms_info_add_keyint(info, "yuv_nv12_prefill_lines",
+			catalog->perf.yuv_nv12_prefill_lines);
+	sde_kms_info_add_keyint(info, "linear_prefill_lines",
+			catalog->perf.linear_prefill_lines);
+	sde_kms_info_add_keyint(info, "downscaling_prefill_lines",
+			catalog->perf.downscaling_prefill_lines);
+	sde_kms_info_add_keyint(info, "xtra_prefill_lines",
+			catalog->perf.xtra_prefill_lines);
+	sde_kms_info_add_keyint(info, "amortizable_threshold",
+			catalog->perf.amortizable_threshold);
+	sde_kms_info_add_keyint(info, "min_prefill_lines",
+			catalog->perf.min_prefill_lines);
+
 	msm_property_set_blob(&sde_crtc->property_info, &sde_crtc->blob_info,
 			info->data, info->len, CRTC_PROP_INFO);
 
