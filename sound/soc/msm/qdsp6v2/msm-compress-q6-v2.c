@@ -161,6 +161,8 @@ struct msm_compr_audio {
 	uint32_t next_stream;
 
 	uint32_t run_mode;
+	uint32_t start_delay_lsw;
+	uint32_t start_delay_msw;
 
 	uint64_t marker_timestamp;
 
@@ -2064,7 +2066,8 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			msm_compr_read_buffer(prtd);
 		}
 		/* issue RUN command for the stream */
-		q6asm_run_nowait(prtd->audio_client, prtd->run_mode, 0, 0);
+		q6asm_run_nowait(prtd->audio_client, prtd->run_mode,
+				 prtd->start_delay_msw, prtd->start_delay_lsw);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		spin_lock_irqsave(&prtd->lock, flags);
@@ -2849,6 +2852,9 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 				metadata->value[1],
 				metadata->value[2],
 				metadata->value[3]);
+	} else if (metadata->key == SNDRV_COMPRESS_START_DELAY) {
+		prtd->start_delay_lsw = metadata->value[0];
+		prtd->start_delay_msw = metadata->value[1];
 	}
 
 	return 0;
