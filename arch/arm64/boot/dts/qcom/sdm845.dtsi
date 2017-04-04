@@ -892,6 +892,8 @@
 		reg-names = "phy_mem";
 		#phy-cells = <0>;
 
+		lanes-per-direction = <2>;
+
 		clock-names = "ref_clk_src",
 			"ref_clk",
 			"ref_aux_clk";
@@ -1009,6 +1011,8 @@
 		reg = <0x1da7000 0xda8>; /* PHY regs */
 		reg-names = "phy_mem";
 		#phy-cells = <0>;
+
+		lanes-per-direction = <1>;
 
 		clock-names = "ref_clk_src",
 			"ref_clk",
