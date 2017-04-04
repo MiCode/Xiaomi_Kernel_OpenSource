@@ -2616,6 +2616,8 @@ static int __tavil_codec_enable_mad(struct snd_soc_codec *codec, bool enable)
 		/* Undo reset for MAD */
 		snd_soc_update_bits(codec, WCD934X_CPE_SS_MAD_CTL,
 				    0x02, 0x00);
+		snd_soc_update_bits(codec, WCD934X_CODEC_RPM_CLK_MCLK_CFG,
+					0x04, 0x04);
 	} else {
 		snd_soc_update_bits(codec, WCD934X_SOC_MAD_AUDIO_CTL_2,
 				    0x03, 0x00);
@@ -2625,6 +2627,8 @@ static int __tavil_codec_enable_mad(struct snd_soc_codec *codec, bool enable)
 		/* Turn off MAD clk */
 		snd_soc_update_bits(codec, WCD934X_CPE_SS_MAD_CTL,
 				    0x01, 0x00);
+		snd_soc_update_bits(codec, WCD934X_CODEC_RPM_CLK_MCLK_CFG,
+					0x04, 0x00);
 	}
 done:
 	return rc;
