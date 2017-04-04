@@ -492,6 +492,25 @@ int of_thermal_aggregate_trip(struct thermal_zone_device *tz,
 }
 EXPORT_SYMBOL(of_thermal_aggregate_trip);
 
+/*
+ * of_thermal_handle_trip - Handle thermal trip from sensors
+ *
+ * @tz: pointer to the primary thermal zone.
+ */
+void of_thermal_handle_trip(struct thermal_zone_device *tz)
+{
+	struct thermal_zone_device *zone;
+	struct __thermal_zone *data = tz->devdata;
+	struct list_head *head;
+
+	head = &data->senps->first_tz;
+	for_each_tz_sibling(data, head) {
+		zone = data->tzd;
+		thermal_zone_device_update(zone, THERMAL_EVENT_UNSPECIFIED);
+	}
+}
+EXPORT_SYMBOL(of_thermal_handle_trip);
+
 static struct thermal_zone_device_ops of_thermal_ops = {
 	.get_mode = of_thermal_get_mode,
 	.set_mode = of_thermal_set_mode,
