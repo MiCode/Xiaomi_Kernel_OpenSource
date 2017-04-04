@@ -33,7 +33,6 @@
 #define MHI_SOFTWARE_CLIENT_LIMIT 23
 #define MHI_UCI_IPC_LOG_PAGES (25)
 
-#define MAX_NR_TRBS_PER_CHAN 10
 #define DEVICE_NAME "mhi"
 #define MHI_UCI_DRIVER_NAME "mhi_uci"
 #define CTRL_MAGIC 0x4C525443
@@ -95,33 +94,35 @@ struct chan_attr {
 	u32 nr_trbs;
 	enum MHI_CHAN_DIR dir;
 	u32 uci_ownership;
+	bool enabled;
+	struct mhi_client_handle *mhi_handle;
+	wait_queue_head_t wq;
+	struct list_head buf_head;
+	struct mutex chan_lock;
+	atomic_t avail_pkts; /* no. avail tre to read or space avail for tx */
+	u64 pkt_count;
+};
+
+struct uci_buf {
+	void *data;
+	u64 pkt_id;
+	struct list_head node;
 };
 
 struct uci_client {
-	u32 out_chan;
-	u32 in_chan;
-	u32 out_chan_state;
-	u32 in_chan_state;
 	struct chan_attr in_attr;
 	struct chan_attr out_attr;
-	struct mhi_client_handle *out_handle;
-	struct mhi_client_handle *in_handle;
-	size_t pending_data;
-	wait_queue_head_t read_wq;
-	wait_queue_head_t write_wq;
-	atomic_t avail_pkts;
 	struct device *dev;
 	u8 local_tiocm;
-	atomic_t ref_count;
-	int mhi_status;
-	void *pkt_loc;
+	struct mutex client_lock; /* sync open and close */
+	int ref_count;
+	struct uci_buf *cur_buf; /* current buffer read processing */
 	size_t pkt_size;
-	void **in_buf_list;
+	struct work_struct outbound_worker; /* clean up outbound pkts */
 	atomic_t out_pkt_pend_ack;
-	atomic_t mhi_disabled;
+	atomic_t completion_ack;
 	struct mhi_uci_ctxt_t *uci_ctxt;
-	struct mutex in_chan_lock;
-	struct mutex out_chan_lock;
+	bool enabled;
 	void *uci_ipc_log;
 };
 
@@ -133,8 +134,6 @@ struct mhi_uci_ctxt_t {
 	struct mutex ctrl_mutex;
 	struct cdev cdev[MHI_SOFTWARE_CLIENT_LIMIT];
 	struct uci_client *ctrl_client;
-	atomic_t mhi_disabled;
-	atomic_t mhi_enable_notif_wq_active;
 };
 
 struct mhi_uci_drv_ctxt {
@@ -250,6 +249,35 @@ static long mhi_uci_ctl_ioctl(struct file *file, unsigned int cmd,
 
 static struct mhi_uci_drv_ctxt mhi_uci_drv_ctxt;
 
+static void mhi_uci_clean_acked_tre(struct work_struct *work)
+{
+	struct uci_client *uci_client;
+	int i = 0;
+
+	uci_client = container_of(work, struct uci_client, outbound_worker);
+	while (atomic_read(&uci_client->completion_ack)) {
+		struct uci_buf *uci_buf;
+
+		/* acquire lock per tre so we won't block other uci threads */
+		mutex_lock(&uci_client->out_attr.chan_lock);
+		uci_buf = list_first_entry_or_null(
+						&uci_client->out_attr.buf_head,
+						struct uci_buf, node);
+		if (unlikely(!uci_buf)) {
+			mutex_unlock(&uci_client->out_attr.chan_lock);
+			break;
+		}
+		list_del(&uci_buf->node);
+		kfree(uci_buf->data);
+		atomic_dec(&uci_client->completion_ack);
+		mutex_unlock(&uci_client->out_attr.chan_lock);
+		i++;
+	}
+	uci_log(uci_client->uci_ipc_log, UCI_DBG_VERBOSE,
+		"freed %d tres for chan %d\n",
+		i, uci_client->out_attr.chan_id);
+}
+
 static int mhi_init_inbound(struct uci_client *client_handle)
 {
 	int ret_val = 0;
@@ -257,37 +285,32 @@ static int mhi_init_inbound(struct uci_client *client_handle)
 	struct chan_attr *chan_attributes = &client_handle->in_attr;
 	void *data_loc = NULL;
 	size_t buf_size = chan_attributes->max_packet_size;
+	struct uci_buf *uci_buf;
 
-	if (client_handle == NULL) {
-		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
-			UCI_DBG_ERROR,
-			"Bad Input data, quitting\n");
-		return -EINVAL;
-	}
 	chan_attributes->nr_trbs =
-			mhi_get_free_desc(client_handle->in_handle);
-	client_handle->in_buf_list =
-			kmalloc(sizeof(void *) * chan_attributes->nr_trbs,
-			GFP_KERNEL);
-	if (!client_handle->in_buf_list)
-		return -ENOMEM;
+			mhi_get_free_desc(client_handle->in_attr.mhi_handle);
 
 	uci_log(client_handle->uci_ipc_log,
 		UCI_DBG_INFO, "Channel %d supports %d desc\n",
 		chan_attributes->chan_id,
 		chan_attributes->nr_trbs);
 	for (i = 0; i < chan_attributes->nr_trbs; ++i) {
-		data_loc = kmalloc(buf_size, GFP_KERNEL);
-		uci_log(client_handle->uci_ipc_log,
-			UCI_DBG_INFO,
-			"Allocated buffer %p size %zd\n",
-			data_loc,
-			buf_size);
+		data_loc = kmalloc(buf_size + sizeof(*uci_buf), GFP_KERNEL);
+
+		/*
+		 * previously allocated memory will be freed after
+		 * channel close
+		 */
 		if (data_loc == NULL)
 			return -ENOMEM;
-		client_handle->in_buf_list[i] = data_loc;
-		ret_val = mhi_queue_xfer(client_handle->in_handle,
-					  data_loc, buf_size, MHI_EOT);
+		uci_buf = data_loc + buf_size;
+		uci_buf->data = data_loc;
+		uci_buf->pkt_id = chan_attributes->pkt_count++;
+		uci_log(client_handle->uci_ipc_log, UCI_DBG_INFO,
+			"Allocated buffer %llu size %ld for chan:%d\n",
+			uci_buf->pkt_id, buf_size, chan_attributes->chan_id);
+		ret_val = mhi_queue_xfer(client_handle->in_attr.mhi_handle,
+					 data_loc, buf_size, MHI_EOT);
 		if (0 != ret_val) {
 			kfree(data_loc);
 			uci_log(client_handle->uci_ipc_log,
@@ -297,139 +320,138 @@ static int mhi_init_inbound(struct uci_client *client_handle)
 				ret_val);
 			break;
 		}
+		list_add_tail(&uci_buf->node, &client_handle->in_attr.buf_head);
 	}
 	return ret_val;
 }
 
 static int mhi_uci_send_packet(struct mhi_client_handle **client_handle,
-		void *buf, u32 size, u32 is_uspace_buf)
+			       void *buf,
+			       u32 size)
 {
 	u32 nr_avail_trbs = 0;
 	u32 i = 0;
 	void *data_loc = NULL;
-	uintptr_t memcpy_result = 0;
+	unsigned long memcpy_result = 0;
 	int data_left_to_insert = 0;
 	size_t data_to_insert_now = 0;
 	u32 data_inserted_so_far = 0;
 	int ret_val = 0;
-	enum MHI_FLAGS flags;
 	struct uci_client *uci_handle;
+	struct uci_buf *uci_buf;
+
 	uci_handle = container_of(client_handle, struct uci_client,
-					out_handle);
+				  out_attr.mhi_handle);
 
-	if (client_handle == NULL || buf == NULL ||
-		!size || uci_handle == NULL)
-		return -EINVAL;
-
-	nr_avail_trbs = mhi_get_free_desc(*client_handle);
-
+	nr_avail_trbs = atomic_read(&uci_handle->out_attr.avail_pkts);
 	data_left_to_insert = size;
-
-	if (0 == nr_avail_trbs)
-		return 0;
 
 	for (i = 0; i < nr_avail_trbs; ++i) {
 		data_to_insert_now = min_t(size_t, data_left_to_insert,
 				uci_handle->out_attr.max_packet_size);
-		if (is_uspace_buf) {
-			data_loc = kmalloc(data_to_insert_now, GFP_KERNEL);
-			if (NULL == data_loc) {
-				uci_log(uci_handle->uci_ipc_log,
-					UCI_DBG_VERBOSE,
-					"Failed to allocate memory 0x%zx\n",
-					data_to_insert_now);
+		data_loc = kmalloc(data_to_insert_now + sizeof(*uci_buf),
+				   GFP_KERNEL);
+		if (!data_loc) {
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
+				"Failed to allocate memory 0x%zx\n",
+				data_to_insert_now);
 				return -ENOMEM;
-			}
-			memcpy_result = copy_from_user(data_loc,
-					buf + data_inserted_so_far,
-					data_to_insert_now);
-
-			if (0 != memcpy_result)
-				goto error_memcpy;
-		} else {
-			data_loc = buf;
 		}
+		uci_buf = data_loc + data_to_insert_now;
+		uci_buf->data = data_loc;
+		uci_buf->pkt_id = uci_handle->out_attr.pkt_count++;
+		memcpy_result = copy_from_user(uci_buf->data,
+					       buf + data_inserted_so_far,
+					       data_to_insert_now);
+		if (memcpy_result)
+			goto error_xfer;
 
-		flags = MHI_EOT;
-		if (data_left_to_insert - data_to_insert_now > 0)
-			flags |= MHI_CHAIN | MHI_EOB;
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_VERBOSE,
-			"At trb i = %d/%d, chain = %d, eob = %d, addr 0x%p chan %d\n",
-			i,
-			nr_avail_trbs,
-			flags & MHI_CHAIN,
-			flags & MHI_EOB,
-			data_loc,
-			uci_handle->out_chan);
-		ret_val = mhi_queue_xfer(*client_handle, data_loc,
-					data_to_insert_now, flags);
-
-		if (0 != ret_val) {
-			goto error_queue;
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
+			"At trb i = %d/%d, size = %lu, id %llu chan %d\n",
+			i, nr_avail_trbs, data_to_insert_now, uci_buf->pkt_id,
+			uci_handle->out_attr.chan_id);
+		ret_val = mhi_queue_xfer(*client_handle, uci_buf->data,
+					data_to_insert_now, MHI_EOT);
+		if (ret_val) {
+			goto error_xfer;
 		} else {
 			data_left_to_insert -= data_to_insert_now;
 			data_inserted_so_far += data_to_insert_now;
 			atomic_inc(&uci_handle->out_pkt_pend_ack);
+			atomic_dec(&uci_handle->out_attr.avail_pkts);
+			list_add_tail(&uci_buf->node,
+				      &uci_handle->out_attr.buf_head);
 		}
-		if (0 == data_left_to_insert)
+		if (!data_left_to_insert)
 			break;
 	}
 	return data_inserted_so_far;
 
-error_queue:
-error_memcpy:
-	kfree(data_loc);
+error_xfer:
+	kfree(uci_buf->data);
 	return data_inserted_so_far;
 }
 
 static int mhi_uci_send_status_cmd(struct uci_client *client)
 {
+	void *buf = NULL;
 	struct rs232_ctrl_msg *rs232_pkt = NULL;
+	struct uci_buf *uci_buf = NULL;
 	struct uci_client *uci_ctrl_handle;
 	struct mhi_uci_ctxt_t *uci_ctxt = client->uci_ctxt;
 	int ret_val = 0;
-	size_t pkt_size = sizeof(struct rs232_ctrl_msg);
-	u32 amount_sent;
 
 	if (!uci_ctxt->ctrl_client) {
-		uci_log(client->uci_ipc_log,
-			UCI_DBG_INFO,
+		uci_log(client->uci_ipc_log, UCI_DBG_INFO,
 			"Control channel is not defined\n");
 		return -EIO;
 	}
 
 	uci_ctrl_handle = uci_ctxt->ctrl_client;
-	mutex_lock(&uci_ctrl_handle->out_chan_lock);
+	mutex_lock(&uci_ctrl_handle->out_attr.chan_lock);
 
-	if (!atomic_read(&uci_ctrl_handle->mhi_disabled) &&
-			 !uci_ctrl_handle->out_chan_state) {
-		uci_log(uci_ctrl_handle->uci_ipc_log,
-			UCI_DBG_INFO,
+	if (!uci_ctrl_handle->enabled) {
+		uci_log(uci_ctrl_handle->uci_ipc_log, UCI_DBG_INFO,
 			"Opening outbound control channel %d for chan:%d\n",
-			uci_ctrl_handle->out_chan,
-			client->out_chan);
-		ret_val = mhi_open_channel(uci_ctrl_handle->out_handle);
-		if (0 != ret_val) {
-			uci_log(uci_ctrl_handle->uci_ipc_log,
-				UCI_DBG_CRITICAL,
-				"Could not open chan %d, for sideband ctrl\n",
-				uci_ctrl_handle->out_chan);
+			uci_ctrl_handle->out_attr.chan_id,
+			client->out_attr.chan_id);
+		if (!uci_ctrl_handle->out_attr.enabled) {
+			uci_log(uci_ctrl_handle->uci_ipc_log, UCI_DBG_CRITICAL,
+				"Channel %d is not enable\n",
+				uci_ctrl_handle->out_attr.chan_id);
 			ret_val = -EIO;
 			goto error_open;
 		}
-		uci_ctrl_handle->out_chan_state = 1;
+		ret_val = mhi_open_channel(uci_ctrl_handle->
+					   out_attr.mhi_handle);
+		if (ret_val) {
+			uci_log(uci_ctrl_handle->uci_ipc_log, UCI_DBG_CRITICAL,
+				"Could not open chan %d, for sideband ctrl\n",
+				uci_ctrl_handle->out_attr.chan_id);
+			ret_val = -EIO;
+			goto error_open;
+		}
+		uci_ctrl_handle->enabled = true;
 	}
 
-	rs232_pkt = kzalloc(sizeof(struct rs232_ctrl_msg), GFP_KERNEL);
-	if (rs232_pkt == NULL) {
+	if (mhi_get_free_desc(uci_ctrl_handle->out_attr.mhi_handle) <= 0) {
+		ret_val = -EIO;
+		goto error_open;
+	}
+
+	buf = kzalloc(sizeof(*rs232_pkt) + sizeof(*uci_buf), GFP_KERNEL);
+	if (!buf) {
 		ret_val = -ENOMEM;
 		goto error_open;
 	}
-	uci_log(uci_ctrl_handle->uci_ipc_log,
-		UCI_DBG_VERBOSE,
+
+
+	uci_log(uci_ctrl_handle->uci_ipc_log, UCI_DBG_VERBOSE,
 		"Received request to send msg for chan %d\n",
-		client->out_chan);
+		client->out_attr.chan_id);
+	uci_buf = buf + sizeof(*rs232_pkt);
+	uci_buf->data = buf;
+	rs232_pkt = (struct rs232_ctrl_msg *)uci_buf->data;
 	rs232_pkt->preamble = CTRL_MAGIC;
 	if (client->local_tiocm & TIOCM_DTR)
 		MHI_SET_CTRL_MSG(CTRL_MSG_DTR, rs232_pkt, 1);
@@ -438,26 +460,27 @@ static int mhi_uci_send_status_cmd(struct uci_client *client)
 
 	MHI_SET_CTRL_MSG_ID(CTRL_MSG_ID, rs232_pkt, MHI_CTRL_LINE_STATE_ID);
 	MHI_SET_CTRL_MSG_SIZE(CTRL_MSG_SIZE, rs232_pkt, sizeof(u32));
-	MHI_SET_CTRL_DEST_ID(CTRL_DEST_ID, rs232_pkt, client->out_chan);
+	MHI_SET_CTRL_DEST_ID(CTRL_DEST_ID, rs232_pkt, client->out_attr.chan_id);
 
-	amount_sent = mhi_uci_send_packet(&uci_ctrl_handle->out_handle,
-						rs232_pkt,
-						pkt_size, 0);
-
-	if (pkt_size != amount_sent) {
-		uci_log(uci_ctrl_handle->uci_ipc_log,
-			UCI_DBG_INFO,
+	ret_val = mhi_queue_xfer(uci_ctrl_handle->out_attr.mhi_handle,
+				 uci_buf->data, sizeof(*rs232_pkt), MHI_EOT);
+	if (ret_val) {
+		uci_log(uci_ctrl_handle->uci_ipc_log, UCI_DBG_INFO,
 			"Failed to send signal for chan %d, ret : %d\n",
-			client->out_chan,
-			ret_val);
-		goto error;
+			client->out_attr.chan_id, ret_val);
+		goto error_queue;
 	}
-error_open:
-	mutex_unlock(&uci_ctrl_handle->out_chan_lock);
+	list_add_tail(&uci_buf->node, &uci_ctrl_handle->out_attr.buf_head);
+
+	mutex_unlock(&uci_ctrl_handle->out_attr.chan_lock);
+	return 0;
+
+	mutex_unlock(&uci_ctrl_handle->out_attr.chan_lock);
 	return ret_val;
-error:
-	kfree(rs232_pkt);
-	mutex_unlock(&uci_ctrl_handle->out_chan_lock);
+error_queue:
+	kfree(buf);
+error_open:
+	mutex_unlock(&uci_ctrl_handle->out_attr.chan_lock);
 	return ret_val;
 }
 
@@ -466,6 +489,7 @@ static int mhi_uci_tiocm_set(struct uci_client *client_ctxt, u32 set, u32 clear)
 	u8 status_set = 0;
 	u8 status_clear = 0;
 	u8 old_status = 0;
+	int ret = 0;
 
 	mutex_lock(&client_ctxt->uci_ctxt->ctrl_mutex);
 
@@ -475,23 +499,21 @@ static int mhi_uci_tiocm_set(struct uci_client *client_ctxt, u32 set, u32 clear)
 	client_ctxt->local_tiocm |= status_set;
 	client_ctxt->local_tiocm &= ~status_clear;
 
-	uci_log(client_ctxt->uci_ipc_log,
-		UCI_DBG_VERBOSE,
+	uci_log(client_ctxt->uci_ipc_log, UCI_DBG_VERBOSE,
 		"Old TIOCM0x%x for chan %d, Current TIOCM 0x%x\n",
-		old_status,
-		client_ctxt->out_chan,
+		old_status, client_ctxt->out_attr.chan_id,
 		client_ctxt->local_tiocm);
-	mutex_unlock(&client_ctxt->uci_ctxt->ctrl_mutex);
 
 	if (client_ctxt->local_tiocm != old_status) {
-		uci_log(client_ctxt->uci_ipc_log,
-			UCI_DBG_VERBOSE,
+		uci_log(client_ctxt->uci_ipc_log, UCI_DBG_VERBOSE,
 			"Setting TIOCM to 0x%x for chan %d\n",
 			client_ctxt->local_tiocm,
-			client_ctxt->out_chan);
-		return mhi_uci_send_status_cmd(client_ctxt);
+			client_ctxt->out_attr.chan_id);
+		ret = mhi_uci_send_status_cmd(client_ctxt);
 	}
-	return 0;
+
+	mutex_unlock(&client_ctxt->uci_ctxt->ctrl_mutex);
+	return ret;
 }
 
 static long mhi_uci_ctl_ioctl(struct file *file, unsigned int cmd,
@@ -503,35 +525,26 @@ static long mhi_uci_ctl_ioctl(struct file *file, unsigned int cmd,
 	uci_handle = file->private_data;
 
 	if (uci_handle == NULL) {
-		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
-			UCI_DBG_VERBOSE,
+		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_VERBOSE,
 			"Invalid handle for client\n");
 		return -ENODEV;
 	}
-	uci_log(uci_handle->uci_ipc_log,
-		UCI_DBG_VERBOSE,
+	uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
 		"Attempting to dtr cmd 0x%x arg 0x%lx for chan %d\n",
-		cmd,
-		arg,
-		uci_handle->out_chan);
+		cmd, arg, uci_handle->out_attr.chan_id);
 
 	switch (cmd) {
 	case TIOCMGET:
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_VERBOSE,
-			"Returning 0x%x mask\n",
-			uci_handle->local_tiocm);
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
+			"Returning 0x%x mask\n", uci_handle->local_tiocm);
 		ret_val = uci_handle->local_tiocm;
 		break;
 	case TIOCMSET:
 		if (0 != copy_from_user(&set_val, (void *)arg, sizeof(set_val)))
 			return -ENOMEM;
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_VERBOSE,
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
 			"Attempting to set cmd 0x%x arg 0x%x for chan %d\n",
-			cmd,
-			set_val,
-			uci_handle->out_chan);
+			cmd, set_val, uci_handle->out_attr.chan_id);
 		ret_val = mhi_uci_tiocm_set(uci_handle, set_val, ~set_val);
 		break;
 	default:
@@ -551,29 +564,32 @@ static unsigned int mhi_uci_client_poll(struct file *file, poll_table *wait)
 		return -ENODEV;
 
 	uci_ctxt = uci_handle->uci_ctxt;
-	poll_wait(file, &uci_handle->read_wq, wait);
-	poll_wait(file, &uci_handle->write_wq, wait);
-	if (atomic_read(&uci_handle->avail_pkts) > 0) {
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_VERBOSE,
+	poll_wait(file, &uci_handle->in_attr.wq, wait);
+	poll_wait(file, &uci_handle->out_attr.wq, wait);
+	mutex_lock(&uci_handle->in_attr.chan_lock);
+	if (!uci_handle->in_attr.enabled || !uci_handle->enabled)
+		mask = POLLERR;
+	else if (atomic_read(&uci_handle->in_attr.avail_pkts) ||
+		 uci_handle->cur_buf) {
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
 			"Client can read chan %d\n",
-			uci_handle->in_chan);
+			uci_handle->in_attr.chan_id);
 		mask |= POLLIN | POLLRDNORM;
 	}
-	if (!atomic_read(&uci_ctxt->mhi_disabled) &&
-	    (mhi_get_free_desc(uci_handle->out_handle) > 0)) {
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_VERBOSE,
+	mutex_unlock(&uci_handle->in_attr.chan_lock);
+	mutex_lock(&uci_handle->out_attr.chan_lock);
+	if (!uci_handle->out_attr.enabled || !uci_handle->enabled)
+		mask |= POLLERR;
+	else if (atomic_read(&uci_handle->out_attr.avail_pkts) > 0) {
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
 			"Client can write chan %d\n",
-			uci_handle->out_chan);
+			uci_handle->out_attr.chan_id);
 		mask |= POLLOUT | POLLWRNORM;
 	}
-
-	uci_log(uci_handle->uci_ipc_log,
-		UCI_DBG_VERBOSE,
+	mutex_unlock(&uci_handle->out_attr.chan_lock);
+	uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
 		"Client attempted to poll chan %d, returning mask 0x%x\n",
-		uci_handle->in_chan,
-		mask);
+		uci_handle->in_attr.chan_id, mask);
 	return mask;
 }
 
@@ -581,66 +597,67 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 {
 	int ret_val = 0;
 	int r = 0;
+	struct uci_buf *itr, *tmp;
 
-	uci_log(uci_client->uci_ipc_log,
-		UCI_DBG_INFO,
+	uci_log(uci_client->uci_ipc_log, UCI_DBG_INFO,
 		"Starting channels %d %d\n",
-		uci_client->out_chan,
-		uci_client->in_chan);
-	mutex_lock(&uci_client->out_chan_lock);
-	mutex_lock(&uci_client->in_chan_lock);
-	ret_val = mhi_open_channel(uci_client->out_handle);
+		uci_client->out_attr.chan_id,
+		uci_client->in_attr.chan_id);
+
+	ret_val = mhi_open_channel(uci_client->out_attr.mhi_handle);
 	if (ret_val != 0) {
 		if (ret_val == -ENOTCONN)
-			r = -EAGAIN;
+			return -EAGAIN;
 		else
-			r = -EIO;
-		goto handle_not_rdy_err;
+			return -EIO;
 	}
-	uci_client->out_chan_state = 1;
+	ret_val = mhi_get_free_desc(uci_client->out_attr.mhi_handle);
+	if (ret_val >= 0)
+		atomic_set(&uci_client->out_attr.avail_pkts, ret_val);
 
-	ret_val = mhi_open_channel(uci_client->in_handle);
+	ret_val = mhi_open_channel(uci_client->in_attr.mhi_handle);
 	if (ret_val != 0) {
-		uci_log(uci_client->uci_ipc_log,
-			UCI_DBG_ERROR,
+		uci_log(uci_client->uci_ipc_log, UCI_DBG_ERROR,
 			"Failed to open chan %d, ret 0x%x\n",
-			uci_client->out_chan,
-			ret_val);
-		goto handle_in_err;
+			uci_client->out_attr.chan_id, ret_val);
+		goto error_inbound_open;
 	}
-	uci_log(uci_client->uci_ipc_log,
-		UCI_DBG_INFO,
+	uci_log(uci_client->uci_ipc_log, UCI_DBG_INFO,
 		"Initializing inbound chan %d\n",
-		uci_client->in_chan);
-	uci_client->in_chan_state = 1;
+		uci_client->in_attr.chan_id);
 
 	ret_val = mhi_init_inbound(uci_client);
 	if (0 != ret_val) {
-		uci_log(uci_client->uci_ipc_log,
-			UCI_DBG_ERROR,
+		uci_log(uci_client->uci_ipc_log, UCI_DBG_ERROR,
 			"Failed to init inbound 0x%x, ret 0x%x\n",
-			uci_client->in_chan,
-			ret_val);
-	}
+			uci_client->in_attr.chan_id, ret_val);
+		goto error_init_inbound;
 
-	mutex_unlock(&uci_client->in_chan_lock);
-	mutex_unlock(&uci_client->out_chan_lock);
+	}
+	atomic_set(&uci_client->completion_ack, 0);
+	uci_client->enabled = true;
 	return 0;
 
-handle_in_err:
-	mhi_close_channel(uci_client->out_handle);
-	uci_client->out_chan_state = 0;
-handle_not_rdy_err:
-	mutex_unlock(&uci_client->in_chan_lock);
-	mutex_unlock(&uci_client->out_chan_lock);
+error_init_inbound:
+	mhi_close_channel(uci_client->in_attr.mhi_handle);
+	list_for_each_entry_safe(itr, tmp, &uci_client->in_attr.buf_head,
+				 node) {
+		list_del(&itr->node);
+		kfree(itr->data);
+	}
+	INIT_LIST_HEAD(&uci_client->in_attr.buf_head);
+
+error_inbound_open:
+	mhi_close_channel(uci_client->out_attr.mhi_handle);
 	return r;
 }
 
 static int mhi_uci_client_open(struct inode *inode,
-				struct file *file_handle)
+			       struct file *file_handle)
 {
 	struct uci_client *uci_handle = NULL;
 	struct mhi_uci_ctxt_t *uci_ctxt = NULL, *itr;
+	const long timeout = msecs_to_jiffies(1000);
 	int r = 0;
 	int client_id = iminor(inode);
 	int major = imajor(inode);
@@ -654,100 +671,136 @@ static int mhi_uci_client_open(struct inode *inode,
 		}
 	}
 	mutex_unlock(&mhi_uci_drv_ctxt.list_lock);
+
 	if (!uci_ctxt || client_id >= MHI_SOFTWARE_CLIENT_LIMIT)
 		return -EINVAL;
 
 	uci_handle = &uci_ctxt->client_handles[client_id];
-	if (atomic_read(&uci_handle->mhi_disabled)) {
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_INFO,
+	r = wait_event_interruptible_timeout(uci_handle->out_attr.wq,
+					     uci_handle->out_attr.enabled,
+					     timeout);
+	if (r < 0)
+		return -EAGAIN;
+	r = wait_event_interruptible_timeout(uci_handle->in_attr.wq,
+					     uci_handle->in_attr.enabled,
+					     timeout);
+	if (r < 0)
+		return -EAGAIN;
+	r = 0;
+	mutex_lock(&uci_handle->client_lock);
+	mutex_lock(&uci_handle->out_attr.chan_lock);
+	mutex_lock(&uci_handle->in_attr.chan_lock);
+	if (!uci_handle->out_attr.enabled || !uci_handle->in_attr.enabled) {
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
 			"MHI channel still disable for, client %d\n",
 			client_id);
-		msleep(500);
+		mutex_unlock(&uci_handle->in_attr.chan_lock);
+		mutex_unlock(&uci_handle->out_attr.chan_lock);
+		mutex_unlock(&uci_handle->client_lock);
 		return -EAGAIN;
 	}
 
-	uci_log(uci_handle->uci_ipc_log,
-		UCI_DBG_INFO,
+	uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
 		"Client opened device node 0x%x, ref count 0x%x\n",
-		client_id,
-		atomic_read(&uci_handle->ref_count));
+		client_id, uci_handle->ref_count);
 
-	if (1 == atomic_add_return(1, &uci_handle->ref_count)) {
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_INFO,
-			"Opening channels client %d\n",
+	if (++uci_handle->ref_count == 1) {
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
+			"Opening channels client %d for first time\n",
 			client_id);
 		r = open_client_mhi_channels(uci_handle);
-		if (r)
-			uci_log(uci_handle->uci_ipc_log,
-				UCI_DBG_INFO,
-				"Failed to open channels ret %d\n",
-				r);
+		if (r) {
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
+				"Failed to open channels ret %d\n", r);
+			uci_handle->ref_count--;
+		}
 	}
+	mutex_unlock(&uci_handle->in_attr.chan_lock);
+	mutex_unlock(&uci_handle->out_attr.chan_lock);
+	mutex_unlock(&uci_handle->client_lock);
 	file_handle->private_data = uci_handle;
 	return r;
 }
 
 static int mhi_uci_client_release(struct inode *mhi_inode,
-		struct file *file_handle)
+				  struct file *file_handle)
 {
 	struct uci_client *uci_handle = file_handle->private_data;
 	u32 nr_in_bufs = 0;
 	int in_chan = 0;
-	int i = 0;
 	u32 buf_size = 0;
 
-	if (uci_handle == NULL)
-		return -EINVAL;
-
+	mutex_lock(&uci_handle->client_lock);
 	in_chan = uci_handle->in_attr.chan_id;
 	nr_in_bufs = uci_handle->in_attr.nr_trbs;
 	buf_size = uci_handle->in_attr.max_packet_size;
+	uci_handle->ref_count--;
+	if (!uci_handle->ref_count) {
+		struct uci_buf *itr, *tmp;
 
-	if (atomic_sub_return(1, &uci_handle->ref_count) == 0) {
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_ERROR,
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_ERROR,
 			"Last client left, closing channel 0x%x\n",
 			in_chan);
 
+		mutex_lock(&uci_handle->in_attr.chan_lock);
+		mutex_lock(&uci_handle->out_attr.chan_lock);
+
 		if (atomic_read(&uci_handle->out_pkt_pend_ack))
-			uci_log(uci_handle->uci_ipc_log,
-				UCI_DBG_CRITICAL,
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
 				"Still waiting on %d acks!, chan %d\n",
 				atomic_read(&uci_handle->out_pkt_pend_ack),
 				uci_handle->out_attr.chan_id);
 
-		mhi_close_channel(uci_handle->out_handle);
-		mhi_close_channel(uci_handle->in_handle);
-		uci_handle->out_chan_state = 0;
-		uci_handle->in_chan_state = 0;
-		atomic_set(&uci_handle->out_pkt_pend_ack, 0);
-		for (i = 0; i < nr_in_bufs; ++i) {
-			kfree((void *)uci_handle->in_buf_list[i]);
+		atomic_set(&uci_handle->in_attr.avail_pkts, 0);
+		if (uci_handle->in_attr.enabled)
+			mhi_close_channel(uci_handle->in_attr.mhi_handle);
+		list_for_each_entry_safe(itr, tmp,
+					 &uci_handle->in_attr.buf_head, node) {
+			list_del(&itr->node);
+			kfree(itr->data);
 		}
-		kfree(uci_handle->in_buf_list);
-		atomic_set(&uci_handle->avail_pkts, 0);
+		if (uci_handle->cur_buf)
+			kfree(uci_handle->cur_buf->data);
+		uci_handle->cur_buf = NULL;
+		INIT_LIST_HEAD(&uci_handle->in_attr.buf_head);
+		atomic_set(&uci_handle->out_attr.avail_pkts, 0);
+		atomic_set(&uci_handle->out_pkt_pend_ack, 0);
+		if (uci_handle->out_attr.enabled)
+			mhi_close_channel(uci_handle->out_attr.mhi_handle);
+		list_for_each_entry_safe(itr, tmp,
+					 &uci_handle->out_attr.buf_head, node) {
+			list_del(&itr->node);
+			kfree(itr->data);
+		}
+		INIT_LIST_HEAD(&uci_handle->out_attr.buf_head);
+		uci_handle->enabled = false;
+		mutex_unlock(&uci_handle->out_attr.chan_lock);
+		flush_work(&uci_handle->outbound_worker);
+		atomic_set(&uci_handle->completion_ack, 0);
+		mutex_unlock(&uci_handle->in_attr.chan_lock);
 	} else {
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_ERROR,
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
 			"Client close chan %d, ref count 0x%x\n",
 			iminor(mhi_inode),
-			atomic_read(&uci_handle->ref_count));
+			uci_handle->ref_count);
 	}
+	mutex_unlock(&uci_handle->client_lock);
+
 	return 0;
 }
 
-static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
-		size_t uspace_buf_size, loff_t *bytes_pending)
+static ssize_t mhi_uci_client_read(struct file *file,
+				   char __user *buf,
+				   size_t uspace_buf_size,
+				   loff_t *bytes_pending)
 {
 	struct uci_client *uci_handle = NULL;
 	struct mhi_client_handle *client_handle = NULL;
 	int ret_val = 0;
 	size_t buf_size = 0;
-	struct mutex *mutex;
+	struct mutex *chan_lock;
 	u32 chan = 0;
-	ssize_t bytes_copied = 0;
+	size_t bytes_copied = 0;
 	u32 addr_offset = 0;
 	struct mhi_result result;
 
@@ -756,213 +809,194 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 		return -EINVAL;
 
 	uci_handle = file->private_data;
-	client_handle = uci_handle->in_handle;
-	mutex = &uci_handle->in_chan_lock;
-	chan = uci_handle->in_chan;
-	mutex_lock(mutex);
+	client_handle = uci_handle->in_attr.mhi_handle;
+	chan_lock = &uci_handle->in_attr.chan_lock;
+	chan = uci_handle->in_attr.chan_id;
 	buf_size = uci_handle->in_attr.max_packet_size;
 	result.buf_addr = NULL;
 
-	uci_log(uci_handle->uci_ipc_log,
-		UCI_DBG_VERBOSE,
-		"Client attempted read on chan %d\n",
-		chan);
-	do {
-		if (!uci_handle->pkt_loc &&
-		    !atomic_read(&uci_handle->uci_ctxt->mhi_disabled)) {
-			ret_val = mhi_poll_inbound(client_handle, &result);
-			if (ret_val) {
-				uci_log(uci_handle->uci_ipc_log,
-					UCI_DBG_ERROR,
-					"Failed to poll inbound ret %d avail pkt %d\n",
-					ret_val,
-					atomic_read(&uci_handle->avail_pkts));
-			}
-			if (result.buf_addr)
-				uci_handle->pkt_loc = result.buf_addr;
-			else
-				uci_handle->pkt_loc = 0;
-			uci_handle->pkt_size = result.bytes_xferd;
-			*bytes_pending = uci_handle->pkt_size;
-			uci_log(uci_handle->uci_ipc_log,
-				UCI_DBG_VERBOSE,
-				"Got pkt size 0x%zx at addr 0x%lx, chan %d\n",
-				uci_handle->pkt_size,
-				(uintptr_t)result.buf_addr,
-				chan);
-		}
-		if ((*bytes_pending == 0 || uci_handle->pkt_loc == 0) &&
-				(atomic_read(&uci_handle->avail_pkts) <= 0)) {
-			/* If nothing was copied yet, wait for data */
-			uci_log(uci_handle->uci_ipc_log,
-				UCI_DBG_VERBOSE,
-				"No data avail_pkts %d, chan %d\n",
-				atomic_read(&uci_handle->avail_pkts),
-				chan);
-			ret_val = wait_event_interruptible(
-				uci_handle->read_wq,
-				(atomic_read(&uci_handle->avail_pkts) > 0));
-			if (ret_val == -ERESTARTSYS) {
-				uci_log(uci_handle->uci_ipc_log,
-					UCI_DBG_ERROR,
-					"Exit signal caught\n");
-				goto error;
-			}
-		/* A pending reset exists */
-		} else if ((atomic_read(&uci_handle->avail_pkts) > 0) &&
-			    0 == uci_handle->pkt_size &&
-			    0 == uci_handle->pkt_loc &&
-			    uci_handle->mhi_status == -ENETRESET) {
-			uci_log(uci_handle->uci_ipc_log,
-				UCI_DBG_ERROR,
-				"Detected pending reset, reporting chan %d\n",
-				chan);
-			atomic_dec(&uci_handle->avail_pkts);
-			uci_handle->mhi_status = 0;
-			mutex_unlock(mutex);
-			return -ENETRESET;
-			/* A valid packet was returned from MHI */
-		} else if (atomic_read(&uci_handle->avail_pkts) &&
-			   uci_handle->pkt_size != 0 &&
-			   uci_handle->pkt_loc != 0) {
-			uci_log(uci_handle->uci_ipc_log,
-				UCI_DBG_VERBOSE,
-				"Got packet: avail pkts %d phy_adr 0x%p, chan %d\n",
-				atomic_read(&uci_handle->avail_pkts),
-				result.buf_addr,
-				chan);
-			break;
-			/*
-			 * MHI did not return a valid packet, but we have one
-			 * which we did not finish returning to user
-			 */
-		} else {
-			uci_log(uci_handle->uci_ipc_log,
-				UCI_DBG_CRITICAL,
-				"chan %d err: avail pkts %d mhi_stat%d\n",
-				chan,
-				atomic_read(&uci_handle->avail_pkts),
-				uci_handle->mhi_status);
-			return -EIO;
-		}
-	} while (!uci_handle->pkt_loc);
+	uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
+		"Client attempted read on chan %d\n", chan);
 
-	if (uspace_buf_size >= *bytes_pending) {
-		addr_offset = uci_handle->pkt_size - *bytes_pending;
-		if (0 != copy_to_user(buf,
-				     uci_handle->pkt_loc + addr_offset,
-				     *bytes_pending)) {
-			ret_val = -EIO;
-			goto error;
-		}
+	mutex_lock(chan_lock);
 
-		bytes_copied = *bytes_pending;
-		*bytes_pending = 0;
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_VERBOSE,
-			"Copied 0x%zx of 0x%x, chan %d\n",
-			bytes_copied,
-			(u32)*bytes_pending,
-			chan);
-	} else {
-		addr_offset = uci_handle->pkt_size - *bytes_pending;
-		if (copy_to_user(buf,
-				     (void *)(uintptr_t)uci_handle->pkt_loc +
-				     addr_offset,
-				     uspace_buf_size) != 0) {
-			ret_val = -EIO;
-			goto error;
-		}
-		bytes_copied = uspace_buf_size;
-		*bytes_pending -= uspace_buf_size;
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_VERBOSE,
-			"Copied 0x%zx of 0x%x,chan %d\n",
-			bytes_copied,
-			(u32)*bytes_pending,
-			chan);
+	/* confirm channel is active */
+	if (!uci_handle->in_attr.enabled || !uci_handle->enabled) {
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
+			"chan:%d is disabled\n", chan);
+		ret_val = -ERESTARTSYS;
+		goto read_error;
 	}
+
+	/* No data available to read, wait */
+	if (!uci_handle->cur_buf &&
+	    !atomic_read(&uci_handle->in_attr.avail_pkts)) {
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
+			"No data available to read for chan:%d waiting\n",
+			chan);
+		mutex_unlock(chan_lock);
+		ret_val = wait_event_interruptible(uci_handle->in_attr.wq,
+				(atomic_read(&uci_handle->in_attr.avail_pkts) ||
+				 !uci_handle->in_attr.enabled));
+		mutex_lock(chan_lock);
+		if (ret_val == -ERESTARTSYS) {
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
+				"Exit signal caught for chan:%d\n", chan);
+			goto read_error;
+
+		}
+		if (!uci_handle->in_attr.enabled || !uci_handle->enabled) {
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
+				"chan:%d is disabled\n", chan);
+			ret_val = -ERESTARTSYS;
+			goto read_error;
+		}
+	}
+
+	/* new read, get the data from MHI */
+	if (!uci_handle->cur_buf) {
+		struct uci_buf *cur_buf;
+
+		ret_val = mhi_poll_inbound(client_handle, &result);
+		if (unlikely(ret_val || !result.buf_addr)) {
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_ERROR,
+				"Failed to poll inbound ret %d avail_pkt %d\n",
+				ret_val,
+				atomic_read(&uci_handle->in_attr.avail_pkts));
+			goto read_error;
+		}
+		cur_buf = list_first_entry_or_null(
+					&uci_handle->in_attr.buf_head,
+					struct uci_buf, node);
+		if (unlikely(!cur_buf)) {
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_ERROR,
+				"Received completion cb but no packets queued, avail_pkt:%d\n",
+				atomic_read(&uci_handle->in_attr.avail_pkts));
+			ret_val = -EIO;
+			goto read_error;
+		}
+
+		if (unlikely(cur_buf->data != result.buf_addr)) {
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_ERROR,
+				"Receive out of order packet id:%llu\n",
+				cur_buf->pkt_id);
+			ret_val = -EIO;
+			goto read_error;
+		}
+
+		list_del(&cur_buf->node);
+		uci_handle->cur_buf = cur_buf;
+		*bytes_pending = result.bytes_xferd;
+		uci_handle->pkt_size = result.bytes_xferd;
+		atomic_dec(&uci_handle->in_attr.avail_pkts);
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
+			"Got pkt @ %llu size:%llu for chan:%d\n",
+			uci_handle->cur_buf->pkt_id, *bytes_pending, chan);
+	}
+
+	/* Copy the buffer to user space */
+	bytes_copied = min_t(size_t, uspace_buf_size, *bytes_pending);
+	addr_offset = uci_handle->pkt_size - *bytes_pending;
+	ret_val = copy_to_user(buf, uci_handle->cur_buf->data + addr_offset,
+			       bytes_copied);
+	if (ret_val != 0)
+		goto read_error;
+	uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
+		"Copied %lu of %llu bytes for chan:%d\n",
+		bytes_copied, *bytes_pending, chan);
+	*bytes_pending -= bytes_copied;
+
 	/* We finished with this buffer, map it back */
 	if (*bytes_pending == 0) {
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_VERBOSE,
-			"Pkt loc %p ,chan %d\n",
-			uci_handle->pkt_loc,
-			chan);
-		memset(uci_handle->pkt_loc, 0, buf_size);
-		atomic_dec(&uci_handle->avail_pkts);
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_VERBOSE,
-			"Decremented avail pkts avail 0x%x\n",
-			atomic_read(&uci_handle->avail_pkts));
-		ret_val = mhi_queue_xfer(client_handle, uci_handle->pkt_loc,
+		struct uci_buf *uci_buf = uci_handle->cur_buf;
+
+		uci_handle->cur_buf = NULL;
+		uci_buf->pkt_id = uci_handle->in_attr.pkt_count++;
+		memset(uci_buf->data, 0xdeadbeef, buf_size);
+		ret_val = mhi_queue_xfer(client_handle, uci_buf->data,
 					 buf_size, MHI_EOT);
 		if (0 != ret_val) {
-			uci_log(uci_handle->uci_ipc_log,
-				UCI_DBG_ERROR,
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_ERROR,
 				"Failed to recycle element\n");
-			ret_val = -EIO;
-			goto error;
+			kfree(uci_buf->data);
+			goto read_error;
 		}
-		uci_handle->pkt_loc = 0;
+		list_add_tail(&uci_buf->node, &uci_handle->in_attr.buf_head);
 	}
-	uci_log(uci_handle->uci_ipc_log,
-		UCI_DBG_VERBOSE,
-		"Returning 0x%zx bytes, 0x%x bytes left\n",
-		bytes_copied,
-		(u32)*bytes_pending);
-	mutex_unlock(mutex);
+	uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
+		"Returning %lu bytes, %llu bytes left\n",
+		bytes_copied, *bytes_pending);
+	mutex_unlock(chan_lock);
 	return bytes_copied;
-error:
-	mutex_unlock(mutex);
-	uci_log(uci_handle->uci_ipc_log,
-		UCI_DBG_ERROR,
-		"Returning %d\n",
-		ret_val);
+
+read_error:
+	mutex_unlock(chan_lock);
 	return ret_val;
 }
 
 static ssize_t mhi_uci_client_write(struct file *file,
-		const char __user *buf,
-		size_t count, loff_t *offp)
+				    const char __user *buf,
+				    size_t count,
+				    loff_t *offp)
 {
 	struct uci_client *uci_handle = NULL;
+	struct chan_attr *chan_attr;
+	size_t bytes_transferrd = 0;
 	int ret_val = 0;
 	u32 chan = 0xFFFFFFFF;
 
-	if (file == NULL || buf == NULL ||
-			!count || file->private_data == NULL)
+	if (file == NULL || buf == NULL || !count ||
+	    file->private_data == NULL)
 		return -EINVAL;
 	else
 		uci_handle = file->private_data;
 
-	chan = uci_handle->out_chan;
-	mutex_lock(&uci_handle->out_chan_lock);
+	chan_attr = &uci_handle->out_attr;
+	chan = chan_attr->chan_id;
+	mutex_lock(&chan_attr->chan_lock);
 
-	while (ret_val == 0) {
-		ret_val = mhi_uci_send_packet(&uci_handle->out_handle,
-				(void *)buf, count, 1);
-		if (!ret_val) {
-			uci_log(uci_handle->uci_ipc_log,
-				UCI_DBG_VERBOSE,
-				"No descriptors available, did we poll, chan %d?\n",
-				chan);
-			mutex_unlock(&uci_handle->out_chan_lock);
-			ret_val =
-				wait_event_interruptible(
-						uci_handle->write_wq,
-			mhi_get_free_desc(uci_handle->out_handle) > 0);
-			mutex_lock(&uci_handle->out_chan_lock);
-			if (-ERESTARTSYS == ret_val) {
-				goto sys_interrupt;
-				uci_log(uci_handle->uci_ipc_log,
-					UCI_DBG_WARNING,
-					"Waitqueue cancelled by system\n");
-			}
+	if (!chan_attr->enabled || !uci_handle->enabled) {
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
+			"Link is disabled\n");
+		ret_val = -ERESTARTSYS;
+		goto sys_interrupt;
+	}
+
+	while (bytes_transferrd != count) {
+		ret_val = mhi_uci_send_packet(&chan_attr->mhi_handle,
+					      (void *)buf, count);
+		if (ret_val < 0)
+			goto sys_interrupt;
+
+		bytes_transferrd += ret_val;
+		if (bytes_transferrd == count)
+			break;
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
+			"No descriptors available, did we poll, chan %d?\n",
+			chan);
+		mutex_unlock(&chan_attr->chan_lock);
+		ret_val = wait_event_interruptible(chan_attr->wq,
+				(atomic_read(&chan_attr->avail_pkts) ||
+				 !chan_attr->enabled));
+		mutex_lock(&chan_attr->chan_lock);
+		if (-ERESTARTSYS == ret_val) {
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
+				"Waitqueue cancelled by system\n");
+			goto sys_interrupt;
+		}
+		if (!chan_attr->enabled || !uci_handle->enabled) {
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
+				"Link is disabled\n");
+			ret_val = -ERESTARTSYS;
+			goto sys_interrupt;
 		}
 	}
+
+	mutex_unlock(&chan_attr->chan_lock);
+	return bytes_transferrd;
+
 sys_interrupt:
-	mutex_unlock(&uci_handle->out_chan_lock);
+	mutex_unlock(&chan_attr->chan_lock);
 	return ret_val;
 }
 
@@ -1022,41 +1056,17 @@ static int uci_init_client_attributes(struct mhi_uci_ctxt_t *uci_ctxt,
 
 			if (chan_attrib->chan_id == ctrl_chan)
 				uci_ctxt->ctrl_client = client;
+
+			INIT_LIST_HEAD(&chan_attrib->buf_head);
+			mutex_init(&chan_attrib->chan_lock);
+			atomic_set(&chan_attrib->avail_pkts, 0);
 		}
+		INIT_WORK(&client->outbound_worker, mhi_uci_clean_acked_tre);
 	}
 
 error_dts:
 	kfree(chan_info);
 	return ret_val;
-}
-
-static int process_mhi_disabled_notif_sync(struct uci_client *uci_handle)
-{
-	uci_log(uci_handle->uci_ipc_log,
-		UCI_DBG_INFO,
-		"Entered.\n");
-	if (uci_handle->mhi_status != -ENETRESET) {
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_CRITICAL,
-			"Setting reset for chan %d\n",
-		uci_handle->out_chan);
-		uci_handle->pkt_size = 0;
-		uci_handle->pkt_loc = NULL;
-		uci_handle->mhi_status = -ENETRESET;
-		atomic_set(&uci_handle->avail_pkts, 1);
-		mhi_close_channel(uci_handle->out_handle);
-		mhi_close_channel(uci_handle->in_handle);
-		uci_handle->out_chan_state = 0;
-		uci_handle->in_chan_state = 0;
-		wake_up(&uci_handle->read_wq);
-	} else {
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_CRITICAL,
-			"Chan %d state already reset\n",
-			uci_handle->out_chan);
-	}
-	uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO, "Exited\n");
-	return 0;
 }
 
 static void process_rs232_state(struct uci_client *ctrl_client,
@@ -1071,15 +1081,13 @@ static void process_rs232_state(struct uci_client *ctrl_client,
 
 	mutex_lock(&uci_ctxt->ctrl_mutex);
 	if (result->transaction_status != 0) {
-		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
-			UCI_DBG_ERROR,
+		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_ERROR,
 			"Non successful transfer code 0x%x\n",
 			result->transaction_status);
 		goto error_bad_xfer;
 	}
 	if (result->bytes_xferd != sizeof(struct rs232_ctrl_msg)) {
-		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
-			UCI_DBG_ERROR,
+		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_ERROR,
 			"Buffer is of wrong size is: 0x%zx: expected 0x%zx\n",
 			result->bytes_xferd,
 			sizeof(struct rs232_ctrl_msg));
@@ -1088,8 +1096,8 @@ static void process_rs232_state(struct uci_client *ctrl_client,
 	rs232_pkt = result->buf_addr;
 	MHI_GET_CTRL_DEST_ID(CTRL_DEST_ID, rs232_pkt, chan);
 	for (i = 0; i < MHI_SOFTWARE_CLIENT_LIMIT; i++)
-		if (chan == uci_ctxt->client_handles[i].out_chan ||
-		    chan == uci_ctxt->client_handles[i].in_chan) {
+		if (chan == uci_ctxt->client_handles[i].out_attr.chan_id ||
+		    chan == uci_ctxt->client_handles[i].in_attr.chan_id) {
 			client = &uci_ctxt->client_handles[i];
 			break;
 		}
@@ -1114,13 +1122,12 @@ static void process_rs232_state(struct uci_client *ctrl_client,
 error_bad_xfer:
 error_size:
 	memset(rs232_pkt, 0, sizeof(struct rs232_ctrl_msg));
-	ret_val = mhi_queue_xfer(ctrl_client->in_handle,
+	ret_val = mhi_queue_xfer(ctrl_client->in_attr.mhi_handle,
 				 result->buf_addr,
 				 result->bytes_xferd,
 				 result->flags);
 	if (0 != ret_val) {
-		uci_log(ctrl_client->uci_ipc_log,
-			UCI_DBG_ERROR,
+		uci_log(ctrl_client->uci_ipc_log, UCI_DBG_ERROR,
 			"Failed to recycle ctrl msg buffer\n");
 	}
 	mutex_unlock(&uci_ctxt->ctrl_mutex);
@@ -1129,13 +1136,12 @@ error_size:
 static void parse_inbound_ack(struct uci_client *uci_handle,
 			struct mhi_result *result)
 {
-	atomic_inc(&uci_handle->avail_pkts);
-	uci_log(uci_handle->uci_ipc_log,
-		UCI_DBG_VERBOSE,
+	atomic_inc(&uci_handle->in_attr.avail_pkts);
+	uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
 		"Received cb on chan %d, avail pkts: 0x%x\n",
-		uci_handle->in_chan,
-		atomic_read(&uci_handle->avail_pkts));
-	wake_up(&uci_handle->read_wq);
+		uci_handle->in_attr.chan_id,
+		atomic_read(&uci_handle->in_attr.avail_pkts));
+	wake_up(&uci_handle->in_attr.wq);
 	if (uci_handle == uci_handle->uci_ctxt->ctrl_client)
 		process_rs232_state(uci_handle, result);
 }
@@ -1143,25 +1149,25 @@ static void parse_inbound_ack(struct uci_client *uci_handle,
 static void parse_outbound_ack(struct uci_client *uci_handle,
 			struct mhi_result *result)
 {
-	kfree(result->buf_addr);
-	uci_log(uci_handle->uci_ipc_log,
-		UCI_DBG_VERBOSE,
+	uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
 		"Received ack on chan %d, pending acks: 0x%x\n",
-		uci_handle->out_chan,
+		uci_handle->out_attr.chan_id,
 		atomic_read(&uci_handle->out_pkt_pend_ack));
 	atomic_dec(&uci_handle->out_pkt_pend_ack);
-	if (mhi_get_free_desc(uci_handle->out_handle))
-		wake_up(&uci_handle->write_wq);
+	atomic_inc(&uci_handle->out_attr.avail_pkts);
+	atomic_inc(&uci_handle->completion_ack);
+	wake_up(&uci_handle->out_attr.wq);
+	schedule_work(&uci_handle->outbound_worker);
 }
 
 static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 {
 	struct uci_client *uci_handle = NULL;
 	struct mhi_result *result;
+	struct chan_attr *chan_attr;
 
 	if (!cb_info || !cb_info->result) {
-		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
-			UCI_DBG_CRITICAL,
+		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_CRITICAL,
 			"Bad CB info from MHI\n");
 		return;
 	}
@@ -1169,22 +1175,23 @@ static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 	uci_handle = cb_info->result->user_data;
 	switch (cb_info->cb_reason) {
 	case MHI_CB_MHI_ENABLED:
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_INFO,
-			"MHI enabled CB received.\n");
-		atomic_set(&uci_handle->mhi_disabled, 0);
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
+			"MHI enabled CB received for chan %d\n",
+			cb_info->chan);
+		chan_attr = (cb_info->chan % 2) ? &uci_handle->in_attr :
+			&uci_handle->out_attr;
+		mutex_lock(&chan_attr->chan_lock);
+		chan_attr->enabled = true;
+		mutex_unlock(&chan_attr->chan_lock);
+		wake_up(&chan_attr->wq);
 		break;
 	case MHI_CB_MHI_DISABLED:
-		atomic_set(&uci_handle->mhi_disabled, 1);
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_INFO,
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
 			"MHI disabled CB received\n");
-		process_mhi_disabled_notif_sync(uci_handle);
 		break;
 	case MHI_CB_XFER:
 		if (!cb_info->result) {
-			uci_log(uci_handle->uci_ipc_log,
-				UCI_DBG_CRITICAL,
+			uci_log(uci_handle->uci_ipc_log, UCI_DBG_CRITICAL,
 				"Failed to obtain mhi result from CB\n");
 				return;
 		}
@@ -1195,8 +1202,7 @@ static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 			parse_outbound_ack(uci_handle, result);
 		break;
 	default:
-		uci_log(uci_handle->uci_ipc_log,
-			UCI_DBG_VERBOSE,
+		uci_log(uci_handle->uci_ipc_log, UCI_DBG_VERBOSE,
 			"Cannot handle cb reason 0x%x\n",
 			cb_info->cb_reason);
 	}
@@ -1208,48 +1214,40 @@ static int mhi_register_client(struct uci_client *mhi_client,
 	int ret_val = 0;
 	struct mhi_client_info_t client_info;
 
-	uci_log(mhi_client->uci_ipc_log,
-		UCI_DBG_INFO,
+	uci_log(mhi_client->uci_ipc_log, UCI_DBG_INFO,
 		"Setting up workqueues\n");
-	init_waitqueue_head(&mhi_client->read_wq);
-	init_waitqueue_head(&mhi_client->write_wq);
-	mhi_client->out_chan = mhi_client->out_attr.chan_id;
-	mhi_client->in_chan = mhi_client->in_attr.chan_id;
+	init_waitqueue_head(&mhi_client->in_attr.wq);
+	init_waitqueue_head(&mhi_client->out_attr.wq);
 
-	mutex_init(&mhi_client->in_chan_lock);
-	mutex_init(&mhi_client->out_chan_lock);
-	atomic_set(&mhi_client->mhi_disabled, 1);
-
-	uci_log(mhi_client->uci_ipc_log,
-		UCI_DBG_INFO,
+	uci_log(mhi_client->uci_ipc_log, UCI_DBG_INFO,
 		"Registering chan %d\n",
-		mhi_client->out_chan);
+		mhi_client->out_attr.chan_id);
 	client_info.dev = dev;
 	client_info.node_name = "qcom,mhi";
 	client_info.user_data = mhi_client;
 	client_info.mhi_client_cb = uci_xfer_cb;
-	client_info.chan = mhi_client->out_chan;
+	client_info.chan = mhi_client->out_attr.chan_id;
 	client_info.max_payload = mhi_client->out_attr.max_packet_size;
-	ret_val = mhi_register_channel(&mhi_client->out_handle, &client_info);
+	ret_val = mhi_register_channel(&mhi_client->out_attr.mhi_handle,
+				       &client_info);
 	if (0 != ret_val)
 		uci_log(mhi_client->uci_ipc_log,
 			UCI_DBG_ERROR,
 			"Failed to init outbound chan 0x%x, ret 0x%x\n",
-			mhi_client->out_chan,
+			mhi_client->out_attr.chan_id,
 			ret_val);
 
-	uci_log(mhi_client->uci_ipc_log,
-		UCI_DBG_INFO,
+	uci_log(mhi_client->uci_ipc_log, UCI_DBG_INFO,
 		"Registering chan %d\n",
-		mhi_client->in_chan);
+		mhi_client->in_attr.chan_id);
 	client_info.max_payload = mhi_client->in_attr.max_packet_size;
-	client_info.chan = mhi_client->in_chan;
-	ret_val = mhi_register_channel(&mhi_client->in_handle, &client_info);
+	client_info.chan = mhi_client->in_attr.chan_id;
+	ret_val = mhi_register_channel(&mhi_client->in_attr.mhi_handle,
+				       &client_info);
 	if (0 != ret_val)
-		uci_log(mhi_client->uci_ipc_log,
-			UCI_DBG_ERROR,
+		uci_log(mhi_client->uci_ipc_log, UCI_DBG_ERROR,
 			"Failed to init inbound chan 0x%x, ret 0x%x\n",
-			mhi_client->in_chan,
+			mhi_client->in_attr.chan_id,
 			ret_val);
 	return 0;
 }
@@ -1313,6 +1311,7 @@ static int mhi_uci_probe(struct platform_device *pdev)
 		struct uci_client *uci_client = &uci_ctxt->client_handles[i];
 
 		uci_client->uci_ctxt = uci_ctxt;
+		mutex_init(&uci_client->client_lock);
 		if (uci_client->in_attr.uci_ownership) {
 			ret_val = mhi_register_client(uci_client,
 						      &pdev->dev);
@@ -1328,10 +1327,10 @@ static int mhi_uci_probe(struct platform_device *pdev)
 			snprintf(node_name,
 				 sizeof(node_name),
 				 "mhi_uci_%04x_%02u.%02u.%02u_%d",
-				 uci_client->out_handle->dev_id,
-				 uci_client->out_handle->domain,
-				 uci_client->out_handle->bus,
-				 uci_client->out_handle->slot,
+				 uci_client->out_attr.mhi_handle->dev_id,
+				 uci_client->out_attr.mhi_handle->domain,
+				 uci_client->out_attr.mhi_handle->bus,
+				 uci_client->out_attr.mhi_handle->slot,
 				 uci_client->out_attr.chan_id);
 			uci_client->uci_ipc_log = ipc_log_context_create
 				(MHI_UCI_IPC_LOG_PAGES,
@@ -1380,12 +1379,12 @@ static int mhi_uci_probe(struct platform_device *pdev)
 					uci_ctxt->dev_t + i,
 					NULL,
 					DEVICE_NAME "_%04x_%02u.%02u.%02u%s%d",
-					uci_client->out_handle->dev_id,
-					uci_client->out_handle->domain,
-					uci_client->out_handle->bus,
-					uci_client->out_handle->slot,
+					uci_client->out_attr.mhi_handle->dev_id,
+					uci_client->out_attr.mhi_handle->domain,
+					uci_client->out_attr.mhi_handle->bus,
+					uci_client->out_attr.mhi_handle->slot,
 					"_pipe_",
-					uci_client->out_chan);
+					uci_client->out_attr.chan_id);
 			if (IS_ERR(uci_client->dev)) {
 				uci_log(uci_client->uci_ipc_log,
 					UCI_DBG_ERROR,
@@ -1427,8 +1426,8 @@ static int mhi_uci_remove(struct platform_device *pdev)
 
 		uci_client->uci_ctxt = uci_ctxt;
 		if (uci_client->in_attr.uci_ownership) {
-			mhi_deregister_channel(uci_client->out_handle);
-			mhi_deregister_channel(uci_client->in_handle);
+			mhi_deregister_channel(uci_client->out_attr.mhi_handle);
+			mhi_deregister_channel(uci_client->in_attr.mhi_handle);
 			cdev_del(&uci_ctxt->cdev[i]);
 			device_destroy(mhi_uci_drv_ctxt.mhi_uci_class,
 				       MKDEV(MAJOR(uci_ctxt->dev_t), i));
