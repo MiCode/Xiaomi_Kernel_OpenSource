@@ -66,6 +66,7 @@ enum {
 };
 
 extern const struct snd_kcontrol_new msm_common_snd_controls[];
+extern bool codec_reg_done;
 struct sdm660_codec {
 	void* (*get_afe_config_fn)(struct snd_soc_codec *codec,
 				   enum afe_config_type config_type);
