@@ -1077,6 +1077,8 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 			pr_err("trigger lmh mitigation failed, rc=%d\n", rc);
 			return rc;
 		}
+		/* Wait for LMH mitigation to take effect */
+		udelay(500);
 	}
 
 	if (led->trigger_chgr) {
