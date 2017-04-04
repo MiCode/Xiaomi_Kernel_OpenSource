@@ -10,11 +10,20 @@ Required properties:
 - qcom,core-dev-table:		A mapping table of core frequency to a required bandwidth vote at the
 				given core frequency.
 
+Optional properties:
+- qcom,cachemiss-ev:		The cache miss event that this monitor is supposed to measure.
+				Defaults to 0x17 if not specified.
+- qcom,inst-ev:			The instruction count event that this monitor is supposed to measure.
+				Defaults to 0x08 if not specified.
+
+
 Example:
 	qcom,arm-memlat-mon {
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist = <&CPU0 &CPU1>;
 		qcom,target-dev = <&memlat0>;
+		qcom,cachemiss-ev = <0x2A>;
+		qcom,inst-ev = <0x08>;
 		qcom,core-dev-table =
 			<  300000 1525>,
 			<  499200 3143>,
