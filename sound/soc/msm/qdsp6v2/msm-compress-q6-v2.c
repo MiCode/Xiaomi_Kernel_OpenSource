@@ -56,8 +56,8 @@
 #define FLAC_BLK_SIZE_LIMIT		65535
 
 /* Timestamp mode payload offsets */
-#define TS_LSW_OFFSET			6
-#define TS_MSW_OFFSET			7
+#define CAPTURE_META_DATA_TS_OFFSET_LSW	6
+#define CAPTURE_META_DATA_TS_OFFSET_MSW	7
 
 /* decoder parameter length */
 #define DDP_DEC_MAX_NUM_PARAM		18
@@ -411,6 +411,7 @@ static int msm_compr_send_buffer(struct msm_compr_audio *prtd)
 	int buffer_length;
 	uint64_t bytes_available;
 	struct audio_aio_write_param param;
+	struct snd_codec_metadata *buff_addr;
 
 	if (!atomic_read(&prtd->start)) {
 		pr_err("%s: stream is not in started state\n", __func__);
@@ -444,23 +445,34 @@ static int msm_compr_send_buffer(struct msm_compr_audio *prtd)
 	}
 
 	if (buffer_length) {
-		param.paddr	= prtd->buffer_paddr + prtd->byte_offset;
+		param.paddr = prtd->buffer_paddr + prtd->byte_offset;
 		WARN(prtd->byte_offset % 32 != 0, "offset %x not multiple of 32\n",
 		prtd->byte_offset);
 	} else {
-		param.paddr	= prtd->buffer_paddr;
+		param.paddr = prtd->buffer_paddr;
 	}
-
 	param.len	= buffer_length;
-	param.msw_ts	= 0;
-	param.lsw_ts	= 0;
-	param.flags	= NO_TIMESTAMP;
+	if (prtd->ts_header_offset) {
+		buff_addr = (struct snd_codec_metadata *)
+					(prtd->buffer + prtd->byte_offset);
+		param.len = buff_addr->length;
+		param.msw_ts = (uint32_t)
+			((buff_addr->timestamp & 0xFFFFFFFF00000000LL) >> 32);
+		param.lsw_ts = (uint32_t) (buff_addr->timestamp & 0xFFFFFFFFLL);
+		param.paddr += prtd->ts_header_offset;
+		param.flags = SET_TIMESTAMP;
+		param.metadata_len = prtd->ts_header_offset;
+	} else {
+		param.msw_ts = 0;
+		param.lsw_ts = 0;
+		param.flags = NO_TIMESTAMP;
+		param.metadata_len = 0;
+	}
 	param.uid	= buffer_length;
-	param.metadata_len = 0;
 	param.last_buffer = prtd->last_buffer;
 
 	pr_debug("%s: sending %d bytes to DSP byte_offset = %d\n",
-		__func__, buffer_length, prtd->byte_offset);
+		__func__, param.len, prtd->byte_offset);
 	if (q6asm_async_write(prtd->audio_client, &param) < 0) {
 		pr_err("%s:q6asm_async_write failed\n", __func__);
 	} else {
@@ -579,9 +591,21 @@ static void compr_event_handler(uint32_t opcode,
 		 * written to ADSP in the last write, update offset and
 		 * total copied data accordingly.
 		 */
-
-		prtd->byte_offset += token;
-		prtd->copied_total += token;
+		if (prtd->ts_header_offset) {
+			/* Always assume that the data will be sent to DSP on
+			 * frame boundary.
+			 * i.e, one frame of userspace write will result in
+			 * one kernel write to DSP. This is needed as
+			 * timestamp will be sent per frame.
+			 */
+			prtd->byte_offset +=
+					prtd->codec_param.buffer.fragment_size;
+			prtd->copied_total +=
+					prtd->codec_param.buffer.fragment_size;
+		} else {
+			prtd->byte_offset += token;
+			prtd->copied_total += token;
+		}
 		if (prtd->byte_offset >= prtd->buffer_size)
 			prtd->byte_offset -= prtd->buffer_size;
 
@@ -636,10 +660,10 @@ static void compr_event_handler(uint32_t opcode,
 			*buff_addr = prtd->ts_header_offset;
 			buff_addr++;
 			/* Write the TS LSW */
-			*buff_addr = payload[TS_LSW_OFFSET];
+			*buff_addr = payload[CAPTURE_META_DATA_TS_OFFSET_LSW];
 			buff_addr++;
 			/* Write the TS MSW */
-			*buff_addr = payload[TS_MSW_OFFSET];
+			*buff_addr = payload[CAPTURE_META_DATA_TS_OFFSET_MSW];
 		}
 		/* Always assume read_size is same as fragment_size */
 		read_size = prtd->codec_param.buffer.fragment_size;
@@ -1325,6 +1349,12 @@ static int msm_compr_configure_dsp_for_playback
 	prtd->buffer       = ac->port[dir].buf[0].data;
 	prtd->buffer_paddr = ac->port[dir].buf[0].phys;
 	prtd->buffer_size  = runtime->fragments * runtime->fragment_size;
+
+	/* Bit-0 of flags represent timestamp mode */
+	if (prtd->codec_param.codec.flags & COMPRESSED_TIMESTAMP_FLAG)
+		prtd->ts_header_offset = sizeof(struct snd_codec_metadata);
+	else
+		prtd->ts_header_offset = 0;
 
 	ret = msm_compr_send_media_format_block(cstream, ac->stream_id, false);
 	if (ret < 0)
