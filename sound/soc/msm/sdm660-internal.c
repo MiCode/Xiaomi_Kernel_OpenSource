@@ -2265,11 +2265,28 @@ static struct snd_soc_dai_link msm_int_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
+	{/* hw:x,39 */
+		.name = "SDM660 HFP TX",
+		.stream_name = "MultiMedia6",
+		.cpu_dai_name = "MultiMedia6",
+		.platform_name  = "msm-pcm-loopback",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA6,
+	},
 };
 
 
 static struct snd_soc_dai_link msm_int_wsa_dai[] = {
-	{/* hw:x,39 */
+	{/* hw:x,40 */
 		.name = LPASS_BE_INT5_MI2S_TX,
 		.stream_name = "INT5_mi2s Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.12",
