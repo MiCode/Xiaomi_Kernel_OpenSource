@@ -769,8 +769,6 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 				psde->pipe_cfg.horz_decimation);
 		scale_cfg->src_height[i] = DECIMATED_DIMENSION(src_h,
 				psde->pipe_cfg.vert_decimation);
-		if (SDE_FORMAT_IS_YUV(fmt))
-			scale_cfg->src_width[i] &= ~0x1;
 		if (i == SDE_SSPP_COMP_1_2 || i == SDE_SSPP_COMP_2) {
 			scale_cfg->src_width[i] /= chroma_subsmpl_h;
 			scale_cfg->src_height[i] /= chroma_subsmpl_v;
@@ -1201,6 +1199,7 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 		psde->pipe_cfg.src_rect.y = 0;
 		psde->pipe_cfg.src_rect.w = psde->pipe_cfg.dst_rect.w;
 		psde->pipe_cfg.src_rect.h = psde->pipe_cfg.dst_rect.h;
+		_sde_plane_setup_scaler(psde, fmt, 0);
 
 		if (psde->pipe_hw->ops.setup_format)
 			psde->pipe_hw->ops.setup_format(psde->pipe_hw,
@@ -1212,7 +1211,6 @@ static int _sde_plane_color_fill(struct sde_plane *psde,
 					&psde->pipe_cfg,
 					pstate->multirect_index);
 
-		_sde_plane_setup_scaler(psde, fmt, 0);
 		if (psde->pipe_hw->ops.setup_pe)
 			psde->pipe_hw->ops.setup_pe(psde->pipe_hw,
 					&psde->pixel_ext);
@@ -2296,6 +2294,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		psde->pipe_cfg.src_rect = src;
 		psde->pipe_cfg.dst_rect = dst;
 
+		_sde_plane_setup_scaler(psde, fmt, pstate);
+
 		/* check for color fill */
 		psde->color_fill = (uint32_t)sde_plane_get_property(pstate,
 				PLANE_PROP_COLOR_FILL);
@@ -2308,7 +2308,6 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 					pstate->multirect_index);
 		}
 
-		_sde_plane_setup_scaler(psde, fmt, pstate);
 		if (psde->pipe_hw->ops.setup_pe)
 			psde->pipe_hw->ops.setup_pe(psde->pipe_hw,
 					&psde->pixel_ext);
