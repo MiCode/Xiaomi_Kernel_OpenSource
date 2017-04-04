@@ -27,8 +27,8 @@
 
 #define INVALID_VREG 100
 
-int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
-	struct camera_vreg_t *cam_vreg, int num_vreg,
+int cam_get_dt_power_setting_data(struct device_node *of_node,
+	struct cam_hw_soc_info *soc_info,
 	struct cam_sensor_power_ctrl_t *power_info);
 
 int msm_camera_pinctrl_init
@@ -53,4 +53,7 @@ int msm_camera_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 int msm_camera_fill_vreg_params(struct cam_hw_soc_info *soc_info,
 	struct cam_sensor_power_setting *power_setting,
 	uint16_t power_setting_size);
+
+int32_t cam_sensor_update_power_settings(void *cmd_buf,
+	int cmd_length, struct cam_sensor_power_ctrl_t *power_info);
 #endif /* _CAM_SENSOR_UTIL_H_ */

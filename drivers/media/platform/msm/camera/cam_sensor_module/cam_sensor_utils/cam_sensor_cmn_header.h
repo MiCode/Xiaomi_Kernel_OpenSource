@@ -32,6 +32,7 @@
 #define CAM_ACTUATOR_NAME  "cam-actuator"
 #define CAM_CSIPHY_NAME    "cam-csiphy"
 #define CAM_FLASH_NAME     "cam-flash"
+#define CAM_EEPROM_NAME    "cam-eeprom"
 
 #define MAX_SYSTEM_PIPELINE_DELAY 2
 
@@ -158,6 +159,10 @@ enum cam_actuator_packet_opcodes {
 	CAM_ACTUATOR_PACKET_OPCODE_INIT,
 	CAM_ACTUATOR_PACKET_AUTO_MOVE_LENS,
 	CAM_ACTUATOR_PACKET_MANUAL_MOVE_LENS
+};
+
+enum cam_eeprom_packet_opcodes {
+	CAM_EEPROM_PACKET_OPCODE_INIT
 };
 
 enum msm_bus_perf_setting {

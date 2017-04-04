@@ -63,6 +63,18 @@ struct cam_actuator_query_cap {
 } __attribute__((packed));
 
 /**
+ * struct cam_eeprom_query_cap_t - capabilities info for eeprom
+ *
+ * @slot_info                  :  Indicates about the slotId or cell Index
+ * @eeprom_kernel_probe        :  Indicates about the kernel or userspace probe
+ */
+struct cam_eeprom_query_cap_t {
+	uint32_t            slot_info;
+	uint16_t            eeprom_kernel_probe;
+	uint16_t            reserved;
+} __attribute__((packed));
+
+/**
  * struct cam_cmd_i2c_info - Contains slave I2C related info
  *
  * @slave_addr      :    Slave address

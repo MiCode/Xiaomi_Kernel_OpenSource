@@ -12,6 +12,7 @@
 
 #include <linux/kernel.h>
 #include "cam_sensor_util.h"
+#include <cam_mem_mgr.h>
 
 #define CAM_SENSOR_PINCTRL_STATE_SLEEP "cam_suspend"
 #define CAM_SENSOR_PINCTRL_STATE_DEFAULT "cam_default"
@@ -338,7 +339,6 @@ int32_t msm_camera_fill_vreg_params(
 		return -EINVAL;
 	}
 
-
 	for (i = 0; i < power_setting_size; i++) {
 		switch (power_setting[i].seq_type) {
 		case SENSOR_VDIG:
@@ -548,6 +548,307 @@ int cam_sensor_util_request_gpio_table(
 	return rc;
 }
 
+int32_t cam_sensor_update_power_settings(void *cmd_buf,
+	int cmd_length, struct cam_sensor_power_ctrl_t *power_info)
+{
+	int32_t rc = 0, tot_size = 0, last_cmd_type = 0;
+	int32_t i = 0, pwr_up = 0, pwr_down = 0;
+	void *ptr = cmd_buf, *scr;
+	struct cam_cmd_power *pwr_cmd = (struct cam_cmd_power *)cmd_buf;
+	struct common_header *cmm_hdr = (struct common_header *)cmd_buf;
+
+	if (!pwr_cmd || !cmd_length) {
+		CAM_ERR(CAM_SENSOR, "Invalid Args: pwr_cmd %pK, cmd_length: %d",
+			pwr_cmd, cmd_length);
+		return -EINVAL;
+	}
+
+	power_info->power_setting_size = 0;
+	power_info->power_setting =
+		(struct cam_sensor_power_setting *)
+		kzalloc(sizeof(struct cam_sensor_power_setting) *
+			MAX_POWER_CONFIG, GFP_KERNEL);
+	if (!power_info->power_setting)
+		return -ENOMEM;
+
+	power_info->power_down_setting =
+		(struct cam_sensor_power_setting *)
+		kzalloc(sizeof(struct cam_sensor_power_setting) *
+			MAX_POWER_CONFIG, GFP_KERNEL);
+	if (!power_info->power_down_setting) {
+		rc = -ENOMEM;
+		goto free_power_settings;
+	}
+
+	while (tot_size < cmd_length) {
+		if (cmm_hdr->cmd_type ==
+			CAMERA_SENSOR_CMD_TYPE_PWR_UP) {
+			struct cam_cmd_power *pwr_cmd =
+				(struct cam_cmd_power *)ptr;
+
+			power_info->
+				power_setting_size +=
+				pwr_cmd->count;
+			scr = ptr + sizeof(struct cam_cmd_power);
+			tot_size = tot_size + sizeof(struct cam_cmd_power);
+
+			if (pwr_cmd->count == 0)
+				CAM_DBG(CAM_SENSOR, "Un expected Command");
+
+			for (i = 0; i < pwr_cmd->count; i++, pwr_up++) {
+				power_info->
+					power_setting[pwr_up].seq_type =
+					pwr_cmd->power_settings[i].
+						power_seq_type;
+				power_info->
+					power_setting[pwr_up].config_val =
+					pwr_cmd->power_settings[i].
+						config_val_low;
+				power_info->power_setting[pwr_up].delay = 0;
+				if (i) {
+					scr = scr +
+						sizeof(
+						struct cam_power_settings);
+					tot_size = tot_size +
+						sizeof(
+						struct cam_power_settings);
+				}
+				if (tot_size > cmd_length) {
+					CAM_ERR(CAM_SENSOR,
+						"Error: Cmd Buffer is wrong");
+					rc = -EINVAL;
+					goto free_power_down_settings;
+				}
+				CAM_DBG(CAM_SENSOR,
+					"Seq Type[%d]: %d Config_val: %ld",
+					pwr_up,
+					power_info->
+						power_setting[pwr_up].seq_type,
+					power_info->
+						power_setting[pwr_up].
+						config_val);
+			}
+			last_cmd_type = CAMERA_SENSOR_CMD_TYPE_PWR_UP;
+			ptr = (void *) scr;
+			cmm_hdr = (struct common_header *)ptr;
+		} else if (cmm_hdr->cmd_type == CAMERA_SENSOR_CMD_TYPE_WAIT) {
+			struct cam_cmd_unconditional_wait *wait_cmd =
+				(struct cam_cmd_unconditional_wait *)ptr;
+			if (wait_cmd->op_code ==
+				CAMERA_SENSOR_WAIT_OP_SW_UCND) {
+				if (last_cmd_type ==
+					CAMERA_SENSOR_CMD_TYPE_PWR_UP) {
+					if (pwr_up > 0)
+						power_info->
+							power_setting
+							[pwr_up - 1].delay +=
+							wait_cmd->delay;
+					else
+						CAM_ERR(CAM_SENSOR,
+							"Delay is expected only after valid power up setting");
+				} else if (last_cmd_type ==
+					CAMERA_SENSOR_CMD_TYPE_PWR_DOWN) {
+					if (pwr_down > 0)
+						power_info->
+							power_down_setting
+							[pwr_down - 1].delay +=
+							wait_cmd->delay;
+					else
+						CAM_ERR(CAM_SENSOR,
+							"Delay is expected only after valid power up setting");
+				}
+			} else
+				CAM_DBG(CAM_SENSOR, "Invalid op code: %d",
+					wait_cmd->op_code);
+			tot_size = tot_size +
+				sizeof(struct cam_cmd_unconditional_wait);
+			if (tot_size > cmd_length) {
+				CAM_ERR(CAM_SENSOR, "Command Buffer is wrong");
+				return -EINVAL;
+			}
+			scr = (void *) (wait_cmd);
+			ptr = (void *)
+				(scr +
+				sizeof(struct cam_cmd_unconditional_wait));
+			CAM_DBG(CAM_SENSOR, "ptr: %pK sizeof: %d Next: %pK",
+				scr, (int32_t)sizeof(
+				struct cam_cmd_unconditional_wait), ptr);
+
+			cmm_hdr = (struct common_header *)ptr;
+		} else if (cmm_hdr->cmd_type ==
+			CAMERA_SENSOR_CMD_TYPE_PWR_DOWN) {
+			struct cam_cmd_power *pwr_cmd =
+				(struct cam_cmd_power *)ptr;
+
+			scr = ptr + sizeof(struct cam_cmd_power);
+			tot_size = tot_size + sizeof(struct cam_cmd_power);
+			power_info->power_down_setting_size += pwr_cmd->count;
+
+			if (pwr_cmd->count == 0)
+				CAM_ERR(CAM_SENSOR, "Invalid Command");
+
+			for (i = 0; i < pwr_cmd->count; i++, pwr_down++) {
+				power_info->
+					power_down_setting[pwr_down].
+					seq_type =
+					pwr_cmd->power_settings[i].
+					power_seq_type;
+				power_info->
+					power_down_setting[pwr_down].
+					config_val =
+					pwr_cmd->power_settings[i].
+					config_val_low;
+				power_info->
+					power_down_setting[pwr_down].delay = 0;
+				if (i) {
+					scr = scr +
+						sizeof(
+						struct cam_power_settings);
+					tot_size =
+						tot_size +
+						sizeof(
+						struct cam_power_settings);
+				}
+				if (tot_size > cmd_length) {
+					CAM_ERR(CAM_SENSOR,
+						"Command Buffer is wrong");
+					rc = -EINVAL;
+					goto free_power_down_settings;
+				}
+				CAM_DBG(CAM_SENSOR,
+					"Seq Type[%d]: %d Config_val: %ld",
+					pwr_down,
+					power_info->
+						power_down_setting[pwr_down].
+						seq_type,
+					power_info->
+						power_down_setting[pwr_down].
+						config_val);
+			}
+			last_cmd_type = CAMERA_SENSOR_CMD_TYPE_PWR_DOWN;
+			ptr = (void *) scr;
+			cmm_hdr = (struct common_header *)ptr;
+		} else {
+			CAM_ERR(CAM_SENSOR,
+				"Error: Un expected Header Type: %d",
+				cmm_hdr->cmd_type);
+		}
+	}
+
+	return rc;
+free_power_down_settings:
+	kfree(power_info->power_down_setting);
+free_power_settings:
+	kfree(power_info->power_setting);
+	return rc;
+}
+
+int cam_get_dt_power_setting_data(struct device_node *of_node,
+	struct cam_hw_soc_info *soc_info,
+	struct cam_sensor_power_ctrl_t *power_info)
+{
+	int rc = 0, i;
+	int count = 0;
+	const char *seq_name = NULL;
+	uint32_t *array = NULL;
+	struct cam_sensor_power_setting *ps;
+	int c, end;
+
+	if (!power_info)
+		return -EINVAL;
+
+	count = of_property_count_strings(of_node, "qcom,cam-power-seq-type");
+	power_info->power_setting_size = count;
+
+	CAM_DBG(CAM_SENSOR, "qcom,cam-power-seq-type count %d", count);
+
+	if (count <= 0)
+		return 0;
+
+	ps = kcalloc(count, sizeof(*ps), GFP_KERNEL);
+	if (!ps)
+		return -ENOMEM;
+	power_info->power_setting = ps;
+
+	for (i = 0; i < count; i++) {
+		rc = of_property_read_string_index(of_node,
+			"qcom,cam-power-seq-type", i, &seq_name);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "failed");
+			goto ERROR1;
+		}
+		CAM_DBG(CAM_SENSOR, "seq_name[%d] = %s", i, seq_name);
+		if (!strcmp(seq_name, "cam_vio")) {
+			ps[i].seq_type = SENSOR_VIO;
+		} else if (!strcmp(seq_name, "cam_vana")) {
+			ps[i].seq_type = SENSOR_VANA;
+		} else if (!strcmp(seq_name, "cam_clk")) {
+			ps[i].seq_type = SENSOR_MCLK;
+		} else {
+			CAM_ERR(CAM_SENSOR, "unrecognized seq-type %s",
+				seq_name);
+			rc = -EILSEQ;
+			goto ERROR1;
+		}
+		CAM_DBG(CAM_SENSOR, "seq_type[%d] %d", i, ps[i].seq_type);
+	}
+
+	array = kcalloc(count, sizeof(uint32_t), GFP_KERNEL);
+	if (!array) {
+		rc = -ENOMEM;
+		goto ERROR1;
+	}
+
+	rc = of_property_read_u32_array(of_node, "qcom,cam-power-seq-cfg-val",
+		array, count);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "failed ");
+		goto ERROR2;
+	}
+
+	for (i = 0; i < count; i++) {
+		ps[i].config_val = array[i];
+		CAM_DBG(CAM_SENSOR, "power_setting[%d].config_val = %ld", i,
+			ps[i].config_val);
+	}
+
+	rc = of_property_read_u32_array(of_node, "qcom,cam-power-seq-delay",
+		array, count);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "failed");
+		goto ERROR2;
+	}
+	for (i = 0; i < count; i++) {
+		ps[i].delay = array[i];
+		CAM_DBG(CAM_SENSOR, "power_setting[%d].delay = %d", i,
+			ps[i].delay);
+	}
+	kfree(array);
+
+	power_info->power_down_setting =
+		kzalloc(sizeof(*ps) * count, GFP_KERNEL);
+
+	if (!power_info->power_down_setting) {
+		CAM_ERR(CAM_SENSOR, "failed");
+		rc = -ENOMEM;
+		goto ERROR1;
+	}
+
+	power_info->power_down_setting_size = count;
+
+	end = count - 1;
+
+	for (c = 0; c < count; c++) {
+		power_info->power_down_setting[c] = ps[end];
+		end--;
+	}
+	return rc;
+ERROR2:
+	kfree(array);
+ERROR1:
+	kfree(ps);
+	return rc;
+}
 
 int cam_sensor_util_init_gpio_pin_tbl(
 	struct cam_hw_soc_info *soc_info,
@@ -857,6 +1158,7 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 	for (index = 0; index < ctrl->power_setting_size; index++) {
 		CAM_DBG(CAM_SENSOR, "index: %d",  index);
 		power_setting = &ctrl->power_setting[index];
+		CAM_DBG(CAM_SENSOR, "seq_type %d", power_setting->seq_type);
 
 		switch (power_setting->seq_type) {
 		case SENSOR_MCLK:

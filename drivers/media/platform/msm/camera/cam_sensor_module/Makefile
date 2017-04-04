@@ -5,3 +5,4 @@ obj-$(CONFIG_SPECTRA_CAMERA) += cam_csiphy/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_actuator/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_sensor/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_flash/
+obj-$(CONFIG_SPECTRA_CAMERA) += cam_eeprom/

@@ -41,6 +41,7 @@ int32_t cam_cci_i2c_read(struct cam_sensor_cci_client *cci_client,
 		CAM_ERR(CAM_SENSOR, "line %d rc = %d", rc);
 		return rc;
 	}
+
 	rc = cci_ctrl.status;
 	if (data_type == CAMERA_SENSOR_I2C_TYPE_BYTE)
 		*data = buf[0];
@@ -52,6 +53,46 @@ int32_t cam_cci_i2c_read(struct cam_sensor_cci_client *cci_client,
 		*data = buf[0] << 24 | buf[1] << 16 |
 			buf[2] << 8 | buf[3];
 
+	return rc;
+}
+
+int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *cci_client,
+	uint32_t addr, uint8_t *data,
+	enum camera_sensor_i2c_type addr_type,
+	uint32_t num_byte)
+{
+	int32_t                    rc = -EFAULT;
+	unsigned char             *buf = NULL;
+	int                        i = 0;
+	struct cam_cci_ctrl        cci_ctrl;
+
+	if ((addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX)
+		|| (num_byte > I2C_REG_DATA_MAX)) {
+		CAM_ERR(CAM_SENSOR, "addr_type %d num_byte %d", addr_type,
+			num_byte);
+		return rc;
+	}
+
+	buf = kzalloc(num_byte, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	cci_ctrl.cmd = MSM_CCI_I2C_READ;
+	cci_ctrl.cci_info = cci_client;
+	cci_ctrl.cfg.cci_i2c_read_cfg.addr = addr;
+	cci_ctrl.cfg.cci_i2c_read_cfg.addr_type = addr_type;
+	cci_ctrl.cfg.cci_i2c_read_cfg.data = buf;
+	cci_ctrl.cfg.cci_i2c_read_cfg.num_byte = num_byte;
+	cci_ctrl.status = -EFAULT;
+	rc = v4l2_subdev_call(cci_client->cci_subdev,
+		core, ioctl, VIDIOC_MSM_CCI_CFG, &cci_ctrl);
+	rc = cci_ctrl.status;
+	CAM_DBG(CAM_SENSOR, "addr = 0x%x, rc = %d", addr, rc);
+	for (i = 0; i < num_byte; i++) {
+		data[i] = buf[i];
+		CAM_DBG(CAM_SENSOR, "Byte %d: Data: 0x%x\n", i, data[i]);
+	}
+	kfree(buf);
 	return rc;
 }
 
