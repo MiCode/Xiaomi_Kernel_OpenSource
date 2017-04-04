@@ -13,7 +13,7 @@
 #include "ipa_i.h"
 #include "ipahal/ipahal.h"
 
-static const u32 ipa_hdr_bin_sz[IPA_HDR_BIN_MAX] = { 8, 16, 24, 36, 60};
+static const u32 ipa_hdr_bin_sz[IPA_HDR_BIN_MAX] = { 8, 16, 24, 36, 64};
 static const u32 ipa_hdr_proc_ctx_bin_sz[IPA_HDR_PROC_CTX_BIN_MAX] = { 32, 64};
 
 #define HDR_TYPE_IS_VALID(type) \
@@ -78,7 +78,8 @@ static int ipa3_hdr_proc_ctx_to_hw_format(struct ipa_mem_buffer *mem,
 				entry->hdr->is_hdr_proc_ctx,
 				entry->hdr->phys_base,
 				hdr_base_addr,
-				entry->hdr->offset_entry);
+				entry->hdr->offset_entry,
+				entry->l2tp_params);
 		if (ret)
 			return ret;
 	}
@@ -353,6 +354,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 
 	entry->type = proc_ctx->type;
 	entry->hdr = hdr_entry;
+	entry->l2tp_params = proc_ctx->l2tp_params;
 	if (add_ref_hdr)
 		hdr_entry->ref_cnt++;
 	entry->cookie = IPA_COOKIE;
