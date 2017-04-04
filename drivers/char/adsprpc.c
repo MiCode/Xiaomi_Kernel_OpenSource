@@ -1630,12 +1630,15 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		uint64_t phys = 0;
 		ssize_t size = 0;
 		int fds[3];
-		char *proc_name = (unsigned char *)init->file;
+		char *proc_name;
 		struct {
 			int pgid;
 			int namelen;
 			int pageslen;
 		} inbuf;
+		VERIFY(err, proc_name = kzalloc(init->filelen, GFP_KERNEL));
+		VERIFY(err, 0 == copy_from_user(proc_name,
+			(unsigned char *)init->file, init->filelen));
 		inbuf.pgid = current->tgid;
 		inbuf.namelen = strlen(proc_name)+1;
 		inbuf.pageslen = 0;
