@@ -20,27 +20,24 @@ static
 int ufs_qcom_phy_qmp_v3_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 					bool is_rate_B)
 {
-	int err;
-	int tbl_size_A, tbl_size_B;
-	struct ufs_qcom_phy_calibration *tbl_A, *tbl_B;
+	/*
+	 * Writing PHY calibration in this order:
+	 * 1. Write Rate-A calibration first (1-lane mode).
+	 * 2. Write 2nd lane configuration if needed.
+	 * 3. Write Rate-B calibration overrides
+	 */
+	ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A,
+			       ARRAY_SIZE(phy_cal_table_rate_A));
+	if (ufs_qcom_phy->lanes_per_direction == 2)
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_2nd_lane,
+				       ARRAY_SIZE(phy_cal_table_2nd_lane));
+	if (is_rate_B)
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_B,
+				       ARRAY_SIZE(phy_cal_table_rate_B));
+	/* flush buffered writes */
+	mb();
 
-	tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
-	tbl_B = phy_cal_table_rate_B;
-
-	tbl_A = phy_cal_table_rate_A;
-	tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A);
-
-	err = ufs_qcom_phy_calibrate(ufs_qcom_phy,
-				     tbl_A, tbl_size_A,
-				     tbl_B, tbl_size_B,
-				     is_rate_B);
-
-	if (err)
-		dev_err(ufs_qcom_phy->dev,
-			"%s: ufs_qcom_phy_calibrate() failed %d\n",
-			__func__, err);
-
-	return err;
+	return 0;
 }
 
 static int ufs_qcom_phy_qmp_v3_init(struct phy *generic_phy)

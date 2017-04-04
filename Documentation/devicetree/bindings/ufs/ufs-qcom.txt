@@ -44,6 +44,7 @@ Example:
 		reg = <0xfc597000 0x800>;
 		reg-names = "phy_mem";
 		#phy-cells = <0>;
+		lanes-per-direction = <1>;
 		vdda-phy-supply = <&pma8084_l4>;
 		vdda-pll-supply = <&pma8084_l12>;
 		vdda-phy-max-microamp = <50000>;
