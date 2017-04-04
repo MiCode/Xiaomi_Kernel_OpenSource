@@ -168,6 +168,14 @@ Optional property:
 			by means of sensor ID. Additional coefficients are
 			interpreted as constant offset.
 
+- thermal-governor:     Thermal governor to be used for this thermal zone.
+			Expected values are:
+			"step_wise": Use step wise governor.
+			"fair_share": Use fair share governor.
+			"user_space": Use user space governor.
+			"power_allocator": Use power allocator governor.
+  Type: string
+
 - sustainable-power:	An estimate of the sustainable power (in mW) that the
   Type: unsigned	thermal zone can dissipate at the desired
   Size: one cell	control temperature.  For reference, the
