@@ -48,8 +48,8 @@
 #define TLMM_LPI_GPIO22_CFG  0x15078040
 #define LPI_GPIO22_CFG_VAL 0x0000009
 
-#define TLMM_LPI_GPIO22_INOUT  0x15078044
-#define LPI_GPIO22_INOUT_VAL 0x00000000
+#define TLMM_LPI_GPIO22_INOUT  0x179D1318
+#define LPI_GPIO22_INOUT_VAL 0x0020000
 
 #define WSA8810_NAME_1 "wsa881x.20170211"
 #define WSA8810_NAME_2 "wsa881x.20170212"
@@ -1227,8 +1227,9 @@ static void msm_snd_interrupt_config(struct msm_asoc_mach_data *pdata)
 			pdata->msm_snd_intr_lpi.lpi_gpio_intr_cfg);
 	iowrite32(LPI_GPIO22_CFG_VAL,
 			pdata->msm_snd_intr_lpi.lpi_gpio_cfg);
-	iowrite32(LPI_GPIO22_INOUT_VAL,
-			pdata->msm_snd_intr_lpi.lpi_gpio_inout);
+	val = ioread32(pdata->msm_snd_intr_lpi.lpi_gpio_inout);
+	val |= LPI_GPIO22_INOUT_VAL;
+	iowrite32(val, pdata->msm_snd_intr_lpi.lpi_gpio_inout);
 }
 
 static int msm_adsp_power_up_config(struct snd_soc_codec *codec)
