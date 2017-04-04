@@ -1815,11 +1815,14 @@ struct afe_port_data_cmd_rt_proxy_port_read_v2 {
 #define AFE_PORT_SAMPLE_RATE_16K          16000
 #define AFE_PORT_SAMPLE_RATE_48K          48000
 #define AFE_PORT_SAMPLE_RATE_96K          96000
+#define AFE_PORT_SAMPLE_RATE_176P4K       176400
 #define AFE_PORT_SAMPLE_RATE_192K         192000
+#define AFE_PORT_SAMPLE_RATE_352P8K       352800
 #define AFE_LINEAR_PCM_DATA				0x0
 #define AFE_NON_LINEAR_DATA				0x1
 #define AFE_LINEAR_PCM_DATA_PACKED_60958 0x2
 #define AFE_NON_LINEAR_DATA_PACKED_60958 0x3
+#define AFE_GENERIC_COMPRESSED           0x8
 
 /* This param id is used to configure I2S interface */
 #define AFE_PARAM_ID_I2S_CONFIG	0x0001020D
@@ -2745,7 +2748,9 @@ struct afe_param_id_tdm_cfg {
 	 * - #AFE_PORT_SAMPLE_RATE_16K
 	 * - #AFE_PORT_SAMPLE_RATE_24K
 	 * - #AFE_PORT_SAMPLE_RATE_32K
-	 * - #AFE_PORT_SAMPLE_RATE_48K @tablebulletend
+	 * - #AFE_PORT_SAMPLE_RATE_48K
+	 * - #AFE_PORT_SAMPLE_RATE_176P4K
+	 * - #AFE_PORT_SAMPLE_RATE_352P8K @tablebulletend
 	 */
 
 	u32	bit_width;
@@ -2754,10 +2759,11 @@ struct afe_param_id_tdm_cfg {
 	 */
 
 	u16	data_format;
-	/* < Data format: linear and compressed
+	/* < Data format: linear ,compressed, generic compresssed
 	 * @values
 	 * - #AFE_LINEAR_PCM_DATA
-	 * - #AFE_NON_LINEAR_DATA @tablebulletend
+	 * - #AFE_NON_LINEAR_DATA
+	 * - #AFE_GENERIC_COMPRESSED
 	 */
 
 	u16	sync_mode;
@@ -3636,7 +3642,7 @@ struct afe_lpass_core_shared_clk_config_command {
 #define DEFAULT_COPP_TOPOLOGY				0x00010314
 #define DEFAULT_POPP_TOPOLOGY				0x00010BE4
 #define COMPRESSED_PASSTHROUGH_DEFAULT_TOPOLOGY         0x0001076B
-#define COMPRESS_PASSTHROUGH_NONE_TOPOLOGY      0x00010774
+#define COMPRESSED_PASSTHROUGH_NONE_TOPOLOGY            0x00010774
 #define VPM_TX_SM_ECNS_COPP_TOPOLOGY			0x00010F71
 #define VPM_TX_DM_FLUENCE_COPP_TOPOLOGY			0x00010F72
 #define VPM_TX_QMIC_FLUENCE_COPP_TOPOLOGY		0x00010F75
@@ -3942,6 +3948,8 @@ struct asm_softvolume_params {
 
 #define ASM_MEDIA_FMT_EVRCWB_FS 0x00010BF0
 
+#define ASM_MEDIA_FMT_GENERIC_COMPRESSED  0x00013212
+
 #define ASM_MAX_EQ_BANDS 12
 
 #define ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2 0x00010D98
@@ -3950,6 +3958,40 @@ struct asm_data_cmd_media_fmt_update_v2 {
 u32                    fmt_blk_size;
 	/* Media format block size in bytes.*/
 }  __packed;
+
+struct asm_generic_compressed_fmt_blk_t {
+	struct apr_hdr hdr;
+	struct asm_data_cmd_media_fmt_update_v2 fmt_blk;
+
+	/*
+	 * Channel mapping array of bitstream output.
+	 * Channel[i] mapping describes channel i inside the buffer, where
+	 * i < num_channels. All valid used channels must be
+	 * present at the beginning of the array.
+	 */
+	uint8_t channel_mapping[8];
+
+	/*
+	 * Number of channels of the incoming bitstream.
+	 * Supported values: 1,2,3,4,5,6,7,8
+	 */
+	uint16_t num_channels;
+
+	/*
+	 * Nominal bits per sample value of the incoming bitstream.
+	 * Supported values: 16, 32
+	 */
+	uint16_t bits_per_sample;
+
+	/*
+	 * Nominal sampling rate of the incoming bitstream.
+	 * Supported values: 8000, 11025, 16000, 22050, 24000, 32000,
+	 *                   44100, 48000, 88200, 96000, 176400, 192000,
+	 *                   352800, 384000
+	 */
+	uint32_t sampling_rate;
+
+} __packed;
 
 struct asm_multi_channel_pcm_fmt_blk_v2 {
 	struct apr_hdr hdr;
@@ -10318,6 +10360,7 @@ enum {
 	COMPRESSED_PASSTHROUGH_CONVERT,
 	COMPRESSED_PASSTHROUGH_DSD,
 	LISTEN,
+	COMPRESSED_PASSTHROUGH_GEN,
 };
 
 #define AUDPROC_MODULE_ID_COMPRESSED_MUTE                0x00010770

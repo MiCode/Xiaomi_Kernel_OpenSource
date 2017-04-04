@@ -1143,8 +1143,10 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 			topology = msm_routing_get_adm_topology(fe_id,
 								session_type,
 								i);
-			if (passthr_mode == COMPRESSED_PASSTHROUGH_DSD)
-				topology = COMPRESS_PASSTHROUGH_NONE_TOPOLOGY;
+			if ((passthr_mode == COMPRESSED_PASSTHROUGH_DSD)
+			     || (passthr_mode ==
+			     COMPRESSED_PASSTHROUGH_GEN))
+				topology = COMPRESSED_PASSTHROUGH_NONE_TOPOLOGY;
 			pr_debug("%s: Before adm open topology %d\n", __func__,
 				topology);
 
@@ -1194,7 +1196,9 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 					num_copps++;
 				}
 			}
-			if (passthr_mode != COMPRESSED_PASSTHROUGH_DSD) {
+			if (passthr_mode != COMPRESSED_PASSTHROUGH_DSD
+			    && passthr_mode !=
+			    COMPRESSED_PASSTHROUGH_GEN) {
 				msm_routing_send_device_pp_params(
 				msm_bedais[i].port_id,
 				copp_idx);
@@ -12181,6 +12185,42 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"QUAT_TDM_RX_0 Audio Mixer", "MultiMedia15", "MM_DL15"},
 	{"QUAT_TDM_RX_0 Audio Mixer", "MultiMedia16", "MM_DL16"},
 	{"QUAT_TDM_RX_0", NULL, "QUAT_TDM_RX_0 Audio Mixer"},
+
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia1", "MM_DL1"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia2", "MM_DL2"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia3", "MM_DL3"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia4", "MM_DL4"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia5", "MM_DL5"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia6", "MM_DL6"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia7", "MM_DL7"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia8", "MM_DL8"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia9", "MM_DL9"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia10", "MM_DL10"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia11", "MM_DL11"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia12", "MM_DL12"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia13", "MM_DL13"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia14", "MM_DL14"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia15", "MM_DL15"},
+	{"PRI_TDM_RX_0 Audio Mixer", "MultiMedia16", "MM_DL16"},
+	{"PRI_TDM_RX_0", NULL, "PRI_TDM_RX_0 Audio Mixer"},
+
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia1", "MM_DL1"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia2", "MM_DL2"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia3", "MM_DL3"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia4", "MM_DL4"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia5", "MM_DL5"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia6", "MM_DL6"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia7", "MM_DL7"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia8", "MM_DL8"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia9", "MM_DL9"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia10", "MM_DL10"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia11", "MM_DL11"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia12", "MM_DL12"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia13", "MM_DL13"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia14", "MM_DL14"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia15", "MM_DL15"},
+	{"SEC_TDM_RX_0 Audio Mixer", "MultiMedia16", "MM_DL16"},
+	{"SEC_TDM_RX_0", NULL, "SEC_TDM_RX_0 Audio Mixer"},
 
 	{"QUAT_TDM_TX_0 Audio Mixer", "MultiMedia1", "MM_DL1"},
 	{"QUAT_TDM_TX_0 Audio Mixer", "MultiMedia2", "MM_DL2"},
