@@ -570,6 +570,8 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 					 SNDRV_PCM_STREAM_PLAYBACK :
 					 SNDRV_PCM_STREAM_CAPTURE);
 	kfree(prtd);
+	runtime->private_data = NULL;
+
 	return 0;
 }
 
