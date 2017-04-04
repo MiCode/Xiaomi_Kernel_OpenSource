@@ -804,6 +804,10 @@ static void arm_ccn_pmu_xp_dt_config(struct perf_event *event, int enable)
 	struct arm_ccn_component *xp;
 	u32 val, dt_cfg;
 
+	/* Nothing to do for cycle counter */
+	if (hw->idx == CCN_IDX_PMU_CYCLE_COUNTER)
+		return;
+
 	if (CCN_CONFIG_TYPE(event->attr.config) == CCN_TYPE_XP)
 		xp = &ccn->xp[CCN_CONFIG_XP(event->attr.config)];
 	else
@@ -901,7 +905,7 @@ static void arm_ccn_pmu_xp_watchpoint_config(struct perf_event *event)
 
 	/* Comparison values */
 	writel(cmp_l & 0xffffffff, source->base + CCN_XP_DT_CMP_VAL_L(wp));
-	writel((cmp_l >> 32) & 0xefffffff,
+	writel((cmp_l >> 32) & 0x7fffffff,
 			source->base + CCN_XP_DT_CMP_VAL_L(wp) + 4);
 	writel(cmp_h & 0xffffffff, source->base + CCN_XP_DT_CMP_VAL_H(wp));
 	writel((cmp_h >> 32) & 0x0fffffff,
@@ -909,7 +913,7 @@ static void arm_ccn_pmu_xp_watchpoint_config(struct perf_event *event)
 
 	/* Mask */
 	writel(mask_l & 0xffffffff, source->base + CCN_XP_DT_CMP_MASK_L(wp));
-	writel((mask_l >> 32) & 0xefffffff,
+	writel((mask_l >> 32) & 0x7fffffff,
 			source->base + CCN_XP_DT_CMP_MASK_L(wp) + 4);
 	writel(mask_h & 0xffffffff, source->base + CCN_XP_DT_CMP_MASK_H(wp));
 	writel((mask_h >> 32) & 0x0fffffff,
