@@ -333,21 +333,6 @@ static int msm_dig_cdc_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int msm_dig_cdc_codec_enable_rx_chain(struct snd_soc_dapm_widget *w,
-					     struct snd_kcontrol *kcontrol,
-					     int event)
-{
-	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
-
-	switch (event) {
-	case SND_SOC_DAPM_POST_PMD:
-		snd_soc_update_bits(codec, w->reg,
-			    1 << w->shift, 0x00);
-		break;
-	}
-	return 0;
-}
-
 static int msm_dig_cdc_get_iir_enable_audio_mixer(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
@@ -809,13 +794,18 @@ static int msm_dig_cdc_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 		(*dmic_clk_cnt)++;
 		if (*dmic_clk_cnt == 1) {
 			snd_soc_update_bits(codec, dmic_clk_reg,
-					0x0E, 0x02);
+					0x0E, 0x04);
 			snd_soc_update_bits(codec, dmic_clk_reg,
 					dmic_clk_en, dmic_clk_en);
 		}
 		snd_soc_update_bits(codec,
-			MSM89XX_CDC_CORE_TX1_DMIC_CTL + (dmic - 1) * 0x20,
-			0x07, 0x02);
+			MSM89XX_CDC_CORE_TX1_DMIC_CTL, 0x07, 0x02);
+		snd_soc_update_bits(codec,
+			MSM89XX_CDC_CORE_TX2_DMIC_CTL, 0x07, 0x02);
+		snd_soc_update_bits(codec,
+			MSM89XX_CDC_CORE_TX3_DMIC_CTL, 0x07, 0x02);
+		snd_soc_update_bits(codec,
+			MSM89XX_CDC_CORE_TX4_DMIC_CTL, 0x07, 0x02);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		(*dmic_clk_cnt)--;
@@ -1556,18 +1546,9 @@ static const struct snd_soc_dapm_widget msm_dig_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("RX1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX2 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 
-	SND_SOC_DAPM_MIXER_E("RX1 CHAIN", SND_SOC_NOPM,
-			     0, 0, NULL, 0,
-			     msm_dig_cdc_codec_enable_rx_chain,
-			     SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MIXER_E("RX2 CHAIN", SND_SOC_NOPM,
-			     0, 0, NULL, 0,
-			     msm_dig_cdc_codec_enable_rx_chain,
-			     SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MIXER_E("RX3 CHAIN", SND_SOC_NOPM,
-			     0, 0, NULL, 0,
-			     msm_dig_cdc_codec_enable_rx_chain,
-			     SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MIXER("RX1 CHAIN", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX2 CHAIN", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX3 CHAIN", SND_SOC_NOPM, 0, 0, NULL, 0),
 
 	SND_SOC_DAPM_MUX("RX1 MIX1 INP1", SND_SOC_NOPM, 0, 0,
 		&rx_mix1_inp1_mux),
