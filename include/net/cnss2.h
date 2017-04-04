@@ -179,5 +179,6 @@ extern int cnss_wlan_enable(struct device *dev,
 			    enum cnss_driver_mode mode,
 			    const char *host_version);
 extern int cnss_wlan_disable(struct device *dev, enum cnss_driver_mode mode);
+extern unsigned int cnss_get_qmi_timeout(void);
 
 #endif /* _NET_CNSS2_H */
