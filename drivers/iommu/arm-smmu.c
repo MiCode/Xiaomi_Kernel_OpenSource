@@ -322,9 +322,6 @@ struct arm_smmu_arch_ops {
 	void (*device_reset)(struct arm_smmu_device *smmu);
 	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
 					 dma_addr_t iova);
-	void (*iova_to_phys_fault)(struct iommu_domain *domain,
-				dma_addr_t iova, phys_addr_t *phys1,
-				phys_addr_t *phys_post_tlbiall);
 };
 
 struct arm_smmu_impl_def_reg {
@@ -1141,32 +1138,21 @@ static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 					 dma_addr_t iova, u32 fsr)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	phys_addr_t phys;
 	phys_addr_t phys_post_tlbiall;
 
-	smmu = smmu_domain->smmu;
-
-	if (smmu->arch_ops && smmu->arch_ops->iova_to_phys_fault) {
-		smmu->arch_ops->iova_to_phys_fault(domain, iova, &phys,
-		&phys_post_tlbiall);
-	} else {
-		phys = arm_smmu_iova_to_phys_hard(domain, iova);
-		arm_smmu_tlb_inv_context(smmu_domain);
-		phys_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, iova);
-	}
+	phys = arm_smmu_iova_to_phys_hard(domain, iova);
+	arm_smmu_tlb_inv_context(smmu_domain);
+	phys_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, iova);
 
 	if (phys != phys_post_tlbiall) {
 		dev_err(smmu->dev,
 			"ATOS results differed across TLBIALL...\n"
 			"Before: %pa After: %pa\n", &phys, &phys_post_tlbiall);
 	}
-	if (!phys_post_tlbiall) {
-		dev_err(smmu->dev,
-			"ATOS still failed. If the page tables look good (check the software table walk) then hardware might be misbehaving.\n");
-	}
 
-	return phys_post_tlbiall;
+	return (phys == 0 ? phys_post_tlbiall : phys);
 }
 
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
@@ -1260,8 +1246,11 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 				dev_err(smmu->dev,
 					"SOFTWARE TABLE WALK FAILED! Looks like %s accessed an unmapped address!\n",
 					dev_name(smmu->dev));
-			dev_err(smmu->dev,
-				"hard iova-to-phys (ATOS)=%pa\n", &phys_atos);
+			if (phys_atos)
+				dev_err(smmu->dev, "hard iova-to-phys (ATOS)=%pa\n",
+					&phys_atos);
+			else
+				dev_err(smmu->dev, "hard iova-to-phys (ATOS) failed\n");
 			dev_err(smmu->dev, "SID=0x%x\n", frsynra);
 		}
 		ret = IRQ_NONE;
@@ -2331,9 +2320,11 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
 	if (smmu_domain->smmu->arch_ops &&
-	    smmu_domain->smmu->arch_ops->iova_to_phys_hard)
-		return smmu_domain->smmu->arch_ops->iova_to_phys_hard(
+	    smmu_domain->smmu->arch_ops->iova_to_phys_hard) {
+		ret = smmu_domain->smmu->arch_ops->iova_to_phys_hard(
 						domain, iova);
+		return ret;
+	}
 
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS &&
@@ -3068,64 +3059,27 @@ static void qsmmuv2_device_reset(struct arm_smmu_device *smmu)
 	qsmmuv2_resume(smmu);
 }
 
-static phys_addr_t __qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
-					      dma_addr_t iova, bool halt)
+static phys_addr_t qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
+				dma_addr_t iova)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	int ret;
 	phys_addr_t phys = 0;
 	unsigned long flags;
+	u32 sctlr, sctlr_orig, fsr;
+	void __iomem *cb_base;
 
 	ret = arm_smmu_power_on(smmu_domain->smmu->pwr);
 	if (ret)
-		return 0;
+		return ret;
 
-	if (halt) {
-		ret = qsmmuv2_halt(smmu);
-		if (ret)
-			goto out_power_off;
-	}
-
-	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
-	spin_lock(&smmu->atos_lock);
-	phys = __arm_smmu_iova_to_phys_hard(domain, iova);
-	spin_unlock(&smmu->atos_lock);
-	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
-
-	if (halt)
-		qsmmuv2_resume(smmu);
-
-out_power_off:
-	arm_smmu_power_off(smmu_domain->smmu->pwr);
-	return phys;
-}
-
-static phys_addr_t qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
-					      dma_addr_t iova)
-{
-	return __qsmmuv2_iova_to_phys_hard(domain, iova, true);
-}
-
-static void qsmmuv2_iova_to_phys_fault(
-				struct iommu_domain *domain,
-				dma_addr_t iova, phys_addr_t *phys,
-				phys_addr_t *phys_post_tlbiall)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct arm_smmu_device *smmu;
-	void __iomem *cb_base;
-	u64 sctlr, sctlr_orig;
-	u32 fsr;
-
-	smmu = smmu_domain->smmu;
-	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+	spin_lock_irqsave(&smmu->atos_lock, flags);
+	cb_base = ARM_SMMU_CB_BASE(smmu) +
+			ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
 
 	qsmmuv2_halt_nowait(smmu);
-
 	writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
-
 	qsmmuv2_wait_for_halt(smmu);
 
 	/* clear FSR to allow ATOS to log any faults */
@@ -3137,20 +3091,21 @@ static void qsmmuv2_iova_to_phys_fault(
 	sctlr = sctlr_orig & ~SCTLR_CFCFG;
 	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
 
-	*phys = __qsmmuv2_iova_to_phys_hard(domain, iova, false);
-	arm_smmu_tlb_inv_context(smmu_domain);
-	*phys_post_tlbiall = __qsmmuv2_iova_to_phys_hard(domain, iova, false);
+	phys = __arm_smmu_iova_to_phys_hard(domain, iova);
 
 	/* restore SCTLR */
 	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
 
 	qsmmuv2_resume(smmu);
+	spin_unlock_irqrestore(&smmu->atos_lock, flags);
+
+	arm_smmu_power_off(smmu_domain->smmu->pwr);
+	return phys;
 }
 
 struct arm_smmu_arch_ops qsmmuv2_arch_ops = {
 	.device_reset = qsmmuv2_device_reset,
 	.iova_to_phys_hard = qsmmuv2_iova_to_phys_hard,
-	.iova_to_phys_fault = qsmmuv2_iova_to_phys_fault,
 };
 
 static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
