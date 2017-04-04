@@ -222,6 +222,7 @@ enum ipa_client_type {
 	IPA_CLIENT_TEST2_CONS,
 	IPA_CLIENT_TEST3_CONS,
 	IPA_CLIENT_TEST4_CONS,
+	IPA_CLIENT_DUMMY_CONS,
 
 	IPA_CLIENT_MAX,
 };
@@ -726,6 +727,8 @@ enum ipa_hdr_proc_type {
 	IPA_HDR_PROC_ETHII_TO_802_3,
 	IPA_HDR_PROC_802_3_TO_ETHII,
 	IPA_HDR_PROC_802_3_TO_802_3,
+	IPA_HDR_PROC_L2TP_HEADER_ADD,
+	IPA_HDR_PROC_L2TP_HEADER_REMOVE,
 	IPA_HDR_PROC_MAX,
 };
 
@@ -798,10 +801,45 @@ struct ipa_ioc_add_hdr {
 };
 
 /**
+ * struct ipa_l2tp_header_add_procparams -
+ * @eth_hdr_retained: Specifies if Ethernet header is retained or not
+ * @input_ip_version: Specifies if Input header is IPV4(0) or IPV6(1)
+ * @output_ip_version: Specifies if template header is IPV4(0) or IPV6(1)
+ */
+struct ipa_l2tp_header_add_procparams {
+	uint32_t eth_hdr_retained:1;
+	uint32_t input_ip_version:1;
+	uint32_t output_ip_version:1;
+	uint32_t reserved:29;
+};
+
+/**
+ * struct ipa_l2tp_header_remove_procparams -
+ * @hdr_len_remove: Specifies how much of the header needs to
+		be removed in bytes
+ * @eth_hdr_retained: Specifies if Ethernet header is retained or not
+ */
+struct ipa_l2tp_header_remove_procparams {
+	uint32_t hdr_len_remove:8;
+	uint32_t eth_hdr_retained:1;
+	uint32_t reserved:23;
+};
+
+/**
+ * union ipa_l2tp_hdr_proc_ctx_params -
+ * @hdr_add_param: parameters for header add
+ * @hdr_remove_param: parameters for header remove
+ */
+union ipa_l2tp_hdr_proc_ctx_params {
+	struct ipa_l2tp_header_add_procparams hdr_add_param;
+	struct ipa_l2tp_header_remove_procparams hdr_remove_param;
+};
+/**
  * struct ipa_hdr_proc_ctx_add - processing context descriptor includes
  * in and out parameters
  * @type: processing context type
  * @hdr_hdl: in parameter, handle to header
+ * @l2tp_params: l2tp parameters
  * @proc_ctx_hdl: out parameter, handle to proc_ctx, valid when status is 0
  * @status:	out parameter, status of header add operation,
  *		0 for success,
@@ -812,7 +850,10 @@ struct ipa_hdr_proc_ctx_add {
 	uint32_t hdr_hdl;
 	uint32_t proc_ctx_hdl;
 	int status;
+	union ipa_l2tp_hdr_proc_ctx_params l2tp_params;
 };
+
+#define IPA_L2TP_HDR_PROC_SUPPORT
 
 /**
  * struct ipa_ioc_add_hdr - processing context addition parameters (support
