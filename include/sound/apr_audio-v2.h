@@ -10005,6 +10005,108 @@ struct afe_port_group_create {
 	union afe_port_group_config data;
 } __packed;
 
+/* ID of the parameter used by #AFE_MODULE_AUDIO_DEV_INTERFACE to specify
+ * the timing statistics of the corresponding device interface.
+ * Client can periodically query for the device time statistics to help adjust
+ * the PLL based on the drift value. The get param command must be sent to
+ * AFE port ID corresponding to device interface
+
+ * This parameter ID supports following get param commands:
+ * #AFE_PORT_CMD_GET_PARAM_V2 and
+ * #AFE_PORT_CMD_GET_PARAM_V3.
+ */
+#define AFE_PARAM_ID_DEV_TIMING_STATS           0x000102AD
+
+/* Version information used to handle future additions to AFE device
+ * interface timing statistics (for backward compatibility).
+ */
+#define AFE_API_VERSION_DEV_TIMING_STATS        0x1
+
+/* Enumeration for specifying a sink(Rx) device */
+#define AFE_SINK_DEVICE                         0x0
+
+/* Enumeration for specifying a source(Tx) device */
+#define AFE_SOURCE_DEVICE                       0x1
+
+/* Enumeration for specifying the drift reference is of type AV Timer */
+#define AFE_REF_TIMER_TYPE_AVTIMER              0x0
+
+/* Message payload structure for the
+ * AFE_PARAM_ID_DEV_TIMING_STATS parameter.
+ */
+struct afe_param_id_dev_timing_stats {
+	/* Minor version used to track the version of device interface timing
+	 * statistics. Currently, the supported version is 1.
+	 * @values #AFE_API_VERSION_DEV_TIMING_STATS
+	 */
+	u32       minor_version;
+
+	/* Indicates the device interface direction as either
+	 * source (Tx) or sink (Rx).
+	 * @values
+	 * #AFE_SINK_DEVICE
+	 * #AFE_SOURCE_DEVICE
+	 */
+	u16        device_direction;
+
+	/* Reference timer for drift accumulation and time stamp information.
+	 * @values
+	 * #AFE_REF_TIMER_TYPE_AVTIMER @tablebulletend
+	 */
+	u16        reference_timer;
+
+	/*
+	 * Flag to indicate if resync is required on the client side for
+	 * drift correction. Flag is set to TRUE for the first get_param
+	 * response after device interface starts. This flag value can be
+	 * used by client to identify if device interface restart has
+	 * happened and if any re-sync is required at their end for drift
+	 * correction.
+	 * @values
+	 * 0: FALSE (Resync not required)
+	 * 1: TRUE (Resync required) @tablebulletend
+	 */
+	u32        resync_flag;
+
+	/* Accumulated drift value in microseconds. This value is updated
+	 * every 100th ms.
+	 * Positive drift value indicates AV timer is running faster than device
+	 * Negative drift value indicates AV timer is running slower than device
+	 * @values Any valid int32 number
+	 */
+	s32         acc_drift_value;
+
+	/* Lower 32 bits of the 64-bit absolute timestamp of reference
+	 * timer in microseconds.
+
+	 * This timestamp corresponds to the time when the drift values
+	 * are accumlated for every 100th ms.
+	 * @values Any valid uint32 number
+	 */
+	u32        ref_timer_abs_ts_lsw;
+
+	/* Upper 32 bits of the 64-bit absolute timestamp of reference
+	 * timer in microseconds.
+	 * This timestamp corresponds to the time when the drift values
+	 * are accumlated for every 100th ms.
+	 * @values Any valid uint32 number
+	 */
+	u32        ref_timer_abs_ts_msw;
+} __packed;
+
+struct afe_av_dev_drift_get_param {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_get_param_v2 get_param;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_param_id_dev_timing_stats timing_stats;
+} __packed;
+
+struct afe_av_dev_drift_get_param_resp {
+	uint32_t status;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_param_id_dev_timing_stats timing_stats;
+} __packed;
+
 /* Command for Matrix or Stream Router */
 #define ASM_SESSION_CMD_SET_MTMX_STRTR_PARAMS_V2    0x00010DCE
 /* Module for AVSYNC */

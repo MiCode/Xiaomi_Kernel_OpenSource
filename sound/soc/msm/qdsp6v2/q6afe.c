@@ -113,6 +113,7 @@ struct afe_ctl {
 	struct audio_cal_info_sp_ex_vi_ftm_cfg	ex_ftm_cfg;
 	struct afe_sp_th_vi_get_param_resp	th_vi_resp;
 	struct afe_sp_ex_vi_get_param_resp	ex_vi_resp;
+	struct afe_av_dev_drift_get_param_resp	av_dev_drift_resp;
 	int vi_tx_port;
 	int vi_rx_port;
 	uint32_t afe_sample_rates[AFE_MAX_PORTS];
@@ -188,6 +189,38 @@ static void afe_callback_debug_print(struct apr_client_data *data)
 	else
 		pr_debug("%s: code = 0x%x, size = %d\n",
 			__func__, data->opcode, data->payload_size);
+}
+
+static void av_dev_drift_afe_cb_handler(uint32_t *payload,
+					uint32_t payload_size)
+{
+	u32 param_id;
+	struct afe_av_dev_drift_get_param_resp *resp =
+		(struct afe_av_dev_drift_get_param_resp *) payload;
+
+	if (!(&(resp->pdata))) {
+		pr_err("%s: Error: resp pdata is NULL\n", __func__);
+		return;
+	}
+
+	param_id = resp->pdata.param_id;
+	if (param_id == AFE_PARAM_ID_DEV_TIMING_STATS) {
+		if (payload_size < sizeof(this_afe.av_dev_drift_resp)) {
+			pr_err("%s: Error: received size %d, resp size %zu\n",
+				__func__, payload_size,
+				sizeof(this_afe.av_dev_drift_resp));
+			return;
+		}
+		memcpy(&this_afe.av_dev_drift_resp, payload,
+				sizeof(this_afe.av_dev_drift_resp));
+		if (!this_afe.av_dev_drift_resp.status) {
+			atomic_set(&this_afe.state, 0);
+		} else {
+			pr_debug("%s: av_dev_drift_resp status: %d", __func__,
+				  this_afe.av_dev_drift_resp.status);
+			atomic_set(&this_afe.state, -1);
+		}
+	}
 }
 
 static int32_t sp_make_afe_callback(uint32_t *payload, uint32_t payload_size)
@@ -310,10 +343,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 	}
 	afe_callback_debug_print(data);
 	if (data->opcode == AFE_PORT_CMDRSP_GET_PARAM_V2) {
-		u8 *payload = data->payload;
-
-		if (rtac_make_afe_callback(data->payload, data->payload_size))
-			return 0;
+		uint32_t *payload = data->payload;
 
 		if (!payload || (data->token >= AFE_MAX_PORTS)) {
 			pr_err("%s: Error: size %d payload %pK token %d\n",
@@ -321,9 +351,19 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 				payload, data->token);
 			return -EINVAL;
 		}
-		if (sp_make_afe_callback(data->payload, data->payload_size))
-			return -EINVAL;
 
+		if (payload[2] == AFE_PARAM_ID_DEV_TIMING_STATS) {
+			av_dev_drift_afe_cb_handler(data->payload,
+						    data->payload_size);
+		} else {
+			if (rtac_make_afe_callback(data->payload,
+						   data->payload_size))
+				return 0;
+
+			if (sp_make_afe_callback(data->payload,
+						 data->payload_size))
+				return -EINVAL;
+		}
 		wake_up(&this_afe.wait[data->token]);
 	} else if (data->payload_size) {
 		uint32_t *payload;
@@ -6147,6 +6187,88 @@ int afe_get_sp_ex_vi_ftm_data(struct afe_sp_ex_vi_get_param *ex_vi)
 		 ex_vi->param.status[SP_V2_SPKR_2]);
 	ret = 0;
 done:
+	return ret;
+}
+
+int afe_get_av_dev_drift(struct afe_param_id_dev_timing_stats *timing_stats,
+			 u16 port)
+{
+	int ret = -EINVAL;
+	int index = 0;
+	struct afe_av_dev_drift_get_param av_dev_drift;
+
+	if (!timing_stats) {
+		pr_err("%s: Invalid params\n", __func__);
+		goto exit;
+	}
+
+	ret = q6audio_validate_port(port);
+	if (ret < 0) {
+		pr_err("%s: invalid port 0x%x ret %d\n", __func__, port, ret);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	index = q6audio_get_port_index(port);
+	if (index < 0 || index >= AFE_MAX_PORTS) {
+		pr_err("%s: Invalid AFE port index[%d]\n",
+				__func__, index);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	memset(&av_dev_drift, 0, sizeof(struct afe_av_dev_drift_get_param));
+
+	av_dev_drift.hdr.hdr_field =
+		APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	av_dev_drift.hdr.pkt_size = sizeof(av_dev_drift);
+	av_dev_drift.hdr.src_port = 0;
+	av_dev_drift.hdr.dest_port = 0;
+	av_dev_drift.hdr.token = index;
+	av_dev_drift.hdr.opcode =  AFE_PORT_CMD_GET_PARAM_V2;
+	av_dev_drift.get_param.mem_map_handle = 0;
+	av_dev_drift.get_param.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
+	av_dev_drift.get_param.param_id = AFE_PARAM_ID_DEV_TIMING_STATS;
+	av_dev_drift.get_param.payload_address_lsw = 0;
+	av_dev_drift.get_param.payload_address_msw = 0;
+	av_dev_drift.get_param.payload_size = sizeof(av_dev_drift)
+		- sizeof(av_dev_drift.get_param) - sizeof(av_dev_drift.hdr);
+	av_dev_drift.get_param.port_id = q6audio_get_port_id(port);
+	av_dev_drift.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
+	av_dev_drift.pdata.param_id = AFE_PARAM_ID_DEV_TIMING_STATS;
+	av_dev_drift.pdata.param_size = sizeof(av_dev_drift.timing_stats);
+	atomic_set(&this_afe.status, 0);
+	atomic_set(&this_afe.state, 1);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *)&av_dev_drift);
+	if (ret < 0) {
+		pr_err("%s: get param port 0x%x param id[0x%x] failed %d\n",
+			__func__, port, av_dev_drift.get_param.param_id, ret);
+		goto exit;
+	}
+
+	ret = wait_event_timeout(this_afe.wait[index],
+			(atomic_read(&this_afe.state) == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+				__func__, adsp_err_get_err_str(
+					atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
+		goto exit;
+	}
+
+	memcpy(timing_stats, &this_afe.av_dev_drift_resp.timing_stats,
+	       sizeof(this_afe.av_dev_drift_resp.timing_stats));
+	ret = 0;
+exit:
 	return ret;
 }
 
