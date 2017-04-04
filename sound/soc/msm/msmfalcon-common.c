@@ -20,10 +20,13 @@
 #include "msmfalcon-common.h"
 #include "msmfalcon-internal.h"
 #include "msmfalcon-external.h"
-#include "../codecs/msm8x16/msm8x16-wcd.h"
+#include "../codecs/msmfalcon_cdc/msm-analog-cdc.h"
 #include "../codecs/wsa881x.h"
 
 #define DRV_NAME "msmfalcon-asoc-snd"
+
+#define MSM_INT_DIGITAL_CODEC "msm-dig-codec"
+#define PMIC_INT_ANALOG_CODEC "analog-codec"
 
 #define DEV_NAME_STR_LEN  32
 #define DEFAULT_MCLK_RATE 9600000
@@ -189,7 +192,7 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.detect_extn_cable = true,
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
-	.hs_ext_micbias = false,
+	.hs_ext_micbias = true,
 	.key_code[0] = KEY_MEDIA,
 	.key_code[1] = KEY_VOICECOMMAND,
 	.key_code[2] = KEY_VOLUMEUP,
@@ -2233,6 +2236,7 @@ static bool msm_swap_gnd_mic(struct snd_soc_codec *codec)
 }
 
 static int msm_populate_dai_link_component_of_node(
+		struct msm_asoc_mach_data *pdata,
 		struct snd_soc_card *card)
 {
 	int i, index, ret = 0;
@@ -2311,6 +2315,31 @@ codec_dai:
 			}
 			dai_link[i].codec_of_node = phandle;
 			dai_link[i].codec_name = NULL;
+		}
+		if (pdata->int_codec) {
+			if ((dai_link[i].be_id ==
+					MSM_BACKEND_DAI_INT0_MI2S_RX) ||
+			    (dai_link[i].be_id ==
+					MSM_BACKEND_DAI_INT1_MI2S_RX) ||
+			    (dai_link[i].be_id ==
+					MSM_BACKEND_DAI_INT2_MI2S_TX) ||
+			    (dai_link[i].be_id ==
+					MSM_BACKEND_DAI_INT3_MI2S_TX)) {
+				index = of_property_match_string(cdev->of_node,
+							"asoc-codec-names",
+							MSM_INT_DIGITAL_CODEC);
+				phandle = of_parse_phandle(cdev->of_node,
+							   "asoc-codec",
+							   index);
+				dai_link[i].codecs[DIG_CDC].of_node = phandle;
+				index = of_property_match_string(cdev->of_node,
+							"asoc-codec-names",
+							PMIC_INT_ANALOG_CODEC);
+				phandle = of_parse_phandle(cdev->of_node,
+							   "asoc-codec",
+							   index);
+				dai_link[i].codecs[ANA_CDC].of_node = phandle;
+			}
 		}
 	}
 err:
@@ -2730,7 +2759,7 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
-	ret = msm_populate_dai_link_component_of_node(card);
+	ret = msm_populate_dai_link_component_of_node(pdata, card);
 	if (ret) {
 		ret = -EPROBE_DEFER;
 		goto err;
