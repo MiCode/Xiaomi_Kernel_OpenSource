@@ -2436,7 +2436,7 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 	struct sde_dbg_reg_base **blk_arr;
 	u32 blk_len;
 
-	if (!sde_evtlog_is_enabled(sde_dbg_base.evtlog, SDE_EVTLOG_DEFAULT))
+	if (!sde_evtlog_is_enabled(sde_dbg_base.evtlog, SDE_EVTLOG_ALWAYS))
 		return;
 
 	if (queue_work && work_pending(&sde_dbg_base.dump_work))
@@ -2556,6 +2556,82 @@ static const struct file_operations sde_evtlog_fops = {
 	.open = sde_dbg_debugfs_open,
 	.read = sde_evtlog_dump_read,
 	.write = sde_evtlog_dump_write,
+};
+
+/*
+ * sde_evtlog_filter_show - read callback for evtlog filter
+ * @s: pointer to seq_file object
+ * @data: pointer to private data
+ */
+static int sde_evtlog_filter_show(struct seq_file *s, void *data)
+{
+	struct sde_dbg_evtlog *evtlog;
+	char buffer[64];
+	int i;
+
+	if (!s || !s->private)
+		return -EINVAL;
+
+	evtlog = s->private;
+
+	for (i = 0; !sde_evtlog_get_filter(
+				evtlog, i, buffer, ARRAY_SIZE(buffer)); ++i)
+		seq_printf(s, "*%s*\n", buffer);
+	return 0;
+}
+
+/*
+ * sde_evtlog_filter_open - debugfs open handler for evtlog filter
+ * @inode: debugfs inode
+ * @file: file handle
+ * Returns: zero on success
+ */
+static int sde_evtlog_filter_open(struct inode *inode, struct file *file)
+{
+	if (!file)
+		return -EINVAL;
+
+	return single_open(file, sde_evtlog_filter_show, inode->i_private);
+}
+
+/*
+ * sde_evtlog_filter_write - write callback for evtlog filter
+ * @file: pointer to file structure
+ * @user_buf: pointer to incoming user data
+ * @count: size of incoming user buffer
+ * @ppos: pointer to file offset
+ */
+static ssize_t sde_evtlog_filter_write(struct file *file,
+	const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	char *tmp_filter = NULL;
+	ssize_t rc = 0;
+
+	if (count > 0) {
+		/* copy user provided string and null terminate it */
+		tmp_filter = kzalloc(count + 1, GFP_KERNEL);
+		if (!tmp_filter)
+			rc = -ENOMEM;
+		else if (copy_from_user(tmp_filter, user_buf, count))
+			rc = -EFAULT;
+	}
+
+	/* update actual filter configuration on success */
+	if (!rc) {
+		sde_evtlog_set_filter(sde_dbg_base.evtlog, tmp_filter);
+		rc = count;
+	}
+	kfree(tmp_filter);
+
+	return rc;
+}
+
+static const struct file_operations sde_evtlog_filter_fops = {
+	.open =		sde_evtlog_filter_open,
+	.write =	sde_evtlog_filter_write,
+	.read =		seq_read,
+	.llseek =	seq_lseek,
+	.release =	seq_release
 };
 
 /**
@@ -2799,11 +2875,13 @@ int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 			&sde_evtlog_fops);
 	debugfs_create_u32("enable", 0644, sde_dbg_base.root,
 			&(sde_dbg_base.evtlog->enable));
+	debugfs_create_file("filter", 0644, sde_dbg_base.root,
+			sde_dbg_base.evtlog,
+			&sde_evtlog_filter_fops);
 	debugfs_create_u32("panic", 0644, sde_dbg_base.root,
 			&sde_dbg_base.panic_on_err);
 	debugfs_create_u32("reg_dump", 0644, sde_dbg_base.root,
 			&sde_dbg_base.enable_reg_dump);
-
 
 	if (dbg->dbgbus_sde.entries) {
 		dbg->dbgbus_sde.cmn.name = DBGBUS_NAME_SDE;
