@@ -37,6 +37,14 @@
 #include "sde_power_handle.h"
 #include "sde_core_perf.h"
 
+struct sde_crtc_irq_info {
+	struct sde_irq_callback irq;
+	u32 event;
+	int (*func)(struct drm_crtc *crtc, bool en,
+			struct sde_irq_callback *irq);
+	struct list_head list;
+};
+
 /* default input fence timeout, in ms */
 #define SDE_CRTC_INPUT_FENCE_TIMEOUT    2000
 
@@ -1273,6 +1281,9 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	struct drm_encoder *encoder;
+	unsigned long flags;
+	struct sde_crtc_irq_info *node = NULL;
+	int ret;
 
 	if (!crtc || !crtc->dev || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
@@ -1324,6 +1335,18 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 	sde_crtc->num_mixers = 0;
+
+	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
+	list_for_each_entry(node, &sde_crtc->user_event_list, list) {
+		ret = 0;
+		if (node->func)
+			ret = node->func(crtc, false, &node->irq);
+		if (ret)
+			SDE_ERROR("%s failed to disable event %x\n",
+					sde_crtc->name, node->event);
+	}
+	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+
 	mutex_unlock(&sde_crtc->crtc_lock);
 }
 
@@ -1334,7 +1357,9 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	struct sde_hw_mixer *lm;
 	struct drm_display_mode *mode;
 	struct drm_encoder *encoder;
-	int i;
+	unsigned long flags;
+	struct sde_crtc_irq_info *node = NULL;
+	int i, ret;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -1369,6 +1394,17 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 		lm->cfg.flags = 0;
 		lm->ops.setup_mixer_out(lm, &lm->cfg);
 	}
+
+	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
+	list_for_each_entry(node, &sde_crtc->user_event_list, list) {
+		ret = 0;
+		if (node->func)
+			ret = node->func(crtc, true, &node->irq);
+		if (ret)
+			SDE_ERROR("%s failed to enable event %x\n",
+				sde_crtc->name, node->event);
+	}
+	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
 }
 
 struct plane_state {
@@ -2263,6 +2299,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	atomic_set(&sde_crtc->frame_pending, 0);
 
 	INIT_LIST_HEAD(&sde_crtc->frame_event_list);
+	INIT_LIST_HEAD(&sde_crtc->user_event_list);
 	for (i = 0; i < ARRAY_SIZE(sde_crtc->frame_events); i++) {
 		INIT_LIST_HEAD(&sde_crtc->frame_events[i].list);
 		list_add(&sde_crtc->frame_events[i].list,
@@ -2305,4 +2342,10 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 
 	SDE_DEBUG("%s: successfully initialized crtc\n", sde_crtc->name);
 	return crtc;
+}
+
+int sde_crtc_register_custom_event(struct sde_kms *kms,
+		struct drm_crtc *crtc_drm, u32 event, bool val)
+{
+	return -EINVAL;
 }

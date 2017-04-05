@@ -1065,6 +1065,262 @@ unlock:
 	return ret;
 }
 
+static int msm_drm_object_supports_event(struct drm_device *dev,
+		struct drm_msm_event_req *req)
+{
+	int ret = -EINVAL;
+	struct drm_mode_object *arg_obj;
+
+	arg_obj = drm_mode_object_find(dev, req->object_id, req->object_type);
+	if (!arg_obj)
+		return -ENOENT;
+
+	switch (arg_obj->type) {
+	case DRM_MODE_OBJECT_CRTC:
+	case DRM_MODE_OBJECT_CONNECTOR:
+		ret = 0;
+		break;
+	default:
+		ret = -EOPNOTSUPP;
+		break;
+	}
+
+	return ret;
+}
+
+static int msm_register_event(struct drm_device *dev,
+	struct drm_msm_event_req *req, struct drm_file *file, bool en)
+{
+	int ret = -EINVAL;
+	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_kms *kms = priv->kms;
+	struct drm_mode_object *arg_obj;
+
+	arg_obj = drm_mode_object_find(dev, req->object_id, req->object_type);
+	if (!arg_obj)
+		return -ENOENT;
+
+	ret = kms->funcs->register_events(kms, arg_obj, req->event, en);
+	return ret;
+}
+
+static int msm_event_client_count(struct drm_device *dev,
+		struct drm_msm_event_req *req_event, bool locked)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+	unsigned long flag = 0;
+	struct msm_drm_event *node;
+	int count = 0;
+
+	if (!locked)
+		spin_lock_irqsave(&dev->event_lock, flag);
+	list_for_each_entry(node, &priv->client_event_list, base.link) {
+		if (node->event.type == req_event->event &&
+			node->info.object_id == req_event->object_id)
+			count++;
+	}
+	if (!locked)
+		spin_unlock_irqrestore(&dev->event_lock, flag);
+
+	return count;
+}
+
+static int msm_ioctl_register_event(struct drm_device *dev, void *data,
+				    struct drm_file *file)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+	struct drm_msm_event_req *req_event = data;
+	struct msm_drm_event *client, *node;
+	unsigned long flag = 0;
+	bool dup_request = false;
+	int ret = 0, count = 0;
+
+	ret = msm_drm_object_supports_event(dev, req_event);
+	if (ret) {
+		DRM_ERROR("unsupported event %x object %x object id %d\n",
+			req_event->event, req_event->object_type,
+			req_event->object_id);
+		return ret;
+	}
+
+	spin_lock_irqsave(&dev->event_lock, flag);
+	list_for_each_entry(node, &priv->client_event_list, base.link) {
+		if (node->base.file_priv != file)
+			continue;
+		if (node->event.type == req_event->event &&
+			node->info.object_id == req_event->object_id) {
+			DRM_DEBUG("duplicate request for event %x obj id %d\n",
+				node->event.type, node->info.object_id);
+			dup_request = true;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&dev->event_lock, flag);
+
+	if (dup_request)
+		return -EALREADY;
+
+	client = kzalloc(sizeof(*client), GFP_KERNEL);
+	if (!client)
+		return -ENOMEM;
+
+	client->base.file_priv = file;
+	client->base.pid = current->pid;
+	client->base.event = &client->event;
+	client->event.type = req_event->event;
+	memcpy(&client->info, req_event, sizeof(client->info));
+
+	/* Get the count of clients that have registered for event.
+	 * Event should be enabled for first client, for subsequent enable
+	 * calls add to client list and return.
+	 */
+	count = msm_event_client_count(dev, req_event, false);
+	/* Add current client to list */
+	spin_lock_irqsave(&dev->event_lock, flag);
+	list_add_tail(&client->base.link, &priv->client_event_list);
+	spin_unlock_irqrestore(&dev->event_lock, flag);
+
+	if (count)
+		return 0;
+
+	ret = msm_register_event(dev, req_event, file, true);
+	if (ret) {
+		DRM_ERROR("failed to enable event %x object %x object id %d\n",
+			req_event->event, req_event->object_type,
+			req_event->object_id);
+		spin_lock_irqsave(&dev->event_lock, flag);
+		list_del(&client->base.link);
+		spin_unlock_irqrestore(&dev->event_lock, flag);
+		kfree(client);
+	}
+	return ret;
+}
+
+static int msm_ioctl_deregister_event(struct drm_device *dev, void *data,
+				      struct drm_file *file)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+	struct drm_msm_event_req *req_event = data;
+	struct msm_drm_event *client = NULL, *node, *temp;
+	unsigned long flag = 0;
+	int count = 0;
+	bool found = false;
+	int ret = 0;
+
+	ret = msm_drm_object_supports_event(dev, req_event);
+	if (ret) {
+		DRM_ERROR("unsupported event %x object %x object id %d\n",
+			req_event->event, req_event->object_type,
+			req_event->object_id);
+		return ret;
+	}
+
+	spin_lock_irqsave(&dev->event_lock, flag);
+	list_for_each_entry_safe(node, temp, &priv->client_event_list,
+			base.link) {
+		if (node->event.type == req_event->event &&
+		    node->info.object_id == req_event->object_id &&
+		    node->base.file_priv == file) {
+			client = node;
+			list_del(&client->base.link);
+			found = true;
+			kfree(client);
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&dev->event_lock, flag);
+
+	if (!found)
+		return -ENOENT;
+
+	count = msm_event_client_count(dev, req_event, false);
+	if (!count)
+		ret = msm_register_event(dev, req_event, file, false);
+
+	return ret;
+}
+
+void msm_send_crtc_notification(struct drm_crtc *crtc,
+				struct drm_event *event, u8 *payload)
+{
+	struct drm_device *dev = NULL;
+	struct msm_drm_private *priv = NULL;
+	unsigned long flags;
+	struct msm_drm_event *notify, *node;
+	int len = 0, ret;
+
+	if (!crtc || !event || !event->length || !payload) {
+		DRM_ERROR("err param crtc %pK event %pK len %d payload %pK\n",
+			crtc, event, ((event) ? (event->length) : -1),
+			payload);
+		return;
+	}
+	dev = crtc->dev;
+	priv = (dev) ? dev->dev_private : NULL;
+	if (!dev || !priv) {
+		DRM_ERROR("invalid dev %pK priv %pK\n", dev, priv);
+		return;
+	}
+
+	spin_lock_irqsave(&dev->event_lock, flags);
+	list_for_each_entry(node, &priv->client_event_list, base.link) {
+		if (node->event.type != event->type ||
+			crtc->base.id != node->info.object_id)
+			continue;
+		len = event->length + sizeof(struct drm_msm_event_resp);
+		if (node->base.file_priv->event_space < len) {
+			DRM_ERROR("Insufficient space to notify\n");
+			continue;
+		}
+		notify = kzalloc(len, GFP_ATOMIC);
+		if (!notify)
+			continue;
+		notify->base.file_priv = node->base.file_priv;
+		notify->base.event = &notify->event;
+		notify->base.pid = node->base.pid;
+		notify->event.type = node->event.type;
+		notify->event.length = len;
+		memcpy(&notify->info, &node->info, sizeof(notify->info));
+		memcpy(notify->data, payload, event->length);
+		ret = drm_event_reserve_init_locked(dev, node->base.file_priv,
+			&notify->base, &notify->event);
+		if (ret) {
+			kfree(notify);
+			continue;
+		}
+		drm_send_event_locked(dev, &notify->base);
+	}
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+}
+
+static int msm_release(struct inode *inode, struct file *filp)
+{
+	struct drm_file *file_priv = filp->private_data;
+	struct drm_minor *minor = file_priv->minor;
+	struct drm_device *dev = minor->dev;
+	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_drm_event *node, *temp;
+	u32 count;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->event_lock, flags);
+	list_for_each_entry_safe(node, temp, &priv->client_event_list,
+			base.link) {
+		if (node->base.file_priv != file_priv)
+			continue;
+		list_del(&node->base.link);
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+		count = msm_event_client_count(dev, &node->info, true);
+		if (!count)
+			msm_register_event(dev, &node->info, file_priv, false);
+		kfree(node);
+		spin_lock_irqsave(&dev->event_lock, flags);
+	}
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+
+	return drm_release(inode, filp);
+}
+
 static const struct drm_ioctl_desc msm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MSM_GET_PARAM,    msm_ioctl_get_param,    DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_GEM_NEW,      msm_ioctl_gem_new,      DRM_AUTH|DRM_RENDER_ALLOW),
@@ -1075,6 +1331,10 @@ static const struct drm_ioctl_desc msm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MSM_WAIT_FENCE,   msm_ioctl_wait_fence,   DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_GEM_MADVISE,  msm_ioctl_gem_madvise,  DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(SDE_WB_CONFIG, sde_wb_config, DRM_UNLOCKED|DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(MSM_REGISTER_EVENT,  msm_ioctl_register_event,
+			  DRM_UNLOCKED|DRM_CONTROL_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_DEREGISTER_EVENT,  msm_ioctl_deregister_event,
+			  DRM_UNLOCKED|DRM_CONTROL_ALLOW),
 };
 
 static const struct vm_operations_struct vm_ops = {
@@ -1086,7 +1346,7 @@ static const struct vm_operations_struct vm_ops = {
 static const struct file_operations fops = {
 	.owner              = THIS_MODULE,
 	.open               = drm_open,
-	.release            = drm_release,
+	.release            = msm_release,
 	.unlocked_ioctl     = drm_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl       = drm_compat_ioctl,
