@@ -27,7 +27,8 @@
 		reg = <0x170f700c 0x4>,
 		      <0x170f7010 0x4>;
 		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
-		qcom,clk-div = <27>;
+		qcom,clk-div = <192>;
+		qcom,clk-mult = <10>;
 	};
 
 	sound-tavil {
