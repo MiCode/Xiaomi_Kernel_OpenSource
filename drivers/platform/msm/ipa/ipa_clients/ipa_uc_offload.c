@@ -622,3 +622,41 @@ int ipa_uc_offload_cleanup(u32 clnt_hdl)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_uc_offload_cleanup);
+
+/**
+ * ipa_uc_offload_uc_rdyCB() - To register uC ready CB if uC not
+ * ready
+ * @inout:	[in/out] input/output parameters
+ * from/to client
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ */
+int ipa_uc_offload_reg_rdyCB(struct ipa_uc_ready_params *inp)
+{
+	int ret = 0;
+
+	if (!inp) {
+		IPA_UC_OFFLOAD_ERR("Invalid input\n");
+		return -EINVAL;
+	}
+
+	if (inp->proto == IPA_UC_NTN)
+		ret = ipa_ntn_uc_reg_rdyCB(inp->notify, inp->priv);
+
+	if (ret == -EEXIST) {
+		inp->is_uC_ready = true;
+		ret = 0;
+	} else
+		inp->is_uC_ready = false;
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_uc_offload_reg_rdyCB);
+
+void ipa_uc_offload_dereg_rdyCB(enum ipa_uc_offload_proto proto)
+{
+	if (proto == IPA_UC_NTN)
+		ipa_ntn_uc_dereg_rdyCB();
+}
+EXPORT_SYMBOL(ipa_uc_offload_dereg_rdyCB);
