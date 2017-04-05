@@ -12,12 +12,12 @@
  *
  */
 
-#include "phy-qcom-ufs-qmp-v3.h"
+#include "phy-qcom-ufs-qmp-v3-660.h"
 
-#define UFS_PHY_NAME "ufs_phy_qmp_v3"
+#define UFS_PHY_NAME "ufs_phy_qmp_v3_660"
 
 static
-int ufs_qcom_phy_qmp_v3_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
+int ufs_qcom_phy_qmp_v3_660_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 					bool is_rate_B)
 {
 	int err;
@@ -30,12 +30,9 @@ int ufs_qcom_phy_qmp_v3_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
 	tbl_B = phy_cal_table_rate_B;
 
-	if ((major == 0x3) && (minor == 0x000) && (step == 0x0000)) {
-		tbl_A = phy_cal_table_rate_A_3_0_0;
-		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_3_0_0);
-	} else if ((major == 0x3) && (minor == 0x001) && (step == 0x0000)) {
-		tbl_A = phy_cal_table_rate_A_3_1_0;
-		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_3_1_0);
+	if ((major == 0x3) && (minor == 0x001) && (step == 0x001)) {
+		tbl_A = phy_cal_table_rate_A_3_1_1;
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_3_1_1);
 	} else {
 		dev_err(ufs_qcom_phy->dev,
 			"%s: Unknown UFS-PHY version (major 0x%x minor 0x%x step 0x%x), no calibration values\n",
@@ -58,9 +55,9 @@ out:
 	return err;
 }
 
-static int ufs_qcom_phy_qmp_v3_init(struct phy *generic_phy)
+static int ufs_qcom_phy_qmp_v3_660_init(struct phy *generic_phy)
 {
-	struct ufs_qcom_phy_qmp_v3 *phy = phy_get_drvdata(generic_phy);
+	struct ufs_qcom_phy_qmp_v3_660 *phy = phy_get_drvdata(generic_phy);
 	struct ufs_qcom_phy *phy_common = &phy->common_cfg;
 	int err;
 
@@ -83,7 +80,7 @@ out:
 }
 
 static
-void ufs_qcom_phy_qmp_v3_power_control(struct ufs_qcom_phy *phy,
+void ufs_qcom_phy_qmp_v3_660_power_control(struct ufs_qcom_phy *phy,
 					 bool power_ctrl)
 {
 	if (!power_ctrl) {
@@ -107,7 +104,8 @@ void ufs_qcom_phy_qmp_v3_power_control(struct ufs_qcom_phy *phy,
 }
 
 static inline
-void ufs_qcom_phy_qmp_v3_set_tx_lane_enable(struct ufs_qcom_phy *phy, u32 val)
+void ufs_qcom_phy_qmp_v3_660_set_tx_lane_enable(struct ufs_qcom_phy *phy,
+						   u32 val)
 {
 	/*
 	 * v3 PHY does not have TX_LANE_ENABLE register.
@@ -116,7 +114,8 @@ void ufs_qcom_phy_qmp_v3_set_tx_lane_enable(struct ufs_qcom_phy *phy, u32 val)
 }
 
 static
-void ufs_qcom_phy_qmp_v3_ctrl_rx_linecfg(struct ufs_qcom_phy *phy, bool ctrl)
+void ufs_qcom_phy_qmp_v3_660_ctrl_rx_linecfg(struct ufs_qcom_phy *phy,
+						bool ctrl)
 {
 	u32 temp;
 
@@ -128,11 +127,12 @@ void ufs_qcom_phy_qmp_v3_ctrl_rx_linecfg(struct ufs_qcom_phy *phy, bool ctrl)
 		temp |= UFS_PHY_RX_LINECFG_DISABLE_BIT;
 
 	writel_relaxed(temp, phy->mmio + UFS_PHY_LINECFG_DISABLE);
-	/* make sure that RX LineCfg config applied before we return */
+	/* Make sure that RX LineCfg config applied before we return */
 	mb();
 }
 
-static inline void ufs_qcom_phy_qmp_v3_start_serdes(struct ufs_qcom_phy *phy)
+static inline void ufs_qcom_phy_qmp_v3_660_start_serdes(
+					struct ufs_qcom_phy *phy)
 {
 	u32 tmp;
 
@@ -144,96 +144,57 @@ static inline void ufs_qcom_phy_qmp_v3_start_serdes(struct ufs_qcom_phy *phy)
 	mb();
 }
 
-static int ufs_qcom_phy_qmp_v3_is_pcs_ready(struct ufs_qcom_phy *phy_common)
+static int ufs_qcom_phy_qmp_v3_660_is_pcs_ready(
+				struct ufs_qcom_phy *phy_common)
 {
 	int err = 0;
 	u32 val;
 
 	err = readl_poll_timeout(phy_common->mmio + UFS_PHY_PCS_READY_STATUS,
 		val, (val & MASK_PCS_READY), 10, 1000000);
-	if (err) {
+	if (err)
 		dev_err(phy_common->dev, "%s: poll for pcs failed err = %d\n",
 			__func__, err);
-		goto out;
-	}
-
-out:
 	return err;
 }
 
-static
-int ufs_qcom_phy_qmp_v3_configure_lpm(struct ufs_qcom_phy *ufs_qcom_phy,
-					bool enable)
-{
-	int err = 0;
-	int tbl_size;
-	struct ufs_qcom_phy_calibration *tbl = NULL;
-
-	/* The default low power mode configuration is SVS2 */
-	if (enable) {
-		tbl_size = ARRAY_SIZE(phy_cal_table_svs2_enable);
-		tbl = phy_cal_table_svs2_enable;
-	} else {
-		tbl_size = ARRAY_SIZE(phy_cal_table_svs2_disable);
-		tbl = phy_cal_table_svs2_disable;
-	}
-
-	if (!tbl) {
-		dev_err(ufs_qcom_phy->dev, "%s: tbl for SVS2 %s is NULL",
-			__func__, enable ? "enable" : "disable");
-		err = -EINVAL;
-		goto out;
-	}
-
-	ufs_qcom_phy_write_tbl(ufs_qcom_phy, tbl, tbl_size);
-
-	/* flush buffered writes */
-	mb();
-
-out:
-	return err;
-}
-
-static void ufs_qcom_phy_qmp_v3_dbg_register_dump(struct ufs_qcom_phy *phy)
+static void ufs_qcom_phy_qmp_v3_660_dbg_register_dump(
+					struct ufs_qcom_phy *phy)
 {
 	ufs_qcom_phy_dump_regs(phy, COM_BASE, COM_SIZE,
 					"PHY QSERDES COM Registers ");
 	ufs_qcom_phy_dump_regs(phy, PHY_BASE, PHY_SIZE,
 					"PHY Registers ");
-	ufs_qcom_phy_dump_regs(phy, RX_BASE(0), RX_SIZE,
+	ufs_qcom_phy_dump_regs(phy, RX_BASE, RX_SIZE,
 					"PHY RX0 Registers ");
-	ufs_qcom_phy_dump_regs(phy, TX_BASE(0), TX_SIZE,
+	ufs_qcom_phy_dump_regs(phy, TX_BASE, TX_SIZE,
 					"PHY TX0 Registers ");
-	ufs_qcom_phy_dump_regs(phy, RX_BASE(1), RX_SIZE,
-					"PHY RX1 Registers ");
-	ufs_qcom_phy_dump_regs(phy, TX_BASE(1), TX_SIZE,
-					"PHY TX1 Registers ");
 }
 
-struct phy_ops ufs_qcom_phy_qmp_v3_phy_ops = {
-	.init		= ufs_qcom_phy_qmp_v3_init,
+struct phy_ops ufs_qcom_phy_qmp_v3_660_phy_ops = {
+	.init		= ufs_qcom_phy_qmp_v3_660_init,
 	.exit		= ufs_qcom_phy_exit,
 	.power_on	= ufs_qcom_phy_power_on,
 	.power_off	= ufs_qcom_phy_power_off,
 	.owner		= THIS_MODULE,
 };
 
-struct ufs_qcom_phy_specific_ops phy_v3_ops = {
-	.calibrate_phy		= ufs_qcom_phy_qmp_v3_phy_calibrate,
-	.start_serdes		= ufs_qcom_phy_qmp_v3_start_serdes,
-	.is_physical_coding_sublayer_ready = ufs_qcom_phy_qmp_v3_is_pcs_ready,
-	.set_tx_lane_enable	= ufs_qcom_phy_qmp_v3_set_tx_lane_enable,
-	.ctrl_rx_linecfg	= ufs_qcom_phy_qmp_v3_ctrl_rx_linecfg,
-	.power_control		= ufs_qcom_phy_qmp_v3_power_control,
-	.configure_lpm		= ufs_qcom_phy_qmp_v3_configure_lpm,
-	.dbg_register_dump	= ufs_qcom_phy_qmp_v3_dbg_register_dump,
+struct ufs_qcom_phy_specific_ops phy_v3_660_ops = {
+	.calibrate_phy		= ufs_qcom_phy_qmp_v3_660_phy_calibrate,
+	.start_serdes		= ufs_qcom_phy_qmp_v3_660_start_serdes,
+	.is_physical_coding_sublayer_ready =
+				ufs_qcom_phy_qmp_v3_660_is_pcs_ready,
+	.set_tx_lane_enable	= ufs_qcom_phy_qmp_v3_660_set_tx_lane_enable,
+	.ctrl_rx_linecfg	= ufs_qcom_phy_qmp_v3_660_ctrl_rx_linecfg,
+	.power_control		= ufs_qcom_phy_qmp_v3_660_power_control,
+	.dbg_register_dump	= ufs_qcom_phy_qmp_v3_660_dbg_register_dump,
 };
 
-static int ufs_qcom_phy_qmp_v3_probe(struct platform_device *pdev)
+static int ufs_qcom_phy_qmp_v3_660_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct phy *generic_phy;
-	struct ufs_qcom_phy_qmp_v3 *phy;
+	struct ufs_qcom_phy_qmp_v3_660 *phy;
 	int err = 0;
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
@@ -243,7 +204,8 @@ static int ufs_qcom_phy_qmp_v3_probe(struct platform_device *pdev)
 	}
 
 	generic_phy = ufs_qcom_phy_generic_probe(pdev, &phy->common_cfg,
-				&ufs_qcom_phy_qmp_v3_phy_ops, &phy_v3_ops);
+				&ufs_qcom_phy_qmp_v3_660_phy_ops,
+				&phy_v3_660_ops);
 
 	if (!generic_phy) {
 		dev_err(dev, "%s: ufs_qcom_phy_generic_probe() failed\n",
@@ -261,7 +223,7 @@ out:
 	return err;
 }
 
-static int ufs_qcom_phy_qmp_v3_remove(struct platform_device *pdev)
+static int ufs_qcom_phy_qmp_v3_660_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct phy *generic_phy = to_phy(dev);
@@ -276,23 +238,23 @@ static int ufs_qcom_phy_qmp_v3_remove(struct platform_device *pdev)
 	return err;
 }
 
-static const struct of_device_id ufs_qcom_phy_qmp_v3_of_match[] = {
-	{.compatible = "qcom,ufs-phy-qmp-v3"},
+static const struct of_device_id ufs_qcom_phy_qmp_v3_660_of_match[] = {
+	{.compatible = "qcom,ufs-phy-qmp-v3-660"},
 	{},
 };
-MODULE_DEVICE_TABLE(of, ufs_qcom_phy_qmp_v3_of_match);
+MODULE_DEVICE_TABLE(of, ufs_qcom_phy_qmp_v3_660_of_match);
 
-static struct platform_driver ufs_qcom_phy_qmp_v3_driver = {
-	.probe = ufs_qcom_phy_qmp_v3_probe,
-	.remove = ufs_qcom_phy_qmp_v3_remove,
+static struct platform_driver ufs_qcom_phy_qmp_v3_660_driver = {
+	.probe = ufs_qcom_phy_qmp_v3_660_probe,
+	.remove = ufs_qcom_phy_qmp_v3_660_remove,
 	.driver = {
-		.of_match_table = ufs_qcom_phy_qmp_v3_of_match,
-		.name = "ufs_qcom_phy_qmp_v3",
+		.of_match_table = ufs_qcom_phy_qmp_v3_660_of_match,
+		.name = "ufs_qcom_phy_qmp_v3_660",
 		.owner = THIS_MODULE,
 	},
 };
 
-module_platform_driver(ufs_qcom_phy_qmp_v3_driver);
+module_platform_driver(ufs_qcom_phy_qmp_v3_660_driver);
 
-MODULE_DESCRIPTION("Universal Flash Storage (UFS) QCOM PHY QMP v3");
+MODULE_DESCRIPTION("Universal Flash Storage (UFS) QCOM PHY QMP v3 660");
 MODULE_LICENSE("GPL v2");

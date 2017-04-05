@@ -13,6 +13,9 @@ Required properties:
 - reg               : <registers mapping>
 		      first entry should contain UFS host controller register address space (mandatory),
                       second entry is the device ref. clock control register map (optional).
+- reset             : reset specifier pair consists of phandle for the reset provider
+                      and reset lines used by this controller.
+- reset-names       : reset signal name strings sorted in the same order as the resets property.
 
 Optional properties:
 - phys                  : phandle to UFS PHY node
@@ -52,6 +55,8 @@ Optional properties:
 - lanes-per-direction:	number of lanes available per direction - either 1 or 2.
 			Note that it is assume same number of lanes is used both directions at once.
 			If not specified, default is 2 lanes per direction.
+- pinctrl-names, pinctrl-0, pinctrl-1,.. pinctrl-n: Refer to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+			for these optional properties
 - limit-tx-hs-gear	: Specify the max. limit on the TX HS gear.
 			  Valid range: 1-3. 1 => HS-G1, 2 => HS-G2, 3 => HS-G3
 - limit-rx-hs-gear	: Specify the max. limit on the RX HS gear. Refer "limit-tx-hs-gear" for expected values.
@@ -89,6 +94,8 @@ Example:
 		clocks = <&core 0>, <&ref 0>, <&iface 0>;
 		clock-names = "core_clk", "ref_clk", "iface_clk";
 		freq-table-hz = <100000000 200000000>, <0 0>, <0 0>;
+		resets = <clock_gcc GCC_UFS_BCR>;
+		reset-names = "core_reset";
 		phys = <&ufsphy1>;
 		phy-names = "ufsphy";
 		rpm-level = <3>;
@@ -146,6 +153,9 @@ enabled and functional in the driver:
 - qcom,pm-qos-default-cpu:		PM QoS voting is based on the cpu associated with each IO request by the block layer.
 					This defined the default cpu used for PM QoS voting in case a specific cpu value is not available.
 
+- qcom,vddp-ref-clk-supply	 : reference clock to ufs device. Controlled by the host driver.
+- qcom,vddp-ref-clk-max-microamp : specifies max. load that can be drawn for
+				   ref-clk supply.
 Example:
 	ufshc@0xfc598000 {
 		...

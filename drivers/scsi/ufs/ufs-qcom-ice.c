@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/blkdev.h>
+#include <linux/spinlock.h>
 #include <crypto/ice.h>
 
 #include "ufs-qcom-ice.h"
@@ -168,12 +169,22 @@ out:
 
 static void ufs_qcom_ice_cfg_work(struct work_struct *work)
 {
+	unsigned long flags;
 	struct ice_data_setting ice_set;
 	struct ufs_qcom_host *qcom_host =
 		container_of(work, struct ufs_qcom_host, ice_cfg_work);
+	struct request *req_pending = NULL;
 
-	if (!qcom_host->ice.vops->config_start || !qcom_host->req_pending)
+	if (!qcom_host->ice.vops->config_start)
 		return;
+
+	spin_lock_irqsave(&qcom_host->ice_work_lock, flags);
+	req_pending = qcom_host->req_pending;
+	if (!req_pending) {
+		spin_unlock_irqrestore(&qcom_host->ice_work_lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&qcom_host->ice_work_lock, flags);
 
 	/*
 	 * config_start is called again as previous attempt returned -EAGAIN,
@@ -185,12 +196,17 @@ static void ufs_qcom_ice_cfg_work(struct work_struct *work)
 	qcom_host->ice.vops->config_start(qcom_host->ice.pdev,
 		qcom_host->req_pending, &ice_set, false);
 
+	spin_lock_irqsave(&qcom_host->ice_work_lock, flags);
+	qcom_host->req_pending = NULL;
+	spin_unlock_irqrestore(&qcom_host->ice_work_lock, flags);
+
 	/*
 	 * Resume with requests processing. We assume config_start has been
 	 * successful, but even if it wasn't we still must resume in order to
 	 * allow for the request to be retried.
 	 */
 	ufshcd_scsi_unblock_requests(qcom_host->hba);
+
 }
 
 /**
@@ -246,6 +262,7 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 	struct ice_data_setting ice_set;
 	char cmd_op = cmd->cmnd[0];
 	int err;
+	unsigned long flags;
 
 	if (!qcom_host->ice.pdev || !qcom_host->ice.vops) {
 		dev_dbg(qcom_host->hba->dev, "%s: ice device is not enabled\n",
@@ -255,6 +272,10 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 
 	if (qcom_host->ice.vops->config_start) {
 		memset(&ice_set, 0, sizeof(ice_set));
+
+		spin_lock_irqsave(
+			&qcom_host->ice_work_lock, flags);
+
 		err = qcom_host->ice.vops->config_start(qcom_host->ice.pdev,
 			cmd->request, &ice_set, true);
 		if (err) {
@@ -272,18 +293,40 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 				dev_dbg(qcom_host->hba->dev,
 					"%s: scheduling task for ice setup\n",
 					__func__);
-				qcom_host->req_pending = cmd->request;
-				if (schedule_work(&qcom_host->ice_cfg_work))
+
+				if (!qcom_host->req_pending) {
 					ufshcd_scsi_block_requests(
 						qcom_host->hba);
+					qcom_host->req_pending = cmd->request;
+
+					if (!schedule_work(
+						&qcom_host->ice_cfg_work)) {
+						qcom_host->req_pending = NULL;
+
+						spin_unlock_irqrestore(
+						&qcom_host->ice_work_lock,
+						flags);
+
+						ufshcd_scsi_unblock_requests(
+							qcom_host->hba);
+						return err;
+					}
+				}
+
 			} else {
-				dev_err(qcom_host->hba->dev,
-					"%s: error in ice_vops->config %d\n",
-					__func__, err);
+				if (err != -EBUSY)
+					dev_err(qcom_host->hba->dev,
+						"%s: error in ice_vops->config %d\n",
+						__func__, err);
 			}
+
+			spin_unlock_irqrestore(&qcom_host->ice_work_lock,
+				flags);
 
 			return err;
 		}
+
+		spin_unlock_irqrestore(&qcom_host->ice_work_lock, flags);
 
 		if (ufs_qcom_is_data_cmd(cmd_op, true))
 			*enable = !ice_set.encr_bypass;
@@ -320,6 +363,7 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 	unsigned int bypass = 0;
 	struct request *req;
 	char cmd_op;
+	unsigned long flags;
 
 	if (!qcom_host->ice.pdev || !qcom_host->ice.vops) {
 		dev_dbg(dev, "%s: ice device is not enabled\n", __func__);
@@ -339,7 +383,8 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 
 	req = cmd->request;
 	if (req->bio)
-		lba = req->bio->bi_iter.bi_sector;
+		lba = (req->bio->bi_iter.bi_sector) >>
+			UFS_QCOM_ICE_TR_DATA_UNIT_4_KB;
 
 	slot = req->tag;
 	if (slot < 0 || slot > qcom_host->hba->nutrs) {
@@ -348,8 +393,13 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 		return -EINVAL;
 	}
 
-	memset(&ice_set, 0, sizeof(ice_set));
+
 	if (qcom_host->ice.vops->config_start) {
+		memset(&ice_set, 0, sizeof(ice_set));
+
+		spin_lock_irqsave(
+			&qcom_host->ice_work_lock, flags);
+
 		err = qcom_host->ice.vops->config_start(qcom_host->ice.pdev,
 							req, &ice_set, true);
 		if (err) {
@@ -364,13 +414,44 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 			 * request processing.
 			 */
 			if (err == -EAGAIN) {
-				qcom_host->req_pending = req;
-				if (schedule_work(&qcom_host->ice_cfg_work))
+
+				dev_dbg(qcom_host->hba->dev,
+					"%s: scheduling task for ice setup\n",
+					__func__);
+
+				if (!qcom_host->req_pending) {
 					ufshcd_scsi_block_requests(
+						qcom_host->hba);
+					qcom_host->req_pending = cmd->request;
+					if (!schedule_work(
+						&qcom_host->ice_cfg_work)) {
+						qcom_host->req_pending = NULL;
+
+						spin_unlock_irqrestore(
+						&qcom_host->ice_work_lock,
+						flags);
+
+						ufshcd_scsi_unblock_requests(
 							qcom_host->hba);
+						return err;
+					}
+				}
+
+			} else {
+				if (err != -EBUSY)
+					dev_err(qcom_host->hba->dev,
+						"%s: error in ice_vops->config %d\n",
+						__func__, err);
 			}
-			goto out;
+
+			spin_unlock_irqrestore(
+				&qcom_host->ice_work_lock, flags);
+
+			return err;
 		}
+
+		spin_unlock_irqrestore(
+			&qcom_host->ice_work_lock, flags);
 	}
 
 	cmd_op = cmd->cmnd[0];
@@ -390,6 +471,7 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 		bypass = ice_set.decr_bypass ? UFS_QCOM_ICE_ENABLE_BYPASS :
 						UFS_QCOM_ICE_DISABLE_BYPASS;
 
+
 	/* Configure ICE index */
 	ctrl_info_val =
 		(ice_set.crypto_data.key_index &
@@ -398,8 +480,7 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 
 	/* Configure data unit size of transfer request */
 	ctrl_info_val |=
-		(UFS_QCOM_ICE_TR_DATA_UNIT_4_KB &
-		 MASK_UFS_QCOM_ICE_CTRL_INFO_CDU)
+		UFS_QCOM_ICE_TR_DATA_UNIT_4_KB
 		 << OFFSET_UFS_QCOM_ICE_CTRL_INFO_CDU;
 
 	/* Configure ICE bypass mode */

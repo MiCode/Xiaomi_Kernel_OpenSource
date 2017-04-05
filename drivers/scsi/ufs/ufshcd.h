@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -39,6 +39,7 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -55,6 +56,7 @@
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
+#include <linux/reset.h>
 #include "unipro.h"
 
 #include <asm/irq.h>
@@ -309,6 +311,7 @@ struct ufs_pwr_mode_info {
  * @update_sec_cfg: called to restore host controller secure configuration
  * @get_scale_down_gear: called to get the minimum supported gear to
  *			 scale down
+ * @set_bus_vote: called to vote for the required bus bandwidth
  * @add_debugfs: used to add debugfs entries
  * @remove_debugfs: used to remove debugfs entries
  */
@@ -332,9 +335,10 @@ struct ufs_hba_variant_ops {
 	int	(*suspend)(struct ufs_hba *, enum ufs_pm_op);
 	int	(*resume)(struct ufs_hba *, enum ufs_pm_op);
 	int	(*full_reset)(struct ufs_hba *);
-	void	(*dbg_register_dump)(struct ufs_hba *hba);
+	void	(*dbg_register_dump)(struct ufs_hba *hba, bool no_sleep);
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 	u32	(*get_scale_down_gear)(struct ufs_hba *);
+	int	(*set_bus_vote)(struct ufs_hba *, bool);
 #ifdef CONFIG_DEBUG_FS
 	void	(*add_debugfs)(struct ufs_hba *hba, struct dentry *root);
 	void	(*remove_debugfs)(struct ufs_hba *hba);
@@ -393,8 +397,9 @@ enum clk_gating_state {
 
 /**
  * struct ufs_clk_gating - UFS clock gating related info
- * @gate_work: worker to turn off clocks after some delay as specified in
- * delay_ms
+ * @gate_hrtimer: hrtimer to invoke @gate_work after some delay as
+ * specified in @delay_ms
+ * @gate_work: worker to turn off clocks
  * @ungate_work: worker to turn on clocks that will be used in case of
  * interrupt context
  * @state: the current clocks state
@@ -412,7 +417,8 @@ enum clk_gating_state {
  * completion before gating clocks.
  */
 struct ufs_clk_gating {
-	struct delayed_work gate_work;
+	struct hrtimer gate_hrtimer;
+	struct work_struct gate_work;
 	struct work_struct ungate_work;
 	enum clk_gating_state state;
 	unsigned long delay_ms;
@@ -425,6 +431,7 @@ struct ufs_clk_gating {
 	struct device_attribute enable_attr;
 	bool is_enabled;
 	int active_reqs;
+	struct workqueue_struct *ungating_workq;
 };
 
 /* Hibern8 state  */
@@ -801,6 +808,7 @@ struct ufs_hba {
 	u32 saved_uic_err;
 	u32 saved_ce_err;
 	bool silence_err_logs;
+	bool force_host_reset;
 
 	/* Device management request data */
 	struct ufs_dev_cmd dev_cmd;
@@ -882,16 +890,32 @@ struct ufs_hba {
 	enum bkops_status urgent_bkops_lvl;
 	bool is_urgent_bkops_lvl_checked;
 
-	struct rw_semaphore clk_scaling_lock;
+	/* sync b/w diff contexts */
+	struct rw_semaphore lock;
+	unsigned long shutdown_in_prog;
 
+	struct reset_control *core_reset;
 	/* If set, don't gate device ref_clk during clock gating */
 	bool no_ref_clk_gating;
 
 	int scsi_block_reqs_cnt;
 
+	bool full_init_linereset;
+	struct pinctrl *pctrl;
+
 	int latency_hist_enabled;
 	struct io_latency_state io_lat_s;
 };
+
+static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)
+{
+	set_bit(0, &hba->shutdown_in_prog);
+}
+
+static inline bool ufshcd_is_shutdown_ongoing(struct ufs_hba *hba)
+{
+	return !!(test_bit(0, &hba->shutdown_in_prog));
+}
 
 /* Returns true if clocks can be gated. Otherwise false */
 static inline bool ufshcd_is_clkgating_allowed(struct ufs_hba *hba)
@@ -1233,10 +1257,11 @@ static inline int ufshcd_vops_full_reset(struct ufs_hba *hba)
 }
 
 
-static inline void ufshcd_vops_dbg_register_dump(struct ufs_hba *hba)
+static inline void ufshcd_vops_dbg_register_dump(struct ufs_hba *hba,
+						 bool no_sleep)
 {
 	if (hba->var && hba->var->vops && hba->var->vops->dbg_register_dump)
-		hba->var->vops->dbg_register_dump(hba);
+		hba->var->vops->dbg_register_dump(hba, no_sleep);
 }
 
 static inline int ufshcd_vops_update_sec_cfg(struct ufs_hba *hba,
@@ -1253,6 +1278,13 @@ static inline u32 ufshcd_vops_get_scale_down_gear(struct ufs_hba *hba)
 		return hba->var->vops->get_scale_down_gear(hba);
 	/* Default to lowest high speed gear */
 	return UFS_HS_G1;
+}
+
+static inline int ufshcd_vops_set_bus_vote(struct ufs_hba *hba, bool on)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->set_bus_vote)
+		return hba->var->vops->set_bus_vote(hba, on);
+	return 0;
 }
 
 #ifdef CONFIG_DEBUG_FS

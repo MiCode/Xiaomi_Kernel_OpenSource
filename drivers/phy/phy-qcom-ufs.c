@@ -15,8 +15,8 @@
 #include "phy-qcom-ufs-i.h"
 
 #define MAX_PROP_NAME              32
-#define VDDA_PHY_MIN_UV            1000000
-#define VDDA_PHY_MAX_UV            1000000
+#define VDDA_PHY_MIN_UV            800000
+#define VDDA_PHY_MAX_UV            925000
 #define VDDA_PLL_MIN_UV            1200000
 #define VDDA_PLL_MAX_UV            1800000
 #define VDDP_REF_CLK_MIN_UV        1200000
@@ -113,6 +113,14 @@ struct phy *ufs_qcom_phy_generic_probe(struct platform_device *pdev,
 		goto out;
 	}
 
+	/*
+	 * UFS PHY power management is managed by its parent (UFS host
+	 * controller) hence set the no the no runtime PM callbacks flag
+	 * on UFS PHY device to avoid any accidental attempt to call the
+	 * PM callbacks for PHY device.
+	 */
+	pm_runtime_no_callbacks(&generic_phy->dev);
+
 	common_cfg->phy_spec_ops = phy_spec_ops;
 	common_cfg->dev = dev;
 
@@ -191,27 +199,20 @@ ufs_qcom_phy_init_clks(struct phy *generic_phy,
 		       struct ufs_qcom_phy *phy_common)
 {
 	int err;
-	struct ufs_qcom_phy *phy = get_ufs_qcom_phy(generic_phy);
 
-	err = ufs_qcom_phy_clk_get(generic_phy, "tx_iface_clk",
-				   &phy_common->tx_iface_clk);
 	/*
 	 * tx_iface_clk does not exist in newer version of ufs-phy HW,
 	 * so don't return error if it is not found
 	 */
-	if (err)
-		dev_dbg(phy->dev, "%s: failed to get tx_iface_clk\n",
-			__func__);
+	__ufs_qcom_phy_clk_get(generic_phy, "tx_iface_clk",
+				   &phy_common->tx_iface_clk, false);
 
-	err = ufs_qcom_phy_clk_get(generic_phy, "rx_iface_clk",
-				   &phy_common->rx_iface_clk);
 	/*
 	 * rx_iface_clk does not exist in newer version of ufs-phy HW,
 	 * so don't return error if it is not found
 	 */
-	if (err)
-		dev_dbg(phy->dev, "%s: failed to get rx_iface_clk\n",
-			__func__);
+	__ufs_qcom_phy_clk_get(generic_phy, "rx_iface_clk",
+				   &phy_common->rx_iface_clk, false);
 
 	err = ufs_qcom_phy_clk_get(generic_phy, "ref_clk_src",
 				   &phy_common->ref_clk_src);
@@ -246,7 +247,6 @@ ufs_qcom_phy_init_vregulators(struct phy *generic_phy,
 			      struct ufs_qcom_phy *phy_common)
 {
 	int err;
-	int vdda_phy_uV;
 
 	err = ufs_qcom_phy_init_vreg(generic_phy, &phy_common->vdda_pll,
 		"vdda-pll");
@@ -257,10 +257,6 @@ ufs_qcom_phy_init_vregulators(struct phy *generic_phy,
 		"vdda-phy");
 	if (err)
 		goto out;
-
-	vdda_phy_uV = regulator_get_voltage(phy_common->vdda_phy.reg);
-	phy_common->vdda_phy.max_uV = vdda_phy_uV;
-	phy_common->vdda_phy.min_uV = vdda_phy_uV;
 
 	/* vddp-ref-clk-* properties are optional */
 	__ufs_qcom_phy_init_vreg(generic_phy, &phy_common->vddp_ref_clk,
@@ -278,6 +274,14 @@ static int __ufs_qcom_phy_init_vreg(struct phy *phy,
 	struct device *dev = ufs_qcom_phy->dev;
 
 	char prop_name[MAX_PROP_NAME];
+
+	if (dev->of_node) {
+		snprintf(prop_name, MAX_PROP_NAME, "%s-supply", name);
+		if (!of_parse_phandle(dev->of_node, prop_name, 0)) {
+			dev_dbg(dev, "No vreg data found for %s\n", prop_name);
+			return optional ? err : -ENODATA;
+		}
+	}
 
 	vreg->name = kstrdup(name, GFP_KERNEL);
 	if (!vreg->name) {
@@ -786,3 +790,21 @@ int ufs_qcom_phy_configure_lpm(struct phy *generic_phy, bool enable)
 	return ret;
 }
 EXPORT_SYMBOL(ufs_qcom_phy_configure_lpm);
+
+void ufs_qcom_phy_dump_regs(struct ufs_qcom_phy *phy, int offset,
+				int len, char *prefix)
+{
+	print_hex_dump(KERN_ERR, prefix,
+			len > 4 ? DUMP_PREFIX_OFFSET : DUMP_PREFIX_NONE,
+			16, 4, phy->mmio + offset, len, false);
+}
+EXPORT_SYMBOL(ufs_qcom_phy_dump_regs);
+
+void ufs_qcom_phy_dbg_register_dump(struct phy *generic_phy)
+{
+	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
+
+	if (ufs_qcom_phy->phy_spec_ops->dbg_register_dump)
+		ufs_qcom_phy->phy_spec_ops->dbg_register_dump(ufs_qcom_phy);
+}
+EXPORT_SYMBOL(ufs_qcom_phy_dbg_register_dump);
