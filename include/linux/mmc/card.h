@@ -434,6 +434,8 @@ struct mmc_card {
 	enum mmc_pon_type pon_type;
 	bool cmdq_init;
 	struct mmc_bkops_info bkops;
+	bool err_in_sdr104;
+	bool sdr104_blocked;
 };
 
 /*
