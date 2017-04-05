@@ -96,6 +96,14 @@ First Level Node - FG Gen3 device
 		    This value has to be specified in negative values for
 		    the charging current.
 
+- qcom,fg-chg-term-base-current
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery current (in mA) upper boundary at which the fuel
+		    gauge will issue an end of charge during discharging. If
+		    this property is not specified, then the default value used
+		    will be 75mA.
+
 - qcom,fg-delta-soc-thr
 	Usage:      optional
 	Value type: <u32>

@@ -165,6 +165,7 @@ enum fg_sram_param_id {
 	FG_SRAM_ESR_PULSE_THRESH,
 	FG_SRAM_SYS_TERM_CURR,
 	FG_SRAM_CHG_TERM_CURR,
+	FG_SRAM_CHG_TERM_BASE_CURR,
 	FG_SRAM_DELTA_MSOC_THR,
 	FG_SRAM_DELTA_BSOC_THR,
 	FG_SRAM_RECHARGE_SOC_THR,
@@ -230,6 +231,7 @@ struct fg_dt_props {
 	int	empty_volt_mv;
 	int	vbatt_low_thr_mv;
 	int	chg_term_curr_ma;
+	int	chg_term_base_curr_ma;
 	int	sys_term_curr_ma;
 	int	delta_soc_thr;
 	int	recharge_soc_thr;
