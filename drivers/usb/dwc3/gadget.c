@@ -3504,6 +3504,15 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc)
 	return ret;
 }
 
+void dwc3_bh_work(struct work_struct *w)
+{
+	struct dwc3 *dwc = container_of(w, struct dwc3, bh_work);
+
+	 pm_runtime_get_sync(dwc->dev);
+	 dwc3_thread_interrupt(dwc->irq, dwc);
+	 pm_runtime_put(dwc->dev);
+}
+
 static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 {
 	struct dwc3 *dwc = _dwc;
@@ -3588,7 +3597,7 @@ irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 	dwc->irq_dbg_index = (dwc->irq_dbg_index + 1) % MAX_INTR_STATS;
 
 	if (ret == IRQ_WAKE_THREAD)
-		dwc3_thread_interrupt(dwc->irq, dwc);
+		queue_work(dwc->dwc_wq, &dwc->bh_work);
 
 	return IRQ_HANDLED;
 }
