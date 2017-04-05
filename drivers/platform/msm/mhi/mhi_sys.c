@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,15 +35,15 @@ module_param(mhi_ipc_log_lvl, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(mhi_ipc_log_lvl, "dbg lvl");
 
 const char * const mhi_states_str[MHI_STATE_LIMIT] = {
-	"RESET",
-	"READY",
-	"M0",
-	"M1",
-	"M2",
-	"M3",
+	[MHI_STATE_RESET] = "RESET",
+	[MHI_STATE_READY] = "READY",
+	[MHI_STATE_M0] = "M0",
+	[MHI_STATE_M1] = "M1",
+	[MHI_STATE_M2] = "M2",
+	[MHI_STATE_M3] = "M3",
 	"Reserved: 0x06",
-	"BHI",
-	"SYS_ERR",
+	[MHI_STATE_BHI] = "BHI",
+	[MHI_STATE_SYS_ERR] = "SYS_ERR",
 };
 
 static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,

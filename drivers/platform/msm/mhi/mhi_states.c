@@ -13,6 +13,7 @@
 #include "mhi_sys.h"
 #include "mhi_hwio.h"
 #include "mhi_trace.h"
+#include "mhi_bhi.h"
 
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -33,11 +34,59 @@ const char *state_transition_str(enum STATE_TRANSITION state)
 		[STATE_TRANSITION_LINK_DOWN] = "LINK_DOWN",
 		[STATE_TRANSITION_WAKE] = "WAKE",
 		[STATE_TRANSITION_BHIE] = "BHIE",
+		[STATE_TRANSITION_RDDM] = "RDDM",
 		[STATE_TRANSITION_SYS_ERR] = "SYS_ERR",
 	};
 
 	return (state < STATE_TRANSITION_MAX) ?
 		mhi_states_transition_str[state] : "Invalid";
+}
+
+int set_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	u32 pcie_word_val = 0;
+	int r = 0;
+
+	mhi_dev_ctxt->bhi_ctxt.bhi_base = mhi_dev_ctxt->core.bar0_base;
+	pcie_word_val = mhi_reg_read(mhi_dev_ctxt->bhi_ctxt.bhi_base, BHIOFF);
+
+	/* confirm it's a valid reading */
+	if (unlikely(pcie_word_val == U32_MAX)) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Invalid BHI Offset:0x%x\n", pcie_word_val);
+		return -EIO;
+	}
+	mhi_dev_ctxt->bhi_ctxt.bhi_base += pcie_word_val;
+	pcie_word_val = mhi_reg_read(mhi_dev_ctxt->bhi_ctxt.bhi_base,
+				     BHI_EXECENV);
+	mhi_dev_ctxt->dev_exec_env = pcie_word_val;
+	if (pcie_word_val == MHI_EXEC_ENV_AMSS) {
+		mhi_dev_ctxt->base_state = STATE_TRANSITION_RESET;
+	} else if (pcie_word_val == MHI_EXEC_ENV_PBL) {
+		mhi_dev_ctxt->base_state = STATE_TRANSITION_BHI;
+	} else {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Invalid EXEC_ENV: 0x%x\n",
+			pcie_word_val);
+		r = -EIO;
+	}
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"EXEC_ENV: %d Base state %d\n",
+		pcie_word_val, mhi_dev_ctxt->base_state);
+	return r;
+}
+
+int init_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	int r = 0;
+
+	r = mhi_init_state_transition(mhi_dev_ctxt, mhi_dev_ctxt->base_state);
+	if (r) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
+			"Failed to start state change event, to %d\n",
+			mhi_dev_ctxt->base_state);
+	}
+	return r;
 }
 
 enum MHI_STATE mhi_get_m_state(struct mhi_device_ctxt *mhi_dev_ctxt)
@@ -47,7 +96,16 @@ enum MHI_STATE mhi_get_m_state(struct mhi_device_ctxt *mhi_dev_ctxt)
 				       MHISTATUS_MHISTATE_MASK,
 				       MHISTATUS_MHISTATE_SHIFT);
 
-	return (state >= MHI_STATE_LIMIT) ? MHI_STATE_LIMIT : state;
+	return state;
+}
+
+bool mhi_in_sys_err(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	u32 state = mhi_reg_read_field(mhi_dev_ctxt->mmio_info.mmio_addr,
+				       MHISTATUS, MHISTATUS_SYSERR_MASK,
+				       MHISTATUS_SYSERR_SHIFT);
+
+	return (state) ? true : false;
 }
 
 void mhi_set_m_state(struct mhi_device_ctxt *mhi_dev_ctxt,
@@ -67,6 +125,140 @@ void mhi_set_m_state(struct mhi_device_ctxt *mhi_dev_ctxt,
 			new_state);
 	}
 	mhi_reg_read(mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL);
+}
+
+/*
+ * Not all MHI states transitions are sync transitions. Linkdown, SSR, and
+ * shutdown can happen anytime asynchronously. This function will transition to
+ * new state only if it's a valid transitions.
+ *
+ * Priority increase as we go down, example while in any states from L0, start
+ * state from L1, L2, or L3 can be set.  Notable exception to this rule is state
+ * DISABLE.  From DISABLE state we can transition to only POR or SSR_PENDING
+ * state.  Also for example while in L2 state, user cannot jump back to L1 or
+ * L0 states.
+ * Valid transitions:
+ * L0: DISABLE <--> POR
+ *     DISABLE <--> SSR_PENDING
+ *     POR <--> POR
+ *     POR -> M0 -> M1 -> M1_M2 -> M2 --> M0
+ *     M1_M2 -> M0 (Device can trigger it)
+ *     M0 -> M3_ENTER -> M3 -> M3_EXIT --> M0
+ *     M1 -> M3_ENTER --> M3
+ * L1: SYS_ERR_DETECT -> SYS_ERR_PROCESS --> POR
+ * L2: SHUTDOWN_PROCESS -> DISABLE -> SSR_PENDING (via SSR Notification only)
+ * L3: LD_ERR_FATAL_DETECT -> SHUTDOWN_PROCESS
+ */
+static const struct mhi_pm_transitions const mhi_state_transitions[] = {
+	/* L0 States */
+	{
+		MHI_PM_DISABLE,
+		MHI_PM_POR | MHI_PM_SSR_PENDING
+	},
+	{
+		MHI_PM_POR,
+		MHI_PM_POR | MHI_PM_DISABLE | MHI_PM_M0 |
+		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
+		MHI_PM_LD_ERR_FATAL_DETECT
+	},
+	{
+		MHI_PM_M0,
+		MHI_PM_M1 | MHI_PM_M3_ENTER | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT
+	},
+	{
+		MHI_PM_M1,
+		MHI_PM_M1_M2_TRANSITION | MHI_PM_M3_ENTER |
+		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
+		MHI_PM_LD_ERR_FATAL_DETECT
+	},
+	{
+		MHI_PM_M1_M2_TRANSITION,
+		MHI_PM_M2 | MHI_PM_M0 | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT
+	},
+	{
+		MHI_PM_M2,
+		MHI_PM_M0 | MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
+		MHI_PM_LD_ERR_FATAL_DETECT
+	},
+	{
+		MHI_PM_M3_ENTER,
+		MHI_PM_M3 | MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
+		MHI_PM_LD_ERR_FATAL_DETECT
+	},
+	{
+		MHI_PM_M3,
+		MHI_PM_M3_EXIT | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT
+	},
+	{
+		MHI_PM_M3_EXIT,
+		MHI_PM_M0 | MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
+		MHI_PM_LD_ERR_FATAL_DETECT
+	},
+	/* L1 States */
+	{
+		MHI_PM_SYS_ERR_DETECT,
+		MHI_PM_SYS_ERR_PROCESS | MHI_PM_SHUTDOWN_PROCESS |
+		MHI_PM_LD_ERR_FATAL_DETECT
+	},
+	{
+		MHI_PM_SYS_ERR_PROCESS,
+		MHI_PM_POR | MHI_PM_SHUTDOWN_PROCESS |
+		MHI_PM_LD_ERR_FATAL_DETECT
+	},
+	/* L2 States */
+	{
+		MHI_PM_SHUTDOWN_PROCESS,
+		MHI_PM_DISABLE | MHI_PM_LD_ERR_FATAL_DETECT
+	},
+	/* L3 States */
+	{
+		MHI_PM_LD_ERR_FATAL_DETECT,
+		MHI_PM_SHUTDOWN_PROCESS
+	},
+	/* From SSR notification only */
+	{
+		MHI_PM_SSR_PENDING,
+		MHI_PM_DISABLE
+	}
+};
+
+enum MHI_PM_STATE __must_check mhi_tryset_pm_state(
+				struct mhi_device_ctxt *mhi_dev_ctxt,
+				enum MHI_PM_STATE state)
+{
+	unsigned long cur_state = mhi_dev_ctxt->mhi_pm_state;
+	int index = find_last_bit(&cur_state, 32);
+
+	if (unlikely(index >= ARRAY_SIZE(mhi_state_transitions))) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"cur_state:0x%lx out side of mhi_state_transitions\n",
+			cur_state);
+		return cur_state;
+	}
+
+	if (unlikely(mhi_state_transitions[index].from_state != cur_state)) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"index:%u cur_state:0x%lx != actual_state: 0x%x\n",
+			index, cur_state,
+			mhi_state_transitions[index].from_state);
+		return cur_state;
+	}
+
+	if (unlikely(!(mhi_state_transitions[index].to_states & state))) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+			"Not allowing pm state transition from:0x%lx to:0x%x state\n",
+			cur_state, state);
+		return cur_state;
+	}
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE,
+		"Transition to pm state from:0x%lx to:0x%x\n",
+		cur_state, state);
+	mhi_dev_ctxt->mhi_pm_state = state;
+	return mhi_dev_ctxt->mhi_pm_state;
 }
 
 static void conditional_chan_db_write(
@@ -158,20 +350,10 @@ static void ring_all_ev_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 	}
 }
 
-static int process_bhie_transition(struct mhi_device_ctxt *mhi_dev_ctxt,
-				   enum STATE_TRANSITION cur_work_item)
-{
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Entered\n");
-	mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_BHIE;
-	wake_up(mhi_dev_ctxt->mhi_ev_wq.bhi_event);
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exited\n");
-
-	return 0;
-}
-
 int process_m0_transition(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	unsigned long flags;
+	enum MHI_PM_STATE cur_state;
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Entered With State %s\n",
@@ -190,8 +372,14 @@ int process_m0_transition(struct mhi_device_ctxt *mhi_dev_ctxt)
 
 	write_lock_irqsave(&mhi_dev_ctxt->pm_xfer_lock, flags);
 	mhi_dev_ctxt->mhi_state = MHI_STATE_M0;
-	mhi_dev_ctxt->mhi_pm_state = MHI_PM_M0;
+	cur_state = mhi_tryset_pm_state(mhi_dev_ctxt, MHI_PM_M0);
 	write_unlock_irqrestore(&mhi_dev_ctxt->pm_xfer_lock, flags);
+	if (unlikely(cur_state != MHI_PM_M0)) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Failed to transition to state 0x%x from 0x%x\n",
+			MHI_PM_M0, cur_state);
+		return -EIO;
+	}
 	read_lock_bh(&mhi_dev_ctxt->pm_xfer_lock);
 	mhi_dev_ctxt->assert_wake(mhi_dev_ctxt, true);
 
@@ -212,6 +400,7 @@ int process_m0_transition(struct mhi_device_ctxt *mhi_dev_ctxt)
 void process_m1_transition(struct work_struct *work)
 {
 	struct mhi_device_ctxt *mhi_dev_ctxt;
+	enum MHI_PM_STATE cur_state;
 
 	mhi_dev_ctxt = container_of(work,
 				    struct mhi_device_ctxt,
@@ -224,15 +413,18 @@ void process_m1_transition(struct work_struct *work)
 		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
 
 	/* We either Entered M3 or we did M3->M0 Exit */
-	if (mhi_dev_ctxt->mhi_pm_state != MHI_PM_M1) {
-		write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
-		mutex_unlock(&mhi_dev_ctxt->pm_lock);
-		return;
-	}
+	if (mhi_dev_ctxt->mhi_pm_state != MHI_PM_M1)
+		goto invalid_pm_state;
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Transitioning to M2 Transition\n");
-	mhi_dev_ctxt->mhi_pm_state = MHI_PM_M1_M2_TRANSITION;
+	cur_state = mhi_tryset_pm_state(mhi_dev_ctxt, MHI_PM_M1_M2_TRANSITION);
+	if (unlikely(cur_state != MHI_PM_M1_M2_TRANSITION)) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Failed to transition to state 0x%x from 0x%x\n",
+			MHI_PM_M1_M2_TRANSITION, cur_state);
+		goto invalid_pm_state;
+	}
 	mhi_dev_ctxt->counters.m1_m2++;
 	mhi_dev_ctxt->mhi_state = MHI_STATE_M2;
 	mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_M2);
@@ -245,7 +437,13 @@ void process_m1_transition(struct work_struct *work)
 	if (mhi_dev_ctxt->mhi_pm_state == MHI_PM_M1_M2_TRANSITION) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 			"Entered M2 State\n");
-		mhi_dev_ctxt->mhi_pm_state = MHI_PM_M2;
+		cur_state = mhi_tryset_pm_state(mhi_dev_ctxt, MHI_PM_M2);
+		if (unlikely(cur_state != MHI_PM_M2)) {
+			mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+				"Failed to transition to state 0x%x from 0x%x\n",
+				MHI_PM_M2, cur_state);
+			goto invalid_pm_state;
+		}
 	}
 	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 
@@ -263,11 +461,17 @@ void process_m1_transition(struct work_struct *work)
 		pm_request_autosuspend(&mhi_dev_ctxt->pcie_device->dev);
 	}
 	mutex_unlock(&mhi_dev_ctxt->pm_lock);
+	return;
+
+invalid_pm_state:
+	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	mutex_unlock(&mhi_dev_ctxt->pm_lock);
 }
 
 int process_m3_transition(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	unsigned long flags;
+	enum MHI_PM_STATE cur_state;
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Entered with State %s\n",
 		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
@@ -285,22 +489,15 @@ int process_m3_transition(struct mhi_device_ctxt *mhi_dev_ctxt)
 
 	write_lock_irqsave(&mhi_dev_ctxt->pm_xfer_lock, flags);
 	mhi_dev_ctxt->mhi_state = MHI_STATE_M3;
-	mhi_dev_ctxt->mhi_pm_state = MHI_PM_M3;
+	cur_state = mhi_tryset_pm_state(mhi_dev_ctxt, MHI_PM_M3);
 	write_unlock_irqrestore(&mhi_dev_ctxt->pm_xfer_lock, flags);
+	if (unlikely(cur_state != MHI_PM_M3)) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Failed to transition to state 0x%x from 0x%x\n",
+			MHI_PM_M3, cur_state);
+		return -EIO;
+	}
 	wake_up(mhi_dev_ctxt->mhi_ev_wq.m3_event);
-	return 0;
-}
-
-static int process_bhi_transition(
-			struct mhi_device_ctxt *mhi_dev_ctxt,
-			enum STATE_TRANSITION cur_work_item)
-{
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Entered\n");
-	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
-	mhi_dev_ctxt->mhi_state = MHI_STATE_BHI;
-	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
-	wake_up_interruptible(mhi_dev_ctxt->mhi_ev_wq.bhi_event);
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exited\n");
 	return 0;
 }
 
@@ -313,15 +510,12 @@ static int process_ready_transition(
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Processing READY state transition\n");
 
-	r = mhi_reset_all_thread_queues(mhi_dev_ctxt);
-	if (r) {
-		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
-			"Failed to reset thread queues\n");
-		return r;
-	}
-
 	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 	mhi_dev_ctxt->mhi_state = MHI_STATE_READY;
+	if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+		write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		return -EIO;
+	}
 	r = mhi_init_mmio(mhi_dev_ctxt);
 	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 	/* Initialize MMIO */
@@ -341,6 +535,10 @@ static int process_ready_transition(
 	}
 
 	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+		write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		return -EIO;
+	}
 	mhi_reg_write_field(mhi_dev_ctxt,
 			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL,
 			MHICTRL_MHISTATE_MASK,
@@ -350,30 +548,25 @@ static int process_ready_transition(
 	return r;
 }
 
-static void mhi_reset_chan_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
-				int chan)
-{
-	struct mhi_chan_ctxt *chan_ctxt =
-			&mhi_dev_ctxt->dev_space.ring_ctxt.cc_list[chan];
-	struct mhi_ring *local_chan_ctxt =
-			&mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
-	chan_ctxt->mhi_trb_read_ptr = chan_ctxt->mhi_trb_ring_base_addr;
-	chan_ctxt->mhi_trb_write_ptr = chan_ctxt->mhi_trb_ring_base_addr;
-	local_chan_ctxt->rp = local_chan_ctxt->base;
-	local_chan_ctxt->wp = local_chan_ctxt->base;
-	local_chan_ctxt->ack_rp = local_chan_ctxt->base;
-}
-
 static int process_reset_transition(
 			struct mhi_device_ctxt *mhi_dev_ctxt,
 			enum STATE_TRANSITION cur_work_item)
 {
-	int r = 0, i = 0;
+	int r = 0;
+	enum MHI_PM_STATE cur_state;
+
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Processing RESET state transition\n");
 	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 	mhi_dev_ctxt->mhi_state = MHI_STATE_RESET;
+	cur_state = mhi_tryset_pm_state(mhi_dev_ctxt, MHI_PM_POR);
 	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	if (unlikely(cur_state != MHI_PM_POR)) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Error transitining from state:0x%x to:0x%x\n",
+			cur_state, MHI_PM_POR);
+		return -EIO;
+	}
 
 	mhi_dev_ctxt->counters.mhi_reset_cntr++;
 	r = mhi_test_for_device_reset(mhi_dev_ctxt);
@@ -387,25 +580,6 @@ static int process_reset_transition(
 		return r;
 	}
 
-	for (i = 0; i < NR_OF_CMD_RINGS; ++i) {
-		mhi_dev_ctxt->mhi_local_cmd_ctxt[i].rp =
-				mhi_dev_ctxt->mhi_local_cmd_ctxt[i].base;
-		mhi_dev_ctxt->mhi_local_cmd_ctxt[i].wp =
-				mhi_dev_ctxt->mhi_local_cmd_ctxt[i].base;
-		mhi_dev_ctxt->dev_space.ring_ctxt.cmd_ctxt[i].
-						mhi_cmd_ring_read_ptr =
-		mhi_v2p_addr(mhi_dev_ctxt,
-			MHI_RING_TYPE_CMD_RING,
-			i,
-			(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt[i].rp);
-	}
-	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i)
-		mhi_reset_ev_ctxt(mhi_dev_ctxt, i);
-
-	for (i = 0; i < MHI_MAX_CHANNELS; ++i) {
-		if (VALID_CHAN_NR(i))
-			mhi_reset_chan_ctxt(mhi_dev_ctxt, i);
-	}
 	r = mhi_init_state_transition(mhi_dev_ctxt,
 				STATE_TRANSITION_READY);
 	if (0 != r)
@@ -441,19 +615,6 @@ static void enable_clients(struct mhi_device_ctxt *mhi_dev_ctxt,
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Done.\n");
 }
 
-static int process_sbl_transition(
-				struct mhi_device_ctxt *mhi_dev_ctxt,
-				enum STATE_TRANSITION cur_work_item)
-{
-
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Enabled\n");
-	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
-	mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_SBL;
-	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
-	enable_clients(mhi_dev_ctxt, mhi_dev_ctxt->dev_exec_env);
-	return 0;
-}
-
 static int process_amss_transition(
 				struct mhi_device_ctxt *mhi_dev_ctxt,
 				enum STATE_TRANSITION cur_work_item)
@@ -465,26 +626,19 @@ static int process_amss_transition(
 	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 	mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_AMSS;
 	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
-
-	if (!mhi_dev_ctxt->flags.mhi_initialized) {
-		r = mhi_add_elements_to_event_rings(mhi_dev_ctxt,
-					cur_work_item);
-		mhi_dev_ctxt->flags.mhi_initialized = 1;
-		if (r) {
-			mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
-				"Failed to set local chan state ret %d\n", r);
-			mhi_dev_ctxt->deassert_wake(mhi_dev_ctxt);
-			return r;
-		}
-		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Notifying clients that MHI is enabled\n");
-		enable_clients(mhi_dev_ctxt, mhi_dev_ctxt->dev_exec_env);
-	} else {
-		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"MHI is initialized\n");
-	}
-
+	mhi_dev_ctxt->flags.mhi_initialized = true;
 	complete(&mhi_dev_ctxt->cmd_complete);
+
+	r = mhi_add_elements_to_event_rings(mhi_dev_ctxt,
+					cur_work_item);
+	if (r) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
+			"Failed to set local chan state ret %d\n", r);
+		mhi_dev_ctxt->deassert_wake(mhi_dev_ctxt);
+		return r;
+	}
+	enable_clients(mhi_dev_ctxt, mhi_dev_ctxt->dev_exec_env);
+
 
 	/*
 	 * runtime_allow will decrement usage_count, counts were
@@ -508,7 +662,7 @@ static int process_amss_transition(
 	return 0;
 }
 
-static int process_stt_work_item(
+void process_stt_work_item(
 			struct mhi_device_ctxt  *mhi_dev_ctxt,
 			enum STATE_TRANSITION cur_work_item)
 {
@@ -520,7 +674,10 @@ static int process_stt_work_item(
 	trace_mhi_state(cur_work_item);
 	switch (cur_work_item) {
 	case STATE_TRANSITION_BHI:
-		r = process_bhi_transition(mhi_dev_ctxt, cur_work_item);
+		write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		mhi_dev_ctxt->mhi_state = MHI_STATE_BHI;
+		write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		wake_up_interruptible(mhi_dev_ctxt->mhi_ev_wq.bhi_event);
 		break;
 	case STATE_TRANSITION_RESET:
 		r = process_reset_transition(mhi_dev_ctxt, cur_work_item);
@@ -529,13 +686,34 @@ static int process_stt_work_item(
 		r = process_ready_transition(mhi_dev_ctxt, cur_work_item);
 		break;
 	case STATE_TRANSITION_SBL:
-		r = process_sbl_transition(mhi_dev_ctxt, cur_work_item);
+		write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_SBL;
+		write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		enable_clients(mhi_dev_ctxt, mhi_dev_ctxt->dev_exec_env);
 		break;
 	case STATE_TRANSITION_AMSS:
 		r = process_amss_transition(mhi_dev_ctxt, cur_work_item);
 		break;
 	case STATE_TRANSITION_BHIE:
-		r = process_bhie_transition(mhi_dev_ctxt, cur_work_item);
+		write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_BHIE;
+		write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		wake_up(mhi_dev_ctxt->mhi_ev_wq.bhi_event);
+		break;
+	case STATE_TRANSITION_RDDM:
+		write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_RDDM;
+		mhi_dev_ctxt->deassert_wake(mhi_dev_ctxt);
+		write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		complete(&mhi_dev_ctxt->cmd_complete);
+
+		/* Notify bus master device entered rddm mode */
+		if (!mhi_dev_ctxt->core.pci_master) {
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"Notifying bus master RDDM Status\n");
+			mhi_dev_ctxt->status_cb(MHI_CB_RDDM,
+						mhi_dev_ctxt->priv_data);
+		}
 		break;
 	default:
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
@@ -544,12 +722,11 @@ static int process_stt_work_item(
 		BUG();
 		break;
 	}
-	return r;
 }
 
 void mhi_state_change_worker(struct work_struct *work)
 {
-	int r = 0;
+	int r;
 	struct mhi_device_ctxt *mhi_dev_ctxt = container_of(work,
 				    struct mhi_device_ctxt,
 				    st_thread_worker);
@@ -565,7 +742,7 @@ void mhi_state_change_worker(struct work_struct *work)
 		MHI_ASSERT(r == 0,
 			"Failed to delete element from STT workqueue\n");
 		spin_unlock_irq(work_q->q_lock);
-		r = process_stt_work_item(mhi_dev_ctxt, cur_work_item);
+		process_stt_work_item(mhi_dev_ctxt, cur_work_item);
 	}
 }
 
