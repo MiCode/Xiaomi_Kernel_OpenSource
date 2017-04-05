@@ -849,6 +849,7 @@ DECLARE_EVENT_CLASS(sched_task_util,
 		__field(int, target_cpu			)
 		__field(int, ediff			)
 		__field(bool, need_idle			)
+		__field(u64, latency			)
 	),
 
 	TP_fast_assign(
@@ -861,10 +862,11 @@ DECLARE_EVENT_CLASS(sched_task_util,
 		__entry->target_cpu		= target_cpu;
 		__entry->ediff			= ediff;
 		__entry->need_idle		= need_idle;
+		__entry->latency		= sched_ktime_clock() - p->ravg.mark_start;
 	),
 
-	TP_printk("comm=%s pid=%d task_cpu=%d task_util=%lu nominated_cpu=%d target_cpu=%d energy_diff=%d need_idle=%d",
-		__entry->comm, __entry->pid, __entry->task_cpu, __entry->task_util, __entry->nominated_cpu, __entry->target_cpu, __entry->ediff, __entry->need_idle)
+	TP_printk("comm=%s pid=%d task_cpu=%d task_util=%lu nominated_cpu=%d target_cpu=%d energy_diff=%d need_idle=%d latency=%llu",
+		__entry->comm, __entry->pid, __entry->task_cpu, __entry->task_util, __entry->nominated_cpu, __entry->target_cpu, __entry->ediff, __entry->need_idle, __entry->latency)
 );
 
 DEFINE_EVENT(sched_task_util, sched_task_util_overutilzed,
