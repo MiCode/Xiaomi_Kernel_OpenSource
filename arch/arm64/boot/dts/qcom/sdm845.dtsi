@@ -749,6 +749,7 @@
 		reg = <0x5090000 0x9000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&pm8998_s9_level>;
+		qcom,gpu_cc_gmu_clk_src-opp-handle = <&gmu>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -759,6 +760,7 @@
 		reg-names = "cc_base";
 		vdd_gfx-supply = <&pm8005_s1_level>;
 		vdd_mx-supply = <&pm8998_s6_level>;
+		qcom,gpu_cc_gx_gfx3d_clk_src-opp-handle = <&msm_gpu>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
