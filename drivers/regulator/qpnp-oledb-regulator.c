@@ -17,6 +17,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
 #include <linux/spmi.h>
@@ -24,6 +25,8 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/regulator/qpnp-labibb-regulator.h>
+#include <linux/qpnp/qpnp-pbs.h>
 
 #define QPNP_OLEDB_REGULATOR_DRIVER_NAME	"qcom,qpnp-oledb-regulator"
 #define OLEDB_VOUT_STEP_MV				100
@@ -91,6 +94,12 @@
 #define OLEDB_ENABLE_NLIMIT_BIT_SHIFT			7
 #define OLEDB_NLIMIT_PGM_MASK				GENMASK(1, 0)
 
+#define OLEDB_SPARE_CTL					0xE9
+#define OLEDB_FORCE_PD_CTL_SPARE_BIT			BIT(7)
+
+#define OLEDB_PD_PBS_TRIGGER_BIT			BIT(0)
+
+#define OLEDB_SEC_UNLOCK_CODE				0xA5
 #define OLEDB_PSM_HYS_CTRL_MIN				13
 #define OLEDB_PSM_HYS_CTRL_MAX				26
 
@@ -150,6 +159,9 @@ struct qpnp_oledb {
 	struct qpnp_oledb_psm_ctl		psm_ctl;
 	struct qpnp_oledb_pfm_ctl		pfm_ctl;
 	struct qpnp_oledb_fast_precharge_ctl	fast_prechg_ctl;
+	struct notifier_block			oledb_nb;
+	struct mutex				bus_lock;
+	struct device_node			*pbs_dev_node;
 
 	u32					base;
 	u8					mod_enable;
@@ -168,6 +180,7 @@ struct qpnp_oledb {
 	bool					ext_pin_control;
 	bool					dynamic_ext_pinctl_config;
 	bool					pbs_control;
+	bool					force_pd_control;
 };
 
 static const u16 oledb_warmup_dly_ns[] = {6700, 13300, 26700, 53400};
@@ -184,11 +197,13 @@ static int qpnp_oledb_read(struct qpnp_oledb *oledb, u32 address,
 	int rc = 0;
 	struct platform_device *pdev = oledb->pdev;
 
+	mutex_lock(&oledb->bus_lock);
 	rc = regmap_bulk_read(oledb->regmap, address, val, count);
 	if (rc)
 		pr_err("Failed to read address=0x%02x sid=0x%02x rc=%d\n",
 			address, to_spmi_device(pdev->dev.parent)->usid, rc);
 
+	mutex_unlock(&oledb->bus_lock);
 	return rc;
 }
 
@@ -197,6 +212,7 @@ static int qpnp_oledb_masked_write(struct qpnp_oledb *oledb,
 {
 	int rc;
 
+	mutex_lock(&oledb->bus_lock);
 	rc = regmap_update_bits(oledb->regmap, address, mask, val);
 	if (rc < 0)
 		pr_err("Failed to write address 0x%04X, rc = %d\n",
@@ -205,6 +221,31 @@ static int qpnp_oledb_masked_write(struct qpnp_oledb *oledb,
 		pr_debug("Wrote 0x%02X to addr 0x%04X\n",
 			val, address);
 
+	mutex_unlock(&oledb->bus_lock);
+	return rc;
+}
+
+#define OLEDB_SEC_ACCESS	0xD0
+static int qpnp_oledb_sec_masked_write(struct qpnp_oledb *oledb, u16 address,
+							 u8 mask, u8 val)
+{
+	int rc = 0;
+	u8 sec_val = OLEDB_SEC_UNLOCK_CODE;
+	u16 sec_reg_addr = (address & 0xFF00) | OLEDB_SEC_ACCESS;
+
+	mutex_lock(&oledb->bus_lock);
+	rc = regmap_write(oledb->regmap, sec_reg_addr, sec_val);
+	if (rc < 0) {
+		pr_err("register %x failed rc = %d\n", sec_reg_addr, rc);
+		goto error;
+	}
+
+	rc = regmap_update_bits(oledb->regmap, address, mask, val);
+	if (rc < 0)
+		pr_err("spmi write failed: addr=%03X, rc=%d\n", address, rc);
+
+error:
+	mutex_unlock(&oledb->bus_lock);
 	return rc;
 }
 
@@ -214,6 +255,7 @@ static int qpnp_oledb_write(struct qpnp_oledb *oledb, u16 address, u8 *val,
 	int rc = 0;
 	struct platform_device *pdev = oledb->pdev;
 
+	mutex_lock(&oledb->bus_lock);
 	rc = regmap_bulk_write(oledb->regmap, address, val, count);
 	if (rc)
 		pr_err("Failed to write address=0x%02x sid=0x%02x rc=%d\n",
@@ -222,7 +264,8 @@ static int qpnp_oledb_write(struct qpnp_oledb *oledb, u16 address, u8 *val,
 		pr_debug("Wrote 0x%02X to addr 0x%04X\n",
 			*val, address);
 
-	return 0;
+	mutex_unlock(&oledb->bus_lock);
+	return rc;
 }
 
 static int qpnp_oledb_regulator_enable(struct regulator_dev *rdev)
@@ -285,6 +328,8 @@ static int qpnp_oledb_regulator_enable(struct regulator_dev *rdev)
 static int qpnp_oledb_regulator_disable(struct regulator_dev *rdev)
 {
 	int rc = 0;
+	u8 trigger_bitmap = OLEDB_PD_PBS_TRIGGER_BIT;
+	u8 val;
 
 	struct qpnp_oledb *oledb  = rdev_get_drvdata(rdev);
 
@@ -312,6 +357,27 @@ static int qpnp_oledb_regulator_disable(struct regulator_dev *rdev)
 			return rc;
 		}
 		pr_debug("Register-control mode, module disabled\n");
+	}
+
+	if (oledb->force_pd_control) {
+		rc = qpnp_oledb_read(oledb, oledb->base + OLEDB_SPARE_CTL,
+						&val, 1);
+		if (rc < 0) {
+			pr_err("Failed to read OLEDB_SPARE_CTL rc=%d\n", rc);
+			return rc;
+		}
+
+		if (val & OLEDB_FORCE_PD_CTL_SPARE_BIT) {
+			rc = qpnp_pbs_trigger_event(oledb->pbs_dev_node,
+							trigger_bitmap);
+			if (rc < 0) {
+				pr_err("Failed to trigger the PBS sequence\n");
+				return rc;
+			}
+			pr_debug("PBS event triggered\n");
+		} else {
+			pr_debug("OLEDB_SPARE_CTL register bit not set\n");
+		}
 	}
 
 	oledb->mod_enable = false;
@@ -1034,6 +1100,18 @@ static int qpnp_oledb_parse_dt(struct qpnp_oledb *oledb)
 	oledb->pbs_control =
 			of_property_read_bool(of_node, "qcom,pbs-control");
 
+	oledb->force_pd_control =
+			of_property_read_bool(of_node, "qcom,force-pd-control");
+
+	if (oledb->force_pd_control) {
+		oledb->pbs_dev_node = of_parse_phandle(of_node,
+						"qcom,pbs-client", 0);
+		if (!oledb->pbs_dev_node) {
+			pr_err("Missing qcom,pbs-client property\n");
+			return -EINVAL;
+		}
+	}
+
 	oledb->current_voltage = -EINVAL;
 	rc = of_property_read_u32(of_node, "qcom,oledb-init-voltage-mv",
 						&oledb->current_voltage);
@@ -1116,6 +1194,52 @@ static int qpnp_oledb_parse_dt(struct qpnp_oledb *oledb)
 	return rc;
 }
 
+static int qpnp_oledb_force_pulldown_config(struct qpnp_oledb *oledb)
+{
+	int rc = 0;
+	u8 val;
+
+	rc = qpnp_oledb_sec_masked_write(oledb, oledb->base +
+		    OLEDB_SPARE_CTL, OLEDB_FORCE_PD_CTL_SPARE_BIT, 0);
+	if (rc < 0) {
+		pr_err("Failed to write SPARE_CTL rc=%d\n", rc);
+		return rc;
+	}
+
+	val = 1;
+	rc = qpnp_oledb_write(oledb, oledb->base + OLEDB_PD_CTL,
+							&val, 1);
+	if (rc < 0) {
+		pr_err("Failed to write PD_CTL rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_oledb_masked_write(oledb, oledb->base +
+		OLEDB_SWIRE_CONTROL, OLEDB_EN_SWIRE_PD_UPD_BIT, 0);
+	if (rc < 0)
+		pr_err("Failed to write SWIRE_CTL for pbs mode rc=%d\n",
+					rc);
+
+	return rc;
+}
+
+static int qpnp_labibb_notifier_cb(struct notifier_block *nb,
+					unsigned long action, void *data)
+{
+	int rc = 0;
+	struct qpnp_oledb *oledb = container_of(nb, struct qpnp_oledb,
+								oledb_nb);
+
+	if (action == LAB_VREG_OK) {
+		/* Disable SWIRE pull down control and enable via spmi mode */
+		rc = qpnp_oledb_force_pulldown_config(oledb);
+		if (rc < 0)
+			return NOTIFY_STOP;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int qpnp_oledb_regulator_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1143,6 +1267,7 @@ static int qpnp_oledb_regulator_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	mutex_init(&(oledb->bus_lock));
 	oledb->base = val;
 	rc = qpnp_oledb_parse_dt(oledb);
 	if (rc < 0) {
@@ -1156,18 +1281,47 @@ static int qpnp_oledb_regulator_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	if (oledb->force_pd_control) {
+		oledb->oledb_nb.notifier_call = qpnp_labibb_notifier_cb;
+		rc = qpnp_labibb_notifier_register(&oledb->oledb_nb);
+		if (rc < 0) {
+			pr_err("Failed to register qpnp_labibb_notifier_cb\n");
+			return rc;
+		}
+	}
+
 	rc = qpnp_oledb_register_regulator(oledb);
-	if (!rc)
-		pr_info("OLEDB registered successfully, ext_pin_en=%d mod_en=%d cuurent_voltage=%d mV\n",
+	if (rc < 0) {
+		pr_err("Failed to register regulator rc=%d\n", rc);
+		goto out;
+	}
+	pr_info("OLEDB registered successfully, ext_pin_en=%d mod_en=%d current_voltage=%d mV\n",
 			oledb->ext_pin_control, oledb->mod_enable,
 						oledb->current_voltage);
+	return 0;
+
+out:
+	if (oledb->force_pd_control) {
+		rc  = qpnp_labibb_notifier_unregister(&oledb->oledb_nb);
+		if (rc < 0)
+			pr_err("Failed to unregister lab_vreg_ok notifier\n");
+	}
 
 	return rc;
 }
 
 static int qpnp_oledb_regulator_remove(struct platform_device *pdev)
 {
-	return 0;
+	int rc = 0;
+	struct qpnp_oledb *oledb = platform_get_drvdata(pdev);
+
+	if (oledb->force_pd_control) {
+		rc  = qpnp_labibb_notifier_unregister(&oledb->oledb_nb);
+		if (rc < 0)
+			pr_err("Failed to unregister lab_vreg_ok notifier\n");
+	}
+
+	return rc;
 }
 
 const struct of_device_id qpnp_oledb_regulator_match_table[] = {
