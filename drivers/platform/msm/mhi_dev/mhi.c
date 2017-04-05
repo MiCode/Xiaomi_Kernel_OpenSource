@@ -1850,6 +1850,10 @@ static void mhi_dev_enable(struct work_struct *work)
 	}
 
 	mhi_uci_init();
+	/*Enable MHI dev network stack Interface*/
+	rc = mhi_dev_net_interface_init();
+	if (rc)
+		pr_err("%s Failed to initialize mhi_dev_net iface\n", __func__);
 
 	rc = ep_pcie_get_msi_config(mhi->phandle, &msi_cfg);
 	if (rc)
