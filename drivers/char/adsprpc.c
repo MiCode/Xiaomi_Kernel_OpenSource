@@ -553,7 +553,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map)
 
 		if (!IS_ERR_OR_NULL(map->handle))
 			ion_free(fl->apps->client, map->handle);
-		if (sess->smmu.enabled) {
+		if (sess && sess->smmu.enabled) {
 			if (map->size || map->phys)
 				msm_dma_unmap_sg(sess->smmu.dev,
 					map->table->sgl,
@@ -645,6 +645,9 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, unsigned attr,
 		else
 			sess = fl->sctx;
 
+		VERIFY(err, !IS_ERR_OR_NULL(sess));
+		if (err)
+			goto bail;
 		VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
 		if (err)
 			goto bail;
