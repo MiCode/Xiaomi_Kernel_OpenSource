@@ -324,6 +324,17 @@ config MSM_SPCOM
 	  spcom provides clients/server API, although currently only one client
 	  or server is allowed per logical channel.
 
+config MSM_SPSS_UTILS
+	depends on MSM_PIL
+	bool "Secure Processor Utilities"
+	help
+	  spss-utils driver selects Secure Processor firmware file name.
+	  The firmware file name for dev, test or production is selected
+	  based on two fuses.
+	  Different file name is used for differnt SPSS HW versions,
+	  because the SPSS firmware size is too small to support multiple
+	  HW versions.
+
 config TRACER_PKT
 	bool "Tracer Packet"
 	help
