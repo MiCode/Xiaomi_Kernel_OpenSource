@@ -2095,8 +2095,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		dwc3_msm_config_gdsc(mdwc, 0);
 		clk_disable_unprepare(mdwc->sleep_clk);
 
-		if (mdwc->iommu_map)
+		if (mdwc->iommu_map) {
 			arm_iommu_detach_device(mdwc->dev);
+			dev_dbg(mdwc->dev, "IOMMU detached\n");
+		}
 	}
 
 	/* Remove bus voting */
@@ -2230,6 +2232,16 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
 		u32 tmp;
 
+		if (mdwc->iommu_map) {
+			ret = arm_iommu_attach_device(mdwc->dev,
+					mdwc->iommu_map);
+			if (ret)
+				dev_err(mdwc->dev, "IOMMU attach failed (%d)\n",
+						ret);
+			else
+				dev_dbg(mdwc->dev, "attached to IOMMU\n");
+		}
+
 		dev_dbg(mdwc->dev, "%s: exit power collapse\n", __func__);
 
 		dwc3_msm_power_collapse_por(mdwc);
@@ -2242,16 +2254,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 					PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
 
 		mdwc->lpm_flags &= ~MDWC3_POWER_COLLAPSE;
-
-		if (mdwc->iommu_map) {
-			ret = arm_iommu_attach_device(mdwc->dev,
-					mdwc->iommu_map);
-			if (ret)
-				dev_err(mdwc->dev, "IOMMU attach failed (%d)\n",
-						ret);
-			else
-				dev_dbg(mdwc->dev, "attached to IOMMU\n");
-		}
 	}
 
 	atomic_set(&dwc->in_lpm, 0);
@@ -2809,12 +2811,22 @@ static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
 	if (ret) {
 		dev_err(mdwc->dev, "IOMMU set atomic attribute failed (%d)\n",
 			ret);
-		arm_iommu_release_mapping(mdwc->iommu_map);
-		mdwc->iommu_map = NULL;
-		return ret;
+		goto release_mapping;
 	}
 
+	ret = arm_iommu_attach_device(mdwc->dev, mdwc->iommu_map);
+	if (ret) {
+		dev_err(mdwc->dev, "IOMMU attach failed (%d)\n", ret);
+		goto release_mapping;
+	}
+	dev_dbg(mdwc->dev, "attached to IOMMU\n");
+
 	return 0;
+
+release_mapping:
+	arm_iommu_release_mapping(mdwc->iommu_map);
+	mdwc->iommu_map = NULL;
+	return ret;
 }
 
 static ssize_t mode_show(struct device *dev, struct device_attribute *attr,
@@ -3184,6 +3196,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(node, "qcom,num-gsi-evt-buffs",
 				&mdwc->num_gsi_event_buffers);
 
+	/* IOMMU will be reattached upon each resume/connect */
+	if (mdwc->iommu_map)
+		arm_iommu_detach_device(mdwc->dev);
+
 	/*
 	 * Clocks and regulators will not be turned on until the first time
 	 * runtime PM resume is called. This is to allow for booting up with
@@ -3250,8 +3266,10 @@ put_dwc3:
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
 uninit_iommu:
-	if (mdwc->iommu_map)
+	if (mdwc->iommu_map) {
+		arm_iommu_detach_device(mdwc->dev);
 		arm_iommu_release_mapping(mdwc->iommu_map);
+	}
 err:
 	return ret;
 }
