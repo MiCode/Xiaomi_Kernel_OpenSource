@@ -421,7 +421,6 @@ int ipa3_send(struct ipa3_sys_context *sys,
 	}
 	kfree(gsi_xfer_elem_array);
 
-	kfree(gsi_xfer_elem_array);
 	spin_unlock_bh(&sys->spinlock);
 
 	/* set the timer for sending the NOP descriptor */
