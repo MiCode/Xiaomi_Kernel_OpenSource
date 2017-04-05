@@ -509,7 +509,7 @@ out:
 /* replace non-printable or non-ASCII characters with spaces */
 static inline void ufshcd_remove_non_printable(char *val)
 {
-	if (!val)
+	if (!val || !*val)
 		return;
 
 	if (*val < 0x20 || *val > 0x7e)
@@ -3651,7 +3651,7 @@ int ufshcd_read_string_desc(struct ufs_hba *hba, int desc_index, u8 *buf,
 			goto out;
 		}
 
-		buff_ascii = kmalloc(ascii_len, GFP_KERNEL);
+		buff_ascii = kzalloc(ascii_len, GFP_KERNEL);
 		if (!buff_ascii) {
 			dev_err(hba->dev, "%s: Failed allocating %d bytes\n",
 					__func__, ascii_len);
@@ -9207,6 +9207,31 @@ static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 	if (scale_up) {
 		memcpy(&new_pwr_info, &hba->clk_scaling.saved_pwr_info.info,
 		       sizeof(struct ufs_pa_layer_attr));
+		/*
+		 * Some UFS devices may stop responding after switching from
+		 * HS-G1 to HS-G3. Also, it is found that these devices work
+		 * fine if we do 2 steps switch: HS-G1 to HS-G2 followed by
+		 * HS-G2 to HS-G3. If UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH
+		 * quirk is enabled for such devices, this 2 steps gear switch
+		 * workaround will be applied.
+		 */
+		if ((hba->dev_quirks & UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH)
+		    && (hba->pwr_info.gear_tx == UFS_HS_G1)
+		    && (new_pwr_info.gear_tx == UFS_HS_G3)) {
+			/* scale up to G2 first */
+			new_pwr_info.gear_tx = UFS_HS_G2;
+			new_pwr_info.gear_rx = UFS_HS_G2;
+			ret = ufshcd_change_power_mode(hba, &new_pwr_info);
+			if (ret)
+				goto out;
+
+			/* scale up to G3 now */
+			new_pwr_info.gear_tx = UFS_HS_G3;
+			new_pwr_info.gear_rx = UFS_HS_G3;
+			ret = ufshcd_change_power_mode(hba, &new_pwr_info);
+			if (ret)
+				goto out;
+		}
 	} else {
 		memcpy(&new_pwr_info, &hba->pwr_info,
 		       sizeof(struct ufs_pa_layer_attr));
@@ -9226,10 +9251,10 @@ static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 				new_pwr_info.pwr_rx = FASTAUTO_MODE;
 			}
 		}
+		ret = ufshcd_change_power_mode(hba, &new_pwr_info);
 	}
 
-	ret = ufshcd_change_power_mode(hba, &new_pwr_info);
-
+out:
 	if (ret)
 		dev_err(hba->dev, "%s: failed err %d, old gear: (tx %d rx %d), new gear: (tx %d rx %d), scale_up = %d",
 			__func__, ret,
@@ -9292,9 +9317,28 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 			goto clk_scaling_unprepare;
 	}
 
+	/*
+	 * If auto hibern8 is supported then put the link in
+	 * hibern8 manually, this is to avoid auto hibern8
+	 * racing during clock frequency scaling sequence.
+	 */
+	if (ufshcd_is_auto_hibern8_supported(hba)) {
+		ret = ufshcd_uic_hibern8_enter(hba);
+		if (ret)
+			/* link will be bad state so no need to scale_up_gear */
+			return ret;
+	}
+
 	ret = ufshcd_scale_clks(hba, scale_up);
 	if (ret)
 		goto scale_up_gear;
+
+	if (ufshcd_is_auto_hibern8_supported(hba)) {
+		ret = ufshcd_uic_hibern8_exit(hba);
+		if (ret)
+			/* link will be bad state so no need to scale_up_gear */
+			return ret;
+	}
 
 	/* scale up the gear after scaling up clocks */
 	if (scale_up) {
