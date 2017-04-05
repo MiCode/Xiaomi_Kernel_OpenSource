@@ -99,11 +99,11 @@ config ARM_MEMLAT_MON
 	  the mem_latency devfreq governor.
 
 config QCOMCCI_HWMON
-	tristate "QCOM CCI Cache monitor hardware"
+	tristate "QTI CCI Cache monitor hardware"
 	depends on ARCH_QCOM
 	help
-	  QCOM CCI has additional PMU counters that can be used to monitor
-	  cache requests. QCOM CCI hardware monitor device configures these
+	  QTI CCI has additional PMU counters that can be used to monitor
+	  cache requests. QTI CCI hardware monitor device configures these
 	  registers to monitor cache and inform governor. It can also set an
 	  IRQ when count exceeds a programmable limit.
 
@@ -205,7 +205,7 @@ config DEVFREQ_SIMPLE_DEV
 	  clock APIs and don't have any form of status reporting.
 
 config QCOM_DEVFREQ_DEVBW
-	bool "QCOM DEVFREQ device for device master <-> slave IB/AB BW voting"
+	bool "Qualcomm Technologies Inc. DEVFREQ device for device master <-> slave IB/AB BW voting"
 	depends on ARCH_QCOM
 	select DEVFREQ_GOV_PERFORMANCE
 	select DEVFREQ_GOV_POWERSAVE
