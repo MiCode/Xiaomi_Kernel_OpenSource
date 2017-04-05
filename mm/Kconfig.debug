@@ -54,6 +54,16 @@ config PAGE_POISONING
 
 	  If unsure, say N
 
+config PAGE_POISONING_ENABLE_DEFAULT
+	bool "Enable page poisoning by default?"
+	default n
+	depends on PAGE_POISONING
+	help
+	  Enable page poisoning of free pages by default? This value
+	  can be overridden by page_poison=off|on. This can be used
+	  to avoid passing the kernel parameter and let page poisoning
+	  feature enabled by default.
+
 config PAGE_POISONING_NO_SANITY
 	depends on PAGE_POISONING
 	bool "Only poison, don't sanity check"
