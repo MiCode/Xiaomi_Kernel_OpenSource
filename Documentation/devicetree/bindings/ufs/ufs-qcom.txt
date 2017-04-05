@@ -30,6 +30,10 @@ Optional properties:
 - vdda-pll-max-microamp : specifies max. load that can be drawn from pll supply
 - qcom,disable-lpm : disable various LPM mechanisms in UFS for platform compatibility
   (limit link to PWM Gear-1, 1-lane slow mode; disable hibernate, and avoid suspend/resume)
+- lanes-per-direction:	number of lanes available per direction - either 1 or 2.
+			Note that it is assumed that same number of lanes is
+			used both directions at once.
+			If not specified, default is 2 lanes per direction.
 
 Example:
 
@@ -38,6 +42,7 @@ Example:
 		reg = <0xfc597000 0x800>;
 		reg-names = "phy_mem";
 		#phy-cells = <0>;
+		lanes-per-direction = <1>;
 		vdda-phy-supply = <&pma8084_l4>;
 		vdda-pll-supply = <&pma8084_l12>;
 		vdda-phy-max-microamp = <50000>;
