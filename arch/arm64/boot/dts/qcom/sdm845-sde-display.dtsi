@@ -293,3 +293,45 @@
 &mdss_mdp {
 	connectors = <&sde_wb>;
 };
+
+&dsi_dual_nt35597_truly_video {
+	qcom,mdss-dsi-panel-timings = [00 1c 07 07 23 21 07 07 05 03 04];
+	qcom,mdss-dsi-t-clk-post = <0x0D>;
+	qcom,mdss-dsi-t-clk-pre = <0x2D>;
+};
+
+&dsi_dual_nt35597_truly_cmd {
+	qcom,mdss-dsi-panel-timings = [00 1c 07 07 23 21 07 07 05 03 04];
+	qcom,mdss-dsi-t-clk-post = <0x0D>;
+	qcom,mdss-dsi-t-clk-pre = <0x2D>;
+};
+
+&dsi_nt35597_truly_dsc_cmd {
+	qcom,mdss-dsi-panel-timings = [00 15 05 05 20 1f 05 05 03 03 04];
+	qcom,mdss-dsi-t-clk-post = <0x0b>;
+	qcom,mdss-dsi-t-clk-pre = <0x23>;
+};
+
+&dsi_nt35597_truly_dsc_video {
+	qcom,mdss-dsi-panel-timings = [00 15 05 05 20 1f 05 05 03 03 04];
+	qcom,mdss-dsi-t-clk-post = <0x0b>;
+	qcom,mdss-dsi-t-clk-pre = <0x23>;
+};
+
+&dsi_sharp_4k_dsc_video {
+	qcom,mdss-dsi-panel-timings = [00 12 04 04 1e 1e 04 04 02 03 04];
+	qcom,mdss-dsi-t-clk-post = <0x0a>;
+	qcom,mdss-dsi-t-clk-pre = <0x1e>;
+};
+
+&dsi_sharp_4k_dsc_cmd {
+	qcom,mdss-dsi-panel-timings = [00 12 04 04 1e 1e 04 04 02 03 04];
+	qcom,mdss-dsi-t-clk-post = <0x0a>;
+	qcom,mdss-dsi-t-clk-pre = <0x1e>;
+};
+
+&dsi_dual_sharp_1080_120hz_cmd {
+	qcom,mdss-dsi-panel-timings = [00 24 09 09 26 24 09 09 06 03 04];
+	qcom,mdss-dsi-t-clk-post = <0x0f>;
+	qcom,mdss-dsi-t-clk-pre = <0x36>;
+};
