@@ -1079,6 +1079,12 @@ config SERIAL_MSM_GENI
 	    hardware.
 	    The driver supports console and High speed UART functions.
 
+config SERIAL_MSM_GENI_CONSOLE
+	tristate "MSM on-chip GENI HW based console support"
+	depends on SERIAL_MSM_GENI=y
+	select SERIAL_CORE_CONSOLE
+	select SERIAL_EARLYCON
+
 config SERIAL_MSM_CONSOLE
 	bool "MSM serial console support"
 	depends on SERIAL_MSM=y
