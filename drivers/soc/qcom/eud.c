@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,10 +144,10 @@ static void eud_event_notifier(struct work_struct *eud_work)
 					eud_work);
 
 	if (chip->int_status == EUD_INT_VBUS)
-		extcon_set_cable_state_(chip->extcon, chip->extcon_id,
+		extcon_set_state_sync(chip->extcon, chip->extcon_id,
 					chip->usb_attach);
 	else if (chip->int_status == EUD_INT_CHGR)
-		extcon_set_cable_state_(chip->extcon, chip->extcon_id,
+		extcon_set_state_sync(chip->extcon, chip->extcon_id,
 					chip->chgr_enable);
 }
 

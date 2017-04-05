@@ -373,8 +373,6 @@ static LIST_HEAD(_usbpd);	/* useful for debugging */
 static const unsigned int usbpd_extcon_cable[] = {
 	EXTCON_USB,
 	EXTCON_USB_HOST,
-	EXTCON_USB_CC,
-	EXTCON_USB_SPEED,
 	EXTCON_NONE,
 };
 
@@ -397,32 +395,43 @@ EXPORT_SYMBOL(usbpd_get_plug_orientation);
 
 static inline void stop_usb_host(struct usbpd *pd)
 {
-	extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 0);
+	extcon_set_state_sync(pd->extcon, EXTCON_USB_HOST, 0);
 }
 
 static inline void start_usb_host(struct usbpd *pd, bool ss)
 {
 	enum plug_orientation cc = usbpd_get_plug_orientation(pd);
+	union extcon_property_value val;
 
-	extcon_set_cable_state_(pd->extcon, EXTCON_USB_CC,
-			cc == ORIENTATION_CC2);
-	extcon_set_cable_state_(pd->extcon, EXTCON_USB_SPEED, ss);
-	extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 1);
+	val.intval = (cc == ORIENTATION_CC2);
+	extcon_set_property(pd->extcon, EXTCON_USB_HOST,
+			EXTCON_PROP_USB_TYPEC_POLARITY, val);
+
+	val.intval = ss;
+	extcon_set_property(pd->extcon, EXTCON_USB_HOST,
+			EXTCON_PROP_USB_SS, val);
+
+	extcon_set_state_sync(pd->extcon, EXTCON_USB_HOST, 1);
 }
 
 static inline void stop_usb_peripheral(struct usbpd *pd)
 {
-	extcon_set_cable_state_(pd->extcon, EXTCON_USB, 0);
+	extcon_set_state_sync(pd->extcon, EXTCON_USB, 0);
 }
 
 static inline void start_usb_peripheral(struct usbpd *pd)
 {
 	enum plug_orientation cc = usbpd_get_plug_orientation(pd);
+	union extcon_property_value val;
 
-	extcon_set_cable_state_(pd->extcon, EXTCON_USB_CC,
-			cc == ORIENTATION_CC2);
-	extcon_set_cable_state_(pd->extcon, EXTCON_USB_SPEED, 1);
-	extcon_set_cable_state_(pd->extcon, EXTCON_USB, 1);
+	val.intval = (cc == ORIENTATION_CC2);
+	extcon_set_property(pd->extcon, EXTCON_USB,
+			EXTCON_PROP_USB_TYPEC_POLARITY, val);
+
+	val.intval = 1;
+	extcon_set_property(pd->extcon, EXTCON_USB, EXTCON_PROP_USB_SS, val);
+
+	extcon_set_state_sync(pd->extcon, EXTCON_USB, 1);
 }
 
 static int set_power_role(struct usbpd *pd, enum power_role pr)
@@ -1817,7 +1826,7 @@ static void usbpd_sm(struct work_struct *w)
 			regulator_disable(pd->vbus);
 
 		if (pd->current_dr != DR_DFP) {
-			extcon_set_cable_state_(pd->extcon, EXTCON_USB, 0);
+			extcon_set_state_sync(pd->extcon, EXTCON_USB, 0);
 			pd->current_dr = DR_DFP;
 			pd_phy_update_roles(pd->current_dr, pd->current_pr);
 		}
@@ -3206,6 +3215,16 @@ struct usbpd *usbpd_create(struct device *parent)
 		usbpd_err(&pd->dev, "failed to register extcon device\n");
 		goto put_psy;
 	}
+
+	/* Support reporting polarity and speed via properties */
+	extcon_set_property_capability(pd->extcon, EXTCON_USB,
+			EXTCON_PROP_USB_TYPEC_POLARITY);
+	extcon_set_property_capability(pd->extcon, EXTCON_USB,
+			EXTCON_PROP_USB_SS);
+	extcon_set_property_capability(pd->extcon, EXTCON_USB_HOST,
+			EXTCON_PROP_USB_TYPEC_POLARITY);
+	extcon_set_property_capability(pd->extcon, EXTCON_USB_HOST,
+			EXTCON_PROP_USB_SS);
 
 	pd->vbus = devm_regulator_get(parent, "vbus");
 	if (IS_ERR(pd->vbus)) {

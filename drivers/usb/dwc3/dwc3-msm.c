@@ -2371,8 +2371,46 @@ static void dwc3_resume_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, resume_work);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	union extcon_property_value val;
+	unsigned int extcon_id;
+	struct extcon_dev *edev = NULL;
+	int ret = 0;
 
 	dev_dbg(mdwc->dev, "%s: dwc3 resume work\n", __func__);
+
+	if (mdwc->vbus_active) {
+		edev = mdwc->extcon_vbus;
+		extcon_id = EXTCON_USB;
+	} else if (mdwc->id_state == DWC3_ID_GROUND) {
+		edev = mdwc->extcon_id;
+		extcon_id = EXTCON_USB_HOST;
+	}
+
+	/* Check speed and Type-C polarity values in order to configure PHY */
+	if (edev && extcon_get_state(edev, extcon_id)) {
+		ret = extcon_get_property(edev, extcon_id,
+					EXTCON_PROP_USB_SS, &val);
+
+		/* Use default dwc->maximum_speed if speed isn't reported */
+		if (!ret)
+			dwc->maximum_speed = (val.intval == 0) ?
+					USB_SPEED_HIGH : USB_SPEED_SUPER;
+
+		if (dwc->maximum_speed > dwc->max_hw_supp_speed)
+			dwc->maximum_speed = dwc->max_hw_supp_speed;
+
+		dbg_event(0xFF, "speed", dwc->maximum_speed);
+
+		ret = extcon_get_property(edev, extcon_id,
+				EXTCON_PROP_USB_TYPEC_POLARITY, &val);
+		if (ret)
+			mdwc->typec_orientation = ORIENTATION_NONE;
+		else
+			mdwc->typec_orientation = val.intval ?
+					ORIENTATION_CC2 : ORIENTATION_CC1;
+
+		dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
+	}
 
 	/*
 	 * exit LPM first to meet resume timeline from device side.
@@ -2617,37 +2655,11 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 {
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, id_nb);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	struct extcon_dev *edev = ptr;
 	enum dwc3_id_state id;
-	int cc_state;
-	int speed;
-
-	if (!edev) {
-		dev_err(mdwc->dev, "%s: edev null\n", __func__);
-		goto done;
-	}
 
 	id = event ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
 
 	dev_dbg(mdwc->dev, "host:%ld (id:%d) event received\n", event, id);
-
-	cc_state = extcon_get_cable_state_(edev, EXTCON_USB_CC);
-	if (cc_state < 0)
-		mdwc->typec_orientation = ORIENTATION_NONE;
-	else
-		mdwc->typec_orientation =
-			cc_state ? ORIENTATION_CC2 : ORIENTATION_CC1;
-
-	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
-
-	speed = extcon_get_cable_state_(edev, EXTCON_USB_SPEED);
-	/* Use default dwc->maximum_speed if extcon doesn't report speed. */
-	if (speed >= 0)
-		dwc->maximum_speed =
-			(speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
-
-	if (dwc->maximum_speed > dwc->max_hw_supp_speed)
-		dwc->maximum_speed = dwc->max_hw_supp_speed;
 
 	if (mdwc->id_state != id) {
 		mdwc->id_state = id;
@@ -2655,7 +2667,6 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 	}
 
-done:
 	return NOTIFY_DONE;
 }
 
@@ -2664,44 +2675,19 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 {
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, vbus_nb);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	struct extcon_dev *edev = ptr;
-	int cc_state;
-	int speed;
-
-	if (!edev) {
-		dev_err(mdwc->dev, "%s: edev null\n", __func__);
-		goto done;
-	}
 
 	dev_dbg(mdwc->dev, "vbus:%ld event received\n", event);
 
 	if (mdwc->vbus_active == event)
 		return NOTIFY_DONE;
 
-	cc_state = extcon_get_cable_state_(edev, EXTCON_USB_CC);
-	if (cc_state < 0)
-		mdwc->typec_orientation = ORIENTATION_NONE;
-	else
-		mdwc->typec_orientation =
-			cc_state ? ORIENTATION_CC2 : ORIENTATION_CC1;
-
-	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
-
-	speed = extcon_get_cable_state_(edev, EXTCON_USB_SPEED);
-	/* Use default dwc->maximum_speed if extcon doesn't report speed. */
-	if (speed >= 0)
-		dwc->maximum_speed =
-			(speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
-
-	if (dwc->maximum_speed > dwc->max_hw_supp_speed)
-		dwc->maximum_speed = dwc->max_hw_supp_speed;
-
 	mdwc->vbus_active = event;
 	if (dwc->is_drd && !mdwc->in_restart)
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
-done:
+
 	return NOTIFY_DONE;
 }
+
 /*
  * Handle EUD based soft detach/attach event, and force USB high speed mode
  * functionality on receiving soft attach event.
@@ -2717,12 +2703,6 @@ static int dwc3_msm_eud_notifier(struct notifier_block *nb,
 {
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, eud_event_nb);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	struct extcon_dev *edev = ptr;
-
-	if (!edev) {
-		dev_err(mdwc->dev, "%s: edev null\n", __func__);
-		goto done;
-	}
 
 	dbg_event(0xFF, "EUD_NB", event);
 	dev_dbg(mdwc->dev, "eud:%ld event received\n", event);
@@ -2735,7 +2715,7 @@ static int dwc3_msm_eud_notifier(struct notifier_block *nb,
 	mdwc->vbus_active = event;
 	if (dwc->is_drd && !mdwc->in_restart)
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
-done:
+
 	return NOTIFY_DONE;
 }
 
@@ -3276,10 +3256,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	/* Update initial VBUS/ID state from extcon */
-	if (mdwc->extcon_vbus && extcon_get_cable_state_(mdwc->extcon_vbus,
+	if (mdwc->extcon_vbus && extcon_get_state(mdwc->extcon_vbus,
 							EXTCON_USB))
 		dwc3_msm_vbus_notifier(&mdwc->vbus_nb, true, mdwc->extcon_vbus);
-	else if (mdwc->extcon_id && extcon_get_cable_state_(mdwc->extcon_id,
+	else if (mdwc->extcon_id && extcon_get_state(mdwc->extcon_id,
 							EXTCON_USB_HOST))
 		dwc3_msm_id_notifier(&mdwc->id_nb, true, mdwc->extcon_id);
 	else if (!pval.intval) {
