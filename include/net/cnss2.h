@@ -133,6 +133,8 @@ enum cnss_driver_mode {
 enum cnss_recovery_reason {
 	CNSS_REASON_DEFAULT,
 	CNSS_REASON_LINK_DOWN,
+	CNSS_REASON_RDDM,
+	CNSS_REASON_TIMEOUT,
 };
 
 extern int cnss_wlan_register_driver(struct cnss_wlan_driver *driver);
@@ -177,5 +179,6 @@ extern int cnss_wlan_enable(struct device *dev,
 			    enum cnss_driver_mode mode,
 			    const char *host_version);
 extern int cnss_wlan_disable(struct device *dev, enum cnss_driver_mode mode);
+extern unsigned int cnss_get_qmi_timeout(void);
 
 #endif /* _NET_CNSS2_H */

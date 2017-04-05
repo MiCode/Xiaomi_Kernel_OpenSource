@@ -709,6 +709,12 @@ static void cnss_wlfw_clnt_ind(struct qmi_handle *handle,
 	}
 }
 
+unsigned int cnss_get_qmi_timeout(void)
+{
+	return qmi_timeout;
+}
+EXPORT_SYMBOL(cnss_get_qmi_timeout);
+
 int cnss_wlfw_server_arrive(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
