@@ -813,10 +813,10 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		dwords += 6;
 
 		/*
-		 * REG_TO_MEM packet on A5xx needs another ordinal.
+		 * REG_TO_MEM packet on A5xx and above needs another ordinal.
 		 * Add 2 more dwords since we do profiling before and after.
 		 */
-		if (adreno_is_a5xx(adreno_dev))
+		if (!ADRENO_LEGACY_PM4(adreno_dev))
 			dwords += 2;
 
 		/*
@@ -833,7 +833,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	if (test_bit(CMDOBJ_PROFILE, &cmdobj->priv)) {
 		kernel_profiling = true;
 		dwords += 6;
-		if (adreno_is_a5xx(adreno_dev))
+		if (!ADRENO_LEGACY_PM4(adreno_dev))
 			dwords += 2;
 	}
 
