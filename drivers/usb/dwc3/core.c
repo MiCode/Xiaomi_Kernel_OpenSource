@@ -1109,6 +1109,15 @@ err0:
 
 #define DWC3_ALIGN_MASK		(16 - 1)
 
+/* check whether the core supports IMOD */
+bool dwc3_has_imod(struct dwc3 *dwc)
+{
+	return ((dwc3_is_usb3(dwc) &&
+		dwc->revision >= DWC3_REVISION_300A) ||
+		(dwc3_is_usb31(dwc) &&
+		dwc->revision >= DWC3_USB31_REVISION_120A));
+}
+
 static int dwc3_probe(struct platform_device *pdev)
 {
 	struct device		*dev = &pdev->dev;
