@@ -2329,3 +2329,34 @@
 		};
 	};
 };
+
+&pmi8998_gpios {
+	usb2_vbus_boost {
+		usb2_vbus_boost_default: usb2_vbus_boost_default {
+			pins = "gpio2";
+			function = "normal";
+			output-low;
+			power-source = <0>;
+		};
+	};
+
+	usb2_vbus_det {
+		usb2_vbus_det_default: usb2_vbus_det_default {
+			pins = "gpio8";
+			function = "normal";
+			input-enable;
+			bias-pull-down;
+			power-source = <1>;	/* VPH input supply */
+		};
+	};
+
+	usb2_id_det {
+		usb2_id_det_default: usb2_id_det_default {
+			pins = "gpio9";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+};
