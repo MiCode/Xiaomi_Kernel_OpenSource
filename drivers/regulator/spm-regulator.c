@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,6 +117,12 @@ static const struct voltage_range hf_range1 = {1550000, 1550000, 3125000,
  */
 #define QPNP_FTS2_STEP_MARGIN_NUM	4
 #define QPNP_FTS2_STEP_MARGIN_DEN	5
+
+/*
+ * Settling delay for FTS2.5
+ * Warm-up=20uS, 0-10% & 90-100% non-linear V-ramp delay = 50uS
+ */
+#define FTS2P5_SETTLING_DELAY_US	70
 
 /* VSET value to decide the range of ULT SMPS */
 #define ULT_SMPS_RANGE_SPLIT 0x60
@@ -268,6 +274,7 @@ static int spm_regulator_write_voltage(struct spm_vreg *vreg, int uV)
 	unsigned vlevel = spm_regulator_uv_to_vlevel(vreg, uV);
 	bool spm_failed = false;
 	int rc = 0;
+	u32 slew_delay;
 	u8 reg;
 
 	if (likely(!vreg->bypass_spm)) {
@@ -295,7 +302,16 @@ static int spm_regulator_write_voltage(struct spm_vreg *vreg, int uV)
 
 	if (uV > vreg->last_set_uV) {
 		/* Wait for voltage stepping to complete. */
-		udelay(DIV_ROUND_UP(uV - vreg->last_set_uV, vreg->step_rate));
+		slew_delay = DIV_ROUND_UP(vreg->uV - vreg->last_set_uV,
+					vreg->step_rate);
+		if (vreg->regulator_type == QPNP_TYPE_FTS2p5)
+			slew_delay += FTS2P5_SETTLING_DELAY_US;
+		udelay(slew_delay);
+	} else if (vreg->regulator_type == QPNP_TYPE_FTS2p5) {
+		/* add the ramp-down delay */
+		slew_delay = DIV_ROUND_UP(vreg->last_set_uV - vreg->uV,
+				vreg->step_rate) + FTS2P5_SETTLING_DELAY_US;
+		udelay(slew_delay);
 	}
 
 	vreg->last_set_uV = uV;
