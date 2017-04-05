@@ -889,7 +889,7 @@ static struct clk_rcg2 gcc_ufs_card_axi_clk_src = {
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_gp1_clk_src,
-	.enable_safe_config = true,
+	.flags = FORCE_ENABLE_RCG,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_card_axi_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -917,7 +917,7 @@ static struct clk_rcg2 gcc_ufs_card_ice_core_clk_src = {
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_ufs_card_ice_core_clk_src,
-	.enable_safe_config = true,
+	.flags = FORCE_ENABLE_RCG,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_card_ice_core_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -937,6 +937,7 @@ static struct clk_rcg2 gcc_ufs_card_phy_aux_clk_src = {
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_4,
 	.freq_tbl = ftbl_gcc_cpuss_rbcpr_clk_src,
+	.flags = FORCE_ENABLE_RCG,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_card_phy_aux_clk_src",
 		.parent_names = gcc_parent_names_4,
@@ -961,7 +962,7 @@ static struct clk_rcg2 gcc_ufs_card_unipro_core_clk_src = {
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_ufs_card_unipro_core_clk_src,
-	.enable_safe_config = true,
+	.flags = FORCE_ENABLE_RCG,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_card_unipro_core_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -990,7 +991,7 @@ static struct clk_rcg2 gcc_ufs_phy_axi_clk_src = {
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_ufs_phy_axi_clk_src,
-	.enable_safe_config = true,
+	.flags = FORCE_ENABLE_RCG,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_phy_axi_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -1011,7 +1012,7 @@ static struct clk_rcg2 gcc_ufs_phy_ice_core_clk_src = {
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_ufs_card_ice_core_clk_src,
-	.enable_safe_config = true,
+	.flags = FORCE_ENABLE_RCG,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_phy_ice_core_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -1031,6 +1032,7 @@ static struct clk_rcg2 gcc_ufs_phy_phy_aux_clk_src = {
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_4,
 	.freq_tbl = ftbl_gcc_pcie_0_aux_clk_src,
+	.flags = FORCE_ENABLE_RCG,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_phy_phy_aux_clk_src",
 		.parent_names = gcc_parent_names_4,
@@ -1048,6 +1050,7 @@ static struct clk_rcg2 gcc_ufs_phy_unipro_core_clk_src = {
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_ufs_card_unipro_core_clk_src,
+	.flags = FORCE_ENABLE_RCG,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_phy_unipro_core_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -1225,6 +1228,23 @@ static struct clk_branch gcc_aggre_ufs_card_axi_clk = {
 	},
 };
 
+static struct clk_branch gcc_aggre_ufs_card_axi_hw_ctl_clk = {
+	.halt_reg = 0x82028,
+	.clkr = {
+		.enable_reg = 0x82028,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_aggre_ufs_card_axi_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_aggre_ufs_card_axi_clk",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_aggre_ufs_phy_axi_clk = {
 	.halt_reg = 0x82024,
 	.halt_check = BRANCH_HALT,
@@ -1239,6 +1259,23 @@ static struct clk_branch gcc_aggre_ufs_phy_axi_clk = {
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_aggre_ufs_phy_axi_hw_ctl_clk = {
+	.halt_reg = 0x82024,
+	.clkr = {
+		.enable_reg = 0x82024,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_aggre_ufs_phy_axi_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_aggre_ufs_phy_axi_clk",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
 		},
 	},
 };
@@ -2575,6 +2612,23 @@ static struct clk_branch gcc_ufs_card_axi_clk = {
 	},
 };
 
+static struct clk_branch gcc_ufs_card_axi_hw_ctl_clk = {
+	.halt_reg = 0x7500c,
+	.clkr = {
+		.enable_reg = 0x7500c,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_card_axi_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_card_axi_clk",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_ufs_card_clkref_clk = {
 	.halt_reg = 0x8c004,
 	.halt_check = BRANCH_HALT,
@@ -2606,6 +2660,23 @@ static struct clk_branch gcc_ufs_card_ice_core_clk = {
 	},
 };
 
+static struct clk_branch gcc_ufs_card_ice_core_hw_ctl_clk = {
+	.halt_reg = 0x75058,
+	.clkr = {
+		.enable_reg = 0x75058,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_card_ice_core_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_card_ice_core_clk",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_ufs_card_phy_aux_clk = {
 	.halt_reg = 0x7508c,
 	.halt_check = BRANCH_HALT,
@@ -2620,6 +2691,23 @@ static struct clk_branch gcc_ufs_card_phy_aux_clk = {
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_ufs_card_phy_aux_hw_ctl_clk = {
+	.halt_reg = 0x7508c,
+	.clkr = {
+		.enable_reg = 0x7508c,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_card_phy_aux_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_card_phy_aux_clk",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
 		},
 	},
 };
@@ -2678,6 +2766,23 @@ static struct clk_branch gcc_ufs_card_unipro_core_clk = {
 	},
 };
 
+static struct clk_branch gcc_ufs_card_unipro_core_hw_ctl_clk = {
+	.halt_reg = 0x75054,
+	.clkr = {
+		.enable_reg = 0x75054,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_card_unipro_core_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_card_unipro_core_clk",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_ufs_mem_clkref_clk = {
 	.halt_reg = 0x8c000,
 	.halt_check = BRANCH_HALT,
@@ -2722,6 +2827,23 @@ static struct clk_branch gcc_ufs_phy_axi_clk = {
 	},
 };
 
+static struct clk_branch gcc_ufs_phy_axi_hw_ctl_clk = {
+	.halt_reg = 0x7700c,
+	.clkr = {
+		.enable_reg = 0x7700c,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_phy_axi_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_phy_axi_clk",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_ufs_phy_ice_core_clk = {
 	.halt_reg = 0x77058,
 	.halt_check = BRANCH_HALT,
@@ -2740,6 +2862,23 @@ static struct clk_branch gcc_ufs_phy_ice_core_clk = {
 	},
 };
 
+static struct clk_branch gcc_ufs_phy_ice_core_hw_ctl_clk = {
+	.halt_reg = 0x77058,
+	.clkr = {
+		.enable_reg = 0x77058,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_phy_ice_core_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_phy_ice_core_clk",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_ufs_phy_phy_aux_clk = {
 	.halt_reg = 0x7708c,
 	.halt_check = BRANCH_HALT,
@@ -2754,6 +2893,23 @@ static struct clk_branch gcc_ufs_phy_phy_aux_clk = {
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_ufs_phy_phy_aux_hw_ctl_clk = {
+	.halt_reg = 0x7708c,
+	.clkr = {
+		.enable_reg = 0x7708c,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_phy_phy_aux_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_phy_phy_aux_clk",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
 		},
 	},
 };
@@ -2808,6 +2964,23 @@ static struct clk_branch gcc_ufs_phy_unipro_core_clk = {
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_ufs_phy_unipro_core_hw_ctl_clk = {
+	.halt_reg = 0x77054,
+	.clkr = {
+		.enable_reg = 0x77054,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_phy_unipro_core_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_phy_unipro_core_clk",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
 		},
 	},
 };
@@ -3094,7 +3267,11 @@ struct clk_hw *gcc_sdm845_hws[] = {
 static struct clk_regmap *gcc_sdm845_clocks[] = {
 	[GCC_AGGRE_NOC_PCIE_TBU_CLK] = &gcc_aggre_noc_pcie_tbu_clk.clkr,
 	[GCC_AGGRE_UFS_CARD_AXI_CLK] = &gcc_aggre_ufs_card_axi_clk.clkr,
+	[GCC_AGGRE_UFS_CARD_AXI_HW_CTL_CLK] =
+				&gcc_aggre_ufs_card_axi_hw_ctl_clk.clkr,
 	[GCC_AGGRE_UFS_PHY_AXI_CLK] = &gcc_aggre_ufs_phy_axi_clk.clkr,
+	[GCC_AGGRE_UFS_PHY_AXI_HW_CTL_CLK] =
+				&gcc_aggre_ufs_phy_axi_hw_ctl_clk.clkr,
 	[GCC_AGGRE_USB3_PRIM_AXI_CLK] = &gcc_aggre_usb3_prim_axi_clk.clkr,
 	[GCC_AGGRE_USB3_SEC_AXI_CLK] = &gcc_aggre_usb3_sec_axi_clk.clkr,
 	[GCC_BOOT_ROM_AHB_CLK] = &gcc_boot_rom_ahb_clk.clkr,
@@ -3212,30 +3389,43 @@ static struct clk_regmap *gcc_sdm845_clocks[] = {
 	[GCC_TSIF_REF_CLK_SRC] = &gcc_tsif_ref_clk_src.clkr,
 	[GCC_UFS_CARD_AHB_CLK] = &gcc_ufs_card_ahb_clk.clkr,
 	[GCC_UFS_CARD_AXI_CLK] = &gcc_ufs_card_axi_clk.clkr,
+	[GCC_UFS_CARD_AXI_HW_CTL_CLK] = &gcc_ufs_card_axi_hw_ctl_clk.clkr,
 	[GCC_UFS_CARD_AXI_CLK_SRC] = &gcc_ufs_card_axi_clk_src.clkr,
 	[GCC_UFS_CARD_CLKREF_CLK] = &gcc_ufs_card_clkref_clk.clkr,
 	[GCC_UFS_CARD_ICE_CORE_CLK] = &gcc_ufs_card_ice_core_clk.clkr,
+	[GCC_UFS_CARD_ICE_CORE_HW_CTL_CLK] =
+				&gcc_ufs_card_ice_core_hw_ctl_clk.clkr,
 	[GCC_UFS_CARD_ICE_CORE_CLK_SRC] = &gcc_ufs_card_ice_core_clk_src.clkr,
 	[GCC_UFS_CARD_PHY_AUX_CLK] = &gcc_ufs_card_phy_aux_clk.clkr,
+	[GCC_UFS_CARD_PHY_AUX_HW_CTL_CLK] =
+				&gcc_ufs_card_phy_aux_hw_ctl_clk.clkr,
 	[GCC_UFS_CARD_PHY_AUX_CLK_SRC] = &gcc_ufs_card_phy_aux_clk_src.clkr,
 	[GCC_UFS_CARD_RX_SYMBOL_0_CLK] = &gcc_ufs_card_rx_symbol_0_clk.clkr,
 	[GCC_UFS_CARD_RX_SYMBOL_1_CLK] = &gcc_ufs_card_rx_symbol_1_clk.clkr,
 	[GCC_UFS_CARD_TX_SYMBOL_0_CLK] = &gcc_ufs_card_tx_symbol_0_clk.clkr,
 	[GCC_UFS_CARD_UNIPRO_CORE_CLK] = &gcc_ufs_card_unipro_core_clk.clkr,
+	[GCC_UFS_CARD_UNIPRO_CORE_HW_CTL_CLK] =
+				&gcc_ufs_card_unipro_core_hw_ctl_clk.clkr,
 	[GCC_UFS_CARD_UNIPRO_CORE_CLK_SRC] =
 					&gcc_ufs_card_unipro_core_clk_src.clkr,
 	[GCC_UFS_MEM_CLKREF_CLK] = &gcc_ufs_mem_clkref_clk.clkr,
 	[GCC_UFS_PHY_AHB_CLK] = &gcc_ufs_phy_ahb_clk.clkr,
 	[GCC_UFS_PHY_AXI_CLK] = &gcc_ufs_phy_axi_clk.clkr,
+	[GCC_UFS_PHY_AXI_HW_CTL_CLK] = &gcc_ufs_phy_axi_hw_ctl_clk.clkr,
 	[GCC_UFS_PHY_AXI_CLK_SRC] = &gcc_ufs_phy_axi_clk_src.clkr,
 	[GCC_UFS_PHY_ICE_CORE_CLK] = &gcc_ufs_phy_ice_core_clk.clkr,
+	[GCC_UFS_PHY_ICE_CORE_HW_CTL_CLK] =
+				&gcc_ufs_phy_ice_core_hw_ctl_clk.clkr,
 	[GCC_UFS_PHY_ICE_CORE_CLK_SRC] = &gcc_ufs_phy_ice_core_clk_src.clkr,
 	[GCC_UFS_PHY_PHY_AUX_CLK] = &gcc_ufs_phy_phy_aux_clk.clkr,
+	[GCC_UFS_PHY_PHY_AUX_HW_CTL_CLK] = &gcc_ufs_phy_phy_aux_hw_ctl_clk.clkr,
 	[GCC_UFS_PHY_PHY_AUX_CLK_SRC] = &gcc_ufs_phy_phy_aux_clk_src.clkr,
 	[GCC_UFS_PHY_RX_SYMBOL_0_CLK] = &gcc_ufs_phy_rx_symbol_0_clk.clkr,
 	[GCC_UFS_PHY_RX_SYMBOL_1_CLK] = &gcc_ufs_phy_rx_symbol_1_clk.clkr,
 	[GCC_UFS_PHY_TX_SYMBOL_0_CLK] = &gcc_ufs_phy_tx_symbol_0_clk.clkr,
 	[GCC_UFS_PHY_UNIPRO_CORE_CLK] = &gcc_ufs_phy_unipro_core_clk.clkr,
+	[GCC_UFS_PHY_UNIPRO_CORE_HW_CTL_CLK] =
+				&gcc_ufs_phy_unipro_core_hw_ctl_clk.clkr,
 	[GCC_UFS_PHY_UNIPRO_CORE_CLK_SRC] =
 					&gcc_ufs_phy_unipro_core_clk_src.clkr,
 	[GCC_USB30_PRIM_MASTER_CLK] = &gcc_usb30_prim_master_clk.clkr,
@@ -3391,10 +3581,7 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 
 	/*
 	 * TODO:
-	 * 1. Support HW clock measurement
-	 * 2. Support UFS clock hw_ctrl
-	 * 3. Support mux clock interface for pcie pipe clocks
-	 * 4. QUPv3 support
+	 * 1. QUPv3 support
 	 */
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
