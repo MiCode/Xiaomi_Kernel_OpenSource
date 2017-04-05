@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include "dsi-panel-sim-video.dtsi"
-#include "dsi-panel-sim-dualmipi-video.dtsi"
 #include "dsi-panel-nt35597-dualmipi-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-dualmipi-wqxga-cmd.dtsi"
 #include "dsi-panel-nt35597-truly-dualmipi-wqxga-video.dtsi"
