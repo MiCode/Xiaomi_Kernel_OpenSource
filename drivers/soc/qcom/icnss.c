@@ -48,6 +48,11 @@
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/ramdump.h>
 
+#ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
+#include <net/cnss_prealloc.h>
+#endif
+
+
 #include "wlan_firmware_service_v01.h"
 
 #ifdef CONFIG_ICNSS_DEBUG
@@ -1775,11 +1780,29 @@ static void icnss_qmi_wlfw_clnt_notify(struct qmi_handle *handle,
 	}
 }
 
+static int icnss_call_driver_uevent(struct icnss_priv *priv,
+				    enum icnss_uevent uevent, void *data)
+{
+	struct icnss_uevent_data uevent_data;
+
+	if (!priv->ops || !priv->ops->uevent)
+		return 0;
+
+	icnss_pr_dbg("Calling driver uevent state: 0x%lx, uevent: %d\n",
+		     priv->state, uevent);
+
+	uevent_data.uevent = uevent;
+	uevent_data.data = data;
+
+	return priv->ops->uevent(&priv->pdev->dev, &uevent_data);
+}
+
 static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 			  unsigned int msg_id, void *msg,
 			  unsigned int msg_len, void *ind_cb_priv)
 {
 	struct icnss_event_pd_service_down_data *event_data;
+	struct icnss_uevent_fw_down_data fw_down_data;
 
 	if (!penv)
 		return;
@@ -1811,6 +1834,9 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 			return;
 		event_data->crashed = true;
 		event_data->fw_rejuvenate = true;
+		fw_down_data.crashed = true;
+		icnss_call_driver_uevent(penv, ICNSS_UEVENT_FW_DOWN,
+					 &fw_down_data);
 		icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 					0, event_data);
 		break;
@@ -1924,23 +1950,6 @@ static int icnss_driver_event_server_exit(void *data)
 	return 0;
 }
 
-static int icnss_call_driver_uevent(struct icnss_priv *priv,
-				    enum icnss_uevent uevent, void *data)
-{
-	struct icnss_uevent_data uevent_data;
-
-	if (!priv->ops || !priv->ops->uevent)
-		return 0;
-
-	icnss_pr_dbg("Calling driver uevent state: 0x%lx, uevent: %d\n",
-		     priv->state, uevent);
-
-	uevent_data.uevent = uevent;
-	uevent_data.data = data;
-
-	return priv->ops->uevent(&priv->pdev->dev, &uevent_data);
-}
-
 static int icnss_call_driver_probe(struct icnss_priv *priv)
 {
 	int ret;
@@ -1959,6 +1968,8 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 	if (ret < 0) {
 		icnss_pr_err("Driver probe failed: %d, state: 0x%lx\n",
 			     ret, priv->state);
+		wcnss_prealloc_check_memory_leak();
+		wcnss_pre_alloc_reset();
 		goto out;
 	}
 
@@ -2088,6 +2099,8 @@ static int icnss_driver_event_register_driver(void *data)
 	if (ret) {
 		icnss_pr_err("Driver probe failed: %d, state: 0x%lx\n",
 			     ret, penv->state);
+		wcnss_prealloc_check_memory_leak();
+		wcnss_pre_alloc_reset();
 		goto power_off;
 	}
 
@@ -2113,6 +2126,8 @@ static int icnss_driver_event_unregister_driver(void *data)
 		penv->ops->remove(&penv->pdev->dev);
 
 	clear_bit(ICNSS_DRIVER_PROBED, &penv->state);
+	wcnss_prealloc_check_memory_leak();
+	wcnss_pre_alloc_reset();
 
 	penv->ops = NULL;
 
@@ -2137,6 +2152,8 @@ static int icnss_call_driver_remove(struct icnss_priv *priv)
 	penv->ops->remove(&priv->pdev->dev);
 
 	clear_bit(ICNSS_DRIVER_PROBED, &priv->state);
+	wcnss_prealloc_check_memory_leak();
+	wcnss_pre_alloc_reset();
 
 	icnss_hw_power_off(penv);
 
@@ -2154,7 +2171,8 @@ static int icnss_fw_crashed(struct icnss_priv *priv,
 
 	icnss_pm_stay_awake(priv);
 
-	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_CRASHED, NULL);
+	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state))
+		icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_CRASHED, NULL);
 
 	if (event_data->wdog_bite) {
 		set_bit(ICNSS_WDOG_BITE, &priv->state);
@@ -2320,6 +2338,7 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	struct notif_data *notif = data;
 	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
 					       modem_ssr_nb);
+	struct icnss_uevent_fw_down_data fw_down_data;
 
 	icnss_pr_vdbg("Modem-Notify: event %lu\n", code);
 
@@ -2351,6 +2370,9 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	if (notif->crashed == CRASH_STATUS_WDOG_BITE)
 		event_data->wdog_bite = true;
+
+	fw_down_data.crashed = !!notif->crashed;
+	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN, &fw_down_data);
 
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
@@ -2415,6 +2437,7 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 					       service_notifier_nb);
 	enum pd_subsys_state *state = data;
 	struct icnss_event_pd_service_down_data *event_data;
+	struct icnss_uevent_fw_down_data fw_down_data;
 
 	icnss_pr_dbg("PD service notification: 0x%lx state: 0x%lx\n",
 		     notification, priv->state);
@@ -2450,6 +2473,8 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 event_post:
 	icnss_ignore_qmi_timeout(true);
 
+	fw_down_data.crashed = event_data->crashed;
+	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN, &fw_down_data);
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
 done:

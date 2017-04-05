@@ -1600,6 +1600,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	u32 safe_lut = 0;	/* applicable for realtime client only */
 	u32 flags = 0;
 	u32 rststs = 0;
+	u32 reg = 0;
 	struct sde_rotation_item *item;
 
 	if (!hw || !entry) {
@@ -1836,10 +1837,10 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	/* Enable write gather for writeback to remove write gaps, which
 	 * may hang AXI/BIMC/SDE.
 	 */
-	if (!((mdata->mdss_version == MDSS_MDP_HW_REV_320) ||
-			(mdata->mdss_version == MDSS_MDP_HW_REV_330)))
-		SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_WRITE_GATHTER_EN,
-				BIT(mdata->vbif_xin_id[XIN_WRITEBACK]));
+
+	reg = SDE_VBIF_READ(mdata, MMSS_VBIF_NRT_VBIF_WRITE_GATHTER_EN);
+	SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_WRITE_GATHTER_EN,
+			reg | BIT(mdata->vbif_xin_id[XIN_WRITEBACK]));
 
 	if (mdata->vbif_reg_unlock)
 		mdata->vbif_reg_unlock();

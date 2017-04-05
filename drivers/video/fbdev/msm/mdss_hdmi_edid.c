@@ -1505,6 +1505,17 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 	 */
 	active_h = ((((u32)data_buf[0x4] >> 0x4) & 0xF) << 8)
 		| data_buf[0x2];
+	/*
+	 * It is possible that a sink might try to fit in the resolution
+	 * which has an active_h of 4096 into a DTD. However, DTD has only
+	 * 12 bit to represent active_h which would limit the maximum value
+	 * to 4095. If such a case is detected, set the active_h explicitly
+	 * to 4096.
+	 */
+	if (active_h == 0xFFF) {
+		pr_debug("overriding h_active to 4096\n");
+		active_h++;
+	}
 
 	/*
 	 * EDID_TIMING_DESC_H_BLANK[0x3]: Relative Offset to the EDID detailed

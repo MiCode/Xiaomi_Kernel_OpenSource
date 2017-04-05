@@ -2604,9 +2604,10 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	}
 
 	ds_data = commit->dest_scaler;
-	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) &&
-			ds_data && (ds_data->flags & MDP_DESTSCALER_ENABLE) &&
-			commit->dest_scaler_cnt) {
+
+	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map)
+		&& ds_data && commit->dest_scaler_cnt
+		&& (ds_data->flags & MDP_DESTSCALER_ENABLE)) {
 
 		/*
 		 * Find out which DS block to use based on DS commit info

@@ -20,6 +20,11 @@
 enum icnss_uevent {
 	ICNSS_UEVENT_FW_READY,
 	ICNSS_UEVENT_FW_CRASHED,
+	ICNSS_UEVENT_FW_DOWN,
+};
+
+struct icnss_uevent_fw_down_data {
+	bool crashed;
 };
 
 struct icnss_uevent_data {
