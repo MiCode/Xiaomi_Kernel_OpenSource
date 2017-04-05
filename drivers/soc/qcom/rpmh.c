@@ -454,7 +454,7 @@ EXPORT_SYMBOL(rpmh_write);
  * @n: The array of count of elements in each batch, 0 terminated.
  *
  * Write a request to the mailbox controller without caching. If the request
- * state is ACTIVE_ONLY, then the requests are treated as completion requests
+ * state is ACTIVE or AWAKE, then the requests are treated as completion request
  * and sent to the controller immediately. The function waits until all the
  * commands are complete. If the request was to SLEEP or WAKE_ONLY, then the
  * request is sent as fire-n-forget and no ack is expected.
@@ -468,7 +468,8 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	DECLARE_WAIT_QUEUE_HEAD_ONSTACK(waitq);
 	atomic_t wait_count = ATOMIC_INIT(0); /* overwritten */
 	int count = 0;
-	int ret, i = 0;
+	int ret, i, j, k;
+	bool complete_set;
 
 	if (rpmh_standalone)
 		return 0;
@@ -479,6 +480,27 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	if (count >= RPMH_MAX_REQ_IN_BATCH)
 		return -EINVAL;
 
+	if (state == RPMH_ACTIVE_ONLY_STATE || state == RPMH_AWAKE_STATE) {
+		/*
+		 * Ensure the 'complete' bit is set for atleast one command in
+		 * each set for active/awake requests.
+		 */
+		for (i = 0, k = 0; i < count; i++, k += n[i]) {
+			complete_set = false;
+			for (j = 0; j < n[i]; j++) {
+				if (cmd[k + j].complete) {
+					complete_set = true;
+					break;
+				}
+			}
+			if (!complete_set) {
+				dev_err(rc->dev, "No completion set for batch");
+				return -EINVAL;
+			}
+		}
+	}
+
+	/* Create async request batches */
 	for (i = 0; i < count; i++) {
 		rpm_msg[i] = __get_rpmh_msg_async(rc, state, cmd, n[i], false);
 		if (IS_ERR_OR_NULL(rpm_msg[i]))
@@ -488,11 +510,11 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 		cmd += n[i];
 	}
 
-	if (state == RPMH_ACTIVE_ONLY_STATE) {
+	/* Send if Active or Awake and wait for the whole set to complete */
+	if (state == RPMH_ACTIVE_ONLY_STATE || state == RPMH_AWAKE_STATE) {
 		might_sleep();
 		atomic_set(&wait_count, count);
 		for (i = 0; i < count; i++) {
-			rpm_msg[i]->msg.is_complete = true;
 			/* Bypass caching and write to mailbox directly */
 			ret = mbox_send_message(rc->chan, &rpm_msg[i]->msg);
 			if (ret < 0)
@@ -501,6 +523,7 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 		return wait_event_interruptible(waitq,
 					atomic_read(&wait_count) == 0);
 	} else {
+		/* Send Sleep requests to the controller, expect no response */
 		for (i = 0; i < count; i++) {
 			ret = mbox_send_controller_data(rc->chan,
 						&rpm_msg[i]->msg);
