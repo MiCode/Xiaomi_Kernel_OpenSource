@@ -148,9 +148,8 @@ static int synaptics_rmi4_i2c_write(struct synaptics_rmi4_data *rmi4_data,
 	 * Reassign memory for write_buf in case length is greater than 32 bytes
 	 */
 	if (rmi4_data->write_buf_len < length + 1) {
-		devm_kfree(rmi4_data->pdev->dev.parent, rmi4_data->write_buf);
-		rmi4_data->write_buf = devm_kzalloc(rmi4_data->pdev->dev.parent,
-					length + 1, GFP_KERNEL);
+		kfree(rmi4_data->write_buf);
+		rmi4_data->write_buf = kzalloc(length + 1, GFP_KERNEL);
 		if (!rmi4_data->write_buf) {
 			rmi4_data->write_buf_len = 0;
 			retval = -ENOMEM;
