@@ -378,6 +378,7 @@ static atomic_t perf_sched_count;
 static DEFINE_PER_CPU(atomic_t, perf_cgroup_events);
 static DEFINE_PER_CPU(int, perf_sched_cb_usages);
 static DEFINE_PER_CPU(struct pmu_event_list, pmu_sb_events);
+static DEFINE_PER_CPU(bool, is_idle);
 
 static atomic_t nr_mmap_events __read_mostly;
 static atomic_t nr_comm_events __read_mostly;
@@ -3975,6 +3976,7 @@ static int perf_event_read(struct perf_event *event, bool group)
 {
 	enum perf_event_state state = READ_ONCE(event->state);
 	int event_cpu, ret = 0;
+	bool active_event_skip_read = false;
 
 	/*
 	 * If event is enabled and currently active on a CPU, update the
@@ -3982,7 +3984,6 @@ static int perf_event_read(struct perf_event *event, bool group)
 	 */
 again:
 	if (state == PERF_EVENT_STATE_ACTIVE) {
-		struct perf_read_data data;
 
 		/*
 		 * Orders the ->state and ->oncpu loads such that if we see
@@ -3995,8 +3996,14 @@ again:
 		event_cpu = READ_ONCE(event->oncpu);
 		if ((unsigned)event_cpu >= nr_cpu_ids)
 			return 0;
-
-		data = (struct perf_read_data){
+		if (cpu_isolated(event_cpu) ||
+			(event->attr.exclude_idle &&
+				per_cpu(is_idle, event_cpu)))
+			active_event_skip_read = true;
+	}
+	if (state == PERF_EVENT_STATE_ACTIVE &&
+		!active_event_skip_read) {
+		struct perf_read_data data = {
 			.event = event,
 			.group = group,
 			.ret = 0,
@@ -4015,16 +4022,16 @@ again:
 		 * Therefore, either way, we'll have an up-to-date event count
 		 * after this.
 		 */
-		(void)smp_call_function_single(event_cpu, __perf_event_read, &data, 1);
+		(void)smp_call_function_single(event_cpu,
+				__perf_event_read, &data, 1);
 		preempt_enable();
 		ret = data.ret;
-
-	} else if (state == PERF_EVENT_STATE_INACTIVE) {
+	} else if (state == PERF_EVENT_STATE_INACTIVE ||
+			active_event_skip_read) {
 		struct perf_event_context *ctx = event->ctx;
 		unsigned long flags;
 
 		raw_spin_lock_irqsave(&ctx->lock, flags);
-		state = event->state;
 		if (state != PERF_EVENT_STATE_INACTIVE) {
 			raw_spin_unlock_irqrestore(&ctx->lock, flags);
 			goto again;
@@ -4119,7 +4126,8 @@ find_get_context(struct pmu *pmu, struct task_struct *task,
 
 	if (!task) {
 		/* Must be root to operate on a CPU event: */
-		if (perf_paranoid_cpu() && !capable(CAP_SYS_ADMIN))
+		if (!is_kernel_event(event) && perf_paranoid_cpu() &&
+			!capable(CAP_SYS_ADMIN))
 			return ERR_PTR(-EACCES);
 
 		cpuctx = per_cpu_ptr(pmu->pmu_cpu_context, cpu);
@@ -11705,6 +11713,26 @@ static struct notifier_block perf_reboot_notifier = {
 	.priority = INT_MIN,
 };
 
+static int event_idle_notif(struct notifier_block *nb, unsigned long action,
+							void *data)
+{
+	switch (action) {
+	case IDLE_START:
+		__this_cpu_write(is_idle, true);
+		break;
+	case IDLE_END:
+		__this_cpu_write(is_idle, false);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block perf_event_idle_nb = {
+	.notifier_call = event_idle_notif,
+};
+
+
 void __init perf_event_init(void)
 {
 	int ret;
@@ -11718,6 +11746,7 @@ void __init perf_event_init(void)
 	perf_pmu_register(&perf_task_clock, NULL, -1);
 	perf_tp_register();
 	perf_event_init_cpu(smp_processor_id());
+	idle_notifier_register(&perf_event_idle_nb);
 	register_reboot_notifier(&perf_reboot_notifier);
 
 	ret = init_hw_breakpoint();
