@@ -171,6 +171,7 @@ enum fg_sram_param_id {
 	FG_SRAM_RECHARGE_VBATT_THR,
 	FG_SRAM_KI_COEFF_MED_DISCHG,
 	FG_SRAM_KI_COEFF_HI_DISCHG,
+	FG_SRAM_KI_COEFF_FULL_SOC,
 	FG_SRAM_ESR_TIGHT_FILTER,
 	FG_SRAM_ESR_BROAD_FILTER,
 	FG_SRAM_SLOPE_LIMIT,
@@ -356,6 +357,7 @@ struct fg_chip {
 	u32			rradc_base;
 	u32			wa_flags;
 	int			batt_id_ohms;
+	int			ki_coeff_full_soc;
 	int			charge_status;
 	int			prev_charge_status;
 	int			charge_done;

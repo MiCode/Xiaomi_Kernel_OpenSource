@@ -52,6 +52,8 @@
 #define KI_COEFF_HI_DISCHG_OFFSET	0
 #define KI_COEFF_LOW_DISCHG_WORD	10
 #define KI_COEFF_LOW_DISCHG_OFFSET	2
+#define KI_COEFF_FULL_SOC_WORD		12
+#define KI_COEFF_FULL_SOC_OFFSET	2
 #define DELTA_MSOC_THR_WORD		12
 #define DELTA_MSOC_THR_OFFSET		3
 #define DELTA_BSOC_THR_WORD		13
@@ -226,6 +228,9 @@ static struct fg_sram_param pmi8998_v1_sram_params[] = {
 	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_WORD,
 		KI_COEFF_HI_DISCHG_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
+	PARAM(KI_COEFF_FULL_SOC, KI_COEFF_FULL_SOC_WORD,
+		KI_COEFF_FULL_SOC_OFFSET, 1, 1000, 244141, 0,
+		fg_encode_default, NULL),
 	PARAM(ESR_TIGHT_FILTER, ESR_FILTER_WORD, ESR_UPD_TIGHT_OFFSET,
 		1, 512, 1000000, 0, fg_encode_default, NULL),
 	PARAM(ESR_BROAD_FILTER, ESR_FILTER_WORD, ESR_UPD_BROAD_OFFSET,
@@ -297,6 +302,9 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		fg_encode_default, NULL),
 	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_v2_WORD,
 		KI_COEFF_HI_DISCHG_v2_OFFSET, 1, 1000, 244141, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_FULL_SOC, KI_COEFF_FULL_SOC_WORD,
+		KI_COEFF_FULL_SOC_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
 	PARAM(ESR_TIGHT_FILTER, ESR_FILTER_WORD, ESR_UPD_TIGHT_OFFSET,
 		1, 512, 1000000, 0, fg_encode_default, NULL),
@@ -1482,6 +1490,37 @@ static int fg_adjust_ki_coeff_dischg(struct fg_chip *chip)
 	return 0;
 }
 
+#define KI_COEFF_FULL_SOC_DEFAULT	733
+static int fg_adjust_ki_coeff_full_soc(struct fg_chip *chip, int batt_temp)
+{
+	int rc, ki_coeff_full_soc;
+	u8 val;
+
+	if (batt_temp < 0)
+		ki_coeff_full_soc = 0;
+	else
+		ki_coeff_full_soc = KI_COEFF_FULL_SOC_DEFAULT;
+
+	if (chip->ki_coeff_full_soc == ki_coeff_full_soc)
+		return 0;
+
+	fg_encode(chip->sp, FG_SRAM_KI_COEFF_FULL_SOC, ki_coeff_full_soc, &val);
+	rc = fg_sram_write(chip,
+			chip->sp[FG_SRAM_KI_COEFF_FULL_SOC].addr_word,
+			chip->sp[FG_SRAM_KI_COEFF_FULL_SOC].addr_byte, &val,
+			chip->sp[FG_SRAM_KI_COEFF_FULL_SOC].len,
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ki_coeff_full_soc, rc=%d\n", rc);
+		return rc;
+	}
+
+	chip->ki_coeff_full_soc = ki_coeff_full_soc;
+	fg_dbg(chip, FG_STATUS, "Wrote ki_coeff_full_soc %d\n",
+		ki_coeff_full_soc);
+	return 0;
+}
+
 static int fg_set_recharge_voltage(struct fg_chip *chip, int voltage_mv)
 {
 	u8 buf;
@@ -2065,6 +2104,11 @@ static void status_change_work(struct work_struct *work)
 		rc = fg_slope_limit_config(chip, batt_temp);
 		if (rc < 0)
 			pr_err("Error in configuring slope limiter rc:%d\n",
+				rc);
+
+		rc = fg_adjust_ki_coeff_full_soc(chip, batt_temp);
+		if (rc < 0)
+			pr_err("Error in configuring ki_coeff_full_soc rc:%d\n",
 				rc);
 	}
 
@@ -3409,6 +3453,10 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	if (rc < 0)
 		pr_err("Error in configuring slope limiter rc:%d\n", rc);
 
+	rc = fg_adjust_ki_coeff_full_soc(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring ki_coeff_full_soc rc:%d\n", rc);
+
 	if (!batt_psy_initialized(chip)) {
 		chip->last_batt_temp = batt_temp;
 		return IRQ_HANDLED;
@@ -4147,6 +4195,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	chip->irqs = fg_irqs;
 	chip->charge_status = -EINVAL;
 	chip->prev_charge_status = -EINVAL;
+	chip->ki_coeff_full_soc = -EINVAL;
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
 		dev_err(chip->dev, "Parent regmap is unavailable\n");
