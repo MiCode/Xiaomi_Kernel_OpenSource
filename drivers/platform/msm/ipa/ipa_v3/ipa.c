@@ -2245,7 +2245,8 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 			reg_write.pipeline_clear_options =
 				IPAHAL_HPS_CLEAR;
 			reg_write.offset =
-				ipahal_get_reg_ofst(IPA_ENDP_STATUS_n);
+				ipahal_get_reg_n_ofst(IPA_ENDP_STATUS_n,
+					ep_idx);
 			ipahal_get_status_ep_valmask(
 				ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS),
 				&valmask);
