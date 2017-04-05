@@ -1600,6 +1600,18 @@
 		qcom,rx-ring-size = <0x400>;
 	};
 
+	qmp_aop: mailbox@1799000c {
+		compatible = "qcom,qmp-mbox";
+		label = "aop";
+		reg = <0xc300000 0x100000>,
+			<0x1799000c 0x4>;
+		reg-names = "msgram", "irq-reg-base";
+		qcom,irq-mask = <0x1>;
+		interrupts = <0 389 1>;
+		mbox_desc_offset = <0x0>;
+		#mbox-cells = <1>;
+	};
+
 	apps_rsc: mailbox@179e0000 {
 		compatible = "qcom,tcs-drv";
 		label = "apps_rsc";
