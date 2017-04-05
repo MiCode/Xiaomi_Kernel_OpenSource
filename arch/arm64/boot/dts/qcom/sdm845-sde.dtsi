@@ -357,18 +357,17 @@
 		reg-names = "dsi_phy";
 		gdsc-supply = <&mdss_core_gdsc>;
 		vdda-1p2-supply = <&pm8998_l26>;
-		qcom,platform-strength-ctrl = [ff 06
-						ff 06
-						ff 06
-						ff 00];
-		qcom,platform-regulator-settings = [1d
-							1d 1d 1d 1d];
-		qcom,platform-lane-config = [00 00 10 0f
-						00 00 10 0f
-						00 00 10 0f
-						00 00 10 0f
-						00 00 10 8f];
-
+		qcom,platform-strength-ctrl = [55 03
+						55 03
+						55 03
+						55 03
+						55 00];
+		qcom,platform-lane-config = [00 00 00 00
+						00 00 00 00
+						00 00 00 00
+						00 00 00 00
+						00 00 00 80];
+		qcom,platform-regulator-settings = [1d 1d 1d 1d 1d];
 		qcom,phy-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -392,18 +391,17 @@
 		reg-names = "dsi_phy";
 		gdsc-supply = <&mdss_core_gdsc>;
 		vdda-1p2-supply = <&pm8998_l26>;
-		qcom,platform-strength-ctrl = [ff 06
-						ff 06
-						ff 06
-						ff 00];
-		qcom,platform-regulator-settings = [1d
-							1d 1d 1d 1d];
-		qcom,platform-lane-config = [00 00 10 0f
-						00 00 10 0f
-						00 00 10 0f
-						00 00 10 0f
-						00 00 10 8f];
-
+		qcom,platform-strength-ctrl = [55 03
+						55 03
+						55 03
+						55 03
+						55 00];
+		qcom,platform-regulator-settings = [1d 1d 1d 1d 1d];
+		qcom,platform-lane-config = [00 00 00 00
+						00 00 00 00
+						00 00 00 00
+						00 00 00 00
+						00 00 00 80];
 		qcom,phy-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
