@@ -3677,6 +3677,12 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
 
+	/* In case of HPD_IRQ events without DP link being turned on such as
+	 * adb shell stop, skip handling hpd_irq event.
+	 */
+	if (!dp->dp_initialized)
+		goto exit;
+
 	pr_debug("start\n");
 
 	dp->hpd_irq_on = true;
