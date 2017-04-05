@@ -2790,7 +2790,7 @@ err:
 static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
 {
 	struct device_node *node = mdwc->dev->of_node;
-	int atomic_ctx = 1;
+	int atomic_ctx = 1, s1_bypass;
 	int ret;
 
 	if (!of_property_read_bool(node, "iommus"))
@@ -2811,6 +2811,15 @@ static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
 	if (ret) {
 		dev_err(mdwc->dev, "IOMMU set atomic attribute failed (%d)\n",
 			ret);
+		goto release_mapping;
+	}
+
+	s1_bypass = of_property_read_bool(node, "qcom,smmu-s1-bypass");
+	ret = iommu_domain_set_attr(mdwc->iommu_map->domain,
+			DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
+	if (ret) {
+		dev_err(mdwc->dev, "IOMMU set s1 bypass (%d) failed (%d)\n",
+			s1_bypass, ret);
 		goto release_mapping;
 	}
 
