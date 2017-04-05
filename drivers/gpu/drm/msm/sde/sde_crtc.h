@@ -136,6 +136,7 @@ struct sde_crtc_event {
  * @event_cache   : Local cache of event worker structures
  * @event_free_list : List of available event structures
  * @event_lock    : Spinlock around event handling code
+ * @misr_enable   : boolean entry indicates misr enable/disable status.
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -184,6 +185,7 @@ struct sde_crtc {
 	struct sde_crtc_event event_cache[SDE_CRTC_MAX_EVENT_COUNT];
 	struct list_head event_free_list;
 	spinlock_t event_lock;
+	bool misr_enable;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)

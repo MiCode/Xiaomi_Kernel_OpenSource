@@ -33,6 +33,9 @@
 #define LM_BLEND0_FG_ALPHA               0x04
 #define LM_BLEND0_BG_ALPHA               0x08
 
+#define LM_MISR_CTRL			0x310
+#define LM_MISR_SIGNATURE		0x314
+
 static struct sde_lm_cfg *_lm_offset(enum sde_lm mixer,
 		struct sde_mdss_cfg *m,
 		void __iomem *addr,
@@ -224,6 +227,30 @@ static void sde_hw_lm_setup_dim_layer(struct sde_hw_mixer *ctx,
 	SDE_REG_WRITE(c, LM_BLEND0_OP + stage_off, val);
 }
 
+static void sde_hw_lm_setup_misr(struct sde_hw_mixer *ctx,
+				bool enable, u32 frame_count)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	u32 config = 0;
+
+	SDE_REG_WRITE(c, LM_MISR_CTRL, MISR_CTRL_STATUS_CLEAR);
+	/* clear misr data */
+	wmb();
+
+	if (enable)
+		config = (frame_count & MISR_FRAME_COUNT_MASK) |
+			MISR_CTRL_ENABLE | INTF_MISR_CTRL_FREE_RUN_MASK;
+
+	SDE_REG_WRITE(c, LM_MISR_CTRL, config);
+}
+
+static u32 sde_hw_lm_collect_misr(struct sde_hw_mixer *ctx)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+
+	return SDE_REG_READ(c, LM_MISR_SIGNATURE);
+}
+
 static void _setup_mixer_ops(struct sde_mdss_cfg *m,
 		struct sde_hw_lm_ops *ops,
 		unsigned long features)
@@ -236,6 +263,8 @@ static void _setup_mixer_ops(struct sde_mdss_cfg *m,
 	ops->setup_alpha_out = sde_hw_lm_setup_color3;
 	ops->setup_border_color = sde_hw_lm_setup_border_color;
 	ops->setup_gc = sde_hw_lm_gc;
+	ops->setup_misr = sde_hw_lm_setup_misr;
+	ops->collect_misr = sde_hw_lm_collect_misr;
 
 	if (test_bit(SDE_DIM_LAYER, &features)) {
 		ops->setup_dim_layer = sde_hw_lm_setup_dim_layer;

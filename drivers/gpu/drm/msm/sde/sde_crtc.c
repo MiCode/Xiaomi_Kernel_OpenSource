@@ -59,6 +59,8 @@ struct sde_crtc_irq_info {
 #define LEFT_MIXER 0
 #define RIGHT_MIXER 1
 
+#define MISR_BUFF_SIZE			256
+
 static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
 	struct msm_drm_private *priv;
@@ -74,6 +76,35 @@ static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 	}
 
 	return to_sde_kms(priv->kms);
+}
+
+static inline int _sde_crtc_power_enable(struct sde_crtc *sde_crtc, bool enable)
+{
+	struct drm_crtc *crtc;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!sde_crtc) {
+		SDE_ERROR("invalid sde crtc\n");
+		return -EINVAL;
+	}
+
+	crtc = &sde_crtc->base;
+	if (!crtc->dev || !crtc->dev->dev_private) {
+		SDE_ERROR("invalid drm device\n");
+		return -EINVAL;
+	}
+
+	priv = crtc->dev->dev_private;
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+
+	return sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
+									enable);
 }
 
 static void _sde_crtc_deinit_events(struct sde_crtc *sde_crtc)
@@ -1104,8 +1135,6 @@ static void _sde_crtc_vblank_enable_nolock(
 	struct drm_device *dev;
 	struct drm_crtc *crtc;
 	struct drm_encoder *enc;
-	struct msm_drm_private *priv;
-	struct sde_kms *sde_kms;
 
 	if (!sde_crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -1114,17 +1143,11 @@ static void _sde_crtc_vblank_enable_nolock(
 
 	crtc = &sde_crtc->base;
 	dev = crtc->dev;
-	priv = dev->dev_private;
-
-	if (!priv->kms) {
-		SDE_ERROR("invalid kms\n");
-		return;
-	}
-	sde_kms = to_sde_kms(priv->kms);
 
 	if (enable) {
-		sde_power_resource_enable(&priv->phandle,
-				sde_kms->core_client, true);
+		if (_sde_crtc_power_enable(sde_crtc, true))
+			return;
+
 		list_for_each_entry(enc, &dev->mode_config.encoder_list, head) {
 			if (enc->crtc != crtc)
 				continue;
@@ -1143,8 +1166,7 @@ static void _sde_crtc_vblank_enable_nolock(
 
 			sde_encoder_register_vblank_callback(enc, NULL, NULL);
 		}
-		sde_power_resource_enable(&priv->phandle,
-				sde_kms->core_client, false);
+		_sde_crtc_power_enable(sde_crtc, false);
 	}
 }
 
@@ -2059,7 +2081,108 @@ static int _sde_debugfs_status_open(struct inode *inode, struct file *file)
 	return single_open(file, _sde_debugfs_status_show, inode->i_private);
 }
 
-#define DEFINE_SDE_DEBUGFS_SEQ_FOPS(__prefix)				\
+static ssize_t _sde_crtc_misr_setup(struct file *file,
+		const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_mixer *m;
+	int i = 0, rc;
+	char buf[MISR_BUFF_SIZE + 1];
+	u32 frame_count, enable;
+	size_t buff_copy;
+
+	if (!file || !file->private_data)
+		return -EINVAL;
+
+	sde_crtc = file->private_data;
+	buff_copy = min_t(size_t, count, MISR_BUFF_SIZE);
+	if (copy_from_user(buf, user_buf, buff_copy)) {
+		SDE_ERROR("buffer copy failed\n");
+		return -EINVAL;
+	}
+
+	buf[buff_copy] = 0; /* end of string */
+
+	if (sscanf(buf, "%u %u", &enable, &frame_count) != 2)
+		return -EINVAL;
+
+	rc = _sde_crtc_power_enable(sde_crtc, true);
+	if (rc)
+		return rc;
+
+	mutex_lock(&sde_crtc->crtc_lock);
+	sde_crtc->misr_enable = enable;
+	for (i = 0; i < sde_crtc->num_mixers; ++i) {
+		m = &sde_crtc->mixers[i];
+		if (!m->hw_lm)
+			continue;
+
+		m->hw_lm->ops.setup_misr(m->hw_lm, enable, frame_count);
+	}
+	mutex_unlock(&sde_crtc->crtc_lock);
+	_sde_crtc_power_enable(sde_crtc, false);
+
+	return count;
+}
+
+static ssize_t _sde_crtc_misr_read(struct file *file,
+		char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_mixer *m;
+	int i = 0, rc;
+	ssize_t len = 0;
+	char buf[MISR_BUFF_SIZE + 1] = {'\0'};
+
+	if (*ppos)
+		return 0;
+
+	if (!file || !file->private_data)
+		return -EINVAL;
+
+	sde_crtc = file->private_data;
+	rc = _sde_crtc_power_enable(sde_crtc, true);
+	if (rc)
+		return rc;
+
+	mutex_lock(&sde_crtc->crtc_lock);
+	if (!sde_crtc->misr_enable) {
+		len += snprintf(buf + len, MISR_BUFF_SIZE - len,
+			"disabled\n");
+		goto buff_check;
+	}
+
+	for (i = 0; i < sde_crtc->num_mixers; ++i) {
+		m = &sde_crtc->mixers[i];
+		if (!m->hw_lm)
+			continue;
+
+		len += snprintf(buf + len, MISR_BUFF_SIZE - len, "lm idx:%d\n",
+					m->hw_lm->idx - LM_0);
+		len += snprintf(buf + len, MISR_BUFF_SIZE - len, "0x%x\n",
+				m->hw_lm->ops.collect_misr(m->hw_lm));
+	}
+
+buff_check:
+	if (count <= len) {
+		len = 0;
+		goto end;
+	}
+
+	if (copy_to_user(user_buff, buf, len)) {
+		len = -EFAULT;
+		goto end;
+	}
+
+	*ppos += len;   /* increase offset */
+
+end:
+	mutex_unlock(&sde_crtc->crtc_lock);
+	_sde_crtc_power_enable(sde_crtc, false);
+	return len;
+}
+
+#define DEFINE_SDE_DEBUGFS_SEQ_FOPS(__prefix)                          \
 static int __prefix ## _open(struct inode *inode, struct file *file)	\
 {									\
 	return single_open(file, __prefix ## _show, inode->i_private);	\
@@ -2100,6 +2223,11 @@ static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 		.llseek =	seq_lseek,
 		.release =	single_release,
 	};
+	static const struct file_operations debugfs_misr_fops = {
+		.open =		simple_open,
+		.read =		_sde_crtc_misr_read,
+		.write =	_sde_crtc_misr_setup,
+	};
 
 	if (!crtc)
 		return -EINVAL;
@@ -2122,6 +2250,8 @@ static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 			sde_crtc->debugfs_root,
 			&sde_crtc->base,
 			&sde_crtc_debugfs_state_fops);
+	debugfs_create_file("misr_data", 0644, sde_crtc->debugfs_root,
+					sde_crtc, &debugfs_misr_fops);
 
 	return 0;
 }

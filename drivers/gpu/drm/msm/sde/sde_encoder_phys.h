@@ -147,9 +147,8 @@ struct sde_encoder_phys_ops {
 	bool (*needs_single_flush)(struct sde_encoder_phys *phys_enc);
 
 	void (*setup_misr)(struct sde_encoder_phys *phys_encs,
-			struct sde_misr_params *misr_map);
-	void (*collect_misr)(struct sde_encoder_phys *phys_enc,
-			struct sde_misr_params *misr_map);
+				bool enable, u32 frame_count);
+	u32 (*collect_misr)(struct sde_encoder_phys *phys_enc);
 	void (*hw_reset)(struct sde_encoder_phys *phys_enc);
 };
 
@@ -183,7 +182,6 @@ enum sde_intr_idx {
  * @hw_pp:		Hardware interface to the ping pong registers
  * @sde_kms:		Pointer to the sde_kms top level
  * @cached_mode:	DRM mode cached at mode_set time, acted on in enable
- * @misr_map:		Interface for setting and collecting MISR data
  * @enabled:		Whether the encoder has enabled and running a mode
  * @split_role:		Role to play in a split-panel configuration
  * @intf_mode:		Interface mode
@@ -212,7 +210,6 @@ struct sde_encoder_phys {
 	struct sde_hw_pingpong *hw_pp;
 	struct sde_kms *sde_kms;
 	struct drm_display_mode cached_mode;
-	struct sde_misr_params *misr_map;
 	enum sde_enc_split_role split_role;
 	enum sde_intf_mode intf_mode;
 	enum sde_intf intf_idx;

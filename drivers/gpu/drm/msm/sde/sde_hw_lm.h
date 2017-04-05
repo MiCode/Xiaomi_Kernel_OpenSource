@@ -79,6 +79,13 @@ struct sde_hw_lm_ops {
 	 * @ctx: Pointer to layer mixer context
 	 */
 	void (*clear_dim_layer)(struct sde_hw_mixer *ctx);
+
+	/* setup_misr: enables/disables MISR in HW register */
+	void (*setup_misr)(struct sde_hw_mixer *ctx,
+			bool enable, u32 frame_count);
+
+	/* collect_misr: reads and stores MISR data from HW register */
+	u32 (*collect_misr)(struct sde_hw_mixer *ctx);
 };
 
 struct sde_hw_mixer {
