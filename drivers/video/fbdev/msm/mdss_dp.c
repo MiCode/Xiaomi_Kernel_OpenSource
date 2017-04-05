@@ -1434,6 +1434,13 @@ static int mdss_dp_setup_main_link(struct mdss_dp_drv_pdata *dp, bool train)
 	if (ret)
 		goto end;
 
+	/*
+	 * Skip the transfer unit setup and the routine to wait for the
+	 * video ready interrupt as link training tests do not require
+	 * video frames to be sent.
+	 */
+	if (mdss_dp_is_link_training_requested(dp))
+		goto end;
 send_video:
 	/*
 	 * Set up transfer unit values and set controller state to send
