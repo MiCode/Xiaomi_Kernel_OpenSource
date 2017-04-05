@@ -23,6 +23,7 @@
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
 #include "dsi-panel-sharp-dualmipi-1080p-120hz.dtsi"
 #include "dsi-panel-s6e3ha3-amoled-dualmipi-wqhd-cmd.dtsi"
+#include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -198,15 +199,15 @@
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
 		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
-		       <&clock_dispcc DISP_CC_MDSS_PCLK0_CLK_SRC>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
 		pinctrl-names = "panel_active", "panel_suspend";
 		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
 		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
-		qcom,platform-te-gpio = <&tlmm 10 0>;
 		qcom,platform-reset-gpio = <&tlmm 6 0>;
+		qcom,panel-mode-gpio = <&tlmm 52 0>;
 
 		qcom,dsi-panel = <&dsi_dual_nt35597_truly_video>;
 		vddio-supply = <&pm8998_l14>;
@@ -291,7 +292,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_wb>;
+	connectors = <&sde_wb &dsi_dual_nt35597_truly_video_display>;
 };
 
 &dsi_dual_nt35597_truly_video {
