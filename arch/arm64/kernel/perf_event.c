@@ -867,8 +867,6 @@ static int armv8pmu_set_event_filter(struct hw_perf_event *event,
 {
 	unsigned long config_base = 0;
 
-	if (attr->exclude_idle)
-		return -EPERM;
 	if (is_kernel_in_hyp_mode() &&
 	    attr->exclude_kernel != attr->exclude_hv)
 		return -EINVAL;
@@ -975,11 +973,74 @@ static void __armv8pmu_probe_pmu(void *info)
 			     ARRAY_SIZE(pmceid));
 }
 
+static void armv8pmu_idle_update(struct arm_pmu *cpu_pmu)
+{
+	struct pmu_hw_events *hw_events;
+	struct perf_event *event;
+	int idx;
+
+	if (!cpu_pmu)
+		return;
+
+	hw_events = this_cpu_ptr(cpu_pmu->hw_events);
+
+	if (!hw_events)
+		return;
+
+	for (idx = 0; idx < cpu_pmu->num_events; ++idx) {
+
+		if (!test_bit(idx, hw_events->used_mask))
+			continue;
+
+		event = hw_events->events[idx];
+
+		if (!event || !event->attr.exclude_idle ||
+				event->state != PERF_EVENT_STATE_ACTIVE)
+			continue;
+
+		cpu_pmu->pmu.read(event);
+	}
+}
+
+struct arm_pmu_and_idle_nb {
+	struct arm_pmu *cpu_pmu;
+	struct notifier_block perf_cpu_idle_nb;
+};
+
+static int perf_cpu_idle_notifier(struct notifier_block *nb,
+				unsigned long action, void *data)
+{
+	struct arm_pmu_and_idle_nb *pmu_nb = container_of(nb,
+				struct arm_pmu_and_idle_nb, perf_cpu_idle_nb);
+
+	if (action == IDLE_START)
+		armv8pmu_idle_update(pmu_nb->cpu_pmu);
+
+	return NOTIFY_OK;
+}
+
 static int armv8pmu_probe_pmu(struct arm_pmu *cpu_pmu)
 {
-	return smp_call_function_any(&cpu_pmu->supported_cpus,
+	int ret;
+	struct arm_pmu_and_idle_nb *pmu_idle_nb;
+
+	pmu_idle_nb = devm_kzalloc(&cpu_pmu->plat_device->dev,
+					sizeof(*pmu_idle_nb), GFP_KERNEL);
+	if (!pmu_idle_nb)
+		return -ENOMEM;
+
+	pmu_idle_nb->cpu_pmu = cpu_pmu;
+	pmu_idle_nb->perf_cpu_idle_nb.notifier_call = perf_cpu_idle_notifier;
+	idle_notifier_register(&pmu_idle_nb->perf_cpu_idle_nb);
+
+	ret = smp_call_function_any(&cpu_pmu->supported_cpus,
 				    __armv8pmu_probe_pmu,
 				    cpu_pmu, 1);
+
+	if (ret)
+		idle_notifier_unregister(&pmu_idle_nb->perf_cpu_idle_nb);
+
+	return ret;
 }
 
 static void armv8_pmu_init(struct arm_pmu *cpu_pmu)
