@@ -374,9 +374,15 @@ static int cnss_pci_suspend(struct device *dev)
 	if (driver_ops && driver_ops->suspend) {
 		ret = driver_ops->suspend(pci_dev, state);
 		if (pci_priv->pci_link_state) {
+			if (cnss_pci_set_mhi_state(pci_priv,
+						   CNSS_MHI_SUSPEND)) {
+				driver_ops->resume(pci_dev);
+				ret = -EAGAIN;
+				goto out;
+			}
+
 			cnss_set_pci_config_space(pci_priv,
 						  SAVE_PCI_CONFIG_SPACE);
-			cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_SUSPEND);
 		}
 	}
 
