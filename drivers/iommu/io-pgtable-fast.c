@@ -133,6 +133,9 @@ struct av8l_fast_io_pgtable {
 #define AV8L_FAST_TCR_EPD1_SHIFT	23
 #define AV8L_FAST_TCR_EPD1_FAULT	1
 
+#define AV8L_FAST_TCR_SEP_SHIFT		(15 + 32)
+#define AV8L_FAST_TCR_SEP_UPSTREAM	7ULL
+
 #define AV8L_FAST_MAIR_ATTR_SHIFT(n)	((n) << 3)
 #define AV8L_FAST_MAIR_ATTR_MASK	0xff
 #define AV8L_FAST_MAIR_ATTR_DEVICE	0x04
@@ -522,6 +525,7 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 #if defined(CONFIG_ARM)
 	reg |= ARM_32_LPAE_TCR_EAE;
 #endif
+	reg |= AV8L_FAST_TCR_SEP_UPSTREAM << AV8L_FAST_TCR_SEP_SHIFT;
 	cfg->av8l_fast_cfg.tcr = reg;
 
 	/* MAIRs */
