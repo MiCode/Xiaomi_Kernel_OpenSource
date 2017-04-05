@@ -1623,6 +1623,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		case V4L2_MPEG_VIDEO_HEADER_MODE_JOINED_WITH_1ST_FRAME:
 			enable.enable = 1;
+			break;
 		default:
 			rc = -ENOTSUPP;
 			break;
