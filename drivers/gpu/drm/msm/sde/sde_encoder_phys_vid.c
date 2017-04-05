@@ -281,22 +281,39 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 {
 	struct sde_encoder_phys_vid *vid_enc = arg;
 	struct sde_encoder_phys *phys_enc;
+	struct sde_hw_ctl *hw_ctl;
 	unsigned long lock_flags;
-	int new_cnt;
+	u32 flush_register = 0;
+	int new_cnt = -1, old_cnt = -1;
 
 	if (!vid_enc)
 		return;
 
 	phys_enc = &vid_enc->base;
+	hw_ctl = phys_enc->hw_ctl;
+
 	if (phys_enc->parent_ops.handle_vblank_virt)
 		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
 				phys_enc);
 
+	old_cnt  = atomic_read(&phys_enc->pending_kickoff_cnt);
+
+	/*
+	 * only decrement the pending flush count if we've actually flushed
+	 * hardware. due to sw irq latency, vblank may have already happened
+	 * so we need to double-check with hw that it accepted the flush bits
+	 */
 	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
-	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
-	SDE_EVT32_IRQ(DRMID(phys_enc->parent), vid_enc->hw_intf->idx - INTF_0,
-			new_cnt);
+	if (hw_ctl && hw_ctl->ops.get_flush_register)
+		flush_register = hw_ctl->ops.get_flush_register(hw_ctl);
+
+	if (flush_register == 0)
+		new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt,
+				-1, 0);
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+
+	SDE_EVT32_IRQ(DRMID(phys_enc->parent), vid_enc->hw_intf->idx - INTF_0,
+			old_cnt, new_cnt, flush_register);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
