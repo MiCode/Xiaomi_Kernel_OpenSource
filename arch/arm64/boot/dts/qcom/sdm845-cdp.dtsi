@@ -130,3 +130,7 @@
 	pinctrl-0 = <&flash_led3_front_en>;
 	pinctrl-1 = <&flash_led3_front_dis>;
 };
+
+&pmi8998_charger {
+	qcom,batteryless-platform;
+};

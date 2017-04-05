@@ -147,3 +147,7 @@
 	spm-level = <0>;
 	status = "ok";
 };
+
+&pmi8998_charger {
+	qcom,suspend-input;
+};
