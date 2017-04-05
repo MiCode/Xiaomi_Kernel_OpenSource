@@ -470,6 +470,7 @@ static inline void iommu_debug_destroy_tracking(void) { }
 static LIST_HEAD(iommu_debug_devices);
 static struct dentry *debugfs_tests_dir;
 static u32 iters_per_op = 1;
+static void *virt_addr;
 
 struct iommu_debug_device {
 	struct device *dev;
@@ -1537,6 +1538,68 @@ out_domain_free:
 	return -EIO;
 }
 
+static ssize_t __iommu_debug_dma_attach_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset)
+{
+	struct iommu_debug_device *ddev = file->private_data;
+	struct device *dev = ddev->dev;
+	struct dma_iommu_mapping *dma_mapping;
+	ssize_t retval = -EINVAL;
+	int val;
+
+	if (kstrtoint_from_user(ubuf, count, 0, &val)) {
+		pr_err("Invalid format. Expected a hex or decimal integer");
+		retval = -EFAULT;
+		goto out;
+	}
+
+	if (val) {
+		if (dev->archdata.mapping)
+			if (dev->archdata.mapping->domain) {
+				pr_err("Already attached.\n");
+				retval = -EINVAL;
+				goto out;
+			}
+		if (WARN(dev->archdata.iommu,
+			"Attachment tracking out of sync with device\n")) {
+			retval = -EINVAL;
+			goto out;
+		}
+
+		dma_mapping = arm_iommu_create_mapping(&platform_bus_type, 0,
+				(SZ_1G * 4ULL));
+
+		if (!dma_mapping)
+			goto out;
+
+		if (arm_iommu_attach_device(dev, dma_mapping))
+			goto out_release_mapping;
+		pr_err("Attached\n");
+	} else {
+		if (!dev->archdata.mapping) {
+			pr_err("No mapping. Did you already attach?\n");
+			retval = -EINVAL;
+			goto out;
+		}
+		if (!dev->archdata.mapping->domain) {
+			pr_err("No domain. Did you already attach?\n");
+			retval = -EINVAL;
+			goto out;
+		}
+		arm_iommu_detach_device(dev);
+		arm_iommu_release_mapping(dev->archdata.mapping);
+		pr_err("Detached\n");
+	}
+	retval = count;
+	return retval;
+
+out_release_mapping:
+	arm_iommu_release_mapping(dma_mapping);
+out:
+	return retval;
+}
+
 static ssize_t __iommu_debug_attach_write(struct file *file,
 					  const char __user *ubuf,
 					  size_t count, loff_t *offset,
@@ -1584,6 +1647,79 @@ static ssize_t __iommu_debug_attach_write(struct file *file,
 out:
 	return retval;
 }
+
+static ssize_t iommu_debug_dma_attach_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset)
+{
+	return __iommu_debug_dma_attach_write(file, ubuf, count, offset);
+
+}
+
+static ssize_t iommu_debug_dma_attach_read(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *offset)
+{
+	struct iommu_debug_device *ddev = file->private_data;
+	struct device *dev = ddev->dev;
+	char c[2];
+
+	if (*offset)
+		return 0;
+
+	if (!dev->archdata.mapping)
+		c[0] = '0';
+	else
+		c[0] = dev->archdata.mapping->domain ? '1' : '0';
+
+	c[1] = '\n';
+	if (copy_to_user(ubuf, &c, 2)) {
+		pr_err("copy_to_user failed\n");
+		return -EFAULT;
+	}
+	*offset = 1;		/* non-zero means we're done */
+
+	return 2;
+}
+
+static const struct file_operations iommu_debug_dma_attach_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_dma_attach_write,
+	.read	= iommu_debug_dma_attach_read,
+};
+
+static ssize_t iommu_debug_virt_addr_read(struct file *file, char __user *ubuf,
+				     size_t count, loff_t *offset)
+{
+	char buf[100];
+	ssize_t retval;
+	size_t buflen;
+
+	if (*offset)
+		return 0;
+
+	memset(buf, 0, 100);
+
+	if (!virt_addr)
+		strlcpy(buf, "FAIL\n", 100);
+	else
+		snprintf(buf, 100, "0x%pK\n", virt_addr);
+
+	buflen = strlen(buf);
+	if (copy_to_user(ubuf, buf, buflen)) {
+		pr_err("Couldn't copy_to_user\n");
+		retval = -EFAULT;
+	} else {
+		*offset = 1;	/* non-zero means we're done */
+		retval = buflen;
+	}
+
+	return retval;
+}
+
+static const struct file_operations iommu_debug_virt_addr_fops = {
+	.open	= simple_open,
+	.read	= iommu_debug_virt_addr_read,
+};
 
 static ssize_t iommu_debug_attach_write(struct file *file,
 					  const char __user *ubuf,
@@ -1633,6 +1769,75 @@ static const struct file_operations iommu_debug_secure_attach_fops = {
 	.open	= simple_open,
 	.write	= iommu_debug_attach_write_secure,
 	.read	= iommu_debug_attach_read,
+};
+
+static ssize_t iommu_debug_pte_write(struct file *file,
+				      const char __user *ubuf,
+				      size_t count, loff_t *offset)
+{
+	struct iommu_debug_device *ddev = file->private_data;
+	dma_addr_t iova;
+
+	if (kstrtox_from_user(ubuf, count, 0, &iova)) {
+		pr_err("Invalid format for iova\n");
+		ddev->iova = 0;
+		return -EINVAL;
+	}
+
+	ddev->iova = iova;
+	pr_err("Saved iova=%pa for future PTE commands\n", &iova);
+	return count;
+}
+
+
+static ssize_t iommu_debug_pte_read(struct file *file, char __user *ubuf,
+				     size_t count, loff_t *offset)
+{
+	struct iommu_debug_device *ddev = file->private_data;
+	struct device *dev = ddev->dev;
+	uint64_t pte;
+	char buf[100];
+	ssize_t retval;
+	size_t buflen;
+
+	if (!dev->archdata.mapping) {
+		pr_err("No mapping. Did you already attach?\n");
+		return -EINVAL;
+	}
+	if (!dev->archdata.mapping->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		return -EINVAL;
+	}
+
+	if (*offset)
+		return 0;
+
+	memset(buf, 0, 100);
+
+	pte = iommu_iova_to_pte(dev->archdata.mapping->domain,
+			ddev->iova);
+
+	if (!pte)
+		strlcpy(buf, "FAIL\n", 100);
+	else
+		snprintf(buf, 100, "pte=%016llx\n", pte);
+
+	buflen = strlen(buf);
+	if (copy_to_user(ubuf, buf, buflen)) {
+		pr_err("Couldn't copy_to_user\n");
+		retval = -EFAULT;
+	} else {
+		*offset = 1;	/* non-zero means we're done */
+		retval = buflen;
+	}
+
+	return retval;
+}
+
+static const struct file_operations iommu_debug_pte_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_pte_write,
+	.read	= iommu_debug_pte_read,
 };
 
 static ssize_t iommu_debug_atos_write(struct file *file,
@@ -1694,6 +1899,55 @@ static const struct file_operations iommu_debug_atos_fops = {
 	.open	= simple_open,
 	.write	= iommu_debug_atos_write,
 	.read	= iommu_debug_atos_read,
+};
+
+static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
+				     size_t count, loff_t *offset)
+{
+	struct iommu_debug_device *ddev = file->private_data;
+	struct device *dev = ddev->dev;
+	phys_addr_t phys;
+	char buf[100];
+	ssize_t retval;
+	size_t buflen;
+
+	if (!dev->archdata.mapping) {
+		pr_err("No mapping. Did you already attach?\n");
+		return -EINVAL;
+	}
+	if (!dev->archdata.mapping->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		return -EINVAL;
+	}
+
+	if (*offset)
+		return 0;
+
+	memset(buf, 0, 100);
+
+	phys = iommu_iova_to_phys_hard(dev->archdata.mapping->domain,
+			ddev->iova);
+	if (!phys)
+		strlcpy(buf, "FAIL\n", 100);
+	else
+		snprintf(buf, 100, "%pa\n", &phys);
+
+	buflen = strlen(buf);
+	if (copy_to_user(ubuf, buf, buflen)) {
+		pr_err("Couldn't copy_to_user\n");
+		retval = -EFAULT;
+	} else {
+		*offset = 1;	/* non-zero means we're done */
+		retval = buflen;
+	}
+
+	return retval;
+}
+
+static const struct file_operations iommu_debug_dma_atos_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_atos_write,
+	.read	= iommu_debug_dma_atos_read,
 };
 
 static ssize_t iommu_debug_map_write(struct file *file, const char __user *ubuf,
@@ -1776,6 +2030,152 @@ static const struct file_operations iommu_debug_map_fops = {
 	.write	= iommu_debug_map_write,
 };
 
+static ssize_t iommu_debug_dma_map_write(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *offset)
+{
+	ssize_t retval = -EINVAL;
+	int ret;
+	char *comma1, *comma2;
+	char buf[100];
+	unsigned long addr;
+	void *v_addr;
+	dma_addr_t iova;
+	size_t size;
+	unsigned int attr;
+	struct dma_attrs coherent_attr;
+	struct dma_attrs *dma_attrs = &coherent_attr;
+	struct iommu_debug_device *ddev = file->private_data;
+	struct device *dev = ddev->dev;
+
+	init_dma_attrs(dma_attrs);
+
+	if (count >= 100) {
+		pr_err("Value too large\n");
+		return -EINVAL;
+	}
+
+	if (!dev->archdata.mapping) {
+		pr_err("No mapping. Did you already attach?\n");
+		retval = -EINVAL;
+		goto out;
+	}
+	if (!dev->archdata.mapping->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		retval = -EINVAL;
+		goto out;
+	}
+
+	memset(buf, 0, 100);
+
+	if (copy_from_user(buf, ubuf, count)) {
+		pr_err("Couldn't copy from user\n");
+		retval = -EFAULT;
+		goto out;
+	}
+
+	comma1 = strnchr(buf, count, ',');
+	if (!comma1)
+		goto invalid_format;
+
+	comma2 = strnchr(comma1 + 1, count, ',');
+	if (!comma2)
+		goto invalid_format;
+
+	*comma1 = *comma2 = '\0';
+
+	if (kstrtoul(buf, 0, &addr))
+		goto invalid_format;
+	v_addr = (void *)addr;
+
+	if (kstrtosize_t(comma1 + 1, 0, &size))
+		goto invalid_format;
+
+	if (kstrtouint(comma2 + 1, 0, &attr))
+		goto invalid_format;
+
+	if (v_addr < virt_addr || v_addr > (virt_addr + SZ_1M - 1))
+		goto invalid_addr;
+
+	if (attr == 0)
+		dma_attrs = NULL;
+	else if (attr == 1)
+		dma_set_attr(DMA_ATTR_FORCE_COHERENT, dma_attrs);
+	else if (attr == 2)
+		dma_set_attr(DMA_ATTR_FORCE_NON_COHERENT, dma_attrs);
+	else
+		goto invalid_format;
+
+	iova = dma_map_single_attrs(dev, v_addr, size,
+					DMA_TO_DEVICE, dma_attrs);
+
+	if (dma_mapping_error(dev, iova)) {
+		pr_err("Failed to perform dma_map_single\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	retval = count;
+	pr_err("Mapped 0x%p to %pa (len=0x%zx)\n",
+			v_addr, &iova, size);
+	ddev->iova = iova;
+		pr_err("Saved iova=%pa for future PTE commands\n", &iova);
+out:
+	return retval;
+
+invalid_format:
+	pr_err("Invalid format. Expected: addr,len,dma attr where 'dma attr' is\n0: normal mapping\n1: force coherent\n2: force non-cohernet\n");
+	return retval;
+
+invalid_addr:
+	pr_err("Invalid addr given! Address should be within 1MB size from start addr returned by doing 'cat virt_addr'.\n");
+	return retval;
+}
+
+static ssize_t iommu_debug_dma_map_read(struct file *file, char __user *ubuf,
+	     size_t count, loff_t *offset)
+{
+	struct iommu_debug_device *ddev = file->private_data;
+	struct device *dev = ddev->dev;
+	char buf[100];
+	ssize_t retval;
+	size_t buflen;
+	dma_addr_t iova;
+
+	if (!dev->archdata.mapping) {
+		pr_err("No mapping. Did you already attach?\n");
+		return -EINVAL;
+	}
+	if (!dev->archdata.mapping->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		return -EINVAL;
+	}
+
+	if (*offset)
+		return 0;
+
+	memset(buf, 0, 100);
+
+	iova = ddev->iova;
+	snprintf(buf, 100, "%pa\n", &iova);
+
+	buflen = strlen(buf);
+	if (copy_to_user(ubuf, buf, buflen)) {
+		pr_err("Couldn't copy_to_user\n");
+		retval = -EFAULT;
+	} else {
+		*offset = 1;	/* non-zero means we're done */
+		retval = buflen;
+	}
+
+	return retval;
+}
+
+static const struct file_operations iommu_debug_dma_map_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_dma_map_write,
+	.read	= iommu_debug_dma_map_read,
+};
+
 static ssize_t iommu_debug_unmap_write(struct file *file,
 				       const char __user *ubuf,
 				       size_t count, loff_t *offset)
@@ -1839,6 +2239,92 @@ invalid_format:
 static const struct file_operations iommu_debug_unmap_fops = {
 	.open	= simple_open,
 	.write	= iommu_debug_unmap_write,
+};
+
+static ssize_t iommu_debug_dma_unmap_write(struct file *file,
+				       const char __user *ubuf,
+				       size_t count, loff_t *offset)
+{
+	ssize_t retval = 0;
+	char *comma1, *comma2;
+	char buf[100];
+	size_t size;
+	unsigned int attr;
+	dma_addr_t iova;
+	struct dma_attrs coherent_attr;
+	struct dma_attrs *dma_attrs = &coherent_attr;
+	struct iommu_debug_device *ddev = file->private_data;
+	struct device *dev = ddev->dev;
+
+	init_dma_attrs(dma_attrs);
+
+	if (count >= 100) {
+		pr_err("Value too large\n");
+		return -EINVAL;
+	}
+
+	if (!dev->archdata.mapping) {
+		pr_err("No mapping. Did you already attach?\n");
+		retval = -EINVAL;
+		goto out;
+	}
+	if (!dev->archdata.mapping->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		retval = -EINVAL;
+		goto out;
+	}
+
+	memset(buf, 0, 100);
+
+	if (copy_from_user(buf, ubuf, count)) {
+		pr_err("Couldn't copy from user\n");
+		retval = -EFAULT;
+		goto out;
+	}
+
+	comma1 = strnchr(buf, count, ',');
+	if (!comma1)
+		goto invalid_format;
+
+	comma2 = strnchr(comma1 + 1, count, ',');
+	if (!comma2)
+		goto invalid_format;
+
+	*comma1 = *comma2 = '\0';
+
+	if (kstrtoux(buf, 0, &iova))
+		goto invalid_format;
+
+	if (kstrtosize_t(comma1 + 1, 0, &size))
+		goto invalid_format;
+
+	if (kstrtouint(comma2 + 1, 0, &attr))
+		goto invalid_format;
+
+	if (attr == 0)
+		dma_attrs = NULL;
+	else if (attr == 1)
+		dma_set_attr(DMA_ATTR_FORCE_COHERENT, dma_attrs);
+	else if (attr == 2)
+		dma_set_attr(DMA_ATTR_FORCE_NON_COHERENT, dma_attrs);
+	else
+		goto invalid_format;
+
+	dma_unmap_single_attrs(dev, iova, size, DMA_TO_DEVICE, dma_attrs);
+
+	retval = count;
+	pr_err("Unmapped %pa (len=0x%zx)\n", &iova, size);
+out:
+	return retval;
+
+invalid_format:
+	pr_err("Invalid format. Expected: iova,len, dma attr\n");
+	return retval;
+}
+
+static const struct file_operations iommu_debug_dma_unmap_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_dma_unmap_write,
 };
 
 static ssize_t iommu_debug_config_clocks_write(struct file *file,
@@ -1919,6 +2405,13 @@ static int snarf_iommu_devices(struct device *dev, const char *name)
 		goto err_rmdir;
 	}
 
+	if (!debugfs_create_file("virt_addr", S_IRUSR, dir, ddev,
+				&iommu_debug_virt_addr_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/virt_addr debugfs file\n",
+		       name);
+		goto err_rmdir;
+	}
+
 	if (!debugfs_create_file("profiling", S_IRUSR, dir, ddev,
 				 &iommu_debug_profiling_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/profiling debugfs file\n",
@@ -1961,6 +2454,13 @@ static int snarf_iommu_devices(struct device *dev, const char *name)
 		goto err_rmdir;
 	}
 
+	if (!debugfs_create_file("dma_attach", S_IRUSR, dir, ddev,
+				 &iommu_debug_dma_attach_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/dma_attach debugfs file\n",
+			       name);
+		goto err_rmdir;
+	}
+
 	if (!debugfs_create_file("attach", S_IRUSR, dir, ddev,
 				 &iommu_debug_attach_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/attach debugfs file\n",
@@ -1982,6 +2482,13 @@ static int snarf_iommu_devices(struct device *dev, const char *name)
 		goto err_rmdir;
 	}
 
+	if (!debugfs_create_file("dma_atos", S_IWUSR, dir, ddev,
+				 &iommu_debug_dma_atos_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/dma_atos debugfs file\n",
+			       name);
+		goto err_rmdir;
+	}
+
 	if (!debugfs_create_file("map", S_IWUSR, dir, ddev,
 				 &iommu_debug_map_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/map debugfs file\n",
@@ -1989,10 +2496,31 @@ static int snarf_iommu_devices(struct device *dev, const char *name)
 		goto err_rmdir;
 	}
 
+	if (!debugfs_create_file("dma_map", S_IWUSR, dir, ddev,
+					 &iommu_debug_dma_map_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/dma_map debugfs file\n",
+			       name);
+			goto err_rmdir;
+	}
+
 	if (!debugfs_create_file("unmap", S_IWUSR, dir, ddev,
 				 &iommu_debug_unmap_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/unmap debugfs file\n",
 		       name);
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file("dma_unmap", S_IWUSR, dir, ddev,
+					 &iommu_debug_dma_unmap_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/dma_unmap debugfs file\n",
+			       name);
+			goto err_rmdir;
+	}
+
+	if (!debugfs_create_file("pte", S_IWUSR, dir, ddev,
+			&iommu_debug_pte_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/pte debugfs file\n",
+				name);
 		goto err_rmdir;
 	}
 
@@ -2049,6 +2577,11 @@ static int iommu_debug_init_tests(void)
 		pr_err("Couldn't create iommu/tests debugfs directory\n");
 		return -ENODEV;
 	}
+
+	virt_addr = kzalloc(SZ_1M, GFP_KERNEL);
+
+	if (!virt_addr)
+		return -ENOMEM;
 
 	return iommu_debug_populate_devices();
 }
