@@ -14,6 +14,7 @@
 #include <linux/export.h>
 #include <linux/kernel.h>
 #include <linux/hrtimer.h>
+#include <linux/devfreq_cooling.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
@@ -530,7 +531,8 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	struct kgsl_pwrctrl *pwr;
 	struct kgsl_pwrlevel *pwr_level;
 	int level, i;
-	unsigned long cur_freq;
+	unsigned long cur_freq, rec_freq;
+	struct dev_pm_opp *opp;
 
 	if (device == NULL)
 		return -ENODEV;
@@ -549,16 +551,31 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 		return 0;
 	}
 
+	/*
+	 * Thermal framework might have disabled/enabled OPP entries
+	 * for mitigation. So find the recommended frequency matching
+	 * the available opp entries
+	 */
+	rcu_read_lock();
+	rec_freq = *freq;
+	opp = devfreq_recommended_opp(dev, &rec_freq, flags);
+	if (IS_ERR(opp)) {
+		rcu_read_unlock();
+		return PTR_ERR(opp);
+	}
+	rec_freq = dev_pm_opp_get_freq(opp);
+	rcu_read_unlock();
+
 	mutex_lock(&device->mutex);
 	cur_freq = kgsl_pwrctrl_active_freq(pwr);
 	level = pwr->active_pwrlevel;
 	pwr_level = &pwr->pwrlevels[level];
 
 	/* If the governor recommends a new frequency, update it here */
-	if (*freq != cur_freq) {
+	if (rec_freq != cur_freq) {
 		level = pwr->max_pwrlevel;
 		for (i = pwr->min_pwrlevel; i >= pwr->max_pwrlevel; i--)
-			if (*freq <= pwr->pwrlevels[i].gpu_freq) {
+			if (rec_freq <= pwr->pwrlevels[i].gpu_freq) {
 				if (pwr->thermal_cycle == CYCLE_ACTIVE)
 					level = _thermal_adjust(pwr, i);
 				else
@@ -963,6 +980,10 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 	}
 
 	pwrscale->devfreqptr = devfreq;
+	pwrscale->cooling_dev = of_devfreq_cooling_register(
+					device->pdev->dev.of_node, devfreq);
+	if (IS_ERR(pwrscale->cooling_dev))
+		pwrscale->cooling_dev = NULL;
 
 	pwrscale->gpu_profile.bus_devfreq = NULL;
 	if (data->bus.num) {
@@ -1025,6 +1046,8 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 	pwrscale = &device->pwrscale;
 	if (!pwrscale->devfreqptr)
 		return;
+	if (pwrscale->cooling_dev)
+		devfreq_cooling_unregister(pwrscale->cooling_dev);
 
 	kgsl_pwrscale_midframe_timer_cancel(device);
 	flush_workqueue(pwrscale->devfreq_wq);
