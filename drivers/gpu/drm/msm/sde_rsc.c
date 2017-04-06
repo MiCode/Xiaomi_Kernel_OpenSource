@@ -413,12 +413,6 @@ static int sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 		if (client->current_state == SDE_RSC_VID_STATE)
 			goto end;
 
-	/* no need to enable solver again */
-	if (rsc->current_state == SDE_RSC_CLK_STATE) {
-		rc = 0;
-		goto end;
-	}
-
 	if (rsc->hw_ops.state_update)
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CMD_STATE);
 
@@ -440,14 +434,8 @@ static bool sde_rsc_switch_to_clk(struct sde_rsc_priv *rsc)
 		    (client->current_state == SDE_RSC_CMD_STATE))
 			goto end;
 
-	/* no need to enable the solver again */
-	if (rsc->current_state == SDE_RSC_CMD_STATE) {
-		rc = 0;
-		goto end;
-	}
-
 	if (rsc->hw_ops.state_update)
-		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CMD_STATE);
+		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CLK_STATE);
 end:
 	return rc;
 }
@@ -1086,6 +1074,7 @@ static int sde_rsc_probe(struct platform_device *pdev)
 	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 
 	INIT_LIST_HEAD(&rsc->client_list);
+	INIT_LIST_HEAD(&rsc->event_list);
 	mutex_init(&rsc->client_lock);
 
 	pr_info("sde rsc index:%d probed successfully\n",
@@ -1095,6 +1084,7 @@ static int sde_rsc_probe(struct platform_device *pdev)
 	snprintf(name, MAX_RSC_CLIENT_NAME_LEN, "%s%d", "sde_rsc", counter);
 	_sde_rsc_init_debugfs(rsc, name);
 	counter++;
+	rsc->power_collapse = true;
 
 	ret = component_add(&pdev->dev, &sde_rsc_comp_ops);
 	if (ret)

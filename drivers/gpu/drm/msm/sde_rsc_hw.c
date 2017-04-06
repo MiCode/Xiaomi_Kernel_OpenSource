@@ -314,6 +314,20 @@ int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 	wrapper_status |= BIT(0);
 	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_CTRL,
 					wrapper_status, rsc->debug_mode);
+
+	/**
+	 * force busy and idle during clk & video mode state because it
+	 * is trying to entry in mode-2 without turning on the vysnc.
+	 */
+	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
+			(rsc->current_state == SDE_RSC_CLK_STATE)) {
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+				BIT(0) | BIT(1), rsc->debug_mode);
+		wmb(); /* force busy gurantee */
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+				BIT(0) | BIT(9), rsc->debug_mode);
+	}
+
 	/* make sure that mode-2 is triggered before wait*/
 	wmb();
 
@@ -331,6 +345,13 @@ int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 		goto end;
 	}
 
+	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
+			(rsc->current_state == SDE_RSC_CLK_STATE)) {
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+					BIT(0) | BIT(8), rsc->debug_mode);
+		wmb(); /* force busy on vsync */
+	}
+
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_PC);
 
 	return 0;
@@ -343,12 +364,25 @@ end:
 	return rc;
 }
 
-int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc)
+int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc, enum sde_rsc_state state)
 {
 	int rc = -EBUSY;
 	int count, reg;
 
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_RESTORE);
+
+	/**
+	 * force busy and idle during clk & video mode state because it
+	 * is trying to entry in mode-2 without turning on the vysnc.
+	 */
+	if ((state == SDE_RSC_VID_STATE) || (state == SDE_RSC_CLK_STATE)) {
+		reg = dss_reg_r(&rsc->wrapper_io,
+			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
+		reg |= BIT(8);
+		reg &= ~(BIT(1) | BIT(0));
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+							reg, rsc->debug_mode);
+	}
 
 	// needs review with HPG sequence
 	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_LO,
@@ -405,7 +439,7 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 	int reg;
 
 	if (rsc->power_collapse) {
-		rc = sde_rsc_mode2_exit(rsc);
+		rc = sde_rsc_mode2_exit(rsc, state);
 		if (rc)
 			pr_err("power collapse: mode2 exit failed\n");
 		else
@@ -449,6 +483,10 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 		wmb();
 
 		rsc_event_trigger(rsc, SDE_RSC_EVENT_SOLVER_DISABLED);
+		break;
+
+	case SDE_RSC_CLK_STATE:
+		pr_debug("clk state handling\n");
 		break;
 
 	case SDE_RSC_IDLE_STATE:
@@ -693,9 +731,6 @@ int sde_rsc_hw_register(struct sde_rsc_priv *rsc)
 	rsc->hw_ops.tcs_wait = rsc_hw_tcs_wait;
 	rsc->hw_ops.tcs_use_ok = rsc_hw_tcs_use_ok;
 	rsc->hw_ops.is_amc_mode = rsc_hw_is_amc_mode;
-
-	rsc->hw_ops.mode2_entry = sde_rsc_mode2_entry;
-	rsc->hw_ops.mode2_exit = sde_rsc_mode2_exit;
 
 	rsc->hw_ops.hw_vsync = rsc_hw_vsync;
 	rsc->hw_ops.state_update = sde_rsc_state_update;
