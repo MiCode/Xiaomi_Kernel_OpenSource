@@ -974,14 +974,14 @@
 };
 
 &pcie1 {
-	/delete-property/ qcom,ep-wakeirq;
+	/delete-property/ qcom,boot-option;
 };
 
 &pcie2 {
 	perst-gpio = <&tlmm 90 0>;
 	wake-gpio = <&tlmm 54 0>;
 
-	/delete-property/ qcom,ep-wakeirq;
+	/delete-property/ qcom,boot-option;
 };
 
 &wsa881x_211 {
