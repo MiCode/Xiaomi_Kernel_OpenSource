@@ -5495,15 +5495,6 @@ static void mdss_mdp_force_border_color(struct mdss_mdp_ctl *ctl)
 		ctl->mixer_right->params_changed++;
 }
 
-static bool mdss_mdp_handle_backlight_extn(struct mdss_mdp_ctl *ctl)
-{
-	if (ctl->intf_type == MDSS_INTF_DSI && !ctl->is_video_mode &&
-	    ctl->mfd->bl_extn_level > 0)
-		return true;
-	else
-		return false;
-}
-
 int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	struct mdss_mdp_commit_cb *commit_cb)
 {
@@ -5650,15 +5641,6 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	if (ctl->ops.wait_pingpong && !mdata->serialize_wait4pp)
 		mdss_mdp_display_wait4pingpong(ctl, false);
 
-	/*
-	 * If backlight needs to change, wait for 1 vsync before setting
-	 * PCC and kickoff
-	 */
-	if (mdss_mdp_handle_backlight_extn(ctl) &&
-	    ctl->ops.wait_for_vsync_fnc) {
-		ret = ctl->ops.wait_for_vsync_fnc(ctl);
-	}
-
 	/* Moved pp programming to post ping pong */
 	if (!ctl->is_video_mode && ctl->mfd &&
 			ctl->mfd->dcm_state != DTM_ENTER) {
@@ -5802,7 +5784,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		pr_warn("ctl %d error displaying frame\n", ctl->num);
 
 	/* update backlight in commit */
-	if (mdss_mdp_handle_backlight_extn(ctl) && ctl->mfd) {
+	if (ctl->intf_type == MDSS_INTF_DSI && !ctl->is_video_mode &&
+	    ctl->mfd && ctl->mfd->bl_extn_level > 0) {
 		if (!IS_CALIB_MODE_BL(ctl->mfd) && (!ctl->mfd->ext_bl_ctrl ||
 						!ctl->mfd->bl_level)) {
 			mutex_lock(&ctl->mfd->bl_lock);
