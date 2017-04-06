@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2414,8 +2414,16 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			dev->res[base_sel - 1].base,
 			wr_offset, wr_mask, wr_value);
 
-		msm_pcie_write_reg_field(dev->res[base_sel - 1].base,
-			wr_offset, wr_mask, wr_value);
+		base_sel_size = resource_size(dev->res[base_sel - 1].resource);
+
+		if (wr_offset >  base_sel_size - 4 ||
+			msm_pcie_check_align(dev, wr_offset))
+			PCIE_DBG_FS(dev,
+				"PCIe: RC%d: Invalid wr_offset: 0x%x. wr_offset should be no more than 0x%x\n",
+				dev->rc_idx, wr_offset, base_sel_size - 4);
+		else
+			msm_pcie_write_reg_field(dev->res[base_sel - 1].base,
+				wr_offset, wr_mask, wr_value);
 
 		break;
 	case 13: /* dump all registers of base_sel */
@@ -2526,13 +2534,14 @@ static ssize_t msm_pcie_cmd_debug(struct file *file,
 	char str[MAX_MSG_LEN];
 	unsigned int testcase = 0;
 	int i;
+	u32 size = sizeof(str) < count ? sizeof(str) : count;
 
-	memset(str, 0, sizeof(str));
-	ret = copy_from_user(str, buf, sizeof(str));
+	memset(str, 0, size);
+	ret = copy_from_user(str, buf, size);
 	if (ret)
 		return -EFAULT;
 
-	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
+	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
 		testcase = (testcase * 10) + (str[i] - '0');
 
 	if (!rc_sel)
@@ -2561,13 +2570,14 @@ static ssize_t msm_pcie_set_rc_sel(struct file *file,
 	char str[MAX_MSG_LEN];
 	int i;
 	u32 new_rc_sel = 0;
+	u32 size = sizeof(str) < count ? sizeof(str) : count;
 
-	memset(str, 0, sizeof(str));
-	ret = copy_from_user(str, buf, sizeof(str));
+	memset(str, 0, size);
+	ret = copy_from_user(str, buf, size);
 	if (ret)
 		return -EFAULT;
 
-	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
+	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
 		new_rc_sel = (new_rc_sel * 10) + (str[i] - '0');
 
 	if ((!new_rc_sel) || (new_rc_sel > rc_sel_max)) {
@@ -2604,13 +2614,14 @@ static ssize_t msm_pcie_set_base_sel(struct file *file,
 	int i;
 	u32 new_base_sel = 0;
 	char *base_sel_name;
+	u32 size = sizeof(str) < count ? sizeof(str) : count;
 
-	memset(str, 0, sizeof(str));
-	ret = copy_from_user(str, buf, sizeof(str));
+	memset(str, 0, size);
+	ret = copy_from_user(str, buf, size);
 	if (ret)
 		return -EFAULT;
 
-	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
+	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
 		new_base_sel = (new_base_sel * 10) + (str[i] - '0');
 
 	if (!new_base_sel || new_base_sel > 5) {
@@ -2705,14 +2716,15 @@ static ssize_t msm_pcie_set_wr_offset(struct file *file,
 	unsigned long ret;
 	char str[MAX_MSG_LEN];
 	int i;
+	u32 size = sizeof(str) < count ? sizeof(str) : count;
 
-	memset(str, 0, sizeof(str));
-	ret = copy_from_user(str, buf, sizeof(str));
+	memset(str, 0, size);
+	ret = copy_from_user(str, buf, size);
 	if (ret)
 		return -EFAULT;
 
 	wr_offset = 0;
-	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
+	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
 		wr_offset = (wr_offset * 10) + (str[i] - '0');
 
 	pr_alert("PCIe: wr_offset is now 0x%x\n", wr_offset);
@@ -2731,14 +2743,15 @@ static ssize_t msm_pcie_set_wr_mask(struct file *file,
 	unsigned long ret;
 	char str[MAX_MSG_LEN];
 	int i;
+	u32 size = sizeof(str) < count ? sizeof(str) : count;
 
-	memset(str, 0, sizeof(str));
-	ret = copy_from_user(str, buf, sizeof(str));
+	memset(str, 0, size);
+	ret = copy_from_user(str, buf, size);
 	if (ret)
 		return -EFAULT;
 
 	wr_mask = 0;
-	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
+	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
 		wr_mask = (wr_mask * 10) + (str[i] - '0');
 
 	pr_alert("PCIe: wr_mask is now 0x%x\n", wr_mask);
@@ -2756,14 +2769,15 @@ static ssize_t msm_pcie_set_wr_value(struct file *file,
 	unsigned long ret;
 	char str[MAX_MSG_LEN];
 	int i;
+	u32 size = sizeof(str) < count ? sizeof(str) : count;
 
-	memset(str, 0, sizeof(str));
-	ret = copy_from_user(str, buf, sizeof(str));
+	memset(str, 0, size);
+	ret = copy_from_user(str, buf, size);
 	if (ret)
 		return -EFAULT;
 
 	wr_value = 0;
-	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
+	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
 		wr_value = (wr_value * 10) + (str[i] - '0');
 
 	pr_alert("PCIe: wr_value is now 0x%x\n", wr_value);
@@ -2882,14 +2896,15 @@ static ssize_t msm_pcie_set_corr_counter_limit(struct file *file,
 	unsigned long ret;
 	char str[MAX_MSG_LEN];
 	int i;
+	u32 size = sizeof(str) < count ? sizeof(str) : count;
 
-	memset(str, 0, sizeof(str));
-	ret = copy_from_user(str, buf, sizeof(str));
+	memset(str, 0, size);
+	ret = copy_from_user(str, buf, size);
 	if (ret)
 		return -EFAULT;
 
 	corr_counter_limit = 0;
-	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
+	for (i = 0; i < size && (str[i] >= '0') && (str[i] <= '9'); ++i)
 		corr_counter_limit = (corr_counter_limit * 10) + (str[i] - '0');
 
 	pr_info("PCIe: corr_counter_limit is now %lu\n", corr_counter_limit);
