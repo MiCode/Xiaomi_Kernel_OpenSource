@@ -330,6 +330,5 @@ int ext4_mpage_readpages(struct address_space *mapping,
 	BUG_ON(pages && !list_empty(pages));
 	if (bio)
 		submit_bio(READ, bio);
-
 	return 0;
 }

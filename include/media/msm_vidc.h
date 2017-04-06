@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,6 +110,7 @@ int msm_vidc_release_buffers(void *instance, int buffer_type);
 int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b);
 int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b);
 int msm_vidc_streamon(void *instance, enum v4l2_buf_type i);
+int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl);
 int msm_vidc_streamoff(void *instance, enum v4l2_buf_type i);
 int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd);
 int msm_vidc_poll(void *instance, struct file *filp,

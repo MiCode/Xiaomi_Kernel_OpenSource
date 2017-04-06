@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,7 @@ struct esoc_eng {
  * struct esoc_clink: Representation of external esoc device
  * @name: Name of the external esoc.
  * @link_name: name of the physical link.
+ * @link_info: additional info about the physical link.
  * @parent: parent device.
  * @dev: device for userspace interface.
  * @id: id of the external device.
@@ -62,6 +63,7 @@ struct esoc_eng {
 struct esoc_clink {
 	const char *name;
 	const char *link_name;
+	const char *link_info;
 	struct device *parent;
 	struct device dev;
 	unsigned int id;

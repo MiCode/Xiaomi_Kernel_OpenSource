@@ -511,7 +511,6 @@ static inline void napi_enable(struct napi_struct *n)
 	clear_bit(NAPI_STATE_NPSVC, &n->state);
 }
 
-#ifdef CONFIG_SMP
 /**
  *	napi_synchronize - wait until NAPI is not running
  *	@n: napi context
@@ -522,12 +521,12 @@ static inline void napi_enable(struct napi_struct *n)
  */
 static inline void napi_synchronize(const struct napi_struct *n)
 {
-	while (test_bit(NAPI_STATE_SCHED, &n->state))
-		msleep(1);
+	if (IS_ENABLED(CONFIG_SMP))
+		while (test_bit(NAPI_STATE_SCHED, &n->state))
+			msleep(1);
+	else
+		barrier();
 }
-#else
-# define napi_synchronize(n)	barrier()
-#endif
 
 enum netdev_queue_state_t {
 	__QUEUE_STATE_DRV_XOFF,
@@ -1400,6 +1399,7 @@ enum netdev_priv_flags {
  *	@mtu:		Interface MTU value
  *	@type:		Interface hardware type
  *	@hard_header_len: Maximum hardware header length.
+ *	@min_header_len:  Minimum hardware header length
  *
  *	@needed_headroom: Extra headroom the hardware may need, but not in all
  *			  cases can this be guaranteed
@@ -1620,6 +1620,7 @@ struct net_device {
 	unsigned int		mtu;
 	unsigned short		type;
 	unsigned short		hard_header_len;
+	unsigned short		min_header_len;
 
 	unsigned short		needed_headroom;
 	unsigned short		needed_tailroom;
@@ -1987,8 +1988,8 @@ struct napi_gro_cb {
 	/* This is non-zero if the packet may be of the same flow. */
 	u8	same_flow:1;
 
-	/* Used in udp_gro_receive */
-	u8	udp_mark:1;
+	/* Used in tunnel GRO receive */
+	u8	encap_mark:1;
 
 	/* GRO checksum is valid */
 	u8	csum_valid:1;
@@ -2004,7 +2005,10 @@ struct napi_gro_cb {
 	/* Used in foo-over-udp, set in udp[46]_gro_receive */
 	u8	is_ipv6:1;
 
-	/* 7 bit hole */
+	/* Number of gro_receive callbacks this packet already went through */
+	u8 recursion_counter:4;
+
+	/* 3 bit hole */
 
 	/* used to support CHECKSUM_COMPLETE for tunneling protocols */
 	__wsum	csum;
@@ -2014,6 +2018,25 @@ struct napi_gro_cb {
 };
 
 #define NAPI_GRO_CB(skb) ((struct napi_gro_cb *)(skb)->cb)
+
+#define GRO_RECURSION_LIMIT 15
+static inline int gro_recursion_inc_test(struct sk_buff *skb)
+{
+	return ++NAPI_GRO_CB(skb)->recursion_counter == GRO_RECURSION_LIMIT;
+}
+
+typedef struct sk_buff **(*gro_receive_t)(struct sk_buff **, struct sk_buff *);
+static inline struct sk_buff **call_gro_receive(gro_receive_t cb,
+						struct sk_buff **head,
+						struct sk_buff *skb)
+{
+	if (unlikely(gro_recursion_inc_test(skb))) {
+		NAPI_GRO_CB(skb)->flush |= 1;
+		return NULL;
+	}
+
+	return cb(head, skb);
+}
 
 struct packet_type {
 	__be16			type;	/* This is really htons(ether_type). */
@@ -2059,6 +2082,22 @@ struct udp_offload {
 	u8			 ipproto;
 	struct udp_offload_callbacks callbacks;
 };
+
+typedef struct sk_buff **(*gro_receive_udp_t)(struct sk_buff **,
+					      struct sk_buff *,
+					      struct udp_offload *);
+static inline struct sk_buff **call_gro_receive_udp(gro_receive_udp_t cb,
+						    struct sk_buff **head,
+						    struct sk_buff *skb,
+						    struct udp_offload *uoff)
+{
+	if (unlikely(gro_recursion_inc_test(skb))) {
+		NAPI_GRO_CB(skb)->flush |= 1;
+		return NULL;
+	}
+
+	return cb(head, skb, uoff);
+}
 
 /* often modified stats are per cpu, other are shared (netdev->stats) */
 struct pcpu_sw_netstats {
@@ -2288,14 +2327,19 @@ static inline int skb_gro_header_hard(struct sk_buff *skb, unsigned int hlen)
 	return NAPI_GRO_CB(skb)->frag0_len < hlen;
 }
 
+static inline void skb_gro_frag0_invalidate(struct sk_buff *skb)
+{
+	NAPI_GRO_CB(skb)->frag0 = NULL;
+	NAPI_GRO_CB(skb)->frag0_len = 0;
+}
+
 static inline void *skb_gro_header_slow(struct sk_buff *skb, unsigned int hlen,
 					unsigned int offset)
 {
 	if (!pskb_may_pull(skb, hlen))
 		return NULL;
 
-	NAPI_GRO_CB(skb)->frag0 = NULL;
-	NAPI_GRO_CB(skb)->frag0_len = 0;
+	skb_gro_frag0_invalidate(skb);
 	return skb->data + offset;
 }
 
@@ -2499,6 +2543,8 @@ static inline bool dev_validate_header(const struct net_device *dev,
 {
 	if (likely(len >= dev->hard_header_len))
 		return true;
+	if (len < dev->min_header_len)
+		return false;
 
 	if (capable(CAP_SYS_RAWIO)) {
 		memset(ll_header + len, 0, dev->hard_header_len - len);
@@ -3041,6 +3087,7 @@ static inline void napi_free_frags(struct napi_struct *napi)
 	napi->skb = NULL;
 }
 
+bool netdev_is_rx_handler_busy(struct net_device *dev);
 int netdev_rx_handler_register(struct net_device *dev,
 			       rx_handler_func_t *rx_handler,
 			       void *rx_handler_data);

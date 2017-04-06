@@ -330,7 +330,7 @@ static void nuke(struct dummy *dum, struct dummy_ep *ep)
 /* caller must hold lock */
 static void stop_activity(struct dummy *dum)
 {
-	struct dummy_ep	*ep;
+	int i;
 
 	/* prevent any more requests */
 	dum->address = 0;
@@ -338,8 +338,8 @@ static void stop_activity(struct dummy *dum)
 	/* The timer is left running so that outstanding URBs can fail */
 
 	/* nuke any pending requests first, so driver i/o is quiesced */
-	list_for_each_entry(ep, &dum->gadget.ep_list, ep.ep_list)
-		nuke(dum, ep);
+	for (i = 0; i < DUMMY_ENDPOINTS; ++i)
+		nuke(dum, &dum->ep[i]);
 
 	/* driver now does any non-usb quiescing necessary */
 }
@@ -1033,6 +1033,8 @@ static int dummy_udc_probe(struct platform_device *pdev)
 	int		rc;
 
 	dum = *((void **)dev_get_platdata(&pdev->dev));
+	/* Clear usb_gadget region for new registration to udc-core */
+	memzero_explicit(&dum->gadget, sizeof(struct usb_gadget));
 	dum->gadget.name = gadget_name;
 	dum->gadget.ops = &dummy_ops;
 	dum->gadget.max_speed = USB_SPEED_SUPER;

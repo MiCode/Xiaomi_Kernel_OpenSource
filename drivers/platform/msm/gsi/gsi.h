@@ -18,6 +18,7 @@
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/msm_gsi.h>
+#include <linux/ipc_logging.h>
 
 #define GSI_CHAN_MAX      31
 #define GSI_EVT_RING_MAX  23
@@ -26,10 +27,48 @@
 #define gsi_readl(c)	({ u32 __v = readl_relaxed(c); __iormb(); __v; })
 #define gsi_writel(v, c)	({ __iowmb(); writel_relaxed((v), (c)); })
 
-#define GSIERR(fmt, args...) \
-		dev_err(gsi_ctx->dev, "%s:%d " fmt, __func__, __LINE__, ## args)
+#define GSI_IPC_LOGGING(buf, fmt, args...) \
+	do { \
+		if (buf) \
+			ipc_log_string((buf), fmt, __func__, __LINE__, \
+				## args); \
+	} while (0)
+
 #define GSIDBG(fmt, args...) \
-		dev_dbg(gsi_ctx->dev, "%s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		dev_dbg(gsi_ctx->dev, "%s:%d " fmt, __func__, __LINE__, \
+		## args);\
+		if (gsi_ctx) { \
+			GSI_IPC_LOGGING(gsi_ctx->ipc_logbuf, \
+				"%s:%d " fmt, ## args); \
+			GSI_IPC_LOGGING(gsi_ctx->ipc_logbuf_low, \
+				"%s:%d " fmt, ## args); \
+		} \
+	} while (0)
+
+#define GSIDBG_LOW(fmt, args...) \
+	do { \
+		dev_dbg(gsi_ctx->dev, "%s:%d " fmt, __func__, __LINE__, \
+		## args);\
+		if (gsi_ctx) { \
+			GSI_IPC_LOGGING(gsi_ctx->ipc_logbuf_low, \
+				"%s:%d " fmt, ## args); \
+		} \
+	} while (0)
+
+#define GSIERR(fmt, args...) \
+	do { \
+		dev_err(gsi_ctx->dev, "%s:%d " fmt, __func__, __LINE__, \
+		## args);\
+		if (gsi_ctx) { \
+			GSI_IPC_LOGGING(gsi_ctx->ipc_logbuf, \
+				"%s:%d " fmt, ## args); \
+			GSI_IPC_LOGGING(gsi_ctx->ipc_logbuf_low, \
+				"%s:%d " fmt, ## args); \
+		} \
+	} while (0)
+
+#define GSI_IPC_LOG_PAGES 50
 
 enum gsi_evt_ring_state {
 	GSI_EVT_RING_STATE_NOT_ALLOCATED = 0x0,
@@ -163,6 +202,8 @@ struct gsi_ctx {
 	u32 max_ch;
 	u32 max_ev;
 	struct completion gen_ee_cmd_compl;
+	void *ipc_logbuf;
+	void *ipc_logbuf_low;
 };
 
 enum gsi_re_type {

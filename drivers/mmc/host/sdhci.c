@@ -179,6 +179,8 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 				 readl(host->ioaddr + SDHCI_ADMA_ADDRESS));
 	}
 
+	host->mmc->err_occurred = true;
+
 	if (host->ops->dump_vendor_regs)
 		host->ops->dump_vendor_regs(host);
 	sdhci_dump_state(host);
@@ -774,7 +776,7 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 			 * host->clock is in Hz.  target_timeout is in us.
 			 * Hence, us = 1000000 * cycles / Hz.  Round up.
 			 */
-			val = 1000000 * data->timeout_clks;
+			val = 1000000ULL * data->timeout_clks;
 			if (do_div(val, host->clock))
 				target_timeout++;
 			target_timeout += val;
@@ -1666,6 +1668,22 @@ out:
 	return err;
 }
 
+static int sdhci_crypto_cfg_end(struct sdhci_host *host,
+				struct mmc_request *mrq)
+{
+	int err = 0;
+
+	if (host->ops->crypto_engine_cfg_end) {
+		err = host->ops->crypto_engine_cfg_end(host, mrq);
+		if (err) {
+			pr_err("%s: failed to configure crypto\n",
+					mmc_hostname(host->mmc));
+			return err;
+		}
+	}
+	return 0;
+}
+
 static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct sdhci_host *host;
@@ -2489,7 +2507,27 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 			ctrl &= ~SDHCI_CTRL_EXEC_TUNING;
 			sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 
+			sdhci_do_reset(host, SDHCI_RESET_CMD);
+			sdhci_do_reset(host, SDHCI_RESET_DATA);
+
 			err = -EIO;
+
+			if (cmd.opcode != MMC_SEND_TUNING_BLOCK_HS200)
+				goto out;
+
+			sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
+			sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
+
+			spin_unlock_irqrestore(&host->lock, flags);
+
+			memset(&cmd, 0, sizeof(cmd));
+			cmd.opcode = MMC_STOP_TRANSMISSION;
+			cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
+			cmd.busy_timeout = 50;
+			mmc_wait_for_cmd(mmc, &cmd, 0);
+
+			spin_lock_irqsave(&host->lock, flags);
+
 			goto out;
 		}
 
@@ -2785,6 +2823,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 	mmiowb();
 	spin_unlock_irqrestore(&host->lock, flags);
 
+	sdhci_crypto_cfg_end(host, mrq);
 	mmc_request_done(host->mmc, mrq);
 	sdhci_runtime_pm_put(host);
 }
@@ -3044,7 +3083,10 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 			       mmc_hostname(host->mmc), intmask,
 			       host->data->error, ktime_to_ms(ktime_sub(
 			       ktime_get(), host->data_start_time)));
-			sdhci_dumpregs(host);
+
+			if (!host->mmc->sdr104_wa ||
+			    (host->mmc->ios.timing != MMC_TIMING_UHS_SDR104))
+				sdhci_dumpregs(host);
 		}
 		sdhci_finish_data(host);
 	} else {
@@ -3264,7 +3306,8 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 			pr_err("%s: Card is consuming too much power!\n",
 				mmc_hostname(host->mmc));
 
-		if (intmask & SDHCI_INT_CARD_INT) {
+		if ((intmask & SDHCI_INT_CARD_INT) &&
+		    (host->ier & SDHCI_INT_CARD_INT)) {
 			sdhci_enable_sdio_irq_nolock(host, false);
 			host->thread_isr |= SDHCI_INT_CARD_INT;
 			result = IRQ_WAKE_THREAD;
@@ -3663,6 +3706,17 @@ out:
 	return err;
 }
 
+static int sdhci_cmdq_crypto_cfg_end(struct mmc_host *mmc,
+					struct mmc_request *mrq)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (!host->is_crypto_en)
+		return 0;
+
+	return sdhci_crypto_cfg_end(host, mrq);
+}
+
 static void sdhci_cmdq_crypto_cfg_reset(struct mmc_host *mmc, unsigned int slot)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
@@ -3728,6 +3782,12 @@ static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
 	return 0;
 }
 
+static int sdhci_cmdq_crypto_cfg_end(struct mmc_host *mmc,
+				struct mmc_request *mrq)
+{
+	return 0;
+}
+
 static void sdhci_cmdq_crypto_cfg_reset(struct mmc_host *mmc, unsigned int slot)
 {
 
@@ -3745,6 +3805,7 @@ static const struct cmdq_host_ops sdhci_cmdq_ops = {
 	.clear_set_dumpregs = sdhci_cmdq_clear_set_dumpregs,
 	.enhanced_strobe_mask = sdhci_enhanced_strobe_mask,
 	.crypto_cfg	= sdhci_cmdq_crypto_cfg,
+	.crypto_cfg_end	= sdhci_cmdq_crypto_cfg_end,
 	.crypto_cfg_reset	= sdhci_cmdq_crypto_cfg_reset,
 	.post_cqe_halt = sdhci_cmdq_post_cqe_halt,
 	.set_transfer_params = sdhci_cmdq_set_transfer_params,

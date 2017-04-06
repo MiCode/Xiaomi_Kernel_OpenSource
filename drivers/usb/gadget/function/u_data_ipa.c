@@ -428,6 +428,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 
 	if (!gadget) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
+		usb_gadget_autopm_put_async(port->gadget);
 		pr_err("%s: gport is NULL.\n", __func__);
 		return;
 	}
@@ -691,6 +692,8 @@ disconnect_usb_bam_ipa_out:
 		usb_bam_disconnect_ipa(port->usb_bam_type, &port->ipa_params);
 		is_ipa_disconnected = true;
 	}
+	if (port->func_type == USB_IPA_FUNC_RMNET)
+		teth_bridge_disconnect(port->ipa_params.src_client);
 unconfig_msm_ep_in:
 	spin_lock_irqsave(&port->port_lock, flags);
 	/* check if USB cable is disconnected or not */
@@ -713,6 +716,7 @@ out:
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->is_connected = false;
 	spin_unlock_irqrestore(&port->port_lock, flags);
+	usb_gadget_autopm_put_async(port->gadget);
 }
 
 /**
@@ -731,7 +735,7 @@ int ipa_data_connect(struct gadget_ipa_port *gp, enum ipa_func_type func,
 {
 	struct ipa_data_ch_info *port;
 	unsigned long flags;
-	int ret;
+	int ret = 0;
 
 	pr_debug("dev:%pK port#%d src_connection_idx:%d dst_connection_idx:%d\n",
 			gp, func, src_connection_idx, dst_connection_idx);

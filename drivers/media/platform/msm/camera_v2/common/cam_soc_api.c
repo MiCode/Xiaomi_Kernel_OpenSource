@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -376,18 +376,17 @@ int msm_camera_clk_enable(struct device *dev,
 				if (clk_rate == 0) {
 					clk_rate =
 						  clk_round_rate(clk_ptr[i], 0);
-					if (clk_rate < 0) {
+					if (clk_rate <= 0) {
 						pr_err("%s round rate failed\n",
 							  clk_info[i].clk_name);
 						goto cam_clk_set_err;
 					}
-					rc = clk_set_rate(clk_ptr[i],
-								clk_rate);
-					if (rc < 0) {
-						pr_err("%s set rate failed\n",
-							  clk_info[i].clk_name);
-						goto cam_clk_set_err;
-					}
+				}
+				rc = clk_set_rate(clk_ptr[i], clk_rate);
+				if (rc < 0) {
+					pr_err("%s set rate failed\n",
+						clk_info[i].clk_name);
+					goto cam_clk_set_err;
 				}
 			}
 			rc = clk_prepare_enable(clk_ptr[i]);

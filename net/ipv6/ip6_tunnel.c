@@ -246,6 +246,7 @@ ip6_tnl_lookup(struct net *net, const struct in6_addr *remote, const struct in6_
 	hash = HASH(&any, local);
 	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[hash]) {
 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
+		    ipv6_addr_any(&t->parms.raddr) &&
 		    (t->dev->flags & IFF_UP))
 			return t;
 	}
@@ -253,6 +254,7 @@ ip6_tnl_lookup(struct net *net, const struct in6_addr *remote, const struct in6_
 	hash = HASH(remote, &any);
 	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[hash]) {
 		if (ipv6_addr_equal(remote, &t->parms.raddr) &&
+		    ipv6_addr_any(&t->parms.laddr) &&
 		    (t->dev->flags & IFF_UP))
 			return t;
 	}
@@ -477,18 +479,19 @@ ip6_tnl_dev_uninit(struct net_device *dev)
 
 __u16 ip6_tnl_parse_tlv_enc_lim(struct sk_buff *skb, __u8 *raw)
 {
-	const struct ipv6hdr *ipv6h = (const struct ipv6hdr *) raw;
-	__u8 nexthdr = ipv6h->nexthdr;
-	__u16 off = sizeof(*ipv6h);
+	const struct ipv6hdr *ipv6h = (const struct ipv6hdr *)raw;
+	unsigned int nhoff = raw - skb->data;
+	unsigned int off = nhoff + sizeof(*ipv6h);
+	u8 next, nexthdr = ipv6h->nexthdr;
 
 	while (ipv6_ext_hdr(nexthdr) && nexthdr != NEXTHDR_NONE) {
-		__u16 optlen = 0;
 		struct ipv6_opt_hdr *hdr;
-		if (raw + off + sizeof(*hdr) > skb->data &&
-		    !pskb_may_pull(skb, raw - skb->data + off + sizeof (*hdr)))
+		u16 optlen;
+
+		if (!pskb_may_pull(skb, off + sizeof(*hdr)))
 			break;
 
-		hdr = (struct ipv6_opt_hdr *) (raw + off);
+		hdr = (struct ipv6_opt_hdr *)(skb->data + off);
 		if (nexthdr == NEXTHDR_FRAGMENT) {
 			struct frag_hdr *frag_hdr = (struct frag_hdr *) hdr;
 			if (frag_hdr->frag_off)
@@ -499,20 +502,29 @@ __u16 ip6_tnl_parse_tlv_enc_lim(struct sk_buff *skb, __u8 *raw)
 		} else {
 			optlen = ipv6_optlen(hdr);
 		}
+		/* cache hdr->nexthdr, since pskb_may_pull() might
+		 * invalidate hdr
+		 */
+		next = hdr->nexthdr;
 		if (nexthdr == NEXTHDR_DEST) {
-			__u16 i = off + 2;
+			u16 i = 2;
+
+			/* Remember : hdr is no longer valid at this point. */
+			if (!pskb_may_pull(skb, off + optlen))
+				break;
+
 			while (1) {
 				struct ipv6_tlv_tnl_enc_lim *tel;
 
 				/* No more room for encapsulation limit */
-				if (i + sizeof (*tel) > off + optlen)
+				if (i + sizeof(*tel) > optlen)
 					break;
 
-				tel = (struct ipv6_tlv_tnl_enc_lim *) &raw[i];
+				tel = (struct ipv6_tlv_tnl_enc_lim *)(skb->data + off + i);
 				/* return index of option if found and valid */
 				if (tel->type == IPV6_TLV_TNL_ENCAP_LIMIT &&
 				    tel->length == 1)
-					return i;
+					return i + off - nhoff;
 				/* else jump to next option */
 				if (tel->type)
 					i += tel->length + 2;
@@ -520,7 +532,7 @@ __u16 ip6_tnl_parse_tlv_enc_lim(struct sk_buff *skb, __u8 *raw)
 					i++;
 			}
 		}
-		nexthdr = hdr->nexthdr;
+		nexthdr = next;
 		off += optlen;
 	}
 	return 0;
@@ -1041,6 +1053,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
 	struct ipv6_tel_txoption opt;
 	struct dst_entry *dst = NULL, *ndst = NULL;
 	struct net_device *tdev;
+	bool use_cache = false;
 	int mtu;
 	unsigned int max_headroom = sizeof(struct ipv6hdr);
 	u8 proto;
@@ -1068,7 +1081,15 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
 
 		memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
 		neigh_release(neigh);
-	} else if (!fl6->flowi6_mark)
+	} else if (!(t->parms.flags &
+		     (IP6_TNL_F_USE_ORIG_TCLASS | IP6_TNL_F_USE_ORIG_FWMARK))) {
+		/* enable the cache only only if the routing decision does
+		 * not depend on the current inner header value
+		 */
+		use_cache = true;
+	}
+
+	if (use_cache)
 		dst = ip6_tnl_dst_get(t);
 
 	if (!ip6_tnl_xmit_ctl(t, &fl6->saddr, &fl6->daddr))
@@ -1132,7 +1153,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
 		skb = new_skb;
 	}
 
-	if (!fl6->flowi6_mark && ndst)
+	if (use_cache && ndst)
 		ip6_tnl_dst_set(t, ndst);
 	skb_dst_set(skb, dst);
 
@@ -1192,6 +1213,8 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
 	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
 	fl6.flowi6_proto = IPPROTO_IPIP;
 
+	fl6.flowi6_uid = sock_net_uid(dev_net(dev), NULL);
+
 	dsfield = ipv4_get_dsfield(iph);
 
 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
@@ -1245,6 +1268,7 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
 	fl6.flowi6_proto = IPPROTO_IPV6;
+	fl6.flowi6_uid = sock_net_uid(dev_net(dev), NULL);
 
 	dsfield = ipv6_get_dsfield(ipv6h);
 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)

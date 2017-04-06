@@ -365,13 +365,17 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 
 			if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
 
-				if (ctrl_pdata->bklt_en_gpio_invert)
+				if (ctrl_pdata->bklt_en_gpio_invert) {
 					rc = gpio_direction_output(
 						ctrl_pdata->bklt_en_gpio, 0);
-				else
+					gpio_set_value(
+						(ctrl_pdata->bklt_en_gpio), 0);
+				} else {
 					rc = gpio_direction_output(
 						ctrl_pdata->bklt_en_gpio, 1);
-
+					gpio_set_value(
+						(ctrl_pdata->bklt_en_gpio), 1);
+				}
 				if (rc) {
 					pr_err("%s: unable to set dir for bklt gpio\n",
 						__func__);
@@ -2818,6 +2822,13 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		strlcpy(ctrl_pdata->bridge_name, bridge_chip_name,
 			MSM_DBA_CHIP_NAME_MAX_LEN);
 	}
+
+	rc = of_property_read_u32(np,
+		"qcom,mdss-dsi-host-esc-clk-freq-hz",
+		&pinfo->esc_clk_rate_hz);
+	if (rc)
+		pinfo->esc_clk_rate_hz = MDSS_DSI_MAX_ESC_CLK_RATE_HZ;
+	pr_debug("%s: esc clk %d\n", __func__, pinfo->esc_clk_rate_hz);
 
 	return 0;
 

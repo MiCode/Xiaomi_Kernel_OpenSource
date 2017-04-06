@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1863,8 +1863,10 @@ static int mdss_dsi_ulps_config_default(struct mdss_dsi_ctrl_pdata *ctrl,
 		 * to be in stop state.
 		 */
 		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 16);
+		wmb(); /* ensure lanes are put to stop state */
 
 		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, 0x0);
+		wmb(); /* ensure lanes are in proper state */
 
 		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
 	}
@@ -1983,6 +1985,7 @@ static int mdss_dsi_clamp_ctrl_default(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct mipi_panel_info *mipi = NULL;
 	u32 clamp_reg, regval = 0;
 	u32 clamp_reg_off;
+	u32 intf_num = 0;
 
 	if (!ctrl) {
 		pr_err("%s: invalid input\n", __func__);
@@ -1992,6 +1995,21 @@ static int mdss_dsi_clamp_ctrl_default(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (!ctrl->mmss_misc_io.base) {
 		pr_err("%s: mmss_misc_io not mapped\n", __func__);
 		return -EINVAL;
+	}
+
+	/*
+	 * For DSI HW version 2.1.0 ULPS_CLAMP register
+	 * is moved to interface level.
+	 */
+	if (ctrl->shared_data->hw_rev == MDSS_DSI_HW_REV_201) {
+		intf_num = ctrl->ndx ? MDSS_MDP_INTF2 : MDSS_MDP_INTF1;
+		if (ctrl->clamp_handler) {
+			ctrl->clamp_handler->fxn(ctrl->clamp_handler->data,
+				intf_num, enable);
+			pr_debug("%s: ndx: %d enable: %d\n",
+					__func__, ctrl->ndx, enable);
+		}
+		return 0;
 	}
 
 	clamp_reg_off = ctrl->shared_data->ulps_clamp_ctrl_off;
@@ -2256,6 +2274,8 @@ int mdss_dsi_pre_clkoff_cb(void *priv,
 	pdata = &ctrl->panel_data;
 
 	if ((clk & MDSS_DSI_LINK_CLK) && (new_state == MDSS_DSI_CLK_OFF)) {
+		if (pdata->panel_info.mipi.force_clk_lane_hs)
+			mdss_dsi_cfg_lane_ctrl(ctrl, BIT(28), 0);
 		/*
 		 * If ULPS feature is enabled, enter ULPS first.
 		 * However, when blanking the panel, we should enter ULPS
@@ -2371,6 +2391,8 @@ int mdss_dsi_post_clkon_cb(void *priv,
 				goto error;
 			}
 		}
+		if (pdata->panel_info.mipi.force_clk_lane_hs)
+			mdss_dsi_cfg_lane_ctrl(ctrl, BIT(28), 1);
 	}
 error:
 	return rc;

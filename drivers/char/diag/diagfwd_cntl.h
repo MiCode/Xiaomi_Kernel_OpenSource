@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,7 @@
 #define F_DIAG_MASK_CENTRALIZATION		11
 #define F_DIAG_SOCKETS_ENABLED			13
 #define F_DIAG_DCI_EXTENDED_HEADER_SUPPORT	14
+#define F_DIAG_PKT_HEADER_UNTAG			16
 
 #define ENABLE_SEPARATE_CMDRSP	1
 #define DISABLE_SEPARATE_CMDRSP	0
@@ -80,6 +81,9 @@
 
 #define ENABLE_APPS_HDLC_ENCODING	1
 #define DISABLE_APPS_HDLC_ENCODING	0
+
+#define ENABLE_PKT_HEADER_UNTAGGING		1
+#define DISABLE_PKT_HEADER_UNTAGGING	0
 
 #define DIAG_MODE_PKT_LEN	36
 

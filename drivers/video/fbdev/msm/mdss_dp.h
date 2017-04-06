@@ -450,6 +450,7 @@ struct mdss_dp_drv_pdata {
 	bool link_clks_on;
 	bool power_on;
 	bool sink_info_read;
+	u32 suspend_vic;
 	bool hpd;
 	bool psm_enabled;
 	bool audio_test_req;
@@ -1037,7 +1038,7 @@ static inline void mdss_dp_reset_frame_crc_data(struct mdss_dp_crc_data *crc)
 
 void mdss_dp_phy_initialize(struct mdss_dp_drv_pdata *dp);
 
-void mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *dp);
+int mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *dp);
 void mdss_dp_aux_parse_sink_status_field(struct mdss_dp_drv_pdata *dp);
 int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp);

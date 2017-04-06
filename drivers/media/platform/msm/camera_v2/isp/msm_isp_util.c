@@ -26,6 +26,7 @@
 
 
 #define MAX_ISP_V4l2_EVENTS 100
+#define MAX_ISP_REG_LIST 100
 static DEFINE_MUTEX(bandwidth_mgr_mutex);
 static struct msm_isp_bandwidth_mgr isp_bandwidth_mgr;
 
@@ -165,7 +166,8 @@ void msm_isp_util_get_bandwidth_stats(struct vfe_device *vfe_dev,
 	stats->isp_cpp_ib = isp_bandwidth_mgr.client_info[ISP_CPP].ib;
 	stats->last_overflow_ab = vfe_dev->msm_isp_last_overflow_ab;
 	stats->last_overflow_ib = vfe_dev->msm_isp_last_overflow_ib;
-	stats->vfe_clk_rate = vfe_dev->msm_isp_vfe_clk_rate;
+	stats->vfe_clk_rate = vfe_dev->vfe_clk_info[
+				vfe_dev->hw_info->vfe_clk_idx].clk_rate;
 	stats->cpp_clk_rate = msm_isp_cpp_clk_rate;
 }
 
@@ -537,7 +539,8 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 	 * Only set rate to higher, do not lower higher
 	 * rate needed by another input
 	 */
-	if (pixel_clock > vfe_dev->msm_isp_vfe_clk_rate) {
+	if (pixel_clock > vfe_dev->vfe_clk_info[
+				vfe_dev->hw_info->vfe_clk_idx].clk_rate) {
 		rc = vfe_dev->hw_info->vfe_ops.platform_ops.set_clk_rate(
 			vfe_dev,
 			&pixel_clock);
@@ -630,6 +633,13 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 	}
 	ISP_DBG("%s: vfe %d num_src %d\n", __func__, vfe_dev->pdev->id,
 		dual_hw_ms_cmd->num_src);
+	if (dual_hw_ms_cmd->num_src > VFE_SRC_MAX) {
+		pr_err("%s: Error! Invalid num_src %d\n", __func__,
+			dual_hw_ms_cmd->num_src);
+		spin_unlock_irqrestore(&vfe_dev->common_data->
+			common_dev_data_lock, flags);
+		return -EINVAL;
+	}
 	/* This for loop is for non-primary intf to be marked with Master/Slave
 	 * in order for frame id sync. But their timestamp is not saved.
 	 * So no sof_info resource is allocated */
@@ -662,6 +672,7 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 static int msm_isp_proc_cmd_list_unlocked(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0;
+	uint32_t count = 0;
 	struct msm_vfe_cfg_cmd_list *proc_cmd =
 		(struct msm_vfe_cfg_cmd_list *)arg;
 	struct msm_vfe_cfg_cmd_list cmd, cmd_next;
@@ -683,6 +694,12 @@ static int msm_isp_proc_cmd_list_unlocked(struct vfe_device *vfe_dev, void *arg)
 			pr_err("%s:%d failed: next size %u != expected %zu\n",
 				__func__, __LINE__, cmd.next_size,
 				sizeof(struct msm_vfe_cfg_cmd_list));
+			break;
+		}
+		if (++count >= MAX_ISP_REG_LIST) {
+			pr_err("%s:%d Error exceeding the max register count:%u\n",
+				__func__, __LINE__, count);
+			rc = -EINVAL;
 			break;
 		}
 		if (copy_from_user(&cmd_next, (void __user *)cmd.next,
@@ -731,6 +748,7 @@ static void msm_isp_compat_to_proc_cmd(struct msm_vfe_cfg_cmd2 *proc_cmd,
 static int msm_isp_proc_cmd_list_compat(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0;
+	uint32_t count = 0;
 	struct msm_vfe_cfg_cmd_list_32 *proc_cmd =
 		(struct msm_vfe_cfg_cmd_list_32 *)arg;
 	struct msm_vfe_cfg_cmd_list_32 cmd, cmd_next;
@@ -753,6 +771,12 @@ static int msm_isp_proc_cmd_list_compat(struct vfe_device *vfe_dev, void *arg)
 			pr_err("%s:%d failed: next size %u != expected %zu\n",
 				__func__, __LINE__, cmd.next_size,
 				sizeof(struct msm_vfe_cfg_cmd_list));
+			break;
+		}
+		if (++count >= MAX_ISP_REG_LIST) {
+			pr_err("%s:%d Error exceeding the max register count:%u\n",
+				__func__, __LINE__, count);
+			rc = -EINVAL;
 			break;
 		}
 		if (copy_from_user(&cmd_next, compat_ptr(cmd.next),
@@ -927,6 +951,11 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_DUAL_HW_MASTER_SLAVE_SYNC:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_dual_hw_master_slave_sync(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
+	case VIDIOC_MSM_ISP_DUAL_HW_LPM_MODE:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_ab_ib_update_lpm_mode(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_FETCH_ENG_START:
@@ -1399,6 +1428,20 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 			return -EINVAL;
 		}
 		vfe_dev->vfe_ub_policy = *cfg_data;
+		break;
+	}
+	case GET_VFE_HW_LIMIT: {
+		uint32_t *hw_limit = NULL;
+
+		if (cmd_len < sizeof(uint32_t)) {
+			pr_err("%s:%d failed: invalid cmd len %u exp %zu\n",
+				__func__, __LINE__, cmd_len,
+				sizeof(uint32_t));
+			return -EINVAL;
+		}
+
+		hw_limit = (uint32_t *)cfg_data;
+		*hw_limit = vfe_dev->vfe_hw_limit;
 		break;
 	}
 	}
@@ -2015,13 +2058,19 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 {
 	unsigned long flags;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd = NULL;
+	struct msm_vfe_tasklet *tasklet;
 
-	spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
-	queue_cmd = &vfe_dev->tasklet_queue_cmd[vfe_dev->taskletq_idx];
+	if (vfe_dev->is_split)
+		tasklet = &vfe_dev->common_data->tasklets[MAX_VFE];
+	else
+		tasklet = &vfe_dev->common_data->tasklets[vfe_dev->pdev->id];
+
+	spin_lock_irqsave(&tasklet->tasklet_lock, flags);
+	queue_cmd = &tasklet->tasklet_queue_cmd[tasklet->taskletq_idx];
 	if (queue_cmd->cmd_used) {
-		ISP_DBG("%s: Tasklet queue overflow: %d\n",
+		pr_err("%s: Tasklet queue overflow: %d\n",
 			__func__, vfe_dev->pdev->id);
-		list_del(&queue_cmd->list);
+		return;
 	} else {
 		atomic_add(1, &vfe_dev->irq_cnt);
 	}
@@ -2030,11 +2079,13 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 	msm_isp_get_timestamp(&queue_cmd->ts, vfe_dev);
 
 	queue_cmd->cmd_used = 1;
-	vfe_dev->taskletq_idx = (vfe_dev->taskletq_idx + 1) %
+	queue_cmd->vfe_dev = vfe_dev;
+
+	tasklet->taskletq_idx = (tasklet->taskletq_idx + 1) %
 		MSM_VFE_TASKLETQ_SIZE;
-	list_add_tail(&queue_cmd->list, &vfe_dev->tasklet_q);
-	spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
-	tasklet_schedule(&vfe_dev->vfe_tasklet);
+	list_add_tail(&queue_cmd->list, &tasklet->tasklet_q);
+	spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
+	tasklet_schedule(&tasklet->tasklet);
 }
 
 irqreturn_t msm_isp_process_irq(int irq_num, void *data)
@@ -2051,7 +2102,10 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 			__func__, vfe_dev->pdev->id);
 		return IRQ_HANDLED;
 	}
-
+	if (vfe_dev->hw_info->vfe_ops.irq_ops.preprocess_camif_irq) {
+		vfe_dev->hw_info->vfe_ops.irq_ops.preprocess_camif_irq(
+				vfe_dev, irq_status0);
+	}
 	if (msm_isp_process_overflow_irq(vfe_dev,
 		&irq_status0, &irq_status1, 0)) {
 		/* if overflow initiated no need to handle the interrupts */
@@ -2083,39 +2137,39 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 void msm_isp_do_tasklet(unsigned long data)
 {
 	unsigned long flags;
-	struct vfe_device *vfe_dev = (struct vfe_device *) data;
-	struct msm_vfe_irq_ops *irq_ops = &vfe_dev->hw_info->vfe_ops.irq_ops;
+	struct msm_vfe_tasklet *tasklet = (struct msm_vfe_tasklet *)data;
+	struct vfe_device *vfe_dev;
+	struct msm_vfe_irq_ops *irq_ops;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
 	struct msm_isp_timestamp ts;
 	uint32_t irq_status0, irq_status1;
 
-	if (vfe_dev->vfe_base == NULL || vfe_dev->vfe_open_cnt == 0) {
-		ISP_DBG("%s: VFE%d open cnt = %d, device closed(base = %pK)\n",
-			__func__, vfe_dev->pdev->id, vfe_dev->vfe_open_cnt,
-			vfe_dev->vfe_base);
-		return;
-	}
-
-	while (atomic_read(&vfe_dev->irq_cnt)) {
-		spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
-		queue_cmd = list_first_entry(&vfe_dev->tasklet_q,
-		struct msm_vfe_tasklet_queue_cmd, list);
+	while (1) {
+		spin_lock_irqsave(&tasklet->tasklet_lock, flags);
+		queue_cmd = list_first_entry_or_null(&tasklet->tasklet_q,
+			struct msm_vfe_tasklet_queue_cmd, list);
 		if (!queue_cmd) {
-			atomic_set(&vfe_dev->irq_cnt, 0);
-			spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
-			return;
+			spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
+			break;
 		}
-		atomic_sub(1, &vfe_dev->irq_cnt);
-		list_del(&queue_cmd->list);
+		list_del_init(&queue_cmd->list);
+		vfe_dev = queue_cmd->vfe_dev;
 		queue_cmd->cmd_used = 0;
+		queue_cmd->vfe_dev = NULL;
 		irq_status0 = queue_cmd->vfeInterruptStatus0;
 		irq_status1 = queue_cmd->vfeInterruptStatus1;
 		ts = queue_cmd->ts;
-		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
+		spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
+		if (vfe_dev->vfe_open_cnt == 0) {
+			pr_err("%s: VFE%d open cnt = %d, irq %x/%x\n",
+			__func__, vfe_dev->pdev->id, vfe_dev->vfe_open_cnt,
+			irq_status0, irq_status1);
+			continue;
+		}
+		atomic_sub(1, &vfe_dev->irq_cnt);
 		msm_isp_prepare_tasklet_debug_info(vfe_dev,
 			irq_status0, irq_status1, ts);
-		ISP_DBG("%s: vfe_id %d status0: 0x%x status1: 0x%x\n",
-			__func__, vfe_dev->pdev->id, irq_status0, irq_status1);
+		irq_ops = &vfe_dev->hw_info->vfe_ops.irq_ops;
 		irq_ops->process_reset_irq(vfe_dev,
 			irq_status0, irq_status1);
 		irq_ops->process_halt_irq(vfe_dev,
@@ -2256,7 +2310,6 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		sizeof(vfe_dev->fetch_engine_info));
 	vfe_dev->axi_data.hw_info = vfe_dev->hw_info->axi_hw_info;
 	vfe_dev->axi_data.enable_frameid_recovery = 0;
-	vfe_dev->taskletq_idx = 0;
 	vfe_dev->vt_enable = 0;
 	vfe_dev->reg_update_requested = 0;
 	/* Register page fault handler */
@@ -2321,15 +2374,14 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		update_camif_state(vfe_dev, DISABLE_CAMIF_IMMEDIATELY);
 	vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, 0, 0);
 
-	/* after regular hw stop, reduce open cnt */
-	vfe_dev->vfe_open_cnt--;
-
 	/* put scratch buf in all the wm */
 	for (wm = 0; wm < vfe_dev->axi_data.hw_info->num_wm; wm++) {
 		msm_isp_cfg_wm_scratch(vfe_dev, wm, VFE_PING_FLAG);
 		msm_isp_cfg_wm_scratch(vfe_dev, wm, VFE_PONG_FLAG);
 	}
 	vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);
+	/* after regular hw stop, reduce open cnt */
+	vfe_dev->vfe_open_cnt--;
 	vfe_dev->buf_mgr->ops->buf_mgr_deinit(vfe_dev->buf_mgr);
 	if (vfe_dev->vt_enable) {
 		msm_isp_end_avtimer();
@@ -2346,22 +2398,27 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 void msm_isp_flush_tasklet(struct vfe_device *vfe_dev)
 {
 	unsigned long flags;
-	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
+	int i;
+	struct msm_vfe_tasklet_queue_cmd *queue_cmd, *q_cmd_next;
+	struct msm_vfe_tasklet *tasklet;
 
-	spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
-	while (atomic_read(&vfe_dev->irq_cnt)) {
-		queue_cmd = list_first_entry(&vfe_dev->tasklet_q,
-		struct msm_vfe_tasklet_queue_cmd, list);
-		if (!queue_cmd) {
-			atomic_set(&vfe_dev->irq_cnt, 0);
-			break;
+	for (i = 0; i <= MAX_VFE; i++) {
+		if (i != vfe_dev->pdev->id &&
+			i != MAX_VFE)
+			continue;
+		tasklet = &vfe_dev->common_data->tasklets[i];
+		spin_lock_irqsave(&tasklet->tasklet_lock, flags);
+		list_for_each_entry_safe(queue_cmd, q_cmd_next,
+			&tasklet->tasklet_q, list) {
+			if (queue_cmd->vfe_dev != vfe_dev)
+				continue;
+			list_del_init(&queue_cmd->list);
+			queue_cmd->cmd_used = 0;
 		}
-		atomic_sub(1, &vfe_dev->irq_cnt);
-		list_del(&queue_cmd->list);
-		queue_cmd->cmd_used = 0;
+		spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
+		tasklet_kill(&tasklet->tasklet);
 	}
-	spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
-	tasklet_kill(&vfe_dev->vfe_tasklet);
+	atomic_set(&vfe_dev->irq_cnt, 0);
 
 	return;
 }

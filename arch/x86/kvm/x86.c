@@ -199,7 +199,18 @@ static void kvm_on_user_return(struct user_return_notifier *urn)
 	struct kvm_shared_msrs *locals
 		= container_of(urn, struct kvm_shared_msrs, urn);
 	struct kvm_shared_msr_values *values;
+	unsigned long flags;
 
+	/*
+	 * Disabling irqs at this point since the following code could be
+	 * interrupted and executed through kvm_arch_hardware_disable()
+	 */
+	local_irq_save(flags);
+	if (locals->registered) {
+		locals->registered = false;
+		user_return_notifier_unregister(urn);
+	}
+	local_irq_restore(flags);
 	for (slot = 0; slot < shared_msrs_global.nr; ++slot) {
 		values = &locals->values[slot];
 		if (values->host != values->curr) {
@@ -207,8 +218,6 @@ static void kvm_on_user_return(struct user_return_notifier *urn)
 			values->curr = values->host;
 		}
 	}
-	locals->registered = false;
-	user_return_notifier_unregister(urn);
 }
 
 static void shared_msr_update(unsigned slot, u32 msr)
@@ -2735,7 +2744,6 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	}
 
 	kvm_make_request(KVM_REQ_STEAL_UPDATE, vcpu);
-	vcpu->arch.switch_db_regs |= KVM_DEBUGREG_RELOAD;
 }
 
 void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
@@ -2941,6 +2949,8 @@ static void kvm_vcpu_ioctl_x86_get_vcpu_events(struct kvm_vcpu *vcpu,
 	memset(&events->reserved, 0, sizeof(events->reserved));
 }
 
+static void kvm_set_hflags(struct kvm_vcpu *vcpu, unsigned emul_flags);
+
 static int kvm_vcpu_ioctl_x86_set_vcpu_events(struct kvm_vcpu *vcpu,
 					      struct kvm_vcpu_events *events)
 {
@@ -2973,10 +2983,13 @@ static int kvm_vcpu_ioctl_x86_set_vcpu_events(struct kvm_vcpu *vcpu,
 		vcpu->arch.apic->sipi_vector = events->sipi_vector;
 
 	if (events->flags & KVM_VCPUEVENT_VALID_SMM) {
+		u32 hflags = vcpu->arch.hflags;
 		if (events->smi.smm)
-			vcpu->arch.hflags |= HF_SMM_MASK;
+			hflags |= HF_SMM_MASK;
 		else
-			vcpu->arch.hflags &= ~HF_SMM_MASK;
+			hflags &= ~HF_SMM_MASK;
+		kvm_set_hflags(vcpu, hflags);
+
 		vcpu->arch.smi_pending = events->smi.pending;
 		if (events->smi.smm_inside_nmi)
 			vcpu->arch.hflags |= HF_SMM_INSIDE_NMI_MASK;
@@ -3044,6 +3057,7 @@ static void fill_xsave(u8 *dest, struct kvm_vcpu *vcpu)
 	memcpy(dest, xsave, XSAVE_HDR_OFFSET);
 
 	/* Set XSTATE_BV */
+	xstate_bv &= vcpu->arch.guest_supported_xcr0 | XFEATURE_MASK_FPSSE;
 	*(u64 *)(dest + XSAVE_HDR_OFFSET) = xstate_bv;
 
 	/*
@@ -3318,6 +3332,7 @@ long kvm_arch_vcpu_ioctl(struct file *filp,
 	};
 	case KVM_SET_VAPIC_ADDR: {
 		struct kvm_vapic_addr va;
+		int idx;
 
 		r = -EINVAL;
 		if (!lapic_in_kernel(vcpu))
@@ -3325,7 +3340,9 @@ long kvm_arch_vcpu_ioctl(struct file *filp,
 		r = -EFAULT;
 		if (copy_from_user(&va, argp, sizeof va))
 			goto out;
+		idx = srcu_read_lock(&vcpu->kvm->srcu);
 		r = kvm_lapic_set_vapic_addr(vcpu, va.vapic_addr);
+		srcu_read_unlock(&vcpu->kvm->srcu, idx);
 		break;
 	}
 	case KVM_X86_SETUP_MCE: {
@@ -5826,6 +5843,7 @@ out:
 
 void kvm_arch_exit(void)
 {
+	kvm_lapic_exit();
 	perf_unregister_guest_info_callbacks(&kvm_guest_cbs);
 
 	if (!boot_cpu_has(X86_FEATURE_CONSTANT_TSC))
@@ -7253,10 +7271,12 @@ void kvm_put_guest_fpu(struct kvm_vcpu *vcpu)
 
 void kvm_arch_vcpu_free(struct kvm_vcpu *vcpu)
 {
+	void *wbinvd_dirty_mask = vcpu->arch.wbinvd_dirty_mask;
+
 	kvmclock_reset(vcpu);
 
-	free_cpumask_var(vcpu->arch.wbinvd_dirty_mask);
 	kvm_x86_ops->vcpu_free(vcpu);
+	free_cpumask_var(wbinvd_dirty_mask);
 }
 
 struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,

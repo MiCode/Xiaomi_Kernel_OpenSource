@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,13 +43,11 @@ struct msm_dig_priv {
 	/* Entry for version info */
 	struct snd_info_entry *entry;
 	struct snd_info_entry *version_entry;
-};
-
-struct msm_dig {
 	char __iomem *dig_base;
 	struct regmap *regmap;
 	struct notifier_block nblock;
 	u32 mute_mask;
+	int dapm_bias_off;
 	void *handle;
 	void (*update_clkdiv)(void *handle, int val);
 	int (*get_cdc_version)(void *handle);

@@ -106,6 +106,7 @@ static struct kgsl_memdesc *kgsl_global_secure_pt_entry;
 static int global_pt_count;
 uint64_t global_pt_alloc;
 static struct kgsl_memdesc gpu_qdss_desc;
+static struct kgsl_memdesc gpu_qtimer_desc;
 
 void kgsl_print_global_pt_entries(struct seq_file *s)
 {
@@ -261,6 +262,50 @@ static inline void kgsl_cleanup_qdss_desc(struct kgsl_mmu *mmu)
 	kgsl_sharedmem_free(&gpu_qdss_desc);
 }
 
+struct kgsl_memdesc *kgsl_iommu_get_qtimer_global_entry(void)
+{
+	return &gpu_qtimer_desc;
+}
+
+static void kgsl_setup_qtimer_desc(struct kgsl_device *device)
+{
+	int result = 0;
+	uint32_t gpu_qtimer_entry[2];
+
+	if (!of_find_property(device->pdev->dev.of_node,
+		"qcom,gpu-qtimer", NULL))
+		return;
+
+	if (of_property_read_u32_array(device->pdev->dev.of_node,
+				"qcom,gpu-qtimer", gpu_qtimer_entry, 2)) {
+		KGSL_CORE_ERR("Failed to read gpu qtimer dts entry\n");
+		return;
+	}
+
+	gpu_qtimer_desc.flags = 0;
+	gpu_qtimer_desc.priv = 0;
+	gpu_qtimer_desc.physaddr = gpu_qtimer_entry[0];
+	gpu_qtimer_desc.size = gpu_qtimer_entry[1];
+	gpu_qtimer_desc.pagetable = NULL;
+	gpu_qtimer_desc.ops = NULL;
+	gpu_qtimer_desc.dev = device->dev->parent;
+	gpu_qtimer_desc.hostptr = NULL;
+
+	result = memdesc_sg_dma(&gpu_qtimer_desc, gpu_qtimer_desc.physaddr,
+			gpu_qtimer_desc.size);
+	if (result) {
+		KGSL_CORE_ERR("memdesc_sg_dma failed: %d\n", result);
+		return;
+	}
+
+	kgsl_mmu_add_global(device, &gpu_qtimer_desc, "gpu-qtimer");
+}
+
+static inline void kgsl_cleanup_qtimer_desc(struct kgsl_mmu *mmu)
+{
+	kgsl_iommu_remove_global(mmu, &gpu_qtimer_desc);
+	kgsl_sharedmem_free(&gpu_qtimer_desc);
+}
 
 static inline void _iommu_sync_mmu_pc(bool lock)
 {
@@ -1403,6 +1448,7 @@ static void kgsl_iommu_close(struct kgsl_mmu *mmu)
 	kgsl_iommu_remove_global(mmu, &iommu->setstate);
 	kgsl_sharedmem_free(&iommu->setstate);
 	kgsl_cleanup_qdss_desc(mmu);
+	kgsl_cleanup_qtimer_desc(mmu);
 }
 
 static int _setstate_alloc(struct kgsl_device *device,
@@ -1474,6 +1520,7 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 
 	kgsl_iommu_add_global(mmu, &iommu->setstate, "setstate");
 	kgsl_setup_qdss_desc(device);
+	kgsl_setup_qtimer_desc(device);
 
 done:
 	if (status)
@@ -2616,6 +2663,7 @@ struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_remove_global = kgsl_iommu_remove_global,
 	.mmu_getpagetable = kgsl_iommu_getpagetable,
 	.mmu_get_qdss_global_entry = kgsl_iommu_get_qdss_global_entry,
+	.mmu_get_qtimer_global_entry = kgsl_iommu_get_qtimer_global_entry,
 	.probe = kgsl_iommu_probe,
 };
 

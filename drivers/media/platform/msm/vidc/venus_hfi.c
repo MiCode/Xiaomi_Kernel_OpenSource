@@ -27,6 +27,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <soc/qcom/cx_ipeak.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/subsystem_restart.h>
@@ -1301,8 +1302,12 @@ static int venus_hfi_suspend(void *dev)
 	}
 
 	dprintk(VIDC_DBG, "Suspending Venus\n");
-	rc = flush_delayed_work(&venus_hfi_pm_work);
+	flush_delayed_work(&venus_hfi_pm_work);
 
+	mutex_lock(&device->lock);
+	if (device->power_enabled)
+		rc = -EBUSY;
+	mutex_unlock(&device->lock);
 	return rc;
 }
 
@@ -1385,6 +1390,39 @@ static int __halt_axi(struct venus_hfi_device *device)
 	return rc;
 }
 
+static int __set_clk_rate(struct venus_hfi_device *device,
+		struct clock_info *cl, u64 rate) {
+	int rc = 0, rc1 = 0;
+	u64 toggle_freq = device->res->clk_freq_threshold;
+	struct cx_ipeak_client *ipeak = device->res->cx_ipeak_context;
+	struct clk *clk = cl->clk;
+
+	if (device->clk_freq < toggle_freq && rate >= toggle_freq) {
+		rc1 = cx_ipeak_update(ipeak, true);
+		dprintk(VIDC_PROF, "Voting up: %d\n", rc);
+	}
+
+	rc = clk_set_rate(clk, rate);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"%s: Failed to set clock rate %llu %s: %d\n",
+			__func__, rate, cl->name, rc);
+
+	if (device->clk_freq >= toggle_freq && rate < toggle_freq) {
+		rc1 = cx_ipeak_update(ipeak, false);
+		dprintk(VIDC_PROF, "Voting down: %d\n", rc);
+	}
+
+	if (rc1)
+		dprintk(VIDC_ERR,
+			"cx_ipeak_update failed! ipeak %pK\n", ipeak);
+
+	if (!rc)
+		device->clk_freq = rate;
+
+	return rc;
+}
+
 static int __scale_clocks_cycles_per_mb(struct venus_hfi_device *device,
 		struct vidc_clk_scale_data *data, unsigned long instant_bitrate)
 {
@@ -1458,14 +1496,10 @@ get_clock_freq:
 		if (!cl->has_scaling)
 			continue;
 
-		device->clk_freq = rate;
-		rc = clk_set_rate(cl->clk, rate);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"%s: Failed to set clock rate %llu %s: %d\n",
-				__func__, rate, cl->name, rc);
+		rc = __set_clk_rate(device, cl, rate);
+		if (rc)
 			return rc;
-		}
+
 		if (!strcmp(cl->name, "core_clk"))
 			device->scaled_rate = rate;
 
@@ -1506,14 +1540,11 @@ static int __scale_clocks_load(struct venus_hfi_device *device, int load,
 							load, data,
 							instant_bitrate);
 			}
-			device->clk_freq = rate;
-			rc = clk_set_rate(cl->clk, rate);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"Failed to set clock rate %lu %s: %d\n",
-					rate, cl->name, rc);
+
+			rc = __set_clk_rate(device, cl, rate);
+			if (rc)
 				return rc;
-			}
+
 
 			if (!strcmp(cl->name, "core_clk"))
 				device->scaled_rate = rate;
@@ -3794,7 +3825,8 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 		 * it to the lowest frequency possible
 		 */
 		if (cl->has_scaling)
-			clk_set_rate(cl->clk, clk_round_rate(cl->clk, 0));
+			__set_clk_rate(device, cl,
+						clk_round_rate(cl->clk, 0));
 
 		if (cl->has_mem_retention) {
 			rc = clk_set_flags(cl->clk, CLKFLAG_NORETAIN_PERIPH);
@@ -4440,7 +4472,7 @@ static int venus_hfi_get_fw_info(void *dev, struct hal_fw_info *fw_info)
 	struct venus_hfi_device *device = dev;
 	u32 smem_block_size = 0;
 	u8 *smem_table_ptr;
-	char version[VENUS_VERSION_LENGTH];
+	char version[VENUS_VERSION_LENGTH] = "";
 	const u32 smem_image_index_venus = 14 * 128;
 
 	if (!device || !fw_info) {

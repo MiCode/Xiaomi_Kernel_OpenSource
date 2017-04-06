@@ -792,20 +792,14 @@ static int ipc_router_mhi_driver_register(
 {
 	int rc_status;
 
-	rc_status = mhi_register_channel(&mhi_xprtp->ch_hndl.out_handle,
-				mhi_xprtp->ch_hndl.out_chan_id, 0,
-				&mhi_xprtp->ch_hndl.out_clnt_info,
-				(void *)mhi_xprtp);
+	rc_status = mhi_register_channel(&mhi_xprtp->ch_hndl.out_handle, NULL);
 	if (rc_status) {
 		IPC_RTR_ERR("%s: Error %d registering out_chan for %s\n",
 			    __func__, rc_status, mhi_xprtp->xprt_name);
 		return -EFAULT;
 	}
 
-	rc_status = mhi_register_channel(&mhi_xprtp->ch_hndl.in_handle,
-				mhi_xprtp->ch_hndl.in_chan_id, 0,
-				&mhi_xprtp->ch_hndl.in_clnt_info,
-				(void *)mhi_xprtp);
+	rc_status = mhi_register_channel(&mhi_xprtp->ch_hndl.in_handle, NULL);
 	if (rc_status) {
 		mhi_deregister_channel(mhi_xprtp->ch_hndl.out_handle);
 		IPC_RTR_ERR("%s: Error %d registering in_chan for %s\n",

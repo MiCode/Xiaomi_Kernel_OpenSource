@@ -433,26 +433,26 @@ static void sd_update_bus_speed_mode(struct mmc_card *card)
 	if ((card->host->caps & MMC_CAP_UHS_SDR104) &&
 	    (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR104) &&
 	    (card->host->f_max > UHS_SDR104_MIN_DTR)) {
-			card->sd_bus_speed = UHS_SDR104_BUS_SPEED;
-	} else if ((card->host->caps & MMC_CAP_UHS_DDR50) &&
-		   (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_DDR50) &&
-		    (card->host->f_max > UHS_DDR50_MIN_DTR)) {
-			card->sd_bus_speed = UHS_DDR50_BUS_SPEED;
+		card->sd_bus_speed = UHS_SDR104_BUS_SPEED;
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50)) && (card->sw_caps.sd3_bus_mode &
 		    SD_MODE_UHS_SDR50) &&
 		    (card->host->f_max > UHS_SDR50_MIN_DTR)) {
-			card->sd_bus_speed = UHS_SDR50_BUS_SPEED;
+		card->sd_bus_speed = UHS_SDR50_BUS_SPEED;
+	} else if ((card->host->caps & MMC_CAP_UHS_DDR50) &&
+		   (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_DDR50) &&
+		    (card->host->f_max > UHS_DDR50_MIN_DTR)) {
+		card->sd_bus_speed = UHS_DDR50_BUS_SPEED;
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR25)) &&
 		   (card->sw_caps.sd3_bus_mode & SD_MODE_UHS_SDR25) &&
 		 (card->host->f_max > UHS_SDR25_MIN_DTR)) {
-			card->sd_bus_speed = UHS_SDR25_BUS_SPEED;
+		card->sd_bus_speed = UHS_SDR25_BUS_SPEED;
 	} else if ((card->host->caps & (MMC_CAP_UHS_SDR104 |
 		    MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR25 |
 		    MMC_CAP_UHS_SDR12)) && (card->sw_caps.sd3_bus_mode &
 		    SD_MODE_UHS_SDR12)) {
-			card->sd_bus_speed = UHS_SDR12_BUS_SPEED;
+		card->sd_bus_speed = UHS_SDR12_BUS_SPEED;
 	}
 }
 
@@ -1147,7 +1147,17 @@ static void mmc_sd_detect(struct mmc_host *host)
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
-	mmc_get_card(host->card);
+	/*
+	 * Try to acquire claim host. If failed to get the lock in 2 sec,
+	 * just return; This is to ensure that when this call is invoked
+	 * due to pm_suspend, not to block suspend for longer duration.
+	 */
+	pm_runtime_get_sync(&host->card->dev);
+	if (!mmc_try_claim_host(host, 2000)) {
+		pm_runtime_mark_last_busy(&host->card->dev);
+		pm_runtime_put_autosuspend(&host->card->dev);
+		return;
+	}
 
 	/*
 	 * Just check if our card has been removed.
@@ -1275,6 +1285,8 @@ static int _mmc_sd_resume(struct mmc_host *host)
 #endif
 	mmc_card_clr_suspended(host->card);
 
+	if (host->card->sdr104_blocked)
+		goto out;
 	err = mmc_resume_clk_scaling(host);
 	if (err) {
 		pr_err("%s: %s: fail to resume clock scaling (%d)\n",

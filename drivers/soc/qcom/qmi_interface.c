@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +101,7 @@ struct elem_info qmi_response_type_v01_ei[] = {
 		.ei_array	= NULL,
 	},
 };
+EXPORT_SYMBOL(qmi_response_type_v01_ei);
 
 struct elem_info qmi_error_resp_type_v01_ei[] = {
 	{

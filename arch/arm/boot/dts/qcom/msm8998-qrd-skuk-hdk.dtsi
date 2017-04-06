@@ -1,0 +1,162 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8998-qrd-skuk.dtsi"
+#include "msm8998-camera-sensor-skuk-hdk.dtsi"
+
+&soc {
+	sound-tavil {
+		qcom,msm-mbhc-hphl-swh = <0>;
+	};
+};
+
+&pmx_mdss {
+	mdss_dsi_active: mdss_dsi_active {
+		mux {
+			pins = "gpio52", "gpio94";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio52", "gpio94";
+			drive-strength = <8>; /* 8 mA */
+			bias-disable = <0>; /* no pull */
+		};
+	};
+
+	mdss_dsi_suspend: mdss_dsi_suspend {
+		mux {
+			pins = "gpio52", "gpio94";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio52", "gpio94";
+			drive-strength = <2>; /* 2 mA */
+			bias-pull-down; /* pull down */
+		};
+	};
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_hdmi_tx {
+	pinctrl-names = "hdmi_hpd_active", "hdmi_ddc_active", "hdmi_cec_active",
+		"hdmi_active", "hdmi_sleep";
+	pinctrl-0 = <&mdss_hdmi_5v_active  &mdss_hdmi_hpd_active
+		&mdss_hdmi_ddc_suspend &mdss_hdmi_cec_suspend>;
+	pinctrl-1 = <&mdss_hdmi_5v_active &mdss_hdmi_hpd_active
+		&mdss_hdmi_ddc_active &mdss_hdmi_cec_suspend>;
+	pinctrl-2 = <&mdss_hdmi_5v_active &mdss_hdmi_hpd_active
+		&mdss_hdmi_cec_active &mdss_hdmi_ddc_suspend>;
+	pinctrl-3 = <&mdss_hdmi_5v_active &mdss_hdmi_hpd_active
+		&mdss_hdmi_ddc_active &mdss_hdmi_cec_active>;
+	pinctrl-4 = <&mdss_hdmi_5v_suspend &mdss_hdmi_hpd_suspend
+		&mdss_hdmi_ddc_suspend &mdss_hdmi_cec_suspend>;
+};
+
+&mdss_dp_ctrl {
+	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+	pinctrl-0 = <&mdss_dp_aux_active &mdss_dp_usbplug_cc_active>;
+	pinctrl-1 = <&mdss_dp_aux_suspend &mdss_dp_usbplug_cc_suspend>;
+	qcom,aux-en-gpio = <&tlmm 77 0>;
+	qcom,aux-sel-gpio = <&tlmm 78 0>;
+	qcom,usbplug-cc-gpio = <&tlmm 38 0>;
+};
+
+&mdss_dsi {
+	hw-config = "split_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual_s6e3ha3_amoled_cmd>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-enable-gpio = <&tlmm 52 0>;
+	qcom,platform-reset-gpio = <&tlmm 94 0>;
+	qcom,platform-bklight-en-gpio = <&pmi8998_gpios 1 0>;
+	qcom,platform-bklight-en-gpio-invert;
+};
+
+&mdss_dsi1 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual_s6e3ha3_amoled_cmd>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-enable-gpio = <&tlmm 52 0>;
+	qcom,platform-reset-gpio = <&tlmm 94 0>;
+	qcom,platform-bklight-en-gpio = <&pmi8998_gpios 1 0>;
+	qcom,platform-bklight-en-gpio-invert;
+};
+
+&pmi8998_wled {
+	qcom,disp-type-amoled;
+};
+
+&labibb {
+	status = "ok";
+	qcom,qpnp-labibb-mode = "amoled";
+	qcom,swire-control;
+};
+
+&pmi8998_gpios {
+	/* GPIO 1 for WLED power enable */
+	gpio@c000 {
+		qcom,mode = <1>;
+		qcom,output-type = <0>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <0>;
+		qcom,out-strength = <1>;
+		qcom,src-sel = <0>;
+		qcom,invert = <0>;
+		qcom,master-en = <1>;
+		status = "okay";
+	};
+};
+
+&dsi_dual_s6e3ha3_amoled_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <255>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&i2c_5 {
+	status = "okay";
+	st_fts@49 {
+		compatible = "st,fts";
+		reg = <0x49>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <125 0x2008>;
+		vdd-supply = <&pm8998_l6>;
+		avdd-supply = <&pm8998_l28>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		st,irq-gpio = <&tlmm 125 0x2008>;
+		st,reset-gpio = <&tlmm 89 0x00>;
+		st,regulator_dvdd = "vdd";
+		st,regulator_avdd = "avdd";
+	};
+};
+
+&soc {
+	/* HDK835 do not use improveTouch. If do not remove this node,
+	 * legacy TOUCH could not work.
+	 */
+	/delete-node/hbtp;
+};

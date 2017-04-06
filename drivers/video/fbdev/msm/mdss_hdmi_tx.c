@@ -380,6 +380,13 @@ static inline u32 hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
 	return hdmi_edid_is_dvi_mode(hdmi_tx_get_fd(HDMI_TX_FEAT_EDID));
 } /* hdmi_tx_is_dvi_mode */
 
+static inline u32 hdmi_tx_is_in_splash(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	return mdata->handoff_pending;
+}
+
 static inline bool hdmi_tx_is_panel_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	return hdmi_ctrl->hpd_state && hdmi_ctrl->panel_power_on;
@@ -416,15 +423,27 @@ static inline void hdmi_tx_cec_device_suspend(struct hdmi_tx_ctrl *hdmi_ctrl)
 }
 
 static inline void hdmi_tx_send_cable_notification(
-	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
+	struct hdmi_tx_ctrl *hdmi_ctrl, int val, bool async)
 {
 	if (hdmi_ctrl && hdmi_ctrl->ext_audio_data.intf_ops.hpd) {
 		u32 flags = 0;
 
-		flags |= MSM_EXT_DISP_HPD_VIDEO;
+		if (async || hdmi_tx_is_in_splash(hdmi_ctrl)) {
+			flags |= MSM_EXT_DISP_HPD_ASYNC_VIDEO;
 
-		if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
-			flags |= MSM_EXT_DISP_HPD_AUDIO;
+			if (async) {
+				if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
+					flags |= MSM_EXT_DISP_HPD_ASYNC_AUDIO;
+			} else
+				if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
+					flags |= MSM_EXT_DISP_HPD_AUDIO;
+
+		} else {
+			flags |= MSM_EXT_DISP_HPD_VIDEO;
+
+			if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
+				flags |= MSM_EXT_DISP_HPD_AUDIO;
+		}
 
 		hdmi_ctrl->ext_audio_data.intf_ops.hpd(hdmi_ctrl->ext_pdev,
 				hdmi_ctrl->ext_audio_data.type, val, flags);
@@ -859,7 +878,11 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 			hdmi_tx_config_5v(hdmi_ctrl, false);
 		} else {
 			hdmi_tx_hpd_off(hdmi_ctrl);
-			hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
+			/*
+			 * No need to blocking wait for display/audio in this
+			 * case since HAL is not up so no ACK can be expected.
+			 */
+			hdmi_tx_send_cable_notification(hdmi_ctrl, 0, true);
 		}
 
 		break;
@@ -2339,7 +2362,7 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 
 	mutex_unlock(&hdmi_ctrl->tx_lock);
 
-	hdmi_tx_send_cable_notification(hdmi_ctrl, hdmi_ctrl->hpd_state);
+	hdmi_tx_send_cable_notification(hdmi_ctrl, hdmi_ctrl->hpd_state, false);
 } /* hdmi_tx_hpd_int_work */
 
 static int hdmi_tx_check_capability(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -3956,7 +3979,7 @@ static int hdmi_tx_post_evt_handle_resume(struct hdmi_tx_ctrl *hdmi_ctrl)
 			&hdmi_ctrl->hpd_int_done, HZ/10);
 		if (!timeout) {
 			pr_debug("cable removed during suspend\n");
-			hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
+			hdmi_tx_send_cable_notification(hdmi_ctrl, 0, false);
 		}
 	}
 
@@ -3967,7 +3990,7 @@ static int hdmi_tx_post_evt_handle_panel_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	if (hdmi_ctrl->panel_suspend) {
 		pr_debug("panel suspend has triggered\n");
-		hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
+		hdmi_tx_send_cable_notification(hdmi_ctrl, 0, false);
 	}
 
 	return 0;

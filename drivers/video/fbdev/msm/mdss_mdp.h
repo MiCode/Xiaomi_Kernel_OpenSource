@@ -164,6 +164,14 @@ enum mdss_mdp_mixer_mux {
 	MDSS_MDP_MIXER_MUX_RIGHT,
 };
 
+enum mdss_secure_transition {
+	SECURE_TRANSITION_NONE,
+	SD_NON_SECURE_TO_SECURE,
+	SD_SECURE_TO_NON_SECURE,
+	SC_NON_SECURE_TO_SECURE,
+	SC_SECURE_TO_NON_SECURE,
+};
+
 static inline enum mdss_mdp_sspp_index get_pipe_num_from_ndx(u32 ndx)
 {
 	u32 id;
@@ -421,6 +429,9 @@ struct mdss_mdp_ctl_intfs_ops {
 	/* to update lineptr, [1..yres] - enable, 0 - disable */
 	int (*update_lineptr)(struct mdss_mdp_ctl *ctl, bool enable);
 	int (*avr_ctrl_fnc)(struct mdss_mdp_ctl *, bool enable);
+
+	/* to wait for vsync */
+	int (*wait_for_vsync_fnc)(struct mdss_mdp_ctl *ctl);
 };
 
 struct mdss_mdp_cwb {
@@ -650,6 +661,7 @@ struct mdss_mdp_img_data {
 	struct dma_buf *srcp_dma_buf;
 	struct dma_buf_attachment *srcp_attachment;
 	struct sg_table *srcp_table;
+	struct ion_handle *ihandle;
 };
 
 enum mdss_mdp_data_state {
@@ -691,6 +703,8 @@ struct pp_hist_col_info {
 	char __iomem *base;
 	u32 intr_shift;
 	u32 disp_num;
+	u32 expect_sum;
+	u32 next_sum;
 	struct mdss_mdp_ctl *ctl;
 };
 
@@ -953,6 +967,8 @@ struct mdss_overlay_private {
 	struct kthread_worker worker;
 	struct kthread_work vsync_work;
 	struct task_struct *thread;
+
+	u8 secure_transition_state;
 };
 
 struct mdss_mdp_set_ot_params {
@@ -1976,6 +1992,7 @@ void mdss_mdp_disable_hw_irq(struct mdss_data_type *mdata);
 
 void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata);
 int mdss_mdp_dest_scaler_setup_locked(struct mdss_mdp_mixer *mixer);
+void *mdss_mdp_intf_get_ctx_base(struct mdss_mdp_ctl *ctl, int intf_num);
 
 #ifdef CONFIG_FB_MSM_MDP_NONE
 struct mdss_data_type *mdss_mdp_get_mdata(void)

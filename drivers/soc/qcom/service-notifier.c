@@ -99,10 +99,12 @@ struct ind_req_resp {
  */
 struct qmi_client_info {
 	int instance_id;
+	enum pd_subsys_state subsys_state;
 	struct work_struct svc_arrive;
 	struct work_struct svc_exit;
 	struct work_struct svc_rcv_msg;
 	struct work_struct ind_ack;
+	struct work_struct qmi_handle_free;
 	struct workqueue_struct *svc_event_wq;
 	struct qmi_handle *clnt_handle;
 	struct notifier_block notifier;
@@ -121,6 +123,18 @@ static DEFINE_MUTEX(notif_add_lock);
 static void root_service_clnt_recv_msg(struct work_struct *work);
 static void root_service_service_arrive(struct work_struct *work);
 static void root_service_exit_work(struct work_struct *work);
+
+static void free_qmi_handle(struct work_struct *work)
+{
+	struct qmi_client_info *data = container_of(work,
+				struct qmi_client_info, qmi_handle_free);
+
+	mutex_lock(&qmi_client_release_lock);
+	data->service_connected = false;
+	qmi_handle_destroy(data->clnt_handle);
+	data->clnt_handle = NULL;
+	mutex_unlock(&qmi_client_release_lock);
+}
 
 static struct service_notif_info *_find_service_info(const char *service_path)
 {
@@ -425,18 +439,14 @@ static void root_service_service_exit(struct qmi_client_info *data,
 	 * Destroy client handle and try connecting when
 	 * service comes up again.
 	 */
-	mutex_lock(&qmi_client_release_lock);
-	data->service_connected = false;
-	qmi_handle_destroy(data->clnt_handle);
-	data->clnt_handle = NULL;
-	mutex_unlock(&qmi_client_release_lock);
+	queue_work(data->svc_event_wq, &data->qmi_handle_free);
 }
 
 static void root_service_exit_work(struct work_struct *work)
 {
 	struct qmi_client_info *data = container_of(work,
 					struct qmi_client_info, svc_exit);
-	root_service_service_exit(data, ROOT_PD_DOWN);
+	root_service_service_exit(data, data->subsys_state);
 }
 
 static int service_event_notify(struct notifier_block *this,
@@ -453,6 +463,7 @@ static int service_event_notify(struct notifier_block *this,
 		break;
 	case QMI_SERVER_EXIT:
 		pr_debug("Root PD service DOWN\n");
+		data->subsys_state = ROOT_PD_DOWN;
 		queue_work(data->svc_event_wq, &data->svc_exit);
 		break;
 	default:
@@ -468,7 +479,6 @@ static int ssr_event_notify(struct notifier_block *this,
 	struct qmi_client_info *info = container_of(this,
 					struct qmi_client_info, ssr_notifier);
 	struct notif_data *notif = data;
-	enum pd_subsys_state state;
 
 	switch (code) {
 	case	SUBSYS_BEFORE_SHUTDOWN:
@@ -476,16 +486,16 @@ static int ssr_event_notify(struct notifier_block *this,
 						notif->crashed);
 		switch (notif->crashed) {
 		case CRASH_STATUS_ERR_FATAL:
-			state = ROOT_PD_ERR_FATAL;
+			info->subsys_state = ROOT_PD_ERR_FATAL;
 			break;
 		case CRASH_STATUS_WDOG_BITE:
-			state = ROOT_PD_WDOG_BITE;
+			info->subsys_state = ROOT_PD_WDOG_BITE;
 			break;
 		default:
-			state = ROOT_PD_SHUTDOWN;
+			info->subsys_state = ROOT_PD_SHUTDOWN;
 			break;
 		}
-		root_service_service_exit(info, state);
+		root_service_service_exit(info, info->subsys_state);
 		break;
 	default:
 		break;
@@ -560,6 +570,7 @@ static void *add_service_notif(const char *service_path, int instance_id,
 	INIT_WORK(&qmi_data->svc_exit, root_service_exit_work);
 	INIT_WORK(&qmi_data->svc_rcv_msg, root_service_clnt_recv_msg);
 	INIT_WORK(&qmi_data->ind_ack, send_ind_ack);
+	INIT_WORK(&qmi_data->qmi_handle_free, free_qmi_handle);
 
 	*curr_state = service_notif->curr_state =
 				SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01;
@@ -635,7 +646,13 @@ static int send_pd_restart_req(const char *service_path,
 		return rc;
 	}
 
-	/* Check the response */
+	/* Check response if PDR is disabled */
+	if (QMI_RESP_BIT_SHIFT(resp.resp.result) == QMI_ERR_DISABLED_V01) {
+		pr_err("PD restart is disabled 0x%x\n",
+					QMI_RESP_BIT_SHIFT(resp.resp.error));
+		return -EOPNOTSUPP;
+	}
+	/* Check the response for other error case*/
 	if (QMI_RESP_BIT_SHIFT(resp.resp.result) != QMI_RESULT_SUCCESS_V01) {
 		pr_err("QMI request for PD restart failed 0x%x\n",
 					QMI_RESP_BIT_SHIFT(resp.resp.error));

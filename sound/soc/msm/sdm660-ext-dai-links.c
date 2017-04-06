@@ -335,7 +335,6 @@ static struct snd_soc_dai_link msm_ext_tasha_fe_dai[] = {
 		.platform_name = "msm-pcm-hostless",
 		.dynamic = 1,
 		.dpcm_playback = 1,
-		.dpcm_capture = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			    SND_SOC_DPCM_TRIGGER_POST},
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,

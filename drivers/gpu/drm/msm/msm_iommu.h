@@ -25,6 +25,8 @@ struct msm_iommu {
 
 	struct clk *clocks[5];
 	int nr_clocks;
+
+	bool is_coherent;
 };
 #define to_msm_iommu(x) container_of(x, struct msm_iommu, base)
 
@@ -33,5 +35,12 @@ static inline bool msm_iommu_allow_dynamic(struct msm_mmu *mmu)
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 
 	return iommu->allow_dynamic;
+}
+
+static inline bool msm_iommu_coherent(struct msm_mmu *mmu)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+
+	return iommu->is_coherent;
 }
 #endif

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,11 +12,14 @@
 #ifndef MSM_MHI_H
 #define MSM_MHI_H
 #include <linux/types.h>
-
-struct mhi_client_handle;
+#include <linux/device.h>
+#include <linux/scatterlist.h>
 
 #define MHI_DMA_MASK       0xFFFFFFFFFFULL
 #define MHI_MAX_MTU        0xFFFF
+
+struct mhi_client_config;
+struct mhi_device_ctxt;
 
 enum MHI_CLIENT_CHANNEL {
 	MHI_CLIENT_LOOPBACK_OUT = 0,
@@ -70,11 +73,12 @@ enum MHI_CLIENT_CHANNEL {
 };
 
 enum MHI_CB_REASON {
-	MHI_CB_XFER = 0x0,
-	MHI_CB_MHI_DISABLED = 0x4,
-	MHI_CB_MHI_ENABLED = 0x8,
-	MHI_CB_CHAN_RESET_COMPLETE = 0x10,
-	MHI_CB_reserved = 0x80000000,
+	MHI_CB_XFER,
+	MHI_CB_MHI_DISABLED,
+	MHI_CB_MHI_ENABLED,
+	MHI_CB_MHI_SHUTDOWN,
+	MHI_CB_SYS_ERROR,
+	MHI_CB_RDDM,
 };
 
 enum MHI_FLAGS {
@@ -99,8 +103,109 @@ struct mhi_cb_info {
 };
 
 struct mhi_client_info_t {
+	enum MHI_CLIENT_CHANNEL chan;
+	const struct device *dev;
+	const char *node_name;
 	void (*mhi_client_cb)(struct mhi_cb_info *);
+	bool pre_allocate;
+	size_t max_payload;
+	void *user_data;
 };
+
+struct mhi_client_handle {
+	u32 dev_id;
+	u32 domain;
+	u32 bus;
+	u32 slot;
+	struct mhi_client_config *client_config;
+};
+
+struct __packed bhi_vec_entry {
+	u64 phys_addr;
+	u64 size;
+};
+
+/**
+ * struct mhi_device - IO resources for MHI
+ * @dev: device node points to of_node
+ * @pdev: pci device node
+ * @resource: bar memory space and IRQ resources
+ * @support_rddm: this device support ramdump collection
+ * @rddm_size: size of ramdump buffer in bytes to allocate
+ * @pm_runtime_get: fp for bus masters rpm pm_runtime_get
+ * @pm_runtime_noidle: fp for bus masters rpm pm_runtime_noidle
+ * @status_cb: fp for MHI status change notifications
+ * @mhi_dev_ctxt: private data for host
+ */
+struct mhi_device {
+	struct device *dev;
+	struct pci_dev *pci_dev;
+	struct resource resources[2];
+	bool support_rddm;
+	size_t rddm_size;
+	int (*pm_runtime_get)(struct pci_dev *pci_dev);
+	void (*pm_runtime_put_noidle)(struct pci_dev *pci_dev);
+	void (*status_cb)(enum MHI_CB_REASON, void *priv);
+	struct mhi_device_ctxt *mhi_dev_ctxt;
+};
+
+enum mhi_dev_ctrl {
+	MHI_DEV_CTRL_INIT,
+	MHI_DEV_CTRL_DE_INIT,
+	MHI_DEV_CTRL_SUSPEND,
+	MHI_DEV_CTRL_RESUME,
+	MHI_DEV_CTRL_POWER_OFF,
+	MHI_DEV_CTRL_POWER_ON,
+	MHI_DEV_CTRL_RDDM,
+	MHI_DEV_CTRL_RDDM_KERNEL_PANIC,
+	MHI_DEV_CTRL_NOTIFY_LINK_ERROR,
+};
+
+enum mhi_rddm_segment {
+	MHI_RDDM_FW_SEGMENT,
+	MHI_RDDM_RD_SEGMENT,
+};
+
+/**
+ * mhi_is_device_ready - Check if MHI is ready to register clients
+ *
+ * @dev: device node that points to DT node
+ * @node_name: device tree node that links MHI node
+ *
+ * @Return true if ready
+ */
+bool mhi_is_device_ready(const struct device * const dev,
+			 const char *node_name);
+
+/**
+ * mhi_resgister_device - register hardware resources with MHI
+ *
+ * @mhi_device: resources to be used
+ * @node_name: DT node name
+ * @userdata: cb data for client
+ * @Return 0 on success
+ */
+int mhi_register_device(struct mhi_device *mhi_device,
+			const char *node_name,
+			void *user_data);
+
+/**
+ * mhi_pm_control_device - power management control api
+ * @mhi_device: registered device structure
+ * @ctrl: specific command
+ * @Return 0 on success
+ */
+int mhi_pm_control_device(struct mhi_device *mhi_device,
+			  enum mhi_dev_ctrl ctrl);
+
+/**
+ * mhi_xfer_rddm - transfer rddm segment to bus master
+ * @mhi_device: registered device structure
+ * @seg: scatterlist pointing to segments
+ * @Return: # of segments, 0 if no segment available
+ */
+int mhi_xfer_rddm(struct mhi_device *mhi_device, enum mhi_rddm_segment seg,
+		  struct scatterlist **sg_list);
 
 /**
  * mhi_deregister_channel - de-register callbacks from MHI
@@ -116,21 +221,13 @@ int mhi_deregister_channel(struct mhi_client_handle *client_handle);
  *			  any MHI operations
  *
  *  @client_handle:  Handle populated by MHI, opaque to client
- *  @chan:           Channel provided by client to which the handle
- *                   maps to.
- *  @device_index:   MHI device for which client wishes to register, if
- *                   there are multiple devices supporting MHI. Client
- *                   should specify 0 for the first device 1 for second etc.
- *  @info:           Client provided callbacks which MHI will invoke on events
- *  @user_data:      Client provided context to be returned to client upon
- *                   callback invocation.
- *  Not thread safe, caller must ensure concurrency protection.
+ *  @client_info:    Channel\device information provided by client to
+ *                   which the handle maps to.
  *
  * @Return errno
  */
 int mhi_register_channel(struct mhi_client_handle **client_handle,
-		enum MHI_CLIENT_CHANNEL chan, s32 device_index,
-		struct mhi_client_info_t *client_info, void *user_data);
+			 struct mhi_client_info_t *client_info);
 
 /**
  * mhi_open_channel - Client must call this function to open a channel

@@ -1,0 +1,59 @@
+MSM MHI RMNET interface device
+
+MHI RMNET provides a network interface over PCIe to transfer IP packets
+between modem and apps.
+
+==============
+Node Structure
+==============
+
+Main node properties:
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: "qcom,mhi-rmnet"
+
+- qcom,mhi-rx-channel
+  Usage: optional if mhi-tx-channel is defined.
+  Value type: <u32>
+  Definition: MHI channel number for incoming data
+
+- qcom,mhi-tx-channel
+  Usage: optional if mhi-rx-channel is defined.
+  Value type: <u32>
+  Definition: MHI channel number for outgoing data
+
+- qcom,mhi-mru
+  Usage: required
+  Value type: <u32>
+  Definition: Default payload size for receive path.
+
+- qcom,mhi-max-mru
+  Usage: optional
+  Value type: <u32>
+  Definition: Maximum payload interface support on receive path.  If
+	not defined MHI_MAX_MRU is used.
+
+- qcom,mhi-max-mtu
+  Usage: optional
+  Value type: <u32>
+  Definition: Maximum payload interface support on transmit path.  If
+	not defined MHI_MAX_MTU is used.
+
+- qcom,interface-name
+  Usage: optional
+  Value type: <string>
+  Definition: optional string to overwrite default interface name. If
+	not defined string RMNET_MHI_DRIVER_NAME is used.
+
+========
+Example:
+========
+mhi_rmnet_0: qcom,mhi-rmnet@0 {
+	compatible = "qcom,mhi-rmnet";
+	qcom,mhi-rx-channel = <101>;
+	qcom,mhi-tx-channel = <100>;
+	qcom,mhi-mru = <8000>;
+	status = "okay";
+};

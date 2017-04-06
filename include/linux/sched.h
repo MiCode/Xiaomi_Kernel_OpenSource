@@ -1436,6 +1436,8 @@ struct sched_rt_entity {
 	unsigned long timeout;
 	unsigned long watchdog_stamp;
 	unsigned int time_slice;
+	unsigned short on_rq;
+	unsigned short on_list;
 
 	struct sched_rt_entity *back;
 #ifdef CONFIG_RT_GROUP_SCHED
@@ -1710,6 +1712,7 @@ struct task_struct {
 	struct list_head cpu_timers[3];
 
 /* process credentials */
+	const struct cred __rcu *ptracer_cred; /* Tracer's credentials at attach */
 	const struct cred __rcu *real_cred; /* objective and real subjective task
 					 * credentials (COW) */
 	const struct cred __rcu *cred;	/* effective (overridable) subjective task

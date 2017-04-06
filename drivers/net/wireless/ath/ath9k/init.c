@@ -619,6 +619,7 @@ static int ath9k_init_softc(u16 devid, struct ath_softc *sc,
 		common->bt_ant_diversity = 1;
 
 	spin_lock_init(&common->cc_lock);
+	spin_lock_init(&sc->intr_lock);
 	spin_lock_init(&sc->sc_serial_rw);
 	spin_lock_init(&sc->sc_pm_lock);
 	spin_lock_init(&sc->chan_lock);
@@ -869,8 +870,8 @@ static void ath9k_set_hw_capab(struct ath_softc *sc, struct ieee80211_hw *hw)
 			hw->wiphy->interface_modes |=
 					BIT(NL80211_IFTYPE_P2P_DEVICE);
 
-			hw->wiphy->iface_combinations = if_comb;
-			hw->wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
+		hw->wiphy->iface_combinations = if_comb;
+		hw->wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
 	}
 
 	hw->wiphy->flags &= ~WIPHY_FLAG_PS_ON_BY_DEFAULT;

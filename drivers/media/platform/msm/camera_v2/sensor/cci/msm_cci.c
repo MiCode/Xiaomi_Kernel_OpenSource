@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -291,7 +291,6 @@ static uint32_t msm_cci_wait(struct cci_device *cci_dev,
 		__func__, __LINE__);
 
 	if (rc <= 0) {
-		msm_cci_dump_registers(cci_dev, master, queue);
 		pr_err("%s: %d wait for queue: %d\n",
 			 __func__, __LINE__, queue);
 		if (rc == 0)
@@ -1284,6 +1283,10 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		CDBG("%s:%d master %d\n", __func__, __LINE__, master);
 		if (master < MASTER_MAX && master >= 0) {
 			mutex_lock(&cci_dev->cci_master_info[master].mutex);
+			mutex_lock(&cci_dev->cci_master_info[master].
+				mutex_q[PRIORITY_QUEUE]);
+			mutex_lock(&cci_dev->cci_master_info[master].
+				mutex_q[SYNC_QUEUE]);
 			flush_workqueue(cci_dev->write_wq[master]);
 			/* Re-initialize the completion */
 			reinit_completion(&cci_dev->
@@ -1308,6 +1311,10 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 			if (rc <= 0)
 				pr_err("%s:%d wait failed %d\n", __func__,
 					__LINE__, rc);
+			mutex_unlock(&cci_dev->cci_master_info[master].
+				mutex_q[SYNC_QUEUE]);
+			mutex_unlock(&cci_dev->cci_master_info[master].
+				mutex_q[PRIORITY_QUEUE]);
 			mutex_unlock(&cci_dev->cci_master_info[master].mutex);
 		}
 		return 0;

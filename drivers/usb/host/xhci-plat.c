@@ -38,12 +38,19 @@ static const struct xhci_driver_overrides xhci_plat_overrides __initconst = {
 
 static void xhci_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 {
+	struct device_node *node = dev->of_node;
+	struct usb_xhci_pdata *pdata = dev_get_platdata(dev);
+
 	/*
 	 * As of now platform drivers don't provide MSI support so we ensure
 	 * here that the generic code does not try to make a pci_dev from our
 	 * dev struct in order to setup MSI
 	 */
 	xhci->quirks |= XHCI_PLAT;
+
+	if ((node && of_property_read_bool(node, "usb3-lpm-capable")) ||
+			(pdata && pdata->usb3_lpm_capable))
+		xhci->quirks |= XHCI_LPM_SUPPORT;
 }
 
 /* called during probe() after chip reset completes */
@@ -129,7 +136,6 @@ static DEVICE_ATTR(config_imod, S_IRUGO | S_IWUSR,
 
 static int xhci_plat_probe(struct platform_device *pdev)
 {
-	struct device_node	*node = pdev->dev.of_node;
 	struct usb_xhci_pdata	*pdata = dev_get_platdata(&pdev->dev);
 	const struct hc_driver	*driver;
 	struct xhci_hcd		*xhci;
@@ -227,13 +233,6 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
 
-	if ((node && of_property_read_bool(node, "usb3-lpm-capable")) ||
-			(pdata && pdata->usb3_lpm_capable))
-		xhci->quirks |= XHCI_LPM_SUPPORT;
-
-	if (HCC_MAX_PSA(xhci->hcc_params) >= 4)
-		xhci->shared_hcd->can_do_streams = 1;
-
 	hcd->usb_phy = devm_usb_get_phy_by_phandle(&pdev->dev, "usb-phy", 0);
 	if (IS_ERR(hcd->usb_phy)) {
 		ret = PTR_ERR(hcd->usb_phy);
@@ -246,13 +245,16 @@ static int xhci_plat_probe(struct platform_device *pdev)
 			goto put_usb3_hcd;
 	}
 
-	ret = usb_add_hcd(hcd, irq, IRQF_SHARED | IRQF_ONESHOT);
+	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
 	if (ret)
 		goto disable_usb_phy;
 
 	device_wakeup_enable(&hcd->self.root_hub->dev);
 
-	ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED | IRQF_ONESHOT);
+	if (HCC_MAX_PSA(xhci->hcc_params) >= 4)
+		xhci->shared_hcd->can_do_streams = 1;
+
+	ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
 	if (ret)
 		goto dealloc_usb2_hcd;
 

@@ -9,8 +9,26 @@ receive(RX)/transmit(TX) control.
 
 Required properties:
  - compatible: "qcom,wcn3990-wifi";
+ - reg: Memory regions defined as starting address and size
+ - reg-names: Names of the memory regions defined in reg entry
+ - interrupts: Copy engine interrupt table
 
 Example:
-	qcom,msm_ath10k@18000000 {
+	msm_ath10k_wlan: qcom,msm_ath10k_wlan@18800000 {
 		compatible = "qcom,wcn3990-wifi";
+		reg = <0x18800000 0x800000>;
+		reg-names = "membase";
+		interrupts =
+			   <0 130 0 /* CE0 */ >,
+			   <0 131 0 /* CE1 */ >,
+			   <0 132 0 /* CE2 */ >,
+			   <0 133 0 /* CE3 */ >,
+			   <0 134 0 /* CE4 */ >,
+			   <0 135 0 /* CE5 */ >,
+			   <0 136 0 /* CE6 */ >,
+			   <0 137 0 /* CE7 */ >,
+			   <0 138 0 /* CE8 */ >,
+			   <0 139 0 /* CE9 */ >,
+			   <0 140 0 /* CE10 */ >,
+			   <0 141 0 /* CE11 */ >;
 	};

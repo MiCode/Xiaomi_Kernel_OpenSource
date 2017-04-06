@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -379,6 +379,7 @@ int hyp_assign_phys(phys_addr_t addr, u64 size, u32 *source_vm_list,
 	sg_free_table(&table);
 	return ret;
 }
+EXPORT_SYMBOL(hyp_assign_phys);
 
 const char *msm_secure_vmid_to_string(int secure_vmid)
 {

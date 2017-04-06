@@ -76,6 +76,7 @@ struct msm_gem_vma;
 
 struct msm_file_private {
 	struct msm_gem_address_space *aspace;
+	struct list_head counters;
 };
 
 enum msm_mdp_plane_property {

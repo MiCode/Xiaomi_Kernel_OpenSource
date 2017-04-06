@@ -1581,6 +1581,8 @@ static int functionfs_init(void)
 		pr_err("failed registering file system (%d)\n", ret);
 
 	ffs_ipc_log = ipc_log_context_create(NUM_PAGES, "f_fs", 0);
+	if (IS_ERR_OR_NULL(ffs_ipc_log))
+		ffs_ipc_log =  NULL;
 
 	return ret;
 }
@@ -1591,6 +1593,11 @@ static void functionfs_cleanup(void)
 
 	pr_info("unloading\n");
 	unregister_filesystem(&ffs_fs_type);
+
+	if (ffs_ipc_log) {
+		ipc_log_context_destroy(ffs_ipc_log);
+		ffs_ipc_log = NULL;
+	}
 }
 
 
@@ -1872,8 +1879,8 @@ static int ffs_epfiles_create(struct ffs_data *ffs)
 
 	ffs->epfiles = epfiles;
 
-	ffs_log("exit: epfile name %s state %d setup_state %d flag %lu",
-		epfile->name, ffs->state, ffs->setup_state, ffs->flags);
+	ffs_log("exit: eps_count %u state %d setup_state %d flag %lu",
+		count, ffs->state, ffs->setup_state, ffs->flags);
 
 	return 0;
 }
@@ -1884,7 +1891,7 @@ static void ffs_epfiles_destroy(struct ffs_epfile *epfiles, unsigned count)
 
 	ENTER();
 
-	ffs_log("enter: epfilename %s", epfile->name);
+	ffs_log("enter: count %u", count);
 
 	for (; count; --count, ++epfile) {
 		BUG_ON(mutex_is_locked(&epfile->mutex) ||
@@ -2430,6 +2437,8 @@ static int __ffs_data_do_os_desc(enum ffs_os_desc_type type,
 		if (len < sizeof(*d) || h->interface >= ffs->interfaces_count)
 			return -EINVAL;
 		length = le32_to_cpu(d->dwSize);
+		if (len < length)
+			return -EINVAL;
 		type = le32_to_cpu(d->dwPropertyDataType);
 		if (type < USB_EXT_PROP_UNICODE ||
 		    type > USB_EXT_PROP_UNICODE_MULTI) {
@@ -2438,6 +2447,11 @@ static int __ffs_data_do_os_desc(enum ffs_os_desc_type type,
 			return -EINVAL;
 		}
 		pnl = le16_to_cpu(d->wPropertyNameLength);
+		if (length < 14 + pnl) {
+			pr_vdebug("invalid os descriptor length: %d pnl:%d (descriptor %d)\n",
+				  length, pnl, type);
+			return -EINVAL;
+		}
 		pdl = le32_to_cpu(*(u32 *)((u8 *)data + 10 + pnl));
 		if (length != 14 + pnl + pdl) {
 			pr_vdebug("invalid os descriptor length: %d pnl:%d pdl:%d (descriptor %d)\n",
@@ -2527,6 +2541,9 @@ static int __ffs_data_got_descs(struct ffs_data *ffs,
 		}
 	}
 	if (flags & (1 << i)) {
+		if (len < 4) {
+			goto error;
+		}
 		os_descs_count = get_unaligned_le32(data);
 		data += 4;
 		len -= 4;
@@ -2604,7 +2621,8 @@ static int __ffs_data_got_strings(struct ffs_data *ffs,
 
 	ffs_log("enter: len %zu", len);
 
-	if (unlikely(get_unaligned_le32(data) != FUNCTIONFS_STRINGS_MAGIC ||
+	if (unlikely(len < 16 ||
+		     get_unaligned_le32(data) != FUNCTIONFS_STRINGS_MAGIC ||
 		     get_unaligned_le32(data + 4) != len))
 		goto error;
 	str_count  = get_unaligned_le32(data + 8);

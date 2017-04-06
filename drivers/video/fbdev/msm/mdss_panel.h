@@ -29,6 +29,9 @@ struct panel_id {
 #define DEFAULT_FRAME_RATE	60
 #define DEFAULT_ROTATOR_FRAME_RATE 120
 #define ROTATOR_LOW_FRAME_RATE 30
+
+#define MDSS_DSI_MAX_ESC_CLK_RATE_HZ	19200000
+
 #define MDSS_DSI_RST_SEQ_LEN	10
 /* worst case prefill lines for all chipsets including all vertical blank */
 #define MDSS_MDP_MAX_PREFILL_FETCH 25
@@ -112,12 +115,6 @@ enum {
 };
 
 enum {
-	MDSS_PANEL_BLANK_BLANK = 0,
-	MDSS_PANEL_BLANK_UNBLANK,
-	MDSS_PANEL_BLANK_LOW_POWER,
-};
-
-enum {
 	MDSS_PANEL_LOW_PERSIST_MODE_OFF = 0,
 	MDSS_PANEL_LOW_PERSIST_MODE_ON,
 };
@@ -192,10 +189,16 @@ struct mdss_panel_cfg {
 
 enum {
 	MDP_INTF_CALLBACK_DSI_WAIT,
+	MDP_INTF_CALLBACK_CHECK_LINE_COUNT,
 };
 
 struct mdss_intf_recovery {
-	void (*fxn)(void *ctx, int event);
+	int (*fxn)(void *ctx, int event);
+	void *data;
+};
+
+struct mdss_intf_ulp_clamp {
+	int (*fxn)(void *ctx, int intf_num, bool enable);
 	void *data;
 };
 
@@ -304,6 +307,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_UPDATE_PANEL_PPM,
 	MDSS_EVENT_DSI_TIMING_DB_CTRL,
 	MDSS_EVENT_AVR_MODE,
+	MDSS_EVENT_REGISTER_CLAMP_HANDLER,
 	MDSS_EVENT_MAX,
 };
 
@@ -360,6 +364,8 @@ static inline char *mdss_panel_intf_event_to_string(int event)
 		return INTF_EVENT_STR(MDSS_EVENT_REGISTER_RECOVERY_HANDLER);
 	case MDSS_EVENT_REGISTER_MDP_CALLBACK:
 		return INTF_EVENT_STR(MDSS_EVENT_REGISTER_MDP_CALLBACK);
+	case MDSS_EVENT_REGISTER_CLAMP_HANDLER:
+		return INTF_EVENT_STR(MDSS_EVENT_REGISTER_CLAMP_HANDLER);
 	case MDSS_EVENT_DSI_PANEL_STATUS:
 		return INTF_EVENT_STR(MDSS_EVENT_DSI_PANEL_STATUS);
 	case MDSS_EVENT_DSI_DYNAMIC_SWITCH:
@@ -915,6 +921,9 @@ struct mdss_panel_info {
 
 	/* HDR properties of display panel*/
 	struct mdss_panel_hdr_properties hdr_properties;
+
+	/* esc clk recommended for the panel */
+	u32 esc_clk_rate_hz;
 };
 
 struct mdss_panel_timing {

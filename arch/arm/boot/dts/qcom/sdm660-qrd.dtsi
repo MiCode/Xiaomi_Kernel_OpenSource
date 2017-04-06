@@ -52,6 +52,13 @@
 	status = "ok";
 };
 
+&sdc2_cd_on {
+	config {
+		/delete-property/ bias-pull-up;
+		bias-disable;
+	};
+};
+
 &sdhc_2 {
 	/* device core power supply */
 	vdd-supply = <&pm660l_l5>;
@@ -189,6 +196,12 @@
 	};
 };
 
+&ssphy {
+	fpc-redrive-supply = <&pm660_l11>;
+	qcom,redrive-voltage-level = <0 1800000 1950000>;
+	qcom,redrive-load = <105000>;
+};
+
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";
@@ -204,24 +217,6 @@
 			debounce-interval = <15>;
 		};
 	};
-
-	hbtp {
-		compatible = "qcom,hbtp-input";
-		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
-		pinctrl-0 = <&ts_rst_active>;
-		pinctrl-1 = <&ts_rst_suspend>;
-		vcc_ana-supply = <&pm660l_l3>;
-		vcc_dig-supply = <&pm660_l13>;
-		qcom,afe-load = <20000>;
-		qcom,afe-vtg-min = <3008000>;
-		qcom,afe-vtg-max = <3008000>;
-		qcom,dig-load = <40000>;
-		qcom,dig-vtg-min = <1808000>;
-		qcom,dig-vtg-max = <1808000>;
-		qcom,fb-resume-delay-us = <10000>;
-		qcom,afe-power-on-delay-us = <1000>;
-		qcom,afe-power-off-delay-us = <6>;
-	};
 };
 
 / {
@@ -235,7 +230,6 @@
 &pm660_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,fg-jeita-thresholds = <0 5 55 55>;
-	qcom,fg-cutoff-voltage = <3700>;
 };
 
 &i2c_2 {
@@ -246,9 +240,12 @@
 		qcom,parallel-charger;
 		qcom,float-voltage-mv = <4400>;
 		qcom,recharge-mv = <100>;
-		qcom,parallel-en-pin-polarity = <0>;
+		qcom,parallel-en-pin-polarity = <1>;
 	};
 };
+
+/delete-node/ &tasha_hph_en0;
+/delete-node/ &tasha_hph_en1;
 
 &tasha_snd {
 	qcom,model = "sdm660-tasha-skus-snd-card";

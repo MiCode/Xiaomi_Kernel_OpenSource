@@ -942,30 +942,6 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
-	cti_lpass0: cti@7060000 {
-		compatible = "arm,coresight-cti";
-		reg = <0x7060000 0x1000>;
-		reg-names = "cti-base";
-
-		coresight-name = "coresight-cti-lpass0";
-
-		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
-			 <&clock_rpmcc RPM_QDSS_A_CLK>;
-		clock-names = "core_clk", "core_a_clk";
-	};
-
-	cti_lpass1: cti@7061000 {
-		compatible = "arm,coresight-cti";
-		reg = <0x7061000 0x1000>;
-		reg-names = "cti-base";
-
-		coresight-name = "coresight-cti-lpass1";
-
-		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
-			 <&clock_rpmcc RPM_QDSS_A_CLK>;
-		clock-names = "core_clk", "core_a_clk";
-	};
-
 	cti_turing: cti@7068000 {
 		compatible = "arm,coresight-cti";
 		reg = <0x7068000 0x1000>;
@@ -1157,14 +1133,6 @@
 						<&funnel_qatb_in_tpda>;
 				};
 			};
-			port@1 {
-				reg = <1>;
-				tpda_in_funnel_gpu_dl: endpoint {
-					slave-mode;
-					remote-endpoint =
-						<&funnel_gpu_dl_out_tpda>;
-				};
-			};
 			port@2 {
 				reg = <2>;
 				tpda_in_funnel_dlct: endpoint {
@@ -1220,60 +1188,6 @@
 					remote-endpoint =
 						<&tpdm_out_tpda>;
 				};
-			};
-		};
-	};
-
-	funnel_gpu_dl: funnel@7140000 {
-		compatible = "arm,primecell";
-		arm,primecell-periphid = <0x0003b908>;
-
-		reg = <0x7140000 0x1000>;
-		reg-names = "funnel-base";
-
-		coresight-name = "coresight-funnel-gpu-dl";
-
-		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
-			 <&clock_rpmcc RPM_QDSS_A_CLK>;
-		clock-names = "apb_pclk", "core_a_clk";
-
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-				funnel_gpu_dl_out_tpda: endpoint {
-					remote-endpoint =
-					    <&tpda_in_funnel_gpu_dl>;
-				};
-			};
-			port@2 {
-				reg = <0>;
-				funnel_gpu_dl_in_tpdm_gpu: endpoint {
-					slave-mode;
-					remote-endpoint =
-						<&tpdm_gpu_out_funnel_gpu_dl>;
-				};
-			};
-		};
-	};
-
-	tpdm_gpu: tpdm@7111000 {
-		status = "disabled";
-		compatible = "qcom,coresight-tpdm";
-		reg = <0x7111000 0x1000>;
-		reg-names = "tpdm-base";
-
-		coresight-name = "coresight-tpdm-gpu";
-
-		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
-			 <&clock_rpmcc RPM_QDSS_A_CLK>;
-		clock-names = "core_clk", "core_a_clk";
-
-		port{
-			tpdm_gpu_out_funnel_gpu_dl: endpoint {
-				remote-endpoint = <&funnel_gpu_dl_in_tpdm_gpu>;
 			};
 		};
 	};
@@ -1637,14 +1551,6 @@
 						<&tpdm_dlct_out_funnel_dlct>;
 				};
 			};
-			port@3 {
-				reg = <3>;
-				funnel_dlct_in_funnel_wcss: endpoint {
-					slave-mode;
-					remote-endpoint =
-						<&funnel_wcss_out_funnel_dlct>;
-				};
-			};
 			port@4 {
 				reg = <1>;
 				funnel_dlct_in_audio_etm0: endpoint {
@@ -1772,96 +1678,6 @@
 		port{
 			turing_etm0_out_funnel_in1: endpoint {
 				remote-endpoint = <&funnel_in1_in_turing_etm0>;
-			};
-		};
-	};
-
-	funnel_wcss: funnel@719e000 {
-		compatible = "arm,primecell";
-		arm,primecell-periphid = <0x0003b908>;
-
-		reg = <0x719e000 0x1000>;
-		reg-names = "funnel-base";
-
-		coresight-name = "coresight-funnel-wcss";
-
-		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
-			 <&clock_rpmcc RPM_QDSS_A_CLK>;
-		clock-names = "apb_pclk", "core_a_clk";
-
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-				funnel_wcss_out_funnel_dlct: endpoint {
-					remote-endpoint =
-					    <&funnel_dlct_in_funnel_wcss>;
-				};
-			};
-			port@1 {
-				reg = <1>;
-				funnel_wcss_in_tpda_wcss: endpoint {
-					slave-mode;
-					remote-endpoint =
-						<&tpda_wcss_out_funnel_wcss>;
-				};
-			};
-		};
-	};
-
-	tpda_wcss: tpda@719d000 {
-		status = "disabled";
-		compatible = "qcom,coresight-tpda";
-		reg = <0x719d000 0x1000>;
-		reg-names = "tpda-base";
-
-		coresight-name = "coresight-tpda-wcss";
-
-		qcom,tpda-atid = <70>;
-		qcom,dsb-elem-size = <0 32>;
-
-		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
-			 <&clock_rpmcc RPM_QDSS_A_CLK>;
-		clock-names = "core_clk", "core_a_clk";
-
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			port@0 {
-				reg = <0>;
-				tpda_wcss_out_funnel_wcss: endpoint {
-					remote-endpoint =
-						<&funnel_wcss_in_tpda_wcss>;
-				};
-			};
-			port@1 {
-				reg = <0>;
-				tpda_wcss_in_tpdm_wcss: endpoint {
-					slave-mode;
-					remote-endpoint =
-						<&tpdm_wcss_out_tpda_wcss>;
-				};
-			};
-		};
-	};
-
-	tpdm_wcss: tpdm@719c000 {
-		status = "disabled";
-		compatible = "qcom,coresight-tpdm";
-		reg = <0x719c000 0x1000>;
-		reg-names = "tpdm-base";
-
-		coresight-name = "coresight-tpdm-wcss";
-
-		clocks = <&clock_rpmcc RPM_QDSS_CLK>,
-			 <&clock_rpmcc RPM_QDSS_A_CLK>;
-		clock-names = "core_clk", "core_a_clk";
-
-		port{
-			tpdm_wcss_out_tpda_wcss: endpoint {
-				remote-endpoint = <&tpda_wcss_in_tpdm_wcss>;
 			};
 		};
 	};

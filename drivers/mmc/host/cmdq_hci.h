@@ -37,6 +37,8 @@
 #define CQIS_TCC	(1 << 1)
 #define CQIS_RED	(1 << 2)
 #define CQIS_TCL	(1 << 3)
+#define CQIS_GCE	(1 << 4)
+#define CQIS_ICCE	(1 << 5)
 
 /* interrupt status enable */
 #define CQISTE		0x14
@@ -112,7 +114,7 @@
 /* command response argument */
 #define CQCRA		0x5C
 
-#define CQ_INT_ALL	0xF
+#define CQ_INT_ALL	0x3F
 #define CQIC_DEFAULT_ICCTH 31
 #define CQIC_DEFAULT_ICTOVAL 1
 
@@ -221,6 +223,7 @@ struct cmdq_host_ops {
 	int (*reset)(struct mmc_host *mmc);
 	int (*crypto_cfg)(struct mmc_host *mmc, struct mmc_request *mrq,
 				u32 slot, u64 *ice_ctx);
+	int (*crypto_cfg_end)(struct mmc_host *mmc, struct mmc_request *mrq);
 	void (*crypto_cfg_reset)(struct mmc_host *mmc, unsigned int slot);
 	void (*post_cqe_halt)(struct mmc_host *mmc);
 };

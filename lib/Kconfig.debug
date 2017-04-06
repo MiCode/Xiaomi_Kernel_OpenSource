@@ -1455,6 +1455,17 @@ config RCU_CPU_STALL_TIMEOUT
 	  RCU grace period persists, additional CPU stall warnings are
 	  printed at more widely spaced intervals.
 
+config RCU_STALL_WATCHDOG_BITE
+	bool "RCU stall induce watchdog bite"
+	depends on RCU_STALL_COMMON && QCOM_WATCHDOG_V2
+	help
+	  Induce watchdog bite if RCU grace period extends more than
+	  specified no of seconds instead of just warning messages.
+	  This helps to collect ram dumps and cpu context for
+	  postmortem analysis. Generally if a given RCU grace period
+	  extends more than the specified number of seconds,
+	  a CPU stall warning is printed.
+
 config RCU_TRACE
 	bool "Enable tracing for RCU"
 	depends on DEBUG_KERNEL

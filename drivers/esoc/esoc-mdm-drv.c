@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -230,7 +230,7 @@ int esoc_ssr_probe(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
 	struct esoc_eng *esoc_eng;
 
 	mdm_drv = devm_kzalloc(&esoc_clink->dev, sizeof(*mdm_drv), GFP_KERNEL);
-	if (IS_ERR(mdm_drv))
+	if (IS_ERR_OR_NULL(mdm_drv))
 		return PTR_ERR(mdm_drv);
 	esoc_eng = &mdm_drv->cmd_eng;
 	esoc_eng->handle_clink_evt = mdm_handle_clink_evt;
@@ -258,7 +258,7 @@ int esoc_ssr_probe(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
 	ret = register_reboot_notifier(&mdm_drv->esoc_restart);
 	if (ret)
 		dev_err(&esoc_clink->dev, "register for reboot failed\n");
-	ret = mdm_dbg_eng_init(drv);
+	ret = mdm_dbg_eng_init(drv, esoc_clink);
 	if (ret) {
 		debug_init_done = false;
 		dev_err(&esoc_clink->dev, "dbg engine failure\n");

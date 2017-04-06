@@ -299,12 +299,6 @@ int ipa2_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 	/* setup ul ep cfg */
 	ep_ul->valid = 1;
 	ep_ul->client = in->ul.client;
-	result = ipa_enable_data_path(ipa_ep_idx_ul);
-	if (result) {
-		IPAERR("disable data path failed res=%d clnt=%d.\n", result,
-			ipa_ep_idx_ul);
-		return -EFAULT;
-	}
 	ep_ul->client_notify = notify;
 	ep_ul->priv = priv;
 
@@ -333,14 +327,6 @@ int ipa2_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 	/* setup dl ep cfg */
 	ep_dl->valid = 1;
 	ep_dl->client = in->dl.client;
-	result = ipa_enable_data_path(ipa_ep_idx_dl);
-	if (result) {
-		IPAERR("disable data path failed res=%d clnt=%d.\n", result,
-			ipa_ep_idx_dl);
-		result = -EFAULT;
-		goto fail;
-	}
-
 	memset(&ep_dl->cfg, 0, sizeof(ep_ul->cfg));
 	ep_dl->cfg.nat.nat_en = IPA_BYPASS_NAT;
 	ep_dl->cfg.hdr.hdr_len = hdr_len;
@@ -359,6 +345,14 @@ int ipa2_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 	}
 	outp->dl_uc_db_pa = IPA_UC_NTN_DB_PA_TX;
 	ep_dl->uc_offload_state |= IPA_UC_OFFLOAD_CONNECTED;
+
+	result = ipa_enable_data_path(ipa_ep_idx_dl);
+	if (result) {
+		IPAERR("Enable data path failed res=%d clnt=%d.\n", result,
+			ipa_ep_idx_dl);
+		result = -EFAULT;
+		goto fail;
+	}
 	IPAERR("client %d (ep: %d) connected\n", in->dl.client,
 		ipa_ep_idx_dl);
 
@@ -402,11 +396,31 @@ int ipa2_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 	}
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-	/* teardown the UL pipe */
 	cmd_data = (struct IpaHwOffloadCommonChCmdData_t *)cmd.base;
 	cmd_data->protocol = IPA_HW_FEATURE_NTN;
-
 	tear = &cmd_data->CommonCh_params.NtnCommonCh_params;
+
+	/* teardown the DL pipe */
+	ipa_disable_data_path(ipa_ep_idx_dl);
+	/*
+	 * Reset ep before sending cmd otherwise disconnect
+	 * during data transfer will result into
+	 * enormous suspend interrupts
+	*/
+	memset(&ipa_ctx->ep[ipa_ep_idx_dl], 0, sizeof(struct ipa_ep_context));
+	IPADBG("dl client (ep: %d) disconnected\n", ipa_ep_idx_dl);
+	tear->params.ipa_pipe_number = ipa_ep_idx_dl;
+	result = ipa_uc_send_cmd((u32)(cmd.phys_base),
+				IPA_CPU_2_HW_CMD_OFFLOAD_TEAR_DOWN,
+				IPA_HW_2_CPU_OFFLOAD_CMD_STATUS_SUCCESS,
+				false, 10*HZ);
+	if (result) {
+		IPAERR("fail to tear down dl pipe\n");
+		result = -EFAULT;
+		goto fail;
+	}
+
+	/* teardown the UL pipe */
 	tear->params.ipa_pipe_number = ipa_ep_idx_ul;
 	result = ipa_uc_send_cmd((u32)(cmd.phys_base),
 				IPA_CPU_2_HW_CMD_OFFLOAD_TEAR_DOWN,
@@ -417,25 +431,10 @@ int ipa2_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 		result = -EFAULT;
 		goto fail;
 	}
-	ipa_disable_data_path(ipa_ep_idx_ul);
+
 	ipa_delete_dflt_flt_rules(ipa_ep_idx_ul);
 	memset(&ipa_ctx->ep[ipa_ep_idx_ul], 0, sizeof(struct ipa_ep_context));
 	IPADBG("ul client (ep: %d) disconnected\n", ipa_ep_idx_ul);
-
-	/* teardown the DL pipe */
-	tear->params.ipa_pipe_number = ipa_ep_idx_dl;
-	result = ipa_uc_send_cmd((u32)(cmd.phys_base),
-				IPA_CPU_2_HW_CMD_OFFLOAD_TEAR_DOWN,
-				IPA_HW_2_CPU_OFFLOAD_CMD_STATUS_SUCCESS,
-				false, 10*HZ);
-	if (result) {
-		IPAERR("fail to tear down ul pipe\n");
-		result = -EFAULT;
-		goto fail;
-	}
-	ipa_disable_data_path(ipa_ep_idx_dl);
-	memset(&ipa_ctx->ep[ipa_ep_idx_dl], 0, sizeof(struct ipa_ep_context));
-	IPADBG("dl client (ep: %d) disconnected\n", ipa_ep_idx_dl);
 
 fail:
 	dma_free_coherent(ipa_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);

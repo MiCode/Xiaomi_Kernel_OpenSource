@@ -39,6 +39,7 @@
 #include "common.h"
 #include "clk-regmap.h"
 #include "clk-rcg.h"
+#include "clk-debug.h"
 
 enum {
 	LMH_LITE_CLK_SRC,
@@ -757,6 +758,7 @@ static struct clk_ops clk_ops_cpu_osm = {
 	.round_rate = clk_osm_round_rate,
 	.list_rate = clk_osm_list_rate,
 	.recalc_rate = clk_osm_recalc_rate,
+	.debug_init = clk_debug_measure_add,
 };
 
 static const struct parent_map gcc_parent_map_1[] = {

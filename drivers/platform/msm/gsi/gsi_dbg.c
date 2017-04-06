@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -747,6 +747,45 @@ error:
 	return -EFAULT;
 }
 
+static ssize_t gsi_enable_ipc_low(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	unsigned long missing;
+	s8 option = 0;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	missing = copy_from_user(dbg_buff, ubuf, count);
+	if (missing)
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+	if (kstrtos8(dbg_buff, 0, &option))
+		return -EFAULT;
+
+	if (option) {
+		if (!gsi_ctx->ipc_logbuf_low) {
+			gsi_ctx->ipc_logbuf_low =
+				ipc_log_context_create(GSI_IPC_LOG_PAGES,
+					"gsi_low", 0);
+		}
+
+		if (gsi_ctx->ipc_logbuf_low == NULL) {
+			TERR("failed to get ipc_logbuf_low\n");
+			return -EFAULT;
+		}
+	} else {
+		if (gsi_ctx->ipc_logbuf_low)
+			ipc_log_context_destroy(gsi_ctx->ipc_logbuf_low);
+		gsi_ctx->ipc_logbuf_low = NULL;
+	}
+
+	return count;
+}
+
+
+
 const struct file_operations gsi_ev_dump_ops = {
 	.write = gsi_dump_evt,
 };
@@ -781,6 +820,10 @@ const struct file_operations gsi_rst_stats_ops = {
 
 const struct file_operations gsi_print_dp_stats_ops = {
 	.write = gsi_print_dp_stats,
+};
+
+const struct file_operations gsi_ipc_low_ops = {
+	.write = gsi_enable_ipc_low,
 };
 
 void gsi_debugfs_init(void)
@@ -855,6 +898,13 @@ void gsi_debugfs_init(void)
 		write_only_mode, dent, 0, &gsi_print_dp_stats_ops);
 	if (!dfile || IS_ERR(dfile)) {
 		TERR("fail to create stats file\n");
+		goto fail;
+	}
+
+	dfile = debugfs_create_file("ipc_low", write_only_mode,
+		dent, 0, &gsi_ipc_low_ops);
+	if (!dfile || IS_ERR(dfile)) {
+		TERR("could not create ipc_low\n");
 		goto fail;
 	}
 

@@ -780,7 +780,7 @@ static void __blk_mq_run_hw_queue(struct blk_mq_hw_ctx *hctx)
 		switch (ret) {
 		case BLK_MQ_RQ_QUEUE_OK:
 			queued++;
-			continue;
+			break;
 		case BLK_MQ_RQ_QUEUE_BUSY:
 			list_add(&rq->queuelist, &rq_list);
 			__blk_mq_requeue_request(rq);
@@ -842,7 +842,7 @@ static int blk_mq_hctx_next_cpu(struct blk_mq_hw_ctx *hctx)
 		return WORK_CPU_UNBOUND;
 
 	if (--hctx->next_cpu_batch <= 0) {
-		int cpu = hctx->next_cpu, next_cpu;
+		int next_cpu;
 
 		next_cpu = cpumask_next(hctx->next_cpu, hctx->cpumask);
 		if (next_cpu >= nr_cpu_ids)
@@ -850,8 +850,6 @@ static int blk_mq_hctx_next_cpu(struct blk_mq_hw_ctx *hctx)
 
 		hctx->next_cpu = next_cpu;
 		hctx->next_cpu_batch = BLK_MQ_CPU_WORK_BATCH;
-
-		return cpu;
 	}
 
 	return hctx->next_cpu;
@@ -1261,12 +1259,9 @@ static blk_qc_t blk_mq_make_request(struct request_queue *q, struct bio *bio)
 
 	blk_queue_split(q, &bio, q->bio_split);
 
-	if (!is_flush_fua && !blk_queue_nomerges(q)) {
-		if (blk_attempt_plug_merge(q, bio, &request_count,
-					   &same_queue_rq))
-			return BLK_QC_T_NONE;
-	} else
-		request_count = blk_plug_queued_count(q);
+	if (!is_flush_fua && !blk_queue_nomerges(q) &&
+	    blk_attempt_plug_merge(q, bio, &request_count, &same_queue_rq))
+		return BLK_QC_T_NONE;
 
 	rq = blk_mq_map_request(q, bio, &data);
 	if (unlikely(!rq))
@@ -1313,9 +1308,9 @@ static blk_qc_t blk_mq_make_request(struct request_queue *q, struct bio *bio)
 		blk_mq_put_ctx(data.ctx);
 		if (!old_rq)
 			goto done;
-		if (!blk_mq_direct_issue_request(old_rq, &cookie))
-			goto done;
-		blk_mq_insert_request(old_rq, false, true, true);
+		if (test_bit(BLK_MQ_S_STOPPED, &data.hctx->state) ||
+		    blk_mq_direct_issue_request(old_rq, &cookie) != 0)
+			blk_mq_insert_request(old_rq, false, true, true);
 		goto done;
 	}
 
@@ -1357,9 +1352,11 @@ static blk_qc_t blk_sq_make_request(struct request_queue *q, struct bio *bio)
 
 	blk_queue_split(q, &bio, q->bio_split);
 
-	if (!is_flush_fua && !blk_queue_nomerges(q) &&
-	    blk_attempt_plug_merge(q, bio, &request_count, NULL))
-		return BLK_QC_T_NONE;
+	if (!is_flush_fua && !blk_queue_nomerges(q)) {
+		if (blk_attempt_plug_merge(q, bio, &request_count, NULL))
+			return BLK_QC_T_NONE;
+	} else
+		request_count = blk_plug_queued_count(q);
 
 	rq = blk_mq_map_request(q, bio, &data);
 	if (unlikely(!rq))

@@ -111,7 +111,9 @@ struct mmc_request {
 	struct mmc_cmdq_req	*cmdq_req;
 	struct request *req;
 	ktime_t io_start;
-	int lat_hist_enabled;
+#ifdef CONFIG_BLOCK
+	int					lat_hist_enabled;
+#endif
 };
 
 struct mmc_bus_ops {
@@ -167,6 +169,7 @@ extern int __mmc_switch_cmdq_mode(struct mmc_command *cmd, u8 set, u8 index,
 extern int mmc_send_tuning(struct mmc_host *host, u32 opcode, int *cmd_error);
 extern int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd);
 extern int mmc_set_auto_bkops(struct mmc_card *card, bool enable);
+extern int mmc_suspend_clk_scaling(struct mmc_host *host);
 
 #define MMC_ERASE_ARG		0x00000000
 #define MMC_SECURE_ERASE_ARG	0x80000000
@@ -201,6 +204,7 @@ extern unsigned int mmc_align_data_size(struct mmc_card *, unsigned int);
 
 extern int __mmc_claim_host(struct mmc_host *host, atomic_t *abort);
 extern void mmc_release_host(struct mmc_host *host);
+extern int mmc_try_claim_host(struct mmc_host *host, unsigned int delay);
 
 extern void mmc_get_card(struct mmc_card *card);
 extern void mmc_put_card(struct mmc_card *card);

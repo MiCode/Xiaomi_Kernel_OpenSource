@@ -16,8 +16,12 @@
 #include "hw.h"
 #include "ce.h"
 #include "pci.h"
+#include "qmi.h"
+#include <soc/qcom/service-locator.h>
 #define ATH10K_SNOC_RX_POST_RETRY_MS 50
 #define CE_POLL_PIPE 4
+#define ATH10K_SERVICE_LOCATION_CLIENT_NAME			"ATH10K-WLAN"
+#define ATH10K_WLAN_SERVICE_NAME					"wlan/fw"
 
 /* struct snoc_state: SNOC target state
  * @pipe_cfg_addr: pipe configuration address
@@ -88,6 +92,17 @@ struct ath10k_target_info {
 	u32 soc_version;
 };
 
+/* struct ath10k_service_notifier_context: service notification context
+ * @handle: notifier handle
+ * @instance_id: domain instance id
+ * @name: domain name
+ */
+struct ath10k_service_notifier_context {
+	void *handle;
+	u32 instance_id;
+	char name[QMI_SERVREG_LOC_NAME_LENGTH_V01 + 1];
+};
+
 /* struct ath10k_snoc: SNOC info struct
  * @dev: device structure
  * @ar:ath10k base structure
@@ -101,8 +116,16 @@ struct ath10k_target_info {
  * @rx_post_retry: rx buffer post processing timer
  * @vaddr_rri_on_ddr: virtual address for RRI
  * @is_driver_probed: flag to indicate driver state
+ * @modem_ssr_nb: notifier callback for modem notification
+ * @modem_notify_handler: modem notification handler
+ * @service_notifier: notifier context for service notification
+ * @service_notifier_nb: notifier callback for service notification
+ * @total_domains: no of service domains
+ * @get_service_nb: notifier callback for service discovery
+ * @fw_crashed: fw state flag
  */
 struct ath10k_snoc {
+	struct bus_opaque opaque_ctx;
 	struct platform_device *dev;
 	struct ath10k *ar;
 	void __iomem *mem;
@@ -110,80 +133,23 @@ struct ath10k_snoc {
 	struct ath10k_target_info target_info;
 	size_t mem_len;
 	struct ath10k_snoc_pipe pipe_info[CE_COUNT_MAX];
-	/* protects CE info */
-	spinlock_t ce_lock;
-	struct ath10k_ce_pipe ce_states[CE_COUNT_MAX];
 	struct timer_list rx_post_retry;
 	u32 ce_irqs[CE_COUNT_MAX];
 	u32 *vaddr_rri_on_ddr;
 	bool is_driver_probed;
+	struct notifier_block modem_ssr_nb;
+	void *modem_notify_handler;
+	struct ath10k_service_notifier_context *service_notifier;
+	struct notifier_block service_notifier_nb;
+	int total_domains;
+	struct notifier_block get_service_nb;
+	atomic_t fw_crashed;
+	struct ath10k_snoc_qmi_config qmi_cfg;
 };
 
-/* struct ath10k_ce_tgt_pipe_cfg: target pipe configuration
- * @pipe_num: pipe number
- * @pipe_dir: pipe direction
- * @nentries: entries in pipe
- * @nbytes_max: pipe max size
- * @flags: pipe flags
- * @reserved: reserved
- */
-struct ath10k_ce_tgt_pipe_cfg {
-	u32 pipe_num;
-	u32 pipe_dir;
-	u32 nentries;
-	u32 nbytes_max;
-	u32 flags;
-	u32 reserved;
-};
-
-/* struct ath10k_ce_svc_pipe_cfg: service pipe configuration
- * @service_id: target version
- * @pipe_dir: pipe direction
- * @pipe_num: pipe number
- */
-struct ath10k_ce_svc_pipe_cfg {
-	u32 service_id;
-	u32 pipe_dir;
-	u32 pipe_num;
-};
-
-/* struct ath10k_shadow_reg_cfg: shadow register configuration
- * @ce_id: copy engine id
- * @reg_offset: offset to copy engine
- */
-struct ath10k_shadow_reg_cfg {
-	u16 ce_id;
-	u16 reg_offset;
-};
-
-/* struct ath10k_wlan_enable_cfg: wlan enable configuration
- * @num_ce_tgt_cfg: no of ce target configuration
- * @ce_tgt_cfg: target ce configuration
- * @num_ce_svc_pipe_cfg: no of ce service configuration
- * @ce_svc_cfg: ce service configuration
- * @num_shadow_reg_cfg: no of shadow registers
- * @shadow_reg_cfg: shadow register configuration
- */
-struct ath10k_wlan_enable_cfg {
-	u32 num_ce_tgt_cfg;
-	struct ath10k_ce_tgt_pipe_cfg *ce_tgt_cfg;
-	u32 num_ce_svc_pipe_cfg;
-	struct ath10k_ce_svc_pipe_cfg *ce_svc_cfg;
-	u32 num_shadow_reg_cfg;
-	struct ath10k_shadow_reg_cfg *shadow_reg_cfg;
-};
-
-/* enum ath10k_driver_mode: ath10k driver mode
- * @ATH10K_MISSION: mission mode
- * @ATH10K_FTM: ftm mode
- * @ATH10K_EPPING: epping mode
- * @ATH10K_OFF: off mode
- */
-enum ath10k_driver_mode {
-	ATH10K_MISSION,
-	ATH10K_FTM,
-	ATH10K_EPPING,
-	ATH10K_OFF
+struct ath10k_event_pd_down_data {
+	bool crashed;
+	bool fw_rejuvenate;
 };
 
 static inline struct ath10k_snoc *ath10k_snoc_priv(struct ath10k *ar)
@@ -191,10 +157,10 @@ static inline struct ath10k_snoc *ath10k_snoc_priv(struct ath10k *ar)
 	return (struct ath10k_snoc *)ar->drv_priv;
 }
 
-void ath10k_snoc_write32(void *ar, u32 offset, u32 value);
+void ath10k_snoc_write32(struct ath10k *ar, u32 offset, u32 value);
 void ath10k_snoc_soc_write32(struct ath10k *ar, u32 addr, u32 val);
 void ath10k_snoc_reg_write32(struct ath10k *ar, u32 addr, u32 val);
-u32 ath10k_snoc_read32(void *ar, u32 offset);
+u32 ath10k_snoc_read32(struct ath10k *ar, u32 offset);
 u32 ath10k_snoc_soc_read32(struct ath10k *ar, u32 addr);
 u32 ath10k_snoc_reg_read32(struct ath10k *ar, u32 addr);
 

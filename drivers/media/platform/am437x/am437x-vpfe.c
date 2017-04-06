@@ -1576,7 +1576,7 @@ static int vpfe_s_fmt(struct file *file, void *priv,
 		return -EBUSY;
 	}
 
-	ret = vpfe_try_fmt(file, priv, &format);
+	ret = __vpfe_get_format(vpfe, &format, &bpp);
 	if (ret)
 		return ret;
 
@@ -1706,7 +1706,7 @@ static int vpfe_get_app_input_index(struct vpfe_device *vpfe,
 		sdinfo = &cfg->sub_devs[i];
 		client = v4l2_get_subdevdata(sdinfo->sd);
 		if (client->addr == curr_client->addr &&
-		    client->adapter->nr == client->adapter->nr) {
+		    client->adapter->nr == curr_client->adapter->nr) {
 			if (vpfe->current_input >= 1)
 				return -1;
 			*app_input_index = j + vpfe->current_input;

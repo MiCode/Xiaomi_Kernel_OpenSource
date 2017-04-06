@@ -1744,7 +1744,9 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 		}
 	}
 
-	pr_err("fd [%d] ion buf not found.\n", fd);
+	pr_err("no free entry to store ion handle of fd [%d].\n", fd);
+	/* decrement back the ref count */
+	ion_free(spcom_dev->ion_client, ion_handle);
 
 	return -EFAULT;
 }
@@ -2241,7 +2243,7 @@ static ssize_t spcom_device_write(struct file *filp,
 }
 
 /**
- * spcom_device_read() - handle channel file write() from user space.
+ * spcom_device_read() - handle channel file read() from user space.
  *
  * @filp: file pointer
  *
@@ -2266,6 +2268,16 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 	}
 
 	ch = filp->private_data;
+
+	if (ch == NULL) {
+		pr_err("invalid ch pointer, file [%s].\n", name);
+		return -EINVAL;
+	}
+
+	if (!spcom_is_channel_open(ch)) {
+		pr_err("ch is not open, file [%s].\n", name);
+		return -EINVAL;
+	}
 
 	buf = kzalloc(size, GFP_KERNEL);
 	if (buf == NULL)
@@ -2354,6 +2366,10 @@ static unsigned int spcom_device_poll(struct file *filp,
 		done = (spcom_dev->link_state == GLINK_LINK_STATE_UP);
 		break;
 	case SPCOM_POLL_CH_CONNECT:
+		if (ch == NULL) {
+			pr_err("invalid ch pointer, file [%s].\n", name);
+			return -EINVAL;
+		}
 		pr_debug("ch [%s] SPCOM_POLL_CH_CONNECT.\n", name);
 		if (wait) {
 			reinit_completion(&ch->connect);

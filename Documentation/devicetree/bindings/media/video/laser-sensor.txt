@@ -1,0 +1,29 @@
+Laser Sensor Device Tree Bindings.
+========================================
+
+Boards with the Laser Sensor connected to CCI shall have the following
+properties:
+
+Required node properties:
+	- cell-index: cci hardware core index
+    - compatible:
+		- "st,stmvl53l0" : STMiecroelectronics VL53L0 Laser sensor.
+	- reg : offset and length of the register set for the device
+	- qcom, cci-master: cci master the sensor connected to
+	- cam_cci-supply : cci voltage regulator used
+	- cam_laser-supply: laser sensor voltage regulator
+	- qcom,cam-vreg-name: voltage regulators name
+	- qcom, cam-vreg-min-voltage: specify minimum voltage level for
+		regulators used
+	- qcom, cam-vreg-max-voltage: specify maximum voltage level for
+		regulators used
+	- pinctrl-names : should specify the pin control groups followed by
+		the definition of each group
+		stm,irq-gpio : irq gpio which is to provide interrupts to host.
+	- gpios : should contain phandle to gpio controller node and array of
+		#gpio-cells specifying specific gpio (controller specific)
+	- qcom,gpio-req-tbl-num : contains index to gpios specific to the sensor
+	- qcom,gpio-req-tbl-flags : should contain direction of gpios present in
+		qcom,gpio-req-tbl-num property (in the same order)
+	- qcom,gpio-req-tbl-label : should contain name of gpios present in
+		qcom,gpio-req-tbl-num property (in the same order)

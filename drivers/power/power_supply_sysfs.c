@@ -264,6 +264,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(dp_dm),
 	POWER_SUPPLY_ATTR(input_current_limited),
 	POWER_SUPPLY_ATTR(input_current_now),
+	POWER_SUPPLY_ATTR(charge_qnovo_enable),
 	POWER_SUPPLY_ATTR(current_qnovo),
 	POWER_SUPPLY_ATTR(voltage_qnovo),
 	POWER_SUPPLY_ATTR(rerun_aicl),
@@ -292,6 +293,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(die_health),
 	POWER_SUPPLY_ATTR(connector_health),
 	POWER_SUPPLY_ATTR(ctm_current_max),
+	POWER_SUPPLY_ATTR(hw_current_max),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */

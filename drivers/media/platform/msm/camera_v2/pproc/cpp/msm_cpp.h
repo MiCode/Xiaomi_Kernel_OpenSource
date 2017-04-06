@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include "cam_soc_api.h"
 #include "cam_hw_ops.h"
 #include <media/msmb_pproc.h>
+#include <soc/qcom/cx_ipeak.h>
 
 /* hw version info:
   31:28  Major version
@@ -284,6 +285,8 @@ struct cpp_device {
 	uint32_t micro_reset;
 	struct msm_cpp_payload_params payload_params;
 	struct msm_cpp_vbif_data *vbif_data;
+	bool turbo_vote;
+	struct cx_ipeak_client *cpp_cx_ipeak;
 };
 
 int msm_cpp_set_micro_clk(struct cpp_device *cpp_dev);

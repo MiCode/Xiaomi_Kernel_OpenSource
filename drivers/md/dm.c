@@ -1467,11 +1467,62 @@ void dm_accept_partial_bio(struct bio *bio, unsigned n_sectors)
 }
 EXPORT_SYMBOL_GPL(dm_accept_partial_bio);
 
+/*
+ * Flush current->bio_list when the target map method blocks.
+ * This fixes deadlocks in snapshot and possibly in other targets.
+ */
+struct dm_offload {
+	struct blk_plug plug;
+	struct blk_plug_cb cb;
+};
+
+static void flush_current_bio_list(struct blk_plug_cb *cb, bool from_schedule)
+{
+	struct dm_offload *o = container_of(cb, struct dm_offload, cb);
+	struct bio_list list;
+	struct bio *bio;
+
+	INIT_LIST_HEAD(&o->cb.list);
+
+	if (unlikely(!current->bio_list))
+		return;
+
+	list = *current->bio_list;
+	bio_list_init(current->bio_list);
+
+	while ((bio = bio_list_pop(&list))) {
+		struct bio_set *bs = bio->bi_pool;
+		if (unlikely(!bs) || bs == fs_bio_set) {
+			bio_list_add(current->bio_list, bio);
+			continue;
+		}
+
+		spin_lock(&bs->rescue_lock);
+		bio_list_add(&bs->rescue_list, bio);
+		queue_work(bs->rescue_workqueue, &bs->rescue_work);
+		spin_unlock(&bs->rescue_lock);
+	}
+}
+
+static void dm_offload_start(struct dm_offload *o)
+{
+	blk_start_plug(&o->plug);
+	o->cb.callback = flush_current_bio_list;
+	list_add(&o->cb.list, &current->plug->cb_list);
+}
+
+static void dm_offload_end(struct dm_offload *o)
+{
+	list_del(&o->cb.list);
+	blk_finish_plug(&o->plug);
+}
+
 static void __map_bio(struct dm_target_io *tio)
 {
 	int r;
 	sector_t sector;
 	struct mapped_device *md;
+	struct dm_offload o;
 	struct bio *clone = &tio->clone;
 	struct dm_target *ti = tio->ti;
 
@@ -1484,7 +1535,11 @@ static void __map_bio(struct dm_target_io *tio)
 	 */
 	atomic_inc(&tio->io->io_count);
 	sector = clone->bi_iter.bi_sector;
+
+	dm_offload_start(&o);
 	r = ti->type->map(ti, clone);
+	dm_offload_end(&o);
+
 	if (r == DM_MAPIO_REMAPPED) {
 		/* the bio has been remapped so dispatch it */
 
@@ -2267,8 +2322,6 @@ static void cleanup_mapped_device(struct mapped_device *md)
 	if (md->bs)
 		bioset_free(md->bs);
 
-	cleanup_srcu_struct(&md->io_barrier);
-
 	if (md->disk) {
 		spin_lock(&_minor_lock);
 		md->disk->private_data = NULL;
@@ -2279,6 +2332,8 @@ static void cleanup_mapped_device(struct mapped_device *md)
 
 	if (md->queue)
 		blk_cleanup_queue(md->queue);
+
+	cleanup_srcu_struct(&md->io_barrier);
 
 	if (md->bdev) {
 		bdput(md->bdev);
@@ -2876,6 +2931,7 @@ EXPORT_SYMBOL_GPL(dm_device_name);
 
 static void __dm_destroy(struct mapped_device *md, bool wait)
 {
+	struct request_queue *q = dm_get_md_queue(md);
 	struct dm_table *map;
 	int srcu_idx;
 
@@ -2885,6 +2941,10 @@ static void __dm_destroy(struct mapped_device *md, bool wait)
 	idr_replace(&_minor_idr, MINOR_ALLOCED, MINOR(disk_devt(dm_disk(md))));
 	set_bit(DMF_FREEING, &md->flags);
 	spin_unlock(&_minor_lock);
+
+	spin_lock_irq(q->queue_lock);
+	queue_flag_set(QUEUE_FLAG_DYING, q);
+	spin_unlock_irq(q->queue_lock);
 
 	if (dm_request_based(md) && md->kworker_task)
 		flush_kthread_worker(&md->kworker);
@@ -3252,10 +3312,11 @@ static int __dm_resume(struct mapped_device *md, struct dm_table *map)
 
 int dm_resume(struct mapped_device *md)
 {
-	int r = -EINVAL;
+	int r;
 	struct dm_table *map = NULL;
 
 retry:
+	r = -EINVAL;
 	mutex_lock_nested(&md->suspend_lock, SINGLE_DEPTH_NESTING);
 
 	if (!dm_suspended_md(md))
@@ -3279,8 +3340,6 @@ retry:
 		goto out;
 
 	clear_bit(DMF_SUSPENDED, &md->flags);
-
-	r = 0;
 out:
 	mutex_unlock(&md->suspend_lock);
 

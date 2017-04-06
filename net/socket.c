@@ -533,9 +533,23 @@ static ssize_t sockfs_listxattr(struct dentry *dentry, char *buffer,
 	return used;
 }
 
+int sockfs_setattr(struct dentry *dentry, struct iattr *iattr)
+{
+	int err = simple_setattr(dentry, iattr);
+
+	if (!err && (iattr->ia_valid & ATTR_UID)) {
+		struct socket *sock = SOCKET_I(d_inode(dentry));
+
+		sock->sk->sk_uid = iattr->ia_uid;
+	}
+
+	return err;
+}
+
 static const struct inode_operations sockfs_inode_ops = {
 	.getxattr = sockfs_getxattr,
 	.listxattr = sockfs_listxattr,
+	.setattr = sockfs_setattr,
 };
 
 /**
@@ -2087,6 +2101,8 @@ int __sys_sendmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
 		if (err)
 			break;
 		++datagrams;
+		if (msg_data_left(&msg_sys))
+			break;
 	}
 
 	fput_light(sock->file, fput_needed);
@@ -2229,8 +2245,10 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
 		return err;
 
 	err = sock_error(sock->sk);
-	if (err)
+	if (err) {
+		datagrams = err;
 		goto out_put;
+	}
 
 	entry = mmsg;
 	compat_entry = (struct compat_mmsghdr __user *)mmsg;

@@ -21,6 +21,10 @@
 	qcom,board-id = <8 1>;
 };
 
+&spi_10 {
+	status = "disabled";
+};
+
 &msm_ath10k_wlan {
 	status = "ok";
 };
@@ -28,6 +32,10 @@
 &mdss_mdp {
 	status = "disabled";
 	qcom,mdss-pref-prim-intf = "hdmi";
+};
+
+&msm_gpu {
+	dma-coherent;
 };
 
 &sde_hdmi {

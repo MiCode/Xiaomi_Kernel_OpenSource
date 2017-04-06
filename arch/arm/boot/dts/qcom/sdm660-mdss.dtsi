@@ -50,6 +50,7 @@
 		qcom,vbif-settings = <0x00ac 0x00008040>,
 				     <0x00d0 0x00002828>;
 
+		qcom,mdss-cx-ipeak = <&cx_ipeak_lm 3>;
 		qcom,mdss-has-panic-ctrl;
 		qcom,mdss-per-pipe-panic-luts = <0x000f>,
 						<0xffff>,
@@ -592,6 +593,19 @@
 
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;
+
+		qcom,sde-reg-bus {
+			/* Reg Bus Scale Settings */
+			qcom,msm-bus,name = "mdss_rot_reg";
+			qcom,msm-bus,num-cases = <4>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,vectors-KBps =
+				<1 590 0 0>,
+				<1 590 0 76800>,
+				<1 590 0 160000>,
+				<1 590 0 320000>;
+		};
 	};
 
 };

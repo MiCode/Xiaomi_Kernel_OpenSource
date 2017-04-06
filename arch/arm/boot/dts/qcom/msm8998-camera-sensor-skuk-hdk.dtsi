@@ -43,4 +43,19 @@
 			drive-strength = <8>; /* 2 MA */
 		};
 	};
+
+	cam_sensor_mclk0_active: cam_sensor_mclk0_active {
+		/* MCLK1 */
+		mux {
+			/* CLK, DATA */
+			pins = "gpio13";
+			function = "cam_mclk";
+		};
+
+		config {
+			pins = "gpio13";
+			bias-disable; /* No PULL */
+			drive-strength = <8>; /* 2 MA */
+		};
+	};
 };

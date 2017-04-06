@@ -54,7 +54,7 @@
 			15 01 00 00 00 00 02 5d 81
 			15 01 00 00 00 00 02 5e 00
 			15 01 00 00 00 00 02 5f 01
-			15 01 00 00 00 00 02 72 31
+			15 01 00 00 00 00 02 72 11
 			15 01 00 00 00 00 02 68 03
 			/* CMD2_P4 */
 			15 01 00 00 00 00 02 ff 24
@@ -208,6 +208,7 @@
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-reset-sequence = <1 10>, <0 10>, <1 10>;
+		qcom,mdss-dsi-tx-eot-append;
 		qcom,mdss-pan-physical-width-dimension = <74>;
 		qcom,mdss-pan-physical-height-dimension = <131>;
 

@@ -978,12 +978,11 @@ static struct clk_rcg2 esc0_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = mmcc_parent_map_1,
-	.freq_tbl = ftbl_dp_aux_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "esc0_clk_src",
 		.parent_names = mmcc_parent_names_1,
 		.num_parents = 4,
-		.ops = &clk_rcg2_ops,
+		.ops = &clk_esc_ops,
 		VDD_DIG_FMAX_MAP1(
 			LOWER, 19200000),
 	},
@@ -994,12 +993,11 @@ static struct clk_rcg2 esc1_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = mmcc_parent_map_1,
-	.freq_tbl = ftbl_dp_aux_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "esc1_clk_src",
 		.parent_names = mmcc_parent_names_1,
 		.num_parents = 4,
-		.ops = &clk_rcg2_ops,
+		.ops = &clk_esc_ops,
 		VDD_DIG_FMAX_MAP1(
 			LOWER, 19200000),
 	},
@@ -1041,7 +1039,7 @@ static const struct freq_tbl ftbl_mclk0_clk_src[] = {
 	F(9600000, P_CXO, 2, 0, 0),
 	F(16666667, P_GPLL0_OUT_MAIN_DIV, 2, 1, 9),
 	F(19200000, P_CXO, 1, 0, 0),
-	F(24000000, P_GPLL0_OUT_MAIN_DIV, 1, 2, 25),
+	F(24000000, P_MMPLL10_PLL_OUT_MAIN, 1, 1, 24),
 	F(33333333, P_GPLL0_OUT_MAIN_DIV, 1, 1, 9),
 	F(48000000, P_GPLL0_OUT_MAIN, 1, 2, 25),
 	F(66666667, P_GPLL0_OUT_MAIN, 1, 1, 9),

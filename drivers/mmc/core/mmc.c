@@ -722,7 +722,6 @@ static int mmc_read_ext_csd(struct mmc_card *card)
 		return err;
 	}
 
-	card->cached_ext_csd = ext_csd;
 	err = mmc_decode_ext_csd(card, ext_csd);
 	kfree(ext_csd);
 	return err;
@@ -2032,10 +2031,10 @@ reinit:
 		err = mmc_select_hs400(card);
 		if (err)
 			goto free_card;
-	} else if (mmc_card_hs(card)) {
+	} else {
 		/* Select the desired bus width optionally */
 		err = mmc_select_bus_width(card);
-		if (!IS_ERR_VALUE(err)) {
+		if (!IS_ERR_VALUE(err) && mmc_card_hs(card)) {
 			err = mmc_select_hs_ddr(card);
 			if (err)
 				goto free_card;

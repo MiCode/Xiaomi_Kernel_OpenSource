@@ -408,6 +408,7 @@ static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
 	[NL80211_ATTR_SCHED_SCAN_RSSI_ADJUST] = {
 		.len = sizeof(struct nl80211_bss_select_rssi_adjust)
 	},
+	[NL80211_ATTR_TIMEOUT_REASON] = { .type = NLA_U32 },
 };
 
 /* policy for the key attributes */
@@ -7143,7 +7144,7 @@ static int nl80211_channel_switch(struct sk_buff *skb, struct genl_info *info)
 
 		params.n_counter_offsets_presp = len / sizeof(u16);
 		if (rdev->wiphy.max_num_csa_counters &&
-		    (params.n_counter_offsets_beacon >
+		    (params.n_counter_offsets_presp >
 		     rdev->wiphy.max_num_csa_counters))
 			return -EINVAL;
 
@@ -12264,7 +12265,9 @@ void nl80211_send_connect_result(struct cfg80211_registered_device *rdev,
 				 struct net_device *netdev, const u8 *bssid,
 				 const u8 *req_ie, size_t req_ie_len,
 				 const u8 *resp_ie, size_t resp_ie_len,
-				 u16 status, gfp_t gfp)
+				 int status,
+				 enum nl80211_timeout_reason timeout_reason,
+				 gfp_t gfp)
 {
 	struct sk_buff *msg;
 	void *hdr;
@@ -12282,7 +12285,12 @@ void nl80211_send_connect_result(struct cfg80211_registered_device *rdev,
 	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
 	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
 	    (bssid && nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, bssid)) ||
-	    nla_put_u16(msg, NL80211_ATTR_STATUS_CODE, status) ||
+	    nla_put_u16(msg, NL80211_ATTR_STATUS_CODE,
+			status < 0 ? WLAN_STATUS_UNSPECIFIED_FAILURE :
+			status) ||
+	    (status < 0 &&
+	     (nla_put_flag(msg, NL80211_ATTR_TIMED_OUT) ||
+	      nla_put_u32(msg, NL80211_ATTR_TIMEOUT_REASON, timeout_reason))) ||
 	    (req_ie &&
 	     nla_put(msg, NL80211_ATTR_REQ_IE, req_ie_len, req_ie)) ||
 	    (resp_ie &&
@@ -13569,13 +13577,17 @@ static int nl80211_netlink_notify(struct notifier_block * nb,
 
 	list_for_each_entry_rcu(rdev, &cfg80211_rdev_list, list) {
 		bool schedule_destroy_work = false;
-		bool schedule_scan_stop = false;
 		struct cfg80211_sched_scan_request *sched_scan_req =
 			rcu_dereference(rdev->sched_scan_req);
 
 		if (sched_scan_req && notify->portid &&
-		    sched_scan_req->owner_nlportid == notify->portid)
-			schedule_scan_stop = true;
+		    sched_scan_req->owner_nlportid == notify->portid) {
+			sched_scan_req->owner_nlportid = 0;
+
+			if (rdev->ops->sched_scan_stop &&
+			    rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_SCHED_SCAN)
+				schedule_work(&rdev->sched_scan_stop_wk);
+		}
 
 		list_for_each_entry_rcu(wdev, &rdev->wiphy.wdev_list, list) {
 			cfg80211_mlme_unregister_socket(wdev, notify->portid);
@@ -13606,12 +13618,6 @@ static int nl80211_netlink_notify(struct notifier_block * nb,
 				spin_unlock(&rdev->destroy_list_lock);
 				schedule_work(&rdev->destroy_work);
 			}
-		} else if (schedule_scan_stop) {
-			sched_scan_req->owner_nlportid = 0;
-
-			if (rdev->ops->sched_scan_stop &&
-			    rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_SCHED_SCAN)
-				schedule_work(&rdev->sched_scan_stop_wk);
 		}
 	}
 

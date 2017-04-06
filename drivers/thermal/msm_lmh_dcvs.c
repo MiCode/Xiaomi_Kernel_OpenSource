@@ -78,6 +78,7 @@ enum lmh_hw_trips {
 };
 
 struct msm_lmh_dcvs_hw {
+	char sensor_name[THERMAL_NAME_LENGTH];
 	uint32_t affinity;
 	uint32_t temp_limits[LIMITS_TRIP_MAX];
 	struct sensor_threshold default_lo, default_hi;
@@ -113,9 +114,9 @@ static void msm_lmh_dcvs_get_max_freq(uint32_t cpu, uint32_t *max_freq)
 
 static uint32_t msm_lmh_mitigation_notify(struct msm_lmh_dcvs_hw *hw)
 {
-	uint32_t max_limit = 0, val = 0;
+	uint32_t val = 0;
 	struct device *cpu_dev = NULL;
-	unsigned long freq_val;
+	unsigned long freq_val, max_limit = 0;
 	struct dev_pm_opp *opp_entry;
 
 	val = readl_relaxed(hw->osm_hw_reg);
@@ -381,7 +382,6 @@ static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 	int ret;
 	int affinity = -1;
 	struct msm_lmh_dcvs_hw *hw;
-	char sensor_name[] = "limits_sensor-00";
 	struct thermal_zone_device *tzdev;
 	struct thermal_cooling_device *cdev;
 	struct device_node *dn = pdev->dev.of_node;
@@ -450,9 +450,9 @@ static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 	 * Let's register with thermal framework, so we have the ability
 	 * to set low/high thresholds.
 	 */
-	snprintf(sensor_name, sizeof(sensor_name), "limits_sensor-%02d",
+	snprintf(hw->sensor_name, sizeof(hw->sensor_name), "limits_sensor-%02d",
 			affinity);
-	tzdev = thermal_zone_device_register(sensor_name, LIMITS_TRIP_MAX,
+	tzdev = thermal_zone_device_register(hw->sensor_name, LIMITS_TRIP_MAX,
 			(1 << LIMITS_TRIP_MAX) - 1, hw, &limits_sensor_ops,
 			NULL, 0, 0);
 	if (IS_ERR_OR_NULL(tzdev))
@@ -467,7 +467,7 @@ static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 	 * Since we make a check for hi > lo value, set the hi threshold
 	 * before the low threshold
 	 */
-	id = sensor_get_id(sensor_name);
+	id = sensor_get_id(hw->sensor_name);
 	if (id < 0)
 		return id;
 
@@ -525,7 +525,7 @@ static int msm_lmh_dcvs_probe(struct platform_device *pdev)
 	set_bit(1, hw->is_irq_enabled);
 	ret = devm_request_threaded_irq(&pdev->dev, hw->irq_num, NULL,
 		lmh_dcvs_handle_isr, IRQF_TRIGGER_HIGH | IRQF_ONESHOT
-		| IRQF_NO_SUSPEND, sensor_name, hw);
+		| IRQF_NO_SUSPEND, hw->sensor_name, hw);
 	if (ret) {
 		pr_err("Error registering for irq. err:%d\n", ret);
 		return ret;

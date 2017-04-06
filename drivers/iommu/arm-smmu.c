@@ -1835,6 +1835,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			.oas		= oas,
 			.tlb		= &arm_smmu_gather_ops,
 			.iommu_dev	= smmu->dev,
+			.iova_base	= domain->geometry.aperture_start,
+			.iova_end	= domain->geometry.aperture_end,
 		};
 	}
 
@@ -2449,7 +2451,7 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
 	int ret;
 	int dest_vmids = VMID_HLOS;
 	int dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
-	int source_vmlist[2] = {VMID_HLOS, smmu_domain->secure_vmid};
+	int source_vmlist[2] = {smmu_domain->secure_vmid, VMID_HLOS};
 	struct arm_smmu_pte_info *pte_info, *temp;
 
 	if (!arm_smmu_is_master_side_secure(smmu_domain))

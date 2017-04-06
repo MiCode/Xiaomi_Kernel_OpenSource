@@ -144,7 +144,7 @@ ssize_t __mei_cl_recv(struct mei_cl *cl, u8 *buf, size_t length)
 		mutex_lock(&bus->device_lock);
 
 		if (!mei_cl_is_connected(cl)) {
-			rets = -EBUSY;
+			rets = -ENODEV;
 			goto out;
 		}
 	}
@@ -399,7 +399,7 @@ bool mei_cldev_enabled(struct mei_cl_device *cldev)
 EXPORT_SYMBOL_GPL(mei_cldev_enabled);
 
 /**
- * mei_cldev_enable_device - enable me client device
+ * mei_cldev_enable - enable me client device
  *     create connection with me client
  *
  * @cldev: me client device

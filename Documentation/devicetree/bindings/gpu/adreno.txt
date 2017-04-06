@@ -110,6 +110,17 @@ Optional Properties:
 - qcom,l2pc-cpu-mask-latency:
 				The CPU mask latency in microseconds to avoid L2PC
 				on masked CPUs.
+
+- qcom,gpu-cx-ipeak:
+				To handle Cx peak current limit.
+				<phandle bit>
+				phandle - phandle of cx ipeak device node
+				bit     - bit number of client in relevant register
+- qcom,gpu-cx-ipeak-clk:
+				GPU clock threshold for Cx Ipeak voting. KGSL votes
+				to Cx Ipeak driver when GPU clock crosses this threshold.
+				Cx Ipeak can limit peak current based on voting from other clients.
+
 - qcom,force-32bit:
 				Force the GPU to use 32 bit data sizes even if
 				it is capable of doing 64 bit.
@@ -138,6 +149,11 @@ Optional Properties:
 				<baseAddr size>
 				baseAddr - base address of the gpu channels in the qdss stm memory region
 				size     - size of the gpu stm region
+
+- qcom,gpu-qtimer:
+				<baseAddr size>
+				baseAddr - base address of the qtimer memory region
+				size     - size of the qtimer region
 
 - qcom,tsens-name:
 				Specify the name of GPU temperature sensor. This name will be used

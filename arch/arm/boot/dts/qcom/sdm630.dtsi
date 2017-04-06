@@ -34,7 +34,7 @@
 
 	chosen {
 		stdout-path = "serial0";
-		bootargs = "rcupdate.rcu_expedited=1";
+		bootargs = "rcupdate.rcu_expedited=1 core_ctl_disable_cpumask=0-7";
 	};
 
 	psci {
@@ -322,6 +322,18 @@
 			reg = <0x0 0x92a00000 0x0 0x1e00000>;
 		};
 
+		pil_mba_mem: pil_mba_region@94800000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x94800000 0x0 0x200000>;
+		};
+
+		buffer_mem: buffer_region@94a00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x94a00000 0x0 0x100000>;
+		};
+
 		venus_fw_mem: venus_fw_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0x0 0x80000000 0x0 0x20000000>;
@@ -335,7 +347,7 @@
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 			reusable;
 			alignment = <0x0 0x400000>;
-			size = <0x0 0xa00000>;
+			size = <0x0 0x800000>;
 		};
 
 		qseecom_mem: qseecom_region {
@@ -364,13 +376,17 @@
 			linux,cma-default;
 		};
 
+		cont_splash_mem: splash_region@9d400000 {
+			reg = <0x0 0x9d400000 0x0 0x02400000>;
+			label = "cont_splash_mem";
+		};
 	};
 
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
-		qca,bt-vdd-core-supply = <&pm660_l9_pin_ctrl>;
-		qca,bt-vdd-pa-supply = <&pm660_l6_pin_ctrl>;
-		qca,bt-vdd-ldo-supply = <&pm660_l19_pin_ctrl>;
+		qca,bt-vdd-core-supply = <&pm660_l9>;
+		qca,bt-vdd-pa-supply = <&pm660_l6>;
+		qca,bt-vdd-ldo-supply = <&pm660_l19>;
 		qca,bt-chip-pwd-supply = <&pm660l_bob_pin1>;
 		clocks = <&clock_rpmcc RPM_RF_CLK1_PIN>;
 		clock-names = "rf_clk1";
@@ -722,7 +738,6 @@
 
 		clock-names = "osm";
 		clocks = <&clock_cpu PERFCL_CLK>;
-		qcom,cxip-lm-enable = <0>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 
@@ -1193,7 +1208,7 @@
 		qcom,wan-rx-ring-size = <192>; /* IPA WAN-rx-ring-size*/
 		qcom,lan-rx-ring-size = <192>; /* IPA LAN-rx-ring-size*/
 		clocks = <&clock_rpmcc RPM_IPA_CLK>,
-			<&clock_rpmcc RPM_AGGR2_NOC_CLK>;
+			<&clock_rpmcc AGGR2_NOC_SMMU_CLK>;
 		clock-names = "core_clk", "smmu_clk";
 		qcom,arm-smmu;
 		qcom,smmu-disable-htw;
@@ -1220,8 +1235,8 @@
 		<90 512 206000 960000>,
 		<1 676 206000 160000>;
 		qcom,bus-vector-names = "MIN", "SVS", "PERF", "TURBO";
-		qcom,rx-polling-sleep-ms = <2>; /* Polling sleep interval */
-		qcom,ipa-polling-iteration = <5>; /* Polling Iteration */
+		qcom,rx-polling-sleep-ms = <1>; /* Polling sleep interval */
+		qcom,ipa-polling-iteration = <40>; /* Polling Iteration */
 
 		ipa_smmu_ap: ipa_smmu_ap {
 			compatible = "qcom,ipa-smmu-ap-cb";
@@ -1613,6 +1628,8 @@
 		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
 		iommus = <&anoc2_smmu 0x1a00>,
 			 <&anoc2_smmu 0x1a01>;
+		clocks = <&clock_rpmcc RPM_RF_CLK1_PIN>;
+		clock-names = "cxo_ref_clk_pin";
 		interrupts = <0 413 0>,   /* CE0 */
 			     <0 414 0>,   /* CE1 */
 			     <0 415 0>,   /* CE2 */
@@ -1625,6 +1642,14 @@
 			     <0 423 0>,   /* CE9 */
 			     <0 424 0>,   /* CE10 */
 			     <0 425 0>;   /* CE11 */
+		vdd-0.8-cx-mx-supply = <&pm660_l5>;
+		vdd-1.8-xo-supply = <&pm660_l9_pin_ctrl>;
+		vdd-1.3-rfa-supply = <&pm660_l6_pin_ctrl>;
+		vdd-3.3-ch0-supply = <&pm660_l19_pin_ctrl>;
+		qcom,vdd-0.8-cx-mx-config = <525000 950000>;
+		qcom,vdd-1.8-xo-config = <1750000 1900000>;
+		qcom,vdd-1.3-rfa-config = <1200000 1370000>;
+		qcom,vdd-3.3-ch0-config = <3200000 3400000>;
 		qcom,wlan-msa-memory = <0x100000>;
 		qcom,smmu-s1-bypass;
 	};
@@ -1742,6 +1767,10 @@
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 		status = "ok";
+		qcom,mba-mem@0 {
+			compatible = "qcom,pil-mba-mem";
+			memory-region = <&pil_mba_mem>;
+		};
 	};
 
 	qcom,msm-rtb {
@@ -1780,6 +1809,11 @@
 		boot_stats@6b0 {
 			compatible = "qcom,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
+		};
+
+		kaslr_offset@6d0 {
+			compatible = "qcom,msm-imem-kaslr_offset";
+			reg = <0x6d0 12>;
 		};
 
 		pil@94c {
@@ -2215,5 +2249,10 @@
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
+	};
+
+	devfreq_spdm_cpu {
+		qcom,bw-dwnstep = <6750>;
+		qcom,max-vote = <6750>;
 	};
 };

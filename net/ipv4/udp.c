@@ -1031,7 +1031,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 				   RT_SCOPE_UNIVERSE, sk->sk_protocol,
 				   flow_flags,
 				   faddr, saddr, dport, inet->inet_sport,
-				   sock_i_uid(sk));
+				   sk->sk_uid);
 
 		if (!saddr && ipc.oif) {
 			err = l3mdev_get_saddr(net, ipc.oif, fl4);
@@ -1348,7 +1348,7 @@ try_again:
 		*addr_len = sizeof(*sin);
 	}
 	if (inet->cmsg_flags)
-		ip_cmsg_recv_offset(msg, skb, sizeof(struct udphdr));
+		ip_cmsg_recv_offset(msg, skb, sizeof(struct udphdr), off);
 
 	err = copied;
 	if (flags & MSG_TRUNC)
@@ -2270,6 +2270,20 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
 }
 EXPORT_SYMBOL(udp_poll);
 
+int udp_abort(struct sock *sk, int err)
+{
+	lock_sock(sk);
+
+	sk->sk_err = err;
+	sk->sk_error_report(sk);
+	udp_disconnect(sk, 0);
+
+	release_sock(sk);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(udp_abort);
+
 struct proto udp_prot = {
 	.name		   = "UDP",
 	.owner		   = THIS_MODULE,
@@ -2301,6 +2315,7 @@ struct proto udp_prot = {
 	.compat_getsockopt = compat_udp_getsockopt,
 #endif
 	.clear_sk	   = sk_prot_clear_portaddr_nulls,
+	.diag_destroy	   = udp_abort,
 };
 EXPORT_SYMBOL(udp_prot);
 

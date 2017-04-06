@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1974,6 +1974,8 @@ static void ipa_cleanup_wlan_rx_common_cache(void)
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 	struct ipa_rx_pkt_wrapper *tmp;
 
+	spin_lock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
+
 	list_for_each_entry_safe(rx_pkt, tmp,
 		&ipa_ctx->wc_memb.wlan_comm_desc_list, link) {
 		list_del(&rx_pkt->link);
@@ -1993,6 +1995,8 @@ static void ipa_cleanup_wlan_rx_common_cache(void)
 	if (ipa_ctx->wc_memb.wlan_comm_total_cnt != 0)
 		IPAERR("wlan comm buff total cnt: %d\n",
 			ipa_ctx->wc_memb.wlan_comm_total_cnt);
+
+	spin_unlock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 
 }
 
@@ -3147,6 +3151,8 @@ static int ipa_assign_policy_v2(struct ipa_sys_connect_params *in,
 		   IPA_GENERIC_AGGR_TIME_LIMIT;
 		if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
 			sys->pyld_hdlr = ipa_lan_rx_pyld_hdlr;
+			sys->rx_pool_sz =
+			   ipa_ctx->lan_rx_ring_size;
 			if (nr_cpu_ids > 1) {
 				sys->repl_hdlr =
 				   ipa_fast_replenish_rx_cache;
@@ -3156,8 +3162,6 @@ static int ipa_assign_policy_v2(struct ipa_sys_connect_params *in,
 				sys->repl_hdlr =
 				   ipa_replenish_rx_cache;
 			}
-			sys->rx_pool_sz =
-			   ipa_ctx->lan_rx_ring_size;
 			in->ipa_ep_cfg.aggr.aggr_byte_limit =
 			   IPA_GENERIC_AGGR_BYTE_LIMIT;
 			in->ipa_ep_cfg.aggr.aggr_pkt_limit =

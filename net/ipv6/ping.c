@@ -141,7 +141,7 @@ int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	fl6.daddr = *daddr;
 	fl6.flowi6_oif = oif;
 	fl6.flowi6_mark = sk->sk_mark;
-	fl6.flowi6_uid = sock_i_uid(sk);
+	fl6.flowi6_uid = sk->sk_uid;
 	fl6.fl6_icmp_type = user_icmph.icmp6_type;
 	fl6.fl6_icmp_code = user_icmph.icmp6_code;
 	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
@@ -152,8 +152,10 @@ int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	rt = (struct rt6_info *) dst;
 
 	np = inet6_sk(sk);
-	if (!np)
-		return -EBADF;
+	if (!np) {
+		err = -EBADF;
+		goto dst_err_out;
+	}
 
 	pfh.icmph.type = user_icmph.icmp6_type;
 	pfh.icmph.code = user_icmph.icmp6_code;
@@ -182,6 +184,9 @@ int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 						 len);
 	}
 	release_sock(sk);
+
+dst_err_out:
+	dst_release(dst);
 
 	if (err)
 		return err;

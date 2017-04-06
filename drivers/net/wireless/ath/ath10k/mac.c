@@ -3506,6 +3506,7 @@ static int ath10k_mac_tx(struct ath10k *ar,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	int ret;
 
+	skb_orphan(skb);
 	/* We should disable CCK RATE due to P2P */
 	if (info->flags & IEEE80211_TX_CTL_NO_CCK_RATE)
 		ath10k_dbg(ar, ATH10K_DBG_MAC, "IEEE80211_TX_CTL_NO_CCK_RATE\n");
@@ -4449,7 +4450,8 @@ static int ath10k_start(struct ieee80211_hw *hw)
 		ar->state = ATH10K_STATE_ON;
 		break;
 	case ATH10K_STATE_RESTARTING:
-		ath10k_halt(ar);
+		if (!test_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags))
+			ath10k_halt(ar);
 		ar->state = ATH10K_STATE_RESTARTED;
 		break;
 	case ATH10K_STATE_ON:
@@ -4537,6 +4539,7 @@ static int ath10k_start(struct ieee80211_hw *hw)
 				    ret);
 			goto err_core_stop;
 		}
+		ar->sifs_burst_enabled = false;
 	}
 
 	param = ar->wmi.pdev_param->ani_enable;

@@ -29,93 +29,79 @@
 int mhi_test_for_device_reset(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	u32 pcie_word_val = 0;
-	u32 expiry_counter;
 	unsigned long flags;
 	rwlock_t *pm_xfer_lock = &mhi_dev_ctxt->pm_xfer_lock;
+	unsigned long timeout;
 
-	mhi_log(MHI_MSG_INFO, "Waiting for MMIO RESET bit to be cleared.\n");
-	read_lock_irqsave(pm_xfer_lock, flags);
-	if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
-		read_unlock_irqrestore(pm_xfer_lock, flags);
-		return -EIO;
-	}
-	pcie_word_val = mhi_reg_read(mhi_dev_ctxt->mmio_info.mmio_addr,
-				     MHISTATUS);
-	MHI_READ_FIELD(pcie_word_val,
-			MHICTRL_RESET_MASK,
-			MHICTRL_RESET_SHIFT);
-	read_unlock_irqrestore(&mhi_dev_ctxt->pm_xfer_lock, flags);
-	if (pcie_word_val == 0xFFFFFFFF)
-		return -ENOTCONN;
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Waiting for MMIO RESET bit to be cleared.\n");
 
-	while (MHI_STATE_RESET != pcie_word_val && expiry_counter < 100) {
-		expiry_counter++;
-		mhi_log(MHI_MSG_ERROR,
-			"Device is not RESET, sleeping and retrying.\n");
-		msleep(MHI_READY_STATUS_TIMEOUT_MS);
+	timeout = jiffies +
+		msecs_to_jiffies(mhi_dev_ctxt->poll_reset_timeout_ms);
+	while (time_before(jiffies, timeout)) {
 		read_lock_irqsave(pm_xfer_lock, flags);
 		if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
 			read_unlock_irqrestore(pm_xfer_lock, flags);
 			return -EIO;
 		}
 		pcie_word_val = mhi_reg_read(mhi_dev_ctxt->mmio_info.mmio_addr,
-							MHICTRL);
+					     MHICTRL);
+		read_unlock_irqrestore(&mhi_dev_ctxt->pm_xfer_lock, flags);
+		if (pcie_word_val == 0xFFFFFFFF)
+			return -ENOTCONN;
 		MHI_READ_FIELD(pcie_word_val,
-				MHICTRL_RESET_MASK,
-				MHICTRL_RESET_SHIFT);
-		read_unlock_irqrestore(pm_xfer_lock, flags);
-	}
+			       MHICTRL_RESET_MASK,
+			       MHICTRL_RESET_SHIFT);
 
-	if (MHI_STATE_READY != pcie_word_val)
-		return -ENOTCONN;
-	return 0;
+		if (!pcie_word_val)
+			return 0;
+
+		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+			"MHI still in Reset sleeping\n");
+		msleep(MHI_THREAD_SLEEP_TIMEOUT_MS);
+	}
+	mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+		"Timeout waiting for reset to be cleared\n");
+	return -ETIMEDOUT;
 }
 
 int mhi_test_for_device_ready(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	u32 pcie_word_val = 0;
-	u32 expiry_counter;
 	unsigned long flags;
 	rwlock_t *pm_xfer_lock = &mhi_dev_ctxt->pm_xfer_lock;
+	unsigned long timeout;
 
-	mhi_log(MHI_MSG_INFO, "Waiting for MMIO Ready bit to be set\n");
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Waiting for MMIO Ready bit to be set\n");
 
-	read_lock_irqsave(pm_xfer_lock, flags);
-	if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
-		read_unlock_irqrestore(pm_xfer_lock, flags);
-		return -EIO;
-	}
-	/* Read MMIO and poll for READY bit to be set */
-	pcie_word_val = mhi_reg_read(
-			mhi_dev_ctxt->mmio_info.mmio_addr, MHISTATUS);
-	MHI_READ_FIELD(pcie_word_val,
-			MHISTATUS_READY_MASK,
-			MHISTATUS_READY_SHIFT);
-	read_unlock_irqrestore(pm_xfer_lock, flags);
-
-	if (pcie_word_val == 0xFFFFFFFF)
-		return -ENOTCONN;
-	expiry_counter = 0;
-	while (MHI_STATE_READY != pcie_word_val && expiry_counter < 50) {
-		expiry_counter++;
-		mhi_log(MHI_MSG_ERROR,
-			"Device is not ready, sleeping and retrying.\n");
-		msleep(MHI_READY_STATUS_TIMEOUT_MS);
+	timeout = jiffies +
+		msecs_to_jiffies(mhi_dev_ctxt->poll_reset_timeout_ms);
+	while (time_before(jiffies, timeout)) {
+		/* Read MMIO and poll for READY bit to be set */
 		read_lock_irqsave(pm_xfer_lock, flags);
 		if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
 			read_unlock_irqrestore(pm_xfer_lock, flags);
 			return -EIO;
 		}
+
 		pcie_word_val = mhi_reg_read(mhi_dev_ctxt->mmio_info.mmio_addr,
 					     MHISTATUS);
-		MHI_READ_FIELD(pcie_word_val,
-				MHISTATUS_READY_MASK, MHISTATUS_READY_SHIFT);
 		read_unlock_irqrestore(pm_xfer_lock, flags);
+		if (pcie_word_val == 0xFFFFFFFF)
+			return -ENOTCONN;
+		MHI_READ_FIELD(pcie_word_val,
+			       MHISTATUS_READY_MASK,
+			       MHISTATUS_READY_SHIFT);
+		if (pcie_word_val == MHI_STATE_READY)
+			return 0;
+		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+			"Device is not ready, sleeping and retrying.\n");
+		msleep(MHI_THREAD_SLEEP_TIMEOUT_MS);
 	}
-
-	if (pcie_word_val != MHI_STATE_READY)
-		return -ETIMEDOUT;
-	return 0;
+	mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+		"Device timed out waiting for ready\n");
+	return -ETIMEDOUT;
 }
 
 int mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
@@ -125,28 +111,26 @@ int mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 	u32 i = 0;
 	int ret_val;
 
-	mhi_log(MHI_MSG_INFO, "~~~ Initializing MMIO ~~~\n");
-	mhi_dev_ctxt->mmio_info.mmio_addr = mhi_dev_ctxt->dev_props->bar0_base;
-
-	mhi_log(MHI_MSG_INFO, "Bar 0 address is at: 0x%p\n",
-			mhi_dev_ctxt->mmio_info.mmio_addr);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"~~~ Initializing MMIO ~~~\n");
+	mhi_dev_ctxt->mmio_info.mmio_addr = mhi_dev_ctxt->core.bar0_base;
 
 	mhi_dev_ctxt->mmio_info.mmio_len = mhi_reg_read(
 					mhi_dev_ctxt->mmio_info.mmio_addr,
 							 MHIREGLEN);
 
 	if (0 == mhi_dev_ctxt->mmio_info.mmio_len) {
-		mhi_log(MHI_MSG_ERROR, "Received mmio length as zero\n");
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Received mmio length as zero\n");
 		return -EIO;
 	}
 
-	mhi_log(MHI_MSG_INFO, "Testing MHI Ver\n");
-	mhi_dev_ctxt->dev_props->mhi_ver = mhi_reg_read(
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Testing MHI Ver\n");
+	mhi_dev_ctxt->core.mhi_ver = mhi_reg_read(
 				mhi_dev_ctxt->mmio_info.mmio_addr, MHIVER);
-	if (MHI_VERSION != mhi_dev_ctxt->dev_props->mhi_ver) {
-		mhi_log(MHI_MSG_CRITICAL,
-			"Bad MMIO version, 0x%x\n",
-			mhi_dev_ctxt->dev_props->mhi_ver);
+	if (mhi_dev_ctxt->core.mhi_ver != MHI_VERSION) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
+			"Bad MMIO version, 0x%x\n", mhi_dev_ctxt->core.mhi_ver);
 			return ret_val;
 	}
 
@@ -159,9 +143,10 @@ int mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 		else
 			chan_ctxt->chstate = MHI_CHAN_STATE_DISABLED;
 	}
-	mhi_log(MHI_MSG_INFO,
-			"Read back MMIO Ready bit successfully. Moving on..\n");
-	mhi_log(MHI_MSG_INFO, "Reading channel doorbell offset\n");
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Read back MMIO Ready bit successfully. Moving on..\n");
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Reading channel doorbell offset\n");
 
 	mhi_dev_ctxt->mmio_info.chan_db_addr =
 					mhi_dev_ctxt->mmio_info.mmio_addr;
@@ -173,13 +158,15 @@ int mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 					CHDBOFF, CHDBOFF_CHDBOFF_MASK,
 					CHDBOFF_CHDBOFF_SHIFT);
 
-	mhi_log(MHI_MSG_INFO, "Reading event doorbell offset\n");
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Reading event doorbell offset\n");
 	mhi_dev_ctxt->mmio_info.event_db_addr += mhi_reg_read_field(
 					mhi_dev_ctxt->mmio_info.mmio_addr,
 					ERDBOFF, ERDBOFF_ERDBOFF_MASK,
 					ERDBOFF_ERDBOFF_SHIFT);
 
-	mhi_log(MHI_MSG_INFO, "Setting all MMIO values.\n");
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Setting all MMIO values.\n");
 
 	mhi_reg_write_field(mhi_dev_ctxt, mhi_dev_ctxt->mmio_info.mmio_addr,
 				MHICFG,
@@ -290,7 +277,7 @@ int mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 			MHIDATALIMIT_LOWER_MHIDATALIMIT_LOWER_MASK,
 			MHIDATALIMIT_LOWER_MHIDATALIMIT_LOWER_SHIFT,
 			pcie_word_val);
-	mhi_log(MHI_MSG_INFO, "Done..\n");
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Done..\n");
 	return 0;
 }
 

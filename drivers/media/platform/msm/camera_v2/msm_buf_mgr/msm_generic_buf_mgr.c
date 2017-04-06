@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,10 +149,7 @@ static int32_t msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
 	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
 		if ((bufs->session_id == buf_info->session_id) &&
 			(bufs->stream_id == buf_info->stream_id) &&
-			(bufs->vb2_v4l2_buf->vb2_buf.index ==
-				buf_info->index)) {
-			bufs->vb2_v4l2_buf->sequence  = buf_info->frame_id;
-			bufs->vb2_v4l2_buf->timestamp = buf_info->timestamp;
+			(bufs->index == buf_info->index)) {
 			ret = buf_mngr_dev->vb2_ops.buf_done
 					(bufs->vb2_v4l2_buf,
 						buf_info->session_id,
@@ -181,7 +178,7 @@ static int32_t msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
 		if ((bufs->session_id == buf_info->session_id) &&
 			(bufs->stream_id == buf_info->stream_id) &&
-			(bufs->vb2_v4l2_buf->vb2_buf.index == buf_info->index)) {
+			(bufs->index == buf_info->index)) {
 			ret = buf_mngr_dev->vb2_ops.put_buf(bufs->vb2_v4l2_buf,
 				buf_info->session_id, buf_info->stream_id);
 			list_del_init(&bufs->entry);
@@ -214,7 +211,7 @@ static int32_t msm_generic_buf_mngr_flush(
 						buf_info->session_id,
 						buf_info->stream_id, 0, &ts, 0);
 			pr_err("Bufs not flushed: str_id = %d buf_index = %d ret = %d\n",
-			buf_info->stream_id, bufs->vb2_v4l2_buf->vb2_buf.index,
+			buf_info->stream_id, bufs->index,
 			ret);
 			list_del_init(&bufs->entry);
 			kfree(bufs);

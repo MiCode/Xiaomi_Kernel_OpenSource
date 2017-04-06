@@ -183,7 +183,6 @@ static void __init smp_build_mpidr_hash(void)
 	 */
 	if (mpidr_hash_size() > 4 * num_possible_cpus())
 		pr_warn("Large number of MPIDR hash buckets detected\n");
-	__flush_dcache_area(&mpidr_hash, sizeof(struct mpidr_hash));
 }
 
 static void __init setup_machine_fdt(phys_addr_t dt_phys)
@@ -360,6 +359,15 @@ void __init setup_arch(char **cmdline_p)
 	cpu_read_bootcpu_ops();
 	smp_init_cpus();
 	smp_build_mpidr_hash();
+
+#ifdef CONFIG_ARM64_SW_TTBR0_PAN
+	/*
+	 * Make sure init_thread_info.ttbr0 always generates translation
+	 * faults in case uaccess_enable() is inadvertently called by the init
+	 * thread.
+	 */
+	init_thread_info.ttbr0 = virt_to_phys(empty_zero_page);
+#endif
 
 #ifdef CONFIG_VT
 #if defined(CONFIG_VGA_CONSOLE)

@@ -661,7 +661,7 @@ static int musb_tx_dma_set_mode_mentor(struct dma_controller *dma,
 		csr &= ~(MUSB_TXCSR_AUTOSET | MUSB_TXCSR_DMAMODE);
 		csr |= MUSB_TXCSR_DMAENAB; /* against programmer's guide */
 	}
-	channel->desired_mode = mode;
+	channel->desired_mode = *mode;
 	musb_writew(epio, MUSB_TXCSR, csr);
 
 	return 0;
@@ -2008,10 +2008,8 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 				qh->offset,
 				urb->transfer_buffer_length);
 
-			done = musb_rx_dma_in_inventra_cppi41(c, hw_ep, qh,
-							      urb, xfer_len,
-							      iso_err);
-			if (done)
+			if (musb_rx_dma_in_inventra_cppi41(c, hw_ep, qh, urb,
+							   xfer_len, iso_err))
 				goto finish;
 			else
 				dev_err(musb->controller, "error: rx_dma failed\n");
@@ -2392,12 +2390,11 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh)
 	int			is_in = usb_pipein(urb->pipe);
 	int			status = 0;
 	u16			csr;
+	struct dma_channel	*dma = NULL;
 
 	musb_ep_select(regs, hw_end);
 
 	if (is_dma_capable()) {
-		struct dma_channel	*dma;
-
 		dma = is_in ? ep->rx_channel : ep->tx_channel;
 		if (dma) {
 			status = ep->musb->dma_controller->channel_abort(dma);
@@ -2414,10 +2411,9 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh)
 		/* giveback saves bulk toggle */
 		csr = musb_h_flush_rxfifo(ep, 0);
 
-		/* REVISIT we still get an irq; should likely clear the
-		 * endpoint's irq status here to avoid bogus irqs.
-		 * clearing that status is platform-specific...
-		 */
+		/* clear the endpoint's irq status here to avoid bogus irqs */
+		if (is_dma_capable() && dma)
+			musb_platform_clear_ep_rxintr(musb, ep->epnum);
 	} else if (ep->epnum) {
 		musb_h_tx_flush_fifo(ep);
 		csr = musb_readw(epio, MUSB_TXCSR);

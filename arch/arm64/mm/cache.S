@@ -23,8 +23,7 @@
 #include <asm/assembler.h>
 #include <asm/cpufeature.h>
 #include <asm/alternative.h>
-
-#include "proc-macros.S"
+#include <asm/uaccess.h>
 
 /*
  *	__flush_dcache_all()
@@ -123,11 +122,12 @@ ENTRY(flush_icache_range)
  *	- end     - virtual end address of region
  */
 ENTRY(__flush_cache_user_range)
+	uaccess_ttbr0_enable x2, x3
 	dcache_line_size x2, x3
 	sub	x3, x2, #1
 	bic	x4, x0, x3
 1:
-USER(9f, dc	cvau, x4	)		// clean D line to PoU
+user_alt 9f, "dc cvau, x4",  "dc civac, x4",  ARM64_WORKAROUND_CLEAN_CACHE
 	add	x4, x4, x2
 	cmp	x4, x1
 	b.lo	1b
@@ -144,10 +144,12 @@ USER(9f, ic	ivau, x4	)		// invalidate I line PoU
 	dsb	ish
 	isb
 	mov	x0, #0
+1:
+	uaccess_ttbr0_disable x1
 	ret
 9:
 	mov	x0, #-EFAULT
-	ret
+	b	1b
 ENDPROC(flush_icache_range)
 ENDPROC(__flush_cache_user_range)
 

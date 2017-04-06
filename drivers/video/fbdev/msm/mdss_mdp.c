@@ -2179,6 +2179,8 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_HDR_SUPPORT_ENABLED);
 		break;
 	case MDSS_MDP_HW_REV_320:
+		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
+		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
 	case MDSS_MDP_HW_REV_330:
 		mdata->max_target_zorder = 7; /* excluding base layer */
 		mdata->max_cursor_size = 512;
@@ -2206,6 +2208,8 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_IB_NOCR, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_WB2_WRITE_GATHER_EN, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_WB_QOS, mdata->mdss_qos_map);
+		set_bit(MDSS_CAPS_CWB_SUPPORTED, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_SCM_RESTORE_NOT_REQUIRED,
 			mdata->mdss_caps_map);
@@ -2216,8 +2220,6 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_CAPS_MDP_VOTE_CLK_NOT_SUPPORTED,
 			mdata->mdss_caps_map);
 		mdss_mdp_init_default_prefill_factors(mdata);
-		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
-		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
 		mdss_set_quirk(mdata, MDSS_QUIRK_MMSS_GDSC_COLLAPSE);
 		mdss_set_quirk(mdata, MDSS_QUIRK_MDP_CLK_SET_RATE);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);

@@ -877,8 +877,6 @@ static int wait_serial_change(struct acm *acm, unsigned long arg)
 	DECLARE_WAITQUEUE(wait, current);
 	struct async_icount old, new;
 
-	if (arg & (TIOCM_DSR | TIOCM_RI | TIOCM_CD ))
-		return -EINVAL;
 	do {
 		spin_lock_irq(&acm->read_lock);
 		old = acm->oldcount;
@@ -1710,6 +1708,7 @@ static const struct usb_device_id acm_ids[] = {
 	{ USB_DEVICE(0x20df, 0x0001), /* Simtec Electronics Entropy Key */
 	.driver_info = QUIRK_CONTROL_LINE_STATE, },
 	{ USB_DEVICE(0x2184, 0x001c) },	/* GW Instek AFG-2225 */
+	{ USB_DEVICE(0x2184, 0x0036) },	/* GW Instek AFG-125 */
 	{ USB_DEVICE(0x22b8, 0x6425), /* Motorola MOTOMAGX phones */
 	},
 	/* Motorola H24 HSPA module: */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,6 +85,11 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 				&mem_log_fops);
 	debugfs_create_file("log_level_pwr", 0644, device->d_debugfs, device,
 				&pwr_log_fops);
+}
+
+void kgsl_device_debugfs_close(struct kgsl_device *device)
+{
+	debugfs_remove_recursive(device->d_debugfs);
 }
 
 struct type_entry {

@@ -710,14 +710,23 @@ static struct bcm_op *bcm_find_op(struct list_head *ops, canid_t can_id,
 
 static void bcm_remove_op(struct bcm_op *op)
 {
-	hrtimer_cancel(&op->timer);
-	hrtimer_cancel(&op->thrtimer);
+	if (op->tsklet.func) {
+		while (test_bit(TASKLET_STATE_SCHED, &op->tsklet.state) ||
+		       test_bit(TASKLET_STATE_RUN, &op->tsklet.state) ||
+		       hrtimer_active(&op->timer)) {
+			hrtimer_cancel(&op->timer);
+			tasklet_kill(&op->tsklet);
+		}
+	}
 
-	if (op->tsklet.func)
-		tasklet_kill(&op->tsklet);
-
-	if (op->thrtsklet.func)
-		tasklet_kill(&op->thrtsklet);
+	if (op->thrtsklet.func) {
+		while (test_bit(TASKLET_STATE_SCHED, &op->thrtsklet.state) ||
+		       test_bit(TASKLET_STATE_RUN, &op->thrtsklet.state) ||
+		       hrtimer_active(&op->thrtimer)) {
+			hrtimer_cancel(&op->thrtimer);
+			tasklet_kill(&op->thrtsklet);
+		}
+	}
 
 	if ((op->frames) && (op->frames != &op->sframe))
 		kfree(op->frames);
@@ -1170,7 +1179,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 				err = can_rx_register(dev, op->can_id,
 						      REGMASK(op->can_id),
 						      bcm_rx_handler, op,
-						      "bcm");
+						      "bcm", sk);
 
 				op->rx_reg_dev = dev;
 				dev_put(dev);
@@ -1179,7 +1188,7 @@ static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
 		} else
 			err = can_rx_register(NULL, op->can_id,
 					      REGMASK(op->can_id),
-					      bcm_rx_handler, op, "bcm");
+					      bcm_rx_handler, op, "bcm", sk);
 		if (err) {
 			/* this bcm rx op is broken -> remove it */
 			list_del(&op->list);
@@ -1500,24 +1509,31 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
 	struct sock *sk = sock->sk;
 	struct bcm_sock *bo = bcm_sk(sk);
+	int ret = 0;
 
 	if (len < sizeof(*addr))
 		return -EINVAL;
 
-	if (bo->bound)
-		return -EISCONN;
+	lock_sock(sk);
+
+	if (bo->bound) {
+		ret = -EISCONN;
+		goto fail;
+	}
 
 	/* bind a device to this socket */
 	if (addr->can_ifindex) {
 		struct net_device *dev;
 
 		dev = dev_get_by_index(&init_net, addr->can_ifindex);
-		if (!dev)
-			return -ENODEV;
-
+		if (!dev) {
+			ret = -ENODEV;
+			goto fail;
+		}
 		if (dev->type != ARPHRD_CAN) {
 			dev_put(dev);
-			return -ENODEV;
+			ret = -ENODEV;
+			goto fail;
 		}
 
 		bo->ifindex = dev->ifindex;
@@ -1528,17 +1544,24 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
 		bo->ifindex = 0;
 	}
 
-	bo->bound = 1;
-
 	if (proc_dir) {
 		/* unique socket address as filename */
 		sprintf(bo->procname, "%lu", sock_i_ino(sk));
 		bo->bcm_proc_read = proc_create_data(bo->procname, 0644,
 						     proc_dir,
 						     &bcm_proc_fops, sk);
+		if (!bo->bcm_proc_read) {
+			ret = -ENOMEM;
+			goto fail;
+		}
 	}
 
-	return 0;
+	bo->bound = 1;
+
+fail:
+	release_sock(sk);
+
+	return ret;
 }
 
 static int bcm_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,

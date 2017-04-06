@@ -952,6 +952,11 @@
 		qcom,msm-pcm-loopback-low-latency;
 	};
 
+	loopback1: qcom,msm-pcm-loopback-low-latency {
+		compatible = "qcom,msm-pcm-loopback";
+		qcom,msm-pcm-loopback-low-latency;
+	};
+
 	qcom,msm-dai-mi2s {
 		dai_mi2s_sec: qcom,msm-dai-q6-mi2s-sec {
 			qcom,msm-mi2s-rx-lines = <2>;

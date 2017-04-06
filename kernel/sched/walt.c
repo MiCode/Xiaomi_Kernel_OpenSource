@@ -22,7 +22,6 @@
 #include <linux/syscore_ops.h>
 #include <linux/cpufreq.h>
 #include <trace/events/sched.h>
-#include <clocksource/arm_arch_timer.h>
 #include "sched.h"
 #include "walt.h"
 
@@ -63,8 +62,6 @@ static unsigned int max_possible_freq = 1;
  */
 static unsigned int min_max_freq = 1;
 
-static unsigned int max_capacity = 1024;
-static unsigned int min_capacity = 1024;
 static unsigned int max_load_scale_factor = 1024;
 static unsigned int max_possible_capacity = 1024;
 
@@ -188,10 +185,8 @@ update_window_start(struct rq *rq, u64 wallclock)
 	delta = wallclock - rq->window_start;
 	/* If the MPM global timer is cleared, set delta as 0 to avoid kernel BUG happening */
 	if (delta < 0) {
-		if (arch_timer_read_counter() == 0)
-			delta = 0;
-		else
-			BUG_ON(1);
+		delta = 0;
+		WARN_ONCE(1, "WALT wallclock appears to have gone backwards or reset\n");
 	}
 
 	if (delta < walt_ravg_window)
@@ -872,39 +867,6 @@ void walt_fixup_busy_time(struct task_struct *p, int new_cpu)
 		double_rq_unlock(src_rq, dest_rq);
 }
 
-/* Keep track of max/min capacity possible across CPUs "currently" */
-static void __update_min_max_capacity(void)
-{
-	int i;
-	int max = 0, min = INT_MAX;
-
-	for_each_online_cpu(i) {
-		if (cpu_rq(i)->capacity > max)
-			max = cpu_rq(i)->capacity;
-		if (cpu_rq(i)->capacity < min)
-			min = cpu_rq(i)->capacity;
-	}
-
-	max_capacity = max;
-	min_capacity = min;
-}
-
-static void update_min_max_capacity(void)
-{
-	unsigned long flags;
-	int i;
-
-	local_irq_save(flags);
-	for_each_possible_cpu(i)
-		raw_spin_lock(&cpu_rq(i)->lock);
-
-	__update_min_max_capacity();
-
-	for_each_possible_cpu(i)
-		raw_spin_unlock(&cpu_rq(i)->lock);
-	local_irq_restore(flags);
-}
-
 /*
  * Return 'capacity' of a cpu in reference to "least" efficient cpu, such that
  * least efficient cpu gets capacity of 1024
@@ -987,14 +949,8 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	/* Initialized to policy->max in case policy->related_cpus is empty! */
 	unsigned int orig_max_freq = policy->max;
 
-	if (val != CPUFREQ_NOTIFY && val != CPUFREQ_REMOVE_POLICY &&
-						val != CPUFREQ_CREATE_POLICY)
+	if (val != CPUFREQ_NOTIFY)
 		return 0;
-
-	if (val == CPUFREQ_REMOVE_POLICY || val == CPUFREQ_CREATE_POLICY) {
-		update_min_max_capacity();
-		return 0;
-	}
 
 	for_each_cpu(i, policy->related_cpus) {
 		cpumask_copy(&cpu_rq(i)->freq_domain_cpumask,
@@ -1084,8 +1040,6 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 		max_possible_capacity = highest_mpc;
 		max_load_scale_factor = highest_mplsf;
 	}
-
-	__update_min_max_capacity();
 
 	return 0;
 }

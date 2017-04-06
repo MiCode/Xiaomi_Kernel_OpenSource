@@ -856,14 +856,6 @@ static inline bool _a5xx_check_idle(struct msm_gpu *gpu)
 
 bool a5xx_idle(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 {
-	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
-	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
-
-	if (ring != a5xx_gpu->cur_ring) {
-		WARN(1, "Tried to idle a non-current ringbuffer\n");
-		return false;
-	}
-
 	/* wait for CP to drain ringbuffer: */
 	if (!adreno_idle(gpu, ring))
 		return false;
@@ -1218,6 +1210,9 @@ static const struct adreno_gpu_funcs funcs = {
 		.show = a5xx_show,
 #endif
 		.snapshot = a5xx_snapshot,
+		.get_counter = adreno_get_counter,
+		.read_counter = adreno_read_counter,
+		.put_counter = adreno_put_counter,
 	},
 	.get_timestamp = a5xx_get_timestamp,
 };
@@ -1340,6 +1335,8 @@ struct msm_gpu *a5xx_gpu_init(struct drm_device *dev)
 
 	/* Set up the preemption specific bits and pieces for each ringbuffer */
 	a5xx_preempt_init(gpu);
+
+	a5xx_counters_init(adreno_gpu);
 
 	return gpu;
 }

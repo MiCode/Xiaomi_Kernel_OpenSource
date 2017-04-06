@@ -27,6 +27,7 @@
 
 #include "clk-alpha-pll.h"
 #include "clk-branch.h"
+#include "clk-debug.h"
 #include "common.h"
 #include "clk-pll.h"
 #include "clk-regmap.h"
@@ -3328,7 +3329,11 @@ static int clk_debug_660_probe(struct platform_device *pdev)
 		return PTR_ERR(clk);
 	}
 
-	dev_info(&pdev->dev, "Registered debug mux successfully\n");
+	ret = clk_register_debug(&gcc_debug_mux.hw);
+	if (ret)
+		dev_err(&pdev->dev, "Could not register Measure clock\n");
+	else
+		dev_info(&pdev->dev, "Registered debug mux successfully\n");
 
 	return ret;
 }

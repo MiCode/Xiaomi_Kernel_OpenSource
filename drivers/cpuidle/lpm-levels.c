@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  * Copyright (C) 2006-2007 Adam Belay <abelay@novell.com>
  * Copyright (C) 2009 Intel Corporation
  *
@@ -36,6 +36,7 @@
 #include <linux/moduleparam.h>
 #include <linux/sched.h>
 #include <linux/cpu_pm.h>
+#include <linux/arm-smccc.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
 #include <soc/qcom/rpm-notifier.h>
@@ -161,13 +162,13 @@ s32 msm_cpuidle_get_deep_idle_latency(void)
 void lpm_suspend_wake_time(uint64_t wakeup_time)
 {
 	if (wakeup_time <= 0) {
-		suspend_wake_time = msm_pm_sleep_time_override;
+		suspend_wake_time = msm_pm_sleep_time_override * MSEC_PER_SEC;
 		return;
 	}
 
 	if (msm_pm_sleep_time_override &&
 		(msm_pm_sleep_time_override < wakeup_time))
-		suspend_wake_time = msm_pm_sleep_time_override;
+		suspend_wake_time = msm_pm_sleep_time_override * MSEC_PER_SEC;
 	else
 		suspend_wake_time = wakeup_time;
 }
@@ -793,7 +794,7 @@ static uint64_t get_cluster_sleep_time(struct lpm_cluster *cluster,
 		if (!suspend_wake_time)
 			return ~0ULL;
 		else
-			return USEC_PER_SEC * suspend_wake_time;
+			return USEC_PER_MSEC * suspend_wake_time;
 	}
 
 	cpumask_and(&online_cpus_in_cluster,
@@ -1122,6 +1123,8 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		struct cpumask nextcpu, *cpumask;
 		uint64_t us;
 		uint32_t pred_us;
+		uint64_t sec;
+		uint64_t nsec;
 
 		us = get_cluster_sleep_time(cluster, &nextcpu,
 						from_idle, &pred_us);
@@ -1133,11 +1136,20 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 			goto failed_set_mode;
 		}
 
-		us = (us + 1) * 1000;
 		clear_predict_history();
 		clear_cl_predict_history();
 
-		do_div(us, NSEC_PER_SEC/SCLK_HZ);
+		us = us + 1;
+		sec = us;
+		do_div(sec, USEC_PER_SEC);
+		nsec = us - sec * USEC_PER_SEC;
+
+		sec = sec * SCLK_HZ;
+		if (nsec > 0) {
+			nsec = nsec * NSEC_PER_USEC;
+			do_div(nsec, NSEC_PER_SEC/SCLK_HZ);
+		}
+		us = sec + nsec;
 		msm_mpm_enter_sleep(us, from_idle, cpumask);
 	}
 
@@ -1412,7 +1424,6 @@ unlock_and_return:
 }
 
 #if !defined(CONFIG_CPU_V7)
-asmlinkage int __invoke_psci_fn_smc(u64, u64, u64, u64);
 bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 {
 	/*
@@ -1542,10 +1553,13 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 		struct cpuidle_driver *drv, int idx)
 {
 	struct lpm_cluster *cluster = per_cpu(cpu_cluster, dev->cpu);
-	bool success = true;
+	bool success = false;
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
 	int64_t start_time = ktime_to_ns(ktime_get()), end_time;
 	struct power_params *pwr_params;
+
+	if (idx < 0)
+		return -EINVAL;
 
 	pwr_params = &cluster->cpu->levels[idx].pwr;
 	sched_set_cpu_cstate(smp_processor_id(), idx + 1,
@@ -1559,7 +1573,7 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	trace_cpu_idle_enter(idx);
 	lpm_stats_cpu_enter(idx, start_time);
 
-	if (need_resched() || (idx < 0))
+	if (need_resched())
 		goto exit;
 
 	BUG_ON(!use_psci);

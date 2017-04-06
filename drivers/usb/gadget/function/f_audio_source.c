@@ -310,6 +310,7 @@ static struct device_attribute *audio_source_function_attributes[] = {
 static struct usb_request *audio_request_new(struct usb_ep *ep, int buffer_size)
 {
 	struct usb_request *req = usb_ep_alloc_request(ep, GFP_KERNEL);
+
 	if (!req)
 		return NULL;
 
@@ -377,10 +378,9 @@ static void audio_send(struct audio_dev *audio)
 
 	/* compute number of frames to send */
 	now = ktime_get();
-	msecs = ktime_to_ns(now) - ktime_to_ns(audio->start_time);
-	do_div(msecs, 1000000);
-	frames = msecs * SAMPLE_RATE;
-	do_div(frames, 1000);
+	msecs = div_s64((ktime_to_ns(now) - ktime_to_ns(audio->start_time)),
+			1000000);
+	frames = div_s64((msecs * SAMPLE_RATE), 1000);
 
 	/* Readjust our frames_sent if we fall too far behind.
 	 * If we get too far behind it is better to drop some frames than
@@ -989,6 +989,7 @@ static ssize_t audio_source_pcm_show(struct device *dev,
 
 struct device *create_function_device(char *name);
 
+#define AUDIO_SOURCE_DEV_NAME_LENGTH 20
 static struct usb_function_instance *audio_source_alloc_inst(void)
 {
 	struct audio_source_instance *fi_audio;
@@ -997,6 +998,8 @@ static struct usb_function_instance *audio_source_alloc_inst(void)
 	struct device *dev;
 	void *err_ptr;
 	int err = 0;
+	char device_name[AUDIO_SOURCE_DEV_NAME_LENGTH];
+	static u8 count;
 
 	fi_audio = kzalloc(sizeof(*fi_audio), GFP_KERNEL);
 	if (!fi_audio)
@@ -1014,7 +1017,11 @@ static struct usb_function_instance *audio_source_alloc_inst(void)
 
 	config_group_init_type_name(&fi_audio->func_inst.group, "",
 						&audio_source_func_type);
-	dev = create_function_device("f_audio_source");
+
+	snprintf(device_name, AUDIO_SOURCE_DEV_NAME_LENGTH,
+					"f_audio_source%d", count++);
+
+	dev = create_function_device(device_name);
 
 	if (IS_ERR(dev)) {
 		err_ptr = dev;

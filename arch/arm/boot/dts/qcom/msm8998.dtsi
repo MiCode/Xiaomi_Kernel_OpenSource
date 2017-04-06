@@ -286,16 +286,22 @@
 			reg = <0 0x85800000 0 0x3700000>;
 		};
 
-		pil_ipa_gpu_mem: pil_ipa_gpu_region@95000000 {
+		pil_ipa_gpu_mem: pil_ipa_gpu_region@95200000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95000000 0 0x100000>;
+			reg = <0 0x95200000 0 0x100000>;
 		};
 
-		pil_slpi_mem: pil_slpi_region@94100000 {
+		pil_slpi_mem: pil_slpi_region@94300000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x94100000 0 0xf00000>;
+			reg = <0 0x94300000 0 0xf00000>;
+		};
+
+		pil_mba_mem: pil_mba_region@94100000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x94100000 0 0x200000>;
 		};
 
 		pil_video_mem: pil_video_region@93c00000 {
@@ -1569,6 +1575,8 @@
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
 						100000000 200000000 4294967295>;
 
+		qcom,sdr104-wa;
+
 		status = "disabled";
 	};
 
@@ -2109,6 +2117,10 @@
 
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+		qcom,mba-mem@0 {
+			compatible = "qcom,pil-mba-mem";
+			memory-region = <&pil_mba_mem>;
+		};
 	};
 
 	tsens0: tsens@10aa000 {
@@ -3058,6 +3070,8 @@
 	msm_ath10k_wlan: qcom,msm_ath10k_wlan {
 		status = "disabled";
 		compatible = "qcom,wcn3990-wifi";
+		reg = <0x18800000 0x800000>;
+		reg-names = "membase";
 		interrupts =
 			<0 413 0 /* CE0 */ >,
 			<0 414 0 /* CE1 */ >,
@@ -3079,6 +3093,8 @@
 		      <0xa0000000 0x10000000>,
 		      <0xb0000000 0x10000>;
 		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
+		clocks = <&clock_gcc clk_rf_clk2_pin>;
+		clock-names = "cxo_ref_clk_pin";
 		iommus = <&anoc2_smmu 0x1900>,
 			 <&anoc2_smmu 0x1901>;
 		interrupts = <0 413 0 /* CE0 */ >,
@@ -3094,6 +3110,12 @@
 			     <0 424 0 /* CE10 */ >,
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
+		vdd-0.8-cx-mx-supply = <&pm8998_l5>;
+		vdd-1.8-xo-supply = <&pm8998_l7_pin_ctrl>;
+		vdd-1.3-rfa-supply = <&pm8998_l17_pin_ctrl>;
+		vdd-3.3-ch0-supply = <&pm8998_l25_pin_ctrl>;
+		qcom,vdd-0.8-cx-mx-config = <800000 800000>;
+		qcom,vdd-3.3-ch0-config = <3104000 3312000>;
 		qcom,icnss-vadc = <&pm8998_vadc>;
 		qcom,icnss-adc_tm = <&pm8998_adc_tm>;
 	};

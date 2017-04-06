@@ -185,10 +185,17 @@ void cpu_hotplug_disable(void)
 }
 EXPORT_SYMBOL_GPL(cpu_hotplug_disable);
 
+static void __cpu_hotplug_enable(void)
+{
+	if (WARN_ONCE(!cpu_hotplug_disabled, "Unbalanced cpu hotplug enable\n"))
+		return;
+	cpu_hotplug_disabled--;
+}
+
 void cpu_hotplug_enable(void)
 {
 	cpu_maps_update_begin();
-	WARN_ON(--cpu_hotplug_disabled < 0);
+	__cpu_hotplug_enable();
 	cpu_maps_update_done();
 }
 EXPORT_SYMBOL_GPL(cpu_hotplug_enable);
@@ -225,12 +232,6 @@ static int cpu_notify(unsigned long val, void *v)
 	return __cpu_notify(val, v, -1, NULL);
 }
 
-#ifdef CONFIG_HOTPLUG_CPU
-
-static void cpu_notify_nofail(unsigned long val, void *v)
-{
-	BUG_ON(cpu_notify(val, v));
-}
 EXPORT_SYMBOL(register_cpu_notifier);
 EXPORT_SYMBOL(__register_cpu_notifier);
 
@@ -247,6 +248,12 @@ void __unregister_cpu_notifier(struct notifier_block *nb)
 	raw_notifier_chain_unregister(&cpu_chain, nb);
 }
 EXPORT_SYMBOL(__unregister_cpu_notifier);
+
+#ifdef CONFIG_HOTPLUG_CPU
+static void cpu_notify_nofail(unsigned long val, void *v)
+{
+	BUG_ON(cpu_notify(val, v));
+}
 
 /**
  * clear_tasks_mm_cpumask - Safely clear tasks' mm_cpumask for a CPU
@@ -616,7 +623,7 @@ void enable_nonboot_cpus(void)
 
 	/* Allow everyone to use the CPU hotplug again */
 	cpu_maps_update_begin();
-	WARN_ON(--cpu_hotplug_disabled < 0);
+	__cpu_hotplug_enable();
 	if (cpumask_empty(frozen_cpus))
 		goto out;
 

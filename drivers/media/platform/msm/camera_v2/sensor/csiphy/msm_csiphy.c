@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,7 @@
 #define MSM_CSIPHY_DRV_NAME                      "msm_csiphy"
 #define CLK_LANE_OFFSET                             1
 #define NUM_LANES_OFFSET                            4
+#define CLOCK_LANE                                  0x02
 
 #define CSI_3PHASE_HW                               1
 #define MAX_DPHY_DATA_LN                            4
@@ -683,12 +684,21 @@ static int msm_csiphy_2phase_lane_config_v50(
 				csiphybase + csiphy_dev->ctrl_reg->
 				csiphy_3ph_reg.
 				mipi_csiphy_2ph_lnn_ctrl15.addr + offset);
-			msm_camera_io_w(csiphy_dev->ctrl_reg->
-				csiphy_3ph_reg.
-				mipi_csiphy_2ph_lnn_ctrl0.data,
-				csiphybase + csiphy_dev->ctrl_reg->
-				csiphy_3ph_reg.
-				mipi_csiphy_2ph_lnn_ctrl0.addr + offset);
+			if (mask == CLOCK_LANE)
+				msm_camera_io_w(csiphy_dev->ctrl_reg->
+					csiphy_3ph_reg.
+					mipi_csiphy_2ph_lnck_ctrl0.data,
+					csiphybase + csiphy_dev->ctrl_reg->
+					csiphy_3ph_reg.
+					mipi_csiphy_2ph_lnck_ctrl0.addr);
+			else
+				msm_camera_io_w(csiphy_dev->ctrl_reg->
+					csiphy_3ph_reg.
+					mipi_csiphy_2ph_lnn_ctrl0.data,
+					csiphybase + csiphy_dev->ctrl_reg->
+					csiphy_3ph_reg.
+					mipi_csiphy_2ph_lnn_ctrl0.addr +
+					offset);
 			msm_camera_io_w(csiphy_dev->ctrl_reg->
 				csiphy_3ph_reg.
 				mipi_csiphy_2ph_lnn_cfg1.data,
@@ -1059,7 +1069,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	if (rc < 0) {
 		pr_err("%s:%d csiphy config_vreg failed\n",
 			__func__, __LINE__);
-		goto csiphy_resource_fail;
+		goto csiphy_vreg_config_fail;
 	}
 	rc = msm_camera_enable_vreg(&csiphy_dev->pdev->dev,
 		csiphy_dev->csiphy_vreg,
@@ -1079,7 +1089,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	if (rc < 0) {
 		pr_err("%s: csiphy clk enable failed\n", __func__);
 		csiphy_dev->ref_count--;
-		goto csiphy_resource_fail;
+		goto csiphy_enable_clk_fail;
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
@@ -1107,12 +1117,17 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	csiphy_dev->csiphy_state = CSIPHY_POWER_UP;
 	return 0;
 
+csiphy_enable_clk_fail:
+	msm_camera_enable_vreg(&csiphy_dev->pdev->dev,
+		csiphy_dev->csiphy_vreg,
+		csiphy_dev->regulator_count, NULL, 0,
+		&csiphy_dev->csiphy_reg_ptr[0], 0);
 top_vreg_enable_failed:
 	msm_camera_config_vreg(&csiphy_dev->pdev->dev,
 		csiphy_dev->csiphy_vreg,
 		csiphy_dev->regulator_count, NULL, 0,
 		&csiphy_dev->csiphy_reg_ptr[0], 0);
-csiphy_resource_fail:
+csiphy_vreg_config_fail:
 	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSIPHY,
 		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to vote for AHB\n", __func__);
@@ -1159,7 +1174,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	if (rc < 0) {
 		pr_err("%s:%d csiphy config_vreg failed\n",
 			__func__, __LINE__);
-		goto csiphy_resource_fail;
+		goto csiphy_vreg_config_fail;
 	}
 	rc = msm_camera_enable_vreg(&csiphy_dev->pdev->dev,
 		csiphy_dev->csiphy_vreg,
@@ -1179,7 +1194,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	if (rc < 0) {
 		pr_err("%s: csiphy clk enable failed\n", __func__);
 		csiphy_dev->ref_count--;
-		goto csiphy_resource_fail;
+		goto csiphy_enable_clk_fail;
 	}
 	CDBG("%s:%d clk enable success\n", __func__, __LINE__);
 
@@ -1203,12 +1218,18 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		csiphy_dev->hw_version);
 	csiphy_dev->csiphy_state = CSIPHY_POWER_UP;
 	return 0;
+
+csiphy_enable_clk_fail:
+	msm_camera_enable_vreg(&csiphy_dev->pdev->dev,
+		csiphy_dev->csiphy_vreg,
+		csiphy_dev->regulator_count, NULL, 0,
+		&csiphy_dev->csiphy_reg_ptr[0], 0);
 top_vreg_enable_failed:
 	msm_camera_config_vreg(&csiphy_dev->pdev->dev,
 		csiphy_dev->csiphy_vreg,
 		csiphy_dev->regulator_count, NULL, 0,
 		&csiphy_dev->csiphy_reg_ptr[0], 0);
-csiphy_resource_fail:
+csiphy_vreg_config_fail:
 	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSIPHY,
 		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to vote for AHB\n", __func__);

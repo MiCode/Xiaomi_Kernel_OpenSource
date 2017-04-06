@@ -537,6 +537,230 @@ static const struct file_operations fops_fw_stats = {
 	.llseek = default_llseek,
 };
 
+static inline int is_vht_rate_valid(u32 rate_indx)
+{
+	if ((rate_indx >= ATH10K_RX_MCS_MIN) &&
+	    (rate_indx <= ATH10K_RX_VHT_RATEIDX_MAX))
+		return 1;
+	else
+		return 0;
+}
+
+void fill_datapath_stats(struct ath10k *ar, struct ieee80211_rx_status *status)
+{
+	struct datapath_rx_stats *stat_cnt = ar->rx_stats;
+
+	spin_lock_bh(&ar->datapath_rx_stat_lock);
+
+	stat_cnt->no_of_packets += 1;
+	if (!(stat_cnt->no_of_packets)) {
+		memset(stat_cnt, 0, sizeof(*stat_cnt));
+		stat_cnt->no_of_packets += 1;
+	}
+
+	if (status->flag & RX_FLAG_SHORT_GI)
+		stat_cnt->short_gi_pkts += 1;
+
+	if ((status->vht_nss >= ATH10K_RX_NSS_MIN) &&
+	    (status->vht_nss < ATH10K_RX_NSS_MAX)) {
+		stat_cnt->nss[status->vht_nss] += 1;
+		if (status->flag & RX_FLAG_VHT) {
+			stat_cnt->vht_rate_packets += 1;
+			if (is_vht_rate_valid(status->rate_idx)) {
+				stat_cnt->vht_rate_indx[((status->vht_nss - 1) *
+				10) + status->rate_idx] += 1;
+			} else {
+			    /*if we get index other than (>=0 and <=9)*/
+			    stat_cnt->vht_rate_indx[ATH10K_RX_VHT_MCS_MAX] += 1;
+			}
+		} else if (status->flag & RX_FLAG_HT) {
+			stat_cnt->ht_rate_packets += 1;
+			if ((status->rate_idx >= ATH10K_RX_MCS_MIN) &&
+			    (status->rate_idx < ATH10K_RX_HT_MCS_MAX))
+				stat_cnt->ht_rate_indx[status->rate_idx] += 1;
+			else {
+			    /*if we get index other than (>=0 and <=31)*/
+			    stat_cnt->ht_rate_indx[ATH10K_RX_HT_MCS_MAX] += 1;
+			}
+		} else {
+			/* if pkt is other than HT and VHT */
+			stat_cnt->legacy_pkt += 1;
+		}
+	} else {
+		stat_cnt->nss[ATH10K_RX_NSS_MAX] += 1;
+	}
+
+	if (status->flag & RX_FLAG_40MHZ)
+		stat_cnt->num_pkts_40Mhz += 1;
+	if (status->vht_flag & RX_VHT_FLAG_80MHZ)
+		stat_cnt->num_pkts_80Mhz += 1;
+	if ((status->band >= ATH10K_BAND_MIN) &&
+	    (status->band < ATH10K_BAND_MAX)) {
+		stat_cnt->band[status->band] += 1;
+	} else {
+		/*if band is other than 0,1 */
+		stat_cnt->band[ATH10K_BAND_MAX] += 1;
+	}
+
+	spin_unlock_bh(&ar->datapath_rx_stat_lock);
+}
+
+size_t get_datapath_stat(char *buf, struct ath10k *ar)
+{
+	u8 i;
+	struct datapath_rx_stats *stat_cnt = ar->rx_stats;
+	size_t j = 0;
+
+	spin_lock(&ar->datapath_rx_stat_lock);
+
+	j = snprintf(buf, ATH10K_DATAPATH_BUF_SIZE, "\nNo of packets: %u\t"
+				 "No of short_gi packets: %u\n"
+				 "\nHT Packets: %u \t VHT Packets: %u\n"
+				 "\n40Mhz Packets: %u \t 80Mhz Packets: %u\n"
+				 "\n2.4GHz: %u \t 5GHz: %u \t band-error: %u\n\n",
+				 stat_cnt->no_of_packets,
+				 stat_cnt->short_gi_pkts,
+				 stat_cnt->ht_rate_packets,
+				 stat_cnt->vht_rate_packets,
+				 stat_cnt->num_pkts_40Mhz,
+				 stat_cnt->num_pkts_80Mhz,
+				 stat_cnt->band[ATH10K_BAND_2GHZ],
+				 stat_cnt->band[ATH10K_BAND_5GHZ],
+				 stat_cnt->band[ATH10K_BAND_MAX]);
+
+	for (i = 0; i <= ATH10K_RX_NSS_MAX; i++) {
+		j += snprintf(buf + j, (ATH10K_DATAPATH_BUF_SIZE - j),
+			      "NSS-%u: %u\t", i, stat_cnt->nss[i]);
+	}
+
+	j += snprintf(buf + j, (ATH10K_DATAPATH_BUF_SIZE - j),
+					"\n\n----HT Rate index------\n");
+
+	for (i = ATH10K_RX_MCS_MIN; i < ATH10K_RX_HT_MCS_MAX;
+		 i += 4) {
+		j += snprintf(buf + j, (ATH10K_DATAPATH_BUF_SIZE - j),
+			      "ht_rate_indx[%02u]: %10u\tht_rate_indx[%02u]: %10u\t"
+			      "ht_rate_indx[%02u]: %10u\tht_rate_indx[%02u]: %10u\n",
+			      i, stat_cnt->ht_rate_indx[i],
+			      i + 1, stat_cnt->ht_rate_indx[i + 1],
+			      i + 2, stat_cnt->ht_rate_indx[i + 2],
+			      i + 3, stat_cnt->ht_rate_indx[i + 3]);
+	}
+
+	j += snprintf(buf + j, (ATH10K_DATAPATH_BUF_SIZE - j),
+		  "ht_rate_indx[OOB]: %10u\n",
+		  stat_cnt->ht_rate_indx[ATH10K_RX_HT_MCS_MAX]);
+
+	j += snprintf(buf + j, (ATH10K_DATAPATH_BUF_SIZE - j),
+					"\n----VHT Rate index------\n");
+
+	for (i = ATH10K_RX_MCS_MIN;
+			i <= ATH10K_RX_VHT_RATEIDX_MAX; i++) {
+		j += snprintf(buf + j, (ATH10K_DATAPATH_BUF_SIZE - j),
+			      "vht_rate_indx[%02u]: %10u\tvht_rate_indx[%02u]: %10u\n",
+			       i, stat_cnt->vht_rate_indx[i],
+			       i + 10, stat_cnt->vht_rate_indx[i + 10]);
+	}
+
+	j += snprintf(buf + j, (ATH10K_DATAPATH_BUF_SIZE - j),
+			      "vht_rate_indx[%02u]: %10u\n",
+			       i + 10, stat_cnt->vht_rate_indx[i + 10]);
+
+	j += snprintf(buf + j, (ATH10K_DATAPATH_BUF_SIZE - j),
+					"\nnumber of pkt other than HT and VHT(legacy) : %u\n"
+					"----------------------\n",
+					stat_cnt->legacy_pkt);
+
+	spin_unlock(&ar->datapath_rx_stat_lock);
+
+	return j;
+}
+
+static int ath10k_datapath_stats_open(struct inode *inode, struct file *file)
+{
+	struct ath10k *ar = inode->i_private;
+	int ret;
+
+	spin_lock(&ar->datapath_rx_stat_lock);
+
+	if (ar->state != ATH10K_STATE_ON) {
+		ret = -ENETDOWN;
+		goto err_unlock;
+	}
+
+	file->private_data = ar;
+
+	spin_unlock(&ar->datapath_rx_stat_lock);
+	return 0;
+
+err_unlock:
+	spin_unlock(&ar->datapath_rx_stat_lock);
+	return ret;
+}
+
+static ssize_t ath10k_datapath_stats_read(struct file *file,
+					  char __user *user_buf,
+					  size_t count, loff_t *ppos)
+{
+	struct ath10k *ar = file->private_data;
+	size_t buf_len;
+	unsigned int ret;
+	void *buf = NULL;
+
+	buf = vmalloc(ATH10K_DATAPATH_BUF_SIZE);
+	if (!buf)
+		return 0;
+
+	buf_len = get_datapath_stat(buf, ar);
+
+	ret = simple_read_from_buffer(user_buf, count, ppos, buf, buf_len);
+	vfree(buf);
+
+	return ret;
+}
+
+static ssize_t ath10k_datapath_stats_write(struct file *file,
+					   const char __user *ubuf,
+					   size_t count, loff_t *ppos)
+{
+	struct ath10k *ar = file->private_data;
+	u32 filter;
+	int ret;
+
+	if (kstrtouint_from_user(ubuf, count, 0, &filter))
+		return -EINVAL;
+
+	spin_lock(&ar->datapath_rx_stat_lock);
+
+	if (ar->state != ATH10K_STATE_ON) {
+		ret = count;
+		goto err_unlock;
+	}
+
+	if (!filter)
+		memset(ar->rx_stats, 0, sizeof(*ar->rx_stats));
+
+	ret = count;
+
+err_unlock:
+	spin_unlock(&ar->datapath_rx_stat_lock);
+	return ret;
+}
+
+static int ath10k_datapath_stats_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static const struct file_operations fops_datapath_stats = {
+	.open = ath10k_datapath_stats_open,
+	.read = ath10k_datapath_stats_read,
+	.write = ath10k_datapath_stats_write,
+	.release = ath10k_datapath_stats_release,
+	.owner = THIS_MODULE,
+	.llseek = default_llseek,
+};
+
 static ssize_t ath10k_debug_fw_reset_stats_read(struct file *file,
 						char __user *user_buf,
 						size_t count, loff_t *ppos)
@@ -1572,6 +1796,64 @@ static const struct file_operations fops_ani_enable = {
 	.llseek = default_llseek,
 };
 
+static ssize_t ath10k_write_sifs_burst_enable(struct file *file,
+					      const char __user *user_buf,
+					      size_t count, loff_t *ppos)
+{
+	struct ath10k *ar = file->private_data;
+	int ret;
+	u8 enable;
+
+	if (kstrtou8_from_user(user_buf, count, 0, &enable))
+		return -EINVAL;
+
+	mutex_lock(&ar->conf_mutex);
+
+	if (ar->sifs_burst_enabled == enable) {
+		ret = count;
+		goto exit;
+	}
+
+	ret = ath10k_wmi_pdev_set_param(ar, ar->wmi.pdev_param->burst_enable,
+					enable);
+	if (ret) {
+		ath10k_warn(ar, "sifs_burst_enable failed: %d\n", ret);
+		goto exit;
+	}
+	ar->sifs_burst_enabled = enable;
+
+	ret = count;
+
+exit:
+	mutex_unlock(&ar->conf_mutex);
+
+	return ret;
+}
+
+static ssize_t ath10k_read_sifs_burst_enable(struct file *file,
+					     char __user *user_buf,
+					     size_t count, loff_t *ppos)
+{
+	struct ath10k *ar = file->private_data;
+	char buf[32];
+	int len;
+	bool ret = false;
+
+	if (ar->sifs_burst_enabled)
+		ret = true;
+
+	len = scnprintf(buf, sizeof(buf), "%d\n", ret);
+	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
+}
+
+static const struct file_operations fops_sifs_burst_enable = {
+	.read = ath10k_read_sifs_burst_enable,
+	.write = ath10k_write_sifs_burst_enable,
+	.open = simple_open,
+	.owner = THIS_MODULE,
+	.llseek = default_llseek,
+};
+
 static const struct file_operations fops_cal_data = {
 	.open = ath10k_debug_cal_data_open,
 	.read = ath10k_debug_cal_data_read,
@@ -1909,7 +2191,7 @@ int ath10k_debug_start(struct ath10k *ar)
 			ath10k_warn(ar, "failed to disable pktlog: %d\n", ret);
 	}
 
-	if (ar->debug.nf_cal_period) {
+	if (ar->debug.nf_cal_period && !QCA_REV_WCN3990(ar)) {
 		ret = ath10k_wmi_pdev_set_param(ar,
 						ar->wmi.pdev_param->cal_period,
 						ar->debug.nf_cal_period);
@@ -1926,7 +2208,8 @@ void ath10k_debug_stop(struct ath10k *ar)
 {
 	lockdep_assert_held(&ar->conf_mutex);
 
-	ath10k_debug_cal_data_fetch(ar);
+	if (!QCA_REV_WCN3990(ar))
+		ath10k_debug_cal_data_fetch(ar);
 
 	/* Must not use _sync to avoid deadlock, we do that in
 	 * ath10k_debug_destroy(). The check for htt_stats_mask is to avoid
@@ -2342,7 +2625,11 @@ int ath10k_debug_create(struct ath10k *ar)
 
 	ar->debug.cal_data = vzalloc(ATH10K_DEBUG_CAL_DATA_LEN);
 	if (!ar->debug.cal_data)
-		return -ENOMEM;
+		goto err_cal_data;
+
+	ar->rx_stats = vzalloc(sizeof(*ar->rx_stats));
+	if (!ar->rx_stats)
+		goto err_rx_stats;
 
 	INIT_LIST_HEAD(&ar->debug.fw_stats.pdevs);
 	INIT_LIST_HEAD(&ar->debug.fw_stats.vdevs);
@@ -2350,6 +2637,13 @@ int ath10k_debug_create(struct ath10k *ar)
 	INIT_LIST_HEAD(&ar->debug.fw_stats.peers_extd);
 
 	return 0;
+
+err_rx_stats:
+	vfree(ar->debug.cal_data);
+
+err_cal_data:
+	vfree(ar->debug.fw_crash_data);
+	return -ENOMEM;
 }
 
 void ath10k_debug_destroy(struct ath10k *ar)
@@ -2359,6 +2653,9 @@ void ath10k_debug_destroy(struct ath10k *ar)
 
 	vfree(ar->debug.cal_data);
 	ar->debug.cal_data = NULL;
+
+	vfree(ar->rx_stats);
+	ar->rx_stats = NULL;
 
 	ath10k_debug_fw_stats_reset(ar);
 
@@ -2381,6 +2678,9 @@ int ath10k_debug_register(struct ath10k *ar)
 
 	init_completion(&ar->debug.tpc_complete);
 	init_completion(&ar->debug.fw_stats_complete);
+
+	debugfs_create_file("datapath_rx_stats", S_IRUSR, ar->debug.debugfs_phy,
+			    ar, &fops_datapath_stats);
 
 	debugfs_create_file("fw_stats", S_IRUSR, ar->debug.debugfs_phy, ar,
 			    &fops_fw_stats);
@@ -2419,14 +2719,20 @@ int ath10k_debug_register(struct ath10k *ar)
 	debugfs_create_file("fw_dbglog", S_IRUSR | S_IWUSR,
 			    ar->debug.debugfs_phy, ar, &fops_fw_dbglog);
 
-	debugfs_create_file("cal_data", S_IRUSR, ar->debug.debugfs_phy,
-			    ar, &fops_cal_data);
+	if (!QCA_REV_WCN3990(ar)) {
+		debugfs_create_file("cal_data", S_IRUSR, ar->debug.debugfs_phy,
+				    ar, &fops_cal_data);
+
+		debugfs_create_file("nf_cal_period", S_IRUSR | S_IWUSR,
+				    ar->debug.debugfs_phy, ar,
+				    &fops_nf_cal_period);
+	}
 
 	debugfs_create_file("ani_enable", S_IRUSR | S_IWUSR,
 			    ar->debug.debugfs_phy, ar, &fops_ani_enable);
 
-	debugfs_create_file("nf_cal_period", S_IRUSR | S_IWUSR,
-			    ar->debug.debugfs_phy, ar, &fops_nf_cal_period);
+	debugfs_create_file("sifs_burst_enable", S_IRUSR | S_IWUSR,
+			    ar->debug.debugfs_phy, ar, &fops_sifs_burst_enable);
 
 	if (IS_ENABLED(CONFIG_ATH10K_DFS_CERTIFIED)) {
 		debugfs_create_file("dfs_simulate_radar", S_IWUSR,

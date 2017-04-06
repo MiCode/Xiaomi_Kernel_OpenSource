@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -302,7 +302,7 @@
 	qcom,rpm-master-stats@778150 {
 		compatible = "qcom,rpm-master-stats";
 		reg = <0x778150 0x5000>;
-		qcom,masters = "APSS", "MPSS", "ADSP", "SLPI";
+		qcom,masters = "APSS", "MPSS", "ADSP", "SLPI", "TZ", "SPSS";
 		qcom,master-stats-version = <2>;
 		qcom,master-offset = <4096>;
 	};
@@ -322,7 +322,7 @@
 		compatible = "qcom,system-stats";
 		qcom,rpm-msg-ram = <&rpm_msg_ram>;
 		qcom,rpm-code-ram = <&rpm_code_ram>;
-		qcom,masters = "APSS", "MPSS", "ADSP", "SLPI";
+		qcom,masters = "APSS", "MPSS", "ADSP", "SLPI", "TZ", "SPSS";
 	};
 
 	qcom,mpm@7781b8 {

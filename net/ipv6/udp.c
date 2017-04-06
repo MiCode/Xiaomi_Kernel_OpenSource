@@ -498,7 +498,8 @@ try_again:
 
 	if (is_udp4) {
 		if (inet->cmsg_flags)
-			ip_cmsg_recv(msg, skb);
+			ip_cmsg_recv_offset(msg, skb,
+					    sizeof(struct udphdr), off);
 	} else {
 		if (np->rxopt.all)
 			ip6_datagram_recv_specific_ctl(sk, msg, skb);
@@ -957,6 +958,64 @@ discard:
 	return 0;
 }
 
+static struct sock *__udp6_lib_demux_lookup(struct net *net,
+			__be16 loc_port, const struct in6_addr *loc_addr,
+			__be16 rmt_port, const struct in6_addr *rmt_addr,
+			int dif)
+{
+	struct sock *sk;
+
+	rcu_read_lock();
+	sk = __udp6_lib_lookup(net, rmt_addr, rmt_port, loc_addr, loc_port,
+			       dif, &udp_table);
+	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
+		sk = NULL;
+	rcu_read_unlock();
+
+	return sk;
+}
+
+static void udp_v6_early_demux(struct sk_buff *skb)
+{
+	struct net *net = dev_net(skb->dev);
+	const struct udphdr *uh;
+	struct sock *sk;
+	struct dst_entry *dst;
+	int dif = skb->dev->ifindex;
+
+	if (!pskb_may_pull(skb, skb_transport_offset(skb) +
+	    sizeof(struct udphdr)))
+		return;
+
+	uh = udp_hdr(skb);
+
+	if (skb->pkt_type == PACKET_HOST)
+		sk = __udp6_lib_demux_lookup(net, uh->dest,
+					     &ipv6_hdr(skb)->daddr,
+					     uh->source, &ipv6_hdr(skb)->saddr,
+					     dif);
+	else
+		return;
+
+	if (!sk)
+		return;
+
+	skb->sk = sk;
+	skb->destructor = sock_efree;
+	dst = READ_ONCE(sk->sk_rx_dst);
+
+	if (dst)
+		dst = dst_check(dst, inet6_sk(sk)->rx_dst_cookie);
+	if (dst) {
+		if (dst->flags & DST_NOCACHE) {
+			if (likely(atomic_inc_not_zero(&dst->__refcnt)))
+				skb_dst_set(skb, dst);
+		} else {
+			skb_dst_set_noref(skb, dst);
+		}
+	}
+}
+
 static __inline__ int udpv6_rcv(struct sk_buff *skb)
 {
 	return __udp6_lib_rcv(skb, &udp_table, IPPROTO_UDP);
@@ -1243,7 +1302,7 @@ do_udp_sendmsg:
 		fl6.flowi6_oif = np->sticky_pktinfo.ipi6_ifindex;
 
 	fl6.flowi6_mark = sk->sk_mark;
-	fl6.flowi6_uid = sock_i_uid(sk);
+	fl6.flowi6_uid = sk->sk_uid;
 
 	if (msg->msg_controllen) {
 		opt = &opt_space;
@@ -1460,6 +1519,7 @@ int compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
 #endif
 
 static const struct inet6_protocol udpv6_protocol = {
+	.early_demux	=	udp_v6_early_demux,
 	.handler	=	udpv6_rcv,
 	.err_handler	=	udpv6_err,
 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
@@ -1552,6 +1612,7 @@ struct proto udpv6_prot = {
 	.compat_getsockopt = compat_udpv6_getsockopt,
 #endif
 	.clear_sk	   = udp_v6_clear_sk,
+	.diag_destroy      = udp_abort,
 };
 
 static struct inet_protosw udpv6_protosw = {

@@ -21,7 +21,6 @@ static int add_element(struct mhi_ring *ring, void **rp,
 
 	if (NULL == ring || 0 == ring->el_size
 		|| NULL == ring->base || 0 == ring->len) {
-		mhi_log(MHI_MSG_ERROR, "Bad input parameters, quitting.\n");
 		return -EINVAL;
 	}
 
@@ -39,8 +38,6 @@ static int add_element(struct mhi_ring *ring, void **rp,
 		if (ring->overwrite_en) {
 			ctxt_del_element(ring, NULL);
 		} else {
-			mhi_log(MHI_MSG_INFO, "Ring 0x%lX is full\n",
-					(uintptr_t)ring->base);
 			return -ENOSPC;
 		}
 	}
@@ -92,8 +89,6 @@ int delete_element(struct mhi_ring *ring, void **rp,
 	if (r)
 		return r;
 	if (d_wp == d_rp) {
-		mhi_log(MHI_MSG_VERBOSE, "Ring 0x%lx is empty\n",
-				(uintptr_t)ring->base);
 		if (NULL != assigned_addr)
 			*assigned_addr = NULL;
 		return -ENODATA;
@@ -113,23 +108,26 @@ int delete_element(struct mhi_ring *ring, void **rp,
 int mhi_get_free_desc(struct mhi_client_handle *client_handle)
 {
 	u32 chan;
+	struct mhi_client_config *client_config;
 	struct mhi_device_ctxt *ctxt;
 	int bb_ring, ch_ring;
 
-	if (!client_handle || MHI_HANDLE_MAGIC != client_handle->magic ||
-	    !client_handle->mhi_dev_ctxt)
+	if (!client_handle)
 		return -EINVAL;
-	ctxt = client_handle->mhi_dev_ctxt;
-	chan = client_handle->chan_info.chan_nr;
+	client_config = client_handle->client_config;
+	ctxt = client_config->mhi_dev_ctxt;
+	chan = client_config->chan_info.chan_nr;
 
-	bb_ring = get_nr_avail_ring_elements(&ctxt->chan_bb_list[chan]);
-	ch_ring = get_nr_avail_ring_elements(&ctxt->mhi_local_chan_ctxt[chan]);
+	bb_ring = get_nr_avail_ring_elements(ctxt, &ctxt->chan_bb_list[chan]);
+	ch_ring = get_nr_avail_ring_elements(ctxt,
+					     &ctxt->mhi_local_chan_ctxt[chan]);
 
 	return min(bb_ring, ch_ring);
 }
 EXPORT_SYMBOL(mhi_get_free_desc);
 
-int get_nr_avail_ring_elements(struct mhi_ring *ring)
+int get_nr_avail_ring_elements(struct mhi_device_ctxt *mhi_dev_ctxt,
+			       struct mhi_ring *ring)
 {
 	u32 nr_el = 0;
 	uintptr_t ring_size = 0;
@@ -138,7 +136,7 @@ int get_nr_avail_ring_elements(struct mhi_ring *ring)
 	ring_size = ring->len / ring->el_size;
 	ret_val = get_nr_enclosed_el(ring, ring->rp, ring->wp, &nr_el);
 	if (ret_val != 0) {
-		mhi_log(MHI_MSG_ERROR,
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to get enclosed el ret %d.\n", ret_val);
 		return 0;
 	}
@@ -155,19 +153,14 @@ int get_nr_enclosed_el(struct mhi_ring *ring, void *rp,
 
 	if (NULL == ring || 0 == ring->el_size ||
 		NULL == ring->base || 0 == ring->len) {
-		mhi_log(MHI_MSG_ERROR, "Bad input parameters, quitting.\n");
 		return -EINVAL;
 	}
 	r = get_element_index(ring, rp, &index_rp);
-	if (r) {
-		mhi_log(MHI_MSG_CRITICAL, "Bad element index rp 0x%p.\n", rp);
+	if (r)
 		return r;
-	}
 	r = get_element_index(ring, wp, &index_wp);
-	if (r) {
-		mhi_log(MHI_MSG_CRITICAL, "Bad element index wp 0x%p.\n", wp);
+	if (r)
 		return r;
-	}
 	ring_size = ring->len / ring->el_size;
 
 	if (index_rp < index_wp)

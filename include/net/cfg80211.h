@@ -71,6 +71,8 @@ struct wiphy;
 #define CFG80211_BEACON_TX_RATE_CUSTOM_BACKPORT 1
 #define CFG80211_RAND_TA_FOR_PUBLIC_ACTION_FRAME 1
 #define CFG80211_REPORT_BETTER_BSS_IN_SCHED_SCAN 1
+#define CFG80211_CONNECT_TIMEOUT 1
+#define CFG80211_CONNECT_TIMEOUT_REASON_CODE 1
 
 /*
  * wireless hardware capability structures
@@ -2437,9 +2439,23 @@ struct cfg80211_qos_map {
  *	(invoked with the wireless_dev mutex held)
  *
  * @connect: Connect to the ESS with the specified parameters. When connected,
- *	call cfg80211_connect_result() with status code %WLAN_STATUS_SUCCESS.
- *	If the connection fails for some reason, call cfg80211_connect_result()
- *	with the status from the AP.
+ *	call cfg80211_connect_result()/cfg80211_connect_bss() with status code
+ *	%WLAN_STATUS_SUCCESS. If the connection fails for some reason, call
+ *	cfg80211_connect_result()/cfg80211_connect_bss() with the status code
+ *	from the AP or cfg80211_connect_timeout() if no frame with status code
+ *	was received.
+ *	The driver is allowed to roam to other BSSes within the ESS when the
+ *	other BSS matches the connect parameters. When such roaming is initiated
+ *	by the driver, the driver is expected to verify that the target matches
+ *	the configured security parameters and to use Reassociation Request
+ *	frame instead of Association Request frame.
+ *	The connect function can also be used to request the driver to perform a
+ *	specific roam when connected to an ESS. In that case, the prev_bssid
+ *	parameter is set to the BSSID of the currently associated BSS as an
+ *	indication of requesting reassociation.
+ *	In both the driver-initiated and new connect() call initiated roaming
+ *	cases, the result of roaming is indicated with a call to
+ *	cfg80211_roamed() or cfg80211_roamed_bss().
  *	(invoked with the wireless_dev mutex held)
  * @update_connect_params: Update the connect parameters while connected to a
  *	BSS. The updated parameters can be used by driver/firmware for
@@ -4449,6 +4465,17 @@ void cfg80211_rx_assoc_resp(struct net_device *dev,
 void cfg80211_assoc_timeout(struct net_device *dev, struct cfg80211_bss *bss);
 
 /**
+ * cfg80211_abandon_assoc - notify cfg80211 of abandoned association attempt
+ * @dev: network device
+ * @bss: The BSS entry with which association was abandoned.
+ *
+ * Call this whenever - for reasons reported through other API, like deauth RX,
+ * an association attempt was abandoned.
+ * This function may sleep. The caller must hold the corresponding wdev's mutex.
+ */
+void cfg80211_abandon_assoc(struct net_device *dev, struct cfg80211_bss *bss);
+
+/**
  * cfg80211_tx_mlme_mgmt - notification of transmitted deauth/disassoc frame
  * @dev: network device
  * @buf: 802.11 frame (header + body)
@@ -4804,6 +4831,12 @@ static inline void cfg80211_testmode_event(struct sk_buff *skb, gfp_t gfp)
  *      %WLAN_STATUS_UNSPECIFIED_FAILURE if your device cannot give you
  *      the real status code for failures.
  * @gfp: allocation flags
+ * @timeout_reason: reason for connection timeout. This is used when the
+ *	connection fails due to a timeout instead of an explicit rejection from
+ *	the AP. %NL80211_TIMEOUT_UNSPECIFIED is used when the timeout reason is
+ *	not known. This value is used only if @status < 0 to indicate that the
+ *	failure is due to a timeout and not due to explicit rejection by the AP.
+ *	This value is ignored in other cases (@status >= 0).
  *
  * It should be called by the underlying driver whenever connect() has
  * succeeded. This is similar to cfg80211_connect_result(), but with the
@@ -4813,7 +4846,8 @@ static inline void cfg80211_testmode_event(struct sk_buff *skb, gfp_t gfp)
 void cfg80211_connect_bss(struct net_device *dev, const u8 *bssid,
 			  struct cfg80211_bss *bss, const u8 *req_ie,
 			  size_t req_ie_len, const u8 *resp_ie,
-			  size_t resp_ie_len, u16 status, gfp_t gfp);
+			  size_t resp_ie_len, int status, gfp_t gfp,
+			  enum nl80211_timeout_reason timeout_reason);
 
 /**
  * cfg80211_connect_result - notify cfg80211 of connection result
@@ -4839,7 +4873,33 @@ cfg80211_connect_result(struct net_device *dev, const u8 *bssid,
 			u16 status, gfp_t gfp)
 {
 	cfg80211_connect_bss(dev, bssid, NULL, req_ie, req_ie_len, resp_ie,
-			     resp_ie_len, status, gfp);
+			     resp_ie_len, status, gfp,
+			     NL80211_TIMEOUT_UNSPECIFIED);
+}
+
+/**
+ * cfg80211_connect_timeout - notify cfg80211 of connection timeout
+ *
+ * @dev: network device
+ * @bssid: the BSSID of the AP
+ * @req_ie: association request IEs (maybe be %NULL)
+ * @req_ie_len: association request IEs length
+ * @gfp: allocation flags
+ * @timeout_reason: reason for connection timeout.
+ *
+ * It should be called by the underlying driver whenever connect() has failed
+ * in a sequence where no explicit authentication/association rejection was
+ * received from the AP. This could happen, e.g., due to not being able to send
+ * out the Authentication or Association Request frame or timing out while
+ * waiting for the response.
+ */
+static inline void
+cfg80211_connect_timeout(struct net_device *dev, const u8 *bssid,
+			 const u8 *req_ie, size_t req_ie_len, gfp_t gfp,
+			 enum nl80211_timeout_reason timeout_reason)
+{
+	cfg80211_connect_bss(dev, bssid, NULL, req_ie, req_ie_len, NULL, 0, -1,
+			     gfp, timeout_reason);
 }
 
 /**

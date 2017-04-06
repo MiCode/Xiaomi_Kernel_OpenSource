@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,7 +124,9 @@ void diag_notify_md_client(uint8_t peripheral, int data)
 	info.si_signo = SIGCONT;
 	if (driver->md_session_map[peripheral] &&
 		driver->md_session_map[peripheral]->task) {
-		if (driver->md_session_map[peripheral]->pid ==
+		if (driver->md_session_map[peripheral]->
+			md_client_thread_info->task != NULL
+			&& driver->md_session_map[peripheral]->pid ==
 			driver->md_session_map[peripheral]->task->tgid) {
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 				"md_session %d pid = %d, md_session %d task tgid = %d\n",
@@ -195,6 +197,20 @@ static void process_hdlc_encoding_feature(uint8_t peripheral)
 	} else {
 		driver->feature[peripheral].encode_hdlc =
 					DISABLE_APPS_HDLC_ENCODING;
+	}
+}
+
+static void process_upd_header_untagging_feature(uint8_t peripheral)
+{
+	if (peripheral >= NUM_PERIPHERALS)
+		return;
+
+	if (driver->supports_apps_header_untagging) {
+		driver->feature[peripheral].untag_header =
+					ENABLE_PKT_HEADER_UNTAGGING;
+	} else {
+		driver->feature[peripheral].untag_header =
+					DISABLE_PKT_HEADER_UNTAGGING;
 	}
 }
 
@@ -374,6 +390,8 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 			driver->feature[peripheral].separate_cmd_rsp = 1;
 		if (FEATURE_SUPPORTED(F_DIAG_APPS_HDLC_ENCODE))
 			process_hdlc_encoding_feature(peripheral);
+		if (FEATURE_SUPPORTED(F_DIAG_PKT_HEADER_UNTAG))
+			process_upd_header_untagging_feature(peripheral);
 		if (FEATURE_SUPPORTED(F_DIAG_STM))
 			enable_stm_feature(peripheral);
 		if (FEATURE_SUPPORTED(F_DIAG_MASK_CENTRALIZATION))

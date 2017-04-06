@@ -145,7 +145,7 @@
 		cell-index = <1>;
 		reg = <0x1>;
 		compatible = "qcom,actuator";
-		qcom,cci-master = <0>;
+		qcom,cci-master = <1>;
 		cam_vaf-supply = <&cam_vaf_gpio_regulator>;
 		qcom,cam-vreg-name = "cam_vaf";
 		qcom,cam-vreg-min-voltage = <2800000>;

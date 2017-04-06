@@ -939,6 +939,15 @@ static int isr_setup_status_phase(struct ci_hdrc *ci)
 	int retval;
 	struct ci_hw_ep *hwep;
 
+	/*
+	 * Unexpected USB controller behavior, caused by bad signal integrity
+	 * or ground reference problems, can lead to isr_setup_status_phase
+	 * being called with ci->status equal to NULL.
+	 * If this situation occurs, you should review your USB hardware design.
+	 */
+	if (WARN_ON_ONCE(!ci->status))
+		return -EPIPE;
+
 	hwep = (ci->ep0_dir == TX) ? ci->ep0out : ci->ep0in;
 	ci->status->context = ci;
 	ci->status->complete = isr_setup_status_complete;
@@ -1874,8 +1883,6 @@ static int udc_start(struct ci_hdrc *ci)
 	struct device *dev = ci->dev;
 	struct usb_otg_caps *otg_caps = &ci->platdata->ci_otg_caps;
 	int retval = 0;
-
-	spin_lock_init(&ci->lock);
 
 	ci->gadget.ops          = &usb_gadget_ops;
 	ci->gadget.speed        = USB_SPEED_UNKNOWN;

@@ -22,7 +22,7 @@
 #include "gsi_reg.h"
 
 #define GSI_CMD_TIMEOUT (5*HZ)
-#define GSI_STOP_CMD_TIMEOUT_MS 10
+#define GSI_STOP_CMD_TIMEOUT_MS 20
 #define GSI_MAX_CH_LOW_WEIGHT 15
 #define GSI_MHI_ER_START 10
 #define GSI_MHI_ER_END 16
@@ -561,7 +561,7 @@ static void gsi_handle_irq(void)
 		if (!type)
 			break;
 
-		GSIDBG("type %x\n", type);
+		GSIDBG_LOW("type %x\n", type);
 
 		if (type & GSI_EE_n_CNTXT_TYPE_IRQ_CH_CTRL_BMSK)
 			gsi_handle_ch_ctrl(ee);
@@ -2743,9 +2743,10 @@ void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
 		unsigned long *size)
 {
 	if (base_offset)
-		*base_offset = GSI_GSI_INST_RAM_BASE_OFFS;
+		*base_offset = GSI_GSI_INST_RAM_n_OFFS(0);
 	if (size)
-		*size = GSI_GSI_INST_RAM_SIZE;
+		*size = GSI_GSI_INST_RAM_n_WORD_SZ *
+			(GSI_GSI_INST_RAM_n_MAXn + 1);
 }
 EXPORT_SYMBOL(gsi_get_inst_ram_offset_and_size);
 
@@ -2820,6 +2821,11 @@ static int msm_gsi_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to allocated gsi context\n");
 		return -ENOMEM;
 	}
+
+	gsi_ctx->ipc_logbuf = ipc_log_context_create(GSI_IPC_LOG_PAGES,
+		"gsi", 0);
+	if (gsi_ctx->ipc_logbuf == NULL)
+		GSIERR("failed to create IPC log, continue...\n");
 
 	gsi_ctx->dev = dev;
 	init_completion(&gsi_ctx->gen_ee_cmd_compl);

@@ -3844,6 +3844,10 @@ static inline int update_cfs_rq_load_avg(u64 now, struct cfs_rq *cfs_rq)
 	cfs_rq->load_last_update_time_copy = sa->last_update_time;
 #endif
 
+	/* Trace CPU load, unless cfs_rq belongs to a non-root task_group */
+	if (cfs_rq == &rq_of(cfs_rq)->cfs)
+		trace_sched_load_avg_cpu(cpu_of(rq_of(cfs_rq)), cfs_rq);
+
 	return decayed || removed;
 }
 
@@ -3867,7 +3871,6 @@ static inline void update_load_avg(struct sched_entity *se, int update_tg)
 
 	if (entity_is_task(se))
 		trace_sched_load_avg_task(task_of(se), &se->avg);
-	trace_sched_load_avg_cpu(cpu, cfs_rq);
 }
 
 static void attach_entity_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *se)
@@ -6845,17 +6848,19 @@ static inline int find_best_target(struct task_struct *p, bool boosted, bool pre
 
 		if (new_util < cur_capacity) {
 			if (cpu_rq(i)->nr_running) {
-				if(prefer_idle) {
-					// Find a target cpu with lowest
-					// utilization.
+				if (prefer_idle) {
+					/* Find a target cpu with highest
+					 * utilization.
+					 */
 					if (target_util == 0 ||
 						target_util < new_util) {
 						target_cpu = i;
 						target_util = new_util;
 					}
 				} else {
-					// Find a target cpu with highest
-					// utilization.
+					/* Find a target cpu with lowest
+					 * utilization.
+					 */
 					if (target_util == 0 ||
 						target_util > new_util) {
 						target_cpu = i;
@@ -8382,7 +8387,8 @@ static void update_cpu_capacity(struct sched_domain *sd, int cpu)
 		mcc->cpu = cpu;
 #ifdef CONFIG_SCHED_DEBUG
 		raw_spin_unlock_irqrestore(&mcc->lock, flags);
-		pr_info("CPU%d: update max cpu_capacity %lu\n", cpu, capacity);
+		printk_deferred(KERN_INFO "CPU%d: update max cpu_capacity %lu\n",
+				cpu, capacity);
 		goto skip_unlock;
 #endif
 	}

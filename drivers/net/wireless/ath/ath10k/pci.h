@@ -155,12 +155,6 @@ struct ath10k_pci_supp_chip {
 	u32 rev_id;
 };
 
-struct ath10k_bus_ops {
-	u32 (*read32)(struct ath10k *ar, u32 offset);
-	void (*write32)(struct ath10k *ar, u32 offset, u32 value);
-	int (*get_num_banks)(struct ath10k *ar);
-};
-
 enum ath10k_pci_irq_mode {
 	ATH10K_PCI_IRQ_AUTO = 0,
 	ATH10K_PCI_IRQ_LEGACY = 1,
@@ -168,6 +162,7 @@ enum ath10k_pci_irq_mode {
 };
 
 struct ath10k_pci {
+	struct bus_opaque opaque_ctx;
 	struct pci_dev *pdev;
 	struct device *dev;
 	struct ath10k *ar;
@@ -182,11 +177,6 @@ struct ath10k_pci {
 	/* Copy Engine used for Diagnostic Accesses */
 	struct ath10k_ce_pipe *ce_diag;
 
-	/* FIXME: document what this really protects */
-	spinlock_t ce_lock;
-
-	/* Map CE id to ce_state */
-	struct ath10k_ce_pipe ce_states[CE_COUNT_MAX];
 	struct timer_list rx_post_retry;
 
 	/* Due to HW quirks it is recommended to disable ASPM during device
@@ -230,8 +220,6 @@ struct ath10k_pci {
 	 */
 	bool pci_ps;
 
-	const struct ath10k_bus_ops *bus_ops;
-
 	/* Chip specific pci reset routine used to do a safe reset */
 	int (*pci_soft_reset)(struct ath10k *ar);
 
@@ -263,11 +251,11 @@ static inline struct ath10k_pci *ath10k_pci_priv(struct ath10k *ar)
 /* Wait up to this many Ms for a Diagnostic Access CE operation to complete */
 #define DIAG_ACCESS_CE_TIMEOUT_MS 10
 
-void ath10k_pci_write32(void *ar, u32 offset, u32 value);
+void ath10k_pci_write32(struct ath10k *ar, u32 offset, u32 value);
 void ath10k_pci_soc_write32(struct ath10k *ar, u32 addr, u32 val);
 void ath10k_pci_reg_write32(struct ath10k *ar, u32 addr, u32 val);
 
-u32 ath10k_pci_read32(void *ar, u32 offset);
+u32 ath10k_pci_read32(struct ath10k *ar, u32 offset);
 u32 ath10k_pci_soc_read32(struct ath10k *ar, u32 addr);
 u32 ath10k_pci_reg_read32(struct ath10k *ar, u32 addr);
 

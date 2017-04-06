@@ -54,7 +54,7 @@
 			15 01 00 00 00 00 02 5D 81
 			15 01 00 00 00 00 02 5E 00
 			15 01 00 00 00 00 02 5F 01
-			15 01 00 00 00 00 02 72 31
+			15 01 00 00 00 00 02 72 11
 			15 01 00 00 00 00 02 68 03
 			/* CMD2_P4 */
 			15 01 00 00 00 00 02 FF 24
@@ -202,6 +202,8 @@
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 50>;
 		qcom,mdss-dsi-tx-eot-append;
+		qcom,mdss-pan-physical-width-dimension = <74>;
+		qcom,mdss-pan-physical-height-dimension = <131>;
 
 		qcom,config-select = <&dsi_dual_nt35597_truly_video_config0>;
 
