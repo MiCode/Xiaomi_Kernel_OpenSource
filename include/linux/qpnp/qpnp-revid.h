@@ -177,6 +177,10 @@
 /* PMICOBALT */
 #define PMICOBALT_SUBTYPE	0x15
 
+/* PM660 */
+#define PM660L_SUBTYPE		0x1A
+#define PM660_SUBTYPE		0x1B
+
 /* PM8005 */
 #define PM8005_SUBTYPE		0x18
 
