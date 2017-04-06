@@ -2443,7 +2443,7 @@ init_exit:
 	return result;
 }
 
-static void __exit thermal_exit(void)
+static void thermal_exit(void)
 {
 	unregister_pm_notifier(&thermal_pm_nb);
 	of_thermal_destroy_zones();
