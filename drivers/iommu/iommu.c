@@ -1118,8 +1118,6 @@ static struct iommu_domain *__iommu_domain_alloc(struct bus_type *bus,
 	domain->ops  = bus->iommu_ops;
 	domain->type = type;
 
-	iommu_debug_domain_add(domain);
-
 	return domain;
 }
 
@@ -1186,7 +1184,6 @@ static void __iommu_detach_device(struct iommu_domain *domain,
 	if (unlikely(domain->ops->detach_dev == NULL))
 		return;
 
-	iommu_debug_detach_device(domain, dev);
 	domain->ops->detach_dev(domain, dev);
 	trace_detach_device_from_domain(dev);
 }
