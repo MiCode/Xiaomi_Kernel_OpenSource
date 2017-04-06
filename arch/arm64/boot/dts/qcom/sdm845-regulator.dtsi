@@ -128,6 +128,9 @@
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
 					<100000 100000 100000>;
 
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
+					<100000 100000 100000>;
+
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
@@ -183,6 +186,9 @@
 					 2501 2095>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					<100000 100000 100000>;
+
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
 					<100000 100000 100000>;
 
 				qcom,allow-voltage-interpolation;
@@ -297,6 +303,9 @@
 					 2003 1675>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					<100000 100000 100000>;
+
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
 					<100000 100000 100000>;
 
 				qcom,allow-voltage-interpolation;
