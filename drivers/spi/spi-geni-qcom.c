@@ -119,30 +119,30 @@ static int do_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas)
 	int div = 0;
 	int idx;
 	struct se_geni_rsc *rsc = &mas->spi_rsc;
-	int ret = 0;
 	u32 clk_sel = geni_read_reg(mas->base, SE_GENI_CLK_SEL);
 	u32 m_clk_cfg = geni_read_reg(mas->base, GENI_SER_M_CLK_CFG);
+	int ret;
 
 	clk_sel &= ~CLK_SEL_MSK;
 	m_clk_cfg &= ~CLK_DIV_MSK;
 
 	idx = get_sclk(speed_hz, &sclk_freq);
-	if (idx < 0) {
-		ret = -EINVAL;
-		goto spi_clk_cfg_exit;
-	}
-	div = (sclk_freq / (SPI_OVERSAMPLING / speed_hz));
+	if (idx < 0)
+		return -EINVAL;
+
+	div = ((sclk_freq / SPI_OVERSAMPLING) / speed_hz);
+	if (!div)
+		return -EINVAL;
 
 	clk_sel |= (idx & CLK_SEL_MSK);
 	m_clk_cfg |= ((div << CLK_DIV_SHFT) | SER_CLK_EN);
 	ret = clk_set_rate(rsc->se_clk, sclk_freq);
 	if (ret)
-		goto spi_clk_cfg_exit;
+		return ret;
 
 	geni_write_reg(clk_sel, mas->base, SE_GENI_CLK_SEL);
 	geni_write_reg(m_clk_cfg, mas->base, GENI_SER_M_CLK_CFG);
-spi_clk_cfg_exit:
-	return ret;
+	return 0;
 }
 
 static void spi_setup_word_len(struct spi_geni_master *mas, u32 mode,
@@ -195,7 +195,8 @@ static int spi_geni_prepare_message(struct spi_master *spi_mas,
 
 	ret = do_spi_clk_cfg(mas->cur_speed_hz, mas);
 	if (ret) {
-		dev_err(&spi_mas->dev, "Err setting clks ret %d\n", ret);
+		dev_err(&spi_mas->dev, "Err setting clks ret(%d) for %d\n",
+							ret, mas->cur_speed_hz);
 		goto prepare_message_exit;
 	}
 	spi_setup_word_len(mas, spi_slv->mode, spi_slv->bits_per_word);
