@@ -47,6 +47,9 @@ Optional properties :
 - qcom,pm-qos-latency: This property represents the maximum tolerable CPU latency in
   microsecs, which is used as a vote to keep the CPUs in a high enough power state when
   USB bus is in use (not suspended).
+- qcom,no-wakeup-src-in-hostmode: If present then driver doesn't use wakeup_source APIs e.g.
+  pm_stay_awake and pm_relax in host mode. This allows PM suspend to happen irrespective of
+  runtimePM state of host.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
