@@ -1033,8 +1033,10 @@ static char *mhi_dev_state_to_str(enum mhi_dev_ctrl state)
 		return "SUSPEND";
 	case MHI_DEV_CTRL_RESUME:
 		return "RESUME";
-	case MHI_DEV_CTRL_RAM_DUMP:
-		return "RAM_DUMP";
+	case MHI_DEV_CTRL_RDDM:
+		return "RDDM";
+	case MHI_DEV_CTRL_RDDM_KERNEL_PANIC:
+		return "RDDM_KERNEL_PANIC";
 	case MHI_DEV_CTRL_NOTIFY_LINK_ERROR:
 		return "NOTIFY_LINK_ERROR";
 	default:
@@ -1102,8 +1104,10 @@ static enum mhi_dev_ctrl cnss_to_mhi_dev_state(enum cnss_mhi_state state)
 		return MHI_DEV_CTRL_SUSPEND;
 	case CNSS_MHI_RESUME:
 		return MHI_DEV_CTRL_RESUME;
-	case CNSS_MHI_RAM_DUMP:
-		return MHI_DEV_CTRL_RAM_DUMP;
+	case CNSS_MHI_RDDM:
+		return MHI_DEV_CTRL_RDDM;
+	case CNSS_MHI_RDDM_KERNEL_PANIC:
+		return MHI_DEV_CTRL_RDDM_KERNEL_PANIC;
 	case CNSS_MHI_NOTIFY_LINK_ERROR:
 		return MHI_DEV_CTRL_NOTIFY_LINK_ERROR;
 	default:
@@ -1136,6 +1140,10 @@ static int cnss_pci_check_mhi_state_bit(struct cnss_pci_data *pci_priv,
 		if (test_bit(MHI_DEV_CTRL_SUSPEND, &pci_priv->mhi_state))
 			return 0;
 		break;
+	case MHI_DEV_CTRL_RDDM:
+	case MHI_DEV_CTRL_RDDM_KERNEL_PANIC:
+	case MHI_DEV_CTRL_NOTIFY_LINK_ERROR:
+		return 0;
 	default:
 		cnss_pr_err("Unhandled MHI DEV state: %s(%d)\n",
 			    mhi_dev_state_to_str(mhi_dev_state), mhi_dev_state);
@@ -1169,6 +1177,10 @@ static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
 		break;
 	case MHI_DEV_CTRL_RESUME:
 		clear_bit(MHI_DEV_CTRL_SUSPEND, &pci_priv->mhi_state);
+		break;
+	case MHI_DEV_CTRL_RDDM:
+	case MHI_DEV_CTRL_RDDM_KERNEL_PANIC:
+	case MHI_DEV_CTRL_NOTIFY_LINK_ERROR:
 		break;
 	default:
 		cnss_pr_err("Unhandled MHI DEV state (%d)\n", mhi_dev_state);
