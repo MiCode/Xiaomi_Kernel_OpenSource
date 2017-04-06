@@ -13,7 +13,7 @@
 &soc {
 	mdss_mdp: qcom,mdss_mdp@ae00000 {
 		compatible = "qcom,sde-kms";
-		reg = <0x0ae00000 0x81a24>,
+		reg = <0x0ae00000 0x81d40>,
 		      <0x0aeb0000 0x2008>;
 		reg-names = "mdp_phys",
 			"vbif_phys";
