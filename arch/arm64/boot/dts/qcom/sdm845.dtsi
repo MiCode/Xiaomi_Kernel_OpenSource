@@ -2075,6 +2075,29 @@
 		compatible = "qcom,apss-core-ea";
 		reg = <0x780000 0x1000>;
 	};
+
+	qcom,icnss@18800000 {
+		compatible = "qcom,icnss";
+		reg = <0x18800000 0x800000>,
+		      <0xa0000000 0x10000000>,
+		      <0xb0000000 0x10000>;
+		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
+		iommus = <&apps_smmu 0x0040>,
+			 <&apps_smmu 0x0041>;
+		interrupts = <0 414 0 /* CE0 */ >,
+			     <0 415 0 /* CE1 */ >,
+			     <0 416 0 /* CE2 */ >,
+			     <0 417 0 /* CE3 */ >,
+			     <0 418 0 /* CE4 */ >,
+			     <0 419 0 /* CE5 */ >,
+			     <0 420 0 /* CE6 */ >,
+			     <0 421 0 /* CE7 */ >,
+			     <0 422 0 /* CE8 */ >,
+			     <0 423 0 /* CE9 */ >,
+			     <0 424 0 /* CE10 */ >,
+			     <0 425 0 /* CE11 */ >;
+		qcom,wlan-msa-memory = <0x100000>;
+	};
 };
 
 &pcie_0_gdsc {
