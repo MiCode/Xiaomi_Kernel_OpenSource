@@ -10916,6 +10916,7 @@ unlock:
 }
 device_initcall(perf_event_sysfs_init);
 
+#ifdef CONFIG_HOTPLUG_CPU
 static int perf_cpu_hp_init(void)
 {
 	int ret;
@@ -10930,6 +10931,7 @@ static int perf_cpu_hp_init(void)
 	return ret;
 }
 subsys_initcall(perf_cpu_hp_init);
+#endif
 
 #ifdef CONFIG_CGROUP_PERF
 static struct cgroup_subsys_state *
