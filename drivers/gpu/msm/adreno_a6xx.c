@@ -899,6 +899,72 @@ static int a6xx_hm_disable(struct adreno_device *adreno_dev)
 }
 
 /*
+ * a6xx_hm_sptprac_enable() - Turn on HM and SPTPRAC
+ * @device: Pointer to KGSL device
+ */
+static int a6xx_hm_sptprac_enable(struct kgsl_device *device)
+{
+	int ret = 0;
+	struct gmu_device *gmu = &device->gmu;
+
+	/* If GMU does not control HM we must */
+	if (gmu->idle_level < GPU_HW_IFPC) {
+		ret = a6xx_hm_enable(ADRENO_DEVICE(device));
+		if (ret) {
+			dev_err(&gmu->pdev->dev, "Failed to power on GPU HM\n");
+			return ret;
+		}
+	}
+
+	/* If GMU does not control SPTPRAC we must */
+	if (gmu->idle_level < GPU_HW_SPTP_PC) {
+		ret = a6xx_sptprac_enable(ADRENO_DEVICE(device));
+		if (ret) {
+			a6xx_hm_disable(ADRENO_DEVICE(device));
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
+/*
+ * a6xx_hm_sptprac_disable() - Turn off SPTPRAC and HM
+ * @device: Pointer to KGSL device
+ */
+static int a6xx_hm_sptprac_disable(struct kgsl_device *device)
+{
+	int ret = 0;
+	struct gmu_device *gmu = &device->gmu;
+
+	/* If GMU does not control SPTPRAC we must */
+	if (gmu->idle_level < GPU_HW_SPTP_PC)
+		a6xx_sptprac_disable(ADRENO_DEVICE(device));
+
+	/* If GMU does not control HM we must */
+	if (gmu->idle_level < GPU_HW_IFPC) {
+		ret = a6xx_hm_disable(ADRENO_DEVICE(device));
+		if (ret)
+			dev_err(&gmu->pdev->dev, "Failed to power off GPU HM\n");
+	}
+
+	return ret;
+}
+
+/*
+ * a6xx_hm_sptprac_control() - Turn HM and SPTPRAC on or off
+ * @device: Pointer to KGSL device
+ * @on: True to turn on or false to turn off
+ */
+static int a6xx_hm_sptprac_control(struct kgsl_device *device, bool on)
+{
+	if (on)
+		return a6xx_hm_sptprac_enable(device);
+	else
+		return a6xx_hm_sptprac_disable(device);
+}
+
+/*
  * a6xx_gfx_rail_on() - request GMU to power GPU at given OPP.
  * @device: Pointer to KGSL device
  *
@@ -976,7 +1042,7 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
 	struct device *dev = &gmu->pdev->dev;
-	int ret;
+	int ret = 0;
 
 	if (device->state != KGSL_STATE_INIT &&
 		device->state != KGSL_STATE_SUSPEND) {
@@ -1002,26 +1068,11 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 				0xFFFFFFFF))
 			goto error_rsc;
 
-		/* If GMU does not control HM we must */
-		if (gmu->idle_level < GPU_HW_IFPC) {
-			ret = a6xx_hm_enable(ADRENO_DEVICE(device));
-			if (ret) {
-				dev_err(dev, "Failed to power on GPU HM\n");
-				return ret;
-			}
-		}
-
-		/* If GMU does not control SPTP we must */
-		if (gmu->idle_level < GPU_HW_SPTP_PC) {
-			ret = a6xx_sptprac_enable(ADRENO_DEVICE(device));
-			if (ret) {
-				a6xx_hm_disable(ADRENO_DEVICE(device));
-				return ret;
-			}
-		}
+		/* Turn on the HM and SPTP head switches */
+		ret = a6xx_hm_sptprac_control(device, true);
 	}
 
-	return 0;
+	return ret;
 
 error_rsc:
 	dev_err(dev, "GPU RSC sequence stuck in waking up GPU\n");
@@ -1031,19 +1082,10 @@ error_rsc:
 static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
-	struct device *dev = &gmu->pdev->dev;
-	int val, ret;
+	int val, ret = 0;
 
-	/* If GMU does not control SPTP we must */
-	if (gmu->idle_level < GPU_HW_SPTP_PC)
-		a6xx_sptprac_disable(ADRENO_DEVICE(device));
-
-	/* If GMU does not control HM we must */
-	if (gmu->idle_level < GPU_HW_IFPC) {
-		ret = a6xx_hm_disable(ADRENO_DEVICE(device));
-		if (ret)
-			dev_err(dev, "Failed to power off GPU HM\n");
-	}
+	/* Turn off the SPTP and HM head switches */
+	ret = a6xx_hm_sptprac_control(device, false);
 
 	/* RSC sleep sequence */
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TIMESTAMP_UNIT1_EN_DRV0, 1);
@@ -1069,7 +1111,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 
 	/* FIXME: v2 has different procedure to trigger sequence */
 
-	return 0;
+	return ret;
 }
 
 /*
@@ -1083,30 +1125,16 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = &device->gmu;
 	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
-	struct device *dev = &gmu->pdev->dev;
 	int ret, i;
 
 	a6xx_gmu_power_config(device);
 
-	/* If GMU does not control HM then we must */
-	if (gmu->idle_level < GPU_HW_IFPC) {
-		ret = a6xx_hm_enable(adreno_dev);
-		if (ret) {
-			dev_err(dev, "Failed to power on GPU HM\n");
-			return ret;
-		}
-	}
-
-	/* If GMU does not control SPTP then we must */
-	if (gmu->idle_level < GPU_HW_SPTP_PC) {
-		ret = a6xx_sptprac_enable(adreno_dev);
-		if (ret) {
-			a6xx_hm_disable(adreno_dev);
-			return ret;
-		}
-	}
-
 	if (boot_state == GMU_COLD_BOOT || boot_state == GMU_RESET) {
+		/* Turn on the HM and SPTP head switches */
+		ret = a6xx_hm_sptprac_control(device, true);
+		if (ret)
+			return ret;
+
 		/* Turn on TCM retention */
 		kgsl_gmu_regwrite(device, A6XX_GMU_GENERAL_7, 1);
 
