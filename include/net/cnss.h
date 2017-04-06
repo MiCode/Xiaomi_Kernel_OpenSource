@@ -16,6 +16,7 @@
 #include <linux/skbuff.h>
 #include <linux/pci.h>
 #include <linux/mmc/sdio_func.h>
+#include <linux/interrupt.h>
 
 #ifdef CONFIG_CNSS
 #define MAX_FIRMWARE_SIZE (1 * 1024 * 1024)
@@ -252,4 +253,10 @@ extern u8 *cnss_common_get_wlan_mac_address(struct device *dev, uint32_t *num);
 extern int cnss_power_up(struct device *dev);
 extern int cnss_power_down(struct device *dev);
 extern int cnss_sdio_configure_spdt(bool state);
+
+extern int cnss_common_register_tsf_captured_handler(struct device *dev,
+						     irq_handler_t handler,
+						     void *ctx);
+extern int cnss_common_unregister_tsf_captured_handler(struct device *dev,
+						       void *ctx);
 #endif /* _NET_CNSS_H_ */
