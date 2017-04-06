@@ -707,6 +707,12 @@
 			< 1651200 960000 >;
 	};
 
+	cpu_pmu: cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		qcom,irq-is-percpu;
+		interrupts = <1 5 4>;
+	};
+
 	clock_gcc: qcom,gcc@100000 {
 		compatible = "qcom,gcc-sdm845", "syscon";
 		reg = <0x100000 0x1f0000>;
