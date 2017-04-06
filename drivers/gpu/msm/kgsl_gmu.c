@@ -986,6 +986,7 @@ int gmu_probe(struct kgsl_device *device)
 	struct gmu_memdesc *mem_addr = NULL;
 	struct kgsl_hfi *hfi = &gmu->hfi;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int i = 0, ret = -ENXIO;
 
 	node = of_find_compatible_node(device->pdev->dev.of_node,
@@ -1086,7 +1087,17 @@ int gmu_probe(struct kgsl_device *device)
 
 	hfi_init(&gmu->hfi, mem_addr, HFI_QUEUE_SIZE);
 
-	gmu->idle_level = GPU_HW_ACTIVE;
+	/* Set up GMU idle states */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_MIN_VOLT))
+		gmu->idle_level = GPU_HW_MIN_VOLT;
+	else if (ADRENO_FEATURE(adreno_dev, ADRENO_HW_NAP))
+		gmu->idle_level = GPU_HW_NAP;
+	else if (ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
+		gmu->idle_level = GPU_HW_IFPC;
+	else if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+		gmu->idle_level = GPU_HW_SPTP_PC;
+	else
+		gmu->idle_level = GPU_HW_ACTIVE;
 
 	return 0;
 
