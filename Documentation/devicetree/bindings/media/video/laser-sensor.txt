@@ -19,6 +19,7 @@ Required node properties:
 		regulators used
 	- pinctrl-names : should specify the pin control groups followed by
 		the definition of each group
+		stm,irq-gpio : irq gpio which is to provide interrupts to host.
 	- gpios : should contain phandle to gpio controller node and array of
 		#gpio-cells specifying specific gpio (controller specific)
 	- qcom,gpio-req-tbl-num : contains index to gpios specific to the sensor

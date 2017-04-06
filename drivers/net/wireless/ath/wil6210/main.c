@@ -130,9 +130,15 @@ void wil_memcpy_fromio_32(void *dst, const volatile void __iomem *src,
 	u32 *d = dst;
 	const volatile u32 __iomem *s = src;
 
-	/* size_t is unsigned, if (count%4 != 0) it will wrap */
-	for (count += 4; count > 4; count -= 4)
+	for (; count >= 4; count -= 4)
 		*d++ = __raw_readl(s++);
+
+	if (unlikely(count)) {
+		/* count can be 1..3 */
+		u32 tmp = __raw_readl(s);
+
+		memcpy(d, &tmp, count);
+	}
 }
 
 void wil_memcpy_fromio_halp_vote(struct wil6210_priv *wil, void *dst,
@@ -149,8 +155,16 @@ void wil_memcpy_toio_32(volatile void __iomem *dst, const void *src,
 	volatile u32 __iomem *d = dst;
 	const u32 *s = src;
 
-	for (count += 4; count > 4; count -= 4)
+	for (; count >= 4; count -= 4)
 		__raw_writel(*s++, d++);
+
+	if (unlikely(count)) {
+		/* count can be 1..3 */
+		u32 tmp = 0;
+
+		memcpy(&tmp, s, count);
+		__raw_writel(tmp, d);
+	}
 }
 
 void wil_memcpy_toio_halp_vote(struct wil6210_priv *wil,
@@ -891,6 +905,10 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	if (wil->hw_version == HW_VER_UNKNOWN)
 		return -ENODEV;
 
+	wil_dbg_misc(wil, "Prevent DS in BL & mark FW to set T_POWER_ON=0\n");
+	wil_s(wil, RGF_USER_USAGE_8, BIT_USER_PREVENT_DEEP_SLEEP |
+	      BIT_USER_SUPPORT_T_POWER_ON_0);
+
 	if (wil->platform_ops.notify) {
 		rc = wil->platform_ops.notify(wil->platform_handle,
 					      WIL_PLATFORM_EVT_PRE_RESET);
@@ -992,6 +1010,9 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 			wil_err(wil, "wmi_echo failed, rc %d\n", rc);
 			return rc;
 		}
+
+		if (wil->tt_data_set)
+			wmi_set_tt_cfg(wil, &wil->tt_data);
 
 		wil_collect_fw_info(wil);
 

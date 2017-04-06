@@ -137,6 +137,7 @@ struct hdmi_edid_ctrl {
 	u16 video_latency;
 	u32 present_3d;
 	u32 page_id;
+	bool basic_audio_supp;
 	u8 audio_data_block[MAX_NUMBER_ADB * MAX_AUDIO_DATA_BLOCK_SIZE];
 	int adb_size;
 	u8 spkr_alloc_data_block[MAX_SPKR_ALLOC_DATA_BLOCK_SIZE];
@@ -1288,6 +1289,14 @@ static void hdmi_edid_extract_sink_caps(struct hdmi_edid_ctrl *edid_ctrl,
 		pr_err("%s: invalid input\n", __func__);
 		return;
 	}
+
+	/* Check if sink supports basic audio */
+	if (in_buf[3] & BIT(6))
+		edid_ctrl->basic_audio_supp = true;
+	else
+		edid_ctrl->basic_audio_supp = false;
+	pr_debug("%s: basic audio supported: %s\n", __func__,
+		edid_ctrl->basic_audio_supp ? "true" : "false");
 
 	vsd = hdmi_edid_find_hfvsdb(in_buf);
 
@@ -2618,6 +2627,24 @@ void hdmi_edid_config_override(void *input, bool enable,
 			__func__, ov_data->scramble, ov_data->sink_mode,
 			ov_data->format, ov_data->vic);
 	}
+}
+
+void hdmi_edid_set_max_pclk_rate(void *input, u32 max_pclk_khz)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+
+	edid_ctrl->init_data.max_pclk_khz = max_pclk_khz;
+}
+
+bool hdmi_edid_is_audio_supported(void *input)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+
+	/*
+	 * return true if basic audio is supported or if an audio
+	 * data block was successfully parsed.
+	 */
+	return (edid_ctrl->basic_audio_supp || edid_ctrl->adb_size);
 }
 
 void hdmi_edid_deinit(void *input)

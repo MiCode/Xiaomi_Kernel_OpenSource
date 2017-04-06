@@ -1436,6 +1436,12 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	int err = 0;
 	struct timespec invoket;
 
+	VERIFY(err, fl->sctx);
+	if (err)
+		goto bail;
+	VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
 	if (fl->profile)
 		getnstimeofday(&invoket);
 	if (!kernel) {

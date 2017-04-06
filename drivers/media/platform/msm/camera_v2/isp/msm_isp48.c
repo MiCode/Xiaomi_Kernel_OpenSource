@@ -237,6 +237,7 @@ static int msm_vfe48_get_clks(struct vfe_device *vfe_dev)
 		vfe_dev->hvx_clk_info =
 			&vfe_dev->vfe_clk_info[vfe_dev->num_clk-1];
 		vfe_dev->hvx_clk = &vfe_dev->vfe_clk[vfe_dev->num_clk-1];
+		vfe_dev->hvx_clk_state = false;
 	}
 
 	for (i = 0; i < vfe_dev->num_clk; i++) {
@@ -368,6 +369,7 @@ struct msm_vfe_hardware_info vfe48_hw_info = {
 			.process_stats_irq = msm_isp_process_stats_irq,
 			.process_epoch_irq = msm_vfe47_process_epoch_irq,
 			.config_irq = msm_vfe47_config_irq,
+			.preprocess_camif_irq = msm_isp47_preprocess_camif_irq,
 		},
 		.axi_ops = {
 			.reload_wm = msm_vfe47_axi_reload_wm,

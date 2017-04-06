@@ -493,11 +493,7 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 				NULL,
 				NULL);
 
-		status = set_qdss_data_connection(
-				qdss->gadget,
-				qdss->port.data,
-				qdss->port.data->address,
-				0);
+		status = set_qdss_data_connection(qdss, 0);
 		if (status)
 			pr_err("qdss_disconnect error");
 	}
@@ -543,11 +539,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 	}
 
 	pr_debug("usb_qdss_connect_work\n");
-	status = set_qdss_data_connection(
-			qdss->gadget,
-			qdss->port.data,
-			qdss->port.data->address,
-			1);
+	status = set_qdss_data_connection(qdss, 1);
 	if (status) {
 		pr_err("set_qdss_data_connection error(%d)", status);
 		return;
@@ -868,14 +860,9 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	if (status)
 		pr_err("%s: uninit_data error\n", __func__);
 
-	status = set_qdss_data_connection(
-				gadget,
-				qdss->port.data,
-				qdss->port.data->address,
-				0);
+	status = set_qdss_data_connection(qdss, 0);
 	if (status)
 		pr_err("%s:qdss_disconnect error\n", __func__);
-	usb_gadget_restart(gadget);
 }
 EXPORT_SYMBOL(usb_qdss_close);
 

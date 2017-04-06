@@ -113,6 +113,14 @@ struct phy *ufs_qcom_phy_generic_probe(struct platform_device *pdev,
 		goto out;
 	}
 
+	/*
+	 * UFS PHY power management is managed by its parent (UFS host
+	 * controller) hence set the no the no runtime PM callbacks flag
+	 * on UFS PHY device to avoid any accidental attempt to call the
+	 * PM callbacks for PHY device.
+	 */
+	pm_runtime_no_callbacks(&generic_phy->dev);
+
 	common_cfg->phy_spec_ops = phy_spec_ops;
 	common_cfg->dev = dev;
 
