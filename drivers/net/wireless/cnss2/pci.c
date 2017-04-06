@@ -644,11 +644,11 @@ int cnss_auto_resume(void)
 		if (ret)
 			cnss_pr_err("Failed to enable PCI device, err = %d\n",
 				    ret);
-		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
 	}
 
 	cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
 	pci_set_master(pci_dev);
+	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
 	cnss_pci_set_auto_suspended(pci_priv, 0);
 
 	bus_bw_info = &plat_priv->bus_bw_info;
