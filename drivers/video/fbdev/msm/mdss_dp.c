@@ -1820,6 +1820,8 @@ static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 	dp_drv->edid_buf = edid_init_data.buf;
 	dp_drv->edid_buf_size = edid_init_data.buf_size;
 
+	mdss_dp_set_default_resolution(dp_drv);
+
 	return 0;
 }
 
