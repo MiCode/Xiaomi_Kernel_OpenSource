@@ -1,4 +1,5 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,12 +11,13 @@
  * GNU General Public License for more details.
  */
 
-#include <dt-bindings/interrupt-controller/irq.h>
-#include "mdm9650-v1.1-mtp.dtsi"
-#include "sdxhedgehog.dtsi"
-#include "sdxhedgehog-pinctrl.dtsi"
+/dts-v1/;
 
-&smb1351_otg_supply {
-	interrupts = <75 IRQ_TYPE_LEVEL_LOW>;
+#include "mdm9607-mtp.dtsi"
+#include "mdm9206.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MDM 9206 MTP";
+	compatible = "qcom,mdm9607-mtp", "qcom,mdm9607", "qcom,mtp";
+	qcom,board-id = <8 0>;
 };
-

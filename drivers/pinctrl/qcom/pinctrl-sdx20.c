@@ -90,7 +90,7 @@
 		.intr_detection_bit = -1,		\
 		.intr_detection_width = -1,		\
 	}
-static const struct pinctrl_pin_desc sdxhedgehog_pins[] = {
+static const struct pinctrl_pin_desc sdx20_pins[] = {
 	PINCTRL_PIN(0, "GPIO_0"),
 	PINCTRL_PIN(1, "GPIO_1"),
 	PINCTRL_PIN(2, "GPIO_2"),
@@ -271,7 +271,7 @@ static const unsigned int sdc1_clk_pins[] = { 84 };
 static const unsigned int sdc1_cmd_pins[] = { 85 };
 static const unsigned int sdc1_data_pins[] = { 86 };
 
-enum sdxhedgehog_functions {
+enum sdx20_functions {
 	msm_mux_blsp_uart_tx_a1,
 	msm_mux_blsp_spi1,
 	msm_mux_gpio,
@@ -916,7 +916,7 @@ static const char * const blsp_i2c_scl_b1_groups[] = {
 	"gpio77",
 };
 
-static const struct msm_function sdxhedgehog_functions[] = {
+static const struct msm_function sdx20_functions[] = {
 	FUNCTION(blsp_uart_tx_a1),
 	FUNCTION(blsp_spi1),
 	FUNCTION(gpio),
@@ -1076,7 +1076,7 @@ static const struct msm_function sdxhedgehog_functions[] = {
 	FUNCTION(blsp_i2c_scl_b1),
 };
 
-static const struct msm_pingroup sdxhedgehog_groups[] = {
+static const struct msm_pingroup sdx20_groups[] = {
 	PINGROUP(0, uim2_data, blsp_spi1, blsp_uart_tx_a1, qdss_stm31,
 		 ebi0_wrcdc, NA, NA, NA, NA),
 	PINGROUP(1, uim2_present, blsp_spi1, blsp_uart_rx_a1, qdss_stm30, NA,
@@ -1202,48 +1202,48 @@ static const struct msm_pingroup sdxhedgehog_groups[] = {
 	SDC_QDSD_PINGROUP(sdc1_data, 0x10a000, 9, 0),
 };
 
-static const struct msm_pinctrl_soc_data sdxhedgehog_pinctrl = {
-	.pins = sdxhedgehog_pins,
-	.npins = ARRAY_SIZE(sdxhedgehog_pins),
-	.functions = sdxhedgehog_functions,
-	.nfunctions = ARRAY_SIZE(sdxhedgehog_functions),
-	.groups = sdxhedgehog_groups,
-	.ngroups = ARRAY_SIZE(sdxhedgehog_groups),
+static const struct msm_pinctrl_soc_data sdx20_pinctrl = {
+	.pins = sdx20_pins,
+	.npins = ARRAY_SIZE(sdx20_pins),
+	.functions = sdx20_functions,
+	.nfunctions = ARRAY_SIZE(sdx20_functions),
+	.groups = sdx20_groups,
+	.ngroups = ARRAY_SIZE(sdx20_groups),
 	.ngpios = 84,
 };
 
-static int sdxhedgehog_pinctrl_probe(struct platform_device *pdev)
+static int sdx20_pinctrl_probe(struct platform_device *pdev)
 {
-	return msm_pinctrl_probe(pdev, &sdxhedgehog_pinctrl);
+	return msm_pinctrl_probe(pdev, &sdx20_pinctrl);
 }
 
-static const struct of_device_id sdxhedgehog_pinctrl_of_match[] = {
-	{ .compatible = "qcom,sdxhedgehog-pinctrl", },
+static const struct of_device_id sdx20_pinctrl_of_match[] = {
+	{ .compatible = "qcom,sdx20-pinctrl", },
 	{ },
 };
 
-static struct platform_driver sdxhedgehog_pinctrl_driver = {
+static struct platform_driver sdx20_pinctrl_driver = {
 	.driver = {
-		.name = "sdxhedgehog-pinctrl",
+		.name = "sdx20-pinctrl",
 		.owner = THIS_MODULE,
-		.of_match_table = sdxhedgehog_pinctrl_of_match,
+		.of_match_table = sdx20_pinctrl_of_match,
 	},
-	.probe = sdxhedgehog_pinctrl_probe,
+	.probe = sdx20_pinctrl_probe,
 	.remove = msm_pinctrl_remove,
 };
 
-static int __init sdxhedgehog_pinctrl_init(void)
+static int __init sdx20_pinctrl_init(void)
 {
-	return platform_driver_register(&sdxhedgehog_pinctrl_driver);
+	return platform_driver_register(&sdx20_pinctrl_driver);
 }
-arch_initcall(sdxhedgehog_pinctrl_init);
+arch_initcall(sdx20_pinctrl_init);
 
-static void __exit sdxhedgehog_pinctrl_exit(void)
+static void __exit sdx20_pinctrl_exit(void)
 {
-	platform_driver_unregister(&sdxhedgehog_pinctrl_driver);
+	platform_driver_unregister(&sdx20_pinctrl_driver);
 }
-module_exit(sdxhedgehog_pinctrl_exit);
+module_exit(sdx20_pinctrl_exit);
 
-MODULE_DESCRIPTION("QTI sdxhedgehog pinctrl driver");
+MODULE_DESCRIPTION("QTI sdx20 pinctrl driver");
 MODULE_LICENSE("GPL v2");
-MODULE_DEVICE_TABLE(of, sdxhedgehog_pinctrl_of_match);
+MODULE_DEVICE_TABLE(of, sdx20_pinctrl_of_match);

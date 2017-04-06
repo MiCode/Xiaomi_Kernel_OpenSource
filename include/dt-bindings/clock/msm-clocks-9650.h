@@ -151,7 +151,7 @@
 /* Audio External Clocks */
 #define clk_audio_lpass_mclk 0x575ec22b
 
-/* sdxhedgehog */
+/* sdx20 */
 #define clk_gcc_pcie_aux_clk 0x06d8e933
 #define clk_pcie_aux_phy_clk_src 0x672e340c
 #define clk_pcie20_phy_aux_clk 0x613dfb19

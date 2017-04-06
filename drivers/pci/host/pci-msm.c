@@ -46,7 +46,7 @@
 #include <linux/ipc_logging.h>
 #include <linux/msm_pcie.h>
 
-#ifdef CONFIG_ARCH_SDXHEDGEHOG
+#ifdef CONFIG_ARCH_SDX20
 #define PCIE_VENDOR_ID_RCP		0x17cb
 #define PCIE_DEVICE_ID_RCP		0x0303
 

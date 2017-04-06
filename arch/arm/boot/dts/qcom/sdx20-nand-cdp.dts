@@ -12,11 +12,11 @@
 
 /dts-v1/;
 
-#include "sdxhedgehog-cdp.dtsi"
+#include "sdx20-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDX HEDGEHOG CDP (NAND)";
-	compatible = "qcom,sdxhedgehog-cdp", "qcom,sdxhedgehog",
+	model = "Qualcomm Technologies, Inc. SDX20 CDP (NAND)";
+	compatible = "qcom,sdx20-cdp", "qcom,sdx20",
 		     "qcom,cdp";
 	qcom,board-id = <1 0x0>, <1 0x100>;
 };

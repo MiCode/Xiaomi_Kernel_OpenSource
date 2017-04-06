@@ -591,8 +591,12 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK));
 	}
 
-	if (dev->active_config)
+	if (dev->active_config) {
 		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
+
+		EP_PCIE_DBG2(dev, "PCIe V%d: Enable L1.\n", dev->rev);
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
+	}
 }
 
 static void ep_pcie_config_inbound_iatu(struct ep_pcie_dev_t *dev)
@@ -965,6 +969,11 @@ static void ep_pcie_release_resources(struct ep_pcie_dev_t *dev)
 	dev->phy = NULL;
 	dev->mmio = NULL;
 	dev->msi = NULL;
+
+	if (dev->bus_client) {
+		dev->bus_client = 0;
+		msm_bus_scale_unregister_client(dev->bus_client);
+	}
 }
 
 int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)

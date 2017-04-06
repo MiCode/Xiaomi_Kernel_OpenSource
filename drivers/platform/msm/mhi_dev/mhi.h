@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -272,7 +272,7 @@ struct mhi_config {
 #define HW_CHANNEL_END			107
 #define MHI_ENV_VALUE			2
 #define MHI_MASK_ROWS_CH_EV_DB		4
-#define TRB_MAX_DATA_SIZE		4096
+#define TRB_MAX_DATA_SIZE		8192
 
 /* Possible ring element types */
 union mhi_dev_ring_element_type {
@@ -618,7 +618,9 @@ enum mhi_client_channel {
 	MHI_CLIENT_CSVT_IN = 43,
 	MHI_CLIENT_SMCT_OUT = 44,
 	MHI_CLIENT_SMCT_IN = 45,
-	MHI_MAX_SOFTWARE_CHANNELS = 46,
+	MHI_CLIENT_IP_SW_4_OUT  = 46,
+	MHI_CLIENT_IP_SW_4_IN  = 47,
+	MHI_MAX_SOFTWARE_CHANNELS = 48,
 	MHI_CLIENT_TEST_OUT = 60,
 	MHI_CLIENT_TEST_IN = 61,
 	MHI_CLIENT_RESERVED_1_LOWER = 62,
@@ -793,6 +795,7 @@ void mhi_dev_read_from_host(struct mhi_dev *mhi,
  * @buf:	Data buffer that needs to be read from the host.
  * @size:	Data buffer size.
  */
+
 void mhi_ring_set_cb(struct mhi_dev_ring *ring,
 			void (*ring_cb)(struct mhi_dev *dev,
 			union mhi_dev_ring_element_type *el, void *ctx));
@@ -1130,6 +1133,12 @@ int mhi_pcie_config_db_routing(struct mhi_dev *mhi);
  *		channels.
  */
 int mhi_uci_init(void);
+
+/**
+ * mhi_dev_net_interface_init() - Enable Network stack interface for MHI device
+ *		which exposes the virtual network interface.
+ **/
+int mhi_dev_net_interface_init(void);
 
 void mhi_dev_notify_a7_event(struct mhi_dev *mhi);
 
