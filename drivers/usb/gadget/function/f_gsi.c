@@ -3050,6 +3050,9 @@ static void gsi_free_inst(struct usb_function_instance *f)
 {
 	struct gsi_opts *opts = container_of(f, struct gsi_opts, func_inst);
 
+	if (!opts->gsi)
+		return;
+
 	if (opts->gsi->c_port.ctrl_device.fops)
 		misc_deregister(&opts->gsi->c_port.ctrl_device);
 
