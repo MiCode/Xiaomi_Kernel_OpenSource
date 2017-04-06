@@ -224,4 +224,10 @@
 #define GCC_USB3_DP_PHY_SEC_BCR					23
 #define GCC_USB_PHY_CFG_AHB2PHY_BCR				24
 
+/* Dummy clocks for rate measurement */
+#define MEASURE_ONLY_SNOC_CLK					0
+#define MEASURE_ONLY_CNOC_CLK					1
+#define MEASURE_ONLY_BIMC_CLK					2
+#define MEASURE_ONLY_IPA_2X_CLK					3
+
 #endif
