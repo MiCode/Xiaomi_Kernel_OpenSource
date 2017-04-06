@@ -190,9 +190,6 @@ struct cam_req_mgr_sync_mode {
 #define CAM_REQ_MGR_MAP_BUF                     (CAM_COMMON_OPCODE_MAX + 10)
 #define CAM_REQ_MGR_RELEASE_BUF                 (CAM_COMMON_OPCODE_MAX + 11)
 #define CAM_REQ_MGR_CACHE_OPS                   (CAM_COMMON_OPCODE_MAX + 12)
-#define CAM_REQ_MGR_GET_MMU_HDLS_DEBUG          (CAM_COMMON_OPCODE_MAX + 13)
-#define CAM_REQ_MGR_GET_IO_BUF_DEBUG            (CAM_COMMON_OPCODE_MAX + 14)
-#define CAM_REQ_MGR_GET_KMD_BUF_DEBUG           (CAM_COMMON_OPCODE_MAX + 15)
 /* end of cam_req_mgr opcodes */
 
 #define CAM_MEM_FLAG_HW_READ_WRITE              (1<<0)
@@ -206,6 +203,7 @@ struct cam_req_mgr_sync_mode {
 #define CAM_MEM_FLAG_STATS_BUF_TYPE             (1<<8)
 #define CAM_MEM_FLAG_PACKET_BUF_TYPE            (1<<9)
 #define CAM_MEM_FLAG_CACHE                      (1<<10)
+#define CAM_MEM_FLAG_HW_SHARED_ACCESS           (1<<11)
 
 #define CAM_MEM_MMU_MAX_HANDLE                  16
 
