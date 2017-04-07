@@ -183,6 +183,9 @@ int msm_gpu_pm_resume(struct msm_gpu *gpu)
 	if (ret)
 		return ret;
 
+	if (gpu->aspace && gpu->aspace->mmu)
+		msm_mmu_enable(gpu->aspace->mmu);
+
 	return 0;
 }
 
@@ -202,6 +205,9 @@ int msm_gpu_pm_suspend(struct msm_gpu *gpu)
 
 	if (WARN_ON(gpu->active_cnt < 0))
 		return -EINVAL;
+
+	if (gpu->aspace && gpu->aspace->mmu)
+		msm_mmu_disable(gpu->aspace->mmu);
 
 	ret = disable_axi(gpu);
 	if (ret)

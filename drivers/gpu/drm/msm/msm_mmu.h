@@ -43,6 +43,8 @@ struct msm_mmu_funcs {
 	void (*unmap)(struct msm_mmu *mmu, uint64_t iova, struct sg_table *sgt,
 			void *priv);
 	void (*destroy)(struct msm_mmu *mmu);
+	void (*enable)(struct msm_mmu *mmu);
+	void (*disable)(struct msm_mmu *mmu);
 };
 
 struct msm_mmu {
@@ -67,5 +69,17 @@ struct msm_mmu *msm_iommu_new(struct device *parent,
 
 /* Create a new dynamic domain for GPU */
 struct msm_mmu *msm_iommu_new_dynamic(struct msm_mmu *orig);
+
+static inline void msm_mmu_enable(struct msm_mmu *mmu)
+{
+	if (mmu->funcs->enable)
+		mmu->funcs->enable(mmu);
+}
+
+static inline void msm_mmu_disable(struct msm_mmu *mmu)
+{
+	if (mmu->funcs->disable)
+		mmu->funcs->disable(mmu);
+}
 
 #endif /* __MSM_MMU_H__ */

@@ -27,49 +27,17 @@ static int msm_fault_handler(struct iommu_domain *iommu, struct device *dev,
 	return 0;
 }
 
-static void enable_iommu_clocks(struct msm_iommu *iommu)
-{
-	int i;
-
-	for (i = 0; i < iommu->nr_clocks; i++) {
-		if (iommu->clocks[i])
-			clk_prepare_enable(iommu->clocks[i]);
-	}
-}
-
-static void disable_iommu_clocks(struct msm_iommu *iommu)
-{
-	int i;
-
-	for (i = 0; i < iommu->nr_clocks; i++) {
-		if (iommu->clocks[i])
-			clk_disable_unprepare(iommu->clocks[i]);
-	}
-}
-
-/*
- * Get and enable the IOMMU clocks so that we can make
- * sure they stay on the entire duration so that we can
- * safely change the pagetable from the GPU
- */
-static void get_iommu_clocks(struct msm_iommu *iommu, struct device *dev)
+static void iommu_get_clocks(struct msm_iommu *iommu, struct device *dev)
 {
 	struct property *prop;
 	const char *name;
 	int i = 0;
 
-	if (iommu->nr_clocks) {
-		enable_iommu_clocks(iommu);
-		return;
-	}
-
 	iommu->nr_clocks =
 		of_property_count_strings(dev->of_node, "clock-names");
 
-	if (iommu->nr_clocks < 0) {
-		iommu->nr_clocks = 0;
+	if (iommu->nr_clocks < 0)
 		return;
-	}
 
 	if (WARN_ON(iommu->nr_clocks > ARRAY_SIZE(iommu->clocks)))
 		iommu->nr_clocks = ARRAY_SIZE(iommu->clocks);
@@ -78,11 +46,34 @@ static void get_iommu_clocks(struct msm_iommu *iommu, struct device *dev)
 		if (i == iommu->nr_clocks)
 			break;
 
-		iommu->clocks[i] =  clk_get(dev, name);
-		i++;
+		iommu->clocks[i++] =  clk_get(dev, name);
 	}
+}
 
-	enable_iommu_clocks(iommu);
+
+static void msm_iommu_clocks_enable(struct msm_mmu *mmu)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+	int i;
+
+	if (!iommu->nr_clocks)
+		iommu_get_clocks(iommu, mmu->dev->parent);
+
+	for (i = 0; i < iommu->nr_clocks; i++) {
+		if (iommu->clocks[i])
+			clk_prepare_enable(iommu->clocks[i]);
+	}
+}
+
+static void msm_iommu_clocks_disable(struct msm_mmu *mmu)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+	int i;
+
+	for (i = 0; i < iommu->nr_clocks; i++) {
+		if (iommu->clocks[i])
+			clk_disable_unprepare(iommu->clocks[i]);
+	}
 }
 
 static int msm_iommu_attach(struct msm_mmu *mmu, const char **names,
@@ -103,16 +94,12 @@ static int msm_iommu_attach_user(struct msm_mmu *mmu, const char **names,
 	iommu->allow_dynamic = !iommu_domain_set_attr(iommu->domain,
 		DOMAIN_ATTR_ENABLE_TTBR1, &val) ? true : false;
 
-	get_iommu_clocks(iommu, mmu->dev->parent);
-
 	/* Mark the GPU as I/O coherent if it is supported */
 	iommu->is_coherent = of_dma_is_coherent(mmu->dev->of_node);
 
 	ret = iommu_attach_device(iommu->domain, mmu->dev);
-	if (ret) {
-		disable_iommu_clocks(iommu);
+	if (ret)
 		return ret;
-	}
 
 	/*
 	 * Get the context bank for the base domain; this will be shared with
@@ -160,8 +147,6 @@ static void msm_iommu_detach(struct msm_mmu *mmu)
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 
 	iommu_detach_device(iommu->domain, mmu->dev);
-
-	disable_iommu_clocks(iommu);
 }
 
 static void msm_iommu_detach_dynamic(struct msm_mmu *mmu)
@@ -261,6 +246,8 @@ static const struct msm_mmu_funcs user_funcs = {
 		.map = msm_iommu_map,
 		.unmap = msm_iommu_unmap,
 		.destroy = msm_iommu_destroy,
+		.enable = msm_iommu_clocks_enable,
+		.disable = msm_iommu_clocks_disable,
 };
 
 static const struct msm_mmu_funcs dynamic_funcs = {
