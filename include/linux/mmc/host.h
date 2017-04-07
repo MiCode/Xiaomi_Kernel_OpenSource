@@ -595,6 +595,7 @@ struct mmc_host {
 	struct io_latency_state io_lat_s;
 #endif
 
+	bool sdr104_wa;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
@@ -726,6 +727,16 @@ static inline int mmc_host_uhs(struct mmc_host *host)
 		(MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
 		 MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR104 |
 		 MMC_CAP_UHS_DDR50);
+}
+
+static inline void mmc_host_clear_sdr104(struct mmc_host *host)
+{
+	host->caps &= ~MMC_CAP_UHS_SDR104;
+}
+
+static inline void mmc_host_set_sdr104(struct mmc_host *host)
+{
+	host->caps |= MMC_CAP_UHS_SDR104;
 }
 
 static inline int mmc_host_packed_wr(struct mmc_host *host)
