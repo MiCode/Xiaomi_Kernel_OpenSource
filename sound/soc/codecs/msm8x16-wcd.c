@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3890,12 +3890,22 @@ static int msm8x16_wcd_codec_config_compander(struct snd_soc_codec *codec,
 		msm8x16_wcd->comp_enabled[interp_n]);
 
 	/* compander is not enabled */
-	if (!msm8x16_wcd->comp_enabled[interp_n])
+	if (!msm8x16_wcd->comp_enabled[interp_n]) {
+		if (interp_n < MSM8X16_WCD_RX3)
+			if (get_codec_version(msm8x16_wcd) >= DIANGU)
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_RX_COM_BIAS_DAC,
+					0x08, 0x00);
 		return 0;
+	}
 
 	switch (msm8x16_wcd->comp_enabled[interp_n]) {
 	case COMPANDER_1:
 		if (SND_SOC_DAPM_EVENT_ON(event)) {
+			if (get_codec_version(msm8x16_wcd) >= DIANGU)
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_RX_COM_BIAS_DAC,
+					0x08, 0x08);
 			/* Enable Compander Clock */
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_CDC_COMP0_B2_CTL, 0x0F, 0x09);
