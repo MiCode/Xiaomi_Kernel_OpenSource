@@ -147,9 +147,9 @@ msm_gem_smmu_address_space_create(struct device *dev, struct msm_mmu *mmu,
 
 struct msm_gem_address_space *
 msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
-		const char *name)
+		int type, const char *name)
 {
-	struct msm_mmu *mmu = msm_iommu_new(dev, domain);
+	struct msm_mmu *mmu = msm_iommu_new(dev, type, domain);
 
 	if (IS_ERR(mmu))
 		return (struct msm_gem_address_space *) mmu;

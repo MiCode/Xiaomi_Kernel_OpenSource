@@ -515,15 +515,11 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 	mdelay(16);
 
 	if (config->iommu) {
-		struct msm_mmu *mmu = msm_iommu_new(&pdev->dev, config->iommu);
-
-		if (IS_ERR(mmu)) {
-			ret = PTR_ERR(mmu);
-			goto fail;
-		}
+		config->iommu->geometry.aperture_start = 0x1000;
+		config->iommu->geometry.aperture_end = 0xffffffff;
 
 		aspace = msm_gem_address_space_create(&pdev->dev,
-				mmu, "mdp4", 0x1000, 0xffffffff);
+			config->iommu, MSM_IOMMU_DOMAIN_DEFAULT, "mdp4");
 		if (IS_ERR(aspace)) {
 			ret = PTR_ERR(aspace);
 			goto fail;

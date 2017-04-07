@@ -837,7 +837,7 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 
 		dev_info(drm->dev, "%s: using IOMMU\n", name);
 		gpu->aspace = msm_gem_address_space_create(&pdev->dev,
-				iommu, "gpu");
+				iommu, MSM_IOMMU_DOMAIN_USER, "gpu");
 		if (IS_ERR(gpu->aspace)) {
 			ret = PTR_ERR(gpu->aspace);
 			dev_err(drm->dev, "failed to init iommu: %d\n", ret);
