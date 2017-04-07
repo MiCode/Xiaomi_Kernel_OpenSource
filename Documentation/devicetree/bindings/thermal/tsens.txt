@@ -21,34 +21,25 @@ Required properties:
 	       The compatible property is used to identify the respective controller to use
 	       for the corresponding SoC.
 - reg : offset and length of the TSENS registers with associated property in reg-names
-	as "tsens_physical" for TSENS TM physical address region.
+	as "tsens_srot_physical" for TSENS SROT physical address region. TSENS TM
+	physical address region as "tsens_tm_physical".
 - reg-names : resource names used for the physical address of the TSENS
-	      registers. Should be "tsens_physical" for physical address of the TSENS.
+	      registers. Should be "tsens_srot_physical" for physical address of the TSENS
+	      SROT region and "tsens_tm_physical" for physical address of the TM region.
 - interrupts : TSENS interrupt to notify Upper/Lower and Critical temperature threshold.
 - interrupt-names: Should be "tsens-upper-lower" for temperature threshold.
 		   Add "tsens-critical" for Critical temperature threshold notification
 		   in addition to "tsens-upper-lower" for 8996 TSENS since
 		   8996 supports Upper/Lower and Critical temperature threshold.
-- qcom,sensors : Total number of available Temperature sensors for TSENS.
-
-Optional properties:
-- qcom,sensor-id : If the flag is present map the TSENS sensors based on the
-		remote sensors that are enabled in HW. Ensure the mapping is not
-		more than the number of supported sensors.
-- qcom,client-id : If the flag is present use it to identify the SW ID mapping
-		used to associate it with the controller and the physical sensor
-		mapping within the controller. The physical sensor mapping within
-		each controller is done using the qcom,sensor-id property. If the
-		property is not present the SW ID mapping with default from 0 to
-		total number of supported sensors with each controller instance.
 
 Example:
 
 tsens@fc4a8000 {
 	compatible = "qcom,msm-tsens";
-	reg = <0xfc4a8000 0x2000>;,
-	reg-names = "tsens_physical";
+	reg = <0xfc4a8000 0x10>,
+		<0xfc4b8000 0x1ff>;
+	reg-names = "tsens_srot_physical",
+		    "tsens_tm_physical";
 	interrupts = <0 184 0>;
 	interrupt-names = "tsens-upper-lower";
-	qcom,sensors = <11>;
 };

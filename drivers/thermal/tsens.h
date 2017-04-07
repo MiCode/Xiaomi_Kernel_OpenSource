@@ -23,9 +23,9 @@
 
 #define DEBUG_SIZE				10
 #define TSENS_MAX_SENSORS			16
-#define TSENS_CONTROLLER_ID(n)			((n) + 0x1000)
+#define TSENS_CONTROLLER_ID(n)			(n)
 #define TSENS_CTRL_ADDR(n)			(n)
-#define TSENS_TM_SN_STATUS(n)			((n) + 0x10a0)
+#define TSENS_TM_SN_STATUS(n)			((n) + 0xa0)
 
 enum tsens_dbg_type {
 	TSENS_DBG_POLL,
@@ -87,7 +87,7 @@ struct tsens_sensor {
 struct tsens_ops {
 	int (*hw_init)(struct tsens_device *);
 	int (*get_temp)(struct tsens_sensor *, int *);
-	int (*set_trip_temp)(struct tsens_sensor *, int, int);
+	int (*set_trips)(struct tsens_sensor *, int, int);
 	int (*interrupts_reg)(struct tsens_device *);
 	int (*dbg)(struct tsens_device *, u32, u32, int *);
 };
@@ -121,7 +121,8 @@ struct tsens_device {
 	u32				num_sensors;
 	struct regmap			*map;
 	struct regmap_field		*status_field;
-	void				*tsens_addr;
+	void __iomem			*tsens_srot_addr;
+	void __iomem			*tsens_tm_addr;
 	const struct tsens_ops		*ops;
 	struct tsens_dbg_context	tsens_dbg;
 	spinlock_t			tsens_crit_lock;
