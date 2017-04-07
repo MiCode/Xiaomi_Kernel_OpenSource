@@ -1188,6 +1188,56 @@ static int a6xx_hm_disable(struct adreno_device *adreno_dev)
 	return regulator_disable(gmu->gx_gdsc);
 }
 
+#define SPTPRAC_POWER_OFF	BIT(2)
+#define SP_CLK_OFF		BIT(4)
+#define GX_GDSC_POWER_OFF	BIT(6)
+#define GX_CLK_OFF		BIT(7)
+
+/*
+ * a6xx_gx_is_on() - Check if GX is on using pwr status register
+ * @adreno_dev - Pointer to adreno_device
+ * This check should only be performed if the keepalive bit is set or it
+ * can be guaranteed that the power state of the GPU will remain unchanged
+ */
+static bool a6xx_gx_is_on(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	unsigned int val;
+	bool state;
+
+	if (!kgsl_gmu_isenabled(device))
+		return true;
+
+	kgsl_gmu_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
+	state = !(val & (GX_GDSC_POWER_OFF | GX_CLK_OFF));
+
+	/* If GMU is holding on to the fence then we cannot dump any GX stuff */
+	kgsl_gmu_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &val);
+	if (val)
+		return false;
+
+	return state;
+
+}
+
+/*
+ * a6xx_sptprac_is_on() - Check if SPTP is on using pwr status register
+ * @adreno_dev - Pointer to adreno_device
+ * This check should only be performed if the keepalive bit is set or it
+ * can be guaranteed that the power state of the GPU will remain unchanged
+ */
+static bool a6xx_sptprac_is_on(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	unsigned int val;
+
+	if (!kgsl_gmu_isenabled(device))
+		return true;
+
+	kgsl_gmu_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
+	return !(val & (SPTPRAC_POWER_OFF | SP_CLK_OFF));
+}
+
 /*
  * a6xx_hm_sptprac_enable() - Turn on HM and SPTPRAC
  * @device: Pointer to KGSL device
@@ -2778,4 +2828,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_set_marker = a6xx_preemption_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
 	.preemption_context_destroy = a6xx_preemption_context_destroy,
+	.gx_is_on = a6xx_gx_is_on,
+	.sptprac_is_on = a6xx_sptprac_is_on,
 };

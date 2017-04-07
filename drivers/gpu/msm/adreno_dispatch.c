@@ -2060,10 +2060,24 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	int ret, i;
 	int fault;
 	int halt;
+	bool gx_on = true;
 
 	fault = atomic_xchg(&dispatcher->fault, 0);
 	if (fault == 0)
 		return 0;
+
+	/* Mask all GMU interrupts */
+	if (kgsl_gmu_isenabled(device)) {
+		adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
+			0xFFFFFFFF);
+		adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
+			0xFFFFFFFF);
+	}
+
+	if (gpudev->gx_is_on)
+		gx_on = gpudev->gx_is_on(adreno_dev);
 
 	/*
 	 * In the very unlikely case that the power is off, do nothing - the
@@ -2084,7 +2098,8 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	 * else return early to give the fault handler a chance to run.
 	 */
 	if (!(fault & ADRENO_IOMMU_PAGE_FAULT) &&
-		(adreno_is_a5xx(adreno_dev) || adreno_is_a6xx(adreno_dev))) {
+		(adreno_is_a5xx(adreno_dev) || adreno_is_a6xx(adreno_dev)) &&
+		gx_on) {
 		unsigned int val;
 
 		mutex_lock(&device->mutex);
@@ -2106,14 +2121,15 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 
 	mutex_lock(&device->mutex);
 
-	adreno_readreg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
-		ADRENO_REG_CP_RB_BASE_HI, &base);
+	if (gx_on)
+		adreno_readreg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
+			ADRENO_REG_CP_RB_BASE_HI, &base);
 
 	/*
 	 * Force the CP off for anything but a hard fault to make sure it is
 	 * good and stopped
 	 */
-	if (!(fault & ADRENO_HARD_FAULT)) {
+	if (!(fault & ADRENO_HARD_FAULT) && gx_on) {
 		adreno_readreg(adreno_dev, ADRENO_REG_CP_ME_CNTL, &reg);
 		if (adreno_is_a5xx(adreno_dev) || adreno_is_a6xx(adreno_dev))
 			reg |= 1 | (1 << 1);
@@ -2149,8 +2165,9 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		trace_adreno_cmdbatch_fault(cmdobj, fault);
 	}
 
-	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
-		ADRENO_REG_CP_IB1_BASE_HI, &base);
+	if (gx_on)
+		adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
+			ADRENO_REG_CP_IB1_BASE_HI, &base);
 
 	do_header_and_snapshot(device, hung_rb, cmdobj);
 

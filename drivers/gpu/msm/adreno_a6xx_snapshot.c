@@ -1408,6 +1408,18 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
+	bool sptprac_on;
+
+	/* GMU TCM data dumped through AHB */
+	a6xx_snapshot_gmu(device, snapshot);
+
+	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
+
+	/* Return if the GX is off */
+	if (!gpudev->gx_is_on(adreno_dev)) {
+		pr_err("GX is off. Only dumping GMU data in snapshot\n");
+		return;
+	}
 
 	/* Dump the registers which get affected by crash dumper trigger */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
@@ -1419,7 +1431,8 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		ARRAY_SIZE(a6xx_vbif_snapshot_registers));
 
 	/* Try to run the crash dumper */
-	_a6xx_do_crashdump(device);
+	if (sptprac_on)
+		_a6xx_do_crashdump(device);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
 		snapshot, a6xx_snapshot_registers, NULL);
@@ -1451,19 +1464,19 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	/* Mempool debug data */
 	a6xx_snapshot_mempool(device, snapshot);
 
-	/* Shader memory */
-	a6xx_snapshot_shader(device, snapshot);
+	if (sptprac_on) {
+		/* Shader memory */
+		a6xx_snapshot_shader(device, snapshot);
 
-	/* MVC register section */
-	a6xx_snapshot_mvc_regs(device, snapshot);
+		/* MVC register section */
+		a6xx_snapshot_mvc_regs(device, snapshot);
 
-	/* registers dumped through DBG AHB */
-	a6xx_snapshot_dbgahb_regs(device, snapshot);
+		/* registers dumped through DBG AHB */
+		a6xx_snapshot_dbgahb_regs(device, snapshot);
+	}
 
 	a6xx_snapshot_debugbus(device, snapshot);
 
-	/* GMU TCM data dumped through AHB */
-	a6xx_snapshot_gmu(device, snapshot);
 }
 
 static int _a6xx_crashdump_init_mvc(uint64_t *ptr, uint64_t *offset)
