@@ -28,7 +28,7 @@
 #include <linux/delay.h>
 #include <linux/crypto.h>
 #include <linux/bitops.h>
-#include <linux/clk/msm-clk.h>
+#include <linux/clk/qcom.h>
 #include <linux/qcrypto.h>
 #include <crypto/hash.h>
 #include <crypto/sha.h>

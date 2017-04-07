@@ -45,6 +45,8 @@
 #include <crypto/aead.h>
 #include <crypto/authenc.h>
 #include <crypto/scatterwalk.h>
+#include <crypto/skcipher.h>
+#include <crypto/internal/skcipher.h>
 #include <crypto/internal/hash.h>
 #include <crypto/internal/aead.h>
 
@@ -418,7 +420,7 @@ struct qcrypto_cipher_ctx {
 
 	u8 ccm4309_nonce[QCRYPTO_CCM4309_NONCE_LEN];
 
-	struct crypto_ablkcipher *cipher_aes192_fb;
+	struct crypto_skcipher *cipher_aes192_fb;
 
 	struct crypto_ahash *ahash_aead_aes192_fb;
 };
@@ -456,7 +458,7 @@ struct qcrypto_cipher_req_ctx {
 	struct scatterlist fb_ablkcipher_dst_sg[2];
 	char *fb_aes_iv;
 	unsigned int  fb_ahash_length;
-	struct ablkcipher_request *fb_aes_req;
+	struct skcipher_request *fb_aes_req;
 	struct scatterlist *fb_aes_src;
 	struct scatterlist *fb_aes_dst;
 	unsigned int  fb_aes_cryptlen;
@@ -930,7 +932,7 @@ static int _qcrypto_cra_aes_ablkcipher_init(struct crypto_tfm *tfm)
 		ctx->cipher_aes192_fb = NULL;
 		return _qcrypto_cra_ablkcipher_init(tfm);
 	}
-	ctx->cipher_aes192_fb = crypto_alloc_ablkcipher(name, 0,
+	ctx->cipher_aes192_fb = crypto_alloc_skcipher(name, 0,
 			CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK);
 	if (IS_ERR(ctx->cipher_aes192_fb)) {
 		pr_err("Error allocating fallback algo %s\n", name);
@@ -1007,7 +1009,7 @@ static int _qcrypto_cra_aead_aes_sha1_init(struct crypto_aead *tfm)
 	ctx->cipher_aes192_fb = NULL;
 	ctx->ahash_aead_aes192_fb = NULL;
 	if (!cp->ce_support.aes_key_192) {
-		ctx->cipher_aes192_fb = crypto_alloc_ablkcipher(
+		ctx->cipher_aes192_fb = crypto_alloc_skcipher(
 							"cbc(aes)", 0, 0);
 		if (IS_ERR(ctx->cipher_aes192_fb)) {
 			ctx->cipher_aes192_fb = NULL;
@@ -1016,7 +1018,7 @@ static int _qcrypto_cra_aead_aes_sha1_init(struct crypto_aead *tfm)
 							"hmac(sha1)", 0, 0);
 			if (IS_ERR(ctx->ahash_aead_aes192_fb)) {
 				ctx->ahash_aead_aes192_fb = NULL;
-				crypto_free_ablkcipher(ctx->cipher_aes192_fb);
+				crypto_free_skcipher(ctx->cipher_aes192_fb);
 				ctx->cipher_aes192_fb = NULL;
 			}
 		}
@@ -1038,7 +1040,7 @@ static int _qcrypto_cra_aead_aes_sha256_init(struct crypto_aead *tfm)
 	ctx->cipher_aes192_fb = NULL;
 	ctx->ahash_aead_aes192_fb = NULL;
 	if (!cp->ce_support.aes_key_192) {
-		ctx->cipher_aes192_fb = crypto_alloc_ablkcipher(
+		ctx->cipher_aes192_fb = crypto_alloc_skcipher(
 							"cbc(aes)", 0, 0);
 		if (IS_ERR(ctx->cipher_aes192_fb)) {
 			ctx->cipher_aes192_fb = NULL;
@@ -1047,7 +1049,7 @@ static int _qcrypto_cra_aead_aes_sha256_init(struct crypto_aead *tfm)
 							"hmac(sha256)", 0, 0);
 			if (IS_ERR(ctx->ahash_aead_aes192_fb)) {
 				ctx->ahash_aead_aes192_fb = NULL;
-				crypto_free_ablkcipher(ctx->cipher_aes192_fb);
+				crypto_free_skcipher(ctx->cipher_aes192_fb);
 				ctx->cipher_aes192_fb = NULL;
 			}
 		}
@@ -1070,7 +1072,7 @@ static void _qcrypto_cra_aes_ablkcipher_exit(struct crypto_tfm *tfm)
 
 	_qcrypto_cra_ablkcipher_exit(tfm);
 	if (ctx->cipher_aes192_fb)
-		crypto_free_ablkcipher(ctx->cipher_aes192_fb);
+		crypto_free_skcipher(ctx->cipher_aes192_fb);
 	ctx->cipher_aes192_fb = NULL;
 }
 
@@ -1089,7 +1091,7 @@ static void _qcrypto_cra_aead_aes_exit(struct crypto_aead *tfm)
 	if (!list_empty(&ctx->rsp_queue))
 		pr_err("_qcrypto__cra_aead_exit: requests still outstanding");
 	if (ctx->cipher_aes192_fb)
-		crypto_free_ablkcipher(ctx->cipher_aes192_fb);
+		crypto_free_skcipher(ctx->cipher_aes192_fb);
 	if (ctx->ahash_aead_aes192_fb)
 		crypto_free_ahash(ctx->ahash_aead_aes192_fb);
 	ctx->cipher_aes192_fb = NULL;
@@ -1373,7 +1375,7 @@ static int _qcrypto_setkey_aes_192_fallback(struct crypto_ablkcipher *cipher,
 	ctx->cipher_aes192_fb->base.crt_flags &= ~CRYPTO_TFM_REQ_MASK;
 	ctx->cipher_aes192_fb->base.crt_flags |=
 			(cipher->base.crt_flags & CRYPTO_TFM_REQ_MASK);
-	ret = crypto_ablkcipher_setkey(ctx->cipher_aes192_fb, key,
+	ret = crypto_skcipher_setkey(ctx->cipher_aes192_fb, key,
 			AES_KEYSIZE_192);
 	if (ret) {
 		tfm->crt_flags &= ~CRYPTO_TFM_RES_MASK;
@@ -2420,27 +2422,33 @@ static int _qcrypto_queue_req(struct crypto_priv *cp,
 
 static int _qcrypto_enc_aes_192_fallback(struct ablkcipher_request *req)
 {
-	struct crypto_tfm *tfm =
-		crypto_ablkcipher_tfm(crypto_ablkcipher_reqtfm(req));
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
 	int err;
 
-	ablkcipher_request_set_tfm(req, ctx->cipher_aes192_fb);
-	err = crypto_ablkcipher_encrypt(req);
-	ablkcipher_request_set_tfm(req, __crypto_ablkcipher_cast(tfm));
+	SKCIPHER_REQUEST_ON_STACK(subreq, ctx->cipher_aes192_fb);
+	skcipher_request_set_tfm(subreq, ctx->cipher_aes192_fb);
+	skcipher_request_set_callback(subreq, req->base.flags,
+					NULL, NULL);
+	skcipher_request_set_crypt(subreq, req->src, req->dst,
+					req->nbytes, req->info);
+	err = crypto_skcipher_encrypt(subreq);
+	skcipher_request_zero(subreq);
 	return err;
 }
 
 static int _qcrypto_dec_aes_192_fallback(struct ablkcipher_request *req)
 {
-	struct crypto_tfm *tfm =
-		crypto_ablkcipher_tfm(crypto_ablkcipher_reqtfm(req));
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
 	int err;
 
-	ablkcipher_request_set_tfm(req, ctx->cipher_aes192_fb);
-	err = crypto_ablkcipher_decrypt(req);
-	ablkcipher_request_set_tfm(req, __crypto_ablkcipher_cast(tfm));
+	SKCIPHER_REQUEST_ON_STACK(subreq, ctx->cipher_aes192_fb);
+	skcipher_request_set_tfm(subreq, ctx->cipher_aes192_fb);
+	skcipher_request_set_callback(subreq, req->base.flags,
+					NULL, NULL);
+	skcipher_request_set_crypt(subreq, req->src, req->dst,
+					req->nbytes, req->info);
+	err = crypto_skcipher_decrypt(subreq);
+	skcipher_request_zero(subreq);
 	return err;
 }
 
@@ -3020,8 +3028,8 @@ static int _qcrypto_aead_setkey(struct crypto_aead *tfm, const u8 *key,
 					ctx->auth_key, ctx->auth_key_len);
 		if (ret)
 			goto badkey;
-		crypto_ablkcipher_clear_flags(ctx->cipher_aes192_fb, ~0);
-		ret = crypto_ablkcipher_setkey(ctx->cipher_aes192_fb,
+		crypto_skcipher_clear_flags(ctx->cipher_aes192_fb, ~0);
+		ret = crypto_skcipher_setkey(ctx->cipher_aes192_fb,
 					ctx->enc_key, ctx->enc_key_len);
 		if (ret)
 			goto badkey;
@@ -3085,7 +3093,7 @@ static void _qcrypto_aead_aes_192_fb_a_cb(struct qcrypto_cipher_req_ctx *rctx,
 	req = rctx->aead_req;
 	areq = &req->base;
 	if (rctx->fb_aes_req)
-		ablkcipher_request_free(rctx->fb_aes_req);
+		skcipher_request_free(rctx->fb_aes_req);
 	if (rctx->fb_hash_req)
 		ahash_request_free(rctx->fb_hash_req);
 	rctx->fb_aes_req = NULL;
@@ -3137,12 +3145,12 @@ static void _aead_aes_fb_stage2_decrypt_complete(
 static int _start_aead_aes_fb_stage2_decrypt(
 					struct qcrypto_cipher_req_ctx *rctx)
 {
-	struct ablkcipher_request *aes_req;
+	struct skcipher_request *aes_req;
 
 	aes_req = rctx->fb_aes_req;
-	ablkcipher_request_set_callback(aes_req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+	skcipher_request_set_callback(aes_req, CRYPTO_TFM_REQ_MAY_BACKLOG,
 			_aead_aes_fb_stage2_decrypt_complete, rctx);
-	return crypto_ablkcipher_decrypt(aes_req);
+	return crypto_skcipher_decrypt(aes_req);
 }
 
 static void _aead_aes_fb_stage1_ahash_complete(
@@ -3212,13 +3220,13 @@ static int _qcrypto_aead_aes_192_fallback(struct aead_request *req,
 	struct qcrypto_cipher_req_ctx *rctx = aead_request_ctx(req);
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
 	struct crypto_aead *aead_tfm = crypto_aead_reqtfm(req);
-	struct ablkcipher_request *aes_req = NULL;
+	struct skcipher_request *aes_req = NULL;
 	struct ahash_request *ahash_req = NULL;
 	int nbytes;
 	struct scatterlist *src, *dst;
 
 	rctx->fb_aes_iv = NULL;
-	aes_req = ablkcipher_request_alloc(ctx->cipher_aes192_fb, GFP_KERNEL);
+	aes_req = skcipher_request_alloc(ctx->cipher_aes192_fb, GFP_KERNEL);
 	if (!aes_req)
 		return -ENOMEM;
 	ahash_req = ahash_request_alloc(ctx->ahash_aead_aes192_fb, GFP_KERNEL);
@@ -3246,7 +3254,7 @@ static int _qcrypto_aead_aes_192_fallback(struct aead_request *req,
 	if (!rctx->fb_aes_iv)
 		goto ret;
 	memcpy(rctx->fb_aes_iv, req->iv, rctx->ivsize);
-	ablkcipher_request_set_crypt(aes_req, rctx->fb_aes_src,
+	skcipher_request_set_crypt(aes_req, rctx->fb_aes_src,
 					rctx->fb_aes_dst,
 					rctx->fb_aes_cryptlen, rctx->fb_aes_iv);
 	if (is_encrypt)
@@ -3260,11 +3268,11 @@ static int _qcrypto_aead_aes_192_fallback(struct aead_request *req,
 
 	if (is_encrypt) {
 
-		ablkcipher_request_set_callback(aes_req,
+		skcipher_request_set_callback(aes_req,
 			CRYPTO_TFM_REQ_MAY_BACKLOG,
 			_aead_aes_fb_stage1_encrypt_complete, rctx);
 
-		rc = crypto_ablkcipher_encrypt(aes_req);
+		rc = crypto_skcipher_encrypt(aes_req);
 		if (rc == 0) {
 			memcpy(ctx->iv, rctx->fb_aes_iv, rctx->ivsize);
 			rc = _start_aead_aes_fb_stage2_hmac(rctx);
@@ -3305,7 +3313,7 @@ static int _qcrypto_aead_aes_192_fallback(struct aead_request *req,
 	}
 ret:
 	if (aes_req)
-		ablkcipher_request_free(aes_req);
+		skcipher_request_free(aes_req);
 	if (ahash_req)
 		ahash_request_free(ahash_req);
 	kfree(rctx->fb_aes_iv);
